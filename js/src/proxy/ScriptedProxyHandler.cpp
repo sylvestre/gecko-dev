@@ -9,6 +9,12 @@
 #include "jsapi.h"
 
 #include "js/CharacterEncoding.h"
+#include "js/friend/ErrorMessages.h"  // js::GetErrorMessage, JSMSG_*
+#include "js/PropertyDescriptor.h"    // JS::FromPropertyDescriptor
+#include "vm/EqualityOperations.h"    // js::SameValue
+#include "vm/JSFunction.h"
+#include "vm/JSObject.h"
+#include "vm/PlainObject.h"  // js::PlainObject
 
 #include "vm/JSObject-inl.h"
 #include "vm/NativeObject-inl.h"
@@ -162,8 +168,8 @@ static bool IsCompatiblePropertyDescriptor(JSContext* cx, bool extensible,
 }
 
 // Get the [[ProxyHandler]] of a scripted proxy.
-/* static */ JSObject* ScriptedProxyHandler::handlerObject(
-    const JSObject* proxy) {
+/* static */
+JSObject* ScriptedProxyHandler::handlerObject(const JSObject* proxy) {
   MOZ_ASSERT(proxy->as<ProxyObject>().handler() ==
              &ScriptedProxyHandler::singleton);
   return proxy->as<ProxyObject>()
@@ -616,6 +622,12 @@ bool ScriptedProxyHandler::getOwnPropertyDescriptor(
     if (targetDesc.configurable()) {
       return js::Throw(cx, id, JSMSG_CANT_REPORT_C_AS_NC);
     }
+
+    if (resultDesc.hasWritable() && !resultDesc.writable()) {
+      if (targetDesc.writable()) {
+        return js::Throw(cx, id, JSMSG_CANT_REPORT_W_AS_NW);
+      }
+    }
   }
 
   // Step 18.
@@ -729,6 +741,17 @@ bool ScriptedProxyHandler::defineProperty(JSContext* cx, HandleObject proxy,
       return js::Throw(cx, id, JSMSG_CANT_DEFINE_INVALID,
                        DETAILS_CANT_REPORT_C_AS_NC);
     }
+
+    if (targetDesc.isDataDescriptor() && !targetDesc.configurable() &&
+        targetDesc.writable()) {
+      if (desc.hasWritable() && !desc.writable()) {
+        static const char DETAILS_CANT_DEFINE_NW[] =
+            "proxy can't define an existing non-configurable writable property "
+            "as non-writable";
+        return js::Throw(cx, id, JSMSG_CANT_DEFINE_INVALID,
+                         DETAILS_CANT_DEFINE_NW);
+      }
+    }
   }
 
   // Step 17.
@@ -738,10 +761,10 @@ bool ScriptedProxyHandler::defineProperty(JSContext* cx, HandleObject proxy,
 // ES8 rev 0c1bd3004329336774cbc90de727cd0cf5f11e93
 // 7.3.17 CreateListFromArrayLike with elementTypes fixed to symbol/string.
 static bool CreateFilteredListFromArrayLike(JSContext* cx, HandleValue v,
-                                            AutoIdVector& props) {
+                                            MutableHandleIdVector props) {
   // Step 2.
-  RootedObject obj(
-      cx, NonNullObjectWithName(cx, "return value of the ownKeys trap", v));
+  RootedObject obj(cx, RequireObject(cx, JSMSG_OBJECT_REQUIRED_RET_OWNKEYS,
+                                     JSDVG_IGNORE_STACK, v));
   if (!obj) {
     return false;
   }
@@ -769,7 +792,7 @@ static bool CreateFilteredListFromArrayLike(JSContext* cx, HandleValue v,
       return false;
     }
 
-    if (!ValueToId<CanGC>(cx, next, &id)) {
+    if (!PrimitiveValueToId<CanGC>(cx, next, &id)) {
       return false;
     }
 
@@ -789,7 +812,7 @@ static bool CreateFilteredListFromArrayLike(JSContext* cx, HandleValue v,
 // ES2018 draft rev aab1ea3bd4d03c85d6f4a91503b4169346ab7271
 // 9.5.11 Proxy.[[OwnPropertyKeys]]()
 bool ScriptedProxyHandler::ownPropertyKeys(JSContext* cx, HandleObject proxy,
-                                           AutoIdVector& props) const {
+                                           MutableHandleIdVector props) const {
   // Steps 1-3.
   RootedObject handler(cx, ScriptedProxyHandler::handlerObject(proxy));
   if (!handler) {
@@ -811,7 +834,7 @@ bool ScriptedProxyHandler::ownPropertyKeys(JSContext* cx, HandleObject proxy,
   // Step 6.
   if (trap.isUndefined()) {
     return GetPropertyKeys(
-        cx, target, JSITER_OWNONLY | JSITER_HIDDEN | JSITER_SYMBOLS, &props);
+        cx, target, JSITER_OWNONLY | JSITER_HIDDEN | JSITER_SYMBOLS, props);
   }
 
   // Step 7.
@@ -822,8 +845,8 @@ bool ScriptedProxyHandler::ownPropertyKeys(JSContext* cx, HandleObject proxy,
   }
 
   // Step 8.
-  AutoIdVector trapResult(cx);
-  if (!CreateFilteredListFromArrayLike(cx, trapResultArray, trapResult)) {
+  RootedIdVector trapResult(cx);
+  if (!CreateFilteredListFromArrayLike(cx, trapResultArray, &trapResult)) {
     return false;
   }
 
@@ -851,7 +874,7 @@ bool ScriptedProxyHandler::ownPropertyKeys(JSContext* cx, HandleObject proxy,
   }
 
   // Steps 11-13.
-  AutoIdVector targetKeys(cx);
+  RootedIdVector targetKeys(cx);
   if (!GetPropertyKeys(cx, target,
                        JSITER_OWNONLY | JSITER_HIDDEN | JSITER_SYMBOLS,
                        &targetKeys)) {
@@ -859,8 +882,8 @@ bool ScriptedProxyHandler::ownPropertyKeys(JSContext* cx, HandleObject proxy,
   }
 
   // Steps 14-15.
-  AutoIdVector targetConfigurableKeys(cx);
-  AutoIdVector targetNonconfigurableKeys(cx);
+  RootedIdVector targetConfigurableKeys(cx);
+  RootedIdVector targetNonconfigurableKeys(cx);
 
   // Step 16.
   Rooted<PropertyDescriptor> desc(cx);
@@ -884,7 +907,7 @@ bool ScriptedProxyHandler::ownPropertyKeys(JSContext* cx, HandleObject proxy,
 
   // Step 17.
   if (extensibleTarget && targetNonconfigurableKeys.empty()) {
-    return props.appendAll(trapResult);
+    return props.appendAll(std::move(trapResult));
   }
 
   // Step 19.
@@ -904,7 +927,7 @@ bool ScriptedProxyHandler::ownPropertyKeys(JSContext* cx, HandleObject proxy,
 
   // Step 20.
   if (extensibleTarget) {
-    return props.appendAll(trapResult);
+    return props.appendAll(std::move(trapResult));
   }
 
   // Step 21.
@@ -930,7 +953,7 @@ bool ScriptedProxyHandler::ownPropertyKeys(JSContext* cx, HandleObject proxy,
   }
 
   // Step 23.
-  return props.appendAll(trapResult);
+  return props.appendAll(std::move(trapResult));
 }
 
 // ES8 rev 0c1bd3004329336774cbc90de727cd0cf5f11e93
@@ -988,20 +1011,26 @@ bool ScriptedProxyHandler::delete_(JSContext* cx, HandleObject proxy,
     return false;
   }
 
-  // Step 12.
-  if (desc.object() && !desc.configurable()) {
-    UniqueChars bytes =
-        IdToPrintableUTF8(cx, id, IdToPrintableBehavior::IdIsPropertyKey);
-    if (!bytes) {
-      return false;
-    }
+  // Step 11.
+  if (!desc.object()) {
+    return result.succeed();
+  }
 
-    JS_ReportErrorNumberUTF8(cx, GetErrorMessage, nullptr, JSMSG_CANT_DELETE,
-                             bytes.get());
+  // Step 12.
+  if (!desc.configurable()) {
+    return Throw(cx, id, JSMSG_CANT_DELETE);
+  }
+
+  bool extensible;
+  if (!IsExtensible(cx, target, &extensible)) {
     return false;
   }
 
-  // Steps 11,13.
+  if (!extensible) {
+    return Throw(cx, id, JSMSG_CANT_DELETE_NON_EXTENSIBLE);
+  }
+
+  // Step 13.
   return result.succeed();
 }
 
@@ -1437,12 +1466,8 @@ bool ScriptedProxyHandler::isConstructor(JSObject* obj) const {
 const char ScriptedProxyHandler::family = 0;
 const ScriptedProxyHandler ScriptedProxyHandler::singleton;
 
-bool IsRevokedScriptedProxy(JSObject* obj) {
-  obj = CheckedUnwrap(obj);
-  return obj && IsScriptedProxy(obj) && !obj->as<ProxyObject>().target();
-}
-
-// ES8 rev 0c1bd3004329336774cbc90de727cd0cf5f11e93
+// ES2021 rev c21b280a2c46e92decf3efeca9e9da35d5b9f622
+// Including the changes from: https://github.com/tc39/ecma262/pull/1814
 // 9.5.14 ProxyCreate.
 static bool ProxyCreate(JSContext* cx, CallArgs& args, const char* callerName) {
   if (!args.requireAtLeast(cx, callerName, 2)) {
@@ -1451,33 +1476,19 @@ static bool ProxyCreate(JSContext* cx, CallArgs& args, const char* callerName) {
 
   // Step 1.
   RootedObject target(cx,
-                      NonNullObjectArg(cx, "`target`", callerName, args[0]));
+                      RequireObjectArg(cx, "`target`", callerName, args[0]));
   if (!target) {
     return false;
   }
 
   // Step 2.
-  if (IsRevokedScriptedProxy(target)) {
-    JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr,
-                              JSMSG_PROXY_ARG_REVOKED, "1");
-    return false;
-  }
-
-  // Step 3.
   RootedObject handler(cx,
-                       NonNullObjectArg(cx, "`handler`", callerName, args[1]));
+                       RequireObjectArg(cx, "`handler`", callerName, args[1]));
   if (!handler) {
     return false;
   }
 
-  // Step 4.
-  if (IsRevokedScriptedProxy(handler)) {
-    JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr,
-                              JSMSG_PROXY_ARG_REVOKED, "2");
-    return false;
-  }
-
-  // Steps 5-6, 8.
+  // Steps 3-4, 6.
   RootedValue priv(cx, ObjectValue(*target));
   JSObject* proxy_ = NewProxyObject(cx, &ScriptedProxyHandler::singleton, priv,
                                     TaggedProto::LazyProto);
@@ -1485,12 +1496,12 @@ static bool ProxyCreate(JSContext* cx, CallArgs& args, const char* callerName) {
     return false;
   }
 
-  // Step 9 (reordered).
+  // Step 7 (reordered).
   Rooted<ProxyObject*> proxy(cx, &proxy_->as<ProxyObject>());
   proxy->setReservedSlot(ScriptedProxyHandler::HANDLER_EXTRA,
                          ObjectValue(*handler));
 
-  // Step 7.
+  // Step 5.
   uint32_t callable =
       target->isCallable() ? ScriptedProxyHandler::IS_CALLABLE : 0;
   uint32_t constructor =
@@ -1498,7 +1509,7 @@ static bool ProxyCreate(JSContext* cx, CallArgs& args, const char* callerName) {
   proxy->setReservedSlot(ScriptedProxyHandler::IS_CALLCONSTRUCT_EXTRA,
                          PrivateUint32Value(callable | constructor));
 
-  // Step 10.
+  // Step 8.
   args.rval().setObject(*proxy);
   return true;
 }
@@ -1544,15 +1555,14 @@ bool js::proxy_revocable(JSContext* cx, unsigned argc, Value* vp) {
   RootedValue proxyVal(cx, args.rval());
   MOZ_ASSERT(proxyVal.toObject().is<ProxyObject>());
 
-  RootedObject revoker(
-      cx, NewFunctionByIdWithReserved(cx, RevokeProxy, 0, 0,
-                                      NameToId(cx->names().revoke)));
+  RootedFunction revoker(
+      cx, NewNativeFunction(cx, RevokeProxy, 0, nullptr,
+                            gc::AllocKind::FUNCTION_EXTENDED, GenericObject));
   if (!revoker) {
     return false;
   }
 
-  revoker->as<JSFunction>().initExtendedSlot(ScriptedProxyHandler::REVOKE_SLOT,
-                                             proxyVal);
+  revoker->initExtendedSlot(ScriptedProxyHandler::REVOKE_SLOT, proxyVal);
 
   RootedPlainObject result(cx, NewBuiltinClassInstance<PlainObject>(cx));
   if (!result) {

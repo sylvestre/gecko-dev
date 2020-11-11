@@ -7,6 +7,9 @@
 #ifndef mozilla_dom_localstorage_ActorsParent_h
 #define mozilla_dom_localstorage_ActorsParent_h
 
+#include <cstdint>
+#include "mozilla/AlreadyAddRefed.h"
+
 namespace mozilla {
 
 namespace ipc {
@@ -30,6 +33,8 @@ namespace quota {
 class Client;
 
 }  // namespace quota
+
+void InitializeLocalStorage();
 
 PBackgroundLSDatabaseParent* AllocPBackgroundLSDatabaseParent(
     const mozilla::ipc::PrincipalInfo& aPrincipalInfo,
@@ -60,6 +65,7 @@ bool RecvPBackgroundLSRequestConstructor(PBackgroundLSRequestParent* aActor,
 bool DeallocPBackgroundLSRequestParent(PBackgroundLSRequestParent* aActor);
 
 PBackgroundLSSimpleRequestParent* AllocPBackgroundLSSimpleRequestParent(
+    mozilla::ipc::PBackgroundParent* aBackgroundActor,
     const LSSimpleRequestParams& aParams);
 
 bool RecvPBackgroundLSSimpleRequestConstructor(
@@ -68,6 +74,8 @@ bool RecvPBackgroundLSSimpleRequestConstructor(
 
 bool DeallocPBackgroundLSSimpleRequestParent(
     PBackgroundLSSimpleRequestParent* aActor);
+
+bool RecvLSClearPrivateBrowsing();
 
 namespace localstorage {
 

@@ -109,6 +109,8 @@ SSLNamedGroup *enabledGroups = NULL;
 unsigned int enabledGroupsCount = 0;
 const SSLSignatureScheme *enabledSigSchemes = NULL;
 unsigned int enabledSigSchemeCount = 0;
+SECItem psk = { siBuffer, NULL, 0 };
+SECItem pskLabel = { siBuffer, NULL, 0 };
 
 const char *
 signatureSchemeName(SSLSignatureScheme scheme)
@@ -213,6 +215,9 @@ printSecurityInfo(PRFileDesc *fd)
                         " %u\n",
                 scts->len);
     }
+    if (channel.peerDelegCred) {
+        fprintf(stderr, "Received a Delegated Credential\n");
+    }
 }
 
 static void
@@ -221,12 +226,12 @@ PrintUsageHeader()
     fprintf(stderr,
             "Usage:  %s -h host [-a 1st_hs_name ] [-a 2nd_hs_name ] [-p port]\n"
             "  [-D | -d certdir] [-C] [-b | -R root-module] \n"
-            "  [-n nickname] [-Bafosvx] [-c ciphers] [-Y] [-Z]\n"
+            "  [-n nickname] [-Bafosvx] [-c ciphers] [-Y] [-Z] [-E]\n"
             "  [-V [min-version]:[max-version]] [-K] [-T] [-U]\n"
             "  [-r N] [-w passwd] [-W pwfile] [-q [-t seconds]]\n"
             "  [-I groups] [-J signatureschemes]\n"
             "  [-A requestfile] [-L totalconnections] [-P {client,server}]\n"
-            "  [-N encryptedSniKeys] [-Q]\n"
+            "  [-N encryptedSniKeys] [-Q] [-z externalPsk]\n"
             "\n",
             progName);
 }
@@ -272,6 +277,7 @@ PrintParameterUsage()
     fprintf(stderr, "%-20s Enable false start.\n", "-g");
     fprintf(stderr, "%-20s Enable the cert_status extension (OCSP stapling).\n", "-T");
     fprintf(stderr, "%-20s Enable the signed_certificate_timestamp extension.\n", "-U");
+    fprintf(stderr, "%-20s Enable the delegated credentials extension.\n", "-B");
     fprintf(stderr, "%-20s Require fresh revocation info from side channel.\n"
                     "%-20s -F once means: require for server cert only\n"
                     "%-20s -F twice means: require for intermediates, too\n"
@@ -311,6 +317,22 @@ PrintParameterUsage()
     fprintf(stderr, "%-20s Use DTLS\n", "-P {client, server}");
     fprintf(stderr, "%-20s Exit after handshake\n", "-Q");
     fprintf(stderr, "%-20s Encrypted SNI Keys\n", "-N");
+    fprintf(stderr, "%-20s Enable post-handshake authentication\n"
+                    "%-20s for TLS 1.3; need to specify -n\n",
+            "-E", "");
+    fprintf(stderr, "%-20s Export and print keying material after successful handshake.\n"
+                    "%-20s The argument is a comma separated list of exporters in the form:\n"
+                    "%-20s   LABEL[:OUTPUT-LENGTH[:CONTEXT]]\n"
+                    "%-20s where LABEL and CONTEXT can be either a free-form string or\n"
+                    "%-20s a hex string if it is preceded by \"0x\"; OUTPUT-LENGTH\n"
+                    "%-20s is a decimal integer.\n",
+            "-x", "", "", "", "", "");
+    fprintf(stderr,
+            "%-20s Configure a TLS 1.3 External PSK with the given hex string for a key\n"
+            "%-20s To specify a label, use ':' as a delimiter. For example\n"
+            "%-20s 0xAAAABBBBCCCCDDDD:mylabel. Otherwise, the default label of\n"
+            "%-20s 'Client_identity' will be used.\n",
+            "-z externalPsk", "", "", "");
 }
 
 static void
@@ -917,7 +939,7 @@ restartHandshakeAfterServerCertIfNeeded(PRFileDesc *fd,
                                         PRBool override)
 {
     SECStatus rv;
-    PRErrorCode error;
+    PRErrorCode error = 0;
 
     if (!serverCertAuth->isPaused)
         return SECSuccess;
@@ -989,6 +1011,10 @@ PRBool requestToExit = PR_FALSE;
 char *versionString = NULL;
 PRBool handshakeComplete = PR_FALSE;
 char *encryptedSNIKeys = NULL;
+PRBool enablePostHandshakeAuth = PR_FALSE;
+PRBool enableDelegatedCredentials = PR_FALSE;
+const secuExporter *enabledExporters = NULL;
+unsigned int enabledExporterCount = 0;
 
 static int
 writeBytesToServer(PRFileDesc *s, const PRUint8 *buf, int nb)
@@ -1084,6 +1110,18 @@ handshakeCallback(PRFileDesc *fd, void *client_data)
         requestToExit = PR_TRUE;
     }
     handshakeComplete = PR_TRUE;
+
+    if (enabledExporters) {
+        SECStatus rv;
+
+        rv = exportKeyingMaterials(fd, enabledExporters, enabledExporterCount);
+        if (rv != SECSuccess) {
+            PRErrorCode err = PR_GetError();
+            FPRINTF(stderr,
+                    "couldn't export keying material: %s\n",
+                    SECU_Strerror(err));
+        }
+    }
 }
 
 static SECStatus
@@ -1200,6 +1238,31 @@ connectToServer(PRFileDesc *s, PRPollDesc *pollset)
     return SECSuccess;
 }
 
+static SECStatus
+importPsk(PRFileDesc *s)
+{
+    SECU_PrintAsHex(stdout, &psk, "Using External PSK", 0);
+    PK11SlotInfo *slot = NULL;
+    PK11SymKey *symKey = NULL;
+    slot = PK11_GetInternalSlot();
+    if (!slot) {
+        SECU_PrintError(progName, "PK11_GetInternalSlot failed");
+        return SECFailure;
+    }
+    symKey = PK11_ImportSymKey(slot, CKM_HKDF_KEY_GEN, PK11_OriginUnwrap,
+                               CKA_DERIVE, &psk, NULL);
+    PK11_FreeSlot(slot);
+    if (!symKey) {
+        SECU_PrintError(progName, "PK11_ImportSymKey failed");
+        return SECFailure;
+    }
+
+    SECStatus rv = SSL_AddExternalPsk(s, symKey, (const PRUint8 *)pskLabel.data,
+                                      pskLabel.len, ssl_hash_sha256);
+    PK11_FreeSymKey(symKey);
+    return rv;
+}
+
 static int
 run()
 {
@@ -1304,8 +1367,11 @@ run()
             }
             if (cipher > 0) {
                 rv = SSL_CipherPrefSet(s, cipher, SSL_ALLOWED);
-                if (rv != SECSuccess)
+                if (rv != SECSuccess) {
                     SECU_PrintError(progName, "SSL_CipherPrefSet()");
+                    error = 1;
+                    goto done;
+                }
             } else {
                 Usage();
             }
@@ -1361,6 +1427,14 @@ run()
         goto done;
     }
 
+    /* enable negotiation of delegated credentials (draft-ietf-tls-subcerts) */
+    rv = SSL_OptionSet(s, SSL_ENABLE_DELEGATED_CREDENTIALS, enableDelegatedCredentials);
+    if (rv != SECSuccess) {
+        SECU_PrintError(progName, "error enabling delegated credentials");
+        error = 1;
+        goto done;
+    }
+
     /* enable extended master secret mode */
     if (enableExtendedMasterSecret) {
         rv = SSL_OptionSet(s, SSL_ENABLE_EXTENDED_MASTER_SECRET, PR_TRUE);
@@ -1410,6 +1484,15 @@ run()
         goto done;
     }
 
+    if (enablePostHandshakeAuth) {
+        rv = SSL_OptionSet(s, SSL_ENABLE_POST_HANDSHAKE_AUTH, PR_TRUE);
+        if (rv != SECSuccess) {
+            SECU_PrintError(progName, "error enabling post-handshake auth");
+            error = 1;
+            goto done;
+        }
+    }
+
     if (enabledGroups) {
         rv = SSL_NamedGroupConfig(s, enabledGroups, enabledGroupsCount);
         if (rv < 0) {
@@ -1443,6 +1526,15 @@ run()
         SECITEM_FreeItem(&esniKeysBin, PR_FALSE);
         if (rv < 0) {
             SECU_PrintError(progName, "SSL_EnableESNI failed");
+            error = 1;
+            goto done;
+        }
+    }
+
+    if (psk.data) {
+        rv = importPsk(s);
+        if (rv != SECSuccess) {
+            SECU_PrintError(progName, "importPsk failed");
             error = 1;
             goto done;
         }
@@ -1702,12 +1794,8 @@ main(int argc, char **argv)
         }
     }
 
-    /* Note: 'B' was used in the past but removed in 3.28
-     *       'z' was removed in 3.39
-     * Please leave some time before reusing these.
-     */
     optstate = PL_CreateOptState(argc, argv,
-                                 "46A:CDFGHI:J:KL:M:N:OP:QR:STUV:W:X:YZa:bc:d:fgh:m:n:op:qr:st:uvw:");
+                                 "46A:BCDEFGHI:J:KL:M:N:OP:QR:STUV:W:X:YZa:bc:d:fgh:m:n:op:qr:st:uvw:x:z:");
     while ((optstatus = PL_GetNextOpt(optstate)) == PL_OPT_OK) {
         switch (optstate->option) {
             case '?':
@@ -1730,12 +1818,20 @@ main(int argc, char **argv)
                 requestFile = PORT_Strdup(optstate->value);
                 break;
 
+            case 'B':
+                enableDelegatedCredentials = PR_TRUE;
+                break;
+
             case 'C':
                 ++dumpServerChain;
                 break;
 
             case 'D':
                 openDB = PR_FALSE;
+                break;
+
+            case 'E':
+                enablePostHandshakeAuth = PR_TRUE;
                 break;
 
             case 'F':
@@ -1947,6 +2043,26 @@ main(int argc, char **argv)
                     Usage();
                 }
                 break;
+
+            case 'x':
+                rv = parseExporters(optstate->value,
+                                    &enabledExporters,
+                                    &enabledExporterCount);
+                if (rv != SECSuccess) {
+                    PL_DestroyOptState(optstate);
+                    fprintf(stderr, "Bad exporter specified.\n");
+                    Usage();
+                }
+                break;
+
+            case 'z':
+                rv = readPSK(optstate->value, &psk, &pskLabel);
+                if (rv != SECSuccess) {
+                    PL_DestroyOptState(optstate);
+                    fprintf(stderr, "Bad PSK specified.\n");
+                    Usage();
+                }
+                break;
         }
     }
     PL_DestroyOptState(optstate);
@@ -1985,6 +2101,11 @@ main(int argc, char **argv)
 
     if (rootModule && loadDefaultRootCAs) {
         fprintf(stderr, "%s: Cannot combine parameters -b and -R\n", progName);
+        exit(1);
+    }
+
+    if (enablePostHandshakeAuth && !nickname) {
+        fprintf(stderr, "%s: -E requires the use of -n\n", progName);
         exit(1);
     }
 
@@ -2137,6 +2258,8 @@ done:
     PORT_Free(host);
     PORT_Free(zeroRttData);
     PORT_Free(encryptedSNIKeys);
+    SECITEM_ZfreeItem(&psk, PR_FALSE);
+    SECITEM_ZfreeItem(&pskLabel, PR_FALSE);
 
     if (enabledGroups) {
         PORT_Free(enabledGroups);

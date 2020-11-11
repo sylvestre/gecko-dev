@@ -5,8 +5,8 @@ https://bugzilla.mozilla.org/show_bug.cgi?id=765772
 -->
 <head>
   <title>Test for Bug 765772</title>
-  <script type="application/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
-  <script type="application/javascript" src="/tests/SimpleTest/EventUtils.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/EventUtils.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css"/>
 </head>
 <body>
@@ -56,9 +56,8 @@ function runTestsForNextInputType()
 
 function checkValueSubmittedIsValid()
 {
-  is(frames['submit_frame'].location.href,
-     'http://mochi.test:8888/tests/dom/html/test/forms/foo?i='
-     + urlify(gValidData[valueIndex++]),
+  is(frames.submit_frame.location.href,
+     `${location.origin}/tests/dom/html/test/forms/foo?i=${urlify(gValidData[valueIndex++])}`,
      "The submitted value should not have been sanitized");
 
   input.value = "";
@@ -79,8 +78,8 @@ function checkValueSubmittedIsValid()
 
 function checkValueSubmittedIsInvalid()
 {
-  is(frames['submit_frame'].location.href,
-     'http://mochi.test:8888/tests/dom/html/test/forms/foo?i=',
+  is(frames.submit_frame.location.href,
+     `${location.origin}/tests/dom/html/test/forms/foo?i=`,
      "The submitted value should have been sanitized");
 
   valueIndex++;

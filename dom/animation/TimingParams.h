@@ -7,7 +7,9 @@
 #ifndef mozilla_TimingParams_h
 #define mozilla_TimingParams_h
 
+#include "nsPrintfCString.h"
 #include "nsStringFwd.h"
+#include "nsPrintfCString.h"
 #include "mozilla/dom/Nullable.h"
 #include "mozilla/dom/UnionTypes.h"  // For OwningUnrestrictedDoubleOrString
 #include "mozilla/ComputedTimingFunction.h"
@@ -18,11 +20,10 @@
 #include "mozilla/dom/AnimationEffectBinding.h"  // for FillMode
                                                  // and PlaybackDirection
 
-class nsIDocument;
-
 namespace mozilla {
 
 namespace dom {
+class Document;
 class UnrestrictedDoubleOrKeyframeEffectOptions;
 class UnrestrictedDoubleOrKeyframeAnimationOptions;
 }  // namespace dom
@@ -56,15 +57,16 @@ struct TimingParams {
 
   template <class OptionsType>
   static TimingParams FromOptionsType(const OptionsType& aOptions,
-                                      nsIDocument* aDocument, ErrorResult& aRv);
+                                      dom::Document* aDocument,
+                                      ErrorResult& aRv);
   static TimingParams FromOptionsUnion(
       const dom::UnrestrictedDoubleOrKeyframeEffectOptions& aOptions,
-      nsIDocument* aDocument, ErrorResult& aRv);
+      dom::Document* aDocument, ErrorResult& aRv);
   static TimingParams FromOptionsUnion(
       const dom::UnrestrictedDoubleOrKeyframeAnimationOptions& aOptions,
-      nsIDocument* aDocument, ErrorResult& aRv);
+      dom::Document* aDocument, ErrorResult& aRv);
   static TimingParams FromEffectTiming(const dom::EffectTiming& aEffectTiming,
-                                       nsIDocument* aDocument,
+                                       dom::Document* aDocument,
                                        ErrorResult& aRv);
   // Returns a copy of |aSource| where each timing property in |aSource| that
   // is also specified in |aEffectTiming| is replaced with the value from
@@ -74,7 +76,7 @@ struct TimingParams {
   // true and an unmodified copy of |aSource| will be returned.
   static TimingParams MergeOptionalEffectTiming(
       const TimingParams& aSource,
-      const dom::OptionalEffectTiming& aEffectTiming, nsIDocument* aDocument,
+      const dom::OptionalEffectTiming& aEffectTiming, dom::Document* aDocument,
       ErrorResult& aRv);
 
   // Range-checks and validates an UnrestrictedDoubleOrString or
@@ -90,32 +92,38 @@ struct TimingParams {
       if (durationInMs >= 0) {
         result.emplace(StickyTimeDuration::FromMilliseconds(durationInMs));
       } else {
-        aRv.ThrowTypeError<dom::MSG_ENFORCE_RANGE_OUT_OF_RANGE>(
-            NS_LITERAL_STRING("duration"));
+        nsPrintfCString err("Duration (%g) must be nonnegative", durationInMs);
+        aRv.ThrowTypeError(err);
       }
     } else if (!aDuration.GetAsString().EqualsLiteral("auto")) {
       aRv.ThrowTypeError<dom::MSG_INVALID_DURATION_ERROR>(
-          aDuration.GetAsString());
+          NS_ConvertUTF16toUTF8(aDuration.GetAsString()));
     }
     return result;
   }
 
   static void ValidateIterationStart(double aIterationStart, ErrorResult& aRv) {
     if (aIterationStart < 0) {
-      aRv.ThrowTypeError<dom::MSG_ENFORCE_RANGE_OUT_OF_RANGE>(
-          NS_LITERAL_STRING("iterationStart"));
+      nsPrintfCString err("Iteration start (%g) must not be negative",
+                          aIterationStart);
+      aRv.ThrowTypeError(err);
     }
   }
 
   static void ValidateIterations(double aIterations, ErrorResult& aRv) {
-    if (IsNaN(aIterations) || aIterations < 0) {
-      aRv.ThrowTypeError<dom::MSG_ENFORCE_RANGE_OUT_OF_RANGE>(
-          NS_LITERAL_STRING("iterations"));
+    if (IsNaN(aIterations)) {
+      aRv.ThrowTypeError("Iterations must not be NaN");
+      return;
+    }
+
+    if (aIterations < 0) {
+      nsPrintfCString err("Iterations (%g) must not be negative", aIterations);
+      aRv.ThrowTypeError(err);
     }
   }
 
   static Maybe<ComputedTimingFunction> ParseEasing(const nsAString& aEasing,
-                                                   nsIDocument* aDocument,
+                                                   dom::Document* aDocument,
                                                    ErrorResult& aRv);
 
   static StickyTimeDuration CalcActiveDuration(
@@ -152,6 +160,10 @@ struct TimingParams {
 
   void SetDuration(Maybe<StickyTimeDuration>&& aDuration) {
     mDuration = std::move(aDuration);
+    Update();
+  }
+  void SetDuration(const Maybe<StickyTimeDuration>& aDuration) {
+    mDuration = aDuration;
     Update();
   }
   const Maybe<StickyTimeDuration>& Duration() const { return mDuration; }

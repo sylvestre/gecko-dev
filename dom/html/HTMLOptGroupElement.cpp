@@ -16,8 +16,7 @@
 
 NS_IMPL_NS_NEW_HTML_ELEMENT(OptGroup)
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 /**
  * The implementation of &lt;optgroup&gt;
@@ -30,7 +29,7 @@ HTMLOptGroupElement::HTMLOptGroupElement(
   AddStatesSilently(NS_EVENT_STATE_ENABLED);
 }
 
-HTMLOptGroupElement::~HTMLOptGroupElement() {}
+HTMLOptGroupElement::~HTMLOptGroupElement() = default;
 
 NS_IMPL_ELEMENT_CLONE(HTMLOptGroupElement)
 
@@ -114,5 +113,4 @@ JSObject* HTMLOptGroupElement::WrapNode(JSContext* aCx,
   return HTMLOptGroupElement_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

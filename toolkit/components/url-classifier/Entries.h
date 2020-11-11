@@ -16,6 +16,7 @@
 #include "nsNetUtil.h"
 #include "nsIOutputStream.h"
 #include "nsClassHashtable.h"
+#include "nsComponentManagerUtils.h"
 #include "nsDataHashtable.h"
 #include "plbase64.h"
 
@@ -86,11 +87,18 @@ struct SafebrowsingHash {
   }
 
   void ToString(nsACString& aStr) const {
+    // Base64 represents 6-bits data as 8-bits output.
     uint32_t len = ((sHashSize + 2) / 3) * 4;
 
     aStr.SetLength(len);
     PL_Base64Encode((char*)buf, sHashSize, aStr.BeginWriting());
     MOZ_ASSERT(aStr.BeginReading()[len] == '\0');
+  }
+
+  nsCString ToString() const {
+    nsAutoCString str;
+    ToString(str);
+    return std::move(str);
   }
 
   void ToHexString(nsACString& aStr) const {

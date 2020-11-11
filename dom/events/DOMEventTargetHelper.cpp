@@ -5,7 +5,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "nsContentUtils.h"
-#include "nsIDocument.h"
+#include "mozilla/dom/Document.h"
 #include "mozilla/Sprintf.h"
 #include "nsGlobalWindow.h"
 #include "mozilla/dom/Event.h"
@@ -48,7 +48,10 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(DOMEventTargetHelper)
   NS_IMPL_CYCLE_COLLECTION_UNLINK_PRESERVED_WRAPPER
-  NS_IMPL_CYCLE_COLLECTION_UNLINK(mListenerManager)
+  if (tmp->mListenerManager) {
+    tmp->mListenerManager->Disconnect();
+    NS_IMPL_CYCLE_COLLECTION_UNLINK(mListenerManager)
+  }
   tmp->MaybeDontKeepAlive();
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
@@ -94,30 +97,6 @@ DOMEventTargetHelper::~DOMEventTargetHelper() {
   ReleaseWrapper(this);
 }
 
-void DOMEventTargetHelper::BindToOwner(nsPIDOMWindowInner* aOwner) {
-  // Make sure to bind via BindToOwner(nsIGlobalObject*) so
-  // subclasses can override the method to perform additional
-  // actions.
-  nsIGlobalObject* global = aOwner ? aOwner->AsGlobal() : nullptr;
-  BindToOwner(global);
-}
-
-void DOMEventTargetHelper::BindToOwner(nsIGlobalObject* aOwner) {
-  BindToOwnerInternal(aOwner);
-}
-
-void DOMEventTargetHelper::BindToOwner(DOMEventTargetHelper* aOther) {
-  // Make sure to bind via BindToOwner(nsIGlobalObject*) so
-  // subclasses can override the method to perform additional
-  // actions.
-  if (!aOther) {
-    BindToOwner(static_cast<nsIGlobalObject*>(nullptr));
-    return;
-  }
-  BindToOwner(aOther->GetParentObject());
-  mHasOrHasHadOwnerWindow = aOther->HasOrHasHadOwner();
-}
-
 void DOMEventTargetHelper::DisconnectFromOwner() {
   if (mParentObject) {
     mParentObject->RemoveEventTargetObject(this);
@@ -134,14 +113,14 @@ void DOMEventTargetHelper::DisconnectFromOwner() {
 }
 
 nsPIDOMWindowInner* DOMEventTargetHelper::GetWindowIfCurrent() const {
-  if (NS_FAILED(CheckInnerWindowCorrectness())) {
+  if (NS_FAILED(CheckCurrentGlobalCorrectness())) {
     return nullptr;
   }
 
   return GetOwner();
 }
 
-nsIDocument* DOMEventTargetHelper::GetDocumentIfCurrent() const {
+Document* DOMEventTargetHelper::GetDocumentIfCurrent() const {
   nsPIDOMWindowInner* win = GetWindowIfCurrent();
   if (!win) {
     return nullptr;
@@ -212,10 +191,10 @@ EventListenerManager* DOMEventTargetHelper::GetExistingListenerManager() const {
 }
 
 nsresult DOMEventTargetHelper::WantsUntrusted(bool* aRetVal) {
-  nsresult rv = CheckInnerWindowCorrectness();
+  nsresult rv = CheckCurrentGlobalCorrectness();
   NS_ENSURE_SUCCESS(rv, rv);
 
-  nsCOMPtr<nsIDocument> doc = GetDocumentIfCurrent();
+  nsCOMPtr<Document> doc = GetDocumentIfCurrent();
   // We can let listeners on workers to always handle all the events.
   *aRetVal = (doc && !nsContentUtils::IsChromeDoc(doc)) || !NS_IsMainThread();
   return rv;
@@ -253,7 +232,7 @@ void DOMEventTargetHelper::IgnoreKeepAliveIfHasListenersFor(nsAtom* aType) {
 void DOMEventTargetHelper::MaybeUpdateKeepAlive() {
   bool shouldBeKeptAlive = false;
 
-  if (NS_SUCCEEDED(CheckInnerWindowCorrectness())) {
+  if (NS_SUCCEEDED(CheckCurrentGlobalCorrectness())) {
     if (!mKeepingAliveTypes.mAtoms.IsEmpty()) {
       for (uint32_t i = 0; i < mKeepingAliveTypes.mAtoms.Length(); ++i) {
         if (HasListenersFor(mKeepingAliveTypes.mAtoms[i])) {
@@ -292,15 +271,9 @@ void DOMEventTargetHelper::MaybeDontKeepAlive() {
   }
 }
 
-void DOMEventTargetHelper::BindToOwnerInternal(nsIGlobalObject* aOwner) {
-  if (mParentObject) {
-    mParentObject->RemoveEventTargetObject(this);
-    if (mOwnerWindow) {
-      mOwnerWindow = nullptr;
-    }
-    mParentObject = nullptr;
-    mHasOrHasHadOwnerWindow = false;
-  }
+void DOMEventTargetHelper::BindToOwner(nsIGlobalObject* aOwner) {
+  MOZ_ASSERT(!mParentObject);
+
   if (aOwner) {
     mParentObject = aOwner;
     aOwner->AddEventTargetObject(this);
@@ -312,6 +285,29 @@ void DOMEventTargetHelper::BindToOwnerInternal(nsIGlobalObject* aOwner) {
       mHasOrHasHadOwnerWindow = true;
     }
   }
+}
+
+nsresult DOMEventTargetHelper::CheckCurrentGlobalCorrectness() const {
+  NS_ENSURE_STATE(!mHasOrHasHadOwnerWindow || mOwnerWindow);
+
+  // Main-thread.
+  if (mOwnerWindow && !mOwnerWindow->IsCurrentInnerWindow()) {
+    return NS_ERROR_FAILURE;
+  }
+
+  if (NS_IsMainThread()) {
+    return NS_OK;
+  }
+
+  if (!mParentObject) {
+    return NS_ERROR_FAILURE;
+  }
+
+  if (mParentObject->IsDying()) {
+    return NS_ERROR_FAILURE;
+  }
+
+  return NS_OK;
 }
 
 }  // namespace mozilla

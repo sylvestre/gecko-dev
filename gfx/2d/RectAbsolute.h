@@ -11,6 +11,7 @@
 #include <cstdint>
 
 #include "mozilla/Attributes.h"
+#include "Point.h"
 #include "Rect.h"
 #include "Types.h"
 
@@ -33,7 +34,7 @@ namespace gfx {
  * Do not use this class directly. Subclass it, pass that subclass as the
  * Sub parameter, and only use that subclass.
  */
-template <class T, class Sub, class Rect>
+template <class T, class Sub, class Point, class Rect>
 struct BaseRectAbsolute {
  protected:
   T left, top, right, bottom;
@@ -85,7 +86,7 @@ struct BaseRectAbsolute {
     return Sub(aRect.x, aRect.y, aRect.XMost(), aRect.YMost());
   }
 
-  MOZ_MUST_USE Sub Intersect(const Sub& aOther) const {
+  [[nodiscard]] Sub Intersect(const Sub& aOther) const {
     Sub result;
     result.left = std::max<T>(left, aOther.left);
     result.top = std::max<T>(top, aOther.top);
@@ -146,7 +147,7 @@ struct BaseRectAbsolute {
   // If both rectangles are empty, returns this.
   // WARNING! This is not safe against overflow, prefer using SafeUnion instead
   // when dealing with int-based rects.
-  MOZ_MUST_USE Sub Union(const Sub& aRect) const {
+  [[nodiscard]] Sub Union(const Sub& aRect) const {
     if (IsEmpty()) {
       return aRect;
     } else if (aRect.IsEmpty()) {
@@ -160,7 +161,7 @@ struct BaseRectAbsolute {
   // Thus, empty input rectangles are allowed to affect the result.
   // WARNING! This is not safe against overflow, prefer using SafeUnionEdges
   // instead when dealing with int-based rects.
-  MOZ_MUST_USE Sub UnionEdges(const Sub& aRect) const {
+  [[nodiscard]] Sub UnionEdges(const Sub& aRect) const {
     Sub result;
     result.left = std::min(left, aRect.left);
     result.top = std::min(top, aRect.top);
@@ -238,17 +239,41 @@ struct BaseRectAbsolute {
     left = static_cast<T>(ceil(double(left) / aXScale));
     top = static_cast<T>(ceil(double(top) / aYScale));
   }
+
+  /**
+   * Translate this rectangle to be inside aRect. If it doesn't fit inside
+   * aRect then the dimensions that don't fit will be shrunk so that they
+   * do fit. The resulting rect is returned.
+   */
+  [[nodiscard]] Sub MoveInsideAndClamp(const Sub& aRect) const {
+    T newLeft = std::max(aRect.left, left);
+    T newTop = std::max(aRect.top, top);
+    T width = std::min(aRect.Width(), Width());
+    T height = std::min(aRect.Height(), Height());
+    Sub rect(newLeft, newTop, newLeft + width, newTop + height);
+    newLeft = std::min(rect.right, aRect.right) - width;
+    newTop = std::min(rect.bottom, aRect.bottom) - height;
+    rect.MoveBy(newLeft - rect.left, newTop - rect.top);
+    return rect;
+  }
+
+  friend std::ostream& operator<<(
+      std::ostream& stream,
+      const BaseRectAbsolute<T, Sub, Point, Rect>& aRect) {
+    return stream << "(l=" << aRect.left << ", t=" << aRect.top
+                  << ", r=" << aRect.right << ", b=" << aRect.bottom << ')';
+  }
 };
 
 template <class Units>
 struct IntRectAbsoluteTyped
     : public BaseRectAbsolute<int32_t, IntRectAbsoluteTyped<Units>,
-                              IntRectTyped<Units>>,
+                              IntPointTyped<Units>, IntRectTyped<Units>>,
       public Units {
   static_assert(IsPixel<Units>::value,
                 "'units' must be a coordinate system tag");
   typedef BaseRectAbsolute<int32_t, IntRectAbsoluteTyped<Units>,
-                           IntRectTyped<Units>>
+                           IntPointTyped<Units>, IntRectTyped<Units>>
       Super;
   typedef IntParam<int32_t> ToInt;
 
@@ -260,11 +285,12 @@ struct IntRectAbsoluteTyped
 template <class Units>
 struct RectAbsoluteTyped
     : public BaseRectAbsolute<Float, RectAbsoluteTyped<Units>,
-                              RectTyped<Units>>,
+                              PointTyped<Units>, RectTyped<Units>>,
       public Units {
   static_assert(IsPixel<Units>::value,
                 "'units' must be a coordinate system tag");
-  typedef BaseRectAbsolute<Float, RectAbsoluteTyped<Units>, RectTyped<Units>>
+  typedef BaseRectAbsolute<Float, RectAbsoluteTyped<Units>, PointTyped<Units>,
+                           RectTyped<Units>>
       Super;
 
   RectAbsoluteTyped() : Super() {}

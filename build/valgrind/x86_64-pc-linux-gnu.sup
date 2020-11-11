@@ -37,6 +37,16 @@
    fun:FcPatternObjectInsertElt
    ...
 }
+{
+   Bug 1533462 (comment 9)
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:malloc
+   fun:FcNameParseCharSet
+   fun:FcNameConvert
+   fun:FcNameParse
+   ...
+}
 # With older versions of fontconfig (e.g. 2.8.0 on taskcluster systems),
 # there's an uninitialized memory usage and leak when loading app fonts.
 {
@@ -47,7 +57,6 @@
    fun:FcDirCacheWrite
    fun:FcDirCacheScan
    fun:FcConfigAddDirList
-   fun:FcConfigAppFontAddDir
    ...
 }
 {
@@ -58,7 +67,6 @@
    fun:FcDirScanConfig
    fun:FcDirCacheScan
    fun:FcConfigAddDirList
-   fun:FcConfigAppFontAddDir
    ...
 }
 {
@@ -70,7 +78,6 @@
    fun:FcDirScanConfig
    fun:FcDirCacheScan
    fun:FcConfigAddDirList
-   fun:FcConfigAppFontAddDir
    ...
 }
 {
@@ -82,7 +89,6 @@
    obj:/usr/lib/x86_64-linux-gnu/libfontconfig.so.1.5.0
    fun:FcDirCacheScan
    fun:FcConfigAddDirList
-   fun:FcConfigAppFontAddDir
    ...
 }
 # Leaks due to either Gtk+3 or cairo, but Gecko is not directly involved with
@@ -195,13 +201,27 @@
    ...
 }
 {
-  _g_io_module_get_default
+   _g_io_module_get_default
    Memcheck:Leak
    ...
    fun:g_io_module_new
    fun:g_io_modules_scan_all_in_directory_with_scope
    fun:_g_io_modules_ensure_loaded
    fun:_g_io_module_get_default
+}
+{
+   dlopen leak triggered by bug 1492121
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:malloc
+   fun:dl_open_worker
+   fun:_dl_catch_error
+   fun:_dl_open
+   fun:dlopen_doit
+   fun:_dl_catch_error
+   fun:_dlerror_run
+   fun:dlopen@@GLIBC_2.2.5
+   ...
 }
 
 ###################################
@@ -864,7 +884,7 @@
 #    at 0x4C2CAEE: operator new(unsigned long) (vg_replace_malloc.c:332)
 #    by 0xF6AB737: std::vector<unsigned short, std::allocator<unsigned short>
 #    by 0xFCD0FDE: ots::ots_post_parse(ots::Font*, unsigned char const*, unsi
-#    by 0xFCCA3D9: (anonymous namespace)::ProcessGeneric(ots::OpenTypeFile*, 
+#    by 0xFCCA3D9: (anonymous namespace)::ProcessGeneric(ots::OpenTypeFile*,
 #    by 0xFCCB17E: (anonymous namespace)::ProcessTTF(ots::OpenTypeFile*, ots:
 #    by 0xFCCBA54: ots::OTSContext::Process(ots::OTSStream*, unsigned char co
 #    by 0xE7D7C8D: gfxUserFontEntry::SanitizeOpenTypeData(unsigned char const
@@ -954,4 +974,35 @@
    fun:_Znwm
    obj:/*/lib*/libLLVM-3.6-mesa.so
    obj:/*/lib*/libLLVM-3.6-mesa.so
+}
+
+{
+   bug 1632735
+   Memcheck:Cond
+   fun:_ZN9selectors6parser25parse_one_simple_selector17h*
+   fun:_ZN9selectors6parser14parse_selector17h*
+   fun:_ZN9selectors6parser24SelectorList$LT$Impl$GT$16parse_with_state17h*
+}
+
+{
+   bug 1632735
+   Memcheck:Cond
+   fun:_ZN9selectors6parser25parse_one_simple_selector17h*
+   fun:_ZN9selectors6parser29parse_functional_pseudo_class17h*
+   fun:_ZN9selectors6parser25parse_one_simple_selector17h*
+   fun:_ZN9selectors6parser14parse_selector17h*
+   fun:_ZN9selectors6parser24SelectorList$LT$Impl$GT$16parse_with_state17h*
+}
+
+{
+   bug 1632735
+   Memcheck:Cond
+   fun:_ZN9selectors6parser25parse_one_simple_selector17h*
+   fun:_ZN9selectors6parser14parse_selector17h*
+   fun:_ZN9cssparser6parser18parse_until_before17h*
+   fun:_ZN5style5gecko15selector_parser94_$LT$impl$u20$selectors..parser..Parser$u20$for$u20$style..selector_parser..SelectorParser$GT$36parse_non_ts_functional_pseudo_class17h*
+   fun:_ZN9selectors6parser29parse_functional_pseudo_class17h*
+   fun:_ZN9selectors6parser25parse_one_simple_selector17*
+   fun:_ZN9selectors6parser14parse_selector17h*
+   fun:_ZN9selectors6parser24SelectorList$LT$Impl$GT$16parse_with_state17h*
 }

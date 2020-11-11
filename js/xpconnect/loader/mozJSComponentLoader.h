@@ -12,9 +12,8 @@
 #include "mozilla/MemoryReporting.h"
 #include "mozilla/Module.h"
 #include "mozilla/StaticPtr.h"
-#include "nsAutoPtr.h"
+#include "mozilla/UniquePtr.h"
 #include "nsISupports.h"
-#include "nsIObserver.h"
 #include "nsIURI.h"
 #include "nsClassHashtable.h"
 #include "nsDataHashtable.h"
@@ -31,15 +30,12 @@ class ScriptPreloader;
 }  // namespace mozilla
 
 #if defined(NIGHTLY_BUILD) || defined(MOZ_DEV_EDITION) || defined(DEBUG)
-#define STARTUP_RECORDER_ENABLED
+#  define STARTUP_RECORDER_ENABLED
 #endif
 
-class mozJSComponentLoader final : public nsIObserver {
+class mozJSComponentLoader final {
  public:
-  NS_DECL_ISUPPORTS
-  NS_DECL_NSIOBSERVER
-
-  mozJSComponentLoader();
+  NS_INLINE_DECL_REFCOUNTING(mozJSComponentLoader);
 
   void GetLoadedModules(nsTArray<nsCString>& aLoadedModules);
   void GetLoadedComponents(nsTArray<nsCString>& aLoadedComponents);
@@ -53,6 +49,7 @@ class mozJSComponentLoader final : public nsIObserver {
   void FindTargetObject(JSContext* aCx, JS::MutableHandleObject aTargetObject);
 
   static void InitStatics();
+  static void Unload();
   static void Shutdown();
 
   static mozJSComponentLoader* Get() {
@@ -84,33 +81,23 @@ class mozJSComponentLoader final : public nsIObserver {
   nsresult AnnotateCrashReport();
 
  protected:
-  virtual ~mozJSComponentLoader();
+  mozJSComponentLoader();
+  ~mozJSComponentLoader();
 
   friend class XPCJSRuntime;
-
-  JSObject* CompilationScope(JSContext* aCx) {
-    if (mLoaderGlobal) {
-      return mLoaderGlobal;
-    }
-    return GetSharedGlobal(aCx);
-  }
 
  private:
   static mozilla::StaticRefPtr<mozJSComponentLoader> sSelf;
 
-  nsresult ReallyInit();
   void UnloadModules();
 
   void CreateLoaderGlobal(JSContext* aCx, const nsACString& aLocation,
                           JS::MutableHandleObject aGlobal);
 
-  bool ReuseGlobal(nsIURI* aComponent);
-
   JSObject* GetSharedGlobal(JSContext* aCx);
 
   JSObject* PrepareObjectForLocation(JSContext* aCx, nsIFile* aComponentFile,
-                                     nsIURI* aComponent, bool* aReuseGlobal,
-                                     bool* aRealFile);
+                                     nsIURI* aComponent, bool* aRealFile);
 
   nsresult ObjectForLocation(ComponentLoaderInfo& aInfo,
                              nsIFile* aComponentFile,
@@ -148,14 +135,12 @@ class mozJSComponentLoader final : public nsIObserver {
       getfactoryobj = nullptr;
 
       if (obj) {
-        mozilla::AutoJSContext cx;
-        JSAutoRealm ar(cx, obj);
-
         if (JS_HasExtensibleLexicalEnvironment(obj)) {
-          JS_SetAllNonReservedSlotsToUndefined(
-              cx, JS_ExtensibleLexicalEnvironment(obj));
+          JS::RootedObject lexicalEnv(mozilla::dom::RootingCx(),
+                                      JS_ExtensibleLexicalEnvironment(obj));
+          JS_SetAllNonReservedSlotsToUndefined(lexicalEnv);
         }
-        JS_SetAllNonReservedSlotsToUndefined(cx, obj);
+        JS_SetAllNonReservedSlotsToUndefined(obj);
         obj = nullptr;
         thisObjectKey = nullptr;
       }
@@ -191,13 +176,6 @@ class mozJSComponentLoader final : public nsIObserver {
   nsresult ExtractExports(JSContext* aCx, ComponentLoaderInfo& aInfo,
                           ModuleEntry* aMod, JS::MutableHandleObject aExports);
 
-  static size_t DataEntrySizeOfExcludingThis(
-      const nsACString& aKey, ModuleEntry* const& aData,
-      mozilla::MallocSizeOf aMallocSizeOf, void* arg);
-  static size_t ClassEntrySizeOfExcludingThis(
-      const nsACString& aKey, const nsAutoPtr<ModuleEntry>& aData,
-      mozilla::MallocSizeOf aMallocSizeOf, void* arg);
-
   // Modules are intentionally leaked, but still cleared.
   nsDataHashtable<nsCStringHashKey, ModuleEntry*> mModules;
 
@@ -210,7 +188,6 @@ class mozJSComponentLoader final : public nsIObserver {
   nsClassHashtable<nsCStringHashKey, nsCString> mLocations;
 
   bool mInitialized;
-  bool mShareLoaderGlobal;
   JS::PersistentRooted<JSObject*> mLoaderGlobal;
 };
 

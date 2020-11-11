@@ -45,8 +45,8 @@ class nsChannelClassifier final : public nsIURIClassifierCallback,
   // Start is called. Returns NS_OK if and only if we will get a callback
   // from the classifier service.
   nsresult StartInternal();
-  // Helper function to check a URI against the hostname whitelist
-  bool IsHostnameWhitelisted(nsIURI* aUri, const nsACString& aWhitelisted);
+  // Helper function to check a URI against the hostname entitylist
+  bool IsHostnameEntitylisted(nsIURI* aUri, const nsACString& aEntitylisted);
 
   void AddShutdownObserver();
   void RemoveShutdownObserver();
@@ -57,7 +57,7 @@ class nsChannelClassifier final : public nsIURIClassifierCallback,
 
  public:
   // If we are blocking content, update the corresponding flag in the respective
-  // docshell and call nsISecurityEventSink::onSecurityChange.
+  // docshell and call nsDocLoader::OnSecurityChange.
   static nsresult SetBlockedContent(nsIChannel* channel, nsresult aErrorCode,
                                     const nsACString& aList,
                                     const nsACString& aProvider,

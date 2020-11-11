@@ -8,7 +8,11 @@
 #include "StorageNotifierService.h"
 
 #include "mozilla/dom/StorageBinding.h"
-#include "nsIPrincipal.h"
+#include "mozilla/dom/StorageEvent.h"
+#include "mozilla/dom/StorageEventBinding.h"
+#include "mozilla/BasePrincipal.h"
+#include "mozilla/SchedulerGroup.h"
+#include "mozilla/StorageAccess.h"
 #include "nsPIDOMWindow.h"
 
 namespace mozilla {
@@ -16,7 +20,8 @@ namespace dom {
 
 static const char kStorageEnabled[] = "dom.storage.enabled";
 
-NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(Storage, mWindow, mPrincipal)
+NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(Storage, mWindow, mPrincipal,
+                                      mStoragePrincipal)
 
 NS_IMPL_CYCLE_COLLECTING_ADDREF(Storage)
 NS_IMPL_CYCLE_COLLECTING_RELEASE_WITH_LAST_RELEASE(Storage, LastRelease())
@@ -26,37 +31,45 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(Storage)
   NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END
 
-Storage::Storage(nsPIDOMWindowInner* aWindow, nsIPrincipal* aPrincipal)
-    : mWindow(aWindow), mPrincipal(aPrincipal), mIsSessionOnly(false) {
+Storage::Storage(nsPIDOMWindowInner* aWindow, nsIPrincipal* aPrincipal,
+                 nsIPrincipal* aStoragePrincipal)
+    : mWindow(aWindow),
+      mPrincipal(aPrincipal),
+      mStoragePrincipal(aStoragePrincipal),
+      mPrivateBrowsing(false),
+      mSessionScopedOrLess(false) {
   MOZ_ASSERT(aPrincipal);
+
+  if (mPrincipal->IsSystemPrincipal()) {
+    mPrivateBrowsing = false;
+    mSessionScopedOrLess = false;
+  } else if (mWindow) {
+    uint32_t rejectedReason = 0;
+    StorageAccess access = StorageAllowedForWindow(mWindow, &rejectedReason);
+
+    mPrivateBrowsing = access == StorageAccess::ePrivateBrowsing;
+    mSessionScopedOrLess = access <= StorageAccess::eSessionScoped;
+  }
 }
 
-Storage::~Storage() {}
+Storage::~Storage() = default;
 
-/* static */ bool Storage::StoragePrefIsEnabled() {
+/* static */
+bool Storage::StoragePrefIsEnabled() {
   return mozilla::Preferences::GetBool(kStorageEnabled);
 }
 
 bool Storage::CanUseStorage(nsIPrincipal& aSubjectPrincipal) {
-  // This method is responsible for correct setting of mIsSessionOnly.
   if (!StoragePrefIsEnabled()) {
     return false;
   }
 
-  nsContentUtils::StorageAccess access =
-      nsContentUtils::StorageAllowedForPrincipal(Principal());
-
-  if (access <= nsContentUtils::StorageAccess::eDeny) {
-    return false;
-  }
-
-  mIsSessionOnly = access <= nsContentUtils::StorageAccess::eSessionScoped;
-
   return aSubjectPrincipal.Subsumes(mPrincipal);
 }
 
-/* virtual */ JSObject* Storage::WrapObject(JSContext* aCx,
-                                            JS::Handle<JSObject*> aGivenProto) {
+/* virtual */
+JSObject* Storage::WrapObject(JSContext* aCx,
+                              JS::Handle<JSObject*> aGivenProto) {
   return Storage_Binding::Wrap(aCx, this, aGivenProto);
 }
 
@@ -93,11 +106,13 @@ class StorageNotifierRunnable : public Runnable {
 
 }  // namespace
 
-/* static */ void Storage::NotifyChange(
-    Storage* aStorage, nsIPrincipal* aPrincipal, const nsAString& aKey,
-    const nsAString& aOldValue, const nsAString& aNewValue,
-    const char16_t* aStorageType, const nsAString& aDocumentURI,
-    bool aIsPrivate, bool aImmediateDispatch) {
+/* static */
+void Storage::NotifyChange(Storage* aStorage, nsIPrincipal* aPrincipal,
+                           const nsAString& aKey, const nsAString& aOldValue,
+                           const nsAString& aNewValue,
+                           const char16_t* aStorageType,
+                           const nsAString& aDocumentURI, bool aIsPrivate,
+                           bool aImmediateDispatch) {
   StorageEventInit dict;
   dict.mBubbles = false;
   dict.mCancelable = false;
@@ -110,7 +125,7 @@ class StorageNotifierRunnable : public Runnable {
   // Note, this DOM event should never reach JS. It is cloned later in
   // nsGlobalWindow.
   RefPtr<StorageEvent> event =
-      StorageEvent::Constructor(nullptr, NS_LITERAL_STRING("storage"), dict);
+      StorageEvent::Constructor(nullptr, u"storage"_ns, dict);
 
   event->SetPrincipal(aPrincipal);
 
@@ -127,7 +142,7 @@ class StorageNotifierRunnable : public Runnable {
   if (aImmediateDispatch) {
     Unused << r->Run();
   } else {
-    SystemGroup::Dispatch(TaskCategory::Other, r.forget());
+    SchedulerGroup::Dispatch(TaskCategory::Other, r.forget());
   }
 }
 

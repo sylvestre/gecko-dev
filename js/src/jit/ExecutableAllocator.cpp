@@ -27,8 +27,9 @@
 
 #include "jit/ExecutableAllocator.h"
 
-#include "jit/JitRealm.h"
+#include "gc/Zone.h"
 #include "js/MemoryMetrics.h"
+#include "util/Poison.h"
 
 using namespace js::jit;
 
@@ -90,8 +91,7 @@ ExecutableAllocator::~ExecutableAllocator() {
   }
 
   // If this asserts we have a pool leak.
-  MOZ_ASSERT_IF(TlsContext.get()->runtime()->gc.shutdownCollectedEverything(),
-                m_pools.empty());
+  MOZ_ASSERT(m_pools.empty());
 }
 
 ExecutablePool* ExecutableAllocator::poolForSize(size_t n) {
@@ -154,8 +154,9 @@ ExecutablePool* ExecutableAllocator::poolForSize(size_t n) {
   return pool;
 }
 
-/* static */ size_t ExecutableAllocator::roundUpAllocationSize(
-    size_t request, size_t granularity) {
+/* static */
+size_t ExecutableAllocator::roundUpAllocationSize(size_t request,
+                                                  size_t granularity) {
   if ((std::numeric_limits<size_t>::max() - granularity) <= request) {
     return OVERSIZE_ALLOCATION;
   }
@@ -215,8 +216,6 @@ void* ExecutableAllocator::alloc(JSContext* cx, size_t n,
   void* result = (*poolp)->alloc(n, type);
   MOZ_ASSERT(result);
 
-  cx->zone()->updateJitCodeMallocBytes(n);
-
   return result;
 }
 
@@ -257,16 +256,21 @@ void ExecutableAllocator::addSizeOfCode(JS::CodeSizes* sizes) const {
   }
 }
 
-/* static */ void ExecutableAllocator::reprotectPool(
-    JSRuntime* rt, ExecutablePool* pool, ProtectionSetting protection) {
+/* static */
+void ExecutableAllocator::reprotectPool(JSRuntime* rt, ExecutablePool* pool,
+                                        ProtectionSetting protection,
+                                        MustFlushICache flushICache) {
   char* start = pool->m_allocation.pages;
-  if (!ReprotectRegion(start, pool->m_freePtr - start, protection)) {
-    MOZ_CRASH();
+  AutoEnterOOMUnsafeRegion oomUnsafe;
+  if (!ReprotectRegion(start, pool->m_freePtr - start, protection,
+                       flushICache)) {
+    oomUnsafe.crash("ExecutableAllocator::reprotectPool");
   }
 }
 
-/* static */ void ExecutableAllocator::poisonCode(
-    JSRuntime* rt, JitPoisonRangeVector& ranges) {
+/* static */
+void ExecutableAllocator::poisonCode(JSRuntime* rt,
+                                     JitPoisonRangeVector& ranges) {
   MOZ_ASSERT(CurrentThreadCanAccessRuntime(rt));
 
 #ifdef DEBUG
@@ -289,22 +293,24 @@ void ExecutableAllocator::addSizeOfCode(JS::CodeSizes* sizes) const {
     // Use the pool's mark bit to indicate we made the pool writable.
     // This avoids reprotecting a pool multiple times.
     if (!pool->isMarked()) {
-      reprotectPool(rt, pool, ProtectionSetting::Writable);
+      reprotectPool(rt, pool, ProtectionSetting::Writable, MustFlushICache::No);
       pool->mark();
     }
 
-    // Note: we use memset instead of JS_POISON because we want to poison
+    // Note: we use memset instead of js::Poison because we want to poison
     // JIT code in release builds too. Furthermore, we don't want the
-    // invalid-ObjectValue poisoning JS_POISON does in debug builds.
+    // invalid-ObjectValue poisoning js::Poison does in debug builds.
     memset(ranges[i].start, JS_SWEPT_CODE_PATTERN, ranges[i].size);
     MOZ_MAKE_MEM_NOACCESS(ranges[i].start, ranges[i].size);
   }
 
-  // Make the pools executable again and drop references.
+  // Make the pools executable again and drop references. We don't flush the
+  // ICache here to not add extra overhead.
   for (size_t i = 0; i < ranges.length(); i++) {
     ExecutablePool* pool = ranges[i].pool;
     if (pool->isMarked()) {
-      reprotectPool(rt, pool, ProtectionSetting::Executable);
+      reprotectPool(rt, pool, ProtectionSetting::Executable,
+                    MustFlushICache::No);
       pool->unmark();
     }
     pool->release();

@@ -7,37 +7,50 @@
 
 /* eslint-env mozilla/frame-script */
 
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
-ChromeUtils.import("resource://gre/modules/Services.jsm");
+var { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
-ChromeUtils.defineModuleGetter(this, "E10SUtils",
-  "resource://gre/modules/E10SUtils.jsm");
-ChromeUtils.defineModuleGetter(this, "BrowserUtils",
-  "resource://gre/modules/BrowserUtils.jsm");
+ChromeUtils.defineModuleGetter(
+  this,
+  "E10SUtils",
+  "resource://gre/modules/E10SUtils.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "BrowserUtils",
+  "resource://gre/modules/BrowserUtils.jsm"
+);
 
-ChromeUtils.import("resource://gre/modules/ActorManagerChild.jsm");
-
-ActorManagerChild.attach(this, "browsers");
-
-// TabChildGlobal
+// BrowserChildGlobal
 var global = this;
-
-// Keep a reference to the translation content handler to avoid it it being GC'ed.
-var trHandler = null;
-if (Services.prefs.getBoolPref("browser.translation.detectLanguage")) {
-  ChromeUtils.import("resource:///modules/translation/TranslationContentHandler.jsm");
-  trHandler = new TranslationContentHandler(global, docShell);
-}
 
 var WebBrowserChrome = {
   onBeforeLinkTraversal(originalTarget, linkURI, linkNode, isAppTab) {
-    return BrowserUtils.onBeforeLinkTraversal(originalTarget, linkURI, linkNode, isAppTab);
+    return BrowserUtils.onBeforeLinkTraversal(
+      originalTarget,
+      linkURI,
+      linkNode,
+      isAppTab
+    );
   },
 
   // Check whether this URI should load in the current process
-  shouldLoadURI(aDocShell, aURI, aReferrer, aHasPostData, aTriggeringPrincipal) {
-    if (!E10SUtils.shouldLoadURI(aDocShell, aURI, aReferrer, aHasPostData)) {
-      E10SUtils.redirectLoad(aDocShell, aURI, aReferrer, aTriggeringPrincipal, false);
+  shouldLoadURI(
+    aDocShell,
+    aURI,
+    aReferrerInfo,
+    aHasPostData,
+    aTriggeringPrincipal,
+    aCsp
+  ) {
+    if (!E10SUtils.shouldLoadURI(aDocShell, aURI, aHasPostData)) {
+      E10SUtils.redirectLoad(
+        aDocShell,
+        aURI,
+        aReferrerInfo,
+        aTriggeringPrincipal,
+        null,
+        aCsp
+      );
       return false;
     }
 
@@ -45,28 +58,20 @@ var WebBrowserChrome = {
   },
 
   shouldLoadURIInThisProcess(aURI) {
-    return E10SUtils.shouldLoadURIInThisProcess(aURI);
-  },
-
-  // Try to reload the currently active or currently loading page in a new process.
-  reloadInFreshProcess(aDocShell, aURI, aReferrer, aTriggeringPrincipal, aLoadFlags) {
-    E10SUtils.redirectLoad(aDocShell, aURI, aReferrer, aTriggeringPrincipal, true, aLoadFlags);
-    return true;
+    let remoteSubframes = docShell.QueryInterface(Ci.nsILoadContext)
+      .useRemoteSubframes;
+    return E10SUtils.shouldLoadURIInThisProcess(aURI, remoteSubframes);
   },
 };
 
 if (Services.appinfo.processType == Services.appinfo.PROCESS_TYPE_CONTENT) {
-  let tabchild = docShell.QueryInterface(Ci.nsIInterfaceRequestor)
-                         .getInterface(Ci.nsITabChild);
+  let tabchild = docShell
+    .QueryInterface(Ci.nsIInterfaceRequestor)
+    .getInterface(Ci.nsIBrowserChild);
   tabchild.webBrowserChrome = WebBrowserChrome;
 }
 
 Services.obs.notifyObservers(this, "tab-content-frameloader-created");
 
-// Remove this once bug 1397365 is fixed.
-addEventListener("MozAfterPaint", function onFirstNonBlankPaint() {
-  if (content.document.documentURI == "about:blank" && !content.opener)
-    return;
-  removeEventListener("MozAfterPaint", onFirstNonBlankPaint);
-  sendAsyncMessage("Browser:FirstNonBlankPaint");
-});
+// This is a temporary hack to prevent regressions (bug 1471327).
+void content;

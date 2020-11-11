@@ -5,7 +5,8 @@
 #ifndef SANDBOX_SRC_PROCESS_MITIGATIONS_WIN32K_POLICY_H_
 #define SANDBOX_SRC_PROCESS_MITIGATIONS_WIN32K_POLICY_H_
 
-#include "base/strings/string16.h"
+#include <string>
+
 #include "sandbox/win/src/crosscall_server.h"
 #include "sandbox/win/src/policy_low_level.h"
 #include "sandbox/win/src/sandbox_policy.h"
@@ -31,27 +32,27 @@ class ProcessMitigationsWin32KLockdownPolicy {
   static uint32_t EnumDisplayMonitorsAction(const ClientInfo& client_info,
                                             HMONITOR* monitor_list,
                                             uint32_t monitor_list_size);
-  static BOOL GetMonitorInfoAction(const ClientInfo& client_info,
+  static bool GetMonitorInfoAction(const ClientInfo& client_info,
                                    HMONITOR monitor,
                                    MONITORINFO* monitor_info);
 
   static NTSTATUS GetSuggestedOPMProtectedOutputArraySizeAction(
       const ClientInfo& client_info,
-      const base::string16& device_name,
+      const std::wstring& device_name,
       uint32_t* suggested_array_size);
 
   static NTSTATUS CreateOPMProtectedOutputsAction(
       const ClientInfo& client_info,
-      const base::string16& device_name,
+      const std::wstring& device_name,
       HANDLE* protected_outputs,
       uint32_t array_input_size,
       uint32_t* array_output_size);
 
   static NTSTATUS GetCertificateSizeAction(const ClientInfo& client_info,
-                                           const base::string16& device_name,
+                                           const std::wstring& device_name,
                                            uint32_t* cert_size);
   static NTSTATUS GetCertificateAction(const ClientInfo& client_info,
-                                       const base::string16& device_name,
+                                       const std::wstring& device_name,
                                        BYTE* cert_data,
                                        uint32_t cert_size);
   static NTSTATUS GetCertificateSizeByHandleAction(
@@ -88,5 +89,3 @@ class ProcessMitigationsWin32KLockdownPolicy {
 }  // namespace sandbox
 
 #endif  // SANDBOX_SRC_PROCESS_MITIGATIONS_WIN32K_POLICY_H_
-
-

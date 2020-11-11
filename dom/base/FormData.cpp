@@ -16,9 +16,17 @@
 using namespace mozilla;
 using namespace mozilla::dom;
 
-FormData::FormData(nsISupports* aOwner)
-    : HTMLFormSubmission(nullptr, EmptyString(), UTF_8_ENCODING, nullptr),
+FormData::FormData(nsISupports* aOwner, NotNull<const Encoding*> aEncoding,
+                   Element* aSubmitter)
+    : HTMLFormSubmission(nullptr, u""_ns, aEncoding, aSubmitter),
       mOwner(aOwner) {}
+
+FormData::FormData(const FormData& aFormData)
+    : HTMLFormSubmission(aFormData.mActionURL, aFormData.mTarget,
+                         aFormData.mEncoding, aFormData.mSubmitter) {
+  mOwner = aFormData.mOwner;
+  mFormData = aFormData.mFormData.Clone();
+}
 
 namespace {
 
@@ -31,7 +39,7 @@ already_AddRefed<File> GetOrCreateFileCalledBlob(Blob& aBlob,
   }
 
   // Forcing 'blob' as filename
-  file = aBlob.ToFile(NS_LITERAL_STRING("blob"), aRv);
+  file = aBlob.ToFile(u"blob"_ns, aRv);
   if (NS_WARN_IF(aRv.Failed())) {
     return nullptr;
   }
@@ -120,13 +128,9 @@ void FormData::Append(const nsAString& aName, Directory* aDirectory) {
 }
 
 void FormData::Delete(const nsAString& aName) {
-  // We have to use this slightly awkward for loop since uint32_t >= 0 is an
-  // error for being always true.
-  for (uint32_t i = mFormData.Length(); i-- > 0;) {
-    if (aName.Equals(mFormData[i].name)) {
-      mFormData.RemoveElementAt(i);
-    }
-  }
+  mFormData.RemoveElementsBy([&aName](const auto& formDataItem) {
+    return aName.Equals(formDataItem.name);
+  });
 }
 
 void FormData::Get(const nsAString& aName,
@@ -166,7 +170,7 @@ nsresult FormData::AddNameBlobOrNullPair(const nsAString& aName, Blob* aBlob) {
 
   if (!aBlob) {
     FormDataTuple* data = mFormData.AppendElement();
-    SetNameValuePair(data, aName, EmptyString(), true /* aWasNullBlob */);
+    SetNameValuePair(data, aName, u""_ns, true /* aWasNullBlob */);
     return NS_OK;
   }
 
@@ -278,18 +282,30 @@ void FormData::SetNameDirectoryPair(FormDataTuple* aData,
   aData->value.SetAsDirectory() = aDirectory;
 }
 
-/* virtual */ JSObject* FormData::WrapObject(
-    JSContext* aCx, JS::Handle<JSObject*> aGivenProto) {
+/* virtual */
+JSObject* FormData::WrapObject(JSContext* aCx,
+                               JS::Handle<JSObject*> aGivenProto) {
   return FormData_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-/* static */ already_AddRefed<FormData> FormData::Constructor(
+/* static */
+already_AddRefed<FormData> FormData::Constructor(
     const GlobalObject& aGlobal,
     const Optional<NonNull<HTMLFormElement> >& aFormElement, ErrorResult& aRv) {
   RefPtr<FormData> formData = new FormData(aGlobal.GetAsSupports());
   if (aFormElement.WasPassed()) {
-    aRv = aFormElement.Value().WalkFormElements(formData);
+    aRv = aFormElement.Value().ConstructEntryList(formData);
+    if (NS_WARN_IF(aRv.Failed())) {
+      return nullptr;
+    }
+
+    // Step 9. Return a shallow clone of entry list.
+    // https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#constructing-form-data-set
+    if (StaticPrefs::dom_formdata_event_enabled()) {
+      formData = formData->Clone();
+    }
   }
+
   return formData.forget();
 }
 
@@ -299,29 +315,42 @@ void FormData::SetNameDirectoryPair(FormDataTuple* aData,
 nsresult FormData::GetSendInfo(nsIInputStream** aBody, uint64_t* aContentLength,
                                nsACString& aContentTypeWithCharset,
                                nsACString& aCharset) const {
-  FSMultipartFormData fs(nullptr, EmptyString(), UTF_8_ENCODING, nullptr);
-
-  for (uint32_t i = 0; i < mFormData.Length(); ++i) {
-    if (mFormData[i].wasNullBlob) {
-      MOZ_ASSERT(mFormData[i].value.IsUSVString());
-      fs.AddNameBlobOrNullPair(mFormData[i].name, nullptr);
-    } else if (mFormData[i].value.IsUSVString()) {
-      fs.AddNameValuePair(mFormData[i].name,
-                          mFormData[i].value.GetAsUSVString());
-    } else if (mFormData[i].value.IsBlob()) {
-      fs.AddNameBlobOrNullPair(mFormData[i].name,
-                               mFormData[i].value.GetAsBlob());
-    } else {
-      MOZ_ASSERT(mFormData[i].value.IsDirectory());
-      fs.AddNameDirectoryPair(mFormData[i].name,
-                              mFormData[i].value.GetAsDirectory());
-    }
-  }
+  FSMultipartFormData fs(nullptr, u""_ns, UTF_8_ENCODING, nullptr);
+  nsresult rv = CopySubmissionDataTo(&fs);
+  NS_ENSURE_SUCCESS(rv, rv);
 
   fs.GetContentType(aContentTypeWithCharset);
   aCharset.Truncate();
   *aContentLength = 0;
   NS_ADDREF(*aBody = fs.GetSubmissionBody(aContentLength));
+
+  return NS_OK;
+}
+
+already_AddRefed<FormData> FormData::Clone() {
+  RefPtr<FormData> formData = new FormData(*this);
+  return formData.forget();
+}
+
+nsresult FormData::CopySubmissionDataTo(
+    HTMLFormSubmission* aFormSubmission) const {
+  MOZ_ASSERT(aFormSubmission, "Must have FormSubmission!");
+  for (size_t i = 0; i < mFormData.Length(); ++i) {
+    if (mFormData[i].wasNullBlob) {
+      MOZ_ASSERT(mFormData[i].value.IsUSVString());
+      aFormSubmission->AddNameBlobOrNullPair(mFormData[i].name, nullptr);
+    } else if (mFormData[i].value.IsUSVString()) {
+      aFormSubmission->AddNameValuePair(mFormData[i].name,
+                                        mFormData[i].value.GetAsUSVString());
+    } else if (mFormData[i].value.IsBlob()) {
+      aFormSubmission->AddNameBlobOrNullPair(mFormData[i].name,
+                                             mFormData[i].value.GetAsBlob());
+    } else {
+      MOZ_ASSERT(mFormData[i].value.IsDirectory());
+      aFormSubmission->AddNameDirectoryPair(
+          mFormData[i].name, mFormData[i].value.GetAsDirectory());
+    }
+  }
 
   return NS_OK;
 }

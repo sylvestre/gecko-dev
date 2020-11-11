@@ -4,7 +4,7 @@
 
 "use strict";
 
-const { NetUtil } = ChromeUtils.import("resource://gre/modules/NetUtil.jsm", {});
+const { NetUtil } = ChromeUtils.import("resource://gre/modules/NetUtil.jsm");
 
 /**
  * A function that can be used as part of a require hook for a
@@ -12,7 +12,7 @@ const { NetUtil } = ChromeUtils.import("resource://gre/modules/NetUtil.jsm", {})
  * This function handles "raw!" and "theme-loader!" requires.
  * See also: https://github.com/webpack/raw-loader.
  */
-this.requireRawId = function(id, require) {
+const requireRawId = function(id, require) {
   const index = id.indexOf("!");
   const rawId = id.slice(index + 1);
   let uri = require.resolve(rawId);
@@ -27,7 +27,7 @@ this.requireRawId = function(id, require) {
   const stream = NetUtil.newChannel({
     uri: NetUtil.newURI(uri, "UTF-8"),
     loadUsingSystemPrincipal: true,
-  }).open2();
+  }).open();
 
   const count = stream.available();
   const data = NetUtil.readInputStreamToString(stream, count, {
@@ -40,4 +40,4 @@ this.requireRawId = function(id, require) {
   return data;
 };
 
-this.EXPORTED_SYMBOLS = ["requireRawId"];
+const EXPORTED_SYMBOLS = ["requireRawId"];

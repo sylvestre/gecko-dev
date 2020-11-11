@@ -9,11 +9,10 @@
 
 #include "NamespaceImports.h"
 
+#include "js/Array.h"  // JS::IsArrayAnswer
 #include "js/Class.h"
 
 namespace js {
-
-class GlobalObject;
 
 /*
  * Dispatch point for handlers that executes the appropriate C++ or scripted
@@ -33,10 +32,11 @@ class Proxy {
                              Handle<JS::PropertyDescriptor> desc,
                              ObjectOpResult& result);
   static bool ownPropertyKeys(JSContext* cx, HandleObject proxy,
-                              AutoIdVector& props);
+                              MutableHandleIdVector props);
   static bool delete_(JSContext* cx, HandleObject proxy, HandleId id,
                       ObjectOpResult& result);
-  static JSObject* enumerate(JSContext* cx, HandleObject proxy);
+  static bool enumerate(JSContext* cx, HandleObject proxy,
+                        MutableHandleIdVector props);
   static bool isExtensible(JSContext* cx, HandleObject proxy, bool* extensible);
   static bool preventExtensions(JSContext* cx, HandleObject proxy,
                                 ObjectOpResult& result);
@@ -65,12 +65,9 @@ class Proxy {
                         const CallArgs& args);
 
   /* SpiderMonkey extensions. */
-  static bool getPropertyDescriptor(JSContext* cx, HandleObject proxy,
-                                    HandleId id,
-                                    MutableHandle<JS::PropertyDescriptor> desc);
   static bool hasOwn(JSContext* cx, HandleObject proxy, HandleId id, bool* bp);
   static bool getOwnEnumerablePropertyKeys(JSContext* cx, HandleObject proxy,
-                                           AutoIdVector& props);
+                                           MutableHandleIdVector props);
   static bool nativeCall(JSContext* cx, IsAcceptableThis test, NativeImpl impl,
                          const CallArgs& args);
   static bool hasInstance(JSContext* cx, HandleObject proxy,
@@ -96,10 +93,10 @@ size_t proxy_ObjectMoved(JSObject* obj, JSObject* old);
 // These functions are used by JIT code
 
 bool ProxyHas(JSContext* cx, HandleObject proxy, HandleValue idVal,
-              MutableHandleValue result);
+              bool* result);
 
 bool ProxyHasOwn(JSContext* cx, HandleObject proxy, HandleValue idVal,
-                 MutableHandleValue result);
+                 bool* result);
 
 bool ProxyGetProperty(JSContext* cx, HandleObject proxy, HandleId id,
                       MutableHandleValue vp);
@@ -112,9 +109,6 @@ bool ProxySetProperty(JSContext* cx, HandleObject proxy, HandleId id,
 
 bool ProxySetPropertyByValue(JSContext* cx, HandleObject proxy,
                              HandleValue idVal, HandleValue val, bool strict);
-
-extern JSObject* InitProxyClass(JSContext* cx, Handle<GlobalObject*> global);
-
 } /* namespace js */
 
 #endif /* proxy_Proxy_h */

@@ -6,7 +6,10 @@ from __future__ import absolute_import
 
 import traceback
 
+import six
 
+
+@six.python_2_unicode_compatible
 class MarionetteException(Exception):
 
     """Raised when a generic non-recoverable exception has occured."""
@@ -29,28 +32,31 @@ class MarionetteException(Exception):
         """
         self.cause = cause
         self.stacktrace = stacktrace
-
-        super(MarionetteException, self).__init__(message)
+        self._message = six.text_type(message)
 
     def __str__(self):
-        msg = str(self.message)
+        msg = self.message
         tb = None
 
         if self.cause:
             if type(self.cause) is tuple:
-                msg += ", caused by {0!r}".format(self.cause[0])
+                msg += u", caused by {0!r}".format(self.cause[0])
                 tb = self.cause[2]
             else:
-                msg += ", caused by {}".format(self.cause)
+                msg += u", caused by {}".format(self.cause)
+
         if self.stacktrace:
-            st = "".join(["\t{}\n".format(x)
-                          for x in self.stacktrace.splitlines()])
-            msg += "\nstacktrace:\n{}".format(st)
+            st = u"".join(["\t{}\n".format(x) for x in self.stacktrace.splitlines()])
+            msg += u"\nstacktrace:\n{}".format(st)
 
         if tb:
-            msg += ': ' + "".join(traceback.format_tb(tb))
+            msg += u": " + u"".join(traceback.format_tb(tb))
 
-        return msg
+        return six.text_type(msg)
+
+    @property
+    def message(self):
+        return self._message
 
 
 class ElementNotSelectableException(MarionetteException):
@@ -102,11 +108,15 @@ class ElementNotVisibleException(MarionetteException):
 
     status = "element not visible"
 
-    def __init__(self,
-                 message="Element is not currently visible and may not be manipulated",
-                 stacktrace=None, cause=None):
+    def __init__(
+        self,
+        message="Element is not currently visible and may not be manipulated",
+        stacktrace=None,
+        cause=None,
+    ):
         super(ElementNotVisibleException, self).__init__(
-            message, cause=cause, stacktrace=stacktrace)
+            message, cause=cause, stacktrace=stacktrace
+        )
 
 
 class ElementNotAccessibleException(MarionetteException):
@@ -173,7 +183,11 @@ class UnresponsiveInstanceException(Exception):
     pass
 
 
-es_ = [e for e in locals().values() if type(e) == type and issubclass(e, MarionetteException)]
+es_ = [
+    e
+    for e in locals().values()
+    if type(e) == type and issubclass(e, MarionetteException)
+]
 by_string = {e.status: e for e in es_}
 
 

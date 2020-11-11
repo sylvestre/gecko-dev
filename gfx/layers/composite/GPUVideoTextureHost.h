@@ -19,58 +19,75 @@ class GPUVideoTextureHost : public TextureHost {
 
   virtual ~GPUVideoTextureHost();
 
-  virtual void DeallocateDeviceData() override {}
+  void DeallocateDeviceData() override {}
 
   virtual void SetTextureSourceProvider(
       TextureSourceProvider* aProvider) override;
 
-  virtual bool Lock() override;
+  bool Lock() override;
 
-  virtual void Unlock() override;
+  void Unlock() override;
 
-  virtual gfx::SurfaceFormat GetFormat() const override;
+  gfx::SurfaceFormat GetFormat() const override;
 
-  virtual bool BindTextureSource(
-      CompositableTextureSourceRef& aTexture) override;
-  virtual bool AcquireTextureSource(
-      CompositableTextureSourceRef& aTexture) override;
+  void PrepareTextureSource(CompositableTextureSourceRef& aTexture) override;
 
-  virtual already_AddRefed<gfx::DataSourceSurface> GetAsSurface() override {
+  bool BindTextureSource(CompositableTextureSourceRef& aTexture) override;
+  bool AcquireTextureSource(CompositableTextureSourceRef& aTexture) override;
+
+  already_AddRefed<gfx::DataSourceSurface> GetAsSurface() override {
     return nullptr;  // XXX - implement this (for MOZ_DUMP_PAINTING)
   }
 
-  virtual YUVColorSpace GetYUVColorSpace() const override;
+  gfx::YUVColorSpace GetYUVColorSpace() const override;
+  gfx::ColorDepth GetColorDepth() const override;
+  gfx::ColorRange GetColorRange() const override;
 
-  virtual gfx::IntSize GetSize() const override;
+  gfx::IntSize GetSize() const override;
+
+  bool IsValid() override;
 
 #ifdef MOZ_LAYERS_HAVE_LOG
-  virtual const char* Name() override { return "GPUVideoTextureHost"; }
+  const char* Name() override { return "GPUVideoTextureHost"; }
 #endif
 
-  virtual bool HasIntermediateBuffer() const override;
+  bool HasIntermediateBuffer() const override;
 
-  virtual void CreateRenderTexture(
+  void CreateRenderTexture(
       const wr::ExternalImageId& aExternalImageId) override;
 
-  virtual uint32_t NumSubTextures() const override;
+  void MaybeDestroyRenderTexture() override;
 
-  virtual void PushResourceUpdates(wr::TransactionBuilder& aResources,
-                                   ResourceUpdateOp aOp,
-                                   const Range<wr::ImageKey>& aImageKeys,
-                                   const wr::ExternalImageId& aExtID) override;
+  uint32_t NumSubTextures() override;
 
-  virtual void PushDisplayItems(wr::DisplayListBuilder& aBuilder,
-                                const wr::LayoutRect& aBounds,
-                                const wr::LayoutRect& aClip,
-                                wr::ImageRendering aFilter,
-                                const Range<wr::ImageKey>& aImageKeys) override;
+  void PushResourceUpdates(wr::TransactionBuilder& aResources,
+                           ResourceUpdateOp aOp,
+                           const Range<wr::ImageKey>& aImageKeys,
+                           const wr::ExternalImageId& aExtID) override;
 
-  virtual bool SupportsWrNativeTexture() override;
+  void PushDisplayItems(wr::DisplayListBuilder& aBuilder,
+                        const wr::LayoutRect& aBounds,
+                        const wr::LayoutRect& aClip, wr::ImageRendering aFilter,
+                        const Range<wr::ImageKey>& aImageKeys,
+                        PushDisplayItemFlagSet aFlags) override;
+
+  void UnbindTextureSource() override;
+  void NotifyNotUsed() override;
 
  protected:
-  GPUVideoTextureHost(TextureFlags aFlags, TextureHost* aWrappedTextureHost);
+  GPUVideoTextureHost(TextureFlags aFlags,
+                      const SurfaceDescriptorGPUVideo& aDescriptor);
+
+  TextureHost* EnsureWrappedTextureHost();
+
+  void UpdatedInternal(const nsIntRegion* Region) override;
 
   RefPtr<TextureHost> mWrappedTextureHost;
+  RefPtr<TextureSourceProvider> mPendingSourceProvider;
+  bool mPendingUpdatedInternal = false;
+  Maybe<nsIntRegion> mPendingIntRegion;
+  Maybe<CompositableTextureSourceRef> mPendingPrepareTextureSource;
+  SurfaceDescriptorGPUVideo mDescriptor;
 };
 
 }  // namespace layers

@@ -9,8 +9,7 @@
 #include "GridTracks.h"
 #include "mozilla/dom/GridBinding.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(GridTrack, mParent)
 NS_IMPL_CYCLE_COLLECTING_ADDREF(GridTrack)
@@ -29,7 +28,7 @@ GridTrack::GridTrack(GridTracks* aParent)
   MOZ_ASSERT(aParent, "Should never be instantiated with a null GridTracks");
 }
 
-GridTrack::~GridTrack() {}
+GridTrack::~GridTrack() = default;
 
 JSObject* GridTrack::WrapObject(JSContext* aCx,
                                 JS::Handle<JSObject*> aGivenProto) {
@@ -52,5 +51,4 @@ void GridTrack::SetTrackValues(double aStart, double aBreadth,
   mState = aState;
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

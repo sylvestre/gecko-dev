@@ -11,7 +11,10 @@
 enum RTCStatsType {
   "inbound-rtp",
   "outbound-rtp",
+  "remote-inbound-rtp",
+  "remote-outbound-rtp",
   "csrc",
+  "data-channel",
   "session",
   "track",
   "transport",
@@ -30,72 +33,59 @@ dictionary RTCRtpStreamStats : RTCStats {
   unsigned long ssrc;
   DOMString mediaType;
   DOMString kind;
-  DOMString remoteId;
-  boolean isRemote = false;
-  DOMString mediaTrackId;
   DOMString transportId;
-  DOMString codecId;
+};
 
-  // Video encoder/decoder measurements, not present in RTCP case
-  double bitrateMean;
-  double bitrateStdDev;
-  double framerateMean;
-  double framerateStdDev;
+dictionary RTCReceivedRtpStreamStats: RTCRtpStreamStats {
+  unsigned long packetsReceived;
+  unsigned long packetsLost;
+  double jitter;
+  unsigned long discardedPackets; // non-standard alias for packetsDiscarded
+  unsigned long packetsDiscarded;
+};
 
-  // Local only measurements, RTCP related but not communicated via RTCP. Not
-  // present in RTCP case.
+dictionary RTCInboundRtpStreamStats : RTCReceivedRtpStreamStats {
+  DOMString remoteId;
+  unsigned long framesDecoded;
+  unsigned long long bytesReceived;
+  unsigned long nackCount;
   unsigned long firCount;
   unsigned long pliCount;
-  unsigned long nackCount;
+  double bitrateMean; // deprecated, to be removed in Bug 1367562
+  double bitrateStdDev; // deprecated, to be removed in Bug 1367562
+  double framerateMean; // deprecated, to be removed in Bug 1367562
+  double framerateStdDev; // deprecated, to be removed in Bug 1367562
 };
 
-dictionary RTCInboundRTPStreamStats : RTCRtpStreamStats {
-  unsigned long packetsReceived;
-  unsigned long long bytesReceived;
-  double jitter;
-  unsigned long packetsLost;
-  long mozAvSyncDelay;
-  long mozJitterBufferDelay;
-  long roundTripTime;
-
-  // Video decoder measurement, not present in RTCP case
-  unsigned long discardedPackets;
-  unsigned long framesDecoded;
+dictionary RTCRemoteInboundRtpStreamStats : RTCReceivedRtpStreamStats {
+  DOMString localId;
+  long long bytesReceived; // Deprecated, to be removed in Bug 1529405
+  double roundTripTime;
 };
 
-dictionary RTCOutboundRTPStreamStats : RTCRtpStreamStats {
+dictionary RTCSentRtpStreamStats : RTCRtpStreamStats {
   unsigned long packetsSent;
   unsigned long long bytesSent;
-  double targetBitrate;  // config encoder bitrate target of this SSRC in bits/s
+};
 
-  // Video encoder measurements, not present in RTCP case
-  unsigned long droppedFrames;
+dictionary RTCOutboundRtpStreamStats : RTCSentRtpStreamStats {
+  DOMString remoteId;
   unsigned long framesEncoded;
+  unsigned long long qpSum;
+  unsigned long nackCount;
+  unsigned long firCount;
+  unsigned long pliCount;
+  double bitrateMean; // deprecated, to be removed in Bug 1367562
+  double bitrateStdDev; // deprecated, to be removed in Bug 1367562
+  double framerateMean; // deprecated, to be removed in Bug 1367562
+  double framerateStdDev; // deprecated, to be removed in Bug 1367562
+  unsigned long droppedFrames; // non-spec alias for framesDropped
+                               // to be deprecated in Bug 1225720
 };
 
-dictionary RTCMediaStreamTrackStats : RTCStats {
-  DOMString trackIdentifier;      // track.id property
-  boolean remoteSource;
-  sequence<DOMString> ssrcIds;
-  // Stuff that makes sense for video
-  unsigned long frameWidth;
-  unsigned long frameHeight;
-  double framesPerSecond;        // The nominal FPS value
-  unsigned long framesSent;
-  unsigned long framesReceived;  // Only for remoteSource=true
-  unsigned long framesDecoded;
-  unsigned long framesDropped;   // See VideoPlaybackQuality.droppedVideoFrames
-  unsigned long framesCorrupted; // as above.
-  // Stuff that makes sense for audio
-  double audioLevel;               // linear, 1.0 = 0 dBov (from RFC 6464).
-  // AEC stuff on audio tracks sourced from a microphone where AEC is applied
-  double echoReturnLoss;           // in decibels from G.168 (2012) section 3.14
-  double echoReturnLossEnhancement; // as above, section 3.15
-};
-
-dictionary RTCMediaStreamStats : RTCStats {
-  DOMString streamIdentifier;     // stream.id property
-  sequence<DOMString> trackIds;   // Note: stats object ids, not track.id
+dictionary RTCRemoteOutboundRtpStreamStats : RTCSentRtpStreamStats {
+  DOMString localId;
+  DOMHighResTimeStamp remoteTimestamp;
 };
 
 dictionary RTCRTPContributingSourceStats : RTCStats {
@@ -103,17 +93,17 @@ dictionary RTCRTPContributingSourceStats : RTCStats {
   DOMString     inboundRtpStreamId;
 };
 
-dictionary RTCTransportStats: RTCStats {
-  unsigned long bytesSent;
-  unsigned long bytesReceived;
-};
-
-dictionary RTCIceComponentStats : RTCStats {
-  DOMString transportId;
-  long component;
-  unsigned long bytesSent;
-  unsigned long bytesReceived;
-  boolean activeConnection;
+dictionary RTCDataChannelStats : RTCStats {
+  DOMString           label;
+  DOMString           protocol;
+  long                dataChannelIdentifier;
+  // RTCTransportId is not yet implemented - Bug 1225723
+  // DOMString transportId;
+  RTCDataChannelState state;
+  unsigned long       messagesSent;
+  unsigned long long  bytesSent;
+  unsigned long       messagesReceived;
+  unsigned long long  bytesReceived;
 };
 
 enum RTCStatsIceCandidatePairState {
@@ -161,47 +151,116 @@ dictionary RTCIceCandidateStats : RTCStats {
   // we need to keep the field as ChromeOnly. Bug 1225723
   [ChromeOnly]
   DOMString transportId;
+  [ChromeOnly]
+  DOMString proxied;
 };
 
-dictionary RTCCodecStats : RTCStats {
-  unsigned long payloadType;       // As used in RTP encoding.
-  DOMString codec;                 // video/vp8 or equivalent
-  unsigned long clockRate;
-  unsigned long channels;          // 2=stereo, missing for most other cases.
-  DOMString parameters;            // From SDP description line
+// This is for tracking the frame rate in about:webrtc
+dictionary RTCVideoFrameHistoryEntryInternal {
+  required unsigned long       width;
+  required unsigned long       height;
+  required unsigned long       rotationAngle;
+  required DOMHighResTimeStamp firstFrameTimestamp;
+  required DOMHighResTimeStamp lastFrameTimestamp;
+  required unsigned long long  consecutiveFrames;
+  required unsigned long       localSsrc;
+  required unsigned long       remoteSsrc;
 };
 
-// This is the internal representation of the report in this implementation
-// to be received from c++
+// Collection over the entries for a single track for about:webrtc
+dictionary RTCVideoFrameHistoryInternal {
+  required DOMString                          trackIdentifier;
+  sequence<RTCVideoFrameHistoryEntryInternal> entries = [];
+};
 
-dictionary RTCStatsReportInternal {
-  DOMString                               pcid = "";
-  sequence<RTCInboundRTPStreamStats>      inboundRTPStreamStats;
-  sequence<RTCOutboundRTPStreamStats>     outboundRTPStreamStats;
-  sequence<RTCRTPContributingSourceStats> rtpContributingSourceStats;
-  sequence<RTCMediaStreamTrackStats>      mediaStreamTrackStats;
-  sequence<RTCMediaStreamStats>           mediaStreamStats;
-  sequence<RTCTransportStats>             transportStats;
-  sequence<RTCIceComponentStats>          iceComponentStats;
-  sequence<RTCIceCandidatePairStats>      iceCandidatePairStats;
-  sequence<RTCIceCandidateStats>          iceCandidateStats;
-  sequence<RTCCodecStats>                 codecStats;
-  DOMString                               localSdp;
-  DOMString                               remoteSdp;
-  DOMHighResTimeStamp                     timestamp;
-  unsigned long                           iceRestarts;
-  unsigned long                           iceRollbacks;
-  boolean                                 offerer; // Is the PC the offerer
-  boolean                                 closed; // Is the PC now closed
-  sequence<RTCIceCandidateStats>          trickledIceCandidateStats;
-  sequence<DOMString>                     rawLocalCandidates;
-  sequence<DOMString>                     rawRemoteCandidates;
+// Collection over the libwebrtc bandwidth estimation stats
+dictionary RTCBandwidthEstimationInternal {
+  required DOMString  trackIdentifier;
+  long                sendBandwidthBps;    // Estimated available send bandwidth
+  long                maxPaddingBps;       // Cumulative configured max padding
+  long                receiveBandwidthBps; // Estimated available receive bandwidth
+  long                pacerDelayMs;
+  long                rttMs;
+};
+
+// This is used by about:webrtc to report SDP parsing errors
+dictionary RTCSdpParsingErrorInternal {
+  required unsigned long lineNumber;
+  required DOMString     error;
+};
+
+// This is for tracking the flow of SDP for about:webrtc
+dictionary RTCSdpHistoryEntryInternal {
+  required DOMHighResTimeStamp         timestamp;
+  required boolean                     isLocal;
+  required DOMString                   sdp;
+  sequence<RTCSdpParsingErrorInternal> errors = [];
+};
+
+// This is intended to be a list of dictionaries that inherit from RTCStats
+// (with some raw ICE candidates thrown in). Unfortunately, we cannot simply
+// store a sequence<RTCStats> because of slicing. So, we have to have a
+// separate list for each type. Used in c++ gecko code.
+dictionary RTCStatsCollection {
+  sequence<RTCInboundRtpStreamStats>        inboundRtpStreamStats = [];
+  sequence<RTCOutboundRtpStreamStats>       outboundRtpStreamStats = [];
+  sequence<RTCRemoteInboundRtpStreamStats>  remoteInboundRtpStreamStats = [];
+  sequence<RTCRemoteOutboundRtpStreamStats> remoteOutboundRtpStreamStats = [];
+  sequence<RTCRTPContributingSourceStats>   rtpContributingSourceStats = [];
+  sequence<RTCIceCandidatePairStats>        iceCandidatePairStats = [];
+  sequence<RTCIceCandidateStats>            iceCandidateStats = [];
+  sequence<RTCIceCandidateStats>            trickledIceCandidateStats = [];
+  sequence<DOMString>                       rawLocalCandidates = [];
+  sequence<DOMString>                       rawRemoteCandidates = [];
+  sequence<RTCDataChannelStats>             dataChannelStats = [];
+  sequence<RTCVideoFrameHistoryInternal>    videoFrameHistories = [];
+  sequence<RTCBandwidthEstimationInternal>  bandwidthEstimations = [];
+};
+
+// Details that about:webrtc can display about configured ICE servers
+dictionary RTCIceServerInternal {
+  sequence<DOMString> urls = [];
+  required boolean    credentialProvided;
+  required boolean    userNameProvided;
+};
+
+// Details that about:webrtc can display about the RTCConfiguration
+// Chrome only
+dictionary RTCConfigurationInternal {
+  RTCBundlePolicy                bundlePolicy;
+  required boolean               certificatesProvided;
+  sequence<RTCIceServerInternal> iceServers = [];
+  RTCIceTransportPolicy          iceTransportPolicy;
+  required boolean               peerIdentityProvided;
+  DOMString                      sdpSemantics;
+};
+
+// A collection of RTCStats dictionaries, plus some other info. Used by
+// WebrtcGlobalInformation for about:webrtc, and telemetry.
+dictionary RTCStatsReportInternal : RTCStatsCollection {
+  required DOMString                        pcid;
+  required unsigned long                    browserId;
+  RTCConfigurationInternal                  configuration;
+  DOMString                                 jsepSessionErrors;
+  DOMString                                 localSdp;
+  DOMString                                 remoteSdp;
+  sequence<RTCSdpHistoryEntryInternal>      sdpHistory = [];
+  required DOMHighResTimeStamp              timestamp;
+  double                                    callDurationMs;
+  required unsigned long                    iceRestarts;
+  required unsigned long                    iceRollbacks;
+  boolean                                   offerer; // Is the PC the offerer
+  required boolean                          closed; // Is the PC now closed
 };
 
 [Pref="media.peerconnection.enabled",
- JSImplementation="@mozilla.org/dom/rtcstatsreport;1"]
+ Exposed=Window]
 interface RTCStatsReport {
-  readonly maplike<DOMString, object>;
+
+  // TODO(bug 1586109): Remove this once we no longer need to be able to
+  // construct empty RTCStatsReports from JS.
   [ChromeOnly]
-  readonly attribute DOMString mozPcid;
+  constructor();
+
+  readonly maplike<DOMString, object>;
 };

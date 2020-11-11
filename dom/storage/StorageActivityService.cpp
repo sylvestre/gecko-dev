@@ -6,9 +6,17 @@
 
 #include "StorageActivityService.h"
 
+#include "mozilla/ipc/BackgroundChild.h"
 #include "mozilla/ipc/BackgroundUtils.h"
+#include "mozilla/ipc/PBackgroundChild.h"
+#include "mozilla/ipc/PBackgroundSharedTypes.h"
+#include "mozilla/SchedulerGroup.h"
+#include "mozilla/Services.h"
 #include "mozilla/StaticPtr.h"
+#include "nsCOMPtr.h"
 #include "nsIMutableArray.h"
+#include "nsIObserverService.h"
+#include "nsIPrincipal.h"
 #include "nsSupportsPrimitives.h"
 #include "nsXPCOM.h"
 
@@ -22,13 +30,13 @@ namespace dom {
 static StaticRefPtr<StorageActivityService> gStorageActivityService;
 static bool gStorageActivityShutdown = false;
 
-/* static */ void StorageActivityService::SendActivity(
-    nsIPrincipal* aPrincipal) {
+/* static */
+void StorageActivityService::SendActivity(nsIPrincipal* aPrincipal) {
   MOZ_ASSERT(NS_IsMainThread());
 
   if (!aPrincipal || BasePrincipal::Cast(aPrincipal)->Kind() !=
-                         BasePrincipal::eCodebasePrincipal) {
-    // Only codebase principals.
+                         BasePrincipal::eContentPrincipal) {
+    // Only content principals.
     return;
   }
 
@@ -40,7 +48,8 @@ static bool gStorageActivityShutdown = false;
   service->SendActivityInternal(aPrincipal);
 }
 
-/* static */ void StorageActivityService::SendActivity(
+/* static */
+void StorageActivityService::SendActivity(
     const mozilla::ipc::PrincipalInfo& aPrincipalInfo) {
   if (aPrincipalInfo.type() !=
       mozilla::ipc::PrincipalInfo::TContentPrincipalInfo) {
@@ -52,17 +61,24 @@ static bool gStorageActivityShutdown = false;
       "StorageActivityService::SendActivity", [aPrincipalInfo]() {
         MOZ_ASSERT(NS_IsMainThread());
 
-        nsCOMPtr<nsIPrincipal> principal =
+        auto principalOrErr =
             mozilla::ipc::PrincipalInfoToPrincipal(aPrincipalInfo);
 
-        StorageActivityService::SendActivity(principal);
+        if (principalOrErr.isOk()) {
+          nsCOMPtr<nsIPrincipal> principal = principalOrErr.unwrap();
+          StorageActivityService::SendActivity(principal);
+        } else {
+          NS_WARNING(
+              "Could not obtain principal from "
+              "mozilla::ipc::PrincipalInfoToPrincipal");
+        }
       });
 
-  SystemGroup::Dispatch(TaskCategory::Other, r.forget());
+  SchedulerGroup::Dispatch(TaskCategory::Other, r.forget());
 }
 
-/* static */ void StorageActivityService::SendActivity(
-    const nsACString& aOrigin) {
+/* static */
+void StorageActivityService::SendActivity(const nsACString& aOrigin) {
   MOZ_ASSERT(XRE_IsParentProcess());
 
   nsCString origin;
@@ -83,12 +99,12 @@ static bool gStorageActivityShutdown = false;
   if (NS_IsMainThread()) {
     Unused << r->Run();
   } else {
-    SystemGroup::Dispatch(TaskCategory::Other, r.forget());
+    SchedulerGroup::Dispatch(TaskCategory::Other, r.forget());
   }
 }
 
-/* static */ already_AddRefed<StorageActivityService>
-StorageActivityService::GetOrCreate() {
+/* static */
+already_AddRefed<StorageActivityService> StorageActivityService::GetOrCreate() {
   MOZ_ASSERT(NS_IsMainThread());
 
   if (!gStorageActivityService && !gStorageActivityShutdown) {
@@ -125,7 +141,7 @@ void StorageActivityService::SendActivityInternal(nsIPrincipal* aPrincipal) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aPrincipal);
   MOZ_ASSERT(BasePrincipal::Cast(aPrincipal)->Kind() ==
-             BasePrincipal::eCodebasePrincipal);
+             BasePrincipal::eContentPrincipal);
 
   if (!XRE_IsParentProcess()) {
     SendActivityToParent(aPrincipal);
@@ -152,7 +168,8 @@ void StorageActivityService::SendActivityToParent(nsIPrincipal* aPrincipal) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(!XRE_IsParentProcess());
 
-  PBackgroundChild* actor = BackgroundChild::GetOrCreateForCurrentThread();
+  ::mozilla::ipc::PBackgroundChild* actor =
+      ::mozilla::ipc::BackgroundChild::GetOrCreateForCurrentThread();
   if (NS_WARN_IF(!actor)) {
     return;
   }
@@ -230,7 +247,7 @@ StorageActivityService::GetActiveOrigins(PRTime aFrom, PRTime aTo,
                                          nsIArray** aRetval) {
   uint64_t now = PR_Now();
   if (((now - aFrom) / PR_USEC_PER_SEC) > TIME_MAX_SECS || aFrom >= aTo) {
-    return NS_ERROR_RANGE_ERR;
+    return NS_ERROR_INVALID_ARG;
   }
 
   nsresult rv = NS_OK;
@@ -243,7 +260,7 @@ StorageActivityService::GetActiveOrigins(PRTime aFrom, PRTime aTo,
   for (auto iter = mActivities.Iter(); !iter.Done(); iter.Next()) {
     if (iter.UserData() >= aFrom && iter.UserData() <= aTo) {
       RefPtr<BasePrincipal> principal =
-          BasePrincipal::CreateCodebasePrincipal(iter.Key());
+          BasePrincipal::CreateContentPrincipal(iter.Key());
       MOZ_ASSERT(principal);
 
       rv = devices->AppendElement(principal);

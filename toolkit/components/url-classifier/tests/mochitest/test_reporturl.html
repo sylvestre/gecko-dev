@@ -4,7 +4,7 @@
 <html>
 <head>
   <title>Test report matched URL info (Bug #1288633)</title>
-  <script type="text/javascript" src="chrome://mochikit/content/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="chrome://mochikit/content/tests/SimpleTest/SimpleTest.js"></script>
   <script type="text/javascript" src="classifierHelper.js"></script>
   <link rel="stylesheet" type="text/css" href="chrome://mochikit/content/tests/SimpleTest/test.css">
 </head>
@@ -16,12 +16,12 @@
 <pre id="test">
 
 <script class="testbody" type="text/javascript">
-ChromeUtils.import("resource://gre/modules/Services.jsm");
-ChromeUtils.import("resource://testing-common/BrowserTestUtils.jsm");
-ChromeUtils.import("resource://testing-common/ContentTask.jsm");
-ChromeUtils.import("resource://testing-common/TestUtils.jsm");
+const {Services} = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const {BrowserTestUtils} = ChromeUtils.import("resource://testing-common/BrowserTestUtils.jsm");
+;
+const {TestUtils} = ChromeUtils.import("resource://testing-common/TestUtils.jsm");
 
-var mainWindow = window.docShell.rootTreeItem.domWindow;
+var mainWindow = window.browsingContext.topChromeWindow;
 const SJS = "mochi.test:8888/chrome/toolkit/components/url-classifier/tests/mochitest/report.sjs";
 const BASE_URL = "http://" + SJS + "?";
 
@@ -98,13 +98,13 @@ var createBlockedIframe = function(aWindow, aBrowser, aTopUrl, aUrl) {
     await BrowserTestUtils.loadURI(aBrowser, aTopUrl);
     await BrowserTestUtils.browserLoaded(aBrowser);
 
-    await ContentTask.spawn(aBrowser, aUrl, async function(url) {
+    await SpecialPowers.spawn(aBrowser, [aUrl], async function(url) {
       return new Promise(resolve => {
         let listener = e => {
-          removeEventListener("AboutBlockedLoaded", listener, false, true);
+          docShell.chromeEventHandler.removeEventListener("AboutBlockedLoaded", listener, false, true);
           resolve();
         };
-        addEventListener("AboutBlockedLoaded", listener, false, true);
+        docShell.chromeEventHandler.addEventListener("AboutBlockedLoaded", listener, false, true);
         let frame = content.document.getElementById("phishingFrame");
         frame.setAttribute("src", "http://" + url);
       });

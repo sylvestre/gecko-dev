@@ -9,6 +9,8 @@
 #include "nsIFile.h"
 #include "nsCOMPtr.h"
 #include "nsWeakReference.h"
+#include "mozilla/StaticPrefs_browser.h"
+#include "mozilla/StaticPrefs_privacy.h"
 #include <algorithm>
 
 namespace mozilla {
@@ -25,55 +27,61 @@ class CacheObserver : public nsIObserver, public nsSupportsWeakReference {
   static CacheObserver* Self() { return sSelf; }
 
   // Access to preferences
-  static bool UseDiskCache() { return sUseDiskCache; }
-  static bool UseMemoryCache() { return sUseMemoryCache; }
-  static uint32_t MetadataMemoryLimit()  // result in bytes.
-  {
-    return sMetadataMemoryLimit << 10;
+  static bool UseDiskCache() {
+    return StaticPrefs::browser_cache_disk_enable();
   }
-  static uint32_t MemoryCacheCapacity();  // result in bytes.
-  static uint32_t DiskCacheCapacity()     // result in bytes.
-  {
-    return sDiskCacheCapacity << 10;
+  static bool UseMemoryCache() {
+    return StaticPrefs::browser_cache_memory_enable();
   }
-  static void SetDiskCacheCapacity(uint32_t);  // parameter in bytes.
-  static uint32_t DiskFreeSpaceSoftLimit()     // result in bytes.
+  static uint32_t MetadataMemoryLimit()  // result in kilobytes.
   {
-    return sDiskFreeSpaceSoftLimit << 10;
+    return StaticPrefs::browser_cache_disk_metadata_memory_limit();
   }
-  static uint32_t DiskFreeSpaceHardLimit()  // result in bytes.
+  static uint32_t MemoryCacheCapacity();            // result in kilobytes.
+  static uint32_t DiskCacheCapacity();              // result in kilobytes.
+  static void SetSmartDiskCacheCapacity(uint32_t);  // parameter in kilobytes.
+  static uint32_t DiskFreeSpaceSoftLimit()          // result in kilobytes.
   {
-    return sDiskFreeSpaceHardLimit << 10;
+    return StaticPrefs::browser_cache_disk_free_space_soft_limit();
   }
-  static bool SmartCacheSizeEnabled() { return sSmartCacheSizeEnabled; }
-  static uint32_t PreloadChunkCount() { return sPreloadChunkCount; }
-  static uint32_t MaxMemoryEntrySize()  // result in bytes.
+  static uint32_t DiskFreeSpaceHardLimit()  // result in kilobytes.
   {
-    return sMaxMemoryEntrySize << 10;
+    return StaticPrefs::browser_cache_disk_free_space_hard_limit();
   }
-  static uint32_t MaxDiskEntrySize()  // result in bytes.
+  static bool SmartCacheSizeEnabled() {
+    return StaticPrefs::browser_cache_disk_smart_size_enabled();
+  }
+  static uint32_t PreloadChunkCount() {
+    return StaticPrefs::browser_cache_disk_preload_chunk_count();
+  }
+  static uint32_t MaxMemoryEntrySize()  // result in kilobytes.
   {
-    return sMaxDiskEntrySize << 10;
+    return StaticPrefs::browser_cache_memory_max_entry_size();
   }
-  static uint32_t MaxDiskChunksMemoryUsage(bool aPriority)  // result in bytes.
+  static uint32_t MaxDiskEntrySize()  // result in kilobytes.
   {
-    return aPriority ? sMaxDiskPriorityChunksMemoryUsage << 10
-                     : sMaxDiskChunksMemoryUsage << 10;
+    return StaticPrefs::browser_cache_disk_max_entry_size();
   }
-  static uint32_t CompressionLevel() { return sCompressionLevel; }
+  static uint32_t MaxDiskChunksMemoryUsage(
+      bool aPriority)  // result in kilobytes.
+  {
+    return aPriority
+               ? StaticPrefs::
+                     browser_cache_disk_max_priority_chunks_memory_usage()
+               : StaticPrefs::browser_cache_disk_max_chunks_memory_usage();
+  }
   static uint32_t HalfLifeSeconds() { return sHalfLifeHours * 60.0F * 60.0F; }
   static bool ClearCacheOnShutdown() {
-    return sSanitizeOnShutdown && sClearCacheOnShutdown;
+    return StaticPrefs::privacy_sanitize_sanitizeOnShutdown() &&
+           StaticPrefs::privacy_clearOnShutdown_cache();
   }
-  static bool CacheFSReported() { return sCacheFSReported; }
-  static void SetCacheFSReported();
-  static bool HashStatsReported() { return sHashStatsReported; }
-  static void SetHashStatsReported();
   static void ParentDirOverride(nsIFile** aDir);
 
   static bool EntryIsTooBig(int64_t aSize, bool aUsingDisk);
 
-  static uint32_t MaxShutdownIOLag() { return sMaxShutdownIOLag; }
+  static uint32_t MaxShutdownIOLag() {
+    return StaticPrefs::browser_cache_max_shutdown_io_lag();
+  }
   static bool IsPastShutdownIOLag();
 
   static bool ShuttingDown() {
@@ -81,34 +89,13 @@ class CacheObserver : public nsIObserver, public nsSupportsWeakReference {
   }
 
  private:
-  static CacheObserver* sSelf;
+  static StaticRefPtr<CacheObserver> sSelf;
 
-  void StoreDiskCacheCapacity();
-  void StoreCacheFSReported();
-  void StoreHashStatsReported();
   void AttachToPreferences();
 
-  static bool sUseMemoryCache;
-  static bool sUseDiskCache;
-  static uint32_t sMetadataMemoryLimit;
-  static int32_t sMemoryCacheCapacity;
   static int32_t sAutoMemoryCacheCapacity;
-  static Atomic<uint32_t, Relaxed> sDiskCacheCapacity;
-  static uint32_t sDiskFreeSpaceSoftLimit;
-  static uint32_t sDiskFreeSpaceHardLimit;
-  static bool sSmartCacheSizeEnabled;
-  static uint32_t sPreloadChunkCount;
-  static int32_t sMaxMemoryEntrySize;
-  static int32_t sMaxDiskEntrySize;
-  static uint32_t sMaxDiskChunksMemoryUsage;
-  static uint32_t sMaxDiskPriorityChunksMemoryUsage;
-  static uint32_t sCompressionLevel;
+  static Atomic<uint32_t, Relaxed> sSmartDiskCacheCapacity;
   static float sHalfLifeHours;
-  static bool sSanitizeOnShutdown;
-  static bool sClearCacheOnShutdown;
-  static bool sCacheFSReported;
-  static bool sHashStatsReported;
-  static Atomic<uint32_t, Relaxed> sMaxShutdownIOLag;
   static Atomic<PRIntervalTime> sShutdownDemandedTime;
 
   // Non static properties, accessible via sSelf

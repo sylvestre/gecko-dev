@@ -2,7 +2,7 @@
 
 load(libdir + "asserts.js");
 
-var g = newGlobal();
+var g = newGlobal({newCompartment: true});
 var dbg = new Debugger(g);
 assertEq(dbg.getNewestFrame(), null);
 
@@ -16,5 +16,5 @@ function f() {
 }
 g.h = this;
 g.eval("h.f()");
-assertEq(frame.live, false);
+assertEq(frame.onStack, false);
 assertThrowsInstanceOf(function () { frame.older; }, Error);

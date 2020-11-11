@@ -9,15 +9,13 @@
 
 #include "sqlite3.h"
 
-#include "nsAutoPtr.h"
 #include "nsTArray.h"
-#include "nsIEventTarget.h"
 #include "MainThreadUtils.h"
 
 #include "mozStorageBindingParamsArray.h"
-#include "mozIStorageBaseStatement.h"
 #include "mozStorageConnection.h"
 #include "StorageBaseStatementInternal.h"
+#include "mozStoragePrivateHelpers.h"
 
 struct sqlite3_stmt;
 
@@ -26,43 +24,46 @@ namespace storage {
 
 class StatementData {
  public:
-  StatementData(sqlite3_stmt *aStatement,
+  StatementData(sqlite3_stmt* aStatement,
                 already_AddRefed<BindingParamsArray> aParamsArray,
-                StorageBaseStatementInternal *aStatementOwner)
+                StorageBaseStatementInternal* aStatementOwner)
       : mStatement(aStatement),
         mParamsArray(aParamsArray),
+        mQueryStatusRecorded(false),
         mStatementOwner(aStatementOwner) {
     MOZ_ASSERT(mStatementOwner, "Must have a statement owner!");
   }
-  StatementData(const StatementData &aSource)
+  StatementData(const StatementData& aSource)
       : mStatement(aSource.mStatement),
         mParamsArray(aSource.mParamsArray),
+        mQueryStatusRecorded(false),
         mStatementOwner(aSource.mStatementOwner) {
     MOZ_ASSERT(mStatementOwner, "Must have a statement owner!");
   }
-  StatementData() : mStatement(nullptr) {}
+  StatementData() : mStatement(nullptr), mQueryStatusRecorded(false) {}
   ~StatementData() {
     // We need to ensure that mParamsArray is released on the main thread,
     // as the binding arguments may be XPConnect values, which are safe
     // to release only on the main thread.
-    NS_ReleaseOnMainThreadSystemGroup("StatementData::mParamsArray",
-                                      mParamsArray.forget());
+    NS_ReleaseOnMainThread("StatementData::mParamsArray",
+                           mParamsArray.forget());
   }
 
   /**
    * Return the sqlite statement, fetching it from the storage statement.  In
    * the case of AsyncStatements this may actually create the statement
    */
-  inline int getSqliteStatement(sqlite3_stmt **_stmt) {
+  inline int getSqliteStatement(sqlite3_stmt** _stmt) {
     if (!mStatement) {
       int rc = mStatementOwner->getAsyncStatement(&mStatement);
+      MaybeRecordQueryStatus(rc);
       NS_ENSURE_TRUE(rc == SQLITE_OK, rc);
     }
     *_stmt = mStatement;
     return SQLITE_OK;
   }
 
-  operator BindingParamsArray *() const { return mParamsArray; }
+  operator BindingParamsArray*() const { return mParamsArray; }
 
   /**
    * NULLs out our sqlite3_stmt (it is held by the owner) after reseting it and
@@ -77,6 +78,10 @@ class StatementData {
       (void)::sqlite3_reset(mStatement);
       (void)::sqlite3_clear_bindings(mStatement);
       mStatement = nullptr;
+
+      if (!mQueryStatusRecorded) {
+        mStatementOwner->getOwner()->RecordQueryStatus(SQLITE_OK);
+      }
     }
   }
 
@@ -103,7 +108,7 @@ class StatementData {
     // Be sure to use the getSqliteStatement helper, since sqlite3_stmt_readonly
     // can only analyze prepared statements and AsyncStatements are prepared
     // lazily.
-    sqlite3_stmt *stmt;
+    sqlite3_stmt* stmt;
     int rc = getSqliteStatement(&stmt);
     if (SQLITE_OK != rc || ::sqlite3_stmt_readonly(stmt)) {
       return 0;
@@ -111,9 +116,19 @@ class StatementData {
     return mParamsArray ? mParamsArray->length() : 1;
   }
 
+  void MaybeRecordQueryStatus(int srv) {
+    if (mQueryStatusRecorded || !isErrorCode(srv)) {
+      return;
+    }
+
+    mStatementOwner->getOwner()->RecordQueryStatus(srv);
+    mQueryStatusRecorded = true;
+  }
+
  private:
-  sqlite3_stmt *mStatement;
+  sqlite3_stmt* mStatement;
   RefPtr<BindingParamsArray> mParamsArray;
+  bool mQueryStatusRecorded;
 
   /**
    * We hold onto a reference of the statement's owner so it doesn't get

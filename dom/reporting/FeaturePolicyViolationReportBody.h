@@ -8,14 +8,15 @@
 #define mozilla_dom_FeaturePolicyViolationReportBody_h
 
 #include "mozilla/dom/ReportBody.h"
-#include "mozilla/dom/Date.h"
+#include "mozilla/dom/Nullable.h"
+#include "nsString.h"
 
 namespace mozilla {
 namespace dom {
 
 class FeaturePolicyViolationReportBody final : public ReportBody {
  public:
-  FeaturePolicyViolationReportBody(nsPIDOMWindowInner* aWindow,
+  FeaturePolicyViolationReportBody(nsIGlobalObject* aGlobal,
                                    const nsAString& aFeatureId,
                                    const nsAString& aSourceFile,
                                    const Nullable<int32_t>& aLineNumber,

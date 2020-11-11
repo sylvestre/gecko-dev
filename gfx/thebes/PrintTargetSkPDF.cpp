@@ -7,11 +7,9 @@
 
 #include "mozilla/gfx/2D.h"
 #include "nsString.h"
-#include "SkPDFDocument.h"
 #include <vector>
 
-namespace mozilla {
-namespace gfx {
+namespace mozilla::gfx {
 
 PrintTargetSkPDF::PrintTargetSkPDF(const IntSize& aSize,
                                    UniquePtr<SkWStream> aStream)
@@ -29,7 +27,8 @@ PrintTargetSkPDF::~PrintTargetSkPDF() {
   mRefPDFDoc = nullptr;
 }
 
-/* static */ already_AddRefed<PrintTargetSkPDF> PrintTargetSkPDF::CreateOrNull(
+/* static */
+already_AddRefed<PrintTargetSkPDF> PrintTargetSkPDF::CreateOrNull(
     UniquePtr<SkWStream> aStream, const IntSize& aSizeInPoints) {
   return do_AddRef(new PrintTargetSkPDF(aSizeInPoints, std::move(aStream)));
 }
@@ -118,11 +117,10 @@ already_AddRefed<DrawTarget> PrintTargetSkPDF::GetReferenceDrawTarget() {
     if (!dt) {
       return nullptr;
     }
-    mRefDT = dt.forget();
+    mRefDT = std::move(dt);
   }
 
   return do_AddRef(mRefDT);
 }
 
-}  // namespace gfx
-}  // namespace mozilla
+}  // namespace mozilla::gfx

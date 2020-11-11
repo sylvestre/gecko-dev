@@ -2,17 +2,39 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
-ChromeUtils.import("resource://gre/modules/Services.jsm");
-ChromeUtils.import("resource://gre/modules/AppConstants.jsm");
+var { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+var { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+var { AppConstants } = ChromeUtils.import(
+  "resource://gre/modules/AppConstants.jsm"
+);
 
+const { TelemetryTestUtils } = ChromeUtils.import(
+  "resource://testing-common/TelemetryTestUtils.jsm"
+);
+
+const OPEN_HISTOGRAM = "SQLITE_STORE_OPEN";
+const QUERY_HISTOGRAM = "SQLITE_STORE_QUERY";
+
+const TELEMETRY_VALUES = {
+  success: 0,
+  failure: 1,
+  access: 2,
+  diskio: 3,
+  corrupt: 4,
+  busy: 5,
+  misuse: 6,
+  diskspace: 7,
+};
 
 do_get_profile();
 var gDBConn = null;
 
+const TEST_DB_NAME = "test_storage.sqlite";
 function getTestDB() {
   var db = Services.dirsvc.get("ProfD", Ci.nsIFile);
-  db.append("test_storage.sqlite");
+  db.append(TEST_DB_NAME);
   return db;
 }
 
@@ -36,8 +58,13 @@ function getFakeDB() {
 function deleteTestDB() {
   print("*** Storage Tests: Trying to remove file!");
   var dbFile = getTestDB();
-  if (dbFile.exists())
-    try { dbFile.remove(false); } catch (e) { /* stupid windows box */ }
+  if (dbFile.exists()) {
+    try {
+      dbFile.remove(false);
+    } catch (e) {
+      /* stupid windows box */
+    }
+  }
 }
 
 function cleanup() {
@@ -62,7 +89,9 @@ function asyncCleanup() {
 
   // close the connection
   print("*** Storage Tests: Trying to asyncClose!");
-  getOpenedDatabase().asyncClose(function() { closed = true; });
+  getOpenedDatabase().asyncClose(function() {
+    closed = true;
+  });
 
   let tm = Cc["@mozilla.org/thread-manager;1"].getService();
   tm.spinEventLoopUntil(() => closed);
@@ -85,6 +114,10 @@ function asyncCleanup() {
 function getOpenedDatabase() {
   if (!gDBConn) {
     gDBConn = Services.storage.openDatabase(getTestDB());
+
+    // Clear out counts for any queries that occured while opening the database.
+    TelemetryTestUtils.getAndClearKeyedHistogram(OPEN_HISTOGRAM);
+    TelemetryTestUtils.getAndClearKeyedHistogram(QUERY_HISTOGRAM);
   }
   return gDBConn;
 }
@@ -148,13 +181,19 @@ function expectError(aErrorCode, aFunction) {
     aFunction();
   } catch (e) {
     if (e.result != aErrorCode) {
-      do_throw("Got an exception, but the result code was not the expected " +
-               "one.  Expected " + aErrorCode + ", got " + e.result);
+      do_throw(
+        "Got an exception, but the result code was not the expected " +
+          "one.  Expected " +
+          aErrorCode +
+          ", got " +
+          e.result
+      );
     }
     exceptionCaught = true;
   }
-  if (!exceptionCaught)
+  if (!exceptionCaught) {
     do_throw(aFunction + " should have thrown an exception but did not!");
+  }
 }
 
 /**
@@ -174,9 +213,16 @@ function verifyQuery(aSQLString, aBind, aResults) {
   try {
     Assert.ok(stmt.executeStep());
     let nCols = stmt.numEntries;
-    if (aResults.length != nCols)
-      do_throw("Expected " + aResults.length + " columns in result but " +
-               "there are only " + aResults.length + "!");
+    if (aResults.length != nCols) {
+      do_throw(
+        "Expected " +
+          aResults.length +
+          " columns in result but " +
+          "there are only " +
+          aResults.length +
+          "!"
+      );
+    }
     for (let iCol = 0; iCol < nCols; iCol++) {
       let expectedVal = aResults[iCol];
       let valType = stmt.getTypeOfIndex(iCol);
@@ -194,9 +240,11 @@ function verifyQuery(aSQLString, aBind, aResults) {
       } else if (typeof expectedVal == "string") {
         Assert.equal(stmt.VALUE_TYPE_TEXT, valType);
         Assert.equal(expectedVal, stmt.getUTF8String(iCol));
-      } else { // blob
+      } else {
+        // blob
         Assert.equal(stmt.VALUE_TYPE_BLOB, valType);
-        let count = { value: 0 }, blob = { value: null };
+        let count = { value: 0 },
+          blob = { value: null };
         stmt.getBlob(iCol, count, blob);
         Assert.equal(count.value, expectedVal.length);
         for (let i = 0; i < count.value; i++) {
@@ -261,8 +309,9 @@ function openAsyncDatabase(file, options) {
   return new Promise((resolve, reject) => {
     let properties;
     if (options) {
-      properties = Cc["@mozilla.org/hash-property-bag;1"].
-          createInstance(Ci.nsIWritablePropertyBag);
+      properties = Cc["@mozilla.org/hash-property-bag;1"].createInstance(
+        Ci.nsIWritablePropertyBag
+      );
       for (let k in options) {
         properties.setProperty(k, options[k]);
       }
@@ -297,7 +346,7 @@ function executeAsync(statement, onResult) {
 
 function executeMultipleStatementsAsync(db, statements, onResult) {
   return new Promise((resolve, reject) => {
-    db.executeAsync(statements, statements.length, {
+    db.executeAsync(statements, {
       handleError(error) {
         reject(error);
       },

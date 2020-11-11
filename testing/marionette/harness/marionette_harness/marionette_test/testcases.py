@@ -9,30 +9,62 @@ import os
 import re
 import sys
 import time
-import types
 import unittest
 import warnings
 import weakref
 
-from unittest.case import (
-    _ExpectedFailure,
-    _UnexpectedSuccess,
-    SkipTest,
-)
+from unittest.case import SkipTest
 
-from marionette_driver.errors import (
-    TimeoutException,
-    UnresponsiveInstanceException
-)
+import six
+
+from marionette_driver.errors import TimeoutException, UnresponsiveInstanceException
 from mozlog import get_default_logger
+
+
+# ExpectedFailure and UnexpectedSuccess are adapted from the Python 2
+# private classes _ExpectedFailure and _UnexpectedSuccess in
+# unittest/case.py which are no longer available in Python 3.
+class ExpectedFailure(Exception):
+    """
+    Raise this when a test is expected to fail.
+
+    This is an implementation detail.
+    """
+
+    def __init__(self, exc_info):
+        super(ExpectedFailure, self).__init__()
+        self.exc_info = exc_info
+
+
+class UnexpectedSuccess(Exception):
+    """
+    The test was supposed to fail, but it didn't!
+    """
+
+    pass
+
+
+try:
+    # Since these errors can be thrown during execution under Python 2
+    # we must support them until Marionette completes its transition
+    # from Python 2 to Python 3.
+    from unittest.case import (
+        _ExpectedFailure,
+        _UnexpectedSuccess,
+    )
+except ImportError:
+    _ExpectedFailure = ExpectedFailure
+    _UnexpectedSuccess = UnexpectedSuccess
 
 
 def _wraps_parameterized(func, func_suffix, args, kwargs):
     """Internal: Decorator used in class MetaParameterized."""
+
     def wrapper(self):
         return func(self, *args, **kwargs)
-    wrapper.__name__ = func.__name__ + '_' + str(func_suffix)
-    wrapper.__doc__ = '[{0}] {1}'.format(func_suffix, func.__doc__)
+
+    wrapper.__name__ = func.__name__ + "_" + str(func_suffix)
+    wrapper.__doc__ = "[{0}] {1}".format(func_suffix, func.__doc__)
     return wrapper
 
 
@@ -44,26 +76,29 @@ class MetaParameterized(type):
     or :func:`with_parameters` to generate new methods.
     """
 
-    RE_ESCAPE_BAD_CHARS = re.compile(r'[\.\(\) -/]')
+    RE_ESCAPE_BAD_CHARS = re.compile(r"[\.\(\) -/]")
 
     def __new__(cls, name, bases, attrs):
-        for k, v in attrs.items():
-            if callable(v) and hasattr(v, 'metaparameters'):
+        for k, v in list(attrs.items()):
+            if callable(v) and hasattr(v, "metaparameters"):
                 for func_suffix, args, kwargs in v.metaparameters:
-                    func_suffix = cls.RE_ESCAPE_BAD_CHARS.sub('_', func_suffix)
+                    func_suffix = cls.RE_ESCAPE_BAD_CHARS.sub("_", func_suffix)
                     wrapper = _wraps_parameterized(v, func_suffix, args, kwargs)
                     if wrapper.__name__ in attrs:
-                        raise KeyError("{0} is already a defined method on {1}"
-                                       .format(wrapper.__name__, name))
+                        raise KeyError(
+                            "{0} is already a defined method on {1}".format(
+                                wrapper.__name__, name
+                            )
+                        )
                     attrs[wrapper.__name__] = wrapper
                 del attrs[k]
 
         return type.__new__(cls, name, bases, attrs)
 
 
+@six.add_metaclass(MetaParameterized)
 class CommonTestCase(unittest.TestCase):
 
-    __metaclass__ = MetaParameterized
     match_re = None
     failureException = AssertionError
     pydebugger = None
@@ -77,7 +112,7 @@ class CommonTestCase(unittest.TestCase):
 
         self.duration = 0
         self.start_time = 0
-        self.expected = kwargs.pop('expected', 'pass')
+        self.expected = kwargs.pop("expected", "pass")
         self.logger = get_default_logger()
 
     def _enter_pm(self):
@@ -85,13 +120,28 @@ class CommonTestCase(unittest.TestCase):
             self.pydebugger.post_mortem(sys.exc_info()[2])
 
     def _addSkip(self, result, reason):
-        addSkip = getattr(result, 'addSkip', None)
+        addSkip = getattr(result, "addSkip", None)
         if addSkip is not None:
             addSkip(self, reason)
         else:
-            warnings.warn("TestResult has no addSkip method, skips not reported",
-                          RuntimeWarning, 2)
+            warnings.warn(
+                "TestResult has no addSkip method, skips not reported",
+                RuntimeWarning,
+                2,
+            )
             result.addSuccess(self)
+
+    def assertRaisesRegxp(
+        self, expected_exception, expected_regexp, callable_obj=None, *args, **kwargs
+    ):
+        return six.assertRaisesRegex(
+            self,
+            expected_exception,
+            expected_regexp,
+            callable_obj=None,
+            *args,
+            **kwargs
+        )
 
     def run(self, result=None):
         # Bug 967566 suggests refactoring run, which would hopefully
@@ -102,27 +152,32 @@ class CommonTestCase(unittest.TestCase):
             if addExpectedFailure is not None:
                 addExpectedFailure(self, exc_info)
             else:
-                warnings.warn("TestResult has no addExpectedFailure method, "
-                              "reporting as passes", RuntimeWarning)
+                warnings.warn(
+                    "TestResult has no addExpectedFailure method, "
+                    "reporting as passes",
+                    RuntimeWarning,
+                )
                 result.addSuccess(self)
 
         self.start_time = time.time()
         orig_result = result
         if result is None:
             result = self.defaultTestResult()
-            startTestRun = getattr(result, 'startTestRun', None)
+            startTestRun = getattr(result, "startTestRun", None)
             if startTestRun is not None:
                 startTestRun()
 
         result.startTest(self)
 
         testMethod = getattr(self, self._testMethodName)
-        if (getattr(self.__class__, "__unittest_skip__", False) or
-                getattr(testMethod, "__unittest_skip__", False)):
+        if getattr(self.__class__, "__unittest_skip__", False) or getattr(
+            testMethod, "__unittest_skip__", False
+        ):
             # If the class or method was skipped.
             try:
-                skip_why = (getattr(self.__class__, '__unittest_skip_why__', '') or
-                            getattr(testMethod, '__unittest_skip_why__', ''))
+                skip_why = getattr(
+                    self.__class__, "__unittest_skip_why__", ""
+                ) or getattr(testMethod, "__unittest_skip_why__", "")
                 self._addSkip(result, skip_why)
             finally:
                 result.stopTest(self)
@@ -140,7 +195,7 @@ class CommonTestCase(unittest.TestCase):
                     self.setUp()
             except SkipTest as e:
                 self._addSkip(result, str(e))
-            except (KeyboardInterrupt, UnresponsiveInstanceException) as e:
+            except (KeyboardInterrupt, UnresponsiveInstanceException):
                 raise
             except _ExpectedFailure as e:
                 expected_failure(result, e.exc_info)
@@ -149,7 +204,7 @@ class CommonTestCase(unittest.TestCase):
                 result.addError(self, sys.exc_info())
             else:
                 try:
-                    if self.expected == 'fail':
+                    if self.expected == "fail":
                         try:
                             testMethod()
                         except Exception:
@@ -160,18 +215,20 @@ class CommonTestCase(unittest.TestCase):
                 except self.failureException:
                     self._enter_pm()
                     result.addFailure(self, sys.exc_info())
-                except (KeyboardInterrupt, UnresponsiveInstanceException) as e:
+                except (KeyboardInterrupt, UnresponsiveInstanceException):
                     raise
                 except _ExpectedFailure as e:
                     expected_failure(result, e.exc_info)
                 except _UnexpectedSuccess:
-                    addUnexpectedSuccess = getattr(result, 'addUnexpectedSuccess', None)
+                    addUnexpectedSuccess = getattr(result, "addUnexpectedSuccess", None)
                     if addUnexpectedSuccess is not None:
                         addUnexpectedSuccess(self)
                     else:
-                        warnings.warn("TestResult has no addUnexpectedSuccess method, "
-                                      "reporting as failures",
-                                      RuntimeWarning)
+                        warnings.warn(
+                            "TestResult has no addUnexpectedSuccess method, "
+                            "reporting as failures",
+                            RuntimeWarning,
+                        )
                         result.addFailure(self, sys.exc_info())
                 except SkipTest as e:
                     self._addSkip(result, str(e))
@@ -188,7 +245,7 @@ class CommonTestCase(unittest.TestCase):
                             raise _ExpectedFailure(sys.exc_info())
                     else:
                         self.tearDown()
-                except (KeyboardInterrupt, UnresponsiveInstanceException) as e:
+                except (KeyboardInterrupt, UnresponsiveInstanceException):
                     raise
                 except _ExpectedFailure as e:
                     expected_failure(result, e.exc_info)
@@ -205,7 +262,7 @@ class CommonTestCase(unittest.TestCase):
         finally:
             result.stopTest(self)
             if orig_result is None:
-                stopTestRun = getattr(result, 'stopTestRun', None)
+                stopTestRun = getattr(result, "stopTestRun", None)
                 if stopTestRun is not None:
                     stopTestRun()
 
@@ -221,8 +278,17 @@ class CommonTestCase(unittest.TestCase):
         return m is not None
 
     @classmethod
-    def add_tests_to_suite(cls, mod_name, filepath, suite, testloader, marionette,
-                           fixtures, testvars, **kwargs):
+    def add_tests_to_suite(
+        cls,
+        mod_name,
+        filepath,
+        suite,
+        testloader,
+        marionette,
+        fixtures,
+        testvars,
+        **kwargs
+    ):
         """Add all the tests in the specified file to the specified suite."""
         raise NotImplementedError
 
@@ -230,11 +296,11 @@ class CommonTestCase(unittest.TestCase):
     def test_name(self):
         rel_path = None
         if os.path.exists(self.filepath):
-            rel_path = self._fix_test_path(os.path.relpath(self.filepath))
+            rel_path = self._fix_test_path(self.filepath)
 
-        return '{0} {1}.{2}'.format(rel_path,
-                                    self.__class__.__name__,
-                                    self._testMethodName)
+        return "{0} {1}.{2}".format(
+            rel_path, self.__class__.__name__, self._testMethodName
+        )
 
     def id(self):
         # TBPL starring requires that the "test name" field of a failure message
@@ -276,10 +342,13 @@ class CommonTestCase(unittest.TestCase):
             "tests{}".format(os.path.sep),
         ]
 
+        path = os.path.relpath(path)
         for prefix in test_path_prefixes:
             if path.startswith(prefix):
-                path = path[len(prefix):]
+                path = path[len(prefix) :]
                 break
+        path = path.replace("\\", "/")
+
         return path
 
 
@@ -287,17 +356,31 @@ class MarionetteTestCase(CommonTestCase):
 
     match_re = re.compile(r"test_(.*)\.py$")
 
-    def __init__(self, marionette_weakref, fixtures, methodName='runTest',
-                 filepath='', **kwargs):
+    def __init__(
+        self, marionette_weakref, fixtures, methodName="runTest", filepath="", **kwargs
+    ):
         self.filepath = filepath
-        self.testvars = kwargs.pop('testvars', None)
+        self.testvars = kwargs.pop("testvars", None)
 
         super(MarionetteTestCase, self).__init__(
-            methodName, marionette_weakref=marionette_weakref, fixtures=fixtures, **kwargs)
+            methodName,
+            marionette_weakref=marionette_weakref,
+            fixtures=fixtures,
+            **kwargs
+        )
 
     @classmethod
-    def add_tests_to_suite(cls, mod_name, filepath, suite, testloader, marionette,
-                           fixtures, testvars, **kwargs):
+    def add_tests_to_suite(
+        cls,
+        mod_name,
+        filepath,
+        suite,
+        testloader,
+        marionette,
+        fixtures,
+        testvars,
+        **kwargs
+    ):
         # since we use imp.load_source to load test modules, if a module
         # is loaded with the same name as another one the module would just be
         # reloaded.
@@ -316,16 +399,19 @@ class MarionetteTestCase(CommonTestCase):
 
         for name in dir(test_mod):
             obj = getattr(test_mod, name)
-            if (isinstance(obj, (type, types.ClassType)) and
-                    issubclass(obj, unittest.TestCase)):
+            if isinstance(obj, six.class_types) and issubclass(obj, unittest.TestCase):
                 testnames = testloader.getTestCaseNames(obj)
                 for testname in testnames:
-                    suite.addTest(obj(weakref.ref(marionette),
-                                      fixtures,
-                                      methodName=testname,
-                                      filepath=filepath,
-                                      testvars=testvars,
-                                      **kwargs))
+                    suite.addTest(
+                        obj(
+                            weakref.ref(marionette),
+                            fixtures,
+                            methodName=testname,
+                            filepath=filepath,
+                            testvars=testvars,
+                            **kwargs
+                        )
+                    )
 
     def setUp(self):
         super(MarionetteTestCase, self).setUp()

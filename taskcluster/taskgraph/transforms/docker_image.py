@@ -4,233 +4,216 @@
 
 from __future__ import absolute_import, print_function, unicode_literals
 
+import logging
 import os
 import re
+import json
 
-from collections import deque
+import six
+from six import text_type
+import mozpack.path as mozpath
 import taskgraph
 from taskgraph.transforms.base import TransformSequence
-from taskgraph.transforms.task import _run_task_suffix
 from .. import GECKO
 from taskgraph.util.docker import (
+    create_context_tar,
     generate_context_hash,
+    image_path,
 )
-from taskgraph.util.schema import (
-    Schema,
-)
+from taskgraph.util.schema import Schema
 from voluptuous import (
     Optional,
     Required,
 )
+from .task import task_description_schema
 
-DIGEST_RE = re.compile('^[0-9a-f]{64}$')
+logger = logging.getLogger(__name__)
+
+CONTEXTS_DIR = "docker-contexts"
+
+DIGEST_RE = re.compile("^[0-9a-f]{64}$")
+
+IMAGE_BUILDER_IMAGE = (
+    "mozillareleases/image_builder:5.0.0"
+    "@sha256:"
+    "e510a9a9b80385f71c112d61b2f2053da625aff2b6d430411ac42e424c58953f"
+)
 
 transforms = TransformSequence()
 
-docker_image_schema = Schema({
-    # Name of the docker image.
-    Required('name'): basestring,
-
-    # Name of the parent docker image.
-    Optional('parent'): basestring,
-
-    # Treeherder symbol.
-    Required('symbol'): basestring,
-
-    # relative path (from config.path) to the file the docker image was defined
-    # in.
-    Optional('job-from'): basestring,
-
-    # Arguments to use for the Dockerfile.
-    Optional('args'): {basestring: basestring},
-
-    # Name of the docker image definition under taskcluster/docker, when
-    # different from the docker image name.
-    Optional('definition'): basestring,
-
-    # List of package tasks this docker image depends on.
-    Optional('packages'): [basestring],
-})
+docker_image_schema = Schema(
+    {
+        # Name of the docker image.
+        Required("name"): text_type,
+        # Name of the parent docker image.
+        Optional("parent"): text_type,
+        # Treeherder symbol.
+        Required("symbol"): text_type,
+        # relative path (from config.path) to the file the docker image was defined
+        # in.
+        Optional("job-from"): text_type,
+        # Arguments to use for the Dockerfile.
+        Optional("args"): {text_type: text_type},
+        # Name of the docker image definition under taskcluster/docker, when
+        # different from the docker image name.
+        Optional("definition"): text_type,
+        # List of package tasks this docker image depends on.
+        Optional("packages"): [text_type],
+        Optional(
+            "index",
+            description="information for indexing this build so its artifacts can be discovered",
+        ): task_description_schema["index"],
+        Optional(
+            "cache",
+            description="Whether this image should be cached based on inputs.",
+        ): bool,
+    }
+)
 
 
 transforms.add_validate(docker_image_schema)
 
 
-def order_image_tasks(config, tasks):
-    """Iterate image tasks in an order where parent images come first."""
-    pending = deque(tasks)
-    task_names = {task['name'] for task in pending}
-    emitted = set()
-    while True:
-        try:
-            task = pending.popleft()
-        except IndexError:
-            break
-        parent = task.get('parent')
-        if parent and parent not in emitted:
-            if parent not in task_names:
-                raise Exception('Missing parent image for {}-{}: {}'.format(
-                    config.kind, task['name'], parent))
-            pending.append(task)
-            continue
-        emitted.add(task['name'])
-        yield task
-
-
 @transforms.add
 def fill_template(config, tasks):
-    available_packages = set()
-    for task in config.kind_dependencies_tasks:
-        if task.kind != 'packages':
-            continue
-        name = task.label.replace('packages-', '')
-        available_packages.add(name)
+    if not taskgraph.fast and config.write_artifacts:
+        if not os.path.isdir(CONTEXTS_DIR):
+            os.makedirs(CONTEXTS_DIR)
 
-    context_hashes = {}
-
-    for task in order_image_tasks(config, tasks):
-        image_name = task.pop('name')
-        job_symbol = task.pop('symbol')
-        args = task.pop('args', {})
-        definition = task.pop('definition', image_name)
-        packages = task.pop('packages', [])
-        parent = task.pop('parent', None)
+    for task in tasks:
+        image_name = task.pop("name")
+        job_symbol = task.pop("symbol")
+        args = task.pop("args", {})
+        packages = task.pop("packages", [])
+        parent = task.pop("parent", None)
 
         for p in packages:
-            if p not in available_packages:
-                raise Exception('Missing package job for {}-{}: {}'.format(
-                    config.kind, image_name, p))
-
-        # Generating the context hash relies on arguments being set, so we
-        # set this now, although it's not the final value (it's a
-        # task-reference value, see further below). We add the package routes
-        # containing a hash to get the overall docker image hash, so changes
-        # to packages will be reflected in the docker image hash.
-        args['DOCKER_IMAGE_PACKAGES'] = ' '.join('<{}>'.format(p)
-                                                 for p in packages)
-        if parent:
-            args['DOCKER_IMAGE_PARENT'] = '{}:{}'.format(parent, context_hashes[parent])
+            if "packages-{}".format(p) not in config.kind_dependencies_tasks:
+                raise Exception(
+                    "Missing package job for {}-{}: {}".format(
+                        config.kind, image_name, p
+                    )
+                )
 
         if not taskgraph.fast:
-            context_path = os.path.join('taskcluster', 'docker', definition)
-            context_hash = generate_context_hash(
-                GECKO, context_path, image_name, args)
+            context_path = mozpath.relpath(image_path(image_name), GECKO)
+            if config.write_artifacts:
+                context_file = os.path.join(
+                    CONTEXTS_DIR, "{}.tar.gz".format(image_name)
+                )
+                logger.info(
+                    "Writing {} for docker image {}".format(context_file, image_name)
+                )
+                context_hash = create_context_tar(
+                    GECKO, context_path, context_file, image_name, args
+                )
+            else:
+                context_hash = generate_context_hash(
+                    GECKO, context_path, image_name, args
+                )
         else:
-            context_hash = '0'*40
+            if config.write_artifacts:
+                raise Exception("Can't write artifacts if `taskgraph.fast` is set.")
+            context_hash = "0" * 40
         digest_data = [context_hash]
-        context_hashes[image_name] = context_hash
+        digest_data += [json.dumps(args, sort_keys=True)]
 
-        description = 'Build the docker image {} for use by dependent tasks'.format(
-            image_name)
+        description = "Build the docker image {} for use by dependent tasks".format(
+            image_name
+        )
+
+        args["DOCKER_IMAGE_PACKAGES"] = " ".join("<{}>".format(p) for p in packages)
 
         # Adjust the zstandard compression level based on the execution level.
         # We use faster compression for level 1 because we care more about
         # end-to-end times. We use slower/better compression for other levels
         # because images are read more often and it is worth the trade-off to
         # burn more CPU once to reduce image size.
-        zstd_level = '3' if int(config.params['level']) == 1 else '10'
+        zstd_level = "3" if int(config.params["level"]) == 1 else "10"
 
         # include some information that is useful in reconstructing this task
         # from JSON
         taskdesc = {
-            'label': 'build-docker-image-' + image_name,
-            'description': description,
-            'attributes': {'image_name': image_name},
-            'expires-after': '28 days' if config.params.is_try() else '1 year',
-            'scopes': ['secrets:get:project/taskcluster/gecko/hgfingerprint'],
-            'treeherder': {
-                'symbol': job_symbol,
-                'platform': 'taskcluster-images/opt',
-                'kind': 'other',
-                'tier': 1,
+            "label": "{}-{}".format(config.kind, image_name),
+            "description": description,
+            "attributes": {
+                "image_name": image_name,
+                "artifact_prefix": "public",
             },
-            'run-on-projects': [],
-            'worker-type': 'aws-provisioner-v1/gecko-{}-images'.format(
-                config.params['level']),
-            'worker': {
-                'implementation': 'docker-worker',
-                'os': 'linux',
-                'artifacts': [{
-                    'type': 'file',
-                    'path': '/builds/worker/workspace/artifacts/image.tar.zst',
-                    'name': 'public/image.tar.zst',
-                }],
-                'env': {
-                    'HG_STORE_PATH': '/builds/worker/checkouts/hg-store',
-                    'HASH': context_hash,
-                    'PROJECT': config.params['project'],
-                    'IMAGE_NAME': image_name,
-                    'DOCKER_IMAGE_ZSTD_LEVEL': zstd_level,
-                    'GECKO_BASE_REPOSITORY': config.params['base_repository'],
-                    'GECKO_HEAD_REPOSITORY': config.params['head_repository'],
-                    'GECKO_HEAD_REV': config.params['head_rev'],
+            "expires-after": "28 days" if config.params.is_try() else "1 year",
+            "scopes": [],
+            "treeherder": {
+                "symbol": job_symbol,
+                "platform": "taskcluster-images/opt",
+                "kind": "other",
+                "tier": 1,
+            },
+            "run-on-projects": [],
+            "worker-type": "images",
+            "worker": {
+                "implementation": "docker-worker",
+                "os": "linux",
+                "artifacts": [
+                    {
+                        "type": "file",
+                        "path": "/workspace/image.tar.zst",
+                        "name": "public/image.tar.zst",
+                    }
+                ],
+                "env": {
+                    "CONTEXT_TASK_ID": {"task-reference": "<decision>"},
+                    "CONTEXT_PATH": "public/docker-contexts/{}.tar.gz".format(
+                        image_name
+                    ),
+                    "HASH": context_hash,
+                    "PROJECT": config.params["project"],
+                    "IMAGE_NAME": image_name,
+                    "DOCKER_IMAGE_ZSTD_LEVEL": zstd_level,
+                    "DOCKER_BUILD_ARGS": {
+                        "task-reference": six.ensure_text(json.dumps(args))
+                    },
+                    "GECKO_BASE_REPOSITORY": config.params["base_repository"],
+                    "GECKO_HEAD_REPOSITORY": config.params["head_repository"],
+                    "GECKO_HEAD_REV": config.params["head_rev"],
                 },
-                'chain-of-trust': True,
-                'docker-in-docker': True,
-                'taskcluster-proxy': True,
-                'max-run-time': 7200,
-                # Retry on apt-get errors.
-                'retry-exit-status': [100],
+                "chain-of-trust": True,
+                "max-run-time": 7200,
+                # FIXME: We aren't currently propagating the exit code
             },
         }
         # Retry for 'funsize-update-generator' if exit status code is -1
-        if image_name in ['funsize-update-generator']:
-            taskdesc['worker']['retry-exit-status'] = [-1]
+        if image_name in ["funsize-update-generator"]:
+            taskdesc["worker"]["retry-exit-status"] = [-1]
 
-        worker = taskdesc['worker']
+        worker = taskdesc["worker"]
 
-        # We use the in-tree image_builder image to build docker images, but
-        # that can't be used to build the image_builder image itself,
-        # obviously. So we fall back to an image on docker hub, identified
-        # by hash.  After the image-builder image is updated, it's best to push
-        # and update this hash as well, to keep image-builder builds up to date.
-        if image_name == 'image_builder':
-            hash = 'sha256:c6622fd3e5794842ad83d129850330b26e6ba671e39c58ee288a616a3a1c4c73'
-            worker['docker-image'] = 'taskcluster/image_builder@' + hash
-            # Keep in sync with the Dockerfile used to generate the
-            # docker image whose digest is referenced above.
-            worker['volumes'] = [
-                '/builds/worker/checkouts',
-                '/builds/worker/workspace',
-            ]
-            cache_name = 'imagebuilder-v1'
+        if image_name == "image_builder":
+            worker["docker-image"] = IMAGE_BUILDER_IMAGE
+            digest_data.append("image-builder-image:{}".format(IMAGE_BUILDER_IMAGE))
         else:
-            worker['docker-image'] = {'in-tree': 'image_builder'}
-            cache_name = 'imagebuilder-sparse-{}'.format(_run_task_suffix())
-            # Force images built against the in-tree image builder to
-            # have a different digest by adding a fixed string to the
-            # hashed data.
-            digest_data.append('image_builder')
-
-        worker['caches'] = [{
-            'type': 'persistent',
-            'name': 'level-{}-{}'.format(config.params['level'], cache_name),
-            'mount-point': '/builds/worker/checkouts',
-        }]
-
-        for k, v in args.items():
-            if k == 'DOCKER_IMAGE_PACKAGES':
-                worker['env'][k] = {'task-reference': v}
-            else:
-                worker['env'][k] = v
+            worker["docker-image"] = {"in-tree": "image_builder"}
+            deps = taskdesc.setdefault("dependencies", {})
+            deps["docker-image"] = "{}-image_builder".format(config.kind)
 
         if packages:
-            deps = taskdesc.setdefault('dependencies', {})
+            deps = taskdesc.setdefault("dependencies", {})
             for p in sorted(packages):
-                deps[p] = 'packages-{}'.format(p)
+                deps[p] = "packages-{}".format(p)
 
         if parent:
-            deps = taskdesc.setdefault('dependencies', {})
-            deps[parent] = 'build-docker-image-{}'.format(parent)
-            worker['env']['DOCKER_IMAGE_PARENT_TASK'] = {
-                'task-reference': '<{}>'.format(parent),
+            deps = taskdesc.setdefault("dependencies", {})
+            deps["parent"] = "{}-{}".format(config.kind, parent)
+            worker["env"]["PARENT_TASK_ID"] = {
+                "task-reference": "<parent>",
             }
+        if "index" in task:
+            taskdesc["index"] = task["index"]
 
-        if not taskgraph.fast:
-            taskdesc['cache'] = {
-                'type': 'docker-images.v2',
-                'name': image_name,
-                'digest-data': digest_data,
+        if task.get("cache", True) and not taskgraph.fast:
+            taskdesc["cache"] = {
+                "type": "docker-images.v2",
+                "name": image_name,
+                "digest-data": digest_data,
             }
 
         yield taskdesc

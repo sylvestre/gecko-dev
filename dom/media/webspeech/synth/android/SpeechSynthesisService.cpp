@@ -13,6 +13,7 @@
 #include "mozilla/dom/nsSynthVoiceRegistry.h"
 #include "mozilla/jni/Utils.h"
 #include "mozilla/Preferences.h"
+#include "mozilla/StaticPrefs_media.h"
 
 #define ALOG(args...) \
   __android_log_print(ANDROID_LOG_INFO, "GeckoSpeechSynthesis", ##args)
@@ -50,7 +51,7 @@ NS_IMPL_ISUPPORTS(SpeechSynthesisService, nsISpeechService)
 void SpeechSynthesisService::Setup() {
   ALOG("SpeechSynthesisService::Setup");
 
-  if (!Preferences::GetBool("media.webspeech.synth.enabled") ||
+  if (!StaticPrefs::media_webspeech_synth_enabled() ||
       Preferences::GetBool("media.webspeech.synth.test")) {
     return;
   }
@@ -203,8 +204,8 @@ void SpeechSynthesisService::DispatchBoundary(jni::String::Param aUtteranceId,
       TimeStamp startTime = sSingleton->mTaskStartTime;
       sSingleton->mTaskTextOffset = aStart;
       DebugOnly<nsresult> rv = task->DispatchBoundary(
-          NS_LITERAL_STRING("word"), (TimeStamp::Now() - startTime).ToSeconds(),
-          aStart, aEnd - aStart, 1);
+          u"word"_ns, (TimeStamp::Now() - startTime).ToSeconds(), aStart,
+          aEnd - aStart, 1);
       NS_WARNING_ASSERTION(NS_SUCCEEDED(rv), "Unable to dispatch boundary");
     }
   }

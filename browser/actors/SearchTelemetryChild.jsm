@@ -3,12 +3,20 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 "use strict";
 
-var EXPORTED_SYMBOLS = ["SearchTelemetryChild"];
+var EXPORTED_SYMBOLS = ["SearchTelemetryChild", "ADLINK_CHECK_TIMEOUT_MS"];
 
-ChromeUtils.import("resource://gre/modules/ActorChild.jsm");
-ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+
+XPCOMUtils.defineLazyModuleGetters(this, {
+  clearTimeout: "resource://gre/modules/Timer.jsm",
+  Services: "resource://gre/modules/Services.jsm",
+  setTimeout: "resource://gre/modules/Timer.jsm",
+});
 
 const SHARED_DATA_KEY = "SearchTelemetry:ProviderInfo";
+const ADLINK_CHECK_TIMEOUT_MS = 1000;
 
 /**
  * SearchProviders looks after keeping track of the search provider information
@@ -42,11 +50,17 @@ class SearchProviders {
 
     // Filter-out non-ad providers so that we're not trying to match against
     // those unnecessarily.
-    for (let [providerName, info] of Object.entries(this._searchProviderInfo)) {
-      if (!("extraAdServersRegexps" in info)) {
-        delete this._searchProviderInfo[providerName];
-      }
-    }
+    this._searchProviderInfo = this._searchProviderInfo
+      .filter(p => "extraAdServersRegexps" in p)
+      .map(p => {
+        return {
+          ...p,
+          searchPageRegexp: new RegExp(p.searchPageRegexp),
+          extraAdServersRegexps: p.extraAdServersRegexps.map(
+            r => new RegExp(r)
+          ),
+        };
+      });
 
     return this._searchProviderInfo;
   }
@@ -81,7 +95,7 @@ const searchProviders = new SearchProviders();
  * page are returned to SearchTelemetry. If no ads are found, no notification is
  * given.
  */
-class SearchTelemetryChild extends ActorChild {
+class SearchTelemetryChild extends JSWindowActorChild {
   /**
    * Determines if there is a provider that matches the supplied URL and returns
    * the information associated with that provider.
@@ -91,25 +105,31 @@ class SearchTelemetryChild extends ActorChild {
    *   of provider name and the provider information.
    */
   _getProviderInfoForUrl(url) {
-    return Object.entries(searchProviders.info || []).find(
-      ([_, info]) => info.regexp.test(url)
-    );
+    return searchProviders.info?.find(info => info.searchPageRegexp.test(url));
   }
 
   /**
    * Checks to see if the page is a partner and has an ad link within it. If so,
    * it will notify SearchTelemetry.
-   *
-   * @param {object} doc The document object to check.
    */
-  _checkForAdLink(doc) {
-    let providerInfo = this._getProviderInfoForUrl(doc.documentURI);
+  _checkForAdLink() {
+    try {
+      if (!this.contentWindow) {
+        return;
+      }
+    } catch (ex) {
+      // unload occurred before the timer expired
+      return;
+    }
+
+    let doc = this.document;
+    let url = doc.documentURI;
+    let providerInfo = this._getProviderInfoForUrl(url);
     if (!providerInfo) {
       return;
     }
 
-    let regexps = providerInfo[1].extraAdServersRegexps;
-
+    let regexps = providerInfo.extraAdServersRegexps;
     let anchors = doc.getElementsByTagName("a");
     let hasAds = false;
     for (let anchor of anchors) {
@@ -129,7 +149,7 @@ class SearchTelemetryChild extends ActorChild {
     if (hasAds) {
       this.sendAsyncMessage("SearchTelemetry:PageInfo", {
         hasAds: true,
-        url: doc.documentURI,
+        url,
       });
     }
   }
@@ -140,10 +160,18 @@ class SearchTelemetryChild extends ActorChild {
    * @param {object} event The event details.
    */
   handleEvent(event) {
-    // We are only interested in the top-level frame.
-    if (event.target.ownerGlobal != this.content) {
-      return;
-    }
+    const cancelCheck = () => {
+      if (this._waitForContentTimeout) {
+        clearTimeout(this._waitForContentTimeout);
+      }
+    };
+
+    const check = () => {
+      cancelCheck();
+      this._waitForContentTimeout = setTimeout(() => {
+        this._checkForAdLink();
+      }, ADLINK_CHECK_TIMEOUT_MS);
+    };
 
     switch (event.type) {
       case "pageshow": {
@@ -152,12 +180,16 @@ class SearchTelemetryChild extends ActorChild {
         // so that we remain consistent with the *.in-content:sap* count for the
         // SEARCH_COUNTS histogram.
         if (event.persisted) {
-          this._checkForAdLink(this.content.document);
+          check();
         }
         break;
       }
       case "DOMContentLoaded": {
-        this._checkForAdLink(this.content.document);
+        check();
+        break;
+      }
+      case "unload": {
+        cancelCheck();
         break;
       }
     }

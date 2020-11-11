@@ -18,7 +18,6 @@
 #include "nsServiceManagerUtils.h"
 #include "nsProxyRelease.h"
 
-#include "nsINativeOSFileInternals.h"
 #include "mozilla/dom/NativeOSFileInternalsBinding.h"
 
 #include "mozilla/Encoding.h"
@@ -36,22 +35,25 @@
 
 #include "jsapi.h"
 #include "jsfriendapi.h"
+#include "js/ArrayBuffer.h"  // JS::GetArrayBufferByteLength,IsArrayBufferObject,NewArrayBufferWithContents,StealArrayBufferContents
 #include "js/Conversions.h"
+#include "js/experimental/TypedData.h"  // JS_NewUint8ArrayWithBuffer
 #include "js/MemoryFunctions.h"
+#include "js/UniquePtr.h"
 #include "js/Utility.h"
 #include "xpcpublic.h"
 
 #include <algorithm>
 #if defined(XP_UNIX)
-#include <unistd.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <sys/stat.h>
-#include <sys/uio.h>
+#  include <unistd.h>
+#  include <errno.h>
+#  include <fcntl.h>
+#  include <sys/stat.h>
+#  include <sys/uio.h>
 #endif  // defined (XP_UNIX)
 
 #if defined(XP_WIN)
-#include <windows.h>
+#  include <windows.h>
 #endif  // defined (XP_WIN)
 
 namespace mozilla {
@@ -99,9 +101,8 @@ struct ScopedArrayBufferContentsTraits {
 
 struct MOZ_NON_TEMPORARY_CLASS ScopedArrayBufferContents
     : public Scoped<ScopedArrayBufferContentsTraits> {
-  explicit ScopedArrayBufferContents(MOZ_GUARD_OBJECT_NOTIFIER_ONLY_PARAM)
-      : Scoped<ScopedArrayBufferContentsTraits>(
-            MOZ_GUARD_OBJECT_NOTIFIER_ONLY_PARAM_TO_PARENT) {}
+  explicit ScopedArrayBufferContents()
+      : Scoped<ScopedArrayBufferContentsTraits>() {}
 
   ScopedArrayBufferContents& operator=(ArrayBufferContents ptr) {
     Scoped<ScopedArrayBufferContentsTraits>::operator=(ptr);
@@ -140,19 +141,19 @@ struct MOZ_NON_TEMPORARY_CLASS ScopedArrayBufferContents
 // errors, we need to map a few high-level errors to OS-level
 // constants.
 #if defined(XP_UNIX)
-#define OS_ERROR_FILE_EXISTS EEXIST
-#define OS_ERROR_NOMEM ENOMEM
-#define OS_ERROR_INVAL EINVAL
-#define OS_ERROR_TOO_LARGE EFBIG
-#define OS_ERROR_RACE EIO
+#  define OS_ERROR_FILE_EXISTS EEXIST
+#  define OS_ERROR_NOMEM ENOMEM
+#  define OS_ERROR_INVAL EINVAL
+#  define OS_ERROR_TOO_LARGE EFBIG
+#  define OS_ERROR_RACE EIO
 #elif defined(XP_WIN)
-#define OS_ERROR_FILE_EXISTS ERROR_ALREADY_EXISTS
-#define OS_ERROR_NOMEM ERROR_NOT_ENOUGH_MEMORY
-#define OS_ERROR_INVAL ERROR_BAD_ARGUMENTS
-#define OS_ERROR_TOO_LARGE ERROR_FILE_TOO_LARGE
-#define OS_ERROR_RACE ERROR_SHARING_VIOLATION
+#  define OS_ERROR_FILE_EXISTS ERROR_ALREADY_EXISTS
+#  define OS_ERROR_NOMEM ERROR_NOT_ENOUGH_MEMORY
+#  define OS_ERROR_INVAL ERROR_BAD_ARGUMENTS
+#  define OS_ERROR_TOO_LARGE ERROR_FILE_TOO_LARGE
+#  define OS_ERROR_RACE ERROR_SHARING_VIOLATION
 #else
-#error "We do not have platform-specific constants for this platform"
+#  error "We do not have platform-specific constants for this platform"
 #endif
 
 ///////// Results of OS.File operations
@@ -355,8 +356,9 @@ nsresult TypedArrayResult::GetCacheableResult(
   const ArrayBufferContents& contents = mContents.get();
   MOZ_ASSERT(contents.data);
 
+  // This takes ownership of the buffer and notes the memory allocation.
   JS::Rooted<JSObject*> arrayBuffer(
-      cx, JS_NewArrayBufferWithContents(cx, contents.nbytes, contents.data));
+      cx, JS::NewArrayBufferWithContents(cx, contents.nbytes, contents.data));
   if (!arrayBuffer) {
     return NS_ERROR_OUT_OF_MEMORY;
   }
@@ -366,10 +368,6 @@ nsresult TypedArrayResult::GetCacheableResult(
   if (!result) {
     return NS_ERROR_OUT_OF_MEMORY;
   }
-  // The memory of contents has been allocated on a thread that
-  // doesn't have a JSRuntime, hence without a context. Now that we
-  // have a context, attach the memory to where it belongs.
-  JS_updateMallocCounter(cx, contents.nbytes);
   mContents.forget();
 
   aResult.setObject(*result);
@@ -559,8 +557,8 @@ class AbstractDoEvent : public Runnable {
       // Last ditch attempt to release on the main thread - some of
       // the members of event are not thread-safe, so letting the
       // pointer go out of scope would cause a crash.
-      NS_ReleaseOnMainThreadSystemGroup("AbstractDoEvent::OSFileErrorEvent",
-                                        event.forget());
+      NS_ReleaseOnMainThread("AbstractDoEvent::OSFileErrorEvent",
+                             event.forget());
     }
   }
 
@@ -576,8 +574,7 @@ class AbstractDoEvent : public Runnable {
       // Last ditch attempt to release on the main thread - some of
       // the members of event are not thread-safe, so letting the
       // pointer go out of scope would cause a crash.
-      NS_ReleaseOnMainThreadSystemGroup("AbstractDoEvent::SuccessEvent",
-                                        event.forget());
+      NS_ReleaseOnMainThread("AbstractDoEvent::SuccessEvent", event.forget());
     }
   }
 
@@ -666,14 +663,14 @@ class AbstractReadEvent : public AbstractDoEvent {
                       /*Template file*/ nullptr);
 
     if (handle == INVALID_HANDLE_VALUE) {
-      Fail(NS_LITERAL_CSTRING("open"), nullptr, ::GetLastError());
+      Fail("open"_ns, nullptr, ::GetLastError());
       return NS_ERROR_FAILURE;
     }
 
     file = PR_ImportFile((PROsfd)handle);
     if (!file) {
       // |file| is closed by PR_ImportFile
-      Fail(NS_LITERAL_CSTRING("ImportFile"), nullptr, PR_GetOSError());
+      Fail("ImportFile"_ns, nullptr, PR_GetOSError());
       return NS_ERROR_FAILURE;
     }
 
@@ -682,7 +679,7 @@ class AbstractReadEvent : public AbstractDoEvent {
     NS_ConvertUTF16toUTF8 path(mPath);
     file = PR_OpenFile(path.get(), PR_RDONLY, 0);
     if (!file) {
-      Fail(NS_LITERAL_CSTRING("open"), nullptr, PR_GetOSError());
+      Fail("open"_ns, nullptr, PR_GetOSError());
       return NS_ERROR_FAILURE;
     }
 
@@ -690,18 +687,18 @@ class AbstractReadEvent : public AbstractDoEvent {
 
     PRFileInfo64 stat;
     if (PR_GetOpenFileInfo64(file, &stat) != PR_SUCCESS) {
-      Fail(NS_LITERAL_CSTRING("stat"), nullptr, PR_GetOSError());
+      Fail("stat"_ns, nullptr, PR_GetOSError());
       return NS_ERROR_FAILURE;
     }
 
     uint64_t bytes = std::min((uint64_t)stat.size, mBytes);
     if (bytes > UINT32_MAX) {
-      Fail(NS_LITERAL_CSTRING("Arithmetics"), nullptr, OS_ERROR_INVAL);
+      Fail("Arithmetics"_ns, nullptr, OS_ERROR_INVAL);
       return NS_ERROR_FAILURE;
     }
 
     if (!aBuffer.Allocate(bytes)) {
-      Fail(NS_LITERAL_CSTRING("allocate"), nullptr, OS_ERROR_NOMEM);
+      Fail("allocate"_ns, nullptr, OS_ERROR_NOMEM);
       return NS_ERROR_FAILURE;
     }
 
@@ -712,14 +709,14 @@ class AbstractReadEvent : public AbstractDoEvent {
       just_read = PR_Read(file, dest_chars + total_read,
                           std::min(uint64_t(PR_INT32_MAX), bytes - total_read));
       if (just_read == -1) {
-        Fail(NS_LITERAL_CSTRING("read"), nullptr, PR_GetOSError());
+        Fail("read"_ns, nullptr, PR_GetOSError());
         return NS_ERROR_FAILURE;
       }
       total_read += just_read;
     } while (just_read != 0 && total_read < bytes);
     if (total_read != bytes) {
       // We seem to have a race condition here.
-      Fail(NS_LITERAL_CSTRING("read"), nullptr, OS_ERROR_RACE);
+      Fail("read"_ns, nullptr, OS_ERROR_RACE);
       return NS_ERROR_FAILURE;
     }
 
@@ -765,8 +762,8 @@ class DoReadToTypedArrayEvent final : public AbstractReadEvent {
     if (!mResult) {
       return;
     }
-    NS_ReleaseOnMainThreadSystemGroup("DoReadToTypedArrayEvent::mResult",
-                                      mResult.forget());
+    NS_ReleaseOnMainThread("DoReadToTypedArrayEvent::mResult",
+                           mResult.forget());
   }
 
  protected:
@@ -803,8 +800,7 @@ class DoReadToStringEvent final : public AbstractReadEvent {
     if (!mResult) {
       return;
     }
-    NS_ReleaseOnMainThreadSystemGroup("DoReadToStringEvent::mResult",
-                                      mResult.forget());
+    NS_ReleaseOnMainThread("DoReadToStringEvent::mResult", mResult.forget());
   }
 
  protected:
@@ -814,13 +810,12 @@ class DoReadToStringEvent final : public AbstractReadEvent {
     MOZ_ASSERT(!NS_IsMainThread());
     const Encoding* encoding = Encoding::ForLabel(mEncoding);
     if (!encoding) {
-      Fail(NS_LITERAL_CSTRING("Decode"), mResult.forget(), OS_ERROR_INVAL);
+      Fail("Decode"_ns, mResult.forget(), OS_ERROR_INVAL);
       return NS_ERROR_FAILURE;
     }
     mDecoder = encoding->NewDecoderWithBOMRemoval();
     if (!mDecoder) {
-      Fail(NS_LITERAL_CSTRING("DecoderForEncoding"), mResult.forget(),
-           OS_ERROR_INVAL);
+      Fail("DecoderForEncoding"_ns, mResult.forget(), OS_ERROR_INVAL);
       return NS_ERROR_FAILURE;
     }
 
@@ -831,21 +826,19 @@ class DoReadToStringEvent final : public AbstractReadEvent {
                  ScopedArrayBufferContents& aBuffer) override {
     MOZ_ASSERT(!NS_IsMainThread());
 
-    auto src = MakeSpan(aBuffer.get().data, aBuffer.get().nbytes);
+    auto src = Span(aBuffer.get().data, aBuffer.get().nbytes);
 
     CheckedInt<size_t> needed = mDecoder->MaxUTF16BufferLength(src.Length());
     if (!needed.isValid() ||
-        needed.value() > MaxValue<nsAString::size_type>::value) {
-      Fail(NS_LITERAL_CSTRING("arithmetics"), mResult.forget(),
-           OS_ERROR_TOO_LARGE);
+        needed.value() > std::numeric_limits<nsAString::size_type>::max()) {
+      Fail("arithmetics"_ns, mResult.forget(), OS_ERROR_TOO_LARGE);
       return;
     }
 
     nsString resultString;
     bool ok = resultString.SetLength(needed.value(), fallible);
     if (!ok) {
-      Fail(NS_LITERAL_CSTRING("allocation"), mResult.forget(),
-           OS_ERROR_TOO_LARGE);
+      Fail("allocation"_ns, mResult.forget(), OS_ERROR_TOO_LARGE);
       return;
     }
 
@@ -864,8 +857,7 @@ class DoReadToStringEvent final : public AbstractReadEvent {
     Unused << hadErrors;
     ok = resultString.SetLength(written, fallible);
     if (!ok) {
-      Fail(NS_LITERAL_CSTRING("allocation"), mResult.forget(),
-           OS_ERROR_TOO_LARGE);
+      Fail("allocation"_ns, mResult.forget(), OS_ERROR_TOO_LARGE);
       return;
     }
 
@@ -889,9 +881,9 @@ class DoWriteAtomicEvent : public AbstractDoEvent {
    * @param aPath The path of the file.
    */
   DoWriteAtomicEvent(
-      const nsAString& aPath, UniquePtr<char> aBuffer, const uint64_t aBytes,
-      const nsAString& aTmpPath, const nsAString& aBackupTo, const bool aFlush,
-      const bool aNoOverwrite,
+      const nsAString& aPath, UniquePtr<char[], JS::FreePolicy> aBuffer,
+      const uint64_t aBytes, const nsAString& aTmpPath,
+      const nsAString& aBackupTo, const bool aFlush, const bool aNoOverwrite,
       nsMainThreadPtrHandle<nsINativeOSFileSuccessCallback>& aOnSuccess,
       nsMainThreadPtrHandle<nsINativeOSFileErrorCallback>& aOnError)
       : AbstractDoEvent(aOnSuccess, aOnError),
@@ -912,8 +904,7 @@ class DoWriteAtomicEvent : public AbstractDoEvent {
     if (!mResult) {
       return;
     }
-    NS_ReleaseOnMainThreadSystemGroup("DoWriteAtomicEvent::mResult",
-                                      mResult.forget());
+    NS_ReleaseOnMainThread("DoWriteAtomicEvent::mResult", mResult.forget());
   }
 
   NS_IMETHODIMP Run() override {
@@ -968,7 +959,7 @@ class DoWriteAtomicEvent : public AbstractDoEvent {
 
     // Check noOverwrite.
     if (mNoOverwrite && fileExists) {
-      Fail(NS_LITERAL_CSTRING("noOverwrite"), nullptr, OS_ERROR_FILE_EXISTS);
+      Fail("noOverwrite"_ns, nullptr, OS_ERROR_FILE_EXISTS);
       return NS_ERROR_FAILURE;
     }
 
@@ -979,13 +970,13 @@ class DoWriteAtomicEvent : public AbstractDoEvent {
         // The file specified by mBackupTo exists, so we need to delete it
         // first.
         if (::DeleteFileW(mBackupTo.get()) == false) {
-          Fail(NS_LITERAL_CSTRING("delete"), nullptr, ::GetLastError());
+          Fail("delete"_ns, nullptr, ::GetLastError());
           return NS_ERROR_FAILURE;
         }
       }
 
       if (::MoveFileW(mPath.get(), mBackupTo.get()) == false) {
-        Fail(NS_LITERAL_CSTRING("rename"), nullptr, ::GetLastError());
+        Fail("rename"_ns, nullptr, ::GetLastError());
         return NS_ERROR_FAILURE;
       }
 #else
@@ -993,13 +984,13 @@ class DoWriteAtomicEvent : public AbstractDoEvent {
         // The file specified by mBackupTo exists, so we need to delete it
         // first.
         if (PR_Delete(backupTo.get()) == PR_FAILURE) {
-          Fail(NS_LITERAL_CSTRING("delete"), nullptr, PR_GetOSError());
+          Fail("delete"_ns, nullptr, PR_GetOSError());
           return NS_ERROR_FAILURE;
         }
       }
 
       if (PR_Rename(path.get(), backupTo.get()) == PR_FAILURE) {
-        Fail(NS_LITERAL_CSTRING("rename"), nullptr, PR_GetOSError());
+        Fail("rename"_ns, nullptr, PR_GetOSError());
         return NS_ERROR_FAILURE;
       }
 #endif  // defined(XP_WIN)
@@ -1032,14 +1023,14 @@ class DoWriteAtomicEvent : public AbstractDoEvent {
     }
 
     if (handle == INVALID_HANDLE_VALUE) {
-      Fail(NS_LITERAL_CSTRING("open"), nullptr, ::GetLastError());
+      Fail("open"_ns, nullptr, ::GetLastError());
       return NS_ERROR_FAILURE;
     }
 
     file = PR_ImportFile((PROsfd)handle);
     if (!file) {
       // |file| is closed by PR_ImportFile
-      Fail(NS_LITERAL_CSTRING("ImportFile"), nullptr, PR_GetOSError());
+      Fail("ImportFile"_ns, nullptr, PR_GetOSError());
       return NS_ERROR_FAILURE;
     }
 
@@ -1055,7 +1046,7 @@ class DoWriteAtomicEvent : public AbstractDoEvent {
     }
 
     if (!file) {
-      Fail(NS_LITERAL_CSTRING("open"), nullptr, PR_GetOSError());
+      Fail("open"_ns, nullptr, PR_GetOSError());
       return NS_ERROR_FAILURE;
     }
 #endif  // defined(XP_WIN)
@@ -1064,7 +1055,7 @@ class DoWriteAtomicEvent : public AbstractDoEvent {
         PR_Write(file, (void*)(mBuffer.get()), mBytes);
 
     if (bytesWrittenSuccess == -1) {
-      Fail(NS_LITERAL_CSTRING("write"), nullptr, PR_GetOSError());
+      Fail("write"_ns, nullptr, PR_GetOSError());
       return NS_ERROR_FAILURE;
     }
 
@@ -1075,12 +1066,12 @@ class DoWriteAtomicEvent : public AbstractDoEvent {
         // already renamed it as a part of backing it up.
 #if defined(XP_WIN)
         if (::DeleteFileW(mPath.get()) == false) {
-          Fail(NS_LITERAL_CSTRING("delete"), nullptr, ::GetLastError());
+          Fail("delete"_ns, nullptr, ::GetLastError());
           return NS_ERROR_FAILURE;
         }
 #else
         if (PR_Delete(path.get()) == PR_FAILURE) {
-          Fail(NS_LITERAL_CSTRING("delete"), nullptr, PR_GetOSError());
+          Fail("delete"_ns, nullptr, PR_GetOSError());
           return NS_ERROR_FAILURE;
         }
 #endif  // defined(XP_WIN)
@@ -1088,12 +1079,12 @@ class DoWriteAtomicEvent : public AbstractDoEvent {
 
 #if defined(XP_WIN)
       if (::MoveFileW(mTmpPath.get(), mPath.get()) == false) {
-        Fail(NS_LITERAL_CSTRING("rename"), nullptr, ::GetLastError());
+        Fail("rename"_ns, nullptr, ::GetLastError());
         return NS_ERROR_FAILURE;
       }
 #else
       if (PR_Rename(tmpPath.get(), path.get()) == PR_FAILURE) {
-        Fail(NS_LITERAL_CSTRING("rename"), nullptr, PR_GetOSError());
+        Fail("rename"_ns, nullptr, PR_GetOSError());
         return NS_ERROR_FAILURE;
       }
 #endif  // defined(XP_WIN)
@@ -1101,7 +1092,7 @@ class DoWriteAtomicEvent : public AbstractDoEvent {
 
     if (mFlush) {
       if (PR_Sync(file) == PR_FAILURE) {
-        Fail(NS_LITERAL_CSTRING("sync"), nullptr, PR_GetOSError());
+        Fail("sync"_ns, nullptr, PR_GetOSError());
         return NS_ERROR_FAILURE;
       }
     }
@@ -1120,7 +1111,7 @@ class DoWriteAtomicEvent : public AbstractDoEvent {
   }
 
   const nsString mPath;
-  const UniquePtr<char> mBuffer;
+  const UniquePtr<char[], JS::FreePolicy> mBuffer;
   const int32_t mBytes;
   const nsString mTmpPath;
   const nsString mBackupTo;
@@ -1201,7 +1192,7 @@ NativeOSFileInternalsService::WriteAtomic(
   MOZ_ASSERT(NS_IsMainThread());
   // Extract typed-array/string into buffer. We also need to store the length
   // of the buffer as that may be required if not provided in `aOptions`.
-  UniquePtr<char> buffer;
+  UniquePtr<char[], JS::FreePolicy> buffer;
   int32_t bytes;
 
   // The incoming buffer must be an Object.
@@ -1213,13 +1204,13 @@ NativeOSFileInternalsService::WriteAtomic(
   if (!JS_ValueToObject(cx, aBuffer, &bufferObject)) {
     return NS_ERROR_FAILURE;
   }
-  if (!JS_IsArrayBufferObject(bufferObject.get())) {
+  if (!JS::IsArrayBufferObject(bufferObject.get())) {
     return NS_ERROR_INVALID_ARG;
   }
 
-  bytes = JS_GetArrayBufferByteLength(bufferObject.get());
+  bytes = JS::GetArrayBufferByteLength(bufferObject.get());
   buffer.reset(
-      static_cast<char*>(JS_StealArrayBufferContents(cx, bufferObject)));
+      static_cast<char*>(JS::StealArrayBufferContents(cx, bufferObject)));
 
   if (!buffer) {
     return NS_ERROR_FAILURE;

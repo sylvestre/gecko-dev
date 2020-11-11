@@ -7,8 +7,16 @@
 #ifndef mozilla_dom_TypedArray_h
 #define mozilla_dom_TypedArray_h
 
+#include <utility>
+
+#include "js/ArrayBuffer.h"
+#include "js/ArrayBufferMaybeShared.h"
+#include "js/experimental/TypedData.h"  // js::Unwrap(Ui|I)nt(8|16|32)Array, js::Get(Ui|I)nt(8|16|32)ArrayLengthAndData, js::UnwrapUint8ClampedArray, js::GetUint8ClampedArrayLengthAndData, js::UnwrapFloat(32|64)Array, js::GetFloat(32|64)ArrayLengthAndData, JS_GetArrayBufferViewType
+#include "js/GCAPI.h"                   // JS::AutoCheckCannotGC
+#include "js/RootingAPI.h"              // JS::Rooted
+#include "js/ScalarType.h"              // js::Scalar::Type
+#include "js/SharedArrayBuffer.h"
 #include "mozilla/Attributes.h"
-#include "mozilla/Move.h"
 #include "mozilla/dom/BindingDeclarations.h"
 #include "mozilla/dom/SpiderMonkeyInterface.h"
 #include "nsWrapperCache.h"
@@ -72,7 +80,7 @@ struct TypedArray_base : public SpiderMonkeyInterfaceObjectStorage,
   // value if the view may not have been computed and if the value is
   // known to represent a JS TypedArray.
   //
-  // (Just use JS_IsSharedArrayBuffer() to test if any object is of
+  // (Just use JS::IsSharedArrayBuffer() to test if any object is of
   // that type.)
   //
   // Code that elects to allow views that map shared memory to be used
@@ -104,27 +112,15 @@ struct TypedArray_base : public SpiderMonkeyInterfaceObjectStorage,
 
   inline T* Data() const {
     MOZ_ASSERT(mComputed);
-    if (mShared) return nullptr;
-    return mData;
-  }
-
-  inline T* DataAllowShared() const {
-    MOZ_ASSERT(mComputed);
     return mData;
   }
 
   inline uint32_t Length() const {
     MOZ_ASSERT(mComputed);
-    if (mShared) return 0;
     return mLength;
   }
 
-  inline uint32_t LengthAllowShared() const {
-    MOZ_ASSERT(mComputed);
-    return mLength;
-  }
-
-  inline void ComputeLengthAndData() const {
+  inline void ComputeState() const {
     MOZ_ASSERT(inited());
     MOZ_ASSERT(!mComputed);
     GetLengthAndDataAndSharedness(mImplObj, &mLength, &mShared, &mData);
@@ -145,9 +141,9 @@ struct TypedArray
   typedef TypedArray_base<T, UnwrapArray, GetLengthAndDataAndSharedness> Base;
 
  public:
-  TypedArray() : Base() {}
+  TypedArray() = default;
 
-  TypedArray(TypedArray&& aOther) : Base(std::move(aOther)) {}
+  TypedArray(TypedArray&& aOther) = default;
 
   static inline JSObject* Create(JSContext* cx, nsWrapperCache* creator,
                                  uint32_t length, const T* data = nullptr) {
@@ -163,6 +159,25 @@ struct TypedArray
   static inline JSObject* Create(JSContext* cx, uint32_t length,
                                  const T* data = nullptr) {
     return CreateCommon(cx, length, data);
+  }
+
+  static inline JSObject* Create(JSContext* cx, nsWrapperCache* creator,
+                                 Span<const T> data) {
+    // Span<> uses size_t as a length, and we use uint32_t instead.
+    if (MOZ_UNLIKELY(data.Length() > UINT32_MAX)) {
+      JS_ReportOutOfMemory(cx);
+      return nullptr;
+    }
+    return Create(cx, creator, data.Length(), data.Elements());
+  }
+
+  static inline JSObject* Create(JSContext* cx, Span<const T> data) {
+    // Span<> uses size_t as a length, and we use uint32_t instead.
+    if (MOZ_UNLIKELY(data.Length() > UINT32_MAX)) {
+      JS_ReportOutOfMemory(cx);
+      return nullptr;
+    }
+    return CreateCommon(cx, data.Length(), data.Elements());
   }
 
  private:
@@ -257,14 +272,11 @@ typedef ArrayBufferView_base<js::UnwrapArrayBufferView,
                              js::GetArrayBufferViewLengthAndData,
                              JS_GetArrayBufferViewType>
     ArrayBufferView;
-typedef TypedArray<uint8_t, js::UnwrapArrayBuffer, JS_GetArrayBufferData,
-                   js::GetArrayBufferLengthAndData, JS_NewArrayBuffer>
+typedef TypedArray<uint8_t, JS::UnwrapArrayBufferMaybeShared,
+                   JS::GetArrayBufferMaybeSharedData,
+                   JS::GetArrayBufferMaybeSharedLengthAndData,
+                   JS::NewArrayBuffer>
     ArrayBuffer;
-
-typedef TypedArray<
-    uint8_t, js::UnwrapSharedArrayBuffer, JS_GetSharedArrayBufferData,
-    js::GetSharedArrayBufferLengthAndData, JS_NewSharedArrayBuffer>
-    SharedArrayBuffer;
 
 // A class for converting an nsTArray to a TypedArray
 // Note: A TypedArrayCreator must not outlive the nsTArray it was created from.

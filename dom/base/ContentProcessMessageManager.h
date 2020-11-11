@@ -13,8 +13,6 @@
 #include "nsFrameMessageManager.h"
 #include "nsIScriptContext.h"
 #include "nsIScriptContext.h"
-#include "nsIClassInfo.h"
-#include "nsIRunnable.h"
 #include "nsServiceManagerUtils.h"
 #include "nsWeakReference.h"
 #include "nsWrapperCache.h"
@@ -72,13 +70,13 @@ class ContentProcessMessageManager : public nsIMessageSender,
                              JS::MutableHandle<JS::Value> aInitialProcessData,
                              ErrorResult& aError) {
     if (!mMessageManager) {
-      aError.Throw(NS_ERROR_NULL_POINTER);
+      aError.Throw(NS_ERROR_NOT_INITIALIZED);
       return;
     }
     mMessageManager->GetInitialProcessData(aCx, aInitialProcessData, aError);
   }
 
-  already_AddRefed<ipc::SharedMap> SharedData();
+  already_AddRefed<ipc::SharedMap> GetSharedData();
 
   NS_FORWARD_SAFE_NSIMESSAGESENDER(mMessageManager)
 

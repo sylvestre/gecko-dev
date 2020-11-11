@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "nsICategoryManager.h"
 #include "nsCategoryManager.h"
+#include "nsCategoryManagerUtils.h"
 
 #include "prio.h"
 #include "prlock.h"
@@ -13,7 +13,6 @@
 #include "nsCOMPtr.h"
 #include "nsTHashtable.h"
 #include "nsClassHashtable.h"
-#include "nsIFactory.h"
 #include "nsStringEnumerator.h"
 #include "nsSupportsPrimitives.h"
 #include "nsComponentManagerUtils.h"
@@ -22,6 +21,7 @@
 #include "nsIObserverService.h"
 #include "nsReadableUtils.h"
 #include "nsCRT.h"
+#include "nsPrintfCString.h"
 #include "nsQuickSort.h"
 #include "nsEnumeratorUtils.h"
 #include "nsThreadUtils.h"
@@ -30,6 +30,7 @@
 #include "mozilla/Services.h"
 #include "mozilla/SimpleEnumerator.h"
 
+#include "GeckoProfiler.h"
 #include "ManifestParser.h"
 #include "nsSimpleEnumerator.h"
 
@@ -97,9 +98,6 @@ CategoryEnumerator::GetNext(nsISupports** aResult) {
   }
 
   auto* str = new nsSupportsDependentCString(mArray[mSimpleCurItem++]);
-  if (!str) {
-    return NS_ERROR_OUT_OF_MEMORY;
-  }
 
   *aResult = str;
   NS_ADDREF(*aResult);
@@ -322,14 +320,16 @@ nsCategoryManager::Release() { return 1; }
 
 nsCategoryManager* nsCategoryManager::gCategoryManager;
 
-/* static */ nsCategoryManager* nsCategoryManager::GetSingleton() {
+/* static */
+nsCategoryManager* nsCategoryManager::GetSingleton() {
   if (!gCategoryManager) {
     gCategoryManager = new nsCategoryManager();
   }
   return gCategoryManager;
 }
 
-/* static */ void nsCategoryManager::Destroy() {
+/* static */
+void nsCategoryManager::Destroy() {
   // The nsMemoryReporterManager gets destroyed before the nsCategoryManager,
   // so we don't need to unregister the nsCategoryManager as a memory reporter.
   // In debug builds we assert that unregistering fails, as a way (imperfect
@@ -674,6 +674,15 @@ void NS_CreateServicesFromCategory(const char* aCategory, nsISupports* aOrigin,
       // try an observer, if it implements it.
       nsCOMPtr<nsIObserver> observer = do_QueryInterface(instance);
       if (observer) {
+#ifdef MOZ_GECKO_PROFILER
+        nsPrintfCString profilerStr("%s (%s)", aObserverTopic,
+                                    entryString.get());
+        AUTO_PROFILER_MARKER_TEXT("Category observer notification", OTHER,
+                                  MarkerStack::Capture(), profilerStr);
+        AUTO_PROFILER_LABEL_DYNAMIC_NSCSTRING_NONSENSITIVE(
+            "Category observer notification -", OTHER, profilerStr);
+#endif
+
         observer->Observe(aOrigin, aObserverTopic,
                           aObserverData ? aObserverData : u"");
       } else {

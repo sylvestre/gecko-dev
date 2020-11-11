@@ -22,7 +22,18 @@ small dataset it was designed for. In the future we may want to optimize further
 """
 
 from collections import namedtuple
+from mozbuild.util import ensure_bytes
 import textwrap
+import six
+
+
+# Iteration over bytestrings works differently in Python 2 and 3; this function
+# captures the two possibilities. Returns an 'int' given the output of iterating
+# through a bytestring regardless of the input.
+def _ord(c):
+    if six.PY3:
+        return c
+    return ord(c)
 
 
 class PerfectHash(object):
@@ -38,10 +49,10 @@ class PerfectHash(object):
     # NOTE: Must match values in |PerfectHash.h|
     FNV_OFFSET_BASIS = 0x811C9DC5
     FNV_PRIME = 16777619
-    U32_MAX = 0xffffffff
+    U32_MAX = 0xFFFFFFFF
 
     # Bucket of entries which map into a given intermediate index.
-    Bucket = namedtuple('Bucket', 'index entries')
+    Bucket = namedtuple("Bucket", "index entries")
 
     def __init__(self, entries, size, validate=True, key=lambda e: e[0]):
         """Create a new PerfectHash
@@ -84,7 +95,9 @@ class PerfectHash(object):
             basis = 1
             slots = []
             while idx < len(bucket.entries):
-                slot = self._hash(self.key(bucket.entries[idx]), basis) % len(self.entries)
+                slot = self._hash(self.key(bucket.entries[idx]), basis) % len(
+                    self.entries
+                )
                 if self.entries[slot] is not None or slot in slots:
                     # There was a conflict, try the next basis.
                     basis += 1
@@ -114,13 +127,14 @@ class PerfectHash(object):
         stored in that table is used as the offset basis for indexing into the
         values table."""
         for byte in memoryview(key):
-            basis ^= ord(byte)      # xor-in the byte
+            obyte = _ord(byte)
+            basis ^= obyte  # xor-in the byte
             basis *= cls.FNV_PRIME  # Multiply by the FNV prime
-            basis &= cls.U32_MAX    # clamp to 32-bits
+            basis &= cls.U32_MAX  # clamp to 32-bits
         return basis
 
     def key(self, entry):
-        return memoryview(self._key(entry))
+        return memoryview(ensure_bytes(self._key(entry)))
 
     def get_raw_index(self, key):
         """Determine the index in self.entries without validating"""
@@ -143,16 +157,24 @@ class PerfectHash(object):
 
     @staticmethod
     def _indent(text, amount=1):
-        return text.replace('\n', '\n' + ('  ' * amount))
+        return text.replace("\n", "\n" + ("  " * amount))
 
     def codegen(self, name, entry_type):
         """Create a helper for codegening PHF logic"""
         return CGHelper(self, name, entry_type)
 
-    def cxx_codegen(self, name, entry_type, lower_entry, entries_name=None,
-                    return_type=None, return_entry='return entry;',
-                    key_type='const char*', key_bytes='aKey',
-                    key_length='strlen(aKey)'):
+    def cxx_codegen(
+        self,
+        name,
+        entry_type,
+        lower_entry,
+        entries_name=None,
+        return_type=None,
+        return_entry="return entry;",
+        key_type="const char*",
+        key_bytes="aKey",
+        key_length="strlen(aKey)",
+    ):
         """Generate complete C++ code for a get_entry-style method.
 
         @param name         Name for the entry getter function.
@@ -175,12 +197,13 @@ class PerfectHash(object):
         @param key_length   'size_t' expression to get length of 'aKey'"""
 
         if entries_name is None:
-            entries_name = 's%sEntries' % name
+            entries_name = "s%sEntries" % name
 
         cg = self.codegen(entries_name, entry_type)
         entries = cg.gen_entries(lower_entry)
-        getter = cg.gen_getter(name, return_type, return_entry,
-                               key_type, key_bytes, key_length)
+        getter = cg.gen_getter(
+            name, return_type, return_entry, key_type, key_bytes, key_length
+        )
 
         return "%s\n\n%s" % (entries, getter)
 
@@ -196,43 +219,60 @@ class CGHelper(object):
 
     @staticmethod
     def _indent(text, amount=1):
-        return text.replace('\n', '\n' + ('  ' * amount))
+        return text.replace("\n", "\n" + ("  " * amount))
 
     def basis_ty(self):
         """Determine how big of an integer is needed for bases table."""
         max_base = max(self.phf.table)
-        if max_base <= 0xff:
-            return 'uint8_t'
-        elif max_base <= 0xffff:
-            return 'uint16_t'
-        return 'uint32_t'
+        if max_base <= 0xFF:
+            return "uint8_t"
+        elif max_base <= 0xFFFF:
+            return "uint16_t"
+        return "uint32_t"
 
-    def basis_table(self, name='BASES'):
+    def basis_table(self, name="BASES"):
         """Generate code for a static basis table"""
-        bases = ''
+        bases = ""
         for idx, base in enumerate(self.phf.table):
             if idx and idx % 16 == 0:  # 16 bases per line
-                bases += '\n  '
-            bases += '%4d,' % base
-        return textwrap.dedent("""\
+                bases += "\n  "
+            bases += "%4d," % base
+        return (
+            textwrap.dedent(
+                """\
             static const %s %s[] = {
               %s
             };
-            """) % (self.basis_ty(), name, bases)
+            """
+            )
+            % (self.basis_ty(), name, bases)
+        )
 
     def gen_entries(self, lower_entry):
         """Generate code for an entries table"""
-        entries = self._indent(',\n'.join(lower_entry(entry).rstrip()
-                                          for entry in self.phf.entries))
-        return textwrap.dedent("""\
+        entries = self._indent(
+            ",\n".join(lower_entry(entry).rstrip() for entry in self.phf.entries)
+        )
+        return (
+            textwrap.dedent(
+                """\
             const %s %s[] = {
               %s
             };
-            """) % (self.entry_type, self.entries_name, entries)
+            """
+            )
+            % (self.entry_type, self.entries_name, entries)
+        )
 
-    def gen_getter(self, name, return_type=None, return_entry='return entry;',
-                   key_type='const char*', key_bytes='aKey',
-                   key_length='strlen(aKey)'):
+    def gen_getter(
+        self,
+        name,
+        return_type=None,
+        return_entry="return entry;",
+        key_type="const char*",
+        key_bytes="aKey",
+        key_length="strlen(aKey)",
+    ):
         """Generate the code for a C++ getter.
 
         @param name         Name for the entry getter function.
@@ -248,9 +288,10 @@ class CGHelper(object):
         @param key_length   'size_t' expression to get length of 'aKey'"""
 
         if return_type is None:
-            return_type = 'const %s&' % self.entry_type
+            return_type = "const %s&" % self.entry_type
 
-        return textwrap.dedent("""
+        return textwrap.dedent(
+            """
             %(return_type)s
             %(name)s(%(key_type)s aKey)
             {
@@ -262,22 +303,22 @@ class CGHelper(object):
                                                          %(entries_name)s);
               %(return_entry)s
             }
-            """) % {
-                'name': name,
-                'basis_table': self._indent(self.basis_table()),
-                'entries_name': self.entries_name,
+            """
+        ) % {
+            "name": name,
+            "basis_table": self._indent(self.basis_table()),
+            "entries_name": self.entries_name,
+            "return_type": return_type,
+            "return_entry": self._indent(return_entry),
+            "key_type": key_type,
+            "key_bytes": key_bytes,
+            "key_length": key_length,
+        }
 
-                'return_type': return_type,
-                'return_entry': self._indent(return_entry),
-
-                'key_type': key_type,
-                'key_bytes': key_bytes,
-                'key_length': key_length,
-            }
-
-    def gen_jsflatstr_getter(self, name, return_type=None,
-                             return_entry='return entry;'):
-        """Generate code for a specialized getter taking JSFlatStrings.
+    def gen_jslinearstr_getter(
+        self, name, return_type=None, return_entry="return entry;"
+    ):
+        """Generate code for a specialized getter taking JSLinearStrings.
         This getter avoids copying the JS string, but only supports ASCII keys.
 
         @param name         Name for the entry getter function.
@@ -288,42 +329,42 @@ class CGHelper(object):
                             can be used for additional checks, e.g. for keys
                             not in the table."""
 
-        assert all(ord(b) <= 0x7f
-                   for e in self.phf.entries
-                   for b in self.phf.key(e)), "non-ASCII key"
+        assert all(
+            _ord(b) <= 0x7F for e in self.phf.entries for b in self.phf.key(e)
+        ), "non-ASCII key"
 
         if return_type is None:
-            return_type = 'const %s&' % self.entry_type
+            return_type = "const %s&" % self.entry_type
 
-        return textwrap.dedent("""
+        return textwrap.dedent(
+            """
             %(return_type)s
-            %(name)s(JSFlatString* aKey)
+            %(name)s(JSLinearString* aKey)
             {
               %(basis_table)s
 
-              size_t length = js::GetFlatStringLength(aKey);
-              JSLinearString* jsString = js::FlatStringToLinearString(aKey);
+              size_t length = JS::GetLinearStringLength(aKey);
 
               JS::AutoCheckCannotGC nogc;
-              if (js::LinearStringHasLatin1Chars(jsString)) {
+              if (JS::LinearStringHasLatin1Chars(aKey)) {
                 auto& entry = mozilla::perfecthash::Lookup(
-                  js::GetLatin1LinearStringChars(nogc, jsString),
+                  JS::GetLatin1LinearStringChars(nogc, aKey),
                   length, BASES, %(entries_name)s);
 
                 %(return_entry)s
               } else {
                 auto& entry = mozilla::perfecthash::Lookup(
-                  js::GetTwoByteLinearStringChars(nogc, jsString),
+                  JS::GetTwoByteLinearStringChars(nogc, aKey),
                   length, BASES, %(entries_name)s);
 
                 %(return_entry)s
               }
             }
-            """) % {
-                'name': name,
-                'basis_table': self._indent(self.basis_table()),
-                'entries_name': self.entries_name,
-
-                'return_type': return_type,
-                'return_entry': self._indent(return_entry, 2),
-            }
+            """
+        ) % {
+            "name": name,
+            "basis_table": self._indent(self.basis_table()),
+            "entries_name": self.entries_name,
+            "return_type": return_type,
+            "return_entry": self._indent(return_entry, 2),
+        }

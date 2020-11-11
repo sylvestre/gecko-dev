@@ -1,10 +1,9 @@
-// |reftest| skip-if(!this.hasOwnProperty('BigInt')) -- BigInt is not enabled unconditionally
 // Copyright (C) 2016 the V8 project authors. All rights reserved.
 // This code is governed by the BSD license found in the LICENSE file.
 /*---
 esid: sec-integer-indexed-exotic-objects-set-p-v-receiver
 description: >
-  Use OrginarySet if numeric key is not a CanonicalNumericIndex
+  Use OrdinarySet if numeric key is not a CanonicalNumericIndex
 info: |
   9.4.5.5 [[Set]] ( P, V, Receiver)
 
@@ -15,46 +14,37 @@ info: |
   ...
   3. Return ? OrdinarySet(O, P, V, Receiver).
 includes: [testBigIntTypedArray.js]
-features: [BigInt, Reflect, TypedArray]
+features: [align-detached-buffer-semantics-with-web-reality, BigInt, Reflect, TypedArray]
 ---*/
-
-var keys = [
-  "1.0",
-  "+1",
-  "1000000000000000000000",
-  "0.0000001"
-];
+var keys = ['1.0', '+1', '1000000000000000000000', '0.0000001'];
 
 testWithBigIntTypedArrayConstructors(function(TA) {
   keys.forEach(function(key) {
     var sample = new TA([42n]);
 
     assert.sameValue(
-      Reflect.set(sample, key, "ecma262"),
+      Reflect.set(sample, key, 'ecma262'),
       true,
-      "Return true setting a new property [" + key + "]"
+      'Reflect.set("new TA([42n])", key, "ecma262") must return true'
     );
-    assert.sameValue(sample[key], "ecma262");
+
+    assert.sameValue(sample[key], 'ecma262', 'The value of sample[key] is "ecma262"');
 
     assert.sameValue(
-      Reflect.set(sample, key, "es3000"),
+      Reflect.set(sample, key, 'es3000'),
       true,
-      "Return true setting a value to a writable property [" + key + "]"
+      'Reflect.set("new TA([42n])", key, "es3000") must return true'
     );
-    assert.sameValue(sample[key], "es3000");
+
+    assert.sameValue(sample[key], 'es3000', 'The value of sample[key] is "es3000"');
 
     Object.defineProperty(sample, key, {
       writable: false,
       value: undefined
     });
-    assert.sameValue(
-      Reflect.set(sample, key, 42),
-      false,
-      "Return false setting a value to a non-writable property [" + key + "]"
-    );
-    assert.sameValue(
-      sample[key], undefined, "non-writable [" + key + "] is preserved"
-    );
+
+    assert.sameValue(Reflect.set(sample, key, 42), false, 'Reflect.set("new TA([42n])", key, 42) must return false');
+    assert.sameValue(sample[key], undefined, 'The value of sample[key] is expected to equal `undefined`');
   });
 });
 

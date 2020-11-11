@@ -21,7 +21,7 @@ items in one or more *namespaces* using a structure like this:
      },
      {
        "namespace": "namespace2",
-       // delcarations for namespace 2...
+       // declarations for namespace 2...
      },
      // other namespaces...
    ]
@@ -79,7 +79,7 @@ Implementing a fixed Javascript property
 A static property is made available to extensions via Javascript
 entirely from the schema, using a fragment like this one:
 
-.. code-block:: json
+.. code-block:: js
 
    [
      "namespace": "myapi",

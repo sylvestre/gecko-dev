@@ -9,6 +9,7 @@
 
 #include "mozilla/Attributes.h"
 #include "mozilla/dom/cache/Types.h"
+#include "CacheCommon.h"
 #include "mozIStorageConnection.h"
 #include "nsStreamUtils.h"
 #include "nsTArrayForwardDeclare.h"
@@ -20,8 +21,8 @@ namespace mozilla {
 namespace dom {
 namespace cache {
 
-#define PADDING_FILE_NAME ".padding"
-#define PADDING_TMP_FILE_NAME ".padding-tmp"
+#define PADDING_FILE_NAME u".padding"
+#define PADDING_TMP_FILE_NAME u".padding-tmp"
 
 enum DirPaddingFile { FILE, TMP_FILE };
 
@@ -58,15 +59,28 @@ nsresult BodyDeleteFiles(const QuotaInfo& aQuotaInfo, nsIFile* aBaseDir,
 nsresult BodyDeleteOrphanedFiles(const QuotaInfo& aQuotaInfo, nsIFile* aBaseDir,
                                  nsTArray<nsID>& aKnownBodyIdList);
 
+// If aCanRemoveFiles is true, that means we are safe to touch the files which
+// can be accessed in other threads.
+// If it's not, that means we cannot remove the files which are possible to
+// created by other threads. Note that if the files are not expected, we should
+// be safe to remove them in any case.
+template <typename Func>
+nsresult BodyTraverseFiles(const QuotaInfo& aQuotaInfo, nsIFile* aBodyDir,
+                           const Func& aHandleFileFunc,
+                           const bool aCanRemoveFiles,
+                           const bool aTrackQuota = true);
+
 nsresult CreateMarkerFile(const QuotaInfo& aQuotaInfo);
 
 nsresult DeleteMarkerFile(const QuotaInfo& aQuotaInfo);
 
 bool MarkerFileExists(const QuotaInfo& aQuotaInfo);
 
-nsresult RemoveNsIFileRecursively(const QuotaInfo& aQuotaInfo, nsIFile* aFile);
+nsresult RemoveNsIFileRecursively(const QuotaInfo& aQuotaInfo, nsIFile* aFile,
+                                  const bool aTrackQuota = true);
 
-nsresult RemoveNsIFile(const QuotaInfo& aQuotaInfo, nsIFile* aFile);
+nsresult RemoveNsIFile(const QuotaInfo& aQuotaInfo, nsIFile* aFile,
+                       const bool aTrackQuota = true);
 
 void DecreaseUsageForQuotaInfo(const QuotaInfo& aQuotaInfo,
                                const int64_t& aUpdatingSize);

@@ -1,3 +1,4 @@
+// GENERATED, DO NOT EDIT
 // file: nans.js
 // Copyright (C) 2016 the V8 project authors.  All rights reserved.
 // This code is governed by the BSD license found in the LICENSE file.
@@ -7,6 +8,7 @@ description: |
     to create distinct bit representations on various platforms. These provide a
     weak basis for assertions regarding the consistent canonicalization of NaN
     values in Array buffers.
+defines: [NaNs]
 ---*/
 
 var NaNs = [

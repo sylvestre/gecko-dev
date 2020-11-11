@@ -2,8 +2,16 @@
 /* vim: set sts=2 sw=2 et tw=80: */
 "use strict";
 
-ChromeUtils.import("resource:///modules/PageActions.jsm");
-ChromeUtils.import("resource://testing-common/AddonTestUtils.jsm");
+// Load lazy so we create the app info first.
+ChromeUtils.defineModuleGetter(
+  this,
+  "PageActions",
+  "resource:///modules/PageActions.jsm"
+);
+
+const { AddonTestUtils } = ChromeUtils.import(
+  "resource://testing-common/AddonTestUtils.jsm"
+);
 
 const {
   createAppInfo,

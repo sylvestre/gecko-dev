@@ -58,7 +58,7 @@ Naming standards for class names:
 
 DevTools supports 2 different themes: the dark theme and the light theme. In order to support them, there are 2 class names available (`theme-dark` and `theme-light`).
 
-* Use [pre-defined CSS variables](https://developer.mozilla.org/en-US/docs/Tools/DevToolsColors) instead of hardcoding colors when possible.
+* Use [pre-defined CSS variables](https://searchfox.org/mozilla-central/source/devtools/client/themes/variables.css) instead of hardcoding colors when possible.
 * If you need to support themes and the pre-defined variables don't fit, define a variable with your custom colors at the beginning of the CSS file. This avoids selector duplication in the code.
 
 Example:
@@ -83,7 +83,7 @@ It's recommended to use SVG since it keeps the CSS clean when supporting multipl
 
 * Read [Writing Efficient CSS](https://developer.mozilla.org/en-US/docs/Web/Guide/CSS/Writing_efficient_CSS).
 * Use an iframe where possible so your rules are scoped to the smallest possible set of nodes.<!--TODO: is this still true? and also refine exactly when it is appropriate to use an iframe. Examples might help-->
-* If your CSS is used in `browser.xul`, you need to take special care with performance:
+* If your CSS is used in `browser.xhtml`, you need to take special care with performance:
  * Descendent selectors should be avoided.
  * If possible, find ways to use **only** id selectors, class selectors and selector groups.
 
@@ -109,8 +109,6 @@ The appropriate value for the `dir` attribute will then be set when the toolbox 
 ### Testing
 
 The recommended workflow to test RTL on DevTools is to use the [Force RTL extension](https://addons.mozilla.org/en-US/firefox/addon/force-rtl/). After changing the direction using Force RTL, you should restart DevTools to make sure all modules apply the new direction. A future version of Force RTL will be able to update dynamically all DevTools documents.<!--TODO: update when the fate of this addon/webextension is known--> 
-
-Going to `about:config` and setting `intl.uidirection.en` to rtl is not recommended, and will always require to re-open DevTools to have any impact.
 
 ## Toggles
 

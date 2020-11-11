@@ -7,9 +7,14 @@
 #ifndef mozilla_dom_simpledb_SDBConnection_h
 #define mozilla_dom_simpledb_SDBConnection_h
 
-#include "nsAutoPtr.h"
+#include <cstdint>
+#include "ErrorList.h"
+#include "mozilla/UniquePtr.h"
+#include "mozilla/dom/quota/PersistenceType.h"
+#include "nsCOMPtr.h"
+#include "nsID.h"
 #include "nsISDBConnection.h"
-#include "nsTArray.h"
+#include "nsISupports.h"
 
 #define NS_SDBCONNECTION_CONTRACTID "@mozilla.org/dom/sdb-connection;1"
 
@@ -31,15 +36,17 @@ class SDBRequest;
 class SDBRequestParams;
 
 class SDBConnection final : public nsISDBConnection {
+  typedef mozilla::dom::quota::PersistenceType PersistenceType;
   typedef mozilla::ipc::PBackgroundChild PBackgroundChild;
   typedef mozilla::ipc::PrincipalInfo PrincipalInfo;
 
   nsCOMPtr<nsISDBCloseCallback> mCloseCallback;
 
-  nsAutoPtr<PrincipalInfo> mPrincipalInfo;
+  UniquePtr<PrincipalInfo> mPrincipalInfo;
 
   SDBConnectionChild* mBackgroundActor;
 
+  PersistenceType mPersistenceType;
   bool mRunningRequest;
   bool mOpen;
   bool mAllowedToClose;

@@ -5,8 +5,7 @@
   <link rel="stylesheet" type="text/css"
         href="chrome://mochikit/content/tests/SimpleTest/test.css" />
 
-  <script type="application/javascript"
-          src="chrome://mochikit/content/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="chrome://mochikit/content/tests/SimpleTest/SimpleTest.js"></script>
 
   <script type="application/javascript"
           src="../common.js"></script>
@@ -32,7 +31,7 @@
       testAccessibleTree("grid", accTree);
 
       // ////////////////////////////////////////////////////////////////////////
-      // crazy grids (mad mix of ARIA and HTML tables)
+      // strange grids (mix of ARIA and HTML tables)
 
       accTree = {
         role: ROLE_TABLE,
@@ -65,7 +64,7 @@
           },
         ],
       };
-      testAccessibleTree("crazy_grid1", accTree);
+      testAccessibleTree("strange_grid1", accTree);
 
       accTree = {
         role: ROLE_TABLE,
@@ -74,8 +73,8 @@
             role: ROLE_ROW,
             tagName: "TR",
             children: [
-              { // td generic cell accessible
-                role: ROLE_CELL,
+              { // td implicit role="gridcell"
+                role: ROLE_GRID_CELL,
                 children: [
                   { // td text leaf
                     role: ROLE_TEXT_LEAF,
@@ -93,7 +92,7 @@
           },
         ],
       };
-      testAccessibleTree("crazy_grid2", accTree);
+      testAccessibleTree("strange_grid2", accTree);
 
       accTree = {
         role: ROLE_TABLE,
@@ -120,7 +119,7 @@
           },
         ],
       };
-      testAccessibleTree("crazy_grid3", accTree);
+      testAccessibleTree("strange_grid3", accTree);
 
       accTree = {
         role: ROLE_TABLE,
@@ -168,7 +167,7 @@
         ],
       };
 
-      testAccessibleTree("crazy_grid4", accTree);
+      testAccessibleTree("strange_grid4", accTree);
 
       // ////////////////////////////////////////////////////////////////////////
       // grids that could contain whitespace accessibles but shouldn't.
@@ -189,6 +188,30 @@
         ] };
 
       testAccessibleTree("whitespaces-grid", accTree);
+
+      // grids that could contain text container accessibles but shouldn't.
+
+      accTree =
+        { TABLE: [
+          { ROW: [
+            { GRID_CELL: [
+              { TEXT_LEAF: [ ] },
+            ] },
+            { GRID_CELL: [
+              { TEXT_LEAF: [ ] },
+            ] },
+          ] },
+          { ROW: [
+            { GRID_CELL: [
+              { TEXT_LEAF: [ ] },
+            ] },
+            { GRID_CELL: [
+              { TEXT_LEAF: [ ] },
+            ] },
+          ] },
+        ] };
+
+      testAccessibleTree("gridWithPresentationalBlockElement", accTree);
 
       SimpleTest.finish();
     }
@@ -217,7 +240,7 @@
     </div>
   </div>
 
-  <div id="crazy_grid1" role="grid">
+  <div id="strange_grid1" role="grid">
     <div role="row">
       <table role="presentation">
         <caption>caption</caption>
@@ -229,16 +252,16 @@
     </div>
   </div>
 
-  <div id="crazy_grid2" role="grid">
+  <div id="strange_grid2" role="grid">
     <table role="presentation">
       <tr role="row">
-        <td id="ct_cell1">cell1</td>
+        <td id="implicit_gridcell">cell1</td>
         <td role="gridcell">cell2</td>
       </tr>
     </table>
   </div>
 
-  <div id="crazy_grid3" role="grid">
+  <div id="strange_grid3" role="grid">
     <div role="row">
       <div role="gridcell">
         <table role="presentation">
@@ -250,7 +273,7 @@
     </div>
   </div>
 
-  <div id="crazy_grid4" role="grid">
+  <div id="strange_grid4" role="grid">
     <div role="row">
       <div role="gridcell">
         <table>
@@ -273,6 +296,23 @@
       <span role="gridcell" style="font-weight:bold;">test</span>
       <span role="gridcell">a user1</span>
     </div>
+  </div>
+
+  <div id="gridWithPresentationalBlockElement" role="grid">
+    <span style="display: block;">
+      <div role="row">
+        <div role="gridcell">Cell 1</div>
+        <div role="gridcell">Cell 2</div>
+      </div>
+    </span>
+    <span style="display: block;">
+      <div role="row">
+        <span style="display: block;">
+          <div role="gridcell">Cell 3</div>
+          <div role="gridcell">Cell 4</div>
+        </span>
+      </div>
+    </span>
   </div>
 </body>
 </html>

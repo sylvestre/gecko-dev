@@ -1,12 +1,12 @@
 //! Forest of maps.
 
 use super::{Comparator, Forest, Node, NodeData, NodePool, Path, INNER_SIZE};
-use packed_option::PackedOption;
+use crate::packed_option::PackedOption;
 #[cfg(test)]
-use std::fmt;
-use std::marker::PhantomData;
+use alloc::string::String;
 #[cfg(test)]
-use std::string::String;
+use core::fmt;
+use core::marker::PhantomData;
 
 /// Tag type defining forest types for a map.
 struct MapTypes<K, V>(PhantomData<(K, V)>);
@@ -231,7 +231,7 @@ where
 
     /// Get a text version of the path to `key`.
     fn tpath<C: Comparator<K>>(&self, key: K, forest: &MapForest<K, V>, comp: &C) -> String {
-        use std::string::ToString;
+        use alloc::string::ToString;
         match self.root.expand() {
             None => "map(empty)".to_string(),
             Some(root) => {
@@ -284,7 +284,7 @@ where
     ///
     /// If the cursor reaches the end, return `None` and leave the cursor at the off-the-end
     /// position.
-    #[cfg_attr(feature = "cargo-clippy", allow(should_implement_trait))]
+    #[cfg_attr(feature = "cargo-clippy", allow(clippy::should_implement_trait))]
     pub fn next(&mut self) -> Option<(K, V)> {
         self.path.next(self.pool)
     }
@@ -420,7 +420,7 @@ where
 
     /// Get a text version of the path to the current position.
     fn tpath(&self) -> String {
-        use std::string::ToString;
+        use alloc::string::ToString;
         self.path.to_string()
     }
 }
@@ -429,8 +429,8 @@ where
 mod tests {
     use super::super::NodeData;
     use super::*;
-    use std::mem;
-    use std::vec::Vec;
+    use alloc::vec::Vec;
+    use core::mem;
 
     #[test]
     fn node_size() {

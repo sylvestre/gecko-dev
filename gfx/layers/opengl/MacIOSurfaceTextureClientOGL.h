@@ -25,21 +25,24 @@ class MacIOSurfaceTextureData : public TextureData {
 
   ~MacIOSurfaceTextureData();
 
-  virtual void FillInfo(TextureData::Info& aInfo) const override;
+  void FillInfo(TextureData::Info& aInfo) const override;
 
-  virtual bool Lock(OpenMode) override;
+  bool Lock(OpenMode) override;
 
-  virtual void Unlock() override;
+  void Unlock() override;
 
-  virtual already_AddRefed<gfx::DrawTarget> BorrowDrawTarget() override;
+  already_AddRefed<gfx::DrawTarget> BorrowDrawTarget() override;
 
-  virtual bool Serialize(SurfaceDescriptor& aOutDescriptor) override;
+  bool Serialize(SurfaceDescriptor& aOutDescriptor) override;
 
-  virtual void Deallocate(LayersIPCChannel*) override;
+  void GetSubDescriptor(
+      RemoteDecoderVideoSubDescriptor* const aOutDesc) override;
 
-  virtual void Forget(LayersIPCChannel*) override;
+  void Deallocate(LayersIPCChannel*) override;
 
-  virtual bool UpdateFromSurface(gfx::SourceSurface* aSurface) override;
+  void Forget(LayersIPCChannel*) override;
+
+  bool UpdateFromSurface(gfx::SourceSurface* aSurface) override;
 
   // For debugging purposes only.
   already_AddRefed<gfx::DataSourceSurface> GetAsSurface();

@@ -13,11 +13,11 @@
 #include "build/build_config.h"
 
 #if defined(OS_WIN)
-#include <windows.h>
+#include "base/win/windows_types.h"
 #endif
 
 #if defined(OS_FUCHSIA)
-#include <magenta/types.h>
+#include <zircon/types.h>
 #endif
 
 namespace base {
@@ -32,10 +32,10 @@ typedef HANDLE UserTokenHandle;
 const ProcessHandle kNullProcessHandle = NULL;
 const ProcessId kNullProcessId = 0;
 #elif defined(OS_FUCHSIA)
-typedef mx_handle_t ProcessHandle;
-typedef mx_koid_t ProcessId;
-const ProcessHandle kNullProcessHandle = MX_HANDLE_INVALID;
-const ProcessId kNullProcessId = MX_KOID_INVALID;
+typedef zx_handle_t ProcessHandle;
+typedef zx_koid_t ProcessId;
+const ProcessHandle kNullProcessHandle = ZX_HANDLE_INVALID;
+const ProcessId kNullProcessId = ZX_KOID_INVALID;
 #elif defined(OS_POSIX)
 // On POSIX, our ProcessHandle will just be the PID.
 typedef pid_t ProcessHandle;
@@ -53,6 +53,46 @@ const ProcessId kNullProcessId = 0;
 #define CrPRIdPid "d"
 #endif
 
+class UniqueProcId {
+ public:
+  explicit UniqueProcId(ProcessId value) : value_(value) {}
+  UniqueProcId(const UniqueProcId& other) = default;
+  UniqueProcId& operator=(const UniqueProcId& other) = default;
+
+  // Returns the process PID. WARNING: On some platforms, the pid may not be
+  // valid within the current process sandbox.
+  ProcessId GetUnsafeValue() const { return value_; }
+
+  bool operator==(const UniqueProcId& other) const {
+    return value_ == other.value_;
+  }
+
+  bool operator!=(const UniqueProcId& other) const {
+    return value_ != other.value_;
+  }
+
+  bool operator<(const UniqueProcId& other) const {
+    return value_ < other.value_;
+  }
+
+  bool operator<=(const UniqueProcId& other) const {
+    return value_ <= other.value_;
+  }
+
+  bool operator>(const UniqueProcId& other) const {
+    return value_ > other.value_;
+  }
+
+  bool operator>=(const UniqueProcId& other) const {
+    return value_ >= other.value_;
+  }
+
+ private:
+  ProcessId value_;
+};
+
+std::ostream& operator<<(std::ostream& os, const UniqueProcId& obj);
+
 // Returns the id of the current process.
 // Note that on some platforms, this is not guaranteed to be unique across
 // processes (use GetUniqueIdForProcess if uniqueness is required).
@@ -60,9 +100,8 @@ BASE_EXPORT ProcessId GetCurrentProcId();
 
 // Returns a unique ID for the current process. The ID will be unique across all
 // currently running processes within the chrome session, but IDs of terminated
-// processes may be reused. This returns an opaque value that is different from
-// a process's PID.
-BASE_EXPORT uint32_t GetUniqueIdForProcess();
+// processes may be reused.
+BASE_EXPORT UniqueProcId GetUniqueIdForProcess();
 
 #if defined(OS_LINUX)
 // When a process is started in a different PID namespace from the browser
@@ -88,6 +127,8 @@ BASE_EXPORT ProcessId GetProcId(ProcessHandle process);
 
 #if !defined(OS_FUCHSIA)
 // Returns the ID for the parent of the given process. Not available on Fuchsia.
+// Returning a negative value indicates an error, such as if the |process| does
+// not exist. Returns 0 when |process| has no parent process.
 BASE_EXPORT ProcessId GetParentProcessId(ProcessHandle process);
 #endif  // !defined(OS_FUCHSIA)
 

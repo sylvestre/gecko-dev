@@ -7,7 +7,6 @@ use nsstring::nsCString;
 use servo_arc::Arc;
 use style::context::QuirksMode;
 use style::gecko::data::GeckoStyleSheet;
-use style::gecko::global_style_data::GLOBAL_STYLE_DATA;
 use style::gecko_bindings::bindings;
 use style::gecko_bindings::bindings::Gecko_LoadStyleSheet;
 use style::gecko_bindings::structs::{Loader, LoaderReusableStyleSheets};
@@ -16,9 +15,11 @@ use style::gecko_bindings::structs::{
 };
 use style::gecko_bindings::sugar::ownership::{FFIArcHelpers, HasBoxFFI, OwnedOrNull};
 use style::gecko_bindings::sugar::refptr::RefPtr;
+use style::global_style_data::GLOBAL_STYLE_DATA;
 use style::media_queries::MediaList;
 use style::parser::ParserContext;
 use style::shared_lock::{Locked, SharedRwLock};
+use style::stylesheets::AllowImportRules;
 use style::stylesheets::import_rule::ImportSheet;
 use style::stylesheets::{ImportRule, Origin, StylesheetLoader as StyleStylesheetLoader};
 use style::stylesheets::{StylesheetContents, UrlExtraData};
@@ -63,7 +64,7 @@ impl StyleStylesheetLoader for StylesheetLoader {
                 self.1,
                 self.2,
                 self.3,
-                url.0.clone().into_strong(),
+                &url,
                 media.into_strong(),
             )
         };
@@ -90,6 +91,7 @@ pub struct AsyncStylesheetParser {
     quirks_mode: QuirksMode,
     line_number_offset: u32,
     should_record_use_counters: bool,
+    allow_import_rules: AllowImportRules,
 }
 
 impl AsyncStylesheetParser {
@@ -101,6 +103,7 @@ impl AsyncStylesheetParser {
         quirks_mode: QuirksMode,
         line_number_offset: u32,
         should_record_use_counters: bool,
+        allow_import_rules: AllowImportRules,
     ) -> Self {
         AsyncStylesheetParser {
             load_data,
@@ -110,6 +113,7 @@ impl AsyncStylesheetParser {
             quirks_mode,
             line_number_offset,
             should_record_use_counters,
+            allow_import_rules,
         }
     }
 
@@ -134,7 +138,9 @@ impl AsyncStylesheetParser {
             None,
             self.quirks_mode.into(),
             self.line_number_offset,
-            use_counters.as_ref().map(|c| &**c),
+            use_counters.as_deref(),
+            self.allow_import_rules,
+            /* sanitized_output = */ None,
         ));
 
         let use_counters = match use_counters {
@@ -171,7 +177,7 @@ impl StyleStylesheetLoader for AsyncStylesheetParser {
         unsafe {
             bindings::Gecko_LoadStyleSheetAsync(
                 self.load_data.get(),
-                url.0.into_strong(),
+                &url,
                 media.into_strong(),
                 rule.clone().into_strong(),
             );

@@ -134,8 +134,11 @@ inline bool roundsAtMidpoint(int roundingMode) {
 /**
  * Computes the number of fraction digits in a double. Used for computing maxFrac for an increment.
  * Calls into the DoubleToStringConverter library to do so.
+ *
+ * @param singleDigit An output parameter; set to a number if that is the
+ *        only digit in the double, or -1 if there is more than one digit.
  */
-digits_t doubleFractionLength(double input);
+digits_t doubleFractionLength(double input, int8_t* singleDigit);
 
 } // namespace roundingutils
 
@@ -147,7 +150,7 @@ digits_t doubleFractionLength(double input);
  */
 class RoundingImpl {
   public:
-    RoundingImpl() = default;  // default constructor: leaves object in undefined state
+    RoundingImpl() = default;  // defaults to pass-through rounder
 
     RoundingImpl(const Precision& precision, UNumberFormatRoundingMode roundingMode,
                  const CurrencyUnit& currency, UErrorCode& status);
@@ -183,7 +186,7 @@ class RoundingImpl {
   private:
     Precision fPrecision;
     UNumberFormatRoundingMode fRoundingMode;
-    bool fPassThrough;
+    bool fPassThrough = true;  // default value
 };
 
 

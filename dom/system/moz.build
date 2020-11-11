@@ -6,28 +6,28 @@
 
 # This picks up *hapticfeedback* which is graveyard
 with Files("**"):
-    BUG_COMPONENT = ("Core", "DOM")
+    BUG_COMPONENT = ("Core", "DOM: Core & HTML")
 
 with Files("*OSFile*"):
     BUG_COMPONENT = ("Toolkit", "OS.File")
 
 with Files("*ocationProvider*"):
-    BUG_COMPONENT = ("Core", "Geolocation")
+    BUG_COMPONENT = ("Core", "DOM: Geolocation")
 
 with Files("windows/*LocationProvider*"):
-    BUG_COMPONENT = ("Core", "Geolocation")
+    BUG_COMPONENT = ("Core", "DOM: Geolocation")
 
 with Files("mac/*LocationProvider*"):
-    BUG_COMPONENT = ("Core", "Geolocation")
+    BUG_COMPONENT = ("Core", "DOM: Geolocation")
 
 with Files("mac/*OSPermissionRequest*"):
-    BUG_COMPONENT = ("Firefox", "Device Permissions")
+    BUG_COMPONENT = ("Firefox", "Site Permissions")
 
 with Files("linux/*LocationProvider*"):
-    BUG_COMPONENT = ("Core", "Geolocation")
+    BUG_COMPONENT = ("Core", "DOM: Geolocation")
 
 with Files("android/*LocationProvider*"):
-    BUG_COMPONENT = ("Core", "Geolocation")
+    BUG_COMPONENT = ("Core", "DOM: Geolocation")
 
 with Files("tests/chrome.ini"):
     BUG_COMPONENT = ("Toolkit", "OS.File")
@@ -41,59 +41,69 @@ with Files("tests/mochitest.ini"):
 with Files("tests/*1197901*"):
     BUG_COMPONENT = ("Core", "DOM: Device Interfaces")
 
-toolkit = CONFIG['MOZ_WIDGET_TOOLKIT']
+toolkit = CONFIG["MOZ_WIDGET_TOOLKIT"]
 
-if toolkit == 'windows':
-    DIRS += ['windows']
-elif toolkit == 'cocoa':
-    DIRS += ['mac']
-elif toolkit == 'android':
-    DIRS += ['android']
-elif toolkit == 'gtk3':
-    DIRS += ['linux']
+if toolkit == "windows":
+    DIRS += ["windows"]
+elif toolkit == "cocoa":
+    DIRS += ["mac"]
+elif toolkit == "android":
+    DIRS += ["android"]
+elif toolkit == "gtk":
+    DIRS += ["linux"]
 
-if toolkit != 'cocoa':
+if toolkit != "cocoa":
     EXPORTS += [
-        'nsOSPermissionRequest.h',
+        "nsOSPermissionRequest.h",
     ]
 
 XPIDL_SOURCES += [
-    'nsIOSFileConstantsService.idl',
-    'nsIOSPermissionRequest.idl',
+    "nsIOSFileConstantsService.idl",
+    "nsIOSPermissionRequest.idl",
 ]
 
-XPIDL_MODULE = 'dom_system'
+XPIDL_MODULE = "dom_system"
 
 EXPORTS += [
-    'nsDeviceSensors.h',
-    'nsOSPermissionRequestBase.h',
+    "nsDeviceSensors.h",
+    "nsOSPermissionRequestBase.h",
 ]
 
 EXPORTS.mozilla += [
-    'OSFileConstants.h',
+    "OSFileConstants.h",
+]
+
+EXPORTS.mozilla.dom += [
+    "IOUtils.h",
+    "PathUtils.h",
 ]
 
 UNIFIED_SOURCES += [
-    'nsDeviceSensors.cpp',
-    'nsOSPermissionRequestBase.cpp',
-    'OSFileConstants.cpp',
+    "IOUtils.cpp",
+    "nsDeviceSensors.cpp",
+    "nsOSPermissionRequestBase.cpp",
+    "OSFileConstants.cpp",
+    "PathUtils.cpp",
 ]
 
-EXTRA_COMPONENTS += [
-    'NetworkGeolocationProvider.js',
-    'NetworkGeolocationProvider.manifest',
+EXTRA_JS_MODULES += [
+    "NetworkGeolocationProvider.jsm",
 ]
 
-include('/ipc/chromium/chromium-config.mozbuild')
+XPCOM_MANIFESTS += [
+    "components.conf",
+]
 
-FINAL_LIBRARY = 'xul'
+include("/ipc/chromium/chromium-config.mozbuild")
+
+FINAL_LIBRARY = "xul"
 # We fire the nsDOMDeviceAcceleration
 LOCAL_INCLUDES += [
-    '/dom/base',
-    '/dom/bindings',
-    '/js/xpconnect/loader',
-    '/xpcom/base',
+    "/dom/base",
+    "/dom/bindings",
+    "/js/xpconnect/loader",
+    "/xpcom/base",
 ]
 
-MOCHITEST_CHROME_MANIFESTS += ['tests/chrome.ini']
-MOCHITEST_MANIFESTS += ['tests/mochitest.ini']
+MOCHITEST_CHROME_MANIFESTS += ["tests/chrome.ini", "tests/ioutils/chrome.ini"]
+MOCHITEST_MANIFESTS += ["tests/mochitest.ini"]

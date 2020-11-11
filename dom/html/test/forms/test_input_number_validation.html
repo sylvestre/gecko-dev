@@ -5,8 +5,8 @@ https://bugzilla.mozilla.org/show_bug.cgi?id=827161
 -->
 <head>
   <title>Test validation of number control input</title>
-  <script type="application/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
-  <script type="text/javascript" src="/tests/SimpleTest/EventUtils.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/EventUtils.js"></script>
   <script type="text/javascript" src="test_input_number_data.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css"/>
   <meta charset="UTF-8">
@@ -111,10 +111,6 @@ function checkIsInvalid(element, infoStr)
 {
   ok(element.validity.badInput,
      "Element should suffer from bad input for " + infoStr);
-  if (element.id == "requiredinput") {
-    ok(element.validity.valueMissing,
-       "Element should suffer from value missing for " + infoStr);
-  }
   ok(!element.validity.valid, "Element should not be valid for " + infoStr);
   ok(!element.checkValidity(), "checkValidity() should return false for " + infoStr);
   ok(gInvalid, "The invalid event should have been thrown for " + infoStr);

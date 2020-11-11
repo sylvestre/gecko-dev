@@ -15,15 +15,16 @@ import android.graphics.Matrix;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.os.Build;
-import android.support.annotation.NonNull;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.annotation.UiThread;
 import android.util.Log;
 import android.view.ActionMode;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 
-import java.util.Arrays;
-import java.util.List;
+import org.mozilla.gecko.util.ThreadUtils;
 
 /**
  * Class that implements a basic SelectionActionDelegate. This class is used by GeckoView by
@@ -40,9 +41,10 @@ import java.util.List;
  *
  * 4) Override {@link #performAction} to perform a custom action when used.
  */
+@UiThread
 public class BasicSelectionActionDelegate implements ActionMode.Callback,
                                                      GeckoSession.SelectionActionDelegate {
-    private static final String LOGTAG = "GeckoBasicSelectionAction";
+    private static final String LOGTAG = "BasicSelectionAction";
 
     protected static final String ACTION_PROCESS_TEXT = Intent.ACTION_PROCESS_TEXT;
 
@@ -53,18 +55,16 @@ public class BasicSelectionActionDelegate implements ActionMode.Callback,
         ACTION_SELECT_ALL, ACTION_CUT, ACTION_COPY, ACTION_PASTE
     };
 
-    protected final Activity mActivity;
+    protected final @NonNull Activity mActivity;
     protected final boolean mUseFloatingToolbar;
-    protected final Matrix mTempMatrix = new Matrix();
-    protected final RectF mTempRect = new RectF();
+    protected final @NonNull Matrix mTempMatrix = new Matrix();
+    protected final @NonNull RectF mTempRect = new RectF();
 
     private boolean mExternalActionsEnabled;
 
-    protected ActionMode mActionMode;
-    protected GeckoSession mSession;
-    protected Selection mSelection;
-    protected List<String> mActions;
-    protected GeckoResponse<String> mResponse;
+    protected @Nullable ActionMode mActionMode;
+    protected @Nullable GeckoSession mSession;
+    protected @Nullable Selection mSelection;
     protected boolean mRepopulatedMenu;
 
     @TargetApi(Build.VERSION_CODES.M)
@@ -96,10 +96,12 @@ public class BasicSelectionActionDelegate implements ActionMode.Callback,
         }
     }
 
+    @SuppressWarnings("checkstyle:javadocmethod")
     public BasicSelectionActionDelegate(final @NonNull Activity activity) {
         this(activity, Build.VERSION.SDK_INT >= 23);
     }
 
+    @SuppressWarnings("checkstyle:javadocmethod")
     public BasicSelectionActionDelegate(final @NonNull Activity activity,
                                         final boolean useFloatingToolbar) {
         mActivity = activity;
@@ -113,6 +115,7 @@ public class BasicSelectionActionDelegate implements ActionMode.Callback,
      * @param enable True if external actions should be enabled.
      */
     public void enableExternalActions(final boolean enable) {
+        ThreadUtils.assertOnUiThread();
         mExternalActionsEnabled = enable;
 
         if (mActionMode != null) {
@@ -148,13 +151,32 @@ public class BasicSelectionActionDelegate implements ActionMode.Callback,
      * @return True if the action is presently available.
      */
     protected boolean isActionAvailable(final @NonNull String id) {
+        if (mSelection == null) {
+            return false;
+        }
+
         if (mExternalActionsEnabled && !mSelection.text.isEmpty() &&
                 ACTION_PROCESS_TEXT.equals(id)) {
             final PackageManager pm = mActivity.getPackageManager();
             return pm.resolveActivity(getProcessTextIntent(),
                                       PackageManager.MATCH_DEFAULT_ONLY) != null;
         }
-        return mActions.contains(id);
+        return mSelection.isActionAvailable(id);
+    }
+
+    /**
+     * Provides access to whether there are text selection actions available. Override to indicate
+     * availability for custom actions.
+     *
+     * @return True if there are text selection actions available.
+     */
+    public boolean isActionAvailable() {
+        if (mSelection == null) {
+            return false;
+        }
+
+        return isActionAvailable(ACTION_PROCESS_TEXT) ||
+                !mSelection.availableActions.isEmpty();
     }
 
     /**
@@ -201,10 +223,10 @@ public class BasicSelectionActionDelegate implements ActionMode.Callback,
             return true;
         }
 
-        if (mResponse == null) {
+        if (mSelection == null) {
             return false;
         }
-        mResponse.respond(id);
+        mSelection.execute(id);
 
         // Android behavior is to clear selection on copy.
         if (ACTION_COPY.equals(id)) {
@@ -218,17 +240,30 @@ public class BasicSelectionActionDelegate implements ActionMode.Callback,
     }
 
     /**
+     * Get the current selection object. This object should not be stored as it does not update
+     * when the selection becomes invalid. Stale actions are ignored.
+     *
+     * @return The {@link GeckoSession.SelectionActionDelegate.Selection} attached to the current
+     *         action menu. <code>null</code> if no action menu is active.
+     */
+    public @Nullable Selection getSelection() {
+        return mSelection;
+    }
+
+    /**
      * Clear the current selection, if possible.
      */
-    protected void clearSelection() {
-        if (mResponse != null) {
-            if (isActionAvailable(ACTION_COLLAPSE_TO_END)) {
-                mResponse.respond(ACTION_COLLAPSE_TO_END);
-            } else if (isActionAvailable(ACTION_UNSELECT)) {
-                mResponse.respond(ACTION_UNSELECT);
-            } else {
-                mResponse.respond(ACTION_HIDE);
-            }
+    public void clearSelection() {
+        if (mSelection == null) {
+            return;
+        }
+
+        if (isActionAvailable(ACTION_COLLAPSE_TO_END)) {
+            mSelection.collapseToEnd();
+        } else if (isActionAvailable(ACTION_UNSELECT)) {
+            mSelection.unselect();
+        } else {
+            mSelection.hide();
         }
     }
 
@@ -244,6 +279,7 @@ public class BasicSelectionActionDelegate implements ActionMode.Callback,
 
     @Override
     public boolean onCreateActionMode(final ActionMode actionMode, final Menu menu) {
+        ThreadUtils.assertOnUiThread();
         final String[] allActions = getAllActions();
         for (final String actionId : allActions) {
             if (isActionAvailable(actionId)) {
@@ -260,6 +296,7 @@ public class BasicSelectionActionDelegate implements ActionMode.Callback,
 
     @Override
     public boolean onPrepareActionMode(final ActionMode actionMode, final Menu menu) {
+        ThreadUtils.assertOnUiThread();
         final String[] allActions = getAllActions();
         boolean changed = false;
 
@@ -302,6 +339,7 @@ public class BasicSelectionActionDelegate implements ActionMode.Callback,
 
     @Override
     public boolean onActionItemClicked(final ActionMode actionMode, final MenuItem menuItem) {
+        ThreadUtils.assertOnUiThread();
         MenuItem realMenuItem = null;
         if (mRepopulatedMenu) {
             // When we repopulate an existing menu, Android can sometimes give us an old,
@@ -329,18 +367,20 @@ public class BasicSelectionActionDelegate implements ActionMode.Callback,
 
     @Override
     public void onDestroyActionMode(final ActionMode actionMode) {
+        ThreadUtils.assertOnUiThread();
         if (!mUseFloatingToolbar) {
             clearSelection();
         }
         mSession = null;
         mSelection = null;
-        mActions = null;
-        mResponse = null;
         mActionMode = null;
     }
 
-    public void onGetContentRect(final ActionMode mode, final View view, final Rect outRect) {
-        if (mSelection.clientRect == null) {
+    @SuppressWarnings("checkstyle:javadocmethod")
+    public void onGetContentRect(final @Nullable ActionMode mode, final @Nullable View view,
+                                 final @NonNull Rect outRect) {
+        ThreadUtils.assertOnUiThread();
+        if (mSelection == null || mSelection.clientRect == null) {
             return;
         }
         mSession.getClientToScreenMatrix(mTempMatrix);
@@ -350,16 +390,13 @@ public class BasicSelectionActionDelegate implements ActionMode.Callback,
 
     @TargetApi(Build.VERSION_CODES.M)
     @Override
-    public void onShowActionRequest(final GeckoSession session, final Selection selection,
-                                    final String[] actions,
-                                    final GeckoResponse<String> response) {
+    public void onShowActionRequest(final GeckoSession session, final Selection selection) {
+        ThreadUtils.assertOnUiThread();
         mSession = session;
         mSelection = selection;
-        mActions = Arrays.asList(actions);
-        mResponse = response;
 
         if (mActionMode != null) {
-            if (actions.length > 0) {
+            if (isActionAvailable()) {
                 mActionMode.invalidate();
             } else {
                 mActionMode.finish();
@@ -376,7 +413,8 @@ public class BasicSelectionActionDelegate implements ActionMode.Callback,
     }
 
     @Override
-    public void onHideAction(GeckoSession session, int reason) {
+    public void onHideAction(final GeckoSession session, final int reason) {
+        ThreadUtils.assertOnUiThread();
         if (mActionMode == null) {
             return;
         }

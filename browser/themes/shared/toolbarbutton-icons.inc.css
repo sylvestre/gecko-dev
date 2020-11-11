@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 :root {
   --toolbarbutton-icon-fill-attention: var(--lwt-toolbarbutton-icon-fill-attention, #0a84ff);
 }
@@ -20,9 +24,11 @@ toolbar[brighttext] {
 }
 
 .toolbarbutton-animatable-box {
+  display: block;
   position: absolute;
   overflow: hidden;
   z-index: 2;
+  pointer-events: none;
 }
 
 .toolbarbutton-animatable-box > .toolbarbutton-animatable-image {
@@ -55,11 +61,11 @@ toolbar[brighttext] {
 
 /* The animations for the reload-button and stop-button are disabled
    outside of the nav-bar due to bug 1382894. */
-:-moz-any(#reload-button, #stop-button) > .toolbarbutton-animatable-box {
+:is(#reload-button, #stop-button) > .toolbarbutton-animatable-box {
   display: none;
 }
-#nav-bar-customization-target > #stop-reload-button > :-moz-any(#reload-button, #stop-button) > .toolbarbutton-animatable-box {
-  display: -moz-box;
+#nav-bar-customization-target > #stop-reload-button > :is(#reload-button, #stop-button) > .toolbarbutton-animatable-box {
+  display: block;
 }
 
 #stop-reload-button[animate] > #reload-button > .toolbarbutton-icon,
@@ -200,7 +206,7 @@ toolbar[brighttext] {
 }
 
 #add-ons-button {
-  list-style-image: url("chrome://mozapps/skin/extensions/extensionGeneric-16.svg");
+  list-style-image: url("chrome://mozapps/skin/extensions/extension.svg");
 }
 
 #open-file-button {
@@ -250,8 +256,43 @@ toolbar[brighttext] {
   list-style-image: url("chrome://browser/skin/developer.svg");
 }
 
+#profiler-button > .toolbarbutton-icon {
+  list-style-image: url("chrome://devtools/skin/images/tool-profiler.svg");
+}
+
+#profiler-button:not(.profiler-active) > image {
+  transform: scaleX(-1);
+}
+
+#profiler-button.profiler-active > image {
+  fill: #0060df;
+  fill-opacity: 1;
+  background-color: #0060df33;
+}
+
+#profiler-button.profiler-active:hover > image {
+  background-color: #0060df22;
+}
+
+#profiler-button.profiler-paused > image {
+  opacity: 0.4;
+}
+
+#profiler-button > .toolbarbutton-menu-dropmarker {
+  /* Inherit the fill and fill-opacity values from the toolbarbutton
+     instead of using the values from .toolbarbutton-menu-dropmarker */
+  -moz-context-properties: fill, fill-opacity;
+  fill: inherit;
+  fill-opacity: inherit;
+}
+
+.widget-overflow-list #profiler-button > .toolbarbutton-menu-dropmarker,
+#customization-palette #profiler-button > .toolbarbutton-menu-dropmarker {
+  display: none;
+}
+
 #preferences-button {
-  list-style-image: url("chrome://browser/skin/settings.svg");
+  list-style-image: url("chrome://global/skin/icons/settings.svg");
 }
 
 #PanelUI-menu-button {
@@ -259,6 +300,7 @@ toolbar[brighttext] {
 }
 
 #PanelUI-menu-button[badge-status="update-available"],
+#PanelUI-menu-button[badge-status="update-downloading"],
 #PanelUI-menu-button[badge-status="update-manual"],
 #PanelUI-menu-button[badge-status="update-restart"] {
   list-style-image: url("chrome://browser/skin/menu-badged.svg");
@@ -396,10 +438,6 @@ toolbar[brighttext] {
   fill: rgb(213, 32, 20);
 }
 
-#webide-button {
-  list-style-image: url("chrome://browser/skin/webIDE.svg");
-}
-
 #library-button {
   list-style-image: url("chrome://browser/skin/library.svg");
 }
@@ -471,14 +509,19 @@ toolbar[brighttext] {
 
 #library-animatable-box[animate] > .toolbarbutton-animatable-image {
   min-height: 54px; /* Minimum height must be equal to the height of the SVG sprite */
+  width: 1078px;
+  animation-duration: 800ms;
+  animation-timing-function: steps(48);
+}
+
+#library-animatable-box[animate][fade] > .toolbarbutton-animatable-image {
+  animation-duration: 2s;
+  animation-timing-function: ease-out;
 }
 
 #library-animatable-box[animate="bookmark"] > .toolbarbutton-animatable-image {
   background-image: url("chrome://browser/skin/library-bookmark-animation.svg");
-  width: 1078px;
   animation-name: library-bookmark-animation;
-  animation-duration: 800ms;
-  animation-timing-function: steps(48);
   -moz-context-properties: fill, fill-opacity, stroke;
   stroke: var(--toolbarbutton-icon-fill-attention);
 }
@@ -489,8 +532,66 @@ toolbar[brighttext] {
 
 #library-animatable-box[animate="bookmark"][fade] > .toolbarbutton-animatable-image {
   animation-name: library-bookmark-fade;
-  animation-duration: 2s;
-  animation-timing-function: ease-out;
+}
+
+@keyframes library-pocket-animation {
+  from {
+    transform: translateX(0);
+    fill: inherit;
+  }
+  25% {
+    fill: inherit;
+  }
+  50% {
+    fill: #ef4056;
+  }
+  to {
+    transform: translateX(-1056px);
+    fill: #ef4056;
+  }
+}
+
+@keyframes library-pocket-animation-rtl {
+  from {
+    transform: translateX(1056px);
+    fill: inherit;
+  }
+  25% {
+    fill: inherit;
+  }
+  50% {
+    fill: #ef4056;
+  }
+  to {
+    transform: translateX(0);
+    fill: #ef4056;
+  }
+}
+
+/* We need to use an animation here instead of a transition
+   to guarantee that the animation succeeds. With transitions
+   if the starting value is already equal to the end value
+   then no transition will occur and thus no transitionend event. */
+@keyframes library-pocket-fade {
+  from {
+    fill: #ef4056;
+  }
+  to {
+    fill: inherit;
+  }
+}
+
+#library-animatable-box[animate="pocket"] > .toolbarbutton-animatable-image {
+  background-image: url("chrome://browser/skin/library-pocket-animation.svg");
+  animation-name: library-pocket-animation;
+}
+
+#library-animatable-box[animate="pocket"]:-moz-locale-dir(rtl) > .toolbarbutton-animatable-image {
+  animation-name: library-pocket-animation-rtl;
+}
+
+#library-animatable-box[animate="pocket"][fade] > .toolbarbutton-animatable-image {
+  animation-name: library-pocket-fade;
 }
 
 /* ----- BOOKMARK BUTTONS ----- */
@@ -527,4 +628,16 @@ toolbarbutton.bookmark-item {
 
 .bookmark-item[query][hostContainer] {
   list-style-image: url("chrome://browser/skin/places/folder.svg");
+}
+
+#whats-new-menu-button {
+  list-style-image: url("chrome://browser/skin/whatsnew.svg");
+}
+
+#ion-button {
+  list-style-image: url("chrome://browser/skin/ion.svg");
+}
+
+#import-button {
+  list-style-image: url("chrome://browser/skin/import.svg");
 }

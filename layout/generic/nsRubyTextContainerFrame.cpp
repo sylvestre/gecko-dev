@@ -9,6 +9,7 @@
 #include "nsRubyTextContainerFrame.h"
 
 #include "mozilla/ComputedStyle.h"
+#include "mozilla/PresShell.h"
 #include "mozilla/UniquePtr.h"
 #include "mozilla/WritingModes.h"
 #include "nsLineLayout.h"
@@ -27,9 +28,10 @@ NS_QUERYFRAME_TAIL_INHERITING(nsContainerFrame)
 
 NS_IMPL_FRAMEARENA_HELPERS(nsRubyTextContainerFrame)
 
-nsContainerFrame* NS_NewRubyTextContainerFrame(nsIPresShell* aPresShell,
+nsContainerFrame* NS_NewRubyTextContainerFrame(PresShell* aPresShell,
                                                ComputedStyle* aStyle) {
-  return new (aPresShell) nsRubyTextContainerFrame(aStyle);
+  return new (aPresShell)
+      nsRubyTextContainerFrame(aStyle, aPresShell->GetPresContext());
 }
 
 //----------------------------------------------------------------------
@@ -39,40 +41,46 @@ nsContainerFrame* NS_NewRubyTextContainerFrame(nsIPresShell* aPresShell,
 
 #ifdef DEBUG_FRAME_DUMP
 nsresult nsRubyTextContainerFrame::GetFrameName(nsAString& aResult) const {
-  return MakeFrameName(NS_LITERAL_STRING("RubyTextContainer"), aResult);
+  return MakeFrameName(u"RubyTextContainer"_ns, aResult);
 }
 #endif
 
-/* virtual */ bool nsRubyTextContainerFrame::IsFrameOfType(
-    uint32_t aFlags) const {
+/* virtual */
+bool nsRubyTextContainerFrame::IsFrameOfType(uint32_t aFlags) const {
   if (aFlags & (eSupportsCSSTransforms | eSupportsContainLayoutAndPaint)) {
     return false;
   }
   return nsContainerFrame::IsFrameOfType(aFlags);
 }
 
-/* virtual */ void nsRubyTextContainerFrame::SetInitialChildList(
-    ChildListID aListID, nsFrameList& aChildList) {
+/* virtual */
+void nsRubyTextContainerFrame::SetInitialChildList(ChildListID aListID,
+                                                   nsFrameList& aChildList) {
   nsContainerFrame::SetInitialChildList(aListID, aChildList);
   if (aListID == kPrincipalList) {
     UpdateSpanFlag();
   }
 }
 
-/* virtual */ void nsRubyTextContainerFrame::AppendFrames(
-    ChildListID aListID, nsFrameList& aFrameList) {
+/* virtual */
+void nsRubyTextContainerFrame::AppendFrames(ChildListID aListID,
+                                            nsFrameList& aFrameList) {
   nsContainerFrame::AppendFrames(aListID, aFrameList);
   UpdateSpanFlag();
 }
 
-/* virtual */ void nsRubyTextContainerFrame::InsertFrames(
-    ChildListID aListID, nsIFrame* aPrevFrame, nsFrameList& aFrameList) {
-  nsContainerFrame::InsertFrames(aListID, aPrevFrame, aFrameList);
+/* virtual */
+void nsRubyTextContainerFrame::InsertFrames(
+    ChildListID aListID, nsIFrame* aPrevFrame,
+    const nsLineList::iterator* aPrevFrameLine, nsFrameList& aFrameList) {
+  nsContainerFrame::InsertFrames(aListID, aPrevFrame, aPrevFrameLine,
+                                 aFrameList);
   UpdateSpanFlag();
 }
 
-/* virtual */ void nsRubyTextContainerFrame::RemoveFrame(ChildListID aListID,
-                                                         nsIFrame* aOldFrame) {
+/* virtual */
+void nsRubyTextContainerFrame::RemoveFrame(ChildListID aListID,
+                                           nsIFrame* aOldFrame) {
   nsContainerFrame::RemoveFrame(aListID, aOldFrame);
   UpdateSpanFlag();
 }
@@ -96,9 +104,11 @@ void nsRubyTextContainerFrame::UpdateSpanFlag() {
   }
 }
 
-/* virtual */ void nsRubyTextContainerFrame::Reflow(
-    nsPresContext* aPresContext, ReflowOutput& aDesiredSize,
-    const ReflowInput& aReflowInput, nsReflowStatus& aStatus) {
+/* virtual */
+void nsRubyTextContainerFrame::Reflow(nsPresContext* aPresContext,
+                                      ReflowOutput& aDesiredSize,
+                                      const ReflowInput& aReflowInput,
+                                      nsReflowStatus& aStatus) {
   MarkInReflow();
   DO_GLOBAL_REFLOW_COUNT("nsRubyTextContainerFrame");
   DISPLAY_REFLOW(aPresContext, this, aReflowInput, aDesiredSize, aStatus);
@@ -127,14 +137,13 @@ void nsRubyTextContainerFrame::UpdateSpanFlag() {
     maxBCoord = std::max(maxBCoord, blockEnd);
   }
 
-  LogicalSize size(rtcWM, mISize, 0);
   if (!mFrames.IsEmpty()) {
     if (MOZ_UNLIKELY(minBCoord > maxBCoord)) {
       // XXX When bug 765861 gets fixed, this warning should be upgraded.
       NS_WARNING("bad block coord");
       minBCoord = maxBCoord = 0;
     }
-    size.BSize(rtcWM) = maxBCoord - minBCoord;
+    LogicalSize size(rtcWM, mISize, maxBCoord - minBCoord);
     nsSize containerSize = size.GetPhysicalSize(rtcWM);
     for (nsFrameList::Enumerator e(mFrames); !e.AtEnd(); e.Next()) {
       nsIFrame* child = e.get();
@@ -149,7 +158,15 @@ void nsRubyTextContainerFrame::UpdateSpanFlag() {
       child->SetPosition(rtcWM, pos, containerSize);
       nsContainerFrame::PlaceFrameView(child);
     }
+    aDesiredSize.SetSize(rtcWM, size);
+  } else {
+    // If this ruby text container is empty, size it as if there were
+    // an empty inline child inside.
+    // Border and padding are suppressed on ruby text container, so we
+    // create a dummy zero-sized borderPadding for setting BSize.
+    aDesiredSize.ISize(rtcWM) = mISize;
+    LogicalMargin borderPadding(rtcWM);
+    nsLayoutUtils::SetBSizeFromFontMetrics(this, aDesiredSize, borderPadding,
+                                           rtcWM, rtcWM);
   }
-
-  aDesiredSize.SetSize(rtcWM, size);
 }

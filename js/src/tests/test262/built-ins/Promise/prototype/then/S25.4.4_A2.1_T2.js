@@ -1,3 +1,4 @@
+// |reftest| async
 // Copyright 2014 Cubane Canada, Inc.  All rights reserved.
 // See LICENSE for details.
 
@@ -33,6 +34,7 @@ p1.then(function(msg) {
 p2.catch(function(msg) {
   sequence.push(msg);
 }).then(function() {
+  assert.sameValue(sequence.length, 3);
   checkSequence(sequence, "Expected 1,2,3");
 }).then($DONE, $DONE);
 

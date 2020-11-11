@@ -87,7 +87,8 @@ bool MediaCodecs::ContainsPrefix(const nsAString& aCodecPrefix) const {
   const size_t prefixLength = aCodecPrefix.Length();
   for (const auto& myCodec : Range()) {
     if (myCodec.Length() >= prefixLength &&
-        memcmp(myCodec.Data(), aCodecPrefix.Data(), prefixLength) == 0) {
+        memcmp(myCodec.Data(), aCodecPrefix.Data(),
+               prefixLength * sizeof(char16_t)) == 0) {
       return true;
     }
   }
@@ -144,7 +145,8 @@ MediaExtendedMIMEType::MediaExtendedMIMEType(const MediaMIMEType& aType)
 MediaExtendedMIMEType::MediaExtendedMIMEType(MediaMIMEType&& aType)
     : mOriginalString(aType.AsString()), mMIMEType(std::move(aType)) {}
 
-/* static */ Maybe<double> MediaExtendedMIMEType::ComputeFractionalString(
+/* static */
+Maybe<double> MediaExtendedMIMEType::ComputeFractionalString(
     const nsAString& aFrac) {
   nsAutoString frac(aFrac);
   nsresult error;
@@ -156,7 +158,7 @@ MediaExtendedMIMEType::MediaExtendedMIMEType(MediaMIMEType&& aType)
     return Some(result);
   }
 
-  int32_t slashPos = frac.Find(NS_LITERAL_STRING("/"));
+  int32_t slashPos = frac.Find(u"/"_ns);
   if (slashPos == kNotFound) {
     return Nothing();
   }

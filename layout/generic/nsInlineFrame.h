@@ -14,6 +14,10 @@
 
 class nsLineLayout;
 
+namespace mozilla {
+class PresShell;
+}  // namespace mozilla
+
 /**
  * Inline frame class.
  *
@@ -25,7 +29,7 @@ class nsInlineFrame : public nsContainerFrame {
   NS_DECL_QUERYFRAME
   NS_DECL_FRAMEARENA_HELPERS(nsInlineFrame)
 
-  friend nsInlineFrame* NS_NewInlineFrame(nsIPresShell* aPresShell,
+  friend nsInlineFrame* NS_NewInlineFrame(mozilla::PresShell* aPresShell,
                                           ComputedStyle* aStyle);
 
   // nsIFrame overrides
@@ -65,18 +69,20 @@ class nsInlineFrame : public nsContainerFrame {
 
   virtual void DestroyFrom(nsIFrame* aDestructRoot,
                            PostDestroyData& aPostDestroyData) override;
-  virtual nsresult StealFrame(nsIFrame* aChild) override;
+  void StealFrame(nsIFrame* aChild) override;
 
   // nsIHTMLReflow overrides
   virtual void AddInlineMinISize(gfxContext* aRenderingContext,
                                  InlineMinISizeData* aData) override;
   virtual void AddInlinePrefISize(gfxContext* aRenderingContext,
                                   InlinePrefISizeData* aData) override;
-  virtual mozilla::LogicalSize ComputeSize(
-      gfxContext* aRenderingContext, mozilla::WritingMode aWritingMode,
-      const mozilla::LogicalSize& aCBSize, nscoord aAvailableISize,
-      const mozilla::LogicalSize& aMargin, const mozilla::LogicalSize& aBorder,
-      const mozilla::LogicalSize& aPadding, ComputeSizeFlags aFlags) override;
+  SizeComputationResult ComputeSize(gfxContext* aRenderingContext,
+                                    mozilla::WritingMode aWM,
+                                    const mozilla::LogicalSize& aCBSize,
+                                    nscoord aAvailableISize,
+                                    const mozilla::LogicalSize& aMargin,
+                                    const mozilla::LogicalSize& aBorderPadding,
+                                    mozilla::ComputeSizeFlags aFlags) override;
   virtual nsRect ComputeTightBounds(DrawTarget* aDrawTarget) const override;
   virtual void Reflow(nsPresContext* aPresContext, ReflowOutput& aDesiredSize,
                       const ReflowInput& aReflowInput,
@@ -98,9 +104,9 @@ class nsInlineFrame : public nsContainerFrame {
   bool IsFirst() const {
     // If the frame's bidi visual state is set, return is-first state
     // else return true if it's the first continuation.
-    return (GetStateBits() & NS_INLINE_FRAME_BIDI_VISUAL_STATE_IS_SET)
-               ? !!(GetStateBits() & NS_INLINE_FRAME_BIDI_VISUAL_IS_FIRST)
-               : (!GetPrevInFlow());
+    return HasAnyStateBits(NS_INLINE_FRAME_BIDI_VISUAL_STATE_IS_SET)
+               ? HasAnyStateBits(NS_INLINE_FRAME_BIDI_VISUAL_IS_FIRST)
+               : !GetPrevInFlow();
   }
 
   /**
@@ -109,9 +115,9 @@ class nsInlineFrame : public nsContainerFrame {
   bool IsLast() const {
     // If the frame's bidi visual state is set, return is-last state
     // else return true if it's the last continuation.
-    return (GetStateBits() & NS_INLINE_FRAME_BIDI_VISUAL_STATE_IS_SET)
-               ? !!(GetStateBits() & NS_INLINE_FRAME_BIDI_VISUAL_IS_LAST)
-               : (!GetNextInFlow());
+    return HasAnyStateBits(NS_INLINE_FRAME_BIDI_VISUAL_STATE_IS_SET)
+               ? HasAnyStateBits(NS_INLINE_FRAME_BIDI_VISUAL_IS_LAST)
+               : !GetNextInFlow();
   }
 
   // Restyles the block wrappers around our non-inline-outside kids.
@@ -120,7 +126,7 @@ class nsInlineFrame : public nsContainerFrame {
       mozilla::ServoRestyleState& aRestyleState);
 
  protected:
-  // Additional reflow state used during our reflow methods
+  // Additional reflow input used during our reflow methods
   struct InlineReflowInput {
     nsIFrame* mPrevFrame;
     nsInlineFrame* mNextInFlow;
@@ -138,8 +144,9 @@ class nsInlineFrame : public nsContainerFrame {
     }
   };
 
-  nsInlineFrame(ComputedStyle* aStyle, ClassID aID)
-      : nsContainerFrame(aStyle, aID), mBaseline(NS_INTRINSIC_WIDTH_UNKNOWN) {}
+  nsInlineFrame(ComputedStyle* aStyle, nsPresContext* aPresContext, ClassID aID)
+      : nsContainerFrame(aStyle, aPresContext, aID),
+        mBaseline(NS_INTRINSIC_ISIZE_UNKNOWN) {}
 
   virtual LogicalSides GetLogicalSkipSides(
       const ReflowInput* aReflowInput = nullptr) const override;
@@ -162,8 +169,8 @@ class nsInlineFrame : public nsContainerFrame {
                           nsIFrame* aPrevSibling, InlineReflowInput& aState);
 
  private:
-  explicit nsInlineFrame(ComputedStyle* aStyle)
-      : nsInlineFrame(aStyle, kClassID) {}
+  explicit nsInlineFrame(ComputedStyle* aStyle, nsPresContext* aPresContext)
+      : nsInlineFrame(aStyle, aPresContext, kClassID) {}
 
   /**
    * Move any frames on our overflow list to the end of our principal list.
@@ -186,7 +193,7 @@ class nsFirstLineFrame final : public nsInlineFrame {
  public:
   NS_DECL_FRAMEARENA_HELPERS(nsFirstLineFrame)
 
-  friend nsFirstLineFrame* NS_NewFirstLineFrame(nsIPresShell* aPresShell,
+  friend nsFirstLineFrame* NS_NewFirstLineFrame(mozilla::PresShell* aPresShell,
                                                 ComputedStyle* aStyle);
 
 #ifdef DEBUG_FRAME_DUMP
@@ -202,8 +209,8 @@ class nsFirstLineFrame final : public nsInlineFrame {
   virtual bool DrainSelfOverflowList() override;
 
  protected:
-  explicit nsFirstLineFrame(ComputedStyle* aStyle)
-      : nsInlineFrame(aStyle, kClassID) {}
+  explicit nsFirstLineFrame(ComputedStyle* aStyle, nsPresContext* aPresContext)
+      : nsInlineFrame(aStyle, aPresContext, kClassID) {}
 
   nsIFrame* PullOneFrame(nsPresContext*, InlineReflowInput&) override;
 };

@@ -12,14 +12,14 @@
 #include "mozilla/dom/EventTarget.h"
 #include "mozilla/dom/EventTargetBinding.h"
 #include "nsPresContext.h"
-#include "nsIDocument.h"
+#include "mozilla/dom/Document.h"
 
-#define ONCHANGE_STRING NS_LITERAL_STRING("change")
+#define ONCHANGE_STRING u"change"_ns
 
 namespace mozilla {
 namespace dom {
 
-MediaQueryList::MediaQueryList(nsIDocument* aDocument,
+MediaQueryList::MediaQueryList(Document* aDocument,
                                const nsAString& aMediaQueryList,
                                CallerType aCallerType)
     : DOMEventTargetHelper(aDocument->GetInnerWindow()),
@@ -31,7 +31,7 @@ MediaQueryList::MediaQueryList(nsIDocument* aDocument,
   KeepAliveIfHasListenersFor(ONCHANGE_STRING);
 }
 
-MediaQueryList::~MediaQueryList() {}
+MediaQueryList::~MediaQueryList() = default;
 
 NS_IMPL_CYCLE_COLLECTION_CLASS(MediaQueryList)
 
@@ -78,7 +78,7 @@ void MediaQueryList::AddListener(EventListener* aListener, ErrorResult& aRv) {
   AddEventListenerOptionsOrBoolean options;
   options.SetAsBoolean() = false;
 
-  AddEventListener(ONCHANGE_STRING, aListener, options, false, aRv);
+  AddEventListener(ONCHANGE_STRING, aListener, options, Nullable<bool>(), aRv);
 }
 
 void MediaQueryList::EventListenerAdded(nsAtom* aType) {
@@ -118,53 +118,33 @@ void MediaQueryList::RecomputeMatches() {
     return;
   }
 
-  // FIXME(emilio, bug 1490401): We shouldn't need a pres context to evaluate
-  // media queries.
-  nsPresContext* presContext = mDocument->GetPresContext();
-  if (!presContext && mDocument->GetParentDocument()) {
-    // Flush frames on the parent so our prescontext will get
-    // created if needed.
-    mDocument->GetParentDocument()->FlushPendingNotifications(
-        FlushType::Frames);
-    // That might have killed our document, so recheck that.
-    if (!mDocument) {
-      return;
-    }
-
-    presContext = mDocument->GetPresContext();
-  }
-
-  if (!presContext) {
-    // XXXbz What's the right behavior here?  Spec doesn't say.
-    return;
-  }
-
-  mMatches = mMediaList->Matches(presContext);
+  mMatches = mMediaList->Matches(*mDocument);
   mMatchesValid = true;
 }
 
-nsISupports* MediaQueryList::GetParentObject() const { return mDocument; }
+nsISupports* MediaQueryList::GetParentObject() const {
+  return ToSupports(mDocument);
+}
 
 JSObject* MediaQueryList::WrapObject(JSContext* aCx,
                                      JS::Handle<JSObject*> aGivenProto) {
   return MediaQueryList_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-void MediaQueryList::MaybeNotify() {
+bool MediaQueryList::MediaFeatureValuesChanged() {
   mMatchesValid = false;
 
   if (!HasListeners()) {
-    return;
+    return false;  // No need to recompute or notify if we have no listeners.
   }
 
   bool oldMatches = mMatches;
   RecomputeMatches();
 
-  // No need to notify the change.
-  if (mMatches == oldMatches) {
-    return;
-  }
+  return mMatches != oldMatches;
+}
 
+void MediaQueryList::FireChangeEvent() {
   MediaQueryListEventInit init;
   init.mBubbles = false;
   init.mCancelable = false;

@@ -6,84 +6,125 @@
 
 ChromeUtils.import("resource:///modules/SitePermissions.jsm", this);
 
-function newURI(url) {
-  return Services.io.newURI(url);
+function newPrincipal(origin) {
+  return Services.scriptSecurityManager.createContentPrincipalFromOrigin(
+    origin
+  );
 }
 
 // This tests the key used to store the URI -> permission map on a tab.
 add_task(async function testTemporaryPermissionTabURLs() {
-
   // Prevent showing a dialog for https://name:password@example.com
-  SpecialPowers.pushPrefEnv({set: [
-        ["network.http.phishy-userpass-length", 2048],
-  ]});
+  SpecialPowers.pushPrefEnv({
+    set: [["network.http.phishy-userpass-length", 2048]],
+  });
 
   // This usually takes about 60 seconds on 32bit Linux debug,
   // due to the combinatory nature of the test that is hard to fix.
   requestLongerTimeout(2);
 
-
-  let same = [ newURI("https://example.com"),
-               newURI("https://example.com/sub/path"),
-               newURI("https://example.com:443") ];
-  let different = [ newURI("https://example.com"),
-                    newURI("https://name:password@example.com"),
-                    newURI("https://test1.example.com"),
-                    newURI("http://example.com"),
-                    newURI("http://example.org") ];
+  let same = [
+    newPrincipal("https://example.com"),
+    newPrincipal("https://example.com:443"),
+    newPrincipal("https://test1.example.com"),
+    newPrincipal("https://name:password@example.com"),
+    newPrincipal("http://example.com"),
+  ];
+  let different = [
+    newPrincipal("https://example.com"),
+    newPrincipal("http://example.org"),
+    newPrincipal("http://example.net"),
+  ];
 
   let id = "microphone";
 
   await BrowserTestUtils.withNewTab("about:blank", async function(browser) {
-    for (let uri of same) {
-        let loaded = BrowserTestUtils.browserLoaded(browser, false, uri.spec);
-        BrowserTestUtils.loadURI(browser, uri.spec);
-        await loaded;
-
-        SitePermissions.set(uri, id, SitePermissions.BLOCK, SitePermissions.SCOPE_TEMPORARY, browser);
-
-        for (let uri2 of same) {
-          let loaded2 = BrowserTestUtils.browserLoaded(browser, false, uri2.spec);
-          BrowserTestUtils.loadURI(browser, uri2.spec);
-          await loaded2;
-
-          Assert.deepEqual(SitePermissions.get(uri2, id, browser), {
-            state: SitePermissions.BLOCK,
-            scope: SitePermissions.SCOPE_TEMPORARY,
-          }, `${uri.spec} should share tab permissions with ${uri2.spec}`);
-        }
-
-        SitePermissions.clearTemporaryPermissions(browser);
-    }
-
-    for (let uri of different) {
-      let loaded = BrowserTestUtils.browserLoaded(browser, false, uri.spec);
-      BrowserTestUtils.loadURI(browser, uri.spec);
+    for (let principal of same) {
+      let loaded = BrowserTestUtils.browserLoaded(
+        browser,
+        false,
+        principal.spec
+      );
+      BrowserTestUtils.loadURI(browser, principal.spec);
       await loaded;
 
-      SitePermissions.set(uri, id, SitePermissions.BLOCK, SitePermissions.SCOPE_TEMPORARY, browser);
+      SitePermissions.setForPrincipal(
+        principal,
+        id,
+        SitePermissions.BLOCK,
+        SitePermissions.SCOPE_TEMPORARY,
+        browser
+      );
 
-      Assert.deepEqual(SitePermissions.get(uri, id, browser), {
-        state: SitePermissions.BLOCK,
-        scope: SitePermissions.SCOPE_TEMPORARY,
-      });
+      for (let principal2 of same) {
+        let loaded2 = BrowserTestUtils.browserLoaded(
+          browser,
+          false,
+          principal2.URI.spec
+        );
+        BrowserTestUtils.loadURI(browser, principal2.URI.spec);
+        await loaded2;
 
-      for (let uri2 of different) {
-        loaded = BrowserTestUtils.browserLoaded(browser, false, uri2.spec);
-        BrowserTestUtils.loadURI(browser, uri2.spec);
+        Assert.deepEqual(
+          SitePermissions.getForPrincipal(principal2, id, browser),
+          {
+            state: SitePermissions.BLOCK,
+            scope: SitePermissions.SCOPE_TEMPORARY,
+          },
+          `${principal.spec} should share tab permissions with ${principal2.spec}`
+        );
+      }
+
+      SitePermissions.clearTemporaryPermissions(browser);
+    }
+
+    for (let principal of different) {
+      let loaded = BrowserTestUtils.browserLoaded(
+        browser,
+        false,
+        principal.spec
+      );
+      BrowserTestUtils.loadURI(browser, principal.spec);
+      await loaded;
+
+      SitePermissions.setForPrincipal(
+        principal,
+        id,
+        SitePermissions.BLOCK,
+        SitePermissions.SCOPE_TEMPORARY,
+        browser
+      );
+
+      Assert.deepEqual(
+        SitePermissions.getForPrincipal(principal, id, browser),
+        {
+          state: SitePermissions.BLOCK,
+          scope: SitePermissions.SCOPE_TEMPORARY,
+        }
+      );
+
+      for (let principal2 of different) {
+        loaded = BrowserTestUtils.browserLoaded(
+          browser,
+          false,
+          principal2.URI.spec
+        );
+        BrowserTestUtils.loadURI(browser, principal2.URI.spec);
         await loaded;
 
-        if (uri2 != uri) {
-          Assert.deepEqual(SitePermissions.get(uri2, id, browser), {
-            state: SitePermissions.UNKNOWN,
-            scope: SitePermissions.SCOPE_PERSISTENT,
-          }, `${uri.spec} should not share tab permissions with ${uri2.spec}`);
+        if (principal2 != principal) {
+          Assert.deepEqual(
+            SitePermissions.getForPrincipal(principal2, id, browser),
+            {
+              state: SitePermissions.UNKNOWN,
+              scope: SitePermissions.SCOPE_PERSISTENT,
+            },
+            `${principal.spec} should not share tab permissions with ${principal2.spec}`
+          );
         }
       }
 
       SitePermissions.clearTemporaryPermissions(browser);
     }
   });
-
 });
-

@@ -1,10 +1,12 @@
 use super::TokenStreamExt;
 
 use std::borrow::Cow;
+use std::iter;
+use std::rc::Rc;
 
 use proc_macro2::{Group, Ident, Literal, Punct, Span, TokenStream, TokenTree};
 
-/// Types that can be interpolated inside a [`quote!`] invocation.
+/// Types that can be interpolated inside a `quote!` invocation.
 ///
 /// [`quote!`]: macro.quote.html
 pub trait ToTokens {
@@ -21,11 +23,8 @@ pub trait ToTokens {
     /// `std::cmp::PartialEq`:
     ///
     /// ```
-    /// extern crate quote;
-    /// use quote::{TokenStreamExt, ToTokens};
-    ///
-    /// extern crate proc_macro2;
     /// use proc_macro2::{TokenTree, Spacing, Span, Punct, TokenStream};
+    /// use quote::{TokenStreamExt, ToTokens};
     ///
     /// pub struct Path {
     ///     pub global: bool,
@@ -52,10 +51,18 @@ pub trait ToTokens {
     /// #         unimplemented!()
     /// #     }
     /// # }
-    /// #
-    /// # fn main() {}
     /// ```
     fn to_tokens(&self, tokens: &mut TokenStream);
+
+    /// Convert `self` directly into a `TokenStream` object.
+    ///
+    /// This method is implicitly implemented using `to_tokens`, and acts as a
+    /// convenience method for consumers of the `ToTokens` trait.
+    fn to_token_stream(&self) -> TokenStream {
+        let mut tokens = TokenStream::new();
+        self.to_tokens(&mut tokens);
+        tokens
+    }
 
     /// Convert `self` directly into a `TokenStream` object.
     ///
@@ -65,13 +72,17 @@ pub trait ToTokens {
     where
         Self: Sized,
     {
-        let mut tokens = TokenStream::new();
-        self.to_tokens(&mut tokens);
-        tokens
+        self.to_token_stream()
     }
 }
 
 impl<'a, T: ?Sized + ToTokens> ToTokens for &'a T {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        (**self).to_tokens(tokens);
+    }
+}
+
+impl<'a, T: ?Sized + ToTokens> ToTokens for &'a mut T {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         (**self).to_tokens(tokens);
     }
@@ -84,6 +95,12 @@ impl<'a, T: ?Sized + ToOwned + ToTokens> ToTokens for Cow<'a, T> {
 }
 
 impl<T: ?Sized + ToTokens> ToTokens for Box<T> {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        (**self).to_tokens(tokens);
+    }
+}
+
+impl<T: ?Sized + ToTokens> ToTokens for Rc<T> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         (**self).to_tokens(tokens);
     }
@@ -124,12 +141,14 @@ primitive! {
     i16 => i16_suffixed
     i32 => i32_suffixed
     i64 => i64_suffixed
+    i128 => i128_suffixed
     isize => isize_suffixed
 
     u8 => u8_suffixed
     u16 => u16_suffixed
     u32 => u32_suffixed
     u64 => u64_suffixed
+    u128 => u128_suffixed
     usize => usize_suffixed
 
     f32 => f32_suffixed
@@ -181,7 +200,7 @@ impl ToTokens for TokenTree {
 
 impl ToTokens for TokenStream {
     fn to_tokens(&self, dst: &mut TokenStream) {
-        dst.append_all(self.clone().into_iter());
+        dst.extend(iter::once(self.clone()));
     }
 
     fn into_token_stream(self) -> TokenStream {

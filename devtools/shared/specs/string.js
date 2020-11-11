@@ -4,8 +4,7 @@
 "use strict";
 
 const protocol = require("devtools/shared/protocol");
-const {Arg, RetVal, generateActorSpec} = protocol;
-const promise = require("promise");
+const { Arg, RetVal, generateActorSpec } = protocol;
 
 const longStringSpec = generateActorSpec({
   typeName: "longstractor",
@@ -43,16 +42,16 @@ class SimpleStringFront {
   }
 
   string() {
-    return promise.resolve(this.str);
+    return Promise.resolve(this.str);
   }
 
   substring(start, end) {
-    return promise.resolve(this.str.substring(start, end));
+    return Promise.resolve(this.str.substring(start, end));
   }
 
   release() {
     this.str = null;
-    return promise.resolve(undefined);
+    return Promise.resolve(undefined);
   }
 }
 
@@ -78,7 +77,7 @@ protocol.types.addType("longstring", {
     if (context instanceof protocol.Actor) {
       throw Error("Passing a longstring as an argument isn't supported.");
     }
-    if (typeof (value) === "string") {
+    if (typeof value === "string") {
       return new SimpleStringFront(value);
     }
     return stringActorType.read(value, context, detail);

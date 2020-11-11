@@ -1,9 +1,3 @@
-# Run the font loader eagerly: this also ensures we will eagerly load localized
-# family names when looking up a requested font-family. Otherwise, tests here
-# may fail if they're running too soon after browser startup, and localized
-# names have not yet been read. (See bug 1439937.)
-default-preferences pref(gfx.font_loader.delay,0)
-
 == CSS21-t1502-no-inherited-font-family.xhtml CSS21-t1502-no-inherited-font-family-ref.xhtml
 
 # tests for bug 1394311 (case-insensitive lang tag processing)
@@ -97,8 +91,8 @@ random-if(/^Windows\x20NT\x206\.1/.test(http.oscpu)) == font-shorthand-stretch-1
 
 # bug 724231 - applying synthetic styles to a single @font-face font
 # should apply artificial obliquing, not switch to a true styled face
-!= synthetic-style-1.html synthetic-style-1-notref.html
-!= synthetic-style-2.html synthetic-style-2-notref.html
+fails-if(geckoview) != synthetic-style-1.html synthetic-style-1-notref.html # Bug 1558513 for GV
+fails-if(geckoview) != synthetic-style-2.html synthetic-style-2-notref.html # Bug 1558513 for GV
 
 # Bug 765906 - synthetic bold should be used if necessary together with system fallback.
 # **NOTE** we skip these on Linux because of bug 769659.
@@ -138,6 +132,8 @@ random-if(/^Windows\x20NT\x206\.1/.test(http.oscpu)) != italic-oblique-kinnari.h
 == emoji-fallback-1.html emoji-fallback-1-ref.html
 skip-if(gtkWidget||/^Windows\x20NT\x206\.1/.test(http.oscpu)) == emoji-fallback-2.html emoji-fallback-2-ref.html
 == emoji-fallback-3.html emoji-fallback-3-ref.html
+skip-if(/^Windows\x20NT\x206\.1/.test(http.oscpu)) != emoji-keycap.html emoji-keycap-notref.html
+== emoji-skintone.html emoji-skintone-ref.html
 
 # system font generic per-language tests, only works under OSX currently
 # Bug 1212731 - initial implementation caused startup regression and
@@ -161,4 +157,4 @@ skip-if(!winWidget) == legacy-family-names-2.html legacy-family-names-2-ref.html
 random-if(/^Windows\x20NT\x206\.1/.test(http.oscpu)) == descriptor-ranges.html descriptor-ranges-ref.html # Bug 1392106
 
 # Reset default prefs.
-default-preferences
+defaults

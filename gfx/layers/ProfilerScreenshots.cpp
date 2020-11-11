@@ -12,30 +12,20 @@
 #include "gfxUtils.h"
 #include "nsThreadUtils.h"
 #ifdef MOZ_GECKO_PROFILER
-#include "ProfilerMarkerPayload.h"
+#  include "ProfilerMarkerPayload.h"
 #endif
 
 using namespace mozilla;
+using namespace mozilla::gfx;
 using namespace mozilla::layers;
 
 ProfilerScreenshots::ProfilerScreenshots()
     : mMutex("ProfilerScreenshots::mMutex"), mLiveSurfaceCount(0) {}
 
-ProfilerScreenshots::~ProfilerScreenshots() {
-  if (mThread) {
-    // Shut down mThread. Do the actual shutdown on the main thread, because it
-    // has to happen on an XPCOM thread, and ~ProfilerScreenshots() may not be
-    // running on an XPCOM thread - it usually runs on the Compositor thread
-    // which is a chromium thread.
-    SystemGroup::Dispatch(
-        TaskCategory::Other,
-        NewRunnableMethod("ProfilerScreenshots::~ProfilerScreenshots", mThread,
-                          &nsIThread::Shutdown));
-    mThread = nullptr;
-  }
-}
+ProfilerScreenshots::~ProfilerScreenshots() = default;
 
-/* static */ bool ProfilerScreenshots::IsEnabled() {
+/* static */
+bool ProfilerScreenshots::IsEnabled() {
 #ifdef MOZ_GECKO_PROFILER
   return profiler_feature_active(ProfilerFeature::Screenshots);
 #else
@@ -58,21 +48,11 @@ void ProfilerScreenshots::SubmitScreenshot(
   bool succeeded = aPopulateSurface(backingSurface);
 
   if (!succeeded) {
-    PROFILER_ADD_MARKER(
-        "NoCompositorScreenshot because aPopulateSurface callback failed");
+    PROFILER_MARKER_UNTYPED(
+        "NoCompositorScreenshot because aPopulateSurface callback failed",
+        GRAPHICS);
     ReturnSurface(backingSurface);
     return;
-  }
-
-  if (!mThread) {
-    nsresult rv = NS_NewNamedThread("ProfScreenshot", getter_AddRefs(mThread));
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      PROFILER_ADD_MARKER(
-          "NoCompositorScreenshot because ProfilerScreenshots thread creation "
-          "failed");
-      ReturnSurface(backingSurface);
-      return;
-    }
   }
 
   int sourceThread = profiler_current_thread_id();
@@ -81,13 +61,15 @@ void ProfilerScreenshots::SubmitScreenshot(
   IntSize scaledSize = aScaledSize;
   TimeStamp timeStamp = aTimeStamp;
 
-  mThread->Dispatch(NS_NewRunnableFunction(
+  RefPtr<ProfilerScreenshots> self = this;
+
+  NS_DispatchBackgroundTask(NS_NewRunnableFunction(
       "ProfilerScreenshots::SubmitScreenshot",
-      [this, backingSurface, sourceThread, windowIdentifier, originalSize,
-       scaledSize, timeStamp]() {
+      [self{std::move(self)}, backingSurface, sourceThread, windowIdentifier,
+       originalSize, scaledSize, timeStamp]() {
         // Create a new surface that wraps backingSurface's data but has the
         // correct size.
-        {
+        if (profiler_can_accept_markers()) {
           DataSourceSurface::ScopedMap scopedMap(backingSurface,
                                                  DataSourceSurface::READ);
           RefPtr<DataSourceSurface> surf =
@@ -98,20 +80,21 @@ void ProfilerScreenshots::SubmitScreenshot(
           // Encode surf to a JPEG data URL.
           nsCString dataURL;
           nsresult rv = gfxUtils::EncodeSourceSurface(
-              surf, NS_LITERAL_CSTRING("image/jpeg"),
-              NS_LITERAL_STRING("quality=85"), gfxUtils::eDataURIEncode,
+              surf, ImageType::JPEG, u"quality=85"_ns, gfxUtils::eDataURIEncode,
               nullptr, &dataURL);
           if (NS_SUCCEEDED(rv)) {
             // Add a marker with the data URL.
+            AUTO_PROFILER_STATS(add_marker_with_ScreenshotPayload);
             profiler_add_marker_for_thread(
-                sourceThread, "CompositorScreenshot",
-                MakeUnique<ScreenshotPayload>(timeStamp, std::move(dataURL),
-                                              originalSize, windowIdentifier));
+                sourceThread, JS::ProfilingCategoryPair::GRAPHICS,
+                "CompositorScreenshot",
+                ScreenshotPayload(timeStamp, std::move(dataURL), originalSize,
+                                  windowIdentifier));
           }
         }
 
         // Return backingSurface back to the surface pool.
-        ReturnSurface(backingSurface);
+        self->ReturnSurface(backingSurface);
       }));
 #endif
 }

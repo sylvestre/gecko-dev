@@ -12,8 +12,10 @@ mod boilerplate;
 #[path = "common/image_helper.rs"]
 mod image_helper;
 
-use boilerplate::{Example, HandyDandyRectBuilder};
+use crate::boilerplate::{Example, HandyDandyRectBuilder};
 use webrender::api::*;
+use webrender::render_api::*;
+use webrender::api::units::*;
 
 struct App {
     image_key: ImageKey,
@@ -22,11 +24,11 @@ struct App {
 impl Example for App {
     fn render(
         &mut self,
-        _api: &RenderApi,
+        _api: &mut RenderApi,
         builder: &mut DisplayListBuilder,
         txn: &mut Transaction,
-        _framebuffer_size: DeviceIntSize,
-        _pipeline_id: PipelineId,
+        _device_size: DeviceIntSize,
+        pipeline_id: PipelineId,
         _document_id: DocumentId,
     ) {
         let (image_descriptor, image_data) = image_helper::make_checkerboard(32, 32);
@@ -38,40 +40,34 @@ impl Example for App {
         );
 
         let bounds = (0, 0).to(512, 512);
-        let info = LayoutPrimitiveInfo::new(bounds);
-        builder.push_stacking_context(
-            &info,
-            None,
-            TransformStyle::Flat,
-            MixBlendMode::Normal,
-            &[],
-            RasterSpace::Screen,
+        let space_and_clip = SpaceAndClipInfo::root_scroll(pipeline_id);
+
+        builder.push_simple_stacking_context(
+            bounds.origin,
+            space_and_clip.spatial_id,
+            PrimitiveFlags::IS_BACKFACE_VISIBLE,
         );
 
         let image_size = LayoutSize::new(100.0, 100.0);
 
-        let info = LayoutPrimitiveInfo::with_clip_rect(
-            LayoutRect::new(LayoutPoint::new(100.0, 100.0), image_size),
-            bounds,
-        );
         builder.push_image(
-            &info,
-            image_size,
-            LayoutSize::zero(),
+            &CommonItemProperties::new(
+                LayoutRect::new(LayoutPoint::new(100.0, 100.0), image_size),
+                space_and_clip,
+            ),
+            bounds,
             ImageRendering::Auto,
             AlphaType::PremultipliedAlpha,
             self.image_key,
             ColorF::WHITE,
         );
 
-        let info = LayoutPrimitiveInfo::with_clip_rect(
-            LayoutRect::new(LayoutPoint::new(250.0, 100.0), image_size),
-            bounds,
-        );
         builder.push_image(
-            &info,
-            image_size,
-            LayoutSize::zero(),
+            &CommonItemProperties::new(
+                LayoutRect::new(LayoutPoint::new(250.0, 100.0), image_size),
+                space_and_clip,
+            ),
+            bounds,
             ImageRendering::Pixelated,
             AlphaType::PremultipliedAlpha,
             self.image_key,
@@ -81,7 +77,7 @@ impl Example for App {
         builder.pop_stacking_context();
     }
 
-    fn on_event(&mut self, event: winit::WindowEvent, api: &RenderApi, document_id: DocumentId) -> bool {
+    fn on_event(&mut self, event: winit::WindowEvent, api: &mut RenderApi, document_id: DocumentId) -> bool {
         match event {
             winit::WindowEvent::KeyboardInput {
                 input: winit::KeyboardInput {
@@ -103,7 +99,7 @@ impl Example for App {
                 let mut txn = Transaction::new();
                 txn.update_image(
                     self.image_key,
-                    ImageDescriptor::new(64, 64, ImageFormat::BGRA8, true, false),
+                    ImageDescriptor::new(64, 64, ImageFormat::BGRA8, ImageDescriptorFlags::IS_OPAQUE),
                     ImageData::new(image_data),
                     &DirtyRect::All,
                 );

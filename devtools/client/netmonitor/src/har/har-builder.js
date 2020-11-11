@@ -12,12 +12,12 @@ const {
   getFormDataSections,
   getUrlQuery,
   parseQueryString,
-} = require("../utils/request-utils");
-const { buildHarLog } = require("./har-builder-utils");
-const L10N = new LocalizationHelper("devtools/client/locales/har.properties");
+} = require("devtools/client/netmonitor/src/utils/request-utils");
 const {
-  TIMING_KEYS,
-} = require("../constants");
+  buildHarLog,
+} = require("devtools/client/netmonitor/src/har/har-builder-utils");
+const L10N = new LocalizationHelper("devtools/client/locales/har.properties");
+const { TIMING_KEYS } = require("devtools/client/netmonitor/src/constants");
 
 /**
  * This object is responsible for building HAR file. See HAR spec:
@@ -86,7 +86,7 @@ HarBuilder.prototype = {
   },
 
   getPage: function(log, file) {
-    const id = this._options.id;
+    const { id } = this._options;
     let page = this._pageMap[id];
     if (page) {
       return page;
@@ -103,16 +103,16 @@ HarBuilder.prototype = {
 
     const entry = {};
     entry.pageref = page.id;
-    entry.startedDateTime = dateToJSON(new Date(file.startedMillis));
+    entry.startedDateTime = dateToJSON(new Date(file.startedMs));
 
-    let eventTimings = file.eventTimings;
+    let { eventTimings } = file;
     if (!eventTimings && this._options.requestData) {
       eventTimings = await this._options.requestData(file.id, "eventTimings");
     }
 
     entry.request = await this.buildRequest(file);
     entry.response = await this.buildResponse(file);
-    entry.cache = this.buildCache(file);
+    entry.cache = await this.buildCache(file);
     entry.timings = eventTimings ? eventTimings.timings : {};
 
     // Calculate total time by summing all timings. Note that
@@ -125,7 +125,7 @@ HarBuilder.prototype = {
     // handshake period.
     entry.time = TIMING_KEYS.reduce((sum, type) => {
       const time = entry.timings[type];
-      return (typeof time != "undefined") ? (sum + time) : sum;
+      return typeof time != "undefined" ? sum + time : sum;
     }, 0);
 
     // Security state isn't part of HAR spec, and so create
@@ -156,9 +156,11 @@ HarBuilder.prototype = {
       onLoad: -1,
     };
 
-    const getTimingMarker = this._options.getTimingMarker;
+    const { getTimingMarker } = this._options;
     if (getTimingMarker) {
-      timings.onContentLoad = getTimingMarker("firstDocumentDOMContentLoadedTimestamp");
+      timings.onContentLoad = getTimingMarker(
+        "firstDocumentDOMContentLoadedTimestamp"
+      );
       timings.onLoad = getTimingMarker("firstDocumentLoadTimestamp");
     }
 
@@ -170,14 +172,20 @@ HarBuilder.prototype = {
     // and requestCookies, but when we use it from netmonitor, FirefoxDataProvider
     // should fetch it itself lazily, via requestData.
 
-    let requestHeaders = file.requestHeaders;
+    let { requestHeaders } = file;
     if (!requestHeaders && this._options.requestData) {
-      requestHeaders = await this._options.requestData(file.id, "requestHeaders");
+      requestHeaders = await this._options.requestData(
+        file.id,
+        "requestHeaders"
+      );
     }
 
-    let requestCookies = file.requestCookies;
+    let { requestCookies } = file;
     if (!requestCookies && this._options.requestData) {
-      requestCookies = await this._options.requestData(file.id, "requestCookies");
+      requestCookies = await this._options.requestData(
+        file.id,
+        "requestCookies"
+      );
     }
 
     const request = {
@@ -193,7 +201,7 @@ HarBuilder.prototype = {
     request.headersSize = requestHeaders.headersSize;
     request.postData = await this.buildPostData(file);
 
-    if (request.postData && request.postData.text) {
+    if (request.postData?.text) {
       request.bodySize = request.postData.text.length;
     }
 
@@ -263,12 +271,15 @@ HarBuilder.prototype = {
     // When using HarAutomation, HarCollector will automatically fetch requestPostData
     // and requestHeaders, but when we use it from netmonitor, FirefoxDataProvider
     // should fetch it itself lazily, via requestData.
-    let requestPostData = file.requestPostData;
-    let requestHeaders = file.requestHeaders;
+    let { requestPostData } = file;
+    let { requestHeaders } = file;
     let requestHeadersFromUploadStream;
 
     if (!requestPostData && this._options.requestData) {
-      requestPostData = await this._options.requestData(file.id, "requestPostData");
+      requestPostData = await this._options.requestData(
+        file.id,
+        "requestPostData"
+      );
       requestHeadersFromUploadStream = requestPostData.uploadHeaders;
     }
 
@@ -277,7 +288,10 @@ HarBuilder.prototype = {
     }
 
     if (!requestHeaders && this._options.requestData) {
-      requestHeaders = await this._options.requestData(file.id, "requestHeaders");
+      requestHeaders = await this._options.requestData(
+        file.id,
+        "requestHeaders"
+      );
     }
 
     const postData = {
@@ -292,20 +306,22 @@ HarBuilder.prototype = {
     }
 
     // If we are dealing with URL encoded body, parse parameters.
-    if (CurlUtils.isUrlEncodedRequest({
-      headers: requestHeaders.headers,
-      postDataText: postData.text,
-    })) {
+    if (
+      CurlUtils.isUrlEncodedRequest({
+        headers: requestHeaders.headers,
+        postDataText: postData.text,
+      })
+    ) {
       postData.mimeType = "application/x-www-form-urlencoded";
       // Extract form parameters and produce nice HAR array.
       const formDataSections = await getFormDataSections(
         requestHeaders,
         requestHeadersFromUploadStream,
         requestPostData,
-        this._options.getString,
+        this._options.getString
       );
 
-      formDataSections.forEach((section) => {
+      formDataSections.forEach(section => {
         const paramsArray = parseQueryString(section);
         if (paramsArray) {
           postData.params = [...postData.params, ...paramsArray];
@@ -321,14 +337,20 @@ HarBuilder.prototype = {
     // and responseCookies, but when we use it from netmonitor, FirefoxDataProvider
     // should fetch it itself lazily, via requestData.
 
-    let responseHeaders = file.responseHeaders;
+    let { responseHeaders } = file;
     if (!responseHeaders && this._options.requestData) {
-      responseHeaders = await this._options.requestData(file.id, "responseHeaders");
+      responseHeaders = await this._options.requestData(
+        file.id,
+        "responseHeaders"
+      );
     }
 
-    let responseCookies = file.responseCookies;
+    let { responseCookies } = file;
     if (!responseCookies && this._options.requestData) {
-      responseCookies = await this._options.requestData(file.id, "responseCookies");
+      responseCookies = await this._options.requestData(
+        file.id,
+        "responseCookies"
+      );
     }
 
     const response = {
@@ -356,7 +378,7 @@ HarBuilder.prototype = {
     // Set to zero in case of responses coming from the cache (304).
     // Set to -1 if the info is not available.
     if (typeof file.transferredSize != "number") {
-      response.bodySize = (response.status == 304) ? 0 : -1;
+      response.bodySize = response.status == 304 ? 0 : -1;
     } else {
       response.bodySize = file.transferredSize;
     }
@@ -373,18 +395,22 @@ HarBuilder.prototype = {
     // When using HarAutomation, HarCollector will automatically fetch responseContent,
     // but when we use it from netmonitor, FirefoxDataProvider should fetch it itself
     // lazily, via requestData.
-    let responseContent = file.responseContent;
+    let { responseContent } = file;
     if (!responseContent && this._options.requestData) {
-      responseContent = await this._options.requestData(file.id, "responseContent");
+      responseContent = await this._options.requestData(
+        file.id,
+        "responseContent"
+      );
     }
-    if (responseContent && responseContent.content) {
+    if (responseContent?.content) {
       content.size = responseContent.content.size;
       content.encoding = responseContent.content.encoding;
     }
 
     const includeBodies = this._options.includeResponseBodies;
-    const contentDiscarded = responseContent ?
-      responseContent.contentDiscarded : false;
+    const contentDiscarded = responseContent
+      ? responseContent.contentDiscarded
+      : false;
 
     // The comment is appended only if the response content
     // is explicitly discarded.
@@ -394,7 +420,7 @@ HarBuilder.prototype = {
     }
 
     if (responseContent) {
-      const text = responseContent.content.text;
+      const { text } = responseContent.content;
       this.fetchData(text).then(value => {
         content.text = value;
       });
@@ -403,18 +429,24 @@ HarBuilder.prototype = {
     return content;
   },
 
-  buildCache: function(file) {
+  buildCache: async function(file) {
     const cache = {};
 
-    if (!file.fromCache) {
+    // if resource has changed, return early
+    if (file.status != "304") {
       return cache;
     }
 
-    // There is no such info yet in the Net panel.
-    // cache.beforeRequest = {};
-
-    if (file.cacheEntry) {
-      cache.afterRequest = this.buildCacheEntry(file.cacheEntry);
+    if (file.responseCacheAvailable && this._options.requestData) {
+      const responseCache = await this._options.requestData(
+        file.id,
+        "responseCache"
+      );
+      if (responseCache.cache) {
+        cache.afterRequest = this.buildCacheEntry(responseCache.cache);
+      }
+    } else if (file.responseCache?.cache) {
+      cache.afterRequest = this.buildCacheEntry(file.responseCache.cache);
     } else {
       cache.afterRequest = null;
     }
@@ -425,10 +457,22 @@ HarBuilder.prototype = {
   buildCacheEntry: function(cacheEntry) {
     const cache = {};
 
-    cache.expires = findValue(cacheEntry, "Expires");
-    cache.lastAccess = findValue(cacheEntry, "Last Fetched");
-    cache.eTag = "";
-    cache.hitCount = findValue(cacheEntry, "Fetch Count");
+    if (typeof cacheEntry !== "undefined") {
+      cache.expires = findKeys(cacheEntry, ["expires"]);
+      cache.lastFetched = findKeys(cacheEntry, ["lastFetched"]);
+      cache.eTag = findKeys(cacheEntry, ["eTag"]);
+      cache.fetchCount = findKeys(cacheEntry, ["fetchCount"]);
+
+      // har-importer.js, along with other files, use buildCacheEntry
+      // initial value comes from properties without underscores.
+      // this checks for both in appropriate order.
+      cache._dataSize = findKeys(cacheEntry, ["dataSize", "_dataSize"]);
+      cache._lastModified = findKeys(cacheEntry, [
+        "lastModified",
+        "_lastModified",
+      ]);
+      cache._device = findKeys(cacheEntry, ["device", "_device"]);
+    }
 
     return cache;
   },
@@ -446,8 +490,9 @@ HarBuilder.prototype = {
       return file.sendingTime;
     }
 
-    return (file.sendingTime > file.startTime) ?
-      file.sendingTime : file.waitingForTime;
+    return file.sendingTime > file.startTime
+      ? file.sendingTime
+      : file.waitingForTime;
   },
 
   // RDP Helpers
@@ -466,6 +511,33 @@ HarBuilder.prototype = {
 };
 
 // Helpers
+
+/**
+ * Find specified keys within an object.
+ * Searches object for keys passed in, returns first value returned,
+ * or an empty string.
+ *
+ * @param obj (object)
+ * @param keys (array)
+ * @returns {string}
+ */
+function findKeys(obj, keys) {
+  if (!keys) {
+    return "";
+  }
+
+  const keyFound = keys.filter(key => obj[key]);
+  if (!keys.length) {
+    return "";
+  }
+
+  const value = obj[keyFound[0]];
+  if (typeof value === "undefined" || typeof value === "object") {
+    return "";
+  }
+
+  return String(value);
+}
 
 /**
  * Find specified value within an array of name-value pairs
@@ -507,12 +579,19 @@ function dateToJSON(date) {
     return s;
   }
 
-  const result = date.getFullYear() + "-" +
-    f(date.getMonth() + 1) + "-" +
-    f(date.getDate()) + "T" +
-    f(date.getHours()) + ":" +
-    f(date.getMinutes()) + ":" +
-    f(date.getSeconds()) + "." +
+  const result =
+    date.getFullYear() +
+    "-" +
+    f(date.getMonth() + 1) +
+    "-" +
+    f(date.getDate()) +
+    "T" +
+    f(date.getHours()) +
+    ":" +
+    f(date.getMinutes()) +
+    ":" +
+    f(date.getSeconds()) +
+    "." +
     f(date.getMilliseconds(), 3);
 
   let offset = date.getTimezoneOffset();
@@ -522,8 +601,8 @@ function dateToJSON(date) {
   offset = Math.abs(offset);
   const offsetHours = Math.floor(offset / 60);
   const offsetMinutes = Math.floor(offset % 60);
-  const prettyOffset = (positive > 0 ? "-" : "+") + f(offsetHours) +
-    ":" + f(offsetMinutes);
+  const prettyOffset =
+    (positive > 0 ? "-" : "+") + f(offsetHours) + ":" + f(offsetMinutes);
 
   return result + prettyOffset;
 }

@@ -1,15 +1,16 @@
- /* vim: set ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 /* eslint no-unused-vars: [2, {"vars": "local"}] */
+/* import-globals-from ../../../shared/test/telemetry-test-helpers.js */
 /* import-globals-from ../../test/head.js */
 "use strict";
 
 // Import the inspector's head.js first (which itself imports shared-head.js).
 Services.scriptloader.loadSubScript(
   "chrome://mochitests/content/browser/devtools/client/inspector/test/head.js",
-  this);
+  this
+);
 
 Services.prefs.setCharPref("devtools.inspector.activeSidebar", "fontinspector");
 registerCleanupFunction(() => {
@@ -39,7 +40,7 @@ selectNode = async function(node, inspector, reason) {
  */
 var openFontInspectorForURL = async function(url) {
   const tab = await addTab(url);
-  const {toolbox, inspector, testActor } = await openInspector();
+  const { toolbox, inspector, testActor } = await openInspector();
 
   // Call selectNode again here to force a fontinspector update since we don't
   // know if the fontinspector-updated event has been sent while the inspector
@@ -87,15 +88,15 @@ async function updatePreviewText(view, text) {
 }
 
 /**
-*  Get all of the <li> elements for the fonts used on the currently selected element.
-*
-*  NOTE: This method is used by tests which check the old Font Inspector. It, along with
-*  the tests should be removed once the Font Editor reaches Firefox Stable.
-*  @see https://bugzilla.mozilla.org/show_bug.cgi?id=1485324
-*
-* @param  {Document} viewDoc
-* @return {NodeList}
-*/
+ *  Get all of the <li> elements for the fonts used on the currently selected element.
+ *
+ *  NOTE: This method is used by tests which check the old Font Inspector. It, along with
+ *  the tests should be removed once the Font Editor reaches Firefox Stable.
+ *  @see https://bugzilla.mozilla.org/show_bug.cgi?id=1485324
+ *
+ * @param  {Document} viewDoc
+ * @return {NodeList}
+ */
 function getUsedFontsEls_obsolete(viewDoc) {
   return viewDoc.querySelectorAll("#font-editor .fonts-list li");
 }
@@ -107,7 +108,9 @@ function getUsedFontsEls_obsolete(viewDoc) {
  * @return {NodeList}
  */
 function getUsedFontsEls(viewDoc) {
-  return viewDoc.querySelectorAll("#font-editor .font-control-used-fonts .font-name");
+  return viewDoc.querySelectorAll(
+    "#font-editor .font-control-used-fonts .font-name"
+  );
 }
 
 /**
@@ -117,7 +120,9 @@ function getUsedFontsEls(viewDoc) {
  * @return {NodeList}
  */
 function getUsedFontGroupsEls(viewDoc) {
-  return viewDoc.querySelectorAll("#font-editor .font-control-used-fonts .font-group");
+  return viewDoc.querySelectorAll(
+    "#font-editor .font-control-used-fonts .font-group"
+  );
 }
 
 /**
@@ -143,7 +148,9 @@ async function expandAccordion(accordion) {
   }
 
   const onExpanded = BrowserTestUtils.waitForCondition(
-    isExpanded, "Waiting for other fonts section");
+    isExpanded,
+    "Waiting for other fonts section"
+  );
   accordion.querySelector(".theme-twisty").click();
   await onExpanded;
 }
@@ -224,11 +231,13 @@ function getPropertyValue(viewDoc, name) {
   const selector = `#font-editor .font-value-input[name=${name}]`;
   return {
     // Ensure value input exists before querying its value
-    value: viewDoc.querySelector(selector) &&
-           parseFloat(viewDoc.querySelector(selector).value),
+    value:
+      viewDoc.querySelector(selector) &&
+      parseFloat(viewDoc.querySelector(selector).value),
     // Ensure unit dropdown exists before querying its value
-    unit: viewDoc.querySelector(selector + ` ~ .font-value-select`) &&
-          viewDoc.querySelector(selector + ` ~ .font-value-select`).value,
+    unit:
+      viewDoc.querySelector(selector + ` ~ .font-value-select`) &&
+      viewDoc.querySelector(selector + ` ~ .font-value-select`).value,
   };
 }
 
@@ -241,18 +250,4 @@ function getPropertyValue(viewDoc, name) {
  */
 function isRemote(fontEl) {
   return fontEl.querySelector(".font-origin").classList.contains("remote");
-}
-
-/**
- * Wait for a predicate to return a result.
- *
- * @param  {Function} condition
- *         Invoked every 10ms for a maximum of 500 retries until it returns a truthy
- *         value.
- * @return {Promise}
- *         A promise that is resolved with the result of the condition.
- */
-async function waitFor(condition) {
-  await BrowserTestUtils.waitForCondition(condition, "waitFor", 10, 500);
-  return condition();
 }

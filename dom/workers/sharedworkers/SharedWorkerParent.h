@@ -8,6 +8,7 @@
 #define mozilla_dom_dom_SharedWorkerParent_h
 
 #include "mozilla/dom/PSharedWorkerParent.h"
+#include "mozilla/dom/quota/CheckedUnsafePtr.h"
 #include "mozilla/ipc/BackgroundUtils.h"
 #include "nsISupportsImpl.h"
 
@@ -16,10 +17,11 @@ namespace dom {
 
 class MessagePortIdentifier;
 class RemoteWorkerData;
-class SharedWorkerManager;
-class SharedWorkerService;
+class SharedWorkerManagerWrapper;
 
-class SharedWorkerParent final : public mozilla::dom::PSharedWorkerParent {
+class SharedWorkerParent final
+    : public mozilla::dom::PSharedWorkerParent,
+      public SupportsCheckedUnsafePtr<CheckIf<DiagnosticAssertEnabled>> {
  public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(SharedWorkerParent)
 
@@ -28,19 +30,20 @@ class SharedWorkerParent final : public mozilla::dom::PSharedWorkerParent {
   void Initialize(const RemoteWorkerData& aData, uint64_t aWindowID,
                   const MessagePortIdentifier& aPortIdentifier);
 
-  void ManagerCreated(SharedWorkerManager* aWorkerManager);
+  void ManagerCreated(
+      already_AddRefed<SharedWorkerManagerWrapper> aWorkerManagerWrapper);
 
   void ErrorPropagation(nsresult aError);
 
-  mozilla::ipc::IPCResult RecvClose() override;
+  mozilla::ipc::IPCResult RecvClose();
 
-  mozilla::ipc::IPCResult RecvSuspend() override;
+  mozilla::ipc::IPCResult RecvSuspend();
 
-  mozilla::ipc::IPCResult RecvResume() override;
+  mozilla::ipc::IPCResult RecvResume();
 
-  mozilla::ipc::IPCResult RecvFreeze() override;
+  mozilla::ipc::IPCResult RecvFreeze();
 
-  mozilla::ipc::IPCResult RecvThaw() override;
+  mozilla::ipc::IPCResult RecvThaw();
 
   bool IsSuspended() const { return mSuspended; }
 
@@ -54,8 +57,7 @@ class SharedWorkerParent final : public mozilla::dom::PSharedWorkerParent {
   void ActorDestroy(IProtocol::ActorDestroyReason aReason) override;
 
   nsCOMPtr<nsIEventTarget> mBackgroundEventTarget;
-  RefPtr<SharedWorkerManager> mWorkerManager;
-  RefPtr<SharedWorkerService> mService;
+  RefPtr<SharedWorkerManagerWrapper> mWorkerManagerWrapper;
 
   enum {
     eInit,

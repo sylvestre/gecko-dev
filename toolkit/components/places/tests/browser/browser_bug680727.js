@@ -5,7 +5,6 @@
    global history. See bug 680727. */
 /* TEST_PATH=toolkit/components/places/tests/browser/browser_bug680727.js make -C $(OBJDIR) mochitest-browser-chrome */
 
-
 const kUniqueURI = Services.io.newURI("http://mochi.test:8888/#bug_680727");
 var proxyPrefValue;
 var ourTab;
@@ -26,8 +25,12 @@ function test() {
 
   BrowserTestUtils.openNewForegroundTab(gBrowser).then(tab => {
     ourTab = tab;
-    BrowserTestUtils.waitForContentEvent(ourTab.linkedBrowser, "DOMContentLoaded")
-                    .then(errorListener);
+    BrowserTestUtils.browserLoaded(
+      ourTab.linkedBrowser,
+      false,
+      null,
+      true
+    ).then(errorListener);
     BrowserTestUtils.loadURI(ourTab.linkedBrowser, kUniqueURI.spec);
   });
 }
@@ -38,12 +41,19 @@ function errorListener() {
   ok(Services.io.offline, "Services.io.offline is true.");
 
   // This is an error page.
-  ContentTask.spawn(ourTab.linkedBrowser, kUniqueURI.spec, function(uri) {
-    Assert.equal(content.document.documentURI.substring(0, 27),
-      "about:neterror?e=netOffline", "Document URI is the error page.");
+  SpecialPowers.spawn(ourTab.linkedBrowser, [kUniqueURI.spec], function(uri) {
+    Assert.equal(
+      content.document.documentURI.substring(0, 27),
+      "about:neterror?e=netOffline",
+      "Document URI is the error page."
+    );
 
     // But location bar should show the original request.
-    Assert.equal(content.location.href, uri, "Docshell URI is the original URI.");
+    Assert.equal(
+      content.location.href,
+      uri,
+      "Docshell URI is the original URI."
+    );
   }).then(() => {
     // Global history does not record URI of a failed request.
     PlacesTestUtils.promiseAsyncUpdates().then(() => {
@@ -55,21 +65,28 @@ function errorListener() {
 }
 
 function errorAsyncListener(aURI, aIsVisited) {
-  ok(kUniqueURI.equals(aURI) && !aIsVisited,
-     "The neterror page is not listed in global history.");
+  ok(
+    kUniqueURI.equals(aURI) && !aIsVisited,
+    "The neterror page is not listed in global history."
+  );
 
   Services.prefs.setIntPref("network.proxy.type", proxyPrefValue);
 
   // Now press the "Try Again" button, with offline mode off.
   Services.io.offline = false;
 
-  BrowserTestUtils.waitForContentEvent(ourTab.linkedBrowser, "DOMContentLoaded")
-                  .then(reloadListener);
+  BrowserTestUtils.browserLoaded(ourTab.linkedBrowser, false, null, true).then(
+    reloadListener
+  );
 
-  ContentTask.spawn(ourTab.linkedBrowser, null, function() {
-    Assert.ok(content.document.getElementById("errorTryAgain"),
-      "The error page has got a #errorTryAgain element");
-    content.document.getElementById("errorTryAgain").click();
+  SpecialPowers.spawn(ourTab.linkedBrowser, [], function() {
+    Assert.ok(
+      content.document.querySelector("#netErrorButtonContainer > .try-again"),
+      "The error page has got a .try-again element"
+    );
+    content.document
+      .querySelector("#netErrorButtonContainer > .try-again")
+      .click();
   });
 }
 
@@ -81,15 +98,18 @@ function reloadListener() {
   // IHistory::VisitURI(...) is called.
   ok(!Services.io.offline, "Services.io.offline is false.");
 
-  ContentTask.spawn(ourTab.linkedBrowser, kUniqueURI.spec, function(uri) {
+  SpecialPowers.spawn(ourTab.linkedBrowser, [kUniqueURI.spec], function(uri) {
     // This is not an error page.
-    Assert.equal(content.document.documentURI, uri,
-      "Document URI is not the offline-error page, but the original URI.");
+    Assert.equal(
+      content.document.documentURI,
+      uri,
+      "Document URI is not the offline-error page, but the original URI."
+    );
   }).then(() => {
     // Check if global history remembers the successfully-requested URI.
     PlacesTestUtils.promiseAsyncUpdates().then(() => {
       PlacesUtils.history.hasVisits(kUniqueURI).then(isVisited => {
-          reloadAsyncListener(kUniqueURI, isVisited);
+        reloadAsyncListener(kUniqueURI, isVisited);
       });
     });
   });

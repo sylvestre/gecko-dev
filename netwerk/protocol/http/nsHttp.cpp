@@ -12,21 +12,30 @@
 #include "PLDHashTable.h"
 #include "mozilla/Mutex.h"
 #include "mozilla/HashFunctions.h"
+#include "mozilla/Preferences.h"
+#include "mozilla/StaticPrefs_network.h"
+#include "nsCharSeparatedTokenizer.h"
 #include "nsCRT.h"
+#include "nsContentUtils.h"
 #include "nsHttpRequestHead.h"
 #include "nsHttpResponseHead.h"
 #include "nsHttpHandler.h"
 #include "nsICacheEntry.h"
 #include "nsIRequest.h"
+#include "nsJSUtils.h"
 #include <errno.h>
 #include <functional>
 
 namespace mozilla {
 namespace net {
 
+const uint32_t kHttp3VersionCount = 4;
+const nsCString kHttp3Versions[] = {"h3-27"_ns, "h3-28"_ns, "h3-29"_ns,
+                                    "h3-30"_ns};
+
 // define storage for all atoms
 namespace nsHttp {
-#define HTTP_ATOM(_name, _value) nsHttpAtom _name = {_value};
+#define HTTP_ATOM(_name, _value) nsHttpAtom _name(_value);
 #include "nsHttpAtomList.h"
 #undef HTTP_ATOM
 }  // namespace nsHttp
@@ -44,18 +53,18 @@ enum {
 // as one contiguous block.
 
 struct HttpHeapAtom {
-  struct HttpHeapAtom *next;
+  struct HttpHeapAtom* next;
   char value[1];
 };
 
-static PLDHashTable *sAtomTable;
-static struct HttpHeapAtom *sHeapAtoms = nullptr;
-static Mutex *sLock = nullptr;
+static PLDHashTable* sAtomTable;
+static struct HttpHeapAtom* sHeapAtoms = nullptr;
+static Mutex* sLock = nullptr;
 
-HttpHeapAtom *NewHeapAtom(const char *value) {
+HttpHeapAtom* NewHeapAtom(const char* value) {
   int len = strlen(value);
 
-  HttpHeapAtom *a = reinterpret_cast<HttpHeapAtom *>(malloc(sizeof(*a) + len));
+  HttpHeapAtom* a = reinterpret_cast<HttpHeapAtom*>(malloc(sizeof(*a) + len));
   if (!a) return nullptr;
   memcpy(a->value, value, len + 1);
 
@@ -67,18 +76,18 @@ HttpHeapAtom *NewHeapAtom(const char *value) {
 }
 
 // Hash string ignore case, based on PL_HashString
-static PLDHashNumber StringHash(const void *key) {
+static PLDHashNumber StringHash(const void* key) {
   PLDHashNumber h = 0;
-  for (const char *s = reinterpret_cast<const char *>(key); *s; ++s)
+  for (const char* s = reinterpret_cast<const char*>(key); *s; ++s)
     h = AddToHash(h, nsCRT::ToLower(*s));
   return h;
 }
 
-static bool StringCompare(const PLDHashEntryHdr *entry, const void *testKey) {
-  const void *entryKey = reinterpret_cast<const PLDHashEntryStub *>(entry)->key;
+static bool StringCompare(const PLDHashEntryHdr* entry, const void* testKey) {
+  const void* entryKey = reinterpret_cast<const PLDHashEntryStub*>(entry)->key;
 
-  return PL_strcasecmp(reinterpret_cast<const char *>(entryKey),
-                       reinterpret_cast<const char *>(testKey)) == 0;
+  return PL_strcasecmp(reinterpret_cast<const char*>(entryKey),
+                       reinterpret_cast<const char*>(testKey)) == 0;
 }
 
 static const PLDHashTableOps ops = {StringHash, StringCompare,
@@ -101,7 +110,7 @@ nsresult CreateAtomTable() {
       new PLDHashTable(&ops, sizeof(PLDHashEntryStub), NUM_HTTP_ATOMS + 10);
 
   // fill the table with our known atoms
-  const char *const atoms[] = {
+  const char* const atoms[] = {
 #define HTTP_ATOM(_name, _value) _name._val,
 #include "nsHttpAtomList.h"
 #undef HTTP_ATOM
@@ -109,7 +118,7 @@ nsresult CreateAtomTable() {
 
   for (int i = 0; atoms[i]; ++i) {
     auto stub =
-        static_cast<PLDHashEntryStub *>(sAtomTable->Add(atoms[i], fallible));
+        static_cast<PLDHashEntryStub*>(sAtomTable->Add(atoms[i], fallible));
     if (!stub) return NS_ERROR_OUT_OF_MEMORY;
 
     MOZ_ASSERT(!stub->key, "duplicate static atom");
@@ -124,7 +133,7 @@ void DestroyAtomTable() {
   sAtomTable = nullptr;
 
   while (sHeapAtoms) {
-    HttpHeapAtom *next = sHeapAtoms->next;
+    HttpHeapAtom* next = sHeapAtoms->next;
     free(sHeapAtoms);
     sHeapAtoms = next;
   }
@@ -133,27 +142,27 @@ void DestroyAtomTable() {
   sLock = nullptr;
 }
 
-Mutex *GetLock() { return sLock; }
+Mutex* GetLock() { return sLock; }
 
 // this function may be called from multiple threads
-nsHttpAtom ResolveAtom(const char *str) {
-  nsHttpAtom atom = {nullptr};
+nsHttpAtom ResolveAtom(const char* str) {
+  nsHttpAtom atom;
 
   if (!str || !sAtomTable) return atom;
 
   MutexAutoLock lock(*sLock);
 
-  auto stub = static_cast<PLDHashEntryStub *>(sAtomTable->Add(str, fallible));
+  auto stub = static_cast<PLDHashEntryStub*>(sAtomTable->Add(str, fallible));
   if (!stub) return atom;  // out of memory
 
   if (stub->key) {
-    atom._val = reinterpret_cast<const char *>(stub->key);
+    atom._val = reinterpret_cast<const char*>(stub->key);
     return atom;
   }
 
   // if the atom could not be found in the atom table, then we'll go
   // and allocate a new atom on the heap.
-  HttpHeapAtom *heapAtom = NewHeapAtom(str);
+  HttpHeapAtom* heapAtom = NewHeapAtom(str);
   if (!heapAtom) return atom;  // out of memory
 
   stub->key = atom._val = heapAtom->value;
@@ -195,7 +204,7 @@ static const char kValidTokenMap[128] = {
     1, 1, 1, 1, 1, 1, 1, 1,  // 112
     1, 1, 1, 0, 1, 0, 1, 0   // 120
 };
-bool IsValidToken(const char *start, const char *end) {
+bool IsValidToken(const char* start, const char* end) {
   if (start == end) return false;
 
   for (; start != end; ++start) {
@@ -206,8 +215,10 @@ bool IsValidToken(const char *start, const char *end) {
   return true;
 }
 
-const char *GetProtocolVersion(HttpVersion pv) {
+const char* GetProtocolVersion(HttpVersion pv) {
   switch (pv) {
+    case HttpVersion::v3_0:
+      return "h3";
     case HttpVersion::v2_0:
       return "h2";
     case HttpVersion::v1_0:
@@ -224,7 +235,7 @@ const char *GetProtocolVersion(HttpVersion pv) {
 }
 
 // static
-void TrimHTTPWhitespace(const nsACString &aSource, nsACString &aDest) {
+void TrimHTTPWhitespace(const nsACString& aSource, nsACString& aDest) {
   nsAutoCString str(aSource);
 
   // HTTP whitespace 0x09: '\t', 0x0A: '\n', 0x0D: '\r', 0x20: ' '
@@ -234,14 +245,14 @@ void TrimHTTPWhitespace(const nsACString &aSource, nsACString &aDest) {
 }
 
 // static
-bool IsReasonableHeaderValue(const nsACString &s) {
+bool IsReasonableHeaderValue(const nsACString& s) {
   // Header values MUST NOT contain line-breaks.  RFC 2616 technically
   // permits CTL characters, including CR and LF, in header values provided
   // they are quoted.  However, this can lead to problems if servers do not
   // interpret quoted strings properly.  Disallowing CR and LF here seems
   // reasonable and keeps things simple.  We also disallow a null byte.
-  const nsACString::char_type *end = s.EndReading();
-  for (const nsACString::char_type *i = s.BeginReading(); i != end; ++i) {
+  const nsACString::char_type* end = s.EndReading();
+  for (const nsACString::char_type* i = s.BeginReading(); i != end; ++i) {
     if (*i == '\r' || *i == '\n' || *i == '\0') {
       return false;
     }
@@ -249,7 +260,7 @@ bool IsReasonableHeaderValue(const nsACString &s) {
   return true;
 }
 
-const char *FindToken(const char *input, const char *token, const char *seps) {
+const char* FindToken(const char* input, const char* token, const char* seps) {
   if (!input) return nullptr;
 
   int inputLen = strlen(input);
@@ -257,8 +268,8 @@ const char *FindToken(const char *input, const char *token, const char *seps) {
 
   if (inputLen < tokenLen) return nullptr;
 
-  const char *inputTop = input;
-  const char *inputEnd = input + inputLen - tokenLen;
+  const char* inputTop = input;
+  const char* inputEnd = input + inputLen - tokenLen;
   for (; input <= inputEnd; ++input) {
     if (PL_strncasecmp(input, token, tokenLen) == 0) {
       if (input > inputTop && !strchr(seps, *(input - 1))) continue;
@@ -270,11 +281,11 @@ const char *FindToken(const char *input, const char *token, const char *seps) {
   return nullptr;
 }
 
-bool ParseInt64(const char *input, const char **next, int64_t *r) {
+bool ParseInt64(const char* input, const char** next, int64_t* r) {
   MOZ_ASSERT(input);
   MOZ_ASSERT(r);
 
-  char *end = nullptr;
+  char* end = nullptr;
   errno = 0;  // Clear errno to make sure its value is set by strtoll
   int64_t value = strtoll(input, &end, /* base */ 10);
 
@@ -298,12 +309,17 @@ bool IsPermanentRedirect(uint32_t httpStatus) {
 }
 
 bool ValidationRequired(bool isForcedValid,
-                        nsHttpResponseHead *cachedResponseHead,
+                        nsHttpResponseHead* cachedResponseHead,
                         uint32_t loadFlags, bool allowStaleCacheContent,
                         bool isImmutable, bool customConditionalRequest,
-                        nsHttpRequestHead &requestHead, nsICacheEntry *entry,
-                        CacheControlParser &cacheControlRequest,
-                        bool fromPreviousSession) {
+                        nsHttpRequestHead& requestHead, nsICacheEntry* entry,
+                        CacheControlParser& cacheControlRequest,
+                        bool fromPreviousSession,
+                        bool* performBackgroundRevalidation) {
+  if (performBackgroundRevalidation) {
+    *performBackgroundRevalidation = false;
+  }
+
   // Check isForcedValid to see if it is possible to skip validation.
   // Don't skip validation if we have serious reason to believe that this
   // content is invalid (it's expired).
@@ -411,6 +427,13 @@ bool ValidationRequired(bool isForcedValid,
     LOG(("  not validating, expire time not in the past"));
   } else if (cachedResponseHead->MustValidateIfExpired()) {
     doValidation = true;
+  } else if (cachedResponseHead->StaleWhileRevalidate(now, expiration) &&
+             StaticPrefs::network_http_stale_while_revalidate_enabled()) {
+    LOG(("  not validating, in the stall-while-revalidate window"));
+    doValidation = false;
+    if (performBackgroundRevalidation) {
+      *performBackgroundRevalidation = true;
+    }
   } else if (loadFlags & nsIRequest::VALIDATE_ONCE_PER_SESSION) {
     // If the cached response does not include expiration infor-
     // mation, then we must validate the response, despite whether
@@ -430,7 +453,7 @@ bool ValidationRequired(bool isForcedValid,
 }
 
 nsresult GetHttpResponseHeadFromCacheEntry(
-    nsICacheEntry *entry, nsHttpResponseHead *cachedResponseHead) {
+    nsICacheEntry* entry, nsHttpResponseHead* cachedResponseHead) {
   nsCString buf;
   // A "original-response-headers" metadata element holds network original
   // headers, i.e. the headers in the form as they arrieved from the network. We
@@ -439,7 +462,7 @@ nsresult GetHttpResponseHeadFromCacheEntry(
   nsresult rv = entry->GetMetaDataElement("original-response-headers",
                                           getter_Copies(buf));
   if (NS_SUCCEEDED(rv)) {
-    rv = cachedResponseHead->ParseCachedOriginalHeaders((char *)buf.get());
+    rv = cachedResponseHead->ParseCachedOriginalHeaders((char*)buf.get());
     if (NS_FAILED(rv)) {
       LOG(("  failed to parse original-response-headers\n"));
     }
@@ -462,9 +485,9 @@ nsresult GetHttpResponseHeadFromCacheEntry(
   return NS_OK;
 }
 
-nsresult CheckPartial(nsICacheEntry *aEntry, int64_t *aSize,
-                      int64_t *aContentLength,
-                      nsHttpResponseHead *responseHead) {
+nsresult CheckPartial(nsICacheEntry* aEntry, int64_t* aSize,
+                      int64_t* aContentLength,
+                      nsHttpResponseHead* responseHead) {
   nsresult rv;
 
   rv = aEntry->GetDataSize(aSize);
@@ -485,10 +508,10 @@ nsresult CheckPartial(nsICacheEntry *aEntry, int64_t *aSize,
   return NS_OK;
 }
 
-void DetermineFramingAndImmutability(nsICacheEntry *entry,
-                                     nsHttpResponseHead *responseHead,
-                                     bool isHttps, bool *weaklyFramed,
-                                     bool *isImmutable) {
+void DetermineFramingAndImmutability(nsICacheEntry* entry,
+                                     nsHttpResponseHead* responseHead,
+                                     bool isHttps, bool* weaklyFramed,
+                                     bool* isImmutable) {
   nsCString framedBuf;
   nsresult rv =
       entry->GetMetaDataElement("strongly-framed", getter_Copies(framedBuf));
@@ -498,9 +521,46 @@ void DetermineFramingAndImmutability(nsICacheEntry *entry,
   *isImmutable = !*weaklyFramed && isHttps && responseHead->Immutable();
 }
 
-bool IsBeforeLastActiveTabLoadOptimization(TimeStamp const &when) {
+bool IsBeforeLastActiveTabLoadOptimization(TimeStamp const& when) {
   return gHttpHandler &&
          gHttpHandler->IsBeforeLastActiveTabLoadOptimization(when);
+}
+
+nsCString ConvertRequestHeadToString(nsHttpRequestHead& aRequestHead,
+                                     bool aHasRequestBody,
+                                     bool aRequestBodyHasHeaders,
+                                     bool aUsingConnect) {
+  // Make sure that there is "Content-Length: 0" header in the requestHead
+  // in case of POST and PUT methods when there is no requestBody and
+  // requestHead doesn't contain "Transfer-Encoding" header.
+  //
+  // RFC1945 section 7.2.2:
+  //   HTTP/1.0 requests containing an entity body must include a valid
+  //   Content-Length header field.
+  //
+  // RFC2616 section 4.4:
+  //   For compatibility with HTTP/1.0 applications, HTTP/1.1 requests
+  //   containing a message-body MUST include a valid Content-Length header
+  //   field unless the server is known to be HTTP/1.1 compliant.
+  if ((aRequestHead.IsPost() || aRequestHead.IsPut()) && !aHasRequestBody &&
+      !aRequestHead.HasHeader(nsHttp::Transfer_Encoding)) {
+    DebugOnly<nsresult> rv =
+        aRequestHead.SetHeader(nsHttp::Content_Length, "0"_ns);
+    MOZ_ASSERT(NS_SUCCEEDED(rv));
+  }
+
+  nsCString reqHeaderBuf;
+  reqHeaderBuf.Truncate();
+
+  // make sure we eliminate any proxy specific headers from
+  // the request if we are using CONNECT
+  aRequestHead.Flatten(reqHeaderBuf, aUsingConnect);
+
+  if (!aRequestBodyHasHeaders || !aHasRequestBody) {
+    reqHeaderBuf.AppendLiteral("\r\n");
+  }
+
+  return reqHeaderBuf;
 }
 
 void NotifyActiveTabLoadOptimization() {
@@ -514,24 +574,17 @@ TimeStamp const GetLastActiveTabLoadOptimizationHit() {
                       : TimeStamp();
 }
 
-void SetLastActiveTabLoadOptimizationHit(TimeStamp const &when) {
+void SetLastActiveTabLoadOptimizationHit(TimeStamp const& when) {
   if (gHttpHandler) {
     gHttpHandler->SetLastActiveTabLoadOptimizationHit(when);
   }
 }
 
-HttpVersion GetHttpVersionFromSpdy(SpdyVersion sv) {
-  MOZ_DIAGNOSTIC_ASSERT(sv != SpdyVersion::NONE);
-  MOZ_ASSERT(sv == SpdyVersion::HTTP_2);
-
-  return HttpVersion::v2_0;
-}
-
 }  // namespace nsHttp
 
 template <typename T>
-void localEnsureBuffer(UniquePtr<T[]> &buf, uint32_t newSize, uint32_t preserve,
-                       uint32_t &objSize) {
+void localEnsureBuffer(UniquePtr<T[]>& buf, uint32_t newSize, uint32_t preserve,
+                       uint32_t& objSize) {
   if (objSize >= newSize) return;
 
   // Leave a little slop on the new allocation - add 2KB to
@@ -548,13 +601,13 @@ void localEnsureBuffer(UniquePtr<T[]> &buf, uint32_t newSize, uint32_t preserve,
   buf = std::move(tmp);
 }
 
-void EnsureBuffer(UniquePtr<char[]> &buf, uint32_t newSize, uint32_t preserve,
-                  uint32_t &objSize) {
+void EnsureBuffer(UniquePtr<char[]>& buf, uint32_t newSize, uint32_t preserve,
+                  uint32_t& objSize) {
   localEnsureBuffer<char>(buf, newSize, preserve, objSize);
 }
 
-void EnsureBuffer(UniquePtr<uint8_t[]> &buf, uint32_t newSize,
-                  uint32_t preserve, uint32_t &objSize) {
+void EnsureBuffer(UniquePtr<uint8_t[]>& buf, uint32_t newSize,
+                  uint32_t preserve, uint32_t& objSize) {
   localEnsureBuffer<uint8_t>(buf, newSize, preserve, objSize);
 }
 
@@ -568,8 +621,8 @@ static bool IsTokenSymbol(signed char chr) {
   return true;
 }
 
-ParsedHeaderPair::ParsedHeaderPair(const char *name, int32_t nameLen,
-                                   const char *val, int32_t valLen,
+ParsedHeaderPair::ParsedHeaderPair(const char* name, int32_t nameLen,
+                                   const char* val, int32_t valLen,
                                    bool isQuotedValue)
     : mName(nsDependentCSubstring(nullptr, 0u)),
       mValue(nsDependentCSubstring(nullptr, 0u)),
@@ -587,10 +640,10 @@ ParsedHeaderPair::ParsedHeaderPair(const char *name, int32_t nameLen,
   }
 }
 
-void ParsedHeaderPair::RemoveQuotedStringEscapes(const char *val,
+void ParsedHeaderPair::RemoveQuotedStringEscapes(const char* val,
                                                  int32_t valLen) {
   mUnquotedValue.Truncate();
-  const char *c = val;
+  const char* c = val;
   for (int32_t i = 0; i < valLen; ++i) {
     if (c[i] == '\\' && c[i + 1]) {
       ++i;
@@ -600,10 +653,10 @@ void ParsedHeaderPair::RemoveQuotedStringEscapes(const char *val,
 }
 
 static void Tokenize(
-    const char *input, uint32_t inputLen, const char token,
-    const std::function<void(const char *, uint32_t)> &consumer) {
-  auto trimWhitespace = [](const char *in, uint32_t inLen, const char **out,
-                           uint32_t *outLen) {
+    const char* input, uint32_t inputLen, const char token,
+    const std::function<void(const char*, uint32_t)>& consumer) {
+  auto trimWhitespace = [](const char* in, uint32_t inLen, const char** out,
+                           uint32_t* outLen) {
     *out = in;
     *outLen = inLen;
     if (inLen == 0) {
@@ -617,7 +670,7 @@ static void Tokenize(
     }
 
     // Trim tailing space
-    for (const char *i = *out + *outLen - 1; i >= *out; --i) {
+    for (const char* i = *out + *outLen - 1; i >= *out; --i) {
       if (!nsCRT::IsAsciiSpace(*i)) {
         break;
       }
@@ -625,9 +678,9 @@ static void Tokenize(
     }
   };
 
-  const char *first = input;
+  const char* first = input;
   bool inQuote = false;
-  const char *result = nullptr;
+  const char* result = nullptr;
   uint32_t resultLen = 0;
   for (uint32_t index = 0; index < inputLen; ++index) {
     if (inQuote && input[index] == '\\' && input[index + 1]) {
@@ -652,26 +705,26 @@ static void Tokenize(
   consumer(result, resultLen);
 }
 
-ParsedHeaderValueList::ParsedHeaderValueList(const char *t, uint32_t len,
+ParsedHeaderValueList::ParsedHeaderValueList(const char* t, uint32_t len,
                                              bool allowInvalidValue) {
   if (!len) {
     return;
   }
 
-  ParsedHeaderValueList *self = this;
-  auto consumer = [=](const char *output, uint32_t outputLength) {
+  ParsedHeaderValueList* self = this;
+  auto consumer = [=](const char* output, uint32_t outputLength) {
     self->ParseNameAndValue(output, allowInvalidValue);
   };
 
   Tokenize(t, len, ';', consumer);
 }
 
-void ParsedHeaderValueList::ParseNameAndValue(const char *input,
+void ParsedHeaderValueList::ParseNameAndValue(const char* input,
                                               bool allowInvalidValue) {
-  const char *nameStart = input;
-  const char *nameEnd = nullptr;
-  const char *valueStart = input;
-  const char *valueEnd = nullptr;
+  const char* nameStart = input;
+  const char* nameEnd = nullptr;
+  const char* valueStart = input;
+  const char* valueEnd = nullptr;
   bool isQuotedString = false;
   bool invalidValue = false;
 
@@ -687,7 +740,7 @@ void ParsedHeaderValueList::ParseNameAndValue(const char *input,
   }
 
   // Check whether param name is a valid token.
-  for (const char *c = nameStart; c < nameEnd; c++) {
+  for (const char* c = nameStart; c < nameEnd; c++) {
     if (!IsTokenSymbol(*c)) {
       nameEnd = c;
       break;
@@ -719,9 +772,8 @@ void ParsedHeaderValueList::ParseNameAndValue(const char *input,
                            *valueEnd != ';' && *valueEnd != ',';
          valueEnd++)
       ;
-    input = valueEnd;
     if (!allowInvalidValue) {
-      for (const char *c = valueStart; c < valueEnd; c++) {
+      for (const char* c = valueStart; c < valueEnd; c++) {
         if (!IsTokenSymbol(*c)) {
           valueEnd = c;
           break;
@@ -763,10 +815,10 @@ void ParsedHeaderValueList::ParseNameAndValue(const char *input,
 }
 
 ParsedHeaderValueListList::ParsedHeaderValueListList(
-    const nsCString &fullHeader, bool allowInvalidValue)
+    const nsCString& fullHeader, bool allowInvalidValue)
     : mFull(fullHeader) {
-  auto &values = mValues;
-  auto consumer = [&values, allowInvalidValue](const char *output,
+  auto& values = mValues;
+  auto consumer = [&values, allowInvalidValue](const char* output,
                                                uint32_t outputLength) {
     values.AppendElement(
         ParsedHeaderValueList(output, outputLength, allowInvalidValue));
@@ -775,12 +827,12 @@ ParsedHeaderValueListList::ParsedHeaderValueListList(
   Tokenize(mFull.BeginReading(), mFull.Length(), ',', consumer);
 }
 
-void LogCallingScriptLocation(void *instance) {
+void LogCallingScriptLocation(void* instance) {
   if (!LOG4_ENABLED()) {
     return;
   }
 
-  JSContext *cx = nsContentUtils::GetCurrentJSContext();
+  JSContext* cx = nsContentUtils::GetCurrentJSContext();
   if (!cx) {
     return;
   }
@@ -793,6 +845,205 @@ void LogCallingScriptLocation(void *instance) {
 
   LOG(("%p called from script: %s:%u:%u", instance, fileNameString.get(), line,
        col));
+}
+
+void LogHeaders(const char* lineStart) {
+  nsAutoCString buf;
+  char* endOfLine;
+  while ((endOfLine = PL_strstr(lineStart, "\r\n"))) {
+    buf.Assign(lineStart, endOfLine - lineStart);
+    if (StaticPrefs::network_http_sanitize_headers_in_logs() &&
+        (PL_strcasestr(buf.get(), "authorization: ") ||
+         PL_strcasestr(buf.get(), "proxy-authorization: "))) {
+      char* p = PL_strchr(buf.get(), ' ');
+      while (p && *++p) {
+        *p = '*';
+      }
+    }
+    LOG1(("  %s\n", buf.get()));
+    lineStart = endOfLine + 2;
+  }
+}
+
+nsresult HttpProxyResponseToErrorCode(uint32_t aStatusCode) {
+  // In proxy CONNECT case, we treat every response code except 200 as an error.
+  // Even if the proxy server returns other 2xx codes (i.e. 206), this function
+  // still returns an error code.
+  MOZ_ASSERT(aStatusCode != 200);
+
+  nsresult rv;
+  switch (aStatusCode) {
+    case 300:
+    case 301:
+    case 302:
+    case 303:
+    case 307:
+    case 308:
+      // Bad redirect: not top-level, or it's a POST, bad/missing Location,
+      // or ProcessRedirect() failed for some other reason.  Legal
+      // redirects that fail because site not available, etc., are handled
+      // elsewhere, in the regular codepath.
+      rv = NS_ERROR_CONNECTION_REFUSED;
+      break;
+    // Squid sends 404 if DNS fails (regular 404 from target is tunneled)
+    case 404:  // HTTP/1.1: "Not Found"
+               // RFC 2616: "some deployed proxies are known to return 400 or
+               // 500 when DNS lookups time out."  (Squid uses 500 if it runs
+               // out of sockets: so we have a conflict here).
+    case 400:  // HTTP/1.1 "Bad Request"
+    case 500:  // HTTP/1.1: "Internal Server Error"
+      rv = NS_ERROR_UNKNOWN_HOST;
+      break;
+    case 401:
+      rv = NS_ERROR_PROXY_UNAUTHORIZED;
+      break;
+    case 402:
+      rv = NS_ERROR_PROXY_PAYMENT_REQUIRED;
+      break;
+    case 403:
+      rv = NS_ERROR_PROXY_FORBIDDEN;
+      break;
+    case 405:
+      rv = NS_ERROR_PROXY_METHOD_NOT_ALLOWED;
+      break;
+    case 406:
+      rv = NS_ERROR_PROXY_NOT_ACCEPTABLE;
+      break;
+    case 407:  // ProcessAuthentication() failed (e.g. no header)
+      rv = NS_ERROR_PROXY_AUTHENTICATION_FAILED;
+      break;
+    case 408:
+      rv = NS_ERROR_PROXY_REQUEST_TIMEOUT;
+      break;
+    case 409:
+      rv = NS_ERROR_PROXY_CONFLICT;
+      break;
+    case 410:
+      rv = NS_ERROR_PROXY_GONE;
+      break;
+    case 411:
+      rv = NS_ERROR_PROXY_LENGTH_REQUIRED;
+      break;
+    case 412:
+      rv = NS_ERROR_PROXY_PRECONDITION_FAILED;
+      break;
+    case 413:
+      rv = NS_ERROR_PROXY_REQUEST_ENTITY_TOO_LARGE;
+      break;
+    case 414:
+      rv = NS_ERROR_PROXY_REQUEST_URI_TOO_LONG;
+      break;
+    case 415:
+      rv = NS_ERROR_PROXY_UNSUPPORTED_MEDIA_TYPE;
+      break;
+    case 416:
+      rv = NS_ERROR_PROXY_REQUESTED_RANGE_NOT_SATISFIABLE;
+      break;
+    case 417:
+      rv = NS_ERROR_PROXY_EXPECTATION_FAILED;
+      break;
+    case 421:
+      rv = NS_ERROR_PROXY_MISDIRECTED_REQUEST;
+      break;
+    case 425:
+      rv = NS_ERROR_PROXY_TOO_EARLY;
+      break;
+    case 426:
+      rv = NS_ERROR_PROXY_UPGRADE_REQUIRED;
+      break;
+    case 428:
+      rv = NS_ERROR_PROXY_PRECONDITION_REQUIRED;
+      break;
+    case 429:
+      rv = NS_ERROR_PROXY_TOO_MANY_REQUESTS;
+      break;
+    case 431:
+      rv = NS_ERROR_PROXY_REQUEST_HEADER_FIELDS_TOO_LARGE;
+      break;
+    case 451:
+      rv = NS_ERROR_PROXY_UNAVAILABLE_FOR_LEGAL_REASONS;
+      break;
+    case 501:
+      rv = NS_ERROR_PROXY_NOT_IMPLEMENTED;
+      break;
+    case 502:
+      rv = NS_ERROR_PROXY_BAD_GATEWAY;
+      break;
+    case 503:
+      // Squid returns 503 if target request fails for anything but DNS.
+      /* User sees: "Failed to Connect:
+       *  Firefox can't establish a connection to the server at
+       *  www.foo.com.  Though the site seems valid, the browser
+       *  was unable to establish a connection."
+       */
+      rv = NS_ERROR_CONNECTION_REFUSED;
+      break;
+    // RFC 2616 uses 504 for both DNS and target timeout, so not clear what to
+    // do here: picking target timeout, as DNS covered by 400/404/500
+    case 504:
+      rv = NS_ERROR_PROXY_GATEWAY_TIMEOUT;
+      break;
+    case 505:
+      rv = NS_ERROR_PROXY_VERSION_NOT_SUPPORTED;
+      break;
+    case 506:
+      rv = NS_ERROR_PROXY_VARIANT_ALSO_NEGOTIATES;
+      break;
+    case 510:
+      rv = NS_ERROR_PROXY_NOT_EXTENDED;
+      break;
+    case 511:
+      rv = NS_ERROR_PROXY_NETWORK_AUTHENTICATION_REQUIRED;
+      break;
+    default:
+      rv = NS_ERROR_PROXY_CONNECTION_REFUSED;
+      break;
+  }
+
+  return rv;
+}
+
+Tuple<nsCString, bool> SelectAlpnFromAlpnList(const nsACString& aAlpnList,
+                                              bool aNoHttp2, bool aNoHttp3) {
+  nsCString h3Value;
+  nsCString h2Value;
+  nsCString h1Value;
+  // aAlpnList is a list of alpn-id and use comma as a delimiter.
+  nsCCharSeparatedTokenizer tokenizer(aAlpnList, ',');
+  nsAutoCString npnStr;
+  while (tokenizer.hasMoreTokens()) {
+    const nsACString& npnToken(tokenizer.nextToken());
+    bool isHttp3 = gHttpHandler->IsHttp3VersionSupported(npnToken);
+    if (isHttp3 && h3Value.IsEmpty()) {
+      h3Value.Assign(npnToken);
+    }
+
+    uint32_t spdyIndex;
+    SpdyInformation* spdyInfo = gHttpHandler->SpdyInfo();
+    if (NS_SUCCEEDED(spdyInfo->GetNPNIndex(npnToken, &spdyIndex)) &&
+        spdyInfo->ProtocolEnabled(spdyIndex) && h2Value.IsEmpty()) {
+      h2Value.Assign(npnToken);
+    }
+
+    if (npnToken.LowerCaseEqualsASCII("http/1.1") && h1Value.IsEmpty()) {
+      h1Value.Assign(npnToken);
+    }
+  }
+
+  if (!h3Value.IsEmpty() && gHttpHandler->IsHttp3Enabled() && !aNoHttp3) {
+    return MakeTuple(h3Value, true);
+  }
+
+  if (!h2Value.IsEmpty() && gHttpHandler->IsSpdyEnabled() && !aNoHttp2) {
+    return MakeTuple(h2Value, false);
+  }
+
+  if (!h1Value.IsEmpty()) {
+    return MakeTuple(h1Value, false);
+  }
+
+  // If we are here, there is no supported alpn can be used.
+  return MakeTuple(EmptyCString(), false);
 }
 
 }  // namespace net

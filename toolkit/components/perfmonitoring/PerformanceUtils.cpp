@@ -6,8 +6,11 @@
 
 #include "nsThreadUtils.h"
 #include "mozilla/PerformanceUtils.h"
+#include "mozilla/ResultExtensions.h"
 #include "mozilla/dom/DocGroup.h"
-#include "mozilla/dom/TabChild.h"
+#include "mozilla/dom/BrowserChild.h"
+#include "mozilla/dom/BrowsingContextGroup.h"
+#include "mozilla/dom/ContentChild.h"
 #include "mozilla/dom/WorkerDebugger.h"
 #include "mozilla/dom/WorkerDebuggerManager.h"
 
@@ -16,7 +19,6 @@
 #include "jsfriendapi.h"
 #include "js/MemoryMetrics.h"
 #include "nsWindowMemoryReporter.h"
-#include "nsDOMWindowList.h"
 
 using namespace mozilla;
 using namespace mozilla::dom;
@@ -38,46 +40,64 @@ nsTArray<RefPtr<PerformanceInfoPromise>> CollectPerformanceInfo() {
     promises.AppendElement(debugger->ReportPerformanceInfo());
   }
 
-  // collecting ReportPerformanceInfo from all DocGroup instances
-  LinkedList<TabGroup>* tabGroups = TabGroup::GetTabGroupList();
+  nsTArray<RefPtr<BrowsingContextGroup>> groups;
+  BrowsingContextGroup::GetAllGroups(groups);
 
-  // if GetTabGroupList() returns null, we don't have any tab group
-  if (tabGroups) {
-    for (TabGroup* tabGroup = tabGroups->getFirst(); tabGroup;
-         tabGroup =
-             static_cast<LinkedListElement<TabGroup>*>(tabGroup)->getNext()) {
-      for (auto iter = tabGroup->Iter(); !iter.Done(); iter.Next()) {
-        DocGroup* docGroup = iter.Get()->mDocGroup;
-        promises.AppendElement(docGroup->ReportPerformanceInfo());
-      }
-    }
+  nsTArray<DocGroup*> docGroups;
+  for (auto& browsingContextGroup : groups) {
+    browsingContextGroup->GetDocGroups(docGroups);
   }
+
+  for (DocGroup* docGroup : docGroups) {
+    promises.AppendElement(docGroup->ReportPerformanceInfo());
+  }
+
   return promises;
 }
 
-nsresult GetTabSizes(nsGlobalWindowOuter* aWindow, nsTabSizes* aSizes) {
+void AddWindowTabSizes(nsGlobalWindowOuter* aWindow, nsTabSizes* aSizes) {
+  Document* document = aWindow->GetDocument();
+  if (document && document->GetCachedSizes(aSizes)) {
+    // We got a cached version
+    return;
+  }
+  // We measure the sizes on a fresh nsTabSizes instance
+  // because we want to cache the value and aSizes might
+  // already have some values from other windows.
+  nsTabSizes sizes;
+
   // Measure the window.
   SizeOfState state(moz_malloc_size_of);
   nsWindowSizes windowSizes(state);
   aWindow->AddSizeOfIncludingThis(windowSizes);
-
   // Measure the inner window, if there is one.
   nsGlobalWindowInner* inner = aWindow->GetCurrentInnerWindowInternal();
   if (inner != nullptr) {
     inner->AddSizeOfIncludingThis(windowSizes);
   }
+  windowSizes.addToTabSizes(&sizes);
+  if (document) {
+    document->SetCachedSizes(&sizes);
+  }
+  aSizes->mDom += sizes.mDom;
+  aSizes->mStyle += sizes.mStyle;
+  aSizes->mOther += sizes.mOther;
+}
 
-  windowSizes.addToTabSizes(aSizes);
-  nsDOMWindowList* frames = aWindow->GetFrames();
-  uint32_t length = frames->GetLength();
+nsresult GetTabSizes(nsGlobalWindowOuter* aWindow, nsTabSizes* aSizes) {
+  // Add the window (and inner window) sizes. Might be cached.
+  AddWindowTabSizes(aWindow, aSizes);
+
+  BrowsingContext* bc = aWindow->GetBrowsingContext();
+  if (!bc) {
+    return NS_OK;
+  }
 
   // Measure this window's descendents.
-  for (uint32_t i = 0; i < length; i++) {
-    nsCOMPtr<nsPIDOMWindowOuter> child = frames->IndexedGetter(i);
-    NS_ENSURE_STATE(child);
-    nsGlobalWindowOuter* childWin = nsGlobalWindowOuter::Cast(child);
-    nsresult rv = GetTabSizes(childWin, aSizes);
-    NS_ENSURE_SUCCESS(rv, rv);
+  for (const auto& frame : bc->Children()) {
+    if (auto* childWin = nsGlobalWindowOuter::Cast(frame->GetDOMWindow())) {
+      MOZ_TRY(GetTabSizes(childWin, aSizes));
+    }
   }
   return NS_OK;
 }

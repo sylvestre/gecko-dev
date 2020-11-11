@@ -4,12 +4,12 @@
 
 #include "nsCommandLine.h"
 
+#include "nsComponentManagerUtils.h"
 #include "nsICategoryManager.h"
 #include "nsICommandLineHandler.h"
 #include "nsICommandLineValidator.h"
 #include "nsIConsoleService.h"
 #include "nsIClassInfoImpl.h"
-#include "nsIDOMWindow.h"
 #include "nsIFile.h"
 #include "nsISimpleEnumerator.h"
 #include "mozilla/SimpleEnumerator.h"
@@ -25,17 +25,17 @@
 #include "mozilla/Attributes.h"
 
 #ifdef MOZ_WIDGET_COCOA
-#include <CoreFoundation/CoreFoundation.h>
-#include "nsILocalFileMac.h"
+#  include <CoreFoundation/CoreFoundation.h>
+#  include "nsILocalFileMac.h"
 #elif defined(XP_WIN)
-#include <windows.h>
-#include <shlobj.h>
+#  include <windows.h>
+#  include <shlobj.h>
 #elif defined(XP_UNIX)
-#include <unistd.h>
+#  include <unistd.h>
 #endif
 
 #ifdef DEBUG_bsmedberg
-#define DEBUG_COMMANDLINE
+#  define DEBUG_COMMANDLINE
 #endif
 
 #define NS_COMMANDLINE_CID                           \
@@ -73,11 +73,8 @@ nsCommandLine::FindFlag(const nsAString& aFlag, bool aCaseSensitive,
                         int32_t* aResult) {
   NS_ENSURE_ARG(!aFlag.IsEmpty());
 
-  nsDefaultStringComparator caseCmp;
-  nsCaseInsensitiveStringComparator caseICmp;
-  nsStringComparator& c = aCaseSensitive
-                              ? static_cast<nsStringComparator&>(caseCmp)
-                              : static_cast<nsStringComparator&>(caseICmp);
+  auto c = aCaseSensitive ? nsTDefaultStringComparator<char16_t>
+                          : nsCaseInsensitiveStringComparator;
 
   for (uint32_t f = 0; f < mArgs.Length(); f++) {
     const nsString& arg = mArgs[f];
@@ -99,9 +96,7 @@ nsCommandLine::RemoveArguments(int32_t aStart, int32_t aEnd) {
   NS_ENSURE_ARG_MIN(aStart, 0);
   NS_ENSURE_ARG_MAX(uint32_t(aEnd) + 1, mArgs.Length());
 
-  for (int32_t i = aEnd; i >= aStart; --i) {
-    mArgs.RemoveElementAt(i);
-  }
+  mArgs.RemoveElementsRange(mArgs.begin() + aStart, mArgs.begin() + aEnd + 1);
 
   return NS_OK;
 }
@@ -187,20 +182,43 @@ nsCommandLine::GetWorkingDirectory(nsIFile** aResult) {
 }
 
 NS_IMETHODIMP
-nsCommandLine::GetWindowContext(nsIDOMWindow** aResult) {
-  NS_IF_ADDREF(*aResult = mWindowContext);
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-nsCommandLine::SetWindowContext(nsIDOMWindow* aValue) {
-  mWindowContext = aValue;
-  return NS_OK;
-}
-
-NS_IMETHODIMP
 nsCommandLine::ResolveFile(const nsAString& aArgument, nsIFile** aResult) {
-  NS_ENSURE_TRUE(mWorkingDir, NS_ERROR_NOT_INITIALIZED);
+  // First try to resolve as an absolute path if we can.
+  // This will work even if we have no mWorkingDir, which happens if e.g.
+  // the dir from which we were started was deleted before we started,
+#if defined(XP_UNIX)
+  if (aArgument.First() == '/') {
+    nsCOMPtr<nsIFile> lf(do_CreateInstance(NS_LOCAL_FILE_CONTRACTID));
+    NS_ENSURE_TRUE(lf, NS_ERROR_OUT_OF_MEMORY);
+    nsresult rv = lf->InitWithPath(aArgument);
+    if (NS_FAILED(rv)) {
+      return rv;
+    }
+
+    lf.forget(aResult);
+    return NS_OK;
+  }
+#elif defined(XP_WIN)
+  nsCOMPtr<nsIFile> lf(do_CreateInstance(NS_LOCAL_FILE_CONTRACTID));
+  NS_ENSURE_TRUE(lf, NS_ERROR_OUT_OF_MEMORY);
+
+  // Just try creating the file with the absolute path; if it fails,
+  // we'll keep going and try it as a relative path.
+  if (NS_SUCCEEDED(lf->InitWithPath(aArgument))) {
+    lf.forget(aResult);
+    return NS_OK;
+  }
+#endif
+  // If that fails
+  return ResolveRelativeFile(aArgument, aResult);
+}
+
+nsresult nsCommandLine::ResolveRelativeFile(const nsAString& aArgument,
+                                            nsIFile** aResult) {
+  if (!mWorkingDir) {
+    *aResult = nullptr;
+    return NS_OK;
+  }
 
   // This is some seriously screwed-up code. nsIFile.appendRelativeNativePath
   // explicitly does not accept .. or . path parts, but that is exactly what we
@@ -239,15 +257,6 @@ nsCommandLine::ResolveFile(const nsAString& aArgument, nsIFile** aResult) {
   nsCOMPtr<nsIFile> lf(do_CreateInstance(NS_LOCAL_FILE_CONTRACTID));
   NS_ENSURE_TRUE(lf, NS_ERROR_OUT_OF_MEMORY);
 
-  if (aArgument.First() == '/') {
-    // absolute path
-    rv = lf->InitWithPath(aArgument);
-    if (NS_FAILED(rv)) return rv;
-
-    NS_ADDREF(*aResult = lf);
-    return NS_OK;
-  }
-
   nsAutoCString nativeArg;
   NS_CopyUnicodeToNative(aArgument, nativeArg);
 
@@ -266,35 +275,32 @@ nsCommandLine::ResolveFile(const nsAString& aArgument, nsIFile** aResult) {
   lf.forget(aResult);
   return NS_OK;
 
-#elif defined(XP_WIN32)
+#elif defined(XP_WIN)
   nsCOMPtr<nsIFile> lf(do_CreateInstance(NS_LOCAL_FILE_CONTRACTID));
   NS_ENSURE_TRUE(lf, NS_ERROR_OUT_OF_MEMORY);
 
-  rv = lf->InitWithPath(aArgument);
-  if (NS_FAILED(rv)) {
-    // If it's a relative path, the Init is *going* to fail. We use string magic
-    // and win32 _fullpath. Note that paths of the form "\Relative\To\CurDrive"
-    // are going to fail, and I haven't figured out a way to work around this
-    // without the PathCombine() function, which is not available in plain
-    // win95/nt4
+  // This is a relative path. We use string magic
+  // and win32 _fullpath. Note that paths of the form "\Relative\To\CurDrive"
+  // are going to fail, and I haven't figured out a way to work around this
+  // without the PathCombine() function, which is not available before
+  // Windows 8; see https://bugzilla.mozilla.org/show_bug.cgi?id=1672814
 
-    nsAutoString fullPath;
-    mWorkingDir->GetPath(fullPath);
+  nsAutoString fullPath;
+  mWorkingDir->GetPath(fullPath);
 
-    fullPath.Append('\\');
-    fullPath.Append(aArgument);
+  fullPath.Append('\\');
+  fullPath.Append(aArgument);
 
-    WCHAR pathBuf[MAX_PATH];
-    if (!_wfullpath(pathBuf, fullPath.get(), MAX_PATH)) return NS_ERROR_FAILURE;
+  WCHAR pathBuf[MAX_PATH];
+  if (!_wfullpath(pathBuf, fullPath.get(), MAX_PATH)) return NS_ERROR_FAILURE;
 
-    rv = lf->InitWithPath(nsDependentString(pathBuf));
-    if (NS_FAILED(rv)) return rv;
-  }
+  rv = lf->InitWithPath(nsDependentString(pathBuf));
+  if (NS_FAILED(rv)) return rv;
   lf.forget(aResult);
   return NS_OK;
 
 #else
-#error Need platform-specific logic here.
+#  error Need platform-specific logic here.
 #endif
 }
 

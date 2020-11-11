@@ -42,7 +42,7 @@ class InterfaceScanCallbackData {
   HANDLE mAllInterfacesDoneScanningEvent;
 };
 
-static void OnScanComplete(PWLAN_NOTIFICATION_DATA data, PVOID context) {
+static void WINAPI OnScanComplete(PWLAN_NOTIFICATION_DATA data, PVOID context) {
   if (WLAN_NOTIFICATION_SOURCE_ACM != data->NotificationSource) {
     return;
   }
@@ -52,8 +52,8 @@ static void OnScanComplete(PWLAN_NOTIFICATION_DATA data, PVOID context) {
     return;
   }
 
-  InterfaceScanCallbackData *cbData =
-      reinterpret_cast<InterfaceScanCallbackData *>(context);
+  InterfaceScanCallbackData* cbData =
+      reinterpret_cast<InterfaceScanCallbackData*>(context);
   cbData->OnInterfaceScanComplete();
 }
 
@@ -64,7 +64,7 @@ WinWifiScanner::WinWifiScanner() {
   // and make our assumption incorrect. We opt to avoid making a bunch of
   // spurious LoadLibrary calls in the common case rather than load the
   // WLAN API in the edge case.
-  mWlanLibrary = WinWLANLibrary::Load();
+  mWlanLibrary.reset(WinWLANLibrary::Load());
   if (!mWlanLibrary) {
     NS_WARNING("Could not initialize Windows Wi-Fi scanner");
   }
@@ -73,7 +73,7 @@ WinWifiScanner::WinWifiScanner() {
 WinWifiScanner::~WinWifiScanner() {}
 
 nsresult WinWifiScanner::GetAccessPointsFromWLAN(
-    nsCOMArray<nsWifiAccessPoint> &accessPoints) {
+    nsCOMArray<nsWifiAccessPoint>& accessPoints) {
   accessPoints.Clear();
 
   // NOTE: We do not try to load the WLAN library if we previously failed
@@ -83,7 +83,7 @@ nsresult WinWifiScanner::GetAccessPointsFromWLAN(
   }
 
   // Get the list of interfaces. WlanEnumInterfaces allocates interface_list.
-  WLAN_INTERFACE_INFO_LIST *interface_list = nullptr;
+  WLAN_INTERFACE_INFO_LIST* interface_list = nullptr;
   if (ERROR_SUCCESS !=
       (*mWlanLibrary->GetWlanEnumInterfacesPtr())(mWlanLibrary->GetWLANHandle(),
                                                   nullptr, &interface_list)) {
@@ -91,7 +91,7 @@ nsresult WinWifiScanner::GetAccessPointsFromWLAN(
   }
 
   // This ensures we call WlanFreeMemory on interface_list
-  ScopedWLANObject scopedInterfaceList(mWlanLibrary, interface_list);
+  ScopedWLANObject scopedInterfaceList(*mWlanLibrary, interface_list);
 
   if (!interface_list->dwNumberOfItems) {
     return NS_OK;
@@ -132,7 +132,7 @@ nsresult WinWifiScanner::GetAccessPointsFromWLAN(
 
   // Go through the list of interfaces and get the data for each.
   for (uint32_t i = 0; i < interface_list->dwNumberOfItems; ++i) {
-    WLAN_BSS_LIST *bss_list;
+    WLAN_BSS_LIST* bss_list;
     if (ERROR_SUCCESS != (*mWlanLibrary->GetWlanGetNetworkBssListPtr())(
                              mWlanLibrary->GetWLANHandle(),
                              &interface_list->InterfaceInfo[i].InterfaceGuid,
@@ -145,11 +145,11 @@ nsresult WinWifiScanner::GetAccessPointsFromWLAN(
     }
 
     // This ensures we call WlanFreeMemory on bss_list
-    ScopedWLANObject scopedBssList(mWlanLibrary, bss_list);
+    ScopedWLANObject scopedBssList(*mWlanLibrary, bss_list);
 
     // Store each discovered access point in our outparam
     for (int j = 0; j < static_cast<int>(bss_list->dwNumberOfItems); ++j) {
-      nsWifiAccessPoint *ap = new nsWifiAccessPoint();
+      nsWifiAccessPoint* ap = new nsWifiAccessPoint();
       if (!ap) {
         continue;
       }
@@ -157,7 +157,7 @@ nsresult WinWifiScanner::GetAccessPointsFromWLAN(
       const WLAN_BSS_ENTRY bss_entry = bss_list->wlanBssEntries[j];
       ap->setMac(bss_entry.dot11Bssid);
       ap->setSignal(bss_entry.lRssi);
-      ap->setSSID(reinterpret_cast<char const *>(bss_entry.dot11Ssid.ucSSID),
+      ap->setSSID(reinterpret_cast<char const*>(bss_entry.dot11Ssid.ucSSID),
                   bss_entry.dot11Ssid.uSSIDLength);
 
       accessPoints.AppendObject(ap);

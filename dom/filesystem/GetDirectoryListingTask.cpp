@@ -15,18 +15,18 @@
 #include "mozilla/dom/PFileSystemParams.h"
 #include "mozilla/dom/Promise.h"
 #include "mozilla/dom/UnionTypes.h"
+#include "mozilla/ipc/BackgroundParent.h"
 #include "nsIFile.h"
-#include "nsISimpleEnumerator.h"
 #include "nsString.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 /**
  * GetDirectoryListingTaskChild
  */
 
-/* static */ already_AddRefed<GetDirectoryListingTaskChild>
+/* static */
+already_AddRefed<GetDirectoryListingTaskChild>
 GetDirectoryListingTaskChild::Create(FileSystemBase* aFileSystem,
                                      Directory* aDirectory,
                                      nsIFile* aTargetPath,
@@ -36,12 +36,8 @@ GetDirectoryListingTaskChild::Create(FileSystemBase* aFileSystem,
   MOZ_ASSERT(aDirectory);
   aFileSystem->AssertIsOnOwningThread();
 
-  nsCOMPtr<nsIGlobalObject> globalObject =
-      do_QueryInterface(aFileSystem->GetParentObject());
-  if (NS_WARN_IF(!globalObject)) {
-    aRv.Throw(NS_ERROR_FAILURE);
-    return nullptr;
-  }
+  nsCOMPtr<nsIGlobalObject> globalObject = aFileSystem->GetParentObject();
+  MOZ_ASSERT(globalObject);
 
   RefPtr<GetDirectoryListingTaskChild> task = new GetDirectoryListingTaskChild(
       globalObject, aFileSystem, aDirectory, aTargetPath, aFilters);
@@ -122,8 +118,10 @@ void GetDirectoryListingTaskChild::SetSuccessRequestResult(
       RefPtr<BlobImpl> blobImpl = IPCBlobUtils::Deserialize(d.blob());
       MOZ_ASSERT(blobImpl);
 
-      RefPtr<File> file =
-          File::Create(mFileSystem->GetParentObject(), blobImpl);
+      nsCOMPtr<nsIGlobalObject> globalObject = mFileSystem->GetParentObject();
+      MOZ_ASSERT(globalObject);
+
+      RefPtr<File> file = File::Create(globalObject, blobImpl);
       MOZ_ASSERT(file);
 
       ofd->SetAsFile() = file;
@@ -171,13 +169,14 @@ void GetDirectoryListingTaskChild::HandlerCallback() {
  * GetDirectoryListingTaskParent
  */
 
-/* static */ already_AddRefed<GetDirectoryListingTaskParent>
+/* static */
+already_AddRefed<GetDirectoryListingTaskParent>
 GetDirectoryListingTaskParent::Create(
     FileSystemBase* aFileSystem,
     const FileSystemGetDirectoryListingParams& aParam,
     FileSystemRequestParent* aParent, ErrorResult& aRv) {
   MOZ_ASSERT(XRE_IsParentProcess(), "Only call from parent process!");
-  AssertIsOnBackgroundThread();
+  mozilla::ipc::AssertIsOnBackgroundThread();
   MOZ_ASSERT(aFileSystem);
 
   RefPtr<GetDirectoryListingTaskParent> task =
@@ -200,13 +199,13 @@ GetDirectoryListingTaskParent::GetDirectoryListingTaskParent(
       mDOMPath(aParam.domPath()),
       mFilters(aParam.filters()) {
   MOZ_ASSERT(XRE_IsParentProcess(), "Only call from parent process!");
-  AssertIsOnBackgroundThread();
+  mozilla::ipc::AssertIsOnBackgroundThread();
   MOZ_ASSERT(aFileSystem);
 }
 
 FileSystemResponseValue GetDirectoryListingTaskParent::GetSuccessRequestResult(
     ErrorResult& aRv) const {
-  AssertIsOnBackgroundThread();
+  mozilla::ipc::AssertIsOnBackgroundThread();
 
   nsTArray<FileSystemDirectoryListingResponseData> inputs;
 
@@ -253,7 +252,7 @@ FileSystemResponseValue GetDirectoryListingTaskParent::GetSuccessRequestResult(
   }
 
   FileSystemDirectoryListingResponse response;
-  response.data().SwapElements(inputs);
+  response.data() = std::move(inputs);
   return response;
 }
 
@@ -364,5 +363,4 @@ nsresult GetDirectoryListingTaskParent::GetTargetPath(nsAString& aPath) const {
   return mTargetPath->GetPath(aPath);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

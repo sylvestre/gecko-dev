@@ -71,15 +71,14 @@
 
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
-#include "base/hash_tables.h"
 
 // Windows-style drive letter support and pathname separator characters can be
 // enabled and disabled independently, to aid testing.  These #defines are
 // here so that the same setting can be used in both the implementation and
 // in the unit test.
 #if defined(OS_WIN)
-#define FILE_PATH_USES_DRIVE_LETTERS
-#define FILE_PATH_USES_WIN_SEPARATORS
+#  define FILE_PATH_USES_DRIVE_LETTERS
+#  define FILE_PATH_USES_WIN_SEPARATORS
 #endif  // OS_WIN
 
 // An abstraction to isolate users from the differences between native
@@ -241,29 +240,9 @@ class FilePath {
 
 // Macros for string literal initialization of FilePath::CharType[].
 #if defined(OS_POSIX)
-#define FILE_PATH_LITERAL(x) x
+#  define FILE_PATH_LITERAL(x) x
 #elif defined(OS_WIN)
-#define FILE_PATH_LITERAL(x) L##x
+#  define FILE_PATH_LITERAL(x) L##x
 #endif  // OS_WIN
-
-// Implement hash function so that we can use FilePaths in hashsets and maps.
-#if defined(COMPILER_GCC) && !defined(ANDROID)
-namespace __gnu_cxx {
-
-template <>
-struct hash<FilePath> {
-  size_t operator()(const FilePath& f) const {
-    return hash<FilePath::StringType>()(f.value());
-  }
-};
-
-}  // namespace __gnu_cxx
-#elif defined(COMPILER_MSVC)
-namespace stdext {
-
-inline size_t hash_value(const FilePath& f) { return hash_value(f.value()); }
-
-}  // namespace stdext
-#endif  // COMPILER
 
 #endif  // BASE_FILE_PATH_H_

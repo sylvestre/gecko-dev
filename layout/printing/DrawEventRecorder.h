@@ -12,6 +12,7 @@
 #include "mozilla/gfx/DrawEventRecorder.h"
 #include "mozilla/gfx/RecordingTypes.h"
 #include "prio.h"
+#include "nsTArray.h"
 
 namespace mozilla {
 namespace layout {
@@ -105,7 +106,9 @@ class PRFileDescStream final : public mozilla::gfx::EventStream {
     mGood = res >= 0 && (static_cast<size_t>(res) == aSize);
   }
 
-  bool good() { return mGood; }
+  bool good() final { return mGood; }
+
+  void SetIsBad() final { mGood = false; }
 
  private:
   size_t AvailableBufferSpace() { return kBufferSize - mBufferPos; }
@@ -125,7 +128,7 @@ class PRFileDescStream final : public mozilla::gfx::EventStream {
 class DrawEventRecorderPRFileDesc final : public gfx::DrawEventRecorderPrivate {
  public:
   MOZ_DECLARE_REFCOUNTED_VIRTUAL_TYPENAME(DrawEventRecorderPRFileDesc, override)
-  explicit DrawEventRecorderPRFileDesc(){};
+  explicit DrawEventRecorderPRFileDesc() = default;
   ~DrawEventRecorderPRFileDesc();
 
   void RecordEvent(const gfx::RecordedEvent& aEvent) override;
@@ -147,10 +150,14 @@ class DrawEventRecorderPRFileDesc final : public gfx::DrawEventRecorderPrivate {
    */
   void Close();
 
+  void AddDependentSurface(uint64_t aDependencyId) override;
+  nsTArray<uint64_t>&& TakeDependentSurfaces();
+
  private:
   void Flush() override;
 
   PRFileDescStream mOutputStream;
+  nsTArray<uint64_t> mDependentSurfaces;
 };
 
 }  // namespace layout

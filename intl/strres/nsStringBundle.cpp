@@ -8,8 +8,6 @@
 #include "nsString.h"
 #include "nsIStringBundle.h"
 #include "nsStringBundleService.h"
-#include "nsISupportsPrimitives.h"
-#include "nsIMutableArray.h"
 #include "nsArrayEnumerator.h"
 #include "nscore.h"
 #include "nsMemory.h"
@@ -22,13 +20,13 @@
 #include "nsCOMArray.h"
 #include "nsTextFormatter.h"
 #include "nsErrorService.h"
-#include "nsICategoryManager.h"
 #include "nsContentUtils.h"
 #include "nsPersistentProperties.h"
 #include "nsQueryObject.h"
 #include "nsSimpleEnumerator.h"
 #include "nsStringStream.h"
 #include "mozilla/BinarySearch.h"
+#include "mozilla/ClearOnShutdown.h"
 #include "mozilla/ResultExtensions.h"
 #include "mozilla/URLPreloader.h"
 #include "mozilla/ResultExtensions.h"
@@ -37,8 +35,8 @@
 
 // for async loading
 #ifdef ASYNC_LOADING
-#include "nsIBinaryInputStream.h"
-#include "nsIStringStream.h"
+#  include "nsIBinaryInputStream.h"
+#  include "nsIStringStream.h"
 #endif
 
 using namespace mozilla;
@@ -69,7 +67,6 @@ static const char kContentBundles[][52] = {
     "chrome://global/locale/commonDialogs.properties",
     "chrome://global/locale/css.properties",
     "chrome://global/locale/dom/dom.properties",
-    "chrome://global/locale/intl.properties",
     "chrome://global/locale/layout/HtmlForm.properties",
     "chrome://global/locale/layout/htmlparser.properties",
     "chrome://global/locale/layout_errors.properties",
@@ -78,16 +75,15 @@ static const char kContentBundles[][52] = {
     "chrome://global/locale/security/csp.properties",
     "chrome://global/locale/security/security.properties",
     "chrome://global/locale/svg/svg.properties",
-    "chrome://global/locale/xbl.properties",
     "chrome://global/locale/xul.properties",
     "chrome://necko/locale/necko.properties",
 };
 
 static bool IsContentBundle(const nsCString& aUrl) {
   size_t index;
-  return BinarySearchIf(kContentBundles, 0, MOZ_ARRAY_LENGTH(kContentBundles),
-                        [&](const char* aElem) { return aUrl.Compare(aElem); },
-                        &index);
+  return BinarySearchIf(
+      kContentBundles, 0, MOZ_ARRAY_LENGTH(kContentBundles),
+      [&](const char* aElem) { return aUrl.Compare(aElem); }, &index);
 }
 
 namespace {
@@ -304,7 +300,8 @@ void nsStringBundleBase::RegisterMemoryReporter() {
 }
 
 template <typename T, typename... Args>
-/* static */ already_AddRefed<T> nsStringBundleBase::Create(Args... args) {
+/* static */
+already_AddRefed<T> nsStringBundleBase::Create(Args... args) {
   RefPtr<T> bundle = new T(args...);
   bundle->RegisterMemoryReporter();
   return bundle.forget();
@@ -313,13 +310,14 @@ template <typename T, typename... Args>
 nsStringBundle::nsStringBundle(const char* aURLSpec)
     : nsStringBundleBase(aURLSpec) {}
 
-nsStringBundle::~nsStringBundle() {}
+nsStringBundle::~nsStringBundle() = default;
 
 NS_IMETHODIMP
 nsStringBundleBase::AsyncPreload() {
-  return NS_IdleDispatchToCurrentThread(
+  return NS_DispatchToCurrentThreadQueue(
       NewIdleRunnableMethod("nsStringBundleBase::LoadProperties", this,
-                            &nsStringBundleBase::LoadProperties));
+                            &nsStringBundleBase::LoadProperties),
+      EventQueuePriority::Idle);
 }
 
 size_t nsStringBundle::SizeOfIncludingThis(
@@ -387,20 +385,19 @@ nsStringBundleBase::CollectReports(nsIHandleReportCallback* aHandleReport,
 
   path.AppendLiteral(")");
 
-  NS_NAMED_LITERAL_CSTRING(
-      desc,
+  constexpr auto desc =
       "A StringBundle instance representing the data in a (probably "
       "localized) .properties file. Data may be shared between "
-      "processes.");
+      "processes."_ns;
 
-  aHandleReport->Callback(EmptyCString(), path, KIND_HEAP, UNITS_BYTES,
-                          heapSize, desc, aData);
+  aHandleReport->Callback(""_ns, path, KIND_HEAP, UNITS_BYTES, heapSize, desc,
+                          aData);
 
   if (sharedSize) {
     path.ReplaceLiteral(0, sizeof("explicit/") - 1, "shared-");
 
-    aHandleReport->Callback(EmptyCString(), path, KIND_OTHER, UNITS_BYTES,
-                            sharedSize, desc, aData);
+    aHandleReport->Callback(""_ns, path, KIND_OTHER, UNITS_BYTES, sharedSize,
+                            desc, aData);
   }
 
   return NS_OK;
@@ -448,15 +445,15 @@ nsresult nsStringBundleBase::ParseProperties(nsIPersistentProperties** aProps) {
     nsCOMPtr<nsIChannel> channel;
     rv = NS_NewChannel(getter_AddRefs(channel), uri,
                        nsContentUtils::GetSystemPrincipal(),
-                       nsILoadInfo::SEC_ALLOW_CROSS_ORIGIN_DATA_IS_NULL,
+                       nsILoadInfo::SEC_ALLOW_CROSS_ORIGIN_SEC_CONTEXT_IS_NULL,
                        nsIContentPolicy::TYPE_OTHER);
 
     if (NS_FAILED(rv)) return rv;
 
     // It's a string bundle.  We expect a text/plain type, so set that as hint
-    channel->SetContentType(NS_LITERAL_CSTRING("text/plain"));
+    channel->SetContentType("text/plain"_ns);
 
-    rv = channel->Open2(getter_AddRefs(in));
+    rv = channel->Open(getter_AddRefs(in));
     if (NS_FAILED(rv)) return rv;
   }
 
@@ -472,6 +469,12 @@ nsresult nsStringBundleBase::ParseProperties(nsIPersistentProperties** aProps) {
 }
 
 nsresult nsStringBundle::LoadProperties() {
+  // Something such as Necko might use string bundle after ClearOnShutdown is
+  // called. LocaleService etc is already down, so we cannot get bundle data.
+  if (PastShutdownPhase(ShutdownPhase::Shutdown)) {
+    return NS_ERROR_ILLEGAL_DURING_SHUTDOWN;
+  }
+
   if (mProps) {
     return NS_OK;
   }
@@ -485,6 +488,19 @@ nsresult SharedStringBundle::LoadProperties() {
     mStringMap = new SharedStringMap(mMapFile.ref(), mMapSize);
     mMapFile.reset();
     return NS_OK;
+  }
+
+  MOZ_ASSERT(NS_IsMainThread(),
+             "String bundles must be initialized on the main thread "
+             "before they may be used off-main-thread");
+
+  // We can't access the locale service after shutdown has started, which
+  // means we can't attempt to load chrome: locale resources (which most of
+  // our string bundles come from). Since shared string bundles won't be
+  // useful after shutdown has started anyway (and we almost certainly got
+  // here from a pre-load attempt in an idle task), just bail out.
+  if (PastShutdownPhase(ShutdownPhase::Shutdown)) {
+    return NS_ERROR_ILLEGAL_DURING_SHUTDOWN;
   }
 
   // We should only populate shared memory string bundles in the parent
@@ -570,29 +586,29 @@ nsresult SharedStringBundle::GetStringImpl(const nsACString& aName,
 }
 
 NS_IMETHODIMP
-nsStringBundleBase::FormatStringFromID(int32_t aID, const char16_t** aParams,
-                                       uint32_t aLength, nsAString& aResult) {
+nsStringBundleBase::FormatStringFromID(int32_t aID,
+                                       const nsTArray<nsString>& aParams,
+                                       nsAString& aResult) {
   nsAutoCString idStr;
   idStr.AppendInt(aID, 10);
-  return FormatStringFromName(idStr.get(), aParams, aLength, aResult);
+  return FormatStringFromName(idStr.get(), aParams, aResult);
 }
 
 // this function supports at most 10 parameters.. see below for why
 NS_IMETHODIMP
 nsStringBundleBase::FormatStringFromAUTF8Name(const nsACString& aName,
-                                              const char16_t** aParams,
-                                              uint32_t aLength,
+                                              const nsTArray<nsString>& aParams,
                                               nsAString& aResult) {
-  return FormatStringFromName(PromiseFlatCString(aName).get(), aParams, aLength,
+  return FormatStringFromName(PromiseFlatCString(aName).get(), aParams,
                               aResult);
 }
 
 // this function supports at most 10 parameters.. see below for why
 NS_IMETHODIMP
 nsStringBundleBase::FormatStringFromName(const char* aName,
-                                         const char16_t** aParams,
-                                         uint32_t aLength, nsAString& aResult) {
-  NS_ASSERTION(aParams && aLength,
+                                         const nsTArray<nsString>& aParams,
+                                         nsAString& aResult) {
+  NS_ASSERTION(!aParams.IsEmpty(),
                "FormatStringFromName() without format parameters: use "
                "GetStringFromName() instead");
 
@@ -600,7 +616,7 @@ nsStringBundleBase::FormatStringFromName(const char* aName,
   nsresult rv = GetStringFromName(aName, formatStr);
   if (NS_FAILED(rv)) return rv;
 
-  return FormatString(formatStr.get(), aParams, aLength, aResult);
+  return FormatString(formatStr.get(), aParams, aResult);
 }
 
 NS_IMETHODIMP
@@ -648,10 +664,10 @@ StringMapEnumerator::GetNext(nsISupports** aNext) {
 }
 
 nsresult nsStringBundleBase::FormatString(const char16_t* aFormatStr,
-                                          const char16_t** aParams,
-                                          uint32_t aLength,
+                                          const nsTArray<nsString>& aParams,
                                           nsAString& aResult) {
-  NS_ENSURE_ARG(aLength <= 10);  // enforce 10-parameter limit
+  auto length = aParams.Length();
+  NS_ENSURE_ARG(length <= 10);  // enforce 10-parameter limit
 
   // implementation note: you would think you could use vsmprintf
   // to build up an arbitrary length array.. except that there
@@ -659,13 +675,17 @@ nsresult nsStringBundleBase::FormatString(const char16_t* aFormatStr,
   // Don't believe me? See:
   //   http://www.eskimo.com/~scs/C-faq/q15.13.html
   // -alecf
-  nsTextFormatter::ssprintf(
-      aResult, aFormatStr, aLength >= 1 ? aParams[0] : nullptr,
-      aLength >= 2 ? aParams[1] : nullptr, aLength >= 3 ? aParams[2] : nullptr,
-      aLength >= 4 ? aParams[3] : nullptr, aLength >= 5 ? aParams[4] : nullptr,
-      aLength >= 6 ? aParams[5] : nullptr, aLength >= 7 ? aParams[6] : nullptr,
-      aLength >= 8 ? aParams[7] : nullptr, aLength >= 9 ? aParams[8] : nullptr,
-      aLength >= 10 ? aParams[9] : nullptr);
+  nsTextFormatter::ssprintf(aResult, aFormatStr,
+                            length >= 1 ? aParams[0].get() : nullptr,
+                            length >= 2 ? aParams[1].get() : nullptr,
+                            length >= 3 ? aParams[2].get() : nullptr,
+                            length >= 4 ? aParams[3].get() : nullptr,
+                            length >= 5 ? aParams[4].get() : nullptr,
+                            length >= 6 ? aParams[5].get() : nullptr,
+                            length >= 7 ? aParams[6].get() : nullptr,
+                            length >= 8 ? aParams[7].get() : nullptr,
+                            length >= 9 ? aParams[8].get() : nullptr,
+                            length >= 10 ? aParams[9].get() : nullptr);
 
   return NS_OK;
 }
@@ -678,9 +698,9 @@ struct bundleCacheEntry_t final : public LinkedListElement<bundleCacheEntry_t> {
   nsCString mHashKey;
   nsCOMPtr<nsIStringBundle> mBundle;
 
-  bundleCacheEntry_t() { MOZ_COUNT_CTOR(bundleCacheEntry_t); }
+  MOZ_COUNTED_DEFAULT_CTOR(bundleCacheEntry_t)
 
-  ~bundleCacheEntry_t() { MOZ_COUNT_DTOR(bundleCacheEntry_t); }
+  MOZ_COUNTED_DTOR(bundleCacheEntry_t)
 };
 
 nsStringBundleService::nsStringBundleService()
@@ -898,27 +918,23 @@ nsStringBundleService::CreateBundle(const char* aURLSpec,
 
 #define GLOBAL_PROPERTIES "chrome://global/locale/global-strres.properties"
 
-nsresult nsStringBundleService::FormatWithBundle(nsIStringBundle* bundle,
-                                                 nsresult aStatus,
-                                                 uint32_t argCount,
-                                                 char16_t** argArray,
-                                                 nsAString& result) {
+nsresult nsStringBundleService::FormatWithBundle(
+    nsIStringBundle* bundle, nsresult aStatus,
+    const nsTArray<nsString>& argArray, nsAString& result) {
   nsresult rv;
 
   // try looking up the error message with the int key:
   uint16_t code = NS_ERROR_GET_CODE(aStatus);
-  rv = bundle->FormatStringFromID(code, (const char16_t**)argArray, argCount,
-                                  result);
+  rv = bundle->FormatStringFromID(code, argArray, result);
 
   // If the int key fails, try looking up the default error message. E.g. print:
   //   An unknown error has occurred (0x804B0003).
   if (NS_FAILED(rv)) {
-    nsAutoString statusStr;
-    statusStr.AppendInt(static_cast<uint32_t>(aStatus), 16);
-    const char16_t* otherArgArray[1];
-    otherArgArray[0] = statusStr.get();
+    AutoTArray<nsString, 1> otherArgArray;
+    otherArgArray.AppendElement()->AppendInt(static_cast<uint32_t>(aStatus),
+                                             16);
     uint16_t code = NS_ERROR_GET_CODE(NS_ERROR_FAILURE);
-    rv = bundle->FormatStringFromID(code, otherArgArray, 1, result);
+    rv = bundle->FormatStringFromID(code, otherArgArray, result);
   }
 
   return rv;
@@ -947,23 +963,17 @@ nsStringBundleService::FormatStatusMessage(nsresult aStatus,
   const nsDependentString args(aStatusArg);
   argCount = args.CountChar(char16_t('\n')) + 1;
   NS_ENSURE_ARG(argCount <= 10);  // enforce 10-parameter limit
-  char16_t* argArray[10];
+  AutoTArray<nsString, 10> argArray;
 
-  // convert the aStatusArg into a char16_t array
+  // convert the aStatusArg into an nsString array
   if (argCount == 1) {
-    // avoid construction for the simple case:
-    argArray[0] = (char16_t*)aStatusArg;
+    argArray.AppendElement(aStatusArg);
   } else if (argCount > 1) {
     int32_t offset = 0;
     for (i = 0; i < argCount; i++) {
       int32_t pos = args.FindChar('\n', offset);
       if (pos == -1) pos = args.Length();
-      argArray[i] = ToNewUnicode(Substring(args, offset, pos - offset));
-      if (argArray[i] == nullptr) {
-        rv = NS_ERROR_OUT_OF_MEMORY;
-        argCount = i - 1;  // don't try to free uninitialized memory
-        goto done;
-      }
+      argArray.AppendElement(Substring(args, offset, pos - offset));
       offset = pos + 1;
     }
   }
@@ -973,18 +983,12 @@ nsStringBundleService::FormatStatusMessage(nsresult aStatus,
                                            getter_Copies(stringBundleURL));
   if (NS_SUCCEEDED(rv)) {
     getStringBundle(stringBundleURL.get(), getter_AddRefs(bundle));
-    rv = FormatWithBundle(bundle, aStatus, argCount, argArray, result);
+    rv = FormatWithBundle(bundle, aStatus, argArray, result);
   }
   if (NS_FAILED(rv)) {
     getStringBundle(GLOBAL_PROPERTIES, getter_AddRefs(bundle));
-    rv = FormatWithBundle(bundle, aStatus, argCount, argArray, result);
+    rv = FormatWithBundle(bundle, aStatus, argArray, result);
   }
 
-done:
-  if (argCount > 1) {
-    for (i = 0; i < argCount; i++) {
-      if (argArray[i]) free(argArray[i]);
-    }
-  }
   return rv;
 }

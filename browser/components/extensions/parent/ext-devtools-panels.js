@@ -1,19 +1,26 @@
 /* -*- Mode: indent-tabs-mode: nil; js-indent-level: 2 -*- */
 /* vim: set sts=2 sw=2 et tw=80: */
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 "use strict";
 
-ChromeUtils.import("resource://gre/modules/ExtensionParent.jsm");
+var { ExtensionParent } = ChromeUtils.import(
+  "resource://gre/modules/ExtensionParent.jsm"
+);
 
-var {
-  IconDetails,
-  watchExtensionProxyContextLoad,
-} = ExtensionParent;
+ChromeUtils.defineModuleGetter(
+  this,
+  "BroadcastConduit",
+  "resource://gre/modules/ConduitsParent.jsm"
+);
 
-var {
-  promiseDocumentLoaded,
-} = ExtensionUtils;
+var { IconDetails, watchExtensionProxyContextLoad } = ExtensionParent;
 
-const WEBEXT_PANELS_URL = "chrome://browser/content/webext-panels.xul";
+var { promiseDocumentLoaded } = ExtensionUtils;
+
+const WEBEXT_PANELS_URL = "chrome://browser/content/webext-panels.xhtml";
 
 class BaseDevToolsPanel {
   constructor(context, panelOptions) {
@@ -40,9 +47,9 @@ class BaseDevToolsPanel {
   }
 
   async createBrowserElement(window) {
-    const {toolbox} = this;
-    const {extension} = this.context;
-    const {url} = this.panelOptions || {url: "about:blank"};
+    const { toolbox } = this;
+    const { extension } = this.context;
+    const { url } = this.panelOptions || { url: "about:blank" };
 
     this.browser = await window.getBrowser({
       extension,
@@ -60,26 +67,29 @@ class BaseDevToolsPanel {
     let hasTopLevelContext = false;
 
     // Listening to new proxy contexts.
-    this.unwatchExtensionProxyContextLoad = watchExtensionProxyContextLoad(this, context => {
-      // Keep track of the toolbox and target associated to the context, which is
-      // needed by the API methods implementation.
-      context.devToolsToolbox = toolbox;
+    this.unwatchExtensionProxyContextLoad = watchExtensionProxyContextLoad(
+      this,
+      context => {
+        // Keep track of the toolbox and target associated to the context, which is
+        // needed by the API methods implementation.
+        context.devToolsToolbox = toolbox;
 
-      if (!hasTopLevelContext) {
-        hasTopLevelContext = true;
+        if (!hasTopLevelContext) {
+          hasTopLevelContext = true;
 
-        // Resolve the promise when the root devtools_panel context has been created.
-        if (this._resolveTopLevelContext) {
-          this._resolveTopLevelContext(context);
+          // Resolve the promise when the root devtools_panel context has been created.
+          if (this._resolveTopLevelContext) {
+            this._resolveTopLevelContext(context);
+          }
         }
       }
-    });
+    );
 
-    this.browser.loadURI(url, {triggeringPrincipal: this.context.principal});
+    this.browser.loadURI(url, { triggeringPrincipal: this.context.principal });
   }
 
   destroyBrowserElement() {
-    const {browser, unwatchExtensionProxyContextLoad} = this;
+    const { browser, unwatchExtensionProxyContextLoad } = this;
     if (unwatchExtensionProxyContextLoad) {
       this.unwatchExtensionProxyContextLoad = null;
       unwatchExtensionProxyContextLoad();
@@ -116,6 +126,11 @@ class ParentDevToolsPanel extends BaseDevToolsPanel {
 
     this.context.callOnClose(this);
 
+    this.conduit = new BroadcastConduit(this, {
+      id: `${this.id}-parent`,
+      send: ["PanelHidden", "PanelShown"],
+    });
+
     this.onToolboxPanelSelect = this.onToolboxPanelSelect.bind(this);
     this.onToolboxHostWillChange = this.onToolboxHostWillChange.bind(this);
     this.onToolboxHostChanged = this.onToolboxHostChanged.bind(this);
@@ -129,7 +144,7 @@ class ParentDevToolsPanel extends BaseDevToolsPanel {
   }
 
   addPanel() {
-    const {icon, title} = this.panelOptions;
+    const { icon, title } = this.panelOptions;
     const extensionName = this.context.extension.name;
 
     this.toolbox.addAdditionalTool({
@@ -138,16 +153,20 @@ class ParentDevToolsPanel extends BaseDevToolsPanel {
       url: WEBEXT_PANELS_URL,
       icon: icon,
       label: title,
+      // panelLabel is used to set the aria-label attribute (See Bug 1570645).
+      panelLabel: title,
       tooltip: `DevTools Panel added by "${extensionName}" add-on.`,
       isTargetSupported: target => target.isLocalTab,
       build: (window, toolbox) => {
         if (toolbox !== this.toolbox) {
-          throw new Error("Unexpected toolbox received on addAdditionalTool build property");
+          throw new Error(
+            "Unexpected toolbox received on addAdditionalTool build property"
+          );
         }
 
         const destroy = this.buildPanel(window);
 
-        return {toolbox, destroy};
+        return { toolbox, destroy };
       },
     });
 
@@ -155,7 +174,7 @@ class ParentDevToolsPanel extends BaseDevToolsPanel {
   }
 
   buildPanel(window) {
-    const {toolbox} = this;
+    const { toolbox } = this;
 
     this.createBrowserElement(window);
 
@@ -193,9 +212,7 @@ class ParentDevToolsPanel extends BaseDevToolsPanel {
       // Fires a panel.onHidden event before destroying the browser element because
       // the toolbox hosts is changing.
       if (this.visible) {
-        this.context.parentMessageManager.sendAsyncMessage("Extension:DevToolsPanelHidden", {
-          toolboxPanelId: this.id,
-        });
+        this.conduit.sendPanelHidden(this.id);
       }
 
       this.destroyBrowserElement();
@@ -211,10 +228,7 @@ class ParentDevToolsPanel extends BaseDevToolsPanel {
       // object to the extension page that has created the devtools panel).
       if (this.visible) {
         await this.waitTopLevelContext;
-
-        this.context.parentMessageManager.sendAsyncMessage("Extension:DevToolsPanelShown", {
-          toolboxPanelId: this.id,
-        });
+        this.conduit.sendPanelShown(this.id);
       }
     }
   }
@@ -229,22 +243,21 @@ class ParentDevToolsPanel extends BaseDevToolsPanel {
 
     if (!this.visible && id === this.id) {
       this.visible = true;
+      this.conduit.sendPanelShown(this.id);
     } else if (this.visible && id !== this.id) {
       this.visible = false;
+      this.conduit.sendPanelHidden(this.id);
     }
-
-    const extensionMessage = `Extension:DevToolsPanel${this.visible ? "Shown" : "Hidden"}`;
-    this.context.parentMessageManager.sendAsyncMessage(extensionMessage, {
-      toolboxPanelId: this.id,
-    });
   }
 
   close() {
-    const {toolbox} = this;
+    const { toolbox } = this;
 
     if (!toolbox) {
       throw new Error("Unable to destroy a closed devtools panel");
     }
+
+    this.conduit.close();
 
     // Explicitly remove the panel if it is registered and the toolbox is not
     // closing itself.
@@ -344,6 +357,11 @@ class ParentDevToolsInspectorSidebar extends BaseDevToolsPanel {
 
     this.context.callOnClose(this);
 
+    this.conduit = new BroadcastConduit(this, {
+      id: `${this.id}-parent`,
+      send: ["InspectorSidebarHidden", "InspectorSidebarShown"],
+    });
+
     this.onSidebarSelect = this.onSidebarSelect.bind(this);
     this.onSidebarCreated = this.onSidebarCreated.bind(this);
     this.onExtensionPageMount = this.onExtensionPageMount.bind(this);
@@ -351,7 +369,10 @@ class ParentDevToolsInspectorSidebar extends BaseDevToolsPanel {
     this.onToolboxHostWillChange = this.onToolboxHostWillChange.bind(this);
     this.onToolboxHostChanged = this.onToolboxHostChanged.bind(this);
 
-    this.toolbox.once(`extension-sidebar-created-${this.id}`, this.onSidebarCreated);
+    this.toolbox.once(
+      `extension-sidebar-created-${this.id}`,
+      this.onSidebarCreated
+    );
     this.toolbox.on("inspector-sidebar-select", this.onSidebarSelect);
     this.toolbox.on("host-will-change", this.onToolboxHostWillChange);
     this.toolbox.on("host-changed", this.onToolboxHostChanged);
@@ -359,10 +380,10 @@ class ParentDevToolsInspectorSidebar extends BaseDevToolsPanel {
     // Set by setObject if the sidebar has not been created yet.
     this._initializeSidebar = null;
 
-    // Set by _updateLastObjectValueGrip to keep track of the last
+    // Set by _updateLastExpressionResult to keep track of the last
     // object value grip (to release the previous selected actor
     // on the remote debugging server when the actor changes).
-    this._lastObjectValueGrip = null;
+    this._lastExpressionResult = null;
 
     this.toolbox.registerInspectorExtensionSidebar(this.id, {
       title: panelOptions.title,
@@ -374,9 +395,17 @@ class ParentDevToolsInspectorSidebar extends BaseDevToolsPanel {
       throw new Error("Unable to close a destroyed DevToolsSelectionObserver");
     }
 
+    this.conduit.close();
+
     if (this.extensionSidebar) {
-      this.extensionSidebar.off("extension-page-mount", this.onExtensionPageMount);
-      this.extensionSidebar.off("extension-page-unmount", this.onExtensionPageUnmount);
+      this.extensionSidebar.off(
+        "extension-page-mount",
+        this.onExtensionPageMount
+      );
+      this.extensionSidebar.off(
+        "extension-page-unmount",
+        this.onExtensionPageUnmount
+      );
     }
 
     if (this.browser) {
@@ -386,9 +415,12 @@ class ParentDevToolsInspectorSidebar extends BaseDevToolsPanel {
     }
 
     // Release the last selected actor on the remote debugging server.
-    this._updateLastObjectValueGrip(null);
+    this._updateLastExpressionResult(null);
 
-    this.toolbox.off(`extension-sidebar-created-${this.id}`, this.onSidebarCreated);
+    this.toolbox.off(
+      `extension-sidebar-created-${this.id}`,
+      this.onSidebarCreated
+    );
     this.toolbox.off("inspector-sidebar-select", this.onSidebarSelect);
     this.toolbox.off("host-changed", this.onToolboxHostChanged);
     this.toolbox.off("host-will-change", this.onToolboxHostWillChange);
@@ -415,7 +447,7 @@ class ParentDevToolsInspectorSidebar extends BaseDevToolsPanel {
   onExtensionPageMount(containerEl) {
     this.containerEl = containerEl;
 
-    // Wait the webext-panel.xul page to have been loaded in the
+    // Wait the webext-panel.xhtml page to have been loaded in the
     // inspector sidebar panel.
     promiseDocumentLoaded(containerEl.contentDocument).then(() => {
       this.createBrowserElement(containerEl.contentWindow);
@@ -433,7 +465,7 @@ class ParentDevToolsInspectorSidebar extends BaseDevToolsPanel {
     sidebar.on("extension-page-mount", this.onExtensionPageMount);
     sidebar.on("extension-page-unmount", this.onExtensionPageUnmount);
 
-    const {_lazySidebarInit} = this;
+    const { _lazySidebarInit } = this;
     this._lazySidebarInit = null;
 
     if (typeof _lazySidebarInit === "function") {
@@ -448,14 +480,10 @@ class ParentDevToolsInspectorSidebar extends BaseDevToolsPanel {
 
     if (!this.visible && id === this.id) {
       this.visible = true;
-      this.context.parentMessageManager.sendAsyncMessage("Extension:DevToolsInspectorSidebarShown", {
-        inspectorSidebarId: this.id,
-      });
+      this.conduit.sendInspectorSidebarShown(this.id);
     } else if (this.visible && id !== this.id) {
       this.visible = false;
-      this.context.parentMessageManager.sendAsyncMessage("Extension:DevToolsInspectorSidebarHidden", {
-        inspectorSidebarId: this.id,
-      });
+      this.conduit.sendInspectorSidebarHidden(this.id);
     }
   }
 
@@ -477,19 +505,20 @@ class ParentDevToolsInspectorSidebar extends BaseDevToolsPanel {
       }
     } else {
       // Defer the sidebar.setExtensionPage call.
-      this._setLazySidebarInit(
-        () => this.extensionSidebar.setExtensionPage(WEBEXT_PANELS_URL));
+      this._setLazySidebarInit(() =>
+        this.extensionSidebar.setExtensionPage(WEBEXT_PANELS_URL)
+      );
     }
   }
 
   setObject(object, rootTitle) {
     delete this.panelOptions.url;
 
-    this._updateLastObjectValueGrip(null);
+    this._updateLastExpressionResult(null);
 
     // Nest the object inside an object, as the value of the `rootTitle` property.
     if (rootTitle) {
-      object = {[rootTitle]: object};
+      object = { [rootTitle]: object };
     }
 
     if (this.extensionSidebar) {
@@ -504,32 +533,36 @@ class ParentDevToolsInspectorSidebar extends BaseDevToolsPanel {
     this._lazySidebarInit = cb;
   }
 
-  setObjectValueGrip(objectValueGrip, rootTitle) {
+  setExpressionResult(expressionResult, rootTitle) {
     delete this.panelOptions.url;
 
-    this._updateLastObjectValueGrip(objectValueGrip);
+    this._updateLastExpressionResult(expressionResult);
 
     if (this.extensionSidebar) {
-      this.extensionSidebar.setObjectValueGrip(objectValueGrip, rootTitle);
+      this.extensionSidebar.setExpressionResult(expressionResult, rootTitle);
     } else {
-      // Defer the sidebar.setObjectValueGrip call.
+      // Defer the sidebar.setExpressionResult call.
       this._setLazySidebarInit(() => {
-        this.extensionSidebar.setObjectValueGrip(objectValueGrip, rootTitle);
+        this.extensionSidebar.setExpressionResult(expressionResult, rootTitle);
       });
     }
   }
 
-  _updateLastObjectValueGrip(newObjectValueGrip = null) {
-    const {_lastObjectValueGrip} = this;
+  _updateLastExpressionResult(newExpressionResult = null) {
+    const { _lastExpressionResult } = this;
 
-    this._lastObjectValueGrip = newObjectValueGrip;
+    this._lastExpressionResult = newExpressionResult;
 
-    const oldActor = _lastObjectValueGrip && _lastObjectValueGrip.actor;
-    const newActor = newObjectValueGrip && newObjectValueGrip.actor;
+    const oldActor = _lastExpressionResult && _lastExpressionResult.actorID;
+    const newActor = newExpressionResult && newExpressionResult.actorID;
 
     // Release the previously active actor on the remote debugging server.
-    if (oldActor && oldActor !== newActor) {
-      this.toolbox.target.client.release(oldActor);
+    if (
+      oldActor &&
+      oldActor !== newActor &&
+      typeof _lastExpressionResult.release === "function"
+    ) {
+      _lastExpressionResult.release();
     }
   }
 }
@@ -567,7 +600,7 @@ this.devtools_panels = class extends ExtensionAPI {
               context,
               name: "devtools.panels.elements.onSelectionChanged",
               register: fire => {
-                const listener = (eventName) => {
+                const listener = eventName => {
                   fire.async();
                 };
                 toolboxSelectionObserver.on("selectionChanged", listener);
@@ -577,9 +610,14 @@ this.devtools_panels = class extends ExtensionAPI {
               },
             }).api(),
             createSidebarPane(title) {
-              const id = `devtools-inspector-sidebar-${makeWidgetId(newBasePanelId())}`;
+              const id = `devtools-inspector-sidebar-${makeWidgetId(
+                newBasePanelId()
+              )}`;
 
-              const parentSidebar = new ParentDevToolsInspectorSidebar(context, {title, id});
+              const parentSidebar = new ParentDevToolsInspectorSidebar(
+                context,
+                { title, id }
+              );
               sidebarsById.set(id, parentSidebar);
 
               context.callOnClose({
@@ -609,14 +647,24 @@ this.devtools_panels = class extends ExtensionAPI {
                 const sidebar = sidebarsById.get(sidebarId);
 
                 if (!waitForInspectedWindowFront) {
-                  waitForInspectedWindowFront = getInspectedWindowFront(context);
+                  waitForInspectedWindowFront = getInspectedWindowFront(
+                    context
+                  );
                 }
 
                 const front = await waitForInspectedWindowFront;
-                const evalOptions = Object.assign({
-                  evalResultAsGrip: true,
-                }, getToolboxEvalOptions(context));
-                const evalResult = await front.eval(callerInfo, evalExpression, evalOptions);
+                const toolboxEvalOptions = await getToolboxEvalOptions(context);
+
+                const consoleFront = await context.devToolsToolbox.target.getFront(
+                  "console"
+                );
+                toolboxEvalOptions.consoleFront = consoleFront;
+
+                const evalResult = await front.eval(
+                  callerInfo,
+                  evalExpression,
+                  toolboxEvalOptions
+                );
 
                 let jsonObject;
 
@@ -626,24 +674,29 @@ this.devtools_panels = class extends ExtensionAPI {
                   return sidebar.setObject(jsonObject, rootTitle);
                 }
 
-                return sidebar.setObjectValueGrip(evalResult.valueGrip, rootTitle);
+                return sidebar.setExpressionResult(evalResult, rootTitle);
               },
             },
           },
           create(title, icon, url) {
             // Get a fallback icon from the manifest data.
             if (icon === "" && context.extension.manifest.icons) {
-              const iconInfo = IconDetails.getPreferredIcon(context.extension.manifest.icons,
-                                                            context.extension, 128);
+              const iconInfo = IconDetails.getPreferredIcon(
+                context.extension.manifest.icons,
+                context.extension,
+                128
+              );
               icon = iconInfo ? iconInfo.icon : "";
             }
 
             icon = context.extension.baseURI.resolve(icon);
             url = context.extension.baseURI.resolve(url);
 
-            const id = `webext-devtools-panel-${makeWidgetId(newBasePanelId())}`;
+            const id = `webext-devtools-panel-${makeWidgetId(
+              newBasePanelId()
+            )}`;
 
-            new ParentDevToolsPanel(context, {title, icon, url, id});
+            new ParentDevToolsPanel(context, { title, icon, url, id });
 
             // Resolved to the devtools panel id into the child addon process,
             // where it will be used to identify the messages related

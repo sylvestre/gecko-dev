@@ -32,7 +32,6 @@ class Protocol(object):
         """:returns: Current logger"""
         return self.executor.logger
 
-    @property
     def is_alive(self):
         """Is the browser connection still active
 
@@ -54,18 +53,11 @@ class Protocol(object):
 
             msg = "Post-connection steps failed"
             self.after_connect()
-        except IOError:
-            self.logger.warning("Timed out waiting for browser to start")
-            self.executor.runner.send_message("init_failed")
-            return
         except Exception:
             if msg is not None:
                 self.logger.warning(msg)
-            self.logger.error(traceback.format_exc())
-            self.executor.runner.send_message("init_failed")
-            return
-        else:
-            self.executor.runner.send_message("init_succeeded")
+            self.logger.warning(traceback.format_exc())
+            raise
 
     @abstractmethod
     def connect(self):
@@ -116,11 +108,11 @@ class BaseProtocolPart(ProtocolPart):
     name = "base"
 
     @abstractmethod
-    def execute_script(self, script, async=False):
+    def execute_script(self, script, asynchronous=False):
         """Execute javascript in the current Window.
 
         :param str script: The js source to execute. This is implicitly wrapped in a function.
-        :param bool async: Whether the script is asynchronous in the webdriver
+        :param bool asynchronous: Whether the script is asynchronous in the webdriver
                            sense i.e. whether the return value is the result of
                            the initial function call or if it waits for some callback.
         :returns: The result of the script execution.
@@ -152,6 +144,18 @@ class BaseProtocolPart(ProtocolPart):
 
         :param handle: A protocol-specific handle identifying a top level browsing
                        context."""
+        pass
+
+    @abstractmethod
+    def window_handles(self):
+        """Get a list of handles to top-level browsing contexts"""
+        pass
+
+    @abstractmethod
+    def load(self, url):
+        """Load a url in the current browsing context
+
+        :param url: The url to load"""
         pass
 
 
@@ -190,6 +194,10 @@ class TestharnessProtocolPart(ProtocolPart):
         :returns: A protocol-specific window handle.
         """
         pass
+
+    @abstractmethod
+    def test_window_loaded(self):
+        """Wait until the newly opened test window has been loaded."""
 
 
 class PrefsProtocolPart(ProtocolPart):
@@ -242,12 +250,12 @@ class SelectorProtocolPart(ProtocolPart):
 
     name = "select"
 
-    def element_by_selector(self, selector):
-        elements = self.elements_by_selector(selector)
+    def element_by_selector(self, element_selector):
+        elements = self.elements_by_selector(element_selector)
         if len(elements) == 0:
-            raise ValueError("Selector '%s' matches no elements" % selector)
+            raise ValueError("Selector '%s' matches no elements" % (element_selector,))
         elif len(elements) > 1:
-            raise ValueError("Selector '%s' matches multiple elements" % selector)
+            raise ValueError("Selector '%s' matches multiple elements" % (element_selector,))
         return elements[0]
 
     @abstractmethod
@@ -272,6 +280,7 @@ class ClickProtocolPart(ProtocolPart):
         :param element: A protocol-specific handle to an element."""
         pass
 
+
 class SendKeysProtocolPart(ProtocolPart):
     """Protocol part for performing trusted clicks"""
     __metaclass__ = ABCMeta
@@ -284,6 +293,36 @@ class SendKeysProtocolPart(ProtocolPart):
 
         :param element: A protocol-specific handle to an element.
         :param keys: A protocol-specific handle to a string of input keys."""
+        pass
+
+
+class GenerateTestReportProtocolPart(ProtocolPart):
+    """Protocol part for generating test reports"""
+    __metaclass__ = ABCMeta
+
+    name = "generate_test_report"
+
+    @abstractmethod
+    def generate_test_report(self, message):
+        """Generate a test report.
+
+        :param message: The message to be contained in the report."""
+        pass
+
+
+class SetPermissionProtocolPart(ProtocolPart):
+    """Protocol part for setting permissions"""
+    __metaclass__ = ABCMeta
+
+    name = "set_permission"
+
+    @abstractmethod
+    def set_permission(self, descriptor, state, one_realm=False):
+        """Set permission state.
+
+        :param descriptor: A PermissionDescriptor object.
+        :param state: The state to set the permission to.
+        :param one_realm: Whether to set the permission for only one realm."""
         pass
 
 
@@ -309,13 +348,58 @@ class TestDriverProtocolPart(ProtocolPart):
     name = "testdriver"
 
     @abstractmethod
-    def send_message(self, message_type, status, message=None):
+    def send_message(self, cmd_id, message_type, status, message=None):
         """Send a testdriver message to the browser.
 
+        :param int cmd_id: The id of the command to which we're responding
         :param str message_type: The kind of the message.
         :param str status: Either "failure" or "success" depending on whether the
                            previous command succeeded.
         :param str message: Additional data to add to the message."""
+        pass
+
+    def switch_to_window(self, wptrunner_id):
+        """Switch to a window given a wptrunner window id
+
+        :param str wptrunner_id: window id"""
+        if wptrunner_id is None:
+            return
+
+        stack = [str(item) for item in self.parent.base.window_handles()]
+        while stack:
+            item = stack.pop()
+            if item is None:
+                self._switch_to_parent_frame()
+                continue
+            elif isinstance(item, str):
+                self.parent.base.set_window(item)
+            else:
+                self._switch_to_frame(item)
+
+            try:
+                handle_window_id = self.parent.base.execute_script("return window.__wptrunner_id")
+                if str(handle_window_id) == wptrunner_id:
+                    return
+            except Exception:
+                pass
+            frame_count = self.parent.base.execute_script("return window.length")
+            # None here makes us switch back to the parent after we've processed all the subframes
+            stack.append(None)
+            if frame_count:
+                stack.extend(reversed(range(0, frame_count)))
+
+        raise Exception("Window with id %s not found" % wptrunner_id)
+
+    @abstractmethod
+    def _switch_to_frame(self, index):
+        """Switch to a frame in the current window
+
+        :param int index: Frame id"""
+        pass
+
+    @abstractmethod
+    def _switch_to_parent_frame(self):
+        """Switch to the parent of the current frame"""
         pass
 
 
@@ -346,4 +430,76 @@ class CoverageProtocolPart(ProtocolPart):
     @abstractmethod
     def dump(self):
         """Dump coverage counters"""
+        pass
+
+
+class VirtualAuthenticatorProtocolPart(ProtocolPart):
+    """Protocol part for creating and manipulating virtual authenticators"""
+    __metaclass__ = ABCMeta
+
+    name = "virtual_authenticator"
+
+    @abstractmethod
+    def add_virtual_authenticator(self, config):
+        """Add a virtual authenticator
+
+        :param config: The Authenticator Configuration"""
+        pass
+
+    @abstractmethod
+    def remove_virtual_authenticator(self, authenticator_id):
+        """Remove a virtual authenticator
+
+        :param str authenticator_id: The ID of the authenticator to remove"""
+        pass
+
+    @abstractmethod
+    def add_credential(self, authenticator_id, credential):
+        """Inject a credential onto an authenticator
+
+        :param str authenticator_id: The ID of the authenticator to add the credential to
+        :param credential: The credential to inject"""
+        pass
+
+    @abstractmethod
+    def get_credentials(self, authenticator_id):
+        """Get the credentials stored in an authenticator
+
+        :param str authenticator_id: The ID of the authenticator
+        :returns: An array with the credentials stored on the authenticator"""
+        pass
+
+    @abstractmethod
+    def remove_credential(self, authenticator_id, credential_id):
+        """Remove a credential stored in an authenticator
+
+        :param str authenticator_id: The ID of the authenticator
+        :param str credential_id: The ID of the credential"""
+        pass
+
+    @abstractmethod
+    def remove_all_credentials(self, authenticator_id):
+        """Remove all the credentials stored in an authenticator
+
+        :param str authenticator_id: The ID of the authenticator"""
+        pass
+
+    @abstractmethod
+    def set_user_verified(self, authenticator_id, uv):
+        """Sets the user verified flag on an authenticator
+
+        :param str authenticator_id: The ID of the authenticator
+        :param bool uv: the user verified flag"""
+        pass
+
+
+class PrintProtocolPart(ProtocolPart):
+    """Protocol part for rendering to a PDF."""
+    __metaclass__ = ABCMeta
+
+    name = "pdf_print"
+
+    @abstractmethod
+    def render_as_pdf(self, width, height):
+        """Output document as PDF"""
         pass

@@ -31,21 +31,33 @@ add_task(async function test_referrer_restart() {
   }
   registerCleanupFunction(cleanup);
 
-  registerInterruptibleHandler(sourcePath,
+  registerInterruptibleHandler(
+    sourcePath,
     function firstPart(aRequest, aResponse) {
       aResponse.setHeader("Content-Type", "text/plain", false);
       Assert.ok(aRequest.hasHeader("Referer"));
       Assert.equal(aRequest.getHeader("Referer"), TEST_REFERRER_URL);
 
-      aResponse.setHeader("Content-Length", "" + (TEST_DATA_SHORT.length * 2),
-                          false);
+      aResponse.setHeader(
+        "Content-Length",
+        "" + TEST_DATA_SHORT.length * 2,
+        false
+      );
       aResponse.write(TEST_DATA_SHORT);
-    }, function secondPart(aRequest, aResponse) {
+    },
+    function secondPart(aRequest, aResponse) {
       Assert.ok(aRequest.hasHeader("Referer"));
       Assert.equal(aRequest.getHeader("Referer"), TEST_REFERRER_URL);
 
       aResponse.write(TEST_DATA_SHORT);
-    });
+    }
+  );
+
+  let referrerInfo = new ReferrerInfo(
+    Ci.nsIReferrerInfo.UNSAFE_URL,
+    true,
+    NetUtil.newURI(TEST_REFERRER_URL)
+  );
 
   async function restart_and_check_referrer(download) {
     let promiseSucceeded = download.whenSucceeded();
@@ -65,20 +77,22 @@ add_task(async function test_referrer_restart() {
     Assert.ok(download.succeeded);
     Assert.ok(!download.canceled);
 
-    Assert.equal(download.source.referrer, TEST_REFERRER_URL);
+    checkEqualReferrerInfos(download.source.referrerInfo, referrerInfo);
   }
 
   mustInterruptResponses();
-  let download = await promiseStartLegacyDownload(
-    sourceUrl, { referrer: TEST_REFERRER_URL });
+
+  let download = await promiseStartLegacyDownload(sourceUrl, {
+    referrerInfo,
+  });
   await restart_and_check_referrer(download);
 
   mustInterruptResponses();
-  download = await promiseStartLegacyDownload(
-    sourceUrl, { referrer: TEST_REFERRER_URL,
-                 isPrivate: true});
+  download = await promiseStartLegacyDownload(sourceUrl, {
+    referrerInfo,
+    isPrivate: true,
+  });
   await restart_and_check_referrer(download);
 
   cleanup();
 });
-

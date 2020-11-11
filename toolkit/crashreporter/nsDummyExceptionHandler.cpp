@@ -8,6 +8,7 @@
 
 #include "nsExceptionHandler.h"
 #include "nsExceptionHandlerUtils.h"
+#include "prio.h"
 
 namespace CrashReporter {
 
@@ -38,8 +39,6 @@ nsresult SetupExtraData(nsIFile* aAppDataDirectory,
 
 nsresult UnsetExceptionHandler() { return NS_ERROR_NOT_IMPLEMENTED; }
 
-void NotifyCrashReporterClientCreated() {}
-
 nsresult AnnotateCrashReport(Annotation key, bool data) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
@@ -60,6 +59,21 @@ nsresult RemoveCrashReportAnnotation(Annotation key) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
+AutoAnnotateCrashReport::AutoAnnotateCrashReport(Annotation key, bool data) {}
+
+AutoAnnotateCrashReport::AutoAnnotateCrashReport(Annotation key, int data) {}
+
+AutoAnnotateCrashReport::AutoAnnotateCrashReport(Annotation key,
+                                                 unsigned data) {}
+
+AutoAnnotateCrashReport::AutoAnnotateCrashReport(Annotation key,
+                                                 const nsACString& data) {}
+
+AutoAnnotateCrashReport::~AutoAnnotateCrashReport() {}
+
+void MergeCrashAnnotations(AnnotationTable& aDst, const AnnotationTable& aSrc) {
+}
+
 nsresult SetGarbageCollecting(bool collecting) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
@@ -73,6 +87,11 @@ nsresult AppendAppNotesToCrashReport(const nsACString& data) {
 }
 
 bool GetAnnotation(const nsACString& key, nsACString& data) { return false; }
+
+void GetAnnotation(uint32_t childPid, Annotation annotation,
+                   nsACString& outStr) {
+  return;
+}
 
 nsresult RegisterAppMemory(void* ptr, size_t length) {
   return NS_ERROR_NOT_IMPLEMENTED;
@@ -97,11 +116,17 @@ int GetAnnotationTimeCrashFd() { return 7; }
 #endif
 
 void RegisterChildCrashAnnotationFileDescriptor(ProcessId aProcess,
-                                                PRFileDesc* aFd) {}
+                                                PRFileDesc* aFd) {
+  // The real implementation of this function takes ownership of aFd
+  // and closes it when the process exits; if we don't close it, it
+  // causes a leak.  With no crash reporter we'll never write to the
+  // pipe, so it's safe to close the read end immediately.
+  PR_Close(aFd);
+}
 
 void DeregisterChildCrashAnnotationFileDescriptor(ProcessId aProcess) {}
 
-#ifdef XP_WIN32
+#ifdef XP_WIN
 nsresult WriteMinidumpForException(EXCEPTION_POINTERS* aExceptionInfo) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
@@ -141,8 +166,6 @@ nsresult GetDefaultMemoryReportFile(nsIFile** aFile) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
-void SetTelemetrySessionId(const nsACString& id) {}
-
 void DeleteMinidumpFilesForID(const nsAString& id) {}
 
 bool GetMinidumpForID(const nsAString& id, nsIFile** minidump) { return false; }
@@ -157,17 +180,11 @@ bool GetExtraFileForMinidump(nsIFile* minidump, nsIFile** extraFile) {
   return false;
 }
 
-bool AppendExtraData(const nsAString& id, const AnnotationTable& data) {
-  return false;
-}
-
-bool AppendExtraData(nsIFile* extraFile, const AnnotationTable& data) {
+bool WriteExtraFile(const nsAString& id, const AnnotationTable& annotations) {
   return false;
 }
 
 void OOPInit() {}
-
-void GetChildProcessTmpDir(nsIFile** aOutTmpDir) {}
 
 #if defined(XP_WIN) || defined(XP_MACOSX)
 const char* GetChildNotificationPipe() { return nullptr; }
@@ -183,32 +200,28 @@ void UnregisterInjectorCallback(DWORD processID) {}
 
 bool GetLastRunCrashID(nsAString& id) { return false; }
 
-#if defined(XP_WIN)
-bool SetRemoteExceptionHandler(const nsACString& crashPipe,
-                               uintptr_t aCrashTimeAnnotationFile) {
-  return false;
-}
-
-#elif defined(XP_MACOSX)
-
-bool SetRemoteExceptionHandler(const nsACString& crashPipe) { return false; }
-
-#else
+#if !defined(XP_WIN) && !defined(XP_MACOSX)
 
 bool CreateNotificationPipeForChild(int* childCrashFd, int* childCrashRemapFd) {
   return false;
 }
 
-bool SetRemoteExceptionHandler() { return false; }
-#endif  // XP_WIN
+#endif  // !defined(XP_WIN) && !defined(XP_MACOSX)
 
-bool TakeMinidumpForChild(uint32_t childPid, nsIFile** dump,
-                          uint32_t* aSequence) {
+bool SetRemoteExceptionHandler(const char* aCrashPipe,
+                               uintptr_t aCrashTimeAnnotationFile) {
   return false;
 }
 
-void RenameAdditionalHangMinidump(nsIFile* minidump, nsIFile* childMinidump,
-                                  const nsACString& name) {}
+bool TakeMinidumpForChild(uint32_t childPid, nsIFile** dump,
+                          AnnotationTable& aAnnotations, uint32_t* aSequence) {
+  return false;
+}
+
+bool FinalizeOrphanedMinidump(uint32_t aChildPid, GeckoProcessType aType,
+                              nsString* aDumpId) {
+  return false;
+}
 
 ThreadId CurrentThreadId() { return -1; }
 
@@ -218,6 +231,7 @@ bool CreateMinidumpsAndPair(ProcessHandle aTargetPid,
                             ThreadId aTargetBlamedThread,
                             const nsACString& aIncomingPairName,
                             nsIFile* aIncomingDumpToPair,
+                            AnnotationTable& aTargetAnnotations,
                             nsIFile** aTargetDumpOut) {
   return false;
 }

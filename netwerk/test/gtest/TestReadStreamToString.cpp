@@ -1,10 +1,13 @@
 #include "gtest/gtest.h"
 
+#include "Helpers.h"
 #include "nsCOMPtr.h"
 #include "nsNetUtil.h"
+#include "nsStringStream.h"
 
 // Here we test the reading a pre-allocated size
-TEST(TestReadStreamToString, SyncStreamPreAllocatedSize) {
+TEST(TestReadStreamToString, SyncStreamPreAllocatedSize)
+{
   nsCString buffer;
   buffer.AssignLiteral("Hello world!");
 
@@ -26,7 +29,8 @@ TEST(TestReadStreamToString, SyncStreamPreAllocatedSize) {
 }
 
 // Here we test the reading the full size of a sync stream
-TEST(TestReadStreamToString, SyncStreamFullSize) {
+TEST(TestReadStreamToString, SyncStreamFullSize)
+{
   nsCString buffer;
   buffer.AssignLiteral("Hello world!");
 
@@ -43,7 +47,8 @@ TEST(TestReadStreamToString, SyncStreamFullSize) {
 }
 
 // Here we test the reading less than the full size of a sync stream
-TEST(TestReadStreamToString, SyncStreamLessThan) {
+TEST(TestReadStreamToString, SyncStreamLessThan)
+{
   nsCString buffer;
   buffer.AssignLiteral("Hello world!");
 
@@ -59,7 +64,8 @@ TEST(TestReadStreamToString, SyncStreamLessThan) {
 }
 
 // Here we test the reading more than the full size of a sync stream
-TEST(TestReadStreamToString, SyncStreamMoreThan) {
+TEST(TestReadStreamToString, SyncStreamMoreThan)
+{
   nsCString buffer;
   buffer.AssignLiteral("Hello world!");
 
@@ -77,7 +83,8 @@ TEST(TestReadStreamToString, SyncStreamMoreThan) {
 }
 
 // Here we test the reading a sync stream without passing the size
-TEST(TestReadStreamToString, SyncStreamUnknownSize) {
+TEST(TestReadStreamToString, SyncStreamUnknownSize)
+{
   nsCString buffer;
   buffer.AssignLiteral("Hello world!");
 
@@ -94,7 +101,8 @@ TEST(TestReadStreamToString, SyncStreamUnknownSize) {
 }
 
 // Here we test the reading the full size of an async stream
-TEST(TestReadStreamToString, AsyncStreamFullSize) {
+TEST(TestReadStreamToString, AsyncStreamFullSize)
+{
   nsCString buffer;
   buffer.AssignLiteral("Hello world!");
 
@@ -110,7 +118,8 @@ TEST(TestReadStreamToString, AsyncStreamFullSize) {
 }
 
 // Here we test the reading less than the full size of an async stream
-TEST(TestReadStreamToString, AsyncStreamLessThan) {
+TEST(TestReadStreamToString, AsyncStreamLessThan)
+{
   nsCString buffer;
   buffer.AssignLiteral("Hello world!");
 
@@ -125,7 +134,8 @@ TEST(TestReadStreamToString, AsyncStreamLessThan) {
 }
 
 // Here we test the reading more than the full size of an async stream
-TEST(TestReadStreamToString, AsyncStreamMoreThan) {
+TEST(TestReadStreamToString, AsyncStreamMoreThan)
+{
   nsCString buffer;
   buffer.AssignLiteral("Hello world!");
 
@@ -142,7 +152,8 @@ TEST(TestReadStreamToString, AsyncStreamMoreThan) {
 }
 
 // Here we test the reading an async stream without passing the size
-TEST(TestReadStreamToString, AsyncStreamUnknownSize) {
+TEST(TestReadStreamToString, AsyncStreamUnknownSize)
+{
   nsCString buffer;
   buffer.AssignLiteral("Hello world!");
 
@@ -158,7 +169,8 @@ TEST(TestReadStreamToString, AsyncStreamUnknownSize) {
 }
 
 // Here we test the reading an async big stream without passing the size
-TEST(TestReadStreamToString, AsyncStreamUnknownBigSize) {
+TEST(TestReadStreamToString, AsyncStreamUnknownBigSize)
+{
   nsCString buffer;
 
   buffer.SetLength(4096 * 2);

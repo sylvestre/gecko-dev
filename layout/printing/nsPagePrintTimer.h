@@ -16,11 +16,14 @@
 #include "nsThreadUtils.h"
 
 class nsPrintJob;
-class nsIDocument;
 
 //---------------------------------------------------
 //-- Page Timer Class
 //---------------------------------------------------
+// Strictly speaking, this actually manages the timing of printing *sheets*
+// (instances of "PrintedSheetFrame"), each of which may encompass multiple
+// pages (nsPageFrames) of the document. The use of "Page" in the class name
+// here is for historical / colloquial purposes.
 class nsPagePrintTimer final : public mozilla::Runnable,
                                public nsITimerCallback {
  public:
@@ -28,10 +31,10 @@ class nsPagePrintTimer final : public mozilla::Runnable,
 
   nsPagePrintTimer(nsPrintJob* aPrintJob,
                    nsIDocumentViewerPrint* aDocViewerPrint,
-                   nsIDocument* aDocument, uint32_t aDelay)
+                   mozilla::dom::Document* aDocument, uint32_t aDelay)
       : Runnable("nsPagePrintTimer"),
         mPrintJob(aPrintJob),
-        mDocViewerPrint(*aDocViewerPrint),
+        mDocViewerPrint(aDocViewerPrint),
         mDocument(aDocument),
         mDelay(aDelay),
         mFiringCount(0),
@@ -53,10 +56,7 @@ class nsPagePrintTimer final : public mozilla::Runnable,
   void WaitForRemotePrint();
   void RemotePrintFinished();
 
-  void Disconnect() {
-    mPrintJob = nullptr;
-    mPrintObj = nullptr;
-  }
+  void Disconnect();
 
  private:
   ~nsPagePrintTimer();
@@ -67,8 +67,8 @@ class nsPagePrintTimer final : public mozilla::Runnable,
   void Fail();
 
   nsPrintJob* mPrintJob;
-  const mozilla::OwningNonNull<nsIDocumentViewerPrint> mDocViewerPrint;
-  nsCOMPtr<nsIDocument> mDocument;
+  nsCOMPtr<nsIDocumentViewerPrint> mDocViewerPrint;
+  RefPtr<mozilla::dom::Document> mDocument;
   nsCOMPtr<nsITimer> mTimer;
   nsCOMPtr<nsITimer> mWatchDogTimer;
   nsCOMPtr<nsITimer> mWaitingForRemotePrint;

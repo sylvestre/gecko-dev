@@ -9,16 +9,36 @@
 
 const Services = require("Services");
 const flags = require("devtools/shared/flags");
-const { createRef, PureComponent } = require("devtools/client/shared/vendor/react");
+const {
+  createRef,
+  PureComponent,
+} = require("devtools/client/shared/vendor/react");
 const PropTypes = require("devtools/client/shared/vendor/react-prop-types");
 const dom = require("devtools/client/shared/vendor/react-dom-factories");
 const { button } = dom;
-const { HTMLTooltip } = require("devtools/client/shared/widgets/tooltip/HTMLTooltip");
-const { focusableSelector } = require("devtools/client/shared/focus");
 
 const isMacOS = Services.appinfo.OS === "Darwin";
 
-loader.lazyRequireGetter(this, "createPortal", "devtools/client/shared/vendor/react-dom", true);
+loader.lazyRequireGetter(
+  this,
+  "HTMLTooltip",
+  "devtools/client/shared/widgets/tooltip/HTMLTooltip",
+  true
+);
+
+loader.lazyRequireGetter(
+  this,
+  "focusableSelector",
+  "devtools/client/shared/focus",
+  true
+);
+
+loader.lazyRequireGetter(
+  this,
+  "createPortal",
+  "devtools/client/shared/vendor/react-dom",
+  true
+);
 
 // Return a copy of |obj| minus |fields|.
 const omit = (obj, fields) => {
@@ -32,8 +52,15 @@ const omit = (obj, fields) => {
 class MenuButton extends PureComponent {
   static get propTypes() {
     return {
-      // The document to be used for rendering the menu popup.
-      doc: PropTypes.object.isRequired,
+      // The toolbox document that will be used for rendering the menu popup.
+      toolboxDoc: PropTypes.object.isRequired,
+
+      // A text content for the button.
+      label: PropTypes.string,
+
+      // URL of the icon to associate with the MenuButton. (Optional)
+      // e.g. chrome://devtools/skin/image/foo.svg
+      icon: PropTypes.string,
 
       // An optional ID to assign to the menu's container tooltip object.
       menuId: PropTypes.string,
@@ -81,7 +108,7 @@ class MenuButton extends PureComponent {
       expanded: false,
       // In tests, initialize the menu immediately.
       isMenuInitialized: flags.testing || false,
-      win: props.doc.defaultView.top,
+      win: props.toolboxDoc.defaultView.top,
     };
     this.ignoreNextClick = false;
 
@@ -92,11 +119,15 @@ class MenuButton extends PureComponent {
     if (!this.state.isMenuInitialized) {
       // Initialize the menu when the button is focused or moused over.
       for (const event of ["focus", "mousemove"]) {
-        this.buttonRef.current.addEventListener(event, () => {
-          if (!this.state.isMenuInitialized) {
-            this.setState({ isMenuInitialized: true });
-          }
-        }, { once: true });
+        this.buttonRef.current.addEventListener(
+          event,
+          () => {
+            if (!this.state.isMenuInitialized) {
+              this.setState({ isMenuInitialized: true });
+            }
+          },
+          { once: true }
+        );
       }
     }
   }
@@ -105,9 +136,9 @@ class MenuButton extends PureComponent {
     // If the window changes, we need to regenerate the HTMLTooltip or else the
     // XUL wrapper element will appear above (in terms of z-index) the old
     // window, and not the new.
-    const win = nextProps.doc.defaultView.top;
+    const win = nextProps.toolboxDoc.defaultView.top;
     if (
-      nextProps.doc !== this.props.doc ||
+      nextProps.toolboxDoc !== this.props.toolboxDoc ||
       this.state.win !== win ||
       nextProps.menuId !== this.props.menuId
     ) {
@@ -134,13 +165,14 @@ class MenuButton extends PureComponent {
     const tooltipProps = {
       type: "doorhanger",
       useXulWrapper: true,
+      isMenuTooltip: true,
     };
 
     if (this.props.menuId) {
       tooltipProps.id = this.props.menuId;
     }
 
-    this.tooltip = new HTMLTooltip(this.props.doc, tooltipProps);
+    this.tooltip = new HTMLTooltip(this.props.toolboxDoc, tooltipProps);
     this.tooltip.on("hidden", this.onHidden);
   }
 
@@ -195,7 +227,7 @@ class MenuButton extends PureComponent {
       return;
     }
 
-    this.tooltip.updateContainerBounds(this.buttonRef.current, {
+    this.tooltip.show(this.buttonRef.current, {
       position: this.props.menuPosition,
       y: this.props.menuOffset,
     });
@@ -225,8 +257,12 @@ class MenuButton extends PureComponent {
       // menu is being closed the button will currently have
       // pointer-events: none (and if we don't check the bounds we will end up
       // ignoring unrelated clicks).
-      if (anchorRect.x <= clientX && clientX <= anchorRect.x + anchorRect.width &&
-          anchorRect.y <= clientY && clientY <= anchorRect.y + anchorRect.height) {
+      if (
+        anchorRect.x <= clientX &&
+        clientX <= anchorRect.x + anchorRect.width &&
+        anchorRect.y <= clientY &&
+        clientY <= anchorRect.y + anchorRect.height
+      ) {
         this.ignoreNextClick = true;
       }
     };
@@ -256,9 +292,7 @@ class MenuButton extends PureComponent {
       if (this.buttonRef.current) {
         this.buttonRef.current.style.pointerEvents = "auto";
       }
-      this.state.win.removeEventListener("touchstart",
-                                         this.onTouchStart,
-                                         true);
+      this.state.win.removeEventListener("touchstart", this.onTouchStart, true);
     }, 0);
 
     this.state.win.addEventListener("touchstart", this.onTouchStart, true);
@@ -293,8 +327,10 @@ class MenuButton extends PureComponent {
         // ui.popup.disable_autohide pref is in effect since, in that case,
         // there's no redundant hiding behavior and we actually want clicking
         // the button to close the menu.
-        if (!this.state.expanded &&
-            !Services.prefs.getBoolPref("ui.popup.disable_autohide", false)) {
+        if (
+          !this.state.expanded &&
+          !Services.prefs.getBoolPref("ui.popup.disable_autohide", false)
+        ) {
           this.buttonRef.current.style.pointerEvents = "none";
         }
         await this.toggleMenu(e.target);
@@ -309,14 +345,16 @@ class MenuButton extends PureComponent {
           this.forceUpdate();
         }
       }
-    // If we clicked one of the menu items, then, by default, we should
-    // auto-collapse the menu.
-    //
-    // We check for the defaultPrevented state, however, so that menu items can
-    // turn this behavior off (e.g. a menu item with an embedded button).
-    } else if (this.state.expanded &&
-               !e.defaultPrevented &&
-               e.target.matches(focusableSelector)) {
+      // If we clicked one of the menu items, then, by default, we should
+      // auto-collapse the menu.
+      //
+      // We check for the defaultPrevented state, however, so that menu items can
+      // turn this behavior off (e.g. a menu item with an embedded button).
+    } else if (
+      this.state.expanded &&
+      !e.defaultPrevented &&
+      e.target.matches(focusableSelector)
+    ) {
       this.hideMenu();
     }
   }
@@ -327,7 +365,8 @@ class MenuButton extends PureComponent {
     }
 
     const isButtonFocussed =
-      this.props.doc && this.props.doc.activeElement === this.buttonRef.current;
+      this.props.toolboxDoc &&
+      this.props.toolboxDoc.activeElement === this.buttonRef.current;
 
     switch (e.key) {
       case "Escape":
@@ -352,7 +391,7 @@ class MenuButton extends PureComponent {
         }
         break;
       case "t":
-        if (isMacOS && e.metaKey || !isMacOS && e.ctrlKey) {
+        if ((isMacOS && e.metaKey) || (!isMacOS && e.ctrlKey)) {
           // Close the menu if the user opens a new tab while it is still open.
           //
           // Bug 1499271: Once toolbox has been converted to XUL we should watch
@@ -383,6 +422,16 @@ class MenuButton extends PureComponent {
       buttonProps["aria-controls"] = this.props.menuId;
     }
 
+    if (this.props.icon) {
+      const iconClass = "menu-button--iconic";
+      buttonProps.className = buttonProps.className
+        ? `${buttonProps.className} ${iconClass}`
+        : iconClass;
+      buttonProps.style = {
+        "--menuitem-icon-image": "url(" + this.props.icon + ")",
+      };
+    }
+
     if (this.state.isMenuInitialized) {
       const menu = createPortal(
         typeof this.props.children === "function"
@@ -391,10 +440,10 @@ class MenuButton extends PureComponent {
         this.tooltip.panel
       );
 
-      return button(buttonProps, menu);
+      return button(buttonProps, this.props.label, menu);
     }
 
-    return button(buttonProps);
+    return button(buttonProps, this.props.label);
   }
 }
 

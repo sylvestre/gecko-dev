@@ -4,66 +4,95 @@
 
 from __future__ import absolute_import, print_function, unicode_literals
 
-import ConfigParser
 import os
+import shlex
 import subprocess
 
-from mozboot.util import get_state_dir
+import yaml
 
 
-CONFIG_PATH = os.path.join(get_state_dir()[0], "autotry.ini")
+class PresetHandler(object):
+    def __init__(self, path):
+        self.path = path
+        self._presets = {}
+
+    @property
+    def presets(self):
+        if not self._presets and os.path.isfile(self.path):
+            with open(self.path, "r") as fh:
+                self._presets = yaml.safe_load(fh) or {}
+
+        return self._presets
+
+    def __contains__(self, name):
+        return name in self.presets
+
+    def __getitem__(self, name):
+        return self.presets[name]
+
+    def __len__(self):
+        return len(self.presets)
+
+    def __str__(self):
+        if not self.presets:
+            return ""
+        return yaml.safe_dump(self.presets, default_flow_style=False)
+
+    def list(self):
+        if not self.presets:
+            print("no presets found")
+        else:
+            print(self)
+
+    def edit(self):
+        if "EDITOR" not in os.environ:
+            print(
+                "error: must set the $EDITOR environment variable to use --edit-presets"
+            )
+            return
+
+        subprocess.call(shlex.split(os.environ["EDITOR"]) + [self.path])
+
+    def save(self, name, **data):
+        self.presets[name] = data
+
+        with open(self.path, "w") as fh:
+            fh.write(str(self))
 
 
-def list_presets(section=None):
-    config = ConfigParser.RawConfigParser()
+class MergedHandler(object):
+    def __init__(self, *paths):
+        """Helper class for dealing with multiple preset files."""
+        self.handlers = [PresetHandler(p) for p in paths]
 
-    data = []
-    if config.read([CONFIG_PATH]):
-        sections = [section] if section else config.sections()
-        for s in sections:
-            try:
-                data.extend(config.items(s))
-            except (ConfigParser.NoOptionError, ConfigParser.NoSectionError):
-                pass
+    def __contains__(self, name):
+        return any(name in handler for handler in self.handlers)
 
-    if not data:
-        print("No presets found")
+    def __getitem__(self, name):
+        for handler in self.handlers:
+            if name in handler:
+                return handler[name]
+        raise KeyError(name)
 
-    for name, value in data:
-        print("%s: %s" % (name, value))
+    def __len__(self):
+        return sum(len(h) for h in self.handlers)
 
+    def __str__(self):
+        all_presets = {
+            k: v for handler in self.handlers for k, v in handler.presets.items()
+        }
+        return yaml.safe_dump(all_presets, default_flow_style=False)
 
-def edit_presets(section=None):
-    if 'EDITOR' not in os.environ:
-        print("error: must set the $EDITOR environment variable to use --edit-presets")
-        return
-    subprocess.call([os.environ['EDITOR'], CONFIG_PATH])
+    def list(self):
+        if len(self) == 0:
+            print("no presets found")
+            return
 
-
-def load(name, section=None):
-    config = ConfigParser.RawConfigParser()
-    if not config.read([CONFIG_PATH]):
-        return
-
-    sections = [section] if section else config.sections()
-    for s in sections:
-        try:
-            return config.get(s, name), s
-        except (ConfigParser.NoSectionError, ConfigParser.NoOptionError):
-            pass
-    return None, None
-
-
-def save(section, name, data):
-    config = ConfigParser.RawConfigParser()
-    config.read([CONFIG_PATH])
-
-    if not config.has_section(section):
-        config.add_section(section)
-
-    config.set(section, name, data)
-
-    with open(CONFIG_PATH, "w") as f:
-        config.write(f)
-
-    print('preset saved, run with: --preset={}'.format(name))
+        for handler in self.handlers:
+            val = str(handler)
+            if val:
+                val = "\n  ".join(
+                    [""] + val.splitlines() + [""]
+                )  # indent all lines by 2 spaces
+                print("Presets from {}:".format(handler.path))
+                print(val)

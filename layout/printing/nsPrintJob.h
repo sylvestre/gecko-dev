@@ -11,26 +11,39 @@
 
 #include "nsCOMPtr.h"
 
-#include "nsPrintObject.h"
-#include "nsPrintData.h"
-#include "nsFrameList.h"
-#include "nsIFrame.h"
-#include "nsIWebProgress.h"
-#include "mozilla/dom/HTMLCanvasElement.h"
-#include "nsIWebProgressListener.h"
+#include "nsHashKeys.h"
+#include "nsIFrame.h"  // For WeakFrame
+#include "nsSize.h"
+#include "nsTHashtable.h"
 #include "nsWeakReference.h"
 
 // Interfaces
 #include "nsIObserver.h"
+#include "nsIWebProgress.h"
+#include "nsIWebProgressListener.h"
 
 // Classes
+class nsIFrame;
+class nsIPrintProgressParams;
+class nsIPrintSettings;
+class nsPrintData;
 class nsPagePrintTimer;
 class nsIDocShell;
-class nsIDocument;
 class nsIDocumentViewerPrint;
+class nsIFrame;
 class nsPrintObject;
 class nsIDocShell;
-class nsIPageSequenceFrame;
+class nsPageSequenceFrame;
+class nsPIDOMWindowOuter;
+class nsView;
+
+namespace mozilla {
+class PresShell;
+namespace dom {
+class Document;
+class PrintPreviewResultInfo;
+}  // namespace dom
+}  // namespace mozilla
 
 /**
  * A print job may be instantiated either for printing to an actual physical
@@ -39,11 +52,14 @@ class nsIPageSequenceFrame;
 class nsPrintJob final : public nsIObserver,
                          public nsIWebProgressListener,
                          public nsSupportsWeakReference {
+  using Document = mozilla::dom::Document;
+  using PrintPreviewResolver =
+      std::function<void(const mozilla::dom::PrintPreviewResultInfo&)>;
+
  public:
-  static nsresult GetGlobalPrintSettings(nsIPrintSettings** aPrintSettings);
   static void CloseProgressDialog(nsIWebProgressListener* aWebProgressListener);
 
-  nsPrintJob() = default;
+  nsPrintJob();
 
   // nsISupports interface...
   NS_DECL_ISUPPORTS
@@ -53,43 +69,103 @@ class nsPrintJob final : public nsIObserver,
 
   NS_DECL_NSIWEBPROGRESSLISTENER
 
-  // Old nsIWebBrowserPrint methods; not cleaned up yet
-  NS_IMETHOD Print(nsIPrintSettings* aPrintSettings,
-                   nsIWebProgressListener* aWebProgressListener);
-  NS_IMETHOD PrintPreview(nsIPrintSettings* aPrintSettings,
-                          mozIDOMWindowProxy* aChildDOMWin,
-                          nsIWebProgressListener* aWebProgressListener);
-  NS_IMETHOD GetIsFramesetDocument(bool* aIsFramesetDocument);
-  NS_IMETHOD GetIsIFrameSelected(bool* aIsIFrameSelected);
-  NS_IMETHOD GetIsRangeSelection(bool* aIsRangeSelection);
-  NS_IMETHOD GetIsFramesetFrameSelected(bool* aIsFramesetFrameSelected);
-  NS_IMETHOD GetPrintPreviewNumPages(int32_t* aPrintPreviewNumPages);
-  NS_IMETHOD EnumerateDocumentNames(uint32_t* aCount, char16_t*** aResult);
-  NS_IMETHOD GetDoingPrint(bool* aDoingPrint);
-  NS_IMETHOD GetDoingPrintPreview(bool* aDoingPrintPreview);
-  NS_IMETHOD GetCurrentPrintSettings(nsIPrintSettings** aCurrentPrintSettings);
+  /**
+   * Initialize for printing, or for creating a print preview document.
+   *
+   * aDocViewerPrint owns us.
+   *
+   * When called in preparation for printing, aOriginalDoc is aDocViewerPrint's
+   * document.  The document/viewer may be for a sub-document (an iframe).
+   *
+   * When called in preparation for print preview, aOriginalDoc belongs to a
+   * different docViewer, in a different docShell, in a different TabGroup.
+   * In this case our aDocViewerPrint is the docViewer for the about:blank
+   * document in a new tab that the Firefox frontend code has created in
+   * preparation for PrintPreview to generate a print preview document in it.
+   *
+   * NOTE: In the case we're called for print preview, aOriginalDoc actually
+   * may not be the original document that the user selected to print.  It
+   * is not the actual original document in the case when the user chooses to
+   * display a simplified version of a print preview document.  In that
+   * instance the Firefox frontend code creates a second print preview tab,
+   * with a new docViewer and nsPrintJob, and passes the previous print preview
+   * document as aOriginalDoc (it doesn't want to pass the actual original
+   * document since it may have mutated)!
+   */
+  nsresult Initialize(nsIDocumentViewerPrint* aDocViewerPrint,
+                      nsIDocShell* aDocShell, Document* aOriginalDoc,
+                      float aScreenDPI);
 
-  // This enum tells indicates what the default should be for the title
-  // if the title from the document is null
-  enum eDocTitleDefault { eDocTitleDefBlank, eDocTitleDefURLDoc };
+  // Our nsIWebBrowserPrint implementation (nsDocumentViewer) defers to the
+  // following methods.
 
+  /**
+   * May be called immediately after initialization, or after one or more
+   * PrintPreview calls.
+   */
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY nsresult
+  Print(Document* aSourceDoc, nsIPrintSettings* aPrintSettings,
+        nsIWebProgressListener* aWebProgressListener);
+
+  /**
+   * Generates a new print preview document and replaces our docViewer's
+   * document with it.  (Note that this breaks the normal invariant that a
+   * Document and its nsDocumentViewer have an unchanging 1:1 relationship.)
+   *
+   * This may be called multiple times on the same instance in order to
+   * recreate the print preview document to take account of settings that the
+   * user has changed in the print preview interface.  In this case aSourceDoc
+   * is actually our docViewer's current document!
+   */
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY nsresult
+  PrintPreview(Document* aSourceDoc, nsIPrintSettings* aPrintSettings,
+               nsIWebProgressListener* aWebProgressListener,
+               PrintPreviewResolver&& aCallback);
+
+  bool IsDoingPrint() const { return mIsDoingPrinting; }
+  bool CreatedForPrintPreview() const { return mCreatedForPrintPreview; }
+  bool HasEverPrinted() const { return mHasEverPrinted; }
+  /// If the returned value is not greater than zero, an error occurred.
+  int32_t GetRawNumPages() const;
+
+  // Returns the total number of PrintedSheetFrames (i.e. faces of a sheet of
+  // paper) for this print job. (This may be less than the raw number of pages,
+  // due to pages having been skipped in a page range or combined into a single
+  // sheet via pages-per-sheet.)
+  int32_t GetPrintPreviewNumSheets();
+  already_AddRefed<nsIPrintSettings> GetCurrentPrintSettings();
+
+  // The setters here also update the DocViewer
+  void SetIsPrinting(bool aIsPrinting);
+  bool GetIsPrinting() const { return mIsDoingPrinting; }
+  void SetIsPrintPreview(bool aIsPrintPreview);
+  bool GetIsCreatingPrintPreview() const { return mIsCreatingPrintPreview; }
+
+  std::tuple<nsPageSequenceFrame*, int32_t> GetSeqFrameAndCountSheets();
+
+  bool PrePrintSheet();
+  bool PrintSheet(nsPrintObject* aPOect, bool& aInRange);
+  bool DonePrintingSheets(nsPrintObject* aPO, nsresult aResult);
+
+  nsresult CleanupOnFailure(nsresult aResult, bool aIsPrinting);
+  // If FinishPrintPreview() fails, caller may need to reset the state of the
+  // object, for example by calling CleanupOnFailure().
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY nsresult FinishPrintPreview();
+  void FirePrintingErrorEvent(nsresult aPrintError);
+
+  bool CheckBeforeDestroy() const;
+  mozilla::PresShell* GetPrintPreviewPresShell();
+  nsresult Cancel();
   void Destroy();
   void DestroyPrintingData();
 
-  nsresult Initialize(nsIDocumentViewerPrint* aDocViewerPrint,
-                      nsIDocShell* aContainer, nsIDocument* aDocument,
-                      float aScreenDPI);
+ private:
+  nsPrintJob& operator=(const nsPrintJob& aOther) = delete;
 
-  nsresult GetSeqFrameAndCountPages(nsIFrame*& aSeqFrame, int32_t& aCount);
+  ~nsPrintJob();
 
-  //
-  // The following three methods are used for printing...
-  //
-  nsresult DocumentReadyForPrinting();
-  nsresult GetSelectionDocument(nsIDeviceContextSpec* aDevSpec,
-                                nsIDocument** aNewDoc);
-
-  nsresult SetupToPrintContent();
+  MOZ_CAN_RUN_SCRIPT nsresult DocumentReadyForPrinting();
+  MOZ_CAN_RUN_SCRIPT nsresult SetupToPrintContent();
   nsresult EnablePOsForPrinting();
   nsPrintObject* FindSmallestSTF();
 
@@ -97,119 +173,99 @@ class nsPrintJob final : public nsIObserver,
                        nsresult& aStatus);
   nsresult DoPrint(const mozilla::UniquePtr<nsPrintObject>& aPO);
 
-  void SetPrintPO(nsPrintObject* aPO, bool aPrint);
-
-  void TurnScriptingOn(bool aDoTurnOn);
-  bool CheckDocumentForPPCaching();
-  void InstallPrintPreviewListener();
-
-  // nsIDocumentViewerPrint Printing Methods
-  bool HasPrintCallbackCanvas();
-  bool PrePrintPage();
-  bool PrintPage(nsPrintObject* aPOect, bool& aInRange);
-  bool DonePrintingPages(nsPrintObject* aPO, nsresult aResult);
-
-  //---------------------------------------------------------------------
-  void BuildDocTree(nsIDocShell* aParentNode,
-                    nsTArray<nsPrintObject*>* aDocList,
-                    const mozilla::UniquePtr<nsPrintObject>& aPO);
   nsresult ReflowDocList(const mozilla::UniquePtr<nsPrintObject>& aPO,
                          bool aSetPixelScale);
 
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY
   nsresult ReflowPrintObject(const mozilla::UniquePtr<nsPrintObject>& aPO);
 
-  void CheckForChildFrameSets(const mozilla::UniquePtr<nsPrintObject>& aPO);
-
   void CalcNumPrintablePages(int32_t& aNumPages);
-  void ShowPrintProgress(bool aIsForPrinting, bool& aDoNotify);
-  nsresult CleanupOnFailure(nsresult aResult, bool aIsPrinting);
-  // If FinishPrintPreview() fails, caller may need to reset the state of the
-  // object, for example by calling CleanupOnFailure().
-  nsresult FinishPrintPreview();
-  void SetDocAndURLIntoProgress(const mozilla::UniquePtr<nsPrintObject>& aPO,
-                                nsIPrintProgressParams* aParams);
+  void ShowPrintProgress(bool aIsForPrinting, bool& aDoNotify, Document* aDoc);
+  void SetURLAndTitleOnProgressParams(
+      const mozilla::UniquePtr<nsPrintObject>& aPO,
+      nsIPrintProgressParams* aParams);
   void EllipseLongString(nsAString& aStr, const uint32_t aLen, bool aDoFront);
-  nsresult CheckForPrinters(nsIPrintSettings* aPrintSettings);
-  void CleanupDocTitleArray(char16_t**& aArray, int32_t& aCount);
 
-  bool IsThereARangeSelection(nsPIDOMWindowOuter* aDOMWin);
-
-  void FirePrintingErrorEvent(nsresult aPrintError);
-  //---------------------------------------------------------------------
-
-  // Timer Methods
   nsresult StartPagePrintTimer(const mozilla::UniquePtr<nsPrintObject>& aPO);
 
-  bool IsWindowsInOurSubTree(nsPIDOMWindowOuter* aDOMWindow);
-  bool IsThereAnIFrameSelected(nsIDocShell* aDocShell,
-                               nsPIDOMWindowOuter* aDOMWin,
-                               bool& aIsParentFrameSet);
+  bool IsWindowsInOurSubTree(nsPIDOMWindowOuter* aDOMWindow) const;
 
-  // get the currently infocus frame for the document viewer
-  already_AddRefed<nsPIDOMWindowOuter> FindFocusedDOMWindow();
+  /**
+   * @return The document from the focused windows for a document viewer.
+   *
+   * FIXME: This is somewhat unsound, this looks at the original document, which
+   * could've mutated after print was initiated.
+   */
+  Document* FindFocusedDocument(Document* aDoc) const;
 
-  void GetDisplayTitleAndURL(const mozilla::UniquePtr<nsPrintObject>& aPO,
-                             nsAString& aTitle, nsAString& aURLStr,
-                             eDocTitleDefault aDefType);
+  /// Customizes the behaviour of GetDisplayTitleAndURL.
+  enum class DocTitleDefault : uint32_t { eDocURLElseFallback, eFallback };
 
-  bool CheckBeforeDestroy();
-  nsresult Cancelled();
+  /**
+   * Gets the title and URL of the document for display in save-to-PDF dialogs,
+   * print spooler lists and page headers/footers.  This will get the title/URL
+   * from the PrintSettings, if set, otherwise it will get them from the
+   * document.
+   *
+   * For the title specifically, if a value is not provided by the settings
+   * object or the document then, if eDocURLElseFallback is passed, the document
+   * URL will be returned as the title if it's non-empty (which should always be
+   * the case).  Otherwise a non-empty fallback title will be returned.
+   */
+  static void GetDisplayTitleAndURL(Document& aDoc, nsIPrintSettings* aSettings,
+                                    DocTitleDefault aTitleDefault,
+                                    nsAString& aTitle, nsAString& aURLStr);
 
-  nsIPresShell* GetPrintPreviewPresShell() {
-    return mPrtPreview->mPrintObject->mPresShell;
-  }
+  MOZ_CAN_RUN_SCRIPT nsresult CommonPrint(
+      bool aIsPrintPreview, nsIPrintSettings* aPrintSettings,
+      nsIWebProgressListener* aWebProgressListener, Document* aSourceDoc);
 
-  float GetPrintPreviewScale() {
-    return mPrtPreview->mPrintObject->mPresContext->GetPrintPreviewScale();
-  }
-
-  // These calls also update the DocViewer
-  void SetIsPrinting(bool aIsPrinting);
-  bool GetIsPrinting() { return mIsDoingPrinting; }
-  void SetIsPrintPreview(bool aIsPrintPreview);
-  bool GetIsPrintPreview() { return mIsDoingPrintPreview; }
-  bool GetIsCreatingPrintPreview() { return mIsCreatingPrintPreview; }
-
-  void SetDisallowSelectionPrint(bool aDisallowSelectionPrint) {
-    mDisallowSelectionPrint = aDisallowSelectionPrint;
-  }
-
- private:
-  nsPrintJob& operator=(const nsPrintJob& aOther) = delete;
-
-  ~nsPrintJob();
-
-  nsresult CommonPrint(bool aIsPrintPreview, nsIPrintSettings* aPrintSettings,
-                       nsIWebProgressListener* aWebProgressListener,
-                       nsIDocument* aDoc);
-
-  nsresult DoCommonPrint(bool aIsPrintPreview, nsIPrintSettings* aPrintSettings,
-                         nsIWebProgressListener* aWebProgressListener,
-                         nsIDocument* aDoc);
+  MOZ_CAN_RUN_SCRIPT nsresult DoCommonPrint(
+      bool aIsPrintPreview, nsIPrintSettings* aPrintSettings,
+      nsIWebProgressListener* aWebProgressListener, Document* aSourceDoc);
 
   void FirePrintCompletionEvent();
 
   void DisconnectPagePrintTimer();
 
-  nsresult AfterNetworkPrint(bool aHandleError);
+  /**
+   * This method is called to resume printing after all outstanding resources
+   * referenced by the static clone have finished loading.  (It is possibly
+   * called synchronously if there are no resources to load.)  While a static
+   * clone will generally just be able to reference the (already loaded)
+   * resources that the original document references, the static clone may
+   * reference additional resources that have not previously been loaded
+   * (if it has a 'print' style sheet, for example).
+   */
+  MOZ_CAN_RUN_SCRIPT nsresult
+  MaybeResumePrintAfterResourcesLoaded(bool aCleanupOnError);
+
+  bool ShouldResumePrint() const;
 
   nsresult SetRootView(nsPrintObject* aPO, bool& aDoReturn,
                        bool& aDocumentIsTopLevel, nsSize& aAdjSize);
   nsView* GetParentViewForRoot();
   bool DoSetPixelScale();
   void UpdateZoomRatio(nsPrintObject* aPO, bool aSetPixelScale);
-  nsresult ReconstructAndReflow(bool aDoSetPixelScale);
-  nsresult UpdateSelectionAndShrinkPrintObject(nsPrintObject* aPO,
-                                               bool aDocumentIsTopLevel);
-  nsresult InitPrintDocConstruction(bool aHandleError);
+  MOZ_CAN_RUN_SCRIPT nsresult ReconstructAndReflow(bool aDoSetPixelScale);
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY nsresult UpdateSelectionAndShrinkPrintObject(
+      nsPrintObject* aPO, bool aDocumentIsTopLevel);
+  MOZ_CAN_RUN_SCRIPT nsresult InitPrintDocConstruction(bool aHandleError);
   void FirePrintPreviewUpdateEvent();
 
   void PageDone(nsresult aResult);
 
-  nsCOMPtr<nsIDocument> mDocument;
-  nsCOMPtr<nsIDocumentViewerPrint> mDocViewerPrint;
+  // The document that we were originally created for in order to print it or
+  // create a print preview of it.  This may belong to mDocViewerPrint or may
+  // belong to a different docViewer in a different docShell.  In reality, this
+  // also may not be the original document that the user selected to print (see
+  // the comment documenting Initialize() above).
+  RefPtr<Document> mOriginalDoc;
 
-  nsWeakPtr mContainer;
+  // The docViewer that owns us, and its docShell.
+  nsCOMPtr<nsIDocumentViewerPrint> mDocViewerPrint;
+  nsWeakPtr mDocShell;
+
   WeakFrame mPageSeqFrame;
 
   // We are the primary owner of our nsPrintData member vars.  These vars
@@ -219,22 +275,32 @@ class nsPrintJob final : public nsIObserver,
   // member-data.
   RefPtr<nsPrintData> mPrt;
 
-  // Print Preview
+  // The nsPrintData for our last print preview (replaced every time the
+  // user changes settings in the print preview window).
+  // Note: Our new print preview nsPrintData is stored in mPtr until we move it
+  // to mPrtPreview once we've finish creating the print preview.
   RefPtr<nsPrintData> mPrtPreview;
-  RefPtr<nsPrintData> mOldPrtPreview;
 
-  nsPagePrintTimer* mPagePrintTimer = nullptr;
+  RefPtr<nsPagePrintTimer> mPagePrintTimer;
+
+  // If the code that initiates a print preview passes a PrintPreviewResolver
+  // (a std::function) to be notified of the final sheet/page counts (once
+  // we've sufficiently laid out the document to know what those are), that
+  // callback is stored here.
+  PrintPreviewResolver mPrintPreviewCallback;
 
   float mScreenDPI = 115.0f;
-  int32_t mLoadCounter = 0;
 
+  bool mCreatedForPrintPreview = false;
   bool mIsCreatingPrintPreview = false;
   bool mIsDoingPrinting = false;
-  bool mIsDoingPrintPreview = false;
+  bool mHasEverPrinted = false;
   bool mProgressDialogIsShown = false;
   bool mDidLoadDataForPrinting = false;
+  bool mDoingInitialReflow = false;
   bool mIsDestroying = false;
   bool mDisallowSelectionPrint = false;
+  bool mIsForModalWindow = false;
 };
 
 #endif  // nsPrintJob_h

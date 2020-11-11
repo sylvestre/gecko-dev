@@ -11,9 +11,7 @@
 
 #include "gfx2DGlue.h"
 #include "nsIObserverService.h"
-#include "nsIServiceManager.h"
 #include "nsIFrame.h"
-#include "nsIPresShell.h"
 #include "nsIContent.h"
 #include "nsViewManager.h"
 #include "nsNameSpaceManager.h"
@@ -32,7 +30,6 @@
 
 #include <gdk/gdkprivate.h>
 #include <gtk/gtk.h>
-#include <gtk/gtkx.h>
 
 #include "gfxContext.h"
 #include "gfxPlatformGtk.h"
@@ -41,17 +38,21 @@
 #include "mozilla/gfx/HelpersCairo.h"
 #include "mozilla/gfx/PathHelpers.h"
 #include "mozilla/Preferences.h"
+#include "mozilla/PresShell.h"
 #include "mozilla/layers/StackingContextHelper.h"
-#include "mozilla/StaticPrefs.h"
+#include "mozilla/StaticPrefs_layout.h"
+#include "mozilla/StaticPrefs_widget.h"
 #include "nsWindow.h"
+#include "nsLayoutUtils.h"
+#include "nsNativeBasicTheme.h"
 
 #ifdef MOZ_X11
-#ifdef CAIRO_HAS_XLIB_SURFACE
-#include "cairo-xlib.h"
-#endif
-#ifdef CAIRO_HAS_XLIB_XRENDER_SURFACE
-#include "cairo-xlib-xrender.h"
-#endif
+#  ifdef CAIRO_HAS_XLIB_SURFACE
+#    include "cairo-xlib.h"
+#  endif
+#  ifdef CAIRO_HAS_XLIB_XRENDER_SURFACE
+#    include "cairo-xlib-xrender.h"
+#  endif
 #endif
 
 #include <algorithm>
@@ -67,15 +68,12 @@ NS_IMPL_ISUPPORTS_INHERITED(nsNativeThemeGTK, nsNativeTheme, nsITheme,
 
 static int gLastGdkError;
 
-// from nsWindow.cpp
-extern bool gDisableNativeTheme;
-
 // Return scale factor of the monitor where the window is located
 // by the most part or layout.css.devPixelsPerPx pref if set to > 0.
 static inline gint GetMonitorScaleFactor(nsIFrame* aFrame) {
   // When the layout.css.devPixelsPerPx is set the scale can be < 1,
   // the real monitor scale cannot go under 1.
-  double scale = nsIWidget::DefaultScaleOverride();
+  double scale = StaticPrefs::layout_css_devPixelsPerPx();
   if (scale <= 0) {
     nsIWidget* rootWidget = aFrame->PresContext()->GetRootWidget();
     if (rootWidget) {
@@ -115,7 +113,7 @@ nsNativeThemeGTK::nsNativeThemeGTK() {
   ThemeChanged();
 }
 
-nsNativeThemeGTK::~nsNativeThemeGTK() {}
+nsNativeThemeGTK::~nsNativeThemeGTK() = default;
 
 NS_IMETHODIMP
 nsNativeThemeGTK::Observe(nsISupports* aSubject, const char* aTopic,
@@ -131,12 +129,13 @@ nsNativeThemeGTK::Observe(nsISupports* aSubject, const char* aTopic,
 }
 
 void nsNativeThemeGTK::RefreshWidgetWindow(nsIFrame* aFrame) {
-  nsIPresShell* shell = GetPresShell(aFrame);
-  if (!shell) return;
+  MOZ_ASSERT(aFrame);
+  MOZ_ASSERT(aFrame->PresShell());
 
-  nsViewManager* vm = shell->GetViewManager();
-  if (!vm) return;
-
+  nsViewManager* vm = aFrame->PresShell()->GetViewManager();
+  if (!vm) {
+    return;
+  }
   vm->InvalidateAllViews();
 }
 
@@ -186,8 +185,8 @@ static void SetWidgetStateSafe(uint8_t* aSafeVector,
   aSafeVector[key >> 3] |= (1 << (key & 7));
 }
 
-/* static */ GtkTextDirection nsNativeThemeGTK::GetTextDirection(
-    nsIFrame* aFrame) {
+/* static */
+GtkTextDirection nsNativeThemeGTK::GetTextDirection(nsIFrame* aFrame) {
   // IsFrameRTL() treats vertical-rl modes as right-to-left (in addition to
   // horizontal text with direction=RTL), rather than just considering the
   // text direction.  GtkTextDirection does not have distinct values for
@@ -221,11 +220,9 @@ bool nsNativeThemeGTK::GetGtkWidgetAndState(StyleAppearance aAppearance,
                                             WidgetNodeType& aGtkWidgetType,
                                             GtkWidgetState* aState,
                                             gint* aWidgetFlags) {
-  if (aAppearance == StyleAppearance::MenulistButton &&
-      StaticPrefs::layout_css_webkit_appearance_enabled()) {
-    aAppearance = StyleAppearance::Menulist;
+  if (aWidgetFlags) {
+    *aWidgetFlags = 0;
   }
-
   if (aState) {
     memset(aState, 0, sizeof(GtkWidgetState));
 
@@ -302,7 +299,7 @@ bool nsNativeThemeGTK::GetGtkWidgetAndState(StyleAppearance aAppearance,
                aAppearance == StyleAppearance::ToolbarbuttonDropdown ||
                aAppearance == StyleAppearance::Menulist ||
                aAppearance == StyleAppearance::MenulistButton ||
-               aAppearance == StyleAppearance::MozMenulistButton) {
+               aAppearance == StyleAppearance::MozMenulistArrowButton) {
       aState->active &= aState->inHover;
     } else if (aAppearance == StyleAppearance::Treetwisty ||
                aAppearance == StyleAppearance::Treetwistyopen) {
@@ -322,7 +319,6 @@ bool nsNativeThemeGTK::GetGtkWidgetAndState(StyleAppearance aAppearance,
       if (aAppearance == StyleAppearance::NumberInput ||
           aAppearance == StyleAppearance::Textfield ||
           aAppearance == StyleAppearance::Textarea ||
-          aAppearance == StyleAppearance::MenulistTextfield ||
           aAppearance == StyleAppearance::SpinnerTextfield ||
           aAppearance == StyleAppearance::RadioContainer ||
           aAppearance == StyleAppearance::RadioLabel) {
@@ -422,7 +418,7 @@ bool nsNativeThemeGTK::GetGtkWidgetAndState(StyleAppearance aAppearance,
           aAppearance == StyleAppearance::ToolbarbuttonDropdown ||
           aAppearance == StyleAppearance::Menulist ||
           aAppearance == StyleAppearance::MenulistButton ||
-          aAppearance == StyleAppearance::MozMenulistButton) {
+          aAppearance == StyleAppearance::MozMenulistArrowButton) {
         bool menuOpen = IsOpenButton(aFrame);
         aState->depressed = IsCheckedButton(aFrame) || menuOpen;
         // we must not highlight buttons with open drop down menus on hover.
@@ -432,7 +428,7 @@ bool nsNativeThemeGTK::GetGtkWidgetAndState(StyleAppearance aAppearance,
       // When the input field of the drop down button has focus, some themes
       // should draw focus for the drop down button as well.
       if ((aAppearance == StyleAppearance::MenulistButton ||
-           aAppearance == StyleAppearance::MozMenulistButton) &&
+           aAppearance == StyleAppearance::MozMenulistArrowButton) &&
           aWidgetFlags) {
         *aWidgetFlags = CheckBooleanAttr(aFrame, nsGkAtoms::parentfocused);
       }
@@ -514,9 +510,6 @@ bool nsNativeThemeGTK::GetGtkWidgetAndState(StyleAppearance aAppearance,
     case StyleAppearance::ScrollbarthumbHorizontal:
       aGtkWidgetType = MOZ_GTK_SCROLLBAR_THUMB_HORIZONTAL;
       break;
-    case StyleAppearance::InnerSpinButton:
-      aGtkWidgetType = MOZ_GTK_INNER_SPIN_BUTTON;
-      break;
     case StyleAppearance::Spinner:
       aGtkWidgetType = MOZ_GTK_SPINBUTTON;
       break;
@@ -549,24 +542,8 @@ bool nsNativeThemeGTK::GetGtkWidgetAndState(StyleAppearance aAppearance,
       }
       break;
     }
-    case StyleAppearance::ScaleHorizontal:
-      if (aWidgetFlags) *aWidgetFlags = GTK_ORIENTATION_HORIZONTAL;
-      aGtkWidgetType = MOZ_GTK_SCALE_HORIZONTAL;
-      break;
-    case StyleAppearance::ScalethumbHorizontal:
-      if (aWidgetFlags) *aWidgetFlags = GTK_ORIENTATION_HORIZONTAL;
-      aGtkWidgetType = MOZ_GTK_SCALE_THUMB_HORIZONTAL;
-      break;
-    case StyleAppearance::ScaleVertical:
-      if (aWidgetFlags) *aWidgetFlags = GTK_ORIENTATION_VERTICAL;
-      aGtkWidgetType = MOZ_GTK_SCALE_VERTICAL;
-      break;
     case StyleAppearance::Separator:
       aGtkWidgetType = MOZ_GTK_TOOLBAR_SEPARATOR;
-      break;
-    case StyleAppearance::ScalethumbVertical:
-      if (aWidgetFlags) *aWidgetFlags = GTK_ORIENTATION_VERTICAL;
-      aGtkWidgetType = MOZ_GTK_SCALE_THUMB_VERTICAL;
       break;
     case StyleAppearance::Toolbargripper:
       aGtkWidgetType = MOZ_GTK_GRIPPER;
@@ -579,11 +556,7 @@ bool nsNativeThemeGTK::GetGtkWidgetAndState(StyleAppearance aAppearance,
       aGtkWidgetType = MOZ_GTK_ENTRY;
       break;
     case StyleAppearance::Textarea:
-#ifdef MOZ_WIDGET_GTK
       aGtkWidgetType = MOZ_GTK_TEXT_VIEW;
-#else
-      aGtkWidgetType = MOZ_GTK_ENTRY;
-#endif
       break;
     case StyleAppearance::Listbox:
     case StyleAppearance::Treeview:
@@ -628,6 +601,7 @@ bool nsNativeThemeGTK::GetGtkWidgetAndState(StyleAppearance aAppearance,
       aGtkWidgetType = MOZ_GTK_TREEVIEW_EXPANDER;
       if (aWidgetFlags) *aWidgetFlags = GTK_EXPANDER_EXPANDED;
       break;
+    case StyleAppearance::MenulistButton:
     case StyleAppearance::Menulist:
       aGtkWidgetType = MOZ_GTK_DROPDOWN;
       if (aWidgetFlags)
@@ -636,11 +610,7 @@ bool nsNativeThemeGTK::GetGtkWidgetAndState(StyleAppearance aAppearance,
       break;
     case StyleAppearance::MenulistText:
       return false;  // nothing to do, but prevents the bg from being drawn
-    case StyleAppearance::MenulistTextfield:
-      aGtkWidgetType = MOZ_GTK_DROPDOWN_ENTRY;
-      break;
-    case StyleAppearance::MenulistButton:
-    case StyleAppearance::MozMenulistButton:
+    case StyleAppearance::MozMenulistArrowButton:
       aGtkWidgetType = MOZ_GTK_DROPDOWN_ARROW;
       break;
     case StyleAppearance::ToolbarbuttonDropdown:
@@ -683,7 +653,6 @@ bool nsNativeThemeGTK::GetGtkWidgetAndState(StyleAppearance aAppearance,
       aGtkWidgetType = MOZ_GTK_FRAME;
       break;
     case StyleAppearance::ProgressBar:
-    case StyleAppearance::ProgressbarVertical:
       aGtkWidgetType = MOZ_GTK_PROGRESSBAR;
       break;
     case StyleAppearance::Progresschunk: {
@@ -771,6 +740,9 @@ bool nsNativeThemeGTK::GetGtkWidgetAndState(StyleAppearance aAppearance,
     case StyleAppearance::MozWindowTitlebarMaximized:
       aGtkWidgetType = MOZ_GTK_HEADER_BAR_MAXIMIZED;
       break;
+    case StyleAppearance::MozWindowButtonBox:
+      aGtkWidgetType = MOZ_GTK_HEADER_BAR_BUTTON_BOX;
+      break;
     case StyleAppearance::MozWindowButtonClose:
       aGtkWidgetType = MOZ_GTK_HEADER_BAR_BUTTON_CLOSE;
       break;
@@ -792,29 +764,36 @@ bool nsNativeThemeGTK::GetGtkWidgetAndState(StyleAppearance aAppearance,
 
 class SystemCairoClipper : public ClipExporter {
  public:
-  explicit SystemCairoClipper(cairo_t* aContext) : mContext(aContext) {}
+  explicit SystemCairoClipper(cairo_t* aContext, gint aScaleFactor = 1)
+      : mContext(aContext), mScaleFactor(aScaleFactor) {}
 
   void BeginClip(const Matrix& aTransform) override {
     cairo_matrix_t mat;
     GfxMatrixToCairoMatrix(aTransform, mat);
+    // We also need to remove the scale factor effect from the matrix
+    mat.y0 = mat.y0 / mScaleFactor;
+    mat.x0 = mat.x0 / mScaleFactor;
     cairo_set_matrix(mContext, &mat);
 
     cairo_new_path(mContext);
   }
 
   void MoveTo(const Point& aPoint) override {
-    cairo_move_to(mContext, aPoint.x, aPoint.y);
+    cairo_move_to(mContext, aPoint.x / mScaleFactor, aPoint.y / mScaleFactor);
+    mBeginPoint = aPoint;
     mCurrentPoint = aPoint;
   }
 
   void LineTo(const Point& aPoint) override {
-    cairo_line_to(mContext, aPoint.x, aPoint.y);
+    cairo_line_to(mContext, aPoint.x / mScaleFactor, aPoint.y / mScaleFactor);
     mCurrentPoint = aPoint;
   }
 
   void BezierTo(const Point& aCP1, const Point& aCP2,
                 const Point& aCP3) override {
-    cairo_curve_to(mContext, aCP1.x, aCP1.y, aCP2.x, aCP2.y, aCP3.x, aCP3.y);
+    cairo_curve_to(mContext, aCP1.x / mScaleFactor, aCP1.y / mScaleFactor,
+                   aCP2.x / mScaleFactor, aCP2.y / mScaleFactor,
+                   aCP3.x / mScaleFactor, aCP3.y / mScaleFactor);
     mCurrentPoint = aCP3;
   }
 
@@ -823,7 +802,9 @@ class SystemCairoClipper : public ClipExporter {
     Point CP1 = (CP0 + aCP1 * 2.0) / 3.0;
     Point CP2 = (aCP2 + aCP1 * 2.0) / 3.0;
     Point CP3 = aCP2;
-    cairo_curve_to(mContext, CP1.x, CP1.y, CP2.x, CP2.y, CP3.x, CP3.y);
+    cairo_curve_to(mContext, CP1.x / mScaleFactor, CP1.y / mScaleFactor,
+                   CP2.x / mScaleFactor, CP2.y / mScaleFactor,
+                   CP3.x / mScaleFactor, CP3.y / mScaleFactor);
     mCurrentPoint = aCP2;
   }
 
@@ -833,15 +814,16 @@ class SystemCairoClipper : public ClipExporter {
                 aAntiClockwise);
   }
 
-  void Close() override { cairo_close_path(mContext); }
+  void Close() override {
+    cairo_close_path(mContext);
+    mCurrentPoint = mBeginPoint;
+  }
 
   void EndClip() override { cairo_clip(mContext); }
 
-  Point CurrentPoint() const override { return mCurrentPoint; }
-
  private:
   cairo_t* mContext;
-  Point mCurrentPoint;
+  gint mScaleFactor;
 };
 
 static void DrawThemeWithCairo(gfxContext* aContext, DrawTarget* aDrawTarget,
@@ -852,19 +834,33 @@ static void DrawThemeWithCairo(gfxContext* aContext, DrawTarget* aDrawTarget,
                                const nsIntSize& aDrawSize,
                                GdkRectangle& aGDKRect,
                                nsITheme::Transparency aTransparency) {
-  Point drawOffset;
+  bool isX11Display = gfxPlatformGtk::GetPlatform()->IsX11Display();
+  static auto sCairoSurfaceSetDeviceScalePtr =
+      (void (*)(cairo_surface_t*, double, double))dlsym(
+          RTLD_DEFAULT, "cairo_surface_set_device_scale");
+  bool useHiDPIWidgets =
+      (aScaleFactor != 1) && (sCairoSurfaceSetDeviceScalePtr != nullptr);
+
+  Point drawOffsetScaled;
+  Point drawOffsetOriginal;
   Matrix transform;
   if (!aSnapped) {
     // If we are not snapped, we depend on the DT for translation.
-    drawOffset = aDrawOrigin;
-    transform = aDrawTarget->GetTransform().PreTranslate(aDrawOrigin);
+    drawOffsetOriginal = aDrawOrigin;
+    drawOffsetScaled = useHiDPIWidgets ? drawOffsetOriginal / aScaleFactor
+                                       : drawOffsetOriginal;
+    transform = aDrawTarget->GetTransform().PreTranslate(drawOffsetScaled);
   } else {
     // Otherwise, we only need to take the device offset into account.
-    drawOffset = aDrawOrigin - aContext->GetDeviceOffset();
-    transform = Matrix::Translation(drawOffset);
+    drawOffsetOriginal = aDrawOrigin - aContext->GetDeviceOffset();
+    drawOffsetScaled = useHiDPIWidgets ? drawOffsetOriginal / aScaleFactor
+                                       : drawOffsetOriginal;
+    transform = Matrix::Translation(drawOffsetScaled);
   }
 
-  if (aScaleFactor != 1) transform.PreScale(aScaleFactor, aScaleFactor);
+  if (!useHiDPIWidgets && aScaleFactor != 1) {
+    transform.PreScale(aScaleFactor, aScaleFactor);
+  }
 
   cairo_matrix_t mat;
   GfxMatrixToCairoMatrix(transform, mat);
@@ -872,72 +868,55 @@ static void DrawThemeWithCairo(gfxContext* aContext, DrawTarget* aDrawTarget,
   nsIntSize clipSize((aDrawSize.width + aScaleFactor - 1) / aScaleFactor,
                      (aDrawSize.height + aScaleFactor - 1) / aScaleFactor);
 
-#ifndef MOZ_TREE_CAIRO
-  // Directly use the Cairo draw target to render the widget if using system
-  // Cairo everywhere.
-  BorrowedCairoContext borrowCairo(aDrawTarget);
-  if (borrowCairo.mCairo) {
-    cairo_set_matrix(borrowCairo.mCairo, &mat);
-
-    cairo_new_path(borrowCairo.mCairo);
-    cairo_rectangle(borrowCairo.mCairo, 0, 0, clipSize.width, clipSize.height);
-    cairo_clip(borrowCairo.mCairo);
-
-    moz_gtk_widget_paint(aGTKWidgetType, borrowCairo.mCairo, &aGDKRect, &aState,
-                         aFlags, aDirection);
-
-    borrowCairo.Finish();
-    return;
-  }
-#endif
-
   // A direct Cairo draw target is not available, so we need to create a
   // temporary one.
 #if defined(MOZ_X11) && defined(CAIRO_HAS_XLIB_SURFACE)
-  // If using a Cairo xlib surface, then try to reuse it.
-  BorrowedXlibDrawable borrow(aDrawTarget);
-  if (borrow.GetDrawable()) {
-    nsIntSize size = borrow.GetSize();
-    cairo_surface_t* surf = nullptr;
-    // Check if the surface is using XRender.
-#ifdef CAIRO_HAS_XLIB_XRENDER_SURFACE
-    if (borrow.GetXRenderFormat()) {
-      surf = cairo_xlib_surface_create_with_xrender_format(
-          borrow.GetDisplay(), borrow.GetDrawable(), borrow.GetScreen(),
-          borrow.GetXRenderFormat(), size.width, size.height);
-    } else {
-#else
-    if (!borrow.GetXRenderFormat()) {
-#endif
-      surf = cairo_xlib_surface_create(borrow.GetDisplay(),
-                                       borrow.GetDrawable(), borrow.GetVisual(),
-                                       size.width, size.height);
-    }
-    if (!NS_WARN_IF(!surf)) {
-      Point offset = borrow.GetOffset();
-      if (offset != Point()) {
-        cairo_surface_set_device_offset(surf, offset.x, offset.y);
+  if (isX11Display) {
+    // If using a Cairo xlib surface, then try to reuse it.
+    BorrowedXlibDrawable borrow(aDrawTarget);
+    if (borrow.GetDrawable()) {
+      nsIntSize size = borrow.GetSize();
+      cairo_surface_t* surf = nullptr;
+      // Check if the surface is using XRender.
+#  ifdef CAIRO_HAS_XLIB_XRENDER_SURFACE
+      if (borrow.GetXRenderFormat()) {
+        surf = cairo_xlib_surface_create_with_xrender_format(
+            borrow.GetDisplay(), borrow.GetDrawable(), borrow.GetScreen(),
+            borrow.GetXRenderFormat(), size.width, size.height);
+      } else {
+#  else
+      if (!borrow.GetXRenderFormat()) {
+#  endif
+        surf = cairo_xlib_surface_create(
+            borrow.GetDisplay(), borrow.GetDrawable(), borrow.GetVisual(),
+            size.width, size.height);
       }
-      cairo_t* cr = cairo_create(surf);
-      if (!NS_WARN_IF(!cr)) {
-        RefPtr<SystemCairoClipper> clipper = new SystemCairoClipper(cr);
-        aContext->ExportClip(*clipper);
+      if (!NS_WARN_IF(!surf)) {
+        Point offset = borrow.GetOffset();
+        if (offset != Point()) {
+          cairo_surface_set_device_offset(surf, offset.x, offset.y);
+        }
+        cairo_t* cr = cairo_create(surf);
+        if (!NS_WARN_IF(!cr)) {
+          RefPtr<SystemCairoClipper> clipper = new SystemCairoClipper(cr);
+          aContext->ExportClip(*clipper);
 
-        cairo_set_matrix(cr, &mat);
+          cairo_set_matrix(cr, &mat);
 
-        cairo_new_path(cr);
-        cairo_rectangle(cr, 0, 0, clipSize.width, clipSize.height);
-        cairo_clip(cr);
+          cairo_new_path(cr);
+          cairo_rectangle(cr, 0, 0, clipSize.width, clipSize.height);
+          cairo_clip(cr);
 
-        moz_gtk_widget_paint(aGTKWidgetType, cr, &aGDKRect, &aState, aFlags,
-                             aDirection);
+          moz_gtk_widget_paint(aGTKWidgetType, cr, &aGDKRect, &aState, aFlags,
+                               aDirection);
 
-        cairo_destroy(cr);
+          cairo_destroy(cr);
+        }
+        cairo_surface_destroy(surf);
       }
-      cairo_surface_destroy(surf);
+      borrow.Finish();
+      return;
     }
-    borrow.Finish();
-    return;
   }
 #endif
 
@@ -953,12 +932,16 @@ static void DrawThemeWithCairo(gfxContext* aContext, DrawTarget* aDrawTarget,
     cairo_surface_t* surf = cairo_image_surface_create_for_data(
         data, GfxFormatToCairoFormat(format), size.width, size.height, stride);
     if (!NS_WARN_IF(!surf)) {
+      if (useHiDPIWidgets) {
+        sCairoSurfaceSetDeviceScalePtr(surf, aScaleFactor, aScaleFactor);
+      }
       if (origin != IntPoint()) {
         cairo_surface_set_device_offset(surf, -origin.x, -origin.y);
       }
       cairo_t* cr = cairo_create(surf);
       if (!NS_WARN_IF(!cr)) {
-        RefPtr<SystemCairoClipper> clipper = new SystemCairoClipper(cr);
+        RefPtr<SystemCairoClipper> clipper =
+            new SystemCairoClipper(cr, useHiDPIWidgets ? aScaleFactor : 1);
         aContext->ExportClip(*clipper);
 
         cairo_set_matrix(cr, &mat);
@@ -995,7 +978,11 @@ static void DrawThemeWithCairo(gfxContext* aContext, DrawTarget* aDrawTarget,
         cr = cairo_create(surf);
         if (!NS_WARN_IF(!cr)) {
           if (aScaleFactor != 1) {
-            cairo_scale(cr, aScaleFactor, aScaleFactor);
+            if (useHiDPIWidgets) {
+              sCairoSurfaceSetDeviceScalePtr(surf, aScaleFactor, aScaleFactor);
+            } else {
+              cairo_scale(cr, aScaleFactor, aScaleFactor);
+            }
           }
 
           moz_gtk_widget_paint(aGTKWidgetType, cr, &aGDKRect, &aState, aFlags,
@@ -1011,9 +998,9 @@ static void DrawThemeWithCairo(gfxContext* aContext, DrawTarget* aDrawTarget,
         // slower drawing path.
         aDrawTarget->DrawSurface(
             dataSurface,
-            Rect(aSnapped
-                     ? drawOffset - aDrawTarget->GetTransform().GetTranslation()
-                     : drawOffset,
+            Rect(aSnapped ? drawOffsetOriginal -
+                                aDrawTarget->GetTransform().GetTranslation()
+                          : drawOffsetOriginal,
                  Size(aDrawSize)),
             Rect(0, 0, aDrawSize.width, aDrawSize.height));
         cairo_destroy(cr);
@@ -1089,6 +1076,16 @@ bool nsNativeThemeGTK::GetExtraSizeForWidget(nsIFrame* aFrame,
   return true;
 }
 
+bool nsNativeThemeGTK::IsWidgetVisible(StyleAppearance aAppearance) {
+  switch (aAppearance) {
+    case StyleAppearance::MozWindowButtonBox:
+      return false;
+    default:
+      break;
+  }
+  return true;
+}
+
 NS_IMETHODIMP
 nsNativeThemeGTK::DrawWidgetBackground(gfxContext* aContext, nsIFrame* aFrame,
                                        StyleAppearance aAppearance,
@@ -1098,7 +1095,9 @@ nsNativeThemeGTK::DrawWidgetBackground(gfxContext* aContext, nsIFrame* aFrame,
   WidgetNodeType gtkWidgetType;
   GtkTextDirection direction = GetTextDirection(aFrame);
   gint flags;
-  if (!GetGtkWidgetAndState(aAppearance, aFrame, gtkWidgetType, &state,
+
+  if (!IsWidgetVisible(aAppearance) ||
+      !GetGtkWidgetAndState(aAppearance, aFrame, gtkWidgetType, &state,
                             &flags)) {
     return NS_OK;
   }
@@ -1173,7 +1172,7 @@ nsNativeThemeGTK::DrawWidgetBackground(gfxContext* aContext, nsIFrame* aFrame,
   if (!safeState) {
     // gdk_flush() call from expose event crashes Gtk+ on Wayland
     // (Gnome BZ #773307)
-    if (GDK_IS_X11_DISPLAY(gdk_display_get_default())) {
+    if (gfxPlatformGtk::GetPlatform()->IsX11Display()) {
       gdk_flush();
     }
     gLastGdkError = gdk_error_trap_pop();
@@ -1211,20 +1210,19 @@ bool nsNativeThemeGTK::CreateWebRenderCommandsForWidget(
     mozilla::wr::DisplayListBuilder& aBuilder,
     mozilla::wr::IpcResourceUpdateQueue& aResources,
     const mozilla::layers::StackingContextHelper& aSc,
-    mozilla::layers::WebRenderLayerManager* aManager, nsIFrame* aFrame,
+    mozilla::layers::RenderRootStateManager* aManager, nsIFrame* aFrame,
     StyleAppearance aAppearance, const nsRect& aRect) {
   nsPresContext* presContext = aFrame->PresContext();
-  wr::LayoutRect bounds =
-      wr::ToRoundedLayoutRect(LayoutDeviceRect::FromAppUnits(
-          aRect, presContext->AppUnitsPerDevPixel()));
+  wr::LayoutRect bounds = wr::ToLayoutRect(LayoutDeviceRect::FromAppUnits(
+      aRect, presContext->AppUnitsPerDevPixel()));
 
   switch (aAppearance) {
     case StyleAppearance::Window:
     case StyleAppearance::Dialog:
       aBuilder.PushRect(
           bounds, bounds, true,
-          wr::ToColorF(Color::FromABGR(LookAndFeel::GetColor(
-              LookAndFeel::eColorID_WindowBackground, NS_RGBA(0, 0, 0, 0)))));
+          wr::ToColorF(ToDeviceColor(LookAndFeel::GetColor(
+              LookAndFeel::ColorID::WindowBackground, NS_RGBA(0, 0, 0, 0)))));
       return true;
 
     default:
@@ -1243,6 +1241,21 @@ WidgetNodeType nsNativeThemeGTK::NativeThemeToGtkTheme(
     return MOZ_GTK_WINDOW;
   }
   return gtkWidgetType;
+}
+
+static void FixupForVerticalWritingMode(WritingMode aWritingMode,
+                                        LayoutDeviceIntMargin* aResult) {
+  if (aWritingMode.IsVertical()) {
+    bool rtl = aWritingMode.IsBidiRTL();
+    LogicalMargin logical(aWritingMode, aResult->top,
+                          rtl ? aResult->left : aResult->right, aResult->bottom,
+                          rtl ? aResult->right : aResult->left);
+    nsMargin physical = logical.GetPhysicalMargin(aWritingMode);
+    aResult->top = physical.top;
+    aResult->right = physical.right;
+    aResult->bottom = physical.bottom;
+    aResult->left = physical.left;
+  }
 }
 
 void nsNativeThemeGTK::GetCachedWidgetBorder(nsIFrame* aFrame,
@@ -1270,6 +1283,7 @@ void nsNativeThemeGTK::GetCachedWidgetBorder(nsIFrame* aFrame,
       }
     }
   }
+  FixupForVerticalWritingMode(aFrame->GetWritingMode(), aResult);
 }
 
 LayoutDeviceIntMargin nsNativeThemeGTK::GetWidgetBorder(
@@ -1339,8 +1353,10 @@ LayoutDeviceIntMargin nsNativeThemeGTK::GetWidgetBorder(
       // GetWidgetBorder to pad up the widget's internals; other menuitems
       // will need to fall through and use the default case as before.
       if (IsRegularMenuItem(aFrame)) break;
-      MOZ_FALLTHROUGH;
-    default: { GetCachedWidgetBorder(aFrame, aAppearance, direction, &result); }
+      [[fallthrough]];
+    default: {
+      GetCachedWidgetBorder(aFrame, aAppearance, direction, &result);
+    }
   }
 
   gint scale = GetMonitorScaleFactor(aFrame);
@@ -1355,14 +1371,10 @@ bool nsNativeThemeGTK::GetWidgetPadding(nsDeviceContext* aContext,
                                         nsIFrame* aFrame,
                                         StyleAppearance aAppearance,
                                         LayoutDeviceIntMargin* aResult) {
-  if (aAppearance == StyleAppearance::MenulistButton &&
-      StaticPrefs::layout_css_webkit_appearance_enabled()) {
-    aAppearance = StyleAppearance::Menulist;
-  }
-
   switch (aAppearance) {
     case StyleAppearance::ButtonFocus:
     case StyleAppearance::Toolbarbutton:
+    case StyleAppearance::MozWindowButtonBox:
     case StyleAppearance::MozWindowButtonClose:
     case StyleAppearance::MozWindowButtonMinimize:
     case StyleAppearance::MozWindowButtonMaximize:
@@ -1370,8 +1382,7 @@ bool nsNativeThemeGTK::GetWidgetPadding(nsDeviceContext* aContext,
     case StyleAppearance::Dualbutton:
     case StyleAppearance::TabScrollArrowBack:
     case StyleAppearance::TabScrollArrowForward:
-    case StyleAppearance::MenulistButton:
-    case StyleAppearance::MozMenulistButton:
+    case StyleAppearance::MozMenulistArrowButton:
     case StyleAppearance::ToolbarbuttonDropdown:
     case StyleAppearance::ButtonArrowUp:
     case StyleAppearance::ButtonArrowDown:
@@ -1444,11 +1455,6 @@ nsNativeThemeGTK::GetMinimumWidgetSize(nsPresContext* aPresContext,
   aResult->width = aResult->height = 0;
   *aIsOverridable = true;
 
-  if (aAppearance == StyleAppearance::MenulistButton &&
-      StaticPrefs::layout_css_webkit_appearance_enabled()) {
-    aAppearance = StyleAppearance::Menulist;
-  }
-
   switch (aAppearance) {
     case StyleAppearance::ScrollbarbuttonUp:
     case StyleAppearance::ScrollbarbuttonDown: {
@@ -1480,6 +1486,14 @@ nsNativeThemeGTK::GetMinimumWidgetSize(nsPresContext* aPresContext,
         aResult->height = metrics;
       }
       *aIsOverridable = false;
+    } break;
+    case StyleAppearance::ScrollbarNonDisappearing: {
+      const ScrollbarGTKMetrics* verticalMetrics =
+          GetActiveScrollbarMetrics(GTK_ORIENTATION_VERTICAL);
+      const ScrollbarGTKMetrics* horizontalMetrics =
+          GetActiveScrollbarMetrics(GTK_ORIENTATION_HORIZONTAL);
+      aResult->width = verticalMetrics->size.scrollbar.width;
+      aResult->height = horizontalMetrics->size.scrollbar.height;
     } break;
     case StyleAppearance::ScrollbarHorizontal:
     case StyleAppearance::ScrollbarVertical: {
@@ -1526,31 +1540,12 @@ nsNativeThemeGTK::GetMinimumWidgetSize(nsPresContext* aPresContext,
 
       *aIsOverridable = false;
     } break;
-    case StyleAppearance::ScalethumbHorizontal:
-    case StyleAppearance::ScalethumbVertical: {
-      gint thumb_length, thumb_height;
-
-      if (aAppearance == StyleAppearance::ScalethumbVertical) {
-        moz_gtk_get_scalethumb_metrics(GTK_ORIENTATION_VERTICAL, &thumb_length,
-                                       &thumb_height);
-        aResult->width = thumb_height;
-        aResult->height = thumb_length;
-      } else {
-        moz_gtk_get_scalethumb_metrics(GTK_ORIENTATION_HORIZONTAL,
-                                       &thumb_length, &thumb_height);
-        aResult->width = thumb_length;
-        aResult->height = thumb_height;
-      }
-
-      *aIsOverridable = false;
-    } break;
     case StyleAppearance::TabScrollArrowBack:
     case StyleAppearance::TabScrollArrowForward: {
       moz_gtk_get_tab_scroll_arrow_size(&aResult->width, &aResult->height);
       *aIsOverridable = false;
     } break;
-    case StyleAppearance::MenulistButton:
-    case StyleAppearance::MozMenulistButton: {
+    case StyleAppearance::MozMenulistArrowButton: {
       moz_gtk_get_combo_box_entry_button_size(&aResult->width,
                                               &aResult->height);
       *aIsOverridable = false;
@@ -1565,8 +1560,9 @@ nsNativeThemeGTK::GetMinimumWidgetSize(nsPresContext* aPresContext,
     } break;
     case StyleAppearance::Checkbox:
     case StyleAppearance::Radio: {
-      const ToggleGTKMetrics* metrics =
-          GetToggleMetrics(aAppearance == StyleAppearance::Radio);
+      const ToggleGTKMetrics* metrics = GetToggleMetrics(
+          aAppearance == StyleAppearance::Radio ? MOZ_GTK_RADIOBUTTON
+                                                : MOZ_GTK_CHECKBUTTON);
       aResult->width = metrics->minSizeWithBorder.width;
       aResult->height = metrics->minSizeWithBorder.height;
     } break;
@@ -1607,9 +1603,11 @@ nsNativeThemeGTK::GetMinimumWidgetSize(nsPresContext* aPresContext,
     case StyleAppearance::RadioLabel:
     case StyleAppearance::Button:
     case StyleAppearance::Menulist:
+    case StyleAppearance::MenulistButton:
     case StyleAppearance::Toolbarbutton:
     case StyleAppearance::Treeheadercell: {
-      if (aAppearance == StyleAppearance::Menulist) {
+      if (aAppearance == StyleAppearance::Menulist ||
+          aAppearance == StyleAppearance::MenulistButton) {
         // Include the arrow size.
         moz_gtk_get_arrow_size(MOZ_GTK_DROPDOWN, &aResult->width,
                                &aResult->height);
@@ -1624,13 +1622,40 @@ nsNativeThemeGTK::GetMinimumWidgetSize(nsPresContext* aPresContext,
       aResult->width += border.left + border.right;
       aResult->height += border.top + border.bottom;
     } break;
-#ifdef MOZ_WIDGET_GTK
-    case StyleAppearance::MenulistTextfield:
     case StyleAppearance::NumberInput:
     case StyleAppearance::Textfield: {
-      moz_gtk_get_entry_min_height(&aResult->height);
+      gint contentHeight = 0;
+      gint borderPaddingHeight = 0;
+      moz_gtk_get_entry_min_height(&contentHeight, &borderPaddingHeight);
+
+      // Scale the min content height proportionately with the font-size if it's
+      // smaller than the default one. This prevents <input type=text
+      // style="font-size: .5em"> from keeping a ridiculously large size, for
+      // example.
+      const gfxFloat fieldFontSizeInCSSPixels = [] {
+        gfxFontStyle fieldFontStyle;
+        nsAutoString unusedFontName;
+        DebugOnly<bool> result = LookAndFeel::GetFont(
+            LookAndFeel::FontID::Field, unusedFontName, fieldFontStyle);
+        MOZ_ASSERT(result, "GTK look and feel supports the field font");
+        // NOTE: GetFont returns font sizes in CSS pixels, and we want just
+        // that.
+        return fieldFontStyle.size;
+      }();
+
+      const gfxFloat fontSize = aFrame->StyleFont()->mFont.size.ToCSSPixels();
+      if (fieldFontSizeInCSSPixels > fontSize) {
+        contentHeight =
+            std::round(contentHeight * fontSize / fieldFontSizeInCSSPixels);
+      }
+
+      gint height = contentHeight + borderPaddingHeight;
+      if (aFrame->GetWritingMode().IsVertical()) {
+        aResult->width = height;
+      } else {
+        aResult->height = height;
+      }
     } break;
-#endif
     case StyleAppearance::Separator: {
       gint separator_width;
 
@@ -1638,7 +1663,6 @@ nsNativeThemeGTK::GetMinimumWidgetSize(nsPresContext* aPresContext,
 
       aResult->width = separator_width;
     } break;
-    case StyleAppearance::InnerSpinButton:
     case StyleAppearance::Spinner:
       // hard code these sizes
       aResult->width = 14;
@@ -1686,7 +1710,6 @@ nsNativeThemeGTK::WidgetStateChanged(nsIFrame* aFrame,
       aAppearance == StyleAppearance::Resizerpanel ||
       aAppearance == StyleAppearance::Progresschunk ||
       aAppearance == StyleAppearance::ProgressBar ||
-      aAppearance == StyleAppearance::ProgressbarVertical ||
       aAppearance == StyleAppearance::Menubar ||
       aAppearance == StyleAppearance::Menupopup ||
       aAppearance == StyleAppearance::Tooltip ||
@@ -1778,7 +1801,9 @@ NS_IMETHODIMP_(bool)
 nsNativeThemeGTK::ThemeSupportsWidget(nsPresContext* aPresContext,
                                       nsIFrame* aFrame,
                                       StyleAppearance aAppearance) {
-  if (IsWidgetTypeDisabled(mDisabledWidgetTypes, aAppearance)) return false;
+  if (IsWidgetTypeDisabled(mDisabledWidgetTypes, aAppearance)) {
+    return false;
+  }
 
   if (IsWidgetScrollbarPart(aAppearance)) {
     ComputedStyle* cs = nsLayoutUtils::StyleForScrollbar(aFrame);
@@ -1789,19 +1814,15 @@ nsNativeThemeGTK::ThemeSupportsWidget(nsPresContext* aPresContext,
     }
   }
 
-  if (aAppearance == StyleAppearance::MenulistButton &&
-      StaticPrefs::layout_css_webkit_appearance_enabled()) {
-    aAppearance = StyleAppearance::Menulist;
-  }
-
   switch (aAppearance) {
     // Combobox dropdowns don't support native theming in vertical mode.
     case StyleAppearance::Menulist:
+    case StyleAppearance::MenulistButton:
     case StyleAppearance::MenulistText:
       if (aFrame && aFrame->GetWritingMode().IsVertical()) {
         return false;
       }
-      MOZ_FALLTHROUGH;
+      [[fallthrough]];
 
     case StyleAppearance::Button:
     case StyleAppearance::ButtonFocus:
@@ -1823,7 +1844,6 @@ nsNativeThemeGTK::ThemeSupportsWidget(nsPresContext* aPresContext,
     case StyleAppearance::Resizerpanel:
     case StyleAppearance::Resizer:
     case StyleAppearance::Listbox:
-      // case StyleAppearance::Listitem:
     case StyleAppearance::Treeview:
       // case StyleAppearance::Treeitem:
     case StyleAppearance::Treetwisty:
@@ -1834,20 +1854,16 @@ nsNativeThemeGTK::ThemeSupportsWidget(nsPresContext* aPresContext,
     case StyleAppearance::Treetwistyopen:
     case StyleAppearance::ProgressBar:
     case StyleAppearance::Progresschunk:
-    case StyleAppearance::ProgressbarVertical:
     case StyleAppearance::Tab:
     // case StyleAppearance::Tabpanel:
     case StyleAppearance::Tabpanels:
     case StyleAppearance::TabScrollArrowBack:
     case StyleAppearance::TabScrollArrowForward:
     case StyleAppearance::Tooltip:
-    case StyleAppearance::InnerSpinButton:
     case StyleAppearance::Spinner:
     case StyleAppearance::SpinnerUpbutton:
     case StyleAppearance::SpinnerDownbutton:
     case StyleAppearance::SpinnerTextfield:
-      // case StyleAppearance::Scrollbar:  (n/a for gtk)
-      // case StyleAppearance::ScrollbarSmall: (n/a for gtk)
     case StyleAppearance::ScrollbarbuttonUp:
     case StyleAppearance::ScrollbarbuttonDown:
     case StyleAppearance::ScrollbarbuttonLeft:
@@ -1858,19 +1874,12 @@ nsNativeThemeGTK::ThemeSupportsWidget(nsPresContext* aPresContext,
     case StyleAppearance::ScrollbartrackVertical:
     case StyleAppearance::ScrollbarthumbHorizontal:
     case StyleAppearance::ScrollbarthumbVertical:
-    case StyleAppearance::MenulistTextfield:
+    case StyleAppearance::ScrollbarNonDisappearing:
     case StyleAppearance::NumberInput:
     case StyleAppearance::Textfield:
     case StyleAppearance::Textarea:
     case StyleAppearance::Range:
     case StyleAppearance::RangeThumb:
-    case StyleAppearance::ScaleHorizontal:
-    case StyleAppearance::ScalethumbHorizontal:
-    case StyleAppearance::ScaleVertical:
-    case StyleAppearance::ScalethumbVertical:
-      // case StyleAppearance::Scalethumbstart:
-      // case StyleAppearance::Scalethumbend:
-      // case StyleAppearance::Scalethumbtick:
     case StyleAppearance::CheckboxContainer:
     case StyleAppearance::RadioContainer:
     case StyleAppearance::CheckboxLabel:
@@ -1885,24 +1894,17 @@ nsNativeThemeGTK::ThemeSupportsWidget(nsPresContext* aPresContext,
     case StyleAppearance::Splitter:
     case StyleAppearance::Window:
     case StyleAppearance::Dialog:
-#ifdef MOZ_WIDGET_GTK
     case StyleAppearance::MozGtkInfoBar:
-#endif
-      return !IsWidgetStyled(aPresContext, aFrame, aAppearance);
-
+    case StyleAppearance::MozWindowButtonBox:
     case StyleAppearance::MozWindowButtonClose:
     case StyleAppearance::MozWindowButtonMinimize:
     case StyleAppearance::MozWindowButtonMaximize:
     case StyleAppearance::MozWindowButtonRestore:
     case StyleAppearance::MozWindowTitlebar:
     case StyleAppearance::MozWindowTitlebarMaximized:
-      // GtkHeaderBar is available on GTK 3.10+, which is used for styling
-      // title bars and title buttons.
-      return gtk_check_version(3, 10, 0) == nullptr &&
-             !IsWidgetStyled(aPresContext, aFrame, aAppearance);
+      return !IsWidgetStyled(aPresContext, aFrame, aAppearance);
 
-    case StyleAppearance::MenulistButton:
-    case StyleAppearance::MozMenulistButton:
+    case StyleAppearance::MozMenulistArrowButton:
       if (aFrame && aFrame->GetWritingMode().IsVertical()) {
         return false;
       }
@@ -1923,14 +1925,8 @@ nsNativeThemeGTK::ThemeSupportsWidget(nsPresContext* aPresContext,
 
 NS_IMETHODIMP_(bool)
 nsNativeThemeGTK::WidgetIsContainer(StyleAppearance aAppearance) {
-  if (aAppearance == StyleAppearance::MenulistButton &&
-      StaticPrefs::layout_css_webkit_appearance_enabled()) {
-    aAppearance = StyleAppearance::Menulist;
-  }
-
   // XXXdwh At some point flesh all of this out.
-  if (aAppearance == StyleAppearance::MenulistButton ||
-      aAppearance == StyleAppearance::MozMenulistButton ||
+  if (aAppearance == StyleAppearance::MozMenulistArrowButton ||
       aAppearance == StyleAppearance::Radio ||
       aAppearance == StyleAppearance::RangeThumb ||
       aAppearance == StyleAppearance::Checkbox ||
@@ -1945,17 +1941,18 @@ nsNativeThemeGTK::WidgetIsContainer(StyleAppearance aAppearance) {
 }
 
 bool nsNativeThemeGTK::ThemeDrawsFocusForWidget(StyleAppearance aAppearance) {
-  if (aAppearance == StyleAppearance::MenulistButton &&
-      StaticPrefs::layout_css_webkit_appearance_enabled()) {
-    aAppearance = StyleAppearance::Menulist;
+  switch (aAppearance) {
+    case StyleAppearance::Button:
+    case StyleAppearance::Menulist:
+    case StyleAppearance::MenulistButton:
+    case StyleAppearance::Textarea:
+    case StyleAppearance::Textfield:
+    case StyleAppearance::Treeheadercell:
+    case StyleAppearance::NumberInput:
+      return true;
+    default:
+      return false;
   }
-
-  if (aAppearance == StyleAppearance::Menulist ||
-      aAppearance == StyleAppearance::Button ||
-      aAppearance == StyleAppearance::Treeheadercell)
-    return true;
-
-  return false;
 }
 
 bool nsNativeThemeGTK::ThemeNeedsComboboxDropmarker() { return false; }
@@ -1970,14 +1967,13 @@ nsITheme::Transparency nsNativeThemeGTK::GetWidgetTransparency(
       return eOpaque;
     case StyleAppearance::ScrollbarVertical:
     case StyleAppearance::ScrollbarHorizontal:
-#ifdef MOZ_WIDGET_GTK
       // Make scrollbar tracks opaque on the window's scroll frame to prevent
       // leaf layers from overlapping. See bug 1179780.
       if (!(CheckBooleanAttr(aFrame, nsGkAtoms::root_) &&
             aFrame->PresContext()->IsRootContentDocument() &&
-            IsFrameContentNodeInNamespace(aFrame, kNameSpaceID_XUL)))
+            IsFrameContentNodeInNamespace(aFrame, kNameSpaceID_XUL))) {
         return eTransparent;
-#endif
+      }
       return eOpaque;
     // Tooltips use gtk_paint_flat_box() on Gtk2
     // but are shaped on Gtk3
@@ -2007,11 +2003,7 @@ bool nsNativeThemeGTK::WidgetAppearanceDependsOnWindowFocus(
   }
 }
 
-already_AddRefed<nsITheme> do_GetNativeTheme() {
-  if (gDisableNativeTheme) {
-    return nullptr;
-  }
-
+already_AddRefed<nsITheme> do_GetNativeThemeDoNotUseDirectly() {
   static nsCOMPtr<nsITheme> inst;
 
   if (!inst) {

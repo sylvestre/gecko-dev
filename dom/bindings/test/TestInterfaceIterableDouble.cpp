@@ -9,8 +9,7 @@
 #include "nsPIDOMWindow.h"
 #include "mozilla/dom/BindingUtils.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(TestInterfaceIterableDouble, mParent)
 
@@ -25,12 +24,9 @@ NS_INTERFACE_MAP_END
 TestInterfaceIterableDouble::TestInterfaceIterableDouble(
     nsPIDOMWindowInner* aParent)
     : mParent(aParent) {
-  mValues.AppendElement(std::pair<nsString, nsString>(NS_LITERAL_STRING("a"),
-                                                      NS_LITERAL_STRING("b")));
-  mValues.AppendElement(std::pair<nsString, nsString>(NS_LITERAL_STRING("c"),
-                                                      NS_LITERAL_STRING("d")));
-  mValues.AppendElement(std::pair<nsString, nsString>(NS_LITERAL_STRING("e"),
-                                                      NS_LITERAL_STRING("f")));
+  mValues.AppendElement(std::pair<nsString, nsString>(u"a"_ns, u"b"_ns));
+  mValues.AppendElement(std::pair<nsString, nsString>(u"c"_ns, u"d"_ns));
+  mValues.AppendElement(std::pair<nsString, nsString>(u"e"_ns, u"f"_ns));
 }
 
 // static
@@ -72,5 +68,4 @@ nsAString& TestInterfaceIterableDouble::GetValueAtIndex(uint32_t aIndex) {
   return mValues.ElementAt(aIndex).second;
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

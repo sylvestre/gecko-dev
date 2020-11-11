@@ -362,6 +362,9 @@ interface nsIMemoryReporterManager : nsISupports
    * |JSMainRuntimeTemporaryPeak| (UNITS_BYTES)  Peak size of the transient
    * storage in the main JSRuntime.
    *
+   * |JSMainRuntimeCompartments{System,User}| (UNITS_COUNT)  The number of
+   * {system,user} compartments in the main JS runtime.
+   *
    * |JSMainRuntimeRealms{System,User}| (UNITS_COUNT)  The number of
    * {system,user} realms in the main JS runtime.
    *
@@ -392,6 +395,8 @@ interface nsIMemoryReporterManager : nsISupports
 
   [must_use] readonly attribute int64_t JSMainRuntimeGCHeap;
   [must_use] readonly attribute int64_t JSMainRuntimeTemporaryPeak;
+  [must_use] readonly attribute int64_t JSMainRuntimeCompartmentsSystem;
+  [must_use] readonly attribute int64_t JSMainRuntimeCompartmentsUser;
   [must_use] readonly attribute int64_t JSMainRuntimeRealmsSystem;
   [must_use] readonly attribute int64_t JSMainRuntimeRealmsUser;
 
@@ -421,8 +426,9 @@ interface nsIMemoryReporterManager : nsISupports
 
   /*
    * Run a series of GC/CC's in an attempt to minimize the application's memory
-   * usage.  When we're finished, we invoke the given runnable if it's not
-   * null.
+   * usage.  When we're finished doing this for the current process, we invoke
+   * the given runnable if it's not null.  We do not wait for any child processes
+   * that might be doing their own minimization via child-mmu-request to finish.
    */
   [must_use] void minimizeMemoryUsage(in nsIRunnable callback);
 
@@ -456,7 +462,7 @@ class nsPIDOMWindowOuter;
 namespace mozilla {
 
 // All the following registration/unregistration functions don't use
-// MOZ_MUST_USE because ignoring failures is common and reasonable.
+// [[nodiscard]] because ignoring failures is common and reasonable.
 
 // Register a memory reporter.  The manager service will hold a strong
 // reference to this reporter.
@@ -489,6 +495,8 @@ typedef int64_t (*InfallibleAmountFn)();
 
 DECL_REGISTER_DISTINGUISHED_AMOUNT(Infallible, JSMainRuntimeGCHeap)
 DECL_REGISTER_DISTINGUISHED_AMOUNT(Infallible, JSMainRuntimeTemporaryPeak)
+DECL_REGISTER_DISTINGUISHED_AMOUNT(Infallible, JSMainRuntimeCompartmentsSystem)
+DECL_REGISTER_DISTINGUISHED_AMOUNT(Infallible, JSMainRuntimeCompartmentsUser)
 DECL_REGISTER_DISTINGUISHED_AMOUNT(Infallible, JSMainRuntimeRealmsSystem)
 DECL_REGISTER_DISTINGUISHED_AMOUNT(Infallible, JSMainRuntimeRealmsUser)
 
@@ -509,15 +517,15 @@ DECL_REGISTER_DISTINGUISHED_AMOUNT(Infallible, GhostWindows)
 
 // Likewise for per-tab measurement.
 
-typedef MOZ_MUST_USE nsresult (*JSSizeOfTabFn)(JSObject* aObj,
-                                               size_t* aJsObjectsSize,
-                                               size_t* aJsStringSize,
-                                               size_t* aJsPrivateSize,
-                                               size_t* aJsOtherSize);
-typedef MOZ_MUST_USE nsresult (*NonJSSizeOfTabFn)(nsPIDOMWindowOuter* aWindow,
-                                                  size_t* aDomSize,
-                                                  size_t* aStyleSize,
-                                                  size_t* aOtherSize);
+typedef nsresult (*JSSizeOfTabFn)(JSObject* aObj,
+                                  size_t* aJsObjectsSize,
+                                  size_t* aJsStringSize,
+                                  size_t* aJsPrivateSize,
+                                  size_t* aJsOtherSize);
+typedef nsresult (*NonJSSizeOfTabFn)(nsPIDOMWindowOuter* aWindow,
+                                     size_t* aDomSize,
+                                     size_t* aStyleSize,
+                                     size_t* aOtherSize);
 
 nsresult RegisterJSSizeOfTab(JSSizeOfTabFn aSizeOfTabFn);
 nsresult RegisterNonJSSizeOfTab(NonJSSizeOfTabFn aSizeOfTabFn);
@@ -604,8 +612,8 @@ nsresult RegisterNonJSSizeOfTab(NonJSSizeOfTabFn aSizeOfTabFn);
 // variables. The (void) is there because we should always ignore the return
 // value of the callback, because callback failures aren't fatal.
 #define MOZ_COLLECT_REPORT(path, kind, units, amount, description)            \
-  (void)aHandleReport->Callback(EmptyCString(), NS_LITERAL_CSTRING(path),     \
+  (void)aHandleReport->Callback(""_ns, nsLiteralCString(path),     \
                                 kind, units, amount,                          \
-                                NS_LITERAL_CSTRING(description), aData)
+                                nsLiteralCString(description), aData)
 
 %}

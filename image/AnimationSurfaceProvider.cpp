@@ -5,7 +5,7 @@
 
 #include "AnimationSurfaceProvider.h"
 
-#include "gfxPrefs.h"
+#include "mozilla/StaticPrefs_image.h"
 #include "mozilla/gfx/gfxVars.h"
 #include "nsProxyRelease.h"
 
@@ -31,20 +31,14 @@ AnimationSurfaceProvider::AnimationSurfaceProvider(
   MOZ_ASSERT(!mDecoder->IsFirstFrameDecode(),
              "Use DecodedSurfaceProvider for single-frame image decodes");
 
-  // We may produce paletted surfaces for GIF which means the frames are smaller
-  // than one would expect.
-  size_t pixelSize = !aDecoder->ShouldBlendAnimation() &&
-                             aDecoder->GetType() == DecoderType::GIF
-                         ? sizeof(uint8_t)
-                         : sizeof(uint32_t);
-
   // Calculate how many frames we need to decode in this animation before we
   // enter decode-on-demand mode.
   IntSize frameSize = aSurfaceKey.Size();
   size_t threshold =
-      (size_t(gfxPrefs::ImageAnimatedDecodeOnDemandThresholdKB()) * 1024) /
-      (pixelSize * frameSize.width * frameSize.height);
-  size_t batch = gfxPrefs::ImageAnimatedDecodeOnDemandBatchSize();
+      (size_t(StaticPrefs::image_animated_decode_on_demand_threshold_kb()) *
+       1024) /
+      (sizeof(uint32_t) * frameSize.width * frameSize.height);
+  size_t batch = StaticPrefs::image_animated_decode_on_demand_batch_size();
 
   mFrames.reset(
       new AnimationFrameRetainedBuffer(threshold, batch, aCurrentFrame));
@@ -64,8 +58,7 @@ void AnimationSurfaceProvider::DropImageReference() {
   }
 
   // RasterImage objects need to be destroyed on the main thread.
-  NS_ReleaseOnMainThreadSystemGroup("AnimationSurfaceProvider::mImage",
-                                    mImage.forget());
+  SurfaceCache::ReleaseImageOnMainThread(mImage.forget());
 }
 
 void AnimationSurfaceProvider::Reset() {
@@ -238,6 +231,16 @@ void AnimationSurfaceProvider::Run() {
       continue;
     }
 
+    // If there is output available we want to change the entry in the surface
+    // cache from a placeholder to an actual surface now before NotifyProgress
+    // call below so that when consumers get the frame complete notification
+    // from the NotifyProgress they can actually get a surface from the surface
+    // cache.
+    bool checkForNewFrameAtYieldResult = false;
+    if (result == LexerResult(Yield::OUTPUT_AVAILABLE)) {
+      checkForNewFrameAtYieldResult = CheckForNewFrameAtYield();
+    }
+
     // Notify for the progress we've made so far.
     if (mImage && mDecoder->HasProgress()) {
       NotifyProgress(WrapNotNull(mImage), WrapNotNull(mDecoder));
@@ -256,7 +259,7 @@ void AnimationSurfaceProvider::Run() {
     // animation may advance even during shutdown, which keeps us decoding, and
     // thus blocking the decode pool during teardown.
     MOZ_ASSERT(result == LexerResult(Yield::OUTPUT_AVAILABLE));
-    if (!CheckForNewFrameAtYield() ||
+    if (!checkForNewFrameAtYieldResult ||
         DecodePool::Singleton()->IsShuttingDown()) {
       return;
     }
@@ -302,7 +305,7 @@ bool AnimationSurfaceProvider::CheckForNewFrameAtYield() {
     switch (status) {
       case AnimationFrameBuffer::InsertStatus::DISCARD_CONTINUE:
         continueDecoding = true;
-        MOZ_FALLTHROUGH;
+        [[fallthrough]];
       case AnimationFrameBuffer::InsertStatus::DISCARD_YIELD:
         RequestFrameDiscarding();
         break;
@@ -413,13 +416,8 @@ void AnimationSurfaceProvider::RequestFrameDiscarding() {
   auto oldFrameQueue =
       static_cast<AnimationFrameRetainedBuffer*>(mFrames.get());
 
-  // We only recycle if it is a full frame. Partial frames may be sized
-  // differently from each other. We do not support recycling with WebRender
-  // and shared surfaces at this time as there is additional synchronization
-  // required to know when it is safe to recycle.
   MOZ_ASSERT(!mDecoder->GetFrameRecycler());
-  if (gfxPrefs::ImageAnimatedDecodeOnDemandRecycle() &&
-      mDecoder->ShouldBlendAnimation()) {
+  if (StaticPrefs::image_animated_decode_on_demand_recycle_AtStartup()) {
     mFrames.reset(new AnimationFrameRecyclingQueue(std::move(*oldFrameQueue)));
     mDecoder->SetFrameRecycler(this);
   } else {
@@ -476,7 +474,8 @@ bool AnimationSurfaceProvider::ShouldPreferSyncRun() const {
   MutexAutoLock lock(mDecodingMutex);
   MOZ_ASSERT(mDecoder);
 
-  return mDecoder->ShouldSyncDecode(gfxPrefs::ImageMemDecodeBytesAtATime());
+  return mDecoder->ShouldSyncDecode(
+      StaticPrefs::image_mem_decode_bytes_at_a_time_AtStartup());
 }
 
 RawAccessFrameRef AnimationSurfaceProvider::RecycleFrame(

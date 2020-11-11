@@ -19,8 +19,7 @@
 #include "nsIStorageStream.h"
 #include "nsStringStream.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 static nsresult GetBufferDataAsStream(
     const uint8_t* aData, uint32_t aDataLength, nsIInputStream** aResult,
@@ -32,8 +31,8 @@ static nsresult GetBufferDataAsStream(
   const char* data = reinterpret_cast<const char*>(aData);
 
   nsCOMPtr<nsIInputStream> stream;
-  nsresult rv = NS_NewByteInputStream(getter_AddRefs(stream), data, aDataLength,
-                                      NS_ASSIGNMENT_COPY);
+  nsresult rv = NS_NewByteInputStream(
+      getter_AddRefs(stream), Span(data, aDataLength), NS_ASSIGNMENT_COPY);
   NS_ENSURE_SUCCESS(rv, rv);
 
   stream.forget(aResult);
@@ -45,7 +44,7 @@ template <>
 nsresult BodyExtractor<const ArrayBuffer>::GetAsStream(
     nsIInputStream** aResult, uint64_t* aContentLength,
     nsACString& aContentTypeWithCharset, nsACString& aCharset) const {
-  mBody->ComputeLengthAndData();
+  mBody->ComputeState();
   return GetBufferDataAsStream(mBody->Data(), mBody->Length(), aResult,
                                aContentLength, aContentTypeWithCharset,
                                aCharset);
@@ -55,14 +54,14 @@ template <>
 nsresult BodyExtractor<const ArrayBufferView>::GetAsStream(
     nsIInputStream** aResult, uint64_t* aContentLength,
     nsACString& aContentTypeWithCharset, nsACString& aCharset) const {
-  mBody->ComputeLengthAndData();
+  mBody->ComputeState();
   return GetBufferDataAsStream(mBody->Data(), mBody->Length(), aResult,
                                aContentLength, aContentTypeWithCharset,
                                aCharset);
 }
 
 template <>
-nsresult BodyExtractor<nsIDocument>::GetAsStream(
+nsresult BodyExtractor<Document>::GetAsStream(
     nsIInputStream** aResult, uint64_t* aContentLength,
     nsACString& aContentTypeWithCharset, nsACString& aCharset) const {
   NS_ENSURE_STATE(mBody);
@@ -102,8 +101,7 @@ nsresult BodyExtractor<nsIDocument>::GetAsStream(
 
     // Make sure to use the encoding we'll send
     ErrorResult res;
-    serializer->SerializeToStream(*mBody, output, NS_LITERAL_STRING("UTF-8"),
-                                  res);
+    serializer->SerializeToStream(*mBody, output, u"UTF-8"_ns, res);
     if (NS_WARN_IF(res.Failed())) {
       return res.StealNSResult();
     }
@@ -181,5 +179,4 @@ nsresult BodyExtractor<const URLSearchParams>::GetAsStream(
                             aCharset);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

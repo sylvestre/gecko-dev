@@ -18,23 +18,7 @@ enum class GLContextType { Unknown, WGL, CGL, GLX, EGL, EAGL };
 
 enum class OriginPos : uint8_t { TopLeft, BottomLeft };
 
-struct GLFormats {
-  // Constructs a zeroed object:
-  GLFormats();
-
-  GLenum color_texInternalFormat;
-  GLenum color_texFormat;
-  GLenum color_texType;
-  GLenum color_rbFormat;
-
-  GLenum depthStencil;
-  GLenum depth;
-  GLenum stencil;
-
-  GLsizei samples;
-};
-
-enum class CreateContextFlags : uint8_t {
+enum class CreateContextFlags : uint16_t {
   NONE = 0,
   REQUIRE_COMPAT_PROFILE = 1 << 0,
   // Force the use of hardware backed GL, don't allow software implementations.
@@ -46,12 +30,20 @@ enum class CreateContextFlags : uint8_t {
 
   NO_VALIDATION = 1 << 4,
   PREFER_ROBUSTNESS = 1 << 5,
-
   HIGH_POWER = 1 << 6,
-
   PROVOKING_VERTEX_DONT_CARE = 1 << 7,
+  PREFER_EXACT_VERSION = 1 << 8,
+  PREFER_MULTITHREADED = 1 << 9,
 };
 MOZ_MAKE_ENUM_CLASS_BITWISE_OPERATORS(CreateContextFlags)
+
+struct GLContextCreateDesc {
+  CreateContextFlags flags = CreateContextFlags::NONE;
+};
+
+struct GLContextDesc final : public GLContextCreateDesc {
+  bool isOffscreen = false;
+};
 
 } /* namespace gl */
 } /* namespace mozilla */

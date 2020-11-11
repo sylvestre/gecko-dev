@@ -7,12 +7,23 @@
 #ifndef mozilla_gfx_2d_CaptureCommandList_h
 #define mozilla_gfx_2d_CaptureCommandList_h
 
-#include "mozilla/Move.h"
-#include "mozilla/PodOperations.h"
+#include <limits>
+#include <utility>
 #include <vector>
 
 #include "DrawCommand.h"
 #include "Logging.h"
+#include "mozilla/PodOperations.h"
+
+// Command object is stored into record with header containing size and
+// redundant size of whole record. Some platforms may require Command
+// object to be stored on 8 bytes aligned address. Therefore we need to
+// adjust size of header for these platforms.
+#ifdef __sparc__
+typedef uint32_t kAdvance_t;
+#else
+typedef uint16_t kAdvance_t;
+#endif
 
 namespace mozilla {
 namespace gfx {
@@ -36,13 +47,23 @@ class CaptureCommandList {
 
   template <typename T>
   T* Append() {
-    size_t oldSize = mStorage.size();
-    mStorage.resize(mStorage.size() + sizeof(T) + sizeof(uint32_t));
-    uint8_t* nextDrawLocation = &mStorage.front() + oldSize;
-    *(uint32_t*)(nextDrawLocation) = sizeof(T) + sizeof(uint32_t);
-    T* newCommand = reinterpret_cast<T*>(nextDrawLocation + sizeof(uint32_t));
-    mLastCommand = newCommand;
-    return newCommand;
+    static_assert(sizeof(T) + 2 * sizeof(kAdvance_t) <=
+                      std::numeric_limits<kAdvance_t>::max(),
+                  "encoding is too small to contain advance");
+    const kAdvance_t kAdvance = sizeof(T) + 2 * sizeof(kAdvance_t);
+
+    size_t size = mStorage.size();
+    mStorage.resize(size + kAdvance);
+
+    uint8_t* current = &mStorage.front() + size;
+    *(kAdvance_t*)(current) = kAdvance;
+    current += sizeof(kAdvance_t);
+    *(kAdvance_t*)(current) = ~kAdvance;
+    current += sizeof(kAdvance_t);
+
+    T* command = reinterpret_cast<T*>(current);
+    mLastCommand = command;
+    return command;
   }
 
   template <typename T>
@@ -59,7 +80,8 @@ class CaptureCommandList {
 
   template <typename T>
   bool BufferWillAlloc() const {
-    return mStorage.size() + sizeof(uint32_t) + sizeof(T) > mStorage.capacity();
+    const kAdvance_t kAdvance = sizeof(T) + 2 * sizeof(kAdvance_t);
+    return mStorage.size() + kAdvance > mStorage.capacity();
   }
 
   size_t BufferCapacity() const { return mStorage.capacity(); }
@@ -79,11 +101,16 @@ class CaptureCommandList {
     bool Done() const { return mCurrent >= mEnd; }
     void Next() {
       MOZ_ASSERT(!Done());
-      mCurrent += *reinterpret_cast<uint32_t*>(mCurrent);
+      kAdvance_t advance = *reinterpret_cast<kAdvance_t*>(mCurrent);
+      kAdvance_t redundant =
+          ~*reinterpret_cast<kAdvance_t*>(mCurrent + sizeof(kAdvance_t));
+      MOZ_RELEASE_ASSERT(advance == redundant);
+      mCurrent += advance;
     }
     DrawingCommand* Get() {
       MOZ_ASSERT(!Done());
-      return reinterpret_cast<DrawingCommand*>(mCurrent + sizeof(uint32_t));
+      return reinterpret_cast<DrawingCommand*>(mCurrent +
+                                               2 * sizeof(kAdvance_t));
     }
 
    private:
@@ -92,7 +119,7 @@ class CaptureCommandList {
     uint8_t* mEnd;
   };
 
-  void Log(TreeLog& aStream) {
+  void Log(TreeLog<>& aStream) {
     for (iterator iter(*this); !iter.Done(); iter.Next()) {
       DrawingCommand* cmd = iter.Get();
       cmd->Log(aStream);

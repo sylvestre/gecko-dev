@@ -8,11 +8,16 @@
 #define mozilla_dom_InputEvent_h_
 
 #include "mozilla/dom/UIEvent.h"
+
 #include "mozilla/dom/InputEventBinding.h"
+#include "mozilla/dom/StaticRange.h"
 #include "mozilla/EventForwards.h"
+#include "nsTArray.h"
 
 namespace mozilla {
 namespace dom {
+
+class DataTransfer;
 
 class InputEvent : public UIEvent {
  public:
@@ -23,18 +28,26 @@ class InputEvent : public UIEvent {
 
   static already_AddRefed<InputEvent> Constructor(const GlobalObject& aGlobal,
                                                   const nsAString& aType,
-                                                  const InputEventInit& aParam,
-                                                  ErrorResult& aRv);
+                                                  const InputEventInit& aParam);
 
   virtual JSObject* WrapObjectInternal(
       JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override {
     return InputEvent_Binding::Wrap(aCx, this, aGivenProto);
   }
 
+  void GetInputType(nsAString& aInputType);
+  void GetData(nsAString& aData, CallerType aCallerType = CallerType::System);
+  already_AddRefed<DataTransfer> GetDataTransfer(
+      CallerType aCallerType = CallerType::System);
+  void GetTargetRanges(nsTArray<RefPtr<StaticRange>>& aTargetRanges);
   bool IsComposing();
 
  protected:
-  ~InputEvent() {}
+  ~InputEvent() = default;
+
+  // mInputTypeValue stores inputType attribute value if the instance is
+  // created by script and not initialized with known inputType value.
+  nsString mInputTypeValue;
 };
 
 }  // namespace dom

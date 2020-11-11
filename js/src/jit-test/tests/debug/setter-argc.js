@@ -6,7 +6,7 @@ function check(obj) {
   for (let prop of props) {
     let desc = Object.getOwnPropertyDescriptor(proto, prop);
     if (desc.set) {
-      print("bleah: " + uneval(prop));
+      print("bleah: " + JSON.stringify(prop));
       assertEq(typeof desc.set, 'function');
       try {
         desc.set.call(obj);
@@ -19,7 +19,7 @@ function check(obj) {
 }
 
 var dbg = new Debugger;
-var g = newGlobal();
+var g = newGlobal({newCompartment: true});
 var gw = dbg.addDebuggee(g);
 
 // Debugger

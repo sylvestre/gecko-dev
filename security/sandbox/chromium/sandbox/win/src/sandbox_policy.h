@@ -8,26 +8,31 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "base/strings/string16.h"
+#include <string>
+
+#include "base/memory/scoped_refptr.h"
 #include "sandbox/win/src/sandbox_types.h"
 #include "sandbox/win/src/security_level.h"
 
 namespace sandbox {
 
+class AppContainerProfile;
+
 class TargetPolicy {
  public:
   // Windows subsystems that can have specific rules.
-  // Note: The process subsystem(SUBSY_PROCESS) does not evaluate the request
+  // Note: The process subsystem(SUBSYS_PROCESS) does not evaluate the request
   // exactly like the CreateProcess API does. See the comment at the top of
   // process_thread_dispatcher.cc for more details.
   enum SubSystem {
-    SUBSYS_FILES,             // Creation and opening of files and pipes.
-    SUBSYS_NAMED_PIPES,       // Creation of named pipes.
-    SUBSYS_PROCESS,           // Creation of child processes.
-    SUBSYS_REGISTRY,          // Creation and opening of registry keys.
-    SUBSYS_SYNC,              // Creation of named sync objects.
-    SUBSYS_HANDLES,           // Duplication of handles to other processes.
-    SUBSYS_WIN32K_LOCKDOWN    // Win32K Lockdown related policy.
+    SUBSYS_FILES,            // Creation and opening of files and pipes.
+    SUBSYS_NAMED_PIPES,      // Creation of named pipes.
+    SUBSYS_PROCESS,          // Creation of child processes.
+    SUBSYS_REGISTRY,         // Creation and opening of registry keys.
+    SUBSYS_SYNC,             // Creation of named sync objects.
+    SUBSYS_HANDLES,          // Duplication of handles to other processes.
+    SUBSYS_WIN32K_LOCKDOWN,  // Win32K Lockdown related policy.
+    SUBSYS_SIGNED_BINARY     // Signed binary policy.
   };
 
   // Allowable semantics when a rule is matched.
@@ -57,9 +62,10 @@ class TargetPolicy {
     FAKE_USER_GDI_INIT,     // Fakes user32 and gdi32 initialization. This can
                             // be used to allow the DLLs to load and initialize
                             // even if the process cannot access that subsystem.
-    IMPLEMENT_OPM_APIS      // Implements FAKE_USER_GDI_INIT and also exposes
+    IMPLEMENT_OPM_APIS,     // Implements FAKE_USER_GDI_INIT and also exposes
                             // IPC calls to handle Output Protection Manager
                             // APIs.
+    SIGNED_ALLOW_LOAD       // Allows loading the module when CIG is enabled.
   };
 
   // Increments the reference count of this object. The reference count must
@@ -157,7 +163,7 @@ class TargetPolicy {
   // Returns the name of the alternate desktop used. If an alternate window
   // station is specified, the name is prepended by the window station name,
   // followed by a backslash.
-  virtual base::string16 GetAlternateDesktop() const = 0;
+  virtual std::wstring GetAlternateDesktop() const = 0;
 
   // Precreates the desktop and window station, if any.
   virtual ResultCode CreateAlternateDesktop(bool alternate_winstation) = 0;
@@ -180,9 +186,6 @@ class TargetPolicy {
   // process in the sandbox. If the integrity level is set to a level higher
   // than the current level, the sandbox will fail to start.
   virtual ResultCode SetDelayedIntegrityLevel(IntegrityLevel level) = 0;
-
-  // Sets a capability to be enabled for the sandboxed process' AppContainer.
-  virtual ResultCode SetCapability(const wchar_t* sid) = 0;
 
   // Sets the LowBox token for sandboxed process. This is mutually exclusive
   // with SetAppContainer method.
@@ -234,7 +237,8 @@ class TargetPolicy {
   //   "c:\\documents and settings\\vince\\*.dmp"
   //   "c:\\documents and settings\\*\\crashdumps\\*.dmp"
   //   "c:\\temp\\app_log_?????_chrome.txt"
-  virtual ResultCode AddRule(SubSystem subsystem, Semantics semantics,
+  virtual ResultCode AddRule(SubSystem subsystem,
+                             Semantics semantics,
                              const wchar_t* pattern) = 0;
 
   // Adds a dll that will be unloaded in the target process before it gets
@@ -243,8 +247,8 @@ class TargetPolicy {
   virtual ResultCode AddDllToUnload(const wchar_t* dll_name) = 0;
 
   // Adds a handle that will be closed in the target process after lockdown.
-  // A NULL value for handle_name indicates all handles of the specified type.
-  // An empty string for handle_name indicates the handle is unnamed.
+  // A nullptr value for handle_name indicates all handles of the specified
+  // type. An empty string for handle_name indicates the handle is unnamed.
   virtual ResultCode AddKernelObjectToClose(const wchar_t* handle_type,
                                             const wchar_t* handle_name) = 0;
 
@@ -257,13 +261,34 @@ class TargetPolicy {
   // resources.
   virtual void SetLockdownDefaultDacl() = 0;
 
+  // Adds a restricting random SID to the restricted SIDs list as well as
+  // the default DACL.
+  virtual void AddRestrictingRandomSid() = 0;
+
   // Enable OPM API redirection when in Win32k lockdown.
   virtual void SetEnableOPMRedirection() = 0;
   // Enable OPM API emulation when in Win32k lockdown.
   virtual bool GetEnableOPMRedirection() = 0;
+
+  // Configure policy to use an AppContainer profile. |package_name| is the
+  // name of the profile to use. Specifying True for |create_profile| ensures
+  // the profile exists, if set to False process creation will fail if the
+  // profile has not already been created.
+  virtual ResultCode AddAppContainerProfile(const wchar_t* package_name,
+                                            bool create_profile) = 0;
+
+  // Get the configured AppContainerProfile.
+  virtual scoped_refptr<AppContainerProfile> GetAppContainerProfile() = 0;
+
+  // Set effective token that will be used for creating the initial and
+  // lockdown tokens. The token the caller passes must remain valid for the
+  // lifetime of the policy object.
+  virtual void SetEffectiveToken(HANDLE token) = 0;
+
+ protected:
+  ~TargetPolicy() {}
 };
 
 }  // namespace sandbox
-
 
 #endif  // SANDBOX_WIN_SRC_SANDBOX_POLICY_H_

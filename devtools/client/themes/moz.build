@@ -5,12 +5,5 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 DIRS += [
-    'audio',
+    "audio",
 ]
-
-DevToolsModules(
-    'common.css',
-    'splitters.css',
-    'toolbars.css',
-    'variables.css',
-)

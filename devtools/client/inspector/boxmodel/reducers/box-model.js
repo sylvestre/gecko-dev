@@ -8,7 +8,7 @@ const {
   UPDATE_GEOMETRY_EDITOR_ENABLED,
   UPDATE_LAYOUT,
   UPDATE_OFFSET_PARENT,
-} = require("../actions/index");
+} = require("devtools/client/inspector/boxmodel/actions/index");
 
 const INITIAL_BOX_MODEL = {
   geometryEditorEnabled: false,
@@ -17,7 +17,6 @@ const INITIAL_BOX_MODEL = {
 };
 
 const reducers = {
-
   [UPDATE_GEOMETRY_EDITOR_ENABLED](boxModel, { enabled }) {
     return Object.assign({}, boxModel, {
       geometryEditorEnabled: enabled,
@@ -35,7 +34,6 @@ const reducers = {
       offsetParent,
     });
   },
-
 };
 
 module.exports = function(boxModel = INITIAL_BOX_MODEL, action) {

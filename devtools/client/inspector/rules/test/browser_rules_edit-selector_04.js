@@ -1,4 +1,3 @@
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -18,32 +17,25 @@ const TEST_URI = `
 
 add_task(async function() {
   await addTab("data:text/html;charset=utf-8," + encodeURIComponent(TEST_URI));
-  const {inspector, view} = await openRuleView();
+  const { inspector, view } = await openRuleView();
   await selectNode("p", inspector);
 
-  ok(!view.selectorHighlighter,
-    "No selectorhighlighter exist in the rule-view");
-
   await testSelectorHighlight(view, "p");
-  await testEditSelector(view, "body");
+  await testEditSelector(inspector, view, "body");
   await testSelectorHighlight(view, "body");
 });
 
-async function testSelectorHighlight(view, name) {
+async function testSelectorHighlight(view, selector) {
   info("Test creating selector highlighter");
 
   info("Clicking on a selector icon");
-  const icon = await getRuleViewSelectorHighlighterIcon(view, name);
+  const { highlighter, isShown } = await clickSelectorIcon(view, selector);
 
-  const onToggled = view.once("ruleview-selectorhighlighter-toggled");
-  EventUtils.synthesizeMouseAtCenter(icon, {}, view.styleWindow);
-  const isVisible = await onToggled;
-
-  ok(view.selectorHighlighter, "The selectorhighlighter instance was created");
-  ok(isVisible, "The toggle event says the highlighter is visible");
+  ok(highlighter, "The selector highlighter instance was created");
+  ok(isShown, "The selector highlighter was shown");
 }
 
-async function testEditSelector(view, name) {
+async function testEditSelector(inspector, view, name) {
   info("Test editing existing selector fields");
 
   const ruleEditor = getRuleViewRuleEditor(view, 1);
@@ -51,19 +43,28 @@ async function testEditSelector(view, name) {
   info("Focusing an existing selector name in the rule-view");
   const editor = await focusEditableField(view, ruleEditor.selectorText);
 
-  is(inplaceEditor(ruleEditor.selectorText), editor,
-    "The selector editor got focused");
+  is(
+    inplaceEditor(ruleEditor.selectorText),
+    editor,
+    "The selector editor got focused"
+  );
 
-  info("Waiting for rule view to update");
-  const onToggled = view.once("ruleview-selectorhighlighter-toggled");
+  const onRuleViewChanged = view.once("ruleview-changed");
+  const { waitForHighlighterTypeHidden } = getHighlighterTestHelpers(inspector);
+  const onSelectorHighlighterHidden = waitForHighlighterTypeHidden(
+    inspector.highlighters.TYPES.SELECTOR
+  );
 
   info("Entering a new selector name and committing");
   editor.input.value = name;
   EventUtils.synthesizeKey("KEY_Enter");
 
-  const isVisible = await onToggled;
+  info("Waiting for Rules view to update");
+  await onRuleViewChanged;
+  await onSelectorHighlighterHidden;
+  const highlighter = inspector.highlighters.getActiveHighlighter(
+    inspector.highlighters.TYPES.SELECTOR
+  );
 
-  ok(!view.highlighters.selectorHighlighterShown,
-    "The selectorHighlighterShown instance was removed");
-  ok(!isVisible, "The toggle event says the highlighter is not visible");
+  ok(!highlighter, "The highlighter instance was removed");
 }

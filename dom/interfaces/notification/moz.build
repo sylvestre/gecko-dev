@@ -5,11 +5,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 with Files("**"):
-    BUG_COMPONENT = ("Core", "DOM")
+    BUG_COMPONENT = ("Core", "DOM: Push Notifications")
 
 XPIDL_SOURCES += [
-    'nsINotificationStorage.idl',
+    "nsINotificationStorage.idl",
 ]
 
-XPIDL_MODULE = 'dom_notification'
-
+XPIDL_MODULE = "dom_notification"

@@ -4,18 +4,137 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "LSSnapshot.h"
+#include "mozilla/dom/LSSnapshot.h"
 
+// Local includes
+#include "ActorsChild.h"
+#include "LSDatabase.h"
+#include "LSWriteOptimizer.h"
+#include "LSWriteOptimizerImpl.h"
+#include "LocalStorageCommon.h"
+
+// Global includes
+#include <cstdint>
+#include <cstdlib>
+#include <new>
+#include <type_traits>
+#include <utility>
+#include "ErrorList.h"
+#include "mozilla/DebugOnly.h"
+#include "mozilla/MacroForEach.h"
+#include "mozilla/Maybe.h"
+#include "mozilla/Preferences.h"
+#include "mozilla/RefPtr.h"
+#include "mozilla/ScopeExit.h"
+#include "mozilla/UniquePtr.h"
+#include "mozilla/dom/BindingDeclarations.h"
+#include "mozilla/dom/LSValue.h"
+#include "mozilla/dom/PBackgroundLSDatabase.h"
+#include "mozilla/dom/PBackgroundLSSharedTypes.h"
+#include "mozilla/dom/PBackgroundLSSnapshot.h"
+#include "nsBaseHashtable.h"
+#include "nsCOMPtr.h"
 #include "nsContentUtils.h"
+#include "nsDebug.h"
+#include "nsError.h"
+#include "nsITimer.h"
+#include "nsString.h"
+#include "nsStringFlags.h"
+#include "nsStringFwd.h"
+#include "nsTArray.h"
+#include "nsTHashtable.h"
+#include "nsTStringRepr.h"
+#include "nscore.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 namespace {
 
 const uint32_t kSnapshotTimeoutMs = 20000;
 
 }  // namespace
+
+/**
+ * Coalescing manipulation queue used by `LSSnapshot`.  Used by `LSSnapshot` to
+ * buffer and coalesce manipulations before they are sent to the parent process,
+ * when a Snapshot Checkpoints. (This can only be done when there are no
+ * observers for other content processes.)
+ */
+class SnapshotWriteOptimizer final : public LSWriteOptimizer<LSValue> {
+ public:
+  void Enumerate(nsTArray<LSWriteInfo>& aWriteInfos);
+};
+
+void SnapshotWriteOptimizer::Enumerate(nsTArray<LSWriteInfo>& aWriteInfos) {
+  AssertIsOnOwningThread();
+
+  // The mWriteInfos hash table contains all write infos, but it keeps them in
+  // an arbitrary order, which means write infos need to be sorted before being
+  // processed.
+
+  nsTArray<WriteInfo*> writeInfos;
+  GetSortedWriteInfos(writeInfos);
+
+  for (WriteInfo* writeInfo : writeInfos) {
+    switch (writeInfo->GetType()) {
+      case WriteInfo::InsertItem: {
+        auto insertItemInfo = static_cast<InsertItemInfo*>(writeInfo);
+
+        LSSetItemInfo setItemInfo;
+        setItemInfo.key() = insertItemInfo->GetKey();
+        setItemInfo.value() = insertItemInfo->GetValue();
+
+        aWriteInfos.AppendElement(std::move(setItemInfo));
+
+        break;
+      }
+
+      case WriteInfo::UpdateItem: {
+        auto updateItemInfo = static_cast<UpdateItemInfo*>(writeInfo);
+
+        if (updateItemInfo->UpdateWithMove()) {
+          // See the comment in LSWriteOptimizer::InsertItem for more details
+          // about the UpdateWithMove flag.
+
+          LSRemoveItemInfo removeItemInfo;
+          removeItemInfo.key() = updateItemInfo->GetKey();
+
+          aWriteInfos.AppendElement(std::move(removeItemInfo));
+        }
+
+        LSSetItemInfo setItemInfo;
+        setItemInfo.key() = updateItemInfo->GetKey();
+        setItemInfo.value() = updateItemInfo->GetValue();
+
+        aWriteInfos.AppendElement(std::move(setItemInfo));
+
+        break;
+      }
+
+      case WriteInfo::DeleteItem: {
+        auto deleteItemInfo = static_cast<DeleteItemInfo*>(writeInfo);
+
+        LSRemoveItemInfo removeItemInfo;
+        removeItemInfo.key() = deleteItemInfo->GetKey();
+
+        aWriteInfos.AppendElement(std::move(removeItemInfo));
+
+        break;
+      }
+
+      case WriteInfo::Truncate: {
+        LSClearInfo clearInfo;
+
+        aWriteInfos.AppendElement(std::move(clearInfo));
+
+        break;
+      }
+
+      default:
+        MOZ_CRASH("Bad type!");
+    }
+  }
+}
 
 LSSnapshot::LSSnapshot(LSDatabase* aDatabase)
     : mDatabase(aDatabase),
@@ -25,6 +144,7 @@ LSSnapshot::LSSnapshot(LSDatabase* aDatabase)
       mExactUsage(0),
       mPeakUsage(0),
       mLoadState(LoadState::Initial),
+      mHasOtherProcessObservers(false),
       mExplicit(false),
       mHasPendingStableStateCallback(false),
       mHasPendingTimerCallback(false),
@@ -59,7 +179,8 @@ void LSSnapshot::SetActor(LSSnapshotChild* aActor) {
   mActor = aActor;
 }
 
-nsresult LSSnapshot::Init(const LSSnapshotInitInfo& aInitInfo, bool aExplicit) {
+nsresult LSSnapshot::Init(const nsAString& aKey,
+                          const LSSnapshotInitInfo& aInitInfo, bool aExplicit) {
   AssertIsOnOwningThread();
   MOZ_ASSERT(!mSelfRef);
   MOZ_ASSERT(mActor);
@@ -75,16 +196,19 @@ nsresult LSSnapshot::Init(const LSSnapshotInitInfo& aInitInfo, bool aExplicit) {
   for (uint32_t i = 0; i < itemInfos.Length(); i++) {
     const LSItemInfo& itemInfo = itemInfos[i];
 
-    const nsString& value = itemInfo.value();
+    const LSValue& value = itemInfo.value();
 
     if (loadState != LoadState::AllOrderedItems && !value.IsVoid()) {
       mLoadedItems.PutEntry(itemInfo.key());
     }
 
-    mValues.Put(itemInfo.key(), value);
+    mValues.Put(itemInfo.key(), value.AsString());
   }
 
   if (loadState == LoadState::Partial) {
+    if (aInitInfo.addKeyToUnknownItems()) {
+      mUnknownItems.PutEntry(aKey);
+    }
     mInitLength = aInitInfo.totalLength();
     mLength = mInitLength;
   } else if (loadState == LoadState::AllOrderedKeys) {
@@ -98,11 +222,19 @@ nsresult LSSnapshot::Init(const LSSnapshotInitInfo& aInitInfo, bool aExplicit) {
 
   mLoadState = aInitInfo.loadState();
 
+  mHasOtherProcessObservers = aInitInfo.hasOtherProcessObservers();
+
   mExplicit = aExplicit;
 
 #ifdef DEBUG
   mInitialized = true;
 #endif
+
+  if (mHasOtherProcessObservers) {
+    mWriteAndNotifyInfos = MakeUnique<nsTArray<LSWriteAndNotifyInfo>>();
+  } else {
+    mWriteOptimizer = MakeUnique<SnapshotWriteOptimizer>();
+  }
 
   if (!mExplicit) {
     mTimer = NS_NewTimer();
@@ -216,6 +348,30 @@ nsresult LSSnapshot::SetItem(const nsAString& aKey, const nsAString& aValue,
   } else {
     changed = true;
 
+    auto autoRevertValue = MakeScopeExit([&] {
+      if (oldValue.IsVoid()) {
+        mValues.Remove(aKey);
+      } else {
+        mValues.Put(aKey, oldValue);
+      }
+    });
+
+    // Anything that can fail must be done early before we start modifying the
+    // state.
+
+    Maybe<LSValue> oldValueFromString;
+    if (mHasOtherProcessObservers) {
+      oldValueFromString.emplace();
+      if (NS_WARN_IF(!oldValueFromString->InitFromString(oldValue))) {
+        return NS_ERROR_FAILURE;
+      }
+    }
+
+    LSValue valueFromString;
+    if (NS_WARN_IF(!valueFromString.InitFromString(aValue))) {
+      return NS_ERROR_FAILURE;
+    }
+
     int64_t delta = static_cast<int64_t>(aValue.Length()) -
                     static_cast<int64_t>(oldValue.Length());
 
@@ -225,11 +381,6 @@ nsresult LSSnapshot::SetItem(const nsAString& aKey, const nsAString& aValue,
 
     rv = UpdateUsage(delta);
     if (NS_WARN_IF(NS_FAILED(rv))) {
-      if (oldValue.IsVoid()) {
-        mValues.Remove(aKey);
-      } else {
-        mValues.Put(aKey, oldValue);
-      }
       return rv;
     }
 
@@ -237,12 +388,27 @@ nsresult LSSnapshot::SetItem(const nsAString& aKey, const nsAString& aValue,
       mLength++;
     }
 
-    LSSetItemInfo setItemInfo;
-    setItemInfo.key() = aKey;
-    setItemInfo.oldValue() = oldValue;
-    setItemInfo.value() = aValue;
+    if (mHasOtherProcessObservers) {
+      MOZ_ASSERT(mWriteAndNotifyInfos);
+      MOZ_ASSERT(oldValueFromString.isSome());
 
-    mWriteInfos.AppendElement(std::move(setItemInfo));
+      LSSetItemAndNotifyInfo setItemAndNotifyInfo;
+      setItemAndNotifyInfo.key() = aKey;
+      setItemAndNotifyInfo.oldValue() = oldValueFromString.value();
+      setItemAndNotifyInfo.value() = valueFromString;
+
+      mWriteAndNotifyInfos->AppendElement(std::move(setItemAndNotifyInfo));
+    } else {
+      MOZ_ASSERT(mWriteOptimizer);
+
+      if (oldValue.IsVoid()) {
+        mWriteOptimizer->InsertItem(aKey, valueFromString);
+      } else {
+        mWriteOptimizer->UpdateItem(aKey, valueFromString);
+      }
+    }
+
+    autoRevertValue.release();
   }
 
   aNotifyInfo.changed() = changed;
@@ -273,6 +439,22 @@ nsresult LSSnapshot::RemoveItem(const nsAString& aKey,
   } else {
     changed = true;
 
+    auto autoRevertValue = MakeScopeExit([&] {
+      MOZ_ASSERT(!oldValue.IsVoid());
+      mValues.Put(aKey, oldValue);
+    });
+
+    // Anything that can fail must be done early before we start modifying the
+    // state.
+
+    Maybe<LSValue> oldValueFromString;
+    if (mHasOtherProcessObservers) {
+      oldValueFromString.emplace();
+      if (NS_WARN_IF(!oldValueFromString->InitFromString(oldValue))) {
+        return NS_ERROR_FAILURE;
+      }
+    }
+
     int64_t delta = -(static_cast<int64_t>(aKey.Length()) +
                       static_cast<int64_t>(oldValue.Length()));
 
@@ -283,11 +465,22 @@ nsresult LSSnapshot::RemoveItem(const nsAString& aKey,
       mLength--;
     }
 
-    LSRemoveItemInfo removeItemInfo;
-    removeItemInfo.key() = aKey;
-    removeItemInfo.oldValue() = oldValue;
+    if (mHasOtherProcessObservers) {
+      MOZ_ASSERT(mWriteAndNotifyInfos);
+      MOZ_ASSERT(oldValueFromString.isSome());
 
-    mWriteInfos.AppendElement(std::move(removeItemInfo));
+      LSRemoveItemAndNotifyInfo removeItemAndNotifyInfo;
+      removeItemAndNotifyInfo.key() = aKey;
+      removeItemAndNotifyInfo.oldValue() = oldValueFromString.value();
+
+      mWriteAndNotifyInfos->AppendElement(std::move(removeItemAndNotifyInfo));
+    } else {
+      MOZ_ASSERT(mWriteOptimizer);
+
+      mWriteOptimizer->DeleteItem(aKey);
+    }
+
+    autoRevertValue.release();
   }
 
   aNotifyInfo.changed() = changed;
@@ -330,9 +523,17 @@ nsresult LSSnapshot::Clear(LSNotifyInfo& aNotifyInfo) {
 
     mValues.Clear();
 
-    LSClearInfo clearInfo;
+    if (mHasOtherProcessObservers) {
+      MOZ_ASSERT(mWriteAndNotifyInfos);
 
-    mWriteInfos.AppendElement(std::move(clearInfo));
+      LSClearInfo clearInfo;
+
+      mWriteAndNotifyInfos->AppendElement(std::move(clearInfo));
+    } else {
+      MOZ_ASSERT(mWriteOptimizer);
+
+      mWriteOptimizer->Truncate();
+    }
   }
 
   aNotifyInfo.changed() = changed;
@@ -432,9 +633,14 @@ nsresult LSSnapshot::GetItemInternal(const nsAString& aKey,
       } else if (mLoadedItems.GetEntry(aKey) || mUnknownItems.GetEntry(aKey)) {
         result.SetIsVoid(true);
       } else {
-        if (NS_WARN_IF(!mActor->SendLoadItem(nsString(aKey), &result))) {
+        LSValue value;
+        nsTArray<LSItemInfo> itemInfos;
+        if (NS_WARN_IF(!mActor->SendLoadValueAndMoreItems(
+                nsString(aKey), &value, &itemInfos))) {
           return NS_ERROR_FAILURE;
         }
+
+        result = value.AsString();
 
         if (result.IsVoid()) {
           mUnknownItems.PutEntry(aKey);
@@ -442,12 +648,21 @@ nsresult LSSnapshot::GetItemInternal(const nsAString& aKey,
           mLoadedItems.PutEntry(aKey);
           mValues.Put(aKey, result);
 
-          if (mLoadedItems.Count() == mInitLength) {
-            mLoadedItems.Clear();
-            mUnknownItems.Clear();
-            mLength = 0;
-            mLoadState = LoadState::AllUnorderedItems;
-          }
+          // mLoadedItems.Count()==mInitLength is checked below.
+        }
+
+        for (uint32_t i = 0; i < itemInfos.Length(); i++) {
+          const LSItemInfo& itemInfo = itemInfos[i];
+
+          mLoadedItems.PutEntry(itemInfo.key());
+          mValues.Put(itemInfo.key(), itemInfo.value().AsString());
+        }
+
+        if (mLoadedItems.Count() == mInitLength) {
+          mLoadedItems.Clear();
+          mUnknownItems.Clear();
+          mLength = 0;
+          mLoadState = LoadState::AllUnorderedItems;
         }
       }
 
@@ -466,14 +681,28 @@ nsresult LSSnapshot::GetItemInternal(const nsAString& aKey,
     case LoadState::AllOrderedKeys: {
       if (mValues.Get(aKey, &result)) {
         if (result.IsVoid()) {
-          if (NS_WARN_IF(!mActor->SendLoadItem(nsString(aKey), &result))) {
+          LSValue value;
+          nsTArray<LSItemInfo> itemInfos;
+          if (NS_WARN_IF(!mActor->SendLoadValueAndMoreItems(
+                  nsString(aKey), &value, &itemInfos))) {
             return NS_ERROR_FAILURE;
           }
+
+          result = value.AsString();
 
           MOZ_ASSERT(!result.IsVoid());
 
           mLoadedItems.PutEntry(aKey);
           mValues.Put(aKey, result);
+
+          // mLoadedItems.Count()==mInitLength is checked below.
+
+          for (uint32_t i = 0; i < itemInfos.Length(); i++) {
+            const LSItemInfo& itemInfo = itemInfos[i];
+
+            mLoadedItems.PutEntry(itemInfo.key());
+            mValues.Put(itemInfo.key(), itemInfo.value().AsString());
+          }
 
           if (mLoadedItems.Count() == mInitLength) {
             mLoadedItems.Clear();
@@ -561,25 +790,66 @@ nsresult LSSnapshot::EnsureAllKeys() {
     newValues.Put(key, VoidString());
   }
 
-  for (uint32_t index = 0; index < mWriteInfos.Length(); index++) {
-    const LSWriteInfo& writeInfo = mWriteInfos[index];
+  if (mHasOtherProcessObservers) {
+    MOZ_ASSERT(mWriteAndNotifyInfos);
 
-    switch (writeInfo.type()) {
-      case LSWriteInfo::TLSSetItemInfo: {
-        newValues.Put(writeInfo.get_LSSetItemInfo().key(), VoidString());
-        break;
-      }
-      case LSWriteInfo::TLSRemoveItemInfo: {
-        newValues.Remove(writeInfo.get_LSRemoveItemInfo().key());
-        break;
-      }
-      case LSWriteInfo::TLSClearInfo: {
-        newValues.Clear();
-        break;
-      }
+    if (!mWriteAndNotifyInfos->IsEmpty()) {
+      for (uint32_t index = 0; index < mWriteAndNotifyInfos->Length();
+           index++) {
+        const LSWriteAndNotifyInfo& writeAndNotifyInfo =
+            mWriteAndNotifyInfos->ElementAt(index);
 
-      default:
-        MOZ_CRASH("Should never get here!");
+        switch (writeAndNotifyInfo.type()) {
+          case LSWriteAndNotifyInfo::TLSSetItemAndNotifyInfo: {
+            newValues.Put(writeAndNotifyInfo.get_LSSetItemAndNotifyInfo().key(),
+                          VoidString());
+            break;
+          }
+          case LSWriteAndNotifyInfo::TLSRemoveItemAndNotifyInfo: {
+            newValues.Remove(
+                writeAndNotifyInfo.get_LSRemoveItemAndNotifyInfo().key());
+            break;
+          }
+          case LSWriteAndNotifyInfo::TLSClearInfo: {
+            newValues.Clear();
+            break;
+          }
+
+          default:
+            MOZ_CRASH("Should never get here!");
+        }
+      }
+    }
+  } else {
+    MOZ_ASSERT(mWriteOptimizer);
+
+    if (mWriteOptimizer->HasWrites()) {
+      nsTArray<LSWriteInfo> writeInfos;
+      mWriteOptimizer->Enumerate(writeInfos);
+
+      MOZ_ASSERT(!writeInfos.IsEmpty());
+
+      for (uint32_t index = 0; index < writeInfos.Length(); index++) {
+        const LSWriteInfo& writeInfo = writeInfos[index];
+
+        switch (writeInfo.type()) {
+          case LSWriteInfo::TLSSetItemInfo: {
+            newValues.Put(writeInfo.get_LSSetItemInfo().key(), VoidString());
+            break;
+          }
+          case LSWriteInfo::TLSRemoveItemInfo: {
+            newValues.Remove(writeInfo.get_LSRemoveItemInfo().key());
+            break;
+          }
+          case LSWriteInfo::TLSClearInfo: {
+            newValues.Clear();
+            break;
+          }
+
+          default:
+            MOZ_CRASH("Should never get here!");
+        }
+      }
     }
   }
 
@@ -647,10 +917,27 @@ nsresult LSSnapshot::Checkpoint() {
   MOZ_ASSERT(mInitialized);
   MOZ_ASSERT(!mSentFinish);
 
-  if (!mWriteInfos.IsEmpty()) {
-    MOZ_ALWAYS_TRUE(mActor->SendCheckpoint(mWriteInfos));
+  if (mHasOtherProcessObservers) {
+    MOZ_ASSERT(mWriteAndNotifyInfos);
 
-    mWriteInfos.Clear();
+    if (!mWriteAndNotifyInfos->IsEmpty()) {
+      MOZ_ALWAYS_TRUE(mActor->SendCheckpointAndNotify(*mWriteAndNotifyInfos));
+
+      mWriteAndNotifyInfos->Clear();
+    }
+  } else {
+    MOZ_ASSERT(mWriteOptimizer);
+
+    if (mWriteOptimizer->HasWrites()) {
+      nsTArray<LSWriteInfo> writeInfos;
+      mWriteOptimizer->Enumerate(writeInfos);
+
+      MOZ_ASSERT(!writeInfos.IsEmpty());
+
+      MOZ_ALWAYS_TRUE(mActor->SendCheckpoint(writeInfos));
+
+      mWriteOptimizer->Reset();
+    }
   }
 
   return NS_OK;
@@ -732,5 +1019,4 @@ LSSnapshot::Run() {
   return NS_OK;
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

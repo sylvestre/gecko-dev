@@ -7,20 +7,22 @@
 "use strict";
 
 /*
- * Process script that listens for requests to start a `DebuggerServer` for an entire
+ * Process script that listens for requests to start a `DevToolsServer` for an entire
  * content process.  Loaded into content processes by the main process during
- * `DebuggerServer.connectToContentProcess`.
+ * content-process-connector.js' `connectToContentProcess`.
  *
  * The actual server startup itself is in a JSM so that code can be cached.
  */
 
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm", {});
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 function onInit(message) {
   // Only reply if we are in a real content process
   if (Services.appinfo.processType == Services.appinfo.PROCESS_TYPE_CONTENT) {
-    const {init} = ChromeUtils.import("resource://devtools/server/startup/content-process.jsm", {});
-    init(message);
+    const { initContentProcessTarget } = ChromeUtils.import(
+      "resource://devtools/server/startup/content-process.jsm"
+    );
+    initContentProcessTarget(message);
   }
 }
 

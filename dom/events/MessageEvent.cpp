@@ -5,6 +5,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "mozilla/dom/MessageEvent.h"
+#include "mozilla/dom/BrowsingContext.h"
 #include "mozilla/dom/MessageEventBinding.h"
 #include "mozilla/dom/MessagePort.h"
 #include "mozilla/dom/MessagePortBinding.h"
@@ -12,12 +13,10 @@
 
 #include "mozilla/HoldDropJSObjects.h"
 #include "jsapi.h"
-#include "nsGlobalWindow.h"  // So we can assign an nsGlobalWindow* to mWindowSource
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
-NS_IMPL_CYCLE_COLLECTION_CLASS(MessageEvent)
+NS_IMPL_CYCLE_COLLECTION_MULTI_ZONE_JSHOLDER_CLASS(MessageEvent)
 
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(MessageEvent, Event)
   tmp->mData.setUndefined();
@@ -83,14 +82,16 @@ void MessageEvent::GetSource(
   }
 }
 
-/* static */ already_AddRefed<MessageEvent> MessageEvent::Constructor(
+/* static */
+already_AddRefed<MessageEvent> MessageEvent::Constructor(
     const GlobalObject& aGlobal, const nsAString& aType,
-    const MessageEventInit& aParam, ErrorResult& aRv) {
+    const MessageEventInit& aParam) {
   nsCOMPtr<EventTarget> t = do_QueryInterface(aGlobal.GetAsSupports());
   return Constructor(t, aType, aParam);
 }
 
-/* static */ already_AddRefed<MessageEvent> MessageEvent::Constructor(
+/* static */
+already_AddRefed<MessageEvent> MessageEvent::Constructor(
     EventTarget* aEventTarget, const nsAString& aType,
     const MessageEventInit& aParam) {
   RefPtr<MessageEvent> event = new MessageEvent(aEventTarget, nullptr, nullptr);
@@ -108,7 +109,7 @@ void MessageEvent::GetSource(
 
   if (!aParam.mSource.IsNull()) {
     if (aParam.mSource.Value().IsWindowProxy()) {
-      event->mWindowSource = aParam.mSource.Value().GetAsWindowProxy();
+      event->mWindowSource = aParam.mSource.Value().GetAsWindowProxy().get();
     } else if (aParam.mSource.Value().IsMessagePort()) {
       event->mPortSource = aParam.mSource.Value().GetAsMessagePort();
     } else {
@@ -144,7 +145,7 @@ void MessageEvent::InitMessageEvent(
 
   if (!aSource.IsNull()) {
     if (aSource.Value().IsWindowProxy()) {
-      mWindowSource = aSource.Value().GetAsWindowProxy();
+      mWindowSource = aSource.Value().GetAsWindowProxy().get();
     } else if (aSource.Value().IsMessagePort()) {
       mPortSource = &aSource.Value().GetAsMessagePort();
     } else {
@@ -158,8 +159,7 @@ void MessageEvent::InitMessageEvent(
 }
 
 void MessageEvent::GetPorts(nsTArray<RefPtr<MessagePort>>& aPorts) {
-  aPorts = mPorts;
+  aPorts = mPorts.Clone();
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

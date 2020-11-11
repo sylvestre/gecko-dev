@@ -21,7 +21,7 @@ function ContentPref(domain, name, value) {
 }
 
 ContentPref.prototype = {
-  QueryInterface: ChromeUtils.generateQI([Ci.nsIContentPref]),
+  QueryInterface: ChromeUtils.generateQI(["nsIContentPref"]),
 };
 
 function cbHandleResult(callback, pref) {
@@ -37,8 +37,9 @@ function cbHandleError(callback, nsresult) {
 }
 
 function safeCallback(callbackObj, methodName, args) {
-  if (!callbackObj || typeof(callbackObj[methodName]) != "function")
+  if (!callbackObj || typeof callbackObj[methodName] != "function") {
     return;
+  }
   try {
     callbackObj[methodName].apply(callbackObj, args);
   } catch (err) {

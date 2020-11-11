@@ -4,51 +4,54 @@
 
 "use strict";
 
-const { createFactory, PureComponent } = require("devtools/client/shared/vendor/react");
+const {
+  createFactory,
+  PureComponent,
+} = require("devtools/client/shared/vendor/react");
 const dom = require("devtools/client/shared/vendor/react-dom-factories");
 const PropTypes = require("devtools/client/shared/vendor/react-prop-types");
 const { getStr } = require("devtools/client/inspector/layout/utils/l10n");
 
-const FlexItem = createFactory(require(("./FlexItem")));
+const FlexItem = createFactory(
+  require("devtools/client/inspector/flexbox/components/FlexItem")
+);
 
-const Types = require("../types");
+const Types = require("devtools/client/inspector/flexbox/types");
 
 class FlexItemList extends PureComponent {
   static get propTypes() {
     return {
+      dispatch: PropTypes.func.isRequired,
       flexItems: PropTypes.arrayOf(PropTypes.shape(Types.flexItem)).isRequired,
-      onHideBoxModelHighlighter: PropTypes.func.isRequired,
-      onShowBoxModelHighlighterForNode: PropTypes.func.isRequired,
       scrollToTop: PropTypes.func.isRequired,
       setSelectedNode: PropTypes.func.isRequired,
     };
   }
 
   render() {
-    const {
-      flexItems,
-      onHideBoxModelHighlighter,
-      onShowBoxModelHighlighterForNode,
-      scrollToTop,
-      setSelectedNode,
-    } = this.props;
+    const { dispatch, flexItems, scrollToTop, setSelectedNode } = this.props;
 
-    return (
+    return dom.div(
+      { className: "flex-item-list" },
       dom.div(
-        { className: "flex-item-list" },
-        dom.div({ className: "flex-item-list-header" },
-          !flexItems.length ?
-            getStr("flexbox.noFlexItems") :
-            getStr("flexbox.flexItems")),
-        flexItems.map((flexItem, index) => FlexItem({
+        {
+          className: "flex-item-list-header",
+          role: "heading",
+          "aria-level": "3",
+        },
+        !flexItems.length
+          ? getStr("flexbox.noFlexItems")
+          : getStr("flexbox.flexItems")
+      ),
+      flexItems.map((flexItem, index) =>
+        FlexItem({
           key: flexItem.actorID,
+          dispatch,
           flexItem,
           index: index + 1,
-          onHideBoxModelHighlighter,
-          onShowBoxModelHighlighterForNode,
           scrollToTop,
           setSelectedNode,
-        }))
+        })
       )
     );
   }

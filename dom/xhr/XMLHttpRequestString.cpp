@@ -28,9 +28,9 @@ class XMLHttpRequestStringBuffer final {
 
   uint32_t UnsafeLength() const { return mData.Length(); }
 
-  mozilla::BulkWriteHandle<char16_t> UnsafeBulkWrite(uint32_t aCapacity,
-                                                     nsresult& aRv) {
-    return mData.BulkWrite(aCapacity, UnsafeLength(), false, aRv);
+  mozilla::Result<mozilla::BulkWriteHandle<char16_t>, nsresult> UnsafeBulkWrite(
+      uint32_t aCapacity) {
+    return mData.BulkWrite(aCapacity, UnsafeLength(), false);
   }
 
   void Append(const nsAString& aString) {
@@ -77,7 +77,7 @@ class XMLHttpRequestStringBuffer final {
   }
 
  private:
-  ~XMLHttpRequestStringBuffer() {}
+  ~XMLHttpRequestStringBuffer() = default;
 
   nsString& UnsafeData() { return mData; }
 
@@ -93,7 +93,7 @@ class XMLHttpRequestStringBuffer final {
 XMLHttpRequestString::XMLHttpRequestString()
     : mBuffer(new XMLHttpRequestStringBuffer()) {}
 
-XMLHttpRequestString::~XMLHttpRequestString() {}
+XMLHttpRequestString::~XMLHttpRequestString() = default;
 
 void XMLHttpRequestString::Truncate() {
   mBuffer = new XMLHttpRequestStringBuffer();
@@ -126,15 +126,7 @@ void XMLHttpRequestString::CreateSnapshot(
 XMLHttpRequestStringSnapshot::XMLHttpRequestStringSnapshot()
     : mLength(0), mVoid(false) {}
 
-XMLHttpRequestStringSnapshot::~XMLHttpRequestStringSnapshot() {}
-
-XMLHttpRequestStringSnapshot& XMLHttpRequestStringSnapshot::operator=(
-    const XMLHttpRequestStringSnapshot& aOther) {
-  mBuffer = aOther.mBuffer;
-  mLength = aOther.mLength;
-  mVoid = aOther.mVoid;
-  return *this;
-}
+XMLHttpRequestStringSnapshot::~XMLHttpRequestStringSnapshot() = default;
 
 void XMLHttpRequestStringSnapshot::ResetInternal(bool aIsVoid) {
   mBuffer = nullptr;
@@ -176,9 +168,9 @@ uint32_t XMLHttpRequestStringWriterHelper::Length() const {
   return mBuffer->UnsafeLength();
 }
 
-mozilla::BulkWriteHandle<char16_t> XMLHttpRequestStringWriterHelper::BulkWrite(
-    uint32_t aCapacity, nsresult& aRv) {
-  return mBuffer->UnsafeBulkWrite(aCapacity, aRv);
+mozilla::Result<mozilla::BulkWriteHandle<char16_t>, nsresult>
+XMLHttpRequestStringWriterHelper::BulkWrite(uint32_t aCapacity) {
+  return mBuffer->UnsafeBulkWrite(aCapacity);
 }
 
 // ---------------------------------------------------------------------------

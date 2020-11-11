@@ -1,3 +1,5 @@
+/* global allowListed */
+
 async function hasStorageAccessInitially() {
   let hasAccess = await document.hasStorageAccess();
   ok(hasAccess, "Has storage access");
@@ -8,7 +10,7 @@ async function noStorageAccessInitially() {
   ok(!hasAccess, "Doesn't yet have storage access");
 }
 
-async function callRequestStorageAccess(callback) {
+async function callRequestStorageAccess(callback, expectFail) {
   let dwu = SpecialPowers.getDOMWindowUtils(window);
   let helper = dwu.setHandlingUserInput(true);
 
@@ -16,11 +18,19 @@ async function callRequestStorageAccess(callback) {
 
   let success = true;
   // We only grant storage exceptions when the reject tracker behavior is enabled.
-  let rejectTrackers = SpecialPowers.Services.prefs.getIntPref("network.cookie.cookieBehavior") ==
-                         SpecialPowers.Ci.nsICookieService.BEHAVIOR_REJECT_TRACKER &&
-                       !isOnContentBlockingAllowList();
+  let rejectTrackers =
+    [
+      SpecialPowers.Ci.nsICookieService.BEHAVIOR_REJECT_TRACKER,
+      SpecialPowers.Ci.nsICookieService
+        .BEHAVIOR_REJECT_TRACKER_AND_PARTITION_FOREIGN,
+    ].includes(
+      SpecialPowers.Services.prefs.getIntPref("network.cookie.cookieBehavior")
+    ) && !isOnContentBlockingAllowList();
+  const TEST_ANOTHER_3RD_PARTY_ORIGIN = SpecialPowers.useRemoteSubframes
+    ? "http://another-tracking.example.net"
+    : "https://another-tracking.example.net";
   // With another-tracking.example.net, we're same-eTLD+1, so the first try succeeds.
-  if (origin != "https://another-tracking.example.net") {
+  if (origin != TEST_ANOTHER_3RD_PARTY_ORIGIN) {
     if (rejectTrackers) {
       let p;
       let threw = false;
@@ -34,7 +44,12 @@ async function callRequestStorageAccess(callback) {
       ok(!threw, "requestStorageAccess should not throw");
       try {
         if (callback) {
-          await p.then(_ => callback(dwu));
+          if (expectFail) {
+            await p.catch(_ => callback(dwu));
+            success = false;
+          } else {
+            await p.then(_ => callback(dwu));
+          }
         } else {
           await p;
         }
@@ -49,12 +64,20 @@ async function callRequestStorageAccess(callback) {
 
       helper = dwu.setHandlingUserInput(true);
     }
-    if (SpecialPowers.Services.prefs.getIntPref("network.cookie.cookieBehavior") ==
-          SpecialPowers.Ci.nsICookieService.BEHAVIOR_ACCEPT &&
-        !isOnContentBlockingAllowList()) {
+    if (
+      SpecialPowers.Services.prefs.getIntPref(
+        "network.cookie.cookieBehavior"
+      ) == SpecialPowers.Ci.nsICookieService.BEHAVIOR_ACCEPT &&
+      !isOnContentBlockingAllowList()
+    ) {
       try {
         if (callback) {
-          await document.requestStorageAccess().then(_ => callback(dwu));
+          if (expectFail) {
+            await document.requestStorageAccess().catch(_ => callback(dwu));
+            success = false;
+          } else {
+            await document.requestStorageAccess().then(_ => callback(dwu));
+          }
         } else {
           await document.requestStorageAccess();
         }
@@ -85,7 +108,12 @@ async function callRequestStorageAccess(callback) {
   let rejected = false;
   try {
     if (callback) {
-      await p.then(_ => callback(dwu));
+      if (expectFail) {
+        await p.catch(_ => callback(dwu));
+        rejected = true;
+      } else {
+        await p.then(_ => callback(dwu));
+      }
     } else {
       await p;
     }
@@ -95,27 +123,46 @@ async function callRequestStorageAccess(callback) {
 
   success = !threw && !rejected;
   let hasAccess = await document.hasStorageAccess();
-  is(hasAccess, success,
-     "Should " + (success ? "" : "not ") + "have storage access now");
-  if (success && rejectTrackers &&
-      window.location.search != "?disableWaitUntilPermission" &&
-      origin != "https://another-tracking.example.net") {
-    // Wait until the permission is visible in our process to avoid race
-    // conditions.
-    await waitUntilPermission("http://example.net/browser/toolkit/components/antitracking/test/browser/page.html",
-                              "3rdPartyStorage^https://tracking.example.org");
+  is(
+    hasAccess,
+    success,
+    "Should " + (success ? "" : "not ") + "have storage access now"
+  );
+  if (
+    success &&
+    rejectTrackers &&
+    window.location.search != "?disableWaitUntilPermission" &&
+    origin != TEST_ANOTHER_3RD_PARTY_ORIGIN
+  ) {
+    // Wait until the permission is visible in parent process to avoid race
+    // conditions. We don't need to wait the permission to be visible in content
+    // processes since the content process doesn't rely on the permission to
+    // know the storage access is updated.
+    await waitUntilPermission(
+      "http://example.net/browser/toolkit/components/antitracking/test/browser/page.html",
+      "3rdPartyStorage^" + window.origin
+    );
   }
 
   return [threw, rejected];
 }
 
 async function waitUntilPermission(url, name) {
+  let originAttributes = SpecialPowers.isContentWindowPrivate(window)
+    ? { privateBrowsingId: 1 }
+    : {};
   await new Promise(resolve => {
-    let id = setInterval(_ => {
-      let Services = SpecialPowers.Services;
-      let uri = Services.io.newURI(url);
-      if (Services.perms.testPermission(uri, name) ==
-            Services.perms.ALLOW_ACTION) {
+    let id = setInterval(async _ => {
+      if (
+        await SpecialPowers.testPermission(
+          name,
+          SpecialPowers.Services.perms.ALLOW_ACTION,
+          {
+            url,
+            originAttributes,
+          }
+        )
+      ) {
         clearInterval(id);
         resolve();
       }
@@ -125,34 +172,26 @@ async function waitUntilPermission(url, name) {
 
 async function interactWithTracker() {
   await new Promise(resolve => {
-    onmessage = resolve;
+    let orionmessage = onmessage;
+    onmessage = _ => {
+      onmessage = orionmessage;
+      resolve();
+    };
 
     info("Let's interact with the tracker");
-    window.open("https://tracking.example.org/browser/toolkit/components/antitracking/test/browser/3rdPartyOpenUI.html?messageme");
+    window.open(
+      "/browser/toolkit/components/antitracking/test/browser/3rdPartyOpenUI.html?messageme"
+    );
   });
 
   // Wait until the user interaction permission becomes visible in our process
-  await waitUntilPermission("https://tracking.example.org",
-                            "storageAccessAPI");
+  await waitUntilPermission(window.origin, "storageAccessAPI");
 }
 
 function isOnContentBlockingAllowList() {
-  let prefs = ["browser.contentblocking.allowlist.storage.enabled",
-               "browser.contentblocking.allowlist.annotations.enabled"];
-  function allEnabled(prev, pref) {
-    return pref &&
-           SpecialPowers.Services.prefs.getBoolPref(pref);
-  }
-  if (!prefs.reduce(allEnabled)) {
-    return false;
-  }
+  // We directly check the window.allowListed here instead of checking the
+  // permission. The allow list permission might not be available since it is
+  // not in the preload list.
 
-  let url = new URL(SpecialPowers.wrap(top).location.href);
-  let origin = SpecialPowers.Services.io.newURI("https://" + url.host);
-  let types = ["trackingprotection", "trackingprotection-pb"];
-  return types.some(type => {
-    return SpecialPowers.Services.perms.testPermission(origin, type) ==
-             SpecialPowers.Services.perms.ALLOW_ACTION;
-  });
+  return window.allowListed;
 }
-

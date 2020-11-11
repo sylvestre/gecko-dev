@@ -7,7 +7,7 @@
 #include "nsDOMSerializer.h"
 
 #include "mozilla/Encoding.h"
-#include "nsIDocument.h"
+#include "mozilla/dom/Document.h"
 #include "nsIDocumentEncoder.h"
 #include "nsComponentManagerUtils.h"
 #include "nsContentCID.h"
@@ -17,7 +17,7 @@
 
 using namespace mozilla;
 
-nsDOMSerializer::nsDOMSerializer() {}
+nsDOMSerializer::nsDOMSerializer() = default;
 
 static already_AddRefed<nsIDocumentEncoder> SetUpEncoder(
     nsINode& aRoot, const nsAString& aCharset, ErrorResult& aRv) {
@@ -28,12 +28,12 @@ static already_AddRefed<nsIDocumentEncoder> SetUpEncoder(
     return nullptr;
   }
 
-  nsIDocument* doc = aRoot.OwnerDoc();
+  dom::Document* doc = aRoot.OwnerDoc();
   bool entireDocument = (doc == &aRoot);
 
   // This method will fail if no document
   nsresult rv = encoder->NativeInit(
-      doc, NS_LITERAL_STRING("application/xhtml+xml"),
+      doc, u"application/xhtml+xml"_ns,
       nsIDocumentEncoder::OutputRaw |
           nsIDocumentEncoder::OutputDontRewriteEncodingDeclaration);
 
@@ -75,8 +75,7 @@ void nsDOMSerializer::SerializeToString(nsINode& aRoot, nsAString& aStr,
     return;
   }
 
-  nsCOMPtr<nsIDocumentEncoder> encoder =
-      SetUpEncoder(aRoot, EmptyString(), aRv);
+  nsCOMPtr<nsIDocumentEncoder> encoder = SetUpEncoder(aRoot, u""_ns, aRv);
   if (aRv.Failed()) {
     return;
   }

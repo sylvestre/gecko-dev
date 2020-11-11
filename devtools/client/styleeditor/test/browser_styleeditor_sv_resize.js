@@ -1,4 +1,3 @@
-/* vim: set ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
    http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -8,7 +7,7 @@
 
 const TESTCASE_URI = TEST_BASE_HTTP + "simple.html";
 
-const {Toolbox} = require("devtools/client/framework/toolbox");
+const { Toolbox } = require("devtools/client/framework/toolbox");
 
 add_task(async function() {
   const { toolbox, ui } = await openStyleEditorForURL(TESTCASE_URI);
@@ -32,11 +31,17 @@ add_task(async function() {
   hostWindow.resizeTo(120, 480);
 
   const sourceEditor = ui.editors[0].sourceEditor;
-  is(sourceEditor, originalSourceEditor,
-     "the editor still references the same Editor instance");
+  is(
+    sourceEditor,
+    originalSourceEditor,
+    "the editor still references the same Editor instance"
+  );
 
-  is(sourceEditor.getOffset(sourceEditor.getCursor()), 4,
-     "the caret position has been preserved");
+  is(
+    sourceEditor.getOffset(sourceEditor.getCursor()),
+    4,
+    "the caret position has been preserved"
+  );
 
   info("Restoring window to original size.");
   hostWindow.resizeTo(originalWidth, originalHeight);

@@ -67,8 +67,8 @@ class MOZ_STACK_CLASS XMLHttpRequestStringWriterHelper final {
    */
   uint32_t Length() const;
 
-  mozilla::BulkWriteHandle<char16_t> BulkWrite(uint32_t aCapacity,
-                                               nsresult& aRv);
+  mozilla::Result<mozilla::BulkWriteHandle<char16_t>, nsresult> BulkWrite(
+      uint32_t aCapacity);
 
  private:
   XMLHttpRequestStringWriterHelper(const XMLHttpRequestStringWriterHelper&) =
@@ -94,7 +94,8 @@ class XMLHttpRequestStringSnapshot final {
   XMLHttpRequestStringSnapshot();
   ~XMLHttpRequestStringSnapshot();
 
-  XMLHttpRequestStringSnapshot& operator=(const XMLHttpRequestStringSnapshot&);
+  XMLHttpRequestStringSnapshot& operator=(const XMLHttpRequestStringSnapshot&) =
+      delete;
 
   void Reset() { ResetInternal(false /* isVoid */); }
 

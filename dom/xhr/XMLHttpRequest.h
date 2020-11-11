@@ -63,7 +63,6 @@ class XMLHttpRequest : public XMLHttpRequestEventTarget {
   virtual XMLHttpRequestUpload* GetUpload(ErrorResult& aRv) = 0;
 
   virtual void Send(
-      JSContext* aCx,
       const Nullable<
           DocumentOrBlobOrArrayBufferViewOrArrayBufferOrFormDataOrURLSearchParamsOrUSVString>&
           aData,
@@ -100,7 +99,7 @@ class XMLHttpRequest : public XMLHttpRequestEventTarget {
 
   virtual void GetResponseText(DOMString& aResponseText, ErrorResult& aRv) = 0;
 
-  virtual nsIDocument* GetResponseXML(ErrorResult& aRv) = 0;
+  virtual Document* GetResponseXML(ErrorResult& aRv) = 0;
 
   virtual bool MozBackgroundRequest() const = 0;
 
@@ -127,6 +126,10 @@ class XMLHttpRequest : public XMLHttpRequestEventTarget {
                                JS::Handle<JSObject*> aGivenProto) override {
     return mozilla::dom::XMLHttpRequest_Binding::Wrap(aCx, this, aGivenProto);
   }
+
+ protected:
+  explicit XMLHttpRequest(nsIGlobalObject* aGlobalObject)
+      : XMLHttpRequestEventTarget(aGlobalObject) {}
 };
 
 }  // namespace dom

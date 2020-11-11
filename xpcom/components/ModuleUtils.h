@@ -7,12 +7,14 @@
 #ifndef mozilla_GenericModule_h
 #define mozilla_GenericModule_h
 
+#include <type_traits>
+
 #include "mozilla/Attributes.h"
 #include "mozilla/Module.h"
 
 #define NS_GENERIC_FACTORY_CONSTRUCTOR(_InstanceClass)                         \
-  static nsresult _InstanceClass##Constructor(nsISupports *aOuter,             \
-                                              REFNSIID aIID, void **aResult) { \
+  static nsresult _InstanceClass##Constructor(nsISupports* aOuter,             \
+                                              REFNSIID aIID, void** aResult) { \
     RefPtr<_InstanceClass> inst;                                               \
                                                                                \
     *aResult = nullptr;                                                        \
@@ -25,8 +27,8 @@
   }
 
 #define NS_GENERIC_FACTORY_CONSTRUCTOR_INIT(_InstanceClass, _InitMethod)       \
-  static nsresult _InstanceClass##Constructor(nsISupports *aOuter,             \
-                                              REFNSIID aIID, void **aResult) { \
+  static nsresult _InstanceClass##Constructor(nsISupports* aOuter,             \
+                                              REFNSIID aIID, void** aResult) { \
     nsresult rv;                                                               \
                                                                                \
     RefPtr<_InstanceClass> inst;                                               \
@@ -63,8 +65,8 @@ struct RemoveAlreadyAddRefed<already_AddRefed<T>> {
 
 // 'Constructor' that uses an existing getter function that gets a singleton.
 #define NS_GENERIC_FACTORY_SINGLETON_CONSTRUCTOR(_InstanceClass, _GetterProc)  \
-  static nsresult _InstanceClass##Constructor(nsISupports *aOuter,             \
-                                              REFNSIID aIID, void **aResult) { \
+  static nsresult _InstanceClass##Constructor(nsISupports* aOuter,             \
+                                              REFNSIID aIID, void** aResult) { \
     RefPtr<_InstanceClass> inst;                                               \
                                                                                \
     *aResult = nullptr;                                                        \
@@ -75,10 +77,10 @@ struct RemoveAlreadyAddRefed<already_AddRefed<T>> {
     using T =                                                                  \
         mozilla::detail::RemoveAlreadyAddRefed<decltype(_GetterProc())>::Type; \
     static_assert(                                                             \
-        mozilla::IsSame<already_AddRefed<T>, decltype(_GetterProc())>::value,  \
+        std::is_same_v<already_AddRefed<T>, decltype(_GetterProc())>,          \
         "Singleton constructor must return already_AddRefed");                 \
     static_assert(                                                             \
-        mozilla::IsBaseOf<_InstanceClass, T>::value,                           \
+        std::is_base_of<_InstanceClass, T>::value,                             \
         "Singleton constructor must return correct already_AddRefed");         \
     inst = _GetterProc();                                                      \
     if (nullptr == inst) {                                                     \

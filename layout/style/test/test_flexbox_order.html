@@ -6,8 +6,8 @@ https://bugzilla.mozilla.org/show_bug.cgi?id=666041
 <head>
   <meta charset="utf-8">
   <title>Test for Bug 666041</title>
-  <script type="application/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
-  <script type="application/javascript" src="/tests/SimpleTest/WindowSnapshot.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/WindowSnapshot.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css"/>
   <style type="text/css">
 
@@ -175,7 +175,7 @@ function main() {
 
   // Initial sanity-check: should be in expected document order
   let initialSnapshot = snapshotWindow(window, false);
-  complainIfSnapshotsDiffer(initialSnapshot, gRefSnapshots["abc"],
+  complainIfSnapshotsDiffer(initialSnapshot, gRefSnapshots.abc,
                             "initial flex container rendering, " +
                             "no 'order' value yet");
 

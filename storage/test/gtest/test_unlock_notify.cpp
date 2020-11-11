@@ -22,11 +22,12 @@ enum State { STARTING, WRITE_LOCK, READ_LOCK, TEST_DONE };
 
 class DatabaseLocker : public mozilla::Runnable {
  public:
-  explicit DatabaseLocker(const char* aSQL)
+  explicit DatabaseLocker(const char* aSQL, nsIFile* aDBFile = nullptr)
       : mozilla::Runnable("DatabaseLocker"),
         monitor("DatabaseLocker::monitor"),
         mSQL(aSQL),
-        mState(STARTING) {}
+        mState(STARTING),
+        mDBFile(aDBFile) {}
 
   void RunInBackground() {
     (void)NS_NewNamedThread("DatabaseLocker", getter_AddRefs(mThread));
@@ -44,7 +45,7 @@ class DatabaseLocker : public mozilla::Runnable {
   NS_IMETHOD Run() override {
     mozilla::ReentrantMonitorAutoEnter lock(monitor);
 
-    nsCOMPtr<mozIStorageConnection> db(getDatabase());
+    nsCOMPtr<mozIStorageConnection> db(getDatabase(mDBFile));
 
     nsCString sql(mSQL);
     nsCOMPtr<mozIStorageStatement> stmt;
@@ -78,6 +79,7 @@ class DatabaseLocker : public mozilla::Runnable {
   nsCOMPtr<nsIThread> mThread;
   const char* const mSQL;
   State mState;
+  nsCOMPtr<nsIFile> mDBFile;
 };
 
 class DatabaseTester : public DatabaseLocker {
@@ -119,17 +121,15 @@ void setup() {
   nsCOMPtr<mozIStorageConnection> db(getDatabase());
 
   // Create and populate a dummy table.
-  nsresult rv = db->ExecuteSimpleSQL(NS_LITERAL_CSTRING(
+  nsresult rv = db->ExecuteSimpleSQL(nsLiteralCString(
       "CREATE TABLE test (id INTEGER PRIMARY KEY, data STRING)"));
   do_check_success(rv);
-  rv = db->ExecuteSimpleSQL(
-      NS_LITERAL_CSTRING("INSERT INTO test (data) VALUES ('foo')"));
+  rv = db->ExecuteSimpleSQL("INSERT INTO test (data) VALUES ('foo')"_ns);
   do_check_success(rv);
-  rv = db->ExecuteSimpleSQL(
-      NS_LITERAL_CSTRING("INSERT INTO test (data) VALUES ('bar')"));
+  rv = db->ExecuteSimpleSQL("INSERT INTO test (data) VALUES ('bar')"_ns);
   do_check_success(rv);
-  rv = db->ExecuteSimpleSQL(
-      NS_LITERAL_CSTRING("CREATE UNIQUE INDEX unique_data ON test (data)"));
+  rv =
+      db->ExecuteSimpleSQL("CREATE UNIQUE INDEX unique_data ON test (data)"_ns);
   do_check_success(rv);
 }
 
@@ -140,11 +140,13 @@ void test_step_locked_does_not_block_main_thread() {
   // step and not prepare.
   nsCOMPtr<mozIStorageStatement> stmt;
   nsresult rv = db->CreateStatement(
-      NS_LITERAL_CSTRING("INSERT INTO test (data) VALUES ('test1')"),
-      getter_AddRefs(stmt));
+      "INSERT INTO test (data) VALUES ('test1')"_ns, getter_AddRefs(stmt));
   do_check_success(rv);
 
-  RefPtr<DatabaseLocker> locker(new DatabaseLocker("SELECT * FROM test"));
+  nsCOMPtr<nsIFile> dbFile;
+  db->GetDatabaseFile(getter_AddRefs(dbFile));
+  RefPtr<DatabaseLocker> locker(
+      new DatabaseLocker("SELECT * FROM test", dbFile));
   do_check_true(locker);
   {
     mozilla::ReentrantMonitorAutoEnter lock(locker->monitor);
@@ -169,8 +171,8 @@ void test_drop_index_does_not_loop() {
   // Need to prepare our statement ahead of time so we make sure to only test
   // step and not prepare.
   nsCOMPtr<mozIStorageStatement> stmt;
-  nsresult rv = db->CreateStatement(NS_LITERAL_CSTRING("SELECT * FROM test"),
-                                    getter_AddRefs(stmt));
+  nsresult rv =
+      db->CreateStatement("SELECT * FROM test"_ns, getter_AddRefs(stmt));
   do_check_success(rv);
 
   RefPtr<DatabaseTester> tester =
@@ -199,8 +201,8 @@ void test_drop_table_does_not_loop() {
   // Need to prepare our statement ahead of time so we make sure to only test
   // step and not prepare.
   nsCOMPtr<mozIStorageStatement> stmt;
-  nsresult rv = db->CreateStatement(NS_LITERAL_CSTRING("SELECT * FROM test"),
-                                    getter_AddRefs(stmt));
+  nsresult rv =
+      db->CreateStatement("SELECT * FROM test"_ns, getter_AddRefs(stmt));
   do_check_success(rv);
 
   RefPtr<DatabaseTester> tester(new DatabaseTester(db, "DROP TABLE test"));
@@ -222,7 +224,8 @@ void test_drop_table_does_not_loop() {
   tester->Shutdown();
 }
 
-TEST(storage_unlock_notify, Test) {
+TEST(storage_unlock_notify, Test)
+{
   // These must execute in order.
   setup();
   test_step_locked_does_not_block_main_thread();

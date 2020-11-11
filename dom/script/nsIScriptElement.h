@@ -16,7 +16,7 @@
 #include "nsIContent.h"
 #include "nsContentCreatorFunctions.h"
 #include "mozilla/CORSMode.h"
-#include "mozilla/net/ReferrerPolicy.h"
+#include "ReferrerInfo.h"
 
 // Must be kept in sync with xpcom/rust/xpcom/src/interfaces/nonidl.rs
 #define NS_ISCRIPTELEMENT_IID                        \
@@ -91,7 +91,7 @@ class nsIScriptElement : public nsIScriptLoaderObserver {
    *  - GetScriptURI()
    *  - GetScriptExternal()
    */
-  virtual void FreezeExecutionAttrs(nsIDocument* aOwnerDoc) = 0;
+  virtual void FreezeExecutionAttrs(mozilla::dom::Document*) = 0;
 
   /**
    * Is the script a module script. Currently only supported by HTML scripts.
@@ -190,7 +190,7 @@ class nsIScriptElement : public nsIScriptLoaderObserver {
   void BeginEvaluating() {
     nsCOMPtr<nsIParser> parser = do_QueryReferent(mCreatorParser);
     if (parser) {
-      parser->PushDefinedInsertionPoint();
+      parser->IncrementScriptNestingLevel();
     }
   }
 
@@ -200,7 +200,7 @@ class nsIScriptElement : public nsIScriptLoaderObserver {
   void EndEvaluating() {
     nsCOMPtr<nsIParser> parser = do_QueryReferent(mCreatorParser);
     if (parser) {
-      parser->PopDefinedInsertionPoint();
+      parser->DecrementScriptNestingLevel();
     }
   }
 
@@ -241,8 +241,8 @@ class nsIScriptElement : public nsIScriptLoaderObserver {
   /**
    * Get referrer policy of the script element
    */
-  virtual mozilla::net::ReferrerPolicy GetReferrerPolicy() {
-    return mozilla::net::RP_Unset;
+  virtual mozilla::dom::ReferrerPolicy GetReferrerPolicy() {
+    return mozilla::dom::ReferrerPolicy::_empty;
   }
 
   /**

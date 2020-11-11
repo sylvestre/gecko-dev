@@ -18,21 +18,24 @@ import sys
 
 from collections import defaultdict
 
+from six import iteritems
+
 from . import httpd
 
 
-__all__ = ["default_doc_root",
-           "iter_proc",
-           "iter_url",
-           "registered_servers",
-           "servers",
-           "start",
-           "where_is"]
+__all__ = [
+    "default_doc_root",
+    "iter_proc",
+    "iter_url",
+    "registered_servers",
+    "servers",
+    "start",
+    "where_is",
+]
 here = os.path.abspath(os.path.dirname(__file__))
 
 
 class BlockingChannel(object):
-
     def __init__(self, channel):
         self.chan = channel
         self.lock = multiprocessing.Lock()
@@ -62,7 +65,6 @@ class BlockingChannel(object):
 
 
 class ServerProxy(multiprocessing.Process, BlockingChannel):
-
     def __init__(self, channel, init_func, *init_args, **init_kwargs):
         multiprocessing.Process.__init__(self)
         BlockingChannel.__init__(self, channel)
@@ -103,7 +105,6 @@ class ServerProxy(multiprocessing.Process, BlockingChannel):
 
 
 class ServerProc(BlockingChannel):
-
     def __init__(self, init_func):
         self._init_func = init_func
         self.proc = None
@@ -113,7 +114,8 @@ class ServerProc(BlockingChannel):
 
     def start(self, doc_root, ssl_config, **kwargs):
         self.proc = ServerProxy(
-            self.child_chan, self._init_func, doc_root, ssl_config, **kwargs)
+            self.child_chan, self._init_func, doc_root, ssl_config, **kwargs
+        )
         self.proc.daemon = True
         self.proc.start()
 
@@ -152,11 +154,13 @@ def http_server(doc_root, ssl_config, host="127.0.0.1", **kwargs):
 
 
 def https_server(doc_root, ssl_config, host="127.0.0.1", **kwargs):
-    return httpd.FixtureServer(doc_root,
-                               url="https://{}:0/".format(host),
-                               ssl_key=ssl_config["key_path"],
-                               ssl_cert=ssl_config["cert_path"],
-                               **kwargs)
+    return httpd.FixtureServer(
+        doc_root,
+        url="https://{}:0/".format(host),
+        ssl_key=ssl_config["key_path"],
+        ssl_cert=ssl_config["cert_path"],
+        **kwargs
+    )
 
 
 def start_servers(doc_root, ssl_config, **kwargs):
@@ -179,8 +183,10 @@ def start(doc_root=None, **kwargs):
 
     """
     doc_root = doc_root or default_doc_root
-    ssl_config = {"cert_path": httpd.default_ssl_cert,
-                  "key_path": httpd.default_ssl_key}
+    ssl_config = {
+        "cert_path": httpd.default_ssl_cert,
+        "key_path": httpd.default_ssl_key,
+    }
 
     global servers
     servers = start_servers(doc_root, ssl_config, **kwargs)
@@ -197,18 +203,17 @@ def where_is(uri, on="http"):
 
 
 def iter_proc(servers):
-    for _, (_, proc) in servers.iteritems():
+    for _, (_, proc) in iteritems(servers):
         yield proc
 
 
 def iter_url(servers):
-    for _, (url, _) in servers.iteritems():
+    for _, (url, _) in iteritems(servers):
         yield url
 
 
 default_doc_root = os.path.join(os.path.dirname(here), "www")
-registered_servers = [("http", http_server),
-                      ("https", https_server)]
+registered_servers = [("http", http_server), ("https", https_server)]
 servers = defaultdict()
 
 
@@ -216,8 +221,9 @@ def main(args):
     global servers
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("-r", dest="doc_root",
-                        help="Path to document root.  Overrides default.")
+    parser.add_argument(
+        "-r", dest="doc_root", help="Path to document root.  Overrides default."
+    )
     args = parser.parse_args()
 
     servers = start(args.doc_root)

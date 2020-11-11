@@ -5,13 +5,14 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "FileSystemEntry.h"
+#include "CallbackRunnables.h"
+#include "FileSystem.h"
 #include "FileSystemDirectoryEntry.h"
 #include "FileSystemFileEntry.h"
 #include "mozilla/dom/FileSystemEntryBinding.h"
 #include "mozilla/dom/UnionTypes.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(FileSystemEntry, mParent, mParentEntry,
                                       mFileSystem)
@@ -24,7 +25,8 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(FileSystemEntry)
   NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END
 
-/* static */ already_AddRefed<FileSystemEntry> FileSystemEntry::Create(
+/* static */
+already_AddRefed<FileSystemEntry> FileSystemEntry::Create(
     nsIGlobalObject* aGlobalObject,
     const OwningFileOrDirectory& aFileOrDirectory, FileSystem* aFileSystem) {
   MOZ_ASSERT(aGlobalObject);
@@ -51,7 +53,7 @@ FileSystemEntry::FileSystemEntry(nsIGlobalObject* aGlobal,
   MOZ_ASSERT(aFileSystem);
 }
 
-FileSystemEntry::~FileSystemEntry() {}
+FileSystemEntry::~FileSystemEntry() = default;
 
 JSObject* FileSystemEntry::WrapObject(JSContext* aCx,
                                       JS::Handle<JSObject*> aGivenProto) {
@@ -75,5 +77,4 @@ void FileSystemEntry::GetParent(
                                       this);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

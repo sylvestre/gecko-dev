@@ -20,9 +20,9 @@ using namespace mozilla;
 
 NS_IMPL_ISUPPORTS(nsApplicationChooser, nsIApplicationChooser)
 
-nsApplicationChooser::nsApplicationChooser() {}
+nsApplicationChooser::nsApplicationChooser() = default;
 
-nsApplicationChooser::~nsApplicationChooser() {}
+nsApplicationChooser::~nsApplicationChooser() = default;
 
 NS_IMETHODIMP
 nsApplicationChooser::Init(mozIDOMWindowProxy* aParent,
@@ -60,14 +60,14 @@ nsApplicationChooser::Open(const nsACString& aContentType,
   return NS_OK;
 }
 
-/* static */ void nsApplicationChooser::OnResponse(GtkWidget* chooser,
-                                                   gint response_id,
-                                                   gpointer user_data) {
+/* static */
+void nsApplicationChooser::OnResponse(GtkWidget* chooser, gint response_id,
+                                      gpointer user_data) {
   static_cast<nsApplicationChooser*>(user_data)->Done(chooser, response_id);
 }
 
-/* static */ void nsApplicationChooser::OnDestroy(GtkWidget* chooser,
-                                                  gpointer user_data) {
+/* static */
+void nsApplicationChooser::OnDestroy(GtkWidget* chooser, gpointer user_data) {
   static_cast<nsApplicationChooser*>(user_data)->Done(chooser,
                                                       GTK_RESPONSE_CANCEL);
 }
@@ -89,6 +89,11 @@ void nsApplicationChooser::Done(GtkWidget* chooser, gint response) {
       nsCOMPtr<nsIFile> localExecutable;
       gchar* fileWithFullPath =
           g_find_program_in_path(g_app_info_get_executable(app_info));
+      if (!fileWithFullPath) {
+        g_object_unref(app_info);
+        NS_WARNING("Cannot find program in path.");
+        break;
+      }
       rv = NS_NewNativeLocalFile(nsDependentCString(fileWithFullPath), false,
                                  getter_AddRefs(localExecutable));
       g_free(fileWithFullPath);

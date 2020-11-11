@@ -13,22 +13,24 @@
 #include "mozilla/EndianUtils.h"
 
 #include "jstypes.h"
-#include "jsutil.h"
+
+#include "js/Utility.h"
+#include "util/Memory.h"
 
 using namespace js;
 
-#if MOZ_LITTLE_ENDIAN
-#define IEEE_8087
+#if MOZ_LITTLE_ENDIAN()
+#  define IEEE_8087
 #else
-#define IEEE_MC68k
+#  define IEEE_MC68k
 #endif
 
 #ifndef Long
-#define Long int32_t
+#  define Long int32_t
 #endif
 
 #ifndef ULong
-#define ULong uint32_t
+#  define ULong uint32_t
 #endif
 
 /*
@@ -136,7 +138,7 @@ char* js_dtostr(DtoaState* state, char* buffer, size_t bufferSize,
       case DTOSTR_EXPONENTIAL:
         MOZ_ASSERT(precision > 0);
         minNDigits = precision;
-        MOZ_FALLTHROUGH;
+        [[fallthrough]];
       case DTOSTR_STANDARD_EXPONENTIAL:
         exponentialNotation = true;
         break;

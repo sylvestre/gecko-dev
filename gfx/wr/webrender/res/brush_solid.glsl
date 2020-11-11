@@ -6,10 +6,10 @@
 
 #include shared,prim_shared,brush
 
-flat varying vec4 vColor;
+flat varying vec4 v_color;
 
 #ifdef WR_FEATURE_ALPHA_PASS
-varying vec2 vLocalPos;
+varying vec2 v_local_pos;
 #endif
 
 #ifdef WR_VERTEX_SHADER
@@ -28,7 +28,8 @@ void brush_vs(
     int prim_address,
     RectWithSize local_rect,
     RectWithSize segment_rect,
-    ivec4 user_data,
+    ivec4 prim_user_data,
+    int specific_resource_address,
     mat4 transform,
     PictureTask pic_task,
     int brush_flags,
@@ -36,21 +37,72 @@ void brush_vs(
 ) {
     SolidBrush prim = fetch_solid_primitive(prim_address);
 
-    float opacity = float(user_data.x) / 65535.0;
-    vColor = prim.color * opacity;
+    float opacity = float(prim_user_data.x) / 65535.0;
+    v_color = prim.color * opacity;
 
 #ifdef WR_FEATURE_ALPHA_PASS
-    vLocalPos = vi.local_pos;
+    v_local_pos = vi.local_pos;
 #endif
 }
 #endif
 
 #ifdef WR_FRAGMENT_SHADER
 Fragment brush_fs() {
-    vec4 color = vColor;
+    vec4 color = v_color;
 #ifdef WR_FEATURE_ALPHA_PASS
-    color *= init_transform_fs(vLocalPos);
+    color *= init_transform_fs(v_local_pos);
 #endif
     return Fragment(color);
 }
+
+#if defined(SWGL) && (!defined(WR_FEATURE_ALPHA_PASS) || !defined(WR_FEATURE_DUAL_SOURCE_BLENDING))
+void swgl_drawSpanRGBA8() {
+    #ifdef WR_FEATURE_ALPHA_PASS
+        if (needs_clip()) {
+            while (swgl_SpanLength > 0) {
+                float alpha = init_transform_fs(v_local_pos) * do_clip();
+                swgl_commitColorRGBA8(v_color, alpha);
+                v_local_pos += swgl_interpStep(v_local_pos);
+                vClipMaskUv += swgl_interpStep(vClipMaskUv);
+            }
+            return;
+        } else if (has_valid_transform_bounds()) {
+            while (swgl_SpanLength > 0) {
+                float alpha = init_transform_fs(v_local_pos);
+                swgl_commitColorRGBA8(v_color, alpha);
+                v_local_pos += swgl_interpStep(v_local_pos);
+            }
+            return;
+        }
+        // No clip or transform, so just fall through to a solid span...
+    #endif
+
+    swgl_commitSolidRGBA8(v_color);
+}
+
+void swgl_drawSpanR8() {
+    #ifdef WR_FEATURE_ALPHA_PASS
+        if (needs_clip()) {
+            while (swgl_SpanLength > 0) {
+                float alpha = init_transform_fs(v_local_pos) * do_clip();
+                swgl_commitColorR8(v_color.x, alpha);
+                v_local_pos += swgl_interpStep(v_local_pos);
+                vClipMaskUv += swgl_interpStep(vClipMaskUv);
+            }
+            return;
+        } else if (has_valid_transform_bounds()) {
+            while (swgl_SpanLength > 0) {
+                float alpha = init_transform_fs(v_local_pos);
+                swgl_commitColorR8(v_color.x, alpha);
+                v_local_pos += swgl_interpStep(v_local_pos);
+            }
+            return;
+        }
+        // No clip or transform, so just fall through to a solid span...
+    #endif
+
+    swgl_commitSolidR8(v_color.x);
+}
+#endif
+
 #endif

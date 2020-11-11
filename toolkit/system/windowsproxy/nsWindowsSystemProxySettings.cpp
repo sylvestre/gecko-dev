@@ -10,12 +10,9 @@
 #include "mozilla/ArrayUtils.h"
 #include "mozilla/Attributes.h"
 #include "nsISystemProxySettings.h"
-#include "nsIServiceManager.h"
-#include "mozilla/ModuleUtils.h"
+#include "mozilla/Components.h"
 #include "nsPrintfCString.h"
 #include "nsNetCID.h"
-#include "nsISupportsPrimitives.h"
-#include "nsIURI.h"
 #include "nsThreadUtils.h"
 #include "GeckoProfiler.h"
 #include "prnetdb.h"
@@ -27,7 +24,6 @@ class nsWindowsSystemProxySettings final : public nsISystemProxySettings {
   NS_DECL_NSISYSTEMPROXYSETTINGS
 
   nsWindowsSystemProxySettings(){};
-  nsresult Init();
 
  private:
   ~nsWindowsSystemProxySettings(){};
@@ -46,8 +42,6 @@ nsWindowsSystemProxySettings::GetMainThreadOnly(bool* aMainThreadOnly) {
   *aMainThreadOnly = false;
   return NS_OK;
 }
-
-nsresult nsWindowsSystemProxySettings::Init() { return NS_OK; }
 
 static void SetProxyResult(const char* aType, const nsACString& aHostPort,
                            nsACString& aResult) {
@@ -193,7 +187,7 @@ nsresult nsWindowsSystemProxySettings::GetProxyForURI(const nsACString& aSpec,
 
   NS_ConvertUTF16toUTF8 cbuf(buf);
 
-  NS_NAMED_LITERAL_CSTRING(kSocksPrefix, "socks=");
+  constexpr auto kSocksPrefix = "socks="_ns;
   nsAutoCString prefix;
   ToLowerCase(aScheme, prefix);
 
@@ -247,27 +241,7 @@ nsresult nsWindowsSystemProxySettings::GetProxyForURI(const nsACString& aSpec,
   return NS_OK;
 }
 
-/* 4e22d3ea-aaa2-436e-ada4-9247de57d367 */
-#define NS_WINDOWSSYSTEMPROXYSERVICE_CID             \
-  {                                                  \
-    0x4e22d3ea, 0xaaa2, 0x436e, {                    \
-      0xad, 0xa4, 0x92, 0x47, 0xde, 0x57, 0xd3, 0x67 \
-    }                                                \
-  }
-
-NS_GENERIC_FACTORY_CONSTRUCTOR_INIT(nsWindowsSystemProxySettings, Init)
-NS_DEFINE_NAMED_CID(NS_WINDOWSSYSTEMPROXYSERVICE_CID);
-
-static const mozilla::Module::CIDEntry kSysProxyCIDs[] = {
-    {&kNS_WINDOWSSYSTEMPROXYSERVICE_CID, false, nullptr,
-     nsWindowsSystemProxySettingsConstructor},
-    {nullptr}};
-
-static const mozilla::Module::ContractIDEntry kSysProxyContracts[] = {
-    {NS_SYSTEMPROXYSETTINGS_CONTRACTID, &kNS_WINDOWSSYSTEMPROXYSERVICE_CID},
-    {nullptr}};
-
-static const mozilla::Module kSysProxyModule = {
-    mozilla::Module::kVersion, kSysProxyCIDs, kSysProxyContracts};
-
-NSMODULE_DEFN(nsWindowsProxyModule) = &kSysProxyModule;
+NS_IMPL_COMPONENT_FACTORY(nsWindowsSystemProxySettings) {
+  return mozilla::MakeAndAddRef<nsWindowsSystemProxySettings>()
+      .downcast<nsISupports>();
+}

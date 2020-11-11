@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include rect,render_task,gpu_cache,snap,transform
+#include rect,render_task,gpu_cache,transform
 
 #define EXTEND_MODE_CLAMP  0
 #define EXTEND_MODE_REPEAT 1
@@ -45,20 +45,43 @@ uniform HIGHP_SAMPLER_FLOAT sampler2D sPrimitiveHeadersF;
 uniform HIGHP_SAMPLER_FLOAT isampler2D sPrimitiveHeadersI;
 
 // Instanced attributes
-in ivec4 aData;
+PER_INSTANCE in ivec4 aData;
 
 #define VECS_PER_PRIM_HEADER_F 2U
 #define VECS_PER_PRIM_HEADER_I 2U
+
+struct Instance
+{
+    int prim_header_address;
+    int picture_task_address;
+    int clip_address;
+    int segment_index;
+    int flags;
+    int resource_address;
+    int brush_kind;
+};
+
+Instance decode_instance_attributes() {
+    Instance instance;
+
+    instance.prim_header_address = aData.x;
+    instance.picture_task_address = aData.y >> 16;
+    instance.clip_address = aData.y & 0xffff;
+    instance.segment_index = aData.z & 0xffff;
+    instance.flags = aData.z >> 16;
+    instance.resource_address = aData.w & 0xffffff;
+    instance.brush_kind = aData.w >> 24;
+
+    return instance;
+}
 
 struct PrimitiveHeader {
     RectWithSize local_rect;
     RectWithSize local_clip_rect;
     float z;
     int specific_prim_address;
-    int render_task_index;
-    int clip_task_index;
     int transform_id;
-    ivec3 user_data;
+    ivec4 user_data;
 };
 
 PrimitiveHeader fetch_prim_header(int index) {
@@ -74,56 +97,39 @@ PrimitiveHeader fetch_prim_header(int index) {
     ivec4 data0 = TEXEL_FETCH(sPrimitiveHeadersI, uv_i, 0, ivec2(0, 0));
     ivec4 data1 = TEXEL_FETCH(sPrimitiveHeadersI, uv_i, 0, ivec2(1, 0));
     ph.z = float(data0.x);
-    ph.render_task_index = data0.y;
-    ph.specific_prim_address = data0.z;
-    ph.clip_task_index = data0.w;
-    ph.transform_id = data1.x;
-    ph.user_data = data1.yzw;
+    ph.specific_prim_address = data0.y;
+    ph.transform_id = data0.z;
+    ph.user_data = data1;
 
     return ph;
 }
 
 struct VertexInfo {
     vec2 local_pos;
-    vec2 snap_offset;
     vec4 world_pos;
 };
 
-VertexInfo write_vertex(RectWithSize instance_rect,
+VertexInfo write_vertex(vec2 local_pos,
                         RectWithSize local_clip_rect,
                         float z,
                         Transform transform,
-                        PictureTask task,
-                        RectWithSize snap_rect) {
-
-    // Select the corner of the local rect that we are processing.
-    vec2 local_pos = instance_rect.p0 + instance_rect.size * aPosition.xy;
-
+                        PictureTask task) {
     // Clamp to the two local clip rects.
     vec2 clamped_local_pos = clamp_rect(local_pos, local_clip_rect);
-
-    /// Compute the snapping offset.
-    vec2 snap_offset = compute_snap_offset(
-        clamped_local_pos,
-        transform.m,
-        snap_rect,
-        task.common_data.device_pixel_scale
-    );
 
     // Transform the current vertex to world space.
     vec4 world_pos = transform.m * vec4(clamped_local_pos, 0.0, 1.0);
 
     // Convert the world positions to device pixel space.
-    vec2 device_pos = world_pos.xy * task.common_data.device_pixel_scale;
+    vec2 device_pos = world_pos.xy * task.device_pixel_scale;
 
     // Apply offsets for the render task to get correct screen location.
-    vec2 final_offset = snap_offset - task.content_origin + task.common_data.task_rect.p0;
+    vec2 final_offset = -task.content_origin + task.common_data.task_rect.p0;
 
     gl_Position = uTransform * vec4(device_pos + final_offset * world_pos.w, z * world_pos.w, world_pos.w);
 
     VertexInfo vi = VertexInfo(
         clamped_local_pos,
-        snap_offset,
         world_pos
     );
 
@@ -191,7 +197,7 @@ VertexInfo write_transform_vertex(RectWithSize local_segment_rect,
     // Transform the current vertex to the world cpace.
     vec4 world_pos = transform.m * vec4(local_pos, 0.0, 1.0);
     vec4 final_pos = vec4(
-        world_pos.xy * task.common_data.device_pixel_scale + task_offset * world_pos.w,
+        world_pos.xy * task.device_pixel_scale + task_offset * world_pos.w,
         z * world_pos.w,
         world_pos.w
     );
@@ -206,25 +212,45 @@ VertexInfo write_transform_vertex(RectWithSize local_segment_rect,
 
     VertexInfo vi = VertexInfo(
         local_pos,
-        vec2(0.0),
         world_pos
     );
 
     return vi;
 }
 
-void write_clip(vec4 world_pos, vec2 snap_offset, ClipArea area) {
-    vec2 uv = world_pos.xy * area.common_data.device_pixel_scale +
-        world_pos.w * (snap_offset + area.common_data.task_rect.p0 - area.screen_origin);
+void write_clip(vec4 world_pos, ClipArea area) {
+    vec2 uv = world_pos.xy * area.device_pixel_scale +
+        world_pos.w * (area.common_data.task_rect.p0 - area.screen_origin);
     vClipMaskUvBounds = vec4(
         area.common_data.task_rect.p0,
         area.common_data.task_rect.p0 + area.common_data.task_rect.size
     );
     vClipMaskUv = vec4(uv, area.common_data.texture_layer_index, world_pos.w);
 }
+
+// Read the exta image data containing the homogeneous screen space coordinates
+// of the corners, interpolate between them, and return real screen space UV.
+vec2 get_image_quad_uv(int address, vec2 f) {
+    ImageResourceExtra extra_data = fetch_image_resource_extra(address);
+    vec4 x = mix(extra_data.st_tl, extra_data.st_tr, f.x);
+    vec4 y = mix(extra_data.st_bl, extra_data.st_br, f.x);
+    vec4 z = mix(x, y, f.y);
+    return z.xy / z.w;
+}
 #endif //WR_VERTEX_SHADER
 
 #ifdef WR_FRAGMENT_SHADER
+
+struct Fragment {
+    vec4 color;
+#ifdef WR_FEATURE_DUAL_SOURCE_BLENDING
+    vec4 blend;
+#endif
+};
+
+bool needs_clip() {
+    return vClipMaskUvBounds.xy != vClipMaskUvBounds.zw;
+}
 
 float do_clip() {
     // check for the dummy bounds, which are given to the opaque objects
@@ -264,9 +290,9 @@ vec4 dither(vec4 color) {
 }
 #endif //WR_FEATURE_DITHERING
 
-vec4 sample_gradient(int address, float offset, float gradient_repeat) {
+vec4 sample_gradient(HIGHP_FS_ADDRESS int address, float offset, float gradient_repeat) {
     // Modulo the offset if the gradient repeats.
-    float x = mix(offset, fract(offset), gradient_repeat);
+    float x = offset - floor(offset) * gradient_repeat;
 
     // Calculate the color entry index to use for this offset:
     //     offsets < 0 use the first color entry, 0
@@ -276,22 +302,21 @@ vec4 sample_gradient(int address, float offset, float gradient_repeat) {
 
     // TODO(gw): In the future we might consider making the size of the
     // LUT vary based on number / distribution of stops in the gradient.
-    const int GRADIENT_ENTRIES = 128;
-    x = 1.0 + x * float(GRADIENT_ENTRIES);
+    // Ensure we don't fetch outside the valid range of the LUT.
+    const float GRADIENT_ENTRIES = 128.0;
+    x = clamp(1.0 + x * GRADIENT_ENTRIES, 0.0, 1.0 + GRADIENT_ENTRIES);
 
     // Calculate the texel to index into the gradient color entries:
     //     floor(x) is the gradient color entry index
     //     fract(x) is the linear filtering factor between start and end
-    int lut_offset = 2 * int(floor(x));     // There is a [start, end] color per entry.
+    float entry_index = floor(x);
+    float entry_fract = x - entry_index;
 
-    // Ensure we don't fetch outside the valid range of the LUT.
-    lut_offset = clamp(lut_offset, 0, 2 * (GRADIENT_ENTRIES + 1));
-
-    // Fetch the start and end color.
-    vec4 texels[2] = fetch_from_gpu_cache_2(address + lut_offset);
+    // Fetch the start and end color. There is a [start, end] color per entry.
+    vec4 texels[2] = fetch_from_gpu_cache_2(address + 2 * int(entry_index));
 
     // Finally interpolate and apply dithering
-    return dither(mix(texels[0], texels[1], fract(x)));
+    return dither(mix(texels[0], texels[1], entry_fract));
 }
 
 #endif //WR_FRAGMENT_SHADER

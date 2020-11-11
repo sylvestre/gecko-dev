@@ -8,41 +8,41 @@
 
 #include <d3d11.h>
 
-#include "GLContext.h"
+#include "GLContextEGL.h"
 #include "GLLibraryEGL.h"
 #include "GPUVideoImage.h"
 #include "ScopedGLHelpers.h"
 
+#include "mozilla/layers/D3D11ShareHandleImage.h"
 #include "mozilla/layers/D3D11YCbCrImage.h"
 #include "mozilla/layers/TextureD3D11.h"
 
 namespace mozilla {
 namespace gl {
 
-static EGLStreamKHR StreamFromD3DTexture(ID3D11Texture2D* const texD3D,
+static EGLStreamKHR StreamFromD3DTexture(EglDisplay* const egl,
+                                         ID3D11Texture2D* const texD3D,
                                          const EGLAttrib* const postAttribs) {
-  auto* egl = gl::GLLibraryEGL::Get();
   if (!egl->IsExtensionSupported(
-          GLLibraryEGL::NV_stream_consumer_gltexture_yuv) ||
+          EGLExtension::NV_stream_consumer_gltexture_yuv) ||
       !egl->IsExtensionSupported(
-          GLLibraryEGL::ANGLE_stream_producer_d3d_texture)) {
+          EGLExtension::ANGLE_stream_producer_d3d_texture)) {
     return 0;
   }
 
-  const auto& display = egl->Display();
-  const auto stream = egl->fCreateStreamKHR(display, nullptr);
+  const auto stream = egl->fCreateStreamKHR(nullptr);
   MOZ_ASSERT(stream);
   if (!stream) return 0;
   bool ok = true;
   MOZ_ALWAYS_TRUE(ok &= bool(egl->fStreamConsumerGLTextureExternalAttribsNV(
-                      display, stream, nullptr)));
-  MOZ_ALWAYS_TRUE(ok &= bool(egl->fCreateStreamProducerD3DTextureANGLE(
-                      display, stream, nullptr)));
-  MOZ_ALWAYS_TRUE(ok &= bool(egl->fStreamPostD3DTextureANGLE(
-                      display, stream, texD3D, postAttribs)));
+                      stream, nullptr)));
+  MOZ_ALWAYS_TRUE(
+      ok &= bool(egl->fCreateStreamProducerD3DTextureANGLE(stream, nullptr)));
+  MOZ_ALWAYS_TRUE(
+      ok &= bool(egl->fStreamPostD3DTextureANGLE(stream, texD3D, postAttribs)));
   if (ok) return stream;
 
-  (void)egl->fDestroyStreamKHR(display, stream);
+  (void)egl->fDestroyStreamKHR(stream);
   return 0;
 }
 
@@ -84,8 +84,8 @@ class BindAnglePlanes final {
     MOZ_RELEASE_ASSERT(numPlanes >= 1 && numPlanes <= 3);
 
     const auto& gl = mParent.mGL;
-    auto* egl = gl::GLLibraryEGL::Get();
-    const auto& display = egl->Display();
+    const auto& gle = GLContextEGL::Cast(gl);
+    const auto& egl = gle->mEgl;
 
     gl->fGenTextures(numPlanes, mTempTexs);
 
@@ -96,13 +96,13 @@ class BindAnglePlanes final {
       if (postAttribsList) {
         postAttribs = postAttribsList[i];
       }
-      mStreams[i] = StreamFromD3DTexture(texD3DList[i], postAttribs);
+      mStreams[i] = StreamFromD3DTexture(egl.get(), texD3DList[i], postAttribs);
       mSuccess &= bool(mStreams[i]);
     }
 
     if (mSuccess) {
       for (uint8_t i = 0; i < mNumPlanes; i++) {
-        MOZ_ALWAYS_TRUE(egl->fStreamConsumerAcquireKHR(display, mStreams[i]));
+        MOZ_ALWAYS_TRUE(egl->fStreamConsumerAcquireKHR(mStreams[i]));
 
         auto& mutex = mMutexList[i];
         texD3DList[i]->QueryInterface(IID_IDXGIKeyedMutex,
@@ -120,12 +120,12 @@ class BindAnglePlanes final {
 
   ~BindAnglePlanes() {
     const auto& gl = mParent.mGL;
-    auto* egl = gl::GLLibraryEGL::Get();
-    const auto& display = egl->Display();
+    const auto& gle = GLContextEGL::Cast(gl);
+    const auto& egl = gle->mEgl;
 
     if (mSuccess) {
       for (uint8_t i = 0; i < mNumPlanes; i++) {
-        MOZ_ALWAYS_TRUE(egl->fStreamConsumerReleaseKHR(display, mStreams[i]));
+        MOZ_ALWAYS_TRUE(egl->fStreamConsumerReleaseKHR(mStreams[i]));
         if (mMutexList[i]) {
           mMutexList[i]->ReleaseSync(0);
         }
@@ -133,7 +133,7 @@ class BindAnglePlanes final {
     }
 
     for (uint8_t i = 0; i < mNumPlanes; i++) {
-      (void)egl->fDestroyStreamKHR(display, mStreams[i]);
+      (void)egl->fDestroyStreamKHR(mStreams[i]);
     }
 
     gl->fDeleteTextures(mNumPlanes, mTempTexs);
@@ -149,11 +149,12 @@ ID3D11Device* GLBlitHelper::GetD3D11() const {
 
   if (!mGL->IsANGLE()) return nullptr;
 
-  auto* egl = gl::GLLibraryEGL::Get();
+  const auto& gle = GLContextEGL::Cast(mGL);
+  const auto& egl = gle->mEgl;
   EGLDeviceEXT deviceEGL = 0;
-  MOZ_ALWAYS_TRUE(egl->fQueryDisplayAttribEXT(
-      egl->Display(), LOCAL_EGL_DEVICE_EXT, (EGLAttrib*)&deviceEGL));
-  if (!egl->fQueryDeviceAttribEXT(
+  MOZ_ALWAYS_TRUE(egl->fQueryDisplayAttribEXT(LOCAL_EGL_DEVICE_EXT,
+                                              (EGLAttrib*)&deviceEGL));
+  if (!egl->mLib->fQueryDeviceAttribEXT(
           deviceEGL, LOCAL_EGL_D3D11_DEVICE_ANGLE,
           (EGLAttrib*)(ID3D11Device**)getter_AddRefs(mD3D11))) {
     MOZ_ASSERT(false, "d3d9?");
@@ -164,39 +165,16 @@ ID3D11Device* GLBlitHelper::GetD3D11() const {
 
 // -------------------------------------
 
-bool GLBlitHelper::BlitImage(layers::GPUVideoImage* const srcImage,
+bool GLBlitHelper::BlitImage(layers::D3D11ShareHandleImage* const srcImage,
                              const gfx::IntSize& destSize,
                              const OriginPos destOrigin) const {
   const auto& data = srcImage->GetData();
   if (!data) return false;
 
-  const auto& desc = data->SD();
-  const auto& subdescUnion = desc.subdesc();
-  switch (subdescUnion.type()) {
-    case layers::GPUVideoSubDescriptor::TSurfaceDescriptorD3D10: {
-      const auto& subdesc = subdescUnion.get_SurfaceDescriptorD3D10();
-      return BlitDescriptor(subdesc, destSize, destOrigin);
-    }
-    case layers::GPUVideoSubDescriptor::TSurfaceDescriptorDXGIYCbCr: {
-      const auto& subdesc = subdescUnion.get_SurfaceDescriptorDXGIYCbCr();
+  layers::SurfaceDescriptorD3D10 desc;
+  if (!data->SerializeSpecific(&desc)) return false;
 
-      const auto& clipSize = subdesc.size();
-      const auto& ySize = subdesc.sizeY();
-      const auto& uvSize = subdesc.sizeCbCr();
-      const auto& colorSpace = subdesc.yUVColorSpace();
-
-      const gfx::IntRect clipRect(0, 0, clipSize.width, clipSize.height);
-
-      const WindowsHandle handles[3] = {subdesc.handleY(), subdesc.handleCb(),
-                                        subdesc.handleCr()};
-      return BlitAngleYCbCr(handles, clipRect, ySize, uvSize, colorSpace,
-                            destSize, destOrigin);
-    }
-    default:
-      gfxCriticalError() << "Unhandled subdesc type: "
-                         << uint32_t(subdescUnion.type());
-      return false;
-  }
+  return BlitDescriptor(desc, destSize, destOrigin);
 }
 
 // -------------------------------------
@@ -229,7 +207,7 @@ bool GLBlitHelper::BlitDescriptor(const layers::SurfaceDescriptorD3D10& desc,
 
   const auto srcOrigin = OriginPos::BottomLeft;
   const gfx::IntRect clipRect(0, 0, clipSize.width, clipSize.height);
-  const auto colorSpace = YUVColorSpace::BT601;
+  const auto colorSpace = desc.yUVColorSpace();
 
   if (format != gfx::SurfaceFormat::NV12 &&
       format != gfx::SurfaceFormat::P010 &&
@@ -280,13 +258,29 @@ bool GLBlitHelper::BlitDescriptor(const layers::SurfaceDescriptorD3D10& desc,
   return true;
 }
 
+bool GLBlitHelper::BlitDescriptor(
+    const layers::SurfaceDescriptorDXGIYCbCr& desc,
+    const gfx::IntSize& destSize, const OriginPos destOrigin) const {
+  const auto& clipSize = desc.size();
+  const auto& ySize = desc.sizeY();
+  const auto& uvSize = desc.sizeCbCr();
+  const auto& colorSpace = desc.yUVColorSpace();
+
+  const gfx::IntRect clipRect(0, 0, clipSize.width, clipSize.height);
+
+  const WindowsHandle handles[3] = {desc.handleY(), desc.handleCb(),
+                                    desc.handleCr()};
+  return BlitAngleYCbCr(handles, clipRect, ySize, uvSize, colorSpace, destSize,
+                        destOrigin);
+}
+
 // --
 
 bool GLBlitHelper::BlitAngleYCbCr(const WindowsHandle (&handleList)[3],
                                   const gfx::IntRect& clipRect,
                                   const gfx::IntSize& ySize,
                                   const gfx::IntSize& uvSize,
-                                  const YUVColorSpace colorSpace,
+                                  const gfx::YUVColorSpace colorSpace,
                                   const gfx::IntSize& destSize,
                                   const OriginPos destOrigin) const {
   const auto& d3d = GetD3D11();

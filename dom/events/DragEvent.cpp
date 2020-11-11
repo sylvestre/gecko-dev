@@ -10,8 +10,7 @@
 #include "nsContentUtils.h"
 #include "prtime.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 DragEvent::DragEvent(EventTarget* aOwner, nsPresContext* aPresContext,
                      WidgetDragEvent* aEvent)
@@ -24,7 +23,7 @@ DragEvent::DragEvent(EventTarget* aOwner, nsPresContext* aPresContext,
     mEventIsInternal = true;
     mEvent->mTime = PR_Now();
     mEvent->mRefPoint = LayoutDeviceIntPoint(0, 0);
-    mEvent->AsMouseEvent()->inputSource =
+    mEvent->AsMouseEvent()->mInputSource =
         MouseEvent_Binding::MOZ_SOURCE_UNKNOWN;
   }
 }
@@ -70,10 +69,9 @@ DataTransfer* DragEvent::GetDataTransfer() {
 }
 
 // static
-already_AddRefed<DragEvent> DragEvent::Constructor(const GlobalObject& aGlobal,
-                                                   const nsAString& aType,
-                                                   const DragEventInit& aParam,
-                                                   ErrorResult& aRv) {
+already_AddRefed<DragEvent> DragEvent::Constructor(
+    const GlobalObject& aGlobal, const nsAString& aType,
+    const DragEventInit& aParam) {
   nsCOMPtr<EventTarget> t = do_QueryInterface(aGlobal.GetAsSupports());
   RefPtr<DragEvent> e = new DragEvent(t, nullptr, nullptr);
   bool trusted = e->Init(t);
@@ -88,8 +86,7 @@ already_AddRefed<DragEvent> DragEvent::Constructor(const GlobalObject& aGlobal,
   return e.forget();
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom
 
 using namespace mozilla;
 using namespace mozilla::dom;

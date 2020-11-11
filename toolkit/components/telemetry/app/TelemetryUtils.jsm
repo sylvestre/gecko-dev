@@ -4,19 +4,19 @@
 
 "use strict";
 
-var EXPORTED_SYMBOLS = [
-  "TelemetryUtils",
-];
+var EXPORTED_SYMBOLS = ["TelemetryUtils"];
 
 ChromeUtils.import("resource://gre/modules/Services.jsm", this);
-ChromeUtils.defineModuleGetter(this, "AppConstants",
-                               "resource://gre/modules/AppConstants.jsm");
-ChromeUtils.defineModuleGetter(this, "UpdateUtils",
-                               "resource://gre/modules/UpdateUtils.jsm");
+const { TelemetryControllerBase } = ChromeUtils.import(
+  "resource://gre/modules/TelemetryControllerBase.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "UpdateUtils",
+  "resource://gre/modules/UpdateUtils.jsm"
+);
 
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
-
-const PREF_TELEMETRY_ENABLED = "toolkit.telemetry.enabled";
 
 const IS_CONTENT_PROCESS = (function() {
   // We cannot use Services.appinfo here because in telemetry xpcshell tests,
@@ -27,7 +27,35 @@ const IS_CONTENT_PROCESS = (function() {
 })();
 
 var TelemetryUtils = {
+  /**
+   * When telemetry is disabled, identifying information (such as client ID)
+   * should be removed. A topic event is emitted with a subject that matches
+   * this constant. When this happens, other systems that store identifying
+   * information about the client should delete that data. Please ask the
+   * Firefox Telemetry Team before relying on this topic.
+   *
+   * Here is an example of listening for that event:
+   *
+   *  const { TelemetryUtils } = ChromeUtils.import("resource://gre/modules/TelemetryUtils.jsm");
+   *
+   *  class YourClass {
+   *    constructor() {
+   *      Services.obs.addObserver(this, TelemetryUtils.TELEMETRY_UPLOAD_DISABLED_TOPIC);
+   *    }
+   *
+   *    observe(subject, topic, data) {
+   *      if (topic == TelemetryUtils.TELEMETRY_UPLOAD_DISABLED_TOPIC) {
+   *        // Telemetry was disabled
+   *        // subject and data are both unused
+   *      }
+   *    }
+   *  }
+   */
+  TELEMETRY_UPLOAD_DISABLED_TOPIC: "telemetry.upload.disabled",
+
   Preferences: Object.freeze({
+    ...TelemetryControllerBase.Preferences,
+
     // General Preferences
     ArchiveEnabled: "toolkit.telemetry.archive.enabled",
     CachedClientId: "toolkit.telemetry.cachedClientID",
@@ -35,36 +63,40 @@ var TelemetryUtils = {
     FirstRun: "toolkit.telemetry.reportingpolicy.firstRun",
     FirstShutdownPingEnabled: "toolkit.telemetry.firstShutdownPing.enabled",
     HealthPingEnabled: "toolkit.telemetry.healthping.enabled",
-    HybridContentEnabled: "toolkit.telemetry.hybridContent.enabled",
     IPCBatchTimeout: "toolkit.telemetry.ipcBatchTimeout",
     OverrideOfficialCheck: "toolkit.telemetry.send.overrideOfficialCheck",
-    OverridePreRelease: "toolkit.telemetry.testing.overridePreRelease",
     OverrideUpdateChannel: "toolkit.telemetry.overrideUpdateChannel",
     Server: "toolkit.telemetry.server",
     ShutdownPingSender: "toolkit.telemetry.shutdownPingSender.enabled",
-    ShutdownPingSenderFirstSession: "toolkit.telemetry.shutdownPingSender.enabledFirstSession",
+    ShutdownPingSenderFirstSession:
+      "toolkit.telemetry.shutdownPingSender.enabledFirstSession",
     TelemetryEnabled: "toolkit.telemetry.enabled",
-    Unified: "toolkit.telemetry.unified",
-    UntrustedModulesPingFrequency: "toolkit.telemetry.untrustedModulesPing.frequency",
+    UntrustedModulesPingFrequency:
+      "toolkit.telemetry.untrustedModulesPing.frequency",
     UpdatePing: "toolkit.telemetry.updatePing.enabled",
     NewProfilePingEnabled: "toolkit.telemetry.newProfilePing.enabled",
     NewProfilePingDelay: "toolkit.telemetry.newProfilePing.delay",
     PreviousBuildID: "toolkit.telemetry.previousBuildID",
 
     // Event Ping Preferences
-    EventPingEnabled: "toolkit.telemetry.eventping.enabled",
-    EventPingEventLimit: "toolkit.telemetry.eventping.eventLimit",
     EventPingMinimumFrequency: "toolkit.telemetry.eventping.minimumFrequency",
     EventPingMaximumFrequency: "toolkit.telemetry.eventping.maximumFrequency",
 
-    // Log Preferences
-    LogLevel: "toolkit.telemetry.log.level",
-    LogDump: "toolkit.telemetry.log.dump",
+    // Ecosystem Telemetry Preferences
+    EcosystemTelemetryEnabled: "toolkit.telemetry.ecosystemtelemetry.enabled",
+    EcosystemTelemetryAllowForNonProductionFxA:
+      "toolkit.telemetry.ecosystemtelemetry.allowForNonProductionFxA",
+
+    // Prio Ping Preferences
+    PrioPingEnabled: "toolkit.telemetry.prioping.enabled",
+    PrioPingDataLimit: "toolkit.telemetry.prioping.dataLimit",
 
     // Data reporting Preferences
     AcceptedPolicyDate: "datareporting.policy.dataSubmissionPolicyNotifiedTime",
-    AcceptedPolicyVersion: "datareporting.policy.dataSubmissionPolicyAcceptedVersion",
-    BypassNotification: "datareporting.policy.dataSubmissionPolicyBypassNotification",
+    AcceptedPolicyVersion:
+      "datareporting.policy.dataSubmissionPolicyAcceptedVersion",
+    BypassNotification:
+      "datareporting.policy.dataSubmissionPolicyBypassNotification",
     CurrentPolicyVersion: "datareporting.policy.currentPolicyVersion",
     DataSubmissionEnabled: "datareporting.policy.dataSubmissionEnabled",
     FhrUploadEnabled: "datareporting.healthreport.uploadEnabled",
@@ -91,7 +123,7 @@ var TelemetryUtils = {
    * it correctly evaluates to a boolean type.
    */
   get isTelemetryEnabled() {
-    return Services.prefs.getBoolPref(PREF_TELEMETRY_ENABLED, false) === true;
+    return TelemetryControllerBase.isTelemetryEnabled;
   },
 
   /**
@@ -108,21 +140,30 @@ var TelemetryUtils = {
    * Takes a date and returns it truncated to a date with daily precision.
    */
   truncateToDays(date) {
-    return new Date(date.getFullYear(),
-                    date.getMonth(),
-                    date.getDate(),
-                    0, 0, 0, 0);
+    return new Date(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate(),
+      0,
+      0,
+      0,
+      0
+    );
   },
 
   /**
    * Takes a date and returns it truncated to a date with hourly precision.
    */
   truncateToHours(date) {
-    return new Date(date.getFullYear(),
-                    date.getMonth(),
-                    date.getDate(),
-                    date.getHours(),
-                    0, 0, 0);
+    return new Date(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate(),
+      date.getHours(),
+      0,
+      0,
+      0
+    );
   },
 
   /**
@@ -162,14 +203,19 @@ var TelemetryUtils = {
     }
 
     const nextMidnightDate = this.getNextMidnight(date);
-    if (this.areTimesClose(date.getTime(), nextMidnightDate.getTime(), tolerance)) {
+    if (
+      this.areTimesClose(date.getTime(), nextMidnightDate.getTime(), tolerance)
+    ) {
       return nextMidnightDate;
     }
     return null;
   },
 
   generateUUID() {
-    let str = Cc["@mozilla.org/uuid-generator;1"].getService(Ci.nsIUUIDGenerator).generateUUID().toString();
+    let str = Cc["@mozilla.org/uuid-generator;1"]
+      .getService(Ci.nsIUUIDGenerator)
+      .generateUUID()
+      .toString();
     // strip {}
     return str.substring(1, str.length - 1);
   },
@@ -181,8 +227,11 @@ var TelemetryUtils = {
    * @return {Integer} The number of months between the two dates.
    */
   getElapsedTimeInMonths(aStartDate, aEndDate) {
-    return (aEndDate.getMonth() - aStartDate.getMonth())
-           + 12 * (aEndDate.getFullYear() - aStartDate.getFullYear());
+    return (
+      aEndDate.getMonth() -
+      aStartDate.getMonth() +
+      12 * (aEndDate.getFullYear() - aStartDate.getFullYear())
+    );
   },
 
   /**
@@ -196,20 +245,30 @@ var TelemetryUtils = {
       return number.toString().padStart(length, "0");
     }
 
-    let sign = (n) => n >= 0 ? "+" : "-";
+    let sign = n => (n >= 0 ? "+" : "-");
     // getTimezoneOffset counter-intuitively returns -60 for UTC+1.
     let tzOffset = -date.getTimezoneOffset();
 
     // YYYY-MM-DDThh:mm:ss.sTZD (eg 1997-07-16T19:20:30.45+01:00)
-    return padNumber(date.getFullYear(), 4)
-      + "-" + padNumber(date.getMonth() + 1, 2)
-      + "-" + padNumber(date.getDate(), 2)
-      + "T" + padNumber(date.getHours(), 2)
-      + ":" + padNumber(date.getMinutes(), 2)
-      + ":" + padNumber(date.getSeconds(), 2)
-      + "." + date.getMilliseconds()
-      + sign(tzOffset) + padNumber(Math.floor(Math.abs(tzOffset / 60)), 2)
-      + ":" + padNumber(Math.abs(tzOffset % 60), 2);
+    return (
+      padNumber(date.getFullYear(), 4) +
+      "-" +
+      padNumber(date.getMonth() + 1, 2) +
+      "-" +
+      padNumber(date.getDate(), 2) +
+      "T" +
+      padNumber(date.getHours(), 2) +
+      ":" +
+      padNumber(date.getMinutes(), 2) +
+      ":" +
+      padNumber(date.getSeconds(), 2) +
+      "." +
+      date.getMilliseconds() +
+      sign(tzOffset) +
+      padNumber(Math.floor(Math.abs(tzOffset / 60)), 2) +
+      ":" +
+      padNumber(Math.abs(tzOffset % 60), 2)
+    );
   },
 
   /**
@@ -217,33 +276,7 @@ var TelemetryUtils = {
    * or (non-monotonic) Date value if this fails back.
    */
   monotonicNow() {
-    try {
-      return Services.telemetry.msSinceProcessStart();
-    } catch (ex) {
-      return Date.now();
-    }
-  },
-
-  /**
-   * Set the Telemetry core recording flag for Unified Telemetry.
-   */
-  setTelemetryRecordingFlags() {
-    // Enable extended Telemetry on pre-release channels and disable it
-    // on Release/ESR.
-    let prereleaseChannels = ["nightly", "aurora", "beta"];
-    if (!AppConstants.MOZILLA_OFFICIAL) {
-      // Turn extended telemetry for local developer builds.
-      prereleaseChannels.push("default");
-    }
-    const isPrereleaseChannel =
-      prereleaseChannels.includes(AppConstants.MOZ_UPDATE_CHANNEL);
-    const isReleaseCandidateOnBeta =
-      AppConstants.MOZ_UPDATE_CHANNEL === "release" &&
-      Services.prefs.getCharPref("app.update.channel", null) === "beta";
-    Services.telemetry.canRecordBase = true;
-    Services.telemetry.canRecordExtended = isPrereleaseChannel ||
-      isReleaseCandidateOnBeta ||
-      Services.prefs.getBoolPref(this.Preferences.OverridePreRelease, false);
+    return Services.telemetry.msSinceProcessStart();
   },
 
   /**
@@ -255,7 +288,10 @@ var TelemetryUtils = {
    * build types, that need to be distinguishable on Telemetry.
    */
   getUpdateChannel() {
-    let overrideChannel = Services.prefs.getCharPref(this.Preferences.OverrideUpdateChannel, undefined);
+    let overrideChannel = Services.prefs.getCharPref(
+      this.Preferences.OverrideUpdateChannel,
+      undefined
+    );
     if (overrideChannel) {
       return overrideChannel;
     }

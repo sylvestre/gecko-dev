@@ -5,13 +5,20 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 SOURCES += [
-    'nsGIOProtocolHandler.cpp',
+    "nsGIOProtocolHandler.cpp",
 ]
 
-FINAL_LIBRARY = 'xul'
+XPCOM_MANIFESTS += [
+    "components.conf",
+]
 
-CXXFLAGS += CONFIG['TK_CFLAGS']
+EXPORTS += [
+    "nsGIOProtocolHandler.h",
+]
 
-with Files('**'):
-    BUG_COMPONENT = ('Core', 'Widget: Gtk')
+FINAL_LIBRARY = "xul"
 
+CXXFLAGS += CONFIG["TK_CFLAGS"]
+
+with Files("**"):
+    BUG_COMPONENT = ("Core", "Widget: Gtk")

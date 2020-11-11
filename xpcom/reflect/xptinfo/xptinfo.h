@@ -21,6 +21,7 @@
 #include "js/Value.h"
 #include "nsString.h"
 #include "nsTArray.h"
+#include "xptdata.h"
 
 // Forward Declarations
 namespace mozilla {
@@ -67,6 +68,10 @@ struct nsXPTInterfaceInfo {
   }
   static const nsXPTInterfaceInfo* ByName(const char* aName) {
     return xpt::detail::InterfaceByName(aName);
+  }
+
+  static const nsXPTInterfaceInfo* Get(nsXPTInterface aID) {
+    return ByIndex(uint16_t(aID));
   }
 
   // These are only needed for Components_interfaces's enumerator.
@@ -165,7 +170,7 @@ enum nsXPTTypeTag : uint8_t {
   //  - Outparams may be uninitialized by caller,
   //  - Supported in xptcall as raw pointer.
   TD_VOID = 13,
-  TD_PNSIID = 14,
+  TD_NSIDPTR = 14,
   TD_PSTRING = 15,
   TD_PWSTRING = 16,
   TD_INTERFACE_TYPE = 17,
@@ -185,8 +190,9 @@ enum nsXPTTypeTag : uint8_t {
   TD_UTF8STRING = 24,
   TD_CSTRING = 25,
   TD_ASTRING = 26,
-  TD_JSVAL = 27,
-  TD_ARRAY = 28,
+  TD_NSID = 27,
+  TD_JSVAL = 28,
+  TD_ARRAY = 29,
   _TD_LAST_COMPLEX = TD_ARRAY
 };
 
@@ -212,7 +218,9 @@ struct nsXPTType {
 
  private:
   // Helper for reading 16-bit data values split between mData1 and mData2.
-  uint16_t Data16() const { return ((uint16_t)mData1 << 8) | mData2; }
+  uint16_t Data16() const {
+    return static_cast<uint16_t>(mData1 << 8) | mData2;
+  }
 
  public:
   // Get the type of the element in the current array or sequence. Arrays only
@@ -294,7 +302,7 @@ struct nsXPTType {
     BOOL,
     CHAR,
     WCHAR,
-    PNSIID,
+    NSIDPTR,
     PSTRING,
     PWSTRING,
     INTERFACE_IS_TYPE
@@ -335,7 +343,7 @@ struct nsXPTType {
   TD_ALIAS_(T_CHAR, TD_CHAR);
   TD_ALIAS_(T_WCHAR, TD_WCHAR);
   TD_ALIAS_(T_VOID, TD_VOID);
-  TD_ALIAS_(T_IID, TD_PNSIID);
+  TD_ALIAS_(T_NSIDPTR, TD_NSIDPTR);
   TD_ALIAS_(T_CHAR_STR, TD_PSTRING);
   TD_ALIAS_(T_WCHAR_STR, TD_PWSTRING);
   TD_ALIAS_(T_INTERFACE, TD_INTERFACE_TYPE);
@@ -346,6 +354,7 @@ struct nsXPTType {
   TD_ALIAS_(T_UTF8STRING, TD_UTF8STRING);
   TD_ALIAS_(T_CSTRING, TD_CSTRING);
   TD_ALIAS_(T_ASTRING, TD_ASTRING);
+  TD_ALIAS_(T_NSID, TD_NSID);
   TD_ALIAS_(T_JSVAL, TD_JSVAL);
   TD_ALIAS_(T_DOMOBJECT, TD_DOMOBJECT);
   TD_ALIAS_(T_PROMISE, TD_PROMISE);
@@ -411,8 +420,7 @@ static_assert(sizeof(nsXPTParamInfo) == 3, "wrong size");
 struct nsXPTMethodInfo {
   bool IsGetter() const { return mGetter; }
   bool IsSetter() const { return mSetter; }
-  bool IsNotXPCOM() const { return mNotXPCOM; }
-  bool IsHidden() const { return mHidden; }
+  bool IsReflectable() const { return mReflectable; }
   bool IsSymbol() const { return mIsSymbol; }
   bool WantsOptArgc() const { return mOptArgc; }
   bool WantsContext() const { return mContext; }
@@ -448,12 +456,6 @@ struct nsXPTMethodInfo {
     return ParamCount() - uint8_t(HasRetval());
   }
 
-  /////////////////////////////////////////////
-  // nsXPTMethodInfo backwards compatibility //
-  /////////////////////////////////////////////
-
-  const char* GetName() const { return Name(); }
-
   JS::SymbolCode GetSymbolCode() const {
     MOZ_ASSERT(IsSymbol());
     return JS::SymbolCode(mName);
@@ -463,7 +465,22 @@ struct nsXPTMethodInfo {
     return JS::GetWellKnownSymbol(aCx, GetSymbolCode());
   }
 
-  void GetSymbolDescription(JSContext* aCx, nsACString& aID) const;
+  const char* SymbolDescription() const;
+
+  const char* NameOrDescription() const {
+    if (IsSymbol()) {
+      return SymbolDescription();
+    }
+    return Name();
+  }
+
+  bool GetId(JSContext* aCx, jsid& aId) const;
+
+  /////////////////////////////////////////////
+  // nsXPTMethodInfo backwards compatibility //
+  /////////////////////////////////////////////
+
+  const char* GetName() const { return Name(); }
 
   uint8_t GetParamCount() const { return ParamCount(); }
   const nsXPTParamInfo& GetParam(uint8_t aIndex) const { return Param(aIndex); }
@@ -478,8 +495,7 @@ struct nsXPTMethodInfo {
 
   uint8_t mGetter : 1;
   uint8_t mSetter : 1;
-  uint8_t mNotXPCOM : 1;
-  uint8_t mHidden : 1;
+  uint8_t mReflectable : 1;
   uint8_t mOptArgc : 1;
   uint8_t mContext : 1;
   uint8_t mHasRetval : 1;
@@ -488,6 +504,17 @@ struct nsXPTMethodInfo {
 
 // The fields in nsXPTMethodInfo were carefully ordered to minimize size.
 static_assert(sizeof(nsXPTMethodInfo) == 8, "wrong size");
+
+// This number is chosen to be no larger than the maximum number of parameters
+// any XPIDL-defined function needs; there is a static assert in the generated
+// code from xptcodegen.py to verify that decision.  It is therefore also the
+// maximum number of stack allocated nsXPTCMiniVariant structures for argument
+// passing purposes in PrepareAndDispatch implementations.
+#if defined(MOZ_THUNDERBIRD) || defined(MOZ_SUITE)
+#  define PARAM_BUFFER_COUNT 18
+#else
+#  define PARAM_BUFFER_COUNT 14
+#endif
 
 /**
  * A nsXPTConstantInfo is used to describe a single interface constant.
@@ -522,8 +549,8 @@ static_assert(sizeof(nsXPTConstantInfo) == 8, "wrong size");
  * This object will not live in rodata as it contains relocations.
  */
 struct nsXPTDOMObjectInfo {
-  nsresult Unwrap(JS::HandleValue aHandle, void** aObj) const {
-    return mUnwrap(aHandle, aObj);
+  nsresult Unwrap(JS::HandleValue aHandle, void** aObj, JSContext* aCx) const {
+    return mUnwrap(aHandle, aObj, aCx);
   }
 
   bool Wrap(JSContext* aCx, void* aObj, JS::MutableHandleValue aHandle) const {
@@ -536,7 +563,7 @@ struct nsXPTDOMObjectInfo {
   // Ensure these fields are in the same order as xptcodegen.py //
   ////////////////////////////////////////////////////////////////
 
-  nsresult (*mUnwrap)(JS::HandleValue aHandle, void** aObj);
+  nsresult (*mUnwrap)(JS::HandleValue aHandle, void** aObj, JSContext* aCx);
   bool (*mWrap)(JSContext* aCx, void* aObj, JS::MutableHandleValue aHandle);
   void (*mCleanup)(void* aObj);
 };
@@ -547,7 +574,7 @@ namespace detail {
 // The UntypedTArray type allows low-level access from XPConnect to nsTArray
 // internals without static knowledge of the array element type in question.
 class UntypedTArray : public nsTArray_base<nsTArrayFallibleAllocator,
-                                           nsTArray_CopyWithMemutils> {
+                                           nsTArray_RelocateUsingMemutils> {
  public:
   void* Elements() const { return static_cast<void*>(Hdr() + 1); }
 
@@ -557,7 +584,11 @@ class UntypedTArray : public nsTArray_base<nsTArrayFallibleAllocator,
     if (!EnsureCapacity<nsTArrayFallibleAllocator>(aTo, aEltTy.Stride())) {
       return false;
     }
-    mHdr->mLength = aTo;
+
+    if (mHdr != EmptyHdr()) {
+      mHdr->mLength = aTo;
+    }
+
     return true;
   }
 
@@ -635,7 +666,7 @@ inline const char* GetString(uint32_t aIndex) { return &sStrings[aIndex]; }
 
 #define XPT_FOR_EACH_POINTER_TYPE(MACRO)    \
   MACRO(TD_VOID, void*)                     \
-  MACRO(TD_PNSIID, nsID*)                   \
+  MACRO(TD_NSIDPTR, nsID*)                  \
   MACRO(TD_PSTRING, char*)                  \
   MACRO(TD_PWSTRING, wchar_t*)              \
   MACRO(TD_INTERFACE_TYPE, nsISupports*)    \
@@ -650,6 +681,7 @@ inline const char* GetString(uint32_t aIndex) { return &sStrings[aIndex]; }
   MACRO(TD_UTF8STRING, nsCString)        \
   MACRO(TD_CSTRING, nsCString)           \
   MACRO(TD_ASTRING, nsString)            \
+  MACRO(TD_NSID, nsID)                   \
   MACRO(TD_JSVAL, JS::Value)             \
   MACRO(TD_ARRAY, xpt::detail::UntypedTArray)
 

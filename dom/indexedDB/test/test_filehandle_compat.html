@@ -6,7 +6,7 @@
 <head>
   <title>File Handle Test</title>
 
-  <script type="text/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css" />
 
   <script type="text/javascript">
@@ -22,7 +22,7 @@
     let db = event.target.result;
     db.onerror = errorHandler;
 
-    request = db.mozCreateFileHandle("test.txt");
+    request = db.createMutableFile("test.txt");
     request.onerror = errorHandler;
     request.onsuccess = grabEventAndContinueHandler;
     event = yield undefined;

@@ -30,12 +30,14 @@ class Context;
 class Sync;
 class Framebuffer;
 struct Limitations;
+class MemoryObject;
 class Path;
 class Program;
 class ProgramPipeline;
 class Renderbuffer;
 class Sampler;
 class Shader;
+class Semaphore;
 class Texture;
 
 template <typename HandleAllocatorType>
@@ -64,7 +66,7 @@ class TypedResourceManager : public ResourceManagerBase<HandleAllocatorType>
     TypedResourceManager() {}
 
     void deleteObject(const Context *context, GLuint handle);
-    bool isHandleGenerated(GLuint handle) const
+    ANGLE_INLINE bool isHandleGenerated(GLuint handle) const
     {
         // Zero is always assumed to have been generated implicitly.
         return handle == 0 || mObjectMap.contains(handle);
@@ -147,7 +149,8 @@ class ShaderProgramManager : public ResourceManagerBase<HandleAllocator>
 
     GLuint createProgram(rx::GLImplFactory *factory);
     void deleteProgram(const Context *context, GLuint program);
-    Program *getProgram(GLuint handle) const;
+
+    ANGLE_INLINE Program *getProgram(GLuint handle) const { return mPrograms.query(handle); }
 
   protected:
     ~ShaderProgramManager() override;
@@ -166,11 +169,17 @@ class TextureManager : public TypedResourceManager<Texture, HandleAllocator, Tex
 {
   public:
     GLuint createTexture();
-    Texture *getTexture(GLuint handle) const;
+    ANGLE_INLINE Texture *getTexture(GLuint handle) const
+    {
+        ASSERT(mObjectMap.query(0) == nullptr);
+        return mObjectMap.query(handle);
+    }
 
-    void signalAllTexturesDirty(const Context *context) const;
+    void signalAllTexturesDirty() const;
 
-    Texture *checkTextureAllocation(rx::GLImplFactory *factory, GLuint handle, TextureType type)
+    ANGLE_INLINE Texture *checkTextureAllocation(rx::GLImplFactory *factory,
+                                                 GLuint handle,
+                                                 TextureType type)
     {
         return checkObjectAllocation(factory, handle, type);
     }
@@ -239,7 +248,7 @@ class PathManager : public ResourceManagerBase<HandleRangeAllocator>
   public:
     PathManager();
 
-    ErrorOrResult<GLuint> createPaths(rx::GLImplFactory *factory, GLsizei range);
+    angle::Result createPaths(Context *context, GLsizei range, GLuint *numCreated);
     void deletePaths(GLuint first, GLsizei range);
     Path *getPath(GLuint handle) const;
     bool hasPath(GLuint handle) const;
@@ -260,7 +269,7 @@ class FramebufferManager
     Framebuffer *getFramebuffer(GLuint handle) const;
     void setDefaultFramebuffer(Framebuffer *framebuffer);
 
-    void invalidateFramebufferComplenessCache(const Context *context) const;
+    void invalidateFramebufferComplenessCache() const;
 
     Framebuffer *checkFramebufferAllocation(rx::GLImplFactory *factory,
                                             const Caps &caps,
@@ -297,6 +306,42 @@ class ProgramPipelineManager
     ~ProgramPipelineManager() override {}
 };
 
+class MemoryObjectManager : public ResourceManagerBase<HandleAllocator>
+{
+  public:
+    MemoryObjectManager();
+
+    GLuint createMemoryObject(rx::GLImplFactory *factory);
+    void deleteMemoryObject(const Context *context, GLuint handle);
+    MemoryObject *getMemoryObject(GLuint handle) const;
+
+  protected:
+    ~MemoryObjectManager() override;
+
+  private:
+    void reset(const Context *context) override;
+
+    ResourceMap<MemoryObject> mMemoryObjects;
+};
+
+class SemaphoreManager : public ResourceManagerBase<HandleAllocator>
+{
+  public:
+    SemaphoreManager();
+
+    GLuint createSemaphore(rx::GLImplFactory *factory);
+    void deleteSemaphore(const Context *context, GLuint handle);
+    Semaphore *getSemaphore(GLuint handle) const;
+
+  protected:
+    ~SemaphoreManager() override;
+
+  private:
+    void reset(const Context *context) override;
+
+    ResourceMap<Semaphore> mSemaphores;
+};
+
 }  // namespace gl
 
-#endif // LIBANGLE_RESOURCEMANAGER_H_
+#endif  // LIBANGLE_RESOURCEMANAGER_H_

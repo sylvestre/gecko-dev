@@ -22,15 +22,25 @@
 
 #include "fdlibm.h"
 #include "jslibmath.h"
+#include "jsmath.h"
 
+#include "gc/Allocator.h"
 #include "jit/AtomicOperations.h"
 #include "jit/InlinableNatives.h"
 #include "jit/MacroAssembler.h"
+#include "jit/Simulator.h"
+#include "js/experimental/JitInfo.h"  // JSJitInfo
+#include "js/friend/ErrorMessages.h"  // js::GetErrorMessage, JSMSG_*
+#include "js/friend/StackLimits.h"    // js::CheckRecursionLimit
 #include "threading/Mutex.h"
+#include "util/Memory.h"
+#include "util/Poison.h"
+#include "vm/BigIntType.h"
 #include "wasm/WasmInstance.h"
 #include "wasm/WasmStubs.h"
+#include "wasm/WasmTypes.h"
 
-#include "vm/Debugger-inl.h"
+#include "debugger/DebugAPI-inl.h"
 #include "vm/Stack-inl.h"
 
 using namespace js;
@@ -45,7 +55,233 @@ static const unsigned BUILTIN_THUNK_LIFO_SIZE = 64 * 1024;
 
 // ============================================================================
 // WebAssembly builtin C++ functions called from wasm code to implement internal
-// wasm operations.
+// wasm operations: type descriptions.
+
+// Some abbreviations, for the sake of conciseness.
+#define _F64 MIRType::Double
+#define _F32 MIRType::Float32
+#define _I32 MIRType::Int32
+#define _I64 MIRType::Int64
+#define _PTR MIRType::Pointer
+#define _RoN MIRType::RefOrNull
+#define _VOID MIRType::None
+#define _END MIRType::None
+#define _Infallible FailureMode::Infallible
+#define _FailOnNegI32 FailureMode::FailOnNegI32
+#define _FailOnNullPtr FailureMode::FailOnNullPtr
+#define _FailOnInvalidRef FailureMode::FailOnInvalidRef
+
+namespace js {
+namespace wasm {
+
+const SymbolicAddressSignature SASigSinD = {
+    SymbolicAddress::SinD, _F64, _Infallible, 1, {_F64, _END}};
+const SymbolicAddressSignature SASigCosD = {
+    SymbolicAddress::CosD, _F64, _Infallible, 1, {_F64, _END}};
+const SymbolicAddressSignature SASigTanD = {
+    SymbolicAddress::TanD, _F64, _Infallible, 1, {_F64, _END}};
+const SymbolicAddressSignature SASigASinD = {
+    SymbolicAddress::ASinD, _F64, _Infallible, 1, {_F64, _END}};
+const SymbolicAddressSignature SASigACosD = {
+    SymbolicAddress::ACosD, _F64, _Infallible, 1, {_F64, _END}};
+const SymbolicAddressSignature SASigATanD = {
+    SymbolicAddress::ATanD, _F64, _Infallible, 1, {_F64, _END}};
+const SymbolicAddressSignature SASigCeilD = {
+    SymbolicAddress::CeilD, _F64, _Infallible, 1, {_F64, _END}};
+const SymbolicAddressSignature SASigCeilF = {
+    SymbolicAddress::CeilF, _F32, _Infallible, 1, {_F32, _END}};
+const SymbolicAddressSignature SASigFloorD = {
+    SymbolicAddress::FloorD, _F64, _Infallible, 1, {_F64, _END}};
+const SymbolicAddressSignature SASigFloorF = {
+    SymbolicAddress::FloorF, _F32, _Infallible, 1, {_F32, _END}};
+const SymbolicAddressSignature SASigTruncD = {
+    SymbolicAddress::TruncD, _F64, _Infallible, 1, {_F64, _END}};
+const SymbolicAddressSignature SASigTruncF = {
+    SymbolicAddress::TruncF, _F32, _Infallible, 1, {_F32, _END}};
+const SymbolicAddressSignature SASigNearbyIntD = {
+    SymbolicAddress::NearbyIntD, _F64, _Infallible, 1, {_F64, _END}};
+const SymbolicAddressSignature SASigNearbyIntF = {
+    SymbolicAddress::NearbyIntF, _F32, _Infallible, 1, {_F32, _END}};
+const SymbolicAddressSignature SASigExpD = {
+    SymbolicAddress::ExpD, _F64, _Infallible, 1, {_F64, _END}};
+const SymbolicAddressSignature SASigLogD = {
+    SymbolicAddress::LogD, _F64, _Infallible, 1, {_F64, _END}};
+const SymbolicAddressSignature SASigPowD = {
+    SymbolicAddress::PowD, _F64, _Infallible, 2, {_F64, _F64, _END}};
+const SymbolicAddressSignature SASigATan2D = {
+    SymbolicAddress::ATan2D, _F64, _Infallible, 2, {_F64, _F64, _END}};
+const SymbolicAddressSignature SASigMemoryGrow = {
+    SymbolicAddress::MemoryGrow, _I32, _Infallible, 2, {_PTR, _I32, _END}};
+const SymbolicAddressSignature SASigMemorySize = {
+    SymbolicAddress::MemorySize, _I32, _Infallible, 1, {_PTR, _END}};
+const SymbolicAddressSignature SASigWaitI32 = {SymbolicAddress::WaitI32,
+                                               _I32,
+                                               _FailOnNegI32,
+                                               4,
+                                               {_PTR, _I32, _I32, _I64, _END}};
+const SymbolicAddressSignature SASigWaitI64 = {SymbolicAddress::WaitI64,
+                                               _I32,
+                                               _FailOnNegI32,
+                                               4,
+                                               {_PTR, _I32, _I64, _I64, _END}};
+const SymbolicAddressSignature SASigWake = {
+    SymbolicAddress::Wake, _I32, _FailOnNegI32, 3, {_PTR, _I32, _I32, _END}};
+const SymbolicAddressSignature SASigMemCopy = {
+    SymbolicAddress::MemCopy,
+    _VOID,
+    _FailOnNegI32,
+    5,
+    {_PTR, _I32, _I32, _I32, _PTR, _END}};
+const SymbolicAddressSignature SASigMemCopyShared = {
+    SymbolicAddress::MemCopyShared,
+    _VOID,
+    _FailOnNegI32,
+    5,
+    {_PTR, _I32, _I32, _I32, _PTR, _END}};
+const SymbolicAddressSignature SASigDataDrop = {
+    SymbolicAddress::DataDrop, _VOID, _FailOnNegI32, 2, {_PTR, _I32, _END}};
+const SymbolicAddressSignature SASigMemFill = {
+    SymbolicAddress::MemFill,
+    _VOID,
+    _FailOnNegI32,
+    5,
+    {_PTR, _I32, _I32, _I32, _PTR, _END}};
+const SymbolicAddressSignature SASigMemFillShared = {
+    SymbolicAddress::MemFillShared,
+    _VOID,
+    _FailOnNegI32,
+    5,
+    {_PTR, _I32, _I32, _I32, _PTR, _END}};
+const SymbolicAddressSignature SASigMemInit = {
+    SymbolicAddress::MemInit,
+    _VOID,
+    _FailOnNegI32,
+    5,
+    {_PTR, _I32, _I32, _I32, _I32, _END}};
+const SymbolicAddressSignature SASigTableCopy = {
+    SymbolicAddress::TableCopy,
+    _VOID,
+    _FailOnNegI32,
+    6,
+    {_PTR, _I32, _I32, _I32, _I32, _I32, _END}};
+const SymbolicAddressSignature SASigElemDrop = {
+    SymbolicAddress::ElemDrop, _VOID, _FailOnNegI32, 2, {_PTR, _I32, _END}};
+const SymbolicAddressSignature SASigTableFill = {
+    SymbolicAddress::TableFill,
+    _VOID,
+    _FailOnNegI32,
+    5,
+    {_PTR, _I32, _RoN, _I32, _I32, _END}};
+const SymbolicAddressSignature SASigTableGet = {SymbolicAddress::TableGet,
+                                                _RoN,
+                                                _FailOnInvalidRef,
+                                                3,
+                                                {_PTR, _I32, _I32, _END}};
+const SymbolicAddressSignature SASigTableGrow = {
+    SymbolicAddress::TableGrow,
+    _I32,
+    _Infallible,
+    4,
+    {_PTR, _RoN, _I32, _I32, _END}};
+const SymbolicAddressSignature SASigTableInit = {
+    SymbolicAddress::TableInit,
+    _VOID,
+    _FailOnNegI32,
+    6,
+    {_PTR, _I32, _I32, _I32, _I32, _I32, _END}};
+const SymbolicAddressSignature SASigTableSet = {SymbolicAddress::TableSet,
+                                                _VOID,
+                                                _FailOnNegI32,
+                                                4,
+                                                {_PTR, _I32, _RoN, _I32, _END}};
+const SymbolicAddressSignature SASigTableSize = {
+    SymbolicAddress::TableSize, _I32, _Infallible, 2, {_PTR, _I32, _END}};
+const SymbolicAddressSignature SASigRefFunc = {
+    SymbolicAddress::RefFunc, _RoN, _FailOnInvalidRef, 2, {_PTR, _I32, _END}};
+const SymbolicAddressSignature SASigPreBarrierFiltering = {
+    SymbolicAddress::PreBarrierFiltering,
+    _VOID,
+    _Infallible,
+    2,
+    {_PTR, _PTR, _END}};
+const SymbolicAddressSignature SASigPostBarrier = {
+    SymbolicAddress::PostBarrier, _VOID, _Infallible, 2, {_PTR, _PTR, _END}};
+const SymbolicAddressSignature SASigPostBarrierFiltering = {
+    SymbolicAddress::PostBarrierFiltering,
+    _VOID,
+    _Infallible,
+    2,
+    {_PTR, _PTR, _END}};
+const SymbolicAddressSignature SASigStructNew = {
+    SymbolicAddress::StructNew, _RoN, _FailOnNullPtr, 2, {_PTR, _I32, _END}};
+const SymbolicAddressSignature SASigStructNarrow = {
+    SymbolicAddress::StructNarrow,
+    _RoN,
+    _Infallible,
+    3,
+    {_PTR, _I32, _RoN, _END}};
+
+}  // namespace wasm
+}  // namespace js
+
+#undef _F64
+#undef _F32
+#undef _I32
+#undef _I64
+#undef _PTR
+#undef _RoN
+#undef _VOID
+#undef _END
+#undef _Infallible
+#undef _FailOnNegI32
+#undef _FailOnNullPtr
+
+#ifdef DEBUG
+ABIArgType ToABIType(FailureMode mode) {
+  switch (mode) {
+    case FailureMode::FailOnNegI32:
+      return ArgType_Int32;
+    case FailureMode::FailOnNullPtr:
+    case FailureMode::FailOnInvalidRef:
+      return ArgType_General;
+    default:
+      MOZ_CRASH("unexpected failure mode");
+  }
+}
+
+ABIArgType ToABIType(MIRType type) {
+  switch (type) {
+    case MIRType::None:
+    case MIRType::Int32:
+      return ArgType_Int32;
+    case MIRType::Int64:
+      return ArgType_Int64;
+    case MIRType::Pointer:
+    case MIRType::RefOrNull:
+      return ArgType_General;
+    case MIRType::Float32:
+      return ArgType_Float32;
+    case MIRType::Double:
+      return ArgType_Float64;
+    default:
+      MOZ_CRASH("unexpected type");
+  }
+}
+
+ABIFunctionType ToABIType(const SymbolicAddressSignature& sig) {
+  MOZ_ASSERT_IF(sig.failureMode != FailureMode::Infallible,
+                ToABIType(sig.failureMode) == ToABIType(sig.retType));
+  int abiType = ToABIType(sig.retType) << RetType_Shift;
+  for (int i = 0; i < sig.numArgs; i++) {
+    abiType |= (ToABIType(sig.argTypes[i]) << (ArgType_Shift * (i + 1)));
+  }
+  return ABIFunctionType(abiType);
+}
+#endif
+
+// ============================================================================
+// WebAssembly builtin C++ functions called from wasm code to implement internal
+// wasm operations: implementations.
 
 #if defined(JS_CODEGEN_ARM)
 extern "C" {
@@ -68,17 +304,17 @@ static bool WasmHandleDebugTrap() {
   JitActivation* activation = CallingActivation();
   JSContext* cx = activation->cx();
   Frame* fp = activation->wasmExitFP();
-  Instance* instance = fp->tls->instance;
+  Instance* instance = GetNearestEffectiveTls(fp)->instance;
   const Code& code = instance->code();
   MOZ_ASSERT(code.metadata().debugEnabled);
 
   // The debug trap stub is the innermost frame. It's return address is the
   // actual trap site.
-  const CallSite* site = code.lookupCallSite(fp->returnAddress);
+  const CallSite* site = code.lookupCallSite(fp->returnAddress());
   MOZ_ASSERT(site);
 
   // Advance to the actual trapping frame.
-  fp = fp->callerFP;
+  fp = fp->wasmCaller();
   DebugFrame* debugFrame = DebugFrame::from(fp);
 
   if (site->kind() == CallSite::EnterFrame) {
@@ -87,19 +323,24 @@ static bool WasmHandleDebugTrap() {
     }
     debugFrame->setIsDebuggee();
     debugFrame->observe(cx);
-    ResumeMode mode = Debugger::onEnterFrame(cx, debugFrame);
-    if (mode == ResumeMode::Return) {
-      // Ignoring forced return (ResumeMode::Return) -- changing code execution
-      // order is not yet implemented in the wasm baseline.
-      // TODO properly handle ResumeMode::Return and resume wasm execution.
-      JS_ReportErrorASCII(cx, "Unexpected resumption value from onEnterFrame");
+    if (!DebugAPI::onEnterFrame(cx, debugFrame)) {
+      if (cx->isPropagatingForcedReturn()) {
+        cx->clearPropagatingForcedReturn();
+        // Ignoring forced return because changing code execution order is
+        // not yet implemented in the wasm baseline.
+        // TODO properly handle forced return and resume wasm execution.
+        JS_ReportErrorASCII(cx,
+                            "Unexpected resumption value from onEnterFrame");
+      }
       return false;
     }
-    return mode == ResumeMode::Continue;
+    return true;
   }
   if (site->kind() == CallSite::LeaveFrame) {
-    debugFrame->updateReturnJSValue();
-    bool ok = Debugger::onLeaveFrame(cx, debugFrame, nullptr, true);
+    if (!debugFrame->updateReturnJSValue(cx)) {
+      return false;
+    }
+    bool ok = DebugAPI::onLeaveFrame(cx, debugFrame, nullptr, true);
     debugFrame->leave(cx);
     return ok;
   }
@@ -107,27 +348,24 @@ static bool WasmHandleDebugTrap() {
   DebugState& debug = instance->debug();
   MOZ_ASSERT(debug.hasBreakpointTrapAtOffset(site->lineOrBytecode()));
   if (debug.stepModeEnabled(debugFrame->funcIndex())) {
-    RootedValue result(cx, UndefinedValue());
-    ResumeMode mode = Debugger::onSingleStep(cx, &result);
-    if (mode == ResumeMode::Return) {
-      // TODO properly handle ResumeMode::Return.
-      JS_ReportErrorASCII(cx, "Unexpected resumption value from onSingleStep");
-      return false;
-    }
-    if (mode != ResumeMode::Continue) {
+    if (!DebugAPI::onSingleStep(cx)) {
+      if (cx->isPropagatingForcedReturn()) {
+        cx->clearPropagatingForcedReturn();
+        // TODO properly handle forced return.
+        JS_ReportErrorASCII(cx,
+                            "Unexpected resumption value from onSingleStep");
+      }
       return false;
     }
   }
   if (debug.hasBreakpointSite(site->lineOrBytecode())) {
-    RootedValue result(cx, UndefinedValue());
-    ResumeMode mode = Debugger::onTrap(cx, &result);
-    if (mode == ResumeMode::Return) {
-      // TODO properly handle ResumeMode::Return.
-      JS_ReportErrorASCII(
-          cx, "Unexpected resumption value from breakpoint handler");
-      return false;
-    }
-    if (mode != ResumeMode::Continue) {
+    if (!DebugAPI::onTrap(cx)) {
+      if (cx->isPropagatingForcedReturn()) {
+        cx->clearPropagatingForcedReturn();
+        // TODO properly handle forced return.
+        JS_ReportErrorASCII(
+            cx, "Unexpected resumption value from breakpoint handler");
+      }
       return false;
     }
   }
@@ -177,17 +415,19 @@ void* wasm::HandleThrow(JSContext* cx, WasmFrameIter& iter) {
     // Assume ResumeMode::Terminate if no exception is pending --
     // no onExceptionUnwind handlers must be fired.
     if (cx->isExceptionPending()) {
-      ResumeMode mode = Debugger::onExceptionUnwind(cx, frame);
-      if (mode == ResumeMode::Return) {
-        // Unexpected trap return -- raising error since throw recovery
-        // is not yet implemented in the wasm baseline.
-        // TODO properly handle ResumeMode::Return and resume wasm execution.
-        JS_ReportErrorASCII(
-            cx, "Unexpected resumption value from onExceptionUnwind");
+      if (!DebugAPI::onExceptionUnwind(cx, frame)) {
+        if (cx->isPropagatingForcedReturn()) {
+          cx->clearPropagatingForcedReturn();
+          // Unexpected trap return -- raising error since throw recovery
+          // is not yet implemented in the wasm baseline.
+          // TODO properly handle forced return and resume wasm execution.
+          JS_ReportErrorASCII(
+              cx, "Unexpected resumption value from onExceptionUnwind");
+        }
       }
     }
 
-    bool ok = Debugger::onLeaveFrame(cx, frame, nullptr, false);
+    bool ok = DebugAPI::onLeaveFrame(cx, frame, nullptr, false);
     if (ok) {
       // Unexpected success from the handler onLeaveFrame -- raising error
       // since throw recovery is not yet implemented in the wasm baseline.
@@ -269,7 +509,7 @@ static void* WasmHandleTrap() {
       if (!CheckRecursionLimit(cx)) {
         return nullptr;
       }
-      if (activation->wasmExitFP()->tls->isInterrupted()) {
+      if (activation->wasmExitTls()->isInterrupted()) {
         return CheckInterrupt(cx, activation);
       }
       return ReportError(cx, JSMSG_OVER_RECURSED);
@@ -283,10 +523,10 @@ static void* WasmHandleTrap() {
   MOZ_CRASH("unexpected trap");
 }
 
-static void WasmReportInt64JSCall() {
+static void WasmReportV128JSCall() {
   JSContext* cx = TlsContext.get();
   JS_ReportErrorNumberUTF8(cx, GetErrorMessage, nullptr,
-                           JSMSG_WASM_BAD_I64_TYPE);
+                           JSMSG_WASM_BAD_VAL_TYPE);
 }
 
 static int32_t CoerceInPlace_ToInt32(Value* rawVal) {
@@ -300,6 +540,20 @@ static int32_t CoerceInPlace_ToInt32(Value* rawVal) {
   }
 
   *rawVal = Int32Value(i32);
+  return true;
+}
+
+static int32_t CoerceInPlace_ToBigInt(Value* rawVal) {
+  JSContext* cx = TlsContext.get();
+
+  RootedValue val(cx, *rawVal);
+  BigInt* bi = ToBigInt(cx, val);
+  if (!bi) {
+    *rawVal = PoisonedObjectValue(0x43);
+    return false;
+  }
+
+  *rawVal = BigIntValue(bi);
   return true;
 }
 
@@ -317,6 +571,16 @@ static int32_t CoerceInPlace_ToNumber(Value* rawVal) {
   return true;
 }
 
+static void* BoxValue_Anyref(Value* rawVal) {
+  JSContext* cx = TlsContext.get();
+  RootedValue val(cx, *rawVal);
+  RootedAnyRef result(cx, AnyRef::null());
+  if (!BoxAnyRef(cx, val, &result)) {
+    return nullptr;
+  }
+  return result.get().forCompiledCode();
+}
+
 static int32_t CoerceInPlace_JitEntry(int funcExportIndex, TlsData* tlsData,
                                       Value* argv) {
   JSContext* cx = CallingActivation()->cx();
@@ -327,13 +591,24 @@ static int32_t CoerceInPlace_JitEntry(int funcExportIndex, TlsData* tlsData,
 
   for (size_t i = 0; i < fe.funcType().args().length(); i++) {
     HandleValue arg = HandleValue::fromMarkedLocation(&argv[i]);
-    switch (fe.funcType().args()[i].code()) {
+    switch (fe.funcType().args()[i].kind()) {
       case ValType::I32: {
         int32_t i32;
         if (!ToInt32(cx, arg, &i32)) {
           return false;
         }
         argv[i] = Int32Value(i32);
+        break;
+      }
+      case ValType::I64: {
+        // In this case we store a BigInt value as there is no value type
+        // corresponding directly to an I64. The conversion to I64 happens
+        // in the JIT entry stub.
+        BigInt* bigint = ToBigInt(cx, arg);
+        if (!bigint) {
+          return false;
+        }
+        argv[i] = BigIntValue(bigint);
         break;
       }
       case ValType::F32:
@@ -347,6 +622,31 @@ static int32_t CoerceInPlace_JitEntry(int funcExportIndex, TlsData* tlsData,
         argv[i] = DoubleValue(dbl);
         break;
       }
+      case ValType::Ref: {
+        switch (fe.funcType().args()[i].refTypeKind()) {
+          case RefType::Extern:
+            // Leave Object and Null alone, we will unbox inline.  All we need
+            // to do is convert other values to an Object representation.
+            if (!arg.isObjectOrNull()) {
+              RootedAnyRef result(cx, AnyRef::null());
+              if (!BoxAnyRef(cx, arg, &result)) {
+                return false;
+              }
+              argv[i].setObject(*result.get().asJSObject());
+            }
+            break;
+          case RefType::Func:
+          case RefType::Eq:
+          case RefType::TypeIndex:
+            // Guarded against by temporarilyUnsupportedReftypeForEntry()
+            MOZ_CRASH("unexpected input argument in CoerceInPlace_JitEntry");
+        }
+        break;
+      }
+      case ValType::V128: {
+        // Guarded against by hasV128ArgOrRet()
+        MOZ_CRASH("unexpected input argument in CoerceInPlace_JitEntry");
+      }
       default: {
         MOZ_CRASH("unexpected input argument in CoerceInPlace_JitEntry");
       }
@@ -354,6 +654,13 @@ static int32_t CoerceInPlace_JitEntry(int funcExportIndex, TlsData* tlsData,
   }
 
   return true;
+}
+
+// Allocate a BigInt without GC, corresponds to the similar VMFunction.
+static BigInt* AllocateBigIntTenuredNoGC() {
+  JSContext* cx = TlsContext.get();
+
+  return js::AllocateBigInt<NoGC>(cx, gc::TenuredHeap);
 }
 
 static int64_t DivI64(uint32_t x_hi, uint32_t x_lo, uint32_t y_hi,
@@ -467,7 +774,19 @@ static inline void* FuncCast(F* funcPtr, ABIFunctionType abiType) {
   return pf;
 }
 
-static void* AddressOf(SymbolicAddress imm, ABIFunctionType* abiType) {
+#ifdef WASM_CODEGEN_DEBUG
+void wasm::PrintI32(int32_t val) { fprintf(stderr, "i32(%d) ", val); }
+
+void wasm::PrintPtr(uint8_t* val) { fprintf(stderr, "ptr(%p) ", val); }
+
+void wasm::PrintF32(float val) { fprintf(stderr, "f32(%f) ", val); }
+
+void wasm::PrintF64(double val) { fprintf(stderr, "f64(%lf) ", val); }
+
+void wasm::PrintText(const char* out) { fprintf(stderr, "%s", out); }
+#endif
+
+void* wasm::AddressOf(SymbolicAddress imm, ABIFunctionType* abiType) {
   switch (imm) {
     case SymbolicAddress::HandleDebugTrap:
       *abiType = Args_General0;
@@ -478,27 +797,20 @@ static void* AddressOf(SymbolicAddress imm, ABIFunctionType* abiType) {
     case SymbolicAddress::HandleTrap:
       *abiType = Args_General0;
       return FuncCast(WasmHandleTrap, *abiType);
-    case SymbolicAddress::ReportInt64JSCall:
+    case SymbolicAddress::ReportV128JSCall:
       *abiType = Args_General0;
-      return FuncCast(WasmReportInt64JSCall, *abiType);
-    case SymbolicAddress::CallImport_Void:
-      *abiType = Args_General4;
-      return FuncCast(Instance::callImport_void, *abiType);
-    case SymbolicAddress::CallImport_I32:
-      *abiType = Args_General4;
-      return FuncCast(Instance::callImport_i32, *abiType);
-    case SymbolicAddress::CallImport_I64:
-      *abiType = Args_General4;
-      return FuncCast(Instance::callImport_i64, *abiType);
-    case SymbolicAddress::CallImport_F64:
-      *abiType = Args_General4;
-      return FuncCast(Instance::callImport_f64, *abiType);
-    case SymbolicAddress::CallImport_Ref:
-      *abiType = Args_General4;
-      return FuncCast(Instance::callImport_ref, *abiType);
+      return FuncCast(WasmReportV128JSCall, *abiType);
+    case SymbolicAddress::CallImport_General:
+      *abiType = MakeABIFunctionType(
+          ArgType_Int32,
+          {ArgType_General, ArgType_Int32, ArgType_Int32, ArgType_General});
+      return FuncCast(Instance::callImport_general, *abiType);
     case SymbolicAddress::CoerceInPlace_ToInt32:
       *abiType = Args_General1;
       return FuncCast(CoerceInPlace_ToInt32, *abiType);
+    case SymbolicAddress::CoerceInPlace_ToBigInt:
+      *abiType = Args_General1;
+      return FuncCast(CoerceInPlace_ToBigInt, *abiType);
     case SymbolicAddress::CoerceInPlace_ToNumber:
       *abiType = Args_General1;
       return FuncCast(CoerceInPlace_ToNumber, *abiType);
@@ -508,6 +820,12 @@ static void* AddressOf(SymbolicAddress imm, ABIFunctionType* abiType) {
     case SymbolicAddress::ToInt32:
       *abiType = Args_Int_Double;
       return FuncCast<int32_t(double)>(JS::ToInt32, *abiType);
+    case SymbolicAddress::BoxValue_Anyref:
+      *abiType = Args_General1;
+      return FuncCast(BoxValue_Anyref, *abiType);
+    case SymbolicAddress::AllocateBigInt:
+      *abiType = Args_General0;
+      return FuncCast(AllocateBigIntTenuredNoGC, *abiType);
     case SymbolicAddress::DivI64:
       *abiType = Args_General4;
       return FuncCast(DivI64, *abiType);
@@ -609,66 +927,164 @@ static void* AddressOf(SymbolicAddress imm, ABIFunctionType* abiType) {
     case SymbolicAddress::ATan2D:
       *abiType = Args_Double_DoubleDouble;
       return FuncCast(ecmaAtan2, *abiType);
-    case SymbolicAddress::GrowMemory:
-      *abiType = Args_General2;
-      return FuncCast(Instance::growMemory_i32, *abiType);
-    case SymbolicAddress::CurrentMemory:
-      *abiType = Args_General1;
-      return FuncCast(Instance::currentMemory_i32, *abiType);
+
+    case SymbolicAddress::MemoryGrow:
+      *abiType =
+          MakeABIFunctionType(ArgType_Int32, {ArgType_General, ArgType_Int32});
+      MOZ_ASSERT(*abiType == ToABIType(SASigMemoryGrow));
+      return FuncCast(Instance::memoryGrow_i32, *abiType);
+    case SymbolicAddress::MemorySize:
+      *abiType = MakeABIFunctionType(ArgType_Int32, {ArgType_General});
+      MOZ_ASSERT(*abiType == ToABIType(SASigMemorySize));
+      return FuncCast(Instance::memorySize_i32, *abiType);
     case SymbolicAddress::WaitI32:
-      *abiType = Args_Int_GeneralGeneralGeneralInt64;
+      *abiType = MakeABIFunctionType(
+          ArgType_Int32,
+          {ArgType_General, ArgType_Int32, ArgType_Int32, ArgType_Int64});
+      MOZ_ASSERT(*abiType == ToABIType(SASigWaitI32));
       return FuncCast(Instance::wait_i32, *abiType);
     case SymbolicAddress::WaitI64:
-      *abiType = Args_Int_GeneralGeneralInt64Int64;
+      *abiType = MakeABIFunctionType(
+          ArgType_Int32,
+          {ArgType_General, ArgType_Int32, ArgType_Int64, ArgType_Int64});
+      MOZ_ASSERT(*abiType == ToABIType(SASigWaitI64));
       return FuncCast(Instance::wait_i64, *abiType);
     case SymbolicAddress::Wake:
-      *abiType = Args_General3;
+      *abiType = MakeABIFunctionType(
+          ArgType_Int32, {ArgType_General, ArgType_Int32, ArgType_Int32});
+      MOZ_ASSERT(*abiType == ToABIType(SASigWake));
       return FuncCast(Instance::wake, *abiType);
     case SymbolicAddress::MemCopy:
-      *abiType = Args_General4;
+      *abiType = MakeABIFunctionType(
+          ArgType_Int32, {ArgType_General, ArgType_Int32, ArgType_Int32,
+                          ArgType_Int32, ArgType_General});
+      MOZ_ASSERT(*abiType == ToABIType(SASigMemCopy));
       return FuncCast(Instance::memCopy, *abiType);
-    case SymbolicAddress::MemDrop:
-      *abiType = Args_General2;
-      return FuncCast(Instance::memDrop, *abiType);
+    case SymbolicAddress::MemCopyShared:
+      *abiType = MakeABIFunctionType(
+          ArgType_Int32, {ArgType_General, ArgType_Int32, ArgType_Int32,
+                          ArgType_Int32, ArgType_General});
+      MOZ_ASSERT(*abiType == ToABIType(SASigMemCopyShared));
+      return FuncCast(Instance::memCopyShared, *abiType);
+    case SymbolicAddress::DataDrop:
+      *abiType =
+          MakeABIFunctionType(ArgType_Int32, {ArgType_General, ArgType_Int32});
+      MOZ_ASSERT(*abiType == ToABIType(SASigDataDrop));
+      return FuncCast(Instance::dataDrop, *abiType);
     case SymbolicAddress::MemFill:
-      *abiType = Args_General4;
+      *abiType = MakeABIFunctionType(
+          ArgType_Int32, {ArgType_General, ArgType_Int32, ArgType_Int32,
+                          ArgType_Int32, ArgType_General});
+      MOZ_ASSERT(*abiType == ToABIType(SASigMemFill));
       return FuncCast(Instance::memFill, *abiType);
+    case SymbolicAddress::MemFillShared:
+      *abiType = MakeABIFunctionType(
+          ArgType_Int32, {ArgType_General, ArgType_Int32, ArgType_Int32,
+                          ArgType_Int32, ArgType_General});
+      MOZ_ASSERT(*abiType == ToABIType(SASigMemFillShared));
+      return FuncCast(Instance::memFillShared, *abiType);
     case SymbolicAddress::MemInit:
-      *abiType = Args_General5;
+      *abiType = MakeABIFunctionType(
+          ArgType_Int32, {ArgType_General, ArgType_Int32, ArgType_Int32,
+                          ArgType_Int32, ArgType_Int32});
+      MOZ_ASSERT(*abiType == ToABIType(SASigMemInit));
       return FuncCast(Instance::memInit, *abiType);
     case SymbolicAddress::TableCopy:
-      *abiType = Args_General6;
+      *abiType = MakeABIFunctionType(
+          ArgType_Int32, {ArgType_General, ArgType_Int32, ArgType_Int32,
+                          ArgType_Int32, ArgType_Int32, ArgType_Int32});
+      MOZ_ASSERT(*abiType == ToABIType(SASigTableCopy));
       return FuncCast(Instance::tableCopy, *abiType);
-    case SymbolicAddress::TableDrop:
-      *abiType = Args_General2;
-      return FuncCast(Instance::tableDrop, *abiType);
+    case SymbolicAddress::ElemDrop:
+      *abiType =
+          MakeABIFunctionType(ArgType_Int32, {ArgType_General, ArgType_Int32});
+      MOZ_ASSERT(*abiType == ToABIType(SASigElemDrop));
+      return FuncCast(Instance::elemDrop, *abiType);
+    case SymbolicAddress::TableFill:
+      *abiType = MakeABIFunctionType(
+          ArgType_Int32, {ArgType_General, ArgType_Int32, ArgType_General,
+                          ArgType_Int32, ArgType_Int32});
+      MOZ_ASSERT(*abiType == ToABIType(SASigTableFill));
+      return FuncCast(Instance::tableFill, *abiType);
     case SymbolicAddress::TableInit:
-      *abiType = Args_General6;
+      *abiType = MakeABIFunctionType(
+          ArgType_Int32, {ArgType_General, ArgType_Int32, ArgType_Int32,
+                          ArgType_Int32, ArgType_Int32, ArgType_Int32});
+      MOZ_ASSERT(*abiType == ToABIType(SASigTableInit));
       return FuncCast(Instance::tableInit, *abiType);
     case SymbolicAddress::TableGet:
-      *abiType = Args_General3;
+      *abiType = MakeABIFunctionType(
+          ArgType_General, {ArgType_General, ArgType_Int32, ArgType_Int32});
+      MOZ_ASSERT(*abiType == ToABIType(SASigTableGet));
       return FuncCast(Instance::tableGet, *abiType);
     case SymbolicAddress::TableGrow:
-      *abiType = Args_General4;
+      *abiType = MakeABIFunctionType(
+          ArgType_Int32,
+          {ArgType_General, ArgType_General, ArgType_Int32, ArgType_Int32});
+      MOZ_ASSERT(*abiType == ToABIType(SASigTableGrow));
       return FuncCast(Instance::tableGrow, *abiType);
     case SymbolicAddress::TableSet:
-      *abiType = Args_General4;
+      *abiType = MakeABIFunctionType(
+          ArgType_Int32,
+          {ArgType_General, ArgType_Int32, ArgType_General, ArgType_Int32});
+      MOZ_ASSERT(*abiType == ToABIType(SASigTableSet));
       return FuncCast(Instance::tableSet, *abiType);
     case SymbolicAddress::TableSize:
-      *abiType = Args_General2;
+      *abiType =
+          MakeABIFunctionType(ArgType_Int32, {ArgType_General, ArgType_Int32});
+      MOZ_ASSERT(*abiType == ToABIType(SASigTableSize));
       return FuncCast(Instance::tableSize, *abiType);
+    case SymbolicAddress::RefFunc:
+      *abiType = MakeABIFunctionType(ArgType_General,
+                                     {ArgType_General, ArgType_Int32});
+      MOZ_ASSERT(*abiType == ToABIType(SASigRefFunc));
+      return FuncCast(Instance::refFunc, *abiType);
     case SymbolicAddress::PostBarrier:
-      *abiType = Args_General2;
+      *abiType = MakeABIFunctionType(ArgType_Int32,
+                                     {ArgType_General, ArgType_General});
+      MOZ_ASSERT(*abiType == ToABIType(SASigPostBarrier));
       return FuncCast(Instance::postBarrier, *abiType);
+    case SymbolicAddress::PreBarrierFiltering:
+      *abiType = MakeABIFunctionType(ArgType_Int32,
+                                     {ArgType_General, ArgType_General});
+      MOZ_ASSERT(*abiType == ToABIType(SASigPreBarrierFiltering));
+      return FuncCast(Instance::preBarrierFiltering, *abiType);
+    case SymbolicAddress::PostBarrierFiltering:
+      *abiType = MakeABIFunctionType(ArgType_Int32,
+                                     {ArgType_General, ArgType_General});
+      MOZ_ASSERT(*abiType == ToABIType(SASigPostBarrierFiltering));
+      return FuncCast(Instance::postBarrierFiltering, *abiType);
     case SymbolicAddress::StructNew:
-      *abiType = Args_General2;
+      *abiType = MakeABIFunctionType(ArgType_General,
+                                     {ArgType_General, ArgType_Int32});
+      MOZ_ASSERT(*abiType == ToABIType(SASigStructNew));
       return FuncCast(Instance::structNew, *abiType);
     case SymbolicAddress::StructNarrow:
-      *abiType = Args_General4;
+      *abiType = MakeABIFunctionType(
+          ArgType_General, {ArgType_General, ArgType_Int32, ArgType_General});
+      MOZ_ASSERT(*abiType == ToABIType(SASigStructNarrow));
       return FuncCast(Instance::structNarrow, *abiType);
+
 #if defined(JS_CODEGEN_MIPS32)
     case SymbolicAddress::js_jit_gAtomic64Lock:
       return &js::jit::gAtomic64Lock;
+#endif
+#ifdef WASM_CODEGEN_DEBUG
+    case SymbolicAddress::PrintI32:
+      *abiType = Args_General1;
+      return FuncCast(PrintI32, *abiType);
+    case SymbolicAddress::PrintPtr:
+      *abiType = Args_General1;
+      return FuncCast(PrintPtr, *abiType);
+    case SymbolicAddress::PrintF32:
+      *abiType = Args_Int_Float32;
+      return FuncCast(PrintF32, *abiType);
+    case SymbolicAddress::PrintF64:
+      *abiType = Args_Int_Double;
+      return FuncCast(PrintF64, *abiType);
+    case SymbolicAddress::PrintText:
+      *abiType = Args_General1;
+      return FuncCast(PrintText, *abiType);
 #endif
     case SymbolicAddress::Limit:
       break;
@@ -681,18 +1097,23 @@ bool wasm::NeedsBuiltinThunk(SymbolicAddress sym) {
   // Some functions don't want to a thunk, because they already have one or
   // they don't have frame info.
   switch (sym) {
-    case SymbolicAddress::HandleDebugTrap:  // GenerateDebugTrapStub
-    case SymbolicAddress::HandleThrow:      // GenerateThrowStub
-    case SymbolicAddress::HandleTrap:       // GenerateTrapExit
-    case SymbolicAddress::CallImport_Void:  // GenerateImportInterpExit
-    case SymbolicAddress::CallImport_I32:
-    case SymbolicAddress::CallImport_I64:
-    case SymbolicAddress::CallImport_F64:
-    case SymbolicAddress::CallImport_Ref:
+    case SymbolicAddress::HandleDebugTrap:        // GenerateDebugTrapStub
+    case SymbolicAddress::HandleThrow:            // GenerateThrowStub
+    case SymbolicAddress::HandleTrap:             // GenerateTrapExit
+    case SymbolicAddress::CallImport_General:     // GenerateImportInterpExit
     case SymbolicAddress::CoerceInPlace_ToInt32:  // GenerateImportJitExit
     case SymbolicAddress::CoerceInPlace_ToNumber:
+    case SymbolicAddress::CoerceInPlace_ToBigInt:
+    case SymbolicAddress::BoxValue_Anyref:
 #if defined(JS_CODEGEN_MIPS32)
     case SymbolicAddress::js_jit_gAtomic64Lock:
+#endif
+#ifdef WASM_CODEGEN_DEBUG
+    case SymbolicAddress::PrintI32:
+    case SymbolicAddress::PrintPtr:
+    case SymbolicAddress::PrintF32:
+    case SymbolicAddress::PrintF64:
+    case SymbolicAddress::PrintText:  // Used only in stubs
 #endif
       return false;
     case SymbolicAddress::ToInt32:
@@ -712,6 +1133,7 @@ bool wasm::NeedsBuiltinThunk(SymbolicAddress sym) {
     case SymbolicAddress::aeabi_idivmod:
     case SymbolicAddress::aeabi_uidivmod:
 #endif
+    case SymbolicAddress::AllocateBigInt:
     case SymbolicAddress::ModD:
     case SymbolicAddress::SinD:
     case SymbolicAddress::CosD:
@@ -731,25 +1153,31 @@ bool wasm::NeedsBuiltinThunk(SymbolicAddress sym) {
     case SymbolicAddress::LogD:
     case SymbolicAddress::PowD:
     case SymbolicAddress::ATan2D:
-    case SymbolicAddress::GrowMemory:
-    case SymbolicAddress::CurrentMemory:
+    case SymbolicAddress::MemoryGrow:
+    case SymbolicAddress::MemorySize:
     case SymbolicAddress::WaitI32:
     case SymbolicAddress::WaitI64:
     case SymbolicAddress::Wake:
     case SymbolicAddress::CoerceInPlace_JitEntry:
-    case SymbolicAddress::ReportInt64JSCall:
+    case SymbolicAddress::ReportV128JSCall:
     case SymbolicAddress::MemCopy:
-    case SymbolicAddress::MemDrop:
+    case SymbolicAddress::MemCopyShared:
+    case SymbolicAddress::DataDrop:
     case SymbolicAddress::MemFill:
+    case SymbolicAddress::MemFillShared:
     case SymbolicAddress::MemInit:
     case SymbolicAddress::TableCopy:
-    case SymbolicAddress::TableDrop:
+    case SymbolicAddress::ElemDrop:
+    case SymbolicAddress::TableFill:
     case SymbolicAddress::TableGet:
     case SymbolicAddress::TableGrow:
     case SymbolicAddress::TableInit:
     case SymbolicAddress::TableSet:
     case SymbolicAddress::TableSize:
+    case SymbolicAddress::RefFunc:
+    case SymbolicAddress::PreBarrierFiltering:
     case SymbolicAddress::PostBarrier:
+    case SymbolicAddress::PostBarrierFiltering:
     case SymbolicAddress::StructNew:
     case SymbolicAddress::StructNarrow:
       return true;
@@ -821,7 +1249,7 @@ struct TypedNative {
   TypedNative(InlinableNative native, ABIFunctionType abiType)
       : native(native), abiType(abiType) {}
 
-  typedef TypedNative Lookup;
+  using Lookup = TypedNative;
   static HashNumber hash(const Lookup& l) {
     return HashGeneric(uint32_t(l.native), uint32_t(l.abiType));
   }
@@ -988,22 +1416,20 @@ bool wasm::EnsureBuiltinThunksInitialized() {
     return false;
   }
 
-  masm.executableCopy(thunks->codeBase, /* flushICache = */ false);
+  masm.executableCopy(thunks->codeBase);
   memset(thunks->codeBase + masm.bytesNeeded(), 0,
          allocSize - masm.bytesNeeded());
 
   masm.processCodeLabels(thunks->codeBase);
+  PatchDebugSymbolicAccesses(thunks->codeBase, masm);
 
   MOZ_ASSERT(masm.callSites().empty());
   MOZ_ASSERT(masm.callSiteTargets().empty());
-  MOZ_ASSERT(masm.callFarJumps().empty());
   MOZ_ASSERT(masm.trapSites().empty());
-  MOZ_ASSERT(masm.callFarJumps().empty());
-  MOZ_ASSERT(masm.symbolicAccesses().empty());
 
-  ExecutableAllocator::cacheFlush(thunks->codeBase, thunks->codeSize);
-  if (!ExecutableAllocator::makeExecutable(thunks->codeBase,
-                                           thunks->codeSize)) {
+  if (!ExecutableAllocator::makeExecutableAndFlushICache(
+          FlushICacheSpec::LocalThreadOnly, thunks->codeBase,
+          thunks->codeSize)) {
     return false;
   }
 
@@ -1037,15 +1463,19 @@ void* wasm::SymbolicAddressTarget(SymbolicAddress sym) {
 static Maybe<ABIFunctionType> ToBuiltinABIFunctionType(
     const FuncType& funcType) {
   const ValTypeVector& args = funcType.args();
-  ExprType ret = funcType.ret();
+  const ValTypeVector& results = funcType.results();
+
+  if (results.length() != 1) {
+    return Nothing();
+  }
 
   uint32_t abiType;
-  switch (ret.code()) {
-    case ExprType::F32:
+  switch (results[0].kind()) {
+    case ValType::F32:
       abiType = ArgType_Float32 << RetType_Shift;
       break;
-    case ExprType::F64:
-      abiType = ArgType_Double << RetType_Shift;
+    case ValType::F64:
+      abiType = ArgType_Float64 << RetType_Shift;
       break;
     default:
       return Nothing();
@@ -1056,12 +1486,12 @@ static Maybe<ABIFunctionType> ToBuiltinABIFunctionType(
   }
 
   for (size_t i = 0; i < args.length(); i++) {
-    switch (args[i].code()) {
+    switch (args[i].kind()) {
       case ValType::F32:
         abiType |= (ArgType_Float32 << (ArgType_Shift * (i + 1)));
         break;
       case ValType::F64:
-        abiType |= (ArgType_Double << (ArgType_Shift * (i + 1)));
+        abiType |= (ArgType_Float64 << (ArgType_Shift * (i + 1)));
         break;
       default:
         return Nothing();
@@ -1071,7 +1501,7 @@ static Maybe<ABIFunctionType> ToBuiltinABIFunctionType(
   return Some(ABIFunctionType(abiType));
 }
 
-void* wasm::MaybeGetBuiltinThunk(HandleFunction f, const FuncType& funcType) {
+void* wasm::MaybeGetBuiltinThunk(JSFunction* f, const FuncType& funcType) {
   MOZ_ASSERT(builtinThunks);
 
   if (!f->isNative() || !f->hasJitInfo() ||

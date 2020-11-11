@@ -19,14 +19,11 @@
 #include "nsCOMPtr.h"
 #include "nsHTMLStyleSheet.h"
 #include "nsIContentSink.h"
-#include "nsIDocument.h"
-#include "nsIDOMEventListener.h"
+#include "mozilla/dom/Document.h"
 #include "nsIFormControl.h"
 #include "mozilla/dom/NodeInfo.h"
 #include "nsIScriptContext.h"
 #include "nsIScriptGlobalObject.h"
-#include "nsIServiceManager.h"
-#include "nsIURL.h"
 #include "nsNameSpaceManager.h"
 #include "nsParserBase.h"
 #include "nsViewManager.h"
@@ -47,13 +44,10 @@
 #include "nsContentUtils.h"
 #include "nsAttrName.h"
 #include "nsXMLContentSink.h"
-#include "nsIConsoleService.h"
 #include "nsIScriptError.h"
 #include "nsContentTypeParser.h"
-#include "XULDocument.h"
 
 static mozilla::LazyLogModule gContentSinkLog("nsXULContentSink");
-;
 
 //----------------------------------------------------------------------
 
@@ -67,14 +61,10 @@ XULContentSinkImpl::ContextStack::~ContextStack() {
   }
 }
 
-nsresult XULContentSinkImpl::ContextStack::Push(nsXULPrototypeNode* aNode,
-                                                State aState) {
-  Entry* entry = new Entry(aNode, aState, mTop);
-
-  mTop = entry;
-
+void XULContentSinkImpl::ContextStack::Push(RefPtr<nsXULPrototypeNode>&& aNode,
+                                            State aState) {
+  mTop = new Entry(std::move(aNode), aState, mTop);
   ++mDepth;
-  return NS_OK;
 }
 
 nsresult XULContentSinkImpl::ContextStack::Pop(State* aState) {
@@ -192,9 +182,9 @@ XULContentSinkImpl::WillBuildModel(nsDTDMode aDTDMode) {
 
 NS_IMETHODIMP
 XULContentSinkImpl::DidBuildModel(bool aTerminated) {
-  nsCOMPtr<nsIDocument> doc = do_QueryReferent(mDocument);
+  nsCOMPtr<Document> doc = do_QueryReferent(mDocument);
   if (doc) {
-    doc->EndLoad();
+    mPrototype->NotifyLoadDone();
     mDocument = nullptr;
   }
 
@@ -224,20 +214,20 @@ XULContentSinkImpl::SetParser(nsParserBase* aParser) {
 
 void XULContentSinkImpl::SetDocumentCharset(
     NotNull<const Encoding*> aEncoding) {
-  nsCOMPtr<nsIDocument> doc = do_QueryReferent(mDocument);
+  nsCOMPtr<Document> doc = do_QueryReferent(mDocument);
   if (doc) {
     doc->SetDocumentCharacterSet(aEncoding);
   }
 }
 
 nsISupports* XULContentSinkImpl::GetTarget() {
-  nsCOMPtr<nsIDocument> doc = do_QueryReferent(mDocument);
-  return doc;
+  nsCOMPtr<Document> doc = do_QueryReferent(mDocument);
+  return ToSupports(doc);
 }
 
 //----------------------------------------------------------------------
 
-nsresult XULContentSinkImpl::Init(nsIDocument* aDocument,
+nsresult XULContentSinkImpl::Init(Document* aDocument,
                                   nsXULPrototypeDocument* aPrototype) {
   MOZ_ASSERT(aDocument != nullptr, "null ptr");
   if (!aDocument) return NS_ERROR_NULL_POINTER;
@@ -299,7 +289,7 @@ nsresult XULContentSinkImpl::FlushText(bool aCreateTextNode) {
     // Don't bother if we're not in XUL document body
     if (mState != eInDocumentElement || mContextStack.Depth() == 0) break;
 
-    nsXULPrototypeText* text = new nsXULPrototypeText();
+    RefPtr<nsXULPrototypeText> text = new nsXULPrototypeText();
     text->mValue.Assign(mText, mTextLength);
     if (stripWhitespace) text->mValue.Trim(" \t\n\r");
 
@@ -308,8 +298,7 @@ nsresult XULContentSinkImpl::FlushText(bool aCreateTextNode) {
     rv = mContextStack.GetTopChildren(&children);
     if (NS_FAILED(rv)) return rv;
 
-    // transfer ownership of 'text' to the children array
-    children->AppendElement(text);
+    children->AppendElement(text.forget());
   } while (0);
 
   // Reset our text buffer
@@ -337,15 +326,6 @@ nsresult XULContentSinkImpl::NormalizeAttributeString(
                                      nsINode::ATTRIBUTE_NODE);
   aName.SetTo(ni);
 
-  return NS_OK;
-}
-
-nsresult XULContentSinkImpl::CreateElement(mozilla::dom::NodeInfo* aNodeInfo,
-                                           nsXULPrototypeElement** aResult) {
-  nsXULPrototypeElement* element = new nsXULPrototypeElement();
-  element->mNodeInfo = aNodeInfo;
-
-  *aResult = element;
   return NS_OK;
 }
 
@@ -446,7 +426,7 @@ XULContentSinkImpl::HandleEndElement(const char16_t* aName) {
 
       // If given a src= attribute, we must ignore script tag content.
       if (!script->mSrcURI && !script->HasScriptObject()) {
-        nsCOMPtr<nsIDocument> doc = do_QueryReferent(mDocument);
+        nsCOMPtr<Document> doc = do_QueryReferent(mDocument);
 
         script->mOutOfLine = false;
         if (doc) {
@@ -544,9 +524,9 @@ XULContentSinkImpl::HandleProcessingInstruction(const char16_t* aTarget,
     return rv;
   }
 
-  if (!children->AppendElement(pi)) {
-    return NS_ERROR_OUT_OF_MEMORY;
-  }
+  // XXX(Bug 1631371) Check if this should use a fallible operation as it
+  // pretended earlier.
+  children->AppendElement(pi);
 
   return NS_OK;
 }
@@ -582,15 +562,15 @@ XULContentSinkImpl::ReportError(const char16_t* aErrorText,
 
   // return leaving the document empty if we're asked to not add a <parsererror>
   // root node
-  nsCOMPtr<nsIDocument> idoc = do_QueryReferent(mDocument);
+  nsCOMPtr<Document> idoc = do_QueryReferent(mDocument);
   if (idoc && idoc->SuppressParserErrorElement()) {
     return NS_OK;
   };
 
   const char16_t* noAtts[] = {0, 0};
 
-  NS_NAMED_LITERAL_STRING(
-      errorNs, "http://www.mozilla.org/newlayout/xml/parsererror.xml");
+  constexpr auto errorNs =
+      u"http://www.mozilla.org/newlayout/xml/parsererror.xml"_ns;
 
   nsAutoString parsererror(errorNs);
   parsererror.Append((char16_t)0xFFFF);
@@ -627,8 +607,6 @@ nsresult XULContentSinkImpl::OpenRoot(const char16_t** aAttributes,
   NS_ASSERTION(mState == eInProlog, "how'd we get here?");
   if (mState != eInProlog) return NS_ERROR_UNEXPECTED;
 
-  nsresult rv;
-
   if (aNodeInfo->Equals(nsGkAtoms::script, kNameSpaceID_XHTML) ||
       aNodeInfo->Equals(nsGkAtoms::script, kNameSpaceID_XUL)) {
     MOZ_LOG(gContentSinkLog, LogLevel::Error,
@@ -638,33 +616,15 @@ nsresult XULContentSinkImpl::OpenRoot(const char16_t** aAttributes,
   }
 
   // Create the element
-  nsXULPrototypeElement* element;
-  rv = CreateElement(aNodeInfo, &element);
+  RefPtr<nsXULPrototypeElement> element = new nsXULPrototypeElement(aNodeInfo);
 
-  if (NS_FAILED(rv)) {
-    if (MOZ_LOG_TEST(gContentSinkLog, LogLevel::Error)) {
-      nsAutoString anodeC;
-      aNodeInfo->GetName(anodeC);
-      MOZ_LOG(gContentSinkLog, LogLevel::Error,
-              ("xul: unable to create element '%s' at line %d",
-               NS_ConvertUTF16toUTF8(anodeC).get(),
-               -1));  // XXX pass in line number
-    }
-
-    return rv;
-  }
+  // Add the attributes
+  nsresult rv = AddAttributes(aAttributes, aAttrLen, element);
+  if (NS_FAILED(rv)) return rv;
 
   // Push the element onto the context stack, so that child
   // containers will hook up to us as their parent.
-  rv = mContextStack.Push(element, mState);
-  if (NS_FAILED(rv)) {
-    element->Release();
-    return rv;
-  }
-
-  // Add the attributes
-  rv = AddAttributes(aAttributes, aAttrLen, element);
-  if (NS_FAILED(rv)) return rv;
+  mContextStack.Push(std::move(element), mState);
 
   mState = eInDocumentElement;
   return NS_OK;
@@ -674,29 +634,13 @@ nsresult XULContentSinkImpl::OpenTag(const char16_t** aAttributes,
                                      const uint32_t aAttrLen,
                                      const uint32_t aLineNumber,
                                      mozilla::dom::NodeInfo* aNodeInfo) {
-  nsresult rv;
-
   // Create the element
-  nsXULPrototypeElement* element;
-  rv = CreateElement(aNodeInfo, &element);
-
-  if (NS_FAILED(rv)) {
-    if (MOZ_LOG_TEST(gContentSinkLog, LogLevel::Error)) {
-      nsAutoString anodeC;
-      aNodeInfo->GetName(anodeC);
-      MOZ_LOG(gContentSinkLog, LogLevel::Error,
-              ("xul: unable to create element '%s' at line %d",
-               NS_ConvertUTF16toUTF8(anodeC).get(), aLineNumber));
-    }
-
-    return rv;
-  }
+  RefPtr<nsXULPrototypeElement> element = new nsXULPrototypeElement(aNodeInfo);
 
   // Link this element to its parent.
   nsPrototypeArray* children = nullptr;
-  rv = mContextStack.GetTopChildren(&children);
+  nsresult rv = mContextStack.GetTopChildren(&children);
   if (NS_FAILED(rv)) {
-    delete element;
     return rv;
   }
 
@@ -723,8 +667,7 @@ nsresult XULContentSinkImpl::OpenTag(const char16_t** aAttributes,
 
   // Push the element onto the context stack, so that child
   // containers will hook up to us as their parent.
-  rv = mContextStack.Push(element, mState);
-  if (NS_FAILED(rv)) return rv;
+  mContextStack.Push(std::move(element), mState);
 
   mState = eInDocumentElement;
   return NS_OK;
@@ -765,11 +708,10 @@ nsresult XULContentSinkImpl::OpenScript(const char16_t** aAttributes,
 
         if (NS_SUCCEEDED(rv)) {
           nsContentUtils::ReportToConsoleNonLocalized(
-              NS_LITERAL_STRING(
-                  "Versioned JavaScripts are no longer supported. "
-                  "Please remove the version parameter."),
-              nsIScriptError::errorFlag, NS_LITERAL_CSTRING("XUL Document"),
-              nullptr, mDocumentURL, EmptyString(), aLineNumber);
+              u"Versioned JavaScripts are no longer supported. "
+              "Please remove the version parameter."_ns,
+              nsIScriptError::errorFlag, "XUL Document"_ns, nullptr,
+              mDocumentURL, u""_ns, aLineNumber);
           isJavaScript = false;
         } else if (rv != NS_ERROR_INVALID_ARG) {
           return rv;
@@ -794,7 +736,7 @@ nsresult XULContentSinkImpl::OpenScript(const char16_t** aAttributes,
     return NS_OK;
   }
 
-  nsCOMPtr<nsIDocument> doc(do_QueryReferent(mDocument));
+  nsCOMPtr<Document> doc(do_QueryReferent(mDocument));
   nsCOMPtr<nsIScriptGlobalObject> globalObject;
   if (doc) globalObject = do_QueryInterface(doc->GetWindow());
   RefPtr<nsXULPrototypeScript> script = new nsXULPrototypeScript(aLineNumber);
@@ -811,12 +753,12 @@ nsresult XULContentSinkImpl::OpenScript(const char16_t** aAttributes,
       if (!mSecMan)
         mSecMan = do_GetService(NS_SCRIPTSECURITYMANAGER_CONTRACTID, &rv);
       if (NS_SUCCEEDED(rv)) {
-        nsCOMPtr<nsIDocument> doc = do_QueryReferent(mDocument, &rv);
+        nsCOMPtr<Document> doc = do_QueryReferent(mDocument, &rv);
 
         if (NS_SUCCEEDED(rv)) {
           rv = mSecMan->CheckLoadURIWithPrincipal(
               doc->NodePrincipal(), script->mSrcURI,
-              nsIScriptSecurityManager::ALLOW_CHROME);
+              nsIScriptSecurityManager::ALLOW_CHROME, doc->InnerWindowID());
         }
       }
     }
@@ -857,11 +799,8 @@ nsresult XULContentSinkImpl::AddAttributes(const char16_t** aAttributes,
   // Create storage for the attributes
   nsXULPrototypeAttribute* attrs = nullptr;
   if (aAttrLen > 0) {
-    attrs = new nsXULPrototypeAttribute[aAttrLen];
+    attrs = aElement->mAttributes.AppendElements(aAttrLen);
   }
-
-  aElement->mAttributes = attrs;
-  aElement->mNumAttributes = aAttrLen;
 
   // Copy the attributes into the prototype
   uint32_t i;

@@ -9,8 +9,10 @@
 #include "mozilla/MathAlgorithms.h"
 
 #include "jit/BitSet.h"
+#include "jit/IonScript.h"
 #include "jit/JitSpewer.h"
 #include "jit/LIR.h"
+#include "jit/SafepointIndex.h"
 
 using namespace js;
 using namespace jit;
@@ -166,7 +168,7 @@ void SafepointWriter::writeSlotsOrElementsSlots(LSafepoint* safepoint) {
       MOZ_CRASH();
     }
 #ifdef JS_JITSPEW
-    JitSpew(JitSpew_Safepoints, "    slots/elements slot: %d", slots[i].slot);
+    JitSpew(JitSpew_Safepoints, "    slots/elements slot: %u", slots[i].slot);
 #endif
     stream_.writeUnsigned(slots[i].slot);
   }
@@ -227,7 +229,7 @@ static const uint32_t PAYLOAD_KIND_SHIFT = TYPE_KIND_SHIFT - PART_KIND_BITS;
 static const uint32_t TYPE_INFO_SHIFT = PAYLOAD_KIND_SHIFT - PART_INFO_BITS;
 static const uint32_t PAYLOAD_INFO_SHIFT = TYPE_INFO_SHIFT - PART_INFO_BITS;
 
-JS_STATIC_ASSERT(PAYLOAD_INFO_SHIFT == 0);
+static_assert(PAYLOAD_INFO_SHIFT == 0);
 
 #ifdef JS_NUNBOX32
 static inline NunboxPartKind AllocationToPartKind(const LAllocation& a) {
@@ -264,7 +266,7 @@ static MOZ_ALWAYS_INLINE bool CanEncodeInfoInHeader(const LAllocation& a,
 void SafepointWriter::writeNunboxParts(LSafepoint* safepoint) {
   LSafepoint::NunboxList& entries = safepoint->nunboxParts();
 
-#ifdef JS_JITSPEW
+#  ifdef JS_JITSPEW
   if (JitSpewEnabled(JitSpew_Safepoints)) {
     for (uint32_t i = 0; i < entries.length(); i++) {
       SafepointNunboxEntry& entry = entries[i];
@@ -280,7 +282,7 @@ void SafepointWriter::writeNunboxParts(LSafepoint* safepoint) {
       out.printf(")\n");
     }
   }
-#endif
+#  endif
 
   // Safepoints are permitted to have partially filled in entries for nunboxes,
   // provided that only the type is live and not the payload. Omit these from
@@ -365,7 +367,7 @@ void SafepointWriter::encode(LSafepoint* safepoint) {
 }
 
 void SafepointWriter::endEntry() {
-  JitSpew(JitSpew_Safepoints, "    -- entry ended at %d",
+  JitSpew(JitSpew_Safepoints, "    -- entry ended at %u",
           uint32_t(stream_.length()));
 }
 

@@ -1,4 +1,3 @@
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -18,44 +17,40 @@ const TEST_URI = `
 
 add_task(async function() {
   await addTab("data:text/html;charset=utf-8," + encodeURIComponent(TEST_URI));
-  const {inspector, view} = await openRuleView();
+  const { inspector, view } = await openRuleView();
   await selectNode("#testid", inspector);
 
-  const rule = getRuleViewRuleEditor(view, 1).rule;
-  const prop = rule.textProps[0];
+  const prop = getTextProperty(view, 1, { "background-color": "blue" });
 
   info("Disabling a property");
   await togglePropStatus(view, prop);
 
-  const newValue = await executeInContent("Test:GetRulePropertyValue", {
-    styleSheetIndex: 0,
-    ruleIndex: 0,
-    name: "background-color",
-  });
+  const newValue = await getRulePropertyValue(0, 0, "background-color");
   is(newValue, "", "background-color should have been unset.");
 
-  await testEditDisableProperty(view, rule, prop, "name", "VK_ESCAPE");
-  await testEditDisableProperty(view, rule, prop, "value", "VK_ESCAPE");
-  await testEditDisableProperty(view, rule, prop, "value", "VK_TAB");
-  await testEditDisableProperty(view, rule, prop, "value", "VK_RETURN");
+  await testEditDisableProperty(view, prop, "name", "VK_ESCAPE");
+  await testEditDisableProperty(view, prop, "value", "VK_ESCAPE");
+  await testEditDisableProperty(view, prop, "value", "VK_TAB");
+  await testEditDisableProperty(view, prop, "value", "VK_RETURN");
 });
 
-async function testEditDisableProperty(view, rule, prop, fieldType, commitKey) {
-  const field = fieldType === "name" ? prop.editor.nameSpan
-                                   : prop.editor.valueSpan;
+async function testEditDisableProperty(view, prop, fieldType, commitKey) {
+  const field =
+    fieldType === "name" ? prop.editor.nameSpan : prop.editor.valueSpan;
 
   const editor = await focusEditableField(view, field);
 
-  ok(!prop.editor.element.classList.contains("ruleview-overridden"),
-    "property is not overridden.");
-  is(prop.editor.enable.style.visibility, "hidden",
-    "property enable checkbox is hidden.");
+  ok(
+    !prop.editor.element.classList.contains("ruleview-overridden"),
+    "property is not overridden."
+  );
+  is(
+    prop.editor.enable.style.visibility,
+    "hidden",
+    "property enable checkbox is hidden."
+  );
 
-  let newValue = await executeInContent("Test:GetRulePropertyValue", {
-    styleSheetIndex: 0,
-    ruleIndex: 0,
-    name: "background-color",
-  });
+  let newValue = await getRulePropertyValue(0, 0, "background-color");
   is(newValue, "", "background-color should remain unset.");
 
   let onChangeDone;
@@ -69,17 +64,20 @@ async function testEditDisableProperty(view, rule, prop, fieldType, commitKey) {
   await onChangeDone;
 
   ok(!prop.enabled, "property is disabled.");
-  ok(prop.editor.element.classList.contains("ruleview-overridden"),
-    "property is overridden.");
-  is(prop.editor.enable.style.visibility, "visible",
-    "property enable checkbox is visible.");
-  ok(!prop.editor.enable.getAttribute("checked"),
-    "property enable checkbox is not checked.");
+  ok(
+    prop.editor.element.classList.contains("ruleview-overridden"),
+    "property is overridden."
+  );
+  is(
+    prop.editor.enable.style.visibility,
+    "visible",
+    "property enable checkbox is visible."
+  );
+  ok(
+    !prop.editor.enable.getAttribute("checked"),
+    "property enable checkbox is not checked."
+  );
 
-  newValue = await executeInContent("Test:GetRulePropertyValue", {
-    styleSheetIndex: 0,
-    ruleIndex: 0,
-    name: "background-color",
-  });
+  newValue = await getRulePropertyValue(0, 0, "background-color");
   is(newValue, "", "background-color should remain unset.");
 }

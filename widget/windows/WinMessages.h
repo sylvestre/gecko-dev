@@ -33,8 +33,9 @@
 #define MOZ_WM_NOTIY_TSF_OF_LAYOUT_CHANGE (WM_APP + 0x0315)
 // Internal message used in correcting backwards clock skew
 #define MOZ_WM_SKEWFIX (WM_APP + 0x0316)
-// Internal message used for hiding the on-screen keyboard
-#define MOZ_WM_DISMISS_ONSCREEN_KEYBOARD (WM_APP + 0x0317)
+
+// Internal message used for rolling up popups for dmanip events
+#define MOZ_WM_DMANIP (WM_APP + 0x0317)
 
 // Following MOZ_WM_*KEY* messages are used by PluginInstanceChild and
 // NativeKey internally. (never posted to the queue)
@@ -56,18 +57,18 @@
 #define CS_XP_DROPSHADOW 0x00020000
 
 #ifndef APPCOMMAND_BROWSER_BACKWARD
-#define APPCOMMAND_BROWSER_BACKWARD 1
-#define APPCOMMAND_BROWSER_FORWARD 2
-#define APPCOMMAND_BROWSER_REFRESH 3
-#define APPCOMMAND_BROWSER_STOP 4
-#define APPCOMMAND_BROWSER_SEARCH 5
-#define APPCOMMAND_BROWSER_FAVORITES 6
-#define APPCOMMAND_BROWSER_HOME 7
+#  define APPCOMMAND_BROWSER_BACKWARD 1
+#  define APPCOMMAND_BROWSER_FORWARD 2
+#  define APPCOMMAND_BROWSER_REFRESH 3
+#  define APPCOMMAND_BROWSER_STOP 4
+#  define APPCOMMAND_BROWSER_SEARCH 5
+#  define APPCOMMAND_BROWSER_FAVORITES 6
+#  define APPCOMMAND_BROWSER_HOME 7
 
-#define APPCOMMAND_MEDIA_NEXTTRACK 11
-#define APPCOMMAND_MEDIA_PREVIOUSTRACK 12
-#define APPCOMMAND_MEDIA_STOP 13
-#define APPCOMMAND_MEDIA_PLAY_PAUSE 14
+#  define APPCOMMAND_MEDIA_NEXTTRACK 11
+#  define APPCOMMAND_MEDIA_PREVIOUSTRACK 12
+#  define APPCOMMAND_MEDIA_STOP 13
+#  define APPCOMMAND_MEDIA_PLAY_PAUSE 14
 
 /*
  * Additional commands currently not in use.
@@ -89,8 +90,8 @@
  *#define FAPPCOMMAND_OEM                   0x1000
  */
 
-#define GET_APPCOMMAND_LPARAM(lParam) \
-  ((short)(HIWORD(lParam) & ~FAPPCOMMAND_MASK))
+#  define GET_APPCOMMAND_LPARAM(lParam) \
+    ((short)(HIWORD(lParam) & ~FAPPCOMMAND_MASK))
 
 /*
  *#define GET_DEVICE_LPARAM(lParam)         ((WORD)(HIWORD(lParam) &

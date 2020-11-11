@@ -6,7 +6,6 @@
 #include "gtest/gtest.h"
 #include "js/Conversions.h"
 #include "mozilla/Telemetry.h"
-#include "nsITelemetry.h"
 #include "TelemetryFixture.h"
 #include "TelemetryTestHelpers.h"
 
@@ -20,8 +19,8 @@ TEST_F(TelemetryTestFixture, AutoCounter) {
   const char* telemetryTestCountName =
       Telemetry::GetHistogramName(Telemetry::TELEMETRY_TEST_COUNT);
 
-  GetAndClearHistogram(cx.GetJSContext(), mTelemetry,
-                       NS_LITERAL_CSTRING("TELEMETRY_TEST_COUNT"), false);
+  GetAndClearHistogram(cx.GetJSContext(), mTelemetry, "TELEMETRY_TEST_COUNT"_ns,
+                       false);
 
   // Accumulate in the histogram
   {
@@ -64,8 +63,8 @@ TEST_F(TelemetryTestFixture, AutoCounterUnderflow) {
   const char* telemetryTestCountName =
       Telemetry::GetHistogramName(Telemetry::TELEMETRY_TEST_COUNT);
 
-  GetAndClearHistogram(cx.GetJSContext(), mTelemetry,
-                       NS_LITERAL_CSTRING("TELEMETRY_TEST_COUNT"), false);
+  GetAndClearHistogram(cx.GetJSContext(), mTelemetry, "TELEMETRY_TEST_COUNT"_ns,
+                       false);
 
   // Accumulate in the histogram
   {
@@ -100,8 +99,8 @@ TEST_F(TelemetryTestFixture, RuntimeAutoCounter) {
   const char* telemetryTestCountName =
       Telemetry::GetHistogramName(Telemetry::TELEMETRY_TEST_COUNT);
 
-  GetAndClearHistogram(cx.GetJSContext(), mTelemetry,
-                       NS_LITERAL_CSTRING("TELEMETRY_TEST_COUNT"), false);
+  GetAndClearHistogram(cx.GetJSContext(), mTelemetry, "TELEMETRY_TEST_COUNT"_ns,
+                       false);
 
   // Accumulate in the histogram
   {
@@ -143,8 +142,8 @@ TEST_F(TelemetryTestFixture, RuntimeAutoCounterUnderflow) {
   const char* telemetryTestCountName =
       Telemetry::GetHistogramName(Telemetry::TELEMETRY_TEST_COUNT);
 
-  GetAndClearHistogram(cx.GetJSContext(), mTelemetry,
-                       NS_LITERAL_CSTRING("TELEMETRY_TEST_COUNT"), false);
+  GetAndClearHistogram(cx.GetJSContext(), mTelemetry, "TELEMETRY_TEST_COUNT"_ns,
+                       false);
 
   // Accumulate in the histogram
   {

@@ -1,4 +1,3 @@
-/* vim: set ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -10,17 +9,21 @@
 // Test that the markup view is correctly updated to show those items if the custom
 // element definition happens after opening the inspector.
 
-/* import-globals-from ../../../debugger/new/test/mochitest/helpers.js */
+/* import-globals-from ../../../debugger/test/mochitest/helpers.js */
 Services.scriptloader.loadSubScript(
-  "chrome://mochitests/content/browser/devtools/client/debugger/new/test/mochitest/helpers.js",
-  this);
+  "chrome://mochitests/content/browser/devtools/client/debugger/test/mochitest/helpers.js",
+  this
+);
 
-/* import-globals-from ../../../debugger/new/test/mochitest/helpers/context.js */
+/* import-globals-from ../../../debugger/test/mochitest/helpers/context.js */
 Services.scriptloader.loadSubScript(
-  "chrome://mochitests/content/browser/devtools/client/debugger/new/test/mochitest/helpers/context.js",
-  this);
+  "chrome://mochitests/content/browser/devtools/client/debugger/test/mochitest/helpers/context.js",
+  this
+);
 
-const TEST_URL = `data:text/html;charset=utf-8,` + encodeURIComponent(`
+const TEST_URL =
+  `data:text/html;charset=utf-8,` +
+  encodeURIComponent(`
 <test-component></test-component>
 <other-component>some-content</other-component>
 
@@ -48,7 +51,7 @@ const TEST_URL = `data:text/html;charset=utf-8,` + encodeURIComponent(`
 </script>`);
 
 add_task(async function() {
-  const {inspector, toolbox} = await openInspectorForURL(TEST_URL);
+  const { inspector, toolbox } = await openInspectorForURL(TEST_URL);
 
   // Test with an element to which we attach a shadow.
   await runTest(inspector, toolbox, "test-component", "attachTestComponent");
@@ -64,16 +67,24 @@ async function runTest(inspector, toolbox, selector, contentMethod) {
   const testFront = await getNodeFront(selector, inspector);
   const testContainer = inspector.markup.getContainer(testFront);
   let customBadge = testContainer.elt.querySelector(
-    ".inspector-badge.interactive[data-custom]");
+    ".inspector-badge.interactive[data-custom]"
+  );
 
   // Verify that the "custom" badge and menu item are hidden.
   ok(!customBadge, "[custom] badge is hidden");
   let menuItem = getMenuItem("node-menu-jumptodefinition", inspector);
-  ok(!menuItem, selector + ": The menu item was not found in the contextual menu");
+  ok(
+    !menuItem,
+    selector + ": The menu item was not found in the contextual menu"
+  );
 
-  info("Call the content method that should attach a custom element definition");
+  info(
+    "Call the content method that should attach a custom element definition"
+  );
   const mutated = waitForMutation(inspector, "customElementDefined");
-  ContentTask.spawn(gBrowser.selectedBrowser, { contentMethod }, function(args) {
+  SpecialPowers.spawn(gBrowser.selectedBrowser, [{ contentMethod }], function(
+    args
+  ) {
     content.wrappedJSObject[args.contentMethod]();
   });
   await mutated;
@@ -82,7 +93,8 @@ async function runTest(inspector, toolbox, selector, contentMethod) {
 
   // Check that the badge opens the debugger.
   customBadge = testContainer.elt.querySelector(
-    ".inspector-badge.interactive[data-custom]");
+    ".inspector-badge.interactive[data-custom]"
+  );
   ok(customBadge, "[custom] badge is visible");
 
   info("Click on the `custom` badge and verify that the debugger opens.");
@@ -123,8 +135,4 @@ async function waitUntilDebuggerReady(debuggerContext) {
   // We have to wait until the debugger has fully loaded the source otherwise
   // we will get unhandled promise rejections.
   await waitForLoadedSource(debuggerContext, "data:");
-
-  // Have to wait until https://github.com/devtools-html/debugger.html/pull/6189
-  // is released to avoid unhandled promise rejections.
-  await waitForTime(1000);
 }

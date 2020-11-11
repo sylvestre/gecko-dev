@@ -19,18 +19,17 @@
 #include "nsPoint.h"
 #include "nsTArray.h"
 
-class nsIPresShell;
 class nsIFrame;
 class nsPresContext;
 namespace mozilla {
 struct ReflowInput;
-class StyleBasicShape;
+class PresShell;
 }  // namespace mozilla
 
 enum class nsFlowAreaRectFlags : uint32_t {
-  NO_FLAGS = 0,
-  HAS_FLOATS = 1 << 0,
-  MAY_WIDEN = 1 << 1
+  NoFlags = 0,
+  HasFloats = 1 << 0,
+  MayWiden = 1 << 1
 };
 MOZ_MAKE_ENUM_CLASS_BITWISE_OPERATORS(nsFlowAreaRectFlags)
 
@@ -55,10 +54,10 @@ struct nsFlowAreaRect {
         mAreaFlags(aAreaFlags) {}
 
   bool HasFloats() const {
-    return (bool)(mAreaFlags & nsFlowAreaRectFlags::HAS_FLOATS);
+    return (bool)(mAreaFlags & nsFlowAreaRectFlags::HasFloats);
   }
   bool MayWiden() const {
-    return (bool)(mAreaFlags & nsFlowAreaRectFlags::MAY_WIDEN);
+    return (bool)(mAreaFlags & nsFlowAreaRectFlags::MayWiden);
   }
 };
 
@@ -92,10 +91,11 @@ struct nsFlowAreaRect {
  */
 class nsFloatManager {
  public:
-  explicit nsFloatManager(nsIPresShell* aPresShell, mozilla::WritingMode aWM);
+  explicit nsFloatManager(mozilla::PresShell* aPresShell,
+                          mozilla::WritingMode aWM);
   ~nsFloatManager();
 
-  void* operator new(size_t aSize) CPP_THROW_NEW;
+  void* operator new(size_t aSize) noexcept(true);
   void operator delete(void* aPtr, size_t aSize);
 
   static void Shutdown();
@@ -311,13 +311,7 @@ class nsFloatManager {
    *
    * Both aBCoord and the result are relative to the current translation.
    */
-  enum {
-    // Tell ClearFloats not to push to nscoord_MAX when floats have been
-    // pushed to the next page/column.
-    DONT_CLEAR_PUSHED_FLOATS = (1 << 0)
-  };
-  nscoord ClearFloats(nscoord aBCoord, mozilla::StyleClear aBreakType,
-                      uint32_t aFlags = 0) const;
+  nscoord ClearFloats(nscoord aBCoord, mozilla::StyleClear aBreakType) const;
 
   /**
    * Checks if clear would pass into the floats' BFC's next-in-flow,

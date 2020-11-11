@@ -1,9 +1,16 @@
 //! Densely numbered entity references as mapping keys.
-use std::marker::PhantomData;
-use std::ops::{Index, IndexMut};
-use std::slice;
-use std::vec::Vec;
-use {EntityRef, Iter, IterMut, Keys};
+use crate::boxed_slice::BoxedSlice;
+use crate::iter::{IntoIter, Iter, IterMut};
+use crate::keys::Keys;
+use crate::EntityRef;
+use alloc::boxed::Box;
+use alloc::vec::Vec;
+use core::iter::FromIterator;
+use core::marker::PhantomData;
+use core::ops::{Index, IndexMut};
+use core::slice;
+#[cfg(feature = "enable-serde")]
+use serde::{Deserialize, Serialize};
 
 /// A primary mapping `K -> V` allocating dense entity references.
 ///
@@ -18,8 +25,10 @@ use {EntityRef, Iter, IterMut, Keys};
 /// Note that `PrimaryMap` doesn't implement `Deref` or `DerefMut`, which would allow
 /// `&PrimaryMap<K, V>` to convert to `&[V]`. One of the main advantages of `PrimaryMap` is
 /// that it only allows indexing with the distinct `EntityRef` key type, so converting to a
-/// plain slice would make it easier to use incorrectly.
-#[derive(Debug, Clone)]
+/// plain slice would make it easier to use incorrectly. To make a slice of a `PrimaryMap`, use
+/// `into_boxed_slice`.
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct PrimaryMap<K, V>
 where
     K: EntityRef,
@@ -36,6 +45,14 @@ where
     pub fn new() -> Self {
         Self {
             elems: Vec::new(),
+            unused: PhantomData,
+        }
+    }
+
+    /// Create a new empty map with the given capacity.
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self {
+            elems: Vec::with_capacity(capacity),
             unused: PhantomData,
         }
     }
@@ -121,6 +138,25 @@ where
     pub fn reserve_exact(&mut self, additional: usize) {
         self.elems.reserve_exact(additional)
     }
+
+    /// Shrinks the capacity of the `PrimaryMap` as much as possible.
+    pub fn shrink_to_fit(&mut self) {
+        self.elems.shrink_to_fit()
+    }
+
+    /// Consumes this `PrimaryMap` and produces a `BoxedSlice`.
+    pub fn into_boxed_slice(self) -> BoxedSlice<K, V> {
+        unsafe { BoxedSlice::<K, V>::from_raw(Box::<[V]>::into_raw(self.elems.into_boxed_slice())) }
+    }
+}
+
+impl<K, V> Default for PrimaryMap<K, V>
+where
+    K: EntityRef,
+{
+    fn default() -> PrimaryMap<K, V> {
+        PrimaryMap::new()
+    }
 }
 
 /// Immutable indexing into an `PrimaryMap`.
@@ -146,6 +182,18 @@ where
     }
 }
 
+impl<K, V> IntoIterator for PrimaryMap<K, V>
+where
+    K: EntityRef,
+{
+    type Item = (K, V);
+    type IntoIter = IntoIter<K, V>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        IntoIter::new(self.elems.into_iter())
+    }
+}
+
 impl<'a, K, V> IntoIterator for &'a PrimaryMap<K, V>
 where
     K: EntityRef,
@@ -167,6 +215,21 @@ where
 
     fn into_iter(self) -> Self::IntoIter {
         IterMut::new(self.elems.iter_mut())
+    }
+}
+
+impl<K, V> FromIterator<V> for PrimaryMap<K, V>
+where
+    K: EntityRef,
+{
+    fn from_iter<T>(iter: T) -> Self
+    where
+        T: IntoIterator<Item = V>,
+    {
+        Self {
+            elems: Vec::from_iter(iter),
+            unused: PhantomData,
+        }
     }
 }
 
@@ -344,6 +407,19 @@ mod tests {
                 1 => assert_eq!(*value_mut, 33),
                 _ => panic!(),
             }
+        }
+    }
+
+    #[test]
+    fn from_iter() {
+        let mut m: PrimaryMap<E, usize> = PrimaryMap::new();
+        m.push(12);
+        m.push(33);
+
+        let n = m.values().collect::<PrimaryMap<E, _>>();
+        assert!(m.len() == n.len());
+        for (me, ne) in m.values().zip(n.values()) {
+            assert!(*me == **ne);
         }
     }
 }

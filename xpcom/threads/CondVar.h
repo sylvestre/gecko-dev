@@ -12,7 +12,7 @@
 #include "mozilla/Mutex.h"
 
 #ifdef MOZILLA_INTERNAL_API
-#include "GeckoProfiler.h"
+#  include "GeckoProfiler.h"
 #endif  // MOZILLA_INTERNAL_API
 
 namespace mozilla {
@@ -43,7 +43,7 @@ class OffTheBooksCondVar : BlockingResourceBase {
    * ~OffTheBooksCondVar
    * Clean up after this OffTheBooksCondVar, but NOT its associated Mutex.
    **/
-  ~OffTheBooksCondVar() {}
+  ~OffTheBooksCondVar() = default;
 
   /**
    * Wait
@@ -51,16 +51,16 @@ class OffTheBooksCondVar : BlockingResourceBase {
    **/
 #ifndef DEBUG
   void Wait() {
-#ifdef MOZILLA_INTERNAL_API
+#  ifdef MOZILLA_INTERNAL_API
     AUTO_PROFILER_THREAD_SLEEP;
-#endif  // MOZILLA_INTERNAL_API
+#  endif  // MOZILLA_INTERNAL_API
     mImpl.wait(*mLock);
   }
 
   CVStatus Wait(TimeDuration aDuration) {
-#ifdef MOZILLA_INTERNAL_API
+#  ifdef MOZILLA_INTERNAL_API
     AUTO_PROFILER_THREAD_SLEEP;
-#endif  // MOZILLA_INTERNAL_API
+#  endif  // MOZILLA_INTERNAL_API
     return mImpl.wait_for(*mLock, aDuration);
   }
 #else
@@ -73,19 +73,13 @@ class OffTheBooksCondVar : BlockingResourceBase {
    * Notify
    * @see prcvar.h
    **/
-  nsresult Notify() {
-    mImpl.notify_one();
-    return NS_OK;
-  }
+  void Notify() { mImpl.notify_one(); }
 
   /**
    * NotifyAll
    * @see prcvar.h
    **/
-  nsresult NotifyAll() {
-    mImpl.notify_all();
-    return NS_OK;
-  }
+  void NotifyAll() { mImpl.notify_all(); }
 
 #ifdef DEBUG
   /**
@@ -129,7 +123,7 @@ class CondVar : public OffTheBooksCondVar {
     MOZ_COUNT_CTOR(CondVar);
   }
 
-  ~CondVar() { MOZ_COUNT_DTOR(CondVar); }
+  MOZ_COUNTED_DTOR(CondVar)
 
  private:
   CondVar();

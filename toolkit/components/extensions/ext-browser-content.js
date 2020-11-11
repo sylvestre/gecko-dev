@@ -3,8 +3,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 "use strict";
 
-ChromeUtils.import("resource://gre/modules/Services.jsm");
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
+var { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
 
 XPCOMUtils.defineLazyModuleGetters(this, {
   BrowserUtils: "resource://gre/modules/BrowserUtils.jsm",
@@ -13,11 +14,6 @@ XPCOMUtils.defineLazyModuleGetters(this, {
   ExtensionCommon: "resource://gre/modules/ExtensionCommon.jsm",
   setTimeout: "resource://gre/modules/Timer.jsm",
 });
-
-ChromeUtils.import("resource://gre/modules/ExtensionUtils.jsm");
-const {
-  getWinUtils,
-} = ExtensionUtils;
 
 /* eslint-env mozilla/frame-script */
 
@@ -60,7 +56,15 @@ const isOpaque = function(color) {
 };
 
 const BrowserListener = {
-  init({allowScriptsToClose, blockParser, fixedWidth, maxHeight, maxWidth, stylesheets, isInline}) {
+  init({
+    allowScriptsToClose,
+    blockParser,
+    fixedWidth,
+    maxHeight,
+    maxWidth,
+    stylesheets,
+    isInline,
+  }) {
     this.fixedWidth = fixedWidth;
     this.stylesheets = stylesheets || [];
 
@@ -74,7 +78,7 @@ const BrowserListener = {
     this.oldBackground = null;
 
     if (allowScriptsToClose) {
-      getWinUtils(content).allowScriptsToClose();
+      content.windowUtils.allowScriptsToClose();
     }
 
     // Force external links to open in tabs.
@@ -90,7 +94,6 @@ const BrowserListener = {
     addEventListener("load", this, true);
     addEventListener("DOMWindowCreated", this, true);
     addEventListener("DOMContentLoaded", this, true);
-    addEventListener("DOMWindowClose", this, true);
     addEventListener("MozScrolledAreaChanged", this, true);
   },
 
@@ -102,11 +105,10 @@ const BrowserListener = {
     removeEventListener("load", this, true);
     removeEventListener("DOMWindowCreated", this, true);
     removeEventListener("DOMContentLoaded", this, true);
-    removeEventListener("DOMWindowClose", this, true);
     removeEventListener("MozScrolledAreaChanged", this, true);
   },
 
-  receiveMessage({name, data}) {
+  receiveMessage({ name, data }) {
     if (name === "Extension:InitBrowser") {
       this.init(data);
     } else if (name === "Extension:UnblockParser") {
@@ -122,10 +124,13 @@ const BrowserListener = {
   },
 
   loadStylesheets() {
-    let winUtils = getWinUtils(content);
+    let { windowUtils } = content;
 
     for (let url of this.stylesheets) {
-      winUtils.addSheet(ExtensionCommon.stylesheetMap.get(url), winUtils.AGENT_SHEET);
+      windowUtils.addSheet(
+        ExtensionCommon.stylesheetMap.get(url),
+        windowUtils.AGENT_SHEET
+      );
     }
   },
 
@@ -143,17 +148,11 @@ const BrowserListener = {
         }
         break;
 
-      case "DOMWindowClose":
-        if (event.target === content) {
-          event.preventDefault();
-
-          sendAsyncMessage("Extension:DOMWindowClose");
-        }
-        break;
-
       case "DOMContentLoaded":
         if (event.target === content.document) {
-          sendAsyncMessage("Extension:BrowserContentLoaded", {url: content.location.href});
+          sendAsyncMessage("Extension:BrowserContentLoaded", {
+            url: content.location.href,
+          });
 
           if (this.needsResize) {
             this.handleDOMChange(true);
@@ -172,7 +171,9 @@ const BrowserListener = {
           if (this.isInline) {
             this.loadStylesheets();
           }
-          sendAsyncMessage("Extension:BrowserContentLoaded", {url: content.location.href});
+          sendAsyncMessage("Extension:BrowserContentLoaded", {
+            url: content.location.href,
+          });
         } else if (event.target !== content.document) {
           break;
         }
@@ -192,12 +193,14 @@ const BrowserListener = {
 
         // Mutation observer to make sure the panel shrinks when the content does.
         new content.MutationObserver(this.handleDOMChange.bind(this)).observe(
-          content.document.documentElement, {
+          content.document.documentElement,
+          {
             attributes: true,
             characterData: true,
             childList: true,
             subtree: true,
-          });
+          }
+        );
         break;
 
       case "MozScrolledAreaChanged":
@@ -241,8 +244,8 @@ const BrowserListener = {
       body = doc.documentElement;
     }
 
-
     let result;
+    const zoom = content.browsingContext.fullZoom;
     if (this.fixedWidth) {
       // If we're in a fixed-width area (namely a slide-in subview of the main
       // menu panel), we need to calculate the view height based on the
@@ -262,18 +265,19 @@ const BrowserListener = {
         let bs = content.getComputedStyle(body);
         let ds = content.getComputedStyle(doc.documentElement);
 
-        let p = (parseFloat(bs.marginTop) +
-                 parseFloat(bs.marginBottom) +
-                 parseFloat(ds.marginTop) +
-                 parseFloat(ds.marginBottom) +
-                 parseFloat(ds.paddingTop) +
-                 parseFloat(ds.paddingBottom));
+        let p =
+          parseFloat(bs.marginTop) +
+          parseFloat(bs.marginBottom) +
+          parseFloat(ds.marginTop) +
+          parseFloat(ds.marginBottom) +
+          parseFloat(ds.paddingTop) +
+          parseFloat(ds.paddingBottom);
         bodyPadding = Math.min(p, bodyPadding);
       }
 
-      let height = Math.ceil(body.scrollHeight + bodyPadding);
+      let height = Math.ceil((body.scrollHeight + bodyPadding) * zoom);
 
-      result = {height, detail};
+      result = { height, detail };
     } else {
       let background = doc.defaultView.getComputedStyle(body).backgroundColor;
       if (!isOpaque(background)) {
@@ -281,26 +285,28 @@ const BrowserListener = {
         background = null;
       }
 
-      if (background === null ||
-          background !== this.oldBackground) {
-        sendAsyncMessage("Extension:BrowserBackgroundChanged", {background});
+      if (background === null || background !== this.oldBackground) {
+        sendAsyncMessage("Extension:BrowserBackgroundChanged", { background });
       }
       this.oldBackground = background;
 
-
       // Adjust the size of the browser based on its content's preferred size.
-      let {contentViewer} = docShell;
+      let { contentViewer } = docShell;
       let ratio = content.devicePixelRatio;
 
-      let w = {}, h = {};
-      contentViewer.getContentSizeConstrained(this.maxWidth * ratio,
-                                              this.maxHeight * ratio,
-                                              w, h);
+      let w = {},
+        h = {};
+      contentViewer.getContentSizeConstrained(
+        this.maxWidth * ratio,
+        this.maxHeight * ratio,
+        w,
+        h
+      );
 
-      let width = Math.ceil(w.value / ratio);
-      let height = Math.ceil(h.value / ratio);
+      let width = Math.ceil((w.value * zoom) / ratio);
+      let height = Math.ceil((h.value * zoom) / ratio);
 
-      result = {width, height, detail};
+      result = { width, height, detail };
     }
 
     sendAsyncMessage("Extension:BrowserResized", result);
@@ -317,24 +323,31 @@ var WebBrowserChrome = {
     // handling this in the top-level frame and want traversal behavior to
     // match the value for this frame rather than any subframe, so we pass
     // through the docShell.isAppTab value rather than what we were handed.
-    return BrowserUtils.onBeforeLinkTraversal(originalTarget, linkURI, linkNode, docShell.isAppTab);
+    return BrowserUtils.onBeforeLinkTraversal(
+      originalTarget,
+      linkURI,
+      linkNode,
+      docShell.isAppTab
+    );
   },
 
-  shouldLoadURI(docShell, URI, referrer, hasPostData, triggeringPrincipal) {
+  shouldLoadURI(docShell, URI, referrerInfo, hasPostData, triggeringPrincipal) {
     return true;
   },
 
   shouldLoadURIInThisProcess(URI) {
-    return E10SUtils.shouldLoadURIInThisProcess(URI);
-  },
-
-  reloadInFreshProcess(docShell, URI, referrer, triggeringPrincipal, loadFlags) {
-    return false;
+    let remoteSubframes = docShell.QueryInterface(Ci.nsILoadContext)
+      .useRemoteSubframes;
+    return E10SUtils.shouldLoadURIInThisProcess(URI, remoteSubframes);
   },
 };
 
 if (Services.appinfo.processType == Services.appinfo.PROCESS_TYPE_CONTENT) {
-  let tabchild = docShell.QueryInterface(Ci.nsIInterfaceRequestor)
-                         .getInterface(Ci.nsITabChild);
+  let tabchild = docShell
+    .QueryInterface(Ci.nsIInterfaceRequestor)
+    .getInterface(Ci.nsIBrowserChild);
   tabchild.webBrowserChrome = WebBrowserChrome;
 }
+
+// This is a temporary hack to prevent regressions (bug 1471327).
+void content;

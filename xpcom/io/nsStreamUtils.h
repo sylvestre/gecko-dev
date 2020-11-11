@@ -11,6 +11,7 @@
 #include "nsStringFwd.h"
 #include "nsIInputStream.h"
 #include "nsTArray.h"
+#include "nsIRunnable.h"
 
 class nsIAsyncInputStream;
 class nsIOutputStream;
@@ -27,10 +28,13 @@ class nsIEventTarget;
  *
  * This function is designed to be used to implement AsyncWait when the
  * aTarget parameter is non-null.
+ *
+ * The optional aPriority parameter allows the input stream runnable events
+ * to be dispatched with a different priority than normal.
  */
 extern already_AddRefed<nsIInputStreamCallback> NS_NewInputStreamReadyEvent(
-    const char* aName, nsIInputStreamCallback* aNotify,
-    nsIEventTarget* aTarget);
+    const char* aName, nsIInputStreamCallback* aNotify, nsIEventTarget* aTarget,
+    uint32_t aPriority = nsIRunnablePriority::PRIORITY_NORMAL);
 
 /**
  * A "one-shot" proxy of the OnOutputStreamReady callback.  The resulting
@@ -124,6 +128,12 @@ extern nsresult NS_CancelAsyncCopy(nsISupports* aCopierCtx, nsresult aReason);
  */
 extern nsresult NS_ConsumeStream(nsIInputStream* aSource, uint32_t aMaxCount,
                                  nsACString& aBuffer);
+
+/**
+ * Just like the above, but consumes into an nsTArray<uint8_t>.
+ */
+extern nsresult NS_ConsumeStream(nsIInputStream* aSource, uint32_t aMaxCount,
+                                 nsTArray<uint8_t>& aBuffer);
 
 /**
  * This function tests whether or not the input stream is buffered. A buffered
@@ -296,9 +306,15 @@ extern nsresult NS_CloneInputStream(nsIInputStream* aSource,
  * The last step is to use nsIStreamTransportService and create a pipe in order
  * to expose a non-blocking async inputStream and read |aSource| data from
  * a separate thread.
+ *
+ * In case we need to create a pipe, |aCloseWhenDone| will be used to create the
+ * inputTransport, |aFlags|, |aSegmentSize|, |asegmentCount| will be used to
+ * open the inputStream. If true, the input stream will be closed after it has
+ * been read. Read more in nsITransport.idl.
  */
 extern nsresult NS_MakeAsyncNonBlockingInputStream(
     already_AddRefed<nsIInputStream> aSource,
-    nsIAsyncInputStream** aAsyncInputStream);
+    nsIAsyncInputStream** aAsyncInputStream, bool aCloseWhenDone = true,
+    uint32_t aFlags = 0, uint32_t aSegmentSize = 0, uint32_t aSegmentCount = 0);
 
 #endif  // !nsStreamUtils_h__

@@ -11,8 +11,7 @@
 #include "mozilla/EMEUtils.h"
 #include "GMPUtils.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_IMPL_CYCLE_COLLECTING_ADDREF(MediaKeyStatusMap)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(MediaKeyStatusMap)
@@ -25,7 +24,7 @@ NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(MediaKeyStatusMap, mParent)
 MediaKeyStatusMap::MediaKeyStatusMap(nsPIDOMWindowInner* aParent)
     : mParent(aParent) {}
 
-MediaKeyStatusMap::~MediaKeyStatusMap() {}
+MediaKeyStatusMap::~MediaKeyStatusMap() = default;
 
 JSObject* MediaKeyStatusMap::WrapObject(JSContext* aCx,
                                         JS::Handle<JSObject*> aGivenProto) {
@@ -101,5 +100,4 @@ void MediaKeyStatusMap::Update(const nsTArray<CDMCaps::KeyStatus>& aKeys) {
   }
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

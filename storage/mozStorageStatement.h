@@ -7,7 +7,6 @@
 #ifndef mozStorageStatement_h
 #define mozStorageStatement_h
 
-#include "nsAutoPtr.h"
 #include "nsString.h"
 
 #include "nsTArray.h"
@@ -52,13 +51,13 @@ class Statement final : public mozIStorageStatement,
    * @param aSQLStatement
    *        The SQL statement to prepare that this object will represent.
    */
-  nsresult initialize(Connection *aDBConnection, sqlite3 *aNativeConnection,
-                      const nsACString &aSQLStatement);
+  nsresult initialize(Connection* aDBConnection, sqlite3* aNativeConnection,
+                      const nsACString& aSQLStatement);
 
   /**
    * Obtains the native statement pointer.
    */
-  inline sqlite3_stmt *nativeStatement() { return mDBStatement; }
+  inline sqlite3_stmt* nativeStatement() { return mDBStatement; }
 
   /**
    * Obtains and transfers ownership of the array of parameters that are bound
@@ -71,17 +70,31 @@ class Statement final : public mozIStorageStatement,
  private:
   ~Statement();
 
-  sqlite3_stmt *mDBStatement;
+  sqlite3_stmt* mDBStatement;
   uint32_t mParamCount;
   uint32_t mResultColumnCount;
   nsTArray<nsCString> mColumnNames;
   bool mExecuting;
 
+  // Tracks whether the status for this statement has been recorded since it was
+  // last reset or created.
+  bool mQueryStatusRecorded;
+  // Tracks whether this statement has been executed since it was last reset or
+  // created.
+  bool mHasExecuted;
+
   /**
    * @return a pointer to the BindingParams object to use with our Bind*
    *         method.
    */
-  mozIStorageBindingParams *getParams();
+  mozIStorageBindingParams* getParams();
+
+  /**
+   * Records a query status result in telemetry. If a result has already been
+   * recorded for this statement then this does nothing. Otherwise the result
+   * is recorded if it is an error or if this is the final result.
+   */
+  void MaybeRecordQueryStatus(int srv, bool isResetting = false);
 
   /**
    * Holds the array of parameters to bind to this statement when we execute
@@ -109,8 +122,8 @@ class Statement final : public mozIStorageStatement,
   friend class StatementJSHelper;
 };
 
-inline nsISupports *ToSupports(Statement *p) {
-  return NS_ISUPPORTS_CAST(mozIStorageStatement *, p);
+inline nsISupports* ToSupports(Statement* p) {
+  return NS_ISUPPORTS_CAST(mozIStorageStatement*, p);
 }
 
 }  // namespace storage

@@ -1,5 +1,3 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 2 -*- */
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -56,9 +54,11 @@ async function runTests(aTab) {
     });
 
     toolbox.destroy().then(function() {
-      is(collectedEvents.join(":"),
+      is(
+        collectedEvents.join(":"),
         "toolbox-destroy:destroy:gDevTools-testTool-destroy:toolbox-testTool-destroy",
-        "Found the right amount of collected events.");
+        "Found the right amount of collected events."
+      );
 
       gDevTools.unregisterTool(toolDefinition.id);
       gBrowser.removeCurrentTab();

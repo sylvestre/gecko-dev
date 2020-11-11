@@ -1,9 +1,8 @@
 /* Any copyright is dedicated to the Public Domain.
    http://creativecommons.org/publicdomain/zero/1.0/ */
 
-
 /*
- * test_nodb: Start search service without existing cache file.
+ * test_nodb: Start search service without existing settings file.
  *
  * Ensure that :
  * - nothing explodes;
@@ -17,38 +16,35 @@
  * and configuration of Firefox.
  */
 
-function run_test() {
-  do_load_manifest("data/chrome.manifest");
+add_task(async function setup() {
   useHttpServer();
-
-  run_next_test();
-}
+  await AddonTestUtils.promiseStartupManager();
+});
 
 add_task(async function test_nodb_pluschanges() {
   let [engine1, engine2] = await addTestEngines([
     { name: "Test search engine", xmlFileName: "engine.xml" },
-    { name: "A second test engine", xmlFileName: "engine2.xml"},
+    { name: "A second test engine", xmlFileName: "engine2.xml" },
   ]);
-  await promiseAfterCache();
+  await promiseAfterSettings();
 
   let search = Services.search;
 
-  search.moveEngine(engine1, 0);
-  search.moveEngine(engine2, 1);
+  await search.moveEngine(engine1, 0);
+  await search.moveEngine(engine2, 1);
 
   // This is needed to avoid some reentrency issues in nsSearchService.
   info("Next step is forcing flush");
   await new Promise(resolve => executeSoon(resolve));
 
   info("Forcing flush");
-  let promiseCommit = promiseAfterCache();
-  search.QueryInterface(Ci.nsIObserver)
-        .observe(null, "quit-application", "");
+  let promiseCommit = promiseAfterSettings();
+  search.QueryInterface(Ci.nsIObserver).observe(null, "quit-application", "");
   await promiseCommit;
   info("Commit complete");
 
   // Check that the entries are placed as specified correctly
   let metadata = await promiseEngineMetadata();
-  Assert.equal(metadata["test-search-engine"].order, 1);
-  Assert.equal(metadata["a-second-test-engine"].order, 2);
+  Assert.equal(metadata["Test search engine"].order, 1);
+  Assert.equal(metadata["A second test engine"].order, 2);
 });

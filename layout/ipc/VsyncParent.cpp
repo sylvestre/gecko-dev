@@ -10,7 +10,6 @@
 #include "BackgroundParentImpl.h"
 #include "gfxPlatform.h"
 #include "mozilla/Unused.h"
-#include "nsIThread.h"
 #include "nsThreadUtils.h"
 #include "VsyncSource.h"
 
@@ -20,7 +19,8 @@ using namespace ipc;
 
 namespace layout {
 
-/*static*/ already_AddRefed<VsyncParent> VsyncParent::Create() {
+/*static*/
+already_AddRefed<VsyncParent> VsyncParent::Create() {
   AssertIsOnBackgroundThread();
   RefPtr<gfx::VsyncSource> vsyncSource =
       gfxPlatform::GetPlatform()->GetHardwareVsync();

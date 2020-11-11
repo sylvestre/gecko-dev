@@ -9,18 +9,19 @@ locales = [
     "af",
     "an",
     "ar",
-    "as",
     "ast",
     "az",
     "be",
     "bg",
-    "bn-BD",
-    "bn-IN",
+    "bn",
+    "bo",
     "br",
+    "brx",
     "bs",
     "ca",
+    "ca-valencia",
     "cak",
-    "crh",
+    "ckb",
     "cs",
     "cy",
     "da",
@@ -29,7 +30,6 @@ locales = [
     "el",
     "en-CA",
     "en-GB",
-    "en-ZA",
     "eo",
     "es-AR",
     "es-CL",
@@ -53,6 +53,7 @@ locales = [
     "hsb",
     "hu",
     "hy-AM",
+    "hye",
     "ia",
     "id",
     "is",
@@ -70,9 +71,8 @@ locales = [
     "lt",
     "ltg",
     "lv",
-    "mai",
+    "meh",
     "mk",
-    "ml",
     "mr",
     "ms",
     "my",
@@ -81,7 +81,6 @@ locales = [
     "nl",
     "nn-NO",
     "oc",
-    "or",
     "pa-IN",
     "pl",
     "pt-BR",
@@ -89,6 +88,7 @@ locales = [
     "rm",
     "ro",
     "ru",
+    "scn",
     "si",
     "sk",
     "sl",
@@ -96,6 +96,7 @@ locales = [
     "sq",
     "sr",
     "sv-SE",
+    "szl",
     "ta",
     "te",
     "th",
@@ -129,8 +130,12 @@ locales = [
     l10n = "{l}browser/extensions/formautofill/**"
 
 [[paths]]
-    reference = "browser/extensions/webcompat-reporter/locales/en-US/**"
-    l10n = "{l}browser/extensions/webcompat-reporter/**"
+    reference = "browser/extensions/fxmonitor/locales/en-US/**"
+    l10n = "{l}browser/extensions/fxmonitor/**"
+
+[[paths]]
+    reference = "browser/extensions/report-site-issue/locales/en-US/**"
+    l10n = "{l}browser/extensions/report-site-issue/**"
 
 [[paths]]
     reference = "services/sync/locales/en-US/**"
@@ -146,11 +151,6 @@ locales = [
 [[paths]]
     reference = "devtools/startup/locales/en-US/**"
     l10n = "{l}devtools/startup/**"
-
-# for Firefox 60 and older and cross-channel
-[[paths]]
-    reference = "devtools/shim/locales/en-US/**"
-    l10n = "{l}devtools/shim/**"
 
 # Filters
 # The filters below are evaluated one after the other, in the given order.

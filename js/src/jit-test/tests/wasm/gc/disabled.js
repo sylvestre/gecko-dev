@@ -2,46 +2,25 @@
 
 const { CompileError, validate } = WebAssembly;
 
-const UNRECOGNIZED_OPCODE_OR_BAD_TYPE = /unrecognized opcode|(Structure|reference) types not enabled|invalid inline block type/;
-
-function assertValidateError(text) {
-    assertEq(validate(wasmTextToBinary(text)), false);
-}
+const UNRECOGNIZED_OPCODE_OR_BAD_TYPE = /unrecognized opcode|(Structure|reference|gc) types not enabled|invalid heap type|invalid inline block type|bad type|\(ref T\) types not enabled|Invalid type|invalid function type/;
 
 let simpleTests = [
-    "(module (gc_feature_opt_in 2) (func (drop (ref.null))))",
-    "(module (gc_feature_opt_in 2) (func $test (local anyref)))",
-    "(module (gc_feature_opt_in 2) (func $test (param anyref)))",
-    "(module (gc_feature_opt_in 2) (func $test (result anyref) (ref.null)))",
-    "(module (gc_feature_opt_in 2) (func $test (block anyref (unreachable)) unreachable))",
-    "(module (gc_feature_opt_in 2) (func $test (local anyref) (result i32) (ref.is_null (get_local 0))))",
-    `(module (gc_feature_opt_in 2) (import "a" "b" (param anyref)))`,
-    `(module (gc_feature_opt_in 2) (import "a" "b" (result anyref)))`,
-    `(module (gc_feature_opt_in 2) (type $s (struct)))`,
+    "(module (func (drop (ref.null eq))))",
+    "(module (func $test (local eqref)))",
+    "(module (func $test (param eqref)))",
+    "(module (func $test (result eqref) (ref.null eq)))",
+    "(module (func $test (block (result eqref) (unreachable)) unreachable))",
+    "(module (func $test (result i32) (local eqref) (ref.is_null (local.get 0))))",
+    `(module (import "a" "b" (func (param eqref))))`,
+    `(module (import "a" "b" (func (result eqref))))`,
+    `(module (type $s (struct)))`,
+    `(module (func (param (ref 0)) (unreachable)))`,
 ];
 
-// Two distinct failure modes:
-//
-// - if we have no compiled-in support for wasm-gc we'll get a syntax error when
-//   parsing the test programs that use ref types and structures.
-//
-// - if we have compiled-in support for wasm-gc, but wasm-gc is not currently
-//   enabled, we will succeed parsing but fail compilation and validation.
-//
-// But it should always be all of one or all of the other.
+// Test that use of gc-types fails when gc is disabled.
 
-var fail_syntax = 0;
-var fail_compile = 0;
 for (let src of simpleTests) {
-    try {
-        wasmTextToBinary(src);
-    } catch (e) {
-        assertEq(e instanceof SyntaxError, true);
-        fail_syntax++;
-        continue;
-    }
-    assertErrorMessage(() => wasmEvalText(src), CompileError, UNRECOGNIZED_OPCODE_OR_BAD_TYPE);
-    assertValidateError(src);
-    fail_compile++;
+    let bin = wasmTextToBinary(src);
+    assertEq(validate(bin), false);
+    wasmCompilationShouldFail(bin, UNRECOGNIZED_OPCODE_OR_BAD_TYPE);
 }
-assertEq((fail_syntax == 0) != (fail_compile == 0), true);

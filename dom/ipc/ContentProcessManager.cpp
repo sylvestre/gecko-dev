@@ -6,30 +6,21 @@
 
 #include "ContentProcessManager.h"
 #include "ContentParent.h"
-#include "mozilla/dom/TabParent.h"
+#include "mozilla/dom/BrowserParent.h"
+#include "mozilla/dom/BrowsingContextGroup.h"
 
 #include "mozilla/StaticPtr.h"
 #include "mozilla/ClearOnShutdown.h"
 
 #include "nsPrintfCString.h"
-#include "nsIScriptSecurityManager.h"
 
-// XXX need another bug to move this to a common header.
-#ifdef DISABLE_ASSERTS_FOR_FUZZING
-#define ASSERT_UNLESS_FUZZING(...) \
-  do {                             \
-  } while (0)
-#else
-#define ASSERT_UNLESS_FUZZING(...) MOZ_ASSERT(false, __VA_ARGS__)
-#endif
-
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 /* static */
 StaticAutoPtr<ContentProcessManager> ContentProcessManager::sSingleton;
 
-/* static */ ContentProcessManager* ContentProcessManager::GetSingleton() {
+/* static */
+ContentProcessManager* ContentProcessManager::GetSingleton() {
   MOZ_ASSERT(XRE_IsParentProcess());
 
   if (!sSingleton) {
@@ -39,318 +30,105 @@ StaticAutoPtr<ContentProcessManager> ContentProcessManager::sSingleton;
   return sSingleton;
 }
 
-void ContentProcessManager::AddContentProcess(
-    ContentParent* aChildCp, const ContentParentId& aParentCpId) {
+void ContentProcessManager::AddContentProcess(ContentParent* aChildCp) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aChildCp);
 
-  ContentProcessInfo& info = mContentParentMap[aChildCp->ChildID()];
-  if (!info.mCp) {
-    info.mCp = aChildCp;
-  } else {
-    MOZ_ASSERT(info.mCp == aChildCp);
-    MOZ_ASSERT_IF(!!info.mParentCpId, info.mParentCpId == aParentCpId);
-  }
-  info.mParentCpId = aParentCpId;
+  auto entry = mContentParentMap.LookupForAdd(aChildCp->ChildID());
+  MOZ_ASSERT_IF(entry, entry.Data() == aChildCp);
+  entry.OrInsert([&] { return aChildCp; });
 }
 
 void ContentProcessManager::RemoveContentProcess(
     const ContentParentId& aChildCpId) {
   MOZ_ASSERT(NS_IsMainThread());
-  MOZ_ASSERT(mContentParentMap.find(aChildCpId) != mContentParentMap.end());
 
-  mContentParentMap.erase(aChildCpId);
-  for (auto iter = mContentParentMap.begin(); iter != mContentParentMap.end();
-       ++iter) {
-    if (!iter->second.mChildrenCpId.empty()) {
-      iter->second.mChildrenCpId.erase(aChildCpId);
-    }
-  }
-}
-
-bool ContentProcessManager::AddGrandchildProcess(
-    const ContentParentId& aParentCpId, const ContentParentId& aChildCpId) {
-  MOZ_ASSERT(NS_IsMainThread());
-
-  auto iter = mContentParentMap.find(aParentCpId);
-  if (NS_WARN_IF(iter == mContentParentMap.end())) {
-    ASSERT_UNLESS_FUZZING("Parent process should be already in map!");
-    return false;
-  }
-  iter->second.mChildrenCpId.insert(aChildCpId);
-  return true;
-}
-
-bool ContentProcessManager::GetParentProcessId(
-    const ContentParentId& aChildCpId,
-    /*out*/ ContentParentId* aParentCpId) {
-  MOZ_ASSERT(NS_IsMainThread());
-
-  auto iter = mContentParentMap.find(aChildCpId);
-  if (NS_WARN_IF(iter == mContentParentMap.end())) {
-    ASSERT_UNLESS_FUZZING();
-    return false;
-  }
-  *aParentCpId = iter->second.mParentCpId;
-  return true;
+  MOZ_ALWAYS_TRUE(mContentParentMap.Remove(aChildCpId));
 }
 
 ContentParent* ContentProcessManager::GetContentProcessById(
     const ContentParentId& aChildCpId) {
   MOZ_ASSERT(NS_IsMainThread());
 
-  auto iter = mContentParentMap.find(aChildCpId);
-  if (NS_WARN_IF(iter == mContentParentMap.end())) {
-    ASSERT_UNLESS_FUZZING();
+  ContentParent* contentParent = mContentParentMap.Get(aChildCpId);
+  if (NS_WARN_IF(!contentParent)) {
     return nullptr;
   }
-  return iter->second.mCp;
+  return contentParent;
 }
 
-nsTArray<ContentParentId> ContentProcessManager::GetAllChildProcessById(
-    const ContentParentId& aParentCpId) {
+bool ContentProcessManager::RegisterRemoteFrame(BrowserParent* aChildBp) {
+  MOZ_ASSERT(NS_IsMainThread());
+  MOZ_ASSERT(aChildBp);
+
+  auto entry = mBrowserParentMap.LookupForAdd(aChildBp->GetTabId());
+  MOZ_ASSERT_IF(entry, entry.Data() == aChildBp);
+  entry.OrInsert([&] {
+    // Ensure that this BrowserParent's BrowsingContextGroup is kept alive until
+    // the BrowserParent has been unregistered, ensuring the group isn't
+    // destroyed while this BrowserParent can still send messages.
+    aChildBp->GetBrowsingContext()->Group()->AddKeepAlive();
+    return aChildBp;
+  });
+  return !entry;
+}
+
+void ContentProcessManager::UnregisterRemoteFrame(const TabId& aChildTabId) {
   MOZ_ASSERT(NS_IsMainThread());
 
-  nsTArray<ContentParentId> cpIdArray;
-  auto iter = mContentParentMap.find(aParentCpId);
-  if (NS_WARN_IF(iter == mContentParentMap.end())) {
-    ASSERT_UNLESS_FUZZING();
-    return cpIdArray;
-  }
+  auto childBp = mBrowserParentMap.GetAndRemove(aChildTabId);
+  MOZ_DIAGNOSTIC_ASSERT(childBp);
 
-  for (auto cpIter = iter->second.mChildrenCpId.begin();
-       cpIter != iter->second.mChildrenCpId.end(); ++cpIter) {
-    cpIdArray.AppendElement(*cpIter);
-  }
-
-  return cpIdArray;
+  // Clear the corresponding keepalive which was added in `RegisterRemoteFrame`.
+  (*childBp)->GetBrowsingContext()->Group()->RemoveKeepAlive();
 }
 
-bool ContentProcessManager::RegisterRemoteFrame(
-    const TabId& aTabId, const ContentParentId& aOpenerCpId,
-    const TabId& aOpenerTabId, const IPCTabContext& aContext,
+ContentParentId ContentProcessManager::GetTabProcessId(
+    const TabId& aChildTabId) {
+  MOZ_ASSERT(NS_IsMainThread());
+
+  if (BrowserParent* browserParent = mBrowserParentMap.Get(aChildTabId)) {
+    return browserParent->Manager()->ChildID();
+  }
+  return ContentParentId(0);
+}
+
+uint32_t ContentProcessManager::GetBrowserParentCountByProcessId(
     const ContentParentId& aChildCpId) {
   MOZ_ASSERT(NS_IsMainThread());
 
-  auto iter = mContentParentMap.find(aChildCpId);
-  if (NS_WARN_IF(iter == mContentParentMap.end())) {
-    ASSERT_UNLESS_FUZZING();
-    return false;
-  }
-
-  struct RemoteFrameInfo info;
-
-  // If it's a PopupIPCTabContext, it's the case that a TabChild want to
-  // open a new tab. aOpenerTabId has to be it's parent frame's opener id.
-  if (aContext.type() == IPCTabContext::TPopupIPCTabContext) {
-    auto remoteFrameIter = iter->second.mRemoteFrames.find(aOpenerTabId);
-    if (remoteFrameIter == iter->second.mRemoteFrames.end()) {
-      ASSERT_UNLESS_FUZZING("Failed to find parent frame's opener id.");
-      return false;
-    }
-
-    info.mOpenerCpId = remoteFrameIter->second.mOpenerCpId;
-    info.mOpenerTabId = remoteFrameIter->second.mOpenerTabId;
-    info.mContext = remoteFrameIter->second.mContext;
-  } else {
-    MaybeInvalidTabContext tc(aContext);
-    if (!tc.IsValid()) {
-      NS_ERROR(nsPrintfCString("Received an invalid TabContext from "
-                               "the child process. (%s)",
-                               tc.GetInvalidReason())
-                   .get());
-      return false;
-    }
-    info.mOpenerCpId = aOpenerCpId;
-    info.mOpenerTabId = aOpenerTabId;
-    info.mContext = tc.GetTabContext();
-  }
-
-  iter->second.mRemoteFrames[aTabId] = info;
-  mTabProcessMap[aTabId] = aChildCpId;
-  return true;
-}
-
-void ContentProcessManager::UnregisterRemoteFrame(
-    const ContentParentId& aChildCpId, const TabId& aChildTabId) {
-  MOZ_ASSERT(NS_IsMainThread());
-
-  auto iter = mContentParentMap.find(aChildCpId);
-  if (NS_WARN_IF(iter == mContentParentMap.end())) {
-    ASSERT_UNLESS_FUZZING();
-    return;
-  }
-
-  auto remoteFrameIter = iter->second.mRemoteFrames.find(aChildTabId);
-  if (remoteFrameIter != iter->second.mRemoteFrames.end()) {
-    iter->second.mRemoteFrames.erase(aChildTabId);
-  }
-
-  auto tabProcessIter = mTabProcessMap.find(aChildTabId);
-  if (tabProcessIter != mTabProcessMap.end()) {
-    mTabProcessMap.erase(tabProcessIter);
-  }
-}
-
-bool ContentProcessManager::GetTabContextByProcessAndTabId(
-    const ContentParentId& aChildCpId, const TabId& aChildTabId,
-    /*out*/ TabContext* aTabContext) {
-  MOZ_ASSERT(NS_IsMainThread());
-  MOZ_ASSERT(aTabContext);
-
-  auto iter = mContentParentMap.find(aChildCpId);
-  if (NS_WARN_IF(iter == mContentParentMap.end())) {
-    ASSERT_UNLESS_FUZZING();
-    return false;
-  }
-
-  auto remoteFrameIter = iter->second.mRemoteFrames.find(aChildTabId);
-  if (NS_WARN_IF(remoteFrameIter == iter->second.mRemoteFrames.end())) {
-    ASSERT_UNLESS_FUZZING();
-    return false;
-  }
-
-  *aTabContext = remoteFrameIter->second.mContext;
-
-  return true;
-}
-
-nsTArray<TabContext> ContentProcessManager::GetTabContextByContentProcess(
-    const ContentParentId& aChildCpId) {
-  MOZ_ASSERT(NS_IsMainThread());
-
-  nsTArray<TabContext> tabContextArray;
-  auto iter = mContentParentMap.find(aChildCpId);
-  if (NS_WARN_IF(iter == mContentParentMap.end())) {
-    ASSERT_UNLESS_FUZZING();
-    return tabContextArray;
-  }
-
-  for (auto remoteFrameIter = iter->second.mRemoteFrames.begin();
-       remoteFrameIter != iter->second.mRemoteFrames.end(); ++remoteFrameIter) {
-    tabContextArray.AppendElement(remoteFrameIter->second.mContext);
-  }
-
-  return tabContextArray;
-}
-
-bool ContentProcessManager::GetRemoteFrameOpenerTabId(
-    const ContentParentId& aChildCpId, const TabId& aChildTabId,
-    /*out*/ ContentParentId* aOpenerCpId,
-    /*out*/ TabId* aOpenerTabId) {
-  MOZ_ASSERT(NS_IsMainThread());
-  auto iter = mContentParentMap.find(aChildCpId);
-  if (NS_WARN_IF(iter == mContentParentMap.end())) {
-    ASSERT_UNLESS_FUZZING();
-    return false;
-  }
-
-  auto remoteFrameIter = iter->second.mRemoteFrames.find(aChildTabId);
-  if (NS_WARN_IF(remoteFrameIter == iter->second.mRemoteFrames.end())) {
-    ASSERT_UNLESS_FUZZING();
-    return false;
-  }
-
-  *aOpenerCpId = remoteFrameIter->second.mOpenerCpId;
-  *aOpenerTabId = remoteFrameIter->second.mOpenerTabId;
-
-  return true;
-}
-
-ContentParentId ContentProcessManager::GetTabProcessId(const TabId& aTabId) {
-  auto tabProcessIter = mTabProcessMap.find(aTabId);
-  MOZ_ASSERT(tabProcessIter != mTabProcessMap.end());
-  if (tabProcessIter == mTabProcessMap.end()) {
-    return ContentParentId(0);
-  }
-  return tabProcessIter->second;
-}
-
-already_AddRefed<TabParent>
-ContentProcessManager::GetTabParentByProcessAndTabId(
-    const ContentParentId& aChildCpId, const TabId& aChildTabId) {
-  MOZ_ASSERT(NS_IsMainThread());
-
-  auto iter = mContentParentMap.find(aChildCpId);
-  if (NS_WARN_IF(iter == mContentParentMap.end())) {
-    ASSERT_UNLESS_FUZZING();
-    return nullptr;
-  }
-
-  const ManagedContainer<PBrowserParent>& browsers =
-      iter->second.mCp->ManagedPBrowserParent();
-  for (auto iter = browsers.ConstIter(); !iter.Done(); iter.Next()) {
-    RefPtr<TabParent> tab = TabParent::GetFrom(iter.Get()->GetKey());
-    if (tab->GetTabId() == aChildTabId) {
-      return tab.forget();
-    }
-  }
-
-  return nullptr;
-}
-
-already_AddRefed<TabParent>
-ContentProcessManager::GetTopLevelTabParentByProcessAndTabId(
-    const ContentParentId& aChildCpId, const TabId& aChildTabId) {
-  MOZ_ASSERT(NS_IsMainThread());
-
-  // Used to keep the current ContentParentId and the current TabId
-  // in the iteration(do-while loop below)
-  ContentParentId currentCpId;
-  TabId currentTabId;
-
-  // To get the ContentParentId and the TabParentId on upper level
-  ContentParentId parentCpId = aChildCpId;
-  TabId openerTabId = aChildTabId;
-
-  // Stop this loop when the upper ContentParentId of
-  // the current ContentParentId is chrome(ContentParentId = 0).
-  do {
-    // Update the current ContentParentId and TabId in iteration
-    currentCpId = parentCpId;
-    currentTabId = openerTabId;
-
-    // Get the ContentParentId and TabId on upper level
-    if (!GetRemoteFrameOpenerTabId(currentCpId, currentTabId, &parentCpId,
-                                   &openerTabId)) {
-      return nullptr;
-    }
-  } while (parentCpId);
-
-  // Get the top level TabParent by the current ContentParentId and TabId
-  return GetTabParentByProcessAndTabId(currentCpId, currentTabId);
-}
-
-nsTArray<TabId> ContentProcessManager::GetTabParentsByProcessId(
-    const ContentParentId& aChildCpId) {
-  MOZ_ASSERT(NS_IsMainThread());
-
-  nsTArray<TabId> tabIdList;
-  auto iter = mContentParentMap.find(aChildCpId);
-  if (NS_WARN_IF(iter == mContentParentMap.end())) {
-    ASSERT_UNLESS_FUZZING();
-    return tabIdList;
-  }
-
-  for (auto remoteFrameIter = iter->second.mRemoteFrames.begin();
-       remoteFrameIter != iter->second.mRemoteFrames.end(); ++remoteFrameIter) {
-    tabIdList.AppendElement(remoteFrameIter->first);
-  }
-
-  return tabIdList;
-}
-
-uint32_t ContentProcessManager::GetTabParentCountByProcessId(
-    const ContentParentId& aChildCpId) {
-  MOZ_ASSERT(NS_IsMainThread());
-
-  auto iter = mContentParentMap.find(aChildCpId);
-  if (NS_WARN_IF(iter == mContentParentMap.end())) {
+  ContentParent* contentParent = mContentParentMap.Get(aChildCpId);
+  if (NS_WARN_IF(!contentParent)) {
     return 0;
   }
-
-  return iter->second.mRemoteFrames.size();
+  return contentParent->ManagedPBrowserParent().Count();
 }
 
-}  // namespace dom
-}  // namespace mozilla
+already_AddRefed<BrowserParent>
+ContentProcessManager::GetBrowserParentByProcessAndTabId(
+    const ContentParentId& aChildCpId, const TabId& aChildTabId) {
+  RefPtr<BrowserParent> browserParent = mBrowserParentMap.Get(aChildTabId);
+  if (NS_WARN_IF(!browserParent)) {
+    return nullptr;
+  }
+
+  if (NS_WARN_IF(browserParent->Manager()->ChildID() != aChildCpId)) {
+    return nullptr;
+  }
+
+  return browserParent.forget();
+}
+
+already_AddRefed<BrowserParent>
+ContentProcessManager::GetTopLevelBrowserParentByProcessAndTabId(
+    const ContentParentId& aChildCpId, const TabId& aChildTabId) {
+  RefPtr<BrowserParent> browserParent =
+      GetBrowserParentByProcessAndTabId(aChildCpId, aChildTabId);
+  while (browserParent && browserParent->GetBrowserBridgeParent()) {
+    browserParent = browserParent->GetBrowserBridgeParent()->Manager();
+  }
+
+  return browserParent.forget();
+}
+
+}  // namespace mozilla::dom

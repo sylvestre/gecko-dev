@@ -16,8 +16,7 @@
 
 NS_IMPL_NS_NEW_HTML_ELEMENT_CHECK_PARSER(Output)
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 HTMLOutputElement::HTMLOutputElement(
     already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo,
@@ -31,7 +30,7 @@ HTMLOutputElement::HTMLOutputElement(
   AddStatesSilently(NS_EVENT_STATE_VALID | NS_EVENT_STATE_MOZ_UI_VALID);
 }
 
-HTMLOutputElement::~HTMLOutputElement() {}
+HTMLOutputElement::~HTMLOutputElement() = default;
 
 NS_IMPL_CYCLE_COLLECTION_INHERITED(HTMLOutputElement, nsGenericHTMLFormElement,
                                    mValidity, mTokenList)
@@ -100,11 +99,9 @@ EventStates HTMLOutputElement::IntrinsicState() const {
   return states;
 }
 
-nsresult HTMLOutputElement::BindToTree(nsIDocument* aDocument,
-                                       nsIContent* aParent,
-                                       nsIContent* aBindingParent) {
-  nsresult rv =
-      nsGenericHTMLFormElement::BindToTree(aDocument, aParent, aBindingParent);
+nsresult HTMLOutputElement::BindToTree(BindContext& aContext,
+                                       nsINode& aParent) {
+  nsresult rv = nsGenericHTMLFormElement::BindToTree(aContext, aParent);
   NS_ENSURE_SUCCESS(rv, rv);
 
   // Unfortunately, we can actually end up having to change our state
@@ -174,5 +171,4 @@ JSObject* HTMLOutputElement::WrapNode(JSContext* aCx,
   return HTMLOutputElement_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

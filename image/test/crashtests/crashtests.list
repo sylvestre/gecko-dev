@@ -9,7 +9,7 @@ load 570451.png
 # Bug 1390704 - Skip on debug because it triggers a quadratic behavior that makes it take
 # so much time that it can trip on the reftest timeout of 5 minutes.
 skip-if(Android||isDebugBuild) load 694165-1.xhtml
-load 681190.html
+pref(canvas.mozgetasfile.enabled,true) load 681190.html
 load 732319-1.html
 load 844403-1.html
 load 856616.gif
@@ -23,7 +23,7 @@ load 1235605.gif
 load 1241728-1.html
 load 1241729-1.html
 load 1242093-1.html
-load 1242778-1.png
+skip-if(/^Windows\x20NT\x2010\.0/.test(http.oscpu)&&/^aarch64-msvc/.test(xulRuntime.XPCOMABI)) load 1242778-1.png
 load 1249576-1.png
 load 1253362-1.html
 skip-if(Android&&browserIsRemote) load 1355898-1.html # bug 1507207
@@ -36,6 +36,9 @@ HTTP load delayedframe.sjs # A 3-frame animated GIF with an inordinate delay bet
 # Animated gifs with a very large canvas, but tiny actual content.
 load delaytest.html?523528-1.gif
 load delaytest.html?523528-2.gif
+
+load delaytest.html?1262549-1.gif
+load delaytest.html?1277397-1.jpg
 
 # Bug 1160801 - Ensure that we handle invalid disposal types.
 load invalid-disposal-method-1.gif
@@ -58,3 +61,9 @@ load truncated-second-frame.png # Bug 863975
 
 # Bug 1509998 - Ensure that we handle empty frame rects in animated images.
 load 1509998.gif
+
+load 1526717-1.html
+load 1629490-1.html
+
+HTTP load 1634839-1.html
+HTTP load 1634839-2.html

@@ -6,26 +6,55 @@
 
 var EXPORTED_SYMBOLS = ["BrowserIDManager", "AuthenticationError"];
 
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
-ChromeUtils.import("resource://gre/modules/Services.jsm");
-ChromeUtils.import("resource://gre/modules/Log.jsm");
-ChromeUtils.import("resource://gre/modules/FxAccounts.jsm");
-ChromeUtils.import("resource://services-common/async.js");
-ChromeUtils.import("resource://services-common/utils.js");
-ChromeUtils.import("resource://services-common/tokenserverclient.js");
-ChromeUtils.import("resource://services-crypto/utils.js");
-ChromeUtils.import("resource://services-sync/util.js");
-ChromeUtils.import("resource://services-sync/constants.js");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { Log } = ChromeUtils.import("resource://gre/modules/Log.jsm");
+const { fxAccounts } = ChromeUtils.import(
+  "resource://gre/modules/FxAccounts.jsm"
+);
+const { Async } = ChromeUtils.import("resource://services-common/async.js");
+const { TokenServerClient } = ChromeUtils.import(
+  "resource://services-common/tokenserverclient.js"
+);
+const { CryptoUtils } = ChromeUtils.import(
+  "resource://services-crypto/utils.js"
+);
+const { Svc, Utils } = ChromeUtils.import("resource://services-sync/util.js");
+const {
+  LOGIN_FAILED_LOGIN_REJECTED,
+  LOGIN_FAILED_NETWORK_ERROR,
+  LOGIN_FAILED_NO_USERNAME,
+  LOGIN_SUCCEEDED,
+  MASTER_PASSWORD_LOCKED,
+  STATUS_OK,
+} = ChromeUtils.import("resource://services-sync/constants.js");
 
 // Lazy imports to prevent unnecessary load on startup.
-ChromeUtils.defineModuleGetter(this, "Weave",
-                               "resource://services-sync/main.js");
+ChromeUtils.defineModuleGetter(
+  this,
+  "Weave",
+  "resource://services-sync/main.js"
+);
 
-ChromeUtils.defineModuleGetter(this, "BulkKeyBundle",
-                               "resource://services-sync/keys.js");
+ChromeUtils.defineModuleGetter(
+  this,
+  "BulkKeyBundle",
+  "resource://services-sync/keys.js"
+);
 
-ChromeUtils.defineModuleGetter(this, "fxAccounts",
-                               "resource://gre/modules/FxAccounts.jsm");
+ChromeUtils.defineModuleGetter(
+  this,
+  "fxAccounts",
+  "resource://gre/modules/FxAccounts.jsm"
+);
+
+ChromeUtils.defineModuleGetter(
+  this,
+  "CommonUtils",
+  "resource://services-common/utils.js"
+);
 
 XPCOMUtils.defineLazyGetter(this, "log", function() {
   let log = Log.repository.getLogger("Sync.BrowserIDManager");
@@ -33,106 +62,34 @@ XPCOMUtils.defineLazyGetter(this, "log", function() {
   return log;
 });
 
-XPCOMUtils.defineLazyPreferenceGetter(this, "IGNORE_CACHED_AUTH_CREDENTIALS",
-                                      "services.sync.debug.ignoreCachedAuthCredentials");
+XPCOMUtils.defineLazyPreferenceGetter(
+  this,
+  "IGNORE_CACHED_AUTH_CREDENTIALS",
+  "services.sync.debug.ignoreCachedAuthCredentials"
+);
+
+XPCOMUtils.defineLazyPreferenceGetter(
+  this,
+  "USE_OAUTH_FOR_SYNC_TOKEN",
+  "identity.sync.useOAuthForSyncToken"
+);
 
 // FxAccountsCommon.js doesn't use a "namespace", so create one here.
 var fxAccountsCommon = {};
-ChromeUtils.import("resource://gre/modules/FxAccountsCommon.js", fxAccountsCommon);
+ChromeUtils.import(
+  "resource://gre/modules/FxAccountsCommon.js",
+  fxAccountsCommon
+);
+
+const SCOPE_OLD_SYNC = fxAccountsCommon.SCOPE_OLD_SYNC;
 
 const OBSERVER_TOPICS = [
   fxAccountsCommon.ONLOGIN_NOTIFICATION,
   fxAccountsCommon.ONVERIFIED_NOTIFICATION,
   fxAccountsCommon.ONLOGOUT_NOTIFICATION,
   fxAccountsCommon.ON_ACCOUNT_STATE_CHANGE_NOTIFICATION,
+  "weave:connected",
 ];
-
-// A telemetry helper that records how long a user was in a "bad" state.
-// It is recorded in the *main* ping, *not* the Sync ping.
-// These bad states may persist across browser restarts, and may never change
-// (eg, users may *never* validate)
-var telemetryHelper = {
-  // These are both the "status" values passed to maybeRecordLoginState and
-  // the key we use for our keyed scalar.
-  STATES: {
-    SUCCESS: "SUCCESS",
-    NOTVERIFIED: "NOTVERIFIED",
-    REJECTED: "REJECTED",
-  },
-
-  PREFS: {
-    REJECTED_AT: "identity.telemetry.loginRejectedAt",
-    APPEARS_PERMANENTLY_REJECTED: "identity.telemetry.loginAppearsPermanentlyRejected",
-    LAST_RECORDED_STATE: "identity.telemetry.lastRecordedState",
-  },
-
-  // How long, in minutes, that we continue to wait for a user to transition
-  // from a "bad" state to a success state. After this has expired, we record
-  // the "how long were they rejected for?" histogram.
-  NUM_MINUTES_TO_RECORD_REJECTED_TELEMETRY: 20160, // 14 days in minutes.
-
-  SCALAR: "services.sync.sync_login_state_transitions", // The scalar we use to report
-
-  maybeRecordLoginState(status) {
-    try {
-      this._maybeRecordLoginState(status);
-    } catch (ex) {
-      log.error("Failed to record login telemetry", ex);
-    }
-  },
-
-  _maybeRecordLoginState(status) {
-    let key = this.STATES[status];
-    if (!key) {
-      throw new Error(`invalid state ${status}`);
-    }
-
-    let when = Svc.Prefs.get(this.PREFS.REJECTED_AT);
-    let howLong = when ? this.nowInMinutes() - when : 0; // minutes.
-    let isNewState = Svc.Prefs.get(this.PREFS.LAST_RECORDED_STATE) != status;
-
-    if (status == this.STATES.SUCCESS) {
-      if (isNewState) {
-        Services.telemetry.keyedScalarSet(this.SCALAR, key, true);
-        Svc.Prefs.set(this.PREFS.LAST_RECORDED_STATE, status);
-      }
-      // If we previously recorded an error state, report how long they were
-      // in the bad state for (in minutes)
-      if (when) {
-        // If we are "permanently rejected" we've already recorded for how
-        // long, so don't do it again.
-        if (!Svc.Prefs.get(this.PREFS.APPEARS_PERMANENTLY_REJECTED)) {
-          Services.telemetry.getHistogramById("WEAVE_LOGIN_FAILED_FOR").add(howLong);
-        }
-      }
-      Svc.Prefs.reset(this.PREFS.REJECTED_AT);
-      Svc.Prefs.reset(this.PREFS.APPEARS_PERMANENTLY_REJECTED);
-    } else {
-      // We are in a failure state.
-      if (Svc.Prefs.get(this.PREFS.APPEARS_PERMANENTLY_REJECTED)) {
-        return; // we've given up, so don't record errors.
-      }
-      if (isNewState) {
-        Services.telemetry.keyedScalarSet(this.SCALAR, key, true);
-        Svc.Prefs.set(this.PREFS.LAST_RECORDED_STATE, status);
-      }
-      if (howLong > this.NUM_MINUTES_TO_RECORD_REJECTED_TELEMETRY) {
-        // We are giving up for this user, so report this "max time" as how
-        // long they were in this state for.
-        Services.telemetry.getHistogramById("WEAVE_LOGIN_FAILED_FOR").add(howLong);
-        Svc.Prefs.set(this.PREFS.APPEARS_PERMANENTLY_REJECTED, true);
-      }
-      if (!Svc.Prefs.has(this.PREFS.REJECTED_AT)) {
-        Svc.Prefs.set(this.PREFS.REJECTED_AT, this.nowInMinutes());
-      }
-    }
-  },
-
-  // hookable by tests.
-  nowInMinutes() {
-    return Math.floor(Date.now() / 1000 / 60);
-  },
-};
 
 /*
   General authentication error for abstracting authentication
@@ -159,7 +116,11 @@ function BrowserIDManager() {
   this._tokenServerClient = new TokenServerClient();
   this._tokenServerClient.observerPrefix = "weave:service";
   this._log = log;
-  XPCOMUtils.defineLazyPreferenceGetter(this, "_username", "services.sync.username");
+  XPCOMUtils.defineLazyPreferenceGetter(
+    this,
+    "_username",
+    "services.sync.username"
+  );
 
   this.asyncObserver = Async.asyncObserver(this, log);
   for (let topic of OBSERVER_TOPICS) {
@@ -172,22 +133,30 @@ this.BrowserIDManager.prototype = {
   _tokenServerClient: null,
   // https://docs.services.mozilla.com/token/apis.html
   _token: null,
-  _signedInUser: null, // the signedinuser we got from FxAccounts.
+  // protection against the user changing underneath us - the uid
+  // of the current user.
+  _userUid: null,
 
   hashedUID() {
-    if (!this._hashedUID) {
+    const id = this._fxaService.telemetry.getSanitizedUID();
+    if (!id) {
       throw new Error("hashedUID: Don't seem to have previously seen a token");
     }
-    return this._hashedUID;
+    return id;
   },
 
   // Return a hashed version of a deviceID, suitable for telemetry.
   hashedDeviceID(deviceID) {
-    let uid = this.hashedUID();
-    // Combine the raw device id with the metrics uid to create a stable
-    // unique identifier that can't be mapped back to the user's FxA
-    // identity without knowing the metrics HMAC key.
-    return Utils.sha256(deviceID + uid);
+    const id = this._fxaService.telemetry.sanitizeDeviceId(deviceID);
+    if (!id) {
+      throw new Error("hashedUID: Don't seem to have previously seen a token");
+    }
+    return id;
+  },
+
+  // The "node type" reported to telemetry or null if not specified.
+  get telemetryNodeType() {
+    return this._token && this._token.node_type ? this._token.node_type : null;
   },
 
   finalize() {
@@ -196,18 +165,21 @@ this.BrowserIDManager.prototype = {
       Services.obs.removeObserver(this.asyncObserver, topic);
     }
     this.resetCredentials();
-    this._signedInUser = null;
+    this._userUid = null;
   },
 
-  _updateSignedInUser(userData) {
-    // This object should only ever be used for a single user.  It is an
-    // error to update the data if the user changes (but updates are still
-    // necessary, as each call may add more attributes to the user).
-    // We start with no user, so an initial update is always ok.
-    if (this._signedInUser && this._signedInUser.uid != userData.uid) {
-      throw new Error("Attempting to update to a different user.");
+  async getSignedInUser() {
+    let data = await this._fxaService.getSignedInUser();
+    if (!data) {
+      this._userUid = null;
+      return null;
     }
-    this._signedInUser = userData;
+    if (this._userUid == null) {
+      this._userUid = data.uid;
+    } else if (this._userUid != data.uid) {
+      throw new Error("The signed in user has changed");
+    }
+    return data;
   },
 
   logout() {
@@ -221,61 +193,64 @@ this.BrowserIDManager.prototype = {
 
   async observe(subject, topic, data) {
     this._log.debug("observed " + topic);
+    if (!this.username) {
+      this._log.info("Sync is not configured, so ignoring the notification");
+      return;
+    }
     switch (topic) {
-    case fxAccountsCommon.ONLOGIN_NOTIFICATION: {
-      this._log.info("A user has logged in");
-      this.resetCredentials();
-      let accountData = await this._fxaService.getSignedInUser();
-      this._updateSignedInUser(accountData);
+      case "weave:connected":
+      case fxAccountsCommon.ONLOGIN_NOTIFICATION: {
+        this._log.info("Sync has been connected to a logged in user");
+        this.resetCredentials();
+        let accountData = await this.getSignedInUser();
 
-      if (!accountData.verified) {
-        // wait for a verified notification before we kick sync off.
-        this._log.info("The user is not verified");
+        if (!accountData.verified) {
+          // wait for a verified notification before we kick sync off.
+          this._log.info("The user is not verified");
+          break;
+        }
+      }
+      // We've been configured with an already verified user, so fall-through.
+      // intentional fall-through - the user is verified.
+      case fxAccountsCommon.ONVERIFIED_NOTIFICATION: {
+        this._log.info("The user became verified");
+        Weave.Status.login = LOGIN_SUCCEEDED;
+
+        // And actually sync. If we've never synced before, we force a full sync.
+        // If we have, then we are probably just reauthenticating so it's a normal sync.
+        // We can use any pref that must be set if we've synced before, and check
+        // the sync lock state because we might already be doing that first sync.
+        let isFirstSync =
+          !Weave.Service.locked && !Svc.Prefs.get("client.syncID", null);
+        if (isFirstSync) {
+          this._log.info("Doing initial sync actions");
+          Svc.Prefs.set("firstSync", "resetClient");
+          Services.obs.notifyObservers(null, "weave:service:setup-complete");
+        }
+        // There's no need to wait for sync to complete and it would deadlock
+        // our AsyncObserver.
+        if (!Svc.Prefs.get("testing.tps", false)) {
+          Weave.Service.sync({ why: "login" });
+        }
         break;
       }
-      // intentional fall-through - the user is verified.
-    }
-    // We've been configured with an already verified user, so fall-through.
-    case fxAccountsCommon.ONVERIFIED_NOTIFICATION: {
-      this._log.info("The user became verified");
 
-      // Set the username now - that will cause Sync to know it is configured
-      let accountData = await this._fxaService.getSignedInUser();
-      this.username = accountData.email;
-      Weave.Status.login = LOGIN_SUCCEEDED;
+      case fxAccountsCommon.ONLOGOUT_NOTIFICATION:
+        Weave.Service.startOver()
+          .then(() => {
+            this._log.trace("startOver completed");
+          })
+          .catch(err => {
+            this._log.warn("Failed to reset sync", err);
+          });
+        // startOver will cause this instance to be thrown away, so there's
+        // nothing else to do.
+        break;
 
-      // And actually sync. If we've never synced before, we force a full sync.
-      // If we have, then we are probably just reauthenticating so it's a normal sync.
-      // We can use any pref that must be set if we've synced before, and check
-      // the sync lock state because we might already be doing that first sync.
-      let isFirstSync = !Weave.Service.locked && !Svc.Prefs.get("client.syncID", null);
-      if (isFirstSync) {
-        this._log.info("Doing initial sync actions");
-        Svc.Prefs.set("firstSync", "resetClient");
-        Services.obs.notifyObservers(null, "weave:service:setup-complete");
-      }
-      // There's no need to wait for sync to complete and it would deadlock
-      // our AsyncObserver.
-      if (!Svc.Prefs.get("testing.tps", false)) {
-        Weave.Service.sync({why: "login"});
-      }
-      break;
-    }
-
-    case fxAccountsCommon.ONLOGOUT_NOTIFICATION:
-      Weave.Service.startOver().then(() => {
-        this._log.trace("startOver completed");
-      }).catch(err => {
-        this._log.warn("Failed to reset sync", err);
-      });
-      // startOver will cause this instance to be thrown away, so there's
-      // nothing else to do.
-      break;
-
-    case fxAccountsCommon.ON_ACCOUNT_STATE_CHANGE_NOTIFICATION:
-      // throw away token forcing us to fetch a new one later.
-      this.resetCredentials();
-      break;
+      case fxAccountsCommon.ON_ACCOUNT_STATE_CHANGE_NOTIFICATION:
+        // throw away token forcing us to fetch a new one later.
+        this.resetCredentials();
+        break;
     }
   },
 
@@ -283,11 +258,11 @@ this.BrowserIDManager.prototype = {
    * Provide override point for testing token expiration.
    */
   _now() {
-    return this._fxaService.now();
+    return this._fxaService._internal.now();
   },
 
   get _localtimeOffsetMsec() {
-    return this._fxaService.localtimeOffsetMsec;
+    return this._fxaService._internal.localtimeOffsetMsec;
   },
 
   get syncKeyBundle() {
@@ -304,31 +279,18 @@ this.BrowserIDManager.prototype = {
    * Changing the username has the side-effect of wiping credentials.
    */
   set username(value) {
-    if (value) {
-      value = value.toLowerCase();
-
-      if (value == this.username) {
-        return;
-      }
-
-      Svc.Prefs.set("username", value);
-    } else {
-      Svc.Prefs.reset("username");
-    }
-
-    // If we change the username, we interpret this as a major change event
-    // and wipe out the credentials.
-    this._log.info("Username changed. Removing stored credentials.");
-    this.resetCredentials();
+    // setting .username is an old throwback, but it should no longer happen.
+    throw new Error("don't set the username");
   },
 
   /**
-   * Resets/Drops all credentials we hold for the current user.
+   * Resets all calculated credentials we hold for the current user. This will
+   * *not* force the user to reauthenticate, but instead will force us to
+   * calculate a new key bundle, fetch a new token, etc.
    */
   resetCredentials() {
     this._syncKeyBundle = null;
     this._token = null;
-    this._hashedUID = null;
     // The cluster URL comes from the token, so resetting it to empty will
     // force Sync to not accidentally use a value from an earlier token.
     Weave.Service.clusterURL = null;
@@ -345,63 +307,55 @@ this.BrowserIDManager.prototype = {
   },
 
   /**
-   * Deletes Sync credentials from the password manager.
-   */
-  deleteSyncCredentials() {
-    for (let host of Utils.getSyncCredentialsHosts()) {
-      let logins = Services.logins.findLogins({}, host, "", "");
-      for (let login of logins) {
-        Services.logins.removeLogin(login);
-      }
-    }
-  },
-
-  /**
    * Verify the current auth state, unlocking the master-password if necessary.
    *
    * Returns a promise that resolves with the current auth state after
    * attempting to unlock.
    */
   async unlockAndVerifyAuthState() {
-    let data = await this._fxaService.getSignedInUser();
+    let data = await this.getSignedInUser();
+    const fxa = this._fxaService;
     if (!data) {
-      log.debug("unlockAndVerifyAuthState has no user");
+      log.debug("unlockAndVerifyAuthState has no FxA user");
+      return LOGIN_FAILED_NO_USERNAME;
+    }
+    if (!this.username) {
+      log.debug("unlockAndVerifyAuthState finds that sync isn't configured");
       return LOGIN_FAILED_NO_USERNAME;
     }
     if (!data.verified) {
       // Treat not verified as if the user needs to re-auth, so the browser
       // UI reflects the state.
       log.debug("unlockAndVerifyAuthState has an unverified user");
-      telemetryHelper.maybeRecordLoginState(telemetryHelper.STATES.NOTVERIFIED);
       return LOGIN_FAILED_LOGIN_REJECTED;
     }
-    this._updateSignedInUser(data);
-    if ((await this._fxaService.canGetKeys())) {
-      log.debug("unlockAndVerifyAuthState already has (or can fetch) sync keys");
-      telemetryHelper.maybeRecordLoginState(telemetryHelper.STATES.SUCCESS);
+    if (await fxa.keys.canGetKeyForScope(SCOPE_OLD_SYNC)) {
+      log.debug(
+        "unlockAndVerifyAuthState already has (or can fetch) sync keys"
+      );
       return STATUS_OK;
     }
     // so no keys - ensure MP unlocked.
     if (!Utils.ensureMPUnlocked()) {
       // user declined to unlock, so we don't know if they are stored there.
-      log.debug("unlockAndVerifyAuthState: user declined to unlock master-password");
+      log.debug(
+        "unlockAndVerifyAuthState: user declined to unlock master-password"
+      );
       return MASTER_PASSWORD_LOCKED;
     }
-    // now we are unlocked we must re-fetch the user data as we may now have
-    // the details that were previously locked away.
-    this._updateSignedInUser(await this._fxaService.getSignedInUser());
     // If we still can't get keys it probably means the user authenticated
     // without unlocking the MP or cleared the saved logins, so we've now
     // lost them - the user will need to reauth before continuing.
     let result;
-    if ((await this._fxaService.canGetKeys())) {
-      telemetryHelper.maybeRecordLoginState(telemetryHelper.STATES.SUCCESS);
+    if (await fxa.keys.canGetKeyForScope(SCOPE_OLD_SYNC)) {
       result = STATUS_OK;
     } else {
-      telemetryHelper.maybeRecordLoginState(telemetryHelper.STATES.REJECTED);
       result = LOGIN_FAILED_LOGIN_REJECTED;
     }
-    log.debug("unlockAndVerifyAuthState re-fetched credentials and is returning", result);
+    log.debug(
+      "unlockAndVerifyAuthState re-fetched credentials and is returning",
+      result
+    );
     return result;
   },
 
@@ -433,7 +387,8 @@ this.BrowserIDManager.prototype = {
     if (!url) {
       url = Services.prefs.getCharPref("identity.sync.tokenserver.uri");
     }
-    while (url.endsWith("/")) { // trailing slashes cause problems...
+    while (url.endsWith("/")) {
+      // trailing slashes cause problems...
       url = url.slice(0, -1);
     }
     return url;
@@ -442,59 +397,59 @@ this.BrowserIDManager.prototype = {
   // Refresh the sync token for our user. Returns a promise that resolves
   // with a token, or rejects with an error.
   async _fetchTokenForUser() {
-    // gotta be verified to fetch a token.
-    if (!this._signedInUser.verified) {
-      throw new Error("User is not verified");
-    }
-
+    const fxa = this._fxaService;
     // We need keys for things to work.  If we don't have them, just
     // return null for the token - sync calling unlockAndVerifyAuthState()
     // before actually syncing will setup the error states if necessary.
-    if (!(await this._fxaService.canGetKeys())) {
-      this._log.info("Unable to fetch keys (master-password locked?), so aborting token fetch");
+    if (!(await fxa.keys.canGetKeyForScope(SCOPE_OLD_SYNC))) {
+      this._log.info(
+        "Unable to fetch keys (master-password locked?), so aborting token fetch"
+      );
       throw new Error("Can't fetch a token as we can't get keys");
     }
 
     // Do the assertion/certificate/token dance, with a retry.
-    let getToken = async () => {
-      this._log.info("Getting an assertion from", this._tokenServerUrl);
-      const audience = Services.io.newURI(this._tokenServerUrl).prePath;
-      const assertion = await this._fxaService.getAssertion(audience);
-
-      this._log.debug("Getting a token");
-      const headers = {"X-Client-State": this._signedInUser.kXCS};
-      const token = await this._tokenServerClient.getTokenFromBrowserIDAssertion(
-                            this._tokenServerUrl, assertion, headers);
+    let getToken = async key => {
+      this._log.info("Getting a sync token from", this._tokenServerUrl);
+      let token;
+      if (USE_OAUTH_FOR_SYNC_TOKEN) {
+        token = await this._fetchTokenUsingOAuth(key);
+      } else {
+        token = await this._fetchTokenUsingBrowserID(key);
+      }
       this._log.trace("Successfully got a token");
       return token;
     };
 
-    let token;
     try {
+      let token, key;
       try {
-        this._log.info("Getting keys");
-        this._updateSignedInUser(await this._fxaService.getKeys()); // throws if the user changed.
-
-        token = await getToken();
+        this._log.info("Getting sync key");
+        key = await fxa.keys.getKeyForScope(SCOPE_OLD_SYNC);
+        if (!key) {
+          throw new Error("browser does not have the sync key, cannot sync");
+        }
+        token = await getToken(key);
       } catch (err) {
-        // If we get a 401 fetching the token it may be that our certificate
-        // needs to be regenerated.
+        // If we get a 401 fetching the token it may be that our auth tokens needed
+        // to be regenerated; retry exactly once.
         if (!err.response || err.response.status !== 401) {
           throw err;
         }
-        this._log.warn("Token server returned 401, refreshing certificate and retrying token fetch");
-        await this._fxaService.invalidateCertificate();
-        token = await getToken();
+        this._log.warn(
+          "Token server returned 401, retrying token fetch with fresh credentials"
+        );
+        key = await fxa.keys.getKeyForScope(SCOPE_OLD_SYNC);
+        token = await getToken(key);
       }
       // TODO: Make it be only 80% of the duration, so refresh the token
       // before it actually expires. This is to avoid sync storage errors
       // otherwise, we may briefly enter a "needs reauthentication" state.
       // (XXX - the above may no longer be true - someone should check ;)
-      token.expiration = this._now() + (token.duration * 1000) * 0.80;
+      token.expiration = this._now() + token.duration * 1000 * 0.8;
       if (!this._syncKeyBundle) {
-        this._syncKeyBundle = BulkKeyBundle.fromHexKey(this._signedInUser.kSync);
+        this._syncKeyBundle = BulkKeyBundle.fromJWK(key);
       }
-      telemetryHelper.maybeRecordLoginState(telemetryHelper.STATES.SUCCESS);
       Weave.Status.login = LOGIN_SUCCEEDED;
       this._token = token;
       return token;
@@ -505,10 +460,10 @@ this.BrowserIDManager.prototype = {
       // A tokenserver error thrown based on a bad response.
       if (err.response && err.response.status === 401) {
         err = new AuthenticationError(err, "tokenserver");
-      // A hawkclient error.
+        // A hawkclient error.
       } else if (err.code && err.code === 401) {
         err = new AuthenticationError(err, "hawkclient");
-      // An FxAccounts.jsm error.
+        // An FxAccounts.jsm error.
       } else if (err.message == fxAccountsCommon.ERROR_AUTH_ERROR) {
         err = new AuthenticationError(err, "fxaccounts");
       }
@@ -520,7 +475,6 @@ this.BrowserIDManager.prototype = {
         this._log.error("Authentication error in _fetchTokenForUser", err);
         // set it to the "fatal" LOGIN_FAILED_LOGIN_REJECTED reason.
         Weave.Status.login = LOGIN_FAILED_LOGIN_REJECTED;
-        telemetryHelper.maybeRecordLoginState(telemetryHelper.STATES.REJECTED);
       } else {
         this._log.error("Non-authentication error in _fetchTokenForUser", err);
         // for now assume it is just a transient network related problem
@@ -531,6 +485,70 @@ this.BrowserIDManager.prototype = {
     }
   },
 
+  /**
+   * Fetches an OAuth token using the OLD_SYNC scope and exchanges it
+   * for a TokenServer token.
+   *
+   * @returns {Promise}
+   * @private
+   */
+  async _fetchTokenUsingOAuth(key) {
+    this._log.debug("Getting a token using OAuth");
+    const fxa = this._fxaService;
+    const ttl = fxAccountsCommon.OAUTH_TOKEN_FOR_SYNC_LIFETIME_SECONDS;
+    const accessToken = await fxa.getOAuthToken({ scope: SCOPE_OLD_SYNC, ttl });
+    const headers = {
+      "X-KeyId": key.kid,
+    };
+
+    return this._tokenServerClient
+      .getTokenFromOAuthToken(this._tokenServerUrl, accessToken, headers)
+      .catch(async err => {
+        if (err.response && err.response.status === 401) {
+          // remove the cached token if we cannot authorize with it.
+          // we have to do this here because we know which `token` to remove
+          // from cache.
+          console.log("REMOVE CACHED", accessToken);
+          await fxa.removeCachedOAuthToken({ token: accessToken });
+        }
+
+        // continue the error chain, so other handlers can deal with the error.
+        throw err;
+      });
+  },
+
+  /**
+   * Exchanges a BrowserID assertion for a TokenServer token.
+   *
+   * This is a legacy access method that we're in the process of deprecating;
+   * if you have a choice you should use `_fetchTokenUsingOAuth` above.
+   *
+   * @returns {Promise}
+   * @private
+   */
+  async _fetchTokenUsingBrowserID(key) {
+    this._log.debug("Getting a token using BrowserID");
+    const fxa = this._fxaService;
+    const audience = Services.io.newURI(this._tokenServerUrl).prePath;
+    const assertion = await fxa._internal.getAssertion(audience);
+    const headers = {
+      "X-Client-State": fxa._internal.keys.kidAsHex(key),
+    };
+    return this._tokenServerClient
+      .getTokenFromBrowserIDAssertion(this._tokenServerUrl, assertion, headers)
+      .catch(async err => {
+        if (err.response && err.response.status === 401) {
+          this._log.warn(
+            "Token server returned 401, refreshing certificate and retrying token fetch"
+          );
+          await fxa._internal.invalidateCertificate();
+        }
+
+        // continue the error chain, so other handlers can deal with the error.
+        throw err;
+      });
+  },
+
   // Returns a promise that is resolved with a valid token for the current
   // user, or rejects if one can't be obtained.
   // NOTE: This does all the authentication for Sync - it both sets the
@@ -538,10 +556,11 @@ this.BrowserIDManager.prototype = {
   // concepts could be decoupled, but there doesn't seem any value in that
   // currently.
   async _ensureValidToken(forceNewToken = false) {
-    if (!this._signedInUser) {
+    let signedInUser = await this.getSignedInUser();
+    if (!signedInUser) {
       throw new Error("no user is logged in");
     }
-    if (!this._signedInUser.verified) {
+    if (!signedInUser.verified) {
       throw new Error("user is not verified");
     }
 
@@ -569,10 +588,11 @@ this.BrowserIDManager.prototype = {
     try {
       let token = await this._fetchTokenForUser();
       this._token = token;
-      // we store the hashed UID from the token so that if we see a transient
-      // error fetching a new token we still know the "most recent" hashed
-      // UID for telemetry.
-      this._hashedUID = token.hashed_fxa_uid;
+      // This is a little bit of a hack. The tokenserver tells us a HMACed version
+      // of the FxA uid which we can use for metrics purposes without revealing the
+      // user's true uid. It conceptually belongs to FxA but we get it from tokenserver
+      // for legacy reasons. Hand it back to the FxA client code to deal with.
+      this._fxaService.telemetry._setHashedUID(token.hashed_fxa_uid);
       return token;
     } finally {
       Services.obs.notifyObservers(null, "weave:service:login:change");
@@ -601,10 +621,7 @@ this.BrowserIDManager.prototype = {
     if (!this._token) {
       return null;
     }
-    let credentials = {algorithm: "sha256",
-                       id: this._token.id,
-                       key: this._token.key,
-                      };
+    let credentials = { id: this._token.id, key: this._token.key };
     method = method || httpObject.method;
 
     // Get the local clock offset from the Firefox Accounts server.  This should
@@ -615,8 +632,12 @@ this.BrowserIDManager.prototype = {
       credentials,
     };
 
-    let headerValue = CryptoUtils.computeHAWK(httpObject.uri, method, options);
-    return {headers: {authorization: headerValue.field}};
+    let headerValue = await CryptoUtils.computeHAWK(
+      httpObject.uri,
+      method,
+      options
+    );
+    return { headers: { authorization: headerValue.field } };
   },
 
   /**
@@ -655,7 +676,9 @@ this.BrowserIDManager.prototype = {
       // case we just discard the existing token and fetch a new one.
       let forceNewToken = false;
       if (Weave.Service.clusterURL) {
-        this._log.debug("_findCluster has a pre-existing clusterURL, so fetching a new token token");
+        this._log.debug(
+          "_findCluster has a pre-existing clusterURL, so fetching a new token token"
+        );
         forceNewToken = true;
       }
       let token = await this._ensureValidToken(forceNewToken);

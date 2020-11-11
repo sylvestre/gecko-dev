@@ -22,12 +22,11 @@
 #include "nsCoord.h"
 #include "nsIContentInlines.h"
 #include "nsIScriptError.h"
-#include "nsIStringBundle.h"
 #include "nsContentUtils.h"
 #include "ImageLayers.h"
 
 #ifdef ACCESSIBILITY
-#include "nsAccessibilityService.h"
+#  include "nsAccessibilityService.h"
 #endif
 
 using namespace mozilla;
@@ -73,15 +72,13 @@ inline bool is_space(char c) {
 
 static void logMessage(nsIContent* aContent, const nsAString& aCoordsSpec,
                        int32_t aFlags, const char* aMessageName) {
-  nsIDocument* doc = aContent->OwnerDoc();
-
   nsContentUtils::ReportToConsole(
-      aFlags, NS_LITERAL_CSTRING("Layout: ImageMap"), doc,
-      nsContentUtils::eLAYOUT_PROPERTIES, aMessageName, nullptr, /* params */
-      0, /* params length */
+      aFlags, "Layout: ImageMap"_ns, aContent->OwnerDoc(),
+      nsContentUtils::eLAYOUT_PROPERTIES, aMessageName,
+      nsTArray<nsString>(), /* params */
       nullptr,
-      PromiseFlatString(NS_LITERAL_STRING("coords=\"") + aCoordsSpec +
-                        NS_LITERAL_STRING("\""))); /* source line */
+      PromiseFlatString(u"coords=\""_ns + aCoordsSpec +
+                        u"\""_ns)); /* source line */
 }
 
 void Area::ParseCoords(const nsAString& aSpec) {
@@ -627,15 +624,12 @@ nsresult nsImageMap::GetBoundsForAreaContent(nsIContent* aContent,
 }
 
 void nsImageMap::AreaRemoved(HTMLAreaElement* aArea) {
-  if (aArea->IsInUncomposedDoc()) {
-    NS_ASSERTION(aArea->GetPrimaryFrame() == mImageFrame,
-                 "Unexpected primary frame");
-
+  if (aArea->GetPrimaryFrame() == mImageFrame) {
     aArea->SetPrimaryFrame(nullptr);
   }
 
-  aArea->RemoveSystemEventListener(NS_LITERAL_STRING("focus"), this, false);
-  aArea->RemoveSystemEventListener(NS_LITERAL_STRING("blur"), this, false);
+  aArea->RemoveSystemEventListener(u"focus"_ns, this, false);
+  aArea->RemoveSystemEventListener(u"blur"_ns, this, false);
 }
 
 void nsImageMap::FreeAreas() {
@@ -727,8 +721,8 @@ void nsImageMap::AddArea(HTMLAreaElement* aArea) {
   }
 
   // Add focus listener to track area focus changes
-  aArea->AddSystemEventListener(NS_LITERAL_STRING("focus"), this, false, false);
-  aArea->AddSystemEventListener(NS_LITERAL_STRING("blur"), this, false, false);
+  aArea->AddSystemEventListener(u"focus"_ns, this, false, false);
+  aArea->AddSystemEventListener(u"blur"_ns, this, false, false);
 
   // This is a nasty hack.  It needs to go away: see bug 135040.  Once this is
   // removed, the code added to RestyleManager::RestyleElement,
@@ -743,7 +737,7 @@ void nsImageMap::AddArea(HTMLAreaElement* aArea) {
   mAreas.AppendElement(std::move(area));
 }
 
-nsIContent* nsImageMap::GetArea(nscoord aX, nscoord aY) const {
+HTMLAreaElement* nsImageMap::GetArea(nscoord aX, nscoord aY) const {
   NS_ASSERTION(mMap, "Not initialized");
   for (const auto& area : mAreas) {
     if (area->IsInside(aX, aY)) {
@@ -754,7 +748,7 @@ nsIContent* nsImageMap::GetArea(nscoord aX, nscoord aY) const {
   return nullptr;
 }
 
-nsIContent* nsImageMap::GetAreaAt(uint32_t aIndex) const {
+HTMLAreaElement* nsImageMap::GetAreaAt(uint32_t aIndex) const {
   return mAreas.ElementAt(aIndex)->mArea;
 }
 

@@ -19,7 +19,10 @@ add_task(async function() {
   info("do the delete");
   await selectTreeItem(["indexedDB", "http://test1.example.org"]);
   const front = gUI.getCurrentFront();
-  let result = await front.removeDatabase("http://test1.example.org", "idb (default)");
+  let result = await front.removeDatabase(
+    "http://test1.example.org",
+    "idb (default)"
+  );
 
   ok(result.blocked, "removeDatabase attempt is blocked");
 
@@ -31,7 +34,7 @@ add_task(async function() {
   const eventWait = gUI.once("store-objects-edit");
 
   info("telling content to close the db");
-  await ContentTask.spawn(gBrowser.selectedBrowser, null, async function() {
+  await SpecialPowers.spawn(gBrowser.selectedBrowser, [], async function() {
     const win = content.wrappedJSObject;
     await win.closeDb();
   });
@@ -40,19 +43,18 @@ add_task(async function() {
   await eventWait;
 
   info("test state after real delete");
-  await checkState([
-    [["indexedDB", "http://test1.example.org"], []],
-  ]);
+  await checkState([[["indexedDB", "http://test1.example.org"], []]]);
 
   info("try to delete database from nonexistent host");
   let errorThrown = false;
   try {
-    result = await front.removeDatabase("http://test2.example.org", "idb (default)");
+    result = await front.removeDatabase(
+      "http://test2.example.org",
+      "idb (default)"
+    );
   } catch (ex) {
     errorThrown = true;
   }
 
   ok(errorThrown, "error was reported when trying to delete");
-
-  await finishTests();
 });

@@ -9,7 +9,7 @@
 #include "mozilla/Atomics.h"
 #include "mozilla/EventForwards.h"
 #include "mozilla/Mutex.h"
-#include "nsIDocument.h"
+#include "mozilla/dom/Document.h"
 #include "nsIObserver.h"
 
 #include "nsDataHashtable.h"
@@ -20,29 +20,29 @@
 // We decided to give different spoofed values according to the platform. The
 // reason is that it is easy to detect the real platform. So there is no benefit
 // for hiding the platform: it only brings breakages, like keyboard shortcuts
-// won't work in MAC OS if we spoof it as a window platform.
+// won't work in macOS if we spoof it as a Windows platform.
 #ifdef XP_WIN
-#define SPOOFED_UA_OS "Windows NT 6.1; Win64; x64"
-#define SPOOFED_APPVERSION "5.0 (Windows)"
-#define SPOOFED_OSCPU "Windows NT 6.1; Win64; x64"
-#define SPOOFED_PLATFORM "Win32"
+#  define SPOOFED_UA_OS "Windows NT 10.0; Win64; x64"
+#  define SPOOFED_APPVERSION "5.0 (Windows)"
+#  define SPOOFED_OSCPU "Windows NT 10.0; Win64; x64"
+#  define SPOOFED_PLATFORM "Win32"
 #elif defined(XP_MACOSX)
-#define SPOOFED_UA_OS "Macintosh; Intel Mac OS X 10.13"
-#define SPOOFED_APPVERSION "5.0 (Macintosh)"
-#define SPOOFED_OSCPU "Intel Mac OS X 10.13"
-#define SPOOFED_PLATFORM "MacIntel"
+#  define SPOOFED_UA_OS "Macintosh; Intel Mac OS X 10.15"
+#  define SPOOFED_APPVERSION "5.0 (Macintosh)"
+#  define SPOOFED_OSCPU "Intel Mac OS X 10.15"
+#  define SPOOFED_PLATFORM "MacIntel"
 #elif defined(MOZ_WIDGET_ANDROID)
-#define SPOOFED_UA_OS "Android 6.0; Mobile"
-#define SPOOFED_APPVERSION "5.0 (Android 6.0)"
-#define SPOOFED_OSCPU "Linux armv7l"
-#define SPOOFED_PLATFORM "Linux armv7l"
+#  define SPOOFED_UA_OS "Android 9; Mobile"
+#  define SPOOFED_APPVERSION "5.0 (Android 9)"
+#  define SPOOFED_OSCPU "Linux aarch64"
+#  define SPOOFED_PLATFORM "Linux aarch64"
 #else
 // For Linux and other platforms, like BSDs, SunOS and etc, we will use Linux
 // platform.
-#define SPOOFED_UA_OS "X11; Linux x86_64"
-#define SPOOFED_APPVERSION "5.0 (X11)"
-#define SPOOFED_OSCPU "Linux x86_64"
-#define SPOOFED_PLATFORM "Linux x86_64"
+#  define SPOOFED_UA_OS "X11; Linux x86_64"
+#  define SPOOFED_APPVERSION "5.0 (X11)"
+#  define SPOOFED_OSCPU "Linux x86_64"
+#  define SPOOFED_PLATFORM "Linux x86_64"
 #endif
 
 #define SPOOFED_APPNAME "Netscape"
@@ -50,6 +50,14 @@
 #define LEGACY_UA_GECKO_TRAIL "20100101"
 
 #define SPOOFED_POINTER_INTERFACE MouseEvent_Binding::MOZ_SOURCE_MOUSE
+
+// For the HTTP User-Agent header, we use a simpler set of spoofed values
+// that do not reveal the specific desktop platform.
+#if defined(MOZ_WIDGET_ANDROID)
+#  define SPOOFED_HTTP_UA_OS "Android 9; Mobile"
+#else
+#  define SPOOFED_HTTP_UA_OS "Windows NT 10.0"
+#endif
 
 // Forward declare LRUCache, defined in nsRFPService.cpp
 class LRUCache;
@@ -77,8 +85,8 @@ struct SpoofingKeyboardCode {
 };
 
 struct SpoofingKeyboardInfo {
-  KeyNameIndex mKeyIdx;
   nsString mKey;
+  KeyNameIndex mKeyIdx;
   SpoofingKeyboardCode mSpoofingCode;
 };
 
@@ -104,7 +112,7 @@ class KeyboardHashKey : public PLDHashEntryHdr {
         mKeyIdx(std::move(aOther.mKeyIdx)),
         mKey(std::move(aOther.mKey)) {}
 
-  ~KeyboardHashKey() {}
+  ~KeyboardHashKey() = default;
 
   bool KeyEquals(KeyTypePointer aOther) const {
     return mLang == aOther->mLang && mRegion == aOther->mRegion &&
@@ -126,7 +134,12 @@ class KeyboardHashKey : public PLDHashEntryHdr {
   nsString mKey;
 };
 
-enum TimerPrecisionType { All = 1, RFPOnly = 2 };
+enum TimerPrecisionType {
+  DangerouslyNone = 1,
+  UnconditionalAKAHighRes = 2,
+  Normal = 3,
+  RFP = 4,
+};
 
 class nsRFPService final : public nsIObserver {
  public:
@@ -134,25 +147,27 @@ class nsRFPService final : public nsIObserver {
   NS_DECL_NSIOBSERVER
 
   static nsRFPService* GetOrCreate();
-  static bool IsResistFingerprintingEnabled();
-  static bool IsTimerPrecisionReductionEnabled(TimerPrecisionType aType);
   static double TimerResolution();
 
   enum TimeScale { Seconds = 1, MilliSeconds = 1000, MicroSeconds = 1000000 };
 
   // The following Reduce methods can be called off main thread.
-  static double ReduceTimePrecisionAsUSecs(
-      double aTime, int64_t aContextMixin,
-      TimerPrecisionType aType = TimerPrecisionType::All);
-  static double ReduceTimePrecisionAsMSecs(
-      double aTime, int64_t aContextMixin,
-      TimerPrecisionType aType = TimerPrecisionType::All);
-  static double ReduceTimePrecisionAsSecs(
-      double aTime, int64_t aContextMixin,
-      TimerPrecisionType aType = TimerPrecisionType::All);
+  static double ReduceTimePrecisionAsUSecs(double aTime, int64_t aContextMixin,
+                                           bool aIsSystemPrincipal,
+                                           bool aCrossOriginIsolated);
+  static double ReduceTimePrecisionAsMSecs(double aTime, int64_t aContextMixin,
+                                           bool aIsSystemPrincipal,
+                                           bool aCrossOriginIsolated);
+  static double ReduceTimePrecisionAsMSecsRFPOnly(double aTime,
+                                                  int64_t aContextMixin);
+  static double ReduceTimePrecisionAsSecs(double aTime, int64_t aContextMixin,
+                                          bool aIsSystemPrincipal,
+                                          bool aCrossOriginIsolated);
+  static double ReduceTimePrecisionAsSecsRFPOnly(double aTime,
+                                                 int64_t aContextMixin);
 
   // Used by the JS Engine, as it doesn't know about the TimerPrecisionType enum
-  static double ReduceTimePrecisionAsUSecsWrapper(double aTime);
+  static double ReduceTimePrecisionAsUSecsWrapper(double aTime, JSContext* aCx);
 
   // Public only for testing purposes
   static double ReduceTimePrecisionImpl(double aTime, TimeScale aTimeScale,
@@ -177,7 +192,7 @@ class nsRFPService final : public nsIObserver {
                                             uint32_t aHeight);
 
   // This method generates the spoofed value of User Agent.
-  static nsresult GetSpoofedUserAgent(nsACString& userAgent);
+  static void GetSpoofedUserAgent(nsACString& userAgent, bool isForHTTPHeader);
 
   /**
    * This method for getting spoofed modifier states for the given keyboard
@@ -191,8 +206,9 @@ class nsRFPService final : public nsIObserver {
    * @return               true if there is a spoofed state for the modifier.
    */
   static bool GetSpoofedModifierStates(
-      const nsIDocument* aDoc, const WidgetKeyboardEvent* aKeyboardEvent,
-      const Modifiers aModifier, bool& aOut);
+      const mozilla::dom::Document* aDoc,
+      const WidgetKeyboardEvent* aKeyboardEvent, const Modifiers aModifier,
+      bool& aOut);
 
   /**
    * This method for getting spoofed code for the given keyboard event.
@@ -204,7 +220,7 @@ class nsRFPService final : public nsIObserver {
    * @return               true if there is a spoofed code in the fake keyboard
    *                       layout.
    */
-  static bool GetSpoofedCode(const nsIDocument* aDoc,
+  static bool GetSpoofedCode(const dom::Document* aDoc,
                              const WidgetKeyboardEvent* aKeyboardEvent,
                              nsAString& aOut);
 
@@ -218,39 +234,44 @@ class nsRFPService final : public nsIObserver {
    * @return               true if there is a spoofed keyCode in the fake
    *                       keyboard layout.
    */
-  static bool GetSpoofedKeyCode(const nsIDocument* aDoc,
+  static bool GetSpoofedKeyCode(const mozilla::dom::Document* aDoc,
                                 const WidgetKeyboardEvent* aKeyboardEvent,
                                 uint32_t& aOut);
 
  private:
   nsresult Init();
 
-  nsRFPService() {}
+  nsRFPService() = default;
 
-  ~nsRFPService() {}
+  ~nsRFPService() = default;
 
   void UpdateTimers();
   void UpdateRFPPref();
   void StartShutdown();
 
   void PrefChanged(const char* aPref);
+  static void PrefChanged(const char* aPref, void* aSelf);
 
   static void MaybeCreateSpoofingKeyCodes(const KeyboardLangs aLang,
                                           const KeyboardRegions aRegion);
   static void MaybeCreateSpoofingKeyCodesForEnUS();
 
   static void GetKeyboardLangAndRegion(const nsAString& aLanguage,
-                                       KeyboardLangs& aLang,
+                                       KeyboardLangs& aLocale,
                                        KeyboardRegions& aRegion);
-  static bool GetSpoofedKeyCodeInfo(const nsIDocument* aDoc,
+  static bool GetSpoofedKeyCodeInfo(const mozilla::dom::Document* aDoc,
                                     const WidgetKeyboardEvent* aKeyboardEvent,
                                     SpoofingKeyboardCode& aOut);
 
-  static Atomic<bool, Relaxed> sPrivacyResistFingerprinting;
-  static Atomic<bool, Relaxed> sPrivacyTimerPrecisionReduction;
-
   static nsDataHashtable<KeyboardHashKey, const SpoofingKeyboardCode*>*
       sSpoofingKeyboardCodes;
+
+  static TimerPrecisionType GetTimerPrecisionType(bool aIsSystemPrincipal,
+                                                  bool aCrossOriginIsolated);
+
+  static TimerPrecisionType GetTimerPrecisionTypeRFPOnly();
+
+  static void TypeToText(TimerPrecisionType aType, nsACString& aText);
 
   nsCString mInitialTZValue;
 };

@@ -1,12 +1,17 @@
 var gListener = null;
-const kURL = "data:text/html;charset=utf-8,Caret browsing is fun.<input id='in'>";
+const kURL =
+  "data:text/html;charset=utf-8,Caret browsing is fun.<input id='in'>";
 
 const kPrefShortcutEnabled = "accessibility.browsewithcaret_shortcut.enabled";
-const kPrefWarnOnEnable    = "accessibility.warn_on_browsewithcaret";
+const kPrefWarnOnEnable = "accessibility.warn_on_browsewithcaret";
 const kPrefCaretBrowsingOn = "accessibility.browsewithcaret";
 
 var oldPrefs = {};
-for (let pref of [kPrefShortcutEnabled, kPrefWarnOnEnable, kPrefCaretBrowsingOn]) {
+for (let pref of [
+  kPrefShortcutEnabled,
+  kPrefWarnOnEnable,
+  kPrefCaretBrowsingOn,
+]) {
   oldPrefs[pref] = Services.prefs.getBoolPref(pref);
 }
 
@@ -15,7 +20,11 @@ Services.prefs.setBoolPref(kPrefWarnOnEnable, true);
 Services.prefs.setBoolPref(kPrefCaretBrowsingOn, false);
 
 registerCleanupFunction(function() {
-  for (let pref of [kPrefShortcutEnabled, kPrefWarnOnEnable, kPrefCaretBrowsingOn]) {
+  for (let pref of [
+    kPrefShortcutEnabled,
+    kPrefWarnOnEnable,
+    kPrefCaretBrowsingOn,
+  ]) {
     Services.prefs.setBoolPref(pref, oldPrefs[pref]);
   }
 });
@@ -31,8 +40,13 @@ function promiseCaretPromptOpened() {
     function observer(subject, topic, data) {
       if (topic == "domwindowopened") {
         Services.ww.unregisterNotification(observer);
-        let win = subject.QueryInterface(Ci.nsIDOMWindow);
-        BrowserTestUtils.waitForEvent(win, "load", false, e => e.target.location.href != "about:blank").then(() => resolve(win));
+        let win = subject;
+        BrowserTestUtils.waitForEvent(
+          win,
+          "load",
+          false,
+          e => e.target.location.href != "about:blank"
+        ).then(() => resolve(win));
         gCaretPromptOpeningObserver = null;
       }
     }
@@ -61,7 +75,10 @@ function syncToggleCaretNoDialog(expected) {
   hitF7(false);
 
   let expectedStr = expected ? "on." : "off.";
-  ok(!openedDialog, "Shouldn't open a dialog to turn caret browsing " + expectedStr);
+  ok(
+    !openedDialog,
+    "Shouldn't open a dialog to turn caret browsing " + expectedStr
+  );
   // Need to clean up if the dialog wasn't opened, so the observer doesn't get
   // re-triggered later on causing "issues".
   if (!openedDialog) {
@@ -73,7 +90,7 @@ function syncToggleCaretNoDialog(expected) {
 }
 
 function waitForFocusOnInput(browser) {
-  return ContentTask.spawn(browser, null, async function() {
+  return SpecialPowers.spawn(browser, [], async function() {
     let textEl = content.document.getElementById("in");
     return ContentTaskUtils.waitForCondition(() => {
       return content.document.activeElement == textEl;
@@ -82,7 +99,7 @@ function waitForFocusOnInput(browser) {
 }
 
 function focusInput(browser) {
-  return ContentTask.spawn(browser, null, async function() {
+  return SpecialPowers.spawn(browser, [], async function() {
     let textEl = content.document.getElementById("in");
     textEl.focus();
   });
@@ -96,30 +113,44 @@ add_task(async function checkTogglingCaretBrowsing() {
   hitF7();
   let prompt = await promiseGotKey;
   let doc = prompt.document;
-  is(doc.documentElement.defaultButton, "cancel", "No button should be the default");
-  ok(!doc.getElementById("checkbox").checked, "Checkbox shouldn't be checked by default.");
+  let dialog = doc.getElementById("commonDialog");
+  is(dialog.defaultButton, "cancel", "No button should be the default");
+  ok(
+    !doc.getElementById("checkbox").checked,
+    "Checkbox shouldn't be checked by default."
+  );
   let promiseDialogUnloaded = BrowserTestUtils.waitForEvent(prompt, "unload");
 
-  doc.documentElement.cancelDialog();
+  dialog.cancelDialog();
   await promiseDialogUnloaded;
   info("Dialog unloaded");
   await waitForFocusOnInput(tab.linkedBrowser);
-  ok(!Services.prefs.getBoolPref(kPrefCaretBrowsingOn), "Caret browsing should still be off after cancelling the dialog.");
+  ok(
+    !Services.prefs.getBoolPref(kPrefCaretBrowsingOn),
+    "Caret browsing should still be off after cancelling the dialog."
+  );
 
   promiseGotKey = promiseCaretPromptOpened();
   hitF7();
   prompt = await promiseGotKey;
 
   doc = prompt.document;
-  is(doc.documentElement.defaultButton, "cancel", "No button should be the default");
-  ok(!doc.getElementById("checkbox").checked, "Checkbox shouldn't be checked by default.");
+  dialog = doc.getElementById("commonDialog");
+  is(dialog.defaultButton, "cancel", "No button should be the default");
+  ok(
+    !doc.getElementById("checkbox").checked,
+    "Checkbox shouldn't be checked by default."
+  );
   promiseDialogUnloaded = BrowserTestUtils.waitForEvent(prompt, "unload");
 
-  doc.documentElement.acceptDialog();
+  dialog.acceptDialog();
   await promiseDialogUnloaded;
   info("Dialog unloaded");
   await waitForFocusOnInput(tab.linkedBrowser);
-  ok(Services.prefs.getBoolPref(kPrefCaretBrowsingOn), "Caret browsing should be on after accepting the dialog.");
+  ok(
+    Services.prefs.getBoolPref(kPrefCaretBrowsingOn),
+    "Caret browsing should be on after accepting the dialog."
+  );
 
   syncToggleCaretNoDialog(false);
 
@@ -127,17 +158,24 @@ add_task(async function checkTogglingCaretBrowsing() {
   hitF7();
   prompt = await promiseGotKey;
   doc = prompt.document;
+  dialog = doc.getElementById("commonDialog");
 
-  is(doc.documentElement.defaultButton, "cancel", "No button should be the default");
-  ok(!doc.getElementById("checkbox").checked, "Checkbox shouldn't be checked by default.");
+  is(dialog.defaultButton, "cancel", "No button should be the default");
+  ok(
+    !doc.getElementById("checkbox").checked,
+    "Checkbox shouldn't be checked by default."
+  );
 
   promiseDialogUnloaded = BrowserTestUtils.waitForEvent(prompt, "unload");
-  doc.documentElement.cancelDialog();
+  dialog.cancelDialog();
   await promiseDialogUnloaded;
   info("Dialog unloaded");
   await waitForFocusOnInput(tab.linkedBrowser);
 
-  ok(!Services.prefs.getBoolPref(kPrefCaretBrowsingOn), "Caret browsing should still be off after cancelling the dialog.");
+  ok(
+    !Services.prefs.getBoolPref(kPrefCaretBrowsingOn),
+    "Caret browsing should still be off after cancelling the dialog."
+  );
 
   Services.prefs.setBoolPref(kPrefShortcutEnabled, true);
   Services.prefs.setBoolPref(kPrefWarnOnEnable, true);
@@ -154,7 +192,8 @@ add_task(async function toggleCheckboxNoCaretBrowsing() {
   hitF7();
   let prompt = await promiseGotKey;
   let doc = prompt.document;
-  is(doc.documentElement.defaultButton, "cancel", "No button should be the default");
+  let dialog = doc.getElementById("commonDialog");
+  is(dialog.defaultButton, "cancel", "No button should be the default");
   let checkbox = doc.getElementById("checkbox");
   ok(!checkbox.checked, "Checkbox shouldn't be checked by default.");
 
@@ -164,16 +203,25 @@ add_task(async function toggleCheckboxNoCaretBrowsing() {
   let promiseDialogUnloaded = BrowserTestUtils.waitForEvent(prompt, "unload");
 
   // Say no:
-  doc.documentElement.getButton("cancel").click();
+  dialog.getButton("cancel").click();
 
   await promiseDialogUnloaded;
   info("Dialog unloaded");
   await waitForFocusOnInput(tab.linkedBrowser);
-  ok(!Services.prefs.getBoolPref(kPrefCaretBrowsingOn), "Caret browsing should still be off.");
-  ok(!Services.prefs.getBoolPref(kPrefShortcutEnabled), "Shortcut should now be disabled.");
+  ok(
+    !Services.prefs.getBoolPref(kPrefCaretBrowsingOn),
+    "Caret browsing should still be off."
+  );
+  ok(
+    !Services.prefs.getBoolPref(kPrefShortcutEnabled),
+    "Shortcut should now be disabled."
+  );
 
   syncToggleCaretNoDialog(false);
-  ok(!Services.prefs.getBoolPref(kPrefShortcutEnabled), "Shortcut should still be disabled.");
+  ok(
+    !Services.prefs.getBoolPref(kPrefShortcutEnabled),
+    "Shortcut should still be disabled."
+  );
 
   Services.prefs.setBoolPref(kPrefShortcutEnabled, true);
   Services.prefs.setBoolPref(kPrefWarnOnEnable, true);
@@ -181,7 +229,6 @@ add_task(async function toggleCheckboxNoCaretBrowsing() {
 
   BrowserTestUtils.removeTab(tab);
 });
-
 
 add_task(async function toggleCheckboxWantCaretBrowsing() {
   let tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, kURL);
@@ -191,7 +238,8 @@ add_task(async function toggleCheckboxWantCaretBrowsing() {
   hitF7();
   let prompt = await promiseGotKey;
   let doc = prompt.document;
-  is(doc.documentElement.defaultButton, "cancel", "No button should be the default");
+  let dialog = doc.getElementById("commonDialog");
+  is(dialog.defaultButton, "cancel", "No button should be the default");
   let checkbox = doc.getElementById("checkbox");
   ok(!checkbox.checked, "Checkbox shouldn't be checked by default.");
 
@@ -201,13 +249,22 @@ add_task(async function toggleCheckboxWantCaretBrowsing() {
   let promiseDialogUnloaded = BrowserTestUtils.waitForEvent(prompt, "unload");
 
   // Say yes:
-  doc.documentElement.acceptDialog();
+  dialog.acceptDialog();
   await promiseDialogUnloaded;
   info("Dialog unloaded");
   await waitForFocusOnInput(tab.linkedBrowser);
-  ok(Services.prefs.getBoolPref(kPrefCaretBrowsingOn), "Caret browsing should now be on.");
-  ok(Services.prefs.getBoolPref(kPrefShortcutEnabled), "Shortcut should still be enabled.");
-  ok(!Services.prefs.getBoolPref(kPrefWarnOnEnable), "Should no longer warn when enabling.");
+  ok(
+    Services.prefs.getBoolPref(kPrefCaretBrowsingOn),
+    "Caret browsing should now be on."
+  );
+  ok(
+    Services.prefs.getBoolPref(kPrefShortcutEnabled),
+    "Shortcut should still be enabled."
+  );
+  ok(
+    !Services.prefs.getBoolPref(kPrefWarnOnEnable),
+    "Should no longer warn when enabling."
+  );
 
   syncToggleCaretNoDialog(false);
   syncToggleCaretNoDialog(true);
@@ -219,7 +276,3 @@ add_task(async function toggleCheckboxWantCaretBrowsing() {
 
   BrowserTestUtils.removeTab(tab);
 });
-
-
-
-

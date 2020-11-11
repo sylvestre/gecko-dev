@@ -59,12 +59,24 @@ enum class PixelCastJustification : uint8_t {
   NoTransformOnLayer,
   // LayerPixels are ImagePixels
   LayerIsImage,
+  // External pixels are the same scale as screen pixels
+  ExternalIsScreen,
+  // LayerToScreenMatrix is used as LayoutDeviceToLayoutDevice, because
+  // out-of-process iframes uses LayoutDevicePixels as the type system-visible
+  // type of their top-level event coordinate space even if technically
+  // inaccurate.
+  ContentProcessIsLayerInUiProcess,
 };
 
 template <class TargetUnits, class SourceUnits>
 gfx::CoordTyped<TargetUnits> ViewAs(const gfx::CoordTyped<SourceUnits>& aCoord,
                                     PixelCastJustification) {
   return gfx::CoordTyped<TargetUnits>(aCoord.value);
+}
+template <class TargetUnits, class SourceUnits>
+gfx::IntCoordTyped<TargetUnits> ViewAs(
+    const gfx::IntCoordTyped<SourceUnits>& aCoord, PixelCastJustification) {
+  return gfx::IntCoordTyped<TargetUnits>(aCoord.value);
 }
 template <class TargetUnits, class SourceUnits>
 gfx::SizeTyped<TargetUnits> ViewAs(const gfx::SizeTyped<SourceUnits>& aSize,
@@ -131,7 +143,7 @@ Maybe<gfx::IntRectTyped<TargetUnits>> ViewAs(
   }
   return Nothing();
 }
-// Unlike the other functions in this category, this function takes the
+// Unlike the other functions in this category, these functions take the
 // target matrix type, rather than its source and target unit types, as
 // the explicit template argument, so an example invocation is:
 //    ViewAs<ScreenToLayerMatrix4x4>(otherTypedMatrix, justification)
@@ -144,6 +156,28 @@ TargetMatrix ViewAs(const gfx::Matrix4x4Typed<SourceMatrixSourceUnits,
                                               SourceMatrixTargetUnits>& aMatrix,
                     PixelCastJustification) {
   return TargetMatrix::FromUnknownMatrix(aMatrix.ToUnknownMatrix());
+}
+template <class TargetMatrix, class SourceMatrixSourceUnits,
+          class SourceMatrixTargetUnits>
+Maybe<TargetMatrix> ViewAs(
+    const Maybe<gfx::Matrix4x4Typed<SourceMatrixSourceUnits,
+                                    SourceMatrixTargetUnits>>& aMatrix,
+    PixelCastJustification) {
+  if (aMatrix.isSome()) {
+    return Some(TargetMatrix::FromUnknownMatrix(aMatrix->ToUnknownMatrix()));
+  }
+  return Nothing();
+}
+
+// A non-member overload of ToUnknownMatrix() for use on a Maybe<Matrix>.
+// We can't make this a member because we can't inject a member into Maybe.
+template <typename SourceUnits, typename TargetUnits>
+Maybe<gfx::Matrix4x4> ToUnknownMatrix(
+    const Maybe<gfx::Matrix4x4Typed<SourceUnits, TargetUnits>>& aMatrix) {
+  if (aMatrix.isSome()) {
+    return Some(aMatrix->ToUnknownMatrix());
+  }
+  return Nothing();
 }
 
 // Convenience functions for casting untyped entities to typed entities.

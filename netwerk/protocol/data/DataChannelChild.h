@@ -20,7 +20,7 @@ class DataChannelChild : public nsDataChannel,
                          public nsIChildChannel,
                          public PDataChannelChild {
  public:
-  explicit DataChannelChild(nsIURI *uri);
+  explicit DataChannelChild(nsIURI* uri);
 
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_NSICHILDCHANNEL
@@ -30,8 +30,6 @@ class DataChannelChild : public nsDataChannel,
 
  private:
   ~DataChannelChild() = default;
-
-  void AddIPDLReference();
 
   bool mIPCOpen;
 };

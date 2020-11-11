@@ -6,10 +6,8 @@
   <link rel="stylesheet" type="text/css"
         href="chrome://mochikit/content/tests/SimpleTest/test.css" />
 
-  <script type="application/javascript"
-          src="chrome://mochikit/content/tests/SimpleTest/SimpleTest.js"></script>
-  <script type="application/javascript"
-          src="chrome://mochikit/content/tests/SimpleTest/EventUtils.js"></script>
+  <script src="chrome://mochikit/content/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="chrome://mochikit/content/tests/SimpleTest/EventUtils.js"></script>
 
   <script type="application/javascript"
           src="../common.js"></script>
@@ -105,7 +103,6 @@
               nWord = nWord.nextWord;
             }
             pWord = cWord.prevWord;
-
           } else if (this.mOffset < cWord.start) {
             while (this.mOffset < cWord.start) {
               cWord = pWord;
@@ -321,7 +318,7 @@
     function tmpl_moveTo(aID, aInvokerFunc, aWholeText, aCharIter) {
       this.offset = aCharIter.offset;
 
-      var checker = new caretMoveChecker(this.offset, aID);
+      var checker = new caretMoveChecker(this.offset, true, aID);
       this.__proto__ = new (aInvokerFunc)(aID, checker);
 
       this.finalCheck = function genericMoveTo_finalCheck() {
@@ -345,8 +342,8 @@
             }
           }
 
-          func.call(null, kCaretOffset, boundary, text, startOffset, endOffset,
-                    aID, isOk1, isOk2, isOk3);
+          func(kCaretOffset, boundary, text, startOffset, endOffset,
+               aID, isOk1, isOk2, isOk3);
         }
       };
 
@@ -416,7 +413,11 @@
   <textarea id="textarea" cols="5">aword
 two words</textarea>
 
-  <textarea id="ta_wrapped" cols="5">hi hello my longfriend t sq t</textarea>
+  <!-- scrollbar-width: none is needed so that the width of the scrollbar
+    doesn't incorrectly affect the width of the textarea on some systems.
+    See bug 1600170 and bug 33654.
+    -->
+  <textarea id="ta_wrapped" cols="5" style="scrollbar-width: none;">hi hello my longfriend t sq t</textarea>
   </pre>
 </body>
 </html>

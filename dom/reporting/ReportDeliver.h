@@ -9,12 +9,16 @@
 
 #include "nsIObserver.h"
 #include "nsITimer.h"
+#include "nsString.h"
+#include "nsTArray.h"
 
 class nsIPrincipal;
 class nsPIDOMWindowInner;
 
 namespace mozilla {
 namespace dom {
+
+class ReportBody;
 
 class ReportDeliver final : public nsIObserver, public nsITimerCallback {
  public:

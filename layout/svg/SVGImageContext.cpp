@@ -16,15 +16,17 @@
 
 namespace mozilla {
 
-/* static */ void SVGImageContext::MaybeStoreContextPaint(
-    Maybe<SVGImageContext>& aContext, nsIFrame* aFromFrame,
-    imgIContainer* aImgContainer) {
+/* static */
+void SVGImageContext::MaybeStoreContextPaint(Maybe<SVGImageContext>& aContext,
+                                             nsIFrame* aFromFrame,
+                                             imgIContainer* aImgContainer) {
   return MaybeStoreContextPaint(aContext, aFromFrame->Style(), aImgContainer);
 }
 
-/* static */ void SVGImageContext::MaybeStoreContextPaint(
-    Maybe<SVGImageContext>& aContext, ComputedStyle* aFromComputedStyle,
-    imgIContainer* aImgContainer) {
+/* static */
+void SVGImageContext::MaybeStoreContextPaint(Maybe<SVGImageContext>& aContext,
+                                             ComputedStyle* aFromComputedStyle,
+                                             imgIContainer* aImgContainer) {
   const nsStyleSVG* style = aFromComputedStyle->StyleSVG();
 
   if (!style->ExposesContextProperties()) {
@@ -40,33 +42,40 @@ namespace mozilla {
 
   bool haveContextPaint = false;
 
-  RefPtr<SVGEmbeddingContextPaint> contextPaint =
-      new SVGEmbeddingContextPaint();
+  auto contextPaint = MakeRefPtr<SVGEmbeddingContextPaint>();
 
-  if ((style->mContextPropsBits & NS_STYLE_CONTEXT_PROPERTY_FILL) &&
-      style->mFill.Type() == eStyleSVGPaintType_Color) {
+  if ((style->mMozContextProperties.bits & StyleContextPropertyBits::FILL) &&
+      style->mFill.kind.IsColor()) {
     haveContextPaint = true;
-    contextPaint->SetFill(style->mFill.GetColor(aFromComputedStyle));
+    contextPaint->SetFill(
+        style->mFill.kind.AsColor().CalcColor(*aFromComputedStyle));
   }
-  if ((style->mContextPropsBits & NS_STYLE_CONTEXT_PROPERTY_STROKE) &&
-      style->mStroke.Type() == eStyleSVGPaintType_Color) {
+  if ((style->mMozContextProperties.bits & StyleContextPropertyBits::STROKE) &&
+      style->mStroke.kind.IsColor()) {
     haveContextPaint = true;
-    contextPaint->SetStroke(style->mStroke.GetColor(aFromComputedStyle));
+    contextPaint->SetStroke(
+        style->mStroke.kind.AsColor().CalcColor(*aFromComputedStyle));
   }
-  if (style->mContextPropsBits & NS_STYLE_CONTEXT_PROPERTY_FILL_OPACITY) {
+  if (style->mMozContextProperties.bits &
+      StyleContextPropertyBits::FILL_OPACITY) {
     haveContextPaint = true;
-    contextPaint->SetFillOpacity(style->mFillOpacity);
+    contextPaint->SetFillOpacity(style->mFillOpacity.IsOpacity()
+                                     ? style->mFillOpacity.AsOpacity()
+                                     : 1.0f);
   }
-  if (style->mContextPropsBits & NS_STYLE_CONTEXT_PROPERTY_STROKE_OPACITY) {
+  if (style->mMozContextProperties.bits &
+      StyleContextPropertyBits::STROKE_OPACITY) {
     haveContextPaint = true;
-    contextPaint->SetStrokeOpacity(style->mStrokeOpacity);
+    contextPaint->SetStrokeOpacity(style->mStrokeOpacity.IsOpacity()
+                                       ? style->mStrokeOpacity.AsOpacity()
+                                       : 1.0f);
   }
 
   if (haveContextPaint) {
     if (!aContext) {
       aContext.emplace();
     }
-    aContext->mContextPaint = contextPaint.forget();
+    aContext->mContextPaint = std::move(contextPaint);
   }
 }
 

@@ -22,21 +22,22 @@
 #include "nsTHashtable.h"
 #include "nsClassHashtable.h"
 #include "nsHashKeys.h"
+#include "nsRefreshObservers.h"
+#include "nsThreadUtils.h"
 #include "mozilla/Attributes.h"
 #include "mozilla/Maybe.h"
+#include "mozilla/dom/VisualViewport.h"
 #include "mozilla/layers/TransactionIdAllocator.h"
-#include "mozilla/VsyncDispatcher.h"
 
 class nsPresContext;
-class nsIPresShell;
-class nsIDocument;
+
 class imgIRequest;
-class nsINode;
 class nsIRunnable;
 
 namespace mozilla {
 class AnimationEventDispatcher;
 class PendingFullscreenEvent;
+class PresShell;
 class RefreshDriverTimer;
 class Runnable;
 
@@ -44,54 +45,17 @@ namespace layout {
 class VsyncChild;
 }  // namespace layout
 
-namespace dom {
-class Event;
-}  // namespace dom
-
 }  // namespace mozilla
-
-/**
- * An abstract base class to be implemented by callers wanting to be
- * notified at refresh times.  When nothing needs to be painted, callers
- * may not be notified.
- */
-class nsARefreshObserver {
- public:
-  // AddRef and Release signatures that match nsISupports.  Implementors
-  // must implement reference counting, and those that do implement
-  // nsISupports will already have methods with the correct signature.
-  //
-  // The refresh driver does NOT hold references to refresh observers
-  // except while it is notifying them.
-  NS_INLINE_DECL_PURE_VIRTUAL_REFCOUNTING
-
-  virtual void WillRefresh(mozilla::TimeStamp aTime) = 0;
-};
-
-/**
- * An abstract base class to be implemented by callers wanting to be notified
- * when the observing refresh driver updated mMostRecentRefresh due to active
- * timer changes. Callers must ensure an observer is removed before it is
- * destroyed.
- */
-class nsATimerAdjustmentObserver {
- public:
-  virtual void NotifyTimerAdjusted(mozilla::TimeStamp aTime) = 0;
-};
-
-/**
- * An abstract base class to be implemented by callers wanting to be notified
- * that a refresh has occurred. Callers must ensure an observer is removed
- * before it is destroyed.
- */
-class nsAPostRefreshObserver {
- public:
-  virtual void DidRefresh() = 0;
-};
 
 class nsRefreshDriver final : public mozilla::layers::TransactionIdAllocator,
                               public nsARefreshObserver {
+  using Document = mozilla::dom::Document;
   using TransactionId = mozilla::layers::TransactionId;
+  using VVPResizeEvent =
+      mozilla::dom::VisualViewport::VisualViewportResizeEvent;
+  using VVPScrollEvent =
+      mozilla::dom::VisualViewport::VisualViewportScrollEvent;
+  using LogPresShellObserver = mozilla::LogPresShellObserver;
 
  public:
   explicit nsRefreshDriver(nsPresContext* aPresContext);
@@ -115,7 +79,7 @@ class nsRefreshDriver final : public mozilla::layers::TransactionIdAllocator,
    * ensure that multiple animations started during the same event off
    * the main event loop have the same start time.)
    */
-  mozilla::TimeStamp MostRecentRefresh() const;
+  mozilla::TimeStamp MostRecentRefresh(bool aEnsureTimerStarted = true) const;
 
   /**
    * Add / remove refresh observers.
@@ -136,7 +100,8 @@ class nsRefreshDriver final : public mozilla::layers::TransactionIdAllocator,
    * The observer will be called even if there is no other activity.
    */
   void AddRefreshObserver(nsARefreshObserver* aObserver,
-                          mozilla::FlushType aFlushType);
+                          mozilla::FlushType aFlushType,
+                          const char* aObserverDescription);
   bool RemoveRefreshObserver(nsARefreshObserver* aObserver,
                              mozilla::FlushType aFlushType);
   /**
@@ -146,8 +111,14 @@ class nsRefreshDriver final : public mozilla::layers::TransactionIdAllocator,
   void AddTimerAdjustmentObserver(nsATimerAdjustmentObserver* aObserver);
   void RemoveTimerAdjustmentObserver(nsATimerAdjustmentObserver* aObserver);
 
-  void PostScrollEvent(mozilla::Runnable* aScrollEvent);
+  void PostVisualViewportResizeEvent(VVPResizeEvent* aResizeEvent);
+  void DispatchVisualViewportResizeEvents();
+
+  void PostScrollEvent(mozilla::Runnable* aScrollEvent, bool aDelayed = false);
   void DispatchScrollEvents();
+
+  void PostVisualViewportScrollEvent(VVPScrollEvent* aScrollEvent);
+  void DispatchVisualViewportScrollEvents();
 
   /**
    * Add an observer that will be called after each refresh. The caller
@@ -177,42 +148,52 @@ class nsRefreshDriver final : public mozilla::layers::TransactionIdAllocator,
   /**
    * Add / remove presshells which have pending resize event.
    */
-  void AddResizeEventFlushObserver(nsIPresShell* aShell) {
-    MOZ_DIAGNOSTIC_ASSERT(!mResizeEventFlushObservers.Contains(aShell),
-                          "Double-adding resize event flush observer");
-    mResizeEventFlushObservers.AppendElement(aShell);
-    EnsureTimerStarted();
+  void AddResizeEventFlushObserver(mozilla::PresShell* aPresShell,
+                                   bool aDelayed = false) {
+    MOZ_DIAGNOSTIC_ASSERT(
+        !mResizeEventFlushObservers.Contains(aPresShell) &&
+            !mDelayedResizeEventFlushObservers.Contains(aPresShell),
+        "Double-adding resize event flush observer");
+    if (aDelayed) {
+      mDelayedResizeEventFlushObservers.AppendElement(aPresShell);
+    } else {
+      mResizeEventFlushObservers.AppendElement(aPresShell);
+      EnsureTimerStarted();
+    }
   }
 
-  void RemoveResizeEventFlushObserver(nsIPresShell* aShell) {
-    mResizeEventFlushObservers.RemoveElement(aShell);
+  void RemoveResizeEventFlushObserver(mozilla::PresShell* aPresShell) {
+    mResizeEventFlushObservers.RemoveElement(aPresShell);
+    mDelayedResizeEventFlushObservers.RemoveElement(aPresShell);
   }
 
   /**
    * Add / remove presshells that we should flush style and layout on
    */
-  void AddStyleFlushObserver(nsIPresShell* aShell) {
-    MOZ_DIAGNOSTIC_ASSERT(!mStyleFlushObservers.Contains(aShell),
+  void AddStyleFlushObserver(mozilla::PresShell* aPresShell) {
+    MOZ_DIAGNOSTIC_ASSERT(!mStyleFlushObservers.Contains(aPresShell),
                           "Double-adding style flush observer");
-    mStyleFlushObservers.AppendElement(aShell);
+    LogPresShellObserver::LogDispatch(aPresShell, this);
+    mStyleFlushObservers.AppendElement(aPresShell);
     EnsureTimerStarted();
   }
 
-  void RemoveStyleFlushObserver(nsIPresShell* aShell) {
-    mStyleFlushObservers.RemoveElement(aShell);
+  void RemoveStyleFlushObserver(mozilla::PresShell* aPresShell) {
+    mStyleFlushObservers.RemoveElement(aPresShell);
   }
-  void AddLayoutFlushObserver(nsIPresShell* aShell) {
-    MOZ_DIAGNOSTIC_ASSERT(!IsLayoutFlushObserver(aShell),
+  void AddLayoutFlushObserver(mozilla::PresShell* aPresShell) {
+    MOZ_DIAGNOSTIC_ASSERT(!IsLayoutFlushObserver(aPresShell),
                           "Double-adding layout flush observer");
-    mLayoutFlushObservers.AppendElement(aShell);
+    LogPresShellObserver::LogDispatch(aPresShell, this);
+    mLayoutFlushObservers.AppendElement(aPresShell);
     EnsureTimerStarted();
   }
-  void RemoveLayoutFlushObserver(nsIPresShell* aShell) {
-    mLayoutFlushObservers.RemoveElement(aShell);
+  void RemoveLayoutFlushObserver(mozilla::PresShell* aPresShell) {
+    mLayoutFlushObservers.RemoveElement(aPresShell);
   }
 
-  bool IsLayoutFlushObserver(nsIPresShell* aShell) {
-    return mLayoutFlushObservers.Contains(aShell);
+  bool IsLayoutFlushObserver(mozilla::PresShell* aPresShell) {
+    return mLayoutFlushObservers.Contains(aPresShell);
   }
 
   /**
@@ -232,16 +213,17 @@ class nsRefreshDriver final : public mozilla::layers::TransactionIdAllocator,
   void RevokeViewManagerFlush() { mViewManagerFlushIsPending = false; }
   bool ViewManagerFlushIsPending() { return mViewManagerFlushIsPending; }
   bool HasScheduleFlush() { return mHasScheduleFlush; }
+  void ClearHasScheduleFlush() { mHasScheduleFlush = false; }
 
   /**
    * Add a document for which we have FrameRequestCallbacks
    */
-  void ScheduleFrameRequestCallbacks(nsIDocument* aDocument);
+  void ScheduleFrameRequestCallbacks(Document* aDocument);
 
   /**
    * Remove a document for which we have FrameRequestCallbacks
    */
-  void RevokeFrameRequestCallbacks(nsIDocument* aDocument);
+  void RevokeFrameRequestCallbacks(Document* aDocument);
 
   /**
    * Queue a new fullscreen event to be dispatched in next tick before
@@ -254,7 +236,7 @@ class nsRefreshDriver final : public mozilla::layers::TransactionIdAllocator,
    * Cancel all pending fullscreen events scheduled by ScheduleFullscreenEvent
    * which targets any node in aDocument.
    */
-  void CancelPendingFullscreenEvents(nsIDocument* aDocument);
+  void CancelPendingFullscreenEvents(Document* aDocument);
 
   /**
    * Queue new animation events to dispatch in next tick.
@@ -312,7 +294,7 @@ class nsRefreshDriver final : public mozilla::layers::TransactionIdAllocator,
   /**
    * Return the prescontext we were initialized with
    */
-  nsPresContext* GetPresContext() const { return mPresContext; }
+  nsPresContext* GetPresContext() const;
 
   /**
    * PBackgroundChild actor is created asynchronously in content process.
@@ -321,6 +303,8 @@ class nsRefreshDriver final : public mozilla::layers::TransactionIdAllocator,
    * do the pending vsync-based timer creation.
    */
   static void PVsyncActorCreated(mozilla::layout::VsyncChild* aVsyncChild);
+
+  void CreateVsyncRefreshTimer();
 
 #ifdef DEBUG
   /**
@@ -363,6 +347,7 @@ class nsRefreshDriver final : public mozilla::layers::TransactionIdAllocator,
   void ResetInitialTransactionId(TransactionId aTransactionId) override;
   mozilla::TimeStamp GetTransactionStart() override;
   mozilla::VsyncId GetVsyncId() override;
+  mozilla::TimeStamp GetVsyncStart() override;
 
   bool IsWaitingForPaint(mozilla::TimeStamp aTime);
 
@@ -394,28 +379,78 @@ class nsRefreshDriver final : public mozilla::layers::TransactionIdAllocator,
    */
   static mozilla::Maybe<mozilla::TimeStamp> GetNextTickHint();
 
-  static void DispatchIdleRunnableAfterTick(nsIRunnable* aRunnable,
-                                            uint32_t aDelay);
+  static void DispatchIdleRunnableAfterTickUnlessExists(nsIRunnable* aRunnable,
+                                                        uint32_t aDelay);
   static void CancelIdleRunnable(nsIRunnable* aRunnable);
 
   void NotifyDOMContentLoaded();
 
+  // Schedule a refresh so that any delayed events will run soon.
+  void RunDelayedEventsSoon();
+
+  void InitializeTimer() {
+    MOZ_ASSERT(!mActiveTimer);
+    EnsureTimerStarted();
+  }
+
+  void EnsureIntersectionObservationsUpdateHappens() {
+    // This is enough to make sure that UpdateIntersectionObservations runs at
+    // least once. This is presumably the intent of step 5 in [1]:
+    //
+    //     Schedule an iteration of the event loop in the root's browsing
+    //     context.
+    //
+    // Though the wording of it is not quite clear to me...
+    //
+    // [1]:
+    // https://w3c.github.io/IntersectionObserver/#dom-intersectionobserver-observe
+    EnsureTimerStarted();
+    mNeedToUpdateIntersectionObservations = true;
+  }
+
+  enum class TickReasons : uint32_t {
+    eNone = 0,
+    eHasObservers = 1 << 0,
+    eHasImageRequests = 1 << 1,
+    eNeedsToUpdateIntersectionObservations = 1 << 2,
+    eHasVisualViewportResizeEvents = 1 << 3,
+    eHasScrollEvents = 1 << 4,
+    eHasVisualViewportScrollEvents = 1 << 5,
+  };
+
  private:
-  typedef nsTObserverArray<nsARefreshObserver*> ObserverArray;
+  typedef nsTArray<RefPtr<VVPResizeEvent>> VisualViewportResizeEventArray;
   typedef nsTArray<RefPtr<mozilla::Runnable>> ScrollEventArray;
+  typedef nsTArray<RefPtr<VVPScrollEvent>> VisualViewportScrollEventArray;
   typedef nsTHashtable<nsISupportsHashKey> RequestTable;
   struct ImageStartData {
-    ImageStartData() {}
+    ImageStartData() = default;
 
     mozilla::Maybe<mozilla::TimeStamp> mStartTime;
     RequestTable mEntries;
   };
   typedef nsClassHashtable<nsUint32HashKey, ImageStartData> ImageStartTable;
 
+  struct ObserverData {
+    nsARefreshObserver* mObserver;
+    const char* mDescription;
+    mozilla::TimeStamp mRegisterTime;
+    mozilla::Maybe<uint64_t> mInnerWindowId;
+    mozilla::UniquePtr<mozilla::ProfileChunkedBuffer> mCause;
+    mozilla::FlushType mFlushType;
+
+    bool operator==(nsARefreshObserver* aObserver) const {
+      return mObserver == aObserver;
+    }
+    operator RefPtr<nsARefreshObserver>() { return mObserver; }
+  };
+  typedef nsTObserverArray<ObserverData> ObserverArray;
   void RunFullscreenSteps();
   void DispatchAnimationEvents();
+  MOZ_CAN_RUN_SCRIPT
   void RunFrameRequestCallbacks(mozilla::TimeStamp aNowTime);
-  void UpdateIntersectionObservations();
+  void UpdateIntersectionObservations(mozilla::TimeStamp aNowTime);
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY
   void Tick(mozilla::VsyncId aId, mozilla::TimeStamp aNowTime);
 
   enum EnsureTimerStartedFlags {
@@ -428,12 +463,17 @@ class nsRefreshDriver final : public mozilla::layers::TransactionIdAllocator,
   void StopTimer();
 
   bool HasObservers() const;
+  void AppendObserverDescriptionsToString(nsACString& aStr) const;
   // Note: This should only be called in the dtor of nsRefreshDriver.
   uint32_t ObserverCount() const;
   bool HasImageRequests() const;
+  bool ShouldKeepTimerRunningWhileWaitingForFirstContentfulPaint();
   ObserverArray& ArrayFor(mozilla::FlushType aFlushType);
   // Trigger a refresh immediately, if haven't been disconnected or frozen.
   void DoRefresh();
+
+  TickReasons GetReasonsToTick() const;
+  void AppendTickReasonsToString(TickReasons aReasons, nsACString& aStr) const;
 
   double GetRegularTimerInterval() const;
   static double GetThrottledTimerInterval();
@@ -446,8 +486,10 @@ class nsRefreshDriver final : public mozilla::layers::TransactionIdAllocator,
 
   void FinishedWaitingForTransaction();
 
-  mozilla::RefreshDriverTimer* ChooseTimer() const;
+  mozilla::RefreshDriverTimer* ChooseTimer();
   mozilla::RefreshDriverTimer* mActiveTimer;
+  RefPtr<mozilla::RefreshDriverTimer> mOwnTimer;
+  mozilla::UniquePtr<mozilla::ProfileChunkedBuffer> mRefreshTimerStartedCause;
 
   // nsPresContext passed in constructor and unset in Disconnect.
   mozilla::WeakPtr<nsPresContext> mPresContext;
@@ -476,32 +518,42 @@ class nsRefreshDriver final : public mozilla::layers::TransactionIdAllocator,
   // flush since the last time we did it.
   const mozilla::TimeDuration mMinRecomputeVisibilityInterval;
 
-  bool mThrottled;
-  bool mNeedToRecomputeVisibility;
-  bool mTestControllingRefreshes;
-  bool mViewManagerFlushIsPending;
+  mozilla::UniquePtr<mozilla::ProfileChunkedBuffer> mViewManagerFlushCause;
 
-  // True if the view manager needs a flush. Layers-free mode uses this value
-  // to know when to notify invalidation.
-  bool mHasScheduleFlush;
+  bool mThrottled : 1;
+  bool mNeedToRecomputeVisibility : 1;
+  bool mTestControllingRefreshes : 1;
 
-  bool mInRefresh;
+  // These two fields are almost the same, the only difference is that
+  // mViewManagerFlushIsPending gets cleared right before calling
+  // ProcessPendingUpdates, and mHasScheduleFlush gets cleared right after
+  // calling ProcessPendingUpdates. It is important that mHasScheduleFlush
+  // only gets cleared after, but it's not clear if mViewManagerFlushIsPending
+  // needs to be cleared before.
+  bool mViewManagerFlushIsPending : 1;
+  bool mHasScheduleFlush : 1;
+
+  bool mInRefresh : 1;
 
   // True if the refresh driver is suspended waiting for transaction
   // id's to be returned and shouldn't do any work during Tick().
-  bool mWaitingForTransaction;
+  bool mWaitingForTransaction : 1;
   // True if Tick() was skipped because of mWaitingForTransaction and
   // we should schedule a new Tick immediately when resumed instead
   // of waiting until the next interval.
-  bool mSkippedPaints;
+  bool mSkippedPaints : 1;
 
   // True if view managers should delay any resize request until the
   // next tick by the refresh driver. This flag will be reset at the
   // start of every tick.
-  bool mResizeSuppressed;
+  bool mResizeSuppressed : 1;
 
   // True if the next tick should notify DOMContentFlushed.
-  bool mNotifyDOMContentFlushed;
+  bool mNotifyDOMContentFlushed : 1;
+
+  // True if we need to flush in order to update intersection observations in
+  // all our documents.
+  bool mNeedToUpdateIntersectionObservations : 1;
 
   // Number of seconds that the refresh driver is blocked waiting for a
   // compositor transaction to be completed before we append a note to the gfx
@@ -510,8 +562,10 @@ class nsRefreshDriver final : public mozilla::layers::TransactionIdAllocator,
   mozilla::TimeStamp mMostRecentRefresh;
   mozilla::TimeStamp mTickStart;
   mozilla::VsyncId mTickVsyncId;
+  mozilla::TimeStamp mTickVsyncTime;
   mozilla::TimeStamp mNextThrottledFrameRequestTick;
   mozilla::TimeStamp mNextRecomputeVisibilityTick;
+  mozilla::TimeStamp mBeforeFirstContentfulPaintTimerRunningLimit;
 
   // separate arrays for each flush type we support
   ObserverArray mObservers[4];
@@ -524,14 +578,20 @@ class nsRefreshDriver final : public mozilla::layers::TransactionIdAllocator,
   RequestTable mRequests;
   ImageStartTable mStartTable;
   AutoTArray<nsCOMPtr<nsIRunnable>, 16> mEarlyRunners;
+  VisualViewportResizeEventArray mVisualViewportResizeEvents;
   ScrollEventArray mScrollEvents;
+  VisualViewportScrollEventArray mVisualViewportScrollEvents;
 
-  AutoTArray<nsIPresShell*, 16> mResizeEventFlushObservers;
-  AutoTArray<nsIPresShell*, 16> mStyleFlushObservers;
-  AutoTArray<nsIPresShell*, 16> mLayoutFlushObservers;
+  // Scroll events on documents that might have events suppressed.
+  ScrollEventArray mDelayedScrollEvents;
+
+  AutoTArray<mozilla::PresShell*, 16> mResizeEventFlushObservers;
+  AutoTArray<mozilla::PresShell*, 16> mDelayedResizeEventFlushObservers;
+  AutoTArray<mozilla::PresShell*, 16> mStyleFlushObservers;
+  AutoTArray<mozilla::PresShell*, 16> mLayoutFlushObservers;
   // nsTArray on purpose, because we want to be able to swap.
-  nsTArray<nsIDocument*> mFrameRequestCallbackDocs;
-  nsTArray<nsIDocument*> mThrottledFrameRequestCallbackDocs;
+  nsTArray<Document*> mFrameRequestCallbackDocs;
+  nsTArray<Document*> mThrottledFrameRequestCallbackDocs;
   nsTObserverArray<nsAPostRefreshObserver*> mPostRefreshObservers;
   nsTArray<mozilla::UniquePtr<mozilla::PendingFullscreenEvent>>
       mPendingFullscreenEvents;

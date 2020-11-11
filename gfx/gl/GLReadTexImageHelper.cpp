@@ -6,15 +6,15 @@
 
 #include "GLReadTexImageHelper.h"
 
-#include "gfx2DGlue.h"
-#include "gfxColor.h"
-#include "gfxTypes.h"
+#include <utility>
+
 #include "GLContext.h"
 #include "OGLShaderProgram.h"
 #include "ScopedGLHelpers.h"
-
+#include "gfx2DGlue.h"
+#include "gfxColor.h"
+#include "gfxTypes.h"
 #include "mozilla/gfx/2D.h"
-#include "mozilla/Move.h"
 
 namespace mozilla {
 namespace gl {
@@ -220,7 +220,7 @@ void SwapRAndBComponents(DataSourceSurface* surf) {
     const uint8_t* rowEnd = row + rowBytes;
 
     while (row != rowEnd) {
-      Swap(row[0], row[2]);
+      std::swap(row[0], row[2]);
       row += 4;
     }
 
@@ -328,7 +328,9 @@ void ReadPixelsIntoDataSurface(GLContext* gl, DataSourceSurface* dest) {
         readFormatGFX = SurfaceFormat::R5G6B5_UINT16;
         break;
       }
-      default: { MOZ_CRASH("GFX: Bad read format, read format."); }
+      default: {
+        MOZ_CRASH("GFX: Bad read format, read format.");
+      }
     }
 
     switch (readType) {
@@ -347,7 +349,9 @@ void ReadPixelsIntoDataSurface(GLContext* gl, DataSourceSurface* dest) {
         readAlignment = 2;
         break;
       }
-      default: { MOZ_CRASH("GFX: Bad read type, read type."); }
+      default: {
+        MOZ_CRASH("GFX: Bad read type, read type.");
+      }
     }
 
     int32_t stride = dest->GetSize().width * BytesPerPixel(readFormatGFX);
@@ -420,7 +424,6 @@ already_AddRefed<DataSourceSurface> ReadBackSurface(GLContext* gl,
                                                     bool aYInvert,
                                                     SurfaceFormat aFormat) {
   gl->MakeCurrent();
-  gl->GuaranteeResolve();
   gl->fActiveTexture(LOCAL_GL_TEXTURE0);
   gl->fBindTexture(LOCAL_GL_TEXTURE_2D, aTexture);
 

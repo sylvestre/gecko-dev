@@ -13,8 +13,8 @@
 
 #include "mozilla/Attributes.h"
 #include "mozilla/gfx/Types.h"
+#include "mozilla/StaticPrefs_ui.h"
 #include "nsAtom.h"
-#include "nsIDOMXULSelectCntrlEl.h"
 #include "nsGkAtoms.h"
 #include "nsCOMPtr.h"
 #include "nsMenuFrame.h"
@@ -22,13 +22,12 @@
 #include "nsBoxFrame.h"
 #include "nsMenuParent.h"
 
-#include "nsITimer.h"
-
 #include "Units.h"
 
 class nsIWidget;
 
 namespace mozilla {
+class PresShell;
 namespace dom {
 class KeyboardEvent;
 }  // namespace dom
@@ -137,7 +136,7 @@ enum MenuPopupAnchorType {
 #define POPUPPOSITION_HFLIP(v) (v ^ 1)
 #define POPUPPOSITION_VFLIP(v) (v ^ 2)
 
-nsIFrame* NS_NewMenuPopupFrame(nsIPresShell* aPresShell,
+nsIFrame* NS_NewMenuPopupFrame(mozilla::PresShell* aPresShell,
                                mozilla::ComputedStyle* aStyle);
 
 class nsView;
@@ -159,7 +158,7 @@ class nsXULPopupShownEvent final : public mozilla::Runnable,
   void CancelListener();
 
  protected:
-  virtual ~nsXULPopupShownEvent() {}
+  virtual ~nsXULPopupShownEvent() = default;
 
  private:
   nsCOMPtr<nsIContent> mPopup;
@@ -173,12 +172,14 @@ class nsMenuPopupFrame final : public nsBoxFrame,
   NS_DECL_QUERYFRAME
   NS_DECL_FRAMEARENA_HELPERS(nsMenuPopupFrame)
 
-  explicit nsMenuPopupFrame(ComputedStyle* aStyle);
+  explicit nsMenuPopupFrame(ComputedStyle* aStyle, nsPresContext* aPresContext);
 
   // nsMenuParent interface
   virtual nsMenuFrame* GetCurrentMenuItem() override;
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY
   NS_IMETHOD SetCurrentMenuItem(nsMenuFrame* aMenuItem) override;
   virtual void CurrentMenuIsBeingDestroyed() override;
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY
   NS_IMETHOD ChangeMenuItem(nsMenuFrame* aMenuItem, bool aSelectFirstItem,
                             bool aFromKey) override;
 
@@ -245,32 +246,27 @@ class nsMenuPopupFrame final : public nsBoxFrame,
   void EnsureWidget(bool aRecreate = false);
 
   nsresult CreateWidgetForView(nsView* aView);
-  uint8_t GetShadowStyle();
+  mozilla::StyleWindowShadow GetShadowStyle();
 
-  virtual void SetInitialChildList(ChildListID aListID,
-                                   nsFrameList& aChildList) override;
+  bool IsLeafDynamic() const override;
 
-  virtual bool IsLeafDynamic() const override;
-
-  virtual void UpdateWidgetProperties() override;
+  void DidSetComputedStyle(ComputedStyle* aOldStyle) override;
 
   // layout, position and display the popup as needed
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY
   void LayoutPopup(nsBoxLayoutState& aState, nsIFrame* aParentMenu,
-                   nsIFrame* aAnchor, bool aSizedToPopup);
-
-  nsView* GetRootViewForPopup(nsIFrame* aStartFrame);
+                   bool aSizedToPopup);
 
   // Set the position of the popup either relative to the anchor aAnchorFrame
   // (or the frame for mAnchorContent if aAnchorFrame is null), anchored at a
   // rectangle, or at a specific point if a screen position is set. The popup
   // will be adjusted so that it is on screen. If aIsMove is true, then the
-  // popup is being moved, and should not be flipped. If aNotify is true, then
-  // a popuppositioned event is sent.
+  // popup is being moved, and should not be flipped.
   nsresult SetPopupPosition(nsIFrame* aAnchorFrame, bool aIsMove,
-                            bool aSizedToPopup, bool aNotify);
+                            bool aSizedToPopup);
 
-  bool HasGeneratedChildren() { return mGeneratedChildren; }
-  void SetGeneratedChildren() { mGeneratedChildren = true; }
+  // Force the children to be generated if they have not already been generated.
+  void GenerateFrames();
 
   // called when the Enter key is pressed while the popup is open. This will
   // just pass the call down to the current menu, if any. If a current menu
@@ -338,17 +334,17 @@ class nsMenuPopupFrame final : public nsBoxFrame,
 
   void ClearIncrementalString() { mIncrementalString.Truncate(); }
   static bool IsWithinIncrementalTime(DOMTimeStamp time) {
-    return !sTimeoutOfIncrementalSearch ||
-           time - sLastKeyTime <= sTimeoutOfIncrementalSearch;
+    return time - sLastKeyTime <=
+           mozilla::StaticPrefs::ui_menu_incremental_search_timeout();
   }
 
 #ifdef DEBUG_FRAME_DUMP
   virtual nsresult GetFrameName(nsAString& aResult) const override {
-    return MakeFrameName(NS_LITERAL_STRING("MenuPopup"), aResult);
+    return MakeFrameName(u"MenuPopup"_ns, aResult);
   }
 #endif
 
-  void EnsureMenuItemIsVisible(nsMenuFrame* aMenuFrame);
+  MOZ_CAN_RUN_SCRIPT void EnsureMenuItemIsVisible(nsMenuFrame* aMenuFrame);
 
   void ChangeByPage(bool aIsUp);
 
@@ -441,6 +437,8 @@ class nsMenuPopupFrame final : public nsBoxFrame,
   // with the new rectangle.
   void CheckForAnchorChange(nsRect& aRect);
 
+  void WillDispatchPopupPositioned() { mPendingPositionedEvent = false; }
+
   // nsIReflowCallback
   virtual bool ReflowFinished() override;
   virtual void ReflowCallbackCanceled() override;
@@ -450,7 +448,7 @@ class nsMenuPopupFrame final : public nsBoxFrame,
   nsPopupLevel PopupLevel(bool aIsNoAutoHide) const;
 
   // redefine to tell the box system not to move the views.
-  virtual uint32_t GetXULLayoutFlags() override;
+  ReflowChildFlags GetXULLayoutFlags() override;
 
   void InitPositionFromAnchorAlign(const nsAString& aAnchor,
                                    const nsAString& aAlign);
@@ -525,8 +523,8 @@ class nsMenuPopupFrame final : public nsBoxFrame,
     return mAnchorContent && mAnchorContent->GetPrimaryFrame()
                ? mAnchorContent->GetPrimaryFrame()
                          ->StyleVisibility()
-                         ->mDirection == NS_STYLE_DIRECTION_RTL
-               : StyleVisibility()->mDirection == NS_STYLE_DIRECTION_RTL;
+                         ->mDirection == mozilla::StyleDirection::Rtl
+               : StyleVisibility()->mDirection == mozilla::StyleDirection::Rtl;
   }
 
   // Create a popup view for this frame. The view is added a child of the root
@@ -546,6 +544,19 @@ class nsMenuPopupFrame final : public nsBoxFrame,
 
  public:
   bool ShouldFollowAnchor(nsRect& aRect);
+
+  // Returns parent menu widget for submenus that are in the same
+  // frame hierarchy, it's needed for Linux/Wayland which demands
+  // strict popup windows hierarchy.
+  nsIWidget* GetParentMenuWidget();
+#ifdef MOZ_WAYLAND
+  // We need following getters for Wayland for calling gdk_window_move_to_rect
+  nsRect GetAnchorRect() { return mAnchorRect; }
+  int GetPopupAlignment() { return mPopupAlignment; }
+  int GetPopupAnchor() { return mPopupAnchor; }
+  int GetPopupPosition() { return mPosition; }
+  FlipType GetFlipType() { return mFlip; }
+#endif
 
  protected:
   nsString mIncrementalString;  // for incremental typing navigation
@@ -578,7 +589,11 @@ class nsMenuPopupFrame final : public nsBoxFrame,
   int32_t mXPos;
   int32_t mYPos;
   nsIntRect mScreenRect;
-
+  // Used for store rectangle which the popup is going to be anchored to,
+  // we need that for Wayland
+#ifdef MOZ_WAYLAND
+  nsRect mAnchorRect;
+#endif
   // If the panel prefers to "slide" rather than resize, then the arrow gets
   // positioned at this offset (along either the x or y axis, depending on
   // mPosition)
@@ -648,6 +663,9 @@ class nsMenuPopupFrame final : public nsBoxFrame,
   bool mHFlip;
   bool mVFlip;
 
+  // Whether we have a pending `popuppositioned` event.
+  bool mPendingPositionedEvent = false;
+
   // When POPUPPOSITION_SELECTION is used, this indicates the vertical offset
   // that the original selected item was. This needs to be used in case the
   // popup gets changed so that we can keep the popup at the same vertical
@@ -663,8 +681,6 @@ class nsMenuPopupFrame final : public nsBoxFrame,
 
   static DOMTimeStamp sLastKeyTime;
 
-  // If 0, never timed out.  Otherwise, the value is in milliseconds.
-  static uint32_t sTimeoutOfIncrementalSearch;
 };  // class nsMenuPopupFrame
 
 #endif

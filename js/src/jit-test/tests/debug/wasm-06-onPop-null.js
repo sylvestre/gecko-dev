@@ -1,4 +1,4 @@
-// |jit-test| test-also-no-wasm-baseline; exitstatus: 3; skip-if: !wasmDebuggingIsSupported()
+// |jit-test| test-also=--wasm-compiler=optimizing; exitstatus: 3; skip-if: !wasmDebuggingEnabled()
 // Checking resumption values for 'null' at frame's onPop.
 
 load(libdir + "asserts.js");

@@ -6,8 +6,13 @@
 
 const { Cu } = require("chrome");
 const EventEmitter = require("devtools/shared/event-emitter");
-const { isNodeValid } = require("./utils/markup");
-const { getAdjustedQuads, getWindowDimensions } = require("devtools/shared/layout/utils");
+const {
+  isNodeValid,
+} = require("devtools/server/actors/highlighters/utils/markup");
+const {
+  getAdjustedQuads,
+  getWindowDimensions,
+} = require("devtools/shared/layout/utils");
 
 // Note that the order of items in this array is important because it is used
 // for drawing the BoxModelHighlighter's path elements correctly.
@@ -15,9 +20,11 @@ const BOX_MODEL_REGIONS = ["margin", "border", "padding", "content"];
 const QUADS_PROPS = ["p1", "p2", "p3", "p4"];
 
 function arePointsDifferent(pointA, pointB) {
-  return (Math.abs(pointA.x - pointB.x) >= .5) ||
-         (Math.abs(pointA.y - pointB.y) >= .5) ||
-         (Math.abs(pointA.w - pointB.w) >= .5);
+  return (
+    Math.abs(pointA.x - pointB.x) >= 0.5 ||
+    Math.abs(pointA.y - pointB.y) >= 0.5 ||
+    Math.abs(pointA.w - pointB.w) >= 0.5
+  );
 }
 
 function areQuadsDifferent(oldQuads, newQuads) {
@@ -79,15 +86,21 @@ function AutoRefreshHighlighter(highlighterEnv) {
 
 AutoRefreshHighlighter.prototype = {
   _ignoreZoom: false,
+  _ignoreScroll: false,
 
   /**
-   * Window corresponding to the current highlighterEnv
+   * Window corresponding to the current highlighterEnv.
    */
   get win() {
     if (!this.highlighterEnv) {
       return null;
     }
     return this.highlighterEnv.window;
+  },
+
+  /* Window containing the target content. */
+  get contentWindow() {
+    return this.win;
   },
 
   /**
@@ -178,8 +191,11 @@ AutoRefreshHighlighter.prototype = {
 
     for (const region of BOX_MODEL_REGIONS) {
       this.currentQuads[region] = getAdjustedQuads(
-        this.win,
-        this.currentNode, region, {ignoreZoom: this._ignoreZoom});
+        this.contentWindow,
+        this.currentNode,
+        region,
+        { ignoreScroll: this._ignoreScroll, ignoreZoom: this._ignoreZoom }
+      );
     }
   },
 
@@ -206,8 +222,8 @@ AutoRefreshHighlighter.prototype = {
     }
 
     const { pageXOffset, pageYOffset } = this.win;
-    const hasChanged = this._scroll.x !== pageXOffset ||
-                     this._scroll.y !== pageYOffset;
+    const hasChanged =
+      this._scroll.x !== pageXOffset || this._scroll.y !== pageYOffset;
 
     this._scroll = { x: pageXOffset, y: pageYOffset };
 
@@ -221,8 +237,9 @@ AutoRefreshHighlighter.prototype = {
    */
   _haveWindowDimensionsChanged: function() {
     const { width, height } = getWindowDimensions(this.win);
-    const haveChanged = (this._winDimensions.width !== width ||
-                      this._winDimensions.height !== height);
+    const haveChanged =
+      this._winDimensions.width !== width ||
+      this._winDimensions.height !== height;
 
     this._winDimensions = { width, height };
     return haveChanged;
@@ -232,8 +249,10 @@ AutoRefreshHighlighter.prototype = {
    * Update the highlighter if the node has moved since the last update.
    */
   update: function() {
-    if (!this._isNodeValid(this.currentNode) ||
-       (!this._hasMoved() && !this._haveWindowDimensionsChanged())) {
+    if (
+      !this._isNodeValid(this.currentNode) ||
+      (!this._hasMoved() && !this._haveWindowDimensionsChanged())
+    ) {
       // At this point we're not calling the `_update` method. However, if the window has
       // scrolled, we want to invoke `_scrollUpdate`.
       if (this._hasWindowScrolled()) {

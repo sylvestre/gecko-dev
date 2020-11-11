@@ -255,6 +255,10 @@ void LIRGeneratorShared::assignSnapshot(LInstruction* ins, BailoutKind kind) {
   // assignSnapshot must be called before define/add, since
   // it may add new instructions for emitted-at-use operands.
   MOZ_ASSERT(ins->id() == 0);
+  if (kind == BailoutKind::Unknown) {
+    MOZ_ASSERT(!JitOptions.warpBuilder);
+    kind = BailoutKind::GenericIon;
+  }
 
   LSnapshot* snapshot = buildSnapshot(ins, lastResumePoint_, kind);
   if (!snapshot) {
@@ -287,3 +291,52 @@ void LIRGeneratorShared::assignSafepoint(LInstruction* ins, MInstruction* mir,
     return;
   }
 }
+
+void LIRGeneratorShared::assignWasmSafepoint(LInstruction* ins,
+                                             MInstruction* mir) {
+  MOZ_ASSERT(!osiPoint_);
+  MOZ_ASSERT(!ins->safepoint());
+
+  ins->initSafepoint(alloc());
+
+  if (!lirGraph_.noteNeedsSafepoint(ins)) {
+    abort(AbortReason::Alloc, "noteNeedsSafepoint failed");
+    return;
+  }
+}
+
+#if !defined(ENABLE_WASM_SIMD) || defined(JS_CODEGEN_ARM64)
+
+void LIRGenerator::visitWasmBitselectSimd128(MWasmBitselectSimd128*) {
+  MOZ_CRASH("SIMD not enabled");
+}
+
+void LIRGenerator::visitWasmBinarySimd128(MWasmBinarySimd128*) {
+  MOZ_CRASH("SIMD not enabled");
+}
+
+void LIRGenerator::visitWasmShiftSimd128(MWasmShiftSimd128*) {
+  MOZ_CRASH("SIMD not enabled");
+}
+
+void LIRGenerator::visitWasmShuffleSimd128(MWasmShuffleSimd128*) {
+  MOZ_CRASH("SIMD not enabled");
+}
+
+void LIRGenerator::visitWasmReplaceLaneSimd128(MWasmReplaceLaneSimd128*) {
+  MOZ_CRASH("SIMD not enabled");
+}
+
+void LIRGenerator::visitWasmScalarToSimd128(MWasmScalarToSimd128*) {
+  MOZ_CRASH("SIMD not enabled");
+}
+
+void LIRGenerator::visitWasmUnarySimd128(MWasmUnarySimd128*) {
+  MOZ_CRASH("SIMD not enabled");
+}
+
+void LIRGenerator::visitWasmReduceSimd128(MWasmReduceSimd128*) {
+  MOZ_CRASH("SIMD not enabled");
+}
+
+#endif  // !ENABLE_WASM_SIMD

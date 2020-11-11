@@ -11,6 +11,7 @@
 #include <ostream>
 
 #include "base/logging.h"
+#include "base/strings/utf_string_conversions.h"
 
 namespace base {
 namespace {
@@ -40,35 +41,16 @@ template class BasicStringPiece<std::string>;
 template class BasicStringPiece<string16>;
 #endif
 
-bool operator==(const StringPiece& x, const StringPiece& y) {
-  if (x.size() != y.size())
-    return false;
-
-  return StringPiece::wordmemcmp(x.data(), y.data(), x.size()) == 0;
-}
-
 std::ostream& operator<<(std::ostream& o, const StringPiece& piece) {
   o.write(piece.data(), static_cast<std::streamsize>(piece.size()));
   return o;
 }
 
+std::ostream& operator<<(std::ostream& o, const StringPiece16& piece) {
+  return o << UTF16ToUTF8(piece);
+}
+
 namespace internal {
-
-template<typename STR>
-void CopyToStringT(const BasicStringPiece<STR>& self, STR* target) {
-  if (self.empty())
-    target->clear();
-  else
-    target->assign(self.data(), self.size());
-}
-
-void CopyToString(const StringPiece& self, std::string* target) {
-  CopyToStringT(self, target);
-}
-
-void CopyToString(const StringPiece16& self, string16* target) {
-  CopyToStringT(self, target);
-}
 
 template<typename STR>
 void AppendToStringT(const BasicStringPiece<STR>& self, STR* target) {
@@ -221,8 +203,11 @@ size_t find_first_of(const StringPiece& self,
 size_t find_first_of(const StringPiece16& self,
                      const StringPiece16& s,
                      size_t pos) {
+  // Use the faster std::find() if searching for a single character.
   StringPiece16::const_iterator found =
-      std::find_first_of(self.begin() + pos, self.end(), s.begin(), s.end());
+      s.size() == 1 ? std::find(self.begin() + pos, self.end(), s[0])
+                    : std::find_first_of(self.begin() + pos, self.end(),
+                                         s.begin(), s.end());
   if (found == self.end())
     return StringPiece16::npos;
   return found - self.begin();
@@ -261,8 +246,8 @@ BASE_EXPORT size_t find_first_not_of(const StringPiece16& self,
 
   for (size_t self_i = pos; self_i < self.size(); ++self_i) {
     bool found = false;
-    for (size_t s_i = 0; s_i < s.size(); ++s_i) {
-      if (self[self_i] == s[s_i]) {
+    for (auto c : s) {
+      if (self[self_i] == c) {
         found = true;
         break;
       }
@@ -329,8 +314,8 @@ size_t find_last_of(const StringPiece16& self,
 
   for (size_t self_i = std::min(pos, self.size() - 1); ;
        --self_i) {
-    for (size_t s_i = 0; s_i < s.size(); s_i++) {
-      if (self.data()[self_i] == s[s_i])
+    for (auto c : s) {
+      if (self.data()[self_i] == c)
         return self_i;
     }
     if (self_i == 0)
@@ -374,8 +359,8 @@ size_t find_last_not_of(const StringPiece16& self,
 
   for (size_t self_i = std::min(pos, self.size() - 1); ; --self_i) {
     bool found = false;
-    for (size_t s_i = 0; s_i < s.size(); s_i++) {
-      if (self.data()[self_i] == s[s_i]) {
+    for (auto c : s) {
+      if (self.data()[self_i] == c) {
         found = true;
         break;
       }
@@ -436,17 +421,6 @@ StringPiece16 substr(const StringPiece16& self,
                      size_t n) {
   return substrT(self, pos, n);
 }
-
-#if DCHECK_IS_ON()
-void AssertIteratorsInOrder(std::string::const_iterator begin,
-                            std::string::const_iterator end) {
-  DCHECK(begin <= end) << "StringPiece iterators swapped or invalid.";
-}
-void AssertIteratorsInOrder(string16::const_iterator begin,
-                            string16::const_iterator end) {
-  DCHECK(begin <= end) << "StringPiece iterators swapped or invalid.";
-}
-#endif
 
 }  // namespace internal
 }  // namespace base

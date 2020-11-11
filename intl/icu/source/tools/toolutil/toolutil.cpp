@@ -60,6 +60,8 @@
 
 #include <errno.h>
 
+#include <cstddef>
+
 #include "unicode/errorcode.h"
 #include "unicode/putil.h"
 #include "cmemory.h"
@@ -143,7 +145,7 @@ findDirname(const char *path, char *buffer, int32_t bufLen, UErrorCode* status) 
     resultLen = 0;
   } else {
     resultPtr = path;
-    resultLen = basename - path;
+    resultLen = static_cast<int32_t>(basename - path);
     if(resultLen<1) {
       resultLen = 1; /* '/' or '/a' -> '/' */
     }
@@ -243,7 +245,7 @@ struct UToolMemory {
     char name[64];
     int32_t capacity, maxCapacity, size, idx;
     void *array;
-    UAlignedMemory staticArray[1];
+    alignas(std::max_align_t) char staticArray[1];
 };
 
 U_CAPI UToolMemory * U_EXPORT2

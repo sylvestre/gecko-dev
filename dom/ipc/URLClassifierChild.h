@@ -9,6 +9,7 @@
 
 #include "mozilla/dom/PURLClassifierChild.h"
 #include "mozilla/dom/PURLClassifierLocalChild.h"
+#include "mozilla/ipc/URIUtils.h"
 #include "mozilla/net/UrlClassifierFeatureResult.h"
 #include "nsIURIClassifier.h"
 #include "nsIUrlClassifierFeature.h"
@@ -22,13 +23,13 @@ class URLClassifierChild : public PURLClassifierChild {
     mCallback = aCallback;
   }
 
-  mozilla::ipc::IPCResult Recv__delete__(const MaybeInfo& aInfo,
-                                         const nsresult& aResult) override {
+  mozilla::ipc::IPCResult Recv__delete__(const Maybe<ClassifierInfo>& aInfo,
+                                         const nsresult& aResult) {
     MOZ_ASSERT(mCallback);
-    if (aInfo.type() == MaybeInfo::TClassifierInfo) {
-      mCallback->OnClassifyComplete(aResult, aInfo.get_ClassifierInfo().list(),
-                                    aInfo.get_ClassifierInfo().provider(),
-                                    aInfo.get_ClassifierInfo().fullhash());
+    if (aInfo.isSome()) {
+      mCallback->OnClassifyComplete(aResult, aInfo.ref().list(),
+                                    aInfo.ref().provider(),
+                                    aInfo.ref().fullhash());
     }
     return IPC_OK();
   }
@@ -43,11 +44,11 @@ class URLClassifierLocalChild : public PURLClassifierLocalChild {
       const nsTArray<RefPtr<nsIUrlClassifierFeature>>& aFeatures,
       nsIUrlClassifierFeatureCallback* aCallback) {
     mCallback = aCallback;
-    mFeatures = aFeatures;
+    mFeatures = aFeatures.Clone();
   }
 
   mozilla::ipc::IPCResult Recv__delete__(
-      nsTArray<URLClassifierLocalResult>&& aResults) override {
+      nsTArray<URLClassifierLocalResult>&& aResults) {
     nsTArray<RefPtr<nsIUrlClassifierFeatureResult>> finalResults;
 
     nsTArray<URLClassifierLocalResult> results = std::move(aResults);
@@ -63,8 +64,14 @@ class URLClassifierLocalChild : public PURLClassifierLocalChild {
           continue;
         }
 
+        RefPtr<nsIURI> uri = result.uri();
+        if (NS_WARN_IF(!uri)) {
+          continue;
+        }
+
         RefPtr<net::UrlClassifierFeatureResult> r =
-            new net::UrlClassifierFeatureResult(feature, result.matchingList());
+            new net::UrlClassifierFeatureResult(uri, feature,
+                                                result.matchingList());
         finalResults.AppendElement(r);
         break;
       }

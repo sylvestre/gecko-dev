@@ -7,13 +7,14 @@
 #include "WebBrowserPersistResourcesChild.h"
 
 #include "WebBrowserPersistDocumentChild.h"
+#include "mozilla/dom/PContentChild.h"
 
 namespace mozilla {
 
 NS_IMPL_ISUPPORTS(WebBrowserPersistResourcesChild,
                   nsIWebBrowserPersistResourceVisitor)
 
-WebBrowserPersistResourcesChild::WebBrowserPersistResourcesChild() {}
+WebBrowserPersistResourcesChild::WebBrowserPersistResourcesChild() = default;
 
 WebBrowserPersistResourcesChild::~WebBrowserPersistResourcesChild() = default;
 
@@ -34,11 +35,11 @@ WebBrowserPersistResourcesChild::VisitDocument(
   // As a consequence of how PWebBrowserPersistDocumentConstructor
   // can be sent by both the parent and the child, we must pass the
   // aBrowser and outerWindowID arguments here, but the values are
-  // ignored by the parent.  In particular, the TabChild in which
+  // ignored by the parent.  In particular, the BrowserChild in which
   // persistence started does not necessarily exist at this point;
   // see bug 1203602.
   if (!Manager()->Manager()->SendPWebBrowserPersistDocumentConstructor(
-          subActor, nullptr, 0)) {
+          subActor, nullptr, nullptr)) {
     // NOTE: subActor is freed at this point.
     return NS_ERROR_FAILURE;
   }
@@ -54,6 +55,14 @@ WebBrowserPersistResourcesChild::VisitDocument(
   // which simplifies the lifetime management.
   SendVisitDocument(subActor);
   subActor->Start(aSubDocument);
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+WebBrowserPersistResourcesChild::VisitBrowsingContext(
+    nsIWebBrowserPersistDocument* aDocument,
+    dom::BrowsingContext* aBrowsingContext) {
+  SendVisitBrowsingContext(aBrowsingContext);
   return NS_OK;
 }
 

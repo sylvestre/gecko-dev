@@ -1,8 +1,7 @@
 <head>
   <meta charset="utf-8">
   <title>Plugin Crash, FullScreenElement Remains, div[F];plugin</title>
-  <script type="text/javascript" src="/tests/SimpleTest/AddTask.js"></script>
-  <script type="application/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
   <script type="application/javascript" src="plugin-utils.js"></script>
 </head>
 
@@ -32,6 +31,7 @@
         this.document.mozCancelFullScreen();
         return fullScreenChange;
       }
+      return Promise.resolve();
     });
 
     /**
@@ -48,14 +48,13 @@
         await SpecialPowers.pushPrefEnv({
           "set": [
             ["full-screen-api.allow-trusted-requests-only", false],
-            ["full-screen-api.unprefix.enabled", true],
           ],
         });
       });
 
       add_task(async function() {
-        let fullScreenElement = document.getElementById('div1');
-        let plugin = document.getElementById('plugin1');
+        let fullScreenElement = document.getElementById("div1");
+        let plugin = document.getElementById("plugin1");
 
         let fullScreenChange = promiseFullScreenChange();
         fullScreenElement.mozRequestFullScreen();
@@ -84,7 +83,7 @@
             document.removeEventListener("fullscreenchange", onFullScreenChange);
             clearTimeout(timeoutId);
             reject();
-          }
+          };
           document.addEventListener("fullscreenchange", onFullScreenChange);
           timeoutId = setTimeout(() => {
             document.removeEventListener("fullscreenchange", onFullScreenChange);
@@ -98,7 +97,7 @@
           ok(false, "Element is still fullscreen");
         });
       });
-    }
+    };
   </script>
 
   <div id="div1"></div>

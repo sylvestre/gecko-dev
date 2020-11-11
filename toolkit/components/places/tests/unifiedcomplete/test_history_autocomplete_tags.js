@@ -39,17 +39,18 @@ AutoCompleteInput.prototype = {
     invalidate() {},
 
     // nsISupports implementation
-    QueryInterface: ChromeUtils.generateQI([Ci.nsIAutoCompletePopup]),
+    QueryInterface: ChromeUtils.generateQI(["nsIAutoCompletePopup"]),
   },
 
   // nsISupports implementation
-  QueryInterface: ChromeUtils.generateQI([Ci.nsIAutoCompleteInput]),
+  QueryInterface: ChromeUtils.generateQI(["nsIAutoCompleteInput"]),
 };
 
 async function ensure_tag_results(uris, searchTerm) {
   print("Searching for '" + searchTerm + "'");
-  var controller = Cc["@mozilla.org/autocomplete/controller;1"].
-                   getService(Ci.nsIAutoCompleteController);
+  var controller = Cc["@mozilla.org/autocomplete/controller;1"].getService(
+    Ci.nsIAutoCompleteController
+  );
 
   // Make an AutoCompleteInput that uses our searches
   // and confirms results on search complete
@@ -58,7 +59,6 @@ async function ensure_tag_results(uris, searchTerm) {
   controller.input = input;
 
   return new Promise(resolve => {
-
     var numSearchesStarted = 0;
     input.onSearchBegin = function() {
       numSearchesStarted++;
@@ -67,10 +67,12 @@ async function ensure_tag_results(uris, searchTerm) {
 
     input.onSearchComplete = function() {
       Assert.equal(numSearchesStarted, 1);
-      Assert.equal(controller.searchStatus,
-                   uris.length ?
-                   Ci.nsIAutoCompleteController.STATUS_COMPLETE_MATCH :
-                   Ci.nsIAutoCompleteController.STATUS_COMPLETE_NO_MATCH);
+      Assert.equal(
+        controller.searchStatus,
+        uris.length
+          ? Ci.nsIAutoCompleteController.STATUS_COMPLETE_MATCH
+          : Ci.nsIAutoCompleteController.STATUS_COMPLETE_NO_MATCH
+      );
       Assert.equal(controller.matchCount, uris.length);
       let vals = [];
       for (let i = 0; i < controller.matchCount; i++) {

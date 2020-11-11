@@ -10,6 +10,7 @@
 #include "nsString.h"
 #include "nsTArray.h"
 #include "nsWeakReference.h"
+#include "MozLocaleBindings.h"
 
 #include "mozILocaleService.h"
 
@@ -105,6 +106,23 @@ class LocaleService final : public mozILocaleService,
   }
 
   /**
+   * Canonicalize a Unicode Language Identifier string.
+   *
+   * The operation is:
+   *   * Normalizing casing (`eN-Us-Windows` -> `en-US-windows`)
+   *   * Switching `_` to `-` (`en_US` -> `en-US`)
+   *   * Rejecting invalid identifiers (`e21-X` sets aLocale to `und` and
+   * returns false)
+   *   * Normalizing Mozilla's `ja-JP-mac` to `ja-JP-macos`
+   *   * Cutting off POSIX dot postfix (`en-US.utf8` -> `en-US`)
+   *
+   * This operation should be used on any external input before
+   * it gets used in internal operations.
+   */
+  static bool CanonicalizeLanguageId(nsACString& aLocale) {
+    return ffi::unic_langid_canonicalize(&aLocale);
+  }
+  /**
    * This method should only be called in the client mode.
    *
    * It replaces all the language negotiation and is supposed to be called
@@ -133,7 +151,21 @@ class LocaleService final : public mozILocaleService,
   void LocalesChanged();
 
   /**
+   * This function keeps the pref setting updated.
+   */
+  void WebExposedLocalesChanged();
+
+  /**
+   * Returns whether the locale is RTL.
+   */
+  static bool IsLocaleRTL(const nsACString& aLocale);
+
+  /**
    * Returns whether the current app locale is RTL.
+   *
+   * This method respects two overrides:
+   *  - `intl.l10n.pseudo`
+   *  - `intl.uidirection`
    */
   bool IsAppLocaleRTL();
 
@@ -143,21 +175,20 @@ class LocaleService final : public mozILocaleService,
   bool IsServer();
 
  private:
-  void FilterMatches(const nsTArray<nsCString>& aRequested,
-                     const nsTArray<nsCString>& aAvailable, int32_t aStrategy,
-                     nsTArray<nsCString>& aRetVal);
-
   void NegotiateAppLocales(nsTArray<nsCString>& aRetVal);
 
   void InitPackagedLocales();
 
-  virtual ~LocaleService();
+  void RemoveObservers();
+
+  virtual ~LocaleService() = default;
 
   nsAutoCStringN<16> mDefaultLocale;
   nsTArray<nsCString> mAppLocales;
   nsTArray<nsCString> mRequestedLocales;
   nsTArray<nsCString> mAvailableLocales;
   nsTArray<nsCString> mPackagedLocales;
+  nsTArray<nsCString> mWebExposedLocales;
   const bool mIsServer;
 
   static StaticRefPtr<LocaleService> sInstance;

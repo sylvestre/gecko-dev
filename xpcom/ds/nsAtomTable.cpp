@@ -12,11 +12,11 @@
 #include "mozilla/Mutex.h"
 #include "mozilla/DebugOnly.h"
 #include "mozilla/Sprintf.h"
+#include "mozilla/TextUtils.h"
 #include "mozilla/Unused.h"
 
 #include "nsAtom.h"
 #include "nsAtomTable.h"
-#include "nsAutoPtr.h"
 #include "nsCRT.h"
 #include "nsDataHashtable.h"
 #include "nsGkAtoms.h"
@@ -64,8 +64,7 @@ enum class GCKind {
 // This atomic can be accessed during the GC and other places where recorded
 // events are not allowed, so its value is not preserved when recording or
 // replaying.
-Atomic<int32_t, ReleaseAcquire, recordreplay::Behavior::DontPreserve>
-    nsDynamicAtom::gUnusedAtomCount;
+Atomic<int32_t, ReleaseAcquire> nsDynamicAtom::gUnusedAtomCount;
 
 nsDynamicAtom::nsDynamicAtom(const nsAString& aString, uint32_t aHash,
                              bool aIsAsciiLowercase)
@@ -431,9 +430,9 @@ void nsAtomSubTable::GCLocked(GCKind aKind) {
       if (nonZeroRefcountAtomsCount == 0) {
         nonZeroRefcountAtoms = name;
       } else if (nonZeroRefcountAtomsCount < 20) {
-        nonZeroRefcountAtoms += NS_LITERAL_CSTRING(",") + name;
+        nonZeroRefcountAtoms += ","_ns + name;
       } else if (nonZeroRefcountAtomsCount == 20) {
-        nonZeroRefcountAtoms += NS_LITERAL_CSTRING(",...");
+        nonZeroRefcountAtoms += ",..."_ns;
       }
       nonZeroRefcountAtomsCount++;
     }
@@ -508,7 +507,7 @@ void nsAtomTable::RegisterStaticAtoms(const nsStaticAtom* aAtoms,
 
   for (uint32_t i = 0; i < aAtomsLen; ++i) {
     const nsStaticAtom* atom = &aAtoms[i];
-    MOZ_ASSERT(nsCRT::IsAscii(atom->String()));
+    MOZ_ASSERT(IsAsciiNullTerminated(atom->String()));
     MOZ_ASSERT(NS_strlen(atom->String()) == atom->GetLength());
     MOZ_ASSERT(atom->IsAsciiLowercase() ==
                ::IsAsciiLowercase(atom->String(), atom->GetLength()));
@@ -626,7 +625,7 @@ already_AddRefed<nsAtom> nsAtomTable::AtomizeMainThread(
     RefPtr<nsAtom> newAtom =
         dont_AddRef(nsDynamicAtom::Create(aUTF16String, key.mHash));
     he->mAtom = newAtom;
-    retVal = newAtom.forget();
+    retVal = std::move(newAtom);
   }
 
   p.Set(retVal);

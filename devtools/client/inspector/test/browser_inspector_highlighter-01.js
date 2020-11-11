@@ -8,24 +8,36 @@
 // those nodes
 add_task(async function() {
   info("Loading the test document and opening the inspector");
-  const {toolbox, inspector, testActor} = await openInspectorForURL(
-    "data:text/html;charset=utf-8,<h1>foo</h1><span>bar</span>");
+  const { inspector, testActor } = await openInspectorForURL(
+    "data:text/html;charset=utf-8,<h1>foo</h1><span>bar</span>"
+  );
+  const { waitForHighlighterTypeShown } = getHighlighterTestHelpers(inspector);
 
-  let isVisible = await testActor.isHighlighting(toolbox);
+  let isVisible = !!inspector.highlighters.getActiveHighlighter(
+    inspector.highlighters.TYPES.BOXMODEL
+  );
   ok(!isVisible, "The highlighter is hidden by default");
 
   info("Selecting the test node");
   await selectNode("span", inspector);
   const container = await getContainerForSelector("h1", inspector);
 
-  const onHighlighterReady = toolbox.once("highlighter-ready");
-  EventUtils.synthesizeMouseAtCenter(container.tagLine, {type: "mousemove"},
-                                     inspector.markup.doc.defaultView);
-  await onHighlighterReady;
+  const onHighlight = waitForHighlighterTypeShown(
+    inspector.highlighters.TYPES.BOXMODEL
+  );
+
+  EventUtils.synthesizeMouseAtCenter(
+    container.tagLine,
+    { type: "mousemove" },
+    inspector.markup.doc.defaultView
+  );
+  await onHighlight;
 
   isVisible = await testActor.isHighlighting();
   ok(isVisible, "The highlighter is shown on a markup container hover");
 
-  ok((await testActor.assertHighlightedNode("h1")),
-     "The highlighter highlights the right node");
+  ok(
+    await testActor.assertHighlightedNode("h1"),
+    "The highlighter highlights the right node"
+  );
 });

@@ -4,34 +4,38 @@
 
 /*
  * Common thumbnailing routines used by various consumers, including
- * PageThumbs and backgroundPageThumbsContent.
+ * PageThumbs and BackgroundPageThumbs.
  */
 
 var EXPORTED_SYMBOLS = ["PageThumbUtils"];
 
-ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
-ChromeUtils.defineModuleGetter(this, "BrowserUtils",
-  "resource://gre/modules/BrowserUtils.jsm");
+ChromeUtils.defineModuleGetter(
+  this,
+  "BrowserUtils",
+  "resource://gre/modules/BrowserUtils.jsm"
+);
 
 var PageThumbUtils = {
+  // The default thumbnail size for images
+  THUMBNAIL_DEFAULT_SIZE: 448,
   // The default background color for page thumbnails.
   THUMBNAIL_BG_COLOR: "#fff",
   // The namespace for thumbnail canvas elements.
   HTML_NAMESPACE: "http://www.w3.org/1999/xhtml",
 
   /**
-   * Creates a new canvas element in the context of aWindow, or if aWindow
-   * is undefined, in the context of hiddenDOMWindow.
+   * Creates a new canvas element in the context of aWindow.
    *
-   * @param aWindow (optional) The document of this window will be used to
-   *  create the canvas.  If not given, the hidden window will be used.
+   * @param aWindow The document of this window will be used to
+   *  create the canvas.
    * @param aWidth (optional) width of the canvas to create
    * @param aHeight (optional) height of the canvas to create
    * @return The newly created canvas.
    */
   createCanvas(aWindow, aWidth = 0, aHeight = 0) {
-    let doc = (aWindow || Services.appShell.hiddenDOMWindow).document;
+    let doc = aWindow.document;
     let canvas = doc.createElementNS(this.HTML_NAMESPACE, "canvas");
     canvas.mozOpaque = true;
     canvas.imageSmoothingEnabled = true;
@@ -51,10 +55,19 @@ var PageThumbUtils = {
    */
   getThumbnailSize(aWindow = null) {
     if (!this._thumbnailWidth || !this._thumbnailHeight) {
-      let screenManager = Cc["@mozilla.org/gfx/screenmanager;1"]
-                            .getService(Ci.nsIScreenManager);
-      let left = {}, top = {}, screenWidth = {}, screenHeight = {};
-      screenManager.primaryScreen.GetRectDisplayPix(left, top, screenWidth, screenHeight);
+      let screenManager = Cc["@mozilla.org/gfx/screenmanager;1"].getService(
+        Ci.nsIScreenManager
+      );
+      let left = {},
+        top = {},
+        screenWidth = {},
+        screenHeight = {};
+      screenManager.primaryScreen.GetRectDisplayPix(
+        left,
+        top,
+        screenWidth,
+        screenHeight
+      );
 
       /**
        * The primary monitor default scale might be different than
@@ -71,14 +84,24 @@ var PageThumbUtils = {
        * ALSO CHANGE THEM IN newtab.css
        */
       let prefWidth = Services.prefs.getIntPref("toolkit.pageThumbs.minWidth");
-      let prefHeight = Services.prefs.getIntPref("toolkit.pageThumbs.minHeight");
-      let divisor = Services.prefs.getIntPref("toolkit.pageThumbs.screenSizeDivisor");
+      let prefHeight = Services.prefs.getIntPref(
+        "toolkit.pageThumbs.minHeight"
+      );
+      let divisor = Services.prefs.getIntPref(
+        "toolkit.pageThumbs.screenSizeDivisor"
+      );
 
       prefWidth *= scale;
       prefHeight *= scale;
 
-      this._thumbnailWidth = Math.max(Math.round(screenWidth.value / divisor), prefWidth);
-      this._thumbnailHeight = Math.max(Math.round(screenHeight.value / divisor), prefHeight);
+      this._thumbnailWidth = Math.max(
+        Math.round(screenWidth.value / divisor),
+        prefWidth
+      );
+      this._thumbnailHeight = Math.max(
+        Math.round(screenHeight.value / divisor),
+        prefHeight
+      );
     }
 
     return [this._thumbnailWidth, this._thumbnailHeight];
@@ -90,8 +113,8 @@ var PageThumbUtils = {
    */
   getContentSize(aWindow) {
     let utils = aWindow.windowUtils;
-    // aWindow may be a cpow, add exposed props security values.
-    let sbWidth = {}, sbHeight = {};
+    let sbWidth = {};
+    let sbHeight = {};
 
     try {
       utils.getScrollbarSize(false, sbWidth, sbHeight);
@@ -114,7 +137,12 @@ var PageThumbUtils = {
    * height. Uses an image that exists in the window and is loaded, or falls
    * back to loading the url into a new image element.
    */
-  async createImageThumbnailCanvas(window, url, targetWidth = 448, backgroundColor = this.THUMBNAIL_BG_COLOR) {
+  async createImageThumbnailCanvas(
+    window,
+    url,
+    targetWidth = 448,
+    backgroundColor = this.THUMBNAIL_BG_COLOR
+  ) {
     // 224px is the width of cards in ActivityStream; capture thumbnails at 2x
     const doc = (window || Services.appShell.hiddenDOMWindow).document;
 
@@ -135,7 +163,7 @@ var PageThumbUtils = {
       throw new Error("IMAGE_ZERO_DIMENSION");
     }
     const width = Math.min(targetWidth, imageWidth);
-    const height = imageHeight * width / imageWidth;
+    const height = (imageHeight * width) / imageWidth;
 
     // As we're setting the width and maintaining the aspect ratio, if an image
     // is very tall we might get a very large thumbnail. Restricting the canvas
@@ -149,10 +177,15 @@ var PageThumbUtils = {
     context.fillStyle = backgroundColor;
     context.fillRect(0, 0, width, canvasHeight);
     context.drawImage(image, 0, 0, width, height);
-    return canvas;
+
+    return {
+      width,
+      height: canvasHeight,
+      imageData: canvas.toDataURL(),
+    };
   },
 
-  /** *
+  /**
    * Given a browser window, this creates a snapshot of the content
    * and returns a canvas with the resulting snapshot of the content
    * at the thumbnail size. It has to do this through a two step process:
@@ -174,14 +207,14 @@ var PageThumbUtils = {
    * @return Canvas with a scaled thumbnail of the window.
    */
   createSnapshotThumbnail(aWindow, aDestCanvas, aArgs) {
-    if (Cu.isCrossProcessWrapper(aWindow)) {
-      throw new Error("Do not pass cpows here.");
-    }
+    let backgroundColor = aArgs
+      ? aArgs.backgroundColor
+      : PageThumbUtils.THUMBNAIL_BG_COLOR;
     let fullScale = aArgs ? aArgs.fullScale : false;
     let [contentWidth, contentHeight] = this.getContentSize(aWindow);
-    let [thumbnailWidth, thumbnailHeight] = aDestCanvas ?
-                                            [aDestCanvas.width, aDestCanvas.height] :
-                                            this.getThumbnailSize(aWindow);
+    let [thumbnailWidth, thumbnailHeight] = aDestCanvas
+      ? [aDestCanvas.width, aDestCanvas.height]
+      : this.getThumbnailSize(aWindow);
 
     // If the caller wants a fullscale image, set the desired thumbnail dims
     // to the dims of content and (if provided) size the incoming canvas to
@@ -202,37 +235,55 @@ var PageThumbUtils = {
     // If the intermediate thumbnail is larger than content dims (hiDPI
     // devices can experience this) or a full preview is requested render
     // at the final thumbnail size.
-    if ((intermediateWidth >= contentWidth ||
-         intermediateHeight >= contentHeight) || fullScale) {
+    if (
+      intermediateWidth >= contentWidth ||
+      intermediateHeight >= contentHeight ||
+      fullScale
+    ) {
       intermediateWidth = thumbnailWidth;
       intermediateHeight = thumbnailHeight;
       skipDownscale = true;
     }
 
     // Create an intermediate surface
-    let snapshotCanvas = this.createCanvas(aWindow, intermediateWidth,
-                                           intermediateHeight);
+    let snapshotCanvas = this.createCanvas(
+      aWindow,
+      intermediateWidth,
+      intermediateHeight
+    );
 
     // Step 1: capture the image at the intermediate dims. For thumbnails
     // this is twice the thumbnail size, for fullScale images this is at
     // content dims.
     // Also by default, canvas does not draw the scrollbars, so no need to
     // remove the scrollbar sizes.
-    let scale = Math.min(Math.max(intermediateWidth / contentWidth,
-                                  intermediateHeight / contentHeight), 1);
+    let scale = Math.min(
+      Math.max(
+        intermediateWidth / contentWidth,
+        intermediateHeight / contentHeight
+      ),
+      1
+    );
 
     let snapshotCtx = snapshotCanvas.getContext("2d");
     snapshotCtx.save();
     snapshotCtx.scale(scale, scale);
-    snapshotCtx.drawWindow(aWindow, 0, 0, contentWidth, contentHeight,
-                           PageThumbUtils.THUMBNAIL_BG_COLOR,
-                           snapshotCtx.DRAWWINDOW_DO_NOT_FLUSH);
+    snapshotCtx.drawWindow(
+      aWindow,
+      0,
+      0,
+      contentWidth,
+      contentHeight,
+      backgroundColor,
+      snapshotCtx.DRAWWINDOW_DO_NOT_FLUSH
+    );
     snapshotCtx.restore();
 
     // Part 2: Downscale from our intermediate dims to the final thumbnail
     // dims and copy the result to aDestCanvas. If the caller didn't
     // provide a target canvas, create a new canvas and return it.
-    let finalCanvas = aDestCanvas ||
+    let finalCanvas =
+      aDestCanvas ||
       this.createCanvas(aWindow, thumbnailWidth, thumbnailHeight);
 
     let finalCtx = finalCanvas.getContext("2d");
@@ -255,12 +306,9 @@ var PageThumbUtils = {
    * @return An array containing width, height and scale.
    */
   determineCropSize(aWindow, aCanvas) {
-    if (Cu.isCrossProcessWrapper(aWindow)) {
-      throw new Error("Do not pass cpows here.");
-    }
     let utils = aWindow.windowUtils;
-    // aWindow may be a cpow, add exposed props security values.
-    let sbWidth = {}, sbHeight = {};
+    let sbWidth = {};
+    let sbHeight = {};
 
     try {
       utils.getScrollbarSize(false, sbWidth, sbHeight);
@@ -275,16 +323,21 @@ var PageThumbUtils = {
     let width = aWindow.innerWidth - sbWidth.value;
     let height = aWindow.innerHeight - sbHeight.value;
 
-    let {width: thumbnailWidth, height: thumbnailHeight} = aCanvas;
-    let scale = Math.min(Math.max(thumbnailWidth / width, thumbnailHeight / height), 1);
+    let { width: thumbnailWidth, height: thumbnailHeight } = aCanvas;
+    let scale = Math.min(
+      Math.max(thumbnailWidth / width, thumbnailHeight / height),
+      1
+    );
     let scaledWidth = width * scale;
     let scaledHeight = height * scale;
 
-    if (scaledHeight > thumbnailHeight)
+    if (scaledHeight > thumbnailHeight) {
       height -= Math.floor(Math.abs(scaledHeight - thumbnailHeight) * scale);
+    }
 
-    if (scaledWidth > thumbnailWidth)
+    if (scaledWidth > thumbnailWidth) {
       width -= Math.floor(Math.abs(scaledWidth - thumbnailWidth) * scale);
+    }
 
     return [width, height, scale];
   },
@@ -329,13 +382,15 @@ var PageThumbUtils = {
     let httpChannel;
     try {
       httpChannel = channel.QueryInterface(Ci.nsIHttpChannel);
-    } catch (e) { /* Not an HTTP channel. */ }
+    } catch (e) {
+      /* Not an HTTP channel. */
+    }
 
     if (httpChannel) {
       // Continue only if we have a 2xx status code.
       try {
         if (Math.floor(httpChannel.responseStatus / 100) != 2) {
-        return false;
+          return false;
         }
       } catch (e) {
         // Can't get response information from the httpChannel
@@ -349,8 +404,10 @@ var PageThumbUtils = {
       }
 
       // Don't capture HTTPS pages unless the user explicitly enabled it.
-      if (uri.schemeIs("https") &&
-          !Services.prefs.getBoolPref("browser.cache.disk_cache_ssl")) {
+      if (
+        uri.schemeIs("https") &&
+        !Services.prefs.getBoolPref("browser.cache.disk_cache_ssl")
+      ) {
         return false;
       }
     } // httpChannel
@@ -363,11 +420,13 @@ var PageThumbUtils = {
    */
   isChannelErrorResponse(channel) {
     // No valid document channel sounds like an error to me!
-    if (!channel)
+    if (!channel) {
       return true;
-    if (!(channel instanceof Ci.nsIHttpChannel))
+    }
+    if (!(channel instanceof Ci.nsIHttpChannel)) {
       // it might be FTP etc, so assume it's ok.
       return false;
+    }
     try {
       return !channel.requestSucceeded;
     } catch (_) {

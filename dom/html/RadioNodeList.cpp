@@ -12,11 +12,11 @@
 
 #include "HTMLInputElement.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
-/* virtual */ JSObject* RadioNodeList::WrapObject(
-    JSContext* aCx, JS::Handle<JSObject*> aGivenProto) {
+/* virtual */
+JSObject* RadioNodeList::WrapObject(JSContext* aCx,
+                                    JS::Handle<JSObject*> aGivenProto) {
   return RadioNodeList_Binding::Wrap(aCx, this, aGivenProto);
 }
 
@@ -57,5 +57,4 @@ void RadioNodeList::SetValue(const nsAString& value, CallerType aCallerType) {
 
 NS_IMPL_ISUPPORTS_INHERITED(RadioNodeList, nsSimpleContentList, RadioNodeList)
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

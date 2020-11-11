@@ -5,12 +5,14 @@
 //!
 //! If you would like to add support for larger bitsets in the future, you need to change the trait
 //! bound Into<u32> and the u32 in the implementation of `max_bits()`.
-use std::convert::{From, Into};
-use std::mem::size_of;
-use std::ops::{Add, BitOr, Shl, Sub};
+
+use core::convert::{From, Into};
+use core::mem::size_of;
+use core::ops::{Add, BitOr, Shl, Sub};
 
 /// A small bitset built on a single primitive integer type
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "enable-serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct BitSet<T>(pub T);
 
 impl<T> BitSet<T>
@@ -74,7 +76,7 @@ where
 
         let lo_rng = (one << lo) - one;
 
-        BitSet(hi_rng - lo_rng)
+        Self(hi_rng - lo_rng)
     }
 }
 

@@ -8,20 +8,21 @@
 
 #include "ClientHandle.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 void ClientHandleOpChild::ActorDestroy(ActorDestroyReason aReason) {
   mClientHandle = nullptr;
-  mRejectCallback(NS_ERROR_DOM_ABORT_ERR);
+  CopyableErrorResult rv;
+  rv.ThrowAbortError("Client load aborted");
+  mRejectCallback(rv);
 }
 
 mozilla::ipc::IPCResult ClientHandleOpChild::Recv__delete__(
     const ClientOpResult& aResult) {
   mClientHandle = nullptr;
-  if (aResult.type() == ClientOpResult::Tnsresult &&
-      NS_FAILED(aResult.get_nsresult())) {
-    mRejectCallback(aResult.get_nsresult());
+  if (aResult.type() == ClientOpResult::TCopyableErrorResult &&
+      aResult.get_CopyableErrorResult().Failed()) {
+    mRejectCallback(aResult.get_CopyableErrorResult());
     return IPC_OK();
   }
   mResolveCallback(aResult);
@@ -40,5 +41,4 @@ ClientHandleOpChild::ClientHandleOpChild(
   MOZ_DIAGNOSTIC_ASSERT(mRejectCallback);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

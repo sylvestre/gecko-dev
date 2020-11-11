@@ -9,7 +9,6 @@
 #include "nsISimpleEnumerator.h"
 #include "nsITransportSecurityInfo.h"
 #include "nsIX509Cert.h"
-#include "nsIX509CertList.h"
 #include "nsSerializationHelper.h"
 #include "nsString.h"
 
@@ -28,7 +27,7 @@
 //
 // We would like to move away from this binary compatibility requirement
 // in service workers.  See bug 1248628.
-void deserializeAndVerify(const nsCString &serializedSecInfo,
+void deserializeAndVerify(const nsCString& serializedSecInfo,
                           bool hasFailedCertChain,
                           size_t failedCertChainLength = 0) {
   nsCOMPtr<nsISupports> secInfo;
@@ -45,36 +44,23 @@ void deserializeAndVerify(const nsCString &serializedSecInfo,
   ASSERT_EQ(NS_OK, rv);
   ASSERT_TRUE(cert);
 
-  nsCOMPtr<nsIX509CertList> failedChain;
-  rv = securityInfo->GetFailedCertChain(getter_AddRefs(failedChain));
+  nsTArray<RefPtr<nsIX509Cert>> failedCertArray;
+  rv = securityInfo->GetFailedCertChain(failedCertArray);
   ASSERT_EQ(NS_OK, rv);
 
   if (hasFailedCertChain) {
-    ASSERT_TRUE(failedChain);
-    nsCOMPtr<nsISimpleEnumerator> enumerator;
-    rv = failedChain->GetEnumerator(getter_AddRefs(enumerator));
-    ASSERT_EQ(NS_OK, rv);
-    bool hasMore;
-    rv = enumerator->HasMoreElements(&hasMore);
-    ASSERT_EQ(NS_OK, rv);
-    size_t actualFailedCertChainLength = 0;
-    while (hasMore) {
-      nsCOMPtr<nsISupports> supports;
-      rv = enumerator->GetNext(getter_AddRefs(supports));
-      ASSERT_EQ(NS_OK, rv);
-      nsCOMPtr<nsIX509Cert> cert(do_QueryInterface(supports));
-      actualFailedCertChainLength++;
+    ASSERT_FALSE(failedCertArray.IsEmpty());
+    for (const auto& cert : failedCertArray) {
       ASSERT_TRUE(cert);
-      rv = enumerator->HasMoreElements(&hasMore);
-      ASSERT_EQ(NS_OK, rv);
     }
-    ASSERT_EQ(failedCertChainLength, actualFailedCertChainLength);
+    ASSERT_EQ(failedCertChainLength, failedCertArray.Length());
   } else {
-    ASSERT_FALSE(failedChain);
+    ASSERT_TRUE(failedCertArray.IsEmpty());
   }
 }
 
-TEST(psm_DeserializeCert, gecko33) {
+TEST(psm_DeserializeCert, gecko33)
+{
   // clang-format off
   // Gecko 33+ vintage Security info serialized with UUIDs:
   //  - nsISupports  00000000-0000-0000-c000-000000000046
@@ -108,7 +94,8 @@ TEST(psm_DeserializeCert, gecko33) {
   deserializeAndVerify(base64Serialization, false);
 }
 
-TEST(psm_DeserializeCert, gecko46) {
+TEST(psm_DeserializeCert, gecko46)
+{
   // clang-format off
   // Gecko 46+ vintage Security info serialized with UUIDs:
   //  - nsISupports  00000000-0000-0000-c000-000000000046
@@ -142,7 +129,8 @@ TEST(psm_DeserializeCert, gecko46) {
   deserializeAndVerify(base64Serialization, false);
 }
 
-TEST(psm_DeserializeCert, preSSLStatusConsolidation) {
+TEST(psm_DeserializeCert, preSSLStatusConsolidation)
+{
   // clang-format off
   // Generated using serialized output of test "good.include-subdomains.pinning.example.com"
   // in security/manager/ssl/tests/unit/test_cert_chains.js
@@ -190,7 +178,8 @@ TEST(psm_DeserializeCert, preSSLStatusConsolidation) {
   deserializeAndVerify(base64Serialization, false);
 }
 
-TEST(psm_DeserializeCert, preSSLStatusConsolidationFailedCertChain) {
+TEST(psm_DeserializeCert, preSSLStatusConsolidationFailedCertChain)
+{
   // clang-format off
   // Generated using serialized output of test "expired.example.com"
   // in security/manager/ssl/tests/unit/test_cert_chains.js

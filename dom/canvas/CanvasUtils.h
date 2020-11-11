@@ -8,8 +8,10 @@
 
 #include "CanvasRenderingContextHelper.h"
 #include "mozilla/CheckedInt.h"
+#include "mozilla/dom/Document.h"
 #include "mozilla/dom/ToJSValue.h"
 #include "jsapi.h"
+#include "js/Array.h"  // JS::GetArrayLength
 #include "mozilla/FloatingPoint.h"
 
 class nsIPrincipal;
@@ -49,7 +51,7 @@ void DoDrawImageSecurityCheck(dom::HTMLCanvasElement* aCanvasElement,
 bool HasDrawWindowPrivilege(JSContext* aCx, JSObject* aObj);
 
 // Check site-specific permission and display prompt if appropriate.
-bool IsImageExtractionAllowed(nsIDocument* aDocument, JSContext* aCx,
+bool IsImageExtractionAllowed(dom::Document* aDocument, JSContext* aCx,
                               nsIPrincipal& aPrincipal);
 
 // Make a double out of |v|, treating undefined values as 0.0 (for
@@ -120,7 +122,7 @@ nsresult JSValToDashArray(JSContext* cx, const JS::Value& patternArray,
   if (!patternArray.isPrimitive()) {
     JS::Rooted<JSObject*> obj(cx, patternArray.toObjectOrNull());
     uint32_t length;
-    if (!JS_GetArrayLength(cx, obj, &length)) {
+    if (!JS::GetArrayLength(cx, obj, &length)) {
       // Not an array-like thing
       return NS_ERROR_INVALID_ARG;
     } else if (length > MAX_NUM_DASHES) {
@@ -172,6 +174,11 @@ void DashArrayToJSVal(nsTArray<T>& dashes, JSContext* cx,
     rv.Throw(NS_ERROR_OUT_OF_MEMORY);
   }
 }
+
+// returns true if write-only mode must used for this principal based on
+// the incumbent global.
+bool CheckWriteOnlySecurity(bool aCORSUsed, nsIPrincipal* aPrincipal,
+                            bool aHadCrossOriginRedirects);
 
 }  // namespace CanvasUtils
 }  // namespace mozilla

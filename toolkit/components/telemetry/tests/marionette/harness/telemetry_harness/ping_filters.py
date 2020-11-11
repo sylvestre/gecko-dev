@@ -10,6 +10,36 @@ class PingFilter(object):
         return True
 
 
+class DeletionRequestPingFilter(PingFilter):
+    """Ping filter that accepts deletion-request pings."""
+
+    def __call__(self, ping):
+        if not super(DeletionRequestPingFilter, self).__call__(ping):
+            return False
+
+        return ping["type"] == "deletion-request"
+
+
+class EventPingFilter(PingFilter):
+    """Ping filter that accepts event pings."""
+
+    def __call__(self, ping):
+        if not super(EventPingFilter, self).__call__(ping):
+            return False
+
+        return ping["type"] == "event"
+
+
+class FirstShutdownPingFilter(PingFilter):
+    """Ping filter that accepts first-shutdown pings."""
+
+    def __call__(self, ping):
+        if not super(FirstShutdownPingFilter, self).__call__(ping):
+            return False
+
+        return ping["type"] == "first-shutdown"
+
+
 class MainPingFilter(PingFilter):
     """Ping filter that accepts main pings."""
 
@@ -37,6 +67,9 @@ class MainPingReasonFilter(MainPingFilter):
 
 
 ANY_PING = PingFilter()
+DELETION_REQUEST_PING = DeletionRequestPingFilter()
+EVENT_PING = EventPingFilter()
+FIRST_SHUTDOWN_PING = FirstShutdownPingFilter()
 MAIN_PING = MainPingFilter()
 MAIN_SHUTDOWN_PING = MainPingReasonFilter("shutdown")
 MAIN_ENVIRONMENT_CHANGE_PING = MainPingReasonFilter("environment-change")

@@ -12,16 +12,25 @@
 #ifndef nsSyncLoadService_h__
 #define nsSyncLoadService_h__
 
+#include "mozilla/AlreadyAddRefed.h"
 #include "nscore.h"
-#include "mozilla/net/ReferrerPolicy.h"
+#include "nsIContentPolicy.h"
+#include "nsILoadInfo.h"
+#include "nsIReferrerInfo.h"
 
+class nsICookieJarSettings;
 class nsIInputStream;
 class nsILoadGroup;
 class nsIStreamListener;
 class nsIURI;
 class nsIPrincipal;
-class nsIDocument;
 class nsIChannel;
+
+namespace mozilla {
+namespace dom {
+class Document;
+}
+}  // namespace mozilla
 
 class nsSyncLoadService {
  public:
@@ -39,13 +48,12 @@ class nsSyncLoadService {
    * @param referrerPolicy Referrer policy.
    * @param aResult [out] The document loaded from the URI.
    */
-  static nsresult LoadDocument(nsIURI* aURI,
-                               nsContentPolicyType aContentPolicyType,
-                               nsIPrincipal* aLoaderPrincipal,
-                               nsSecurityFlags aSecurityFlags,
-                               nsILoadGroup* aLoadGroup, bool aForceToXML,
-                               mozilla::net::ReferrerPolicy aReferrerPolicy,
-                               nsIDocument** aResult);
+  static nsresult LoadDocument(
+      nsIURI* aURI, nsContentPolicyType aContentPolicyType,
+      nsIPrincipal* aLoaderPrincipal, nsSecurityFlags aSecurityFlags,
+      nsILoadGroup* aLoadGroup, nsICookieJarSettings* aCookieJarSettings,
+      bool aForceToXML, mozilla::dom::ReferrerPolicy aReferrerPolicy,
+      mozilla::dom::Document** aResult);
 
   /**
    * Read input stream aIn in chunks and deliver synchronously to aListener.

@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 /* globals selectorLoader, analytics, communication, catcher, log, makeUuid, auth, senderror, startBackground, blobConverters buildSettings */
 
 "use strict";
@@ -11,13 +15,9 @@ this.main = (function() {
   const manifest = browser.runtime.getManifest();
   let backend;
 
-  let hasSeenOnboarding = browser.storage.local.get(["hasSeenOnboarding"]).then((result) => {
-    const onboarded = !!result.hasSeenOnboarding;
-    hasSeenOnboarding = Promise.resolve(onboarded);
-    return hasSeenOnboarding;
-  }).catch((error) => {
-    log.error("Error getting hasSeenOnboarding:", error);
-  });
+  exports.hasAnyShots = function() {
+    return false;
+  };
 
   exports.setBackend = function(newBackend) {
     backend = newBackend;
@@ -31,10 +31,6 @@ this.main = (function() {
   communication.register("getBackend", () => {
     return backend;
   });
-
-  function getOnboardingUrl() {
-    return backend + "/#hello";
-  }
 
   for (const permission of manifest.permissions) {
     if (/^https?:\/\//.test(permission)) {
@@ -50,7 +46,7 @@ this.main = (function() {
 
   function toggleSelector(tab) {
     return analytics.refreshTelemetryPref()
-      .then(() => selectorLoader.toggle(tab.id, hasSeenOnboarding))
+      .then(() => selectorLoader.toggle(tab.id))
       .then(active => {
         setIconActive(active, tab.id);
         return active;
@@ -64,18 +60,6 @@ this.main = (function() {
       });
   }
 
-  function startSelectionWithOnboarding(tab) {
-    return analytics.refreshTelemetryPref().then(() => {
-      return selectorLoader.testIfLoaded(tab.id);
-    }).then((isLoaded) => {
-      if (!isLoaded) {
-        sendEvent("start-shot", "site-request", {incognito: tab.incognito});
-        setIconActive(true, tab.id);
-        selectorLoader.toggle(tab.id, Promise.resolve(false));
-      }
-    });
-  }
-
   function shouldOpenMyShots(url) {
     return /^about:(?:newtab|blank|home)/i.test(url) || /^resource:\/\/activity-streams\//i.test(url);
   }
@@ -83,65 +67,52 @@ this.main = (function() {
   // This is called by startBackground.js, where is registered as a click
   // handler for the webextension page action.
   exports.onClicked = catcher.watchFunction((tab) => {
-    catcher.watchPromise(hasSeenOnboarding.then(onboarded => {
-      if (shouldOpenMyShots(tab.url)) {
-        if (!onboarded) {
-          catcher.watchPromise(analytics.refreshTelemetryPref().then(() => {
-            sendEvent("goto-onboarding", "selection-button", {incognito: tab.incognito});
-            return forceOnboarding();
-          }));
-          return;
-        }
-        catcher.watchPromise(analytics.refreshTelemetryPref().then(() => {
-          sendEvent("goto-myshots", "about-newtab", {incognito: tab.incognito});
-        }));
-        catcher.watchPromise(
-          auth.maybeLogin()
-          .then(() => browser.tabs.update({url: backend + "/shots"})));
-      } else {
-        catcher.watchPromise(
-          toggleSelector(tab)
-            .then(active => {
-              const event = active ? "start-shot" : "cancel-shot";
-              sendEvent(event, "toolbar-button", {incognito: tab.incognito});
-            }, (error) => {
-              if ((!onboarded) && error.popupMessage === "UNSHOOTABLE_PAGE") {
-                sendEvent("goto-onboarding", "selection-button", {incognito: tab.incognito});
-                return forceOnboarding();
-              }
-              throw error;
-            }));
-      }
-    }));
+    _startShotFlow(tab, "toolbar-button");
   });
-
-  function forceOnboarding() {
-    return browser.tabs.create({url: getOnboardingUrl()});
-  }
 
   exports.onClickedContextMenu = catcher.watchFunction((info, tab) => {
-    catcher.watchPromise(hasSeenOnboarding.then(onboarded => {
-      if (!tab) {
-        // Not in a page/tab context, ignore
-        return;
-      }
-      if (!urlEnabled(tab.url)) {
-        if (!onboarded) {
-          sendEvent("goto-onboarding", "selection-button", {incognito: tab.incognito});
-          forceOnboarding();
-          return;
-        }
-        senderror.showError({
-          popupMessage: "UNSHOOTABLE_PAGE",
-        });
-        return;
-      }
-      // No need to catch() here because of watchPromise().
-      // eslint-disable-next-line promise/catch-or-return
-      toggleSelector(tab)
-        .then(() => sendEvent("start-shot", "context-menu", {incognito: tab.incognito}));
-    }));
+    _startShotFlow(tab, "context-menu");
   });
+
+  exports.onCommand = catcher.watchFunction((tab) => {
+    _startShotFlow(tab, "keyboard-shortcut");
+  });
+
+  const _openMyShots = (tab, inputType) => {
+    catcher.watchPromise(analytics.refreshTelemetryPref().then(() => {
+      sendEvent("goto-myshots", inputType, {incognito: tab.incognito});
+    }));
+    catcher.watchPromise(
+      auth.maybeLogin()
+      .then(() => browser.tabs.update({url: backend + "/shots"})));
+  };
+
+  const _startShotFlow = (tab, inputType) => {
+    if (!tab) {
+      // Not in a page/tab context, ignore
+      return;
+    }
+    if (!urlEnabled(tab.url)) {
+      senderror.showError({
+        popupMessage: "UNSHOOTABLE_PAGE",
+      });
+      return;
+    } else if (shouldOpenMyShots(tab.url)) {
+      _openMyShots(tab, inputType);
+      return;
+    }
+
+    catcher.watchPromise(toggleSelector(tab)
+      .then(active => {
+        let event = "start-shot";
+        if (inputType !== "context-menu") {
+          event = active ? "start-shot" : "cancel-shot";
+        }
+        sendEvent(event, inputType, {incognito: tab.incognito});
+      }).catch((error) => {
+        throw error;
+      }));
+  };
 
   function urlEnabled(url) {
     if (shouldOpenMyShots(url)) {
@@ -176,14 +147,18 @@ this.main = (function() {
   function isBlacklistedUrl(url) {
     // These specific domains are not allowed for general WebExtension permission reasons
     // Discussion: https://bugzilla.mozilla.org/show_bug.cgi?id=1310082
-    // List of domains copied from: https://dxr.mozilla.org/mozilla-central/source/browser/app/permissions#18-19
+    // List of domains copied from: https://searchfox.org/mozilla-central/source/browser/app/permissions#18-19
     // Note we disable it here to be informative, the security check is done in WebExtension code
-    const badDomains = ["addons.mozilla.org", "testpilot.firefox.com"];
+    const badDomains = ["testpilot.firefox.com"];
     let domain = url.replace(/^https?:\/\//i, "");
     domain = domain.replace(/\/.*/, "").replace(/:.*/, "");
     domain = domain.toLowerCase();
     return badDomains.includes(domain);
   }
+
+  communication.register("getStrings", (sender, ids) => {
+    return getStrings(ids.map(id => ({id})));
+  });
 
   communication.register("sendEvent", (sender, ...args) => {
     catcher.watchPromise(sendEvent(...args));
@@ -197,14 +172,18 @@ this.main = (function() {
       .then(() => browser.tabs.create({url: backend + "/shots"})));
   });
 
-  communication.register("openShot", (sender, {url, copied}) => {
+  communication.register("openShot", async (sender, {url, copied}) => {
     if (copied) {
       const id = makeUuid();
+      const [ title, message ] = await getStrings([
+        { id: "screenshots-notification-link-copied-title" },
+        { id: "screenshots-notification-link-copied-details" },
+      ]);
       return browser.notifications.create(id, {
         type: "basic",
         iconUrl: "../icons/copied-notification.svg",
-        title: browser.i18n.getMessage("notificationLinkCopiedTitle"),
-        message: browser.i18n.getMessage("notificationLinkCopiedDetails", pasteSymbol),
+        title,
+        message,
       });
     }
     return null;
@@ -229,18 +208,21 @@ this.main = (function() {
     return dataUrl;
   });
 
-  communication.register("copyShotToClipboard", (sender, blob) => {
-    return blobConverters.blobToArray(blob).then(buffer => {
-      return browser.clipboard.setImageData(
-        buffer, blob.type.split("/", 2)[1]).then(() => {
-          catcher.watchPromise(incrementCount("copy"));
-          return browser.notifications.create({
-            type: "basic",
-            iconUrl: "../icons/copied-notification.svg",
-            title: browser.i18n.getMessage("notificationImageCopiedTitle"),
-            message: browser.i18n.getMessage("notificationImageCopiedDetails", pasteSymbol),
-          });
-        });
+  communication.register("copyShotToClipboard", async (sender, blob) => {
+    let buffer = await blobConverters.blobToArray(blob);
+    await browser.clipboard.setImageData(buffer, blob.type.split("/", 2)[1]);
+
+    const [title, message] = await getStrings([
+      { id: "screenshots-notification-image-copied-title" },
+      { id: "screenshots-notification-image-copied-details" },
+    ]);
+
+    catcher.watchPromise(incrementCount("copy"));
+    return browser.notifications.create({
+      type: "basic",
+      iconUrl: "../icons/copied-notification.svg",
+      title,
+      message,
     });
   });
 
@@ -279,11 +261,6 @@ this.main = (function() {
 
   communication.register("closeSelector", (sender) => {
     setIconActive(false, sender.tab.id);
-  });
-
-  communication.register("hasSeenOnboarding", () => {
-    hasSeenOnboarding = Promise.resolve(true);
-    catcher.watchPromise(browser.storage.local.set({hasSeenOnboarding: true}));
   });
 
   communication.register("abortStartShot", () => {

@@ -5,10 +5,12 @@
 %include ../shared/compacttheme.inc.css
 
 #TabsToolbar:-moz-lwtheme-darktext {
-  -moz-appearance: -moz-mac-vibrant-titlebar-light;
+  appearance: auto;
+  -moz-default-appearance: -moz-mac-vibrant-titlebar-light;
   -moz-font-smoothing-background-color: -moz-mac-vibrant-titlebar-light;
 }
 
-.tabbrowser-tab[visuallyselected=true] {
+.tabbrowser-tab[multiselected]:-moz-lwtheme-darktext,
+.tabbrowser-tab[visuallyselected=true]:-moz-lwtheme-darktext {
   -moz-font-smoothing-background-color: var(--toolbar-bgcolor);
 }

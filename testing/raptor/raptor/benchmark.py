@@ -8,11 +8,10 @@ import os
 import shutil
 import socket
 
-from mozlog import get_proxy_logger
-
+from logger.logger import RaptorLogger
 from wptserve import server, handlers
 
-LOG = get_proxy_logger(component="raptor-benchmark")
+LOG = RaptorLogger(component="raptor-benchmark")
 here = os.path.abspath(os.path.dirname(__file__))
 
 
@@ -34,19 +33,28 @@ class Benchmark(object):
 
         # now add path for benchmark source; locally we put it in a raptor benchmarks
         # folder; in production the files are automatically copied to a different dir
-        if self.config.get('run_local', False):
-            self.bench_dir = os.path.join(self.bench_dir, 'testing', 'raptor', 'benchmarks')
+        if self.config.get("run_local", False):
+            self.bench_dir = os.path.join(
+                self.bench_dir, "testing", "raptor", "benchmarks"
+            )
         else:
-            self.bench_dir = os.path.join(self.bench_dir, 'tests', 'webkit', 'PerformanceTests')
+            self.bench_dir = os.path.join(
+                self.bench_dir, "tests", "webkit", "PerformanceTests"
+            )
 
             # Some benchmarks may have been downloaded from a fetch task, make
             # sure they get copied over.
-            fetches_dir = os.environ.get('MOZ_FETCHES_DIR')
-            if fetches_dir and os.path.isdir(fetches_dir):
+            fetches_dir = os.environ.get("MOZ_FETCHES_DIR")
+            if (
+                test.get("fetch_task", False)
+                and fetches_dir
+                and os.path.isdir(fetches_dir)
+            ):
                 for name in os.listdir(fetches_dir):
-                    path = os.path.join(fetches_dir, name)
-                    if os.path.isdir(path):
-                        shutil.copytree(path, os.path.join(self.bench_dir, name))
+                    if test.get("fetch_task").lower() in name.lower():
+                        path = os.path.join(fetches_dir, name)
+                        if os.path.isdir(path):
+                            shutil.copytree(path, os.path.join(self.bench_dir, name))
 
         LOG.info("bench_dir contains:")
         LOG.info(os.listdir(self.bench_dir))
@@ -59,10 +67,11 @@ class Benchmark(object):
 
         # pick a free port
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.bind(('', 0))
+        sock.bind(("", 0))
+        self.host = self.config["host"]
         self.port = sock.getsockname()[1]
         sock.close()
-        _webserver = '%s:%d' % (self.config['host'], self.port)
+        _webserver = "%s:%d" % (self.host, self.port)
 
         self.httpd = self.setup_webserver(_webserver)
         self.httpd.start()
@@ -71,8 +80,8 @@ class Benchmark(object):
         # to add specific headers for serving files via wptserve, write out a headers dir file
         # see http://wptserve.readthedocs.io/en/latest/handlers.html#file-handlers
         LOG.info("writing wptserve headers file")
-        headers_file = os.path.join(self.bench_dir, '__dir__.headers')
-        file = open(headers_file, 'w')
+        headers_file = os.path.join(self.bench_dir, "__dir__.headers")
+        file = open(headers_file, "w")
         file.write("Access-Control-Allow-Origin: *")
         file.close()
         LOG.info("wrote wpt headers file: %s" % headers_file)
@@ -80,11 +89,14 @@ class Benchmark(object):
     def setup_webserver(self, webserver):
         LOG.info("starting webserver on %r" % webserver)
         LOG.info("serving benchmarks from here: %s" % self.bench_dir)
-        self.host, self.port = webserver.split(':')
+        self.host, self.port = webserver.split(":")
 
-        return server.WebTestHttpd(host=self.host, port=int(self.port),
-                                   doc_root=self.bench_dir,
-                                   routes=[("GET", "*", handlers.file_handler)])
+        return server.WebTestHttpd(
+            host=self.host,
+            port=int(self.port),
+            doc_root=self.bench_dir,
+            routes=[("GET", "*", handlers.file_handler)],
+        )
 
     def stop_serve(self):
         LOG.info("TODO: stop serving benchmark source")

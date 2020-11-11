@@ -9,11 +9,15 @@
 #include "txCore.h"
 #include "nsAtom.h"
 
-#define kTXNameSpaceURI "http://www.mozilla.org/TransforMiix"
+#define kTXNameSpaceURI u"http://www.mozilla.org/TransforMiix"
 #define kTXWrapper "transformiix:result"
 
 class txOutputFormat;
-class nsIDocument;
+namespace mozilla {
+namespace dom {
+class Document;
+}
+}  // namespace mozilla
 
 /**
  * An interface for handling XML documents, loosely modeled
@@ -22,7 +26,7 @@ class nsIDocument;
 
 class txAXMLEventHandler {
  public:
-  virtual ~txAXMLEventHandler() {}
+  virtual ~txAXMLEventHandler() = default;
 
   /**
    * Signals to receive the start of an attribute.
@@ -138,18 +142,18 @@ class txAOutputXMLEventHandler : public txAXMLEventHandler {
    *
    * @param aDocument the Mozilla output document
    */
-  virtual void getOutputDocument(nsIDocument** aDocument) = 0;
+  virtual void getOutputDocument(mozilla::dom::Document** aDocument) = 0;
 };
 
 #define TX_DECL_TXAOUTPUTXMLEVENTHANDLER \
-  virtual void getOutputDocument(nsIDocument** aDocument) override;
+  virtual void getOutputDocument(mozilla::dom::Document** aDocument) override;
 
 /**
  * Interface used to create the appropriate outputhandler
  */
 class txAOutputHandlerFactory {
  public:
-  virtual ~txAOutputHandlerFactory() {}
+  virtual ~txAOutputHandlerFactory() = default;
 
   /**
    * Creates an outputhandler for the specified format.

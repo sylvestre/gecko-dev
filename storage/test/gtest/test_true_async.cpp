@@ -9,7 +9,8 @@
 ////////////////////////////////////////////////////////////////////////////////
 //// Tests
 
-TEST(storage_true_async, TrueAsyncStatement) {
+TEST(storage_true_async, TrueAsyncStatement)
+{
   HookSqliteMutex hook;
 
   nsCOMPtr<mozIStorageConnection> db(getMemoryDatabase());
@@ -19,31 +20,28 @@ TEST(storage_true_async, TrueAsyncStatement) {
 
   // - statement with nothing to bind
   nsCOMPtr<mozIStorageAsyncStatement> stmt;
-  db->CreateAsyncStatement(
-      NS_LITERAL_CSTRING("CREATE TABLE test (id INTEGER PRIMARY KEY)"),
-      getter_AddRefs(stmt));
+  db->CreateAsyncStatement("CREATE TABLE test (id INTEGER PRIMARY KEY)"_ns,
+                           getter_AddRefs(stmt));
   blocking_async_execute(stmt);
   stmt->Finalize();
   do_check_false(mutex_used_on_watched_thread);
 
   // - statement with something to bind ordinally
-  db->CreateAsyncStatement(
-      NS_LITERAL_CSTRING("INSERT INTO test (id) VALUES (?)"),
-      getter_AddRefs(stmt));
+  db->CreateAsyncStatement("INSERT INTO test (id) VALUES (?)"_ns,
+                           getter_AddRefs(stmt));
   stmt->BindInt32ByIndex(0, 1);
   blocking_async_execute(stmt);
   stmt->Finalize();
   do_check_false(mutex_used_on_watched_thread);
 
   // - statement with something to bind by name
-  db->CreateAsyncStatement(
-      NS_LITERAL_CSTRING("INSERT INTO test (id) VALUES (:id)"),
-      getter_AddRefs(stmt));
+  db->CreateAsyncStatement("INSERT INTO test (id) VALUES (:id)"_ns,
+                           getter_AddRefs(stmt));
   nsCOMPtr<mozIStorageBindingParamsArray> paramsArray;
   stmt->NewBindingParamsArray(getter_AddRefs(paramsArray));
   nsCOMPtr<mozIStorageBindingParams> params;
   paramsArray->NewBindingParams(getter_AddRefs(params));
-  params->BindInt32ByName(NS_LITERAL_CSTRING("id"), 2);
+  params->BindInt32ByName("id"_ns, 2);
   paramsArray->AddParams(params);
   params = nullptr;
   stmt->BindParameters(paramsArray);
@@ -55,8 +53,7 @@ TEST(storage_true_async, TrueAsyncStatement) {
   // - now, make sure creating a sync statement does trigger our guard.
   // (If this doesn't happen, our test is bunk and it's important to know that.)
   nsCOMPtr<mozIStorageStatement> syncStmt;
-  db->CreateStatement(NS_LITERAL_CSTRING("SELECT * FROM test"),
-                      getter_AddRefs(syncStmt));
+  db->CreateStatement("SELECT * FROM test"_ns, getter_AddRefs(syncStmt));
   syncStmt->Finalize();
   do_check_true(mutex_used_on_watched_thread);
 
@@ -67,7 +64,8 @@ TEST(storage_true_async, TrueAsyncStatement) {
  * Test that cancellation before a statement is run successfully stops the
  * statement from executing.
  */
-TEST(storage_true_async, AsyncCancellation) {
+TEST(storage_true_async, AsyncCancellation)
+{
   HookSqliteMutex hook;
 
   nsCOMPtr<mozIStorageConnection> db(getMemoryDatabase());
@@ -81,7 +79,7 @@ TEST(storage_true_async, AsyncCancellation) {
   // - async
   nsCOMPtr<mozIStorageAsyncStatement> asyncStmt;
   db->CreateAsyncStatement(
-      NS_LITERAL_CSTRING("CREATE TABLE asyncTable (id INTEGER PRIMARY KEY)"),
+      "CREATE TABLE asyncTable (id INTEGER PRIMARY KEY)"_ns,
       getter_AddRefs(asyncStmt));
 
   RefPtr<AsyncStatementSpinner> asyncSpin(new AsyncStatementSpinner());
@@ -92,9 +90,8 @@ TEST(storage_true_async, AsyncCancellation) {
 
   // - sync
   nsCOMPtr<mozIStorageStatement> syncStmt;
-  db->CreateStatement(
-      NS_LITERAL_CSTRING("CREATE TABLE syncTable (id INTEGER PRIMARY KEY)"),
-      getter_AddRefs(syncStmt));
+  db->CreateStatement("CREATE TABLE syncTable (id INTEGER PRIMARY KEY)"_ns,
+                      getter_AddRefs(syncStmt));
 
   RefPtr<AsyncStatementSpinner> syncSpin(new AsyncStatementSpinner());
   nsCOMPtr<mozIStoragePendingStatement> syncPend;
@@ -117,10 +114,10 @@ TEST(storage_true_async, AsyncCancellation) {
   // -- verify that neither statement constructed their tables
   nsresult rv;
   bool exists;
-  rv = db->TableExists(NS_LITERAL_CSTRING("asyncTable"), &exists);
+  rv = db->TableExists("asyncTable"_ns, &exists);
   do_check_true(rv == NS_OK);
   do_check_false(exists);
-  rv = db->TableExists(NS_LITERAL_CSTRING("syncTable"), &exists);
+  rv = db->TableExists("syncTable"_ns, &exists);
   do_check_true(rv == NS_OK);
   do_check_false(exists);
 
@@ -136,7 +133,8 @@ TEST(storage_true_async, AsyncCancellation) {
  *  finalization rather than trying to finalize it on the main thread
  *  (and thereby running afoul of our mutex use detector).
  */
-TEST(storage_true_async, AsyncDestructorFinalizesOnAsyncThread) {
+TEST(storage_true_async, AsyncDestructorFinalizesOnAsyncThread)
+{
   HookSqliteMutex hook;
 
   nsCOMPtr<mozIStorageConnection> db(getMemoryDatabase());
@@ -144,9 +142,8 @@ TEST(storage_true_async, AsyncDestructorFinalizesOnAsyncThread) {
 
   // -- create an async statement
   nsCOMPtr<mozIStorageAsyncStatement> stmt;
-  db->CreateAsyncStatement(
-      NS_LITERAL_CSTRING("CREATE TABLE test (id INTEGER PRIMARY KEY)"),
-      getter_AddRefs(stmt));
+  db->CreateAsyncStatement("CREATE TABLE test (id INTEGER PRIMARY KEY)"_ns,
+                           getter_AddRefs(stmt));
 
   // -- execute it so it gets a sqlite3_stmt that needs to be finalized
   blocking_async_execute(stmt);

@@ -17,30 +17,32 @@
 #ifndef __ClearKeyUtils_h__
 #define __ClearKeyUtils_h__
 
+#include <assert.h>
+// stdef.h is required for content_decryption_module to work on Unix systems.
+#include <stddef.h>
 #include <stdint.h>
+
 #include <string>
 #include <vector>
-#include <assert.h>
 
-// This include is required in order for content_decryption_module to work
-// on Unix systems.
-#include "stddef.h"
 #include "content_decryption_module.h"
+#include "mozilla/Span.h"
+#include "pk11pub.h"
 
 #if 0
 void CK_Log(const char* aFmt, ...);
-#define CK_LOGE(...) CK_Log(__VA_ARGS__)
-#define CK_LOGD(...) CK_Log(__VA_ARGS__)
-#define CK_LOGW(...) CK_Log(__VA_ARGS__)
-#define CK_LOGARRAY(APREPEND, ADATA, ADATA_SIZE) \
-  CK_LogArray(APREPEND, ADATA, ADATA_SIZE)
+#  define CK_LOGE(...) CK_Log(__VA_ARGS__)
+#  define CK_LOGD(...) CK_Log(__VA_ARGS__)
+#  define CK_LOGW(...) CK_Log(__VA_ARGS__)
+#  define CK_LOGARRAY(APREPEND, ADATA, ADATA_SIZE) \
+    CK_LogArray(APREPEND, ADATA, ADATA_SIZE)
 #else
 // Note: Enabling logging slows things down a LOT, especially when logging to
 // a file.
-#define CK_LOGE(...)
-#define CK_LOGD(...)
-#define CK_LOGW(...)
-#define CK_LOGARRAY(APREPEND, ADATA, ADATA_SIZE)
+#  define CK_LOGE(...)
+#  define CK_LOGD(...)
+#  define CK_LOGW(...)
+#  define CK_LOGARRAY(APREPEND, ADATA, ADATA_SIZE)
 #endif
 
 typedef std::vector<uint8_t> KeyId;
@@ -64,7 +66,12 @@ struct KeyIdPair {
 
 class ClearKeyUtils {
  public:
-  static void DecryptAES(const std::vector<uint8_t>& aKey,
+  static bool DecryptCbcs(const std::vector<uint8_t>& aKey,
+                          const std::vector<uint8_t>& aIV,
+                          mozilla::Span<uint8_t> aSubsampleEncryptedRange,
+                          uint32_t aCryptByteBlocks, uint32_t aSkipByteBlocks);
+
+  static bool DecryptAES(const std::vector<uint8_t>& aKey,
                          std::vector<uint8_t>& aData,
                          std::vector<uint8_t>& aIV);
 

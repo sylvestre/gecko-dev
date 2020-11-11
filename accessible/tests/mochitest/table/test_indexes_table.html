@@ -8,8 +8,7 @@ https://bugzilla.mozilla.org/show_bug.cgi?id=410052
   <link rel="stylesheet" type="text/css"
         href="chrome://mochikit/content/tests/SimpleTest/test.css" />
 
-  <script type="application/javascript"
-          src="chrome://mochikit/content/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="chrome://mochikit/content/tests/SimpleTest/SimpleTest.js"></script>
 
   <script type="application/javascript"
           src="../common.js"></script>
@@ -104,7 +103,7 @@ https://bugzilla.mozilla.org/show_bug.cgi?id=410052
       testTableIndexes("tableinsane4", idxes);
 
       // ////////////////////////////////////////////////////////////////////////
-      // tableinsane5 (just a crazy table)
+      // tableinsane5 (just a strange table)
       idxes = [
         [ 0,  1,  2, -1, -1],
         [-1, -1, -1, -1, -1],
@@ -141,6 +140,29 @@ https://bugzilla.mozilla.org/show_bug.cgi?id=410052
         [0, 0, 1],
       ];
       testTableIndexes("tablewithcolspanandcelldisplayblock", idxes);
+
+      // ////////////////////////////////////////////////////////////////////////
+      // A table with all elements being display:block, including a row group.
+      // This makes us fall back to the ARIAGridRowAccessible, and we must
+      // make sure the index is 0. Strange example from Gmail.
+      idxes = [
+        [0],
+      ];
+      testTableIndexes("tablealldisplayblock", idxes);
+
+      // ////////////////////////////////////////////////////////////////////////
+      // Table that has display: block; style
+      idxes = [
+        [0, 1],
+      ];
+      testTableIndexes("tablewithdisplayblock", idxes);
+
+      // ////////////////////////////////////////////////////////////////////////
+      // tbody that has display: block; style
+      idxes = [
+        [0, 1],
+      ];
+      testTableIndexes("tbodywithdisplayblock", idxes);
 
       SimpleTest.finish();
     }
@@ -353,7 +375,7 @@ https://bugzilla.mozilla.org/show_bug.cgi?id=410052
   </table>
 
   <table border="1" id="tableinsane5">
-    <caption>just a crazy table</caption>
+    <caption>just a strange table</caption>
     <thead>
       <tr>
         <th>col1</th>
@@ -385,6 +407,7 @@ https://bugzilla.mozilla.org/show_bug.cgi?id=410052
       </tr>
 
     </tbody>
+  </table>
 
   <table border="1" id="tableinsane6" >
     <caption>overlapping cells</caption>
@@ -434,5 +457,25 @@ https://bugzilla.mozilla.org/show_bug.cgi?id=410052
     </tr>
   </table>
 
+  <table id="tablealldisplayblock" style="display:block;">
+    <tbody style="display:block;">
+      <tr style="display:block;">
+        <td style="display:block;">text</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <table id="tablewithdisplayblock" style="display: block;">
+    <tr><th>a</th><td>b</td></tr>
+  </table>  
+
+  <table id="tbodywithdisplayblock">
+    <tbody style="display: block;">
+      <tr>
+        <th>a</th>
+        <td>b</td>
+      </tr>
+    </tbody>
+  </table>
 </body>
 </html>

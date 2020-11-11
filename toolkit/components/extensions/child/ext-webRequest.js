@@ -1,39 +1,10 @@
 /* -*- Mode: indent-tabs-mode: nil; js-indent-level: 2 -*- */
 /* vim: set sts=2 sw=2 et tw=80: */
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 "use strict";
-
-var {
-  ExtensionError,
-} = ExtensionUtils;
-
-function makeWebRequestEvent(context, name) {
-  return new EventManager({
-    context,
-    name: `webRequest.${name}`,
-    register: (fire, filter, info) => {
-      const blockingAllowed = context.extension
-        .hasPermission("webRequestBlocking");
-
-      if (info) {
-        // "blocking" requires webRequestBlocking permission
-        for (let desc of info) {
-          if (desc == "blocking" && !blockingAllowed) {
-            throw new ExtensionError("Using webRequest.addListener with the " +
-              "blocking option requires the 'webRequestBlocking' permission.");
-          }
-        }
-      }
-
-      const listener = async (...args) => fire.sync(...args);
-
-      let parent = context.childManager.getParentEvent(`webRequest.${name}`);
-      parent.addListener(listener, filter, info);
-      return () => {
-        parent.removeListener(listener);
-      };
-    },
-  }).api();
-}
 
 this.webRequest = class extends ExtensionAPI {
   getAPI(context) {
@@ -41,7 +12,9 @@ this.webRequest = class extends ExtensionAPI {
 
     context.callOnClose({
       close() {
-        for (let filter of ChromeUtils.nondeterministicGetWeakSetKeys(filters)) {
+        for (let filter of ChromeUtils.nondeterministicGetWeakSetKeys(
+          filters
+        )) {
           try {
             filter.disconnect();
           } catch (e) {
@@ -57,16 +30,13 @@ this.webRequest = class extends ExtensionAPI {
           requestId = parseInt(requestId, 10);
 
           let streamFilter = context.cloneScope.StreamFilter.create(
-            requestId, context.extension.id);
+            requestId,
+            context.extension.id
+          );
 
           filters.add(streamFilter);
           return streamFilter;
         },
-        onBeforeRequest: makeWebRequestEvent(context, "onBeforeRequest"),
-        onBeforeSendHeaders:
-          makeWebRequestEvent(context, "onBeforeSendHeaders"),
-        onHeadersReceived: makeWebRequestEvent(context, "onHeadersReceived"),
-        onAuthRequired: makeWebRequestEvent(context, "onAuthRequired"),
       },
     };
   }

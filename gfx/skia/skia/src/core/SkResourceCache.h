@@ -8,9 +8,9 @@
 #ifndef SkResourceCache_DEFINED
 #define SkResourceCache_DEFINED
 
-#include "SkBitmap.h"
-#include "SkMessageBus.h"
-#include "SkTDArray.h"
+#include "include/core/SkBitmap.h"
+#include "include/private/SkTDArray.h"
+#include "src/core/SkMessageBus.h"
 
 class SkCachedData;
 class SkDiscardableMemory;
@@ -112,10 +112,7 @@ public:
     // Used with SkMessageBus
     struct PurgeSharedIDMessage {
         PurgeSharedIDMessage(uint64_t sharedID) : fSharedID(sharedID) {}
-        // SkResourceCache is typically used as a singleton and we don't label Inboxes so all
-        // messages go to all inboxes.
-        bool shouldSend(uint32_t inboxID) const { return true; }
-        uint64_t    fSharedID;
+        uint64_t fSharedID;
     };
 
     typedef const Rec* ID;

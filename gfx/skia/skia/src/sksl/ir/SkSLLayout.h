@@ -8,8 +8,8 @@
 #ifndef SKSL_LAYOUT
 #define SKSL_LAYOUT
 
-#include "SkSLString.h"
-#include "SkSLUtil.h"
+#include "src/sksl/SkSLString.h"
+#include "src/sksl/SkSLUtil.h"
 
 namespace SkSL {
 
@@ -60,10 +60,12 @@ struct Layout {
         kR32F,
         kRGBA16F,
         kR16F,
+        kLUMINANCE16F,
         kRGBA8,
         kR8,
         kRGBA8I,
         kR8I,
+        kRG16F,
     };
 
     // used by SkSL processors
@@ -78,13 +80,14 @@ struct Layout {
 
     enum class CType {
         kDefault,
+        kBool,
         kFloat,
         kInt32,
         kSkRect,
         kSkIRect,
-        kGrColor4f,
         kSkPMColor4f,
         kSkPMColor,
+        kSkVector4,
         kSkPoint,
         kSkIPoint,
         kSkMatrix,
@@ -100,10 +103,12 @@ struct Layout {
             case Format::kR32F:         return "r32f";
             case Format::kRGBA16F:      return "rgba16f";
             case Format::kR16F:         return "r16f";
+            case Format::kLUMINANCE16F: return "lum16f";
             case Format::kRGBA8:        return "rgba8";
             case Format::kR8:           return "r8";
             case Format::kRGBA8I:       return "rgba8i";
             case Format::kR8I:          return "r8i";
+            case Format::kRG16F:        return "rg16f";
         }
         ABORT("Unexpected format");
     }
@@ -121,6 +126,9 @@ struct Layout {
         } else if (str == "r16f") {
             *format = Format::kR16F;
             return true;
+        } else if (str == "lum16f") {
+            *format = Format::kLUMINANCE16F;
+            return true;
         } else if (str == "rgba8") {
             *format = Format::kRGBA8;
             return true;
@@ -132,6 +140,9 @@ struct Layout {
             return true;
         } else if (str == "r8i") {
             *format = Format::kR8I;
+            return true;
+        } else if (str == "rg16f") {
+            *format = Format::kRG16F;
             return true;
         }
         return false;
@@ -149,12 +160,12 @@ struct Layout {
                 return "SkRect";
             case CType::kSkIRect:
                 return "SkIRect";
-            case CType::kGrColor4f:
-                return "GrColor4f";
             case CType::kSkPMColor4f:
                 return "SkPMColor4f";
             case CType::kSkPMColor:
                 return "SkPMColor";
+            case CType::kSkVector4:
+                return "SkVector4";
             case CType::kSkPoint:
                 return "SkPoint";
             case CType::kSkIPoint:
@@ -175,7 +186,7 @@ struct Layout {
 
     Layout(int flags, int location, int offset, int binding, int index, int set, int builtin,
            int inputAttachmentIndex, Format format, Primitive primitive, int maxVertices,
-           int invocations, String when, Key key, CType ctype)
+           int invocations, StringFragment when, Key key, CType ctype)
     : fFlags(flags)
     , fLocation(location)
     , fOffset(offset)
@@ -363,7 +374,7 @@ struct Layout {
             result += separator + "invocations = " + to_string(fInvocations);
             separator = ", ";
         }
-        if (fWhen.size()) {
+        if (fWhen.fLength) {
             result += separator + "when = " + fWhen;
             separator = ", ";
         }
@@ -411,7 +422,7 @@ struct Layout {
     Primitive fPrimitive;
     int fMaxVertices;
     int fInvocations;
-    String fWhen;
+    StringFragment fWhen;
     Key fKey;
     CType fCType;
 };

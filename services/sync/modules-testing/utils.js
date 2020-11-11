@@ -17,29 +17,46 @@ var EXPORTED_SYMBOLS = [
   "MockFxaStorageManager",
   "AccountState", // from a module import
   "sumHistogram",
-  "getLoginTelemetryScalar",
   "syncTestLogging",
 ];
 
-ChromeUtils.import("resource://services-sync/status.js");
-ChromeUtils.import("resource://services-common/utils.js");
-ChromeUtils.import("resource://services-crypto/utils.js");
-ChromeUtils.import("resource://services-sync/util.js");
-ChromeUtils.import("resource://services-sync/browserid_identity.js");
-ChromeUtils.import("resource://testing-common/Assert.jsm");
-ChromeUtils.import("resource://testing-common/services/common/logging.js");
-ChromeUtils.import("resource://testing-common/services/sync/fakeservices.js");
-ChromeUtils.import("resource://gre/modules/FxAccounts.jsm");
-ChromeUtils.import("resource://gre/modules/FxAccountsClient.jsm");
-ChromeUtils.import("resource://gre/modules/FxAccountsCommon.js");
-ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { CommonUtils } = ChromeUtils.import(
+  "resource://services-common/utils.js"
+);
+const { CryptoUtils } = ChromeUtils.import(
+  "resource://services-crypto/utils.js"
+);
+const { Assert } = ChromeUtils.import("resource://testing-common/Assert.jsm");
+const { initTestLogging } = ChromeUtils.import(
+  "resource://testing-common/services/common/logging.js"
+);
+const {
+  FakeCryptoService,
+  FakeFilesystemService,
+  FakeGUIDService,
+  fakeSHA256HMAC,
+} = ChromeUtils.import(
+  "resource://testing-common/services/sync/fakeservices.js"
+);
+const { FxAccounts } = ChromeUtils.import(
+  "resource://gre/modules/FxAccounts.jsm"
+);
+const { FxAccountsClient } = ChromeUtils.import(
+  "resource://gre/modules/FxAccountsClient.jsm"
+);
+const { SCOPE_OLD_SYNC, LEGACY_SCOPE_WEBEXT_SYNC } = ChromeUtils.import(
+  "resource://gre/modules/FxAccountsCommon.js"
+);
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 // and grab non-exported stuff via a backstage pass.
-const {AccountState} = ChromeUtils.import("resource://gre/modules/FxAccounts.jsm", {});
+const { AccountState } = ChromeUtils.import(
+  "resource://gre/modules/FxAccounts.jsm",
+  null
+);
 
 // A mock "storage manager" for FxAccounts that doesn't actually write anywhere.
-function MockFxaStorageManager() {
-}
+function MockFxaStorageManager() {}
 
 MockFxaStorageManager.prototype = {
   promiseInitialized: Promise.resolve(),
@@ -52,8 +69,26 @@ MockFxaStorageManager.prototype = {
     return Promise.resolve();
   },
 
-  getAccountData() {
-    return Promise.resolve(this.accountData);
+  getAccountData(fields = null) {
+    let result;
+    if (!this.accountData) {
+      result = null;
+    } else if (fields == null) {
+      // can't use cloneInto as the keys get upset...
+      result = {};
+      for (let field of Object.keys(this.accountData)) {
+        result[field] = this.accountData[field];
+      }
+    } else {
+      if (!Array.isArray(fields)) {
+        fields = [fields];
+      }
+      result = {};
+      for (let field of fields) {
+        result[field] = this.accountData[field];
+      }
+    }
+    return Promise.resolve(result);
   },
 
   updateAccountData(updatedFields) {
@@ -118,9 +153,23 @@ var makeIdentityConfig = function(overrides) {
         assertion: "assertion",
         email: "foo",
         kSync: "a".repeat(128),
-        kXCS: "a".repeat(32),
-        kExtSync: "a".repeat(128),
-        kExtKbHash: "a".repeat(32),
+        kXCS: "b".repeat(32),
+        kExtSync: "c".repeat(128),
+        kExtKbHash: "d".repeat(64),
+        scopedKeys: {
+          [SCOPE_OLD_SYNC]: {
+            kid: "1234567890123-u7u7u7u7u7u7u7u7u7u7uw",
+            k:
+              "qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqg",
+            kty: "oct",
+          },
+          [LEGACY_SCOPE_WEBEXT_SYNC]: {
+            kid: "1234567890123-3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d0",
+            k:
+              "zMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzA",
+            kty: "oct",
+          },
+        },
         sessionToken: "sessionToken",
         uid: "a".repeat(32),
         verified: true,
@@ -145,6 +194,9 @@ var makeIdentityConfig = function(overrides) {
       // TODO: allow just some attributes to be specified
       result.fxaccount = overrides.fxaccount;
     }
+    if (overrides.node_type) {
+      result.fxaccount.token.node_type = overrides.node_type;
+    }
   }
   return result;
 };
@@ -165,14 +217,33 @@ var makeFxAccountsInternalMock = function(config) {
     _getAssertion(audience) {
       return Promise.resolve(config.fxaccount.user.assertion);
     },
+    getOAuthToken: () => Promise.resolve("some-access-token"),
+    keys: {
+      getScopedKeys: () =>
+        Promise.resolve({
+          "https://identity.mozilla.com/apps/oldsync": {
+            identifier: "https://identity.mozilla.com/apps/oldsync",
+            keyRotationSecret:
+              "0000000000000000000000000000000000000000000000000000000000000000",
+            keyRotationTimestamp: 1510726317123,
+          },
+        }),
+    },
+    profile: {
+      getProfile() {
+        return null;
+      },
+    },
   };
 };
 
 // Configure an instance of an FxAccount identity provider with the specified
 // config (or the default config if not specified).
-var configureFxAccountIdentity = function(authService,
-                                          config = makeIdentityConfig(),
-                                          fxaInternal = makeFxAccountsInternalMock(config)) {
+var configureFxAccountIdentity = function(
+  authService,
+  config = makeIdentityConfig(),
+  fxaInternal = makeFxAccountsInternalMock(config)
+) {
   // until we get better test infrastructure for bid_identity, we set the
   // signedin user's "email" to the username, simply as many tests rely on this.
   config.fxaccount.user.email = config.username;
@@ -189,12 +260,25 @@ var configureFxAccountIdentity = function(authService,
     },
   };
   let mockFxAClient = new MockFxAccountsClient();
-  fxa.internal._fxAccountsClient = mockFxAClient;
+  fxa._internal._fxAccountsClient = mockFxAClient;
 
-  let mockTSC = { // TokenServerClient
+  let mockTSC = {
+    // TokenServerClient
     async getTokenFromBrowserIDAssertion(uri, assertion) {
-      Assert.equal(uri, Services.prefs.getStringPref("identity.sync.tokenserver.uri"));
+      Assert.equal(
+        uri,
+        Services.prefs.getStringPref("identity.sync.tokenserver.uri")
+      );
       Assert.equal(assertion, config.fxaccount.user.assertion);
+      config.fxaccount.token.uid = config.username;
+      return config.fxaccount.token;
+    },
+    async getTokenFromOAuthToken(url, oauthToken) {
+      Assert.equal(
+        url,
+        Services.prefs.getStringPref("identity.sync.tokenserver.uri")
+      );
+      Assert.ok(oauthToken, "oauth token present");
       config.fxaccount.token.uid = config.username;
       return config.fxaccount.token;
     },
@@ -223,8 +307,7 @@ var configureIdentity = async function(identityOverrides, server) {
   }
 
   configureFxAccountIdentity(ns.Service.identity, config);
-  // because we didn't send any FxA LOGIN notifications we must set the username.
-  ns.Service.identity.username = config.username;
+  Services.prefs.setStringPref("services.sync.username", config.username);
   // many of these tests assume all the auth stuff is setup and don't hit
   // a path which causes that auth to magically happen - so do it now.
   await ns.Service.identity._ensureValidToken();
@@ -273,8 +356,9 @@ function encryptPayload(cleartext) {
 }
 
 var sumHistogram = function(name, options = {}) {
-  let histogram = options.key ? Services.telemetry.getKeyedHistogramById(name) :
-                  Services.telemetry.getHistogramById(name);
+  let histogram = options.key
+    ? Services.telemetry.getKeyedHistogramById(name)
+    : Services.telemetry.getHistogramById(name);
   let snapshot = histogram.snapshot();
   let sum = -Infinity;
   if (snapshot) {
@@ -286,9 +370,4 @@ var sumHistogram = function(name, options = {}) {
   }
   histogram.clear();
   return sum;
-};
-
-var getLoginTelemetryScalar = function() {
-  let snapshot = Services.telemetry.getSnapshotForKeyedScalars("main", true);
-  return snapshot.parent ? snapshot.parent["services.sync.sync_login_state_transitions"] : {};
 };

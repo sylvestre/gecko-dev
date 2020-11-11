@@ -8,9 +8,11 @@
 #ifndef GrTextureAdjuster_DEFINED
 #define GrTextureAdjuster_DEFINED
 
-#include "GrTextureProducer.h"
-#include "GrTextureProxy.h"
-#include "SkTLazy.h"
+#include "src/core/SkTLazy.h"
+#include "src/gpu/GrTextureProducer.h"
+#include "src/gpu/GrTextureProxy.h"
+
+class GrRecordingContext;
 
 /**
  * Base class for sources that start out as textures. Optionally allows for a content area subrect.
@@ -25,16 +27,15 @@ public:
             const SkRect& constraintRect,
             FilterConstraint,
             bool coordsLimitedToConstraintRect,
-            const GrSamplerState::Filter* filterOrNullForBicubic,
-            SkColorSpace* dstColorSpace) override;
+            const GrSamplerState::Filter* filterOrNullForBicubic) override;
 
-    // We do not ref the texture nor the colorspace, so the caller must keep them in scope while
-    // this Adjuster is alive.
-    GrTextureAdjuster(GrContext*, sk_sp<GrTextureProxy>, SkAlphaType, uint32_t uniqueID,
-                      SkColorSpace*);
+    GrTextureAdjuster(GrRecordingContext*, sk_sp<GrTextureProxy>, GrColorType, SkAlphaType,
+                      uint32_t uniqueID, SkColorSpace*, bool useDecal = false);
+
+    GrTextureAdjuster(GrRecordingContext*, sk_sp<GrTextureProxy>, const GrColorInfo&,
+                      uint32_t uniqueID, bool useDecal = false);
 
 protected:
-    SkAlphaType alphaType() const override { return fAlphaType; }
     void makeCopyKey(const CopyParams& params, GrUniqueKey* copyKey) override;
     void didCacheCopy(const GrUniqueKey& copyKey, uint32_t contextUniqueID) override;
 
@@ -43,17 +44,13 @@ protected:
 
 private:
     sk_sp<GrTextureProxy> onRefTextureProxyForParams(const GrSamplerState&,
-                                                     SkColorSpace* dstColorSpace,
-                                                     sk_sp<SkColorSpace>* proxyColorSpace,
                                                      bool willBeMipped,
                                                      SkScalar scaleAdjust[2]) override;
 
     sk_sp<GrTextureProxy> refTextureProxyCopy(const CopyParams& copyParams, bool willBeMipped);
 
     sk_sp<GrTextureProxy> fOriginal;
-    SkAlphaType           fAlphaType;
-    SkColorSpace*         fColorSpace;
-    uint32_t              fUniqueID;
+    uint32_t fUniqueID;
 
     typedef GrTextureProducer INHERITED;
 };

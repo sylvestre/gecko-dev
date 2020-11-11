@@ -5,11 +5,12 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "gfxContext.h"
+#include "mozilla/PresShell.h"
 #include "nsMathMLmoFrame.h"
 #include "nsPresContext.h"
 #include "nsContentUtils.h"
 #include "nsFrameSelection.h"
-#include "nsMathMLElement.h"
+#include "mozilla/dom/MathMLElement.h"
 #include <algorithm>
 
 using namespace mozilla;
@@ -18,16 +19,13 @@ using namespace mozilla;
 // <mo> -- operator, fence, or separator - implementation
 //
 
-// additional ComputedStyle to be used by our MathMLChar.
-#define NS_MATHML_CHAR_STYLE_CONTEXT_INDEX 0
-
-nsIFrame* NS_NewMathMLmoFrame(nsIPresShell* aPresShell, ComputedStyle* aStyle) {
-  return new (aPresShell) nsMathMLmoFrame(aStyle);
+nsIFrame* NS_NewMathMLmoFrame(PresShell* aPresShell, ComputedStyle* aStyle) {
+  return new (aPresShell) nsMathMLmoFrame(aStyle, aPresShell->GetPresContext());
 }
 
 NS_IMPL_FRAMEARENA_HELPERS(nsMathMLmoFrame)
 
-nsMathMLmoFrame::~nsMathMLmoFrame() {}
+nsMathMLmoFrame::~nsMathMLmoFrame() = default;
 
 static const char16_t kApplyFunction = char16_t(0x2061);
 static const char16_t kInvisibleTimes = char16_t(0x2062);
@@ -108,11 +106,10 @@ void nsMathMLmoFrame::ProcessTextData() {
   }
 
   // don't bother doing anything special if we don't have a single child
-  nsPresContext* presContext = PresContext();
   if (mFrames.GetLength() != 1) {
     data.Truncate();  // empty data to reset the char
     mMathMLChar.SetData(data);
-    ResolveMathMLCharStyle(presContext, mContent, mComputedStyle, &mMathMLChar);
+    mMathMLChar.SetComputedStyle(Style());
     return;
   }
 
@@ -167,7 +164,7 @@ void nsMathMLmoFrame::ProcessTextData() {
       (mEmbellishData.direction != NS_STRETCH_DIRECTION_UNSUPPORTED);
   if (isMutable) mFlags |= NS_MATHML_OPERATOR_MUTABLE;
 
-  ResolveMathMLCharStyle(presContext, mContent, mComputedStyle, &mMathMLChar);
+  mMathMLChar.SetComputedStyle(Style());
 }
 
 // get our 'form' and lookup in the Operator Dictionary to fetch
@@ -345,7 +342,7 @@ void nsMathMLmoFrame::ProcessOperatorData() {
       // tuning if we don't want too much extra space when we are a script.
       // (with its fonts, TeX sets lspace=0 & rspace=0 as soon as scriptlevel>0.
       // Our fonts can be anything, so...)
-      if (StyleFont()->mScriptLevel > 0 &&
+      if (StyleFont()->mMathDepth > 0 &&
           !NS_MATHML_OPERATOR_HAS_EMBELLISH_ANCESTOR(mFlags)) {
         mEmbellishData.leadingSpace /= 2;
         mEmbellishData.trailingSpace /= 2;
@@ -372,8 +369,8 @@ void nsMathMLmoFrame::ProcessOperatorData() {
   mContent->AsElement()->GetAttr(kNameSpaceID_None, nsGkAtoms::lspace_, value);
   if (!value.IsEmpty()) {
     nsCSSValue cssValue;
-    if (nsMathMLElement::ParseNumericValue(value, cssValue, 0,
-                                           mContent->OwnerDoc())) {
+    if (dom::MathMLElement::ParseNumericValue(value, cssValue, 0,
+                                              mContent->OwnerDoc())) {
       if ((eCSSUnit_Number == cssValue.GetUnit()) && !cssValue.GetFloatValue())
         leadingSpace = 0;
       else if (cssValue.IsLengthUnit())
@@ -399,8 +396,8 @@ void nsMathMLmoFrame::ProcessOperatorData() {
   mContent->AsElement()->GetAttr(kNameSpaceID_None, nsGkAtoms::rspace_, value);
   if (!value.IsEmpty()) {
     nsCSSValue cssValue;
-    if (nsMathMLElement::ParseNumericValue(value, cssValue, 0,
-                                           mContent->OwnerDoc())) {
+    if (dom::MathMLElement::ParseNumericValue(value, cssValue, 0,
+                                              mContent->OwnerDoc())) {
       if ((eCSSUnit_Number == cssValue.GetUnit()) && !cssValue.GetFloatValue())
         trailingSpace = 0;
       else if (cssValue.IsLengthUnit())
@@ -483,8 +480,8 @@ void nsMathMLmoFrame::ProcessOperatorData() {
   mContent->AsElement()->GetAttr(kNameSpaceID_None, nsGkAtoms::minsize_, value);
   if (!value.IsEmpty()) {
     nsCSSValue cssValue;
-    if (nsMathMLElement::ParseNumericValue(
-            value, cssValue, nsMathMLElement::PARSE_ALLOW_UNITLESS,
+    if (dom::MathMLElement::ParseNumericValue(
+            value, cssValue, dom::MathMLElement::PARSE_ALLOW_UNITLESS,
             mContent->OwnerDoc())) {
       nsCSSUnit unit = cssValue.GetUnit();
       if (eCSSUnit_Number == unit)
@@ -515,8 +512,8 @@ void nsMathMLmoFrame::ProcessOperatorData() {
   mContent->AsElement()->GetAttr(kNameSpaceID_None, nsGkAtoms::maxsize_, value);
   if (!value.IsEmpty()) {
     nsCSSValue cssValue;
-    if (nsMathMLElement::ParseNumericValue(
-            value, cssValue, nsMathMLElement::PARSE_ALLOW_UNITLESS,
+    if (dom::MathMLElement::ParseNumericValue(
+            value, cssValue, dom::MathMLElement::PARSE_ALLOW_UNITLESS,
             mContent->OwnerDoc())) {
       nsCSSUnit unit = cssValue.GetUnit();
       if (eCSSUnit_Number == unit)
@@ -545,7 +542,7 @@ static uint32_t GetStretchHint(nsOperatorFlags aFlags,
     // stretchy are true or false (see bug 69325).
     // . largeopOnly is taken if largeop=true and stretchy=false
     // . largeop is taken if largeop=true and stretchy=true
-    if (aStyleFont->mMathDisplay == NS_MATHML_DISPLAYSTYLE_BLOCK &&
+    if (aStyleFont->mMathStyle == NS_STYLE_MATH_STYLE_NORMAL &&
         NS_MATHML_OPERATOR_IS_LARGEOP(aFlags)) {
       stretchHint = NS_STRETCH_LARGEOP;  // (largeopOnly, not mask!)
       if (NS_MATHML_OPERATOR_IS_INTEGRAL(aFlags)) {
@@ -718,7 +715,8 @@ nsMathMLmoFrame::Stretch(DrawTarget* aDrawTarget,
     // let the MathMLChar stretch itself...
     nsresult res = mMathMLChar.Stretch(
         this, aDrawTarget, fontSizeInflation, aStretchDirection, container,
-        charSize, stretchHint, StyleVisibility()->mDirection);
+        charSize, stretchHint,
+        StyleVisibility()->mDirection == StyleDirection::Rtl);
     if (NS_FAILED(res)) {
       // gracefully handle cases where stretching the char failed (i.e.,
       // GetBoundingMetrics failed) clear our 'form' to behave as if the
@@ -843,7 +841,9 @@ nsMathMLmoFrame::Stretch(DrawTarget* aDrawTarget,
     aDesiredStretchSize.Width() = mBoundingMetrics.width;
     aDesiredStretchSize.mBoundingMetrics.width = mBoundingMetrics.width;
 
-    nscoord dx = (StyleVisibility()->mDirection ? trailingSpace : leadingSpace);
+    nscoord dx = StyleVisibility()->mDirection == StyleDirection::Rtl
+                     ? trailingSpace
+                     : leadingSpace;
     if (dx) {
       // adjust the offsets
       mBoundingMetrics.leftBearing += dx;
@@ -938,14 +938,14 @@ nsresult nsMathMLmoFrame::Place(DrawTarget* aDrawTarget, bool aPlaceOrigin,
      Stretch() method.
   */
 
-  if (!aPlaceOrigin &&
-      StyleFont()->mMathDisplay == NS_MATHML_DISPLAYSTYLE_BLOCK &&
+  if (!aPlaceOrigin && StyleFont()->mMathStyle == NS_STYLE_MATH_STYLE_NORMAL &&
       NS_MATHML_OPERATOR_IS_LARGEOP(mFlags) && UseMathMLChar()) {
     nsBoundingMetrics newMetrics;
     rv = mMathMLChar.Stretch(
         this, aDrawTarget, nsLayoutUtils::FontSizeInflationFor(this),
         NS_STRETCH_DIRECTION_VERTICAL, aDesiredSize.mBoundingMetrics,
-        newMetrics, NS_STRETCH_LARGEOP, StyleVisibility()->mDirection);
+        newMetrics, NS_STRETCH_LARGEOP,
+        StyleVisibility()->mDirection == StyleDirection::Rtl);
 
     if (NS_FAILED(rv)) {
       // Just use the initial size
@@ -968,7 +968,8 @@ nsresult nsMathMLmoFrame::Place(DrawTarget* aDrawTarget, bool aPlaceOrigin,
   return NS_OK;
 }
 
-/* virtual */ void nsMathMLmoFrame::MarkIntrinsicISizesDirty() {
+/* virtual */
+void nsMathMLmoFrame::MarkIntrinsicISizesDirty() {
   // if we get this, it may mean that something changed in the text
   // content. So blow away everything an re-build the automatic data
   // from the parent of our outermost embellished container (we ensure
@@ -991,8 +992,9 @@ nsresult nsMathMLmoFrame::Place(DrawTarget* aDrawTarget, bool aPlaceOrigin,
   nsMathMLContainerFrame::MarkIntrinsicISizesDirty();
 }
 
-/* virtual */ void nsMathMLmoFrame::GetIntrinsicISizeMetrics(
-    gfxContext* aRenderingContext, ReflowOutput& aDesiredSize) {
+/* virtual */
+void nsMathMLmoFrame::GetIntrinsicISizeMetrics(gfxContext* aRenderingContext,
+                                               ReflowOutput& aDesiredSize) {
   ProcessOperatorData();
   if (UseMathMLChar()) {
     uint32_t stretchHint =
@@ -1008,7 +1010,7 @@ nsresult nsMathMLmoFrame::Place(DrawTarget* aDrawTarget, bool aPlaceOrigin,
   // leadingSpace and trailingSpace are actually applied to the outermost
   // embellished container but for determining total intrinsic width it should
   // be safe to include it for the core here instead.
-  bool isRTL = StyleVisibility()->mDirection;
+  bool isRTL = StyleVisibility()->mDirection == StyleDirection::Rtl;
   aDesiredSize.Width() +=
       mEmbellishData.leadingSpace + mEmbellishData.trailingSpace;
   aDesiredSize.mBoundingMetrics.width = aDesiredSize.Width();
@@ -1045,25 +1047,7 @@ nsresult nsMathMLmoFrame::AttributeChanged(int32_t aNameSpaceID,
                                               aModType);
 }
 
-// ----------------------
-// No need to track the ComputedStyle given to our MathML char.
-// the Style System will use these to pass the proper ComputedStyle to our
-// MathMLChar
-ComputedStyle* nsMathMLmoFrame::GetAdditionalComputedStyle(
-    int32_t aIndex) const {
-  switch (aIndex) {
-    case NS_MATHML_CHAR_STYLE_CONTEXT_INDEX:
-      return mMathMLChar.GetComputedStyle();
-    default:
-      return nullptr;
-  }
-}
-
-void nsMathMLmoFrame::SetAdditionalComputedStyle(
-    int32_t aIndex, ComputedStyle* aComputedStyle) {
-  switch (aIndex) {
-    case NS_MATHML_CHAR_STYLE_CONTEXT_INDEX:
-      mMathMLChar.SetComputedStyle(aComputedStyle);
-      break;
-  }
+void nsMathMLmoFrame::DidSetComputedStyle(ComputedStyle* aOldStyle) {
+  nsMathMLTokenFrame::DidSetComputedStyle(aOldStyle);
+  mMathMLChar.SetComputedStyle(Style());
 }

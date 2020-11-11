@@ -26,24 +26,23 @@ class ClientColorLayer : public ColorLayer, public ClientLayer {
   }
 
  protected:
-  virtual ~ClientColorLayer() { MOZ_COUNT_DTOR(ClientColorLayer); }
+  MOZ_COUNTED_DTOR_OVERRIDE(ClientColorLayer)
 
  public:
-  virtual void SetVisibleRegion(const LayerIntRegion& aRegion) override {
+  void SetVisibleRegion(const LayerIntRegion& aRegion) override {
     NS_ASSERTION(ClientManager()->InConstruction(),
                  "Can only set properties in construction phase");
     ColorLayer::SetVisibleRegion(aRegion);
   }
 
-  virtual void RenderLayer() override { RenderMaskLayers(this); }
+  void RenderLayer() override { RenderMaskLayers(this); }
 
-  virtual void FillSpecificAttributes(
-      SpecificLayerAttributes& aAttrs) override {
+  void FillSpecificAttributes(SpecificLayerAttributes& aAttrs) override {
     aAttrs = ColorLayerAttributes(GetColor(), GetBounds());
   }
 
-  virtual Layer* AsLayer() override { return this; }
-  virtual ShadowableLayer* AsShadowableLayer() override { return this; }
+  Layer* AsLayer() override { return this; }
+  ShadowableLayer* AsShadowableLayer() override { return this; }
 
  protected:
   ClientLayerManager* ClientManager() {

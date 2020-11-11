@@ -8,9 +8,9 @@
 #ifndef GrGaussianConvolutionFragmentProcessor_DEFINED
 #define GrGaussianConvolutionFragmentProcessor_DEFINED
 
-#include "GrCoordTransform.h"
-#include "GrFragmentProcessor.h"
-#include "GrTextureDomain.h"
+#include "src/gpu/GrCoordTransform.h"
+#include "src/gpu/GrFragmentProcessor.h"
+#include "src/gpu/effects/GrTextureDomain.h"
 
 /**
  * A 1D Gaussian convolution effect. The kernel is computed as an array of 2 * half-width weights.
@@ -23,13 +23,14 @@ public:
 
     /// Convolve with a Gaussian kernel
     static std::unique_ptr<GrFragmentProcessor> Make(sk_sp<GrTextureProxy> proxy,
+                                                     GrColorType srcColorType,
                                                      Direction dir,
                                                      int halfWidth,
                                                      float gaussianSigma,
                                                      GrTextureDomain::Mode mode,
                                                      int* bounds) {
         return std::unique_ptr<GrFragmentProcessor>(new GrGaussianConvolutionFragmentProcessor(
-                std::move(proxy), dir, halfWidth, gaussianSigma, mode, bounds));
+                std::move(proxy), srcColorType, dir, halfWidth, gaussianSigma, mode, bounds));
     }
 
     const float* kernel() const { return fKernel; }
@@ -44,6 +45,7 @@ public:
 
     const char* name() const override { return "GaussianConvolution"; }
 
+#ifdef SK_DEBUG
     SkString dumpInfo() const override {
         SkString str;
         str.appendf("dir: %s radius: %d bounds: [%d %d]",
@@ -52,6 +54,7 @@ public:
                     fBounds[0], fBounds[1]);
         return str;
     }
+#endif
 
     std::unique_ptr<GrFragmentProcessor> clone() const override {
         return std::unique_ptr<GrFragmentProcessor>(
@@ -69,8 +72,8 @@ public:
 
 private:
     /// Convolve with a Gaussian kernel
-    GrGaussianConvolutionFragmentProcessor(sk_sp<GrTextureProxy>, Direction,
-                                           int halfWidth, float gaussianSigma,
+    GrGaussianConvolutionFragmentProcessor(sk_sp<GrTextureProxy>, GrColorType srcColorType,
+                                           Direction, int halfWidth, float gaussianSigma,
                                            GrTextureDomain::Mode mode, int bounds[2]);
 
     explicit GrGaussianConvolutionFragmentProcessor(const GrGaussianConvolutionFragmentProcessor&);

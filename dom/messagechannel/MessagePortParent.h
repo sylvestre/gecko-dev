@@ -8,20 +8,25 @@
 #define mozilla_dom_MessagePortParent_h
 
 #include "mozilla/dom/PMessagePortParent.h"
+#include "mozilla/dom/quota/CheckedUnsafePtr.h"
 
 namespace mozilla {
 namespace dom {
 
 class MessagePortService;
 
-class MessagePortParent final : public PMessagePortParent {
+class MessagePortParent final
+    : public PMessagePortParent,
+      public SupportsCheckedUnsafePtr<CheckIf<DiagnosticAssertEnabled>> {
+  friend class PMessagePortParent;
+
  public:
   explicit MessagePortParent(const nsID& aUUID);
   ~MessagePortParent();
 
   bool Entangle(const nsID& aDestinationUUID, const uint32_t& aSequenceID);
 
-  bool Entangled(const nsTArray<ClonedMessageData>& aMessages);
+  bool Entangled(nsTArray<MessageData>&& aMessages);
 
   void Close();
   void CloseAndDelete();
@@ -34,15 +39,13 @@ class MessagePortParent final : public PMessagePortParent {
                          const uint32_t& aSequenceID);
 
  private:
-  virtual mozilla::ipc::IPCResult RecvPostMessages(
-      nsTArray<ClonedMessageData>&& aMessages) override;
+  mozilla::ipc::IPCResult RecvPostMessages(nsTArray<MessageData>&& aMessages);
 
-  virtual mozilla::ipc::IPCResult RecvDisentangle(
-      nsTArray<ClonedMessageData>&& aMessages) override;
+  mozilla::ipc::IPCResult RecvDisentangle(nsTArray<MessageData>&& aMessages);
 
-  virtual mozilla::ipc::IPCResult RecvStopSendingData() override;
+  mozilla::ipc::IPCResult RecvStopSendingData();
 
-  virtual mozilla::ipc::IPCResult RecvClose() override;
+  mozilla::ipc::IPCResult RecvClose();
 
   virtual void ActorDestroy(ActorDestroyReason aWhy) override;
 

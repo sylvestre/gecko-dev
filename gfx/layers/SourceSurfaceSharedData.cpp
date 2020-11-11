@@ -19,8 +19,10 @@
  * process). Given flushing the page table is expensive, and its utility is
  * predominantly diagnostic (in case of overrun), turn it off by default.
  */
-#define SHARED_SURFACE_PROTECT_FINALIZED
+#  define SHARED_SURFACE_PROTECT_FINALIZED
 #endif
+
+using namespace mozilla::layers;
 
 namespace mozilla {
 namespace gfx {
@@ -82,19 +84,19 @@ void SourceSurfaceSharedData::GuaranteePersistance() {
   // Shared memory is not unmapped until we release SourceSurfaceSharedData.
 }
 
-void SourceSurfaceSharedData::AddSizeOfExcludingThis(
-    MallocSizeOf aMallocSizeOf, size_t& aHeapSizeOut, size_t& aNonHeapSizeOut,
-    size_t& aExtHandlesOut, uint64_t& aExtIdOut) const {
+void SourceSurfaceSharedData::SizeOfExcludingThis(MallocSizeOf aMallocSizeOf,
+                                                  SizeOfInfo& aInfo) const {
   MutexAutoLock lock(mMutex);
+  aInfo.AddType(SurfaceType::DATA_SHARED);
   if (mBuf) {
-    aNonHeapSizeOut += GetAlignedDataLength();
+    aInfo.mNonHeapBytes = GetAlignedDataLength();
   }
   if (!mClosed) {
-    ++aExtHandlesOut;
+    aInfo.mExternalHandles = 1;
   }
   Maybe<wr::ExternalImageId> extId = SharedSurfacesChild::GetExternalId(this);
   if (extId) {
-    aExtIdOut = wr::AsUint64(extId.ref());
+    aInfo.mExternalId = wr::AsUint64(extId.ref());
   }
 }
 

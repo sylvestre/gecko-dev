@@ -1,3 +1,5 @@
+// turn on Cu.isInAutomation
+Services.prefs.setBoolPref(PREF_DISABLE_SECURITY, true);
 
 // Tests that when an extension manifest that was previously valid becomes
 // unparseable after an application update, the extension becomes
@@ -12,11 +14,11 @@ add_task(async function test_upgrade_incompatible() {
 
   let file = createTempWebExtensionFile({
     manifest: {
-      applications: {gecko: {id: ID}},
+      applications: { gecko: { id: ID } },
     },
   });
 
-  let {addon} = await promiseInstallFile(file);
+  let { addon } = await promiseInstallFile(file);
 
   notEqual(addon, null);
   equal(addon.appDisabled, false);
@@ -26,17 +28,17 @@ add_task(async function test_upgrade_incompatible() {
   // Create a new, incompatible extension
   let newfile = createTempWebExtensionFile({
     manifest: {
-      applications: {gecko: {id: ID}},
+      applications: { gecko: { id: ID } },
       manifest_version: 1,
     },
   });
 
   // swap the incompatible extension in for the original
   let path = OS.Path.join(gProfD.path, "extensions", `${ID}.xpi`);
-  let sb = await OS.File.stat(path);
-  let timestamp = sb.lastModificationDate.valueOf();
+  let fileInfo = await IOUtils.stat(path);
+  let timestamp = fileInfo.lastModified;
 
-  await OS.File.move(newfile.path, path);
+  await IOUtils.move(newfile.path, path);
   await promiseSetExtensionModifiedTime(path, timestamp);
   Services.obs.notifyObservers(new FileUtils.File(path), "flush-cache-entry");
 
@@ -53,12 +55,12 @@ add_task(async function test_upgrade_incompatible() {
 
   file = createTempWebExtensionFile({
     manifest: {
-      applications: {gecko: {id: ID}},
+      applications: { gecko: { id: ID } },
     },
   });
 
   // swap the old extension back in and check that we don't persist the disabled state forever.
-  await OS.File.move(file.path, path);
+  await IOUtils.move(file.path, path);
   await promiseSetExtensionModifiedTime(path, timestamp);
   Services.obs.notifyObservers(new FileUtils.File(path), "flush-cache-entry");
 
@@ -72,4 +74,3 @@ add_task(async function test_upgrade_incompatible() {
 
   await promiseShutdownManager();
 });
-

@@ -13,9 +13,12 @@
 //   overrides dynamic preload entries
 
 function run_test() {
-  let SSService = Cc["@mozilla.org/ssservice;1"]
-                    .getService(Ci.nsISiteSecurityService);
-  let secInfo = new FakeTransportSecurityInfo();
+  let SSService = Cc["@mozilla.org/ssservice;1"].getService(
+    Ci.nsISiteSecurityService
+  );
+  let secInfo = Cc[
+    "@mozilla.org/security/transportsecurityinfo;1"
+  ].createInstance(Ci.nsITransportSecurityInfo);
   let unlikelyHost = "highlyunlikely.example.com";
   let uri = Services.io.newURI("https://" + unlikelyHost);
   let subDomainUri = Services.io.newURI("https://subdomain." + unlikelyHost);
@@ -31,8 +34,13 @@ function run_test() {
   ok(SSService.isSecureURI(Ci.nsISiteSecurityService.HEADER_HSTS, uri, 0));
 
   // check that it's honoring the fact we set includeSubdomains to false
-  ok(!SSService.isSecureURI(Ci.nsISiteSecurityService.HEADER_HSTS, subDomainUri,
-                            0));
+  ok(
+    !SSService.isSecureURI(
+      Ci.nsISiteSecurityService.HEADER_HSTS,
+      subDomainUri,
+      0
+    )
+  );
 
   // clear the non-preloaded entries
   SSService.clearAll();
@@ -54,14 +62,24 @@ function run_test() {
   ok(SSService.isSecureURI(Ci.nsISiteSecurityService.HEADER_HSTS, uri, 0));
 
   // check that it's now including subdomains
-  ok(SSService.isSecureURI(Ci.nsISiteSecurityService.HEADER_HSTS, subDomainUri,
-                           0));
+  ok(
+    SSService.isSecureURI(
+      Ci.nsISiteSecurityService.HEADER_HSTS,
+      subDomainUri,
+      0
+    )
+  );
 
   // Now let's simulate overriding the entry by setting an entry from a header
   // with max-age set to 0
-  SSService.processHeader(Ci.nsISiteSecurityService.HEADER_HSTS, uri,
-                          "max-age=0", secInfo, 0,
-                          Ci.nsISiteSecurityService.SOURCE_ORGANIC_REQUEST);
+  SSService.processHeader(
+    Ci.nsISiteSecurityService.HEADER_HSTS,
+    uri,
+    "max-age=0",
+    secInfo,
+    0,
+    Ci.nsISiteSecurityService.SOURCE_ORGANIC_REQUEST
+  );
 
   // this should no longer be an HSTS host
   ok(!SSService.isSecureURI(Ci.nsISiteSecurityService.HEADER_HSTS, uri, 0));

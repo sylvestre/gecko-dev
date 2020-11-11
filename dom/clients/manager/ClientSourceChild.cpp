@@ -11,8 +11,7 @@
 #include "mozilla/dom/ClientIPCTypes.h"
 #include "mozilla/Unused.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 using mozilla::ipc::IPCResult;
 
@@ -33,7 +32,7 @@ PClientSourceOpChild* ClientSourceChild::AllocPClientSourceOpChild(
 
 bool ClientSourceChild::DeallocPClientSourceOpChild(
     PClientSourceOpChild* aActor) {
-  delete aActor;
+  static_cast<ClientSourceOpChild*>(aActor)->ScheduleDeletion();
   return true;
 }
 
@@ -69,5 +68,4 @@ void ClientSourceChild::MaybeStartTeardown() {
   Unused << SendTeardown();
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

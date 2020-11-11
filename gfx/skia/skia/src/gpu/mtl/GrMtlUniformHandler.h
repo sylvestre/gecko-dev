@@ -8,9 +8,9 @@
 #ifndef GrMtlUniformHandler_DEFINED
 #define GrMtlUniformHandler_DEFINED
 
-#include "GrAllocator.h"
-#include "GrShaderVar.h"
-#include "glsl/GrGLSLUniformHandler.h"
+#include "src/gpu/GrAllocator.h"
+#include "src/gpu/GrShaderVar.h"
+#include "src/gpu/glsl/GrGLSLUniformHandler.h"
 
 // TODO: this class is basically copy and pasted from GrVkUniformHandler so that we can have
 // some shaders working. The SkSL Metal code generator was written to work with GLSL generated for
@@ -21,9 +21,8 @@ public:
     static const int kUniformsPerBlock = 8;
 
     enum {
-        kGeometryBinding = 0,
-        kFragBinding = 1,
-        kLastUniformBinding = kFragBinding,
+        kUniformBinding = 0,
+        kLastUniformBinding = kUniformBinding,
     };
 
     // fUBOffset is only valid if the GrSLType of the fVariable is not a sampler
@@ -47,26 +46,30 @@ private:
         : INHERITED(program)
         , fUniforms(kUniformsPerBlock)
         , fSamplers(kUniformsPerBlock)
-        , fCurrentGeometryUBOOffset(0)
-        , fCurrentFragmentUBOOffset(0) {
+        , fCurrentUBOOffset(0)
+        , fCurrentUBOMaxAlignment(0x0) {
     }
 
     UniformHandle internalAddUniformArray(uint32_t visibility,
                                           GrSLType type,
-                                          GrSLPrecision precision,
                                           const char* name,
                                           bool mangleName,
                                           int arrayCount,
                                           const char** outName) override;
 
-    SamplerHandle addSampler(GrSwizzle swizzle,
-                             GrTextureType type,
-                             GrSLPrecision precision,
-                             const char* name) override;
+    void updateUniformVisibility(UniformHandle u, uint32_t visibility) override {
+        fUniforms[u.toIndex()].fVisibility |= visibility;
+    }
+
+    SamplerHandle addSampler(const GrTextureProxy*,
+                             const GrSamplerState&,
+                             const GrSwizzle&,
+                             const char* name,
+                             const GrShaderCaps*) override;
 
     int numSamplers() const { return fSamplers.count(); }
-    const GrShaderVar& samplerVariable(SamplerHandle handle) const override {
-        return fSamplers[handle.toIndex()].fVariable;
+    const char* samplerVariable(SamplerHandle handle) const override {
+        return fSamplers[handle.toIndex()].fVariable.c_str();
     }
     GrSwizzle samplerSwizzle(SamplerHandle handle) const override {
         return fSamplerSwizzles[handle.toIndex()];
@@ -77,21 +80,16 @@ private:
 
     void appendUniformDecls(GrShaderFlags, SkString*) const override;
 
-    bool hasGeometryUniforms() const { return fCurrentGeometryUBOOffset > 0; }
-    bool hasFragmentUniforms() const { return fCurrentFragmentUBOOffset > 0; }
-
-
     const UniformInfo& getUniformInfo(UniformHandle u) const {
         return fUniforms[u.toIndex()];
     }
-
 
     UniformInfoArray    fUniforms;
     UniformInfoArray    fSamplers;
     SkTArray<GrSwizzle> fSamplerSwizzles;
 
-    uint32_t            fCurrentGeometryUBOOffset;
-    uint32_t            fCurrentFragmentUBOOffset;
+    uint32_t            fCurrentUBOOffset;
+    uint32_t            fCurrentUBOMaxAlignment;
 
     friend class GrMtlPipelineStateBuilder;
 

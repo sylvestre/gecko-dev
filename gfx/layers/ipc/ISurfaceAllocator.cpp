@@ -6,7 +6,6 @@
 
 #include "ISurfaceAllocator.h"
 
-#include "gfxPrefs.h"
 #include "mozilla/layers/ImageBridgeParent.h"  // for ImageBridgeParent
 #include "mozilla/layers/TextureHost.h"        // for TextureHost
 #include "mozilla/layers/TextureForwarder.h"
@@ -19,7 +18,8 @@ NS_IMPL_ISUPPORTS(GfxMemoryImageReporter, nsIMemoryReporter)
 
 mozilla::Atomic<ptrdiff_t> GfxMemoryImageReporter::sAmount(0);
 
-/* static */ uint32_t CompositableForwarder::GetMaxFileDescriptorsPerMessage() {
+/* static */
+uint32_t CompositableForwarder::GetMaxFileDescriptorsPerMessage() {
 #if defined(OS_POSIX)
   static const uint32_t kMaxFileDescriptors =
       FileDescriptorSet::MAX_DESCRIPTORS_PER_MESSAGE;
@@ -51,7 +51,7 @@ void HostIPCAllocator::SendPendingAsyncMessages() {
   static const uint32_t kMaxMessageNumber = 250;
 #endif
 
-  InfallibleTArray<AsyncParentMessageData> messages;
+  nsTArray<AsyncParentMessageData> messages;
   messages.SetCapacity(mPendingAsyncMessage.size());
   for (size_t i = 0; i < mPendingAsyncMessage.size(); i++) {
     messages.AppendElement(mPendingAsyncMessage[i]);

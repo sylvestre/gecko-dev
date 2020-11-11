@@ -11,10 +11,6 @@
 #error "This code is for Linux/iOS ARM only. Please check if it works for you, too.\nDepends strongly on gcc behaviour."
 #endif
 
-/* Specify explicitly a symbol for this function, don't try to guess the c++ mangled symbol.  */
-static nsresult PrepareAndDispatch(nsXPTCStubBase* self, uint32_t methodIndex, uint32_t* args) asm("_PrepareAndDispatch")
-ATTRIBUTE_USED;
-
 #ifdef __ARM_EABI__
 #define DOUBLEWORD_ALIGN(p) ((uint32_t *)((((uint32_t)(p)) + 7) & 0xfffffff8))
 #else
@@ -38,13 +34,11 @@ ATTRIBUTE_USED;
 #define THUMB_FUNC
 #endif
 
-static nsresult
+extern "C" nsresult ATTRIBUTE_USED
 PrepareAndDispatch(nsXPTCStubBase* self, uint32_t methodIndex, uint32_t* args)
 {
-#define PARAM_BUFFER_COUNT     16
 
     nsXPTCMiniVariant paramBuffer[PARAM_BUFFER_COUNT];
-    nsXPTCMiniVariant* dispatchParams = nullptr;
     const nsXPTMethodInfo* info;
     uint8_t paramCount;
     uint8_t i;
@@ -54,13 +48,6 @@ PrepareAndDispatch(nsXPTCStubBase* self, uint32_t methodIndex, uint32_t* args)
     self->mEntry->GetMethodInfo(uint16_t(methodIndex), &info);
     paramCount = info->GetParamCount();
 
-    // setup variant array pointer
-    if(paramCount > PARAM_BUFFER_COUNT)
-        dispatchParams = new nsXPTCMiniVariant[paramCount];
-    else
-        dispatchParams = paramBuffer;
-    NS_ASSERTION(dispatchParams,"no place for params");
-
     const uint8_t indexOfJSContext = info->IndexOfJSContext();
 
     uint32_t* ap = args;
@@ -68,7 +55,7 @@ PrepareAndDispatch(nsXPTCStubBase* self, uint32_t methodIndex, uint32_t* args)
     {
         const nsXPTParamInfo& param = info->GetParam(i);
         const nsXPTType& type = param.GetType();
-        nsXPTCMiniVariant* dp = &dispatchParams[i];
+        nsXPTCMiniVariant* dp = &paramBuffer[i];
 
         if (i == indexOfJSContext)
             ap++;
@@ -104,10 +91,7 @@ PrepareAndDispatch(nsXPTCStubBase* self, uint32_t methodIndex, uint32_t* args)
     }
 
     nsresult result = self->mOuter->CallMethod((uint16_t)methodIndex, info,
-                                               dispatchParams);
-
-    if(dispatchParams != paramBuffer)
-        delete [] dispatchParams;
+                                               paramBuffer);
 
     return result;
 }
@@ -160,7 +144,7 @@ __asm__ ("\n"
          GNU(".cfi_def_cfa_offset 16\n")
          GNU(".cfi_offset lr, -16\n")
          "mov	r1, ip\n"
-         "bl	_PrepareAndDispatch\n"
+         "bl	PrepareAndDispatch\n"
          "ldr	pc, [sp], #16\n"
          GNU(".cfi_endproc\n")
          GNU(".fnend"));

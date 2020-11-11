@@ -1,4 +1,4 @@
-ChromeUtils.import("resource://gre/modules/Services.jsm");
+var { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 function create_subdir(dir, subdirname) {
   let subdir = dir.clone();
@@ -8,6 +8,15 @@ function create_subdir(dir, subdirname) {
   }
   subdir.create(Ci.nsIFile.DIRECTORY_TYPE, 0o755);
   return subdir;
+}
+
+function generate_uuid() {
+  let uuidGenerator = Cc["@mozilla.org/uuid-generator;1"].getService(
+    Ci.nsIUUIDGenerator
+  );
+  let uuid = uuidGenerator.generateUUID().toString();
+  // ditch the {}
+  return uuid.substring(1, uuid.length - 1);
 }
 
 // need to hold on to this to unregister for cleanup
@@ -33,17 +42,22 @@ function make_fake_appdir() {
       }
       // Depending on timing we can get requests for other files.
       // When we threw an exception here, in the world before bug 997440, this got lost
-      // because of the arbitrary JSContext being used in XPCWrappedJSClass::CallMethod.
+      // because of the arbitrary JSContext being used in nsXPCWrappedJS::CallMethod.
       // After bug 997440 this gets reported to our window and causes the tests to fail.
       // So, we'll just dump out a message to the logs.
-      dump("WARNING: make_fake_appdir - fake nsIDirectoryServiceProvider - Unexpected getFile for: '" + prop + "'\n");
+      dump(
+        "WARNING: make_fake_appdir - fake nsIDirectoryServiceProvider - Unexpected getFile for: '" +
+          prop +
+          "'\n"
+      );
       return null;
     },
     QueryInterface: ChromeUtils.generateQI(["nsIDirectoryServiceProvider"]),
   };
   // register our new provider
-  Services.dirsvc.QueryInterface(Ci.nsIDirectoryService)
-                 .registerProvider(_provider);
+  Services.dirsvc
+    .QueryInterface(Ci.nsIDirectoryService)
+    .registerProvider(_provider);
   // and undefine the old value
   try {
     Services.dirsvc.undefine("UAppData");
@@ -52,8 +66,9 @@ function make_fake_appdir() {
 }
 
 function cleanup_fake_appdir() {
-  Services.dirsvc.QueryInterface(Ci.nsIDirectoryService)
-                 .unregisterProvider(_provider);
+  Services.dirsvc
+    .QueryInterface(Ci.nsIDirectoryService)
+    .unregisterProvider(_provider);
   // undefine our value so future calls get the real value
   try {
     Services.dirsvc.undefine("UAppData");
@@ -64,23 +79,19 @@ function cleanup_fake_appdir() {
 
 function add_fake_crashes(crD, count) {
   let results = [];
-  let uuidGenerator = Cc["@mozilla.org/uuid-generator;1"]
-                      .getService(Ci.nsIUUIDGenerator);
   let submitdir = crD.clone();
   submitdir.append("submitted");
   // create them from oldest to newest, to ensure that about:crashes
   // displays them in the correct order
   let date = Date.now() - count * 60000;
   for (let i = 0; i < count; i++) {
-    let uuid = uuidGenerator.generateUUID().toString();
-    // ditch the {}
-    uuid = "bp-" + uuid.substring(1, uuid.length - 2);
+    let uuid = "bp-" + generate_uuid();
     let fn = uuid + ".txt";
     let file = submitdir.clone();
     file.append(fn);
     file.create(Ci.nsIFile.NORMAL_FILE_TYPE, 0o666);
     file.lastModifiedTime = date;
-    results.push({"id": uuid, "date": date, "pending": false});
+    results.push({ id: uuid, date, pending: false });
 
     date += 60000;
   }
@@ -90,42 +101,67 @@ function add_fake_crashes(crD, count) {
   return results;
 }
 
+function clear_fake_crashes(crD, crashes) {
+  let submitdir = crD.clone();
+  submitdir.append("submitted");
+  for (let i of crashes) {
+    let fn = i.id + ".txt";
+    let file = submitdir.clone();
+    file.append(fn);
+    file.remove(false);
+  }
+}
+
 function writeDataToFile(file, data) {
-  var fstream = Cc["@mozilla.org/network/file-output-stream;1"]
-                .createInstance(Ci.nsIFileOutputStream);
+  var fstream = Cc["@mozilla.org/network/file-output-stream;1"].createInstance(
+    Ci.nsIFileOutputStream
+  );
   // open, write, truncate
   fstream.init(file, -1, -1, 0);
-  var os = Cc["@mozilla.org/intl/converter-output-stream;1"]
-           .createInstance(Ci.nsIConverterOutputStream);
+  var os = Cc["@mozilla.org/intl/converter-output-stream;1"].createInstance(
+    Ci.nsIConverterOutputStream
+  );
   os.init(fstream, "UTF-8");
   os.writeString(data);
   os.close();
   fstream.close();
 }
 
+function writeCrashReportFile(dir, uuid, suffix, date, data) {
+  let file = dir.clone();
+  file.append(uuid + suffix);
+  writeDataToFile(file, data);
+  file.lastModifiedTime = date;
+}
+
+function writeMinidumpFile(dir, uuid, date) {
+  // that's the start of a valid minidump, anyway
+  writeCrashReportFile(dir, uuid, ".dmp", date, "MDMP");
+}
+
+function writeExtraFile(dir, uuid, date, data) {
+  writeCrashReportFile(dir, uuid, ".extra", date, JSON.stringify(data));
+}
+
+function writeMemoryReport(dir, uuid, date) {
+  let data = "Let's pretend this is a memory report";
+  writeCrashReportFile(dir, uuid, ".memory.json.gz", date, data);
+}
+
 function addPendingCrashreport(crD, date, extra) {
   let pendingdir = crD.clone();
   pendingdir.append("pending");
-  let uuidGenerator = Cc["@mozilla.org/uuid-generator;1"]
-                      .getService(Ci.nsIUUIDGenerator);
-  let uuid = uuidGenerator.generateUUID().toString();
-  // ditch the {}
-  uuid = uuid.substring(1, uuid.length - 1);
-  let dumpfile = pendingdir.clone();
-  dumpfile.append(uuid + ".dmp");
-  writeDataToFile(dumpfile, "MDMP"); // that's the start of a valid minidump, anyway
-  let extrafile = pendingdir.clone();
-  extrafile.append(uuid + ".extra");
-  let extradata = "";
-  for (let x in extra) {
-    extradata += x + "=" + extra[x] + "\n";
-  }
-  writeDataToFile(extrafile, extradata);
-  let memoryfile = pendingdir.clone();
-  memoryfile.append(uuid + ".memory.json.gz");
-  writeDataToFile(memoryfile, "Let's pretend this is a memory report");
-  dumpfile.lastModifiedTime = date;
-  extrafile.lastModifiedTime = date;
-  memoryfile.lastModifiedTime = date;
-  return {"id": uuid, "date": date, "pending": true, "extra": extra};
+  let uuid = generate_uuid();
+  writeMinidumpFile(pendingdir, uuid, date);
+  writeExtraFile(pendingdir, uuid, date, extra);
+  writeMemoryReport(pendingdir, uuid, date);
+  return { id: uuid, date, pending: true, extra };
+}
+
+function addIncompletePendingCrashreport(crD, date) {
+  let pendingdir = crD.clone();
+  pendingdir.append("pending");
+  let uuid = generate_uuid();
+  writeMinidumpFile(pendingdir, uuid, date);
+  return { id: uuid, date, pending: true };
 }

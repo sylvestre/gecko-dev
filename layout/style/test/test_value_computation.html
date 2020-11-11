@@ -4,7 +4,7 @@
 -->
 <head>
   <title>Test for computation of values in property database</title>
-  <script type="text/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
   <script type="text/javascript" src="property_database.js"></script>
   <style type="text/css" id="stylesheet"></style>
   <style type="text/css">
@@ -13,12 +13,6 @@
   </style>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css" />
   <script type="text/javascript">
-  var numAssertions = 9;
-
-  // these are from the additional margin-inline-{start,end} tests
-  numAssertions += 2;
-
-  SimpleTest.expectAssertions(numAssertions);
   SimpleTest.waitForExplicitFinish();
   SimpleTest.requestLongerTimeout(2);
 
@@ -43,12 +37,6 @@
 <script class="testbody" type="text/javascript">
 
 /** Test for computation of values in property database **/
-
-var gBadComputed = {
-  // This is the only SVG-length property (i.e., length allowing
-  // unitless lengths) whose initial value is zero.
-  "stroke-dashoffset": [ "0", "-moz-objectValue" ],
-};
 
 var gBadComputedNoFrame = {
   // These are probably bogus tests...
@@ -77,10 +65,6 @@ var gBadComputedNoFrame = {
 };
 
 function xfail_value(property, value, is_initial, has_frame) {
-  if ((property in gBadComputed) &&
-      gBadComputed[property].includes(value))
-    return true;
-
   if (!has_frame && (property in gBadComputedNoFrame) &&
       gBadComputedNoFrame[property].includes(value))
     return true;
@@ -95,7 +79,9 @@ var gSwapInitialWhenHaveFrame = {
   // When there's a frame, these keywords works out to the same as the initial
   // value, i.e. `auto`, given the prerequisites of only 'display: block'.
   "height": [ "-moz-max-content", "-moz-min-content", "-moz-fit-content",
-              "-moz-available" ],
+              "-moz-available", "max-content", "min-content" ],
+  "block-size": [ "-moz-max-content", "-moz-min-content", "-moz-fit-content",
+                  "-moz-available", "max-content", "min-content" ],
 };
 
 function swap_when_frame(property, value) {
@@ -210,14 +196,6 @@ function test_value(property, val, is_initial)
     gElementN.parentNode.style.removeProperty(property);
     gElementF.parentNode.style.removeProperty(property);
   }
-
-  // FIXME -moz-binding value makes gElementF and its parent loses
-  // their frame. Force it to get recreated after each property.
-  // See bug 1331903.
-  gDisplayTree.style.display = "none";
-  get_computed_value(getComputedStyle(gElementF, ""), "width");
-  gDisplayTree.style.display = "";
-  get_computed_value(getComputedStyle(gElementF, ""), "width");
 }
 
 function test_property(prop) {

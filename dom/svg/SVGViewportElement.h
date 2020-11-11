@@ -4,32 +4,30 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef mozilla_dom_SVGViewportElement_h
-#define mozilla_dom_SVGViewportElement_h
+#ifndef DOM_SVG_SVGVIEWPORTELEMENT_H_
+#define DOM_SVG_SVGVIEWPORTELEMENT_H_
 
-#include "mozilla/dom/FromParser.h"
-#include "nsAutoPtr.h"
-#include "nsIContentInlines.h"
-#include "nsISVGPoint.h"
-#include "nsSVGEnum.h"
-#include "nsSVGLength2.h"
-#include "SVGGraphicsElement.h"
-#include "SVGImageContext.h"
-#include "nsSVGViewBox.h"
-#include "SVGPreserveAspectRatio.h"
-#include "SVGAnimatedPreserveAspectRatio.h"
 #include "mozilla/Attributes.h"
-
-class nsSVGOuterSVGFrame;
-class nsSVGViewportFrame;
+#include "mozilla/SVGImageContext.h"
+#include "mozilla/UniquePtr.h"
+#include "mozilla/dom/FromParser.h"
+#include "nsIContentInlines.h"
+#include "SVGAnimatedEnumeration.h"
+#include "SVGAnimatedLength.h"
+#include "SVGAnimatedPreserveAspectRatio.h"
+#include "SVGAnimatedViewBox.h"
+#include "SVGGraphicsElement.h"
+#include "SVGPoint.h"
+#include "SVGPreserveAspectRatio.h"
 
 namespace mozilla {
 class AutoPreserveAspectRatioOverride;
-class DOMSVGAnimatedPreserveAspectRatio;
+class SVGOuterSVGFrame;
+class SVGViewportFrame;
 
 namespace dom {
+class DOMSVGAnimatedPreserveAspectRatio;
 class SVGAnimatedRect;
-class SVGTransform;
 class SVGViewElement;
 class SVGViewportElement;
 
@@ -44,18 +42,21 @@ class svgFloatSize {
 };
 
 class SVGViewportElement : public SVGGraphicsElement {
-  friend class ::nsSVGOuterSVGFrame;
-  friend class ::nsSVGViewportFrame;
+  friend class mozilla::SVGOuterSVGFrame;
+  friend class mozilla::SVGViewportFrame;
 
  protected:
-  SVGViewportElement(already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo);
-  ~SVGViewportElement();
+  explicit SVGViewportElement(
+      already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo);
+  ~SVGViewportElement() = default;
 
  public:
+  bool IsNodeOfType(uint32_t aFlags) const override;
+
   // nsIContent interface
   NS_IMETHOD_(bool) IsAttributeMapped(const nsAtom* aAttribute) const override;
 
-  // nsSVGElement specializations:
+  // SVGElement specializations:
   virtual gfxMatrix PrependLocalTransformsTo(
       const gfxMatrix& aMatrix,
       SVGTransformTypes aWhich = eAllTransforms) const override;
@@ -64,7 +65,7 @@ class SVGViewportElement : public SVGGraphicsElement {
 
   // SVGViewportElement methods:
 
-  float GetLength(uint8_t mCtxType);
+  float GetLength(uint8_t aCtxType);
 
   // public helpers:
 
@@ -80,19 +81,19 @@ class SVGViewportElement : public SVGGraphicsElement {
    * Note also that this method does not pay attention to whether the width or
    * height values of the viewBox rect are positive!
    */
-  bool HasViewBoxRect() const { return GetViewBoxInternal().HasRect(); }
+  bool HasViewBox() const { return GetViewBoxInternal().HasRect(); }
 
   /**
    * Returns true if we should synthesize a viewBox for ourselves (that is, if
    * we're the root element in an image document, and we're not currently being
    * painted for an <svg:image> element).
    *
-   * Only call this method if HasViewBoxRect() returns false.
+   * Only call this method if HasViewBox() returns false.
    */
   bool ShouldSynthesizeViewBox() const;
 
   bool HasViewBoxOrSyntheticViewBox() const {
-    return HasViewBoxRect() || ShouldSynthesizeViewBox();
+    return HasViewBox() || ShouldSynthesizeViewBox();
   }
 
   bool HasChildrenOnlyTransform() const { return mHasChildrenOnlyTransform; }
@@ -124,30 +125,30 @@ class SVGViewportElement : public SVGGraphicsElement {
     mViewportHeight = aSize.height;
   }
 
-  // WebIDL
-  already_AddRefed<SVGAnimatedRect> ViewBox();
-  already_AddRefed<DOMSVGAnimatedPreserveAspectRatio> PreserveAspectRatio();
-  virtual nsSVGViewBox* GetViewBox() override;
-
- protected:
-  // implementation helpers:
-
-  bool IsRoot() const {
-    NS_ASSERTION((IsInUncomposedDoc() && !GetParent()) ==
-                     (OwnerDoc()->GetRootElement() == this),
-                 "Can't determine if we're root");
-    return IsInUncomposedDoc() && !GetParent();
-  }
-
   /**
    * Returns true if either this is an SVG <svg> element that is the child of
    * another non-foreignObject SVG element, or this is a SVG <symbol> element
-   * this is the root of a use-element shadow tree.
+   * that is the root of a use-element shadow tree.
    */
   bool IsInner() const {
     const nsIContent* parent = GetFlattenedTreeParent();
     return parent && parent->IsSVGElement() &&
            !parent->IsSVGElement(nsGkAtoms::foreignObject);
+  }
+
+  // WebIDL
+  already_AddRefed<SVGAnimatedRect> ViewBox();
+  already_AddRefed<DOMSVGAnimatedPreserveAspectRatio> PreserveAspectRatio();
+  virtual SVGAnimatedViewBox* GetAnimatedViewBox() override;
+
+ protected:
+  // implementation helpers:
+
+  bool IsRootSVGSVGElement() const {
+    NS_ASSERTION((IsInUncomposedDoc() && !GetParent()) ==
+                     (OwnerDoc()->GetRootElement() == this),
+                 "Can't determine if we're root");
+    return !GetParent() && IsInUncomposedDoc() && IsSVGElement(nsGkAtoms::svg);
   }
 
   /**
@@ -163,27 +164,24 @@ class SVGViewportElement : public SVGGraphicsElement {
    * viewBox, if appropriate, or else a viewBox matching the dimensions of the
    * SVG viewport.
    */
-  nsSVGViewBoxRect GetViewBoxWithSynthesis(float aViewportWidth,
-                                           float aViewportHeight) const;
-
-  /**
-   * Retrieve the value of currentScale and currentTranslate.
-   */
-  virtual SVGPoint GetCurrentTranslate() const { return SVGPoint(0.0f, 0.0f); }
-  virtual float GetCurrentScale() const { return 1.0f; }
+  SVGViewBox GetViewBoxWithSynthesis(float aViewportWidth,
+                                     float aViewportHeight) const;
 
   enum { ATTR_X, ATTR_Y, ATTR_WIDTH, ATTR_HEIGHT };
-  nsSVGLength2 mLengthAttributes[4];
+  SVGAnimatedLength mLengthAttributes[4];
   static LengthInfo sLengthInfo[4];
   virtual LengthAttributesInfo GetLengthInfo() override;
 
-  virtual SVGAnimatedPreserveAspectRatio* GetPreserveAspectRatio() override;
+  virtual SVGAnimatedPreserveAspectRatio* GetAnimatedPreserveAspectRatio()
+      override;
 
-  virtual const nsSVGViewBox& GetViewBoxInternal() const { return mViewBox; }
-  virtual nsSVGAnimatedTransformList* GetTransformInternal() const {
-    return mTransforms;
+  virtual const SVGAnimatedViewBox& GetViewBoxInternal() const {
+    return mViewBox;
   }
-  nsSVGViewBox mViewBox;
+  virtual SVGAnimatedTransformList* GetTransformInternal() const {
+    return mTransforms.get();
+  }
+  SVGAnimatedViewBox mViewBox;
   SVGAnimatedPreserveAspectRatio mPreserveAspectRatio;
 
   // The size of the rectangular SVG viewport into which we render. This is
@@ -203,4 +201,4 @@ class SVGViewportElement : public SVGGraphicsElement {
 
 }  // namespace mozilla
 
-#endif  // SVGViewportElement_h
+#endif  // DOM_SVG_SVGVIEWPORTELEMENT_H_

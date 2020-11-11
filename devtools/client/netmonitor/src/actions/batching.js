@@ -8,7 +8,8 @@ const {
   BATCH_ACTIONS,
   BATCH_ENABLE,
   BATCH_RESET,
-} = require("../constants");
+  BATCH_FLUSH,
+} = require("devtools/client/netmonitor/src/constants");
 
 /**
  * Process multiple actions at once as part of one dispatch, and produce only one
@@ -35,8 +36,15 @@ function batchReset() {
   };
 }
 
+function batchFlush() {
+  return {
+    type: BATCH_FLUSH,
+  };
+}
+
 module.exports = {
   batchActions,
   batchEnable,
   batchReset,
+  batchFlush,
 };

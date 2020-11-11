@@ -11,8 +11,12 @@
 #include "nsStringFwd.h"
 
 #if defined(ANDROID)
-#include "nsTArray.h"
-#include "nsRect.h"
+#  include "nsTArray.h"
+#  include "nsRect.h"
+#endif
+
+#ifdef MOZ_WIDGET_COCOA
+#  include "mozilla/a11y/Role.h"
 #endif
 
 namespace mozilla {
@@ -98,7 +102,8 @@ void ProxyFocusEvent(ProxyAccessible* aTarget,
 void ProxyCaretMoveEvent(ProxyAccessible* aTarget,
                          const LayoutDeviceIntRect& aCaretRect);
 #else
-void ProxyCaretMoveEvent(ProxyAccessible* aTarget, int32_t aOffset);
+void ProxyCaretMoveEvent(ProxyAccessible* aTarget, int32_t aOffset,
+                         bool aIsSelectionCollapsed);
 #endif
 void ProxyTextChangeEvent(ProxyAccessible* aTarget, const nsString& aStr,
                           int32_t aStart, uint32_t aLen, bool aIsInsert,
@@ -109,6 +114,7 @@ void ProxySelectionEvent(ProxyAccessible* aTarget, ProxyAccessible* aWidget,
                          uint32_t aType);
 
 #if defined(ANDROID)
+MOZ_CAN_RUN_SCRIPT
 void ProxyVirtualCursorChangeEvent(ProxyAccessible* aTarget,
                                    ProxyAccessible* aOldPosition,
                                    int32_t aOldStartOffset,
@@ -122,11 +128,26 @@ void ProxyScrollingEvent(ProxyAccessible* aTarget, uint32_t aEventType,
                          uint32_t aScrollX, uint32_t aScrollY,
                          uint32_t aMaxScrollX, uint32_t aMaxScrollY);
 
+void ProxyAnnouncementEvent(ProxyAccessible* aTarget,
+                            const nsString& aAnnouncement, uint16_t aPriority);
+
 class BatchData;
 
 void ProxyBatch(ProxyAccessible* aDocument, const uint64_t aBatchType,
                 const nsTArray<ProxyAccessible*>& aAccessibles,
                 const nsTArray<BatchData>& aData);
+
+bool LocalizeString(
+    const char* aToken, nsAString& aLocalized,
+    const nsTArray<nsString>& aFormatString = nsTArray<nsString>());
+#endif
+
+#ifdef MOZ_WIDGET_COCOA
+class TextRangeData;
+void ProxyTextSelectionChangeEvent(ProxyAccessible* aTarget,
+                                   const nsTArray<TextRangeData>& aSelection);
+
+void ProxyRoleChangedEvent(ProxyAccessible* aTarget, const a11y::role& aRole);
 #endif
 
 }  // namespace a11y

@@ -14,11 +14,17 @@
 #include "prlink.h"
 
 #include "ctypes/typedefs.h"
+#include "gc/ZoneAllocator.h"
 #include "js/AllocPolicy.h"
 #include "js/GCHashTable.h"
 #include "js/UniquePtr.h"
 #include "js/Vector.h"
+#include "vm/JSObject.h"
 #include "vm/StringType.h"
+
+namespace JS {
+struct CTypesCallbacks;
+}  // namespace JS
 
 namespace js {
 namespace ctypes {
@@ -248,15 +254,7 @@ void PrependString(JSContext* cx, StringBuilder<char16_t, N>& v,
   memmove(v.begin() + alen, v.begin(), vlen * sizeof(char16_t));
 
   // Copy data to insert.
-  JS::AutoCheckCannotGC nogc;
-  if (linear->hasLatin1Chars()) {
-    const Latin1Char* chars = linear->latin1Chars(nogc);
-    for (size_t i = 0; i < alen; i++) {
-      v[i] = chars[i];
-    }
-  } else {
-    memcpy(v.begin(), linear->twoByteChars(nogc), alen * sizeof(char16_t));
-  }
+  CopyChars(v.begin(), *linear);
 }
 
 MOZ_MUST_USE bool ReportErrorIfUnpairedSurrogatePresent(JSContext* cx,
@@ -306,11 +304,11 @@ enum TypeCode {
 // Descriptor of one field in a StructType. The name of the field is stored
 // as the key to the hash entry.
 struct FieldInfo {
-  JS::Heap<JSObject*> mType;  // CType of the field
-  size_t mIndex;              // index of the field in the struct (first is 0)
-  size_t mOffset;             // offset of the field in the struct, in bytes
+  HeapPtr<JSObject*> mType;  // CType of the field
+  size_t mIndex;             // index of the field in the struct (first is 0)
+  size_t mOffset;            // offset of the field in the struct, in bytes
 
-  void trace(JSTracer* trc) { JS::TraceEdge(trc, &mType, "fieldType"); }
+  void trace(JSTracer* trc) { TraceEdge(trc, &mType, "fieldType"); }
 };
 
 struct UnbarrieredFieldInfo {
@@ -323,44 +321,25 @@ static_assert(sizeof(UnbarrieredFieldInfo) == sizeof(FieldInfo),
               "unbarriered mType");
 
 // Hash policy for FieldInfos.
-struct FieldHashPolicy : DefaultHasher<JSFlatString*> {
-  typedef JSFlatString* Key;
-  typedef Key Lookup;
+struct FieldHashPolicy {
+  using Key = JSLinearString*;
+  using Lookup = Key;
 
-  template <typename CharT>
-  static uint32_t hash(const CharT* s, size_t n) {
-    uint32_t hash = 0;
-    for (; n > 0; s++, n--) {
-      hash = hash * 33 + *s;
-    }
-    return hash;
-  }
-
-  static uint32_t hash(const Lookup& l) {
-    JS::AutoCheckCannotGC nogc;
-    return l->hasLatin1Chars() ? hash(l->latin1Chars(nogc), l->length())
-                               : hash(l->twoByteChars(nogc), l->length());
-  }
+  static HashNumber hash(const Lookup& l) { return js::HashStringChars(l); }
 
   static bool match(const Key& k, const Lookup& l) {
-    if (k == l) {
-      return true;
-    }
-
-    if (k->length() != l->length()) {
-      return false;
-    }
-
-    return EqualChars(k, l);
+    return js::EqualStrings(k, l);
   }
 };
 
-using FieldInfoHash = GCHashMap<js::HeapPtr<JSFlatString*>, FieldInfo,
-                                FieldHashPolicy, SystemAllocPolicy>;
+using FieldInfoHash = GCHashMap<js::HeapPtr<JSLinearString*>, FieldInfo,
+                                FieldHashPolicy, ZoneAllocPolicy>;
 
 // Descriptor of ABI, return type, argument types, and variadicity for a
 // FunctionType.
 struct FunctionInfo {
+  explicit FunctionInfo(JS::Zone* zone) : mArgTypes(zone), mFFITypes(zone) {}
+
   // Initialized in NewFunctionInfo when !mIsVariadic, but only later, in
   // FunctionType::Call, when mIsVariadic. Not always consistent with
   // mFFITypes, due to lazy initialization when mIsVariadic.
@@ -368,19 +347,19 @@ struct FunctionInfo {
 
   // Calling convention of the function. Convert to ffi_abi using GetABI
   // and ObjectValue. Stored as a JSObject* for ease of tracing.
-  JS::Heap<JSObject*> mABI;
+  HeapPtr<JSObject*> mABI;
 
   // The CType of the value returned by the function.
-  JS::Heap<JSObject*> mReturnType;
+  HeapPtr<JSObject*> mReturnType;
 
   // A fixed array of known parameter types, excluding any variadic
   // parameters (if mIsVariadic).
-  Vector<JS::Heap<JSObject*>, 0, SystemAllocPolicy> mArgTypes;
+  GCVector<HeapPtr<JSObject*>, 0, ZoneAllocPolicy> mArgTypes;
 
   // A variable array of ffi_type*s corresponding to both known parameter
   // types and dynamic (variadic) parameter types. Longer than mArgTypes
   // only if mIsVariadic.
-  Vector<ffi_type*, 0, SystemAllocPolicy> mFFITypes;
+  Vector<ffi_type*, 0, ZoneAllocPolicy> mFFITypes;
 
   // Flag indicating whether the function behaves like a C function with
   // ... as the final formal parameter.
@@ -390,10 +369,10 @@ struct FunctionInfo {
 // Parameters necessary for invoking a JS function from a C closure.
 struct ClosureInfo {
   JSContext* cx;
-  JS::Heap<JSObject*> closureObj;  // CClosure object
-  JS::Heap<JSObject*> typeObj;     // FunctionType describing the C function
-  JS::Heap<JSObject*> thisObj;  // 'this' object to use for the JS function call
-  JS::Heap<JSObject*> jsfnObj;  // JS function
+  HeapPtr<JSObject*> closureObj;  // CClosure object
+  HeapPtr<JSObject*> typeObj;     // FunctionType describing the C function
+  HeapPtr<JSObject*> thisObj;  // 'this' object to use for the JS function call
+  HeapPtr<JSObject*> jsfnObj;  // JS function
   void* errResult;       // Result that will be returned if the closure throws
   ffi_closure* closure;  // The C closure itself
 
@@ -413,14 +392,14 @@ struct ClosureInfo {
 bool IsCTypesGlobal(HandleValue v);
 bool IsCTypesGlobal(JSObject* obj);
 
-const JSCTypesCallbacks* GetCallbacks(JSObject* obj);
+const JS::CTypesCallbacks* GetCallbacks(JSObject* obj);
 
 /*******************************************************************************
 ** JSClass reserved slot definitions
 *******************************************************************************/
 
 enum CTypesGlobalSlot {
-  SLOT_CALLBACKS = 0,  // pointer to JSCTypesCallbacks struct
+  SLOT_CALLBACKS = 0,  // pointer to JS::CTypesCallbacks struct
   SLOT_ERRNO = 1,      // Value for latest |errno|
   SLOT_LASTERROR =
       2,  // Value for latest |GetLastError|, used only with Windows
@@ -537,7 +516,7 @@ ffi_type* GetFFIType(JSContext* cx, JSObject* obj);
 JSString* GetName(JSContext* cx, HandleObject obj);
 JSObject* GetProtoFromCtor(JSObject* obj, CTypeProtoSlot slot);
 JSObject* GetProtoFromType(JSContext* cx, JSObject* obj, CTypeProtoSlot slot);
-const JSCTypesCallbacks* GetCallbacksFromType(JSObject* obj);
+const JS::CTypesCallbacks* GetCallbacksFromType(JSObject* obj);
 }  // namespace CType
 
 namespace PointerType {
@@ -546,7 +525,7 @@ JSObject* CreateInternal(JSContext* cx, HandleObject baseType);
 JSObject* GetBaseType(JSObject* obj);
 }  // namespace PointerType
 
-typedef UniquePtr<ffi_type> UniquePtrFFIType;
+using UniquePtrFFIType = UniquePtr<ffi_type>;
 
 namespace ArrayType {
 JSObject* CreateInternal(JSContext* cx, HandleObject baseType, size_t length,
@@ -563,7 +542,8 @@ MOZ_MUST_USE bool DefineInternal(JSContext* cx, JSObject* typeObj,
                                  JSObject* fieldsObj);
 
 const FieldInfoHash* GetFieldInfo(JSObject* obj);
-const FieldInfo* LookupField(JSContext* cx, JSObject* obj, JSFlatString* name);
+const FieldInfo* LookupField(JSContext* cx, JSObject* obj,
+                             JSLinearString* name);
 JSObject* BuildFieldsArray(JSContext* cx, JSObject* obj);
 UniquePtrFFIType BuildFFIType(JSContext* cx, JSObject* obj);
 }  // namespace StructType

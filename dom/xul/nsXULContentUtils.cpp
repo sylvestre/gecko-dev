@@ -16,17 +16,13 @@
 #include "nsCOMPtr.h"
 #include "nsIContent.h"
 #include "nsICollation.h"
-#include "nsIDocument.h"
-#include "nsIDOMXULCommandDispatcher.h"
-#include "nsIServiceManager.h"
+#include "mozilla/dom/Document.h"
 #include "nsXULContentUtils.h"
 #include "nsLayoutCID.h"
 #include "nsString.h"
 #include "nsGkAtoms.h"
-#include "XULDocument.h"
 
 using namespace mozilla;
-using dom::XULDocument;
 
 //------------------------------------------------------------------------
 

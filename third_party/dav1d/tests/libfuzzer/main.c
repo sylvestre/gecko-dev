@@ -25,7 +25,10 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
+
 #include <errno.h>
+#include <inttypes.h>
 #include <limits.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -37,13 +40,17 @@
 
 // expects ivf input
 
-int main(const int argc, char *const *const argv) {
+int main(int argc, char *argv[]) {
     int ret = -1;
     FILE *f = NULL;
-    long fsize;
+    int64_t fsize;
     const char *filename = NULL;
     uint8_t *data = NULL;
     size_t size = 0;
+
+    if (LLVMFuzzerInitialize(&argc, &argv)) {
+        return 1;
+    }
 
     if (argc != 2) {
         fprintf(stdout, "Usage:\n%s fuzzing_testcase.ivf\n", argv[0]);
@@ -56,22 +63,22 @@ int main(const int argc, char *const *const argv) {
         goto error;
     }
 
-    if (fseek(f, 0L, SEEK_END) == -1) {
+    if (fseeko(f, 0, SEEK_END) == -1) {
         fprintf(stderr, "fseek(%s, 0, SEEK_END) failed: %s\n", filename,
                 strerror(errno));
         goto error;
     }
-    if ((fsize = ftell(f)) == -1) {
+    if ((fsize = ftello(f)) == -1) {
         fprintf(stderr, "ftell(%s) failed: %s\n", filename, strerror(errno));
         goto error;
     }
     rewind(f);
 
     if (fsize < 0 || fsize > INT_MAX) {
-        fprintf(stderr, "%s is too large: %ld\n", filename, fsize);
+        fprintf(stderr, "%s is too large: %"PRId64"\n", filename, fsize);
         goto error;
     }
-    size = fsize;
+    size = (size_t)fsize;
 
     if (!(data = malloc(size))) {
         fprintf(stderr, "failed to allocate: %zu bytes\n", size);
@@ -83,7 +90,7 @@ int main(const int argc, char *const *const argv) {
                 filename, strerror(errno));
         goto error;
     }
-        
+
     ret = LLVMFuzzerTestOneInput(data, size);
 
 error:

@@ -27,11 +27,7 @@ struct ReflowInput;
  * that 2 is a valid value of nsOverflowType for use in
  * NS_FOR_FRAME_OVERFLOW_TYPES.
  */
-enum nsOverflowType {
-  eVisualOverflow,
-  eScrollableOverflow,
-  eOverflowType_LENGTH
-};
+enum nsOverflowType { eInkOverflow, eScrollableOverflow, eOverflowType_LENGTH };
 
 #define NS_FOR_FRAME_OVERFLOW_TYPES(var_)                 \
   for (nsOverflowType var_ = nsOverflowType(0); var_ < 2; \
@@ -51,8 +47,8 @@ struct nsOverflowAreas {
     return mRects[aIndex];
   }
 
-  nsRect& VisualOverflow() { return mRects[eVisualOverflow]; }
-  const nsRect& VisualOverflow() const { return mRects[eVisualOverflow]; }
+  nsRect& InkOverflow() { return mRects[eInkOverflow]; }
+  const nsRect& InkOverflow() const { return mRects[eInkOverflow]; }
 
   nsRect& ScrollableOverflow() { return mRects[eScrollableOverflow]; }
   const nsRect& ScrollableOverflow() const {
@@ -63,9 +59,9 @@ struct nsOverflowAreas {
     // default-initializes to zero due to nsRect's default constructor
   }
 
-  nsOverflowAreas(const nsRect& aVisualOverflow,
+  nsOverflowAreas(const nsRect& aInkOverflow,
                   const nsRect& aScrollableOverflow) {
-    mRects[eVisualOverflow] = aVisualOverflow;
+    mRects[eInkOverflow] = aInkOverflow;
     mRects[eScrollableOverflow] = aScrollableOverflow;
   }
 
@@ -78,9 +74,9 @@ struct nsOverflowAreas {
   }
 
   bool operator==(const nsOverflowAreas& aOther) const {
-    // Scrollable overflow is a point-set rectangle and visual overflow
+    // Scrollable overflow is a point-set rectangle and ink overflow
     // is a pixel-set rectangle.
-    return VisualOverflow().IsEqualInterior(aOther.VisualOverflow()) &&
+    return InkOverflow().IsEqualInterior(aOther.InkOverflow()) &&
            ScrollableOverflow().IsEqualEdges(aOther.ScrollableOverflow());
   }
 
@@ -132,8 +128,7 @@ struct nsCollapsingMargin {
  public:
   nsCollapsingMargin() : mMostPos(0), mMostNeg(0) {}
 
-  nsCollapsingMargin(const nsCollapsingMargin& aOther)
-      : mMostPos(aOther.mMostPos), mMostNeg(aOther.mMostNeg) {}
+  nsCollapsingMargin(const nsCollapsingMargin& aOther) = default;
 
   bool operator==(const nsCollapsingMargin& aOther) {
     return mMostPos == aOther.mMostPos && mMostNeg == aOther.mMostNeg;
@@ -143,11 +138,7 @@ struct nsCollapsingMargin {
     return !(*this == aOther);
   }
 
-  nsCollapsingMargin& operator=(const nsCollapsingMargin& aOther) {
-    mMostPos = aOther.mMostPos;
-    mMostNeg = aOther.mMostNeg;
-    return *this;
-  }
+  nsCollapsingMargin& operator=(const nsCollapsingMargin& aOther) = default;
 
   void Include(nscoord aCoord) {
     if (aCoord > mMostPos)
@@ -174,84 +165,74 @@ struct nsCollapsingMargin {
 namespace mozilla {
 
 /**
- * Reflow metrics used to return the frame's desired size and alignment
+ * ReflowOutput is initialized by a parent frame as a parameter passing to
+ * Reflow() to allow a child frame to return its desired size and alignment
  * information.
  *
- * @see #Reflow()
+ * ReflowOutput's constructor usually takes a parent frame's WritingMode (or
+ * ReflowInput) because it is more convenient for the parent frame to use the
+ * stored Size() after reflowing the child frame. However, it can actually
+ * accept any WritingMode (or ReflowInput) because SetSize() knows how to
+ * convert a size in any writing mode to the stored writing mode.
+ *
+ * @see nsIFrame::Reflow() for more information.
  */
 class ReflowOutput {
  public:
   explicit ReflowOutput(mozilla::WritingMode aWritingMode)
-      : mISize(0),
-        mBSize(0),
-        mBlockStartAscent(ASK_FOR_BASELINE),
-        mWritingMode(aWritingMode) {}
+      : mSize(aWritingMode), mWritingMode(aWritingMode) {}
 
+  // A convenient constructor to get WritingMode in ReflowInput.
   explicit ReflowOutput(const ReflowInput& aReflowInput);
 
-  // ISize and BSize are logical-coordinate dimensions:
-  // ISize is the size in the writing mode's inline direction (which equates to
-  // width in horizontal writing modes, height in vertical ones), and BSize is
-  // the size in the block-progression direction.
   nscoord ISize(mozilla::WritingMode aWritingMode) const {
-    NS_ASSERTION(!aWritingMode.IsOrthogonalTo(mWritingMode),
-                 "mismatched writing mode");
-    return mISize;
+    return mSize.ISize(aWritingMode);
   }
   nscoord BSize(mozilla::WritingMode aWritingMode) const {
-    NS_ASSERTION(!aWritingMode.IsOrthogonalTo(mWritingMode),
-                 "mismatched writing mode");
-    return mBSize;
+    return mSize.BSize(aWritingMode);
   }
   mozilla::LogicalSize Size(mozilla::WritingMode aWritingMode) const {
-    NS_ASSERTION(!aWritingMode.IsOrthogonalTo(mWritingMode),
-                 "mismatched writing mode");
-    return mozilla::LogicalSize(aWritingMode, mISize, mBSize);
+    return mSize.ConvertTo(aWritingMode, mWritingMode);
   }
 
   nscoord& ISize(mozilla::WritingMode aWritingMode) {
-    NS_ASSERTION(!aWritingMode.IsOrthogonalTo(mWritingMode),
-                 "mismatched writing mode");
-    return mISize;
+    return mSize.ISize(aWritingMode);
   }
   nscoord& BSize(mozilla::WritingMode aWritingMode) {
-    NS_ASSERTION(!aWritingMode.IsOrthogonalTo(mWritingMode),
-                 "mismatched writing mode");
-    return mBSize;
+    return mSize.BSize(aWritingMode);
   }
 
   // Set inline and block size from a LogicalSize, converting to our
   // writing mode as necessary.
   void SetSize(mozilla::WritingMode aWM, mozilla::LogicalSize aSize) {
-    mozilla::LogicalSize convertedSize = aSize.ConvertTo(mWritingMode, aWM);
-    mBSize = convertedSize.BSize(mWritingMode);
-    mISize = convertedSize.ISize(mWritingMode);
+    mSize = aSize.ConvertTo(mWritingMode, aWM);
   }
 
   // Set both inline and block size to zero -- no need for a writing mode!
-  void ClearSize() { mISize = mBSize = 0; }
+  void ClearSize() { mSize.SizeTo(mWritingMode, 0, 0); }
 
   // Width and Height are physical dimensions, independent of writing mode.
   // Accessing these is slightly more expensive than accessing the logical
-  // dimensions (once vertical writing mode support is enabled); as far as
-  // possible, client code should work purely with logical dimensions.
-  nscoord Width() const { return mWritingMode.IsVertical() ? mBSize : mISize; }
-  nscoord Height() const { return mWritingMode.IsVertical() ? mISize : mBSize; }
+  // dimensions; as far as possible, client code should work purely with logical
+  // dimensions.
+  nscoord Width() const { return mSize.Width(mWritingMode); }
+  nscoord Height() const { return mSize.Height(mWritingMode); }
+  nscoord& Width() {
+    return mWritingMode.IsVertical() ? mSize.BSize(mWritingMode)
+                                     : mSize.ISize(mWritingMode);
+  }
+  nscoord& Height() {
+    return mWritingMode.IsVertical() ? mSize.ISize(mWritingMode)
+                                     : mSize.BSize(mWritingMode);
+  }
+
+  nsSize PhysicalSize() const { return mSize.GetPhysicalSize(mWritingMode); }
 
   // It's only meaningful to consider "ascent" on the block-start side of the
   // frame, so no need to pass a writing mode argument
-  nscoord BlockStartAscent() const { return mBlockStartAscent; }
-
-  nscoord& Width() { return mWritingMode.IsVertical() ? mBSize : mISize; }
-  nscoord& Height() { return mWritingMode.IsVertical() ? mISize : mBSize; }
-
-  nsSize PhysicalSize() {
-    return Size(mWritingMode).GetPhysicalSize(mWritingMode);
-  }
-
-  void SetBlockStartAscent(nscoord aAscent) { mBlockStartAscent = aAscent; }
-
   enum { ASK_FOR_BASELINE = nscoord_MAX };
+  nscoord BlockStartAscent() const { return mBlockStartAscent; }
+  void SetBlockStartAscent(nscoord aAscent) { mBlockStartAscent = aAscent; }
 
   // Metrics that _exactly_ enclose the text to allow precise MathML placements.
   nsBoundingMetrics mBoundingMetrics;  // [OUT]
@@ -270,10 +251,8 @@ class ReflowOutput {
   // width, height}.
   nsOverflowAreas mOverflowAreas;
 
-  nsRect& VisualOverflow() { return mOverflowAreas.VisualOverflow(); }
-  const nsRect& VisualOverflow() const {
-    return mOverflowAreas.VisualOverflow();
-  }
+  nsRect& InkOverflow() { return mOverflowAreas.InkOverflow(); }
+  const nsRect& InkOverflow() const { return mOverflowAreas.InkOverflow(); }
   nsRect& ScrollableOverflow() { return mOverflowAreas.ScrollableOverflow(); }
   const nsRect& ScrollableOverflow() const {
     return mOverflowAreas.ScrollableOverflow();
@@ -288,9 +267,12 @@ class ReflowOutput {
   mozilla::WritingMode GetWritingMode() const { return mWritingMode; }
 
  private:
-  nscoord mISize, mBSize;     // [OUT] desired width and height (border-box)
-  nscoord mBlockStartAscent;  // [OUT] baseline (in Block direction), or
-                              // ASK_FOR_BASELINE
+  // Desired size of a frame's border-box.
+  LogicalSize mSize;
+
+  // Baseline (in block direction), or the default value ASK_FOR_BASELINE.
+  nscoord mBlockStartAscent = ASK_FOR_BASELINE;
+
   mozilla::WritingMode mWritingMode;
 };
 

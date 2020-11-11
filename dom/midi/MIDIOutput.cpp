@@ -53,7 +53,7 @@ void MIDIOutput::Send(const Sequence<uint8_t>& aData,
   // message ASAP.
   TimeStamp timestamp;
   if (aTimestamp.WasPassed() && aTimestamp.Value() != 0) {
-    nsCOMPtr<nsIDocument> doc = GetOwner()->GetDoc();
+    nsCOMPtr<Document> doc = GetOwner()->GetDoc();
     if (!doc) {
       aRv.Throw(NS_ERROR_DOM_INVALID_STATE_ERR);
       return;
@@ -73,7 +73,7 @@ void MIDIOutput::Send(const Sequence<uint8_t>& aData,
   // Our translation of the spec is that invalid messages in a multi-message
   // sequence will be thrown out, but that valid messages will still be used.
   if (msgArray.IsEmpty()) {
-    aRv.Throw(NS_ERROR_DOM_TYPE_ERR);
+    aRv.ThrowTypeError("Empty message array");
     return;
   }
 

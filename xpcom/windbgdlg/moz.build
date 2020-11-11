@@ -4,9 +4,4 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-SimplePrograms([
-    'windbgdlg'
-])
-
-if CONFIG['MOZ_DEBUG'] and CONFIG['CC_TYPE'] == 'clang-cl':
-    AllowCompilerWarnings()  # workaround for bug 1090497
+SimplePrograms(["windbgdlg"])

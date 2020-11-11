@@ -16,11 +16,12 @@
 #include "TableAccessible.h"
 #include "TableCellAccessible.h"
 #include "nsIPersistentProperties2.h"
-#include "nsISimpleEnumerator.h"
 #include "nsAccUtils.h"
 #ifdef MOZ_ACCESSIBILITY_ATK
-#include "AccessibleWrap.h"
+#  include "AccessibleWrap.h"
 #endif
+#include "mozilla/PresShell.h"
+#include "mozilla/a11y/DocAccessiblePlatformExtChild.h"
 
 namespace mozilla {
 namespace a11y {
@@ -101,11 +102,12 @@ mozilla::ipc::IPCResult DocAccessibleChild::RecvNativeState(const uint64_t& aID,
 }
 
 mozilla::ipc::IPCResult DocAccessibleChild::RecvName(const uint64_t& aID,
-                                                     nsString* aName) {
+                                                     nsString* aName,
+                                                     uint32_t* aFlag) {
   Accessible* acc = IdToAccessible(aID);
   if (!acc) return IPC_OK();
 
-  acc->Name(*aName);
+  *aFlag = acc->Name(*aName);
   return IPC_OK();
 }
 
@@ -175,7 +177,7 @@ static void AddRelation(Accessible* aAcc, RelationType aType,
   if (!targets.IsEmpty()) {
     RelationTargets* newRelation = aTargets->AppendElement(
         RelationTargets(static_cast<uint32_t>(aType), nsTArray<uint64_t>()));
-    newRelation->Targets().SwapElements(targets);
+    newRelation->Targets() = std::move(targets);
   }
 }
 
@@ -232,12 +234,17 @@ mozilla::ipc::IPCResult DocAccessibleChild::RecvARIARoleAtom(
   return IPC_OK();
 }
 
-mozilla::ipc::IPCResult DocAccessibleChild::RecvGetLevelInternal(
-    const uint64_t& aID, int32_t* aLevel) {
+mozilla::ipc::IPCResult DocAccessibleChild::RecvGroupPosition(
+    const uint64_t& aID, int32_t* aLevel, int32_t* aSimilarItemsInGroup,
+    int32_t* aPositionInGroup) {
   Accessible* acc = IdToAccessible(aID);
   if (acc) {
-    *aLevel = acc->GetLevelInternal();
+    GroupPos groupPos = acc->GroupPosition();
+    *aLevel = groupPos.level;
+    *aSimilarItemsInGroup = groupPos.setSize;
+    *aPositionInGroup = groupPos.posInSet;
   }
+
   return IPC_OK();
 }
 
@@ -245,8 +252,9 @@ mozilla::ipc::IPCResult DocAccessibleChild::RecvScrollTo(
     const uint64_t& aID, const uint32_t& aScrollType) {
   Accessible* acc = IdToAccessible(aID);
   if (acc) {
-    nsCoreUtils::ScrollTo(acc->Document()->PresShell(), acc->GetContent(),
-                          aScrollType);
+    RefPtr<PresShell> presShell = acc->Document()->PresShellPtr();
+    nsCOMPtr<nsIContent> content = acc->GetContent();
+    nsCoreUtils::ScrollTo(presShell, content, aScrollType);
   }
 
   return IPC_OK();
@@ -258,6 +266,17 @@ mozilla::ipc::IPCResult DocAccessibleChild::RecvScrollToPoint(
   Accessible* acc = IdToAccessible(aID);
   if (acc) {
     acc->ScrollToPoint(aScrollType, aX, aY);
+  }
+
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult DocAccessibleChild::RecvAnnounce(
+    const uint64_t& aID, const nsString& aAnnouncement,
+    const uint16_t& aPriority) {
+  Accessible* acc = IdToAccessible(aID);
+  if (acc) {
+    acc->Announce(aAnnouncement, aPriority);
   }
 
   return IPC_OK();
@@ -303,13 +322,30 @@ mozilla::ipc::IPCResult DocAccessibleChild::RecvSelectionCount(
 mozilla::ipc::IPCResult DocAccessibleChild::RecvTextSubstring(
     const uint64_t& aID, const int32_t& aStartOffset, const int32_t& aEndOffset,
     nsString* aText, bool* aValid) {
-  HyperTextAccessible* acc = IdToHyperTextAccessible(aID);
+  Accessible* acc = IdToAccessible(aID);
   if (!acc) {
     return IPC_OK();
   }
 
-  *aValid = acc->IsValidRange(aStartOffset, aEndOffset);
-  acc->TextSubstring(aStartOffset, aEndOffset, *aText);
+  TextLeafAccessible* leaf = acc->AsTextLeaf();
+  if (leaf) {
+    if (aStartOffset != 0 || aEndOffset != -1) {
+      // We don't support fetching partial text from a leaf.
+      *aValid = false;
+      return IPC_OK();
+    }
+    *aValid = true;
+    *aText = leaf->Text();
+    return IPC_OK();
+  }
+
+  HyperTextAccessible* hyper = acc->AsHyperText();
+  if (!hyper) {
+    return IPC_OK();
+  }
+
+  *aValid = hyper->IsValidRange(aStartOffset, aEndOffset);
+  hyper->TextSubstring(aStartOffset, aEndOffset, *aText);
   return IPC_OK();
 }
 
@@ -571,7 +607,7 @@ mozilla::ipc::IPCResult DocAccessibleChild::RecvDeleteText(
 
 mozilla::ipc::IPCResult DocAccessibleChild::RecvPasteText(
     const uint64_t& aID, const int32_t& aPosition, bool* aValid) {
-  HyperTextAccessible* acc = IdToHyperTextAccessible(aID);
+  RefPtr<HyperTextAccessible> acc = IdToHyperTextAccessible(aID);
   if (acc && acc->IsTextRole()) {
     *aValid = acc->IsValidOffset(aPosition);
     acc->PasteText(aPosition);
@@ -1567,28 +1603,34 @@ mozilla::ipc::IPCResult DocAccessibleChild::RecvURLDocTypeMimeType(
   return IPC_OK();
 }
 
-mozilla::ipc::IPCResult DocAccessibleChild::RecvAccessibleAtPoint(
+mozilla::ipc::IPCResult DocAccessibleChild::RecvChildAtPoint(
     const uint64_t& aID, const int32_t& aX, const int32_t& aY,
-    const bool& aNeedsScreenCoords, const uint32_t& aWhich, uint64_t* aResult,
-    bool* aOk) {
-  *aResult = 0;
-  *aOk = false;
+    const uint32_t& aWhich, PDocAccessibleChild** aResultDoc,
+    uint64_t* aResultID) {
+  *aResultDoc = nullptr;
+  *aResultID = 0;
   Accessible* acc = IdToAccessible(aID);
-  if (acc && !acc->IsDefunct() && !nsAccUtils::MustPrune(acc)) {
+  if (acc && !acc->IsDefunct()) {
     int32_t x = aX;
     int32_t y = aY;
-    if (aNeedsScreenCoords) {
-      nsIntPoint winCoords =
-          nsCoreUtils::GetScreenCoordsForWindow(acc->GetNode());
-      x += winCoords.x;
-      y += winCoords.y;
-    }
-
     Accessible* result = acc->ChildAtPoint(
         x, y, static_cast<Accessible::EWhichChildAtPoint>(aWhich));
     if (result) {
-      *aResult = reinterpret_cast<uint64_t>(result->UniqueID());
-      *aOk = true;
+      // Accessible::ChildAtPoint can return an Accessible from a descendant
+      // document.
+      DocAccessibleChild* resultDoc = result->Document()->IPCDoc();
+      // We've sent the constructor for this document to the parent process.
+      // However, because the constructor is async, the parent process might
+      // get the result of this (sync) method before it runs the constructor.
+      // If we send this document in this case, the parent process will crash.
+      // Therefore, we only do this if the parent process has explicitly told
+      // us that the document has been constructed there.
+      if (resultDoc && resultDoc->IsConstructedInParentProcess()) {
+        *aResultDoc = resultDoc;
+        *aResultID = result->IsDoc()
+                         ? 0
+                         : reinterpret_cast<uint64_t>(result->UniqueID());
+      }
     }
   }
 
@@ -1662,9 +1704,30 @@ mozilla::ipc::IPCResult DocAccessibleChild::RecvDOMNodeID(
   return IPC_OK();
 }
 
+mozilla::ipc::IPCResult DocAccessibleChild::RecvConstructedInParentProcess() {
+  SetConstructedInParentProcess();
+  return IPC_OK();
+}
+
 mozilla::ipc::IPCResult DocAccessibleChild::RecvRestoreFocus() {
   FocusMgr()->ForceFocusEvent();
   return IPC_OK();
+}
+
+bool DocAccessibleChild::DeallocPDocAccessiblePlatformExtChild(
+    PDocAccessiblePlatformExtChild* aActor) {
+  delete aActor;
+  return true;
+}
+
+PDocAccessiblePlatformExtChild*
+DocAccessibleChild::AllocPDocAccessiblePlatformExtChild() {
+  return new DocAccessiblePlatformExtChild();
+}
+
+DocAccessiblePlatformExtChild* DocAccessibleChild::GetPlatformExtension() {
+  return static_cast<DocAccessiblePlatformExtChild*>(
+      SingleManagedOrNull(ManagedPDocAccessiblePlatformExtChild()));
 }
 
 }  // namespace a11y

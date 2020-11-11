@@ -1,4 +1,3 @@
-/* vim: set ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -25,7 +24,7 @@ const TEST_URL = `data:text/html;charset=utf-8,
   </script>`;
 
 add_task(async function() {
-  const {inspector} = await openInspectorForURL(TEST_URL);
+  const { inspector } = await openInspectorForURL(TEST_URL);
 
   // <test-component> is a shadow host.
   info("Find and expand the test-component shadow DOM host.");
@@ -33,12 +32,18 @@ add_task(async function() {
   await inspector.markup.expandNode(hostFront);
   await waitForMultipleChildrenUpdates(inspector);
 
-  info("Test that expanding a shadow host shows shadow root and direct host children.");
-  const {markup} = inspector;
+  info(
+    "Test that expanding a shadow host shows shadow root and direct host children."
+  );
+  const { markup } = inspector;
   const hostContainer = markup.getContainer(hostFront);
   const childContainers = hostContainer.getChildContainers();
 
-  is(childContainers.length, 3, "Expecting 3 children: shadowroot, 2 host children");
+  is(
+    childContainers.length,
+    3,
+    "Expecting 3 children: shadowroot, 2 host children"
+  );
   assertContainerHasText(childContainers[0], "#shadow-root");
   assertContainerHasText(childContainers[1], "div");
   assertContainerHasText(childContainers[2], "div");
@@ -69,7 +74,10 @@ add_task(async function() {
   // After deleting the last host direct child we expect the slot to show the default
   // content <div>default</div>
   is(slotChildContainers.length, 1, "Expecting 1 child");
-  ok(!slotChildContainers[0].isSlotted(), "Container is a not slotted container");
+  ok(
+    !slotChildContainers[0].isSlotted(),
+    "Container is a not slotted container"
+  );
 });
 
 async function deleteNode(inspector, selector) {

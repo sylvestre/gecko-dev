@@ -4,10 +4,11 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-[NoInterfaceObject, JSImplementation="@mozilla.org/sidebar;1"]
+[NoInterfaceObject, JSImplementation="@mozilla.org/sidebar;1",
+ Exposed=Window]
 interface External
 {
-  [UseCounter]
+  [Deprecated="External_AddSearchProvider"]
   void AddSearchProvider(DOMString aDescriptionURL);
   void IsSearchProviderInstalled();
 };

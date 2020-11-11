@@ -16,18 +16,20 @@
 #include "nsDocShellLoadTypes.h"
 #include "nsIChannel.h"
 #include "nsIInterfaceRequestorUtils.h"
-#include "nsISelectionController.h"
 #include "nsTraceRefcnt.h"
 #include "nsIWebProgress.h"
 #include "prenv.h"
 #include "nsIDocShellTreeItem.h"
-#include "nsIURI.h"
+#include "mozilla/PresShell.h"
+#include "mozilla/dom/BorrowedAttrInfo.h"
 #include "mozilla/dom/Element.h"
 #include "mozilla/dom/HTMLBodyElement.h"
 #include "mozilla/dom/Selection.h"
 
 using namespace mozilla;
 using namespace mozilla::a11y;
+
+using mozilla::dom::BorrowedAttrInfo;
 
 ////////////////////////////////////////////////////////////////////////////////
 // Logging helpers
@@ -82,11 +84,11 @@ static void EnableLogging(const char* aModulesStr) {
   }
 }
 
-static void LogDocURI(nsIDocument* aDocumentNode) {
+static void LogDocURI(dom::Document* aDocumentNode) {
   printf("uri: %s", aDocumentNode->GetDocumentURI()->GetSpecOrDefault().get());
 }
 
-static void LogDocShellState(nsIDocument* aDocumentNode) {
+static void LogDocShellState(dom::Document* aDocumentNode) {
   printf("docshell busy: ");
 
   nsAutoCString docShellBusy;
@@ -107,7 +109,7 @@ static void LogDocShellState(nsIDocument* aDocumentNode) {
   }
 }
 
-static void LogDocType(nsIDocument* aDocumentNode) {
+static void LogDocType(dom::Document* aDocumentNode) {
   if (aDocumentNode->IsActive()) {
     bool isContent = nsCoreUtils::IsContentDocument(aDocumentNode);
     printf("%s document", (isContent ? "content" : "chrome"));
@@ -116,33 +118,36 @@ static void LogDocType(nsIDocument* aDocumentNode) {
   }
 }
 
-static void LogDocShellTree(nsIDocument* aDocumentNode) {
+static void LogDocShellTree(dom::Document* aDocumentNode) {
   if (aDocumentNode->IsActive()) {
     nsCOMPtr<nsIDocShellTreeItem> treeItem(aDocumentNode->GetDocShell());
     nsCOMPtr<nsIDocShellTreeItem> parentTreeItem;
-    treeItem->GetParent(getter_AddRefs(parentTreeItem));
+    treeItem->GetInProcessParent(getter_AddRefs(parentTreeItem));
     nsCOMPtr<nsIDocShellTreeItem> rootTreeItem;
-    treeItem->GetRootTreeItem(getter_AddRefs(rootTreeItem));
-    printf("docshell hierarchy, parent: %p, root: %p, is tab document: %s;",
-           static_cast<void*>(parentTreeItem), static_cast<void*>(rootTreeItem),
-           (nsCoreUtils::IsTabDocument(aDocumentNode) ? "yes" : "no"));
+    treeItem->GetInProcessRootTreeItem(getter_AddRefs(rootTreeItem));
+    printf(
+        "in-process docshell hierarchy, parent: %p, root: %p, "
+        "is top level: %s;",
+        static_cast<void*>(parentTreeItem), static_cast<void*>(rootTreeItem),
+        (nsCoreUtils::IsTopLevelContentDocInProcess(aDocumentNode) ? "yes"
+                                                                   : "no"));
   }
 }
 
-static void LogDocState(nsIDocument* aDocumentNode) {
+static void LogDocState(dom::Document* aDocumentNode) {
   const char* docState = nullptr;
-  nsIDocument::ReadyState docStateFlag = aDocumentNode->GetReadyStateEnum();
+  dom::Document::ReadyState docStateFlag = aDocumentNode->GetReadyStateEnum();
   switch (docStateFlag) {
-    case nsIDocument::READYSTATE_UNINITIALIZED:
+    case dom::Document::READYSTATE_UNINITIALIZED:
       docState = "uninitialized";
       break;
-    case nsIDocument::READYSTATE_LOADING:
+    case dom::Document::READYSTATE_LOADING:
       docState = "loading";
       break;
-    case nsIDocument::READYSTATE_INTERACTIVE:
+    case dom::Document::READYSTATE_INTERACTIVE:
       docState = "interactive";
       break;
-    case nsIDocument::READYSTATE_COMPLETE:
+    case dom::Document::READYSTATE_COMPLETE:
       docState = "complete";
       break;
   }
@@ -163,25 +168,25 @@ static void LogDocState(nsIDocument* aDocumentNode) {
   printf(", has %srole content", rootEl ? "" : "no ");
 }
 
-static void LogPresShell(nsIDocument* aDocumentNode) {
-  nsIPresShell* ps = aDocumentNode->GetShell();
-  printf("presshell: %p", static_cast<void*>(ps));
+static void LogPresShell(dom::Document* aDocumentNode) {
+  PresShell* presShell = aDocumentNode->GetPresShell();
+  printf("presshell: %p", static_cast<void*>(presShell));
 
   nsIScrollableFrame* sf = nullptr;
-  if (ps) {
-    printf(", is %s destroying", (ps->IsDestroying() ? "" : "not"));
-    sf = ps->GetRootScrollFrameAsScrollable();
+  if (presShell) {
+    printf(", is %s destroying", (presShell->IsDestroying() ? "" : "not"));
+    sf = presShell->GetRootScrollFrameAsScrollable();
   }
   printf(", root scroll frame: %p", static_cast<void*>(sf));
 }
 
-static void LogDocLoadGroup(nsIDocument* aDocumentNode) {
+static void LogDocLoadGroup(dom::Document* aDocumentNode) {
   nsCOMPtr<nsILoadGroup> loadGroup = aDocumentNode->GetDocumentLoadGroup();
   printf("load group: %p", static_cast<void*>(loadGroup));
 }
 
-static void LogDocParent(nsIDocument* aDocumentNode) {
-  nsIDocument* parentDoc = aDocumentNode->GetParentDocument();
+static void LogDocParent(dom::Document* aDocumentNode) {
+  dom::Document* parentDoc = aDocumentNode->GetInProcessParentDocument();
   printf("parent DOM document: %p", static_cast<void*>(parentDoc));
   if (parentDoc) {
     printf(", parent acc document: %p",
@@ -192,7 +197,7 @@ static void LogDocParent(nsIDocument* aDocumentNode) {
   }
 }
 
-static void LogDocInfo(nsIDocument* aDocumentNode, DocAccessible* aDocument) {
+static void LogDocInfo(dom::Document* aDocumentNode, DocAccessible* aDocument) {
   printf("    DOM document: %p, acc document: %p\n    ",
          static_cast<void*>(aDocumentNode), static_cast<void*>(aDocument));
 
@@ -311,7 +316,9 @@ static void LogRequest(nsIRequest* aRequest) {
     if (loadFlags & nsIChannel::LOAD_TARGETED) printf("targeted; ");
     if (loadFlags & nsIChannel::LOAD_CALL_CONTENT_SNIFFERS)
       printf("call content sniffers; ");
-    if (loadFlags & nsIChannel::LOAD_CLASSIFY_URI) printf("classify uri; ");
+    if (loadFlags & nsIChannel::LOAD_BYPASS_URL_CLASSIFIER) {
+      printf("bypass classify uri; ");
+    }
   } else {
     printf("    no request");
   }
@@ -349,6 +356,65 @@ static void GetDocLoadEventType(AccEvent* aEvent, nsACString& aEventType) {
   }
 }
 
+static void DescribeNode(nsINode* aNode, nsAString& aOutDescription) {
+  if (!aNode) {
+    aOutDescription.AppendLiteral("null");
+    return;
+  }
+
+  aOutDescription.AppendPrintf("0x%p, ", (void*)aNode);
+  aOutDescription.Append(aNode->NodeInfo()->QualifiedName());
+
+  if (!aNode->IsElement()) {
+    return;
+  }
+
+  dom::Element* elm = aNode->AsElement();
+
+  nsAtom* idAtom = elm->GetID();
+  if (idAtom) {
+    nsAutoCString id;
+    idAtom->ToUTF8String(id);
+    aOutDescription.AppendPrintf("@id=\"%s\" ", id.get());
+  } else {
+    aOutDescription.Append(' ');
+  }
+
+  uint32_t attrCount = elm->GetAttrCount();
+  if (!attrCount || (idAtom && attrCount == 1)) {
+    return;
+  }
+
+  aOutDescription.AppendLiteral("[ ");
+
+  for (uint32_t index = 0; index < attrCount; index++) {
+    BorrowedAttrInfo info = elm->GetAttrInfoAt(index);
+
+    // Skip redundant display of id attribute.
+    if (info.mName->Equals(nsGkAtoms::id)) {
+      continue;
+    }
+
+    // name
+    nsAutoString name;
+    info.mName->GetQualifiedName(name);
+    aOutDescription.Append(name);
+
+    aOutDescription.AppendLiteral("=\"");
+
+    // value
+    nsAutoString value;
+    info.mValue->ToString(value);
+    for (uint32_t i = value.Length(); i > 0; --i) {
+      if (value[i - 1] == char16_t('"')) value.Insert(char16_t('\\'), i - 1);
+    }
+    aOutDescription.Append(value);
+    aOutDescription.AppendLiteral("\" ");
+  }
+
+  aOutDescription.Append(']');
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // namespace logging:: document life cycle logging methods
 
@@ -370,7 +436,7 @@ void logging::DocLoad(const char* aMsg, nsIWebProgress* aWebProgress,
     return;
   }
 
-  nsCOMPtr<nsIDocument> documentNode = window->GetDoc();
+  nsCOMPtr<dom::Document> documentNode = window->GetDoc();
   if (!documentNode) {
     MsgEnd();
     return;
@@ -394,7 +460,7 @@ void logging::DocLoad(const char* aMsg, nsIWebProgress* aWebProgress,
   MsgEnd();
 }
 
-void logging::DocLoad(const char* aMsg, nsIDocument* aDocumentNode) {
+void logging::DocLoad(const char* aMsg, dom::Document* aDocumentNode) {
   MsgBegin(sDocLoadTitle, "%s", aMsg);
 
   DocAccessible* document = GetExistingDocAccessible(aDocumentNode);
@@ -444,7 +510,7 @@ void logging::DocLoadEventHandled(AccEvent* aEvent) {
   MsgEnd();
 }
 
-void logging::DocCreate(const char* aMsg, nsIDocument* aDocumentNode,
+void logging::DocCreate(const char* aMsg, dom::Document* aDocumentNode,
                         DocAccessible* aDocument) {
   DocAccessible* document =
       aDocument ? aDocument : GetExistingDocAccessible(aDocumentNode);
@@ -454,7 +520,7 @@ void logging::DocCreate(const char* aMsg, nsIDocument* aDocumentNode,
   MsgEnd();
 }
 
-void logging::DocDestroy(const char* aMsg, nsIDocument* aDocumentNode,
+void logging::DocDestroy(const char* aMsg, dom::Document* aDocumentNode,
                          DocAccessible* aDocument) {
   DocAccessible* document =
       aDocument ? aDocument : GetExistingDocAccessible(aDocumentNode);
@@ -713,7 +779,7 @@ void logging::Address(const char* aDescr, Accessible* aAcc) {
   }
 
   DocAccessible* doc = aAcc->Document();
-  nsIDocument* docNode = doc->DocumentNode();
+  dom::Document* docNode = doc->DocumentNode();
   printf("    document: %p, node: %p\n", static_cast<void*>(doc),
          static_cast<void*>(docNode));
 
@@ -723,44 +789,13 @@ void logging::Address(const char* aDescr, Accessible* aAcc) {
 }
 
 void logging::Node(const char* aDescr, nsINode* aNode) {
-  printf("    ");
-
-  if (!aNode) {
-    printf("%s: null\n", aDescr);
-    return;
-  }
-
-  if (aNode->IsDocument()) {
-    printf("%s: %p, document\n", aDescr, static_cast<void*>(aNode));
-    return;
-  }
-
-  nsINode* parentNode = aNode->GetParentNode();
+  nsINode* parentNode = aNode ? aNode->GetParentNode() : nullptr;
   int32_t idxInParent = parentNode ? parentNode->ComputeIndexOf(aNode) : -1;
 
-  if (aNode->IsText()) {
-    printf("%s: %p, text node, idx in parent: %d\n", aDescr,
-           static_cast<void*>(aNode), idxInParent);
-    return;
-  }
-
-  if (!aNode->IsElement()) {
-    printf("%s: %p, not accessible node type, idx in parent: %d\n", aDescr,
-           static_cast<void*>(aNode), idxInParent);
-    return;
-  }
-
-  dom::Element* elm = aNode->AsElement();
-
-  nsAutoCString tag;
-  elm->NodeInfo()->NameAtom()->ToUTF8String(tag);
-
-  nsAtom* idAtom = elm->GetID();
-  nsAutoCString id;
-  if (idAtom) idAtom->ToUTF8String(id);
-
-  printf("%s: %p, %s@id='%s', idx in parent: %d\n", aDescr,
-         static_cast<void*>(elm), tag.get(), id.get(), idxInParent);
+  nsAutoString nodeDesc;
+  DescribeNode(aNode, nodeDesc);
+  printf("    %s: %s, idx in parent %d\n", aDescr,
+         NS_ConvertUTF16toUTF8(nodeDesc).get(), idxInParent);
 }
 
 void logging::Document(DocAccessible* aDocument) {
@@ -799,28 +834,9 @@ void logging::AccessibleInfo(const char* aDescr, Accessible* aAccessible) {
 
   printf(", idx: %d", aAccessible->IndexInParent());
 
-  nsINode* node = aAccessible->GetNode();
-  if (!node) {
-    printf(", node: null\n");
-  } else if (node->IsDocument()) {
-    printf(", document node: %p\n", static_cast<void*>(node));
-  } else if (node->IsText()) {
-    printf(", text node: %p\n", static_cast<void*>(node));
-  } else if (node->IsElement()) {
-    dom::Element* el = node->AsElement();
-
-    nsAutoCString tag;
-    el->NodeInfo()->NameAtom()->ToUTF8String(tag);
-
-    nsAtom* idAtom = el->GetID();
-    nsAutoCString id;
-    if (idAtom) {
-      idAtom->ToUTF8String(id);
-    }
-
-    printf(", element node: %p, %s@id='%s'\n", static_cast<void*>(el),
-           tag.get(), id.get());
-  }
+  nsAutoString nodeDesc;
+  DescribeNode(aAccessible->GetNode(), nodeDesc);
+  printf(", node: %s\n", NS_ConvertUTF16toUTF8(nodeDesc).get());
 }
 
 void logging::AccessibleNNode(const char* aDescr, Accessible* aAccessible) {

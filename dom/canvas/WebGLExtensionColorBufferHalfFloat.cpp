@@ -15,34 +15,43 @@ WebGLExtensionColorBufferHalfFloat::WebGLExtensionColorBufferHalfFloat(
     WebGLContext* webgl)
     : WebGLExtensionBase(webgl) {
   MOZ_ASSERT(IsSupported(webgl), "Don't construct extension if unsupported.");
+  SetRenderable(webgl::FormatRenderableState::Implicit(
+      WebGLExtensionID::EXT_color_buffer_half_float));
+}
 
-  auto& fua = webgl->mFormatUsage;
+void WebGLExtensionColorBufferHalfFloat::SetRenderable(
+    const webgl::FormatRenderableState state) {
+  auto& fua = mContext->mFormatUsage;
 
-  auto fnUpdateUsage = [&fua](GLenum sizedFormat,
-                              webgl::EffectiveFormat effFormat) {
+  auto fnUpdateUsage = [&](GLenum sizedFormat, webgl::EffectiveFormat effFormat,
+                           const bool renderable) {
     auto usage = fua->EditUsage(effFormat);
-    usage->SetRenderable();
-    fua->AllowRBFormat(sizedFormat, usage);
+    if (renderable) {
+      usage->SetRenderable(state);
+    }
+    fua->AllowRBFormat(sizedFormat, usage, renderable);
   };
 
-#define FOO(x) fnUpdateUsage(LOCAL_GL_##x, webgl::EffectiveFormat::x)
+#define FOO(x, y) fnUpdateUsage(LOCAL_GL_##x, webgl::EffectiveFormat::x, y)
 
-  FOO(RGBA16F);
-  FOO(RGB16F);
+  FOO(RGBA16F, true);
+  FOO(RGB16F, false);  // It's not required, thus not portable. (Also there's a
+                       // wicked driver bug on Mac+Intel)
 
 #undef FOO
 }
 
-WebGLExtensionColorBufferHalfFloat::~WebGLExtensionColorBufferHalfFloat() {}
+void WebGLExtensionColorBufferHalfFloat::OnSetExplicit() {
+  SetRenderable(webgl::FormatRenderableState::Explicit());
+}
 
 bool WebGLExtensionColorBufferHalfFloat::IsSupported(
     const WebGLContext* webgl) {
+  if (webgl->IsWebGL2()) return false;
+
   const auto& gl = webgl->gl;
   return gl->IsSupported(gl::GLFeature::renderbuffer_color_half_float) &&
          gl->IsSupported(gl::GLFeature::frag_color_float);
 }
-
-IMPL_WEBGL_EXTENSION_GOOP(WebGLExtensionColorBufferHalfFloat,
-                          EXT_color_buffer_half_float)
 
 }  // namespace mozilla

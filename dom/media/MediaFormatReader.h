@@ -5,23 +5,23 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #if !defined(MediaFormatReader_h_)
-#define MediaFormatReader_h_
+#  define MediaFormatReader_h_
 
-#include "mozilla/Atomics.h"
-#include "mozilla/Maybe.h"
-#include "mozilla/Mutex.h"
-#include "mozilla/StateMirroring.h"
-#include "mozilla/StaticPrefs.h"
-#include "mozilla/TaskQueue.h"
+#  include "mozilla/Atomics.h"
+#  include "mozilla/Maybe.h"
+#  include "mozilla/Mutex.h"
+#  include "mozilla/StateMirroring.h"
+#  include "mozilla/StaticPrefs_media.h"
+#  include "mozilla/TaskQueue.h"
+#  include "mozilla/dom/MediaDebugInfoBinding.h"
 
-#include "FrameStatistics.h"
-#include "MediaEventSource.h"
-#include "MediaDataDemuxer.h"
-#include "MediaMetadataManager.h"
-#include "MediaPromiseDefs.h"
-#include "nsAutoPtr.h"
-#include "PDMFactory.h"
-#include "SeekTarget.h"
+#  include "FrameStatistics.h"
+#  include "MediaEventSource.h"
+#  include "MediaDataDemuxer.h"
+#  include "MediaMetadataManager.h"
+#  include "MediaPromiseDefs.h"
+#  include "PDMFactory.h"
+#  include "SeekTarget.h"
 
 namespace mozilla {
 
@@ -41,9 +41,9 @@ struct WaitForDataRejectValue {
 
 struct SeekRejectValue {
   MOZ_IMPLICIT SeekRejectValue(const MediaResult& aError)
-      : mType(MediaData::NULL_DATA), mError(aError) {}
+      : mType(MediaData::Type::NULL_DATA), mError(aError) {}
   MOZ_IMPLICIT SeekRejectValue(nsresult aResult)
-      : mType(MediaData::NULL_DATA), mError(aResult) {}
+      : mType(MediaData::Type::NULL_DATA), mError(aResult) {}
   SeekRejectValue(MediaData::Type aType, const MediaResult& aError)
       : mType(aType), mError(aError) {}
   MediaData::Type mType;
@@ -178,9 +178,9 @@ class MediaFormatReader final
 
   RefPtr<SetCDMPromise> SetCDMProxy(CDMProxy* aProxy);
 
-  // Returns a string describing the state of the decoder data.
+  // Returns a MediaDebugInfo structure
   // Used for debugging purposes.
-  void GetMozDebugReaderData(nsACString& aString);
+  void GetDebugInfo(dom::MediaFormatReaderDebugInfo& aInfo);
 
   // Switch the video decoder to NullDecoderModule. It might takes effective
   // since a few samples later depends on how much demuxed samples are already
@@ -230,6 +230,10 @@ class MediaFormatReader final
   MediaEventSource<void>& OnWaitingForKey() { return mOnWaitingForKey; }
 
   MediaEventSource<MediaResult>& OnDecodeWarning() { return mOnDecodeWarning; }
+
+  MediaEventSource<VideoInfo>& OnStoreDecoderBenchmark() {
+    return mOnStoreDecoderBenchmark;
+  }
 
  private:
   ~MediaFormatReader();
@@ -305,6 +309,11 @@ class MediaFormatReader final
 
   size_t SizeOfQueue(TrackType aTrack);
 
+  // Fire a new OnStoreDecoderBenchmark event that will create new
+  // storage of the decoder benchmark.
+  // This is called only on TaskQueue.
+  void NotifyDecoderBenchmarkStore();
+
   RefPtr<PDMFactory> mPlatform;
   RefPtr<PDMFactory> mEncryptedPlatform;
 
@@ -320,7 +329,7 @@ class MediaFormatReader final
   class SharedShutdownPromiseHolder : public MozPromiseHolder<ShutdownPromise> {
     NS_INLINE_DECL_THREADSAFE_REFCOUNTING(SharedShutdownPromiseHolder)
    private:
-    ~SharedShutdownPromiseHolder() {}
+    ~SharedShutdownPromiseHolder() = default;
   };
 
   struct DecoderData {
@@ -444,7 +453,7 @@ class MediaFormatReader final
         // Allow decode errors to be non-fatal, but give up
         // if we have too many, or if warnings should be treated as errors.
         return mNumOfConsecutiveError > mMaxConsecutiveError ||
-               StaticPrefs::MediaPlaybackWarningsAsErrors();
+               StaticPrefs::media_playback_warnings_as_errors();
       } else if (mError.ref() == NS_ERROR_DOM_MEDIA_NEED_NEW_DECODER) {
         // If the caller asked for a new decoder we shouldn't treat
         // it as fatal.
@@ -543,7 +552,7 @@ class MediaFormatReader final
     // Typically for audio, the number of channels and/or sampling rate can vary
     // between what was found in the metadata and what the decoder returned.
     const TrackInfo* GetWorkingInfo() const { return mWorkingInfo.get(); }
-    bool IsEncrypted() const { return GetCurrentInfo()->mCrypto.mValid; }
+    bool IsEncrypted() const { return GetCurrentInfo()->mCrypto.IsEncrypted(); }
 
     // Used by the MDSM for logging purposes.
     Atomic<size_t> mSizeOfQueue;
@@ -773,6 +782,8 @@ class MediaFormatReader final
   MediaEventProducer<void> mOnWaitingForKey;
 
   MediaEventProducer<MediaResult> mOnDecodeWarning;
+
+  MediaEventProducer<VideoInfo> mOnStoreDecoderBenchmark;
 
   RefPtr<FrameStatistics> mFrameStats;
 

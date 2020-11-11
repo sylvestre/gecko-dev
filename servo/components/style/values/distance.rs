@@ -5,7 +5,7 @@
 //! Machinery to compute distances between animatable values.
 
 use app_units::Au;
-use euclid::Size2D;
+use euclid::default::Size2D;
 use std::iter::Sum;
 use std::ops::Add;
 
@@ -17,10 +17,7 @@ use std::ops::Add;
 /// on each fields of the values.
 ///
 /// If a variant is annotated with `#[animation(error)]`, the corresponding
-/// `match` arm is not generated.
-///
-/// If the two values are not similar, an error is returned unless a fallback
-/// function has been specified through `#[distance(fallback)]`.
+/// `match` arm returns an error.
 ///
 /// Trait bounds for type parameter `Foo` can be opted out of with
 /// `#[animation(no_bound(Foo))]` on the type definition, trait bounds for
@@ -31,7 +28,7 @@ pub trait ComputeSquaredDistance {
 }
 
 /// A distance between two animatable values.
-#[derive(Clone, Copy, Debug)]
+#[derive(Add, Clone, Copy, Debug, From)]
 pub struct SquaredDistance {
     value: f64,
 }
@@ -81,6 +78,16 @@ impl ComputeSquaredDistance for Au {
     }
 }
 
+impl<T> ComputeSquaredDistance for Box<T>
+where
+    T: ComputeSquaredDistance,
+{
+    #[inline]
+    fn compute_squared_distance(&self, other: &Self) -> Result<SquaredDistance, ()> {
+        (**self).compute_squared_distance(&**other)
+    }
+}
+
 impl<T> ComputeSquaredDistance for Option<T>
 where
     T: ComputeSquaredDistance,
@@ -111,24 +118,6 @@ impl SquaredDistance {
     #[inline]
     pub fn sqrt(self) -> f64 {
         self.value.sqrt()
-    }
-}
-
-impl From<SquaredDistance> for f64 {
-    #[inline]
-    fn from(distance: SquaredDistance) -> Self {
-        distance.value
-    }
-}
-
-impl Add for SquaredDistance {
-    type Output = Self;
-
-    #[inline]
-    fn add(self, rhs: Self) -> Self {
-        SquaredDistance {
-            value: self.value + rhs.value,
-        }
     }
 }
 

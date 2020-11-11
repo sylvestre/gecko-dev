@@ -7,31 +7,31 @@
 #include "mozilla/ArrayUtils.h"
 
 #include "nsCOMPtr.h"
-#include "nsAutoPtr.h"
 #include "nsDirectoryService.h"
 #include "nsLocalFile.h"
 #include "nsDebug.h"
 #include "nsGkAtoms.h"
 #include "nsEnumeratorUtils.h"
+#include "nsThreadUtils.h"
 
 #include "mozilla/SimpleEnumerator.h"
 #include "nsICategoryManager.h"
 #include "nsISimpleEnumerator.h"
 
 #if defined(XP_WIN)
-#include <windows.h>
-#include <shlobj.h>
-#include <stdlib.h>
-#include <stdio.h>
+#  include <windows.h>
+#  include <shlobj.h>
+#  include <stdlib.h>
+#  include <stdio.h>
 #elif defined(XP_UNIX)
-#include <unistd.h>
-#include <stdlib.h>
-#include <sys/param.h>
-#include "prenv.h"
-#ifdef MOZ_WIDGET_COCOA
-#include <CoreServices/CoreServices.h>
-#include <Carbon/Carbon.h>
-#endif
+#  include <unistd.h>
+#  include <stdlib.h>
+#  include <sys/param.h>
+#  include "prenv.h"
+#  ifdef MOZ_WIDGET_COCOA
+#    include <CoreServices/CoreServices.h>
+#    include <Carbon/Carbon.h>
+#  endif
 #endif
 
 #include "SpecialSystemDirectory.h"
@@ -54,19 +54,16 @@ nsresult nsDirectoryService::GetCurrentProcessDirectory(nsIFile** aFile)
     return NS_ERROR_FAILURE;
   }
 
-  nsCOMPtr<nsIFile> file;
-  gService->Get(NS_XPCOM_INIT_CURRENT_PROCESS_DIR, NS_GET_IID(nsIFile),
-                getter_AddRefs(file));
-  if (file) {
-    file.forget(aFile);
-    return NS_OK;
+  if (!mXCurProcD) {
+    nsCOMPtr<nsIFile> file;
+    if (NS_SUCCEEDED(BinaryPath::GetFile(getter_AddRefs(file)))) {
+      nsresult rv = file->GetParent(getter_AddRefs(mXCurProcD));
+      if (NS_FAILED(rv)) {
+        return rv;
+      }
+    }
   }
-
-  if (NS_SUCCEEDED(BinaryPath::GetFile(getter_AddRefs(file)))) {
-    return file->GetParent(aFile);
-  }
-  NS_ERROR("unable to get current process directory");
-  return NS_ERROR_FAILURE;
+  return mXCurProcD->Clone(aFile);
 }  // GetCurrentProcessDirectory()
 
 StaticRefPtr<nsDirectoryService> nsDirectoryService::gService;
@@ -106,7 +103,7 @@ void nsDirectoryService::RealInit() {
   gService->mProviders.AppendElement(defaultProvider);
 }
 
-nsDirectoryService::~nsDirectoryService() {}
+nsDirectoryService::~nsDirectoryService() = default;
 
 NS_IMPL_ISUPPORTS(nsDirectoryService, nsIProperties, nsIDirectoryService,
                   nsIDirectoryServiceProvider, nsIDirectoryServiceProvider2)
@@ -122,7 +119,7 @@ nsDirectoryService::Undefine(const char* aProp) {
 }
 
 NS_IMETHODIMP
-nsDirectoryService::GetKeys(uint32_t* aCount, char*** aKeys) {
+nsDirectoryService::GetKeys(nsTArray<nsCString>& aKeys) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
@@ -180,6 +177,8 @@ nsDirectoryService::Get(const char* aProp, const nsIID& aUuid, void** aResult) {
   if (NS_WARN_IF(!aProp)) {
     return NS_ERROR_INVALID_ARG;
   }
+
+  MOZ_ASSERT(NS_IsMainThread(), "Do not call dirsvc::get on non-main threads!");
 
   nsDependentCString key(aProp);
 
@@ -308,7 +307,7 @@ nsDirectoryService::UnregisterProvider(nsIDirectoryServiceProvider* aProv) {
   return NS_OK;
 }
 
-#if defined(MOZ_CONTENT_SANDBOX) && defined(XP_WIN)
+#if defined(MOZ_SANDBOX) && defined(XP_WIN)
 static nsresult GetLowIntegrityTempBase(nsIFile** aLowIntegrityTempBase) {
   nsCOMPtr<nsIFile> localFile;
   nsresult rv =
@@ -317,7 +316,7 @@ static nsresult GetLowIntegrityTempBase(nsIFile** aLowIntegrityTempBase) {
     return rv;
   }
 
-  rv = localFile->Append(NS_LITERAL_STRING(MOZ_USER_DIR));
+  rv = localFile->Append(NS_LITERAL_STRING_FROM_CSTRING(MOZ_USER_DIR));
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -357,9 +356,6 @@ nsDirectoryService::GetFile(const char* aProp, bool* aPersistent,
     rv = GetCurrentProcessDirectory(getter_AddRefs(localFile));
   } else if (inAtom == nsGkAtoms::DirectoryService_OS_TemporaryDirectory) {
     rv = GetSpecialSystemDirectory(OS_TemporaryDirectory,
-                                   getter_AddRefs(localFile));
-  } else if (inAtom == nsGkAtoms::DirectoryService_OS_CurrentProcessDirectory) {
-    rv = GetSpecialSystemDirectory(OS_CurrentProcessDirectory,
                                    getter_AddRefs(localFile));
   } else if (inAtom == nsGkAtoms::DirectoryService_OS_CurrentWorkingDirectory) {
     rv = GetSpecialSystemDirectory(OS_CurrentWorkingDirectory,
@@ -418,13 +414,13 @@ nsDirectoryService::GetFile(const char* aProp, bool* aPersistent,
     rv = GetSpecialSystemDirectory(Win_Appdata, getter_AddRefs(localFile));
   } else if (inAtom == nsGkAtoms::DirectoryService_LocalAppdata) {
     rv = GetSpecialSystemDirectory(Win_LocalAppdata, getter_AddRefs(localFile));
-#if defined(MOZ_CONTENT_SANDBOX)
+#  if defined(MOZ_SANDBOX)
   } else if (inAtom == nsGkAtoms::DirectoryService_LocalAppdataLow) {
     rv = GetSpecialSystemDirectory(Win_LocalAppdataLow,
                                    getter_AddRefs(localFile));
   } else if (inAtom == nsGkAtoms::DirectoryService_LowIntegrityTempBase) {
     rv = GetLowIntegrityTempBase(getter_AddRefs(localFile));
-#endif
+#  endif
   } else if (inAtom == nsGkAtoms::DirectoryService_WinCookiesDirectory) {
     rv = GetSpecialSystemDirectory(Win_Cookies, getter_AddRefs(localFile));
   } else if (inAtom == nsGkAtoms::DirectoryService_DefaultDownloadDirectory) {

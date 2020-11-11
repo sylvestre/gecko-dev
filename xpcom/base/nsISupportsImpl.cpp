@@ -5,9 +5,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "nsISupportsImpl.h"
+
 #include "mozilla/Assertions.h"
 #ifdef MOZ_THREAD_SAFETY_OWNERSHIP_CHECKS_SUPPORTED
-#include "nsThreadUtils.h"
+#  include "nsThreadUtils.h"
 #endif  // MOZ_THREAD_SAFETY_OWNERSHIP_CHECKS_SUPPORTED
 
 using namespace mozilla;
@@ -32,16 +33,38 @@ nsresult NS_FASTCALL NS_TableDrivenQI(void* aThis, REFNSIID aIID,
 }
 
 #ifdef MOZ_THREAD_SAFETY_OWNERSHIP_CHECKS_SUPPORTED
-nsAutoOwningThread::nsAutoOwningThread() : mThread(GetCurrentVirtualThread()) {}
+nsAutoOwningThread::nsAutoOwningThread() : mThread(PR_GetCurrentThread()) {}
 
 void nsAutoOwningThread::AssertCurrentThreadOwnsMe(const char* msg) const {
   if (MOZ_UNLIKELY(!IsCurrentThread())) {
     // `msg` is a string literal by construction.
-    MOZ_CRASH_UNSAFE_OOL(msg);
+    MOZ_CRASH_UNSAFE(msg);
   }
 }
 
 bool nsAutoOwningThread::IsCurrentThread() const {
-  return mThread == GetCurrentVirtualThread();
+  return mThread == PR_GetCurrentThread();
 }
+
+nsAutoOwningEventTarget::nsAutoOwningEventTarget()
+    : mTarget(GetCurrentSerialEventTarget()) {
+  mTarget->AddRef();
+}
+
+nsAutoOwningEventTarget::~nsAutoOwningEventTarget() {
+  nsCOMPtr<nsISerialEventTarget> target = dont_AddRef(mTarget);
+}
+
+void nsAutoOwningEventTarget ::AssertCurrentThreadOwnsMe(
+    const char* msg) const {
+  if (MOZ_UNLIKELY(!IsCurrentThread())) {
+    // `msg` is a string literal by construction.
+    MOZ_CRASH_UNSAFE(msg);
+  }
+}
+
+bool nsAutoOwningEventTarget::IsCurrentThread() const {
+  return mTarget->IsOnCurrentThread();
+}
+
 #endif

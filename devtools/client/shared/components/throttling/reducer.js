@@ -6,7 +6,7 @@
 
 const {
   CHANGE_NETWORK_THROTTLING,
-} = require("./actions");
+} = require("devtools/client/shared/components/throttling/actions");
 
 const INITIAL_STATE = {
   enabled: false,

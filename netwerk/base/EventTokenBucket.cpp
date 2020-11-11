@@ -13,12 +13,12 @@
 #include "nsServiceManagerUtils.h"
 #include "nsSocketTransportService2.h"
 #ifdef DEBUG
-#include "MainThreadUtils.h"
+#  include "MainThreadUtils.h"
 #endif
 
 #ifdef XP_WIN
-#include <windows.h>
-#include <mmsystem.h>
+#  include <windows.h>
+#  include <mmsystem.h>
 #endif
 
 namespace mozilla {
@@ -33,19 +33,19 @@ class TokenBucketCancelable : public nsICancelable {
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSICANCELABLE
 
-  explicit TokenBucketCancelable(class ATokenBucketEvent *event);
+  explicit TokenBucketCancelable(class ATokenBucketEvent* event);
   void Fire();
 
  private:
   virtual ~TokenBucketCancelable() = default;
 
   friend class EventTokenBucket;
-  ATokenBucketEvent *mEvent;
+  ATokenBucketEvent* mEvent;
 };
 
 NS_IMPL_ISUPPORTS(TokenBucketCancelable, nsICancelable)
 
-TokenBucketCancelable::TokenBucketCancelable(ATokenBucketEvent *event)
+TokenBucketCancelable::TokenBucketCancelable(ATokenBucketEvent* event)
     : mEvent(event) {}
 
 NS_IMETHODIMP
@@ -58,7 +58,7 @@ TokenBucketCancelable::Cancel(nsresult reason) {
 void TokenBucketCancelable::Fire() {
   if (!mEvent) return;
 
-  ATokenBucketEvent *event = mEvent;
+  ATokenBucketEvent* event = mEvent;
   mEvent = nullptr;
   event->OnTokenBucketAdmitted();
 }
@@ -104,8 +104,7 @@ EventTokenBucket::~EventTokenBucket() {
 
   // Complete any queued events to prevent hangs
   while (mEvents.GetSize()) {
-    RefPtr<TokenBucketCancelable> cancelable =
-        dont_AddRef(static_cast<TokenBucketCancelable *>(mEvents.PopFront()));
+    RefPtr<TokenBucketCancelable> cancelable = mEvents.PopFront();
     cancelable->Fire();
   }
 }
@@ -197,14 +196,13 @@ void EventTokenBucket::Stop() {
 
   // Complete any queued events to prevent hangs
   while (mEvents.GetSize()) {
-    RefPtr<TokenBucketCancelable> cancelable =
-        dont_AddRef(static_cast<TokenBucketCancelable *>(mEvents.PopFront()));
+    RefPtr<TokenBucketCancelable> cancelable = mEvents.PopFront();
     cancelable->Fire();
   }
 }
 
-nsresult EventTokenBucket::SubmitEvent(ATokenBucketEvent *event,
-                                       nsICancelable **cancelable) {
+nsresult EventTokenBucket::SubmitEvent(ATokenBucketEvent* event,
+                                       nsICancelable** cancelable) {
   MOZ_ASSERT(OnSocketThread(), "not on socket thread");
   SOCKET_LOG(("EventTokenBucket::SubmitEvent %p\n", this));
 
@@ -216,12 +214,12 @@ nsresult EventTokenBucket::SubmitEvent(ATokenBucketEvent *event,
   // When this function exits the cancelEvent needs 2 references, one for the
   // mEvents queue and one for the caller of SubmitEvent()
 
-  NS_ADDREF(*cancelable = cancelEvent.get());
+  *cancelable = do_AddRef(cancelEvent).take();
 
   if (mPaused || !TryImmediateDispatch(cancelEvent.get())) {
     // queue it
     SOCKET_LOG(("   queued\n"));
-    mEvents.Push(cancelEvent.forget().take());
+    mEvents.Push(cancelEvent.forget());
     UpdateTimer();
   } else {
     SOCKET_LOG(("   dispatched synchronously\n"));
@@ -230,7 +228,7 @@ nsresult EventTokenBucket::SubmitEvent(ATokenBucketEvent *event,
   return NS_OK;
 }
 
-bool EventTokenBucket::TryImmediateDispatch(TokenBucketCancelable *cancelable) {
+bool EventTokenBucket::TryImmediateDispatch(TokenBucketCancelable* cancelable) {
   if (mCredit < mUnitCost) return false;
 
   mCredit -= mUnitCost;
@@ -244,8 +242,7 @@ void EventTokenBucket::DispatchEvents() {
   if (mPaused || mStopped) return;
 
   while (mEvents.GetSize() && mUnitCost <= mCredit) {
-    RefPtr<TokenBucketCancelable> cancelable =
-        dont_AddRef(static_cast<TokenBucketCancelable *>(mEvents.PopFront()));
+    RefPtr<TokenBucketCancelable> cancelable = mEvents.PopFront();
     if (cancelable->mEvent) {
       SOCKET_LOG(
           ("EventTokenBucket::DispachEvents [%p] "
@@ -293,7 +290,7 @@ void EventTokenBucket::UpdateTimer() {
 }
 
 NS_IMETHODIMP
-EventTokenBucket::Notify(nsITimer *timer) {
+EventTokenBucket::Notify(nsITimer* timer) {
   MOZ_ASSERT(OnSocketThread(), "not on socket thread");
 
 #ifdef XP_WIN
@@ -315,7 +312,7 @@ EventTokenBucket::Notify(nsITimer *timer) {
 }
 
 NS_IMETHODIMP
-EventTokenBucket::GetName(nsACString &aName) {
+EventTokenBucket::GetName(nsACString& aName) {
   aName.AssignLiteral("EventTokenBucket");
   return NS_OK;
 }

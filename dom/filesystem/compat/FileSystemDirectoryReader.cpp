@@ -7,15 +7,17 @@
 #include "FileSystemDirectoryReader.h"
 #include "CallbackRunnables.h"
 #include "FileSystemFileEntry.h"
+#include "js/Array.h"  // JS::NewArrayObject
 #include "mozilla/dom/FileBinding.h"
+#include "mozilla/dom/FileSystem.h"
+#include "mozilla/dom/FileSystemDirectoryReaderBinding.h"
 #include "mozilla/dom/FileSystemUtils.h"
 #include "mozilla/dom/Directory.h"
 #include "mozilla/dom/DirectoryBinding.h"
 #include "mozilla/dom/Promise.h"
 #include "mozilla/dom/PromiseNativeHandler.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 namespace {
 
@@ -36,6 +38,7 @@ class PromiseHandler final : public PromiseNativeHandler {
     MOZ_ASSERT(aSuccessCallback);
   }
 
+  MOZ_CAN_RUN_SCRIPT
   virtual void ResolvedCallback(JSContext* aCx,
                                 JS::Handle<JS::Value> aValue) override {
     if (NS_WARN_IF(!aValue.isObject())) {
@@ -45,7 +48,7 @@ class PromiseHandler final : public PromiseNativeHandler {
     JS::Rooted<JSObject*> obj(aCx, &aValue.toObject());
 
     uint32_t length;
-    if (NS_WARN_IF(!JS_GetArrayLength(aCx, obj, &length))) {
+    if (NS_WARN_IF(!JS::GetArrayLength(aCx, obj, &length))) {
       return;
     }
 
@@ -86,7 +89,7 @@ class PromiseHandler final : public PromiseNativeHandler {
       sequence[i] = entry;
     }
 
-    mSuccessCallback->HandleEvent(sequence);
+    mSuccessCallback->Call(sequence);
   }
 
   virtual void RejectedCallback(JSContext* aCx,
@@ -102,11 +105,11 @@ class PromiseHandler final : public PromiseNativeHandler {
   }
 
  private:
-  ~PromiseHandler() {}
+  ~PromiseHandler() = default;
 
   RefPtr<FileSystemDirectoryEntry> mParentEntry;
   RefPtr<FileSystem> mFileSystem;
-  RefPtr<FileSystemEntriesCallback> mSuccessCallback;
+  const RefPtr<FileSystemEntriesCallback> mSuccessCallback;
   RefPtr<ErrorCallback> mErrorCallback;
 };
 
@@ -136,7 +139,7 @@ FileSystemDirectoryReader::FileSystemDirectoryReader(
   MOZ_ASSERT(aFileSystem);
 }
 
-FileSystemDirectoryReader::~FileSystemDirectoryReader() {}
+FileSystemDirectoryReader::~FileSystemDirectoryReader() = default;
 
 JSObject* FileSystemDirectoryReader::WrapObject(
     JSContext* aCx, JS::Handle<JSObject*> aGivenProto) {
@@ -174,5 +177,4 @@ void FileSystemDirectoryReader::ReadEntries(
   promise->AppendNativeHandler(handler);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

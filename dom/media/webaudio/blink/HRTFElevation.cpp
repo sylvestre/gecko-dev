@@ -34,7 +34,6 @@
 
 #include "IRC_Composite_C_R0195-incl.cpp"
 
-using namespace std;
 using namespace mozilla;
 
 namespace WebCore {
@@ -76,7 +75,7 @@ size_t HRTFElevation::fftSizeForSampleRate(float sampleRate) {
   unsigned resampledLength =
       floorf(ResponseFrameSize * sampleRate / rawSampleRate);
   // Keep things semi-sane, with max FFT size of 1024.
-  unsigned size = min(resampledLength, 1023U);
+  unsigned size = std::min(resampledLength, 1023U);
   // Ensure a minimum of 2 * WEBAUDIO_BLOCK_SIZE (with the size++ below) for
   // FFTConvolver and set the 8 least significant bits for rounding up to
   // the next power of 2 below.
@@ -115,11 +114,11 @@ nsReturnRef<HRTFKernel> HRTFElevation::calculateKernelForAzimuthElevation(
   // only works well if the floats are in the range +/-32767.  On such
   // platforms it's better to resample before converting to float anyway.
 #ifdef MOZ_SAMPLE_TYPE_S16
-#define RESAMPLER_PROCESS speex_resampler_process_int
+#  define RESAMPLER_PROCESS speex_resampler_process_int
   const int16_t* response = impulse_response_data;
   const int16_t* resampledResponse;
 #else
-#define RESAMPLER_PROCESS speex_resampler_process_float
+#  define RESAMPLER_PROCESS speex_resampler_process_float
   float response[ResponseFrameSize];
   ConvertAudioSamples(impulse_response_data, response, ResponseFrameSize);
   float* resampledResponse;
@@ -242,7 +241,7 @@ nsReturnRef<HRTFElevation> HRTFElevation::createBuiltin(int elevation,
   for (unsigned rawIndex = 0; rawIndex < NumberOfRawAzimuths; ++rawIndex) {
     // Don't let elevation exceed maximum for this azimuth.
     int maxElevation = maxElevations[rawIndex];
-    int actualElevation = min(elevation, maxElevation);
+    int actualElevation = std::min(elevation, maxElevation);
 
     kernelListL[interpolatedIndex] = calculateKernelForAzimuthElevation(
         rawIndex * AzimuthSpacing, actualElevation, resampler, sampleRate);
@@ -267,7 +266,7 @@ nsReturnRef<HRTFElevation> HRTFElevation::createBuiltin(int elevation,
   }
 
   return nsReturnRef<HRTFElevation>(
-      new HRTFElevation(&kernelListL, elevation, sampleRate));
+      new HRTFElevation(std::move(kernelListL), elevation, sampleRate));
 }
 
 nsReturnRef<HRTFElevation> HRTFElevation::createByInterpolatingSlices(
@@ -294,8 +293,8 @@ nsReturnRef<HRTFElevation> HRTFElevation::createByInterpolatingSlices(
   double angle = (1.0 - x) * hrtfElevation1->elevationAngle() +
                  x * hrtfElevation2->elevationAngle();
 
-  return nsReturnRef<HRTFElevation>(
-      new HRTFElevation(&kernelListL, static_cast<int>(angle), sampleRate));
+  return nsReturnRef<HRTFElevation>(new HRTFElevation(
+      std::move(kernelListL), static_cast<int>(angle), sampleRate));
 }
 
 void HRTFElevation::getKernelsFromAzimuth(

@@ -1,7 +1,7 @@
 use proc_macro2::TokenStream;
 
 use options::ForwardAttrs;
-use util::IdentList;
+use util::PathList;
 
 /// Infrastructure for generating an attribute extractor.
 pub trait ExtractAttribute {
@@ -14,7 +14,7 @@ pub trait ExtractAttribute {
     fn immutable_declarations(&self) -> TokenStream;
 
     /// Gets the list of attribute names that should be parsed by the extractor.
-    fn attr_names(&self) -> &IdentList;
+    fn attr_names(&self) -> &PathList;
 
     fn forwarded_attrs(&self) -> Option<&ForwardAttrs>;
 
@@ -37,7 +37,8 @@ pub trait ExtractAttribute {
         let declarations = self.declarations();
 
         let will_parse_any = !self.attr_names().is_empty();
-        let will_fwd_any = self.forwarded_attrs()
+        let will_fwd_any = self
+            .forwarded_attrs()
             .map(|fa| !fa.is_empty())
             .unwrap_or_default();
 
@@ -56,7 +57,7 @@ pub trait ExtractAttribute {
             let core_loop = self.core_loop();
             quote!(
                 #(#attr_names)|* => {
-                    if let Some(::syn::Meta::List(ref __data)) = __attr.interpret_meta() {
+                    if let ::darling::export::Ok(::syn::Meta::List(ref __data)) = __attr.parse_meta() {
                         let __items = &__data.nested;
 
                         #core_loop

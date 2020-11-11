@@ -7,7 +7,7 @@
 #include "mozilla/layers/APZChild.h"
 #include "mozilla/layers/GeckoContentController.h"
 
-#include "mozilla/dom/TabChild.h"
+#include "mozilla/dom/BrowserChild.h"
 #include "mozilla/layers/APZCCallbackHelper.h"
 
 #include "InputData.h"  // for InputData
@@ -27,6 +27,12 @@ APZChild::~APZChild() {
   }
 }
 
+mozilla::ipc::IPCResult APZChild::RecvLayerTransforms(
+    nsTArray<MatrixMessage>&& aTransforms) {
+  mController->NotifyLayerTransforms(std::move(aTransforms));
+  return IPC_OK();
+}
+
 mozilla::ipc::IPCResult APZChild::RecvRequestContentRepaint(
     const RepaintRequest& aRequest) {
   MOZ_ASSERT(mController->IsRepaintThread());
@@ -36,14 +42,16 @@ mozilla::ipc::IPCResult APZChild::RecvRequestContentRepaint(
 }
 
 mozilla::ipc::IPCResult APZChild::RecvUpdateOverscrollVelocity(
-    const float& aX, const float& aY, const bool& aIsRootContent) {
-  mController->UpdateOverscrollVelocity(aX, aY, aIsRootContent);
+    const ScrollableLayerGuid& aGuid, const float& aX, const float& aY,
+    const bool& aIsRootContent) {
+  mController->UpdateOverscrollVelocity(aGuid, aX, aY, aIsRootContent);
   return IPC_OK();
 }
 
 mozilla::ipc::IPCResult APZChild::RecvUpdateOverscrollOffset(
-    const float& aX, const float& aY, const bool& aIsRootContent) {
-  mController->UpdateOverscrollOffset(aX, aY, aIsRootContent);
+    const ScrollableLayerGuid& aGuid, const float& aX, const float& aY,
+    const bool& aIsRootContent) {
+  mController->UpdateOverscrollOffset(aGuid, aX, aY, aIsRootContent);
   return IPC_OK();
 }
 

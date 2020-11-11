@@ -4,16 +4,29 @@
 
 /* import-globals-from allDownloadsView.js */
 
-ChromeUtils.import("resource://gre/modules/PrivateBrowsingUtils.jsm");
+const { PrivateBrowsingUtils } = ChromeUtils.import(
+  "resource://gre/modules/PrivateBrowsingUtils.jsm"
+);
 
 var ContentAreaDownloadsView = {
   init() {
-    let view = new DownloadsPlacesView(document.getElementById("downloadsRichListBox"));
+    let box = document.getElementById("downloadsRichListBox");
+    box.addEventListener(
+      "InitialDownloadsLoaded",
+      () => {
+        // Set focus to Downloads list once it is created
+        document.getElementById("downloadsRichListBox").focus();
+      },
+      { once: true }
+    );
+    let view = new DownloadsPlacesView(box);
     // Do not display the Places downloads in private windows
     if (!PrivateBrowsingUtils.isContentWindowPrivate(window)) {
       view.place = "place:transition=7&sort=4";
     }
-    // Set focus to Downloads list once it is created
-    document.getElementById("downloadsRichListBox").focus();
   },
+};
+
+window.onload = function() {
+  ContentAreaDownloadsView.init();
 };

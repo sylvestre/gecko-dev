@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2007 Henri Sivonen
- * Copyright (c) 2007-2015 Mozilla Foundation
+ * Copyright (c) 2007-2017 Mozilla Foundation
  * Portions of comments Copyright 2004-2008 Apple Computer, Inc., Mozilla
  * Foundation, and Opera Software ASA.
  *
@@ -34,7 +34,6 @@
 #include "nsContentUtils.h"
 #include "nsAtom.h"
 #include "nsHtml5AtomTable.h"
-#include "nsITimer.h"
 #include "nsHtml5String.h"
 #include "nsNameSpaceManager.h"
 #include "nsIContent.h"
@@ -53,6 +52,7 @@
 #include "nsHtml5Highlighter.h"
 #include "nsHtml5PlainTextUtils.h"
 #include "nsHtml5ViewSourceUtils.h"
+#include "mozilla/ImportScanner.h"
 #include "mozilla/Likely.h"
 #include "nsIContentHandle.h"
 #include "nsHtml5OplessBuilder.h"
@@ -309,7 +309,6 @@ class nsHtml5TreeBuilder : public nsAHtml5TreeBuilderState {
   int32_t listPtr;
   nsIContentHandle* formPointer;
   nsIContentHandle* headPointer;
-  nsIContentHandle* deepTreeSurrogateParent;
 
  protected:
   autoJArray<char16_t, int32_t> charBuffer;
@@ -381,8 +380,7 @@ class nsHtml5TreeBuilder : public nsAHtml5TreeBuilderState {
   bool isSecondOnStackBody();
   void documentModeInternal(nsHtml5DocumentMode m,
                             nsHtml5String publicIdentifier,
-                            nsHtml5String systemIdentifier,
-                            bool html4SpecificAdditionalErrorChecks);
+                            nsHtml5String systemIdentifier);
   bool isAlmostStandards(nsHtml5String publicIdentifier,
                          nsHtml5String systemIdentifier);
   bool isQuirky(nsAtom* name, nsHtml5String publicIdentifier,
@@ -456,6 +454,7 @@ class nsHtml5TreeBuilder : public nsAHtml5TreeBuilderState {
   bool isInStack(nsHtml5StackNode* node);
   void popTemplateMode();
   void pop();
+  void popForeign(int32_t origPos, int32_t eltPos);
   void silentPop();
   void popOnEof();
   void appendHtmlElementToDocumentAndPush(nsHtml5HtmlAttributes* attributes);
@@ -568,11 +567,11 @@ class nsHtml5TreeBuilder : public nsAHtml5TreeBuilderState {
  private:
   int32_t findInArray(nsHtml5StackNode* node,
                       jArray<nsHtml5StackNode*, int32_t> arr);
+  nsIContentHandle* nodeFromStackWithBlinkCompat(int32_t stackPos);
 
  public:
   nsIContentHandle* getFormPointer() override;
   nsIContentHandle* getHeadPointer() override;
-  nsIContentHandle* getDeepTreeSurrogateParent() override;
   jArray<nsHtml5StackNode*, int32_t> getListOfActiveFormattingElements()
       override;
   jArray<nsHtml5StackNode*, int32_t> getStack() override;

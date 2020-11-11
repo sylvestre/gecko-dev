@@ -2,7 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-Services.scriptloader.loadSubScript("chrome://mochikit/content/tests/SimpleTest/MockObjects.js", this);
+Services.scriptloader.loadSubScript(
+  "chrome://mochikit/content/tests/SimpleTest/MockObjects.js",
+  this
+);
 
 var mockTransferCallback;
 
@@ -17,33 +20,47 @@ function MockTransfer() {
 
 MockTransfer.prototype = {
   QueryInterface: ChromeUtils.generateQI([
-    Ci.nsIWebProgressListener,
-    Ci.nsIWebProgressListener2,
-    Ci.nsITransfer,
+    "nsIWebProgressListener",
+    "nsIWebProgressListener2",
+    "nsITransfer",
   ]),
 
   /* nsIWebProgressListener */
-  onStateChange: function MTFC_onStateChange(aWebProgress, aRequest,
-                                             aStateFlags, aStatus) {
+  onStateChange: function MTFC_onStateChange(
+    aWebProgress,
+    aRequest,
+    aStateFlags,
+    aStatus
+  ) {
     // If at least one notification reported an error, the download failed.
-    if (!Components.isSuccessCode(aStatus))
+    if (!Components.isSuccessCode(aStatus)) {
       this._downloadIsSuccessful = false;
+    }
 
     // If the download is finished
-    if ((aStateFlags & Ci.nsIWebProgressListener.STATE_STOP) &&
-        (aStateFlags & Ci.nsIWebProgressListener.STATE_IS_NETWORK))
+    if (
+      aStateFlags & Ci.nsIWebProgressListener.STATE_STOP &&
+      aStateFlags & Ci.nsIWebProgressListener.STATE_IS_NETWORK
+    ) {
       // Continue the test, reporting the success or failure condition.
       mockTransferCallback(this._downloadIsSuccessful);
+    }
   },
   onProgressChange() {},
   onLocationChange() {},
-  onStatusChange: function MTFC_onStatusChange(aWebProgress, aRequest, aStatus,
-                                               aMessage) {
+  onStatusChange: function MTFC_onStatusChange(
+    aWebProgress,
+    aRequest,
+    aStatus,
+    aMessage
+  ) {
     // If at least one notification reported an error, the download failed.
-    if (!Components.isSuccessCode(aStatus))
+    if (!Components.isSuccessCode(aStatus)) {
       this._downloadIsSuccessful = false;
+    }
   },
   onSecurityChange() {},
+  onContentBlockingEvent() {},
 
   /* nsIWebProgressListener2 */
   onProgressChange64() {},
@@ -51,6 +68,7 @@ MockTransfer.prototype = {
 
   /* nsITransfer */
   init() {},
+  initWithBrowsingContext() {},
   setSha256Hash() {},
   setSignatureInfo() {},
 };
@@ -61,5 +79,7 @@ MockTransfer.prototype = {
 // factory, call the "register" method. Starting from that moment, all the
 // transfer objects that are requested will be mock objects, until the
 // "unregister" method is called.
-var mockTransferRegisterer =
-  new MockObjectRegisterer("@mozilla.org/transfer;1", MockTransfer);
+var mockTransferRegisterer = new MockObjectRegisterer(
+  "@mozilla.org/transfer;1",
+  MockTransfer
+);

@@ -26,7 +26,12 @@
 #include <algorithm>
 #include <thread>
 
+#include "util/Memory.h"
 #include "util/Text.h"
+#include "vm/HelperThreadState.h"
+#include "vm/Time.h"
+#include "vm/TraceLogging.h"
+#include "vm/TraceLoggingTypes.h"
 #include "wasm/WasmBaselineCompile.h"
 #include "wasm/WasmCompile.h"
 #include "wasm/WasmCraneliftCompile.h"
@@ -52,9 +57,17 @@ bool CompiledCode::swap(MacroAssembler& masm) {
   callSites.swap(masm.callSites());
   callSiteTargets.swap(masm.callSiteTargets());
   trapSites.swap(masm.trapSites());
-  callFarJumps.swap(masm.callFarJumps());
   symbolicAccesses.swap(masm.symbolicAccesses());
   codeLabels.swap(masm.codeLabels());
+  return true;
+}
+
+bool CompiledCode::swapCranelift(MacroAssembler& masm,
+                                 CraneliftReusableData& data) {
+  if (!swap(masm)) {
+    return false;
+  }
+  std::swap(data, craneliftReusableData);
   return true;
 }
 
@@ -66,23 +79,23 @@ static const unsigned COMPILATION_LIFO_DEFAULT_CHUNK_SIZE = 64 * 1024;
 static const uint32_t BAD_CODE_RANGE = UINT32_MAX;
 
 ModuleGenerator::ModuleGenerator(const CompileArgs& args,
-                                 ModuleEnvironment* env,
+                                 ModuleEnvironment* moduleEnv,
+                                 CompilerEnvironment* compilerEnv,
                                  const Atomic<bool>* cancelled,
                                  UniqueChars* error)
     : compileArgs_(&args),
       error_(error),
       cancelled_(cancelled),
-      env_(env),
+      moduleEnv_(moduleEnv),
+      compilerEnv_(compilerEnv),
       linkData_(nullptr),
       metadataTier_(nullptr),
-      taskState_(mutexid::WasmCompileTaskState),
       lifo_(GENERATOR_LIFO_DEFAULT_CHUNK_SIZE),
       masmAlloc_(&lifo_),
-      masm_(masmAlloc_),
+      masm_(masmAlloc_, /* limitedSize= */ false),
       debugTrapCodeOffset_(),
       lastPatchedCallSite_(0),
       startOfUnpatchedCallsites_(0),
-      deferredValidationState_(mutexid::WasmDeferredValidation),
       parallel_(false),
       outstanding_(0),
       currentTask_(nullptr),
@@ -97,37 +110,28 @@ ModuleGenerator::~ModuleGenerator() {
 
   if (parallel_) {
     if (outstanding_) {
+      AutoLockHelperThreadState lock;
+
       // Remove any pending compilation tasks from the worklist.
-      {
-        AutoLockHelperThreadState lock;
-        CompileTaskPtrFifo& worklist =
-            HelperThreadState().wasmWorklist(lock, mode());
-        auto pred = [this](CompileTask* task) {
-          return &task->state == &taskState_;
-        };
-        size_t removed = worklist.eraseIf(pred);
-        MOZ_ASSERT(outstanding_ >= removed);
-        outstanding_ -= removed;
-      }
+      size_t removed = RemovePendingWasmCompileTasks(taskState_, mode(), lock);
+      MOZ_ASSERT(outstanding_ >= removed);
+      outstanding_ -= removed;
 
       // Wait until all active compilation tasks have finished.
-      {
-        auto taskState = taskState_.lock();
-        while (true) {
-          MOZ_ASSERT(outstanding_ >= taskState->finished.length());
-          outstanding_ -= taskState->finished.length();
-          taskState->finished.clear();
+      while (true) {
+        MOZ_ASSERT(outstanding_ >= taskState_.finished().length());
+        outstanding_ -= taskState_.finished().length();
+        taskState_.finished().clear();
 
-          MOZ_ASSERT(outstanding_ >= taskState->numFailed);
-          outstanding_ -= taskState->numFailed;
-          taskState->numFailed = 0;
+        MOZ_ASSERT(outstanding_ >= taskState_.numFailed());
+        outstanding_ -= taskState_.numFailed();
+        taskState_.numFailed() = 0;
 
-          if (!outstanding_) {
-            break;
-          }
-
-          taskState.wait(/* failed or finished */);
+        if (!outstanding_) {
+          break;
         }
+
+        taskState_.condVar().wait(lock); /* failed or finished */
       }
     }
   } else {
@@ -136,7 +140,8 @@ ModuleGenerator::~ModuleGenerator() {
 
   // Propagate error state.
   if (error_ && !*error_) {
-    *error_ = std::move(taskState_.lock()->errorMessage);
+    AutoLockHelperThreadState lock;
+    *error_ = std::move(taskState_.errorMessage());
   }
 }
 
@@ -161,8 +166,11 @@ bool ModuleGenerator::allocateGlobalBytes(uint32_t bytes, uint32_t align,
   return true;
 }
 
-bool ModuleGenerator::init(Metadata* maybeAsmJSMetadata) {
+bool ModuleGenerator::init(Metadata* maybeAsmJSMetadata,
+                           JSTelemetrySender telemetrySender) {
   // Perform fallible metadata, linkdata, assumption allocations.
+
+  telemetrySender_ = telemetrySender;
 
   MOZ_ASSERT(isAsmJS() == !!maybeAsmJSMetadata);
   if (maybeAsmJSMetadata) {
@@ -207,7 +215,7 @@ bool ModuleGenerator::init(Metadata* maybeAsmJSMetadata) {
   // elements will be initialized by the time module generation is finished.
 
   if (!metadataTier_->funcToCodeRange.appendN(BAD_CODE_RANGE,
-                                              env_->funcTypes.length())) {
+                                              moduleEnv_->funcTypes.length())) {
     return false;
   }
 
@@ -215,15 +223,16 @@ bool ModuleGenerator::init(Metadata* maybeAsmJSMetadata) {
   // final reallocs. In particular, the MacroAssembler can be enormous, so be
   // extra conservative. Since large over-reservations may fail when the
   // actual allocations will succeed, ignore OOM failures. Note,
-  // podResizeToFit calls at the end will trim off unneeded capacity.
+  // shrinkStorageToFit calls at the end will trim off unneeded capacity.
 
-  size_t codeSectionSize = env_->codeSection ? env_->codeSection->size : 0;
+  size_t codeSectionSize =
+      moduleEnv_->codeSection ? moduleEnv_->codeSection->size : 0;
 
   size_t estimatedCodeSize =
       1.2 * EstimateCompiledCodeSize(tier(), codeSectionSize);
-  Unused << masm_.reserve(Min(estimatedCodeSize, MaxCodeBytesPerProcess));
+  Unused << masm_.reserve(std::min(estimatedCodeSize, MaxCodeBytesPerProcess));
 
-  Unused << metadataTier_->codeRanges.reserve(2 * env_->numFuncDefs());
+  Unused << metadataTier_->codeRanges.reserve(2 * moduleEnv_->numFuncDefs());
 
   const size_t ByteCodesPerCallSite = 50;
   Unused << metadataTier_->callSites.reserve(codeSectionSize /
@@ -237,17 +246,18 @@ bool ModuleGenerator::init(Metadata* maybeAsmJSMetadata) {
 
   MOZ_ASSERT(metadata_->globalDataLength == 0);
 
-  for (size_t i = 0; i < env_->funcImportGlobalDataOffsets.length(); i++) {
+  for (size_t i = 0; i < moduleEnv_->funcImportGlobalDataOffsets.length();
+       i++) {
     uint32_t globalDataOffset;
     if (!allocateGlobalBytes(sizeof(FuncImportTls), sizeof(void*),
                              &globalDataOffset)) {
       return false;
     }
 
-    env_->funcImportGlobalDataOffsets[i] = globalDataOffset;
+    moduleEnv_->funcImportGlobalDataOffsets[i] = globalDataOffset;
 
     FuncType copy;
-    if (!copy.clone(*env_->funcTypes[i])) {
+    if (!copy.clone(*moduleEnv_->funcTypes[i])) {
       return false;
     }
     if (!metadataTier_->funcImports.emplaceBack(std::move(copy),
@@ -256,7 +266,7 @@ bool ModuleGenerator::init(Metadata* maybeAsmJSMetadata) {
     }
   }
 
-  for (TableDesc& table : env_->tables) {
+  for (TableDesc& table : moduleEnv_->tables) {
     if (!allocateGlobalBytes(sizeof(TableTls), sizeof(void*),
                              &table.globalDataOffset)) {
       return false;
@@ -264,7 +274,7 @@ bool ModuleGenerator::init(Metadata* maybeAsmJSMetadata) {
   }
 
   if (!isAsmJS()) {
-    for (TypeDef& td : env_->types) {
+    for (TypeDef& td : moduleEnv_->types) {
       if (!td.isFuncType()) {
         continue;
       }
@@ -293,7 +303,7 @@ bool ModuleGenerator::init(Metadata* maybeAsmJSMetadata) {
     }
   }
 
-  for (GlobalDesc& global : env_->globals) {
+  for (GlobalDesc& global : moduleEnv_->globals) {
     if (global.isConstant()) {
       continue;
     }
@@ -309,19 +319,23 @@ bool ModuleGenerator::init(Metadata* maybeAsmJSMetadata) {
     global.setOffset(globalDataOffset);
   }
 
-  // Accumulate all exported functions, whether by explicit export or
-  // implicitly by being an element of a function table or by being the start
-  // function. The FuncExportVector stored in Metadata needs to be sorted (to
-  // allow O(log(n)) lookup at runtime) and deduplicated, so use an
-  // intermediate vector to sort and de-duplicate.
+  // Accumulate all exported functions:
+  // - explicitly marked as such;
+  // - implicitly exported by being an element of function tables;
+  // - implicitly exported by being the start function;
+  // The FuncExportVector stored in Metadata needs to be sorted (to allow
+  // O(log(n)) lookup at runtime) and deduplicated. Use a vector with invalid
+  // entries for every single function, that we'll fill as we go through the
+  // exports, and in which we'll remove invalid entries after the fact.
 
-  static_assert((uint64_t(MaxFuncs) << 1) < uint64_t(UINT32_MAX),
-                "bit packing won't work");
+  static_assert(((uint64_t(MaxFuncs) << 1) | 1) < uint64_t(UINT32_MAX),
+                "bit packing won't work in ExportedFunc");
 
   class ExportedFunc {
     uint32_t value;
 
    public:
+    ExportedFunc() : value(UINT32_MAX) {}
     ExportedFunc(uint32_t index, bool isExplicit)
         : value((index << 1) | (isExplicit ? 1 : 0)) {}
     uint32_t index() const { return value >> 1; }
@@ -332,45 +346,66 @@ bool ModuleGenerator::init(Metadata* maybeAsmJSMetadata) {
     bool operator==(const ExportedFunc& other) const {
       return index() == other.index();
     }
+    bool isInvalid() const { return value == UINT32_MAX; }
+    void mergeExplicit(bool explicitBit) {
+      if (!isExplicit() && explicitBit) {
+        value |= 0x1;
+      }
+    }
   };
 
   Vector<ExportedFunc, 8, SystemAllocPolicy> exportedFuncs;
+  if (!exportedFuncs.resize(moduleEnv_->numFuncs())) {
+    return false;
+  }
 
-  for (const Export& exp : env_->exports) {
+  auto addOrMerge = [&exportedFuncs](ExportedFunc newEntry) {
+    uint32_t index = newEntry.index();
+    if (exportedFuncs[index].isInvalid()) {
+      exportedFuncs[index] = newEntry;
+    } else {
+      exportedFuncs[index].mergeExplicit(newEntry.isExplicit());
+    }
+  };
+
+  for (const Export& exp : moduleEnv_->exports) {
     if (exp.kind() == DefinitionKind::Function) {
-      if (!exportedFuncs.emplaceBack(exp.funcIndex(), true)) {
-        return false;
+      addOrMerge(ExportedFunc(exp.funcIndex(), true));
+    }
+  }
+
+  if (moduleEnv_->startFuncIndex) {
+    addOrMerge(ExportedFunc(*moduleEnv_->startFuncIndex, true));
+  }
+
+  for (const ElemSegment* seg : moduleEnv_->elemSegments) {
+    // For now, the segments always carry function indices regardless of the
+    // segment's declared element type; this works because the only legal
+    // element types are funcref and externref and the only legal values are
+    // functions and null.  We always add functions in segments as exported
+    // functions, regardless of the segment's type.  In the future, if we make
+    // the representation of AnyRef segments different, we will have to consider
+    // function values in those segments specially.
+    bool isAsmJS = seg->active() && moduleEnv_->tables[seg->tableIndex].isAsmJS;
+    if (!isAsmJS) {
+      for (uint32_t funcIndex : seg->elemFuncIndices) {
+        if (funcIndex != NullFuncIndex) {
+          addOrMerge(ExportedFunc(funcIndex, false));
+        }
       }
     }
   }
 
-  for (const ElemSegment* seg : env_->elemSegments) {
-    TableKind kind = !seg->active() ? TableKind::AnyFunction
-                                    : env_->tables[seg->tableIndex].kind;
-    switch (kind) {
-      case TableKind::AnyFunction:
-        if (!exportedFuncs.reserve(exportedFuncs.length() + seg->length())) {
-          return false;
-        }
-        for (uint32_t funcIndex : seg->elemFuncIndices) {
-          exportedFuncs.infallibleEmplaceBack(funcIndex, false);
-        }
-        break;
-      case TableKind::TypedFunction:
-        // asm.js functions are not exported.
-        break;
-      case TableKind::AnyRef:
-        break;
+  for (const GlobalDesc& global : moduleEnv_->globals) {
+    if (global.isVariable() &&
+        global.initExpr().kind() == InitExpr::Kind::RefFunc) {
+      addOrMerge(ExportedFunc(global.initExpr().refFuncIndex(), false));
     }
   }
 
-  if (env_->startFuncIndex &&
-      !exportedFuncs.emplaceBack(*env_->startFuncIndex, true)) {
-    return false;
-  }
-
-  std::sort(exportedFuncs.begin(), exportedFuncs.end());
-  auto* newEnd = std::unique(exportedFuncs.begin(), exportedFuncs.end());
+  auto* newEnd =
+      std::remove_if(exportedFuncs.begin(), exportedFuncs.end(),
+                     [](const ExportedFunc& exp) { return exp.isInvalid(); });
   exportedFuncs.erase(newEnd, exportedFuncs.end());
 
   if (!metadataTier_->funcExports.reserve(exportedFuncs.length())) {
@@ -379,16 +414,12 @@ bool ModuleGenerator::init(Metadata* maybeAsmJSMetadata) {
 
   for (const ExportedFunc& funcIndex : exportedFuncs) {
     FuncType funcType;
-    if (!funcType.clone(*env_->funcTypes[funcIndex.index()])) {
+    if (!funcType.clone(*moduleEnv_->funcTypes[funcIndex.index()])) {
       return false;
     }
     metadataTier_->funcExports.infallibleEmplaceBack(
         std::move(funcType), funcIndex.index(), funcIndex.isExplicit());
   }
-
-  // Ensure that mutable shared state for deferred validation is correctly
-  // set up.
-  deferredValidationState_.lock()->init();
 
   // Determine whether parallel or sequential compilation is to be used and
   // initialize the CompileTasks that will be used in either mode.
@@ -408,8 +439,9 @@ bool ModuleGenerator::init(Metadata* maybeAsmJSMetadata) {
     return false;
   }
   for (size_t i = 0; i < numTasks; i++) {
-    tasks_.infallibleEmplaceBack(*env_, taskState_, deferredValidationState_,
-                                 COMPILATION_LIFO_DEFAULT_CHUNK_SIZE);
+    tasks_.infallibleEmplaceBack(*moduleEnv_, *compilerEnv_, taskState_,
+                                 COMPILATION_LIFO_DEFAULT_CHUNK_SIZE,
+                                 telemetrySender);
   }
 
   if (!freeTasks_.reserve(numTasks)) {
@@ -426,7 +458,7 @@ bool ModuleGenerator::init(Metadata* maybeAsmJSMetadata) {
   CompiledCode& importCode = tasks_[0].output;
   MOZ_ASSERT(importCode.empty());
 
-  if (!GenerateImportFunctions(*env_, metadataTier_->funcImports,
+  if (!GenerateImportFunctions(*moduleEnv_, metadataTier_->funcImports,
                                &importCode)) {
     return false;
   }
@@ -456,7 +488,7 @@ static bool InRange(uint32_t caller, uint32_t callee) {
   // slight difference between 'caller' (which is really the return address
   // offset) and the actual base of the relative displacement computation
   // isn't significant.
-  uint32_t range = Min(JitOptions.jumpThreshold, JumpImmediateRange);
+  uint32_t range = std::min(JitOptions.jumpThreshold, JumpImmediateRange);
   if (caller < callee) {
     return callee - caller < range;
   }
@@ -489,7 +521,7 @@ bool ModuleGenerator::linkCallSites() {
       case CallSiteDesc::Func: {
         if (funcIsCompiled(target.funcIndex())) {
           uint32_t calleeOffset =
-              funcCodeRange(target.funcIndex()).funcNormalEntry();
+              funcCodeRange(target.funcIndex()).funcUncheckedCallEntry();
           if (InRange(callerOffset, calleeOffset)) {
             masm_.patchCall(callerOffset, calleeOffset);
             break;
@@ -526,12 +558,8 @@ bool ModuleGenerator::linkCallSites() {
       case CallSiteDesc::LeaveFrame: {
         Uint32Vector& jumps = metadataTier_->debugTrapFarJumpOffsets;
         if (jumps.empty() || !InRange(jumps.back(), callerOffset)) {
-          // See BaseCompiler::insertBreakablePoint for why we must
-          // reload the TLS register on this path.
           Offsets offsets;
           offsets.begin = masm_.currentOffset();
-          masm_.loadPtr(Address(FramePointer, offsetof(Frame, tls)),
-                        WasmTlsReg);
           CodeOffset jumpOffset = masm_.farJumpWithPatch();
           offsets.end = masm_.currentOffset();
           if (masm_.oom()) {
@@ -603,7 +631,7 @@ static bool AppendForEach(Vec* dstVec, const Vec& srcVec, Op op) {
     return false;
   }
 
-  typedef typename Vec::ElementType T;
+  using T = typename Vec::ElementType;
 
   const T* src = srcVec.begin();
 
@@ -620,6 +648,17 @@ static bool AppendForEach(Vec* dstVec, const Vec& srcVec, Op op) {
 }
 
 bool ModuleGenerator::linkCompiledCode(CompiledCode& code) {
+  // Before merging in new code, if calls in a prior code range might go out of
+  // range, insert far jumps to extend the range.
+
+  if (!InRange(startOfUnpatchedCallsites_,
+               masm_.size() + code.bytes.length())) {
+    startOfUnpatchedCallsites_ = masm_.size();
+    if (!linkCallSites()) {
+      return false;
+    }
+  }
+
   // All code offsets in 'code' must be incremented by their position in the
   // overall module when the code was appended.
 
@@ -659,13 +698,6 @@ bool ModuleGenerator::linkCompiledCode(CompiledCode& code) {
     }
   }
 
-  auto callFarJumpOp = [=](uint32_t, CallFarJump* cfj) {
-    cfj->offsetBy(offsetInModule);
-  };
-  if (!AppendForEach(&callFarJumps_, code.callFarJumps, callFarJumpOp)) {
-    return false;
-  }
-
   for (const SymbolicAccess& access : code.symbolicAccesses) {
     uint32_t patchAt = offsetInModule + access.patchAt.offset();
     if (!linkData_->symbolicLinks[access.target].append(patchAt)) {
@@ -703,30 +735,54 @@ static bool ExecuteCompileTask(CompileTask* task, UniqueChars* error) {
   MOZ_ASSERT(task->lifo.isEmpty());
   MOZ_ASSERT(task->output.empty());
 
-  switch (task->env.tier()) {
-    case Tier::Optimized:
-#ifdef ENABLE_WASM_CRANELIFT
-      if (task->env.optimizedBackend() == OptimizedBackend::Cranelift) {
-        if (!CraneliftCompileFunctions(task->env, task->lifo, task->inputs,
-                                       &task->output, task->dvs, error)) {
-          return false;
-        }
-        break;
-      }
+#ifdef ENABLE_SPIDERMONKEY_TELEMETRY
+  int64_t startTime = PRMJ_Now();
+  int compileTimeTelemetryID;
 #endif
-      MOZ_ASSERT(task->env.optimizedBackend() == OptimizedBackend::Ion);
-      if (!IonCompileFunctions(task->env, task->lifo, task->inputs,
-                               &task->output, task->dvs, error)) {
-        return false;
+
+  switch (task->compilerEnv.tier()) {
+    case Tier::Optimized:
+      switch (task->compilerEnv.optimizedBackend()) {
+        case OptimizedBackend::Cranelift:
+          if (!CraneliftCompileFunctions(task->moduleEnv, task->compilerEnv,
+                                         task->lifo, task->inputs,
+                                         &task->output, error)) {
+            return false;
+          }
+#ifdef ENABLE_SPIDERMONKEY_TELEMETRY
+          compileTimeTelemetryID = JS_TELEMETRY_WASM_COMPILE_TIME_CRANELIFT_US;
+#endif
+          break;
+        case OptimizedBackend::Ion:
+          if (!IonCompileFunctions(task->moduleEnv, task->compilerEnv,
+                                   task->lifo, task->inputs, &task->output,
+                                   error)) {
+            return false;
+          }
+#ifdef ENABLE_SPIDERMONKEY_TELEMETRY
+          compileTimeTelemetryID = JS_TELEMETRY_WASM_COMPILE_TIME_ION_US;
+#endif
+          break;
       }
       break;
     case Tier::Baseline:
-      if (!BaselineCompileFunctions(task->env, task->lifo, task->inputs,
-                                    &task->output, task->dvs, error)) {
+      if (!BaselineCompileFunctions(task->moduleEnv, task->compilerEnv,
+                                    task->lifo, task->inputs, &task->output,
+                                    error)) {
         return false;
       }
+#ifdef ENABLE_SPIDERMONKEY_TELEMETRY
+      compileTimeTelemetryID = JS_TELEMETRY_WASM_COMPILE_TIME_BASELINE_US;
+#endif
       break;
   }
+
+#ifdef ENABLE_SPIDERMONKEY_TELEMETRY
+  int64_t endTime = PRMJ_Now();
+  int64_t compileTimeMicros = endTime - startTime;
+
+  task->telemetrySender.addTelemetry(compileTimeTelemetryID, compileTimeMicros);
+#endif
 
   MOZ_ASSERT(task->lifo.isEmpty());
   MOZ_ASSERT(task->inputs.length() == task->output.codeRanges.length());
@@ -734,23 +790,29 @@ static bool ExecuteCompileTask(CompileTask* task, UniqueChars* error) {
   return true;
 }
 
-void wasm::ExecuteCompileTaskFromHelperThread(CompileTask* task) {
+void CompileTask::runHelperThreadTask(AutoLockHelperThreadState& lock) {
   TraceLoggerThread* logger = TraceLoggerForCurrentThread();
   AutoTraceLog logCompile(logger, TraceLogger_WasmCompilation);
 
   UniqueChars error;
-  bool ok = ExecuteCompileTask(task, &error);
+  bool ok;
 
-  auto taskState = task->state.lock();
+  {
+    AutoUnlockHelperThreadState unlock(lock);
+    ok = ExecuteCompileTask(this, &error);
+  }
 
-  if (!ok || !taskState->finished.append(task)) {
-    taskState->numFailed++;
-    if (!taskState->errorMessage) {
-      taskState->errorMessage = std::move(error);
+  // Don't release the lock between updating our state and returning from this
+  // method.
+
+  if (!ok || !state.finished().append(this)) {
+    state.numFailed()++;
+    if (!state.errorMessage()) {
+      state.errorMessage() = std::move(error);
     }
   }
 
-  taskState.notify_one(/* failed or finished */);
+  state.condVar().notify_one(); /* failed or finished */
 }
 
 bool ModuleGenerator::locallyCompileCurrentTask() {
@@ -767,16 +829,6 @@ bool ModuleGenerator::locallyCompileCurrentTask() {
 
 bool ModuleGenerator::finishTask(CompileTask* task) {
   masm_.haltingAlign(CodeAlignment);
-
-  // Before merging in the new function's code, if calls in a prior code range
-  // might go out of range, insert far jumps to extend the range.
-  if (!InRange(startOfUnpatchedCallsites_,
-               masm_.size() + task->output.bytes.length())) {
-    startOfUnpatchedCallsites_ = masm_.size();
-    if (!linkCallSites()) {
-      return false;
-    }
-  }
 
   if (!linkCompiledCode(task->output)) {
     return false;
@@ -816,21 +868,21 @@ bool ModuleGenerator::finishOutstandingTask() {
 
   CompileTask* task = nullptr;
   {
-    auto taskState = taskState_.lock();
+    AutoLockHelperThreadState lock;
     while (true) {
       MOZ_ASSERT(outstanding_ > 0);
 
-      if (taskState->numFailed > 0) {
+      if (taskState_.numFailed() > 0) {
         return false;
       }
 
-      if (!taskState->finished.empty()) {
+      if (!taskState_.finished().empty()) {
         outstanding_--;
-        task = taskState->finished.popCopy();
+        task = taskState_.finished().popCopy();
         break;
       }
 
-      taskState.wait(/* failed or finished */);
+      taskState_.condVar().wait(lock); /* failed or finished */
     }
   }
 
@@ -843,7 +895,44 @@ bool ModuleGenerator::compileFuncDef(uint32_t funcIndex,
                                      const uint8_t* begin, const uint8_t* end,
                                      Uint32Vector&& lineNums) {
   MOZ_ASSERT(!finishedFuncDefs_);
-  MOZ_ASSERT(funcIndex < env_->numFuncs());
+  MOZ_ASSERT(funcIndex < moduleEnv_->numFuncs());
+
+  uint32_t threshold;
+  switch (tier()) {
+    case Tier::Baseline:
+      threshold = JitOptions.wasmBatchBaselineThreshold;
+      break;
+    case Tier::Optimized:
+      switch (compilerEnv_->optimizedBackend()) {
+        case OptimizedBackend::Ion:
+          threshold = JitOptions.wasmBatchIonThreshold;
+          break;
+        case OptimizedBackend::Cranelift:
+          threshold = JitOptions.wasmBatchCraneliftThreshold;
+          break;
+        default:
+          MOZ_CRASH("Invalid optimizedBackend value");
+      }
+      break;
+    default:
+      MOZ_CRASH("Invalid tier value");
+      break;
+  }
+
+  uint32_t funcBytecodeLength = end - begin;
+
+  // Do not go over the threshold if we can avoid it: spin off the compilation
+  // before appending the function if we would go over.  (Very large single
+  // functions may still exceed the threshold but this is fine; it'll be very
+  // uncommon and is in any case safely handled by the MacroAssembler's buffer
+  // limit logic.)
+
+  if (currentTask_ && currentTask_->inputs.length() &&
+      batchedBytecode_ + funcBytecodeLength > threshold) {
+    if (!launchBatchCompile()) {
+      return false;
+    }
+  }
 
   if (!currentTask_) {
     if (freeTasks_.empty() && !finishOutstandingTask()) {
@@ -852,30 +941,14 @@ bool ModuleGenerator::compileFuncDef(uint32_t funcIndex,
     currentTask_ = freeTasks_.popCopy();
   }
 
-  uint32_t funcBytecodeLength = end - begin;
-
-  FuncCompileInputVector& inputs = currentTask_->inputs;
-  if (!inputs.emplaceBack(funcIndex, lineOrBytecode, begin, end,
-                          std::move(lineNums))) {
+  if (!currentTask_->inputs.emplaceBack(funcIndex, lineOrBytecode, begin, end,
+                                        std::move(lineNums))) {
     return false;
-  }
-
-  uint32_t threshold;
-  switch (tier()) {
-    case Tier::Baseline:
-      threshold = JitOptions.wasmBatchBaselineThreshold;
-      break;
-    case Tier::Optimized:
-      threshold = JitOptions.wasmBatchIonThreshold;
-      break;
-    default:
-      MOZ_CRASH("Invalid tier value");
-      break;
   }
 
   batchedBytecode_ += funcBytecodeLength;
   MOZ_ASSERT(batchedBytecode_ <= MaxCodeSectionBytes);
-  return batchedBytecode_ <= threshold || launchBatchCompile();
+  return true;
 }
 
 bool ModuleGenerator::finishFuncDefs() {
@@ -900,7 +973,7 @@ bool ModuleGenerator::finishCodegen() {
 
   for (CallFarJump far : callFarJumps_) {
     masm_.patchFarJump(far.jump,
-                       funcCodeRange(far.funcIndex).funcNormalEntry());
+                       funcCodeRange(far.funcIndex).funcUncheckedCallEntry());
   }
 
   for (CodeOffset farJump : debugTrapFarJumps_) {
@@ -912,7 +985,6 @@ bool ModuleGenerator::finishCodegen() {
   MOZ_ASSERT(masm_.callSites().empty());
   MOZ_ASSERT(masm_.callSiteTargets().empty());
   MOZ_ASSERT(masm_.trapSites().empty());
-  MOZ_ASSERT(masm_.callFarJumps().empty());
   MOZ_ASSERT(masm_.symbolicAccesses().empty());
   MOZ_ASSERT(masm_.codeLabels().empty());
 
@@ -968,13 +1040,13 @@ bool ModuleGenerator::finishMetadataTier() {
   // These Vectors can get large and the excess capacity can be significant,
   // so realloc them down to size.
 
-  metadataTier_->funcToCodeRange.podResizeToFit();
-  metadataTier_->codeRanges.podResizeToFit();
-  metadataTier_->callSites.podResizeToFit();
-  metadataTier_->trapSites.podResizeToFit();
-  metadataTier_->debugTrapFarJumpOffsets.podResizeToFit();
+  metadataTier_->funcToCodeRange.shrinkStorageToFit();
+  metadataTier_->codeRanges.shrinkStorageToFit();
+  metadataTier_->callSites.shrinkStorageToFit();
+  metadataTier_->trapSites.shrinkStorageToFit();
+  metadataTier_->debugTrapFarJumpOffsets.shrinkStorageToFit();
   for (Trap trap : MakeEnumeratedRange(Trap::Limit)) {
-    metadataTier_->trapSites[trap].podResizeToFit();
+    metadataTier_->trapSites[trap].shrinkStorageToFit();
   }
 
   return true;
@@ -1001,20 +1073,12 @@ UniqueCodeTier ModuleGenerator::finishCodeTier() {
   CompiledCode& stubCode = tasks_[0].output;
   MOZ_ASSERT(stubCode.empty());
 
-  if (!GenerateStubs(*env_, metadataTier_->funcImports,
+  if (!GenerateStubs(*moduleEnv_, metadataTier_->funcImports,
                      metadataTier_->funcExports, &stubCode)) {
     return nullptr;
   }
 
   if (!linkCompiledCode(stubCode)) {
-    return nullptr;
-  }
-
-  // All functions and stubs have been compiled.  Perform module-end
-  // validation.
-
-  if (!deferredValidationState_.lock()->performDeferredValidation(*env_,
-                                                                  error_)) {
     return nullptr;
   }
 
@@ -1039,7 +1103,7 @@ UniqueCodeTier ModuleGenerator::finishCodeTier() {
 #ifdef DEBUG
   // Check that each stack map is associated with a plausible instruction.
   for (size_t i = 0; i < metadataTier_->stackMaps.length(); i++) {
-    MOZ_ASSERT(IsValidStackMapKey(env_->debugEnabled(),
+    MOZ_ASSERT(IsValidStackMapKey(compilerEnv_->debugEnabled(),
                                   metadataTier_->stackMaps.get(i).nextInsnAddr),
                "wasm stack map does not reference a valid insn");
   }
@@ -1055,23 +1119,24 @@ SharedMetadata ModuleGenerator::finishMetadata(const Bytes& bytecode) {
 
   // Copy over data from the ModuleEnvironment.
 
-  metadata_->memoryUsage = env_->memoryUsage;
-  metadata_->temporaryGcTypesConfigured = env_->gcTypesConfigured;
-  metadata_->minMemoryLength = env_->minMemoryLength;
-  metadata_->maxMemoryLength = env_->maxMemoryLength;
-  metadata_->startFuncIndex = env_->startFuncIndex;
-  metadata_->tables = std::move(env_->tables);
-  metadata_->globals = std::move(env_->globals);
-  metadata_->nameCustomSectionIndex = env_->nameCustomSectionIndex;
-  metadata_->moduleName = env_->moduleName;
-  metadata_->funcNames = std::move(env_->funcNames);
+  metadata_->memoryUsage = moduleEnv_->memoryUsage;
+  metadata_->minMemoryLength = moduleEnv_->minMemoryLength;
+  metadata_->maxMemoryLength = moduleEnv_->maxMemoryLength;
+  metadata_->startFuncIndex = moduleEnv_->startFuncIndex;
+  metadata_->tables = std::move(moduleEnv_->tables);
+  metadata_->globals = std::move(moduleEnv_->globals);
+  metadata_->nameCustomSectionIndex = moduleEnv_->nameCustomSectionIndex;
+  metadata_->moduleName = moduleEnv_->moduleName;
+  metadata_->funcNames = std::move(moduleEnv_->funcNames);
+  metadata_->omitsBoundsChecks = moduleEnv_->hugeMemoryEnabled();
+  metadata_->v128Enabled = moduleEnv_->v128Enabled();
 
   // Copy over additional debug information.
 
-  if (env_->debugEnabled()) {
+  if (compilerEnv_->debugEnabled()) {
     metadata_->debugEnabled = true;
 
-    const size_t numFuncTypes = env_->funcTypes.length();
+    const size_t numFuncTypes = moduleEnv_->funcTypes.length();
     if (!metadata_->debugFuncArgTypes.resize(numFuncTypes)) {
       return nullptr;
     }
@@ -1080,10 +1145,13 @@ SharedMetadata ModuleGenerator::finishMetadata(const Bytes& bytecode) {
     }
     for (size_t i = 0; i < numFuncTypes; i++) {
       if (!metadata_->debugFuncArgTypes[i].appendAll(
-              env_->funcTypes[i]->args())) {
+              moduleEnv_->funcTypes[i]->args())) {
         return nullptr;
       }
-      metadata_->debugFuncReturnTypes[i] = env_->funcTypes[i]->ret();
+      if (!metadata_->debugFuncReturnTypes[i].appendAll(
+              moduleEnv_->funcTypes[i]->results())) {
+        return nullptr;
+      }
     }
 
     static_assert(sizeof(ModuleHash) <= sizeof(mozilla::SHA1Sum::Hash),
@@ -1095,7 +1163,7 @@ SharedMetadata ModuleGenerator::finishMetadata(const Bytes& bytecode) {
     memcpy(metadata_->debugHash, hash, sizeof(ModuleHash));
   }
 
-  MOZ_ASSERT_IF(env_->nameCustomSectionIndex, !!metadata_->namePayload);
+  MOZ_ASSERT_IF(moduleEnv_->nameCustomSectionIndex, !!metadata_->namePayload);
 
   // Metadata shouldn't be mutably modified after finishMetadata().
   SharedMetadata metadata = metadata_;
@@ -1105,8 +1173,7 @@ SharedMetadata ModuleGenerator::finishMetadata(const Bytes& bytecode) {
 
 SharedModule ModuleGenerator::finishModule(
     const ShareableBytes& bytecode,
-    JS::OptimizedEncodingListener* maybeTier2Listener,
-    UniqueLinkData* maybeLinkData) {
+    JS::OptimizedEncodingListener* maybeTier2Listener) {
   MOZ_ASSERT(mode() == CompileMode::Once || mode() == CompileMode::Tier1);
 
   UniqueCodeTier codeTier = finishCodeTier();
@@ -1124,10 +1191,10 @@ SharedModule ModuleGenerator::finishModule(
   // compilation.
 
   DataSegmentVector dataSegments;
-  if (!dataSegments.reserve(env_->dataSegments.length())) {
+  if (!dataSegments.reserve(moduleEnv_->dataSegments.length())) {
     return nullptr;
   }
-  for (const DataSegmentEnv& srcSeg : env_->dataSegments) {
+  for (const DataSegmentEnv& srcSeg : moduleEnv_->dataSegments) {
     MutableDataSegment dstSeg = js_new<DataSegment>(srcSeg);
     if (!dstSeg) {
       return nullptr;
@@ -1140,10 +1207,10 @@ SharedModule ModuleGenerator::finishModule(
   }
 
   CustomSectionVector customSections;
-  if (!customSections.reserve(env_->customSections.length())) {
+  if (!customSections.reserve(moduleEnv_->customSections.length())) {
     return nullptr;
   }
-  for (const CustomSectionEnv& srcSec : env_->customSections) {
+  for (const CustomSectionEnv& srcSec : moduleEnv_->customSections) {
     CustomSection sec;
     if (!sec.name.append(bytecode.begin() + srcSec.nameOffset,
                          srcSec.nameLength)) {
@@ -1161,9 +1228,9 @@ SharedModule ModuleGenerator::finishModule(
     customSections.infallibleAppend(std::move(sec));
   }
 
-  if (env_->nameCustomSectionIndex) {
+  if (moduleEnv_->nameCustomSectionIndex) {
     metadata_->namePayload =
-        customSections[*env_->nameCustomSectionIndex].payload;
+        customSections[*moduleEnv_->nameCustomSectionIndex].payload;
   }
 
   SharedMetadata metadata = finishMetadata(bytecode.bytes);
@@ -1172,7 +1239,7 @@ SharedModule ModuleGenerator::finishModule(
   }
 
   StructTypeVector structTypes;
-  for (TypeDef& td : env_->types) {
+  for (TypeDef& td : moduleEnv_->types) {
     if (td.isStructType() && !structTypes.append(std::move(td.structType()))) {
       return nullptr;
     }
@@ -1191,7 +1258,7 @@ SharedModule ModuleGenerator::finishModule(
   UniqueBytes debugUnlinkedCode;
   UniqueLinkData debugLinkData;
   const ShareableBytes* debugBytecode = nullptr;
-  if (env_->debugEnabled()) {
+  if (compilerEnv_->debugEnabled()) {
     MOZ_ASSERT(mode() == CompileMode::Once);
     MOZ_ASSERT(tier() == Tier::Debug);
 
@@ -1200,7 +1267,7 @@ SharedModule ModuleGenerator::finishModule(
       return nullptr;
     }
 
-    masm_.executableCopy(debugUnlinkedCode->begin(), /* flushICache = */ false);
+    masm_.executableCopy(debugUnlinkedCode->begin());
 
     debugLinkData = std::move(linkData_);
     debugBytecode = &bytecode;
@@ -1209,24 +1276,20 @@ SharedModule ModuleGenerator::finishModule(
   // All the components are finished, so create the complete Module and start
   // tier-2 compilation if requested.
 
-  MutableModule module =
-      js_new<Module>(*code, std::move(env_->imports), std::move(env_->exports),
-                     std::move(dataSegments), std::move(env_->elemSegments),
-                     std::move(customSections), std::move(debugUnlinkedCode),
-                     std::move(debugLinkData), debugBytecode);
+  MutableModule module = js_new<Module>(
+      *code, std::move(moduleEnv_->imports), std::move(moduleEnv_->exports),
+      std::move(dataSegments), std::move(moduleEnv_->elemSegments),
+      std::move(customSections), std::move(debugUnlinkedCode),
+      std::move(debugLinkData), debugBytecode);
   if (!module) {
     return nullptr;
   }
 
   if (mode() == CompileMode::Tier1) {
-    module->startTier2(*compileArgs_, bytecode, maybeTier2Listener);
+    module->startTier2(*compileArgs_, bytecode, maybeTier2Listener,
+                       telemetrySender_);
   } else if (tier() == Tier::Serialized && maybeTier2Listener) {
     module->serialize(*linkData_, *maybeTier2Listener);
-  }
-
-  if (maybeLinkData) {
-    MOZ_ASSERT(!env_->debugEnabled());
-    *maybeLinkData = std::move(linkData_);
   }
 
   return module;
@@ -1235,7 +1298,7 @@ SharedModule ModuleGenerator::finishModule(
 bool ModuleGenerator::finishTier2(const Module& module) {
   MOZ_ASSERT(mode() == CompileMode::Tier2);
   MOZ_ASSERT(tier() == Tier::Optimized);
-  MOZ_ASSERT(!env_->debugEnabled());
+  MOZ_ASSERT(!compilerEnv_->debugEnabled());
 
   if (cancelled_ && *cancelled_) {
     return false;
@@ -1266,7 +1329,6 @@ size_t CompiledCode::sizeOfExcludingThis(
          codeRanges.sizeOfExcludingThis(mallocSizeOf) +
          callSites.sizeOfExcludingThis(mallocSizeOf) +
          callSiteTargets.sizeOfExcludingThis(mallocSizeOf) + trapSitesSize +
-         callFarJumps.sizeOfExcludingThis(mallocSizeOf) +
          symbolicAccesses.sizeOfExcludingThis(mallocSizeOf) +
          codeLabels.sizeOfExcludingThis(mallocSizeOf);
 }

@@ -8,26 +8,27 @@
 
 #include "mozilla/layers/IAPZCTreeManager.h"
 #include "nsContainerFrame.h"
+#include "nsIFrameInlines.h"
 #include "nsIScrollableFrame.h"
 #include "nsLayoutUtils.h"
 
 namespace mozilla {
 namespace layers {
 
-void TouchActionHelper::UpdateAllowedBehavior(
-    uint32_t aTouchActionValue, bool aConsiderPanning,
-    TouchBehaviorFlags& aOutBehavior) {
-  if (aTouchActionValue != NS_STYLE_TOUCH_ACTION_AUTO) {
+static void UpdateAllowedBehavior(StyleTouchAction aTouchActionValue,
+                                  bool aConsiderPanning,
+                                  TouchBehaviorFlags& aOutBehavior) {
+  if (aTouchActionValue != StyleTouchAction::AUTO) {
     // Double-tap-zooming need property value AUTO
     aOutBehavior &= ~AllowedTouchBehavior::DOUBLE_TAP_ZOOM;
-    if (aTouchActionValue != NS_STYLE_TOUCH_ACTION_MANIPULATION) {
+    if (aTouchActionValue != StyleTouchAction::MANIPULATION) {
       // Pinch-zooming need value AUTO or MANIPULATION
       aOutBehavior &= ~AllowedTouchBehavior::PINCH_ZOOM;
     }
   }
 
   if (aConsiderPanning) {
-    if (aTouchActionValue == NS_STYLE_TOUCH_ACTION_NONE) {
+    if (aTouchActionValue == StyleTouchAction::NONE) {
       aOutBehavior &= ~AllowedTouchBehavior::VERTICAL_PAN;
       aOutBehavior &= ~AllowedTouchBehavior::HORIZONTAL_PAN;
     }
@@ -35,18 +36,18 @@ void TouchActionHelper::UpdateAllowedBehavior(
     // Values pan-x and pan-y set at the same time to the same element do not
     // affect panning constraints. Therefore we need to check whether pan-x is
     // set without pan-y and the same for pan-y.
-    if ((aTouchActionValue & NS_STYLE_TOUCH_ACTION_PAN_X) &&
-        !(aTouchActionValue & NS_STYLE_TOUCH_ACTION_PAN_Y)) {
+    if ((aTouchActionValue & StyleTouchAction::PAN_X) &&
+        !(aTouchActionValue & StyleTouchAction::PAN_Y)) {
       aOutBehavior &= ~AllowedTouchBehavior::VERTICAL_PAN;
-    } else if ((aTouchActionValue & NS_STYLE_TOUCH_ACTION_PAN_Y) &&
-               !(aTouchActionValue & NS_STYLE_TOUCH_ACTION_PAN_X)) {
+    } else if ((aTouchActionValue & StyleTouchAction::PAN_Y) &&
+               !(aTouchActionValue & StyleTouchAction::PAN_X)) {
       aOutBehavior &= ~AllowedTouchBehavior::HORIZONTAL_PAN;
     }
   }
 }
 
 TouchBehaviorFlags TouchActionHelper::GetAllowedTouchBehavior(
-    nsIWidget* aWidget, nsIFrame* aRootFrame,
+    nsIWidget* aWidget, RelativeTo aRootFrame,
     const LayoutDeviceIntPoint& aPoint) {
   TouchBehaviorFlags behavior = AllowedTouchBehavior::VERTICAL_PAN |
                                 AllowedTouchBehavior::HORIZONTAL_PAN |
@@ -56,8 +57,7 @@ TouchBehaviorFlags TouchActionHelper::GetAllowedTouchBehavior(
   nsPoint relativePoint =
       nsLayoutUtils::GetEventCoordinatesRelativeTo(aWidget, aPoint, aRootFrame);
 
-  nsIFrame* target = nsLayoutUtils::GetFrameForPoint(
-      aRootFrame, relativePoint, nsLayoutUtils::IGNORE_ROOT_SCROLL_FRAME);
+  nsIFrame* target = nsLayoutUtils::GetFrameForPoint(aRootFrame, relativePoint);
   if (!target) {
     return behavior;
   }
@@ -86,7 +86,7 @@ TouchBehaviorFlags TouchActionHelper::GetAllowedTouchBehavior(
   bool considerPanning = true;
 
   for (nsIFrame* frame = target; frame && frame->GetContent() && behavior;
-       frame = frame->GetParent()) {
+       frame = frame->GetInFlowParent()) {
     UpdateAllowedBehavior(nsLayoutUtils::GetTouchActionFromFrame(frame),
                           considerPanning, behavior);
 

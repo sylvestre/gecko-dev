@@ -10,8 +10,8 @@
 #include "js/Debug.h"
 
 #include "mozilla/Atomics.h"
+#include "mozilla/BasePrincipal.h"
 #include "mozilla/CycleCollectedJSContext.h"
-#include "mozilla/EventStateManager.h"
 #include "mozilla/OwningNonNull.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/ResultExtensions.h"
@@ -20,14 +20,20 @@
 #include "mozilla/dom/BindingUtils.h"
 #include "mozilla/dom/DOMException.h"
 #include "mozilla/dom/DOMExceptionBinding.h"
+#include "mozilla/dom/Exceptions.h"
 #include "mozilla/dom/MediaStreamError.h"
 #include "mozilla/dom/PromiseBinding.h"
 #include "mozilla/dom/ScriptSettings.h"
+#include "mozilla/dom/UserActivation.h"
 #include "mozilla/dom/WorkerPrivate.h"
 #include "mozilla/dom/WorkerRunnable.h"
 #include "mozilla/dom/WorkerRef.h"
+#include "mozilla/dom/WorkletImpl.h"
+#include "mozilla/dom/WorkletGlobalScope.h"
 
 #include "jsfriendapi.h"
+#include "js/Exception.h"  // JS::ExceptionStack
+#include "js/Object.h"     // JS::GetCompartment
 #include "js/StructuredClone.h"
 #include "nsContentUtils.h"
 #include "nsGlobalWindow.h"
@@ -41,14 +47,10 @@
 #include "PromiseWorkerProxy.h"
 #include "WrapperFactory.h"
 #include "xpcpublic.h"
+#include "xpcprivate.h"
 
 namespace mozilla {
 namespace dom {
-
-namespace {
-// Generator used by Promise::GetID.
-Atomic<uintptr_t> gIDGenerator(0);
-}  // namespace
 
 // Promise
 
@@ -56,6 +58,7 @@ NS_IMPL_CYCLE_COLLECTION_CLASS(Promise)
 
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(Promise)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mGlobal)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK_WEAK_PTR
   tmp->mPromiseObj = nullptr;
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
@@ -67,13 +70,8 @@ NS_IMPL_CYCLE_COLLECTION_TRACE_BEGIN(Promise)
   NS_IMPL_CYCLE_COLLECTION_TRACE_JS_MEMBER_CALLBACK(mPromiseObj);
 NS_IMPL_CYCLE_COLLECTION_TRACE_END
 
-NS_IMPL_CYCLE_COLLECTING_ADDREF(Promise)
-NS_IMPL_CYCLE_COLLECTING_RELEASE(Promise)
-
-NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(Promise)
-  NS_INTERFACE_MAP_ENTRY(nsISupports)
-  NS_INTERFACE_MAP_ENTRY(Promise)
-NS_INTERFACE_MAP_END
+NS_IMPL_CYCLE_COLLECTION_ROOT_NATIVE(Promise, AddRef)
+NS_IMPL_CYCLE_COLLECTION_UNROOT_NATIVE(Promise, Release)
 
 Promise::Promise(nsIGlobalObject* aGlobal)
     : mGlobal(aGlobal), mPromiseObj(nullptr) {
@@ -93,7 +91,7 @@ already_AddRefed<Promise> Promise::Create(
     return nullptr;
   }
   RefPtr<Promise> p = new Promise(aGlobal);
-  p->CreateWrapper(nullptr, aRv, aPropagateUserInteraction);
+  p->CreateWrapper(aRv, aPropagateUserInteraction);
   if (aRv.Failed()) {
     return nullptr;
   }
@@ -102,7 +100,7 @@ already_AddRefed<Promise> Promise::Create(
 
 bool Promise::MaybePropagateUserInputEventHandling() {
   JS::PromiseUserInputEventHandlingState state =
-      EventStateManager::IsHandlingUserInput()
+      UserActivation::IsHandlingUserInput()
           ? JS::PromiseUserInputEventHandlingState::HadUserInteractionAtCreation
           : JS::PromiseUserInputEventHandlingState::
                 DidntHaveUserInteractionAtCreation;
@@ -158,7 +156,7 @@ already_AddRefed<Promise> Promise::All(
     return nullptr;
   }
 
-  JS::AutoObjectVector promises(aCx);
+  JS::RootedVector<JSObject*> promises(aCx);
   if (!promises.reserve(aPromiseList.Length())) {
     aRv.NoteJSContextException(aCx);
     return nullptr;
@@ -234,12 +232,16 @@ void Promise::Then(JSContext* aCx,
 void PromiseNativeThenHandlerBase::ResolvedCallback(
     JSContext* aCx, JS::Handle<JS::Value> aValue) {
   RefPtr<Promise> promise = CallResolveCallback(aCx, aValue);
-  mPromise->MaybeResolve(promise);
+  if (promise) {
+    mPromise->MaybeResolve(promise);
+  } else {
+    mPromise->MaybeResolveWithUndefined();
+  }
 }
 
 void PromiseNativeThenHandlerBase::RejectedCallback(
     JSContext* aCx, JS::Handle<JS::Value> aValue) {
-  mPromise->MaybeReject(aCx, aValue);
+  mPromise->MaybeReject(aValue);
 }
 
 NS_IMPL_CYCLE_COLLECTION_CLASS(PromiseNativeThenHandlerBase)
@@ -268,15 +270,14 @@ Result<RefPtr<Promise>, nsresult> Promise::ThenWithoutCycleCollection(
 }
 
 void Promise::CreateWrapper(
-    JS::Handle<JSObject*> aDesiredProto, ErrorResult& aRv,
-    PropagateUserInteraction aPropagateUserInteraction) {
+    ErrorResult& aRv, PropagateUserInteraction aPropagateUserInteraction) {
   AutoJSAPI jsapi;
   if (!jsapi.Init(mGlobal)) {
     aRv.Throw(NS_ERROR_UNEXPECTED);
     return;
   }
   JSContext* cx = jsapi.cx();
-  mPromiseObj = JS::NewPromiseObject(cx, nullptr, aDesiredProto);
+  mPromiseObj = JS::NewPromiseObject(cx, nullptr);
   if (!mPromiseObj) {
     JS_ClearPendingException(cx);
     aRv.Throw(NS_ERROR_OUT_OF_MEMORY);
@@ -312,6 +313,7 @@ void Promise::MaybeReject(JSContext* aCx, JS::Handle<JS::Value> aValue) {
 
 enum class NativeHandlerTask : int32_t { Resolve, Reject };
 
+MOZ_CAN_RUN_SCRIPT
 static bool NativeHandlerCallback(JSContext* aCx, unsigned aArgc,
                                   JS::Value* aVp) {
   JS::CallArgs args = CallArgsFromVp(aArgc, aVp);
@@ -330,10 +332,12 @@ static bool NativeHandlerCallback(JSContext* aCx, unsigned aArgc,
   NativeHandlerTask task = static_cast<NativeHandlerTask>(v.toInt32());
 
   if (task == NativeHandlerTask::Resolve) {
-    handler->ResolvedCallback(aCx, args.get(0));
+    // handler is kept alive by "obj" on the stack.
+    MOZ_KnownLive(handler)->ResolvedCallback(aCx, args.get(0));
   } else {
     MOZ_ASSERT(task == NativeHandlerTask::Reject);
-    handler->RejectedCallback(aCx, args.get(0));
+    // handler is kept alive by "obj" on the stack.
+    MOZ_KnownLive(handler)->RejectedCallback(aCx, args.get(0));
   }
 
   return true;
@@ -351,7 +355,7 @@ static JSObject* CreateNativeHandlerFunction(JSContext* aCx,
 
   JS::Rooted<JSObject*> obj(aCx, JS_GetFunctionObject(func));
 
-  JS::ExposeObjectToActiveJS(aHolder);
+  JS::AssertObjectIsNotGray(aHolder);
   js::SetFunctionNativeReserved(obj, SLOT_NATIVEHANDLER,
                                 JS::ObjectValue(*aHolder));
   js::SetFunctionNativeReserved(obj, SLOT_NATIVEHANDLER_TASK,
@@ -365,7 +369,7 @@ namespace {
 class PromiseNativeHandlerShim final : public PromiseNativeHandler {
   RefPtr<PromiseNativeHandler> mInner;
 
-  ~PromiseNativeHandlerShim() {}
+  ~PromiseNativeHandlerShim() = default;
 
  public:
   explicit PromiseNativeHandlerShim(PromiseNativeHandler* aInner)
@@ -373,14 +377,18 @@ class PromiseNativeHandlerShim final : public PromiseNativeHandler {
     MOZ_ASSERT(mInner);
   }
 
+  MOZ_CAN_RUN_SCRIPT
   void ResolvedCallback(JSContext* aCx, JS::Handle<JS::Value> aValue) override {
-    mInner->ResolvedCallback(aCx, aValue);
-    mInner = nullptr;
+    RefPtr<PromiseNativeHandler> inner = std::move(mInner);
+    inner->ResolvedCallback(aCx, aValue);
+    MOZ_ASSERT(!mInner);
   }
 
+  MOZ_CAN_RUN_SCRIPT
   void RejectedCallback(JSContext* aCx, JS::Handle<JS::Value> aValue) override {
-    mInner->RejectedCallback(aCx, aValue);
-    mInner = nullptr;
+    RefPtr<PromiseNativeHandler> inner = std::move(mInner);
+    inner->RejectedCallback(aCx, aValue);
+    MOZ_ASSERT(!mInner);
   }
 
   bool WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto,
@@ -458,7 +466,7 @@ void Promise::HandleException(JSContext* aCx) {
   JS::Rooted<JS::Value> exn(aCx);
   if (JS_GetPendingException(aCx, &exn)) {
     JS_ClearPendingException(aCx);
-    // This is only called from MaybeSomething, so it's OK to MaybeReject here.
+    // Always reject even if this was called in *Resolve.
     MaybeReject(aCx, exn);
   }
 }
@@ -467,8 +475,8 @@ void Promise::HandleException(JSContext* aCx) {
 already_AddRefed<Promise> Promise::CreateFromExisting(
     nsIGlobalObject* aGlobal, JS::Handle<JSObject*> aPromiseObj,
     PropagateUserInteraction aPropagateUserInteraction) {
-  MOZ_ASSERT(js::GetObjectCompartment(aGlobal->GetGlobalJSObject()) ==
-             js::GetObjectCompartment(aPromiseObj));
+  MOZ_ASSERT(JS::GetCompartment(aGlobal->GetGlobalJSObjectPreserveColor()) ==
+             JS::GetCompartment(aPromiseObj));
   RefPtr<Promise> p = new Promise(aGlobal);
   p->mPromiseObj = aPromiseObj;
   if (aPropagateUserInteraction == ePropagateUserInteraction &&
@@ -501,48 +509,113 @@ void Promise::ReportRejectedPromise(JSContext* aCx, JS::HandleObject aPromise) {
 
   MOZ_ASSERT(JS::GetPromiseState(aPromise) == JS::PromiseState::Rejected);
 
-  JS::Rooted<JS::Value> result(aCx, JS::GetPromiseResult(aPromise));
-
-  RefPtr<xpc::ErrorReport> xpcReport = new xpc::ErrorReport();
-  bool isMainThread = MOZ_LIKELY(NS_IsMainThread());
-  bool isChrome = isMainThread ? nsContentUtils::IsSystemPrincipal(
-                                     nsContentUtils::ObjectPrincipal(aPromise))
-                               : IsCurrentThreadRunningChromeWorker();
-  nsGlobalWindowInner* win =
-      isMainThread ? xpc::WindowGlobalOrNull(aPromise) : nullptr;
-
-  js::ErrorReport report(aCx);
-  if (report.init(aCx, result, js::ErrorReport::NoSideEffects)) {
-    xpcReport->Init(report.report(), report.toStringResult().c_str(), isChrome,
-                    win ? win->AsInner()->WindowID() : 0);
-  } else {
-    JS_ClearPendingException(aCx);
-
-    RefPtr<Exception> exn;
-    if (result.isObject() &&
-        (NS_SUCCEEDED(UNWRAP_OBJECT(DOMException, &result, exn)) ||
-         NS_SUCCEEDED(UNWRAP_OBJECT(Exception, &result, exn)))) {
-      xpcReport->Init(aCx, exn, isChrome, win ? win->AsInner()->WindowID() : 0);
-    } else {
-      return;
+  bool isChrome = false;
+  nsGlobalWindowInner* win = nullptr;
+  uint64_t innerWindowID = 0;
+  if (MOZ_LIKELY(NS_IsMainThread())) {
+    isChrome = nsContentUtils::ObjectPrincipal(aPromise)->IsSystemPrincipal();
+    win = xpc::WindowGlobalOrNull(aPromise);
+    innerWindowID = win ? win->WindowID() : 0;
+  } else if (const WorkerPrivate* wp = GetCurrentThreadWorkerPrivate()) {
+    isChrome = wp->UsesSystemPrincipal();
+    innerWindowID = wp->WindowID();
+  } else if (nsCOMPtr<nsIGlobalObject> global = xpc::NativeGlobal(aPromise)) {
+    if (nsCOMPtr<WorkletGlobalScope> workletGlobal =
+            do_QueryInterface(global)) {
+      WorkletImpl* impl = workletGlobal->Impl();
+      isChrome = impl->PrincipalInfo().type() ==
+                 mozilla::ipc::PrincipalInfo::TSystemPrincipalInfo;
+      innerWindowID = impl->LoadInfo().InnerWindowID();
     }
   }
 
+  JS::Rooted<JS::Value> result(aCx, JS::GetPromiseResult(aPromise));
+  // resolutionSite can be null if async stacks are disabled.
+  JS::Rooted<JSObject*> resolutionSite(aCx,
+                                       JS::GetPromiseResolutionSite(aPromise));
+
+  // We're inspecting the rejection value only to report it to the console, and
+  // we do so without side-effects, so we can safely unwrap it without regard to
+  // the privileges of the Promise object that holds it. If we don't unwrap
+  // before trying to create the error report, we wind up reporting any
+  // cross-origin objects as "uncaught exception: Object".
+  RefPtr<xpc::ErrorReport> xpcReport = new xpc::ErrorReport();
+  {
+    Maybe<JSAutoRealm> ar;
+    JS::Rooted<JS::Value> unwrapped(aCx, result);
+    if (unwrapped.isObject()) {
+      unwrapped.setObject(*js::UncheckedUnwrap(&unwrapped.toObject()));
+      ar.emplace(aCx, &unwrapped.toObject());
+    }
+
+    JS::ErrorReportBuilder report(aCx);
+    RefPtr<Exception> exn;
+    if (unwrapped.isObject() &&
+        (NS_SUCCEEDED(UNWRAP_OBJECT(DOMException, &unwrapped, exn)) ||
+         NS_SUCCEEDED(UNWRAP_OBJECT(Exception, &unwrapped, exn)))) {
+      xpcReport->Init(aCx, exn, isChrome, innerWindowID);
+    } else {
+      // Use the resolution site as the exception stack
+      JS::ExceptionStack exnStack(aCx, unwrapped, resolutionSite);
+      if (!report.init(aCx, exnStack, JS::ErrorReportBuilder::NoSideEffects)) {
+        JS_ClearPendingException(aCx);
+        return;
+      }
+
+      xpcReport->Init(report.report(), report.toStringResult().c_str(),
+                      isChrome, innerWindowID);
+    }
+  }
+
+  // Used to initialize the similarly named nsISciptError attribute.
+  xpcReport->mIsPromiseRejection = true;
+
   // Now post an event to do the real reporting async
-  RefPtr<nsIRunnable> event = new AsyncErrorReporter(xpcReport);
+  RefPtr<AsyncErrorReporter> event = new AsyncErrorReporter(xpcReport);
   if (win) {
+    if (!win->IsDying()) {
+      // Exceptions from a dying window will cause the window to leak.
+      event->SetException(aCx, result);
+      if (resolutionSite) {
+        event->SerializeStack(aCx, resolutionSite);
+      }
+    }
     win->Dispatch(mozilla::TaskCategory::Other, event.forget());
   } else {
     NS_DispatchToMainThread(event);
   }
 }
 
-JSObject* Promise::GlobalJSObject() const {
-  return mGlobal->GetGlobalJSObject();
+void Promise::MaybeResolveWithClone(JSContext* aCx,
+                                    JS::Handle<JS::Value> aValue) {
+  JS::Rooted<JSObject*> sourceScope(aCx, JS::CurrentGlobalOrNull(aCx));
+  AutoEntryScript aes(GetParentObject(), "Promise resolution");
+  JSContext* cx = aes.cx();
+  JS::Rooted<JS::Value> value(cx, aValue);
+
+  xpc::StackScopedCloneOptions options;
+  options.wrapReflectors = true;
+  if (!StackScopedClone(cx, options, sourceScope, &value)) {
+    HandleException(cx);
+    return;
+  }
+  MaybeResolve(aCx, value);
 }
 
-JS::Compartment* Promise::Compartment() const {
-  return js::GetObjectCompartment(GlobalJSObject());
+void Promise::MaybeRejectWithClone(JSContext* aCx,
+                                   JS::Handle<JS::Value> aValue) {
+  JS::Rooted<JSObject*> sourceScope(aCx, JS::CurrentGlobalOrNull(aCx));
+  AutoEntryScript aes(GetParentObject(), "Promise rejection");
+  JSContext* cx = aes.cx();
+  JS::Rooted<JS::Value> value(cx, aValue);
+
+  xpc::StackScopedCloneOptions options;
+  options.wrapReflectors = true;
+  if (!StackScopedClone(cx, options, sourceScope, &value)) {
+    HandleException(cx);
+    return;
+  }
+  MaybeReject(aCx, value);
 }
 
 // A WorkerRunnable to resolve/reject the Promise on the worker thread.
@@ -583,7 +656,7 @@ class PromiseWorkerProxyRunnable : public WorkerRunnable {
   }
 
  protected:
-  ~PromiseWorkerProxyRunnable() {}
+  ~PromiseWorkerProxyRunnable() = default;
 
  private:
   RefPtr<PromiseWorkerProxy> mPromiseWorkerProxy;
@@ -731,7 +804,8 @@ void PromiseWorkerProxy::CleanUp() {
 }
 
 JSObject* PromiseWorkerProxy::CustomReadHandler(
-    JSContext* aCx, JSStructuredCloneReader* aReader, uint32_t aTag,
+    JSContext* aCx, JSStructuredCloneReader* aReader,
+    const JS::CloneDataPolicy& aCloneDataPolicy, uint32_t aTag,
     uint32_t aIndex) {
   if (NS_WARN_IF(!mCallbacks)) {
     return nullptr;
@@ -742,7 +816,8 @@ JSObject* PromiseWorkerProxy::CustomReadHandler(
 
 bool PromiseWorkerProxy::CustomWriteHandler(JSContext* aCx,
                                             JSStructuredCloneWriter* aWriter,
-                                            JS::Handle<JSObject*> aObj) {
+                                            JS::Handle<JSObject*> aObj,
+                                            bool* aSameProcessScopeRequired) {
   if (NS_WARN_IF(!mCallbacks)) {
     return false;
   }

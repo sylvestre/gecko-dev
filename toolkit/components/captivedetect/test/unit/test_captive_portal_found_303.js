@@ -50,7 +50,7 @@ function test_portal_found() {
   do_test_pending();
 
   let callback = {
-    QueryInterface: ChromeUtils.generateQI([Ci.nsICaptivePortalCallback]),
+    QueryInterface: ChromeUtils.generateQI(["nsICaptivePortalCallback"]),
     prepare: function prepare() {
       Assert.equal(++step, 1);
       gCaptivePortalDetector.finishPreparation(kInterfaceName);
@@ -67,7 +67,8 @@ function test_portal_found() {
 function run_test() {
   gRedirectServer = new HttpServer();
   gRedirectServer.start(-1);
-  gRedirectServerURL = "http://localhost:" + gRedirectServer.identity.primaryPort;
+  gRedirectServerURL =
+    "http://localhost:" + gRedirectServer.identity.primaryPort;
 
   run_captivedetect_test(xhr_handler, fakeUIResponse, test_portal_found);
 }

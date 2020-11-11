@@ -28,8 +28,28 @@ Please note that some targeting attributes require stricter controls on the tele
 * [sync](#sync)
 * [topFrecentSites](#topfrecentsites)
 * [totalBookmarksCount](#totalbookmarkscount)
+* [trailheadTriplet](#trailheadtriplet)
 * [usesFirefoxSync](#usesfirefoxsync)
+* [isFxAEnabled](#isFxAEnabled)
 * [xpinstallEnabled](#xpinstallEnabled)
+* [hasPinnedTabs](#haspinnedtabs)
+* [hasAccessedFxAPanel](#hasaccessedfxapanel)
+* [isWhatsNewPanelEnabled](#iswhatsnewpanelenabled)
+* [totalBlockedCount](#totalblockedcount)
+* [recentBookmarks](#recentbookmarks)
+* [userPrefs](#userprefs)
+* [attachedFxAOAuthClients](#attachedfxaoauthclients)
+* [platformName](#platformname)
+* [scores](#scores)
+* [scoreThreshold](#scorethreshold)
+* [messageImpressions](#messageimpressions)
+* [blockedCountByType](#blockedcountbytype)
+* [isChinaRepack](#ischinarepack)
+* [userId](#userid)
+* [profileRestartCount](#profilerestartcount)
+* [homePageSettings](#homepagesettings)
+* [newtabSettings](#newtabsettings)
+* [isFissionExperimentEnabled](#isFissionExperimentEnabled)
 
 ## Detailed usage
 
@@ -164,7 +184,7 @@ type ECMA262DateString = string;
 ```
 
 ### `devToolsOpenedCount`
-Number of usages of the web console or scratchpad.
+Number of usages of the web console.
 
 #### Examples
 * Has the user opened the web console more than 10 times?
@@ -423,6 +443,10 @@ Total number of bookmarks.
 declare const totalBookmarksCount: number;
 ```
 
+### `trailheadTriplet`
+
+(67.05+ only) Experiment branch for "triplet" study
+
 ### `usesFirefoxSync`
 
 Does the user use Firefox sync?
@@ -431,6 +455,16 @@ Does the user use Firefox sync?
 
 ```ts
 declare const usesFirefoxSync: boolean;
+```
+
+### `isFxAEnabled`
+
+Does the user have Firefox sync enabled? The service could potentially be turned off [for enterprise builds](https://searchfox.org/mozilla-central/rev/b59a99943de4dd314bae4e44ab43ce7687ccbbec/browser/components/enterprisepolicies/Policies.jsm#327).
+
+#### Definition
+
+```ts
+declare const isFxAEnabled: boolean;
 ```
 
 ### `xpinstallEnabled`
@@ -442,3 +476,352 @@ Pref used by system administrators to disallow add-ons from installed altogether
 ```ts
 declare const xpinstallEnabled: boolean;
 ```
+
+### `hasPinnedTabs`
+
+Does the user have any pinned tabs in any windows.
+
+#### Definition
+
+```ts
+declare const hasPinnedTabs: boolean;
+```
+
+### `hasAccessedFxAPanel`
+
+Boolean pref that gets set the first time the user opens the FxA toolbar panel
+
+#### Definition
+
+```ts
+declare const hasAccessedFxAPanel: boolean;
+```
+
+### `isWhatsNewPanelEnabled`
+
+Boolean pref that controls if the What's New panel feature is enabled
+
+#### Definition
+
+```ts
+declare const isWhatsNewPanelEnabled: boolean;
+```
+
+### `totalBlockedCount`
+
+Total number of events from the content blocking database
+
+#### Definition
+
+```ts
+declare const totalBlockedCount: number;
+```
+
+### `recentBookmarks`
+
+An array of GUIDs of recent bookmarks as provided by [`NewTabUtils.getRecentBookmarks`](https://searchfox.org/mozilla-central/rev/e0b0c38ee83f99d3cf868bad525ace4a395039f1/toolkit/modules/NewTabUtils.jsm#1087)
+
+#### Definition
+
+```ts
+interface Bookmark {
+  bookmarkGuid: string;
+  url: string;
+  title: string;
+  ...
+}
+declare const recentBookmarks: Array<Bookmark>
+```
+
+### `userPrefs`
+
+Information about user facing prefs configurable from `about:preferences`.
+
+#### Examples
+```java
+userPrefs.cfrFeatures == false
+```
+
+#### Definition
+
+```ts
+declare const userPrefs: {
+  cfrFeatures: boolean;
+  cfrAddons: boolean;
+  snippets: boolean;
+}
+```
+
+### `attachedFxAOAuthClients`
+
+Information about connected services associated with the FxA Account.
+Return an empty array if no account is found or an error occurs.
+
+#### Definition
+
+```
+interface OAuthClient {
+  // OAuth client_id of the service
+  // https://docs.telemetry.mozilla.org/datasets/fxa_metrics/attribution.html#service-attribution
+  id: string;
+  lastAccessedDaysAgo: number;
+}
+
+declare const attachedFxAOAuthClients: Promise<OAuthClient[]>
+```
+
+#### Examples
+```javascript
+{
+  id: "7377719276ad44ee",
+  name: "Pocket",
+  lastAccessTime: 1513599164000
+}
+```
+
+### `platformName`
+
+[Platform information](https://searchfox.org/mozilla-central/rev/05a22d864814cb1e4352faa4004e1f975c7d2eb9/toolkit/modules/AppConstants.jsm#156).
+
+#### Definition
+
+```
+declare const platformName = "linux" | "win" | "macosx" | "android" | "other";
+```
+
+### `scores`
+
+#### Definition
+
+See more in [CFR Machine Learning Experiment](https://bugzilla.mozilla.org/show_bug.cgi?id=1594422).
+
+```
+declare const scores = { [cfrId: string]: number (integer); }
+```
+
+### `scoreThreshold`
+
+#### Definition
+
+See more in [CFR Machine Learning Experiment](https://bugzilla.mozilla.org/show_bug.cgi?id=1594422).
+
+```
+declare const scoreThreshold = integer;
+```
+
+### `messageImpressions`
+
+Dictionary that maps message ids to impression timestamps. Timestamps are stored in
+consecutive order. Can be used to detect first impression of a message, number of
+impressions. Can be used in targeting to show a message if another message has been
+seen.
+Impressions are used for frequency capping so we only store them if the message has
+`frequency` configured.
+Impressions for badges might not work as expected: we add a badge for every opened
+window so the number of impressions stored might be higher than expected. Additionally
+not all badges have `frequency` cap so `messageImpressions` might not be defined.
+Badge impressions should not be used for targeting.
+
+#### Definition
+
+```
+declare const messageImpressions: { [key: string]: Array<UnixEpochNumber> };
+```
+
+### `blockedCountByType`
+
+Returns a breakdown by category of all blocked resources in the past 42 days.
+
+#### Definition
+
+```
+declare const messageImpressions: { [key: string]: number };
+```
+
+#### Examples
+
+```javascript
+Object {
+  trackerCount: 0,
+  cookieCount: 34,
+  cryptominerCount: 0,
+  fingerprinterCount: 3,
+  socialCount: 2
+}
+```
+
+### `isChinaRepack`
+
+Does the user use [the partner repack distributed by Mozilla Online](https://github.com/mozilla-partners/mozillaonline),
+a wholly owned subsidiary of the Mozilla Corporation that operates in China.
+
+#### Definition
+
+```ts
+declare const isChinaRepack: boolean;
+```
+
+### `userId`
+
+A unique user id generated by Normandy (note that this is not clientId).
+
+#### Definition
+
+```ts
+declare const userId: string;
+```
+
+### `profileRestartCount`
+
+A session counter that shows how many times the browser was started.
+More info about the details in [the telemetry docs](https://firefox-source-docs.mozilla.org/toolkit/components/telemetry/concepts/sessions.html).
+
+#### Definition
+
+```ts
+declare const profileRestartCount: number;
+```
+
+### `homePageSettings`
+
+An object reflecting the current settings of the browser home page (about:home)
+
+#### Definition
+
+```ts
+declare const homePageSettings: {
+  isDefault: boolean;
+  isLocked: boolean;
+  isWebExt: boolean;
+  isCustomUrl: boolean;
+  urls: Array<URL>;
+}
+
+interface URL {
+  url: string;
+  host: string;
+}
+```
+
+#### Examples
+
+* Default about:home
+```javascript
+Object {
+  isDefault: true,
+  isLocked: false,
+  isCustomUrl: false,
+  isWebExt: false,
+  urls: [
+    { url: "about:home", host: "" }
+  ],
+}
+```
+
+* Default about:home with locked preference
+```javascript
+Object {
+  isDefault: true,
+  isLocked: true,
+  isCustomUrl: false,
+  isWebExt: false,
+  urls: [
+    { url: "about:home", host: "" }
+  ],
+}
+```
+
+* Custom URL
+```javascript
+Object {
+  isDefault: false,
+  isLocked: false,
+  isCustomUrl: true,
+  isWebExt: false,
+  urls: [
+    { url: "https://www.google.com", host: "google.com" }
+  ],
+}
+```
+
+* Custom URLs
+```javascript
+Object {
+  isDefault: false,
+  isLocked: false,
+  isCustomUrl: true,
+  isWebExt: false,
+  urls: [
+    { url: "https://www.google.com", host: "google.com" },
+    { url: "https://www.youtube.com", host: "youtube.com" }
+  ],
+}
+```
+
+* Web extension
+```javascript
+Object {
+  isDefault: false,
+  isLocked: false,
+  isCustomUrl: false,
+  isWebExt: true,
+  urls: [
+    { url: "moz-extension://123dsa43213acklncd/home.html", host: "" }
+  ],
+}
+```
+
+### `newtabSettings`
+
+An object reflecting the current settings of the browser newtab page (about:newtab)
+
+#### Definition
+
+```ts
+declare const newtabSettings: {
+  isDefault: boolean;
+  isWebExt: boolean;
+  isCustomUrl: boolean;
+  url: string;
+  host: string;
+}
+```
+
+#### Examples
+
+* Default about:newtab
+```javascript
+Object {
+  isDefault: true,
+  isCustomUrl: false,
+  isWebExt: false,
+  url: "about:newtab",
+  host: "",
+}
+```
+
+* Custom URL
+```javascript
+Object {
+  isDefault: false,
+  isCustomUrl: true,
+  isWebExt: false,
+  url: "https://www.google.com",
+  host: "google.com",
+}
+```
+
+* Web extension
+```javascript
+Object {
+  isDefault: false,
+  isCustomUrl: false,
+  isWebExt: true,
+  url: "moz-extension://123dsa43213acklncd/home.html",
+  host: "",
+}
+```
+
+### `isFissionExperimentEnabled`
+
+A boolean. `true` if we're running Fission experiment, `false` otherwise.

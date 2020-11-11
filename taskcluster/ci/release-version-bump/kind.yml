@@ -1,7 +1,7 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
+---
 loader: taskgraph.loader.transform:loader
 
 transforms:
@@ -16,13 +16,7 @@ job-defaults:
     description: Release Promotion version bump/tag
     run-on-projects: []
     shipping-phase: ship
-    worker-type:
-        by-project:
-            mozilla-(beta|release|esr.*): scriptworker-prov-v1/treescript-v1
-            maple: scriptworker-prov-v1/treescript-v1
-            birch: scriptworker-prov-v1/treescript-v1
-            jamun: scriptworker-prov-v1/treescript-v1
-            default: scriptworker-prov-v1/treescript-dev
+    worker-type: tree
     worker:
         implementation: treescript
         dontbuild: true
@@ -31,42 +25,35 @@ job-defaults:
         bump-files:
             by-project:
                 default: ["browser/config/version_display.txt"]
-                mozilla-release:
+                mozilla-(release|esr.*):
                     - "browser/config/version.txt"
                     - "browser/config/version_display.txt"
                     - "config/milestone.txt"
-                mozilla-esr52:
-                    - "browser/config/version.txt"
-                    - "browser/config/version_display.txt"
-                    - "config/milestone.txt"
-                mozilla-esr60:
-                    - "browser/config/version.txt"
-                    - "browser/config/version_display.txt"
-                    - "config/milestone.txt"
-                jamun:
+                maple:
                     - "browser/config/version.txt"
                     - "browser/config/version_display.txt"
                     - "config/milestone.txt"
         push:
             by-project:
-                mozilla-beta: true
-                mozilla-release: true
-                mozilla-esr52: true
-                mozilla-esr60: true
+                mozilla-(beta|release|esr.*): true
                 maple: true
-                birch: true
-                jamun: true
                 default: false
 
 jobs:
-    fennec:
-        name: fennec-version-bump
-        shipping-product: fennec
-
     firefox:
         name: firefox-version-bump
         shipping-product: firefox
+        treeherder:
+            platform: firefox-release/opt
+            symbol: Rel(VerBump)
+            tier: 1
+            kind: build
 
     devedition:
         name: devedition-version-bump
         shipping-product: devedition
+        treeherder:
+            platform: devedition-release/opt
+            symbol: Rel(VerBump)
+            tier: 1
+            kind: build

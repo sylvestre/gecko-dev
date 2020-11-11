@@ -3,18 +3,23 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 "use strict";
 
-const loaders = ChromeUtils.import("resource://devtools/shared/base-loader.js", {});
-const {
-  devtools,
-  loader,
-} = ChromeUtils.import("resource://devtools/shared/Loader.jsm", {});
-const flags = devtools.require("devtools/shared/flags");
-const { joinURI } = devtools.require("devtools/shared/path");
-const { assert } = devtools.require("devtools/shared/DevToolsUtils");
-const { AppConstants } = devtools.require("resource://gre/modules/AppConstants.jsm");
+const loaders = ChromeUtils.import("resource://devtools/shared/base-loader.js");
+const { require: devtoolsRequire, loader } = ChromeUtils.import(
+  "resource://devtools/shared/Loader.jsm"
+);
+const flags = devtoolsRequire("devtools/shared/flags");
+const { joinURI } = devtoolsRequire("devtools/shared/path");
+const { assert } = devtoolsRequire("devtools/shared/DevToolsUtils");
+const { AppConstants } = devtoolsRequire(
+  "resource://gre/modules/AppConstants.jsm"
+);
 
-loader.lazyRequireGetter(this, "getMockedModule",
-  "devtools/client/shared/browser-loader-mocks", {});
+loader.lazyRequireGetter(
+  this,
+  "getMockedModule",
+  "devtools/client/shared/browser-loader-mocks",
+  {}
+);
 
 const BROWSER_BASED_DIRS = [
   "resource://devtools/client/inspector/boxmodel",
@@ -25,16 +30,16 @@ const BROWSER_BASED_DIRS = [
   "resource://devtools/client/inspector/fonts",
   "resource://devtools/client/inspector/grids",
   "resource://devtools/client/inspector/layout",
+  "resource://devtools/client/inspector/markup",
   "resource://devtools/client/jsonview",
   "resource://devtools/client/netmonitor/src/utils",
+  "resource://devtools/client/shared/fluent-l10n",
   "resource://devtools/client/shared/source-map",
   "resource://devtools/client/shared/redux",
   "resource://devtools/client/shared/vendor",
 ];
 
-const COMMON_LIBRARY_DIRS = [
-  "resource://devtools/client/shared/vendor",
-];
+const COMMON_LIBRARY_DIRS = ["resource://devtools/client/shared/vendor"];
 
 // Any directory that matches the following regular expression
 // is also considered as browser based module directory.
@@ -43,8 +48,7 @@ const COMMON_LIBRARY_DIRS = [
 // An example:
 // * `resource://devtools/client/inspector/components`
 // * `resource://devtools/client/inspector/shared/components`
-const browserBasedDirsRegExp =
-  /^resource\:\/\/devtools\/client\/\S*\/components\//;
+const browserBasedDirsRegExp = /^resource\:\/\/devtools\/client\/\S*\/components\//;
 
 /*
  * Create a loader to be used in a browser environment. This evaluates
@@ -100,11 +104,18 @@ function BrowserLoader(options) {
  *        Allows for sharing common modules between tools, instead of loading a new
  *        instance into each tool. For example, pass "toolbox.browserRequire" here.
  */
-function BrowserLoaderBuilder({ baseURI, window, useOnlyShared, commonLibRequire }) {
-  assert(!!baseURI !== !!useOnlyShared,
-    "Cannot use both `baseURI` and `useOnlyShared`.");
+function BrowserLoaderBuilder({
+  baseURI,
+  window,
+  useOnlyShared,
+  commonLibRequire,
+}) {
+  assert(
+    !!baseURI !== !!useOnlyShared,
+    "Cannot use both `baseURI` and `useOnlyShared`."
+  );
 
-  const loaderOptions = devtools.require("@loader/options");
+  const loaderOptions = devtoolsRequire("@loader/options");
   const dynamicPaths = {};
 
   if (AppConstants.DEBUG_JS_MODULES) {
@@ -121,16 +132,29 @@ function BrowserLoaderBuilder({ baseURI, window, useOnlyShared, commonLibRequire
   }
 
   const opts = {
-    sharedGlobal: true,
     sandboxPrototype: window,
     sandboxName: "DevTools (UI loader)",
     paths: Object.assign({}, dynamicPaths, loaderOptions.paths),
     invisibleToDebugger: loaderOptions.invisibleToDebugger,
+    // Make sure `define` function exists.  This allows defining some modules
+    // in AMD format while retaining CommonJS compatibility through this hook.
+    // JSON Viewer needs modules in AMD format, as it currently uses RequireJS
+    // from a content document and can't access our usual loaders.  So, any
+    // modules shared with the JSON Viewer should include a define wrapper:
+    //
+    //   // Make this available to both AMD and CJS environments
+    //   define(function(require, exports, module) {
+    //     ... code ...
+    //   });
+    //
+    // Bug 1248830 will work out a better plan here for our content module
+    // loading needs, especially as we head towards devtools.html.
+    supportAMDModules: true,
     requireHook: (id, require) => {
       // If |id| requires special handling, simply defer to devtools
       // immediately.
-      if (devtools.isLoaderPluginId(id)) {
-        return devtools.require(id);
+      if (loader.isLoaderPluginId(id)) {
+        return devtoolsRequire(id);
       }
 
       const uri = require.resolve(id);
@@ -142,16 +166,20 @@ function BrowserLoaderBuilder({ baseURI, window, useOnlyShared, commonLibRequire
         return getMockedModule(uri);
       }
 
-      if (commonLibRequire && COMMON_LIBRARY_DIRS.some(dir => uri.startsWith(dir))) {
+      if (
+        commonLibRequire &&
+        COMMON_LIBRARY_DIRS.some(dir => uri.startsWith(dir))
+      ) {
         return commonLibRequire(uri);
       }
 
       // Check if the URI matches one of hardcoded paths or a regexp.
-      const isBrowserDir = BROWSER_BASED_DIRS.some(dir => uri.startsWith(dir)) ||
-                         uri.match(browserBasedDirsRegExp) != null;
+      const isBrowserDir =
+        BROWSER_BASED_DIRS.some(dir => uri.startsWith(dir)) ||
+        uri.match(browserBasedDirsRegExp) != null;
 
       if ((useOnlyShared || !uri.startsWith(baseURI)) && !isBrowserDir) {
-        return devtools.require(uri);
+        return devtoolsRequire(uri);
       }
 
       return require(uri);
@@ -160,27 +188,11 @@ function BrowserLoaderBuilder({ baseURI, window, useOnlyShared, commonLibRequire
       // Allow modules to use the window's console to ensure logs appear in a
       // tab toolbox, if one exists, instead of just the browser console.
       console: window.console,
-      // Make sure `define` function exists.  This allows defining some modules
-      // in AMD format while retaining CommonJS compatibility through this hook.
-      // JSON Viewer needs modules in AMD format, as it currently uses RequireJS
-      // from a content document and can't access our usual loaders.  So, any
-      // modules shared with the JSON Viewer should include a define wrapper:
-      //
-      //   // Make this available to both AMD and CJS environments
-      //   define(function(require, exports, module) {
-      //     ... code ...
-      //   });
-      //
-      // Bug 1248830 will work out a better plan here for our content module
-      // loading needs, especially as we head towards devtools.html.
-      define(factory) {
-        factory(this.require, this.exports, this.module);
-      },
       // Allow modules to use the DevToolsLoader lazy loading helpers.
       loader: {
-        lazyGetter: devtools.lazyGetter,
-        lazyImporter: devtools.lazyImporter,
-        lazyServiceGetter: devtools.lazyServiceGetter,
+        lazyGetter: loader.lazyGetter,
+        lazyImporter: loader.lazyImporter,
+        lazyServiceGetter: loader.lazyServiceGetter,
         lazyRequireGetter: this.lazyRequireGetter.bind(this),
       },
     },
@@ -188,6 +200,10 @@ function BrowserLoaderBuilder({ baseURI, window, useOnlyShared, commonLibRequire
 
   const mainModule = loaders.Module(baseURI, joinURI(baseURI, "main.js"));
   this.loader = loaders.Loader(opts);
+  // When running tests, expose the BrowserLoader instance for metrics tests.
+  if (flags.testing) {
+    window.getBrowserLoaderForWindow = () => this;
+  }
   this.require = loaders.Require(this.loader, mainModule);
 }
 
@@ -197,21 +213,38 @@ BrowserLoaderBuilder.prototype = {
    * module. This enables delaying importing modules until the module is
    * actually used.
    *
-   * @param Object obj
+   * Several getters can be defined at once by providing an array of
+   * properties and enabling destructuring.
+   *
+   * @param { Object } obj
    *    The object to define the property on.
-   * @param String property
-   *    The property name.
-   * @param String module
+   * @param { String | Array<String> } properties
+   *    String: Name of the property for the getter.
+   *    Array<String>: When destructure is true, properties can be an array of
+   *    strings to create several getters at once.
+   * @param { String } module
    *    The module path.
-   * @param Boolean destructure
+   * @param { Boolean } destructure
    *    Pass true if the property name is a member of the module's exports.
    */
-  lazyRequireGetter: function(obj, property, module, destructure) {
-    devtools.lazyGetter(obj, property, () => {
-      return destructure
+  lazyRequireGetter: function(obj, properties, module, destructure) {
+    if (Array.isArray(properties) && !destructure) {
+      throw new Error(
+        "Pass destructure=true to call lazyRequireGetter with an array of properties"
+      );
+    }
+
+    if (!Array.isArray(properties)) {
+      properties = [properties];
+    }
+
+    for (const property of properties) {
+      loader.lazyGetter(obj, property, () => {
+        return destructure
           ? this.require(module)[property]
           : this.require(module || property);
-    });
+      });
+    }
   },
 };
 

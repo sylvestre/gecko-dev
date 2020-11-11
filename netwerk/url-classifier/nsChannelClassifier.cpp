@@ -10,43 +10,27 @@
 #include "nsICacheEntry.h"
 #include "nsICachingChannel.h"
 #include "nsIChannel.h"
-#include "nsIIOService.h"
 #include "nsIObserverService.h"
-#include "nsIPermissionManager.h"
 #include "nsIProtocolHandler.h"
 #include "nsIScriptSecurityManager.h"
-#include "nsISecureBrowserUI.h"
-#include "nsISecurityEventSink.h"
-#include "nsISupportsPriority.h"
 #include "nsNetUtil.h"
 #include "nsXULAppAPI.h"
 #include "nsQueryObject.h"
-#include "nsIUrlClassifierDBService.h"
-#include "nsIUrlClassifierFeature.h"
 #include "nsPrintfCString.h"
 
+#include "mozilla/Components.h"
 #include "mozilla/ErrorNames.h"
 #include "mozilla/Logging.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/net/UrlClassifierCommon.h"
+#include "mozilla/net/UrlClassifierFeatureFactory.h"
 #include "mozilla/ClearOnShutdown.h"
 #include "mozilla/Services.h"
 
 namespace mozilla {
 namespace net {
 
-//
-// MOZ_LOG=nsChannelClassifier:5
-//
-static LazyLogModule gChannelClassifierLog("nsChannelClassifier");
-
-#undef LOG
-#define LOG(args) MOZ_LOG(gChannelClassifierLog, LogLevel::Info, args)
-#define LOG_DEBUG(args) MOZ_LOG(gChannelClassifierLog, LogLevel::Debug, args)
-#define LOG_WARN(args) MOZ_LOG(gChannelClassifierLog, LogLevel::Warning, args)
-#define LOG_ENABLED() MOZ_LOG_TEST(gChannelClassifierLog, LogLevel::Info)
-
-#define URLCLASSIFIER_SKIP_HOSTNAMES "urlclassifier.skipHostnames"
+#define URLCLASSIFIER_EXCEPTION_HOSTNAMES "urlclassifier.skipHostnames"
 
 // Put CachedPrefs in anonymous namespace to avoid any collision from outside of
 // this file.
@@ -63,9 +47,9 @@ class CachedPrefs final {
 
   void Init();
 
-  nsCString GetSkipHostnames() const { return mSkipHostnames; }
-  void SetSkipHostnames(const nsACString& aHostnames) {
-    mSkipHostnames = aHostnames;
+  nsCString GetExceptionHostnames() const { return mExceptionHostnames; }
+  void SetExceptionHostnames(const nsACString& aHostnames) {
+    mExceptionHostnames = aHostnames;
   }
 
  private:
@@ -73,9 +57,9 @@ class CachedPrefs final {
   CachedPrefs();
   ~CachedPrefs();
 
-  static void OnPrefsChange(const char* aPrefName, CachedPrefs*);
+  static void OnPrefsChange(const char* aPrefName, void*);
 
-  nsCString mSkipHostnames;
+  nsCString mExceptionHostnames;
 
   static StaticAutoPtr<CachedPrefs> sInstance;
 };
@@ -83,18 +67,21 @@ class CachedPrefs final {
 StaticAutoPtr<CachedPrefs> CachedPrefs::sInstance;
 
 // static
-void CachedPrefs::OnPrefsChange(const char* aPref, CachedPrefs* aPrefs) {
-  if (!strcmp(aPref, URLCLASSIFIER_SKIP_HOSTNAMES)) {
-    nsCString skipHostnames;
-    Preferences::GetCString(URLCLASSIFIER_SKIP_HOSTNAMES, skipHostnames);
-    ToLowerCase(skipHostnames);
-    aPrefs->SetSkipHostnames(skipHostnames);
+void CachedPrefs::OnPrefsChange(const char* aPref, void* aPrefs) {
+  auto prefs = static_cast<CachedPrefs*>(aPrefs);
+
+  if (!strcmp(aPref, URLCLASSIFIER_EXCEPTION_HOSTNAMES)) {
+    nsCString exceptionHostnames;
+    Preferences::GetCString(URLCLASSIFIER_EXCEPTION_HOSTNAMES,
+                            exceptionHostnames);
+    ToLowerCase(exceptionHostnames);
+    prefs->SetExceptionHostnames(exceptionHostnames);
   }
 }
 
 void CachedPrefs::Init() {
   Preferences::RegisterCallbackAndCall(CachedPrefs::OnPrefsChange,
-                                       URLCLASSIFIER_SKIP_HOSTNAMES, this);
+                                       URLCLASSIFIER_EXCEPTION_HOSTNAMES, this);
 }
 
 // static
@@ -114,7 +101,7 @@ CachedPrefs::~CachedPrefs() {
   MOZ_COUNT_DTOR(CachedPrefs);
 
   Preferences::UnregisterCallback(CachedPrefs::OnPrefsChange,
-                                  URLCLASSIFIER_SKIP_HOSTNAMES, this);
+                                  URLCLASSIFIER_EXCEPTION_HOSTNAMES, this);
 }
 
 }  // anonymous namespace
@@ -123,12 +110,12 @@ NS_IMPL_ISUPPORTS(nsChannelClassifier, nsIURIClassifierCallback, nsIObserver)
 
 nsChannelClassifier::nsChannelClassifier(nsIChannel* aChannel)
     : mIsAllowListed(false), mSuspendedChannel(false), mChannel(aChannel) {
-  LOG_DEBUG(("nsChannelClassifier::nsChannelClassifier %p", this));
+  UC_LOG_LEAK(("nsChannelClassifier::nsChannelClassifier [this=%p]", this));
   MOZ_ASSERT(mChannel);
 }
 
 nsChannelClassifier::~nsChannelClassifier() {
-  LOG_DEBUG(("nsChannelClassifier::~nsChannelClassifier %p", this));
+  UC_LOG_LEAK(("nsChannelClassifier::~nsChannelClassifier [this=%p]", this));
 }
 
 void nsChannelClassifier::Start() {
@@ -136,8 +123,7 @@ void nsChannelClassifier::Start() {
   if (NS_FAILED(rv)) {
     // If we aren't getting a callback for any reason, assume a good verdict and
     // make sure we resume the channel if necessary.
-    OnClassifyComplete(NS_OK, NS_LITERAL_CSTRING(""), NS_LITERAL_CSTRING(""),
-                       NS_LITERAL_CSTRING(""));
+    OnClassifyComplete(NS_OK, ""_ns, ""_ns, ""_ns);
   }
 }
 
@@ -162,10 +148,9 @@ nsresult nsChannelClassifier::StartInternal() {
   NS_ENSURE_SUCCESS(rv, rv);
 
   // Don't bother checking certain types of URIs.
-  bool isAbout = false;
-  rv = uri->SchemeIs("about", &isAbout);
-  NS_ENSURE_SUCCESS(rv, rv);
-  if (isAbout) return NS_ERROR_UNEXPECTED;
+  if (uri->SchemeIs("about")) {
+    return NS_ERROR_UNEXPECTED;
+  }
 
   bool hasFlags;
   rv = NS_URIChainHasFlags(uri, nsIProtocolHandler::URI_DANGEROUS_TO_LOAD,
@@ -188,11 +173,14 @@ nsresult nsChannelClassifier::StartInternal() {
   NS_ENSURE_SUCCESS(rv, rv);
   if (hasFlags) return NS_ERROR_UNEXPECTED;
 
-  nsCString skipHostnames = CachedPrefs::GetInstance()->GetSkipHostnames();
-  if (!skipHostnames.IsEmpty()) {
-    LOG(("nsChannelClassifier[%p]:StartInternal whitelisted hostnames = %s",
-         this, skipHostnames.get()));
-    if (IsHostnameWhitelisted(uri, skipHostnames)) {
+  nsCString exceptionHostnames =
+      CachedPrefs::GetInstance()->GetExceptionHostnames();
+  if (!exceptionHostnames.IsEmpty()) {
+    UC_LOG(
+        ("nsChannelClassifier::StartInternal - entitylisted hostnames = %s "
+         "[this=%p]",
+         exceptionHostnames.get(), this));
+    if (IsHostnameEntitylisted(uri, exceptionHostnames)) {
       return NS_ERROR_UNEXPECTED;
     }
   }
@@ -215,18 +203,19 @@ nsresult nsChannelClassifier::StartInternal() {
   NS_ENSURE_SUCCESS(rv, rv);
 
   bool expectCallback;
-  if (LOG_ENABLED()) {
+  if (UC_LOG_ENABLED()) {
     nsCOMPtr<nsIURI> principalURI;
-    principal->GetURI(getter_AddRefs(principalURI));
-    nsCString spec = principalURI->GetSpecOrDefault();
+    nsCString spec;
+    principal->GetAsciiSpec(spec);
     spec.Truncate(std::min(spec.Length(), UrlClassifierCommon::sMaxSpecLength));
-    LOG(("nsChannelClassifier[%p]: Classifying principal %s on channel[%p]",
-         this, spec.get(), mChannel.get()));
+    UC_LOG(
+        ("nsChannelClassifier::StartInternal - classifying principal %s on "
+         "channel %p [this=%p]",
+         spec.get(), mChannel.get(), this));
   }
   // The classify is running in parent process, no need to give a valid event
   // target
-  rv =
-      uriClassifier->Classify(principal, nullptr, false, this, &expectCallback);
+  rv = uriClassifier->Classify(principal, nullptr, this, &expectCallback);
   if (NS_FAILED(rv)) {
     return rv;
   }
@@ -239,15 +228,21 @@ nsresult nsChannelClassifier::StartInternal() {
       // Some channels (including nsJSChannel) fail on Suspend.  This
       // shouldn't be fatal, but will prevent malware from being
       // blocked on these channels.
-      LOG_WARN(("nsChannelClassifier[%p]: Couldn't suspend channel", this));
+      UC_LOG_WARN(
+          ("nsChannelClassifier::StartInternal - couldn't suspend channel "
+           "[this=%p]",
+           this));
       return rv;
     }
 
     mSuspendedChannel = true;
-    LOG_DEBUG(("nsChannelClassifier[%p]: suspended channel %p", this,
-               mChannel.get()));
+    UC_LOG(
+        ("nsChannelClassifier::StartInternal - suspended channel %p [this=%p]",
+         mChannel.get(), this));
   } else {
-    LOG(("nsChannelClassifier[%p]: not expecting callback", this));
+    UC_LOG_WARN((
+        "nsChannelClassifier::StartInternal - not expecting callback [this=%p]",
+        this));
     return NS_ERROR_FAILURE;
   }
 
@@ -256,8 +251,8 @@ nsresult nsChannelClassifier::StartInternal() {
   return NS_OK;
 }
 
-bool nsChannelClassifier::IsHostnameWhitelisted(
-    nsIURI* aUri, const nsACString& aWhitelisted) {
+bool nsChannelClassifier::IsHostnameEntitylisted(
+    nsIURI* aUri, const nsACString& aEntitylisted) {
   nsAutoCString host;
   nsresult rv = aUri->GetHost(host);
   if (NS_FAILED(rv) || host.IsEmpty()) {
@@ -265,12 +260,14 @@ bool nsChannelClassifier::IsHostnameWhitelisted(
   }
   ToLowerCase(host);
 
-  nsCCharSeparatedTokenizer tokenizer(aWhitelisted, ',');
+  nsCCharSeparatedTokenizer tokenizer(aEntitylisted, ',');
   while (tokenizer.hasMoreTokens()) {
     const nsACString& token = tokenizer.nextToken();
     if (token.Equals(host)) {
-      LOG(("nsChannelClassifier[%p]:StartInternal skipping %s (whitelisted)",
-           this, host.get()));
+      UC_LOG(
+          ("nsChannelClassifier::StartInternal - skipping %s (entitylisted) "
+           "[this=%p]",
+           host.get(), this));
       return true;
     }
   }
@@ -285,11 +282,12 @@ void nsChannelClassifier::MarkEntryClassified(nsresult status) {
   MOZ_ASSERT(XRE_IsParentProcess());
 
   // Don't cache tracking classifications because we support allowlisting.
-  if (status == NS_ERROR_TRACKING_URI || mIsAllowListed) {
+  if (UrlClassifierFeatureFactory::IsClassifierBlockingErrorCode(status) ||
+      mIsAllowListed) {
     return;
   }
 
-  if (LOG_ENABLED()) {
+  if (UC_LOG_ENABLED()) {
     nsAutoCString errorName;
     GetErrorName(status, errorName);
     nsCOMPtr<nsIURI> uri;
@@ -297,8 +295,10 @@ void nsChannelClassifier::MarkEntryClassified(nsresult status) {
     nsAutoCString spec;
     uri->GetAsciiSpec(spec);
     spec.Truncate(std::min(spec.Length(), UrlClassifierCommon::sMaxSpecLength));
-    LOG(("nsChannelClassifier::MarkEntryClassified[%s] %s", errorName.get(),
-         spec.get()));
+    UC_LOG(
+        ("nsChannelClassifier::MarkEntryClassified - result is %s "
+         "for uri %s [this=%p, channel=%p]",
+         errorName.get(), spec.get(), this, mChannel.get()));
   }
 
   nsCOMPtr<nsICachingChannel> cachingChannel = do_QueryInterface(mChannel);
@@ -364,14 +364,15 @@ nsresult nsChannelClassifier::SendThreatHitReport(nsIChannel* aChannel,
   nsPrintfCString reportEnablePref(
       "browser.safebrowsing.provider.%s.dataSharing.enabled", provider.get());
   if (!Preferences::GetBool(reportEnablePref.get(), false)) {
-    LOG((
-        "nsChannelClassifier::SendThreatHitReport data sharing disabled for %s",
-        provider.get()));
+    UC_LOG(
+        ("nsChannelClassifier::SendThreatHitReport - data sharing disabled for "
+         "%s",
+         provider.get()));
     return NS_OK;
   }
 
   nsCOMPtr<nsIURIClassifier> uriClassifier =
-      do_GetService(NS_URLCLASSIFIERDBSERVICE_CONTRACTID);
+      components::UrlClassifierDB::Service();
   if (!uriClassifier) {
     return NS_ERROR_UNEXPECTED;
   }
@@ -390,28 +391,27 @@ nsChannelClassifier::OnClassifyComplete(nsresult aErrorCode,
                                         const nsACString& aFullHash) {
   // Should only be called in the parent process.
   MOZ_ASSERT(XRE_IsParentProcess());
-  MOZ_ASSERT(aErrorCode != NS_ERROR_TRACKING_URI);
+  MOZ_ASSERT(
+      !UrlClassifierFeatureFactory::IsClassifierBlockingErrorCode(aErrorCode));
 
   if (mSuspendedChannel) {
-    nsAutoCString errorName;
-    if (LOG_ENABLED() && NS_FAILED(aErrorCode)) {
-      GetErrorName(aErrorCode, errorName);
-      LOG(("nsChannelClassifier[%p]:OnClassifyComplete %s (suspended channel)",
-           this, errorName.get()));
-    }
     MarkEntryClassified(aErrorCode);
 
     if (NS_FAILED(aErrorCode)) {
-      if (LOG_ENABLED()) {
+      if (UC_LOG_ENABLED()) {
+        nsAutoCString errorName;
+        GetErrorName(aErrorCode, errorName);
+
         nsCOMPtr<nsIURI> uri;
         mChannel->GetURI(getter_AddRefs(uri));
         nsCString spec = uri->GetSpecOrDefault();
         spec.Truncate(
             std::min(spec.Length(), UrlClassifierCommon::sMaxSpecLength));
-        LOG(
-            ("nsChannelClassifier[%p]: cancelling channel %p for %s "
-             "with error code %s",
-             this, mChannel.get(), spec.get(), errorName.get()));
+        UC_LOG(
+            ("nsChannelClassifier::OnClassifyComplete - cancelling channel %p "
+             "for %s "
+             "with error code %s [this=%p]",
+             mChannel.get(), spec.get(), errorName.get(), this));
       }
 
       // Channel will be cancelled (page element blocked) due to Safe Browsing.
@@ -429,10 +429,10 @@ nsChannelClassifier::OnClassifyComplete(nsresult aErrorCode,
 
       mChannel->Cancel(aErrorCode);
     }
-    LOG_DEBUG(
-        ("nsChannelClassifier[%p]: resuming channel[%p] from "
-         "OnClassifyComplete",
-         this, mChannel.get()));
+    UC_LOG(
+        ("nsChannelClassifier::OnClassifyComplete - resuming channel %p "
+         "[this=%p]",
+         mChannel.get(), this));
     mChannel->Resume();
   }
 
@@ -479,8 +479,6 @@ nsChannelClassifier::Observe(nsISupports* aSubject, const char* aTopic,
 
   return NS_OK;
 }
-
-#undef LOG_ENABLED
 
 }  // namespace net
 }  // namespace mozilla

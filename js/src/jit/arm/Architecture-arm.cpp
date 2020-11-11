@@ -7,38 +7,44 @@
 #include "jit/arm/Architecture-arm.h"
 
 #if !defined(JS_SIMULATOR_ARM) && !defined(__APPLE__)
-#include <elf.h>
+#  include <elf.h>
 #endif
 
 #include <fcntl.h>
 #ifdef XP_UNIX
-#include <unistd.h>
+#  include <unistd.h>
+#endif
+
+#if defined(XP_IOS)
+#  include <libkern/OSCacheControl.h>
 #endif
 
 #include "jit/arm/Assembler-arm.h"
+#include "jit/arm/Simulator-arm.h"
+#include "jit/FlushICache.h"  // js::jit::FlushICache
 #include "jit/RegisterSets.h"
 
 #if !defined(__linux__) || defined(ANDROID) || defined(JS_SIMULATOR_ARM)
 // The Android NDK and B2G do not include the hwcap.h kernel header, and it is
 // not defined when building the simulator, so inline the header defines we
 // need.
-#define HWCAP_VFP (1 << 6)
-#define HWCAP_NEON (1 << 12)
-#define HWCAP_VFPv3 (1 << 13)
-#define HWCAP_VFPv3D16 (1 << 14) /* also set for VFPv4-D16 */
-#define HWCAP_VFPv4 (1 << 16)
-#define HWCAP_IDIVA (1 << 17)
-#define HWCAP_IDIVT (1 << 18)
-#define HWCAP_VFPD32 (1 << 19) /* set if VFP has 32 regs (not 16) */
-#define AT_HWCAP 16
+#  define HWCAP_VFP (1 << 6)
+#  define HWCAP_NEON (1 << 12)
+#  define HWCAP_VFPv3 (1 << 13)
+#  define HWCAP_VFPv3D16 (1 << 14) /* also set for VFPv4-D16 */
+#  define HWCAP_VFPv4 (1 << 16)
+#  define HWCAP_IDIVA (1 << 17)
+#  define HWCAP_IDIVT (1 << 18)
+#  define HWCAP_VFPD32 (1 << 19) /* set if VFP has 32 regs (not 16) */
+#  define AT_HWCAP 16
 #else
-#include <asm/hwcap.h>
-#if !defined(HWCAP_IDIVA)
-#define HWCAP_IDIVA (1 << 17)
-#endif
-#if !defined(HWCAP_VFPD32)
-#define HWCAP_VFPD32 (1 << 19) /* set if VFP has 32 regs (not 16) */
-#endif
+#  include <asm/hwcap.h>
+#  if !defined(HWCAP_IDIVA)
+#    define HWCAP_IDIVA (1 << 17)
+#  endif
+#  if !defined(HWCAP_VFPD32)
+#    define HWCAP_VFPD32 (1 << 19) /* set if VFP has 32 regs (not 16) */
+#  endif
 #endif
 
 namespace js {
@@ -75,6 +81,8 @@ static uint32_t ParseARMCpuFeatures(const char* features,
     size_t count = end - features;
     if (count == 3 && strncmp(features, "vfp", 3) == 0) {
       flags |= HWCAP_VFP;
+    } else if (count == 5 && strncmp(features, "vfpv2", 5) == 0) {
+      flags |= HWCAP_VFP;  // vfpv2 is the same as vfp
     } else if (count == 4 && strncmp(features, "neon", 4) == 0) {
       flags |= HWCAP_NEON;
     } else if (count == 5 && strncmp(features, "vfpv3", 5) == 0) {
@@ -116,10 +124,26 @@ static uint32_t CanonicalizeARMHwCapFlags(uint32_t flags) {
   // Canonicalize the flags. These rules are also applied to the features
   // supplied for simulation.
 
+  // VFPv3 is a subset of VFPv4, force this if the input string omits it.
+  if (flags & HWCAP_VFPv4) {
+    flags |= HWCAP_VFPv3;
+  }
+
   // The VFPv3 feature is expected when the VFPv3D16 is reported, but add it
   // just in case of a kernel difference in feature reporting.
   if (flags & HWCAP_VFPv3D16) {
     flags |= HWCAP_VFPv3;
+  }
+
+  // VFPv2 is a subset of VFPv3, force this if the input string omits it.  VFPv2
+  // is just an alias for VFP.
+  if (flags & HWCAP_VFPv3) {
+    flags |= HWCAP_VFP;
+  }
+
+  // If we have Neon we have floating point.
+  if (flags & HWCAP_NEON) {
+    flags |= HWCAP_VFP;
   }
 
   // If VFPv3 or Neon is supported then this must be an ARMv7.
@@ -129,7 +153,7 @@ static uint32_t CanonicalizeARMHwCapFlags(uint32_t flags) {
 
   // Some old kernels report VFP and not VFPv3, but if ARMv7 then it must be
   // VFPv3.
-  if (flags & HWCAP_VFP && flags & HWCAP_ARMv7) {
+  if ((flags & HWCAP_VFP) && (flags & HWCAP_ARMv7)) {
     flags |= HWCAP_VFPv3;
   }
 
@@ -141,12 +165,13 @@ static uint32_t CanonicalizeARMHwCapFlags(uint32_t flags) {
   return flags;
 }
 
-volatile bool forceDoubleCacheFlush = false;
-
-bool ForceDoubleCacheFlush() { return forceDoubleCacheFlush; }
+#if !defined(JS_SIMULATOR_ARM) && (defined(__linux__) || defined(ANDROID))
+static bool forceDoubleCacheFlush = false;
+#endif
 
 // The override flags parsed from the ARMHWCAP environment variable or from the
-// --arm-hwcap js shell argument.
+// --arm-hwcap js shell argument.  They are stable after startup: there is no
+// longer a programmatic way of setting these from JS.
 volatile uint32_t armHwCapFlags = HWCAP_UNINITIALIZED;
 
 bool ParseARMHwCapFlags(const char* armHwCap) {
@@ -212,7 +237,7 @@ void InitARMFlags() {
           HWCAP_IDIVA | HWCAP_FIXUP_FAULT;
 #else
 
-#if defined(__linux__) || defined(ANDROID)
+#  if defined(__linux__) || defined(ANDROID)
   // This includes Android and B2G.
   bool readAuxv = false;
   int fd = open("/proc/self/auxv", O_RDONLY);
@@ -261,34 +286,34 @@ void InitARMFlags() {
       forceDoubleCacheFlush = true;
     }
   }
-#endif
+#  endif
 
   // If compiled to use specialized features then these features can be
   // assumed to be present otherwise the compiler would fail to run.
 
-#ifdef JS_CODEGEN_ARM_HARDFP
+#  ifdef JS_CODEGEN_ARM_HARDFP
   // Compiled to use the hardfp ABI.
   flags |= HWCAP_USE_HARDFP_ABI;
-#endif
+#  endif
 
-#if defined(__VFP_FP__) && !defined(__SOFTFP__)
+#  if defined(__VFP_FP__) && !defined(__SOFTFP__)
   // Compiled to use VFP instructions so assume VFP support.
   flags |= HWCAP_VFP;
-#endif
+#  endif
 
-#if defined(__ARM_ARCH_7__) || defined(__ARM_ARCH_7A__)
+#  if defined(__ARM_ARCH_7__) || defined(__ARM_ARCH_7A__)
   // Compiled to use ARMv7 instructions so assume the ARMv7 arch.
   flags |= HWCAP_ARMv7;
-#endif
+#  endif
 
-#if defined(__APPLE__)
-#if defined(__ARM_NEON__)
+#  if defined(__APPLE__)
+#    if defined(__ARM_NEON__)
   flags |= HWCAP_NEON;
-#endif
-#if defined(__ARMVFPV3__)
+#    endif
+#    if defined(__ARMVFPV3__)
   flags |= HWCAP_VFPv3 | HWCAP_VFPD32
-#endif
-#endif
+#    endif
+#  endif
 
 #endif  // JS_SIMULATOR_ARM
 
@@ -392,6 +417,10 @@ FloatRegisters::Code FloatRegisters::FromName(const char* name) {
 }
 
 FloatRegisterSet VFPRegister::ReduceSetForPush(const FloatRegisterSet& s) {
+#ifdef ENABLE_WASM_SIMD
+#  error "Needs more careful logic if SIMD is enabled"
+#endif
+
   LiveFloatRegisterSet mod;
   for (FloatRegisterIterator iter(s); iter.more(); ++iter) {
     if ((*iter).isSingle()) {
@@ -410,6 +439,10 @@ FloatRegisterSet VFPRegister::ReduceSetForPush(const FloatRegisterSet& s) {
 }
 
 uint32_t VFPRegister::GetPushSizeInBytes(const FloatRegisterSet& s) {
+#ifdef ENABLE_WASM_SIMD
+#  error "Needs more careful logic if SIMD is enabled"
+#endif
+
   FloatRegisterSet ss = s.reduceSetForPush();
   uint64_t bits = ss.bits();
   uint32_t ret = mozilla::CountPopulation32(bits & 0xffffffff) * sizeof(float);
@@ -417,6 +450,10 @@ uint32_t VFPRegister::GetPushSizeInBytes(const FloatRegisterSet& s) {
   return ret;
 }
 uint32_t VFPRegister::getRegisterDumpOffsetInBytes() {
+#ifdef ENABLE_WASM_SIMD
+#  error "Needs more careful logic if SIMD is enabled"
+#endif
+
   if (isSingle()) {
     return id() * sizeof(float);
   }
@@ -431,6 +468,52 @@ uint32_t FloatRegisters::ActualTotalPhys() {
     return 32;
   }
   return 16;
+}
+
+void FlushICache(void* code, size_t size, bool codeIsThreadLocal) {
+#if defined(JS_SIMULATOR_ARM)
+  js::jit::SimulatorProcess::FlushICache(code, size);
+
+#elif (defined(__linux__) || defined(ANDROID)) && defined(__GNUC__)
+  void* end = (void*)(reinterpret_cast<char*>(code) + size);
+  asm volatile(
+      "push    {r7}\n"
+      "mov     r0, %0\n"
+      "mov     r1, %1\n"
+      "mov     r7, #0xf0000\n"
+      "add     r7, r7, #0x2\n"
+      "mov     r2, #0x0\n"
+      "svc     0x0\n"
+      "pop     {r7}\n"
+      :
+      : "r"(code), "r"(end)
+      : "r0", "r1", "r2");
+
+  if (forceDoubleCacheFlush) {
+    void* start = (void*)((uintptr_t)code + 1);
+    asm volatile(
+        "push    {r7}\n"
+        "mov     r0, %0\n"
+        "mov     r1, %1\n"
+        "mov     r7, #0xf0000\n"
+        "add     r7, r7, #0x2\n"
+        "mov     r2, #0x0\n"
+        "svc     0x0\n"
+        "pop     {r7}\n"
+        :
+        : "r"(start), "r"(end)
+        : "r0", "r1", "r2");
+  }
+
+#elif defined(__FreeBSD__) || defined(__NetBSD__)
+  __clear_cache(code, reinterpret_cast<char*>(code) + size);
+
+#elif defined(XP_IOS)
+  sys_icache_invalidate(code, size);
+
+#else
+#  error "Unexpected platform"
+#endif
 }
 
 }  // namespace jit

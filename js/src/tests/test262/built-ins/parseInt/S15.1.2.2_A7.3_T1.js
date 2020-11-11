@@ -3,8 +3,6 @@
 
 /*---
 info: Return sign * Result(17)
-es5id: 15.1.2.2_A7.3_T1
-es6id: 18.2.5
 esid: sec-parseint-string-radix
 description: Complex test. Check algorithm
 ---*/
@@ -32,9 +30,7 @@ for (var i = 2; i <= 36; i++) {
       num = num + (i + (k0 - k) - 1) * pow;
       pow = pow * i;
     }
-    if (parseInt(str, i) !== num * sign) {
-      $ERROR('#' + i + '.' + j + ' : ');
-    }
+    assert.sameValue(parseInt(str, i), num * sign, 'parseInt("str + R_digit2[k - 2], i) must return num * sign');
   }
 }
 

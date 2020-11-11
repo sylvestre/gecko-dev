@@ -49,7 +49,10 @@ function setup_osfile_crash_noerror() {
   Services.prefs.setIntPref("toolkit.asyncshutdown.crash_timeout", 1);
   Services.prefs.setBoolPref("toolkit.osfile.native", false);
 
-  OS.File.profileBeforeChange.addBlocker("Adding a blocker that will never be resolved", () => Promise.defer().promise);
+  OS.File.profileBeforeChange.addBlocker(
+    "Adding a blocker that will never be resolved",
+    () => Promise.defer().promise
+  );
   OS.File.getCurrentDirectory();
 
   Services.obs.notifyObservers(null, "profile-before-change");
@@ -80,7 +83,10 @@ function setup_osfile_crash_exn() {
   Services.prefs.setIntPref("toolkit.asyncshutdown.crash_timeout", 1);
   Services.prefs.setBoolPref("toolkit.osfile.native", false);
 
-  OS.File.profileBeforeChange.addBlocker("Adding a blocker that will never be resolved", () => Promise.defer().promise);
+  OS.File.profileBeforeChange.addBlocker(
+    "Adding a blocker that will never be resolved",
+    () => Promise.defer().promise
+  );
   OS.File.read("I do not exist");
 
   Services.obs.notifyObservers(null, "profile-before-change");
@@ -99,8 +105,8 @@ function after_osfile_crash_exn(mdump, extra) {
   Assert.equal(state.latestSent[1], "read");
 }
 
-function run_test() {
-  do_crash(setup_crash, after_crash);
-  do_crash(setup_osfile_crash_noerror, after_osfile_crash_noerror);
-  do_crash(setup_osfile_crash_exn, after_osfile_crash_exn);
-}
+add_task(async function run_test() {
+  await do_crash(setup_crash, after_crash);
+  await do_crash(setup_osfile_crash_noerror, after_osfile_crash_noerror);
+  await do_crash(setup_osfile_crash_exn, after_osfile_crash_exn);
+});

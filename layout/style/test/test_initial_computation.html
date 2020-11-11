@@ -4,7 +4,7 @@
 -->
 <head>
   <title>Test for computation of CSS 'initial' on all properties and 'unset' on reset properties</title>
-  <script type="text/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
   <script type="text/javascript" src="property_database.js"></script>
   <style type="text/css" id="stylesheet"></style>
   <style type="text/css">
@@ -140,14 +140,6 @@ function test_property(property)
       gElementN.parentNode.style.removeProperty(property);
       gElementF.parentNode.style.removeProperty(property);
     }
-
-    // FIXME -moz-binding value makes gElementF and its parent loses
-    // their frame. Force it to get recreated after each property.
-    // See bug 1331903.
-    gDisplayTree.style.display = "none";
-    get_computed_value(getComputedStyle(gElementF, ""), "width");
-    gDisplayTree.style.display = "";
-    get_computed_value(getComputedStyle(gElementF, ""), "width");
   });
 }
 

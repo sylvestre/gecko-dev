@@ -10,16 +10,17 @@
 #include "mozilla/DebugOnly.h"
 
 #include "jit/arm/Assembler-arm.h"
-#include "jit/JitFrames.h"
 #include "jit/MoveResolver.h"
+#include "vm/BigIntType.h"
 #include "vm/BytecodeUtil.h"
+#include "wasm/WasmTypes.h"
 
 namespace js {
 namespace jit {
 
 static Register CallReg = ip;
 static const int defaultShift = 3;
-JS_STATIC_ASSERT(1 << defaultShift == sizeof(JS::Value));
+static_assert(1 << defaultShift == sizeof(JS::Value));
 
 // See documentation for ScratchTagScope and ScratchTagScopeRelease in
 // MacroAssembler-x64.h.
@@ -727,11 +728,12 @@ class MacroAssemblerARMCompat : public MacroAssemblerARM {
 
   void jump(Label* label) { as_b(label); }
   void jump(JitCode* code) { branch(code); }
-  void jump(TrampolinePtr code) {
+  void jump(ImmPtr ptr) {
     ScratchRegisterScope scratch(asMasm());
-    movePtr(ImmPtr(code.value), scratch);
+    movePtr(ptr, scratch);
     ma_bx(scratch);
   }
+  void jump(TrampolinePtr code) { jump(ImmPtr(code.value)); }
   void jump(Register reg) { ma_bx(reg); }
   void jump(const Address& addr) {
     ScratchRegisterScope scratch(asMasm());
@@ -766,11 +768,13 @@ class MacroAssemblerARMCompat : public MacroAssemblerARM {
   Condition testUndefined(Condition cond, const ValueOperand& value);
   Condition testString(Condition cond, const ValueOperand& value);
   Condition testSymbol(Condition cond, const ValueOperand& value);
+  Condition testBigInt(Condition cond, const ValueOperand& value);
   Condition testObject(Condition cond, const ValueOperand& value);
   Condition testNumber(Condition cond, const ValueOperand& value);
   Condition testMagic(Condition cond, const ValueOperand& value);
 
   Condition testPrimitive(Condition cond, const ValueOperand& value);
+  Condition testGCThing(Condition cond, const ValueOperand& value);
 
   // Register-based tests.
   Condition testInt32(Condition cond, Register tag);
@@ -779,11 +783,13 @@ class MacroAssemblerARMCompat : public MacroAssemblerARM {
   Condition testUndefined(Condition cond, Register tag);
   Condition testString(Condition cond, Register tag);
   Condition testSymbol(Condition cond, Register tag);
+  Condition testBigInt(Condition cond, Register tag);
   Condition testObject(Condition cond, Register tag);
   Condition testDouble(Condition cond, Register tag);
   Condition testNumber(Condition cond, Register tag);
   Condition testMagic(Condition cond, Register tag);
   Condition testPrimitive(Condition cond, Register tag);
+  Condition testGCThing(Condition cond, Register tag);
 
   Condition testGCThing(Condition cond, const Address& address);
   Condition testMagic(Condition cond, const Address& address);
@@ -794,6 +800,7 @@ class MacroAssemblerARMCompat : public MacroAssemblerARM {
   Condition testUndefined(Condition cond, const Address& address);
   Condition testString(Condition cond, const Address& address);
   Condition testSymbol(Condition cond, const Address& address);
+  Condition testBigInt(Condition cond, const Address& address);
   Condition testObject(Condition cond, const Address& address);
   Condition testNumber(Condition cond, const Address& address);
 
@@ -802,6 +809,7 @@ class MacroAssemblerARMCompat : public MacroAssemblerARM {
   Condition testBoolean(Condition cond, const BaseIndex& src);
   Condition testString(Condition cond, const BaseIndex& src);
   Condition testSymbol(Condition cond, const BaseIndex& src);
+  Condition testBigInt(Condition cond, const BaseIndex& src);
   Condition testInt32(Condition cond, const BaseIndex& src);
   Condition testObject(Condition cond, const BaseIndex& src);
   Condition testDouble(Condition cond, const BaseIndex& src);
@@ -819,10 +827,16 @@ class MacroAssemblerARMCompat : public MacroAssemblerARM {
   void unboxInt32(const Address& src, Register dest) {
     unboxNonDouble(src, dest, JSVAL_TYPE_INT32);
   }
+  void unboxInt32(const BaseIndex& src, Register dest) {
+    unboxNonDouble(src, dest, JSVAL_TYPE_INT32);
+  }
   void unboxBoolean(const ValueOperand& src, Register dest) {
     unboxNonDouble(src, dest, JSVAL_TYPE_BOOLEAN);
   }
   void unboxBoolean(const Address& src, Register dest) {
+    unboxNonDouble(src, dest, JSVAL_TYPE_BOOLEAN);
+  }
+  void unboxBoolean(const BaseIndex& src, Register dest) {
     unboxNonDouble(src, dest, JSVAL_TYPE_BOOLEAN);
   }
   void unboxString(const ValueOperand& src, Register dest) {
@@ -837,6 +851,12 @@ class MacroAssemblerARMCompat : public MacroAssemblerARM {
   void unboxSymbol(const Address& src, Register dest) {
     unboxNonDouble(src, dest, JSVAL_TYPE_SYMBOL);
   }
+  void unboxBigInt(const ValueOperand& src, Register dest) {
+    unboxNonDouble(src, dest, JSVAL_TYPE_BIGINT);
+  }
+  void unboxBigInt(const Address& src, Register dest) {
+    unboxNonDouble(src, dest, JSVAL_TYPE_BIGINT);
+  }
   void unboxObject(const ValueOperand& src, Register dest) {
     unboxNonDouble(src, dest, JSVAL_TYPE_OBJECT);
   }
@@ -846,19 +866,35 @@ class MacroAssemblerARMCompat : public MacroAssemblerARM {
   void unboxObject(const BaseIndex& src, Register dest) {
     unboxNonDouble(src, dest, JSVAL_TYPE_OBJECT);
   }
+  void unboxObjectOrNull(const ValueOperand& src, Register dest) {
+    // Due to Spectre mitigation logic (see Value.h), if the value is an Object
+    // then this yields the object; otherwise it yields zero (null), as desired.
+    unboxNonDouble(src, dest, JSVAL_TYPE_OBJECT);
+  }
+  void unboxObjectOrNull(const Address& src, Register dest) {
+    unboxNonDouble(src, dest, JSVAL_TYPE_OBJECT);
+  }
+  void unboxObjectOrNull(const BaseIndex& src, Register dest) {
+    unboxNonDouble(src, dest, JSVAL_TYPE_OBJECT);
+  }
   void unboxDouble(const ValueOperand& src, FloatRegister dest);
   void unboxDouble(const Address& src, FloatRegister dest);
+  void unboxDouble(const BaseIndex& src, FloatRegister dest);
+
   void unboxValue(const ValueOperand& src, AnyRegister dest, JSValueType type);
-  void unboxPrivate(const ValueOperand& src, Register dest);
 
   // See comment in MacroAssembler-x64.h.
-  void unboxGCThingForPreBarrierTrampoline(const Address& src, Register dest) {
+  void unboxGCThingForGCBarrier(const Address& src, Register dest) {
     load32(ToPayload(src), dest);
   }
 
   void notBoolean(const ValueOperand& val) {
     as_eor(val.payloadReg(), val.payloadReg(), Imm8(1));
   }
+
+  template <typename T>
+  void fallibleUnboxPtrImpl(const T& src, Register dest, JSValueType type,
+                            Label* fail);
 
   // Boxing code.
   void boxDouble(FloatRegister src, const ValueOperand& dest, FloatRegister);
@@ -905,12 +941,11 @@ class MacroAssemblerARMCompat : public MacroAssemblerARM {
   Condition testBooleanTruthy(bool truthy, const ValueOperand& operand);
   Condition testDoubleTruthy(bool truthy, FloatRegister reg);
   Condition testStringTruthy(bool truthy, const ValueOperand& value);
+  Condition testBigIntTruthy(bool truthy, const ValueOperand& value);
 
   void boolValueToFloat32(const ValueOperand& operand, FloatRegister dest);
   void int32ValueToFloat32(const ValueOperand& operand, FloatRegister dest);
   void loadConstantFloat32(float f, FloatRegister dest);
-
-  CodeOffsetJump jumpWithPatch(RepatchLabel* label);
 
   void loadUnboxedValue(Address address, MIRType type, AnyRegister dest) {
     if (dest.isFloat()) {
@@ -1049,6 +1084,11 @@ class MacroAssemblerARMCompat : public MacroAssemblerARM {
     loadValue(dest.toAddress(), val);
   }
   void loadValue(const BaseIndex& addr, ValueOperand val);
+
+  // Like loadValue but guaranteed to not use LDRD or LDM instructions (these
+  // don't support unaligned accesses).
+  void loadUnalignedValue(const Address& src, ValueOperand dest);
+
   void tagValue(JSValueType type, Register payload, ValueOperand dest);
 
   void pushValue(ValueOperand val);
@@ -1074,7 +1114,7 @@ class MacroAssemblerARMCompat : public MacroAssemblerARM {
   void storeTypeTag(ImmTag tag, const Address& dest);
   void storeTypeTag(ImmTag tag, const BaseIndex& dest);
 
-  void handleFailureWithHandlerTail(void* handler, Label* profilerExitTail);
+  void handleFailureWithHandlerTail(Label* profilerExitTail);
 
   /////////////////////////////////////////////////////////////////
   // Common interface.
@@ -1100,15 +1140,44 @@ class MacroAssemblerARMCompat : public MacroAssemblerARM {
   void load16SignExtend(const Address& address, Register dest);
   void load16SignExtend(const BaseIndex& src, Register dest);
 
+  template <typename S>
+  void load16UnalignedSignExtend(const S& src, Register dest) {
+    // load16SignExtend uses |ldrsh|, which supports unaligned access.
+    load16SignExtend(src, dest);
+  }
+
   void load16ZeroExtend(const Address& address, Register dest);
   void load16ZeroExtend(const BaseIndex& src, Register dest);
+
+  template <typename S>
+  void load16UnalignedZeroExtend(const S& src, Register dest) {
+    // load16ZeroExtend uses |ldrh|, which supports unaligned access.
+    load16ZeroExtend(src, dest);
+  }
 
   void load32(const Address& address, Register dest);
   void load32(const BaseIndex& address, Register dest);
   void load32(AbsoluteAddress address, Register dest);
+
+  template <typename S>
+  void load32Unaligned(const S& src, Register dest) {
+    // load32 uses |ldr|, which supports unaligned access.
+    load32(src, dest);
+  }
+
   void load64(const Address& address, Register64 dest) {
     load32(LowWord(address), dest.low);
     load32(HighWord(address), dest.high);
+  }
+  void load64(const BaseIndex& address, Register64 dest) {
+    load32(LowWord(address), dest.low);
+    load32(HighWord(address), dest.high);
+  }
+
+  template <typename S>
+  void load64Unaligned(const S& src, Register64 dest) {
+    // load64 calls load32, which supports unaligned accesses.
+    load64(src, dest);
   }
 
   void loadPtr(const Address& address, Register dest);
@@ -1138,13 +1207,30 @@ class MacroAssemblerARMCompat : public MacroAssemblerARM {
   void store16(Register src, const BaseIndex& address);
   void store16(Imm32 imm, const BaseIndex& address);
 
+  template <typename S, typename T>
+  void store16Unaligned(const S& src, const T& dest) {
+    // store16 uses |strh|, which supports unaligned access.
+    store16(src, dest);
+  }
+
   void store32(Register src, AbsoluteAddress address);
   void store32(Register src, const Address& address);
   void store32(Register src, const BaseIndex& address);
   void store32(Imm32 src, const Address& address);
   void store32(Imm32 src, const BaseIndex& address);
 
+  template <typename S, typename T>
+  void store32Unaligned(const S& src, const T& dest) {
+    // store32 uses |str|, which supports unaligned access.
+    store32(src, dest);
+  }
+
   void store64(Register64 src, Address address) {
+    store32(src.low, LowWord(address));
+    store32(src.high, HighWord(address));
+  }
+
+  void store64(Register64 src, const BaseIndex& address) {
     store32(src.low, LowWord(address));
     store32(src.high, HighWord(address));
   }
@@ -1152,6 +1238,17 @@ class MacroAssemblerARMCompat : public MacroAssemblerARM {
   void store64(Imm64 imm, Address address) {
     store32(imm.low(), LowWord(address));
     store32(imm.hi(), HighWord(address));
+  }
+
+  void store64(Imm64 imm, const BaseIndex& address) {
+    store32(imm.low(), LowWord(address));
+    store32(imm.hi(), HighWord(address));
+  }
+
+  template <typename S, typename T>
+  void store64Unaligned(const S& src, const T& dest) {
+    // store64 calls store32, which supports unaligned access.
+    store64(src, dest);
   }
 
   void storePtr(ImmWord imm, const Address& address);
@@ -1241,8 +1338,6 @@ class MacroAssemblerARMCompat : public MacroAssemblerARM {
   bool buildOOLFakeExitFrame(void* fakeReturnAddr);
 
  public:
-  CodeOffset labelForPatch() { return CodeOffset(nextOffset().getOffset()); }
-
   void computeEffectiveAddress(const Address& address, Register dest) {
     ScratchRegisterScope scratch(asMasm());
     ma_add(address.base, Imm32(address.offset), dest, scratch, LeaveCC);

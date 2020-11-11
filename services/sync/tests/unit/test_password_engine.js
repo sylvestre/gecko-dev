@@ -1,23 +1,36 @@
-ChromeUtils.import("resource://gre/modules/FxAccountsCommon.js");
-ChromeUtils.import("resource://services-sync/engines/passwords.js");
-ChromeUtils.import("resource://services-sync/service.js");
+const { FXA_PWDMGR_HOST, FXA_PWDMGR_REALM } = ChromeUtils.import(
+  "resource://gre/modules/FxAccountsCommon.js"
+);
+const { LoginRec } = ChromeUtils.import(
+  "resource://services-sync/engines/passwords.js"
+);
+const { Service } = ChromeUtils.import("resource://services-sync/service.js");
 
 const LoginInfo = Components.Constructor(
-  "@mozilla.org/login-manager/loginInfo;1", Ci.nsILoginInfo, "init");
+  "@mozilla.org/login-manager/loginInfo;1",
+  Ci.nsILoginInfo,
+  "init"
+);
 
 const PropertyBag = Components.Constructor(
-  "@mozilla.org/hash-property-bag;1", Ci.nsIWritablePropertyBag);
+  "@mozilla.org/hash-property-bag;1",
+  Ci.nsIWritablePropertyBag
+);
 
 async function cleanup(engine, server) {
   await engine._tracker.stop();
   await engine.wipeClient();
   Svc.Prefs.resetBranch("");
   Service.recordManager.clearCache();
-  await promiseStopServer(server);
+  if (server) {
+    await promiseStopServer(server);
+  }
 }
 
 add_task(async function setup() {
-  await Service.engineManager.unregister("addons"); // To silence errors.
+  // Disable addon sync because AddonManager won't be initialized here.
+  await Service.engineManager.unregister("addons");
+  await Service.engineManager.unregister("extension-storage");
 });
 
 add_task(async function test_ignored_fields() {
@@ -30,8 +43,17 @@ add_task(async function test_ignored_fields() {
 
   enableValidationPrefs();
 
-  let login = Services.logins.addLogin(new LoginInfo("https://example.com", "",
-    null, "username", "password", "", ""));
+  let login = Services.logins.addLogin(
+    new LoginInfo(
+      "https://example.com",
+      "",
+      null,
+      "username",
+      "password",
+      "",
+      ""
+    )
+  );
   login.QueryInterface(Ci.nsILoginMetaInfo); // For `guid`.
 
   engine._tracker.start();
@@ -50,8 +72,11 @@ add_task(async function test_ignored_fields() {
     Services.logins.modifyLogin(login, syncableProps);
 
     let changes = await engine.pullNewChanges();
-    deepEqual(Object.keys(changes), [login.guid],
-      "Should track syncable fields");
+    deepEqual(
+      Object.keys(changes),
+      [login.guid],
+      "Should track syncable fields"
+    );
   } finally {
     await cleanup(engine, server);
   }
@@ -70,8 +95,17 @@ add_task(async function test_ignored_sync_credentials() {
   engine._tracker.start();
 
   try {
-    let login = Services.logins.addLogin(new LoginInfo(FXA_PWDMGR_HOST, null,
-      FXA_PWDMGR_REALM, "fxa-uid", "creds", "", ""));
+    let login = Services.logins.addLogin(
+      new LoginInfo(
+        FXA_PWDMGR_HOST,
+        null,
+        FXA_PWDMGR_REALM,
+        "fxa-uid",
+        "creds",
+        "",
+        ""
+      )
+    );
 
     let noChanges = await engine.pullNewChanges();
     deepEqual(noChanges, {}, "Should not track new FxA credentials");
@@ -101,33 +135,50 @@ add_task(async function test_password_engine() {
   _("Add new login to upload during first sync");
   let newLogin;
   {
-    let login = new LoginInfo("https://example.com", "", null, "username",
-      "password", "", "");
+    let login = new LoginInfo(
+      "https://example.com",
+      "",
+      null,
+      "username",
+      "password",
+      "",
+      ""
+    );
     Services.logins.addLogin(login);
 
-    let logins = Services.logins.findLogins({}, "https://example.com", "", "");
+    let logins = Services.logins.findLogins("https://example.com", "", "");
     equal(logins.length, 1, "Should find new login in login manager");
     newLogin = logins[0].QueryInterface(Ci.nsILoginMetaInfo);
 
     // Insert a server record that's older, so that we prefer the local one.
     let rec = new LoginRec("passwords", newLogin.guid);
-    rec.formSubmitURL = newLogin.formSubmitURL;
+    rec.formSubmitURL = newLogin.formActionOrigin;
     rec.httpRealm = newLogin.httpRealm;
-    rec.hostname = newLogin.hostname;
+    rec.hostname = newLogin.origin;
     rec.username = newLogin.username;
     rec.password = "sekrit";
     let remotePasswordChangeTime = Date.now() - 1 * 60 * 60 * 24 * 1000;
     rec.timeCreated = remotePasswordChangeTime;
     rec.timePasswordChanged = remotePasswordChangeTime;
-    collection.insert(newLogin.guid, encryptPayload(rec.cleartext),
-      remotePasswordChangeTime / 1000);
+    collection.insert(
+      newLogin.guid,
+      encryptPayload(rec.cleartext),
+      remotePasswordChangeTime / 1000
+    );
   }
 
   _("Add login with older password change time to replace during first sync");
   let oldLogin;
   {
-    let login = new LoginInfo("https://mozilla.com", "", null, "us3r",
-      "0ldpa55", "", "");
+    let login = new LoginInfo(
+      "https://mozilla.com",
+      "",
+      null,
+      "us3r",
+      "0ldpa55",
+      "",
+      ""
+    );
     Services.logins.addLogin(login);
 
     let props = new PropertyBag();
@@ -135,14 +186,14 @@ add_task(async function test_password_engine() {
     props.setProperty("timePasswordChanged", localPasswordChangeTime);
     Services.logins.modifyLogin(login, props);
 
-    let logins = Services.logins.findLogins({}, "https://mozilla.com", "", "");
+    let logins = Services.logins.findLogins("https://mozilla.com", "", "");
     equal(logins.length, 1, "Should find old login in login manager");
     oldLogin = logins[0].QueryInterface(Ci.nsILoginMetaInfo);
     equal(oldLogin.timePasswordChanged, localPasswordChangeTime);
 
     let rec = new LoginRec("passwords", oldLogin.guid);
-    rec.hostname = oldLogin.hostname;
-    rec.formSubmitURL = oldLogin.formSubmitURL;
+    rec.hostname = oldLogin.origin;
+    rec.formSubmitURL = oldLogin.formActionOrigin;
     rec.httpRealm = oldLogin.httpRealm;
     rec.username = oldLogin.username;
     // Change the password and bump the password change time to ensure we prefer
@@ -161,12 +212,18 @@ add_task(async function test_password_engine() {
     await sync_engine_and_validate_telem(engine, false);
 
     let newRec = collection.cleartext(newLogin.guid);
-    equal(newRec.password, "password",
-      "Should update remote password for newer login");
+    equal(
+      newRec.password,
+      "password",
+      "Should update remote password for newer login"
+    );
 
-    let logins = Services.logins.findLogins({}, "https://mozilla.com", "", "");
-    equal(logins[0].password, "n3wpa55",
-      "Should update local password for older login");
+    let logins = Services.logins.findLogins("https://mozilla.com", "", "");
+    equal(
+      logins[0].password,
+      "n3wpa55",
+      "Should update local password for older login"
+    );
   } finally {
     await cleanup(engine, server);
   }
@@ -193,7 +250,6 @@ add_task(async function test_password_dupe() {
     timePasswordChanged: Date.now(),
   };
 
-
   _("Create remote record with same details and guid1");
   collection.insertRecord(Object.assign({}, details, { id: guid1 }));
 
@@ -207,16 +263,206 @@ add_task(async function test_password_dupe() {
     _("Perform sync");
     await sync_engine_and_validate_telem(engine, false);
 
-    let logins = Services.logins.findLogins({}, "https://www.example.com", "", "");
+    let logins = Services.logins.findLogins("https://www.example.com", "", "");
 
     equal(logins.length, 1);
     equal(logins[0].QueryInterface(Ci.nsILoginMetaInfo).guid, guid2);
     equal(null, collection.payload(guid1));
-
   } finally {
     await cleanup(engine, server);
   }
+});
 
+add_task(async function test_updated_null_password_sync() {
+  _("Ensure updated null login username is converted to a string");
+
+  let engine = Service.engineManager.get("passwords");
+
+  let server = await serverForFoo(engine);
+  await SyncTestingInfrastructure(server);
+  let collection = server.user("foo").collection("passwords");
+
+  let guid1 = Utils.makeGUID();
+  let guid2 = Utils.makeGUID();
+  let remoteDetails = {
+    formSubmitURL: "https://www.nullupdateexample.com",
+    hostname: "https://www.nullupdateexample.com",
+    httpRealm: null,
+    username: null,
+    password: "bar",
+    usernameField: "username-field",
+    passwordField: "password-field",
+    timeCreated: Date.now(),
+    timePasswordChanged: Date.now(),
+  };
+  let localDetails = {
+    formSubmitURL: "https://www.nullupdateexample.com",
+    hostname: "https://www.nullupdateexample.com",
+    httpRealm: null,
+    username: "foo",
+    password: "foobar",
+    usernameField: "username-field",
+    passwordField: "password-field",
+    timeCreated: Date.now(),
+    timePasswordChanged: Date.now(),
+  };
+
+  _("Create remote record with same details and guid1");
+  collection.insertRecord(Object.assign({}, remoteDetails, { id: guid1 }));
+
+  try {
+    _("Create local updated login with null password");
+    await engine._store.update(Object.assign({}, localDetails, { id: guid2 }));
+
+    _("Perform sync");
+    await sync_engine_and_validate_telem(engine, false);
+
+    let logins = Services.logins.findLogins(
+      "https://www.nullupdateexample.com",
+      "",
+      ""
+    );
+
+    equal(logins.length, 1);
+    equal(logins[0].QueryInterface(Ci.nsILoginMetaInfo).guid, guid1);
+  } finally {
+    await cleanup(engine, server);
+  }
+});
+
+add_task(async function test_updated_undefined_password_sync() {
+  _("Ensure updated undefined login username is converted to a string");
+
+  let engine = Service.engineManager.get("passwords");
+
+  let server = await serverForFoo(engine);
+  await SyncTestingInfrastructure(server);
+  let collection = server.user("foo").collection("passwords");
+
+  let guid1 = Utils.makeGUID();
+  let guid2 = Utils.makeGUID();
+  let remoteDetails = {
+    formSubmitURL: "https://www.undefinedupdateexample.com",
+    hostname: "https://www.undefinedupdateexample.com",
+    httpRealm: null,
+    username: undefined,
+    password: "bar",
+    usernameField: "username-field",
+    passwordField: "password-field",
+    timeCreated: Date.now(),
+    timePasswordChanged: Date.now(),
+  };
+  let localDetails = {
+    formSubmitURL: "https://www.undefinedupdateexample.com",
+    hostname: "https://www.undefinedupdateexample.com",
+    httpRealm: null,
+    username: "foo",
+    password: "foobar",
+    usernameField: "username-field",
+    passwordField: "password-field",
+    timeCreated: Date.now(),
+    timePasswordChanged: Date.now(),
+  };
+
+  _("Create remote record with same details and guid1");
+  collection.insertRecord(Object.assign({}, remoteDetails, { id: guid1 }));
+
+  try {
+    _("Create local updated login with undefined password");
+    await engine._store.update(Object.assign({}, localDetails, { id: guid2 }));
+
+    _("Perform sync");
+    await sync_engine_and_validate_telem(engine, false);
+
+    let logins = Services.logins.findLogins(
+      "https://www.undefinedupdateexample.com",
+      "",
+      ""
+    );
+
+    equal(logins.length, 1);
+    equal(logins[0].QueryInterface(Ci.nsILoginMetaInfo).guid, guid1);
+  } finally {
+    await cleanup(engine, server);
+  }
+});
+
+add_task(async function test_new_null_password_sync() {
+  _("Ensure new null login username is converted to a string");
+
+  let engine = Service.engineManager.get("passwords");
+
+  let server = await serverForFoo(engine);
+  await SyncTestingInfrastructure(server);
+
+  let guid1 = Utils.makeGUID();
+  let details = {
+    formSubmitURL: "https://www.example.com",
+    hostname: "https://www.example.com",
+    httpRealm: null,
+    username: null,
+    password: "bar",
+    usernameField: "username-field",
+    passwordField: "password-field",
+    timeCreated: Date.now(),
+    timePasswordChanged: Date.now(),
+  };
+
+  try {
+    _("Create local login with null password");
+    await engine._store.create(Object.assign({}, details, { id: guid1 }));
+
+    _("Perform sync");
+    await sync_engine_and_validate_telem(engine, false);
+
+    let logins = Services.logins.findLogins("https://www.example.com", "", "");
+
+    equal(logins.length, 1);
+    notEqual(logins[0].QueryInterface(Ci.nsILoginMetaInfo).username, null);
+    notEqual(logins[0].QueryInterface(Ci.nsILoginMetaInfo).username, undefined);
+    equal(logins[0].QueryInterface(Ci.nsILoginMetaInfo).username, "");
+  } finally {
+    await cleanup(engine, server);
+  }
+});
+
+add_task(async function test_new_undefined_password_sync() {
+  _("Ensure new undefined login username is converted to a string");
+
+  let engine = Service.engineManager.get("passwords");
+
+  let server = await serverForFoo(engine);
+  await SyncTestingInfrastructure(server);
+
+  let guid1 = Utils.makeGUID();
+  let details = {
+    formSubmitURL: "https://www.example.com",
+    hostname: "https://www.example.com",
+    httpRealm: null,
+    username: undefined,
+    password: "bar",
+    usernameField: "username-field",
+    passwordField: "password-field",
+    timeCreated: Date.now(),
+    timePasswordChanged: Date.now(),
+  };
+
+  try {
+    _("Create local login with undefined password");
+    await engine._store.create(Object.assign({}, details, { id: guid1 }));
+
+    _("Perform sync");
+    await sync_engine_and_validate_telem(engine, false);
+
+    let logins = Services.logins.findLogins("https://www.example.com", "", "");
+
+    equal(logins.length, 1);
+    notEqual(logins[0].QueryInterface(Ci.nsILoginMetaInfo).username, null);
+    notEqual(logins[0].QueryInterface(Ci.nsILoginMetaInfo).username, undefined);
+    equal(logins[0].QueryInterface(Ci.nsILoginMetaInfo).username, "");
+  } finally {
+    await cleanup(engine, server);
+  }
 });
 
 add_task(async function test_sync_password_validation() {
@@ -234,7 +480,6 @@ add_task(async function test_sync_password_validation() {
   Svc.Prefs.set("engine.passwords.validation.enabled", true);
 
   try {
-
     let ping = await wait_for_ping(() => Service.sync());
 
     let engineInfo = ping.engines.find(e => e.name == "passwords");
@@ -242,8 +487,47 @@ add_task(async function test_sync_password_validation() {
 
     let validation = engineInfo.validation;
     ok(validation, "Engine should have validation info");
-
   } finally {
     await cleanup(engine, server);
+  }
+});
+
+add_task(async function test_migrate_metadata() {
+  _("Ensure we correctly migrate metadata from prefs to the LoginManager");
+
+  // Sadly we first need to manually reset the login manager data for this.
+  Services.logins.setSyncID(null);
+  Services.logins.setLastSync(0);
+  // And set the pref values we want to migrate from.
+  Svc.Prefs.set("passwords.syncID", "pref-value");
+  Svc.Prefs.set("passwords.lastSync", 1);
+
+  let engine = Service.engineManager.get("passwords");
+
+  try {
+    equal(await engine.getSyncID(), "pref-value");
+    equal(await engine.getLastSync(), 1);
+    // check we removed the prefs.
+    ok(!Svc.Prefs.isSet("passwords.syncID"));
+    ok(!Svc.Prefs.isSet("passwords.lastSync"));
+
+    // explicitly set them - prefs should not be touched.
+    await engine.ensureCurrentSyncID("new-value");
+    await engine.setLastSync(2);
+    equal(await engine.getSyncID(), "new-value");
+    equal(await engine.getLastSync(), 2);
+    ok(!Svc.Prefs.isSet("passwords.syncID"));
+    ok(!Svc.Prefs.isSet("passwords.lastSync"));
+
+    // Perform an engine reset.
+    await engine._resetClient();
+    // timestamp should have been reset (but syncID isn't)
+    equal(await engine.getSyncID(), "new-value");
+    equal(await engine.getLastSync(), 0);
+    // and still no prefs.
+    ok(!Svc.Prefs.isSet("passwords.syncID"));
+    ok(!Svc.Prefs.isSet("passwords.lastSync"));
+  } finally {
+    await cleanup(engine, null);
   }
 });

@@ -58,13 +58,16 @@ endif
 
 .PHONY: FORCE
 
-# Extra define to trigger some workarounds. We should strive to limit the
-# use of those. As of writing the only one is in browser/locales/jar.mn.
-ACDEFINES += -DBUILD_FASTER
-
 # Files under the faster/ sub-directory, however, are not meant to use the
 # fallback
 $(TOPOBJDIR)/faster/%: ;
+
+ifeq ($(MOZ_BUILD_APP),mobile/android)
+# The generic rule doesn't handle relative directories, which are used
+# extensively in mobile/android/base.
+$(TOPOBJDIR)/mobile/android/base/% : $(TOPOBJDIR)/buildid.h FORCE
+	$(MAKE) -C $(TOPOBJDIR)/mobile/android/base $*
+endif
 
 # Generic rule to fall back to the recursive make backend.
 # This needs to stay after other $(TOPOBJDIR)/* rules because GNU Make
@@ -84,7 +87,8 @@ $(addprefix install-,$(INSTALL_MANIFESTS)): install-%: $(addprefix $(TOPOBJDIR)/
 	@# The overhead is not that big, and this avoids waiting for proper
 	@# support for defines tracking in process_install_manifest.
 	@touch install_$(subst /,_,$*)
-	$(PYTHON) -m mozbuild.action.process_install_manifest \
+	$(PYTHON3) -m mozbuild.action.process_install_manifest \
+		$(if $(filter copy,$(NSDISTMODE)),--no-symlinks) \
 		--track install_$(subst /,_,$*).track \
 		$(TOPOBJDIR)/$* \
 		-DAB_CD=en-US \
@@ -95,4 +99,4 @@ $(addprefix install-,$(INSTALL_MANIFESTS)): install-%: $(addprefix $(TOPOBJDIR)/
 # Below is a set of additional dependencies and variables used to build things
 # that are not supported by data in moz.build.
 
-$(TOPOBJDIR)/build/application.ini: $(TOPOBJDIR)/buildid.h $(TOPOBJDIR)/source-repo.h
+$(TOPOBJDIR)/build/.deps/application.ini.stub: $(TOPOBJDIR)/buildid.h $(TOPOBJDIR)/source-repo.h

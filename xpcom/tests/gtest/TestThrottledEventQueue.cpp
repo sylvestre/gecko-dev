@@ -7,11 +7,12 @@
 #include <functional>
 #include <queue>
 #include <string>
+#include <utility>
 
 #include "MainThreadUtils.h"
+#include "gtest/gtest.h"
 #include "mozilla/Attributes.h"
 #include "mozilla/CondVar.h"
-#include "mozilla/Move.h"
 #include "mozilla/Mutex.h"
 #include "mozilla/RefPtr.h"
 #include "mozilla/ThrottledEventQueue.h"
@@ -19,13 +20,14 @@
 #include "nsError.h"
 #include "nsIRunnable.h"
 #include "nsISerialEventTarget.h"
+#include "nsThreadUtils.h"
 #include "prinrval.h"
-
-#include "gtest/gtest.h"
 
 using mozilla::CondVar;
 using mozilla::MakeRefPtr;
 using mozilla::Mutex;
+using mozilla::MutexAutoLock;
+using mozilla::ThrottledEventQueue;
 using std::function;
 using std::move;
 using std::string;
@@ -44,7 +46,7 @@ struct RunnableQueue : nsISerialEventTarget {
   bool IsEmpty() { return runnables.empty(); }
   size_t Length() { return runnables.size(); }
 
-  MOZ_MUST_USE nsresult Run() {
+  [[nodiscard]] nsresult Run() {
     while (!runnables.empty()) {
       auto runnable = move(runnables.front());
       runnables.pop();
@@ -57,15 +59,15 @@ struct RunnableQueue : nsISerialEventTarget {
 
   // nsIEventTarget methods
 
-  MOZ_MUST_USE NS_IMETHODIMP Dispatch(already_AddRefed<nsIRunnable> aRunnable,
-                                      uint32_t aFlags) override {
+  [[nodiscard]] NS_IMETHODIMP Dispatch(already_AddRefed<nsIRunnable> aRunnable,
+                                       uint32_t aFlags) override {
     MOZ_ALWAYS_TRUE(aFlags == nsIEventTarget::DISPATCH_NORMAL);
     runnables.push(aRunnable);
     return NS_OK;
   }
 
-  MOZ_MUST_USE NS_IMETHODIMP DispatchFromScript(nsIRunnable* aRunnable,
-                                                uint32_t aFlags) override {
+  [[nodiscard]] NS_IMETHODIMP DispatchFromScript(nsIRunnable* aRunnable,
+                                                 uint32_t aFlags) override {
     RefPtr<nsIRunnable> r = aRunnable;
     return Dispatch(r.forget(), aFlags);
   }
@@ -73,12 +75,12 @@ struct RunnableQueue : nsISerialEventTarget {
   NS_IMETHOD_(bool)
   IsOnCurrentThreadInfallible(void) override { return NS_IsMainThread(); }
 
-  MOZ_MUST_USE NS_IMETHOD IsOnCurrentThread(bool* retval) override {
+  [[nodiscard]] NS_IMETHOD IsOnCurrentThread(bool* retval) override {
     *retval = IsOnCurrentThreadInfallible();
     return NS_OK;
   }
 
-  MOZ_MUST_USE NS_IMETHODIMP DelayedDispatch(
+  [[nodiscard]] NS_IMETHODIMP DelayedDispatch(
       already_AddRefed<nsIRunnable> aEvent, uint32_t aDelay) override {
     return NS_ERROR_NOT_IMPLEMENTED;
   }
@@ -88,12 +90,12 @@ struct RunnableQueue : nsISerialEventTarget {
   NS_DECL_THREADSAFE_ISUPPORTS
 
  private:
-  virtual ~RunnableQueue() {}
+  virtual ~RunnableQueue() = default;
 };
 
 NS_IMPL_ISUPPORTS(RunnableQueue, nsIEventTarget, nsISerialEventTarget)
 
-void Enqueue(nsIEventTarget* target, function<void()>&& aCallable) {
+static void Enqueue(nsIEventTarget* target, function<void()>&& aCallable) {
   nsresult rv =
       target->Dispatch(NS_NewRunnableFunction("TEQ GTest", move(aCallable)));
   MOZ_ALWAYS_TRUE(NS_SUCCEEDED(rv));
@@ -103,7 +105,8 @@ void Enqueue(nsIEventTarget* target, function<void()>&& aCallable) {
 
 using namespace TestThrottledEventQueue;
 
-TEST(ThrottledEventQueue, RunnableQueue) {
+TEST(ThrottledEventQueue, RunnableQueue)
+{
   string log;
 
   RefPtr<RunnableQueue> queue = MakeRefPtr<RunnableQueue>();
@@ -116,11 +119,13 @@ TEST(ThrottledEventQueue, RunnableQueue) {
   ASSERT_EQ(log, "abc");
 }
 
-TEST(ThrottledEventQueue, SimpleDispatch) {
+TEST(ThrottledEventQueue, SimpleDispatch)
+{
   string log;
 
   auto base = MakeRefPtr<RunnableQueue>();
-  RefPtr<ThrottledEventQueue> throttled = ThrottledEventQueue::Create(base);
+  RefPtr<ThrottledEventQueue> throttled =
+      ThrottledEventQueue::Create(base, "test queue 1");
 
   Enqueue(throttled, [&]() { log += 'a'; });
   ASSERT_TRUE(NS_SUCCEEDED(base->Run()));
@@ -130,11 +135,13 @@ TEST(ThrottledEventQueue, SimpleDispatch) {
   ASSERT_TRUE(throttled->IsEmpty());
 }
 
-TEST(ThrottledEventQueue, MixedDispatch) {
+TEST(ThrottledEventQueue, MixedDispatch)
+{
   string log;
 
   auto base = MakeRefPtr<RunnableQueue>();
-  RefPtr<ThrottledEventQueue> throttled = ThrottledEventQueue::Create(base);
+  RefPtr<ThrottledEventQueue> throttled =
+      ThrottledEventQueue::Create(base, "test queue 2");
 
   // A ThrottledEventQueue limits its impact on the base target by only queuing
   // its next event on the base once the prior event has been run. What it
@@ -174,11 +181,13 @@ TEST(ThrottledEventQueue, MixedDispatch) {
   ASSERT_TRUE(throttled->IsEmpty());
 }
 
-TEST(ThrottledEventQueue, EnqueueFromRun) {
+TEST(ThrottledEventQueue, EnqueueFromRun)
+{
   string log;
 
   auto base = MakeRefPtr<RunnableQueue>();
-  RefPtr<ThrottledEventQueue> throttled = ThrottledEventQueue::Create(base);
+  RefPtr<ThrottledEventQueue> throttled =
+      ThrottledEventQueue::Create(base, "test queue 3");
 
   // When an event from the throttled queue dispatches a new event directly to
   // the base target, it is queued after the executor, so the next event from
@@ -198,11 +207,13 @@ TEST(ThrottledEventQueue, EnqueueFromRun) {
   ASSERT_TRUE(throttled->IsEmpty());
 }
 
-TEST(ThrottledEventQueue, RunFromRun) {
+TEST(ThrottledEventQueue, RunFromRun)
+{
   string log;
 
   auto base = MakeRefPtr<RunnableQueue>();
-  RefPtr<ThrottledEventQueue> throttled = ThrottledEventQueue::Create(base);
+  RefPtr<ThrottledEventQueue> throttled =
+      ThrottledEventQueue::Create(base, "test queue 4");
 
   // Running the event queue from within an event (i.e., a nested event loop)
   // does not stall the ThrottledEventQueue.
@@ -223,14 +234,16 @@ TEST(ThrottledEventQueue, RunFromRun) {
   ASSERT_TRUE(throttled->IsEmpty());
 }
 
-TEST(ThrottledEventQueue, DropWhileRunning) {
+TEST(ThrottledEventQueue, DropWhileRunning)
+{
   string log;
 
   auto base = MakeRefPtr<RunnableQueue>();
 
   // If we drop the event queue while it still has events, they still run.
   {
-    RefPtr<ThrottledEventQueue> throttled = ThrottledEventQueue::Create(base);
+    RefPtr<ThrottledEventQueue> throttled =
+        ThrottledEventQueue::Create(base, "test queue 5");
     Enqueue(throttled, [&]() { log += 'a'; });
   }
 
@@ -239,7 +252,8 @@ TEST(ThrottledEventQueue, DropWhileRunning) {
   ASSERT_EQ(log, "a");
 }
 
-TEST(ThrottledEventQueue, AwaitIdle) {
+TEST(ThrottledEventQueue, AwaitIdle)
+{
   Mutex mutex("TEQ AwaitIdle");
   CondVar cond(mutex, "TEQ AwaitIdle");
 
@@ -248,7 +262,8 @@ TEST(ThrottledEventQueue, AwaitIdle) {
   bool runnableFinished = false;  // main thread only
 
   auto base = MakeRefPtr<RunnableQueue>();
-  RefPtr<ThrottledEventQueue> throttled = ThrottledEventQueue::Create(base);
+  RefPtr<ThrottledEventQueue> throttled =
+      ThrottledEventQueue::Create(base, "test queue 6");
 
   // Put an event in the queue so the AwaitIdle might block.
   Enqueue(throttled, [&]() { runnableFinished = true; });
@@ -294,7 +309,8 @@ TEST(ThrottledEventQueue, AwaitIdle) {
   ASSERT_TRUE(NS_SUCCEEDED(thread->Shutdown()));
 }
 
-TEST(ThrottledEventQueue, AwaitIdleMixed) {
+TEST(ThrottledEventQueue, AwaitIdleMixed)
+{
   // Create a separate thread that waits for the queue to become idle, and
   // then takes observable action.
   nsCOMPtr<nsIThread> thread;
@@ -310,7 +326,8 @@ TEST(ThrottledEventQueue, AwaitIdleMixed) {
   bool threadFinished = false;
 
   auto base = MakeRefPtr<RunnableQueue>();
-  RefPtr<ThrottledEventQueue> throttled = ThrottledEventQueue::Create(base);
+  RefPtr<ThrottledEventQueue> throttled =
+      ThrottledEventQueue::Create(base, "test queue 7");
 
   Enqueue(throttled, [&]() {
     MutexAutoLock lock(mutex);
@@ -384,11 +401,13 @@ TEST(ThrottledEventQueue, AwaitIdleMixed) {
   ASSERT_TRUE(NS_SUCCEEDED(thread->Shutdown()));
 }
 
-TEST(ThrottledEventQueue, SimplePauseResume) {
+TEST(ThrottledEventQueue, SimplePauseResume)
+{
   string log;
 
   auto base = MakeRefPtr<RunnableQueue>();
-  RefPtr<ThrottledEventQueue> throttled = ThrottledEventQueue::Create(base);
+  RefPtr<ThrottledEventQueue> throttled =
+      ThrottledEventQueue::Create(base, "test queue 8");
 
   ASSERT_FALSE(throttled->IsPaused());
 
@@ -418,11 +437,13 @@ TEST(ThrottledEventQueue, SimplePauseResume) {
   ASSERT_TRUE(throttled->IsEmpty());
 }
 
-TEST(ThrottledEventQueue, MixedPauseResume) {
+TEST(ThrottledEventQueue, MixedPauseResume)
+{
   string log;
 
   auto base = MakeRefPtr<RunnableQueue>();
-  RefPtr<ThrottledEventQueue> throttled = ThrottledEventQueue::Create(base);
+  RefPtr<ThrottledEventQueue> throttled =
+      ThrottledEventQueue::Create(base, "test queue 9");
 
   ASSERT_FALSE(throttled->IsPaused());
 
@@ -457,7 +478,8 @@ TEST(ThrottledEventQueue, MixedPauseResume) {
   ASSERT_TRUE(throttled->IsEmpty());
 }
 
-TEST(ThrottledEventQueue, AwaitIdlePaused) {
+TEST(ThrottledEventQueue, AwaitIdlePaused)
+{
   Mutex mutex("AwaitIdlePaused");
   CondVar cond(mutex, "AwaitIdlePaused");
 
@@ -466,7 +488,8 @@ TEST(ThrottledEventQueue, AwaitIdlePaused) {
   bool runnableFinished = false;  // main thread only
 
   auto base = MakeRefPtr<RunnableQueue>();
-  RefPtr<ThrottledEventQueue> throttled = ThrottledEventQueue::Create(base);
+  RefPtr<ThrottledEventQueue> throttled =
+      ThrottledEventQueue::Create(base, "test queue 10");
 
   ASSERT_TRUE(NS_SUCCEEDED(throttled->SetIsPaused(true)));
 
@@ -529,11 +552,13 @@ TEST(ThrottledEventQueue, AwaitIdlePaused) {
   ASSERT_TRUE(NS_SUCCEEDED(thread->Shutdown()));
 }
 
-TEST(ThrottledEventQueue, ExecutorTransitions) {
+TEST(ThrottledEventQueue, ExecutorTransitions)
+{
   string log;
 
   auto base = MakeRefPtr<RunnableQueue>();
-  RefPtr<ThrottledEventQueue> throttled = ThrottledEventQueue::Create(base);
+  RefPtr<ThrottledEventQueue> throttled =
+      ThrottledEventQueue::Create(base, "test queue 11");
 
   ASSERT_TRUE(NS_SUCCEEDED(throttled->SetIsPaused(true)));
 

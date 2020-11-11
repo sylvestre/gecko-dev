@@ -7,6 +7,7 @@
 #define AudioSink_h__
 
 #include "AudioStream.h"
+#include "AudibilityMonitor.h"
 #include "MediaEventSource.h"
 #include "MediaInfo.h"
 #include "MediaQueue.h"
@@ -16,6 +17,7 @@
 #include "mozilla/Monitor.h"
 #include "mozilla/MozPromise.h"
 #include "mozilla/RefPtr.h"
+#include "mozilla/Result.h"
 #include "nsISupportsImpl.h"
 
 namespace mozilla {
@@ -23,18 +25,27 @@ namespace mozilla {
 class AudioConverter;
 
 class AudioSink : private AudioStream::DataSource {
-  using PlaybackParams = MediaSink::PlaybackParams;
-
  public:
+  struct PlaybackParams {
+    PlaybackParams(double aVolume, double aPlaybackRate, bool aPreservesPitch)
+        : mVolume(aVolume),
+          mPlaybackRate(aPlaybackRate),
+          mPreservesPitch(aPreservesPitch) {}
+    double mVolume;
+    double mPlaybackRate;
+    bool mPreservesPitch;
+  };
+
   AudioSink(AbstractThread* aThread, MediaQueue<AudioData>& aAudioQueue,
-            const media::TimeUnit& aStartTime, const AudioInfo& aInfo);
+            const media::TimeUnit& aStartTime, const AudioInfo& aInfo,
+            AudioDeviceInfo* aAudioDevice);
 
   ~AudioSink();
 
-  // Return a promise which will be resolved when AudioSink
-  // finishes playing, or rejected if any error.
-  nsresult Init(const PlaybackParams& aParams,
-                RefPtr<MediaSink::EndedPromise>& aEndedPromise);
+  // Start audio playback and return a promise which will be resolved when the
+  // playback finishes, or return an error result if any error occurs.
+  Result<already_AddRefed<MediaSink::EndedPromise>, nsresult> Start(
+      const PlaybackParams& aParams);
 
   /*
    * All public functions are not thread-safe.
@@ -57,7 +68,9 @@ class AudioSink : private AudioStream::DataSource {
 
   MediaEventSource<bool>& AudibleEvent() { return mAudibleEvent; }
 
-  nsCString GetDebugInfo();
+  void GetDebugInfo(dom::MediaSinkDebugInfo& aInfo);
+
+  const RefPtr<AudioDeviceInfo>& AudioDevice() { return mAudioDevice; }
 
  private:
   // Allocate and initialize mAudioStream. Returns NS_OK on success.
@@ -67,7 +80,6 @@ class AudioSink : private AudioStream::DataSource {
   // Called on the callback thread of cubeb.
   UniquePtr<AudioStream::Chunk> PopFrames(uint32_t aFrames) override;
   bool Ended() const override;
-  void Drained() override;
 
   void CheckIsAudible(const AudioData* aData);
 
@@ -86,10 +98,12 @@ class AudioSink : private AudioStream::DataSource {
 
   const AudioInfo mInfo;
 
+  // The output device this AudioSink is playing data to. The system's default
+  // device is used if this is null.
+  const RefPtr<AudioDeviceInfo> mAudioDevice;
+
   // Used on the task queue of MDSM only.
   bool mPlaying;
-
-  MozPromiseHolder<MediaSink::EndedPromise> mEndedPromise;
 
   /*
    * Members to implement AudioStream::DataSource.
@@ -112,9 +126,6 @@ class AudioSink : private AudioStream::DataSource {
   // True if there is any error in processing audio data like overflow.
   Atomic<bool> mErrored;
 
-  // Set on the callback thread of cubeb once the stream has drained.
-  Atomic<bool> mPlaybackComplete;
-
   const RefPtr<AbstractThread> mOwnerThread;
 
   // Audio Processing objects and methods
@@ -132,7 +143,7 @@ class AudioSink : private AudioStream::DataSource {
   UniquePtr<AudioConverter> mConverter;
   MediaQueue<AudioData> mProcessedQueue;
   // Length in microseconds of the ProcessedQueue
-  Atomic<int32_t> mProcessedQueueLength;
+  Atomic<uint64_t> mProcessedQueueLength;
   MediaEventListener mAudioQueueListener;
   MediaEventListener mAudioQueueFinishListener;
   MediaEventListener mProcessedQueueListener;
@@ -145,10 +156,8 @@ class AudioSink : private AudioStream::DataSource {
   // Never modifed after construction.
   uint32_t mOutputRate;
   uint32_t mOutputChannels;
-
-  // True when audio is producing audible sound, false when audio is silent.
+  AudibilityMonitor mAudibilityMonitor;
   bool mIsAudioDataAudible;
-
   MediaEventProducer<bool> mAudibleEvent;
 
   MediaQueue<AudioData>& mAudioQueue;

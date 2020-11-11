@@ -4,6 +4,7 @@
 
 #include "mozilla/Unused.h"
 #include "nsIObserver.h"
+#include "nsIPrintProgressParams.h"
 #include "PrintProgressDialogChild.h"
 
 class nsIWebProgress;
@@ -85,6 +86,13 @@ NS_IMETHODIMP
 PrintProgressDialogChild::OnSecurityChange(nsIWebProgress* aProgress,
                                            nsIRequest* aRequest,
                                            uint32_t aState) {
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+PrintProgressDialogChild::OnContentBlockingEvent(nsIWebProgress* aProgress,
+                                                 nsIRequest* aRequest,
+                                                 uint32_t aEvent) {
   return NS_OK;
 }
 

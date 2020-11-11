@@ -5,41 +5,51 @@
 from __future__ import absolute_import, print_function
 
 import types
-import urllib
+
+import six
+from six.moves.urllib.parse import quote
 
 from marionette_driver.by import By
 from marionette_harness import MarionetteTestCase
 
 
 boolean_attributes = {
-  "audio": ["autoplay", "controls", "loop", "muted"],
-  "button": ["autofocus", "disabled", "formnovalidate"],
-  "details": ["open"],
-  "dialog": ["open"],
-  "fieldset": ["disabled"],
-  "form": ["novalidate"],
-  "iframe": ["allowfullscreen"],
-  "img": ["ismap"],
-  "input": ["autofocus", "checked", "disabled", "formnovalidate", "multiple", "readonly", "required"],
-  "menuitem": ["checked", "default", "disabled"],
-  "object": ["typemustmatch"],
-  "ol": ["reversed"],
-  "optgroup": ["disabled"],
-  "option": ["disabled", "selected"],
-  "script": ["async", "defer"],
-  "select": ["autofocus", "disabled", "multiple", "required"],
-  "textarea": ["autofocus", "disabled", "readonly", "required"],
-  "track": ["default"],
-  "video": ["autoplay", "controls", "loop", "muted"],
+    "audio": ["autoplay", "controls", "loop", "muted"],
+    "button": ["autofocus", "disabled", "formnovalidate"],
+    "details": ["open"],
+    "dialog": ["open"],
+    "fieldset": ["disabled"],
+    "form": ["novalidate"],
+    "iframe": ["allowfullscreen"],
+    "img": ["ismap"],
+    "input": [
+        "autofocus",
+        "checked",
+        "disabled",
+        "formnovalidate",
+        "multiple",
+        "readonly",
+        "required",
+    ],
+    "menuitem": ["checked", "default", "disabled"],
+    "ol": ["reversed"],
+    "optgroup": ["disabled"],
+    "option": ["disabled", "selected"],
+    "script": ["async", "defer"],
+    "select": ["autofocus", "disabled", "multiple", "required"],
+    "textarea": ["autofocus", "disabled", "readonly", "required"],
+    "track": ["default"],
+    "video": ["autoplay", "controls", "loop", "muted"],
 }
 
 
 def inline(doc, doctype="html"):
     if doctype == "html":
-        return "data:text/html;charset=utf-8,{}".format(urllib.quote(doc))
+        return "data:text/html;charset=utf-8,{}".format(quote(doc))
     elif doctype == "xhtml":
-        return "data:application/xhtml+xml,{}".format(urllib.quote(
-r"""<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+        return "data:application/xhtml+xml,{}".format(
+            quote(
+                r"""<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
     "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
   <head>
@@ -49,7 +59,11 @@ r"""<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
   <body>
     {}
   </body>
-</html>""".format(doc)))
+</html>""".format(
+                    doc
+                )
+            )
+        )
 
 
 attribute = inline("<input foo=bar>")
@@ -83,25 +97,25 @@ class TestGetElementAttribute(MarionetteTestCase):
         self.marionette.navigate(inline("<p style=foo>"))
         el = self.marionette.find_element(By.TAG_NAME, "p")
         attr = el.get_attribute("style")
-        self.assertIsInstance(attr, types.StringTypes)
+        self.assertIsInstance(attr, six.string_types)
         self.assertEqual("foo", attr)
 
     def test_boolean_attributes(self):
-        for tag, attrs in boolean_attributes.iteritems():
+        for tag, attrs in six.iteritems(boolean_attributes):
             for attr in attrs:
                 print("testing boolean attribute <{0} {1}>".format(tag, attr))
                 doc = inline("<{0} {1}>".format(tag, attr))
                 self.marionette.navigate(doc)
                 el = self.marionette.find_element(By.TAG_NAME, tag)
                 res = el.get_attribute(attr)
-                self.assertIsInstance(res, types.StringTypes)
+                self.assertIsInstance(res, six.string_types)
                 self.assertEqual("true", res)
 
     def test_global_boolean_attributes(self):
         self.marionette.navigate(inline("<p hidden>foo"))
         el = self.marionette.find_element(By.TAG_NAME, "p")
         attr = el.get_attribute("hidden")
-        self.assertIsInstance(attr, types.StringTypes)
+        self.assertIsInstance(attr, six.string_types)
         self.assertEqual("true", attr)
 
         self.marionette.navigate(inline("<p>foo"))
@@ -112,7 +126,7 @@ class TestGetElementAttribute(MarionetteTestCase):
         self.marionette.navigate(inline("<p itemscope>foo"))
         el = self.marionette.find_element(By.TAG_NAME, "p")
         attr = el.get_attribute("itemscope")
-        self.assertIsInstance(attr, types.StringTypes)
+        self.assertIsInstance(attr, six.string_types)
         self.assertEqual("true", attr)
 
         self.marionette.navigate(inline("<p>foo"))
@@ -123,11 +137,11 @@ class TestGetElementAttribute(MarionetteTestCase):
     # TODO(ato): Test for custom elements
 
     def test_xhtml(self):
-        doc = inline("<p hidden=\"true\">foo</p>", doctype="xhtml")
+        doc = inline('<p hidden="true">foo</p>', doctype="xhtml")
         self.marionette.navigate(doc)
         el = self.marionette.find_element(By.TAG_NAME, "p")
         attr = el.get_attribute("hidden")
-        self.assertIsInstance(attr, types.StringTypes)
+        self.assertIsInstance(attr, six.string_types)
         self.assertEqual("true", attr)
 
 

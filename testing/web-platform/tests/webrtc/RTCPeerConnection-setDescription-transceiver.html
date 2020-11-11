@@ -238,6 +238,25 @@
     });
   }, 'setRemoteDescription(rollback) should remove newly created transceiver from transceiver list');
 
+  promise_test(async t => {
+    const pc1 = new RTCPeerConnection();
+    t.add_cleanup(() => pc1.close());
+    const pc2 = new RTCPeerConnection();
+    t.add_cleanup(() => pc2.close());
+
+    pc1.addTransceiver('audio');
+    const offer = await pc1.createOffer();
+    await pc1.setLocalDescription(offer);
+
+    await pc2.setRemoteDescription(offer);
+    pc2.getTransceivers()[0].stop();
+    const answer = await pc2.createAnswer();
+
+    await pc1.setRemoteDescription(answer);
+
+    assert_equals(pc1.getTransceivers()[0].currentDirection, 'inactive', 'A stopped m-line should give an inactive transceiver');
+  }, 'setRemoteDescription should set transceiver inactive if its corresponding m section is rejected');
+
   /*
     TODO
       - Steps for transceiver direction is added to tip of tree draft, but not yet

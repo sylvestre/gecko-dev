@@ -9,8 +9,8 @@
 
 // We intentionally shadow non-virtual methods, but gcc gets confused.
 #ifdef __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Woverloaded-virtual"
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Woverloaded-virtual"
 #endif
 
 #include <stdint.h>
@@ -86,6 +86,8 @@ class Exception : public nsIException, public nsWrapperCache {
 
   void GetFilename(JSContext* aCx, nsAString& aFilename);
 
+  uint32_t SourceId(JSContext* aCx) const;
+
   uint32_t LineNumber(JSContext* aCx) const;
 
   uint32_t ColumnNumber() const;
@@ -135,7 +137,8 @@ NS_DEFINE_STATIC_IID_ACCESSOR(Exception, MOZILLA_EXCEPTION_IID)
 class DOMException : public Exception {
  public:
   DOMException(nsresult aRv, const nsACString& aMessage,
-               const nsACString& aName, uint16_t aCode);
+               const nsACString& aName, uint16_t aCode,
+               nsIStackFrame* aLocation = nullptr);
 
   NS_INLINE_DECL_REFCOUNTING_INHERITED(DOMException, Exception)
 
@@ -145,7 +148,7 @@ class DOMException : public Exception {
 
   static already_AddRefed<DOMException> Constructor(
       GlobalObject& /* unused */, const nsAString& aMessage,
-      const Optional<nsAString>& aName, ErrorResult& aError);
+      const Optional<nsAString>& aName);
 
   uint16_t Code() const { return mCode; }
 
@@ -168,7 +171,7 @@ class DOMException : public Exception {
                                                const nsACString& aMessage);
 
  protected:
-  virtual ~DOMException() {}
+  virtual ~DOMException() = default;
 
   uint16_t mCode;
 };
@@ -177,7 +180,7 @@ class DOMException : public Exception {
 }  // namespace mozilla
 
 #ifdef __GNUC__
-#pragma GCC diagnostic pop
+#  pragma GCC diagnostic pop
 #endif
 
 #endif

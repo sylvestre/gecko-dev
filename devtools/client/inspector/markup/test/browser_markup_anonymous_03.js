@@ -1,4 +1,3 @@
-/* vim: set ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
 http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -10,7 +9,7 @@ http://creativecommons.org/publicdomain/zero/1.0/ */
 const TEST_URL = URL_ROOT + "doc_markup_anonymous.html";
 
 add_task(async function() {
-  const {inspector} = await openInspectorForURL(TEST_URL);
+  const { inspector } = await openInspectorForURL(TEST_URL);
 
   const shadowHostFront = await getNodeFront("#shadow", inspector.markup);
   is(shadowHostFront.numChildren, 3, "Children of the shadow host are correct");
@@ -34,9 +33,9 @@ add_task(async function() {
 
   info("Checking the <h3> shadow element");
   const shadowChild1 = children.nodes[0];
-  await isEditingMenuDisabled(shadowChild1, inspector);
+  await isEditingMenuEnabled(shadowChild1, inspector);
 
   info("Checking the <select> shadow element");
   const shadowChild2 = children.nodes[1];
-  await isEditingMenuDisabled(shadowChild2, inspector);
+  await isEditingMenuEnabled(shadowChild2, inspector);
 });

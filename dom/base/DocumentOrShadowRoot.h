@@ -8,29 +8,36 @@
 #define mozilla_dom_DocumentOrShadowRoot_h__
 
 #include "mozilla/dom/NameSpaceConstants.h"
+#include "mozilla/IdentifierMapEntry.h"
+#include "mozilla/RelativeTo.h"
 #include "nsClassHashtable.h"
 #include "nsContentListDeclarations.h"
 #include "nsTArray.h"
-#include "nsIdentifierMapEntry.h"
 
 class nsContentList;
 class nsCycleCollectionTraversalCallback;
-class nsIDocument;
 class nsINode;
+class nsINodeList;
 class nsIRadioVisitor;
 class nsWindowSizes;
 
 namespace mozilla {
+class ErrorResult;
 class StyleSheet;
+class ErrorResult;
 
 namespace dom {
 
+class Animation;
 class Element;
+class Document;
 class DocumentOrShadowRoot;
 class HTMLInputElement;
 struct nsRadioGroupStruct;
 class StyleSheetList;
 class ShadowRoot;
+template <typename T>
+class Sequence;
 
 /**
  * A class meant to be shared by ShadowRoot and Document, that holds a list of
@@ -46,17 +53,20 @@ class DocumentOrShadowRoot {
   };
 
  public:
-  explicit DocumentOrShadowRoot(nsIDocument&);
-  explicit DocumentOrShadowRoot(mozilla::dom::ShadowRoot&);
+  // These should always be non-null, but can't use a reference because
+  // dereferencing `this` on initializer lists is UB, apparently, see
+  // bug 1596499.
+  explicit DocumentOrShadowRoot(Document*);
+  explicit DocumentOrShadowRoot(ShadowRoot*);
 
   // Unusual argument naming is because of cycle collection macros.
   static void Traverse(DocumentOrShadowRoot* tmp,
                        nsCycleCollectionTraversalCallback& cb);
   static void Unlink(DocumentOrShadowRoot* tmp);
 
-  nsINode& AsNode() { return mAsNode; }
+  nsINode& AsNode() { return *mAsNode; }
 
-  const nsINode& AsNode() const { return mAsNode; }
+  const nsINode& AsNode() const { return *mAsNode; }
 
   StyleSheet* SheetAt(size_t aIndex) const {
     return mStyleSheets.SafeElementAt(aIndex);
@@ -64,11 +74,22 @@ class DocumentOrShadowRoot {
 
   size_t SheetCount() const { return mStyleSheets.Length(); }
 
-  int32_t IndexOfSheet(const StyleSheet& aSheet) const {
-    return mStyleSheets.IndexOf(&aSheet);
-  }
+  size_t AdoptedSheetCount() const { return mAdoptedStyleSheets.Length(); }
 
-  StyleSheetList& EnsureDOMStyleSheets();
+  /**
+   * Returns an index for the sheet in relative style order.
+   * If there are non-applicable sheets, then this index may
+   * not match 1:1 with the sheet's actual index in the style set.
+   *
+   * Handles sheets from both mStyleSheets and mAdoptedStyleSheets
+   */
+  int32_t StyleOrderIndexOfSheet(const StyleSheet& aSheet) const;
+
+  StyleSheetList* StyleSheets();
+
+  void GetAdoptedStyleSheets(nsTArray<RefPtr<StyleSheet>>&) const;
+
+  void RemoveStyleSheet(StyleSheet&);
 
   Element* GetElementById(const nsAString& aElementId);
 
@@ -102,8 +123,10 @@ class DocumentOrShadowRoot {
   Element* GetFullscreenElement();
 
   Element* ElementFromPoint(float aX, float aY);
-  void ElementsFromPoint(float aX, float aY,
-                         nsTArray<RefPtr<mozilla::dom::Element>>& aElements);
+  nsINode* NodeFromPoint(float aX, float aY);
+
+  void ElementsFromPoint(float aX, float aY, nsTArray<RefPtr<Element>>&);
+  void NodesFromPoint(float aX, float aY, nsTArray<RefPtr<nsINode>>&);
 
   /**
    * Helper for elementFromPoint implementation that allows
@@ -113,16 +136,13 @@ class DocumentOrShadowRoot {
    */
   Element* ElementFromPointHelper(float aX, float aY,
                                   bool aIgnoreRootScrollFrame,
-                                  bool aFlushLayout);
-  enum ElementsFromPointFlags {
-    IGNORE_ROOT_SCROLL_FRAME = 1,
-    FLUSH_LAYOUT = 2,
-    IS_ELEMENT_FROM_POINT = 4
-  };
+                                  bool aFlushLayout,
+                                  ViewportType aViewportType);
 
-  void ElementsFromPointHelper(
-      float aX, float aY, uint32_t aFlags,
-      nsTArray<RefPtr<mozilla::dom::Element>>& aElements);
+  void NodesFromRect(float aX, float aY, float aTopSize, float aRightSize,
+                     float aBottomSize, float aLeftSize,
+                     bool aIgnoreRootScrollFrame, bool aFlushLayout,
+                     bool aOnlyVisible, nsTArray<RefPtr<nsINode>>&);
 
   /**
    * This gets fired when the element that an id refers to changes.
@@ -180,6 +200,10 @@ class DocumentOrShadowRoot {
 
   void ReportEmptyGetElementByIdArg();
 
+  // Web Animations
+  MOZ_CAN_RUN_SCRIPT
+  void GetAnimations(nsTArray<RefPtr<Animation>>& aAnimations);
+
   // nsIRadioGroupContainer
   NS_IMETHOD WalkRadioGroup(const nsAString& aName, nsIRadioVisitor* aVisitor,
                             bool aFlushContent);
@@ -199,16 +223,50 @@ class DocumentOrShadowRoot {
   nsRadioGroupStruct* GetRadioGroup(const nsAString& aName) const;
   nsRadioGroupStruct* GetOrCreateRadioGroup(const nsAString& aName);
 
+  nsIContent* Retarget(nsIContent* aContent) const;
+
+  void SetAdoptedStyleSheets(
+      const Sequence<OwningNonNull<StyleSheet>>& aAdoptedStyleSheets,
+      ErrorResult& aRv);
+
+  // This is needed because ServoStyleSet / ServoAuthorData don't deal with
+  // duplicate stylesheets (and it's unclear we'd want to support that as it'd
+  // be a bunch of duplicate work), while adopted stylesheets do need to deal
+  // with them.
+  template <typename Callback>
+  void EnumerateUniqueAdoptedStyleSheetsBackToFront(Callback aCallback) {
+    StyleSheetSet set(mAdoptedStyleSheets.Length());
+    for (StyleSheet* sheet : Reversed(mAdoptedStyleSheets)) {
+      if (MOZ_UNLIKELY(!set.EnsureInserted(sheet))) {
+        continue;
+      }
+      aCallback(*sheet);
+    }
+  }
+
  protected:
-  // Returns the reference to the sheet, if found in mStyleSheets.
-  already_AddRefed<StyleSheet> RemoveSheet(StyleSheet& aSheet);
+  // Cycle collection helper functions
+  void TraverseSheetRefInStylesIfApplicable(
+      StyleSheet&, nsCycleCollectionTraversalCallback&);
+  void TraverseStyleSheets(nsTArray<RefPtr<StyleSheet>>&, const char*,
+                           nsCycleCollectionTraversalCallback&);
+  void UnlinkStyleSheets(nsTArray<RefPtr<StyleSheet>>&);
+
+  using StyleSheetSet = nsTHashtable<nsPtrHashKey<const StyleSheet>>;
+  void RemoveSheetFromStylesIfApplicable(StyleSheet&);
+  void ClearAdoptedStyleSheets();
+
+  /**
+   * Clone's the argument's adopted style sheets into this.
+   * This should only be used when cloning a static document for printing.
+   */
+  void CloneAdoptedSheetsFrom(const DocumentOrShadowRoot&);
+
   void InsertSheetAt(size_t aIndex, StyleSheet& aSheet);
 
   void AddSizeOfExcludingThis(nsWindowSizes&) const;
   void AddSizeOfOwnedSheetArrayExcludingThis(
       nsWindowSizes&, const nsTArray<RefPtr<StyleSheet>>&) const;
-
-  nsIContent* Retarget(nsIContent* aContent) const;
 
   /**
    * If focused element's subtree root is this document or shadow root, return
@@ -217,8 +275,14 @@ class DocumentOrShadowRoot {
    */
   Element* GetRetargetedFocusedElement();
 
-  nsTArray<RefPtr<mozilla::StyleSheet>> mStyleSheets;
-  RefPtr<mozilla::dom::StyleSheetList> mDOMStyleSheets;
+  nsTArray<RefPtr<StyleSheet>> mStyleSheets;
+  RefPtr<StyleSheetList> mDOMStyleSheets;
+
+  /**
+   * Style sheets that are adopted by assinging to the `adoptedStyleSheets`
+   * WebIDL atribute. These can only be constructed stylesheets.
+   */
+  nsTArray<RefPtr<StyleSheet>> mAdoptedStyleSheets;
 
   /*
    * mIdentifierMap works as follows for IDs:
@@ -228,11 +292,13 @@ class DocumentOrShadowRoot {
    * 3) Additions to the DOM always update existing entries for names, and add
    *    new ones for IDs.
    */
-  nsTHashtable<nsIdentifierMapEntry> mIdentifierMap;
+  nsTHashtable<IdentifierMapEntry> mIdentifierMap;
 
   nsClassHashtable<nsStringHashKey, nsRadioGroupStruct> mRadioGroups;
 
-  nsINode& mAsNode;
+  // Always non-null, see comment in the constructor as to why a pointer instead
+  // of a reference.
+  nsINode* mAsNode;
   const Kind mKind;
 };
 
@@ -242,7 +308,7 @@ inline const nsTArray<Element*>* DocumentOrShadowRoot::GetAllElementsForId(
     return nullptr;
   }
 
-  nsIdentifierMapEntry* entry = mIdentifierMap.GetEntry(aElementId);
+  IdentifierMapEntry* entry = mIdentifierMap.GetEntry(aElementId);
   return entry ? &entry->GetIdElements() : nullptr;
 }
 

@@ -5,7 +5,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "PluginMessageUtils.h"
-#include "nsIRunnable.h"
 #include "nsThreadUtils.h"
 
 #include "PluginInstanceParent.h"
@@ -41,8 +40,7 @@ DeferNPObjectReleaseRunnable::Run() {
 
 }  // namespace
 
-namespace mozilla {
-namespace plugins {
+namespace mozilla::plugins {
 
 NPRemoteWindow::NPRemoteWindow()
     : window(0),
@@ -140,5 +138,4 @@ void DeferNPVariantLastRelease(const NPNetscapeFuncs* f, NPVariant* v) {
   VOID_TO_NPVARIANT(*v);
 }
 
-}  // namespace plugins
-}  // namespace mozilla
+}  // namespace mozilla::plugins

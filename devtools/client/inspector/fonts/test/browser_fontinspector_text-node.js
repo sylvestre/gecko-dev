@@ -1,4 +1,3 @@
-/* vim: set ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
    http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -16,6 +15,7 @@ add_task(async function() {
   const bodyNode = await getNodeFront("body", inspector);
   const { nodes } = await inspector.walker.children(bodyNode);
   const onInspectorUpdated = inspector.once("fontinspector-updated");
+  info("Select the text node");
   await selectNode(nodes[0], inspector);
 
   info("Waiting for font editor to render");
@@ -27,5 +27,9 @@ add_task(async function() {
   await selectNode("body", inspector);
 
   const parentFonts = getUsedFontsEls(viewDoc);
-  is(textFonts.length, parentFonts.length, "Font inspector shows same number of fonts");
+  is(
+    textFonts.length,
+    parentFonts.length,
+    "Font inspector shows same number of fonts"
+  );
 });

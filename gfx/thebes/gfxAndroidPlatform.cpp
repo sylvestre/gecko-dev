@@ -8,10 +8,15 @@
 
 #include "gfxAndroidPlatform.h"
 #include "mozilla/gfx/2D.h"
+#include "mozilla/gfx/gfxVars.h"
 #include "mozilla/CountingAllocatorBase.h"
 #include "mozilla/intl/LocaleService.h"
 #include "mozilla/intl/OSPreferences.h"
+#include "mozilla/jni/Utils.h"
+#include "mozilla/layers/AndroidHardwareBuffer.h"
 #include "mozilla/Preferences.h"
+#include "mozilla/StaticPrefs_gfx.h"
+#include "mozilla/StaticPrefs_webgl.h"
 
 #include "gfx2DGlue.h"
 #include "gfxFT2FontList.h"
@@ -19,10 +24,8 @@
 #include "gfxTextRun.h"
 #include "nsXULAppAPI.h"
 #include "nsIScreen.h"
-#include "nsIScreenManager.h"
 #include "nsServiceManagerUtils.h"
 #include "nsUnicodeProperties.h"
-#include "gfxPrefs.h"
 #include "cairo.h"
 #include "VsyncSource.h"
 
@@ -30,7 +33,7 @@
 #include FT_FREETYPE_H
 #include FT_MODULE_H
 
-#include "GeneratedJNINatives.h"
+#include "mozilla/java/VsyncSourceNatives.h"
 
 using namespace mozilla;
 using namespace mozilla::dom;
@@ -93,7 +96,7 @@ gfxAndroidPlatform::gfxAndroidPlatform() {
   mOffscreenFormat = GetScreenDepth() == 16 ? SurfaceFormat::R5G6B5_UINT16
                                             : SurfaceFormat::X8R8G8B8_UINT32;
 
-  if (gfxPrefs::AndroidRGB16Force()) {
+  if (StaticPrefs::gfx_android_rgb16_force_AtStartup()) {
     mOffscreenFormat = SurfaceFormat::R5G6B5_UINT16;
   }
 }
@@ -101,6 +104,25 @@ gfxAndroidPlatform::gfxAndroidPlatform() {
 gfxAndroidPlatform::~gfxAndroidPlatform() {
   FT_Done_Library(gPlatformFTLibrary);
   gPlatformFTLibrary = nullptr;
+  layers::AndroidHardwareBufferManager::Shutdown();
+  layers::AndroidHardwareBufferApi::Shutdown();
+}
+
+void gfxAndroidPlatform::InitAcceleration() {
+  gfxPlatform::InitAcceleration();
+  if (XRE_IsParentProcess() && jni::GetAPIVersion() >= 26) {
+    if (StaticPrefs::gfx_use_ahardwarebuffer_content_AtStartup()) {
+      gfxVars::SetUseAHardwareBufferContent(true);
+    }
+    if (StaticPrefs::webgl_enable_ahardwarebuffer()) {
+      gfxVars::SetUseAHardwareBufferSharedSurface(true);
+    }
+  }
+  if (gfx::gfxVars::UseAHardwareBufferContent() ||
+      gfxVars::UseAHardwareBufferSharedSurface()) {
+    layers::AndroidHardwareBufferApi::Init();
+    layers::AndroidHardwareBufferManager::Init();
+  }
 }
 
 already_AddRefed<gfxASurface> gfxAndroidPlatform::CreateOffscreenSurface(
@@ -123,7 +145,7 @@ static bool IsJapaneseLocale() {
     sInitialized = true;
 
     nsAutoCString appLocale;
-    LocaleService::GetInstance()->GetAppLocaleAsLangTag(appLocale);
+    LocaleService::GetInstance()->GetAppLocaleAsBCP47(appLocale);
 
     const nsDependentCSubstring lang(appLocale, 0, 2);
     if (lang.EqualsLiteral("ja")) {
@@ -142,21 +164,15 @@ static bool IsJapaneseLocale() {
 }
 
 void gfxAndroidPlatform::GetCommonFallbackFonts(
-    uint32_t aCh, uint32_t aNextCh, Script aRunScript,
+    uint32_t aCh, Script aRunScript, eFontPresentation aPresentation,
     nsTArray<const char*>& aFontList) {
   static const char kDroidSansJapanese[] = "Droid Sans Japanese";
   static const char kMotoyaLMaru[] = "MotoyaLMaru";
   static const char kNotoSansCJKJP[] = "Noto Sans CJK JP";
   static const char kNotoColorEmoji[] = "Noto Color Emoji";
 
-  EmojiPresentation emoji = GetEmojiPresentation(aCh);
-  if (emoji != EmojiPresentation::TextOnly) {
-    if (aNextCh == kVariationSelector16 ||
-        (aNextCh != kVariationSelector15 &&
-         emoji == EmojiPresentation::EmojiDefault)) {
-      // if char is followed by VS16, try for a color emoji glyph
-      aFontList.AppendElement(kNotoColorEmoji);
-    }
+  if (PrefersColor(aPresentation)) {
+    aFontList.AppendElement(kNotoColorEmoji);
   }
 
   if (IS_IN_BMP(aCh)) {
@@ -165,10 +181,13 @@ void gfxAndroidPlatform::GetCommonFallbackFonts(
     uint8_t block = (aCh >> 8) & 0xff;
     switch (block) {
       case 0x05:
+        aFontList.AppendElement("Noto Sans Hebrew");
         aFontList.AppendElement("Droid Sans Hebrew");
+        aFontList.AppendElement("Noto Sans Armenian");
         aFontList.AppendElement("Droid Sans Armenian");
         break;
       case 0x06:
+        aFontList.AppendElement("Noto Sans Arabic");
         aFontList.AppendElement("Droid Sans Arabic");
         break;
       case 0x09:
@@ -185,11 +204,21 @@ void gfxAndroidPlatform::GetCommonFallbackFonts(
         break;
       case 0x10:
       case 0x2d:
+        aFontList.AppendElement("Noto Sans Georgian");
         aFontList.AppendElement("Droid Sans Georgian");
         break;
       case 0x12:
       case 0x13:
+        aFontList.AppendElement("Noto Sans Ethiopic");
         aFontList.AppendElement("Droid Sans Ethiopic");
+        break;
+      case 0x21:
+      case 0x23:
+      case 0x24:
+      case 0x26:
+      case 0x27:
+      case 0x29:
+        aFontList.AppendElement("Noto Sans Symbols");
         break;
       case 0xf9:
       case 0xfa:
@@ -212,11 +241,6 @@ void gfxAndroidPlatform::GetCommonFallbackFonts(
   aFontList.AppendElement("Droid Sans Fallback");
 }
 
-void gfxAndroidPlatform::GetSystemFontList(
-    InfallibleTArray<FontListEntry>* retValue) {
-  gfxFT2FontList::PlatformFontList()->GetSystemFontList(retValue);
-}
-
 gfxPlatformFontList* gfxAndroidPlatform::CreatePlatformFontList() {
   gfxPlatformFontList* list = new gfxFT2FontList();
   if (NS_SUCCEEDED(list->InitFontList())) {
@@ -226,15 +250,10 @@ gfxPlatformFontList* gfxAndroidPlatform::CreatePlatformFontList() {
   return nullptr;
 }
 
-gfxFontGroup* gfxAndroidPlatform::CreateFontGroup(
-    const FontFamilyList& aFontFamilyList, const gfxFontStyle* aStyle,
-    gfxTextPerfMetrics* aTextPerf, gfxUserFontSet* aUserFontSet,
-    gfxFloat aDevToCssSize) {
-  return new gfxFontGroup(aFontFamilyList, aStyle, aTextPerf, aUserFontSet,
-                          aDevToCssSize);
+void gfxAndroidPlatform::ReadSystemFontList(
+    nsTArray<SystemFontListEntry>* aFontList) {
+  gfxFT2FontList::PlatformFontList()->ReadSystemFontList(aFontList);
 }
-
-FT_Library gfxAndroidPlatform::GetFTLibrary() { return gPlatformFTLibrary; }
 
 bool gfxAndroidPlatform::FontHintingEnabled() {
   // In "mobile" builds, we sometimes use non-reflow-zoom, so we
@@ -279,8 +298,20 @@ class AndroidVsyncSource final : public VsyncSource {
     using Base = java::VsyncSource::Natives<JavaVsyncSupport>;
     using Base::DisposeNative;
 
-    static void NotifyVsync() {
-      GetDisplayInstance().NotifyVsync(TimeStamp::Now());
+    static void NotifyVsync(int64_t aFrameTimeNanos) {
+      // Convert aFrameTimeNanos to a TimeStamp. The value converts trivially to
+      // the internal ticks representation of TimeStamp_posix; both use the
+      // monotonic clock and are in nanoseconds.
+      TimeStamp nativeTime = TimeStamp::FromSystemTime(aFrameTimeNanos);
+
+      // Use the timebase from the frame callback as the vsync time, unless it
+      // is in the future.
+      TimeStamp now = TimeStamp::Now();
+      TimeStamp vsyncTime = nativeTime < now ? nativeTime : now;
+
+      Display& display = GetDisplayInstance();
+      TimeStamp outputTime = vsyncTime + display.GetVsyncRate();
+      display.NotifyVsync(vsyncTime, outputTime);
     }
   };
 
@@ -289,6 +320,9 @@ class AndroidVsyncSource final : public VsyncSource {
     Display()
         : mJavaVsync(java::VsyncSource::INSTANCE()), mObservingVsync(false) {
       JavaVsyncSupport::Init();  // To register native methods.
+
+      float fps = mJavaVsync->GetRefreshRate();
+      mVsyncDuration = TimeDuration::FromMilliseconds(1000.0 / fps);
     }
 
     ~Display() { DisableVsync(); }
@@ -307,12 +341,7 @@ class AndroidVsyncSource final : public VsyncSource {
       if (mObservingVsync) {
         return;
       }
-      bool ok = mJavaVsync->ObserveVsync(true);
-      if (ok && !mVsyncDuration) {
-        float fps = mJavaVsync->GetRefreshRate();
-        mVsyncDuration = TimeDuration::FromMilliseconds(1000.0 / fps);
-      }
-      mObservingVsync = ok;
+      mObservingVsync = mJavaVsync->ObserveVsync(true);
       MOZ_ASSERT(mObservingVsync);
     }
 
@@ -343,11 +372,11 @@ class AndroidVsyncSource final : public VsyncSource {
   Display& GetGlobalDisplay() final { return GetDisplayInstance(); }
 
  private:
-  virtual ~AndroidVsyncSource() {}
+  virtual ~AndroidVsyncSource() = default;
 
   static Display& GetDisplayInstance() {
-    static Display globalDisplay;
-    return globalDisplay;
+    static RefPtr<Display> globalDisplay = new Display();
+    return *globalDisplay;
   }
 };
 

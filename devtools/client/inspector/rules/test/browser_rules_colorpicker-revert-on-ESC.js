@@ -1,4 +1,3 @@
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -17,22 +16,33 @@ const TEST_URI = `
 
 add_task(async function() {
   await addTab("data:text/html;charset=utf-8," + encodeURIComponent(TEST_URI));
-  const {view} = await openRuleView();
+  const { view } = await openRuleView();
   await testPressingEscapeRevertsChanges(view);
 });
 
 async function testPressingEscapeRevertsChanges(view) {
-  const {swatch, propEditor, cPicker} = await openColorPickerAndSelectColor(view,
-    1, 0, [0, 0, 0, 1], {
+  const { swatch, propEditor, cPicker } = await openColorPickerAndSelectColor(
+    view,
+    1,
+    0,
+    [0, 0, 0, 1],
+    {
       selector: "body",
       name: "background-color",
       value: "rgb(0, 0, 0)",
-    });
+    }
+  );
 
-  is(swatch.style.backgroundColor, "rgb(0, 0, 0)",
-    "The color swatch's background was updated");
-  is(propEditor.valueSpan.textContent, "#000",
-    "The text of the background-color css property was updated");
+  is(
+    swatch.style.backgroundColor,
+    "rgb(0, 0, 0)",
+    "The color swatch's background was updated"
+  );
+  is(
+    propEditor.valueSpan.textContent,
+    "#000",
+    "The text of the background-color css property was updated"
+  );
 
   const spectrum = cPicker.spectrum;
 
@@ -43,8 +53,15 @@ async function testPressingEscapeRevertsChanges(view) {
   await onHidden;
   await onModifications;
 
-  await waitForComputedStyleProperty("body", null, "background-color",
-    "rgb(237, 237, 237)");
-  is(propEditor.valueSpan.textContent, "#EDEDED",
-    "Got expected property value.");
+  await waitForComputedStyleProperty(
+    "body",
+    null,
+    "background-color",
+    "rgb(237, 237, 237)"
+  );
+  is(
+    propEditor.valueSpan.textContent,
+    "#EDEDED",
+    "Got expected property value."
+  );
 }

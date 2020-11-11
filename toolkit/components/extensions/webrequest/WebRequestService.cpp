@@ -8,28 +8,19 @@
 
 #include "mozilla/Assertions.h"
 #include "mozilla/ClearOnShutdown.h"
-#include "nsIChannel.h"
 
 using namespace mozilla;
 using namespace mozilla::dom;
 using namespace mozilla::extensions;
 
-static WebRequestService* sWeakWebRequestService;
-
-WebRequestService::~WebRequestService() { sWeakWebRequestService = nullptr; }
+static StaticRefPtr<WebRequestService> sWebRequestService;
 
 /* static */ WebRequestService& WebRequestService::GetSingleton() {
-  static RefPtr<WebRequestService> instance;
-  if (!sWeakWebRequestService) {
-    instance = new WebRequestService();
-    ClearOnShutdown(&instance);
-
-    // A separate weak instance that we keep a reference to as long as the
-    // original service is alive, even after our strong reference is cleared to
-    // allow the service to be destroyed.
-    sWeakWebRequestService = instance;
+  if (!sWebRequestService) {
+    sWebRequestService = new WebRequestService();
+    ClearOnShutdown(&sWebRequestService);
   }
-  return *sWeakWebRequestService;
+  return *sWebRequestService;
 }
 
 UniquePtr<WebRequestChannelEntry> WebRequestService::RegisterChannel(
@@ -44,7 +35,7 @@ UniquePtr<WebRequestChannelEntry> WebRequestService::RegisterChannel(
 }
 
 already_AddRefed<nsITraceableChannel> WebRequestService::GetTraceableChannel(
-    uint64_t aChannelId, nsAtom* aAddonId, nsIContentParent* aContentParent) {
+    uint64_t aChannelId, nsAtom* aAddonId, ContentParent* aContentParent) {
   if (auto entry = mChannelEntries.Get(aChannelId)) {
     if (entry->mChannel) {
       return entry->mChannel->GetTraceableChannel(aAddonId, aContentParent);
@@ -57,7 +48,7 @@ WebRequestChannelEntry::WebRequestChannelEntry(ChannelWrapper* aChannel)
     : mChannelId(aChannel->Id()), mChannel(aChannel) {}
 
 WebRequestChannelEntry::~WebRequestChannelEntry() {
-  if (sWeakWebRequestService) {
-    sWeakWebRequestService->mChannelEntries.Remove(mChannelId);
+  if (sWebRequestService) {
+    sWebRequestService->mChannelEntries.Remove(mChannelId);
   }
 }

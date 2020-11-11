@@ -6,10 +6,9 @@
 
 const {
   UPDATE_PREVIEW_TEXT,
-} = require("./index");
+} = require("devtools/client/inspector/fonts/actions/index");
 
 module.exports = {
-
   /**
    * Update the preview text in the font inspector
    */
@@ -19,5 +18,4 @@ module.exports = {
       previewText,
     };
   },
-
 };

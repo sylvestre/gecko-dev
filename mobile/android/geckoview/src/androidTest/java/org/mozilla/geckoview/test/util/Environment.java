@@ -5,14 +5,14 @@ import org.mozilla.geckoview.BuildConfig;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Debug;
-import android.support.test.InstrumentationRegistry;
+import androidx.test.platform.app.InstrumentationRegistry;
 
 public class Environment {
-    public static final long DEFAULT_TIMEOUT_MILLIS = 10000;
+    public static final long DEFAULT_TIMEOUT_MILLIS = 30000;
     public static final long DEFAULT_ARM_DEVICE_TIMEOUT_MILLIS = 30000;
     public static final long DEFAULT_ARM_EMULATOR_TIMEOUT_MILLIS = 120000;
     public static final long DEFAULT_X86_DEVICE_TIMEOUT_MILLIS = 30000;
-    public static final long DEFAULT_X86_EMULATOR_TIMEOUT_MILLIS = 5000;
+    public static final long DEFAULT_X86_EMULATOR_TIMEOUT_MILLIS = 30000;
     public static final long DEFAULT_IDE_DEBUG_TIMEOUT_MILLIS = 86400000;
 
     private String getEnvVar(final String name) {
@@ -38,12 +38,6 @@ public class Environment {
         return !getEnvVar("MOZ_CRASHREPORTER_SHUTDOWN").isEmpty();
     }
 
-    public boolean isMultiprocess() {
-        return Boolean.valueOf(InstrumentationRegistry.getArguments()
-                .getString("use_multiprocess",
-                        "true"));
-    }
-
     public boolean isDebugging() {
         return Debug.isDebuggerConnected();
     }
@@ -65,6 +59,14 @@ public class Environment {
         }
 
         return abi.startsWith("x86");
+    }
+
+    public boolean isFission() {
+        return getEnvVar("MOZ_FORCE_ENABLE_FISSION").equals("1");
+    }
+
+    public boolean isWebrender() {
+        return getEnvVar("MOZ_WEBRENDER").equals("1");
     }
 
     public long getScaledTimeoutMillis() {

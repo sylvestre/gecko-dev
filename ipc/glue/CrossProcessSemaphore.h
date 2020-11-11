@@ -12,10 +12,10 @@
 #include "mozilla/Maybe.h"
 
 #if !defined(OS_WIN) && !defined(OS_MACOSX)
-#include <pthread.h>
-#include <semaphore.h>
-#include "SharedMemoryBasic.h"
-#include "mozilla/Atomics.h"
+#  include <pthread.h>
+#  include <semaphore.h>
+#  include "SharedMemoryBasic.h"
+#  include "mozilla/Atomics.h"
 #endif
 
 namespace IPC {
@@ -28,10 +28,22 @@ struct ParamTraits;
 //
 //  - CrossProcessSemaphore, a semaphore that can be shared across processes
 namespace mozilla {
+
+template <typename T>
+inline bool IsHandleValid(const T& handle) {
+  return bool(handle);
+}
+
 #if defined(OS_WIN)
 typedef HANDLE CrossProcessSemaphoreHandle;
 #elif !defined(OS_MACOSX)
 typedef mozilla::ipc::SharedMemoryBasic::Handle CrossProcessSemaphoreHandle;
+
+template <>
+inline bool IsHandleValid<CrossProcessSemaphoreHandle>(
+    const CrossProcessSemaphoreHandle& handle) {
+  return !(handle == mozilla::ipc::SharedMemoryBasic::NULLHandle());
+}
 #else
 // Stub for other platforms. We can't use uintptr_t here since different
 // processes could disagree on its size.

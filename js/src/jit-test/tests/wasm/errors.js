@@ -70,12 +70,12 @@ function testAccess(opcode, text, width, type, msg) {
 }
 
 function testLoad(opcode, optext, width, type, msg) {
-    var text = `(module (memory 1) (func (export "") (param i32) (drop (${optext} (get_local 0)))))`;
+    var text = `(module (memory 1) (func (export "") (param i32) (drop (${optext} (local.get 0)))))`;
     testAccess(opcode, text, width, type, msg);
 }
 
 function testStore(opcode, optext, consttext, width, type, msg) {
-    var text = `(module (memory 1) (func (export "") (param i32) (${optext} (get_local 0) (${consttext}.const 0))))`;
+    var text = `(module (memory 1) (func (export "") (param i32) (${optext} (local.get 0) (${consttext}.const 0))))`;
     testAccess(opcode, text, width, type, msg);
 }
 
@@ -106,9 +106,9 @@ test(I64TruncSF32Code, '(module (func (drop (i64.trunc_s/f32 (f32.const nan)))) 
 test(I64TruncSF64Code, '(module (func (drop (i64.trunc_s/f64 (f64.const nan)))) (start 0))', RuntimeError, /invalid conversion to integer/);
 test(I64TruncUF32Code, '(module (func (drop (i64.trunc_u/f32 (f32.const nan)))) (start 0))', RuntimeError, /invalid conversion to integer/);
 test(I64TruncUF64Code, '(module (func (drop (i64.trunc_u/f64 (f64.const nan)))) (start 0))', RuntimeError, /invalid conversion to integer/);
-test(CallIndirectCode, '(module (table 1 anyfunc) (func (call_indirect 0 (i32.const 0))) (start 0))', RuntimeError, /indirect call to null/);
-test(CallIndirectCode, '(module (table 1 anyfunc) (func (call_indirect 0 (i32.const 1))) (start 0))', RuntimeError, /index out of bounds/);
-test(CallIndirectCode, '(module (table anyfunc (elem $blah)) (func (call_indirect 0 (i32.const 0))) (func $blah (param i32)) (start 0))', RuntimeError, /indirect call signature mismatch/);
+test(CallIndirectCode, '(module (table 1 funcref) (func (call_indirect (type 0) (i32.const 0))) (start 0))', RuntimeError, /indirect call to null/);
+test(CallIndirectCode, '(module (table 1 funcref) (func (call_indirect (type 0) (i32.const 1))) (start 0))', RuntimeError, /index out of bounds/);
+test(CallIndirectCode, '(module (table funcref (elem $blah)) (func (call_indirect (type 0) (i32.const 0))) (func $blah (param i32)) (start 0))', RuntimeError, /indirect call signature mismatch/);
 testLoad(I32Load8S, 'i32.load8_s', 1, RuntimeError, /index out of bounds/);
 testLoad(I32Load8U, 'i32.load8_u', 1, RuntimeError, /index out of bounds/);
 testLoad(I32Load16S, 'i32.load16_s', 2, RuntimeError, /index out of bounds/);
@@ -145,8 +145,8 @@ var {stack, binary} = test(UnreachableCode, `(module
     (func $a unreachable)
     (func $b call $a)
     (func $c call $b)
-    (table anyfunc (elem $c))
-    (func $d (call_indirect $v2v (i32.const 0)))
+    (table funcref (elem $c))
+    (func $d (call_indirect (type $v2v) (i32.const 0)))
     (func $e call $d)
     (start $e)
 )`, RuntimeError, /unreachable executed/);
@@ -177,4 +177,4 @@ function testCompileError(opcode, text) {
 
 testCompileError(CallCode, '(module (func $f (param i32)) (func $g call $f))');
 testCompileError(I32AddCode, '(module (func (i32.add (i32.const 1) (f32.const 1))))');
-testCompileError(EndCode, '(module (func (block i32)))');
+testCompileError(EndCode, '(module (func (block (result i32))))');

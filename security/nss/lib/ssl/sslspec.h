@@ -19,13 +19,8 @@ typedef enum {
     TrafficKeyApplicationData = 3
 } TrafficKeyType;
 
-typedef enum {
-    CipherSpecRead,
-    CipherSpecWrite,
-} CipherSpecDirection;
-
 #define SPEC_DIR(spec) \
-    ((spec->direction == CipherSpecRead) ? "read" : "write")
+    ((spec->direction == ssl_secret_read) ? "read" : "write")
 
 typedef struct ssl3CipherSpecStr ssl3CipherSpec;
 typedef struct ssl3BulkCipherDefStr ssl3BulkCipherDef;
@@ -106,20 +101,20 @@ typedef struct {
 
 typedef SECStatus (*SSLCipher)(void *context,
                                unsigned char *out,
-                               int *outlen,
-                               int maxout,
+                               unsigned int *outlen,
+                               unsigned int maxout,
                                const unsigned char *in,
-                               int inlen);
-typedef SECStatus (*SSLAEADCipher)(
-    ssl3KeyMaterial *keys,
-    PRBool doDecrypt,
-    unsigned char *out,
-    int *outlen,
-    int maxout,
-    const unsigned char *in,
-    int inlen,
-    const unsigned char *additionalData,
-    int additionalDataLen);
+                               unsigned int inlen);
+typedef SECStatus (*SSLAEADCipher)(PK11Context *context,
+                                   CK_GENERATOR_FUNCTION ivGen,
+                                   unsigned int fixedbits,
+                                   unsigned char *iv, unsigned int ivlen,
+                                   const unsigned char *aad,
+                                   unsigned int aadlen,
+                                   unsigned char *out, unsigned int *outlen,
+                                   unsigned int maxout, unsigned char *tag,
+                                   unsigned int taglen,
+                                   const unsigned char *in, unsigned int inlen);
 
 /* The DTLS anti-replay window in number of packets. Defined here because we
  * need it in the cipher spec. Note that this is a ring buffer but left and
@@ -146,7 +141,7 @@ struct ssl3CipherSpecStr {
     PRCList link;
     PRUint8 refCt;
 
-    CipherSpecDirection direction;
+    SSLSecretDirection direction;
     SSL3ProtocolVersion version;
     SSL3ProtocolVersion recordVersion;
 
@@ -154,7 +149,6 @@ struct ssl3CipherSpecStr {
     const ssl3MACDef *macDef;
 
     SSLCipher cipher;
-    SSLAEADCipher aead;
     void *cipherContext;
 
     PK11SymKey *masterSecret;
@@ -174,6 +168,12 @@ struct ssl3CipherSpecStr {
      * negotiated value for TLS 1.3; it is reduced by one to account for the
      * content type octet. */
     PRUint16 recordSizeLimit;
+
+    /* DTLS 1.3: Sequence number masking context. */
+    SSLMaskingContext *maskContext;
+
+    /* DTLS 1.3: Count of decryption failures for the given key. */
+    PRUint64 deprotectionFailures;
 };
 
 typedef void (*sslCipherSpecChangedFunc)(void *arg,
@@ -184,17 +184,17 @@ const ssl3BulkCipherDef *ssl_GetBulkCipherDef(const ssl3CipherSuiteDef *cipher_d
 const ssl3MACDef *ssl_GetMacDefByAlg(SSL3MACAlgorithm mac);
 const ssl3MACDef *ssl_GetMacDef(const sslSocket *ss, const ssl3CipherSuiteDef *suiteDef);
 
-ssl3CipherSpec *ssl_CreateCipherSpec(sslSocket *ss, CipherSpecDirection direction);
+ssl3CipherSpec *ssl_CreateCipherSpec(sslSocket *ss, SSLSecretDirection direction);
 void ssl_SaveCipherSpec(sslSocket *ss, ssl3CipherSpec *spec);
 void ssl_CipherSpecAddRef(ssl3CipherSpec *spec);
 void ssl_CipherSpecRelease(ssl3CipherSpec *spec);
 void ssl_DestroyCipherSpecs(PRCList *list);
-SECStatus ssl_SetupNullCipherSpec(sslSocket *ss, CipherSpecDirection dir);
+SECStatus ssl_SetupNullCipherSpec(sslSocket *ss, SSLSecretDirection dir);
 
 ssl3CipherSpec *ssl_FindCipherSpecByEpoch(sslSocket *ss,
-                                          CipherSpecDirection direction,
+                                          SSLSecretDirection direction,
                                           DTLSEpoch epoch);
-void ssl_CipherSpecReleaseByEpoch(sslSocket *ss, CipherSpecDirection direction,
+void ssl_CipherSpecReleaseByEpoch(sslSocket *ss, SSLSecretDirection direction,
                                   DTLSEpoch epoch);
 
 #endif /* __sslspec_h_ */

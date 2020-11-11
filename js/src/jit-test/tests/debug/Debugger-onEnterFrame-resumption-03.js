@@ -2,7 +2,7 @@
 
 load(libdir + "asserts.js");
 
-var g = newGlobal();
+var g = newGlobal({newCompartment: true});
 g.set = false;
 
 var dbg = Debugger(g);
@@ -15,12 +15,12 @@ dbg.onDebuggerStatement = function (frame) {
     };
     // Using frame.eval lets us catch termination.
     assertEq(frame.eval("set = true;"), null);
-    assertEq(innerSavedFrame.live, false);
+    assertEq(innerSavedFrame.onStack, false);
     savedFrame = frame;
     return { return: "pass" };
 };
 
 savedFrame = undefined;
 assertEq(g.eval("debugger;"), "pass");
-assertEq(savedFrame.live, false);
+assertEq(savedFrame.onStack, false);
 assertEq(g.set, false);

@@ -35,7 +35,7 @@ class CompositorOptions {
         mUseAdvancedLayers(false),
         mInitiallyPaused(false) {}
 
-  explicit CompositorOptions(bool aUseAPZ, bool aUseWebRender)
+  CompositorOptions(bool aUseAPZ, bool aUseWebRender)
       : mUseAPZ(aUseAPZ),
         mUseWebRender(aUseWebRender),
         mUseAdvancedLayers(false),
@@ -45,6 +45,8 @@ class CompositorOptions {
   bool UseWebRender() const { return mUseWebRender; }
   bool UseAdvancedLayers() const { return mUseAdvancedLayers; }
   bool InitiallyPaused() const { return mInitiallyPaused; }
+
+  void SetUseAPZ(bool aUseAPZ) { mUseAPZ = aUseAPZ; }
 
   void SetUseAdvancedLayers(bool aUseAdvancedLayers) {
     mUseAdvancedLayers = aUseAdvancedLayers;

@@ -7,8 +7,7 @@
 #include "mozilla/dom/ImageCaptureError.h"
 #include "mozilla/dom/ImageCaptureErrorEventBinding.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(ImageCaptureError, mParent)
 NS_IMPL_CYCLE_COLLECTING_ADDREF(ImageCaptureError)
@@ -22,7 +21,7 @@ ImageCaptureError::ImageCaptureError(nsISupports* aParent, uint16_t aCode,
                                      const nsAString& aMessage)
     : mParent(aParent), mMessage(aMessage), mCode(aCode) {}
 
-ImageCaptureError::~ImageCaptureError() {}
+ImageCaptureError::~ImageCaptureError() = default;
 
 nsISupports* ImageCaptureError::GetParentObject() const { return mParent; }
 
@@ -37,5 +36,4 @@ void ImageCaptureError::GetMessage(nsAString& retval) const {
   retval = mMessage;
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

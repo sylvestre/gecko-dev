@@ -4,18 +4,26 @@
 
 "use strict";
 
-ChromeUtils.import("resource://gre/modules/Services.jsm");
+const EXPORTED_SYMBOLS = ["cookie"];
 
-ChromeUtils.import("chrome://marionette/content/assert.js");
-const {
-  InvalidCookieDomainError,
-  UnableToSetCookieError,
-} = ChromeUtils.import("chrome://marionette/content/error.js", {});
-const {pprint} = ChromeUtils.import("chrome://marionette/content/format.js", {});
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
 
-this.EXPORTED_SYMBOLS = ["cookie"];
+XPCOMUtils.defineLazyModuleGetters(this, {
+  assert: "chrome://marionette/content/assert.js",
+  error: "chrome://marionette/content/error.js",
+  pprint: "chrome://marionette/content/format.js",
+});
 
 const IPV4_PORT_EXPR = /:\d+$/;
+
+const SAMESITE_MAP = new Map([
+  ["None", Ci.nsICookie.SAMESITE_NONE],
+  ["Lax", Ci.nsICookie.SAMESITE_LAX],
+  ["Strict", Ci.nsICookie.SAMESITE_STRICT],
+]);
 
 /** @namespace */
 this.cookie = {
@@ -61,16 +69,35 @@ cookie.fromJSON = function(json) {
     newCookie.path = assert.string(json.path, "Cookie path must be string");
   }
   if (typeof json.domain != "undefined") {
-    newCookie.domain = assert.string(json.domain, "Cookie domain must be string");
+    newCookie.domain = assert.string(
+      json.domain,
+      "Cookie domain must be string"
+    );
   }
   if (typeof json.secure != "undefined") {
-    newCookie.secure = assert.boolean(json.secure, "Cookie secure flag must be boolean");
+    newCookie.secure = assert.boolean(
+      json.secure,
+      "Cookie secure flag must be boolean"
+    );
   }
   if (typeof json.httpOnly != "undefined") {
-    newCookie.httpOnly = assert.boolean(json.httpOnly, "Cookie httpOnly flag must be boolean");
+    newCookie.httpOnly = assert.boolean(
+      json.httpOnly,
+      "Cookie httpOnly flag must be boolean"
+    );
   }
   if (typeof json.expiry != "undefined") {
-    newCookie.expiry = assert.positiveInteger(json.expiry, "Cookie expiry must be a positive integer");
+    newCookie.expiry = assert.positiveInteger(
+      json.expiry,
+      "Cookie expiry must be a positive integer"
+    );
+  }
+  if (typeof json.sameSite != "undefined") {
+    newCookie.sameSite = assert.in(
+      json.sameSite,
+      Array.from(SAMESITE_MAP.keys()),
+      "Cookie SameSite flag must be one of None, Lax, or Strict"
+    );
   }
 
   return newCookie;
@@ -83,6 +110,8 @@ cookie.fromJSON = function(json) {
  *     Cookie to add.
  * @param {string=} restrictToHost
  *     Perform test that ``newCookie``'s domain matches this.
+ * @param {string=} protocol
+ *     The protocol of the caller. It can be `ftp:`, `http:` or `https:`.
  *
  * @throws {TypeError}
  *     If ``name``, ``value``, or ``domain`` are not present and
@@ -93,7 +122,10 @@ cookie.fromJSON = function(json) {
  * @throws {UnableToSetCookieError}
  *     If an error occurred while trying to save the cookie.
  */
-cookie.add = function(newCookie, {restrictToHost = null} = {}) {
+cookie.add = function(
+  newCookie,
+  { restrictToHost = null, protocol = null } = {}
+) {
   assert.string(newCookie.name, "Cookie name must be string");
   assert.string(newCookie.value, "Cookie value must be string");
 
@@ -124,6 +156,7 @@ cookie.add = function(newCookie, {restrictToHost = null} = {}) {
   } else {
     newCookie.session = false;
   }
+  newCookie.sameSite = SAMESITE_MAP.get(newCookie.sameSite || "None");
 
   let isIpAddress = false;
   try {
@@ -134,7 +167,7 @@ cookie.add = function(newCookie, {restrictToHost = null} = {}) {
         isIpAddress = true;
         break;
       default:
-        throw new InvalidCookieDomainError(newCookie.domain);
+        throw new error.InvalidCookieDomainError(newCookie.domain);
     }
   }
 
@@ -145,12 +178,29 @@ cookie.add = function(newCookie, {restrictToHost = null} = {}) {
   }
 
   if (restrictToHost) {
-    if (!restrictToHost.endsWith(newCookie.domain) &&
-        ("." + restrictToHost) !== newCookie.domain &&
-        restrictToHost !== newCookie.domain) {
-      throw new InvalidCookieDomainError(`Cookies may only be set ` +
-          `for the current domain (${restrictToHost})`);
+    if (
+      !restrictToHost.endsWith(newCookie.domain) &&
+      "." + restrictToHost !== newCookie.domain &&
+      restrictToHost !== newCookie.domain
+    ) {
+      throw new error.InvalidCookieDomainError(
+        `Cookies may only be set ` +
+          `for the current domain (${restrictToHost})`
+      );
     }
+  }
+
+  let schemeType = Ci.nsICookie.SCHEME_UNSET;
+  switch (protocol) {
+    case "http:":
+      schemeType = Ci.nsICookie.SCHEME_HTTP;
+      break;
+    case "https:":
+      schemeType = Ci.nsICookie.SCHEME_HTTPS;
+      break;
+    default:
+      // ftp: or any other protocol is supported by the cookie service.
+      break;
   }
 
   // remove port from domain, if present.
@@ -160,18 +210,20 @@ cookie.add = function(newCookie, {restrictToHost = null} = {}) {
 
   try {
     cookie.manager.add(
-        newCookie.domain,
-        newCookie.path,
-        newCookie.name,
-        newCookie.value,
-        newCookie.secure,
-        newCookie.httpOnly,
-        newCookie.session,
-        newCookie.expiry,
-        {} /* origin attributes */,
-        Ci.nsICookie2.SAMESITE_UNSET);
+      newCookie.domain,
+      newCookie.path,
+      newCookie.name,
+      newCookie.value,
+      newCookie.secure,
+      newCookie.httpOnly,
+      newCookie.session,
+      newCookie.expiry,
+      {} /* origin attributes */,
+      newCookie.sameSite,
+      schemeType
+    );
   } catch (e) {
-    throw new UnableToSetCookieError(e);
+    throw new error.UnableToSetCookieError(e);
   }
 };
 
@@ -183,11 +235,11 @@ cookie.add = function(newCookie, {restrictToHost = null} = {}) {
  */
 cookie.remove = function(toDelete) {
   cookie.manager.remove(
-      toDelete.domain,
-      toDelete.name,
-      toDelete.path,
-      false,
-      {} /* originAttributes */);
+    toDelete.domain,
+    toDelete.name,
+    toDelete.path,
+    {} /* originAttributes */
+  );
 };
 
 /**
@@ -204,7 +256,7 @@ cookie.remove = function(toDelete) {
  * @return {Iterable.<Cookie>}
  *     Iterator.
  */
-cookie.iter = function* (host, currentPath = "/") {
+cookie.iter = function*(host, currentPath = "/") {
   assert.string(host, "host must be string");
   assert.string(currentPath, "currentPath must be string");
 
@@ -215,20 +267,26 @@ cookie.iter = function* (host, currentPath = "/") {
     // take the hostname and progressively shorten
     let hostname = host;
     do {
-      if ((cookie.host == "." + hostname || cookie.host == hostname) &&
-          isForCurrentPath(cookie.path)) {
+      if (
+        (cookie.host == "." + hostname || cookie.host == hostname) &&
+        isForCurrentPath(cookie.path)
+      ) {
         let data = {
-          "name": cookie.name,
-          "value": cookie.value,
-          "path": cookie.path,
-          "domain": cookie.host,
-          "secure": cookie.isSecure,
-          "httpOnly": cookie.isHttpOnly,
+          name: cookie.name,
+          value: cookie.value,
+          path: cookie.path,
+          domain: cookie.host,
+          secure: cookie.isSecure,
+          httpOnly: cookie.isHttpOnly,
         };
 
         if (!cookie.isSession) {
           data.expiry = cookie.expiry;
         }
+
+        data.sameSite = [...SAMESITE_MAP].find(
+          ([, value]) => cookie.sameSite === value
+        )[0];
 
         yield data;
       }

@@ -29,19 +29,19 @@ class CanvasImageCache {
   /**
    * Notify that image element aImage was drawn to aCanvas element
    * using the first frame of aRequest's image. The data for the surface is
-   * in aSurface, and the image size is in aSize.
+   * in aSurface, and the image size is in aSize. aIntrinsicSize is the size
+   * the surface is intended to be rendered at.
    */
   static void NotifyDrawImage(dom::Element* aImage,
                               dom::HTMLCanvasElement* aCanvas,
                               SourceSurface* aSource, const gfx::IntSize& aSize,
-                              bool aIsAccelerated);
+                              const gfx::IntSize& aIntrinsicSize);
 
   /**
    * Check whether aImage has recently been drawn any canvas. If we return
    * a non-null surface, then the same image was recently drawn into a canvas.
    */
-  static SourceSurface* LookupAllCanvas(dom::Element* aImage,
-                                        bool aIsAccelerated);
+  static SourceSurface* LookupAllCanvas(dom::Element* aImage);
 
   /**
    * Like the top above, but restricts the lookup to only aCanvas. This is
@@ -50,7 +50,7 @@ class CanvasImageCache {
   static SourceSurface* LookupCanvas(dom::Element* aImage,
                                      dom::HTMLCanvasElement* aCanvas,
                                      gfx::IntSize* aSizeOut,
-                                     bool aIsAccelerated);
+                                     gfx::IntSize* aIntrinsicSizeOut);
 };
 
 }  // namespace mozilla

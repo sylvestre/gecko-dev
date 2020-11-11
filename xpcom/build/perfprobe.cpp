@@ -12,16 +12,15 @@
 #include <evntrace.h>
 
 #include "perfprobe.h"
-#include "nsAutoPtr.h"
 
 namespace mozilla {
 namespace probes {
 
 #if defined(MOZ_LOGGING)
 static LazyLogModule sProbeLog("SysProbe");
-#define LOG(x) MOZ_LOG(sProbeLog, mozilla::LogLevel::Debug, x)
+#  define LOG(x) MOZ_LOG(sProbeLog, mozilla::LogLevel::Debug, x)
 #else
-#define LOG(x)
+#  define LOG(x)
 #endif
 
 // Utility function

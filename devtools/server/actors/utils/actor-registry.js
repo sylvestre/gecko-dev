@@ -4,7 +4,6 @@
 
 "use strict";
 
-var Services = require("Services");
 var { Ci } = require("chrome");
 var gRegisteredModules = Object.create(null);
 
@@ -18,7 +17,7 @@ const ActorRegistry = {
   },
 
   /**
-   * Register a CommonJS module with the debugger server.
+   * Register a CommonJS module with the devtools server.
    * @param id string
    *        The ID of a CommonJS module.
    *        The actor is going to be registered immediately, but loaded only
@@ -28,8 +27,7 @@ const ActorRegistry = {
    *        An object with 3 mandatory attributes:
    *        - prefix (string):
    *          The prefix of an actor is used to compute:
-   *          - the `actorID` of each new actor instance (ex: prefix1).
-   *            (See ActorPool.addActor)
+   *          - the `actorID` of each new actor instance (ex: prefix1). (See Pool.manage)
    *          - the actor name in the listTabs request. Sending a listTabs
    *            request to the root actor returns actor IDs. IDs are in
    *            dictionaries, with actor names as keys and actor IDs as values.
@@ -53,20 +51,28 @@ const ActorRegistry = {
     }
 
     if (!options) {
-      throw new Error("ActorRegistry.registerModule requires an options argument");
+      throw new Error(
+        "ActorRegistry.registerModule requires an options argument"
+      );
     }
-    const {prefix, constructor, type} = options;
-    if (typeof (prefix) !== "string") {
-      throw new Error(`Lazy actor definition for '${id}' requires a string ` +
-                      `'prefix' option.`);
+    const { prefix, constructor, type } = options;
+    if (typeof prefix !== "string") {
+      throw new Error(
+        `Lazy actor definition for '${id}' requires a string ` +
+          `'prefix' option.`
+      );
     }
-    if (typeof (constructor) !== "string") {
-      throw new Error(`Lazy actor definition for '${id}' requires a string ` +
-                      `'constructor' option.`);
+    if (typeof constructor !== "string") {
+      throw new Error(
+        `Lazy actor definition for '${id}' requires a string ` +
+          `'constructor' option.`
+      );
     }
     if (!("global" in type) && !("target" in type)) {
-      throw new Error(`Lazy actor definition for '${id}' requires a dictionary ` +
-                      `'type' option whose attributes can be 'global' or 'target'.`);
+      throw new Error(
+        `Lazy actor definition for '${id}' requires a dictionary ` +
+          `'type' option whose attributes can be 'global' or 'target'.`
+      );
     }
     const name = prefix + "Actor";
     const mod = {
@@ -87,12 +93,14 @@ const ActorRegistry = {
   },
 
   /**
-   * Unregister a previously-loaded CommonJS module from the debugger server.
+   * Unregister a previously-loaded CommonJS module from the devtools server.
    */
   unregisterModule(id) {
     const mod = gRegisteredModules[id];
     if (!mod) {
-      throw new Error("Tried to unregister a module that was not previously registered.");
+      throw new Error(
+        "Tried to unregister a module that was not previously registered."
+      );
     }
 
     // Lazy actors
@@ -116,11 +124,6 @@ const ActorRegistry = {
     this.registerModule("devtools/server/actors/preference", {
       prefix: "preference",
       constructor: "PreferenceActor",
-      type: { global: true },
-    });
-    this.registerModule("devtools/server/actors/actor-registry", {
-      prefix: "actorRegistry",
-      constructor: "ActorRegistryActor",
       type: { global: true },
     });
     this.registerModule("devtools/server/actors/addon/addons", {
@@ -147,6 +150,19 @@ const ActorRegistry = {
       constructor: "PerfActor",
       type: { global: true },
     });
+    /**
+     * Always register parent accessibility actor as a global module. This
+     * actor is responsible for all top level accessibility actor functionality
+     * that relies on the parent process.
+     */
+    this.registerModule(
+      "devtools/server/actors/accessibility/parent-accessibility",
+      {
+        prefix: "parentAccessibility",
+        constructor: "ParentAccessibilityActor",
+        type: { global: true },
+      }
+    );
   },
 
   /**
@@ -163,22 +179,7 @@ const ActorRegistry = {
       constructor: "InspectorActor",
       type: { target: true },
     });
-    this.registerModule("devtools/server/actors/canvas", {
-      prefix: "canvas",
-      constructor: "CanvasActor",
-      type: { target: true },
-    });
-    this.registerModule("devtools/server/actors/webgl", {
-      prefix: "webgl",
-      constructor: "WebGLActor",
-      type: { target: true },
-    });
-    this.registerModule("devtools/server/actors/webaudio", {
-      prefix: "webaudio",
-      constructor: "WebAudioActor",
-      type: { target: true },
-    });
-    this.registerModule("devtools/server/actors/stylesheets", {
+    this.registerModule("devtools/server/actors/style-sheets", {
       prefix: "styleSheets",
       constructor: "StyleSheetsActor",
       type: { target: true },
@@ -208,13 +209,7 @@ const ActorRegistry = {
       constructor: "CssPropertiesActor",
       type: { target: true },
     });
-    this.registerModule("devtools/server/actors/csscoverage", {
-      prefix: "cssUsage",
-      constructor: "CSSUsageActor",
-      type: { target: true },
-    });
-    if ("nsIProfiler" in Ci &&
-        !Services.prefs.getBoolPref("devtools.performance.new-panel-enabled", false)) {
+    if ("nsIProfiler" in Ci) {
       this.registerModule("devtools/server/actors/performance", {
         prefix: "performance",
         constructor: "PerformanceActor",
@@ -226,21 +221,24 @@ const ActorRegistry = {
       constructor: "AnimationsActor",
       type: { target: true },
     });
-    this.registerModule("devtools/server/actors/promises", {
-      prefix: "promises",
-      constructor: "PromisesActor",
+    this.registerModule("devtools/server/actors/emulation/responsive", {
+      prefix: "responsive",
+      constructor: "ResponsiveActor",
       type: { target: true },
     });
-    this.registerModule("devtools/server/actors/emulation", {
-      prefix: "emulation",
-      constructor: "EmulationActor",
+    this.registerModule("devtools/server/actors/emulation/content-viewer", {
+      prefix: "contentViewer",
+      constructor: "ContentViewerActor",
       type: { target: true },
     });
-    this.registerModule("devtools/server/actors/addon/webextension-inspected-window", {
-      prefix: "webExtensionInspectedWindow",
-      constructor: "WebExtensionInspectedWindowActor",
-      type: { target: true },
-    });
+    this.registerModule(
+      "devtools/server/actors/addon/webextension-inspected-window",
+      {
+        prefix: "webExtensionInspectedWindow",
+        constructor: "WebExtensionInspectedWindowActor",
+        type: { target: true },
+      }
+    );
     this.registerModule("devtools/server/actors/accessibility/accessibility", {
       prefix: "accessibility",
       constructor: "AccessibilityActor",
@@ -256,14 +254,42 @@ const ActorRegistry = {
       constructor: "ChangesActor",
       type: { target: true },
     });
+    this.registerModule(
+      "devtools/server/actors/network-monitor/websocket-actor",
+      {
+        prefix: "webSocket",
+        constructor: "WebSocketActor",
+        type: { target: true },
+      }
+    );
+    this.registerModule(
+      "devtools/server/actors/network-monitor/eventsource-actor",
+      {
+        prefix: "eventSource",
+        constructor: "EventSourceActor",
+        type: { target: true },
+      }
+    );
+    this.registerModule("devtools/server/actors/manifest", {
+      prefix: "manifest",
+      constructor: "ManifestActor",
+      type: { target: true },
+    });
+    this.registerModule(
+      "devtools/server/actors/network-monitor/stack-traces-actor",
+      {
+        prefix: "stacktraces",
+        constructor: "StackTracesActor",
+        type: { target: true },
+      }
+    );
   },
 
   /**
    * Registers handlers for new target-scoped request types defined dynamically.
    *
-   * Note that the name or actorPrefix of the request type is not allowed to clash with
-   * existing protocol packet properties, like 'title', 'url' or 'actor', since that would
-   * break the protocol.
+   * Note that the name of the request type is not allowed to clash with existing protocol
+   * packet properties, like 'title', 'url' or 'actor', since that would break the protocol.
    *
    * @param options object
    *        - constructorName: (required)
@@ -309,8 +335,10 @@ const ActorRegistry = {
       const actor = actorOrName;
       for (const factoryName in this.targetScopedActorFactories) {
         const handler = this.targetScopedActorFactories[factoryName];
-        if ((handler.options.constructorName == actor.name) ||
-            (handler.options.id == actor.id)) {
+        if (
+          handler.options.constructorName == actor.name ||
+          handler.options.id == actor.id
+        ) {
           name = factoryName;
           break;
         }
@@ -321,7 +349,7 @@ const ActorRegistry = {
     }
     delete this.targetScopedActorFactories[name];
     for (const connID of Object.getOwnPropertyNames(this._connections)) {
-      // DebuggerServerConnection in child process don't have rootActor
+      // DevToolsServerConnection in child process don't have rootActor
       if (this._connections[connID].rootActor) {
         this._connections[connID].rootActor.removeActorByName(name);
       }
@@ -331,9 +359,8 @@ const ActorRegistry = {
   /**
    * Registers handlers for new browser-scoped request types defined dynamically.
    *
-   * Note that the name or actorPrefix of the request type is not allowed to clash with
-   * existing protocol packet properties, like 'from', 'tabs' or 'selected', since that
-   * would break the protocol.
+   * Note that the name of the request type is not allowed to clash with existing protocol
+   * packet properties, like 'from', 'tabs' or 'selected', since that would break the protocol.
    *
    * @param options object
    *        - constructorName: (required)
@@ -379,8 +406,10 @@ const ActorRegistry = {
       const actor = actorOrName;
       for (const factoryName in this.globalActorFactories) {
         const handler = this.globalActorFactories[factoryName];
-        if ((handler.options.constructorName == actor.name) ||
-            (handler.options.id == actor.id)) {
+        if (
+          handler.options.constructorName == actor.name ||
+          handler.options.id == actor.id
+        ) {
           name = factoryName;
           break;
         }
@@ -391,7 +420,7 @@ const ActorRegistry = {
     }
     delete this.globalActorFactories[name];
     for (const connID of Object.getOwnPropertyNames(this._connections)) {
-      // DebuggerServerConnection in child process don't have rootActor
+      // DevToolsServerConnection in child process don't have rootActor
       if (this._connections[connID].rootActor) {
         this._connections[connID].rootActor.removeActorByName(name);
       }

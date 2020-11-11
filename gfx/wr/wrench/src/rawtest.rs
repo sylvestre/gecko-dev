@@ -2,14 +2,17 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use {WindowWrapper, NotifierEvent};
-use blob;
-use euclid::{TypedRect, TypedSize2D, TypedPoint2D, point2, size2};
+use euclid::{point2, size2, rect};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicIsize, Ordering};
 use std::sync::mpsc::Receiver;
 use webrender::api::*;
-use wrench::Wrench;
+use webrender::render_api::*;
+use webrender::api::units::*;
+use crate::{WindowWrapper, NotifierEvent};
+use crate::blob;
+use crate::reftest::{ReftestImage, ReftestImageComparison};
+use crate::wrench::Wrench;
 
 pub struct RawtestHarness<'a> {
     wrench: &'a mut Wrench,
@@ -17,17 +20,6 @@ pub struct RawtestHarness<'a> {
     window: &'a mut WindowWrapper,
 }
 
-fn point<T: Copy, U>(x: T, y: T) -> TypedPoint2D<T, U> {
-    TypedPoint2D::new(x, y)
-}
-
-fn size<T: Copy, U>(x: T, y: T) -> TypedSize2D<T, U> {
-    TypedSize2D::new(x, y)
-}
-
-fn rect<T: Copy, U>(x: T, y: T, width: T, height: T) -> TypedRect<T, U> {
-    TypedRect::new(point(x, y), size(width, height))
-}
 
 impl<'a> RawtestHarness<'a> {
     pub fn new(wrench: &'a mut Wrench,
@@ -42,23 +34,58 @@ impl<'a> RawtestHarness<'a> {
 
     pub fn run(mut self) {
         self.test_hit_testing();
+        self.test_resize_image();
         self.test_retained_blob_images_test();
         self.test_blob_update_test();
         self.test_blob_update_epoch_test();
         self.test_tile_decomposition();
         self.test_very_large_blob();
-        self.test_insufficient_blob_visible_area();
+        self.test_blob_visible_area();
+        self.test_blob_set_visible_area();
         self.test_offscreen_blob();
         self.test_save_restore();
         self.test_blur_cache();
         self.test_capture();
         self.test_zero_height_window();
+        self.test_clear_cache();
     }
 
-    fn render_and_get_pixels(&mut self, window_rect: DeviceIntRect) -> Vec<u8> {
+    fn render_and_get_pixels(&mut self, window_rect: FramebufferIntRect) -> Vec<u8> {
         self.rx.recv().unwrap();
         self.wrench.render();
         self.wrench.renderer.read_pixels_rgba8(window_rect)
+    }
+
+    fn compare_pixels(&self, data1: Vec<u8>, data2: Vec<u8>, size: FramebufferIntSize) {
+        let size = DeviceIntSize::new(size.width, size.height);
+        let image1 = ReftestImage {
+            data: data1,
+            size,
+        };
+        let image2 = ReftestImage {
+            data: data2,
+            size,
+        };
+
+        match image1.compare(&image2) {
+            ReftestImageComparison::Equal => {}
+            ReftestImageComparison::NotEqual { max_difference, count_different, .. } => {
+                let t = "rawtest";
+                println!(
+                    "{} | {} | {}: {}, {}: {}",
+                    "REFTEST TEST-UNEXPECTED-FAIL",
+                    t,
+                    "image comparison, max difference",
+                    max_difference,
+                    "number of differing pixels",
+                    count_different
+                );
+                println!("REFTEST   IMAGE 1: {}", image1.create_data_uri());
+                println!("REFTEST   IMAGE 2: {}", image2.create_data_uri());
+                println!("REFTEST TEST-END | {}", t);
+                panic!();
+            }
+        }
     }
 
     fn submit_dl(
@@ -66,14 +93,11 @@ impl<'a> RawtestHarness<'a> {
         epoch: &mut Epoch,
         layout_size: LayoutSize,
         builder: DisplayListBuilder,
-        resources: &[ResourceUpdate]
+        mut txn: Transaction,
     ) {
-        let mut txn = Transaction::new();
         let root_background_color = Some(ColorF::new(1.0, 1.0, 1.0, 1.0));
         txn.use_scene_builder_thread();
-        if !resources.is_empty() {
-            txn.resource_updates = resources.to_vec();
-        }
+
         txn.set_display_list(
             *epoch,
             root_background_color,
@@ -87,6 +111,121 @@ impl<'a> RawtestHarness<'a> {
         self.wrench.api.send_transaction(self.wrench.document_id, txn);
     }
 
+    fn make_common_properties(&self, clip_rect: LayoutRect) -> CommonItemProperties {
+        let space_and_clip = SpaceAndClipInfo::root_scroll(self.wrench.root_pipeline_id);
+        CommonItemProperties {
+            clip_rect,
+            clip_id: space_and_clip.clip_id,
+            spatial_id: space_and_clip.spatial_id,
+            flags: PrimitiveFlags::default(),
+        }
+    }
+
+    fn make_common_properties_with_clip_and_spatial(
+        &self,
+        clip_rect: LayoutRect,
+        clip_id: ClipId,
+        spatial_id: SpatialId
+    ) -> CommonItemProperties {
+        CommonItemProperties {
+            clip_rect,
+            clip_id,
+            spatial_id,
+            flags: PrimitiveFlags::default(),
+        }
+    }
+
+    fn test_resize_image(&mut self) {
+        println!("\tresize image...");
+        // This test changes the size of an image to make it go switch back and forth
+        // between tiled and non-tiled.
+        // The resource cache should be able to handle this without crashing.
+
+        let layout_size = LayoutSize::new(800., 800.);
+
+        let mut txn = Transaction::new();
+        let img = self.wrench.api.generate_image_key();
+
+        // Start with a non-tiled image.
+        txn.add_image(
+            img,
+            ImageDescriptor::new(64, 64, ImageFormat::BGRA8, ImageDescriptorFlags::IS_OPAQUE),
+            ImageData::new(vec![255; 64 * 64 * 4]),
+            None,
+        );
+
+        let mut builder = DisplayListBuilder::new(self.wrench.root_pipeline_id);
+        let info = self.make_common_properties(rect(0.0, 0.0, 64.0, 64.0));
+
+        builder.push_image(
+            &info,
+            info.clip_rect,
+            ImageRendering::Auto,
+            AlphaType::PremultipliedAlpha,
+            img,
+            ColorF::WHITE,
+        );
+
+        let mut epoch = Epoch(0);
+
+        self.submit_dl(&mut epoch, layout_size, builder, txn);
+        self.rx.recv().unwrap();
+        self.wrench.render();
+
+        let mut txn = Transaction::new();
+        // Resize the image to something bigger than the max texture size (8196) to force tiling.
+        txn.update_image(
+            img,
+            ImageDescriptor::new(8200, 32, ImageFormat::BGRA8, ImageDescriptorFlags::IS_OPAQUE),
+            ImageData::new(vec![255; 8200 * 32 * 4]),
+            &DirtyRect::All,
+        );
+
+        let mut builder = DisplayListBuilder::new(self.wrench.root_pipeline_id);
+        let info = self.make_common_properties(rect(0.0, 0.0, 1024.0, 1024.0));
+
+        builder.push_image(
+            &info,
+            info.clip_rect,
+            ImageRendering::Auto,
+            AlphaType::PremultipliedAlpha,
+            img,
+            ColorF::WHITE,
+        );
+
+        self.submit_dl(&mut epoch, layout_size, builder, txn);
+        self.rx.recv().unwrap();
+        self.wrench.render();
+
+        let mut txn = Transaction::new();
+        // Resize back to something doesn't require tiling.
+        txn.update_image(
+            img,
+            ImageDescriptor::new(64, 64, ImageFormat::BGRA8, ImageDescriptorFlags::IS_OPAQUE),
+            ImageData::new(vec![64; 64 * 64 * 4]),
+            &DirtyRect::All,
+        );
+
+        let mut builder = DisplayListBuilder::new(self.wrench.root_pipeline_id);
+        let info = self.make_common_properties(rect(0.0, 0.0, 1024.0, 1024.0));
+
+        builder.push_image(
+            &info,
+            info.clip_rect,
+            ImageRendering::Auto,
+            AlphaType::PremultipliedAlpha,
+            img,
+            ColorF::WHITE,
+        );
+
+        self.submit_dl(&mut epoch, layout_size, builder, txn);
+        self.rx.recv().unwrap();
+        self.wrench.render();
+
+        txn = Transaction::new();
+        txn.delete_image(img);
+        self.wrench.api.send_transaction(self.wrench.document_id, txn);
+    }
 
     fn test_tile_decomposition(&mut self) {
         println!("\ttile decomposition...");
@@ -97,20 +236,22 @@ impl<'a> RawtestHarness<'a> {
         let blob_img = self.wrench.api.generate_blob_image_key();
         txn.add_blob_image(
             blob_img,
-            ImageDescriptor::new(151, 56, ImageFormat::BGRA8, true, false),
+            ImageDescriptor::new(151, 56, ImageFormat::BGRA8, ImageDescriptorFlags::IS_OPAQUE),
             blob::serialize_blob(ColorU::new(50, 50, 150, 255)),
+            rect(0, 0, 151, 56),
             Some(128),
         );
 
-        let mut builder = DisplayListBuilder::new(self.wrench.root_pipeline_id, layout_size);
+        let mut builder = DisplayListBuilder::new(self.wrench.root_pipeline_id);
 
-        let info = LayoutPrimitiveInfo::new(rect(448.899994, 74.0, 151.000031, 56.));
+        let info = self.make_common_properties(rect(448.899994, 74.0, 151.000031, 56.));
 
         // setup some malicious image size parameters
-        builder.push_image(
+        builder.push_repeating_image(
             &info,
-            size(151., 56.0),
-            size(151.0, 56.0),
+            info.clip_rect,
+            size2(151., 56.0),
+            size2(151.0, 56.0),
             ImageRendering::Auto,
             AlphaType::PremultipliedAlpha,
             blob_img.as_image(),
@@ -119,7 +260,7 @@ impl<'a> RawtestHarness<'a> {
 
         let mut epoch = Epoch(0);
 
-        self.submit_dl(&mut epoch, layout_size, builder, &txn.resource_updates);
+        self.submit_dl(&mut epoch, layout_size, builder, txn);
 
         self.rx.recv().unwrap();
         self.wrench.render();
@@ -128,7 +269,7 @@ impl<'a> RawtestHarness<'a> {
         // confuses the `test_capture`. TODO: remove this
         txn = Transaction::new();
         txn.delete_blob_image(blob_img);
-        self.wrench.api.update_resources(txn.resource_updates);
+        self.wrench.api.send_transaction(self.wrench.document_id, txn);
     }
 
     fn test_very_large_blob(&mut self) {
@@ -138,10 +279,10 @@ impl<'a> RawtestHarness<'a> {
 
         let window_size = self.window.get_inner_size();
 
-        let test_size = DeviceIntSize::new(800, 800);
+        let test_size = FramebufferIntSize::new(800, 800);
 
-        let window_rect = DeviceIntRect::new(
-            DeviceIntPoint::new(0, window_size.height - test_size.height),
+        let window_rect = FramebufferIntRect::new(
+            FramebufferIntPoint::new(0, window_size.height - test_size.height),
             test_size,
         );
 
@@ -152,9 +293,10 @@ impl<'a> RawtestHarness<'a> {
         let blob_img = self.wrench.api.generate_blob_image_key();
         txn.add_blob_image(
             blob_img,
-            ImageDescriptor::new(1510, 111256, ImageFormat::BGRA8, false, false),
+            ImageDescriptor::new(15000, 15000, ImageFormat::BGRA8, ImageDescriptorFlags::empty()),
             blob::serialize_blob(ColorU::new(50, 50, 150, 255)),
-            Some(31),
+            rect(0, 0, 15000, 15000),
+            Some(100),
         );
 
         let called = Arc::new(AtomicIsize::new(0));
@@ -164,189 +306,324 @@ impl<'a> RawtestHarness<'a> {
             called_inner.fetch_add(1, Ordering::SeqCst);
         });
 
-        let mut builder = DisplayListBuilder::new(self.wrench.root_pipeline_id, layout_size);
+        let mut builder = DisplayListBuilder::new(self.wrench.root_pipeline_id);
 
-        let info = LayoutPrimitiveInfo::new(rect(0., -9600.0, 1510.000031, 111256.));
+        let root_space_and_clip = SpaceAndClipInfo::root_scroll(self.wrench.root_pipeline_id);
+        let clip_id = builder.define_clip_rect(
+            &root_space_and_clip,
+            rect(40., 41., 200., 201.),
+        );
 
-        let image_size = size(1510., 111256.);
+        let info = CommonItemProperties {
+            clip_rect: rect(0.0, 0.0, 800.0, 800.0),
+            clip_id,
+            spatial_id: root_space_and_clip.spatial_id,
+            flags: PrimitiveFlags::default(),
+        };
 
-        let clip_id = builder.define_clip(rect(40., 41., 200., 201.), vec![], None);
-
-        builder.push_clip_id(clip_id);
         // setup some malicious image size parameters
-        builder.push_image(
+        builder.push_repeating_image(
             &info,
-            image_size * 2.,
-            image_size,
+            size2(15000.0, 15000.0).into(),
+            size2(15000.0, 15000.0),
+            size2(0.0, 0.0),
             ImageRendering::Auto,
             AlphaType::PremultipliedAlpha,
             blob_img.as_image(),
             ColorF::WHITE,
         );
-        txn.set_blob_image_visible_area(
-            blob_img,
-            DeviceIntRect {
-                origin: point2(0, 111256 / 30),
-                size: size2(1510, 111256 / 30),
-            }
-        );
-
-        builder.pop_clip_id();
 
         let mut epoch = Epoch(0);
 
-        self.submit_dl(&mut epoch, layout_size, builder, &txn.resource_updates);
+        self.submit_dl(&mut epoch, layout_size, builder, txn);
 
         let pixels = self.render_and_get_pixels(window_rect);
 
         // make sure we didn't request too many blobs
         assert!(called.load(Ordering::SeqCst) < 20);
 
+        //use crate::png;
+        //png::save_flipped("out.png", pixels.clone(), size2(window_rect.size.width, window_rect.size.height));
+
         // make sure things are in the right spot
-        assert!(
-            pixels[(148 +
-                (window_rect.size.height as usize - 148) *
-                    window_rect.size.width as usize) * 4] == 255 &&
-                pixels[(148 +
-                    (window_rect.size.height as usize - 148) *
-                        window_rect.size.width as usize) * 4 + 1] == 255 &&
-                pixels[(148 +
-                    (window_rect.size.height as usize - 148) *
-                        window_rect.size.width as usize) * 4 + 2] == 255 &&
-                pixels[(148 +
-                    (window_rect.size.height as usize - 148) *
-                        window_rect.size.width as usize) * 4 + 3] == 255
-        );
-        assert!(
-            pixels[(132 +
-                (window_rect.size.height as usize - 148) *
-                    window_rect.size.width as usize) * 4] == 50 &&
-                pixels[(132 +
-                    (window_rect.size.height as usize - 148) *
-                        window_rect.size.width as usize) * 4 + 1] == 50 &&
-                pixels[(132 +
-                    (window_rect.size.height as usize - 148) *
-                        window_rect.size.width as usize) * 4 + 2] == 150 &&
-                pixels[(132 +
-                    (window_rect.size.height as usize - 148) *
-                        window_rect.size.width as usize) * 4 + 3] == 255
-        );
+        let w = window_rect.size.width as usize;
+        let h = window_rect.size.height as usize;
+        let p1 = (40 + (h - 100) * w) * 4;
+        assert_eq!(pixels[p1 + 0], 50);
+        assert_eq!(pixels[p1 + 1], 50);
+        assert_eq!(pixels[p1 + 2], 150);
+        assert_eq!(pixels[p1 + 3], 255);
 
         // Leaving a tiled blob image in the resource cache
         // confuses the `test_capture`. TODO: remove this
         txn = Transaction::new();
         txn.delete_blob_image(blob_img);
-        self.wrench.api.update_resources(txn.resource_updates);
+        self.wrench.api.send_transaction(self.wrench.document_id, txn);
 
         *self.wrench.callbacks.lock().unwrap() = blob::BlobCallbacks::new();
     }
 
-    fn test_insufficient_blob_visible_area(&mut self) {
-        println!("\tinsufficient blob visible area.");
+    fn test_blob_visible_area(&mut self) {
+        println!("\tblob visible area...");
 
-        // This test compares two almost identical display lists containing the a blob
-        // image. The only difference is that one of the display lists specifies a visible
-        // area for its blob image which is too small, causing frame building to run into
-        // missing tiles, and forcing it to exercise the code path where missing tiles are
-        // rendered synchronously on demand.
-
-        assert_eq!(self.wrench.device_pixel_ratio, 1.);
+        assert_eq!(self.wrench.device_pixel_ratio, 1.0);
 
         let window_size = self.window.get_inner_size();
-        let test_size = DeviceIntSize::new(800, 800);
-        let window_rect = DeviceIntRect::new(
-            DeviceIntPoint::new(0, window_size.height - test_size.height),
+        let test_size = FramebufferIntSize::new(800, 800);
+        let window_rect = FramebufferIntRect::new(
+            FramebufferIntPoint::new(0, window_size.height - test_size.height),
             test_size,
         );
         let layout_size = LayoutSize::new(800.0, 800.0);
-        let image_size = size(800.0, 800.0);
-        let info = LayoutPrimitiveInfo::new(rect(0.0, 0.0, 800.0, 800.0));
-
-        let mut builder = DisplayListBuilder::new(self.wrench.root_pipeline_id, layout_size);
         let mut txn = Transaction::new();
 
-        let blob_img1 = self.wrench.api.generate_blob_image_key();
+        let blob_img = self.wrench.api.generate_blob_image_key();
         txn.add_blob_image(
-            blob_img1,
-            ImageDescriptor::new(
-                image_size.width as i32,
-                image_size.height as i32,
-                ImageFormat::BGRA8,
-                false,
-                false
-            ),
+            blob_img,
+            ImageDescriptor::new(500, 500, ImageFormat::BGRA8, ImageDescriptorFlags::empty()),
             blob::serialize_blob(ColorU::new(50, 50, 150, 255)),
+            DeviceIntRect {
+                origin: point2(50, 20),
+                size: size2(400, 400),
+            },
             Some(100),
         );
 
-        builder.push_image(
+        let mut builder = DisplayListBuilder::new(self.wrench.root_pipeline_id);
+
+        let image_size = size2(400.0, 400.0);
+
+        let root_space_and_clip = SpaceAndClipInfo::root_scroll(self.wrench.root_pipeline_id);
+        let clip_id = builder.define_clip_rect(
+            &root_space_and_clip,
+            rect(-1000.0, -1000.0, 2000.0, 2000.0),
+        );
+
+        let info = CommonItemProperties {
+            clip_rect: rect(10.0, 10.0, 400.0, 400.0),
+            clip_id,
+            spatial_id: root_space_and_clip.spatial_id,
+            flags: PrimitiveFlags::default(),
+        };
+
+        builder.push_repeating_image(
             &info,
+            info.clip_rect,
             image_size,
             image_size,
             ImageRendering::Auto,
             AlphaType::PremultipliedAlpha,
-            blob_img1.as_image(),
+            blob_img.as_image(),
+            ColorF::WHITE,
+        );
+        let mut epoch = Epoch(0);
+
+        self.submit_dl(&mut epoch, layout_size, builder, txn);
+
+        let pixels = self.render_and_get_pixels(window_rect);
+
+        //use super::png;
+        //png::save_flipped("out.png", pixels.clone(), size2(window_rect.size.width, window_rect.size.height));
+
+
+        // make sure things are in the right spot
+        let w = window_rect.size.width as usize;
+        let h = window_rect.size.height as usize;
+        let p1 = (65 + (h - 15) * w) * 4;
+        assert_eq!(pixels[p1 + 0], 255);
+        assert_eq!(pixels[p1 + 1], 255);
+        assert_eq!(pixels[p1 + 2], 255);
+        assert_eq!(pixels[p1 + 3], 255);
+
+        let p2 = (25 + (h - 15) * w) * 4;
+        assert_eq!(pixels[p2 + 0], 221);
+        assert_eq!(pixels[p2 + 1], 221);
+        assert_eq!(pixels[p2 + 2], 221);
+        assert_eq!(pixels[p2 + 3], 255);
+
+        let p3 = (15 + (h - 15) * w) * 4;
+        assert_eq!(pixels[p3 + 0], 50);
+        assert_eq!(pixels[p3 + 1], 50);
+        assert_eq!(pixels[p3 + 2], 150);
+        assert_eq!(pixels[p3 + 3], 255);
+
+        // Leaving a tiled blob image in the resource cache
+        // confuses the `test_capture`. TODO: remove this
+        txn = Transaction::new();
+        txn.delete_blob_image(blob_img);
+        self.wrench.api.send_transaction(self.wrench.document_id, txn);
+
+        *self.wrench.callbacks.lock().unwrap() = blob::BlobCallbacks::new();
+    }
+
+    fn test_blob_set_visible_area(&mut self) {
+        // In this test we first render a blob with a certain visible area,
+        // then change the visible area without updating the blob image.
+
+        println!("\tblob visible area update...");
+
+        assert_eq!(self.wrench.device_pixel_ratio, 1.0);
+
+        let window_size = self.window.get_inner_size();
+        let test_size = FramebufferIntSize::new(800, 800);
+        let window_rect = FramebufferIntRect::new(
+            FramebufferIntPoint::new(0, window_size.height - test_size.height),
+            test_size,
+        );
+        let layout_size = LayoutSize::new(800.0, 800.0);
+        let mut txn = Transaction::new();
+
+        let blob_img = self.wrench.api.generate_blob_image_key();
+        txn.add_blob_image(
+            blob_img,
+            ImageDescriptor::new(500, 500, ImageFormat::BGRA8, ImageDescriptorFlags::empty()),
+            blob::serialize_blob(ColorU::new(50, 50, 150, 255)),
+            DeviceIntRect {
+                origin: point2(0, 0),
+                size: size2(500, 500),
+            },
+            Some(128),
+        );
+
+        let mut builder = DisplayListBuilder::new(self.wrench.root_pipeline_id);
+
+        let root_space_and_clip = SpaceAndClipInfo::root_scroll(self.wrench.root_pipeline_id);
+        let clip_id = builder.define_clip_rect(
+            &root_space_and_clip,
+            rect(-1000.0, -1000.0, 2000.0, 2000.0),
+        );
+
+        let info = CommonItemProperties {
+            clip_rect: rect(0.0, 0.0, 1000.0, 1000.0),
+            clip_id,
+            spatial_id: root_space_and_clip.spatial_id,
+            flags: PrimitiveFlags::default(),
+        };
+
+        builder.push_repeating_image(
+            &info,
+            rect(0.0, 0.0, 500.0, 500.0),
+            size2(500.0, 500.0),
+            size2(500.0, 500.0),
+            ImageRendering::Auto,
+            AlphaType::PremultipliedAlpha,
+            blob_img.as_image(),
+            ColorF::WHITE,
+        );
+        let mut epoch = Epoch(0);
+
+        // Render the first display list. We don't care about the result but we
+        // want to make sure the next display list updates an already rendered
+        // state.
+        self.submit_dl(&mut epoch, layout_size, builder, txn);
+        let _ = self.render_and_get_pixels(window_rect);
+
+        // Now render a similar scene with an updated blob visible area.
+        // In this test we care about the fact that the visible area was updated
+        // without using update_blob_image.
+
+        let mut txn = Transaction::new();
+
+        txn.set_blob_image_visible_area(blob_img, DeviceIntRect {
+            origin: point2(50, 50),
+            size: size2(400, 400),
+        });
+
+        let mut builder = DisplayListBuilder::new(self.wrench.root_pipeline_id);
+
+        let root_space_and_clip = SpaceAndClipInfo::root_scroll(self.wrench.root_pipeline_id);
+        let clip_id = builder.define_clip_rect(
+            &root_space_and_clip,
+            rect(-1000.0, -1000.0, 2000.0, 2000.0),
+        );
+
+        let info = CommonItemProperties {
+            clip_rect: rect(0.0, 0.0, 1000.0, 1000.0),
+            clip_id,
+            spatial_id: root_space_and_clip.spatial_id,
+            flags: PrimitiveFlags::default(),
+        };
+
+        builder.push_repeating_image(
+            &info,
+            rect(50.0, 50.0, 400.0, 400.0),
+            size2(400.0, 400.0),
+            size2(400.0, 400.0),
+            ImageRendering::Auto,
+            AlphaType::PremultipliedAlpha,
+            blob_img.as_image(),
             ColorF::WHITE,
         );
 
-        self.submit_dl(&mut Epoch(0), layout_size, builder, &txn.resource_updates);
-        let pixels1 = self.render_and_get_pixels(window_rect);
+        self.submit_dl(&mut epoch, layout_size, builder, txn);
+        let resized_pixels = self.render_and_get_pixels(window_rect);
 
-        let mut builder = DisplayListBuilder::new(self.wrench.root_pipeline_id, layout_size);
+        // Now render the same scene with a new blob image created with the same
+        // visible area as the previous scene, without going through an update.
+
         let mut txn = Transaction::new();
 
         let blob_img2 = self.wrench.api.generate_blob_image_key();
         txn.add_blob_image(
             blob_img2,
-            ImageDescriptor::new(
-                image_size.width as i32,
-                image_size.height as i32,
-                ImageFormat::BGRA8,
-                false,
-                false
-            ),
+            ImageDescriptor::new(500, 500, ImageFormat::BGRA8, ImageDescriptorFlags::empty()),
             blob::serialize_blob(ColorU::new(50, 50, 150, 255)),
-            Some(100),
+            DeviceIntRect {
+                origin: point2(50, 50),
+                size: size2(400, 400),
+            },
+            Some(128),
         );
-        // Set a visible rectangle that is too small.
-        // This will force sync rasterization of the missing tiles during frame building.
-        txn.set_blob_image_visible_area(blob_img2, DeviceIntRect {
-            origin: point2(200, 200),
-            size: size2(80, 80),
-        });
 
-        builder.push_image(
+        let mut builder = DisplayListBuilder::new(self.wrench.root_pipeline_id);
+
+        let root_space_and_clip = SpaceAndClipInfo::root_scroll(self.wrench.root_pipeline_id);
+        let clip_id = builder.define_clip_rect(
+            &root_space_and_clip,
+            rect(-1000.0, -1000.0, 2000.0, 2000.0),
+        );
+
+        let info = CommonItemProperties {
+            clip_rect: rect(0.0, 0.0, 1000.0, 1000.0),
+            clip_id,
+            spatial_id: root_space_and_clip.spatial_id,
+            flags: PrimitiveFlags::default(),
+        };
+
+        builder.push_repeating_image(
             &info,
-            image_size,
-            image_size,
+            rect(50.0, 50.0, 400.0, 400.0),
+            size2(400.0, 400.0),
+            size2(400.0, 400.0),
             ImageRendering::Auto,
             AlphaType::PremultipliedAlpha,
             blob_img2.as_image(),
             ColorF::WHITE,
         );
+        let mut epoch = Epoch(0);
 
-        self.submit_dl(&mut Epoch(1), layout_size, builder, &txn.resource_updates);
-        let pixels2 = self.render_and_get_pixels(window_rect);
+        self.submit_dl(&mut epoch, layout_size, builder, txn);
 
-        assert!(pixels1 == pixels2);
+        let reference_pixels = self.render_and_get_pixels(window_rect);
+
+        assert_eq!(resized_pixels, reference_pixels);
 
         txn = Transaction::new();
-        txn.delete_blob_image(blob_img1);
+        txn.delete_blob_image(blob_img);
         txn.delete_blob_image(blob_img2);
-        self.wrench.api.update_resources(txn.resource_updates);
+        self.wrench.api.send_transaction(self.wrench.document_id, txn);
     }
 
     fn test_offscreen_blob(&mut self) {
-        println!("\toffscreen blob update.");
+        println!("\toffscreen blob update...");
 
         assert_eq!(self.wrench.device_pixel_ratio, 1.);
 
         let window_size = self.window.get_inner_size();
 
-        let test_size = DeviceIntSize::new(800, 800);
-
-        let window_rect = DeviceIntRect::new(
-            DeviceIntPoint::new(0, window_size.height - test_size.height),
+        let test_size = FramebufferIntSize::new(800, 800);
+        let window_rect = FramebufferIntRect::new(
+            point2(0, window_size.height - test_size.height),
             test_size,
         );
 
@@ -357,20 +634,22 @@ impl<'a> RawtestHarness<'a> {
         let blob_img = self.wrench.api.generate_blob_image_key();
         txn.add_blob_image(
             blob_img,
-            ImageDescriptor::new(1510, 1510, ImageFormat::BGRA8, false, false),
+            ImageDescriptor::new(1510, 1510, ImageFormat::BGRA8, ImageDescriptorFlags::empty()),
             blob::serialize_blob(ColorU::new(50, 50, 150, 255)),
+            rect(0, 0, 1510, 1510),
             None,
         );
 
-        let mut builder = DisplayListBuilder::new(self.wrench.root_pipeline_id, layout_size);
+        let mut builder = DisplayListBuilder::new(self.wrench.root_pipeline_id);
 
-        let info = LayoutPrimitiveInfo::new(rect(0., 0.0, 1510., 1510.));
+        let info = self.make_common_properties(rect(0., 0.0, 1510., 1510.));
 
-        let image_size = size(1510., 1510.);
+        let image_size = size2(1510., 1510.);
 
         // setup some malicious image size parameters
-        builder.push_image(
+        builder.push_repeating_image(
             &info,
+            info.clip_rect,
             image_size,
             image_size,
             ImageRendering::Auto,
@@ -381,21 +660,22 @@ impl<'a> RawtestHarness<'a> {
 
         let mut epoch = Epoch(0);
 
-        self.submit_dl(&mut epoch, layout_size, builder, &txn.resource_updates);
+        self.submit_dl(&mut epoch, layout_size, builder, txn);
 
         let original_pixels = self.render_and_get_pixels(window_rect);
 
         let mut epoch = Epoch(1);
 
-        let mut builder = DisplayListBuilder::new(self.wrench.root_pipeline_id, layout_size);
+        let mut builder = DisplayListBuilder::new(self.wrench.root_pipeline_id);
 
-        let info = LayoutPrimitiveInfo::new(rect(-10000., 0.0, 1510., 1510.));
+        let info = self.make_common_properties(rect(-10000., 0.0, 1510., 1510.));
 
-        let image_size = size(1510., 1510.);
+        let image_size = size2(1510., 1510.);
 
         // setup some malicious image size parameters
-        builder.push_image(
+        builder.push_repeating_image(
             &info,
+            info.clip_rect,
             image_size,
             image_size,
             ImageRendering::Auto,
@@ -404,7 +684,7 @@ impl<'a> RawtestHarness<'a> {
             ColorF::WHITE,
         );
 
-        self.submit_dl(&mut epoch, layout_size, builder, &[]);
+        self.submit_dl(&mut epoch, layout_size, builder, Transaction::new());
 
         let _offscreen_pixels = self.render_and_get_pixels(window_rect);
 
@@ -412,20 +692,22 @@ impl<'a> RawtestHarness<'a> {
 
         txn.update_blob_image(
             blob_img,
-            ImageDescriptor::new(1510, 1510, ImageFormat::BGRA8, false, false),
+            ImageDescriptor::new(1510, 1510, ImageFormat::BGRA8, ImageDescriptorFlags::empty()),
             blob::serialize_blob(ColorU::new(50, 50, 150, 255)),
+            rect(0, 0, 1510, 1510),
             &rect(10, 10, 100, 100).into(),
         );
 
-        let mut builder = DisplayListBuilder::new(self.wrench.root_pipeline_id, layout_size);
+        let mut builder = DisplayListBuilder::new(self.wrench.root_pipeline_id);
 
-        let info = LayoutPrimitiveInfo::new(rect(0., 0.0, 1510., 1510.));
+        let info = self.make_common_properties(rect(0., 0.0, 1510., 1510.));
 
-        let image_size = size(1510., 1510.);
+        let image_size = size2(1510., 1510.);
 
         // setup some malicious image size parameters
-        builder.push_image(
+        builder.push_repeating_image(
             &info,
+            info.clip_rect,
             image_size,
             image_size,
             ImageRendering::Auto,
@@ -436,17 +718,17 @@ impl<'a> RawtestHarness<'a> {
 
         let mut epoch = Epoch(2);
 
-        self.submit_dl(&mut epoch, layout_size, builder, &txn.resource_updates);
+        self.submit_dl(&mut epoch, layout_size, builder, txn);
 
         let pixels = self.render_and_get_pixels(window_rect);
 
-        assert!(pixels == original_pixels);
+        self.compare_pixels(original_pixels, pixels, window_rect.size);
 
         // Leaving a tiled blob image in the resource cache
         // confuses the `test_capture`. TODO: remove this
         txn = Transaction::new();
         txn.delete_blob_image(blob_img);
-        self.wrench.api.update_resources(txn.resource_updates);
+        self.wrench.api.send_transaction(self.wrench.document_id, txn);
     }
 
     fn test_retained_blob_images_test(&mut self) {
@@ -454,13 +736,13 @@ impl<'a> RawtestHarness<'a> {
         let blob_img;
         let window_size = self.window.get_inner_size();
 
-        let test_size = DeviceIntSize::new(400, 400);
-
-        let window_rect = DeviceIntRect::new(
-            DeviceIntPoint::new(0, window_size.height - test_size.height),
+        let test_size = FramebufferIntSize::new(400, 400);
+        let window_rect = FramebufferIntRect::new(
+            FramebufferIntPoint::new(0, window_size.height - test_size.height),
             test_size,
         );
         let layout_size = LayoutSize::new(400., 400.);
+
         let mut txn = Transaction::new();
         {
             let api = &self.wrench.api;
@@ -468,8 +750,9 @@ impl<'a> RawtestHarness<'a> {
             blob_img = api.generate_blob_image_key();
             txn.add_blob_image(
                 blob_img,
-                ImageDescriptor::new(500, 500, ImageFormat::BGRA8, false, false),
+                ImageDescriptor::new(500, 500, ImageFormat::BGRA8, ImageDescriptorFlags::empty()),
                 blob::serialize_blob(ColorU::new(50, 50, 150, 255)),
+                rect(0, 0, 500, 500),
                 None,
             );
         }
@@ -482,13 +765,12 @@ impl<'a> RawtestHarness<'a> {
         });
 
         // draw the blob the first time
-        let mut builder = DisplayListBuilder::new(self.wrench.root_pipeline_id, layout_size);
-        let info = LayoutPrimitiveInfo::new(rect(0.0, 60.0, 200.0, 200.0));
+        let mut builder = DisplayListBuilder::new(self.wrench.root_pipeline_id);
+        let info = self.make_common_properties(rect(0.0, 60.0, 200.0, 200.0));
 
         builder.push_image(
             &info,
-            size(200.0, 200.0),
-            size(0.0, 0.0),
+            info.clip_rect,
             ImageRendering::Auto,
             AlphaType::PremultipliedAlpha,
             blob_img.as_image(),
@@ -497,7 +779,7 @@ impl<'a> RawtestHarness<'a> {
 
         let mut epoch = Epoch(0);
 
-        self.submit_dl(&mut epoch, layout_size, builder, &txn.resource_updates);
+        self.submit_dl(&mut epoch, layout_size, builder, txn);
 
         let pixels_first = self.render_and_get_pixels(window_rect);
 
@@ -506,21 +788,21 @@ impl<'a> RawtestHarness<'a> {
         // draw the blob image a second time at a different location
 
         // make a new display list that refers to the first image
-        let mut builder = DisplayListBuilder::new(self.wrench.root_pipeline_id, layout_size);
-        let info = LayoutPrimitiveInfo::new(rect(1.0, 60.0, 200.0, 200.0));
+        let mut builder = DisplayListBuilder::new(self.wrench.root_pipeline_id);
+        let info = self.make_common_properties(rect(1.0, 60.0, 200.0, 200.0));
         builder.push_image(
             &info,
-            size(200.0, 200.0),
-            size(0.0, 0.0),
+            info.clip_rect,
             ImageRendering::Auto,
             AlphaType::PremultipliedAlpha,
             blob_img.as_image(),
             ColorF::WHITE,
         );
 
+        let mut txn = Transaction::new();
         txn.resource_updates.clear();
 
-        self.submit_dl(&mut epoch, layout_size, builder, &txn.resource_updates);
+        self.submit_dl(&mut epoch, layout_size, builder, txn);
 
         let pixels_second = self.render_and_get_pixels(window_rect);
 
@@ -530,7 +812,6 @@ impl<'a> RawtestHarness<'a> {
         // use png;
         // png::save_flipped("out1.png", &pixels_first, window_rect.size);
         // png::save_flipped("out2.png", &pixels_second, window_rect.size);
-
         assert!(pixels_first != pixels_second);
 
         // cleanup
@@ -542,13 +823,13 @@ impl<'a> RawtestHarness<'a> {
         let (blob_img, blob_img2);
         let window_size = self.window.get_inner_size();
 
-        let test_size = DeviceIntSize::new(400, 400);
-
-        let window_rect = DeviceIntRect::new(
-            point(0, window_size.height - test_size.height),
+        let test_size = FramebufferIntSize::new(400, 400);
+        let window_rect = FramebufferIntRect::new(
+            point2(0, window_size.height - test_size.height),
             test_size,
         );
         let layout_size = LayoutSize::new(400., 400.);
+
         let mut txn = Transaction::new();
         let (blob_img, blob_img2) = {
             let api = &self.wrench.api;
@@ -556,15 +837,17 @@ impl<'a> RawtestHarness<'a> {
             blob_img = api.generate_blob_image_key();
             txn.add_blob_image(
                 blob_img,
-                ImageDescriptor::new(500, 500, ImageFormat::BGRA8, false, false),
+                ImageDescriptor::new(500, 500, ImageFormat::BGRA8, ImageDescriptorFlags::empty()),
                 blob::serialize_blob(ColorU::new(50, 50, 150, 255)),
+                rect(0, 0, 500, 500),
                 None,
             );
             blob_img2 = api.generate_blob_image_key();
             txn.add_blob_image(
                 blob_img2,
-                ImageDescriptor::new(500, 500, ImageFormat::BGRA8, false, false),
+                ImageDescriptor::new(500, 500, ImageFormat::BGRA8, ImageDescriptorFlags::empty()),
                 blob::serialize_blob(ColorU::new(80, 50, 150, 255)),
+                rect(0, 0, 500, 500),
                 None,
             );
             (blob_img, blob_img2)
@@ -589,14 +872,13 @@ impl<'a> RawtestHarness<'a> {
         });
 
         // create two blob images and draw them
-        let mut builder = DisplayListBuilder::new(self.wrench.root_pipeline_id, layout_size);
-        let info = LayoutPrimitiveInfo::new(rect(0.0, 60.0, 200.0, 200.0));
-        let info2 = LayoutPrimitiveInfo::new(rect(200.0, 60.0, 200.0, 200.0));
+        let mut builder = DisplayListBuilder::new(self.wrench.root_pipeline_id);
+        let info = self.make_common_properties(rect(0.0, 60.0, 200.0, 200.0));
+        let info2 = self.make_common_properties(rect(200.0, 60.0, 200.0, 200.0));
         let push_images = |builder: &mut DisplayListBuilder| {
             builder.push_image(
                 &info,
-                size(200.0, 200.0),
-                size(0.0, 0.0),
+                info.clip_rect,
                 ImageRendering::Auto,
                 AlphaType::PremultipliedAlpha,
                 blob_img.as_image(),
@@ -604,8 +886,7 @@ impl<'a> RawtestHarness<'a> {
             );
             builder.push_image(
                 &info2,
-                size(200.0, 200.0),
-                size(0.0, 0.0),
+                info2.clip_rect,
                 ImageRendering::Auto,
                 AlphaType::PremultipliedAlpha,
                 blob_img2.as_image(),
@@ -617,43 +898,44 @@ impl<'a> RawtestHarness<'a> {
 
         let mut epoch = Epoch(0);
 
-        self.submit_dl(&mut epoch, layout_size, builder, &txn.resource_updates);
+        self.submit_dl(&mut epoch, layout_size, builder, txn);
         let _pixels_first = self.render_and_get_pixels(window_rect);
-
 
         // update and redraw both images
         let mut txn = Transaction::new();
         txn.update_blob_image(
             blob_img,
-            ImageDescriptor::new(500, 500, ImageFormat::BGRA8, false, false),
+            ImageDescriptor::new(500, 500, ImageFormat::BGRA8, ImageDescriptorFlags::empty()),
             blob::serialize_blob(ColorU::new(50, 50, 150, 255)),
+            rect(0, 0, 500, 500),
             &rect(100, 100, 100, 100).into(),
         );
         txn.update_blob_image(
             blob_img2,
-            ImageDescriptor::new(500, 500, ImageFormat::BGRA8, false, false),
+            ImageDescriptor::new(500, 500, ImageFormat::BGRA8, ImageDescriptorFlags::empty()),
             blob::serialize_blob(ColorU::new(59, 50, 150, 255)),
+            rect(0, 0, 500, 500),
             &rect(100, 100, 100, 100).into(),
         );
 
-        let mut builder = DisplayListBuilder::new(self.wrench.root_pipeline_id, layout_size);
+        let mut builder = DisplayListBuilder::new(self.wrench.root_pipeline_id);
         push_images(&mut builder);
-        self.submit_dl(&mut epoch, layout_size, builder, &txn.resource_updates);
+        self.submit_dl(&mut epoch, layout_size, builder, txn);
         let _pixels_second = self.render_and_get_pixels(window_rect);
-
 
         // only update the first image
         let mut txn = Transaction::new();
         txn.update_blob_image(
             blob_img,
-            ImageDescriptor::new(500, 500, ImageFormat::BGRA8, false, false),
+            ImageDescriptor::new(500, 500, ImageFormat::BGRA8, ImageDescriptorFlags::empty()),
             blob::serialize_blob(ColorU::new(50, 150, 150, 255)),
+            rect(0, 0, 500, 500),
             &rect(200, 200, 100, 100).into(),
         );
 
-        let mut builder = DisplayListBuilder::new(self.wrench.root_pipeline_id, layout_size);
+        let mut builder = DisplayListBuilder::new(self.wrench.root_pipeline_id);
         push_images(&mut builder);
-        self.submit_dl(&mut epoch, layout_size, builder, &txn.resource_updates);
+        self.submit_dl(&mut epoch, layout_size, builder, txn);
         let _pixels_third = self.render_and_get_pixels(window_rect);
 
         // the first image should be requested 3 times
@@ -669,10 +951,9 @@ impl<'a> RawtestHarness<'a> {
         println!("\tblob update test...");
         let window_size = self.window.get_inner_size();
 
-        let test_size = DeviceIntSize::new(400, 400);
-
-        let window_rect = DeviceIntRect::new(
-            point(0, window_size.height - test_size.height),
+        let test_size = FramebufferIntSize::new(400, 400);
+        let window_rect = FramebufferIntRect::new(
+            point2(0, window_size.height - test_size.height),
             test_size,
         );
         let layout_size = LayoutSize::new(400., 400.);
@@ -682,21 +963,21 @@ impl<'a> RawtestHarness<'a> {
             let img = self.wrench.api.generate_blob_image_key();
             txn.add_blob_image(
                 img,
-                ImageDescriptor::new(500, 500, ImageFormat::BGRA8, false, false),
+                ImageDescriptor::new(500, 500, ImageFormat::BGRA8, ImageDescriptorFlags::empty()),
                 blob::serialize_blob(ColorU::new(50, 50, 150, 255)),
+                rect(0, 0, 500, 500),
                 None,
             );
             img
         };
 
         // draw the blobs the first time
-        let mut builder = DisplayListBuilder::new(self.wrench.root_pipeline_id, layout_size);
-        let info = LayoutPrimitiveInfo::new(rect(0.0, 60.0, 200.0, 200.0));
+        let mut builder = DisplayListBuilder::new(self.wrench.root_pipeline_id);
+        let info = self.make_common_properties(rect(0.0, 60.0, 200.0, 200.0));
 
         builder.push_image(
             &info,
-            size(200.0, 200.0),
-            size(0.0, 0.0),
+            info.clip_rect,
             ImageRendering::Auto,
             AlphaType::PremultipliedAlpha,
             blob_img.as_image(),
@@ -705,61 +986,61 @@ impl<'a> RawtestHarness<'a> {
 
         let mut epoch = Epoch(0);
 
-        self.submit_dl(&mut epoch, layout_size, builder, &txn.resource_updates);
+        self.submit_dl(&mut epoch, layout_size, builder, txn);
         let pixels_first = self.render_and_get_pixels(window_rect);
 
         // draw the blob image a second time after updating it with the same color
         let mut txn = Transaction::new();
         txn.update_blob_image(
             blob_img,
-            ImageDescriptor::new(500, 500, ImageFormat::BGRA8, false, false),
+            ImageDescriptor::new(500, 500, ImageFormat::BGRA8, ImageDescriptorFlags::empty()),
             blob::serialize_blob(ColorU::new(50, 50, 150, 255)),
+            rect(0, 0, 500, 500),
             &rect(100, 100, 100, 100).into(),
         );
 
         // make a new display list that refers to the first image
-        let mut builder = DisplayListBuilder::new(self.wrench.root_pipeline_id, layout_size);
-        let info = LayoutPrimitiveInfo::new(rect(0.0, 60.0, 200.0, 200.0));
+        let mut builder = DisplayListBuilder::new(self.wrench.root_pipeline_id);
+        let info = self.make_common_properties(rect(0.0, 60.0, 200.0, 200.0));
         builder.push_image(
             &info,
-            size(200.0, 200.0),
-            size(0.0, 0.0),
+            info.clip_rect,
             ImageRendering::Auto,
             AlphaType::PremultipliedAlpha,
             blob_img.as_image(),
             ColorF::WHITE,
         );
 
-        self.submit_dl(&mut epoch, layout_size, builder, &txn.resource_updates);
+        self.submit_dl(&mut epoch, layout_size, builder, txn);
         let pixels_second = self.render_and_get_pixels(window_rect);
 
         // draw the blob image a third time after updating it with a different color
         let mut txn = Transaction::new();
         txn.update_blob_image(
             blob_img,
-            ImageDescriptor::new(500, 500, ImageFormat::BGRA8, false, false),
+            ImageDescriptor::new(500, 500, ImageFormat::BGRA8, ImageDescriptorFlags::empty()),
             blob::serialize_blob(ColorU::new(50, 150, 150, 255)),
+            rect(0, 0, 500, 500),
             &rect(200, 200, 100, 100).into(),
         );
 
         // make a new display list that refers to the first image
-        let mut builder = DisplayListBuilder::new(self.wrench.root_pipeline_id, layout_size);
-        let info = LayoutPrimitiveInfo::new(rect(0.0, 60.0, 200.0, 200.0));
+        let mut builder = DisplayListBuilder::new(self.wrench.root_pipeline_id);
+        let info = self.make_common_properties(rect(0.0, 60.0, 200.0, 200.0));
         builder.push_image(
             &info,
-            size(200.0, 200.0),
-            size(0.0, 0.0),
+            info.clip_rect,
             ImageRendering::Auto,
             AlphaType::PremultipliedAlpha,
             blob_img.as_image(),
             ColorF::WHITE,
         );
 
-        self.submit_dl(&mut epoch, layout_size, builder, &txn.resource_updates);
+        self.submit_dl(&mut epoch, layout_size, builder, txn);
         let pixels_third = self.render_and_get_pixels(window_rect);
 
-        assert!(pixels_first == pixels_second);
         assert!(pixels_first != pixels_third);
+        self.compare_pixels(pixels_first, pixels_second, window_rect.size);
     }
 
     // Ensures that content doing a save-restore produces the same results as not
@@ -767,68 +1048,93 @@ impl<'a> RawtestHarness<'a> {
         println!("\tsave/restore...");
         let window_size = self.window.get_inner_size();
 
-        let test_size = DeviceIntSize::new(400, 400);
-
-        let window_rect = DeviceIntRect::new(
-            DeviceIntPoint::new(0, window_size.height - test_size.height),
+        let test_size = FramebufferIntSize::new(400, 400);
+        let window_rect = FramebufferIntRect::new(
+            point2(0, window_size.height - test_size.height),
             test_size,
         );
         let layout_size = LayoutSize::new(400., 400.);
 
         let mut do_test = |should_try_and_fail| {
-            let mut builder = DisplayListBuilder::new(self.wrench.root_pipeline_id, layout_size);
+            let mut builder = DisplayListBuilder::new(self.wrench.root_pipeline_id);
 
-            let clip = builder.define_clip(
+            let spatial_id = SpatialId::root_scroll_node(self.wrench.root_pipeline_id);
+            let clip_id = builder.define_clip_rect(
+                &SpaceAndClipInfo::root_scroll(self.wrench.root_pipeline_id),
                 rect(110., 120., 200., 200.),
-                None::<ComplexClipRegion>,
-                None
             );
-            builder.push_clip_id(clip);
-            builder.push_rect(&PrimitiveInfo::new(rect(100., 100., 100., 100.)),
-                              ColorF::new(0.0, 0.0, 1.0, 1.0));
+            builder.push_rect(
+                &self.make_common_properties_with_clip_and_spatial(
+                    rect(100., 100., 100., 100.),
+                    clip_id,
+                    spatial_id),
+                rect(100., 100., 100., 100.),
+                ColorF::new(0.0, 0.0, 1.0, 1.0),
+            );
 
             if should_try_and_fail {
                 builder.save();
-                let clip = builder.define_clip(
+                let clip_id = builder.define_clip_rect(
+                    &SpaceAndClipInfo { spatial_id, clip_id },
                     rect(80., 80., 90., 90.),
-                    None::<ComplexClipRegion>,
-                    None
                 );
-                builder.push_clip_id(clip);
-                builder.push_rect(&PrimitiveInfo::new(rect(110., 110., 50., 50.)),
-                                  ColorF::new(0.0, 1.0, 0.0, 1.0));
-                builder.push_shadow(&PrimitiveInfo::new(rect(100., 100., 100., 100.)),
-                                    Shadow {
-                                        offset: LayoutVector2D::new(1.0, 1.0),
-                                        blur_radius: 1.0,
-                                        color: ColorF::new(0.0, 0.0, 0.0, 1.0),
-                                    });
-                builder.push_line(&PrimitiveInfo::new(rect(110., 110., 50., 2.)),
-                                  0.0, LineOrientation::Horizontal,
-                                  &ColorF::new(0.0, 0.0, 0.0, 1.0), LineStyle::Solid);
+                let space_and_clip = SpaceAndClipInfo {
+                    spatial_id,
+                    clip_id
+                };
+                builder.push_rect(
+                    &self.make_common_properties_with_clip_and_spatial(
+                        rect(110., 110., 50., 50.),
+                        clip_id,
+                        spatial_id),
+                    rect(110., 110., 50., 50.),
+                    ColorF::new(0.0, 1.0, 0.0, 1.0),
+                );
+                builder.push_shadow(
+                    &space_and_clip,
+                    Shadow {
+                        offset: LayoutVector2D::new(1.0, 1.0),
+                        blur_radius: 1.0,
+                        color: ColorF::new(0.0, 0.0, 0.0, 1.0),
+                    },
+                    true,
+                );
+                let info = CommonItemProperties {
+                    clip_rect: rect(110., 110., 50., 2.),
+                    clip_id,
+                    spatial_id,
+                    flags: PrimitiveFlags::default(),
+                };
+                builder.push_line(
+                    &info,
+                    &info.clip_rect,
+                    0.0, LineOrientation::Horizontal,
+                    &ColorF::new(0.0, 0.0, 0.0, 1.0),
+                    LineStyle::Solid,
+                );
                 builder.restore();
             }
 
             {
                 builder.save();
-                let clip = builder.define_clip(
+                let clip_id = builder.define_clip_rect(
+                    &SpaceAndClipInfo { spatial_id, clip_id },
                     rect(80., 80., 100., 100.),
-                    None::<ComplexClipRegion>,
-                    None
                 );
-                builder.push_clip_id(clip);
-                builder.push_rect(&PrimitiveInfo::new(rect(150., 150., 100., 100.)),
-                                  ColorF::new(0.0, 0.0, 1.0, 1.0));
-
-                builder.pop_clip_id();
+                builder.push_rect(
+                    &self.make_common_properties_with_clip_and_spatial(
+                        rect(150., 150., 100., 100.),
+                        clip_id,
+                        spatial_id),
+                    rect(150., 150., 100., 100.),
+                    ColorF::new(0.0, 0.0, 1.0, 1.0),
+                );
                 builder.clear_save();
             }
 
-            builder.pop_clip_id();
-
             let txn = Transaction::new();
 
-            self.submit_dl(&mut Epoch(0), layout_size, builder, &txn.resource_updates);
+            self.submit_dl(&mut Epoch(0), layout_size, builder, txn);
 
             self.render_and_get_pixels(window_rect)
         };
@@ -836,7 +1142,7 @@ impl<'a> RawtestHarness<'a> {
         let first = do_test(false);
         let second = do_test(true);
 
-        assert_eq!(first, second);
+        self.compare_pixels(first, second, window_rect.size);
     }
 
     // regression test for #2769
@@ -845,35 +1151,42 @@ impl<'a> RawtestHarness<'a> {
         println!("\tblur cache...");
         let window_size = self.window.get_inner_size();
 
-        let test_size = DeviceIntSize::new(400, 400);
-
-        let window_rect = DeviceIntRect::new(
-            DeviceIntPoint::new(0, window_size.height - test_size.height),
+        let test_size = FramebufferIntSize::new(400, 400);
+        let window_rect = FramebufferIntRect::new(
+            point2(0, window_size.height - test_size.height),
             test_size,
         );
         let layout_size = LayoutSize::new(400., 400.);
 
         let mut do_test = |shadow_is_red| {
-            let mut builder = DisplayListBuilder::new(self.wrench.root_pipeline_id, layout_size);
+            let mut builder = DisplayListBuilder::new(self.wrench.root_pipeline_id);
             let shadow_color = if shadow_is_red {
                 ColorF::new(1.0, 0.0, 0.0, 1.0)
             } else {
                 ColorF::new(0.0, 1.0, 0.0, 1.0)
             };
 
-            builder.push_shadow(&PrimitiveInfo::new(rect(100., 100., 100., 100.)),
+            builder.push_shadow(
+                &SpaceAndClipInfo::root_scroll(self.wrench.root_pipeline_id),
                 Shadow {
                     offset: LayoutVector2D::new(1.0, 1.0),
                     blur_radius: 1.0,
                     color: shadow_color,
-                });
-            builder.push_line(&PrimitiveInfo::new(rect(110., 110., 50., 2.)),
-                              0.0, LineOrientation::Horizontal,
-                              &ColorF::new(0.0, 0.0, 0.0, 1.0), LineStyle::Solid);
+                },
+                true,
+            );
+            let info = self.make_common_properties(rect(110., 110., 50., 2.));
+            builder.push_line(
+                &info,
+                &info.clip_rect,
+                0.0, LineOrientation::Horizontal,
+                &ColorF::new(0.0, 0.0, 0.0, 1.0),
+                LineStyle::Solid,
+            );
             builder.pop_all_shadows();
 
             let txn = Transaction::new();
-            self.submit_dl(&mut Epoch(0), layout_size, builder, &txn.resource_updates);
+            self.submit_dl(&mut Epoch(0), layout_size, builder, txn);
 
             self.render_and_get_pixels(window_rect)
         };
@@ -889,9 +1202,9 @@ impl<'a> RawtestHarness<'a> {
         let path = "../captures/test";
         let layout_size = LayoutSize::new(400., 400.);
         let dim = self.window.get_inner_size();
-        let window_rect = DeviceIntRect::new(
-            point(0, dim.height - layout_size.height as i32),
-            size(layout_size.width as i32, layout_size.height as i32),
+        let window_rect = FramebufferIntRect::new(
+            point2(0, dim.height - layout_size.height as i32),
+            size2(layout_size.width as i32, layout_size.height as i32),
         );
 
         // 1. render some scene
@@ -900,17 +1213,17 @@ impl<'a> RawtestHarness<'a> {
         let image = self.wrench.api.generate_image_key();
         txn.add_image(
             image,
-            ImageDescriptor::new(1, 1, ImageFormat::BGRA8, true, false),
+            ImageDescriptor::new(1, 1, ImageFormat::BGRA8, ImageDescriptorFlags::IS_OPAQUE),
             ImageData::new(vec![0xFF, 0, 0, 0xFF]),
             None,
         );
 
-        let mut builder = DisplayListBuilder::new(self.wrench.root_pipeline_id, layout_size);
+        let mut builder = DisplayListBuilder::new(self.wrench.root_pipeline_id);
 
+        let info = self.make_common_properties(rect(300.0, 70.0, 150.0, 50.0));
         builder.push_image(
-            &LayoutPrimitiveInfo::new(rect(300.0, 70.0, 150.0, 50.0)),
-            size(150.0, 50.0),
-            size(0.0, 0.0),
+            &info,
+            info.clip_rect,
             ImageRendering::Auto,
             AlphaType::PremultipliedAlpha,
             image,
@@ -937,7 +1250,7 @@ impl<'a> RawtestHarness<'a> {
 
         // 3. set a different scene
 
-        builder = DisplayListBuilder::new(self.wrench.root_pipeline_id, layout_size);
+        builder = DisplayListBuilder::new(self.wrench.root_pipeline_id);
 
         let mut txn = Transaction::new();
         txn.set_display_list(
@@ -951,12 +1264,12 @@ impl<'a> RawtestHarness<'a> {
 
         // 4. load the first one
 
-        let mut documents = self.wrench.api.load_capture(path.into());
+        let mut documents = self.wrench.api.load_capture(path.into(), None);
         let captured = documents.swap_remove(0);
 
         // 5. render the built frame and compare
         let pixels1 = self.render_and_get_pixels(window_rect);
-        assert!(pixels0 == pixels1);
+        self.compare_pixels(pixels0.clone(), pixels1, window_rect.size);
 
         // 6. rebuild the scene and compare again
         let mut txn = Transaction::new();
@@ -964,7 +1277,7 @@ impl<'a> RawtestHarness<'a> {
         txn.generate_frame();
         self.wrench.api.send_transaction(captured.document_id, txn);
         let pixels2 = self.render_and_get_pixels(window_rect);
-        assert!(pixels0 == pixels2);
+        self.compare_pixels(pixels0, pixels2, window_rect.size);
     }
 
     fn test_zero_height_window(&mut self) {
@@ -972,12 +1285,16 @@ impl<'a> RawtestHarness<'a> {
 
         let layout_size = LayoutSize::new(120.0, 0.0);
         let window_size = DeviceIntSize::new(layout_size.width as i32, layout_size.height as i32);
-        let doc_id = self.wrench.api.add_document(window_size, 1);
+        let doc_id = self.wrench.api.add_document(window_size);
 
-        let mut builder = DisplayListBuilder::new(self.wrench.root_pipeline_id, layout_size);
-        let info = LayoutPrimitiveInfo::new(LayoutRect::new(LayoutPoint::zero(),
+        let mut builder = DisplayListBuilder::new(self.wrench.root_pipeline_id);
+        let info = self.make_common_properties(LayoutRect::new(LayoutPoint::zero(),
                                                             LayoutSize::new(100.0, 100.0)));
-        builder.push_rect(&info, ColorF::new(0.0, 1.0, 0.0, 1.0));
+        builder.push_rect(
+            &info,
+            info.clip_rect,
+            ColorF::new(0.0, 1.0, 0.0, 1.0),
+        );
 
         let mut txn = Transaction::new();
         txn.set_root_pipeline(self.wrench.root_pipeline_id);
@@ -1001,21 +1318,26 @@ impl<'a> RawtestHarness<'a> {
         println!("\thit testing test...");
 
         let layout_size = LayoutSize::new(400., 400.);
-        let mut builder = DisplayListBuilder::new(self.wrench.root_pipeline_id, layout_size);
+        let mut builder = DisplayListBuilder::new(self.wrench.root_pipeline_id);
 
         // Add a rectangle that covers the entire scene.
-        let mut info = LayoutPrimitiveInfo::new(LayoutRect::new(LayoutPoint::zero(), layout_size));
-        info.tag = Some((0, 1));
-        builder.push_rect(&info, ColorF::new(1.0, 1.0, 1.0, 1.0));
-
+        let info = self.make_common_properties(LayoutRect::new(LayoutPoint::zero(), layout_size));
+        builder.push_hit_test(
+            &info,
+            (0, 1),
+        );
 
         // Add a simple 100x100 rectangle at 100,0.
-        let mut info = LayoutPrimitiveInfo::new(LayoutRect::new(
+        let info = self.make_common_properties(LayoutRect::new(
             LayoutPoint::new(100., 0.),
             LayoutSize::new(100., 100.)
         ));
-        info.tag = Some((0, 2));
-        builder.push_rect(&info, ColorF::new(1.0, 1.0, 1.0, 1.0));
+        builder.push_hit_test(
+            &info,
+            (0, 2),
+        );
+
+        let space_and_clip = SpaceAndClipInfo::root_scroll(self.wrench.root_pipeline_id);
 
         let make_rounded_complex_clip = |rect: &LayoutRect, radius: f32| -> ComplexClipRegion {
             ComplexClipRegion::new(
@@ -1025,34 +1347,42 @@ impl<'a> RawtestHarness<'a> {
             )
         };
 
-
         // Add a rectangle that is clipped by a rounded rect clip item.
         let rect = LayoutRect::new(LayoutPoint::new(100., 100.), LayoutSize::new(100., 100.));
-        let clip_id = builder.define_clip(rect, vec![make_rounded_complex_clip(&rect, 20.)], None);
-        builder.push_clip_id(clip_id);
-        let mut info = LayoutPrimitiveInfo::new(rect);
-        info.tag = Some((0, 4));
-        builder.push_rect(&info, ColorF::new(1.0, 1.0, 1.0, 1.0));
-        builder.pop_clip_id();
-
+        let temp_clip_id = builder.define_clip_rounded_rect(
+            &space_and_clip,
+            make_rounded_complex_clip(&rect, 20.),
+        );
+        builder.push_hit_test(
+            &CommonItemProperties {
+                clip_rect: rect,
+                clip_id: temp_clip_id,
+                spatial_id: space_and_clip.spatial_id,
+                flags: PrimitiveFlags::default(),
+            },
+            (0, 4),
+        );
 
         // Add a rectangle that is clipped by a ClipChain containing a rounded rect.
         let rect = LayoutRect::new(LayoutPoint::new(200., 100.), LayoutSize::new(100., 100.));
-        let clip_id = builder.define_clip(rect, vec![make_rounded_complex_clip(&rect, 20.)], None);
+        let clip_id = builder.define_clip_rounded_rect(
+            &space_and_clip,
+            make_rounded_complex_clip(&rect, 20.),
+        );
         let clip_chain_id = builder.define_clip_chain(None, vec![clip_id]);
-        builder.push_clip_and_scroll_info(ClipAndScrollInfo::new(
-            ClipId::root_scroll_node(self.wrench.root_pipeline_id),
-            ClipId::ClipChain(clip_chain_id),
-        ));
-        let mut info = LayoutPrimitiveInfo::new(rect);
-        info.tag = Some((0, 5));
-        builder.push_rect(&info, ColorF::new(1.0, 1.0, 1.0, 1.0));
-        builder.pop_clip_id();
-
+        builder.push_hit_test(
+            &CommonItemProperties {
+                clip_rect: rect,
+                clip_id: ClipId::ClipChain(clip_chain_id),
+                spatial_id: space_and_clip.spatial_id,
+                flags: PrimitiveFlags::default(),
+            },
+            (0, 5),
+        );
 
         let mut epoch = Epoch(0);
         let txn = Transaction::new();
-        self.submit_dl(&mut epoch, layout_size, builder, &txn.resource_updates);
+        self.submit_dl(&mut epoch, layout_size, builder, txn);
 
         // We render to ensure that the hit tester is up to date with the current scene.
         self.rx.recv().unwrap();
@@ -1063,7 +1393,6 @@ impl<'a> RawtestHarness<'a> {
                 self.wrench.document_id,
                 None,
                 point,
-                HitTestFlags::FIND_ALL,
             )
         };
 
@@ -1108,4 +1437,19 @@ impl<'a> RawtestHarness<'a> {
         test_rounded_rectangle(WorldPoint::new(200., 100.), WorldSize::new(100., 100.), (0, 5));
     }
 
+    fn test_clear_cache(&mut self) {
+        println!("\tclear cache test...");
+
+        self.wrench.api.send_message(ApiMsg::DebugCommand(DebugCommand::ClearCaches(ClearCache::all())));
+
+        let layout_size = LayoutSize::new(400., 400.);
+        let builder = DisplayListBuilder::new(self.wrench.root_pipeline_id);
+
+        let txn = Transaction::new();
+        let mut epoch = Epoch(0);
+        self.submit_dl(&mut epoch, layout_size, builder, txn);
+
+        self.rx.recv().unwrap();
+        self.wrench.render();
+    }
 }

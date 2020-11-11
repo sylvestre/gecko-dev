@@ -5,13 +5,15 @@
 add_task(async function tabsSendMessageReply() {
   let extension = ExtensionTestUtils.loadExtension({
     manifest: {
-      "permissions": ["tabs"],
+      permissions: ["tabs"],
 
-      "content_scripts": [{
-        "matches": ["http://example.com/"],
-        "js": ["content-script.js"],
-        "run_at": "document_start",
-      }],
+      content_scripts: [
+        {
+          matches: ["http://example.com/"],
+          js: ["content-script.js"],
+          run_at: "document_start",
+        },
+      ],
     },
 
     background: async function() {
@@ -26,38 +28,153 @@ add_task(async function tabsSendMessageReply() {
 
               browser.tabs.sendMessage(tabId, "respond-now"),
               browser.tabs.sendMessage(tabId, "respond-now-2"),
-              new Promise(resolve => browser.tabs.sendMessage(tabId, "respond-soon", resolve)),
+              new Promise(resolve =>
+                browser.tabs.sendMessage(tabId, "respond-soon", resolve)
+              ),
               browser.tabs.sendMessage(tabId, "respond-promise"),
+              browser.tabs.sendMessage(tabId, "respond-promise-false"),
+              browser.tabs.sendMessage(tabId, "respond-false"),
               browser.tabs.sendMessage(tabId, "respond-never"),
               new Promise(resolve => {
-                browser.runtime.sendMessage("respond-never", response => { resolve(response); });
+                browser.runtime.sendMessage("respond-never", response => {
+                  resolve(response);
+                });
               }),
 
-              browser.tabs.sendMessage(tabId, "respond-error").catch(error => Promise.resolve({error})),
-              browser.tabs.sendMessage(tabId, "throw-error").catch(error => Promise.resolve({error})),
+              browser.tabs
+                .sendMessage(tabId, "respond-error")
+                .catch(error => Promise.resolve({ error })),
+              browser.tabs
+                .sendMessage(tabId, "throw-error")
+                .catch(error => Promise.resolve({ error })),
 
-              browser.tabs.sendMessage(firstTab, "no-listener").catch(error => Promise.resolve({error})),
-            ]).then(([response, respondNow, respondNow2, respondSoon, respondPromise, respondNever, respondNever2, respondError, throwError, noListener]) => {
-              browser.test.assertEq("expected-response", response, "Content script got the expected response");
+              browser.tabs
+                .sendMessage(tabId, "respond-uncloneable")
+                .catch(error => Promise.resolve({ error })),
+              browser.tabs
+                .sendMessage(tabId, "reject-uncloneable")
+                .catch(error => Promise.resolve({ error })),
+              browser.tabs
+                .sendMessage(tabId, "reject-undefined")
+                .catch(error => Promise.resolve({ error })),
+              browser.tabs
+                .sendMessage(tabId, "throw-undefined")
+                .catch(error => Promise.resolve({ error })),
 
-              browser.test.assertEq("respond-now", respondNow, "Got the expected immediate response");
-              browser.test.assertEq("respond-now-2", respondNow2, "Got the expected immediate response from the second listener");
-              browser.test.assertEq("respond-soon", respondSoon, "Got the expected delayed response");
-              browser.test.assertEq("respond-promise", respondPromise, "Got the expected promise response");
-              browser.test.assertEq(undefined, respondNever, "Got the expected no-response resolution");
-              browser.test.assertEq(undefined, respondNever2, "Got the expected no-response resolution");
+              browser.tabs
+                .sendMessage(firstTab, "no-listener")
+                .catch(error => Promise.resolve({ error })),
+            ])
+              .then(
+                ([
+                  response,
+                  respondNow,
+                  respondNow2,
+                  respondSoon,
+                  respondPromise,
+                  respondPromiseFalse,
+                  respondFalse,
+                  respondNever,
+                  respondNever2,
+                  respondError,
+                  throwError,
+                  respondUncloneable,
+                  rejectUncloneable,
+                  rejectUndefined,
+                  throwUndefined,
+                  noListener,
+                ]) => {
+                  browser.test.assertEq(
+                    "expected-response",
+                    response,
+                    "Content script got the expected response"
+                  );
 
-              browser.test.assertEq("respond-error", respondError.error.message, "Got the expected error response");
-              browser.test.assertEq("throw-error", throwError.error.message, "Got the expected thrown error response");
+                  browser.test.assertEq(
+                    "respond-now",
+                    respondNow,
+                    "Got the expected immediate response"
+                  );
+                  browser.test.assertEq(
+                    "respond-now-2",
+                    respondNow2,
+                    "Got the expected immediate response from the second listener"
+                  );
+                  browser.test.assertEq(
+                    "respond-soon",
+                    respondSoon,
+                    "Got the expected delayed response"
+                  );
+                  browser.test.assertEq(
+                    "respond-promise",
+                    respondPromise,
+                    "Got the expected promise response"
+                  );
+                  browser.test.assertEq(
+                    false,
+                    respondPromiseFalse,
+                    "Got the expected false value as a promise result"
+                  );
+                  browser.test.assertEq(
+                    undefined,
+                    respondFalse,
+                    "Got the expected no-response when onMessage returns false"
+                  );
+                  browser.test.assertEq(
+                    undefined,
+                    respondNever,
+                    "Got the expected no-response resolution"
+                  );
+                  browser.test.assertEq(
+                    undefined,
+                    respondNever2,
+                    "Got the expected no-response resolution"
+                  );
 
-              browser.test.assertEq("Could not establish connection. Receiving end does not exist.",
-                                    noListener.error.message,
-                                    "Got the expected no listener response");
+                  browser.test.assertEq(
+                    "respond-error",
+                    respondError.error.message,
+                    "Got the expected error response"
+                  );
+                  browser.test.assertEq(
+                    "throw-error",
+                    throwError.error.message,
+                    "Got the expected thrown error response"
+                  );
 
-              return browser.tabs.remove(tabId);
-            }).then(() => {
-              browser.test.notifyPass("sendMessage");
-            });
+                  browser.test.assertEq(
+                    "Could not establish connection. Receiving end does not exist.",
+                    respondUncloneable.error.message,
+                    "An uncloneable response should be ignored"
+                  );
+                  browser.test.assertEq(
+                    "An unexpected error occurred",
+                    rejectUncloneable.error.message,
+                    "Got the expected error for a rejection with an uncloneable value"
+                  );
+                  browser.test.assertEq(
+                    "An unexpected error occurred",
+                    rejectUndefined.error.message,
+                    "Got the expected error for a void rejection"
+                  );
+                  browser.test.assertEq(
+                    "An unexpected error occurred",
+                    throwUndefined.error.message,
+                    "Got the expected error for a void throw"
+                  );
+
+                  browser.test.assertEq(
+                    "Could not establish connection. Receiving end does not exist.",
+                    noListener.error.message,
+                    "Got the expected no listener response"
+                  );
+
+                  return browser.tabs.remove(tabId);
+                }
+              )
+              .then(() => {
+                browser.test.notifyPass("sendMessage");
+              });
 
             return Promise.resolve("expected-response");
           } else if (msg[0] == "got-response") {
@@ -66,9 +183,12 @@ add_task(async function tabsSendMessageReply() {
         });
       });
 
-      let tabs = await browser.tabs.query({currentWindow: true, active: true});
+      let tabs = await browser.tabs.query({
+        currentWindow: true,
+        active: true,
+      });
       firstTab = tabs[0].id;
-      browser.tabs.create({url: "http://example.com/"});
+      browser.tabs.create({ url: "http://example.com/" });
     },
 
     files: {
@@ -77,14 +197,30 @@ add_task(async function tabsSendMessageReply() {
           if (msg == "respond-now") {
             respond(msg);
           } else if (msg == "respond-soon") {
-            setTimeout(() => { respond(msg); }, 0);
+            setTimeout(() => {
+              respond(msg);
+            }, 0);
             return true;
           } else if (msg == "respond-promise") {
             return Promise.resolve(msg);
+          } else if (msg == "respond-promise-false") {
+            return Promise.resolve(false);
+          } else if (msg == "respond-false") {
+            // return false means that respond() is not expected to be called.
+            setTimeout(() => respond("should be ignored"));
+            return false;
           } else if (msg == "respond-never") {
             return undefined;
           } else if (msg == "respond-error") {
             return Promise.reject(new Error(msg));
+          } else if (msg === "respond-uncloneable") {
+            return Promise.resolve(window);
+          } else if (msg === "reject-uncloneable") {
+            return Promise.reject(window);
+          } else if (msg == "reject-undefined") {
+            return Promise.reject();
+          } else if (msg == "throw-undefined") {
+            throw undefined; // eslint-disable-line no-throw-literal
           } else if (msg == "throw-error") {
             throw new Error(msg);
           }
@@ -98,7 +234,9 @@ add_task(async function tabsSendMessageReply() {
           }
         });
 
-        let response = await browser.runtime.sendMessage("content-script-ready");
+        let response = await browser.runtime.sendMessage(
+          "content-script-ready"
+        );
         browser.runtime.sendMessage(["got-response", response]);
       },
     },
@@ -111,17 +249,18 @@ add_task(async function tabsSendMessageReply() {
   await extension.unload();
 });
 
-
 add_task(async function tabsSendHidden() {
   let extension = ExtensionTestUtils.loadExtension({
     manifest: {
-      "permissions": ["tabs"],
+      permissions: ["tabs"],
 
-      "content_scripts": [{
-        "matches": ["http://example.com/content*"],
-        "js": ["content-script.js"],
-        "run_at": "document_start",
-      }],
+      content_scripts: [
+        {
+          matches: ["http://example.com/content*"],
+          js: ["content-script.js"],
+          run_at: "document_start",
+        },
+      ],
     },
 
     background: async function() {
@@ -144,22 +283,34 @@ add_task(async function tabsSendHidden() {
         const URL1 = "http://example.com/content1.html";
         const URL2 = "http://example.com/content2.html";
 
-        let tab = await browser.tabs.create({url: URL1});
+        let tab = await browser.tabs.create({ url: URL1 });
         await awaitContent(URL1);
 
         let url = await browser.tabs.sendMessage(tab.id, URL1);
-        browser.test.assertEq(URL1, url, "Should get response from expected content window");
+        browser.test.assertEq(
+          URL1,
+          url,
+          "Should get response from expected content window"
+        );
 
-        await browser.tabs.update(tab.id, {url: URL2});
+        await browser.tabs.update(tab.id, { url: URL2 });
         await awaitContent(URL2);
 
         url = await browser.tabs.sendMessage(tab.id, URL2);
-        browser.test.assertEq(URL2, url, "Should get response from expected content window");
+        browser.test.assertEq(
+          URL2,
+          url,
+          "Should get response from expected content window"
+        );
 
         // Repeat once just to be sure the first message was processed by all
         // listeners before we exit the test.
         url = await browser.tabs.sendMessage(tab.id, URL2);
-        browser.test.assertEq(URL2, url, "Should get response from expected content window");
+        browser.test.assertEq(
+          URL2,
+          url,
+          "Should get response from expected content window"
+        );
 
         await browser.tabs.remove(tab.id);
 
@@ -177,7 +328,11 @@ add_task(async function tabsSendHidden() {
         let href = window.location.href;
 
         browser.runtime.onMessage.addListener((msg, sender) => {
-          browser.test.assertEq(href, msg, "Should be in the expected content window");
+          browser.test.assertEq(
+            href,
+            msg,
+            "Should be in the expected content window"
+          );
 
           return Promise.resolve(href);
         });
@@ -194,23 +349,28 @@ add_task(async function tabsSendHidden() {
   await extension.unload();
 });
 
-
 add_task(async function tabsSendMessageNoExceptionOnNonExistentTab() {
   let extension = ExtensionTestUtils.loadExtension({
     manifest: {
-      "permissions": ["tabs"],
+      permissions: ["tabs"],
     },
 
     async background() {
-      let url = "http://example.com/mochitest/browser/browser/components/extensions/test/browser/file_dummy.html";
-      let tab = await browser.tabs.create({url});
+      let url =
+        "http://example.com/mochitest/browser/browser/components/extensions/test/browser/file_dummy.html";
+      let tab = await browser.tabs.create({ url });
 
-      try {
-        browser.tabs.sendMessage(tab.id, "message");
-        browser.tabs.sendMessage(tab.id + 100, "message");
-      } catch (e) {
-        browser.test.fail("no exception should be raised on tabs.sendMessage to nonexistent tabs");
-      }
+      await browser.test.assertRejects(
+        browser.tabs.sendMessage(tab.id, "message"),
+        /Could not establish connection. Receiving end does not exist./,
+        "exception should be raised on tabs.sendMessage to nonexistent tab"
+      );
+
+      await browser.test.assertRejects(
+        browser.tabs.sendMessage(tab.id + 100, "message"),
+        /Could not establish connection. Receiving end does not exist./,
+        "exception should be raised on tabs.sendMessage to nonexistent tab"
+      );
 
       await browser.tabs.remove(tab.id);
 

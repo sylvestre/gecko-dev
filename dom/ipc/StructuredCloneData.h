@@ -29,8 +29,8 @@ class PBackgroundParent;
 
 namespace dom {
 
-class nsIContentChild;
-class nsIContentParent;
+class ContentChild;
+class ContentParent;
 
 namespace ipc {
 
@@ -52,7 +52,7 @@ class SharedJSAllocatedData final {
   static already_AddRefed<SharedJSAllocatedData> CreateFromExternalData(
       const char* aData, size_t aDataLength) {
     JSStructuredCloneData buf(JS::StructuredCloneScope::DifferentProcess);
-    buf.AppendBytes(aData, aDataLength);
+    NS_ENSURE_TRUE(buf.AppendBytes(aData, aDataLength), nullptr);
     RefPtr<SharedJSAllocatedData> sharedData =
         new SharedJSAllocatedData(std::move(buf));
     return sharedData.forget();
@@ -61,19 +61,19 @@ class SharedJSAllocatedData final {
   static already_AddRefed<SharedJSAllocatedData> CreateFromExternalData(
       const JSStructuredCloneData& aData) {
     JSStructuredCloneData buf(aData.scope());
-    buf.Append(aData);
+    NS_ENSURE_TRUE(buf.Append(aData), nullptr);
     RefPtr<SharedJSAllocatedData> sharedData =
         new SharedJSAllocatedData(std::move(buf));
     return sharedData.forget();
   }
 
-  NS_INLINE_DECL_REFCOUNTING(SharedJSAllocatedData)
+  NS_INLINE_DECL_THREADSAFE_REFCOUNTING(SharedJSAllocatedData)
 
   JSStructuredCloneData& Data() { return mData; }
   size_t DataLength() const { return mData.Size(); }
 
  private:
-  ~SharedJSAllocatedData() {}
+  ~SharedJSAllocatedData() = default;
 
   JSStructuredCloneData mData;
 };
@@ -149,6 +149,10 @@ class StructuredCloneData : public StructuredCloneHolder {
 
   StructuredCloneData(StructuredCloneData&& aOther);
 
+  // Only DifferentProcess and UnknownDestination scopes are supported.
+  StructuredCloneData(StructuredCloneScope aScope,
+                      TransferringSupport aSupportsTransferring);
+
   ~StructuredCloneData();
 
   StructuredCloneData& operator=(const StructuredCloneData& aOther) = delete;
@@ -172,18 +176,28 @@ class StructuredCloneData : public StructuredCloneHolder {
   void Read(JSContext* aCx, JS::MutableHandle<JS::Value> aValue,
             ErrorResult& aRv);
 
-  void Write(JSContext* aCx, JS::Handle<JS::Value> aValue, ErrorResult& aRv);
+  void Read(JSContext* aCx, JS::MutableHandle<JS::Value> aValue,
+            const JS::CloneDataPolicy& aCloneDataPolicy, ErrorResult& aRv);
 
+  // Write with no transfer objects and with the default CloneDataPolicy.  With
+  // a default CloneDataPolicy, read and write will not be considered as part of
+  // the same agent cluster and shared memory objects will not be supported.
   void Write(JSContext* aCx, JS::Handle<JS::Value> aValue,
-             JS::Handle<JS::Value> aTransfers, ErrorResult& aRv);
+             ErrorResult& aRv) override;
+
+  // The most generic Write method, with tansfers and CloneDataPolicy.
+  void Write(JSContext* aCx, JS::Handle<JS::Value> aValue,
+             JS::Handle<JS::Value> aTransfers,
+             const JS::CloneDataPolicy& aCloneDataPolicy,
+             ErrorResult& aRv) override;
 
   // Actor-varying methods to convert the structured clone stored in this holder
   // by a previous call to Write() into ClonedMessageData IPC representation.
   // (Blobs are represented in IPC by IPCBlob actors, so we need the parent to
   // be able to create them.)
-  bool BuildClonedMessageDataForParent(nsIContentParent* aParent,
+  bool BuildClonedMessageDataForParent(ContentParent* aParent,
                                        ClonedMessageData& aClonedData);
-  bool BuildClonedMessageDataForChild(nsIContentChild* aChild,
+  bool BuildClonedMessageDataForChild(ContentChild* aChild,
                                       ClonedMessageData& aClonedData);
   bool BuildClonedMessageDataForBackgroundParent(
       mozilla::ipc::PBackgroundParent* aParent, ClonedMessageData& aClonedData);
@@ -268,8 +282,6 @@ class StructuredCloneData : public StructuredCloneHolder {
   bool ReadIPCParams(const IPC::Message* aMessage, PickleIterator* aIter);
 
  protected:
-  explicit StructuredCloneData(TransferringSupport aSupportsTransferring);
-
   already_AddRefed<SharedJSAllocatedData> TakeSharedData();
 
  private:
@@ -280,15 +292,6 @@ class StructuredCloneData : public StructuredCloneHolder {
   // sending of the data via IPC. This will be fixed by bug 1353475.
   FallibleTArray<mozilla::ipc::AutoIPCStream> mIPCStreams;
   bool mInitialized;
-};
-
-/**
- * For use when transferring should not be supported.
- */
-class StructuredCloneDataNoTransfers : public StructuredCloneData {
- public:
-  StructuredCloneDataNoTransfers()
-      : StructuredCloneData(StructuredCloneHolder::TransferringNotSupported) {}
 };
 
 }  // namespace ipc

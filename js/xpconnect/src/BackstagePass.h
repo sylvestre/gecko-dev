@@ -23,28 +23,32 @@ class BackstagePass : public nsIGlobalObject,
                       public nsIClassInfo,
                       public nsSupportsWeakReference {
  public:
+  BackstagePass();
+
   NS_DECL_ISUPPORTS
   NS_DECL_NSIXPCSCRIPTABLE
   NS_DECL_NSICLASSINFO
 
   virtual nsIPrincipal* GetPrincipal() override { return mPrincipal; }
 
-  virtual JSObject* GetGlobalJSObject() override;
+  virtual nsIPrincipal* GetEffectiveStoragePrincipal() override {
+    return mPrincipal;
+  }
+
+  virtual nsIPrincipal* PartitionedPrincipal() override { return mPrincipal; }
+
+  JSObject* GetGlobalJSObject() override;
+  JSObject* GetGlobalJSObjectPreserveColor() const override;
 
   void ForgetGlobalObject() { mWrapper = nullptr; }
 
   void SetGlobalObject(JSObject* global);
 
-  explicit BackstagePass(nsIPrincipal* prin)
-      : mPrincipal(prin), mWrapper(nullptr) {}
-
  private:
-  virtual ~BackstagePass() {}
+  virtual ~BackstagePass() = default;
 
   nsCOMPtr<nsIPrincipal> mPrincipal;
   XPCWrappedNative* mWrapper;
 };
-
-nsresult NS_NewBackstagePass(BackstagePass** ret);
 
 #endif  // BackstagePass_h__

@@ -3,37 +3,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 "use strict";
 
-const parsePropertiesFile = require("./node-properties/node-properties");
-const { sprintf } = require("./sprintfjs/sprintf");
+const parsePropertiesFile = require("devtools/shared/node-properties/node-properties");
+const { sprintf } = require("devtools/shared/sprintfjs/sprintf");
 
 const propertiesMap = {};
-
-// We need some special treatment here for webpack.
-//
-// Webpack doesn't always handle dynamic requires in the best way.  In
-// particular if it sees an unrestricted dynamic require, it will try
-// to put all the files it can find into the generated pack.  (It can
-// also try a bit to parse the expression passed to require, but in
-// our case this doesn't work, because our call below doesn't provide
-// enough information.)
-//
-// Webpack also provides a way around this: require.context.  The idea
-// here is to tell webpack some constraints so that it can include
-// fewer files in the pack.
-//
-// Here we introduce new require contexts for each possible locale
-// directory.  Then we use the correct context to load the property
-// file.  In the webpack case this results in just the locale property
-// files being included in the pack; and in the devtools case this is
-// a wordy no-op.
-const reqShared = require.context("raw!devtools/shared/locales/",
-                                  true, /^.*\.properties$/);
-const reqClient = require.context("raw!devtools/client/locales/",
-                                  true, /^.*\.properties$/);
-const reqStartup = require.context("raw!devtools/startup/locales/",
-                                  true, /^.*\.properties$/);
-const reqGlobal = require.context("raw!toolkit/locales/",
-                                  true, /^.*\.properties$/);
 
 // Map used to memoize Number formatters.
 const numberFormatters = new Map();
@@ -61,25 +34,35 @@ const getNumberFormatter = function(decimals) {
  */
 function getProperties(url) {
   if (!propertiesMap[url]) {
-    // See the comment above about webpack and require contexts.  Here
-    // we take an input like "devtools/shared/locales/debugger.properties"
-    // and decide which context require function to use.  Despite the
-    // string processing here, in the end a string identical to |url|
-    // ends up being passed to "require".
-    const index = url.lastIndexOf("/");
-    // Turn "mumble/locales/resource.properties" => "./resource.properties".
-    const baseName = "." + url.substr(index);
-    let reqFn;
-    if (/^toolkit/.test(url)) {
-      reqFn = reqGlobal;
-    } else if (/^devtools\/shared/.test(url)) {
-      reqFn = reqShared;
-    } else if (/^devtools\/startup/.test(url)) {
-      reqFn = reqStartup;
+    let propertiesFile;
+    let isNodeEnv = false;
+    try {
+      // eslint-disable-next-line no-undef
+      isNodeEnv = process?.release?.name == "node";
+    } catch (e) {}
+
+    if (isNodeEnv) {
+      // In Node environment (e.g. when running jest test), we need to prepend the en-US
+      // to the filename in order to have the actual location of the file in source.
+      const lastDelimIndex = url.lastIndexOf("/");
+      const defaultLocaleUrl =
+        url.substring(0, lastDelimIndex) +
+        "/en-US" +
+        url.substring(lastDelimIndex);
+
+      const path = require("path");
+      // eslint-disable-next-line no-undef
+      const rootPath = path.join(__dirname, "../../");
+      const absoluteUrl = path.join(rootPath, defaultLocaleUrl);
+      const { readFileSync } = require("fs");
+      // In Node environment we directly use readFileSync to get the file content instead
+      // of relying on custom raw loader, like we do in regular environment.
+      propertiesFile = readFileSync(absoluteUrl, { encoding: "utf8" });
     } else {
-      reqFn = reqClient;
+      propertiesFile = require("raw!" + url);
     }
-    propertiesMap[url] = parsePropertiesFile(reqFn(baseName));
+
+    propertiesMap[url] = parsePropertiesFile(propertiesFile);
   }
 
   return propertiesMap[url];
@@ -90,9 +73,12 @@ function getProperties(url) {
  *
  * @param string stringBundleName
  *        The desired string bundle's name.
+ * @param boolean strict
+ *        (legacy) pass true to force the helper to throw if the l10n id cannot be found.
  */
-function LocalizationHelper(stringBundleName) {
+function LocalizationHelper(stringBundleName, strict = false) {
   this.stringBundleName = stringBundleName;
+  this.strict = strict;
 }
 
 LocalizationHelper.prototype = {
@@ -108,7 +94,12 @@ LocalizationHelper.prototype = {
       return properties[name];
     }
 
-    throw new Error("No localization found for [" + name + "]");
+    if (this.strict) {
+      throw new Error("No localization found for [" + name + "]");
+    }
+
+    console.error("No localization found for [" + name + "]");
+    return name;
   },
 
   /**
@@ -152,7 +143,7 @@ LocalizationHelper.prototype = {
    */
   numberWithDecimals: function(number, decimals = 0) {
     // Do not show decimals for integers.
-    if (number === (number|0)) {
+    if (number === (number | 0)) {
       return getNumberFormatter(0).format(number);
     }
 
@@ -167,8 +158,8 @@ LocalizationHelper.prototype = {
     // Convert the localized number to a number again.
     const localizedNumber = localized * 1;
     // Check if this number is now equal to an integer.
-    if (localizedNumber === (localizedNumber|0)) {
-    // If it is, remove the fraction part.
+    if (localizedNumber === (localizedNumber | 0)) {
+      // If it is, remove the fraction part.
       return getNumberFormatter(0).format(localizedNumber);
     }
 
@@ -233,7 +224,9 @@ function localizeMarkup(root) {
   }
 }
 
-const sharedL10N = new LocalizationHelper("devtools/shared/locales/shared.properties");
+const sharedL10N = new LocalizationHelper(
+  "devtools/shared/locales/shared.properties"
+);
 
 /**
  * A helper for having the same interface as LocalizationHelper, but for more
@@ -241,7 +234,9 @@ const sharedL10N = new LocalizationHelper("devtools/shared/locales/shared.proper
  */
 function MultiLocalizationHelper(...stringBundleNames) {
   const instances = stringBundleNames.map(bundle => {
-    return new LocalizationHelper(bundle);
+    // Use strict = true because the MultiLocalizationHelper logic relies on try/catch
+    // around the underlying LocalizationHelper APIs.
+    return new LocalizationHelper(bundle, true);
   });
 
   // Get all function members of the LocalizationHelper class, making sure we're
@@ -250,8 +245,10 @@ function MultiLocalizationHelper(...stringBundleNames) {
   Object.getOwnPropertyNames(LocalizationHelper.prototype)
     .map(name => ({
       name: name,
-      descriptor: Object.getOwnPropertyDescriptor(LocalizationHelper.prototype,
-                                                  name),
+      descriptor: Object.getOwnPropertyDescriptor(
+        LocalizationHelper.prototype,
+        name
+      ),
     }))
     .filter(({ descriptor }) => descriptor.value instanceof Function)
     .forEach(method => {
@@ -271,4 +268,6 @@ function MultiLocalizationHelper(...stringBundleNames) {
 exports.LocalizationHelper = LocalizationHelper;
 exports.localizeMarkup = localizeMarkup;
 exports.MultiLocalizationHelper = MultiLocalizationHelper;
-Object.defineProperty(exports, "ELLIPSIS", { get: () => sharedL10N.getStr("ellipsis") });
+Object.defineProperty(exports, "ELLIPSIS", {
+  get: () => sharedL10N.getStr("ellipsis"),
+});

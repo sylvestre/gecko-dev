@@ -4,32 +4,43 @@
 
 "use strict";
 
-ChromeUtils.import("resource://gre/modules/Services.jsm");
-const FileUtils = ChromeUtils.import("resource://gre/modules/FileUtils.jsm").FileUtils;
-const gEnv = Cc["@mozilla.org/process/environment;1"]
-               .getService(Ci.nsIEnvironment);
-const gDashboard = Cc["@mozilla.org/network/dashboard;1"]
-                     .getService(Ci.nsIDashboard);
-const gDirServ = Cc["@mozilla.org/file/directory_service;1"]
-                   .getService(Ci.nsIDirectoryServiceProvider);
-const gNetLinkSvc = Cc["@mozilla.org/network/network-link-service;1"]
-                      .getService(Ci.nsINetworkLinkService);
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const FileUtils = ChromeUtils.import("resource://gre/modules/FileUtils.jsm")
+  .FileUtils;
+const gEnv = Cc["@mozilla.org/process/environment;1"].getService(
+  Ci.nsIEnvironment
+);
+const gDashboard = Cc["@mozilla.org/network/dashboard;1"].getService(
+  Ci.nsIDashboard
+);
+const gDirServ = Cc["@mozilla.org/file/directory_service;1"].getService(
+  Ci.nsIDirectoryServiceProvider
+);
+const gNetLinkSvc =
+  Cc["@mozilla.org/network/network-link-service;1"] &&
+  Cc["@mozilla.org/network/network-link-service;1"].getService(
+    Ci.nsINetworkLinkService
+  );
+const gDNSService = Cc["@mozilla.org/network/dns-service;1"].getService(
+  Ci.nsIDNSService
+);
 
 const gRequestNetworkingData = {
-  "http": gDashboard.requestHttpConnections,
-  "sockets": gDashboard.requestSockets,
-  "dns": gDashboard.requestDNSInfo,
-  "websockets": gDashboard.requestWebsocketConnections,
-  "dnslookuptool": () => {},
-  "logging": () => {},
-  "rcwn": gDashboard.requestRcwnStats,
+  http: gDashboard.requestHttpConnections,
+  sockets: gDashboard.requestSockets,
+  dns: gDashboard.requestDNSInfo,
+  websockets: gDashboard.requestWebsocketConnections,
+  dnslookuptool: () => {},
+  logging: () => {},
+  rcwn: gDashboard.requestRcwnStats,
+  networkid: displayNetworkID,
 };
 const gDashboardCallbacks = {
-  "http": displayHttp,
-  "sockets": displaySockets,
-  "dns": displayDns,
-  "websockets": displayWebsockets,
-  "rcwn": displayRcwnStats,
+  http: displayHttp,
+  sockets: displaySockets,
+  dns: displayDns,
+  websockets: displayWebsockets,
+  rcwn: displayRcwnStats,
 };
 
 const REFRESH_INTERVAL_MS = 3000;
@@ -51,7 +62,7 @@ function displayHttp(data) {
     let row = document.createElement("tr");
     row.appendChild(col(data.connections[i].host));
     row.appendChild(col(data.connections[i].port));
-    row.appendChild(col(data.connections[i].spdy));
+    row.appendChild(col(data.connections[i].httpVersion));
     row.appendChild(col(data.connections[i].ssl));
     row.appendChild(col(data.connections[i].active.length));
     row.appendChild(col(data.connections[i].idle.length));
@@ -82,6 +93,29 @@ function displaySockets(data) {
 }
 
 function displayDns(data) {
+  let suffixContent = document.getElementById("dns_suffix_content");
+  let suffixParent = suffixContent.parentNode;
+  let suffixes = [];
+  try {
+    suffixes = gNetLinkSvc.dnsSuffixList; // May throw
+  } catch (e) {}
+  let suffix_tbody = document.createElement("tbody");
+  suffix_tbody.id = "dns_suffix_content";
+  for (let suffix of suffixes) {
+    let row = document.createElement("tr");
+    row.appendChild(col(suffix));
+    suffix_tbody.appendChild(row);
+  }
+  suffixParent.replaceChild(suffix_tbody, suffixContent);
+
+  let trr_url_tbody = document.createElement("tbody");
+  trr_url_tbody.id = "dns_trr_url";
+  let trr_url = document.createElement("tr");
+  trr_url.appendChild(col(gDNSService.currentTrrURI));
+  trr_url_tbody.appendChild(trr_url);
+  let prevURL = document.getElementById("dns_trr_url");
+  prevURL.parentNode.replaceChild(trr_url_tbody, prevURL);
+
   let cont = document.getElementById("dns_content");
   let parent = cont.parentNode;
   let new_cont = document.createElement("tbody");
@@ -101,6 +135,7 @@ function displayDns(data) {
 
     row.appendChild(column);
     row.appendChild(col(data.entries[i].expiration));
+    row.appendChild(col(data.entries[i].originAttributesSuffix));
     new_cont.appendChild(row);
   }
 
@@ -129,11 +164,18 @@ function displayWebsockets(data) {
 
 function displayRcwnStats(data) {
   let status = Services.prefs.getBoolPref("network.http.rcwn.enabled");
-  let linkType = gNetLinkSvc.linkType;
-  if (!(linkType == Ci.nsINetworkLinkService.LINK_TYPE_UNKNOWN ||
-        linkType == Ci.nsINetworkLinkService.LINK_TYPE_ETHERNET ||
-        linkType == Ci.nsINetworkLinkService.LINK_TYPE_USB ||
-        linkType == Ci.nsINetworkLinkService.LINK_TYPE_WIFI)) {
+  let linkType = Ci.nsINetworkLinkService.LINK_TYPE_UNKNOWN;
+  try {
+    linkType = gNetLinkSvc.linkType;
+  } catch (e) {}
+  if (
+    !(
+      linkType == Ci.nsINetworkLinkService.LINK_TYPE_UNKNOWN ||
+      linkType == Ci.nsINetworkLinkService.LINK_TYPE_ETHERNET ||
+      linkType == Ci.nsINetworkLinkService.LINK_TYPE_USB ||
+      linkType == Ci.nsINetworkLinkService.LINK_TYPE_WIFI
+    )
+  ) {
     status = false;
   }
 
@@ -151,31 +193,45 @@ function displayRcwnStats(data) {
   document.getElementById("rcwn_cache_not_slow").innerText = cacheNotSlow;
 
   // Keep in sync with CachePerfStats::EDataType in CacheFileUtils.h
-  const perfStatTypes = [
-    "open",
-    "read",
-    "write",
-    "entryopen",
-  ];
+  const perfStatTypes = ["open", "read", "write", "entryopen"];
 
-  const perfStatFieldNames = [
-    "avgShort",
-    "avgLong",
-    "stddevLong",
-  ];
+  const perfStatFieldNames = ["avgShort", "avgLong", "stddevLong"];
 
   for (let typeIndex in perfStatTypes) {
     for (let statFieldIndex in perfStatFieldNames) {
-      document.getElementById("rcwn_perfstats_" + perfStatTypes[typeIndex] + "_"
-                              + perfStatFieldNames[statFieldIndex]).innerText =
+      document.getElementById(
+        "rcwn_perfstats_" +
+          perfStatTypes[typeIndex] +
+          "_" +
+          perfStatFieldNames[statFieldIndex]
+      ).innerText =
         data.perfStats[typeIndex][perfStatFieldNames[statFieldIndex]];
     }
   }
 }
 
+function displayNetworkID() {
+  try {
+    let linkIsUp = gNetLinkSvc.isLinkUp;
+    let linkStatusKnown = gNetLinkSvc.linkStatusKnown;
+    let networkID = gNetLinkSvc.networkID;
+
+    document.getElementById("networkid_isUp").innerText = linkIsUp;
+    document.getElementById(
+      "networkid_statusKnown"
+    ).innerText = linkStatusKnown;
+    document.getElementById("networkid_id").innerText = networkID;
+  } catch (e) {
+    document.getElementById("networkid_isUp").innerText = "<unknown>";
+    document.getElementById("networkid_statusKnown").innerText = "<unknown>";
+    document.getElementById("networkid_id").innerText = "<unknown>";
+  }
+}
+
 function requestAllNetworkingData() {
-  for (let id in gRequestNetworkingData)
+  for (let id in gRequestNetworkingData) {
     requestNetworkingDataForTab(id);
+  }
 }
 
 function requestNetworkingDataForTab(id) {
@@ -189,18 +245,13 @@ function init() {
   }
   gInited = true;
   gDashboard.enableLogging = true;
-  if (Services.prefs.getBoolPref("network.warnOnAboutNetworking")) {
-    let div = document.getElementById("warning_message");
-    div.classList.add("active");
-    div.hidden = false;
-    document.getElementById("confpref").addEventListener("click", confirm);
-  }
 
   requestAllNetworkingData();
 
   let autoRefresh = document.getElementById("autorefcheck");
-  if (autoRefresh.checked)
+  if (autoRefresh.checked) {
     setAutoRefreshInterval(autoRefresh);
+  }
 
   autoRefresh.addEventListener("click", function() {
     let refrButton = document.getElementById("refreshButton");
@@ -215,19 +266,26 @@ function init() {
 
   let refr = document.getElementById("refreshButton");
   refr.addEventListener("click", requestAllNetworkingData);
-  if (document.getElementById("autorefcheck").checked)
+  if (document.getElementById("autorefcheck").checked) {
     refr.disabled = "disabled";
+  }
 
   // Event delegation on #categories element
   let menu = document.getElementById("categories");
   menu.addEventListener("click", function click(e) {
-    if (e.target && e.target.parentNode == menu)
+    if (e.target && e.target.parentNode == menu) {
       show(e.target);
+    }
   });
 
   let dnsLookupButton = document.getElementById("dnsLookupButton");
   dnsLookupButton.addEventListener("click", function() {
     doLookup();
+  });
+
+  let clearDNSCache = document.getElementById("clearDNSCache");
+  clearDNSCache.addEventListener("click", function() {
+    gDNSService.clearCache(true);
   });
 
   let setLogButton = document.getElementById("set-log-file-button");
@@ -264,7 +322,9 @@ function init() {
   }
 
   if (location.hash) {
-    let sectionButton = document.getElementById("category-" + location.hash.substring(1));
+    let sectionButton = document.getElementById(
+      "category-" + location.hash.substring(1)
+    );
     if (sectionButton) {
       sectionButton.click();
     }
@@ -281,7 +341,7 @@ function updateLogFile() {
 
   // If the log file was set from an env var, we disable the ability to set it
   // at runtime.
-  if (logPath.length > 0) {
+  if (logPath.length) {
     currentLogFile.innerText = logPath;
     setLogFileButton.disabled = true;
   } else {
@@ -292,12 +352,13 @@ function updateLogFile() {
 
 function updateLogModules() {
   // Try to get the environment variable for the log file
-  let logModules = gEnv.get("MOZ_LOG") ||
-                   gEnv.get("MOZ_LOG_MODULES") ||
-                   gEnv.get("NSPR_LOG_MODULES");
+  let logModules =
+    gEnv.get("MOZ_LOG") ||
+    gEnv.get("MOZ_LOG_MODULES") ||
+    gEnv.get("NSPR_LOG_MODULES");
   let currentLogModules = document.getElementById("current-log-modules");
   let setLogModulesButton = document.getElementById("set-log-modules-button");
-  if (logModules.length > 0) {
+  if (logModules.length) {
     currentLogModules.innerText = logModules;
     // If the log modules are set by an environment variable at startup, do not
     // allow changing them throught a pref. It would be difficult to figure out
@@ -317,7 +378,7 @@ function updateLogModules() {
       }
     } catch (e) {}
 
-    let children = Services.prefs.getBranch("logging.").getChildList("", {});
+    let children = Services.prefs.getBranch("logging.").getChildList("");
 
     for (let pref of children) {
       if (pref.startsWith("config.")) {
@@ -349,7 +410,7 @@ function setLogFile() {
 
 function clearLogModules() {
   // Turn off all the modules.
-  let children = Services.prefs.getBranch("logging.").getChildList("", {});
+  let children = Services.prefs.getBranch("logging.").getChildList("");
   for (let pref of children) {
     if (!pref.startsWith("config.")) {
       Services.prefs.clearUserPref(`logging.${pref}`);
@@ -383,8 +444,10 @@ function setLogModules() {
     } else if (module == "sync") {
       Services.prefs.setBoolPref("logging.config.sync", true);
     } else {
-      let [key, value] = module.split(":");
-      Services.prefs.setIntPref(`logging.${key}`, parseInt(value, 10));
+      let lastColon = module.lastIndexOf(":");
+      let key = module.slice(0, lastColon);
+      let value = parseInt(module.slice(lastColon + 1), 10);
+      Services.prefs.setIntPref(`logging.${key}`, value);
     }
   }
 
@@ -403,20 +466,13 @@ function stopLogging() {
   updateLogFile();
 }
 
-function confirm() {
-  let div = document.getElementById("warning_message");
-  div.classList.remove("active");
-  div.hidden = true;
-  let warnBox = document.getElementById("warncheck");
-  Services.prefs.setBoolPref("network.warnOnAboutNetworking", warnBox.checked);
-}
-
 function show(button) {
   let current_tab = document.querySelector(".active");
   let category = button.getAttribute("id").substring("category-".length);
   let content = document.getElementById(category);
-  if (current_tab == content)
+  if (current_tab == content) {
     return;
+  }
   current_tab.classList.remove("active");
   current_tab.hidden = true;
   content.classList.add("active");
@@ -455,7 +511,12 @@ window.addEventListener("pageshow", function() {
 function doLookup() {
   let host = document.getElementById("host").value;
   if (host) {
-    gDashboard.requestDNSLookup(host, displayDNSLookup);
+    try {
+      gDashboard.requestDNSLookup(host, displayDNSLookup);
+    } catch (e) {}
+    try {
+      gDashboard.requestDNSHTTPSRRLookup(host, displayHTTPSRRLookup);
+    } catch (e) {}
   }
 }
 
@@ -469,6 +530,55 @@ function displayDNSLookup(data) {
     for (let address of data.address) {
       let row = document.createElement("tr");
       row.appendChild(col(address));
+      new_cont.appendChild(row);
+    }
+  } else {
+    new_cont.appendChild(col(data.error));
+  }
+
+  parent.replaceChild(new_cont, cont);
+}
+
+function displayHTTPSRRLookup(data) {
+  let cont = document.getElementById("https_rr_content");
+  let parent = cont.parentNode;
+  let new_cont = document.createElement("tbody");
+  new_cont.setAttribute("id", "https_rr_content");
+
+  if (data.answer) {
+    for (let record of data.records) {
+      let row = document.createElement("tr");
+      let alpn = record.alpn ? `alpn="${record.alpn.alpn}" ` : "";
+      let noDefaultAlpn = record.noDefaultAlpn ? "noDefaultAlpn " : "";
+      let port = record.port ? `port="${record.port.port}" ` : "";
+      let echconfig = record.echconfig
+        ? `echconfig="${record.echconfig.echconfig}" `
+        : "";
+      let ipv4hint = "";
+      let ipv6hint = "";
+      if (record.ipv4Hint) {
+        let ipv4Str = "";
+        for (let addr of record.ipv4Hint.address) {
+          ipv4Str += `${addr}, `;
+        }
+        // Remove ", " at the end.
+        ipv4Str = ipv4Str.slice(0, -2);
+        ipv4hint = `ipv4hint="${ipv4Str}" `;
+      }
+      if (record.ipv6Hint) {
+        let ipv6Str = "";
+        for (let addr of record.ipv6Hint.address) {
+          ipv6Str += `${addr}, `;
+        }
+        // Remove ", " at the end.
+        ipv6Str = ipv6Str.slice(0, -2);
+        ipv6hint = `ipv6hint="${ipv6Str}" `;
+      }
+
+      let str = `${record.priority} ${record.name} `;
+      str += `(${alpn}${noDefaultAlpn}${port}`;
+      str += `${ipv4hint}${echconfig}${ipv6hint})`;
+      row.appendChild(col(str));
       new_cont.appendChild(row);
     }
   } else {

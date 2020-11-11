@@ -32,11 +32,12 @@ struct MicroProps : public MicroPropsGenerator {
     UNumberSignDisplay sign;
     UNumberDecimalSeparatorDisplay decimal;
     bool useCurrency;
+    char nsName[9];
 
     // Note: This struct has no direct ownership of the following pointers.
     const DecimalFormatSymbols* symbols;
     const Modifier* modOuter;
-    const Modifier* modMiddle;
+    const Modifier* modMiddle = nullptr;
     const Modifier* modInner;
 
     // The following "helper" fields may optionally be used during the MicroPropsGenerator.

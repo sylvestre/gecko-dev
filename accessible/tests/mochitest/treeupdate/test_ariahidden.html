@@ -6,8 +6,7 @@
   <link rel="stylesheet" type="text/css"
         href="chrome://mochikit/content/tests/SimpleTest/test.css" />
 
-  <script type="application/javascript"
-          src="chrome://mochikit/content/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="chrome://mochikit/content/tests/SimpleTest/SimpleTest.js"></script>
 
   <script type="application/javascript"
           src="../common.js"></script>
@@ -93,7 +92,7 @@
     function doTests() {
       ok(!isAccessible("t1_child"), "No accessible for aria-hidden");
 
-      gQueue = new eventQueue();
+      const gQueue = new eventQueue();
       gQueue.push(new t1_removeARIAHidden());
       gQueue.push(new t1_setARIAHidden());
       gQueue.push(new t2_setARIAHidden());

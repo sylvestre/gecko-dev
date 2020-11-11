@@ -11,23 +11,22 @@
 #include "prlink.h"
 #include "prenv.h"
 #if defined(XP_WIN) && defined(MOZ_SANDBOX)
-#include "mozilla/sandboxTarget.h"
-#include "mozilla/sandboxing/SandboxInitialization.h"
-#include "mozilla/sandboxing/sandboxLogging.h"
+#  include "mozilla/sandboxTarget.h"
+#  include "mozilla/sandboxing/SandboxInitialization.h"
+#  include "mozilla/sandboxing/sandboxLogging.h"
 #endif
-#if defined(XP_LINUX) && defined(MOZ_GMP_SANDBOX)
-#include "mozilla/Sandbox.h"
-#include "mozilla/SandboxInfo.h"
+#if defined(XP_LINUX) && defined(MOZ_SANDBOX)
+#  include "mozilla/Sandbox.h"
+#  include "mozilla/SandboxInfo.h"
 #endif
 
 #include <string>
 
 #ifdef XP_WIN
-#include "windows.h"
+#  include "windows.h"
 #endif
 
-namespace mozilla {
-namespace gmp {
+namespace mozilla::gmp {
 class PassThroughGMPAdapter : public GMPAdapter {
  public:
   ~PassThroughGMPAdapter() override {
@@ -132,14 +131,6 @@ void GMPLoader::Shutdown() {
   }
 }
 
-#if defined(XP_MACOSX) && defined(MOZ_GMP_SANDBOX)
-void GMPLoader::SetSandboxInfo(MacSandboxInfo* aSandboxInfo) {
-  if (mSandboxStarter) {
-    mSandboxStarter->SetSandboxInfo(aSandboxInfo);
-  }
-}
-#endif
-
 #if defined(XP_WIN) && defined(MOZ_SANDBOX)
 class WinSandboxStarter : public mozilla::gmp::SandboxStarter {
  public:
@@ -156,31 +147,11 @@ class WinSandboxStarter : public mozilla::gmp::SandboxStarter {
 };
 #endif
 
-#if defined(XP_MACOSX) && defined(MOZ_GMP_SANDBOX)
-class MacSandboxStarter : public mozilla::gmp::SandboxStarter {
- public:
-  bool Start(const char* aLibPath) override {
-    std::string err;
-    bool rv = mozilla::StartMacSandbox(mInfo, err);
-    if (!rv) {
-      fprintf(stderr, "sandbox_init() failed! Error \"%s\"\n", err.c_str());
-    }
-    return rv;
-  }
-  void SetSandboxInfo(MacSandboxInfo* aSandboxInfo) override {
-    mInfo = *aSandboxInfo;
-  }
-
- private:
-  MacSandboxInfo mInfo;
-};
-#endif
-
-#if defined(XP_LINUX) && defined(MOZ_GMP_SANDBOX)
+#if defined(XP_LINUX) && defined(MOZ_SANDBOX)
 namespace {
 class LinuxSandboxStarter : public mozilla::gmp::SandboxStarter {
  private:
-  LinuxSandboxStarter() {}
+  LinuxSandboxStarter() = default;
   friend mozilla::detail::UniqueSelector<LinuxSandboxStarter>::SingleObject
   mozilla::MakeUnique<LinuxSandboxStarter>();
 
@@ -199,14 +170,12 @@ class LinuxSandboxStarter : public mozilla::gmp::SandboxStarter {
   }
 };
 }  // anonymous namespace
-#endif  // XP_LINUX && MOZ_GMP_SANDBOX
+#endif  // XP_LINUX && MOZ_SANDBOX
 
 static UniquePtr<SandboxStarter> MakeSandboxStarter() {
 #if defined(XP_WIN) && defined(MOZ_SANDBOX)
   return mozilla::MakeUnique<WinSandboxStarter>();
-#elif defined(XP_MACOSX) && defined(MOZ_GMP_SANDBOX)
-  return mozilla::MakeUnique<MacSandboxStarter>();
-#elif defined(XP_LINUX) && defined(MOZ_GMP_SANDBOX)
+#elif defined(XP_LINUX) && defined(MOZ_SANDBOX)
   return LinuxSandboxStarter::Make();
 #else
   return nullptr;
@@ -217,5 +186,4 @@ GMPLoader::GMPLoader() : mSandboxStarter(MakeSandboxStarter()) {}
 
 bool GMPLoader::CanSandbox() const { return !!mSandboxStarter; }
 
-}  // namespace gmp
-}  // namespace mozilla
+}  // namespace mozilla::gmp

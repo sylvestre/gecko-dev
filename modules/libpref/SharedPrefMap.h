@@ -246,7 +246,7 @@ class SharedPrefMap {
     // The StringTableEntry arrays of user and default string preference values.
     //
     // Strings are stored as StringTableEntry structs with character offsets
-    // into the mValueStrings string table and their corresponding lenghts.
+    // into the mValueStrings string table and their corresponding lengths.
     //
     // Entries in the map, likewise, store their string values as indices into
     // these arrays.
@@ -307,9 +307,10 @@ class SharedPrefMap {
     uint8_t mIsSticky : 1;
     // True if the preference is locked, as defined by the preference service.
     uint8_t mIsLocked : 1;
-    // True if the preference's default value has changed since it was first
-    // set.
-    uint8_t mDefaultChanged : 1;
+    // True if the preference should be skipped while iterating over the
+    // SharedPrefMap. This is used to internally store Once StaticPrefs.
+    // This property is not visible to users the way sticky and locked are.
+    uint8_t mIsSkippedByIteration : 1;
   };
 
  public:
@@ -335,11 +336,11 @@ class SharedPrefMap {
       return PrefType(mEntry->mType);
     }
 
-    bool DefaultChanged() const { return mEntry->mDefaultChanged; }
     bool HasDefaultValue() const { return mEntry->mHasDefaultValue; }
     bool HasUserValue() const { return mEntry->mHasUserValue; }
     bool IsLocked() const { return mEntry->mIsLocked; }
     bool IsSticky() const { return mEntry->mIsSticky; }
+    bool IsSkippedByIteration() const { return mEntry->mIsSkippedByIteration; }
 
     bool GetBoolValue(PrefValueKind aKind = PrefValueKind::User) const {
       MOZ_ASSERT(Type() == PrefType::Bool);
@@ -392,10 +393,12 @@ class SharedPrefMap {
     // to work here.
     Pref& operator*() { return *this; }
 
-    // Updates this wrapper to point to the next entry in the map. This should
-    // not be attempted unless Index() is less than the map's Count().
+    // Updates this wrapper to point to the next visible entry in the map. This
+    // should not be attempted unless Index() is less than the map's Count().
     Pref& operator++() {
-      mEntry++;
+      do {
+        mEntry++;
+      } while (mEntry->mIsSkippedByIteration && Index() < mMap->Count());
       return *this;
     }
 
@@ -473,10 +476,18 @@ class SharedPrefMap {
 
  public:
   // C++ range iterator protocol. begin() and end() return references to the
-  // first and last entries in the array. The begin wrapper can be incremented
-  // until it matches the last element in the array, at which point it becomes
-  // invalid and the iteration is over.
-  Pref begin() const { return UncheckedGetValueAt(0); }
+  // first (non-skippable) and last entries in the array. The begin wrapper
+  // can be incremented until it matches the last element in the array, at which
+  // point it becomes invalid and the iteration is over.
+  Pref begin() const {
+    for (uint32_t aIndex = 0; aIndex < Count(); aIndex++) {
+      Pref pref = UncheckedGetValueAt(aIndex);
+      if (!pref.IsSkippedByIteration()) {
+        return pref;
+      }
+    }
+    return end();
+  }
   Pref end() const { return UncheckedGetValueAt(Count()); }
 
   // A cosmetic helper for range iteration. Returns a reference value from a
@@ -558,16 +569,16 @@ class MOZ_RAII SharedPrefMapBuilder {
     uint8_t mHasUserValue : 1;
     uint8_t mIsSticky : 1;
     uint8_t mIsLocked : 1;
-    uint8_t mDefaultChanged : 1;
+    uint8_t mIsSkippedByIteration : 1;
   };
 
-  void Add(const char* aKey, const Flags& aFlags, bool aDefaultValue,
+  void Add(const nsCString& aKey, const Flags& aFlags, bool aDefaultValue,
            bool aUserValue);
 
-  void Add(const char* aKey, const Flags& aFlags, int32_t aDefaultValue,
+  void Add(const nsCString& aKey, const Flags& aFlags, int32_t aDefaultValue,
            int32_t aUserValue);
 
-  void Add(const char* aKey, const Flags& aFlags,
+  void Add(const nsCString& aKey, const Flags& aFlags,
            const nsCString& aDefaultValue, const nsCString& aUserValue);
 
   // Finalizes the binary representation of the map, writes it to a shared
@@ -724,9 +735,9 @@ class MOZ_RAII SharedPrefMapBuilder {
 
     explicit UniqueStringTableBuilder(size_t aCapacity) : mEntries(aCapacity) {}
 
-    StringTableEntry Add(const CharType* aKey) {
+    StringTableEntry Add(const nsTString<CharType>& aKey) {
       auto entry =
-          mEntries.AppendElement(Entry{mSize, uint32_t(strlen(aKey)), aKey});
+          mEntries.AppendElement(Entry{mSize, aKey.Length(), aKey.get()});
 
       mSize += entry->mLength + 1;
 
@@ -797,7 +808,7 @@ class MOZ_RAII SharedPrefMapBuilder {
     uint8_t mHasUserValue : 1;
     uint8_t mIsSticky : 1;
     uint8_t mIsLocked : 1;
-    uint8_t mDefaultChanged : 1;
+    uint8_t mIsSkippedByIteration : 1;
   };
 
   // Converts a builder Value struct to a SharedPrefMap::Value struct for

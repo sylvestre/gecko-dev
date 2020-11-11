@@ -1,5 +1,3 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 2 -*- */
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -67,8 +65,11 @@ TooltipToggle.prototype = {
    *          target element and enters the tooltip. Allows the tooltip
    *          content to be interactive.
    */
-  start: function(baseNode, targetNodeCb,
-                   {toggleDelay = DEFAULT_TOGGLE_DELAY, interactive = false} = {}) {
+  start: function(
+    baseNode,
+    targetNodeCb,
+    { toggleDelay = DEFAULT_TOGGLE_DELAY, interactive = false } = {}
+  ) {
     this.stop();
 
     if (!baseNode) {
@@ -85,8 +86,14 @@ TooltipToggle.prototype = {
     baseNode.addEventListener("mouseout", this._onMouseOut);
 
     if (this._interactive) {
-      this.tooltip.container.addEventListener("mouseover", this._onTooltipMouseOver);
-      this.tooltip.container.addEventListener("mouseout", this._onTooltipMouseOut);
+      this.tooltip.container.addEventListener(
+        "mouseover",
+        this._onTooltipMouseOver
+      );
+      this.tooltip.container.addEventListener(
+        "mouseout",
+        this._onTooltipMouseOut
+      );
     }
   },
 
@@ -106,8 +113,14 @@ TooltipToggle.prototype = {
     this._baseNode.removeEventListener("mouseout", this._onMouseOut);
 
     if (this._interactive) {
-      this.tooltip.container.removeEventListener("mouseover", this._onTooltipMouseOver);
-      this.tooltip.container.removeEventListener("mouseout", this._onTooltipMouseOut);
+      this.tooltip.container.removeEventListener(
+        "mouseover",
+        this._onTooltipMouseOver
+      );
+      this.tooltip.container.removeEventListener(
+        "mouseout",
+        this._onTooltipMouseOut
+      );
     }
 
     this._baseNode = null;
@@ -122,16 +135,21 @@ TooltipToggle.prototype = {
       this.win.clearTimeout(this.toggleTimer);
       this.toggleTimer = this.win.setTimeout(() => {
         this.tooltip.hide();
-        this.isValidHoverTarget(event.target).then(target => {
-          if (target === null || !this._baseNode) {
-            // bail out if no target or if the toggle has been destroyed.
-            return;
+        this.isValidHoverTarget(event.target).then(
+          target => {
+            if (target === null || !this._baseNode) {
+              // bail out if no target or if the toggle has been destroyed.
+              return;
+            }
+            this.tooltip.show(target);
+          },
+          reason => {
+            console.error(
+              "isValidHoverTarget rejected with unexpected reason:"
+            );
+            console.error(reason);
           }
-          this.tooltip.show(target);
-        }, reason => {
-          console.error("isValidHoverTarget rejected with unexpected reason:");
-          console.error(reason);
-        });
+        );
       }, this._toggleDelay);
     }
   },
@@ -153,7 +171,11 @@ TooltipToggle.prototype = {
 
   _onMouseOut: function(event) {
     // Only hide the tooltip if the mouse leaves baseNode.
-    if (event && this._baseNode && this._baseNode.contains(event.relatedTarget)) {
+    if (
+      event &&
+      this._baseNode &&
+      this._baseNode.contains(event.relatedTarget)
+    ) {
       return;
     }
 

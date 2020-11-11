@@ -12,7 +12,8 @@
 
 namespace mozilla {
 
-/* static */ MemoryInfo MemoryInfo::Get(const void* aPtr, size_t aSize) {
+/* static */
+MemoryInfo MemoryInfo::Get(const void* aPtr, size_t aSize) {
   MemoryInfo result;
 
   result.mStart = uintptr_t(aPtr);
@@ -59,23 +60,23 @@ namespace mozilla {
       switch (basicInfo.AllocationProtect & 0xff) {
         case PAGE_EXECUTE_WRITECOPY:
           result.mPerms += Perm::CopyOnWrite;
-          MOZ_FALLTHROUGH;
+          [[fallthrough]];
         case PAGE_EXECUTE_READWRITE:
           result.mPerms += Perm::Write;
-          MOZ_FALLTHROUGH;
+          [[fallthrough]];
         case PAGE_EXECUTE_READ:
           result.mPerms += Perm::Read;
-          MOZ_FALLTHROUGH;
+          [[fallthrough]];
         case PAGE_EXECUTE:
           result.mPerms += Perm::Execute;
           break;
 
         case PAGE_WRITECOPY:
           result.mPerms += Perm::CopyOnWrite;
-          MOZ_FALLTHROUGH;
+          [[fallthrough]];
         case PAGE_READWRITE:
           result.mPerms += Perm::Write;
-          MOZ_FALLTHROUGH;
+          [[fallthrough]];
         case PAGE_READONLY:
           result.mPerms += Perm::Read;
           break;

@@ -102,7 +102,7 @@ void Foo::VirtualMemberFunction(int aArg1, int* aArgPtr, int& aArgRef) {}
 void Foo::VirtualConstMemberFunction(int aArg1, int* aArgPtr,
                                      int& aArgRef) const {}
 
-nsresult CreateFoo(void** result)
+static nsresult CreateFoo(void** result)
 // a typical factory function (that calls AddRef)
 {
   auto* foop = new Foo;
@@ -113,14 +113,14 @@ nsresult CreateFoo(void** result)
   return NS_OK;
 }
 
-void set_a_Foo(RefPtr<Foo>* result) {
+static void set_a_Foo(RefPtr<Foo>* result) {
   assert(result);
 
   RefPtr<Foo> foop(do_QueryObject(new Foo));
   *result = foop;
 }
 
-RefPtr<Foo> return_a_Foo() {
+static RefPtr<Foo> return_a_Foo() {
   RefPtr<Foo> foop(do_QueryObject(new Foo));
   return foop;
 }
@@ -192,7 +192,8 @@ void Bar::VirtualConstMemberFunction(int aArg1, int* aArgPtr,
 
 using namespace TestNsRefPtr;
 
-TEST(nsRefPtr, AddRefAndRelease) {
+TEST(nsRefPtr, AddRefAndRelease)
+{
   Foo::total_constructions_ = 0;
   Foo::total_destructions_ = 0;
 
@@ -234,12 +235,14 @@ TEST(nsRefPtr, AddRefAndRelease) {
     ASSERT_EQ(fooP->refcount_, 1);
 
     Foo::total_addrefs_ = 0;
-    RefPtr<Foo> fooP2(fooP.forget());
+    RefPtr<Foo> fooP2 = std::move(fooP);
+    mozilla::Unused << fooP2;
     ASSERT_EQ(Foo::total_addrefs_, 0);
   }
 }
 
-TEST(nsRefPtr, VirtualDestructor) {
+TEST(nsRefPtr, VirtualDestructor)
+{
   Bar::total_destructions_ = 0;
 
   {
@@ -250,7 +253,8 @@ TEST(nsRefPtr, VirtualDestructor) {
   ASSERT_EQ(Bar::total_destructions_, 1);
 }
 
-TEST(nsRefPtr, Equality) {
+TEST(nsRefPtr, Equality)
+{
   Foo::total_constructions_ = 0;
   Foo::total_destructions_ = 0;
 
@@ -287,7 +291,8 @@ TEST(nsRefPtr, Equality) {
   ASSERT_EQ(Foo::total_destructions_, 2);
 }
 
-TEST(nsRefPtr, AddRefHelpers) {
+TEST(nsRefPtr, AddRefHelpers)
+{
   Foo::total_addrefs_ = 0;
 
   {
@@ -319,7 +324,8 @@ TEST(nsRefPtr, AddRefHelpers) {
   }
 }
 
-TEST(nsRefPtr, QueryInterface) {
+TEST(nsRefPtr, QueryInterface)
+{
   Foo::total_queries_ = 0;
   Bar::total_queries_ = 0;
 
@@ -388,11 +394,12 @@ class ObjectForConstPtr {
 #undef NS_INLINE_DECL_THREADSAFE_MUTABLE_REFCOUNTING
 
 namespace TestNsRefPtr {
-void AnFooPtrPtrContext(Foo**) {}
-void AVoidPtrPtrContext(void**) {}
+static void AnFooPtrPtrContext(Foo**) {}
+static void AVoidPtrPtrContext(void**) {}
 }  // namespace TestNsRefPtr
 
-TEST(nsRefPtr, RefPtrCompilationTests) {
+TEST(nsRefPtr, RefPtrCompilationTests)
+{
   {
     RefPtr<Foo> fooP;
 

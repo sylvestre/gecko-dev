@@ -4,7 +4,10 @@
 
 "use strict";
 
-const { createFactory, PureComponent } = require("devtools/client/shared/vendor/react");
+const {
+  createFactory,
+  PureComponent,
+} = require("devtools/client/shared/vendor/react");
 const dom = require("devtools/client/shared/vendor/react-dom-factories");
 const PropTypes = require("devtools/client/shared/vendor/react-prop-types");
 const { getStr } = require("devtools/client/inspector/layout/utils/l10n");
@@ -13,26 +16,32 @@ const { getStr } = require("devtools/client/inspector/layout/utils/l10n");
 // GridDisplaySettings and GridList because we assume the CSS grid usage is low
 // and usually will not appear on the page.
 loader.lazyGetter(this, "GridDisplaySettings", function() {
-  return createFactory(require("./GridDisplaySettings"));
+  return createFactory(
+    require("devtools/client/inspector/grids/components/GridDisplaySettings")
+  );
 });
 loader.lazyGetter(this, "GridList", function() {
-  return createFactory(require("./GridList"));
+  return createFactory(
+    require("devtools/client/inspector/grids/components/GridList")
+  );
 });
 loader.lazyGetter(this, "GridOutline", function() {
-  return createFactory(require("./GridOutline"));
+  return createFactory(
+    require("devtools/client/inspector/grids/components/GridOutline")
+  );
 });
 
-const Types = require("../types");
+const Types = require("devtools/client/inspector/grids/types");
 
 class Grid extends PureComponent {
   static get propTypes() {
     return {
+      dispatch: PropTypes.func.isRequired,
       getSwatchColorPickerTooltip: PropTypes.func.isRequired,
       grids: PropTypes.arrayOf(PropTypes.shape(Types.grid)).isRequired,
-      highlighterSettings: PropTypes.shape(Types.highlighterSettings).isRequired,
-      onHideBoxModelHighlighter: PropTypes.func.isRequired,
+      highlighterSettings: PropTypes.shape(Types.highlighterSettings)
+        .isRequired,
       onSetGridOverlayColor: PropTypes.func.isRequired,
-      onShowBoxModelHighlighterForNode: PropTypes.func.isRequired,
       onShowGridOutlineHighlight: PropTypes.func.isRequired,
       onToggleGridHighlighter: PropTypes.func.isRequired,
       onToggleShowGridAreas: PropTypes.func.isRequired,
@@ -44,20 +53,18 @@ class Grid extends PureComponent {
 
   render() {
     if (!this.props.grids.length) {
-      return (
-        dom.div({ className: "devtools-sidepanel-no-result" },
-          getStr("layout.noGridsOnThisPage")
-        )
+      return dom.div(
+        { className: "devtools-sidepanel-no-result" },
+        getStr("layout.noGridsOnThisPage")
       );
     }
 
     const {
+      dispatch,
       getSwatchColorPickerTooltip,
       grids,
       highlighterSettings,
-      onHideBoxModelHighlighter,
       onSetGridOverlayColor,
-      onShowBoxModelHighlighterForNode,
       onShowGridOutlineHighlight,
       onToggleShowGridAreas,
       onToggleGridHighlighter,
@@ -67,33 +74,31 @@ class Grid extends PureComponent {
     } = this.props;
     const highlightedGrids = grids.filter(grid => grid.highlighted);
 
-    return (
-      dom.div({ id: "layout-grid-container" },
-        dom.div({ className: "grid-content" },
-          GridList({
-            getSwatchColorPickerTooltip,
-            grids,
-            onHideBoxModelHighlighter,
-            onSetGridOverlayColor,
-            onShowBoxModelHighlighterForNode,
-            onToggleGridHighlighter,
-            setSelectedNode,
-          }),
-          GridDisplaySettings({
-            highlighterSettings,
-            onToggleShowGridAreas,
-            onToggleShowGridLineNumbers,
-            onToggleShowInfiniteLines,
-          })
-        ),
-        highlightedGrids.length === 1 ?
-          GridOutline({
+    return dom.div(
+      { id: "layout-grid-container" },
+      dom.div(
+        { className: "grid-content" },
+        GridList({
+          dispatch,
+          getSwatchColorPickerTooltip,
+          grids,
+          onSetGridOverlayColor,
+          onToggleGridHighlighter,
+          setSelectedNode,
+        }),
+        GridDisplaySettings({
+          highlighterSettings,
+          onToggleShowGridAreas,
+          onToggleShowGridLineNumbers,
+          onToggleShowInfiniteLines,
+        })
+      ),
+      highlightedGrids.length === 1
+        ? GridOutline({
             grids,
             onShowGridOutlineHighlight,
           })
-          :
-          null
-      )
+        : null
     );
   }
 }

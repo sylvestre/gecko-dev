@@ -88,7 +88,7 @@ advantages:
   (sub)manifests as appropriate to your needs.
 
 Manifest Format
-````````
+```````````````
 
 Manifests are .ini file with the section names denoting the path
 relative to the manifest:
@@ -155,22 +155,6 @@ treated as comments.
 
 The '#baz' anchor will not be stripped off, as it wasn't preceded by
 a space.
-
-Special variable server-root
-````````````````````````````
-There is a special variable called `server-root` used for paths on the system.
-This variable is deemed a path and will be expanded into its absolute form.
-
-Because of the inheritant nature of the key/value pairs, if one requires a
-system path, it must be absolute for it to be of any use in any included file.
-
-.. code-block:: text
-
-    [DEFAULTS]
-    server-root = ../data
-
-    [test1.js]
-    server-root = test1/data
 
 Manifest Conditional Expressions
 ````````````````````````````````
@@ -474,7 +458,7 @@ Please file any bugs or feature requests at
 
 https://bugzilla.mozilla.org/enter_bug.cgi?product=Testing&component=ManifestParser
 
-Or contact jhammel @mozilla.org or in #ateam on irc.mozilla.org
+Or contact in #cia on irc.mozilla.org
 
 CLI
 ```

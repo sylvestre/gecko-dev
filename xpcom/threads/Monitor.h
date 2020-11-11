@@ -23,20 +23,20 @@ namespace mozilla {
  */
 class Monitor {
  public:
-  explicit Monitor(const char* aName, recordreplay::Behavior aRecorded =
-                                          recordreplay::Behavior::Preserve)
-      : mMutex(aName, aRecorded), mCondVar(mMutex, "[Monitor.mCondVar]") {}
+  explicit Monitor(const char* aName)
+      : mMutex(aName), mCondVar(mMutex, "[Monitor.mCondVar]") {}
 
-  ~Monitor() {}
+  ~Monitor() = default;
 
   void Lock() { mMutex.Lock(); }
+  [[nodiscard]] bool TryLock() { return mMutex.TryLock(); }
   void Unlock() { mMutex.Unlock(); }
 
   void Wait() { mCondVar.Wait(); }
   CVStatus Wait(TimeDuration aDuration) { return mCondVar.Wait(aDuration); }
 
-  nsresult Notify() { return mCondVar.Notify(); }
-  nsresult NotifyAll() { return mCondVar.NotifyAll(); }
+  void Notify() { mCondVar.Notify(); }
+  void NotifyAll() { mCondVar.NotifyAll(); }
 
   void AssertCurrentThreadOwns() const { mMutex.AssertCurrentThreadOwns(); }
 
@@ -71,14 +71,14 @@ class MOZ_STACK_CLASS MonitorAutoLock {
   void Wait() { mMonitor->Wait(); }
   CVStatus Wait(TimeDuration aDuration) { return mMonitor->Wait(aDuration); }
 
-  nsresult Notify() { return mMonitor->Notify(); }
-  nsresult NotifyAll() { return mMonitor->NotifyAll(); }
+  void Notify() { mMonitor->Notify(); }
+  void NotifyAll() { mMonitor->NotifyAll(); }
 
  private:
   MonitorAutoLock();
   MonitorAutoLock(const MonitorAutoLock&);
   MonitorAutoLock& operator=(const MonitorAutoLock&);
-  static void* operator new(size_t) CPP_THROW_NEW;
+  static void* operator new(size_t) noexcept(true);
 
   friend class MonitorAutoUnlock;
 
@@ -109,7 +109,7 @@ class MOZ_STACK_CLASS MonitorAutoUnlock {
   MonitorAutoUnlock();
   MonitorAutoUnlock(const MonitorAutoUnlock&);
   MonitorAutoUnlock& operator=(const MonitorAutoUnlock&);
-  static void* operator new(size_t) CPP_THROW_NEW;
+  static void* operator new(size_t) noexcept(true);
 
   Monitor* mMonitor;
 };

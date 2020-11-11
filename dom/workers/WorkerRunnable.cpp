@@ -14,6 +14,7 @@
 
 #include "mozilla/DebugOnly.h"
 #include "mozilla/ErrorResult.h"
+#include "mozilla/dom/JSExecutionManager.h"
 #include "mozilla/dom/ScriptSettings.h"
 #include "mozilla/Telemetry.h"
 
@@ -269,16 +270,22 @@ WorkerRunnable::Run() {
   MOZ_ASSERT(isMainThread == NS_IsMainThread());
   RefPtr<WorkerPrivate> kungFuDeathGrip;
   if (targetIsWorkerThread) {
-    JSContext* cx = GetCurrentWorkerThreadJSContext();
-    if (NS_WARN_IF(!cx)) {
-      return NS_ERROR_FAILURE;
-    }
-
-    JSObject* global = JS::CurrentGlobalOrNull(cx);
-    if (global) {
-      globalObject = xpc::NativeGlobal(global);
-    } else {
+    globalObject = mWorkerPrivate->GetCurrentEventLoopGlobal();
+    if (!globalObject) {
       globalObject = DefaultGlobalObject();
+      // Our worker thread may not be in a good state here if there is no
+      // JSContext avaliable.  The way this manifests itself is that
+      // globalObject ends up null (though it's not clear to me how we can be
+      // running runnables at all when DefaultGlobalObject() is returning
+      // false!) and then when we try to init the AutoJSAPI either
+      // CycleCollectedJSContext::Get() returns null or it has a null JSContext.
+      // In any case, we used to have a check for
+      // GetCurrentWorkerThreadJSContext() being non-null here and that seems to
+      // avoid the problem, so let's keep doing that check even if we don't need
+      // the JSContext here at all.
+      if (NS_WARN_IF(!globalObject && !GetCurrentWorkerThreadJSContext())) {
+        return NS_ERROR_FAILURE;
+      }
     }
 
     // We may still not have a globalObject here: in the case of
@@ -341,27 +348,26 @@ WorkerRunnable::Run() {
     // If we're on the parent thread and have a reflector and a globalObject,
     // then the realms of cx, globalObject, and the worker's reflector
     // should all match.
-    MOZ_ASSERT_IF(globalObject, js::GetObjectCompartment(wrapper) ==
-                                    js::GetContextCompartment(cx));
-    MOZ_ASSERT_IF(globalObject, js::GetObjectCompartment(wrapper) ==
-                                    js::GetObjectCompartment(
-                                        globalObject->GetGlobalJSObject()));
+    MOZ_ASSERT_IF(globalObject,
+                  js::GetNonCCWObjectRealm(wrapper) == js::GetContextRealm(cx));
+    MOZ_ASSERT_IF(globalObject,
+                  js::GetNonCCWObjectRealm(wrapper) ==
+                      js::GetNonCCWObjectRealm(
+                          globalObject->GetGlobalJSObjectPreserveColor()));
 
     // If we're on the parent thread and have a reflector, then our
     // JSContext had better be either in the null realm (and hence
     // have no globalObject) or in the realm of our reflector.
-    MOZ_ASSERT(
-        !js::GetContextCompartment(cx) ||
-            js::GetObjectCompartment(wrapper) == js::GetContextCompartment(cx),
-        "Must either be in the null compartment or in our reflector "
-        "compartment");
+    MOZ_ASSERT(!js::GetContextRealm(cx) ||
+                   js::GetNonCCWObjectRealm(wrapper) == js::GetContextRealm(cx),
+               "Must either be in the null compartment or in our reflector "
+               "compartment");
 
     ar.emplace(cx, wrapper);
   }
 
   MOZ_ASSERT(!jsapi->HasException());
   result = WorkerRun(cx, mWorkerPrivate);
-  MOZ_ASSERT_IF(result, !jsapi->HasException());
   jsapi->ReportException();
 
   // We can't even assert that this didn't create our global, since in the case
@@ -416,10 +422,9 @@ WorkerSyncRunnable::WorkerSyncRunnable(WorkerPrivate* aWorkerPrivate,
 }
 
 WorkerSyncRunnable::WorkerSyncRunnable(
-    WorkerPrivate* aWorkerPrivate,
-    already_AddRefed<nsIEventTarget>&& aSyncLoopTarget)
+    WorkerPrivate* aWorkerPrivate, nsCOMPtr<nsIEventTarget>&& aSyncLoopTarget)
     : WorkerRunnable(aWorkerPrivate, WorkerThreadUnchangedBusyCount),
-      mSyncLoopTarget(aSyncLoopTarget) {
+      mSyncLoopTarget(std::move(aSyncLoopTarget)) {
 #ifdef DEBUG
   if (mSyncLoopTarget) {
     mWorkerPrivate->AssertValidSyncLoop(mSyncLoopTarget);
@@ -427,7 +432,7 @@ WorkerSyncRunnable::WorkerSyncRunnable(
 #endif
 }
 
-WorkerSyncRunnable::~WorkerSyncRunnable() {}
+WorkerSyncRunnable::~WorkerSyncRunnable() = default;
 
 bool WorkerSyncRunnable::DispatchInternal() {
   if (mSyncLoopTarget) {
@@ -443,8 +448,8 @@ void MainThreadWorkerSyncRunnable::PostDispatch(WorkerPrivate* aWorkerPrivate,
                                                 bool aDispatchResult) {}
 
 MainThreadStopSyncLoopRunnable::MainThreadStopSyncLoopRunnable(
-    WorkerPrivate* aWorkerPrivate,
-    already_AddRefed<nsIEventTarget>&& aSyncLoopTarget, bool aResult)
+    WorkerPrivate* aWorkerPrivate, nsCOMPtr<nsIEventTarget>&& aSyncLoopTarget,
+    bool aResult)
     : WorkerSyncRunnable(aWorkerPrivate, std::move(aSyncLoopTarget)),
       mResult(aResult) {
   AssertIsOnMainThread();
@@ -570,7 +575,7 @@ WorkerMainThreadRunnable::Run() {
 
   RefPtr<MainThreadStopSyncLoopRunnable> response =
       new MainThreadStopSyncLoopRunnable(mWorkerPrivate,
-                                         mSyncLoopTarget.forget(), runResult);
+                                         std::move(mSyncLoopTarget), runResult);
 
   MOZ_ALWAYS_TRUE(response->Dispatch());
 
@@ -619,7 +624,10 @@ bool WorkerProxyToMainThreadRunnable::Dispatch(WorkerPrivate* aWorkerPrivate) {
   MOZ_ASSERT(!mWorkerRef);
   mWorkerRef = new ThreadSafeWorkerRef(workerRef);
 
-  if (NS_WARN_IF(NS_FAILED(aWorkerPrivate->DispatchToMainThread(this)))) {
+  if (ForMessaging()
+          ? NS_WARN_IF(NS_FAILED(
+                aWorkerPrivate->DispatchToMainThreadForMessaging(this)))
+          : NS_WARN_IF(NS_FAILED(aWorkerPrivate->DispatchToMainThread(this)))) {
     ReleaseWorker();
     RunBackOnWorkerThreadForCleanup(aWorkerPrivate);
     return false;
@@ -672,7 +680,7 @@ void WorkerProxyToMainThreadRunnable::PostDispatchOnMainThread() {
     }
 
    private:
-    ~ReleaseRunnable() {}
+    ~ReleaseRunnable() = default;
   };
 
   RefPtr<WorkerControlRunnable> runnable =

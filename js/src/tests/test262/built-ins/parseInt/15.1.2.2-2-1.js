@@ -2,14 +2,12 @@
 // This code is governed by the BSD license found in the LICENSE file.
 
 /*---
-es5id: 15.1.2.2-2-1
-es6id: 18.2.5
 esid: sec-parseint-string-radix
 description: >
     pareseInt - 'S' is the empty string when inputString does not
     contain any such characters
 ---*/
 
-assert.sameValue(parseInt(""), NaN, 'parseInt("")');
+assert.sameValue(parseInt(""), NaN, 'parseInt("") must return NaN');
 
 reportCompare(0, 0);

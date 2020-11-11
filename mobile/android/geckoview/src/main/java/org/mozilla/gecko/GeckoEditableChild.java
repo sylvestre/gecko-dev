@@ -12,7 +12,7 @@ import org.mozilla.gecko.util.ThreadUtils;
 import android.graphics.RectF;
 import android.os.IBinder;
 import android.os.RemoteException;
-import android.support.annotation.Nullable;
+import androidx.annotation.Nullable;
 import android.util.Log;
 import android.view.KeyEvent;
 
@@ -36,10 +36,11 @@ public final class GeckoEditableChild extends JNIObject implements IGeckoEditabl
         }
 
         @Override // IGeckoEditableChild
-        public void onKeyEvent(int action, int keyCode, int scanCode, int metaState,
-                               int keyPressMetaState, long time, int domPrintableKeyValue,
-                               int repeatCount, int flags, boolean isSynthesizedImeKey,
-                               KeyEvent event) {
+        public void onKeyEvent(final int action, final int keyCode, final int scanCode,
+                               final int metaState, final int keyPressMetaState, final long time,
+                               final int domPrintableKeyValue, final int repeatCount,
+                               final int flags, final boolean isSynthesizedImeKey,
+                               final KeyEvent event) {
             GeckoEditableChild.this.onKeyEvent(
                     action, keyCode, scanCode, metaState, keyPressMetaState, time,
                     domPrintableKeyValue, repeatCount, flags, isSynthesizedImeKey, event);
@@ -51,28 +52,33 @@ public final class GeckoEditableChild extends JNIObject implements IGeckoEditabl
         }
 
         @Override // IGeckoEditableChild
-        public void onImeReplaceText(int start, int end, String text) {
+        public void onImeReplaceText(final int start, final int end, final String text) {
             GeckoEditableChild.this.onImeReplaceText(start, end, text);
         }
 
         @Override // IGeckoEditableChild
-        public void onImeAddCompositionRange(int start, int end, int rangeType,
-                                             int rangeStyles, int rangeLineStyle,
-                                             boolean rangeBoldLine, int rangeForeColor,
-                                             int rangeBackColor, int rangeLineColor) {
+        public void onImeAddCompositionRange(final int start, final int end, final int rangeType,
+                                             final int rangeStyles, final int rangeLineStyle,
+                                             final boolean rangeBoldLine, final int rangeForeColor,
+                                             final int rangeBackColor, final int rangeLineColor) {
             GeckoEditableChild.this.onImeAddCompositionRange(
                     start, end, rangeType, rangeStyles, rangeLineStyle, rangeBoldLine,
                     rangeForeColor, rangeBackColor, rangeLineColor);
         }
 
         @Override // IGeckoEditableChild
-        public void onImeUpdateComposition(int start, int end, int flags) {
+        public void onImeUpdateComposition(final int start, final int end, final int flags) {
             GeckoEditableChild.this.onImeUpdateComposition(start, end, flags);
         }
 
         @Override // IGeckoEditableChild
-        public void onImeRequestCursorUpdates(int requestMode) {
+        public void onImeRequestCursorUpdates(final int requestMode) {
             GeckoEditableChild.this.onImeRequestCursorUpdates(requestMode);
+        }
+
+        @Override // IGeckoEditableChild
+        public void onImeRequestCommit() {
+            GeckoEditableChild.this.onImeRequestCommit();
         }
     }
 
@@ -147,6 +153,9 @@ public final class GeckoEditableChild extends JNIObject implements IGeckoEditabl
     @WrapForJNI(dispatchTo = "proxy") @Override // IGeckoEditableChild
     public native void onImeRequestCursorUpdates(int requestMode);
 
+    @WrapForJNI(dispatchTo = "proxy") @Override // IGeckoEditableChild
+    public native void onImeRequestCommit();
+
     @Override // JNIObject
     protected void disposeNative() {
         // Disposal happens in native code.
@@ -199,12 +208,15 @@ public final class GeckoEditableChild extends JNIObject implements IGeckoEditabl
     @WrapForJNI(calledFrom = "gecko")
     private void notifyIMEContext(final int state, final String typeHint,
                                   final String modeHint, final String actionHint,
-                                  final int flags) {
+                                  final String autocapitalize, final int flags) {
         if (DEBUG) {
             ThreadUtils.assertOnGeckoThread();
-            Log.d(LOGTAG, "notifyIMEContext(" + state + ", \"" +
-                          typeHint + "\", \"" + modeHint + "\", \"" + actionHint +
-                          "\", 0x" + Integer.toHexString(flags) + ")");
+            final StringBuilder sb = new StringBuilder("notifyIMEContext(");
+            sb.append(state).append(", \"").append(typeHint).append("\", \"")
+                .append(modeHint).append("\", \"").append(actionHint)
+                .append("\", \"").append(autocapitalize).append("\", 0x")
+                .append(Integer.toHexString(flags)).append(")");
+            Log.d(LOGTAG, sb.toString());
         }
         if (!hasEditableParent()) {
             return;
@@ -212,7 +224,7 @@ public final class GeckoEditableChild extends JNIObject implements IGeckoEditabl
 
         try {
             mEditableParent.notifyIMEContext(mEditableChild.asBinder(), state, typeHint,
-                                             modeHint, actionHint, flags);
+                                             modeHint, actionHint, autocapitalize, flags);
         } catch (final RemoteException e) {
             Log.e(LOGTAG, "Remote call failed", e);
         }

@@ -7,7 +7,7 @@
 #ifndef mozilla_ThreadEventQueue_h
 #define mozilla_ThreadEventQueue_h
 
-#include "mozilla/AbstractEventQueue.h"
+#include "mozilla/EventQueue.h"
 #include "mozilla/CondVar.h"
 #include "mozilla/SynchronizedEventQueue.h"
 #include "nsCOMPtr.h"
@@ -20,61 +20,31 @@ class nsIThreadObserver;
 namespace mozilla {
 
 class EventQueue;
-
-template <typename InnerQueueT>
-class PrioritizedEventQueue;
-
-class LabeledEventQueue;
-
 class ThreadEventTarget;
 
 // A ThreadEventQueue implements normal monitor-style synchronization over the
-// InnerQueueT AbstractEventQueue. It also implements PushEventQueue and
-// PopEventQueue for workers (see the documentation below for an explanation of
-// those). All threads use a ThreadEventQueue as their event queue. InnerQueueT
-// is a template parameter to avoid virtual dispatch overhead.
-template <class InnerQueueT>
+// EventQueue. It also implements PushEventQueue and PopEventQueue for workers
+// (see the documentation below for an explanation of those). All threads use a
+// ThreadEventQueue as their event queue. Although for the main thread this
+// simply forwards events to the TaskController.
 class ThreadEventQueue final : public SynchronizedEventQueue {
  public:
-  explicit ThreadEventQueue(UniquePtr<InnerQueueT> aQueue);
+  explicit ThreadEventQueue(UniquePtr<EventQueue> aQueue,
+                            bool aIsMainThread = false);
 
   bool PutEvent(already_AddRefed<nsIRunnable>&& aEvent,
-                EventPriority aPriority) final;
+                EventQueuePriority aPriority) final;
 
-  already_AddRefed<nsIRunnable> GetEvent(bool aMayWait,
-                                         EventPriority* aPriority) final;
+  already_AddRefed<nsIRunnable> GetEvent(
+      bool aMayWait, mozilla::TimeDuration* aLastEventDelay = nullptr) final;
   bool HasPendingEvent() final;
 
   bool ShutdownIfNoPendingEvents() final;
 
   void Disconnect(const MutexAutoLock& aProofOfLock) final {}
 
-  void EnableInputEventPrioritization() final;
-  void FlushInputEventPrioritization() final;
-  void SuspendInputEventPrioritization() final;
-  void ResumeInputEventPrioritization() final;
-
-  /**
-   * This method causes any events currently enqueued on the thread to be
-   * suppressed until PopEventQueue is called, and any event dispatched to this
-   * thread's nsIEventTarget will queue as well. Calls to PushEventQueue may be
-   * nested and must each be paired with a call to PopEventQueue in order to
-   * restore the original state of the thread. The returned nsIEventTarget may
-   * be used to push events onto the nested queue. Dispatching will be disabled
-   * once the event queue is popped. The thread will only ever process pending
-   * events for the innermost event queue. Must only be called on the target
-   * thread.
-   */
-  already_AddRefed<nsISerialEventTarget> PushEventQueue();
-
-  /**
-   * Revert a call to PushEventQueue. When an event queue is popped, any events
-   * remaining in the queue are appended to the elder queue. This also causes
-   * the nsIEventTarget returned from PushEventQueue to stop dispatching events.
-   * Must only be called on the target thread, and with the innermost event
-   * queue.
-   */
-  void PopEventQueue(nsIEventTarget* aTarget);
+  already_AddRefed<nsISerialEventTarget> PushEventQueue() final;
+  void PopEventQueue(nsIEventTarget* aTarget) final;
 
   already_AddRefed<nsIThreadObserver> GetObserver() final;
   already_AddRefed<nsIThreadObserver> GetObserverOnThread() final;
@@ -91,17 +61,16 @@ class ThreadEventQueue final : public SynchronizedEventQueue {
   virtual ~ThreadEventQueue();
 
   bool PutEventInternal(already_AddRefed<nsIRunnable>&& aEvent,
-                        EventPriority aPriority, NestedSink* aQueue);
+                        EventQueuePriority aPriority, NestedSink* aQueue);
 
-  UniquePtr<InnerQueueT> mBaseQueue;
+  UniquePtr<EventQueue> mBaseQueue;
 
   struct NestedQueueItem {
     UniquePtr<EventQueue> mQueue;
     RefPtr<ThreadEventTarget> mEventTarget;
 
     NestedQueueItem(UniquePtr<EventQueue> aQueue,
-                    ThreadEventTarget* aEventTarget)
-        : mQueue(std::move(aQueue)), mEventTarget(aEventTarget) {}
+                    ThreadEventTarget* aEventTarget);
   };
 
   nsTArray<NestedQueueItem> mNestedQueues;
@@ -111,13 +80,9 @@ class ThreadEventQueue final : public SynchronizedEventQueue {
 
   bool mEventsAreDoomed = false;
   nsCOMPtr<nsIThreadObserver> mObserver;
+  bool mIsMainThread;
 };
 
-extern template class ThreadEventQueue<EventQueue>;
-extern template class ThreadEventQueue<PrioritizedEventQueue<EventQueue>>;
-extern template class ThreadEventQueue<
-    PrioritizedEventQueue<LabeledEventQueue>>;
-
-};  // namespace mozilla
+}  // namespace mozilla
 
 #endif  // mozilla_ThreadEventQueue_h

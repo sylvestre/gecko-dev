@@ -5,11 +5,11 @@
  * found in the LICENSE file.
  */
 
-#include "SkPathMeasure.h"
-#include "SkTrimPathEffect.h"
-#include "SkTrimPE.h"
-#include "SkReadBuffer.h"
-#include "SkWriteBuffer.h"
+#include "include/core/SkPathMeasure.h"
+#include "include/effects/SkTrimPathEffect.h"
+#include "src/core/SkReadBuffer.h"
+#include "src/core/SkWriteBuffer.h"
+#include "src/effects/SkTrimPE.h"
 
 namespace {
 
@@ -89,18 +89,12 @@ void SkTrimPE::flatten(SkWriteBuffer& buffer) const {
 }
 
 sk_sp<SkFlattenable> SkTrimPE::CreateProc(SkReadBuffer& buffer) {
-#ifdef SK_DISABLE_READBUFFER
-    // Should not be reachable by PathKit WebAssembly Code.
-    SkASSERT(false);
-    return nullptr;
-#else
     const auto start = buffer.readScalar(),
                stop  = buffer.readScalar();
     const auto mode  = buffer.readUInt();
 
     return SkTrimPathEffect::Make(start, stop,
         (mode & 1) ? SkTrimPathEffect::Mode::kInverted : SkTrimPathEffect::Mode::kNormal);
-#endif
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////

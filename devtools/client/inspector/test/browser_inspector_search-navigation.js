@@ -1,4 +1,3 @@
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
    http://creativecommons.org/publicdomain/zero/1.0/ */
 "use strict";
@@ -54,8 +53,7 @@ const KEY_STATES = [
   ["VK_BACK_SPACE", ""],
 ];
 
-const TEST_URL = URL_ROOT +
-  "doc_inspector_search-suggestions.html";
+const TEST_URL = URL_ROOT + "doc_inspector_search-suggestions.html";
 
 add_task(async function() {
   const { inspector } = await openInspectorForURL(TEST_URL);

@@ -2,7 +2,7 @@
 
 load(libdir + 'asserts.js');
 
-var g = newGlobal();
+var g = newGlobal({newCompartment: true});
 var dbg = new Debugger;
 let gw = dbg.addDebuggee(g);
 var log;
@@ -12,7 +12,7 @@ function check(env) {
   assertThrowsInstanceOf(() => env.type, Error);
   assertThrowsInstanceOf(() => env.object, Error);
   assertThrowsInstanceOf(() => env.parent, Error);
-  assertThrowsInstanceOf(() => env.callee, Error);
+  assertThrowsInstanceOf(() => env.calleeScript, Error);
 
   assertThrowsInstanceOf(() => env.names(), Error);
   assertThrowsInstanceOf(() => env.find('x'), Error);

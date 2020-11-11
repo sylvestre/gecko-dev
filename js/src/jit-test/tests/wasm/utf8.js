@@ -1,7 +1,7 @@
 /*
 (module
  (func (param i32) (result i32)
-       (i32.add (get_local 0) (get_local 0)))
+       (i32.add (local.get 0) (local.get 0)))
  (export "hello" (func 0)))
 */
 
@@ -23,14 +23,14 @@ assertEq(WebAssembly.validate(bin), false);
 
 assertThrowsInstanceOf(() => new WebAssembly.Module(bin), WebAssembly.CompileError);
 
-assertThrowsInstanceOf(() => wasmEvalText(`(module (import "\u2603" "")) `, {}), TypeError);
+assertThrowsInstanceOf(() => wasmEvalText(`(module (import "\u2603" "" (func))) `, {}), TypeError);
 
 {
     let i1 = wasmEvalText(` (module (func (export "\u2603")))`);
-    assertThrowsInstanceOf(() => wasmEvalText(`(module (import "" "\u2603" (result i32)))`,
+    assertThrowsInstanceOf(() => wasmEvalText(`(module (import "" "\u2603" (func (result i32))))`,
                                               { "": { "\u2603": i1.exports['\u2603'] } }),
                            WebAssembly.LinkError);
-    assertThrowsInstanceOf(() => wasmEvalText(`(module (import "\u2603" "" (result i32)))`,
+    assertThrowsInstanceOf(() => wasmEvalText(`(module (import "\u2603" "" (func (result i32))))`,
                                               { "\u2603": { "": i1.exports['\u2603'] } }),
                            WebAssembly.LinkError);
 }

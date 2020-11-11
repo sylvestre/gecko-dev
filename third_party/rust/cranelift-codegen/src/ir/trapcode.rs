@@ -1,12 +1,15 @@
 //! Trap codes describing the reason for a trap.
 
-use std::fmt::{self, Display, Formatter};
-use std::str::FromStr;
+use core::fmt::{self, Display, Formatter};
+use core::str::FromStr;
+#[cfg(feature = "enable-serde")]
+use serde::{Deserialize, Serialize};
 
 /// A trap code describing the reason for a trap.
 ///
 /// All trap instructions have an explicit trap code.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum TrapCode {
     /// The current stack space was exhausted.
     ///
@@ -17,14 +20,15 @@ pub enum TrapCode {
     /// A `heap_addr` instruction detected an out-of-bounds error.
     ///
     /// Note that not all out-of-bounds heap accesses are reported this way;
-    /// some are detected by a segmentation fault on the heap guard pages.
+    /// some are detected by a segmentation fault on the heap unmapped or
+    /// offset-guard pages.
     HeapOutOfBounds,
+
+    /// A wasm atomic operation was presented with a not-naturally-aligned linear-memory address.
+    HeapMisaligned,
 
     /// A `table_addr` instruction detected an out-of-bounds error.
     TableOutOfBounds,
-
-    /// Other bounds checking error.
-    OutOfBounds,
 
     /// Indirect call to a null table entry.
     IndirectCallToNull,
@@ -41,6 +45,9 @@ pub enum TrapCode {
     /// Failed float-to-int conversion.
     BadConversionToInteger,
 
+    /// Code that was supposed to have been unreachable was reached.
+    UnreachableCodeReached,
+
     /// Execution has potentially run too long and may be interrupted.
     /// This trap is resumable.
     Interrupt,
@@ -55,13 +62,14 @@ impl Display for TrapCode {
         let identifier = match *self {
             StackOverflow => "stk_ovf",
             HeapOutOfBounds => "heap_oob",
+            HeapMisaligned => "heap_misaligned",
             TableOutOfBounds => "table_oob",
-            OutOfBounds => "oob",
             IndirectCallToNull => "icall_null",
             BadSignature => "bad_sig",
             IntegerOverflow => "int_ovf",
             IntegerDivisionByZero => "int_divz",
             BadConversionToInteger => "bad_toint",
+            UnreachableCodeReached => "unreachable",
             Interrupt => "interrupt",
             User(x) => return write!(f, "user{}", x),
         };
@@ -77,13 +85,14 @@ impl FromStr for TrapCode {
         match s {
             "stk_ovf" => Ok(StackOverflow),
             "heap_oob" => Ok(HeapOutOfBounds),
+            "heap_misaligned" => Ok(HeapMisaligned),
             "table_oob" => Ok(TableOutOfBounds),
-            "oob" => Ok(OutOfBounds),
             "icall_null" => Ok(IndirectCallToNull),
             "bad_sig" => Ok(BadSignature),
             "int_ovf" => Ok(IntegerOverflow),
             "int_divz" => Ok(IntegerDivisionByZero),
             "bad_toint" => Ok(BadConversionToInteger),
+            "unreachable" => Ok(UnreachableCodeReached),
             "interrupt" => Ok(Interrupt),
             _ if s.starts_with("user") => s[4..].parse().map(User).map_err(|_| ()),
             _ => Err(()),
@@ -94,19 +103,21 @@ impl FromStr for TrapCode {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::string::ToString;
+    use alloc::string::ToString;
 
     // Everything but user-defined codes.
-    const CODES: [TrapCode; 9] = [
+    const CODES: [TrapCode; 11] = [
         TrapCode::StackOverflow,
         TrapCode::HeapOutOfBounds,
+        TrapCode::HeapMisaligned,
         TrapCode::TableOutOfBounds,
-        TrapCode::OutOfBounds,
         TrapCode::IndirectCallToNull,
         TrapCode::BadSignature,
         TrapCode::IntegerOverflow,
         TrapCode::IntegerDivisionByZero,
         TrapCode::BadConversionToInteger,
+        TrapCode::UnreachableCodeReached,
+        TrapCode::Interrupt,
     ];
 
     #[test]

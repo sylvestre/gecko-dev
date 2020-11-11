@@ -26,26 +26,38 @@
                     "preprocess": "localize"
                   },
                   "keyword": {
-                    "type": "string",
                     "optional": true,
-                    "preprocess": "localize"
+                    "choices": [
+                      {
+                        "type": "string",
+                        "preprocess": "localize"
+                      },
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "preprocess": "localize"
+                        },
+                        "minItems": 1
+                      }
+                    ]
                   },
                   "search_url": {
                     "type": "string",
                     "format": "url",
-                    "pattern": "^https://.*$",
+                    "pattern": "^(https://|http://(localhost|127\\.0\\.0\\.1|\\[::1\\])(:\\d*)?(/|$)).*$",
                     "preprocess": "localize"
                   },
                   "favicon_url": {
                     "type": "string",
                     "optional": true,
-                    "format": "url",
+                    "format": "relativeUrl",
                     "preprocess": "localize"
                   },
                   "suggest_url": {
                     "type": "string",
                     "optional": true,
-                    "format": "url",
+                    "pattern": "^(https://|http://(localhost|127\\.0\\.0\\.1|\\[::1\\])(:\\d*)?(/|$)).*$",
                     "preprocess": "localize"
                   },
                   "instant_url": {
@@ -62,11 +74,23 @@
                     "preprocess": "localize",
                     "deprecated": "Unsupported on Firefox at this time."
                   },
+                  "search_url_get_params": {
+                    "type": "string",
+                    "optional": true,
+                    "preprocess": "localize",
+                    "description": "GET parameters to the search_url as a query string."
+                  },
                   "search_url_post_params": {
                     "type": "string",
                     "optional": true,
                     "preprocess": "localize",
                     "description": "POST parameters to the search_url as a query string."
+                  },
+                  "suggest_url_get_params": {
+                    "type": "string",
+                    "optional": true,
+                    "preprocess": "localize",
+                    "description": "GET parameters to the suggest_url as a query string."
                   },
                   "suggest_url_post_params": {
                     "type": "string",
@@ -85,6 +109,13 @@
                     "optional": true,
                     "preprocess": "localize",
                     "deprecated": "Unsupported on Firefox at this time."
+                  },
+                  "search_form": {
+                    "type": "string",
+                    "optional": true,
+                    "format": "url",
+                    "pattern": "^(https://|http://(localhost|127\\.0\\.0\\.1|\\[::1\\])(:\\d*)?(/|$)).*$",
+                    "preprocess": "localize"
                   },
                   "alternate_urls": {
                     "type": "array",
@@ -130,7 +161,8 @@
                         "pref": {
                           "type": "string",
                           "optional": true,
-                          "description": "The preference to retreive the value from."
+                          "description": "The preference to retrieve the value from.",
+                          "preprocess": "localize"
                         },
                         "purpose": {
                           "type": "string",
@@ -141,7 +173,8 @@
                         "value": {
                           "type": "string",
                           "optional": true,
-                          "description": "A url parameter value."
+                          "description": "A url parameter value.",
+                          "preprocess": "localize"
                         }
                       }
                     },

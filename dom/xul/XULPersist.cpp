@@ -6,20 +6,31 @@
 
 #include "XULPersist.h"
 
-#include "nsIXULStore.h"
+#ifdef MOZ_NEW_XULSTORE
+#  include "mozilla/XULStore.h"
+#else
+#  include "nsIXULStore.h"
+#  include "nsIStringEnumerator.h"
+#endif
+#include "mozilla/BasePrincipal.h"
+#include "nsIAppWindow.h"
 
 namespace mozilla {
 namespace dom {
 
+static bool IsRootElement(Element* aElement) {
+  return aElement->OwnerDoc()->GetRootElement() == aElement;
+}
+
 static bool ShouldPersistAttribute(Element* aElement, nsAtom* aAttribute) {
-  if (aElement->IsXULElement(nsGkAtoms::window)) {
+  if (IsRootElement(aElement)) {
     // This is not an element of the top document, its owner is
-    // not an nsXULWindow. Persist it.
-    if (aElement->OwnerDoc()->GetParentDocument()) {
+    // not an AppWindow. Persist it.
+    if (aElement->OwnerDoc()->GetInProcessParentDocument()) {
       return true;
     }
     // The following attributes of xul:window should be handled in
-    // nsXULWindow::SavePersistentAttributes instead of here.
+    // AppWindow::SavePersistentAttributes instead of here.
     if (aAttribute == nsGkAtoms::screenX || aAttribute == nsGkAtoms::screenY ||
         aAttribute == nsGkAtoms::width || aAttribute == nsGkAtoms::height ||
         aAttribute == nsGkAtoms::sizemode) {
@@ -31,10 +42,10 @@ static bool ShouldPersistAttribute(Element* aElement, nsAtom* aAttribute) {
 
 NS_IMPL_ISUPPORTS(XULPersist, nsIDocumentObserver)
 
-XULPersist::XULPersist(nsIDocument* aDocument)
+XULPersist::XULPersist(Document* aDocument)
     : nsStubDocumentObserver(), mDocument(aDocument) {}
 
-XULPersist::~XULPersist() {}
+XULPersist::~XULPersist() = default;
 
 void XULPersist::Init() {
   ApplyPersistentAttributes();
@@ -51,18 +62,17 @@ void XULPersist::AttributeChanged(dom::Element* aElement, int32_t aNameSpaceID,
                                   const nsAttrValue* aOldValue) {
   NS_ASSERTION(aElement->OwnerDoc() == mDocument, "unexpected doc");
 
-  // Might not need this, but be safe for now.
-  nsCOMPtr<nsIDocumentObserver> kungFuDeathGrip(this);
-
   // See if there is anything we need to persist in the localstore.
   //
   // XXX Namespace handling broken :-(
   nsAutoString persist;
-  aElement->GetAttr(kNameSpaceID_None, nsGkAtoms::persist, persist);
-  // Persistence of attributes of xul:window is handled in nsXULWindow.
-  if (ShouldPersistAttribute(aElement, aAttribute) && !persist.IsEmpty() &&
+  // Persistence of attributes of xul:window is handled in AppWindow.
+  if (aElement->GetAttr(kNameSpaceID_None, nsGkAtoms::persist, persist) &&
+      ShouldPersistAttribute(aElement, aAttribute) && !persist.IsEmpty() &&
       // XXXldb This should check that it's a token, not just a substring.
       persist.Find(nsDependentAtomString(aAttribute)) >= 0) {
+    // Might not need this, but be safe for now.
+    nsCOMPtr<nsIDocumentObserver> kungFuDeathGrip(this);
     nsContentUtils::AddScriptRunner(
         NewRunnableMethod<Element*, int32_t, nsAtom*>(
             "dom::XULPersist::Persist", this, &XULPersist::Persist, aElement,
@@ -76,16 +86,18 @@ void XULPersist::Persist(Element* aElement, int32_t aNameSpaceID,
     return;
   }
   // For non-chrome documents, persistance is simply broken
-  if (!nsContentUtils::IsSystemPrincipal(mDocument->NodePrincipal())) {
+  if (!mDocument->NodePrincipal()->IsSystemPrincipal()) {
     return;
   }
 
+#ifndef MOZ_NEW_XULSTORE
   if (!mLocalStore) {
     mLocalStore = do_GetService("@mozilla.org/xul/xulstore;1");
     if (NS_WARN_IF(!mLocalStore)) {
       return;
     }
   }
+#endif
 
   nsAutoString id;
 
@@ -103,25 +115,40 @@ void XULPersist::Persist(Element* aElement, int32_t aNameSpaceID,
   NS_ConvertUTF8toUTF16 uri(utf8uri);
 
   bool hasAttr;
+#ifdef MOZ_NEW_XULSTORE
+  rv = XULStore::HasValue(uri, id, attrstr, hasAttr);
+#else
   rv = mLocalStore->HasValue(uri, id, attrstr, &hasAttr);
+#endif
+
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return;
   }
 
   if (hasAttr && valuestr.IsEmpty()) {
+#ifdef MOZ_NEW_XULSTORE
+    rv = XULStore::RemoveValue(uri, id, attrstr);
+    NS_WARNING_ASSERTION(NS_SUCCEEDED(rv), "value removed");
+#else
     mLocalStore->RemoveValue(uri, id, attrstr);
+#endif
     return;
   }
 
-  // Persisting attributes to top level windows is handled by nsXULWindow.
-  if (aElement->IsXULElement(nsGkAtoms::window)) {
-    if (nsCOMPtr<nsIXULWindow> win =
-            mDocument->GetXULWindowIfToplevelChrome()) {
+  // Persisting attributes to top level windows is handled by AppWindow.
+  if (IsRootElement(aElement)) {
+    if (nsCOMPtr<nsIAppWindow> win =
+            mDocument->GetAppWindowIfToplevelChrome()) {
       return;
     }
   }
 
+#ifdef MOZ_NEW_XULSTORE
+  rv = XULStore::SetValue(uri, id, attrstr, valuestr);
+#else
   mLocalStore->SetValue(uri, id, attrstr, valuestr);
+#endif
+  NS_WARNING_ASSERTION(NS_SUCCEEDED(rv), "value set");
 }
 
 nsresult XULPersist::ApplyPersistentAttributes() {
@@ -129,18 +156,20 @@ nsresult XULPersist::ApplyPersistentAttributes() {
     return NS_ERROR_NOT_AVAILABLE;
   }
   // For non-chrome documents, persistance is simply broken
-  if (!nsContentUtils::IsSystemPrincipal(mDocument->NodePrincipal())) {
+  if (!mDocument->NodePrincipal()->IsSystemPrincipal()) {
     return NS_ERROR_NOT_AVAILABLE;
   }
 
   // Add all of the 'persisted' attributes into the content
   // model.
+#ifndef MOZ_NEW_XULSTORE
   if (!mLocalStore) {
     mLocalStore = do_GetService("@mozilla.org/xul/xulstore;1");
     if (NS_WARN_IF(!mLocalStore)) {
       return NS_ERROR_NOT_INITIALIZED;
     }
   }
+#endif
 
   ApplyPersistentAttributesInternal();
 
@@ -158,12 +187,25 @@ nsresult XULPersist::ApplyPersistentAttributesInternal() {
   NS_ConvertUTF8toUTF16 uri(utf8uri);
 
   // Get a list of element IDs for which persisted values are available
+#ifdef MOZ_NEW_XULSTORE
+  UniquePtr<XULStoreIterator> ids;
+  rv = XULStore::GetIDs(uri, ids);
+#else
   nsCOMPtr<nsIStringEnumerator> ids;
   rv = mLocalStore->GetIDsEnumerator(uri, getter_AddRefs(ids));
+#endif
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
 
+#ifdef MOZ_NEW_XULSTORE
+  while (ids->HasMore()) {
+    nsAutoString id;
+    rv = ids->GetNext(&id);
+    if (NS_WARN_IF(NS_FAILED(rv))) {
+      return rv;
+    }
+#else
   while (1) {
     bool hasmore = false;
     ids->HasMore(&hasmore);
@@ -173,6 +215,7 @@ nsresult XULPersist::ApplyPersistentAttributesInternal() {
 
     nsAutoString id;
     ids->GetNext(id);
+#endif
 
     // We want to hold strong refs to the elements while applying
     // persistent attributes, just in case.
@@ -205,12 +248,28 @@ nsresult XULPersist::ApplyPersistentAttributesToElements(
   NS_ConvertUTF8toUTF16 uri(utf8uri);
 
   // Get a list of attributes for which persisted values are available
+#ifdef MOZ_NEW_XULSTORE
+  UniquePtr<XULStoreIterator> attrs;
+  rv = XULStore::GetAttrs(uri, aID, attrs);
+#else
   nsCOMPtr<nsIStringEnumerator> attrs;
   rv = mLocalStore->GetAttributeEnumerator(uri, aID, getter_AddRefs(attrs));
+#endif
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
 
+#ifdef MOZ_NEW_XULSTORE
+  while (attrs->HasMore()) {
+    nsAutoString attrstr;
+    rv = attrs->GetNext(&attrstr);
+    if (NS_WARN_IF(NS_FAILED(rv))) {
+      return rv;
+    }
+
+    nsAutoString value;
+    rv = XULStore::GetValue(uri, aID, attrstr, value);
+#else
   while (1) {
     bool hasmore = PR_FALSE;
     attrs->HasMore(&hasmore);
@@ -223,6 +282,7 @@ nsresult XULPersist::ApplyPersistentAttributesToElements(
 
     nsAutoString value;
     rv = mLocalStore->GetValue(uri, aID, attrstr, value);
+#endif
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return rv;
     }
@@ -240,10 +300,10 @@ nsresult XULPersist::ApplyPersistentAttributesToElements(
       }
 
       // Applying persistent attributes to top level windows is handled
-      // by nsXULWindow.
-      if (element->IsXULElement(nsGkAtoms::window)) {
-        if (nsCOMPtr<nsIXULWindow> win =
-                mDocument->GetXULWindowIfToplevelChrome()) {
+      // by AppWindow.
+      if (IsRootElement(element)) {
+        if (nsCOMPtr<nsIAppWindow> win =
+                mDocument->GetAppWindowIfToplevelChrome()) {
           continue;
         }
       }

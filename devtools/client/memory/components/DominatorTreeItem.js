@@ -5,12 +5,19 @@
 "use strict";
 
 const { assert, isSavedFrame } = require("devtools/shared/DevToolsUtils");
-const { Component, createFactory } = require("devtools/client/shared/vendor/react");
+const {
+  Component,
+  createFactory,
+} = require("devtools/client/shared/vendor/react");
 const dom = require("devtools/client/shared/vendor/react-dom-factories");
 const PropTypes = require("devtools/client/shared/vendor/react-prop-types");
-const { L10N, formatNumber, formatPercent } = require("../utils");
+const {
+  L10N,
+  formatNumber,
+  formatPercent,
+} = require("devtools/client/memory/utils");
 const Frame = createFactory(require("devtools/client/shared/components/Frame"));
-const { TREE_ROW_HEIGHT } = require("../constants");
+const { TREE_ROW_HEIGHT } = require("devtools/client/memory/constants");
 
 class SeparatorClass extends Component {
   render() {
@@ -34,10 +41,12 @@ class DominatorTreeItem extends Component {
   }
 
   shouldComponentUpdate(nextProps, nextState) {
-    return this.props.item != nextProps.item
-      || this.props.depth != nextProps.depth
-      || this.props.expanded != nextProps.expanded
-      || this.props.focused != nextProps.focused;
+    return (
+      this.props.item != nextProps.item ||
+      this.props.depth != nextProps.depth ||
+      this.props.expanded != nextProps.expanded ||
+      this.props.focused != nextProps.focused
+    );
   }
 
   render() {
@@ -51,7 +60,9 @@ class DominatorTreeItem extends Component {
     } = this.props;
 
     const retainedSize = formatNumber(item.retainedSize);
-    const percentRetainedSize = formatPercent(getPercentSize(item.retainedSize));
+    const percentRetainedSize = formatPercent(
+      getPercentSize(item.retainedSize)
+    );
 
     const shallowSize = formatNumber(item.shallowSize);
     const percentShallowSize = formatPercent(getPercentSize(item.shallowSize));
@@ -59,8 +70,7 @@ class DominatorTreeItem extends Component {
     // Build up our label UI as an array of each label piece, which is either a
     // string or a frame, and separators in between them.
 
-    assert(item.label.length > 0,
-           "Our label should not be empty");
+    assert(item.label.length > 0, "Our label should not be empty");
     const label = Array(item.label.length * 2 - 1);
     label.fill(undefined);
 
@@ -75,16 +85,20 @@ class DominatorTreeItem extends Component {
       if (isSavedFrame(piece)) {
         label[i * 2] = Frame({
           key,
-          onClick: () => onViewSourceInDebugger(piece),
+          onClick: onViewSourceInDebugger,
           frame: piece,
           showFunctionName: true,
         });
       } else if (piece === "noStack") {
-        label[i * 2] = dom.span({ key, className: "not-available" },
-                                L10N.getStr("tree-item.nostack"));
+        label[i * 2] = dom.span(
+          { key, className: "not-available" },
+          L10N.getStr("tree-item.nostack")
+        );
       } else if (piece === "noFilename") {
-        label[i * 2] = dom.span({ key, className: "not-available" },
-                                L10N.getStr("tree-item.nofilename"));
+        label[i * 2] = dom.span(
+          { key, className: "not-available" },
+          L10N.getStr("tree-item.nofilename")
+        );
       } else if (piece === "JS::ubi::RootList") {
         // Don't use the usual labeling machinery for root lists: replace it
         // with the "GC Roots" string.
@@ -103,7 +117,9 @@ class DominatorTreeItem extends Component {
 
     return dom.div(
       {
-        className: `heap-tree-item ${focused ? "focused" : ""} node-${item.nodeId}`,
+        className: `heap-tree-item ${focused ? "focused" : ""} node-${
+          item.nodeId
+        }`,
       },
 
       dom.span(
@@ -139,8 +155,10 @@ class DominatorTreeItem extends Component {
         },
         arrow,
         label,
-        dom.span({ className: "heap-tree-item-address" },
-                 `@ 0x${item.nodeId.toString(16)}`)
+        dom.span(
+          { className: "heap-tree-item-address" },
+          `@ 0x${item.nodeId.toString(16)}`
+        )
       )
     );
   }

@@ -4,7 +4,7 @@
 
 interface LoadInfo;
 interface MozChannel;
-interface TabParent;
+interface RemoteTab;
 interface URI;
 interface nsISupports;
 
@@ -22,7 +22,6 @@ enum MozContentPolicyType {
   "object_subrequest",
   "xmlhttprequest",
   "fetch",
-  "xbl",
   "xslt",
   "ping",
   "beacon",
@@ -35,6 +34,28 @@ enum MozContentPolicyType {
   "web_manifest",
   "speculative",
   "other"
+};
+
+/**
+ * String versions of CLASSIFIED_* tracking flags from nsIClassifiedChannel.idl
+ */
+enum MozUrlClassificationFlags {
+  "fingerprinting",
+  "fingerprinting_content",
+  "cryptomining",
+  "cryptomining_content",
+  "tracking",
+  "tracking_ad",
+  "tracking_analytics",
+  "tracking_social",
+  "tracking_content",
+  "socialtracking",
+  "socialtracking_facebook",
+  "socialtracking_linkedin",
+  "socialtracking_twitter",
+  "any_basic_tracking",
+  "any_strict_tracking",
+  "any_social_tracking"
 };
 
 /**
@@ -55,7 +76,7 @@ interface ChannelWrapper : EventTarget {
    */
   static ChannelWrapper? getRegisteredChannel(unsigned long long aChannelId,
                                              WebExtensionPolicy extension,
-                                             TabParent? tabParent);
+                                             RemoteTab? remoteTab);
 
   /**
    * A unique ID for for the requests which remains constant throughout the
@@ -73,9 +94,12 @@ interface ChannelWrapper : EventTarget {
 
   /**
    * Cancels the request with the given nsresult status code.
+   *
+   * The optional reason parameter should be one of the BLOCKING_REASON
+   * constants from nsILoadInfo.idl
    */
   [Throws]
-  void cancel(unsigned long result);
+  void cancel(unsigned long result, optional unsigned long reason = 0);
 
   /**
    * Redirects the wrapped HTTP channel to the given URI. For other channel
@@ -96,6 +120,19 @@ interface ChannelWrapper : EventTarget {
    */
   [Throws]
   void upgradeToSecure();
+
+  /**
+   * Suspends the underlying channel.
+   */
+  [Throws]
+  void suspend();
+
+  /**
+   * Resumes (un-suspends) the underlying channel.  The profilerText parameter
+   * is only used to annotate profiles.
+   */
+  [Throws]
+  void resume(ByteString profileText);
 
   /**
    * The content type of the request, usually as read from the Content-Type
@@ -126,8 +163,8 @@ interface ChannelWrapper : EventTarget {
    * the request is not suspended by the wrapper, but may still be suspended
    * by another caller.
    */
-  [Pure, SetterThrows]
-  attribute boolean suspended;
+  [Pure]
+  readonly attribute boolean suspended;
 
 
   /**
@@ -149,16 +186,16 @@ interface ChannelWrapper : EventTarget {
    * Returns true if the request matches the given request filter, and the
    * given extension has permission to access it.
    */
-  boolean matches(optional MozRequestFilter filter,
+  boolean matches(optional MozRequestFilter filter = {},
                   optional WebExtensionPolicy? extension = null,
-                  optional MozRequestMatchOptions options);
+                  optional MozRequestMatchOptions options = {});
 
 
   /**
    * Register's this channel as traceable by the given add-on when accessed
-   * via the process of the given TabParent.
+   * via the process of the given RemoteTab.
    */
-  void registerTraceableChannel(WebExtensionPolicy extension, TabParent? tabParent);
+  void registerTraceableChannel(WebExtensionPolicy extension, RemoteTab? remoteTab);
 
   /**
    * The current HTTP status code of the request. This will be 0 if a response
@@ -284,19 +321,19 @@ interface ChannelWrapper : EventTarget {
 
 
   /**
-   * The outer window ID of the frame that the request belongs to, or 0 if it
+   * The BrowsingContext ID of the frame that the request belongs to, or 0 if it
    * is a top-level load or does not belong to a document.
    */
   [Cached, Constant]
-  readonly attribute long long windowId;
+  readonly attribute long long frameId;
 
   /**
-   * The outer window ID of the parent frame of the window that the request
+   * The BrowsingContext ID of the parent frame of the window that the request
    * belongs to, 0 if that parent frame is the top-level frame, and -1 if the
    * request belongs to a top-level frame.
    */
   [Cached, Constant]
-  readonly attribute long long parentWindowId;
+  readonly attribute long long parentFrameId;
 
   /**
    * For cross-process requests, the <browser> or <iframe> element to which the
@@ -330,6 +367,14 @@ interface ChannelWrapper : EventTarget {
    */
   [Throws]
   sequence<MozHTTPHeader> getRequestHeaders();
+
+  /**
+  * For HTTP requests: returns the value of the request header, null if not set.
+  *
+  * For non-HTTP requests, throws NS_ERROR_UNEXPECTED.
+  */
+  [Throws]
+  ByteString? getRequestHeader(ByteString header);
 
   /**
    * For HTTP requests, returns an array of response headers which were
@@ -382,6 +427,41 @@ interface ChannelWrapper : EventTarget {
   void setResponseHeader(ByteString header,
                          ByteString value,
                          optional boolean merge = false);
+
+  /**
+   * Provides the tracking classification data when it is available.
+   */
+  [Cached, Frozen, GetterThrows, Pure]
+  readonly attribute MozUrlClassification? urlClassification;
+
+  /**
+   * Indicates if this response and its content window hierarchy is third
+   * party.
+   */
+  [Cached, Constant]
+  readonly attribute boolean thirdParty;
+
+  /**
+   * The current bytes sent of the request. This will be 0 if a request has not
+   * sent yet, or if the request is not an HTTP request.
+   */
+  [Cached, Pure]
+  readonly attribute unsigned long long requestSize;
+
+  /**
+   * The current bytes received of the response. This will be 0 if a response
+   * has not recieved yet, or if the request is not an HTTP response.
+   */
+  [Cached, Pure]
+  readonly attribute unsigned long long responseSize;
+};
+
+/**
+ * Wrapper for first and third party tracking classification data.
+ */
+dictionary MozUrlClassification {
+  required sequence<MozUrlClassificationFlags> firstParty;
+  required sequence<MozUrlClassificationFlags> thirdParty;
 };
 
 /**
@@ -417,6 +497,18 @@ dictionary MozProxyInfo {
    * next candidate proxy server if it has not received a response.
    */
   unsigned long failoverTimeout;
+
+  /**
+   * Any non-empty value will be passed directly as Proxy-Authorization header
+   * value for the CONNECT request attempt.  However, this header set on the
+   * resource request itself takes precedence.
+   */
+  ByteString? proxyAuthorizationHeader = null;
+
+  /**
+   * An optional key used for additional isolation of this proxy connection.
+   */
+  ByteString? connectionIsolationKey = null;
 };
 
 /**
@@ -426,7 +518,7 @@ dictionary MozProxyInfo {
  * url represents the parent of the loading window.
  * frameId is the outerWindowID for the parent of the loading window.
  *
- * For further details see nsILoadInfo.idl and nsIDocument::AncestorPrincipals.
+ * For further details see nsILoadInfo.idl and Document::AncestorPrincipals.
  */
 dictionary MozFrameAncestorInfo {
   required ByteString url;
@@ -462,6 +554,12 @@ dictionary MozRequestFilter {
    * match pattern set.
    */
   MatchPatternSet? urls = null;
+
+  /**
+   * If present, the request only matches if the loadInfo privateBrowsingId matches
+   * against the given incognito value.
+   */
+  boolean? incognito = null;
 };
 
 dictionary MozRequestMatchOptions {

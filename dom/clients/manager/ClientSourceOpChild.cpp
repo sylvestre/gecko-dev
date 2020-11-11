@@ -8,10 +8,10 @@
 
 #include "ClientSource.h"
 #include "ClientSourceChild.h"
+#include "mozilla/Assertions.h"
 #include "mozilla/Unused.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 ClientSource* ClientSourceOpChild::GetSource() const {
   auto actor = static_cast<ClientSourceChild*>(Manager());
@@ -30,8 +30,9 @@ void ClientSourceOpChild::DoSourceOp(Method aMethod, const Args& aArgs) {
   {
     ClientSource* source = GetSource();
     if (!source) {
-      Unused << PClientSourceOpChild::Send__delete__(this,
-                                                     NS_ERROR_DOM_ABORT_ERR);
+      CopyableErrorResult rv;
+      rv.ThrowAbortError("Unknown Client");
+      Unused << PClientSourceOpChild::Send__delete__(this, rv);
       return;
     }
 
@@ -56,20 +57,21 @@ void ClientSourceOpChild::DoSourceOp(Method aMethod, const Args& aArgs) {
   // If the ClientSource is doing something async it may throw away the
   // promise on its side if the global is closed.
   promise
-      ->Then(target, __func__,
-             [this, promise](const mozilla::dom::ClientOpResult& aResult) {
-               mPromiseRequestHolder.Complete();
-               Unused << PClientSourceOpChild::Send__delete__(this, aResult);
-             },
-             [this, promise](nsresult aRv) {
-               mPromiseRequestHolder.Complete();
-               Unused << PClientSourceOpChild::Send__delete__(this, aRv);
-             })
+      ->Then(
+          target, __func__,
+          [this, promise](const mozilla::dom::ClientOpResult& aResult) {
+            mPromiseRequestHolder.Complete();
+            Unused << PClientSourceOpChild::Send__delete__(this, aResult);
+          },
+          [this, promise](const CopyableErrorResult& aRv) {
+            mPromiseRequestHolder.Complete();
+            Unused << PClientSourceOpChild::Send__delete__(this, aRv);
+          })
       ->Track(mPromiseRequestHolder);
 }
 
 void ClientSourceOpChild::ActorDestroy(ActorDestroyReason aReason) {
-  mPromiseRequestHolder.DisconnectIfExists();
+  Cleanup();
 }
 
 void ClientSourceOpChild::Init(const ClientOpConstructorArgs& aArgs) {
@@ -100,7 +102,31 @@ void ClientSourceOpChild::Init(const ClientOpConstructorArgs& aArgs) {
       break;
     }
   }
+
+  mInitialized.Flip();
+
+  if (mDeletionRequested) {
+    Cleanup();
+    delete this;
+  }
 }
 
-}  // namespace dom
-}  // namespace mozilla
+void ClientSourceOpChild::ScheduleDeletion() {
+  if (mInitialized) {
+    Cleanup();
+    delete this;
+    return;
+  }
+
+  mDeletionRequested.Flip();
+}
+
+ClientSourceOpChild::~ClientSourceOpChild() {
+  MOZ_DIAGNOSTIC_ASSERT(mInitialized);
+}
+
+void ClientSourceOpChild::Cleanup() {
+  mPromiseRequestHolder.DisconnectIfExists();
+}
+
+}  // namespace mozilla::dom

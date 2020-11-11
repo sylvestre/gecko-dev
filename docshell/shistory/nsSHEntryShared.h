@@ -7,7 +7,6 @@
 #ifndef nsSHEntryShared_h__
 #define nsSHEntryShared_h__
 
-#include "nsAutoPtr.h"
 #include "nsCOMArray.h"
 #include "nsCOMPtr.h"
 #include "nsExpirationTracker.h"
@@ -18,31 +17,173 @@
 #include "nsStubMutationObserver.h"
 
 #include "mozilla/Attributes.h"
+#include "mozilla/UniquePtr.h"
 
 class nsSHEntry;
 class nsISHEntry;
-class nsIDocument;
+class nsISHistory;
 class nsIContentViewer;
 class nsIDocShellTreeItem;
 class nsILayoutHistoryState;
 class nsDocShellEditorData;
 class nsIMutableArray;
+class nsSHistory;
 
 // A document may have multiple SHEntries, either due to hash navigations or
 // calls to history.pushState.  SHEntries corresponding to the same document
 // share many members; in particular, they share state related to the
 // back/forward cache.
 //
-// nsSHEntryShared is the vehicle for this sharing.
+// The classes defined here are the vehicle for this sharing.
+//
+// Some of the state can only be stored in the process where we did the actual
+// load, because that's where the objects live (eg. the content viewer).
+
+namespace mozilla {
+namespace dom {
+class Document;
+
+/**
+ * SHEntrySharedState holds shared state both in the child process and in the
+ * parent process.
+ */
+struct SHEntrySharedState {
+  SHEntrySharedState() : mId(GenerateId()) {}
+  SHEntrySharedState(const SHEntrySharedState& aState) = default;
+  SHEntrySharedState(nsIPrincipal* aTriggeringPrincipal,
+                     nsIPrincipal* aPrincipalToInherit,
+                     nsIPrincipal* aPartitionedPrincipalToInherit,
+                     nsIContentSecurityPolicy* aCsp,
+                     const nsACString& aContentType)
+      : mId(GenerateId()),
+        mTriggeringPrincipal(aTriggeringPrincipal),
+        mPrincipalToInherit(aPrincipalToInherit),
+        mPartitionedPrincipalToInherit(aPartitionedPrincipalToInherit),
+        mCsp(aCsp),
+        mContentType(aContentType) {}
+
+  // These members aren't copied by SHEntrySharedParentState::CopyFrom() because
+  // they're specific to a particular content viewer.
+  uint64_t mId = 0;
+
+  // These members are copied by SHEntrySharedParentState::CopyFrom(). If you
+  // add a member here, be sure to update the CopyFrom() implementation.
+  nsCOMPtr<nsIPrincipal> mTriggeringPrincipal;
+  nsCOMPtr<nsIPrincipal> mPrincipalToInherit;
+  nsCOMPtr<nsIPrincipal> mPartitionedPrincipalToInherit;
+  nsCOMPtr<nsIContentSecurityPolicy> mCsp;
+  nsCString mContentType;
+  // Child side updates layout history state when page is being unloaded or
+  // moved to bfcache.
+  nsCOMPtr<nsILayoutHistoryState> mLayoutHistoryState;
+  uint32_t mCacheKey = 0;
+  bool mIsFrameNavigation = false;
+
+ protected:
+  static uint64_t GenerateId();
+};
+
+/**
+ * SHEntrySharedParentState holds the shared state that can live in the parent
+ * process.
+ */
+class SHEntrySharedParentState : public SHEntrySharedState {
+ public:
+  friend class SessionHistoryInfo;
+
+  uint64_t GetId() const { return mId; }
+  void ChangeId(uint64_t aId);
+
+  void NotifyListenersContentViewerEvicted();
+
+  SHEntrySharedParentState();
+  SHEntrySharedParentState(nsIPrincipal* aTriggeringPrincipal,
+                           nsIPrincipal* aPrincipalToInherit,
+                           nsIPrincipal* aPartitionedPrincipalToInherit,
+                           nsIContentSecurityPolicy* aCsp,
+                           const nsACString& aContentType);
+
+  // This returns the existing SHEntrySharedParentState that was registered for
+  // aId, if one exists.
+  static SHEntrySharedParentState* Lookup(uint64_t aId);
+
+ protected:
+  virtual ~SHEntrySharedParentState();
+  NS_INLINE_DECL_VIRTUAL_REFCOUNTING_WITH_DESTROY(SHEntrySharedParentState,
+                                                  Destroy())
+
+  virtual void Destroy() { delete this; }
+
+  void CopyFrom(SHEntrySharedParentState* aSource);
+
+  // These members are copied by SHEntrySharedParentState::CopyFrom(). If you
+  // add a member here, be sure to update the CopyFrom() implementation.
+  nsID mDocShellID{};
+
+  nsIntRect mViewerBounds{0, 0, 0, 0};
+
+  uint32_t mLastTouched = 0;
+
+  // These members aren't copied by SHEntrySharedParentState::CopyFrom() because
+  // they're specific to a particular content viewer.
+  nsWeakPtr mSHistory;
+
+  bool mSticky = true;
+  bool mDynamicallyCreated = false;
+
+  // This flag is about necko cache, not bfcache.
+  bool mExpired = false;
+
+  bool mSaveLayoutState = true;
+};
+
+/**
+ * SHEntrySharedChildState holds the shared state that needs to live in the
+ * process where the document was loaded.
+ */
+class SHEntrySharedChildState {
+ protected:
+  void CopyFrom(SHEntrySharedChildState* aSource);
+
+ public:
+  // These members are copied by SHEntrySharedChildState::CopyFrom(). If you
+  // add a member here, be sure to update the CopyFrom() implementation.
+  nsCOMArray<nsIDocShellTreeItem> mChildShells;
+
+  // These members aren't copied by SHEntrySharedChildState::CopyFrom() because
+  // they're specific to a particular content viewer.
+  nsCOMPtr<nsIContentViewer> mContentViewer;
+  RefPtr<mozilla::dom::Document> mDocument;
+  nsCOMPtr<nsISupports> mWindowState;
+  // FIXME Move to parent?
+  nsCOMPtr<nsIMutableArray> mRefreshURIList;
+  nsExpirationState mExpirationState;
+  UniquePtr<nsDocShellEditorData> mEditorData;
+};
+
+}  // namespace dom
+}  // namespace mozilla
+
+/**
+ * nsSHEntryShared holds the shared state if the session history is not stored
+ * in the parent process, or if the load itself happens in the parent process.
+ * Note, since nsSHEntryShared inherits both SHEntrySharedParentState and
+ * SHEntrySharedChildState and those have some same member variables,
+ * the ones from SHEntrySharedParentState should be used.
+ */
 class nsSHEntryShared final : public nsIBFCacheEntry,
-                              public nsStubMutationObserver {
+                              public nsStubMutationObserver,
+                              public mozilla::dom::SHEntrySharedParentState,
+                              public mozilla::dom::SHEntrySharedChildState {
  public:
   static void EnsureHistoryTracker();
   static void Shutdown();
 
-  nsSHEntryShared();
+  using SHEntrySharedParentState::SHEntrySharedParentState;
 
-  NS_DECL_ISUPPORTS
+  already_AddRefed<nsSHEntryShared> Duplicate();
+
+  NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_NSIBFCACHEENTRY
 
   // The nsIMutationObserver bits we actually care about.
@@ -59,47 +200,11 @@ class nsSHEntryShared final : public nsIBFCacheEntry,
 
   friend class nsSHEntry;
 
-  static already_AddRefed<nsSHEntryShared> Duplicate(nsSHEntryShared* aEntry);
-
   void RemoveFromExpirationTracker();
   void SyncPresentationState();
   void DropPresentationState();
 
   nsresult SetContentViewer(nsIContentViewer* aViewer);
-
-  // See nsISHEntry.idl for an explanation of these members.
-
-  // These members are copied by nsSHEntryShared::Duplicate().  If you add a
-  // member here, be sure to update the Duplicate() implementation.
-  nsID mDocShellID;
-  nsCOMArray<nsIDocShellTreeItem> mChildShells;
-  nsCOMPtr<nsIPrincipal> mTriggeringPrincipal;
-  nsCOMPtr<nsIPrincipal> mPrincipalToInherit;
-  nsCString mContentType;
-
-  uint32_t mCacheKey;
-  uint32_t mLastTouched;
-
-  // These members aren't copied by nsSHEntryShared::Duplicate() because
-  // they're specific to a particular content viewer.
-  uint64_t mID;
-  nsCOMPtr<nsIContentViewer> mContentViewer;
-  nsCOMPtr<nsIDocument> mDocument;
-  nsCOMPtr<nsILayoutHistoryState> mLayoutHistoryState;
-  nsCOMPtr<nsISupports> mWindowState;
-  nsIntRect mViewerBounds;
-  nsCOMPtr<nsIMutableArray> mRefreshURIList;
-  nsExpirationState mExpirationState;
-  nsAutoPtr<nsDocShellEditorData> mEditorData;
-  nsWeakPtr mSHistory;
-
-  bool mIsFrameNavigation;
-  bool mSaveLayoutState;
-  bool mSticky;
-  bool mDynamicallyCreated;
-
-  // This flag is about necko cache, not bfcache.
-  bool mExpired;
 };
 
 #endif

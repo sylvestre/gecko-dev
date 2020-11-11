@@ -6,14 +6,28 @@
 
 #include "ActorsChild.h"
 
-#include "nsVariant.h"
+// Local includes
 #include "QuotaManagerService.h"
 #include "QuotaRequests.h"
 #include "QuotaResults.h"
 
-namespace mozilla {
-namespace dom {
-namespace quota {
+// Global includes
+#include <new>
+#include <utility>
+#include "mozilla/Assertions.h"
+#include "mozilla/dom/quota/PQuotaRequest.h"
+#include "mozilla/dom/quota/PQuotaUsageRequest.h"
+#include "nsError.h"
+#include "nsID.h"
+#include "nsIEventTarget.h"
+#include "nsIQuotaResults.h"
+#include "nsISupports.h"
+#include "nsIVariant.h"
+#include "nsString.h"
+#include "nsThreadUtils.h"
+#include "nsVariant.h"
+
+namespace mozilla::dom::quota {
 
 /*******************************************************************************
  * QuotaChild
@@ -23,7 +37,7 @@ QuotaChild::QuotaChild(QuotaManagerService* aService)
     : mService(aService)
 #ifdef DEBUG
       ,
-      mOwningThread(GetCurrentThreadEventTarget())
+      mOwningThread(GetCurrentEventTarget())
 #endif
 {
   AssertIsOnOwningThread();
@@ -136,20 +150,12 @@ void QuotaUsageRequestChild::HandleResponse(
   if (aResponse.IsEmpty()) {
     variant->SetAsEmptyArray();
   } else {
-    nsTArray<RefPtr<UsageResult>> usageResults;
+    nsTArray<RefPtr<UsageResult>> usageResults(aResponse.Length());
 
-    const uint32_t count = aResponse.Length();
-
-    usageResults.SetCapacity(count);
-
-    for (uint32_t index = 0; index < count; index++) {
-      auto& originUsage = aResponse[index];
-
-      RefPtr<UsageResult> usageResult =
-          new UsageResult(originUsage.origin(), originUsage.persisted(),
-                          originUsage.usage(), originUsage.lastAccessed());
-
-      usageResults.AppendElement(usageResult.forget());
+    for (const auto& originUsage : aResponse) {
+      usageResults.AppendElement(MakeRefPtr<UsageResult>(
+          originUsage.origin(), originUsage.persisted(), originUsage.usage(),
+          originUsage.lastAccessed()));
     }
 
     variant->SetAsArray(nsIDataType::VTYPE_INTERFACE_IS,
@@ -165,8 +171,8 @@ void QuotaUsageRequestChild::HandleResponse(
   AssertIsOnOwningThread();
   MOZ_ASSERT(mRequest);
 
-  RefPtr<OriginUsageResult> result = new OriginUsageResult(
-      aResponse.usage(), aResponse.fileUsage(), aResponse.limit());
+  RefPtr<OriginUsageResult> result =
+      new OriginUsageResult(aResponse.usage(), aResponse.fileUsage());
 
   RefPtr<nsVariant> variant = new nsVariant();
   variant->SetAsInterface(NS_GET_IID(nsIQuotaOriginUsageResult), result);
@@ -263,6 +269,51 @@ void QuotaRequestChild::HandleResponse(bool aResponse) {
   mRequest->SetResult(variant);
 }
 
+void QuotaRequestChild::HandleResponse(const nsAString& aResponse) {
+  AssertIsOnOwningThread();
+  MOZ_ASSERT(mRequest);
+
+  RefPtr<nsVariant> variant = new nsVariant();
+  variant->SetAsAString(aResponse);
+
+  mRequest->SetResult(variant);
+}
+
+void QuotaRequestChild::HandleResponse(const EstimateResponse& aResponse) {
+  AssertIsOnOwningThread();
+  MOZ_ASSERT(mRequest);
+
+  RefPtr<EstimateResult> result =
+      new EstimateResult(aResponse.usage(), aResponse.limit());
+
+  RefPtr<nsVariant> variant = new nsVariant();
+  variant->SetAsInterface(NS_GET_IID(nsIQuotaEstimateResult), result);
+
+  mRequest->SetResult(variant);
+}
+
+void QuotaRequestChild::HandleResponse(const nsTArray<nsCString>& aResponse) {
+  AssertIsOnOwningThread();
+  MOZ_ASSERT(mRequest);
+
+  RefPtr<nsVariant> variant = new nsVariant();
+
+  if (aResponse.IsEmpty()) {
+    variant->SetAsEmptyArray();
+  } else {
+    nsTArray<const char*> stringPointers(aResponse.Length());
+
+    for (const auto& string : aResponse) {
+      stringPointers.AppendElement(string.get());
+    }
+
+    variant->SetAsArray(nsIDataType::VTYPE_CHAR_STR, nullptr,
+                        stringPointers.Length(), stringPointers.Elements());
+  }
+
+  mRequest->SetResult(variant);
+}
+
 void QuotaRequestChild::ActorDestroy(ActorDestroyReason aWhy) {
   AssertIsOnOwningThread();
 }
@@ -277,6 +328,19 @@ mozilla::ipc::IPCResult QuotaRequestChild::Recv__delete__(
       HandleResponse(aResponse.get_nsresult());
       break;
 
+    case RequestResponse::TStorageNameResponse:
+      HandleResponse(aResponse.get_StorageNameResponse().name());
+      break;
+
+    case RequestResponse::TStorageInitializedResponse:
+      HandleResponse(aResponse.get_StorageInitializedResponse().initialized());
+      break;
+
+    case RequestResponse::TTemporaryStorageInitializedResponse:
+      HandleResponse(
+          aResponse.get_TemporaryStorageInitializedResponse().initialized());
+      break;
+
     case RequestResponse::TInitResponse:
     case RequestResponse::TInitTemporaryStorageResponse:
     case RequestResponse::TClearOriginResponse:
@@ -288,12 +352,20 @@ mozilla::ipc::IPCResult QuotaRequestChild::Recv__delete__(
       HandleResponse();
       break;
 
-    case RequestResponse::TInitOriginResponse:
-      HandleResponse(aResponse.get_InitOriginResponse().created());
+    case RequestResponse::TInitStorageAndOriginResponse:
+      HandleResponse(aResponse.get_InitStorageAndOriginResponse().created());
       break;
 
     case RequestResponse::TPersistedResponse:
       HandleResponse(aResponse.get_PersistedResponse().persisted());
+      break;
+
+    case RequestResponse::TEstimateResponse:
+      HandleResponse(aResponse.get_EstimateResponse());
+      break;
+
+    case RequestResponse::TListOriginsResponse:
+      HandleResponse(aResponse.get_ListOriginsResponse().origins());
       break;
 
     default:
@@ -303,6 +375,4 @@ mozilla::ipc::IPCResult QuotaRequestChild::Recv__delete__(
   return IPC_OK();
 }
 
-}  // namespace quota
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom::quota

@@ -5,11 +5,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 DIRS += [
-	'images',
+    "reps",
+    "shared",
 ]
 
 DevToolsModules(
-    'reps-old.js',
-    'reps.css',
-    'reps.js',
+    "index.js",
 )

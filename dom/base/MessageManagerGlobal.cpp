@@ -6,21 +6,20 @@
 
 #include "mozilla/dom/MessageManagerGlobal.h"
 #include "mozilla/IntentionalCrash.h"
-#include "mozilla/dom/DOMPrefs.h"
 #include "nsContentUtils.h"
+#include "nsJSUtils.h"
 
 #ifdef ANDROID
-#include <android/log.h>
+#  include <android/log.h>
 #endif
 #ifdef XP_WIN
-#include <windows.h>
+#  include <windows.h>
 #endif
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 void MessageManagerGlobal::Dump(const nsAString& aStr) {
-  if (!DOMPrefs::DumpEnabled()) {
+  if (!nsJSUtils::DumpEnabled()) {
     return;
   }
 
@@ -37,14 +36,6 @@ void MessageManagerGlobal::Dump(const nsAString& aStr) {
   fflush(stdout);
 }
 
-void MessageManagerGlobal::PrivateNoteIntentionalCrash(ErrorResult& aError) {
-  if (XRE_IsContentProcess()) {
-    NoteIntentionalCrash("tab");
-    return;
-  }
-  aError.Throw(NS_ERROR_NOT_IMPLEMENTED);
-}
-
 void MessageManagerGlobal::Atob(const nsAString& aAsciiString,
                                 nsAString& aBase64Data, ErrorResult& aError) {
   aError = nsContentUtils::Atob(aAsciiString, aBase64Data);
@@ -55,5 +46,4 @@ void MessageManagerGlobal::Btoa(const nsAString& aBase64Data,
   aError = nsContentUtils::Btoa(aBase64Data, aAsciiString);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

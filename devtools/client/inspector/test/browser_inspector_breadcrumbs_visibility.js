@@ -1,15 +1,9 @@
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
    http://creativecommons.org/publicdomain/zero/1.0/ */
 "use strict";
 
 // Test that the start and end buttons on the breadcrumb trail bring the right
 // crumbs into the visible area, for both LTR and RTL
-
-// There are shutdown issues for which multiple rejections are left uncaught.
-// See bug 1018184 for resolving these issues.
-const { PromiseTestUtils } = scopedCuImport("resource://testing-common/PromiseTestUtils.jsm");
-PromiseTestUtils.whitelistRejectionsGlobally(/Connection closed/);
 
 const { Toolbox } = require("devtools/client/framework/toolbox");
 
@@ -52,18 +46,20 @@ add_task(async function() {
   await inspectorResized;
 
   info("Testing transitions ltr");
-  await pushPref("intl.uidirection", 0);
+  await pushPref("intl.l10n.pseudo", "");
   await testBreadcrumbTransitions(hostWindow, inspector);
 
   info("Testing transitions rtl");
-  await pushPref("intl.uidirection", 1);
+  await pushPref("intl.l10n.pseudo", "bidi");
   await testBreadcrumbTransitions(hostWindow, inspector);
 
   hostWindow.resizeTo(originalWidth, originalHeight);
 });
 
 async function testBreadcrumbTransitions(hostWindow, inspector) {
-  const breadcrumbs = inspector.panelDoc.getElementById("inspector-breadcrumbs");
+  const breadcrumbs = inspector.panelDoc.getElementById(
+    "inspector-breadcrumbs"
+  );
   const startBtn = breadcrumbs.querySelector(".scrollbutton-up");
   const endBtn = breadcrumbs.querySelector(".scrollbutton-down");
   const container = breadcrumbs.querySelector(".html-arrowscrollbox-inner");
@@ -75,8 +71,11 @@ async function testBreadcrumbTransitions(hostWindow, inspector) {
   // So just need to wait for a duration
   await breadcrumbsUpdated;
   const initialCrumb = container.querySelector("button[checked]");
-  is(isElementInViewport(hostWindow, initialCrumb), true,
-     "initial element was visible");
+  is(
+    isElementInViewport(hostWindow, initialCrumb),
+    true,
+    "initial element was visible"
+  );
 
   for (const node of NODES) {
     info("Checking for visibility of crumb " + node.title);
@@ -87,12 +86,14 @@ async function testBreadcrumbTransitions(hostWindow, inspector) {
       info("Simulating click of start button");
       EventUtils.synthesizeMouseAtCenter(startBtn, {}, inspector.panelWin);
     }
-
     await breadcrumbsUpdated;
-    const selector = "button[title=\"" + node.title + "\"]";
+    const selector = 'button[title="' + node.title + '"]';
     const relevantCrumb = container.querySelector(selector);
-    is(isElementInViewport(hostWindow, relevantCrumb), true,
-       node.title + " crumb is visible");
+    is(
+      isElementInViewport(hostWindow, relevantCrumb),
+      true,
+      node.title + " crumb is visible"
+    );
   }
 }
 

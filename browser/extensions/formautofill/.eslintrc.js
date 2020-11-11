@@ -1,52 +1,45 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 "use strict";
 
 module.exports = {
-  "rules": {
+  rules: {
     // Rules from the mozilla plugin
     "mozilla/balanced-listeners": "error",
     "mozilla/no-aArgs": "error",
     "mozilla/var-only-at-top-level": "error",
 
-    "valid-jsdoc": ["error", {
-      "prefer": {
-        "return": "returns",
+    "valid-jsdoc": [
+      "error",
+      {
+        prefer: {
+          return: "returns",
+        },
+        preferType: {
+          Boolean: "boolean",
+          Number: "number",
+          String: "string",
+          bool: "boolean",
+        },
+        requireParamDescription: false,
+        requireReturn: false,
+        requireReturnDescription: false,
       },
-      "preferType": {
-        "Boolean": "boolean",
-        "Number": "number",
-        "String": "string",
-        "bool": "boolean",
-      },
-      "requireParamDescription": false,
-      "requireReturn": false,
-      "requireReturnDescription": false,
-    }],
-
-    // Forbid spaces inside the square brackets of array literals.
-    "array-bracket-spacing": ["error", "never"],
-
-    // Forbid spaces inside the curly brackets of object literals.
-    "object-curly-spacing": ["error", "never"],
-
-    // No space padding in parentheses
-    "space-in-parens": ["error", "never"],
-
-    // Require braces around blocks that start a new line
-    "curly": ["error", "all"],
-
-    // Two space indent
-    "indent-legacy": ["error", 2, {"SwitchCase": 1}],
-
-    // Always require parenthesis for new calls
-    "new-parens": "error",
+    ],
 
     // No expressions where a statement is expected
     "no-unused-expressions": "error",
 
     // No declaring variables that are never used
-    "no-unused-vars": ["error", {
-      "args": "none", "vars": "all"
-    }],
+    "no-unused-vars": [
+      "error",
+      {
+        args: "none",
+        vars: "all",
+      },
+    ],
 
     // No using variables before defined
     "no-use-before-define": "error",
@@ -56,15 +49,7 @@ module.exports = {
     "block-scoped-var": "error",
 
     // Warn about cyclomatic complexity in functions.
-    "complexity": ["error", {"max": 26}],
-
-    // Enforce dots on the next line with property name.
-    "dot-location": ["error", "property"],
-
-    // Maximum length of a line.
-    // This should be 100 but too many lines were longer than that so set a
-    // conservative upper bound for now.
-    "max-len": ["error", 140],
+    complexity: ["error", { max: 26 }],
 
     // Maximum depth callbacks can be nested.
     "max-nested-callbacks": ["error", 4],
@@ -78,9 +63,6 @@ module.exports = {
     // Disallow use of multiline strings (use template strings instead).
     "no-multi-str": "error",
 
-    // Disallow multiple empty lines.
-    "no-multiple-empty-lines": ["error", {"max": 2}],
-
     // Disallow usage of __proto__ property.
     "no-proto": "error",
 
@@ -88,26 +70,31 @@ module.exports = {
     // single line of code to have only one easily predictable effect.
     "no-return-assign": "error",
 
-    // Disallow throwing literals (eg. throw "error" instead of
-    // throw new Error("error")).
-    "no-throw-literal": "error",
-
-    // Disallow padding within blocks.
-    "padded-blocks": ["error", "never"],
-
     // Require use of the second argument for parseInt().
-    "radix": "error",
-
-    // Enforce spacing after semicolons.
-    "semi-spacing": ["error", {"before": false, "after": true}],
+    radix: "error",
 
     // Require "use strict" to be defined globally in the script.
-    "strict": ["error", "global"],
+    strict: ["error", "global"],
 
     // Disallow Yoda conditions (where literal value comes first).
-    "yoda": "error",
+    yoda: "error",
 
     // Disallow function or variable declarations in nested blocks
     "no-inner-declarations": "error",
   },
+
+  overrides: [
+    {
+      files: "test/unit/head.js",
+      rules: {
+        "no-unused-vars": [
+          "error",
+          {
+            args: "none",
+            vars: "local",
+          },
+        ],
+      },
+    },
+  ],
 };

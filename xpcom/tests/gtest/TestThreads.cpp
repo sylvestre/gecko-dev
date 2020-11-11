@@ -9,17 +9,14 @@
 #include <stdlib.h>
 #include "nspr.h"
 #include "nsCOMPtr.h"
-#include "nsIServiceManager.h"
 #include "nsXPCOM.h"
 #include "mozilla/Monitor.h"
 #include "gtest/gtest.h"
 
-class nsRunner final : public nsIRunnable {
-  ~nsRunner() {}
+class nsRunner final : public Runnable {
+  ~nsRunner() = default;
 
  public:
-  NS_DECL_THREADSAFE_ISUPPORTS
-
   NS_IMETHOD Run() override {
     nsCOMPtr<nsIThread> thread;
     nsresult rv = NS_GetCurrentThread(getter_AddRefs(thread));
@@ -33,15 +30,14 @@ class nsRunner final : public nsIRunnable {
     return rv;
   }
 
-  explicit nsRunner(int num) : mNum(num) {}
+  explicit nsRunner(int num) : Runnable("nsRunner"), mNum(num) {}
 
  protected:
   int mNum;
 };
 
-NS_IMPL_ISUPPORTS(nsRunner, nsIRunnable)
-
-TEST(Threads, Main) {
+TEST(Threads, Main)
+{
   nsresult rv;
 
   nsCOMPtr<nsIRunnable> event = new nsRunner(0);
@@ -62,10 +58,8 @@ TEST(Threads, Main) {
       PR_MillisecondsToInterval(100));  // hopefully the runner will quit here
 }
 
-class nsStressRunner final : public nsIRunnable {
+class nsStressRunner final : public Runnable {
  public:
-  NS_DECL_THREADSAFE_ISUPPORTS
-
   NS_IMETHOD Run() override {
     EXPECT_FALSE(mWasRun);
     mWasRun = true;
@@ -76,7 +70,8 @@ class nsStressRunner final : public nsIRunnable {
     return NS_OK;
   }
 
-  explicit nsStressRunner(int num) : mNum(num), mWasRun(false) {
+  explicit nsStressRunner(int num)
+      : Runnable("nsStressRunner"), mNum(num), mWasRun(false) {
     PR_AtomicIncrement(&gNum);
   }
 
@@ -93,10 +88,14 @@ class nsStressRunner final : public nsIRunnable {
 
 int32_t nsStressRunner::gNum = 0;
 
-NS_IMPL_ISUPPORTS(nsStressRunner, nsIRunnable)
-
-TEST(Threads, Stress) {
+TEST(Threads, Stress)
+{
+#if defined(XP_WIN) && defined(MOZ_ASAN)  // Easily hits OOM
+  const int loops = 250;
+#else
   const int loops = 1000;
+#endif
+
   const int threads = 50;
 
   for (int i = 0; i < loops; i++) {
@@ -126,10 +125,8 @@ TEST(Threads, Stress) {
 mozilla::Monitor* gAsyncShutdownReadyMonitor;
 mozilla::Monitor* gBeginAsyncShutdownMonitor;
 
-class AsyncShutdownPreparer : public nsIRunnable {
+class AsyncShutdownPreparer : public Runnable {
  public:
-  NS_DECL_THREADSAFE_ISUPPORTS
-
   NS_IMETHOD Run() override {
     EXPECT_FALSE(mWasRun);
     mWasRun = true;
@@ -140,7 +137,8 @@ class AsyncShutdownPreparer : public nsIRunnable {
     return NS_OK;
   }
 
-  explicit AsyncShutdownPreparer() : mWasRun(false) {}
+  explicit AsyncShutdownPreparer()
+      : Runnable("AsyncShutdownPreparer"), mWasRun(false) {}
 
  private:
   virtual ~AsyncShutdownPreparer() { EXPECT_TRUE(mWasRun); }
@@ -149,12 +147,8 @@ class AsyncShutdownPreparer : public nsIRunnable {
   bool mWasRun;
 };
 
-NS_IMPL_ISUPPORTS(AsyncShutdownPreparer, nsIRunnable)
-
-class AsyncShutdownWaiter : public nsIRunnable {
+class AsyncShutdownWaiter : public Runnable {
  public:
-  NS_DECL_THREADSAFE_ISUPPORTS
-
   NS_IMETHOD Run() override {
     EXPECT_FALSE(mWasRun);
     mWasRun = true;
@@ -178,7 +172,8 @@ class AsyncShutdownWaiter : public nsIRunnable {
     return NS_OK;
   }
 
-  explicit AsyncShutdownWaiter() : mWasRun(false) {}
+  explicit AsyncShutdownWaiter()
+      : Runnable("AsyncShutdownWaiter"), mWasRun(false) {}
 
  private:
   virtual ~AsyncShutdownWaiter() { EXPECT_TRUE(mWasRun); }
@@ -187,25 +182,22 @@ class AsyncShutdownWaiter : public nsIRunnable {
   bool mWasRun;
 };
 
-NS_IMPL_ISUPPORTS(AsyncShutdownWaiter, nsIRunnable)
-
-class SameThreadSentinel : public nsIRunnable {
+class SameThreadSentinel : public Runnable {
  public:
-  NS_DECL_ISUPPORTS
-
   NS_IMETHOD Run() override {
     mozilla::MonitorAutoLock lock(*gBeginAsyncShutdownMonitor);
     lock.Notify();
     return NS_OK;
   }
 
+  SameThreadSentinel() : Runnable("SameThreadSentinel") {}
+
  private:
-  virtual ~SameThreadSentinel() {}
+  virtual ~SameThreadSentinel() = default;
 };
 
-NS_IMPL_ISUPPORTS(SameThreadSentinel, nsIRunnable)
-
-TEST(Threads, AsyncShutdown) {
+TEST(Threads, AsyncShutdown)
+{
   gAsyncShutdownReadyMonitor = new mozilla::Monitor("gAsyncShutdownReady");
   gBeginAsyncShutdownMonitor = new mozilla::Monitor("gBeginAsyncShutdown");
 
@@ -236,8 +228,14 @@ static void threadProc(void* arg) {
   EXPECT_EQ(PR_JOINABLE_THREAD, PR_GetThreadState(PR_GetCurrentThread()));
 }
 
-TEST(Threads, StressNSPR) {
+TEST(Threads, StressNSPR)
+{
+#if defined(XP_WIN) && defined(MOZ_ASAN)  // Easily hits OOM
+  const int loops = 250;
+#else
   const int loops = 1000;
+#endif
+
   const int threads = 50;
 
   for (int i = 0; i < loops; i++) {
@@ -262,4 +260,19 @@ TEST(Threads, StressNSPR) {
     }
     delete[] array;
   }
+}
+
+TEST(Threads, GetCurrentSerialEventTarget)
+{
+  nsCOMPtr<nsIThread> thread;
+  nsresult rv =
+      NS_NewNamedThread("Testing Thread", getter_AddRefs(thread),
+                        NS_NewRunnableFunction("Testing Thread::check", []() {
+                          nsCOMPtr<nsISerialEventTarget> serialEventTarget =
+                              GetCurrentSerialEventTarget();
+                          nsCOMPtr<nsIThread> thread = NS_GetCurrentThread();
+                          EXPECT_EQ(thread.get(), serialEventTarget.get());
+                        }));
+  MOZ_ALWAYS_SUCCEEDS(rv);
+  thread->Shutdown();
 }

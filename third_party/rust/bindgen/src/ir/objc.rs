@@ -12,8 +12,8 @@ use clang_sys::CXCursor_ObjCClassRef;
 use clang_sys::CXCursor_ObjCInstanceMethodDecl;
 use clang_sys::CXCursor_ObjCProtocolDecl;
 use clang_sys::CXCursor_ObjCProtocolRef;
-use quote;
-use proc_macro2::{Term, Span};
+use clang_sys::CXCursor_TemplateTypeParameter;
+use proc_macro2::{Ident, Span, TokenStream};
 
 /// Objective C interface as used in TypeKind
 ///
@@ -27,6 +27,9 @@ pub struct ObjCInterface {
     category: Option<String>,
 
     is_protocol: bool,
+
+    /// The list of template names almost always, ObjectType or KeyType
+    pub template_names: Vec<String>,
 
     conforms_to: Vec<ItemId>,
 
@@ -59,6 +62,7 @@ impl ObjCInterface {
             name: name.to_owned(),
             category: None,
             is_protocol: false,
+            template_names: Vec::new(),
             conforms_to: Vec::new(),
             methods: Vec::new(),
             class_methods: Vec::new(),
@@ -84,6 +88,11 @@ impl ObjCInterface {
                 self.name().to_owned()
             }
         }
+    }
+
+    /// Is this a template interface?
+    pub fn is_template(&self) -> bool {
+        !self.template_names.is_empty()
     }
 
     /// List of the methods defined in this interface
@@ -132,10 +141,9 @@ impl ObjCInterface {
                                     if protocol.is_protocol
                                     {
                                         debug!("Checking protocol {}, ty.name {:?}", protocol.name, ty.name());
-                                        if Some(needle.as_ref()) == ty.name()
-                                        {
+                                        if Some(needle.as_ref()) == ty.name() {
                                             debug!("Found conforming protocol {:?}", item);
-                                            interface.conforms_to.push(*id);
+                                            interface.conforms_to.push(id);
                                             break;
                                         }
                                     }
@@ -155,6 +163,10 @@ impl ObjCInterface {
                     let is_class_method = c.kind() == CXCursor_ObjCClassMethodDecl;
                     let method = ObjCMethod::new(&name, signature, is_class_method);
                     interface.add_method(method);
+                }
+                CXCursor_TemplateTypeParameter => {
+                    let name = c.spelling();
+                    interface.template_names.push(name);
                 }
                 _ => {}
             }
@@ -185,8 +197,8 @@ impl ObjCMethod {
         ObjCMethod {
             name: name.to_owned(),
             rust_name: rust_name.to_owned(),
-            signature: signature,
-            is_class_method: is_class_method,
+            signature,
+            is_class_method,
         }
     }
 
@@ -213,11 +225,17 @@ impl ObjCMethod {
     }
 
     /// Formats the method call
-    pub fn format_method_call(&self, args: &[quote::Tokens]) -> quote::Tokens {
-        let split_name: Vec<_> = self.name
+    pub fn format_method_call(&self, args: &[TokenStream]) -> TokenStream {
+        let split_name: Vec<Option<Ident>> = self
+            .name
             .split(':')
-            .filter(|p| !p.is_empty())
-            .map(|name| Term::new(name, Span::call_site()))
+            .map(|name| {
+                if name.is_empty() {
+                    None
+                } else {
+                    Some(Ident::new(name, Span::call_site()))
+                }
+            })
             .collect();
 
         // No arguments
@@ -229,11 +247,11 @@ impl ObjCMethod {
         }
 
         // Check right amount of arguments
-        if args.len() != split_name.len() {
+        if args.len() != split_name.len() - 1 {
             panic!(
                 "Incorrect method name or arguments for objc method, {:?} vs {:?}",
                 args,
-                split_name
+                split_name,
             );
         }
 
@@ -243,13 +261,18 @@ impl ObjCMethod {
             let arg = arg.to_string();
             let name_and_sig: Vec<&str> = arg.split(' ').collect();
             let name = name_and_sig[0];
-            args_without_types.push(Term::new(name, Span::call_site()))
-        };
+            args_without_types.push(Ident::new(name, Span::call_site()))
+        }
 
-        let args = split_name
-            .into_iter()
-            .zip(args_without_types)
-            .map(|(arg, arg_val)| quote! { #arg : #arg_val });
+        let args = split_name.into_iter().zip(args_without_types).map(
+            |(arg, arg_val)| {
+                if let Some(arg) = arg {
+                    quote! { #arg: #arg_val }
+                } else {
+                    quote! { #arg_val: #arg_val }
+                }
+            },
+        );
 
         quote! {
             #( #args )*

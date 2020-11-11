@@ -27,21 +27,21 @@ using std::vector;
 
 template <typename Func>
 void WithADAM7InterpolatingFilter(const IntSize& aSize, Func aFunc) {
-  RefPtr<Decoder> decoder = CreateTrivialDecoder();
+  RefPtr<image::Decoder> decoder = CreateTrivialDecoder();
   ASSERT_TRUE(bool(decoder));
 
   WithFilterPipeline(
       decoder, std::forward<Func>(aFunc), ADAM7InterpolatingConfig{},
-      SurfaceConfig{decoder, aSize, SurfaceFormat::B8G8R8A8, false});
+      SurfaceConfig{decoder, aSize, SurfaceFormat::OS_RGBA, false});
 }
 
 void AssertConfiguringADAM7InterpolatingFilterFails(const IntSize& aSize) {
-  RefPtr<Decoder> decoder = CreateTrivialDecoder();
+  RefPtr<image::Decoder> decoder = CreateTrivialDecoder();
   ASSERT_TRUE(bool(decoder));
 
   AssertConfiguringPipelineFails(
       decoder, ADAM7InterpolatingConfig{},
-      SurfaceConfig{decoder, aSize, SurfaceFormat::B8G8R8A8, false});
+      SurfaceConfig{decoder, aSize, SurfaceFormat::OS_RGBA, false});
 }
 
 uint8_t InterpolateByte(uint8_t aByteA, uint8_t aByteB, float aWeight) {
@@ -229,8 +229,8 @@ WriteState WriteUninterpolatedPixels(SurfaceFilter* aFilter,
   return result;
 }
 
-bool CheckHorizontallyInterpolatedImage(Decoder* aDecoder, const IntSize& aSize,
-                                        uint8_t aPass,
+bool CheckHorizontallyInterpolatedImage(image::Decoder* aDecoder,
+                                        const IntSize& aSize, uint8_t aPass,
                                         const vector<BGRAColor>& aColors) {
   RawAccessFrameRef currentFrame = aDecoder->GetCurrentFrameRef();
   RefPtr<SourceSurface> surface = currentFrame->GetSourceSurface();
@@ -258,7 +258,7 @@ void CheckHorizontalInterpolation(const IntSize& aSize,
   const IntRect surfaceRect(IntPoint(0, 0), aSize);
 
   WithADAM7InterpolatingFilter(
-      aSize, [&](Decoder* aDecoder, SurfaceFilter* aFilter) {
+      aSize, [&](image::Decoder* aDecoder, SurfaceFilter* aFilter) {
         // We check horizontal interpolation behavior for each pass
         // individually. In addition to the normal 7 passes that ADAM7 includes,
         // we also check an eighth pass to verify that nothing breaks if extra
@@ -317,8 +317,8 @@ WriteState WriteRowColorPixels(SurfaceFilter* aFilter, const IntSize& aSize,
   return result;
 }
 
-bool CheckVerticallyInterpolatedImage(Decoder* aDecoder, const IntSize& aSize,
-                                      uint8_t aPass,
+bool CheckVerticallyInterpolatedImage(image::Decoder* aDecoder,
+                                      const IntSize& aSize, uint8_t aPass,
                                       const vector<BGRAColor>& aColors) {
   vector<float>& weights = InterpolationWeights(ImportantRowStride(aPass));
 
@@ -372,7 +372,7 @@ void CheckVerticalInterpolation(const IntSize& aSize,
                                 const vector<BGRAColor>& aColors) {
   const IntRect surfaceRect(IntPoint(0, 0), aSize);
 
-  WithADAM7InterpolatingFilter(aSize, [&](Decoder* aDecoder,
+  WithADAM7InterpolatingFilter(aSize, [&](image::Decoder* aDecoder,
                                           SurfaceFilter* aFilter) {
     for (uint8_t pass = 1; pass <= 8; ++pass) {
       // Write a pattern of rows to the surface. Important rows will receive a
@@ -406,7 +406,7 @@ void CheckADAM7InterpolatingWritePixels(const IntSize& aSize) {
   // the pixels are the same color, interpolation doesn't matter; we test the
   // correctness of the interpolation algorithm itself separately.
   WithADAM7InterpolatingFilter(
-      aSize, [&](Decoder* aDecoder, SurfaceFilter* aFilter) {
+      aSize, [&](image::Decoder* aDecoder, SurfaceFilter* aFilter) {
         IntRect rect(IntPoint(0, 0), aSize);
 
         for (int32_t pass = 1; pass <= 8; ++pass) {
@@ -430,51 +430,41 @@ void CheckADAM7InterpolatingWritePixels(const IntSize& aSize) {
       });
 }
 
-TEST(ImageADAM7InterpolatingFilter, WritePixels100_100) {
-  CheckADAM7InterpolatingWritePixels(IntSize(100, 100));
-}
+TEST(ImageADAM7InterpolatingFilter, WritePixels100_100)
+{ CheckADAM7InterpolatingWritePixels(IntSize(100, 100)); }
 
-TEST(ImageADAM7InterpolatingFilter, WritePixels99_99) {
-  CheckADAM7InterpolatingWritePixels(IntSize(99, 99));
-}
+TEST(ImageADAM7InterpolatingFilter, WritePixels99_99)
+{ CheckADAM7InterpolatingWritePixels(IntSize(99, 99)); }
 
-TEST(ImageADAM7InterpolatingFilter, WritePixels66_33) {
-  CheckADAM7InterpolatingWritePixels(IntSize(66, 33));
-}
+TEST(ImageADAM7InterpolatingFilter, WritePixels66_33)
+{ CheckADAM7InterpolatingWritePixels(IntSize(66, 33)); }
 
-TEST(ImageADAM7InterpolatingFilter, WritePixels33_66) {
-  CheckADAM7InterpolatingWritePixels(IntSize(33, 66));
-}
+TEST(ImageADAM7InterpolatingFilter, WritePixels33_66)
+{ CheckADAM7InterpolatingWritePixels(IntSize(33, 66)); }
 
-TEST(ImageADAM7InterpolatingFilter, WritePixels15_15) {
-  CheckADAM7InterpolatingWritePixels(IntSize(15, 15));
-}
+TEST(ImageADAM7InterpolatingFilter, WritePixels15_15)
+{ CheckADAM7InterpolatingWritePixels(IntSize(15, 15)); }
 
-TEST(ImageADAM7InterpolatingFilter, WritePixels9_9) {
-  CheckADAM7InterpolatingWritePixels(IntSize(9, 9));
-}
+TEST(ImageADAM7InterpolatingFilter, WritePixels9_9)
+{ CheckADAM7InterpolatingWritePixels(IntSize(9, 9)); }
 
-TEST(ImageADAM7InterpolatingFilter, WritePixels8_8) {
-  CheckADAM7InterpolatingWritePixels(IntSize(8, 8));
-}
+TEST(ImageADAM7InterpolatingFilter, WritePixels8_8)
+{ CheckADAM7InterpolatingWritePixels(IntSize(8, 8)); }
 
-TEST(ImageADAM7InterpolatingFilter, WritePixels7_7) {
-  CheckADAM7InterpolatingWritePixels(IntSize(7, 7));
-}
+TEST(ImageADAM7InterpolatingFilter, WritePixels7_7)
+{ CheckADAM7InterpolatingWritePixels(IntSize(7, 7)); }
 
-TEST(ImageADAM7InterpolatingFilter, WritePixels3_3) {
-  CheckADAM7InterpolatingWritePixels(IntSize(3, 3));
-}
+TEST(ImageADAM7InterpolatingFilter, WritePixels3_3)
+{ CheckADAM7InterpolatingWritePixels(IntSize(3, 3)); }
 
-TEST(ImageADAM7InterpolatingFilter, WritePixels1_1) {
-  CheckADAM7InterpolatingWritePixels(IntSize(1, 1));
-}
+TEST(ImageADAM7InterpolatingFilter, WritePixels1_1)
+{ CheckADAM7InterpolatingWritePixels(IntSize(1, 1)); }
 
-TEST(ImageADAM7InterpolatingFilter, TrivialInterpolation48_48) {
-  CheckInterpolation(IntSize(48, 48), {BGRAColor::Green()});
-}
+TEST(ImageADAM7InterpolatingFilter, TrivialInterpolation48_48)
+{ CheckInterpolation(IntSize(48, 48), {BGRAColor::Green()}); }
 
-TEST(ImageADAM7InterpolatingFilter, InterpolationOutput33_17) {
+TEST(ImageADAM7InterpolatingFilter, InterpolationOutput33_17)
+{
   // We check interpolation using irregular patterns to make sure that the
   // interpolation will look different for different passes.
   CheckInterpolation(
@@ -492,7 +482,8 @@ TEST(ImageADAM7InterpolatingFilter, InterpolationOutput33_17) {
        BGRAColor::Red(),   BGRAColor::Blue()});
 }
 
-TEST(ImageADAM7InterpolatingFilter, InterpolationOutput32_16) {
+TEST(ImageADAM7InterpolatingFilter, InterpolationOutput32_16)
+{
   CheckInterpolation(
       IntSize(32, 16),
       {BGRAColor::Green(), BGRAColor::Red(),   BGRAColor::Green(),
@@ -508,7 +499,8 @@ TEST(ImageADAM7InterpolatingFilter, InterpolationOutput32_16) {
        BGRAColor::Red(),   BGRAColor::Blue()});
 }
 
-TEST(ImageADAM7InterpolatingFilter, InterpolationOutput31_15) {
+TEST(ImageADAM7InterpolatingFilter, InterpolationOutput31_15)
+{
   CheckInterpolation(
       IntSize(31, 15),
       {BGRAColor::Green(), BGRAColor::Red(),   BGRAColor::Green(),
@@ -524,7 +516,8 @@ TEST(ImageADAM7InterpolatingFilter, InterpolationOutput31_15) {
        BGRAColor::Red(),   BGRAColor::Blue()});
 }
 
-TEST(ImageADAM7InterpolatingFilter, InterpolationOutput17_33) {
+TEST(ImageADAM7InterpolatingFilter, InterpolationOutput17_33)
+{
   CheckInterpolation(IntSize(17, 33),
                      {BGRAColor::Green(), BGRAColor::Red(), BGRAColor::Green(),
                       BGRAColor::Blue(), BGRAColor::Red(), BGRAColor::Green(),
@@ -534,7 +527,8 @@ TEST(ImageADAM7InterpolatingFilter, InterpolationOutput17_33) {
                       BGRAColor::Blue()});
 }
 
-TEST(ImageADAM7InterpolatingFilter, InterpolationOutput16_32) {
+TEST(ImageADAM7InterpolatingFilter, InterpolationOutput16_32)
+{
   CheckInterpolation(IntSize(16, 32),
                      {BGRAColor::Green(), BGRAColor::Red(), BGRAColor::Green(),
                       BGRAColor::Blue(), BGRAColor::Red(), BGRAColor::Green(),
@@ -544,7 +538,8 @@ TEST(ImageADAM7InterpolatingFilter, InterpolationOutput16_32) {
                       BGRAColor::Blue()});
 }
 
-TEST(ImageADAM7InterpolatingFilter, InterpolationOutput15_31) {
+TEST(ImageADAM7InterpolatingFilter, InterpolationOutput15_31)
+{
   CheckInterpolation(IntSize(15, 31),
                      {BGRAColor::Green(), BGRAColor::Red(), BGRAColor::Green(),
                       BGRAColor::Blue(), BGRAColor::Red(), BGRAColor::Green(),
@@ -554,55 +549,47 @@ TEST(ImageADAM7InterpolatingFilter, InterpolationOutput15_31) {
                       BGRAColor::Blue()});
 }
 
-TEST(ImageADAM7InterpolatingFilter, InterpolationOutput9_9) {
+TEST(ImageADAM7InterpolatingFilter, InterpolationOutput9_9)
+{
   CheckInterpolation(IntSize(9, 9),
                      {BGRAColor::Blue(), BGRAColor::Blue(), BGRAColor::Red(),
                       BGRAColor::Green(), BGRAColor::Green(), BGRAColor::Red(),
                       BGRAColor::Red(), BGRAColor::Blue()});
 }
 
-TEST(ImageADAM7InterpolatingFilter, InterpolationOutput8_8) {
+TEST(ImageADAM7InterpolatingFilter, InterpolationOutput8_8)
+{
   CheckInterpolation(IntSize(8, 8),
                      {BGRAColor::Blue(), BGRAColor::Blue(), BGRAColor::Red(),
                       BGRAColor::Green(), BGRAColor::Green(), BGRAColor::Red(),
                       BGRAColor::Red(), BGRAColor::Blue()});
 }
 
-TEST(ImageADAM7InterpolatingFilter, InterpolationOutput7_7) {
+TEST(ImageADAM7InterpolatingFilter, InterpolationOutput7_7)
+{
   CheckInterpolation(IntSize(7, 7),
                      {BGRAColor::Blue(), BGRAColor::Blue(), BGRAColor::Red(),
                       BGRAColor::Green(), BGRAColor::Green(), BGRAColor::Red(),
                       BGRAColor::Red(), BGRAColor::Blue()});
 }
 
-TEST(ImageADAM7InterpolatingFilter, InterpolationOutput3_3) {
+TEST(ImageADAM7InterpolatingFilter, InterpolationOutput3_3)
+{
   CheckInterpolation(IntSize(3, 3), {BGRAColor::Green(), BGRAColor::Red(),
                                      BGRAColor::Blue(), BGRAColor::Red()});
 }
 
-TEST(ImageADAM7InterpolatingFilter, InterpolationOutput1_1) {
-  CheckInterpolation(IntSize(1, 1), {BGRAColor::Blue()});
-}
+TEST(ImageADAM7InterpolatingFilter, InterpolationOutput1_1)
+{ CheckInterpolation(IntSize(1, 1), {BGRAColor::Blue()}); }
 
-TEST(ImageADAM7InterpolatingFilter, ADAM7InterpolationFailsFor0_0) {
+TEST(ImageADAM7InterpolatingFilter, ADAM7InterpolationFailsFor0_0)
+{
   // A 0x0 input size is invalid, so configuration should fail.
   AssertConfiguringADAM7InterpolatingFilterFails(IntSize(0, 0));
 }
 
-TEST(ImageADAM7InterpolatingFilter, ADAM7InterpolationFailsForMinus1_Minus1) {
+TEST(ImageADAM7InterpolatingFilter, ADAM7InterpolationFailsForMinus1_Minus1)
+{
   // A negative input size is invalid, so configuration should fail.
   AssertConfiguringADAM7InterpolatingFilterFails(IntSize(-1, -1));
-}
-
-TEST(ImageADAM7InterpolatingFilter,
-     ConfiguringPalettedADAM7InterpolatingFilterFails) {
-  RefPtr<Decoder> decoder = CreateTrivialDecoder();
-  ASSERT_TRUE(decoder != nullptr);
-
-  // ADAM7InterpolatingFilter does not support paletted images, so configuration
-  // should fail.
-  AssertConfiguringPipelineFails(
-      decoder, ADAM7InterpolatingConfig{},
-      PalettedSurfaceConfig{decoder, IntSize(100, 100), IntRect(0, 0, 50, 50),
-                            SurfaceFormat::B8G8R8A8, 8, false});
 }

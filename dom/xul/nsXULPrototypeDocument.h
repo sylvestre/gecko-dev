@@ -13,6 +13,8 @@
 #include "nsTArray.h"
 #include "nsISerializable.h"
 #include "nsCycleCollectionParticipant.h"
+#include <functional>
+#include "mozilla/dom/Element.h"
 
 class nsAtom;
 class nsIPrincipal;
@@ -21,22 +23,16 @@ class nsNodeInfoManager;
 class nsXULPrototypeElement;
 class nsXULPrototypePI;
 
-namespace mozilla {
-namespace dom {
-class XULDocument;
-}  // namespace dom
-}  // namespace mozilla
-
 /**
  * A "prototype" document that stores shared document information
  * for the XUL cache.
  * Among other things, stores the tree of nsXULPrototype*
  * objects, from which the real DOM tree is built later in
- * XULDocument::ResumeWalk.
+ * PrototypeDocumentContentSink::ResumeWalk.
  */
 class nsXULPrototypeDocument final : public nsISerializable {
  public:
-  static nsresult Create(nsIURI* aURI, nsXULPrototypeDocument** aResult);
+  typedef std::function<void()> Callback;
 
   // nsISupports interface
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
@@ -75,16 +71,17 @@ class nsXULPrototypeDocument final : public nsISerializable {
   /**
    * If current prototype document has not yet finished loading,
    * appends aDocument to the list of documents to notify (via
-   * XULDocument::OnPrototypeLoadDone()) and sets aLoaded to false.
-   * Otherwise sets aLoaded to true.
+   * PrototypeDocumentContentSink::OnPrototypeLoadDone()) and
+   * sets aLoaded to false. Otherwise sets aLoaded to true.
    */
-  nsresult AwaitLoadDone(mozilla::dom::XULDocument* aDocument, bool* aResult);
+  nsresult AwaitLoadDone(Callback&& aCallback, bool* aResult);
 
   /**
    * Notifies each document registered via AwaitLoadDone on this
    * prototype document that the prototype has finished loading.
    * The notification is performed by calling
-   * XULDocument::OnPrototypeLoadDone on the registered documents.
+   * PrototypeDocumentContentSink::OnPrototypeLoadDone on the
+   * registered documents.
    */
   nsresult NotifyLoadDone();
 
@@ -96,13 +93,20 @@ class nsXULPrototypeDocument final : public nsISerializable {
 
   void TraceProtos(JSTracer* aTrc);
 
+  bool WasL10nCached() { return mWasL10nCached; };
+
+  void SetIsL10nCached(bool aIsCached);
+  void RebuildPrototypeFromElement(nsXULPrototypeElement* aPrototype,
+                                   mozilla::dom::Element* aElement, bool aDeep);
+  void RebuildL10nPrototype(mozilla::dom::Element* aElement, bool aDeep);
+
  protected:
   nsCOMPtr<nsIURI> mURI;
   RefPtr<nsXULPrototypeElement> mRoot;
   nsTArray<RefPtr<nsXULPrototypePI> > mProcessingInstructions;
 
   bool mLoaded;
-  nsTArray<RefPtr<mozilla::dom::XULDocument> > mPrototypeWaiters;
+  nsTArray<Callback> mPrototypeWaiters;
 
   RefPtr<nsNodeInfoManager> mNodeInfoManager;
 
@@ -117,6 +121,7 @@ class nsXULPrototypeDocument final : public nsISerializable {
       nsXULPrototypeDocument** aResult);
 
   static uint32_t gRefCnt;
+  bool mWasL10nCached;
 };
 
 #endif  // nsXULPrototypeDocument_h__

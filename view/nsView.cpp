@@ -11,19 +11,24 @@
 #include "mozilla/IntegerPrintfMacros.h"
 #include "mozilla/Likely.h"
 #include "mozilla/Poison.h"
+#include "mozilla/PresShell.h"
+#include "mozilla/StaticPrefs_layout.h"
+#include "mozilla/dom/Document.h"
+#include "mozilla/dom/BrowserParent.h"
 #include "nsIWidget.h"
 #include "nsViewManager.h"
 #include "nsIFrame.h"
 #include "nsPresArena.h"
 #include "nsXULPopupManager.h"
+#include "nsIScreen.h"
 #include "nsIWidgetListener.h"
 #include "nsContentUtils.h"  // for nsAutoScriptBlocker
+#include "nsDocShell.h"
 #include "mozilla/TimelineConsumers.h"
 #include "mozilla/CompositeTimelineMarker.h"
+#include "mozilla/StartupTimeline.h"
 
 using namespace mozilla;
-
-static bool sShowPreviousPage = true;
 
 nsView::nsView(nsViewManager* aViewManager, nsViewVisibility aVisibility)
     : mViewManager(aViewManager),
@@ -46,18 +51,12 @@ nsView::nsView(nsViewManager* aViewManager, nsViewVisibility aVisibility)
   // a promise that the view will paint all its pixels opaquely. Views
   // should make this promise explicitly by calling
   // SetViewContentTransparency.
-
-  static bool sShowPreviousPageInitialized = false;
-  if (!sShowPreviousPageInitialized) {
-    Preferences::AddBoolVarCache(&sShowPreviousPage,
-                                 "layout.show_previous_page", true);
-    sShowPreviousPageInitialized = true;
-  }
 }
 
 void nsView::DropMouseGrabbing() {
-  nsIPresShell* presShell = mViewManager->GetPresShell();
-  if (presShell) presShell->ClearMouseCaptureOnView(this);
+  if (mViewManager->GetPresShell()) {
+    PresShell::ClearMouseCaptureOnView(this);
+  }
 }
 
 nsView::~nsView() {
@@ -103,6 +102,8 @@ nsView::~nsView() {
 
   // Destroy and release the widget
   DestroyWidget();
+
+  MOZ_RELEASE_ASSERT(!mFrame);
 
   delete mDirtyRegion;
 }
@@ -316,7 +317,7 @@ void nsView::DoResetWidgetBounds(bool aMoveOnly, bool aInvalidateChangedSize) {
   }
 
   bool curVisibility = widget->IsVisible();
-  bool newVisibility = IsEffectivelyVisible();
+  bool newVisibility = !invisiblePopup && IsEffectivelyVisible();
   if (curVisibility && !newVisibility) {
     widget->Show(false);
   }
@@ -346,15 +347,13 @@ void nsView::DoResetWidgetBounds(bool aMoveOnly, bool aInvalidateChangedSize) {
   DesktopRect deskRect = newBounds / scale;
   if (changedPos) {
     if (changedSize && !aMoveOnly) {
-      widget->ResizeClient(deskRect.X(), deskRect.Y(), deskRect.Width(),
-                           deskRect.Height(), aInvalidateChangedSize);
+      widget->ResizeClient(deskRect, aInvalidateChangedSize);
     } else {
-      widget->MoveClient(deskRect.X(), deskRect.Y());
+      widget->MoveClient(deskRect.TopLeft());
     }
   } else {
     if (changedSize && !aMoveOnly) {
-      widget->ResizeClient(deskRect.Width(), deskRect.Height(),
-                           aInvalidateChangedSize);
+      widget->ResizeClient(deskRect.Size(), aInvalidateChangedSize);
     }  // else do nothing!
   }
 
@@ -763,9 +762,9 @@ void nsView::List(FILE* out, int32_t aIndent) const {
             nonclientBounds.Y(), windowBounds.Width(), windowBounds.Height());
   }
   nsRect brect = GetBounds();
-  fprintf(out, "{%d,%d,%d,%d}", brect.X(), brect.Y(), brect.Width(),
-          brect.Height());
-  fprintf(out, " z=%d vis=%d frame=%p <\n", mZIndex, mVis,
+  fprintf(out, "{%d,%d,%d,%d} @ %d,%d", brect.X(), brect.Y(), brect.Width(),
+          brect.Height(), mPosX, mPosY);
+  fprintf(out, " flags=%x z=%d vis=%d frame=%p <\n", mVFlags, mZIndex, mVis,
           static_cast<void*>(mFrame));
   for (nsView* kid = mFirstChild; kid; kid = kid->GetNextSibling()) {
     NS_ASSERTION(kid->GetParent() == this, "incorrect parent");
@@ -922,9 +921,7 @@ static bool IsPopupWidget(nsIWidget* aWidget) {
   return (aWidget->WindowType() == eWindowType_popup);
 }
 
-nsIPresShell* nsView::GetPresShell() {
-  return GetViewManager()->GetPresShell();
-}
+PresShell* nsView::GetPresShell() { return GetViewManager()->GetPresShell(); }
 
 bool nsView::WindowMoved(nsIWidget* aWidget, int32_t x, int32_t y) {
   nsXULPopupManager* pm = nsXULPopupManager::GetInstance();
@@ -952,7 +949,7 @@ bool nsView::WindowResized(nsIWidget* aWidget, int32_t aWidth,
 
     nsXULPopupManager* pm = nsXULPopupManager::GetInstance();
     if (pm) {
-      nsIPresShell* presShell = mViewManager->GetPresShell();
+      PresShell* presShell = mViewManager->GetPresShell();
       if (presShell && presShell->GetDocument()) {
         pm->AdjustPopupsOnWindowChange(presShell);
       }
@@ -970,6 +967,69 @@ bool nsView::WindowResized(nsIWidget* aWidget, int32_t aWidth,
 
   return false;
 }
+
+#if defined(MOZ_WIDGET_ANDROID)
+void nsView::DynamicToolbarMaxHeightChanged(ScreenIntCoord aHeight) {
+  MOZ_ASSERT(XRE_IsParentProcess(),
+             "Should be only called for the browser parent process");
+  MOZ_ASSERT(this == mViewManager->GetRootView(),
+             "Should be called for the root view");
+
+  PresShell* presShell = mViewManager->GetPresShell();
+  if (!presShell) {
+    return;
+  }
+
+  dom::Document* document = presShell->GetDocument();
+  if (!document) {
+    return;
+  }
+
+  nsPIDOMWindowOuter* window = document->GetWindow();
+  if (!window) {
+    return;
+  }
+
+  nsContentUtils::CallOnAllRemoteChildren(
+      window, [&aHeight](dom::BrowserParent* aBrowserParent) -> CallState {
+        aBrowserParent->DynamicToolbarMaxHeightChanged(aHeight);
+        return CallState::Continue;
+      });
+}
+
+void nsView::DynamicToolbarOffsetChanged(ScreenIntCoord aOffset) {
+  MOZ_ASSERT(XRE_IsParentProcess(),
+             "Should be only called for the browser parent process");
+  MOZ_ASSERT(this == mViewManager->GetRootView(),
+             "Should be called for the root view");
+
+  PresShell* presShell = mViewManager->GetPresShell();
+  if (!presShell) {
+    return;
+  }
+
+  dom::Document* document = presShell->GetDocument();
+  if (!document) {
+    return;
+  }
+
+  nsPIDOMWindowOuter* window = document->GetWindow();
+  if (!window) {
+    return;
+  }
+
+  nsContentUtils::CallOnAllRemoteChildren(
+      window, [&aOffset](dom::BrowserParent* aBrowserParent) -> CallState {
+        // Skip background tabs.
+        if (!aBrowserParent->GetDocShellIsActive()) {
+          return CallState::Continue;
+        }
+
+        aBrowserParent->DynamicToolbarOffsetChanged(aOffset);
+        return CallState::Stop;
+      });
+}
+#endif
 
 bool nsView::RequestWindowClose(nsIWidget* aWidget) {
   if (mFrame && IsPopupWidget(aWidget) && mFrame->IsMenuPopupFrame()) {
@@ -1004,41 +1064,55 @@ void nsView::DidPaintWindow() {
 void nsView::DidCompositeWindow(mozilla::layers::TransactionId aTransactionId,
                                 const TimeStamp& aCompositeStart,
                                 const TimeStamp& aCompositeEnd) {
-  nsIPresShell* presShell = mViewManager->GetPresShell();
-  if (presShell) {
-    nsAutoScriptBlocker scriptBlocker;
+  PresShell* presShell = mViewManager->GetPresShell();
+  if (!presShell) {
+    return;
+  }
 
-    nsPresContext* context = presShell->GetPresContext();
-    nsRootPresContext* rootContext = context->GetRootPresContext();
-    if (rootContext) {
-      rootContext->NotifyDidPaintForSubtree(aTransactionId, aCompositeEnd);
-    }
+  nsAutoScriptBlocker scriptBlocker;
 
-    // If the two timestamps are identical, this was likely a fake composite
-    // event which wouldn't be terribly useful to display.
-    if (aCompositeStart == aCompositeEnd) {
-      return;
-    }
+  nsPresContext* context = presShell->GetPresContext();
+  nsRootPresContext* rootContext = context->GetRootPresContext();
+  if (rootContext) {
+    rootContext->NotifyDidPaintForSubtree(aTransactionId, aCompositeEnd);
+  }
 
-    nsIDocShell* docShell = context->GetDocShell();
-    RefPtr<TimelineConsumers> timelines = TimelineConsumers::Get();
+  mozilla::StartupTimeline::RecordOnce(mozilla::StartupTimeline::FIRST_PAINT2,
+                                       aCompositeEnd);
 
-    if (timelines && timelines->HasConsumer(docShell)) {
-      timelines->AddMarkerForDocShell(
-          docShell, MakeUnique<CompositeTimelineMarker>(
-                        aCompositeStart, MarkerTracingType::START));
-      timelines->AddMarkerForDocShell(
-          docShell, MakeUnique<CompositeTimelineMarker>(
-                        aCompositeEnd, MarkerTracingType::END));
-    }
+  // If the two timestamps are identical, this was likely a fake composite
+  // event which wouldn't be terribly useful to display.
+  if (aCompositeStart == aCompositeEnd) {
+    return;
+  }
+
+  nsIDocShell* docShell = context->GetDocShell();
+  RefPtr<TimelineConsumers> timelines = TimelineConsumers::Get();
+
+  if (timelines && timelines->HasConsumer(docShell)) {
+    timelines->AddMarkerForDocShell(
+        docShell, MakeUnique<CompositeTimelineMarker>(
+                      aCompositeStart, MarkerTracingType::START));
+    timelines->AddMarkerForDocShell(
+        docShell, MakeUnique<CompositeTimelineMarker>(aCompositeEnd,
+                                                      MarkerTracingType::END));
   }
 }
 
 void nsView::RequestRepaint() {
-  nsIPresShell* presShell = mViewManager->GetPresShell();
+  PresShell* presShell = mViewManager->GetPresShell();
   if (presShell) {
     presShell->ScheduleViewManagerFlush();
   }
+}
+
+bool nsView::ShouldNotBeVisible() {
+  if (mFrame && mFrame->IsMenuPopupFrame()) {
+    nsXULPopupManager* pm = nsXULPopupManager::GetInstance();
+    return !pm || !pm->IsPopupOpen(mFrame->GetContent());
+  }
+
+  return false;
 }
 
 nsEventStatus nsView::HandleEvent(WidgetGUIEvent* aEvent,
@@ -1062,7 +1136,50 @@ nsEventStatus nsView::HandleEvent(WidgetGUIEvent* aEvent,
   return result;
 }
 
+void nsView::SafeAreaInsetsChanged(const ScreenIntMargin& aSafeAreaInsets) {
+  if (!IsRoot()) {
+    return;
+  }
+
+  PresShell* presShell = mViewManager->GetPresShell();
+  if (!presShell) {
+    return;
+  }
+
+  ScreenIntMargin windowSafeAreaInsets;
+  LayoutDeviceIntRect windowRect = mWindow->GetScreenBounds();
+  nsCOMPtr<nsIScreen> screen = mWindow->GetWidgetScreen();
+  if (screen) {
+    windowSafeAreaInsets = nsContentUtils::GetWindowSafeAreaInsets(
+        screen, aSafeAreaInsets, windowRect);
+  }
+
+  presShell->GetPresContext()->SetSafeAreaInsets(windowSafeAreaInsets);
+
+  // https://github.com/w3c/csswg-drafts/issues/4670
+  // Actually we don't set this value on sub document. This behaviour is
+  // same as Blink.
+
+  dom::Document* document = presShell->GetDocument();
+  if (!document) {
+    return;
+  }
+
+  nsPIDOMWindowOuter* window = document->GetWindow();
+  if (!window) {
+    return;
+  }
+
+  nsContentUtils::CallOnAllRemoteChildren(
+      window,
+      [windowSafeAreaInsets](dom::BrowserParent* aBrowserParent) -> CallState {
+        Unused << aBrowserParent->SendSafeAreaInsetsChanged(
+            windowSafeAreaInsets);
+        return CallState::Continue;
+      });
+}
+
 bool nsView::IsPrimaryFramePaintSuppressed() {
-  return sShowPreviousPage && mFrame &&
+  return StaticPrefs::layout_show_previous_page() && mFrame &&
          mFrame->PresShell()->IsPaintingSuppressed();
 }

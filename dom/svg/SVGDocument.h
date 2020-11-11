@@ -4,13 +4,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef mozilla_dom_SVGDocument_h
-#define mozilla_dom_SVGDocument_h
+#ifndef DOM_SVG_SVGDOCUMENT_H_
+#define DOM_SVG_SVGDOCUMENT_H_
 
 #include "mozilla/Attributes.h"
 #include "mozilla/dom/XMLDocument.h"
-
-class nsSVGElement;
 
 namespace mozilla {
 
@@ -18,6 +16,7 @@ class SVGContextPaint;
 
 namespace dom {
 
+class SVGElement;
 class SVGForeignObjectElement;
 
 class SVGDocument final : public XMLDocument {
@@ -39,12 +38,12 @@ class SVGDocument final : public XMLDocument {
   const SVGContextPaint* mCurrentContextPaint = nullptr;
 };
 
+inline SVGDocument* Document::AsSVGDocument() {
+  MOZ_ASSERT(IsSVGDocument());
+  return static_cast<SVGDocument*>(this);
+}
+
 }  // namespace dom
 }  // namespace mozilla
 
-inline mozilla::dom::SVGDocument* nsIDocument::AsSVGDocument() {
-  MOZ_ASSERT(IsSVGDocument());
-  return static_cast<mozilla::dom::SVGDocument*>(this);
-}
-
-#endif  // mozilla_dom_SVGDocument_h
+#endif  // DOM_SVG_SVGDOCUMENT_H_

@@ -10,8 +10,7 @@
 #include "TimeUnits.h"
 #include "nsError.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(TimeRanges, mParent)
 NS_IMPL_CYCLE_COLLECTING_ADDREF(TimeRanges)
@@ -48,7 +47,7 @@ media::TimeIntervals TimeRanges::ToTimeIntervals() const {
   return t;
 }
 
-TimeRanges::~TimeRanges() {}
+TimeRanges::~TimeRanges() = default;
 
 double TimeRanges::Start(uint32_t aIndex, ErrorResult& aRv) const {
   if (aIndex >= mRanges.Length()) {
@@ -113,7 +112,7 @@ void TimeRanges::Normalize(double aTolerance) {
 
     normalized.AppendElement(current);
 
-    mRanges = normalized;
+    mRanges = std::move(normalized);
   }
 }
 
@@ -140,7 +139,7 @@ void TimeRanges::Intersection(const TimeRanges* aOtherRanges) {
     }
   }
 
-  mRanges = intersection;
+  mRanges = std::move(intersection);
 }
 
 TimeRanges::index_type TimeRanges::Find(double aTime,
@@ -167,5 +166,4 @@ void TimeRanges::Shift(double aOffset) {
   }
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

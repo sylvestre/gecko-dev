@@ -1,7 +1,6 @@
-// |jit-test| error:terminated
-options('werror');
+// |jit-test| exitstatus: 6
 
-g = newGlobal();
+g = newGlobal({newCompartment: true});
 g.parent = this;
 g.eval("Debugger(parent).onExceptionUnwind = function () {};");
 

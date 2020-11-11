@@ -25,7 +25,7 @@ namespace mozilla {
 // block for a given element.
 class MappedDeclarations final {
  public:
-  explicit MappedDeclarations(nsIDocument* aDoc,
+  explicit MappedDeclarations(dom::Document* aDoc,
                               already_AddRefed<RawServoDeclarationBlock> aDecls)
       : mDocument(aDoc), mDecl(aDecls) {
     MOZ_ASSERT(mDecl);
@@ -33,7 +33,7 @@ class MappedDeclarations final {
 
   ~MappedDeclarations() { MOZ_ASSERT(!mDecl, "Forgot to take the block?"); }
 
-  nsIDocument* Document() { return mDocument; }
+  dom::Document* Document() { return mDocument; }
 
   already_AddRefed<RawServoDeclarationBlock> TakeDeclarationBlock() {
     MOZ_ASSERT(mDecl);
@@ -79,14 +79,14 @@ class MappedDeclarations final {
   template <typename T,
             typename = typename std::enable_if<std::is_enum<T>::value>::type>
   void SetKeywordValue(nsCSSPropertyID aId, T aValue) {
-    static_assert(mozilla::EnumTypeFitsWithin<T, int32_t>::value,
+    static_assert(EnumTypeFitsWithin<T, int32_t>::value,
                   "aValue must be an enum that fits within 32 bits");
     SetKeywordValue(aId, static_cast<int32_t>(aValue));
   }
   template <typename T,
             typename = typename std::enable_if<std::is_enum<T>::value>::type>
   void SetKeywordValueIfUnset(nsCSSPropertyID aId, T aValue) {
-    static_assert(mozilla::EnumTypeFitsWithin<T, int32_t>::value,
+    static_assert(EnumTypeFitsWithin<T, int32_t>::value,
                   "aValue must be an enum that fits within 32 bits");
     SetKeywordValueIfUnset(aId, static_cast<int32_t>(aValue));
   }
@@ -94,6 +94,21 @@ class MappedDeclarations final {
   // Set a property to an integer value
   void SetIntValue(nsCSSPropertyID aId, int32_t aValue) {
     Servo_DeclarationBlock_SetIntValue(mDecl, aId, aValue);
+  }
+
+  // Set "math-depth: <integer>" or "math-depth: add(<integer>)"
+  void SetMathDepthValue(int32_t aValue, bool aIsRelative) {
+    Servo_DeclarationBlock_SetMathDepthValue(mDecl, aValue, aIsRelative);
+  }
+
+  // Set "counter-reset: list-item <integer>".
+  void SetCounterResetListItem(int32_t aValue) {
+    Servo_DeclarationBlock_SetCounterResetListItem(mDecl, aValue);
+  }
+
+  // Set "counter-set: list-item <integer>".
+  void SetCounterSetListItem(int32_t aValue) {
+    Servo_DeclarationBlock_SetCounterSetListItem(mDecl, aValue);
   }
 
   // Set a property to a pixel value
@@ -164,7 +179,7 @@ class MappedDeclarations final {
 
   // Set font-family to a string
   void SetFontFamily(const nsString& aValue) {
-    Servo_DeclarationBlock_SetFontFamily(mDecl, aValue);
+    Servo_DeclarationBlock_SetFontFamily(mDecl, &aValue);
   }
 
   // Add a quirks-mode override to the decoration color of elements nested in
@@ -175,8 +190,12 @@ class MappedDeclarations final {
 
   void SetBackgroundImage(const nsAttrValue& value);
 
+  void SetAspectRatio(float aWidth, float aHeight) {
+    Servo_DeclarationBlock_SetAspectRatio(mDecl, aWidth, aHeight);
+  }
+
  private:
-  nsIDocument* const mDocument;
+  dom::Document* const mDocument;
   RefPtr<RawServoDeclarationBlock> mDecl;
 };
 

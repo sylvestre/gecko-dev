@@ -12,7 +12,6 @@
 #include "nsIContentSecurityPolicy.h"
 #include "nsNetUtil.h"
 #include "mozilla/dom/nsCSPContext.h"
-#include "nsIPrefService.h"
 #include "nsIPrefBranch.h"
 #include "nsStringFwd.h"
 
@@ -21,7 +20,7 @@
  * parser functionality directly in compiled code tests.
  * All the tests (except the fuzzy tests at the end) follow the same schemata:
  *   a) create an nsIContentSecurityPolicy object
- *   b) set the selfURI in SetRequestContext
+ *   b) set the selfURI in SetRequestContextWithPrincipal
  *   c) append one or more policies by calling AppendPolicy
  *   d) check if the policy count is correct by calling GetPolicyCount
  *   e) compare the result of the policy with the expected output
@@ -80,7 +79,7 @@ nsresult runTest(
   nsCOMPtr<nsIPrincipal> selfURIPrincipal;
   mozilla::OriginAttributes attrs;
   selfURIPrincipal =
-      mozilla::BasePrincipal::CreateCodebasePrincipal(selfURI, attrs);
+      mozilla::BasePrincipal::CreateContentPrincipal(selfURI, attrs);
   NS_ENSURE_TRUE(selfURIPrincipal, NS_ERROR_FAILURE);
 
   // create a CSP object
@@ -90,7 +89,8 @@ nsresult runTest(
 
   // for testing the parser we only need to set a principal which is needed
   // to translate the keyword 'self' into an actual URI.
-  rv = csp->SetRequestContext(nullptr, selfURIPrincipal);
+  rv =
+      csp->SetRequestContextWithPrincipal(selfURIPrincipal, selfURI, u""_ns, 0);
   NS_ENSURE_SUCCESS(rv, rv);
 
   // append a policy
@@ -146,16 +146,10 @@ nsresult runTestSuite(const PolicyTest* aPolicies, uint32_t aPolicyCount,
                       uint32_t aExpectedPolicyCount) {
   nsresult rv;
   nsCOMPtr<nsIPrefBranch> prefs = do_GetService(NS_PREFSERVICE_CONTRACTID);
-  bool experimentalEnabledCache = false;
-  bool strictDynamicEnabledCache = false;
+  bool navigateTo = false;
   if (prefs) {
-    prefs->GetBoolPref("security.csp.experimentalEnabled",
-                       &experimentalEnabledCache);
-    prefs->SetBoolPref("security.csp.experimentalEnabled", true);
-
-    prefs->GetBoolPref("security.csp.enableStrictDynamic",
-                       &strictDynamicEnabledCache);
-    prefs->SetBoolPref("security.csp.enableStrictDynamic", true);
+    prefs->GetBoolPref("security.csp.enableNavigateTo", &navigateTo);
+    prefs->SetBoolPref("security.csp.enableNavigateTo", true);
   }
 
   for (uint32_t i = 0; i < aPolicyCount; i++) {
@@ -165,10 +159,7 @@ nsresult runTestSuite(const PolicyTest* aPolicies, uint32_t aPolicyCount,
   }
 
   if (prefs) {
-    prefs->SetBoolPref("security.csp.experimentalEnabled",
-                       experimentalEnabledCache);
-    prefs->SetBoolPref("security.csp.enableStrictDynamic",
-                       strictDynamicEnabledCache);
+    prefs->SetBoolPref("security.csp.enableNavigateTo", navigateTo);
   }
 
   return NS_OK;
@@ -176,7 +167,8 @@ nsresult runTestSuite(const PolicyTest* aPolicies, uint32_t aPolicyCount,
 
 // ============================= TestDirectives ========================
 
-TEST(CSPParser, Directives) {
+TEST(CSPParser, Directives)
+{
   static const PolicyTest policies[] = {
       // clang-format off
     { "connect-src xn--mnchen-3ya.de",
@@ -209,18 +201,24 @@ TEST(CSPParser, Directives) {
       "script-src 'sha256-a'" },
     { "script-src 'sha256-siVR8vAcqP06h2ppeNwqgjr0yZ6yned4X2VF84j4GmI='",
       "script-src 'sha256-siVR8vAcqP06h2ppeNwqgjr0yZ6yned4X2VF84j4GmI='" },
-    { "require-sri-for script style",
-      "require-sri-for script style"},
     { "script-src 'nonce-foo' 'unsafe-inline' ",
       "script-src 'nonce-foo' 'unsafe-inline'" },
     { "script-src 'nonce-foo' 'strict-dynamic' 'unsafe-inline' https:  ",
       "script-src 'nonce-foo' 'strict-dynamic' 'unsafe-inline' https:" },
+    { "script-src 'nonce-foo' 'strict-dynamic' 'unsafe-inline' 'report-sample' https:  ",
+      "script-src 'nonce-foo' 'strict-dynamic' 'unsafe-inline' 'report-sample' https:" },
     { "default-src 'sha256-siVR8' 'strict-dynamic' 'unsafe-inline' https:  ",
       "default-src 'sha256-siVR8' 'unsafe-inline' https:" },
     { "worker-src https://example.com",
       "worker-src https://example.com" },
     { "worker-src http://worker.com; frame-src http://frame.com; child-src http://child.com",
       "worker-src http://worker.com; frame-src http://frame.com; child-src http://child.com" },
+    { "navigate-to http://example.com",
+      "navigate-to http://example.com"},
+    { "navigate-to 'unsafe-allow-redirects' http://example.com",
+      "navigate-to 'unsafe-allow-redirects' http://example.com"},
+    { "script-src 'unsafe-allow-redirects' http://example.com",
+      "script-src http://example.com"},
       // clang-format on
   };
 
@@ -230,7 +228,8 @@ TEST(CSPParser, Directives) {
 
 // ============================= TestKeywords ========================
 
-TEST(CSPParser, Keywords) {
+TEST(CSPParser, Keywords)
+{
   static const PolicyTest policies[] = {
       // clang-format off
     { "script-src 'self'",
@@ -254,7 +253,8 @@ TEST(CSPParser, Keywords) {
 
 // =================== TestIgnoreUpperLowerCasePolicies ==============
 
-TEST(CSPParser, IgnoreUpperLowerCasePolicies) {
+TEST(CSPParser, IgnoreUpperLowerCasePolicies)
+{
   static const PolicyTest policies[] = {
       // clang-format off
     { "script-src 'SELF'",
@@ -287,8 +287,6 @@ TEST(CSPParser, IgnoreUpperLowerCasePolicies) {
       "upgrade-insecure-requests" },
     { "sanDBox alloW-foRMs",
       "sandbox allow-forms"},
-    { "require-SRI-for sCript stYle",
-      "require-sri-for script style"},
       // clang-format on
   };
 
@@ -298,7 +296,8 @@ TEST(CSPParser, IgnoreUpperLowerCasePolicies) {
 
 // ========================= TestPaths ===============================
 
-TEST(CSPParser, Paths) {
+TEST(CSPParser, Paths)
+{
   static const PolicyTest policies[] = {
       // clang-format off
     { "script-src http://www.example.com",
@@ -396,9 +395,16 @@ TEST(CSPParser, Paths) {
 
 // ======================== TestSimplePolicies =======================
 
-TEST(CSPParser, SimplePolicies) {
+TEST(CSPParser, SimplePolicies)
+{
   static const PolicyTest policies[] = {
       // clang-format off
+    { "frame-src intent:",
+      "frame-src intent:" },
+    { "frame-src intent://host.name",
+      "frame-src intent://host.name" },
+    { "frame-src intent://my.host.link/",
+      "frame-src intent://my.host.link/" },
     { "default-src *",
       "default-src *" },
     { "default-src https:",
@@ -472,7 +478,8 @@ TEST(CSPParser, SimplePolicies) {
 
 // =================== TestPoliciesWithInvalidSrc ====================
 
-TEST(CSPParser, PoliciesWithInvalidSrc) {
+TEST(CSPParser, PoliciesWithInvalidSrc)
+{
   static const PolicyTest policies[] = {
       // clang-format off
     { "script-src 'self'; SCRIPT-SRC http://www.example.com",
@@ -553,8 +560,6 @@ TEST(CSPParser, PoliciesWithInvalidSrc) {
       "connect-src 'none'" },
     { "script-src https://foo.com/%$",
       "script-src 'none'" },
-    { "require-SRI-for script elephants",
-      "require-sri-for script"},
     { "sandbox    foo",
       "sandbox"},
       // clang-format on
@@ -567,7 +572,8 @@ TEST(CSPParser, PoliciesWithInvalidSrc) {
 
 // ============================= TestBadPolicies =======================
 
-TEST(CSPParser, BadPolicies) {
+TEST(CSPParser, BadPolicies)
+{
   static const PolicyTest policies[] = {
       // clang-format off
     { "script-sr 'self", "" },
@@ -576,10 +582,10 @@ TEST(CSPParser, BadPolicies) {
     { "defaut-src asdf", "" },
     { "default-src: aaa", "" },
     { "asdf http://test.com", ""},
-    { "require-sri-for", ""},
-    { "require-sri-for foo", ""},
     { "report-uri", ""},
     { "report-uri http://:foo", ""},
+    { "require-sri-for", ""},
+    { "require-sri-for style", ""},
       // clang-format on
   };
 
@@ -589,7 +595,8 @@ TEST(CSPParser, BadPolicies) {
 
 // ======================= TestGoodGeneratedPolicies =================
 
-TEST(CSPParser, GoodGeneratedPolicies) {
+TEST(CSPParser, GoodGeneratedPolicies)
+{
   static const PolicyTest policies[] = {
       // clang-format off
     { "default-src 'self'; img-src *",
@@ -817,7 +824,8 @@ TEST(CSPParser, GoodGeneratedPolicies) {
 
 // ==================== TestBadGeneratedPolicies ====================
 
-TEST(CSPParser, BadGeneratedPolicies) {
+TEST(CSPParser, BadGeneratedPolicies)
+{
   static const PolicyTest policies[] = {
       // clang-format off
     { "foo.*.bar", ""},
@@ -843,7 +851,8 @@ TEST(CSPParser, BadGeneratedPolicies) {
 
 // ============ TestGoodGeneratedPoliciesForPathHandling =============
 
-TEST(CSPParser, GoodGeneratedPoliciesForPathHandling) {
+TEST(CSPParser, GoodGeneratedPoliciesForPathHandling)
+{
   // Once bug 808292 (Implement path-level host-source matching to CSP)
   // lands we have to update the expected output to include the parsed path
 
@@ -966,7 +975,8 @@ TEST(CSPParser, GoodGeneratedPoliciesForPathHandling) {
 
 // ============== TestBadGeneratedPoliciesForPathHandling ============
 
-TEST(CSPParser, BadGeneratedPoliciesForPathHandling) {
+TEST(CSPParser, BadGeneratedPoliciesForPathHandling)
+{
   static const PolicyTest policies[] = {
       // clang-format off
     { "img-src test1.example.com:88path-1/",
@@ -995,7 +1005,8 @@ TEST(CSPParser, BadGeneratedPoliciesForPathHandling) {
 // Use a policy, eliminate one character at a time,
 // and feed it as input to the parser.
 
-TEST(CSPParser, ShorteningPolicies) {
+TEST(CSPParser, ShorteningPolicies)
+{
   char pol[] =
       "default-src http://www.sub1.sub2.example.com:88/path1/path2/ "
       "'unsafe-inline' 'none'";
@@ -1022,7 +1033,8 @@ TEST(CSPParser, ShorteningPolicies) {
 
 #if RUN_OFFLINE_TESTS
 
-TEST(CSPParser, FuzzyPolicies) {
+TEST(CSPParser, FuzzyPolicies)
+{
   // init srand with 0 so we get same results
   srand(0);
 
@@ -1054,7 +1066,8 @@ TEST(CSPParser, FuzzyPolicies) {
 
 #if RUN_OFFLINE_TESTS
 
-TEST(CSPParser, FuzzyPoliciesIncDir) {
+TEST(CSPParser, FuzzyPoliciesIncDir)
+{
   // init srand with 0 so we get same results
   srand(0);
 
@@ -1092,7 +1105,8 @@ TEST(CSPParser, FuzzyPoliciesIncDir) {
 
 #if RUN_OFFLINE_TESTS
 
-TEST(CSPParser, FuzzyPoliciesIncDirLimASCII) {
+TEST(CSPParser, FuzzyPoliciesIncDirLimASCII)
+{
   char input[] =
       "1234567890"
       "abcdefghijklmnopqrstuvwxyz"

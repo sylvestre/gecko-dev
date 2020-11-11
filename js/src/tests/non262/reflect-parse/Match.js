@@ -60,17 +60,29 @@ var Match =
       }
     }
 
-    var quote = uneval;
+    class ObjectWithExactly extends Pattern {
+      constructor(template) {
+        super(template);
+      }
 
-    function MatchError(msg) {
-        this.message = msg;
+      match(actual) {
+        return matchObjectWithExactly(actual, this.template)
+      }
     }
 
-    MatchError.prototype = {
-        toString: function() {
+    Pattern.OBJECT_WITH_EXACTLY = function (template) {
+      return new ObjectWithExactly(template);
+    }
+
+    var quote = JSON.stringify;
+
+    class MatchError extends Error {
+        toString() {
             return "match error: " + this.message;
         }
     };
+
+    Pattern.MatchError = MatchError;
 
     function isAtom(x) {
         return (typeof x === "number") ||
@@ -78,7 +90,8 @@ var Match =
             (typeof x === "boolean") ||
             (x === null) ||
             (x === undefined) ||
-            (typeof x === "object" && x instanceof RegExp);
+            (typeof x === "object" && x instanceof RegExp) ||
+            (typeof x === "bigint");
     }
 
     function isObject(x) {
@@ -120,22 +133,45 @@ var Match =
             return true;
         case "boolean":
         case "number":
+        case "bigint":
             if (exp !== act)
                 throw new MatchError("expected " + exp + ", got " + quote(act));
             return true;
         }
 
-        throw new Error("bad pattern: " + exp.toSource());
+        throw new Error("bad pattern: " + JSON.stringify(exp));
     }
 
-    function matchObject(act, exp) {
+    // Match an object having at least the expected properties.
+    function matchObjectWithAtLeast(act, exp) {
         if (!isObject(act))
             throw new MatchError("expected object, got " + quote(act));
 
         for (var key in exp) {
             if (!(key in act))
                 throw new MatchError("expected property " + quote(key) + " not found in " + quote(act));
-            match(act[key], exp[key]);
+            try {
+                match(act[key], exp[key]);
+            } catch (inner) {
+                if (!(inner instanceof MatchError)) {
+                    throw inner;
+                }
+                inner.message = `matching property "${String(key)}":\n${inner.message}`;
+                throw inner;
+            }
+        }
+
+        return true;
+    }
+
+    // Match an object having all the expected properties and no more.
+    function matchObjectWithExactly(act, exp) {
+        matchObjectWithAtLeast(act, exp);
+
+        for (var key in act) {
+            if (!(key in exp)) {
+                throw new MatchError("unexpected property " + quote(key));
+            }
         }
 
         return true;
@@ -162,7 +198,15 @@ var Match =
             if (i in exp) {
                 if (!(i in act))
                     throw new MatchError("expected array property " + i + " not found in " + quote(act));
-                match(act[i], exp[i]);
+                try {
+                    match(act[i], exp[i]);
+                } catch (inner) {
+                    if (!(inner instanceof MatchError)) {
+                        throw inner;
+                    }
+                    inner.message = `matching array element [${i}]:\n${inner.message}`;
+                    throw inner;
+                }
             }
         }
 
@@ -185,7 +229,10 @@ var Match =
         if (isFunction(exp))
             return matchFunction(act, exp);
 
-        return matchObject(act, exp);
+        if (isObject(exp))
+            return matchObjectWithAtLeast(act, exp);
+
+        throw new Error("bad pattern: " + JSON.stringify(exp));
     }
 
     return { Pattern: Pattern,

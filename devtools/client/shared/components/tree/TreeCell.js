@@ -1,5 +1,3 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 2 -*- */
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -45,9 +43,11 @@ define(function(require, exports, module) {
      * the value or expanded state changes.
      */
     shouldComponentUpdate(nextProps, nextState) {
-      return (this.props.value != nextProps.value) ||
-        (this.state !== nextState) ||
-        (this.props.member.open != nextProps.member.open);
+      return (
+        this.props.value != nextProps.value ||
+        this.state !== nextState ||
+        this.props.member.open != nextProps.member.open
+      );
     }
 
     getCellClass(object, id) {
@@ -70,9 +70,11 @@ define(function(require, exports, module) {
     }
 
     updateInputEnabled(evt) {
-      this.setState(Object.assign({}, this.state, {
-        inputEnabled: evt.target.nodeName.toLowerCase() !== "input",
-      }));
+      this.setState(
+        Object.assign({}, this.state, {
+          inputEnabled: evt.target.nodeName.toLowerCase() !== "input",
+        })
+      );
     }
 
     render() {
@@ -94,7 +96,7 @@ define(function(require, exports, module) {
       // Render value using a default render function or custom
       // provided function from props or a decorator.
       renderValue = renderValue || defaultRenderValue;
-      if (decorator && decorator.renderValue) {
+      if (decorator?.renderValue) {
         renderValue = decorator.renderValue(member.object, id) || renderValue;
       }
 
@@ -113,31 +115,29 @@ define(function(require, exports, module) {
           "aria-labelledby": id,
         });
       } else {
-        cellElement = span({
-          onClick: (type !== "object") ? this.updateInputEnabled : null,
-          "aria-labelledby": id,
-        },
+        cellElement = span(
+          {
+            onClick: type !== "object" ? this.updateInputEnabled : null,
+            "aria-labelledby": id,
+          },
           renderValue(props)
         );
       }
 
       // Render me!
-      return (
-        td({
+      return td(
+        {
           className: classNames.join(" "),
           role: "presentation",
         },
-          cellElement
-        )
+        cellElement
       );
     }
   }
 
   // Default value rendering.
   const defaultRenderValue = props => {
-    return (
-      props.object + ""
-    );
+    return props.object + "";
   };
 
   // Exports from this module

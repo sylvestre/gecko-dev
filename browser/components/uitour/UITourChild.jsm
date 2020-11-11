@@ -1,16 +1,15 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
-* License, v. 2.0. If a copy of the MPL was not distributed with this
-* file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 var EXPORTED_SYMBOLS = ["UITourChild"];
 
-ChromeUtils.import("resource://gre/modules/ActorChild.jsm");
-ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 const PREF_TEST_WHITELIST = "browser.uitour.testingOrigins";
-const UITOUR_PERMISSION   = "uitour";
+const UITOUR_PERMISSION = "uitour";
 
-class UITourChild extends ActorChild {
+class UITourChild extends JSWindowActorChild {
   handleEvent(event) {
     if (!Services.prefs.getBoolPref("browser.uitour.enabled")) {
       return;
@@ -18,22 +17,26 @@ class UITourChild extends ActorChild {
     if (!this.ensureTrustedOrigin()) {
       return;
     }
-    this.mm.addMessageListener("UITour:SendPageCallback", this);
-    this.mm.addMessageListener("UITour:SendPageNotification", this);
-    this.mm.sendAsyncMessage("UITour:onPageEvent", {
+
+    this.sendAsyncMessage("UITour:onPageEvent", {
       detail: event.detail,
       type: event.type,
-      pageVisibilityState: this.mm.content.document.visibilityState,
+      pageVisibilityState: this.document.visibilityState,
     });
   }
 
   isTestingOrigin(aURI) {
-    if (Services.prefs.getPrefType(PREF_TEST_WHITELIST) != Services.prefs.PREF_STRING) {
+    if (
+      Services.prefs.getPrefType(PREF_TEST_WHITELIST) !=
+      Services.prefs.PREF_STRING
+    ) {
       return false;
     }
 
     // Add any testing origins (comma-seperated) to the whitelist for the session.
-    for (let origin of Services.prefs.getCharPref(PREF_TEST_WHITELIST).split(",")) {
+    for (let origin of Services.prefs
+      .getCharPref(PREF_TEST_WHITELIST)
+      .split(",")) {
       try {
         let testingURI = Services.io.newURI(origin);
         if (aURI.prePath == testingURI.prePath) {
@@ -49,34 +52,47 @@ class UITourChild extends ActorChild {
   // This function is copied from UITour.jsm.
   isSafeScheme(aURI) {
     let allowedSchemes = new Set(["https", "about"]);
-    if (!Services.prefs.getBoolPref("browser.uitour.requireSecure"))
+    if (!Services.prefs.getBoolPref("browser.uitour.requireSecure")) {
       allowedSchemes.add("http");
+    }
 
-    if (!allowedSchemes.has(aURI.scheme))
+    if (!allowedSchemes.has(aURI.scheme)) {
       return false;
+    }
 
     return true;
   }
 
   ensureTrustedOrigin() {
-    let {content} = this.mm;
-
-    if (content.top != content)
+    if (this.browsingContext.top != this.browsingContext) {
       return false;
+    }
 
-    let uri = content.document.documentURIObject;
+    let uri = this.document.documentURIObject;
 
-    if (uri.schemeIs("chrome"))
+    if (uri.schemeIs("chrome")) {
       return true;
+    }
 
-    if (!this.isSafeScheme(uri))
+    if (!this.isSafeScheme(uri)) {
       return false;
+    }
 
-    let permission = Services.perms.testPermission(uri, UITOUR_PERMISSION);
-    if (permission == Services.perms.ALLOW_ACTION)
+    let principal = Services.scriptSecurityManager.principalWithOA(
+      this.document.nodePrincipal,
+      {}
+    );
+    let permission = Services.perms.testPermissionFromPrincipal(
+      principal,
+      UITOUR_PERMISSION
+    );
+    if (permission == Services.perms.ALLOW_ACTION) {
       return true;
+    }
 
-    return this.isTestingOrigin(uri);
+    // Bug 1557153: To allow Skyline messaging, workaround for UNKNOWN_ACTION
+    // overriding browser/app/permissions default
+    return uri.host == "www.mozilla.org" || this.isTestingOrigin(uri);
   }
 
   receiveMessage(aMessage) {
@@ -87,7 +103,7 @@ class UITourChild extends ActorChild {
       case "UITour:SendPageNotification":
         this.sendPageEvent("Notification", aMessage.data);
         break;
-      }
+    }
   }
 
   sendPageEvent(type, detail) {
@@ -95,7 +111,7 @@ class UITourChild extends ActorChild {
       return;
     }
 
-    let win = this.mm.content;
+    let win = this.contentWindow;
     let eventName = "mozUITour" + type;
     let event = new win.CustomEvent(eventName, {
       bubbles: true,

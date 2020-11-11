@@ -1,24 +1,33 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 /* eslint-env mozilla/frame-script */
 
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
-ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 const gfxFrameScript = {
   domUtils: null,
 
   init() {
     let webNav = docShell.QueryInterface(Ci.nsIWebNavigation);
-    let webProgress =  docShell.QueryInterface(Ci.nsIInterfaceRequestor)
-                       .getInterface(Ci.nsIWebProgress);
-    webProgress.addProgressListener(this, Ci.nsIWebProgress.NOTIFY_STATE_WINDOW);
+    let webProgress = docShell
+      .QueryInterface(Ci.nsIInterfaceRequestor)
+      .getInterface(Ci.nsIWebProgress);
+    webProgress.addProgressListener(
+      this,
+      Ci.nsIWebProgress.NOTIFY_STATE_WINDOW
+    );
 
     this.domUtils = content.windowUtils;
 
-    let triggeringPrincipal = Services.scriptSecurityManager.getSystemPrincipal();
-    webNav.loadURI("chrome://gfxsanity/content/sanitytest.html",
-                   Ci.nsIWebNavigation.LOAD_FLAGS_NONE,
-                   null, null, null, triggeringPrincipal);
-
+    let loadURIOptions = {
+      triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
+    };
+    webNav.loadURI(
+      "chrome://gfxsanity/content/sanitytest.html",
+      loadURIOptions
+    );
   },
 
   handleEvent(aEvent) {
@@ -39,10 +48,11 @@ const gfxFrameScript = {
   },
 
   onStateChange(webProgress, req, flags, status) {
-    if (webProgress.isTopLevel &&
-        (flags & Ci.nsIWebProgressListener.STATE_STOP) &&
-        this.isSanityTest(req.name)) {
-
+    if (
+      webProgress.isTopLevel &&
+      flags & Ci.nsIWebProgressListener.STATE_STOP &&
+      this.isSanityTest(req.name)
+    ) {
       webProgress.removeProgressListener(this);
 
       // If no paint is pending, then the test already painted
@@ -56,9 +66,9 @@ const gfxFrameScript = {
 
   // Needed to support web progress listener
   QueryInterface: ChromeUtils.generateQI([
-    Ci.nsIWebProgressListener,
-    Ci.nsISupportsWeakReference,
-    Ci.nsIObserver,
+    "nsIWebProgressListener",
+    "nsISupportsWeakReference",
+    "nsIObserver",
   ]),
 };
 

@@ -1,9 +1,6 @@
-// |reftest| skip-if(!xulRuntime.shell) -- needs clone, cloneAndExecuteScript, drainJobQueue
+// |reftest| skip-if(!xulRuntime.shell) -- needs cloneAndExecuteScript, drainJobQueue
 
-// Async function cannot be cloned.
-assertThrowsInstanceOf(() => clone(async function f() {}), TypeError);
-
-// unwrapped async function can be cloned.
+// Async function source code scripts can be cloned.
 let g = newGlobal();
 cloneAndExecuteScript(`
 async function f() {

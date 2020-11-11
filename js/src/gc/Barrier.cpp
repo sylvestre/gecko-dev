@@ -6,12 +6,14 @@
 
 #include "gc/Barrier.h"
 
-#include "builtin/TypedObject.h"
 #include "gc/Policy.h"
-#include "gc/Zone.h"
+#include "jit/Ion.h"
 #include "js/HashTable.h"
+#include "js/shadow/Zone.h"  // JS::shadow::Zone
 #include "js/Value.h"
+#include "vm/BigIntType.h"  // JS::BigInt
 #include "vm/EnvironmentObject.h"
+#include "vm/GeneratorObject.h"
 #include "vm/JSObject.h"
 #include "vm/Realm.h"
 #include "vm/SharedArrayObject.h"
@@ -43,7 +45,7 @@ bool HeapSlot::preconditionForSet(NativeObject* owner, Kind kind,
   return &owner->getDenseElement(slot - numShifted) == (const Value*)this;
 }
 
-void HeapSlot::assertPreconditionForWriteBarrierPost(
+void HeapSlot::assertPreconditionForPostWriteBarrier(
     NativeObject* obj, Kind kind, uint32_t slot, const Value& target) const {
   if (kind == Slot) {
     MOZ_ASSERT(obj->getSlotAddressUnchecked(slot)->get() == target);
@@ -58,16 +60,34 @@ void HeapSlot::assertPreconditionForWriteBarrierPost(
   AssertTargetIsNotGray(obj);
 }
 
-bool CurrentThreadIsIonCompiling() { return TlsContext.get()->ionCompiling; }
-
-bool CurrentThreadIsIonCompilingSafeForMinorGC() {
-  return TlsContext.get()->ionCompilingSafeForMinorGC;
+bool CurrentThreadIsIonCompiling() {
+  jit::JitContext* jcx = jit::MaybeGetJitContext();
+  return jcx && jcx->inIonBackend();
 }
 
-bool CurrentThreadIsGCSweeping() { return TlsContext.get()->gcSweeping; }
+bool CurrentThreadIsIonCompilingSafeForMinorGC() {
+  jit::JitContext* jcx = jit::MaybeGetJitContext();
+  return jcx && jcx->inIonBackendSafeForMinorGC();
+}
+
+bool CurrentThreadIsGCMarking() {
+  JSContext* cx = MaybeGetJSContext();
+  return cx && cx->gcUse == JSContext::GCUse::Marking;
+}
+
+bool CurrentThreadIsGCSweeping() {
+  JSContext* cx = MaybeGetJSContext();
+  return cx && cx->gcUse == JSContext::GCUse::Sweeping;
+}
+
+bool CurrentThreadIsGCFinalizing() {
+  JSContext* cx = MaybeGetJSContext();
+  return cx && cx->gcUse == JSContext::GCUse::Finalizing;
+}
 
 bool CurrentThreadIsTouchingGrayThings() {
-  return TlsContext.get()->isTouchingGrayThings;
+  JSContext* cx = MaybeGetJSContext();
+  return cx && cx->isTouchingGrayThings;
 }
 
 AutoTouchingGrayThings::AutoTouchingGrayThings() {
@@ -82,34 +102,103 @@ AutoTouchingGrayThings::~AutoTouchingGrayThings() {
 
 #endif  // DEBUG
 
-template <typename S>
-template <typename T>
-void ReadBarrierFunctor<S>::operator()(T* t) {
-  InternalBarrierMethods<T*>::readBarrier(t);
+// Tagged pointer barriers
+//
+// It's tempting to use ApplyGCThingTyped to dispatch to the typed barrier
+// functions (e.g. gc::ReadBarrier(JSObject*)) but this does not compile well
+// (clang generates 1580 bytes on x64 versus 296 bytes for this implementation
+// of ValueReadBarrier).
+//
+// Instead, check known special cases and call the generic barrier functions.
+
+static MOZ_ALWAYS_INLINE bool ValueIsPermanent(const Value& value) {
+  gc::Cell* cell = value.toGCThing();
+
+  if (value.isString()) {
+    return cell->as<JSString>()->isPermanentAndMayBeShared();
+  }
+
+  if (value.isSymbol()) {
+    return cell->as<JS::Symbol>()->isPermanentAndMayBeShared();
+  }
+
+#ifdef DEBUG
+  // Using mozilla::DebugOnly here still generated code in opt builds.
+  bool isPermanent = MapGCThingTyped(value, [](auto t) {
+                       return t->isPermanentAndMayBeShared();
+                     }).value();
+  MOZ_ASSERT(!isPermanent);
+#endif
+
+  return false;
 }
 
-// All GC things may be held in a Value, either publicly or as a private GC
-// thing.
-#define JS_EXPAND_DEF(name, type, _) \
-  template void ReadBarrierFunctor<JS::Value>::operator()<type>(type*);
-JS_FOR_EACH_TRACEKIND(JS_EXPAND_DEF);
-#undef JS_EXPAND_DEF
+void gc::ValueReadBarrier(const Value& v) {
+  MOZ_ASSERT(v.isGCThing());
 
-template <typename S>
-template <typename T>
-void PreBarrierFunctor<S>::operator()(T* t) {
-  InternalBarrierMethods<T*>::preBarrier(t);
+  if (!ValueIsPermanent(v)) {
+    ReadBarrierImpl(v.toGCThing());
+  }
 }
 
-// All GC things may be held in a Value, either publicly or as a private GC
-// thing.
-#define JS_EXPAND_DEF(name, type, _) \
-  template void PreBarrierFunctor<JS::Value>::operator()<type>(type*);
-JS_FOR_EACH_TRACEKIND(JS_EXPAND_DEF);
-#undef JS_EXPAND_DEF
+void gc::ValuePreWriteBarrier(const Value& v) {
+  MOZ_ASSERT(v.isGCThing());
 
-template void PreBarrierFunctor<jsid>::operator()<JS::Symbol>(JS::Symbol*);
-template void PreBarrierFunctor<jsid>::operator()<JSString>(JSString*);
+  if (!ValueIsPermanent(v)) {
+    PreWriteBarrierImpl(v.toGCThing());
+  }
+}
+
+static MOZ_ALWAYS_INLINE bool IdIsPermanent(jsid id) {
+  gc::Cell* cell = id.toGCThing();
+
+  if (id.isString()) {
+    return cell->as<JSString>()->isPermanentAndMayBeShared();
+  }
+
+  if (id.isSymbol()) {
+    return cell->as<JS::Symbol>()->isPermanentAndMayBeShared();
+  }
+
+#ifdef DEBUG
+  bool isPermanent = MapGCThingTyped(id, [](auto t) {
+                       return t->isPermanentAndMayBeShared();
+                     }).value();
+  MOZ_ASSERT(!isPermanent);
+#endif
+
+  return false;
+}
+
+void gc::IdPreWriteBarrier(jsid id) {
+  MOZ_ASSERT(id.isGCThing());
+
+  if (!IdIsPermanent(id)) {
+    PreWriteBarrierImpl(&id.toGCThing()->asTenured());
+  }
+}
+
+static MOZ_ALWAYS_INLINE bool CellPtrIsPermanent(JS::GCCellPtr thing) {
+  if (thing.mayBeOwnedByOtherRuntime()) {
+    return true;
+  }
+
+#ifdef DEBUG
+  bool isPermanent = MapGCThingTyped(
+      thing, [](auto t) { return t->isPermanentAndMayBeShared(); });
+  MOZ_ASSERT(!isPermanent);
+#endif
+
+  return false;
+}
+
+void gc::CellPtrPreWriteBarrier(JS::GCCellPtr thing) {
+  MOZ_ASSERT(thing);
+
+  if (!CellPtrIsPermanent(thing)) {
+    PreWriteBarrierImpl(thing.asCell());
+  }
+}
 
 template <typename T>
 /* static */ bool MovableCellHasher<T>::hasHash(const Lookup& l) {
@@ -187,40 +276,87 @@ template <typename T>
   return keyId == zone->getUniqueIdInfallible(l);
 }
 
-#ifdef JS_BROKEN_GCC_ATTRIBUTE_WARNING
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wattributes"
-#endif  // JS_BROKEN_GCC_ATTRIBUTE_WARNING
-
+#if !MOZ_IS_GCC
 template struct JS_PUBLIC_API MovableCellHasher<JSObject*>;
-template struct JS_PUBLIC_API MovableCellHasher<GlobalObject*>;
-template struct JS_PUBLIC_API MovableCellHasher<SavedFrame*>;
-template struct JS_PUBLIC_API MovableCellHasher<EnvironmentObject*>;
-template struct JS_PUBLIC_API MovableCellHasher<WasmInstanceObject*>;
-template struct JS_PUBLIC_API MovableCellHasher<JSScript*>;
-template struct JS_PUBLIC_API MovableCellHasher<LazyScript*>;
+#endif
 
-#ifdef JS_BROKEN_GCC_ATTRIBUTE_WARNING
-#pragma GCC diagnostic pop
-#endif  // JS_BROKEN_GCC_ATTRIBUTE_WARNING
+template struct JS_PUBLIC_API MovableCellHasher<AbstractGeneratorObject*>;
+template struct JS_PUBLIC_API MovableCellHasher<EnvironmentObject*>;
+template struct JS_PUBLIC_API MovableCellHasher<GlobalObject*>;
+template struct JS_PUBLIC_API MovableCellHasher<JSScript*>;
+template struct JS_PUBLIC_API MovableCellHasher<BaseScript*>;
+template struct JS_PUBLIC_API MovableCellHasher<ScriptSourceObject*>;
+template struct JS_PUBLIC_API MovableCellHasher<SavedFrame*>;
+template struct JS_PUBLIC_API MovableCellHasher<WasmInstanceObject*>;
 
 }  // namespace js
 
-JS_PUBLIC_API void JS::HeapObjectPostBarrier(JSObject** objp, JSObject* prev,
-                                             JSObject* next) {
+// Post-write barrier, used by the C++ Heap<T> implementation.
+
+JS_PUBLIC_API void JS::HeapObjectPostWriteBarrier(JSObject** objp,
+                                                  JSObject* prev,
+                                                  JSObject* next) {
   MOZ_ASSERT(objp);
   js::InternalBarrierMethods<JSObject*>::postBarrier(objp, prev, next);
 }
 
-JS_PUBLIC_API void JS::HeapStringPostBarrier(JSString** strp, JSString* prev,
-                                             JSString* next) {
+JS_PUBLIC_API void JS::HeapStringPostWriteBarrier(JSString** strp,
+                                                  JSString* prev,
+                                                  JSString* next) {
   MOZ_ASSERT(strp);
   js::InternalBarrierMethods<JSString*>::postBarrier(strp, prev, next);
 }
 
-JS_PUBLIC_API void JS::HeapValuePostBarrier(JS::Value* valuep,
-                                            const Value& prev,
-                                            const Value& next) {
+JS_PUBLIC_API void JS::HeapBigIntPostWriteBarrier(JS::BigInt** bip,
+                                                  JS::BigInt* prev,
+                                                  JS::BigInt* next) {
+  MOZ_ASSERT(bip);
+  js::InternalBarrierMethods<JS::BigInt*>::postBarrier(bip, prev, next);
+}
+
+JS_PUBLIC_API void JS::HeapValuePostWriteBarrier(JS::Value* valuep,
+                                                 const Value& prev,
+                                                 const Value& next) {
   MOZ_ASSERT(valuep);
+  js::InternalBarrierMethods<JS::Value>::postBarrier(valuep, prev, next);
+}
+
+// Combined pre- and post-write barriers, used by the rust Heap<T>
+// implementation.
+
+JS_PUBLIC_API void JS::HeapObjectWriteBarriers(JSObject** objp, JSObject* prev,
+                                               JSObject* next) {
+  MOZ_ASSERT(objp);
+  js::InternalBarrierMethods<JSObject*>::preBarrier(prev);
+  js::InternalBarrierMethods<JSObject*>::postBarrier(objp, prev, next);
+}
+
+JS_PUBLIC_API void JS::HeapStringWriteBarriers(JSString** strp, JSString* prev,
+                                               JSString* next) {
+  MOZ_ASSERT(strp);
+  js::InternalBarrierMethods<JSString*>::preBarrier(prev);
+  js::InternalBarrierMethods<JSString*>::postBarrier(strp, prev, next);
+}
+
+JS_PUBLIC_API void JS::HeapBigIntWriteBarriers(JS::BigInt** bip,
+                                               JS::BigInt* prev,
+                                               JS::BigInt* next) {
+  MOZ_ASSERT(bip);
+  js::InternalBarrierMethods<JS::BigInt*>::preBarrier(prev);
+  js::InternalBarrierMethods<JS::BigInt*>::postBarrier(bip, prev, next);
+}
+
+JS_PUBLIC_API void JS::HeapScriptWriteBarriers(JSScript** scriptp,
+                                               JSScript* prev, JSScript* next) {
+  MOZ_ASSERT(scriptp);
+  js::InternalBarrierMethods<JSScript*>::preBarrier(prev);
+  js::InternalBarrierMethods<JSScript*>::postBarrier(scriptp, prev, next);
+}
+
+JS_PUBLIC_API void JS::HeapValueWriteBarriers(JS::Value* valuep,
+                                              const Value& prev,
+                                              const Value& next) {
+  MOZ_ASSERT(valuep);
+  js::InternalBarrierMethods<JS::Value>::preBarrier(prev);
   js::InternalBarrierMethods<JS::Value>::postBarrier(valuep, prev, next);
 }

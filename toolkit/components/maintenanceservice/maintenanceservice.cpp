@@ -29,9 +29,9 @@ bool gServiceControlStopping = false;
 // logs are pretty small, about 20 lines, so 10 seems reasonable.
 #define LOGS_TO_KEEP 10
 
-BOOL GetLogDirectoryPath(WCHAR *path);
+BOOL GetLogDirectoryPath(WCHAR* path);
 
-int wmain(int argc, WCHAR **argv) {
+int wmain(int argc, WCHAR** argv) {
   // If command-line parameter is "install", install the service
   // or upgrade if already installed
   // If command line parameter is "forceinstall", install the service
@@ -42,9 +42,10 @@ int wmain(int argc, WCHAR **argv) {
   // Otherwise, the service is probably being started by the SCM.
   bool forceInstall = !lstrcmpi(argv[1], L"forceinstall");
   if (!lstrcmpi(argv[1], L"install") || forceInstall) {
-    WCHAR updatePath[MAX_PATH + 1];
-    if (GetLogDirectoryPath(updatePath)) {
-      LogInit(updatePath, L"maintenanceservice-install.log");
+    WCHAR logFilePath[MAX_PATH + 1];
+    if (GetLogDirectoryPath(logFilePath) &&
+        PathAppendSafe(logFilePath, L"maintenanceservice-install.log")) {
+      LogInit(logFilePath);
     }
 
     SvcInstallAction action = InstallSvc;
@@ -68,9 +69,10 @@ int wmain(int argc, WCHAR **argv) {
   }
 
   if (!lstrcmpi(argv[1], L"upgrade")) {
-    WCHAR updatePath[MAX_PATH + 1];
-    if (GetLogDirectoryPath(updatePath)) {
-      LogInit(updatePath, L"maintenanceservice-install.log");
+    WCHAR logFilePath[MAX_PATH + 1];
+    if (GetLogDirectoryPath(logFilePath) &&
+        PathAppendSafe(logFilePath, L"maintenanceservice-install.log")) {
+      LogInit(logFilePath);
     }
 
     LOG(("Upgrading service if installed..."));
@@ -86,9 +88,10 @@ int wmain(int argc, WCHAR **argv) {
   }
 
   if (!lstrcmpi(argv[1], L"uninstall")) {
-    WCHAR updatePath[MAX_PATH + 1];
-    if (GetLogDirectoryPath(updatePath)) {
-      LogInit(updatePath, L"maintenanceservice-uninstall.log");
+    WCHAR logFilePath[MAX_PATH + 1];
+    if (GetLogDirectoryPath(logFilePath) &&
+        PathAppendSafe(logFilePath, L"maintenanceservice-uninstall.log")) {
+      LogInit(logFilePath);
     }
     LOG(("Uninstalling service..."));
     if (!SvcUninstall()) {
@@ -125,7 +128,7 @@ int wmain(int argc, WCHAR **argv) {
  * @param  path The out buffer for the backup log path of size MAX_PATH + 1
  * @return TRUE if successful.
  */
-BOOL GetLogDirectoryPath(WCHAR *path) {
+BOOL GetLogDirectoryPath(WCHAR* path) {
   if (!GetModuleFileNameW(nullptr, path, MAX_PATH)) {
     return FALSE;
   }
@@ -224,12 +227,14 @@ void StartTerminationThread() {
 /**
  * Main entry point when running as a service.
  */
-void WINAPI SvcMain(DWORD argc, LPWSTR *argv) {
+void WINAPI SvcMain(DWORD argc, LPWSTR* argv) {
   // Setup logging, and backup the old logs
-  WCHAR updatePath[MAX_PATH + 1];
-  if (GetLogDirectoryPath(updatePath)) {
-    BackupOldLogs(updatePath, LOGS_TO_KEEP);
-    LogInit(updatePath, L"maintenanceservice.log");
+  WCHAR logFilePath[MAX_PATH + 1];
+  if (GetLogDirectoryPath(logFilePath)) {
+    BackupOldLogs(logFilePath, LOGS_TO_KEEP);
+    if (PathAppendSafe(logFilePath, L"maintenanceservice.log")) {
+      LogInit(logFilePath);
+    }
   }
 
   // Disable every privilege we don't need. Processes started using

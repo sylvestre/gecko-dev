@@ -8,13 +8,13 @@
 
 #include "mozilla/dom/ContentChild.h"
 #include "mozilla/dom/PermissionsBinding.h"
+#include "mozilla/dom/PermissionStatus.h"
 #include "mozilla/dom/Promise.h"
 #include "mozilla/Services.h"
 #include "nsIPermissionManager.h"
 #include "PermissionUtils.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(Permissions)
   NS_WRAPPERCACHE_INTERFACE_MAP_ENTRY
@@ -28,7 +28,7 @@ NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(Permissions, mWindow)
 
 Permissions::Permissions(nsPIDOMWindowInner* aWindow) : mWindow(aWindow) {}
 
-Permissions::~Permissions() {}
+Permissions::~Permissions() = default;
 
 JSObject* Permissions::WrapObject(JSContext* aCx,
                                   JS::Handle<JSObject*> aGivenProto) {
@@ -88,8 +88,9 @@ already_AddRefed<Promise> Permissions::Query(JSContext* aCx,
   return promise.forget();
 }
 
-/* static */ nsresult Permissions::RemovePermission(
-    nsIPrincipal* aPrincipal, const char* aPermissionType) {
+/* static */
+nsresult Permissions::RemovePermission(nsIPrincipal* aPrincipal,
+                                       const nsACString& aPermissionType) {
   MOZ_ASSERT(XRE_IsParentProcess());
 
   nsCOMPtr<nsIPermissionManager> permMgr = services::GetPermissionManager();
@@ -120,7 +121,7 @@ already_AddRefed<Promise> Permissions::Revoke(JSContext* aCx,
     return nullptr;
   }
 
-  nsCOMPtr<nsIDocument> document = mWindow->GetExtantDoc();
+  nsCOMPtr<Document> document = mWindow->GetExtantDoc();
   if (!document) {
     promise->MaybeReject(NS_ERROR_UNEXPECTED);
     return promise.forget();
@@ -132,7 +133,8 @@ already_AddRefed<Promise> Permissions::Revoke(JSContext* aCx,
     return promise.forget();
   }
 
-  const char* permissionType = PermissionNameToType(permission.mName);
+  const nsLiteralCString& permissionType =
+      PermissionNameToType(permission.mName);
 
   nsresult rv;
   if (XRE_IsParentProcess()) {
@@ -142,8 +144,7 @@ already_AddRefed<Promise> Permissions::Revoke(JSContext* aCx,
     // to the parent; `ContentParent::RecvRemovePermission` will call
     // `RemovePermission`.
     ContentChild::GetSingleton()->SendRemovePermission(
-        IPC::Principal(document->NodePrincipal()),
-        nsDependentCString(permissionType), &rv);
+        IPC::Principal(document->NodePrincipal()), permissionType, &rv);
   }
 
   if (NS_WARN_IF(NS_FAILED(rv))) {
@@ -163,5 +164,4 @@ already_AddRefed<Promise> Permissions::Revoke(JSContext* aCx,
   return promise.forget();
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

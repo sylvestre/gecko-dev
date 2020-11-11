@@ -9,17 +9,16 @@
 #include "PluginQuirks.h"
 
 #if defined(XP_WIN)
-#include <commdlg.h>
-#include <schannel.h>
-#include <sddl.h>
+#  include <commdlg.h>
+#  include <schannel.h>
+#  include <sddl.h>
 #endif  // defined(XP_WIN)
 
 using namespace mozilla;
 using namespace mozilla::ipc;
 using namespace mozilla::plugins;
 
-namespace mozilla {
-namespace plugins {
+namespace mozilla::plugins {
 
 template <int QuirkFlag>
 static bool CheckQuirks(int aQuirks) {
@@ -233,7 +232,7 @@ typedef FileDlgFunctionBroker<ID_GetSaveFileNameW, decltype(GetSaveFileNameW)>
 // Remember files granted access in the chrome process
 static void GrantFileAccess(base::ProcessId aClientId, LPOPENFILENAME& aLpofn,
                             bool isSave) {
-#if defined(MOZ_SANDBOX)
+#  if defined(MOZ_SANDBOX)
   if (aLpofn->Flags & OFN_ALLOWMULTISELECT) {
     // We only support multiselect with the OFN_EXPLORER flag.
     // This guarantees that ofn.lpstrFile follows the pattern below.
@@ -266,16 +265,16 @@ static void GrantFileAccess(base::ProcessId aClientId, LPOPENFILENAME& aLpofn,
     FunctionBrokerParent::GetSandboxPermissions()->GrantFileAccess(
         aClientId, aLpofn->lpstrFile, isSave);
   }
-#else
+#  else
   MOZ_ASSERT_UNREACHABLE(
       "GetFileName IPC message is only available on "
       "Windows builds with sandbox.");
-#endif
+#  endif
 }
 
 template <>
 template <>
-BOOL GetSaveFileNameWFB::RunFunction(
+BROKER_DISABLE_CFGUARD BOOL GetSaveFileNameWFB::RunFunction(
     GetSaveFileNameWFB::FunctionType* aOrigFunction, base::ProcessId aClientId,
     LPOPENFILENAMEW& aLpofn) const {
   BOOL result = aOrigFunction(aLpofn);
@@ -299,7 +298,7 @@ typedef FileDlgFunctionBroker<ID_GetOpenFileNameW, decltype(GetOpenFileNameW)>
 
 template <>
 template <>
-BOOL GetOpenFileNameWFB::RunFunction(
+BROKER_DISABLE_CFGUARD BOOL GetOpenFileNameWFB::RunFunction(
     GetOpenFileNameWFB::FunctionType* aOrigFunction, base::ProcessId aClientId,
     LPOPENFILENAMEW& aLpofn) const {
   BOOL result = aOrigFunction(aLpofn);
@@ -638,7 +637,7 @@ ShouldHookFunc* const HttpOpenRequestAFB::BaseType::mShouldHook =
 
 typedef HttpOpenRequestAFB::Request HORAReqHandler;
 typedef HttpOpenRequestAFB::RequestDelegate<HINTERNET HOOK_CALL(
-    HINTERNET, LPCSTR, LPCSTR, LPCSTR, LPCSTR, nsTArray<nsCString>, DWORD,
+    HINTERNET, LPCSTR, LPCSTR, LPCSTR, LPCSTR, CopyableTArray<nsCString>, DWORD,
     DWORD_PTR)>
     HORADelegateReqHandler;
 
@@ -648,7 +647,7 @@ void HORAReqHandler::Marshal(IpdlTuple& aTuple, const HINTERNET& h,
                              const LPCSTR& ver, const LPCSTR& ref,
                              LPCSTR* const& acceptTypes, const DWORD& flags,
                              const DWORD_PTR& cxt) {
-  nsTArray<nsCString> arrayAcceptTypes;
+  CopyableTArray<nsCString> arrayAcceptTypes;
   LPCSTR* curAcceptType = acceptTypes;
   if (curAcceptType) {
     while (*curAcceptType) {
@@ -656,6 +655,7 @@ void HORAReqHandler::Marshal(IpdlTuple& aTuple, const HINTERNET& h,
       ++curAcceptType;
     }
   }
+  // XXX Could we move arrayAcceptTypes here?
   HORADelegateReqHandler::Marshal(aTuple, h, verb, obj, ver, ref,
                                   arrayAcceptTypes, flags, cxt);
 }
@@ -665,7 +665,7 @@ bool HORAReqHandler::Unmarshal(ServerCallData& aScd, const IpdlTuple& aTuple,
                                HINTERNET& h, LPCSTR& verb, LPCSTR& obj,
                                LPCSTR& ver, LPCSTR& ref, LPCSTR*& acceptTypes,
                                DWORD& flags, DWORD_PTR& cxt) {
-  nsTArray<nsCString> arrayAcceptTypes;
+  CopyableTArray<nsCString> arrayAcceptTypes;
   if (!HORADelegateReqHandler::Unmarshal(aScd, aTuple, h, verb, obj, ver, ref,
                                          arrayAcceptTypes, flags, cxt)) {
     return false;
@@ -1331,10 +1331,9 @@ struct CMWReqInfo::ShouldMarshal<2> {
 
 template <>
 template <>
-HANDLE CreateMutexWFB::RunFunction(CreateMutexWFB::FunctionType* aOrigFunction,
-                                   base::ProcessId aClientId,
-                                   LPSECURITY_ATTRIBUTES& aAttribs,
-                                   BOOL& aOwner, LPCWSTR& aName) const {
+BROKER_DISABLE_CFGUARD HANDLE CreateMutexWFB::RunFunction(
+    CreateMutexWFB::FunctionType* aOrigFunction, base::ProcessId aClientId,
+    LPSECURITY_ATTRIBUTES& aAttribs, BOOL& aOwner, LPCWSTR& aName) const {
   // Use CreateMutexW to get the camera mutex and DuplicateHandle to open it
   // for use in the child process.
   // Recall that aAttribs, aOwner and aName are all unmarshaled so they are
@@ -1427,5 +1426,4 @@ void AddBrokeredFunctionHooks(FunctionHookArray& aHooks) {
 
 #undef FUN_HOOK
 
-}  // namespace plugins
-}  // namespace mozilla
+}  // namespace mozilla::plugins

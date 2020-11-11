@@ -15,17 +15,12 @@ if CONFIG['CPU_ARCH'] == 'x86_64':
     SOURCES += files['X64_SOURCES']
     USE_YASM = True
     if CONFIG['OS_TARGET'] == 'WINNT':
-        if CONFIG['CC_TYPE'] == 'gcc':
-            ASFLAGS += [ '-I%s/media/libaom/config/win/mingw64/' % TOPSRCDIR ]
-            LOCAL_INCLUDES += [ '/media/libaom/config/win/mingw64/' ]
-            EXPORTS.aom += [ 'config/win/mingw64/config/aom_config.h' ]
-        else:
-            ASFLAGS += [ '-I%s/media/libaom/config/win/x64/' % TOPSRCDIR ]
-            LOCAL_INCLUDES += [ '/media/libaom/config/win/x64/' ]
-            EXPORTS.aom += [ 'config/win/x64/config/aom_config.h' ]
-            # This code is not included in our PGO profile, and pointlessly
-            # PGO-optimizing it slows down our builds a lot.
-            NO_PGO = True
+        ASFLAGS += [ '-I%s/media/libaom/config/win/x64/' % TOPSRCDIR ]
+        LOCAL_INCLUDES += [ '/media/libaom/config/win/x64/' ]
+        EXPORTS.aom += [ 'config/win/x64/config/aom_config.h' ]
+        # This code is not included in our PGO profile, and pointlessly
+        # PGO-optimizing it slows down our builds a lot.
+        NO_PGO = True
     elif CONFIG['OS_TARGET'] == 'Darwin':
         ASFLAGS += [ '-I%s/media/libaom/config/mac/x64/' % TOPSRCDIR ]
         LOCAL_INCLUDES += [ '/media/libaom/config/mac/x64/' ]
@@ -39,15 +34,10 @@ elif CONFIG['CPU_ARCH'] == 'x86':
     SOURCES += files['IA32_SOURCES']
     USE_YASM = True
     if CONFIG['OS_TARGET'] == 'WINNT':
-        if CONFIG['CC_TYPE'] == 'gcc':
-            ASFLAGS += [ '-I%s/media/libaom/config/win/mingw32/' % TOPSRCDIR ]
-            LOCAL_INCLUDES += [ '/media/libaom/config/win/mingw32/' ]
-            EXPORTS.aom += [ 'config/win/mingw32/config/aom_config.h' ]
-        else:
-            ASFLAGS += [ '-I%s/media/libaom/config/win/ia32/' % TOPSRCDIR ]
-            LOCAL_INCLUDES += [ '/media/libaom/config/win/ia32/' ]
-            EXPORTS.aom += [ 'config/win/ia32/config/aom_config.h' ]
-            NO_PGO = True # Compiler OOMs, bug 1445922
+        ASFLAGS += [ '-I%s/media/libaom/config/win/ia32/' % TOPSRCDIR ]
+        LOCAL_INCLUDES += [ '/media/libaom/config/win/ia32/' ]
+        EXPORTS.aom += [ 'config/win/ia32/config/aom_config.h' ]
+        NO_PGO = True # Compiler OOMs, bug 1445922
     else: # Android, Linux, BSDs, etc.
         ASFLAGS += [ '-I%s/media/libaom/config/linux/ia32/' % TOPSRCDIR ]
         LOCAL_INCLUDES += [ '/media/libaom/config/linux/ia32/' ]
@@ -61,14 +51,7 @@ elif CONFIG['CPU_ARCH'] == 'arm':
     LOCAL_INCLUDES += [ '/media/libaom/config/linux/arm/' ]
     EXPORTS.aom += [ 'config/linux/arm/config/aom_config.h' ]
 
-    arm_asm_files = files['ARM_SOURCES']
-
-    if CONFIG['VPX_AS_CONVERSION']:
-        SOURCES += sorted([
-            "!%s.S" % f if f.endswith('.asm') else f for f in arm_asm_files
-        ])
-    else:
-        SOURCES += sorted(arm_asm_files)
+    SOURCES += files['ARM_SOURCES']
 
     for f in SOURCES:
         if f.endswith('neon.c'):
@@ -101,39 +84,25 @@ if CONFIG['OS_TARGET'] == 'Android':
     # the OS they're on, so do it for them.
     DEFINES['__linux__'] = True
 
-    if not CONFIG['MOZ_WEBRTC']:
-        SOURCES += [
-            '%%%s/sources/android/cpufeatures/cpu-features.c' % CONFIG['ANDROID_NDK'],
-        ]
-
-if CONFIG['CC_TYPE'] != 'msvc':
-    for f in SOURCES:
-        if f.endswith('sse2.c'):
-            SOURCES[f].flags += CONFIG['SSE2_FLAGS']
-        elif f.endswith('ssse3.c'):
-            SOURCES[f].flags += ['-mssse3']
-        elif f.endswith('sse4.c'):
-            SOURCES[f].flags += ['-msse4.1']
-        elif f.endswith('sse42.c'):
-            SOURCES[f].flags += ['-msse4.2']
-        elif f.endswith('avx.c'):
-            SOURCES[f].flags += ['-mavx']
-        elif f.endswith('avx2.c'):
-            SOURCES[f].flags += ['-mavx2']
-
-if CONFIG['CC_TYPE'] == 'msvc' and CONFIG['INTEL_ARCHITECTURE']:
-    for f in SOURCES:
-        if f.endswith('avx.c'):
-            SOURCES[f].flags += ['-arch:AVX']
-        if f.endswith('avx2.c'):
-            SOURCES[f].flags += ['-arch:AVX2']
+for f in SOURCES:
+    if f.endswith('sse2.c'):
+        SOURCES[f].flags += CONFIG['SSE2_FLAGS']
+    elif f.endswith('ssse3.c'):
+        SOURCES[f].flags += ['-mssse3']
+    elif f.endswith('sse4.c'):
+        SOURCES[f].flags += ['-msse4.1']
+    elif f.endswith('sse42.c'):
+        SOURCES[f].flags += ['-msse4.2']
+    elif f.endswith('avx.c'):
+        SOURCES[f].flags += ['-mavx']
+    elif f.endswith('avx2.c'):
+        SOURCES[f].flags += ['-mavx2']
 
 # Suppress warnings in third-party code.
-if CONFIG['CC_TYPE'] in ('clang', 'clang-cl', 'gcc'):
-    CFLAGS += [
-        '-Wno-sign-compare',
-        '-Wno-unused-function', # so many of these warnings; just ignore them
-    ]
+CFLAGS += [
+    '-Wno-sign-compare',
+    '-Wno-unused-function', # so many of these warnings; just ignore them
+]
 if CONFIG['CC_TYPE'] in ('clang', 'clang-cl'):
     CFLAGS += [
         '-Wno-unreachable-code',

@@ -13,13 +13,6 @@
 #include "nsStringFwd.h"
 #include "mozilla/Attributes.h"
 
-#define NS_WEBNAVIGATION_INFO_CID                    \
-  {                                                  \
-    0xf30bc0a2, 0x958b, 0x4287, {                    \
-      0xbf, 0x62, 0xce, 0x38, 0xba, 0x0c, 0x81, 0x1e \
-    }                                                \
-  }
-
 class nsWebNavigationInfo final : public nsIWebNavigationInfo {
  public:
   nsWebNavigationInfo() {}
@@ -28,17 +21,17 @@ class nsWebNavigationInfo final : public nsIWebNavigationInfo {
 
   NS_DECL_NSIWEBNAVIGATIONINFO
 
-  nsresult Init();
+  static uint32_t IsTypeSupported(const nsACString& aType,
+                                  nsIWebNavigation* aWebNav);
+  static uint32_t IsTypeSupported(const nsACString& aType,
+                                  bool aPluginsAllowed);
 
  private:
   ~nsWebNavigationInfo() {}
 
-  // Check whether aType is supported.  If this method throws, the
-  // value of aIsSupported is not changed.
-  nsresult IsTypeSupportedInternal(const nsCString& aType,
-                                   uint32_t* aIsSupported);
-
-  nsCOMPtr<nsICategoryManager> mCategoryManager;
+  // Check whether aType is supported, and returns an nsIWebNavigationInfo
+  // constant.
+  static uint32_t IsTypeSupportedInternal(const nsCString& aType);
 };
 
 #endif  // nsWebNavigationInfo_h__

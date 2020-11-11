@@ -6,7 +6,8 @@
 
 #include "ContentProcessController.h"
 
-#include "mozilla/dom/TabChild.h"
+#include "mozilla/PresShell.h"
+#include "mozilla/dom/BrowserChild.h"
 #include "mozilla/layers/APZCCallbackHelper.h"
 #include "mozilla/layers/APZChild.h"
 #include "nsIContentInlines.h"
@@ -17,9 +18,15 @@ namespace mozilla {
 namespace layers {
 
 ContentProcessController::ContentProcessController(
-    const RefPtr<dom::TabChild>& aBrowser)
+    const RefPtr<dom::BrowserChild>& aBrowser)
     : mBrowser(aBrowser) {
   MOZ_ASSERT(mBrowser);
+}
+
+void ContentProcessController::NotifyLayerTransforms(
+    nsTArray<MatrixMessage>&& aTransforms) {
+  // This should never get called
+  MOZ_ASSERT(false);
 }
 
 void ContentProcessController::RequestContentRepaint(
@@ -40,7 +47,8 @@ void ContentProcessController::HandleTap(TapType aType,
 
 void ContentProcessController::NotifyPinchGesture(
     PinchGestureInput::PinchGestureType aType, const ScrollableLayerGuid& aGuid,
-    LayoutDeviceCoord aSpanChange, Modifiers aModifiers) {
+    const LayoutDevicePoint& aFocusPoint, LayoutDeviceCoord aSpanChange,
+    Modifiers aModifiers) {
   // This should never get called
   MOZ_ASSERT_UNREACHABLE("Unexpected message to content process");
 }
@@ -61,11 +69,8 @@ void ContentProcessController::NotifyMozMouseScrollEvent(
 
 void ContentProcessController::NotifyFlushComplete() {
   if (mBrowser) {
-    nsCOMPtr<nsIPresShell> shell;
-    if (nsCOMPtr<nsIDocument> doc = mBrowser->GetDocument()) {
-      shell = doc->GetShell();
-    }
-    APZCCallbackHelper::NotifyFlushComplete(shell.get());
+    RefPtr<PresShell> presShell = mBrowser->GetTopLevelPresShell();
+    APZCCallbackHelper::NotifyFlushComplete(presShell);
   }
 }
 
@@ -90,12 +95,6 @@ void ContentProcessController::CancelAutoscroll(
     const ScrollableLayerGuid& aGuid) {
   // This should never get called
   MOZ_ASSERT_UNREACHABLE("Unexpected message to content process");
-}
-
-void ContentProcessController::PostDelayedTask(
-    already_AddRefed<Runnable> aRunnable, int aDelayMs) {
-  MOZ_ASSERT_UNREACHABLE(
-      "ContentProcessController should only be used remotely.");
 }
 
 bool ContentProcessController::IsRepaintThread() { return NS_IsMainThread(); }

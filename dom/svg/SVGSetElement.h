@@ -4,12 +4,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef mozilla_dom_SVGSetElement_h
-#define mozilla_dom_SVGSetElement_h
+#ifndef DOM_SVG_SVGSETELEMENT_H_
+#define DOM_SVG_SVGSETELEMENT_H_
 
 #include "mozilla/Attributes.h"
 #include "mozilla/dom/SVGAnimationElement.h"
-#include "nsSMILSetAnimationFunction.h"
+#include "mozilla/SMILSetAnimationFunction.h"
 
 nsresult NS_NewSVGSetElement(
     nsIContent** aResult, already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo);
@@ -21,7 +21,7 @@ class SVGSetElement final : public SVGAnimationElement {
  protected:
   explicit SVGSetElement(already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo);
 
-  nsSMILSetAnimationFunction mAnimationFunction;
+  SMILSetAnimationFunction mAnimationFunction;
 
   friend nsresult(::NS_NewSVGSetElement(
       nsIContent** aResult,
@@ -35,10 +35,10 @@ class SVGSetElement final : public SVGAnimationElement {
   virtual nsresult Clone(dom::NodeInfo*, nsINode** aResult) const override;
 
   // SVGAnimationElement
-  virtual nsSMILAnimationFunction& AnimationFunction() override;
+  virtual SMILAnimationFunction& AnimationFunction() override;
 };
 
 }  // namespace dom
 }  // namespace mozilla
 
-#endif  // mozilla_dom_SVGSetElement_h
+#endif  // DOM_SVG_SVGSETELEMENT_H_

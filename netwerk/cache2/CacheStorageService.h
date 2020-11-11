@@ -314,7 +314,7 @@ class CacheStorageService final : public nsICacheStorageService,
   mozilla::Mutex mLock;
   mozilla::Mutex mForcedValidEntriesLock;
 
-  bool mShutdown;
+  Atomic<bool, Relaxed> mShutdown;
 
   // Accessible only on the service thread
   class MemoryPool {
@@ -327,8 +327,8 @@ class CacheStorageService final : public nsICacheStorageService,
     explicit MemoryPool(EType aType);
     ~MemoryPool();
 
-    nsTArray<RefPtr<CacheEntry> > mFrecencyArray;
-    nsTArray<RefPtr<CacheEntry> > mExpirationArray;
+    nsTArray<RefPtr<CacheEntry>> mFrecencyArray;
+    nsTArray<RefPtr<CacheEntry>> mExpirationArray;
     Atomic<uint32_t, Relaxed> mMemorySize;
 
     bool OnMemoryConsumptionChange(uint32_t aSavedMemorySize,
@@ -338,7 +338,7 @@ class CacheStorageService final : public nsICacheStorageService,
      */
     void PurgeOverMemoryLimit();
     void PurgeExpired();
-    void PurgeByFrecency(bool& aFrecencyNeedsSort, uint32_t aWhat);
+    void PurgeByFrecency(uint32_t aWhat);
     void PurgeAll(uint32_t aWhat);
 
    private:
@@ -357,6 +357,13 @@ class CacheStorageService final : public nsICacheStorageService,
   }
 
   nsCOMPtr<nsITimer> mPurgeTimer;
+#ifdef MOZ_TSAN
+  // In OnMemoryConsumptionChange() we check whether the timer exists, but we
+  // cannot grab the lock there (see comment 6 in bug 1614637) and TSan reports
+  // a data race. This data race is harmless, so we use this atomic flag only in
+  // TSan build to suppress it.
+  Atomic<bool, Relaxed> mPurgeTimerActive;
+#endif
 
   class PurgeFromMemoryRunnable : public Runnable {
    public:

@@ -7,6 +7,7 @@
  * https://wicg.github.io/visual-viewport/#the-visualviewport-interface
  */
 
+[Exposed=Window]
 interface VisualViewport : EventTarget {
   readonly attribute double offsetLeft;
   readonly attribute double offsetTop;
@@ -18,4 +19,7 @@ interface VisualViewport : EventTarget {
   readonly attribute double height;
 
   readonly attribute double scale;
+
+  attribute EventHandler onresize;
+  attribute EventHandler onscroll;
 };

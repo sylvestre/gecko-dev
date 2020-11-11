@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <title>Test forms with a JS submit action</title>
-  <script type="text/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
   <script type="text/javascript" src="pwmgr_common.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css" />
 </head>
@@ -13,36 +13,39 @@ Login Manager test: form with JS submit action
 runChecksAfterCommonInit(() => startTest());
 
 runInParent(function setup() {
-  ChromeUtils.import("resource://gre/modules/Services.jsm");
+  const {Services} = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
   let jslogin = Cc["@mozilla.org/login-manager/loginInfo;1"].createInstance(Ci.nsILoginInfo);
   jslogin.init("http://mochi.test:8888", "javascript:", null,
-              "jsuser", "jspass123", "uname", "pword");
+               "jsuser", "jspass123", "uname", "pword");
   Services.logins.addLogin(jslogin);
 });
 
+let DEFAULT_ORIGIN = window.location.origin;
+
 /** Test for Login Manager: JS action URL **/
 
-function startTest() {
-    checkForm(1, "jsuser", "jspass123");
+async function startTest() {
+  let win = window.open("about:blank");
+  SimpleTest.registerCleanupFunction(() => win.close());
+  await loadFormIntoWindow(DEFAULT_ORIGIN, `
+    <form id='form1' action='javascript:alert("never shows")'> 1
+      <input name="uname">
+      <input name="pword" type="password">
 
-    SimpleTest.finish();
+      <button type='submit'>Submit</button>
+      <button type='reset'> Reset </button>
+    </form>`, win);
+
+  await checkLoginFormInFrameWithElementValues(win, 1, "jsuser", "jspass123");
+
+  SimpleTest.finish();
 }
 </script>
 
 <p id="display"></p>
 
 <div id="content" style="display: none">
-
-
-<form id='form1' action='javascript:alert("never shows")'> 1
-    <input name="uname">
-    <input name="pword" type="password">
-
-    <button type='submit'>Submit</button>
-    <button type='reset'> Reset </button>
-</form>
-
 </div>
 
 <pre id="test"></pre>

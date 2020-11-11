@@ -11,20 +11,16 @@
 #include "nsWhitespaceTokenizer.h"
 #include "SVGAnimatedPreserveAspectRatio.h"
 
-using namespace mozilla;
-using namespace dom;
-using namespace SVGPreserveAspectRatio_Binding;
+using namespace mozilla::dom;
+using namespace mozilla::dom::SVGPreserveAspectRatio_Binding;
+
+namespace mozilla {
 
 NS_SVG_VAL_IMPL_CYCLE_COLLECTION_WRAPPERCACHED(DOMSVGPreserveAspectRatio,
                                                mSVGElement)
 
-NS_IMPL_CYCLE_COLLECTING_ADDREF(DOMSVGPreserveAspectRatio)
-NS_IMPL_CYCLE_COLLECTING_RELEASE(DOMSVGPreserveAspectRatio)
-
-NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(DOMSVGPreserveAspectRatio)
-  NS_WRAPPERCACHE_INTERFACE_MAP_ENTRY
-  NS_INTERFACE_MAP_ENTRY(nsISupports)
-NS_INTERFACE_MAP_END
+NS_IMPL_CYCLE_COLLECTION_ROOT_NATIVE(DOMSVGPreserveAspectRatio, AddRef)
+NS_IMPL_CYCLE_COLLECTION_UNROOT_NATIVE(DOMSVGPreserveAspectRatio, Release)
 
 static const char* sAlignStrings[] = {
     "none",     "xMinYMin", "xMidYMin", "xMaxYMin", "xMinYMid",
@@ -52,8 +48,9 @@ static uint16_t GetMeetOrSliceForString(const nsAString& aMeetOrSlice) {
   return SVG_MEETORSLICE_UNKNOWN;
 }
 
-/* static */ nsresult SVGPreserveAspectRatio::FromString(
-    const nsAString& aString, SVGPreserveAspectRatio* aValue) {
+/* static */
+nsresult SVGPreserveAspectRatio::FromString(const nsAString& aString,
+                                            SVGPreserveAspectRatio* aValue) {
   nsWhitespaceTokenizerTemplate<nsContentUtils::IsHTMLWhitespace> tokenizer(
       aString);
   if (tokenizer.whitespaceBeforeFirstToken() || !tokenizer.hasMoreTokens()) {
@@ -147,3 +144,5 @@ void DOMSVGPreserveAspectRatio::SetMeetOrSlice(uint16_t aMeetOrSlice,
   }
   rv = mVal->SetBaseMeetOrSlice(aMeetOrSlice, mSVGElement);
 }
+
+}  // namespace mozilla

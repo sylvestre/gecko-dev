@@ -13,14 +13,11 @@
 #include "States.h"
 
 #include "nsComponentManagerUtils.h"
-#include "nsIAutoCompleteInput.h"
 #include "nsIAutoCompletePopup.h"
 #include "nsIDOMXULMenuListElement.h"
 #include "nsIDOMXULMultSelectCntrlEl.h"
 #include "nsIDOMXULSelectCntrlItemEl.h"
-#include "nsIMutableArray.h"
 #include "nsINodeList.h"
-#include "nsIPersistentProperties2.h"
 
 using namespace mozilla::a11y;
 
@@ -73,7 +70,7 @@ XULListboxAccessible::XULListboxAccessible(nsIContent* aContent,
   nsIContent* parentContent = mContent->GetFlattenedTreeParent();
   if (parentContent) {
     nsCOMPtr<nsIAutoCompletePopup> autoCompletePopupElm =
-        do_QueryInterface(parentContent);
+        parentContent->AsElement()->AsAutoCompletePopup();
     if (autoCompletePopupElm) mGenericTypes |= eAutoCompletePopup;
   }
 
@@ -98,23 +95,6 @@ uint64_t XULListboxAccessible::NativeState() const {
   }
 
   return states;
-}
-
-/**
- * Our value is the label of our ( first ) selected child.
- */
-void XULListboxAccessible::Value(nsString& aValue) const {
-  aValue.Truncate();
-
-  nsCOMPtr<nsIDOMXULSelectControlElement> select = Elm()->AsXULSelectControl();
-  if (select) {
-    RefPtr<Element> element;
-    select->GetSelectedItem(getter_AddRefs(element));
-
-    nsCOMPtr<nsIDOMXULSelectControlItemElement> selectedItem =
-        element->AsXULSelectControlItem();
-    if (selectedItem) selectedItem->GetLabel(aValue);
-  }
 }
 
 role XULListboxAccessible::NativeRole() const {
@@ -146,7 +126,7 @@ Accessible* XULListboxAccessible::CellAt(uint32_t aRowIndex,
   nsCOMPtr<nsIDOMXULSelectControlElement> control = Elm()->AsXULSelectControl();
   NS_ENSURE_TRUE(control, nullptr);
 
-  RefPtr<Element> element;
+  RefPtr<dom::Element> element;
   control->GetItemAtIndex(aRowIndex, getter_AddRefs(element));
   if (!element) return nullptr;
 
@@ -173,9 +153,12 @@ bool XULListboxAccessible::IsRowSelected(uint32_t aRowIdx) {
   nsCOMPtr<nsIDOMXULSelectControlElement> control = Elm()->AsXULSelectControl();
   NS_ASSERTION(control, "Doesn't implement nsIDOMXULSelectControlElement.");
 
-  RefPtr<Element> element;
+  RefPtr<dom::Element> element;
   nsresult rv = control->GetItemAtIndex(aRowIdx, getter_AddRefs(element));
   NS_ENSURE_SUCCESS(rv, false);
+  if (!element) {
+    return false;
+  }
 
   nsCOMPtr<nsIDOMXULSelectControlItemElement> item =
       element->AsXULSelectControlItem();
@@ -335,8 +318,11 @@ void XULListboxAccessible::SelectRow(uint32_t aRowIdx) {
   NS_ASSERTION(control,
                "Doesn't implement nsIDOMXULMultiSelectControlElement.");
 
-  RefPtr<Element> item;
+  RefPtr<dom::Element> item;
   control->GetItemAtIndex(aRowIdx, getter_AddRefs(item));
+  if (!item) {
+    return;
+  }
 
   nsCOMPtr<nsIDOMXULSelectControlItemElement> itemElm =
       item->AsXULSelectControlItem();
@@ -349,8 +335,11 @@ void XULListboxAccessible::UnselectRow(uint32_t aRowIdx) {
   NS_ASSERTION(control,
                "Doesn't implement nsIDOMXULMultiSelectControlElement.");
 
-  RefPtr<Element> item;
+  RefPtr<dom::Element> item;
   control->GetItemAtIndex(aRowIdx, getter_AddRefs(item));
+  if (!item) {
+    return;
+  }
 
   nsCOMPtr<nsIDOMXULSelectControlItemElement> itemElm =
       item->AsXULSelectControlItem();
@@ -364,13 +353,15 @@ bool XULListboxAccessible::IsWidget() const { return true; }
 
 bool XULListboxAccessible::IsActiveWidget() const {
   if (IsAutoCompletePopup()) {
-    nsCOMPtr<nsIAutoCompletePopup> autoCompletePopupElm =
-        do_QueryInterface(mContent->GetParent());
-
-    if (autoCompletePopupElm) {
-      bool isOpen = false;
-      autoCompletePopupElm->GetPopupOpen(&isOpen);
-      return isOpen;
+    nsIContent* parentContent = mContent->GetParent();
+    if (parentContent) {
+      nsCOMPtr<nsIAutoCompletePopup> autoCompletePopupElm =
+          parentContent->AsElement()->AsAutoCompletePopup();
+      if (autoCompletePopupElm) {
+        bool isOpen = false;
+        autoCompletePopupElm->GetPopupOpen(&isOpen);
+        return isOpen;
+      }
     }
   }
   return FocusMgr()->HasDOMFocus(mContent);
@@ -378,13 +369,15 @@ bool XULListboxAccessible::IsActiveWidget() const {
 
 bool XULListboxAccessible::AreItemsOperable() const {
   if (IsAutoCompletePopup()) {
-    nsCOMPtr<nsIAutoCompletePopup> autoCompletePopupElm =
-        do_QueryInterface(mContent->GetParent());
-
-    if (autoCompletePopupElm) {
-      bool isOpen = false;
-      autoCompletePopupElm->GetPopupOpen(&isOpen);
-      return isOpen;
+    nsIContent* parentContent = mContent->GetParent();
+    if (parentContent) {
+      nsCOMPtr<nsIAutoCompletePopup> autoCompletePopupElm =
+          parentContent->AsElement()->AsAutoCompletePopup();
+      if (autoCompletePopupElm) {
+        bool isOpen = false;
+        autoCompletePopupElm->GetPopupOpen(&isOpen);
+        return isOpen;
+      }
     }
   }
   return true;
@@ -420,10 +413,6 @@ XULListitemAccessible::XULListitemAccessible(nsIContent* aContent,
   mIsCheckbox = mContent->AsElement()->AttrValueIs(
       kNameSpaceID_None, nsGkAtoms::type, nsGkAtoms::checkbox, eCaseMatters);
   mType = eXULListItemType;
-
-  // Walk XBL anonymous children for list items. Overrides the flag value from
-  // base XULMenuitemAccessible class.
-  mStateFlags &= ~eNoXBLKids;
 }
 
 XULListitemAccessible::~XULListitemAccessible() {}
@@ -435,7 +424,7 @@ Accessible* XULListitemAccessible::GetListAccessible() const {
       Elm()->AsXULSelectControlItem();
   if (!listItem) return nullptr;
 
-  RefPtr<Element> listElement;
+  RefPtr<dom::Element> listElement;
   listItem->GetControl(getter_AddRefs(listElement));
   if (!listElement) return nullptr;
 

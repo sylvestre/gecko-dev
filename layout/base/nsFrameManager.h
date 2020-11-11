@@ -4,7 +4,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/* storage of the frame tree and information about it */
+/* Owns the frame tree and provides APIs to manipulate it */
 
 #ifndef _nsFrameManager_h_
 #define _nsFrameManager_h_
@@ -16,24 +16,25 @@
 class nsContainerFrame;
 class nsIFrame;
 class nsILayoutHistoryState;
-class nsIPresShell;
 class nsPlaceholderFrame;
 class nsWindowSizes;
 
+namespace mozilla {
+class PresShell;
+}  // namespace mozilla
+
 /**
- * Frame manager interface. The frame manager serves one purpose:
- * <li>handles structural modifications to the frame model. If the frame model
- * lock can be acquired, then the changes are processed immediately; otherwise,
- * they're queued and processed later.
- *
- * FIXME(emilio): The comment above doesn't make any sense, there's no "frame
- * model lock" of any sort afaict.
+ * Frame manager interface. The frame manager owns the frame tree model, and
+ * handles structural manipulations to it, such as appending and inserting a
+ * list of frames to a parent frame, or removing a child frame from a parent
+ * frame.
  */
 class nsFrameManager {
+  typedef mozilla::PresShell PresShell;
   typedef mozilla::layout::FrameChildListID ChildListID;
 
  public:
-  explicit nsFrameManager(nsIPresShell* aPresShell)
+  explicit nsFrameManager(PresShell* aPresShell)
       : mPresShell(aPresShell), mRootFrame(nullptr) {
     MOZ_ASSERT(mPresShell, "need a pres shell");
   }
@@ -90,7 +91,7 @@ class nsFrameManager {
 
  protected:
   // weak link, because the pres shell owns us
-  nsIPresShell* MOZ_NON_OWNING_REF mPresShell;
+  PresShell* MOZ_NON_OWNING_REF mPresShell;
   nsIFrame* mRootFrame;
 };
 

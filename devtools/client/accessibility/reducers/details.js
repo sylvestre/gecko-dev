@@ -3,7 +3,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 "use strict";
 
-const { UPDATE_DETAILS, RESET } = require("../constants");
+const {
+  UPDATE_DETAILS,
+  RESET,
+} = require("devtools/client/accessibility/constants");
 
 /**
  * Initial state definition
@@ -35,16 +38,23 @@ function details(state = getInitialState(), action) {
 function onUpdateDetails(state, action) {
   const { accessible, response, error } = action;
   if (error) {
-    console.warn("Error fetching DOMNode for accessible", accessible, error);
-    return state;
+    if (!accessible.isDestroyed()) {
+      console.warn(
+        `Error fetching accessible details: `,
+        accessible.actorID,
+        error
+      );
+    }
+
+    return getInitialState();
   }
 
-  const [ DOMNode, relationObjects ] = response;
+  const [DOMNode, relationObjects, audit] = response;
   const relations = {};
   relationObjects.forEach(({ type, targets }) => {
     relations[type] = targets.length === 1 ? targets[0] : targets;
   });
-  return { accessible, DOMNode, relations };
+  return { accessible, DOMNode, relations, audit };
 }
 
 exports.details = details;

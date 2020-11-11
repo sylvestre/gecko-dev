@@ -8,15 +8,15 @@
 #include "UnscaledFontMac.h"
 #include "mozilla/webrender/WebRenderTypes.h"
 #ifdef USE_SKIA
-#include "PathSkia.h"
-#include "skia/include/core/SkPaint.h"
-#include "skia/include/core/SkPath.h"
-#include "skia/include/ports/SkTypeface_mac.h"
+#  include "PathSkia.h"
+#  include "skia/include/core/SkPaint.h"
+#  include "skia/include/core/SkPath.h"
+#  include "skia/include/ports/SkTypeface_mac.h"
 #endif
 #include <vector>
 #include <dlfcn.h>
 #ifdef MOZ_WIDGET_UIKIT
-#include <CoreFoundation/CoreFoundation.h>
+#  include <CoreFoundation/CoreFoundation.h>
 #endif
 #include "nsCocoaFeatures.h"
 #include "mozilla/gfx/Logging.h"
@@ -31,7 +31,7 @@ CGPathRef CGFontGetGlyphPath(CGFontRef fontRef,
 #endif
 
 #ifdef USE_CAIRO_SCALED_FONT
-#include "cairo-quartz.h"
+#  include "cairo-quartz.h"
 #endif
 
 namespace mozilla {
@@ -40,7 +40,7 @@ namespace gfx {
 // Simple helper class to automatically release a CFObject when it goes out
 // of scope.
 template <class T>
-class AutoRelease {
+class AutoRelease final {
  public:
   explicit AutoRelease(T aObject) : mObject(aObject) {}
 
@@ -48,6 +48,13 @@ class AutoRelease {
     if (mObject) {
       CFRelease(mObject);
     }
+  }
+
+  void operator=(T aObject) {
+    if (mObject) {
+      CFRelease(mObject);
+    }
+    mObject = aObject;
   }
 
   operator T() { return mObject; }
@@ -61,10 +68,6 @@ class AutoRelease {
  private:
   T mObject;
 };
-
-ScaledFontMac::CTFontDrawGlyphsFuncT* ScaledFontMac::CTFontDrawGlyphsPtr =
-    nullptr;
-bool ScaledFontMac::sSymbolLookupDone = false;
 
 // Helper to create a CTFont from a CGFont, copying any variations that were
 // set on the original CGFont.
@@ -125,53 +128,67 @@ static CTFontRef CreateCTFontFromCGFontWithVariations(CGFontRef aCGFont,
 ScaledFontMac::ScaledFontMac(CGFontRef aFont,
                              const RefPtr<UnscaledFont>& aUnscaledFont,
                              Float aSize, bool aOwnsFont,
-                             const Color& aFontSmoothingBackgroundColor,
+                             const DeviceColor& aFontSmoothingBackgroundColor,
                              bool aUseFontSmoothing, bool aApplySyntheticBold)
     : ScaledFontBase(aUnscaledFont, aSize),
       mFont(aFont),
       mFontSmoothingBackgroundColor(aFontSmoothingBackgroundColor),
       mUseFontSmoothing(aUseFontSmoothing),
       mApplySyntheticBold(aApplySyntheticBold) {
-  if (!sSymbolLookupDone) {
-    CTFontDrawGlyphsPtr =
-        (CTFontDrawGlyphsFuncT*)dlsym(RTLD_DEFAULT, "CTFontDrawGlyphs");
-    sSymbolLookupDone = true;
-  }
-
   if (!aOwnsFont) {
     // XXX: should we be taking a reference
     CGFontRetain(aFont);
   }
 
-  if (CTFontDrawGlyphsPtr != nullptr) {
-    // only create mCTFont if we're going to be using the CTFontDrawGlyphs API
-    auto unscaledMac = static_cast<UnscaledFontMac*>(aUnscaledFont.get());
-    bool dataFont = unscaledMac->IsDataFont();
-    mCTFont = CreateCTFontFromCGFontWithVariations(aFont, aSize, !dataFont);
-  } else {
-    mCTFont = nullptr;
-  }
+  auto unscaledMac = static_cast<UnscaledFontMac*>(aUnscaledFont.get());
+  bool dataFont = unscaledMac->IsDataFont();
+  mCTFont = CreateCTFontFromCGFontWithVariations(aFont, aSize, !dataFont);
+}
+
+ScaledFontMac::ScaledFontMac(CTFontRef aFont,
+                             const RefPtr<UnscaledFont>& aUnscaledFont,
+                             const DeviceColor& aFontSmoothingBackgroundColor,
+                             bool aUseFontSmoothing, bool aApplySyntheticBold)
+    : ScaledFontBase(aUnscaledFont, CTFontGetSize(aFont)),
+      mCTFont(aFont),
+      mFontSmoothingBackgroundColor(aFontSmoothingBackgroundColor),
+      mUseFontSmoothing(aUseFontSmoothing),
+      mApplySyntheticBold(aApplySyntheticBold) {
+  mFont = CTFontCopyGraphicsFont(aFont, nullptr);
+
+  CFRetain(mCTFont);
 }
 
 ScaledFontMac::~ScaledFontMac() {
-  if (mCTFont) {
-    CFRelease(mCTFont);
-  }
+  CFRelease(mCTFont);
   CGFontRelease(mFont);
 }
 
 #ifdef USE_SKIA
 SkTypeface* ScaledFontMac::CreateSkTypeface() {
-  if (mCTFont) {
-    return SkCreateTypefaceFromCTFont(mCTFont);
-  } else {
-    auto unscaledMac = static_cast<UnscaledFontMac*>(GetUnscaledFont().get());
-    bool dataFont = unscaledMac->IsDataFont();
-    CTFontRef fontFace =
-        CreateCTFontFromCGFontWithVariations(mFont, mSize, !dataFont);
-    SkTypeface* typeface = SkCreateTypefaceFromCTFont(fontFace);
-    CFRelease(fontFace);
-    return typeface;
+  return SkCreateTypefaceFromCTFont(mCTFont);
+}
+
+void ScaledFontMac::SetupSkFontDrawOptions(SkFont& aFont) {
+  aFont.setSubpixel(true);
+
+  // Normally, Skia enables LCD FontSmoothing which creates thicker fonts
+  // and also enables subpixel AA. CoreGraphics without font smoothing
+  // explicitly creates thinner fonts and grayscale AA.
+  // CoreGraphics doesn't support a configuration that produces thicker
+  // fonts with grayscale AA as LCD Font Smoothing enables or disables
+  // both. However, Skia supports it by enabling font smoothing (producing
+  // subpixel AA) and converts it to grayscale AA. Since Skia doesn't
+  // support subpixel AA on transparent backgrounds, we still want font
+  // smoothing for the thicker fonts, even if it is grayscale AA.
+  //
+  // With explicit Grayscale AA (from -moz-osx-font-smoothing:grayscale),
+  // we want to have grayscale AA with no smoothing at all. This means
+  // disabling the LCD font smoothing behaviour.
+  // To accomplish this we have to explicitly disable hinting,
+  // and disable LCDRenderText.
+  if (aFont.getEdging() == SkFont::Edging::kAntiAlias && !mUseFontSmoothing) {
+    aFont.setHinting(SkFontHinting::kNone);
   }
 }
 #endif
@@ -188,8 +205,8 @@ already_AddRefed<Path> ScaledFontMac::GetPathForGlyphs(
   return ScaledFontBase::GetPathForGlyphs(aBuffer, aTarget);
 }
 
-uint32_t CalcTableChecksum(const uint32_t* tableStart, uint32_t length,
-                           bool skipChecksumAdjust = false) {
+static uint32_t CalcTableChecksum(const uint32_t* tableStart, uint32_t length,
+                                  bool skipChecksumAdjust = false) {
   uint32_t sum = 0L;
   const uint32_t* table = tableStart;
   const uint32_t* end = table + length / sizeof(uint32_t);
@@ -221,16 +238,16 @@ struct TableRecord {
   CFDataRef data;
 };
 
-int maxPow2LessThan(int a) {
+static int maxPow2LessThanEqual(int a) {
   int x = 1;
   int shift = 0;
-  while ((x << (shift + 1)) < a) {
+  while ((x << (shift + 1)) <= a) {
     shift++;
   }
   return shift;
 }
 
-struct writeBuf {
+struct writeBuf final {
   explicit writeBuf(int size) {
     this->data = new unsigned char[size];
     this->offset = 0;
@@ -272,20 +289,32 @@ bool UnscaledFontMac::GetFontFileData(FontFileDataOutput aDataCallback,
   bool CFF = false;
   for (CFIndex i = 0; i < count; i++) {
     uint32_t tag = (uint32_t)(uintptr_t)CFArrayGetValueAtIndex(tags, i);
-    if (tag == 0x43464620)  // 'CFF '
+    if (tag == 0x43464620) {  // 'CFF '
       CFF = true;
+    }
     CFDataRef data = CGFontCopyTableForTag(mFont, tag);
+    // Bug 1602391 suggests CGFontCopyTableForTag can fail, even though we just
+    // got the tag from the font via CGFontCopyTableTags above. If we can catch
+    // this (e.g. in fuzz-testing) it'd be good to understand when it happens,
+    // but in any case we'll handle it safely below by treating the table as
+    // zero-length.
+    MOZ_ASSERT(data, "failed to get font table data");
     records[i].tag = tag;
     records[i].offset = offset;
     records[i].data = data;
-    records[i].length = CFDataGetLength(data);
-    bool skipChecksumAdjust = (tag == 0x68656164);  // 'head'
-    records[i].checkSum = CalcTableChecksum(
-        reinterpret_cast<const uint32_t*>(CFDataGetBytePtr(data)),
-        records[i].length, skipChecksumAdjust);
-    offset += records[i].length;
-    // 32 bit align the tables
-    offset = (offset + 3) & ~3;
+    if (data) {
+      records[i].length = CFDataGetLength(data);
+      bool skipChecksumAdjust = (tag == 0x68656164);  // 'head'
+      records[i].checkSum = CalcTableChecksum(
+          reinterpret_cast<const uint32_t*>(CFDataGetBytePtr(data)),
+          records[i].length, skipChecksumAdjust);
+      offset += records[i].length;
+      // 32 bit align the tables
+      offset = (offset + 3) & ~3;
+    } else {
+      records[i].length = 0;
+      records[i].checkSum = 0;
+    }
   }
   CFRelease(tags);
 
@@ -297,10 +326,10 @@ bool UnscaledFontMac::GetFontFileData(FontFileDataOutput aDataCallback,
     buf.writeElement(CFSwapInt32HostToBig(0x00010000));
   }
   buf.writeElement(CFSwapInt16HostToBig(count));
-  buf.writeElement(CFSwapInt16HostToBig((1 << maxPow2LessThan(count)) * 16));
-  buf.writeElement(CFSwapInt16HostToBig(maxPow2LessThan(count)));
-  buf.writeElement(
-      CFSwapInt16HostToBig(count * 16 - ((1 << maxPow2LessThan(count)) * 16)));
+  int maxPow2Count = maxPow2LessThanEqual(count);
+  buf.writeElement(CFSwapInt16HostToBig((1 << maxPow2Count) * 16));
+  buf.writeElement(CFSwapInt16HostToBig(maxPow2Count));
+  buf.writeElement(CFSwapInt16HostToBig((count - (1 << maxPow2Count)) * 16));
 
   // write table record entries
   for (CFIndex i = 0; i < count; i++) {
@@ -316,10 +345,11 @@ bool UnscaledFontMac::GetFontFileData(FontFileDataOutput aDataCallback,
     if (records[i].tag == 0x68656164) {
       checkSumAdjustmentOffset = buf.offset + 2 * 4;
     }
-    buf.writeMem(CFDataGetBytePtr(records[i].data),
-                 CFDataGetLength(records[i].data));
-    buf.align();
-    CFRelease(records[i].data);
+    if (records[i].data) {
+      buf.writeMem(CFDataGetBytePtr(records[i].data), records[i].length);
+      buf.align();
+      CFRelease(records[i].data);
+    }
   }
   delete[] records;
 
@@ -338,13 +368,13 @@ bool UnscaledFontMac::GetFontFileData(FontFileDataOutput aDataCallback,
   return true;
 }
 
-bool UnscaledFontMac::GetWRFontDescriptor(WRFontDescriptorOutput aCb,
-                                          void* aBaton) {
+bool UnscaledFontMac::GetFontDescriptor(FontDescriptorOutput aCb,
+                                        void* aBaton) {
   if (mIsDataFont) {
     return false;
   }
 
-  CFStringRef psname = CGFontCopyPostScriptName(mFont);
+  AutoRelease<CFStringRef> psname(CGFontCopyPostScriptName(mFont));
   if (!psname) {
     return false;
   }
@@ -383,11 +413,6 @@ static void CollectVariationsFromDictionary(const void* aKey,
 
 static bool GetVariationsForCTFont(CTFontRef aCTFont,
                                    std::vector<FontVariation>* aOutVariations) {
-  // Avoid calling potentially buggy variation APIs on pre-Sierra macOS
-  // versions (see bug 1331683)
-  if (!nsCocoaFeatures::OnSierraOrLater()) {
-    return true;
-  }
   if (!aCTFont) {
     return true;
   }
@@ -408,7 +433,10 @@ bool ScaledFontMac::GetFontInstanceData(FontInstanceDataOutput aCb,
   if (!GetVariationsForCTFont(mCTFont, &variations)) {
     return false;
   }
-  aCb(nullptr, 0, variations.data(), variations.size(), aBaton);
+
+  InstanceData instance(this);
+  aCb(reinterpret_cast<uint8_t*>(&instance), sizeof(instance),
+      variations.data(), variations.size(), aBaton);
   return true;
 }
 
@@ -434,23 +462,38 @@ bool ScaledFontMac::GetWRFontInstanceOptions(
   return true;
 }
 
+ScaledFontMac::InstanceData::InstanceData(
+    const wr::FontInstanceOptions* aOptions,
+    const wr::FontInstancePlatformOptions* aPlatformOptions)
+    : mUseFontSmoothing(true), mApplySyntheticBold(false) {
+  if (aOptions) {
+    if (!(aOptions->flags & wr::FontInstanceFlags::FONT_SMOOTHING)) {
+      mUseFontSmoothing = false;
+    }
+    if (aOptions->flags & wr::FontInstanceFlags::SYNTHETIC_BOLD) {
+      mApplySyntheticBold = true;
+    }
+    if (aOptions->bg_color.a != 0) {
+      mFontSmoothingBackgroundColor =
+          DeviceColor::FromU8(aOptions->bg_color.r, aOptions->bg_color.g,
+                              aOptions->bg_color.b, aOptions->bg_color.a);
+    }
+  }
+}
+
 static CFDictionaryRef CreateVariationDictionaryOrNull(
-    CGFontRef aCGFont, uint32_t aVariationCount,
+    CGFontRef aCGFont, CFArrayRef& aAxesCache, uint32_t aVariationCount,
     const FontVariation* aVariations) {
-  // Avoid calling potentially buggy variation APIs on pre-Sierra macOS
-  // versions (see bug 1331683)
-  if (!nsCocoaFeatures::OnSierraOrLater()) {
-    return nullptr;
+  if (!aAxesCache) {
+    AutoRelease<CTFontRef> ctFont(
+        CTFontCreateWithGraphicsFont(aCGFont, 0, nullptr, nullptr));
+    aAxesCache = CTFontCopyVariationAxes(ctFont);
+    if (!aAxesCache) {
+      return nullptr;
+    }
   }
 
-  AutoRelease<CTFontRef> ctFont(
-      CTFontCreateWithGraphicsFont(aCGFont, 0, nullptr, nullptr));
-  AutoRelease<CFArrayRef> axes(CTFontCopyVariationAxes(ctFont));
-  if (!axes) {
-    return nullptr;
-  }
-
-  CFIndex axisCount = CFArrayGetCount(axes);
+  CFIndex axisCount = CFArrayGetCount(aAxesCache);
   AutoRelease<CFMutableDictionaryRef> dict(CFDictionaryCreateMutable(
       kCFAllocatorDefault, axisCount, &kCFTypeDictionaryKeyCallBacks,
       &kCFTypeDictionaryValueCallBacks));
@@ -462,7 +505,7 @@ static CFDictionaryRef CreateVariationDictionaryOrNull(
   for (CFIndex i = 0; i < axisCount; ++i) {
     // We sanity-check the axis info found in the CTFont, and bail out
     // (returning null) if it doesn't have the expected types.
-    CFTypeRef axisInfo = CFArrayGetValueAtIndex(axes, i);
+    CFTypeRef axisInfo = CFArrayGetValueAtIndex(aAxesCache, i);
     if (CFDictionaryGetTypeID() != CFGetTypeID(axisInfo)) {
       return nullptr;
     }
@@ -534,14 +577,98 @@ static CFDictionaryRef CreateVariationDictionaryOrNull(
   return dict.forget();
 }
 
+static CFDictionaryRef CreateVariationTagDictionaryOrNull(
+    CTFontRef aCTFont, uint32_t aVariationCount,
+    const FontVariation* aVariations) {
+  AutoRelease<CFArrayRef> axes(CTFontCopyVariationAxes(aCTFont));
+  CFIndex axisCount = CFArrayGetCount(axes);
+
+  AutoRelease<CFMutableDictionaryRef> dict(CFDictionaryCreateMutable(
+      kCFAllocatorDefault, axisCount, &kCFTypeDictionaryKeyCallBacks,
+      &kCFTypeDictionaryValueCallBacks));
+
+  // Number of variation settings passed in the aVariations parameter.
+  // This will typically be a very low value, so we just linear-search them.
+  bool allDefaultValues = true;
+
+  for (CFIndex i = 0; i < axisCount; ++i) {
+    // We sanity-check the axis info found in the CTFont, and bail out
+    // (returning null) if it doesn't have the expected types.
+    CFTypeRef axisInfo = CFArrayGetValueAtIndex(axes, i);
+    if (CFDictionaryGetTypeID() != CFGetTypeID(axisInfo)) {
+      return nullptr;
+    }
+    CFDictionaryRef axis = static_cast<CFDictionaryRef>(axisInfo);
+
+    CFTypeRef axisTag =
+        CFDictionaryGetValue(axis, kCTFontVariationAxisIdentifierKey);
+    if (!axisTag || CFGetTypeID(axisTag) != CFNumberGetTypeID()) {
+      return nullptr;
+    }
+    int64_t tagLong;
+    if (!CFNumberGetValue(static_cast<CFNumberRef>(axisTag),
+                          kCFNumberSInt64Type, &tagLong)) {
+      return nullptr;
+    }
+
+    // Clamp axis values to the supported range.
+    CFTypeRef min =
+        CFDictionaryGetValue(axis, kCTFontVariationAxisMinimumValueKey);
+    CFTypeRef max =
+        CFDictionaryGetValue(axis, kCTFontVariationAxisMaximumValueKey);
+    CFTypeRef def =
+        CFDictionaryGetValue(axis, kCTFontVariationAxisDefaultValueKey);
+    if (!min || CFGetTypeID(min) != CFNumberGetTypeID() || !max ||
+        CFGetTypeID(max) != CFNumberGetTypeID() || !def ||
+        CFGetTypeID(def) != CFNumberGetTypeID()) {
+      return nullptr;
+    }
+    double minDouble;
+    double maxDouble;
+    double defDouble;
+    if (!CFNumberGetValue(static_cast<CFNumberRef>(min), kCFNumberDoubleType,
+                          &minDouble) ||
+        !CFNumberGetValue(static_cast<CFNumberRef>(max), kCFNumberDoubleType,
+                          &maxDouble) ||
+        !CFNumberGetValue(static_cast<CFNumberRef>(def), kCFNumberDoubleType,
+                          &defDouble)) {
+      return nullptr;
+    }
+
+    double value = defDouble;
+    for (uint32_t j = 0; j < aVariationCount; ++j) {
+      if (aVariations[j].mTag == tagLong) {
+        value = std::min(std::max<double>(aVariations[j].mValue, minDouble),
+                         maxDouble);
+        if (value != defDouble) {
+          allDefaultValues = false;
+        }
+        break;
+      }
+    }
+    AutoRelease<CFNumberRef> valueNumber(
+        CFNumberCreate(kCFAllocatorDefault, kCFNumberDoubleType, &value));
+    CFDictionaryAddValue(dict, axisTag, valueNumber);
+  }
+
+  if (allDefaultValues) {
+    // We didn't actually set any non-default values, so throw away the
+    // variations dictionary and just use the default rendering.
+    return nullptr;
+  }
+
+  return dict.forget();
+}
+
+/* static */
 CGFontRef UnscaledFontMac::CreateCGFontWithVariations(
-    CGFontRef aFont, uint32_t aVariationCount,
+    CGFontRef aFont, CFArrayRef& aAxesCache, uint32_t aVariationCount,
     const FontVariation* aVariations) {
   MOZ_ASSERT(aVariationCount > 0);
   MOZ_ASSERT(aVariations);
 
-  AutoRelease<CFDictionaryRef> varDict(
-      CreateVariationDictionaryOrNull(aFont, aVariationCount, aVariations));
+  AutoRelease<CFDictionaryRef> varDict(CreateVariationDictionaryOrNull(
+      aFont, aAxesCache, aVariationCount, aVariations));
   if (!varDict) {
     return nullptr;
   }
@@ -555,32 +682,90 @@ already_AddRefed<ScaledFont> UnscaledFontMac::CreateScaledFont(
     uint32_t aNumVariations)
 
 {
-  CGFontRef fontRef = mFont;
-  if (aNumVariations > 0) {
-    CGFontRef varFont =
-        CreateCGFontWithVariations(mFont, aNumVariations, aVariations);
-    if (varFont) {
-      fontRef = varFont;
-    }
-  }
-
-  RefPtr<ScaledFontMac> scaledFont =
-      new ScaledFontMac(fontRef, this, aGlyphSize, fontRef != mFont);
-
-  if (mNeedsCairo && !scaledFont->PopulateCairoScaledFont()) {
-    gfxWarning() << "Unable to create cairo scaled Mac font.";
+  if (aInstanceDataLength < sizeof(ScaledFontMac::InstanceData)) {
+    gfxWarning() << "Mac scaled font instance data is truncated.";
     return nullptr;
   }
+  const ScaledFontMac::InstanceData& instanceData =
+      *reinterpret_cast<const ScaledFontMac::InstanceData*>(aInstanceData);
 
+  RefPtr<ScaledFontMac> scaledFont;
+  if (mFontDesc) {
+    AutoRelease<CTFontRef> font(
+        CTFontCreateWithFontDescriptor(mFontDesc, aGlyphSize, nullptr));
+    if (aNumVariations > 0) {
+      AutoRelease<CFDictionaryRef> varDict(CreateVariationTagDictionaryOrNull(
+          font, aNumVariations, aVariations));
+      CFDictionaryRef varAttr = CFDictionaryCreate(
+          nullptr, (const void**)&kCTFontVariationAttribute,
+          (const void**)&varDict, 1, &kCFTypeDictionaryKeyCallBacks,
+          &kCFTypeDictionaryValueCallBacks);
+      AutoRelease<CTFontDescriptorRef> fontDesc(
+          CTFontDescriptorCreateCopyWithAttributes(mFontDesc, varAttr));
+      if (!fontDesc) {
+        return nullptr;
+      }
+      font = CTFontCreateWithFontDescriptor(fontDesc, aGlyphSize, nullptr);
+    }
+    scaledFont = new ScaledFontMac(
+        font, this, instanceData.mFontSmoothingBackgroundColor,
+        instanceData.mUseFontSmoothing, instanceData.mApplySyntheticBold);
+  } else {
+    CGFontRef fontRef = mFont;
+    if (aNumVariations > 0) {
+      CGFontRef varFont = CreateCGFontWithVariations(
+          mFont, mAxesCache, aNumVariations, aVariations);
+      if (varFont) {
+        fontRef = varFont;
+      }
+    }
+
+    scaledFont = new ScaledFontMac(fontRef, this, aGlyphSize, fontRef != mFont,
+                                   instanceData.mFontSmoothingBackgroundColor,
+                                   instanceData.mUseFontSmoothing,
+                                   instanceData.mApplySyntheticBold);
+  }
   return scaledFont.forget();
 }
 
+already_AddRefed<ScaledFont> UnscaledFontMac::CreateScaledFontFromWRFont(
+    Float aGlyphSize, const wr::FontInstanceOptions* aOptions,
+    const wr::FontInstancePlatformOptions* aPlatformOptions,
+    const FontVariation* aVariations, uint32_t aNumVariations) {
+  ScaledFontMac::InstanceData instanceData(aOptions, aPlatformOptions);
+  return CreateScaledFont(aGlyphSize, reinterpret_cast<uint8_t*>(&instanceData),
+                          sizeof(instanceData), aVariations, aNumVariations);
+}
+
 #ifdef USE_CAIRO_SCALED_FONT
-cairo_font_face_t* ScaledFontMac::GetCairoFontFace() {
+cairo_font_face_t* ScaledFontMac::CreateCairoFontFace(
+    cairo_font_options_t* aFontOptions) {
   MOZ_ASSERT(mFont);
   return cairo_quartz_font_face_create_for_cgfont(mFont);
 }
 #endif
+
+already_AddRefed<UnscaledFont> UnscaledFontMac::CreateFromFontDescriptor(
+    const uint8_t* aData, uint32_t aDataLength, uint32_t aIndex) {
+  if (aDataLength == 0) {
+    gfxWarning() << "Mac font descriptor is truncated.";
+    return nullptr;
+  }
+  CFStringRef name =
+      CFStringCreateWithBytes(kCFAllocatorDefault, (const UInt8*)aData,
+                              aDataLength, kCFStringEncodingUTF8, false);
+  if (!name) {
+    return nullptr;
+  }
+  CGFontRef font = CGFontCreateWithFontName(name);
+  CFRelease(name);
+  if (!font) {
+    return nullptr;
+  }
+  RefPtr<UnscaledFont> unscaledFont = new UnscaledFontMac(font);
+  CFRelease(font);
+  return unscaledFont.forget();
+}
 
 }  // namespace gfx
 }  // namespace mozilla

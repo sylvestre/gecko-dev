@@ -1,10 +1,9 @@
-/* vim:set ts=2 sw=2 sts=2 et: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-@import url(resource://devtools/client/themes/variables.css);
-@import url(resource://devtools/client/themes/common.css);
+@import url(chrome://devtools/skin/variables.css);
+@import url(chrome://devtools/skin/common.css);
 @import url(chrome://devtools/skin/toolbars.css);
 @import url(chrome://devtools/skin/tooltips.css);
 
@@ -22,18 +21,12 @@ body {
   color: var(--theme-body-color);
 }
 
-::-moz-selection {
-  background-color: var(--theme-selection-background);
-  color: var(--theme-selection-color);
-}
-
 .theme-selected,
 .CodeMirror-hint-active {
   background-color: var(--theme-selection-background);
   color: var(--theme-selection-color);
 }
 
-.theme-bg-contrast,
 .variable-or-property:not([overridden])[changed] {
   background: var(--theme-contrast-background);
 }
@@ -84,7 +77,6 @@ body {
 }
 
 .theme-fg-color1,
-.theme-fg-color2,
 .cm-s-mozilla .cm-attribute,
 .cm-s-mozilla .cm-builtin,
 .cm-s-mozilla .cm-keyword,
@@ -110,7 +102,6 @@ body {
 }
 
 .theme-fg-color3,
-.theme-fg-color5,
 .cm-s-mozilla .cm-tag,
 .cm-s-mozilla .cm-header,
 .cm-s-mozilla .cm-bracket,
@@ -123,7 +114,7 @@ body {
   background-color: var(--theme-highlight-bluegrey);
 }
 
-.theme-fg-color4,
+.theme-fg-color2,
 .cm-s-mozilla .cm-string,
 .cm-s-mozilla .cm-string-2,
 .variable-or-property .token-string,
@@ -153,10 +144,6 @@ body {
   font-weight: bold;
 }
 
-.theme-fg-contrast { /* To be used for text on theme-bg-contrast */
-  color: black;
-}
-
 .theme-toolbar,
 .devtools-toolbar,
 .devtools-sidebar-tabs tabs,
@@ -165,6 +152,14 @@ body {
   color: var(--theme-body-color);
   background-color: var(--theme-toolbar-background);
   border-color: var(--theme-splitter-color);
+}
+
+.theme-bg-contrast {
+  background: var(--theme-contrast-background);
+}
+
+.theme-fg-contrast {
+  color: var(--theme-contrast-color);
 }
 
 .ruleview-swatch,
@@ -183,13 +178,15 @@ body {
 }
 
 .CodeMirror.cm-s-mozilla  pre,
+.CodeMirror.cm-s-mozilla  pre.CodeMirror-line,
+.CodeMirror.cm-s-mozilla  pre.CodeMirror-line-like,
 .cm-s-mozilla .cm-variable-3,
 .cm-s-mozilla .cm-operator,
 .cm-s-mozilla .cm-special {
   color: var(--theme-body-color);
 }
 
-.cm-s-mozilla .CodeMirror-lines .CodeMirror-cursor {
+.cm-s-mozilla .CodeMirror-lines .CodeMirror-cursor:not(.CodeMirror-secondarycursor) {
   border-left: solid 1px black;
 }
 
@@ -198,7 +195,7 @@ body {
 }
 
 .cm-s-mozilla .CodeMirror-selected { /* selected text (unfocused) */
-  background: rgb(176, 176, 176);
+  background: rgb(210, 210, 210);
 }
 
 .cm-s-mozilla .CodeMirror-activeline-background { /* selected color with alpha */
@@ -229,17 +226,12 @@ div.CodeMirror span.eval-text {
 }
 
 .cm-s-mozilla .CodeMirror-linenumber { /* line number text */
-  color: var(--theme-content-color3);
+  color: var(--grey-50);
 }
 
 .cm-s-mozilla .CodeMirror-gutters { /* vertical line next to line numbers */
   border-right-color: var(--theme-splitter-color);
   background-color: var(--theme-sidebar-background);
-}
-
-.cm-s-markup-view pre {
-  line-height: 1.4em;
-  min-height: 1.4em;
 }
 
 .CodeMirror-hints,

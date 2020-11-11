@@ -8,10 +8,10 @@
 #define MOZILLA_GFX_UNSCALEDFONTMAC_H_
 
 #ifdef MOZ_WIDGET_COCOA
-#include <ApplicationServices/ApplicationServices.h>
+#  include <ApplicationServices/ApplicationServices.h>
 #else
-#include <CoreGraphics/CoreGraphics.h>
-#include <CoreText/CoreText.h>
+#  include <CoreGraphics/CoreGraphics.h>
+#  include <CoreText/CoreText.h>
 #endif
 
 #include "2D.h"
@@ -22,12 +22,28 @@ namespace gfx {
 class UnscaledFontMac final : public UnscaledFont {
  public:
   MOZ_DECLARE_REFCOUNTED_VIRTUAL_TYPENAME(UnscaledFontMac, override)
-  explicit UnscaledFontMac(CGFontRef aFont, bool aIsDataFont = false,
-                           bool aNeedsCairo = false)
-      : mFont(aFont), mIsDataFont(aIsDataFont), mNeedsCairo(aNeedsCairo) {
+  explicit UnscaledFontMac(CGFontRef aFont, bool aIsDataFont = false)
+      : mFont(aFont), mIsDataFont(aIsDataFont) {
     CFRetain(mFont);
   }
-  ~UnscaledFontMac() { CFRelease(mFont); }
+  explicit UnscaledFontMac(CTFontDescriptorRef aFontDesc, CGFontRef aFont,
+                           bool aIsDataFont = false)
+      : mFontDesc(aFontDesc), mFont(aFont), mIsDataFont(aIsDataFont) {
+    CFRetain(mFontDesc);
+    CFRetain(mFont);
+  }
+
+  virtual ~UnscaledFontMac() {
+    if (mAxesCache) {
+      CFRelease(mAxesCache);
+    }
+    if (mFontDesc) {
+      CFRelease(mFontDesc);
+    }
+    if (mFont) {
+      CFRelease(mFont);
+    }
+  }
 
   FontType GetType() const override { return FontType::MAC; }
 
@@ -42,16 +58,28 @@ class UnscaledFontMac final : public UnscaledFont {
       uint32_t aInstanceDataLength, const FontVariation* aVariations,
       uint32_t aNumVariations) override;
 
+  already_AddRefed<ScaledFont> CreateScaledFontFromWRFont(
+      Float aGlyphSize, const wr::FontInstanceOptions* aOptions,
+      const wr::FontInstancePlatformOptions* aPlatformOptions,
+      const FontVariation* aVariations, uint32_t aNumVariations) override;
+
   static CGFontRef CreateCGFontWithVariations(CGFontRef aFont,
+                                              CFArrayRef& aAxesCache,
                                               uint32_t aVariationCount,
                                               const FontVariation* aVariations);
 
-  bool GetWRFontDescriptor(WRFontDescriptorOutput aCb, void* aBaton) override;
+  bool GetFontDescriptor(FontDescriptorOutput aCb, void* aBaton) override;
+
+  CFArrayRef& AxesCache() { return mAxesCache; }
+
+  static already_AddRefed<UnscaledFont> CreateFromFontDescriptor(
+      const uint8_t* aData, uint32_t aDataLength, uint32_t aIndex);
 
  private:
-  CGFontRef mFont;
+  CTFontDescriptorRef mFontDesc = nullptr;
+  CGFontRef mFont = nullptr;
+  CFArrayRef mAxesCache = nullptr;  // Cached array of variation axis details
   bool mIsDataFont;
-  bool mNeedsCairo;
 };
 
 }  // namespace gfx

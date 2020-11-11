@@ -6,9 +6,11 @@ package org.mozilla.gecko.media;
 
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
+import android.media.MediaCodecInfo.VideoCapabilities;
 import android.media.MediaCodecList;
 import android.media.MediaCrypto;
 import android.media.MediaFormat;
+import android.os.Build;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.util.Log;
@@ -20,13 +22,13 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedQueue;
 
 import org.mozilla.gecko.gfx.GeckoSurface;
 
 /* package */ final class Codec extends ICodec.Stub implements IBinder.DeathRecipient {
     private static final String LOGTAG = "GeckoRemoteCodec";
     private static final boolean DEBUG = false;
+    public static final String SW_CODEC_PREFIX = "OMX.google.";
 
     public enum Error {
         DECODE, FATAL
@@ -34,22 +36,23 @@ import org.mozilla.gecko.gfx.GeckoSurface;
 
     private final class Callbacks implements AsyncCodec.Callbacks {
         @Override
-        public void onInputBufferAvailable(AsyncCodec codec, int index) {
+        public void onInputBufferAvailable(final AsyncCodec codec, final int index) {
             mInputProcessor.onBuffer(index);
         }
 
         @Override
-        public void onOutputBufferAvailable(AsyncCodec codec, int index, MediaCodec.BufferInfo info) {
+        public void onOutputBufferAvailable(final AsyncCodec codec, final int index,
+                                            final MediaCodec.BufferInfo info) {
             mOutputProcessor.onBuffer(index, info);
         }
 
         @Override
-        public void onError(AsyncCodec codec, int error) {
+        public void onError(final AsyncCodec codec, final int error) {
             reportError(Error.FATAL, new Exception("codec error:" + error));
         }
 
         @Override
-        public void onOutputFormatChanged(AsyncCodec codec, MediaFormat format) {
+        public void onOutputFormatChanged(final AsyncCodec codec, final MediaFormat format) {
             mOutputProcessor.onFormatChanged(format);
         }
     }
@@ -70,13 +73,14 @@ import org.mozilla.gecko.gfx.GeckoSurface;
         private Queue<Input> mInputSamples = new LinkedList<>();
         private boolean mStopped;
 
-        private synchronized Sample onAllocate(int size) {
+        private synchronized Sample onAllocate(final int size) {
             Sample sample = mSamplePool.obtainInput(size);
+            sample.session = mSession;
             mDequeuedSamples.add(sample);
             return sample;
         }
 
-        private synchronized void onSample(Sample sample) {
+        private synchronized void onSample(final Sample sample) {
             if (sample == null) {
                 // Ignore empty input.
                 mSamplePool.recycleInput(mDequeuedSamples.remove());
@@ -89,15 +93,17 @@ import org.mozilla.gecko.gfx.GeckoSurface;
                 return;
             }
 
-            Sample dequeued = mDequeuedSamples.remove();
-            dequeued.info = sample.info;
-            dequeued.cryptoInfo = sample.cryptoInfo;
-            queueSample(dequeued);
+            if (sample.session >= mSession) {
+                Sample dequeued = mDequeuedSamples.remove();
+                dequeued.setBufferInfo(sample.info);
+                dequeued.setCryptoInfo(sample.cryptoInfo);
+                queueSample(dequeued);
+            }
 
             sample.dispose();
         }
 
-        private void queueSample(Sample sample) {
+        private void queueSample(final Sample sample) {
             if (!mInputSamples.offer(new Input(sample))) {
                 reportError(Error.FATAL, new Exception("FAIL: input sample queue is full"));
                 return;
@@ -110,7 +116,7 @@ import org.mozilla.gecko.gfx.GeckoSurface;
             }
         }
 
-        private synchronized void onBuffer(int index) {
+        private synchronized void onBuffer(final int index) {
             if (mStopped || !isValidBuffer(index)) {
                 return;
             }
@@ -135,7 +141,9 @@ import org.mozilla.gecko.gfx.GeckoSurface;
             try {
                 return mCodec.getInputBuffer(index) != null;
             } catch (IllegalStateException e) {
-                if (DEBUG) { Log.d(LOGTAG, "invalid input buffer#" + index, e); }
+                if (DEBUG) {
+                    Log.d(LOGTAG, "invalid input buffer#" + index, e);
+                }
                 return false;
             }
         }
@@ -143,16 +151,20 @@ import org.mozilla.gecko.gfx.GeckoSurface;
         private void feedSampleToBuffer() {
             while (!mAvailableInputBuffers.isEmpty() && !mInputSamples.isEmpty()) {
                 int index = mAvailableInputBuffers.poll();
+                if (!isValidBuffer(index)) {
+                    continue;
+                }
                 int len = 0;
                 final Sample sample = mInputSamples.poll().sample;
                 long pts = sample.info.presentationTimeUs;
                 int flags = sample.info.flags;
                 MediaCodec.CryptoInfo cryptoInfo = sample.cryptoInfo;
-                if (!sample.isEOS() && sample.buffer != null) {
+                if (!sample.isEOS() && sample.bufferId != Sample.NO_BUFFER) {
                     len = sample.info.size;
                     ByteBuffer buf = mCodec.getInputBuffer(index);
                     try {
-                        sample.writeToByteBuffer(buf);
+                        mSamplePool.getInputBuffer(sample.bufferId).
+                                writeToByteBuffer(buf, sample.info.offset, len);
                     } catch (IOException e) {
                         e.printStackTrace();
                         len = 0;
@@ -226,7 +238,7 @@ import org.mozilla.gecko.gfx.GeckoSurface;
         public final Sample sample;
         public final int index;
 
-        public Output(final Sample sample, int index) {
+        public Output(final Sample sample, final int index) {
             this.sample = sample;
             this.index = index;
         }
@@ -238,11 +250,11 @@ import org.mozilla.gecko.gfx.GeckoSurface;
         private Queue<Output> mSentOutputs = new LinkedList<>();
         private boolean mStopped;
 
-        private OutputProcessor(boolean renderToSurface) {
+        private OutputProcessor(final boolean renderToSurface) {
             mRenderToSurface = renderToSurface;
         }
 
-        private synchronized void onBuffer(int index, MediaCodec.BufferInfo info) {
+        private synchronized void onBuffer(final int index, final MediaCodec.BufferInfo info) {
             if (mStopped || !isValidBuffer(index)) {
                 return;
             }
@@ -250,6 +262,7 @@ import org.mozilla.gecko.gfx.GeckoSurface;
             try {
                 Sample output = obtainOutputSample(index, info);
                 mSentOutputs.add(new Output(output, index));
+                output.session = mSession;
                 mCallbacks.onOutput(output);
             } catch (Exception e) {
                 e.printStackTrace();
@@ -266,12 +279,14 @@ import org.mozilla.gecko.gfx.GeckoSurface;
             try {
                 return (mCodec.getOutputBuffer(index) != null) || mRenderToSurface;
             } catch (IllegalStateException e) {
-                if (DEBUG) { Log.e(LOGTAG, "invalid buffer#" + index, e); }
+                if (DEBUG) {
+                    Log.e(LOGTAG, "invalid buffer#" + index, e);
+                }
                 return false;
             }
         }
 
-        private Sample obtainOutputSample(int index, MediaCodec.BufferInfo info) {
+        private Sample obtainOutputSample(final int index, final MediaCodec.BufferInfo info) {
             Sample sample = mSamplePool.obtainOutput(info);
 
             if (mRenderToSurface) {
@@ -289,7 +304,7 @@ import org.mozilla.gecko.gfx.GeckoSurface;
 
             if (info.size > 0) {
                 try {
-                    sample.buffer.readFromByteBuffer(output, info.offset, info.size);
+                    mSamplePool.getOutputBuffer(sample.bufferId).readFromByteBuffer(output, info.offset, info.size);
                 } catch (IOException e) {
                     Log.e(LOGTAG, "Fail to read output buffer:" + e.getMessage());
                 }
@@ -298,19 +313,22 @@ import org.mozilla.gecko.gfx.GeckoSurface;
             return sample;
         }
 
-        private synchronized void onRelease(Sample sample, boolean render) {
+        private synchronized void onRelease(final Sample sample, final boolean render) {
             final Output output = mSentOutputs.poll();
-            if (output == null) {
-                if (DEBUG) { Log.d(LOGTAG, sample + " already released"); }
-                return;
+            if (output != null) {
+                mCodec.releaseOutputBuffer(output.index, render);
+                mSamplePool.recycleOutput(output.sample);
+            } else if (DEBUG) {
+                Log.d(LOGTAG, sample + " already released");
             }
-            mCodec.releaseOutputBuffer(output.index, render);
-            mSamplePool.recycleOutput(output.sample);
 
             sample.dispose();
         }
 
-        private void onFormatChanged(MediaFormat format) {
+        private synchronized void onFormatChanged(final MediaFormat format) {
+            if (mStopped) {
+                return;
+            }
             try {
                 mCallbacks.onOutputFormatChanged(new FormatParam(format));
             } catch (RemoteException re) {
@@ -344,16 +362,18 @@ import org.mozilla.gecko.gfx.GeckoSurface;
     }
 
     private volatile ICodecCallbacks mCallbacks;
+    private GeckoSurface mSurface;
     private AsyncCodec mCodec;
     private InputProcessor mInputProcessor;
     private OutputProcessor mOutputProcessor;
+    private long mSession;
     private SamplePool mSamplePool;
     // Values will be updated after configure called.
     private volatile boolean mIsAdaptivePlaybackSupported = false;
     private volatile boolean mIsHardwareAccelerated = false;
     private boolean mIsTunneledPlaybackSupported = false;
 
-    public synchronized void setCallbacks(ICodecCallbacks callbacks) throws RemoteException {
+    public synchronized void setCallbacks(final ICodecCallbacks callbacks) throws RemoteException {
         mCallbacks = callbacks;
         callbacks.asBinder().linkToDeath(this, 0);
     }
@@ -370,21 +390,25 @@ import org.mozilla.gecko.gfx.GeckoSurface;
     }
 
     @Override
-    public synchronized boolean configure(FormatParam format,
-                                          GeckoSurface surface,
-                                          int flags,
-                                          String drmStubId) throws RemoteException {
+    public synchronized boolean configure(final FormatParam format,
+                                          final GeckoSurface surface,
+                                          final int flags,
+                                          final String drmStubId) throws RemoteException {
         if (mCallbacks == null) {
             Log.e(LOGTAG, "FAIL: callbacks must be set before calling configure()");
             return false;
         }
 
         if (mCodec != null) {
-            if (DEBUG) { Log.d(LOGTAG, "release existing codec: " + mCodec); }
+            if (DEBUG) {
+                Log.d(LOGTAG, "release existing codec: " + mCodec);
+            }
             mCodec.release();
         }
 
-        if (DEBUG) { Log.d(LOGTAG, "configure " + this); }
+        if (DEBUG) {
+            Log.d(LOGTAG, "configure " + this);
+        }
 
         final MediaFormat fmt = format.asFormat();
         final String mime = fmt.getString(MediaFormat.KEY_MIME);
@@ -393,14 +417,14 @@ import org.mozilla.gecko.gfx.GeckoSurface;
             return false;
         }
 
-        final List<String> found = findMatchingCodecNames(mime, flags == MediaCodec.CONFIGURE_FLAG_ENCODE);
+        final List<String> found = findMatchingCodecNames(fmt, flags == MediaCodec.CONFIGURE_FLAG_ENCODE);
         for (final String name : found) {
             final AsyncCodec codec = configureCodec(name, fmt, surface, flags, drmStubId);
             if (codec == null) {
                 Log.w(LOGTAG, "unable to configure " + name + ". Try next.");
                 continue;
             }
-            mIsHardwareAccelerated = !name.startsWith("OMX.google.");
+            mIsHardwareAccelerated = !name.startsWith(SW_CODEC_PREFIX);
             mCodec = codec;
             mInputProcessor = new InputProcessor();
             final boolean renderToSurface = surface != null;
@@ -408,15 +432,24 @@ import org.mozilla.gecko.gfx.GeckoSurface;
             mSamplePool = new SamplePool(name, renderToSurface);
             if (renderToSurface) {
                 mIsTunneledPlaybackSupported = mCodec.isTunneledPlaybackSupported(mime);
+                mSurface = surface; // Take ownership of surface.
             }
-            if (DEBUG) { Log.d(LOGTAG, codec.toString() + " created. Render to surface?" + renderToSurface); }
+            if (DEBUG) {
+                Log.d(LOGTAG, codec.toString() + " created. Render to surface?" + renderToSurface);
+            }
             return true;
         }
 
         return false;
     }
 
-    private List<String> findMatchingCodecNames(final String mimeType, final boolean isEncoder) {
+    private List<String> findMatchingCodecNames(final MediaFormat format, final boolean isEncoder) {
+        final String mimeType = format.getString(MediaFormat.KEY_MIME);
+        // Missing width and height value in format means audio;
+        // Video format should never has 0 width or height.
+        final int width = format.containsKey(MediaFormat.KEY_WIDTH) ? format.getInteger(MediaFormat.KEY_WIDTH) : 0;
+        final int height = format.containsKey(MediaFormat.KEY_HEIGHT) ? format.getInteger(MediaFormat.KEY_HEIGHT) : 0;
+
         final int numCodecs = MediaCodecList.getCodecCount();
         final List<String> found = new ArrayList<>();
         for (int i = 0; i < numCodecs; i++) {
@@ -427,12 +460,30 @@ import org.mozilla.gecko.gfx.GeckoSurface;
 
             final String[] types = info.getSupportedTypes();
             for (final String t : types) {
-                if (t.equalsIgnoreCase(mimeType)) {
-                    found.add(info.getName());
-                    if (DEBUG) {
-                        Log.d(LOGTAG, "found " + (isEncoder ? "encoder:" : "decoder:") +
-                                info.getName() + " for mime:" + mimeType);
+                if (!t.equalsIgnoreCase(mimeType)) {
+                    continue;
+                }
+                final String name = info.getName();
+                // API 21+ provide a method to query whether supplied size is supported. For
+                // older version, just avoid software video encoders.
+                if (isEncoder && width > 0 && height > 0) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                        final VideoCapabilities c = info.getCapabilitiesForType(mimeType).getVideoCapabilities();
+                        if (c != null && !c.isSizeSupported(width, height)) {
+                            if (DEBUG) {
+                                Log.d(LOGTAG, name + ": " + width + "x" + height + " not supported");
+                            }
+                            continue;
+                        }
+                    } else if (name.startsWith(SW_CODEC_PREFIX)) {
+                        continue;
                     }
+                }
+
+                found.add(name);
+                if (DEBUG) {
+                    Log.d(LOGTAG, "found " + (isEncoder ? "encoder:" : "decoder:") +
+                            name + " for mime:" + mimeType);
                 }
             }
         }
@@ -467,7 +518,9 @@ import org.mozilla.gecko.gfx.GeckoSurface;
         mIsAdaptivePlaybackSupported = codec.isAdaptivePlaybackSupported(
                 format.getString(MediaFormat.KEY_MIME));
         if (mIsAdaptivePlaybackSupported) {
-            if (DEBUG) { Log.d(LOGTAG, "codec supports adaptive playback  = " + mIsAdaptivePlaybackSupported); }
+            if (DEBUG) {
+                Log.d(LOGTAG, "codec supports adaptive playback  = " + mIsAdaptivePlaybackSupported);
+            }
             // TODO: may need to find a way to not use hard code to decide the max w/h.
             format.setInteger(MediaFormat.KEY_MAX_WIDTH, 1920);
             format.setInteger(MediaFormat.KEY_MAX_HEIGHT, 1080);
@@ -491,7 +544,9 @@ import org.mozilla.gecko.gfx.GeckoSurface;
 
     @Override
     public synchronized void start() throws RemoteException {
-        if (DEBUG) { Log.d(LOGTAG, "start " + this); }
+        if (DEBUG) {
+            Log.d(LOGTAG, "start " + this);
+        }
         mInputProcessor.start();
         mOutputProcessor.start();
         try {
@@ -501,7 +556,7 @@ import org.mozilla.gecko.gfx.GeckoSurface;
         }
     }
 
-    private void reportError(Error error, Exception e) {
+    private void reportError(final Error error, final Exception e) {
         if (e != null) {
             e.printStackTrace();
         }
@@ -516,7 +571,9 @@ import org.mozilla.gecko.gfx.GeckoSurface;
 
     @Override
     public synchronized void stop() throws RemoteException {
-        if (DEBUG) { Log.d(LOGTAG, "stop " + this); }
+        if (DEBUG) {
+            Log.d(LOGTAG, "stop " + this);
+        }
         try {
             mInputProcessor.stop();
             mOutputProcessor.stop();
@@ -529,23 +586,28 @@ import org.mozilla.gecko.gfx.GeckoSurface;
 
     @Override
     public synchronized void flush() throws RemoteException {
-        if (DEBUG) { Log.d(LOGTAG, "flush " + this); }
+        if (DEBUG) {
+            Log.d(LOGTAG, "flush " + this);
+        }
         try {
             mInputProcessor.stop();
             mOutputProcessor.stop();
 
             mCodec.flush();
-            if (DEBUG) { Log.d(LOGTAG, "flushed " + this); }
+            if (DEBUG) {
+                Log.d(LOGTAG, "flushed " + this);
+            }
             mInputProcessor.start();
             mOutputProcessor.start();
             mCodec.resumeReceivingInputs();
+            mSession++;
         } catch (Exception e) {
             reportError(Error.FATAL, e);
         }
     }
 
     @Override
-    public synchronized Sample dequeueInput(int size) throws RemoteException {
+    public synchronized Sample dequeueInput(final int size) throws RemoteException {
         try {
             return mInputProcessor.onAllocate(size);
         } catch (Exception e) {
@@ -555,7 +617,23 @@ import org.mozilla.gecko.gfx.GeckoSurface;
     }
 
     @Override
-    public synchronized void queueInput(Sample sample) throws RemoteException {
+    public synchronized SampleBuffer getInputBuffer(final int id) {
+        if (mSamplePool == null) {
+            return null;
+        }
+        return mSamplePool.getInputBuffer(id);
+    }
+
+    @Override
+    public synchronized SampleBuffer getOutputBuffer(final int id) {
+        if (mSamplePool == null) {
+            return null;
+        }
+        return mSamplePool.getOutputBuffer(id);
+    }
+
+    @Override
+    public synchronized void queueInput(final Sample sample) throws RemoteException {
         try {
             mInputProcessor.onSample(sample);
         } catch (Exception e) {
@@ -564,16 +642,16 @@ import org.mozilla.gecko.gfx.GeckoSurface;
     }
 
     @Override
-    public synchronized void setRates(int newBitRate) {
+    public synchronized void setBitrate(final int bps) {
         try {
-            mCodec.setRates(newBitRate);
+            mCodec.setBitrate(bps);
         } catch (Exception e) {
             reportError(Error.FATAL, e);
         }
     }
 
     @Override
-    public synchronized void releaseOutput(Sample sample, boolean render) {
+    public synchronized void releaseOutput(final Sample sample, final boolean render) {
         try {
             mOutputProcessor.onRelease(sample, render);
         } catch (Exception e) {
@@ -583,7 +661,9 @@ import org.mozilla.gecko.gfx.GeckoSurface;
 
     @Override
     public synchronized void release() throws RemoteException {
-        if (DEBUG) { Log.d(LOGTAG, "release " + this); }
+        if (DEBUG) {
+            Log.d(LOGTAG, "release " + this);
+        }
         try {
             // In case Codec.stop() is not called yet.
             mInputProcessor.stop();
@@ -598,5 +678,9 @@ import org.mozilla.gecko.gfx.GeckoSurface;
         mSamplePool = null;
         mCallbacks.asBinder().unlinkToDeath(this, 0);
         mCallbacks = null;
+        if (mSurface != null) {
+            mSurface.release();
+            mSurface = null;
+        }
     }
 }

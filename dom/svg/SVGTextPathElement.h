@@ -4,13 +4,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef mozilla_dom_SVGTextPathElement_h
-#define mozilla_dom_SVGTextPathElement_h
+#ifndef DOM_SVG_SVGTEXTPATHELEMENT_H_
+#define DOM_SVG_SVGTEXTPATHELEMENT_H_
 
-#include "nsSVGEnum.h"
-#include "nsSVGLength2.h"
-#include "nsSVGString.h"
-#include "mozilla/dom/SVGAnimatedPathSegList.h"
+#include "SVGAnimatedEnumeration.h"
+#include "SVGAnimatedLength.h"
+#include "SVGAnimatedPathSegList.h"
+#include "SVGAnimatedString.h"
 #include "mozilla/dom/SVGTextContentElement.h"
 
 class nsAtom;
@@ -26,10 +26,10 @@ namespace dom {
 static const uint16_t TEXTPATH_SIDETYPE_LEFT = 1;
 static const uint16_t TEXTPATH_SIDETYPE_RIGHT = 2;
 
-typedef SVGTextContentElement SVGTextPathElementBase;
+using SVGTextPathElementBase = SVGTextContentElement;
 
 class SVGTextPathElement final : public SVGTextPathElementBase {
-  friend class ::SVGTextFrame;
+  friend class mozilla::SVGTextFrame;
 
  protected:
   friend nsresult(::NS_NewSVGTextPathElement(
@@ -51,11 +51,11 @@ class SVGTextPathElement final : public SVGTextPathElementBase {
   nsStaticAtom* GetPathDataAttrName() const override { return nsGkAtoms::path; }
 
   // WebIDL
-  already_AddRefed<SVGAnimatedLength> StartOffset();
-  already_AddRefed<SVGAnimatedEnumeration> Method();
-  already_AddRefed<SVGAnimatedEnumeration> Spacing();
-  already_AddRefed<SVGAnimatedEnumeration> Side();
-  already_AddRefed<SVGAnimatedString> Href();
+  already_AddRefed<DOMSVGAnimatedLength> StartOffset();
+  already_AddRefed<DOMSVGAnimatedEnumeration> Method();
+  already_AddRefed<DOMSVGAnimatedEnumeration> Spacing();
+  already_AddRefed<DOMSVGAnimatedEnumeration> Side();
+  already_AddRefed<DOMSVGAnimatedString> Href();
 
   void HrefAsString(nsAString& aHref);
 
@@ -65,22 +65,24 @@ class SVGTextPathElement final : public SVGTextPathElementBase {
   virtual StringAttributesInfo GetStringInfo() override;
 
   enum { /* TEXTLENGTH, */ STARTOFFSET = 1 };
-  nsSVGLength2 mLengthAttributes[2];
-  virtual nsSVGLength2* LengthAttributes() override {
+  SVGAnimatedLength mLengthAttributes[2];
+  virtual SVGAnimatedLength* LengthAttributes() override {
     return mLengthAttributes;
   }
   static LengthInfo sLengthInfo[2];
 
   enum { /* LENGTHADJUST, */ METHOD = 1, SPACING, SIDE };
-  nsSVGEnum mEnumAttributes[4];
-  virtual nsSVGEnum* EnumAttributes() override { return mEnumAttributes; }
-  static nsSVGEnumMapping sMethodMap[];
-  static nsSVGEnumMapping sSpacingMap[];
-  static nsSVGEnumMapping sSideMap[];
+  SVGAnimatedEnumeration mEnumAttributes[4];
+  virtual SVGAnimatedEnumeration* EnumAttributes() override {
+    return mEnumAttributes;
+  }
+  static SVGEnumMapping sMethodMap[];
+  static SVGEnumMapping sSpacingMap[];
+  static SVGEnumMapping sSideMap[];
   static EnumInfo sEnumInfo[4];
 
   enum { HREF, XLINK_HREF };
-  nsSVGString mStringAttributes[2];
+  SVGAnimatedString mStringAttributes[2];
   static StringInfo sStringInfo[2];
 
   SVGAnimatedPathSegList mPath;
@@ -89,4 +91,4 @@ class SVGTextPathElement final : public SVGTextPathElementBase {
 }  // namespace dom
 }  // namespace mozilla
 
-#endif  // mozilla_dom_SVGTextPathElement_h
+#endif  // DOM_SVG_SVGTEXTPATHELEMENT_H_

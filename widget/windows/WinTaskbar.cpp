@@ -14,7 +14,6 @@
 #include <nsCOMPtr.h>
 #include <nsIWidget.h>
 #include <nsIBaseWindow.h>
-#include <nsIObserverService.h>
 #include <nsServiceManagerUtils.h>
 #include "nsIXULAppInfo.h"
 #include "nsIJumpListBuilder.h"
@@ -28,6 +27,8 @@
 #include "nsPIDOMWindow.h"
 #include "nsAppDirectoryServiceDefs.h"
 #include "mozilla/Preferences.h"
+#include "nsAppRunner.h"
+#include "nsXREDirProvider.h"
 #include <io.h>
 #include <propvarutil.h>
 #include <propkey.h>
@@ -37,9 +38,9 @@ static NS_DEFINE_CID(kJumpListBuilderCID, NS_WIN_JUMPLISTBUILDER_CID);
 
 namespace {
 
-HWND GetHWNDFromDocShell(nsIDocShell *aShell) {
+HWND GetHWNDFromDocShell(nsIDocShell* aShell) {
   nsCOMPtr<nsIBaseWindow> baseWindow(
-      do_QueryInterface(reinterpret_cast<nsISupports *>(aShell)));
+      do_QueryInterface(reinterpret_cast<nsISupports*>(aShell)));
 
   if (!baseWindow) return nullptr;
 
@@ -49,7 +50,7 @@ HWND GetHWNDFromDocShell(nsIDocShell *aShell) {
   return widget ? (HWND)widget->GetNativeData(NS_NATIVE_WINDOW) : nullptr;
 }
 
-HWND GetHWNDFromDOMWindow(mozIDOMWindow *dw) {
+HWND GetHWNDFromDOMWindow(mozIDOMWindow* dw) {
   nsCOMPtr<nsIWidget> widget;
 
   if (!dw) return nullptr;
@@ -58,8 +59,8 @@ HWND GetHWNDFromDOMWindow(mozIDOMWindow *dw) {
   return GetHWNDFromDocShell(window->GetDocShell());
 }
 
-nsresult SetWindowAppUserModelProp(mozIDOMWindow *aParent,
-                                   const nsString &aIdentifier) {
+nsresult SetWindowAppUserModelProp(mozIDOMWindow* aParent,
+                                   const nsString& aIdentifier) {
   NS_ENSURE_ARG_POINTER(aParent);
 
   if (aIdentifier.IsEmpty()) return NS_ERROR_INVALID_ARG;
@@ -105,7 +106,7 @@ class DefaultController final : public nsITaskbarPreviewController {
 };
 
 NS_IMETHODIMP
-DefaultController::GetWidth(uint32_t *aWidth) {
+DefaultController::GetWidth(uint32_t* aWidth) {
   RECT r;
   ::GetClientRect(mWnd, &r);
   *aWidth = r.right;
@@ -113,7 +114,7 @@ DefaultController::GetWidth(uint32_t *aWidth) {
 }
 
 NS_IMETHODIMP
-DefaultController::GetHeight(uint32_t *aHeight) {
+DefaultController::GetHeight(uint32_t* aHeight) {
   RECT r;
   ::GetClientRect(mWnd, &r);
   *aHeight = r.bottom;
@@ -121,7 +122,7 @@ DefaultController::GetHeight(uint32_t *aHeight) {
 }
 
 NS_IMETHODIMP
-DefaultController::GetThumbnailAspectRatio(float *aThumbnailAspectRatio) {
+DefaultController::GetThumbnailAspectRatio(float* aThumbnailAspectRatio) {
   uint32_t width, height;
   GetWidth(&width);
   GetHeight(&height);
@@ -132,13 +133,13 @@ DefaultController::GetThumbnailAspectRatio(float *aThumbnailAspectRatio) {
 }
 
 NS_IMETHODIMP
-DefaultController::RequestThumbnail(nsITaskbarPreviewCallback *aCallback,
+DefaultController::RequestThumbnail(nsITaskbarPreviewCallback* aCallback,
                                     uint32_t width, uint32_t height) {
   return NS_OK;
 }
 
 NS_IMETHODIMP
-DefaultController::RequestPreview(nsITaskbarPreviewCallback *aCallback) {
+DefaultController::RequestPreview(nsITaskbarPreviewCallback* aCallback) {
   return NS_OK;
 }
 
@@ -151,7 +152,7 @@ DefaultController::OnClose(void) {
 }
 
 NS_IMETHODIMP
-DefaultController::OnActivate(bool *rAcceptActivation) {
+DefaultController::OnActivate(bool* rAcceptActivation) {
   *rAcceptActivation = true;
   MOZ_ASSERT_UNREACHABLE(
       "OnActivate should not be called for "
@@ -160,7 +161,7 @@ DefaultController::OnActivate(bool *rAcceptActivation) {
 }
 
 NS_IMETHODIMP
-DefaultController::OnClick(nsITaskbarPreviewButton *button) { return NS_OK; }
+DefaultController::OnClick(nsITaskbarPreviewButton* button) { return NS_OK; }
 
 NS_IMPL_ISUPPORTS(DefaultController, nsITaskbarPreviewController)
 }  // namespace
@@ -179,7 +180,7 @@ bool WinTaskbar::Initialize() {
   ::CoInitialize(nullptr);
   HRESULT hr =
       ::CoCreateInstance(CLSID_TaskbarList, nullptr, CLSCTX_INPROC_SERVER,
-                         IID_ITaskbarList4, (void **)&mTaskbar);
+                         IID_ITaskbarList4, (void**)&mTaskbar);
   if (FAILED(hr)) return false;
 
   hr = mTaskbar->HrInit();
@@ -202,7 +203,14 @@ WinTaskbar::~WinTaskbar() {
 }
 
 // static
-bool WinTaskbar::GetAppUserModelID(nsAString &aDefaultGroupId) {
+bool WinTaskbar::GetAppUserModelID(nsAString& aDefaultGroupId) {
+  // If an ID has already been set then use that.
+  PWSTR id;
+  if (SUCCEEDED(GetCurrentProcessExplicitAppUserModelID(&id))) {
+    aDefaultGroupId.Assign(id);
+    CoTaskMemFree(id);
+  }
+
   // If marked as such in prefs, use a hash of the profile path for the id
   // instead of the install path hash setup by the installer.
   bool useProfile = Preferences::GetBool("taskbar.grouping.useprofile", false);
@@ -228,47 +236,47 @@ bool WinTaskbar::GetAppUserModelID(nsAString &aDefaultGroupId) {
   // under (HKLM||HKCU)/Software/Mozilla/Firefox/TaskBarIDs. If for any reason
   // hash generation operation fails, the installer will not store a value in
   // the registry or set ids on shortcuts. A lack of an id can also occur for
-  // zipped builds. We skip setting the global id in this case as well.
+  // zipped builds.
   nsCOMPtr<nsIXULAppInfo> appInfo =
       do_GetService("@mozilla.org/xre/app-info;1");
-  if (!appInfo) return false;
-
   nsCString appName;
-  if (NS_FAILED(appInfo->GetName(appName))) {
-    // We just won't register then, let Windows handle it.
-    return false;
-  }
+  if (appInfo && NS_SUCCEEDED(appInfo->GetName(appName))) {
+    nsAutoString regKey;
+    regKey.AssignLiteral("Software\\Mozilla\\");
+    AppendASCIItoUTF16(appName, regKey);
+    regKey.AppendLiteral("\\TaskBarIDs");
 
-  nsAutoString regKey;
-  regKey.AssignLiteral("Software\\Mozilla\\");
-  AppendASCIItoUTF16(appName, regKey);
-  regKey.AppendLiteral("\\TaskBarIDs");
+    WCHAR path[MAX_PATH];
+    if (GetModuleFileNameW(nullptr, path, MAX_PATH)) {
+      wchar_t* slash = wcsrchr(path, '\\');
+      if (!slash) return false;
+      *slash = '\0';  // no trailing slash
 
-  WCHAR path[MAX_PATH];
-  if (GetModuleFileNameW(nullptr, path, MAX_PATH)) {
-    wchar_t *slash = wcsrchr(path, '\\');
-    if (!slash) return false;
-    *slash = '\0';  // no trailing slash
-
-    // The hash is short, but users may customize this, so use a respectable
-    // string buffer.
-    wchar_t buf[256];
-    if (WinUtils::GetRegistryKey(HKEY_LOCAL_MACHINE, regKey.get(), path, buf,
-                                 sizeof buf)) {
-      aDefaultGroupId.Assign(buf);
-    } else if (WinUtils::GetRegistryKey(HKEY_CURRENT_USER, regKey.get(), path,
-                                        buf, sizeof buf)) {
-      aDefaultGroupId.Assign(buf);
+      // The hash is short, but users may customize this, so use a respectable
+      // string buffer.
+      wchar_t buf[256];
+      if (WinUtils::GetRegistryKey(HKEY_LOCAL_MACHINE, regKey.get(), path, buf,
+                                   sizeof buf)) {
+        aDefaultGroupId.Assign(buf);
+      } else if (WinUtils::GetRegistryKey(HKEY_CURRENT_USER, regKey.get(), path,
+                                          buf, sizeof buf)) {
+        aDefaultGroupId.Assign(buf);
+      }
     }
   }
 
-  return !aDefaultGroupId.IsEmpty();
+  // If we haven't found an ID yet then use the install hash. In xpcshell tests
+  // the directory provider may not have been initialized so bypass in this
+  // case.
+  if (aDefaultGroupId.IsEmpty() && gDirServiceProvider) {
+    gDirServiceProvider->GetInstallHash(aDefaultGroupId);
+  }
 
-  return true;
+  return !aDefaultGroupId.IsEmpty();
 }
 
 NS_IMETHODIMP
-WinTaskbar::GetDefaultGroupId(nsAString &aDefaultGroupId) {
+WinTaskbar::GetDefaultGroupId(nsAString& aDefaultGroupId) {
   if (!GetAppUserModelID(aDefaultGroupId)) return NS_ERROR_UNEXPECTED;
 
   return NS_OK;
@@ -283,7 +291,7 @@ bool WinTaskbar::RegisterAppUserModelID() {
 }
 
 NS_IMETHODIMP
-WinTaskbar::GetAvailable(bool *aAvailable) {
+WinTaskbar::GetAvailable(bool* aAvailable) {
   // ITaskbarList4::HrInit() may fail with shell extensions like blackbox
   // installed. Initialize early to return available=false in those cases.
   *aAvailable = Initialize();
@@ -292,9 +300,9 @@ WinTaskbar::GetAvailable(bool *aAvailable) {
 }
 
 NS_IMETHODIMP
-WinTaskbar::CreateTaskbarTabPreview(nsIDocShell *shell,
-                                    nsITaskbarPreviewController *controller,
-                                    nsITaskbarTabPreview **_retval) {
+WinTaskbar::CreateTaskbarTabPreview(nsIDocShell* shell,
+                                    nsITaskbarPreviewController* controller,
+                                    nsITaskbarTabPreview** _retval) {
   if (!Initialize()) return NS_ERROR_NOT_AVAILABLE;
 
   NS_ENSURE_ARG_POINTER(shell);
@@ -308,14 +316,19 @@ WinTaskbar::CreateTaskbarTabPreview(nsIDocShell *shell,
       new TaskbarTabPreview(mTaskbar, controller, toplevelHWND, shell));
   if (!preview) return NS_ERROR_OUT_OF_MEMORY;
 
+  nsresult rv = preview->Init();
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
+
   preview.forget(_retval);
 
   return NS_OK;
 }
 
 NS_IMETHODIMP
-WinTaskbar::GetTaskbarWindowPreview(nsIDocShell *shell,
-                                    nsITaskbarWindowPreview **_retval) {
+WinTaskbar::GetTaskbarWindowPreview(nsIDocShell* shell,
+                                    nsITaskbarWindowPreview** _retval) {
   if (!Initialize()) return NS_ERROR_NOT_AVAILABLE;
 
   NS_ENSURE_ARG_POINTER(shell);
@@ -324,7 +337,7 @@ WinTaskbar::GetTaskbarWindowPreview(nsIDocShell *shell,
 
   if (!toplevelHWND) return NS_ERROR_INVALID_ARG;
 
-  nsWindow *window = WinUtils::GetNSWindowPtr(toplevelHWND);
+  nsWindow* window = WinUtils::GetNSWindowPtr(toplevelHWND);
 
   if (!window) return NS_ERROR_FAILURE;
 
@@ -332,9 +345,19 @@ WinTaskbar::GetTaskbarWindowPreview(nsIDocShell *shell,
   if (!preview) {
     RefPtr<DefaultController> defaultController =
         new DefaultController(toplevelHWND);
-    preview = new TaskbarWindowPreview(mTaskbar, defaultController,
-                                       toplevelHWND, shell);
-    if (!preview) return NS_ERROR_OUT_OF_MEMORY;
+
+    TaskbarWindowPreview* previewRaw = new TaskbarWindowPreview(
+        mTaskbar, defaultController, toplevelHWND, shell);
+    if (!previewRaw) {
+      return NS_ERROR_OUT_OF_MEMORY;
+    }
+
+    preview = previewRaw;
+
+    nsresult rv = previewRaw->Init();
+    if (NS_FAILED(rv)) {
+      return rv;
+    }
     window->SetTaskbarPreview(preview);
   }
 
@@ -344,8 +367,8 @@ WinTaskbar::GetTaskbarWindowPreview(nsIDocShell *shell,
 }
 
 NS_IMETHODIMP
-WinTaskbar::GetTaskbarProgress(nsIDocShell *shell,
-                               nsITaskbarProgress **_retval) {
+WinTaskbar::GetTaskbarProgress(nsIDocShell* shell,
+                               nsITaskbarProgress** _retval) {
   nsCOMPtr<nsITaskbarWindowPreview> preview;
   nsresult rv = GetTaskbarWindowPreview(shell, getter_AddRefs(preview));
   NS_ENSURE_SUCCESS(rv, rv);
@@ -355,7 +378,7 @@ WinTaskbar::GetTaskbarProgress(nsIDocShell *shell,
 
 NS_IMETHODIMP
 WinTaskbar::GetOverlayIconController(
-    nsIDocShell *shell, nsITaskbarOverlayIconController **_retval) {
+    nsIDocShell* shell, nsITaskbarOverlayIconController** _retval) {
   nsCOMPtr<nsITaskbarWindowPreview> preview;
   nsresult rv = GetTaskbarWindowPreview(shell, getter_AddRefs(preview));
   NS_ENSURE_SUCCESS(rv, rv);
@@ -364,7 +387,7 @@ WinTaskbar::GetOverlayIconController(
 }
 
 NS_IMETHODIMP
-WinTaskbar::CreateJumpListBuilder(nsIJumpListBuilder **aJumpListBuilder) {
+WinTaskbar::CreateJumpListBuilder(nsIJumpListBuilder** aJumpListBuilder) {
   nsresult rv;
 
   if (JumpListBuilder::sBuildingList) return NS_ERROR_ALREADY_INITIALIZED;
@@ -379,13 +402,13 @@ WinTaskbar::CreateJumpListBuilder(nsIJumpListBuilder **aJumpListBuilder) {
 }
 
 NS_IMETHODIMP
-WinTaskbar::SetGroupIdForWindow(mozIDOMWindow *aParent,
-                                const nsAString &aIdentifier) {
+WinTaskbar::SetGroupIdForWindow(mozIDOMWindow* aParent,
+                                const nsAString& aIdentifier) {
   return SetWindowAppUserModelProp(aParent, nsString(aIdentifier));
 }
 
 NS_IMETHODIMP
-WinTaskbar::PrepareFullScreen(mozIDOMWindow *aWindow, bool aFullScreen) {
+WinTaskbar::PrepareFullScreen(mozIDOMWindow* aWindow, bool aFullScreen) {
   NS_ENSURE_ARG_POINTER(aWindow);
 
   HWND toplevelHWND = ::GetAncestor(GetHWNDFromDOMWindow(aWindow), GA_ROOT);
@@ -395,7 +418,7 @@ WinTaskbar::PrepareFullScreen(mozIDOMWindow *aWindow, bool aFullScreen) {
 }
 
 NS_IMETHODIMP
-WinTaskbar::PrepareFullScreenHWND(void *aHWND, bool aFullScreen) {
+WinTaskbar::PrepareFullScreenHWND(void* aHWND, bool aFullScreen) {
   if (!Initialize()) return NS_ERROR_NOT_AVAILABLE;
 
   NS_ENSURE_ARG_POINTER(aHWND);

@@ -25,8 +25,11 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __DAV1D_HEADERS_H__
-#define __DAV1D_HEADERS_H__
+#ifndef DAV1D_HEADERS_H
+#define DAV1D_HEADERS_H
+
+#include <stdint.h>
+#include <stddef.h>
 
 // Constants from Section 3. "Symbols and abbreviated terms"
 #define DAV1D_MAX_CDEF_STRENGTHS 8
@@ -38,6 +41,17 @@
 #define DAV1D_PRIMARY_REF_NONE 7
 #define DAV1D_REFS_PER_FRAME 7
 #define DAV1D_TOTAL_REFS_PER_FRAME (DAV1D_REFS_PER_FRAME + 1)
+
+enum Dav1dObuType {
+    DAV1D_OBU_SEQ_HDR   = 1,
+    DAV1D_OBU_TD        = 2,
+    DAV1D_OBU_FRAME_HDR = 3,
+    DAV1D_OBU_TILE_GRP  = 4,
+    DAV1D_OBU_METADATA  = 5,
+    DAV1D_OBU_FRAME     = 6,
+    DAV1D_OBU_REDUNDANT_FRAME_HDR = 7,
+    DAV1D_OBU_PADDING   = 15,
+};
 
 enum Dav1dTxfmMode {
     DAV1D_TX_4X4_ONLY,
@@ -82,9 +96,9 @@ typedef struct Dav1dWarpedMotionParams {
     union {
         struct {
             int16_t alpha, beta, gamma, delta;
-        };
+        } p;
         int16_t abcd[4];
-    };
+    } u;
 } Dav1dWarpedMotionParams;
 
 enum Dav1dPixelLayout {
@@ -114,6 +128,7 @@ enum Dav1dColorPrimaries {
     DAV1D_COLOR_PRI_SMPTE431 = 11,
     DAV1D_COLOR_PRI_SMPTE432 = 12,
     DAV1D_COLOR_PRI_EBU3213 = 22,
+    DAV1D_COLOR_PRI_RESERVED = 255,
 };
 
 enum Dav1dTransferCharacteristics {
@@ -134,6 +149,7 @@ enum Dav1dTransferCharacteristics {
     DAV1D_TRC_SMPTE2084 = 16,     ///< PQ
     DAV1D_TRC_SMPTE428 = 17,
     DAV1D_TRC_HLG = 18,           ///< hybrid log/gamma (BT.2100 / ARIB STD-B67)
+    DAV1D_TRC_RESERVED = 255,
 };
 
 enum Dav1dMatrixCoefficients {
@@ -151,6 +167,7 @@ enum Dav1dMatrixCoefficients {
     DAV1D_MC_CHROMAT_NCL = 12, ///< Chromaticity-derived
     DAV1D_MC_CHROMAT_CL = 13,
     DAV1D_MC_ICTCP = 14,
+    DAV1D_MC_RESERVED = 255,
 };
 
 enum Dav1dChromaSamplePosition {
@@ -159,6 +176,29 @@ enum Dav1dChromaSamplePosition {
                            ///< sample, between two vertical samples
     DAV1D_CHR_COLOCATED = 2, ///< Co-located with luma(0, 0) sample
 };
+
+typedef struct Dav1dContentLightLevel {
+    int max_content_light_level;
+    int max_frame_average_light_level;
+} Dav1dContentLightLevel;
+
+typedef struct Dav1dMasteringDisplay {
+    ///< 0.16 fixed point
+    uint16_t primaries[3][2];
+    ///< 0.16 fixed point
+    uint16_t white_point[2];
+    ///< 24.8 fixed point
+    uint32_t max_luminance;
+    ///< 18.14 fixed point
+    uint32_t min_luminance;
+} Dav1dMasteringDisplay;
+
+typedef struct Dav1dITUTT35 {
+    uint8_t  country_code;
+    uint8_t  country_code_extension_byte;
+    size_t   payload_size;
+    uint8_t *payload;
+} Dav1dITUTT35;
 
 typedef struct Dav1dSequenceHeader {
     /**
@@ -179,6 +219,14 @@ typedef struct Dav1dSequenceHeader {
     enum Dav1dMatrixCoefficients mtrx; ///< matrix coefficients (av1)
     enum Dav1dChromaSamplePosition chr; ///< chroma sample position (av1)
     /**
+     * 0, 1 and 2 mean 8, 10 or 12 bits/component, respectively. This is not
+     * exactly the same as 'hbd' from the spec; the spec's hbd distinguishes
+     * between 8 (0) and 10-12 (1) bits/component, and another element
+     * (twelve_bit) to distinguish between 10 and 12 bits/component. To get
+     * the spec's hbd, use !!our_hbd, and to get twelve_bit, use hbd == 2.
+     */
+    int hbd;
+    /**
      * Pixel data uses JPEG pixel range ([0,255] for 8bits) instead of
      * MPEG pixel range ([16,235] for 8bits luma, [16,240] for 8bits chroma).
      */
@@ -191,9 +239,6 @@ typedef struct Dav1dSequenceHeader {
         int idc;
         int tier;
         int decoder_model_param_present;
-        int decoder_buffer_delay;
-        int encoder_buffer_delay;
-        int low_delay_mode;
         int display_model_param_present;
     } operating_points[DAV1D_MAX_OPERATING_POINTS];
 
@@ -203,7 +248,7 @@ typedef struct Dav1dSequenceHeader {
     int num_units_in_tick;
     int time_scale;
     int equal_picture_interval;
-    int num_ticks_per_picture;
+    unsigned num_ticks_per_picture;
     int decoder_model_info_present;
     int encoder_decoder_buffer_delay_length;
     int num_units_in_decoding_tick;
@@ -230,18 +275,22 @@ typedef struct Dav1dSequenceHeader {
     int super_res;
     int cdef;
     int restoration;
-    /**
-     * 0, 1 and 2 mean 8, 10 or 12 bits/component, respectively. This is not
-     * exactly the same as 'hbd' from the spec; the spec's hbd distinguishes
-     * between 8 (0) and 10-12 (1) bits/component, and another element
-     * (twelve_bit) to distinguish between 10 and 12 bits/component. To get
-     * the spec's hbd, use !!our_hbd, and to get twelve_bit, use hbd == 2.
-     */
-    int hbd;
     int ss_hor, ss_ver, monochrome;
     int color_description_present;
     int separate_uv_delta_q;
     int film_grain_present;
+
+    // Dav1dSequenceHeaders of the same sequence are required to be
+    // bit-identical until this offset. See 7.5 "Ordering of OBUs":
+    //   Within a particular coded video sequence, the contents of
+    //   sequence_header_obu must be bit-identical each time the
+    //   sequence header appears except for the contents of
+    //   operating_parameters_info.
+    struct Dav1dSequenceHeaderOperatingParameterInfo {
+        int decoder_buffer_delay;
+        int encoder_buffer_delay;
+        int low_delay_mode;
+    } operating_parameter_info[DAV1D_MAX_OPERATING_POINTS];
 } Dav1dSequenceHeader;
 
 typedef struct Dav1dSegmentationData {
@@ -264,7 +313,7 @@ typedef struct Dav1dLoopfilterModeRefDeltas {
 } Dav1dLoopfilterModeRefDeltas;
 
 typedef struct Dav1dFilmGrainData {
-    uint16_t seed;
+    unsigned seed;
     int num_y_points;
     uint8_t y_points[14][2 /* value, scaling */];
     int chroma_scaling_from_luma;
@@ -273,8 +322,8 @@ typedef struct Dav1dFilmGrainData {
     int scaling_shift;
     int ar_coeff_lag;
     int8_t ar_coeffs_y[24];
-    int8_t ar_coeffs_uv[2][25];
-    int ar_coeff_shift;
+    int8_t ar_coeffs_uv[2][25 + 3 /* padding for alignment purposes */];
+    uint64_t ar_coeff_shift;
     int grain_scale_shift;
     int uv_mult[2];
     int uv_luma_mult[2];
@@ -284,14 +333,15 @@ typedef struct Dav1dFilmGrainData {
 } Dav1dFilmGrainData;
 
 typedef struct Dav1dFrameHeader {
+    struct {
+        Dav1dFilmGrainData data;
+        int present, update;
+    } film_grain; ///< film grain parameters
     enum Dav1dFrameType frame_type; ///< type of the picture
     int width[2 /* { coded_width, superresolution_upscaled_width } */], height;
     int frame_offset; ///< frame number
-    struct {
-        int present, update;
-        Dav1dFilmGrainData data;
-    } film_grain; ///< film grain parameters
-    int temporal_id, spatial_id; ///< spatial and temporal id of the frame for SVC
+    int temporal_id; ///< temporal id of the frame for SVC
+    int spatial_id; ///< spatial id of the frame for SVC
 
     int show_existing_frame;
     int existing_frame_idx;
@@ -382,4 +432,4 @@ typedef struct Dav1dFrameHeader {
     Dav1dWarpedMotionParams gmv[DAV1D_REFS_PER_FRAME];
 } Dav1dFrameHeader;
 
-#endif /* __DAV1D_HEADERS_H__ */
+#endif /* DAV1D_HEADERS_H */

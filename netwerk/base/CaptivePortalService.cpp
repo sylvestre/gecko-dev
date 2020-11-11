@@ -11,7 +11,7 @@
 #include "nsXULAppAPI.h"
 #include "xpcpublic.h"
 
-static NS_NAMED_LITERAL_STRING(kInterfaceName, u"captive-portal-inteface");
+static constexpr auto kInterfaceName = u"captive-portal-inteface"_ns;
 
 static const char kOpenCaptivePortalLoginEvent[] = "captive-portal-login";
 static const char kAbortCaptivePortalLoginEvent[] =
@@ -77,7 +77,7 @@ nsresult CaptivePortalService::PerformCheck() {
   nsresult rv;
   if (!mCaptivePortalDetector) {
     mCaptivePortalDetector =
-        do_GetService("@mozilla.org/toolkit/captive-detector;1", &rv);
+        do_CreateInstance("@mozilla.org/toolkit/captive-detector;1", &rv);
     if (NS_FAILED(rv)) {
       LOG(("Unable to get a captive portal detector\n"));
       return rv;
@@ -202,6 +202,7 @@ nsresult CaptivePortalService::Stop() {
   mTimer = nullptr;
   mRequestInProgress = false;
   mStarted = false;
+  mEverBeenCaptive = false;
   if (mCaptivePortalDetector) {
     mCaptivePortalDetector->Abort(kInterfaceName);
   }
@@ -226,7 +227,7 @@ void CaptivePortalService::SetStateInChild(int32_t aState) {
 //-----------------------------------------------------------------------------
 
 NS_IMETHODIMP
-CaptivePortalService::GetState(int32_t *aState) {
+CaptivePortalService::GetState(int32_t* aState) {
   *aState = mState;
   return NS_OK;
 }
@@ -251,7 +252,7 @@ CaptivePortalService::RecheckCaptivePortal() {
 }
 
 NS_IMETHODIMP
-CaptivePortalService::GetLastChecked(uint64_t *aLastChecked) {
+CaptivePortalService::GetLastChecked(uint64_t* aLastChecked) {
   double duration = (TimeStamp::Now() - mLastChecked).ToMilliseconds();
   *aLastChecked = static_cast<uint64_t>(duration);
   return NS_OK;
@@ -263,7 +264,7 @@ CaptivePortalService::GetLastChecked(uint64_t *aLastChecked) {
 // It issues a checkCaptivePortal operation if one isn't already in progress
 //-----------------------------------------------------------------------------
 NS_IMETHODIMP
-CaptivePortalService::Notify(nsITimer *aTimer) {
+CaptivePortalService::Notify(nsITimer* aTimer) {
   LOG(("CaptivePortalService::Notify\n"));
   MOZ_ASSERT(aTimer == mTimer);
   MOZ_ASSERT(XRE_GetProcessType() == GeckoProcessType_Default);
@@ -292,7 +293,7 @@ CaptivePortalService::Notify(nsITimer *aTimer) {
 //-----------------------------------------------------------------------------
 
 NS_IMETHODIMP
-CaptivePortalService::GetName(nsACString &aName) {
+CaptivePortalService::GetName(nsACString& aName) {
   aName.AssignLiteral("CaptivePortalService");
   return NS_OK;
 }
@@ -301,8 +302,8 @@ CaptivePortalService::GetName(nsACString &aName) {
 // CaptivePortalService::nsIObserver
 //-----------------------------------------------------------------------------
 NS_IMETHODIMP
-CaptivePortalService::Observe(nsISupports *aSubject, const char *aTopic,
-                              const char16_t *aData) {
+CaptivePortalService::Observe(nsISupports* aSubject, const char* aTopic,
+                              const char16_t* aData) {
   if (XRE_GetProcessType() != GeckoProcessType_Default) {
     // Doesn't do anything if called in the content process.
     return NS_OK;

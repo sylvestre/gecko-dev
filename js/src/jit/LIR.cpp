@@ -8,13 +8,13 @@
 
 #include "mozilla/ScopeExit.h"
 
-#include <ctype.h>
 #include <type_traits>
 
 #include "jit/JitSpewer.h"
 #include "jit/MIR.h"
 #include "jit/MIRGenerator.h"
 #include "js/Printf.h"
+#include "util/Unicode.h"
 
 using namespace js;
 using namespace js::jit;
@@ -166,6 +166,9 @@ void LBlock::dump(GenericPrinter& out) {
   }
   for (LInstructionIterator iter = begin(); iter != end(); iter++) {
     iter->dump(out);
+    if (iter->safepoint()) {
+      out.printf(" SAFEPOINT(0x%p) ", iter->safepoint());
+    }
     out.printf("\n");
   }
 }
@@ -285,10 +288,10 @@ bool LRecoverInfo::init(MResumePoint* rp) {
 }
 
 LSnapshot::LSnapshot(LRecoverInfo* recoverInfo, BailoutKind kind)
-    : numSlots_(TotalOperandCount(recoverInfo) * BOX_PIECES),
-      slots_(nullptr),
+    : slots_(nullptr),
       recoverInfo_(recoverInfo),
       snapshotOffset_(INVALID_SNAPSHOT_OFFSET),
+      numSlots_(TotalOperandCount(recoverInfo) * BOX_PIECES),
       bailoutId_(INVALID_BAILOUT_ID),
       bailoutKind_(kind) {}
 
@@ -324,14 +327,14 @@ void LSnapshot::rewriteRecoveredInput(LUse input) {
 #ifdef JS_JITSPEW
 void LNode::printName(GenericPrinter& out, Opcode op) {
   static const char* const names[] = {
-#define LIROP(x) #x,
+#  define LIROP(x) #  x,
       LIR_OPCODE_LIST(LIROP)
-#undef LIROP
+#  undef LIROP
   };
   const char* name = names[uint32_t(op)];
   size_t len = strlen(name);
   for (size_t i = 0; i < len; i++) {
-    out.printf("%c", tolower(name[i]));
+    out.printf("%c", unicode::ToLowerCase(name[i]));
   }
 }
 
@@ -360,21 +363,19 @@ static const char* DefTypeName(LDefinition::Type type) {
       return "f";
     case LDefinition::DOUBLE:
       return "d";
-    case LDefinition::SIMD128INT:
-      return "simd128int";
-    case LDefinition::SIMD128FLOAT:
-      return "simd128float";
-    case LDefinition::SINCOS:
-      return "sincos";
-#ifdef JS_NUNBOX32
+    case LDefinition::SIMD128:
+      return "simd128";
+    case LDefinition::STACKRESULTS:
+      return "stackresults";
+#  ifdef JS_NUNBOX32
     case LDefinition::TYPE:
       return "t";
     case LDefinition::PAYLOAD:
       return "p";
-#else
+#  else
     case LDefinition::BOX:
       return "x";
-#endif
+#  endif
   }
   MOZ_CRASH("Invalid type");
 }
@@ -407,16 +408,18 @@ UniqueChars LDefinition::toString() const {
 static UniqueChars PrintUse(const LUse* use) {
   switch (use->policy()) {
     case LUse::REGISTER:
-      return JS_smprintf("v%d:r", use->virtualRegister());
+      return JS_smprintf("v%u:r", use->virtualRegister());
     case LUse::FIXED:
-      return JS_smprintf("v%d:%s", use->virtualRegister(),
+      return JS_smprintf("v%u:%s", use->virtualRegister(),
                          AnyRegister::FromCode(use->registerCode()).name());
     case LUse::ANY:
-      return JS_smprintf("v%d:r?", use->virtualRegister());
+      return JS_smprintf("v%u:r?", use->virtualRegister());
     case LUse::KEEPALIVE:
-      return JS_smprintf("v%d:*", use->virtualRegister());
+      return JS_smprintf("v%u:*", use->virtualRegister());
+    case LUse::STACK:
+      return JS_smprintf("v%u:s", use->virtualRegister());
     case LUse::RECOVERED_INPUT:
-      return JS_smprintf("v%d:**", use->virtualRegister());
+      return JS_smprintf("v%u:**", use->virtualRegister());
     default:
       MOZ_CRASH("invalid use policy");
   }
@@ -441,10 +444,14 @@ UniqueChars LAllocation::toString() const {
         buf = JS_smprintf("%s", toFloatReg()->reg().name());
         break;
       case LAllocation::STACK_SLOT:
-        buf = JS_smprintf("stack:%d", toStackSlot()->slot());
+        buf = JS_smprintf("stack:%u", toStackSlot()->slot());
         break;
       case LAllocation::ARGUMENT_SLOT:
-        buf = JS_smprintf("arg:%d", toArgument()->index());
+        buf = JS_smprintf("arg:%u", toArgument()->index());
+        break;
+      case LAllocation::STACK_AREA:
+        buf = JS_smprintf("stackarea:%u+%u", toStackArea()->base(),
+                          toStackArea()->size());
         break;
       case LAllocation::USE:
         buf = PrintUse(toUse());
@@ -520,11 +527,11 @@ static size_t NumSuccessors(const LInstruction* ins) {
   switch (ins->op()) {
     default:
       MOZ_CRASH("Unexpected LIR op");
-#define LIROP(x)         \
-  case LNode::Opcode::x: \
-    return NumSuccessorsHelper(ins->to##x());
+#  define LIROP(x)         \
+    case LNode::Opcode::x: \
+      return NumSuccessorsHelper(ins->to##x());
       LIR_OPCODE_LIST(LIROP)
-#undef LIROP
+#  undef LIROP
   }
 }
 
@@ -544,11 +551,11 @@ static MBasicBlock* GetSuccessor(const LInstruction* ins, size_t i) {
   switch (ins->op()) {
     default:
       MOZ_CRASH("Unexpected LIR op");
-#define LIROP(x)         \
-  case LNode::Opcode::x: \
-    return GetSuccessorHelper(ins->to##x(), i);
+#  define LIROP(x)         \
+    case LNode::Opcode::x: \
+      return GetSuccessorHelper(ins->to##x(), i);
       LIR_OPCODE_LIST(LIROP)
-#undef LIROP
+#  undef LIROP
   }
 }
 #endif
@@ -585,7 +592,6 @@ void LNode::dump(GenericPrinter& out) {
       out.printf(")");
     }
 
-#ifdef JS_JITSPEW
     size_t numSuccessors = NumSuccessors(ins);
     if (numSuccessors > 0) {
       out.printf(" s=(");
@@ -598,7 +604,6 @@ void LNode::dump(GenericPrinter& out) {
       }
       out.printf(")");
     }
-#endif
   }
 }
 
@@ -613,11 +618,11 @@ const char* LNode::getExtraName() const {
   switch (op()) {
     default:
       MOZ_CRASH("Unexpected LIR op");
-#define LIROP(x)         \
-  case LNode::Opcode::x: \
-    return to##x()->extraName();
+#  define LIROP(x)         \
+    case LNode::Opcode::x: \
+      return to##x()->extraName();
       LIR_OPCODE_LIST(LIROP)
-#undef LIROP
+#  undef LIROP
   }
 }
 #endif
@@ -636,7 +641,12 @@ bool LMoveGroup::add(LAllocation from, LAllocation to, LDefinition::Type type) {
   }
 
   // Check that SIMD moves are aligned according to ABI requirements.
-  if (LDefinition(type).isSimdType()) {
+#  ifdef ENABLE_WASM_SIMD
+  // Alignment is not currently required for SIMD on x86/x64.  See also
+  // CodeGeneratorShared::CodeGeneratorShared and in general everywhere
+  // SimdMemoryAignment is used.  Likely, alignment requirements will return.
+#    if !defined(JS_CODEGEN_X86) && !defined(JS_CODEGEN_X64)
+  if (LDefinition(type).type() == LDefinition::SIMD128) {
     MOZ_ASSERT(from.isMemory() || from.isFloatReg());
     if (from.isMemory()) {
       if (from.isArgument()) {
@@ -654,6 +664,8 @@ bool LMoveGroup::add(LAllocation from, LAllocation to, LDefinition::Type type) {
       }
     }
   }
+#    endif
+#  endif
 #endif
   return moves_.append(LMove(from, to, type));
 }
@@ -700,8 +712,8 @@ void LMoveGroup::printOperands(GenericPrinter& out) {
 }
 #endif
 
-#define LIROP(x)                                   \
-  static_assert(!std::is_polymorphic<L##x>::value, \
+#define LIROP(x)                              \
+  static_assert(!std::is_polymorphic_v<L##x>, \
                 "LIR instructions should not have virtual methods");
 LIR_OPCODE_LIST(LIROP)
 #undef LIROP

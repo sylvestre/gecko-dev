@@ -4,11 +4,11 @@
 
 "use strict";
 
-const { TargetFactory } = require("devtools/client/framework/target");
-const { DebuggerServer } = require("devtools/server/main");
-const { DebuggerClient } = require("devtools/shared/client/debugger-client");
-const { remoteClientManager } =
-  require("devtools/client/shared/remote-debugging/remote-client-manager");
+const { DevToolsServer } = require("devtools/server/devtools-server");
+const { DevToolsClient } = require("devtools/client/devtools-client");
+const {
+  remoteClientManager,
+} = require("devtools/client/shared/remote-debugging/remote-client-manager");
 
 /**
  * Construct a Target for a given URL object having various query parameters:
@@ -44,46 +44,89 @@ exports.targetFromURL = async function targetFromURL(url) {
   const params = url.searchParams;
 
   // Clients retrieved from the remote-client-manager are already connected.
-  if (!params.get("remoteId")) {
+  const isCachedClient = params.get("remoteId");
+  if (!isCachedClient) {
     // Connect any other client.
     await client.connect();
   }
 
+  const id = params.get("id");
   const type = params.get("type");
+  const chrome = params.has("chrome");
+
+  let target;
+  try {
+    target = await _targetFromURL(client, id, type, chrome);
+  } catch (e) {
+    if (!isCachedClient) {
+      // If the client was not cached, then the client was created here. If the target
+      // creation failed, we should close the client.
+      await client.close();
+    }
+    throw e;
+  }
+
+  // If this isn't a cached client, it means that we just created a new client
+  // in `clientFromURL` and we have to destroy it at some point.
+  // In such case, force the Target to destroy the client as soon as it gets
+  // destroyed. This typically happens only for about:debugging toolboxes
+  // opened for local Firefox's targets.
+  target.shouldCloseClient = !isCachedClient;
+
+  return target;
+};
+
+async function _targetFromURL(client, id, type, chrome) {
   if (!type) {
     throw new Error("targetFromURL, missing type parameter");
   }
-  let id = params.get("id");
-  // Allows to spawn a chrome enabled target for any context
-  // (handy to debug chrome stuff in a content process)
-  let chrome = params.has("chrome");
 
-  let form, front;
+  let front;
   if (type === "tab") {
     // Fetch target for a remote tab
     id = parseInt(id, 10);
     if (isNaN(id)) {
-      throw new Error(`targetFromURL, wrong tab id '${id}', should be a number`);
+      throw new Error(
+        `targetFromURL, wrong tab id '${id}', should be a number`
+      );
     }
     try {
-      const response = await client.getTab({ outerWindowID: id });
-      form = response.tab;
+      const tabDescriptor = await client.mainRoot.getTab({ outerWindowID: id });
+      front = await tabDescriptor.getTarget();
     } catch (ex) {
-      if (ex.startsWith("Protocol error (noTab)")) {
-        throw new Error(`targetFromURL, tab with outerWindowID '${id}' doesn't exist`);
+      if (ex.message.startsWith("Protocol error (noTab)")) {
+        throw new Error(
+          `targetFromURL, tab with outerWindowID '${id}' doesn't exist`
+        );
       }
       throw ex;
     }
+  } else if (type === "extension") {
+    const addonDescriptor = await client.mainRoot.getAddon({ id });
+
+    if (!addonDescriptor) {
+      throw new Error(`targetFromURL, extension with id '${id}' doesn't exist`);
+    }
+
+    front = await addonDescriptor.getTarget();
+  } else if (type === "worker") {
+    front = await client.mainRoot.getWorker(id);
+
+    if (!front) {
+      throw new Error(
+        `targetFromURL, worker with actor id '${id}' doesn't exist`
+      );
+    }
   } else if (type == "process") {
     // Fetch target for a remote chrome actor
-    DebuggerServer.allowChromeProcess = true;
+    DevToolsServer.allowChromeProcess = true;
     try {
       id = parseInt(id, 10);
       if (isNaN(id)) {
         id = 0;
       }
-      front = await client.mainRoot.getProcess(id);
-      chrome = true;
+      const frontDescriptor = await client.mainRoot.getProcess(id);
+      front = await frontDescriptor.getTarget(id);
     } catch (ex) {
       if (ex.error == "noProcess") {
         throw new Error(`targetFromURL, process with id '${id}' doesn't exist`);
@@ -92,17 +135,15 @@ exports.targetFromURL = async function targetFromURL(url) {
     }
   } else if (type == "window") {
     // Fetch target for a remote window actor
-    DebuggerServer.allowChromeProcess = true;
+    DevToolsServer.allowChromeProcess = true;
     try {
       id = parseInt(id, 10);
       if (isNaN(id)) {
         throw new Error("targetFromURL, window requires id parameter");
       }
-      const response = await client.mainRoot.getWindow({
+      front = await client.mainRoot.getWindow({
         outerWindowID: id,
       });
-      form = response.window;
-      chrome = true;
     } catch (ex) {
       if (ex.error == "notFound") {
         throw new Error(`targetFromURL, window with id '${id}' doesn't exist`);
@@ -113,11 +154,17 @@ exports.targetFromURL = async function targetFromURL(url) {
     throw new Error(`targetFromURL, unsupported type '${type}' parameter`);
   }
 
-  return TargetFactory.forRemoteTab({ client, form, activeTab: front, chrome });
-};
+  // Allows to spawn a chrome enabled target for any context
+  // (handy to debug chrome stuff in a content process)
+  if (chrome) {
+    front.forceChrome();
+  }
+
+  return front;
+}
 
 /**
- * Create a DebuggerClient for a given URL object having various query parameters:
+ * Create a DevToolsClient for a given URL object having various query parameters:
  *
  * host:
  *    {String} The hostname or IP address to connect to.
@@ -130,7 +177,7 @@ exports.targetFromURL = async function targetFromURL(url) {
  *
  * @param {URL} url
  *        The url to fetch query params from.
- * @return a promise that resolves a DebuggerClient object
+ * @return a promise that resolves a DevToolsClient object
  */
 async function clientFromURL(url) {
   const params = url.searchParams;
@@ -138,7 +185,11 @@ async function clientFromURL(url) {
   // If a remote id was provided we should already have a connected client available.
   const remoteId = params.get("remoteId");
   if (remoteId) {
-    return remoteClientManager.getClientByRemoteId(remoteId);
+    const client = remoteClientManager.getClientByRemoteId(remoteId);
+    if (!client) {
+      throw new Error(`Could not find client with remote id: ${remoteId}`);
+    }
+    return client;
   }
 
   const host = params.get("host");
@@ -147,14 +198,14 @@ async function clientFromURL(url) {
 
   let transport;
   if (port) {
-    transport = await DebuggerClient.socketConnect({ host, port, webSocket });
+    transport = await DevToolsClient.socketConnect({ host, port, webSocket });
   } else {
     // Setup a server if we don't have one already running
-    DebuggerServer.init();
-    DebuggerServer.registerAllActors();
-    transport = DebuggerServer.connectPipe();
+    DevToolsServer.init();
+    DevToolsServer.registerAllActors();
+    transport = DevToolsServer.connectPipe();
   }
-  return new DebuggerClient(transport);
+  return new DevToolsClient(transport);
 }
 
 exports.clientFromURL = clientFromURL;

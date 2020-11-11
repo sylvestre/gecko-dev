@@ -13,10 +13,9 @@
 
 NS_IMPL_NS_NEW_HTML_ELEMENT(FrameSet)
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
-HTMLFrameSetElement::~HTMLFrameSetElement() {}
+HTMLFrameSetElement::~HTMLFrameSetElement() = default;
 
 JSObject* HTMLFrameSetElement::WrapNode(JSContext* aCx,
                                         JS::Handle<JSObject*> aGivenProto) {
@@ -33,11 +32,12 @@ nsresult HTMLFrameSetElement::BeforeSetAttr(int32_t aNamespaceID, nsAtom* aName,
    * we want to reflow.
    * Ideally, the style hint would be changed back to reflow after the reframe
    * has been performed. Unfortunately, however, the reframe will be performed
-   * by the call to nsNodeUtils::AttributeChanged, which occurs *after*
+   * by the call to MutationObservers::AttributeChanged, which occurs *after*
    * AfterSetAttr is called, leaving us with no convenient way of changing the
-   * value back to reflow afterwards. However, nsNodeUtils::AttributeChanged is
-   * effectively the only consumer of this value, so as long as we always set
-   * the value correctly here, we should be fine.
+   * value back to reflow afterwards. However,
+   * MutationObservers::AttributeChanged is effectively the only consumer of
+   * this value, so as long as we always set the value correctly here, we should
+   * be fine.
    */
   mCurrentRowColHint = NS_STYLE_HINT_REFLOW;
   if (aNamespaceID == kNameSpaceID_None) {
@@ -316,5 +316,4 @@ bool HTMLFrameSetElement::IsEventAttributeNameInternal(nsAtom* aName) {
 #undef WINDOW_EVENT_HELPER
 #undef EVENT
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

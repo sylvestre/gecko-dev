@@ -6,7 +6,7 @@ https://bugzilla.mozilla.org/show_bug.cgi?id=1378586
 <head>
   <meta charset="utf-8">
   <title>Test for Bug 1378586</title>
-  <script type="application/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css"/>
 </head>
 <body>
@@ -20,10 +20,9 @@ SimpleTest.waitForExplicitFinish();
 // nesting.
 function clearNestingLevel() {
   return new Promise(resolve => {
-    window.addEventListener('message', function onMessage() {
-      window.removeEventListener('message', onMessage);
+    window.addEventListener('message', () => {
       resolve();
-    });
+    }, {once: true});
     postMessage('done', '*');
   });
 }
@@ -54,6 +53,36 @@ function delayByInterval(iterations) {
       }
     }
     setInterval(tick, 0);
+  });
+}
+
+function testNestedIntervals() {
+  return new Promise(resolve => {
+    const runCount = 100;
+    let counter = 0;
+    let intervalId = 0;
+    let prevInitTime = performance.now();
+    let totalTime = 0;
+    function intervalCallback() {
+      let now = performance.now();
+      let delay = now - prevInitTime;
+      totalTime += delay;
+      prevInitTime = now;
+      clearInterval(intervalId);
+      if (++counter < runCount) {
+        intervalId = setInterval(intervalCallback, 0);
+      } else {
+        // Delays should be clamped to 4ms after the initial calls, but allow
+        // some fuzziness, so divide by 2.
+        let expectedTime = runCount * 4 / 2;
+        ok(totalTime > expectedTime, "Should not run callbacks too fast.");
+        resolve();
+      }
+    }
+
+    // Use the timeout value defined in the spec, 4ms.
+    SpecialPowers.pushPrefEnv({ 'set': [["dom.min_timeout_value", 4]]},
+                              intervalCallback);
   });
 }
 
@@ -93,7 +122,7 @@ async function runTests() {
 
   await clearNestingLevel();
 
-  // Verfy a setTimeout() chain will continue to clamp past the first
+  // Verify a setTimeout() chain will continue to clamp past the first
   // expected iteration.
   const expectedDelay = (1 + expectedClampIteration) * clampDelayMS;
 
@@ -106,7 +135,7 @@ async function runTests() {
 
   await clearNestingLevel();
 
-  // Verfy setInterval() will continue to clamp past the first expected
+  // Verify setInterval() will continue to clamp past the first expected
   // iteration.
   start = performance.now();
   await delayByTimeoutChain(2 * expectedClampIteration);
@@ -114,6 +143,8 @@ async function runTests() {
   delta = stop - start;
 
   ok(delta >= expectedDelay, "setInterval() continued to clamp: " + stop + " - " + start + " = " + delta);
+
+  await testNestedIntervals();
 
   SimpleTest.finish();
 }

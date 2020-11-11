@@ -4,6 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "nsISupports.idl"
+#include "nsILoadInfo.idl"
 
 %{C++
 #include "nsStringFwd.h"
@@ -14,7 +15,7 @@ class TimeStamp;
 }
 %}
 [ptr] native StringArray(nsTArray<nsCString>);
-[ref] native StringArrayRef(const nsTArray<nsCString>);
+[ref] native CStringArrayRef(const nsTArray<nsCString>);
 [ref] native securityMessagesArray(nsCOMArray<nsISecurityConsoleMessage>);
 
 native TimeStamp(mozilla::TimeStamp);
@@ -37,6 +38,8 @@ interface nsIHttpUpgradeListener : nsISupports
     [must_use] void onTransportAvailable(in nsISocketTransport   aTransport,
                                          in nsIAsyncInputStream  aSocketIn,
                                          in nsIAsyncOutputStream aSocketOut);
+
+    [must_use] void onUpgradeFailed(in nsresult aErrorCode);
 };
 
 /**
@@ -79,12 +82,18 @@ interface nsIHttpChannelInternal : nsISupports
      * @param aCookieHeader
      *        The cookie header to be parsed.
      */
-    [must_use] void setCookie(in string aCookieHeader);
+    [must_use] void setCookie(in ACString aCookieHeader);
 
     /**
      * Setup this channel as an application cache fallback channel.
      */
     [must_use] void setupFallbackChannel(in string aFallbackKey);
+
+    /**
+     * Returns true in case this channel is used for auth;
+     * (the response header includes 'www-authenticate').
+     */
+    [noscript, must_use] readonly attribute bool isAuthChannel;
 
     /**
      * This flag is set to force relevant cookies to be sent with this load
@@ -104,11 +113,6 @@ interface nsIHttpChannelInternal : nsISupports
      * THIRD_PARTY_FORCE_ALLOW, described above.
      */
     [must_use] attribute boolean forceAllowThirdPartyCookie;
-
-    /**
-     * True iff the channel has been canceled.
-     */
-    [must_use] readonly attribute boolean canceled;
 
     /**
      * External handlers may set this to true to notify the channel
@@ -168,11 +172,15 @@ interface nsIHttpChannelInternal : nsISupports
      * response. The nsIHttpUpgradeListener will have its
      * onTransportAvailable() method invoked if a matching 101 is processed.
      * The arguments to onTransportAvailable provide the new protocol the low
-     * level tranport streams that are no longer used by HTTP.
+     * level tranport streams that are no longer used by HTTP. If any errors
+     * occur during the upgrade but the original request has (potentially)
+     * already received onStopRequest, the nsIHttpUpgradeListener will have its
+     * onUpgradeFailed() method invoked instead of onTransportAvailable().
      *
      * The onStartRequest and onStopRequest events are still delivered and the
      * listener gets full control over the socket if and when onTransportAvailable
-     * is delievered.
+     * is delivered. Note that if onStopRequest is called with an error, no
+     * methods on the nsIHttpUpgradeListener might be invoked at all.
      *
      * @param aProtocolName
      *        The value of the HTTP Upgrade request header
@@ -205,6 +213,13 @@ interface nsIHttpChannelInternal : nsISupports
      * for starting spdy.
      */
     [must_use] attribute boolean allowSpdy;
+
+    /**
+     * Enable/Disable HTTP3 negotiation on per channel basis.
+     * The network.http.http3.enabled preference is still a pre-requisite
+     * for starting HTTP3.
+     */
+    [must_use] attribute boolean allowHttp3;
 
     /**
      * This attribute en/disables the timeout for the first byte of an HTTP
@@ -242,7 +257,14 @@ interface nsIHttpChannelInternal : nsISupports
      * True if channel is used by the internal trusted recursive resolver
      * This flag places data for the request in a cache segment specific to TRR
      */
-    [noscript, must_use] attribute boolean trr;
+    [noscript, must_use] attribute boolean isTRRServiceChannel;
+
+    /**
+     * If the channel's remote IP was resolved using TRR.
+     * Is false for resources loaded from the cache or resources that have an
+     * IP literal host.
+     */
+    [noscript, must_use] readonly attribute boolean isResolvedByTRR;
 
     /**
      * An opaque flags for non-standard behavior of the TLS system.
@@ -315,10 +337,18 @@ interface nsIHttpChannelInternal : nsISupports
      * the CORS preflight parameters.
      */
     [noscript, notxpcom, nostdcall]
-    void setCorsPreflightParameters(in StringArrayRef unsafeHeaders);
+    void setCorsPreflightParameters(in CStringArrayRef unsafeHeaders,
+                                    in boolean shouldStripRequestBodyHeader);
 
     [noscript, notxpcom, nostdcall]
     void setAltDataForChild(in boolean aIsForChild);
+
+    /**
+     * Prevent the use of alt-data cache for this request.  Use by the
+     * extension StreamFilter class to force use of the regular cache.
+     */
+    [noscript, notxpcom, nostdcall]
+    void disableAltDataCache();
 
     /**
      * When set to true, the channel will not pop any authentication prompts up
@@ -352,11 +382,11 @@ interface nsIHttpChannelInternal : nsISupports
 
     /**
      * Cancel a channel because we have determined that it needs to be blocked
-     * for tracking protection.  This is an internal API that is meant to be
-     * called by the channel classifier.  Please DO NOT use this API if you don't
-     * know whether you should be using it.
+     * for safe-browsing protection.  This is an internal API that is meant to
+     * be called by the channel classifier.  Please DO NOT use this API if you
+     * don't know whether you should be using it.
      */
-    [noscript] void cancelForTrackingProtection();
+    [noscript] void cancelByURLClassifier(in nsresult aErrorCode);
 
     /**
      * The channel will be loaded over IPv6, disabling IPv4.
@@ -369,4 +399,36 @@ interface nsIHttpChannelInternal : nsISupports
      */
     [noscript, notxpcom, nostdcall]
     void setIPv6Disabled();
+
+    /**
+     * Returns a cached CrossOriginOpenerPolicy that is computed just before we
+     * determine if there is a policy mismatch.
+     * @throws NS_ERROR_NOT_AVAILABLE if it has not been computed yet
+     */
+    readonly attribute nsILoadInfo_CrossOriginOpenerPolicy crossOriginOpenerPolicy;
+
+    /**
+     * Called during onStartRequest to compute the cross-origin-opener-policy
+     * for a given channel.
+     */
+    [noscript]
+    nsILoadInfo_CrossOriginOpenerPolicy computeCrossOriginOpenerPolicy(
+        in nsILoadInfo_CrossOriginOpenerPolicy aInitiatorPolicy);
+
+    [noscript]
+    bool hasCrossOriginOpenerPolicyMismatch(); 
+
+    [noscript]
+    nsILoadInfo_CrossOriginEmbedderPolicy getResponseEmbedderPolicy();
+
+    [notxpcom, nostdcall] attribute boolean hasNonEmptySandboxingFlag;
+
+    [noscript, notxpcom, nostdcall]
+    void DoDiagnosticAssertWhenOnStopNotCalledOnDestroy();
+
+    /**
+     * If this is called, this channel's transaction will not be dispatched
+     * until the HTTPSSVC record is available.
+     */
+    [must_use] void setWaitForHTTPSSVCRecord();
 };

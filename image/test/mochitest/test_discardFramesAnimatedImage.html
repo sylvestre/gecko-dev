@@ -5,8 +5,8 @@ https://bugzilla.mozilla.org/show_bug.cgi?id=523950
 -->
 <head>
   <title>Test that animated images can discard frames and redecode</title>
-  <script type="text/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
-  <script type="text/javascript" src="/tests/SimpleTest/WindowSnapshot.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/WindowSnapshot.js"></script>
   <script type="text/javascript" src="imgutils.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css" />
 </head>
@@ -88,11 +88,11 @@ function step2() {
 
 function step3() {
   // Draw the images to canvas to force them to be decoded.
-  for (var i = 0; i < gImgs.length; i++) {
+  for (let i = 0; i < gImgs.length; i++) {
     drawCanvas(document.getElementById(gImgs[i]));
   }
 
-  for (var i = 0; i < gImgs.length; i++) {
+  for (let i = 0; i < gImgs.length; i++) {
     addCallbacks(document.getElementById(gImgs[i]), i);
   }
 
@@ -147,13 +147,13 @@ function checkIfLoaded() {
 function resetState() {
   gFinished = false;
   gCountingFrameUpdates = false;
-  for (var i = 0; i < gNumFrameUpdates.length; ++i) {
+  for (let i = 0; i < gNumFrameUpdates.length; ++i) {
     gNumFrameUpdates[i] = 0;
   }
-  for (var i = 0; i < gNumSnapShotChanges.length; ++i) {
+  for (let i = 0; i < gNumSnapShotChanges.length; ++i) {
     gNumSnapShotChanges[i] = 0;
   }
-  for (var i = 0; i < gLastSnapShot.length; ++i) {
+  for (let i = 0; i < gLastSnapShot.length; ++i) {
     gLastSnapShot[i] = null;
   }
 }

@@ -5,16 +5,21 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 EXPORTS.mozilla = [
-    'ClearSiteData.h',
+    "ClearSiteData.h",
 ]
 
 UNIFIED_SOURCES += [
-    'ClearSiteData.cpp',
+    "ClearSiteData.cpp",
 ]
 
-include('/ipc/chromium/chromium-config.mozbuild')
+LOCAL_INCLUDES += [
+    "/netwerk/base",
+    "/netwerk/protocol/http",
+]
 
-with Files('**'):
-    BUG_COMPONENT = ('Toolkit', 'Data Sanitization')
+include("/ipc/chromium/chromium-config.mozbuild")
 
-FINAL_LIBRARY = 'xul'
+with Files("**"):
+    BUG_COMPONENT = ("Toolkit", "Data Sanitization")
+
+FINAL_LIBRARY = "xul"

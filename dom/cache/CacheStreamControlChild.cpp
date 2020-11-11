@@ -4,12 +4,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "mozilla/dom/cache/CacheStreamControlChild.h"
+#include "CacheStreamControlChild.h"
 
 #include "mozilla/Unused.h"
 #include "mozilla/dom/cache/ActorUtils.h"
 #include "mozilla/dom/cache/CacheTypes.h"
-#include "mozilla/dom/cache/CacheWorkerHolder.h"
+#include "mozilla/dom/cache/CacheWorkerRef.h"
 #include "mozilla/dom/cache/ReadStream.h"
 #include "mozilla/ipc/FileDescriptorSetChild.h"
 #include "mozilla/ipc/IPCStreamUtils.h"
@@ -17,9 +17,7 @@
 #include "mozilla/ipc/PFileDescriptorSetChild.h"
 #include "nsISupportsImpl.h"
 
-namespace mozilla {
-namespace dom {
-namespace cache {
+namespace mozilla::dom::cache {
 
 using mozilla::dom::OptionalFileDescriptorSet;
 using mozilla::ipc::AutoIPCStream;
@@ -28,13 +26,8 @@ using mozilla::ipc::FileDescriptorSetChild;
 using mozilla::ipc::PFileDescriptorSetChild;
 
 // declared in ActorUtils.h
-PCacheStreamControlChild* AllocPCacheStreamControlChild() {
-  return new CacheStreamControlChild();
-}
-
-// declared in ActorUtils.h
-void DeallocPCacheStreamControlChild(PCacheStreamControlChild* aActor) {
-  delete aActor;
+already_AddRefed<PCacheStreamControlChild> AllocPCacheStreamControlChild() {
+  return MakeAndAddRef<CacheStreamControlChild>();
 }
 
 CacheStreamControlChild::CacheStreamControlChild()
@@ -50,7 +43,7 @@ CacheStreamControlChild::~CacheStreamControlChild() {
 void CacheStreamControlChild::StartDestroy() {
   NS_ASSERT_OWNINGTHREAD(CacheStreamControlChild);
   // This can get called twice under some circumstances.  For example, if the
-  // actor is added to a CacheWorkerHolder that has already been notified and
+  // actor is added to a CacheWorkerRef that has already been notified and
   // the Cache actor has no mListener.
   if (mDestroyStarted) {
     return;
@@ -110,14 +103,15 @@ void CacheStreamControlChild::OpenStream(const nsID& aId,
   // rejection here in many cases, we must handle the case where the
   // MozPromise resolve runnable is already in the event queue when the
   // worker wants to shut down.
-  RefPtr<CacheWorkerHolder> holder = GetWorkerHolder();
+  const SafeRefPtr<CacheWorkerRef> holder = GetWorkerRefPtr().clonePtr();
 
   SendOpenStream(aId)->Then(
-      GetCurrentThreadSerialEventTarget(), __func__,
-      [aResolver, holder](RefPtr<nsIInputStream>&& aOptionalStream) {
-        aResolver(nsCOMPtr<nsIInputStream>(aOptionalStream.forget()));
+      GetCurrentSerialEventTarget(), __func__,
+      [aResolver,
+       holder = holder.clonePtr()](RefPtr<nsIInputStream>&& aOptionalStream) {
+        aResolver(nsCOMPtr<nsIInputStream>(std::move(aOptionalStream)));
       },
-      [aResolver, holder](ResponseRejectReason&& aReason) {
+      [aResolver, holder = holder.clonePtr()](ResponseRejectReason&& aReason) {
         aResolver(nullptr);
       });
 }
@@ -145,13 +139,7 @@ void CacheStreamControlChild::AssertOwningThread() {
 void CacheStreamControlChild::ActorDestroy(ActorDestroyReason aReason) {
   NS_ASSERT_OWNINGTHREAD(CacheStreamControlChild);
   CloseAllReadStreamsWithoutReporting();
-  RemoveWorkerHolder();
-}
-
-mozilla::ipc::IPCResult CacheStreamControlChild::RecvClose(const nsID& aId) {
-  NS_ASSERT_OWNINGTHREAD(CacheStreamControlChild);
-  CloseReadStreams(aId);
-  return IPC_OK();
+  RemoveWorkerRef();
 }
 
 mozilla::ipc::IPCResult CacheStreamControlChild::RecvCloseAll() {
@@ -160,6 +148,4 @@ mozilla::ipc::IPCResult CacheStreamControlChild::RecvCloseAll() {
   return IPC_OK();
 }
 
-}  // namespace cache
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom::cache

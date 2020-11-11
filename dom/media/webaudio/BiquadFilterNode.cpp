@@ -7,16 +7,16 @@
 #include "BiquadFilterNode.h"
 #include "AlignmentUtils.h"
 #include "AudioNodeEngine.h"
-#include "AudioNodeStream.h"
+#include "AudioNodeTrack.h"
 #include "AudioDestinationNode.h"
 #include "PlayingRefChangeHandler.h"
 #include "WebAudioUtils.h"
 #include "blink/Biquad.h"
 #include "mozilla/UniquePtr.h"
+#include "mozilla/ErrorResult.h"
 #include "AudioParamTimeline.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_IMPL_CYCLE_COLLECTION_INHERITED(BiquadFilterNode, AudioNode, mFrequency,
                                    mDetune, mQ, mGain)
@@ -34,7 +34,7 @@ static void SetParamsOnBiquad(WebCore::Biquad& aBiquad, float aSampleRate,
   double normalizedFrequency = aFrequency / nyquist;
 
   if (aDetune) {
-    normalizedFrequency *= std::pow(2.0, aDetune / 1200);
+    normalizedFrequency *= std::exp2(aDetune / 1200);
   }
 
   switch (aType) {
@@ -73,7 +73,7 @@ class BiquadFilterNodeEngine final : public AudioNodeEngine {
   BiquadFilterNodeEngine(AudioNode* aNode, AudioDestinationNode* aDestination,
                          uint64_t aWindowID)
       : AudioNodeEngine(aNode),
-        mDestination(aDestination->Stream())
+        mDestination(aDestination->Track())
         // Keep the default values in sync with the default values in
         // BiquadFilterNode::BiquadFilterNode
         ,
@@ -117,7 +117,7 @@ class BiquadFilterNodeEngine final : public AudioNodeEngine {
     }
   }
 
-  void ProcessBlock(AudioNodeStream* aStream, GraphTime aFrom,
+  void ProcessBlock(AudioNodeTrack* aTrack, GraphTime aFrom,
                     const AudioBlock& aInput, AudioBlock* aOutput,
                     bool* aFinished) override {
     float inputBuffer[WEBAUDIO_BLOCK_SIZE + 4];
@@ -135,13 +135,12 @@ class BiquadFilterNodeEngine final : public AudioNodeEngine {
       if (!hasTail) {
         if (!mBiquads.IsEmpty()) {
           mBiquads.Clear();
-          aStream->ScheduleCheckForInactive();
+          aTrack->ScheduleCheckForInactive();
 
           RefPtr<PlayingRefChangeHandler> refchanged =
-              new PlayingRefChangeHandler(aStream,
+              new PlayingRefChangeHandler(aTrack,
                                           PlayingRefChangeHandler::RELEASE);
-          aStream->Graph()->DispatchToMainThreadAfterStreamStateUpdate(
-              refchanged.forget());
+          aTrack->Graph()->DispatchToMainThreadStableState(refchanged.forget());
         }
 
         aOutput->SetNull(WEBAUDIO_BLOCK_SIZE);
@@ -153,10 +152,9 @@ class BiquadFilterNodeEngine final : public AudioNodeEngine {
     } else if (mBiquads.Length() != aInput.ChannelCount()) {
       if (mBiquads.IsEmpty()) {
         RefPtr<PlayingRefChangeHandler> refchanged =
-            new PlayingRefChangeHandler(aStream,
+            new PlayingRefChangeHandler(aTrack,
                                         PlayingRefChangeHandler::ADDREF);
-        aStream->Graph()->DispatchToMainThreadAfterStreamStateUpdate(
-            refchanged.forget());
+        aTrack->Graph()->DispatchToMainThreadStableState(refchanged.forget());
       } else {  // Help people diagnose bug 924718
         WebAudioUtils::LogToDeveloperConsole(
             mWindowID, "BiquadFilterChannelCountChangeWarning");
@@ -169,7 +167,7 @@ class BiquadFilterNodeEngine final : public AudioNodeEngine {
     uint32_t numberOfChannels = mBiquads.Length();
     aOutput->AllocateChannels(numberOfChannels);
 
-    StreamTime pos = mDestination->GraphTimeToStreamTime(aFrom);
+    TrackTime pos = mDestination->GraphTimeToTrackTime(aFrom);
 
     double freq = mFrequency.GetValueAtTime(pos);
     double q = mQ.GetValueAtTime(pos);
@@ -188,8 +186,8 @@ class BiquadFilterNodeEngine final : public AudioNodeEngine {
           input = alignedInputBuffer;
         }
       }
-      SetParamsOnBiquad(mBiquads[i], aStream->SampleRate(), mType, freq, q,
-                        gain, detune);
+      SetParamsOnBiquad(mBiquads[i], aTrack->mSampleRate, mType, freq, q, gain,
+                        detune);
 
       mBiquads[i].process(input, aOutput->ChannelFloatsForWrite(i),
                           aInput.GetDuration());
@@ -212,7 +210,7 @@ class BiquadFilterNodeEngine final : public AudioNodeEngine {
   }
 
  private:
-  RefPtr<AudioNodeStream> mDestination;
+  RefPtr<AudioNodeTrack> mDestination;
   BiquadFilterType mType;
   AudioParamTimeline mFrequency;
   AudioParamTimeline mDetune;
@@ -225,28 +223,28 @@ class BiquadFilterNodeEngine final : public AudioNodeEngine {
 BiquadFilterNode::BiquadFilterNode(AudioContext* aContext)
     : AudioNode(aContext, 2, ChannelCountMode::Max,
                 ChannelInterpretation::Speakers),
-      mType(BiquadFilterType::Lowpass),
-      mFrequency(new AudioParam(
-          this, BiquadFilterNodeEngine::FREQUENCY, "frequency", 350.f,
-          -(aContext->SampleRate() / 2), aContext->SampleRate() / 2)),
-      mDetune(
-          new AudioParam(this, BiquadFilterNodeEngine::DETUNE, "detune", 0.f)),
-      mQ(new AudioParam(this, BiquadFilterNodeEngine::Q, "Q", 1.f)),
-      mGain(new AudioParam(this, BiquadFilterNodeEngine::GAIN, "gain", 0.f)) {
-  uint64_t windowID = aContext->GetParentObject()->WindowID();
+      mType(BiquadFilterType::Lowpass) {
+  mFrequency = CreateAudioParam(
+      BiquadFilterNodeEngine::FREQUENCY, u"frequency"_ns, 350.f,
+      -(aContext->SampleRate() / 2), aContext->SampleRate() / 2);
+  mDetune = CreateAudioParam(BiquadFilterNodeEngine::DETUNE, u"detune"_ns, 0.f);
+  mQ = CreateAudioParam(BiquadFilterNodeEngine::Q, u"Q"_ns, 1.f);
+  mGain = CreateAudioParam(BiquadFilterNodeEngine::GAIN, u"gain"_ns, 0.f);
+
+  uint64_t windowID = 0;
+  if (aContext->GetParentObject()) {
+    windowID = aContext->GetParentObject()->WindowID();
+  }
   BiquadFilterNodeEngine* engine =
       new BiquadFilterNodeEngine(this, aContext->Destination(), windowID);
-  mStream = AudioNodeStream::Create(
-      aContext, engine, AudioNodeStream::NO_STREAM_FLAGS, aContext->Graph());
+  mTrack = AudioNodeTrack::Create(
+      aContext, engine, AudioNodeTrack::NO_TRACK_FLAGS, aContext->Graph());
 }
 
-/* static */ already_AddRefed<BiquadFilterNode> BiquadFilterNode::Create(
+/* static */
+already_AddRefed<BiquadFilterNode> BiquadFilterNode::Create(
     AudioContext& aAudioContext, const BiquadFilterOptions& aOptions,
     ErrorResult& aRv) {
-  if (aAudioContext.CheckClosed(aRv)) {
-    return nullptr;
-  }
-
   RefPtr<BiquadFilterNode> audioNode = new BiquadFilterNode(&aAudioContext);
 
   audioNode->Initialize(aOptions, aRv);
@@ -296,20 +294,25 @@ JSObject* BiquadFilterNode::WrapObject(JSContext* aCx,
 
 void BiquadFilterNode::SetType(BiquadFilterType aType) {
   mType = aType;
-  SendInt32ParameterToStream(BiquadFilterNodeEngine::TYPE,
-                             static_cast<int32_t>(aType));
+  SendInt32ParameterToTrack(BiquadFilterNodeEngine::TYPE,
+                            static_cast<int32_t>(aType));
 }
 
-void BiquadFilterNode::GetFrequencyResponse(
-    const Float32Array& aFrequencyHz, const Float32Array& aMagResponse,
-    const Float32Array& aPhaseResponse) {
-  aFrequencyHz.ComputeLengthAndData();
-  aMagResponse.ComputeLengthAndData();
-  aPhaseResponse.ComputeLengthAndData();
+void BiquadFilterNode::GetFrequencyResponse(const Float32Array& aFrequencyHz,
+                                            const Float32Array& aMagResponse,
+                                            const Float32Array& aPhaseResponse,
+                                            ErrorResult& aRv) {
+  aFrequencyHz.ComputeState();
+  aMagResponse.ComputeState();
+  aPhaseResponse.ComputeState();
 
-  uint32_t length =
-      std::min(std::min(aFrequencyHz.Length(), aMagResponse.Length()),
-               aPhaseResponse.Length());
+  if (!(aFrequencyHz.Length() == aMagResponse.Length() &&
+        aMagResponse.Length() == aPhaseResponse.Length())) {
+    aRv.ThrowInvalidAccessError("Parameter lengths must match");
+    return;
+  }
+
+  uint32_t length = aFrequencyHz.Length();
   if (!length) {
     return;
   }
@@ -341,5 +344,4 @@ void BiquadFilterNode::GetFrequencyResponse(
                               aMagResponse.Data(), aPhaseResponse.Data());
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

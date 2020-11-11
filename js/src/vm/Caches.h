@@ -9,13 +9,12 @@
 
 #include <new>
 
-#include "jsmath.h"
-
-#include "frontend/SourceNotes.h"
+#include "frontend/SourceNotes.h"  // SrcNote
 #include "gc/Tracer.h"
 #include "js/RootingAPI.h"
 #include "js/TypeDecls.h"
 #include "js/UniquePtr.h"
+#include "util/Memory.h"
 #include "vm/ArrayObject.h"
 #include "vm/JSAtom.h"
 #include "vm/JSObject.h"
@@ -31,7 +30,7 @@ namespace js {
  * by offset from the bytecode with which they were generated.
  */
 struct GSNCache {
-  typedef HashMap<jsbytecode*, jssrcnote*, PointerHasher<jsbytecode*>,
+  typedef HashMap<jsbytecode*, const SrcNote*, PointerHasher<jsbytecode*>,
                   SystemAllocPolicy>
       Map;
 
@@ -40,21 +39,6 @@ struct GSNCache {
 
   GSNCache() : code(nullptr) {}
 
-  void purge();
-};
-
-/*
- * EnvironmentCoordinateName cache to avoid O(n^2) growth in finding the name
- * associated with a given aliasedvar operation.
- */
-struct EnvironmentCoordinateNameCache {
-  typedef HashMap<uint32_t, jsid, DefaultHasher<uint32_t>, SystemAllocPolicy>
-      Map;
-
-  Shape* shape;
-  Map map;
-
-  EnvironmentCoordinateNameCache() : shape(nullptr) {}
   void purge();
 };
 
@@ -80,7 +64,7 @@ struct EvalCacheLookup {
 };
 
 struct EvalCacheHashPolicy {
-  typedef EvalCacheLookup Lookup;
+  using Lookup = EvalCacheLookup;
 
   static HashNumber hash(const Lookup& l);
   static bool match(const EvalCacheEntry& entry, const EvalCacheLookup& l);
@@ -99,14 +83,14 @@ class NewObjectCache {
   static const unsigned MAX_OBJ_SIZE = 4 * sizeof(void*) + 16 * sizeof(Value);
 
   static void staticAsserts() {
-    JS_STATIC_ASSERT(NewObjectCache::MAX_OBJ_SIZE == sizeof(JSObject_Slots16));
-    JS_STATIC_ASSERT(gc::AllocKind::OBJECT_LAST ==
-                     gc::AllocKind::OBJECT16_BACKGROUND);
+    static_assert(NewObjectCache::MAX_OBJ_SIZE == sizeof(JSObject_Slots16));
+    static_assert(gc::AllocKind::OBJECT_LAST ==
+                  gc::AllocKind::OBJECT16_BACKGROUND);
   }
 
   struct Entry {
     /* Class of the constructed object. */
-    const Class* clasp;
+    const JSClass* clasp;
 
     /*
      * Key with one of three possible values:
@@ -157,9 +141,9 @@ class NewObjectCache {
    * Get the entry index for the given lookup, return whether there was a hit
    * on an existing entry.
    */
-  inline bool lookupProto(const Class* clasp, JSObject* proto,
+  inline bool lookupProto(const JSClass* clasp, JSObject* proto,
                           gc::AllocKind kind, EntryIndex* pentry);
-  inline bool lookupGlobal(const Class* clasp, js::GlobalObject* global,
+  inline bool lookupGlobal(const JSClass* clasp, js::GlobalObject* global,
                            gc::AllocKind kind, EntryIndex* pentry);
 
   bool lookupGroup(js::ObjectGroup* group, gc::AllocKind kind,
@@ -176,10 +160,10 @@ class NewObjectCache {
                                         js::gc::InitialHeap heap);
 
   /* Fill an entry after a cache miss. */
-  void fillProto(EntryIndex entry, const Class* clasp, js::TaggedProto proto,
+  void fillProto(EntryIndex entry, const JSClass* clasp, js::TaggedProto proto,
                  gc::AllocKind kind, NativeObject* obj);
 
-  inline void fillGlobal(EntryIndex entry, const Class* clasp,
+  inline void fillGlobal(EntryIndex entry, const JSClass* clasp,
                          js::GlobalObject* global, gc::AllocKind kind,
                          NativeObject* obj);
 
@@ -194,12 +178,13 @@ class NewObjectCache {
                                  HandleObject proto);
 
  private:
-  EntryIndex makeIndex(const Class* clasp, gc::Cell* key, gc::AllocKind kind) {
+  EntryIndex makeIndex(const JSClass* clasp, gc::Cell* key,
+                       gc::AllocKind kind) {
     uintptr_t hash = (uintptr_t(clasp) ^ uintptr_t(key)) + size_t(kind);
     return hash % mozilla::ArrayLength(entries);
   }
 
-  bool lookup(const Class* clasp, gc::Cell* key, gc::AllocKind kind,
+  bool lookup(const JSClass* clasp, gc::Cell* key, gc::AllocKind kind,
               EntryIndex* pentry) {
     *pentry = makeIndex(clasp, key, kind);
     Entry* entry = &entries[*pentry];
@@ -209,7 +194,7 @@ class NewObjectCache {
     return entry->clasp == clasp && entry->key == key;
   }
 
-  void fill(EntryIndex entry_, const Class* clasp, gc::Cell* key,
+  void fill(EntryIndex entry_, const JSClass* clasp, gc::Cell* key,
             gc::AllocKind kind, NativeObject* obj) {
     MOZ_ASSERT(unsigned(entry_) < mozilla::ArrayLength(entries));
     MOZ_ASSERT(entry_ == makeIndex(clasp, key, kind));
@@ -236,13 +221,54 @@ class NewObjectCache {
   }
 };
 
+// Cache for AtomizeString, mapping JSLinearString* to the corresponding
+// JSAtom*. Also used by nursery GC to de-duplicate strings to atoms.
+// Purged on minor and major GC.
+class StringToAtomCache {
+  using Map = HashMap<JSLinearString*, JSAtom*, PointerHasher<JSLinearString*>,
+                      SystemAllocPolicy>;
+  Map map_;
+
+ public:
+  // Don't use the cache for short strings. Hashing them is less expensive.
+  static constexpr size_t MinStringLength = 30;
+
+  JSAtom* lookup(JSLinearString* s) {
+    MOZ_ASSERT(!s->isAtom());
+    if (!s->inStringToAtomCache()) {
+      MOZ_ASSERT(!map_.lookup(s));
+      return nullptr;
+    }
+
+    MOZ_ASSERT(s->length() >= MinStringLength);
+
+    auto p = map_.lookup(s);
+    JSAtom* atom = p ? p->value() : nullptr;
+    MOZ_ASSERT_IF(atom, EqualStrings(s, atom));
+    return atom;
+  }
+
+  void maybePut(JSLinearString* s, JSAtom* atom) {
+    MOZ_ASSERT(!s->isAtom());
+    if (s->length() < MinStringLength) {
+      return;
+    }
+    if (!map_.putNew(s, atom)) {
+      return;
+    }
+    s->setInStringToAtomCache();
+  }
+
+  void purge() { map_.clearAndCompact(); }
+};
+
 class RuntimeCaches {
  public:
   js::GSNCache gsnCache;
-  js::EnvironmentCoordinateNameCache envCoordinateNameCache;
   js::NewObjectCache newObjectCache;
   js::UncompressedSourceCache uncompressedSourceCache;
   js::EvalCache evalCache;
+  js::StringToAtomCache stringToAtomCache;
 
   void purgeForMinorGC(JSRuntime* rt) {
     newObjectCache.clearNurseryObjects(rt);
@@ -252,12 +278,12 @@ class RuntimeCaches {
   void purgeForCompaction() {
     newObjectCache.purge();
     evalCache.clear();
+    stringToAtomCache.purge();
   }
 
   void purge() {
     purgeForCompaction();
     gsnCache.purge();
-    envCoordinateNameCache.purge();
     uncompressedSourceCache.purge();
   }
 };

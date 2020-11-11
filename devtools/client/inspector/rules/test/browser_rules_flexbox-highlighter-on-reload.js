@@ -1,4 +1,3 @@
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -27,13 +26,15 @@ add_task(async function() {
 
   await refreshTab();
 
-  info("Check that the flexbox highlighter can be displayed after reloading the page.");
+  info(
+    "Check that the flexbox highlighter can be displayed after reloading the page."
+  );
   await checkFlexboxHighlighter();
 });
 
 async function checkFlexboxHighlighter() {
-  const {inspector, view} = await openRuleView();
-  const {highlighters} = view;
+  const { inspector, view } = await openRuleView();
+  const { highlighters } = view;
 
   await selectNode("#flex", inspector);
   const container = getRuleViewProperty(view, "#flex", "display").valueSpan;

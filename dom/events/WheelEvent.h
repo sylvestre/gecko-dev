@@ -23,8 +23,7 @@ class WheelEvent : public MouseEvent {
 
   static already_AddRefed<WheelEvent> Constructor(const GlobalObject& aGlobal,
                                                   const nsAString& aType,
-                                                  const WheelEventInit& aParam,
-                                                  ErrorResult& aRv);
+                                                  const WheelEventInit& aParam);
 
   virtual JSObject* WrapObjectInternal(
       JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override {
@@ -34,10 +33,10 @@ class WheelEvent : public MouseEvent {
   // NOTE: DeltaX(), DeltaY() and DeltaZ() return CSS pixels when deltaMode is
   //       DOM_DELTA_PIXEL. (The internal event's delta values are device pixels
   //       if it's dispatched by widget)
-  double DeltaX();
-  double DeltaY();
-  double DeltaZ();
-  uint32_t DeltaMode();
+  double DeltaX(CallerType);
+  double DeltaY(CallerType);
+  double DeltaZ(CallerType);
+  uint32_t DeltaMode(CallerType);
 
   void InitWheelEvent(const nsAString& aType, bool aCanBubble, bool aCancelable,
                       nsGlobalWindowInner* aView, int32_t aDetail,
@@ -48,10 +47,28 @@ class WheelEvent : public MouseEvent {
                       double aDeltaY, double aDeltaZ, uint32_t aDeltaMode);
 
  protected:
-  ~WheelEvent() {}
+  ~WheelEvent() = default;
+
+  double ToWebExposedDelta(const WidgetWheelEvent&, double aDelta, CallerType);
 
  private:
   int32_t mAppUnitsPerDevPixel;
+  enum class DeltaModeCheckingState : uint8_t {
+    // Neither deltaMode nor the delta values have been accessed.
+    Unknown,
+    // The delta values have been accessed, without checking deltaMode first.
+    Unchecked,
+    // The deltaMode has been checked.
+    Checked,
+  };
+
+  // For compat reasons, we might expose a DOM_DELTA_LINE event as
+  // DOM_DELTA_PIXEL instead. Whether we do that depends on whether the event
+  // has been asked for the deltaMode before the deltas. If it has, we assume
+  // that the page will correctly handle DOM_DELTA_LINE. This variable tracks
+  // that state. See bug 1392460.
+  DeltaModeCheckingState mDeltaModeCheckingState =
+      DeltaModeCheckingState::Unknown;
 };
 
 }  // namespace dom

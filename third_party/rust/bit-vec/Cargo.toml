@@ -3,7 +3,7 @@
 # When uploading crates to the registry Cargo will automatically
 # "normalize" Cargo.toml files for maximal compatibility
 # with all versions of Cargo and also rewrite `path` dependencies
-# to registry (e.g. crates.io) dependencies
+# to registry (e.g., crates.io) dependencies
 #
 # If you believe there's an error in this file please file an
 # issue against the rust-lang/cargo repository. If you're
@@ -12,7 +12,7 @@
 
 [package]
 name = "bit-vec"
-version = "0.5.0"
+version = "0.6.2"
 authors = ["Alexis Beingessner <a.beingessner@gmail.com>"]
 description = "A vector of bits"
 homepage = "https://github.com/contain-rs/bit-vec"
@@ -21,10 +21,22 @@ readme = "README.md"
 keywords = ["data-structures", "bitvec", "bitmask", "bitmap", "bit"]
 license = "MIT/Apache-2.0"
 repository = "https://github.com/contain-rs/bit-vec"
+[dependencies.serde]
+version = "1.0"
+features = ["derive"]
+optional = true
+default-features = false
 [dev-dependencies.rand]
-version = "0.3.15"
+version = "0.7"
+
+[dev-dependencies.rand_xorshift]
+version = "0.2"
+
+[dev-dependencies.serde_json]
+version = "1.0"
 
 [features]
 default = ["std"]
-nightly = []
+serde_no_std = ["serde/alloc"]
+serde_std = ["std", "serde/std"]
 std = []

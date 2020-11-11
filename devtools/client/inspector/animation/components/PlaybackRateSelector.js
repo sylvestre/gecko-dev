@@ -9,9 +9,11 @@ const dom = require("devtools/client/shared/vendor/react-dom-factories");
 const PropTypes = require("devtools/client/shared/vendor/react-prop-types");
 const { connect } = require("devtools/client/shared/vendor/react-redux");
 
-const { getFormatStr } = require("../utils/l10n");
+const {
+  getFormatStr,
+} = require("devtools/client/inspector/animation/utils/l10n");
 
-const PLAYBACK_RATES = [.1, .25, .5, 1, 2, 5, 10];
+const PLAYBACK_RATES = [0.1, 0.25, 0.5, 1, 2, 5, 10];
 
 class PlaybackRateSelector extends PureComponent {
   static get propTypes() {
@@ -25,9 +27,14 @@ class PlaybackRateSelector extends PureComponent {
   static getDerivedStateFromProps(props, state) {
     const { animations, playbackRates } = props;
 
-    const currentPlaybackRates = sortAndUnique(animations.map(a => a.state.playbackRate));
-    const options =
-      sortAndUnique([...PLAYBACK_RATES, ...playbackRates, ...currentPlaybackRates]);
+    const currentPlaybackRates = sortAndUnique(
+      animations.map(a => a.state.playbackRate)
+    );
+    const options = sortAndUnique([
+      ...PLAYBACK_RATES,
+      ...playbackRates,
+      ...currentPlaybackRates,
+    ]);
 
     if (currentPlaybackRates.length === 1) {
       return {

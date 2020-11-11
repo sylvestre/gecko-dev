@@ -21,8 +21,8 @@ class DataTransferItemList final : public nsISupports, public nsWrapperCache {
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(DataTransferItemList);
 
-  DataTransferItemList(DataTransfer* aDataTransfer, bool aIsExternal)
-      : mDataTransfer(aDataTransfer), mIsExternal(aIsExternal) {
+  explicit DataTransferItemList(DataTransfer* aDataTransfer)
+      : mDataTransfer(aDataTransfer) {
     MOZ_ASSERT(aDataTransfer);
     // We always allocate an index 0 in our DataTransferItemList. This is done
     // in order to maintain the invariants according to the spec. Mainly, within
@@ -80,6 +80,10 @@ class DataTransferItemList final : public nsISupports, public nsWrapperCache {
   // permissions or read-only status (for internal use only).
   void ClearAllItems();
 
+  void GetTypes(nsTArray<nsString>& aTypes, CallerType aCallerType) const;
+  bool HasType(const nsAString& aType) const;
+  bool HasFile() const;
+
  private:
   void ClearDataHelper(DataTransferItem* aItem, uint32_t aIndexHint,
                        uint32_t aMozOffsetHint, nsIPrincipal& aSubjectPrincipal,
@@ -90,10 +94,9 @@ class DataTransferItemList final : public nsISupports, public nsWrapperCache {
   void RegenerateFiles();
   void GenerateFiles(FileList* aFiles, nsIPrincipal* aFilesPrincipal);
 
-  ~DataTransferItemList() {}
+  ~DataTransferItemList() = default;
 
   RefPtr<DataTransfer> mDataTransfer;
-  bool mIsExternal;
   RefPtr<FileList> mFiles;
   // The principal for which mFiles is cached
   nsCOMPtr<nsIPrincipal> mFilesPrincipal;

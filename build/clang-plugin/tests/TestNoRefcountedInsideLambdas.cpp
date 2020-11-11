@@ -2,6 +2,10 @@
 #define MOZ_STRONG_REF
 #define MOZ_IMPLICIT __attribute__((annotate("moz_implicit")))
 
+// Ensure that warnings about returning stack addresses of local variables are
+// errors, so our `expected-error` annotations below work correctly.
+#pragma GCC diagnostic error "-Wreturn-stack-address"
+
 struct RefCountedBase {
   void AddRef();
   void Release();
@@ -394,7 +398,7 @@ void e() {
   auto e1 = []() {
     R* ptr;
     SmartPtr<R> sp;
-    return ([&](R* argptr) {
+    return ([&](R* argptr) { // expected-error{{address of stack memory associated with local variable 'ptr' returned}}
       R* localptr;
       ptr->method();
       argptr->method();
@@ -404,7 +408,7 @@ void e() {
   auto e2 = []() {
     R* ptr;
     SmartPtr<R> sp;
-    return ([&](SmartPtr<R> argsp) {
+    return ([&](SmartPtr<R> argsp) { // expected-error{{address of stack memory associated with local variable 'sp' returned}}
       SmartPtr<R> localsp;
       sp->method();
       argsp->method();
@@ -414,7 +418,7 @@ void e() {
   auto e3 = []() {
     R* ptr;
     SmartPtr<R> sp;
-    return ([&](R* argptr) {
+    return ([&](R* argptr) { // expected-error{{address of stack memory associated with local variable 'ptr' returned}}
       R* localptr;
       take(ptr);
       take(argptr);
@@ -424,7 +428,7 @@ void e() {
   auto e4 = []() {
     R* ptr;
     SmartPtr<R> sp;
-    return ([&](SmartPtr<R> argsp) {
+    return ([&](SmartPtr<R> argsp) { // expected-error{{address of stack memory associated with local variable 'sp' returned}}
       SmartPtr<R> localsp;
       take(sp);
       take(argsp);
@@ -514,7 +518,7 @@ void e() {
   auto e14 = []() {
     R* ptr;
     SmartPtr<R> sp;
-    return ([&ptr](R* argptr) {
+    return ([&ptr](R* argptr) { // expected-error{{address of stack memory associated with local variable 'ptr' returned}}
       R* localptr;
       ptr->method();
       argptr->method();
@@ -524,7 +528,7 @@ void e() {
   auto e15 = []() {
     R* ptr;
     SmartPtr<R> sp;
-    return ([&sp](SmartPtr<R> argsp) {
+    return ([&sp](SmartPtr<R> argsp) { // expected-error{{address of stack memory associated with local variable 'sp' returned}}
       SmartPtr<R> localsp;
       sp->method();
       argsp->method();
@@ -534,7 +538,7 @@ void e() {
   auto e16 = []() {
     R* ptr;
     SmartPtr<R> sp;
-    return ([&ptr](R* argptr) {
+    return ([&ptr](R* argptr) { // expected-error{{address of stack memory associated with local variable 'ptr' returned}}
       R* localptr;
       take(ptr);
       take(argptr);
@@ -544,7 +548,7 @@ void e() {
   auto e17 = []() {
     R* ptr;
     SmartPtr<R> sp;
-    return ([&sp](SmartPtr<R> argsp) {
+    return ([&sp](SmartPtr<R> argsp) { // expected-error{{address of stack memory associated with local variable 'sp' returned}}
       SmartPtr<R> localsp;
       take(sp);
       take(argsp);

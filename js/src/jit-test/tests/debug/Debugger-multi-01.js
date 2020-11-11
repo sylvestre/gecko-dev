@@ -1,6 +1,6 @@
 // When there are multiple debuggers, their hooks are called in order.
 
-var g = newGlobal();
+var g = newGlobal({newCompartment: true});
 var log;
 var arr = [];
 
@@ -18,7 +18,7 @@ log = '';
 assertEq(g.eval("debugger; 0;"), 0);
 assertEq(log, 'abc');
 
-// Calling debugger hooks stops as soon as any hook returns a resumption value
+// Calling debugger hooks continues, even if one returns a resumption value
 // other than undefined.
 
 arr[0].onDebuggerStatement = function (stack) {
@@ -28,4 +28,4 @@ arr[0].onDebuggerStatement = function (stack) {
 
 log = '';
 assertEq(g.eval("debugger; 0;"), 1);
-assertEq(log, 'a');
+assertEq(log, 'abc');

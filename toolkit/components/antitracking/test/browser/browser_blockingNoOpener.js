@@ -1,6 +1,9 @@
+/* import-globals-from antitracking_head.js */
+
 gFeatures = "noopener";
 
-AntiTracking.runTest("Blocking in the case of noopener windows",
+AntiTracking.runTestInNormalAndPrivateMode(
+  "Blocking in the case of noopener windows",
   async _ => {
     try {
       localStorage.foo = 42;
@@ -29,7 +32,12 @@ AntiTracking.runTest("Blocking in the case of noopener windows",
   },
   async _ => {
     await new Promise(resolve => {
-      Services.clearData.deleteData(Ci.nsIClearDataService.CLEAR_ALL, value => resolve());
+      Services.clearData.deleteData(Ci.nsIClearDataService.CLEAR_ALL, value =>
+        resolve()
+      );
     });
   },
-  null, true, false);
+  null,
+  true,
+  false
+);

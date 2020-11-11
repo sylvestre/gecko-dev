@@ -1,3 +1,4 @@
+// GENERATED, DO NOT EDIT
 // file: byteConversionValues.js
 // Copyright (C) 2016 the V8 project authors. All rights reserved.
 // This code is governed by the BSD license found in the LICENSE file.
@@ -8,6 +9,7 @@ description: |
     This helper is mostly used on tests for TypedArray and DataView, and each
     array from the expected values must match the original values array on every
     index containing its original value.
+defines: [byteConversionValues]
 ---*/
 var byteConversionValues = {
   values: [
@@ -453,7 +455,7 @@ description: |
     A function used in the process of asserting correctness of TypedArray objects.
 
     $262.detachArrayBuffer is defined by a host.
-
+defines: [$DETACHBUFFER]
 ---*/
 
 function $DETACHBUFFER(buffer) {
@@ -461,4 +463,23 @@ function $DETACHBUFFER(buffer) {
     throw new Test262Error("No method available to detach an ArrayBuffer");
   }
   $262.detachArrayBuffer(buffer);
+}
+
+// file: isConstructor.js
+// Copyright (C) 2017 André Bargull. All rights reserved.
+// This code is governed by the BSD license found in the LICENSE file.
+
+/*---
+description: |
+    Test if a given function is a constructor function.
+defines: [isConstructor]
+---*/
+
+function isConstructor(f) {
+    try {
+        Reflect.construct(function(){}, [], f);
+    } catch (e) {
+        return false;
+    }
+    return true;
 }

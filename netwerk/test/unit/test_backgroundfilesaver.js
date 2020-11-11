@@ -10,29 +10,39 @@
 ////////////////////////////////////////////////////////////////////////////////
 //// Globals
 
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
+"use strict";
 
-ChromeUtils.defineModuleGetter(this, "FileUtils",
-                               "resource://gre/modules/FileUtils.jsm");
-ChromeUtils.defineModuleGetter(this, "NetUtil",
-                               "resource://gre/modules/NetUtil.jsm");
-ChromeUtils.defineModuleGetter(this, "Services",
-                               "resource://gre/modules/Services.jsm");
-ChromeUtils.defineModuleGetter(this, "FileTestUtils",
-                               "resource://testing-common/FileTestUtils.jsm");
+ChromeUtils.defineModuleGetter(
+  this,
+  "FileUtils",
+  "resource://gre/modules/FileUtils.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "NetUtil",
+  "resource://gre/modules/NetUtil.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "FileTestUtils",
+  "resource://testing-common/FileTestUtils.jsm"
+);
 
 const BackgroundFileSaverOutputStream = Components.Constructor(
-      "@mozilla.org/network/background-file-saver;1?mode=outputstream",
-      "nsIBackgroundFileSaver");
+  "@mozilla.org/network/background-file-saver;1?mode=outputstream",
+  "nsIBackgroundFileSaver"
+);
 
 const BackgroundFileSaverStreamListener = Components.Constructor(
-      "@mozilla.org/network/background-file-saver;1?mode=streamlistener",
-      "nsIBackgroundFileSaver");
+  "@mozilla.org/network/background-file-saver;1?mode=streamlistener",
+  "nsIBackgroundFileSaver"
+);
 
 const StringInputStream = Components.Constructor(
-      "@mozilla.org/io/string-input-stream;1",
-      "nsIStringInputStream",
-      "setData");
+  "@mozilla.org/io/string-input-stream;1",
+  "nsIStringInputStream",
+  "setData"
+);
 
 const REQUEST_SUSPEND_AT = 1024 * 1024 * 4;
 const TEST_DATA_SHORT = "This test string is written to the file.";
@@ -43,22 +53,22 @@ const TEST_FILE_NAME_3 = "test-backgroundfilesaver-3.txt";
 // A map of test data length to the expected SHA-256 hashes
 const EXPECTED_HASHES = {
   // No data
-  0 : "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  0: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   // TEST_DATA_SHORT
-  40 : "f37176b690e8744ee990a206c086cba54d1502aa2456c3b0c84ef6345d72a192",
+  40: "f37176b690e8744ee990a206c086cba54d1502aa2456c3b0c84ef6345d72a192",
   // TEST_DATA_SHORT + TEST_DATA_SHORT
-  80 : "780c0e91f50bb7ec922cc11e16859e6d5df283c0d9470f61772e3d79f41eeb58",
+  80: "780c0e91f50bb7ec922cc11e16859e6d5df283c0d9470f61772e3d79f41eeb58",
   // TEST_DATA_LONG
-  8388608 : "e3611a47714c42bdf326acfb2eb6ed9fa4cca65cb7d7be55217770a5bf5e7ff0",
+  4718592: "372cb9e5ce7b76d3e2a5042e78aa72dcf973e659a262c61b7ff51df74b36767b",
   // TEST_DATA_LONG + TEST_DATA_LONG
-  16777216 : "03a0db69a30140f307587ee746a539247c181bafd85b85c8516a3533c7d9ea1d"
+  9437184: "693e4f8c6855a6fed4f5f9370d12cc53105672f3ff69783581e7d925984c41d3",
 };
 
 const gTextDecoder = new TextDecoder();
 
 // Generate a long string of data in a moderately fast way.
 const TEST_256_CHARS = new Array(257).join("-");
-const DESIRED_LENGTH = REQUEST_SUSPEND_AT * 2;
+const DESIRED_LENGTH = REQUEST_SUSPEND_AT * 1.125;
 const TEST_DATA_LONG = new Array(1 + DESIRED_LENGTH / 256).join(TEST_256_CHARS);
 Assert.equal(TEST_DATA_LONG.length, DESIRED_LENGTH);
 
@@ -78,9 +88,9 @@ function getTempFile(leafName) {
  * @return A hex-encoded string.
  */
 function toHex(str) {
-  var hex = '';
+  var hex = "";
   for (var i = 0; i < str.length; i++) {
-    hex += ('0' + str.charCodeAt(i).toString(16)).slice(-2);
+    hex += ("0" + str.charCodeAt(i).toString(16)).slice(-2);
   }
   return hex;
 }
@@ -99,23 +109,27 @@ function toHex(str) {
  */
 function promiseVerifyContents(aFile, aExpectedContents) {
   return new Promise(resolve => {
-    NetUtil.asyncFetch({
-      uri: NetUtil.newURI(aFile),
-      loadUsingSystemPrincipal: true
-    }, function(aInputStream, aStatus) {
-      Assert.ok(Components.isSuccessCode(aStatus));
-      let contents = NetUtil.readInputStreamToString(aInputStream,
-                                                     aInputStream.available());
-      if (contents.length <= TEST_DATA_SHORT.length * 2) {
-        Assert.equal(contents, aExpectedContents);
-      } else {
-        // Do not print the entire content string to the test log.
-        Assert.equal(contents.length, aExpectedContents.length);
-        Assert.ok(contents == aExpectedContents);
+    NetUtil.asyncFetch(
+      {
+        uri: NetUtil.newURI(aFile),
+        loadUsingSystemPrincipal: true,
+      },
+      function(aInputStream, aStatus) {
+        Assert.ok(Components.isSuccessCode(aStatus));
+        let contents = NetUtil.readInputStreamToString(
+          aInputStream,
+          aInputStream.available()
+        );
+        if (contents.length <= TEST_DATA_SHORT.length * 2) {
+          Assert.equal(contents, aExpectedContents);
+        } else {
+          // Do not print the entire content string to the test log.
+          Assert.equal(contents.length, aExpectedContents.length);
+          Assert.ok(contents == aExpectedContents);
+        }
+        resolve();
       }
-      resolve();
-    });
-
+    );
   });
 }
 
@@ -134,14 +148,12 @@ function promiseVerifyContents(aFile, aExpectedContents) {
 function promiseSaverComplete(aSaver, aOnTargetChangeFn) {
   return new Promise((resolve, reject) => {
     aSaver.observer = {
-      onTargetChange: function BFSO_onSaveComplete(aSaver, aTarget)
-      {
+      onTargetChange: function BFSO_onSaveComplete(aSaver, aTarget) {
         if (aOnTargetChangeFn) {
           aOnTargetChangeFn(aTarget);
         }
       },
-      onSaveComplete: function BFSO_onSaveComplete(aSaver, aStatus)
-      {
+      onSaveComplete: function BFSO_onSaveComplete(aSaver, aStatus) {
         if (Components.isSuccessCode(aStatus)) {
           resolve();
         } else {
@@ -168,22 +180,36 @@ function promiseSaverComplete(aSaver, aOnTargetChangeFn) {
  */
 function promiseCopyToSaver(aSourceString, aSaverOutputStream, aCloseWhenDone) {
   return new Promise((resolve, reject) => {
-    let inputStream = new StringInputStream(aSourceString, aSourceString.length);
-    let copier = Cc["@mozilla.org/network/async-stream-copier;1"]
-                 .createInstance(Ci.nsIAsyncStreamCopier);
-    copier.init(inputStream, aSaverOutputStream, null, false, true, 0x8000, true,
-                aCloseWhenDone);
-    copier.asyncCopy({
-      onStartRequest: function () { },
-      onStopRequest: function (aRequest, aContext, aStatusCode)
+    let inputStream = new StringInputStream(
+      aSourceString,
+      aSourceString.length
+    );
+    let copier = Cc[
+      "@mozilla.org/network/async-stream-copier;1"
+    ].createInstance(Ci.nsIAsyncStreamCopier);
+    copier.init(
+      inputStream,
+      aSaverOutputStream,
+      null,
+      false,
+      true,
+      0x8000,
+      true,
+      aCloseWhenDone
+    );
+    copier.asyncCopy(
       {
-        if (Components.isSuccessCode(aStatusCode)) {
-          resolve();
-        } else {
-          reject(new Components.Exception(aResult));
-        }
+        onStartRequest() {},
+        onStopRequest(aRequest, aStatusCode) {
+          if (Components.isSuccessCode(aStatusCode)) {
+            resolve();
+          } else {
+            reject(new Components.Exception(aStatusCode));
+          }
+        },
       },
-    }, null);
+      null
+    );
   });
 }
 
@@ -201,36 +227,47 @@ function promiseCopyToSaver(aSourceString, aSaverOutputStream, aCloseWhenDone) {
  * @resolves When the operation completes with a success code.
  * @rejects With an exception, if the operation fails.
  */
-function promisePumpToSaver(aSourceString, aSaverStreamListener,
-                            aCloseWhenDone) {
+function promisePumpToSaver(
+  aSourceString,
+  aSaverStreamListener,
+  aCloseWhenDone
+) {
   return new Promise((resolve, reject) => {
     aSaverStreamListener.QueryInterface(Ci.nsIStreamListener);
-    let inputStream = new StringInputStream(aSourceString, aSourceString.length);
-    let pump = Cc["@mozilla.org/network/input-stream-pump;1"]
-               .createInstance(Ci.nsIInputStreamPump);
+    let inputStream = new StringInputStream(
+      aSourceString,
+      aSourceString.length
+    );
+    let pump = Cc["@mozilla.org/network/input-stream-pump;1"].createInstance(
+      Ci.nsIInputStreamPump
+    );
     pump.init(inputStream, 0, 0, true);
     pump.asyncRead({
-      onStartRequest: function PPTS_onStartRequest(aRequest, aContext)
-      {
-        aSaverStreamListener.onStartRequest(aRequest, aContext);
+      onStartRequest: function PPTS_onStartRequest(aRequest) {
+        aSaverStreamListener.onStartRequest(aRequest);
       },
-      onStopRequest: function PPTS_onStopRequest(aRequest, aContext, aStatusCode)
-      {
-        aSaverStreamListener.onStopRequest(aRequest, aContext, aStatusCode);
+      onStopRequest: function PPTS_onStopRequest(aRequest, aStatusCode) {
+        aSaverStreamListener.onStopRequest(aRequest, aStatusCode);
         if (Components.isSuccessCode(aStatusCode)) {
           resolve();
         } else {
-          reject(new Components.Exception(aResult));
+          reject(new Components.Exception(aStatusCode));
         }
       },
-      onDataAvailable: function PPTS_onDataAvailable(aRequest, aContext,
-                                                     aInputStream, aOffset,
-                                                     aCount)
-      {
-        aSaverStreamListener.onDataAvailable(aRequest, aContext, aInputStream,
-                                             aOffset, aCount);
+      onDataAvailable: function PPTS_onDataAvailable(
+        aRequest,
+        aInputStream,
+        aOffset,
+        aCount
+      ) {
+        aSaverStreamListener.onDataAvailable(
+          aRequest,
+          aInputStream,
+          aOffset,
+          aCount
+        );
       },
-    }, null);
+    });
   });
 }
 
@@ -239,23 +276,16 @@ var gStillRunning = true;
 ////////////////////////////////////////////////////////////////////////////////
 //// Tests
 
-function run_test()
-{
-  run_next_test();
-}
-
-add_task(function test_setup()
-{
+add_task(function test_setup() {
   // Wait 10 minutes, that is half of the external xpcshell timeout.
   do_timeout(10 * 60 * 1000, function() {
     if (gStillRunning) {
       do_throw("Test timed out.");
     }
-  })
+  });
 });
 
-add_task(async function test_normal()
-{
+add_task(async function test_normal() {
   // This test demonstrates the most basic use case.
   let destFile = getTempFile(TEST_FILE_NAME_1);
 
@@ -288,8 +318,7 @@ add_task(async function test_normal()
   destFile.remove(false);
 });
 
-add_task(async function test_combinations()
-{
+add_task(async function test_combinations() {
   let initialFile = getTempFile(TEST_FILE_NAME_1);
   let renamedFile = getTempFile(TEST_FILE_NAME_2);
 
@@ -311,17 +340,24 @@ add_task(async function test_combinations()
     let useLongData = !!(testFlags & 16);
 
     let startTime = Date.now();
-    info("Starting keepPartialOnFailure = " + keepPartialOnFailure +
-                ", renameAtSomePoint = " + renameAtSomePoint +
-                ", cancelAtSomePoint = " + cancelAtSomePoint +
-                ", useStreamListener = " + useStreamListener +
-                ", useLongData = " + useLongData);
+    info(
+      "Starting keepPartialOnFailure = " +
+        keepPartialOnFailure +
+        ", renameAtSomePoint = " +
+        renameAtSomePoint +
+        ", cancelAtSomePoint = " +
+        cancelAtSomePoint +
+        ", useStreamListener = " +
+        useStreamListener +
+        ", useLongData = " +
+        useLongData
+    );
 
     // Create the object and register the observers.
     currentFile = null;
     let saver = useStreamListener
-                ? new BackgroundFileSaverStreamListener()
-                : new BackgroundFileSaverOutputStream();
+      ? new BackgroundFileSaverStreamListener()
+      : new BackgroundFileSaverOutputStream();
     saver.enableSha256();
     let completionPromise = promiseSaverComplete(saver, onTargetChange);
 
@@ -329,8 +365,8 @@ add_task(async function test_combinations()
     // the stream listener, we only write one chunk.
     let testData = useLongData ? TEST_DATA_LONG : TEST_DATA_SHORT;
     let feedPromise = useStreamListener
-                      ? promisePumpToSaver(testData + testData, saver)
-                      : promiseCopyToSaver(testData, saver, false);
+      ? promisePumpToSaver(testData + testData, saver)
+      : promiseCopyToSaver(testData, saver, false);
 
     // Set a target output file.
     saver.setTarget(initialFile, keepPartialOnFailure);
@@ -371,8 +407,10 @@ add_task(async function test_combinations()
       Assert.ok(currentFile.exists());
       let expectedContents = testData + testData;
       await promiseVerifyContents(currentFile, expectedContents);
-      Assert.equal(EXPECTED_HASHES[expectedContents.length],
-                   toHex(saver.sha256Hash));
+      Assert.equal(
+        EXPECTED_HASHES[expectedContents.length],
+        toHex(saver.sha256Hash)
+      );
       currentFile.remove(false);
 
       // If the target was really renamed, the old file should not exist.
@@ -399,8 +437,7 @@ add_task(async function test_combinations()
   }
 });
 
-add_task(async function test_setTarget_after_close_stream()
-{
+add_task(async function test_setTarget_after_close_stream() {
   // This test checks the case where we close the output stream before we call
   // the setTarget method.  All the data should be buffered and written anyway.
   let destFile = getTempFile(TEST_FILE_NAME_1);
@@ -425,16 +462,17 @@ add_task(async function test_setTarget_after_close_stream()
 
     // Verify results.
     await promiseVerifyContents(destFile, TEST_DATA_SHORT);
-    Assert.equal(EXPECTED_HASHES[TEST_DATA_SHORT.length],
-                 toHex(saver.sha256Hash));
+    Assert.equal(
+      EXPECTED_HASHES[TEST_DATA_SHORT.length],
+      toHex(saver.sha256Hash)
+    );
   }
 
   // Clean up.
   destFile.remove(false);
 });
 
-add_task(async function test_setTarget_fast()
-{
+add_task(async function test_setTarget_fast() {
   // This test checks a fast rename of the target file.
   let destFile1 = getTempFile(TEST_FILE_NAME_1);
   let destFile2 = getTempFile(TEST_FILE_NAME_2);
@@ -456,8 +494,7 @@ add_task(async function test_setTarget_fast()
   destFile2.remove(false);
 });
 
-add_task(async function test_setTarget_multiple()
-{
+add_task(async function test_setTarget_multiple() {
   // This test checks multiple renames of the target file.
   let destFile = getTempFile(TEST_FILE_NAME_1);
   let saver = new BackgroundFileSaverOutputStream();
@@ -481,8 +518,7 @@ add_task(async function test_setTarget_multiple()
   destFile.remove(false);
 });
 
-add_task(async function test_enableAppend()
-{
+add_task(async function test_enableAppend() {
   // This test checks append mode with hashing disabled.
   let destFile = getTempFile(TEST_FILE_NAME_1);
 
@@ -500,8 +536,8 @@ add_task(async function test_enableAppend()
     await completionPromise;
 
     // Verify results.
-    let expectedContents = (i == 0 ? TEST_DATA_LONG
-                                   : TEST_DATA_LONG + TEST_DATA_LONG);
+    let expectedContents =
+      i == 0 ? TEST_DATA_LONG : TEST_DATA_LONG + TEST_DATA_LONG;
     await promiseVerifyContents(destFile, expectedContents);
   }
 
@@ -509,8 +545,7 @@ add_task(async function test_enableAppend()
   destFile.remove(false);
 });
 
-add_task(async function test_enableAppend_setTarget_fast()
-{
+add_task(async function test_enableAppend_setTarget_fast() {
   // This test checks a fast rename of the target file in append mode.
   let destFile1 = getTempFile(TEST_FILE_NAME_1);
   let destFile2 = getTempFile(TEST_FILE_NAME_2);
@@ -527,8 +562,8 @@ add_task(async function test_enableAppend_setTarget_fast()
     // The first time, we start appending to the first file and rename to the
     // second file.  The second time, we start appending to the second file,
     // that was created the first time, and rename back to the first file.
-    let firstFile = (i == 0) ? destFile1 : destFile2;
-    let secondFile = (i == 0) ? destFile2 : destFile1;
+    let firstFile = i == 0 ? destFile1 : destFile2;
+    let secondFile = i == 0 ? destFile2 : destFile1;
     saver.setTarget(firstFile, false);
     saver.setTarget(secondFile, false);
 
@@ -537,8 +572,8 @@ add_task(async function test_enableAppend_setTarget_fast()
 
     // Verify results.
     Assert.ok(!firstFile.exists());
-    let expectedContents = (i == 0 ? TEST_DATA_SHORT
-                                   : TEST_DATA_SHORT + TEST_DATA_SHORT);
+    let expectedContents =
+      i == 0 ? TEST_DATA_SHORT : TEST_DATA_SHORT + TEST_DATA_SHORT;
     await promiseVerifyContents(secondFile, expectedContents);
   }
 
@@ -546,8 +581,7 @@ add_task(async function test_enableAppend_setTarget_fast()
   destFile1.remove(false);
 });
 
-add_task(async function test_enableAppend_hash()
-{
+add_task(async function test_enableAppend_hash() {
   // This test checks append mode, also verifying that the computed hash
   // includes the contents of the existing data.
   let destFile = getTempFile(TEST_FILE_NAME_1);
@@ -567,19 +601,20 @@ add_task(async function test_enableAppend_hash()
     await completionPromise;
 
     // Verify results.
-    let expectedContents = (i == 0 ? TEST_DATA_LONG
-                                   : TEST_DATA_LONG + TEST_DATA_LONG);
+    let expectedContents =
+      i == 0 ? TEST_DATA_LONG : TEST_DATA_LONG + TEST_DATA_LONG;
     await promiseVerifyContents(destFile, expectedContents);
-    Assert.equal(EXPECTED_HASHES[expectedContents.length],
-                 toHex(saver.sha256Hash));
+    Assert.equal(
+      EXPECTED_HASHES[expectedContents.length],
+      toHex(saver.sha256Hash)
+    );
   }
 
   // Clean up.
   destFile.remove(false);
 });
 
-add_task(async function test_finish_only()
-{
+add_task(async function test_finish_only() {
   // This test checks creating the object and doing nothing.
   let destFile = getTempFile(TEST_FILE_NAME_1);
   let saver = new BackgroundFileSaverOutputStream();
@@ -591,8 +626,7 @@ add_task(async function test_finish_only()
   await completionPromise;
 });
 
-add_task(async function test_empty()
-{
+add_task(async function test_empty() {
   // This test checks we still create an empty file when no data is fed.
   let destFile = getTempFile(TEST_FILE_NAME_1);
 
@@ -613,8 +647,7 @@ add_task(async function test_empty()
   destFile.remove(false);
 });
 
-add_task(async function test_empty_hash()
-{
+add_task(async function test_empty_hash() {
   // This test checks the hash of an empty file, both in normal and append mode.
   let destFile = getTempFile(TEST_FILE_NAME_1);
 
@@ -642,8 +675,7 @@ add_task(async function test_empty_hash()
   destFile.remove(false);
 });
 
-add_task(async function test_invalid_hash()
-{
+add_task(async function test_invalid_hash() {
   let saver = new BackgroundFileSaverStreamListener();
   let completionPromise = promiseSaverComplete(saver);
   // We shouldn't be able to get the hash if hashing hasn't been enabled
@@ -652,7 +684,7 @@ add_task(async function test_invalid_hash()
     do_throw("Shouldn't be able to get hash if hashing not enabled");
   } catch (ex) {
     if (ex.result != Cr.NS_ERROR_NOT_AVAILABLE) {
-      throw e;
+      throw ex;
     }
   }
   // Enable hashing, but don't feed any data to saver
@@ -684,8 +716,7 @@ add_task(async function test_invalid_hash()
   }
 });
 
-add_task(async function test_signature()
-{
+add_task(async function test_signature() {
   // Check that we get a signature if the saver is finished.
   let destFile = getTempFile(TEST_FILE_NAME_1);
 
@@ -716,8 +747,7 @@ add_task(async function test_signature()
   destFile.remove(false);
 });
 
-add_task(async function test_signature_not_enabled()
-{
+add_task(async function test_signature_not_enabled() {
   // Check that we get a signature if the saver is finished on Windows.
   let destFile = getTempFile(TEST_FILE_NAME_1);
 
@@ -741,7 +771,6 @@ add_task(async function test_signature_not_enabled()
   destFile.remove(false);
 });
 
-add_task(function test_teardown()
-{
+add_task(function test_teardown() {
   gStillRunning = false;
 });

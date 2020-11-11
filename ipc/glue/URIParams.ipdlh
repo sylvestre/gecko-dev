@@ -18,6 +18,11 @@ struct SimpleURIParams
   nsCString query;
 };
 
+struct DefaultURIParams
+{
+  nsCString spec;
+};
+
 struct StandardURLSegment
 {
   uint32_t position;
@@ -43,6 +48,7 @@ struct StandardURLParams
   StandardURLSegment query;
   StandardURLSegment ref;
   bool supportsFileURL;
+  bool isSubstituting;
 };
 
 struct JARURIParams
@@ -54,7 +60,7 @@ struct JARURIParams
 
 struct IconURIParams
 {
-  OptionalURIParams uri;
+  URIParams? uri;
   uint32_t size;
   nsCString contentType;
   nsCString fileName;
@@ -84,24 +90,26 @@ union URIParams
   JSURIParams;
   SimpleNestedURIParams;
   HostObjectURIParams;
-};
-
-union OptionalURIParams
-{
-  void_t;
-  URIParams;
+  DefaultURIParams;
+  NestedAboutURIParams;
 };
 
 struct JSURIParams
 {
   SimpleURIParams simpleParams;
-  OptionalURIParams baseURI;
+  URIParams? baseURI;
 };
 
 struct SimpleNestedURIParams
 {
   SimpleURIParams simpleParams;
   URIParams innerURI;
+};
+
+struct NestedAboutURIParams
+{
+  SimpleNestedURIParams nestedParams;
+  URIParams? baseURI;
 };
 
 } // namespace ipc

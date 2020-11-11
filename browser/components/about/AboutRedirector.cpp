@@ -10,25 +10,25 @@
 #include "nsIAboutNewTabService.h"
 #include "nsIChannel.h"
 #include "nsIURI.h"
-#include "nsIScriptSecurityManager.h"
 #include "nsIProtocolHandler.h"
 #include "mozilla/ArrayUtils.h"
+#include "mozilla/StaticPrefs_browser.h"
 #include "mozilla/Preferences.h"
 #include "nsServiceManagerUtils.h"
+#include "mozilla/dom/ContentChild.h"
+#include "mozilla/dom/ContentParent.h"
 
 namespace mozilla {
 namespace browser {
 
 NS_IMPL_ISUPPORTS(AboutRedirector, nsIAboutModule)
 
-bool AboutRedirector::sNewTabPageEnabled = false;
-bool AboutRedirector::sNewCertErrorPageEnabled = false;
-
 static const uint32_t ACTIVITY_STREAM_FLAGS =
     nsIAboutModule::ALLOW_SCRIPT | nsIAboutModule::ENABLE_INDEXED_DB |
     nsIAboutModule::URI_MUST_LOAD_IN_CHILD |
-    nsIAboutModule::URI_CAN_LOAD_IN_PRIVILEGED_CHILD |
-    nsIAboutModule::URI_SAFE_FOR_UNTRUSTED_CONTENT;
+    nsIAboutModule::URI_CAN_LOAD_IN_PRIVILEGEDABOUT_PROCESS |
+    nsIAboutModule::URI_SAFE_FOR_UNTRUSTED_CONTENT |
+    nsIAboutModule::ALLOW_UNSANITIZED_CONTENT;
 
 struct RedirEntry {
   const char* id;
@@ -53,17 +53,28 @@ static const RedirEntry kRedirMap[] = {
      nsIAboutModule::URI_SAFE_FOR_UNTRUSTED_CONTENT |
          nsIAboutModule::URI_CAN_LOAD_IN_CHILD | nsIAboutModule::ALLOW_SCRIPT |
          nsIAboutModule::HIDE_FROM_ABOUTABOUT},
+    {"config", "chrome://browser/content/aboutconfig/aboutconfig.html", 0},
+    {"framecrashed", "chrome://browser/content/aboutFrameCrashed.html",
+     nsIAboutModule::URI_SAFE_FOR_UNTRUSTED_CONTENT |
+         nsIAboutModule::HIDE_FROM_ABOUTABOUT},
+    {"logins", "chrome://browser/content/aboutlogins/aboutLogins.html",
+     nsIAboutModule::ALLOW_SCRIPT | nsIAboutModule::URI_MUST_LOAD_IN_CHILD |
+         nsIAboutModule::URI_CAN_LOAD_IN_PRIVILEGEDABOUT_PROCESS |
+         nsIAboutModule::URI_SAFE_FOR_UNTRUSTED_CONTENT},
     {"tabcrashed", "chrome://browser/content/aboutTabCrashed.xhtml",
      nsIAboutModule::URI_SAFE_FOR_UNTRUSTED_CONTENT |
          nsIAboutModule::ALLOW_SCRIPT | nsIAboutModule::HIDE_FROM_ABOUTABOUT},
-    {"policies", "chrome://browser/content/policies/aboutPolicies.xhtml",
+    {"policies", "chrome://browser/content/policies/aboutPolicies.html",
      nsIAboutModule::ALLOW_SCRIPT},
-    {"privatebrowsing", "chrome://browser/content/aboutPrivateBrowsing.xhtml",
+    {"privatebrowsing", "chrome://browser/content/aboutPrivateBrowsing.html",
      nsIAboutModule::URI_SAFE_FOR_UNTRUSTED_CONTENT |
          nsIAboutModule::URI_MUST_LOAD_IN_CHILD | nsIAboutModule::ALLOW_SCRIPT},
+    {"profiling",
+     "chrome://devtools/content/performance-new/aboutprofiling/index.xhtml",
+     nsIAboutModule::ALLOW_SCRIPT},
     {"rights", "chrome://global/content/aboutRights.xhtml",
      nsIAboutModule::URI_SAFE_FOR_UNTRUSTED_CONTENT |
-         nsIAboutModule::MAKE_LINKABLE | nsIAboutModule::ALLOW_SCRIPT},
+         nsIAboutModule::ALLOW_SCRIPT},
     {"robots", "chrome://browser/content/aboutRobots.xhtml",
      nsIAboutModule::URI_SAFE_FOR_UNTRUSTED_CONTENT |
          nsIAboutModule::ALLOW_SCRIPT},
@@ -77,24 +88,38 @@ static const RedirEntry kRedirMap[] = {
     {"newtab", "about:blank", ACTIVITY_STREAM_FLAGS},
     {"welcome", "about:blank",
      nsIAboutModule::URI_MUST_LOAD_IN_CHILD |
-         nsIAboutModule::URI_CAN_LOAD_IN_PRIVILEGED_CHILD |
+         nsIAboutModule::URI_CAN_LOAD_IN_PRIVILEGEDABOUT_PROCESS |
          nsIAboutModule::URI_SAFE_FOR_UNTRUSTED_CONTENT |
          nsIAboutModule::ALLOW_SCRIPT},
-    {"library", "chrome://browser/content/aboutLibrary.xhtml",
-     nsIAboutModule::URI_MUST_LOAD_IN_CHILD |
-         nsIAboutModule::URI_SAFE_FOR_UNTRUSTED_CONTENT},
-    {"preferences",
-     "chrome://browser/content/preferences/in-content/preferences.xul",
+    {"pocket-saved", "chrome://pocket/content/panels/saved.html",
+     nsIAboutModule::URI_SAFE_FOR_UNTRUSTED_CONTENT |
+         nsIAboutModule::URI_CAN_LOAD_IN_CHILD | nsIAboutModule::ALLOW_SCRIPT |
+         nsIAboutModule::HIDE_FROM_ABOUTABOUT},
+    {"pocket-signup", "chrome://pocket/content/panels/signup.html",
+     nsIAboutModule::URI_SAFE_FOR_UNTRUSTED_CONTENT |
+         nsIAboutModule::URI_CAN_LOAD_IN_CHILD | nsIAboutModule::ALLOW_SCRIPT |
+         nsIAboutModule::HIDE_FROM_ABOUTABOUT},
+    {"preferences", "chrome://browser/content/preferences/preferences.xhtml",
      nsIAboutModule::ALLOW_SCRIPT},
     {"downloads",
-     "chrome://browser/content/downloads/contentAreaDownloadsView.xul",
+     "chrome://browser/content/downloads/contentAreaDownloadsView.xhtml",
      nsIAboutModule::ALLOW_SCRIPT},
     {"reader", "chrome://global/content/reader/aboutReader.html",
      nsIAboutModule::URI_SAFE_FOR_UNTRUSTED_CONTENT |
          nsIAboutModule::ALLOW_SCRIPT | nsIAboutModule::URI_MUST_LOAD_IN_CHILD |
          nsIAboutModule::HIDE_FROM_ABOUTABOUT},
     {"restartrequired", "chrome://browser/content/aboutRestartRequired.xhtml",
-     nsIAboutModule::ALLOW_SCRIPT},
+     nsIAboutModule::ALLOW_SCRIPT | nsIAboutModule::HIDE_FROM_ABOUTABOUT},
+    {"newinstall", "chrome://browser/content/newInstallPage.html",
+     nsIAboutModule::URI_MUST_LOAD_IN_CHILD |
+         nsIAboutModule::URI_SAFE_FOR_UNTRUSTED_CONTENT |
+         nsIAboutModule::ALLOW_SCRIPT | nsIAboutModule::HIDE_FROM_ABOUTABOUT},
+    {"protections", "chrome://browser/content/protections.html",
+     nsIAboutModule::URI_SAFE_FOR_UNTRUSTED_CONTENT |
+         nsIAboutModule::URI_MUST_LOAD_IN_CHILD | nsIAboutModule::ALLOW_SCRIPT |
+         nsIAboutModule::URI_CAN_LOAD_IN_PRIVILEGEDABOUT_PROCESS},
+    {"ion", "chrome://browser/content/ion.html",
+     nsIAboutModule::ALLOW_SCRIPT | nsIAboutModule::HIDE_FROM_ABOUTABOUT},
 };
 
 static nsAutoCString GetAboutModuleName(nsIURI* aURI) {
@@ -125,18 +150,19 @@ AboutRedirector::NewChannel(nsIURI* aURI, nsILoadInfo* aLoadInfo,
   nsCOMPtr<nsIIOService> ioService = do_GetIOService(&rv);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  static bool sNTPEnabledCacheInited = false;
-  if (!sNTPEnabledCacheInited) {
-    Preferences::AddBoolVarCache(&AboutRedirector::sNewTabPageEnabled,
-                                 "browser.newtabpage.enabled");
-    sNTPEnabledCacheInited = true;
-  }
+  // If we're accessing about:home in the "privileged about content
+  // process", then we give the nsIAboutNewTabService the responsibility
+  // to return the nsIChannel, since it might be from the about:home
+  // startup cache.
+  if (XRE_IsContentProcess() && path.EqualsLiteral("home")) {
+    auto& remoteType = dom::ContentChild::GetSingleton()->GetRemoteType();
+    if (remoteType == PRIVILEGEDABOUT_REMOTE_TYPE) {
+      nsCOMPtr<nsIAboutNewTabService> aboutNewTabService =
+          do_GetService("@mozilla.org/browser/aboutnewtab-service;1", &rv);
+      NS_ENSURE_SUCCESS(rv, rv);
 
-  static bool sNCEPEnabledCacheInited = false;
-  if (!sNCEPEnabledCacheInited) {
-    Preferences::AddBoolVarCache(&AboutRedirector::sNewCertErrorPageEnabled,
-                                 "browser.security.newcerterrorpage.enabled");
-    sNCEPEnabledCacheInited = true;
+      return aboutNewTabService->AboutHomeChannel(aURI, aLoadInfo, result);
+    }
   }
 
   for (auto& redir : kRedirMap) {
@@ -144,9 +170,10 @@ AboutRedirector::NewChannel(nsIURI* aURI, nsILoadInfo* aLoadInfo,
       nsAutoCString url;
 
       // Let the aboutNewTabService decide where to redirect for about:home and
-      // enabled about:newtab. Disabledx about:newtab page uses fallback.
+      // enabled about:newtab. Disabled about:newtab page uses fallback.
       if (path.EqualsLiteral("home") ||
-          (sNewTabPageEnabled && path.EqualsLiteral("newtab"))) {
+          (StaticPrefs::browser_newtabpage_enabled() &&
+           path.EqualsLiteral("newtab"))) {
         nsCOMPtr<nsIAboutNewTabService> aboutNewTabService =
             do_GetService("@mozilla.org/browser/aboutnewtab-service;1", &rv);
         NS_ENSURE_SUCCESS(rv, rv);
@@ -160,10 +187,6 @@ AboutRedirector::NewChannel(nsIURI* aURI, nsILoadInfo* aLoadInfo,
         NS_ENSURE_SUCCESS(rv, rv);
         rv = aboutNewTabService->GetWelcomeURL(url);
         NS_ENSURE_SUCCESS(rv, rv);
-      }
-
-      if (sNewCertErrorPageEnabled && path.EqualsLiteral("certerror")) {
-        url.AssignLiteral("chrome://browser/content/aboutNetError-new.xhtml");
       }
 
       // fall back to the specified url in the map
@@ -212,6 +235,21 @@ AboutRedirector::GetURIFlags(nsIURI* aURI, uint32_t* result) {
     if (name.Equals(redir.id)) {
       *result = redir.flags;
       return NS_OK;
+    }
+  }
+
+  return NS_ERROR_ILLEGAL_VALUE;
+}
+
+NS_IMETHODIMP
+AboutRedirector::GetChromeURI(nsIURI* aURI, nsIURI** chromeURI) {
+  NS_ENSURE_ARG_POINTER(aURI);
+
+  nsAutoCString name = GetAboutModuleName(aURI);
+
+  for (const auto& redir : kRedirMap) {
+    if (name.Equals(redir.id)) {
+      return NS_NewURI(chromeURI, redir.url);
     }
   }
 

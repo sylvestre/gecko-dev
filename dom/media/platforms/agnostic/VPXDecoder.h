@@ -4,16 +4,16 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 #if !defined(VPXDecoder_h_)
-#define VPXDecoder_h_
+#  define VPXDecoder_h_
 
-#include "PlatformDecoderModule.h"
-#include "mozilla/Span.h"
+#  include <stdint.h>
 
-#include <stdint.h>
-#define VPX_DONT_DEFINE_STDINT_TYPES
-#include "vpx/vp8dx.h"
-#include "vpx/vpx_codec.h"
-#include "vpx/vpx_decoder.h"
+#  include "PlatformDecoderModule.h"
+#  include "mozilla/Span.h"
+#  include "mozilla/gfx/Types.h"
+#  include "vpx/vp8dx.h"
+#  include "vpx/vpx_codec.h"
+#  include "vpx/vpx_decoder.h"
 
 namespace mozilla {
 
@@ -30,7 +30,7 @@ class VPXDecoder : public MediaDataDecoder,
   RefPtr<FlushPromise> Flush() override;
   RefPtr<ShutdownPromise> Shutdown() override;
   nsCString GetDescriptionName() const override {
-    return NS_LITERAL_CSTRING("libvpx video decoder");
+    return "libvpx video decoder"_ns;
   }
 
   enum Codec : uint8_t {
@@ -79,6 +79,75 @@ class VPXDecoder : public MediaDataDecoder,
     */
     int mColorSpace = 1;  // CS_BT_601
 
+    gfx::YUVColorSpace ColorSpace() const {
+      switch (mColorSpace) {
+        case 1:
+        case 3:
+        case 4:
+          return gfx::YUVColorSpace::BT601;
+        case 2:
+          return gfx::YUVColorSpace::BT709;
+        case 5:
+          return gfx::YUVColorSpace::BT2020;
+        default:
+          return gfx::YUVColorSpace::UNKNOWN;
+      }
+    }
+
+    // Ref: ISO/IEC 23091-2:2019
+    enum class ColorPrimaries {
+      BT_709_6 = 1,
+      Unspecified = 2,
+      BT_470_6_M = 4,
+      BT_470_7_BG = 5,
+      BT_601_7 = 6,
+      SMPTE_ST_240 = 7,
+      Film = 8,
+      BT_2020_Nonconstant_Luminance = 9,
+      SMPTE_ST_428_1 = 10,
+      SMPTE_RP_431_2 = 11,
+      SMPTE_EG_432_1 = 12,
+      EBU_Tech_3213_E = 22,
+    };
+
+    // Ref: ISO/IEC 23091-2:2019
+    enum class TransferCharacteristics {
+      BT_709_6 = 1,
+      Unspecified = 2,
+      BT_470_6_M = 4,
+      BT_470_7_BG = 5,
+      BT_601_7 = 6,
+      SMPTE_ST_240 = 7,
+      Linear = 8,
+      Logrithmic = 9,
+      Logrithmic_Sqrt = 10,
+      IEC_61966_2_4 = 11,
+      BT_1361_0 = 12,
+      IEC_61966_2_1 = 13,
+      BT_2020_10bit = 14,
+      BT_2020_12bit = 15,
+      SMPTE_ST_2084 = 16,
+      SMPTE_ST_428_1 = 17,
+      BT_2100_HLG = 18,
+    };
+
+    enum class MatrixCoefficients {
+      Identity = 0,
+      BT_709_6 = 1,
+      Unspecified = 2,
+      FCC = 4,
+      BT_470_7_BG = 5,
+      BT_601_7 = 6,
+      SMPTE_ST_240 = 7,
+      YCgCo = 8,
+      BT_2020_Nonconstant_Luminance = 9,
+      BT_2020_Constant_Luminance = 10,
+      SMPTE_ST_2085 = 11,
+      Chromacity_Constant_Luminance = 12,
+      Chromacity_Nonconstant_Luminance = 13,
+      BT_2100_ICC = 14,
+    };
+
     /*
     mFullRange == false then:
       For BitDepth equals 8:
@@ -95,6 +164,10 @@ class VPXDecoder : public MediaDataDecoder,
     */
     bool mFullRange = false;
 
+    gfx::ColorRange ColorRange() const {
+      return mFullRange ? gfx::ColorRange::FULL : gfx::ColorRange::LIMITED;
+    }
+
     /*
       Sub-sampling, used only for non sRGB colorspace.
       subsampling_x subsampling_y Description
@@ -108,13 +181,18 @@ class VPXDecoder : public MediaDataDecoder,
 
     bool IsCompatible(const VPXStreamInfo& aOther) const {
       return mImage == aOther.mImage && mProfile == aOther.mProfile &&
-             mBitDepth == aOther.mBitDepth && mSubSampling_x &&
-             aOther.mSubSampling_x && mSubSampling_y == aOther.mSubSampling_y;
+             mBitDepth == aOther.mBitDepth &&
+             mSubSampling_x == aOther.mSubSampling_x &&
+             mSubSampling_y == aOther.mSubSampling_y &&
+             mColorSpace == aOther.mColorSpace &&
+             mFullRange == aOther.mFullRange;
     }
   };
 
   static bool GetStreamInfo(Span<const uint8_t> aBuffer, VPXStreamInfo& aInfo,
                             Codec aCodec);
+
+  static void GetVPCCBox(MediaByteBuffer* aDestBox, const VPXStreamInfo& aInfo);
 
  private:
   ~VPXDecoder();

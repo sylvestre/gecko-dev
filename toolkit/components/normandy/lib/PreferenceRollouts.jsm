@@ -4,12 +4,39 @@
 
 "use strict";
 
-ChromeUtils.import("resource://normandy/lib/LogManager.jsm");
-ChromeUtils.defineModuleGetter(this, "Services", "resource://gre/modules/Services.jsm");
-ChromeUtils.defineModuleGetter(this, "IndexedDB", "resource://gre/modules/IndexedDB.jsm");
-ChromeUtils.defineModuleGetter(this, "TelemetryEnvironment", "resource://gre/modules/TelemetryEnvironment.jsm");
-ChromeUtils.defineModuleGetter(this, "PrefUtils", "resource://normandy/lib/PrefUtils.jsm");
-ChromeUtils.defineModuleGetter(this, "TelemetryEvents", "resource://normandy/lib/TelemetryEvents.jsm");
+const { LogManager } = ChromeUtils.import(
+  "resource://normandy/lib/LogManager.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "Services",
+  "resource://gre/modules/Services.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "IndexedDB",
+  "resource://gre/modules/IndexedDB.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "TelemetryEnvironment",
+  "resource://gre/modules/TelemetryEnvironment.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "CleanupManager",
+  "resource://normandy/lib/CleanupManager.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "PrefUtils",
+  "resource://normandy/lib/PrefUtils.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "TelemetryEvents",
+  "resource://normandy/lib/TelemetryEvents.jsm"
+);
 
 const log = LogManager.getLogger("recipe-runner");
 
@@ -28,31 +55,35 @@ const log = LogManager.getLogger("recipe-runner");
  *   An array of preferences specifications involved in the rollout.
  */
 
- /**
-  * PreferenceSpec describe how a preference should change during a rollout.
-  * @typedef {object} PreferenceSpec
-  * @property {string} preferenceName
-  *   The preference to modify.
-  * @property {string} preferenceType
-  *   Type of the preference being set.
-  * @property {string|integer|boolean} value
-  *   The value to change the preference to.
-  * @property {string|integer|boolean} previousValue
-  *   The value the preference would have on the default branch if this rollout
-  *   were not active.
-  */
+/**
+ * PreferenceSpec describe how a preference should change during a rollout.
+ * @typedef {object} PreferenceSpec
+ * @property {string} preferenceName
+ *   The preference to modify.
+ * @property {string} preferenceType
+ *   Type of the preference being set.
+ * @property {string|integer|boolean} value
+ *   The value to change the preference to.
+ * @property {string|integer|boolean} previousValue
+ *   The value the preference would have on the default branch if this rollout
+ *   were not active.
+ * @property {string} enrollmentId
+ *   A random ID generated at time of enrollment. It should be included on all
+ *   telemetry related to this rollout. It should not be re-used by other
+ *   rollouts, or any other purpose. May be null on old rollouts.
+ */
 
 var EXPORTED_SYMBOLS = ["PreferenceRollouts"];
 const STARTUP_PREFS_BRANCH = "app.normandy.startupRolloutPrefs.";
 const DB_NAME = "normandy-preference-rollout";
 const STORE_NAME = "preference-rollouts";
-const DB_OPTIONS = {version: 1};
+const DB_VERSION = 1;
 
 /**
  * Create a new connection to the database.
  */
 function openDatabase() {
-  return IndexedDB.open(DB_NAME, DB_OPTIONS, db => {
+  return IndexedDB.open(DB_NAME, DB_VERSION, db => {
     db.createObjectStore(STORE_NAME, {
       keyPath: "slug",
     });
@@ -125,7 +156,15 @@ var PreferenceRollouts = {
         rollout.state = this.STATE_GRADUATED;
         changed = true;
         log.debug(`Graduating rollout: ${rollout.slug}`);
-        TelemetryEvents.sendEvent("graduate", "preference_rollout", rollout.slug, {});
+        TelemetryEvents.sendEvent(
+          "graduate",
+          "preference_rollout",
+          rollout.slug,
+          {
+            enrollmentId:
+              rollout.enrollmentId || TelemetryEvents.NO_ENROLLMENT_ID_MARKER,
+          }
+        );
       }
 
       if (changed) {
@@ -136,13 +175,24 @@ var PreferenceRollouts = {
   },
 
   async init() {
+    CleanupManager.addCleanupHandler(() => this.saveStartupPrefs());
+
     for (const rollout of await this.getAllActive()) {
-      TelemetryEnvironment.setExperimentActive(rollout.slug, rollout.state, {type: "normandy-prefrollout"});
+      TelemetryEnvironment.setExperimentActive(rollout.slug, rollout.state, {
+        type: "normandy-prefrollout",
+        enrollmentId:
+          rollout.enrollmentId || TelemetryEvents.NO_ENROLLMENT_ID_MARKER,
+      });
     }
   },
 
-  async uninit() {
-    await this.saveStartupPrefs();
+  /** When Telemetry is disabled, clear all identifiers from the stored rollouts.  */
+  async onTelemetryDisabled() {
+    const rollouts = await this.getAll();
+    for (const rollout of rollouts) {
+      rollout.enrollmentId = TelemetryEvents.NO_ENROLLMENT_ID_MARKER;
+    }
+    await this.updateMany(rollouts);
   },
 
   /**
@@ -170,6 +220,9 @@ var PreferenceRollouts = {
    * @param {PreferenceRollout} rollout
    */
   async add(rollout) {
+    if (!rollout.enrollmentId) {
+      throw new Error("Rollout must have an enrollment ID");
+    }
     const db = await getDatabase();
     return getStore(db, "readwrite").add(rollout);
   },
@@ -180,11 +233,47 @@ var PreferenceRollouts = {
    * @throws If a matching rollout does not exist.
    */
   async update(rollout) {
-    if (!await this.has(rollout.slug)) {
-      throw new Error(`Tried to update ${rollout.slug}, but it doesn't already exist.`);
+    if (!(await this.has(rollout.slug))) {
+      throw new Error(
+        `Tried to update ${rollout.slug}, but it doesn't already exist.`
+      );
     }
     const db = await getDatabase();
     return getStore(db, "readwrite").put(rollout);
+  },
+
+  /**
+   * Update many existing rollouts. More efficient than calling `update` many
+   * times in a row.
+   * @param {Array<PreferenceRollout>} rollouts
+   * @throws If any of the passed rollouts have a slug that doesn't exist in the database already.
+   */
+  async updateMany(rollouts) {
+    // Don't touch the database if there is nothing to do
+    if (!rollouts.length) {
+      return;
+    }
+
+    // Both of the below operations use .map() instead of a normal loop becaues
+    // once we get the object store, we can't let it expire by spinning the
+    // event loop. This approach queues up all the interactions with the store
+    // immediately, preventing it from expiring too soon.
+
+    const db = await getDatabase();
+    let store = await getStore(db, "readonly");
+    await Promise.all(
+      rollouts.map(async ({ slug }) => {
+        let existingRollout = await store.get(slug);
+        if (!existingRollout) {
+          throw new Error(`Tried to update ${slug}, but it doesn't exist.`);
+        }
+      })
+    );
+
+    // awaiting spun the event loop, so the store is now invalid. Get a new
+    // store. This is also a chance to get it in readwrite mode.
+    store = await getStore(db, "readwrite");
+    await Promise.all(rollouts.map(rollout => store.put(rollout)));
   },
 
   /**
@@ -231,7 +320,11 @@ var PreferenceRollouts = {
 
     for (const rollout of await this.getAllActive()) {
       for (const prefSpec of rollout.preferences) {
-        PrefUtils.setPref("user", STARTUP_PREFS_BRANCH + prefSpec.preferenceName, prefSpec.value);
+        PrefUtils.setPref(
+          "user",
+          STARTUP_PREFS_BRANCH + prefSpec.preferenceName,
+          prefSpec.value
+        );
       }
     }
   },

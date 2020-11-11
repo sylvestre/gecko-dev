@@ -13,8 +13,8 @@ import android.content.Intent;
 import android.os.Build;
 import android.os.IBinder;
 import android.os.StrictMode;
-import android.support.annotation.Nullable;
-import android.support.v4.app.NotificationCompat;
+import androidx.annotation.Nullable;
+import androidx.core.app.NotificationCompat;
 import android.util.Log;
 
 public class ExampleCrashHandler extends Service {
@@ -45,8 +45,6 @@ public class ExampleCrashHandler extends Service {
                     mCrashIntent.getStringExtra(GeckoRuntime.EXTRA_MINIDUMP_PATH));
             Log.d(LOGTAG, "Extras File: " +
                     mCrashIntent.getStringExtra(GeckoRuntime.EXTRA_EXTRAS_PATH));
-            Log.d(LOGTAG, "Dump Success: " +
-                    mCrashIntent.getBooleanExtra(GeckoRuntime.EXTRA_MINIDUMP_SUCCESS, false));
             Log.d(LOGTAG, "Fatal: " +
                     mCrashIntent.getBooleanExtra(GeckoRuntime.EXTRA_CRASH_FATAL, false));
 

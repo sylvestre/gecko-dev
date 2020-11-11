@@ -19,11 +19,10 @@
 #include "nsServiceManagerUtils.h"
 #include "nsThreadUtils.h"
 
-namespace mozilla {
-namespace net {
+namespace mozilla::net {
 
-AppCacheStorage::AppCacheStorage(nsILoadContextInfo *aInfo,
-                                 nsIApplicationCache *aAppCache)
+AppCacheStorage::AppCacheStorage(nsILoadContextInfo* aInfo,
+                                 nsIApplicationCache* aAppCache)
     : CacheStorage(aInfo, true /* disk */, false /* lookup app cache */,
                    false /* skip size check */, false /* pin */),
       mAppCache(aAppCache) {}
@@ -33,9 +32,14 @@ AppCacheStorage::~AppCacheStorage() {
 }
 
 NS_IMETHODIMP AppCacheStorage::AsyncOpenURI(
-    nsIURI *aURI, const nsACString &aIdExtension, uint32_t aFlags,
-    nsICacheEntryOpenCallback *aCallback) {
-  if (!CacheStorageService::Self()) return NS_ERROR_NOT_INITIALIZED;
+    nsIURI* aURI, const nsACString& aIdExtension, uint32_t aFlags,
+    nsICacheEntryOpenCallback* aCallback) {
+  if (!CacheStorageService::Self()) {
+    return NS_ERROR_NOT_INITIALIZED;
+  }
+  if (!LoadInfo()) {
+    return NS_ERROR_CACHE_KEY_NOT_FOUND;
+  }
 
   NS_ENSURE_ARG(aURI);
   NS_ENSURE_ARG(aCallback);
@@ -71,7 +75,7 @@ NS_IMETHODIMP AppCacheStorage::AsyncOpenURI(
   // there is just a single session for an appcache version (identified
   // by the client id).
   if (LoadInfo()->IsAnonymous()) {
-    cacheKey = NS_LITERAL_CSTRING("anon&") + cacheKey;
+    cacheKey = "anon&"_ns + cacheKey;
   }
 
   nsAutoCString scheme;
@@ -86,26 +90,29 @@ NS_IMETHODIMP AppCacheStorage::AsyncOpenURI(
   return NS_OK;
 }
 
-NS_IMETHODIMP AppCacheStorage::OpenTruncate(nsIURI *aURI,
-                                            const nsACString &aIdExtension,
-                                            nsICacheEntry **aCacheEntry) {
+NS_IMETHODIMP AppCacheStorage::OpenTruncate(nsIURI* aURI,
+                                            const nsACString& aIdExtension,
+                                            nsICacheEntry** aCacheEntry) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
-NS_IMETHODIMP AppCacheStorage::Exists(nsIURI *aURI,
-                                      const nsACString &aIdExtension,
-                                      bool *aResult) {
+NS_IMETHODIMP AppCacheStorage::Exists(nsIURI* aURI,
+                                      const nsACString& aIdExtension,
+                                      bool* aResult) {
   *aResult = false;
   return NS_ERROR_NOT_AVAILABLE;
 }
 
 NS_IMETHODIMP AppCacheStorage::AsyncDoomURI(
-    nsIURI *aURI, const nsACString &aIdExtension,
-    nsICacheEntryDoomCallback *aCallback) {
+    nsIURI* aURI, const nsACString& aIdExtension,
+    nsICacheEntryDoomCallback* aCallback) {
   if (!CacheStorageService::Self()) return NS_ERROR_NOT_INITIALIZED;
 
   if (!mAppCache) {
     return NS_ERROR_NOT_AVAILABLE;
+  }
+  if (!LoadInfo()) {
+    return NS_ERROR_CACHE_KEY_NOT_FOUND;
   }
 
   RefPtr<_OldStorage> old = new _OldStorage(LoadInfo(), WriteToDisk(),
@@ -114,8 +121,13 @@ NS_IMETHODIMP AppCacheStorage::AsyncDoomURI(
 }
 
 NS_IMETHODIMP AppCacheStorage::AsyncEvictStorage(
-    nsICacheEntryDoomCallback *aCallback) {
-  if (!CacheStorageService::Self()) return NS_ERROR_NOT_INITIALIZED;
+    nsICacheEntryDoomCallback* aCallback) {
+  if (!CacheStorageService::Self()) {
+    return NS_ERROR_NOT_INITIALIZED;
+  }
+  if (!LoadInfo()) {
+    return NS_ERROR_CACHE_KEY_NOT_FOUND;
+  }
 
   nsresult rv;
 
@@ -143,8 +155,10 @@ NS_IMETHODIMP AppCacheStorage::AsyncEvictStorage(
 }
 
 NS_IMETHODIMP AppCacheStorage::AsyncVisitStorage(
-    nsICacheStorageVisitor *aVisitor, bool aVisitEntries) {
-  if (!CacheStorageService::Self()) return NS_ERROR_NOT_INITIALIZED;
+    nsICacheStorageVisitor* aVisitor, bool aVisitEntries) {
+  if (!CacheStorageService::Self()) {
+    return NS_ERROR_NOT_INITIALIZED;
+  }
 
   LOG(("AppCacheStorage::AsyncVisitStorage [this=%p, cb=%p]", this, aVisitor));
 
@@ -163,10 +177,9 @@ NS_IMETHODIMP AppCacheStorage::AsyncVisitStorage(
 }
 
 NS_IMETHODIMP AppCacheStorage::GetCacheIndexEntryAttrs(
-    nsIURI *aURI, const nsACString &aIdExtension, bool *aHasAltData,
-    uint32_t *aSizeInKB) {
+    nsIURI* aURI, const nsACString& aIdExtension, bool* aHasAltData,
+    uint32_t* aSizeInKB) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
-}  // namespace net
-}  // namespace mozilla
+}  // namespace mozilla::net

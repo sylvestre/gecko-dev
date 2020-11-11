@@ -10,19 +10,19 @@
 #include "WorkletThread.h"
 
 #include "mozilla/BasePrincipal.h"
+#include "mozilla/NullPrincipal.h"
 #include "mozilla/dom/RegisterWorkletBindings.h"
+#include "mozilla/dom/ScriptSettings.h"
 #include "mozilla/dom/WorkletBinding.h"
+#include "nsGlobalWindowInner.h"
 
 namespace mozilla {
 
 // ---------------------------------------------------------------------------
 // WorkletLoadInfo
 
-WorkletLoadInfo::WorkletLoadInfo(nsPIDOMWindowInner* aWindow,
-                                 nsIPrincipal* aPrincipal)
-    : mInnerWindowID(aWindow->WindowID()),
-      mOriginAttributes(BasePrincipal::Cast(aPrincipal)->OriginAttributesRef()),
-      mPrincipal(aPrincipal) {
+WorkletLoadInfo::WorkletLoadInfo(nsPIDOMWindowInner* aWindow)
+    : mInnerWindowID(aWindow->WindowID()) {
   MOZ_ASSERT(NS_IsMainThread());
   nsPIDOMWindowOuter* outerWindow = aWindow->GetOuterWindow();
   if (outerWindow) {
@@ -32,17 +32,29 @@ WorkletLoadInfo::WorkletLoadInfo(nsPIDOMWindowInner* aWindow,
   }
 }
 
-WorkletLoadInfo::~WorkletLoadInfo() {
-  MOZ_ASSERT(!mPrincipal || NS_IsMainThread());
-}
-
 // ---------------------------------------------------------------------------
 // WorkletImpl
 
 WorkletImpl::WorkletImpl(nsPIDOMWindowInner* aWindow, nsIPrincipal* aPrincipal)
-    : mWorkletLoadInfo(aWindow, aPrincipal), mTerminated(false) {}
+    : mPrincipal(NullPrincipal::CreateWithInheritedAttributes(aPrincipal)),
+      mWorkletLoadInfo(aWindow),
+      mTerminated(false),
+      mFinishedOnExecutionThread(false) {
+  Unused << NS_WARN_IF(
+      NS_FAILED(ipc::PrincipalToPrincipalInfo(mPrincipal, &mPrincipalInfo)));
 
-WorkletImpl::~WorkletImpl() = default;
+  if (aWindow->GetDocGroup()) {
+    mAgentClusterId.emplace(aWindow->GetDocGroup()->AgentClusterId());
+  }
+
+  mSharedMemoryAllowed =
+      nsGlobalWindowInner::Cast(aWindow)->IsSharedMemoryAllowed();
+}
+
+WorkletImpl::~WorkletImpl() {
+  MOZ_ASSERT(!mGlobalScope);
+  MOZ_ASSERT(!mPrincipal || NS_IsMainThread());
+}
 
 JSObject* WorkletImpl::WrapWorklet(JSContext* aCx, dom::Worklet* aWorklet,
                                    JS::Handle<JSObject*> aGivenProto) {
@@ -50,41 +62,64 @@ JSObject* WorkletImpl::WrapWorklet(JSContext* aCx, dom::Worklet* aWorklet,
   return dom::Worklet_Binding::Wrap(aCx, aWorklet, aGivenProto);
 }
 
-already_AddRefed<dom::WorkletGlobalScope> WorkletImpl::CreateGlobalScope(
-    JSContext* aCx) {
+dom::WorkletGlobalScope* WorkletImpl::GetGlobalScope() {
   dom::WorkletThread::AssertIsOnWorkletThread();
 
-  RefPtr<dom::WorkletGlobalScope> scope = ConstructGlobalScope();
-
-  JS::Rooted<JSObject*> global(aCx);
-  NS_ENSURE_TRUE(scope->WrapGlobalObject(aCx, &global), nullptr);
-
-  JSAutoRealm ar(aCx, global);
-
-  // Init Web IDL bindings
-  if (!dom::RegisterWorkletBindings(aCx, global)) {
+  if (mGlobalScope) {
+    return mGlobalScope;
+  }
+  if (mFinishedOnExecutionThread) {
     return nullptr;
   }
 
-  JS_FireOnNewGlobalObject(aCx, global);
+  dom::AutoJSAPI jsapi;
+  jsapi.Init();
+  JSContext* cx = jsapi.cx();
 
-  return scope.forget();
+  mGlobalScope = ConstructGlobalScope();
+
+  JS::Rooted<JSObject*> global(cx);
+  NS_ENSURE_TRUE(mGlobalScope->WrapGlobalObject(cx, &global), nullptr);
+
+  JSAutoRealm ar(cx, global);
+
+  // Init Web IDL bindings
+  if (!dom::RegisterWorkletBindings(cx, global)) {
+    return nullptr;
+  }
+
+  JS_FireOnNewGlobalObject(cx, global);
+
+  return mGlobalScope;
 }
 
 void WorkletImpl::NotifyWorkletFinished() {
   MOZ_ASSERT(NS_IsMainThread());
+
+  if (mTerminated) {
+    return;
+  }
+
+  // Release global scope on its thread.
+  SendControlMessage(
+      NS_NewRunnableFunction("WorkletImpl::NotifyWorkletFinished",
+                             [self = RefPtr<WorkletImpl>(this)]() {
+                               self->mFinishedOnExecutionThread = true;
+                               self->mGlobalScope = nullptr;
+                             }));
 
   mTerminated = true;
   if (mWorkletThread) {
     mWorkletThread->Terminate();
     mWorkletThread = nullptr;
   }
-  mWorkletLoadInfo.mPrincipal = nullptr;
+  mPrincipal = nullptr;
 }
 
 nsresult WorkletImpl::SendControlMessage(
     already_AddRefed<nsIRunnable> aRunnable) {
   MOZ_ASSERT(NS_IsMainThread());
+  RefPtr<nsIRunnable> runnable = std::move(aRunnable);
 
   // TODO: bug 1492011 re ConsoleWorkletRunnable.
   if (mTerminated) {
@@ -93,13 +128,13 @@ nsresult WorkletImpl::SendControlMessage(
 
   if (!mWorkletThread) {
     // Thread creation. FIXME: this will change.
-    mWorkletThread = dom::WorkletThread::Create();
+    mWorkletThread = dom::WorkletThread::Create(this);
     if (!mWorkletThread) {
-      return NS_ERROR_UNEXPECTED;
+      return NS_ERROR_ILLEGAL_DURING_SHUTDOWN;
     }
   }
 
-  return mWorkletThread->DispatchRunnable(std::move(aRunnable));
+  return mWorkletThread->DispatchRunnable(runnable.forget());
 }
 
 }  // namespace mozilla

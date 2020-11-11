@@ -11,10 +11,12 @@
 #include "DragTracker.h"
 #include "InputData.h"
 #include "mozilla/EventForwards.h"
+#include "mozilla/layers/TouchCounter.h"
 #include "mozilla/RefPtr.h"
 #include "mozilla/UniquePtr.h"
 #include "nsTArray.h"
-#include "TouchCounter.h"
+
+#include <unordered_map>
 
 namespace mozilla {
 
@@ -31,9 +33,11 @@ class TouchBlockState;
 class WheelBlockState;
 class DragBlockState;
 class PanGestureBlockState;
+class PinchGestureBlockState;
 class KeyboardBlockState;
 class AsyncDragMetrics;
 class QueuedInput;
+enum class APZHandledResult : uint8_t;
 
 /**
  * This class stores incoming input events, associated with "input blocks",
@@ -51,10 +55,12 @@ class InputQueue {
    * See the documentation on APZCTreeManager::ReceiveInputEvent for info on
    * return values from this function, including |aOutInputBlockId|.
    */
-  nsEventStatus ReceiveInputEvent(const RefPtr<AsyncPanZoomController>& aTarget,
-                                  TargetConfirmationFlags aFlags,
-                                  const InputData& aEvent,
-                                  uint64_t* aOutInputBlockId);
+  nsEventStatus ReceiveInputEvent(
+      const RefPtr<AsyncPanZoomController>& aTarget,
+      TargetConfirmationFlags aFlags, const InputData& aEvent,
+      uint64_t* aOutInputBlockId,
+      Maybe<APZHandledResult>* aOutputHandledResult = nullptr,
+      const Maybe<nsTArray<TouchBehaviorFlags>>& aTouchBehaviors = Nothing());
   /**
    * This function should be invoked to notify the InputQueue when web content
    * decides whether or not it wants to cancel a block of events. The block
@@ -111,6 +117,7 @@ class InputQueue {
   WheelBlockState* GetCurrentWheelBlock() const;
   DragBlockState* GetCurrentDragBlock() const;
   PanGestureBlockState* GetCurrentPanGestureBlock() const;
+  PinchGestureBlockState* GetCurrentPinchGestureBlock() const;
   KeyboardBlockState* GetCurrentKeyboardBlock() const;
   /**
    * Returns true iff the pending block at the head of the queue is a touch
@@ -139,12 +146,19 @@ class InputQueue {
    */
   bool IsDragOnScrollbar(bool aOnScrollbar);
 
+  InputBlockState* GetBlockForId(uint64_t aInputBlockId);
+
+  using InputBlockCallback = std::function<void(
+      uint64_t aInputBlockId, APZHandledResult aHandledResult)>;
+  void AddInputBlockCallback(uint64_t aInputBlockId,
+                             InputBlockCallback&& aCallback);
+
  private:
   ~InputQueue();
 
   // RAII class for automatically running a timeout task that may
   // need to be run immediately after an event has been queued.
-  class AutoRunImmediateTimeout {
+  class AutoRunImmediateTimeout final {
    public:
     explicit AutoRunImmediateTimeout(InputQueue* aQueue);
     ~AutoRunImmediateTimeout();
@@ -165,16 +179,18 @@ class InputQueue {
                                    CancelAnimationFlags aExtraFlags = Default);
 
   /**
-   * If we need to wait for a content response, schedule that now.
+   * If we need to wait for a content response, schedule that now. Returns true
+   * if the timeout was scheduled, false otherwise.
    */
-  void MaybeRequestContentResponse(
+  bool MaybeRequestContentResponse(
       const RefPtr<AsyncPanZoomController>& aTarget,
       CancelableBlockState* aBlock);
 
-  nsEventStatus ReceiveTouchInput(const RefPtr<AsyncPanZoomController>& aTarget,
-                                  TargetConfirmationFlags aFlags,
-                                  const MultiTouchInput& aEvent,
-                                  uint64_t* aOutInputBlockId);
+  nsEventStatus ReceiveTouchInput(
+      const RefPtr<AsyncPanZoomController>& aTarget,
+      TargetConfirmationFlags aFlags, const MultiTouchInput& aEvent,
+      uint64_t* aOutInputBlockId, Maybe<APZHandledResult>* aOutputHandledResult,
+      const Maybe<nsTArray<TouchBehaviorFlags>>& aTouchBehaviors);
   nsEventStatus ReceiveMouseInput(const RefPtr<AsyncPanZoomController>& aTarget,
                                   TargetConfirmationFlags aFlags,
                                   const MouseInput& aEvent,
@@ -186,6 +202,10 @@ class InputQueue {
   nsEventStatus ReceivePanGestureInput(
       const RefPtr<AsyncPanZoomController>& aTarget,
       TargetConfirmationFlags aFlags, const PanGestureInput& aEvent,
+      uint64_t* aOutInputBlockId);
+  nsEventStatus ReceivePinchGestureInput(
+      const RefPtr<AsyncPanZoomController>& aTarget,
+      TargetConfirmationFlags aFlags, const PinchGestureInput& aEvent,
       uint64_t* aOutInputBlockId);
   nsEventStatus ReceiveKeyboardInput(
       const RefPtr<AsyncPanZoomController>& aTarget,
@@ -205,6 +225,7 @@ class InputQueue {
   void ScheduleMainThreadTimeout(const RefPtr<AsyncPanZoomController>& aTarget,
                                  CancelableBlockState* aBlock);
   void MainThreadTimeout(uint64_t aInputBlockId);
+  void MaybeLongTapTimeout(uint64_t aInputBlockId);
   void ProcessQueue();
   bool CanDiscardBlock(InputBlockState* aBlock);
   void UpdateActiveApzc(const RefPtr<AsyncPanZoomController>& aNewActive);
@@ -223,6 +244,7 @@ class InputQueue {
   RefPtr<WheelBlockState> mActiveWheelBlock;
   RefPtr<DragBlockState> mActiveDragBlock;
   RefPtr<PanGestureBlockState> mActivePanGestureBlock;
+  RefPtr<PinchGestureBlockState> mActivePinchGestureBlock;
   RefPtr<KeyboardBlockState> mActiveKeyboardBlock;
 
   // The APZC to which the last event was delivered
@@ -237,6 +259,12 @@ class InputQueue {
   // Temporarily stores a timeout task that needs to be run as soon as
   // as the event that triggered it has been queued.
   RefPtr<Runnable> mImmediateTimeout;
+
+  // Maps input block ids to callbacks that will be invoked when the input block
+  // is ready for handling.
+  using InputBlockCallbackMap =
+      std::unordered_map<uint64_t, InputBlockCallback>;
+  InputBlockCallbackMap mInputBlockCallbacks;
 };
 
 }  // namespace layers

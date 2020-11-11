@@ -19,7 +19,15 @@ namespace layers {
 class MacIOSurfaceImage : public Image {
  public:
   explicit MacIOSurfaceImage(MacIOSurface* aSurface)
-      : Image(nullptr, ImageFormat::MAC_IOSURFACE), mSurface(aSurface) {}
+      : Image(nullptr, ImageFormat::MAC_IOSURFACE), mSurface(aSurface) {
+    if (aSurface) {
+      mPictureRect = gfx::IntRect(
+          gfx::IntPoint{}, gfx::IntSize(aSurface->GetDevicePixelWidth(0),
+                                        aSurface->GetDevicePixelHeight(0)));
+    }
+  }
+
+  bool SetData(ImageContainer* aContainer, const PlanarYCbCrData& aData);
 
   MacIOSurface* GetSurface() { return mSurface; }
 
@@ -30,13 +38,31 @@ class MacIOSurfaceImage : public Image {
 
   already_AddRefed<gfx::SourceSurface> GetAsSourceSurface() override;
 
-  TextureClient* GetTextureClient(KnowsCompositor* aForwarder) override;
+  TextureClient* GetTextureClient(KnowsCompositor* aKnowsCompositor) override;
 
   MacIOSurfaceImage* AsMacIOSurfaceImage() override { return this; }
+
+  gfx::IntRect GetPictureRect() const override { return mPictureRect; }
 
  private:
   RefPtr<MacIOSurface> mSurface;
   RefPtr<TextureClient> mTextureClient;
+  gfx::IntRect mPictureRect;
+};
+
+class MacIOSurfaceRecycleAllocator {
+ public:
+  NS_INLINE_DECL_THREADSAFE_REFCOUNTING(MacIOSurfaceRecycleAllocator)
+
+  already_AddRefed<MacIOSurface> Allocate(const gfx::IntSize aYSize,
+                                          const gfx::IntSize& aCbCrSize,
+                                          gfx::YUVColorSpace aYUVColorSpace,
+                                          gfx::ColorRange aColorRange);
+
+ private:
+  ~MacIOSurfaceRecycleAllocator() = default;
+
+  nsTArray<CFTypeRefPtr<IOSurfaceRef>> mSurfaces;
 };
 
 }  // namespace layers

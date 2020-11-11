@@ -19,6 +19,9 @@ const TEST_URI = `
 `;
 
 const GRID_OPENED_PREF = "devtools.layout.grid.opened";
+const GRID_PANE_SELECTOR = "#layout-grid-section";
+const ACCORDION_HEADER_SELECTOR = ".accordion-header";
+const ACCORDION_CONTENT_SELECTOR = ".accordion-content";
 
 add_task(async function() {
   await addTab("data:text/html;charset=utf-8," + encodeURIComponent(TEST_URI));
@@ -32,27 +35,36 @@ add_task(async function() {
   Services.prefs.clearUserPref(GRID_OPENED_PREF);
 });
 
-function testAccordionStateAfterClickingHeader(doc) {
-  const header = doc.querySelector(".grid-pane ._header");
-  const gContent = doc.querySelector(".grid-pane ._content");
+async function testAccordionStateAfterClickingHeader(doc) {
+  const item = await waitFor(() => doc.querySelector(GRID_PANE_SELECTOR));
+  const header = item.querySelector(ACCORDION_HEADER_SELECTOR);
+  const content = item.querySelector(ACCORDION_CONTENT_SELECTOR);
 
   info("Checking initial state of the grid panel.");
-  is(gContent.style.display, "block", "The grid panel content is 'display: block'.");
-  ok(Services.prefs.getBoolPref(GRID_OPENED_PREF),
-    `${GRID_OPENED_PREF} is pref on by default.`);
+  ok(
+    !content.hidden && content.childElementCount > 0,
+    "The grid panel content is visible."
+  );
+  ok(
+    Services.prefs.getBoolPref(GRID_OPENED_PREF),
+    `${GRID_OPENED_PREF} is pref on by default.`
+  );
 
   info("Clicking the grid header to hide the grid panel.");
   header.click();
 
   info("Checking the new state of the grid panel.");
-  is(gContent.style.display, "none", "The grid panel content is 'display: none'.");
-  ok(!Services.prefs.getBoolPref(GRID_OPENED_PREF), `${GRID_OPENED_PREF} is pref off.`);
+  ok(content.hidden, "The grid panel content is hidden.");
+  ok(
+    !Services.prefs.getBoolPref(GRID_OPENED_PREF),
+    `${GRID_OPENED_PREF} is pref off.`
+  );
 }
 
-function testAccordionStateAfterSwitchingSidebars(inspector, doc) {
-  info("Checking the grid accordion state is persistent after switching sidebars.");
-
-  const gContent = doc.querySelector(".grid-pane ._content");
+async function testAccordionStateAfterSwitchingSidebars(inspector, doc) {
+  info(
+    "Checking the grid accordion state is persistent after switching sidebars."
+  );
 
   info("Selecting the computed view.");
   inspector.sidebar.select("computedview");
@@ -60,14 +72,22 @@ function testAccordionStateAfterSwitchingSidebars(inspector, doc) {
   info("Selecting the layout view.");
   inspector.sidebar.select("layoutview");
 
+  const item = await waitFor(() => doc.querySelector(GRID_PANE_SELECTOR));
+  const content = item.querySelector(ACCORDION_CONTENT_SELECTOR);
+
   info("Checking the state of the grid panel.");
-  is(gContent.style.display, "none", "The grid panel content is 'display: none'.");
-  ok(!Services.prefs.getBoolPref(GRID_OPENED_PREF), `${GRID_OPENED_PREF} is pref off.`);
+  ok(content.hidden, "The grid panel content is hidden.");
+  ok(
+    !Services.prefs.getBoolPref(GRID_OPENED_PREF),
+    `${GRID_OPENED_PREF} is pref off.`
+  );
 }
 
 async function testAccordionStateAfterReopeningLayoutView(toolbox) {
-  info("Checking the grid accordion state is persistent after closing and re-opening the "
-  + "layout view.");
+  info(
+    "Checking the grid accordion state is persistent after closing and re-opening the " +
+      "layout view."
+  );
 
   info("Closing the toolbox.");
   await toolbox.destroy();
@@ -75,10 +95,14 @@ async function testAccordionStateAfterReopeningLayoutView(toolbox) {
   info("Re-opening the layout view.");
   const { gridInspector } = await openLayoutView();
   const { document: doc } = gridInspector;
-  const gContent = doc.querySelector(".grid-pane ._content");
+
+  const item = await waitFor(() => doc.querySelector(GRID_PANE_SELECTOR));
+  const content = item.querySelector(ACCORDION_CONTENT_SELECTOR);
 
   info("Checking the state of the grid panel.");
-  ok(!gContent, "The grid panel content is not rendered.");
-  ok(!Services.prefs.getBoolPref(GRID_OPENED_PREF),
-    `${GRID_OPENED_PREF} is pref off.`);
+  ok(content.hidden, "The grid panel content is hidden.");
+  ok(
+    !Services.prefs.getBoolPref(GRID_OPENED_PREF),
+    `${GRID_OPENED_PREF} is pref off.`
+  );
 }

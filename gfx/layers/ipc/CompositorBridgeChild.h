@@ -28,8 +28,13 @@
 namespace mozilla {
 
 namespace dom {
-class TabChild;
+class BrowserChild;
 }  // namespace dom
+
+namespace webgpu {
+class PWebGPUChild;
+class WebGPUChild;
+}  // namespace webgpu
 
 namespace widget {
 class CompositorWidget;
@@ -37,10 +42,11 @@ class CompositorWidget;
 
 namespace layers {
 
-using mozilla::dom::TabChild;
+using mozilla::dom::BrowserChild;
 
 class IAPZCTreeManager;
 class APZCTreeManagerChild;
+class CanvasChild;
 class ClientLayerManager;
 class CompositorBridgeParent;
 class CompositorManagerChild;
@@ -51,7 +57,9 @@ struct FrameMetrics;
 
 class CompositorBridgeChild final : public PCompositorBridgeChild,
                                     public TextureForwarder {
-  typedef InfallibleTArray<AsyncParentMessageData> AsyncParentMessageArray;
+  typedef nsTArray<AsyncParentMessageData> AsyncParentMessageArray;
+
+  friend class PCompositorBridgeChild;
 
  public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(CompositorBridgeChild, override);
@@ -84,53 +92,60 @@ class CompositorBridgeChild final : public PCompositorBridgeChild,
   // process). This may only be called on the main thread.
   static bool CompositorIsInGPUProcess();
 
-  virtual mozilla::ipc::IPCResult RecvDidComposite(
-      const LayersId& aId, const TransactionId& aTransactionId,
-      const TimeStamp& aCompositeStart,
-      const TimeStamp& aCompositeEnd) override;
+  mozilla::ipc::IPCResult RecvDidComposite(const LayersId& aId,
+                                           const TransactionId& aTransactionId,
+                                           const TimeStamp& aCompositeStart,
+                                           const TimeStamp& aCompositeEnd);
 
-  virtual mozilla::ipc::IPCResult RecvNotifyFrameStats(
-      nsTArray<FrameStats>&& aFrameStats) override;
+  mozilla::ipc::IPCResult RecvNotifyFrameStats(
+      nsTArray<FrameStats>&& aFrameStats);
 
-  virtual mozilla::ipc::IPCResult RecvInvalidateLayers(
-      const LayersId& aLayersId) override;
+  mozilla::ipc::IPCResult RecvInvalidateLayers(const LayersId& aLayersId);
 
-  virtual mozilla::ipc::IPCResult RecvUpdatePluginConfigurations(
+  mozilla::ipc::IPCResult RecvUpdatePluginConfigurations(
       const LayoutDeviceIntPoint& aContentOffset,
       const LayoutDeviceIntRegion& aVisibleRegion,
-      nsTArray<PluginWindowData>&& aPlugins) override;
+      nsTArray<PluginWindowData>&& aPlugins);
 
-  virtual mozilla::ipc::IPCResult RecvCaptureAllPlugins(
-      const uintptr_t& aParentWidget) override;
+  mozilla::ipc::IPCResult RecvCaptureAllPlugins(const uintptr_t& aParentWidget);
 
-  virtual mozilla::ipc::IPCResult RecvHideAllPlugins(
-      const uintptr_t& aParentWidget) override;
+  mozilla::ipc::IPCResult RecvHideAllPlugins(const uintptr_t& aParentWidget);
 
-  virtual PTextureChild* AllocPTextureChild(
+  mozilla::ipc::IPCResult RecvNotifyJankedAnimations(
+      const LayersId& aLayersId, nsTArray<uint64_t>&& aJankedAnimations);
+
+  PTextureChild* AllocPTextureChild(
       const SurfaceDescriptor& aSharedData, const ReadLockDescriptor& aReadLock,
       const LayersBackend& aLayersBackend, const TextureFlags& aFlags,
       const LayersId& aId, const uint64_t& aSerial,
-      const wr::MaybeExternalImageId& aExternalImageId) override;
+      const wr::MaybeExternalImageId& aExternalImageId);
 
-  virtual bool DeallocPTextureChild(PTextureChild* actor) override;
+  bool DeallocPTextureChild(PTextureChild* actor);
 
-  virtual mozilla::ipc::IPCResult RecvParentAsyncMessages(
-      InfallibleTArray<AsyncParentMessageData>&& aMessages) override;
-  virtual PTextureChild* CreateTexture(
-      const SurfaceDescriptor& aSharedData, const ReadLockDescriptor& aReadLock,
-      LayersBackend aLayersBackend, TextureFlags aFlags, uint64_t aSerial,
-      wr::MaybeExternalImageId& aExternalImageId,
-      nsIEventTarget* aTarget) override;
+  mozilla::ipc::IPCResult RecvParentAsyncMessages(
+      nsTArray<AsyncParentMessageData>&& aMessages);
+  PTextureChild* CreateTexture(const SurfaceDescriptor& aSharedData,
+                               const ReadLockDescriptor& aReadLock,
+                               LayersBackend aLayersBackend,
+                               TextureFlags aFlags, uint64_t aSerial,
+                               wr::MaybeExternalImageId& aExternalImageId,
+                               nsISerialEventTarget* aTarget) override;
+
+  already_AddRefed<CanvasChild> GetCanvasChild() final;
+
+  void EndCanvasTransaction();
+
+  RefPtr<webgpu::WebGPUChild> GetWebGPUChild();
 
   /**
    * Request that the parent tell us when graphics are ready on GPU.
-   * When we get that message, we bounce it to the TabParent via
-   * the TabChild
-   * @param tabChild The object to bounce the note to.  Non-NULL.
+   * When we get that message, we bounce it to the BrowserParent via
+   * the BrowserChild
+   * @param browserChild The object to bounce the note to.  Non-NULL.
    */
-  void RequestNotifyAfterRemotePaint(TabChild* aTabChild);
+  void RequestNotifyAfterRemotePaint(BrowserChild* aBrowserChild);
 
-  void CancelNotifyAfterRemotePaint(TabChild* aTabChild);
+  void CancelNotifyAfterRemotePaint(BrowserChild* aBrowserChild);
 
   // Beware that these methods don't override their super-class equivalent
   // (which are not virtual), they just overload them. All of these Send*
@@ -141,6 +156,7 @@ class CompositorBridgeChild final : public PCompositorBridgeChild,
   bool SendWillClose();
   bool SendPause();
   bool SendResume();
+  bool SendResumeAsync();
   bool SendNotifyChildCreated(const LayersId& id, CompositorOptions* aOptions);
   bool SendAdoptChild(const LayersId& id);
   bool SendMakeSnapshot(const SurfaceDescriptor& inSnapshot,
@@ -156,7 +172,7 @@ class CompositorBridgeChild final : public PCompositorBridgeChild,
   bool SendAllPluginsCaptured();
   bool IsSameProcess() const override;
 
-  virtual bool IPCOpen() const override { return mCanSend; }
+  bool IPCOpen() const override { return mCanSend; }
 
   static void ShutDown();
 
@@ -176,45 +192,47 @@ class CompositorBridgeChild final : public PCompositorBridgeChild,
    */
   void NotifyNotUsed(uint64_t aTextureId, uint64_t aFwdTransactionId);
 
-  virtual void CancelWaitForRecycle(uint64_t aTextureId) override;
+  void CancelWaitForNotifyNotUsed(uint64_t aTextureId) override;
 
   TextureClientPool* GetTexturePool(KnowsCompositor* aAllocator,
                                     gfx::SurfaceFormat aFormat,
                                     TextureFlags aFlags);
   void ClearTexturePool();
 
-  virtual FixedSizeSmallShmemSectionAllocator* GetTileLockAllocator() override;
+  FixedSizeSmallShmemSectionAllocator* GetTileLockAllocator() override;
 
   void HandleMemoryPressure();
 
-  virtual MessageLoop* GetMessageLoop() const override { return mMessageLoop; }
+  nsISerialEventTarget* GetThread() const override { return mThread; }
 
-  virtual base::ProcessId GetParentPid() const override { return OtherPid(); }
+  base::ProcessId GetParentPid() const override { return OtherPid(); }
 
-  virtual bool AllocUnsafeShmem(
-      size_t aSize, mozilla::ipc::SharedMemory::SharedMemoryType aShmType,
-      mozilla::ipc::Shmem* aShmem) override;
-  virtual bool AllocShmem(size_t aSize,
-                          mozilla::ipc::SharedMemory::SharedMemoryType aShmType,
-                          mozilla::ipc::Shmem* aShmem) override;
-  virtual bool DeallocShmem(mozilla::ipc::Shmem& aShmem) override;
+  bool AllocUnsafeShmem(size_t aSize,
+                        mozilla::ipc::SharedMemory::SharedMemoryType aShmType,
+                        mozilla::ipc::Shmem* aShmem) override;
+  bool AllocShmem(size_t aSize,
+                  mozilla::ipc::SharedMemory::SharedMemoryType aShmType,
+                  mozilla::ipc::Shmem* aShmem) override;
+  bool DeallocShmem(mozilla::ipc::Shmem& aShmem) override;
 
   PCompositorWidgetChild* AllocPCompositorWidgetChild(
-      const CompositorWidgetInitData& aInitData) override;
-  bool DeallocPCompositorWidgetChild(PCompositorWidgetChild* aActor) override;
+      const CompositorWidgetInitData& aInitData);
+  bool DeallocPCompositorWidgetChild(PCompositorWidgetChild* aActor);
 
-  PAPZCTreeManagerChild* AllocPAPZCTreeManagerChild(
-      const LayersId& aLayersId) override;
-  bool DeallocPAPZCTreeManagerChild(PAPZCTreeManagerChild* aActor) override;
+  PAPZCTreeManagerChild* AllocPAPZCTreeManagerChild(const LayersId& aLayersId);
+  bool DeallocPAPZCTreeManagerChild(PAPZCTreeManagerChild* aActor);
 
-  PAPZChild* AllocPAPZChild(const LayersId& aLayersId) override;
-  bool DeallocPAPZChild(PAPZChild* aActor) override;
+  PAPZChild* AllocPAPZChild(const LayersId& aLayersId);
+  bool DeallocPAPZChild(PAPZChild* aActor);
 
   void WillEndTransaction();
 
   PWebRenderBridgeChild* AllocPWebRenderBridgeChild(
-      const wr::PipelineId& aPipelineId, const LayoutDeviceIntSize&) override;
-  bool DeallocPWebRenderBridgeChild(PWebRenderBridgeChild* aActor) override;
+      const wr::PipelineId& aPipelineId, const LayoutDeviceIntSize&);
+  bool DeallocPWebRenderBridgeChild(PWebRenderBridgeChild* aActor);
+
+  webgpu::PWebGPUChild* AllocPWebGPUChild();
+  bool DeallocPWebGPUChild(webgpu::PWebGPUChild* aActor);
 
   wr::MaybeExternalImageId GetNextExternalImageId() override;
 
@@ -260,33 +278,32 @@ class CompositorBridgeChild final : public PCompositorBridgeChild,
   // and resumes IPC.
   void ResumeIPCAfterAsyncPaint();
 
+  void PrepareFinalDestroy();
   void AfterDestroy();
 
-  virtual PLayerTransactionChild* AllocPLayerTransactionChild(
-      const nsTArray<LayersBackend>& aBackendHints,
-      const LayersId& aId) override;
+  PLayerTransactionChild* AllocPLayerTransactionChild(
+      const nsTArray<LayersBackend>& aBackendHints, const LayersId& aId);
 
-  virtual bool DeallocPLayerTransactionChild(
-      PLayerTransactionChild* aChild) override;
+  bool DeallocPLayerTransactionChild(PLayerTransactionChild* aChild);
 
-  virtual void ActorDestroy(ActorDestroyReason aWhy) override;
+  void ActorDestroy(ActorDestroyReason aWhy) override;
 
-  virtual mozilla::ipc::IPCResult RecvSharedCompositorFrameMetrics(
+  mozilla::ipc::IPCResult RecvSharedCompositorFrameMetrics(
       const mozilla::ipc::SharedMemoryBasic::Handle& metrics,
       const CrossProcessMutexHandle& handle, const LayersId& aLayersId,
-      const uint32_t& aAPZCId) override;
+      const uint32_t& aAPZCId);
 
-  virtual mozilla::ipc::IPCResult RecvReleaseSharedCompositorFrameMetrics(
-      const ViewID& aId, const uint32_t& aAPZCId) override;
+  mozilla::ipc::IPCResult RecvReleaseSharedCompositorFrameMetrics(
+      const ViewID& aId, const uint32_t& aAPZCId);
 
-  virtual mozilla::ipc::IPCResult RecvRemotePaintIsReady() override;
+  mozilla::ipc::IPCResult RecvRemotePaintIsReady();
 
   mozilla::ipc::IPCResult RecvObserveLayersUpdate(
       const LayersId& aLayersId, const LayersObserverEpoch& aEpoch,
-      const bool& aActive) override;
+      const bool& aActive);
 
-  virtual mozilla::ipc::IPCResult RecvNotifyWebRenderError(
-      const WebRenderError& aError) override;
+  mozilla::ipc::IPCResult RecvCompositorOptionsChanged(
+      const LayersId& aLayersId, const CompositorOptions& aNewOptions);
 
   uint64_t GetNextResourceId();
 
@@ -294,7 +311,7 @@ class CompositorBridgeChild final : public PCompositorBridgeChild,
 
   // Class used to store the shared FrameMetrics, mutex, and APZCId  in a hash
   // table
-  class SharedFrameMetricsData {
+  class SharedFrameMetricsData final {
    public:
     SharedFrameMetricsData(
         const mozilla::ipc::SharedMemoryBasic::Handle& metrics,
@@ -333,9 +350,9 @@ class CompositorBridgeChild final : public PCompositorBridgeChild,
   // While this should be safe to use since the ViewID is unique
   nsClassHashtable<nsUint64HashKey, SharedFrameMetricsData> mFrameMetricsTable;
 
-  // Weakly hold the TabChild that made a request to be alerted when
+  // Weakly hold the BrowserChild that made a request to be alerted when
   // the transaction has been received.
-  nsWeakPtr mWeakTabChild;  // type is TabChild
+  nsWeakPtr mWeakBrowserChild;  // type is BrowserChild
 
   DISALLOW_EVIL_CONSTRUCTORS(CompositorBridgeChild);
 
@@ -356,9 +373,10 @@ class CompositorBridgeChild final : public PCompositorBridgeChild,
    * Hold TextureClients refs until end of their usages on host side.
    * It defer calling of TextureClient recycle callback.
    */
-  std::unordered_map<uint64_t, RefPtr<TextureClient>> mTexturesWaitingRecycled;
+  std::unordered_map<uint64_t, RefPtr<TextureClient>>
+      mTexturesWaitingNotifyNotUsed;
 
-  MessageLoop* mMessageLoop;
+  nsCOMPtr<nsISerialEventTarget> mThread;
 
   AutoTArray<RefPtr<TextureClientPool>, 2> mTexturePools;
 
@@ -396,6 +414,10 @@ class CompositorBridgeChild final : public PCompositorBridgeChild,
 
   uintptr_t mSlowFlushCount;
   uintptr_t mTotalFlushCount;
+
+  RefPtr<CanvasChild> mCanvasChild;
+
+  RefPtr<webgpu::WebGPUChild> mWebGPUChild;
 };
 
 }  // namespace layers

@@ -22,6 +22,7 @@
 #include "TextRange-inl.h"
 #include "nsAccessibilityService.h"
 
+#include "mozilla/PresShell.h"
 #include "nsIPersistentProperties2.h"
 #include "nsISimpleEnumerator.h"
 
@@ -103,6 +104,7 @@ ia2Accessible::get_relation(long aRelationIndex,
         new ia2AccessibleRelation(relationType, &rel);
     if (ia2Relation->HasTargets()) {
       if (relIdx == aRelationIndex) {
+        acc->AssociateCOMObjectForDisconnection(ia2Relation);
         ia2Relation.forget(aRelation);
         return S_OK;
       }
@@ -136,6 +138,7 @@ ia2Accessible::get_relations(long aMaxRelations,
     RefPtr<ia2AccessibleRelation> ia2Rel =
         new ia2AccessibleRelation(relationType, &rel);
     if (ia2Rel->HasTargets()) {
+      acc->AssociateCOMObjectForDisconnection(ia2Rel);
       ia2Rel.forget(aRelation + (*aNRelations));
       (*aNRelations)++;
     }
@@ -151,10 +154,10 @@ ia2Accessible::role(long* aRole) {
   AccessibleWrap* acc = static_cast<AccessibleWrap*>(this);
   if (acc->IsDefunct()) return CO_E_OBJNOTCONNECTED;
 
-#define ROLE(_geckoRole, stringRole, atkRole, macRole, msaaRole, ia2Role, \
-             androidClass, nameRule)                                      \
-  case roles::_geckoRole:                                                 \
-    *aRole = ia2Role;                                                     \
+#define ROLE(_geckoRole, stringRole, atkRole, macRole, macSubrole, msaaRole, \
+             ia2Role, androidClass, nameRule)                                \
+  case roles::_geckoRole:                                                    \
+    *aRole = ia2Role;                                                        \
     break;
 
   a11y::role geckoRole;
@@ -180,14 +183,16 @@ ia2Accessible::role(long* aRole) {
   return S_OK;
 }
 
-STDMETHODIMP
+// XXX Use MOZ_CAN_RUN_SCRIPT_BOUNDARY for now due to bug 1543294.
+MOZ_CAN_RUN_SCRIPT_BOUNDARY STDMETHODIMP
 ia2Accessible::scrollTo(enum IA2ScrollType aScrollType) {
   AccessibleWrap* acc = static_cast<AccessibleWrap*>(this);
   if (acc->IsDefunct()) return CO_E_OBJNOTCONNECTED;
 
   MOZ_ASSERT(!acc->IsProxy());
-  nsCoreUtils::ScrollTo(acc->Document()->PresShell(), acc->GetContent(),
-                        aScrollType);
+  RefPtr<PresShell> presShell = acc->Document()->PresShellPtr();
+  nsCOMPtr<nsIContent> content = acc->GetContent();
+  nsCoreUtils::ScrollTo(presShell, content, aScrollType);
 
   return S_OK;
 }
@@ -490,8 +495,9 @@ ia2Accessible::get_relationTargetsOfType(BSTR aType, long aMaxTargets,
   MOZ_ASSERT(!acc->IsProxy());
   Relation rel = acc->RelationByType(*relationType);
   Accessible* target = nullptr;
-  while ((target = rel.Next()) &&
-         static_cast<long>(targets.Length()) <= aMaxTargets) {
+  while (
+      (target = rel.Next()) &&
+      (aMaxTargets == 0 || static_cast<long>(targets.Length()) < aMaxTargets)) {
     targets.AppendElement(target);
   }
 
@@ -520,12 +526,7 @@ ia2Accessible::get_selectionRanges(IA2Range** aRanges, long* aNRanges) {
 
   AutoTArray<TextRange, 1> ranges;
   acc->Document()->SelectionRanges(&ranges);
-  uint32_t len = ranges.Length();
-  for (uint32_t idx = 0; idx < len; idx++) {
-    if (!ranges[idx].Crop(acc)) {
-      ranges.RemoveElementAt(idx);
-    }
-  }
+  ranges.RemoveElementsBy([acc](auto& range) { return !range.Crop(acc); });
 
   *aNRanges = ranges.Length();
   *aRanges =

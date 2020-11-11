@@ -4,9 +4,9 @@
 "use strict";
 
 const { assert } = require("devtools/shared/DevToolsUtils");
-const { viewState } = require("../constants");
-const { refreshDiffing } = require("./diffing");
-const snapshot = require("./snapshot");
+const { viewState } = require("devtools/client/memory/constants");
+const { refreshDiffing } = require("devtools/client/memory/actions/diffing");
+const snapshot = require("devtools/client/memory/actions/snapshot");
 
 /**
  * Refresh the main thread's data from the heap analyses worker, if needed.
@@ -14,10 +14,13 @@ const snapshot = require("./snapshot");
  * @param {HeapAnalysesWorker} heapWorker
  */
 exports.refresh = function(heapWorker) {
-  return async function(dispatch, getState) {
+  return async function({ dispatch, getState }) {
     switch (getState().view.state) {
       case viewState.DIFFING:
-        assert(getState().diffing, "Should have diffing state if in diffing view");
+        assert(
+          getState().diffing,
+          "Should have diffing state if in diffing view"
+        );
         await dispatch(refreshDiffing(heapWorker));
         return;
 

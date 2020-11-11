@@ -15,16 +15,20 @@
  * the content side, just the overhead of spawning a new content process.
  */
 
-ChromeUtils.defineModuleGetter(this, "TalosParentProfiler",
-                                  "resource://talos-powers/TalosParentProfiler.jsm");
-ChromeUtils.defineModuleGetter(this, "Services",
-                               "resource://gre/modules/Services.jsm");
+ChromeUtils.defineModuleGetter(
+  this,
+  "TalosParentProfiler",
+  "resource://talos-powers/TalosParentProfiler.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "Services",
+  "resource://gre/modules/Services.jsm"
+);
 
 const PREALLOCATED_PREF = "dom.ipc.processPrelaunch.enabled";
-const MESSAGES = [
-  "CPStartup:Go",
-  "Content:BrowserChildReady",
-];
+const MESSAGES = ["CPStartup:Go", "Content:BrowserChildReady"];
+let domainID = 1;
 
 /* global ExtensionAPI */
 
@@ -37,7 +41,9 @@ this.cpstartup = class extends ExtensionAPI {
     this.framescriptURL = this.extension.baseURI.resolve("/framescript.js");
     Services.mm.loadFrameScript(this.framescriptURL, true);
 
-    this.originalPreallocatedEnabled = Services.prefs.getBoolPref(PREALLOCATED_PREF);
+    this.originalPreallocatedEnabled = Services.prefs.getBoolPref(
+      PREALLOCATED_PREF
+    );
     Services.prefs.setBoolPref(PREALLOCATED_PREF, false);
 
     this.readyCallback = null;
@@ -46,7 +52,10 @@ this.cpstartup = class extends ExtensionAPI {
   }
 
   onShutdown() {
-    Services.prefs.setBoolPref(PREALLOCATED_PREF, this.originalPreallocatedEnabled);
+    Services.prefs.setBoolPref(
+      PREALLOCATED_PREF,
+      this.originalPreallocatedEnabled
+    );
     Services.mm.removeDelayedFrameScript(this.framescriptURL);
 
     for (let msgName of MESSAGES) {
@@ -61,14 +70,17 @@ this.cpstartup = class extends ExtensionAPI {
     switch (msg.name) {
       case "CPStartup:Go": {
         this.openTab(gBrowser, msg.data.target).then(results =>
-          this.reportResults(results));
+          this.reportResults(results)
+        );
         break;
       }
 
       case "Content:BrowserChildReady": {
         // Content has reported that it's ready to process an URL.
         if (!this.readyCallback) {
-          throw new Error("Content:BrowserChildReady fired without a readyCallback set");
+          throw new Error(
+            "Content:BrowserChildReady fired without a readyCallback set"
+          );
         }
         let tab = gBrowser.getTabForBrowser(browser);
         if (tab != this.tab) {
@@ -78,7 +90,7 @@ this.cpstartup = class extends ExtensionAPI {
         // The child stopped the timer when it was ready to process the first URL, it's time to
         // calculate the difference and report it.
         let delta = msg.data.time - this.startStamp;
-        this.readyCallback({tab, delta});
+        this.readyCallback({ tab, delta });
         break;
       }
     }
@@ -88,29 +100,37 @@ this.cpstartup = class extends ExtensionAPI {
     // Start the timer and the profiler right before the tab open on the parent side.
     TalosParentProfiler.resume("tab opening starts");
     this.startStamp = Services.telemetry.msSystemNow();
-    this.tab = gBrowser.selectedTab = gBrowser.addTrustedTab(url);
+    let newDomainURL = url.replace(
+      /http:\/\/127\.0\.0\.1:[0-9]+/,
+      "http://domain_" + domainID++
+    );
+    this.tab = gBrowser.selectedTab = gBrowser.addTrustedTab(newDomainURL);
 
-    let {tab, delta} = await this.whenTabReady();
+    let { tab, delta } = await this.whenTabReady();
     TalosParentProfiler.pause("tab opening end");
     await this.removeTab(tab);
     return delta;
   }
 
   whenTabReady() {
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       this.readyCallback = resolve;
     });
   }
 
   removeTab(tab) {
-    return new Promise((resolve) => {
-      let {messageManager: mm, frameLoader} = tab.linkedBrowser;
-      mm.addMessageListener("SessionStore:update", function onMessage(msg) {
-        if (msg.targetFrameLoader == frameLoader && msg.data.isFinal) {
-          mm.removeMessageListener("SessionStore:update", onMessage);
-          resolve();
-        }
-      }, true);
+    return new Promise(resolve => {
+      let { messageManager: mm, frameLoader } = tab.linkedBrowser;
+      mm.addMessageListener(
+        "SessionStore:update",
+        function onMessage(msg) {
+          if (msg.targetFrameLoader == frameLoader && msg.data.isFinal) {
+            mm.removeMessageListener("SessionStore:update", onMessage);
+            resolve();
+          }
+        },
+        true
+      );
 
       tab.ownerGlobal.gBrowser.removeTab(tab);
     });

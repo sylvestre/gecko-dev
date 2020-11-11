@@ -5,20 +5,36 @@
 
 #include "AccessibleWrap.h"
 
+#include "JavaBuiltins.h"
 #include "Accessible-inl.h"
+#include "HyperTextAccessible-inl.h"
+#include "AccEvent.h"
 #include "AndroidInputType.h"
 #include "DocAccessibleWrap.h"
 #include "IDSet.h"
-#include "JavaBuiltins.h"
 #include "SessionAccessibility.h"
+#include "TextLeafAccessible.h"
+#include "TraversalRule.h"
+#include "Pivot.h"
+#include "Platform.h"
 #include "nsAccessibilityService.h"
+#include "nsEventShell.h"
 #include "nsPersistentProperties.h"
-#include "nsIStringBundle.h"
+#include "nsIAccessibleAnnouncementEvent.h"
 #include "nsAccUtils.h"
+#include "nsTextEquivUtils.h"
+#include "nsWhitespaceTokenizer.h"
+#include "RootAccessible.h"
 
 #include "mozilla/a11y/PDocAccessibleChild.h"
+#include "mozilla/jni/GeckoBundleUtils.h"
 
-#define ROLE_STRINGS_URL "chrome://global/locale/AccessFu.properties"
+// icu TRUE conflicting with java::sdk::Boolean::TRUE()
+// https://searchfox.org/mozilla-central/rev/ce02064d8afc8673cef83c92896ee873bd35e7ae/intl/icu/source/common/unicode/umachine.h#265
+// https://searchfox.org/mozilla-central/source/__GENERATED__/widget/android/bindings/JavaBuiltins.h#78
+#ifdef TRUE
+#  undef TRUE
+#endif
 
 using namespace mozilla::a11y;
 
@@ -68,11 +84,46 @@ nsresult AccessibleWrap::HandleAccEvent(AccEvent* aEvent) {
         }
         break;
       }
+      case nsIAccessibleEvent::EVENT_REORDER: {
+        if (DocAccessibleWrap* topContentDoc =
+                doc->GetTopLevelContentDoc(accessible)) {
+          topContentDoc->CacheViewport(true);
+        }
+        break;
+      }
+      case nsIAccessibleEvent::EVENT_TEXT_CARET_MOVED: {
+        if (accessible != aEvent->Document() && !aEvent->IsFromUserInput()) {
+          AccCaretMoveEvent* caretEvent = downcast_accEvent(aEvent);
+          HyperTextAccessible* ht = AsHyperText();
+          // Pivot to the caret's position if it has an expanded selection.
+          // This is used mostly for find in page.
+          if ((ht && ht->SelectionCount())) {
+            DOMPoint point =
+                AsHyperText()->OffsetToDOMPoint(caretEvent->GetCaretOffset());
+            if (Accessible* newPos =
+                    doc->GetAccessibleOrContainer(point.node)) {
+              static_cast<AccessibleWrap*>(newPos)->PivotTo(
+                  java::SessionAccessibility::HTML_GRANULARITY_DEFAULT, true,
+                  true);
+            }
+          }
+        }
+        break;
+      }
+      case nsIAccessibleEvent::EVENT_SCROLLING_START: {
+        accessible->PivotTo(
+            java::SessionAccessibility::HTML_GRANULARITY_DEFAULT, true, true);
+        break;
+      }
+      default:
+        break;
     }
   }
 
   nsresult rv = Accessible::HandleAccEvent(aEvent);
   NS_ENSURE_SUCCESS(rv, rv);
+
+  accessible->HandleLiveRegionEvent(aEvent);
 
   if (IPCAccessibilityActive()) {
     return NS_OK;
@@ -90,7 +141,7 @@ nsresult AccessibleWrap::HandleAccEvent(AccEvent* aEvent) {
     }
   }
 
-  SessionAccessibility* sessionAcc =
+  RefPtr<SessionAccessibility> sessionAcc =
       SessionAccessibility::GetInstanceFor(accessible);
   if (!sessionAcc) {
     return NS_OK;
@@ -102,16 +153,17 @@ nsresult AccessibleWrap::HandleAccEvent(AccEvent* aEvent) {
       break;
     case nsIAccessibleEvent::EVENT_VIRTUALCURSOR_CHANGED: {
       AccVCChangeEvent* vcEvent = downcast_accEvent(aEvent);
-      auto newPosition = static_cast<AccessibleWrap*>(vcEvent->NewAccessible());
-      auto oldPosition = static_cast<AccessibleWrap*>(vcEvent->OldAccessible());
+      if (!vcEvent->IsFromUserInput()) {
+        break;
+      }
 
+      RefPtr<AccessibleWrap> newPosition =
+          static_cast<AccessibleWrap*>(vcEvent->NewAccessible());
       if (sessionAcc && newPosition) {
-        if (oldPosition != newPosition) {
-          if (vcEvent->Reason() == nsIAccessiblePivot::REASON_POINT) {
-            sessionAcc->SendHoverEnterEvent(newPosition);
-          } else {
-            sessionAcc->SendAccessibilityFocusedEvent(newPosition);
-          }
+        if (vcEvent->Reason() == nsIAccessiblePivot::REASON_POINT) {
+          sessionAcc->SendHoverEnterEvent(newPosition);
+        } else if (vcEvent->BoundaryType() == nsIAccessiblePivot::NO_BOUNDARY) {
+          sessionAcc->SendAccessibilityFocusedEvent(newPosition);
         }
 
         if (vcEvent->BoundaryType() != nsIAccessiblePivot::NO_BOUNDARY) {
@@ -140,7 +192,19 @@ nsresult AccessibleWrap::HandleAccEvent(AccEvent* aEvent) {
       AccStateChangeEvent* event = downcast_accEvent(aEvent);
       auto state = event->GetState();
       if (state & states::CHECKED) {
-        sessionAcc->SendClickedEvent(accessible, event->IsStateEnabled());
+        sessionAcc->SendClickedEvent(
+            accessible, java::SessionAccessibility::FLAG_CHECKABLE |
+                            (event->IsStateEnabled()
+                                 ? java::SessionAccessibility::FLAG_CHECKED
+                                 : 0));
+      }
+
+      if (state & states::EXPANDED) {
+        sessionAcc->SendClickedEvent(
+            accessible, java::SessionAccessibility::FLAG_EXPANDABLE |
+                            (event->IsStateEnabled()
+                                 ? java::SessionAccessibility::FLAG_EXPANDED
+                                 : 0));
       }
 
       if (state & states::SELECTED) {
@@ -159,11 +223,10 @@ nsresult AccessibleWrap::HandleAccEvent(AccEvent* aEvent) {
                                      event->MaxScrollY());
       break;
     }
-    case nsIAccessibleEvent::EVENT_SHOW:
-    case nsIAccessibleEvent::EVENT_HIDE: {
-      AccMutationEvent* event = downcast_accEvent(aEvent);
-      auto parent = static_cast<AccessibleWrap*>(event->Parent());
-      sessionAcc->SendWindowContentChangedEvent(parent);
+    case nsIAccessibleEvent::EVENT_ANNOUNCEMENT: {
+      AccAnnouncementEvent* event = downcast_accEvent(aEvent);
+      sessionAcc->SendAnnouncementEvent(accessible, event->Announcement(),
+                                        event->Priority());
       break;
     }
     default:
@@ -217,6 +280,8 @@ void AccessibleWrap::GetTextContents(nsAString& aText) {
   // In the future this may be smarter and retrieve a flattened string.
   if (IsHyperText()) {
     AsHyperText()->TextSubstring(0, -1, aText);
+  } else if (IsTextLeaf()) {
+    aText = AsTextLeaf()->Text();
   }
 }
 
@@ -227,6 +292,180 @@ bool AccessibleWrap::GetSelectionBounds(int32_t* aStartOffset,
   }
 
   return false;
+}
+
+void AccessibleWrap::PivotTo(int32_t aGranularity, bool aForward,
+                             bool aInclusive) {
+  AccessibleOrProxy accOrProxyRoot = AccessibleOrProxy(RootAccessible());
+  a11y::Pivot pivot(accOrProxyRoot);
+  TraversalRule rule(aGranularity);
+  AccessibleOrProxy accOrProxy = AccessibleOrProxy(this);
+  Accessible* result =
+      aForward ? pivot.Next(accOrProxy, rule, aInclusive).AsAccessible()
+               : pivot.Prev(accOrProxy, rule, aInclusive).AsAccessible();
+  if (result && (result != this || aInclusive)) {
+    PivotMoveReason reason = aForward ? nsIAccessiblePivot::REASON_NEXT
+                                      : nsIAccessiblePivot::REASON_PREV;
+    RefPtr<AccEvent> event = new AccVCChangeEvent(
+        result->Document(), this, -1, -1, result, -1, -1, reason,
+        nsIAccessiblePivot::NO_BOUNDARY, eFromUserInput);
+    nsEventShell::FireEvent(event);
+  }
+}
+
+void AccessibleWrap::ExploreByTouch(float aX, float aY) {
+  a11y::Pivot pivot(RootAccessible());
+  TraversalRule rule;
+
+  Accessible* result = pivot.AtPoint(aX, aY, rule).AsAccessible();
+
+  if (result && result != this) {
+    RefPtr<AccEvent> event =
+        new AccVCChangeEvent(result->Document(), this, -1, -1, result, -1, -1,
+                             nsIAccessiblePivot::REASON_POINT,
+                             nsIAccessiblePivot::NO_BOUNDARY, eFromUserInput);
+    nsEventShell::FireEvent(event);
+  }
+}
+
+void AccessibleWrap::NavigateText(int32_t aGranularity, int32_t aStartOffset,
+                                  int32_t aEndOffset, bool aForward,
+                                  bool aSelect) {
+  a11y::Pivot pivot(RootAccessible());
+
+  HyperTextAccessible* editable =
+      (State() & states::EDITABLE) != 0 ? AsHyperText() : nullptr;
+
+  int32_t start = aStartOffset, end = aEndOffset;
+  // If the accessible is an editable, set the virtual cursor position
+  // to its caret offset. Otherwise use the document's virtual cursor
+  // position as a starting offset.
+  if (editable) {
+    start = end = editable->CaretOffset();
+  }
+
+  uint16_t pivotGranularity = nsIAccessiblePivot::LINE_BOUNDARY;
+  switch (aGranularity) {
+    case 1:  // MOVEMENT_GRANULARITY_CHARACTER
+      pivotGranularity = nsIAccessiblePivot::CHAR_BOUNDARY;
+      break;
+    case 2:  // MOVEMENT_GRANULARITY_WORD
+      pivotGranularity = nsIAccessiblePivot::WORD_BOUNDARY;
+      break;
+    default:
+      break;
+  }
+
+  int32_t newOffset;
+  Accessible* newAnchor = nullptr;
+  if (aForward) {
+    newAnchor = pivot.NextText(this, &start, &end, pivotGranularity);
+    newOffset = end;
+  } else {
+    newAnchor = pivot.PrevText(this, &start, &end, pivotGranularity);
+    newOffset = start;
+  }
+
+  if (newAnchor && (start != aStartOffset || end != aEndOffset)) {
+    if (IsTextLeaf() && newAnchor == Parent()) {
+      // For paragraphs, divs, spans, etc., we put a11y focus on the text leaf
+      // node instead of the HyperTextAccessible. However, Pivot will always
+      // return a HyperTextAccessible. Android doesn't support text navigation
+      // landing on an accessible which is different to the originating
+      // accessible. Therefore, if we're still within the same text leaf,
+      // translate the offsets to the text leaf.
+      int32_t thisChild = IndexInParent();
+      HyperTextAccessible* newHyper = newAnchor->AsHyperText();
+      MOZ_ASSERT(newHyper);
+      int32_t startChild = newHyper->GetChildIndexAtOffset(start);
+      // We use end - 1 because the end offset is exclusive, so end itself
+      // might be associated with the next child.
+      int32_t endChild = newHyper->GetChildIndexAtOffset(end - 1);
+      if (startChild == thisChild && endChild == thisChild) {
+        // We've landed within the same text leaf.
+        newAnchor = this;
+        int32_t thisOffset = newHyper->GetChildOffset(thisChild);
+        start -= thisOffset;
+        end -= thisOffset;
+      }
+    }
+    RefPtr<AccEvent> event = new AccVCChangeEvent(
+        newAnchor->Document(), this, aStartOffset, aEndOffset, newAnchor, start,
+        end, nsIAccessiblePivot::REASON_NONE, pivotGranularity, eFromUserInput);
+    nsEventShell::FireEvent(event);
+  }
+
+  // If we are in an editable, move the caret to the new virtual cursor
+  // offset.
+  if (editable) {
+    if (aSelect) {
+      int32_t anchor = editable->CaretOffset();
+      if (editable->SelectionCount()) {
+        int32_t startSel, endSel;
+        GetSelectionOrCaret(&startSel, &endSel);
+        anchor = startSel == anchor ? endSel : startSel;
+      }
+      editable->SetSelectionBoundsAt(0, anchor, newOffset);
+    } else {
+      editable->SetCaretOffset(newOffset);
+    }
+  }
+}
+
+void AccessibleWrap::SetSelection(int32_t aStart, int32_t aEnd) {
+  if (HyperTextAccessible* textAcc = AsHyperText()) {
+    if (aStart == aEnd) {
+      textAcc->SetCaretOffset(aStart);
+    } else {
+      textAcc->SetSelectionBoundsAt(0, aStart, aEnd);
+    }
+  }
+}
+
+void AccessibleWrap::Cut() {
+  if ((State() & states::EDITABLE) == 0) {
+    return;
+  }
+
+  if (HyperTextAccessible* textAcc = AsHyperText()) {
+    int32_t startSel, endSel;
+    GetSelectionOrCaret(&startSel, &endSel);
+    textAcc->CutText(startSel, endSel);
+  }
+}
+
+void AccessibleWrap::Copy() {
+  if (HyperTextAccessible* textAcc = AsHyperText()) {
+    int32_t startSel, endSel;
+    GetSelectionOrCaret(&startSel, &endSel);
+    textAcc->CopyText(startSel, endSel);
+  }
+}
+
+void AccessibleWrap::Paste() {
+  if ((State() & states::EDITABLE) == 0) {
+    return;
+  }
+
+  if (IsHyperText()) {
+    RefPtr<HyperTextAccessible> textAcc = AsHyperText();
+    int32_t startSel, endSel;
+    GetSelectionOrCaret(&startSel, &endSel);
+    if (startSel != endSel) {
+      textAcc->DeleteText(startSel, endSel);
+    }
+    textAcc->PasteText(startSel);
+  }
+}
+
+void AccessibleWrap::GetSelectionOrCaret(int32_t* aStartOffset,
+                                         int32_t* aEndOffset) {
+  *aStartOffset = *aEndOffset = -1;
+  if (HyperTextAccessible* textAcc = AsHyperText()) {
+    if (!textAcc->SelectionBoundsAt(0, aStartOffset, aEndOffset)) {
+      *aStartOffset = *aEndOffset = textAcc->CaretOffset();
+    }
+  }
 }
 
 uint32_t AccessibleWrap::GetFlags(role aRole, uint64_t aState,
@@ -276,6 +515,14 @@ uint32_t AccessibleWrap::GetFlags(role aRole, uint64_t aState,
     flags |= java::SessionAccessibility::FLAG_SELECTED;
   }
 
+  if (aState & states::EXPANDABLE) {
+    flags |= java::SessionAccessibility::FLAG_EXPANDABLE;
+  }
+
+  if (aState & states::EXPANDED) {
+    flags |= java::SessionAccessibility::FLAG_EXPANDED;
+  }
+
   if ((aState & (states::INVISIBLE | states::OFFSCREEN)) == 0) {
     flags |= java::SessionAccessibility::FLAG_VISIBLE_TO_USER;
   }
@@ -291,41 +538,33 @@ void AccessibleWrap::GetRoleDescription(role aRole,
                                         nsIPersistentProperties* aAttributes,
                                         nsAString& aGeckoRole,
                                         nsAString& aRoleDescription) {
-  nsresult rv = NS_OK;
-
-  nsCOMPtr<nsIStringBundleService> sbs =
-      do_GetService(NS_STRINGBUNDLE_CONTRACTID, &rv);
-  if (NS_FAILED(rv)) {
-    NS_WARNING("Failed to get string bundle service");
-    return;
+  if (aRole == roles::HEADING && aAttributes) {
+    // The heading level is an attribute, so we need that.
+    AutoTArray<nsString, 1> formatString;
+    nsresult rv = aAttributes->GetStringProperty("level"_ns,
+                                                 *formatString.AppendElement());
+    if (NS_SUCCEEDED(rv) &&
+        LocalizeString("headingLevel", aRoleDescription, formatString)) {
+      return;
+    }
   }
 
-  nsCOMPtr<nsIStringBundle> bundle;
-  rv = sbs->CreateBundle(ROLE_STRINGS_URL, getter_AddRefs(bundle));
-  if (NS_FAILED(rv)) {
-    NS_WARNING("Failed to get string bundle");
-    return;
-  }
-
-  if (aRole == roles::HEADING) {
-    nsString level;
-    rv = aAttributes->GetStringProperty(NS_LITERAL_CSTRING("level"), level);
-    if (NS_SUCCEEDED(rv)) {
-      const char16_t* formatString[] = {level.get()};
-      rv = bundle->FormatStringFromName("headingLevel", formatString, 1,
-                                        aRoleDescription);
-      if (NS_SUCCEEDED(rv)) {
-        return;
+  if ((aRole == roles::LANDMARK || aRole == roles::REGION) && aAttributes) {
+    nsAutoString xmlRoles;
+    if (NS_SUCCEEDED(
+            aAttributes->GetStringProperty("xml-roles"_ns, xmlRoles))) {
+      nsWhitespaceTokenizer tokenizer(xmlRoles);
+      while (tokenizer.hasMoreTokens()) {
+        if (LocalizeString(NS_ConvertUTF16toUTF8(tokenizer.nextToken()).get(),
+                           aRoleDescription)) {
+          return;
+        }
       }
     }
   }
 
   GetAccService()->GetStringRole(aRole, aGeckoRole);
-  rv = bundle->GetStringFromName(NS_ConvertUTF16toUTF8(aGeckoRole).get(),
-                                 aRoleDescription);
-  if (NS_FAILED(rv)) {
-    aRoleDescription.AssignLiteral("");
-  }
+  LocalizeString(NS_ConvertUTF16toUTF8(aGeckoRole).get(), aRoleDescription);
 }
 
 already_AddRefed<nsIPersistentProperties>
@@ -343,9 +582,9 @@ AccessibleWrap::AttributeArrayToProperties(
 }
 
 int32_t AccessibleWrap::GetAndroidClass(role aRole) {
-#define ROLE(geckoRole, stringRole, atkRole, macRole, msaaRole, ia2Role, \
-             androidClass, nameRule)                                     \
-  case roles::geckoRole:                                                 \
+#define ROLE(geckoRole, stringRole, atkRole, macRole, macSubrole, msaaRole, \
+             ia2Role, androidClass, nameRule)                               \
+  case roles::geckoRole:                                                    \
     return androidClass;
 
   switch (aRole) {
@@ -411,13 +650,20 @@ bool AccessibleWrap::WrapperRangeInfo(double* aCurVal, double* aMinVal,
   return false;
 }
 
-mozilla::java::GeckoBundle::LocalRef AccessibleWrap::ToBundle() {
+mozilla::java::GeckoBundle::LocalRef AccessibleWrap::ToBundle(bool aSmall) {
   nsAutoString name;
   Name(name);
   nsAutoString textValue;
   Value(textValue);
   nsAutoString nodeID;
   WrapperDOMNodeID(nodeID);
+  nsAutoString description;
+  Description(description);
+
+  if (aSmall) {
+    return ToBundle(State(), Bounds(), ActionCount(), name, textValue, nodeID,
+                    description);
+  }
 
   double curValue = UnspecifiedNaN<double>();
   double minValue = UnspecifiedNaN<double>();
@@ -428,15 +674,15 @@ mozilla::java::GeckoBundle::LocalRef AccessibleWrap::ToBundle() {
   nsCOMPtr<nsIPersistentProperties> attributes = Attributes();
 
   return ToBundle(State(), Bounds(), ActionCount(), name, textValue, nodeID,
-                  curValue, minValue, maxValue, step, attributes);
+                  description, curValue, minValue, maxValue, step, attributes);
 }
 
 mozilla::java::GeckoBundle::LocalRef AccessibleWrap::ToBundle(
     const uint64_t aState, const nsIntRect& aBounds, const uint8_t aActionCount,
     const nsString& aName, const nsString& aTextValue,
-    const nsString& aDOMNodeID, const double& aCurVal, const double& aMinVal,
-    const double& aMaxVal, const double& aStep,
-    nsIPersistentProperties* aAttributes) {
+    const nsString& aDOMNodeID, const nsString& aDescription,
+    const double& aCurVal, const double& aMinVal, const double& aMaxVal,
+    const double& aStep, nsIPersistentProperties* aAttributes) {
   if (!IsProxy() && IsDefunct()) {
     return nullptr;
   }
@@ -450,16 +696,52 @@ mozilla::java::GeckoBundle::LocalRef AccessibleWrap::ToBundle(
       java::sdk::Integer::ValueOf(parent ? parent->VirtualViewID() : 0));
 
   role role = WrapperRole();
+  if (role == roles::LINK && !(aState & states::LINKED)) {
+    // A link without the linked state (<a> with no href) shouldn't be presented
+    // as a link.
+    role = roles::TEXT;
+  }
+
   uint32_t flags = GetFlags(role, aState, aActionCount);
   GECKOBUNDLE_PUT(nodeInfo, "flags", java::sdk::Integer::ValueOf(flags));
   GECKOBUNDLE_PUT(nodeInfo, "className",
                   java::sdk::Integer::ValueOf(AndroidClass()));
 
+  nsAutoString hint;
   if (aState & states::EDITABLE) {
-    GECKOBUNDLE_PUT(nodeInfo, "hint", jni::StringParam(aName));
+    // An editable field's name is populated in the hint.
+    hint.Assign(aName);
     GECKOBUNDLE_PUT(nodeInfo, "text", jni::StringParam(aTextValue));
   } else {
-    GECKOBUNDLE_PUT(nodeInfo, "text", jni::StringParam(aName));
+    if (role == roles::LINK || role == roles::HEADING) {
+      GECKOBUNDLE_PUT(nodeInfo, "description", jni::StringParam(aName));
+    } else {
+      GECKOBUNDLE_PUT(nodeInfo, "text", jni::StringParam(aName));
+    }
+  }
+
+  if (!aDescription.IsEmpty()) {
+    if (!hint.IsEmpty()) {
+      // If this is an editable, the description is concatenated with a
+      // whitespace directly after the name.
+      hint.AppendLiteral(" ");
+    }
+    hint.Append(aDescription);
+  }
+
+  if ((aState & states::REQUIRED) != 0) {
+    nsAutoString requiredString;
+    if (LocalizeString("stateRequired", requiredString)) {
+      if (!hint.IsEmpty()) {
+        // If the hint is non-empty, concatenate with a comma for a brief pause.
+        hint.AppendLiteral(", ");
+      }
+      hint.Append(requiredString);
+    }
+  }
+
+  if (!hint.IsEmpty()) {
+    GECKOBUNDLE_PUT(nodeInfo, "hint", jni::StringParam(hint));
   }
 
   nsAutoString geckoRole;
@@ -472,18 +754,13 @@ mozilla::java::GeckoBundle::LocalRef AccessibleWrap::ToBundle(
                   jni::StringParam(roleDescription));
   GECKOBUNDLE_PUT(nodeInfo, "geckoRole", jni::StringParam(geckoRole));
 
-  GECKOBUNDLE_PUT(nodeInfo, "roleDescription",
-                  jni::StringParam(roleDescription));
-  GECKOBUNDLE_PUT(nodeInfo, "geckoRole", jni::StringParam(geckoRole));
-
   if (!aDOMNodeID.IsEmpty()) {
     GECKOBUNDLE_PUT(nodeInfo, "viewIdResourceName",
                     jni::StringParam(aDOMNodeID));
   }
 
-  nsIntRect bounds = Bounds();
-  const int32_t data[4] = {bounds.x, bounds.y, bounds.x + bounds.width,
-                           bounds.y + bounds.height};
+  const int32_t data[4] = {aBounds.x, aBounds.y, aBounds.x + aBounds.width,
+                           aBounds.y + aBounds.height};
   GECKOBUNDLE_PUT(nodeInfo, "bounds", jni::IntArray::New(data, 4));
 
   if (HasNumericValue()) {
@@ -513,115 +790,153 @@ mozilla::java::GeckoBundle::LocalRef AccessibleWrap::ToBundle(
     GECKOBUNDLE_PUT(nodeInfo, "rangeInfo", rangeInfo);
   }
 
-  nsString inputTypeAttr;
-  nsAccUtils::GetAccAttr(aAttributes, nsGkAtoms::textInputType, inputTypeAttr);
-  int32_t inputType = GetInputType(inputTypeAttr);
-  if (inputType) {
-    GECKOBUNDLE_PUT(nodeInfo, "inputType",
-                    java::sdk::Integer::ValueOf(inputType));
-  }
+  if (aAttributes) {
+    nsString inputTypeAttr;
+    nsAccUtils::GetAccAttr(aAttributes, nsGkAtoms::textInputType,
+                           inputTypeAttr);
+    int32_t inputType = GetInputType(inputTypeAttr);
+    if (inputType) {
+      GECKOBUNDLE_PUT(nodeInfo, "inputType",
+                      java::sdk::Integer::ValueOf(inputType));
+    }
 
-  nsString posinset;
-  nsresult rv =
-      aAttributes->GetStringProperty(NS_LITERAL_CSTRING("posinset"), posinset);
-  if (NS_SUCCEEDED(rv)) {
-    int32_t rowIndex;
-    if (sscanf(NS_ConvertUTF16toUTF8(posinset).get(), "%d", &rowIndex) > 0) {
-      GECKOBUNDLE_START(collectionItemInfo);
-      GECKOBUNDLE_PUT(collectionItemInfo, "rowIndex",
-                      java::sdk::Integer::ValueOf(rowIndex));
-      GECKOBUNDLE_PUT(collectionItemInfo, "columnIndex",
-                      java::sdk::Integer::ValueOf(0));
-      GECKOBUNDLE_PUT(collectionItemInfo, "rowSpan",
-                      java::sdk::Integer::ValueOf(1));
-      GECKOBUNDLE_PUT(collectionItemInfo, "columnSpan",
-                      java::sdk::Integer::ValueOf(1));
-      GECKOBUNDLE_FINISH(collectionItemInfo);
+    nsString posinset;
+    nsresult rv = aAttributes->GetStringProperty("posinset"_ns, posinset);
+    if (NS_SUCCEEDED(rv)) {
+      int32_t rowIndex;
+      if (sscanf(NS_ConvertUTF16toUTF8(posinset).get(), "%d", &rowIndex) > 0) {
+        GECKOBUNDLE_START(collectionItemInfo);
+        GECKOBUNDLE_PUT(collectionItemInfo, "rowIndex",
+                        java::sdk::Integer::ValueOf(rowIndex));
+        GECKOBUNDLE_PUT(collectionItemInfo, "columnIndex",
+                        java::sdk::Integer::ValueOf(0));
+        GECKOBUNDLE_PUT(collectionItemInfo, "rowSpan",
+                        java::sdk::Integer::ValueOf(1));
+        GECKOBUNDLE_PUT(collectionItemInfo, "columnSpan",
+                        java::sdk::Integer::ValueOf(1));
+        GECKOBUNDLE_FINISH(collectionItemInfo);
 
-      GECKOBUNDLE_PUT(nodeInfo, "collectionItemInfo", collectionItemInfo);
+        GECKOBUNDLE_PUT(nodeInfo, "collectionItemInfo", collectionItemInfo);
+      }
+    }
+
+    nsString colSize;
+    rv = aAttributes->GetStringProperty("child-item-count"_ns, colSize);
+    if (NS_SUCCEEDED(rv)) {
+      int32_t rowCount;
+      if (sscanf(NS_ConvertUTF16toUTF8(colSize).get(), "%d", &rowCount) > 0) {
+        GECKOBUNDLE_START(collectionInfo);
+        GECKOBUNDLE_PUT(collectionInfo, "rowCount",
+                        java::sdk::Integer::ValueOf(rowCount));
+        GECKOBUNDLE_PUT(collectionInfo, "columnCount",
+                        java::sdk::Integer::ValueOf(1));
+
+        nsString unused;
+        rv = aAttributes->GetStringProperty("hierarchical"_ns, unused);
+        if (NS_SUCCEEDED(rv)) {
+          GECKOBUNDLE_PUT(collectionInfo, "isHierarchical",
+                          java::sdk::Boolean::TRUE());
+        }
+
+        if (IsSelect()) {
+          int32_t selectionMode = (aState & states::MULTISELECTABLE) ? 2 : 1;
+          GECKOBUNDLE_PUT(collectionInfo, "selectionMode",
+                          java::sdk::Integer::ValueOf(selectionMode));
+        }
+
+        GECKOBUNDLE_FINISH(collectionInfo);
+        GECKOBUNDLE_PUT(nodeInfo, "collectionInfo", collectionInfo);
+      }
     }
   }
 
-  nsString colSize;
-  rv = aAttributes->GetStringProperty(NS_LITERAL_CSTRING("child-item-count"),
-                                      colSize);
-  if (NS_SUCCEEDED(rv)) {
-    int32_t rowCount;
-    if (sscanf(NS_ConvertUTF16toUTF8(colSize).get(), "%d", &rowCount) > 0) {
-      GECKOBUNDLE_START(collectionInfo);
-      GECKOBUNDLE_PUT(collectionInfo, "rowCount",
-                      java::sdk::Integer::ValueOf(rowCount));
-      GECKOBUNDLE_PUT(collectionInfo, "columnCount",
-                      java::sdk::Integer::ValueOf(1));
-
-      nsString unused;
-      rv = aAttributes->GetStringProperty(NS_LITERAL_CSTRING("hierarchical"),
-                                          unused);
-      if (NS_SUCCEEDED(rv)) {
-        GECKOBUNDLE_PUT(collectionInfo, "isHierarchical",
-                        java::sdk::Boolean::TRUE());
-      }
-
-      if (IsSelect()) {
-        int32_t selectionMode = (aState & states::MULTISELECTABLE) ? 2 : 1;
-        GECKOBUNDLE_PUT(collectionInfo, "selectionMode",
-                        java::sdk::Integer::ValueOf(selectionMode));
-      }
-      GECKOBUNDLE_FINISH(collectionInfo);
-
-      GECKOBUNDLE_PUT(nodeInfo, "collectionInfo", collectionInfo);
+  bool mustPrune =
+      IsProxy() ? nsAccUtils::MustPrune(Proxy()) : nsAccUtils::MustPrune(this);
+  if (!mustPrune) {
+    auto childCount = ChildCount();
+    nsTArray<int32_t> children(childCount);
+    for (uint32_t i = 0; i < childCount; i++) {
+      auto child = static_cast<AccessibleWrap*>(GetChildAt(i));
+      children.AppendElement(child->VirtualViewID());
     }
+
+    GECKOBUNDLE_PUT(nodeInfo, "children",
+                    jni::IntArray::New(children.Elements(), children.Length()));
   }
 
-  auto childCount = ChildCount();
-  nsTArray<int32_t> children(childCount);
-  for (uint32_t i = 0; i < childCount; i++) {
-    auto child = static_cast<AccessibleWrap*>(GetChildAt(i));
-    children.AppendElement(child->VirtualViewID());
-  }
-
-  GECKOBUNDLE_PUT(nodeInfo, "children",
-                  jni::IntArray::New(children.Elements(), children.Length()));
   GECKOBUNDLE_FINISH(nodeInfo);
 
   return nodeInfo;
 }
 
-mozilla::java::GeckoBundle::LocalRef AccessibleWrap::ToSmallBundle() {
-  return ToSmallBundle(State(), Bounds(), ActionCount());
+void AccessibleWrap::GetTextEquiv(nsString& aText) {
+  if (nsTextEquivUtils::HasNameRule(this, eNameFromSubtreeIfReqRule)) {
+    // This is an accessible that normally doesn't get its name from its
+    // subtree, so we collect the text equivalent explicitly.
+    nsTextEquivUtils::GetTextEquivFromSubtree(this, aText);
+  } else {
+    Name(aText);
+  }
 }
 
-mozilla::java::GeckoBundle::LocalRef AccessibleWrap::ToSmallBundle(
-    const uint64_t aState, const nsIntRect& aBounds,
-    const uint8_t aActionCount) {
-  GECKOBUNDLE_START(nodeInfo);
-  GECKOBUNDLE_PUT(nodeInfo, "id", java::sdk::Integer::ValueOf(VirtualViewID()));
-
-  AccessibleWrap* parent = WrapperParent();
-  GECKOBUNDLE_PUT(
-      nodeInfo, "parentId",
-      java::sdk::Integer::ValueOf(parent ? parent->VirtualViewID() : 0));
-
-  uint32_t flags = GetFlags(WrapperRole(), aState, aActionCount);
-  GECKOBUNDLE_PUT(nodeInfo, "flags", java::sdk::Integer::ValueOf(flags));
-  GECKOBUNDLE_PUT(nodeInfo, "className",
-                  java::sdk::Integer::ValueOf(AndroidClass()));
-
-  const int32_t data[4] = {aBounds.x, aBounds.y, aBounds.x + aBounds.width,
-                           aBounds.y + aBounds.height};
-  GECKOBUNDLE_PUT(nodeInfo, "bounds", jni::IntArray::New(data, 4));
-
-  auto childCount = ChildCount();
-  nsTArray<int32_t> children(childCount);
-  for (uint32_t i = 0; i < childCount; ++i) {
-    auto child = static_cast<AccessibleWrap*>(GetChildAt(i));
-    children.AppendElement(child->VirtualViewID());
+bool AccessibleWrap::HandleLiveRegionEvent(AccEvent* aEvent) {
+  auto eventType = aEvent->GetEventType();
+  if (eventType != nsIAccessibleEvent::EVENT_TEXT_INSERTED &&
+      eventType != nsIAccessibleEvent::EVENT_NAME_CHANGE) {
+    // XXX: Right now only announce text inserted events. aria-relevant=removals
+    // is potentially on the chopping block[1]. We also don't support editable
+    // text because we currently can't descern the source of the change[2].
+    // 1. https://github.com/w3c/aria/issues/712
+    // 2. https://bugzilla.mozilla.org/show_bug.cgi?id=1531189
+    return false;
   }
 
-  GECKOBUNDLE_PUT(nodeInfo, "children",
-                  jni::IntArray::New(children.Elements(), children.Length()));
+  if (aEvent->IsFromUserInput()) {
+    return false;
+  }
 
-  GECKOBUNDLE_FINISH(nodeInfo);
+  nsCOMPtr<nsIPersistentProperties> attributes = Attributes();
+  nsString live;
+  nsresult rv = attributes->GetStringProperty("container-live"_ns, live);
+  if (!NS_SUCCEEDED(rv)) {
+    return false;
+  }
 
-  return nodeInfo;
+  uint16_t priority = live.EqualsIgnoreCase("assertive")
+                          ? nsIAccessibleAnnouncementEvent::ASSERTIVE
+                          : nsIAccessibleAnnouncementEvent::POLITE;
+
+  nsString atomic;
+  rv = attributes->GetStringProperty("container-atomic"_ns, atomic);
+
+  Accessible* announcementTarget = this;
+  nsAutoString announcement;
+  if (atomic.EqualsIgnoreCase("true")) {
+    Accessible* atomicAncestor = nullptr;
+    for (Accessible* parent = announcementTarget; parent;
+         parent = parent->Parent()) {
+      dom::Element* element = parent->Elm();
+      if (element &&
+          element->AttrValueIs(kNameSpaceID_None, nsGkAtoms::aria_atomic,
+                               nsGkAtoms::_true, eCaseMatters)) {
+        atomicAncestor = parent;
+        break;
+      }
+    }
+
+    if (atomicAncestor) {
+      announcementTarget = atomicAncestor;
+      static_cast<AccessibleWrap*>(atomicAncestor)->GetTextEquiv(announcement);
+    }
+  } else {
+    GetTextEquiv(announcement);
+  }
+
+  announcement.CompressWhitespace();
+  if (announcement.IsEmpty()) {
+    return false;
+  }
+
+  announcementTarget->Announce(announcement, priority);
+  return true;
 }

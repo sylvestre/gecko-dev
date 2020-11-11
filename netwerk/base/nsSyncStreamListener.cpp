@@ -4,7 +4,6 @@
 
 #include "nsIOService.h"
 #include "nsSyncStreamListener.h"
-#include "nsIPipe.h"
 #include "nsThreadUtils.h"
 #include <algorithm>
 
@@ -50,8 +49,8 @@ NS_IMPL_ISUPPORTS(nsSyncStreamListener, nsIStreamListener, nsIRequestObserver,
 //-----------------------------------------------------------------------------
 
 NS_IMETHODIMP
-nsSyncStreamListener::GetInputStream(nsIInputStream **result) {
-  NS_ADDREF(*result = this);
+nsSyncStreamListener::GetInputStream(nsIInputStream** result) {
+  *result = do_AddRef(this).take();
   return NS_OK;
 }
 
@@ -60,14 +59,11 @@ nsSyncStreamListener::GetInputStream(nsIInputStream **result) {
 //-----------------------------------------------------------------------------
 
 NS_IMETHODIMP
-nsSyncStreamListener::OnStartRequest(nsIRequest *request,
-                                     nsISupports *context) {
-  return NS_OK;
-}
+nsSyncStreamListener::OnStartRequest(nsIRequest* request) { return NS_OK; }
 
 NS_IMETHODIMP
-nsSyncStreamListener::OnDataAvailable(nsIRequest *request, nsISupports *context,
-                                      nsIInputStream *stream, uint64_t offset,
+nsSyncStreamListener::OnDataAvailable(nsIRequest* request,
+                                      nsIInputStream* stream, uint64_t offset,
                                       uint32_t count) {
   uint32_t bytesWritten;
 
@@ -88,8 +84,7 @@ nsSyncStreamListener::OnDataAvailable(nsIRequest *request, nsISupports *context,
 }
 
 NS_IMETHODIMP
-nsSyncStreamListener::OnStopRequest(nsIRequest *request, nsISupports *context,
-                                    nsresult status) {
+nsSyncStreamListener::OnStopRequest(nsIRequest* request, nsresult status) {
   mStatus = status;
   mKeepWaiting = false;  // unblock Read
   mDone = true;
@@ -116,19 +111,25 @@ nsSyncStreamListener::Close() {
 }
 
 NS_IMETHODIMP
-nsSyncStreamListener::Available(uint64_t *result) {
+nsSyncStreamListener::Available(uint64_t* result) {
   if (NS_FAILED(mStatus)) return mStatus;
 
   mStatus = mPipeIn->Available(result);
   if (NS_SUCCEEDED(mStatus) && (*result == 0) && !mDone) {
-    mStatus = WaitForData();
-    if (NS_SUCCEEDED(mStatus)) mStatus = mPipeIn->Available(result);
+    nsresult rv = WaitForData();
+    if (NS_FAILED(rv)) {
+      // Note that `WaitForData` could fail `mStatus`. Do not overwrite if it's
+      // the case.
+      mStatus = NS_SUCCEEDED(mStatus) ? rv : mStatus;
+    } else if (NS_SUCCEEDED(mStatus)) {
+      mStatus = mPipeIn->Available(result);
+    }
   }
   return mStatus;
 }
 
 NS_IMETHODIMP
-nsSyncStreamListener::Read(char *buf, uint32_t bufLen, uint32_t *result) {
+nsSyncStreamListener::Read(char* buf, uint32_t bufLen, uint32_t* result) {
   if (mStatus == NS_BASE_STREAM_CLOSED) {
     *result = 0;
     return NS_OK;
@@ -143,8 +144,8 @@ nsSyncStreamListener::Read(char *buf, uint32_t bufLen, uint32_t *result) {
 }
 
 NS_IMETHODIMP
-nsSyncStreamListener::ReadSegments(nsWriteSegmentFun writer, void *closure,
-                                   uint32_t count, uint32_t *result) {
+nsSyncStreamListener::ReadSegments(nsWriteSegmentFun writer, void* closure,
+                                   uint32_t count, uint32_t* result) {
   if (mStatus == NS_BASE_STREAM_CLOSED) {
     *result = 0;
     return NS_OK;
@@ -159,7 +160,7 @@ nsSyncStreamListener::ReadSegments(nsWriteSegmentFun writer, void *closure,
 }
 
 NS_IMETHODIMP
-nsSyncStreamListener::IsNonBlocking(bool *result) {
+nsSyncStreamListener::IsNonBlocking(bool* result) {
   *result = false;
   return NS_OK;
 }

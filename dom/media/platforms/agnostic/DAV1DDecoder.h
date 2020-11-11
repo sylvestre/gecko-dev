@@ -4,10 +4,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 #if !defined(DAV1DDecoder_h_)
-#define DAV1DDecoder_h_
+#  define DAV1DDecoder_h_
 
-#include "PlatformDecoderModule.h"
-#include "dav1d/dav1d.h"
+#  include "PlatformDecoderModule.h"
+#  include "dav1d/dav1d.h"
 
 namespace mozilla {
 
@@ -27,7 +27,7 @@ class DAV1DDecoder : public MediaDataDecoder,
   RefPtr<FlushPromise> Flush() override;
   RefPtr<ShutdownPromise> Shutdown() override;
   nsCString GetDescriptionName() const override {
-    return NS_LITERAL_CSTRING("av1 libdav1d video decoder");
+    return "av1 libdav1d video decoder"_ns;
   }
 
   void ReleaseDataBuffer(const uint8_t* buf);
@@ -38,11 +38,12 @@ class DAV1DDecoder : public MediaDataDecoder,
   int GetPicture(DecodedData& aData, MediaResult& aResult);
   already_AddRefed<VideoData> ConstructImage(const Dav1dPicture& aPicture);
 
-  Dav1dContext* mContext;
+  Dav1dContext* mContext = nullptr;
 
   const VideoInfo& mInfo;
   const RefPtr<TaskQueue> mTaskQueue;
   const RefPtr<layers::ImageContainer> mImageContainer;
+  const RefPtr<layers::KnowsCompositor> mImageAllocator;
 
   // Keep the buffers alive until dav1d
   // does not need them any more.

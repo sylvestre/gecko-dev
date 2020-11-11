@@ -17,14 +17,22 @@
 #include "mozilla/dom/ImageEncoder.h"
 #include "mozilla/dom/WorkerPrivate.h"
 #include "mozilla/dom/WorkerRunnable.h"
+#include "mozilla/ipc/CrossProcessSemaphore.h"
 #include "mozilla/gfx/2D.h"
 #include "mozilla/gfx/DataSurfaceHelpers.h"
 #include "mozilla/gfx/Logging.h"
 #include "mozilla/gfx/PathHelpers.h"
 #include "mozilla/gfx/Swizzle.h"
 #include "mozilla/gfx/gfxVars.h"
+#include "mozilla/image/nsBMPEncoder.h"
+#include "mozilla/image/nsICOEncoder.h"
+#include "mozilla/image/nsJPEGEncoder.h"
+#include "mozilla/image/nsPNGEncoder.h"
+#include "mozilla/layers/SynchronousTask.h"
 #include "mozilla/Maybe.h"
 #include "mozilla/RefPtr.h"
+#include "mozilla/StaticPrefs_gfx.h"
+#include "mozilla/StaticPrefs_layout.h"
 #include "mozilla/UniquePtrExtensions.h"
 #include "mozilla/Unused.h"
 #include "mozilla/Vector.h"
@@ -34,7 +42,7 @@
 #include "nsIClipboardHelper.h"
 #include "nsIFile.h"
 #include "nsIGfxInfo.h"
-#include "nsIPresShell.h"
+#include "nsMimeTypes.h"
 #include "nsPresContext.h"
 #include "nsRegion.h"
 #include "nsServiceManagerUtils.h"
@@ -42,10 +50,9 @@
 #include "ImageContainer.h"
 #include "ImageRegion.h"
 #include "gfx2DGlue.h"
-#include "gfxPrefs.h"
 
 #ifdef XP_WIN
-#include "gfxWindowsPlatform.h"
+#  include "gfxWindowsPlatform.h"
 #endif
 
 using namespace mozilla;
@@ -262,12 +269,12 @@ void gfxUtils::ConvertBGRAtoRGBA(uint8_t* aData, uint32_t aLength) {
  * This differs per render mode.
  */
 static CompositionOp OptimalFillOp() {
-#ifdef XP_WIN
+#  ifdef XP_WIN
   if (gfxWindowsPlatform::GetPlatform()->IsDirect2DBackend()) {
     // D2D -really- hates operator source.
     return CompositionOp::OP_OVER;
   }
-#endif
+#  endif
   return CompositionOp::OP_SOURCE;
 }
 
@@ -492,11 +499,14 @@ static bool PrescaleAndTileDrawable(gfxDrawable* aDrawable,
 }
 #endif  // MOZ_WIDGET_COCOA
 
-/* static */ void gfxUtils::DrawPixelSnapped(
-    gfxContext* aContext, gfxDrawable* aDrawable, const gfxSize& aImageSize,
-    const ImageRegion& aRegion, const SurfaceFormat aFormat,
-    SamplingFilter aSamplingFilter, uint32_t aImageFlags, gfxFloat aOpacity,
-    bool aUseOptimalFillOp) {
+/* static */
+void gfxUtils::DrawPixelSnapped(gfxContext* aContext, gfxDrawable* aDrawable,
+                                const gfxSize& aImageSize,
+                                const ImageRegion& aRegion,
+                                const SurfaceFormat aFormat,
+                                SamplingFilter aSamplingFilter,
+                                uint32_t aImageFlags, gfxFloat aOpacity,
+                                bool aUseOptimalFillOp) {
   AUTO_PROFILER_LABEL("gfxUtils::DrawPixelSnapped", GRAPHICS);
 
   gfxRect imageRect(gfxPoint(0, 0), aImageSize);
@@ -555,7 +565,8 @@ static bool PrescaleAndTileDrawable(gfxDrawable* aDrawable,
                  aOpacity, gfxMatrix());
 }
 
-/* static */ int gfxUtils::ImageFormatToDepth(gfxImageFormat aFormat) {
+/* static */
+int gfxUtils::ImageFormatToDepth(gfxImageFormat aFormat) {
   switch (aFormat) {
     case SurfaceFormat::A8R8G8B8_UINT32:
       return 32;
@@ -569,8 +580,8 @@ static bool PrescaleAndTileDrawable(gfxDrawable* aDrawable,
   return 0;
 }
 
-/*static*/ void gfxUtils::ClipToRegion(gfxContext* aContext,
-                                       const nsIntRegion& aRegion) {
+/*static*/
+void gfxUtils::ClipToRegion(gfxContext* aContext, const nsIntRegion& aRegion) {
   aContext->NewPath();
   for (auto iter = aRegion.RectIter(); !iter.Done(); iter.Next()) {
     const IntRect& r = iter.Get();
@@ -579,8 +590,8 @@ static bool PrescaleAndTileDrawable(gfxDrawable* aDrawable,
   aContext->Clip();
 }
 
-/*static*/ void gfxUtils::ClipToRegion(DrawTarget* aTarget,
-                                       const nsIntRegion& aRegion) {
+/*static*/
+void gfxUtils::ClipToRegion(DrawTarget* aTarget, const nsIntRegion& aRegion) {
   uint32_t numRects = aRegion.GetNumRects();
   // If there is only one rect, then the region bounds are equivalent to the
   // contents. So just use push a single clip rect with the bounds.
@@ -618,7 +629,8 @@ static bool PrescaleAndTileDrawable(gfxDrawable* aDrawable,
   }
 }
 
-/*static*/ float gfxUtils::ClampToScaleFactor(float aVal, bool aRoundDown) {
+/*static*/
+float gfxUtils::ClampToScaleFactor(float aVal, bool aRoundDown) {
   // Arbitary scale factor limitation. We can increase this
   // for better scaling performance at the cost of worse
   // quality.
@@ -728,7 +740,8 @@ bool gfxUtils::GfxRectToIntRect(const gfxRect& aIn, IntRect* aOut) {
  * Cairo is currently using 24.8 fixed point,
  * so -2^24 .. 2^24-1 is our valid
  */
-/*static*/ void gfxUtils::ConditionRect(gfxRect& aRect) {
+/*static*/
+void gfxUtils::ConditionRect(gfxRect& aRect) {
 #define CAIRO_COORD_MAX (16777215.0)
 #define CAIRO_COORD_MIN (-16777216.0)
   // if either x or y is way out of bounds;
@@ -768,8 +781,9 @@ bool gfxUtils::GfxRectToIntRect(const gfxRect& aIn, IntRect* aOut) {
 #undef CAIRO_COORD_MIN
 }
 
-/*static*/ gfxQuad gfxUtils::TransformToQuad(
-    const gfxRect& aRect, const mozilla::gfx::Matrix4x4& aMatrix) {
+/*static*/
+gfxQuad gfxUtils::TransformToQuad(const gfxRect& aRect,
+                                  const mozilla::gfx::Matrix4x4& aMatrix) {
   gfxPoint points[4];
 
   points[0] = aMatrix.TransformPoint(aRect.TopLeft());
@@ -781,7 +795,8 @@ bool gfxUtils::GfxRectToIntRect(const gfxRect& aIn, IntRect* aOut) {
   return gfxQuad(points[0], points[1], points[2], points[3]);
 }
 
-/* static */ void gfxUtils::ClearThebesSurface(gfxASurface* aSurface) {
+/* static */
+void gfxUtils::ClearThebesSurface(gfxASurface* aSurface) {
   if (aSurface->CairoStatus()) {
     return;
   }
@@ -798,7 +813,8 @@ bool gfxUtils::GfxRectToIntRect(const gfxRect& aIn, IntRect* aOut) {
   cairo_destroy(ctx);
 }
 
-/* static */ already_AddRefed<DataSourceSurface>
+/* static */
+already_AddRefed<DataSourceSurface>
 gfxUtils::CopySurfaceToDataSourceSurfaceWithFormat(SourceSurface* aSurface,
                                                    SurfaceFormat aFormat) {
   MOZ_ASSERT(aFormat != aSurface->GetFormat(),
@@ -873,21 +889,23 @@ gfxUtils::CopySurfaceToDataSourceSurfaceWithFormat(SourceSurface* aSurface,
 
 const uint32_t gfxUtils::sNumFrameColors = 8;
 
-/* static */ const gfx::Color& gfxUtils::GetColorForFrameNumber(
+/* static */
+const gfx::DeviceColor& gfxUtils::GetColorForFrameNumber(
     uint64_t aFrameNumber) {
   static bool initialized = false;
-  static gfx::Color colors[sNumFrameColors];
+  static gfx::DeviceColor colors[sNumFrameColors];
 
   if (!initialized) {
+    // This isn't truly device color, but it is just for debug.
     uint32_t i = 0;
-    colors[i++] = gfx::Color::FromABGR(0xffff0000);
-    colors[i++] = gfx::Color::FromABGR(0xffcc00ff);
-    colors[i++] = gfx::Color::FromABGR(0xff0066cc);
-    colors[i++] = gfx::Color::FromABGR(0xff00ff00);
-    colors[i++] = gfx::Color::FromABGR(0xff33ffff);
-    colors[i++] = gfx::Color::FromABGR(0xffff0099);
-    colors[i++] = gfx::Color::FromABGR(0xff0000ff);
-    colors[i++] = gfx::Color::FromABGR(0xff999999);
+    colors[i++] = gfx::DeviceColor::FromABGR(0xffff0000);
+    colors[i++] = gfx::DeviceColor::FromABGR(0xffcc00ff);
+    colors[i++] = gfx::DeviceColor::FromABGR(0xff0066cc);
+    colors[i++] = gfx::DeviceColor::FromABGR(0xff00ff00);
+    colors[i++] = gfx::DeviceColor::FromABGR(0xff33ffff);
+    colors[i++] = gfx::DeviceColor::FromABGR(0xffff0099);
+    colors[i++] = gfx::DeviceColor::FromABGR(0xff0000ff);
+    colors[i++] = gfx::DeviceColor::FromABGR(0xff999999);
     MOZ_ASSERT(i == sNumFrameColors);
     initialized = true;
   }
@@ -895,10 +913,12 @@ const uint32_t gfxUtils::sNumFrameColors = 8;
   return colors[aFrameNumber % sNumFrameColors];
 }
 
-/* static */ nsresult gfxUtils::EncodeSourceSurface(
-    SourceSurface* aSurface, const nsACString& aMimeType,
-    const nsAString& aOutputOptions, BinaryOrData aBinaryOrData, FILE* aFile,
-    nsACString* aStrOut) {
+/* static */
+nsresult gfxUtils::EncodeSourceSurface(SourceSurface* aSurface,
+                                       const ImageType aImageType,
+                                       const nsAString& aOutputOptions,
+                                       BinaryOrData aBinaryOrData, FILE* aFile,
+                                       nsACString* aStrOut) {
   MOZ_ASSERT(aBinaryOrData == gfxUtils::eDataURIEncode || aFile || aStrOut,
              "Copying binary encoding to clipboard not currently supported");
 
@@ -925,24 +945,30 @@ const uint32_t gfxUtils::sNumFrameColors = 8;
     return NS_ERROR_FAILURE;
   }
 
-  nsAutoCString encoderCID(
-      NS_LITERAL_CSTRING("@mozilla.org/image/encoder;2?type=") + aMimeType);
-  nsCOMPtr<imgIEncoder> encoder = do_CreateInstance(encoderCID.get());
-  if (!encoder) {
-#ifdef DEBUG
-    int32_t w = std::min(size.width, 8);
-    int32_t h = std::min(size.height, 8);
-    printf("Could not create encoder. Top-left %dx%d pixels contain:\n", w, h);
-    for (int32_t y = 0; y < h; ++y) {
-      for (int32_t x = 0; x < w; ++x) {
-        printf("%x ",
-               reinterpret_cast<uint32_t*>(map.mData)[y * map.mStride + x]);
-      }
-    }
-#endif
-    dataSurface->Unmap();
-    return NS_ERROR_FAILURE;
+  RefPtr<imgIEncoder> encoder = nullptr;
+
+  switch (aImageType) {
+    case ImageType::BMP:
+      encoder = MakeRefPtr<nsBMPEncoder>();
+      break;
+
+    case ImageType::ICO:
+      encoder = MakeRefPtr<nsICOEncoder>();
+      break;
+
+    case ImageType::JPEG:
+      encoder = MakeRefPtr<nsJPEGEncoder>();
+      break;
+
+    case ImageType::PNG:
+      encoder = MakeRefPtr<nsPNGEncoder>();
+      break;
+
+    default:
+      break;
   }
+
+  MOZ_RELEASE_ASSERT(encoder != nullptr);
 
   nsresult rv = encoder->InitFromData(
       map.mData, BufferSizeFromStrideAndHeight(map.mStride, size.height),
@@ -1000,23 +1026,39 @@ const uint32_t gfxUtils::sNumFrameColors = 8;
     return NS_OK;
   }
 
-  // base 64, result will be null-terminated
-  nsCString encodedImg;
-  rv = Base64Encode(Substring(imgData.begin(), imgSize), encodedImg);
-  NS_ENSURE_SUCCESS(rv, rv);
-
   nsCString stringBuf;
-  nsACString& string = aStrOut ? *aStrOut : stringBuf;
-  string.AppendLiteral("data:");
-  string.Append(aMimeType);
-  string.AppendLiteral(";base64,");
-  string.Append(encodedImg);
+  nsACString& dataURI = aStrOut ? *aStrOut : stringBuf;
+  dataURI.AppendLiteral("data:");
+
+  switch (aImageType) {
+    case ImageType::BMP:
+      dataURI.AppendLiteral(IMAGE_BMP);
+      break;
+
+    case ImageType::ICO:
+      dataURI.AppendLiteral(IMAGE_ICO_MS);
+      break;
+    case ImageType::JPEG:
+      dataURI.AppendLiteral(IMAGE_JPEG);
+      break;
+
+    case ImageType::PNG:
+      dataURI.AppendLiteral(IMAGE_PNG);
+      break;
+
+    default:
+      break;
+  }
+
+  dataURI.AppendLiteral(";base64,");
+  rv = Base64EncodeAppend(imgData.begin(), imgSize, dataURI);
+  NS_ENSURE_SUCCESS(rv, rv);
 
   if (aFile) {
 #ifdef ANDROID
     if (aFile == stdout || aFile == stderr) {
       // ADB logcat cuts off long strings so we will break it down
-      const char* cStr = string.BeginReading();
+      const char* cStr = dataURI.BeginReading();
       size_t len = strlen(cStr);
       while (true) {
         printf_stderr("IMG: %.140s\n", cStr);
@@ -1026,12 +1068,12 @@ const uint32_t gfxUtils::sNumFrameColors = 8;
       }
     }
 #endif
-    fprintf(aFile, "%s", string.BeginReading());
+    fprintf(aFile, "%s", dataURI.BeginReading());
   } else if (!aStrOut) {
     nsCOMPtr<nsIClipboardHelper> clipboard(
         do_GetService("@mozilla.org/widget/clipboardhelper;1", &rv));
     if (clipboard) {
-      clipboard->CopyString(NS_ConvertASCIItoUTF16(string));
+      clipboard->CopyString(NS_ConvertASCIItoUTF16(dataURI));
     }
   }
   return NS_OK;
@@ -1039,9 +1081,8 @@ const uint32_t gfxUtils::sNumFrameColors = 8;
 
 static nsCString EncodeSourceSurfaceAsPNGURI(SourceSurface* aSurface) {
   nsCString string;
-  gfxUtils::EncodeSourceSurface(aSurface, NS_LITERAL_CSTRING("image/png"),
-                                EmptyString(), gfxUtils::eDataURIEncode,
-                                nullptr, &string);
+  gfxUtils::EncodeSourceSurface(aSurface, ImageType::PNG, u""_ns,
+                                gfxUtils::eDataURIEncode, nullptr, &string);
   return string;
 }
 
@@ -1054,22 +1095,36 @@ const float kBT709NarrowYCbCrToRGB_RowMajor[16] = {
     1.16438f,  0.00000f, 1.79274f, -0.97295f, 1.16438f, -0.21325f,
     -0.53291f, 0.30148f, 1.16438f, 2.11240f,  0.00000f, -1.13340f,
     0.00000f,  0.00000f, 0.00000f, 1.00000f};
+const float kBT2020NarrowYCbCrToRGB_RowMajor[16] = {
+    1.16438f,  0.00000f, 1.67867f, -0.91569f, 1.16438f, -0.18733f,
+    -0.65042f, 0.34746f, 1.16438f, 2.14177f,  0.00000f, -1.14815f,
+    0.00000f,  0.00000f, 0.00000f, 1.00000f};
+const float kIdentityNarrowYCbCrToRGB_RowMajor[16] = {
+    0.00000f, 0.00000f, 1.00000f, 0.00000f, 1.00000f, 0.00000f,
+    0.00000f, 0.00000f, 0.00000f, 1.00000f, 0.00000f, 0.00000f,
+    0.00000f, 0.00000f, 0.00000f, 1.00000f};
 
 /* static */ const float* gfxUtils::YuvToRgbMatrix4x3RowMajor(
-    YUVColorSpace aYUVColorSpace) {
+    gfx::YUVColorSpace aYUVColorSpace) {
 #define X(x) \
   { x[0], x[1], x[2], 0.0f, x[4], x[5], x[6], 0.0f, x[8], x[9], x[10], 0.0f }
 
   static const float rec601[12] = X(kBT601NarrowYCbCrToRGB_RowMajor);
   static const float rec709[12] = X(kBT709NarrowYCbCrToRGB_RowMajor);
+  static const float rec2020[12] = X(kBT2020NarrowYCbCrToRGB_RowMajor);
+  static const float identity[12] = X(kIdentityNarrowYCbCrToRGB_RowMajor);
 
 #undef X
 
   switch (aYUVColorSpace) {
-    case YUVColorSpace::BT601:
+    case gfx::YUVColorSpace::BT601:
       return rec601;
-    case YUVColorSpace::BT709:
+    case gfx::YUVColorSpace::BT709:
       return rec709;
+    case gfx::YUVColorSpace::BT2020:
+      return rec2020;
+    case gfx::YUVColorSpace::Identity:
+      return identity;
     default:  // YUVColorSpace::UNKNOWN
       MOZ_ASSERT(false, "unknown aYUVColorSpace");
       return rec601;
@@ -1077,20 +1132,26 @@ const float kBT709NarrowYCbCrToRGB_RowMajor[16] = {
 }
 
 /* static */ const float* gfxUtils::YuvToRgbMatrix3x3ColumnMajor(
-    YUVColorSpace aYUVColorSpace) {
+    gfx::YUVColorSpace aYUVColorSpace) {
 #define X(x) \
   { x[0], x[4], x[8], x[1], x[5], x[9], x[2], x[6], x[10] }
 
   static const float rec601[9] = X(kBT601NarrowYCbCrToRGB_RowMajor);
   static const float rec709[9] = X(kBT709NarrowYCbCrToRGB_RowMajor);
+  static const float rec2020[9] = X(kBT2020NarrowYCbCrToRGB_RowMajor);
+  static const float identity[9] = X(kIdentityNarrowYCbCrToRGB_RowMajor);
 
 #undef X
 
   switch (aYUVColorSpace) {
-    case YUVColorSpace::BT601:
+    case gfx::YUVColorSpace::BT601:
       return rec601;
     case YUVColorSpace::BT709:
       return rec709;
+    case YUVColorSpace::BT2020:
+      return rec2020;
+    case YUVColorSpace::Identity:
+      return identity;
     default:  // YUVColorSpace::UNKNOWN
       MOZ_ASSERT(false, "unknown aYUVColorSpace");
       return rec601;
@@ -1107,6 +1168,8 @@ const float kBT709NarrowYCbCrToRGB_RowMajor[16] = {
 
   static const float rec601[16] = X(kBT601NarrowYCbCrToRGB_RowMajor);
   static const float rec709[16] = X(kBT709NarrowYCbCrToRGB_RowMajor);
+  static const float rec2020[16] = X(kBT2020NarrowYCbCrToRGB_RowMajor);
+  static const float identity[16] = X(kIdentityNarrowYCbCrToRGB_RowMajor);
 
 #undef X
 
@@ -1115,19 +1178,23 @@ const float kBT709NarrowYCbCrToRGB_RowMajor[16] = {
       return rec601;
     case YUVColorSpace::BT709:
       return rec709;
+    case YUVColorSpace::BT2020:
+      return rec2020;
+    case YUVColorSpace::Identity:
+      return identity;
     default:  // YUVColorSpace::UNKNOWN
       MOZ_ASSERT(false, "unknown aYUVColorSpace");
       return rec601;
   }
 }
 
-/* static */ void gfxUtils::WriteAsPNG(SourceSurface* aSurface,
-                                       const nsAString& aFile) {
+/* static */
+void gfxUtils::WriteAsPNG(SourceSurface* aSurface, const nsAString& aFile) {
   WriteAsPNG(aSurface, NS_ConvertUTF16toUTF8(aFile).get());
 }
 
-/* static */ void gfxUtils::WriteAsPNG(SourceSurface* aSurface,
-                                       const char* aFile) {
+/* static */
+void gfxUtils::WriteAsPNG(SourceSurface* aSurface, const char* aFile) {
   FILE* file = fopen(aFile, "wb");
 
   if (!file) {
@@ -1154,17 +1221,17 @@ const float kBT709NarrowYCbCrToRGB_RowMajor[16] = {
     }
   }
 
-  EncodeSourceSurface(aSurface, NS_LITERAL_CSTRING("image/png"), EmptyString(),
-                      eBinaryEncode, file);
+  EncodeSourceSurface(aSurface, ImageType::PNG, u""_ns, eBinaryEncode, file);
   fclose(file);
 }
 
-/* static */ void gfxUtils::WriteAsPNG(DrawTarget* aDT,
-                                       const nsAString& aFile) {
+/* static */
+void gfxUtils::WriteAsPNG(DrawTarget* aDT, const nsAString& aFile) {
   WriteAsPNG(aDT, NS_ConvertUTF16toUTF8(aFile).get());
 }
 
-/* static */ void gfxUtils::WriteAsPNG(DrawTarget* aDT, const char* aFile) {
+/* static */
+void gfxUtils::WriteAsPNG(DrawTarget* aDT, const char* aFile) {
   RefPtr<SourceSurface> surface = aDT->Snapshot();
   if (surface) {
     WriteAsPNG(surface, aFile);
@@ -1173,34 +1240,18 @@ const float kBT709NarrowYCbCrToRGB_RowMajor[16] = {
   }
 }
 
-/* static */ void gfxUtils::WriteAsPNG(nsIPresShell* aShell,
-                                       const char* aFile) {
-  int32_t width = 1000, height = 1000;
-  nsRect r(0, 0, aShell->GetPresContext()->DevPixelsToAppUnits(width),
-           aShell->GetPresContext()->DevPixelsToAppUnits(height));
-
-  RefPtr<mozilla::gfx::DrawTarget> dt =
-      gfxPlatform::GetPlatform()->CreateOffscreenContentDrawTarget(
-          IntSize(width, height), SurfaceFormat::B8G8R8A8);
-  NS_ENSURE_TRUE(dt && dt->IsValid(), /*void*/);
-
-  RefPtr<gfxContext> context = gfxContext::CreateOrNull(dt);
-  MOZ_ASSERT(context);  // already checked the draw target above
-  aShell->RenderDocument(r, 0, NS_RGB(255, 255, 0), context);
-  WriteAsPNG(dt.get(), aFile);
+/* static */
+void gfxUtils::DumpAsDataURI(SourceSurface* aSurface, FILE* aFile) {
+  EncodeSourceSurface(aSurface, ImageType::PNG, u""_ns, eDataURIEncode, aFile);
 }
 
-/* static */ void gfxUtils::DumpAsDataURI(SourceSurface* aSurface,
-                                          FILE* aFile) {
-  EncodeSourceSurface(aSurface, NS_LITERAL_CSTRING("image/png"), EmptyString(),
-                      eDataURIEncode, aFile);
-}
-
-/* static */ nsCString gfxUtils::GetAsDataURI(SourceSurface* aSurface) {
+/* static */
+nsCString gfxUtils::GetAsDataURI(SourceSurface* aSurface) {
   return EncodeSourceSurfaceAsPNGURI(aSurface);
 }
 
-/* static */ void gfxUtils::DumpAsDataURI(DrawTarget* aDT, FILE* aFile) {
+/* static */
+void gfxUtils::DumpAsDataURI(DrawTarget* aDT, FILE* aFile) {
   RefPtr<SourceSurface> surface = aDT->Snapshot();
   if (surface) {
     DumpAsDataURI(surface, aFile);
@@ -1209,8 +1260,8 @@ const float kBT709NarrowYCbCrToRGB_RowMajor[16] = {
   }
 }
 
-/* static */ nsCString gfxUtils::GetAsLZ4Base64Str(
-    DataSourceSurface* aSourceSurface) {
+/* static */
+nsCString gfxUtils::GetAsLZ4Base64Str(DataSourceSurface* aSourceSurface) {
   DataSourceSurface::ScopedMap map(aSourceSurface, DataSourceSurface::READ);
   int32_t dataSize = aSourceSurface->GetSize().height * map.GetStride();
   auto compressedData = MakeUnique<char[]>(LZ4::maxCompressedSize(dataSize));
@@ -1218,23 +1269,21 @@ const float kBT709NarrowYCbCrToRGB_RowMajor[16] = {
     int nDataSize =
         LZ4::compress((char*)map.GetData(), dataSize, compressedData.get());
     if (nDataSize > 0) {
-      nsCString encodedImg;
-      nsresult rv =
-          Base64Encode(Substring(compressedData.get(), nDataSize), encodedImg);
+      nsCString string;
+      string.AppendPrintf("data:image/lz4bgra;base64,%i,%i,%i,",
+                          aSourceSurface->GetSize().width, map.GetStride(),
+                          aSourceSurface->GetSize().height);
+      nsresult rv = Base64EncodeAppend(compressedData.get(), nDataSize, string);
       if (rv == NS_OK) {
-        nsCString string("");
-        string.AppendPrintf("data:image/lz4bgra;base64,%i,%i,%i,",
-                            aSourceSurface->GetSize().width, map.GetStride(),
-                            aSourceSurface->GetSize().height);
-        string.Append(encodedImg);
         return string;
       }
     }
   }
-  return nsCString("");
+  return {};
 }
 
-/* static */ nsCString gfxUtils::GetAsDataURI(DrawTarget* aDT) {
+/* static */
+nsCString gfxUtils::GetAsDataURI(DrawTarget* aDT) {
   RefPtr<SourceSurface> surface = aDT->Snapshot();
   if (surface) {
     return EncodeSourceSurfaceAsPNGURI(surface);
@@ -1244,12 +1293,14 @@ const float kBT709NarrowYCbCrToRGB_RowMajor[16] = {
   }
 }
 
-/* static */ void gfxUtils::CopyAsDataURI(SourceSurface* aSurface) {
-  EncodeSourceSurface(aSurface, NS_LITERAL_CSTRING("image/png"), EmptyString(),
-                      eDataURIEncode, nullptr);
+/* static */
+void gfxUtils::CopyAsDataURI(SourceSurface* aSurface) {
+  EncodeSourceSurface(aSurface, ImageType::PNG, u""_ns, eDataURIEncode,
+                      nullptr);
 }
 
-/* static */ void gfxUtils::CopyAsDataURI(DrawTarget* aDT) {
+/* static */
+void gfxUtils::CopyAsDataURI(DrawTarget* aDT) {
   RefPtr<SourceSurface> surface = aDT->Snapshot();
   if (surface) {
     CopyAsDataURI(surface);
@@ -1292,11 +1343,12 @@ const float kBT709NarrowYCbCrToRGB_RowMajor[16] = {
   return imageBuffer;
 }
 
-/* static */ nsresult gfxUtils::GetInputStream(gfx::DataSourceSurface* aSurface,
-                                               bool aIsAlphaPremultiplied,
-                                               const char* aMimeType,
-                                               const char16_t* aEncoderOptions,
-                                               nsIInputStream** outStream) {
+/* static */
+nsresult gfxUtils::GetInputStream(gfx::DataSourceSurface* aSurface,
+                                  bool aIsAlphaPremultiplied,
+                                  const char* aMimeType,
+                                  const nsAString& aEncoderOptions,
+                                  nsIInputStream** outStream) {
   nsCString enccid("@mozilla.org/image/encoder;2?type=");
   enccid += aMimeType;
   nsCOMPtr<imgIEncoder> encoder = do_CreateInstance(enccid.get());
@@ -1312,13 +1364,14 @@ const float kBT709NarrowYCbCrToRGB_RowMajor[16] = {
       format, encoder, aEncoderOptions, outStream);
 }
 
-class GetFeatureStatusRunnable final : public dom::WorkerMainThreadRunnable {
+class GetFeatureStatusWorkerRunnable final
+    : public dom::WorkerMainThreadRunnable {
  public:
-  GetFeatureStatusRunnable(dom::WorkerPrivate* workerPrivate,
-                           const nsCOMPtr<nsIGfxInfo>& gfxInfo, int32_t feature,
-                           nsACString& failureId, int32_t* status)
-      : WorkerMainThreadRunnable(workerPrivate,
-                                 NS_LITERAL_CSTRING("GFX :: GetFeatureStatus")),
+  GetFeatureStatusWorkerRunnable(dom::WorkerPrivate* workerPrivate,
+                                 const nsCOMPtr<nsIGfxInfo>& gfxInfo,
+                                 int32_t feature, nsACString& failureId,
+                                 int32_t* status)
+      : WorkerMainThreadRunnable(workerPrivate, "GFX :: GetFeatureStatus"_ns),
         mGfxInfo(gfxInfo),
         mFeature(feature),
         mStatus(status),
@@ -1335,7 +1388,7 @@ class GetFeatureStatusRunnable final : public dom::WorkerMainThreadRunnable {
   nsresult GetNSResult() const { return mNSResult; }
 
  protected:
-  ~GetFeatureStatusRunnable() {}
+  ~GetFeatureStatusWorkerRunnable() = default;
 
  private:
   nsCOMPtr<nsIGfxInfo> mGfxInfo;
@@ -1345,35 +1398,12 @@ class GetFeatureStatusRunnable final : public dom::WorkerMainThreadRunnable {
   nsresult mNSResult;
 };
 
-/* static */ nsresult gfxUtils::ThreadSafeGetFeatureStatus(
-    const nsCOMPtr<nsIGfxInfo>& gfxInfo, int32_t feature, nsACString& failureId,
-    int32_t* status) {
-  if (!NS_IsMainThread()) {
-    dom::WorkerPrivate* workerPrivate = dom::GetCurrentThreadWorkerPrivate();
-
-    RefPtr<GetFeatureStatusRunnable> runnable = new GetFeatureStatusRunnable(
-        workerPrivate, gfxInfo, feature, failureId, status);
-
-    ErrorResult rv;
-    runnable->Dispatch(dom::WorkerStatus::Canceling, rv);
-    if (rv.Failed()) {
-      // XXXbz This is totally broken, since we're supposed to just abort
-      // everything up the callstack but the callers basically eat the
-      // exception.  Ah, well.
-      return rv.StealNSResult();
-    }
-
-    return runnable->GetNSResult();
-  }
-
-  return gfxInfo->GetFeatureStatus(feature, failureId, status);
-}
-
 #define GFX_SHADER_CHECK_BUILD_VERSION_PREF "gfx-shader-check.build-version"
 #define GFX_SHADER_CHECK_DEVICE_ID_PREF "gfx-shader-check.device-id"
 #define GFX_SHADER_CHECK_DRIVER_VERSION_PREF "gfx-shader-check.driver-version"
 
-/* static */ void gfxUtils::RemoveShaderCacheFromDiskIfNecessary() {
+/* static */
+void gfxUtils::RemoveShaderCacheFromDiskIfNecessary() {
   if (!gfxVars::UseWebRenderProgramBinaryDisk()) {
     return;
   }
@@ -1411,13 +1441,15 @@ class GetFeatureStatusRunnable final : public dom::WorkerMainThreadRunnable {
   Preferences::SetCString(GFX_SHADER_CHECK_BUILD_VERSION_PREF, buildID);
   Preferences::SetString(GFX_SHADER_CHECK_DEVICE_ID_PREF, deviceID);
   Preferences::SetString(GFX_SHADER_CHECK_DRIVER_VERSION_PREF, driverVersion);
-  return;
 }
 
-/* static */ bool gfxUtils::DumpDisplayList() {
-  return gfxPrefs::LayoutDumpDisplayList() ||
-         (gfxPrefs::LayoutDumpDisplayListParent() && XRE_IsParentProcess()) ||
-         (gfxPrefs::LayoutDumpDisplayListContent() && XRE_IsContentProcess());
+/* static */
+bool gfxUtils::DumpDisplayList() {
+  return StaticPrefs::layout_display_list_dump() ||
+         (StaticPrefs::layout_display_list_dump_parent() &&
+          XRE_IsParentProcess()) ||
+         (StaticPrefs::layout_display_list_dump_content() &&
+          XRE_IsContentProcess());
 }
 
 FILE* gfxUtils::sDumpPaintFile = stderr;
@@ -1425,7 +1457,7 @@ FILE* gfxUtils::sDumpPaintFile = stderr;
 namespace mozilla {
 namespace gfx {
 
-Color ToDeviceColor(Color aColor) {
+DeviceColor ToDeviceColor(const sRGBColor& aColor) {
   // aColor is pass-by-value since to get return value optimization goodness we
   // need to return the same object from all return points in this function. We
   // could declare a local Color variable and use that, but we might as well
@@ -1433,16 +1465,20 @@ Color ToDeviceColor(Color aColor) {
   if (gfxPlatform::GetCMSMode() == eCMSMode_All) {
     qcms_transform* transform = gfxPlatform::GetCMSRGBTransform();
     if (transform) {
-      gfxPlatform::TransformPixel(aColor, aColor, transform);
+      return gfxPlatform::TransformPixel(aColor, transform);
       // Use the original alpha to avoid unnecessary float->byte->float
       // conversion errors
     }
   }
-  return aColor;
+  return DeviceColor(aColor.r, aColor.g, aColor.b, aColor.a);
 }
 
-Color ToDeviceColor(nscolor aColor) {
-  return ToDeviceColor(Color::FromABGR(aColor));
+DeviceColor ToDeviceColor(nscolor aColor) {
+  return ToDeviceColor(sRGBColor::FromABGR(aColor));
+}
+
+DeviceColor ToDeviceColor(const StyleRGBA& aColor) {
+  return ToDeviceColor(aColor.ToColor());
 }
 
 }  // namespace gfx

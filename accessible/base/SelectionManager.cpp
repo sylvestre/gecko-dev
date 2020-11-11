@@ -14,9 +14,8 @@
 #include "nsEventShell.h"
 #include "nsFrameSelection.h"
 
-#include "nsIAccessibleTypes.h"
-#include "nsIDocument.h"
-#include "nsIPresShell.h"
+#include "mozilla/PresShell.h"
+#include "mozilla/dom/Document.h"
 #include "mozilla/dom/Selection.h"
 #include "mozilla/dom/Element.h"
 
@@ -79,7 +78,7 @@ void SelectionManager::SetControlSelectionListener(dom::Element* aFocusedElm) {
   mCurrCtrlSpellSel = spellSel;
 }
 
-void SelectionManager::AddDocSelectionListener(nsIPresShell* aPresShell) {
+void SelectionManager::AddDocSelectionListener(PresShell* aPresShell) {
   const nsFrameSelection* frameSel = aPresShell->ConstFrameSelection();
 
   // Register 'this' as selection listener for the normal selection.
@@ -91,7 +90,7 @@ void SelectionManager::AddDocSelectionListener(nsIPresShell* aPresShell) {
   spellSel->AddSelectionListener(this);
 }
 
-void SelectionManager::RemoveDocSelectionListener(nsIPresShell* aPresShell) {
+void SelectionManager::RemoveDocSelectionListener(PresShell* aPresShell) {
   const nsFrameSelection* frameSel = aPresShell->ConstFrameSelection();
 
   // Remove 'this' registered as selection listener for the normal selection.
@@ -132,13 +131,14 @@ void SelectionManager::ProcessTextSelChangeEvent(AccEvent* aEvent) {
   mAccWithCaret = caretCntr;
   if (mCaretOffset != -1) {
     RefPtr<AccCaretMoveEvent> caretMoveEvent =
-        new AccCaretMoveEvent(caretCntr, mCaretOffset, aEvent->FromUserInput());
+        new AccCaretMoveEvent(caretCntr, mCaretOffset, selection->IsCollapsed(),
+                              aEvent->FromUserInput());
     nsEventShell::FireEvent(caretMoveEvent);
   }
 }
 
 NS_IMETHODIMP
-SelectionManager::NotifySelectionChanged(nsIDocument* aDocument,
+SelectionManager::NotifySelectionChanged(dom::Document* aDocument,
                                          Selection* aSelection,
                                          int16_t aReason) {
   if (NS_WARN_IF(!aDocument) || NS_WARN_IF(!aSelection)) {
@@ -170,7 +170,9 @@ void SelectionManager::ProcessSelectionChanged(SelData* aSelData) {
 
   const nsRange* range = selection->GetAnchorFocusRange();
   nsINode* cntrNode = nullptr;
-  if (range) cntrNode = range->GetCommonAncestor();
+  if (range) {
+    cntrNode = range->GetClosestCommonInclusiveAncestor();
+  }
 
   if (!cntrNode) {
     cntrNode = selection->GetFrameSelection()->GetAncestorLimiter();
@@ -201,3 +203,5 @@ void SelectionManager::ProcessSelectionChanged(SelData* aSelData) {
         nsIAccessibleEvent::EVENT_TEXT_ATTRIBUTE_CHANGED, text);
   }
 }
+
+SelectionManager::~SelectionManager() = default;

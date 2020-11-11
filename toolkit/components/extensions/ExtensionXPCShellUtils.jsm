@@ -7,73 +7,113 @@
 
 var EXPORTED_SYMBOLS = ["ExtensionTestUtils"];
 
+// Need to import ActorManagerParent.jsm so that the actors are initialized before
+// running extension XPCShell tests.
 ChromeUtils.import("resource://gre/modules/ActorManagerParent.jsm");
-ChromeUtils.import("resource://gre/modules/ExtensionUtils.jsm");
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
+
+const { ExtensionUtils } = ChromeUtils.import(
+  "resource://gre/modules/ExtensionUtils.jsm"
+);
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+const { AppConstants } = ChromeUtils.import(
+  "resource://gre/modules/AppConstants.jsm"
+);
 
 // Windowless browsers can create documents that rely on XUL Custom Elements:
 ChromeUtils.import("resource://gre/modules/CustomElementsListener.jsm", null);
 
-ChromeUtils.defineModuleGetter(this, "AddonManager",
-                               "resource://gre/modules/AddonManager.jsm");
-ChromeUtils.defineModuleGetter(this, "AddonTestUtils",
-                               "resource://testing-common/AddonTestUtils.jsm");
-ChromeUtils.defineModuleGetter(this, "ContentTask",
-                               "resource://testing-common/ContentTask.jsm");
-ChromeUtils.defineModuleGetter(this, "Extension",
-                               "resource://gre/modules/Extension.jsm");
-ChromeUtils.defineModuleGetter(this, "FileUtils",
-                               "resource://gre/modules/FileUtils.jsm");
-ChromeUtils.defineModuleGetter(this, "MessageChannel",
-                               "resource://gre/modules/MessageChannel.jsm");
-ChromeUtils.defineModuleGetter(this, "Schemas",
-                               "resource://gre/modules/Schemas.jsm");
-ChromeUtils.defineModuleGetter(this, "Services",
-                               "resource://gre/modules/Services.jsm");
-ChromeUtils.defineModuleGetter(this, "TestUtils",
-                               "resource://testing-common/TestUtils.jsm");
+ChromeUtils.defineModuleGetter(
+  this,
+  "AddonManager",
+  "resource://gre/modules/AddonManager.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "AddonTestUtils",
+  "resource://testing-common/AddonTestUtils.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "ContentTask",
+  "resource://testing-common/ContentTask.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "ExtensionTestCommon",
+  "resource://testing-common/ExtensionTestCommon.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "FileUtils",
+  "resource://gre/modules/FileUtils.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "MessageChannel",
+  "resource://gre/modules/MessageChannel.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "Schemas",
+  "resource://gre/modules/Schemas.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "Services",
+  "resource://gre/modules/Services.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "TestUtils",
+  "resource://testing-common/TestUtils.jsm"
+);
 
 XPCOMUtils.defineLazyGetter(this, "Management", () => {
-  const {Management} = ChromeUtils.import("resource://gre/modules/Extension.jsm", {});
+  const { Management } = ChromeUtils.import(
+    "resource://gre/modules/Extension.jsm",
+    null
+  );
   return Management;
 });
 
-Services.mm.loadFrameScript("chrome://global/content/browser-content.js", true, true);
-
-ActorManagerParent.flush();
-
 /* exported ExtensionTestUtils */
 
-const {
-  promiseDocumentLoaded,
-  promiseEvent,
-  promiseObserved,
-} = ExtensionUtils;
+const { promiseDocumentLoaded, promiseEvent, promiseObserved } = ExtensionUtils;
 
-var REMOTE_CONTENT_SCRIPTS = false;
+var REMOTE_CONTENT_SCRIPTS = Services.appinfo.browserTabsRemoteAutostart;
+const REMOTE_CONTENT_SUBFRAMES = Services.appinfo.fissionAutostart;
 
 let BASE_MANIFEST = Object.freeze({
-  "applications": Object.freeze({
-    "gecko": Object.freeze({
-      "id": "test@web.ext",
+  applications: Object.freeze({
+    gecko: Object.freeze({
+      id: "test@web.ext",
     }),
   }),
 
-  "manifest_version": 2,
+  manifest_version: 2,
 
-  "name": "name",
-  "version": "0",
+  name: "name",
+  version: "0",
 });
 
-
 function frameScript() {
-  ChromeUtils.import("resource://gre/modules/MessageChannel.jsm");
-  ChromeUtils.import("resource://gre/modules/Services.jsm");
+  const { MessageChannel } = ChromeUtils.import(
+    "resource://gre/modules/MessageChannel.jsm"
+  );
+  const { Services } = ChromeUtils.import(
+    "resource://gre/modules/Services.jsm"
+  );
+
+  // We need to make sure that the ExtensionPolicy service has been initialized
+  // as it sets up the observers that inject extension content scripts.
+  Cc["@mozilla.org/addons/policy-service;1"].getService();
 
   Services.obs.notifyObservers(this, "tab-content-frameloader-created");
 
   const messageListener = {
-    async receiveMessage({target, messageName, recipient, data, name}) {
+    async receiveMessage({ target, messageName, recipient, data, name }) {
       /* globals content */
       let resp = await content.fetch(data.url, data.options);
       return resp.text();
@@ -82,22 +122,39 @@ function frameScript() {
   MessageChannel.addListener(this, "Test:Fetch", messageListener);
 
   // eslint-disable-next-line mozilla/balanced-listeners, no-undef
-  addEventListener("MozHeapMinimize", () => {
-    Services.obs.notifyObservers(null, "memory-pressure", "heap-minimize");
-  }, true, true);
+  addEventListener(
+    "MozHeapMinimize",
+    () => {
+      Services.obs.notifyObservers(null, "memory-pressure", "heap-minimize");
+    },
+    true,
+    true
+  );
 }
 
 let kungFuDeathGrip = new Set();
 function promiseBrowserLoaded(browser, url, redirectUrl) {
+  url = url && Services.io.newURI(url);
+  redirectUrl = redirectUrl && Services.io.newURI(redirectUrl);
+
   return new Promise(resolve => {
     const listener = {
-      QueryInterface: ChromeUtils.generateQI([Ci.nsISupportsWeakReference, Ci.nsIWebProgressListener]),
+      QueryInterface: ChromeUtils.generateQI([
+        "nsISupportsWeakReference",
+        "nsIWebProgressListener",
+      ]),
 
       onStateChange(webProgress, request, stateFlags, statusCode) {
-        let requestUrl = request.originalURI ? request.originalURI.spec : webProgress.DOMWindow.location.href;
-        if (webProgress.isTopLevel &&
-            (requestUrl === url || requestUrl === redirectUrl) &&
-            (stateFlags & Ci.nsIWebProgressListener.STATE_STOP)) {
+        request.QueryInterface(Ci.nsIChannel);
+
+        let requestURI =
+          request.originalURI ||
+          webProgress.DOMWindow.document.documentURIObject;
+        if (
+          webProgress.isTopLevel &&
+          (url?.equals(requestURI) || redirectUrl?.equals(requestURI)) &&
+          stateFlags & Ci.nsIWebProgressListener.STATE_STOP
+        ) {
           resolve();
           kungFuDeathGrip.delete(listener);
           browser.removeProgressListener(listener);
@@ -109,62 +166,119 @@ function promiseBrowserLoaded(browser, url, redirectUrl) {
     // use one. But we also need to make sure it stays alive until we're
     // done with it, so thunk away a strong reference to keep it alive.
     kungFuDeathGrip.add(listener);
-    browser.addProgressListener(listener, Ci.nsIWebProgress.NOTIFY_STATE_WINDOW);
+    browser.addProgressListener(
+      listener,
+      Ci.nsIWebProgress.NOTIFY_STATE_WINDOW
+    );
   });
 }
 
 class ContentPage {
-  constructor(remote = REMOTE_CONTENT_SCRIPTS, extension = null, privateBrowsing = false) {
+  constructor(
+    remote = REMOTE_CONTENT_SCRIPTS,
+    remoteSubframes = REMOTE_CONTENT_SUBFRAMES,
+    extension = null,
+    privateBrowsing = false,
+    userContextId = undefined
+  ) {
     this.remote = remote;
+
+    // If an extension has been passed, overwrite remote
+    // with extension.remote to be sure that the ContentPage
+    // will have the same remoteness of the extension.
+    if (extension) {
+      this.remote = extension.remote;
+    }
+
+    this.remoteSubframes = this.remote && remoteSubframes;
     this.extension = extension;
     this.privateBrowsing = privateBrowsing;
+    this.userContextId = userContextId;
 
     this.browserReady = this._initBrowser();
   }
 
   async _initBrowser() {
-    this.windowlessBrowser = Services.appShell.createWindowlessBrowser(true);
-
-    if (this.privateBrowsing) {
-      let loadContext = this.windowlessBrowser.docShell
-                            .QueryInterface(Ci.nsILoadContext);
-      loadContext.usePrivateBrowsing = true;
+    let chromeFlags = 0;
+    if (this.remote) {
+      chromeFlags |= Ci.nsIWebBrowserChrome.CHROME_REMOTE_WINDOW;
     }
+    if (this.remoteSubframes) {
+      chromeFlags |= Ci.nsIWebBrowserChrome.CHROME_FISSION_WINDOW;
+    }
+    if (this.privateBrowsing) {
+      chromeFlags |= Ci.nsIWebBrowserChrome.CHROME_PRIVATE_WINDOW;
+    }
+    this.windowlessBrowser = Services.appShell.createWindowlessBrowser(
+      true,
+      chromeFlags
+    );
 
     let system = Services.scriptSecurityManager.getSystemPrincipal();
 
-    let chromeShell = this.windowlessBrowser.docShell
-                          .QueryInterface(Ci.nsIWebNavigation);
+    let chromeShell = this.windowlessBrowser.docShell.QueryInterface(
+      Ci.nsIWebNavigation
+    );
 
-    chromeShell.createAboutBlankContentViewer(system);
-    chromeShell.useGlobalHistory = false;
-    chromeShell.loadURI("chrome://extensions/content/dummy.xul", 0, null, null, null, system);
+    chromeShell.createAboutBlankContentViewer(system, system);
+    this.windowlessBrowser.browsingContext.useGlobalHistory = false;
+    let loadURIOptions = {
+      triggeringPrincipal: system,
+    };
+    chromeShell.loadURI(
+      "chrome://extensions/content/dummy.xhtml",
+      loadURIOptions
+    );
 
-    await promiseObserved("chrome-document-global-created",
-                          win => win.document == chromeShell.document);
+    await promiseObserved(
+      "chrome-document-global-created",
+      win => win.document == chromeShell.document
+    );
 
     let chromeDoc = await promiseDocumentLoaded(chromeShell.document);
 
-    let browser = chromeDoc.createElement("browser");
+    let browser = chromeDoc.createXULElement("browser");
     browser.setAttribute("type", "content");
     browser.setAttribute("disableglobalhistory", "true");
+    browser.setAttribute("messagemanagergroup", "webext-browsers");
+    if (this.userContextId) {
+      browser.setAttribute("usercontextid", this.userContextId);
+    }
 
-    if (this.extension && this.extension.remote) {
-      this.remote = true;
+    if (this.extension?.remote) {
       browser.setAttribute("remote", "true");
       browser.setAttribute("remoteType", "extension");
-      browser.sameProcessAsFrameLoader = this.extension.groupFrameLoader;
+    }
+
+    // Ensure that the extension is loaded into the correct
+    // BrowsingContextGroupID by default.
+    if (this.extension) {
+      browser.setAttribute(
+        "initialBrowsingContextGroupId",
+        this.extension.browsingContextGroupId
+      );
     }
 
     let awaitFrameLoader = Promise.resolve();
     if (this.remote) {
       awaitFrameLoader = promiseEvent(browser, "XULFrameLoaderCreated");
       browser.setAttribute("remote", "true");
+
+      browser.setAttribute("maychangeremoteness", "true");
+      browser.addEventListener(
+        "DidChangeBrowserRemoteness",
+        this.didChangeBrowserRemoteness.bind(this)
+      );
     }
 
     chromeDoc.documentElement.appendChild(browser);
 
+    // Forcibly flush layout so that we get a pres shell soon enough, see
+    // bug 1274775.
+    browser.getBoundingClientRect();
+
     await awaitFrameLoader;
+
     this.browser = browser;
 
     this.loadFrameScript(frameScript);
@@ -186,6 +300,12 @@ class ContentPage {
     this.browser.messageManager.loadFrameScript(frameScript, false, true);
   }
 
+  didChangeBrowserRemoteness(event) {
+    // XXX: Tests can load their own additional frame scripts, so we may need to
+    // track all scripts that have been loaded, and reload them here?
+    this.loadFrameScript(frameScript);
+  }
+
   async loadURL(url, redirectUrl = undefined) {
     await this.browserReady;
 
@@ -196,7 +316,7 @@ class ContentPage {
   }
 
   async fetch(url, options) {
-    return this.sendMessage("Test:Fetch", {url, options});
+    return this.sendMessage("Test:Fetch", { url, options });
   }
 
   spawn(params, task) {
@@ -206,15 +326,21 @@ class ContentPage {
   async close() {
     await this.browserReady;
 
-    let {messageManager} = this.browser;
+    let { messageManager } = this.browser;
 
+    this.browser.removeEventListener(
+      "DidChangeBrowserRemoteness",
+      this.didChangeBrowserRemoteness.bind(this)
+    );
     this.browser = null;
 
     this.windowlessBrowser.close();
     this.windowlessBrowser = null;
 
-    await TestUtils.topicObserved("message-manager-disconnect",
-                                  subject => subject === messageManager);
+    await TestUtils.topicObserved(
+      "message-manager-disconnect",
+      subject => subject === messageManager
+    );
   }
 }
 
@@ -230,29 +356,37 @@ class ExtensionWrapper {
     this.state = "uninitialized";
 
     this.testResolve = null;
-    this.testDone = new Promise(resolve => { this.testResolve = resolve; });
+    this.testDone = new Promise(resolve => {
+      this.testResolve = resolve;
+    });
 
     this.messageHandler = new Map();
     this.messageAwaiter = new Map();
 
     this.messageQueue = new Set();
 
-
     this.testScope.registerCleanupFunction(() => {
       this.clearMessageQueues();
 
       if (this.state == "pending" || this.state == "running") {
-        this.testScope.equal(this.state, "unloaded", "Extension left running at test shutdown");
+        this.testScope.equal(
+          this.state,
+          "unloaded",
+          "Extension left running at test shutdown"
+        );
         return this.unload();
       } else if (this.state == "unloading") {
-        this.testScope.equal(this.state, "unloaded", "Extension not fully unloaded at test shutdown");
+        this.testScope.equal(
+          this.state,
+          "unloaded",
+          "Extension not fully unloaded at test shutdown"
+        );
       }
       this.destroy();
     });
 
     if (extension) {
       this.id = extension.id;
-      this.uuid = extension.uuid;
       this.attachExtension(extension);
     }
   }
@@ -275,6 +409,7 @@ class ExtensionWrapper {
       this.extension.off("test-message", this.handleMessage);
       this.clearMessageQueues();
     }
+    this.uuid = extension.uuid;
     this.extension = extension;
 
     extension.on("test-eq", this.handleResult);
@@ -289,12 +424,20 @@ class ExtensionWrapper {
   clearMessageQueues() {
     if (this.messageQueue.size) {
       let names = Array.from(this.messageQueue, ([msg]) => msg);
-      this.testScope.equal(JSON.stringify(names), "[]", "message queue is empty");
+      this.testScope.equal(
+        JSON.stringify(names),
+        "[]",
+        "message queue is empty"
+      );
       this.messageQueue.clear();
     }
     if (this.messageAwaiter.size) {
       let names = Array.from(this.messageAwaiter.keys());
-      this.testScope.equal(JSON.stringify(names), "[]", "no tasks awaiting on messages");
+      this.testScope.equal(
+        JSON.stringify(names),
+        "[]",
+        "no tasks awaiting on messages"
+      );
       for (let promise of this.messageAwaiter.values()) {
         promise.reject();
       }
@@ -305,7 +448,10 @@ class ExtensionWrapper {
   handleResult(kind, pass, msg, expected, actual) {
     switch (kind) {
       case "test-eq":
-        this.testScope.ok(pass, `${msg} - Expected: ${expected}, Actual: ${actual}`);
+        this.testScope.ok(
+          pass,
+          `${msg} - Expected: ${expected}, Actual: ${actual}`
+        );
         break;
 
       case "test-log":
@@ -337,11 +483,13 @@ class ExtensionWrapper {
     return this.startupPromise;
   }
 
-  startup() {
+  async startup() {
     if (this.state != "uninitialized") {
       throw new Error("Extension already started");
     }
     this.state = "pending";
+
+    await ExtensionTestCommon.setIncognitoOverride(this.extension);
 
     this.startupPromise = this.extension.startup().then(
       result => {
@@ -353,7 +501,8 @@ class ExtensionWrapper {
         this.state = "failed";
 
         return Promise.reject(error);
-      });
+      }
+    );
 
     return this.startupPromise;
   }
@@ -364,10 +513,27 @@ class ExtensionWrapper {
     }
     this.state = "unloading";
 
+    if (this.addonPromise) {
+      // If addonPromise is still pending resolution, wait for it to make sure
+      // that add-ons that are installed through the AddonManager are properly
+      // uninstalled.
+      await this.addonPromise;
+    }
+
     if (this.addon) {
       await this.addon.uninstall();
     } else {
       await this.extension.shutdown();
+    }
+
+    if (AppConstants.platform === "android") {
+      // We need a way to notify the embedding layer that an extension has been
+      // uninstalled, so that the java layer can be updated too.
+      Services.obs.notifyObservers(
+        null,
+        "testing-uninstalled-addon",
+        this.addon ? this.addon.id : this.extension.id
+      );
     }
 
     this.state = "unloaded";
@@ -427,7 +593,7 @@ class ExtensionWrapper {
     return new Promise((resolve, reject) => {
       this.checkDuplicateListeners(msg);
 
-      this.messageAwaiter.set(msg, {resolve, reject});
+      this.messageAwaiter.set(msg, { resolve, reject });
       this.checkMessages();
     });
   }
@@ -507,11 +673,19 @@ class AOMExtensionWrapper extends ExtensionWrapper {
   onEvent(kind, ...args) {
     switch (kind) {
       case "addon-manager-started":
+        if (this.state === "uninitialized") {
+          // startup() not called yet, ignore AddonManager startup notification.
+          return;
+        }
         this.addonPromise = AddonManager.getAddonByID(this.id).then(addon => {
           this.addon = addon;
+          this.addonPromise = null;
         });
-        // FALLTHROUGH
+      // FALLTHROUGH
       case "addon-manager-shutdown":
+        if (this.state === "uninitialized") {
+          return;
+        }
         this.addon = null;
 
         this.setRestarting();
@@ -541,6 +715,15 @@ class AOMExtensionWrapper extends ExtensionWrapper {
         let [extension] = args;
         if (extension.id === this.id) {
           this.state = "running";
+          if (AppConstants.platform === "android") {
+            // We need a way to notify the embedding layer that a new extension
+            // has been installed, so that the java layer can be updated too.
+            Services.obs.notifyObservers(
+              null,
+              "testing-installed-addon",
+              extension.id
+            );
+          }
           this.resolveStartup(extension);
         }
         break;
@@ -550,8 +733,11 @@ class AOMExtensionWrapper extends ExtensionWrapper {
 
   async _flushCache() {
     if (this.extension && this.extension.rootURI instanceof Ci.nsIJARURI) {
-      let file = this.extension.rootURI.JARFile.QueryInterface(Ci.nsIFileURL).file;
-      await Services.ppmm.broadcastAsyncMessage("Extension:FlushJarCache", {path: file.path});
+      let file = this.extension.rootURI.JARFile.QueryInterface(Ci.nsIFileURL)
+        .file;
+      await Services.ppmm.broadcastAsyncMessage("Extension:FlushJarCache", {
+        path: file.path,
+      });
     }
   }
 
@@ -572,7 +758,7 @@ class AOMExtensionWrapper extends ExtensionWrapper {
 
     await this._flushCache();
 
-    let xpiFile = Extension.generateXPI(data);
+    let xpiFile = ExtensionTestCommon.generateXPI(data);
 
     this.cleanupFiles.push(xpiFile);
 
@@ -581,12 +767,13 @@ class AOMExtensionWrapper extends ExtensionWrapper {
 }
 
 class InstallableWrapper extends AOMExtensionWrapper {
-  constructor(testScope, xpiFile, installType, installTelemetryInfo) {
+  constructor(testScope, xpiFile, addonData = {}) {
     super(testScope);
 
     this.file = xpiFile;
-    this.installType = installType;
-    this.installTelemetryInfo = installTelemetryInfo;
+    this.addonData = addonData;
+    this.installType = addonData.useAddonManager || "temporary";
+    this.installTelemetryInfo = addonData.amInstallTelemetryInfo;
 
     this.cleanupFiles = [xpiFile];
   }
@@ -605,26 +792,53 @@ class InstallableWrapper extends AOMExtensionWrapper {
   }
 
   maybeSetID(uri, id) {
-    if (!this.id && uri instanceof Ci.nsIJARURI &&
-        uri.JARFile.QueryInterface(Ci.nsIFileURL)
-           .file.equals(this.file)) {
+    if (
+      !this.id &&
+      uri instanceof Ci.nsIJARURI &&
+      uri.JARFile.QueryInterface(Ci.nsIFileURL).file.equals(this.file)
+    ) {
       this.id = id;
     }
   }
 
-  _install(xpiFile) {
-    if (this.installType === "temporary") {
-      return AddonManager.installTemporaryAddon(xpiFile).then(addon => {
-        this.id = addon.id;
-        this.addon = addon;
+  _setIncognitoOverride() {
+    // this.id is not set yet so grab it from the manifest data to set
+    // the incognito permission.
+    let { addonData } = this;
+    if (addonData && addonData.incognitoOverride) {
+      try {
+        let { id } = addonData.manifest.applications.gecko;
+        if (id) {
+          return ExtensionTestCommon.setIncognitoOverride({ id, addonData });
+        }
+      } catch (e) {}
+      throw new Error(
+        "Extension ID is required for setting incognito permission."
+      );
+    }
+  }
 
-        return this.startupPromise;
-      }).catch(e => {
-        this.state = "unloaded";
-        return Promise.reject(e);
-      });
+  async _install(xpiFile) {
+    await this._setIncognitoOverride();
+
+    if (this.installType === "temporary") {
+      return AddonManager.installTemporaryAddon(xpiFile)
+        .then(addon => {
+          this.id = addon.id;
+          this.addon = addon;
+
+          return this.startupPromise;
+        })
+        .catch(e => {
+          this.state = "unloaded";
+          return Promise.reject(e);
+        });
     } else if (this.installType === "permanent") {
-      return AddonManager.getInstallForFile(xpiFile, null, this.installTelemetryInfo).then(install => {
+      return AddonManager.getInstallForFile(
+        xpiFile,
+        null,
+        this.installTelemetryInfo
+      ).then(install => {
         let listener = {
           onInstallFailed: () => {
             this.state = "unloaded";
@@ -670,14 +884,17 @@ class ExternallyInstalledWrapper extends AOMExtensionWrapper {
     this.state = "restarting";
   }
 
-  maybeSetID(uri, id) { }
+  maybeSetID(uri, id) {}
 }
 
 var ExtensionTestUtils = {
   BASE_MANIFEST,
 
-  async normalizeManifest(manifest, manifestType = "manifest.WebExtensionManifest",
-                          baseManifest = BASE_MANIFEST) {
+  async normalizeManifest(
+    manifest,
+    manifestType = "manifest.WebExtensionManifest",
+    baseManifest = BASE_MANIFEST
+  ) {
     await Management.lazyInit();
 
     let errors = [];
@@ -718,7 +935,6 @@ var ExtensionTestUtils = {
     // cached wrapper.
     Services.mm.loadFrameScript("data:text/javascript,//", true, true);
 
-
     let tmpD = this.profileDir.clone();
     tmpD.append("tmp");
     tmpD.create(Ci.nsIFile.DIRECTORY_TYPE, FileUtils.PERMS_DIRECTORY);
@@ -732,10 +948,9 @@ var ExtensionTestUtils = {
         return null;
       },
 
-      QueryInterface: ChromeUtils.generateQI([Ci.nsIDirectoryServiceProvider]),
+      QueryInterface: ChromeUtils.generateQI(["nsIDirectoryServiceProvider"]),
     };
     Services.dirsvc.registerProvider(dirProvider);
-
 
     scope.registerCleanupFunction(() => {
       try {
@@ -747,21 +962,23 @@ var ExtensionTestUtils = {
 
       this.currentScope = null;
 
-      return Promise.all(Array.from(this.fetchScopes.values(),
-                                    promise => promise.then(scope => scope.close())));
+      return Promise.all(
+        Array.from(this.fetchScopes.values(), promise =>
+          promise.then(scope => scope.close())
+        )
+      );
     });
   },
 
   addonManagerStarted: false,
 
   mockAppInfo() {
-    const {updateAppInfo} = ChromeUtils.import("resource://testing-common/AppInfo.jsm", {});
-    updateAppInfo({
-      ID: "xpcshell@tests.mozilla.org",
-      name: "XPCShell",
-      version: "48",
-      platformVersion: "48",
-    });
+    AddonTestUtils.createAppInfo(
+      "xpcshell@tests.mozilla.org",
+      "XPCShell",
+      "48",
+      "48"
+    );
   },
 
   startAddonManager() {
@@ -771,31 +988,44 @@ var ExtensionTestUtils = {
     this.addonManagerStarted = true;
     this.mockAppInfo();
 
-    let manager = Cc["@mozilla.org/addons/integration;1"].getService(Ci.nsIObserver)
-                                                         .QueryInterface(Ci.nsITimerCallback);
-    manager.observe(null, "addons-startup", null);
+    return AddonTestUtils.promiseStartupManager();
   },
 
   loadExtension(data) {
     if (data.useAddonManager) {
-      let xpiFile = Extension.generateXPI(data);
+      // If we're using incognitoOverride, we'll need to ensure
+      // an ID is available before generating the XPI.
+      if (data.incognitoOverride) {
+        ExtensionTestCommon.setExtensionID(data);
+      }
+      let xpiFile = ExtensionTestCommon.generateXPI(data);
 
-      return this.loadExtensionXPI(xpiFile, data.useAddonManager, data.amInstallTelemetryInfo);
+      return this.loadExtensionXPI(xpiFile, data);
     }
 
-    let extension = Extension.generate(data);
+    let extension = ExtensionTestCommon.generate(data);
 
     return new ExtensionWrapper(this.currentScope, extension);
   },
 
-  loadExtensionXPI(xpiFile, useAddonManager = "temporary", installTelemetryInfo) {
-    return new InstallableWrapper(this.currentScope, xpiFile, useAddonManager, installTelemetryInfo);
+  loadExtensionXPI(xpiFile, data) {
+    return new InstallableWrapper(this.currentScope, xpiFile, data);
   },
 
   // Create a wrapper for a webextension that will be installed
   // by some external process (e.g., Normandy)
   expectExtension(id) {
     return new ExternallyInstalledWrapper(this.currentScope, id);
+  },
+
+  failOnSchemaWarnings(warningsAsErrors = true) {
+    let prefName = "extensions.webextensions.warnings-as-errors";
+    Services.prefs.setBoolPref(prefName, warningsAsErrors);
+    if (!warningsAsErrors) {
+      this.currentScope.registerCleanupFunction(() => {
+        Services.prefs.setBoolPref(prefName, true);
+      });
+    }
   },
 
   get remoteContentScripts() {
@@ -814,7 +1044,7 @@ var ExtensionTestUtils = {
     }
 
     let fetchScope = await fetchScopePromise;
-    return fetchScope.sendMessage("Test:Fetch", {url, options});
+    return fetchScope.sendMessage("Test:Fetch", { url, options });
   },
 
   /**
@@ -829,16 +1059,35 @@ var ExtensionTestUtils = {
    * @param {boolean} [options.remote]
    *        If true, load the URL in a content process. If false, load
    *        it in the parent process.
+   * @param {boolean} [options.remoteSubframes]
+   *        If true, load cross-origin frames in separate content processes.
+   *        This is ignored if |options.remote| is false.
    * @param {string} [options.redirectUrl]
    *        An optional URL that the initial page is expected to
    *        redirect to.
    *
    * @returns {ContentPage}
    */
-  loadContentPage(url, {extension = undefined, remote = undefined, redirectUrl = undefined, privateBrowsing = false} = {}) {
+  loadContentPage(
+    url,
+    {
+      extension = undefined,
+      remote = undefined,
+      remoteSubframes = undefined,
+      redirectUrl = undefined,
+      privateBrowsing = false,
+      userContextId = undefined,
+    } = {}
+  ) {
     ContentTask.setTestScope(this.currentScope);
 
-    let contentPage = new ContentPage(remote, extension && extension.extension, privateBrowsing);
+    let contentPage = new ContentPage(
+      remote,
+      remoteSubframes,
+      extension && extension.extension,
+      privateBrowsing,
+      userContextId
+    );
 
     return contentPage.loadURL(url, redirectUrl).then(() => {
       return contentPage;

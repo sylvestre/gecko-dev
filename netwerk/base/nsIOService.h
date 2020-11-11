@@ -17,10 +17,13 @@
 #include "nsCategoryCache.h"
 #include "nsISpeculativeConnect.h"
 #include "nsDataHashtable.h"
+#include "nsWeakReference.h"
 #include "mozilla/Atomics.h"
 #include "mozilla/Attributes.h"
+#include "mozilla/Mutex.h"
 #include "prtime.h"
 #include "nsICaptivePortalService.h"
+#include "nsIObserverService.h"
 
 #define NS_N(x) (sizeof(x) / sizeof(*x))
 
@@ -45,16 +48,20 @@ class nsIProxyInfo;
 class nsPISocketTransportService;
 
 namespace mozilla {
+class MemoryReportingProcess;
 namespace net {
 class NeckoChild;
 class nsAsyncRedirectVerifyHelper;
+class SocketProcessHost;
+class SocketProcessMemoryReporter;
 
 class nsIOService final : public nsIIOService,
                           public nsIObserver,
                           public nsINetUtil,
                           public nsISpeculativeConnect,
                           public nsSupportsWeakReference,
-                          public nsIIOServiceInternal {
+                          public nsIIOServiceInternal,
+                          public nsIObserverService {
  public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIIOSERVICE
@@ -62,6 +69,7 @@ class nsIOService final : public nsIIOService,
   NS_DECL_NSINETUTIL
   NS_DECL_NSISPECULATIVECONNECT
   NS_DECL_NSIIOSERVICEINTERNAL
+  NS_DECL_NSIOBSERVERSERVICE
 
   // Gets the singleton instance of the IO Service, creating it as needed
   // Returns nullptr on out of memory or failure to initialize.
@@ -96,10 +104,9 @@ class nsIOService final : public nsIIOService,
 
   bool IsLinkUp();
 
-  static bool IsDataURIUniqueOpaqueOrigin();
-  static bool BlockToplevelDataUriNavigations();
-
-  static bool BlockFTPSubresources();
+  // Converts an internal URI (e.g. one that has a username and password in
+  // it) into one which we can expose to the user, for example on the URL bar.
+  static already_AddRefed<nsIURI> CreateExposableURI(nsIURI*);
 
   // Used to count the total number of HTTP requests made
   void IncrementRequestNumber() { mTotalRequests++; }
@@ -112,6 +119,30 @@ class nsIOService final : public nsIIOService,
 
   // Used to trigger a recheck of the captive portal status
   nsresult RecheckCaptivePortal();
+
+  void OnProcessLaunchComplete(SocketProcessHost* aHost, bool aSucceeded);
+  void OnProcessUnexpectedShutdown(SocketProcessHost* aHost);
+  bool SocketProcessReady();
+  static void NotifySocketProcessPrefsChanged(const char* aName, void* aSelf);
+  void NotifySocketProcessPrefsChanged(const char* aName);
+  static bool UseSocketProcess(bool aCheckAgain = false);
+
+  bool IsSocketProcessLaunchComplete();
+
+  // Call func immediately if socket process is launched completely. Otherwise,
+  // |func| will be queued and then executed in the *main thread* once socket
+  // process is launced.
+  void CallOrWaitForSocketProcess(const std::function<void()>& aFunc);
+
+  int32_t SocketProcessPid();
+  SocketProcessHost* SocketProcess() { return mSocketProcess; }
+
+  friend SocketProcessMemoryReporter;
+  RefPtr<MemoryReportingProcess> GetSocketProcessMemoryReporter();
+
+  static void OnTLSPrefChange(const char* aPref, void* aSelf);
+
+  nsresult LaunchSocketProcess();
 
  private:
   // These shouldn't be called directly:
@@ -132,6 +163,7 @@ class nsIOService final : public nsIIOService,
   nsresult RecheckCaptivePortalIfLocalRedirect(nsIChannel* newChan);
 
   // Prefs wrangling
+  static void PrefsChanged(const char* pref, void* self);
   void PrefsChanged(const char* pref = nullptr);
   void ParsePortList(const char* pref, bool remove);
 
@@ -150,7 +182,7 @@ class nsIOService final : public nsIIOService,
       const mozilla::Maybe<mozilla::dom::ClientInfo>& aLoadingClientInfo,
       const mozilla::Maybe<mozilla::dom::ServiceWorkerDescriptor>& aController,
       uint32_t aSecurityFlags, uint32_t aContentPolicyType,
-      nsIChannel** result);
+      uint32_t aSandboxFlags, nsIChannel** result);
 
   nsresult NewChannelFromURIWithProxyFlagsInternal(nsIURI* aURI,
                                                    nsIURI* aProxyURI,
@@ -162,19 +194,20 @@ class nsIOService final : public nsIIOService,
                                       nsIInterfaceRequestor* aCallbacks,
                                       bool aAnonymous);
 
+  void DestroySocketProcess();
+
  private:
-  bool mOffline;
+  mozilla::Atomic<bool, mozilla::Relaxed> mOffline;
   mozilla::Atomic<bool, mozilla::Relaxed> mOfflineForProfileChange;
   bool mManageLinkStatus;
-  bool mConnectivity;
-  // If true, the connectivity state will be mirrored by IOService.offline
-  // meaning if !mConnectivity, GetOffline() will return true
-  bool mOfflineMirrorsConnectivity;
+  mozilla::Atomic<bool, mozilla::Relaxed> mConnectivity;
 
   // Used to handle SetOffline() reentrancy.  See the comment in
   // SetOffline() for more details.
   bool mSettingOffline;
   bool mSetOfflineValue;
+
+  bool mSocketProcessLaunchComplete;
 
   mozilla::Atomic<bool, mozilla::Relaxed> mShutdown;
   mozilla::Atomic<bool, mozilla::Relaxed> mHttpHandlerAlreadyShutingDown;
@@ -190,14 +223,8 @@ class nsIOService final : public nsIIOService,
   // cached categories
   nsCategoryCache<nsIChannelEventSink> mChannelEventSinks;
 
+  Mutex mMutex;
   nsTArray<int32_t> mRestrictedPortList;
-
-  bool mNetworkNotifyChanged;
-
-  static bool sIsDataURIUniqueOpaqueOrigin;
-  static bool sBlockToplevelDataUriNavigations;
-
-  static bool sBlockFTPSubresources;
 
   uint32_t mTotalRequests;
   uint32_t mCacheWon;
@@ -213,6 +240,21 @@ class nsIOService final : public nsIIOService,
 
   // Time a network tearing down started.
   mozilla::Atomic<PRIntervalTime> mNetTearingDownStarted;
+
+  SocketProcessHost* mSocketProcess;
+
+  // Events should be executed after the socket process is launched. Will
+  // dispatch these events while socket process fires OnProcessLaunchComplete.
+  // Note: this array is accessed only on the main thread.
+  nsTArray<std::function<void()>> mPendingEvents;
+
+  // The observer notifications need to be forwarded to socket process.
+  nsTHashtable<nsCStringHashKey> mObserverTopicForSocketProcess;
+  // Some noticications (e.g., NS_XPCOM_SHUTDOWN_OBSERVER_ID) are triggered in
+  // socket process, so we should not send the notifications again.
+  nsTHashtable<nsCStringHashKey> mSocketProcessTopicBlackList;
+
+  nsCOMPtr<nsIObserverService> mObserverService;
 
  public:
   // Used for all default buffer sizes that necko allocates.

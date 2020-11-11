@@ -4,34 +4,33 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef mozilla_dom_SVGViewElement_h
-#define mozilla_dom_SVGViewElement_h
+#ifndef DOM_SVG_SVGVIEWELEMENT_H_
+#define DOM_SVG_SVGVIEWELEMENT_H_
 
-#include "nsSVGElement.h"
-#include "nsSVGEnum.h"
-#include "nsSVGViewBox.h"
+#include "SVGAnimatedEnumeration.h"
 #include "SVGAnimatedPreserveAspectRatio.h"
+#include "SVGAnimatedViewBox.h"
 #include "SVGStringList.h"
-
-typedef nsSVGElement SVGViewElementBase;
-
-class nsSVGOuterSVGFrame;
+#include "mozilla/dom/SVGElement.h"
 
 nsresult NS_NewSVGViewElement(
     nsIContent** aResult, already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo);
 
 namespace mozilla {
 class SVGFragmentIdentifier;
+class SVGOuterSVGFrame;
 
 namespace dom {
 class SVGViewportElement;
 
+using SVGViewElementBase = SVGElement;
+
 class SVGViewElement : public SVGViewElementBase {
  protected:
   friend class mozilla::SVGFragmentIdentifier;
+  friend class mozilla::SVGOuterSVGFrame;
   friend class SVGSVGElement;
   friend class SVGViewportElement;
-  friend class ::nsSVGOuterSVGFrame;
   explicit SVGViewElement(already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo);
   friend nsresult(::NS_NewSVGViewElement(
       nsIContent** aResult,
@@ -49,23 +48,24 @@ class SVGViewElement : public SVGViewElementBase {
   already_AddRefed<DOMSVGAnimatedPreserveAspectRatio> PreserveAspectRatio();
 
  private:
-  // nsSVGElement overrides
+  // SVGElement overrides
 
   virtual EnumAttributesInfo GetEnumInfo() override;
 
   enum { ZOOMANDPAN };
-  nsSVGEnum mEnumAttributes[1];
-  static nsSVGEnumMapping sZoomAndPanMap[];
+  SVGAnimatedEnumeration mEnumAttributes[1];
+  static SVGEnumMapping sZoomAndPanMap[];
   static EnumInfo sEnumInfo[1];
 
-  virtual nsSVGViewBox* GetViewBox() override;
-  virtual SVGAnimatedPreserveAspectRatio* GetPreserveAspectRatio() override;
+  virtual SVGAnimatedViewBox* GetAnimatedViewBox() override;
+  virtual SVGAnimatedPreserveAspectRatio* GetAnimatedPreserveAspectRatio()
+      override;
 
-  nsSVGViewBox mViewBox;
+  SVGAnimatedViewBox mViewBox;
   SVGAnimatedPreserveAspectRatio mPreserveAspectRatio;
 };
 
 }  // namespace dom
 }  // namespace mozilla
 
-#endif  // mozilla_dom_SVGViewElement_h
+#endif  // DOM_SVG_SVGVIEWELEMENT_H_

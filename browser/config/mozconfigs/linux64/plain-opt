@@ -1,16 +1,13 @@
 export TOOLTOOL_DIR="$topsrcdir"
-export LLVM_CONFIG="${TOOLTOOL_DIR}/clang/bin/llvm-config"
 
-CARGO="${TOOLTOOL_DIR}/rustc/bin/cargo"
-RUSTC="${TOOLTOOL_DIR}/rustc/bin/rustc"
-RUSTDOC="${TOOLTOOL_DIR}/rustc/bin/rustdoc"
-RUSTFMT="${TOOLTOOL_DIR}/rustc/bin/rustfmt"
-CBINDGEN="${TOOLTOOL_DIR}/cbindgen/cbindgen"
+CARGO="${MOZ_FETCHES_DIR}/rustc/bin/cargo"
+RUSTC="${MOZ_FETCHES_DIR}/rustc/bin/rustc"
+RUSTDOC="${MOZ_FETCHES_DIR}/rustc/bin/rustdoc"
+RUSTFMT="${MOZ_FETCHES_DIR}/rustc/bin/rustfmt"
+CBINDGEN="${MOZ_FETCHES_DIR}/cbindgen/cbindgen"
 
-export NODEJS="${TOOLTOOL_DIR}/node/bin/node"
+export NODEJS="${MOZ_FETCHES_DIR}/node/bin/node"
+NASM="${MOZ_FETCHES_DIR}/nasm/nasm"
 
-CC="${TOOLTOOL_DIR}/clang/bin/clang"
-CXX="${TOOLTOOL_DIR}/clang/bin/clang++"
-
-mk_add_options "export PATH=${TOOLTOOL_DIR}/gcc/bin:${PATH}"
-mk_add_options "export LD_LIBRARY_PATH=${TOOLTOOL_DIR}/gcc/lib64:${TOOLTOOL_DIR}/gcc/lib32:${TOOLTOOL_DIR}/gcc/lib"
+CC="${MOZ_FETCHES_DIR}/clang/bin/clang"
+CXX="${MOZ_FETCHES_DIR}/clang/bin/clang++"

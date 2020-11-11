@@ -1,12 +1,14 @@
 // This file defines the `Triple` type and support code shared by all targets.
 
-use parse_error::ParseError;
-use std::borrow::ToOwned;
-use std::fmt;
-use std::str::FromStr;
-use targets::{
-    default_binary_format, Architecture, BinaryFormat, Environment, OperatingSystem, Vendor,
+use crate::data_model::CDataModel;
+use crate::parse_error::ParseError;
+use crate::targets::{
+    default_binary_format, Architecture, ArmArchitecture, BinaryFormat, Environment,
+    OperatingSystem, Vendor,
 };
+use alloc::borrow::ToOwned;
+use core::fmt;
+use core::str::FromStr;
 
 /// The target memory endianness.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
@@ -29,9 +31,9 @@ impl PointerWidth {
     /// Return the number of bits in a pointer.
     pub fn bits(self) -> u8 {
         match self {
-            PointerWidth::U16 => 16,
-            PointerWidth::U32 => 32,
-            PointerWidth::U64 => 64,
+            Self::U16 => 16,
+            Self::U32 => 32,
+            Self::U64 => 64,
         }
     }
 
@@ -40,9 +42,9 @@ impl PointerWidth {
     /// For these purposes, there are 8 bits in a byte.
     pub fn bytes(self) -> u8 {
         match self {
-            PointerWidth::U16 => 2,
-            PointerWidth::U32 => 4,
-            PointerWidth::U64 => 8,
+            Self::U16 => 2,
+            Self::U32 => 4,
+            Self::U64 => 8,
         }
     }
 }
@@ -50,14 +52,30 @@ impl PointerWidth {
 /// The calling convention, which specifies things like which registers are
 /// used for passing arguments, which registers are callee-saved, and so on.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-#[allow(missing_docs)]
 pub enum CallingConvention {
+    /// "System V", which is used on most Unix-like platfoms. Note that the
+    /// specific conventions vary between hardware architectures; for example,
+    /// x86-32's "System V" is entirely different from x86-64's "System V".
     SystemV,
+
+    /// The WebAssembly C ABI.
+    /// https://github.com/WebAssembly/tool-conventions/blob/master/BasicCABI.md
+    WasmBasicCAbi,
+
+    /// "Windows Fastcall", which is used on Windows. Note that like "System V",
+    /// this varies between hardware architectures. On x86-32 it describes what
+    /// Windows documentation calls "fastcall", and on x86-64 it describes what
+    /// Windows documentation often just calls the Windows x64 calling convention
+    /// (though the compiler still recognizes "fastcall" as an alias for it).
     WindowsFastcall,
 }
 
-/// A target "triple", because historically such things had three fields, though
-/// they've grown more features over time.
+/// A target "triple". Historically such things had three fields, though they've
+/// added additional fields over time.
+///
+/// Note that `Triple` doesn't implement `Default` itself. If you want a type
+/// which defaults to the host triple, or defaults to unknown-unknown-unknown,
+/// use `DefaultToHost` or `DefaultToUnknown`, respectively.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Triple {
     /// The "architecture" (and sometimes the subarchitecture).
@@ -66,7 +84,8 @@ pub struct Triple {
     pub vendor: Vendor,
     /// The "operating system" (sometimes also the environment).
     pub operating_system: OperatingSystem,
-    /// The "environment" on top of the operating system.
+    /// The "environment" on top of the operating system (often omitted for
+    /// operating systems with a single predominant environment).
     pub environment: Environment,
     /// The "binary format" (rarely used).
     pub binary_format: BinaryFormat,
@@ -93,22 +112,61 @@ impl Triple {
             | OperatingSystem::Freebsd
             | OperatingSystem::Fuchsia
             | OperatingSystem::Haiku
+            | OperatingSystem::Hermit
             | OperatingSystem::Ios
             | OperatingSystem::L4re
             | OperatingSystem::Linux
-            | OperatingSystem::Nebulet
+            | OperatingSystem::MacOSX { .. }
             | OperatingSystem::Netbsd
             | OperatingSystem::Openbsd
             | OperatingSystem::Redox
             | OperatingSystem::Solaris => CallingConvention::SystemV,
             OperatingSystem::Windows => CallingConvention::WindowsFastcall,
+            OperatingSystem::Nebulet
+            | OperatingSystem::Emscripten
+            | OperatingSystem::Wasi
+            | OperatingSystem::Unknown => match self.architecture {
+                Architecture::Wasm32 => CallingConvention::WasmBasicCAbi,
+                _ => return Err(()),
+            },
             _ => return Err(()),
         })
     }
-}
 
-impl Default for Triple {
-    fn default() -> Self {
+    /// The C data model for a given target. If the model is not known, returns `Err(())`.
+    pub fn data_model(&self) -> Result<CDataModel, ()> {
+        match self.pointer_width()? {
+            PointerWidth::U64 => {
+                if self.operating_system == OperatingSystem::Windows {
+                    Ok(CDataModel::LLP64)
+                } else if self.default_calling_convention() == Ok(CallingConvention::SystemV)
+                    || self.architecture == Architecture::Wasm64
+                {
+                    Ok(CDataModel::LP64)
+                } else {
+                    Err(())
+                }
+            }
+            PointerWidth::U32 => {
+                if self.operating_system == OperatingSystem::Windows
+                    || self.default_calling_convention() == Ok(CallingConvention::SystemV)
+                    || self.architecture == Architecture::Wasm32
+                {
+                    Ok(CDataModel::ILP32)
+                } else {
+                    Err(())
+                }
+            }
+            // TODO: on 16-bit machines there is usually a distinction
+            // between near-pointers and far-pointers.
+            // Additionally, code pointers sometimes have a different size than data pointers.
+            // We don't handle this case.
+            PointerWidth::U16 => Err(()),
+        }
+    }
+
+    /// Return a `Triple` with all unknown fields.
+    pub fn unknown() -> Self {
         Self {
             architecture: Architecture::Unknown,
             vendor: Vendor::Unknown,
@@ -119,53 +177,34 @@ impl Default for Triple {
     }
 }
 
-impl Default for Architecture {
-    fn default() -> Self {
-        Architecture::Unknown
-    }
-}
-
-impl Default for Vendor {
-    fn default() -> Self {
-        Vendor::Unknown
-    }
-}
-
-impl Default for OperatingSystem {
-    fn default() -> Self {
-        OperatingSystem::Unknown
-    }
-}
-
-impl Default for Environment {
-    fn default() -> Self {
-        Environment::Unknown
-    }
-}
-
-impl Default for BinaryFormat {
-    fn default() -> Self {
-        BinaryFormat::Unknown
-    }
-}
-
 impl fmt::Display for Triple {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let implied_binary_format = default_binary_format(&self);
 
         write!(f, "{}", self.architecture)?;
         if self.vendor == Vendor::Unknown
-            && self.operating_system == OperatingSystem::Unknown
-            && (self.environment != Environment::Unknown
-                || self.binary_format != implied_binary_format)
+            && ((self.operating_system == OperatingSystem::Linux
+                && (self.environment == Environment::Android
+                    || self.environment == Environment::Androideabi
+                    || self.environment == Environment::Kernel))
+                || self.operating_system == OperatingSystem::Fuchsia
+                || self.operating_system == OperatingSystem::Wasi
+                || (self.operating_system == OperatingSystem::None_
+                    && (self.architecture == Architecture::Arm(ArmArchitecture::Armebv7r)
+                        || self.architecture == Architecture::Arm(ArmArchitecture::Armv7a)
+                        || self.architecture == Architecture::Arm(ArmArchitecture::Armv7r)
+                        || self.architecture == Architecture::Arm(ArmArchitecture::Thumbv6m)
+                        || self.architecture == Architecture::Arm(ArmArchitecture::Thumbv7em)
+                        || self.architecture == Architecture::Arm(ArmArchitecture::Thumbv7m)
+                        || self.architecture == Architecture::Arm(ArmArchitecture::Thumbv8mBase)
+                        || self.architecture == Architecture::Arm(ArmArchitecture::Thumbv8mMain)
+                        || self.architecture == Architecture::Msp430
+                        || self.architecture == Architecture::X86_64)))
         {
-            // "none" is special-case shorthand for unknown vendor and unknown operating system.
-            f.write_str("-none")?;
-        } else if self.operating_system == OperatingSystem::Linux
-            && (self.environment == Environment::Android
-                || self.environment == Environment::Androideabi)
-        {
-            // As a special case, omit the vendor for Android targets.
+            // As a special case, omit the vendor for Android, Fuchsia, Wasi, and sometimes
+            // None_, depending on the hardware architecture. This logic is entirely
+            // ad-hoc, and is just sufficient to handle the current set of recognized
+            // triples.
             write!(f, "-{}", self.operating_system)?;
         } else {
             write!(f, "-{}-{}", self.vendor, self.operating_system)?;
@@ -186,7 +225,7 @@ impl FromStr for Triple {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut parts = s.split('-');
-        let mut result = Self::default();
+        let mut result = Self::unknown();
         let mut current_part;
 
         current_part = parts.next();
@@ -203,16 +242,7 @@ impl FromStr for Triple {
         let mut has_vendor = false;
         let mut has_operating_system = false;
         if let Some(s) = current_part {
-            // "none" is special-case shorthand for unknown vendor and unknown operating system.
-            if s == "none" {
-                has_operating_system = true;
-                has_vendor = true;
-                current_part = parts.next();
-                // "none" requires an explicit environment or binary format.
-                if current_part.is_none() {
-                    return Err(ParseError::NoneWithoutBinaryFormat);
-                }
-            } else if let Ok(vendor) = Vendor::from_str(s) {
+            if let Ok(vendor) = Vendor::from_str(s) {
                 has_vendor = true;
                 result.vendor = vendor;
                 current_part = parts.next();
@@ -254,24 +284,26 @@ impl FromStr for Triple {
         }
 
         if let Some(s) = current_part {
-            Err(if !has_vendor {
-                ParseError::UnrecognizedVendor(s.to_owned())
-            } else if !has_operating_system {
-                ParseError::UnrecognizedOperatingSystem(s.to_owned())
-            } else if !has_environment {
-                ParseError::UnrecognizedEnvironment(s.to_owned())
-            } else if !has_binary_format {
-                ParseError::UnrecognizedBinaryFormat(s.to_owned())
-            } else {
-                ParseError::UnrecognizedField(s.to_owned())
-            })
+            Err(
+                if !has_vendor && !has_operating_system && !has_environment && !has_binary_format {
+                    ParseError::UnrecognizedVendor(s.to_owned())
+                } else if !has_operating_system && !has_environment && !has_binary_format {
+                    ParseError::UnrecognizedOperatingSystem(s.to_owned())
+                } else if !has_environment && !has_binary_format {
+                    ParseError::UnrecognizedEnvironment(s.to_owned())
+                } else if !has_binary_format {
+                    ParseError::UnrecognizedBinaryFormat(s.to_owned())
+                } else {
+                    ParseError::UnrecognizedField(s.to_owned())
+                },
+            )
         } else {
             Ok(result)
         }
     }
 }
 
-/// A convenient syntax for triple "literals".
+/// A convenient syntax for triple literals.
 ///
 /// This currently expands to code that just calls `Triple::from_str` and does
 /// an `expect`, though in the future it would be cool to use procedural macros
@@ -298,10 +330,6 @@ mod tests {
             Err(ParseError::UnrecognizedArchitecture("foo".to_owned()))
         );
         assert_eq!(
-            Triple::from_str("unknown-foo"),
-            Err(ParseError::UnrecognizedVendor("foo".to_owned()))
-        );
-        assert_eq!(
             Triple::from_str("unknown-unknown-foo"),
             Err(ParseError::UnrecognizedOperatingSystem("foo".to_owned()))
         );
@@ -323,22 +351,22 @@ mod tests {
     fn defaults() {
         assert_eq!(
             Triple::from_str("unknown-unknown-unknown"),
-            Ok(Triple::default())
+            Ok(Triple::unknown())
         );
         assert_eq!(
             Triple::from_str("unknown-unknown-unknown-unknown"),
-            Ok(Triple::default())
+            Ok(Triple::unknown())
         );
         assert_eq!(
             Triple::from_str("unknown-unknown-unknown-unknown-unknown"),
-            Ok(Triple::default())
+            Ok(Triple::unknown())
         );
     }
 
     #[test]
     fn unknown_properties() {
-        assert_eq!(Triple::default().endianness(), Err(()));
-        assert_eq!(Triple::default().pointer_width(), Err(()));
-        assert_eq!(Triple::default().default_calling_convention(), Err(()));
+        assert_eq!(Triple::unknown().endianness(), Err(()));
+        assert_eq!(Triple::unknown().pointer_width(), Err(()));
+        assert_eq!(Triple::unknown().default_calling_convention(), Err(()));
     }
 }

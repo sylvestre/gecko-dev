@@ -21,27 +21,25 @@ class ProfileUnlockerWin final : public nsIProfileUnlocker {
   NS_DECL_ISUPPORTS
   NS_DECL_NSIPROFILEUNLOCKER
 
-  explicit ProfileUnlockerWin(const nsAString &aFileName);
+  explicit ProfileUnlockerWin(const nsAString& aFileName);
 
   nsresult Init();
 
-  DWORD StartSession(DWORD &aHandle);
+  DWORD StartSession(DWORD& aHandle);
   void EndSession(DWORD aHandle);
 
  private:
   ~ProfileUnlockerWin();
-  nsresult TryToTerminate(RM_UNIQUE_PROCESS &aProcess);
+  nsresult TryToTerminate(RM_UNIQUE_PROCESS& aProcess);
 
  private:
-  typedef DWORD(WINAPI *RMSTARTSESSION)(DWORD *, DWORD, WCHAR[]);
-  typedef DWORD(WINAPI *RMREGISTERRESOURCES)(DWORD, UINT, LPCWSTR[], UINT,
+  typedef DWORD(WINAPI* RMSTARTSESSION)(DWORD*, DWORD, WCHAR[]);
+  typedef DWORD(WINAPI* RMREGISTERRESOURCES)(DWORD, UINT, LPCWSTR[], UINT,
                                              RM_UNIQUE_PROCESS[], UINT,
                                              LPCWSTR[]);
-  typedef DWORD(WINAPI *RMGETLIST)(DWORD, UINT *, UINT *, RM_PROCESS_INFO[],
+  typedef DWORD(WINAPI* RMGETLIST)(DWORD, UINT*, UINT*, RM_PROCESS_INFO[],
                                    LPDWORD);
-  typedef DWORD(WINAPI *RMENDSESSION)(DWORD);
-  typedef BOOL(WINAPI *QUERYFULLPROCESSIMAGENAME)(HANDLE, DWORD, LPWSTR,
-                                                  PDWORD);
+  typedef DWORD(WINAPI* RMENDSESSION)(DWORD);
 
  private:
   nsModuleHandle mRestartMgrModule;
@@ -49,7 +47,6 @@ class ProfileUnlockerWin final : public nsIProfileUnlocker {
   RMREGISTERRESOURCES mRmRegisterResources;
   RMGETLIST mRmGetList;
   RMENDSESSION mRmEndSession;
-  QUERYFULLPROCESSIMAGENAME mQueryFullProcessImageName;
 
   nsString mFileName;
 };

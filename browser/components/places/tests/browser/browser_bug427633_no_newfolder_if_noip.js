@@ -20,6 +20,7 @@ add_task(async function() {
     await PlacesUtils.bookmarks.eraseEverything();
   });
 
+  StarUI._createPanelIfNeeded();
   let bookmarkPanel = document.getElementById("editBookmarkPanel");
   bookmarkPanel.setAttribute("animate", false);
 
@@ -38,7 +39,8 @@ add_task(async function() {
   let tree = gEditItemOverlay._element("folderTree");
 
   tree.view.selection.clearSelection();
-  ok(document.getElementById("editBMPanel_newFolderButton").disabled,
-     "New folder button is disabled if there's no selection");
-
+  ok(
+    document.getElementById("editBMPanel_newFolderButton").disabled,
+    "New folder button is disabled if there's no selection"
+  );
 });

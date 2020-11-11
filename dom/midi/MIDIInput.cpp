@@ -11,8 +11,7 @@
 #include "mozilla/dom/MIDIMessageEventBinding.h"
 #include "nsDOMNavigationTiming.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 MIDIInput::MIDIInput(nsPIDOMWindowInner* aWindow, MIDIAccess* aMIDIAccessParent)
     : MIDIPort(aWindow, aMIDIAccessParent) {}
@@ -37,7 +36,7 @@ JSObject* MIDIInput::WrapObject(JSContext* aCx,
 }
 
 void MIDIInput::Receive(const nsTArray<MIDIMessage>& aMsgs) {
-  nsCOMPtr<nsIDocument> doc = GetOwner() ? GetOwner()->GetDoc() : nullptr;
+  nsCOMPtr<Document> doc = GetOwner() ? GetOwner()->GetDoc() : nullptr;
   if (!doc) {
     NS_WARNING("No document available to send MIDIMessageEvent to!");
     return;
@@ -60,5 +59,4 @@ void MIDIInput::SetOnmidimessage(EventHandlerNonNull* aCallback) {
   }
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

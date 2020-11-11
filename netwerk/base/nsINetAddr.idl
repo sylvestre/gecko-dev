@@ -1,4 +1,4 @@
-/* vim: et ts=4 sw=4 tw=80 
+/* vim: et ts=4 sw=4 tw=80
  */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -33,7 +33,7 @@ interface nsINetAddr : nsISupports
     /**
      * @return Either the IP address (FAMILY_INET, FAMILY_INET6) or the path
      * (FAMILY_LOCAL) in string form. IP addresses are in the format produced by
-     * mozilla::net::NetAddrToString.
+     * mozilla::net::NetAddr::ToStringBuffer.
      *
      * Note: Paths for FAMILY_LOCAL may have length limitations which are
      * implementation dependent and not documented as part of this interface.
@@ -49,8 +49,8 @@ interface nsINetAddr : nsISupports
     readonly attribute unsigned short port;
 
     /**
-     * @return the flow label for a FAMILY_INET6 address. 
-     * 
+     * @return the flow label for a FAMILY_INET6 address.
+     *
      * @see http://www.ietf.org/rfc/rfc3697.txt
      *
      * @throws NS_ERROR_NOT_AVAILABLE if the address family is not FAMILY_INET6
@@ -58,7 +58,7 @@ interface nsINetAddr : nsISupports
     readonly attribute unsigned long flow;
 
     /**
-     * @return the address scope of a FAMILY_INET6 address.  
+     * @return the address scope of a FAMILY_INET6 address.
      *
      * @see http://tools.ietf.org/html/rfc4007
      *

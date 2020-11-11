@@ -10,6 +10,7 @@
 #include "nsIStreamListener.h"
 #include "nsString.h"
 #include "mozilla/css/SheetLoadData.h"
+#include "mozilla/Assertions.h"
 
 class nsIInputStream;
 
@@ -22,7 +23,13 @@ class StreamLoader : public nsIStreamListener {
   NS_DECL_NSIREQUESTOBSERVER
   NS_DECL_NSISTREAMLISTENER
 
-  explicit StreamLoader(mozilla::css::SheetLoadData* aSheetLoadData);
+  explicit StreamLoader(SheetLoadData&);
+
+  void ChannelOpenFailed(nsresult rv) {
+#ifdef NIGHTLY_BUILD
+    mChannelOpenFailed = true;
+#endif
+  }
 
  private:
   virtual ~StreamLoader();
@@ -35,7 +42,7 @@ class StreamLoader : public nsIStreamListener {
 
   void HandleBOM();
 
-  RefPtr<mozilla::css::SheetLoadData> mSheetLoadData;
+  RefPtr<SheetLoadData> mSheetLoadData;
   nsresult mStatus;
   Maybe<const Encoding*> mEncodingFromBOM;
 
@@ -44,6 +51,11 @@ class StreamLoader : public nsIStreamListener {
   // mBytes, and store all subsequent data in that buffer.
   nsCString mBytes;
   nsAutoCStringN<3> mBOMBytes;
+
+#ifdef NIGHTLY_BUILD
+  bool mChannelOpenFailed = false;
+  bool mOnStopRequestCalled = false;
+#endif
 };
 
 }  // namespace css

@@ -9,15 +9,13 @@
 #include "nsIInputStream.h"
 #include "nsThreadUtils.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 MutableBlobStreamListener::MutableBlobStreamListener(
     MutableBlobStorage::MutableBlobStorageType aStorageType,
-    nsISupports* aParent, const nsACString& aContentType,
-    MutableBlobStorageCallback* aCallback, nsIEventTarget* aEventTarget)
+    const nsACString& aContentType, MutableBlobStorageCallback* aCallback,
+    nsIEventTarget* aEventTarget)
     : mCallback(aCallback),
-      mParent(aParent),
       mStorageType(aStorageType),
       mContentType(aContentType),
       mEventTarget(aEventTarget) {
@@ -39,8 +37,7 @@ NS_IMPL_ISUPPORTS(MutableBlobStreamListener, nsIStreamListener,
                   nsIThreadRetargetableStreamListener, nsIRequestObserver)
 
 NS_IMETHODIMP
-MutableBlobStreamListener::OnStartRequest(nsIRequest* aRequest,
-                                          nsISupports* aContext) {
+MutableBlobStreamListener::OnStartRequest(nsIRequest* aRequest) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(!mStorage);
   MOZ_ASSERT(mEventTarget);
@@ -51,7 +48,6 @@ MutableBlobStreamListener::OnStartRequest(nsIRequest* aRequest,
 
 NS_IMETHODIMP
 MutableBlobStreamListener::OnStopRequest(nsIRequest* aRequest,
-                                         nsISupports* aContext,
                                          nsresult aStatus) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(mStorage);
@@ -66,13 +62,12 @@ MutableBlobStreamListener::OnStopRequest(nsIRequest* aRequest,
     return NS_OK;
   }
 
-  storage->GetBlobWhenReady(mParent, mContentType, mCallback);
+  storage->GetBlobImplWhenReady(mContentType, mCallback);
   return NS_OK;
 }
 
 NS_IMETHODIMP
 MutableBlobStreamListener::OnDataAvailable(nsIRequest* aRequest,
-                                           nsISupports* aContext,
                                            nsIInputStream* aStream,
                                            uint64_t aSourceOffset,
                                            uint32_t aCount) {
@@ -104,5 +99,4 @@ nsresult MutableBlobStreamListener::WriteSegmentFun(
 NS_IMETHODIMP
 MutableBlobStreamListener::CheckListenerChain() { return NS_OK; }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

@@ -13,7 +13,7 @@
 namespace mozilla {
 namespace net {
 
-// Like an nsAutoPtr for XPCOM streams (e.g. nsIAsyncInputStream) and other
+// A container for XPCOM streams (e.g. nsIAsyncInputStream) and other
 // refcounted classes that need to have the Close() method called explicitly
 // before they are destroyed.
 template <typename T>
@@ -32,12 +32,12 @@ class AutoClose {
     return mPtr.forget();
   }
 
-  void takeOver(nsCOMPtr<T> &rhs) { TakeOverInternal(rhs.forget()); }
+  void takeOver(nsCOMPtr<T>& rhs) { TakeOverInternal(rhs.forget()); }
 
   void CloseAndRelease() { TakeOverInternal(nullptr); }
 
  private:
-  void TakeOverInternal(already_AddRefed<T> &&aOther) {
+  void TakeOverInternal(already_AddRefed<T>&& aOther) {
     nsCOMPtr<T> ptr(std::move(aOther));
     {
       MutexAutoLock lock(mMutex);
@@ -49,8 +49,8 @@ class AutoClose {
     }
   }
 
-  void operator=(const AutoClose<T> &) = delete;
-  AutoClose(const AutoClose<T> &) = delete;
+  void operator=(const AutoClose<T>&) = delete;
+  AutoClose(const AutoClose<T>&) = delete;
 
   nsCOMPtr<T> mPtr;
   Mutex mMutex;

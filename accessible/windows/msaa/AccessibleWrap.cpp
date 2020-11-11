@@ -27,15 +27,15 @@
 #include "States.h"
 
 #ifdef A11Y_LOG
-#include "Logging.h"
+#  include "Logging.h"
 #endif
 
-#include "nsIMutableArray.h"
 #include "nsIFrame.h"
 #include "nsIScrollableFrame.h"
+#include "mozilla/PresShell.h"
 #include "mozilla/dom/NodeInfo.h"
-#include "mozilla/dom/TabParent.h"
-#include "nsIServiceManager.h"
+#include "mozilla/dom/BrowserBridgeParent.h"
+#include "mozilla/dom/BrowserParent.h"
 #include "nsNameSpaceManager.h"
 #include "nsTextFormatter.h"
 #include "nsView.h"
@@ -44,7 +44,6 @@
 #include "nsArrayUtils.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/ReverseIterator.h"
-#include "nsIXULRuntime.h"
 #include "mozilla/mscom/AsyncInvoker.h"
 #include "mozilla/mscom/Interceptor.h"
 
@@ -92,10 +91,10 @@ NS_IMPL_ISUPPORTS_INHERITED0(AccessibleWrap, Accessible)
 void AccessibleWrap::Shutdown() {
   if (mID != kNoID) {
     auto doc = static_cast<DocAccessibleWrap*>(mDoc.get());
-    MOZ_ASSERT(doc);
+    // Accessibles can be shut down twice in some cases. When this happens,
+    // doc will be null.
     if (doc) {
       doc->RemoveID(mID);
-      mID = kNoID;
     }
   }
 
@@ -115,6 +114,10 @@ void AccessibleWrap::Shutdown() {
     // bug 1440267 is fixed.
     unk = static_cast<IAccessibleHyperlink*>(this);
     mscom::Interceptor::DisconnectRemotesForTarget(unk);
+    for (auto& assocUnk : mAssociatedCOMObjectsForDisconnection) {
+      mscom::Interceptor::DisconnectRemotesForTarget(assocUnk);
+    }
+    mAssociatedCOMObjectsForDisconnection.Clear();
   }
 
   Accessible::Shutdown();
@@ -199,22 +202,6 @@ AccessibleWrap::get_accParent(IDispatch __RPC_FAR* __RPC_FAR* ppdispParent) {
   *ppdispParent = nullptr;
 
   if (IsDefunct()) return CO_E_OBJNOTCONNECTED;
-
-  DocAccessible* doc = AsDoc();
-  if (doc) {
-    // Return window system accessible object for root document and tab document
-    // accessibles.
-    if (!doc->ParentDocument() ||
-        (nsWinUtils::IsWindowEmulationStarted() &&
-         nsCoreUtils::IsTabDocument(doc->DocumentNode()))) {
-      HWND hwnd = static_cast<HWND>(doc->GetNativeWindow());
-      if (hwnd &&
-          SUCCEEDED(::AccessibleObjectFromWindow(
-              hwnd, OBJID_WINDOW, IID_IAccessible, (void**)ppdispParent))) {
-        return S_OK;
-      }
-    }
-  }
 
   Accessible* xpParentAcc = Parent();
   if (!xpParentAcc) return S_FALSE;
@@ -436,10 +423,10 @@ AccessibleWrap::get_accRole(
 
   uint32_t msaaRole = 0;
 
-#define ROLE(_geckoRole, stringRole, atkRole, macRole, _msaaRole, ia2Role, \
-             androidClass, nameRule)                                       \
-  case roles::_geckoRole:                                                  \
-    msaaRole = _msaaRole;                                                  \
+#define ROLE(_geckoRole, stringRole, atkRole, macRole, macSubrole, _msaaRole, \
+             ia2Role, androidClass, nameRule)                                 \
+  case roles::_geckoRole:                                                     \
+    msaaRole = _msaaRole;                                                     \
     break;
 
   switch (geckoRole) {
@@ -481,7 +468,7 @@ AccessibleWrap::get_accRole(
     if (roleString.IsEmpty()) {
       // No role attribute (or it is an empty string).
       // Use the tag name.
-      nsIDocument* document = content->GetUncomposedDoc();
+      dom::Document* document = content->GetUncomposedDoc();
       if (!document) return E_FAIL;
 
       dom::NodeInfo* nodeInfo = content->NodeInfo();
@@ -491,7 +478,7 @@ AccessibleWrap::get_accRole(
       if (!nodeInfo->NamespaceEquals(document->GetDefaultNamespaceID())) {
         nsAutoString nameSpaceURI;
         nodeInfo->GetNamespaceURI(nameSpaceURI);
-        roleString += NS_LITERAL_STRING(", ") + nameSpaceURI;
+        roleString += u", "_ns + nameSpaceURI;
       }
     }
 
@@ -631,9 +618,9 @@ AccessibleWrap::get_accFocus(
 class AccessibleEnumerator final : public IEnumVARIANT {
  public:
   explicit AccessibleEnumerator(const nsTArray<Accessible*>& aArray)
-      : mArray(aArray), mCurIndex(0) {}
+      : mArray(aArray.Clone()), mCurIndex(0) {}
   AccessibleEnumerator(const AccessibleEnumerator& toCopy)
-      : mArray(toCopy.mArray), mCurIndex(toCopy.mCurIndex) {}
+      : mArray(toCopy.mArray.Clone()), mCurIndex(toCopy.mCurIndex) {}
   ~AccessibleEnumerator() {}
 
   // IUnknown
@@ -740,17 +727,26 @@ AccessibleWrap::get_accSelection(VARIANT __RPC_FAR* pvarChildren) {
 
   if (IsDefunct()) return CO_E_OBJNOTCONNECTED;
 
-  if (IsSelect()) {
-    AutoTArray<Accessible*, 10> selectedItems;
-    SelectedItems(&selectedItems);
+  if (!IsSelect()) {
+    return S_OK;
+  }
 
-    // 1) Create and initialize the enumeration
+  AutoTArray<Accessible*, 10> selectedItems;
+  SelectedItems(&selectedItems);
+  uint32_t count = selectedItems.Length();
+  if (count == 1) {
+    pvarChildren->vt = VT_DISPATCH;
+    pvarChildren->pdispVal = NativeAccessible(selectedItems[0]);
+  } else if (count > 1) {
     RefPtr<AccessibleEnumerator> pEnum =
         new AccessibleEnumerator(selectedItems);
+    AssociateCOMObjectForDisconnection(pEnum);
     pvarChildren->vt =
         VT_UNKNOWN;  // this must be VT_UNKNOWN for an IEnumVARIANT
     NS_ADDREF(pvarChildren->punkVal = pEnum);
   }
+  // If count == 0, vt is already VT_EMPTY, so there's nothing else to do.
+
   return S_OK;
 }
 
@@ -895,7 +891,7 @@ AccessibleWrap::accNavigate(
   switch (navDir) {
     case NAVDIR_FIRSTCHILD:
       if (IsProxy()) {
-        if (!Proxy()->MustPruneChildren()) {
+        if (!nsAccUtils::MustPrune(Proxy())) {
           navAccessible = WrapperFor(Proxy()->FirstChild());
         }
       } else {
@@ -904,7 +900,7 @@ AccessibleWrap::accNavigate(
       break;
     case NAVDIR_LASTCHILD:
       if (IsProxy()) {
-        if (!Proxy()->MustPruneChildren()) {
+        if (!nsAccUtils::MustPrune(Proxy())) {
           navAccessible = WrapperFor(Proxy()->LastChild());
         }
       } else {
@@ -1006,7 +1002,25 @@ STDMETHODIMP
 AccessibleWrap::put_accValue(
     /* [optional][in] */ VARIANT varChild,
     /* [in] */ BSTR szValue) {
-  return E_NOTIMPL;
+  RefPtr<IAccessible> accessible;
+  HRESULT hr = ResolveChild(varChild, getter_AddRefs(accessible));
+  if (FAILED(hr)) {
+    return hr;
+  }
+
+  if (accessible) {
+    return accessible->put_accValue(kVarChildIdSelf, szValue);
+  }
+
+  HyperTextAccessible* ht = AsHyperText();
+  if (!ht) {
+    return E_NOTIMPL;
+  }
+
+  uint32_t length = ::SysStringLen(szValue);
+  nsAutoString text(szValue, length);
+  ht->ReplaceText(text);
+  return S_OK;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1251,9 +1265,7 @@ HWND AccessibleWrap::GetHWNDFor(Accessible* aAccessible) {
   if (frame) {
     nsIWidget* widget = frame->GetNearestWidget();
     if (widget && widget->IsVisible()) {
-      nsIPresShell* shell = document->PresShell();
-      nsViewManager* vm = shell->GetViewManager();
-      if (vm) {
+      if (nsViewManager* vm = document->PresShellPtr()->GetViewManager()) {
         nsCOMPtr<nsIWidget> rootWidget;
         vm->GetRootWidget(getter_AddRefs(rootWidget));
         // Make sure the accessible belongs to popup. If not then use
@@ -1298,15 +1310,15 @@ static already_AddRefed<IDispatch> GetProxiedAccessibleInSubtree(
   auto wrapper = static_cast<DocProxyAccessibleWrap*>(WrapperFor(aDoc));
   RefPtr<IAccessible> comProxy;
   int32_t docWrapperChildId = AccessibleWrap::GetChildIDFor(wrapper);
-  // Only top level document accessible proxies are created with a pointer to
-  // their COM proxy.
-  if (aDoc->IsTopLevel()) {
+  // Only document accessible proxies at the top level of their content process
+  // are created with a pointer to their COM proxy.
+  if (aDoc->IsTopLevelInContentProcess()) {
     wrapper->GetNativeInterface(getter_AddRefs(comProxy));
   } else {
-    auto tab = static_cast<dom::TabParent*>(aDoc->Manager());
+    auto tab = static_cast<dom::BrowserParent*>(aDoc->Manager());
     MOZ_ASSERT(tab);
     DocAccessibleParent* topLevelDoc = tab->GetTopLevelDocAccessible();
-    MOZ_ASSERT(topLevelDoc && topLevelDoc->IsTopLevel());
+    MOZ_ASSERT(topLevelDoc && topLevelDoc->IsTopLevelInContentProcess());
     VARIANT docId = {{{VT_I4}}};
     docId.lVal = docWrapperChildId;
     RefPtr<IDispatch> disp = GetProxiedAccessibleInSubtree(topLevelDoc, docId);
@@ -1379,7 +1391,7 @@ already_AddRefed<IAccessible> AccessibleWrap::GetIAccessibleFor(
   }
 
   if (varChild.ulVal != GetExistingID() &&
-      (IsProxy() ? Proxy()->MustPruneChildren()
+      (IsProxy() ? nsAccUtils::MustPrune(Proxy())
                  : nsAccUtils::MustPrune(this))) {
     // This accessible should have no subtree in platform, return null for its
     // children.
@@ -1471,6 +1483,40 @@ already_AddRefed<IAccessible> AccessibleWrap::GetIAccessibleFor(
   return nullptr;
 }
 
+/**
+ * Visit DocAccessibleParent descendants of `aBrowser` that are at the top
+ * level of their content process.
+ * That is, IsTopLevelInContentProcess() will be true for each visited actor.
+ * Each visited actor will be an embedded document in a different content
+ * process to its embedder.
+ * The DocAccessibleParent for `aBrowser` itself is excluded.
+ * `aCallback` will be called for each DocAccessibleParent.
+ * The callback should return true to continue traversal, false to cease.
+ */
+template <typename Callback>
+static bool VisitDocAccessibleParentDescendantsAtTopLevelInContentProcess(
+    dom::BrowserParent* aBrowser, Callback aCallback) {
+  // We can't use BrowserBridgeParent::VisitAllDescendants because it doesn't
+  // provide a way to stop the search.
+  const auto& bridges = aBrowser->ManagedPBrowserBridgeParent();
+  for (auto iter = bridges.ConstIter(); !iter.Done(); iter.Next()) {
+    auto bridge = static_cast<dom::BrowserBridgeParent*>(iter.Get()->GetKey());
+    dom::BrowserParent* childBrowser = bridge->GetBrowserParent();
+    DocAccessibleParent* childDocAcc = childBrowser->GetTopLevelDocAccessible();
+    if (!childDocAcc || childDocAcc->IsShutdown()) {
+      continue;
+    }
+    if (!aCallback(childDocAcc)) {
+      return false;  // Stop traversal.
+    }
+    if (!VisitDocAccessibleParentDescendantsAtTopLevelInContentProcess(
+            childBrowser, aCallback)) {
+      return false;  // Stop traversal.
+    }
+  }
+  return true;  // Continue traversal.
+}
+
 already_AddRefed<IAccessible> AccessibleWrap::GetRemoteIAccessibleFor(
     const VARIANT& aVarChild) {
   a11y::RootAccessible* root = RootAccessible();
@@ -1486,14 +1532,9 @@ already_AddRefed<IAccessible> AccessibleWrap::GetRemoteIAccessibleFor(
   // condition because it is possible for reentry to occur in the call to
   // GetProxiedAccessibleInSubtree() such that remoteDocs->Length() is mutated.
   for (size_t i = 0; i < remoteDocs->Length(); i++) {
-    DocAccessibleParent* remoteDoc = remoteDocs->ElementAt(i);
+    DocAccessibleParent* topRemoteDoc = remoteDocs->ElementAt(i);
 
-    uint32_t remoteDocMsaaId = WrapperFor(remoteDoc)->GetExistingID();
-    if (!sIDGen.IsSameContentProcessFor(aVarChild.lVal, remoteDocMsaaId)) {
-      continue;
-    }
-
-    Accessible* outerDoc = remoteDoc->OuterDocOfRemoteBrowser();
+    Accessible* outerDoc = topRemoteDoc->OuterDocOfRemoteBrowser();
     if (!outerDoc) {
       continue;
     }
@@ -1502,15 +1543,37 @@ already_AddRefed<IAccessible> AccessibleWrap::GetRemoteIAccessibleFor(
       continue;
     }
 
-    RefPtr<IDispatch> disp =
-        GetProxiedAccessibleInSubtree(remoteDoc, aVarChild);
+    RefPtr<IDispatch> disp;
+    auto checkDoc = [&aVarChild,
+                     &disp](DocAccessibleParent* aRemoteDoc) -> bool {
+      uint32_t remoteDocMsaaId = WrapperFor(aRemoteDoc)->GetExistingID();
+      if (!sIDGen.IsSameContentProcessFor(aVarChild.lVal, remoteDocMsaaId)) {
+        return true;  // Continue the search.
+      }
+      if ((disp = GetProxiedAccessibleInSubtree(aRemoteDoc, aVarChild))) {
+        return false;  // Found it! Stop traversal!
+      }
+      return true;  // Continue the search.
+    };
+
+    // Check the top level document for this id.
+    checkDoc(topRemoteDoc);
+    if (!disp) {
+      // The top level document doesn't contain this id. Recursively check any
+      // out-of-process iframe documents it embeds.
+      VisitDocAccessibleParentDescendantsAtTopLevelInContentProcess(
+          static_cast<dom::BrowserParent*>(topRemoteDoc->Manager()), checkDoc);
+    }
+
     if (!disp) {
       continue;
     }
 
     DebugOnly<HRESULT> hr =
         disp->QueryInterface(IID_IAccessible, getter_AddRefs(result));
-    MOZ_ASSERT(SUCCEEDED(hr));
+    // QI can fail on rare occasions if the Accessible dies after we fetched
+    // disp but before we QI.
+    NS_WARNING_ASSERTION(SUCCEEDED(hr), "QI failed on remote IDispatch");
     return result.forget();
   }
 
@@ -1537,7 +1600,8 @@ void AccessibleWrap::UpdateSystemCaretFor(Accessible* aAccessible) {
   UpdateSystemCaretFor(caretWnd, caretRect);
 }
 
-/* static */ void AccessibleWrap::UpdateSystemCaretFor(
+/* static */
+void AccessibleWrap::UpdateSystemCaretFor(
     ProxyAccessible* aProxy, const LayoutDeviceIntRect& aCaretRect) {
   ::DestroyCaret();
 
@@ -1547,7 +1611,8 @@ void AccessibleWrap::UpdateSystemCaretFor(Accessible* aAccessible) {
   UpdateSystemCaretFor(GetHWNDFor(outerDoc), aCaretRect);
 }
 
-/* static */ void AccessibleWrap::UpdateSystemCaretFor(
+/* static */
+void AccessibleWrap::UpdateSystemCaretFor(
     HWND aCaretWnd, const LayoutDeviceIntRect& aCaretRect) {
   if (!aCaretWnd || aCaretRect.IsEmpty()) {
     return;
@@ -1684,7 +1749,7 @@ bool AccessibleWrap::DispatchTextChangeToHandler(bool aIsInsert,
   VARIANT_BOOL isInsert = aIsInsert ? VARIANT_TRUE : VARIANT_FALSE;
 
   IA2TextSegment textSegment{::SysAllocStringLen(aText.get(), aText.Length()),
-                             aStart, static_cast<long>(aLen)};
+                             aStart, aStart + static_cast<long>(aLen)};
 
   ASYNC_INVOKER_FOR(IHandlerControl)
   invoker(controller.mCtrl, Some(controller.mIsProxy));
@@ -1697,12 +1762,12 @@ bool AccessibleWrap::DispatchTextChangeToHandler(bool aIsInsert,
   return SUCCEEDED(hr);
 }
 
-/* static */ void AccessibleWrap::AssignChildIDTo(
-    NotNull<sdnAccessible*> aSdnAcc) {
+/* static */
+void AccessibleWrap::AssignChildIDTo(NotNull<sdnAccessible*> aSdnAcc) {
   aSdnAcc->SetUniqueID(sIDGen.GetID());
 }
 
-/* static */ void AccessibleWrap::ReleaseChildID(
-    NotNull<sdnAccessible*> aSdnAcc) {
+/* static */
+void AccessibleWrap::ReleaseChildID(NotNull<sdnAccessible*> aSdnAcc) {
   sIDGen.ReleaseID(aSdnAcc);
 }

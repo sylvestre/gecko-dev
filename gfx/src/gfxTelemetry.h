@@ -6,6 +6,8 @@
 #ifndef gfx_src_gfxTelemetry_h__
 #define gfx_src_gfxTelemetry_h__
 
+#include <cstdint>
+
 namespace mozilla {
 namespace gfx {
 
@@ -19,17 +21,38 @@ enum class FeatureStatus {
   // This feature is unavailable due to Safe Mode, not being included with
   // the operating system, or a dependent feature being disabled.
   Unavailable,
+  UnavailableInSafeMode,
+  UnavailableNoGpuProcess,
+  UnavailableNoHwCompositing,
+  UnavailableNotBuilt,
+  UnavailableNoAngle,
 
   // This feature crashed immediately when we tried to initialize it, but we
   // were able to recover via SEH (or something similar).
   CrashedInHandler,
 
-  // This feature was blocked for reasons outside the blacklist, such as a
+  // This feature was blocked for reasons outside the blocklist, such as a
   // runtime test failing.
   Blocked,
+  BlockedDeviceUnknown,
+  BlockedDeviceTooOld,
+  BlockedVendorUnsupported,
+  BlockedHasBattery,
+  BlockedScreenTooLarge,
+  BlockedScreenUnknown,
+  BlockedNoGfxInfo,
+  BlockedOverride,
+  BlockedReleaseChannelIntel,
+  BlockedReleaseChannelAMD,
+  BlockedReleaseChannelNvidia,
+  BlockedReleaseChannelBattery,
+  BlockedReleaseChannelAndroid,
 
-  // This feature has been blocked by the graphics blacklist.
-  Blacklisted,
+  // This feature has been blocked by the allowlist.
+  Denied,
+
+  // This feature has been blocked by the graphics blocklist.
+  Blocklisted,
 
   // This feature is disabled by default, and so activation isn't attempted
   // unless something explicitly enables it.

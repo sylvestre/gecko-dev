@@ -13,6 +13,7 @@
 #include "prenv.h"
 #include "MessageManagerFuzzer.h"
 #include "mozilla/ErrorResult.h"
+#include "nsComponentManagerUtils.h"
 #include "nsDebug.h"
 #include "nsError.h"
 #include "nsFrameMessageManager.h"
@@ -29,7 +30,7 @@
 
 #ifdef IsLoggingEnabled
 // This is defined in the Windows SDK urlmon.h
-#undef IsLoggingEnabled
+#  undef IsLoggingEnabled
 #endif
 
 #define MESSAGEMANAGER_FUZZER_DEFAULT_MUTATION_PROBABILITY 2
@@ -234,7 +235,8 @@ bool MessageManagerFuzzer::Mutate(JSContext* aCx, const nsAString& aMessageName,
 
   /* Write mutated StructuredCloneData. */
   ipc::StructuredCloneData mutatedStructuredCloneData;
-  mutatedStructuredCloneData.Write(aCx, scdMutationContent, t, rv);
+  mutatedStructuredCloneData.Write(aCx, scdMutationContent, t,
+                                   JS::CloneDataPolicy(), rv);
   if (NS_WARN_IF(rv.Failed())) {
     rv.SuppressException();
     JS_ClearPendingException(aCx);

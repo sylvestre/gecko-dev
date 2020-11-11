@@ -7,12 +7,12 @@
 #ifndef MOZILLA_GFX_WEBRENDERCOMPOSITABLE_HOLDER_H
 #define MOZILLA_GFX_WEBRENDERCOMPOSITABLE_HOLDER_H
 
-#include <queue>
+#include <vector>
 
 #include "CompositableHost.h"
 #include "mozilla/gfx/Point.h"
+#include "mozilla/ipc/FileDescriptor.h"
 #include "mozilla/layers/TextureHost.h"
-#include "mozilla/layers/WebRenderTextureHostWrapper.h"
 #include "mozilla/Maybe.h"
 #include "mozilla/webrender/WebRenderAPI.h"
 #include "mozilla/webrender/WebRenderTypes.h"
@@ -32,19 +32,21 @@ class CompositableHost;
 class CompositorVsyncScheduler;
 class WebRenderImageHost;
 class WebRenderTextureHost;
-class WebRenderTextureHostWrapper;
 
 class AsyncImagePipelineManager final {
  public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(AsyncImagePipelineManager)
 
-  explicit AsyncImagePipelineManager(already_AddRefed<wr::WebRenderAPI>&& aApi);
+  explicit AsyncImagePipelineManager(RefPtr<wr::WebRenderAPI>&& aApi,
+                                     bool aUseCompositorWnd);
 
  protected:
   ~AsyncImagePipelineManager();
 
  public:
   void Destroy();
+
+  bool UseCompositorWnd() const { return mUseCompositorWnd; }
 
   void AddPipeline(const wr::PipelineId& aPipelineId,
                    WebRenderBridgeParent* aWrBridge);
@@ -53,28 +55,35 @@ class AsyncImagePipelineManager final {
   WebRenderBridgeParent* GetWrBridge(const wr::PipelineId& aPipelineId);
 
   void HoldExternalImage(const wr::PipelineId& aPipelineId,
-                         const wr::Epoch& aEpoch,
-                         WebRenderTextureHost* aTexture);
-  void HoldExternalImage(const wr::PipelineId& aPipelineId,
-                         const wr::Epoch& aEpoch,
-                         WebRenderTextureHostWrapper* aWrTextureWrapper);
+                         const wr::Epoch& aEpoch, TextureHost* aTexture);
   void HoldExternalImage(const wr::PipelineId& aPipelineId,
                          const wr::Epoch& aEpoch,
                          const wr::ExternalImageId& aImageId);
 
   // This is called from the Renderer thread to notify this class about the
-  // pipelines in the most recently completed render. A copy of the update
-  // information is put into mUpdatesQueue.
-  void NotifyPipelinesUpdated(RefPtr<wr::WebRenderPipelineInfo> aInfo,
-                              bool aRender);
+  // pipelines in the most recently completed update.
+  // @param aInfo PipelineInfo for the update
+  // @param aLatestFrameId RenderedFrameId if a frame has been submitted for
+  //                       rendering, invalid if not
+  // @param aLastCompletedFrameId RenderedFrameId for the last completed frame
+  void NotifyPipelinesUpdated(RefPtr<const wr::WebRenderPipelineInfo> aInfo,
+                              wr::RenderedFrameId aLatestFrameId,
+                              wr::RenderedFrameId aLastCompletedFrameId,
+                              ipc::FileDescriptor&& aFenceFd);
 
-  // This is run on the compositor thread to process mUpdatesQueue. We make
-  // this a public entry point because we need to invoke it from other places.
+  // This is run on the compositor thread to process mRenderSubmittedUpdates. We
+  // make this public because we need to invoke it from other places.
   void ProcessPipelineUpdates();
 
   TimeStamp GetCompositionTime() const { return mCompositionTime; }
-  void SetCompositionTime(TimeStamp aTimeStamp) {
+  CompositionOpportunityId GetCompositionOpportunityId() const {
+    return mCompositionOpportunityId;
+  }
+
+  void SetCompositionInfo(TimeStamp aTimeStamp,
+                          CompositionOpportunityId aCompositionOpportunityId) {
     mCompositionTime = aTimeStamp;
+    mCompositionOpportunityId = aCompositionOpportunityId;
     if (!mCompositionTime.IsNull() && !mCompositeUntilTime.IsNull() &&
         mCompositionTime >= mCompositeUntilTime) {
       mCompositeUntilTime = TimeStamp();
@@ -94,8 +103,7 @@ class AsyncImagePipelineManager final {
 
   void UpdateAsyncImagePipeline(const wr::PipelineId& aPipelineId,
                                 const LayoutDeviceRect& aScBounds,
-                                const gfx::Matrix4x4& aScTransform,
-                                const gfx::MaybeIntSize& aScaleToSize,
+                                VideoInfo::Rotation aRotation,
                                 const wr::ImageRendering& aFilter,
                                 const wr::MixBlendMode& aMixBlendMode);
   void ApplyAsyncImagesOfImageBridge(wr::TransactionBuilder& aSceneBuilderTxn,
@@ -121,14 +129,14 @@ class AsyncImagePipelineManager final {
   void SetWillGenerateFrame();
   bool GetAndResetWillGenerateFrame();
 
-  wr::ExternalImageId GetNextExternalImageId();
+  static wr::ExternalImageId GetNextExternalImageId();
 
  private:
   void ProcessPipelineRendered(const wr::PipelineId& aPipelineId,
                                const wr::Epoch& aEpoch,
-                               const uint64_t aUpdatesCount);
-  void ProcessPipelineRemoved(const wr::PipelineId& aPipelineId,
-                              const uint64_t aUpdatesCount);
+                               wr::RenderedFrameId aRenderedFrameId);
+  void ProcessPipelineRemoved(const wr::RemovedPipeline& aRemovedPipeline,
+                              wr::RenderedFrameId aRenderedFrameId);
 
   wr::Epoch GetNextImageEpoch();
   uint32_t GetNextResourceId() { return ++mResourceId; }
@@ -147,14 +155,6 @@ class AsyncImagePipelineManager final {
     CompositableTextureHostRef mTexture;
   };
 
-  struct ForwardingTextureHostWrapper {
-    ForwardingTextureHostWrapper(const wr::Epoch& aEpoch,
-                                 WebRenderTextureHostWrapper* aWrTextureWrapper)
-        : mEpoch(aEpoch), mWrTextureWrapper(aWrTextureWrapper) {}
-    wr::Epoch mEpoch;
-    RefPtr<WebRenderTextureHostWrapper> mWrTextureWrapper;
-  };
-
   struct ForwardingExternalImage {
     ForwardingExternalImage(const wr::Epoch& aEpoch,
                             const wr::ExternalImageId& aImageId)
@@ -166,9 +166,13 @@ class AsyncImagePipelineManager final {
 
   struct PipelineTexturesHolder {
     // Holds forwarding WebRenderTextureHosts.
-    std::queue<ForwardingTextureHost> mTextureHosts;
-    std::queue<ForwardingTextureHostWrapper> mTextureHostWrappers;
-    std::queue<UniquePtr<ForwardingExternalImage>> mExternalImages;
+    std::vector<ForwardingTextureHost> mTextureHostsUntilRenderSubmitted;
+    // TextureHosts that must be held until rendering has completed. UniquePtr
+    // is used to make the entries movable, ideally ForwardingTextureHost would
+    // be fully movable.
+    std::vector<UniquePtr<ForwardingTextureHost>>
+        mTextureHostsUntilRenderCompleted;
+    std::vector<UniquePtr<ForwardingExternalImage>> mExternalImages;
     Maybe<wr::Epoch> mDestroyedEpoch;
     WebRenderBridgeParent* MOZ_NON_OWNING_REF mWrBridge = nullptr;
   };
@@ -176,17 +180,14 @@ class AsyncImagePipelineManager final {
   struct AsyncImagePipeline {
     AsyncImagePipeline();
     void Update(const LayoutDeviceRect& aScBounds,
-                const gfx::Matrix4x4& aScTransform,
-                const gfx::MaybeIntSize& aScaleToSize,
+                VideoInfo::Rotation aRotation,
                 const wr::ImageRendering& aFilter,
                 const wr::MixBlendMode& aMixBlendMode) {
       mIsChanged |= !mScBounds.IsEqualEdges(aScBounds) ||
-                    mScTransform != aScTransform ||
-                    mScaleToSize != aScaleToSize || mFilter != aFilter ||
+                    mRotation != aRotation || mFilter != aFilter ||
                     mMixBlendMode != aMixBlendMode;
       mScBounds = aScBounds;
-      mScTransform = aScTransform;
-      mScaleToSize = aScaleToSize;
+      mRotation = aRotation;
       mFilter = aFilter;
       mMixBlendMode = aMixBlendMode;
     }
@@ -195,13 +196,11 @@ class AsyncImagePipelineManager final {
     bool mIsChanged;
     bool mUseExternalImage;
     LayoutDeviceRect mScBounds;
-    gfx::Matrix4x4 mScTransform;
-    gfx::MaybeIntSize mScaleToSize;
+    VideoInfo::Rotation mRotation;
     wr::ImageRendering mFilter;
     wr::MixBlendMode mMixBlendMode;
     RefPtr<WebRenderImageHost> mImageHost;
     CompositableTextureHostRef mCurrentTexture;
-    RefPtr<WebRenderTextureHostWrapper> mWrTextureWrapper;
     nsTArray<wr::ImageKey> mKeys;
   };
 
@@ -219,12 +218,11 @@ class AsyncImagePipelineManager final {
       TextureHost* aTexture, wr::ImageKey aKey, TextureHost::ResourceUpdateOp,
       wr::TransactionBuilder& aTxn);
 
-  // If texture is direct binding texture, keep it until it is not used by GPU.
-  void HoldUntilNotUsedByGPU(const CompositableTextureHostRef& aTextureHost,
-                             uint64_t aUpdatesCount);
   void CheckForTextureHostsNotUsedByGPU();
 
   RefPtr<wr::WebRenderAPI> mApi;
+  bool mUseCompositorWnd;
+
   const wr::IdNamespace mIdNamespace;
   const bool mUseTripleBuffering;
   uint32_t mResourceId;
@@ -236,8 +234,15 @@ class AsyncImagePipelineManager final {
   bool mWillGenerateFrame;
   bool mDestroyed;
 
+#ifdef XP_WIN
+  bool mUseWebRenderDCompVideoOverlayWin;
+#endif
+
   // Render time for the current composition.
   TimeStamp mCompositionTime;
+
+  // CompositionOpportunityId of the current composition.
+  CompositionOpportunityId mCompositionOpportunityId;
 
   // When nonnull, during rendering, some compositable indicated that it will
   // change its rendering at this time. In order not to miss it, we composite
@@ -246,30 +251,24 @@ class AsyncImagePipelineManager final {
 
   nsTArray<ImageCompositeNotificationInfo> mImageCompositeNotifications;
 
-  // The lock that protects mUpdatesQueue
-  Mutex mUpdatesLock;
-  // Used for checking if PipelineUpdates could be processed.
-  Atomic<uint64_t> mUpdatesCount;
-  struct PipelineUpdates {
-    PipelineUpdates(RefPtr<wr::WebRenderPipelineInfo> aPipelineInfo,
-                    const uint64_t aUpdatesCount, const bool aRendered);
-    bool NeedsToWait(const uint64_t aUpdatesCount) {
-      MOZ_ASSERT(mUpdatesCount <= aUpdatesCount);
-      if (mUpdatesCount == aUpdatesCount && !mRendered) {
-        // RenderTextureHosts related to this might be still used by GPU.
-        return true;
-      }
-      return false;
-    }
-    RefPtr<wr::WebRenderPipelineInfo> mPipelineInfo;
-    const uint64_t mUpdatesCount;
-    const bool mRendered;
+  struct WebRenderPipelineInfoHolder {
+    WebRenderPipelineInfoHolder(RefPtr<const wr::WebRenderPipelineInfo>&& aInfo,
+                                ipc::FileDescriptor&& aFenceFd)
+        : mInfo(aInfo), mFenceFd(aFenceFd) {}
+    ~WebRenderPipelineInfoHolder() {}
+    RefPtr<const wr::WebRenderPipelineInfo> mInfo;
+    ipc::FileDescriptor mFenceFd;
   };
-  std::queue<UniquePtr<PipelineUpdates>> mUpdatesQueues;
 
-  // Queue to store TextureHosts that might still be used by GPU.
-  std::queue<std::pair<uint64_t, CompositableTextureHostRef>>
+  std::vector<std::pair<wr::RenderedFrameId, WebRenderPipelineInfoHolder>>
+      mRenderSubmittedUpdates;
+  Mutex mRenderSubmittedUpdatesLock;
+
+  Atomic<uint64_t> mLastCompletedFrameId;
+  std::vector<std::pair<wr::RenderedFrameId,
+                        std::vector<UniquePtr<ForwardingTextureHost>>>>
       mTexturesInUseByGPU;
+  ipc::FileDescriptor mReleaseFenceFd;
 };
 
 }  // namespace layers

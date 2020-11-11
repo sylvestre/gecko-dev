@@ -16,7 +16,6 @@ Important Concepts
    files-metadata
    Profile Guided Optimization <pgo>
    slow
-   tup
    environment-variables
    build-targets
    python
@@ -25,18 +24,22 @@ Important Concepts
    preprocessor
    jar-manifests
    defining-binaries
+   defining-xpcom-components
    toolchains
    locales
    rust
    sparse
    Support for projects building with GN <gn>
    telemetry
+   sccache-dist
+   test_certificates
 
 integrated development environment (IDE)
 ========================================
 .. toctree::
    :maxdepth: 1
 
+   ../../contributing/vscode
    androideclipse
    cppeclipse
    visualstudio
@@ -51,4 +54,3 @@ Mozilla build system.
    :maxdepth: 1
 
    mozbuild/index
-   mozbuild/dumbmake

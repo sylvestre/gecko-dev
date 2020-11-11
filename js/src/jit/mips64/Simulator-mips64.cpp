@@ -114,8 +114,9 @@ class SimInstruction {
   Type instructionType() const;
 
   // Accessors for the different named fields used in the MIPS encoding.
-  inline Opcode opcodeValue() const {
-    return static_cast<Opcode>(bits(OpcodeShift + OpcodeBits - 1, OpcodeShift));
+  inline OpcodeField opcodeValue() const {
+    return static_cast<OpcodeField>(
+        bits(OpcodeShift + OpcodeBits - 1, OpcodeShift));
   }
 
   inline int rsValue() const {
@@ -170,8 +171,8 @@ class SimInstruction {
   }
 
   // Return the fields at their original place in the instruction encoding.
-  inline Opcode opcodeFieldRaw() const {
-    return static_cast<Opcode>(instructionBits() & OpcodeMask);
+  inline OpcodeField opcodeFieldRaw() const {
+    return static_cast<OpcodeField>(instructionBits() & OpcodeMask);
   }
 
   inline int rsFieldRaw() const {
@@ -205,7 +206,7 @@ class SimInstruction {
 
   // Get the secondary field according to the opcode.
   inline int secondaryValue() const {
-    Opcode op = opcodeFieldRaw();
+    OpcodeField op = opcodeFieldRaw();
     switch (op) {
       case op_special:
       case op_special2:
@@ -1141,7 +1142,8 @@ static void FlushICacheLocked(SimulatorProcess::ICacheMap& i_cache,
   }
 }
 
-/* static */ void SimulatorProcess::checkICacheLocked(SimInstruction* instr) {
+/* static */
+void SimulatorProcess::checkICacheLocked(SimInstruction* instr) {
   intptr_t address = reinterpret_cast<intptr_t>(instr);
   void* page = reinterpret_cast<void*>(address & (~CachePage::kPageMask));
   void* line = reinterpret_cast<void*>(address & (~CachePage::kLineMask));
@@ -1174,7 +1176,8 @@ bool SimulatorProcess::ICacheHasher::match(const Key& k, const Lookup& l) {
   return k == l;
 }
 
-/* static */ void SimulatorProcess::FlushICache(void* start_addr, size_t size) {
+/* static */
+void SimulatorProcess::FlushICache(void* start_addr, size_t size) {
   if (!ICacheCheckingDisableCount) {
     AutoLockSimulatorCache als;
     js::jit::FlushICacheLocked(icache(), start_addr, size);
@@ -1326,8 +1329,9 @@ SimulatorProcess::~SimulatorProcess() {
   }
 }
 
-/* static */ void* Simulator::RedirectNativeFunction(void* nativeFunction,
-                                                     ABIFunctionType type) {
+/* static */
+void* Simulator::RedirectNativeFunction(void* nativeFunction,
+                                        ABIFunctionType type) {
   Redirection* redirection = Redirection::Get(nativeFunction, type);
   return redirection->addressOfSwiInstruction();
 }
@@ -1924,6 +1928,7 @@ typedef int64_t (*Prototype_Int_DoubleIntInt)(double arg0, int64_t arg1,
 typedef int64_t (*Prototype_Int_IntDoubleIntInt)(int64_t arg0, double arg1,
                                                  int64_t arg2, int64_t arg3);
 typedef float (*Prototype_Float32_Float32)(float arg0);
+typedef int64_t (*Prototype_Int_Float32)(float arg0);
 typedef float (*Prototype_Float32_Float32Float32)(float arg0, float arg1);
 typedef float (*Prototype_Float32_IntInt)(int64_t arg0, int64_t arg1);
 
@@ -2114,6 +2119,15 @@ void Simulator::softwareInterrupt(SimInstruction* instr) {
             reinterpret_cast<Prototype_Float32_Float32>(external);
         float fresult = target(fval0);
         setCallResultFloat(fresult);
+        break;
+      }
+      case Args_Int_Float32: {
+        float fval0;
+        fval0 = getFpuRegisterFloat(12);
+        Prototype_Int_Float32 target =
+            reinterpret_cast<Prototype_Int_Float32>(external);
+        int64_t result = target(fval0);
+        setRegister(v0, result);
         break;
       }
       case Args_Float32_Float32Float32: {
@@ -2343,7 +2357,7 @@ void Simulator::configureTypeRegister(SimInstruction* instr, int64_t& alu_out,
   // decodeTypeRegister correctly.
 
   // Instruction fields.
-  const Opcode op = instr->opcodeFieldRaw();
+  const OpcodeField op = instr->opcodeFieldRaw();
   const int32_t rs_reg = instr->rsValue();
   const int64_t rs = getRegister(rs_reg);
   const int32_t rt_reg = instr->rtValue();
@@ -2777,7 +2791,7 @@ void Simulator::configureTypeRegister(SimInstruction* instr, int64_t& alu_out,
 // Handle execution based on instruction types.
 void Simulator::decodeTypeRegister(SimInstruction* instr) {
   // Instruction fields.
-  const Opcode op = instr->opcodeFieldRaw();
+  const OpcodeField op = instr->opcodeFieldRaw();
   const int32_t rs_reg = instr->rsValue();
   const int64_t rs = getRegister(rs_reg);
   const int32_t rt_reg = instr->rtValue();
@@ -2822,7 +2836,7 @@ void Simulator::decodeTypeRegister(SimInstruction* instr) {
           break;
         case rs_cfc1:
           setRegister(rt_reg, alu_out);
-          MOZ_FALLTHROUGH;
+          [[fallthrough]];
         case rs_mfc1:
           setRegister(rt_reg, alu_out);
           break;
@@ -2915,7 +2929,7 @@ void Simulator::decodeTypeRegister(SimInstruction* instr) {
               // Rounding modes are not yet supported.
               MOZ_ASSERT((FCSR_ & 3) == 0);
               // In rounding mode 0 it should behave like ROUND.
-              MOZ_FALLTHROUGH;
+              [[fallthrough]];
             case ff_round_w_fmt: {  // Round double to word (round half to
                                     // even).
               float rounded = std::floor(fs_value + 0.5);
@@ -2964,7 +2978,7 @@ void Simulator::decodeTypeRegister(SimInstruction* instr) {
               // Rounding modes are not yet supported.
               MOZ_ASSERT((FCSR_ & 3) == 0);
               // In rounding mode 0 it should behave like ROUND.
-              MOZ_FALLTHROUGH;
+              [[fallthrough]];
             case ff_round_l_fmt: {  // Mips64r2 instruction.
               float rounded = fs_value > 0 ? std::floor(fs_value + 0.5)
                                            : std::ceil(fs_value - 0.5);
@@ -3088,7 +3102,7 @@ void Simulator::decodeTypeRegister(SimInstruction* instr) {
               // Rounding modes are not yet supported.
               MOZ_ASSERT((FCSR_ & 3) == 0);
               // In rounding mode 0 it should behave like ROUND.
-              MOZ_FALLTHROUGH;
+              [[fallthrough]];
             case ff_round_w_fmt: {  // Round double to word (round half to
                                     // even).
               double rounded = std::floor(ds_value + 0.5);
@@ -3142,7 +3156,7 @@ void Simulator::decodeTypeRegister(SimInstruction* instr) {
               // Rounding modes are not yet supported.
               MOZ_ASSERT((FCSR_ & 3) == 0);
               // In rounding mode 0 it should behave like ROUND.
-              MOZ_FALLTHROUGH;
+              [[fallthrough]];
             case ff_round_l_fmt: {  // Mips64r2 instruction.
               double rounded = ds_value > 0 ? std::floor(ds_value + 0.5)
                                             : std::ceil(ds_value - 0.5);
@@ -3406,7 +3420,7 @@ void Simulator::decodeTypeRegister(SimInstruction* instr) {
 // Type 2: instructions using a 16 bits immediate. (e.g. addi, beq).
 void Simulator::decodeTypeImmediate(SimInstruction* instr) {
   // Instruction fields.
-  Opcode op = instr->opcodeFieldRaw();
+  OpcodeField op = instr->opcodeFieldRaw();
   int64_t rs = getRegister(instr->rsValue());
   int32_t rt_reg = instr->rtValue();  // Destination register.
   int64_t rt = getRegister(rt_reg);
@@ -4060,7 +4074,3 @@ uintptr_t Simulator::popAddress() {
 }  // namespace js
 
 js::jit::Simulator* JSContext::simulator() const { return simulator_; }
-
-uintptr_t* JSContext::addressOfSimulatorStackLimit() {
-  return simulator_->addressOfStackLimit();
-}

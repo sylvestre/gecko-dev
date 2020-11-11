@@ -3,10 +3,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #if !defined(LOCALGL_H_)
-#define LOCALGL_H_
+#  define LOCALGL_H_
 
-#include "GLTypes.h"
-#include "GLConsts.h"
+#  include "GLTypes.h"
+#  include "GLConsts.h"
 
 namespace mozilla {
 namespace gl {
@@ -15,8 +15,8 @@ bool CheckContextLost(const GLContext* gl);
 }  // namespace gl
 }  // namespace mozilla
 
-#define MOZ_GL_ASSERT(glContext, expr) \
-  MOZ_ASSERT((expr) || mozilla::gl::CheckContextLost(glContext))
+#  define MOZ_GL_ASSERT(glContext, expr) \
+    MOZ_ASSERT((expr) || mozilla::gl::CheckContextLost(glContext))
 
 // -
 
@@ -82,6 +82,9 @@ bool CheckContextLost(const GLContext* gl);
 #define LOCAL_EGL_D3D11_ELSE_D3D9_DISPLAY_ANGLE         ((EGLNativeDisplayType)-2)
 #define LOCAL_EGL_D3D11_ONLY_DISPLAY_ANGLE              ((EGLNativeDisplayType)-3)
 
+// EGL_ANGLE_feature_control
+#define LOCAL_EGL_FEATURE_OVERRIDES_ENABLED_ANGLE       0x3466
+
 // WGL_NV_DX_interop
 #define LOCAL_WGL_ACCESS_READ_ONLY                      0x0000
 #define LOCAL_WGL_ACCESS_READ_WRITE                     0x0001
@@ -94,6 +97,12 @@ bool CheckContextLost(const GLContext* gl);
 #define LOCAL_GL_CONTEXT_CORE_PROFILE_BIT_ARB           0x00000001
 #define LOCAL_GL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB  0x00000002
 #define LOCAL_GL_CONTEXT_ROBUST_ACCESS_BIT_ARB          0x00000004
+
+// EGL_ANGLE_create_context_backwards_compatible
+#define LOCAL_EGL_CONTEXT_OPENGL_BACKWARDS_COMPATIBLE_ANGLE 0x3483
+
+// EGL_ANGLE_image_d3d11_texture
+#define LOCAL_EGL_D3D11_TEXTURE_ANGLE                   0x3484
 
 // clang-format on
 

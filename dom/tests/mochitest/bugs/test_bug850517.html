@@ -6,7 +6,7 @@ https://bugzilla.mozilla.org/show_bug.cgi?id=850517
 <head>
   <meta charset="utf-8">
   <title>Test for Bug 850517</title>
-  <script type="application/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css"/>
   <script type="application/javascript">
 
@@ -20,8 +20,8 @@ https://bugzilla.mozilla.org/show_bug.cgi?id=850517
     sb.win = window;
     sb.childA = ifrA.contentWindow;
     sb.childB = ifrB.contentWindow;
-    SpecialPowers.setWrapped(sb, 'is', SpecialPowers.wrap(is));
-    SpecialPowers.setWrapped(sb, 'ok', SpecialPowers.wrap(ok));
+    SpecialPowers.setWrapped(sb, 'is', SpecialPowers.wrapFor(is, sb));
+    SpecialPowers.setWrapped(sb, 'ok', SpecialPowers.wrapFor(ok, sb));
     is(window.theoneandonly.frameElement, ifrA, "Named child resolution works");
     SpecialPowers.Cu.evalInSandbox('is(win.theoneandonly, childA, "Named child resolution works via Xray");', sb);
     ifrA.removeAttribute('name');

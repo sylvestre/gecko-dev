@@ -3,62 +3,33 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 "use strict";
 
-ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 var EXPORTED_SYMBOLS = ["TelemetryEvents"];
 
 const TELEMETRY_CATEGORY = "normandy";
 
 const TelemetryEvents = {
-  eventSchema: {
-    enroll: {
-      methods: ["enroll"],
-      objects: ["preference_study", "addon_study", "preference_rollout"],
-      extra_keys: ["experimentType", "branch", "addonId", "addonVersion"],
-      record_on_release: true,
-    },
-
-    enroll_failed: {
-      methods: ["enrollFailed"],
-      objects: ["addon_study", "preference_rollout", "preference_study"],
-      extra_keys: ["reason", "preference", "detail"],
-      record_on_release: true,
-    },
-
-    update: {
-      methods: ["update"],
-      objects: ["preference_rollout"],
-      extra_keys: ["previousState"],
-      record_on_release: true,
-    },
-
-    unenroll: {
-      methods: ["unenroll"],
-      objects: ["preference_study", "addon_study", "preference_rollback"],
-      extra_keys: ["reason", "didResetValue", "addonId", "addonVersion", "branch"],
-      record_on_release: true,
-    },
-
-    unenroll_failed: {
-      methods: ["unenrollFailed"],
-      objects: ["preference_rollback", "preference_study"],
-      extra_keys: ["reason"],
-      record_on_release: true,
-    },
-
-    graduate: {
-      methods: ["graduate"],
-      objects: ["preference_rollout"],
-      extra_keys: [],
-      record_on_release: true,
-    },
-  },
+  NO_ENROLLMENT_ID_MARKER: "__NO_ENROLLMENT_ID__",
 
   init() {
-    Services.telemetry.registerEvents(TELEMETRY_CATEGORY, this.eventSchema);
+    Services.telemetry.setEventRecordingEnabled(TELEMETRY_CATEGORY, true);
   },
 
   sendEvent(method, object, value, extra) {
-    Services.telemetry.recordEvent(TELEMETRY_CATEGORY, method, object, value, extra);
+    for (const val of Object.values(extra)) {
+      if (val == null) {
+        throw new Error(
+          "Extra parameters in telemetry events must not be null"
+        );
+      }
+    }
+    Services.telemetry.recordEvent(
+      TELEMETRY_CATEGORY,
+      method,
+      object,
+      value,
+      extra
+    );
   },
 };

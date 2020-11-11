@@ -6,13 +6,13 @@ from __future__ import absolute_import, print_function, unicode_literals
 import json
 from pipes import quote as shell_quote
 
+import six
 from taskgraph.transforms.base import TransformSequence
 from taskgraph.util.scriptworker import get_release_config
-from taskgraph.util.schema import (
-    resolve_keyed_by,
-)
+from taskgraph.util.schema import resolve_keyed_by
 
 import logging
+
 logger = logging.getLogger(__name__)
 
 transforms = TransformSequence()
@@ -22,12 +22,15 @@ transforms = TransformSequence()
 def add_command(config, jobs):
     for job in jobs:
         command = [
-            "python", "testing/mozharness/scripts/release/bouncer_check.py",
+            "python",
+            "testing/mozharness/scripts/release/bouncer_check.py",
         ]
-        job['run'].update({
-            'using': 'mach',
-            'mach': command,
-        })
+        job["run"].update(
+            {
+                "using": "mach",
+                "mach": command,
+            }
+        )
         yield job
 
 
@@ -40,7 +43,9 @@ def add_previous_versions(config, jobs):
     else:
         extra_params = []
         for partial in release_config["partial_versions"].split(","):
-            extra_params.append("--previous-version={}".format(partial.split("build")[0].strip()))
+            extra_params.append(
+                "--previous-version={}".format(partial.split("build")[0].strip())
+            )
 
         for job in jobs:
             job["run"]["mach"].extend(extra_params)
@@ -61,17 +66,27 @@ def handle_keyed_by(config, jobs):
 
     for job in jobs:
         for field in fields:
-            resolve_keyed_by(item=job, field=field, item_name=job['name'],
-                             project=config.params['project'])
+            resolve_keyed_by(
+                item=job,
+                field=field,
+                item_name=job["name"],
+                **{
+                    "project": config.params["project"],
+                    "release-level": config.params.release_level(),
+                    "release-type": config.params["release_type"],
+                }
+            )
 
         for cfg in job["run"]["config"]:
             job["run"]["mach"].extend(["--config", cfg])
 
         if config.kind == "cron-bouncer-check":
-            job["run"]["mach"].extend([
-                "--product-field={}".format(job["run"]["product-field"]),
-                "--products-url={}".format(job["run"]["products-url"]),
-            ])
+            job["run"]["mach"].extend(
+                [
+                    "--product-field={}".format(job["run"]["product-field"]),
+                    "--products-url={}".format(job["run"]["products-url"]),
+                ]
+            )
             del job["run"]["product-field"]
             del job["run"]["products-url"]
         elif config.kind == "release-bouncer-check":
@@ -79,9 +94,11 @@ def handle_keyed_by(config, jobs):
 
         del job["run"]["config"]
 
-        if 'extra-config' in job['run']:
-            env = job['worker'].setdefault('env', {})
-            env['EXTRA_MOZHARNESS_CONFIG'] = json.dumps(job['run']['extra-config'])
+        if "extra-config" in job["run"]:
+            env = job["worker"].setdefault("env", {})
+            env["EXTRA_MOZHARNESS_CONFIG"] = six.ensure_text(
+                json.dumps(job["run"]["extra-config"], sort_keys=True)
+            )
             del job["run"]["extra-config"]
 
         yield job
@@ -91,5 +108,5 @@ def handle_keyed_by(config, jobs):
 def command_to_string(config, jobs):
     """Convert command to string to make it work properly with run-task"""
     for job in jobs:
-        job["run"]["mach"] = ' '.join(map(shell_quote, job["run"]["mach"]))
+        job["run"]["mach"] = " ".join(map(shell_quote, job["run"]["mach"]))
         yield job

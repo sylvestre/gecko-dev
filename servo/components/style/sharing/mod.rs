@@ -64,7 +64,6 @@
 //! selectors are effectively stripped off, so that matching them all against
 //! elements makes sense.
 
-use atomic_refcell::{AtomicRefCell, AtomicRefMut};
 use crate::applicable_declarations::ApplicableDeclarationBlock;
 use crate::bloom::StyleBloom;
 use crate::context::{SelectorFlagsMap, SharedStyleContext, StyleContext};
@@ -75,6 +74,7 @@ use crate::rule_tree::StrongRuleNode;
 use crate::style_resolver::{PrimaryStyle, ResolvedElementStyles};
 use crate::stylist::Stylist;
 use crate::Atom;
+use atomic_refcell::{AtomicRefCell, AtomicRefMut};
 use owning_ref::OwningHandle;
 use selectors::matching::{ElementSelectorFlags, VisitedHandlingMode};
 use selectors::NthIndexCache;
@@ -82,7 +82,7 @@ use servo_arc::Arc;
 use smallbitvec::SmallBitVec;
 use smallvec::SmallVec;
 use std::marker::PhantomData;
-use std::mem;
+use std::mem::{self, ManuallyDrop};
 use std::ops::Deref;
 use std::ptr::NonNull;
 use uluru::{Entry, LRUCache};
@@ -90,26 +90,14 @@ use uluru::{Entry, LRUCache};
 mod checks;
 
 /// The amount of nodes that the style sharing candidate cache should hold at
-/// most.  We'd somewhat like 32, but ArrayDeque only implements certain backing
-/// store sizes.  A cache size of 32 would mean a backing store of 33, but
-/// that's not an implemented size: we can do 32 or 40.
+/// most.
 ///
 /// The cache size was chosen by measuring style sharing and resulting
 /// performance on a few pages; sizes up to about 32 were giving good sharing
 /// improvements (e.g. 3x fewer styles having to be resolved than at size 8) and
 /// slight performance improvements.  Sizes larger than 32 haven't really been
 /// tested.
-pub const SHARING_CACHE_SIZE: usize = 31;
-const SHARING_CACHE_BACKING_STORE_SIZE: usize = SHARING_CACHE_SIZE + 1;
-
-/// Controls whether the style sharing cache is used.
-#[derive(Clone, Copy, PartialEq)]
-pub enum StyleSharingBehavior {
-    /// Style sharing allowed.
-    Allow,
-    /// Style sharing disallowed.
-    Disallow,
-}
+pub const SHARING_CACHE_SIZE: usize = 32;
 
 /// Opaque pointer type to compare ComputedValues identities.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -136,9 +124,15 @@ impl OpaqueComputedValues {
 pub struct ValidationData {
     /// The class list of this element.
     ///
-    /// TODO(emilio): See if it's worth to sort them, or doing something else in
-    /// a similar fashion as what Boris is doing for the ID attribute.
+    /// TODO(emilio): Maybe check whether rules for these classes apply to the
+    /// element?
     class_list: Option<SmallVec<[Atom; 5]>>,
+
+    /// The part list of this element.
+    ///
+    /// TODO(emilio): Maybe check whether rules with these part names apply to
+    /// the element?
+    part_list: Option<SmallVec<[Atom; 5]>>,
 
     /// The list of presentational attributes of the element.
     pres_hints: Option<SmallVec<[ApplicableDeclarationBlock; 5]>>,
@@ -173,22 +167,41 @@ impl ValidationData {
         })
     }
 
+    /// Get or compute the part-list associated with this element.
+    pub fn part_list<E>(&mut self, element: E) -> &[Atom]
+    where
+        E: TElement,
+    {
+        if !element.has_part_attr() {
+            return &[];
+        }
+        self.part_list.get_or_insert_with(|| {
+            let mut list = SmallVec::<[Atom; 5]>::new();
+            element.each_part(|p| list.push(p.clone()));
+            // See below for the reasoning.
+            if !list.spilled() {
+                list.sort_unstable_by_key(|a| a.get_hash());
+            }
+            list
+        })
+    }
+
     /// Get or compute the class-list associated with this element.
     pub fn class_list<E>(&mut self, element: E) -> &[Atom]
     where
         E: TElement,
     {
         self.class_list.get_or_insert_with(|| {
-            let mut class_list = SmallVec::<[Atom; 5]>::new();
-            element.each_class(|c| class_list.push(c.clone()));
+            let mut list = SmallVec::<[Atom; 5]>::new();
+            element.each_class(|c| list.push(c.clone()));
             // Assuming there are a reasonable number of classes (we use the
             // inline capacity as "reasonable number"), sort them to so that
             // we don't mistakenly reject sharing candidates when one element
             // has "foo bar" and the other has "bar foo".
-            if !class_list.spilled() {
-                class_list.sort_by(|a, b| a.get_hash().cmp(&b.get_hash()));
+            if !list.spilled() {
+                list.sort_unstable_by_key(|a| a.get_hash());
             }
-            class_list
+            list
         })
     }
 
@@ -285,6 +298,11 @@ impl<E: TElement> StyleSharingCandidate<E> {
         self.validation_data.class_list(self.element)
     }
 
+    /// Get the part list of this candidate.
+    fn part_list(&mut self) -> &[Atom] {
+        self.validation_data.part_list(self.element)
+    }
+
     /// Get the pres hints of this candidate.
     fn pres_hints(&mut self) -> &[ApplicableDeclarationBlock] {
         self.validation_data.pres_hints(self.element)
@@ -345,6 +363,10 @@ impl<E: TElement> StyleSharingTarget<E> {
 
     fn class_list(&mut self) -> &[Atom] {
         self.validation_data.class_list(self.element)
+    }
+
+    fn part_list(&mut self) -> &[Atom] {
+        self.validation_data.part_list(self.element)
     }
 
     /// Get the pres hints of this candidate.
@@ -435,7 +457,7 @@ impl<E: TElement> StyleSharingTarget<E> {
 }
 
 struct SharingCacheBase<Candidate> {
-    entries: LRUCache<[Entry<Candidate>; SHARING_CACHE_BACKING_STORE_SIZE]>,
+    entries: LRUCache<[Entry<Candidate>; SHARING_CACHE_SIZE]>,
 }
 
 impl<Candidate> Default for SharingCacheBase<Candidate> {
@@ -485,8 +507,11 @@ type SharingCache<E> = SharingCacheBase<StyleSharingCandidate<E>>;
 type TypelessSharingCache = SharingCacheBase<FakeCandidate>;
 type StoredSharingCache = Arc<AtomicRefCell<TypelessSharingCache>>;
 
-thread_local!(static SHARING_CACHE_KEY: StoredSharingCache =
-              Arc::new(AtomicRefCell::new(TypelessSharingCache::default())));
+thread_local! {
+    // See the comment on bloom.rs about why do we leak this.
+    static SHARING_CACHE_KEY: ManuallyDrop<StoredSharingCache> =
+        ManuallyDrop::new(Arc::new_leaked(Default::default()));
+}
 
 /// An LRU cache of the last few nodes seen, so that we can aggressively try to
 /// reuse their styles.
@@ -538,7 +563,7 @@ impl<E: TElement> StyleSharingCache<E> {
             mem::align_of::<SharingCache<E>>(),
             mem::align_of::<TypelessSharingCache>()
         );
-        let cache_arc = SHARING_CACHE_KEY.with(|c| c.clone());
+        let cache_arc = SHARING_CACHE_KEY.with(|c| Arc::clone(&*c));
         let cache =
             OwningHandle::new_with_fn(cache_arc, |x| unsafe { x.as_ref() }.unwrap().borrow_mut());
         debug_assert!(cache.is_empty());
@@ -562,6 +587,7 @@ impl<E: TElement> StyleSharingCache<E> {
         style: &PrimaryStyle,
         validation_data_holder: Option<&mut StyleSharingTarget<E>>,
         dom_depth: usize,
+        shared_context: &SharedStyleContext,
     ) {
         let parent = match element.traversal_parent() {
             Some(element) => element,
@@ -594,7 +620,7 @@ impl<E: TElement> StyleSharingCache<E> {
         //   * Our computed style can still be affected by animations after we no
         //     longer match any animation rules, since removing animations involves
         //     a sequential task and an additional traversal.
-        if element.has_animations() {
+        if element.has_animations(shared_context) {
             debug!("Failing to insert to the cache: running animations");
             return;
         }
@@ -675,6 +701,7 @@ impl<E: TElement> StyleSharingCache<E> {
                 bloom_filter,
                 nth_index_cache,
                 selector_flags_map,
+                shared_context,
             )
         })
     }
@@ -686,6 +713,7 @@ impl<E: TElement> StyleSharingCache<E> {
         bloom: &StyleBloom<E>,
         nth_index_cache: &mut NthIndexCache,
         selector_flags_map: &mut SelectorFlagsMap<E>,
+        shared_context: &SharedStyleContext,
     ) -> Option<ResolvedElementStyles> {
         debug_assert!(!target.is_in_native_anonymous_subtree());
 
@@ -727,27 +755,6 @@ impl<E: TElement> StyleSharingCache<E> {
             return None;
         }
 
-        // Note that in theory we shouldn't need this XBL check. However, XBL is
-        // absolutely broken in all sorts of ways.
-        //
-        // A style change that changes which XBL binding applies to an element
-        // arrives there, with the element still having the old prototype
-        // binding attached. And thus we try to match revalidation selectors
-        // with the old XBL binding, because we can't look at the new ones of
-        // course. And that causes us to revalidate with the wrong selectors and
-        // hit assertions.
-        //
-        // Other than this, we don't need anything else like the containing XBL
-        // binding parent or what not, since two elements with different XBL
-        // bindings will necessarily end up with different style.
-        if !target
-            .element
-            .has_same_xbl_proto_binding_as(candidate.element)
-        {
-            trace!("Miss: Different proto bindings");
-            return None;
-        }
-
         // If the elements are not assigned to the same slot they could match
         // different ::slotted() rules in the slot scope.
         //
@@ -763,6 +770,11 @@ impl<E: TElement> StyleSharingCache<E> {
 
         if target.element.shadow_root().is_some() {
             trace!("Miss: Shadow host");
+            return None;
+        }
+
+        if target.element.has_animations(shared_context) {
+            trace!("Miss: Has Animations");
             return None;
         }
 
@@ -794,6 +806,11 @@ impl<E: TElement> StyleSharingCache<E> {
 
         if !checks::have_same_presentational_hints(target, candidate) {
             trace!("Miss: Pres Hints");
+            return None;
+        }
+
+        if !checks::have_same_parts(target, candidate) {
+            trace!("Miss: Shadow parts");
             return None;
         }
 

@@ -4,13 +4,21 @@
 
 "use strict";
 
-var Services = require("Services");
-loader.lazyRequireGetter(this, "extend", "devtools/shared/extend", true);
-loader.lazyRequireGetter(this, "Telemetry", "devtools/client/shared/telemetry");
-loader.lazyRequireGetter(this, "WebConsole", "devtools/client/webconsole/webconsole");
+const Services = require("Services");
+const WebConsole = require("devtools/client/webconsole/webconsole");
+const { TargetList } = require("devtools/shared/resources/target-list");
+const {
+  ResourceWatcher,
+} = require("devtools/shared/resources/resource-watcher");
+const { Utils } = require("devtools/client/webconsole/utils");
 
-// The preference prefix for all of the Browser Console filters.
-const BC_FILTER_PREFS_PREFIX = "devtools.browserconsole.filter.";
+loader.lazyRequireGetter(this, "Telemetry", "devtools/client/shared/telemetry");
+loader.lazyRequireGetter(
+  this,
+  "BrowserConsoleManager",
+  "devtools/client/webconsole/browser-console-manager",
+  true
+);
 
 /**
  * A BrowserConsole instance is an interactive console initialized *per target*
@@ -22,28 +30,39 @@ const BC_FILTER_PREFS_PREFIX = "devtools.browserconsole.filter.";
  * UI and features.
  *
  * This object extends the WebConsole object located in webconsole.js
- *
- * @constructor
- * @param object target
- *        The target that the browser console will connect to.
- * @param nsIDOMWindow iframeWindow
- *        The window where the browser console UI is already loaded.
- * @param nsIDOMWindow chromeWindow
- *        The window of the browser console owner.
- * @param object hudService
- *        The parent HUD Service
  */
-function BrowserConsole(target, iframeWindow, chromeWindow, hudService) {
-  WebConsole.call(this, target, iframeWindow, chromeWindow, hudService);
-  this._telemetry = new Telemetry();
-}
+class BrowserConsole extends WebConsole {
+  /*
+   * @constructor
+   * @param object target
+   *        The target that the browser console will connect to.
+   * @param nsIDOMWindow iframeWindow
+   *        The window where the browser console UI is already loaded.
+   * @param nsIDOMWindow chromeWindow
+   *        The window of the browser console owner.
+   */
+  constructor(target, iframeWindow, chromeWindow) {
+    super(null, iframeWindow, chromeWindow, true);
 
-BrowserConsole.prototype = extend(WebConsole.prototype, {
-  _browserConsole: true,
-  _bcInit: null,
-  _bcDestroyer: null,
+    this._browserConsoleTarget = target;
+    this._targetList = new TargetList(target.client.mainRoot, target);
+    this._resourceWatcher = new ResourceWatcher(this._targetList);
+    this._telemetry = new Telemetry();
+    this._bcInitializer = null;
+    this._bcDestroyer = null;
+  }
 
-  $init: WebConsole.prototype.init,
+  get currentTarget() {
+    return this._browserConsoleTarget;
+  }
+
+  get targetList() {
+    return this._targetList;
+  }
+
+  get resourceWatcher() {
+    return this._resourceWatcher;
+  }
 
   /**
    * Initialize the Browser Console instance.
@@ -52,32 +71,31 @@ BrowserConsole.prototype = extend(WebConsole.prototype, {
    *         A promise for the initialization.
    */
   init() {
-    if (this._bcInit) {
-      return this._bcInit;
+    if (this._bcInitializer) {
+      return this._bcInitializer;
     }
 
-    // Only add the shutdown observer if we've opened a Browser Console window.
-    ShutdownObserver.init(this.hudService);
+    this._bcInitializer = (async () => {
+      // Only add the shutdown observer if we've opened a Browser Console window.
+      ShutdownObserver.init();
 
-    this.ui._filterPrefsPrefix = BC_FILTER_PREFS_PREFIX;
+      // browserconsole is not connected with a toolbox so we pass -1 as the
+      // toolbox session id.
+      this._telemetry.toolOpened("browserconsole", -1, this);
 
-    const window = this.iframeWindow;
+      // Bug 1605763: Call super.init before fetching targets in order to build the
+      // console UI first; have it listen for targets and be able to display first
+      // targets as soon as they get available.
+      await super.init(false);
+      await this.targetList.startListening();
 
-    // Make sure that the closing of the Browser Console window destroys this
-    // instance.
-    window.addEventListener("unload", () => {
-      this.destroy();
-    }, {once: true});
-
-    // browserconsole is not connected with a toolbox so we pass -1 as the
-    // toolbox session id.
-    this._telemetry.toolOpened("browserconsole", -1, this);
-
-    this._bcInit = this.$init();
-    return this._bcInit;
-  },
-
-  $destroy: WebConsole.prototype.destroy,
+      // Reports the console as created only after everything is done,
+      // including TargetList.startListening.
+      const id = Utils.supportsString(this.hudId);
+      Services.obs.notifyObservers(id, "web-console-created");
+    })();
+    return this._bcInitializer;
+  }
 
   /**
    * Destroy the object.
@@ -95,15 +113,20 @@ BrowserConsole.prototype = extend(WebConsole.prototype, {
       // toolbox session id.
       this._telemetry.toolClosed("browserconsole", -1, this);
 
-      await this.$destroy();
-      await this.target.client.close();
-      this.hudService._browserConsoleID = null;
+      this.targetList.destroy();
+      // Wait for any pending connection initialization.
+      await Promise.all(
+        this.ui.getAllProxies().map(proxy => proxy.getConnectionPromise())
+      );
+
+      await super.destroy();
+      await this.currentTarget.destroy();
       this.chromeWindow.close();
     })();
 
     return this._bcDestroyer;
-  },
-});
+  }
+}
 
 /**
  * The ShutdownObserver listens for app shutdown and saves the current state
@@ -112,7 +135,7 @@ BrowserConsole.prototype = extend(WebConsole.prototype, {
 var ShutdownObserver = {
   _initialized: false,
 
-  init(hudService) {
+  init() {
     if (this._initialized) {
       return;
     }
@@ -120,12 +143,11 @@ var ShutdownObserver = {
     Services.obs.addObserver(this, "quit-application-granted");
 
     this._initialized = true;
-    this.hudService = hudService;
   },
 
   observe(message, topic) {
     if (topic == "quit-application-granted") {
-      this.hudService.storeBrowserConsoleSessionState();
+      BrowserConsoleManager.storeBrowserConsoleSessionState();
       this.uninit();
     }
   },

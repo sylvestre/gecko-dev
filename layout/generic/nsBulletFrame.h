@@ -10,7 +10,7 @@
 #define nsBulletFrame_h___
 
 #include "mozilla/Attributes.h"
-#include "nsFrame.h"
+#include "nsIFrame.h"
 
 #include "imgIContainer.h"
 #include "imgINotificationObserver.h"
@@ -40,7 +40,7 @@ class nsBulletListener final : public imgINotificationObserver {
  * A simple class that manages the layout and rendering of html bullets.
  * This class also supports the CSS list-style properties.
  */
-class nsBulletFrame final : public nsFrame {
+class nsBulletFrame final : public nsIFrame {
   typedef mozilla::image::ImgDrawResult ImgDrawResult;
 
  public:
@@ -49,17 +49,15 @@ class nsBulletFrame final : public nsFrame {
   NS_DECL_QUERYFRAME
 #endif
 
-  explicit nsBulletFrame(ComputedStyle* aStyle)
-      : nsFrame(aStyle, kClassID),
+  explicit nsBulletFrame(ComputedStyle* aStyle, nsPresContext* aPresContext)
+      : nsIFrame(aStyle, aPresContext, kClassID),
         mPadding(GetWritingMode()),
         mIntrinsicSize(GetWritingMode()),
-        mOrdinal(0),
         mRequestRegistered(false) {}
 
   virtual ~nsBulletFrame();
 
-  NS_IMETHOD Notify(imgIRequest* aRequest, int32_t aType,
-                    const nsIntRect* aData);
+  void Notify(imgIRequest* aRequest, int32_t aType, const nsIntRect* aData);
 
   // nsIFrame
   virtual void DestroyFrom(nsIFrame* aDestructRoot,
@@ -85,17 +83,18 @@ class nsBulletFrame final : public nsFrame {
     if (aFlags & (eSupportsCSSTransforms | eSupportsContainLayoutAndPaint)) {
       return false;
     }
-    return nsFrame::IsFrameOfType(aFlags);
+    return nsIFrame::IsFrameOfType(aFlags & ~nsIFrame::eLineParticipant);
   }
 
   // nsBulletFrame
-  int32_t SetListItemOrdinal(int32_t aNextOrdinal, bool* aChanged,
-                             int32_t aIncrement);
 
   /* get list item text, with prefix & suffix */
-  void GetListItemText(nsAString& aResult);
+  static void GetListItemText(mozilla::CounterStyle*, mozilla::WritingMode,
+                              int32_t aOrdinal, nsAString& aResult);
 
+#ifdef ACCESSIBILITY
   void GetSpokenText(nsAString& aText);
+#endif
 
   Maybe<BulletRenderer> CreateBulletRenderer(gfxContext& aRenderingContext,
                                              nsPoint aPt);
@@ -105,21 +104,31 @@ class nsBulletFrame final : public nsFrame {
 
   virtual bool IsEmpty() override;
   virtual bool IsSelfEmpty() override;
+
+  // XXXmats note that this method returns a non-standard baseline that includes
+  // the ::marker block-start margin.  New code should probably use
+  // GetNaturalBaselineBOffset instead, which returns a normal baseline offset
+  // as documented in nsIFrame.h.
   virtual nscoord GetLogicalBaseline(
       mozilla::WritingMode aWritingMode) const override;
 
+  bool GetNaturalBaselineBOffset(mozilla::WritingMode aWM,
+                                 BaselineSharingGroup aBaselineGroup,
+                                 nscoord* aBaseline) const override;
+
   float GetFontSizeInflation() const;
   bool HasFontSizeInflation() const {
-    return (GetStateBits() & BULLET_FRAME_HAS_FONT_INFLATION) != 0;
+    return HasAnyStateBits(BULLET_FRAME_HAS_FONT_INFLATION);
   }
   void SetFontSizeInflation(float aInflation);
 
-  int32_t GetOrdinal() { return mOrdinal; }
+  int32_t Ordinal() const { return mOrdinal; }
+  void SetOrdinal(int32_t aOrdinal, bool aNotify);
 
   already_AddRefed<imgIContainer> GetImage() const;
 
  protected:
-  nsresult OnSizeAvailable(imgIRequest* aRequest, imgIContainer* aImage);
+  void OnSizeAvailable(imgIRequest* aRequest, imgIContainer* aImage);
 
   void AppendSpacingToPadding(nsFontMetrics* aFontMetrics,
                               mozilla::LogicalMargin* aPadding);
@@ -129,18 +138,22 @@ class nsBulletFrame final : public nsFrame {
                       mozilla::LogicalMargin* aPadding);
 
   void GetLoadGroup(nsPresContext* aPresContext, nsILoadGroup** aLoadGroup);
-  nsIDocument* GetOurCurrentDoc() const;
+  mozilla::dom::Document* GetOurCurrentDoc() const;
 
   mozilla::LogicalMargin mPadding;
   RefPtr<imgRequestProxy> mImageRequest;
   RefPtr<nsBulletListener> mListener;
 
   mozilla::LogicalSize mIntrinsicSize;
-  int32_t mOrdinal;
 
  private:
+  mozilla::CounterStyle* ResolveCounterStyle();
+  nscoord GetListStyleAscent() const;
   void RegisterImageRequest(bool aKnownToBeAnimated);
   void DeregisterAndCancelImageRequest();
+
+  // Requires being set via SetOrdinal.
+  int32_t mOrdinal = 0;
 
   // This is a boolean flag indicating whether or not the current image request
   // has been registered with the refresh driver.

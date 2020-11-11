@@ -18,13 +18,12 @@ class nsUrlClassifierUtils final : public nsIUrlClassifierUtils,
  public:
   typedef nsClassHashtable<nsCStringHashKey, nsCString> ProviderDictType;
 
-  nsUrlClassifierUtils();
-
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIURLCLASSIFIERUTILS
   NS_DECL_NSIOBSERVER
 
-  nsresult Init();
+  static already_AddRefed<nsUrlClassifierUtils> GetXPCOMSingleton();
+  static nsUrlClassifierUtils* GetInstance();
 
   nsresult CanonicalizeHostname(const nsACString& hostname,
                                 nsACString& _retval);
@@ -43,8 +42,17 @@ class nsUrlClassifierUtils final : public nsIUrlClassifierUtils,
   void CanonicalNum(const nsACString& num, uint32_t bytes, bool allowOctal,
                     nsACString& _retval);
 
+  static bool IsMozTestTable(const nsACString& aTableName);
+
+  static bool IsTestTable(const nsACString& aTableName);
+
+  static bool IsInSafeMode();
+
  private:
-  ~nsUrlClassifierUtils() {}
+  nsUrlClassifierUtils();
+  ~nsUrlClassifierUtils();
+
+  nsresult Init();
 
   // Disallow copy constructor
   nsUrlClassifierUtils(const nsUrlClassifierUtils&);

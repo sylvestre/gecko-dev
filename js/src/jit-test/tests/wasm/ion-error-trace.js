@@ -18,22 +18,22 @@ var imports = {
 };
 
 var instance = new WebAssembly.Instance(new WebAssembly.Module(wasmTextToBinary(`(module
-    (import $main "main" "f" (func))
-    (func $lol (export "add") (result i32) (param i32) (param i32)
-     get_local 0
-     get_local 1
-     call $add
+    (import "main" "f" (func))
+    (func (export "add") (param i32) (param i32) (result i32)
+     local.get 0
+     local.get 1
+     call 2
     )
-    (func $add (result i32) (param i32) (param i32)
-     get_local 0
+    (func (param i32) (param i32) (result i32)
+     local.get 0
      i32.const 5000
      i32.eq
      if
-         call $main
+         call 0
      end
 
-     get_local 0
-     get_local 1
+     local.get 0
+     local.get 1
      i32.add
     )
 )`)), imports).exports;
@@ -81,23 +81,23 @@ var imports = {
 };
 
 var instance = new WebAssembly.Instance(new WebAssembly.Module(wasmTextToBinary(`(module
-    (import $main "main" "f" (func))
-    (func $lol (export "add") (result i32) (param i32) (param i32)
-     get_local 0
-     get_local 1
-     call $add
+    (import "main" "f" (func))
+    (func (export "add") (param i32) (param i32) (result i32)
+     local.get 0
+     local.get 1
+     call 2
     )
-    (func $add (result i32) (param i32) (param i32)
-     get_local 0
+    (func (param i32) (param i32) (result i32)
+     local.get 0
      i32.const 5000
      i32.eq
      if
-         call $main
+         call 0
          unreachable
      end
 
-     get_local 0
-     get_local 1
+     local.get 0
+     local.get 1
      i32.add
     )
 )`)), imports).exports;

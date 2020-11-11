@@ -7,11 +7,17 @@
 #ifndef mozilla_dom_quota_quotaobject_h__
 #define mozilla_dom_quota_quotaobject_h__
 
+// Local includes
+#include "Client.h"
+
+// Global includes
+#include <cstdint>
+#include "mozilla/AlreadyAddRefed.h"
+#include "mozilla/RefPtr.h"
 #include "mozilla/dom/quota/QuotaCommon.h"
-
-#include "nsDataHashtable.h"
-
-#include "PersistenceType.h"
+#include "nsCOMPtr.h"
+#include "nsISupports.h"
+#include "nsStringFwd.h"
 
 BEGIN_QUOTA_NAMESPACE
 
@@ -31,7 +37,7 @@ class QuotaObject {
 
   const nsAString& Path() const { return mPath; }
 
-  bool MaybeUpdateSize(int64_t aSize, bool aTruncate);
+  [[nodiscard]] bool MaybeUpdateSize(int64_t aSize, bool aTruncate);
 
   bool IncreaseSize(int64_t aDelta);
 
@@ -40,16 +46,18 @@ class QuotaObject {
   void EnableQuotaCheck();
 
  private:
-  QuotaObject(OriginInfo* aOriginInfo, const nsAString& aPath, int64_t aSize)
+  QuotaObject(OriginInfo* aOriginInfo, Client::Type aClientType,
+              const nsAString& aPath, int64_t aSize)
       : mOriginInfo(aOriginInfo),
         mPath(aPath),
         mSize(aSize),
+        mClientType(aClientType),
         mQuotaCheckDisabled(false),
         mWritingDone(false) {
     MOZ_COUNT_CTOR(QuotaObject);
   }
 
-  ~QuotaObject() { MOZ_COUNT_DTOR(QuotaObject); }
+  MOZ_COUNTED_DTOR(QuotaObject)
 
   already_AddRefed<QuotaObject> LockedAddRef() {
     AssertCurrentThreadOwnsQuotaMutex();
@@ -67,7 +75,7 @@ class QuotaObject {
   OriginInfo* mOriginInfo;
   nsString mPath;
   int64_t mSize;
-
+  Client::Type mClientType;
   bool mQuotaCheckDisabled;
   bool mWritingDone;
 };

@@ -6,6 +6,7 @@
 
 #include "mozilla/dom/MIDITypes.h"
 #include "mozilla/dom/MIDIUtils.h"
+#include "mozilla/UniquePtr.h"
 
 // Taken from MIDI IMPLEMENTATION CHART INSTRUCTIONS, MIDI Spec v1.0, Pg. 97
 static const uint8_t kCommandByte = 0x80;
@@ -21,9 +22,7 @@ static const uint8_t kCommandLengths[] = {3, 3, 3, 3, 2, 2, 3};
 // Taken from MIDI Spec v1.0, Pg. 105, Table 5
 static const uint8_t kSystemLengths[] = {0, 2, 3, 2, 1, 1, 1, 1};
 
-namespace mozilla {
-namespace dom {
-namespace MIDIUtils {
+namespace mozilla::dom::MIDIUtils {
 
 // Checks validity of MIDIMessage passed to it. Throws debug warnings and
 // returns false if message is not valid.
@@ -78,7 +77,7 @@ uint32_t ParseMessages(const nsTArray<uint8_t>& aByteBuffer,
                        nsTArray<MIDIMessage>& aMsgArray) {
   uint32_t bytesRead = 0;
   bool inSysexMessage = false;
-  nsAutoPtr<MIDIMessage> currentMsg;
+  UniquePtr<MIDIMessage> currentMsg;
   for (auto& byte : aByteBuffer) {
     bytesRead++;
     if ((byte & kSystemRealtimeMessage) == kSystemRealtimeMessage) {
@@ -96,10 +95,10 @@ uint32_t ParseMessages(const nsTArray<uint8_t>& aByteBuffer,
       }
       inSysexMessage = false;
     } else if (byte & kCommandByte) {
-      if (currentMsg && IsValidMessage(currentMsg)) {
+      if (currentMsg && IsValidMessage(currentMsg.get())) {
         aMsgArray.AppendElement(*currentMsg);
       }
-      currentMsg = new MIDIMessage();
+      currentMsg = MakeUnique<MIDIMessage>();
       currentMsg->timestamp() = aTimestamp;
     }
     currentMsg->data().AppendElement(byte);
@@ -107,7 +106,7 @@ uint32_t ParseMessages(const nsTArray<uint8_t>& aByteBuffer,
       inSysexMessage = true;
     }
   }
-  if (currentMsg && IsValidMessage(currentMsg)) {
+  if (currentMsg && IsValidMessage(currentMsg.get())) {
     aMsgArray.AppendElement(*currentMsg);
   }
   return bytesRead;
@@ -122,6 +121,4 @@ bool IsSysexMessage(const MIDIMessage& aMsg) {
   }
   return false;
 }
-}  // namespace MIDIUtils
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom::MIDIUtils

@@ -11,6 +11,7 @@
 #include "mozilla/gfx/GPUParent.h"
 #include "mozilla/gfx/StackArray.h"
 #include "mozilla/layers/DiagnosticsD3D11.h"
+#include "mozilla/layers/HelpersD3D11.h"
 #include "mozilla/layers/LayerMLGPU.h"
 #include "mozilla/layers/MemoryReportingMLGPU.h"
 #include "mozilla/layers/ShaderDefinitionsMLGPU.h"
@@ -20,7 +21,8 @@
 #include "MLGShaders.h"
 #include "TextureD3D11.h"
 #include "gfxConfig.h"
-#include "gfxPrefs.h"
+#include "mozilla/StaticPrefs_layers.h"
+#include "FxROutputHandler.h"
 
 namespace mozilla {
 namespace layers {
@@ -28,7 +30,6 @@ namespace layers {
 using namespace mozilla::gfx;
 using namespace mozilla::widget;
 using namespace mozilla::layers::mlg;
-using namespace std;
 
 // Defined in CompositorD3D11.cpp.
 bool CanUsePartialPresents(ID3D11Device* aDevice);
@@ -232,9 +233,9 @@ bool MLGSwapChainD3D11::Initialize(CompositorWidget* aWidget) {
   }
 
   RefPtr<IDXGIFactory2> dxgiFactory2;
-  if (gfxPrefs::Direct3D11UseDoubleBuffering() &&
+  if (gfxVars::UseDoubleBufferingWithCompositor() &&
       SUCCEEDED(dxgiFactory->QueryInterface(dxgiFactory2.StartAssignment())) &&
-      dxgiFactory2 && IsWin10OrLater()) {
+      dxgiFactory2 && XRE_IsGPUProcess()) {
     // DXGI_SCALING_NONE is not available on Windows 7 with the Platform Update:
     // This looks awful for things like the awesome bar and browser window
     // resizing, so we don't use a flip buffer chain here. (Note when using
@@ -243,6 +244,9 @@ bool MLGSwapChainD3D11::Initialize(CompositorWidget* aWidget) {
     // We choose not to run this on platforms earlier than Windows 10 because
     // it appears sometimes this breaks our ability to test ASAP compositing,
     // which breaks Talos.
+    //
+    // When the GPU process is disabled we don't have a compositor window which
+    // can lead to issues with Window re-use so we don't use this.
     DXGI_SWAP_CHAIN_DESC1 desc;
     ::ZeroMemory(&desc, sizeof(desc));
     desc.Width = 0;
@@ -263,6 +267,10 @@ bool MLGSwapChainD3D11::Initialize(CompositorWidget* aWidget) {
       mSwapChain1->SetBackgroundColor(&color);
       mSwapChain = mSwapChain1;
       mIsDoubleBuffered = true;
+    } else if (aWidget->AsWindows()->GetCompositorHwnd()) {
+      // Destroy compositor window.
+      aWidget->AsWindows()->DestroyCompositorWindow();
+      hwnd = aWidget->AsWindows()->GetHwnd();
     }
   }
 
@@ -318,7 +326,7 @@ RefPtr<MLGRenderTarget> MLGSwapChainD3D11::AcquireBackBuffer() {
 
   if (!mRT) {
     MLGRenderTargetFlags flags = MLGRenderTargetFlags::Default;
-    if (gfxPrefs::AdvancedLayersEnableDepthBuffer()) {
+    if (StaticPrefs::layers_mlgpu_enable_depth_buffer_AtStartup()) {
       flags |= MLGRenderTargetFlags::ZBuffer;
     }
 
@@ -408,6 +416,17 @@ void MLGSwapChainD3D11::Present() {
 
   // See bug 1260611 comment #28 for why we do this.
   mParent->InsertPresentWaitQuery();
+
+  if (mWidget->AsWindows()->HasFxrOutputHandler()) {
+    // There is a Firefox Reality handler for this swapchain. Update this
+    // window's contents to the VR window.
+    FxROutputHandler* fxrHandler = mWidget->AsWindows()->GetFxrOutputHandler();
+    if (fxrHandler->TryInitialize(mSwapChain, mDevice)) {
+      RefPtr<ID3D11DeviceContext> context;
+      mDevice->GetImmediateContext(getter_AddRefs(context));
+      fxrHandler->UpdateOutput(context);
+    }
+  }
 
   HRESULT hr;
   if (mCanUsePartialPresents && mSwapChain1) {
@@ -625,9 +644,12 @@ MLGTextureD3D11::MLGTextureD3D11(ID3D11Texture2D* aTexture)
   mSize.height = desc.Height;
 }
 
-/* static */ RefPtr<MLGTextureD3D11> MLGTextureD3D11::Create(
-    ID3D11Device* aDevice, const gfx::IntSize& aSize,
-    gfx::SurfaceFormat aFormat, MLGUsage aUsage, MLGTextureFlags aFlags) {
+/* static */
+RefPtr<MLGTextureD3D11> MLGTextureD3D11::Create(ID3D11Device* aDevice,
+                                                const gfx::IntSize& aSize,
+                                                gfx::SurfaceFormat aFormat,
+                                                MLGUsage aUsage,
+                                                MLGTextureFlags aFlags) {
   D3D11_TEXTURE2D_DESC desc;
   ::ZeroMemory(&desc, sizeof(desc));
   desc.Width = aSize.width;
@@ -807,8 +829,10 @@ bool MLGDeviceD3D11::Initialize() {
   LAZY_PS(ComponentAlphaQuadPS, ComponentAlphaQuad);
   LAZY_PS(ComponentAlphaVertexPS, ComponentAlphaVertex);
   LAZY_PS(TexturedVertexIMC4, TexturedVertexIMC4);
+  LAZY_PS(TexturedVertexIdentityIMC4, TexturedVertexIdentityIMC4);
   LAZY_PS(TexturedVertexNV12, TexturedVertexNV12);
   LAZY_PS(TexturedQuadIMC4, TexturedQuadIMC4);
+  LAZY_PS(TexturedQuadIdentityIMC4, TexturedQuadIdentityIMC4);
   LAZY_PS(TexturedQuadNV12, TexturedQuadNV12);
   LAZY_PS(BlendMultiplyPS, BlendMultiply);
   LAZY_PS(BlendScreenPS, BlendScreen);
@@ -1262,10 +1286,13 @@ bool MLGDeviceD3D11::InitInputLayout(D3D11_INPUT_ELEMENT_DESC* aDesc,
   return true;
 }
 
-TextureFactoryIdentifier MLGDeviceD3D11::GetTextureFactoryIdentifier() const {
+TextureFactoryIdentifier MLGDeviceD3D11::GetTextureFactoryIdentifier(
+    widget::CompositorWidget* aWidget) const {
   TextureFactoryIdentifier ident(GetLayersBackend(), XRE_GetProcessType(),
                                  GetMaxTextureSize());
-
+  if (aWidget) {
+    ident.mUseCompositorWnd = !!aWidget->AsWindows()->GetCompositorHwnd();
+  }
   if (mSyncObject) {
     ident.mSyncHandle = mSyncObject->GetSyncHandle();
   }
@@ -1550,7 +1577,8 @@ RefPtr<MLGRenderTarget> MLGDeviceD3D11::CreateRenderTarget(
   return rt;
 }
 
-void MLGDeviceD3D11::Clear(MLGRenderTarget* aRT, const gfx::Color& aColor) {
+void MLGDeviceD3D11::Clear(MLGRenderTarget* aRT,
+                           const gfx::DeviceColor& aColor) {
   MLGRenderTargetD3D11* rt = aRT->AsD3D11();
   FLOAT rgba[4] = {aColor.r, aColor.g, aColor.b, aColor.a};
   mCtx->ClearRenderTargetView(rt->GetRenderTargetView(), rgba);
@@ -1566,7 +1594,7 @@ void MLGDeviceD3D11::ClearDepthBuffer(MLGRenderTarget* aRT) {
   }
 }
 
-void MLGDeviceD3D11::ClearView(MLGRenderTarget* aRT, const Color& aColor,
+void MLGDeviceD3D11::ClearView(MLGRenderTarget* aRT, const DeviceColor& aColor,
                                const IntRect* aRects, size_t aNumRects) {
   MOZ_ASSERT(mCanUseClearView);
   MOZ_ASSERT(mCtx1);
@@ -1783,7 +1811,7 @@ void MLGDeviceD3D11::InsertPresentWaitQuery() {
 void MLGDeviceD3D11::WaitForPreviousPresentQuery() {
   if (mWaitForPresentQuery) {
     BOOL result;
-    WaitForGPUQuery(mDevice, mCtx, mWaitForPresentQuery, &result);
+    WaitForFrameGPUQuery(mDevice, mCtx, mWaitForPresentQuery, &result);
   }
   mWaitForPresentQuery = mNextWaitForPresentQuery.forget();
 }
@@ -1819,7 +1847,7 @@ void MLGDeviceD3D11::HandleDeviceReset(const char* aWhere) {
     return;
   }
 
-  Fail(NS_LITERAL_CSTRING("FEATURE_FAILURE_DEVICE_RESET"), nullptr);
+  Fail("FEATURE_FAILURE_DEVICE_RESET"_ns, nullptr);
 
   gfxCriticalNote << "GFX: D3D11 detected a device reset in " << aWhere;
   if (XRE_IsGPUProcess()) {
@@ -1862,15 +1890,14 @@ void MLGDeviceD3D11::CopyTexture(MLGTexture* aDest,
   IntRect sourceBounds(IntPoint(0, 0), aSource->GetSize());
   if (!sourceBounds.Contains(aRect)) {
     gfxWarning() << "Attempt to read out-of-bounds in CopySubresourceRegion: "
-                 << Stringify(sourceBounds) << ", " << Stringify(aRect);
+                 << sourceBounds << ", " << aRect;
     return;
   }
 
   IntRect destBounds(IntPoint(0, 0), aDest->GetSize());
   if (!destBounds.Contains(IntRect(aTarget, aRect.Size()))) {
     gfxWarning() << "Attempt to write out-of-bounds in CopySubresourceRegion: "
-                 << Stringify(destBounds) << ", " << Stringify(aTarget) << ", "
-                 << Stringify(aRect.Size());
+                 << destBounds << ", " << aTarget << ", " << aRect.Size();
     return;
   }
 
@@ -1930,16 +1957,18 @@ bool MLGDeviceD3D11::VerifyConstantBufferOffsetting() {
       return false;
     }
 
-    *reinterpret_cast<Color*>(map.mData) = Color(1.0f, 0.2f, 0.3f, 1.0f);
-    *reinterpret_cast<Color*>(map.mData + kConstantSize * kMinConstants) =
-        Color(0.4f, 0.0f, 0.5f, 1.0f);
-    *reinterpret_cast<Color*>(map.mData + (kConstantSize * kMinConstants) * 2) =
-        Color(0.6f, 0.7f, 1.0f, 1.0f);
+    *reinterpret_cast<DeviceColor*>(map.mData) =
+        DeviceColor(1.0f, 0.2f, 0.3f, 1.0f);
+    *reinterpret_cast<DeviceColor*>(map.mData + kConstantSize * kMinConstants) =
+        DeviceColor(0.4f, 0.0f, 0.5f, 1.0f);
+    *reinterpret_cast<DeviceColor*>(map.mData +
+                                    (kConstantSize * kMinConstants) * 2) =
+        DeviceColor(0.6f, 0.7f, 1.0f, 1.0f);
 
     Unmap(buffer);
   }
 
-  Clear(rt, Color(0.0f, 0.0f, 0.0f, 1.0f));
+  Clear(rt, DeviceColor(0.0f, 0.0f, 0.0f, 1.0f));
   SetRenderTarget(rt);
   SetViewport(IntRect(0, 0, 2, 2));
   SetScissorRect(Nothing());

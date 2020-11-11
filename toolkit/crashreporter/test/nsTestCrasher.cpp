@@ -8,8 +8,12 @@
 #include "ExceptionThrower.h"
 
 #ifdef XP_WIN
-#include <malloc.h>
-#include <windows.h>
+#  include <malloc.h>
+#  include <windows.h>
+#endif
+
+#ifdef MOZ_PHC
+#  include "replace_malloc_bridge.h"
 #endif
 
 /*
@@ -77,6 +81,10 @@ const int16_t CRASH_X64CFI_SAVE_XMM128 = 17;
 const int16_t CRASH_X64CFI_SAVE_XMM128_FAR = 18;
 const int16_t CRASH_X64CFI_EPILOG = 19;
 const int16_t CRASH_X64CFI_EOF = 20;
+const int16_t CRASH_PHC_USE_AFTER_FREE = 21;
+const int16_t CRASH_PHC_DOUBLE_FREE = 22;
+const int16_t CRASH_PHC_BOUNDS_VIOLATION = 23;
+const int16_t CRASH_HEAP_CORRUPTION = 24;
 
 #if XP_WIN && HAVE_64BIT_BUILD && defined(_M_X64) && !defined(__MINGW32__)
 
@@ -117,6 +125,21 @@ void MOZ_NEVER_INLINE ReserveStack() {
 }
 
 #endif  // XP_WIN && HAVE_64BIT_BUILD
+
+#ifdef MOZ_PHC
+uint8_t* GetPHCAllocation(size_t aSize) {
+  // A crude but effective way to get a PHC allocation.
+  for (int i = 0; i < 2000000; i++) {
+    uint8_t* p = (uint8_t*)malloc(aSize);
+    if (ReplaceMalloc::IsPHCAllocation(p, nullptr)) {
+      return p;
+    }
+    free(p);
+  }
+  // This failure doesn't seem to occur in practice...
+  MOZ_CRASH("failed to get a PHC allocation");
+}
+#endif
 
 extern "C" NS_EXPORT void Crash(int16_t how) {
   switch (how) {
@@ -170,6 +193,46 @@ extern "C" NS_EXPORT void Crash(int16_t how) {
       break;
     }
 #endif  // XP_WIN && HAVE_64BIT_BUILD && !defined(__MINGW32__)
+#ifdef MOZ_PHC
+    case CRASH_PHC_USE_AFTER_FREE: {
+      // Do a UAF, triggering a crash.
+      uint8_t* p = GetPHCAllocation(32);
+      free(p);
+      p[0] = 0;
+      // not reached
+    }
+    case CRASH_PHC_DOUBLE_FREE: {
+      // Do a double free, triggering a crash.
+      uint8_t* p = GetPHCAllocation(64);
+      free(p);
+      free(p);
+      // not reached
+    }
+    case CRASH_PHC_BOUNDS_VIOLATION: {
+      // Do a bounds violation, triggering a crash.
+      uint8_t* p = GetPHCAllocation(96);
+      p[96] = 0;
+      // not reached
+    }
+#endif
+#if XP_WIN
+    case CRASH_HEAP_CORRUPTION: {
+      // We override the HeapFree() function in mozglue so that we can force
+      // the code calling it to use our allocator instead of the Windows one.
+      // Since we need to call the real HeapFree() we get its pointer directly.
+      HMODULE kernel32 = LoadLibraryW(L"Kernel32.dll");
+      if (kernel32) {
+        typedef BOOL (*HeapFreeT)(HANDLE, DWORD, LPVOID);
+        HeapFreeT heapFree = (HeapFreeT)GetProcAddress(kernel32, "HeapFree");
+        if (heapFree) {
+          HANDLE heap = GetProcessHeap();
+          LPVOID badPointer = (LPVOID)3;
+          heapFree(heap, 0, badPointer);
+          break;  // This should be unreachable
+        }
+      }
+    }
+#endif  // XP_WIN
     default:
       break;
   }
@@ -188,7 +251,7 @@ extern "C" NS_EXPORT uint64_t SaveAppMemory() {
   return (int64_t)testData;
 }
 
-#ifdef XP_WIN32
+#ifdef XP_WIN
 static LONG WINAPI HandleException(EXCEPTION_POINTERS* exinfo) {
   TerminateProcess(GetCurrentProcess(), 0);
   return 0;

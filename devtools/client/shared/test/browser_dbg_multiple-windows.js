@@ -1,5 +1,3 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 2 -*- */
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -10,18 +8,18 @@
  * are open.
  */
 
-var { DebuggerServer } = require("devtools/server/main");
-var { DebuggerClient } = require("devtools/shared/client/debugger-client");
+var { DevToolsServer } = require("devtools/server/devtools-server");
+var { DevToolsClient } = require("devtools/client/devtools-client");
 
-const TAB1_URL = EXAMPLE_URL + "doc_script-switching-01.html";
-const TAB2_URL = EXAMPLE_URL + "doc_script-switching-02.html";
+const TAB1_URL = "data:text/html;charset=utf-8,first-tab";
+const TAB2_URL = "data:text/html;charset=utf-8,second-tab";
 
 add_task(async function() {
-  DebuggerServer.init();
-  DebuggerServer.registerAllActors();
+  DevToolsServer.init();
+  DevToolsServer.registerAllActors();
 
-  const transport = DebuggerServer.connectPipe();
-  const client = new DebuggerClient(transport);
+  const transport = DevToolsServer.connectPipe();
+  const client = new DevToolsClient(transport);
   const [type] = await client.connect();
   is(type, "browser", "Root actor should identify itself as a browser.");
 
@@ -37,11 +35,12 @@ add_task(async function() {
 async function testFirstTab(client, tab) {
   ok(!!tab, "Second tab created.");
 
-  const response = await client.listTabs();
-  const targetActor = response.tabs.filter(grip => grip.url == TAB1_URL).pop();
-  ok(targetActor, "Should find a target actor for the first tab.");
+  const tabs = await client.mainRoot.listTabs();
+  const targetFront = tabs.find(grip => grip.url == TAB1_URL);
+  ok(targetFront, "Should find a target actor for the first tab.");
 
-  is(response.selected, 1, "The first tab is selected.");
+  ok(!tabs[0].selected, "The previously opened tab isn't selected.");
+  ok(tabs[1].selected, "The first tab is selected.");
 }
 
 async function testNewWindow(client, win) {
@@ -54,34 +53,39 @@ async function testNewWindow(client, win) {
 
   if (Services.focus.activeWindow != win) {
     await new Promise(resolve => {
-      win.addEventListener("activate", function onActivate(event) {
-        if (event.target != win) {
-          return;
-        }
-        win.removeEventListener("activate", onActivate, true);
-        resolve();
-      }, true);
+      win.addEventListener(
+        "activate",
+        function onActivate(event) {
+          if (event.target != win) {
+            return;
+          }
+          win.removeEventListener("activate", onActivate, true);
+          resolve();
+        },
+        true
+      );
     });
   }
 
-  const tab = win.gBrowser.selectedTab;
-  await BrowserTestUtils.browserLoaded(tab.linkedBrowser);
-
-  const response = await client.listTabs();
-  is(response.selected, 2, "The second tab is selected.");
+  const tabs = await client.mainRoot.listTabs();
+  ok(!tabs[0].selected, "The previously opened tab isn't selected.");
+  ok(!tabs[1].selected, "The first tab isn't selected.");
+  ok(tabs[2].selected, "The second tab is selected.");
 }
 
 async function testFocusFirst(client) {
   const tab = window.gBrowser.selectedTab;
-  await ContentTask.spawn(tab.linkedBrowser, {}, async function() {
+  await ContentTask.spawn(tab.linkedBrowser, null, async function() {
     const onFocus = new Promise(resolve => {
       content.addEventListener("focus", resolve, { once: true });
     });
     await onFocus;
   });
 
-  const response = await client.listTabs();
-  is(response.selected, 1, "The first tab is selected after focusing on it.");
+  const tabs = await client.mainRoot.listTabs();
+  ok(!tabs[0].selected, "The previously opened tab isn't selected.");
+  ok(!tabs[1].selected, "The first tab is selected after focusing on i.");
+  ok(tabs[2].selected, "The second tab isn't selected.");
 }
 
 async function testRemoveTab(client, win, tab) {
@@ -95,21 +99,20 @@ async function testRemoveTab(client, win, tab) {
 async function continue_remove_tab(client, tab) {
   removeTab(tab);
 
-  const response = await client.listTabs();
+  const tabs = await client.mainRoot.listTabs();
+
   // Verify that tabs are no longer included in listTabs.
-  const foundTab1 = response.tabs.some(grip => grip.url == TAB1_URL);
-  const foundTab2 = response.tabs.some(grip => grip.url == TAB2_URL);
+  const foundTab1 = tabs.some(grip => grip.url == TAB1_URL);
+  const foundTab2 = tabs.some(grip => grip.url == TAB2_URL);
   ok(!foundTab1, "Tab1 should be gone.");
   ok(!foundTab2, "Tab2 should be gone.");
 
-  is(response.selected, 0, "The original tab is selected.");
+  ok(tabs[0].selected, "The previously opened tab is selected.");
 }
 
-function addWindow(url) {
+async function addWindow(url) {
   info("Adding window: " + url);
-  return promise.resolve(getChromeWindow(window.open(url)));
-}
-
-function getChromeWindow(win) {
-  return win.docShell.rootTreeItem.domWindow;
+  const onNewWindow = BrowserTestUtils.waitForNewWindow({ url });
+  window.open(url, "_blank", "noopener");
+  return onNewWindow;
 }

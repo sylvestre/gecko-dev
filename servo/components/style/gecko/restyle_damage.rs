@@ -51,13 +51,13 @@ impl GeckoRestyleDamage {
         let mut reset_only = false;
         let hint = unsafe {
             bindings::Gecko_CalcStyleDifference(
-                old_style,
-                new_style,
+                old_style.as_gecko_computed_style(),
+                new_style.as_gecko_computed_style(),
                 &mut any_style_changed,
                 &mut reset_only,
             )
         };
-        if reset_only && old_style.custom_properties() != new_style.custom_properties() {
+        if reset_only && !old_style.custom_properties_equal(new_style) {
             // The Gecko_CalcStyleDifference call only checks the non-custom
             // property structs, so we check the custom properties here. Since
             // they generate no damage themselves, we can skip this check if we
@@ -83,7 +83,7 @@ impl GeckoRestyleDamage {
     /// Gets restyle damage to reconstruct the entire frame, subsuming all
     /// other damage.
     pub fn reconstruct() -> Self {
-        GeckoRestyleDamage(structs::nsChangeHint_nsChangeHint_ReconstructFrame)
+        GeckoRestyleDamage(structs::nsChangeHint::nsChangeHint_ReconstructFrame)
     }
 }
 

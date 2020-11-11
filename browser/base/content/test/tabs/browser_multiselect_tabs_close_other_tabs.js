@@ -1,12 +1,8 @@
-const PREF_MULTISELECT_TABS = "browser.tabs.multiselect";
 const PREF_WARN_ON_CLOSE = "browser.tabs.warnOnCloseOtherTabs";
 
 add_task(async function setPref() {
   await SpecialPowers.pushPrefEnv({
-    set: [
-      [PREF_MULTISELECT_TABS, true],
-      [PREF_WARN_ON_CLOSE, false],
-    ],
+    set: [[PREF_WARN_ON_CLOSE, false]],
   });
 });
 
@@ -54,7 +50,7 @@ add_task(async function withAMultiSelectedTab() {
   is(gBrowser.multiSelectedTabsCount, 2, "Two multiselected tabs");
   is(gBrowser.selectedTab, initialTab, "InitialTab is still the active tab");
 
-  gBrowser.clearMultiSelectedTabs(false);
+  gBrowser.clearMultiSelectedTabs({ isLastMultiSelectChange: false });
   BrowserTestUtils.removeTab(tab1);
   BrowserTestUtils.removeTab(tab4);
 });
@@ -98,7 +94,10 @@ add_task(async function withNotAMultiSelectedTab() {
     tabClosingPromises.push(BrowserTestUtils.waitForTabClosing(tab));
   }
 
-  await BrowserTestUtils.switchTab(gBrowser, gBrowser.removeAllTabsBut(initialTab));
+  await BrowserTestUtils.switchTab(
+    gBrowser,
+    gBrowser.removeAllTabsBut(initialTab)
+  );
 
   for (let promise of tabClosingPromises) {
     await promise;
@@ -110,9 +109,14 @@ add_task(async function withNotAMultiSelectedTab() {
   ok(tab3.closing, "Tab3 is closing");
   ok(!tab4.closing, "Tab4 is not closing");
   ok(!tab5.closing, "Tab5 is not closing");
-  is(gBrowser.multiSelectedTabsCount, 0, "Zero multiselected tabs, selection is cleared");
+  is(
+    gBrowser.multiSelectedTabsCount,
+    0,
+    "Zero multiselected tabs, selection is cleared"
+  );
   is(gBrowser.selectedTab, initialTab, "InitialTab is the active tab now");
 
-  for (let tab of [tab4, tab5])
+  for (let tab of [tab4, tab5]) {
     BrowserTestUtils.removeTab(tab);
+  }
 });

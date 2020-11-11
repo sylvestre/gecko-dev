@@ -14,6 +14,7 @@
 #include "mozilla/RefPtr.h"      // for RefPtr
 #include "mozilla/TimeStamp.h"   // for TimeStamp
 #include "mozilla/gfx/Point.h"   // for IntSize
+#include "mozilla/layers/SampleTime.h"
 #include "mozilla/VsyncDispatcher.h"
 #include "mozilla/widget/CompositorWidget.h"
 #include "nsISupportsImpl.h"
@@ -40,9 +41,8 @@ class CompositorVsyncScheduler {
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(CompositorVsyncScheduler)
 
  public:
-  explicit CompositorVsyncScheduler(
-      CompositorVsyncSchedulerOwner* aVsyncSchedulerOwner,
-      widget::CompositorWidget* aWidget);
+  CompositorVsyncScheduler(CompositorVsyncSchedulerOwner* aVsyncSchedulerOwner,
+                           widget::CompositorWidget* aWidget);
 
   /**
    * Notify this class of a vsync. This will trigger a composite if one is
@@ -91,7 +91,15 @@ class CompositorVsyncScheduler {
    * Return the vsync timestamp of the last or ongoing composite. Must be called
    * on the compositor thread.
    */
-  const TimeStamp& GetLastComposeTime() const;
+  const SampleTime& GetLastComposeTime() const;
+
+  /**
+   * Return the vsync timestamp and id of the most recently received
+   * vsync event. Must be called on the compositor thread.
+   */
+  const TimeStamp& GetLastVsyncTime() const;
+  const TimeStamp& GetLastVsyncOutputTime() const;
+  const VsyncId& GetLastVsyncId() const;
 
   /**
    * Update LastCompose TimeStamp to current timestamp.
@@ -103,20 +111,22 @@ class CompositorVsyncScheduler {
  private:
   virtual ~CompositorVsyncScheduler();
 
-  // Schedule a task to run on the compositor thread.
-  void ScheduleTask(already_AddRefed<CancelableRunnable>);
-
   // Post a task to run Composite() on the compositor thread, if there isn't
   // such a task already queued. Can be called from any thread.
-  void PostCompositeTask(VsyncId aId, TimeStamp aCompositeTimestamp);
+  void PostCompositeTask(const VsyncEvent& aVsyncEvent);
 
   // Post a task to run DispatchVREvents() on the VR thread, if there isn't
   // such a task already queued. Can be called from any thread.
   void PostVRTask(TimeStamp aTimestamp);
 
+  /**
+   * Cancel any VR task that has been scheduled but hasn't run yet.
+   */
+  void CancelCurrentVRTask();
+
   // This gets run at vsync time and "does" a composite (which really means
   // update internal state and call the owner to do the composite).
-  void Composite(VsyncId aId, TimeStamp aVsyncTimestamp);
+  void Composite(const VsyncEvent& aVsyncEvent);
 
   void ObserveVsync();
   void UnobserveVsync();
@@ -126,7 +136,7 @@ class CompositorVsyncScheduler {
   class Observer final : public VsyncObserver {
    public:
     explicit Observer(CompositorVsyncScheduler* aOwner);
-    virtual bool NotifyVsync(const VsyncEvent& aVsync) override;
+    bool NotifyVsync(const VsyncEvent& aVsync) override;
     void Destroy();
 
    private:
@@ -138,7 +148,10 @@ class CompositorVsyncScheduler {
   };
 
   CompositorVsyncSchedulerOwner* mVsyncSchedulerOwner;
-  TimeStamp mLastCompose;
+  SampleTime mLastComposeTime;
+  TimeStamp mLastVsyncTime;
+  TimeStamp mLastVsyncOutputTime;
+  VsyncId mLastVsyncId;
 
   bool mAsapScheduling;
   bool mIsObservingVsync;
@@ -151,7 +164,7 @@ class CompositorVsyncScheduler {
   RefPtr<CancelableRunnable> mCurrentCompositeTask;
 
   mozilla::Monitor mCurrentVRTaskMonitor;
-  RefPtr<Runnable> mCurrentVRTask;
+  RefPtr<CancelableRunnable> mCurrentVRTask;
 };
 
 }  // namespace layers

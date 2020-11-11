@@ -70,6 +70,8 @@ SlicedInputStream::SlicedInputStream()
       mWeakSeekableInputStream(nullptr),
       mWeakTellableInputStream(nullptr),
       mWeakAsyncInputStream(nullptr),
+      mWeakInputStreamLength(nullptr),
+      mWeakAsyncInputStreamLength(nullptr),
       mStart(0),
       mLength(0),
       mCurPos(0),
@@ -78,7 +80,7 @@ SlicedInputStream::SlicedInputStream()
       mAsyncWaitRequestedCount(0),
       mMutex("SlicedInputStream::mMutex") {}
 
-SlicedInputStream::~SlicedInputStream() {}
+SlicedInputStream::~SlicedInputStream() = default;
 
 void SlicedInputStream::SetSourceStream(
     already_AddRefed<nsIInputStream> aInputStream) {
@@ -420,14 +422,36 @@ SlicedInputStream::OnInputStreamReady(nsIAsyncInputStream* aStream) {
 
 // nsIIPCSerializableInputStream
 
-void SlicedInputStream::Serialize(mozilla::ipc::InputStreamParams& aParams,
-                                  FileDescriptorArray& aFileDescriptors) {
+void SlicedInputStream::Serialize(
+    mozilla::ipc::InputStreamParams& aParams,
+    FileDescriptorArray& aFileDescriptors, bool aDelayedStart,
+    uint32_t aMaxSize, uint32_t* aSizeUsed,
+    mozilla::ipc::ParentToChildStreamActorManager* aManager) {
+  SerializeInternal(aParams, aFileDescriptors, aDelayedStart, aMaxSize,
+                    aSizeUsed, aManager);
+}
+
+void SlicedInputStream::Serialize(
+    mozilla::ipc::InputStreamParams& aParams,
+    FileDescriptorArray& aFileDescriptors, bool aDelayedStart,
+    uint32_t aMaxSize, uint32_t* aSizeUsed,
+    mozilla::ipc::ChildToParentStreamActorManager* aManager) {
+  SerializeInternal(aParams, aFileDescriptors, aDelayedStart, aMaxSize,
+                    aSizeUsed, aManager);
+}
+
+template <typename M>
+void SlicedInputStream::SerializeInternal(
+    mozilla::ipc::InputStreamParams& aParams,
+    FileDescriptorArray& aFileDescriptors, bool aDelayedStart,
+    uint32_t aMaxSize, uint32_t* aSizeUsed, M* aManager) {
   MOZ_ASSERT(mInputStream);
   MOZ_ASSERT(mWeakIPCSerializableInputStream);
 
   SlicedInputStreamParams params;
   InputStreamHelper::SerializeInputStream(mInputStream, params.stream(),
-                                          aFileDescriptors);
+                                          aFileDescriptors, aDelayedStart,
+                                          aMaxSize, aSizeUsed, aManager);
   params.start() = mStart;
   params.length() = mLength;
   params.curPos() = mCurPos;
@@ -464,14 +488,6 @@ bool SlicedInputStream::Deserialize(
   mClosed = params.closed();
 
   return true;
-}
-
-mozilla::Maybe<uint64_t> SlicedInputStream::ExpectedSerializedLength() {
-  if (!mInputStream || !mWeakIPCSerializableInputStream) {
-    return mozilla::Nothing();
-  }
-
-  return mWeakIPCSerializableInputStream->ExpectedSerializedLength();
 }
 
 // nsISeekableStream

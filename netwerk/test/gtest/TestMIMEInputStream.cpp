@@ -1,14 +1,14 @@
 #include "gtest/gtest.h"
 
 #include "Helpers.h"
+#include "nsComponentManagerUtils.h"
 #include "nsCOMPtr.h"
-#include "nsIPipe.h"
 #include "nsStreamUtils.h"
 #include "nsString.h"
 #include "nsStringStream.h"
 #include "nsIMIMEInputStream.h"
 
-using mozilla::GetCurrentThreadSerialEventTarget;
+using mozilla::GetCurrentSerialEventTarget;
 using mozilla::SpinEventLoopUntil;
 
 namespace {
@@ -56,7 +56,8 @@ NS_IMPL_ISUPPORTS_INHERITED(SeekableLengthInputStream,
 
 // nsIInputStreamLength && nsIAsyncInputStreamLength
 
-TEST(TestNsMIMEInputStream, QIInputStreamLength) {
+TEST(TestNsMIMEInputStream, QIInputStreamLength)
+{
   nsCString buf;
   buf.AssignLiteral("Hello world");
 
@@ -90,7 +91,8 @@ TEST(TestNsMIMEInputStream, QIInputStreamLength) {
   }
 }
 
-TEST(TestNsMIMEInputStream, InputStreamLength) {
+TEST(TestNsMIMEInputStream, InputStreamLength)
+{
   nsCString buf;
   buf.AssignLiteral("Hello world");
 
@@ -120,7 +122,8 @@ TEST(TestNsMIMEInputStream, InputStreamLength) {
   ASSERT_EQ(buf.Length(), size);
 }
 
-TEST(TestNsMIMEInputStream, NegativeInputStreamLength) {
+TEST(TestNsMIMEInputStream, NegativeInputStreamLength)
+{
   nsCString buf;
   buf.AssignLiteral("Hello world");
 
@@ -150,7 +153,8 @@ TEST(TestNsMIMEInputStream, NegativeInputStreamLength) {
   ASSERT_EQ(-1, size);
 }
 
-TEST(TestNsMIMEInputStream, AsyncInputStreamLength) {
+TEST(TestNsMIMEInputStream, AsyncInputStreamLength)
+{
   nsCString buf;
   buf.AssignLiteral("Hello world");
 
@@ -176,15 +180,15 @@ TEST(TestNsMIMEInputStream, AsyncInputStreamLength) {
 
   RefPtr<testing::LengthCallback> callback = new testing::LengthCallback();
 
-  nsresult rv =
-      qi->AsyncLengthWait(callback, GetCurrentThreadSerialEventTarget());
+  nsresult rv = qi->AsyncLengthWait(callback, GetCurrentSerialEventTarget());
   ASSERT_EQ(NS_OK, rv);
 
   MOZ_ALWAYS_TRUE(SpinEventLoopUntil([&]() { return callback->Called(); }));
   ASSERT_EQ(buf.Length(), callback->Size());
 }
 
-TEST(TestNsMIMEInputStream, NegativeAsyncInputStreamLength) {
+TEST(TestNsMIMEInputStream, NegativeAsyncInputStreamLength)
+{
   nsCString buf;
   buf.AssignLiteral("Hello world");
 
@@ -210,15 +214,15 @@ TEST(TestNsMIMEInputStream, NegativeAsyncInputStreamLength) {
 
   RefPtr<testing::LengthCallback> callback = new testing::LengthCallback();
 
-  nsresult rv =
-      qi->AsyncLengthWait(callback, GetCurrentThreadSerialEventTarget());
+  nsresult rv = qi->AsyncLengthWait(callback, GetCurrentSerialEventTarget());
   ASSERT_EQ(NS_OK, rv);
 
   MOZ_ALWAYS_TRUE(SpinEventLoopUntil([&]() { return callback->Called(); }));
   ASSERT_EQ(-1, callback->Size());
 }
 
-TEST(TestNsMIMEInputStream, AbortLengthCallback) {
+TEST(TestNsMIMEInputStream, AbortLengthCallback)
+{
   nsCString buf;
   buf.AssignLiteral("Hello world");
 
@@ -243,12 +247,11 @@ TEST(TestNsMIMEInputStream, AbortLengthCallback) {
   ASSERT_TRUE(!!qi);
 
   RefPtr<testing::LengthCallback> callback1 = new testing::LengthCallback();
-  nsresult rv =
-      qi->AsyncLengthWait(callback1, GetCurrentThreadSerialEventTarget());
+  nsresult rv = qi->AsyncLengthWait(callback1, GetCurrentSerialEventTarget());
   ASSERT_EQ(NS_OK, rv);
 
   RefPtr<testing::LengthCallback> callback2 = new testing::LengthCallback();
-  rv = qi->AsyncLengthWait(callback2, GetCurrentThreadSerialEventTarget());
+  rv = qi->AsyncLengthWait(callback2, GetCurrentSerialEventTarget());
   ASSERT_EQ(NS_OK, rv);
 
   MOZ_ALWAYS_TRUE(SpinEventLoopUntil([&]() { return callback2->Called(); }));

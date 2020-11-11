@@ -4,7 +4,7 @@
 
 "use strict";
 
-var EXPORTED_SYMBOLS = ["LoginRecipesContent", "LoginRecipesParent"];
+const EXPORTED_SYMBOLS = ["LoginRecipesContent", "LoginRecipesParent"];
 
 const REQUIRED_KEYS = ["hosts"];
 const OPTIONAL_KEYS = [
@@ -14,19 +14,33 @@ const OPTIONAL_KEYS = [
   "passwordSelector",
   "pathRegex",
   "usernameSelector",
+  "schema",
+  "id",
+  "last_modified",
 ];
 const SUPPORTED_KEYS = REQUIRED_KEYS.concat(OPTIONAL_KEYS);
 
-ChromeUtils.import("resource://gre/modules/NetUtil.jsm");
-ChromeUtils.import("resource://gre/modules/Services.jsm");
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
+const { NetUtil } = ChromeUtils.import("resource://gre/modules/NetUtil.jsm");
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
 
-XPCOMUtils.defineLazyGlobalGetters(this, ["URL"]);
+XPCOMUtils.defineLazyGlobalGetters(this, ["URL", "fetch"]);
 
-ChromeUtils.defineModuleGetter(this, "LoginHelper",
-                               "resource://gre/modules/LoginHelper.jsm");
+ChromeUtils.defineModuleGetter(
+  this,
+  "LoginHelper",
+  "resource://gre/modules/LoginHelper.jsm"
+);
 
-XPCOMUtils.defineLazyGetter(this, "log", () => LoginHelper.createLogger("LoginRecipes"));
+XPCOMUtils.defineLazyGetter(this, "log", () =>
+  LoginHelper.createLogger("LoginRecipes")
+);
+
+XPCOMUtils.defineLazyModuleGetters(this, {
+  RemoteSettings: "resource://services-settings/remote-settings.js",
+});
 
 /**
  * Create an instance of the object to manage recipes in the parent process.
@@ -37,10 +51,12 @@ XPCOMUtils.defineLazyGetter(this, "log", () => LoginHelper.createLogger("LoginRe
  * @param {String} [aOptions.defaults=null] the URI to load the recipes from.
  *                                          If it's null, nothing is loaded.
  *
-*/
+ */
 function LoginRecipesParent(aOptions = { defaults: null }) {
   if (Services.appinfo.processType != Ci.nsIXULRuntime.PROCESS_TYPE_DEFAULT) {
-    throw new Error("LoginRecipesParent should only be used from the main process");
+    throw new Error(
+      "LoginRecipesParent should only be used from the main process"
+    );
   }
   this._defaults = aOptions.defaults;
   this.reset();
@@ -66,6 +82,12 @@ LoginRecipesParent.prototype = {
   _recipesByHost: null,
 
   /**
+   * @type {Object} Instance of Remote Settings client that has access to the
+   *                "password-recipes" collection
+   */
+  _rsClient: null,
+
+  /**
    * @param {Object} aRecipes an object containing recipes to load for use. The object
    *                          should be compatible with JSON (e.g. no RegExp).
    * @return {Promise} resolving when the recipes are loaded
@@ -74,18 +96,18 @@ LoginRecipesParent.prototype = {
     let recipeErrors = 0;
     for (let rawRecipe of aRecipes.siteRecipes) {
       try {
-        rawRecipe.pathRegex = rawRecipe.pathRegex ? new RegExp(rawRecipe.pathRegex) : undefined;
+        rawRecipe.pathRegex = rawRecipe.pathRegex
+          ? new RegExp(rawRecipe.pathRegex)
+          : undefined;
         this.add(rawRecipe);
       } catch (ex) {
         recipeErrors++;
         log.error("Error loading recipe", rawRecipe, ex);
       }
     }
-
     if (recipeErrors) {
       return Promise.reject(`There were ${recipeErrors} recipe error(s)`);
     }
-
     return Promise.resolve();
   },
 
@@ -95,31 +117,34 @@ LoginRecipesParent.prototype = {
   reset() {
     log.debug("Resetting recipes with defaults:", this._defaults);
     this._recipesByHost = new Map();
-
     if (this._defaults) {
-      let channel = NetUtil.newChannel({uri: NetUtil.newURI(this._defaults, "UTF-8"),
-                                        loadUsingSystemPrincipal: true});
-      channel.contentType = "application/json";
-
-      try {
-        this.initializationPromise = new Promise(function(resolve) {
-          NetUtil.asyncFetch(channel, function(stream, result) {
-            if (!Components.isSuccessCode(result)) {
-              throw new Error("Error fetching recipe file:" + result);
-            }
-            let count = stream.available();
-            let data = NetUtil.readInputStreamToString(stream, count, { charset: "UTF-8" });
-            resolve(JSON.parse(data));
-          });
-        }).then(recipes => {
-          Services.ppmm.broadcastAsyncMessage("clearRecipeCache");
-          return this.load(recipes);
-        }).then(resolve => {
-          return this;
-        });
-      } catch (e) {
-        throw new Error("Error reading recipe file:" + e);
+      let initPromise;
+      /**
+       * Both branches rely on a JSON dump of the Remote Settings collection, packaged both in Desktop and Android.
+       * The «legacy» mode will read the dump directly from the packaged resources.
+       * With Remote Settings, the dump is used to initialize the local database without network,
+       * and the list of password recipes can be refreshed without restarting and without software update.
+       */
+      if (LoginHelper.remoteRecipesEnabled) {
+        if (!this._rsClient) {
+          this._rsClient = RemoteSettings(LoginHelper.remoteRecipesCollection);
+          // Set up sync observer to update local recipes from Remote Settings recipes
+          this._rsClient.on("sync", event => this.onRemoteSettingsSync(event));
+        }
+        initPromise = this._rsClient.get();
+      } else if (this._defaults.startsWith("resource://")) {
+        initPromise = fetch(this._defaults)
+          .then(resp => resp.json())
+          .then(({ data }) => data);
+      } else {
+        log.error("Invalid recipe path found, setting empty recipes list!");
+        initPromise = new Promise(() => []);
       }
+      this.initializationPromise = initPromise.then(async siteRecipes => {
+        Services.ppmm.broadcastAsyncMessage("clearRecipeCache");
+        await this.load({ siteRecipes });
+        return this;
+      });
     } else {
       this.initializationPromise = Promise.resolve(this);
     }
@@ -134,13 +159,20 @@ LoginRecipesParent.prototype = {
     log.debug("Adding recipe:", recipe);
     let recipeKeys = Object.keys(recipe);
     let unknownKeys = recipeKeys.filter(key => !SUPPORTED_KEYS.includes(key));
-    if (unknownKeys.length > 0) {
-      throw new Error("The following recipe keys aren't supported: " + unknownKeys.join(", "));
+    if (unknownKeys.length) {
+      throw new Error(
+        "The following recipe keys aren't supported: " + unknownKeys.join(", ")
+      );
     }
 
-    let missingRequiredKeys = REQUIRED_KEYS.filter(key => !recipeKeys.includes(key));
-    if (missingRequiredKeys.length > 0) {
-      throw new Error("The following required recipe keys are missing: " + missingRequiredKeys.join(", "));
+    let missingRequiredKeys = REQUIRED_KEYS.filter(
+      key => !recipeKeys.includes(key)
+    );
+    if (missingRequiredKeys.length) {
+      throw new Error(
+        "The following required recipe keys are missing: " +
+          missingRequiredKeys.join(", ")
+      );
     }
 
     if (!Array.isArray(recipe.hosts)) {
@@ -155,9 +187,13 @@ LoginRecipesParent.prototype = {
       throw new Error("'pathRegex' must be a regular expression");
     }
 
-    const OPTIONAL_STRING_PROPS = ["description", "passwordSelector", "usernameSelector"];
+    const OPTIONAL_STRING_PROPS = [
+      "description",
+      "passwordSelector",
+      "usernameSelector",
+    ];
     for (let prop of OPTIONAL_STRING_PROPS) {
-      if (recipe[prop] && typeof(recipe[prop]) != "string") {
+      if (recipe[prop] && typeof recipe[prop] != "string") {
         throw new Error(`'${prop}' must be a string`);
       }
     }
@@ -185,13 +221,34 @@ LoginRecipesParent.prototype = {
 
     return hostRecipes;
   },
+
+  /**
+   * Handles the Remote Settings sync event for the "password-recipes" collection.
+   *
+   * @param {Object} aEvent
+   * @param {Array} event.current Records in the "password-recipes" collection after the sync event
+   * @param {Array} event.created Records that were created with this particular sync
+   * @param {Array} event.updated Records that were updated with this particular sync
+   * @param {Array} event.deleted Records that were deleted with this particular sync
+   */
+  onRemoteSettingsSync(aEvent) {
+    this._recipesByHost = new Map();
+    let {
+      data: { current },
+    } = aEvent;
+    let recipes = {
+      siteRecipes: current,
+    };
+    Services.ppmm.broadcastAsyncMessage("clearRecipeCache");
+    this.load(recipes);
+  },
 };
 
-
-var LoginRecipesContent = {
+this.LoginRecipesContent = {
   _recipeCache: new WeakMap(),
 
   _clearRecipeCache() {
+    log.debug("_clearRecipeCache");
     this._recipeCache = new WeakMap();
   },
 
@@ -218,11 +275,12 @@ var LoginRecipesContent = {
    * Tries to fetch recipes for a given host, using a local cache if possible.
    * Otherwise, the recipes are cached for later use.
    *
+   * @param {JSWindowActor} aActor - actor making request
    * @param {String} aHost (e.g. example.com:8080 [non-default port] or sub.example.com)
    * @param {Object} win - the window of the host
    * @return {Set} of recipes that apply to the host
    */
-  getRecipes(aHost, win) {
+  getRecipes(aActor, aHost, win) {
     let recipes;
     let recipeMap = this._recipeCache.get(win);
 
@@ -234,10 +292,10 @@ var LoginRecipesContent = {
       }
     }
 
-    let mm = win.docShell.messageManager;
-
     log.warn("getRecipes: falling back to a synchronous message for:", aHost);
-    recipes = mm.sendSyncMessage("RemoteLogins:findRecipes", { formOrigin: aHost })[0];
+    recipes = Services.cpmm.sendSyncMessage("PasswordManager:findRecipes", {
+      formOrigin: aHost,
+    })[0];
     this.cacheRecipes(aHost, win, recipes);
 
     return recipes;
@@ -259,7 +317,10 @@ var LoginRecipesContent = {
     }
 
     for (let hostRecipe of hostRecipes) {
-      if (hostRecipe.pathRegex && !hostRecipe.pathRegex.test(formDocURL.pathname)) {
+      if (
+        hostRecipe.pathRegex &&
+        !hostRecipe.pathRegex.test(formDocURL.pathname)
+      ) {
         continue;
       }
       recipes.add(hostRecipe);
@@ -278,7 +339,7 @@ var LoginRecipesContent = {
    */
   getFieldOverrides(aRecipes, aForm) {
     let recipes = this._filterRecipesForForm(aRecipes, aForm);
-    log.debug("getFieldOverrides: filtered recipes:", recipes);
+    log.debug("getFieldOverrides: filtered recipes:", recipes.size, recipes);
     if (!recipes.size) {
       return null;
     }
@@ -286,8 +347,12 @@ var LoginRecipesContent = {
     let chosenRecipe = null;
     // Find the first (most-specific recipe that involves field overrides).
     for (let recipe of recipes) {
-      if (!recipe.usernameSelector && !recipe.passwordSelector &&
-          !recipe.notUsernameSelector && !recipe.notPasswordSelector) {
+      if (
+        !recipe.usernameSelector &&
+        !recipe.passwordSelector &&
+        !recipe.notUsernameSelector &&
+        !recipe.notPasswordSelector
+      ) {
         continue;
       }
 
@@ -313,8 +378,10 @@ var LoginRecipesContent = {
       return null;
     }
     // ownerGlobal doesn't exist in content privileged windows.
-    // eslint-disable-next-line mozilla/use-ownerGlobal
-    if (!(field instanceof aParent.ownerDocument.defaultView.HTMLInputElement)) {
+    if (
+      // eslint-disable-next-line mozilla/use-ownerGlobal
+      !(field instanceof aParent.ownerDocument.defaultView.HTMLInputElement)
+    ) {
       log.warn("Login field isn't an <input> so ignoring it:", aSelector);
       return null;
     }

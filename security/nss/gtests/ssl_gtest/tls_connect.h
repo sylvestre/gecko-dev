@@ -48,6 +48,8 @@ class TlsConnectTestBase : public ::testing::Test {
   virtual void SetUp();
   virtual void TearDown();
 
+  PRTime now() const { return now_; }
+
   // Initialize client and server.
   void Init();
   // Clear the statistics.
@@ -78,6 +80,8 @@ class TlsConnectTestBase : public ::testing::Test {
   void ConnectExpectAlert(std::shared_ptr<TlsAgent>& sender, uint8_t alert);
   void ConnectExpectFailOneSide(TlsAgent::Role failingSide);
   void ConnectWithCipherSuite(uint16_t cipher_suite);
+  void CheckEarlyDataLimit(const std::shared_ptr<TlsAgent>& agent,
+                           size_t expected_size);
   // Check that the keys used in the handshake match expectations.
   void CheckKeys(SSLKEAType kea_type, SSLNamedGroup kea_group,
                  SSLAuthType auth_type, SSLSignatureScheme sig_scheme) const;
@@ -118,6 +122,9 @@ class TlsConnectTestBase : public ::testing::Test {
   void EnableSrtp();
   void CheckSrtp() const;
   void SendReceive(size_t total = 50);
+  void AddPsk(const ScopedPK11SymKey& psk, std::string label, SSLHashType hash,
+              uint16_t zeroRttSuite = TLS_NULL_WITH_NULL_NULL);
+  void RemovePsk(std::string label);
   void SetupForZeroRtt();
   void SetupForResume();
   void ZeroRttSendReceive(
@@ -131,6 +138,13 @@ class TlsConnectTestBase : public ::testing::Test {
 
   // Move the DTLS timers for both endpoints to pop the next timer.
   void ShiftDtlsTimers();
+  void AdvanceTime(PRTime time_shift);
+
+  void ResetAntiReplay(PRTime window);
+  void RolloverAntiReplay();
+
+  void SaveAlgorithmPolicy();
+  void RestoreAlgorithmPolicy();
 
  protected:
   SSLProtocolVariant variant_;
@@ -142,6 +156,7 @@ class TlsConnectTestBase : public ::testing::Test {
   SessionResumptionMode expected_resumption_mode_;
   uint8_t expected_resumptions_;
   std::vector<std::vector<uint8_t>> session_ids_;
+  ScopedSSLAntiReplayContext anti_replay_;
 
   // A simple value of "a", "b".  Note that the preferred value of "a" is placed
   // at the end, because the NSS API follows the now defunct NPN specification,
@@ -149,14 +164,24 @@ class TlsConnectTestBase : public ::testing::Test {
   // NSS will move this final entry to the front when used with ALPN.
   const uint8_t alpn_dummy_val_[4] = {0x01, 0x62, 0x01, 0x61};
 
+  // A list of algorithm IDs whose policies need to be preserved
+  // around test cases.  In particular, DSA is checked in
+  // ssl_extension_unittest.cc.
+  const std::vector<SECOidTag> algorithms_ = {SEC_OID_APPLY_SSL_POLICY,
+                                              SEC_OID_ANSIX9_DSA_SIGNATURE,
+                                              SEC_OID_CURVE25519, SEC_OID_SHA1};
+  std::vector<std::tuple<SECOidTag, uint32_t>> saved_policies_;
+
  private:
   void CheckResumption(SessionResumptionMode expected);
   void CheckExtendedMasterSecret();
   void CheckEarlyDataAccepted();
+  static PRTime TimeFunc(void* arg);
 
   bool expect_extended_master_secret_;
   bool expect_early_data_accepted_;
   bool skip_version_checks_;
+  PRTime now_;
 
   // Track groups and make sure that there are no duplicates.
   class DuplicateGroupChecker {

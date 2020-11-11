@@ -6,17 +6,15 @@
 
 #include "DynamicsCompressorNode.h"
 #include "mozilla/dom/DynamicsCompressorNodeBinding.h"
-#include "nsAutoPtr.h"
 #include "AudioNodeEngine.h"
-#include "AudioNodeStream.h"
+#include "AudioNodeTrack.h"
 #include "AudioDestinationNode.h"
 #include "WebAudioUtils.h"
 #include "blink/DynamicsCompressor.h"
 
 using WebCore::DynamicsCompressor;
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_IMPL_CYCLE_COLLECTION_INHERITED(DynamicsCompressorNode, AudioNode,
                                    mThreshold, mKnee, mRatio, mAttack, mRelease)
@@ -32,7 +30,7 @@ class DynamicsCompressorNodeEngine final : public AudioNodeEngine {
   explicit DynamicsCompressorNodeEngine(AudioNode* aNode,
                                         AudioDestinationNode* aDestination)
       : AudioNodeEngine(aNode),
-        mDestination(aDestination->Stream())
+        mDestination(aDestination->Track())
         // Keep the default value in sync with the default value in
         // DynamicsCompressorNode::DynamicsCompressorNode.
         ,
@@ -41,7 +39,7 @@ class DynamicsCompressorNodeEngine final : public AudioNodeEngine {
         mRatio(12.f),
         mAttack(0.003f),
         mRelease(0.25f),
-        mCompressor(new DynamicsCompressor(mDestination->SampleRate(), 2)) {}
+        mCompressor(new DynamicsCompressor(mDestination->mSampleRate, 2)) {}
 
   enum Parameters { THRESHOLD, KNEE, RATIO, ATTACK, RELEASE };
   void RecvTimelineEvent(uint32_t aIndex, AudioTimelineEvent& aEvent) override {
@@ -70,7 +68,7 @@ class DynamicsCompressorNodeEngine final : public AudioNodeEngine {
     }
   }
 
-  void ProcessBlock(AudioNodeStream* aStream, GraphTime aFrom,
+  void ProcessBlock(AudioNodeTrack* aTrack, GraphTime aFrom,
                     const AudioBlock& aInput, AudioBlock* aOutput,
                     bool* aFinished) override {
     if (aInput.IsNull()) {
@@ -82,11 +80,11 @@ class DynamicsCompressorNodeEngine final : public AudioNodeEngine {
     const uint32_t channelCount = aInput.ChannelCount();
     if (mCompressor->numberOfChannels() != channelCount) {
       // Create a new compressor object with a new channel count
-      mCompressor = new WebCore::DynamicsCompressor(aStream->SampleRate(),
-                                                    aInput.ChannelCount());
+      mCompressor = MakeUnique<WebCore::DynamicsCompressor>(
+          aTrack->mSampleRate, aInput.ChannelCount());
     }
 
-    StreamTime pos = mDestination->GraphTimeToStreamTime(aFrom);
+    TrackTime pos = mDestination->GraphTimeToTrackTime(aFrom);
     mCompressor->setParameterValue(DynamicsCompressor::ParamThreshold,
                                    mThreshold.GetValueAtTime(pos));
     mCompressor->setParameterValue(DynamicsCompressor::ParamKnee,
@@ -102,7 +100,7 @@ class DynamicsCompressorNodeEngine final : public AudioNodeEngine {
     mCompressor->process(&aInput, aOutput, aInput.GetDuration());
 
     SendReductionParamToMainThread(
-        aStream,
+        aTrack,
         mCompressor->parameterValue(DynamicsCompressor::ParamReduction));
   }
 
@@ -121,21 +119,21 @@ class DynamicsCompressorNodeEngine final : public AudioNodeEngine {
   }
 
  private:
-  void SendReductionParamToMainThread(AudioNodeStream* aStream,
+  void SendReductionParamToMainThread(AudioNodeTrack* aTrack,
                                       float aReduction) {
     MOZ_ASSERT(!NS_IsMainThread());
 
     class Command final : public Runnable {
      public:
-      Command(AudioNodeStream* aStream, float aReduction)
+      Command(AudioNodeTrack* aTrack, float aReduction)
           : mozilla::Runnable("Command"),
-            mStream(aStream),
+            mTrack(aTrack),
             mReduction(aReduction) {}
 
       NS_IMETHOD Run() override {
         RefPtr<DynamicsCompressorNode> node =
             static_cast<DynamicsCompressorNode*>(
-                mStream->Engine()->NodeMainThread());
+                mTrack->Engine()->NodeMainThread());
         if (node) {
           node->SetReduction(mReduction);
         }
@@ -143,51 +141,47 @@ class DynamicsCompressorNodeEngine final : public AudioNodeEngine {
       }
 
      private:
-      RefPtr<AudioNodeStream> mStream;
+      RefPtr<AudioNodeTrack> mTrack;
       float mReduction;
     };
 
-    mAbstractMainThread->Dispatch(do_AddRef(new Command(aStream, aReduction)));
+    mAbstractMainThread->Dispatch(do_AddRef(new Command(aTrack, aReduction)));
   }
 
  private:
-  RefPtr<AudioNodeStream> mDestination;
+  RefPtr<AudioNodeTrack> mDestination;
   AudioParamTimeline mThreshold;
   AudioParamTimeline mKnee;
   AudioParamTimeline mRatio;
   AudioParamTimeline mAttack;
   AudioParamTimeline mRelease;
-  nsAutoPtr<DynamicsCompressor> mCompressor;
+  UniquePtr<DynamicsCompressor> mCompressor;
 };
 
 DynamicsCompressorNode::DynamicsCompressorNode(AudioContext* aContext)
-    : AudioNode(aContext, 2, ChannelCountMode::Explicit,
+    : AudioNode(aContext, 2, ChannelCountMode::Clamped_max,
                 ChannelInterpretation::Speakers),
-      mThreshold(new AudioParam(this, DynamicsCompressorNodeEngine::THRESHOLD,
-                                "threshold", -24.f, -100.f, 0.f)),
-      mKnee(new AudioParam(this, DynamicsCompressorNodeEngine::KNEE, "knee",
-                           30.f, 0.f, 40.f)),
-      mRatio(new AudioParam(this, DynamicsCompressorNodeEngine::RATIO, "ratio",
-                            12.f, 1.f, 20.f)),
-      mReduction(0),
-      mAttack(new AudioParam(this, DynamicsCompressorNodeEngine::ATTACK,
-                             "attack", 0.003f, 0.f, 1.f)),
-      mRelease(new AudioParam(this, DynamicsCompressorNodeEngine::RELEASE,
-                              "release", 0.25f, 0.f, 1.f)) {
+      mReduction(0) {
+  mThreshold = CreateAudioParam(DynamicsCompressorNodeEngine::THRESHOLD,
+                                u"threshold"_ns, -24.f, -100.f, 0.f);
+  mKnee = CreateAudioParam(DynamicsCompressorNodeEngine::KNEE, u"knee"_ns, 30.f,
+                           0.f, 40.f);
+  mRatio = CreateAudioParam(DynamicsCompressorNodeEngine::RATIO, u"ratio"_ns,
+                            12.f, 1.f, 20.f);
+  mAttack = CreateAudioParam(DynamicsCompressorNodeEngine::ATTACK, u"attack"_ns,
+                             0.003f, 0.f, 1.f);
+  mRelease = CreateAudioParam(DynamicsCompressorNodeEngine::RELEASE,
+                              u"release"_ns, 0.25f, 0.f, 1.f);
   DynamicsCompressorNodeEngine* engine =
       new DynamicsCompressorNodeEngine(this, aContext->Destination());
-  mStream = AudioNodeStream::Create(
-      aContext, engine, AudioNodeStream::NO_STREAM_FLAGS, aContext->Graph());
+  mTrack = AudioNodeTrack::Create(
+      aContext, engine, AudioNodeTrack::NO_TRACK_FLAGS, aContext->Graph());
 }
 
-/* static */ already_AddRefed<DynamicsCompressorNode>
-DynamicsCompressorNode::Create(AudioContext& aAudioContext,
-                               const DynamicsCompressorOptions& aOptions,
-                               ErrorResult& aRv) {
-  if (aAudioContext.CheckClosed(aRv)) {
-    return nullptr;
-  }
-
+/* static */
+already_AddRefed<DynamicsCompressorNode> DynamicsCompressorNode::Create(
+    AudioContext& aAudioContext, const DynamicsCompressorOptions& aOptions,
+    ErrorResult& aRv) {
   RefPtr<DynamicsCompressorNode> audioNode =
       new DynamicsCompressorNode(&aAudioContext);
 
@@ -226,5 +220,4 @@ JSObject* DynamicsCompressorNode::WrapObject(
   return DynamicsCompressorNode_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

@@ -11,7 +11,6 @@ use crate::values::CSSFloat;
 use cssparser::Parser;
 use std::fmt::{self, Write};
 use std::iter::{Cloned, Peekable};
-use std::ops::AddAssign;
 use std::slice;
 use style_traits::values::SequenceWriter;
 use style_traits::{CssWriter, ParseError, StyleParseErrorKind, ToCss};
@@ -20,28 +19,35 @@ use style_traits::{CssWriter, ParseError, StyleParseErrorKind, ToCss};
 ///
 /// https://www.w3.org/TR/SVG11/paths.html#PathData
 #[derive(
-    Clone, Debug, MallocSizeOf, PartialEq, SpecifiedValueInfo, ToAnimatedZero, ToComputedValue,
+    Clone,
+    Debug,
+    Deserialize,
+    MallocSizeOf,
+    PartialEq,
+    Serialize,
+    SpecifiedValueInfo,
+    ToAnimatedZero,
+    ToComputedValue,
+    ToResolvedValue,
+    ToShmem,
 )]
-pub struct SVGPathData(Box<[PathCommand]>);
+#[repr(C)]
+pub struct SVGPathData(
+    // TODO(emilio): Should probably measure this somehow only from the
+    // specified values.
+    #[ignore_malloc_size_of = "Arc"] pub crate::ArcSlice<PathCommand>,
+);
 
 impl SVGPathData {
-    /// Return SVGPathData by a slice of PathCommand.
-    #[inline]
-    pub fn new(cmd: Box<[PathCommand]>) -> Self {
-        debug_assert!(!cmd.is_empty());
-        SVGPathData(cmd)
-    }
-
     /// Get the array of PathCommand.
     #[inline]
     pub fn commands(&self) -> &[PathCommand] {
-        debug_assert!(!self.0.is_empty());
         &self.0
     }
 
-    /// Create a normalized copy of this path by converting each relative command to an absolute
-    /// command.
-    fn normalize(&self) -> Self {
+    /// Create a normalized copy of this path by converting each relative
+    /// command to an absolute command.
+    pub fn normalize(&self) -> Self {
         let mut state = PathTraversalState {
             subpath_start: CoordPair::new(0.0, 0.0),
             pos: CoordPair::new(0.0, 0.0),
@@ -51,7 +57,8 @@ impl SVGPathData {
             .iter()
             .map(|seg| seg.normalize(&mut state))
             .collect::<Vec<_>>();
-        SVGPathData(result.into_boxed_slice())
+
+        SVGPathData(crate::ArcSlice::from_iter(result.into_iter()))
     }
 }
 
@@ -64,7 +71,7 @@ impl ToCss for SVGPathData {
         dest.write_char('"')?;
         {
             let mut writer = SequenceWriter::new(dest, " ");
-            for command in self.0.iter() {
+            for command in self.commands() {
                 writer.item(command)?;
             }
         }
@@ -84,10 +91,6 @@ impl Parse for SVGPathData {
     ) -> Result<Self, ParseError<'i>> {
         let location = input.current_source_location();
         let path_string = input.expect_string()?.as_ref();
-        if path_string.is_empty() {
-            // Treat an empty string as invalid, so we will not set it.
-            return Err(location.new_custom_error(StyleParseErrorKind::UnspecifiedError));
-        }
 
         // Parse the svg path string as multiple sub-paths.
         let mut path_parser = PathParser::new(path_string);
@@ -97,7 +100,9 @@ impl Parse for SVGPathData {
             }
         }
 
-        Ok(SVGPathData::new(path_parser.path.into_boxed_slice()))
+        Ok(SVGPathData(crate::ArcSlice::from_iter(
+            path_parser.path.into_iter(),
+        )))
     }
 }
 
@@ -107,6 +112,9 @@ impl Animate for SVGPathData {
             return Err(());
         }
 
+        // FIXME(emilio): This allocates three copies of the path, that's not
+        // great! Specially, once we're normalized once, we don't need to
+        // re-normalize again.
         let result = self
             .normalize()
             .0
@@ -114,7 +122,8 @@ impl Animate for SVGPathData {
             .zip(other.normalize().0.iter())
             .map(|(a, b)| a.animate(&b, procedure))
             .collect::<Result<Vec<_>, _>>()?;
-        Ok(SVGPathData::new(result.into_boxed_slice()))
+
+        Ok(SVGPathData(crate::ArcSlice::from_iter(result.into_iter())))
     }
 }
 
@@ -144,10 +153,15 @@ impl ComputeSquaredDistance for SVGPathData {
     ComputeSquaredDistance,
     Copy,
     Debug,
+    Deserialize,
     MallocSizeOf,
     PartialEq,
+    Serialize,
     SpecifiedValueInfo,
     ToAnimatedZero,
+    ToComputedValue,
+    ToResolvedValue,
+    ToShmem,
 )]
 #[allow(missing_docs)]
 #[repr(C, u8)]
@@ -470,10 +484,15 @@ impl ToCss for PathCommand {
     ComputeSquaredDistance,
     Copy,
     Debug,
+    Deserialize,
     MallocSizeOf,
     PartialEq,
+    Serialize,
     SpecifiedValueInfo,
     ToAnimatedZero,
+    ToComputedValue,
+    ToResolvedValue,
+    ToShmem,
 )]
 #[repr(u8)]
 pub enum IsAbsolute {
@@ -491,16 +510,22 @@ impl IsAbsolute {
 
 /// The path coord type.
 #[derive(
+    AddAssign,
     Animate,
     Clone,
     ComputeSquaredDistance,
     Copy,
     Debug,
+    Deserialize,
     MallocSizeOf,
     PartialEq,
+    Serialize,
     SpecifiedValueInfo,
     ToAnimatedZero,
+    ToComputedValue,
     ToCss,
+    ToResolvedValue,
+    ToShmem,
 )]
 #[repr(C)]
 pub struct CoordPair(CSSFloat, CSSFloat);
@@ -513,16 +538,20 @@ impl CoordPair {
     }
 }
 
-impl AddAssign for CoordPair {
-    #[inline]
-    fn add_assign(&mut self, other: Self) {
-        self.0 += other.0;
-        self.1 += other.1;
-    }
-}
-
 /// The EllipticalArc flag type.
-#[derive(Clone, Copy, Debug, MallocSizeOf, PartialEq, SpecifiedValueInfo)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Deserialize,
+    MallocSizeOf,
+    PartialEq,
+    Serialize,
+    SpecifiedValueInfo,
+    ToComputedValue,
+    ToResolvedValue,
+    ToShmem,
+)]
 #[repr(C)]
 pub struct ArcFlag(bool);
 
@@ -620,40 +649,26 @@ impl<'a> PathParser<'a> {
                 break;
             }
 
-            match self.chars.next() {
-                Some(command) => {
-                    let abs = if command.is_ascii_uppercase() {
-                        IsAbsolute::Yes
-                    } else {
-                        IsAbsolute::No
-                    };
-                    macro_rules! parse_command {
-                        ( $($($p:pat)|+ => $parse_func:ident,)* ) => {
-                            match command {
-                                $(
-                                    $($p)|+ => {
-                                        skip_wsp(&mut self.chars);
-                                        self.$parse_func(abs)?;
-                                    },
-                                )*
-                                _ => return Err(()),
-                            }
-                        }
-                    }
-                    parse_command!(
-                        b'Z' | b'z' => parse_closepath,
-                        b'L' | b'l' => parse_lineto,
-                        b'H' | b'h' => parse_h_lineto,
-                        b'V' | b'v' => parse_v_lineto,
-                        b'C' | b'c' => parse_curveto,
-                        b'S' | b's' => parse_smooth_curveto,
-                        b'Q' | b'q' => parse_quadratic_bezier_curveto,
-                        b'T' | b't' => parse_smooth_quadratic_bezier_curveto,
-                        b'A' | b'a' => parse_elliptical_arc,
-                    );
-                },
-                _ => break, // no more commands.
-            }
+            let command = self.chars.next().unwrap();
+            let abs = if command.is_ascii_uppercase() {
+                IsAbsolute::Yes
+            } else {
+                IsAbsolute::No
+            };
+
+            skip_wsp(&mut self.chars);
+            match command {
+                b'Z' | b'z' => self.parse_closepath(),
+                b'L' | b'l' => self.parse_lineto(abs),
+                b'H' | b'h' => self.parse_h_lineto(abs),
+                b'V' | b'v' => self.parse_v_lineto(abs),
+                b'C' | b'c' => self.parse_curveto(abs),
+                b'S' | b's' => self.parse_smooth_curveto(abs),
+                b'Q' | b'q' => self.parse_quadratic_bezier_curveto(abs),
+                b'T' | b't' => self.parse_smooth_quadratic_bezier_curveto(abs),
+                b'A' | b'a' => self.parse_elliptical_arc(abs),
+                _ => return Err(()),
+            }?;
         }
         Ok(())
     }
@@ -687,7 +702,7 @@ impl<'a> PathParser<'a> {
     }
 
     /// Parse "closepath" command.
-    fn parse_closepath(&mut self, _absolute: IsAbsolute) -> Result<(), ()> {
+    fn parse_closepath(&mut self) -> Result<(), ()> {
         self.path.push(PathCommand::ClosePath);
         Ok(())
     }

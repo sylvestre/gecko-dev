@@ -11,8 +11,7 @@
 #include "nsFocusManager.h"
 #include "nsIDocShell.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(CredentialsContainer, mParent, mManager)
 NS_IMPL_CYCLE_COLLECTING_ADDREF(CredentialsContainer)
@@ -46,40 +45,12 @@ static bool IsInActiveTab(nsPIDOMWindowInner* aParent) {
   // The active tab is the selected (i.e. visible) tab in the focused window.
   MOZ_ASSERT(aParent);
 
-  nsCOMPtr<nsIDocument> doc(aParent->GetExtantDoc());
+  RefPtr<Document> doc = aParent->GetExtantDoc();
   if (NS_WARN_IF(!doc)) {
     return false;
   }
 
-  nsCOMPtr<nsIDocShell> docShell = doc->GetDocShell();
-  if (!docShell) {
-    return false;
-  }
-
-  bool isActive = false;
-  docShell->GetIsActive(&isActive);
-  if (!isActive) {
-    return false;
-  }
-
-  nsCOMPtr<nsIDocShellTreeItem> rootItem;
-  docShell->GetRootTreeItem(getter_AddRefs(rootItem));
-  if (!rootItem) {
-    return false;
-  }
-  nsCOMPtr<nsPIDOMWindowOuter> rootWin = rootItem->GetWindow();
-  if (!rootWin) {
-    return false;
-  }
-
-  nsIFocusManager* fm = nsFocusManager::GetFocusManager();
-  if (!fm) {
-    return false;
-  }
-
-  nsCOMPtr<mozIDOMWindowProxy> activeWindow;
-  fm->GetActiveWindow(getter_AddRefs(activeWindow));
-  return activeWindow == rootWin;
+  return IsInActiveTab(doc);
 }
 
 static bool IsSameOriginWithAncestors(nsPIDOMWindowInner* aParent) {
@@ -124,7 +95,7 @@ CredentialsContainer::CredentialsContainer(nsPIDOMWindowInner* aParent)
   MOZ_ASSERT(aParent);
 }
 
-CredentialsContainer::~CredentialsContainer() {}
+CredentialsContainer::~CredentialsContainer() = default;
 
 void CredentialsContainer::EnsureWebAuthnManager() {
   MOZ_ASSERT(NS_IsMainThread());
@@ -186,5 +157,4 @@ already_AddRefed<Promise> CredentialsContainer::PreventSilentAccess(
   return promise.forget();
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

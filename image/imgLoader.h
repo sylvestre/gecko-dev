@@ -8,6 +8,8 @@
 #define mozilla_image_imgLoader_h
 
 #include "mozilla/Attributes.h"
+#include "mozilla/CORSMode.h"
+#include "mozilla/dom/Document.h"
 #include "mozilla/Mutex.h"
 #include "mozilla/UniquePtr.h"
 
@@ -23,7 +25,6 @@
 #include "nsIChannel.h"
 #include "nsIThreadRetargetableStreamListener.h"
 #include "imgIRequest.h"
-#include "mozilla/net/ReferrerPolicy.h"
 
 class imgLoader;
 class imgRequestProxy;
@@ -38,8 +39,6 @@ namespace image {}  // namespace image
 
 class imgCacheEntry {
  public:
-  static uint32_t SecondsFromPRTime(PRTime prTime);
-
   imgCacheEntry(imgLoader* loader, imgRequest* request,
                 bool aForcePrincipalCheck);
   ~imgCacheEntry();
@@ -191,7 +190,6 @@ class imgLoader final : public imgILoader,
   typedef nsRefPtrHashtable<nsGenericHashKey<ImageCacheKey>, imgCacheEntry>
       imgCacheTable;
   typedef nsTHashtable<nsPtrHashKey<imgRequest>> imgSet;
-  typedef mozilla::net::ReferrerPolicy ReferrerPolicy;
   typedef mozilla::Mutex Mutex;
 
   NS_DECL_ISUPPORTS
@@ -241,20 +239,20 @@ class imgLoader final : public imgILoader,
   imgLoader();
   nsresult Init();
 
-  MOZ_MUST_USE nsresult
-  LoadImage(nsIURI* aURI, nsIURI* aInitialDocumentURI, nsIURI* aReferrerURI,
-            ReferrerPolicy aReferrerPolicy, nsIPrincipal* aLoadingPrincipal,
-            uint64_t aRequestContextID, nsILoadGroup* aLoadGroup,
-            imgINotificationObserver* aObserver, nsINode* aContext,
-            nsIDocument* aLoadingDocument, nsLoadFlags aLoadFlags,
-            nsISupports* aCacheKey, nsContentPolicyType aContentPolicyType,
-            const nsAString& initiatorType, bool aUseUrgentStartForChannel,
-            imgRequestProxy** _retval);
+  [[nodiscard]] nsresult LoadImage(
+      nsIURI* aURI, nsIURI* aInitialDocumentURI, nsIReferrerInfo* aReferrerInfo,
+      nsIPrincipal* aLoadingPrincipal, uint64_t aRequestContextID,
+      nsILoadGroup* aLoadGroup, imgINotificationObserver* aObserver,
+      nsINode* aContext, mozilla::dom::Document* aLoadingDocument,
+      nsLoadFlags aLoadFlags, nsISupports* aCacheKey,
+      nsContentPolicyType aContentPolicyType, const nsAString& initiatorType,
+      bool aUseUrgentStartForChannel, bool aLinkPreload,
+      imgRequestProxy** _retval);
 
-  MOZ_MUST_USE nsresult
-  LoadImageWithChannel(nsIChannel* channel, imgINotificationObserver* aObserver,
-                       nsISupports* aCX, nsIStreamListener** listener,
-                       imgRequestProxy** _retval);
+  [[nodiscard]] nsresult LoadImageWithChannel(
+      nsIChannel* channel, imgINotificationObserver* aObserver,
+      mozilla::dom::Document* aLoadingDocument, nsIStreamListener** listener,
+      imgRequestProxy** _retval);
 
   static nsresult GetMimeTypeFromContent(const char* aContents,
                                          uint32_t aLength,
@@ -341,36 +339,41 @@ class imgLoader final : public imgILoader,
   bool SetHasNoProxies(imgRequest* aRequest, imgCacheEntry* aEntry);
   bool SetHasProxies(imgRequest* aRequest);
 
+  // This method converts imgIRequest::CORS_* values to mozilla::CORSMode
+  // values.
+  static mozilla::CORSMode ConvertToCORSMode(uint32_t aImgCORS);
+
  private:  // methods
   static already_AddRefed<imgLoader> CreateImageLoader();
 
-  bool ValidateEntry(imgCacheEntry* aEntry, nsIURI* aKey,
-                     nsIURI* aInitialDocumentURI, nsIURI* aReferrerURI,
-                     ReferrerPolicy aReferrerPolicy, nsILoadGroup* aLoadGroup,
-                     imgINotificationObserver* aObserver, nsISupports* aCX,
-                     nsIDocument* aLoadingDocument, nsLoadFlags aLoadFlags,
-                     nsContentPolicyType aContentPolicyType,
-                     bool aCanMakeNewChannel, bool* aNewChannelCreated,
-                     imgRequestProxy** aProxyRequest,
-                     nsIPrincipal* aLoadingPrincipal, int32_t aCORSMode);
+  bool PreferLoadFromCache(nsIURI* aURI) const;
+
+  bool ValidateEntry(
+      imgCacheEntry* aEntry, nsIURI* aURI, nsIURI* aInitialDocumentURI,
+      nsIReferrerInfo* aReferrerInfo, nsILoadGroup* aLoadGroup,
+      imgINotificationObserver* aObserver,
+      mozilla::dom::Document* aLoadingDocument, nsLoadFlags aLoadFlags,
+      nsContentPolicyType aLoadPolicyType, bool aCanMakeNewChannel,
+      bool* aNewChannelCreated, imgRequestProxy** aProxyRequest,
+      nsIPrincipal* aTriggeringPrincipal, int32_t aCORSMode, bool aLinkPreload);
 
   bool ValidateRequestWithNewChannel(
       imgRequest* request, nsIURI* aURI, nsIURI* aInitialDocumentURI,
-      nsIURI* aReferrerURI, ReferrerPolicy aReferrerPolicy,
-      nsILoadGroup* aLoadGroup, imgINotificationObserver* aObserver,
-      nsISupports* aCX, nsIDocument* aLoadingDocument, nsLoadFlags aLoadFlags,
-      nsContentPolicyType aContentPolicyType, imgRequestProxy** aProxyRequest,
-      nsIPrincipal* aLoadingPrincipal, int32_t aCORSMode,
-      bool* aNewChannelCreated);
+      nsIReferrerInfo* aReferrerInfo, nsILoadGroup* aLoadGroup,
+      imgINotificationObserver* aObserver,
+      mozilla::dom::Document* aLoadingDocument, uint64_t aInnerWindowId,
+      nsLoadFlags aLoadFlags, nsContentPolicyType aContentPolicyType,
+      imgRequestProxy** aProxyRequest, nsIPrincipal* aLoadingPrincipal,
+      int32_t aCORSMode, bool aLinkPreload, bool* aNewChannelCreated);
 
-  nsresult CreateNewProxyForRequest(imgRequest* aRequest,
+  // aURI may be different from imgRequest's URI in the case of blob URIs, as we
+  // can share requests with different URIs.
+  nsresult CreateNewProxyForRequest(imgRequest* aRequest, nsIURI* aURI,
                                     nsILoadGroup* aLoadGroup,
-                                    nsIDocument* aLoadingDocument,
+                                    mozilla::dom::Document* aLoadingDocument,
                                     imgINotificationObserver* aObserver,
                                     nsLoadFlags aLoadFlags,
                                     imgRequestProxy** _retval);
-
-  void ReadAcceptHeaderPref();
 
   nsresult EvictEntries(imgCacheTable& aCacheToClear);
   nsresult EvictEntries(imgCacheQueue& aQueueToClear);
@@ -405,8 +408,6 @@ class imgLoader final : public imgILoader,
   static double sCacheTimeWeight;
   static uint32_t sCacheMaxSize;
   static imgMemoryReporter* sMemReporter;
-
-  nsCString mAcceptHeader;
 
   mozilla::UniquePtr<imgCacheExpirationTracker> mCacheTracker;
   bool mRespectPrivacy;
@@ -457,7 +458,7 @@ class nsProgressNotificationProxy final : public nsIProgressEventSink,
   NS_DECL_NSICHANNELEVENTSINK
   NS_DECL_NSIINTERFACEREQUESTOR
  private:
-  ~nsProgressNotificationProxy() {}
+  ~nsProgressNotificationProxy() = default;
 
   nsCOMPtr<nsIInterfaceRequestor> mOriginalCallbacks;
   nsCOMPtr<nsIRequest> mImageRequest;
@@ -476,7 +477,8 @@ class imgCacheValidator : public nsIStreamListener,
                           public nsIAsyncVerifyRedirectCallback {
  public:
   imgCacheValidator(nsProgressNotificationProxy* progress, imgLoader* loader,
-                    imgRequest* aRequest, nsISupports* aContext,
+                    imgRequest* aRequest, mozilla::dom::Document* aDocument,
+                    uint64_t aInnerWindowId,
                     bool forcePrincipalCheckForCacheEntry);
 
   void AddProxy(imgRequestProxy* aProxy);
@@ -505,7 +507,8 @@ class imgCacheValidator : public nsIStreamListener,
   RefPtr<imgRequest> mNewRequest;
   RefPtr<imgCacheEntry> mNewEntry;
 
-  nsCOMPtr<nsISupports> mContext;
+  RefPtr<mozilla::dom::Document> mDocument;
+  uint64_t mInnerWindowId;
 
   imgLoader* mImgLoader;
 

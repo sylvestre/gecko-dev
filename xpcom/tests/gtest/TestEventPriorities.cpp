@@ -4,7 +4,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "nsIThreadManager.h"
 #include "nsCOMPtr.h"
 #include "nsIRunnable.h"
 #include "nsXPCOM.h"
@@ -38,7 +37,7 @@ class TestEvent final : public Runnable, nsIRunnablePriority {
   }
 
  private:
-  ~TestEvent() {}
+  ~TestEvent() = default;
 
   int* mCounter;
   std::function<void()> mCheck;
@@ -47,7 +46,8 @@ class TestEvent final : public Runnable, nsIRunnablePriority {
 
 NS_IMPL_ISUPPORTS_INHERITED(TestEvent, Runnable, nsIRunnablePriority)
 
-TEST(EventPriorities, IdleAfterNormal) {
+TEST(EventPriorities, IdleAfterNormal)
+{
   int normalRan = 0, idleRan = 0;
 
   RefPtr<TestEvent> evNormal =
@@ -55,9 +55,9 @@ TEST(EventPriorities, IdleAfterNormal) {
   RefPtr<TestEvent> evIdle =
       new TestEvent(&idleRan, [&] { ASSERT_EQ(normalRan, 3); });
 
-  NS_IdleDispatchToCurrentThread(do_AddRef(evIdle));
-  NS_IdleDispatchToCurrentThread(do_AddRef(evIdle));
-  NS_IdleDispatchToCurrentThread(do_AddRef(evIdle));
+  NS_DispatchToCurrentThreadQueue(do_AddRef(evIdle), EventQueuePriority::Idle);
+  NS_DispatchToCurrentThreadQueue(do_AddRef(evIdle), EventQueuePriority::Idle);
+  NS_DispatchToCurrentThreadQueue(do_AddRef(evIdle), EventQueuePriority::Idle);
   NS_DispatchToMainThread(evNormal);
   NS_DispatchToMainThread(evNormal);
   NS_DispatchToMainThread(evNormal);
@@ -66,13 +66,14 @@ TEST(EventPriorities, IdleAfterNormal) {
       SpinEventLoopUntil([&]() { return normalRan == 3 && idleRan == 3; }));
 }
 
-TEST(EventPriorities, InterleaveHighNormal) {
+TEST(EventPriorities, HighNormal)
+{
   int normalRan = 0, highRan = 0;
 
   RefPtr<TestEvent> evNormal = new TestEvent(
-      &normalRan, [&] { ASSERT_TRUE(abs(normalRan - highRan) <= 1); });
+      &normalRan, [&] { ASSERT_TRUE((highRan - normalRan) >= 0); });
   RefPtr<TestEvent> evHigh = new TestEvent(
-      &highRan, [&] { ASSERT_TRUE(abs(normalRan - highRan) <= 1); },
+      &highRan, [&] { ASSERT_TRUE((highRan - normalRan) >= 0); },
       nsIRunnablePriority::PRIORITY_HIGH);
 
   NS_DispatchToMainThread(evNormal);

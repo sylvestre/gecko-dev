@@ -11,6 +11,7 @@ from mozparsers.shared_telemetry_utils import ParserError
 from mozparsers import parse_events
 
 import sys
+import buildconfig
 
 banner = """/* This file is auto-generated, see gen_event_enum.py.  */
 """
@@ -18,13 +19,16 @@ banner = """/* This file is auto-generated, see gen_event_enum.py.  */
 file_header = """\
 #ifndef mozilla_TelemetryEventEnums_h
 #define mozilla_TelemetryEventEnums_h
+
+#include <stdint.h>
+
 namespace mozilla {
 namespace Telemetry {
-namespace EventID {
+enum class EventID : uint32_t {\
 """
 
 file_footer = """\
-} // namespace EventID
+};
 } // namespace mozilla
 } // namespace Telemetry
 #endif // mozilla_TelemetryEventEnums_h
@@ -33,14 +37,14 @@ file_footer = """\
 
 def main(output, *filenames):
     # Load the events first.
-    if len(filenames) > 1:
-        raise Exception('We don\'t support loading from more than one file.')
-
-    try:
-        events = parse_events.load_events(filenames[0], True)
-    except ParserError as ex:
-        print("\nError processing events:\n" + str(ex) + "\n")
-        sys.exit(1)
+    events = []
+    for filename in filenames:
+        try:
+            batch = parse_events.load_events(filename, True)
+            events.extend(batch)
+        except ParserError as ex:
+            print("\nError processing %s:\n%s\n" % (filename, str(ex)), file=sys.stderr)
+            sys.exit(1)
 
     grouped = dict()
     index = 0
@@ -55,31 +59,24 @@ def main(output, *filenames):
     print(banner, file=output)
     print(file_header, file=output)
 
-    for category, indexed in grouped.iteritems():
+    for category, indexed in sorted(grouped.items()):
         category_cpp = indexed[0][1].category_cpp
 
-        print("// category: %s" % category, file=output)
-        print("enum class %s : uint32_t {" % category_cpp, file=output)
+        print("  // category: %s" % category, file=output)
 
         for event_index, e in indexed:
-            cpp_guard = e.cpp_guard
-            if cpp_guard:
-                print("#if defined(%s)" % cpp_guard, file=output)
-            for offset, label in enumerate(e.enum_labels):
-                print("  %s = %d," % (label, event_index + offset), file=output)
-            if cpp_guard:
-                print("#endif", file=output)
+            if e.record_on_os(buildconfig.substs["OS_TARGET"]):
+                for offset, label in enumerate(e.enum_labels):
+                    print(
+                        " %s_%s = %d," % (category_cpp, label, event_index + offset),
+                        file=output,
+                    )
 
-        print("};\n", file=output)
-
-    print("#if defined(_MSC_VER) && !defined(__clang__)", file=output)
-    print("const uint32_t EventCount = %d;" % index, file=output)
-    print("#else", file=output)
-    print("constexpr uint32_t EventCount = %d;" % index, file=output)
-    print("#endif\n", file=output)
+    print("  // meta", file=output)
+    print("  EventCount = %d," % index, file=output)
 
     print(file_footer, file=output)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main(sys.stdout, *sys.argv[1:])

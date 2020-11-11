@@ -6,19 +6,18 @@
 
 #include "SpeechRecognitionError.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 SpeechRecognitionError::SpeechRecognitionError(
     mozilla::dom::EventTarget* aOwner, nsPresContext* aPresContext,
     WidgetEvent* aEvent)
     : Event(aOwner, aPresContext, aEvent), mError() {}
 
-SpeechRecognitionError::~SpeechRecognitionError() {}
+SpeechRecognitionError::~SpeechRecognitionError() = default;
 
 already_AddRefed<SpeechRecognitionError> SpeechRecognitionError::Constructor(
     const GlobalObject& aGlobal, const nsAString& aType,
-    const SpeechRecognitionErrorInit& aParam, ErrorResult& aRv) {
+    const SpeechRecognitionErrorInit& aParam) {
   nsCOMPtr<mozilla::dom::EventTarget> t =
       do_QueryInterface(aGlobal.GetAsSupports());
   RefPtr<SpeechRecognitionError> e =
@@ -39,5 +38,4 @@ void SpeechRecognitionError::InitSpeechRecognitionError(
   mMessage = aMessage;
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

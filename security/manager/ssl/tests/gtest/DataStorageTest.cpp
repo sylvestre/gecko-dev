@@ -23,27 +23,23 @@ class psm_DataStorageTest : public ::testing::Test {
         ::testing::UnitTest::GetInstance()->current_test_info();
     NS_ConvertUTF8toUTF16 testName(testInfo->name());
     storage = DataStorage::GetFromRawFileName(testName);
-    storage->Init(dataWillPersist);
+    storage->Init(nullptr);
   }
 
   RefPtr<DataStorage> storage;
-  bool dataWillPersist;
 };
 
-NS_NAMED_LITERAL_CSTRING(testKey, "test");
-NS_NAMED_LITERAL_CSTRING(testValue, "value");
-NS_NAMED_LITERAL_CSTRING(privateTestValue, "private");
+constexpr auto testKey = "test"_ns;
+constexpr auto testValue = "value"_ns;
+constexpr auto privateTestValue = "private"_ns;
 
 TEST_F(psm_DataStorageTest, GetPutRemove) {
-  EXPECT_TRUE(dataWillPersist);
-
   // Test Put/Get on Persistent data
   EXPECT_EQ(NS_OK, storage->Put(testKey, testValue, DataStorage_Persistent));
   // Don't re-use testKey / testValue here, to make sure that this works as
   // expected with objects that have the same semantic value but are not
   // literally the same object.
-  nsCString result =
-      storage->Get(NS_LITERAL_CSTRING("test"), DataStorage_Persistent);
+  nsCString result = storage->Get("test"_ns, DataStorage_Persistent);
   EXPECT_STREQ("value", result.get());
 
   // Get on Temporary/Private data with the same key should give nothing
@@ -53,7 +49,7 @@ TEST_F(psm_DataStorageTest, GetPutRemove) {
   EXPECT_TRUE(result.IsEmpty());
 
   // Put with Temporary/Private data shouldn't affect Persistent data
-  NS_NAMED_LITERAL_CSTRING(temporaryTestValue, "temporary");
+  constexpr auto temporaryTestValue = "temporary"_ns;
   EXPECT_EQ(NS_OK,
             storage->Put(testKey, temporaryTestValue, DataStorage_Temporary));
   EXPECT_EQ(NS_OK,
@@ -66,7 +62,7 @@ TEST_F(psm_DataStorageTest, GetPutRemove) {
   EXPECT_STREQ("value", result.get());
 
   // Put of a previously-present key overwrites it (if of the same type)
-  NS_NAMED_LITERAL_CSTRING(newValue, "new");
+  constexpr auto newValue = "new"_ns;
   EXPECT_EQ(NS_OK, storage->Put(testKey, newValue, DataStorage_Persistent));
   result = storage->Get(testKey, DataStorage_Persistent);
   EXPECT_STREQ("new", result.get());
@@ -90,30 +86,22 @@ TEST_F(psm_DataStorageTest, GetPutRemove) {
 }
 
 TEST_F(psm_DataStorageTest, InputValidation) {
-  EXPECT_TRUE(dataWillPersist);
-
   // Keys may not have tabs or newlines
   EXPECT_EQ(NS_ERROR_INVALID_ARG,
-            storage->Put(NS_LITERAL_CSTRING("key\thas tab"), testValue,
-                         DataStorage_Persistent));
-  nsCString result =
-      storage->Get(NS_LITERAL_CSTRING("key\thas tab"), DataStorage_Persistent);
+            storage->Put("key\thas tab"_ns, testValue, DataStorage_Persistent));
+  nsCString result = storage->Get("key\thas tab"_ns, DataStorage_Persistent);
   EXPECT_TRUE(result.IsEmpty());
-  EXPECT_EQ(NS_ERROR_INVALID_ARG,
-            storage->Put(NS_LITERAL_CSTRING("key has\nnewline"), testValue,
-                         DataStorage_Persistent));
-  result = storage->Get(NS_LITERAL_CSTRING("keyhas\nnewline"),
-                        DataStorage_Persistent);
+  EXPECT_EQ(NS_ERROR_INVALID_ARG, storage->Put("key has\nnewline"_ns, testValue,
+                                               DataStorage_Persistent));
+  result = storage->Get("keyhas\nnewline"_ns, DataStorage_Persistent);
   EXPECT_TRUE(result.IsEmpty());
   // Values may not have newlines
-  EXPECT_EQ(NS_ERROR_INVALID_ARG,
-            storage->Put(testKey, NS_LITERAL_CSTRING("value\nhas newline"),
-                         DataStorage_Persistent));
+  EXPECT_EQ(NS_ERROR_INVALID_ARG, storage->Put(testKey, "value\nhas newline"_ns,
+                                               DataStorage_Persistent));
   result = storage->Get(testKey, DataStorage_Persistent);
   // Values may have tabs
   EXPECT_TRUE(result.IsEmpty());
-  EXPECT_EQ(NS_OK, storage->Put(testKey,
-                                NS_LITERAL_CSTRING("val\thas tab; this is ok"),
+  EXPECT_EQ(NS_OK, storage->Put(testKey, "val\thas tab; this is ok"_ns,
                                 DataStorage_Persistent));
   result = storage->Get(testKey, DataStorage_Persistent);
   EXPECT_STREQ("val\thas tab; this is ok", result.get());
@@ -151,8 +139,6 @@ TEST_F(psm_DataStorageTest, InputValidation) {
 }
 
 TEST_F(psm_DataStorageTest, Eviction) {
-  EXPECT_TRUE(dataWillPersist);
-
   // Eviction is on a per-table basis. Tables shouldn't affect each other.
   EXPECT_EQ(NS_OK, storage->Put(testKey, testValue, DataStorage_Persistent));
   for (int i = 0; i < 1025; i++) {
@@ -178,8 +164,6 @@ TEST_F(psm_DataStorageTest, Eviction) {
 }
 
 TEST_F(psm_DataStorageTest, ClearPrivateData) {
-  EXPECT_TRUE(dataWillPersist);
-
   EXPECT_EQ(NS_OK,
             storage->Put(testKey, privateTestValue, DataStorage_Private));
   nsCString result = storage->Get(testKey, DataStorage_Private);
@@ -190,8 +174,6 @@ TEST_F(psm_DataStorageTest, ClearPrivateData) {
 }
 
 TEST_F(psm_DataStorageTest, Shutdown) {
-  EXPECT_TRUE(dataWillPersist);
-
   EXPECT_EQ(NS_OK, storage->Put(testKey, testValue, DataStorage_Persistent));
   nsCString result = storage->Get(testKey, DataStorage_Persistent);
   EXPECT_STREQ("value", result.get());
@@ -199,10 +181,7 @@ TEST_F(psm_DataStorageTest, Shutdown) {
   // get intermittent failures with the day not matching.
   int64_t microsecondsPerDay = 24 * 60 * 60 * int64_t(PR_USEC_PER_SEC);
   int32_t nowInDays = int32_t(PR_Now() / microsecondsPerDay);
-  // Simulate shutdown (we have to "send" both notifications - the first one
-  // dispatches an event to write out the backing file while the second one
-  // ensures this event runs and shuts down the background thread).
-  storage->Observe(nullptr, "profile-change-teardown", nullptr);
+  // Simulate shutdown.
   storage->Observe(nullptr, "profile-before-change", nullptr);
   nsCOMPtr<nsIFile> backingFile;
   EXPECT_EQ(NS_OK, NS_GetSpecialDirectory(NS_APP_USER_PROFILE_50_DIR,

@@ -25,8 +25,8 @@
 #include <guiddef.h>
 
 #ifndef __MINGW32__
-#pragma comment(lib, "mfuuid.lib")
-#pragma comment(lib, "wmcodecdspuuid")
+#  pragma comment(lib, "mfuuid.lib")
+#  pragma comment(lib, "wmcodecdspuuid")
 #endif
 
 void LOG(const char* format, ...) {
@@ -64,16 +64,6 @@ static bool LinkMfplat() {
     sInitOk = true;
   }
   return sInitOk;
-}
-
-const char* WMFDecoderDllName() {
-  // For H.264 decoding, we need msmpeg2vdec.dll on Win 7 & 8,
-  // and mfh264dec.dll on Vista.
-  if (IsWindows7OrGreater()) {
-    return "msmpeg2vdec.dll";
-  } else {
-    return "mfh264dec.dll";
-  }
 }
 
 bool EnsureLibs() {

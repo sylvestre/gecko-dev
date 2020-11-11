@@ -1,4 +1,3 @@
-// |reftest| skip-if(!this.hasOwnProperty('BigInt')) -- BigInt is not enabled unconditionally
 // Copyright (C) 2017 André Bargull. All rights reserved.
 // This code is governed by the BSD license found in the LICENSE file.
 
@@ -11,13 +10,13 @@ info: |
     3. If Type(P) is String, then
       a. Let numericIndex be ! CanonicalNumericIndexString(P).
       b. If numericIndex is not undefined, then
-        i. Let value be ? IntegerIndexedElementGet(O, numericIndex).
+        i. Let value be ! IntegerIndexedElementGet(O, numericIndex).
     ...
 
-  9.4.5.8 IntegerIndexedElementGet ( O, index )
+  IntegerIndexedElementGet ( O, index )
     ...
-    3. Let buffer be O.[[ViewedArrayBuffer]].
-    4. If IsDetachedBuffer(buffer) is true, throw a TypeError exception.
+    Let buffer be O.[[ViewedArrayBuffer]].
+    If IsDetachedBuffer(buffer) is true, return undefined.
     ...
 
   13.7.5.15 EnumerateObjectProperties (O)
@@ -28,18 +27,18 @@ info: |
     calling its [[GetOwnProperty]] internal method.
 
 includes: [testBigIntTypedArray.js, detachArrayBuffer.js]
-features: [BigInt, TypedArray]
+features: [align-detached-buffer-semantics-with-web-reality, BigInt, TypedArray]
 ---*/
 
 testWithBigIntTypedArrayConstructors(function(TA) {
   var sample = new TA(42);
   $DETACHBUFFER(sample.buffer);
 
-  assert.throws(TypeError, function() {
-    for (var key in sample) {
-      throw new Test262Error();
-    }
-  });
+  let counter = 0;
+  for (var key in sample) {
+    counter++;
+  }
+  assert.sameValue(counter, 0, 'The value of `counter` is 0');
 });
 
 reportCompare(0, 0);

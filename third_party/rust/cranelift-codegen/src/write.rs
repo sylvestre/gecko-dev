@@ -3,34 +3,39 @@
 //! The `write` module provides the `write_function` function which converts an IR `Function` to an
 //! equivalent textual form. This textual form can be read back by the `cranelift-reader` crate.
 
-use entity::SecondaryMap;
-use ir::entities::AnyEntity;
-use ir::{DataFlowGraph, Ebb, Function, Inst, SigRef, Type, Value, ValueDef};
-use isa::{RegInfo, TargetIsa};
-use packed_option::ReservedValue;
-use std::fmt::{self, Write};
-use std::string::String;
-use std::vec::Vec;
+use crate::entity::SecondaryMap;
+use crate::ir::entities::AnyEntity;
+use crate::ir::{
+    Block, DataFlowGraph, DisplayFunctionAnnotations, Function, Inst, SigRef, Type, Value,
+    ValueDef, ValueLoc,
+};
+use crate::isa::{RegInfo, TargetIsa};
+use crate::packed_option::ReservedValue;
+use crate::value_label::ValueLabelsRanges;
+use crate::HashSet;
+use alloc::string::String;
+use alloc::vec::Vec;
+use core::fmt::{self, Write};
 
 /// A `FuncWriter` used to decorate functions during printing.
 pub trait FuncWriter {
-    /// Write the extended basic block header for the current function.
-    fn write_ebb_header(
+    /// Write the basic block header for the current function.
+    fn write_block_header(
         &mut self,
-        w: &mut Write,
+        w: &mut dyn Write,
         func: &Function,
-        isa: Option<&TargetIsa>,
-        ebb: Ebb,
+        isa: Option<&dyn TargetIsa>,
+        block: Block,
         indent: usize,
     ) -> fmt::Result;
 
     /// Write the given `inst` to `w`.
     fn write_instruction(
         &mut self,
-        w: &mut Write,
+        w: &mut dyn Write,
         func: &Function,
         aliases: &SecondaryMap<Value, Vec<Value>>,
-        isa: Option<&TargetIsa>,
+        isa: Option<&dyn TargetIsa>,
         inst: Inst,
         indent: usize,
     ) -> fmt::Result;
@@ -38,7 +43,17 @@ pub trait FuncWriter {
     /// Write the preamble to `w`. By default, this uses `write_entity_definition`.
     fn write_preamble(
         &mut self,
-        w: &mut Write,
+        w: &mut dyn Write,
+        func: &Function,
+        regs: Option<&RegInfo>,
+    ) -> Result<bool, fmt::Error> {
+        self.super_preamble(w, func, regs)
+    }
+
+    /// Default impl of `write_preamble`
+    fn super_preamble(
+        &mut self,
+        w: &mut dyn Write,
         func: &Function,
         regs: Option<&RegInfo>,
     ) -> Result<bool, fmt::Error> {
@@ -87,17 +102,38 @@ pub trait FuncWriter {
             self.write_entity_definition(w, func, jt.into(), jt_data)?;
         }
 
+        for (&cref, cval) in func.dfg.constants.iter() {
+            any = true;
+            self.write_entity_definition(w, func, cref.into(), cval)?;
+        }
+
+        if let Some(limit) = func.stack_limit {
+            any = true;
+            self.write_entity_definition(w, func, AnyEntity::StackLimit, &limit)?;
+        }
+
         Ok(any)
     }
 
     /// Write an entity definition defined in the preamble to `w`.
-    #[allow(unused_variables)]
     fn write_entity_definition(
         &mut self,
-        w: &mut Write,
+        w: &mut dyn Write,
         func: &Function,
         entity: AnyEntity,
-        value: &fmt::Display,
+        value: &dyn fmt::Display,
+    ) -> fmt::Result {
+        self.super_entity_definition(w, func, entity, value)
+    }
+
+    /// Default impl of `write_entity_definition`
+    #[allow(unused_variables)]
+    fn super_entity_definition(
+        &mut self,
+        w: &mut dyn Write,
+        func: &Function,
+        entity: AnyEntity,
+        value: &dyn fmt::Display,
     ) -> fmt::Result {
         writeln!(w, "    {} = {}", entity, value)
     }
@@ -109,32 +145,36 @@ pub struct PlainWriter;
 impl FuncWriter for PlainWriter {
     fn write_instruction(
         &mut self,
-        w: &mut Write,
+        w: &mut dyn Write,
         func: &Function,
         aliases: &SecondaryMap<Value, Vec<Value>>,
-        isa: Option<&TargetIsa>,
+        isa: Option<&dyn TargetIsa>,
         inst: Inst,
         indent: usize,
     ) -> fmt::Result {
         write_instruction(w, func, aliases, isa, inst, indent)
     }
 
-    fn write_ebb_header(
+    fn write_block_header(
         &mut self,
-        w: &mut Write,
+        w: &mut dyn Write,
         func: &Function,
-        isa: Option<&TargetIsa>,
-        ebb: Ebb,
+        isa: Option<&dyn TargetIsa>,
+        block: Block,
         indent: usize,
     ) -> fmt::Result {
-        write_ebb_header(w, func, isa, ebb, indent)
+        write_block_header(w, func, isa, block, indent)
     }
 }
 
 /// Write `func` to `w` as equivalent text.
 /// Use `isa` to emit ISA-dependent annotations.
-pub fn write_function(w: &mut Write, func: &Function, isa: Option<&TargetIsa>) -> fmt::Result {
-    decorate_function(&mut PlainWriter, w, func, isa)
+pub fn write_function(
+    w: &mut dyn Write,
+    func: &Function,
+    annotations: &DisplayFunctionAnnotations,
+) -> fmt::Result {
+    decorate_function(&mut PlainWriter, w, func, annotations)
 }
 
 /// Create a reverse-alias map from a value to all aliases having that value as a direct target
@@ -154,11 +194,11 @@ fn alias_map(func: &Function) -> SecondaryMap<Value, Vec<Value>> {
 /// pretty_function_error is passed as 'closure' to add error decoration.
 pub fn decorate_function<FW: FuncWriter>(
     func_w: &mut FW,
-    w: &mut Write,
+    w: &mut dyn Write,
     func: &Function,
-    isa: Option<&TargetIsa>,
+    annotations: &DisplayFunctionAnnotations,
 ) -> fmt::Result {
-    let regs = isa.map(TargetIsa::register_info);
+    let regs = annotations.isa.map(TargetIsa::register_info);
     let regs = regs.as_ref();
 
     write!(w, "function ")?;
@@ -166,11 +206,11 @@ pub fn decorate_function<FW: FuncWriter>(
     writeln!(w, " {{")?;
     let aliases = alias_map(func);
     let mut any = func_w.write_preamble(w, func, regs)?;
-    for ebb in &func.layout {
+    for block in &func.layout {
         if any {
             writeln!(w)?;
         }
-        decorate_ebb(func_w, w, func, &aliases, isa, ebb)?;
+        decorate_block(func_w, w, func, &aliases, annotations, block)?;
         any = true;
     }
     writeln!(w, "}}")
@@ -180,7 +220,7 @@ pub fn decorate_function<FW: FuncWriter>(
 //
 // Function spec.
 
-fn write_spec(w: &mut Write, func: &Function, regs: Option<&RegInfo>) -> fmt::Result {
+fn write_spec(w: &mut dyn Write, func: &Function, regs: Option<&RegInfo>) -> fmt::Result {
     write!(w, "{}{}", func.name, func.signature.display(regs))
 }
 
@@ -188,7 +228,12 @@ fn write_spec(w: &mut Write, func: &Function, regs: Option<&RegInfo>) -> fmt::Re
 //
 // Basic blocks
 
-fn write_arg(w: &mut Write, func: &Function, regs: Option<&RegInfo>, arg: Value) -> fmt::Result {
+fn write_arg(
+    w: &mut dyn Write,
+    func: &Function,
+    regs: Option<&RegInfo>,
+    arg: Value,
+) -> fmt::Result {
     write!(w, "{}: {}", arg, func.dfg.value_type(arg))?;
     let loc = func.locations[arg];
     if loc.is_assigned() {
@@ -200,24 +245,24 @@ fn write_arg(w: &mut Write, func: &Function, regs: Option<&RegInfo>, arg: Value)
 
 /// Write out the basic block header, outdented:
 ///
-///    ebb1:
-///    ebb1(v1: i32):
-///    ebb10(v4: f64, v5: b1):
+///    block1:
+///    block1(v1: i32):
+///    block10(v4: f64, v5: b1):
 ///
-pub fn write_ebb_header(
-    w: &mut Write,
+pub fn write_block_header(
+    w: &mut dyn Write,
     func: &Function,
-    isa: Option<&TargetIsa>,
-    ebb: Ebb,
+    isa: Option<&dyn TargetIsa>,
+    block: Block,
     indent: usize,
 ) -> fmt::Result {
-    // The `indent` is the instruction indentation. EBB headers are 4 spaces out from that.
-    write!(w, "{1:0$}{2}", indent - 4, "", ebb)?;
+    // The `indent` is the instruction indentation. block headers are 4 spaces out from that.
+    write!(w, "{1:0$}{2}", indent - 4, "", block)?;
 
     let regs = isa.map(TargetIsa::register_info);
     let regs = regs.as_ref();
 
-    let mut args = func.dfg.ebb_params(ebb).iter().cloned();
+    let mut args = func.dfg.block_params(block).iter().cloned();
     match args.next() {
         None => return writeln!(w, ":"),
         Some(arg) => {
@@ -233,13 +278,54 @@ pub fn write_ebb_header(
     writeln!(w, "):")
 }
 
-fn decorate_ebb<FW: FuncWriter>(
+fn write_valueloc(w: &mut dyn Write, loc: ValueLoc, regs: &RegInfo) -> fmt::Result {
+    match loc {
+        ValueLoc::Reg(r) => write!(w, "{}", regs.display_regunit(r)),
+        ValueLoc::Stack(ss) => write!(w, "{}", ss),
+        ValueLoc::Unassigned => write!(w, "?"),
+    }
+}
+
+fn write_value_range_markers(
+    w: &mut dyn Write,
+    val_ranges: &ValueLabelsRanges,
+    regs: &RegInfo,
+    offset: u32,
+    indent: usize,
+) -> fmt::Result {
+    let mut result = String::new();
+    let mut shown = HashSet::new();
+    for (val, rng) in val_ranges {
+        for i in (0..rng.len()).rev() {
+            if rng[i].start == offset {
+                write!(&mut result, " {}@", val)?;
+                write_valueloc(&mut result, rng[i].loc, regs)?;
+                shown.insert(val);
+                break;
+            }
+        }
+    }
+    for (val, rng) in val_ranges {
+        for i in (0..rng.len()).rev() {
+            if rng[i].end == offset && !shown.contains(val) {
+                write!(&mut result, " {}\u{2620}", val)?;
+                break;
+            }
+        }
+    }
+    if !result.is_empty() {
+        writeln!(w, ";{1:0$}; {2}", indent + 24, "", result)?;
+    }
+    Ok(())
+}
+
+fn decorate_block<FW: FuncWriter>(
     func_w: &mut FW,
-    w: &mut Write,
+    w: &mut dyn Write,
     func: &Function,
     aliases: &SecondaryMap<Value, Vec<Value>>,
-    isa: Option<&TargetIsa>,
-    ebb: Ebb,
+    annotations: &DisplayFunctionAnnotations,
+    block: Block,
 ) -> fmt::Result {
     // Indent all instructions if any encodings are present.
     let indent = if func.encodings.is_empty() && func.srclocs.is_empty() {
@@ -247,12 +333,30 @@ fn decorate_ebb<FW: FuncWriter>(
     } else {
         36
     };
+    let isa = annotations.isa;
 
-    func_w.write_ebb_header(w, func, isa, ebb, indent)?;
-    for a in func.dfg.ebb_params(ebb).iter().cloned() {
+    func_w.write_block_header(w, func, isa, block, indent)?;
+    for a in func.dfg.block_params(block).iter().cloned() {
         write_value_aliases(w, aliases, a, indent)?;
     }
-    for inst in func.layout.ebb_insts(ebb) {
+
+    if let Some(isa) = isa {
+        if !func.offsets.is_empty() {
+            let encinfo = isa.encoding_info();
+            let regs = &isa.register_info();
+            for (offset, inst, size) in func.inst_offsets(block, &encinfo) {
+                func_w.write_instruction(w, func, aliases, Some(isa), inst, indent)?;
+                if size > 0 {
+                    if let Some(val_ranges) = annotations.value_ranges {
+                        write_value_range_markers(w, val_ranges, regs, offset + size, indent)?;
+                    }
+                }
+            }
+            return Ok(());
+        }
+    }
+
+    for inst in func.layout.block_insts(block) {
         func_w.write_instruction(w, func, aliases, isa, inst, indent)?;
     }
 
@@ -280,11 +384,11 @@ fn type_suffix(func: &Function, inst: Inst) -> Option<Type> {
     // operand, we don't need the type suffix.
     if constraints.use_typevar_operand() {
         let ctrl_var = inst_data.typevar_operand(&func.dfg.value_lists).unwrap();
-        let def_ebb = match func.dfg.value_def(ctrl_var) {
-            ValueDef::Result(instr, _) => func.layout.inst_ebb(instr),
-            ValueDef::Param(ebb, _) => Some(ebb),
+        let def_block = match func.dfg.value_def(ctrl_var) {
+            ValueDef::Result(instr, _) => func.layout.inst_block(instr),
+            ValueDef::Param(block, _) => Some(block),
         };
-        if def_ebb.is_some() && def_ebb == func.layout.inst_ebb(inst) {
+        if def_block.is_some() && def_block == func.layout.inst_block(inst) {
             return None;
         }
     }
@@ -299,7 +403,7 @@ fn type_suffix(func: &Function, inst: Inst) -> Option<Type> {
 
 /// Write out any aliases to the given target, including indirect aliases
 fn write_value_aliases(
-    w: &mut Write,
+    w: &mut dyn Write,
     aliases: &SecondaryMap<Value, Vec<Value>>,
     target: Value,
     indent: usize,
@@ -316,10 +420,10 @@ fn write_value_aliases(
 }
 
 fn write_instruction(
-    w: &mut Write,
+    w: &mut dyn Write,
     func: &Function,
     aliases: &SecondaryMap<Value, Vec<Value>>,
-    isa: Option<&TargetIsa>,
+    isa: Option<&dyn TargetIsa>,
     inst: Inst,
     indent: usize,
 ) -> fmt::Result {
@@ -377,7 +481,7 @@ fn write_instruction(
     write_operands(w, &func.dfg, isa, inst)?;
     writeln!(w)?;
 
-    // Value aliases come out on lines after the instruction defining the referrent.
+    // Value aliases come out on lines after the instruction defining the referent.
     for r in func.dfg.inst_results(inst) {
         write_value_aliases(w, aliases, *r, indent)?;
     }
@@ -386,22 +490,30 @@ fn write_instruction(
 
 /// Write the operands of `inst` to `w` with a prepended space.
 pub fn write_operands(
-    w: &mut Write,
+    w: &mut dyn Write,
     dfg: &DataFlowGraph,
-    isa: Option<&TargetIsa>,
+    isa: Option<&dyn TargetIsa>,
     inst: Inst,
 ) -> fmt::Result {
     let pool = &dfg.value_lists;
-    use ir::instructions::InstructionData::*;
+    use crate::ir::instructions::InstructionData::*;
     match dfg[inst] {
+        AtomicRmw { op, args, .. } => write!(w, " {}, {}, {}", op, args[0], args[1]),
+        AtomicCas { args, .. } => write!(w, " {}, {}, {}", args[0], args[1], args[2]),
+        LoadNoOffset { flags, arg, .. } => write!(w, "{} {}", flags, arg),
+        StoreNoOffset { flags, args, .. } => write!(w, "{} {}, {}", flags, args[0], args[1]),
         Unary { arg, .. } => write!(w, " {}", arg),
         UnaryImm { imm, .. } => write!(w, " {}", imm),
         UnaryIeee32 { imm, .. } => write!(w, " {}", imm),
         UnaryIeee64 { imm, .. } => write!(w, " {}", imm),
         UnaryBool { imm, .. } => write!(w, " {}", imm),
         UnaryGlobalValue { global_value, .. } => write!(w, " {}", global_value),
+        UnaryConst {
+            constant_handle, ..
+        } => write!(w, " {}", constant_handle),
         Binary { args, .. } => write!(w, " {}, {}", args[0], args[1]),
-        BinaryImm { arg, imm, .. } => write!(w, " {}, {}", arg, imm),
+        BinaryImm8 { arg, imm, .. } => write!(w, " {}, {}", arg, imm),
+        BinaryImm64 { arg, imm, .. } => write!(w, " {}, {}", arg, imm),
         Ternary { args, .. } => write!(w, " {}, {}, {}", args[0], args[1], args[2]),
         MultiAry { ref args, .. } => {
             if args.is_empty() {
@@ -411,8 +523,13 @@ pub fn write_operands(
             }
         }
         NullAry { .. } => write!(w, " "),
-        InsertLane { lane, args, .. } => write!(w, " {}, {}, {}", args[0], lane, args[1]),
-        ExtractLane { lane, arg, .. } => write!(w, " {}, {}", arg, lane),
+        TernaryImm8 { imm, args, .. } => write!(w, " {}, {}, {}", args[0], args[1], imm),
+        Shuffle { mask, args, .. } => {
+            let data = dfg.immediates.get(mask).expect(
+                "Expected the shuffle mask to already be inserted into the immediates table",
+            );
+            write!(w, " {}, {}, {}", args[0], args[1], data)
+        }
         IntCompare { cond, args, .. } => write!(w, " {} {}, {}", cond, args[0], args[1]),
         IntCompareImm { cond, arg, imm, .. } => write!(w, " {} {}, {}", cond, arg, imm),
         IntCond { cond, arg, .. } => write!(w, " {} {}", cond, arg),
@@ -427,7 +544,7 @@ pub fn write_operands(
             ..
         } => {
             write!(w, " {}", destination)?;
-            write_ebb_args(w, args.as_slice(pool))
+            write_block_args(w, args.as_slice(pool))
         }
         Branch {
             destination,
@@ -436,7 +553,7 @@ pub fn write_operands(
         } => {
             let args = args.as_slice(pool);
             write!(w, " {}, {}", args[0], destination)?;
-            write_ebb_args(w, &args[1..])
+            write_block_args(w, &args[1..])
         }
         BranchInt {
             cond,
@@ -446,7 +563,7 @@ pub fn write_operands(
         } => {
             let args = args.as_slice(pool);
             write!(w, " {} {}, {}", cond, args[0], destination)?;
-            write_ebb_args(w, &args[1..])
+            write_block_args(w, &args[1..])
         }
         BranchFloat {
             cond,
@@ -456,7 +573,7 @@ pub fn write_operands(
         } => {
             let args = args.as_slice(pool);
             write!(w, " {} {}, {}", cond, args[0], destination)?;
-            write_ebb_args(w, &args[1..])
+            write_block_args(w, &args[1..])
         }
         BranchIcmp {
             cond,
@@ -466,7 +583,7 @@ pub fn write_operands(
         } => {
             let args = args.as_slice(pool);
             write!(w, " {} {}, {}, {}", cond, args[0], args[1], destination)?;
-            write_ebb_args(w, &args[2..])
+            write_block_args(w, &args[2..])
         }
         BranchTable {
             arg,
@@ -573,6 +690,14 @@ pub fn write_operands(
                 write!(w, " %{} -> %{}", src, dst)
             }
         }
+        CopyToSsa { src, .. } => {
+            if let Some(isa) = isa {
+                let regs = isa.register_info();
+                write!(w, " {}", regs.display_regunit(src))
+            } else {
+                write!(w, " %{}", src)
+            }
+        }
         RegSpill { arg, src, dst, .. } => {
             if let Some(isa) = isa {
                 let regs = isa.register_info();
@@ -600,8 +725,8 @@ pub fn write_operands(
     }
 }
 
-/// Write EBB args using optional parantheses.
-fn write_ebb_args(w: &mut Write, args: &[Value]) -> fmt::Result {
+/// Write block args using optional parantheses.
+fn write_block_args(w: &mut dyn Write, args: &[Value]) -> fmt::Result {
     if args.is_empty() {
         Ok(())
     } else {
@@ -642,10 +767,10 @@ impl<'a> fmt::Display for DisplayValuesWithDelimiter<'a> {
 
 #[cfg(test)]
 mod tests {
-    use cursor::{Cursor, CursorPosition, FuncCursor};
-    use ir::types;
-    use ir::{ExternalName, Function, InstBuilder, StackSlotData, StackSlotKind};
-    use std::string::ToString;
+    use crate::cursor::{Cursor, CursorPosition, FuncCursor};
+    use crate::ir::types;
+    use crate::ir::{ExternalName, Function, InstBuilder, StackSlotData, StackSlotKind};
+    use alloc::string::ToString;
 
     #[test]
     fn basic() {
@@ -661,54 +786,54 @@ mod tests {
             "function %foo() fast {\n    ss0 = explicit_slot 4\n}\n"
         );
 
-        let ebb = f.dfg.make_ebb();
-        f.layout.append_ebb(ebb);
+        let block = f.dfg.make_block();
+        f.layout.append_block(block);
         assert_eq!(
             f.to_string(),
-            "function %foo() fast {\n    ss0 = explicit_slot 4\n\nebb0:\n}\n"
+            "function %foo() fast {\n    ss0 = explicit_slot 4\n\nblock0:\n}\n"
         );
 
-        f.dfg.append_ebb_param(ebb, types::I8);
+        f.dfg.append_block_param(block, types::I8);
         assert_eq!(
             f.to_string(),
-            "function %foo() fast {\n    ss0 = explicit_slot 4\n\nebb0(v0: i8):\n}\n"
+            "function %foo() fast {\n    ss0 = explicit_slot 4\n\nblock0(v0: i8):\n}\n"
         );
 
-        f.dfg.append_ebb_param(ebb, types::F32.by(4).unwrap());
+        f.dfg.append_block_param(block, types::F32.by(4).unwrap());
         assert_eq!(
             f.to_string(),
-            "function %foo() fast {\n    ss0 = explicit_slot 4\n\nebb0(v0: i8, v1: f32x4):\n}\n"
+            "function %foo() fast {\n    ss0 = explicit_slot 4\n\nblock0(v0: i8, v1: f32x4):\n}\n"
         );
 
         {
             let mut cursor = FuncCursor::new(&mut f);
-            cursor.set_position(CursorPosition::After(ebb));
+            cursor.set_position(CursorPosition::After(block));
             cursor.ins().return_(&[])
         };
         assert_eq!(
             f.to_string(),
-            "function %foo() fast {\n    ss0 = explicit_slot 4\n\nebb0(v0: i8, v1: f32x4):\n    return\n}\n"
+            "function %foo() fast {\n    ss0 = explicit_slot 4\n\nblock0(v0: i8, v1: f32x4):\n    return\n}\n"
         );
     }
 
     #[test]
     fn aliases() {
-        use ir::InstBuilder;
+        use crate::ir::InstBuilder;
 
         let mut func = Function::new();
         {
-            let ebb0 = func.dfg.make_ebb();
+            let block0 = func.dfg.make_block();
             let mut pos = FuncCursor::new(&mut func);
-            pos.insert_ebb(ebb0);
+            pos.insert_block(block0);
 
             // make some detached values for change_to_alias
-            let v0 = pos.func.dfg.append_ebb_param(ebb0, types::I32);
-            let v1 = pos.func.dfg.append_ebb_param(ebb0, types::I32);
-            let v2 = pos.func.dfg.append_ebb_param(ebb0, types::I32);
-            pos.func.dfg.detach_ebb_params(ebb0);
+            let v0 = pos.func.dfg.append_block_param(block0, types::I32);
+            let v1 = pos.func.dfg.append_block_param(block0, types::I32);
+            let v2 = pos.func.dfg.append_block_param(block0, types::I32);
+            pos.func.dfg.detach_block_params(block0);
 
-            // alias to a param--will be printed at beginning of ebb defining param
-            let v3 = pos.func.dfg.append_ebb_param(ebb0, types::I32);
+            // alias to a param--will be printed at beginning of block defining param
+            let v3 = pos.func.dfg.append_block_param(block0, types::I32);
             pos.func.dfg.change_to_alias(v0, v3);
 
             // alias to an alias--should print attached to alias, not ultimate target
@@ -723,7 +848,7 @@ mod tests {
         }
         assert_eq!(
             func.to_string(),
-            "function u0:0() fast {\nebb0(v3: i32):\n    v0 -> v3\n    v2 -> v0\n    v4 = iconst.i32 42\n    v5 = iadd v0, v0\n    v1 -> v5\n    v6 = iconst.i32 23\n    v7 = iadd v1, v1\n}\n"
+            "function u0:0() fast {\nblock0(v3: i32):\n    v0 -> v3\n    v2 -> v0\n    v4 = iconst.i32 42\n    v5 = iadd v0, v0\n    v1 -> v5\n    v6 = iconst.i32 23\n    v7 = iadd v1, v1\n}\n"
         );
     }
 }

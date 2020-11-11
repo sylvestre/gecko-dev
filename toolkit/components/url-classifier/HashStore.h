@@ -11,7 +11,6 @@
 #include "nsString.h"
 #include "nsTArray.h"
 #include "nsIFile.h"
-#include "nsIFileStreams.h"
 #include "nsISupports.h"
 #include "nsCOMPtr.h"
 #include "nsClassHashtable.h"
@@ -46,7 +45,7 @@ class TableUpdate {
   }
 
  protected:
-  virtual ~TableUpdate() {}
+  virtual ~TableUpdate() = default;
 
  private:
   virtual int Tag() const = 0;
@@ -74,27 +73,28 @@ class TableUpdateV2 : public TableUpdate {
 
   // Throughout, uint32_t aChunk refers only to the chunk number. Chunk data is
   // stored in the Prefix structures.
-  MOZ_MUST_USE nsresult NewAddChunk(uint32_t aChunk) {
+  [[nodiscard]] nsresult NewAddChunk(uint32_t aChunk) {
     return mAddChunks.Set(aChunk);
   };
-  MOZ_MUST_USE nsresult NewSubChunk(uint32_t aChunk) {
+  [[nodiscard]] nsresult NewSubChunk(uint32_t aChunk) {
     return mSubChunks.Set(aChunk);
   };
-  MOZ_MUST_USE nsresult NewAddExpiration(uint32_t aChunk) {
+  [[nodiscard]] nsresult NewAddExpiration(uint32_t aChunk) {
     return mAddExpirations.Set(aChunk);
   };
-  MOZ_MUST_USE nsresult NewSubExpiration(uint32_t aChunk) {
+  [[nodiscard]] nsresult NewSubExpiration(uint32_t aChunk) {
     return mSubExpirations.Set(aChunk);
   };
-  MOZ_MUST_USE nsresult NewAddPrefix(uint32_t aAddChunk, const Prefix& aPrefix);
-  MOZ_MUST_USE nsresult NewSubPrefix(uint32_t aAddChunk, const Prefix& aPrefix,
-                                     uint32_t aSubChunk);
-  MOZ_MUST_USE nsresult NewAddComplete(uint32_t aChunk,
-                                       const Completion& aCompletion);
-  MOZ_MUST_USE nsresult NewSubComplete(uint32_t aAddChunk,
-                                       const Completion& aCompletion,
-                                       uint32_t aSubChunk);
-  MOZ_MUST_USE nsresult NewMissPrefix(const Prefix& aPrefix);
+  [[nodiscard]] nsresult NewAddPrefix(uint32_t aAddChunk,
+                                      const Prefix& aPrefix);
+  [[nodiscard]] nsresult NewSubPrefix(uint32_t aAddChunk, const Prefix& aPrefix,
+                                      uint32_t aSubChunk);
+  [[nodiscard]] nsresult NewAddComplete(uint32_t aChunk,
+                                        const Completion& aCompletion);
+  [[nodiscard]] nsresult NewSubComplete(uint32_t aAddChunk,
+                                        const Completion& aCompletion,
+                                        uint32_t aSubChunk);
+  [[nodiscard]] nsresult NewMissPrefix(const Prefix& aPrefix);
 
   const ChunkSet& AddChunks() const { return mAddChunks; }
   const ChunkSet& SubChunks() const { return mSubChunks; }
@@ -159,7 +159,7 @@ class TableUpdateV4 : public TableUpdate {
     return mRemovalIndiceArray;
   }
   const nsACString& ClientState() const { return mClientState; }
-  const nsACString& Checksum() const { return mChecksum; }
+  const nsACString& SHA256() const { return mSHA256; }
   const FullHashResponseMap& FullHashResponse() const {
     return mFullHashResponseMap;
   }
@@ -170,11 +170,14 @@ class TableUpdateV4 : public TableUpdate {
   void SetFullUpdate(bool aIsFullUpdate) { mFullUpdate = aIsFullUpdate; }
   void NewPrefixes(int32_t aSize, const nsACString& aPrefixes);
   void SetNewClientState(const nsACString& aState) { mClientState = aState; }
-  void NewChecksum(const std::string& aChecksum);
+  void SetSHA256(const std::string& aSHA256);
 
   nsresult NewRemovalIndices(const uint32_t* aIndices, size_t aNumOfIndices);
   nsresult NewFullHashResponse(const Prefix& aPrefix,
                                const CachedFullHashResponse& aResponse);
+
+  // Clear Prefixes & Removal indice.
+  void Clear();
 
  private:
   virtual int Tag() const override { return TAG; }
@@ -183,7 +186,7 @@ class TableUpdateV4 : public TableUpdate {
   PrefixStringMap mPrefixesMap;
   RemovalIndiceArray mRemovalIndiceArray;
   nsCString mClientState;
-  nsCString mChecksum;
+  nsCString mSHA256;
 
   // This is used to store response from fullHashes.find.
   FullHashResponseMap mFullHashResponseMap;
@@ -198,20 +201,26 @@ class HashStore {
 
   const nsCString& TableName() const { return mTableName; }
 
-  nsresult Open();
-  // Add Prefixes are stored partly in the PrefixSet (contains the
+  // Version is set to 0 by default, it is only used when we want to open
+  // a specific version of HashStore. Note that the intention of aVersion
+  // is only to pass SanityCheck, reading data from older version should
+  // be handled additionally.
+  nsresult Open(uint32_t aVersion = 0);
+
+  // Add Prefixes/Completes are stored partly in the PrefixSet (contains the
   // Prefix data organized for fast lookup/low RAM usage) and partly in the
   // HashStore (Add Chunk numbers - only used for updates, slow retrieval).
   // AugmentAdds function joins the separate datasets into one complete
   // prefixes+chunknumbers dataset.
-  nsresult AugmentAdds(const nsTArray<uint32_t>& aPrefixes);
+  nsresult AugmentAdds(const nsTArray<uint32_t>& aPrefixes,
+                       const nsTArray<nsCString>& aCompletes);
 
   ChunkSet& AddChunks();
   ChunkSet& SubChunks();
   AddPrefixArray& AddPrefixes() { return mAddPrefixes; }
   SubPrefixArray& SubPrefixes() { return mSubPrefixes; }
-  AddCompleteArray& AddCompletes();
-  SubCompleteArray& SubCompletes();
+  AddCompleteArray& AddCompletes() { return mAddCompletes; }
+  SubCompleteArray& SubCompletes() { return mSubCompletes; }
 
   // =======
   // Updates
@@ -233,14 +242,13 @@ class HashStore {
   // have a mess on your hands.
   nsresult WriteFile();
 
-  // Wipe out all Completes.
-  void ClearCompletes();
+  nsresult ReadCompletionsLegacyV3(AddCompleteArray& aCompletes);
 
- private:
   nsresult Reset();
 
+ private:
   nsresult ReadHeader();
-  nsresult SanityCheck() const;
+  nsresult SanityCheck(uint32_t aVersion = 0) const;
   nsresult CalculateChecksum(nsAutoCString& aChecksum, uint32_t aFileSize,
                              bool aChecksumPresent);
   nsresult CheckChecksum(uint32_t aFileSize);
@@ -252,16 +260,15 @@ class HashStore {
 
   nsresult ReadAddPrefixes();
   nsresult ReadSubPrefixes();
+  nsresult ReadAddCompletes();
 
-  nsresult WriteAddPrefixes(nsIOutputStream* aOut);
+  nsresult WriteAddPrefixChunks(nsIOutputStream* aOut);
   nsresult WriteSubPrefixes(nsIOutputStream* aOut);
+  nsresult WriteAddCompleteChunks(nsIOutputStream* aOut);
 
   nsresult ProcessSubs();
 
   nsresult PrepareForUpdate();
-
-  bool AlreadyReadChunkNumbers() const;
-  bool AlreadyReadCompletions() const;
 
   // This is used for checking that the database is correct and for figuring out
   // the number of chunks, etc. to read from disk on restart.

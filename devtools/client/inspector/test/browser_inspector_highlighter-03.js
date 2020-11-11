@@ -1,30 +1,33 @@
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
    http://creativecommons.org/publicdomain/zero/1.0/ */
 "use strict";
 
 // Test that iframes are correctly highlighted.
 
-const IFRAME_SRC = "<style>" +
-    "body {" +
-      "margin:0;" +
-      "height:100%;" +
-      "background-color:red" +
-    "}" +
+const IFRAME_SRC =
+  "<style>" +
+  "body {" +
+  "margin:0;" +
+  "height:100%;" +
+  "background-color:red" +
+  "}" +
   "</style><body>hello from iframe</body>";
 
-const DOCUMENT_SRC = "<style>" +
-    "iframe {" +
-      "height:200px;" +
-      "border: 11px solid black;" +
-      "padding: 13px;" +
-    "}" +
-    "body,iframe {" +
-      "margin:0" +
-    "}" +
+const DOCUMENT_SRC =
+  "<style>" +
+  "iframe {" +
+  "height:200px;" +
+  "border: 11px solid black;" +
+  "padding: 13px;" +
+  "}" +
+  "body,iframe {" +
+  "margin:0" +
+  "}" +
   "</style>" +
   "<body>" +
-   "<iframe src='data:text/html;charset=utf-8," + IFRAME_SRC + "'></iframe>" +
+  "<iframe src='data:text/html;charset=utf-8," +
+  IFRAME_SRC +
+  "'></iframe>" +
   "</body>";
 
 const TEST_URI = "data:text/html;charset=utf-8," + DOCUMENT_SRC;
@@ -34,13 +37,16 @@ add_task(async function() {
 
   info("Waiting for box mode to show.");
   const body = await getNodeFront("body", inspector);
-  await inspector.highlighter.showBoxModel(body);
+  await inspector.highlighters.showHighlighterTypeForNode(
+    inspector.highlighters.TYPES.BOXMODEL,
+    body
+  );
 
   info("Waiting for element picker to become active.");
   await startPicker(toolbox);
 
   info("Moving mouse over iframe padding.");
-  await moveMouseOver("iframe", 1, 1);
+  await hoverElement(inspector, "iframe", 1, 1);
 
   info("Performing checks");
   await testActor.isNodeCorrectlyHighlighted("iframe", is);
@@ -53,18 +59,14 @@ add_task(async function() {
   const iframeBodySelector = ["iframe", "body"];
 
   info("Moving mouse over iframe body");
-  await moveMouseOver("iframe", 40, 40);
+  await hoverElement(inspector, "iframe", 40, 40);
 
-  ok((await testActor.assertHighlightedNode(iframeBodySelector)),
-     "highlighter shows the right node");
+  ok(
+    await testActor.assertHighlightedNode(iframeBodySelector),
+    "highlighter shows the right node"
+  );
   await testActor.isNodeCorrectlyHighlighted(iframeBodySelector, is);
 
   info("Waiting for the element picker to deactivate.");
-  await inspector.toolbox.highlighterUtils.stopPicker();
-
-  function moveMouseOver(selector, x, y) {
-    info("Waiting for element " + selector + " to be highlighted");
-    testActor.synthesizeMouse({selector, x, y, options: {type: "mousemove"}});
-    return inspector.toolbox.once("picker-node-hovered");
-  }
+  await toolbox.nodePicker.stop();
 });

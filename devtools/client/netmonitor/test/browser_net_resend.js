@@ -1,5 +1,5 @@
 /* Any copyright is dedicated to the Public Domain.
-*  http://creativecommons.org/publicdomain/zero/1.0/ */
+ *  http://creativecommons.org/publicdomain/zero/1.0/ */
 
 "use strict";
 
@@ -13,27 +13,32 @@ const ADD_UA_HEADER = "User-Agent: Custom-Agent";
 const ADD_POSTDATA = "&t3=t4";
 
 add_task(async function() {
-  const { tab, monitor } = await initNetMonitor(POST_DATA_URL);
+  const { tab, monitor } = await initNetMonitor(POST_DATA_URL, {
+    requestCount: 1,
+  });
   info("Starting test... ");
 
   const { document, store, windowRequire, connector } = monitor.panelWin;
   const Actions = windowRequire("devtools/client/netmonitor/src/actions/index");
-  const {
-    getSelectedRequest,
-    getSortedRequests,
-  } = windowRequire("devtools/client/netmonitor/src/selectors/index");
+  const { getSelectedRequest, getSortedRequests } = windowRequire(
+    "devtools/client/netmonitor/src/selectors/index"
+  );
 
   store.dispatch(Actions.batchEnable(false));
 
   // Execute requests.
   await performRequests(monitor, tab, 2);
 
-  const origItemId = getSortedRequests(store.getState()).get(0).id;
+  const origItemId = getSortedRequests(store.getState())[0].id;
 
   store.dispatch(Actions.selectRequest(origItemId));
-  await waitForRequestData(store, ["requestHeaders", "requestPostData"], origItemId);
+  await waitForRequestData(
+    store,
+    ["requestHeaders", "requestPostData"],
+    origItemId
+  );
 
-  let origItem = getSortedRequests(store.getState()).get(0);
+  let origItem = getSortedRequests(store.getState())[0];
 
   // add a new custom request cloned from selected request
 
@@ -51,7 +56,7 @@ add_task(async function() {
   testCustomItemChanged(customItem, origItem);
 
   // send the new request
-  wait = waitForNetworkEvents(monitor, 1);
+  const wait = waitForNetworkEvents(monitor, 1);
   store.dispatch(Actions.sendCustomRequest(connector));
   await wait;
 
@@ -60,29 +65,51 @@ add_task(async function() {
   // we must wait for both properties get updated before starting test.
   await waitUntil(() => {
     sentItem = getSelectedRequest(store.getState());
-    origItem = getSortedRequests(store.getState()).get(0);
-    return sentItem && sentItem.requestHeaders && sentItem.requestPostData &&
-      origItem && origItem.requestHeaders && origItem.requestPostData;
+    origItem = getSortedRequests(store.getState())[0];
+    return (
+      sentItem &&
+      sentItem.requestHeaders &&
+      sentItem.requestPostData &&
+      origItem &&
+      origItem.requestHeaders &&
+      origItem.requestPostData
+    );
   });
 
   await testSentRequest(sentItem, origItem);
 
   // Ensure the UI shows the new request, selected, and that the detail panel was closed.
-  is(getSortedRequests(store.getState()).length, 3, "There are 3 requests shown");
-  is(document.querySelector(".request-list-item.selected").getAttribute("data-id"),
-    sentItem.id, "The sent request is selected");
-  is(document.querySelector(".network-details-panel"), null,
-    "The detail panel is hidden");
+  is(
+    getSortedRequests(store.getState()).length,
+    3,
+    "There are 3 requests shown"
+  );
+  is(
+    document
+      .querySelector(".request-list-item.selected")
+      .getAttribute("data-id"),
+    sentItem.id,
+    "The sent request is selected"
+  );
+  is(
+    document.querySelector(".network-details-bar"),
+    null,
+    "The detail panel is hidden"
+  );
 
   return teardown(monitor);
 
   function testCustomItem(item, orig) {
-    is(item.method, orig.method, "item is showing the same method as original request");
+    is(
+      item.method,
+      orig.method,
+      "item is showing the same method as original request"
+    );
     is(item.url, orig.url, "item is showing the same URL as original request");
   }
 
   function testCustomItemChanged(item, orig) {
-    const url = item.url;
+    const { url } = item;
     const expectedUrl = orig.url + "&" + ADD_QUERY;
 
     is(url, expectedUrl, "menu item is updated to reflect url entered in form");
@@ -93,24 +120,41 @@ add_task(async function() {
    */
   async function testCustomForm(data) {
     await waitUntil(() => document.querySelector(".custom-request-panel"));
-    is(document.getElementById("custom-method-value").value, data.method,
-       "new request form showing correct method");
+    is(
+      document.getElementById("custom-method-value").value,
+      data.method,
+      "new request form showing correct method"
+    );
 
-    is(document.getElementById("custom-url-value").value, data.url,
-       "new request form showing correct url");
+    is(
+      document.getElementById("custom-url-value").value,
+      data.url,
+      "new request form showing correct url"
+    );
 
     const query = document.getElementById("custom-query-value");
-    is(query.value, "foo=bar\nbaz=42\ntype=urlencoded",
-       "new request form showing correct query string");
+    is(
+      query.value,
+      "foo=bar\nbaz=42\ntype=urlencoded",
+      "new request form showing correct query string"
+    );
 
-    const headers = document.getElementById("custom-headers-value").value.split("\n");
-    for (const {name, value} of data.requestHeaders.headers) {
-      ok(headers.includes(name + ": " + value), "form contains header from request");
+    const headers = document
+      .getElementById("custom-headers-value")
+      .value.split("\n");
+    for (const { name, value } of data.requestHeaders.headers) {
+      ok(
+        headers.includes(name + ": " + value),
+        "form contains header from request"
+      );
     }
 
     const postData = document.getElementById("custom-postdata-value");
-    is(postData.value, data.requestPostData.postData.text,
-       "new request form showing correct post data");
+    is(
+      postData.value,
+      data.requestPostData.postData.text,
+      "new request form showing correct post data"
+    );
   }
 
   /*
@@ -168,12 +212,16 @@ add_task(async function() {
     const hasHeader = headers.some(h => `${h.name}: ${h.value}` == ADD_HEADER);
     ok(hasHeader, "new header added to sent request");
 
-    const hasUAHeader = headers.some(h => `${h.name}: ${h.value}` == ADD_UA_HEADER);
+    const hasUAHeader = headers.some(
+      h => `${h.name}: ${h.value}` == ADD_UA_HEADER
+    );
     ok(hasUAHeader, "User-Agent header added to sent request");
 
-    is(data.requestPostData.postData.text,
+    is(
+      data.requestPostData.postData.text,
       origData.requestPostData.postData.text + ADD_POSTDATA,
-      "post data added to sent request");
+      "post data added to sent request"
+    );
   }
 
   function type(string) {

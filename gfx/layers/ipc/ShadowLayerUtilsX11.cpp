@@ -22,6 +22,7 @@
 #include "mozilla/layers/CompositorTypes.h"    // for OpenMode
 #include "mozilla/layers/ISurfaceAllocator.h"  // for ISurfaceAllocator, etc
 #include "mozilla/layers/LayerManagerComposite.h"
+#include "mozilla/layers/LayersMessageUtils.h"
 #include "mozilla/layers/LayersSurfaces.h"  // for SurfaceDescriptor, etc
 #include "mozilla/layers/ShadowLayers.h"    // for ShadowLayerForwarder, etc
 #include "mozilla/mozalloc.h"               // for operator new
@@ -102,7 +103,8 @@ already_AddRefed<gfxXlibSurface> SurfaceDescriptorX11::OpenForeign() const {
   return surf->CairoStatus() ? nullptr : surf.forget();
 }
 
-/*static*/ void ShadowLayerForwarder::PlatformSyncBeforeUpdate() {
+/*static*/
+void ShadowLayerForwarder::PlatformSyncBeforeUpdate() {
   if (UsingXCompositing()) {
     // If we're using X surfaces, then we need to finish all pending
     // operations on the back buffers before handing them to the
@@ -112,7 +114,8 @@ already_AddRefed<gfxXlibSurface> SurfaceDescriptorX11::OpenForeign() const {
   }
 }
 
-/*static*/ void LayerManagerComposite::PlatformSyncBeforeReplyUpdate() {
+/*static*/
+void LayerManagerComposite::PlatformSyncBeforeReplyUpdate() {
   if (UsingXCompositing()) {
     // If we're using X surfaces, we need to finish all pending
     // operations on the *front buffers* before handing them back to
@@ -123,9 +126,28 @@ already_AddRefed<gfxXlibSurface> SurfaceDescriptorX11::OpenForeign() const {
   }
 }
 
-/*static*/ bool LayerManagerComposite::SupportsDirectTexturing() {
-  return false;
-}
+/*static*/
+bool LayerManagerComposite::SupportsDirectTexturing() { return false; }
 
 }  // namespace layers
 }  // namespace mozilla
+
+namespace IPC {
+
+void ParamTraits<mozilla::layers::SurfaceDescriptorX11>::Write(
+    Message* aMsg, const paramType& aParam) {
+  WriteParam(aMsg, aParam.mId);
+  WriteParam(aMsg, aParam.mSize);
+  WriteParam(aMsg, aParam.mFormat);
+  WriteParam(aMsg, aParam.mGLXPixmap);
+}
+
+bool ParamTraits<mozilla::layers::SurfaceDescriptorX11>::Read(
+    const Message* aMsg, PickleIterator* aIter, paramType* aResult) {
+  return (ReadParam(aMsg, aIter, &aResult->mId) &&
+          ReadParam(aMsg, aIter, &aResult->mSize) &&
+          ReadParam(aMsg, aIter, &aResult->mFormat) &&
+          ReadParam(aMsg, aIter, &aResult->mGLXPixmap));
+}
+
+}  // namespace IPC

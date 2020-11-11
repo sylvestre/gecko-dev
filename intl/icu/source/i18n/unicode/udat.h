@@ -482,6 +482,27 @@ typedef enum UDateFormatStyle {
 #define UDAT_HOUR_TZ                    "jz"
 #endif  /* U_HIDE_DEPRECATED_API */
 
+#ifndef U_HIDE_INTERNAL_API
+/**
+ * Constant for Unicode string name of new (in 2019) Japanese calendar era,
+ * root/English abbreviated version (ASCII-range characters).
+ * @internal
+ */
+#define JP_ERA_2019_ROOT                "Reiwa"
+/**
+ * Constant for Unicode string name of new (in 2019) Japanese calendar era,
+ * Japanese abbreviated version (Han, or fullwidth Latin for testing).
+ * @internal
+ */
+#define JP_ERA_2019_JA                  "\\u4EE4\\u548C"
+/**
+ * Constant for Unicode string name of new (in 2019) Japanese calendar era,
+ * root and Japanese narrow version (ASCII-range characters).
+ * @internal
+ */
+#define JP_ERA_2019_NARROW              "R"
+#endif  // U_HIDE_INTERNAL_API
+
 /**
  * FieldPosition and UFieldPosition selectors for format fields
  * defined by DateFormat and UDateFormat.
@@ -902,11 +923,13 @@ typedef enum UDateFormatBooleanAttribute {
 
     /* Do not conditionalize the following with #ifndef U_HIDE_DEPRECATED_API,
      * it is needed for layout of DateFormat object. */
+#ifndef U_FORCE_HIDE_DEPRECATED_API
     /**
      * One more than the highest normal UDateFormatBooleanAttribute value.
      * @deprecated ICU 58 The numeric value may change over time, see ICU ticket #12420.
      */
     UDAT_BOOLEAN_ATTRIBUTE_COUNT = 4
+#endif  // U_FORCE_HIDE_DEPRECATED_API
 } UDateFormatBooleanAttribute;
 
 /**
@@ -935,7 +958,37 @@ udat_getBooleanAttribute(const UDateFormat* fmt, UDateFormatBooleanAttribute att
 U_CAPI void U_EXPORT2
 udat_setBooleanAttribute(UDateFormat *fmt, UDateFormatBooleanAttribute attr, UBool newValue, UErrorCode* status);
 
+#ifndef U_HIDE_DRAFT_API
+/**
+ * Hour Cycle.
+ * @draft ICU 67
+ */
+typedef enum UDateFormatHourCycle {
+    /**
+     * Hour in am/pm (0~11)
+     * @draft ICU 67
+     */
+    UDAT_HOUR_CYCLE_11,
 
+    /**
+     * Hour in am/pm (1~12)
+     * @draft ICU 67
+     */
+    UDAT_HOUR_CYCLE_12,
+
+    /**
+     * Hour in day (0~23)
+     * @draft ICU 67
+     */
+    UDAT_HOUR_CYCLE_23,
+
+    /**
+     * Hour in day (1~24)
+     * @draft ICU 67
+     */
+    UDAT_HOUR_CYCLE_24
+} UDateFormatHourCycle;
+#endif  /* U_HIDE_DRAFT_API */
 
 #if U_SHOW_CPLUSPLUS_API
 

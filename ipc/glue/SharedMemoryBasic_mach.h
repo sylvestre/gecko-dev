@@ -15,7 +15,7 @@
 #include "chrome/common/mach_ipc_mac.h"
 
 #ifdef FUZZING
-#include "SharedMemoryFuzzer.h"
+#  include "SharedMemoryFuzzer.h"
 #endif
 
 //
@@ -58,6 +58,7 @@ class SharedMemoryBasic final : public SharedMemoryCommon<mach_port_t> {
                               ReceivePort* send_port_ack, bool pidIsParent);
 
   static void CleanupForPid(pid_t pid);
+  static void CleanupForPidWithLock(pid_t pid);
 
   static void Shutdown();
 
@@ -70,7 +71,7 @@ class SharedMemoryBasic final : public SharedMemoryCommon<mach_port_t> {
 
   virtual bool Create(size_t aNbytes) override;
 
-  virtual bool Map(size_t nBytes) override;
+  virtual bool Map(size_t nBytes, void* fixed_address = nullptr) override;
 
   virtual void CloseHandle() override;
 
@@ -85,6 +86,8 @@ class SharedMemoryBasic final : public SharedMemoryCommon<mach_port_t> {
   virtual SharedMemoryType Type() const override { return TYPE_BASIC; }
 
   static Handle NULLHandle() { return Handle(); }
+
+  static void* FindFreeAddressSpace(size_t aSize);
 
   virtual bool IsHandleValid(const Handle& aHandle) const override;
 

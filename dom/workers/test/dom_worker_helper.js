@@ -3,12 +3,9 @@
  * http://creativecommons.org/publicdomain/zero/1.0/
  */
 
-ChromeUtils.import("resource://gre/modules/AddonManager.jsm");
-ChromeUtils.import("resource://gre/modules/Services.jsm");
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
-
-const wdm = Cc["@mozilla.org/dom/workers/workerdebuggermanager;1"].
-            getService(Ci.nsIWorkerDebuggerManager);
+const wdm = Cc["@mozilla.org/dom/workers/workerdebuggermanager;1"].getService(
+  Ci.nsIWorkerDebuggerManager
+);
 
 const BASE_URL = "chrome://mochitests/content/chrome/dom/workers/test/";
 
@@ -52,10 +49,9 @@ function findDebugger(url) {
 }
 
 function waitForRegister(url, dbgUrl) {
-  return new Promise(function (resolve) {
+  return new Promise(function(resolve) {
     wdm.addListener({
-      onRegister: function (dbg) {
-        dump("FAK " + dbg.url + "\n");
+      onRegister(dbg) {
         if (dbg.url !== url) {
           return;
         }
@@ -66,67 +62,67 @@ function waitForRegister(url, dbgUrl) {
           dbg.initialize(dbgUrl);
         }
         resolve(dbg);
-      }
+      },
     });
   });
 }
 
 function waitForUnregister(url) {
-  return new Promise(function (resolve) {
+  return new Promise(function(resolve) {
     wdm.addListener({
-      onUnregister: function (dbg) {
+      onUnregister(dbg) {
         if (dbg.url !== url) {
           return;
         }
         ok(true, "Debugger with url " + url + " should be unregistered.");
         wdm.removeListener(this);
         resolve();
-      }
+      },
     });
   });
 }
 
 function waitForDebuggerClose(dbg) {
-  return new Promise(function (resolve) {
+  return new Promise(function(resolve) {
     dbg.addListener({
-      onClose: function () {
+      onClose() {
         ok(true, "Debugger should be closed.");
         dbg.removeListener(this);
         resolve();
-      }
+      },
     });
   });
 }
 
 function waitForDebuggerError(dbg) {
-  return new Promise(function (resolve) {
+  return new Promise(function(resolve) {
     dbg.addListener({
-      onError: function (filename, lineno, message) {
+      onError(filename, lineno, message) {
         dbg.removeListener(this);
         resolve(new Error(message, filename, lineno));
-      }
+      },
     });
   });
 }
 
 function waitForDebuggerMessage(dbg, message) {
-  return new Promise(function (resolve) {
+  return new Promise(function(resolve) {
     dbg.addListener({
-      onMessage: function (message1) {
+      onMessage(message1) {
         if (message !== message1) {
           return;
         }
         ok(true, "Should receive " + message + " message from debugger.");
         dbg.removeListener(this);
         resolve();
-      }
+      },
     });
   });
 }
 
 function waitForWindowMessage(window, message) {
-  return new Promise(function (resolve) {
-    let onmessage = function (event) {
+  return new Promise(function(resolve) {
+    let onmessage = function(event) {
       if (event.data !== event.data) {
         return;
       }
@@ -138,7 +134,7 @@ function waitForWindowMessage(window, message) {
 }
 
 function waitForWorkerMessage(worker, message) {
-  return new Promise(function (resolve) {
+  return new Promise(function(resolve) {
     worker.addEventListener("message", function onmessage(event) {
       if (event.data !== message) {
         return;
@@ -151,14 +147,20 @@ function waitForWorkerMessage(worker, message) {
 }
 
 function waitForMultiple(promises) {
-  return new Promise(function (resolve) {
+  return new Promise(function(resolve) {
     let values = [];
     for (let i = 0; i < promises.length; ++i) {
       let index = i;
-      promises[i].then(function (value) {
-        is(index + 1, values.length + 1,
-           "Promise " + (values.length + 1) + " out of " + promises.length +
-           " should be resolved.");
+      promises[i].then(function(value) {
+        is(
+          index + 1,
+          values.length + 1,
+          "Promise " +
+            (values.length + 1) +
+            " out of " +
+            promises.length +
+            " should be resolved."
+        );
         values.push(value);
         if (values.length === promises.length) {
           resolve(values);
@@ -166,4 +168,4 @@ function waitForMultiple(promises) {
       });
     }
   });
-};
+}

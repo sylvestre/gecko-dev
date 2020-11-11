@@ -7,7 +7,6 @@
 #ifndef mozilla_storage_Connection_h
 #define mozilla_storage_Connection_h
 
-#include "nsAutoPtr.h"
 #include "nsCOMPtr.h"
 #include "mozilla/Atomics.h"
 #include "mozilla/Mutex.h"
@@ -23,7 +22,6 @@
 #include "mozIStorageAsyncConnection.h"
 #include "mozIStorageCompletionCallback.h"
 
-#include "nsIMutableArray.h"
 #include "mozilla/Attributes.h"
 
 #include "sqlite3.h"
@@ -45,13 +43,19 @@ class Connection final : public mozIStorageConnection,
   NS_DECL_NSIINTERFACEREQUESTOR
 
   /**
+   * Indicates if a database operation is synchronous or asynchronous.
+   *
+   * - Async operations may be called from any thread for all connections.
+   * - Sync operations may be called from any thread for sync connections, and
+   *   from background threads for async connections.
+   */
+  enum ConnectionOperation { ASYNCHRONOUS, SYNCHRONOUS };
+
+  /**
    * Structure used to describe user functions on the database connection.
    */
   struct FunctionInfo {
-    enum FunctionType { SIMPLE, AGGREGATE };
-
-    nsCOMPtr<nsISupports> function;
-    FunctionType type;
+    nsCOMPtr<mozIStorageFunction> function;
     int32_t numArgs;
   };
 
@@ -61,11 +65,11 @@ class Connection final : public mozIStorageConnection,
    *        connection.
    * @param aFlags
    *        The flags to pass to sqlite3_open_v2.
-   * @param aAsyncOnly
-   *        If |true|, the Connection only implements asynchronous interface:
-   *        - |mozIStorageAsyncConnection|;
-   *        If |false|, the result also implements synchronous interface:
-   *        - |mozIStorageConnection|.
+   * @param aSupportedOperations
+   *        The operation types supported on this connection. All connections
+   *        implement both the async (`mozIStorageAsyncConnection`) and sync
+   *        (`mozIStorageConnection`) interfaces, but async connections may not
+   *        call sync operations from the main thread.
    * @param aIgnoreLockingMode
    *        If |true|, ignore locks in force on the file. Only usable with
    *        read-only connections. Defaults to false.
@@ -74,13 +78,14 @@ class Connection final : public mozIStorageConnection,
    *        corrupt) or produce wrong results without any indication that has
    *        happened.
    */
-  Connection(Service *aService, int aFlags, bool aAsyncOnly,
+  Connection(Service* aService, int aFlags,
+             ConnectionOperation aSupportedOperations,
              bool aIgnoreLockingMode = false);
 
   /**
    * Creates the connection to an in-memory database.
    */
-  nsresult initialize();
+  nsresult initialize(const nsACString& aStorageKey, const nsACString& aName);
 
   /**
    * Creates the connection to the database.
@@ -89,7 +94,7 @@ class Connection final : public mozIStorageConnection,
    *        The nsIFile of the location of the database to open, or create if it
    *        does not exist.
    */
-  nsresult initialize(nsIFile *aDatabaseFile);
+  nsresult initialize(nsIFile* aDatabaseFile);
 
   /**
    * Creates the connection to the database.
@@ -98,12 +103,13 @@ class Connection final : public mozIStorageConnection,
    *        The nsIFileURL of the location of the database to open, or create if
    * it does not exist.
    */
-  nsresult initialize(nsIFileURL *aFileURL);
+  nsresult initialize(nsIFileURL* aFileURL,
+                      const nsACString& aTelemetryFilename);
 
   /**
    * Same as initialize, but to be used on the async thread.
    */
-  nsresult initializeOnAsyncThread(nsIFile *aStorageFile);
+  nsresult initializeOnAsyncThread(nsIFile* aStorageFile);
 
   /**
    * Fetches runtime status information for this connection.
@@ -115,7 +121,7 @@ class Connection final : public mozIStorageConnection,
    * @return the current value for the specified option.
    */
   int32_t getSqliteRuntimeStatus(int32_t aStatusOption,
-                                 int32_t *aMaxValue = nullptr);
+                                 int32_t* aMaxValue = nullptr);
   /**
    * Registers/unregisters a commit hook callback.
    *
@@ -124,7 +130,7 @@ class Connection final : public mozIStorageConnection,
    * @param [optional] aData if provided, will be passed to the callback.
    * @see http://sqlite.org/c3ref/commit_hook.html
    */
-  void setCommitHook(int (*aCallbackFn)(void *), void *aData = nullptr) {
+  void setCommitHook(int (*aCallbackFn)(void*), void* aData = nullptr) {
     MOZ_ASSERT(mDBConn, "A connection must exist at this point");
     ::sqlite3_commit_hook(mDBConn, aCallbackFn, aData);
   };
@@ -146,7 +152,7 @@ class Connection final : public mozIStorageConnection,
    * @return an event target suitable for asynchronous statement execution.
    * @note This method will return null once AsyncClose() has been called.
    */
-  nsIEventTarget *getAsyncExecutionTarget();
+  nsIEventTarget* getAsyncExecutionTarget();
 
   /**
    * Mutex used by asynchronous statements to protect state.  The mutex is
@@ -176,7 +182,7 @@ class Connection final : public mozIStorageConnection,
   /**
    * Closes the SQLite database, and warns about any non-finalized statements.
    */
-  nsresult internalClose(sqlite3 *aDBConn);
+  nsresult internalClose(sqlite3* aDBConn);
 
   /**
    * Shuts down the passed-in async thread.
@@ -199,8 +205,8 @@ class Connection final : public mozIStorageConnection,
    *        New sqlite3_stmt object.
    * @return the result from sqlite3_prepare_v2.
    */
-  int prepareStatement(sqlite3 *aNativeConnection, const nsCString &aSQL,
-                       sqlite3_stmt **_stmt);
+  int prepareStatement(sqlite3* aNativeConnection, const nsCString& aSQL,
+                       sqlite3_stmt** _stmt);
 
   /**
    * Performs a sqlite3_step on aStatement, while properly handling
@@ -212,7 +218,7 @@ class Connection final : public mozIStorageConnection,
    *        A pointer to a sqlite3_stmt object.
    * @return the result from sqlite3_step.
    */
-  int stepStatement(sqlite3 *aNativeConnection, sqlite3_stmt *aStatement);
+  int stepStatement(sqlite3* aNativeConnection, sqlite3_stmt* aStatement);
 
   /**
    * Raw connection transaction management.
@@ -220,12 +226,39 @@ class Connection final : public mozIStorageConnection,
    * @see BeginTransactionAs, CommitTransaction, RollbackTransaction.
    */
   nsresult beginTransactionInternal(
-      sqlite3 *aNativeConnection,
+      const SQLiteMutexAutoLock& aProofOfLock, sqlite3* aNativeConnection,
       int32_t aTransactionType = TRANSACTION_DEFERRED);
-  nsresult commitTransactionInternal(sqlite3 *aNativeConnection);
-  nsresult rollbackTransactionInternal(sqlite3 *aNativeConnection);
+  nsresult commitTransactionInternal(const SQLiteMutexAutoLock& aProofOfLock,
+                                     sqlite3* aNativeConnection);
+  nsresult rollbackTransactionInternal(const SQLiteMutexAutoLock& aProofOfLock,
+                                       sqlite3* aNativeConnection);
 
-  bool connectionReady();
+  /**
+   * Indicates if this database connection is open.
+   */
+  inline bool connectionReady() { return mDBConn != nullptr; }
+
+  /**
+   * Indicates if this database connection has an open transaction. Because
+   * multiple threads can execute statements on the same connection, this method
+   * requires proof that the caller is holding `sharedDBMutex`.
+   *
+   * Per the SQLite docs, `sqlite3_get_autocommit` returns 0 if autocommit mode
+   * is disabled. `BEGIN` disables autocommit mode, and `COMMIT`, `ROLLBACK`, or
+   * an automatic rollback re-enables it.
+   */
+  inline bool transactionInProgress(const SQLiteMutexAutoLock& aProofOfLock) {
+    return !getAutocommit();
+  }
+
+  /**
+   * Indicates if this database connection supports the given operation.
+   *
+   * @param  aOperationType
+   *         The operation type, sync or async.
+   * @return `true` if the operation is supported, `false` otherwise.
+   */
+  bool operationSupported(ConnectionOperation aOperationType);
 
   /**
    * Thread-aware version of connectionReady, results per caller's thread are:
@@ -261,7 +294,7 @@ class Connection final : public mozIStorageConnection,
    * Same as isClosed(), but takes a proof-of-lock instead of locking
    * internally.
    */
-  bool isClosed(MutexAutoLock &lock);
+  bool isClosed(MutexAutoLock& lock);
 
   /**
    * True if the async execution thread is alive and able to be used (i.e., it
@@ -271,12 +304,26 @@ class Connection final : public mozIStorageConnection,
    */
   bool isAsyncExecutionThreadAvailable();
 
-  nsresult initializeClone(Connection *aClone, bool aReadOnly);
+  nsresult initializeClone(Connection* aClone, bool aReadOnly);
+
+  /**
+   * Records a status from a sqlite statement.
+   *
+   * @param srv The sqlite result for the failure or SQLITE_OK.
+   */
+  void RecordQueryStatus(int srv);
 
  private:
   ~Connection();
   nsresult initializeInternal();
   void initializeFailed();
+
+  /**
+   * Records the status of an attempt to load a sqlite database to telemetry.
+   *
+   * @param rv The state of the load, success or failure.
+   */
+  void RecordOpenStatus(nsresult rv);
 
   /**
    * Sets the database into a closed state so no further actions can be
@@ -295,7 +342,7 @@ class Connection final : public mozIStorageConnection,
    *        SQL string to execute
    * @return the result from sqlite3_exec.
    */
-  int executeSql(sqlite3 *aNativeConnection, const char *aSqlString);
+  int executeSql(sqlite3* aNativeConnection, const char* aSqlString);
 
   /**
    * Describes a certain primitive type in the database.
@@ -316,17 +363,25 @@ class Connection final : public mozIStorageConnection,
    * @returns true if element exists, false otherwise
    */
   nsresult databaseElementExists(enum DatabaseElementType aElementType,
-                                 const nsACString &aElementName, bool *_exists);
+                                 const nsACString& aElementName, bool* _exists);
 
-  bool findFunctionByInstance(nsISupports *aInstance);
+  bool findFunctionByInstance(mozIStorageFunction* aInstance);
 
-  static int sProgressHelper(void *aArg);
+  static int sProgressHelper(void* aArg);
   // Generic progress handler
   // Dispatch call to registered progress handler,
   // if there is one. Do nothing in other cases.
   int progressHandler();
 
-  sqlite3 *mDBConn;
+  /**
+   * Like `operationSupported`, but throws (and, in a debug build, asserts) if
+   * the operation is unsupported.
+   */
+  nsresult ensureOperationSupported(ConnectionOperation aOperationType);
+
+  sqlite3* mDBConn;
+  nsCString mStorageKey;
+  nsCString mName;
   nsCOMPtr<nsIFileURL> mFileURL;
   nsCOMPtr<nsIFile> mDatabaseFile;
 
@@ -375,12 +430,6 @@ class Connection final : public mozIStorageConnection,
   mozilla::Atomic<int32_t> mDefaultTransactionType;
 
   /**
-   * Tracks if we have a transaction in progress or not.  Access protected by
-   * sharedDBMutex.
-   */
-  bool mTransactionInProgress;
-
-  /**
    * Used to trigger cleanup logic only the first time our refcount hits 1.  We
    * may trigger a failsafe Close() that invokes SpinningSynchronousClose()
    * which invokes AsyncClose() which may bump our refcount back up to 2 (and
@@ -418,10 +467,11 @@ class Connection final : public mozIStorageConnection,
   RefPtr<Service> mStorageService;
 
   /**
-   * If |false|, this instance supports synchronous operations
-   * and it can be cast to |mozIStorageConnection|.
+   * Indicates which operations are supported on this connection.
    */
-  const bool mAsyncOnly;
+  const ConnectionOperation mSupportedOperations;
+
+  nsresult synchronousClose();
 };
 
 /**
@@ -436,7 +486,7 @@ class CallbackComplete final : public Runnable {
    * @param aCallback The callback. It must already be owned by the
    *                  main thread.
    */
-  CallbackComplete(nsresult aStatus, nsISupports *aValue,
+  CallbackComplete(nsresult aStatus, nsISupports* aValue,
                    already_AddRefed<mozIStorageCompletionCallback> aCallback)
       : Runnable("storage::CallbackComplete"),
         mStatus(aStatus),
@@ -469,8 +519,8 @@ class CallbackComplete final : public Runnable {
  * Casting Connection to nsISupports is ambiguous.
  * This method handles that.
  */
-inline nsISupports *ToSupports(mozilla::storage::Connection *p) {
-  return NS_ISUPPORTS_CAST(mozIStorageAsyncConnection *, p);
+inline nsISupports* ToSupports(mozilla::storage::Connection* p) {
+  return NS_ISUPPORTS_CAST(mozIStorageAsyncConnection*, p);
 }
 
 #endif  // mozilla_storage_Connection_h

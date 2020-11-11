@@ -6,6 +6,7 @@
 #ifndef GMPMessageUtils_h_
 #define GMPMessageUtils_h_
 
+#include "gmp-sanitized-cdm-exports.h"
 #include "gmp-video-codec.h"
 #include "gmp-video-frame-encoded.h"
 #include "IPCMessageUtils.h"
@@ -48,10 +49,16 @@ struct ParamTraits<GMPBufferType>
                                       GMP_BufferInvalid> {};
 
 template <>
-struct ParamTraits<GMPEncryptionScheme>
-    : public ContiguousEnumSerializer<
-          GMPEncryptionScheme, GMPEncryptionScheme::kGMPEncryptionNone,
-          GMPEncryptionScheme::kGMPEncryptionInvalid> {};
+struct ParamTraits<cdm::EncryptionScheme>
+    : public ContiguousEnumSerializerInclusive<
+          cdm::EncryptionScheme, cdm::EncryptionScheme::kUnencrypted,
+          cdm::EncryptionScheme::kCbcs> {};
+
+template <>
+struct ParamTraits<cdm::HdcpVersion>
+    : public ContiguousEnumSerializerInclusive<
+          cdm::HdcpVersion, cdm::HdcpVersion::kHdcpVersionNone,
+          cdm::HdcpVersion::kHdcpVersion2_2> {};
 
 template <>
 struct ParamTraits<GMPSimulcastStream> {

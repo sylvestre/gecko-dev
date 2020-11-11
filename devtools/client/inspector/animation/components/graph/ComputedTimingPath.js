@@ -10,8 +10,8 @@ const dom = require("devtools/client/shared/vendor/react-dom-factories");
 const {
   createSummaryGraphPathStringFunction,
   SummaryGraphHelper,
-} = require("../../utils/graph-helper");
-const TimingPath = require("./TimingPath");
+} = require("devtools/client/inspector/animation/utils/graph-helper");
+const TimingPath = require("devtools/client/inspector/animation/components/graph/TimingPath");
 
 class ComputedTimingPath extends TimingPath {
   static get propTypes() {
@@ -77,17 +77,24 @@ class ComputedTimingPath extends TimingPath {
       return win.getComputedStyle(simulatedElement).opacity;
     };
 
-    const toPathStringFunc =
-      createSummaryGraphPathStringFunction(endTime, state.playbackRate);
-    const helper = new SummaryGraphHelper(state, keyframes,
-                                          totalDuration, durationPerPixel,
-                                          getValueFunc, toPathStringFunc);
+    const toPathStringFunc = createSummaryGraphPathStringFunction(
+      endTime,
+      state.playbackRate
+    );
+    const helper = new SummaryGraphHelper(
+      state,
+      keyframes,
+      totalDuration,
+      durationPerPixel,
+      getValueFunc,
+      toPathStringFunc
+    );
 
     return dom.g(
       {
         className: "animation-computed-timing-path",
         style: { opacity },
-        transform: `translate(${ offset })`,
+        transform: `translate(${offset})`,
       },
       super.renderGraph(state, helper)
     );

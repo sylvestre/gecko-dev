@@ -11,10 +11,12 @@
 #include "mozilla/ArenaObjectID.h"
 #include "mozilla/Assertions.h"
 #include "mozilla/Likely.h"
+#include "mozilla/PresShell.h"
 #include "mozilla/Sprintf.h"
 #include "mozilla/WritingModes.h"
+#include "mozilla/ToString.h"
 #include "nsBidiPresUtils.h"
-#include "nsFrame.h"
+#include "nsIFrame.h"
 #include "nsIFrameInlines.h"
 #include "nsPresArena.h"
 #include "nsPrintfCString.h"
@@ -75,12 +77,12 @@ nsLineBox::~nsLineBox() {
   Cleanup();
 }
 
-nsLineBox* NS_NewLineBox(nsIPresShell* aPresShell, nsIFrame* aFrame,
+nsLineBox* NS_NewLineBox(PresShell* aPresShell, nsIFrame* aFrame,
                          bool aIsBlock) {
   return new (aPresShell) nsLineBox(aFrame, 1, aIsBlock);
 }
 
-nsLineBox* NS_NewLineBox(nsIPresShell* aPresShell, nsLineBox* aFromLine,
+nsLineBox* NS_NewLineBox(PresShell* aPresShell, nsLineBox* aFromLine,
                          nsIFrame* aFrame, int32_t aCount) {
   nsLineBox* newLine = new (aPresShell) nsLineBox(aFrame, aCount, false);
   newLine->NoteFramesMovedFrom(aFromLine);
@@ -153,11 +155,11 @@ void nsLineBox::NoteFramesMovedFrom(nsLineBox* aFromLine) {
   }
 }
 
-void* nsLineBox::operator new(size_t sz, nsIPresShell* aPresShell) {
+void* nsLineBox::operator new(size_t sz, PresShell* aPresShell) {
   return aPresShell->AllocateByObjectID(eArenaObjectID_nsLineBox, sz);
 }
 
-void nsLineBox::Destroy(nsIPresShell* aPresShell) {
+void nsLineBox::Destroy(PresShell* aPresShell) {
   this->nsLineBox::~nsLineBox();
   aPresShell->FreeByObjectID(eArenaObjectID_nsLineBox, this);
 }
@@ -215,14 +217,15 @@ char* nsLineBox::StateToString(char* aBuf, int32_t aBufSize) const {
   snprintf(aBuf, aBufSize, "%s,%s,%s,%s,%s,before:%s,after:%s[0x%x]",
            IsBlock() ? "block" : "inline", IsDirty() ? "dirty" : "clean",
            IsPreviousMarginDirty() ? "prevmargindirty" : "prevmarginclean",
-           IsImpactedByFloat() ? "impacted" : "not impacted",
-           IsLineWrapped() ? "wrapped" : "not wrapped",
+           IsImpactedByFloat() ? "impacted" : "not-impacted",
+           IsLineWrapped() ? "wrapped" : "not-wrapped",
            BreakTypeToString(GetBreakTypeBefore()),
            BreakTypeToString(GetBreakTypeAfter()), mAllFlags);
   return aBuf;
 }
 
-void nsLineBox::List(FILE* out, int32_t aIndent, uint32_t aFlags) const {
+void nsLineBox::List(FILE* out, int32_t aIndent,
+                     nsIFrame::ListFlags aFlags) const {
   nsCString str;
   while (aIndent-- > 0) {
     str += "  ";
@@ -230,36 +233,35 @@ void nsLineBox::List(FILE* out, int32_t aIndent, uint32_t aFlags) const {
   List(out, str.get(), aFlags);
 }
 
-void nsLineBox::List(FILE* out, const char* aPrefix, uint32_t aFlags) const {
+void nsLineBox::List(FILE* out, const char* aPrefix,
+                     nsIFrame::ListFlags aFlags) const {
   nsCString str(aPrefix);
   char cbuf[100];
-  str += nsPrintfCString("line %p: count=%d state=%s ",
+  str += nsPrintfCString("line@%p count=%d state=%s ",
                          static_cast<const void*>(this), GetChildCount(),
                          StateToString(cbuf, sizeof(cbuf)));
   if (IsBlock() && !GetCarriedOutBEndMargin().IsZero()) {
-    str += nsPrintfCString("bm=%d ", GetCarriedOutBEndMargin().get());
+    const nscoord bm = GetCarriedOutBEndMargin().get();
+    str += nsPrintfCString("bm=%s ",
+                           nsIFrame::ConvertToString(bm, aFlags).c_str());
   }
   nsRect bounds = GetPhysicalBounds();
-  str += nsPrintfCString("{%d,%d,%d,%d} ", bounds.x, bounds.y, bounds.width,
-                         bounds.height);
-  if (mWritingMode.IsVertical() || !mWritingMode.IsBidiLTR()) {
-    str +=
-        nsPrintfCString("{%s: %d,%d,%d,%d; cs=%d,%d} ",
-                        mWritingMode.DebugString(), IStart(), BStart(), ISize(),
-                        BSize(), mContainerSize.width, mContainerSize.height);
+  str +=
+      nsPrintfCString("%s ", nsIFrame::ConvertToString(bounds, aFlags).c_str());
+  if (mWritingMode.IsVertical() || mWritingMode.IsBidiRTL()) {
+    str += nsPrintfCString(
+        "wm=%s cs=(%s) logical-rect=%s ", ToString(mWritingMode).c_str(),
+        nsIFrame::ConvertToString(mContainerSize, aFlags).c_str(),
+        nsIFrame::ConvertToString(mBounds, mWritingMode, aFlags).c_str());
   }
-  if (mData &&
-      (!mData->mOverflowAreas.VisualOverflow().IsEqualEdges(bounds) ||
-       !mData->mOverflowAreas.ScrollableOverflow().IsEqualEdges(bounds))) {
-    str += nsPrintfCString("vis-overflow=%d,%d,%d,%d scr-overflow=%d,%d,%d,%d ",
-                           mData->mOverflowAreas.VisualOverflow().x,
-                           mData->mOverflowAreas.VisualOverflow().y,
-                           mData->mOverflowAreas.VisualOverflow().width,
-                           mData->mOverflowAreas.VisualOverflow().height,
-                           mData->mOverflowAreas.ScrollableOverflow().x,
-                           mData->mOverflowAreas.ScrollableOverflow().y,
-                           mData->mOverflowAreas.ScrollableOverflow().width,
-                           mData->mOverflowAreas.ScrollableOverflow().height);
+  if (mData) {
+    const nsRect vo = mData->mOverflowAreas.InkOverflow();
+    const nsRect so = mData->mOverflowAreas.ScrollableOverflow();
+    if (!vo.IsEqualEdges(bounds) || !so.IsEqualEdges(bounds)) {
+      str += nsPrintfCString("ink-overflow=%s scr-overflow=%s ",
+                             nsIFrame::ConvertToString(vo, aFlags).c_str(),
+                             nsIFrame::ConvertToString(so, aFlags).c_str());
+    }
   }
   fprintf_stderr(out, "%s<\n", str.get());
 
@@ -301,6 +303,20 @@ int32_t nsLineBox::IndexOf(nsIFrame* aFrame) const {
   return -1;
 }
 
+int32_t nsLineBox::RIndexOf(nsIFrame* aFrame,
+                            nsIFrame* aLastFrameInLine) const {
+  nsIFrame* frame = aLastFrameInLine;
+  for (int32_t i = GetChildCount() - 1; i >= 0; --i) {
+    MOZ_ASSERT(i != 0 || frame == mFirstChild,
+               "caller provided incorrect last frame");
+    if (frame == aFrame) {
+      return i;
+    }
+    frame = frame->GetPrevSibling();
+  }
+  return -1;
+}
+
 bool nsLineBox::IsEmpty() const {
   if (IsBlock()) return mFirstChild->IsEmpty();
 
@@ -310,7 +326,7 @@ bool nsLineBox::IsEmpty() const {
        --n, kid = kid->GetNextSibling()) {
     if (!kid->IsEmpty()) return false;
   }
-  if (HasBullet()) {
+  if (HasMarker()) {
     return false;
   }
   return true;
@@ -339,7 +355,7 @@ bool nsLineBox::CachedIsEmpty() {
         break;
       }
     }
-    if (HasBullet()) {
+    if (HasMarker()) {
       result = false;
     }
   }
@@ -352,7 +368,7 @@ bool nsLineBox::CachedIsEmpty() {
 void nsLineBox::DeleteLineList(nsPresContext* aPresContext, nsLineList& aLines,
                                nsIFrame* aDestructRoot, nsFrameList* aFrames,
                                PostDestroyData& aPostDestroyData) {
-  nsIPresShell* shell = aPresContext->PresShell();
+  PresShell* presShell = aPresContext->PresShell();
 
   // Keep our line list and frame list up to date as we
   // remove frames, in case something wants to traverse the
@@ -373,7 +389,7 @@ void nsLineBox::DeleteLineList(nsPresContext* aPresContext, nsLineList& aLines,
     MOZ_DIAGNOSTIC_ASSERT(line == aLines.front(),
                           "destroying child frames messed up our lines!");
     aLines.pop_front();
-    line->Destroy(shell);
+    line->Destroy(presShell);
   }
 }
 
@@ -520,7 +536,7 @@ void nsLineBox::SetOverflowAreas(const nsOverflowAreas& aOverflowAreas) {
                  "illegal height for combined area");
   }
   nsRect bounds = GetPhysicalBounds();
-  if (!aOverflowAreas.VisualOverflow().IsEqualInterior(bounds) ||
+  if (!aOverflowAreas.InkOverflow().IsEqualInterior(bounds) ||
       !aOverflowAreas.ScrollableOverflow().IsEqualEdges(bounds)) {
     if (!mData) {
       if (IsInline()) {
@@ -555,7 +571,8 @@ nsLineIterator::~nsLineIterator() {
   }
 }
 
-/* virtual */ void nsLineIterator::DisposeLineIterator() { delete this; }
+/* virtual */
+void nsLineIterator::DisposeLineIterator() { delete this; }
 
 nsresult nsLineIterator::Init(nsLineList& aLines, bool aRightToLeft) {
   mRightToLeft = aRightToLeft;
@@ -586,28 +603,22 @@ nsresult nsLineIterator::Init(nsLineList& aLines, bool aRightToLeft) {
   return NS_OK;
 }
 
-int32_t nsLineIterator::GetNumLines() { return mNumLines; }
+int32_t nsLineIterator::GetNumLines() const { return mNumLines; }
 
 bool nsLineIterator::GetDirection() { return mRightToLeft; }
 
-NS_IMETHODIMP
-nsLineIterator::GetLine(int32_t aLineNumber, nsIFrame** aFirstFrameOnLine,
-                        int32_t* aNumFramesOnLine, nsRect& aLineBounds) {
-  NS_ENSURE_ARG_POINTER(aFirstFrameOnLine);
-  NS_ENSURE_ARG_POINTER(aNumFramesOnLine);
-
+Result<nsILineIterator::LineInfo, nsresult> nsLineIterator::GetLine(
+    int32_t aLineNumber) const {
   if ((aLineNumber < 0) || (aLineNumber >= mNumLines)) {
-    *aFirstFrameOnLine = nullptr;
-    *aNumFramesOnLine = 0;
-    aLineBounds.SetRect(0, 0, 0, 0);
-    return NS_OK;
+    return Err(NS_ERROR_FAILURE);
   }
+  LineInfo structure;
   nsLineBox* line = mLines[aLineNumber];
-  *aFirstFrameOnLine = line->mFirstChild;
-  *aNumFramesOnLine = line->GetChildCount();
-  aLineBounds = line->GetPhysicalBounds();
-
-  return NS_OK;
+  structure.mFirstFrameOnLine = line->mFirstChild;
+  structure.mNumFramesOnLine = line->GetChildCount();
+  structure.mLineBounds = line->GetPhysicalBounds();
+  structure.mIsWrapped = line->IsLineWrapped();
+  return structure;
 }
 
 int32_t nsLineIterator::FindLineContaining(nsIFrame* aFrame,
@@ -655,7 +666,7 @@ NS_IMETHODIMP
 nsLineIterator::FindFrameAt(int32_t aLineNumber, nsPoint aPos,
                             nsIFrame** aFrameFound,
                             bool* aPosIsBeforeFirstFrame,
-                            bool* aPosIsAfterLastFrame) {
+                            bool* aPosIsAfterLastFrame) const {
   MOZ_ASSERT(aFrameFound && aPosIsBeforeFirstFrame && aPosIsAfterLastFrame,
              "null OUT ptr");
 
@@ -736,7 +747,8 @@ nsLineIterator::FindFrameAt(int32_t aLineNumber, nsPoint aPos,
 }
 
 NS_IMETHODIMP
-nsLineIterator::GetNextSiblingOnLine(nsIFrame*& aFrame, int32_t aLineNumber) {
+nsLineIterator::GetNextSiblingOnLine(nsIFrame*& aFrame,
+                                     int32_t aLineNumber) const {
   aFrame = aFrame->GetNextSibling();
   return NS_OK;
 }
@@ -858,7 +870,7 @@ void nsFloatCacheFreeList::DeleteAll() {
 }
 
 nsFloatCache* nsFloatCacheFreeList::Alloc(nsIFrame* aFloat) {
-  MOZ_ASSERT(aFloat->GetStateBits() & NS_FRAME_OUT_OF_FLOW,
+  MOZ_ASSERT(aFloat->HasAnyStateBits(NS_FRAME_OUT_OF_FLOW),
              "This is a float cache, why isn't the frame out-of-flow?");
 
   nsFloatCache* fc = mHead;

@@ -25,19 +25,21 @@
 #include "common/linux/file_id.h"
 #include <algorithm>
 #include <dlfcn.h>
-#include <features.h>
+#if defined(GP_OS_linux) || defined(GP_OS_android)
+#  include <features.h>
+#endif
 #include <sys/types.h>
 
-#if defined(GP_OS_linux)
-#include <link.h>  // dl_phdr_info
-#elif defined(GP_OS_android)
-#include "AutoObjectMapper.h"
-#include "ElfLoader.h"  // dl_phdr_info
+#if defined(GP_OS_linux) || defined(GP_OS_android) || defined(GP_OS_freebsd)
+#  include <link.h>  // dl_phdr_info
+#else
+#  error "Unexpected configuration"
+#endif
+
+#if defined(GP_OS_android)
 extern "C" MOZ_EXPORT __attribute__((weak)) int dl_iterate_phdr(
     int (*callback)(struct dl_phdr_info* info, size_t size, void* data),
     void* data);
-#else
-#error "Unexpected configuration"
 #endif
 
 struct LoadedLibraryInfo {
@@ -54,10 +56,6 @@ struct LoadedLibraryInfo {
   unsigned long mFirstMappingStart;
   unsigned long mLastMappingEnd;
 };
-
-#if defined(GP_OS_android)
-static void outputMapperLog(const char* aBuf) { LOG("%s", aBuf); }
-#endif
 
 static nsCString IDtoUUIDString(
     const google_breakpad::wasteful_vector<uint8_t>& aIdentifier) {
@@ -78,25 +76,12 @@ static nsCString getId(const char* bin_name) {
   PageAllocator allocator;
   auto_wasteful_vector<uint8_t, kDefaultBuildIdSize> identifier(&allocator);
 
-#if defined(GP_OS_android)
-  if (nsDependentCString(bin_name).Find("!/") != kNotFound) {
-    AutoObjectMapperFaultyLib mapper(outputMapperLog);
-    void* image = nullptr;
-    size_t size = 0;
-    if (mapper.Map(&image, &size, bin_name) && image && size) {
-      if (FileID::ElfFileIdentifierFromMappedFile(image, identifier)) {
-        return IDtoUUIDString(identifier);
-      }
-    }
-  }
-#endif
-
   FileID file_id(bin_name);
   if (file_id.ElfFileIdentifier(identifier)) {
     return IDtoUUIDString(identifier);
   }
 
-  return EmptyCString();
+  return ""_ns;
 }
 
 static SharedLibrary SharedLibraryAtPath(const char* path,
@@ -114,7 +99,7 @@ static SharedLibrary SharedLibraryAtPath(const char* path,
   }
 
   return SharedLibrary(libStart, libEnd, offset, getId(path), nameStr, pathStr,
-                       nameStr, pathStr, EmptyCString(), "");
+                       nameStr, pathStr, ""_ns, "");
 }
 
 static int dl_iterate_callback(struct dl_phdr_info* dl_info, size_t size,
@@ -182,8 +167,9 @@ SharedLibraryInfo SharedLibraryInfo::GetInfoForSelf() {
   }
 #endif
 
+#if defined(GP_OS_linux) || defined(GP_OS_android)
   // Read info from /proc/self/maps. We ignore most of it.
-  pid_t pid = getpid();
+  pid_t pid = profiler_current_process_id();
   char path[PATH_MAX];
   SprintfLiteral(path, "/proc/%d/maps", pid);
   std::ifstream maps(path);
@@ -208,12 +194,12 @@ SharedLibraryInfo SharedLibraryInfo::GetInfoForSelf() {
       continue;
     }
 
-#if defined(GP_OS_linux)
+#  if defined(GP_OS_linux)
     // Try to establish the main executable's load address.
     if (exeNameLen > 0 && strcmp(modulePath, exeName) == 0) {
       exeExeAddr = start;
     }
-#elif defined(GP_OS_android)
+#  elif defined(GP_OS_android)
     // Use /proc/pid/maps to get the dalvik-jit section since it has no
     // associated phdrs.
     if (0 == strcmp(modulePath, "/dev/ashmem/dalvik-jit-code-cache")) {
@@ -225,8 +211,9 @@ SharedLibraryInfo SharedLibraryInfo::GetInfoForSelf() {
         break;
       }
     }
-#endif
+#  endif
   }
+#endif
 
   nsTArray<LoadedLibraryInfo> libInfoList;
 
@@ -247,7 +234,8 @@ SharedLibraryInfo SharedLibraryInfo::GetInfoForSelf() {
   // executable's name to that entry.
   for (size_t i = 0; i < info.GetSize(); i++) {
     SharedLibrary& lib = info.GetMutableEntry(i);
-    if (lib.GetStart() == exeExeAddr && lib.GetNativeDebugPath().empty()) {
+    if (lib.GetStart() <= exeExeAddr && exeExeAddr <= lib.GetEnd() &&
+        lib.GetNativeDebugPath().empty()) {
       lib = SharedLibraryAtPath(exeName, lib.GetStart(), lib.GetEnd(),
                                 lib.GetOffset());
 

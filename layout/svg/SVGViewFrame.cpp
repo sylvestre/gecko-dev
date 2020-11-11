@@ -5,14 +5,20 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 // Keep in (case-insensitive) order:
-#include "nsFrame.h"
-#include "nsGkAtoms.h"
-#include "nsSVGOuterSVGFrame.h"
+#include "mozilla/PresShell.h"
+#include "mozilla/SVGOuterSVGFrame.h"
+#include "mozilla/SVGUtils.h"
 #include "mozilla/dom/SVGSVGElement.h"
 #include "mozilla/dom/SVGViewElement.h"
+#include "nsIFrame.h"
+#include "nsGkAtoms.h"
 
-using namespace mozilla;
 using namespace mozilla::dom;
+
+nsIFrame* NS_NewSVGViewFrame(mozilla::PresShell* aPresShell,
+                             mozilla::ComputedStyle* aStyle);
+
+namespace mozilla {
 
 /**
  * While views are not directly rendered in SVG they can be linked to
@@ -20,13 +26,14 @@ using namespace mozilla::dom;
  * identifier. The SVGViewFrame class passes on any attribute changes
  * the view receives to the overridden <svg> element (if there is one).
  **/
-class SVGViewFrame final : public nsFrame {
-  friend nsIFrame* NS_NewSVGViewFrame(nsIPresShell* aPresShell,
-                                      ComputedStyle* aStyle);
+class SVGViewFrame final : public nsIFrame {
+  friend nsIFrame* ::NS_NewSVGViewFrame(mozilla::PresShell* aPresShell,
+                                        ComputedStyle* aStyle);
 
  protected:
-  explicit SVGViewFrame(ComputedStyle* aStyle) : nsFrame(aStyle, kClassID) {
-    AddStateBits(NS_FRAME_IS_NONDISPLAY);
+  explicit SVGViewFrame(ComputedStyle* aStyle, nsPresContext* aPresContext)
+      : nsIFrame(aStyle, aPresContext, kClassID) {
+    AddStateBits(NS_FRAME_SVG_LAYOUT | NS_FRAME_IS_NONDISPLAY);
   }
 
  public:
@@ -42,12 +49,12 @@ class SVGViewFrame final : public nsFrame {
       return false;
     }
 
-    return nsFrame::IsFrameOfType(aFlags & ~(nsIFrame::eSVG));
+    return nsIFrame::IsFrameOfType(aFlags & ~(nsIFrame::eSVG));
   }
 
 #ifdef DEBUG_FRAME_DUMP
   virtual nsresult GetFrameName(nsAString& aResult) const override {
-    return MakeFrameName(NS_LITERAL_STRING("SVGView"), aResult);
+    return MakeFrameName(u"SVGView"_ns, aResult);
   }
 #endif
 
@@ -55,14 +62,20 @@ class SVGViewFrame final : public nsFrame {
                                     int32_t aModType) override;
 
   virtual bool ComputeCustomOverflow(nsOverflowAreas& aOverflowAreas) override {
-    // We don't maintain a visual overflow rect
+    // We don't maintain a ink overflow rect
     return false;
   }
 };
 
-nsIFrame* NS_NewSVGViewFrame(nsIPresShell* aPresShell, ComputedStyle* aStyle) {
-  return new (aPresShell) SVGViewFrame(aStyle);
+}  // namespace mozilla
+
+nsIFrame* NS_NewSVGViewFrame(mozilla::PresShell* aPresShell,
+                             mozilla::ComputedStyle* aStyle) {
+  return new (aPresShell)
+      mozilla::SVGViewFrame(aStyle, aPresShell->GetPresContext());
 }
+
+namespace mozilla {
 
 NS_IMPL_FRAMEARENA_HELPERS(SVGViewFrame)
 
@@ -72,7 +85,7 @@ void SVGViewFrame::Init(nsIContent* aContent, nsContainerFrame* aParent,
   NS_ASSERTION(aContent->IsSVGElement(nsGkAtoms::view),
                "Content is not an SVG view");
 
-  nsFrame::Init(aContent, aParent, aPrevInFlow);
+  nsIFrame::Init(aContent, aParent, aPrevInFlow);
 }
 #endif /* DEBUG */
 
@@ -83,7 +96,7 @@ nsresult SVGViewFrame::AttributeChanged(int32_t aNameSpaceID,
   if (aNameSpaceID == kNameSpaceID_None &&
       (aAttribute == nsGkAtoms::preserveAspectRatio ||
        aAttribute == nsGkAtoms::viewBox)) {
-    nsSVGOuterSVGFrame* outerSVGFrame = nsSVGUtils::GetOuterSVGFrame(this);
+    SVGOuterSVGFrame* outerSVGFrame = SVGUtils::GetOuterSVGFrame(this);
     NS_ASSERTION(outerSVGFrame->GetContent()->IsSVGElement(nsGkAtoms::svg),
                  "Expecting an <svg> element");
 
@@ -100,5 +113,7 @@ nsresult SVGViewFrame::AttributeChanged(int32_t aNameSpaceID,
     }
   }
 
-  return nsFrame::AttributeChanged(aNameSpaceID, aAttribute, aModType);
+  return nsIFrame::AttributeChanged(aNameSpaceID, aAttribute, aModType);
 }
+
+}  // namespace mozilla

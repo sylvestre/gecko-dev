@@ -28,7 +28,7 @@
 #include "crashreporter_gtk_common.h"
 
 #ifndef GDK_KEY_Escape
-#define GDK_KEY_Escape GDK_Escape
+#  define GDK_KEY_Escape GDK_Escape
 #endif
 
 using std::string;
@@ -47,7 +47,7 @@ GtkWidget* gRestartButton = 0;
 bool gInitialized = false;
 bool gDidTrySend = false;
 StringTable gFiles;
-StringTable gQueryParameters;
+Json::Value gQueryParameters;
 string gHttpProxy;
 string gAuth;
 string gCACertificateFile;
@@ -57,7 +57,6 @@ vector<string> gRestartArgs;
 GThread* gSendThreadID;
 
 // From crashreporter_linux.cpp
-void SaveSettings();
 void SendReport();
 void DisableGUIAndSendReport();
 void TryInitGnome();
@@ -107,7 +106,6 @@ static gboolean ReportCompleted(gpointer success) {
   return FALSE;
 }
 
-#ifdef MOZ_ENABLE_GCONF
 #define HTTP_PROXY_DIR "/system/http_proxy"
 
 void LoadProxyinfo() {
@@ -179,14 +177,17 @@ void LoadProxyinfo() {
 
   // Don't dlclose gconfLib as libORBit-2 uses atexit().
 }
-#endif
 
 gpointer SendThread(gpointer args) {
+  Json::StreamWriterBuilder builder;
+  builder["indentation"] = "";
+  string parameters(writeString(builder, gQueryParameters));
+
   string response, error;
   long response_code;
 
   bool success = google_breakpad::HTTPUpload::SendRequest(
-      gSendURL, gQueryParameters, gFiles, gHttpProxy, gAuth, gCACertificateFile,
+      gSendURL, parameters, gFiles, gHttpProxy, gAuth, gCACertificateFile,
       &response, &response_code, &error);
   if (success) {
     LogMessage("Crash report submitted successfully");
@@ -245,7 +246,7 @@ static void UpdateURL() {
   if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(gIncludeURLCheck))) {
     gQueryParameters["URL"] = gURLParameter;
   } else {
-    gQueryParameters.erase("URL");
+    gQueryParameters.removeMember("URL");
   }
 }
 

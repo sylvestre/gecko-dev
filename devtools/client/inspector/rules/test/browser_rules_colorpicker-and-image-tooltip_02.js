@@ -1,4 +1,3 @@
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -22,13 +21,16 @@ const TEST_URI = `
 
 add_task(async function() {
   await addTab("data:text/html;charset=utf-8," + encodeURIComponent(TEST_URI));
-  const {view} = await openRuleView();
+  const { view } = await openRuleView();
   await testColorChangeIsntRevertedWhenOtherTooltipIsShown(view);
 });
 
 async function testColorChangeIsntRevertedWhenOtherTooltipIsShown(ruleView) {
-  let swatch = getRuleViewProperty(ruleView, "body", "background").valueSpan
-    .querySelector(".ruleview-colorswatch");
+  let swatch = getRuleViewProperty(
+    ruleView,
+    "body",
+    "background"
+  ).valueSpan.querySelector(".ruleview-colorswatch");
 
   info("Open the color picker tooltip and change the color");
   const picker = ruleView.tooltips.getTooltip("colorPicker");
@@ -57,8 +59,7 @@ async function testColorChangeIsntRevertedWhenOtherTooltipIsShown(ruleView) {
 
   info("Image tooltip is shown, verify that the swatch is still correct");
   swatch = value.querySelector(".ruleview-colorswatch");
-  is(swatch.style.backgroundColor, "black",
-    "The swatch's color is correct");
+  is(swatch.style.backgroundColor, "black", "The swatch's color is correct");
   is(swatch.nextSibling.textContent, "black", "The color name is correct");
 
   await assertTooltipHiddenOnMouseOut(previewTooltip, url);

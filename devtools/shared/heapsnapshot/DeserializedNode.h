@@ -6,13 +6,14 @@
 #ifndef mozilla_devtools_DeserializedNode__
 #define mozilla_devtools_DeserializedNode__
 
+#include <utility>
+
 #include "js/UbiNode.h"
 #include "js/UniquePtr.h"
-#include "mozilla/devtools/CoreDump.pb.h"
 #include "mozilla/HashFunctions.h"
 #include "mozilla/Maybe.h"
-#include "mozilla/Move.h"
 #include "mozilla/Vector.h"
+#include "mozilla/devtools/CoreDump.pb.h"
 
 // `Deserialized{Node,Edge}` translate protobuf messages from our core dump
 // format into structures we can rely upon for implementing `JS::ubi::Node`
@@ -286,6 +287,10 @@ class ConcreteStackFrame<DeserializedStackFrame> : public BaseStackFrame {
   void trace(JSTracer* trc) override {}
   AtomOrTwoByteChars source() const override {
     return AtomOrTwoByteChars(get().source);
+  }
+  uint32_t sourceId() const override {
+    // Source IDs are local to their host process and are not serialized.
+    return 0;
   }
   AtomOrTwoByteChars functionDisplayName() const override {
     return AtomOrTwoByteChars(get().functionDisplayName);

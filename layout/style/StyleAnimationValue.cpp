@@ -10,10 +10,11 @@
 
 #include "mozilla/ArrayUtils.h"
 #include "mozilla/MathAlgorithms.h"
+#include "mozilla/PresShell.h"
+#include "mozilla/PresShellInlines.h"
 #include "mozilla/ServoStyleSet.h"
 #include "mozilla/Tuple.h"
 #include "mozilla/UniquePtr.h"
-#include "nsAutoPtr.h"
 #include "nsCOMArray.h"
 #include "nsString.h"
 #include "mozilla/ComputedStyle.h"
@@ -26,69 +27,19 @@
 #include "mozilla/ServoCSSParser.h"
 #include "gfxMatrix.h"
 #include "gfxQuaternion.h"
-#include "nsIDocument.h"
+#include "mozilla/dom/Document.h"
 #include "nsIFrame.h"
 #include "gfx2DGlue.h"
 #include "mozilla/ComputedStyleInlines.h"
+#include "mozilla/layers/LayersMessages.h"
 
 using namespace mozilla;
 using namespace mozilla::css;
+using namespace mozilla::dom;
 using namespace mozilla::gfx;
 using nsStyleTransformMatrix::Decompose2DMatrix;
 using nsStyleTransformMatrix::Decompose3DMatrix;
 using nsStyleTransformMatrix::ShearType;
-
-static already_AddRefed<nsCSSValue::Array> AppendFunction(
-    nsCSSKeyword aTransformFunction) {
-  uint32_t nargs;
-  switch (aTransformFunction) {
-    case eCSSKeyword_matrix3d:
-      nargs = 16;
-      break;
-    case eCSSKeyword_matrix:
-      nargs = 6;
-      break;
-    case eCSSKeyword_rotate3d:
-      nargs = 4;
-      break;
-    case eCSSKeyword_interpolatematrix:
-    case eCSSKeyword_accumulatematrix:
-    case eCSSKeyword_translate3d:
-    case eCSSKeyword_scale3d:
-      nargs = 3;
-      break;
-    case eCSSKeyword_translate:
-    case eCSSKeyword_skew:
-    case eCSSKeyword_scale:
-      nargs = 2;
-      break;
-    default:
-      NS_ERROR("must be a transform function");
-      MOZ_FALLTHROUGH;
-    case eCSSKeyword_translatex:
-    case eCSSKeyword_translatey:
-    case eCSSKeyword_translatez:
-    case eCSSKeyword_scalex:
-    case eCSSKeyword_scaley:
-    case eCSSKeyword_scalez:
-    case eCSSKeyword_skewx:
-    case eCSSKeyword_skewy:
-    case eCSSKeyword_rotate:
-    case eCSSKeyword_rotatex:
-    case eCSSKeyword_rotatey:
-    case eCSSKeyword_rotatez:
-    case eCSSKeyword_perspective:
-      nargs = 1;
-      break;
-  }
-
-  RefPtr<nsCSSValue::Array> arr = nsCSSValue::Array::Create(nargs + 1);
-  arr->Item(0).SetIntValue(aTransformFunction, eCSSUnit_Enumerated);
-
-  return arr.forget();
-}
-
-// AnimationValue Implementation
 
 bool AnimationValue::operator==(const AnimationValue& aOther) const {
   if (mServo && aOther.mServo) {
@@ -114,26 +65,92 @@ nscolor AnimationValue::GetColor(nscolor aForegroundColor) const {
   return Servo_AnimationValue_GetColor(mServo, aForegroundColor);
 }
 
-already_AddRefed<const nsCSSValueSharedList> AnimationValue::GetTransformList()
+bool AnimationValue::IsCurrentColor() const {
+  MOZ_ASSERT(mServo);
+  return Servo_AnimationValue_IsCurrentColor(mServo);
+}
+
+const StyleTranslate& AnimationValue::GetTranslateProperty() const {
+  MOZ_ASSERT(mServo);
+  return *Servo_AnimationValue_GetTranslate(mServo);
+}
+
+const StyleRotate& AnimationValue::GetRotateProperty() const {
+  MOZ_ASSERT(mServo);
+  return *Servo_AnimationValue_GetRotate(mServo);
+}
+
+const StyleScale& AnimationValue::GetScaleProperty() const {
+  MOZ_ASSERT(mServo);
+  return *Servo_AnimationValue_GetScale(mServo);
+}
+
+const StyleTransform& AnimationValue::GetTransformProperty() const {
+  MOZ_ASSERT(mServo);
+  return *Servo_AnimationValue_GetTransform(mServo);
+}
+
+const mozilla::StyleOffsetPath& AnimationValue::GetOffsetPathProperty() const {
+  MOZ_ASSERT(mServo);
+  return *Servo_AnimationValue_GetOffsetPath(mServo);
+}
+
+const mozilla::LengthPercentage& AnimationValue::GetOffsetDistanceProperty()
     const {
   MOZ_ASSERT(mServo);
+  return *Servo_AnimationValue_GetOffsetDistance(mServo);
+}
 
-  RefPtr<nsCSSValueSharedList> transform;
-  Servo_AnimationValue_GetTransform(mServo, &transform);
-  return transform.forget();
+const mozilla::StyleOffsetRotate& AnimationValue::GetOffsetRotateProperty()
+    const {
+  MOZ_ASSERT(mServo);
+  return *Servo_AnimationValue_GetOffsetRotate(mServo);
+}
+
+const mozilla::StylePositionOrAuto& AnimationValue::GetOffsetAnchorProperty()
+    const {
+  MOZ_ASSERT(mServo);
+  return *Servo_AnimationValue_GetOffsetAnchor(mServo);
 }
 
 Size AnimationValue::GetScaleValue(const nsIFrame* aFrame) const {
-  MOZ_ASSERT(mServo);
-  RefPtr<nsCSSValueSharedList> list;
-  Servo_AnimationValue_GetTransform(mServo, &list);
-  return nsStyleTransformMatrix::GetScaleValue(list, aFrame);
+  using namespace nsStyleTransformMatrix;
+
+  switch (Servo_AnimationValue_GetPropertyId(mServo)) {
+    case eCSSProperty_scale: {
+      const StyleScale& scale = GetScaleProperty();
+      return scale.IsNone() ? Size(1.0, 1.0)
+                            : Size(scale.AsScale()._0, scale.AsScale()._1);
+    }
+    case eCSSProperty_rotate:
+    case eCSSProperty_translate:
+      return Size(1.0, 1.0);
+    case eCSSProperty_transform:
+      break;
+    default:
+      MOZ_ASSERT_UNREACHABLE(
+          "Should only need to check in transform properties");
+      return Size(1.0, 1.0);
+  }
+
+  TransformReferenceBox refBox(aFrame);
+  Matrix4x4 t =
+      ReadTransforms(StyleTranslate::None(), StyleRotate::None(),
+                     StyleScale::None(), Nothing(), GetTransformProperty(),
+                     refBox, aFrame->PresContext()->AppUnitsPerDevPixel());
+  Matrix transform2d;
+  bool canDraw2D = t.CanDraw2D(&transform2d);
+  if (!canDraw2D) {
+    return Size();
+  }
+  return transform2d.ScaleFactors(true);
 }
 
 void AnimationValue::SerializeSpecifiedValue(nsCSSPropertyID aProperty,
+                                             const RawServoStyleSet* aRawSet,
                                              nsAString& aString) const {
   MOZ_ASSERT(mServo);
-  Servo_AnimationValue_Serialize(mServo, aProperty, &aString);
+  Servo_AnimationValue_Serialize(mServo, aProperty, aRawSet, &aString);
 }
 
 bool AnimationValue::IsInterpolableWith(nsCSSPropertyID aProperty,
@@ -148,8 +165,7 @@ bool AnimationValue::IsInterpolableWith(nsCSSPropertyID aProperty,
 }
 
 double AnimationValue::ComputeDistance(nsCSSPropertyID aProperty,
-                                       const AnimationValue& aOther,
-                                       ComputedStyle* aComputedStyle) const {
+                                       const AnimationValue& aOther) const {
   if (IsNull() || aOther.IsNull()) {
     return 0.0;
   }
@@ -162,19 +178,21 @@ double AnimationValue::ComputeDistance(nsCSSPropertyID aProperty,
   return distance < 0.0 ? 0.0 : distance;
 }
 
-/* static */ AnimationValue AnimationValue::FromString(
-    nsCSSPropertyID aProperty, const nsAString& aValue, Element* aElement) {
+/* static */
+AnimationValue AnimationValue::FromString(nsCSSPropertyID aProperty,
+                                          const nsAString& aValue,
+                                          Element* aElement) {
   MOZ_ASSERT(aElement);
 
   AnimationValue result;
 
-  nsCOMPtr<nsIDocument> doc = aElement->GetComposedDoc();
+  nsCOMPtr<Document> doc = aElement->GetComposedDoc();
   if (!doc) {
     return result;
   }
 
-  nsCOMPtr<nsIPresShell> shell = doc->GetShell();
-  if (!shell) {
+  RefPtr<PresShell> presShell = doc->GetPresShell();
+  if (!presShell) {
     return result;
   }
 
@@ -191,33 +209,61 @@ double AnimationValue::ComputeDistance(nsCSSPropertyID aProperty,
     return result;
   }
 
-  result.mServo = shell->StyleSet()->ComputeAnimationValue(
+  result.mServo = presShell->StyleSet()->ComputeAnimationValue(
       aElement, declarations, computedStyle);
   return result;
 }
 
-/* static */ AnimationValue AnimationValue::Opacity(float aOpacity) {
-  AnimationValue result;
-  result.mServo = Servo_AnimationValue_Opacity(aOpacity).Consume();
-  return result;
-}
-
-/* static */ AnimationValue AnimationValue::Transform(
-    nsCSSValueSharedList& aList) {
-  AnimationValue result;
-  result.mServo = Servo_AnimationValue_Transform(aList).Consume();
-  return result;
-}
-
-/* static */ already_AddRefed<nsCSSValue::Array>
-AnimationValue::AppendTransformFunction(nsCSSKeyword aTransformFunction,
-                                        nsCSSValueList**& aListTail) {
-  RefPtr<nsCSSValue::Array> arr = AppendFunction(aTransformFunction);
-  nsCSSValueList* item = new nsCSSValueList;
-  item->mValue.SetArrayValue(arr, eCSSUnit_Function);
-
-  *aListTail = item;
-  aListTail = &item->mNext;
-
-  return arr.forget();
+/* static */
+already_AddRefed<RawServoAnimationValue> AnimationValue::FromAnimatable(
+    nsCSSPropertyID aProperty, const layers::Animatable& aAnimatable) {
+  switch (aAnimatable.type()) {
+    case layers::Animatable::Tnull_t:
+      break;
+    case layers::Animatable::TStyleTransform: {
+      const StyleTransform& transform = aAnimatable.get_StyleTransform();
+      MOZ_ASSERT(!transform.HasPercent(),
+                 "Received transform operations should have been resolved.");
+      return Servo_AnimationValue_Transform(&transform).Consume();
+    }
+    case layers::Animatable::Tfloat:
+      return Servo_AnimationValue_Opacity(aAnimatable.get_float()).Consume();
+    case layers::Animatable::Tnscolor:
+      return Servo_AnimationValue_Color(aProperty, aAnimatable.get_nscolor())
+          .Consume();
+    case layers::Animatable::TStyleRotate:
+      return Servo_AnimationValue_Rotate(&aAnimatable.get_StyleRotate())
+          .Consume();
+    case layers::Animatable::TStyleScale:
+      return Servo_AnimationValue_Scale(&aAnimatable.get_StyleScale())
+          .Consume();
+    case layers::Animatable::TStyleTranslate:
+      MOZ_ASSERT(
+          aAnimatable.get_StyleTranslate().IsNone() ||
+              (!aAnimatable.get_StyleTranslate()
+                    .AsTranslate()
+                    ._0.HasPercent() &&
+               !aAnimatable.get_StyleTranslate().AsTranslate()._1.HasPercent()),
+          "Should have been resolved already");
+      return Servo_AnimationValue_Translate(&aAnimatable.get_StyleTranslate())
+          .Consume();
+    case layers::Animatable::TStyleOffsetPath:
+      return Servo_AnimationValue_OffsetPath(&aAnimatable.get_StyleOffsetPath())
+          .Consume();
+    case layers::Animatable::TLengthPercentage:
+      return Servo_AnimationValue_OffsetDistance(
+                 &aAnimatable.get_LengthPercentage())
+          .Consume();
+    case layers::Animatable::TStyleOffsetRotate:
+      return Servo_AnimationValue_OffsetRotate(
+                 &aAnimatable.get_StyleOffsetRotate())
+          .Consume();
+    case layers::Animatable::TStylePositionOrAuto:
+      return Servo_AnimationValue_OffsetAnchor(
+                 &aAnimatable.get_StylePositionOrAuto())
+          .Consume();
+    default:
+      MOZ_ASSERT_UNREACHABLE("Unsupported type");
+  }
+  return nullptr;
 }

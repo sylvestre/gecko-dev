@@ -40,7 +40,7 @@ namespace layers {
  *
  * Refer to LayerMetricsWrapper.h for actual documentation on the exposed API.
  */
-class MOZ_STACK_CLASS WebRenderScrollDataWrapper {
+class MOZ_STACK_CLASS WebRenderScrollDataWrapper final {
  public:
   // Basic constructor for external callers. Starts the walker at the root of
   // the tree.
@@ -254,6 +254,21 @@ class MOZ_STACK_CLASS WebRenderScrollDataWrapper {
         PixelCastJustification::MovingDownToChildren);
   }
 
+  LayerIntSize GetRemoteDocumentSize() const {
+    MOZ_ASSERT(IsValid());
+
+    if (mLayer->GetReferentId().isNothing()) {
+      return LayerIntSize();
+    }
+
+    if (AtBottomLayer()) {
+      return mLayer->GetRemoteDocumentSize();
+    }
+
+    return ViewAs<LayerPixel>(mLayer->GetRemoteDocumentSize(),
+                              PixelCastJustification::MovingDownToChildren);
+  }
+
   Maybe<LayersId> GetReferentId() const {
     MOZ_ASSERT(IsValid());
 
@@ -270,7 +285,11 @@ class MOZ_STACK_CLASS WebRenderScrollDataWrapper {
 
   EventRegionsOverride GetEventRegionsOverride() const {
     MOZ_ASSERT(IsValid());
-    return mLayer->GetEventRegionsOverride();
+    // Only ref layers can have an event regions override.
+    if (GetReferentId()) {
+      return mLayer->GetEventRegionsOverride();
+    }
+    return EventRegionsOverride::NoOverride;
   }
 
   const ScrollbarData& GetScrollbarData() const {
@@ -278,14 +297,76 @@ class MOZ_STACK_CLASS WebRenderScrollDataWrapper {
     return mLayer->GetScrollbarData();
   }
 
-  uint64_t GetScrollbarAnimationId() const {
+  Maybe<uint64_t> GetScrollbarAnimationId() const {
     MOZ_ASSERT(IsValid());
     return mLayer->GetScrollbarAnimationId();
   }
 
+  Maybe<uint64_t> GetFixedPositionAnimationId() const {
+    MOZ_ASSERT(IsValid());
+
+    if (AtBottomLayer()) {
+      return mLayer->GetFixedPositionAnimationId();
+    }
+    return Nothing();
+  }
+
   ScrollableLayerGuid::ViewID GetFixedPositionScrollContainerId() const {
     MOZ_ASSERT(IsValid());
-    return mLayer->GetFixedPositionScrollContainerId();
+
+    if (AtBottomLayer()) {
+      return mLayer->GetFixedPositionScrollContainerId();
+    }
+    return ScrollableLayerGuid::NULL_SCROLL_ID;
+  }
+
+  SideBits GetFixedPositionSides() const {
+    MOZ_ASSERT(IsValid());
+
+    if (AtBottomLayer()) {
+      return mLayer->GetFixedPositionSides();
+    }
+    return SideBits::eNone;
+  }
+
+  ScrollableLayerGuid::ViewID GetStickyScrollContainerId() const {
+    MOZ_ASSERT(IsValid());
+
+    if (AtBottomLayer()) {
+      return mLayer->GetStickyPositionScrollContainerId();
+    }
+    return ScrollableLayerGuid::NULL_SCROLL_ID;
+  }
+
+  const LayerRectAbsolute& GetStickyScrollRangeOuter() const {
+    MOZ_ASSERT(IsValid());
+
+    if (AtBottomLayer()) {
+      return mLayer->GetStickyScrollRangeOuter();
+    }
+
+    static const LayerRectAbsolute empty;
+    return empty;
+  }
+
+  const LayerRectAbsolute& GetStickyScrollRangeInner() const {
+    MOZ_ASSERT(IsValid());
+
+    if (AtBottomLayer()) {
+      return mLayer->GetStickyScrollRangeInner();
+    }
+
+    static const LayerRectAbsolute empty;
+    return empty;
+  }
+
+  Maybe<uint64_t> GetStickyPositionAnimationId() const {
+    MOZ_ASSERT(IsValid());
+
+    if (AtBottomLayer()) {
+      return mLayer->GetStickyPositionAnimationId();
+    }
+    return Nothing();
   }
 
   Maybe<uint64_t> GetZoomAnimationId() const {
@@ -297,6 +378,11 @@ class MOZ_STACK_CLASS WebRenderScrollDataWrapper {
     // This is only used by APZCTM hit testing, and WR does its own
     // hit testing, so no need to implement this.
     return false;
+  }
+
+  bool IsAsyncZoomContainer() const {
+    MOZ_ASSERT(IsValid());
+    return mLayer->IsAsyncZoomContainer();
   }
 
   const void* GetLayer() const {

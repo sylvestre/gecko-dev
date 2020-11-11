@@ -7,6 +7,7 @@
 #ifndef PeerIdentity_h
 #define PeerIdentity_h
 
+#include "mozilla/RefCounted.h"
 #include "nsString.h"
 
 template <class T>
@@ -31,7 +32,7 @@ class PeerIdentity final : public RefCounted<PeerIdentity> {
 
   explicit PeerIdentity(const nsAString& aPeerIdentity)
       : mPeerIdentity(aPeerIdentity) {}
-  ~PeerIdentity() {}
+  ~PeerIdentity() = default;
 
   bool Equals(const PeerIdentity& aOther) const;
   bool Equals(const nsAString& aOtherString) const;

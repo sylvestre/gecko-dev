@@ -4,45 +4,57 @@
 "use strict";
 
 add_task(async function test_providers() {
-  Assert.throws(() => UrlbarProvidersManager.registerProvider(),
-                /invalid provider/,
-                "Should throw with no arguments");
-  Assert.throws(() => UrlbarProvidersManager.registerProvider({}),
-                /invalid provider/,
-                "Should throw with empty object");
-  Assert.throws(() => UrlbarProvidersManager.registerProvider({
-                  name: "",
-                }),
-                /invalid provider/,
-                "Should throw with empty name");
-  Assert.throws(() => UrlbarProvidersManager.registerProvider({
-                  name: "test",
-                  startQuery: "no",
-                }),
-                /invalid provider/,
-                "Should throw with invalid startQuery");
-  Assert.throws(() => UrlbarProvidersManager.registerProvider({
-                  name: "test",
-                  startQuery: () => {},
-                  cancelQuery: "no",
-                }),
-                /invalid provider/,
-                "Should throw with invalid cancelQuery");
+  Assert.throws(
+    () => UrlbarProvidersManager.registerProvider(),
+    /invalid provider/,
+    "Should throw with no arguments"
+  );
+  Assert.throws(
+    () => UrlbarProvidersManager.registerProvider({}),
+    /invalid provider/,
+    "Should throw with empty object"
+  );
+  Assert.throws(
+    () =>
+      UrlbarProvidersManager.registerProvider({
+        name: "",
+      }),
+    /invalid provider/,
+    "Should throw with empty name"
+  );
+  Assert.throws(
+    () =>
+      UrlbarProvidersManager.registerProvider({
+        name: "test",
+        startQuery: "no",
+      }),
+    /invalid provider/,
+    "Should throw with invalid startQuery"
+  );
+  Assert.throws(
+    () =>
+      UrlbarProvidersManager.registerProvider({
+        name: "test",
+        startQuery: () => {},
+        cancelQuery: "no",
+      }),
+    /invalid provider/,
+    "Should throw with invalid cancelQuery"
+  );
 
-  let match = new UrlbarMatch(UrlbarUtils.MATCH_TYPE.TAB_SWITCH,
-                              UrlbarUtils.MATCH_SOURCE.TABS,
-                              { url: "http://mozilla.org/foo/" });
-  registerBasicTestProvider([match]);
+  let match = new UrlbarResult(
+    UrlbarUtils.RESULT_TYPE.TAB_SWITCH,
+    UrlbarUtils.RESULT_SOURCE.TABS,
+    { url: "http://mozilla.org/foo/" }
+  );
 
-  let context = createContext();
-  let controller = new UrlbarController({
-    browserWindow: {
-      location: {
-        href: AppConstants.BROWSER_CHROME_URL,
-      },
-    },
-  });
-  let resultsPromise = promiseControllerNotification(controller, "onQueryResults");
+  let providerName = registerBasicTestProvider([match]);
+  let context = createContext(undefined, { providers: [providerName] });
+  let controller = UrlbarTestUtils.newMockController();
+  let resultsPromise = promiseControllerNotification(
+    controller,
+    "onQueryResults"
+  );
 
   await UrlbarProvidersManager.startQuery(context, controller);
   // Sanity check that this doesn't throw. It should be a no-op since we await

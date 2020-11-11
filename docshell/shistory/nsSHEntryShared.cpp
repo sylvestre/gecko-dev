@@ -7,14 +7,14 @@
 #include "nsSHEntryShared.h"
 
 #include "nsArray.h"
+#include "nsContentUtils.h"
 #include "nsDocShellEditorData.h"
 #include "nsIContentViewer.h"
-#include "nsIDocShell.h"
-#include "nsIDocShellTreeItem.h"
-#include "nsIDocument.h"
-#include "nsILayoutHistoryState.h"
 #include "nsISHistory.h"
+#include "mozilla/dom/Document.h"
+#include "nsILayoutHistoryState.h"
 #include "nsIWebNavigation.h"
+#include "nsSHistory.h"
 #include "nsThreadUtils.h"
 
 #include "mozilla/Attributes.h"
@@ -23,24 +23,98 @@
 namespace dom = mozilla::dom;
 
 namespace {
-
 uint64_t gSHEntrySharedID = 0;
-
+nsDataHashtable<nsUint64HashKey, mozilla::dom::SHEntrySharedParentState*>*
+    sIdToSharedState = nullptr;
 }  // namespace
 
-void nsSHEntryShared::Shutdown() {}
+namespace mozilla {
+namespace dom {
 
-nsSHEntryShared::nsSHEntryShared()
-    : mDocShellID({0}),
-      mCacheKey(0),
-      mLastTouched(0),
-      mID(gSHEntrySharedID++),
-      mViewerBounds(0, 0, 0, 0),
-      mIsFrameNavigation(false),
-      mSaveLayoutState(true),
-      mSticky(true),
-      mDynamicallyCreated(false),
-      mExpired(false) {}
+/* static */
+uint64_t SHEntrySharedState::GenerateId() {
+  return nsContentUtils::GenerateProcessSpecificId(++gSHEntrySharedID);
+}
+
+/* static */
+SHEntrySharedParentState* SHEntrySharedParentState::Lookup(uint64_t aId) {
+  MOZ_ASSERT(aId != 0);
+
+  return sIdToSharedState ? sIdToSharedState->Get(aId) : nullptr;
+}
+
+static void AddSHEntrySharedParentState(
+    SHEntrySharedParentState* aSharedState) {
+  MOZ_ASSERT(aSharedState->mId != 0);
+
+  if (!sIdToSharedState) {
+    sIdToSharedState =
+        new nsDataHashtable<nsUint64HashKey, SHEntrySharedParentState*>();
+  }
+  sIdToSharedState->Put(aSharedState->mId, aSharedState);
+}
+
+SHEntrySharedParentState::SHEntrySharedParentState() {
+  AddSHEntrySharedParentState(this);
+}
+
+SHEntrySharedParentState::SHEntrySharedParentState(
+    nsIPrincipal* aTriggeringPrincipal, nsIPrincipal* aPrincipalToInherit,
+    nsIPrincipal* aPartitionedPrincipalToInherit,
+    nsIContentSecurityPolicy* aCsp, const nsACString& aContentType)
+    : SHEntrySharedState(aTriggeringPrincipal, aPrincipalToInherit,
+                         aPartitionedPrincipalToInherit, aCsp, aContentType) {
+  AddSHEntrySharedParentState(this);
+}
+
+SHEntrySharedParentState::~SHEntrySharedParentState() {
+  MOZ_ASSERT(mId != 0);
+
+  sIdToSharedState->Remove(mId);
+  if (sIdToSharedState->IsEmpty()) {
+    delete sIdToSharedState;
+    sIdToSharedState = nullptr;
+  }
+}
+
+void SHEntrySharedParentState::ChangeId(uint64_t aId) {
+  MOZ_ASSERT(aId != 0);
+
+  sIdToSharedState->Remove(mId);
+  mId = aId;
+  sIdToSharedState->Put(mId, this);
+}
+
+void SHEntrySharedParentState::CopyFrom(SHEntrySharedParentState* aEntry) {
+  mDocShellID = aEntry->mDocShellID;
+  mTriggeringPrincipal = aEntry->mTriggeringPrincipal;
+  mPrincipalToInherit = aEntry->mPrincipalToInherit;
+  mPartitionedPrincipalToInherit = aEntry->mPartitionedPrincipalToInherit;
+  mCsp = aEntry->mCsp;
+  mSaveLayoutState = aEntry->mSaveLayoutState;
+  mContentType.Assign(aEntry->mContentType);
+  mIsFrameNavigation = aEntry->mIsFrameNavigation;
+  mSticky = aEntry->mSticky;
+  mDynamicallyCreated = aEntry->mDynamicallyCreated;
+  mCacheKey = aEntry->mCacheKey;
+  mLastTouched = aEntry->mLastTouched;
+}
+
+void dom::SHEntrySharedParentState::NotifyListenersContentViewerEvicted() {
+  if (nsCOMPtr<nsISHistory> shistory = do_QueryReferent(mSHistory)) {
+    RefPtr<nsSHistory> nsshistory = static_cast<nsSHistory*>(shistory.get());
+    nsshistory->NotifyListenersContentViewerEvicted(1);
+  }
+}
+
+void SHEntrySharedChildState::CopyFrom(SHEntrySharedChildState* aEntry) {
+  mChildShells.AppendObjects(aEntry->mChildShells);
+}
+
+}  // namespace dom
+}  // namespace mozilla
+
+void nsSHEntryShared::Shutdown() {}
 
 nsSHEntryShared::~nsSHEntryShared() {
   // The destruction can be caused by either the entry is removed from session
@@ -60,23 +134,15 @@ nsSHEntryShared::~nsSHEntryShared() {
   }
 }
 
-NS_IMPL_ISUPPORTS(nsSHEntryShared, nsIBFCacheEntry, nsIMutationObserver)
+NS_IMPL_QUERY_INTERFACE(nsSHEntryShared, nsIBFCacheEntry, nsIMutationObserver)
+NS_IMPL_ADDREF_INHERITED(nsSHEntryShared, dom::SHEntrySharedParentState)
+NS_IMPL_RELEASE_INHERITED(nsSHEntryShared, dom::SHEntrySharedParentState)
 
-already_AddRefed<nsSHEntryShared> nsSHEntryShared::Duplicate(
-    nsSHEntryShared* aEntry) {
+already_AddRefed<nsSHEntryShared> nsSHEntryShared::Duplicate() {
   RefPtr<nsSHEntryShared> newEntry = new nsSHEntryShared();
 
-  newEntry->mDocShellID = aEntry->mDocShellID;
-  newEntry->mChildShells.AppendObjects(aEntry->mChildShells);
-  newEntry->mTriggeringPrincipal = aEntry->mTriggeringPrincipal;
-  newEntry->mPrincipalToInherit = aEntry->mPrincipalToInherit;
-  newEntry->mContentType.Assign(aEntry->mContentType);
-  newEntry->mIsFrameNavigation = aEntry->mIsFrameNavigation;
-  newEntry->mSaveLayoutState = aEntry->mSaveLayoutState;
-  newEntry->mSticky = aEntry->mSticky;
-  newEntry->mDynamicallyCreated = aEntry->mDynamicallyCreated;
-  newEntry->mCacheKey = aEntry->mCacheKey;
-  newEntry->mLastTouched = aEntry->mLastTouched;
+  newEntry->dom::SHEntrySharedParentState::CopyFrom(this);
+  newEntry->dom::SHEntrySharedChildState::CopyFrom(this);
 
   return newEntry.forget();
 }
@@ -190,7 +256,7 @@ nsresult nsSHEntryShared::RemoveFromBFCacheAsync() {
   // release the references asynchronously so that the document doesn't get
   // nuked mid-mutation.
   nsCOMPtr<nsIContentViewer> viewer = mContentViewer;
-  nsCOMPtr<nsIDocument> document = mDocument;
+  RefPtr<dom::Document> document = mDocument;
   RefPtr<nsSHEntryShared> self = this;
   nsresult rv = mDocument->Dispatch(
       mozilla::TaskCategory::Other,
@@ -216,11 +282,6 @@ nsresult nsSHEntryShared::RemoveFromBFCacheAsync() {
     DropPresentationState();
   }
 
-  return NS_OK;
-}
-
-nsresult nsSHEntryShared::GetID(uint64_t* aID) {
-  *aID = mID;
   return NS_OK;
 }
 

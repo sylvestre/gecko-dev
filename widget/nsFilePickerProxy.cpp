@@ -10,22 +10,23 @@
 #include "nsSimpleEnumerator.h"
 #include "mozilla/dom/Directory.h"
 #include "mozilla/dom/File.h"
-#include "mozilla/dom/TabChild.h"
+#include "mozilla/dom/BrowserChild.h"
 #include "mozilla/dom/IPCBlobUtils.h"
 
 using namespace mozilla::dom;
 
 NS_IMPL_ISUPPORTS(nsFilePickerProxy, nsIFilePicker)
 
-nsFilePickerProxy::nsFilePickerProxy() : mSelectedType(0), mIPCActive(false) {}
+nsFilePickerProxy::nsFilePickerProxy()
+    : mSelectedType(0), mCapture(captureNone), mIPCActive(false) {}
 
-nsFilePickerProxy::~nsFilePickerProxy() {}
+nsFilePickerProxy::~nsFilePickerProxy() = default;
 
 NS_IMETHODIMP
 nsFilePickerProxy::Init(mozIDOMWindowProxy* aParent, const nsAString& aTitle,
                         int16_t aMode) {
-  TabChild* tabChild = TabChild::GetFrom(aParent);
-  if (!tabChild) {
+  BrowserChild* browserChild = BrowserChild::GetFrom(aParent);
+  if (!browserChild) {
     return NS_ERROR_FAILURE;
   }
 
@@ -34,7 +35,7 @@ nsFilePickerProxy::Init(mozIDOMWindowProxy* aParent, const nsAString& aTitle,
   mMode = aMode;
 
   NS_ADDREF_THIS();
-  tabChild->SendPFilePickerConstructor(this, nsString(aTitle), aMode);
+  browserChild->SendPFilePickerConstructor(this, nsString(aTitle), aMode);
 
   mIPCActive = true;
   return NS_OK;
@@ -48,6 +49,18 @@ nsFilePickerProxy::AppendFilter(const nsAString& aTitle,
                                 const nsAString& aFilter) {
   mFilterNames.AppendElement(aTitle);
   mFilters.AppendElement(aFilter);
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsFilePickerProxy::GetCapture(int16_t* aCapture) {
+  *aCapture = mCapture;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsFilePickerProxy::SetCapture(int16_t aCapture) {
+  mCapture = aCapture;
   return NS_OK;
 }
 
@@ -125,16 +138,23 @@ nsFilePickerProxy::Open(nsIFilePickerShownCallback* aCallback) {
   }
 
   SendOpen(mSelectedType, mAddToRecentDocs, mDefault, mDefaultExtension,
-           mFilters, mFilterNames, displayDirectory, mDisplaySpecialDirectory,
-           mOkButtonLabel);
+           mFilters, mFilterNames, mRawFilters, displayDirectory,
+           mDisplaySpecialDirectory, mOkButtonLabel, mCapture);
 
   return NS_OK;
 }
 
 mozilla::ipc::IPCResult nsFilePickerProxy::Recv__delete__(
     const MaybeInputData& aData, const int16_t& aResult) {
+  nsPIDOMWindowInner* inner =
+      mParent ? mParent->GetCurrentInnerWindow() : nullptr;
+
+  if (NS_WARN_IF(!inner)) {
+    return IPC_OK();
+  }
+
   if (aData.type() == MaybeInputData::TInputBlobs) {
-    const InfallibleTArray<IPCBlob>& blobs = aData.get_InputBlobs().blobs();
+    const nsTArray<IPCBlob>& blobs = aData.get_InputBlobs().blobs();
     for (uint32_t i = 0; i < blobs.Length(); ++i) {
       RefPtr<BlobImpl> blobImpl = IPCBlobUtils::Deserialize(blobs[i]);
       NS_ENSURE_TRUE(blobImpl, IPC_OK());
@@ -143,10 +163,10 @@ mozilla::ipc::IPCResult nsFilePickerProxy::Recv__delete__(
         return IPC_OK();
       }
 
-      nsPIDOMWindowInner* inner =
-          mParent ? mParent->GetCurrentInnerWindow() : nullptr;
-      RefPtr<File> file = File::Create(inner, blobImpl);
-      MOZ_ASSERT(file);
+      RefPtr<File> file = File::Create(inner->AsGlobal(), blobImpl);
+      if (NS_WARN_IF(!file)) {
+        return IPC_OK();
+      }
 
       OwningFileOrDirectory* element = mFilesOrDirectories.AppendElement();
       element->SetAsFile() = file;
@@ -159,8 +179,7 @@ mozilla::ipc::IPCResult nsFilePickerProxy::Recv__delete__(
       return IPC_OK();
     }
 
-    RefPtr<Directory> directory =
-        Directory::Create(mParent->GetCurrentInnerWindow(), file);
+    RefPtr<Directory> directory = Directory::Create(inner->AsGlobal(), file);
     MOZ_ASSERT(directory);
 
     OwningFileOrDirectory* element = mFilesOrDirectories.AppendElement();
@@ -202,7 +221,7 @@ class SimpleEnumerator final : public nsSimpleEnumerator {
  public:
   explicit SimpleEnumerator(
       const nsTArray<OwningFileOrDirectory>& aFilesOrDirectories)
-      : mFilesOrDirectories(aFilesOrDirectories), mIndex(0) {}
+      : mFilesOrDirectories(aFilesOrDirectories.Clone()), mIndex(0) {}
 
   NS_IMETHOD
   HasMoreElements(bool* aRetvalue) override {

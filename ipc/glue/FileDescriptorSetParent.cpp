@@ -6,8 +6,7 @@
 
 #include "FileDescriptorSetParent.h"
 
-namespace mozilla {
-namespace ipc {
+namespace mozilla::ipc {
 
 FileDescriptorSetParent::FileDescriptorSetParent(
     const FileDescriptor& aFileDescriptor) {
@@ -18,8 +17,7 @@ FileDescriptorSetParent::~FileDescriptorSetParent() = default;
 
 void FileDescriptorSetParent::ForgetFileDescriptors(
     nsTArray<FileDescriptor>& aFileDescriptors) {
-  aFileDescriptors.Clear();
-  mFileDescriptors.SwapElements(aFileDescriptors);
+  aFileDescriptors = std::move(mFileDescriptors);
 }
 
 void FileDescriptorSetParent::ActorDestroy(ActorDestroyReason aWhy) {
@@ -32,5 +30,4 @@ mozilla::ipc::IPCResult FileDescriptorSetParent::RecvAddFileDescriptor(
   return IPC_OK();
 }
 
-}  // namespace ipc
-}  // namespace mozilla
+}  // namespace mozilla::ipc

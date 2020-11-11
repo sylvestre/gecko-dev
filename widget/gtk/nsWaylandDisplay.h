@@ -5,67 +5,134 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef __MOZ_WAYLAND_REGISTRY_H__
-#define __MOZ_WAYLAND_REGISTRY_H__
+#ifndef __MOZ_WAYLAND_DISPLAY_H__
+#define __MOZ_WAYLAND_DISPLAY_H__
 
-#include "mozwayland/mozwayland.h"
-#include "wayland/gtk-primary-selection-client-protocol.h"
+#include "DMABufLibWrapper.h"
+
+#include "base/message_loop.h"  // for MessageLoop
+#include "base/task.h"          // for NewRunnableMethod, etc
+#include "mozilla/StaticMutex.h"
+
+#include "mozilla/widget/mozwayland.h"
+#include "mozilla/widget/gbm.h"
+#include "mozilla/widget/gtk-primary-selection-client-protocol.h"
+#include "mozilla/widget/idle-inhibit-unstable-v1-client-protocol.h"
+#include "mozilla/widget/linux-dmabuf-unstable-v1-client-protocol.h"
+#include "mozilla/widget/primary-selection-unstable-v1-client-protocol.h"
 
 namespace mozilla {
 namespace widget {
 
-// TODO: Bug 1467125 - We need to integrate wl_display_dispatch_queue_pending()
-// with compositor event loop.
-#define EVENT_LOOP_DELAY (1000 / 240)
-
 // Our general connection to Wayland display server,
 // holds our display connection and runs event loop.
-class nsWaylandDisplay : public nsISupports {
-  NS_DECL_THREADSAFE_ISUPPORTS
-
+// We have a global nsWaylandDisplay object for each thread.
+class nsWaylandDisplay {
  public:
-  explicit nsWaylandDisplay(wl_display* aDisplay);
+  NS_INLINE_DECL_THREADSAFE_REFCOUNTING(nsWaylandDisplay)
 
-  bool DisplayLoop();
+  // Create nsWaylandDisplay object on top of native Wayland wl_display
+  // connection. When aLighWrapper is set we don't get wayland registry
+  // objects and only event loop is provided.
+  explicit nsWaylandDisplay(wl_display* aDisplay, bool aLighWrapper = false);
+
+  bool DispatchEventQueue();
+
+  void SyncBegin();
+  void SyncEnd();
+  void WaitForSyncEnd();
+
   bool Matches(wl_display* aDisplay);
 
   wl_display* GetDisplay() { return mDisplay; };
   wl_event_queue* GetEventQueue() { return mEventQueue; };
+  wl_compositor* GetCompositor(void) { return mCompositor; };
   wl_subcompositor* GetSubcompositor(void) { return mSubcompositor; };
   wl_data_device_manager* GetDataDeviceManager(void) {
     return mDataDeviceManager;
   };
   wl_seat* GetSeat(void) { return mSeat; };
   wl_shm* GetShm(void) { return mShm; };
-  gtk_primary_selection_device_manager* GetPrimarySelectionDeviceManager(void) {
-    return mPrimarySelectionDeviceManager;
+  gtk_primary_selection_device_manager* GetPrimarySelectionDeviceManagerGtk(
+      void) {
+    return mPrimarySelectionDeviceManagerGtk;
   };
+  zwp_primary_selection_device_manager_v1*
+  GetPrimarySelectionDeviceManagerZwpV1(void) {
+    return mPrimarySelectionDeviceManagerZwpV1;
+  };
+  zwp_idle_inhibit_manager_v1* GetIdleInhibitManager(void) {
+    return mIdleInhibitManager;
+  }
 
- public:
+  bool IsMainThreadDisplay() { return mEventQueue == nullptr; }
+
   void SetShm(wl_shm* aShm);
+  void SetCompositor(wl_compositor* aCompositor);
   void SetSubcompositor(wl_subcompositor* aSubcompositor);
   void SetDataDeviceManager(wl_data_device_manager* aDataDeviceManager);
   void SetSeat(wl_seat* aSeat);
   void SetPrimarySelectionDeviceManager(
       gtk_primary_selection_device_manager* aPrimarySelectionDeviceManager);
+  void SetPrimarySelectionDeviceManager(
+      zwp_primary_selection_device_manager_v1* aPrimarySelectionDeviceManager);
+  void SetIdleInhibitManager(zwp_idle_inhibit_manager_v1* aIdleInhibitManager);
+
+  MessageLoop* GetThreadLoop() { return mThreadLoop; }
+  void ShutdownThreadLoop();
+
+  bool IsExplicitSyncEnabled() { return mExplicitSync; }
 
  private:
-  virtual ~nsWaylandDisplay();
+  ~nsWaylandDisplay();
 
+  MessageLoop* mThreadLoop;
   PRThread* mThreadId;
   wl_display* mDisplay;
   wl_event_queue* mEventQueue;
   wl_data_device_manager* mDataDeviceManager;
+  wl_compositor* mCompositor;
   wl_subcompositor* mSubcompositor;
   wl_seat* mSeat;
   wl_shm* mShm;
-  gtk_primary_selection_device_manager* mPrimarySelectionDeviceManager;
+  wl_callback* mSyncCallback;
+  gtk_primary_selection_device_manager* mPrimarySelectionDeviceManagerGtk;
+  zwp_primary_selection_device_manager_v1* mPrimarySelectionDeviceManagerZwpV1;
+  zwp_idle_inhibit_manager_v1* mIdleInhibitManager;
+  wl_registry* mRegistry;
+  bool mExplicitSync;
 };
 
-nsWaylandDisplay* WaylandDisplayGet(GdkDisplay* aGdkDisplay = nullptr);
-void WaylandDisplayRelease(nsWaylandDisplay* aDisplay);
+void WaylandDispatchDisplays();
+void WaylandDisplayShutdown();
+void WaylandDisplayRelease();
+
+RefPtr<nsWaylandDisplay> WaylandDisplayGet(GdkDisplay* aGdkDisplay = nullptr);
+wl_display* WaylandDisplayGetWLDisplay(GdkDisplay* aGdkDisplay = nullptr);
 
 }  // namespace widget
 }  // namespace mozilla
 
-#endif  // __MOZ_WAYLAND_REGISTRY_H__
+template <class T>
+static inline T* WaylandRegistryBind(struct wl_registry* wl_registry,
+                                     uint32_t name,
+                                     const struct wl_interface* interface,
+                                     uint32_t version) {
+  struct wl_proxy* id;
+
+  // When libwayland-client does not provide this symbol, it will be
+  // linked to the fallback in libmozwayland, which returns NULL.
+  id = wl_proxy_marshal_constructor_versioned(
+      (struct wl_proxy*)wl_registry, WL_REGISTRY_BIND, interface, version, name,
+      interface->name, version, nullptr);
+
+  if (id == nullptr) {
+    id = wl_proxy_marshal_constructor((struct wl_proxy*)wl_registry,
+                                      WL_REGISTRY_BIND, interface, name,
+                                      interface->name, version, nullptr);
+  }
+
+  return reinterpret_cast<T*>(id);
+}
+
+#endif  // __MOZ_WAYLAND_DISPLAY_H__

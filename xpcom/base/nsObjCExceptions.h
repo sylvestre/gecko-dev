@@ -4,23 +4,23 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#ifndef nsObjCExceptions_h_
+#define nsObjCExceptions_h_
+
 // Undo the damage that exception_defines.h does.
 #undef try
 #undef catch
 
-#ifndef nsObjCExceptions_h_
-#define nsObjCExceptions_h_
-
 #import <Foundation/Foundation.h>
 
 #ifdef DEBUG
-#import <ExceptionHandling/NSExceptionHandler.h>
+#  import <ExceptionHandling/NSExceptionHandler.h>
 #endif
 
 #if defined(__cplusplus)
-#include "nsICrashReporter.h"
-#include "nsCOMPtr.h"
-#include "nsServiceManagerUtils.h"
+#  include "nsICrashReporter.h"
+#  include "nsCOMPtr.h"
+#  include "nsServiceManagerUtils.h"
 #endif
 
 #include <unistd.h>

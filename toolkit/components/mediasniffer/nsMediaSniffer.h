@@ -7,11 +7,6 @@
 #ifndef nsMediaSniffer_h
 #define nsMediaSniffer_h
 
-#include "nsIModule.h"
-#include "nsIFactory.h"
-
-#include "nsIComponentManager.h"
-#include "nsIComponentRegistrar.h"
 #include "nsIContentSniffer.h"
 #include "mozilla/Attributes.h"
 
@@ -38,13 +33,16 @@ struct nsMediaSnifferEntry {
   const char* mContentType;
 };
 
+bool MatchesMP4(const uint8_t* aData, const uint32_t aLength,
+                nsACString& aSniffedType);
+
 class nsMediaSniffer final : public nsIContentSniffer {
  public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSICONTENTSNIFFER
 
  private:
-  ~nsMediaSniffer() {}
+  ~nsMediaSniffer() = default;
 
   static nsMediaSnifferEntry sSnifferEntries[];
 };

@@ -7,7 +7,9 @@
  * Tests whether keys in Params panel are sorted.
  */
 add_task(async function() {
-  const { tab, monitor } = await initNetMonitor(POST_ARRAY_DATA_URL);
+  const { tab, monitor } = await initNetMonitor(POST_ARRAY_DATA_URL, {
+    requestCount: 1,
+  });
   info("Starting test... ");
 
   const { document, store, windowRequire } = monitor.panelWin;
@@ -18,13 +20,17 @@ add_task(async function() {
   // Execute requests.
   await performRequests(monitor, tab, 1);
 
-  wait = waitForDOM(document, ".headers-overview");
-  EventUtils.sendMouseEvent({ type: "mousedown" },
-    document.querySelectorAll(".request-list-item")[0]);
+  const wait = waitForDOM(document, ".headers-overview");
+  EventUtils.sendMouseEvent(
+    { type: "mousedown" },
+    document.querySelectorAll(".request-list-item")[0]
+  );
   await wait;
 
-  EventUtils.sendMouseEvent({ type: "click" },
-    document.querySelector("#params-tab"));
+  EventUtils.sendMouseEvent(
+    { type: "click" },
+    document.querySelector("#request-tab")
+  );
 
   // The Params panel should render the following
   // POSTed JSON data structure:
@@ -42,26 +48,39 @@ add_task(async function() {
   //           1: "c"
   //           2: "b"
   //         c: 15
-  const actualKeys = document.querySelectorAll(".treeTable .treeRow");
   const expectedKeys = [
-    "JSON",
-    "watches: [...]",
-    "0: hello",
-    "1: how",
-    "2: are",
-    "3: you",
-    "4: {...}",
-    "a: 10",
-    "b: [...]",
-    "0: a",
-    "1: c",
-    "2: b",
-    "c: 15",
+    "watches\t[…]",
+    `0\t"hello"`,
+    `1\t"how"`,
+    `2\t"are"`,
+    `3\t"you"`,
+    "4\t{…}",
+    "a\t10",
+    "b\t[…]",
+    `0\t"a"`,
+    `1\t"c"`,
+    `2\t"b"`,
+    "c\t15",
   ];
 
+  const waitForTreeRow = waitForDOM(
+    document,
+    ".treeTable .treeRow",
+    expectedKeys.length
+  );
+  await waitForTreeRow;
+  const actualKeys = document.querySelectorAll(".treeTable .treeRow");
+
   for (let i = 0; i < actualKeys.length; i++) {
-    is(actualKeys[i].innerText, expectedKeys[i],
-      "Actual value " + actualKeys[i].innerText + " is equal to the " +
-      "expected value " + expectedKeys[i]);
+    const text = actualKeys[i].innerText.trim();
+    is(
+      text,
+      expectedKeys[i],
+      "Actual value " +
+        text +
+        " is equal to the " +
+        "expected value " +
+        expectedKeys[i]
+    );
   }
 });

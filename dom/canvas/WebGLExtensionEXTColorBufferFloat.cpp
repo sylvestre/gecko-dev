@@ -40,13 +40,12 @@ WebGLExtensionEXTColorBufferFloat::WebGLExtensionEXTColorBufferFloat(
 #undef FOO
 }
 
-/*static*/ bool WebGLExtensionEXTColorBufferFloat::IsSupported(
-    const WebGLContext* webgl) {
+/*static*/
+bool WebGLExtensionEXTColorBufferFloat::IsSupported(const WebGLContext* webgl) {
+  if (!webgl->IsWebGL2()) return false;
+
   const gl::GLContext* gl = webgl->GL();
   return gl->IsSupported(gl::GLFeature::EXT_color_buffer_float);
 }
-
-IMPL_WEBGL_EXTENSION_GOOP(WebGLExtensionEXTColorBufferFloat,
-                          EXT_color_buffer_float)
 
 }  // namespace mozilla

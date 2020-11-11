@@ -1,27 +1,42 @@
 /* Any copyright is dedicated to the Public Domain.
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
-/*
+/**
  * Shared functions generally available for testing login components.
  */
 
 "use strict";
 
-var EXPORTED_SYMBOLS = [
-  "LoginTestUtils",
-];
+const EXPORTED_SYMBOLS = ["LoginTestUtils"];
 
-ChromeUtils.import("resource://gre/modules/Services.jsm");
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
-ChromeUtils.import("resource://testing-common/Assert.jsm");
-ChromeUtils.import("resource://testing-common/TestUtils.jsm");
+let { Assert: AssertCls } = ChromeUtils.import(
+  "resource://testing-common/Assert.jsm"
+);
+let Assert = AssertCls;
 
-const LoginInfo =
-      Components.Constructor("@mozilla.org/login-manager/loginInfo;1",
-                             "nsILoginInfo", "init");
+const { TestUtils } = ChromeUtils.import(
+  "resource://testing-common/TestUtils.jsm"
+);
 
-var LoginTestUtils = {
+const { FileTestUtils } = ChromeUtils.import(
+  "resource://testing-common/FileTestUtils.jsm"
+);
+
+const { OS } = ChromeUtils.import("resource://gre/modules/osfile.jsm");
+
+const LoginInfo = Components.Constructor(
+  "@mozilla.org/login-manager/loginInfo;1",
+  "nsILoginInfo",
+  "init"
+);
+
+this.LoginTestUtils = {
+  setAssertReporter(reporterFunc) {
+    Assert = new AssertCls(Cu.waiveXrays(reporterFunc));
+  },
+
   /**
    * Forces the storage module to save all data, and the Login Manager service
    * to replace the storage module with a newly initialized instance.
@@ -36,29 +51,77 @@ var LoginTestUtils = {
    */
   clearData() {
     Services.logins.removeAllLogins();
-    for (let hostname of Services.logins.getAllDisabledHosts()) {
-      Services.logins.setLoginSavingEnabled(hostname, true);
+    for (let origin of Services.logins.getAllDisabledHosts()) {
+      Services.logins.setLoginSavingEnabled(origin, true);
     }
   },
 
   /**
-   * Checks that the currently stored list of nsILoginInfo matches the provided
-   * array.  The comparison uses the "equals" method of nsILoginInfo, that does
-   * not include nsILoginMetaInfo properties in the test.
+   * Add a new login to the store
    */
-  checkLogins(expectedLogins) {
-    this.assertLoginListsEqual(Services.logins.getAllLogins(), expectedLogins);
+  async addLogin({
+    username,
+    password,
+    origin = "https://example.com",
+    formActionOrigin,
+  }) {
+    const login = LoginTestUtils.testData.formLogin({
+      origin,
+      formActionOrigin: formActionOrigin || origin,
+      username,
+      password,
+    });
+    let storageChangedPromised = TestUtils.topicObserved(
+      "passwordmgr-storage-changed",
+      (_, data) => data == "addLogin"
+    );
+    Services.logins.addLogin(login);
+    let [savedLogin] = await storageChangedPromised;
+    return savedLogin;
+  },
+
+  resetGeneratedPasswordsCache() {
+    let { LoginManagerParent } = ChromeUtils.import(
+      "resource://gre/modules/LoginManagerParent.jsm"
+    );
+    LoginManagerParent.getGeneratedPasswordsByPrincipalOrigin().clear();
+  },
+
+  /**
+   * Checks that the currently stored list of nsILoginInfo matches the provided
+   * array.  If no `checkFn` is provided, the comparison uses the "equals"
+   * method of nsILoginInfo, that does not include nsILoginMetaInfo properties in the test.
+   */
+  checkLogins(expectedLogins, msg = "checkLogins", checkFn = undefined) {
+    this.assertLoginListsEqual(
+      Services.logins.getAllLogins(),
+      expectedLogins,
+      msg,
+      checkFn
+    );
   },
 
   /**
    * Checks that the two provided arrays of nsILoginInfo have the same length,
-   * and every login in "expected" is also found in "actual".  The comparison
-   * uses the "equals" method of nsILoginInfo, that does not include
-   * nsILoginMetaInfo properties in the test.
+   * and every login in "expected" is also found in "actual".  If no `checkFn`
+   * is provided, the comparison uses the "equals" method of nsILoginInfo, that
+   * does not include nsILoginMetaInfo properties in the test.
    */
-  assertLoginListsEqual(actual, expected) {
-    Assert.equal(expected.length, actual.length);
-    Assert.ok(expected.every(e => actual.some(a => a.equals(e))));
+  assertLoginListsEqual(
+    actual,
+    expected,
+    msg = "assertLoginListsEqual",
+    checkFn = undefined
+  ) {
+    Assert.equal(expected.length, actual.length, msg);
+    Assert.ok(
+      expected.every(e =>
+        actual.some(a => {
+          return checkFn ? checkFn(a, e) : a.equals(e);
+        })
+      ),
+      msg
+    );
   },
 
   /**
@@ -86,7 +149,7 @@ var LoginTestUtils = {
  * Any modification to the test data requires updating the tests accordingly, in
  * particular the search tests.
  */
-this.LoginTestUtils.testData = {
+LoginTestUtils.testData = {
   /**
    * Returns a new nsILoginInfo for use with form submits.
    *
@@ -95,13 +158,21 @@ this.LoginTestUtils.testData = {
    *        in the returned nsILoginInfo or nsILoginMetaInfo.
    */
   formLogin(modifications) {
-    let loginInfo = new LoginInfo("http://www3.example.com",
-                                  "http://www.example.com", null,
-                                  "the username", "the password",
-                                  "form_field_username", "form_field_password");
+    let loginInfo = new LoginInfo(
+      "http://www3.example.com",
+      "http://www.example.com",
+      null,
+      "the username",
+      "the password",
+      "form_field_username",
+      "form_field_password"
+    );
     loginInfo.QueryInterface(Ci.nsILoginMetaInfo);
     if (modifications) {
       for (let [name, value] of Object.entries(modifications)) {
+        if (name == "httpRealm" && value !== null) {
+          throw new Error("httpRealm not supported for form logins");
+        }
         loginInfo[name] = value;
       }
     }
@@ -116,12 +187,21 @@ this.LoginTestUtils.testData = {
    *        in the returned nsILoginInfo or nsILoginMetaInfo.
    */
   authLogin(modifications) {
-    let loginInfo = new LoginInfo("http://www.example.org", null,
-                                  "The HTTP Realm", "the username",
-                                  "the password", "", "");
+    let loginInfo = new LoginInfo(
+      "http://www.example.org",
+      null,
+      "The HTTP Realm",
+      "the username",
+      "the password"
+    );
     loginInfo.QueryInterface(Ci.nsILoginMetaInfo);
     if (modifications) {
       for (let [name, value] of Object.entries(modifications)) {
+        if (name == "formActionOrigin" && value !== null) {
+          throw new Error(
+            "formActionOrigin not supported for HTTP auth. logins"
+          );
+        }
         loginInfo[name] = value;
       }
     }
@@ -137,110 +217,282 @@ this.LoginTestUtils.testData = {
       // --- Examples of form logins (subdomains of example.com) ---
 
       // Simple form login with named fields for username and password.
-      new LoginInfo("http://www.example.com", "http://www.example.com", null,
-                    "the username", "the password for www.example.com",
-                    "form_field_username", "form_field_password"),
+      new LoginInfo(
+        "http://www.example.com",
+        "http://www.example.com",
+        null,
+        "the username",
+        "the password for www.example.com",
+        "form_field_username",
+        "form_field_password"
+      ),
 
       // Different schemes are treated as completely different sites.
-      new LoginInfo("https://www.example.com", "https://www.example.com", null,
-                    "the username", "the password for https",
-                    "form_field_username", "form_field_password"),
+      new LoginInfo(
+        "https://www.example.com",
+        "https://www.example.com",
+        null,
+        "the username",
+        "the password for https",
+        "form_field_username",
+        "form_field_password"
+      ),
 
-      // Subdomains are treated as completely different sites.
-      new LoginInfo("https://example.com", "https://example.com", null,
-                    "the username", "the password for example.com",
-                    "form_field_username", "form_field_password"),
+      // Subdomains can be treated as completely different sites depending on the UI invoked.
+      new LoginInfo(
+        "https://example.com",
+        "https://example.com",
+        null,
+        "the username",
+        "the password for example.com",
+        "form_field_username",
+        "form_field_password"
+      ),
 
-      // Forms found on the same host, but with different hostnames in the
+      // Forms found on the same origin, but with different origins in the
       // "action" attribute, are handled independently.
-      new LoginInfo("http://www3.example.com", "http://www.example.com", null,
-                    "the username", "the password",
-                    "form_field_username", "form_field_password"),
-      new LoginInfo("http://www3.example.com", "https://www.example.com", null,
-                    "the username", "the password",
-                    "form_field_username", "form_field_password"),
-      new LoginInfo("http://www3.example.com", "http://example.com", null,
-                    "the username", "the password",
-                    "form_field_username", "form_field_password"),
+      new LoginInfo(
+        "http://www3.example.com",
+        "http://www.example.com",
+        null,
+        "the username",
+        "the password",
+        "form_field_username",
+        "form_field_password"
+      ),
+      new LoginInfo(
+        "http://www3.example.com",
+        "https://www.example.com",
+        null,
+        "the username",
+        "the password",
+        "form_field_username",
+        "form_field_password"
+      ),
+      new LoginInfo(
+        "http://www3.example.com",
+        "http://example.com",
+        null,
+        "the username",
+        "the password",
+        "form_field_username",
+        "form_field_password"
+      ),
 
       // It is not possible to store multiple passwords for the same username,
       // however multiple passwords can be stored when the usernames differ.
       // An empty username is a valid case and different from the others.
-      new LoginInfo("http://www4.example.com", "http://www4.example.com", null,
-                    "username one", "password one",
-                    "form_field_username", "form_field_password"),
-      new LoginInfo("http://www4.example.com", "http://www4.example.com", null,
-                    "username two", "password two",
-                    "form_field_username", "form_field_password"),
-      new LoginInfo("http://www4.example.com", "http://www4.example.com", null,
-                    "", "password three",
-                    "form_field_username", "form_field_password"),
+      new LoginInfo(
+        "http://www4.example.com",
+        "http://www4.example.com",
+        null,
+        "username one",
+        "password one",
+        "form_field_username",
+        "form_field_password"
+      ),
+      new LoginInfo(
+        "http://www4.example.com",
+        "http://www4.example.com",
+        null,
+        "username two",
+        "password two",
+        "form_field_username",
+        "form_field_password"
+      ),
+      new LoginInfo(
+        "http://www4.example.com",
+        "http://www4.example.com",
+        null,
+        "",
+        "password three",
+        "form_field_username",
+        "form_field_password"
+      ),
 
       // Username and passwords fields in forms may have no "name" attribute.
-      new LoginInfo("http://www5.example.com", "http://www5.example.com", null,
-                    "multi username", "multi password", "", ""),
+      new LoginInfo(
+        "http://www5.example.com",
+        "http://www5.example.com",
+        null,
+        "multi username",
+        "multi password",
+        "",
+        ""
+      ),
 
       // Forms with PIN-type authentication will typically have no username.
-      new LoginInfo("http://www6.example.com", "http://www6.example.com", null,
-                    "", "12345", "", "form_field_password"),
+      new LoginInfo(
+        "http://www6.example.com",
+        "http://www6.example.com",
+        null,
+        "",
+        "12345",
+        "",
+        "form_field_password"
+      ),
+
+      // Logins can be saved on non-default ports
+      new LoginInfo(
+        "https://www7.example.com:8080",
+        "https://www7.example.com:8080",
+        null,
+        "8080_username",
+        "8080_pass"
+      ),
+
+      new LoginInfo(
+        "https://www7.example.com:8080",
+        null,
+        "My dev server",
+        "8080_username2",
+        "8080_pass2"
+      ),
 
       // --- Examples of authentication logins (subdomains of example.org) ---
 
       // Simple HTTP authentication login.
-      new LoginInfo("http://www.example.org", null, "The HTTP Realm",
-                    "the username", "the password", "", ""),
+      new LoginInfo(
+        "http://www.example.org",
+        null,
+        "The HTTP Realm",
+        "the username",
+        "the password"
+      ),
 
       // Simple FTP authentication login.
-      new LoginInfo("ftp://ftp.example.org", null, "ftp://ftp.example.org",
-                    "the username", "the password", "", ""),
+      new LoginInfo(
+        "ftp://ftp.example.org",
+        null,
+        "ftp://ftp.example.org",
+        "the username",
+        "the password"
+      ),
 
       // Multiple HTTP authentication logins can be stored for different realms.
-      new LoginInfo("http://www2.example.org", null, "The HTTP Realm",
-                    "the username", "the password", "", ""),
-      new LoginInfo("http://www2.example.org", null, "The HTTP Realm Other",
-                    "the username other", "the password other", "", ""),
+      new LoginInfo(
+        "http://www2.example.org",
+        null,
+        "The HTTP Realm",
+        "the username",
+        "the password"
+      ),
+      new LoginInfo(
+        "http://www2.example.org",
+        null,
+        "The HTTP Realm Other",
+        "the username other",
+        "the password other"
+      ),
 
       // --- Both form and authentication logins (example.net) ---
 
-      new LoginInfo("http://example.net", "http://example.net", null,
-                    "the username", "the password",
-                    "form_field_username", "form_field_password"),
-      new LoginInfo("http://example.net", "http://www.example.net", null,
-                    "the username", "the password",
-                    "form_field_username", "form_field_password"),
-      new LoginInfo("http://example.net", "http://www.example.net", null,
-                    "username two", "the password",
-                    "form_field_username", "form_field_password"),
-      new LoginInfo("http://example.net", null, "The HTTP Realm",
-                    "the username", "the password", "", ""),
-      new LoginInfo("http://example.net", null, "The HTTP Realm Other",
-                    "username two", "the password", "", ""),
-      new LoginInfo("ftp://example.net", null, "ftp://example.net",
-                    "the username", "the password", "", ""),
+      new LoginInfo(
+        "http://example.net",
+        "http://example.net",
+        null,
+        "the username",
+        "the password",
+        "form_field_username",
+        "form_field_password"
+      ),
+      new LoginInfo(
+        "http://example.net",
+        "http://www.example.net",
+        null,
+        "the username",
+        "the password",
+        "form_field_username",
+        "form_field_password"
+      ),
+      new LoginInfo(
+        "http://example.net",
+        "http://www.example.net",
+        null,
+        "username two",
+        "the password",
+        "form_field_username",
+        "form_field_password"
+      ),
+      new LoginInfo(
+        "http://example.net",
+        null,
+        "The HTTP Realm",
+        "the username",
+        "the password"
+      ),
+      new LoginInfo(
+        "http://example.net",
+        null,
+        "The HTTP Realm Other",
+        "username two",
+        "the password"
+      ),
+      new LoginInfo(
+        "ftp://example.net",
+        null,
+        "ftp://example.net",
+        "the username",
+        "the password"
+      ),
 
       // --- Examples of logins added by extensions (chrome scheme) ---
 
-      new LoginInfo("chrome://example_extension", null, "Example Login One",
-                    "the username", "the password one", "", ""),
-      new LoginInfo("chrome://example_extension", null, "Example Login Two",
-                    "the username", "the password two", "", ""),
+      new LoginInfo(
+        "chrome://example_extension",
+        null,
+        "Example Login One",
+        "the username",
+        "the password one",
+        "",
+        ""
+      ),
+      new LoginInfo(
+        "chrome://example_extension",
+        null,
+        "Example Login Two",
+        "the username",
+        "the password two"
+      ),
+
+      // -- file:// URIs throw accessing nsIURI.host
+
+      new LoginInfo(
+        "file://",
+        "file://",
+        null,
+        "file: username",
+        "file: password"
+      ),
+
+      // -- javascript: URIs throw accessing nsIURI.host.
+      // They should only be used for the formActionOrigin.
+      new LoginInfo(
+        "https://js.example.com",
+        "javascript:",
+        null,
+        "javascript: username",
+        "javascript: password"
+      ),
     ];
   },
 };
 
-this.LoginTestUtils.recipes = {
+LoginTestUtils.recipes = {
   getRecipeParent() {
-    let { LoginManagerParent } = ChromeUtils.import("resource://gre/modules/LoginManagerParent.jsm", {});
+    let { LoginManagerParent } = ChromeUtils.import(
+      "resource://gre/modules/LoginManagerParent.jsm"
+    );
     if (!LoginManagerParent.recipeParentPromise) {
       return null;
     }
-    return LoginManagerParent.recipeParentPromise.then((recipeParent) => {
+    return LoginManagerParent.recipeParentPromise.then(recipeParent => {
       return recipeParent;
     });
   },
 };
 
-this.LoginTestUtils.masterPassword = {
+LoginTestUtils.masterPassword = {
   masterPassword: "omgsecret!",
 
   _set(enable) {
@@ -256,8 +508,9 @@ this.LoginTestUtils.masterPassword = {
     // Set master password. Note that this logs in the user if no password was
     // set before. But after logging out the next invocation of pwmgr can
     // trigger a MP prompt.
-    let pk11db = Cc["@mozilla.org/security/pk11tokendb;1"]
-                   .getService(Ci.nsIPK11TokenDB);
+    let pk11db = Cc["@mozilla.org/security/pk11tokendb;1"].getService(
+      Ci.nsIPK11TokenDB
+    );
     let token = pk11db.getInternalKeyToken();
     if (token.needsUserInit) {
       dump("MP initialized to " + newPW + "\n");
@@ -276,5 +529,81 @@ this.LoginTestUtils.masterPassword = {
 
   disable() {
     this._set(false);
+  },
+};
+
+/**
+ * Utilities related to interacting with login fields in content.
+ */
+LoginTestUtils.loginField = {
+  checkPasswordMasked(field, expected, msg) {
+    let { editor } = field;
+    let valueLength = field.value.length;
+    Assert.equal(
+      editor.autoMaskingEnabled,
+      expected,
+      `Check autoMaskingEnabled: ${msg}`
+    );
+    Assert.equal(editor.unmaskedStart, 0, `unmaskedStart is 0: ${msg}`);
+    if (expected) {
+      Assert.equal(editor.unmaskedEnd, 0, `Password is masked: ${msg}`);
+    } else {
+      Assert.equal(
+        editor.unmaskedEnd,
+        valueLength,
+        `Unmasked to the end: ${msg}`
+      );
+    }
+  },
+};
+
+LoginTestUtils.generation = {
+  LENGTH: 15,
+  REGEX: /^[a-km-np-zA-HJ-NP-Z2-9]{15}$/,
+};
+
+LoginTestUtils.telemetry = {
+  async waitForEventCount(
+    count,
+    process = "content",
+    category = "pwmgr",
+    method = undefined
+  ) {
+    let events = await TestUtils.waitForCondition(() => {
+      let events = Services.telemetry.snapshotEvents(
+        Ci.nsITelemetry.DATASET_PRERELEASE_CHANNELS,
+        false
+      )[process];
+
+      if (!events) {
+        return null;
+      }
+
+      events = events.filter(
+        e => e[1] == category && (!method || e[2] == method)
+      );
+      dump(`Waiting for ${count} events, got ${events.length}\n`);
+      return events.length == count ? events : null;
+    }, "waiting for telemetry event count of: " + count);
+    Assert.equal(events.length, count, "waiting for telemetry event count");
+    return events;
+  },
+};
+
+LoginTestUtils.file = {
+  /**
+   * Given an array of strings it creates a temporary CSV file that has them as content.
+   *
+   * @param {string[]} csvLines
+   *        The lines that make up the CSV file.
+   * @returns {window.File} The File to the CSV file that was created.
+   */
+  async setupCsvFileWithLines(csvLines) {
+    let tmpFile = FileTestUtils.getTempFile("firefox_logins.csv");
+    await OS.File.writeAtomic(
+      tmpFile.path,
+      new TextEncoder().encode(csvLines.join("\r\n"))
+    );
+    return tmpFile;
   },
 };

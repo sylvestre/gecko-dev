@@ -3,10 +3,14 @@
 var test = function(isContent) {
   SimpleTest.waitForExplicitFinish();
 
-  SpecialPowers.pushPrefEnv({"set": [["security.allow_eval_with_system_principal", true]]});
+  SpecialPowers.pushPrefEnv({
+    set: [["security.allow_eval_with_system_principal", true]],
+  });
 
-  let { ww } = SpecialPowers.Services;
-  window.chromeWindow = ww.activeWindow;
+  if (!isContent) {
+    let { ww } = SpecialPowers.Services;
+    window.chromeWindow = ww.activeWindow;
+  }
 
   // The pairs of values expected to be the same when
   // fingerprinting resistance is enabled.
@@ -38,16 +42,20 @@ var test = function(isContent) {
   };
 
   // Returns generator object that iterates through pref values.
-  let prefVals = (function* () { yield false; yield true; })();
+  let prefVals = (function*() {
+    yield false;
+    yield true;
+  })();
 
   // The main test function, runs until all pref values are exhausted.
   let nextTest = function() {
-    let {value: prefValue, done} = prefVals.next();
+    let { value: prefValue, done } = prefVals.next();
     if (done) {
       SimpleTest.finish();
       return;
     }
-    SpecialPowers.pushPrefEnv({set: [["privacy.resistFingerprinting", prefValue]]},
+    SpecialPowers.pushPrefEnv(
+      { set: [["privacy.resistFingerprinting", prefValue]] },
       function() {
         // We will be resisting fingerprinting if the pref is enabled,
         // and we are in a content script (not chrome).
@@ -56,19 +64,24 @@ var test = function(isContent) {
         pairs.map(function([item, onVal]) {
           if (resisting) {
             checkPair("window." + item, onVal);
-          } else if (!item.startsWith("moz")) {
-              checkPair("window." + item, "chromeWindow." + item);
-            }
+          } else if (!isContent && !item.startsWith("moz")) {
+            checkPair("window." + item, "chromeWindow." + item);
+          }
         });
-        if (!resisting) {
+        if (!isContent && !resisting) {
           // Hard to predict these values, but we can enforce constraints:
-          ok(window.mozInnerScreenX >= chromeWindow.mozInnerScreenX,
-             "mozInnerScreenX");
-          ok(window.mozInnerScreenY >= chromeWindow.mozInnerScreenY,
-             "mozInnerScreenY");
+          ok(
+            window.mozInnerScreenX >= chromeWindow.mozInnerScreenX,
+            "mozInnerScreenX"
+          );
+          ok(
+            window.mozInnerScreenY >= chromeWindow.mozInnerScreenY,
+            "mozInnerScreenY"
+          );
         }
-      nextTest();
-    });
+        nextTest();
+      }
+    );
   };
 
   nextTest();

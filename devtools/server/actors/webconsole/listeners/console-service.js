@@ -4,11 +4,11 @@
 
 "use strict";
 
-const {Ci} = require("chrome");
-const {isWindowIncluded} = require("devtools/shared/layout/utils");
+const { Ci } = require("chrome");
+const { isWindowIncluded } = require("devtools/shared/layout/utils");
 const Services = require("Services");
 const ChromeUtils = require("ChromeUtils");
-const {WebConsoleUtils} = require("devtools/server/actors/webconsole/utils");
+const { WebConsoleUtils } = require("devtools/server/actors/webconsole/utils");
 
 // The page errors listener
 
@@ -20,39 +20,36 @@ const {WebConsoleUtils} = require("devtools/server/actors/webconsole/utils");
  * @param nsIDOMWindow [window]
  *        Optional - the window object for which we are created. This is used
  *        for filtering out messages that belong to other windows.
- * @param object listener
- *        The listener object must have one method:
- *        - onConsoleServiceMessage(). This method is invoked with one argument,
- *        the nsIConsoleMessage, whenever a relevant message is received.
+ * @param Function handler
+ *        This function is invoked with one argument, the nsIConsoleMessage, whenever a
+ *        relevant message is received.
  */
-function ConsoleServiceListener(window, listener) {
-  this.window = window;
-  this.listener = listener;
-}
-exports.ConsoleServiceListener = ConsoleServiceListener;
+class ConsoleServiceListener {
+  constructor(window, handler) {
+    this.window = window;
+    this.handler = handler;
+  }
 
-ConsoleServiceListener.prototype =
-{
-  QueryInterface: ChromeUtils.generateQI([Ci.nsIConsoleListener]),
+  QueryInterface = ChromeUtils.generateQI([Ci.nsIConsoleListener]);
 
   /**
    * The content window for which we listen to page errors.
    * @type nsIDOMWindow
    */
-  window: null,
+  window = null;
 
   /**
-   * The listener object which is notified of messages from the console service.
-   * @type object
+   * The function which is notified of messages from the console service.
+   * @type function
    */
-  listener: null,
+  handler = null;
 
   /**
    * Initialize the nsIConsoleService listener.
    */
-  init: function() {
+  init() {
     Services.console.registerListener(this);
-  },
+  }
 
   /**
    * The nsIConsoleService observer. This method takes all the script error
@@ -62,26 +59,34 @@ ConsoleServiceListener.prototype =
    * @param nsIConsoleMessage message
    *        The message object coming from the nsIConsoleService.
    */
-  observe: function(message) {
-    if (!this.listener) {
+  observe(message) {
+    if (!this.handler) {
       return;
     }
 
     if (this.window) {
-      if (!(message instanceof Ci.nsIScriptError) ||
-          !message.outerWindowID ||
-          !this.isCategoryAllowed(message.category)) {
+      if (
+        !(message instanceof Ci.nsIScriptError) ||
+        !message.outerWindowID ||
+        !this.isCategoryAllowed(message.category)
+      ) {
         return;
       }
 
-      const errorWindow = Services.wm.getOuterWindowWithId(message.outerWindowID);
+      const errorWindow = Services.wm.getOuterWindowWithId(
+        message.outerWindowID
+      );
       if (!errorWindow || !isWindowIncluded(this.window, errorWindow)) {
         return;
       }
     }
 
-    this.listener.onConsoleServiceMessage(message);
-  },
+    // Don't display messages triggered by eager evaluation.
+    if (message.sourceName === "debugger eager eval code") {
+      return;
+    }
+    this.handler(message);
+  }
 
   /**
    * Check if the given message category is allowed to be tracked or not.
@@ -92,7 +97,7 @@ ConsoleServiceListener.prototype =
    * @return boolean
    *         True if the category is allowed to be logged, false otherwise.
    */
-  isCategoryAllowed: function(category) {
+  isCategoryAllowed(category) {
     if (!category) {
       return false;
     }
@@ -102,15 +107,11 @@ ConsoleServiceListener.prototype =
       case "component javascript":
       case "chrome javascript":
       case "chrome registration":
-      case "XBL":
-      case "XBL Prototype Handler":
-      case "XBL Content Sink":
-      case "xbl javascript":
         return false;
     }
 
     return true;
-  },
+  }
 
   /**
    * Get the cached page errors for the current inner window and its (i)frames.
@@ -122,13 +123,13 @@ ConsoleServiceListener.prototype =
    *         The array of cached messages. Each element is an nsIScriptError or
    *         an nsIConsoleMessage
    */
-  getCachedMessages: function(includePrivate = false) {
+  getCachedMessages(includePrivate = false) {
     const errors = Services.console.getMessageArray() || [];
 
     // if !this.window, we're in a browser console. Still need to filter
     // private messages.
     if (!this.window) {
-      return errors.filter((error) => {
+      return errors.filter(error => {
         if (error instanceof Ci.nsIScriptError) {
           if (!includePrivate && error.isFromPrivateWindow) {
             return false;
@@ -141,17 +142,19 @@ ConsoleServiceListener.prototype =
 
     const ids = WebConsoleUtils.getInnerWindowIDsForFrames(this.window);
 
-    return errors.filter((error) => {
+    return errors.filter(error => {
       if (error instanceof Ci.nsIScriptError) {
         if (!includePrivate && error.isFromPrivateWindow) {
           return false;
         }
-        if (ids &&
-            (!ids.includes(error.innerWindowID) ||
-             !this.isCategoryAllowed(error.category))) {
+        if (
+          ids &&
+          (!ids.includes(error.innerWindowID) ||
+            !this.isCategoryAllowed(error.category))
+        ) {
           return false;
         }
-      } else if (ids && ids[0]) {
+      } else if (ids?.[0]) {
         // If this is not an nsIScriptError and we need to do window-based
         // filtering we skip this message.
         return false;
@@ -159,13 +162,15 @@ ConsoleServiceListener.prototype =
 
       return true;
     });
-  },
+  }
 
   /**
    * Remove the nsIConsoleService listener.
    */
-  destroy: function() {
+  destroy() {
     Services.console.unregisterListener(this);
-    this.listener = this.window = null;
-  },
-};
+    this.handler = this.window = null;
+  }
+}
+
+exports.ConsoleServiceListener = ConsoleServiceListener;

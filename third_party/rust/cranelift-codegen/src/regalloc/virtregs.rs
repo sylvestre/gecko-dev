@@ -5,23 +5,24 @@
 //! output.
 //!
 //! A virtual register is typically built by merging together SSA values that are "phi-related" -
-//! that is, one value is passed as an EBB argument to a branch and the other is the EBB parameter
+//! that is, one value is passed as a block argument to a branch and the other is the block parameter
 //! value itself.
 //!
 //! If any values in a virtual register are spilled, they will use the same stack slot. This avoids
-//! memory-to-memory copies when a spilled value is passed as an EBB argument.
+//! memory-to-memory copies when a spilled value is passed as a block argument.
 
-use dbg::DisplayList;
-use dominator_tree::DominatorTreePreorder;
-use entity::EntityRef;
-use entity::{EntityList, ListPool};
-use entity::{Keys, PrimaryMap, SecondaryMap};
-use ir::{Function, Value};
-use packed_option::PackedOption;
-use ref_slice::ref_slice;
-use std::cmp::Ordering;
-use std::fmt;
-use std::vec::Vec;
+use crate::dbg::DisplayList;
+use crate::dominator_tree::DominatorTreePreorder;
+use crate::entity::entity_impl;
+use crate::entity::{EntityList, ListPool};
+use crate::entity::{Keys, PrimaryMap, SecondaryMap};
+use crate::ir::{Function, Value};
+use crate::packed_option::PackedOption;
+use alloc::vec::Vec;
+use core::cmp::Ordering;
+use core::fmt;
+use core::slice;
+use smallvec::SmallVec;
 
 /// A virtual register reference.
 #[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -97,13 +98,13 @@ impl VirtRegs {
     ///
     /// If `value` belongs to a virtual register, the congruence class is the values of the virtual
     /// register. Otherwise it is just the value itself.
-    #[cfg_attr(feature = "cargo-clippy", allow(trivially_copy_pass_by_ref))]
+    #[cfg_attr(feature = "cargo-clippy", allow(clippy::trivially_copy_pass_by_ref))]
     pub fn congruence_class<'a, 'b>(&'a self, value: &'b Value) -> &'b [Value]
     where
         'a: 'b,
     {
         self.get(*value)
-            .map_or_else(|| ref_slice(value), |vr| self.values(vr))
+            .map_or_else(|| slice::from_ref(value), |vr| self.values(vr))
     }
 
     /// Check if `a` and `b` belong to the same congruence class.
@@ -258,15 +259,15 @@ impl UFEntry {
     /// Decode a table entry.
     fn decode(x: i32) -> Self {
         if x < 0 {
-            UFEntry::Link(Value::new((!x) as usize))
+            Self::Link(Value::from_u32((!x) as u32))
         } else {
-            UFEntry::Rank(x as u32)
+            Self::Rank(x as u32)
         }
     }
 
     /// Encode a link entry.
     fn encode_link(v: Value) -> i32 {
-        !(v.index() as i32)
+        !(v.as_u32() as i32)
     }
 }
 
@@ -292,7 +293,7 @@ impl VirtRegs {
     /// Find the leader value and rank of the set containing `v`.
     /// Compress the path if needed.
     fn find(&mut self, mut val: Value) -> (Value, u32) {
-        let mut val_stack = vec![];
+        let mut val_stack = SmallVec::<[Value; 8]>::new();
         let found = loop {
             match UFEntry::decode(self.union_find[val]) {
                 UFEntry::Rank(rank) => break (val, rank),
@@ -400,8 +401,8 @@ impl VirtRegs {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use entity::EntityRef;
-    use ir::Value;
+    use crate::entity::EntityRef;
+    use crate::ir::Value;
 
     #[test]
     fn empty_union_find() {

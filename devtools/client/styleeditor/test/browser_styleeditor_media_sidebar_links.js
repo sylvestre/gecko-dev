@@ -1,4 +1,3 @@
-/* vim: set ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
    http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -8,28 +7,34 @@
  * @media sidebar width and height related conditions */
 
 const asyncStorage = require("devtools/shared/async-storage");
-Services.prefs.setCharPref("devtools.devices.url",
-  "http://example.com/browser/devtools/client/responsive.html/test/browser/devices.json");
+Services.prefs.setCharPref(
+  "devtools.devices.url",
+  "http://example.com/browser/devtools/client/responsive/test/browser/devices.json"
+);
 
 registerCleanupFunction(() => {
   Services.prefs.clearUserPref("devtools.devices.url");
   asyncStorage.removeItem("devtools.devices.url_cache");
 });
 
-loader.lazyRequireGetter(this, "ResponsiveUIManager", "devtools/client/responsive.html/manager", true);
+loader.lazyRequireGetter(
+  this,
+  "ResponsiveUIManager",
+  "devtools/client/responsive/manager"
+);
 
 const TESTCASE_URI = TEST_BASE_HTTPS + "media-rules.html";
 const responsiveModeToggleClass = ".media-responsive-mode-toggle";
 
 add_task(async function() {
-  const {ui} = await openStyleEditorForURL(TESTCASE_URI);
+  const { ui } = await openStyleEditorForURL(TESTCASE_URI);
 
   const editor = ui.editors[1];
   await openEditor(editor);
 
   const tab = gBrowser.selectedTab;
   testNumberOfLinks(editor);
-  await testMediaLink(editor, tab, ui, 2, "width", 400);
+  await testMediaLink(editor, tab, ui, 2, "width", 550);
   await testMediaLink(editor, tab, ui, 3, "height", 300);
 
   await closeRDM(tab, ui);
@@ -41,14 +46,23 @@ function testNumberOfLinks(editor) {
   const conditions = sidebar.querySelectorAll(".media-rule-condition");
 
   info("Testing if media rules have the appropriate number of links");
-  ok(!conditions[0].querySelector(responsiveModeToggleClass),
-    "There should be no links in the first media rule.");
-  ok(!conditions[1].querySelector(responsiveModeToggleClass),
-     "There should be no links in the second media rule.");
-  ok(conditions[2].querySelector(responsiveModeToggleClass),
-     "There should be 1 responsive mode link in the media rule");
-  is(conditions[3].querySelectorAll(responsiveModeToggleClass).length, 2,
-       "There should be 2 responsive mode links in the media rule");
+  ok(
+    !conditions[0].querySelector(responsiveModeToggleClass),
+    "There should be no links in the first media rule."
+  );
+  ok(
+    !conditions[1].querySelector(responsiveModeToggleClass),
+    "There should be no links in the second media rule."
+  );
+  ok(
+    conditions[2].querySelector(responsiveModeToggleClass),
+    "There should be 1 responsive mode link in the media rule"
+  );
+  is(
+    conditions[3].querySelectorAll(responsiveModeToggleClass).length,
+    2,
+    "There should be 2 responsive mode links in the media rule"
+  );
 }
 
 async function testMediaLink(editor, tab, ui, itemIndex, type, value) {
@@ -56,23 +70,32 @@ async function testMediaLink(editor, tab, ui, itemIndex, type, value) {
   let conditions = sidebar.querySelectorAll(".media-rule-condition");
 
   const onMediaChange = once(ui, "media-list-changed");
+  const onRDMOpened = once(ui, "responsive-mode-opened");
 
   info("Launching responsive mode");
   conditions[itemIndex].querySelector(responsiveModeToggleClass).click();
-
+  await onRDMOpened;
   const rdmUI = ResponsiveUIManager.getResponsiveUIForTab(tab);
-  const onContentResize = waitForResizeTo(rdmUI, type, value);
+
+  await waitForResizeTo(rdmUI, type, value);
   rdmUI.transitionsEnabled = false;
 
   info("Waiting for the @media list to update");
   await onMediaChange;
-  await onContentResize;
 
-  ok(ResponsiveUIManager.isActiveForTab(tab),
-    "Responsive mode should be active.");
+  // Ensure that the content has reflowed, which will ensure that all the
+  // element classes are reported correctly.
+  await promiseContentReflow(rdmUI);
+
+  ok(
+    ResponsiveUIManager.isActiveForTab(tab),
+    "Responsive mode should be active."
+  );
   conditions = sidebar.querySelectorAll(".media-rule-condition");
-  ok(!conditions[itemIndex].classList.contains("media-condition-unmatched"),
-     "media rule should now be matched after responsive mode is active");
+  ok(
+    !conditions[itemIndex].classList.contains("media-condition-unmatched"),
+    "media rule should now be matched after responsive mode is active"
+  );
 
   const dimension = (await getSizing(rdmUI))[type];
   is(dimension, value, `${type} should be properly set.`);
@@ -86,18 +109,24 @@ async function closeRDM(tab, ui) {
 
   info("Wait for media-list-changed events to settle on StyleEditorUI");
   await onMediaChange;
-  ok(!ResponsiveUIManager.isActiveForTab(tab),
-     "Responsive mode should no longer be active.");
+  ok(
+    !ResponsiveUIManager.isActiveForTab(tab),
+    "Responsive mode should no longer be active."
+  );
 }
 
 function doFinalChecks(editor) {
   const sidebar = editor.details.querySelector(".stylesheet-sidebar");
   let conditions = sidebar.querySelectorAll(".media-rule-condition");
   conditions = sidebar.querySelectorAll(".media-rule-condition");
-  ok(conditions[2].classList.contains("media-condition-unmatched"),
-     "The width condition should now be unmatched");
-  ok(conditions[3].classList.contains("media-condition-unmatched"),
-     "The height condition should now be unmatched");
+  ok(
+    conditions[2].classList.contains("media-condition-unmatched"),
+    "The width condition should now be unmatched"
+  );
+  ok(
+    conditions[3].classList.contains("media-condition-unmatched"),
+    "The height condition should now be unmatched"
+  );
 }
 
 /* Helpers */
@@ -116,9 +145,19 @@ function waitForResizeTo(rdmUI, type, value) {
   });
 }
 
+function promiseContentReflow(ui) {
+  return SpecialPowers.spawn(ui.getViewportBrowser(), [], async function() {
+    return new Promise(resolve => {
+      content.window.requestAnimationFrame(() => {
+        content.window.requestAnimationFrame(resolve);
+      });
+    });
+  });
+}
+
 async function getSizing(rdmUI) {
   const browser = rdmUI.getViewportBrowser();
-  const sizing = await ContentTask.spawn(browser, {}, async function() {
+  const sizing = await SpecialPowers.spawn(browser, [], async function() {
     return {
       width: content.innerWidth,
       height: content.innerHeight,

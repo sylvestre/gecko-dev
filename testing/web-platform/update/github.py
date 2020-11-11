@@ -3,8 +3,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import json
-from urlparse import urljoin
+from six.moves.urllib.parse import urljoin
+
 requests = None
+
 
 class GitHubError(Exception):
     def __init__(self, status, data):
@@ -39,8 +41,7 @@ class GitHub(object):
         headers_ = self.headers
         if headers is not None:
             headers_.update(headers)
-        kwargs = {"headers": headers_,
-                  "auth": self.auth}
+        kwargs = {"headers": headers_, "auth": self.auth}
         if data is not None:
             kwargs["data"] = json.dumps(data)
 
@@ -49,7 +50,7 @@ class GitHub(object):
         if 200 <= resp.status_code < 300:
             return resp.json()
         else:
-            print method, path, resp.status_code, resp.json()
+            print(method, path, resp.status_code, resp.json())
             raise GitHubError(resp.status_code, resp.json())
 
     def repo(self, owner, name):
@@ -119,11 +120,10 @@ class PullRequest(object):
 
     @classmethod
     def create(cls, repo, title, head, base, body):
-        data = repo.gh.post(repo.path("pulls"),
-                            {"title": title,
-                             "head": head,
-                             "base": base,
-                             "body": body})
+        data = repo.gh.post(
+            repo.path("pulls"),
+            {"title": title, "head": head, "base": base, "body": body},
+        )
         return cls(repo, data)
 
     def path(self, suffix):
@@ -137,11 +137,12 @@ class PullRequest(object):
         return self._issue
 
     def merge(self):
-        """Merge the Pull Request into its base branch.
-        """
-        self.repo.gh.put(self.path("merge"),
-                         {"merge_method": "merge"},
-                         headers={"Accept": "application/vnd.github.polaris-preview+json"})
+        """Merge the Pull Request into its base branch."""
+        self.repo.gh.put(
+            self.path("merge"),
+            {"merge_method": "merge"},
+            headers={"Accept": "application/vnd.github.polaris-preview+json"},
+        )
 
 
 class Issue(object):
@@ -164,5 +165,4 @@ class Issue(object):
 
         :param message: The text of the comment
         """
-        self.repo.gh.post(self.path("comments"),
-                          {"body": message})
+        self.repo.gh.post(self.path("comments"), {"body": message})

@@ -10,21 +10,20 @@
 #include "mozilla/dom/cache/CacheChild.h"
 #include "mozilla/dom/cache/CacheOpChild.h"
 #include "mozilla/dom/cache/CacheStorage.h"
+#include "mozilla/dom/cache/CacheWorkerRef.h"
 
-namespace mozilla {
-namespace dom {
-namespace cache {
+namespace mozilla::dom::cache {
 
 // declared in ActorUtils.h
 void DeallocPCacheStorageChild(PCacheStorageChild* aActor) { delete aActor; }
 
 CacheStorageChild::CacheStorageChild(CacheStorage* aListener,
-                                     CacheWorkerHolder* aWorkerHolder)
+                                     SafeRefPtr<CacheWorkerRef> aWorkerRef)
     : mListener(aListener), mNumChildActors(0), mDelayedDestroy(false) {
   MOZ_COUNT_CTOR(cache::CacheStorageChild);
   MOZ_DIAGNOSTIC_ASSERT(mListener);
 
-  SetWorkerHolder(aWorkerHolder);
+  SetWorkerRef(std::move(aWorkerRef));
 }
 
 CacheStorageChild::~CacheStorageChild() {
@@ -44,7 +43,9 @@ void CacheStorageChild::ExecuteOp(nsIGlobalObject* aGlobal, Promise* aPromise,
                                   const CacheOpArgs& aArgs) {
   mNumChildActors += 1;
   Unused << SendPCacheOpConstructor(
-      new CacheOpChild(GetWorkerHolder(), aGlobal, aParent, aPromise), aArgs);
+      new CacheOpChild(GetWorkerRefPtr().clonePtr(), aGlobal, aParent,
+                       aPromise),
+      aArgs);
 }
 
 void CacheStorageChild::StartDestroyFromListener() {
@@ -73,7 +74,7 @@ void CacheStorageChild::StartDestroy() {
   RefPtr<CacheStorage> listener = mListener;
 
   // StartDestroy() can get called from either CacheStorage or the
-  // CacheWorkerHolder.
+  // CacheWorkerRef.
   // Theoretically we can get double called if the right race happens.  Handle
   // that by just ignoring the second StartDestroy() call.
   if (!listener) {
@@ -98,7 +99,7 @@ void CacheStorageChild::ActorDestroy(ActorDestroyReason aReason) {
     MOZ_DIAGNOSTIC_ASSERT(!mListener);
   }
 
-  RemoveWorkerHolder();
+  RemoveWorkerRef();
 }
 
 PCacheOpChild* CacheStorageChild::AllocPCacheOpChild(
@@ -121,6 +122,4 @@ void CacheStorageChild::NoteDeletedActor() {
   }
 }
 
-}  // namespace cache
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom::cache

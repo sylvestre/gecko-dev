@@ -6,11 +6,10 @@ from __future__ import absolute_import
 
 from marionette_driver.errors import NoSuchWindowException
 
-from marionette_harness import MarionetteTestCase, WindowManagerMixin, skip_if_mobile
+from marionette_harness import MarionetteTestCase, WindowManagerMixin
 
 
 class TestGetCurrentUrlChrome(WindowManagerMixin, MarionetteTestCase):
-
     def setUp(self):
         super(TestGetCurrentUrlChrome, self).setUp()
         self.marionette.set_context("chrome")
@@ -29,9 +28,8 @@ class TestGetCurrentUrlChrome(WindowManagerMixin, MarionetteTestCase):
         chrome_url = self.marionette.execute_script("return window.location.href;")
         self.assertEqual(self.marionette.get_url(), chrome_url)
 
-    @skip_if_mobile("Fennec doesn't support other chrome windows")
     def test_no_browser_window(self):
-        win = self.open_chrome_window("chrome://marionette/content/test.xul")
+        win = self.open_chrome_window("chrome://marionette/content/test.xhtml")
         self.marionette.switch_to_window(win)
 
         chrome_url = self.marionette.execute_script("return window.location.href;")

@@ -4,14 +4,19 @@
 
 "use strict";
 
-const { createFactory, PureComponent } = require("devtools/client/shared/vendor/react");
+const {
+  createFactory,
+  PureComponent,
+} = require("devtools/client/shared/vendor/react");
 const dom = require("devtools/client/shared/vendor/react-dom-factories");
 const PropTypes = require("devtools/client/shared/vendor/react-prop-types");
 const { LocalizationHelper } = require("devtools/shared/l10n");
 
-const ComputedProperty = createFactory(require("devtools/client/inspector/layout/components/ComputedProperty"));
+const ComputedProperty = createFactory(
+  require("devtools/client/inspector/boxmodel/components/ComputedProperty")
+);
 
-const Types = require("../types");
+const Types = require("devtools/client/inspector/boxmodel/types");
 
 const BOXMODEL_STRINGS_URI = "devtools/client/locales/boxmodel.properties";
 const BOXMODEL_L10N = new LocalizationHelper(BOXMODEL_STRINGS_URI);
@@ -20,8 +25,7 @@ class BoxModelProperties extends PureComponent {
   static get propTypes() {
     return {
       boxModel: PropTypes.shape(Types.boxModel).isRequired,
-      onHideBoxModelHighlighter: PropTypes.func.isRequired,
-      onShowBoxModelHighlighterForNode: PropTypes.func.isRequired,
+      dispatch: PropTypes.func.isRequired,
       setSelectedNode: PropTypes.func.isRequired,
     };
   }
@@ -51,9 +55,12 @@ class BoxModelProperties extends PureComponent {
   getReferenceElement(propertyName) {
     const value = this.props.boxModel.layout[propertyName];
 
-    if (propertyName === "position" &&
-        value !== "static" && value !== "fixed" &&
-        this.props.boxModel.offsetParent) {
+    if (
+      propertyName === "position" &&
+      value !== "static" &&
+      value !== "fixed" &&
+      this.props.boxModel.offsetParent
+    ) {
       return {
         referenceElement: this.props.boxModel.offsetParent,
         referenceElementType: BOXMODEL_L10N.getStr("boxmodel.offsetParent"),
@@ -71,25 +78,28 @@ class BoxModelProperties extends PureComponent {
   }
 
   render() {
-    const {
-      boxModel,
-      onHideBoxModelHighlighter,
-      onShowBoxModelHighlighterForNode,
-      setSelectedNode,
-    } = this.props;
+    const { boxModel, dispatch, setSelectedNode } = this.props;
     const { layout } = boxModel;
 
-    const layoutInfo = ["box-sizing", "display", "float",
-                        "line-height", "position", "z-index"];
+    const layoutInfo = [
+      "box-sizing",
+      "display",
+      "float",
+      "line-height",
+      "position",
+      "z-index",
+    ];
 
     const properties = layoutInfo.map(info => {
-      const { referenceElement, referenceElementType } = this.getReferenceElement(info);
+      const {
+        referenceElement,
+        referenceElementType,
+      } = this.getReferenceElement(info);
 
       return ComputedProperty({
+        dispatch,
         key: info,
         name: info,
-        onHideBoxModelHighlighter,
-        onShowBoxModelHighlighterForNode,
         referenceElement,
         referenceElementType,
         setSelectedNode,
@@ -97,26 +107,33 @@ class BoxModelProperties extends PureComponent {
       });
     });
 
-    return dom.div({ className: "layout-properties" },
+    return dom.div(
+      { className: "layout-properties" },
       dom.div(
         {
           className: "layout-properties-header",
+          role: "heading",
+          "aria-level": "3",
           onDoubleClick: this.onToggleExpander,
         },
-        dom.span(
-          {
-            className: "layout-properties-expander theme-twisty",
-            open: this.state.isOpen,
-            onClick: this.onToggleExpander,
-          }
-        ),
+        dom.span({
+          className: "layout-properties-expander theme-twisty",
+          open: this.state.isOpen,
+          role: "button",
+          "aria-label": BOXMODEL_L10N.getStr(
+            this.state.isOpen
+              ? "boxmodel.propertiesHideLabel"
+              : "boxmodel.propertiesShowLabel"
+          ),
+          onClick: this.onToggleExpander,
+        }),
         BOXMODEL_L10N.getStr("boxmodel.propertiesLabel")
       ),
       dom.div(
         {
           className: "layout-properties-wrapper devtools-monospace",
           hidden: !this.state.isOpen,
-          tabIndex: 0,
+          role: "table",
         },
         properties
       )

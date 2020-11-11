@@ -1,10 +1,13 @@
 //! Iterators that are sources (produce elements from parameters,
 //! not from another iterator).
+#![allow(deprecated)]
 
 use std::fmt;
 use std::mem;
 
 /// See [`repeat_call`](../fn.repeat_call.html) for more information.
+#[derive(Clone)]
+#[deprecated(note="Use std repeat_with() instead", since="0.8")]
 pub struct RepeatCall<F> {
     f: F,
 }
@@ -36,6 +39,7 @@ impl<F> fmt::Debug for RepeatCall<F>
 ///     vec![1, 1, 1, 1, 1]
 /// );
 /// ```
+#[deprecated(note="Use std repeat_with() instead", since="0.8")]
 pub fn repeat_call<F, A>(function: F) -> RepeatCall<F>
     where F: FnMut() -> A
 {
@@ -98,7 +102,7 @@ pub fn unfold<A, St, F>(initial_state: St, f: F) -> Unfold<St, F>
     where F: FnMut(&mut St) -> Option<A>
 {
     Unfold {
-        f: f,
+        f,
         state: initial_state,
     }
 }
@@ -182,6 +186,6 @@ pub fn iterate<St, F>(initial_value: St, f: F) -> Iterate<St, F>
 {
     Iterate {
         state: initial_value,
-        f: f,
+        f,
     }
 }

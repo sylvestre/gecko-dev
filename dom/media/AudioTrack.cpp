@@ -4,19 +4,30 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#include "mozilla/dom/AudioStreamTrack.h"
 #include "mozilla/dom/AudioTrack.h"
 #include "mozilla/dom/AudioTrackBinding.h"
 #include "mozilla/dom/AudioTrackList.h"
 #include "mozilla/dom/HTMLMediaElement.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 AudioTrack::AudioTrack(nsIGlobalObject* aOwnerGlobal, const nsAString& aId,
                        const nsAString& aKind, const nsAString& aLabel,
-                       const nsAString& aLanguage, bool aEnabled)
+                       const nsAString& aLanguage, bool aEnabled,
+                       AudioStreamTrack* aStreamTrack)
     : MediaTrack(aOwnerGlobal, aId, aKind, aLabel, aLanguage),
-      mEnabled(aEnabled) {}
+      mEnabled(aEnabled),
+      mAudioStreamTrack(aStreamTrack) {}
+
+AudioTrack::~AudioTrack() = default;
+
+NS_IMPL_CYCLE_COLLECTION_INHERITED(AudioTrack, MediaTrack, mAudioStreamTrack)
+
+NS_IMPL_ADDREF_INHERITED(AudioTrack, MediaTrack)
+NS_IMPL_RELEASE_INHERITED(AudioTrack, MediaTrack)
+NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(AudioTrack)
+NS_INTERFACE_MAP_END_INHERITING(MediaTrack)
 
 JSObject* AudioTrack::WrapObject(JSContext* aCx,
                                  JS::Handle<JSObject*> aGivenProto) {
@@ -56,5 +67,4 @@ void AudioTrack::SetEnabledInternal(bool aEnabled, int aFlags) {
   }
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

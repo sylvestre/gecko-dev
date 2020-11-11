@@ -1,4 +1,3 @@
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 /* eslint no-unused-vars: [2, {"vars": "local"}] */
@@ -11,27 +10,35 @@
 // Import the inspector's head.js first (which itself imports shared-head.js).
 Services.scriptloader.loadSubScript(
   "chrome://mochitests/content/browser/devtools/client/inspector/test/head.js",
-  this);
+  this
+);
 
 // Load the shared Redux helpers into this compartment.
 Services.scriptloader.loadSubScript(
   "chrome://mochitests/content/browser/devtools/client/shared/test/shared-redux-head.js",
-  this);
+  this
+);
 
-// Make sure the flexbox inspector is enabled before running the tests.
-Services.prefs.setBoolPref("devtools.flexboxinspector.enabled", true);
+const FLEXBOX_OPENED_PREF = "devtools.layout.flexbox.opened";
+const FLEX_CONTAINER_OPENED_PREF = "devtools.layout.flex-container.opened";
+const FLEX_ITEM_OPENED_PREF = "devtools.layout.flex-item.opened";
+const GRID_OPENED_PREF = "devtools.layout.grid.opened";
+const BOXMODEL_OPENED_PREF = "devtools.layout.boxmodel.opened";
 
-// Make sure only the flexbox layout accordion is opened, and the others are closed.
-Services.prefs.setBoolPref("devtools.layout.flexbox.opened", true);
-Services.prefs.setBoolPref("devtools.layout.boxmodel.opened", false);
-Services.prefs.setBoolPref("devtools.layout.grid.opened", false);
+// Make sure only the flexbox layout accordions are opened, and the others are closed.
+Services.prefs.setBoolPref(FLEXBOX_OPENED_PREF, true);
+Services.prefs.setBoolPref(FLEX_CONTAINER_OPENED_PREF, true);
+Services.prefs.setBoolPref(FLEX_ITEM_OPENED_PREF, true);
+Services.prefs.setBoolPref(BOXMODEL_OPENED_PREF, false);
+Services.prefs.setBoolPref(GRID_OPENED_PREF, false);
 
 // Clear all set prefs.
 registerCleanupFunction(() => {
-  Services.prefs.clearUserPref("devtools.flexboxinspector.enabled");
-  Services.prefs.clearUserPref("devtools.layout.flexbox.opened");
-  Services.prefs.clearUserPref("devtools.layout.boxmodel.opened");
-  Services.prefs.clearUserPref("devtools.layout.grid.opened");
+  Services.prefs.clearUserPref(FLEXBOX_OPENED_PREF);
+  Services.prefs.clearUserPref(FLEX_CONTAINER_OPENED_PREF);
+  Services.prefs.clearUserPref(FLEX_ITEM_OPENED_PREF);
+  Services.prefs.clearUserPref(BOXMODEL_OPENED_PREF);
+  Services.prefs.clearUserPref(GRID_OPENED_PREF);
 });
 
 /**
@@ -48,7 +55,10 @@ registerCleanupFunction(() => {
 async function toggleHighlighterON(button, highlighters, store) {
   info("Toggling ON the flexbox highlighter from the layout panel.");
   const onHighlighterShown = highlighters.once("flexbox-highlighter-shown");
-  const onToggleChange = waitUntilState(store, state => state.flexbox.highlighted);
+  const onToggleChange = waitUntilState(
+    store,
+    state => state.flexbox.highlighted
+  );
   button.click();
   await onHighlighterShown;
   await onToggleChange;
@@ -68,7 +78,10 @@ async function toggleHighlighterON(button, highlighters, store) {
 async function toggleHighlighterOFF(button, highlighters, store) {
   info("Toggling OFF the flexbox highlighter from the layout panel.");
   const onHighlighterHidden = highlighters.once("flexbox-highlighter-hidden");
-  const onToggleChange = waitUntilState(store, state => !state.flexbox.highlighted);
+  const onToggleChange = waitUntilState(
+    store,
+    state => !state.flexbox.highlighted
+  );
   button.click();
   await onHighlighterHidden;
   await onToggleChange;

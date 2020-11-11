@@ -15,8 +15,11 @@
 #include "seccomon.h" /* Required for RSA and DSA. */
 #include "secerr.h"
 #include "prtypes.h"
+#include "secitem.h"
+#include "pkcs11t.h"
+#include "cmac.h"
 
-#include "ec.h" /* Required for ECDSA */
+#include "ec.h" /* Required for EC */
 
 /*
  * different platforms have different ways of calling and initial entry point
@@ -97,6 +100,7 @@ BOOL WINAPI DllMain(
 #define FIPS_AES_BLOCK_SIZE 16     /* 128-bits */
 #define FIPS_AES_ENCRYPT_LENGTH 16 /* 128-bits */
 #define FIPS_AES_DECRYPT_LENGTH 16 /* 128-bits */
+#define FIPS_AES_CMAC_LENGTH 16    /* 128-bits */
 #define FIPS_AES_128_KEY_SIZE 16   /* 128-bits */
 #define FIPS_AES_192_KEY_SIZE 24   /* 192-bits */
 #define FIPS_AES_256_KEY_SIZE 32   /* 256-bits */
@@ -288,6 +292,8 @@ freebl_fips_AES_PowerUpSelfTest(int aes_key_size)
     /* AES Known Plaintext (128-bits). (blocksize is 128-bits) */
     static const PRUint8 aes_known_plaintext[] = { "NetscapeepacsteN" };
 
+    static const PRUint8 aes_gcm_known_aad[] = { "MozillaallizoM" };
+
     /* AES Known Ciphertext (128-bit key). */
     static const PRUint8 aes_ecb128_known_ciphertext[] = {
         0x3c, 0xa5, 0x96, 0xf3, 0x34, 0x6a, 0x96, 0xc1,
@@ -297,6 +303,18 @@ freebl_fips_AES_PowerUpSelfTest(int aes_key_size)
     static const PRUint8 aes_cbc128_known_ciphertext[] = {
         0xcf, 0x15, 0x1d, 0x4f, 0x96, 0xe4, 0x4f, 0x63,
         0x15, 0x54, 0x14, 0x1d, 0x4e, 0xd8, 0xd5, 0xea
+    };
+
+    static const PRUint8 aes_gcm128_known_ciphertext[] = {
+        0x63, 0xf4, 0x95, 0x28, 0xe6, 0x78, 0xee, 0x6e,
+        0x4f, 0xe0, 0xfc, 0x8d, 0xd7, 0xa2, 0xb1, 0xff,
+        0x0c, 0x97, 0x1b, 0x0a, 0xdd, 0x97, 0x75, 0xed,
+        0x8b, 0xde, 0xbf, 0x16, 0x5e, 0x57, 0x6b, 0x4f
+    };
+
+    static const PRUint8 aes_cmac128_known_ciphertext[] = {
+        0x54, 0x11, 0xe2, 0x57, 0xbd, 0x2a, 0xdf, 0x9d,
+        0x1a, 0x89, 0x72, 0x80, 0x84, 0x4c, 0x7e, 0x93
     };
 
     /* AES Known Ciphertext (192-bit key). */
@@ -310,6 +328,18 @@ freebl_fips_AES_PowerUpSelfTest(int aes_key_size)
         0x07, 0xbc, 0x43, 0x2f, 0x6d, 0xad, 0x29, 0xe1
     };
 
+    static const PRUint8 aes_gcm192_known_ciphertext[] = {
+        0xc1, 0x0b, 0x92, 0x1d, 0x68, 0x21, 0xf4, 0x25,
+        0x41, 0x61, 0x20, 0x2d, 0x59, 0x7f, 0x53, 0xde,
+        0x93, 0x39, 0xab, 0x09, 0x76, 0x41, 0x57, 0x2b,
+        0x90, 0x2e, 0x44, 0xbb, 0x52, 0x03, 0xe9, 0x07
+    };
+
+    static const PRUint8 aes_cmac192_known_ciphertext[] = {
+        0x0e, 0x07, 0x99, 0x1e, 0xf6, 0xee, 0xfa, 0x2c,
+        0x1b, 0xfc, 0xce, 0x94, 0x92, 0x2d, 0xf1, 0xab
+    };
+
     /* AES Known Ciphertext (256-bit key). */
     static const PRUint8 aes_ecb256_known_ciphertext[] = {
         0xdb, 0xa6, 0x52, 0x01, 0x8a, 0x70, 0xae, 0x66,
@@ -321,18 +351,39 @@ freebl_fips_AES_PowerUpSelfTest(int aes_key_size)
         0xc5, 0xc5, 0x68, 0x71, 0x6e, 0x34, 0x40, 0x16
     };
 
+    static const PRUint8 aes_gcm256_known_ciphertext[] = {
+        0x5d, 0x9e, 0xd2, 0xa2, 0x74, 0x9c, 0xd9, 0x1c,
+        0xd1, 0xc9, 0xee, 0x5d, 0xb6, 0xf2, 0xc9, 0xb6,
+        0x79, 0x27, 0x53, 0x02, 0xa3, 0xdc, 0x22, 0xce,
+        0xf4, 0xb0, 0xc1, 0x8c, 0x86, 0x51, 0xf5, 0xa1
+    };
+
+    static const PRUint8 aes_cmac256_known_ciphertext[] = {
+        0xc1, 0x26, 0x69, 0x32, 0x51, 0x13, 0x65, 0xac,
+        0x71, 0x23, 0xe4, 0xe7, 0xb9, 0x0c, 0x88, 0x9f
+
+    };
+
     const PRUint8 *aes_ecb_known_ciphertext =
         (aes_key_size == FIPS_AES_128_KEY_SIZE) ? aes_ecb128_known_ciphertext : (aes_key_size == FIPS_AES_192_KEY_SIZE) ? aes_ecb192_known_ciphertext : aes_ecb256_known_ciphertext;
 
     const PRUint8 *aes_cbc_known_ciphertext =
         (aes_key_size == FIPS_AES_128_KEY_SIZE) ? aes_cbc128_known_ciphertext : (aes_key_size == FIPS_AES_192_KEY_SIZE) ? aes_cbc192_known_ciphertext : aes_cbc256_known_ciphertext;
 
+    const PRUint8 *aes_gcm_known_ciphertext =
+        (aes_key_size == FIPS_AES_128_KEY_SIZE) ? aes_gcm128_known_ciphertext : (aes_key_size == FIPS_AES_192_KEY_SIZE) ? aes_gcm192_known_ciphertext : aes_gcm256_known_ciphertext;
+
+    const PRUint8 *aes_cmac_known_ciphertext =
+        (aes_key_size == FIPS_AES_128_KEY_SIZE) ? aes_cmac128_known_ciphertext : (aes_key_size == FIPS_AES_192_KEY_SIZE) ? aes_cmac192_known_ciphertext : aes_cmac256_known_ciphertext;
+
     /* AES variables. */
-    PRUint8 aes_computed_ciphertext[FIPS_AES_ENCRYPT_LENGTH];
-    PRUint8 aes_computed_plaintext[FIPS_AES_DECRYPT_LENGTH];
+    PRUint8 aes_computed_ciphertext[FIPS_AES_ENCRYPT_LENGTH * 2];
+    PRUint8 aes_computed_plaintext[FIPS_AES_DECRYPT_LENGTH * 2];
     AESContext *aes_context;
+    CMACContext *cmac_context;
     unsigned int aes_bytes_encrypted;
     unsigned int aes_bytes_decrypted;
+    CK_NSS_GCM_PARAMS gcmParams;
     SECStatus aes_status;
 
     /*check if aes_key_size is 128, 192, or 256 bits */
@@ -451,6 +502,107 @@ freebl_fips_AES_PowerUpSelfTest(int aes_key_size)
         (aes_bytes_decrypted != FIPS_AES_DECRYPT_LENGTH) ||
         (PORT_Memcmp(aes_computed_plaintext, aes_known_plaintext,
                      FIPS_AES_DECRYPT_LENGTH) != 0)) {
+        PORT_SetError(SEC_ERROR_LIBRARY_FAILURE);
+        return (SECFailure);
+    }
+
+    /******************************************************/
+    /* AES-GCM Single-Round Known Answer Encryption Test. */
+    /******************************************************/
+
+    gcmParams.pIv = (PRUint8 *)aes_cbc_known_initialization_vector;
+    gcmParams.ulIvLen = FIPS_AES_BLOCK_SIZE;
+    gcmParams.pAAD = (PRUint8 *)aes_gcm_known_aad;
+    gcmParams.ulAADLen = sizeof(aes_gcm_known_aad);
+    gcmParams.ulTagBits = FIPS_AES_BLOCK_SIZE * 8;
+    aes_context = AES_CreateContext(aes_known_key,
+                                    (PRUint8 *)&gcmParams,
+                                    NSS_AES_GCM, PR_TRUE, aes_key_size,
+                                    FIPS_AES_BLOCK_SIZE);
+
+    if (aes_context == NULL) {
+        PORT_SetError(SEC_ERROR_NO_MEMORY);
+        return (SECFailure);
+    }
+
+    aes_status = AES_Encrypt(aes_context, aes_computed_ciphertext,
+                             &aes_bytes_encrypted, FIPS_AES_ENCRYPT_LENGTH * 2,
+                             aes_known_plaintext,
+                             FIPS_AES_DECRYPT_LENGTH);
+
+    AES_DestroyContext(aes_context, PR_TRUE);
+
+    if ((aes_status != SECSuccess) ||
+        (aes_bytes_encrypted != FIPS_AES_ENCRYPT_LENGTH * 2) ||
+        (PORT_Memcmp(aes_computed_ciphertext, aes_gcm_known_ciphertext,
+                     FIPS_AES_ENCRYPT_LENGTH * 2) != 0)) {
+        PORT_SetError(SEC_ERROR_LIBRARY_FAILURE);
+        return (SECFailure);
+    }
+
+    /******************************************************/
+    /* AES-GCM Single-Round Known Answer Decryption Test. */
+    /******************************************************/
+
+    aes_context = AES_CreateContext(aes_known_key,
+                                    (PRUint8 *)&gcmParams,
+                                    NSS_AES_GCM, PR_FALSE, aes_key_size,
+                                    FIPS_AES_BLOCK_SIZE);
+
+    if (aes_context == NULL) {
+        PORT_SetError(SEC_ERROR_NO_MEMORY);
+        return (SECFailure);
+    }
+
+    aes_status = AES_Decrypt(aes_context, aes_computed_plaintext,
+                             &aes_bytes_decrypted, FIPS_AES_DECRYPT_LENGTH * 2,
+                             aes_gcm_known_ciphertext,
+                             FIPS_AES_ENCRYPT_LENGTH * 2);
+
+    AES_DestroyContext(aes_context, PR_TRUE);
+
+    if ((aes_status != SECSuccess) ||
+        (aes_bytes_decrypted != FIPS_AES_DECRYPT_LENGTH) ||
+        (PORT_Memcmp(aes_computed_plaintext, aes_known_plaintext,
+                     FIPS_AES_DECRYPT_LENGTH) != 0)) {
+        PORT_SetError(SEC_ERROR_LIBRARY_FAILURE);
+        return (SECFailure);
+    }
+
+    /******************************************************/
+    /* AES-CMAC Known Answer Encryption Test.             */
+    /******************************************************/
+    cmac_context = CMAC_Create(CMAC_AES, aes_known_key, aes_key_size);
+
+    if (cmac_context == NULL) {
+        PORT_SetError(SEC_ERROR_NO_MEMORY);
+        return (SECFailure);
+    }
+
+    aes_status = CMAC_Begin(cmac_context);
+    if (aes_status != SECSuccess) {
+        CMAC_Destroy(cmac_context, PR_TRUE);
+        PORT_SetError(SEC_ERROR_LIBRARY_FAILURE);
+        return (SECFailure);
+    }
+
+    aes_status = CMAC_Update(cmac_context, aes_known_plaintext,
+                             FIPS_AES_DECRYPT_LENGTH);
+    if (aes_status != SECSuccess) {
+        CMAC_Destroy(cmac_context, PR_TRUE);
+        PORT_SetError(SEC_ERROR_LIBRARY_FAILURE);
+        return (SECFailure);
+    }
+
+    aes_status = CMAC_Finish(cmac_context, aes_computed_ciphertext,
+                             &aes_bytes_encrypted, FIPS_AES_CMAC_LENGTH);
+
+    CMAC_Destroy(cmac_context, PR_TRUE);
+
+    if ((aes_status != SECSuccess) ||
+        (aes_bytes_encrypted != FIPS_AES_CMAC_LENGTH) ||
+        (PORT_Memcmp(aes_computed_ciphertext, aes_cmac_known_ciphertext,
+                     FIPS_AES_CMAC_LENGTH) != 0)) {
         PORT_SetError(SEC_ERROR_LIBRARY_FAILURE);
         return (SECFailure);
     }
@@ -647,6 +799,170 @@ freebl_fips_HMAC_PowerUpSelfTest(void)
         PORT_SetError(SEC_ERROR_LIBRARY_FAILURE);
         return (SECFailure);
     }
+
+    return (SECSuccess);
+}
+
+SECStatus
+freebl_fips_TLS_PowerUpSelfTest(void)
+{
+    static const PRUint8 TLS_known_secret_key[] = {
+        "Firefox and ThunderBird are awesome!"
+    };
+
+    static const PRUint8 TLS_known_secret_key_length = sizeof TLS_known_secret_key;
+
+    /* known tls prf with sha1/md5 */
+    static const PRUint8 known_TLS_PRF[] = {
+        0x87, 0x4c, 0xc0, 0xc5, 0x15, 0x14, 0x2b, 0xdc,
+        0x73, 0x48, 0x9e, 0x88, 0x9d, 0xf5, 0x83, 0x2f,
+        0x2d, 0x66, 0x1e, 0x78, 0x6c, 0x54, 0x78, 0x29,
+        0xb9, 0xa4, 0x4c, 0x90, 0x5e, 0xa2, 0xe6, 0x5c,
+        0xf1, 0x4f, 0xb5, 0x95, 0xa5, 0x54, 0xc0, 0x9f,
+        0x84, 0x47, 0xb4, 0x4c, 0xda, 0xae, 0x19, 0x29,
+        0x2b, 0x91, 0x2a, 0x81, 0x9d, 0x3a, 0x30, 0x40,
+        0xc5, 0xdf, 0xbb, 0xfa, 0xd8, 0x4c, 0xbc, 0x18
+    };
+
+    /* known SHA256 tls mac */
+    static const PRUint8 known_TLS_SHA256[] = {
+        0x66, 0xd6, 0x94, 0xd4, 0x0d, 0x32, 0x61, 0x38,
+        0x26, 0xf6, 0x8b, 0xfe, 0x9e, 0xac, 0xa2, 0xf5,
+        0x40, 0x52, 0x74, 0x3f, 0xbe, 0xb8, 0xca, 0x94,
+        0xc3, 0x64, 0xd6, 0x02, 0xf5, 0x88, 0x98, 0x35,
+        0x73, 0x9f, 0xce, 0xaa, 0x68, 0xe3, 0x7c, 0x93,
+        0x30, 0x21, 0x45, 0xec, 0xe9, 0x8f, 0x1c, 0x7e,
+        0xd1, 0x54, 0xf5, 0xbe, 0xff, 0xc8, 0xd7, 0x72,
+        0x7f, 0x9c, 0x0c, 0x7f, 0xa9, 0xd3, 0x4a, 0xd2
+    };
+
+#ifdef NSS_FULL_POST
+    /* known SHA224 tls mac */
+    static const PRUint8 known_TLS_SHA224[] = {
+        0xd8, 0x68, 0x15, 0xff, 0xa1, 0xa2, 0x5e, 0x16,
+        0xce, 0xb1, 0xfd, 0xbd, 0xda, 0x39, 0xbc, 0xa7,
+        0x27, 0x32, 0x78, 0x94, 0x66, 0xf0, 0x84, 0xcf,
+        0x46, 0xc0, 0x22, 0x76, 0xdc, 0x6b, 0x2e, 0xed,
+        0x1d, 0x2d, 0xd2, 0x93, 0xfd, 0xae, 0xca, 0xf9,
+        0xe0, 0x4c, 0x17, 0x23, 0x22, 0x5a, 0x73, 0x93,
+        0x20, 0x0a, 0xbd, 0xa0, 0x72, 0xf8, 0x8b, 0x74,
+        0xfb, 0xf1, 0xab, 0xb7, 0xe0, 0xec, 0x34, 0xc9
+    };
+
+    /* known SHA384 tls mac */
+    static const PRUint8 known_TLS_SHA384[] = {
+        0xb2, 0xac, 0x06, 0x10, 0xad, 0x50, 0xd5, 0xdc,
+        0xdb, 0x01, 0xea, 0xa6, 0x2d, 0x8a, 0x34, 0xb6,
+        0xeb, 0x84, 0xbc, 0x37, 0xc9, 0x9f, 0xa1, 0x9c,
+        0xd5, 0xbd, 0x4e, 0x66, 0x16, 0x24, 0xe5, 0x3d,
+        0xce, 0x74, 0xe0, 0x30, 0x41, 0x5c, 0xdb, 0xb7,
+        0x52, 0x1d, 0x2d, 0x4d, 0x9b, 0xbe, 0x6b, 0x86,
+        0xda, 0x8a, 0xca, 0x73, 0x39, 0xb4, 0xc7, 0x8f,
+        0x03, 0xb1, 0xf9, 0x7e, 0x65, 0xae, 0x17, 0x10
+    };
+
+    /* known SHA512 tls mac */
+    static const PRUint8 known_TLS_SHA512[] = {
+        0x73, 0x21, 0x4f, 0x40, 0x81, 0x1e, 0x90, 0xa1,
+        0x16, 0x40, 0x1e, 0x33, 0x69, 0xc5, 0x00, 0xc7,
+        0xc4, 0x81, 0xa3, 0x4f, 0xa7, 0xcc, 0x4a, 0xeb,
+        0x1a, 0x66, 0x00, 0x82, 0x52, 0xe2, 0x2f, 0x69,
+        0x14, 0x59, 0x05, 0x7c, 0xb0, 0x32, 0xce, 0xcc,
+        0xb7, 0xc9, 0xab, 0x0f, 0x73, 0x00, 0xe5, 0x52,
+        0x9d, 0x6b, 0x0e, 0x66, 0x4b, 0xb3, 0x0b, 0x0d,
+        0x34, 0x53, 0x97, 0x13, 0x84, 0x18, 0x31, 0x7a
+    };
+#endif
+
+    SECStatus status;
+    PRUint8 tls_computed[HASH_LENGTH_MAX];
+    SECItem secret;
+    SECItem seed;
+    SECItem result;
+    const char *tls_label = "fips test label";
+
+    secret.data = (unsigned char *)TLS_known_secret_key;
+    secret.len = TLS_known_secret_key_length;
+    seed.data = (unsigned char *)known_hash_message;
+    seed.len = FIPS_KNOWN_HASH_MESSAGE_LENGTH;
+    result.data = tls_computed;
+    result.len = sizeof(tls_computed);
+
+    /***************************************************/
+    /* TLS 1.0 PRF Known Answer Test                   */
+    /***************************************************/
+
+    status = TLS_PRF(&secret, tls_label, &seed, &result, PR_TRUE);
+
+    if ((status != SECSuccess) ||
+        (result.len != HASH_LENGTH_MAX) ||
+        (PORT_Memcmp(tls_computed, known_TLS_PRF,
+                     HASH_LENGTH_MAX) != 0)) {
+        PORT_SetError(SEC_ERROR_LIBRARY_FAILURE);
+        return (SECFailure);
+    }
+
+    /***************************************************/
+    /* TLS 1.2 SHA-256 Known Answer Test.              */
+    /***************************************************/
+
+    status = TLS_P_hash(HASH_AlgSHA256, &secret, tls_label,
+                        &seed, &result, PR_TRUE);
+
+    if ((status != SECSuccess) ||
+        (result.len != HASH_LENGTH_MAX) ||
+        (PORT_Memcmp(tls_computed, known_TLS_SHA256,
+                     HASH_LENGTH_MAX) != 0)) {
+        PORT_SetError(SEC_ERROR_LIBRARY_FAILURE);
+        return (SECFailure);
+    }
+
+#ifdef NSS_FULL_POST
+    /***************************************************/
+    /* TLS 1.2 SHA-224 Known Answer Test.              */
+    /***************************************************/
+
+    status = TLS_P_hash(HASH_AlgSHA224, &secret, tls_label,
+                        &seed, &result, PR_TRUE);
+
+    if ((status != SECSuccess) ||
+        (result.len != HASH_LENGTH_MAX) ||
+        (PORT_Memcmp(tls_computed, known_TLS_SHA224,
+                     HASH_LENGTH_MAX) != 0)) {
+        PORT_SetError(SEC_ERROR_LIBRARY_FAILURE);
+        return (SECFailure);
+    }
+
+    /***************************************************/
+    /* TLS 1.2 SHA-384 Known Answer Test.              */
+    /***************************************************/
+
+    status = TLS_P_hash(HASH_AlgSHA384, &secret, tls_label,
+                        &seed, &result, PR_TRUE);
+
+    if ((status != SECSuccess) ||
+        (result.len != HASH_LENGTH_MAX) ||
+        (PORT_Memcmp(tls_computed, known_TLS_SHA384,
+                     HASH_LENGTH_MAX) != 0)) {
+        PORT_SetError(SEC_ERROR_LIBRARY_FAILURE);
+        return (SECFailure);
+    }
+
+    /***************************************************/
+    /* TLS 1.2 SHA-512 Known Answer Test.              */
+    /***************************************************/
+
+    status = TLS_P_hash(HASH_AlgSHA512, &secret, tls_label,
+                        &seed, &result, PR_TRUE);
+
+    if ((status != SECSuccess) ||
+        (result.len != HASH_LENGTH_MAX) ||
+        (PORT_Memcmp(tls_computed, known_TLS_SHA512,
+                     HASH_LENGTH_MAX) != 0)) {
+        PORT_SetError(SEC_ERROR_LIBRARY_FAILURE);
+        return (SECFailure);
+    }
+#endif
 
     return (SECSuccess);
 }
@@ -1094,7 +1410,7 @@ freebl_fips_ECDSA_Test(ECParams *ecparams,
         "Firefox and ThunderBird are awesome!"
     };
 
-    unsigned char sha1[SHA1_LENGTH]; /* SHA-1 hash (160 bits) */
+    unsigned char sha256[SHA256_LENGTH]; /* SHA-256 hash (256 bits) */
     unsigned char sig[2 * MAX_ECKEY_LEN];
     SECItem signature, digest;
     ECPrivateKey *ecdsa_private_key = NULL;
@@ -1136,13 +1452,13 @@ freebl_fips_ECDSA_Test(ECParams *ecparams,
     /* ECDSA Single-Round Known Answer Signature Test. */
     /***************************************************/
 
-    ecdsaStatus = SHA1_HashBuf(sha1, msg, sizeof msg);
+    ecdsaStatus = SHA256_HashBuf(sha256, msg, sizeof msg);
     if (ecdsaStatus != SECSuccess) {
         goto loser;
     }
     digest.type = siBuffer;
-    digest.data = sha1;
-    digest.len = SHA1_LENGTH;
+    digest.data = sha256;
+    digest.len = SHA256_LENGTH;
 
     memset(sig, 0, sizeof sig);
     signature.type = siBuffer;
@@ -1181,10 +1497,83 @@ loser:
 }
 
 static SECStatus
-freebl_fips_ECDSA_PowerUpSelfTest()
+freebl_fips_ECDH_Test(ECParams *ecparams)
 {
 
-    /* ECDSA Known curve nistp256 == ECCCurve_X9_62_PRIME_256V1 params */
+    /* ECDH Known result (reused old CAVS vector)  */
+    static const PRUint8 ecdh_known_pub_key_1[] = {
+        EC_POINT_FORM_UNCOMPRESSED,
+        /* pubX */
+        0x16, 0x81, 0x32, 0x86, 0xc8, 0xe4, 0x3a, 0x1f,
+        0x5d, 0xe3, 0x06, 0x22, 0x8b, 0x99, 0x14, 0x25,
+        0xf7, 0x9c, 0x5b, 0x1e, 0x96, 0x84, 0x85, 0x3b,
+        0x17, 0xfe, 0xf3, 0x1c, 0x0e, 0xed, 0xc4, 0xce,
+        /* pubY */
+        0x7a, 0x44, 0xfe, 0xbd, 0x91, 0x71, 0x7d, 0x73,
+        0xd9, 0x45, 0xea, 0xae, 0x66, 0x78, 0xfa, 0x6e,
+        0x46, 0xcd, 0xfa, 0x95, 0x15, 0x47, 0x62, 0x5d,
+        0xbb, 0x1b, 0x9f, 0xe6, 0x39, 0xfc, 0xfd, 0x47
+    };
+    static const PRUint8 ecdh_known_priv_key_2[] = {
+        0xb4, 0x2a, 0xe3, 0x69, 0x19, 0xec, 0xf0, 0x42,
+        0x6d, 0x45, 0x8c, 0x94, 0x4a, 0x26, 0xa7, 0x5c,
+        0xea, 0x9d, 0xd9, 0x0f, 0x59, 0xe0, 0x1a, 0x9d,
+        0x7c, 0xb7, 0x1c, 0x04, 0x53, 0xb8, 0x98, 0x5a
+    };
+    static const PRUint8 ecdh_known_hash_result[] = {
+        0x16, 0xf3, 0x85, 0xa2, 0x41, 0xf3, 0x7f, 0xc4,
+        0x0b, 0x56, 0x47, 0xee, 0xa7, 0x74, 0xb9, 0xdb,
+        0xe1, 0xfa, 0x22, 0xe9, 0x04, 0xf1, 0xb6, 0x12,
+        0x4b, 0x44, 0x8a, 0xbb, 0xbc, 0x08, 0x2b, 0xa7,
+    };
+
+    SECItem ecdh_priv_2, ecdh_pub_1;
+    SECItem ZZ = { 0, 0, 0 };
+    SECStatus ecdhStatus = SECSuccess;
+    PRUint8 computed_hash_result[HASH_LENGTH_MAX];
+
+    ecdh_priv_2.data = (PRUint8 *)ecdh_known_priv_key_2;
+    ecdh_priv_2.len = sizeof(ecdh_known_priv_key_2);
+    ecdh_pub_1.data = (PRUint8 *)ecdh_known_pub_key_1;
+    ecdh_pub_1.len = sizeof(ecdh_known_pub_key_1);
+
+    /* Generates a new EC key pair. The private key is a supplied
+     * random value (in seed) and the public key is the result of
+     * performing a scalar point multiplication of that value with
+     * the curve's base point.
+     */
+    ecdhStatus = ECDH_Derive(&ecdh_pub_1, ecparams, &ecdh_priv_2, PR_FALSE, &ZZ);
+    if (ecdhStatus != SECSuccess) {
+        goto loser;
+    }
+    ecdhStatus = SHA256_HashBuf(computed_hash_result, ZZ.data, ZZ.len);
+    if (ecdhStatus != SECSuccess) {
+        goto loser;
+    }
+
+    if (PORT_Memcmp(computed_hash_result, ecdh_known_hash_result,
+                    sizeof(ecdh_known_hash_result)) != 0) {
+        ecdhStatus = SECFailure;
+        goto loser;
+    }
+
+loser:
+    if (ZZ.data) {
+        SECITEM_FreeItem(&ZZ, PR_FALSE);
+    }
+
+    if (ecdhStatus != SECSuccess) {
+        PORT_SetError(SEC_ERROR_LIBRARY_FAILURE);
+        return (SECFailure);
+    }
+    return (SECSuccess);
+}
+
+static SECStatus
+freebl_fips_EC_PowerUpSelfTest()
+{
+
+    /* EC Known curve nistp256 == ECCCurve_X9_62_PRIME_256V1 params */
     static const unsigned char p256_prime[] = {
         0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
@@ -1217,7 +1606,7 @@ freebl_fips_ECDSA_PowerUpSelfTest()
     static const unsigned char p256_encoding[] = {
         0x06, 0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x03, 0x01, 0x07
     };
-    static const ECParams ecdsa_known_P256_Params = {
+    static const ECParams ec_known_P256_Params = {
         NULL, ec_params_named,                                               /* arena, type */
                                                                              /* fieldID */
         { 256, ec_field_GFp,                                                 /* size and type */
@@ -1250,10 +1639,10 @@ freebl_fips_ECDSA_PowerUpSelfTest()
         0x9d, 0x37, 0x4b, 0x1c, 0xdc, 0x35, 0x90, 0xff,
         0x1a, 0x2d, 0x98, 0x95, 0x1b, 0x2f, 0xeb, 0x7f,
         0xbb, 0x81, 0xca, 0xc0, 0x69, 0x75, 0xea, 0xc5,
-        0x59, 0x6a, 0x62, 0x49, 0x3d, 0x50, 0xc9, 0xe1,
-        0x27, 0x3b, 0xff, 0x9b, 0x13, 0x66, 0x67, 0xdd,
-        0x7d, 0xd1, 0x0d, 0x2d, 0x7c, 0x44, 0x04, 0x1b,
-        0x16, 0x21, 0x12, 0xc5, 0xcb, 0xbd, 0x9e, 0x75
+        0xa7, 0xd2, 0x20, 0xdd, 0x45, 0xf9, 0x2b, 0xdd,
+        0xda, 0x98, 0x99, 0x5b, 0x1c, 0x02, 0x3a, 0x27,
+        0x8b, 0x7d, 0xb6, 0xed, 0x0e, 0xe0, 0xa7, 0xac,
+        0xaa, 0x36, 0x2c, 0xfa, 0x1a, 0xdf, 0x0d, 0xe1,
     };
 
     ECParams ecparams;
@@ -1261,10 +1650,15 @@ freebl_fips_ECDSA_PowerUpSelfTest()
     SECStatus rv;
 
     /* ECDSA GF(p) prime field curve test */
-    ecparams = ecdsa_known_P256_Params;
+    ecparams = ec_known_P256_Params;
     rv = freebl_fips_ECDSA_Test(&ecparams,
                                 ecdsa_known_P256_signature,
                                 sizeof ecdsa_known_P256_signature);
+    if (rv != SECSuccess) {
+        return (SECFailure);
+    }
+    /* ECDH GF(p) prime field curve test */
+    rv = freebl_fips_ECDH_Test(&ecparams);
     if (rv != SECSuccess) {
         return (SECFailure);
     }
@@ -1418,6 +1812,138 @@ freebl_fips_DSA_PowerUpSelfTest(void)
 }
 
 static SECStatus
+freebl_fips_DH_PowerUpSelfTest(void)
+{
+    /* DH Known P (2048-bits) */
+    static const PRUint8 dh_known_P[] = {
+        0xc2, 0x79, 0xbb, 0x76, 0x32, 0x0d, 0x43, 0xfd,
+        0x1b, 0x8c, 0xa2, 0x3c, 0x00, 0xdd, 0x6d, 0xef,
+        0xf8, 0x1a, 0xd9, 0xc1, 0xa2, 0xf5, 0x73, 0x2b,
+        0xdb, 0x1a, 0x3e, 0x84, 0x90, 0xeb, 0xe7, 0x8e,
+        0x5f, 0x5c, 0x6b, 0xb6, 0x61, 0x89, 0xd1, 0x03,
+        0xb0, 0x5f, 0x91, 0xe4, 0xd2, 0x82, 0x90, 0xfc,
+        0x3c, 0x49, 0x69, 0x59, 0xc1, 0x51, 0x6a, 0x85,
+        0x71, 0xe7, 0x5d, 0x72, 0x5a, 0x45, 0xad, 0x01,
+        0x6f, 0x82, 0xae, 0xec, 0x91, 0x08, 0x2e, 0x7c,
+        0x64, 0x93, 0x46, 0x1c, 0x68, 0xef, 0xc2, 0x03,
+        0x28, 0x1d, 0x75, 0x3a, 0xeb, 0x9c, 0x46, 0xf0,
+        0xc9, 0xdb, 0x99, 0x95, 0x13, 0x66, 0x4d, 0xd5,
+        0x1a, 0x78, 0x92, 0x51, 0x89, 0x72, 0x28, 0x7f,
+        0x20, 0x70, 0x41, 0x49, 0xa2, 0x86, 0xe9, 0xf9,
+        0x78, 0x5f, 0x8d, 0x2e, 0x5d, 0xfa, 0xdb, 0x57,
+        0xd4, 0x71, 0xdf, 0x66, 0xe3, 0x9e, 0x88, 0x70,
+        0xa4, 0x21, 0x44, 0x6a, 0xc7, 0xae, 0x30, 0x2c,
+        0x9c, 0x1f, 0x91, 0x57, 0xc8, 0x24, 0x34, 0x2d,
+        0x7a, 0x4a, 0x43, 0xc2, 0x5f, 0xab, 0x64, 0x2e,
+        0xaa, 0x28, 0x32, 0x95, 0x42, 0x7b, 0xa0, 0xcc,
+        0xdf, 0xfd, 0x22, 0xc8, 0x56, 0x84, 0xc1, 0x62,
+        0x15, 0xb2, 0x77, 0x86, 0x81, 0xfc, 0xa5, 0x12,
+        0x3c, 0xca, 0x28, 0x17, 0x8f, 0x03, 0x16, 0x6e,
+        0xb8, 0x24, 0xfa, 0x1b, 0x15, 0x02, 0xfd, 0x8b,
+        0xb6, 0x0a, 0x1a, 0xf7, 0x47, 0x41, 0xc5, 0x2b,
+        0x37, 0x3e, 0xa1, 0xbf, 0x68, 0xda, 0x1c, 0x55,
+        0x44, 0xc3, 0xee, 0xa1, 0x63, 0x07, 0x11, 0x3b,
+        0x5f, 0x00, 0x84, 0xb4, 0xc4, 0xe4, 0xa7, 0x97,
+        0x29, 0xf8, 0xce, 0xab, 0xfc, 0x27, 0x3e, 0x34,
+        0xe4, 0xc7, 0x81, 0x52, 0x32, 0x0e, 0x27, 0x3c,
+        0xa6, 0x70, 0x3f, 0x4a, 0x54, 0xda, 0xdd, 0x60,
+        0x26, 0xb3, 0x6e, 0x45, 0x26, 0x19, 0x41, 0x6f
+    };
+
+    static const PRUint8 dh_known_Y_1[] = {
+        0xb4, 0xc7, 0x85, 0xba, 0xa6, 0x98, 0xb3, 0x77,
+        0x41, 0x2b, 0xd9, 0x9a, 0x72, 0x90, 0xa4, 0xac,
+        0xc4, 0xf7, 0xc2, 0x23, 0x9a, 0x68, 0xe2, 0x7d,
+        0x3a, 0x54, 0x45, 0x91, 0xc1, 0xd7, 0x8a, 0x17,
+        0x54, 0xd3, 0x37, 0xaa, 0x0c, 0xcd, 0x0b, 0xe2,
+        0xf2, 0x34, 0x0f, 0x17, 0xa8, 0x07, 0x88, 0xaf,
+        0xed, 0xc1, 0x02, 0xd4, 0xdb, 0xdc, 0x0f, 0x22,
+        0x51, 0x23, 0x40, 0xb9, 0x65, 0x6d, 0x39, 0xf4,
+        0xe1, 0x8b, 0x57, 0x7d, 0xb6, 0xd3, 0xf2, 0x6b,
+        0x02, 0xa9, 0x36, 0xf0, 0x0d, 0xe3, 0xdb, 0x9a,
+        0xbf, 0x20, 0x00, 0x4d, 0xec, 0x6f, 0x68, 0x95,
+        0xee, 0x59, 0x4e, 0x3c, 0xb6, 0xda, 0x7b, 0x19,
+        0x08, 0x9a, 0xef, 0x61, 0x43, 0xf5, 0xfb, 0x25,
+        0x70, 0x19, 0xc1, 0x5f, 0x0e, 0x0f, 0x6a, 0x63,
+        0x44, 0xe9, 0xcf, 0x33, 0xce, 0x13, 0x4f, 0x34,
+        0x3c, 0x94, 0x40, 0x8d, 0xf2, 0x65, 0x42, 0xef,
+        0x70, 0x54, 0xdd, 0x5f, 0xc1, 0xd7, 0x0b, 0xa6,
+        0x06, 0xd5, 0xa6, 0x47, 0xae, 0x2c, 0x1f, 0x5a,
+        0xa6, 0xb3, 0xc1, 0x38, 0x3a, 0x3b, 0x60, 0x94,
+        0xa2, 0x95, 0xab, 0xb2, 0x86, 0x82, 0xc5, 0x3b,
+        0xb8, 0x6f, 0x3e, 0x55, 0x86, 0x84, 0xe0, 0x00,
+        0xe5, 0xef, 0xca, 0x5c, 0xec, 0x7e, 0x38, 0x0f,
+        0x82, 0xa2, 0xb1, 0xee, 0x48, 0x1b, 0x32, 0xbb,
+        0x5a, 0x33, 0xa5, 0x01, 0xba, 0xca, 0xa6, 0x64,
+        0x61, 0xb6, 0xe5, 0x5c, 0x0e, 0x5f, 0x2c, 0x66,
+        0x0d, 0x01, 0x6a, 0x20, 0x04, 0x70, 0x68, 0x82,
+        0x93, 0x29, 0x15, 0x3b, 0x7a, 0x06, 0xb2, 0x92,
+        0x61, 0xcd, 0x7e, 0xa4, 0xc1, 0x15, 0x64, 0x3b,
+        0x3c, 0x51, 0x10, 0x4c, 0x87, 0xa6, 0xaf, 0x07,
+        0xce, 0x46, 0x82, 0x75, 0xf3, 0x90, 0xf3, 0x21,
+        0x55, 0x74, 0xc2, 0xe4, 0x96, 0x7d, 0xc3, 0xe6,
+        0x33, 0xa5, 0xc6, 0x51, 0xef, 0xec, 0x90, 0x08
+    };
+
+    static const PRUint8 dh_known_x_2[] = {
+        0x9e, 0x9b, 0xc3, 0x25, 0x53, 0xf9, 0xfc, 0x92,
+        0xb6, 0xae, 0x54, 0x8e, 0x23, 0x4c, 0x94, 0xba,
+        0x41, 0xe6, 0x29, 0x33, 0xb9, 0xdb, 0xff, 0x6d,
+        0xa8, 0xb8, 0x48, 0x49, 0x66, 0x11, 0xa6, 0x13
+    };
+
+    static const PRUint8 dh_known_hash_result[] = {
+        0x93, 0xa2, 0x89, 0x1c, 0x8a, 0xc3, 0x70, 0xbf,
+        0xa7, 0xdf, 0xb6, 0xd7, 0x82, 0xfb, 0x87, 0x81,
+        0x09, 0x47, 0xf3, 0x9f, 0x5a, 0xbf, 0x4f, 0x3f,
+        0x8e, 0x5e, 0x06, 0xca, 0x30, 0xa7, 0xaf, 0x10
+    };
+
+    /* DH variables. */
+    SECStatus dhStatus;
+    SECItem dh_prime;
+    SECItem dh_pub_key_1;
+    SECItem dh_priv_key_2;
+    SECItem ZZ = { 0, 0, 0 };
+    PRUint8 computed_hash_result[HASH_LENGTH_MAX];
+
+    dh_prime.data = (PRUint8 *)dh_known_P;
+    dh_prime.len = sizeof(dh_known_P);
+    dh_pub_key_1.data = (PRUint8 *)dh_known_Y_1;
+    dh_pub_key_1.len = sizeof(dh_known_Y_1);
+    dh_priv_key_2.data = (PRUint8 *)dh_known_x_2;
+    dh_priv_key_2.len = sizeof(dh_known_x_2);
+
+    /* execute the derive */
+    dhStatus = DH_Derive(&dh_pub_key_1, &dh_prime, &dh_priv_key_2, &ZZ, dh_prime.len);
+    if (dhStatus != SECSuccess) {
+        goto loser;
+    }
+
+    dhStatus = SHA256_HashBuf(computed_hash_result, ZZ.data, ZZ.len);
+    if (dhStatus != SECSuccess) {
+        goto loser;
+    }
+
+    if (PORT_Memcmp(computed_hash_result, dh_known_hash_result,
+                    sizeof(dh_known_hash_result)) != 0) {
+        dhStatus = SECFailure;
+        goto loser;
+    }
+
+loser:
+    if (ZZ.data) {
+        SECITEM_FreeItem(&ZZ, PR_FALSE);
+    }
+
+    if (dhStatus != SECSuccess) {
+        PORT_SetError(SEC_ERROR_LIBRARY_FAILURE);
+        return (SECFailure);
+    }
+    return (SECSuccess);
+}
+
+static SECStatus
 freebl_fips_RNG_PowerUpSelfTest(void)
 {
     static const PRUint8 Q[] = {
@@ -1497,18 +2023,18 @@ freebl_fipsPowerUpSelfTest(unsigned int tests)
 
         if (rv != SECSuccess)
             return rv;
-
-        /* RNG Power-Up SelfTest(s). */
-        rv = freebl_fips_RNG_PowerUpSelfTest();
-
-        if (rv != SECSuccess)
-            return rv;
     }
 
     /*
      * test the rest of the algorithms not accessed through freebl
      * standalone */
     if (tests & DO_REST) {
+
+        /* RNG Power-Up SelfTest(s). */
+        rv = freebl_fips_RNG_PowerUpSelfTest();
+
+        if (rv != SECSuccess)
+            return rv;
 
         /* DES3 Power-Up SelfTest(s). */
         rv = freebl_fips_DES3_PowerUpSelfTest();
@@ -1540,8 +2066,14 @@ freebl_fipsPowerUpSelfTest(unsigned int tests)
         if (rv != SECSuccess)
             return rv;
 
+        /* TLS PRF Power-Up SelfTest(s). */
+        rv = freebl_fips_TLS_PowerUpSelfTest();
+
+        if (rv != SECSuccess)
+            return rv;
+
         /* NOTE: RSA can only be tested in full freebl. It requires access to
-     * the locking primitives */
+         * the locking primitives */
         /* RSA Power-Up SelfTest(s). */
         rv = freebl_fips_RSA_PowerUpSelfTest();
 
@@ -1554,8 +2086,14 @@ freebl_fipsPowerUpSelfTest(unsigned int tests)
         if (rv != SECSuccess)
             return rv;
 
-        /* ECDSA Power-Up SelfTest(s). */
-        rv = freebl_fips_ECDSA_PowerUpSelfTest();
+        /* DH Power-Up SelfTest(s). */
+        rv = freebl_fips_DH_PowerUpSelfTest();
+
+        if (rv != SECSuccess)
+            return rv;
+
+        /* EC Power-Up SelfTest(s). */
+        rv = freebl_fips_EC_PowerUpSelfTest();
 
         if (rv != SECSuccess)
             return rv;

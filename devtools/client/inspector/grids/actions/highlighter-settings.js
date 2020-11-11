@@ -8,10 +8,9 @@ const {
   UPDATE_SHOW_GRID_AREAS,
   UPDATE_SHOW_GRID_LINE_NUMBERS,
   UPDATE_SHOW_INFINITE_LINES,
-} = require("./index");
+} = require("devtools/client/inspector/grids/actions/index");
 
 module.exports = {
-
   /**
    * Updates the grid highlighter's show grid areas preference.
    *
@@ -50,5 +49,4 @@ module.exports = {
       enabled,
     };
   },
-
 };

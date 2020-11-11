@@ -32,6 +32,7 @@
 void *dav1d_frame_task(void *const data) {
     Dav1dFrameContext *const f = data;
 
+    dav1d_set_thread_name("dav1d-frame");
     pthread_mutex_lock(&f->frame_thread.td.lock);
     for (;;) {
         while (!f->n_tile_data && !f->frame_thread.die) {
@@ -41,10 +42,9 @@ void *dav1d_frame_task(void *const data) {
         if (f->frame_thread.die) break;
         pthread_mutex_unlock(&f->frame_thread.td.lock);
 
-        const int res = dav1d_decode_frame(f);
-        if (res)
+        if (dav1d_decode_frame(f))
             memset(f->frame_thread.cf, 0,
-                   sizeof(int32_t) * 3 * f->lf.mask_sz * 128 * 128);
+                   (size_t)f->frame_thread.cf_sz * 128 * 128 / 2);
 
         pthread_mutex_lock(&f->frame_thread.td.lock);
         f->n_tile_data = 0;
@@ -59,8 +59,10 @@ void *dav1d_tile_task(void *const data) {
     Dav1dTileContext *const t = data;
     struct FrameTileThreadData *const fttd = t->tile_thread.fttd;
     const Dav1dFrameContext *const f = t->f;
-    const int tile_thread_idx = t - f->tc;
+    const int tile_thread_idx = (int) (t - f->tc);
     const uint64_t mask = 1ULL << tile_thread_idx;
+
+    dav1d_set_thread_name("dav1d-tile");
 
     for (;;) {
         pthread_mutex_lock(&fttd->lock);
@@ -89,8 +91,8 @@ void *dav1d_tile_task(void *const data) {
             for (t->by = ts->tiling.row_start; t->by < ts->tiling.row_end;
                  t->by += f->sb_step)
             {
-                int error = dav1d_decode_tile_sbrow(t);
-                int progress = error ? TILE_ERROR : 1 + (t->by >> f->sb_shift);
+                const int error = dav1d_decode_tile_sbrow(t);
+                const int progress = error ? TILE_ERROR : 1 + (t->by >> f->sb_shift);
 
                 // signal progress
                 pthread_mutex_lock(&ts->tile_thread.lock);
@@ -125,7 +127,7 @@ void *dav1d_tile_task(void *const data) {
             // waiting for the post-filter to complete
             t->ts = ts;
             t->by = sby << f->sb_shift;
-            int error = dav1d_decode_tile_sbrow(t);
+            const int error = dav1d_decode_tile_sbrow(t);
             progress = error ? TILE_ERROR : 1 + sby;
 
             // signal progress

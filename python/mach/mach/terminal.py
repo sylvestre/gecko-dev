@@ -13,6 +13,8 @@ from __future__ import absolute_import, print_function, unicode_literals
 import logging
 import sys
 
+from six.moves import range
+
 
 class LoggingHandler(logging.Handler):
     """Custom logging handler that works with terminal window dressing.
@@ -22,6 +24,7 @@ class LoggingHandler(logging.Handler):
     support for "footer" elements at the bottom of the screen. Functionality
     can be added when needed.
     """
+
     def __init__(self):
         logging.Handler.__init__(self)
 
@@ -43,7 +46,7 @@ class LoggingHandler(logging.Handler):
             self.footer.clear()
 
         self.fh.write(msg)
-        self.fh.write('\n')
+        self.fh.write("\n")
 
         if self.footer:
             self.footer.draw()
@@ -54,12 +57,13 @@ class LoggingHandler(logging.Handler):
 
 class TerminalFooter(object):
     """Represents something drawn on the bottom of a terminal."""
+
     def __init__(self, terminal):
         self.t = terminal
         self.fh = sys.stdout
 
     def _clear_lines(self, n):
-        for i in xrange(n):
+        for i in range(n):
             self.fh.write(self.t.move_x(0))
             self.fh.write(self.t.clear_eol())
             self.fh.write(self.t.move_up())
@@ -68,7 +72,7 @@ class TerminalFooter(object):
         self.fh.write(self.t.move_x(0))
 
     def clear(self):
-        raise Exception('clear() must be implemented.')
+        raise Exception("clear() must be implemented.")
 
     def draw(self):
-        raise Exception('draw() must be implemented.')
+        raise Exception("draw() must be implemented.")

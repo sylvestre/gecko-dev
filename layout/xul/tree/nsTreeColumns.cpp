@@ -6,16 +6,16 @@
 
 #include "nsNameSpaceManager.h"
 #include "nsGkAtoms.h"
-#include "nsIBoxObject.h"
 #include "nsTreeColumns.h"
 #include "nsTreeUtils.h"
 #include "mozilla/ComputedStyle.h"
 #include "nsContentUtils.h"
 #include "nsTreeBodyFrame.h"
 #include "mozilla/dom/Element.h"
-#include "mozilla/dom/TreeBoxObject.h"
+#include "mozilla/CSSOrderAwareFrameIterator.h"
 #include "mozilla/dom/TreeColumnBinding.h"
 #include "mozilla/dom/TreeColumnsBinding.h"
+#include "mozilla/dom/XULTreeElement.h"
 
 using namespace mozilla;
 using namespace mozilla::dom;
@@ -89,8 +89,7 @@ nsresult nsTreeColumn::GetRect(nsTreeBodyFrame* aBodyFrame, nscoord aY,
     return NS_ERROR_FAILURE;
   }
 
-  bool isRTL =
-      aBodyFrame->StyleVisibility()->mDirection == NS_STYLE_DIRECTION_RTL;
+  bool isRTL = aBodyFrame->StyleVisibility()->mDirection == StyleDirection::Rtl;
   *aResult = frame->GetRect();
   aResult->y = aY;
   aResult->height = aHeight;
@@ -151,14 +150,14 @@ void nsTreeColumn::Invalidate(ErrorResult& aRv) {
 
   mTextAlignment = textStyle->mTextAlign;
   // START or END alignment sometimes means RIGHT
-  if ((mTextAlignment == NS_STYLE_TEXT_ALIGN_START &&
-       vis->mDirection == NS_STYLE_DIRECTION_RTL) ||
-      (mTextAlignment == NS_STYLE_TEXT_ALIGN_END &&
-       vis->mDirection == NS_STYLE_DIRECTION_LTR)) {
-    mTextAlignment = NS_STYLE_TEXT_ALIGN_RIGHT;
-  } else if (mTextAlignment == NS_STYLE_TEXT_ALIGN_START ||
-             mTextAlignment == NS_STYLE_TEXT_ALIGN_END) {
-    mTextAlignment = NS_STYLE_TEXT_ALIGN_LEFT;
+  if ((mTextAlignment == StyleTextAlign::Start &&
+       vis->mDirection == StyleDirection::Rtl) ||
+      (mTextAlignment == StyleTextAlign::End &&
+       vis->mDirection == StyleDirection::Ltr)) {
+    mTextAlignment = StyleTextAlign::Right;
+  } else if (mTextAlignment == StyleTextAlign::Start ||
+             mTextAlignment == StyleTextAlign::End) {
+    mTextAlignment = StyleTextAlign::Left;
   }
 
   // Figure out if we're the primary column (that has to have indentation
@@ -179,15 +178,12 @@ void nsTreeColumn::Invalidate(ErrorResult& aRv) {
 
   // Figure out our column type. Default type is text.
   mType = TreeColumn_Binding::TYPE_TEXT;
-  static Element::AttrValuesArray typestrings[] = {
-      nsGkAtoms::checkbox, nsGkAtoms::password, nullptr};
+  static Element::AttrValuesArray typestrings[] = {nsGkAtoms::checkbox,
+                                                   nullptr};
   switch (mContent->FindAttrValueIn(kNameSpaceID_None, nsGkAtoms::type,
                                     typestrings, eCaseMatters)) {
     case 0:
       mType = TreeColumn_Binding::TYPE_CHECKBOX;
-      break;
-    case 1:
-      mType = TreeColumn_Binding::TYPE_PASSWORD;
       break;
   }
 
@@ -209,8 +205,9 @@ void nsTreeColumn::Invalidate(ErrorResult& aRv) {
 
 nsIContent* nsTreeColumn::GetParentObject() const { return mContent; }
 
-/* virtual */ JSObject* nsTreeColumn::WrapObject(
-    JSContext* aCx, JS::Handle<JSObject*> aGivenProto) {
+/* virtual */
+JSObject* nsTreeColumn::WrapObject(JSContext* aCx,
+                                   JS::Handle<JSObject*> aGivenProto) {
   return dom::TreeColumn_Binding::Wrap(aCx, this, aGivenProto);
 }
 
@@ -236,6 +233,10 @@ int32_t nsTreeColumn::GetWidth(mozilla::ErrorResult& aRv) {
   return nsPresContext::AppUnitsToIntCSSPixels(frame->GetRect().width);
 }
 
+already_AddRefed<nsTreeColumn> nsTreeColumn::GetPreviousColumn() {
+  return do_AddRef(mPrevious);
+}
+
 nsTreeColumns::nsTreeColumns(nsTreeBodyFrame* aTree) : mTree(aTree) {}
 
 nsTreeColumns::~nsTreeColumns() { nsTreeColumns::InvalidateColumns(); }
@@ -255,15 +256,18 @@ nsIContent* nsTreeColumns::GetParentObject() const {
   return mTree ? mTree->GetBaseElement() : nullptr;
 }
 
-/* virtual */ JSObject* nsTreeColumns::WrapObject(
-    JSContext* aCx, JS::Handle<JSObject*> aGivenProto) {
+/* virtual */
+JSObject* nsTreeColumns::WrapObject(JSContext* aCx,
+                                    JS::Handle<JSObject*> aGivenProto) {
   return dom::TreeColumns_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-dom::TreeBoxObject* nsTreeColumns::GetTree() const {
-  return mTree ? static_cast<mozilla::dom::TreeBoxObject*>(
-                     mTree->GetTreeBoxObject())
-               : nullptr;
+XULTreeElement* nsTreeColumns::GetTree() const {
+  if (!mTree) {
+    return nullptr;
+  }
+
+  return XULTreeElement::FromNodeOrNull(mTree->GetBaseElement());
 }
 
 uint32_t nsTreeColumns::Count() {
@@ -398,38 +402,6 @@ void nsTreeColumns::InvalidateColumns() {
   mFirstColumn = nullptr;
 }
 
-void nsTreeColumns::RestoreNaturalOrder() {
-  if (!mTree) {
-    return;
-  }
-
-  nsIContent* content = mTree->GetBaseElement();
-
-  // Strong ref, since we'll be setting attributes
-  nsCOMPtr<nsIContent> colsContent =
-      nsTreeUtils::GetImmediateChild(content, nsGkAtoms::treecols);
-  if (!colsContent) {
-    return;
-  }
-
-  int32_t i = 0;
-  for (nsINode* child = colsContent->GetFirstChild(); child;
-       child = child->GetNextSibling()) {
-    nsAutoString ordinal;
-    ordinal.AppendInt(i++);
-    if (child->IsElement()) {
-      child->AsElement()->SetAttr(kNameSpaceID_None, nsGkAtoms::ordinal,
-                                  ordinal, true);
-    }
-  }
-
-  nsTreeColumns::InvalidateColumns();
-
-  if (mTree) {
-    mTree->Invalidate();
-  }
-}
-
 nsTreeColumn* nsTreeColumns::GetPrimaryColumn() {
   EnsureColumns();
   for (nsTreeColumn* currCol = mFirstColumn; currCol;
@@ -444,6 +416,8 @@ nsTreeColumn* nsTreeColumns::GetPrimaryColumn() {
 void nsTreeColumns::EnsureColumns() {
   if (mTree && !mFirstColumn) {
     nsIContent* treeContent = mTree->GetBaseElement();
+    if (!treeContent) return;
+
     nsIContent* colsContent =
         nsTreeUtils::GetDescendantChild(treeContent, nsGkAtoms::treecols);
     if (!colsContent) return;
@@ -458,31 +432,30 @@ void nsTreeColumns::EnsureColumns() {
     colFrame = colFrame->GetParent();
     if (!colFrame) return;
 
-    colFrame = colFrame->PrincipalChildList().FirstChild();
-    if (!colFrame) return;
-
-    // Now that we have the first visible column,
-    // we can enumerate the columns in visible order
     nsTreeColumn* currCol = nullptr;
-    while (colFrame) {
+
+    // Enumerate the columns in visible order
+    CSSOrderAwareFrameIterator iter(
+        colFrame, mozilla::layout::kPrincipalList,
+        CSSOrderAwareFrameIterator::ChildFilter::IncludeAll,
+        CSSOrderAwareFrameIterator::OrderState::Unknown,
+        CSSOrderAwareFrameIterator::OrderingProperty::BoxOrdinalGroup);
+    for (; !iter.AtEnd(); iter.Next()) {
+      nsIFrame* colFrame = iter.get();
       nsIContent* colContent = colFrame->GetContent();
-
-      if (colContent->NodeInfo()->Equals(nsGkAtoms::treecol,
-                                         kNameSpaceID_XUL)) {
-        // Create a new column structure.
-        nsTreeColumn* col = new nsTreeColumn(this, colContent->AsElement());
-        if (!col) return;
-
-        if (currCol) {
-          currCol->SetNext(col);
-          col->SetPrevious(currCol);
-        } else {
-          mFirstColumn = col;
-        }
-        currCol = col;
+      if (!colContent->IsXULElement(nsGkAtoms::treecol)) {
+        continue;
       }
+      // Create a new column structure.
+      nsTreeColumn* col = new nsTreeColumn(this, colContent->AsElement());
 
-      colFrame = colFrame->GetNextSibling();
+      if (currCol) {
+        currCol->SetNext(col);
+        col->SetPrevious(currCol);
+      } else {
+        mFirstColumn = col;
+      }
+      currCol = col;
     }
   }
 }

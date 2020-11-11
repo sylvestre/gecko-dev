@@ -4,14 +4,20 @@
 
 "use strict";
 
-const { createElement, createFactory } = require("devtools/client/shared/vendor/react");
+const {
+  createElement,
+  createFactory,
+} = require("devtools/client/shared/vendor/react");
 const { Provider } = require("devtools/client/shared/vendor/react-redux");
 
 const EventEmitter = require("devtools/shared/event-emitter");
 
-const App = createFactory(require("./components/App"));
-const CurrentTimeTimer = require("./current-time-timer");
+const App = createFactory(
+  require("devtools/client/inspector/animation/components/App")
+);
+const CurrentTimeTimer = require("devtools/client/inspector/animation/current-time-timer");
 
+const animationsReducer = require("devtools/client/inspector/animation/reducers/animations");
 const {
   updateAnimations,
   updateDetailVisibility,
@@ -20,26 +26,32 @@ const {
   updatePlaybackRates,
   updateSelectedAnimation,
   updateSidebarSize,
-} = require("./actions/animations");
+} = require("devtools/client/inspector/animation/actions/animations");
 const {
   hasAnimationIterationCountInfinite,
   hasRunningAnimation,
-} = require("./utils/utils");
+} = require("devtools/client/inspector/animation/utils/utils");
 
 class AnimationInspector {
   constructor(inspector, win) {
     this.inspector = inspector;
     this.win = win;
 
-    this.addAnimationsCurrentTimeListener =
-      this.addAnimationsCurrentTimeListener.bind(this);
+    this.inspector.store.injectReducer("animations", animationsReducer);
+
+    this.addAnimationsCurrentTimeListener = this.addAnimationsCurrentTimeListener.bind(
+      this
+    );
     this.getAnimatedPropertyMap = this.getAnimatedPropertyMap.bind(this);
     this.getAnimationsCurrentTime = this.getAnimationsCurrentTime.bind(this);
     this.getComputedStyle = this.getComputedStyle.bind(this);
     this.getNodeFromActor = this.getNodeFromActor.bind(this);
-    this.removeAnimationsCurrentTimeListener =
-      this.removeAnimationsCurrentTimeListener.bind(this);
-    this.rewindAnimationsCurrentTime = this.rewindAnimationsCurrentTime.bind(this);
+    this.removeAnimationsCurrentTimeListener = this.removeAnimationsCurrentTimeListener.bind(
+      this
+    );
+    this.rewindAnimationsCurrentTime = this.rewindAnimationsCurrentTime.bind(
+      this
+    );
     this.selectAnimation = this.selectAnimation.bind(this);
     this.setAnimationsCurrentTime = this.setAnimationsCurrentTime.bind(this);
     this.setAnimationsPlaybackRate = this.setAnimationsPlaybackRate.bind(this);
@@ -48,12 +60,15 @@ class AnimationInspector {
     this.setHighlightedNode = this.setHighlightedNode.bind(this);
     this.setSelectedNode = this.setSelectedNode.bind(this);
     this.simulateAnimation = this.simulateAnimation.bind(this);
-    this.simulateAnimationForKeyframesProgressBar =
-      this.simulateAnimationForKeyframesProgressBar.bind(this);
+    this.simulateAnimationForKeyframesProgressBar = this.simulateAnimationForKeyframesProgressBar.bind(
+      this
+    );
     this.toggleElementPicker = this.toggleElementPicker.bind(this);
     this.update = this.update.bind(this);
     this.onAnimationStateChanged = this.onAnimationStateChanged.bind(this);
-    this.onAnimationsCurrentTimeUpdated = this.onAnimationsCurrentTimeUpdated.bind(this);
+    this.onAnimationsCurrentTimeUpdated = this.onAnimationsCurrentTimeUpdated.bind(
+      this
+    );
     this.onAnimationsMutation = this.onAnimationsMutation.bind(this);
     this.onCurrentTimeTimerUpdated = this.onCurrentTimeTimerUpdated.bind(this);
     this.onElementPickerStarted = this.onElementPickerStarted.bind(this);
@@ -61,25 +76,19 @@ class AnimationInspector {
     this.onNavigate = this.onNavigate.bind(this);
     this.onSidebarResized = this.onSidebarResized.bind(this);
     this.onSidebarSelectionChanged = this.onSidebarSelectionChanged.bind(this);
+    this.onTargetAvailable = this.onTargetAvailable.bind(this);
 
     EventEmitter.decorate(this);
-    this.emit = this.emit.bind(this);
+    this.emitForTests = this.emitForTests.bind(this);
 
-    this.init();
+    this.initComponents();
+    this.initListeners();
   }
 
-  init() {
-    const {
-      onShowBoxModelHighlighterForNode,
-    } = this.inspector.getCommonComponentProps();
-
-    const {
-      onHideBoxModelHighlighter,
-    } = this.inspector.getPanel("boxmodel").getComponentProps();
-
+  initComponents() {
     const {
       addAnimationsCurrentTimeListener,
-      emit: emitEventForTest,
+      emitForTests: emitEventForTest,
       getAnimatedPropertyMap,
       getAnimationsCurrentTime,
       getComputedStyle,
@@ -100,63 +109,65 @@ class AnimationInspector {
     } = this;
 
     const direction = this.win.document.dir;
-    this._getAnimationsFront();
 
     this.animationsCurrentTimeListeners = [];
     this.isCurrentTimeSet = false;
 
-    const provider = createElement(Provider,
+    const provider = createElement(
+      Provider,
       {
         id: "animationinspector",
         key: "animationinspector",
         store: this.inspector.store,
       },
-      App(
-        {
-          addAnimationsCurrentTimeListener,
-          direction,
-          emitEventForTest,
-          getAnimatedPropertyMap,
-          getAnimationsCurrentTime,
-          getComputedStyle,
-          getNodeFromActor,
-          isAnimationsRunning,
-          onHideBoxModelHighlighter,
-          onShowBoxModelHighlighterForNode,
-          removeAnimationsCurrentTimeListener,
-          rewindAnimationsCurrentTime,
-          selectAnimation,
-          setAnimationsCurrentTime,
-          setAnimationsPlaybackRate,
-          setAnimationsPlayState,
-          setDetailVisibility,
-          setHighlightedNode,
-          setSelectedNode,
-          simulateAnimation,
-          simulateAnimationForKeyframesProgressBar,
-          toggleElementPicker,
-        }
-      )
+      App({
+        addAnimationsCurrentTimeListener,
+        direction,
+        emitEventForTest,
+        getAnimatedPropertyMap,
+        getAnimationsCurrentTime,
+        getComputedStyle,
+        getNodeFromActor,
+        isAnimationsRunning,
+        removeAnimationsCurrentTimeListener,
+        rewindAnimationsCurrentTime,
+        selectAnimation,
+        setAnimationsCurrentTime,
+        setAnimationsPlaybackRate,
+        setAnimationsPlayState,
+        setDetailVisibility,
+        setHighlightedNode,
+        setSelectedNode,
+        simulateAnimation,
+        simulateAnimationForKeyframesProgressBar,
+        toggleElementPicker,
+      })
     );
     this.provider = provider;
-
-    this.inspector.sidebar.on("select", this.onSidebarSelectionChanged);
-    this.inspector.toolbox.on("picker-started", this.onElementPickerStarted);
-    this.inspector.toolbox.on("picker-stopped", this.onElementPickerStopped);
-    this.inspector.toolbox.on("select", this.onSidebarSelectionChanged);
   }
 
-  _getAnimationsFront() {
-    if (this.animationsFrontPromise) {
-      return this.animationsFrontPromise;
-    }
-    this.animationsFrontPromise = new Promise(async resolve => {
-      const target = this.inspector.target;
-      const front = await target.getFront("animations");
-      front.setWalkerActor(this.inspector.walker);
-      resolve(front);
-    });
-    return this.animationsFrontPromise;
+  async initListeners() {
+    await this.inspector.toolbox.targetList.watchTargets(
+      [this.inspector.toolbox.targetList.TYPES.FRAME],
+      this.onTargetAvailable
+    );
+
+    this.inspector.on("new-root", this.onNavigate);
+    this.inspector.selection.on("new-node-front", this.update);
+    this.inspector.sidebar.on("select", this.onSidebarSelectionChanged);
+    this.inspector.toolbox.on("select", this.onSidebarSelectionChanged);
+    this.inspector.toolbox.on(
+      "inspector-sidebar-resized",
+      this.onSidebarResized
+    );
+    this.inspector.toolbox.nodePicker.on(
+      "picker-started",
+      this.onElementPickerStarted
+    );
+    this.inspector.toolbox.nodePicker.on(
+      "picker-stopped",
+      this.onElementPickerStopped
+    );
   }
 
   destroy() {
@@ -164,14 +175,23 @@ class AnimationInspector {
     this.inspector.off("new-root", this.onNavigate);
     this.inspector.selection.off("new-node-front", this.update);
     this.inspector.sidebar.off("select", this.onSidebarSelectionChanged);
-    this.inspector.toolbox.off("inspector-sidebar-resized", this.onSidebarResized);
-    this.inspector.toolbox.off("picker-started", this.onElementPickerStarted);
-    this.inspector.toolbox.off("picker-stopped", this.onElementPickerStopped);
+    this.inspector.toolbox.off(
+      "inspector-sidebar-resized",
+      this.onSidebarResized
+    );
+    this.inspector.toolbox.nodePicker.off(
+      "picker-started",
+      this.onElementPickerStarted
+    );
+    this.inspector.toolbox.nodePicker.off(
+      "picker-stopped",
+      this.onElementPickerStopped
+    );
     this.inspector.toolbox.off("select", this.onSidebarSelectionChanged);
 
-    this.animationsFrontPromise.then(front => {
-      front.off("mutations", this.onAnimationsMutation);
-    });
+    if (this.animationsFront) {
+      this.animationsFront.off("mutations", this.onAnimationsMutation);
+    }
 
     if (this.simulatedAnimation) {
       this.simulatedAnimation.cancel();
@@ -210,9 +230,9 @@ class AnimationInspector {
   async doSetCurrentTimes(currentTime) {
     const { animations, timeScale } = this.state;
     currentTime = currentTime + timeScale.minStartTime;
-    const animationsFront = await this.animationsFrontPromise;
-    await animationsFront.setCurrentTimes(animations, currentTime, true,
-                                               { relativeToCreatedTime: true });
+    await this.animationsFront.setCurrentTimes(animations, currentTime, true, {
+      relativeToCreatedTime: true,
+    });
   }
 
   /**
@@ -236,10 +256,12 @@ class AnimationInspector {
     const animatedPropertyMap = new Map();
 
     for (const { name, values } of properties) {
-      const keyframes = values.map(({ value, offset, easing, distance = 0 }) => {
-        offset = parseFloat(offset.toFixed(3));
-        return { value, offset, easing, distance };
-      });
+      const keyframes = values.map(
+        ({ value, offset, easing, distance = 0 }) => {
+          offset = parseFloat(offset.toFixed(3));
+          return { value, offset, easing, distance };
+        }
+      );
 
       animatedPropertyMap.set(name, keyframes);
     }
@@ -266,10 +288,15 @@ class AnimationInspector {
     this.simulatedElement.style.cssText = "";
 
     for (const propertyName in styles) {
-      this.simulatedElement.style.setProperty(propertyName, styles[propertyName]);
+      this.simulatedElement.style.setProperty(
+        propertyName,
+        styles[propertyName]
+      );
     }
 
-    return this.win.getComputedStyle(this.simulatedElement).getPropertyValue(property);
+    return this.win
+      .getComputedStyle(this.simulatedElement)
+      .getPropertyValue(property);
   }
 
   getNodeFromActor(actorID) {
@@ -281,14 +308,18 @@ class AnimationInspector {
   }
 
   isPanelVisible() {
-    return this.inspector && this.inspector.toolbox && this.inspector.sidebar &&
-           this.inspector.toolbox.currentToolId === "inspector" &&
-           this.inspector.sidebar.getCurrentTabID() === "animationinspector";
+    return (
+      this.inspector &&
+      this.inspector.toolbox &&
+      this.inspector.sidebar &&
+      this.inspector.toolbox.currentToolId === "inspector" &&
+      this.inspector.sidebar.getCurrentTabID() === "animationinspector"
+    );
   }
 
   onAnimationStateChanged() {
     // Simply update the animations since the state has already been updated.
-    this.updateState([...this.state.animations]);
+    this.fireUpdateAction([...this.state.animations]);
   }
 
   /**
@@ -324,7 +355,7 @@ class AnimationInspector {
     let animations = [...this.state.animations];
     const addedAnimations = [];
 
-    for (const {type, player: animation} of changes) {
+    for (const { type, player: animation } of changes) {
       if (type === "added") {
         if (!animation.state.type) {
           // This animation was added but removed immediately.
@@ -351,13 +382,13 @@ class AnimationInspector {
     // Also, don't update the state of removed animations since React components
     // may refer to the same instance still.
     try {
-      animations = await this.updateAnimations(animations);
+      animations = await this.refreshAnimationsState(animations);
     } catch (_) {
       console.error(`Updating Animations failed`);
       return;
     }
 
-    this.updateState(animations.concat(addedAnimations));
+    this.fireUpdateAction(animations.concat(addedAnimations));
   }
 
   onElementPickerStarted() {
@@ -369,6 +400,10 @@ class AnimationInspector {
   }
 
   onNavigate() {
+    if (!this.isPanelVisible()) {
+      return;
+    }
+
     this.inspector.store.dispatch(updatePlaybackRates());
   }
 
@@ -383,31 +418,37 @@ class AnimationInspector {
 
     this.wasPanelVisibled = isPanelVisibled;
 
-    const animationsFront = await this.animationsFrontPromise;
     if (this.isPanelVisible()) {
       await this.update();
       this.onSidebarResized(null, this.inspector.getSidebarSize());
-      animationsFront.on("mutations", this.onAnimationsMutation);
-      this.inspector.on("new-root", this.onNavigate);
-      this.inspector.selection.on("new-node-front", this.update);
-      this.inspector.toolbox.on("inspector-sidebar-resized", this.onSidebarResized);
     } else {
       this.stopAnimationsCurrentTimeTimer();
-      animationsFront.off("mutations", this.onAnimationsMutation);
-      this.inspector.off("new-root", this.onNavigate);
-      this.inspector.selection.off("new-node-front", this.update);
-      this.inspector.toolbox.off("inspector-sidebar-resized", this.onSidebarResized);
       this.setAnimationStateChangedListenerEnabled(false);
     }
   }
 
   onSidebarResized(size) {
+    if (!this.isPanelVisible()) {
+      return;
+    }
+
     this.inspector.store.dispatch(updateSidebarSize(size));
   }
 
+  async onTargetAvailable({ targetFront }) {
+    if (targetFront.isTopLevel) {
+      this.animationsFront = await targetFront.getFront("animations");
+      this.animationsFront.setWalkerActor(this.inspector.walker);
+      this.animationsFront.on("mutations", this.onAnimationsMutation);
+
+      await this.update();
+    }
+  }
+
   removeAnimationsCurrentTimeListener(listener) {
-    this.animationsCurrentTimeListeners =
-      this.animationsCurrentTimeListeners.filter(l => l !== listener);
+    this.animationsCurrentTimeListeners = this.animationsCurrentTimeListeners.filter(
+      l => l !== listener
+    );
   }
 
   async rewindAnimationsCurrentTime() {
@@ -424,8 +465,9 @@ class AnimationInspector {
       return;
     }
 
-    await this.inspector.getCommonComponentProps()
-              .setSelectedNode(nodeFront, { reason: "animation-panel" });
+    await this.inspector
+      .getCommonComponentProps()
+      .setSelectedNode(nodeFront, { reason: "animation-panel" });
   }
 
   async setAnimationsCurrentTime(currentTime, shouldRefresh) {
@@ -441,7 +483,7 @@ class AnimationInspector {
 
     try {
       await this.doSetCurrentTimes(currentTime);
-      animations = await this.updateAnimations(animations);
+      animations = await this.refreshAnimationsState(animations);
     } catch (e) {
       // Expected if we've already been destroyed or other node have been selected
       // in the meantime.
@@ -452,7 +494,7 @@ class AnimationInspector {
     this.isCurrentTimeSet = false;
 
     if (shouldRefresh) {
-      this.updateState(animations);
+      this.fireUpdateAction(animations);
     }
   }
 
@@ -464,9 +506,8 @@ class AnimationInspector {
     this.setAnimationStateChangedListenerEnabled(false);
 
     try {
-      const animationsFront = await this.animationsFrontPromise;
-      await animationsFront.setPlaybackRates(animations, playbackRate);
-      animations = await this.updateAnimations(animations);
+      await this.animationsFront.setPlaybackRates(animations, playbackRate);
+      animations = await this.refreshAnimationsState(animations);
     } catch (e) {
       // Expected if we've already been destroyed or other node have been selected
       // in the meantime.
@@ -476,40 +517,30 @@ class AnimationInspector {
       this.setAnimationStateChangedListenerEnabled(true);
     }
 
-    await this.updateState(animations);
+    await this.fireUpdateAction(animations);
   }
 
   async setAnimationsPlayState(doPlay) {
-    if (typeof this.hasPausePlaySome === "undefined") {
-      this.hasPausePlaySome =
-        await this.inspector.target.actorHasMethod("animations", "pauseSome");
-    }
-
     let { animations, timeScale } = this.state;
 
     try {
-      if (doPlay && animations.every(animation =>
-                      timeScale.getEndTime(animation) <= animation.state.currentTime)) {
+      if (
+        doPlay &&
+        animations.every(
+          animation =>
+            timeScale.getEndTime(animation) <= animation.state.currentTime
+        )
+      ) {
         await this.doSetCurrentTimes(timeScale.zeroPositionTime);
       }
 
-      // If the server does not support pauseSome/playSome function, (which happens
-      // when connected to server older than FF62), use pauseAll/playAll instead.
-      // See bug 1456857.
-      const animationsFront = await this.animationsFrontPromise;
-      if (this.hasPausePlaySome) {
-        if (doPlay) {
-          await animationsFront.playSome(animations);
-        } else {
-          await animationsFront.pauseSome(animations);
-        }
-      } else if (doPlay) {
-        await animationsFront.playAll();
+      if (doPlay) {
+        await this.animationsFront.playSome(animations);
       } else {
-        await animationsFront.pauseAll();
+        await this.animationsFront.pauseSome(animations);
       }
 
-      animations = await this.updateAnimations(animations);
+      animations = await this.refreshAnimationsState(animations);
     } catch (e) {
       // Expected if we've already been destroyed or other node have been selected
       // in the meantime.
@@ -517,7 +548,7 @@ class AnimationInspector {
       return;
     }
 
-    await this.updateState(animations);
+    await this.fireUpdateAction(animations);
   }
 
   /**
@@ -544,17 +575,41 @@ class AnimationInspector {
   }
 
   /**
-   * Highlight the given node with the box model highlighter.
-   * If no node is provided, hide the box model highlighter.
+   * Persistently highlight the given node identified with a unique selector.
+   * If no node is provided, hide any persistent highlighter.
    *
    * @param {NodeFront} nodeFront
    */
   async setHighlightedNode(nodeFront) {
-    await this.inspector.highlighters.hideBoxModelHighlighter();
+    await this.inspector.highlighters.hideHighlighterType(
+      this.inspector.highlighters.TYPES.SELECTOR
+    );
 
     if (nodeFront) {
-      await this.inspector.highlighters.showBoxModelHighlighter(
-        nodeFront, { hideInfoBar: true, hideGuides: true });
+      const selector = await nodeFront.getUniqueSelector();
+      if (!selector) {
+        console.warn(
+          `Couldn't get unique selector for NodeFront: ${nodeFront.actorID}`
+        );
+        return;
+      }
+
+      /**
+       * NOTE: Using a Selector Highlighter here because only one Box Model Highlighter
+       * can be visible at a time. The Box Model Highlighter is shown when hovering nodes
+       * which would cause this persistent highlighter to be hidden unexpectedly.
+       * This limitation of one highlighter type a time should be solved by switching
+       * to a highlighter by role approach (Bug 1663443).
+       */
+      await this.inspector.highlighters.showHighlighterTypeForNode(
+        this.inspector.highlighters.TYPES.SELECTOR,
+        nodeFront,
+        {
+          hideInfoBar: true,
+          hideGuides: true,
+          selector,
+        }
+      );
     }
 
     this.inspector.store.dispatch(updateHighlightedNode(nodeFront));
@@ -601,8 +656,11 @@ class AnimationInspector {
       this.simulatedAnimation = new this.win.Animation();
     }
 
-    this.simulatedAnimation.effect =
-      new this.win.KeyframeEffect(targetEl, keyframes, effectTiming);
+    this.simulatedAnimation.effect = new this.win.KeyframeEffect(
+      targetEl,
+      keyframes,
+      effectTiming
+    );
 
     return this.simulatedAnimation;
   }
@@ -622,8 +680,11 @@ class AnimationInspector {
       this.simulatedAnimationForKeyframesProgressBar = new this.win.Animation();
     }
 
-    this.simulatedAnimationForKeyframesProgressBar.effect =
-      new this.win.KeyframeEffect(null, null, effectTiming);
+    this.simulatedAnimationForKeyframesProgressBar.effect = new this.win.KeyframeEffect(
+      null,
+      null,
+      effectTiming
+    );
 
     return this.simulatedAnimationForKeyframesProgressBar;
   }
@@ -637,45 +698,57 @@ class AnimationInspector {
 
   startAnimationsCurrentTimeTimer() {
     const timeScale = this.state.timeScale;
-    const shouldStopAfterEndTime =
-      !hasAnimationIterationCountInfinite(this.state.animations);
+    const shouldStopAfterEndTime = !hasAnimationIterationCountInfinite(
+      this.state.animations
+    );
 
-    const currentTimeTimer =
-      new CurrentTimeTimer(timeScale, shouldStopAfterEndTime,
-                           this.win, this.onCurrentTimeTimerUpdated);
+    const currentTimeTimer = new CurrentTimeTimer(
+      timeScale,
+      shouldStopAfterEndTime,
+      this.win,
+      this.onCurrentTimeTimerUpdated
+    );
     currentTimeTimer.start();
     this.currentTimeTimer = currentTimeTimer;
   }
 
   toggleElementPicker() {
-    this.inspector.toolbox.highlighterUtils.togglePicker();
+    this.inspector.toolbox.nodePicker.togglePicker();
   }
 
   async update() {
+    if (!this.isPanelVisible()) {
+      return;
+    }
+
     const done = this.inspector.updating("animationinspector");
 
     const selection = this.inspector.selection;
-    const animationsFront = await this.animationsFrontPromise;
     const animations =
       selection.isConnected() && selection.isElementNode()
-      ? await animationsFront.getAnimationPlayersForNode(selection.nodeFront)
-      : [];
-    this.updateState(animations);
+        ? await this.animationsFront.getAnimationPlayersForNode(
+            selection.nodeFront
+          )
+        : [];
+    this.fireUpdateAction(animations);
     this.setAnimationStateChangedListenerEnabled(true);
 
     done();
   }
 
-  async updateAnimations(animations) {
+  async refreshAnimationsState(animations) {
     let error = null;
 
     const promises = animations.map(animation => {
       return new Promise(resolve => {
-        animation.refreshState().catch(e => {
-          error = e;
-        }).finally(() => {
-          resolve();
-        });
+        animation
+          .refreshState()
+          .catch(e => {
+            error = e;
+          })
+          .finally(() => {
+            resolve();
+          });
       });
     });
     await Promise.all(promises);
@@ -684,14 +757,14 @@ class AnimationInspector {
       throw new Error(error);
     }
 
-    // Even when removal animation on inspected document, updateAnimations
+    // Even when removal animation on inspected document, refreshAnimationsState
     // might be called before onAnimationsMutation due to the async timing.
-    // Return the animations as result of updateAnimations after getting rid of
+    // Return the animations as result of refreshAnimationsState after getting rid of
     // the animations since they should not display.
     return animations.filter(anim => !!anim.state.type);
   }
 
-  updateState(animations) {
+  fireUpdateAction(animations) {
     // Animation inspector already destroyed
     if (!this.inspector) {
       return;
@@ -704,8 +777,11 @@ class AnimationInspector {
     // representation of times, it will be treated as infinity. Rather than
     // adding special case code to represent this very rare case, we simply omit
     // such animations from the graph.
-    animations = animations.filter(anim => Math.abs(anim.state.delay) !== Infinity &&
-                                           Math.abs(anim.state.endDelay) !== Infinity);
+    animations = animations.filter(
+      anim =>
+        Math.abs(anim.state.delay) !== Infinity &&
+        Math.abs(anim.state.endDelay) !== Infinity
+    );
 
     this.inspector.store.dispatch(updateAnimations(animations));
 

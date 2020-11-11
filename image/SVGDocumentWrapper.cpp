@@ -5,9 +5,15 @@
 
 #include "SVGDocumentWrapper.h"
 
+#include "mozilla/PresShell.h"
+#include "mozilla/SMILAnimationController.h"
+#include "mozilla/SVGObserverUtils.h"
+#include "mozilla/dom/Document.h"
 #include "mozilla/dom/DocumentTimeline.h"
 #include "mozilla/dom/Element.h"
+#include "mozilla/dom/ImageTracker.h"
 #include "mozilla/dom/SVGDocument.h"
+#include "mozilla/dom/SVGSVGElement.h"
 #include "nsICategoryManager.h"
 #include "nsIChannel.h"
 #include "nsIContentViewer.h"
@@ -15,24 +21,14 @@
 #include "nsIHttpChannel.h"
 #include "nsIObserverService.h"
 #include "nsIParser.h"
-#include "nsIPresShell.h"
 #include "nsIRequest.h"
 #include "nsIStreamListener.h"
 #include "nsIXMLContentSink.h"
 #include "nsNetCID.h"
 #include "nsComponentManagerUtils.h"
-#include "nsSMILAnimationController.h"
 #include "nsServiceManagerUtils.h"
-#include "mozilla/dom/SVGSVGElement.h"
-#include "SVGObserverUtils.h"
-#include "mozilla/dom/SVGAnimatedLength.h"
 #include "nsMimeTypes.h"
-#include "DOMSVGLength.h"
-#include "nsDocument.h"
-#include "mozilla/dom/ImageTracker.h"
-
-// undef the GetCurrentTime macro defined in WinBase.h from the MS Platform SDK
-#undef GetCurrentTime
+#include "nsRefreshDriver.h"
 
 namespace mozilla {
 
@@ -105,7 +101,7 @@ bool SVGDocumentWrapper::IsAnimated() {
     return false;
   }
 
-  nsIDocument* doc = mViewer->GetDocument();
+  Document* doc = mViewer->GetDocument();
   if (!doc) {
     return false;
   }
@@ -130,11 +126,11 @@ void SVGDocumentWrapper::StartAnimation() {
     return;
   }
 
-  nsIDocument* doc = mViewer->GetDocument();
+  Document* doc = mViewer->GetDocument();
   if (doc) {
-    nsSMILAnimationController* controller = doc->GetAnimationController();
+    SMILAnimationController* controller = doc->GetAnimationController();
     if (controller) {
-      controller->Resume(nsSMILTimeContainer::PAUSE_IMAGE);
+      controller->Resume(SMILTimeContainer::PAUSE_IMAGE);
     }
     doc->ImageTracker()->SetAnimatingState(true);
   }
@@ -147,11 +143,11 @@ void SVGDocumentWrapper::StopAnimation() {
     return;
   }
 
-  nsIDocument* doc = mViewer->GetDocument();
+  Document* doc = mViewer->GetDocument();
   if (doc) {
-    nsSMILAnimationController* controller = doc->GetAnimationController();
+    SMILAnimationController* controller = doc->GetAnimationController();
     if (controller) {
-      controller->Pause(nsSMILTimeContainer::PAUSE_IMAGE);
+      controller->Pause(SMILTimeContainer::PAUSE_IMAGE);
     }
     doc->ImageTracker()->SetAnimatingState(false);
   }
@@ -166,23 +162,21 @@ void SVGDocumentWrapper::ResetAnimation() {
   svgElem->SetCurrentTime(0.0f);
 }
 
-float SVGDocumentWrapper::GetCurrentTime() {
+float SVGDocumentWrapper::GetCurrentTimeAsFloat() {
   SVGSVGElement* svgElem = GetRootSVGElem();
-  return svgElem ? svgElem->GetCurrentTime() : 0.0f;
+  return svgElem ? svgElem->GetCurrentTimeAsFloat() : 0.0f;
 }
 
 void SVGDocumentWrapper::SetCurrentTime(float aTime) {
   SVGSVGElement* svgElem = GetRootSVGElem();
-  if (svgElem && svgElem->GetCurrentTime() != aTime) {
+  if (svgElem && svgElem->GetCurrentTimeAsFloat() != aTime) {
     svgElem->SetCurrentTime(aTime);
   }
 }
 
 void SVGDocumentWrapper::TickRefreshDriver() {
-  nsCOMPtr<nsIPresShell> presShell = mViewer->GetPresShell();
-  if (presShell) {
-    nsPresContext* presContext = presShell->GetPresContext();
-    if (presContext) {
+  if (RefPtr<PresShell> presShell = mViewer->GetPresShell()) {
+    if (RefPtr<nsPresContext> presContext = presShell->GetPresContext()) {
       presContext->RefreshDriver()->DoTick();
     }
   }
@@ -191,25 +185,23 @@ void SVGDocumentWrapper::TickRefreshDriver() {
 /** nsIStreamListener methods **/
 
 NS_IMETHODIMP
-SVGDocumentWrapper::OnDataAvailable(nsIRequest* aRequest, nsISupports* ctxt,
-                                    nsIInputStream* inStr,
+SVGDocumentWrapper::OnDataAvailable(nsIRequest* aRequest, nsIInputStream* inStr,
                                     uint64_t sourceOffset, uint32_t count) {
-  return mListener->OnDataAvailable(aRequest, ctxt, inStr, sourceOffset, count);
+  return mListener->OnDataAvailable(aRequest, inStr, sourceOffset, count);
 }
 
 /** nsIRequestObserver methods **/
 
 NS_IMETHODIMP
-SVGDocumentWrapper::OnStartRequest(nsIRequest* aRequest, nsISupports* ctxt) {
+SVGDocumentWrapper::OnStartRequest(nsIRequest* aRequest) {
   nsresult rv = SetupViewer(aRequest, getter_AddRefs(mViewer),
                             getter_AddRefs(mLoadGroup));
 
-  if (NS_SUCCEEDED(rv) &&
-      NS_SUCCEEDED(mListener->OnStartRequest(aRequest, nullptr))) {
+  if (NS_SUCCEEDED(rv) && NS_SUCCEEDED(mListener->OnStartRequest(aRequest))) {
     mViewer->GetDocument()->SetIsBeingUsedAsImage();
     StopAnimation();  // otherwise animations start automatically in helper doc
 
-    rv = mViewer->Init(nullptr, nsIntRect(0, 0, 0, 0));
+    rv = mViewer->Init(nullptr, nsIntRect(0, 0, 0, 0), nullptr);
     if (NS_SUCCEEDED(rv)) {
       rv = mViewer->Open(nullptr, nullptr);
     }
@@ -218,10 +210,9 @@ SVGDocumentWrapper::OnStartRequest(nsIRequest* aRequest, nsISupports* ctxt) {
 }
 
 NS_IMETHODIMP
-SVGDocumentWrapper::OnStopRequest(nsIRequest* aRequest, nsISupports* ctxt,
-                                  nsresult status) {
+SVGDocumentWrapper::OnStopRequest(nsIRequest* aRequest, nsresult status) {
   if (mListener) {
-    mListener->OnStopRequest(aRequest, ctxt, status);
+    mListener->OnStopRequest(aRequest, status);
     mListener = nullptr;
   }
 
@@ -300,9 +291,8 @@ nsresult SVGDocumentWrapper::SetupViewer(nsIRequest* aRequest,
   nsCOMPtr<nsIContentViewer> viewer;
   nsCOMPtr<nsIStreamListener> listener;
   rv = docLoaderFactory->CreateInstance(
-      "external-resource", chan, newLoadGroup,
-      NS_LITERAL_CSTRING(IMAGE_SVG_XML), nullptr, nullptr,
-      getter_AddRefs(listener), getter_AddRefs(viewer));
+      "external-resource", chan, newLoadGroup, nsLiteralCString(IMAGE_SVG_XML),
+      nullptr, nullptr, getter_AddRefs(listener), getter_AddRefs(viewer));
   NS_ENSURE_SUCCESS(rv, rv);
 
   NS_ENSURE_TRUE(viewer, NS_ERROR_UNEXPECTED);
@@ -377,7 +367,7 @@ SVGDocument* SVGDocumentWrapper::GetDocument() {
   if (!mViewer) {
     return nullptr;
   }
-  nsIDocument* doc = mViewer->GetDocument();
+  Document* doc = mViewer->GetDocument();
   if (!doc) {
     return nullptr;
   }
@@ -389,7 +379,7 @@ SVGSVGElement* SVGDocumentWrapper::GetRootSVGElem() {
     return nullptr;  // Can happen during destruction
   }
 
-  nsIDocument* doc = mViewer->GetDocument();
+  Document* doc = mViewer->GetDocument();
   if (!doc) {
     return nullptr;  // Can happen during destruction
   }

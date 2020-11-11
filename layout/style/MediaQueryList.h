@@ -19,20 +19,18 @@
 #include "mozilla/DOMEventTargetHelper.h"
 #include "mozilla/dom/MediaQueryListBinding.h"
 
-class nsIDocument;
-
 namespace mozilla {
 namespace dom {
 
 class MediaList;
 
 class MediaQueryList final : public DOMEventTargetHelper,
-                             public mozilla::LinkedListElement<MediaQueryList> {
+                             public LinkedListElement<MediaQueryList> {
  public:
   // The caller who constructs is responsible for calling Evaluate
   // before calling any other methods.
-  MediaQueryList(nsIDocument* aDocument, const nsAString& aMediaQueryList,
-                 mozilla::dom::CallerType aCallerType);
+  MediaQueryList(Document* aDocument, const nsAString& aMediaQueryList,
+                 CallerType aCallerType);
 
  private:
   ~MediaQueryList();
@@ -43,7 +41,10 @@ class MediaQueryList final : public DOMEventTargetHelper,
 
   nsISupports* GetParentObject() const;
 
-  void MaybeNotify();
+  // Returns whether we need to notify of the change event using
+  // FireChangeEvent().
+  [[nodiscard]] bool MediaFeatureValuesChanged();
+  void FireChangeEvent();
 
   JSObject* WrapObject(JSContext* aCx,
                        JS::Handle<JSObject*> aGivenProto) override;
@@ -89,7 +90,7 @@ class MediaQueryList final : public DOMEventTargetHelper,
   // after cycle collection unlinking.  Having a non-null mDocument
   // is equivalent to being in that document's mDOMMediaQueryLists
   // linked list.
-  nsCOMPtr<nsIDocument> mDocument;
+  RefPtr<Document> mDocument;
 
   RefPtr<MediaList> mMediaList;
   bool mMatches;

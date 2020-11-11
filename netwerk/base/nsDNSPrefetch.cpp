@@ -10,45 +10,57 @@
 
 #include "nsIDNSListener.h"
 #include "nsIDNSService.h"
+#include "nsIDNSByTypeRecord.h"
 #include "nsICancelable.h"
 #include "nsIURI.h"
+#include "mozilla/Atomics.h"
 #include "mozilla/Preferences.h"
 
-static nsIDNSService *sDNSService = nullptr;
-static bool sESNIEnabled = false;
+static nsIDNSService* sDNSService = nullptr;
+static mozilla::Atomic<bool, mozilla::Relaxed> sESNIEnabled(false);
+const char kESNIPref[] = "network.security.esni.enabled";
 
-nsresult nsDNSPrefetch::Initialize(nsIDNSService *aDNSService) {
+nsresult nsDNSPrefetch::Initialize(nsIDNSService* aDNSService) {
+  MOZ_ASSERT(NS_IsMainThread());
+
   NS_IF_RELEASE(sDNSService);
   sDNSService = aDNSService;
   NS_IF_ADDREF(sDNSService);
-  mozilla::Preferences::AddBoolVarCache(&sESNIEnabled,
-                                        "network.security.esni.enabled");
+  mozilla::Preferences::RegisterCallback(nsDNSPrefetch::PrefChanged, kESNIPref);
+  PrefChanged(nullptr, nullptr);
   return NS_OK;
 }
 
 nsresult nsDNSPrefetch::Shutdown() {
   NS_IF_RELEASE(sDNSService);
+  mozilla::Preferences::UnregisterCallback(nsDNSPrefetch::PrefChanged,
+                                           kESNIPref);
   return NS_OK;
 }
 
-nsDNSPrefetch::nsDNSPrefetch(nsIURI *aURI,
-                             mozilla::OriginAttributes &aOriginAttributes,
-                             nsIDNSListener *aListener, bool storeTiming)
-    : mOriginAttributes(aOriginAttributes),
-      mStoreTiming(storeTiming),
-      mListener(do_GetWeakReference(aListener)) {
-  aURI->GetAsciiHost(mHostname);
-  mIsHttps = false;
-  aURI->SchemeIs("https", &mIsHttps);
+// static
+void nsDNSPrefetch::PrefChanged(const char* aPref, void* aClosure) {
+  if (!aPref || strcmp(aPref, kESNIPref) == 0) {
+    bool enabled = false;
+    if (NS_SUCCEEDED(mozilla::Preferences::GetBool(kESNIPref, &enabled))) {
+      sESNIEnabled = enabled;
+    }
+  }
 }
 
-nsresult nsDNSPrefetch::Prefetch(uint16_t flags) {
-  // This can work properly only if this call is on the main thread.
-  // Curenlty we use nsDNSPrefetch only in nsHttpChannel which will call
-  // PrefetchHigh() from the main thread. Let's add assertion to catch
-  // if things change.
-  MOZ_ASSERT(NS_IsMainThread(), "Expecting DNS callback on main thread.");
+nsDNSPrefetch::nsDNSPrefetch(nsIURI* aURI,
+                             mozilla::OriginAttributes& aOriginAttributes,
+                             nsIRequest::TRRMode aTRRMode,
+                             nsIDNSListener* aListener, bool storeTiming)
+    : mOriginAttributes(aOriginAttributes),
+      mStoreTiming(storeTiming),
+      mTRRMode(aTRRMode),
+      mListener(do_GetWeakReference(aListener)) {
+  aURI->GetAsciiHost(mHostname);
+  mIsHttps = aURI->SchemeIs("https");
+}
 
+nsresult nsDNSPrefetch::Prefetch(uint32_t flags) {
   if (mHostname.IsEmpty()) return NS_ERROR_NOT_AVAILABLE;
 
   if (!sDNSService) return NS_ERROR_NOT_AVAILABLE;
@@ -60,10 +72,13 @@ nsresult nsDNSPrefetch::Prefetch(uint16_t flags) {
   // then our timing will be useless. However, in such a case,
   // mEndTimestamp will be a null timestamp and callers should check
   // TimingsValid() before using the timing.
-  nsCOMPtr<nsIEventTarget> main = mozilla::GetMainThreadEventTarget();
+  nsCOMPtr<nsIEventTarget> target = mozilla::GetCurrentEventTarget();
+
+  flags |= nsIDNSService::GetFlagsFromTRRMode(mTRRMode);
 
   nsresult rv = sDNSService->AsyncResolveNative(
-      mHostname, flags | nsIDNSService::RESOLVE_SPECULATE, this, main,
+      mHostname, nsIDNSService::RESOLVE_TYPE_DEFAULT,
+      flags | nsIDNSService::RESOLVE_SPECULATE, nullptr, this, target,
       mOriginAttributes, getter_AddRefs(tmpOutstanding));
   if (NS_FAILED(rv)) {
     return rv;
@@ -74,10 +89,10 @@ nsresult nsDNSPrefetch::Prefetch(uint16_t flags) {
     nsAutoCString esniHost;
     esniHost.Append("_esni.");
     esniHost.Append(mHostname);
-    sDNSService->AsyncResolveByTypeNative(
-        esniHost, nsIDNSService::RESOLVE_TYPE_TXT,
-        flags | nsIDNSService::RESOLVE_SPECULATE, this, main, mOriginAttributes,
-        getter_AddRefs(tmpOutstanding));
+    sDNSService->AsyncResolveNative(esniHost, nsIDNSService::RESOLVE_TYPE_TXT,
+                                    flags | nsIDNSService::RESOLVE_SPECULATE,
+                                    nullptr, this, target, mOriginAttributes,
+                                    getter_AddRefs(tmpOutstanding));
   }
   return NS_OK;
 }
@@ -96,35 +111,38 @@ nsresult nsDNSPrefetch::PrefetchHigh(bool refreshDNS) {
   return Prefetch(refreshDNS ? nsIDNSService::RESOLVE_BYPASS_CACHE : 0);
 }
 
+nsresult nsDNSPrefetch::FetchHTTPSSVC(bool aRefreshDNS) {
+  if (!sDNSService) {
+    return NS_ERROR_NOT_AVAILABLE;
+  }
+
+  nsCOMPtr<nsIEventTarget> target = mozilla::GetCurrentEventTarget();
+  uint32_t flags = nsIDNSService::GetFlagsFromTRRMode(mTRRMode) |
+                   nsIDNSService::RESOLVE_SPECULATE;
+  if (aRefreshDNS) {
+    flags |= nsIDNSService::RESOLVE_BYPASS_CACHE;
+  }
+
+  nsCOMPtr<nsICancelable> tmpOutstanding;
+  return sDNSService->AsyncResolveNative(
+      mHostname, nsIDNSService::RESOLVE_TYPE_HTTPSSVC, flags, nullptr, this,
+      target, mOriginAttributes, getter_AddRefs(tmpOutstanding));
+}
+
 NS_IMPL_ISUPPORTS(nsDNSPrefetch, nsIDNSListener)
 
 NS_IMETHODIMP
-nsDNSPrefetch::OnLookupComplete(nsICancelable *request, nsIDNSRecord *rec,
+nsDNSPrefetch::OnLookupComplete(nsICancelable* request, nsIDNSRecord* rec,
                                 nsresult status) {
-  MOZ_ASSERT(NS_IsMainThread(), "Expecting DNS callback on main thread.");
+  nsCOMPtr<nsIDNSHTTPSSVCRecord> httpsRecord = do_QueryInterface(rec);
 
-  if (mStoreTiming) {
+  if (mStoreTiming && !httpsRecord) {
     mEndTimestamp = mozilla::TimeStamp::Now();
   }
   nsCOMPtr<nsIDNSListener> listener = do_QueryReferent(mListener);
   if (listener) {
     listener->OnLookupComplete(request, rec, status);
   }
-  return NS_OK;
-}
 
-NS_IMETHODIMP
-nsDNSPrefetch::OnLookupByTypeComplete(nsICancelable *request,
-                                      nsIDNSByTypeRecord *res,
-                                      nsresult status) {
-  MOZ_ASSERT(NS_IsMainThread(), "Expecting DNS callback on main thread.");
-
-  if (mStoreTiming) {
-    mEndTimestamp = mozilla::TimeStamp::Now();
-  }
-  nsCOMPtr<nsIDNSListener> listener = do_QueryReferent(mListener);
-  if (listener) {
-    listener->OnLookupByTypeComplete(request, res, status);
-  }
   return NS_OK;
 }

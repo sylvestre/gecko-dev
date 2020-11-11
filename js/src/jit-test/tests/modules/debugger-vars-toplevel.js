@@ -2,7 +2,7 @@
 
 load(libdir + "asserts.js");
 
-var g = newGlobal();
+var g = newGlobal({newCompartment: true});
 var dbg = Debugger(g);
 dbg.onDebuggerStatement = function (frame) {
     let env = frame.environment;
@@ -15,13 +15,6 @@ dbg.onDebuggerStatement = function (frame) {
 
 g.eval(
 `
-    let moduleRepo = {};
-    setModuleResolveHook(function(module, specifier) {
-        if (specifier in moduleRepo)
-            return moduleRepo[specifier];
-        throw "Module '" + specifier + "' not found";
-    });
-
     let m = parseModule(
     \`
         var a = 1;

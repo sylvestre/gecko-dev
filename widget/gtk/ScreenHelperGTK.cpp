@@ -7,15 +7,16 @@
 #include "ScreenHelperGTK.h"
 
 #ifdef MOZ_X11
-#include <gdk/gdkx.h>
+#  include <gdk/gdkx.h>
 #endif /* MOZ_X11 */
 #ifdef MOZ_WAYLAND
-#include <gdk/gdkwayland.h>
+#  include <gdk/gdkwayland.h>
 #endif /* MOZ_WAYLAND */
 #include <dlfcn.h>
 #include <gtk/gtk.h>
 
 #include "gfxPlatformGtk.h"
+#include "mozilla/dom/DOMTypes.h"
 #include "mozilla/Logging.h"
 #include "nsGtkUtils.h"
 #include "nsTArray.h"
@@ -28,6 +29,12 @@ static LazyLogModule sScreenLog("WidgetScreen");
 static void monitors_changed(GdkScreen* aScreen, gpointer aClosure) {
   MOZ_LOG(sScreenLog, LogLevel::Debug, ("Received monitors-changed event"));
   ScreenHelperGTK* self = static_cast<ScreenHelperGTK*>(aClosure);
+  self->RefreshScreens();
+}
+
+static void screen_resolution_changed(GdkScreen* aScreen,
+                                      GParamSpec* aPspec,
+                                      ScreenHelperGTK* self) {
   self->RefreshScreens();
 }
 
@@ -81,11 +88,15 @@ ScreenHelperGTK::ScreenHelperGTK()
 
   g_signal_connect(defaultScreen, "monitors-changed",
                    G_CALLBACK(monitors_changed), this);
+  // Use _after to ensure this callback is run after gfxPlatformGtk.cpp's
+  // handler.
+  g_signal_connect_after(defaultScreen, "notify::resolution",
+                         G_CALLBACK(screen_resolution_changed), this);
 #ifdef MOZ_X11
   gdk_window_add_filter(mRootWindow, root_window_event_filter, this);
   if (GDK_IS_X11_DISPLAY(gdk_display_get_default())) {
-    mNetWorkareaAtom =
-        XInternAtom(GDK_WINDOW_XDISPLAY(mRootWindow), "_NET_WORKAREA", False);
+    mNetWorkareaAtom = XInternAtom(GDK_WINDOW_XDISPLAY(mRootWindow),
+                                   "_NET_WORKAREA", X11False);
   }
 #endif
   RefreshScreens();
@@ -93,8 +104,7 @@ ScreenHelperGTK::ScreenHelperGTK()
 
 ScreenHelperGTK::~ScreenHelperGTK() {
   if (mRootWindow) {
-    g_signal_handlers_disconnect_by_func(
-        gdk_screen_get_default(), FuncToGpointer(monitors_changed), this);
+    g_signal_handlers_disconnect_by_data(gdk_screen_get_default(), this);
 
     gdk_window_remove_filter(mRootWindow, root_window_event_filter, this);
     g_object_unref(mRootWindow);

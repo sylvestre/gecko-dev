@@ -13,12 +13,13 @@
 #include "mozilla/dom/ClientIPCTypes.h"
 #include "mozilla/dom/ContentParent.h"
 #include "mozilla/dom/PClientManagerParent.h"
+#include "mozilla/dom/ServiceWorkerManager.h"
+#include "mozilla/dom/ServiceWorkerUtils.h"
 #include "mozilla/ipc/BackgroundParent.h"
-#include "mozilla/SystemGroup.h"
+#include "mozilla/SchedulerGroup.h"
 #include "mozilla/Unused.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 using mozilla::ipc::AssertIsOnBackgroundThread;
 using mozilla::ipc::BackgroundParent;
@@ -75,7 +76,8 @@ void ClientSourceParent::KillInvalidChild() {
   // there is a small window of time before we kill the process.  This is why
   // we start the actor destruction immediately above.
   nsCOMPtr<nsIRunnable> r = new KillContentParentRunnable(std::move(process));
-  MOZ_ALWAYS_SUCCEEDS(SystemGroup::Dispatch(TaskCategory::Other, r.forget()));
+  MOZ_ALWAYS_SUCCEEDS(
+      SchedulerGroup::Dispatch(TaskCategory::Other, r.forget()));
 }
 
 mozilla::ipc::IPCResult ClientSourceParent::RecvWorkerSyncPing() {
@@ -119,8 +121,7 @@ IPCResult ClientSourceParent::RecvFreeze() {
 
   // Frozen clients should not be observable.  Act as if the client has
   // been destroyed.
-  nsTArray<ClientHandleParent*> handleList(mHandleList);
-  for (ClientHandleParent* handle : handleList) {
+  for (ClientHandleParent* handle : mHandleList.Clone()) {
     Unused << ClientHandleParent::Send__delete__(handle);
   }
 
@@ -141,7 +142,7 @@ IPCResult ClientSourceParent::RecvInheritController(
   // In parent-side intercept mode we must tell the parent-side SWM about
   // this controller inheritence.  In legacy client-side mode this is done
   // from the ClientSource instead.
-  if (!ServiceWorkerParentInterceptEnabled()) {
+  if (ServiceWorkerParentInterceptEnabled()) {
     nsCOMPtr<nsIRunnable> r = NS_NewRunnableFunction(
         "ClientSourceParent::RecvInheritController",
         [clientInfo = mClientInfo, controller = mController.ref()]() {
@@ -152,7 +153,8 @@ IPCResult ClientSourceParent::RecvInheritController(
           swm->NoteInheritedController(clientInfo, controller);
         });
 
-    MOZ_ALWAYS_SUCCEEDS(SystemGroup::Dispatch(TaskCategory::Other, r.forget()));
+    MOZ_ALWAYS_SUCCEEDS(
+        SchedulerGroup::Dispatch(TaskCategory::Other, r.forget()));
   }
 
   return IPC_OK();
@@ -170,7 +172,8 @@ IPCResult ClientSourceParent::RecvNoteDOMContentLoaded() {
                                  swm->MaybeCheckNavigationUpdate(clientInfo);
                                });
 
-    MOZ_ALWAYS_SUCCEEDS(SystemGroup::Dispatch(TaskCategory::Other, r.forget()));
+    MOZ_ALWAYS_SUCCEEDS(
+        SchedulerGroup::Dispatch(TaskCategory::Other, r.forget()));
   }
   return IPC_OK();
 }
@@ -179,8 +182,7 @@ void ClientSourceParent::ActorDestroy(ActorDestroyReason aReason) {
   DebugOnly<bool> removed = mService->RemoveSource(this);
   MOZ_ASSERT(removed);
 
-  nsTArray<ClientHandleParent*> handleList(mHandleList);
-  for (ClientHandleParent* handle : handleList) {
+  for (ClientHandleParent* handle : mHandleList.Clone()) {
     // This should trigger DetachHandle() to be called removing
     // the entry from the mHandleList.
     Unused << ClientHandleParent::Send__delete__(handle);
@@ -201,9 +203,12 @@ bool ClientSourceParent::DeallocPClientSourceOpParent(
   return true;
 }
 
-ClientSourceParent::ClientSourceParent(const ClientSourceConstructorArgs& aArgs)
+ClientSourceParent::ClientSourceParent(
+    const ClientSourceConstructorArgs& aArgs,
+    const Maybe<ContentParentId>& aContentParentId)
     : mClientInfo(aArgs.id(), aArgs.type(), aArgs.principalInfo(),
                   aArgs.creationTime()),
+      mContentParentId(aContentParentId),
       mService(ClientManagerService::GetOrCreateInstance()),
       mExecutionReady(false),
       mFrozen(false) {}
@@ -238,7 +243,7 @@ bool ClientSourceParent::IsFrozen() const { return mFrozen; }
 
 bool ClientSourceParent::ExecutionReady() const { return mExecutionReady; }
 
-RefPtr<GenericPromise> ClientSourceParent::ExecutionReadyPromise() {
+RefPtr<GenericNonExclusivePromise> ClientSourceParent::ExecutionReadyPromise() {
   // Only call if ClientSourceParent::ExecutionReady() is false; otherwise,
   // the promise will never resolve
   MOZ_ASSERT(!mExecutionReady);
@@ -266,7 +271,7 @@ void ClientSourceParent::DetachHandle(ClientHandleParent* aClientHandle) {
 }
 
 RefPtr<ClientOpPromise> ClientSourceParent::StartOp(
-    const ClientOpConstructorArgs& aArgs) {
+    ClientOpConstructorArgs&& aArgs) {
   RefPtr<ClientOpPromise::Private> promise =
       new ClientOpPromise::Private(__func__);
 
@@ -282,11 +287,11 @@ RefPtr<ClientOpPromise> ClientSourceParent::StartOp(
   }
 
   // Constructor failure will reject the promise via ActorDestroy().
-  ClientSourceOpParent* actor = new ClientSourceOpParent(aArgs, promise);
-  Unused << SendPClientSourceOpConstructor(actor, aArgs);
+  ClientSourceOpParent* actor =
+      new ClientSourceOpParent(std::move(aArgs), promise);
+  Unused << SendPClientSourceOpConstructor(actor, actor->Args());
 
-  return promise.forget();
+  return promise;
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

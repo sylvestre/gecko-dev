@@ -313,6 +313,10 @@ bool ADTSTrackDemuxer::Init() {
   // Rewind back to the stream begin to avoid dropping the first frame.
   FastSeek(TimeUnit::Zero());
 
+  if (!mSamplesPerSecond) {
+    return false;
+  }
+
   if (!mInfo) {
     mInfo = MakeUnique<AudioInfo>();
   }
@@ -337,7 +341,12 @@ bool ADTSTrackDemuxer::Init() {
           mInfo->mRate, mInfo->mChannels, mInfo->mBitDepth,
           mInfo->mDuration.ToMicroseconds());
 
-  return mSamplesPerSecond && mChannels;
+  // AAC encoder delay is by default 2112 audio frames.
+  // See
+  // https://developer.apple.com/library/content/documentation/QuickTime/QTFF/QTFFAppenG/QTFFAppenG.html
+  // So we always seek 2112 frames prior the seeking point.
+  mPreRoll = TimeUnit::FromMicroseconds(2112 * 1000000ULL / mSamplesPerSecond);
+  return mChannels;
 }
 
 UniquePtr<TrackInfo> ADTSTrackDemuxer::GetInfo() const {
@@ -347,9 +356,10 @@ UniquePtr<TrackInfo> ADTSTrackDemuxer::GetInfo() const {
 RefPtr<ADTSTrackDemuxer::SeekPromise> ADTSTrackDemuxer::Seek(
     const TimeUnit& aTime) {
   // Efficiently seek to the position.
-  FastSeek(aTime);
+  const TimeUnit time = aTime > mPreRoll ? aTime - mPreRoll : TimeUnit::Zero();
+  FastSeek(time);
   // Correct seek position by scanning the next frames.
-  const TimeUnit seekTime = ScanUntil(aTime);
+  const TimeUnit seekTime = ScanUntil(time);
 
   return SeekPromise::CreateAndResolve(seekTime, __func__);
 }
@@ -429,8 +439,7 @@ RefPtr<ADTSTrackDemuxer::SamplesPromise> ADTSTrackDemuxer::GetSamples(
   while (aNumSamples--) {
     RefPtr<MediaRawData> frame(GetNextFrame(FindNextFrame()));
     if (!frame) break;
-
-    frames->mSamples.AppendElement(frame);
+    frames->AppendSample(frame);
   }
 
   ADTSLOGV(
@@ -439,11 +448,11 @@ RefPtr<ADTSTrackDemuxer::SamplesPromise> ADTSTrackDemuxer::GetSamples(
       " mTotalFrameLen=%" PRIu64
       " mSamplesPerFrame=%d mSamplesPerSecond=%d "
       "mChannels=%d",
-      frames->mSamples.Length(), aNumSamples, mOffset, mNumParsedFrames,
+      frames->GetSamples().Length(), aNumSamples, mOffset, mNumParsedFrames,
       mFrameIndex, mTotalFrameLen, mSamplesPerFrame, mSamplesPerSecond,
       mChannels);
 
-  if (frames->mSamples.IsEmpty()) {
+  if (frames->GetSamples().IsEmpty()) {
     return SamplesPromise::CreateAndReject(NS_ERROR_DOM_MEDIA_END_OF_STREAM,
                                            __func__);
   }
@@ -729,8 +738,8 @@ double ADTSTrackDemuxer::AverageFrameLength() const {
   return 0.0;
 }
 
-/* static */ bool ADTSDemuxer::ADTSSniffer(const uint8_t* aData,
-                                           const uint32_t aLength) {
+/* static */
+bool ADTSDemuxer::ADTSSniffer(const uint8_t* aData, const uint32_t aLength) {
   if (aLength < 7) {
     return false;
   }

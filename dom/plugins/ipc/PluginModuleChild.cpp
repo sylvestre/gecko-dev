@@ -13,7 +13,8 @@
 #include "mozilla/ipc/MessageChannel.h"
 
 #ifdef MOZ_WIDGET_GTK
-#include <gtk/gtk.h>
+#  include <gtk/gtk.h>
+#  include <gdk/gdkx.h>
 #endif
 
 #include "nsIFile.h"
@@ -25,8 +26,8 @@
 #include "nsXULAppAPI.h"
 
 #ifdef MOZ_X11
-#include "nsX11ErrorHandler.h"
-#include "mozilla/X11Util.h"
+#  include "nsX11ErrorHandler.h"
+#  include "mozilla/X11Util.h"
 #endif
 
 #include "mozilla/ipc/CrashReporterClient.h"
@@ -42,21 +43,21 @@
 #include "FunctionBrokerChild.h"
 
 #ifdef XP_WIN
-#include "mozilla/widget/AudioSession.h"
-#include <knownfolders.h>
+#  include "mozilla/widget/AudioSession.h"
+#  include <knownfolders.h>
 #endif
 
 #ifdef MOZ_WIDGET_COCOA
-#include "PluginInterposeOSX.h"
-#include "PluginUtilsOSX.h"
+#  include "PluginInterposeOSX.h"
+#  include "PluginUtilsOSX.h"
 #endif
 
 #ifdef MOZ_GECKO_PROFILER
-#include "ChildProfilerController.h"
+#  include "ChildProfilerController.h"
 #endif
 
 #if defined(XP_MACOSX) && defined(MOZ_SANDBOX)
-#include "mozilla/Sandbox.h"
+#  include "mozilla/Sandbox.h"
 #endif
 
 using namespace mozilla;
@@ -66,9 +67,9 @@ using namespace mozilla::widget;
 
 #if defined(XP_WIN)
 const wchar_t* kFlashFullscreenClass = L"ShockwaveFlashFullScreen";
-#if defined(MOZ_SANDBOX)
+#  if defined(MOZ_SANDBOX)
 std::wstring sRoamingPath;
-#endif
+#  endif
 #endif
 
 namespace {
@@ -207,8 +208,8 @@ void PluginModuleChild::EnableFlashSandbox(int aLevel,
 #endif
 
 #if defined(OS_WIN) && defined(MOZ_SANDBOX)
-/* static */ void PluginModuleChild::SetFlashRoamingPath(
-    const std::wstring& aRoamingPath) {
+/* static */
+void PluginModuleChild::SetFlashRoamingPath(const std::wstring& aRoamingPath) {
   MOZ_ASSERT(sRoamingPath.empty());
   sRoamingPath = aRoamingPath;
 }
@@ -221,7 +222,7 @@ void PluginModuleChild::EnableFlashSandbox(int aLevel,
 bool PluginModuleChild::InitForChrome(const std::string& aPluginFilename,
                                       base::ProcessId aParentPid,
                                       MessageLoop* aIOLoop,
-                                      IPC::Channel* aChannel) {
+                                      UniquePtr<IPC::Channel> aChannel) {
   NS_ASSERTION(aChannel, "need a channel");
 
 #if defined(OS_WIN) && defined(MOZ_SANDBOX)
@@ -254,7 +255,7 @@ bool PluginModuleChild::InitForChrome(const std::string& aPluginFilename,
   mAsyncRenderSupport = info.fSupportsAsyncRender;
 #endif
 #if defined(MOZ_X11)
-  NS_NAMED_LITERAL_CSTRING(flash10Head, "Shockwave Flash 10.");
+  constexpr auto flash10Head = "Shockwave Flash 10."_ns;
   if (StringBeginsWith(nsDependentCString(info.fDescription), flash10Head)) {
     AddQuirk(QUIRK_FLASH_EXPOSE_COORD_TRANSLATION);
   }
@@ -277,7 +278,7 @@ bool PluginModuleChild::InitForChrome(const std::string& aPluginFilename,
 
   CommonInit();
 
-  if (!Open(aChannel, aParentPid, aIOLoop)) {
+  if (!Open(std::move(aChannel), aParentPid, aIOLoop)) {
     return false;
   }
 
@@ -306,16 +307,15 @@ bool PluginModuleChild::InitForChrome(const std::string& aPluginFilename,
   NS_ENSURE_TRUE(mInitializeFunc, false);
 #else
 
-#error Please copy the initialization code from nsNPAPIPlugin.cpp
+#  error Please copy the initialization code from nsNPAPIPlugin.cpp
 
 #endif
 
 #if defined(XP_MACOSX) && defined(MOZ_SANDBOX)
   if (mFlashSandboxLevel > 0) {
     MacSandboxInfo flashSandboxInfo;
-    flashSandboxInfo.type = MacSandboxType_Plugin;
-    flashSandboxInfo.pluginInfo.type = MacSandboxPluginType_Flash;
-    flashSandboxInfo.pluginInfo.pluginBinaryPath = aPluginFilename;
+    flashSandboxInfo.type = MacSandboxType_Flash;
+    flashSandboxInfo.pluginBinaryPath = aPluginFilename;
     flashSandboxInfo.level = mFlashSandboxLevel;
     flashSandboxInfo.shouldLog = mEnableFlashSandboxLogging;
 
@@ -432,15 +432,15 @@ static gboolean gtk_plug_scroll_event(GtkWidget* widget,
   xevent.xbutton.y_root = gdk_event->y_root;
   xevent.xbutton.state = gdk_event->state;
   xevent.xbutton.button = button;
-  xevent.xbutton.same_screen = True;
+  xevent.xbutton.same_screen = X11True;
 
   gdk_error_trap_push();
 
-  XSendEvent(dpy, xevent.xbutton.window, True, ButtonPressMask, &xevent);
+  XSendEvent(dpy, xevent.xbutton.window, X11True, ButtonPressMask, &xevent);
 
   xevent.xbutton.type = ButtonRelease;
   xevent.xbutton.state |= button_mask;
-  XSendEvent(dpy, xevent.xbutton.window, True, ButtonReleaseMask, &xevent);
+  XSendEvent(dpy, xevent.xbutton.window, X11True, ButtonReleaseMask, &xevent);
 
   gdk_display_sync(gdk_screen_get_display(screen));
   gdk_error_trap_pop();
@@ -520,9 +520,9 @@ void PluginModuleChild::EnteredCxxStack() {
       kNestedLoopDetectorPriority, kNestedLoopDetectorIntervalMs,
       PluginModuleChild::DetectNestedEventLoop, this, nullptr);
 
-#ifdef DEBUG
+#  ifdef DEBUG
   mTopLoopDepth = g_main_depth();
-#endif
+#  endif
 }
 
 void PluginModuleChild::ExitedCxxStack() {
@@ -660,7 +660,7 @@ mozilla::ipc::IPCResult PluginModuleChild::RecvNPP_ClearSiteData(
 mozilla::ipc::IPCResult PluginModuleChild::RecvNPP_GetSitesWithData(
     const uint64_t& aCallbackId) {
   char** result = mFunctions.getsiteswithdata();
-  InfallibleTArray<nsCString> array;
+  nsTArray<nsCString> array;
   if (!result) {
     SendReturnSitesWithData(array, aCallbackId);
     return IPC_OK();
@@ -715,8 +715,8 @@ mozilla::ipc::IPCResult PluginModuleChild::RecvInitPluginFunctionBroker(
 }
 
 mozilla::ipc::IPCResult PluginModuleChild::AnswerInitCrashReporter(
-    Shmem&& aShmem, mozilla::dom::NativeThreadId* aOutId) {
-  CrashReporterClient::InitSingletonWithShmem(aShmem);
+    mozilla::dom::NativeThreadId* aOutId) {
+  CrashReporterClient::InitSingleton();
   *aOutId = CrashReporter::CurrentThreadId();
 
   return IPC_OK();
@@ -774,9 +774,7 @@ const char* PluginModuleChild::GetUserAgent() {
 //-----------------------------------------------------------------------------
 // FIXME/cjones: just getting this out of the way for the moment ...
 
-namespace mozilla {
-namespace plugins {
-namespace child {
+namespace mozilla::plugins::child {
 
 static NPError _requestread(NPStream* pstream, NPByteRange* rangeList);
 
@@ -887,9 +885,7 @@ static NPError _finalizeasyncsurface(NPP instance, NPAsyncSurface* surface);
 static void _setcurrentasyncsurface(NPP instance, NPAsyncSurface* surface,
                                     NPRect* changed);
 
-} /* namespace child */
-} /* namespace plugins */
-} /* namespace mozilla */
+}  // namespace mozilla::plugins::child
 
 const NPNetscapeFuncs PluginModuleChild::sBrowserFuncs = {
     sizeof(sBrowserFuncs),
@@ -959,9 +955,7 @@ PluginInstanceChild* InstCast(NPP aNPP) {
   return static_cast<PluginInstanceChild*>(aNPP->ndata);
 }
 
-namespace mozilla {
-namespace plugins {
-namespace child {
+namespace mozilla::plugins::child {
 
 NPError _requestread(NPStream* aStream, NPByteRange* aRangeList) {
   return NPERR_STREAM_NOT_SEEKABLE;
@@ -979,8 +973,10 @@ NPError _geturlnotify(NPP aNPP, const char* aRelativeURL, const char* aTarget,
   auto* sn = new StreamNotifyChild(url);
 
   NPError err;
-  InstCast(aNPP)->CallPStreamNotifyConstructor(sn, url, NullableString(aTarget),
-                                               false, nsCString(), false, &err);
+  if (!InstCast(aNPP)->CallPStreamNotifyConstructor(
+          sn, url, NullableString(aTarget), false, nsCString(), false, &err)) {
+    return NPERR_GENERIC_ERROR;
+  }
 
   if (NPERR_NO_ERROR == err) {
     // If NPN_PostURLNotify fails, the parent will immediately send us
@@ -1082,9 +1078,11 @@ NPError _posturlnotify(NPP aNPP, const char* aRelativeURL, const char* aTarget,
   auto* sn = new StreamNotifyChild(url);
 
   NPError err;
-  InstCast(aNPP)->CallPStreamNotifyConstructor(
-      sn, url, NullableString(aTarget), true, nsCString(aBuffer, aLength),
-      aIsFile, &err);
+  if (!InstCast(aNPP)->CallPStreamNotifyConstructor(
+          sn, url, NullableString(aTarget), true, nsCString(aBuffer, aLength),
+          aIsFile, &err)) {
+    return NPERR_GENERIC_ERROR;
+  }
 
   if (NPERR_NO_ERROR == err) {
     // If NPN_PostURLNotify fails, the parent will immediately send us
@@ -1507,9 +1505,7 @@ void _setcurrentasyncsurface(NPP instance, NPAsyncSurface* surface,
   InstCast(instance)->NPN_SetCurrentAsyncSurface(surface, changed);
 }
 
-} /* namespace child */
-} /* namespace plugins */
-} /* namespace mozilla */
+}  // namespace mozilla::plugins::child
 
 //-----------------------------------------------------------------------------
 
@@ -1531,7 +1527,7 @@ mozilla::ipc::IPCResult PluginModuleChild::AnswerNP_GetEntryPoints(
   *_retval = mGetEntryPointsFunc(&mFunctions);
   return IPC_OK();
 #else
-#error Please implement me for your platform
+#  error Please implement me for your platform
 #endif
 }
 
@@ -1553,6 +1549,12 @@ NPError PluginModuleChild::DoNP_Initialize(const PluginSettings& aSettings) {
 #endif
 
 #ifdef MOZ_X11
+#  ifdef MOZ_WIDGET_GTK
+  if (!GDK_IS_X11_DISPLAY(gdk_display_get_default())) {
+    // We don't support NPAPI plugins on Wayland.
+    return NPERR_GENERIC_ERROR;
+  }
+#  endif
   // Send the parent our X socket to act as a proxy reference for our X
   // resources.
   int xSocketFd = ConnectionNumber(DefaultXDisplay());
@@ -1565,15 +1567,15 @@ NPError PluginModuleChild::DoNP_Initialize(const PluginSettings& aSettings) {
 #elif defined(OS_WIN) || defined(OS_MACOSX)
   result = mInitializeFunc(&sBrowserFuncs);
 #else
-#error Please implement me for your platform
+#  error Please implement me for your platform
 #endif
 
   return result;
 }
 
 PPluginInstanceChild* PluginModuleChild::AllocPPluginInstanceChild(
-    const nsCString& aMimeType, const InfallibleTArray<nsCString>& aNames,
-    const InfallibleTArray<nsCString>& aValues) {
+    const nsCString& aMimeType, const nsTArray<nsCString>& aNames,
+    const nsTArray<nsCString>& aValues) {
   PLUGIN_LOG_DEBUG_METHOD;
   AssertPluginThread();
 
@@ -1613,8 +1615,7 @@ mozilla::ipc::IPCResult PluginModuleChild::AnswerModuleSupportsAsyncRender(
 
 mozilla::ipc::IPCResult PluginModuleChild::RecvPPluginInstanceConstructor(
     PPluginInstanceChild* aActor, const nsCString& aMimeType,
-    InfallibleTArray<nsCString>&& aNames,
-    InfallibleTArray<nsCString>&& aValues) {
+    nsTArray<nsCString>&& aNames, nsTArray<nsCString>&& aValues) {
   PLUGIN_LOG_DEBUG_METHOD;
   AssertPluginThread();
 
@@ -1672,6 +1673,10 @@ NPObject* PluginModuleChild::NPN_CreateObject(NPP aNPP, NPClass* aClass) {
 
 NPObject* PluginModuleChild::NPN_RetainObject(NPObject* aNPObj) {
   AssertPluginThread();
+
+  if (NS_WARN_IF(!aNPObj)) {
+    return nullptr;
+  }
 
 #ifdef NS_BUILD_REFCNT_LOGGING
   int32_t refCnt =
@@ -1805,13 +1810,14 @@ void PluginModuleChild::EnteredCall() { mIncallPumpingStack.AppendElement(); }
 
 void PluginModuleChild::ExitedCall() {
   NS_ASSERTION(mIncallPumpingStack.Length(), "mismatched entered/exited");
-  uint32_t len = mIncallPumpingStack.Length();
-  const IncallFrame& f = mIncallPumpingStack[len - 1];
+  const IncallFrame& f = mIncallPumpingStack.LastElement();
   if (f._spinning)
     MessageLoop::current()->SetNestableTasksAllowed(
         f._savedNestableTasksAllowed);
 
-  mIncallPumpingStack.TruncateLength(len - 1);
+  // XXX Is RemoveLastElement intentionally called only after calling
+  // SetNestableTasksAllowed? Otherwise, PopLastElement could be used above.
+  mIncallPumpingStack.RemoveLastElement();
 }
 
 LRESULT CALLBACK PluginModuleChild::CallWindowProcHook(int nCode, WPARAM wParam,

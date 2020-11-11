@@ -1,6 +1,4 @@
-// |jit-test| error:Error; skip-if: !isAsmJSCompilationAvailable()
+// |jit-test| error:Error: AsmJS modules do not yet support cloning; skip-if: !isAsmJSCompilationAvailable()
 
-var g = newGlobal();
-evaluate("function h() { function f() { 'use asm'; function g() { return 42 } return g } return f }", { global:g});
-var h = clone(g.h);
-assertEq(h()()(), 42);
+var g = newGlobal({newCompartment: true});
+cloneAndExecuteScript("function h() { function f() { 'use asm'; function g() { return 42 } return g } return f }", g);

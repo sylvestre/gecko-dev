@@ -8,6 +8,8 @@ property, or deprecated DOM operation.  Custom use counters can also be
 defined to test frequency of things that don't fall into one of those
 categories.
 
+As of Firefox 65 the collection of Use Counters is enabled on all channels.
+
 The API
 =======
 The process to add a new use counter is different depending on the type feature that needs
@@ -27,16 +29,21 @@ Example scenarios:
 
 Deprecated DOM operations
 -------------------------
-Use counters for deprecated DOM operations are declared in the `nsDeprecatedOperationList.h <https://dxr.mozilla.org/mozilla-central/source/dom/base/nsDeprecatedOperationList.h>`_ file. The counters are
+Use counters for deprecated DOM operations are declared in the `nsDeprecatedOperationList.h <https://searchfox.org/mozilla-central/source/dom/base/nsDeprecatedOperationList.h>`_ file. The counters are
 registered through the ``DEPRECATED_OPERATION(DeprecationReference)`` macro. The provided
 parameter must have the same value of the deprecation note added to the *IDL* file.
 
 See this `changeset <https://hg.mozilla.org/mozilla-central/rev/e30a357b25f1>`_ for a sample
 deprecated operation.
 
+CSS Properties
+~~~~~~~~~~~~~~
+
+Use counters for CSS properties are generated for every property Gecko supports automatically, and are counted via StyleUseCounters (`Rust code <https://searchfox.org/mozilla-central/rev/7ed8e2d3d1d7a1464ba42763a33fd2e60efcaedc/servo/components/style/use_counters/mod.rs>`_, `C++ code <https://searchfox.org/mozilla-central/rev/7ed8e2d3d1d7a1464ba42763a33fd2e60efcaedc/dom/base/Document.h#5077>`_).
+
 The UseCounters registry
 ------------------------
-Use counters for WebIDL methods/attributes and CSS properties are registered in the `UseCounters.conf <https://dxr.mozilla.org/mozilla-central/source/dom/base/UseCounters.conf>`_ file.  The format of this file is very strict. Each line can be:
+Use counters for WebIDL methods/attributes are registered in the `UseCounters.conf <https://searchfox.org/mozilla-central/source/dom/base/UseCounters.conf>`_ file.  The format of this file is very strict. Each line can be:
 
 1. a blank line
 2. a comment, which is a line that begins with ``//``
@@ -44,22 +51,17 @@ Use counters for WebIDL methods/attributes and CSS properties are registered in 
 
   * ``method <IDL interface name>.<IDL operation name>``
   * ``attribute <IDL interface name>.<IDL attribute name>``
-  * ``property <CSS property method name>``
   * ``custom <any valid identifier> <description>``
-
-CSS properties
-~~~~~~~~~~~~~~
-The CSS property method name should be identical to the ``method`` argument of ``CSS_PROP()`` and related macros. The only differences are that all hyphens are removed and CamelCase naming is used.  See `ServoCSSPropList.h <https://searchfox.org/mozilla-central/source/__GENERATED__/layout/style/ServoCSSPropList.h>`_ for further details.
 
 Custom use counters
 ~~~~~~~~~~~~~~~~~~~
-The <description> for custom counters will be appended to "When a document " or "When a page ", so phrase it appropriately.  For instance, "constructs a Foo object" or "calls Document.bar('some value')".  It may contain any character (including whitespace).  Custom counters are incremented when SetDocumentAndPageUseCounter(eUseCounter_custom_MyName) is called on an ns(I)Document object.
+The <description> for custom counters will be appended to "When a document " or "When a page ", so phrase it appropriately.  For instance, "constructs a Foo object" or "calls Document.bar('some value')".  It may contain any character (including whitespace).  Custom counters are incremented when SetUseCounter(eUseCounter_custom_MyName) is called on a Document object.
 
 WebIDL methods and attributes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Additionally to having a new entry added to the `UseCounters.conf <https://dxr.mozilla.org/mozilla-central/source/dom/base/UseCounters.conf>`_ file, WebIDL methods and attributes must have a ``[UseCounter]`` extended attribute in the Web IDL file in order for the counters to be incremented.
+Additionally to having a new entry added to the `UseCounters.conf <https://searchfox.org/mozilla-central/source/dom/base/UseCounters.conf>`_ file, WebIDL methods and attributes must have a ``[UseCounter]`` extended attribute in the Web IDL file in order for the counters to be incremented.
 
-Both additions are required because generating things from bindings codegen and ensuring all the dependencies are correct would have been rather difficult, and annotating the WebIDL files does nothing for identifying CSS property usage, which we would also like to track.
+Both additions are required because generating things from bindings codegen and ensuring all the dependencies are correct would have been rather difficult.
 
 The processor script
 ====================
@@ -70,13 +72,12 @@ The definition files are processed twice:
 
 .. note::
 
-    The histograms that are generated out of use counters are set to *never* expire and are *opt-in*.
+    The histograms that are generated out of use counters are set to *never* expire and are collected from Firefox release. Note that before Firefox 65 they were only collected on pre-release.
 
 gen-usecounters.py
 ------------------
 This script is called by the build system to generate:
 
-- the ``PropertyUseCounterMap.inc`` C++ header for the CSS properties;
 - the ``UseCounterList.h`` header for the WebIDL, out of the definition files.
 
 Interpreting the data
@@ -86,7 +87,7 @@ the use counter directly reports if a feature was used but it does not directly 
 it isn't used.
 The values accumulated within a use counter should be considered proportional to
 ``CONTENT_DOCUMENTS_DESTROYED`` and ``TOP_LEVEL_CONTENT_DOCUMENTS_DESTROYED`` (see
-`here <https://dxr.mozilla.org/mozilla-central/rev/b056526be38e96b3e381b7e90cd8254ad1d96d9d/dom/base/nsDocument.cpp#13209-13231>`__). The difference between the values of these two histograms
+`here <https://searchfox.org/mozilla-central/rev/1a973762afcbc5066f73f1508b0c846872fe3952/dom/base/Document.cpp#15059-15081>`__). The difference between the values of these two histograms
 and the related use counters below tell us how many pages did *not* use the feature in question.
 For instance, if we see that a given session has destroyed 30 content documents, but a
 particular use counter shows only a count of 5, we can infer that the use counter was *not*
@@ -95,3 +96,10 @@ used in 25 of those 30 documents.
 Things are done this way, rather than accumulating a boolean flag for each use counter,
 to avoid sending histograms for features that don't get widely used. Doing things in this
 fashion means smaller telemetry payloads and faster processing on the server side.
+
+Version History
+---------------
+
+- Firefox 65:
+
+  - Enable Use Counters on release channel (`bug 1477433 <https://bugzilla.mozilla.org/show_bug.cgi?id=1477433>`_)

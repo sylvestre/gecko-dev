@@ -18,23 +18,21 @@ static float sProgressVal;  // between 0 and 100
 static BOOL sQuit = NO;
 static BOOL sIndeterminate = NO;
 static StringTable sLabels;
-static const char *sUpdatePath;
+static const char* sUpdatePath;
 
-@interface UpdaterUI : NSObject
-{
-  IBOutlet NSProgressIndicator *progressBar;
-  IBOutlet NSTextField *progressTextField;
+@interface UpdaterUI : NSObject {
+  IBOutlet NSProgressIndicator* progressBar;
+  IBOutlet NSTextField* progressTextField;
 }
 @end
 
 @implementation UpdaterUI
 
--(void)awakeFromNib
-{
-  NSWindow *w = [progressBar window];
+- (void)awakeFromNib {
+  NSWindow* w = [progressBar window];
 
-  [w setTitle:[NSString stringWithUTF8String:sLabels.title]];
-  [progressTextField setStringValue:[NSString stringWithUTF8String:sLabels.info]];
+  [w setTitle:[NSString stringWithUTF8String:sLabels.title.get()]];
+  [progressTextField setStringValue:[NSString stringWithUTF8String:sLabels.info.get()]];
 
   NSRect origTextFrame = [progressTextField frame];
   [progressTextField sizeToFit];
@@ -43,7 +41,7 @@ static const char *sUpdatePath;
 
   if (widthAdjust > 0) {
     NSRect f;
-    f.size.width  = w.frame.size.width + widthAdjust;
+    f.size.width = w.frame.size.width + widthAdjust;
     f.size.height = w.frame.size.height;
     [w setFrame:f display:YES];
   }
@@ -53,17 +51,18 @@ static const char *sUpdatePath;
   [progressBar setIndeterminate:sIndeterminate];
   [progressBar setDoubleValue:0.0];
 
-  [[NSTimer scheduledTimerWithTimeInterval:TIMER_INTERVAL target:self
+  [[NSTimer scheduledTimerWithTimeInterval:TIMER_INTERVAL
+                                    target:self
                                   selector:@selector(updateProgressUI:)
-                                  userInfo:nil repeats:YES] retain];
+                                  userInfo:nil
+                                   repeats:YES] retain];
 
   // Make sure we are on top initially
   [NSApp activateIgnoringOtherApps:YES];
 }
 
 // called when the timer goes off
--(void)updateProgressUI:(NSTimer *)aTimer
-{
+- (void)updateProgressUI:(NSTimer*)aTimer {
   if (sQuit) {
     [aTimer invalidate];
     [aTimer release];
@@ -76,32 +75,27 @@ static const char *sUpdatePath;
     [NSApp hide:self];
     [NSApp stop:self];
   }
-  
+
   float progress = sProgressVal;
-  
+
   [progressBar setDoubleValue:(double)progress];
 }
 
 // leave this as returning a BOOL instead of NSApplicationTerminateReply
 // for backward compatibility
-- (BOOL)applicationShouldTerminate:(NSApplication *)sender
-{
+- (BOOL)applicationShouldTerminate:(NSApplication*)sender {
   return sQuit;
 }
 
 @end
 
-int
-InitProgressUI(int *pargc, char ***pargv)
-{
+int InitProgressUI(int* pargc, char*** pargv) {
   sUpdatePath = (*pargv)[1];
-  
+
   return 0;
 }
 
-int
-ShowProgressUI(bool indeterminate)
-{
+int ShowProgressUI(bool indeterminate) {
   // Only show the Progress UI if the process is taking a significant amount of
   // time where a significant amount of time is defined as .5 seconds after
   // ShowProgressUI is called sProgress is less than 70.
@@ -117,31 +111,18 @@ ShowProgressUI(bool indeterminate)
     return -1;
   }
 
-  // Continue the update without showing the Progress UI if any of the supplied
-  // strings are larger than MAX_TEXT_LEN (Bug 628829).
-  if (!(strlen(sLabels.title) < MAX_TEXT_LEN - 1 &&
-        strlen(sLabels.info) < MAX_TEXT_LEN - 1)) {
-    return -1;
-  }
-
   sIndeterminate = indeterminate;
   [NSApplication sharedApplication];
-  [NSBundle loadNibNamed:@"MainMenu" owner:NSApp];
+  [[NSBundle mainBundle] loadNibNamed:@"MainMenu" owner:NSApp topLevelObjects:nil];
   [NSApp run];
 
   return 0;
 }
 
 // Called on a background thread
-void
-QuitProgressUI()
-{
-  sQuit = YES;
-}
+void QuitProgressUI() { sQuit = YES; }
 
 // Called on a background thread
-void
-UpdateProgressUI(float progress)
-{
+void UpdateProgressUI(float progress) {
   sProgressVal = progress;  // 32-bit writes are atomic
 }

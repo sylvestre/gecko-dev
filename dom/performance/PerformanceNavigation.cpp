@@ -8,8 +8,7 @@
 #include "PerformanceTiming.h"
 #include "mozilla/dom/PerformanceNavigationBinding.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(PerformanceNavigation, mPerformance)
 
@@ -21,7 +20,7 @@ PerformanceNavigation::PerformanceNavigation(Performance* aPerformance)
   MOZ_ASSERT(aPerformance, "Parent performance object should be provided");
 }
 
-PerformanceNavigation::~PerformanceNavigation() {}
+PerformanceNavigation::~PerformanceNavigation() = default;
 
 JSObject* PerformanceNavigation::WrapObject(JSContext* cx,
                                             JS::Handle<JSObject*> aGivenProto) {
@@ -32,5 +31,4 @@ uint16_t PerformanceNavigation::RedirectCount() const {
   return GetPerformanceTiming()->Data()->GetRedirectCount();
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

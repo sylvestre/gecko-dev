@@ -8,10 +8,8 @@ use super::AllowQuirks;
 #[cfg(feature = "gecko")]
 use crate::gecko_bindings::structs::nscolor;
 use crate::parser::{Parse, ParserContext};
-#[cfg(feature = "gecko")]
-use crate::properties::longhands::system_colors::SystemColor;
 use crate::values::computed::{Color as ComputedColor, Context, ToComputedValue};
-use crate::values::generics::color::Color as GenericColor;
+use crate::values::generics::color::{Color as GenericColor, ColorOrAuto as GenericColorOrAuto};
 use crate::values::specified::calc::CalcNode;
 use cssparser::{AngleOrNumber, Color as CSSParserColor, Parser, Token, RGBA};
 use cssparser::{BasicParseErrorKind, NumberOrPercentage, ParseErrorKind};
@@ -22,7 +20,7 @@ use style_traits::{CssType, CssWriter, KeywordsCollectFn, ParseError, StyleParse
 use style_traits::{SpecifiedValueInfo, ToCss, ValueParseErrorKind};
 
 /// Specified color value
-#[derive(Clone, Debug, MallocSizeOf, PartialEq)]
+#[derive(Clone, Debug, MallocSizeOf, PartialEq, ToShmem)]
 pub enum Color {
     /// The 'currentColor' keyword
     CurrentColor,
@@ -35,27 +33,259 @@ pub enum Color {
     },
     /// A complex color value from computed value
     Complex(ComputedColor),
-
     /// A system color
     #[cfg(feature = "gecko")]
     System(SystemColor),
-    /// A special color keyword value used in Gecko
-    #[cfg(feature = "gecko")]
-    Special(gecko::SpecialColorKeyword),
     /// Quirksmode-only rule for inheriting color from the body
     #[cfg(feature = "gecko")]
     InheritFromBodyQuirk,
 }
 
+/// System colors.
+#[allow(missing_docs)]
 #[cfg(feature = "gecko")]
-mod gecko {
-    #[derive(Clone, Copy, Debug, Eq, Hash, MallocSizeOf, Parse, PartialEq, ToCss)]
-    pub enum SpecialColorKeyword {
-        MozDefaultColor,
-        MozDefaultBackgroundColor,
-        MozHyperlinktext,
-        MozActivehyperlinktext,
-        MozVisitedhyperlinktext,
+#[derive(Clone, Copy, Debug, MallocSizeOf, Parse, PartialEq, ToCss, ToShmem)]
+#[repr(u8)]
+pub enum SystemColor {
+    #[css(skip)]
+    WindowBackground,
+    #[css(skip)]
+    WindowForeground,
+    #[css(skip)]
+    WidgetBackground,
+    #[css(skip)]
+    WidgetForeground,
+    #[css(skip)]
+    WidgetSelectBackground,
+    #[css(skip)]
+    WidgetSelectForeground,
+    #[css(skip)]
+    Widget3DHighlight,
+    #[css(skip)]
+    Widget3DShadow,
+    #[css(skip)]
+    TextBackground,
+    #[css(skip)]
+    TextForeground,
+    #[css(skip)]
+    TextSelectBackground,
+    #[css(skip)]
+    TextSelectForeground,
+    #[css(skip)]
+    TextSelectForegroundCustom,
+    #[css(skip)]
+    TextSelectBackgroundDisabled,
+    #[css(skip)]
+    TextSelectBackgroundAttention,
+    #[css(skip)]
+    TextHighlightBackground,
+    #[css(skip)]
+    TextHighlightForeground,
+    #[css(skip)]
+    IMERawInputBackground,
+    #[css(skip)]
+    IMERawInputForeground,
+    #[css(skip)]
+    IMERawInputUnderline,
+    #[css(skip)]
+    IMESelectedRawTextBackground,
+    #[css(skip)]
+    IMESelectedRawTextForeground,
+    #[css(skip)]
+    IMESelectedRawTextUnderline,
+    #[css(skip)]
+    IMEConvertedTextBackground,
+    #[css(skip)]
+    IMEConvertedTextForeground,
+    #[css(skip)]
+    IMEConvertedTextUnderline,
+    #[css(skip)]
+    IMESelectedConvertedTextBackground,
+    #[css(skip)]
+    IMESelectedConvertedTextForeground,
+    #[css(skip)]
+    IMESelectedConvertedTextUnderline,
+    #[css(skip)]
+    SpellCheckerUnderline,
+    #[css(skip)]
+    ThemedScrollbar,
+    #[css(skip)]
+    ThemedScrollbarInactive,
+    #[css(skip)]
+    ThemedScrollbarThumb,
+    #[css(skip)]
+    ThemedScrollbarThumbHover,
+    #[css(skip)]
+    ThemedScrollbarThumbActive,
+    #[css(skip)]
+    ThemedScrollbarThumbInactive,
+    Activeborder,
+    Activecaption,
+    Appworkspace,
+    Background,
+    Buttonface,
+    Buttonhighlight,
+    Buttonshadow,
+    Buttontext,
+    Captiontext,
+    #[parse(aliases = "-moz-field")]
+    Field,
+    #[parse(aliases = "-moz-fieldtext")]
+    Fieldtext,
+    Graytext,
+    Highlight,
+    Highlighttext,
+    Inactiveborder,
+    Inactivecaption,
+    Inactivecaptiontext,
+    Infobackground,
+    Infotext,
+    Menu,
+    Menutext,
+    Scrollbar,
+    Threeddarkshadow,
+    Threedface,
+    Threedhighlight,
+    Threedlightshadow,
+    Threedshadow,
+    Window,
+    Windowframe,
+    Windowtext,
+    MozButtondefault,
+    #[parse(aliases = "-moz-default-color")]
+    Canvastext,
+    #[parse(aliases = "-moz-default-background-color")]
+    Canvas,
+    MozDialog,
+    MozDialogtext,
+    /// Used to highlight valid regions to drop something onto.
+    MozDragtargetzone,
+    /// Used for selected but not focused cell backgrounds.
+    MozCellhighlight,
+    /// Used for selected but not focused cell text.
+    MozCellhighlighttext,
+    /// Used for selected but not focused html cell backgrounds.
+    MozHtmlCellhighlight,
+    /// Used for selected but not focused html cell text.
+    MozHtmlCellhighlighttext,
+    /// Used to button text background when hovered.
+    MozButtonhoverface,
+    /// Used to button text color when hovered.
+    MozButtonhovertext,
+    /// Used for menu item backgrounds when hovered.
+    MozMenuhover,
+    /// Used for menu item text when hovered.
+    MozMenuhovertext,
+    /// Used for menubar item text.
+    MozMenubartext,
+    /// Used for menubar item text when hovered.
+    MozMenubarhovertext,
+
+    /// On platforms where these colors are the same as -moz-field, use
+    /// -moz-fieldtext as foreground color
+    MozEventreerow,
+    MozOddtreerow,
+
+    /// Used for button text when pressed.
+    #[parse(condition = "ParserContext::in_ua_or_chrome_sheet")]
+    MozGtkButtonactivetext,
+
+    /// Used for button text when pressed.
+    MozMacButtonactivetext,
+    /// Background color of chrome toolbars in active windows.
+    MozMacChromeActive,
+    /// Background color of chrome toolbars in inactive windows.
+    MozMacChromeInactive,
+    /// Foreground color of default buttons.
+    MozMacDefaultbuttontext,
+    /// Ring color around text fields and lists.
+    MozMacFocusring,
+    /// Color used when mouse is over a menu item.
+    MozMacMenuselect,
+    /// Color used to do shadows on menu items.
+    MozMacMenushadow,
+    /// Color used to display text for disabled menu items.
+    MozMacMenutextdisable,
+    /// Color used to display text while mouse is over a menu item.
+    MozMacMenutextselect,
+    /// Text color of disabled text on toolbars.
+    MozMacDisabledtoolbartext,
+    /// Inactive light hightlight
+    MozMacSecondaryhighlight,
+
+    /// Font smoothing background colors needed by the Mac OS X theme, based on
+    /// -moz-appearance names.
+    MozMacVibrancyLight,
+    MozMacVibrancyDark,
+    MozMacVibrantTitlebarLight,
+    MozMacVibrantTitlebarDark,
+    MozMacMenupopup,
+    MozMacMenuitem,
+    MozMacActiveMenuitem,
+    MozMacSourceList,
+    MozMacSourceListSelection,
+    MozMacActiveSourceListSelection,
+    MozMacTooltip,
+
+    /// Accent color for title bar.
+    MozWinAccentcolor,
+    /// Color from drawing text over the accent color.
+    MozWinAccentcolortext,
+    /// Media rebar text.
+    MozWinMediatext,
+    /// Communications rebar text.
+    MozWinCommunicationstext,
+
+    /// Hyperlink color extracted from the system, not affected by the
+    /// browser.anchor_color user pref.
+    ///
+    /// There is no OS-specified safe background color for this text, but it is
+    /// used regularly within Windows and the Gnome DE on Dialog and Window
+    /// colors.
+    MozNativehyperlinktext,
+
+    #[parse(aliases = "-moz-hyperlinktext")]
+    Linktext,
+    #[parse(aliases = "-moz-activehyperlinktext")]
+    Activetext,
+    #[parse(aliases = "-moz-visitedhyperlinktext")]
+    Visitedtext,
+
+    /// Combobox widgets
+    MozComboboxtext,
+    MozCombobox,
+
+    MozGtkInfoBarText,
+
+    /// Color of tree column headers
+    #[parse(condition = "ParserContext::in_ua_or_chrome_sheet")]
+    MozColheadertext,
+    #[parse(condition = "ParserContext::in_ua_or_chrome_sheet")]
+    MozColheaderhovertext,
+
+    #[css(skip)]
+    End, // Just for array-indexing purposes.
+}
+
+#[cfg(feature = "gecko")]
+impl SystemColor {
+    #[inline]
+    fn compute(&self, cx: &Context) -> ComputedColor {
+        use crate::gecko_bindings::bindings;
+
+        let prefs = cx.device().pref_sheet_prefs();
+
+        convert_nscolor_to_computedcolor(match *self {
+            SystemColor::Canvastext => prefs.mDefaultColor,
+            SystemColor::Canvas => prefs.mDefaultBackgroundColor,
+            SystemColor::Linktext => prefs.mLinkColor,
+            SystemColor::Activetext => prefs.mActiveLinkColor,
+            SystemColor::Visitedtext => prefs.mVisitedLinkColor,
+
+            _ => unsafe {
+                bindings::Gecko_GetLookAndFeelSystemColor(*self as i32, cx.device().document())
+            },
+        })
     }
 }
 
@@ -91,8 +321,9 @@ impl<'a, 'b: 'a, 'i: 'a> ::cssparser::ColorComponentParser<'i> for ColorComponen
                 Ok(AngleOrNumber::Angle { degrees })
             },
             Token::Number { value, .. } => Ok(AngleOrNumber::Number { value }),
-            Token::Function(ref name) if name.eq_ignore_ascii_case("calc") => {
-                input.parse_nested_block(|i| CalcNode::parse_angle_or_number(self.0, i))
+            Token::Function(ref name) => {
+                let function = CalcNode::math_function(name, location)?;
+                CalcNode::parse_angle_or_number(self.0, input, function)
             },
             t => return Err(location.new_unexpected_token_error(t)),
         }
@@ -116,15 +347,16 @@ impl<'a, 'b: 'a, 'i: 'a> ::cssparser::ColorComponentParser<'i> for ColorComponen
     ) -> Result<NumberOrPercentage, ParseError<'i>> {
         let location = input.current_source_location();
 
-        match input.next()?.clone() {
+        match *input.next()? {
             Token::Number { value, .. } => Ok(NumberOrPercentage::Number { value }),
             Token::Percentage { unit_value, .. } => {
                 Ok(NumberOrPercentage::Percentage { unit_value })
             },
-            Token::Function(ref name) if name.eq_ignore_ascii_case("calc") => {
-                input.parse_nested_block(|i| CalcNode::parse_number_or_percentage(self.0, i))
+            Token::Function(ref name) => {
+                let function = CalcNode::math_function(name, location)?;
+                CalcNode::parse_number_or_percentage(self.0, input, function)
             },
-            t => return Err(location.new_unexpected_token_error(t)),
+            ref t => return Err(location.new_unexpected_token_error(t.clone())),
         }
     }
 }
@@ -142,7 +374,7 @@ impl Parse for Color {
         input.reset(&start);
 
         let compontent_parser = ColorComponentParser(&*context);
-        match input.try(|i| CSSParserColor::parse_with(&compontent_parser, i)) {
+        match input.try_parse(|i| CSSParserColor::parse_with(&compontent_parser, i)) {
             Ok(value) => Ok(match value {
                 CSSParserColor::CurrentColor => Color::CurrentColor,
                 CSSParserColor::RGBA(rgba) => Color::Numeric {
@@ -153,14 +385,8 @@ impl Parse for Color {
             Err(e) => {
                 #[cfg(feature = "gecko")]
                 {
-                    if let Ok(ident) = input.expect_ident() {
-                        if let Ok(system) = SystemColor::from_ident(ident) {
-                            return Ok(Color::System(system));
-                        }
-
-                        if let Ok(c) = gecko::SpecialColorKeyword::from_ident(ident) {
-                            return Ok(Color::Special(c));
-                        }
+                    if let Ok(system) = input.try_parse(|i| SystemColor::parse(context, i)) {
+                        return Ok(Color::System(system));
                     }
                 }
 
@@ -194,8 +420,6 @@ impl ToCss for Color {
             Color::Complex(_) => Ok(()),
             #[cfg(feature = "gecko")]
             Color::System(system) => system.to_css(dest),
-            #[cfg(feature = "gecko")]
-            Color::Special(special) => special.to_css(dest),
             #[cfg(feature = "gecko")]
             Color::InheritFromBodyQuirk => Ok(()),
         }
@@ -245,7 +469,7 @@ impl Color {
         input: &mut Parser<'i, 't>,
         allow_quirks: AllowQuirks,
     ) -> Result<Self, ParseError<'i>> {
-        input.try(|i| Self::parse(context, i)).or_else(|e| {
+        input.try_parse(|i| Self::parse(context, i)).or_else(|e| {
             if !allow_quirks.allowed(context.quirks_mode) {
                 return Err(e);
             }
@@ -274,8 +498,9 @@ impl Color {
                 if ident.len() != 3 && ident.len() != 6 {
                     return Err(location.new_custom_error(StyleParseErrorKind::UnspecifiedError));
                 }
-                return parse_hash_color(ident.as_bytes())
-                    .map_err(|()| location.new_custom_error(StyleParseErrorKind::UnspecifiedError));
+                return parse_hash_color(ident.as_bytes()).map_err(|()| {
+                    location.new_custom_error(StyleParseErrorKind::UnspecifiedError)
+                });
             },
             ref t => {
                 return Err(location.new_unexpected_token_error(t.clone()));
@@ -316,15 +541,6 @@ impl Color {
         parse_hash_color(&serialization)
             .map_err(|()| location.new_custom_error(StyleParseErrorKind::UnspecifiedError))
     }
-
-    /// Returns true if the color is completely transparent, and false
-    /// otherwise.
-    pub fn is_transparent(&self) -> bool {
-        match *self {
-            Color::Numeric { ref parsed, .. } => parsed.alpha == 0,
-            _ => false,
-        }
-    }
 }
 
 #[cfg(feature = "gecko")]
@@ -339,32 +555,17 @@ impl Color {
     /// If `context` is `None`, and the specified color requires data from
     /// the context to resolve, then `None` is returned.
     pub fn to_computed_color(&self, _context: Option<&Context>) -> Option<ComputedColor> {
-        match *self {
-            Color::CurrentColor => Some(ComputedColor::currentcolor()),
-            Color::Numeric { ref parsed, .. } => Some(ComputedColor::rgba(*parsed)),
-            Color::Complex(ref complex) => Some(*complex),
+        Some(match *self {
+            Color::CurrentColor => ComputedColor::currentcolor(),
+            Color::Numeric { ref parsed, .. } => ComputedColor::rgba(*parsed),
+            Color::Complex(ref complex) => *complex,
             #[cfg(feature = "gecko")]
-            Color::System(system) => _context
-                .map(|context| convert_nscolor_to_computedcolor(system.to_computed_value(context))),
-            #[cfg(feature = "gecko")]
-            Color::Special(special) => {
-                use self::gecko::SpecialColorKeyword as Keyword;
-                _context.map(|context| {
-                    let pres_context = context.device().pres_context();
-                    convert_nscolor_to_computedcolor(match special {
-                        Keyword::MozDefaultColor => pres_context.mDefaultColor,
-                        Keyword::MozDefaultBackgroundColor => pres_context.mBackgroundColor,
-                        Keyword::MozHyperlinktext => pres_context.mLinkColor,
-                        Keyword::MozActivehyperlinktext => pres_context.mActiveLinkColor,
-                        Keyword::MozVisitedhyperlinktext => pres_context.mVisitedLinkColor,
-                    })
-                })
-            },
+            Color::System(system) => system.compute(_context?),
             #[cfg(feature = "gecko")]
             Color::InheritFromBodyQuirk => {
-                _context.map(|context| ComputedColor::rgba(context.device().body_text_color()))
+                ComputedColor::rgba(_context?.device().body_text_color())
             },
-        }
+        })
     }
 }
 
@@ -372,57 +573,47 @@ impl ToComputedValue for Color {
     type ComputedValue = ComputedColor;
 
     fn to_computed_value(&self, context: &Context) -> ComputedColor {
-        let result = self.to_computed_color(Some(context)).unwrap();
-        if !result.is_numeric() {
-            if let Some(longhand) = context.for_non_inherited_property {
-                if longhand.stores_complex_colors_lossily() {
-                    context.rule_cache_conditions.borrow_mut().set_uncacheable();
-                }
-            }
-        }
-        result
+        self.to_computed_color(Some(context)).unwrap()
     }
 
     fn from_computed_value(computed: &ComputedColor) -> Self {
         match *computed {
             GenericColor::Numeric(color) => Color::rgba(color),
-            GenericColor::Foreground => Color::currentcolor(),
-            GenericColor::Complex(..) => Color::Complex(*computed),
+            GenericColor::CurrentColor => Color::currentcolor(),
+            GenericColor::Complex { .. } => Color::Complex(*computed),
         }
     }
 }
 
-/// Specified color value, but resolved to just RGBA for computed value
-/// with value from color property at the same context.
-#[derive(Clone, Debug, MallocSizeOf, PartialEq, SpecifiedValueInfo, ToCss)]
-pub struct RGBAColor(pub Color);
+/// Specified color value for `-moz-font-smoothing-background-color`.
+///
+/// This property does not support `currentcolor`. We could drop it at
+/// parse-time, but it's not exposed to the web so it doesn't really matter.
+///
+/// We resolve it to `transparent` instead.
+#[derive(Clone, Debug, MallocSizeOf, PartialEq, SpecifiedValueInfo, ToCss, ToShmem)]
+pub struct MozFontSmoothingBackgroundColor(pub Color);
 
-impl Parse for RGBAColor {
+impl Parse for MozFontSmoothingBackgroundColor {
     fn parse<'i, 't>(
         context: &ParserContext,
         input: &mut Parser<'i, 't>,
     ) -> Result<Self, ParseError<'i>> {
-        Color::parse(context, input).map(RGBAColor)
+        Color::parse(context, input).map(MozFontSmoothingBackgroundColor)
     }
 }
 
-impl ToComputedValue for RGBAColor {
+impl ToComputedValue for MozFontSmoothingBackgroundColor {
     type ComputedValue = RGBA;
 
     fn to_computed_value(&self, context: &Context) -> RGBA {
         self.0
             .to_computed_value(context)
-            .to_rgba(context.style().get_color().clone_color())
+            .to_rgba(RGBA::transparent())
     }
 
     fn from_computed_value(computed: &RGBA) -> Self {
-        RGBAColor(Color::rgba(*computed))
-    }
-}
-
-impl From<Color> for RGBAColor {
-    fn from(color: Color) -> RGBAColor {
-        RGBAColor(color)
+        MozFontSmoothingBackgroundColor(Color::rgba(*computed))
     }
 }
 
@@ -442,7 +633,7 @@ impl SpecifiedValueInfo for Color {
 /// Specified value for the "color" property, which resolves the `currentcolor`
 /// keyword to the parent color instead of self's color.
 #[cfg_attr(feature = "gecko", derive(MallocSizeOf))]
-#[derive(Clone, Debug, PartialEq, SpecifiedValueInfo, ToCss)]
+#[derive(Clone, Debug, PartialEq, SpecifiedValueInfo, ToCss, ToShmem)]
 pub struct ColorPropertyValue(pub Color);
 
 impl ToComputedValue for ColorPropertyValue {
@@ -452,7 +643,7 @@ impl ToComputedValue for ColorPropertyValue {
     fn to_computed_value(&self, context: &Context) -> RGBA {
         self.0
             .to_computed_value(context)
-            .to_rgba(context.builder.get_parent_color().clone_color())
+            .to_rgba(context.builder.get_parent_inherited_text().clone_color())
     }
 
     #[inline]
@@ -469,3 +660,6 @@ impl Parse for ColorPropertyValue {
         Color::parse_quirky(context, input, AllowQuirks::Yes).map(ColorPropertyValue)
     }
 }
+
+/// auto | <color>
+pub type ColorOrAuto = GenericColorOrAuto<Color>;

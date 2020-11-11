@@ -12,9 +12,6 @@ namespace ots {
 
 bool OpenTypeSILF::Parse(const uint8_t* data, size_t length,
                          bool prevent_decompression) {
-  if (GetFont()->dropped_graphite) {
-    return Drop("Skipping Graphite table");
-  }
   Buffer table(data, length);
 
   if (!table.ReadU32(&this->version)) {
@@ -38,7 +35,19 @@ bool OpenTypeSILF::Parse(const uint8_t* data, size_t length,
         if (prevent_decompression) {
           return DropGraphite("Illegal nested compression");
         }
-        std::vector<uint8_t> decompressed(this->compHead & FULL_SIZE);
+        size_t decompressed_size = this->compHead & FULL_SIZE;
+        if (decompressed_size < length) {
+          return DropGraphite("Decompressed size is less than compressed size");
+        }
+        if (decompressed_size == 0) {
+          return DropGraphite("Decompressed size is set to 0");
+        }
+        // decompressed table must be <= 30MB
+        if (decompressed_size > 30 * 1024 * 1024) {
+          return DropGraphite("Decompressed size exceeds 30MB: %gMB",
+                              decompressed_size / (1024.0 * 1024.0));
+        }
+        std::vector<uint8_t> decompressed(decompressed_size);
         size_t outputSize = 0;
         bool ret = mozilla::Compression::LZ4::decompressPartial(
             reinterpret_cast<const char*>(data + table.offset()),
@@ -165,14 +174,8 @@ bool OpenTypeSILF::SILSub::ParsePart(Buffer& table) {
     if (!table.ReadU8(&this->attrMirroring)) {
       return parent->Error("SILSub: Failed to read attrMirroring");
     }
-    if (parent->version >> 16 < 4 && this->attrMirroring != 0) {
-      parent->Warning("SILSub: Nonzero attrMirroring (reserved before v4)");
-    }
     if (!table.ReadU8(&this->attrSkipPasses)) {
       return parent->Error("SILSub: Failed to read attrSkipPasses");
-    }
-    if (parent->version >> 16 < 4 && this->attrSkipPasses != 0) {
-      parent->Warning("SILSub: Nonzero attrSkipPasses (reserved2 before v4)");
     }
 
     if (!table.ReadU8(&this->numJLevels)) {
@@ -199,11 +202,11 @@ bool OpenTypeSILF::SILSub::ParsePart(Buffer& table) {
   if (!table.ReadU8(&this->direction)) {
     return parent->Error("SILSub: Failed to read direction");
   }
-  if (!table.ReadU8(&this->attCollisions)) {
-    return parent->Error("SILSub: Failed to read attCollisions");
+  if (!table.ReadU8(&this->attrCollisions)) {
+    return parent->Error("SILSub: Failed to read attrCollisions");
   }
-  if (parent->version >> 16 < 5 && this->attCollisions != 0) {
-    parent->Warning("SILSub: Nonzero attCollisions (reserved before v5)");
+  if (parent->version < 0x40001 && this->attrCollisions != 0) {
+    parent->Warning("SILSub: Nonzero attrCollisions (reserved before v4.1)");
   }
   if (!table.ReadU8(&this->reserved4)) {
     return parent->Error("SILSub: Failed to read reserved4");
@@ -361,7 +364,7 @@ bool OpenTypeSILF::SILSub::SerializePart(OTSStream* out) const {
       !out->WriteU8(this->numUserDefn) ||
       !out->WriteU8(this->maxCompPerLig) ||
       !out->WriteU8(this->direction) ||
-      !out->WriteU8(this->attCollisions) ||
+      !out->WriteU8(this->attrCollisions) ||
       !out->WriteU8(this->reserved4) ||
       !out->WriteU8(this->reserved5) ||
       (parent->version >> 16 >= 2 &&
@@ -642,9 +645,6 @@ SILPass::ParsePart(Buffer& table, const size_t SILSub_init_offset,
     if (!table.ReadU16(&this->fsmOffset)) {
       return parent->Error("SILPass: Failed to read fsmOffset");
     }
-    if (parent->version >> 16 == 2 && this->fsmOffset != 0) {
-      parent->Warning("SILPass: Nonzero fsmOffset (reserved in SILSub v2)");
-    }
     if (!table.ReadU32(&this->pcCode) ||
         (parent->version >= 3 && this->pcCode < this->fsmOffset)) {
       return parent->Error("SILPass: Failed to read pcCode");
@@ -769,10 +769,6 @@ SILPass::ParsePart(Buffer& table, const size_t SILSub_init_offset,
   if (parent->version >> 16 >= 2) {
     if (!table.ReadU8(&this->collisionThreshold)) {
       return parent->Error("SILPass: Failed to read collisionThreshold");
-    }
-    if (parent->version >> 16 < 5 && this->collisionThreshold != 0) {
-      parent->Warning("SILPass: Nonzero collisionThreshold"
-                      " (reserved before v5)");
     }
     if (!table.ReadU16(&this->pConstraint)) {
       return parent->Error("SILPass: Failed to read pConstraint");

@@ -6,11 +6,11 @@
 
 const { Component } = require("devtools/client/shared/vendor/react");
 const dom = require("devtools/client/shared/vendor/react-dom-factories");
-const { L10N } = require("../utils");
+const { L10N } = require("devtools/client/memory/utils");
 
 class IndividualsHeader extends Component {
   static get propTypes() {
-    return { };
+    return {};
   }
 
   render() {

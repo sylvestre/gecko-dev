@@ -9,7 +9,6 @@
 
 #include "mozilla/Attributes.h"
 #include "mozilla/DOMEventTargetHelper.h"
-#include "mozilla/dom/DOMPrefs.h"
 #include "nsCOMPtr.h"
 #include "nsDOMNavigationTiming.h"
 
@@ -23,6 +22,7 @@ namespace dom {
 
 class PerformanceEntry;
 class PerformanceNavigation;
+class PerformancePaintTiming;
 class PerformanceObserver;
 class PerformanceService;
 class PerformanceStorage;
@@ -79,12 +79,14 @@ class Performance : public DOMEventTargetHelper {
 
   void AddObserver(PerformanceObserver* aObserver);
   void RemoveObserver(PerformanceObserver* aObserver);
-  void NotifyObservers();
+  MOZ_CAN_RUN_SCRIPT void NotifyObservers();
   void CancelNotificationObservers();
 
   virtual PerformanceTiming* Timing() = 0;
 
   virtual PerformanceNavigation* Navigation() = 0;
+
+  virtual void SetFCPTimingEntry(PerformancePaintTiming* aEntry) = 0;
 
   IMPL_EVENT_HANDLER(resourcetimingbufferfull)
 
@@ -97,7 +99,9 @@ class Performance : public DOMEventTargetHelper {
 
   virtual TimeStamp CreationTimeStamp() const = 0;
 
-  uint64_t IsSystemPrincipal() { return mSystemPrincipal; }
+  bool IsSystemPrincipal() const { return mSystemPrincipal; }
+
+  DOMHighResTimeStamp TimeStampToDOMHighResForRendering(TimeStamp) const;
 
   virtual uint64_t GetRandomTimelineSeed() = 0;
 
@@ -109,6 +113,12 @@ class Performance : public DOMEventTargetHelper {
   void InsertResourceEntry(PerformanceEntry* aEntry);
 
   virtual void QueueNavigationTimingEntry() = 0;
+
+  virtual void UpdateNavigationTimingEntry() = 0;
+
+  virtual bool CrossOriginIsolated() const = 0;
+
+  void QueueNotificationObserversTask();
 
  protected:
   explicit Performance(bool aSystemPrincipal);
@@ -155,13 +165,21 @@ class Performance : public DOMEventTargetHelper {
       mUserEntries;
   AutoTArray<RefPtr<PerformanceEntry>, kDefaultResourceTimingBufferSize>
       mResourceEntries;
+  AutoTArray<RefPtr<PerformanceEntry>, kDefaultResourceTimingBufferSize>
+      mSecondaryResourceEntries;
 
   uint64_t mResourceTimingBufferSize;
   bool mPendingNotificationObserversTask;
 
+  bool mPendingResourceTimingBufferFullEvent;
+
   RefPtr<PerformanceService> mPerformanceService;
 
   bool mSystemPrincipal;
+
+ private:
+  MOZ_ALWAYS_INLINE bool CanAddResourceTimingEntry();
+  void BufferEvent();
 };
 
 }  // namespace dom

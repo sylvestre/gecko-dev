@@ -1,3 +1,4 @@
+// |reftest| async
 // This file was procedurally generated from the following sources:
 // - src/dstr-assignment-for-await/array-elem-nested-array-yield-expr.case
 // - src/dstr-assignment-for-await/async-generator/async-gen-decl.template
@@ -47,5 +48,5 @@ iter.next().then(result => {
     assert.sameValue(result.value, undefined);
     assert.sameValue(result.done, true);
     assert.sameValue(x.prop, 22);
-  }, $DONE).then($DONE, $DONE);
+  }).then($DONE, $DONE);
 }, $DONE).catch($DONE);

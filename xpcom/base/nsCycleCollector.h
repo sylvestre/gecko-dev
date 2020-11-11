@@ -16,6 +16,7 @@ struct already_AddRefed;
 #include "nsError.h"
 #include "nsID.h"
 
+#include "mozilla/Attributes.h"
 #include "js/SliceBudget.h"
 
 namespace mozilla {
@@ -50,7 +51,8 @@ bool nsCycleCollector_doDeferredDeletionWithBudget(js::SliceBudget& aBudget);
 already_AddRefed<nsICycleCollectorLogSink> nsCycleCollector_createLogSink();
 already_AddRefed<nsICycleCollectorListener> nsCycleCollector_createLogger();
 
-void nsCycleCollector_collect(nsICycleCollectorListener* aManualListener);
+// Run a cycle collection and return whether anything was collected.
+bool nsCycleCollector_collect(nsICycleCollectorListener* aManualListener);
 
 void nsCycleCollector_collectSlice(js::SliceBudget& budget,
                                    bool aPreferShorterSlices = false);
@@ -59,15 +61,11 @@ uint32_t nsCycleCollector_suspectedCount();
 
 // If aDoCollect is true, then run the GC and CC a few times before
 // shutting down the CC completely.
+MOZ_CAN_RUN_SCRIPT
 void nsCycleCollector_shutdown(bool aDoCollect = true);
 
 // Helpers for interacting with JS
 void nsCycleCollector_registerJSContext(mozilla::CycleCollectedJSContext* aCx);
 void nsCycleCollector_forgetJSContext();
-
-// Helpers for cooperative threads.
-void nsCycleCollector_registerNonPrimaryContext(
-    mozilla::CycleCollectedJSContext* aCx);
-void nsCycleCollector_forgetNonPrimaryContext();
 
 #endif  // nsCycleCollector_h__

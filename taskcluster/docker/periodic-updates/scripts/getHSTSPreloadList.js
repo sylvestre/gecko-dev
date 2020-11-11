@@ -14,14 +14,19 @@ var Ci = Components.interfaces;
 var Cu = Components.utils;
 var Cr = Components.results;
 */
-var gSSService = Cc["@mozilla.org/ssservice;1"].getService(Ci.nsISiteSecurityService);
+var gSSService = Cc["@mozilla.org/ssservice;1"].getService(
+  Ci.nsISiteSecurityService
+);
 
-ChromeUtils.import("resource://gre/modules/Services.jsm");
-ChromeUtils.import("resource://gre/modules/FileUtils.jsm");
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { FileUtils } = ChromeUtils.import(
+  "resource://gre/modules/FileUtils.jsm"
+);
 
-const SOURCE = "https://chromium.googlesource.com/chromium/src/net/+/master/http/transport_security_state_static.json?format=TEXT";
-const TOOL_SOURCE = "https://hg.mozilla.org/mozilla-central/file/tip/taskcluster/docker/periodic-updates/scripts/getHSTSPreloadList.js";
+const SOURCE =
+  "https://chromium.googlesource.com/chromium/src/net/+/master/http/transport_security_state_static.json?format=TEXT";
+const TOOL_SOURCE =
+  "https://hg.mozilla.org/mozilla-central/file/default/taskcluster/docker/periodic-updates/scripts/getHSTSPreloadList.js";
 const OUTPUT = "nsSTSPreloadList.inc";
 const ERROR_OUTPUT = "nsSTSPreloadList.errors";
 const MINIMUM_REQUIRED_MAX_AGE = 60 * 60 * 24 * 7 * 18;
@@ -56,18 +61,22 @@ function download() {
   }
 
   if (req.status != 200) {
-    throw new Error("ERROR: problem downloading '" + SOURCE + "': status " + req.status);
+    throw new Error(
+      "ERROR: problem downloading '" + SOURCE + "': status " + req.status
+    );
   }
 
   let resultDecoded;
   try {
     resultDecoded = atob(req.responseText);
   } catch (e) {
-    throw new Error("ERROR: could not decode data as base64 from '" + SOURCE + "': " + e);
+    throw new Error(
+      "ERROR: could not decode data as base64 from '" + SOURCE + "': " + e
+    );
   }
 
   // we have to filter out '//' comments, while not mangling the json
-  let result = resultDecoded.replace(/^(\s*)?\/\/[^\n]*\n/mg, "");
+  let result = resultDecoded.replace(/^(\s*)?\/\/[^\n]*\n/gm, "");
   let data = null;
   try {
     data = JSON.parse(result);
@@ -81,7 +90,9 @@ function getHosts(rawdata) {
   let hosts = [];
 
   if (!rawdata || !rawdata.entries) {
-    throw new Error("ERROR: source data not formatted correctly: 'entries' not found");
+    throw new Error(
+      "ERROR: source data not formatted correctly: 'entries' not found"
+    );
   }
 
   for (let entry of rawdata.entries) {
@@ -115,9 +126,27 @@ function processStsHeader(host, header, status, securityInfo) {
     try {
       let uri = Services.io.newURI("https://" + host.name);
       let secInfo = securityInfo.QueryInterface(Ci.nsITransportSecurityInfo);
-      gSSService.processHeader(Ci.nsISiteSecurityService.HEADER_HSTS, uri, header, secInfo, 0, Ci.nsISiteSecurityService.SOURCE_PRELOAD_LIST, {}, maxAge, includeSubdomains);
+      gSSService.processHeader(
+        Ci.nsISiteSecurityService.HEADER_HSTS,
+        uri,
+        header,
+        secInfo,
+        0,
+        Ci.nsISiteSecurityService.SOURCE_PRELOAD_LIST,
+        {},
+        maxAge,
+        includeSubdomains
+      );
     } catch (e) {
-      dump("ERROR: could not process header '" + header + "' from " + host.name + ": " + e + "\n");
+      dump(
+        "ERROR: could not process header '" +
+          header +
+          "' from " +
+          host.name +
+          ": " +
+          e +
+          "\n"
+      );
       error = e;
     }
   } else if (status == 0) {
@@ -146,7 +175,7 @@ function RedirectAndAuthStopper() {}
 RedirectAndAuthStopper.prototype = {
   // nsIChannelEventSink
   asyncOnChannelRedirect(oldChannel, newChannel, flags, callback) {
-    throw new Error(Cr.NS_ERROR_ENTITY_CHANGED);
+    throw Components.Exception("", Cr.NS_ERROR_ENTITY_CHANGED);
   },
 
   // nsIAuthPrompt2
@@ -155,14 +184,17 @@ RedirectAndAuthStopper.prototype = {
   },
 
   asyncPromptAuth(channel, callback, context, level, authInfo) {
-    throw new Error(Cr.NS_ERROR_NOT_IMPLEMENTED);
+    throw Components.Exception("", Cr.NS_ERROR_NOT_IMPLEMENTED);
   },
 
   getInterface(iid) {
     return this.QueryInterface(iid);
   },
 
-  QueryInterface: ChromeUtils.generateQI([Ci.nsIChannelEventSink, Ci.nsIAuthPrompt2]),
+  QueryInterface: ChromeUtils.generateQI([
+    "nsIChannelEventSink",
+    "nsIAuthPrompt2",
+  ]),
 };
 
 function fetchstatus(host) {
@@ -176,8 +208,14 @@ function fetchstatus(host) {
 
     let errorHandler = () => {
       dump("ERROR: exception making request to " + host.name + "\n");
-      resolve(processStsHeader(host, null, xhr.status,
-                               xhr.channel && xhr.channel.securityInfo));
+      resolve(
+        processStsHeader(
+          host,
+          null,
+          xhr.status,
+          xhr.channel && xhr.channel.securityInfo
+        )
+      );
     };
 
     xhr.onerror = errorHandler;
@@ -186,7 +224,9 @@ function fetchstatus(host) {
 
     xhr.onload = () => {
       let header = xhr.getResponseHeader("strict-transport-security");
-      resolve(processStsHeader(host, header, xhr.status, xhr.channel.securityInfo));
+      resolve(
+        processStsHeader(host, header, xhr.status, xhr.channel.securityInfo)
+      );
     };
 
     xhr.channel.notificationCallbacks = new RedirectAndAuthStopper();
@@ -222,15 +262,23 @@ function getExpirationTimeString() {
   let now = new Date();
   let nowMillis = now.getTime();
   // MINIMUM_REQUIRED_MAX_AGE is in seconds, so convert to milliseconds
-  let expirationMillis = nowMillis + (MINIMUM_REQUIRED_MAX_AGE * 1000);
+  let expirationMillis = nowMillis + MINIMUM_REQUIRED_MAX_AGE * 1000;
   let expirationMicros = expirationMillis * 1000;
-  return "const PRTime gPreloadListExpirationTime = INT64_C(" + expirationMicros + ");\n";
+  return (
+    "const PRTime gPreloadListExpirationTime = INT64_C(" +
+    expirationMicros +
+    ");\n"
+  );
 }
 
 function shouldRetry(response) {
-  return (response.error != ERROR_NO_HSTS_HEADER && response.error != ERROR_MAX_AGE_TOO_LOW && response.error != ERROR_NONE && response.retries > 0);
+  return (
+    response.error != ERROR_NO_HSTS_HEADER &&
+    response.error != ERROR_MAX_AGE_TOO_LOW &&
+    response.error != ERROR_NONE &&
+    response.retries > 0
+  );
 }
-
 
 // Copied from browser/components/migration/MigrationUtils.jsm
 function spinResolve(promise) {
@@ -240,12 +288,14 @@ function spinResolve(promise) {
   let done = false;
   let result = null;
   let error = null;
-  promise.catch(e => {
-    error = e;
-  }).then(r => {
-    result = r;
-    done = true;
-  });
+  promise
+    .catch(e => {
+      error = e;
+    })
+    .then(r => {
+      result = r;
+      done = true;
+    });
 
   Services.tm.spinEventLoopUntil(() => done);
   if (error) {
@@ -272,7 +322,10 @@ async function probeHSTSStatuses(inHosts) {
       promises.push(getHSTSStatus(host));
     }
     let results = await Promise.all(promises);
-    let progress = (100 * (totalLength - inHosts.length) / totalLength).toFixed(2);
+    let progress = (
+      (100 * (totalLength - inHosts.length)) /
+      totalLength
+    ).toFixed(2);
     dump(progress + "% done\n");
     allResults = allResults.concat(results);
   }
@@ -285,7 +338,9 @@ function readCurrentList(filename) {
   var currentHosts = {};
   var file = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
   file.initWithPath(filename);
-  var fis = Cc["@mozilla.org/network/file-input-stream;1"].createInstance(Ci.nsILineInputStream);
+  var fis = Cc["@mozilla.org/network/file-input-stream;1"].createInstance(
+    Ci.nsILineInputStream
+  );
   fis.init(file, -1, -1, Ci.nsIFileInputStream.CLOSE_ON_EOF);
   var line = {};
 
@@ -301,28 +356,27 @@ function readCurrentList(filename) {
 
   while (fis.readLine(line)) {
     let match;
-    entryRegexes.find((r) => {
+    entryRegexes.find(r => {
       match = r.exec(line.value);
       return match;
     });
     if (match) {
-      currentHosts[match[1]] = (match[2] == "1" || match[2] == "true");
+      currentHosts[match[1]] = match[2] == "1" || match[2] == "true";
     }
   }
   return currentHosts;
 }
 
 function combineLists(newHosts, currentHosts) {
+  let newHostsSet = new Set();
+
+  for (let newHost of newHosts) {
+    newHostsSet.add(newHost.name);
+  }
+
   for (let currentHost in currentHosts) {
-    let found = false;
-    for (let newHost of newHosts) {
-      if (newHost.name == currentHost) {
-        found = true;
-        break;
-      }
-    }
-    if (!found) {
-      newHosts.push({name: currentHost, retries: MAX_RETRIES});
+    if (!newHostsSet.has(currentHost)) {
+      newHosts.push({ name: currentHost, retries: MAX_RETRIES });
     }
   }
 }
@@ -331,10 +385,12 @@ const TEST_ENTRIES = [
   {
     name: "includesubdomains.preloaded.test",
     includeSubdomains: true,
-  }, {
+  },
+  {
     name: "includesubdomains2.preloaded.test",
     includeSubdomains: true,
-  }, {
+  },
+  {
     name: "noincludesubdomains.preloaded.test",
     includeSubdomains: false,
   },
@@ -350,7 +406,10 @@ function getTestHosts() {
   let hosts = [];
   for (let testEntry of TEST_ENTRIES) {
     hosts.push({
-      name: testEntry.name, maxAge: MINIMUM_REQUIRED_MAX_AGE, includeSubdomains: testEntry.includeSubdomains, error: ERROR_NONE,
+      name: testEntry.name,
+      maxAge: MINIMUM_REQUIRED_MAX_AGE,
+      includeSubdomains: testEntry.includeSubdomains,
+      error: ERROR_NONE,
       // This deliberately doesn't have a value for `retries` (because we should
       // never attempt to connect to this host).
       forceInclude: true,
@@ -370,7 +429,11 @@ function filterForcedInclusions(inHosts, outNotForced, outForced) {
   // will be included without being checked (forced); the others will be
   // checked using active probing.
   for (let host of inHosts) {
-    if (host.policy == "google" || host.policy == "public-suffix" || host.policy == "public-suffix-requested") {
+    if (
+      host.policy == "google" ||
+      host.policy == "public-suffix" ||
+      host.policy == "public-suffix-requested"
+    ) {
       host.forceInclude = true;
       host.error = ERROR_NONE;
       outForced.push(host);
@@ -383,7 +446,9 @@ function filterForcedInclusions(inHosts, outNotForced, outForced) {
 function output(statuses) {
   dump("INFO: Writing output to " + OUTPUT + "\n");
   try {
-    ChromeUtils.import("resource://gre/modules/FileUtils.jsm");
+    var { FileUtils } = ChromeUtils.import(
+      "resource://gre/modules/FileUtils.jsm"
+    );
 
     let file = FileUtils.getFile("CurWorkD", [OUTPUT]);
     let fos = FileUtils.openSafeFileOutputStream(file);
@@ -393,10 +458,7 @@ function output(statuses) {
     writeTo(GPERF_DELIM, fos);
 
     for (let status of statuses) {
-      let includeSubdomains = (
-        status.includeSubdomains
-        ? 1
-        : 0);
+      let includeSubdomains = status.includeSubdomains ? 1 : 0;
       writeTo(status.name + ", " + includeSubdomains + "\n", fos);
     }
 
@@ -409,15 +471,16 @@ function output(statuses) {
 }
 
 function errorToString(status) {
-  return (
-    status.error == ERROR_MAX_AGE_TOO_LOW
+  return status.error == ERROR_MAX_AGE_TOO_LOW
     ? status.error + status.maxAge
-    : status.error);
+    : status.error;
 }
 
 async function main(args) {
   if (args.length != 1) {
-    throw new Error("Usage: getHSTSPreloadList.js <absolute path to current nsSTSPreloadList.inc>");
+    throw new Error(
+      "Usage: getHSTSPreloadList.js <absolute path to current nsSTSPreloadList.inc>"
+    );
   }
 
   // get the current preload list
@@ -425,7 +488,10 @@ async function main(args) {
   // delete any hosts we use in tests so we don't actually connect to them
   deleteTestHosts(currentHosts);
   // disable the current preload list so it won't interfere with requests we make
-  Services.prefs.setBoolPref("network.stricttransportsecurity.preloadlist", false);
+  Services.prefs.setBoolPref(
+    "network.stricttransportsecurity.preloadlist",
+    false
+  );
   // download and parse the raw json file from the Chromium source
   let rawdata = download();
   // get just the hosts with mode: "force-https"
@@ -447,38 +513,53 @@ async function main(args) {
   dump("Adding forced hosts\n");
   insertHosts(hstsStatuses, forcedHosts);
 
-  let total = await probeHSTSStatuses(hostsToContact).then(function(probedStatuses) {
-    return hstsStatuses.concat(probedStatuses);
-  }).then(function(statuses) {
-    return statuses.sort(compareHSTSStatus);
-  }).then(function(statuses) {
-    for (let status of statuses) {
-      // If we've encountered an error for this entry (other than the site not
-      // sending an HSTS header), be safe and don't remove it from the list
-      // (given that it was already on the list).
-      if (!status.forceInclude && status.error != ERROR_NONE && status.error != ERROR_NO_HSTS_HEADER && status.error != ERROR_MAX_AGE_TOO_LOW && status.name in currentHosts) {
-        // dump("INFO: error connecting to or processing " + status.name + " - using previous status on list\n");
-        status.maxAge = MINIMUM_REQUIRED_MAX_AGE;
-        status.includeSubdomains = currentHosts[status.name];
+  let total = await probeHSTSStatuses(hostsToContact)
+    .then(function(probedStatuses) {
+      return hstsStatuses.concat(probedStatuses);
+    })
+    .then(function(statuses) {
+      return statuses.sort(compareHSTSStatus);
+    })
+    .then(function(statuses) {
+      for (let status of statuses) {
+        // If we've encountered an error for this entry (other than the site not
+        // sending an HSTS header), be safe and don't remove it from the list
+        // (given that it was already on the list).
+        if (
+          !status.forceInclude &&
+          status.error != ERROR_NONE &&
+          status.error != ERROR_NO_HSTS_HEADER &&
+          status.error != ERROR_MAX_AGE_TOO_LOW &&
+          status.name in currentHosts
+        ) {
+          // dump("INFO: error connecting to or processing " + status.name + " - using previous status on list\n");
+          status.maxAge = MINIMUM_REQUIRED_MAX_AGE;
+          status.includeSubdomains = currentHosts[status.name];
+        }
       }
-    }
-    return statuses;
-  }).then(function(statuses) {
-    // Filter out entries we aren't including.
-    var includedStatuses = statuses.filter(function(status) {
-      if (status.maxAge < MINIMUM_REQUIRED_MAX_AGE && !status.forceInclude) {
-        // dump("INFO: " + status.name + " NOT ON the preload list\n");
-        return false;
-      }
+      return statuses;
+    })
+    .then(function(statuses) {
+      // Filter out entries we aren't including.
+      var includedStatuses = statuses.filter(function(status) {
+        if (status.maxAge < MINIMUM_REQUIRED_MAX_AGE && !status.forceInclude) {
+          // dump("INFO: " + status.name + " NOT ON the preload list\n");
+          return false;
+        }
 
-      // dump("INFO: " + status.name + " ON the preload list (includeSubdomains: " + status.includeSubdomains + ")\n");
-      if (status.forceInclude && status.error != ERROR_NONE) {
-        dump(status.name + ": " + errorToString(status) + " (error ignored - included regardless)\n");
-      }
-      return true;
+        // dump("INFO: " + status.name + " ON the preload list (includeSubdomains: " + status.includeSubdomains + ")\n");
+        if (status.forceInclude && status.error != ERROR_NONE) {
+          dump(
+            status.name +
+              ": " +
+              errorToString(status) +
+              " (error ignored - included regardless)\n"
+          );
+        }
+        return true;
+      });
+      return includedStatuses;
     });
-    return includedStatuses;
-  });
 
   // Write the output file
   output(total);

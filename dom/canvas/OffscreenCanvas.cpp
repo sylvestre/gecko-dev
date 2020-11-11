@@ -6,25 +6,23 @@
 
 #include "OffscreenCanvas.h"
 
-#include "mozilla/dom/DOMPrefs.h"
 #include "mozilla/dom/OffscreenCanvasBinding.h"
 #include "mozilla/dom/WorkerPrivate.h"
 #include "mozilla/dom/WorkerScope.h"
-#include "mozilla/layers/AsyncCanvasRenderer.h"
+#include "mozilla/layers/CanvasRenderer.h"
 #include "mozilla/layers/CanvasClient.h"
 #include "mozilla/layers/ImageBridgeChild.h"
 #include "mozilla/Telemetry.h"
 #include "CanvasRenderingContext2D.h"
 #include "CanvasUtils.h"
+#include "GLContext.h"
 #include "GLScreenBuffer.h"
-#include "WebGL1Context.h"
-#include "WebGL2Context.h"
+#include "ImageBitmap.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 OffscreenCanvasCloneData::OffscreenCanvasCloneData(
-    layers::AsyncCanvasRenderer* aRenderer, uint32_t aWidth, uint32_t aHeight,
+    layers::CanvasRenderer* aRenderer, uint32_t aWidth, uint32_t aHeight,
     layers::LayersBackend aCompositorBackend, bool aNeutered, bool aIsWriteOnly)
     : mRenderer(aRenderer),
       mWidth(aWidth),
@@ -33,12 +31,12 @@ OffscreenCanvasCloneData::OffscreenCanvasCloneData(
       mNeutered(aNeutered),
       mIsWriteOnly(aIsWriteOnly) {}
 
-OffscreenCanvasCloneData::~OffscreenCanvasCloneData() {}
+OffscreenCanvasCloneData::~OffscreenCanvasCloneData() = default;
 
 OffscreenCanvas::OffscreenCanvas(nsIGlobalObject* aGlobal, uint32_t aWidth,
                                  uint32_t aHeight,
                                  layers::LayersBackend aCompositorBackend,
-                                 layers::AsyncCanvasRenderer* aRenderer)
+                                 layers::CanvasRenderer* aRenderer)
     : DOMEventTargetHelper(aGlobal),
       mAttrDirty(false),
       mNeutered(false),
@@ -55,9 +53,9 @@ JSObject* OffscreenCanvas::WrapObject(JSContext* aCx,
   return OffscreenCanvas_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-/* static */ already_AddRefed<OffscreenCanvas> OffscreenCanvas::Constructor(
-    const GlobalObject& aGlobal, uint32_t aWidth, uint32_t aHeight,
-    ErrorResult& aRv) {
+/* static */
+already_AddRefed<OffscreenCanvas> OffscreenCanvas::Constructor(
+    const GlobalObject& aGlobal, uint32_t aWidth, uint32_t aHeight) {
   nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(aGlobal.GetAsSupports());
   RefPtr<OffscreenCanvas> offscreenCanvas = new OffscreenCanvas(
       global, aWidth, aHeight, layers::LayersBackend::LAYERS_NONE, nullptr);
@@ -68,19 +66,20 @@ void OffscreenCanvas::ClearResources() {
   if (mCanvasClient) {
     mCanvasClient->Clear();
 
-    if (mCanvasRenderer) {
-      nsCOMPtr<nsISerialEventTarget> activeTarget =
-          mCanvasRenderer->GetActiveEventTarget();
-      MOZ_RELEASE_ASSERT(activeTarget,
-                         "GFX: failed to get active event target.");
-      bool current;
-      activeTarget->IsOnCurrentThread(&current);
-      MOZ_RELEASE_ASSERT(current, "GFX: active thread is not current thread.");
-      mCanvasRenderer->SetCanvasClient(nullptr);
-      mCanvasRenderer->mContext = nullptr;
-      mCanvasRenderer->mGLContext = nullptr;
-      mCanvasRenderer->ResetActiveEventTarget();
-    }
+    MOZ_CRASH("todo");
+    // if (mCanvasRenderer) {
+    //  nsCOMPtr<nsISerialEventTarget> activeTarget =
+    //      mCanvasRenderer->GetActiveEventTarget();
+    //  MOZ_RELEASE_ASSERT(activeTarget,
+    //                     "GFX: failed to get active event target.");
+    //  bool current;
+    //  activeTarget->IsOnCurrentThread(&current);
+    //  MOZ_RELEASE_ASSERT(current, "GFX: active thread is not current
+    //  thread."); mCanvasRenderer->SetCanvasClient(nullptr);
+    //  mCanvasRenderer->mContext = nullptr;
+    //  mCanvasRenderer->mGLContext = nullptr;
+    //  mCanvasRenderer->ResetActiveEventTarget();
+    //}
 
     mCanvasClient = nullptr;
   }
@@ -103,6 +102,7 @@ already_AddRefed<nsISupports> OffscreenCanvas::GetContext(
 
   if (!(contextType == CanvasContextType::WebGL1 ||
         contextType == CanvasContextType::WebGL2 ||
+        contextType == CanvasContextType::WebGPU ||
         contextType == CanvasContextType::ImageBitmap)) {
     aRv.Throw(NS_ERROR_NOT_IMPLEMENTED);
     return nullptr;
@@ -116,36 +116,27 @@ already_AddRefed<nsISupports> OffscreenCanvas::GetContext(
   }
 
   if (mCanvasRenderer) {
+    // mCanvasRenderer->SetContextType(contextType);
     if (contextType == CanvasContextType::WebGL1 ||
         contextType == CanvasContextType::WebGL2) {
-      WebGLContext* webGL = static_cast<WebGLContext*>(mCurrentContext.get());
-      gl::GLContext* gl = webGL->GL();
-      mCanvasRenderer->mContext = mCurrentContext;
-      mCanvasRenderer->SetActiveEventTarget();
-      mCanvasRenderer->mGLContext = gl;
-      mCanvasRenderer->SetIsAlphaPremultiplied(webGL->IsPremultAlpha() ||
-                                               !gl->Caps().alpha);
-
-      if (RefPtr<ImageBridgeChild> imageBridge =
-              ImageBridgeChild::GetSingleton()) {
-        TextureFlags flags = TextureFlags::ORIGIN_BOTTOM_LEFT;
-        mCanvasClient = imageBridge->CreateCanvasClient(
-            CanvasClient::CanvasClientTypeShSurf, flags);
-        mCanvasRenderer->SetCanvasClient(mCanvasClient);
-
-        gl::GLScreenBuffer* screen = gl->Screen();
-        gl::SurfaceCaps caps = screen->mCaps;
-        auto forwarder = mCanvasClient->GetForwarder();
-
-        UniquePtr<gl::SurfaceFactory> factory =
-            gl::GLScreenBuffer::CreateFactory(gl, caps, forwarder, flags);
-
-        if (factory) screen->Morph(std::move(factory));
-      }
+      MOZ_ASSERT_UNREACHABLE("WebGL OffscreenCanvas not yet supported.");
+      return nullptr;
+    }
+    if (contextType == CanvasContextType::WebGPU) {
+      MOZ_ASSERT_UNREACHABLE("WebGPU OffscreenCanvas not yet supported.");
+      return nullptr;
     }
   }
 
   return result.forget();
+}
+
+layers::ImageContainer* OffscreenCanvas::GetImageContainer() {
+  if (!mCanvasRenderer) {
+    return nullptr;
+  }
+  // return mCanvasRenderer->GetImageContainer();
+  MOZ_CRASH("todo");
 }
 
 already_AddRefed<nsICanvasRenderingContextInternal>
@@ -163,27 +154,36 @@ void OffscreenCanvas::CommitFrameToCompositor() {
     // So, just bail out.
     return;
   }
+  MOZ_CRASH("todo");
 
   // The attributes has changed, we have to notify main
   // thread to change canvas size.
   if (mAttrDirty) {
-    if (mCanvasRenderer) {
-      mCanvasRenderer->SetWidth(mWidth);
-      mCanvasRenderer->SetHeight(mHeight);
-      mCanvasRenderer->NotifyElementAboutAttributesChanged();
-    }
+    MOZ_CRASH("todo");
+    // if (mCanvasRenderer) {
+    //  mCanvasRenderer->SetWidth(mWidth);
+    //  mCanvasRenderer->SetHeight(mHeight);
+    //  mCanvasRenderer->NotifyElementAboutAttributesChanged();
+    //}
     mAttrDirty = false;
   }
 
-  if (mCurrentContext) {
-    static_cast<WebGLContext*>(mCurrentContext.get())->PresentScreenBuffer();
-  }
+  // CanvasContextType contentType = mCanvasRenderer->GetContextType();
+  // if (mCurrentContext && (contentType == CanvasContextType::WebGL1 ||
+  //                        contentType == CanvasContextType::WebGL2)) {
+  //  MOZ_ASSERT_UNREACHABLE("WebGL OffscreenCanvas not yet supported.");
+  //  return;
+  //}
+  // if (mCurrentContext && (contentType == CanvasContextType::WebGPU)) {
+  //  MOZ_ASSERT_UNREACHABLE("WebGPU OffscreenCanvas not yet supported.");
+  //  return;
+  //}
 
-  if (mCanvasRenderer && mCanvasRenderer->mGLContext) {
-    mCanvasRenderer->NotifyElementAboutInvalidation();
-    ImageBridgeChild::GetSingleton()->UpdateAsyncCanvasRenderer(
-        mCanvasRenderer);
-  }
+  // if (mCanvasRenderer && mCanvasRenderer->mGLContext) {
+  //  mCanvasRenderer->NotifyElementAboutInvalidation();
+  //  ImageBridgeChild::GetSingleton()->UpdateAsyncCanvasRenderer(
+  //      mCanvasRenderer);
+  //}
 }
 
 OffscreenCanvasCloneData* OffscreenCanvas::ToCloneData() {
@@ -229,12 +229,16 @@ already_AddRefed<Promise> OffscreenCanvas::ToBlob(JSContext* aCx,
         : mGlobal(aGlobal), mPromise(aPromise) {}
 
     // This is called on main thread.
-    nsresult ReceiveBlob(already_AddRefed<Blob> aBlob) override {
-      RefPtr<Blob> blob = aBlob;
+    nsresult ReceiveBlobImpl(already_AddRefed<BlobImpl> aBlobImpl) override {
+      RefPtr<BlobImpl> blobImpl = aBlobImpl;
 
       if (mPromise) {
-        RefPtr<Blob> newBlob = Blob::Create(mGlobal, blob->Impl());
-        mPromise->MaybeResolve(newBlob);
+        RefPtr<Blob> blob = Blob::Create(mGlobal, blobImpl);
+        if (NS_WARN_IF(!blob)) {
+          mPromise->MaybeReject(NS_ERROR_FAILURE);
+        } else {
+          mPromise->MaybeResolve(blob);
+        }
       }
 
       mGlobal = nullptr;
@@ -249,11 +253,16 @@ already_AddRefed<Promise> OffscreenCanvas::ToBlob(JSContext* aCx,
 
   RefPtr<EncodeCompleteCallback> callback = new EncodeCallback(global, promise);
 
-  // TODO: Can we obtain the context and document here somehow
-  // so that we can decide when usePlaceholder should be true/false?
-  // See https://trac.torproject.org/18599
-  // For now, we always return a placeholder if fingerprinting resistance is on.
-  bool usePlaceholder = nsContentUtils::ShouldResistFingerprinting();
+  bool usePlaceholder;
+  if (NS_IsMainThread()) {
+    nsCOMPtr<nsPIDOMWindowInner> window = do_QueryInterface(GetGlobalObject());
+    Document* doc = window->GetExtantDoc();
+    usePlaceholder =
+        doc ? nsContentUtils::ShouldResistFingerprinting(doc) : false;
+  } else {
+    dom::WorkerPrivate* workerPrivate = dom::GetCurrentThreadWorkerPrivate();
+    usePlaceholder = nsContentUtils::ShouldResistFingerprinting(workerPrivate);
+  }
   CanvasRenderingContextHelper::ToBlob(aCx, global, callback, aType, aParams,
                                        usePlaceholder, aRv);
 
@@ -278,9 +287,9 @@ nsCOMPtr<nsIGlobalObject> OffscreenCanvas::GetGlobalObject() {
   return workerPrivate->GlobalScope();
 }
 
-/* static */ already_AddRefed<OffscreenCanvas>
-OffscreenCanvas::CreateFromCloneData(nsIGlobalObject* aGlobal,
-                                     OffscreenCanvasCloneData* aData) {
+/* static */
+already_AddRefed<OffscreenCanvas> OffscreenCanvas::CreateFromCloneData(
+    nsIGlobalObject* aGlobal, OffscreenCanvasCloneData* aData) {
   MOZ_ASSERT(aData);
   RefPtr<OffscreenCanvas> wc =
       new OffscreenCanvas(aGlobal, aData->mWidth, aData->mHeight,
@@ -291,13 +300,14 @@ OffscreenCanvas::CreateFromCloneData(nsIGlobalObject* aGlobal,
   return wc.forget();
 }
 
-/* static */ bool OffscreenCanvas::PrefEnabledOnWorkerThread(JSContext* aCx,
-                                                             JSObject* aObj) {
+/* static */
+bool OffscreenCanvas::PrefEnabledOnWorkerThread(JSContext* aCx,
+                                                JSObject* aObj) {
   if (NS_IsMainThread()) {
     return true;
   }
 
-  return DOMPrefs::gfx_offscreencanvas_enabled(aCx, aObj);
+  return StaticPrefs::gfx_offscreencanvas_enabled();
 }
 
 NS_IMPL_CYCLE_COLLECTION_INHERITED(OffscreenCanvas, DOMEventTargetHelper,
@@ -310,5 +320,4 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(OffscreenCanvas)
   NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

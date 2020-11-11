@@ -2,14 +2,14 @@
 
 #![allow(non_snake_case)]
 
-use cursor::{Cursor, EncCursor};
-use ir::condcodes::{CondCode, FloatCC, IntCC};
-use ir::dfg::ValueDef;
-use ir::immediates::{Imm64, Offset32};
-use ir::instructions::{Opcode, ValueList};
-use ir::{Ebb, Function, Inst, InstBuilder, InstructionData, MemFlags, Type, Value};
-use isa::TargetIsa;
-use timing;
+use crate::cursor::{Cursor, EncCursor};
+use crate::ir::condcodes::{CondCode, FloatCC, IntCC};
+use crate::ir::dfg::ValueDef;
+use crate::ir::immediates::{Imm64, Offset32};
+use crate::ir::instructions::{Opcode, ValueList};
+use crate::ir::{Block, Function, Inst, InstBuilder, InstructionData, MemFlags, Type, Value};
+use crate::isa::TargetIsa;
+use crate::timing;
 
 /// Information collected about a compare+branch sequence.
 struct CmpBrInfo {
@@ -18,7 +18,7 @@ struct CmpBrInfo {
     /// The icmp, icmp_imm, or fcmp instruction.
     cmp_inst: Inst,
     /// The destination of the branch.
-    destination: Ebb,
+    destination: Block,
     /// The arguments of the branch.
     args: ValueList,
     /// The first argument to the comparison. The second is in the `kind` field.
@@ -45,7 +45,7 @@ fn optimize_cpu_flags(
     pos: &mut EncCursor,
     inst: Inst,
     last_flags_clobber: Option<Inst>,
-    isa: &TargetIsa,
+    isa: &dyn TargetIsa,
 ) {
     // Look for compare and branch patterns.
     // This code could be considerably simplified with non-lexical lifetimes.
@@ -128,6 +128,7 @@ fn optimize_cpu_flags(
     // We found a compare+branch pattern. Transform it to use flags.
     let args = info.args.as_slice(&pos.func.dfg.value_lists)[1..].to_vec();
     pos.goto_inst(info.cmp_inst);
+    pos.use_srcloc(info.cmp_inst);
     match info.kind {
         CmpBrKind::Icmp { mut cond, arg } => {
             let flags = pos.ins().ifcmp(info.cmp_arg, arg);
@@ -178,7 +179,7 @@ struct MemOpInfo {
     offset: Offset32,
 }
 
-fn optimize_complex_addresses(pos: &mut EncCursor, inst: Inst, isa: &TargetIsa) {
+fn optimize_complex_addresses(pos: &mut EncCursor, inst: Inst, isa: &dyn TargetIsa) {
     // Look for simple loads and stores we can optimize.
     let info = match pos.func.dfg[inst] {
         InstructionData::Load {
@@ -270,6 +271,42 @@ fn optimize_complex_addresses(pos: &mut EncCursor, inst: Inst, isa: &TargetIsa) 
                         .replace(inst)
                         .sload32_complex(info.flags, &args, info.offset);
                 }
+                Opcode::Uload8x8 => {
+                    pos.func
+                        .dfg
+                        .replace(inst)
+                        .uload8x8_complex(info.flags, &args, info.offset);
+                }
+                Opcode::Sload8x8 => {
+                    pos.func
+                        .dfg
+                        .replace(inst)
+                        .sload8x8_complex(info.flags, &args, info.offset);
+                }
+                Opcode::Uload16x4 => {
+                    pos.func
+                        .dfg
+                        .replace(inst)
+                        .uload16x4_complex(info.flags, &args, info.offset);
+                }
+                Opcode::Sload16x4 => {
+                    pos.func
+                        .dfg
+                        .replace(inst)
+                        .sload16x4_complex(info.flags, &args, info.offset);
+                }
+                Opcode::Uload32x2 => {
+                    pos.func
+                        .dfg
+                        .replace(inst)
+                        .uload32x2_complex(info.flags, &args, info.offset);
+                }
+                Opcode::Sload32x2 => {
+                    pos.func
+                        .dfg
+                        .replace(inst)
+                        .sload32x2_complex(info.flags, &args, info.offset);
+                }
                 Opcode::Store => {
                     pos.func.dfg.replace(inst).store_complex(
                         info.flags,
@@ -304,7 +341,7 @@ fn optimize_complex_addresses(pos: &mut EncCursor, inst: Inst, isa: &TargetIsa) 
                 }
                 _ => panic!("Unsupported load or store opcode"),
             },
-            InstructionData::BinaryImm {
+            InstructionData::BinaryImm64 {
                 opcode: Opcode::IaddImm,
                 arg,
                 imm,
@@ -349,20 +386,25 @@ fn optimize_complex_addresses(pos: &mut EncCursor, inst: Inst, isa: &TargetIsa) 
     }
 
     let ok = pos.func.update_encoding(inst, isa).is_ok();
-    debug_assert!(ok);
+    debug_assert!(
+        ok,
+        "failed to update encoding for `{}`",
+        pos.func.dfg.display_inst(inst, isa)
+    );
 }
 
 //----------------------------------------------------------------------
 //
 // The main post-opt pass.
 
-pub fn do_postopt(func: &mut Function, isa: &TargetIsa) {
+pub fn do_postopt(func: &mut Function, isa: &dyn TargetIsa) {
     let _tt = timing::postopt();
     let mut pos = EncCursor::new(func, isa);
-    while let Some(_ebb) = pos.next_ebb() {
+    let is_mach_backend = isa.get_mach_backend().is_some();
+    while let Some(_block) = pos.next_block() {
         let mut last_flags_clobber = None;
         while let Some(inst) = pos.next_inst() {
-            if isa.uses_cpu_flags() {
+            if !is_mach_backend && isa.uses_cpu_flags() {
                 // Optimize instructions to make use of flags.
                 optimize_cpu_flags(&mut pos, inst, last_flags_clobber, isa);
 

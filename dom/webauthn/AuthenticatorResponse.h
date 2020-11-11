@@ -14,6 +14,8 @@
 #include "mozilla/dom/CryptoBuffer.h"
 #include "nsCycleCollectionParticipant.h"
 #include "nsWrapperCache.h"
+#include "nsCOMPtr.h"
+#include "nsPIDOMWindow.h"
 
 namespace mozilla {
 namespace dom {
@@ -30,9 +32,6 @@ class AuthenticatorResponse : public nsISupports, public nsWrapperCache {
 
  public:
   nsISupports* GetParentObject() const { return mParent; }
-
-  virtual JSObject* WrapObject(JSContext* aCx,
-                               JS::Handle<JSObject*> aGivenProto) override;
 
   void GetFormat(nsString& aRetVal) const;
 

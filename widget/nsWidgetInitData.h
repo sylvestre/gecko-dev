@@ -110,7 +110,11 @@ struct nsWidgetInitData {
         mIsAnimationSuppressed(false),
         mSupportTranslucency(false),
         mMouseTransparent(false),
-        mHasRemoteContent(false) {}
+        mHasRemoteContent(false),
+        mAlwaysOnTop(false),
+        mPIPWindow(false),
+        mFissionWindow(false),
+        mResizable(false) {}
 
   nsWindowType mWindowType;
   nsBorderStyle mBorderStyle;
@@ -135,6 +139,13 @@ struct nsWidgetInitData {
   // only valid for eWindowType_popup widgets
   bool mMouseTransparent;
   bool mHasRemoteContent;
+  bool mAlwaysOnTop;
+  // Is PictureInPicture window
+  bool mPIPWindow;
+  // True if fission is enabled for this window
+  bool mFissionWindow;
+  // True if the window is user-resizable.
+  bool mResizable;
 };
 
 #endif  // nsWidgetInitData_h__

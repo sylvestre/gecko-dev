@@ -4,11 +4,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 #if !defined(NesteggPacketHolder_h_)
-#define NesteggPacketHolder_h_
+#  define NesteggPacketHolder_h_
 
-#include <stdint.h>
-#include "nsAutoRef.h"
-#include "nestegg/nestegg.h"
+#  include <stdint.h>
+#  include "nsAutoRef.h"
+#  include "nestegg/nestegg.h"
 
 namespace mozilla {
 
@@ -114,7 +114,7 @@ class WebMPacketQueue {
   }
 
   already_AddRefed<NesteggPacketHolder> PopFront() {
-    RefPtr<NesteggPacketHolder> result = mQueue.front().forget();
+    RefPtr<NesteggPacketHolder> result = std::move(mQueue.front());
     mQueue.pop_front();
     return result.forget();
   }

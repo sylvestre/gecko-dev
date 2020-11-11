@@ -11,7 +11,11 @@
 #include "js/Wrapper.h"
 #include "nsString.h"
 
-class nsIPrincipal;
+#ifdef XP_MACOSX
+// AssertMacros.h defines 'check' which conflicts with the method declarations
+// in this file.
+#  undef check
+#endif
 
 namespace xpc {
 
@@ -19,14 +23,11 @@ class AccessCheck {
  public:
   static bool subsumes(JSObject* a, JSObject* b);
   static bool wrapperSubsumes(JSObject* wrapper);
-  static bool subsumesConsideringDomain(JS::Compartment* a, JS::Compartment* b);
-  static bool subsumesConsideringDomainIgnoringFPD(JS::Compartment* a,
-                                                   JS::Compartment* b);
+  static bool subsumesConsideringDomain(JS::Realm* a, JS::Realm* b);
+  static bool subsumesConsideringDomainIgnoringFPD(JS::Realm* a, JS::Realm* b);
   static bool isChrome(JS::Compartment* compartment);
+  static bool isChrome(JS::Realm* realm);
   static bool isChrome(JSObject* obj);
-  static bool isCrossOriginAccessPermitted(JSContext* cx, JS::HandleObject obj,
-                                           JS::HandleId id,
-                                           js::Wrapper::Action act);
   static bool checkPassToPrivilegedCode(JSContext* cx, JS::HandleObject wrapper,
                                         JS::HandleValue value);
   static bool checkPassToPrivilegedCode(JSContext* cx, JS::HandleObject wrapper,
@@ -38,12 +39,13 @@ class AccessCheck {
                                       const nsACString& accessType);
 };
 
-enum CrossOriginObjectType {
-  CrossOriginWindow,
-  CrossOriginLocation,
-  CrossOriginOpaque
-};
-CrossOriginObjectType IdentifyCrossOriginObject(JSObject* obj);
+/**
+ * Returns true if the given object (which is expected to be stripped of
+ * cross-compartment wrappers in practice, but this function doesn't assume
+ * that) is a WindowProxy or Location object, which need special wrapping
+ * behavior due to being usable cross-origin in limited ways.
+ */
+bool IsCrossOriginAccessibleObject(JSObject* obj);
 
 struct Policy {
   static bool checkCall(JSContext* cx, JS::HandleObject wrapper,
@@ -86,31 +88,6 @@ struct OpaqueWithCall : public Policy {
   static bool checkCall(JSContext* cx, JS::HandleObject wrapper,
                         const JS::CallArgs& args) {
     return AccessCheck::checkPassToPrivilegedCode(cx, wrapper, args);
-  }
-};
-
-// This policy only permits access to properties that are safe to be used
-// across origins.
-struct CrossOriginAccessiblePropertiesOnly : public Policy {
-  static bool check(JSContext* cx, JS::HandleObject wrapper, JS::HandleId id,
-                    js::Wrapper::Action act) {
-    return AccessCheck::isCrossOriginAccessPermitted(cx, wrapper, id, act);
-  }
-  static bool deny(JSContext* cx, js::Wrapper::Action act, JS::HandleId id,
-                   bool mayThrow) {
-    // Silently fail for enumerate-like operations.
-    if (act == js::Wrapper::ENUMERATE) {
-      return true;
-    }
-    if (mayThrow) {
-      AccessCheck::reportCrossOriginDenial(cx, id,
-                                           NS_LITERAL_CSTRING("access"));
-    }
-    return false;
-  }
-  static bool allowNativeCall(JSContext* cx, JS::IsAcceptableThis test,
-                              JS::NativeImpl impl) {
-    return false;
   }
 };
 

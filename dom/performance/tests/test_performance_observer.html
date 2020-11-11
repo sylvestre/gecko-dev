@@ -24,7 +24,7 @@ let test = promise_test = fn => {
     try {
       await fn({
         add_cleanup: f => { cleanups.push(f); },
-        step_timeout: function(f, timeout) {
+        step_timeout(f, timeout) {
           var test_this = this;
           var args = Array.prototype.slice.call(arguments, 2);
           return setTimeout(() => {
@@ -36,8 +36,8 @@ let test = promise_test = fn => {
       ok(false, `got unexpected exception ${e}`);
     }
     try {
-      for (const fn of cleanups) {
-        fn();
+      for (const f of cleanups) {
+        f();
       }
       runNextTest();
     } catch (e) {

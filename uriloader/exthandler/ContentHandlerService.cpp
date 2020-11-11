@@ -1,3 +1,9 @@
+/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
+/* vim: set ts=8 sts=2 et sw=2 tw=80: */
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 #include "ContentHandlerService.h"
 #include "HandlerServiceChild.h"
 #include "ContentChild.h"
@@ -22,8 +28,10 @@ nsresult ContentHandlerService::Init() {
   }
   ContentChild* cpc = ContentChild::GetSingleton();
 
-  mHandlerServiceChild =
-      static_cast<HandlerServiceChild*>(cpc->SendPHandlerServiceConstructor());
+  mHandlerServiceChild = new HandlerServiceChild();
+  if (!cpc->SendPHandlerServiceConstructor(mHandlerServiceChild)) {
+    mHandlerServiceChild = nullptr;
+  }
   return NS_OK;
 }
 
@@ -109,7 +117,7 @@ NS_IMETHODIMP RemoteHandlerApp::Equals(nsIHandlerApp* aHandlerApp,
 }
 
 NS_IMETHODIMP RemoteHandlerApp::LaunchWithURI(
-    nsIURI* aURI, nsIInterfaceRequestor* aWindowContext) {
+    nsIURI* aURI, BrowsingContext* aBrowsingContext) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
@@ -166,6 +174,25 @@ NS_IMETHODIMP ContentHandlerService::FillHandlerInfo(
   return NS_OK;
 }
 
+NS_IMETHODIMP ContentHandlerService::GetMIMEInfoFromOS(
+    nsIHandlerInfo* aHandlerInfo, const nsACString& aMIMEType,
+    const nsACString& aExtension, bool* aFound) {
+  nsresult rv = NS_ERROR_FAILURE;
+  HandlerInfo returnedInfo;
+  if (!mHandlerServiceChild->SendGetMIMEInfoFromOS(nsCString(aMIMEType),
+                                                   nsCString(aExtension), &rv,
+                                                   &returnedInfo, aFound)) {
+    return NS_ERROR_FAILURE;
+  }
+
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return rv;
+  }
+
+  CopyHanderInfoTonsIHandlerInfo(returnedInfo, aHandlerInfo);
+  return NS_OK;
+}
+
 NS_IMETHODIMP ContentHandlerService::Store(nsIHandlerInfo* aHandlerInfo) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
@@ -180,6 +207,16 @@ NS_IMETHODIMP ContentHandlerService::Exists(nsIHandlerInfo* aHandlerInfo,
 
 NS_IMETHODIMP ContentHandlerService::Remove(nsIHandlerInfo* aHandlerInfo) {
   return NS_ERROR_NOT_IMPLEMENTED;
+}
+
+NS_IMETHODIMP
+ContentHandlerService::ExistsForProtocolOS(const nsACString& aProtocolScheme,
+                                           bool* aRetval) {
+  if (!mHandlerServiceChild->SendExistsForProtocolOS(nsCString(aProtocolScheme),
+                                                     aRetval)) {
+    return NS_ERROR_FAILURE;
+  }
+  return NS_OK;
 }
 
 NS_IMETHODIMP
@@ -206,6 +243,16 @@ NS_IMETHODIMP ContentHandlerService::GetTypeFromExtension(
   mExtToTypeMap.Put(nsCString(aFileExtension), new nsCString(type));
 
   return NS_OK;
+}
+
+NS_IMETHODIMP ContentHandlerService::GetApplicationDescription(
+    const nsACString& aProtocolScheme, nsAString& aRetVal) {
+  nsresult rv = NS_ERROR_FAILURE;
+  nsAutoCString scheme(aProtocolScheme);
+  nsAutoString desc;
+  mHandlerServiceChild->SendGetApplicationDescription(scheme, &rv, &desc);
+  aRetVal.Assign(desc);
+  return rv;
 }
 
 }  // namespace dom

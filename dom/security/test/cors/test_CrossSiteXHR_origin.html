@@ -3,7 +3,7 @@
 <head>
   <META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=utf-8">
   <title>Test for Cross Site XMLHttpRequest</title>
-  <script type="text/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>        
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>        
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css" />
 </head>
 <body>
@@ -118,9 +118,9 @@ function* runTest() {
              "&origin=" + escape(origin),
         method: "GET",
       };
-      loaderWindow.postMessage(req.toSource(), isNullOrigin ? "*" : origin);
+      loaderWindow.postMessage(JSON.stringify(req), isNullOrigin ? "*" : origin);
 
-      res = eval(yield);
+      res = JSON.parse(yield);
       is(res.didFail, false, "shouldn't have failed for " + allowOrigin);
       is(res.status, 200, "wrong status for " + allowOrigin);
       is(res.statusText, "OK", "wrong status text for " + allowOrigin);
@@ -139,16 +139,16 @@ function* runTest() {
         url: baseURL + "allowOrigin=" + escape(allowOrigin),
         method: "GET",
       };
-      loaderWindow.postMessage(req.toSource(), isNullOrigin ? "*" : origin);
+      loaderWindow.postMessage(JSON.stringify(req), isNullOrigin ? "*" : origin);
 
-      res = eval(yield);
+      res = JSON.parse(yield);
       is(res.didFail, true, "should have failed for " + allowOrigin);
       is(res.responseText, "", "should have no text for " + allowOrigin);
       is(res.status, 0, "should have no status for " + allowOrigin);
       is(res.statusText, "", "wrong status text for " + allowOrigin);
       is(res.responseXML, null, "should have no XML for " + allowOrigin);
       is(res.events.join(","),
-         "opening,rs1,sending,loadstart,rs2,rs4,error,loadend",
+         "opening,rs1,sending,loadstart,rs4,error,loadend",
          "wrong events in test for " + allowOrigin);
       is(res.progressEvents, 0,
          "wrong events in test for " + allowOrigin);

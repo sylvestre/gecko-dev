@@ -2,6 +2,8 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+from __future__ import absolute_import, print_function, unicode_literals
+
 import mozunit
 from mozpack.packager.formats import (
     FlatFormatter,
@@ -33,8 +35,9 @@ class TestUnpack(TestWithTmpDir):
 
     @classmethod
     def setUpClass(cls):
-        cls.contents = get_contents(cls._get_copier(FlatFormatter),
-                                    read_all=True)
+        cls.contents = get_contents(
+            cls._get_copier(FlatFormatter), read_all=True, mode="rb"
+        )
 
     def _unpack_test(self, cls):
         # Format a package with the given formatter class
@@ -44,8 +47,10 @@ class TestUnpack(TestWithTmpDir):
         # Unpack that package. Its content is expected to match that of a Flat
         # formatted package.
         registry = FileRegistry()
-        unpack_to_registry(self.tmpdir, registry)
-        self.assertEqual(get_contents(registry, read_all=True), self.contents)
+        unpack_to_registry(self.tmpdir, registry, getattr(cls, "OMNIJAR_NAME", None))
+        self.assertEqual(
+            get_contents(registry, read_all=True, mode="rb"), self.contents
+        )
 
     def test_flat_unpack(self):
         self._unpack_test(FlatFormatter)
@@ -53,13 +58,22 @@ class TestUnpack(TestWithTmpDir):
     def test_jar_unpack(self):
         self._unpack_test(JarFormatter)
 
-    def test_omnijar_unpack(self):
+    @staticmethod
+    def _omni_foo_formatter(name):
         class OmniFooFormatter(OmniJarFormatter):
+            OMNIJAR_NAME = name
+
             def __init__(self, registry):
-                super(OmniFooFormatter, self).__init__(registry, 'omni.foo')
+                super(OmniFooFormatter, self).__init__(registry, name)
 
-        self._unpack_test(OmniFooFormatter)
+        return OmniFooFormatter
+
+    def test_omnijar_unpack(self):
+        self._unpack_test(self._omni_foo_formatter("omni.foo"))
+
+    def test_omnijar_subpath_unpack(self):
+        self._unpack_test(self._omni_foo_formatter("bar/omni.foo"))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     mozunit.main()

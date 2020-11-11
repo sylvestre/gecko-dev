@@ -7,60 +7,57 @@
 #define PANGO_ENABLE_ENGINE
 
 #include "gfxPlatformGtk.h"
-#include "prenv.h"
 
-#include "nsUnicharUtils.h"
-#include "nsUnicodeProperties.h"
+#include <gtk/gtk.h>
+#include <fontconfig/fontconfig.h>
+
+#include "base/task.h"
+#include "base/thread.h"
+#include "base/message_loop.h"
+#include "cairo.h"
 #include "gfx2DGlue.h"
 #include "gfxFcPlatformFontList.h"
 #include "gfxConfig.h"
 #include "gfxContext.h"
+#include "gfxImageSurface.h"
 #include "gfxUserFontSet.h"
 #include "gfxUtils.h"
 #include "gfxFT2FontBase.h"
-#include "gfxPrefs.h"
 #include "gfxTextRun.h"
-#include "VsyncSource.h"
-#include "mozilla/Atomics.h"
-#include "mozilla/Monitor.h"
-#include "base/task.h"
-#include "base/thread.h"
-#include "base/message_loop.h"
-#include "mozilla/FontPropertyTypes.h"
-#include "mozilla/gfx/Logging.h"
-
-#include "mozilla/gfx/2D.h"
-
-#include "cairo.h"
-#include <gtk/gtk.h>
-
-#include "gfxImageSurface.h"
-#ifdef MOZ_X11
-#include <gdk/gdkx.h>
-#include "gfxXlibSurface.h"
-#include "cairo-xlib.h"
-#include "mozilla/Preferences.h"
-#include "mozilla/X11Util.h"
-
 #include "GLContextProvider.h"
-#include "GLContextGLX.h"
-#include "GLXLibrary.h"
+#include "mozilla/Atomics.h"
+#include "mozilla/FontPropertyTypes.h"
+#include "mozilla/gfx/2D.h"
+#include "mozilla/gfx/Logging.h"
+#include "mozilla/Monitor.h"
+#include "mozilla/Preferences.h"
+#include "mozilla/StaticPrefs_layers.h"
+#include "nsMathUtils.h"
+#include "nsUnicharUtils.h"
+#include "nsUnicodeProperties.h"
+#include "VsyncSource.h"
+
+#ifdef MOZ_X11
+#  include <gdk/gdkx.h>
+#  include "cairo-xlib.h"
+#  include "gfxXlibSurface.h"
+#  include "GLContextGLX.h"
+#  include "GLXLibrary.h"
+#  include "mozilla/X11Util.h"
 
 /* Undefine the Status from Xlib since it will conflict with system headers on
  * OSX */
-#if defined(__APPLE__) && defined(Status)
-#undef Status
-#endif
-
-#ifdef MOZ_WAYLAND
-#include <gdk/gdkwayland.h>
-#endif
-
+#  if defined(__APPLE__) && defined(Status)
+#    undef Status
+#  endif
 #endif /* MOZ_X11 */
 
-#include <fontconfig/fontconfig.h>
-
-#include "nsMathUtils.h"
+#ifdef MOZ_WAYLAND
+#  include <gdk/gdkwayland.h>
+#  include "mozilla/widget/nsWaylandDisplay.h"
+#  include "mozilla/widget/DMABufLibWrapper.h"
+#  include "mozilla/StaticPrefs_media.h"
+#endif
 
 #define GDK_PIXMAP_SIZE_MAX 32767
 
@@ -70,7 +67,16 @@
 using namespace mozilla;
 using namespace mozilla::gfx;
 using namespace mozilla::unicode;
+using namespace mozilla::widget;
 using mozilla::dom::SystemFontListEntry;
+
+static FT_Library gPlatformFTLibrary = nullptr;
+static int32_t sDPI;
+
+static void screen_resolution_changed(GdkScreen* aScreen, GParamSpec* aPspec,
+                                      gpointer aClosure) {
+  sDPI = 0;
+}
 
 gfxPlatformGtk::gfxPlatformGtk() {
   if (!gfxPlatform::IsHeadless()) {
@@ -78,47 +84,56 @@ gfxPlatformGtk::gfxPlatformGtk() {
   }
 
   mMaxGenericSubstitutions = UNINITIALIZED_VALUE;
-
+  mIsX11Display = gfxPlatform::IsHeadless()
+                      ? false
+                      : GDK_IS_X11_DISPLAY(gdk_display_get_default());
+  if (XRE_IsParentProcess()) {
 #ifdef MOZ_X11
-  if (!gfxPlatform::IsHeadless() && XRE_IsParentProcess()) {
-    if (GDK_IS_X11_DISPLAY(gdk_display_get_default()) &&
-        mozilla::Preferences::GetBool("gfx.xrender.enabled")) {
+    if (mIsX11Display && mozilla::Preferences::GetBool("gfx.xrender.enabled")) {
       gfxVars::SetUseXRender(true);
     }
-  }
 #endif
+
+    if (IsWaylandDisplay() || (mIsX11Display && PR_GetEnv("MOZ_X11_EGL"))) {
+      gfxVars::SetUseEGL(true);
+    }
+  }
 
   InitBackendPrefs(GetBackendPrefs());
 
-#ifdef MOZ_X11
-  if (gfxPlatform::IsHeadless() &&
-      GDK_IS_X11_DISPLAY(gdk_display_get_default())) {
-    mCompositorDisplay = XOpenDisplay(nullptr);
-    MOZ_ASSERT(mCompositorDisplay, "Failed to create compositor display!");
-  } else {
-    mCompositorDisplay = nullptr;
-  }
-#endif  // MOZ_X11
 #ifdef MOZ_WAYLAND
-  // Wayland compositors use g_get_monotonic_time() to get timestamps.
-  mWaylandLastVsyncTimestamp = (g_get_monotonic_time() / 1000);
-  // Set default display fps to 60
-  mWaylandFrameDelay = 1000 / 60;
+  mUseWebGLDmabufBackend =
+      gfxVars::UseEGL() && GetDMABufDevice()->IsDMABufWebGLEnabled();
 #endif
+
+  gPlatformFTLibrary = Factory::NewFTLibrary();
+  MOZ_RELEASE_ASSERT(gPlatformFTLibrary);
+  Factory::SetFTLibrary(gPlatformFTLibrary);
+
+  g_signal_connect(gdk_screen_get_default(), "notify::resolution",
+                   G_CALLBACK(screen_resolution_changed), nullptr);
 }
 
 gfxPlatformGtk::~gfxPlatformGtk() {
-#ifdef MOZ_X11
-  if (mCompositorDisplay) {
-    XCloseDisplay(mCompositorDisplay);
-  }
-#endif  // MOZ_X11
+  Factory::ReleaseFTLibrary(gPlatformFTLibrary);
+  gPlatformFTLibrary = nullptr;
 }
 
 void gfxPlatformGtk::FlushContentDrawing() {
   if (gfxVars::UseXRender()) {
     XFlush(DefaultXDisplay());
   }
+}
+
+void gfxPlatformGtk::InitPlatformGPUProcessPrefs() {
+#ifdef MOZ_WAYLAND
+  if (IsWaylandDisplay()) {
+    FeatureState& gpuProc = gfxConfig::GetFeature(Feature::GPU_PROCESS);
+    gpuProc.ForceDisable(FeatureStatus::Blocked,
+                         "Wayland does not work in the GPU process",
+                         "FEATURE_FAILURE_WAYLAND"_ns);
+  }
+#endif
 }
 
 already_AddRefed<gfxASurface> gfxPlatformGtk::CreateOffscreenSurface(
@@ -200,17 +215,11 @@ static const char kFontWenQuanYiMicroHei[] = "WenQuanYi Micro Hei";
 static const char kFontNanumGothic[] = "NanumGothic";
 static const char kFontSymbola[] = "Symbola";
 
-void gfxPlatformGtk::GetCommonFallbackFonts(uint32_t aCh, uint32_t aNextCh,
-                                            Script aRunScript,
+void gfxPlatformGtk::GetCommonFallbackFonts(uint32_t aCh, Script aRunScript,
+                                            eFontPresentation aPresentation,
                                             nsTArray<const char*>& aFontList) {
-  EmojiPresentation emoji = GetEmojiPresentation(aCh);
-  if (emoji != EmojiPresentation::TextOnly) {
-    if (aNextCh == kVariationSelector16 ||
-        (aNextCh != kVariationSelector15 &&
-         emoji == EmojiPresentation::EmojiDefault)) {
-      // if char is followed by VS16, try for a color emoji glyph
-      aFontList.AppendElement(kFontTwemojiMozilla);
-    }
+  if (PrefersColor(aPresentation)) {
+    aFontList.AppendElement(kFontTwemojiMozilla);
   }
 
   aFontList.AppendElement(kFontDejaVuSerif);
@@ -232,7 +241,7 @@ void gfxPlatformGtk::GetCommonFallbackFonts(uint32_t aCh, uint32_t aNextCh,
 }
 
 void gfxPlatformGtk::ReadSystemFontList(
-    InfallibleTArray<SystemFontListEntry>* retValue) {
+    nsTArray<SystemFontListEntry>* retValue) {
   gfxFcPlatformFontList::PlatformFontList()->ReadSystemFontList(retValue);
 }
 
@@ -245,43 +254,40 @@ gfxPlatformFontList* gfxPlatformGtk::CreatePlatformFontList() {
   return nullptr;
 }
 
-gfxFontGroup* gfxPlatformGtk::CreateFontGroup(
-    const FontFamilyList& aFontFamilyList, const gfxFontStyle* aStyle,
-    gfxTextPerfMetrics* aTextPerf, gfxUserFontSet* aUserFontSet,
-    gfxFloat aDevToCssSize) {
-  return new gfxFontGroup(aFontFamilyList, aStyle, aTextPerf, aUserFontSet,
-                          aDevToCssSize);
-}
-
-FT_Library gfxPlatformGtk::GetFTLibrary() {
-  return gfxFcPlatformFontList::GetFTLibrary();
-}
-
-static int32_t sDPI = 0;
-
 int32_t gfxPlatformGtk::GetFontScaleDPI() {
-  if (!sDPI) {
-    // Make sure init is run so we have a resolution
-    GdkScreen* screen = gdk_screen_get_default();
-    gtk_settings_get_for_screen(screen);
-    sDPI = int32_t(round(gdk_screen_get_resolution(screen)));
-    if (sDPI <= 0) {
-      // Fall back to something sane
-      sDPI = 96;
-    }
+  if (MOZ_LIKELY(sDPI != 0)) {
+    return sDPI;
   }
-  return sDPI;
+  GdkScreen* screen = gdk_screen_get_default();
+  // Ensure settings in config files are processed.
+  gtk_settings_get_for_screen(screen);
+  int32_t dpi = int32_t(round(gdk_screen_get_resolution(screen)));
+  if (dpi <= 0) {
+    // Fall back to something sane
+    dpi = 96;
+  }
+  sDPI = dpi;
+  return dpi;
 }
 
 double gfxPlatformGtk::GetFontScaleFactor() {
-  // Integer scale factors work well with GTK window scaling, image scaling,
-  // and pixel alignment, but there is a range where 1 is too small and 2 is
-  // too big.  An additional step of 1.5 is added because this is common
-  // scale on WINNT and at this ratio the advantages of larger rendering
-  // outweigh the disadvantages from scaling and pixel mis-alignment.
+  // Integer scale factors work well with GTK window scaling, image scaling, and
+  // pixel alignment, but there is a range where 1 is too small and 2 is too
+  // big.
+  //
+  // An additional step of 1.5 is added because this is common scale on WINNT
+  // and at this ratio the advantages of larger rendering outweigh the
+  // disadvantages from scaling and pixel mis-alignment.
+  //
+  // A similar step for 1.25 is added as well, because this is the scale that
+  // "Large text" settings use in gnome, and it seems worth to allow, especially
+  // on already-hidpi environments.
   int32_t dpi = GetFontScaleDPI();
-  if (dpi < 132) {
+  if (dpi < 120) {
     return 1.0;
+  }
+  if (dpi < 132) {
+    return 1.25;
   }
   if (dpi < 168) {
     return 1.5;
@@ -291,7 +297,7 @@ double gfxPlatformGtk::GetFontScaleFactor() {
 
 bool gfxPlatformGtk::UseImageOffscreenSurfaces() {
   return GetDefaultContentBackend() != mozilla::gfx::BackendType::CAIRO ||
-         gfxPrefs::UseImageOffscreenSurfaces();
+         StaticPrefs::layers_use_image_offscreen_surfaces_AtStartup();
 }
 
 gfxImageFormat gfxPlatformGtk::GetOffscreenFormat() {
@@ -329,137 +335,147 @@ uint32_t gfxPlatformGtk::MaxGenericSubstitions() {
   return uint32_t(mMaxGenericSubstitutions);
 }
 
-bool gfxPlatformGtk::AccelerateLayersByDefault() {
-  return gfxPrefs::WebRenderAll();
-}
+bool gfxPlatformGtk::AccelerateLayersByDefault() { return true; }
 
-void gfxPlatformGtk::GetPlatformCMSOutputProfile(void*& mem, size_t& size) {
-  mem = nullptr;
-  size = 0;
+#if defined(MOZ_X11)
 
-#ifdef MOZ_X11
-  GdkDisplay* display = gdk_display_get_default();
-  if (!GDK_IS_X11_DISPLAY(display)) return;
-
-  const char EDID1_ATOM_NAME[] = "XFree86_DDC_EDID1_RAWDATA";
-  const char ICC_PROFILE_ATOM_NAME[] = "_ICC_PROFILE";
-
-  Atom edidAtom, iccAtom;
-  Display* dpy = GDK_DISPLAY_XDISPLAY(display);
-  // In xpcshell tests, we never initialize X and hence don't have a Display.
-  // In this case, there's no output colour management to be done, so we just
-  // return with nullptr.
-  if (!dpy) return;
-
-  Window root = gdk_x11_get_default_root_xwindow();
+static nsTArray<uint8_t> GetDisplayICCProfile(Display* dpy, Window& root) {
+  const char kIccProfileAtomName[] = "_ICC_PROFILE";
+  Atom iccAtom = XInternAtom(dpy, kIccProfileAtomName, TRUE);
+  if (!iccAtom) {
+    return nsTArray<uint8_t>();
+  }
 
   Atom retAtom;
   int retFormat;
   unsigned long retLength, retAfter;
   unsigned char* retProperty;
 
-  iccAtom = XInternAtom(dpy, ICC_PROFILE_ATOM_NAME, TRUE);
-  if (iccAtom) {
-    // read once to get size, once for the data
-    if (Success == XGetWindowProperty(dpy, root, iccAtom, 0,
-                                      INT_MAX /* length */, False,
-                                      AnyPropertyType, &retAtom, &retFormat,
-                                      &retLength, &retAfter, &retProperty)) {
-      if (retLength > 0) {
-        void* buffer = malloc(retLength);
-        if (buffer) {
-          memcpy(buffer, retProperty, retLength);
-          mem = buffer;
-          size = retLength;
-        }
-      }
-
-      XFree(retProperty);
-      if (size > 0) {
-#ifdef DEBUG_tor
-        fprintf(stderr, "ICM profile read from %s successfully\n",
-                ICC_PROFILE_ATOM_NAME);
-#endif
-        return;
-      }
-    }
+  if (XGetWindowProperty(dpy, root, iccAtom, 0, INT_MAX /* length */, X11False,
+                         AnyPropertyType, &retAtom, &retFormat, &retLength,
+                         &retAfter, &retProperty) != Success) {
+    return nsTArray<uint8_t>();
   }
 
-  edidAtom = XInternAtom(dpy, EDID1_ATOM_NAME, TRUE);
-  if (edidAtom) {
-    if (Success == XGetWindowProperty(dpy, root, edidAtom, 0, 32, False,
-                                      AnyPropertyType, &retAtom, &retFormat,
-                                      &retLength, &retAfter, &retProperty)) {
-      double gamma;
-      qcms_CIE_xyY whitePoint;
-      qcms_CIE_xyYTRIPLE primaries;
+  nsTArray<uint8_t> result;
 
-      if (retLength != 128) {
-#ifdef DEBUG_tor
-        fprintf(stderr, "Short EDID data\n");
-#endif
-        return;
-      }
-
-      // Format documented in "VESA E-EDID Implementation Guide"
-
-      gamma = (100 + retProperty[0x17]) / 100.0;
-      whitePoint.x =
-          ((retProperty[0x21] << 2) | (retProperty[0x1a] >> 2 & 3)) / 1024.0;
-      whitePoint.y =
-          ((retProperty[0x22] << 2) | (retProperty[0x1a] >> 0 & 3)) / 1024.0;
-      whitePoint.Y = 1.0;
-
-      primaries.red.x =
-          ((retProperty[0x1b] << 2) | (retProperty[0x19] >> 6 & 3)) / 1024.0;
-      primaries.red.y =
-          ((retProperty[0x1c] << 2) | (retProperty[0x19] >> 4 & 3)) / 1024.0;
-      primaries.red.Y = 1.0;
-
-      primaries.green.x =
-          ((retProperty[0x1d] << 2) | (retProperty[0x19] >> 2 & 3)) / 1024.0;
-      primaries.green.y =
-          ((retProperty[0x1e] << 2) | (retProperty[0x19] >> 0 & 3)) / 1024.0;
-      primaries.green.Y = 1.0;
-
-      primaries.blue.x =
-          ((retProperty[0x1f] << 2) | (retProperty[0x1a] >> 6 & 3)) / 1024.0;
-      primaries.blue.y =
-          ((retProperty[0x20] << 2) | (retProperty[0x1a] >> 4 & 3)) / 1024.0;
-      primaries.blue.Y = 1.0;
-
-      XFree(retProperty);
-
-#ifdef DEBUG_tor
-      fprintf(stderr, "EDID gamma: %f\n", gamma);
-      fprintf(stderr, "EDID whitepoint: %f %f %f\n", whitePoint.x, whitePoint.y,
-              whitePoint.Y);
-      fprintf(stderr, "EDID primaries: [%f %f %f] [%f %f %f] [%f %f %f]\n",
-              primaries.Red.x, primaries.Red.y, primaries.Red.Y,
-              primaries.Green.x, primaries.Green.y, primaries.Green.Y,
-              primaries.Blue.x, primaries.Blue.y, primaries.Blue.Y);
-#endif
-
-      qcms_data_create_rgb_with_gamma(whitePoint, primaries, gamma, &mem,
-                                      &size);
-
-#ifdef DEBUG_tor
-      if (size > 0) {
-        fprintf(stderr, "ICM profile read from %s successfully\n",
-                EDID1_ATOM_NAME);
-      }
-#endif
-    }
+  if (retLength > 0) {
+    result.AppendElements(static_cast<uint8_t*>(retProperty), retLength);
   }
-#endif
+
+  XFree(retProperty);
+
+  return result;
 }
+
+nsTArray<uint8_t> gfxPlatformGtk::GetPlatformCMSOutputProfileData() {
+  nsTArray<uint8_t> prefProfileData = GetPrefCMSOutputProfileData();
+  if (!prefProfileData.IsEmpty()) {
+    return prefProfileData;
+  }
+
+  if (!mIsX11Display) {
+    return nsTArray<uint8_t>();
+  }
+
+  GdkDisplay* display = gdk_display_get_default();
+  Display* dpy = GDK_DISPLAY_XDISPLAY(display);
+  // In xpcshell tests, we never initialize X and hence don't have a Display.
+  // In this case, there's no output colour management to be done, so we just
+  // return with nullptr.
+  if (!dpy) {
+    return nsTArray<uint8_t>();
+  }
+
+  Window root = gdk_x11_get_default_root_xwindow();
+
+  // First try ICC Profile
+  nsTArray<uint8_t> iccResult = GetDisplayICCProfile(dpy, root);
+  if (!iccResult.IsEmpty()) {
+    return iccResult;
+  }
+
+  // If ICC doesn't work, then try EDID
+  const char kEdid1AtomName[] = "XFree86_DDC_EDID1_RAWDATA";
+  Atom edidAtom = XInternAtom(dpy, kEdid1AtomName, TRUE);
+  if (!edidAtom) {
+    return nsTArray<uint8_t>();
+  }
+
+  Atom retAtom;
+  int retFormat;
+  unsigned long retLength, retAfter;
+  unsigned char* retProperty;
+
+  if (XGetWindowProperty(dpy, root, edidAtom, 0, 32, X11False, AnyPropertyType,
+                         &retAtom, &retFormat, &retLength, &retAfter,
+                         &retProperty) != Success) {
+    return nsTArray<uint8_t>();
+  }
+
+  if (retLength != 128) {
+    return nsTArray<uint8_t>();
+  }
+
+  // Format documented in "VESA E-EDID Implementation Guide"
+  float gamma = (100 + retProperty[0x17]) / 100.0f;
+
+  qcms_CIE_xyY whitePoint;
+  whitePoint.x =
+      ((retProperty[0x21] << 2) | (retProperty[0x1a] >> 2 & 3)) / 1024.0;
+  whitePoint.y =
+      ((retProperty[0x22] << 2) | (retProperty[0x1a] >> 0 & 3)) / 1024.0;
+  whitePoint.Y = 1.0;
+
+  qcms_CIE_xyYTRIPLE primaries;
+  primaries.red.x =
+      ((retProperty[0x1b] << 2) | (retProperty[0x19] >> 6 & 3)) / 1024.0;
+  primaries.red.y =
+      ((retProperty[0x1c] << 2) | (retProperty[0x19] >> 4 & 3)) / 1024.0;
+  primaries.red.Y = 1.0;
+
+  primaries.green.x =
+      ((retProperty[0x1d] << 2) | (retProperty[0x19] >> 2 & 3)) / 1024.0;
+  primaries.green.y =
+      ((retProperty[0x1e] << 2) | (retProperty[0x19] >> 0 & 3)) / 1024.0;
+  primaries.green.Y = 1.0;
+
+  primaries.blue.x =
+      ((retProperty[0x1f] << 2) | (retProperty[0x1a] >> 6 & 3)) / 1024.0;
+  primaries.blue.y =
+      ((retProperty[0x20] << 2) | (retProperty[0x1a] >> 4 & 3)) / 1024.0;
+  primaries.blue.Y = 1.0;
+
+  XFree(retProperty);
+
+  void* mem = nullptr;
+  size_t size = 0;
+  qcms_data_create_rgb_with_gamma(whitePoint, primaries, gamma, &mem, &size);
+  if (!mem) {
+    return nsTArray<uint8_t>();
+  }
+
+  nsTArray<uint8_t> result;
+  result.AppendElements(static_cast<uint8_t*>(mem), size);
+  free(mem);
+
+  return result;
+}
+
+#else  // defined(MOZ_X11)
+
+nsTArray<uint8_t> gfxPlatformGtk::GetPlatformCMSOutputProfileData() {
+  return nsTArray<uint8_t>();
+}
+
+#endif
 
 bool gfxPlatformGtk::CheckVariationFontSupport() {
   // Although there was some variation/multiple-master support in FreeType
   // in older versions, it seems too incomplete/unstable for us to use
   // until at least 2.7.1.
   FT_Int major, minor, patch;
-  FT_Library_Version(GetFTLibrary(), &major, &minor, &patch);
+  FT_Library_Version(Factory::GetFTLibrary(), &major, &minor, &patch);
   return major * 1000000 + minor * 1000 + patch >= 2007001;
 }
 
@@ -477,8 +493,6 @@ class GtkVsyncSource final : public VsyncSource {
   virtual Display& GetGlobalDisplay() override { return *mGlobalDisplay; }
 
   class GLXDisplay final : public VsyncSource::Display {
-    NS_INLINE_DECL_THREADSAFE_REFCOUNTING(GLXDisplay)
-
    public:
     GLXDisplay()
         : mGLContext(nullptr),
@@ -487,13 +501,7 @@ class GtkVsyncSource final : public VsyncSource {
           mVsyncThread("GLXVsyncThread"),
           mVsyncTask(nullptr),
           mVsyncEnabledLock("GLXVsyncEnabledLock"),
-          mVsyncEnabled(false)
-#ifdef MOZ_WAYLAND
-          ,
-          mIsWaylandDisplay(false)
-#endif
-    {
-    }
+          mVsyncEnabled(false) {}
 
     // Sets up the display's GL context on a worker thread.
     // Required as GLContexts may only be used by the creating thread.
@@ -511,15 +519,6 @@ class GtkVsyncSource final : public VsyncSource {
       lock.Wait();
       return mGLContext != nullptr;
     }
-
-#ifdef MOZ_WAYLAND
-    bool SetupWayland() {
-      MonitorAutoLock lock(mSetupLock);
-      MOZ_ASSERT(NS_IsMainThread());
-      mIsWaylandDisplay = true;
-      return mVsyncThread.Start();
-    }
-#endif
 
     // Called on the Vsync thread to setup the GL context.
     void SetupGLContext() {
@@ -549,9 +548,8 @@ class GtkVsyncSource final : public VsyncSource {
         return;
       }
 
-      mGLContext = gl::GLContextGLX::CreateGLContext(
-          gl::CreateContextFlags::NONE, gl::SurfaceCaps::Any(), false,
-          mXDisplay, root, config, false, nullptr);
+      mGLContext = gl::GLContextGLX::CreateGLContext({}, mXDisplay, root,
+                                                     config, false, nullptr);
 
       if (!mGLContext) {
         lock.NotifyAll();
@@ -571,9 +569,7 @@ class GtkVsyncSource final : public VsyncSource {
 
     virtual void EnableVsync() override {
       MOZ_ASSERT(NS_IsMainThread());
-#if !defined(MOZ_WAYLAND)
       MOZ_ASSERT(mGLContext, "GLContext not setup!");
-#endif
 
       MonitorAutoLock lock(mVsyncEnabledLock);
       if (mVsyncEnabled) {
@@ -584,12 +580,8 @@ class GtkVsyncSource final : public VsyncSource {
       // If the task has not nulled itself out, it hasn't yet realized
       // that vsync was disabled earlier, so continue its execution.
       if (!mVsyncTask) {
-        mVsyncTask =
-            NewRunnableMethod("GtkVsyncSource::GLXDisplay::RunVsync", this,
-#if defined(MOZ_WAYLAND)
-                              mIsWaylandDisplay ? &GLXDisplay::RunVsyncWayland :
-#endif
-                                                &GLXDisplay::RunVsync);
+        mVsyncTask = NewRunnableMethod("GtkVsyncSource::GLXDisplay::RunVsync",
+                                       this, &GLXDisplay::RunVsync);
         RefPtr<Runnable> addrefedTask = mVsyncTask;
         mVsyncThread.message_loop()->PostTask(addrefedTask.forget());
       }
@@ -619,7 +611,7 @@ class GtkVsyncSource final : public VsyncSource {
     }
 
    private:
-    virtual ~GLXDisplay() {}
+    virtual ~GLXDisplay() = default;
 
     void RunVsync() {
       MOZ_ASSERT(!NS_IsMainThread());
@@ -665,44 +657,10 @@ class GtkVsyncSource final : public VsyncSource {
         }
 
         lastVsync = TimeStamp::Now();
-        NotifyVsync(lastVsync);
+        TimeStamp outputTime = lastVsync + GetVsyncRate();
+        NotifyVsync(lastVsync, outputTime);
       }
     }
-
-#ifdef MOZ_WAYLAND
-    /* VSync on Wayland is tricky as we can get only "last VSync" event signal.
-     * That means we should draw next frame at "last Vsync + frame delay" time.
-     */
-    void RunVsyncWayland() {
-      MOZ_ASSERT(!NS_IsMainThread());
-
-      for (;;) {
-        {
-          MonitorAutoLock lock(mVsyncEnabledLock);
-          if (!mVsyncEnabled) {
-            mVsyncTask = nullptr;
-            return;
-          }
-        }
-
-        gint64 lastVsync = gfxPlatformGtk::GetPlatform()->GetWaylandLastVsync();
-        gint64 currTime = (g_get_monotonic_time() / 1000);
-
-        gint64 remaining =
-            gfxPlatformGtk::GetPlatform()->GetWaylandFrameDelay() -
-            (currTime - lastVsync);
-        if (remaining > 0) {
-          PlatformThread::Sleep(remaining);
-        } else {
-          // Time from last HW Vsync is longer than our frame delay,
-          // use our approximation then.
-          gfxPlatformGtk::GetPlatform()->SetWaylandLastVsync(currTime);
-        }
-
-        NotifyVsync(TimeStamp::Now());
-      }
-    }
-#endif
 
     void Cleanup() {
       MOZ_ASSERT(!NS_IsMainThread());
@@ -719,9 +677,6 @@ class GtkVsyncSource final : public VsyncSource {
     RefPtr<Runnable> mVsyncTask;
     Monitor mVsyncEnabledLock;
     bool mVsyncEnabled;
-#ifdef MOZ_WAYLAND
-    bool mIsWaylandDisplay;
-#endif
   };
 
  private:
@@ -730,20 +685,28 @@ class GtkVsyncSource final : public VsyncSource {
 };
 
 already_AddRefed<gfx::VsyncSource> gfxPlatformGtk::CreateHardwareVsyncSource() {
-#ifdef MOZ_WAYLAND
-  if (!GDK_IS_X11_DISPLAY(gdk_display_get_default())) {
-    RefPtr<VsyncSource> vsyncSource = new GtkVsyncSource();
-    VsyncSource::Display& display = vsyncSource->GetGlobalDisplay();
-    static_cast<GtkVsyncSource::GLXDisplay&>(display).SetupWayland();
-    return vsyncSource.forget();
+#  ifdef MOZ_WAYLAND
+  if (IsWaylandDisplay()) {
+    // For wayland, we simply return the standard software vsync for now.
+    // This powers refresh drivers and the likes.
+    return gfxPlatform::CreateHardwareVsyncSource();
   }
-#endif
+#  endif
 
-  // Only use GLX vsync when the OpenGL compositor is being used.
+  // Only use GLX vsync when the OpenGL compositor / WebRedner is being used.
   // The extra cost of initializing a GLX context while blocking the main
   // thread is not worth it when using basic composition.
+  //
+  // Don't call gl::sGLXLibrary.SupportsVideoSync() when EGL is used.
+  // NVIDIA drivers refuse to use EGL GL context when GLX was initialized first
+  // and fail silently.
   if (gfxConfig::IsEnabled(Feature::HW_COMPOSITING)) {
-    if (gl::sGLXLibrary.SupportsVideoSync()) {
+    bool useGlxVsync = false;
+    // Nvidia doesn't support GLX at the same time as EGL.
+    if (!gfxVars::UseEGL()) {
+      useGlxVsync = gl::sGLXLibrary.SupportsVideoSync();
+    }
+    if (useGlxVsync) {
       RefPtr<VsyncSource> vsyncSource = new GtkVsyncSource();
       VsyncSource::Display& display = vsyncSource->GetGlobalDisplay();
       if (!static_cast<GtkVsyncSource::GLXDisplay&>(display).Setup()) {

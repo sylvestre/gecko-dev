@@ -9,8 +9,7 @@
 #include "mozilla/dom/AbortControllerBinding.h"
 #include "mozilla/dom/WorkerPrivate.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(AbortController, mGlobal, mSignal)
 
@@ -22,7 +21,8 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(AbortController)
   NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END
 
-/* static */ already_AddRefed<AbortController> AbortController::Constructor(
+/* static */
+already_AddRefed<AbortController> AbortController::Constructor(
     const GlobalObject& aGlobal, ErrorResult& aRv) {
   nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(aGlobal.GetAsSupports());
   if (!global) {
@@ -60,9 +60,8 @@ void AbortController::Abort() {
   mAborted = true;
 
   if (mSignal) {
-    mSignal->Abort();
+    mSignal->SignalAbort();
   }
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

@@ -4,7 +4,10 @@
 
 "use strict";
 
-const { SORT_BY } = require("../constants");
+const {
+  SORT_BY,
+  RESET_COLUMNS,
+} = require("devtools/client/netmonitor/src/constants");
 
 function Sort() {
   return {
@@ -18,7 +21,7 @@ function sortReducer(state = new Sort(), action) {
   switch (action.type) {
     case SORT_BY: {
       state = { ...state };
-      if (action.sortType == state.type) {
+      if (action.sortType != null && action.sortType == state.type) {
         state.ascending = !state.ascending;
       } else {
         state.type = action.sortType;
@@ -26,6 +29,14 @@ function sortReducer(state = new Sort(), action) {
       }
       return state;
     }
+
+    case RESET_COLUMNS: {
+      state = { ...state };
+      state.type = null;
+      state.ascending = true;
+      return state;
+    }
+
     default:
       return state;
   }

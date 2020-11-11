@@ -20,7 +20,8 @@ bool has_transaction(mozIStorageConnection* aDB) {
  * This file tests our Transaction helper in mozStorageHelper.h.
  */
 
-TEST(storage_transaction_helper, Commit) {
+TEST(storage_transaction_helper, Commit)
+{
   nsCOMPtr<mozIStorageConnection> db(getMemoryDatabase());
 
   // Create a table in a transaction, call Commit, and make sure that it does
@@ -28,18 +29,18 @@ TEST(storage_transaction_helper, Commit) {
   {
     mozStorageTransaction transaction(db, false);
     do_check_true(has_transaction(db));
-    (void)db->ExecuteSimpleSQL(
-        NS_LITERAL_CSTRING("CREATE TABLE test (id INTEGER PRIMARY KEY)"));
+    (void)db->ExecuteSimpleSQL("CREATE TABLE test (id INTEGER PRIMARY KEY)"_ns);
     (void)transaction.Commit();
   }
   do_check_false(has_transaction(db));
 
   bool exists = false;
-  (void)db->TableExists(NS_LITERAL_CSTRING("test"), &exists);
+  (void)db->TableExists("test"_ns, &exists);
   do_check_true(exists);
 }
 
-TEST(storage_transaction_helper, Rollback) {
+TEST(storage_transaction_helper, Rollback)
+{
   nsCOMPtr<mozIStorageConnection> db(getMemoryDatabase());
 
   // Create a table in a transaction, call Rollback, and make sure that it does
@@ -47,18 +48,18 @@ TEST(storage_transaction_helper, Rollback) {
   {
     mozStorageTransaction transaction(db, true);
     do_check_true(has_transaction(db));
-    (void)db->ExecuteSimpleSQL(
-        NS_LITERAL_CSTRING("CREATE TABLE test (id INTEGER PRIMARY KEY)"));
+    (void)db->ExecuteSimpleSQL("CREATE TABLE test (id INTEGER PRIMARY KEY)"_ns);
     (void)transaction.Rollback();
   }
   do_check_false(has_transaction(db));
 
   bool exists = true;
-  (void)db->TableExists(NS_LITERAL_CSTRING("test"), &exists);
+  (void)db->TableExists("test"_ns, &exists);
   do_check_false(exists);
 }
 
-TEST(storage_transaction_helper, AutoCommit) {
+TEST(storage_transaction_helper, AutoCommit)
+{
   nsCOMPtr<mozIStorageConnection> db(getMemoryDatabase());
 
   // Create a table in a transaction, and make sure that it exists after the
@@ -66,17 +67,17 @@ TEST(storage_transaction_helper, AutoCommit) {
   {
     mozStorageTransaction transaction(db, true);
     do_check_true(has_transaction(db));
-    (void)db->ExecuteSimpleSQL(
-        NS_LITERAL_CSTRING("CREATE TABLE test (id INTEGER PRIMARY KEY)"));
+    (void)db->ExecuteSimpleSQL("CREATE TABLE test (id INTEGER PRIMARY KEY)"_ns);
   }
   do_check_false(has_transaction(db));
 
   bool exists = false;
-  (void)db->TableExists(NS_LITERAL_CSTRING("test"), &exists);
+  (void)db->TableExists("test"_ns, &exists);
   do_check_true(exists);
 }
 
-TEST(storage_transaction_helper, AutoRollback) {
+TEST(storage_transaction_helper, AutoRollback)
+{
   nsCOMPtr<mozIStorageConnection> db(getMemoryDatabase());
 
   // Create a table in a transaction, and make sure that it does not exists
@@ -85,17 +86,17 @@ TEST(storage_transaction_helper, AutoRollback) {
   {
     mozStorageTransaction transaction(db, false);
     do_check_true(has_transaction(db));
-    (void)db->ExecuteSimpleSQL(
-        NS_LITERAL_CSTRING("CREATE TABLE test (id INTEGER PRIMARY KEY)"));
+    (void)db->ExecuteSimpleSQL("CREATE TABLE test (id INTEGER PRIMARY KEY)"_ns);
   }
   do_check_false(has_transaction(db));
 
   bool exists = true;
-  (void)db->TableExists(NS_LITERAL_CSTRING("test"), &exists);
+  (void)db->TableExists("test"_ns, &exists);
   do_check_false(exists);
 }
 
-TEST(storage_transaction_helper, null_database_connection) {
+TEST(storage_transaction_helper, null_database_connection)
+{
   // We permit the use of the Transaction helper when passing a null database
   // in, so we need to make sure this still works without crashing.
   mozStorageTransaction transaction(nullptr, false);
@@ -103,7 +104,8 @@ TEST(storage_transaction_helper, null_database_connection) {
   do_check_true(NS_SUCCEEDED(transaction.Rollback()));
 }
 
-TEST(storage_transaction_helper, async_Commit) {
+TEST(storage_transaction_helper, async_Commit)
+{
   HookSqliteMutex hook;
 
   nsCOMPtr<mozIStorageConnection> db(getMemoryDatabase());
@@ -117,8 +119,7 @@ TEST(storage_transaction_helper, async_Commit) {
     mozStorageTransaction transaction(
         db, false, mozIStorageConnection::TRANSACTION_DEFERRED, true);
     do_check_true(has_transaction(db));
-    (void)db->ExecuteSimpleSQL(
-        NS_LITERAL_CSTRING("CREATE TABLE test (id INTEGER PRIMARY KEY)"));
+    (void)db->ExecuteSimpleSQL("CREATE TABLE test (id INTEGER PRIMARY KEY)"_ns);
     (void)transaction.Commit();
   }
   do_check_true(has_transaction(db));
@@ -128,13 +129,12 @@ TEST(storage_transaction_helper, async_Commit) {
 
   // Ensure the transaction has done its job by enqueueing an async execution.
   nsCOMPtr<mozIStorageAsyncStatement> stmt;
-  (void)db->CreateAsyncStatement(NS_LITERAL_CSTRING("SELECT NULL"),
-                                 getter_AddRefs(stmt));
+  (void)db->CreateAsyncStatement("SELECT NULL"_ns, getter_AddRefs(stmt));
   blocking_async_execute(stmt);
   stmt->Finalize();
   do_check_false(has_transaction(db));
   bool exists = false;
-  (void)db->TableExists(NS_LITERAL_CSTRING("test"), &exists);
+  (void)db->TableExists("test"_ns, &exists);
   do_check_true(exists);
 
   blocking_async_close(db);

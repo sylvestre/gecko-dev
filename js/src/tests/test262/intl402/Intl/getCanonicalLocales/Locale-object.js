@@ -1,4 +1,3 @@
-// |reftest| skip -- Intl.Locale is not supported
 // Copyright 2018 Igalia, S.L. All rights reserved.
 // This code is governed by the license found in the LICENSE file.
 
@@ -15,7 +14,7 @@ features: [Intl.Locale]
 
 assert.compareArray(Intl.getCanonicalLocales([
   "fr-CA",
-  new Intl.Locale("en-gb-oed"),
+  new Intl.Locale("en-gb-oxendict"),
   "de",
   new Intl.Locale("jp", { "calendar": "gregory" }),
   "zh",

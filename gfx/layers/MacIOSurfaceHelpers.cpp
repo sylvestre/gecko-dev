@@ -83,6 +83,9 @@ CreateSourceSurfaceFromLockedMacIOSurface(MacIOSurface* aSurface) {
     data.mCbCrStride = cbCrWidth;
     data.mCbCrSize = IntSize::Truncate(cbCrWidth, cbCrHeight);
     data.mPicSize = data.mYSize;
+    data.mYUVColorSpace = aSurface->GetYUVColorSpace();
+    data.mColorRange = aSurface->IsFullRange() ? gfx::ColorRange::FULL
+                                               : gfx::ColorRange::LIMITED;
 
     ConvertYCbCrToRGB(data, SurfaceFormat::B8G8R8X8,
                       IntSize::Truncate(ioWidth, ioHeight), mappedSurface.mData,
@@ -95,7 +98,7 @@ CreateSourceSurfaceFromLockedMacIOSurface(MacIOSurface* aSurface) {
                             0 /* not used */, mappedSurface.mData,
                             mappedSurface.mStride, 0, 0, size.width,
                             size.height, size.width, size.height,
-                            libyuv::kRotate0, libyuv::FOURCC_UYVY);
+                            libyuv::kRotate0, libyuv::FOURCC_YUYV);
     } else {
       /* Convert to YV16 */
       size_t cbCrWidth = (ioWidth + 1) >> 1;
@@ -117,6 +120,9 @@ CreateSourceSurfaceFromLockedMacIOSurface(MacIOSurface* aSurface) {
       for (size_t i = 0; i < ioHeight; i++) {
         uint8_t* rowSrc = src + bytesPerRow * i;
         for (size_t j = 0; j < cbCrWidth; j++) {
+          *yDest = *rowSrc;
+          yDest++;
+          rowSrc++;
           *cbDest = *rowSrc;
           cbDest++;
           rowSrc++;
@@ -125,9 +131,6 @@ CreateSourceSurfaceFromLockedMacIOSurface(MacIOSurface* aSurface) {
           rowSrc++;
           *crDest = *rowSrc;
           crDest++;
-          rowSrc++;
-          *yDest = *rowSrc;
-          yDest++;
           rowSrc++;
         }
         if (strideDelta) {
@@ -147,6 +150,9 @@ CreateSourceSurfaceFromLockedMacIOSurface(MacIOSurface* aSurface) {
       data.mCbCrStride = cbCrStride;
       data.mCbCrSize = IntSize::Truncate(cbCrWidth, cbCrHeight);
       data.mPicSize = data.mYSize;
+      data.mYUVColorSpace = aSurface->GetYUVColorSpace();
+      data.mColorRange = aSurface->IsFullRange() ? gfx::ColorRange::FULL
+                                                 : gfx::ColorRange::LIMITED;
 
       ConvertYCbCrToRGB(data, SurfaceFormat::B8G8R8X8,
                         IntSize::Truncate(ioWidth, ioHeight),

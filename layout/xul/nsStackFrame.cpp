@@ -12,11 +12,12 @@
 //
 
 #include "nsStackFrame.h"
+
 #include "mozilla/ComputedStyle.h"
+#include "mozilla/PresShell.h"
 #include "nsIContent.h"
 #include "nsCOMPtr.h"
 #include "nsHTMLParts.h"
-#include "nsIPresShell.h"
 #include "nsCSSRendering.h"
 #include "nsBoxLayoutState.h"
 #include "nsStackLayout.h"
@@ -24,14 +25,14 @@
 
 using namespace mozilla;
 
-nsIFrame* NS_NewStackFrame(nsIPresShell* aPresShell, ComputedStyle* aStyle) {
-  return new (aPresShell) nsStackFrame(aStyle);
+nsIFrame* NS_NewStackFrame(PresShell* aPresShell, ComputedStyle* aStyle) {
+  return new (aPresShell) nsStackFrame(aStyle, aPresShell->GetPresContext());
 }
 
 NS_IMPL_FRAMEARENA_HELPERS(nsStackFrame)
 
-nsStackFrame::nsStackFrame(ComputedStyle* aStyle)
-    : nsBoxFrame(aStyle, kClassID) {
+nsStackFrame::nsStackFrame(ComputedStyle* aStyle, nsPresContext* aPresContext)
+    : nsBoxFrame(aStyle, aPresContext, kClassID) {
   nsCOMPtr<nsBoxLayout> layout;
   NS_NewStackLayout(layout);
   SetXULLayoutManager(layout);
@@ -39,7 +40,7 @@ nsStackFrame::nsStackFrame(ComputedStyle* aStyle)
 
 // REVIEW: The old code put everything in the background layer. To be more
 // consistent with the way other frames work, I'm putting everything in the
-// Content() (i.e., foreground) layer (see nsFrame::BuildDisplayListForChild,
+// Content() (i.e., foreground) layer (see nsIFrame::BuildDisplayListForChild,
 // the case for stacking context but non-positioned, non-floating frames).
 // This could easily be changed back by hacking
 // nsBoxFrame::BuildDisplayListInternal a bit more.
@@ -55,7 +56,7 @@ void nsStackFrame::BuildDisplayListForChildren(nsDisplayListBuilder* aBuilder,
   while (kid) {
     // Force each child into its own true stacking context.
     BuildDisplayListForChild(aBuilder, kid, kidLists,
-                             DISPLAY_CHILD_FORCE_STACKING_CONTEXT);
+                             DisplayChildFlag::ForceStackingContext);
     kid = kid->GetNextSibling();
   }
 }

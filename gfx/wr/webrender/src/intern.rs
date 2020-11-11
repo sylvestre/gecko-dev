@@ -2,207 +2,224 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use api::{LayoutPrimitiveInfo, LayoutRect};
-use internal_types::FastHashMap;
-use profiler::ResourceProfileCounter;
+//! The interning module provides a generic data structure
+//! interning container. It is similar in concept to a
+//! traditional string interning container, but it is
+//! specialized to the WR thread model.
+//!
+//! There is an Interner structure, that lives in the
+//! scene builder thread, and a DataStore structure
+//! that lives in the frame builder thread.
+//!
+//! Hashing, interning and handle creation is done by
+//! the interner structure during scene building.
+//!
+//! Delta changes for the interner are pushed during
+//! a transaction to the frame builder. The frame builder
+//! is then able to access the content of the interned
+//! handles quickly, via array indexing.
+//!
+//! Epoch tracking ensures that the garbage collection
+//! step which the interner uses to remove items is
+//! only invoked on items that the frame builder thread
+//! is no longer referencing.
+//!
+//! Items in the data store are stored in a traditional
+//! free-list structure, for content access and memory
+//! usage efficiency.
+//!
+//! The epoch is incremented each time a scene is
+//! built. The most recently used scene epoch is
+//! stored inside each handle. This is then used for
+//! cache invalidation.
+
+use crate::internal_types::FastHashMap;
+use malloc_size_of::MallocSizeOf;
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::marker::PhantomData;
-use std::{mem, ops, u64};
-use std::sync::atomic::{AtomicUsize, Ordering};
-use util::VecHelper;
+use std::{ops, u64};
+use crate::util::VecHelper;
+use crate::profiler::TransactionProfile;
 
-/*
-
- The interning module provides a generic data structure
- interning container. It is similar in concept to a
- traditional string interning container, but it is
- specialized to the WR thread model.
-
- There is an Interner structure, that lives in the
- scene builder thread, and a DataStore structure
- that lives in the frame builder thread.
-
- Hashing, interning and handle creation is done by
- the interner structure during scene building.
-
- Delta changes for the interner are pushed during
- a transaction to the frame builder. The frame builder
- is then able to access the content of the interned
- handles quickly, via array indexing.
-
- Epoch tracking ensures that the garbage collection
- step which the interner uses to remove items is
- only invoked on items that the frame builder thread
- is no longer referencing.
-
- Items in the data store are stored in a traditional
- free-list structure, for content access and memory
- usage efficiency.
-
- */
-
-/// The epoch is incremented each time a scene is
-/// built. The most recently used scene epoch is
-/// stored inside each item and handle. This is
-/// then used for cache invalidation (item) and
-/// correctness validation (handle).
 #[cfg_attr(feature = "capture", derive(Serialize))]
 #[cfg_attr(feature = "replay", derive(Deserialize))]
-#[derive(Debug, Copy, Clone, PartialEq)]
-struct Epoch(u64);
-
-impl Epoch {
-    pub const INVALID: Self = Epoch(u64::MAX);
-}
+#[derive(Debug, Copy, Clone, MallocSizeOf, PartialEq)]
+struct Epoch(u32);
 
 /// A list of updates to be applied to the data store,
 /// provided by the interning structure.
+#[cfg_attr(feature = "capture", derive(Serialize))]
+#[cfg_attr(feature = "replay", derive(Deserialize))]
+#[derive(MallocSizeOf)]
 pub struct UpdateList<S> {
-    /// The current epoch of the scene builder.
-    epoch: Epoch,
-    /// The additions and removals to apply.
-    updates: Vec<Update>,
-    /// Actual new data to insert.
-    data: Vec<S>,
+    /// Items to insert.
+    pub insertions: Vec<Insertion<S>>,
+
+    /// Items to remove.
+    pub removals: Vec<Removal>,
 }
 
-lazy_static! {
-    static ref NEXT_UID: AtomicUsize = AtomicUsize::new(0);
+#[cfg_attr(feature = "capture", derive(Serialize))]
+#[cfg_attr(feature = "replay", derive(Deserialize))]
+#[derive(MallocSizeOf)]
+pub struct Insertion<S> {
+    pub index: usize,
+    pub uid: ItemUid,
+    pub value: S,
+}
+
+#[cfg_attr(feature = "capture", derive(Serialize))]
+#[cfg_attr(feature = "replay", derive(Deserialize))]
+#[derive(MallocSizeOf)]
+pub struct Removal {
+    pub index: usize,
+    pub uid: ItemUid,
+}
+
+impl<S> UpdateList<S> {
+    fn new() -> UpdateList<S> {
+        UpdateList {
+            insertions: Vec::new(),
+            removals: Vec::new(),
+        }
+    }
+
+    fn take_and_preallocate(&mut self) -> UpdateList<S> {
+        UpdateList {
+            insertions: self.insertions.take_and_preallocate(),
+            removals: self.removals.take_and_preallocate(),
+        }
+    }
 }
 
 /// A globally, unique identifier
 #[cfg_attr(feature = "capture", derive(Serialize))]
 #[cfg_attr(feature = "replay", derive(Deserialize))]
-#[derive(Debug, Copy, Clone, Eq, Hash, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, Hash, MallocSizeOf, PartialEq)]
 pub struct ItemUid {
-    uid: usize,
+    uid: u64,
 }
 
 impl ItemUid {
-    pub fn next_uid() -> ItemUid {
-        let uid = NEXT_UID.fetch_add(1, Ordering::Relaxed);
-        ItemUid { uid }
-    }
-}
-
-#[cfg_attr(feature = "capture", derive(Serialize))]
-#[cfg_attr(feature = "replay", derive(Deserialize))]
-#[derive(Debug, Copy, Clone)]
-pub struct Handle<M: Copy> {
-    index: u32,
-    epoch: Epoch,
-    uid: ItemUid,
-    _marker: PhantomData<M>,
-}
-
-impl <M> Handle<M> where M: Copy {
-    pub fn uid(&self) -> ItemUid {
+    // Intended for debug usage only
+    pub fn get_uid(&self) -> u64 {
         self.uid
     }
 }
 
 #[cfg_attr(feature = "capture", derive(Serialize))]
 #[cfg_attr(feature = "replay", derive(Deserialize))]
-pub enum UpdateKind {
-    Insert,
-    Remove,
-    UpdateEpoch,
-}
-
-#[cfg_attr(feature = "capture", derive(Serialize))]
-#[cfg_attr(feature = "replay", derive(Deserialize))]
-pub struct Update {
-    index: usize,
-    kind: UpdateKind,
-}
-
-/// The data item is stored with an epoch, for validating
-/// correct access patterns.
-#[cfg_attr(feature = "capture", derive(Serialize))]
-#[cfg_attr(feature = "replay", derive(Deserialize))]
-struct Item<T> {
+#[derive(Debug, MallocSizeOf, PartialEq)]
+pub struct Handle<I> {
+    index: u32,
     epoch: Epoch,
-    data: T,
+    _marker: PhantomData<I>,
+}
+
+impl<I> Clone for Handle<I> {
+    fn clone(&self) -> Self {
+        Handle {
+            index: self.index,
+            epoch: self.epoch,
+            _marker: self._marker,
+        }
+    }
+}
+
+impl<I> Copy for Handle<I> {}
+
+impl<I> Handle<I> {
+    pub fn uid(&self) -> ItemUid {
+        ItemUid {
+            // The index in the freelist + the epoch it was interned generates a stable
+            // unique id for an interned element.
+            uid: ((self.index as u64) << 32) | self.epoch.0 as u64
+        }
+    }
+}
+
+pub trait InternDebug {
+    fn on_interned(&self, _uid: ItemUid) {}
 }
 
 /// The data store lives in the frame builder thread. It
 /// contains a free-list of items for fast access.
 #[cfg_attr(feature = "capture", derive(Serialize))]
 #[cfg_attr(feature = "replay", derive(Deserialize))]
-pub struct DataStore<S, T, M> {
-    items: Vec<Item<T>>,
-    _source: PhantomData<S>,
-    _marker: PhantomData<M>,
+#[derive(MallocSizeOf)]
+pub struct DataStore<I: Internable> {
+    items: Vec<Option<I::StoreData>>,
 }
 
-impl<S, T, M> ::std::default::Default for DataStore<S, T, M> where S: Debug, T: From<S>, M: Debug
-{
+impl<I: Internable> Default for DataStore<I> {
     fn default() -> Self {
         DataStore {
             items: Vec::new(),
-            _source: PhantomData,
-            _marker: PhantomData,
         }
     }
 }
 
-impl<S, T, M> DataStore<S, T, M> where S: Debug, T: From<S>, M: Debug
-{
+impl<I: Internable> DataStore<I> {
     /// Apply any updates from the scene builder thread to
     /// this data store.
     pub fn apply_updates(
         &mut self,
-        update_list: UpdateList<S>,
-        profile_counter: &mut ResourceProfileCounter,
+        update_list: UpdateList<I::Key>,
+        profile: &mut TransactionProfile,
     ) {
-        let mut data_iter = update_list.data.into_iter();
-        for update in update_list.updates {
-            match update.kind {
-                UpdateKind::Insert => {
-                    self.items.entry(update.index).set(Item {
-                        data: T::from(data_iter.next().unwrap()),
-                        epoch: update_list.epoch,
-                    });
-                }
-                UpdateKind::Remove => {
-                    self.items[update.index].epoch = Epoch::INVALID;
-                }
-                UpdateKind::UpdateEpoch => {
-                    self.items[update.index].epoch = update_list.epoch;
-                }
-            }
+        for insertion in update_list.insertions {
+            self.items
+                .entry(insertion.index)
+                .set(Some(insertion.value.into()));
         }
 
-        let per_item_size = mem::size_of::<S>() + mem::size_of::<T>();
-        profile_counter.set(self.items.len(), per_item_size * self.items.len());
+        for removal in update_list.removals {
+            self.items[removal.index] = None;
+        }
 
-        debug_assert!(data_iter.next().is_none());
+        profile.set(I::PROFILE_COUNTER, self.items.len());
     }
 }
 
 /// Retrieve an item from the store via handle
-impl<S, T, M> ops::Index<Handle<M>> for DataStore<S, T, M>
-where M: Copy
-{
-    type Output = T;
-    fn index(&self, handle: Handle<M>) -> &T {
-        let item = &self.items[handle.index as usize];
-        assert_eq!(item.epoch, handle.epoch);
-        &item.data
+impl<I: Internable> ops::Index<Handle<I>> for DataStore<I> {
+    type Output = I::StoreData;
+    fn index(&self, handle: Handle<I>) -> &I::StoreData {
+        self.items[handle.index as usize].as_ref().expect("Bad datastore lookup")
     }
 }
 
 /// Retrieve a mutable item from the store via handle
 /// Retrieve an item from the store via handle
-impl<S, T, M> ops::IndexMut<Handle<M>> for DataStore<S, T, M>
-where
-    M: Copy
-{
-    fn index_mut(&mut self, handle: Handle<M>) -> &mut T {
-        let item = &mut self.items[handle.index as usize];
-        assert_eq!(item.epoch, handle.epoch);
-        &mut item.data
+impl<I: Internable> ops::IndexMut<Handle<I>> for DataStore<I> {
+    fn index_mut(&mut self, handle: Handle<I>) -> &mut I::StoreData {
+        self.items[handle.index as usize].as_mut().expect("Bad datastore lookup")
+    }
+}
+
+#[cfg_attr(feature = "capture", derive(Serialize))]
+#[cfg_attr(feature = "replay", derive(Deserialize))]
+#[derive(MallocSizeOf)]
+struct ItemDetails<I> {
+    /// Frame that this element was first interned
+    interned_epoch: Epoch,
+    /// Last frame this element was referenced (used to GC intern items)
+    last_used_epoch: Epoch,
+    /// Index into the freelist this item is located
+    index: usize,
+    /// Type marker for create_handle method
+    _marker: PhantomData<I>,
+}
+
+impl<I> ItemDetails<I> {
+    /// Construct a stable handle value from the item details
+    fn create_handle(&self) -> Handle<I> {
+        Handle {
+            index: self.index as u32,
+            epoch: self.interned_epoch,
+            _marker: PhantomData,
+        }
     }
 }
 
@@ -213,48 +230,34 @@ where
 /// an update list of additions / removals.
 #[cfg_attr(feature = "capture", derive(Serialize))]
 #[cfg_attr(feature = "replay", derive(Deserialize))]
-pub struct Interner<S, D, M>
-where
-    S: Eq + Hash + Clone + Debug,
-    M: Copy
-{
+#[derive(MallocSizeOf)]
+pub struct Interner<I: Internable> {
     /// Uniquely map an interning key to a handle
-    map: FastHashMap<S, Handle<M>>,
+    map: FastHashMap<I::Key, ItemDetails<I>>,
     /// List of free slots in the data store for re-use.
     free_list: Vec<usize>,
     /// Pending list of updates that need to be applied.
-    updates: Vec<Update>,
-    /// Pending new data to insert.
-    update_data: Vec<S>,
+    update_list: UpdateList<I::Key>,
     /// The current epoch for the interner.
     current_epoch: Epoch,
     /// The information associated with each interned
     /// item that can be accessed by the interner.
-    local_data: Vec<Item<D>>,
+    local_data: Vec<I::InternData>,
 }
 
-impl<S, D, M> ::std::default::Default for Interner<S, D, M>
-where
-    S: Eq + Hash + Clone + Debug,
-    M: Copy + Debug
-{
+impl<I: Internable> Default for Interner<I> {
     fn default() -> Self {
         Interner {
             map: FastHashMap::default(),
             free_list: Vec::new(),
-            updates: Vec::new(),
-            update_data: Vec::new(),
+            update_list: UpdateList::new(),
             current_epoch: Epoch(1),
             local_data: Vec::new(),
         }
     }
 }
 
-impl<S, D, M> Interner<S, D, M>
-where
-    S: Eq + Hash + Clone + Debug,
-    M: Copy + Debug
-{
+impl<I: Internable> Interner<I> {
     /// Intern a data structure, and return a handle to
     /// that data. The handle can then be stored in the
     /// frame builder, and safely accessed via the data
@@ -264,26 +267,17 @@ where
     /// key isn't already interned.
     pub fn intern<F>(
         &mut self,
-        data: &S,
-        f: F,
-    ) -> Handle<M> where F: FnOnce() -> D {
+        data: &I::Key,
+        fun: F,
+    ) -> Handle<I> where F: FnOnce() -> I::InternData {
         // Use get_mut rather than entry here to avoid
         // cloning the (sometimes large) key in the common
         // case, where the data already exists in the interner.
-        if let Some(handle) = self.map.get_mut(data) {
-            // Update the epoch in the data store. This
-            // is not strictly needed for correctness, but
-            // is used to ensure items are only accessed
-            // via valid handles.
-            if handle.epoch != self.current_epoch {
-                self.updates.push(Update {
-                    index: handle.index as usize,
-                    kind: UpdateKind::UpdateEpoch,
-                });
-                self.local_data[handle.index as usize].epoch = self.current_epoch;
-            }
-            handle.epoch = self.current_epoch;
-            return *handle;
+        if let Some(details) = self.map.get_mut(data) {
+            // Update the last referenced frame for this element
+            details.last_used_epoch = self.current_epoch;
+            // Return a stable handle value for dependency checking
+            return details.create_handle();
         }
 
         // We need to intern a new data item. First, find out
@@ -294,31 +288,37 @@ where
             None => self.local_data.len(),
         };
 
-        // Add a pending update to insert the new data.
-        self.updates.push(Update {
-            index,
-            kind: UpdateKind::Insert,
-        });
-        self.update_data.alloc().init(data.clone());
-
         // Generate a handle for access via the data store.
         let handle = Handle {
             index: index as u32,
             epoch: self.current_epoch,
-            uid: ItemUid::next_uid(),
             _marker: PhantomData,
         };
 
+        let uid = handle.uid();
+
+        // Add a pending update to insert the new data.
+        self.update_list.insertions.push(Insertion {
+            index,
+            uid,
+            value: data.clone(),
+        });
+
+        #[cfg(debug_assertions)]
+        data.on_interned(uid);
+
         // Store this handle so the next time it is
         // interned, it gets re-used.
-        self.map.insert(data.clone(), handle);
+        self.map.insert(data.clone(), ItemDetails {
+            interned_epoch: self.current_epoch,
+            last_used_epoch: self.current_epoch,
+            index,
+            _marker: PhantomData,
+        });
 
         // Create the local data for this item that is
         // being interned.
-        self.local_data.entry(index).set(Item {
-            epoch: self.current_epoch,
-            data: f(),
-        });
+        self.local_data.entry(index).set(fun());
 
         handle
     }
@@ -326,9 +326,8 @@ where
     /// Retrieve the pending list of updates for an interner
     /// that need to be applied to the data store. Also run
     /// a GC step that removes old entries.
-    pub fn end_frame_and_get_pending_updates(&mut self) -> UpdateList<S> {
-        let mut updates = mem::replace(&mut self.updates, Vec::new());
-        let data = mem::replace(&mut self.update_data, Vec::new());
+    pub fn end_frame_and_get_pending_updates(&mut self) -> UpdateList<I::Key> {
+        let mut update_list = self.update_list.take_and_preallocate();
 
         let free_list = &mut self.free_list;
         let current_epoch = self.current_epoch.0;
@@ -340,16 +339,16 @@ where
         // map each frame). It also might make sense in the
         // future to adjust how long items remain in the cache
         // based on the current size of the list.
-        self.map.retain(|_, handle| {
-            if handle.epoch.0 + 10 < current_epoch {
+        self.map.retain(|_, details| {
+            if details.last_used_epoch.0 + 10 < current_epoch {
                 // To expire an item:
                 //  - Add index to the free-list for re-use.
-                //  - Add an update to the data store to invalidate this slow.
+                //  - Add an update to the data store to invalidate this slot.
                 //  - Remove from the hash map.
-                free_list.push(handle.index as usize);
-                updates.push(Update {
-                    index: handle.index as usize,
-                    kind: UpdateKind::Remove,
+                free_list.push(details.index);
+                update_list.removals.push(Removal {
+                    index: details.index,
+                    uid: details.create_handle().uid(),
                 });
                 return false;
             }
@@ -357,46 +356,110 @@ where
             true
         });
 
-        let updates = UpdateList {
-            updates,
-            data,
-            epoch: self.current_epoch,
-        };
-
         // Begin the next epoch
         self.current_epoch = Epoch(self.current_epoch.0 + 1);
 
-        updates
+        update_list
     }
 }
 
 /// Retrieve the local data for an item from the interner via handle
-impl<S, D, M> ops::Index<Handle<M>> for Interner<S, D, M>
-where
-    S: Eq + Clone + Hash + Debug,
-    M: Copy + Debug
-{
-    type Output = D;
-    fn index(&self, handle: Handle<M>) -> &D {
-        let item = &self.local_data[handle.index as usize];
-        assert_eq!(item.epoch, handle.epoch);
-        &item.data
+impl<I: Internable> ops::Index<Handle<I>> for Interner<I> {
+    type Output = I::InternData;
+    fn index(&self, handle: Handle<I>) -> &I::InternData {
+        &self.local_data[handle.index as usize]
     }
 }
 
-/// Implement `Internable` for a type that wants participate in interning.
+/// Meta-macro to enumerate the various interner identifiers and types.
 ///
-/// see DisplayListFlattener::add_interned_primitive<P>
-pub trait Internable {
-    type Marker: Copy + Debug;
-    type Source: Eq + Hash + Clone + Debug;
-    type StoreData: From<Self::Source>;
-    type InternData;
+/// IMPORTANT: Keep this synchronized with the list in mozilla-central located at
+/// gfx/webrender_bindings/webrender_ffi.h
+///
+/// Note that this could be a lot less verbose if concat_idents! were stable. :-(
+#[macro_export]
+macro_rules! enumerate_interners {
+    ($macro_name: ident) => {
+        $macro_name! {
+            clip: ClipIntern,
+            prim: PrimitiveKeyKind,
+            normal_border: NormalBorderPrim,
+            image_border: ImageBorder,
+            image: Image,
+            yuv_image: YuvImage,
+            line_decoration: LineDecoration,
+            linear_grad: LinearGradient,
+            radial_grad: RadialGradient,
+            conic_grad: ConicGradient,
+            picture: Picture,
+            text_run: TextRun,
+            filter_data: FilterDataIntern,
+            backdrop: Backdrop,
+        }
+    }
+}
 
-    /// Build a new key from self with `info`.
-    fn build_key(
-        self,
-        info: &LayoutPrimitiveInfo,
-        prim_relative_clip_rect: LayoutRect,
-    ) -> Self::Source;
+macro_rules! declare_interning_memory_report {
+    ( $( $name:ident: $ty:ident, )+ ) => {
+        ///
+        #[repr(C)]
+        #[derive(AddAssign, Clone, Debug, Default)]
+        pub struct InternerSubReport {
+            $(
+                ///
+                pub $name: usize,
+            )+
+        }
+    }
+}
+
+enumerate_interners!(declare_interning_memory_report);
+
+/// Memory report for interning-related data structures.
+/// cbindgen:derive-eq=false
+/// cbindgen:derive-ostream=false
+#[repr(C)]
+#[derive(Clone, Debug, Default)]
+pub struct InterningMemoryReport {
+    ///
+    pub interners: InternerSubReport,
+    ///
+    pub data_stores: InternerSubReport,
+}
+
+impl ::std::ops::AddAssign for InterningMemoryReport {
+    fn add_assign(&mut self, other: InterningMemoryReport) {
+        self.interners += other.interners;
+        self.data_stores += other.data_stores;
+    }
+}
+
+// The trick to make trait bounds configurable by features.
+mod dummy {
+    #[cfg(not(feature = "capture"))]
+    pub trait Serialize {}
+    #[cfg(not(feature = "capture"))]
+    impl<T> Serialize for T {}
+    #[cfg(not(feature = "replay"))]
+    pub trait Deserialize<'a> {}
+    #[cfg(not(feature = "replay"))]
+    impl<'a, T> Deserialize<'a> for T {}
+}
+#[cfg(feature = "capture")]
+use serde::Serialize as InternSerialize;
+#[cfg(not(feature = "capture"))]
+use self::dummy::Serialize as InternSerialize;
+#[cfg(feature = "replay")]
+use serde::Deserialize as InternDeserialize;
+#[cfg(not(feature = "replay"))]
+use self::dummy::Deserialize as InternDeserialize;
+
+/// Implement `Internable` for a type that wants to participate in interning.
+pub trait Internable: MallocSizeOf {
+    type Key: Eq + Hash + Clone + Debug + MallocSizeOf + InternDebug + InternSerialize + for<'a> InternDeserialize<'a>;
+    type StoreData: From<Self::Key> + MallocSizeOf + InternSerialize + for<'a> InternDeserialize<'a>;
+    type InternData: MallocSizeOf + InternSerialize + for<'a> InternDeserialize<'a>;
+
+    // Profile counter indices, see the list in profiler.rs
+    const PROFILE_COUNTER: usize;
 }

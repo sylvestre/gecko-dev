@@ -14,13 +14,14 @@ namespace TestTaskQueue {
 
 using namespace mozilla;
 
-TEST(TaskQueue, EventOrder) {
+TEST(TaskQueue, EventOrder)
+{
   RefPtr<TaskQueue> tq1 =
-      new TaskQueue(GetMediaThreadPool(MediaThreadType::PLAYBACK), true);
+      new TaskQueue(GetMediaThreadPool(MediaThreadType::SUPERVISOR), true);
   RefPtr<TaskQueue> tq2 =
-      new TaskQueue(GetMediaThreadPool(MediaThreadType::PLAYBACK), true);
+      new TaskQueue(GetMediaThreadPool(MediaThreadType::SUPERVISOR), true);
   RefPtr<TaskQueue> tq3 =
-      new TaskQueue(GetMediaThreadPool(MediaThreadType::PLAYBACK), true);
+      new TaskQueue(GetMediaThreadPool(MediaThreadType::SUPERVISOR), true);
 
   bool errored = false;
   int counter = 0;
@@ -80,6 +81,34 @@ TEST(TaskQueue, EventOrder) {
   tq2->AwaitShutdownAndIdle();
   tq3->BeginShutdown();
   tq3->AwaitShutdownAndIdle();
+}
+
+TEST(TaskQueue, GetCurrentSerialEventTarget)
+{
+  RefPtr<TaskQueue> tq1 =
+      new TaskQueue(GetMediaThreadPool(MediaThreadType::SUPERVISOR), false);
+  Unused << tq1->Dispatch(NS_NewRunnableFunction(
+      "TestTaskQueue::TestCurrentSerialEventTarget::TestBody", [tq1]() {
+        nsCOMPtr<nsISerialEventTarget> thread = GetCurrentSerialEventTarget();
+        EXPECT_EQ(thread, tq1);
+      }));
+  tq1->BeginShutdown();
+  tq1->AwaitShutdownAndIdle();
+}
+
+TEST(AbstractThread, GetCurrentSerialEventTarget)
+{
+  RefPtr<AbstractThread> mainThread = AbstractThread::GetCurrent();
+  EXPECT_EQ(mainThread, AbstractThread::MainThread());
+  Unused << mainThread->Dispatch(NS_NewRunnableFunction(
+      "TestAbstractThread::TestCurrentSerialEventTarget::TestBody",
+      [mainThread]() {
+        nsCOMPtr<nsISerialEventTarget> thread = GetCurrentSerialEventTarget();
+        EXPECT_EQ(thread, mainThread);
+      }));
+
+  // Spin the event loop.
+  NS_ProcessPendingEvents(nullptr);
 }
 
 }  // namespace TestTaskQueue

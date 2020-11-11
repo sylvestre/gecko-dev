@@ -12,7 +12,6 @@
 #include "nsIChannelEventSink.h"
 
 class nsIStreamListener;
-class nsIDocument;
 
 #define NS_CONTENTSECURITYMANAGER_CONTRACTID \
   "@mozilla.org/contentsecuritymanager;1"
@@ -31,19 +30,24 @@ class nsContentSecurityManager : public nsIContentSecurityManager,
   NS_DECL_NSICONTENTSECURITYMANAGER
   NS_DECL_NSICHANNELEVENTSINK
 
-  nsContentSecurityManager() {}
+  nsContentSecurityManager() = default;
 
   static nsresult doContentSecurityCheck(
       nsIChannel* aChannel, nsCOMPtr<nsIStreamListener>& aInAndOutListener);
 
   static bool AllowTopLevelNavigationToDataURI(nsIChannel* aChannel);
   static bool AllowInsecureRedirectToDataURI(nsIChannel* aNewChannel);
+  static void MeasureUnexpectedPrivilegedLoads(
+      nsIURI* aFinalURI, nsContentPolicyType aContentPolicyType,
+      const nsACString& aRemoteType);
 
  private:
   static nsresult CheckChannel(nsIChannel* aChannel);
   static nsresult CheckFTPSubresourceLoad(nsIChannel* aChannel);
+  static nsresult CheckAllowLoadInSystemPrivilegedContext(nsIChannel* aChannel);
+  static nsresult CheckChannelHasProtocolSecurityFlag(nsIChannel* aChannel);
 
-  virtual ~nsContentSecurityManager() {}
+  virtual ~nsContentSecurityManager() = default;
 };
 
 #endif /* nsContentSecurityManager_h___ */

@@ -8,7 +8,6 @@
 
 #include "nsIStreamConverter.h"
 #include "nsCOMPtr.h"
-#include "nsIPipe.h"
 #include "zlib.h"
 #include "mozilla/Attributes.h"
 
@@ -19,10 +18,10 @@
     }                                                \
   }
 
-#define ZIP_BUFLEN (4 * 1024 - 1)
-
 class nsDeflateConverter final : public nsIStreamConverter {
  public:
+  static constexpr size_t kZipBufLen = (4 * 1024 - 1);
+
   NS_DECL_ISUPPORTS
   NS_DECL_NSIREQUESTOBSERVER
   NS_DECL_NSISTREAMLISTENER
@@ -49,10 +48,10 @@ class nsDeflateConverter final : public nsIStreamConverter {
   nsCOMPtr<nsIStreamListener> mListener;
   nsCOMPtr<nsISupports> mContext;
   z_stream mZstream;
-  unsigned char mWriteBuffer[ZIP_BUFLEN];
+  unsigned char mWriteBuffer[kZipBufLen];
 
   nsresult Init();
-  nsresult PushAvailableData(nsIRequest *aRequest, nsISupports *aContext);
+  nsresult PushAvailableData(nsIRequest* aRequest, nsISupports* aContext);
 };
 
 #endif

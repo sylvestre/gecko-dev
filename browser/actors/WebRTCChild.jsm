@@ -6,30 +6,102 @@
 
 var EXPORTED_SYMBOLS = ["WebRTCChild"];
 
-ChromeUtils.import("resource://gre/modules/Services.jsm");
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
-ChromeUtils.import("resource://gre/modules/ActorChild.jsm");
-ChromeUtils.import("resource://gre/modules/AppConstants.jsm");
-XPCOMUtils.defineLazyServiceGetter(this, "MediaManagerService",
-                                   "@mozilla.org/mediaManagerService;1",
-                                   "nsIMediaManagerService");
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+const { AppConstants } = ChromeUtils.import(
+  "resource://gre/modules/AppConstants.jsm"
+);
+XPCOMUtils.defineLazyServiceGetter(
+  this,
+  "MediaManagerService",
+  "@mozilla.org/mediaManagerService;1",
+  "nsIMediaManagerService"
+);
 
 const kBrowserURL = AppConstants.BROWSER_CHROME_URL;
 
-class WebRTCChild extends ActorChild {
+/**
+ * GlobalMuteListener is a process-global object that listens for changes to
+ * the global mute state of the camera and microphone. When it notices a
+ * change in that state, it tells the underlying platform code to mute or
+ * unmute those devices.
+ */
+const GlobalMuteListener = {
+  _initted: false,
+
+  /**
+   * Initializes the listener if it hasn't been already. This will also
+   * ensure that the microphone and camera are initially in the right
+   * muting state.
+   */
+  init() {
+    if (!this._initted) {
+      Services.cpmm.sharedData.addEventListener("change", this);
+      this._updateCameraMuteState();
+      this._updateMicrophoneMuteState();
+      this._initted = true;
+    }
+  },
+
+  handleEvent(event) {
+    if (event.changedKeys.includes("WebRTC:GlobalCameraMute")) {
+      this._updateCameraMuteState();
+    }
+    if (event.changedKeys.includes("WebRTC:GlobalMicrophoneMute")) {
+      this._updateMicrophoneMuteState();
+    }
+  },
+
+  _updateCameraMuteState() {
+    let shouldMute = Services.cpmm.sharedData.get("WebRTC:GlobalCameraMute");
+    let topic = shouldMute
+      ? "getUserMedia:muteVideo"
+      : "getUserMedia:unmuteVideo";
+    Services.obs.notifyObservers(null, topic);
+  },
+
+  _updateMicrophoneMuteState() {
+    let shouldMute = Services.cpmm.sharedData.get(
+      "WebRTC:GlobalMicrophoneMute"
+    );
+    let topic = shouldMute
+      ? "getUserMedia:muteAudio"
+      : "getUserMedia:unmuteAudio";
+
+    Services.obs.notifyObservers(null, topic);
+  },
+};
+
+class WebRTCChild extends JSWindowActorChild {
+  actorCreated() {
+    // The user might request that DOM notifications be silenced
+    // when sharing the screen. There doesn't seem to be a great
+    // way of storing that state in any of the objects going into
+    // the WebRTC API or coming out via the observer notification
+    // service, so we store it here on the actor.
+    //
+    // If the user chooses to silence notifications during screen
+    // share, this will get set to true.
+    this.suppressNotifications = false;
+  }
+
   // Called only for 'unload' to remove pending gUM prompts in reloaded frames.
   static handleEvent(aEvent) {
     let contentWindow = aEvent.target.defaultView;
-    let mm = getMessageManagerForWindow(contentWindow);
-    for (let key of contentWindow.pendingGetUserMediaRequests.keys()) {
-      mm.sendAsyncMessage("webrtc:CancelRequest", key);
-    }
-    for (let key of contentWindow.pendingPeerConnectionRequests.keys()) {
-      mm.sendAsyncMessage("rtcpeer:CancelRequest", key);
+    let actor = getActorForWindow(contentWindow);
+    if (actor) {
+      for (let key of contentWindow.pendingGetUserMediaRequests.keys()) {
+        actor.sendAsyncMessage("webrtc:CancelRequest", key);
+      }
+      for (let key of contentWindow.pendingPeerConnectionRequests.keys()) {
+        actor.sendAsyncMessage("rtcpeer:CancelRequest", key);
+      }
     }
   }
 
-  // This observer is registered in ContentObservers.js to avoid
+  // This observer is called from BrowserProcessChild to avoid
   // loading this .jsm when WebRTC is not in use.
   static observe(aSubject, aTopic, aData) {
     switch (aTopic) {
@@ -56,53 +128,100 @@ class WebRTCChild extends ActorChild {
       case "rtcpeer:Allow":
       case "rtcpeer:Deny": {
         let callID = aMessage.data.callID;
-        let contentWindow = Services.wm.getOuterWindowWithId(aMessage.data.windowID);
+        let contentWindow = Services.wm.getOuterWindowWithId(
+          aMessage.data.windowID
+        );
         forgetPCRequest(contentWindow, callID);
-        let topic = (aMessage.name == "rtcpeer:Allow") ? "PeerConnection:response:allow" :
-                                                         "PeerConnection:response:deny";
+        let topic =
+          aMessage.name == "rtcpeer:Allow"
+            ? "PeerConnection:response:allow"
+            : "PeerConnection:response:deny";
         Services.obs.notifyObservers(null, topic, callID);
         break;
       }
       case "webrtc:Allow": {
         let callID = aMessage.data.callID;
-        let contentWindow = Services.wm.getOuterWindowWithId(aMessage.data.windowID);
+        let contentWindow = Services.wm.getOuterWindowWithId(
+          aMessage.data.windowID
+        );
         let devices = contentWindow.pendingGetUserMediaRequests.get(callID);
         forgetGUMRequest(contentWindow, callID);
 
-        let allowedDevices = Cc["@mozilla.org/array;1"]
-                               .createInstance(Ci.nsIMutableArray);
-        for (let deviceIndex of aMessage.data.devices)
-           allowedDevices.appendElement(devices[deviceIndex]);
+        let allowedDevices = Cc["@mozilla.org/array;1"].createInstance(
+          Ci.nsIMutableArray
+        );
+        for (let deviceIndex of aMessage.data.devices) {
+          allowedDevices.appendElement(devices[deviceIndex]);
+        }
 
-        Services.obs.notifyObservers(allowedDevices, "getUserMedia:response:allow", callID);
+        Services.obs.notifyObservers(
+          allowedDevices,
+          "getUserMedia:response:allow",
+          callID
+        );
+
+        this.suppressNotifications = !!aMessage.data.suppressNotifications;
+
         break;
       }
       case "webrtc:Deny":
         denyGUMRequest(aMessage.data);
         break;
       case "webrtc:StopSharing":
-        Services.obs.notifyObservers(null, "getUserMedia:revoke", aMessage.data);
+        Services.obs.notifyObservers(
+          null,
+          "getUserMedia:revoke",
+          aMessage.data
+        );
+        break;
+      case "webrtc:MuteCamera":
+        Services.obs.notifyObservers(
+          null,
+          "getUserMedia:muteVideo",
+          aMessage.data
+        );
+        break;
+      case "webrtc:UnmuteCamera":
+        Services.obs.notifyObservers(
+          null,
+          "getUserMedia:unmuteVideo",
+          aMessage.data
+        );
+        break;
+      case "webrtc:MuteMicrophone":
+        Services.obs.notifyObservers(
+          null,
+          "getUserMedia:muteAudio",
+          aMessage.data
+        );
+        break;
+      case "webrtc:UnmuteMicrophone":
+        Services.obs.notifyObservers(
+          null,
+          "getUserMedia:unmuteAudio",
+          aMessage.data
+        );
         break;
     }
   }
 }
 
+function getActorForWindow(window) {
+  let windowGlobal = window.windowGlobalChild;
+  try {
+    if (windowGlobal) {
+      return windowGlobal.getActor("WebRTC");
+    }
+  } catch (ex) {
+    // There might not be an actor for a parent process chrome URL.
+  }
+
+  return null;
+}
+
 function handlePCRequest(aSubject, aTopic, aData) {
   let { windowID, innerWindowID, callID, isSecure } = aSubject;
   let contentWindow = Services.wm.getOuterWindowWithId(windowID);
-
-  let mm = getMessageManagerForWindow(contentWindow);
-  if (!mm) {
-    // Workaround for Bug 1207784. To use WebRTC, add-ons right now use
-    // hiddenWindow.mozRTCPeerConnection which is only privileged on OSX. Other
-    // platforms end up here without a message manager.
-    // TODO: Remove once there's a better way (1215591).
-
-    // Skip permission check in the absence of a message manager.
-    Services.obs.notifyObservers(null, "PeerConnection:response:allow", callID);
-    return;
-  }
-
   if (!contentWindow.pendingPeerConnectionRequests) {
     setupPendingListsInitially(contentWindow);
   }
@@ -115,7 +234,11 @@ function handlePCRequest(aSubject, aTopic, aData) {
     documentURI: contentWindow.document.documentURI,
     secure: isSecure,
   };
-  mm.sendAsyncMessage("rtcpeer:Request", request);
+
+  let actor = getActorForWindow(contentWindow);
+  if (actor) {
+    actor.sendAsyncMessage("rtcpeer:Request", request);
+  }
 }
 
 function handleGUMStop(aSubject, aTopic, aData) {
@@ -127,12 +250,20 @@ function handleGUMStop(aSubject, aTopic, aData) {
     mediaSource: aSubject.mediaSource,
   };
 
-  let mm = getMessageManagerForWindow(contentWindow);
-  if (mm)
-    mm.sendAsyncMessage("webrtc:StopRecording", request);
+  let actor = getActorForWindow(contentWindow);
+  if (actor) {
+    actor.sendAsyncMessage("webrtc:StopRecording", request);
+  }
 }
 
 function handleGUMRequest(aSubject, aTopic, aData) {
+  // Now that a getUserMedia request has been created, we should check
+  // to see if we're supposed to have any devices muted. This needs
+  // to occur after the getUserMedia request is made, since the global
+  // mute state is associated with the GetUserMediaWindowListener, which
+  // is only created after a getUserMedia request.
+  GlobalMuteListener.init();
+
   let constraints = aSubject.getConstraints();
   let secure = aSubject.isSecure;
   let isHandlingUserInput = aSubject.isHandlingUserInput;
@@ -143,22 +274,39 @@ function handleGUMRequest(aSubject, aTopic, aData) {
     function(devices) {
       // If the window has been closed while we were waiting for the list of
       // devices, there's nothing to do in the callback anymore.
-      if (contentWindow.closed)
+      if (contentWindow.closed) {
         return;
+      }
 
-      prompt(contentWindow, aSubject.windowID, aSubject.callID,
-             constraints, devices, secure, isHandlingUserInput);
+      prompt(
+        contentWindow,
+        aSubject.windowID,
+        aSubject.callID,
+        constraints,
+        devices,
+        secure,
+        isHandlingUserInput
+      );
     },
     function(error) {
       // Device enumeration is done ahead of handleGUMRequest, so we're not
       // responsible for handling the NotFoundError spec case.
-      denyGUMRequest({callID: aSubject.callID});
+      denyGUMRequest({ callID: aSubject.callID });
     },
     aSubject.innerWindowID,
-    aSubject.callID);
+    aSubject.callID
+  );
 }
 
-function prompt(aContentWindow, aWindowID, aCallID, aConstraints, aDevices, aSecure, aIsHandlingUserInput) {
+function prompt(
+  aContentWindow,
+  aWindowID,
+  aCallID,
+  aConstraints,
+  aDevices,
+  aSecure,
+  aIsHandlingUserInput
+) {
   let audioDevices = [];
   let videoDevices = [];
   let devices = [];
@@ -166,10 +314,10 @@ function prompt(aContentWindow, aWindowID, aCallID, aConstraints, aDevices, aSec
   // MediaStreamConstraints defines video as 'boolean or MediaTrackConstraints'.
   let video = aConstraints.video || aConstraints.picture;
   let audio = aConstraints.audio;
-  let sharingScreen = video && typeof(video) != "boolean" &&
-                      video.mediaSource != "camera";
-  let sharingAudio = audio && typeof(audio) != "boolean" &&
-                     audio.mediaSource != "microphone";
+  let sharingScreen =
+    video && typeof video != "boolean" && video.mediaSource != "camera";
+  let sharingAudio =
+    audio && typeof audio != "boolean" && audio.mediaSource != "microphone";
   for (let device of aDevices) {
     device = device.QueryInterface(Ci.nsIMediaDevice);
     switch (device.type) {
@@ -178,8 +326,12 @@ function prompt(aContentWindow, aWindowID, aCallID, aConstraints, aDevices, aSec
         // capture, and if we have requested an audio capture, we are not
         // getting a microphone instead.
         if (audio && (device.mediaSource == "microphone") != sharingAudio) {
-          audioDevices.push({name: device.name, deviceIndex: devices.length,
-                             id: device.rawId, mediaSource: device.mediaSource});
+          audioDevices.push({
+            name: device.rawName, // unfiltered device name to show to the user
+            deviceIndex: devices.length,
+            id: device.rawId,
+            mediaSource: device.mediaSource,
+          });
           devices.push(device);
         }
         break;
@@ -187,10 +339,15 @@ function prompt(aContentWindow, aWindowID, aCallID, aConstraints, aDevices, aSec
         // Verify that if we got a camera, we haven't requested a screen share,
         // or that if we requested a screen share we aren't getting a camera.
         if (video && (device.mediaSource == "camera") != sharingScreen) {
-          let deviceObject = {name: device.name, deviceIndex: devices.length,
-                              id: device.rawId, mediaSource: device.mediaSource};
-          if (device.scary)
+          let deviceObject = {
+            name: device.rawName, // unfiltered device name to show to the user
+            deviceIndex: devices.length,
+            id: device.rawId,
+            mediaSource: device.mediaSource,
+          };
+          if (device.scary) {
             deviceObject.scary = true;
+          }
           videoDevices.push(deviceObject);
           devices.push(device);
         }
@@ -199,15 +356,17 @@ function prompt(aContentWindow, aWindowID, aCallID, aConstraints, aDevices, aSec
   }
 
   let requestTypes = [];
-  if (videoDevices.length)
+  if (videoDevices.length) {
     requestTypes.push(sharingScreen ? "Screen" : "Camera");
-  if (audioDevices.length)
+  }
+  if (audioDevices.length) {
     requestTypes.push(sharingAudio ? "AudioCapture" : "Microphone");
+  }
 
   if (!requestTypes.length) {
     // Device enumeration is done ahead of handleGUMRequest, so we're not
     // responsible for handling the NotFoundError spec case.
-    denyGUMRequest({callID: aCallID});
+    denyGUMRequest({ callID: aCallID });
     return;
   }
 
@@ -216,18 +375,44 @@ function prompt(aContentWindow, aWindowID, aCallID, aConstraints, aDevices, aSec
   }
   aContentWindow.pendingGetUserMediaRequests.set(aCallID, devices);
 
-  // Record third party origins for telemetry.
-  let isThirdPartyOrigin =
-    aContentWindow.document.location.origin != aContentWindow.top.document.location.origin;
+  // WebRTC prompts have a bunch of special requirements, such as being able to
+  // grant two permissions (microphone and camera), selecting devices and showing
+  // a screen sharing preview. All this could have probably been baked into
+  // nsIContentPermissionRequest prompts, but the team that implemented this back
+  // then chose to just build their own prompting mechanism instead.
+  //
+  // So, what you are looking at here is not a real nsIContentPermissionRequest, but
+  // something that looks really similar and will be transmitted to webrtcUI.jsm
+  // for showing the prompt.
+  // Note that we basically do the permission delegate check in
+  // nsIContentPermissionRequest, but because webrtc uses their own prompting
+  // system, we should manually apply the delegate policy here. Permission
+  // should be delegated using Feature Policy and top principal
+  const permDelegateHandler = aContentWindow.document.permDelegateHandler.QueryInterface(
+    Ci.nsIPermissionDelegateHandler
+  );
+
+  const shouldDelegatePermission =
+    permDelegateHandler.permissionDelegateFPEnabled;
+
+  let secondOrigin = undefined;
+  if (
+    shouldDelegatePermission &&
+    permDelegateHandler.maybeUnsafePermissionDelegate(requestTypes)
+  ) {
+    // We are going to prompt both first party and third party origin.
+    // SecondOrigin should be third party
+    secondOrigin = aContentWindow.document.nodePrincipal.origin;
+  }
 
   let request = {
     callID: aCallID,
     windowID: aWindowID,
-    origin: aContentWindow.origin,
+    secondOrigin,
     documentURI: aContentWindow.document.documentURI,
     secure: aSecure,
     isHandlingUserInput: aIsHandlingUserInput,
-    isThirdPartyOrigin,
+    shouldDelegatePermission,
     requestTypes,
     sharingScreen,
     sharingAudio,
@@ -235,8 +420,10 @@ function prompt(aContentWindow, aWindowID, aCallID, aConstraints, aDevices, aSec
     videoDevices,
   };
 
-  let mm = getMessageManagerForWindow(aContentWindow);
-  mm.sendAsyncMessage("webrtc:Request", request);
+  let actor = getActorForWindow(aContentWindow);
+  if (actor) {
+    actor.sendAsyncMessage("webrtc:Request", request);
+  }
 }
 
 function denyGUMRequest(aData) {
@@ -248,11 +435,13 @@ function denyGUMRequest(aData) {
   }
   Services.obs.notifyObservers(null, subject, aData.callID);
 
-  if (!aData.windowID)
+  if (!aData.windowID) {
     return;
+  }
   let contentWindow = Services.wm.getOuterWindowWithId(aData.windowID);
-  if (contentWindow.pendingGetUserMediaRequests)
+  if (contentWindow.pendingGetUserMediaRequests) {
     forgetGUMRequest(contentWindow, aData.callID);
+  }
 }
 
 function forgetGUMRequest(aContentWindow, aCallID) {
@@ -275,8 +464,10 @@ function setupPendingListsInitially(aContentWindow) {
 }
 
 function forgetPendingListsEventually(aContentWindow) {
-  if (aContentWindow.pendingGetUserMediaRequests.size ||
-      aContentWindow.pendingPeerConnectionRequests.size) {
+  if (
+    aContentWindow.pendingGetUserMediaRequests.size ||
+    aContentWindow.pendingPeerConnectionRequests.size
+  ) {
     return;
   }
   aContentWindow.pendingGetUserMediaRequests = null;
@@ -285,152 +476,106 @@ function forgetPendingListsEventually(aContentWindow) {
 }
 
 function updateIndicators(aSubject, aTopic, aData) {
-  if (aSubject instanceof Ci.nsIPropertyBag &&
-      aSubject.getProperty("requestURL") == kBrowserURL) {
+  if (
+    aSubject instanceof Ci.nsIPropertyBag &&
+    aSubject.getProperty("requestURL") == kBrowserURL
+  ) {
     // Ignore notifications caused by the browser UI showing previews.
     return;
   }
 
-  let contentWindowArray = MediaManagerService.activeMediaCaptureWindows;
-  let count = contentWindowArray.length;
+  let contentWindow = aSubject.getProperty("window");
 
-  let state = {
-    showGlobalIndicator: count > 0,
-    showCameraIndicator: false,
-    showMicrophoneIndicator: false,
-    showScreenSharingIndicator: "",
-  };
+  let actor = contentWindow ? getActorForWindow(contentWindow) : null;
+  if (actor) {
+    let tabState = getTabStateForContentWindow(contentWindow, false);
+    tabState.windowId = getInnerWindowIDForWindow(contentWindow);
 
-  Services.cpmm.sendAsyncMessage("webrtc:UpdatingIndicators");
-
-  // If several iframes in the same page use media streams, it's possible to
-  // have the same top level window several times. We use a Set to avoid
-  // sending duplicate notifications.
-  let contentWindows = new Set();
-  for (let i = 0; i < count; ++i) {
-    contentWindows.add(contentWindowArray.queryElementAt(i, Ci.nsISupports).top);
-  }
-
-  for (let contentWindow of contentWindows) {
-    if (contentWindow.document.documentURI == kBrowserURL) {
-      // There may be a preview shown at the same time as other streams.
-      continue;
-    }
-
-    let tabState = getTabStateForContentWindow(contentWindow);
-    if (tabState.camera == MediaManagerService.STATE_CAPTURE_ENABLED ||
-        tabState.camera == MediaManagerService.STATE_CAPTURE_DISABLED) {
-      state.showCameraIndicator = true;
-    }
-    if (tabState.microphone == MediaManagerService.STATE_CAPTURE_ENABLED ||
-        tabState.microphone == MediaManagerService.STATE_CAPTURE_DISABLED) {
-      state.showMicrophoneIndicator = true;
-    }
-    if (tabState.screen) {
-      if (tabState.screen.startsWith("Screen")) {
-        state.showScreenSharingIndicator = "Screen";
-      } else if (tabState.screen.startsWith("Window")) {
-        if (state.showScreenSharingIndicator != "Screen")
-          state.showScreenSharingIndicator = "Window";
-      } else if (tabState.screen.startsWith("Application")) {
-        if (!state.showScreenSharingIndicator)
-          state.showScreenSharingIndicator = "Application";
-      } else if (tabState.screen.startsWith("Browser")) {
-        if (!state.showScreenSharingIndicator)
-          state.showScreenSharingIndicator = "Browser";
+    // If we were silencing DOM notifications before, but we've updated
+    // state such that we're no longer sharing one of our displays, then
+    // reset the silencing state.
+    if (actor.suppressNotifications) {
+      if (!tabState.screen && !tabState.window && !tabState.browser) {
+        actor.suppressNotifications = false;
       }
     }
 
-    let mm = getMessageManagerForWindow(contentWindow);
-    mm.sendAsyncMessage("webrtc:UpdateBrowserIndicators", tabState);
-  }
+    tabState.suppressNotifications = actor.suppressNotifications;
 
-  Services.cpmm.sendAsyncMessage("webrtc:UpdateGlobalIndicators", state);
+    actor.sendAsyncMessage("webrtc:UpdateIndicators", tabState);
+  }
 }
 
 function removeBrowserSpecificIndicator(aSubject, aTopic, aData) {
-  let contentWindow = Services.wm.getOuterWindowWithId(aData).top;
+  let contentWindow = Services.wm.getOuterWindowWithId(aData);
   if (contentWindow.document.documentURI == kBrowserURL) {
     // Ignore notifications caused by the browser UI showing previews.
     return;
   }
 
-  let tabState = getTabStateForContentWindow(contentWindow);
-  if (tabState.camera == MediaManagerService.STATE_NOCAPTURE &&
-      tabState.microphone == MediaManagerService.STATE_NOCAPTURE &&
-      !tabState.screen)
-    tabState = {windowId: tabState.windowId};
+  let tabState = getTabStateForContentWindow(contentWindow, true);
 
-  let mm = getMessageManagerForWindow(contentWindow);
-  if (mm)
-    mm.sendAsyncMessage("webrtc:UpdateBrowserIndicators", tabState);
+  tabState.windowId = aData;
+
+  let actor = getActorForWindow(contentWindow);
+  if (actor) {
+    actor.sendAsyncMessage("webrtc:UpdateIndicators", tabState);
+  }
 }
 
-function getTabStateForContentWindow(aContentWindow) {
-  let camera = {}, microphone = {}, screen = {}, window = {}, app = {}, browser = {};
-  MediaManagerService.mediaCaptureWindowState(aContentWindow,
-                                              camera, microphone,
-                                              screen, window, app, browser);
-  let tabState = {camera: camera.value, microphone: microphone.value};
-  if (screen.value == MediaManagerService.STATE_CAPTURE_ENABLED)
-    tabState.screen = "Screen";
-  else if (window.value == MediaManagerService.STATE_CAPTURE_ENABLED)
-    tabState.screen = "Window";
-  else if (app.value == MediaManagerService.STATE_CAPTURE_ENABLED)
-    tabState.screen = "Application";
-  else if (browser.value == MediaManagerService.STATE_CAPTURE_ENABLED)
-    tabState.screen = "Browser";
-  else if (screen.value == MediaManagerService.STATE_CAPTURE_DISABLED)
-    tabState.screen = "ScreenPaused";
-  else if (window.value == MediaManagerService.STATE_CAPTURE_DISABLED)
-    tabState.screen = "WindowPaused";
-  else if (app.value == MediaManagerService.STATE_CAPTURE_DISABLED)
-    tabState.screen = "ApplicationPaused";
-  else if (browser.value == MediaManagerService.STATE_CAPTURE_DISABLED)
-    tabState.screen = "BrowserPaused";
+function getTabStateForContentWindow(aContentWindow, aForRemove = false) {
+  let camera = {},
+    microphone = {},
+    screen = {},
+    window = {},
+    browser = {},
+    devices = {};
+  MediaManagerService.mediaCaptureWindowState(
+    aContentWindow,
+    camera,
+    microphone,
+    screen,
+    window,
+    browser,
+    devices
+  );
 
-  let screenEnabled = tabState.screen && !tabState.screen.includes("Paused");
-  let cameraEnabled = tabState.camera == MediaManagerService.STATE_CAPTURE_ENABLED;
-  let microphoneEnabled = tabState.microphone == MediaManagerService.STATE_CAPTURE_ENABLED;
-
-  // tabState.sharing controls which global indicator should be shown
-  // for the tab. It should always be set to the _enabled_ device which
-  // we consider most intrusive (screen > camera > microphone).
-  if (screenEnabled) {
-    tabState.sharing = "screen";
-  } else if (cameraEnabled) {
-    tabState.sharing = "camera";
-  } else if (microphoneEnabled) {
-    tabState.sharing = "microphone";
-  } else if (tabState.screen) {
-    tabState.sharing = "screen";
-  } else if (tabState.camera) {
-    tabState.sharing = "camera";
-  } else if (tabState.microphone) {
-    tabState.sharing = "microphone";
+  if (
+    camera.value == MediaManagerService.STATE_NOCAPTURE &&
+    microphone.value == MediaManagerService.STATE_NOCAPTURE &&
+    screen.value == MediaManagerService.STATE_NOCAPTURE &&
+    window.value == MediaManagerService.STATE_NOCAPTURE &&
+    browser.value == MediaManagerService.STATE_NOCAPTURE
+  ) {
+    return { remove: true };
   }
 
-  // The stream is considered paused when we're sharing something
-  // but all devices are off or set to disabled.
-  tabState.paused = tabState.sharing &&
-    !screenEnabled && !cameraEnabled && !microphoneEnabled;
+  if (aForRemove) {
+    return { remove: true };
+  }
 
-  tabState.windowId = getInnerWindowIDForWindow(aContentWindow);
-  tabState.documentURI = aContentWindow.document.documentURI;
+  let serializedDevices = [];
+  if (Array.isArray(devices.value)) {
+    serializedDevices = devices.value.map(device => {
+      return {
+        type: device.type,
+        mediaSource: device.mediaSource,
+        rawId: device.rawId,
+        scary: device.scary,
+      };
+    });
+  }
 
-  return tabState;
+  return {
+    camera: camera.value,
+    microphone: microphone.value,
+    screen: screen.value,
+    window: window.value,
+    browser: browser.value,
+    devices: serializedDevices,
+  };
 }
 
 function getInnerWindowIDForWindow(aContentWindow) {
-  return aContentWindow.windowUtils.currentInnerWindowID;
-}
-
-function getMessageManagerForWindow(aContentWindow) {
-  let docShell = aContentWindow.docShell;
-  if (!docShell) {
-    // Closed tab.
-    return null;
-  }
-
-  return docShell.messageManager;
+  return aContentWindow.windowGlobalChild.innerWindowId;
 }

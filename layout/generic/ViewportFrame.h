@@ -31,10 +31,10 @@ class ViewportFrame : public nsContainerFrame {
   NS_DECL_QUERYFRAME
   NS_DECL_FRAMEARENA_HELPERS(ViewportFrame)
 
-  explicit ViewportFrame(ComputedStyle* aStyle)
-      : ViewportFrame(aStyle, kClassID) {}
+  explicit ViewportFrame(ComputedStyle* aStyle, nsPresContext* aPresContext)
+      : ViewportFrame(aStyle, aPresContext, kClassID) {}
 
-  virtual ~ViewportFrame() {}  // useful for debugging
+  virtual ~ViewportFrame() = default;  // useful for debugging
 
   virtual void Init(nsIContent* aContent, nsContainerFrame* aParent,
                     nsIFrame* aPrevInFlow) override;
@@ -43,6 +43,7 @@ class ViewportFrame : public nsContainerFrame {
   virtual void AppendFrames(ChildListID aListID,
                             nsFrameList& aFrameList) override;
   virtual void InsertFrames(ChildListID aListID, nsIFrame* aPrevFrame,
+                            const nsLineList::iterator* aPrevFrameLine,
                             nsFrameList& aFrameList) override;
   virtual void RemoveFrame(ChildListID aListID, nsIFrame* aOldFrame) override;
 #endif
@@ -51,7 +52,8 @@ class ViewportFrame : public nsContainerFrame {
                                 const nsDisplayListSet& aLists) override;
 
   void BuildDisplayListForTopLayer(nsDisplayListBuilder* aBuilder,
-                                   nsDisplayList* aList);
+                                   nsDisplayList* aList,
+                                   bool* aIsOpaque = nullptr);
 
   virtual nscoord GetMinISize(gfxContext* aRenderingContext) override;
   virtual nscoord GetPrefISize(gfxContext* aRenderingContext) override;
@@ -80,13 +82,17 @@ class ViewportFrame : public nsContainerFrame {
    */
   void AppendDirectlyOwnedAnonBoxes(nsTArray<OwnedAnonBox>& aResult) override;
 
+  // Returns adjusted viewport size to reflect the positions that position:fixed
+  // elements are attached.
+  nsSize AdjustViewportSizeForFixedPosition(const nsRect& aViewportRect) const;
+
 #ifdef DEBUG_FRAME_DUMP
   virtual nsresult GetFrameName(nsAString& aResult) const override;
 #endif
 
  protected:
-  ViewportFrame(ComputedStyle* aStyle, ClassID aID)
-      : nsContainerFrame(aStyle, aID), mView(nullptr) {}
+  ViewportFrame(ComputedStyle* aStyle, nsPresContext* aPresContext, ClassID aID)
+      : nsContainerFrame(aStyle, aPresContext, aID), mView(nullptr) {}
 
   /**
    * Calculate how much room is available for fixed frames. That means

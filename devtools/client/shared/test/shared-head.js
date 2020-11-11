@@ -1,8 +1,8 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 2 -*- */
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 /* eslint no-unused-vars: [2, {"vars": "local"}] */
+
+/* import-globals-from ../../inspector/test/shared-head.js */
 
 "use strict";
 
@@ -12,41 +12,98 @@
 
 const { Constructor: CC } = Components;
 
-function scopedCuImport(path) {
-  const scope = {};
-  ChromeUtils.import(path, scope);
-  return scope;
+// Print allocation count if DEBUG_DEVTOOLS_ALLOCATIONS is set to "normal",
+// and allocation sites if DEBUG_DEVTOOLS_ALLOCATIONS is set to "verbose".
+const env = Cc["@mozilla.org/process/environment;1"].getService(
+  Ci.nsIEnvironment
+);
+const DEBUG_ALLOCATIONS = env.get("DEBUG_DEVTOOLS_ALLOCATIONS");
+if (DEBUG_ALLOCATIONS) {
+  // Use a custom loader with `invisibleToDebugger` flag for the allocation tracker
+  // as it instantiates custom Debugger API instances and has to be running in a distinct
+  // compartments from DevTools and system scopes (JSMs, XPCOM,...)
+  const { DevToolsLoader } = ChromeUtils.import(
+    "resource://devtools/shared/Loader.jsm"
+  );
+  const loader = new DevToolsLoader({
+    invisibleToDebugger: true,
+  });
+
+  const { allocationTracker } = loader.require(
+    "devtools/shared/test-helpers/allocation-tracker"
+  );
+  const tracker = allocationTracker({ watchAllGlobals: true });
+  registerCleanupFunction(() => {
+    if (DEBUG_ALLOCATIONS == "normal") {
+      tracker.logCount();
+    } else if (DEBUG_ALLOCATIONS == "verbose") {
+      tracker.logAllocationSites();
+    }
+    tracker.stop();
+  });
 }
 
-const {ScratchpadManager} = scopedCuImport("resource://devtools/client/scratchpad/scratchpad-manager.jsm");
-const {loader, require} = scopedCuImport("resource://devtools/shared/Loader.jsm");
+const { loader, require } = ChromeUtils.import(
+  "resource://devtools/shared/Loader.jsm"
+);
 
-const {gDevTools} = require("devtools/client/framework/devtools");
-const {TargetFactory} = require("devtools/client/framework/target");
+const { gDevTools } = require("devtools/client/framework/devtools");
+const { TargetFactory } = require("devtools/client/framework/target");
 const DevToolsUtils = require("devtools/shared/DevToolsUtils");
 
 // This is overridden in files that load shared-head via loadSubScript.
 // eslint-disable-next-line prefer-const
 let promise = require("promise");
 const defer = require("devtools/shared/defer");
-const Services = require("Services");
 const KeyShortcuts = require("devtools/client/shared/key-shortcuts");
 
 const TEST_DIR = gTestPath.substr(0, gTestPath.lastIndexOf("/"));
 const CHROME_URL_ROOT = TEST_DIR + "/";
-const URL_ROOT = CHROME_URL_ROOT.replace("chrome://mochitests/content/",
-                                         "http://example.com/");
-const URL_ROOT_SSL = CHROME_URL_ROOT.replace("chrome://mochitests/content/",
-                                             "https://example.com/");
+const URL_ROOT = CHROME_URL_ROOT.replace(
+  "chrome://mochitests/content/",
+  "http://example.com/"
+);
+const URL_ROOT_SSL = CHROME_URL_ROOT.replace(
+  "chrome://mochitests/content/",
+  "https://example.com/"
+);
+
+// Add aliases which make it more explicit that URL_ROOT uses a com TLD.
+const URL_ROOT_COM = URL_ROOT;
+const URL_ROOT_COM_SSL = URL_ROOT_SSL;
+
+// Also expose http://example.org, http://example.net, https://example.org to
+// test Fission scenarios easily.
+// Note: example.net is not available for https.
+const URL_ROOT_ORG = CHROME_URL_ROOT.replace(
+  "chrome://mochitests/content/",
+  "http://example.org/"
+);
+const URL_ROOT_ORG_SSL = CHROME_URL_ROOT.replace(
+  "chrome://mochitests/content/",
+  "https://example.org/"
+);
+const URL_ROOT_NET = CHROME_URL_ROOT.replace(
+  "chrome://mochitests/content/",
+  "http://example.org/"
+);
+// mochi.test:8888 is the actual primary location where files are served.
+const URL_ROOT_MOCHI_8888 = CHROME_URL_ROOT.replace(
+  "chrome://mochitests/content/",
+  "http://mochi.test:8888/"
+);
 
 try {
   Services.scriptloader.loadSubScript(
-    "chrome://mochitests/content/browser/devtools/client/shared/test/telemetry-test-helpers.js", this);
+    "chrome://mochitests/content/browser/devtools/client/shared/test/telemetry-test-helpers.js",
+    this
+  );
 } catch (e) {
-  ok(false,
+  ok(
+    false,
     "MISSING DEPENDENCY ON telemetry-test-helpers.js\n" +
-    "Please add the following line in browser.ini:\n" +
-    "  !/devtools/client/shared/test/telemetry-test-helpers.js\n"
+      "Please add the following line in browser.ini:\n" +
+      "  !/devtools/client/shared/test/telemetry-test-helpers.js\n"
   );
   throw e;
 }
@@ -54,18 +111,128 @@ try {
 // Force devtools to be initialized so menu items and keyboard shortcuts get installed
 require("devtools/client/framework/devtools-browser");
 
+/**
+ * Observer code to register the test actor in every DevTools server which
+ * starts registering its own actors.
+ *
+ * We require immediately the test actor file, because it will force to load and
+ * register the front and the spec for TestActor. Normally specs and fronts are
+ * in separate files registered in specs/index.js. But here to simplify the
+ * setup everything is in the same file and we force to load it here.
+ *
+ * DevToolsServer will emit "devtools-server-initialized" after finishing its
+ * initialization. We watch this observable to add our custom actor.
+ *
+ * As a single test may create several DevTools servers, we keep the observer
+ * alive until the test ends.
+ *
+ * To avoid leaks, the observer needs to be removed at the end of each test.
+ * The test cleanup will send the async message "remove-devtools-testactor-observer",
+ * we listen to this message to cleanup the observer.
+ */
+function testActorBootstrap() {
+  const TEST_ACTOR_URL =
+    "chrome://mochitests/content/browser/devtools/client/shared/test/test-actor.js";
+
+  const { require: _require } = ChromeUtils.import(
+    "resource://devtools/shared/Loader.jsm"
+  );
+  _require(TEST_ACTOR_URL);
+
+  const Services = _require("Services");
+
+  const actorRegistryObserver = subject => {
+    const actorRegistry = subject.wrappedJSObject;
+    actorRegistry.registerModule(TEST_ACTOR_URL, {
+      prefix: "test",
+      constructor: "TestActor",
+      type: { target: true },
+    });
+  };
+  Services.obs.addObserver(
+    actorRegistryObserver,
+    "devtools-server-initialized"
+  );
+
+  const unloadListener = () => {
+    Services.cpmm.removeMessageListener(
+      "remove-devtools-testactor-observer",
+      unloadListener
+    );
+    Services.obs.removeObserver(
+      actorRegistryObserver,
+      "devtools-server-initialized"
+    );
+  };
+  Services.cpmm.addMessageListener(
+    "remove-devtools-testactor-observer",
+    unloadListener
+  );
+}
+
+const testActorBootstrapScript = "data:,(" + testActorBootstrap + ")()";
+Services.ppmm.loadProcessScript(
+  testActorBootstrapScript,
+  // Load this script in all processes (created or to be created)
+  true
+);
+
+registerCleanupFunction(() => {
+  Services.ppmm.broadcastAsyncMessage("remove-devtools-testactor-observer");
+  Services.ppmm.removeDelayedProcessScript(testActorBootstrapScript);
+});
+
+// Spawn an instance of the test actor for the given toolbox
+async function getTestActor(toolbox) {
+  // Loading the Inspector panel in order to overwrite the TestActor getter for the
+  // highlighter instance with a method that points to the currently visible
+  // Box Model Highlighter managed by the Inspector panel.
+  const inspector = await toolbox.loadTool("inspector");
+  const testActor = await toolbox.target.getFront("test");
+  // Override the highligher getter with a method to return the active box model
+  // highlighter. Adaptation for multi-process scenarios where there can be multiple
+  // highlighters, one per process.
+  testActor.highlighter = () => {
+    return inspector.highlighters.getActiveHighlighter("BoxModelHighlighter");
+  };
+  return testActor;
+}
+
+// Sometimes, we need the test actor before opening or without a toolbox then just
+// create a front for the given `tab`
+async function getTestActorWithoutToolbox(tab) {
+  const { DevToolsServer } = require("devtools/server/devtools-server");
+  const { DevToolsClient } = require("devtools/client/devtools-client");
+
+  // We need to spawn a client instance,
+  // but for that we have to first ensure a server is running
+  DevToolsServer.init();
+  DevToolsServer.registerAllActors();
+  const client = new DevToolsClient(DevToolsServer.connectPipe());
+  await client.connect();
+
+  const descriptor = await client.mainRoot.getTab({ tab });
+  const targetFront = await descriptor.getTarget();
+  return targetFront.getFront("test");
+}
+
 // All test are asynchronous
 waitForExplicitFinish();
 
 var EXPECTED_DTU_ASSERT_FAILURE_COUNT = 0;
 
 registerCleanupFunction(function() {
-  if (DevToolsUtils.assertionFailureCount !==
-      EXPECTED_DTU_ASSERT_FAILURE_COUNT) {
-    ok(false,
-      "Should have had the expected number of DevToolsUtils.assert() failures."
-      + " Expected " + EXPECTED_DTU_ASSERT_FAILURE_COUNT
-      + ", got " + DevToolsUtils.assertionFailureCount);
+  if (
+    DevToolsUtils.assertionFailureCount !== EXPECTED_DTU_ASSERT_FAILURE_COUNT
+  ) {
+    ok(
+      false,
+      "Should have had the expected number of DevToolsUtils.assert() failures." +
+        " Expected " +
+        EXPECTED_DTU_ASSERT_FAILURE_COUNT +
+        ", got " +
+        DevToolsUtils.assertionFailureCount
+    );
   }
 });
 
@@ -76,7 +243,7 @@ registerCleanupFunction(function() {
  * Watch console messages for failed propType definitions in React components.
  */
 const ConsoleObserver = {
-  QueryInterface: ChromeUtils.generateQI([Ci.nsIObserver]),
+  QueryInterface: ChromeUtils.generateQI(["nsIObserver"]),
 
   observe: function(subject) {
     const message = subject.wrappedJSObject.arguments[0];
@@ -92,51 +259,115 @@ registerCleanupFunction(() => {
   Services.obs.removeObserver(ConsoleObserver, "console-api-log-event");
 });
 
-// Print allocation count if DEBUG_DEVTOOLS_ALLOCATIONS is set to "normal",
-// and allocation sites if DEBUG_DEVTOOLS_ALLOCATIONS is set to "verbose".
-const env = Cc["@mozilla.org/process/environment;1"].getService(Ci.nsIEnvironment);
-const DEBUG_ALLOCATIONS = env.get("DEBUG_DEVTOOLS_ALLOCATIONS");
-if (DEBUG_ALLOCATIONS) {
-  const { allocationTracker } = require("devtools/shared/test-helpers/allocation-tracker");
-  const tracker = allocationTracker();
-  registerCleanupFunction(() => {
-    if (DEBUG_ALLOCATIONS == "normal") {
-      tracker.logCount();
-    } else if (DEBUG_ALLOCATIONS == "verbose") {
-      tracker.logAllocationSites();
-    }
-    tracker.stop();
-  });
-}
-
-var waitForTime = DevToolsUtils.waitForTime;
-
-function loadFrameScriptUtils(browser = gBrowser.selectedBrowser) {
-  let mm = browser.messageManager;
-  const frameURL = "chrome://mochitests/content/browser/devtools/client/shared/test/frame-script-utils.js";
-  info("Loading the helper frame script " + frameURL);
-  mm.loadFrameScript(frameURL, false);
-  SimpleTest.registerCleanupFunction(() => {
-    mm = null;
-  });
-  return mm;
-}
-
 Services.prefs.setBoolPref("devtools.inspector.three-pane-enabled", true);
+
+// Disable this preference to reduce exceptions related to pending `listWorkers`
+// requests occuring after a process is created/destroyed. See Bug 1620983.
+Services.prefs.setBoolPref("dom.ipc.processPrelaunch.enabled", false);
+
+// Disable this preference to capture async stacks across all locations during
+// DevTools mochitests. Async stacks provide very valuable information to debug
+// intermittents, but come with a performance overhead, which is why they are
+// only captured in Debuggees by default.
+Services.prefs.setBoolPref(
+  "javascript.options.asyncstack_capture_debuggee_only",
+  false
+);
+
 registerCleanupFunction(() => {
   Services.prefs.clearUserPref("devtools.dump.emit");
   Services.prefs.clearUserPref("devtools.inspector.three-pane-enabled");
+  Services.prefs.clearUserPref("dom.ipc.processPrelaunch.enabled");
   Services.prefs.clearUserPref("devtools.toolbox.host");
   Services.prefs.clearUserPref("devtools.toolbox.previousHost");
   Services.prefs.clearUserPref("devtools.toolbox.splitconsoleEnabled");
   Services.prefs.clearUserPref("devtools.toolbox.splitconsoleHeight");
+  Services.prefs.clearUserPref(
+    "javascript.options.asyncstack_capture_debuggee_only"
+  );
 });
 
+var {
+  BrowserConsoleManager,
+} = require("devtools/client/webconsole/browser-console-manager");
+
 registerCleanupFunction(async function cleanup() {
+  // Closing the browser console if there's one
+  const browserConsole = BrowserConsoleManager.getBrowserConsole();
+  if (browserConsole) {
+    browserConsole.targetList.destroy();
+    await safeCloseBrowserConsole({ clearOutput: true });
+  }
+
+  // Close any tab opened by the test.
+  // There should be only one tab opened by default when firefox starts the test.
   while (gBrowser.tabs.length > 1) {
     await closeTabAndToolbox(gBrowser.selectedTab);
   }
+
+  // Note that this will run before cleanup functions registered by tests or other head.js files.
+  // So all connections must be cleaned up by the test when the test ends,
+  // before the harness starts invoking the cleanup functions
+  await waitForTick();
+
+  // All connections must be cleaned up by the test when the test ends.
+  const { DevToolsServer } = require("devtools/server/devtools-server");
+  ok(
+    !DevToolsServer.hasConnection(),
+    "The main process DevToolsServer has no pending connection when the test ends"
+  );
+  // If there is still open connection, close all of them so that following tests
+  // could pass.
+  if (DevToolsServer.hasConnection()) {
+    for (const conn of Object.values(DevToolsServer._connections)) {
+      conn.close();
+    }
+  }
 });
+
+async function safeCloseBrowserConsole({ clearOutput = false } = {}) {
+  const hud = BrowserConsoleManager.getBrowserConsole();
+  if (!hud) {
+    return;
+  }
+
+  if (clearOutput) {
+    info("Clear the browser console output");
+    const { ui } = hud;
+    const promises = [ui.once("messages-cleared")];
+    // If there's an object inspector, we need to wait for the actors to be released.
+    if (ui.outputNode.querySelector(".object-inspector")) {
+      promises.push(ui.once("fronts-released"));
+    }
+    ui.clearOutput(true);
+    await Promise.all(promises);
+    info("Browser console cleared");
+  }
+
+  info("Wait for all Browser Console targets to be attached");
+  // It might happen that waitForAllTargetsToBeAttached does not resolve, so we set a
+  // timeout of 1s before closing
+  await Promise.race([
+    waitForAllTargetsToBeAttached(hud.targetList),
+    wait(1000),
+  ]);
+  info("Close the Browser Console");
+  await BrowserConsoleManager.closeBrowserConsole();
+  info("Browser Console closed");
+}
+
+/**
+ * Returns a Promise that resolves when all the targets are fully attached.
+ *
+ * @param {TargetList} targetList
+ */
+function waitForAllTargetsToBeAttached(targetList) {
+  return Promise.allSettled(
+    targetList
+      .getAllTargets(targetList.ALL_TYPES)
+      .map(target => target._onThreadInitialized)
+  );
+}
 
 /**
  * Add a new test tab in the browser and load the given url.
@@ -209,6 +440,151 @@ var refreshTab = async function(tab = gBrowser.selectedTab) {
 };
 
 /**
+ * Navigate the currently selected tab to a new URL and wait for it to load.
+ * Also wait for the toolbox to attach to the new target, if we navigated
+ * to a new process.
+ *
+ * @param {String} url The url to be loaded in the current tab.
+ * @param {JSON} options Optional dictionary object with the following keys:
+ *        - {Boolean} isErrorPage You may pass `true` is the URL is an error
+ *                    page. Otherwise BrowserTestUtils.browserLoaded will wait
+ *                    for 'load' event, which never fires for error pages.
+ *
+ * @return a promise that resolves when the page has fully loaded.
+ */
+async function navigateTo(uri, { isErrorPage = false } = {}) {
+  const target = await TargetFactory.forTab(gBrowser.selectedTab);
+  const toolbox = gDevTools.getToolbox(target);
+
+  // If we're switching origins, we need to wait for the 'switched-target'
+  // event to make sure everything is ready.
+  // Navigating from/to pages loaded in the parent process, like about:robots,
+  // also spawn new targets.
+  // (If target switching is disabled, the toolbox will reboot)
+  const onTargetSwitched = toolbox.targetList.once("switched-target");
+  // Otherwise, if we don't switch target, it is safe to wait for navigate event.
+  const onNavigate = target.once("navigate");
+
+  // Register panel-specific listeners, which would be useful to wait
+  // for panel-specific events.
+  const onPanelReloaded = waitForPanelReload(
+    toolbox.currentToolId,
+    toolbox.target,
+    toolbox.getCurrentPanel()
+  );
+
+  info(`Load document "${uri}"`);
+  const browser = gBrowser.selectedBrowser;
+  const currentPID = browser.browsingContext.currentWindowGlobal.osPid;
+  const onBrowserLoaded = BrowserTestUtils.browserLoaded(
+    browser,
+    false,
+    null,
+    isErrorPage
+  );
+  await BrowserTestUtils.loadURI(browser, uri);
+
+  info(`Waiting for page to be loaded…`);
+  await onBrowserLoaded;
+  info(`→ page loaded`);
+
+  // Compare the PIDs (and not the toolbox's targets) as PIDs are updated also immediately,
+  // while target may be updated slightly later.
+  const switchedToAnotherProcess =
+    currentPID !== browser.browsingContext.currentWindowGlobal.osPid;
+
+  // If we switched to another process and the target switching pref is false,
+  // the toolbox will close and reopen.
+  // For now, this helper doesn't support this case
+  if (switchedToAnotherProcess && !isTargetSwitchingEnabled()) {
+    ok(
+      false,
+      `navigateTo(${uri}) navigated to another process, but the target switching is disabled`
+    );
+    return;
+  }
+
+  if (onPanelReloaded) {
+    info(`Waiting for ${toolbox.currentToolId} to be reloaded…`);
+    await onPanelReloaded();
+    info(`→ panel reloaded`);
+  }
+
+  // If the tab navigated to another process, expect a target switching
+  if (switchedToAnotherProcess) {
+    info(`Waiting for target switch…`);
+    await onTargetSwitched;
+    info(`→ switched-target emitted`);
+  } else {
+    info(`Waiting for target 'navigate' event…`);
+    await onNavigate;
+    info(`→ 'navigate' emitted`);
+  }
+}
+
+/**
+ * Return a function, specific for each panel, in order
+ * to wait for any update which may happen when reloading a page.
+ */
+function waitForPanelReload(currentToolId, target, panel) {
+  if (currentToolId == "inspector") {
+    const inspector = panel;
+    const markuploaded = inspector.once("markuploaded");
+    const onNewRoot = inspector.once("new-root");
+    const onUpdated = inspector.once("inspector-updated");
+    const onReloaded = inspector.once("reloaded");
+
+    return async function() {
+      info("Waiting for markup view to load after navigation.");
+      await markuploaded;
+
+      info("Waiting for new root.");
+      await onNewRoot;
+
+      info("Waiting for inspector to update after new-root event.");
+      await onUpdated;
+
+      info("Waiting for inspector updates after page reload");
+      await onReloaded;
+    };
+  } else if (currentToolId == "netmonitor") {
+    const monitor = panel;
+    const onReloaded = monitor.once("reloaded");
+    return async function() {
+      info("Waiting for netmonitor updates after page reload");
+      await onReloaded;
+    };
+  }
+  return null;
+}
+
+function isFissionEnabled() {
+  return SpecialPowers.useRemoteSubframes;
+}
+
+function isTargetSwitchingEnabled() {
+  return Services.prefs.getBoolPref("devtools.target-switching.enabled", false);
+}
+
+/**
+ * Open the inspector in a tab with given URL.
+ * @param {string} url  The URL to open.
+ * @param {String} hostType Optional hostType, as defined in Toolbox.HostType
+ * @return A promise that is resolved once the tab and inspector have loaded
+ *         with an object: { tab, toolbox, inspector }.
+ */
+var openInspectorForURL = async function(url, hostType) {
+  const tab = await addTab(url);
+  const { inspector, toolbox, testActor } = await openInspector(hostType);
+  return { tab, inspector, toolbox, testActor };
+};
+
+async function getActiveInspector() {
+  const target = await TargetFactory.forTab(gBrowser.selectedTab);
+  return gDevTools.getToolbox(target).getPanel("inspector");
+}
+
+/**
  * Simulate a key event from a <key> element.
  * @param {DOMNode} key
  */
@@ -265,6 +641,66 @@ function synthesizeKeyShortcut(key, target) {
   EventUtils.synthesizeKey(shortcut.key || "", keyEvent, target);
 }
 
+var waitForTime = DevToolsUtils.waitForTime;
+
+/**
+ * Wait for a tick.
+ * @return {Promise}
+ */
+function waitForTick() {
+  return new Promise(resolve => DevToolsUtils.executeSoon(resolve));
+}
+
+/**
+ * This shouldn't be used in the tests, but is useful when writing new tests or
+ * debugging existing tests in order to introduce delays in the test steps
+ *
+ * @param {Number} ms
+ *        The time to wait
+ * @return A promise that resolves when the time is passed
+ */
+function wait(ms) {
+  return new Promise(resolve => {
+    setTimeout(resolve, ms);
+    info("Waiting " + ms / 1000 + " seconds.");
+  });
+}
+
+/**
+ * Wait for a predicate to return a result.
+ *
+ * @param function condition
+ *        Invoked once in a while until it returns a truthy value. This should be an
+ *        idempotent function, since we have to run it a second time after it returns
+ *        true in order to return the value.
+ * @param string message [optional]
+ *        A message to output if the condition fails.
+ * @param number interval [optional]
+ *        How often the predicate is invoked, in milliseconds.
+ * @return object
+ *         A promise that is resolved with the result of the condition.
+ */
+async function waitFor(condition, message = "", interval = 10, maxTries = 500) {
+  try {
+    const value = await BrowserTestUtils.waitForCondition(
+      condition,
+      message,
+      interval,
+      maxTries
+    );
+    return value;
+  } catch (e) {
+    const errorMessage =
+      "Failed waitFor(): " +
+      message +
+      "\n" +
+      "Failed condition: " +
+      condition +
+      "\n";
+    throw new Error(errorMessage);
+  }
+}
+
 /**
  * Wait for eventName on target to be delivered a number of times.
  *
@@ -290,17 +726,21 @@ function waitForNEvents(target, eventName, numTimes, useCapture = false) {
       ["addListener", "removeListener"],
       ["addMessageListener", "removeMessageListener"],
     ]) {
-      if ((add in target) && (remove in target)) {
-        target[add](eventName, function onEvent(...args) {
-          if (typeof info === "function") {
-            info("Got event: '" + eventName + "' on " + target + ".");
-          }
+      if (add in target && remove in target) {
+        target[add](
+          eventName,
+          function onEvent(...args) {
+            if (typeof info === "function") {
+              info("Got event: '" + eventName + "' on " + target + ".");
+            }
 
-          if (++count == numTimes) {
-            target[remove](eventName, onEvent, useCapture);
-            resolve(...args);
-          }
-        }, useCapture);
+            if (++count == numTimes) {
+              target[remove](eventName, onEvent, useCapture);
+              resolve(...args);
+            }
+          },
+          useCapture
+        );
         break;
       }
     }
@@ -322,9 +762,9 @@ function waitForNEvents(target, eventName, numTimes, useCapture = false) {
  * @return A promise that resolves when the event has been handled
  */
 function waitForDOM(target, selector, expectedLength = 1) {
-  return new Promise((resolve) => {
-    const observer = new MutationObserver((mutations) => {
-      mutations.forEach((mutation) => {
+  return new Promise(resolve => {
+    const observer = new MutationObserver(mutations => {
+      mutations.forEach(mutation => {
         const elements = mutation.target.querySelectorAll(selector);
 
         if (elements.length === expectedLength) {
@@ -370,29 +810,6 @@ function once(target, eventName, useCapture = false) {
 function loadHelperScript(filePath) {
   const testDir = gTestPath.substr(0, gTestPath.lastIndexOf("/"));
   Services.scriptloader.loadSubScript(testDir + "/" + filePath, this);
-}
-
-/**
- * Wait for a tick.
- * @return {Promise}
- */
-function waitForTick() {
-  return new Promise(resolve => executeSoon(resolve));
-}
-
-/**
- * This shouldn't be used in the tests, but is useful when writing new tests or
- * debugging existing tests in order to introduce delays in the test steps
- *
- * @param {Number} ms
- *        The time to wait
- * @return A promise that resolves when the time is passed
- */
-function wait(ms) {
-  return new Promise(resolve => {
-    setTimeout(resolve, ms);
-    info("Waiting " + ms / 1000 + " seconds.");
-  });
 }
 
 /**
@@ -448,12 +865,16 @@ var openNewTabAndToolbox = async function(url, toolId, hostType) {
  * closed.
  */
 var closeTabAndToolbox = async function(tab = gBrowser.selectedTab) {
-  const target = await TargetFactory.forTab(tab);
-  if (target) {
-    await gDevTools.closeToolbox(target);
+  if (TargetFactory.isKnownTab(tab)) {
+    const target = await TargetFactory.forTab(tab);
+    if (target) {
+      await gDevTools.closeToolbox(target);
+    }
   }
 
   await removeTab(tab);
+
+  await new Promise(resolve => setTimeout(resolve, 0));
 };
 
 /**
@@ -500,30 +921,6 @@ async function asyncWaitUntil(predicate, interval = 10) {
 }
 
 /**
- * Takes a string `script` and evaluates it directly in the content
- * in potentially a different process.
- */
-let MM_INC_ID = 0;
-function evalInDebuggee(script, browser = gBrowser.selectedBrowser) {
-  return new Promise(resolve => {
-    const id = MM_INC_ID++;
-    const mm = browser.messageManager;
-    mm.sendAsyncMessage("devtools:test:eval", { script, id });
-    mm.addMessageListener("devtools:test:eval:response", handler);
-
-    function handler({ data }) {
-      if (id !== data.id) {
-        return;
-      }
-
-      info(`Successfully evaled in debuggee: ${script}`);
-      mm.removeMessageListener("devtools:test:eval:response", handler);
-      resolve(data.value);
-    }
-  });
-}
-
-/**
  * Wait for a context menu popup to open.
  *
  * @param Element popup
@@ -549,7 +946,7 @@ function waitForContextMenu(popup, button, onShown, onHidden) {
 
       // Use executeSoon() to get out of the popupshown event.
       popup.addEventListener("popuphidden", onPopupHidden);
-      executeSoon(() => popup.hidePopup());
+      DevToolsUtils.executeSoon(() => popup.hidePopup());
     }
     function onPopupHidden() {
       info("onPopupHidden");
@@ -569,8 +966,14 @@ function waitForContextMenu(popup, button, onShown, onHidden) {
 
 function synthesizeContextMenuEvent(el) {
   el.scrollIntoView();
-  const eventDetails = {type: "contextmenu", button: 2};
-  EventUtils.synthesizeMouse(el, 5, 2, eventDetails, el.ownerDocument.defaultView);
+  const eventDetails = { type: "contextmenu", button: 2 };
+  EventUtils.synthesizeMouse(
+    el,
+    5,
+    2,
+    eventDetails,
+    el.ownerDocument.defaultView
+  );
 }
 
 /**
@@ -594,10 +997,8 @@ function waitForClipboardPromise(setup, expected) {
  * @return {Promise} resolves when the preferences have been updated
  */
 function pushPref(preferenceName, value) {
-  return new Promise(resolve => {
-    const options = {"set": [[preferenceName, value]]};
-    SpecialPowers.pushPrefEnv(options, resolve);
-  });
+  const options = { set: [[preferenceName, value]] };
+  return SpecialPowers.pushPrefEnv(options);
 }
 
 /**
@@ -640,9 +1041,9 @@ function isWindows() {
  */
 function waitForTitleChange(toolbox) {
   return new Promise(resolve => {
-    toolbox.win.parent.addEventListener("message", function onmessage(event) {
+    toolbox.topWindow.addEventListener("message", function onmessage(event) {
       if (event.data.name == "set-host-title") {
-        toolbox.win.parent.removeEventListener("message", onmessage);
+        toolbox.topWindow.removeEventListener("message", onmessage);
         resolve();
       }
     });
@@ -665,7 +1066,9 @@ function waitForTitleChange(toolbox) {
  * @returns {HttpServer}
  */
 function createTestHTTPServer() {
-  const {HttpServer} = ChromeUtils.import("resource://testing-common/httpd.js", {});
+  const { HttpServer } = ChromeUtils.import(
+    "resource://testing-common/httpd.js"
+  );
   const server = new HttpServer();
 
   registerCleanupFunction(async function cleanup() {
@@ -674,50 +1077,6 @@ function createTestHTTPServer() {
 
   server.start(-1);
   return server;
-}
-
-/**
- * Inject `EventUtils` helpers into ContentTask scope.
- *
- * This helper is automatically exposed to mochitest browser tests,
- * but is missing from content task scope.
- * You should call this method only once per <browser> tag
- *
- * @param {xul:browser} browser
- *        Reference to the browser in which we load content task
- */
-async function injectEventUtilsInContentTask(browser) {
-  await ContentTask.spawn(browser, {}, async function() {
-    if ("EventUtils" in this) {
-      return;
-    }
-
-    const EventUtils = this.EventUtils = {};
-
-    EventUtils.window = {};
-    EventUtils.parent = EventUtils.window;
-    /* eslint-disable camelcase */
-    EventUtils._EU_Ci = Ci;
-    EventUtils._EU_Cc = Cc;
-    /* eslint-enable camelcase */
-    // EventUtils' `sendChar` function relies on the navigator to synthetize events.
-    EventUtils.navigator = content.navigator;
-    EventUtils.KeyboardEvent = content.KeyboardEvent;
-
-    EventUtils.synthesizeClick = element => new Promise(resolve => {
-      element.addEventListener("click", function() {
-        resolve();
-      }, {once: true});
-
-      EventUtils.synthesizeMouseAtCenter(element,
-        { type: "mousedown", isSynthesized: false }, content);
-      EventUtils.synthesizeMouseAtCenter(element,
-        { type: "mouseup", isSynthesized: false }, content);
-    });
-
-    Services.scriptloader.loadSubScript(
-      "chrome://mochikit/content/tests/SimpleTest/EventUtils.js", EventUtils);
-  });
 }
 
 /*
@@ -730,21 +1089,117 @@ async function injectEventUtilsInContentTask(browser) {
  * @param {string} url
  *        Actor module URL or absolute require path
  * @param {json} options
- *        Arguments to be passed to DebuggerServer.registerModule
+ *        Arguments to be passed to DevToolsServer.registerModule
  */
 async function registerActorInContentProcess(url, options) {
   function convertChromeToFile(uri) {
     return Cc["@mozilla.org/chrome/chrome-registry;1"]
-             .getService(Ci.nsIChromeRegistry)
-             .convertChromeURL(Services.io.newURI(uri)).spec;
+      .getService(Ci.nsIChromeRegistry)
+      .convertChromeURL(Services.io.newURI(uri)).spec;
   }
   // chrome://mochitests URI is registered only in the parent process, so convert these
   // URLs to file:// one in order to work in the content processes
   url = url.startsWith("chrome://mochitests") ? convertChromeToFile(url) : url;
-  return ContentTask.spawn(gBrowser.selectedBrowser, { url, options }, args => {
-    // eslint-disable-next-line no-shadow
-    const { require } = ChromeUtils.import("resource://devtools/shared/Loader.jsm", {});
-    const { ActorRegistry } = require("devtools/server/actors/utils/actor-registry");
-    ActorRegistry.registerModule(args.url, args.options);
+  return SpecialPowers.spawn(
+    gBrowser.selectedBrowser,
+    [{ url, options }],
+    args => {
+      // eslint-disable-next-line no-shadow
+      const { require } = ChromeUtils.import(
+        "resource://devtools/shared/Loader.jsm"
+      );
+      const {
+        ActorRegistry,
+      } = require("devtools/server/actors/utils/actor-registry");
+      ActorRegistry.registerModule(args.url, args.options);
+    }
+  );
+}
+
+/**
+ * Move the provided Window to the provided left, top coordinates and wait for
+ * the window position to be updated.
+ */
+async function moveWindowTo(win, left, top) {
+  // Check that the expected coordinates are within the window available area.
+  left = Math.max(win.screen.availLeft, left);
+  left = Math.min(win.screen.width, left);
+  top = Math.max(win.screen.availTop, top);
+  top = Math.min(win.screen.height, top);
+
+  info(`Moving window to {${left}, ${top}}`);
+  win.moveTo(left, top);
+
+  // Bug 1600809: window move/resize can be async on Linux sometimes.
+  // Wait so that the anchor's position is correctly measured.
+  info("Wait for window screenLeft and screenTop to be updated");
+  return waitUntil(() => win.screenLeft === left && win.screenTop === top);
+}
+
+function getCurrentTestFilePath() {
+  return gTestPath.replace("chrome://mochitests/content/browser/", "");
+}
+
+/**
+ * Wait for a single resource of the provided resourceType.
+ *
+ * @param {ResourceWatcher} resourceWatcher
+ *        The ResourceWatcher instance that should emit the expected resource.
+ * @param {String} resourceType
+ *        One of ResourceWatcher.TYPES, type of the expected resource.
+ * @param {Object} additional options
+ *        - {Boolean} ignoreExistingResources: ignore existing resources or not.
+ *        - {Function} predicate: if provided, will wait until a resource makes
+ *          predicate(resource) return true.
+ * @return {Object}
+ *         - resource {Object} the resource itself
+ *         - targetFront {TargetFront} the target which owns the resource
+ */
+function waitForNextResource(
+  resourceWatcher,
+  resourceType,
+  { ignoreExistingResources = false, predicate } = {}
+) {
+  // If no predicate was provided, convert to boolean to avoid resolving for
+  // empty `resources` arrays.
+  predicate = predicate || (resource => !!resource);
+
+  return new Promise(resolve => {
+    const onAvailable = resources => {
+      const matchingResource = resources.find(resource => predicate(resource));
+      if (matchingResource) {
+        resolve(matchingResource);
+        resourceWatcher.unwatchResources([resourceType], { onAvailable });
+      }
+    };
+
+    resourceWatcher.watchResources([resourceType], {
+      ignoreExistingResources,
+      onAvailable,
+    });
   });
+}
+
+/**
+ * Unregister all registered service workers.
+ *
+ * @param {DevToolsClient} client
+ */
+async function unregisterAllServiceWorkers(client) {
+  info("Wait until all workers have a valid registrationFront");
+  let workers;
+  await asyncWaitUntil(async function() {
+    workers = await client.mainRoot.listAllWorkers();
+    const allWorkersRegistered = workers.service.every(
+      worker => !!worker.registrationFront
+    );
+    return allWorkersRegistered;
+  });
+
+  info("Unregister all service workers");
+  const promises = [];
+  for (const worker of workers.service) {
+    promises.push(worker.registrationFront.unregister());
+  }
+  await Promise.all(promises);
 }

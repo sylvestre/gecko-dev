@@ -11,8 +11,9 @@
 #include "TextLeafAccessible.h"
 #include "TextUpdater.h"
 
-#include "mozilla/dom/TabChild.h"
+#include "mozilla/dom/BrowserChild.h"
 #include "mozilla/dom/Element.h"
+#include "mozilla/PresShell.h"
 #include "mozilla/Telemetry.h"
 
 using namespace mozilla;
@@ -24,7 +25,7 @@ using namespace mozilla::dom;
 ////////////////////////////////////////////////////////////////////////////////
 
 NotificationController::NotificationController(DocAccessible* aDocument,
-                                               nsIPresShell* aPresShell)
+                                               PresShell* aPresShell)
     : EventQueue(aDocument),
       mObservingState(eNotObservingRefresh),
       mPresShell(aPresShell),
@@ -110,15 +111,24 @@ EventTree* NotificationController::QueueMutation(Accessible* aContainer) {
 }
 
 bool NotificationController::QueueMutationEvent(AccTreeMutationEvent* aEvent) {
-  // We have to allow there to be a hide and then a show event for a target
-  // because of targets getting moved.  However we need to coalesce a show and
-  // then a hide for a target which means we need to check for that here.
-  if (aEvent->GetEventType() == nsIAccessibleEvent::EVENT_HIDE &&
-      aEvent->GetAccessible()->ShowEventTarget()) {
-    AccTreeMutationEvent* showEvent =
-        mMutationMap.GetEvent(aEvent->GetAccessible(), EventMap::ShowEvent);
-    DropMutationEvent(showEvent);
-    return false;
+  if (aEvent->GetEventType() == nsIAccessibleEvent::EVENT_HIDE) {
+    // We have to allow there to be a hide and then a show event for a target
+    // because of targets getting moved.  However we need to coalesce a show and
+    // then a hide for a target which means we need to check for that here.
+    if (aEvent->GetAccessible()->ShowEventTarget()) {
+      AccTreeMutationEvent* showEvent =
+          mMutationMap.GetEvent(aEvent->GetAccessible(), EventMap::ShowEvent);
+      DropMutationEvent(showEvent);
+      return false;
+    }
+
+    // If this is an additional hide event, the accessible may be hidden, or
+    // moved again after a move. Preserve the original hide event since
+    // its properties are consistent with the tree that existed before
+    // the next batch of mutation events is processed.
+    if (aEvent->GetAccessible()->HideEventTarget()) {
+      return false;
+    }
   }
 
   AccMutationEvent* mutEvent = downcast_accEvent(aEvent);
@@ -412,35 +422,9 @@ void NotificationController::ScheduleChildDocBinding(DocAccessible* aDocument) {
 }
 
 void NotificationController::ScheduleContentInsertion(
-    nsIContent* aStartChildNode, nsIContent* aEndChildNode) {
-  // The frame constructor guarantees that only ranges with the same parent
-  // arrive here in presence of dynamic changes to the page, see
-  // nsCSSFrameConstructor::IssueSingleInsertNotifications' callers.
-  nsINode* parent = aStartChildNode->GetFlattenedTreeParentNode();
-  if (!parent) {
-    return;
-  }
-
-  Accessible* container = mDocument->AccessibleOrTrueContainer(parent);
-  if (!container) {
-    return;
-  }
-
-  AutoTArray<nsCOMPtr<nsIContent>, 10> list;
-  for (nsIContent* node = aStartChildNode; node != aEndChildNode;
-       node = node->GetNextSibling()) {
-    MOZ_ASSERT(parent == node->GetFlattenedTreeParentNode());
-    // Notification triggers for content insertion even if no content was
-    // actually inserted (like if the content is display: none). Try to catch
-    // this case early.
-    if (node->GetPrimaryFrame() ||
-        (node->IsElement() && node->AsElement()->IsDisplayContents())) {
-      list.AppendElement(node);
-    }
-  }
-
-  if (!list.IsEmpty()) {
-    mContentInsertions.LookupOrAdd(container)->AppendElements(list);
+    Accessible* aContainer, nsTArray<nsCOMPtr<nsIContent>>& aInsertions) {
+  if (!aInsertions.IsEmpty()) {
+    mContentInsertions.LookupOrAdd(aContainer)->AppendElements(aInsertions);
     ScheduleProcessing();
   }
 }
@@ -449,7 +433,8 @@ void NotificationController::ScheduleProcessing() {
   // If notification flush isn't planed yet start notification flush
   // asynchronously (after style and layout).
   if (mObservingState == eNotObservingRefresh) {
-    if (mPresShell->AddRefreshObserver(this, FlushType::Display))
+    if (mPresShell->AddRefreshObserver(this, FlushType::Display,
+                                       "Accessibility notifications"))
       mObservingState = eRefreshObserving;
   }
 }
@@ -663,10 +648,6 @@ void NotificationController::WillRefresh(mozilla::TimeStamp aTime) {
                  "isn't created!");
   }
 
-  // Initialize scroll support if needed.
-  if (!(mDocument->mDocFlags & DocAccessible::eScrollInitialized))
-    mDocument->AddScrollListener();
-
   // Process rendered text change notifications.
   for (auto iter = mTextHash.Iter(); !iter.Done(); iter.Next()) {
     nsCOMPtrHashKey<nsIContent>* entry = iter.Get();
@@ -696,8 +677,8 @@ void NotificationController::WillRefresh(mozilla::TimeStamp aTime) {
 #endif
 
     nsIFrame::RenderedText text = textFrame->GetRenderedText(
-        0, UINT32_MAX, nsIFrame::TextOffsetType::OFFSETS_IN_CONTENT_TEXT,
-        nsIFrame::TrailingWhitespace::DONT_TRIM_TRAILING_WHITESPACE);
+        0, UINT32_MAX, nsIFrame::TextOffsetType::OffsetsInContentText,
+        nsIFrame::TrailingWhitespace::DontTrim);
 
     // Remove text accessible if rendered text is empty.
     if (textAcc) {
@@ -750,8 +731,8 @@ void NotificationController::WillRefresh(mozilla::TimeStamp aTime) {
       MOZ_ASSERT(mDocument->AccessibleOrTrueContainer(containerNode),
                  "Text node having rendered text hasn't accessible document!");
 
-      Accessible* container = mDocument->AccessibleOrTrueContainer(
-          containerNode, DocAccessible::eNoContainerIfARIAHidden);
+      Accessible* container =
+          mDocument->AccessibleOrTrueContainer(containerNode, true);
       if (container) {
         nsTArray<nsCOMPtr<nsIContent>>* list =
             mContentInsertions.LookupOrAdd(container);
@@ -827,18 +808,8 @@ void NotificationController::WillRefresh(mozilla::TimeStamp aTime) {
     }
   }
 
-  // Process only currently queued generic notifications.
-  nsTArray<RefPtr<Notification>> notifications;
-  notifications.SwapElements(mNotifications);
-
-  uint32_t notificationCount = notifications.Length();
-  for (uint32_t idx = 0; idx < notificationCount; idx++) {
-    notifications[idx]->Process();
-    if (!mDocument) return;
-  }
-
   // Process invalidation list of the document after all accessible tree
-  // modification are done.
+  // mutation is done.
   mDocument->ProcessInvalidationList();
 
   // Process relocation list.
@@ -851,6 +822,20 @@ void NotificationController::WillRefresh(mozilla::TimeStamp aTime) {
     }
   }
   mRelocations.Clear();
+
+  // Process only currently queued generic notifications.
+  // These are used for processing aria-activedescendant, DOMMenuItemActive,
+  // etc. Therefore, they must be processed after relocations, since relocated
+  // subtrees might not have been created before relocation processing and the
+  // target might be inside a relocated subtree.
+  const nsTArray<RefPtr<Notification>> notifications =
+      std::move(mNotifications);
+
+  uint32_t notificationCount = notifications.Length();
+  for (uint32_t idx = 0; idx < notificationCount; idx++) {
+    notifications[idx]->Process();
+    if (!mDocument) return;
+  }
 
   // If a generic notification occurs after this point then we may be allowed to
   // process it synchronously.  However we do not want to reenter if fireing
@@ -919,11 +904,12 @@ void NotificationController::WillRefresh(mozilla::TimeStamp aTime) {
       parentIPCDoc->ConstructChildDocInParentProcess(
           ipcDoc, id, AccessibleWrap::GetChildIDFor(childDoc));
 #else
-      nsCOMPtr<nsITabChild> tabChild =
+      nsCOMPtr<nsIBrowserChild> browserChild =
           do_GetInterface(mDocument->DocumentNode()->GetDocShell());
-      if (tabChild) {
-        static_cast<TabChild*>(tabChild.get())
+      if (browserChild) {
+        static_cast<BrowserChild*>(browserChild.get())
             ->SendPDocAccessibleConstructor(ipcDoc, parentIPCDoc, id, 0, 0);
+        ipcDoc->SendPDocAccessiblePlatformExtConstructor();
       }
 #endif
     }
@@ -948,7 +934,7 @@ void NotificationController::EventMap::PutEvent(AccTreeMutationEvent* aEvent) {
   uint64_t addr = reinterpret_cast<uintptr_t>(aEvent->GetAccessible());
   MOZ_ASSERT((addr & 0x3) == 0, "accessible is not 4 byte aligned");
   addr |= type;
-  mTable.Put(addr, aEvent);
+  mTable.Put(addr, RefPtr{aEvent});
 }
 
 AccTreeMutationEvent* NotificationController::EventMap::GetEvent(

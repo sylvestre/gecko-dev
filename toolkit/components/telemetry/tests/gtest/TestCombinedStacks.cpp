@@ -2,6 +2,8 @@
  * http://creativecommons.org/publicdomain/zero/1.0/
  */
 
+#include "TelemetryFixture.h"
+#include "TelemetryTestHelpers.h"
 #include "other/CombinedStacks.h"
 #include "other/ProcessedStack.h"
 #include "nsPrintfCString.h"
@@ -38,7 +40,7 @@ TEST_F(TelemetryTestFixture, CombinedStacks) {
     ProcessedStack::Module module = stacks.GetModule(frame.mModIndex);
     nsPrintfCString moduleName("test%hu", frame.mModIndex);
     ASSERT_TRUE(module.mName.Equals(NS_ConvertUTF8toUTF16(moduleName)))
-        << "Module should have expected name";
+    << "Module should have expected name";
   }
 
   for (size_t i = 0; i < kMaxStacksKept; ++i) {

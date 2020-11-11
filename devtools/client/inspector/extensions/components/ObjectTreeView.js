@@ -4,20 +4,22 @@
 
 "use strict";
 
-const { createFactory, PureComponent } = require("devtools/client/shared/vendor/react");
+const {
+  createFactory,
+  PureComponent,
+} = require("devtools/client/shared/vendor/react");
 const PropTypes = require("devtools/client/shared/vendor/react-prop-types");
 
-// TODO: Upgrade to the current version reps https://bugzilla.mozilla.org/show_bug.cgi?id=1494680
-const { REPS, MODE } = require("devtools/client/shared/components/reps/reps-old");
+const { REPS, MODE } = require("devtools/client/shared/components/reps/index");
 const { Rep } = REPS;
 const TreeViewClass = require("devtools/client/shared/components/tree/TreeView");
 const TreeView = createFactory(TreeViewClass);
 
 /**
- * The ObjectTreeView React Component is used in the ExtensionSidebar component to provide
- * a UI viewMode which shows a tree view of the passed JavaScript object.
+ * The ExpressionResultView React Component is used in the ExtensionSidebar component to
+ * provide a UI viewMode which shows a tree view of the passed JavaScript object.
  */
-class ObjectTreeView extends PureComponent {
+class ExpressionResultView extends PureComponent {
   static get propTypes() {
     return {
       object: PropTypes.object.isRequired,
@@ -27,9 +29,11 @@ class ObjectTreeView extends PureComponent {
   render() {
     const { object } = this.props;
 
-    const columns = [{
-      "id": "value",
-    }];
+    const columns = [
+      {
+        id: "value",
+      },
+    ];
 
     // Render the node value (omitted on the root element if it has children).
     const renderValue = props => {
@@ -37,9 +41,11 @@ class ObjectTreeView extends PureComponent {
         return undefined;
       }
 
-      return Rep(Object.assign({}, props, {
-        cropLimit: 50,
-      }));
+      return Rep(
+        Object.assign({}, props, {
+          cropLimit: 50,
+        })
+      );
     };
 
     return TreeView({
@@ -48,10 +54,11 @@ class ObjectTreeView extends PureComponent {
       columns,
       renderValue,
       expandedNodes: TreeViewClass.getExpandedNodes(object, {
-        maxLevel: 1, maxNodes: 1,
+        maxLevel: 1,
+        maxNodes: 1,
       }),
     });
   }
 }
 
-module.exports = ObjectTreeView;
+module.exports = ExpressionResultView;

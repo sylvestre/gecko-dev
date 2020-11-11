@@ -16,6 +16,7 @@
 #include "mozilla/dom/MessageEvent.h"
 #include "mozilla/dom/MessageEventBinding.h"
 #include "mozilla/dom/ScriptSettings.h"
+#include "mozilla/dom/Blob.h"
 
 #include "nsError.h"
 #include "nsContentUtils.h"
@@ -26,14 +27,10 @@
 #include "DataChannel.h"
 #include "DataChannelLog.h"
 
-#undef LOG
-#define LOG(args) \
-  MOZ_LOG(mozilla::gDataChannelLog, mozilla::LogLevel::Debug, args)
-
 // Since we've moved the windows.h include down here, we have to explicitly
 // undef GetBinaryType, otherwise we'll get really odd conflicts
 #ifdef GetBinaryType
-#undef GetBinaryType
+#  undef GetBinaryType
 #endif
 
 using namespace mozilla;
@@ -43,13 +40,14 @@ nsDOMDataChannel::~nsDOMDataChannel() {
   // Don't call us anymore!  Likely isn't an issue (or maybe just less of
   // one) once we block GC until all the (appropriate) onXxxx handlers
   // are dropped. (See WebRTC spec)
-  LOG(("%p: Close()ing %p", this, mDataChannel.get()));
+  DC_DEBUG(("%p: Close()ing %p", this, mDataChannel.get()));
   mDataChannel->SetListener(nullptr, nullptr);
   mDataChannel->Close();
 }
 
-/* virtual */ JSObject* nsDOMDataChannel::WrapObject(
-    JSContext* aCx, JS::Handle<JSObject*> aGivenProto) {
+/* virtual */
+JSObject* nsDOMDataChannel::WrapObject(JSContext* aCx,
+                                       JS::Handle<JSObject*> aGivenProto) {
   return RTCDataChannel_Binding::Wrap(aCx, this, aGivenProto);
 }
 
@@ -99,12 +97,12 @@ nsresult nsDOMDataChannel::Init(nsPIDOMWindowInner* aDOMWindow) {
 
   // Attempt to kill "ghost" DataChannel (if one can happen): but usually too
   // early for check to fail
-  rv = CheckInnerWindowCorrectness();
+  rv = CheckCurrentGlobalCorrectness();
   NS_ENSURE_SUCCESS(rv, rv);
 
   rv = nsContentUtils::GetUTFOrigin(principal, mOrigin);
-  LOG(("%s: origin = %s\n", __FUNCTION__,
-       NS_LossyConvertUTF16toASCII(mOrigin).get()));
+  DC_DEBUG(("%s: origin = %s\n", __FUNCTION__,
+            NS_LossyConvertUTF16toASCII(mOrigin).get()));
   return rv;
 }
 
@@ -118,7 +116,13 @@ void nsDOMDataChannel::GetProtocol(nsAString& aProtocol) {
   mDataChannel->GetProtocol(aProtocol);
 }
 
-uint16_t nsDOMDataChannel::Id() const { return mDataChannel->GetStream(); }
+mozilla::dom::Nullable<uint16_t> nsDOMDataChannel::GetId() const {
+  mozilla::dom::Nullable<uint16_t> result = mDataChannel->GetStream();
+  if (result.Value() == 65535) {
+    result.SetNull();
+  }
+  return result;
+}
 
 // XXX should be GetType()?  Open question for the spec
 bool nsDOMDataChannel::Reliable() const {
@@ -132,6 +136,10 @@ mozilla::dom::Nullable<uint16_t> nsDOMDataChannel::GetMaxPacketLifeTime()
 
 mozilla::dom::Nullable<uint16_t> nsDOMDataChannel::GetMaxRetransmits() const {
   return mDataChannel->GetMaxRetransmits();
+}
+
+bool nsDOMDataChannel::Negotiated() const {
+  return mDataChannel->GetNegotiated();
 }
 
 bool nsDOMDataChannel::Ordered() const { return mDataChannel->GetOrdered(); }
@@ -162,8 +170,12 @@ void nsDOMDataChannel::Close() {
 
 // All of the following is copy/pasted from WebSocket.cpp.
 void nsDOMDataChannel::Send(const nsAString& aData, ErrorResult& aRv) {
-  NS_ConvertUTF16toUTF8 msgString(aData);
-  Send(nullptr, msgString, false, aRv);
+  nsAutoCString msgString;
+  if (!AppendUTF16toUTF8(aData, msgString, mozilla::fallible_t())) {
+    aRv.Throw(NS_ERROR_FILE_TOO_BIG);
+    return;
+  }
+  Send(nullptr, &msgString, false, aRv);
 }
 
 void nsDOMDataChannel::Send(Blob& aData, ErrorResult& aRv) {
@@ -185,40 +197,50 @@ void nsDOMDataChannel::Send(Blob& aData, ErrorResult& aRv) {
     return;
   }
 
-  Send(msgStream, EmptyCString(), true, aRv);
+  Send(&aData, nullptr, true, aRv);
 }
 
 void nsDOMDataChannel::Send(const ArrayBuffer& aData, ErrorResult& aRv) {
   MOZ_ASSERT(NS_IsMainThread(), "Not running on main thread");
 
-  aData.ComputeLengthAndData();
+  aData.ComputeState();
 
   static_assert(sizeof(*aData.Data()) == 1, "byte-sized data required");
 
   uint32_t len = aData.Length();
   char* data = reinterpret_cast<char*>(aData.Data());
 
-  nsDependentCSubstring msgString(data, len);
-  Send(nullptr, msgString, true, aRv);
+  nsDependentCSubstring msgString;
+  if (!msgString.Assign(data, len, mozilla::fallible_t())) {
+    aRv.Throw(NS_ERROR_FILE_TOO_BIG);
+    return;
+  }
+
+  Send(nullptr, &msgString, true, aRv);
 }
 
 void nsDOMDataChannel::Send(const ArrayBufferView& aData, ErrorResult& aRv) {
   MOZ_ASSERT(NS_IsMainThread(), "Not running on main thread");
 
-  aData.ComputeLengthAndData();
+  aData.ComputeState();
 
   static_assert(sizeof(*aData.Data()) == 1, "byte-sized data required");
 
   uint32_t len = aData.Length();
   char* data = reinterpret_cast<char*>(aData.Data());
 
-  nsDependentCSubstring msgString(data, len);
-  Send(nullptr, msgString, true, aRv);
+  nsDependentCSubstring msgString;
+  if (!msgString.Assign(data, len, mozilla::fallible_t())) {
+    aRv.Throw(NS_ERROR_FILE_TOO_BIG);
+    return;
+  }
+
+  Send(nullptr, &msgString, true, aRv);
 }
 
-void nsDOMDataChannel::Send(nsIInputStream* aMsgStream,
-                            const nsACString& aMsgString, bool aIsBinary,
-                            ErrorResult& aRv) {
+void nsDOMDataChannel::Send(mozilla::dom::Blob* aMsgBlob,
+                            const nsACString* aMsgString, bool aIsBinary,
+                            mozilla::ErrorResult& aRv) {
   MOZ_ASSERT(NS_IsMainThread());
   uint16_t state = mozilla::DataChannel::CLOSED;
   if (!mSentClose) {
@@ -240,13 +262,13 @@ void nsDOMDataChannel::Send(nsIInputStream* aMsgStream,
   MOZ_ASSERT(state == mozilla::DataChannel::OPEN,
              "Unknown state in nsDOMDataChannel::Send");
 
-  if (aMsgStream) {
-    mDataChannel->SendBinaryStream(aMsgStream, aRv);
+  if (aMsgBlob) {
+    mDataChannel->SendBinaryBlob(*aMsgBlob, aRv);
   } else {
     if (aIsBinary) {
-      mDataChannel->SendBinaryMsg(aMsgString, aRv);
+      mDataChannel->SendBinaryMsg(*aMsgString, aRv);
     } else {
-      mDataChannel->SendMsg(aMsgString, aRv);
+      mDataChannel->SendMsg(*aMsgString, aRv);
     }
   }
 }
@@ -255,12 +277,12 @@ nsresult nsDOMDataChannel::DoOnMessageAvailable(const nsACString& aData,
                                                 bool aBinary) {
   MOZ_ASSERT(NS_IsMainThread());
 
-  LOG(("DoOnMessageAvailable%s\n",
-       aBinary
-           ? ((mBinaryType == DC_BINARY_TYPE_BLOB) ? " (blob)" : " (binary)")
-           : ""));
+  DC_VERBOSE((
+      "DoOnMessageAvailable%s\n",
+      aBinary ? ((mBinaryType == DC_BINARY_TYPE_BLOB) ? " (blob)" : " (binary)")
+              : ""));
 
-  nsresult rv = CheckInnerWindowCorrectness();
+  nsresult rv = CheckCurrentGlobalCorrectness();
   if (NS_FAILED(rv)) {
     return NS_OK;
   }
@@ -276,8 +298,10 @@ nsresult nsDOMDataChannel::DoOnMessageAvailable(const nsACString& aData,
   if (aBinary) {
     if (mBinaryType == DC_BINARY_TYPE_BLOB) {
       RefPtr<Blob> blob =
-          Blob::CreateStringBlob(GetOwner(), aData, EmptyString());
-      MOZ_ASSERT(blob);
+          Blob::CreateStringBlob(GetOwnerGlobal(), aData, u""_ns);
+      if (NS_WARN_IF(!blob)) {
+        return NS_ERROR_FAILURE;
+      }
 
       if (!ToJSValue(cx, blob, &jsData)) {
         return NS_ERROR_FAILURE;
@@ -302,15 +326,18 @@ nsresult nsDOMDataChannel::DoOnMessageAvailable(const nsACString& aData,
 
   RefPtr<MessageEvent> event = new MessageEvent(this, nullptr, nullptr);
 
-  event->InitMessageEvent(nullptr, NS_LITERAL_STRING("message"), CanBubble::eNo,
-                          Cancelable::eNo, jsData, mOrigin, EmptyString(),
-                          nullptr, Sequence<OwningNonNull<MessagePort>>());
+  event->InitMessageEvent(nullptr, u"message"_ns, CanBubble::eNo,
+                          Cancelable::eNo, jsData, mOrigin, u""_ns, nullptr,
+                          Sequence<OwningNonNull<MessagePort>>());
   event->SetTrusted(true);
 
-  LOG(("%p(%p): %s - Dispatching\n", this, (void*)mDataChannel, __FUNCTION__));
+  DC_DEBUG(
+      ("%p(%p): %s - Dispatching\n", this, (void*)mDataChannel, __FUNCTION__));
   ErrorResult err;
   DispatchEvent(*event, err);
   if (err.Failed()) {
+    DC_ERROR(("%p(%p): %s - Failed to dispatch message", this,
+              (void*)mDataChannel, __FUNCTION__));
     NS_WARNING("Failed to dispatch the message event!!!");
   }
   return err.StealNSResult();
@@ -332,7 +359,7 @@ nsresult nsDOMDataChannel::OnSimpleEvent(nsISupports* aContext,
                                          const nsAString& aName) {
   MOZ_ASSERT(NS_IsMainThread());
 
-  nsresult rv = CheckInnerWindowCorrectness();
+  nsresult rv = CheckCurrentGlobalCorrectness();
   if (NS_FAILED(rv)) {
     return NS_OK;
   }
@@ -348,9 +375,10 @@ nsresult nsDOMDataChannel::OnSimpleEvent(nsISupports* aContext,
 }
 
 nsresult nsDOMDataChannel::OnChannelConnected(nsISupports* aContext) {
-  LOG(("%p(%p): %s - Dispatching\n", this, (void*)mDataChannel, __FUNCTION__));
+  DC_DEBUG(
+      ("%p(%p): %s - Dispatching\n", this, (void*)mDataChannel, __FUNCTION__));
 
-  return OnSimpleEvent(aContext, NS_LITERAL_STRING("open"));
+  return OnSimpleEvent(aContext, u"open"_ns);
 }
 
 nsresult nsDOMDataChannel::OnChannelClosed(nsISupports* aContext) {
@@ -360,10 +388,10 @@ nsresult nsDOMDataChannel::OnChannelClosed(nsISupports* aContext) {
   if (!mSentClose) {
     // Ok, we're done with it.
     mDataChannel->ReleaseConnection();
-    LOG(("%p(%p): %s - Dispatching\n", this, (void*)mDataChannel,
-         __FUNCTION__));
+    DC_DEBUG(("%p(%p): %s - Dispatching\n", this, (void*)mDataChannel,
+              __FUNCTION__));
 
-    rv = OnSimpleEvent(aContext, NS_LITERAL_STRING("close"));
+    rv = OnSimpleEvent(aContext, u"close"_ns);
     // no more events can happen
     mSentClose = true;
   } else {
@@ -374,21 +402,16 @@ nsresult nsDOMDataChannel::OnChannelClosed(nsISupports* aContext) {
 }
 
 nsresult nsDOMDataChannel::OnBufferLow(nsISupports* aContext) {
-  LOG(("%p(%p): %s - Dispatching\n", this, (void*)mDataChannel, __FUNCTION__));
+  DC_DEBUG(
+      ("%p(%p): %s - Dispatching\n", this, (void*)mDataChannel, __FUNCTION__));
 
-  return OnSimpleEvent(aContext, NS_LITERAL_STRING("bufferedamountlow"));
+  return OnSimpleEvent(aContext, u"bufferedamountlow"_ns);
 }
 
 nsresult nsDOMDataChannel::NotBuffered(nsISupports* aContext) {
   // In the rare case that we held off GC to let the buffer drain
   UpdateMustKeepAlive();
   return NS_OK;
-}
-
-void nsDOMDataChannel::AppReady() {
-  if (!mSentClose) {  // may not be possible, simpler to just test anyways
-    mDataChannel->AppReady();
-  }
 }
 
 //-----------------------------------------------------------------------------
@@ -409,8 +432,7 @@ void nsDOMDataChannel::UpdateMustKeepAlive() {
   uint16_t readyState = mDataChannel->GetReadyState();
 
   switch (readyState) {
-    case DataChannel::CONNECTING:
-    case DataChannel::WAITING_TO_OPEN: {
+    case DataChannel::CONNECTING: {
       if (mListenerManager &&
           (mListenerManager->HasListenersFor(nsGkAtoms::onopen) ||
            mListenerManager->HasListenersFor(nsGkAtoms::onmessage) ||
@@ -459,8 +481,7 @@ void nsDOMDataChannel::DontKeepAliveAnyMore() {
 
 void nsDOMDataChannel::ReleaseSelf() {
   // release our self-reference (safely) by putting it in an event (always)
-  NS_ReleaseOnMainThreadSystemGroup("nsDOMDataChannel::mSelfRef",
-                                    mSelfRef.forget(), true);
+  NS_ReleaseOnMainThread("nsDOMDataChannel::mSelfRef", mSelfRef.forget(), true);
 }
 
 void nsDOMDataChannel::EventListenerAdded(nsAtom* aType) {

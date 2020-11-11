@@ -9,15 +9,11 @@
 #ifndef mozilla_CSSOrderAwareFrameIterator_h
 #define mozilla_CSSOrderAwareFrameIterator_h
 
-#include <algorithm>
+#include <limits>
 #include "nsFrameList.h"
 #include "nsIFrame.h"
 #include "mozilla/Maybe.h"
 #include "mozilla/Assertions.h"
-
-#if defined(__clang__) && __clang_major__ == 3 && __clang_minor__ <= 9
-#define CLANG_CRASH_BUG 1
-#endif
 
 namespace mozilla {
 
@@ -57,51 +53,40 @@ namespace mozilla {
 template <typename Iterator>
 class CSSOrderAwareFrameIteratorT {
  public:
-  enum OrderState { eUnknownOrder, eKnownOrdered, eKnownUnordered };
-  enum ChildFilter { eSkipPlaceholders, eIncludeAll };
-  enum OrderingProperty {
-    eUseOrder,           // Default behavior: use "order".
-    eUseBoxOrdinalGroup  // Legacy behavior: use prefixed "box-ordinal-group".
+  enum class OrderState { Unknown, Ordered, Unordered };
+  enum class ChildFilter { SkipPlaceholders, IncludeAll };
+  enum class OrderingProperty {
+    Order,           // Default behavior: use "order".
+    BoxOrdinalGroup  // Legacy behavior: use prefixed "box-ordinal-group".
   };
-  CSSOrderAwareFrameIteratorT(nsIFrame* aContainer,
-                              nsIFrame::ChildListID aListID,
-                              ChildFilter aFilter = eSkipPlaceholders,
-                              OrderState aState = eUnknownOrder,
-                              OrderingProperty aOrderProp = eUseOrder)
+  CSSOrderAwareFrameIteratorT(
+      nsIFrame* aContainer, nsIFrame::ChildListID aListID,
+      ChildFilter aFilter = ChildFilter::SkipPlaceholders,
+      OrderState aState = OrderState::Unknown,
+      OrderingProperty aOrderProp = OrderingProperty::Order)
       : mChildren(aContainer->GetChildList(aListID)),
         mArrayIndex(0),
         mItemIndex(0),
-        mSkipPlaceholders(aFilter == eSkipPlaceholders)
+        mSkipPlaceholders(aFilter == ChildFilter::SkipPlaceholders)
 #ifdef DEBUG
         ,
         mContainer(aContainer),
         mListID(aListID)
 #endif
   {
-    MOZ_ASSERT(aContainer->IsFlexOrGridContainer(),
+    MOZ_ASSERT(CanUse(aContainer),
                "Only use this iterator in a container that honors 'order'");
 
     size_t count = 0;
-    bool isOrdered = aState != eKnownUnordered;
-    if (aState == eUnknownOrder) {
+    bool isOrdered = aState != OrderState::Unordered;
+    if (aState == OrderState::Unknown) {
       auto maxOrder = std::numeric_limits<int32_t>::min();
-      for (auto child : mChildren) {
+      for (auto* child : mChildren) {
         ++count;
 
-        int32_t order;
-        if (aOrderProp == eUseBoxOrdinalGroup) {
-          // We'll be using mBoxOrdinal, which has type uint32_t. However, the
-          // modern 'order' property (whose functionality we're co-opting) has
-          // type int32_t.  So: if we happen to have a uint32_t value that's
-          // greater than INT32_MAX, we clamp it rather than letting it
-          // overflow. Chances are, this is just an author using BIG_VALUE
-          // anyway, so the clamped value should be fine.
-          uint32_t clampedBoxOrdinal = std::min(
-              child->StyleXUL()->mBoxOrdinal, static_cast<uint32_t>(INT32_MAX));
-          order = static_cast<int32_t>(clampedBoxOrdinal);
-        } else {
-          order = child->StylePosition()->mOrder;
-        }
+        int32_t order = aOrderProp == OrderingProperty::BoxOrdinalGroup
+                            ? child->StyleXUL()->mBoxOrdinal
+                            : child->StylePosition()->mOrder;
 
         if (order < maxOrder) {
           isOrdered = false;
@@ -119,33 +104,34 @@ class CSSOrderAwareFrameIteratorT {
       for (Iterator i(begin(mChildren)), iEnd(end(mChildren)); i != iEnd; ++i) {
         mArray->AppendElement(*i);
       }
-      auto comparator = (aOrderProp == eUseBoxOrdinalGroup)
+      auto comparator = aOrderProp == OrderingProperty::BoxOrdinalGroup
                             ? CSSBoxOrdinalGroupComparator
                             : CSSOrderComparator;
-
-      // XXX replace this with nsTArray::StableSort when bug 1147091 is fixed.
-      std::stable_sort(mArray->begin(), mArray->end(), comparator);
+      mArray->StableSort(comparator);
     }
 
     if (mSkipPlaceholders) {
       SkipPlaceholders();
     }
   }
+
+  CSSOrderAwareFrameIteratorT(CSSOrderAwareFrameIteratorT&&) = default;
+
   ~CSSOrderAwareFrameIteratorT() {
     MOZ_ASSERT(IsForward() == mItemCount.isNothing());
   }
 
   bool IsForward() const;
-  Iterator begin(const nsFrameList& aList);
-  Iterator end(const nsFrameList& aList);
 
-  nsIFrame* operator*() const {
+  nsIFrame* get() const {
     MOZ_ASSERT(!AtEnd());
     if (mIter.isSome()) {
       return **mIter;
     }
     return (*mArray)[mArrayIndex];
   }
+
+  nsIFrame* operator*() const { return get(); }
 
   /**
    * Return the child index of the current item, placeholders not counted.
@@ -161,10 +147,8 @@ class CSSOrderAwareFrameIteratorT {
   }
 
   void SetItemCount(size_t aItemCount) {
-#ifndef CLANG_CRASH_BUG
     MOZ_ASSERT(mIter.isSome() || aItemCount <= mArray->Length(),
                "item count mismatch");
-#endif
     mItemCount.emplace(aItemCount);
     // Note: it's OK if mItemIndex underflows -- ItemIndex()
     // will not be called unless there is at least one item.
@@ -193,10 +177,7 @@ class CSSOrderAwareFrameIteratorT {
   }
 
   bool AtEnd() const {
-#ifndef CLANG_CRASH_BUG
-    // Clang 3.6.2 crashes when compiling this assertion:
     MOZ_ASSERT(mIter.isSome() || mArrayIndex <= mArray->Length());
-#endif
     return mIter ? (*mIter == *mIterEnd) : mArrayIndex >= mArray->Length();
   }
 
@@ -221,7 +202,7 @@ class CSSOrderAwareFrameIteratorT {
     }
   }
 
-  void Reset(ChildFilter aFilter = eSkipPlaceholders) {
+  void Reset(ChildFilter aFilter = ChildFilter::SkipPlaceholders) {
     if (mIter.isSome()) {
       mIter.reset();
       mIter.emplace(begin(mChildren));
@@ -231,7 +212,7 @@ class CSSOrderAwareFrameIteratorT {
       mArrayIndex = 0;
     }
     mItemIndex = IsForward() ? 0 : *mItemCount - 1;
-    mSkipPlaceholders = aFilter == eSkipPlaceholders;
+    mSkipPlaceholders = aFilter == ChildFilter::SkipPlaceholders;
     if (mSkipPlaceholders) {
       SkipPlaceholders();
     }
@@ -247,11 +228,16 @@ class CSSOrderAwareFrameIteratorT {
 
   bool ItemsAreAlreadyInOrder() const { return mIter.isSome(); }
 
-  static bool CSSOrderComparator(nsIFrame* const& a, nsIFrame* const& b);
-  static bool CSSBoxOrdinalGroupComparator(nsIFrame* const& a,
-                                           nsIFrame* const& b);
-
  private:
+  static bool CanUse(const nsIFrame*);
+
+  Iterator begin(const nsFrameList& aList);
+  Iterator end(const nsFrameList& aList);
+
+  static int CSSOrderComparator(nsIFrame* const& a, nsIFrame* const& b);
+  static int CSSBoxOrdinalGroupComparator(nsIFrame* const& a,
+                                          nsIFrame* const& b);
+
   nsFrameList mChildren;
   // Used if child list is already in ascending 'order'.
   Maybe<Iterator> mIter;
@@ -273,10 +259,10 @@ class CSSOrderAwareFrameIteratorT {
 #endif
 };
 
-typedef CSSOrderAwareFrameIteratorT<nsFrameList::iterator>
-    CSSOrderAwareFrameIterator;
-typedef CSSOrderAwareFrameIteratorT<nsFrameList::reverse_iterator>
-    ReverseCSSOrderAwareFrameIterator;
+using CSSOrderAwareFrameIterator =
+    CSSOrderAwareFrameIteratorT<nsFrameList::iterator>;
+using ReverseCSSOrderAwareFrameIterator =
+    CSSOrderAwareFrameIteratorT<nsFrameList::reverse_iterator>;
 
 }  // namespace mozilla
 

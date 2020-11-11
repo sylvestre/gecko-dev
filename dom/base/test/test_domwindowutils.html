@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>Test for DOMWindowUtils</title>
-  <script type="application/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css"/>
 </head>
 <body>
@@ -61,6 +61,7 @@ function test_getUnanimatedComputedStyle() {
       set: [
         ["dom.animations-api.core.enabled", true],
         ["dom.animations-api.getAnimations.enabled", true],
+        ["dom.animations-api.timelines.enabled", true],
       ],
     },
     () => {
@@ -69,10 +70,15 @@ function test_getUnanimatedComputedStyle() {
   );
 }
 
+function test_setDynamicToolbarMaxHeight() {
+  window.open("file_domwindowutils_dynamic_toolbar.html");
+}
+
 var tests = [
   test_sendMouseEventDefaults,
   test_sendMouseEventOptionals,
-  test_getUnanimatedComputedStyle
+  test_getUnanimatedComputedStyle,
+  test_setDynamicToolbarMaxHeight
 ];
 
 function next() {

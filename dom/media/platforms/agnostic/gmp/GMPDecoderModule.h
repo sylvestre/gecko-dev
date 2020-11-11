@@ -5,10 +5,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #if !defined(GMPDecoderModule_h_)
-#define GMPDecoderModule_h_
+#  define GMPDecoderModule_h_
 
-#include "PlatformDecoderModule.h"
-#include "mozilla/Maybe.h"
+#  include "PlatformDecoderModule.h"
+#  include "mozilla/Maybe.h"
 
 // The special NodeId we use when doing unencrypted decoding using the GMP's
 // decoder. This ensures that each GMP MediaDataDecoder we create doesn't
@@ -21,13 +21,16 @@
 // (because NodeIds are random strings which can't contain the '-' character),
 // so there's no way a malicious GMP can harvest, store, and then report any
 // privacy sensitive data about what users are watching.
-#define SHARED_GMP_DECODING_NODE_ID NS_LITERAL_CSTRING("gmp-shared-decoding")
+#  define SHARED_GMP_DECODING_NODE_ID "gmp-shared-decoding"_ns
 
 namespace mozilla {
 
 class GMPDecoderModule : public PlatformDecoderModule {
+  template <typename T, typename... Args>
+  friend already_AddRefed<T> MakeAndAddRef(Args&&...);
+
  public:
-  GMPDecoderModule();
+  static already_AddRefed<PlatformDecoderModule> Create();
 
   // Decode thread.
   already_AddRefed<MediaDataDecoder> CreateVideoDecoder(
@@ -44,7 +47,8 @@ class GMPDecoderModule : public PlatformDecoderModule {
                                const Maybe<nsCString>& aGMP);
 
  private:
-  virtual ~GMPDecoderModule();
+  GMPDecoderModule() = default;
+  virtual ~GMPDecoderModule() = default;
 };
 
 }  // namespace mozilla

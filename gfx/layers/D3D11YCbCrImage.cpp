@@ -6,10 +6,10 @@
 
 #include "D3D11YCbCrImage.h"
 
-#include "gfx2DGlue.h"
 #include "YCbCrUtils.h"
-#include "mozilla/gfx/gfxVars.h"
+#include "gfx2DGlue.h"
 #include "mozilla/gfx/DeviceManagerDx.h"
+#include "mozilla/gfx/gfxVars.h"
 #include "mozilla/layers/CompositableClient.h"
 #include "mozilla/layers/CompositableForwarder.h"
 #include "mozilla/layers/TextureD3D11.h"
@@ -33,6 +33,7 @@ bool D3D11YCbCrImage::SetData(KnowsCompositor* aAllocator,
   mCbCrSize = aData.mCbCrSize;
   mColorDepth = aData.mColorDepth;
   mColorSpace = aData.mYUVColorSpace;
+  mColorRange = aData.mColorRange;
 
   D3D11YCbCrRecycleAllocator* allocator =
       aContainer->GetD3D11YCbCrRecycleAllocator(aAllocator);
@@ -102,7 +103,8 @@ bool D3D11YCbCrImage::SetData(KnowsCompositor* aAllocator,
 
 IntSize D3D11YCbCrImage::GetSize() const { return mPictureRect.Size(); }
 
-TextureClient* D3D11YCbCrImage::GetTextureClient(KnowsCompositor* aForwarder) {
+TextureClient* D3D11YCbCrImage::GetTextureClient(
+    KnowsCompositor* aKnowsCompositor) {
   return mTextureClient;
 }
 
@@ -142,6 +144,11 @@ already_AddRefed<SourceSurface> D3D11YCbCrImage::GetAsSourceSurface() {
 
   RefPtr<ID3D11Device> dev;
   texY->GetDevice(getter_AddRefs(dev));
+
+  if (!dev || dev != gfx::DeviceManagerDx::Get()->GetImageDevice()) {
+    gfxCriticalError() << "D3D11Device is obsoleted";
+    return nullptr;
+  }
 
   RefPtr<ID3D10Multithread> mt;
   hr = dev->QueryInterface((ID3D10Multithread**)getter_AddRefs(mt));
@@ -226,6 +233,7 @@ already_AddRefed<SourceSurface> D3D11YCbCrImage::GetAsSourceSurface() {
   data.mStereoMode = StereoMode::MONO;
   data.mColorDepth = mColorDepth;
   data.mYUVColorSpace = mColorSpace;
+  data.mColorRange = mColorRange;
   data.mYSkip = data.mCbSkip = data.mCrSkip = 0;
   data.mYSize = mYSize;
   data.mCbCrSize = mCbCrSize;
@@ -265,7 +273,7 @@ already_AddRefed<SourceSurface> D3D11YCbCrImage::GetAsSourceSurface() {
   return surface.forget();
 }
 
-class AutoCheckLockD3D11Texture {
+class AutoCheckLockD3D11Texture final {
  public:
   explicit AutoCheckLockD3D11Texture(ID3D11Texture2D* aTexture)
       : mIsLocked(false) {
@@ -279,13 +287,20 @@ class AutoCheckLockD3D11Texture {
 
     // Test to see if the keyed mutex has been released
     HRESULT hr = mMutex->AcquireSync(0, 0);
-    if (SUCCEEDED(hr)) {
+    if (hr == S_OK || hr == WAIT_ABANDONED) {
       mIsLocked = true;
+      // According to Microsoft documentation:
+      // WAIT_ABANDONED - The shared surface and keyed mutex are no longer in a
+      // consistent state. If AcquireSync returns this value, you should release
+      // and recreate both the keyed mutex and the shared surface
+      // So even if we do get WAIT_ABANDONED, the keyed mutex will have to be
+      // released.
+      mSyncAcquired = true;
     }
   }
 
   ~AutoCheckLockD3D11Texture() {
-    if (!mMutex) {
+    if (!mSyncAcquired) {
       return;
     }
     HRESULT hr = mMutex->ReleaseSync(0);
@@ -298,13 +313,14 @@ class AutoCheckLockD3D11Texture {
 
  private:
   bool mIsLocked;
+  bool mSyncAcquired = false;
   RefPtr<IDXGIKeyedMutex> mMutex;
 };
 
 DXGIYCbCrTextureAllocationHelper::DXGIYCbCrTextureAllocationHelper(
     const PlanarYCbCrData& aData, TextureFlags aTextureFlags,
     ID3D11Device* aDevice)
-    : ITextureClientAllocationHelper(gfx::SurfaceFormat::YUV, aData.mYSize,
+    : ITextureClientAllocationHelper(gfx::SurfaceFormat::YUV, aData.mPicSize,
                                      BackendSelector::Content, aTextureFlags,
                                      ALLOC_DEFAULT),
       mData(aData),
@@ -316,7 +332,7 @@ bool DXGIYCbCrTextureAllocationHelper::IsCompatible(
 
   DXGIYCbCrTextureData* dxgiData =
       aTextureClient->GetInternalData()->AsDXGIYCbCrTextureData();
-  if (!dxgiData || aTextureClient->GetSize() != mData.mYSize ||
+  if (!dxgiData || aTextureClient->GetSize() != mData.mPicSize ||
       dxgiData->GetYSize() != mData.mYSize ||
       dxgiData->GetCbCrSize() != mData.mCbCrSize ||
       dxgiData->GetColorDepth() != mData.mColorDepth ||
@@ -396,9 +412,10 @@ already_AddRefed<TextureClient> DXGIYCbCrTextureAllocationHelper::Allocate(
       aAllocator ? aAllocator->GetTextureForwarder() : nullptr;
 
   return TextureClient::CreateWithData(
-      DXGIYCbCrTextureData::Create(textureY, textureCb, textureCr, mData.mYSize,
-                                   mData.mYSize, mData.mCbCrSize,
-                                   mData.mColorDepth, mData.mYUVColorSpace),
+      DXGIYCbCrTextureData::Create(textureY, textureCb, textureCr,
+                                   mData.mPicSize, mData.mYSize,
+                                   mData.mCbCrSize, mData.mColorDepth,
+                                   mData.mYUVColorSpace, mData.mColorRange),
       mTextureFlags, forwarder);
 }
 

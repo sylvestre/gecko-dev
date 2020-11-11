@@ -2,29 +2,7 @@
  *  License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-const gTests = [
-  test_eventMatchesKey,
-  test_getTopWin,
-  test_openNewTabWith,
-  test_openUILink,
-];
-
-function test() {
-  waitForExplicitFinish();
-  executeSoon(runNextTest);
-}
-
-function runNextTest() {
-  if (gTests.length) {
-    let testFun = gTests.shift();
-    info("Running " + testFun.name);
-    testFun();
-  } else {
-    finish();
-  }
-}
-
-function test_eventMatchesKey() {
+add_task(async function test_eventMatchesKey() {
   let eventMatchResult;
   let key;
   let checkEvent = function(e) {
@@ -40,7 +18,7 @@ function test_eventMatchesKey() {
     key.setAttribute("key", "t");
     key.setAttribute("modifiers", "accel");
     keyset.appendChild(key);
-    EventUtils.synthesizeKey("t", {accelKey: true});
+    EventUtils.synthesizeKey("t", { accelKey: true });
     is(eventMatchResult, true, "eventMatchesKey: one modifier");
     keyset.removeChild(key);
 
@@ -48,7 +26,7 @@ function test_eventMatchesKey() {
     key.setAttribute("key", "g");
     key.setAttribute("modifiers", "accel,shift");
     keyset.appendChild(key);
-    EventUtils.synthesizeKey("g", {accelKey: true, shiftKey: true});
+    EventUtils.synthesizeKey("g", { accelKey: true, shiftKey: true });
     is(eventMatchResult, true, "eventMatchesKey: combination modifiers");
     keyset.removeChild(key);
 
@@ -56,14 +34,14 @@ function test_eventMatchesKey() {
     key.setAttribute("key", "w");
     key.setAttribute("modifiers", "accel");
     keyset.appendChild(key);
-    EventUtils.synthesizeKey("f", {accelKey: true});
+    EventUtils.synthesizeKey("f", { accelKey: true });
     is(eventMatchResult, false, "eventMatchesKey: mismatch keys");
     keyset.removeChild(key);
 
     key = document.createXULElement("key");
     key.setAttribute("keycode", "VK_DELETE");
     keyset.appendChild(key);
-    EventUtils.synthesizeKey("VK_DELETE", {accelKey: true});
+    EventUtils.synthesizeKey("VK_DELETE", { accelKey: true });
     is(eventMatchResult, false, "eventMatchesKey: mismatch modifiers");
     keyset.removeChild(key);
   } finally {
@@ -71,32 +49,30 @@ function test_eventMatchesKey() {
     // fail when they simulate key presses.
     document.removeEventListener("keypress", checkEvent);
   }
+});
 
-  runNextTest();
-}
-
-function test_getTopWin() {
+add_task(async function test_getTopWin() {
   is(getTopWin(), window, "got top window");
-  runNextTest();
-}
+});
 
-function test_openNewTabWith() {
-  openNewTabWith("http://example.com/", null, {triggeringPrincipal: Services.scriptSecurityManager.createNullPrincipal({})});
-  let tab = gBrowser.selectedTab = gBrowser.tabs[1];
-  BrowserTestUtils.browserLoaded(tab.linkedBrowser).then(() => {
-    is(tab.linkedBrowser.currentURI.spec, "http://example.com/", "example.com loaded");
-    gBrowser.removeCurrentTab();
-    runNextTest();
-  });
-}
+add_task(async function test_openUILink() {
+  const kURL = "http://example.org/";
+  let tab = await BrowserTestUtils.openNewForegroundTab(
+    gBrowser,
+    "about:blank"
+  );
+  let loadPromise = BrowserTestUtils.browserLoaded(
+    tab.linkedBrowser,
+    false,
+    kURL
+  );
 
-function test_openUILink() {
-  let tab = gBrowser.selectedTab = BrowserTestUtils.addTab(gBrowser, "about:blank");
-  BrowserTestUtils.browserLoaded(tab.linkedBrowser).then(() => {
-    is(tab.linkedBrowser.currentURI.spec, "http://example.org/", "example.org loaded");
-    gBrowser.removeCurrentTab();
-    runNextTest();
-  });
+  openUILink(kURL, null, {
+    triggeringPrincipal: Services.scriptSecurityManager.createNullPrincipal({}),
+  }); // defaults to "current"
 
-  openUILink("http://example.org/", null, {triggeringPrincipal: Services.scriptSecurityManager.createNullPrincipal({})}); // defaults to "current"
-}
+  await loadPromise;
+
+  is(tab.linkedBrowser.currentURI.spec, kURL, "example.org loaded");
+  gBrowser.removeCurrentTab();
+});

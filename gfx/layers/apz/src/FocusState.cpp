@@ -8,8 +8,8 @@
 
 #include "mozilla/layers/APZThreadUtils.h"
 
-// #define FS_LOG(...) printf_stderr("FS: " __VA_ARGS__)
-#define FS_LOG(...)
+static mozilla::LazyLogModule sApzFstLog("apz.focusstate");
+#define FS_LOG(...) MOZ_LOG(sApzFstLog, LogLevel::Debug, (__VA_ARGS__))
 
 namespace mozilla {
 namespace layers {
@@ -65,7 +65,7 @@ void FocusState::Update(LayersId aRootLayerTreeId,
   MutexAutoLock lock(mMutex);
 
   FS_LOG("Update with rlt=%" PRIu64 ", olt=%" PRIu64 ", ft=(%s, %" PRIu64 ")\n",
-         aRootLayerTreeId, aOriginatingLayersId, aState.Type(),
+         aRootLayerTreeId.mId, aOriginatingLayersId.mId, aState.Type(),
          aState.mSequenceNumber);
   mReceivedUpdate = true;
 
@@ -85,7 +85,7 @@ void FocusState::Update(LayersId aRootLayerTreeId,
     auto currentNode = mFocusTree.find(mFocusLayersId);
     if (currentNode == mFocusTree.end()) {
       FS_LOG("Setting target to nil (cannot find lt=%" PRIu64 ")\n",
-             mFocusLayersId);
+             mFocusLayersId.mId);
       return;
     }
 
@@ -102,7 +102,7 @@ void FocusState::Update(LayersId aRootLayerTreeId,
       FocusState& mFocusState;
       const uint64_t mSequenceNumber;
 
-      bool match(const FocusTarget::NoFocusTarget& aNoFocusTarget) {
+      bool operator()(const FocusTarget::NoFocusTarget& aNoFocusTarget) {
         FS_LOG("Setting target to nil (reached a nil target) with seq=%" PRIu64
                "\n",
                mSequenceNumber);
@@ -123,25 +123,25 @@ void FocusState::Update(LayersId aRootLayerTreeId,
         return true;
       }
 
-      bool match(const LayersId& aRefLayerId) {
+      bool operator()(const LayersId& aRefLayerId) {
         // Guard against infinite loops
         MOZ_ASSERT(mFocusState.mFocusLayersId != aRefLayerId);
         if (mFocusState.mFocusLayersId == aRefLayerId) {
           FS_LOG(
               "Setting target to nil (bailing out of infinite loop, lt=%" PRIu64
               ")\n",
-              mFocusState.mFocusLayersId);
+              mFocusState.mFocusLayersId.mId);
           return true;
         }
 
-        FS_LOG("Looking for target in lt=%" PRIu64 "\n", aRefLayerId);
+        FS_LOG("Looking for target in lt=%" PRIu64 "\n", aRefLayerId.mId);
 
         // The focus target is in a child layer tree
         mFocusState.mFocusLayersId = aRefLayerId;
         return false;
       }
 
-      bool match(const FocusTarget::ScrollTargets& aScrollTargets) {
+      bool operator()(const FocusTarget::ScrollTargets& aScrollTargets) {
         FS_LOG("Setting target to h=%" PRIu64 ", v=%" PRIu64
                ", and seq=%" PRIu64 "\n",
                aScrollTargets.mHorizontal, aScrollTargets.mVertical,

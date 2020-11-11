@@ -1,4 +1,9 @@
-AntiTracking.runTest("IndexedDB",
+/* import-globals-from antitracking_head.js */
+
+requestLongerTimeout(4);
+
+AntiTracking.runTestInNormalAndPrivateMode(
+  "IndexedDB",
   // blocking callback
   async _ => {
     try {
@@ -17,11 +22,15 @@ AntiTracking.runTest("IndexedDB",
   // Cleanup callback
   async _ => {
     await new Promise(resolve => {
-      Services.clearData.deleteData(Ci.nsIClearDataService.CLEAR_ALL, value => resolve());
+      Services.clearData.deleteData(Ci.nsIClearDataService.CLEAR_ALL, value =>
+        resolve()
+      );
     });
-  });
+  }
+);
 
-AntiTracking.runTest("IndexedDB and Storage Access API",
+AntiTracking.runTestInNormalAndPrivateMode(
+  "IndexedDB and Storage Access API",
   // blocking callback
   async _ => {
     /* import-globals-from storageAccessAPIHelpers.js */
@@ -38,13 +47,32 @@ AntiTracking.runTest("IndexedDB and Storage Access API",
     /* import-globals-from storageAccessAPIHelpers.js */
     await callRequestStorageAccess();
 
-    indexedDB.open("test", "1");
-    ok(true, "IDB should be allowed");
+    let shouldThrow = [
+      SpecialPowers.Ci.nsICookieService.BEHAVIOR_REJECT,
+      SpecialPowers.Ci.nsICookieService.BEHAVIOR_REJECT_FOREIGN,
+    ].includes(
+      SpecialPowers.Services.prefs.getIntPref("network.cookie.cookieBehavior")
+    );
+
+    let hasThrown;
+    try {
+      indexedDB.open("test", "1");
+      hasThrown = false;
+    } catch (e) {
+      hasThrown = true;
+      is(e.name, "SecurityError", "We want a security error message.");
+    }
+
+    is(
+      hasThrown,
+      shouldThrow,
+      "IDB should be allowed if not in cookieBehavior pref value BEHAVIOR_REJECT/BEHAVIOR_REJECT_FOREIGN"
+    );
   },
   // non-blocking callback
   async _ => {
     /* import-globals-from storageAccessAPIHelpers.js */
-    await noStorageAccessInitially();
+    await hasStorageAccessInitially();
 
     indexedDB.open("test", "1");
     ok(true, "IDB should be allowed");
@@ -58,7 +86,12 @@ AntiTracking.runTest("IndexedDB and Storage Access API",
   // Cleanup callback
   async _ => {
     await new Promise(resolve => {
-      Services.clearData.deleteData(Ci.nsIClearDataService.CLEAR_ALL, value => resolve());
+      Services.clearData.deleteData(Ci.nsIClearDataService.CLEAR_ALL, value =>
+        resolve()
+      );
     });
   },
-  null, false, false);
+  null,
+  false,
+  false
+);

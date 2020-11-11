@@ -15,7 +15,8 @@ tabbox {
 }
 
 tabpanels {
-  -moz-appearance: tabpanels;
+  appearance: auto;
+  -moz-default-appearance: tabpanels;
   padding: 33px 15px 15px;
 }
 
@@ -28,7 +29,8 @@ tabs {
 }
 
 tab {
-  -moz-appearance: tab;
+  appearance: auto;
+  -moz-default-appearance: tab;
   padding-top: 1px;
 }
 
@@ -47,13 +49,6 @@ tab:last-of-type {
 
 tab[visuallyselected="true"]:not(:-moz-window-inactive) {
   color: #FFF;
-}
-
-@media (-moz-mac-yosemite-theme: 0) {
-  tab[visuallyselected="true"] {
-    color: #FFF;
-    text-shadow: rgba(0, 0, 0, 0.4) 0 1px;
-  }
 }
 
 .tab-middle {

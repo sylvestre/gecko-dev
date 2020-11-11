@@ -5,10 +5,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "xpcprivate.h"
+#include "xpc_make_class.h"
 
 #include "nsContentUtils.h"
 #include "BackstagePass.h"
-#include "nsIPrincipal.h"
 #include "mozilla/dom/BindingUtils.h"
 #include "mozilla/dom/WebIDLGlobalNameHash.h"
 
@@ -17,6 +17,9 @@ using namespace mozilla::dom;
 NS_IMPL_ISUPPORTS(BackstagePass, nsIXPCScriptable, nsIGlobalObject,
                   nsIClassInfo, nsIScriptObjectPrincipal,
                   nsISupportsWeakReference)
+
+BackstagePass::BackstagePass()
+    : mPrincipal(nsContentUtils::GetSystemPrincipal()), mWrapper(nullptr) {}
 
 // XXX(nika): It appears we don't have support for mayresolve hooks in
 // nsIXPCScriptable, and I don't really want to add it because I'd rather just
@@ -42,6 +45,13 @@ JSObject* BackstagePass::GetGlobalJSObject() {
   return nullptr;
 }
 
+JSObject* BackstagePass::GetGlobalJSObjectPreserveColor() const {
+  if (mWrapper) {
+    return mWrapper->GetFlatJSObjectPreserveColor();
+  }
+  return nullptr;
+}
+
 void BackstagePass::SetGlobalObject(JSObject* global) {
   nsISupports* p = XPCWrappedNative::Get(global);
   MOZ_ASSERT(p);
@@ -61,7 +71,8 @@ BackstagePass::Resolve(nsIXPConnectWrappedNative* wrapper, JSContext* cx,
 
 NS_IMETHODIMP
 BackstagePass::NewEnumerate(nsIXPConnectWrappedNative* wrapper, JSContext* cx,
-                            JSObject* objArg, JS::AutoIdVector& properties,
+                            JSObject* objArg,
+                            JS::MutableHandleIdVector properties,
                             bool enumerableOnly, bool* _retval) {
   JS::RootedObject obj(cx, objArg);
   *_retval = WebIDLGlobalNameHash::NewEnumerateSystemGlobal(cx, obj, properties,
@@ -71,13 +82,9 @@ BackstagePass::NewEnumerate(nsIXPConnectWrappedNative* wrapper, JSContext* cx,
 
 /***************************************************************************/
 NS_IMETHODIMP
-BackstagePass::GetInterfaces(uint32_t* aCount, nsIID*** aArray) {
-  *aCount = 2;
-  nsIID** array = static_cast<nsIID**>(moz_xmalloc(2 * sizeof(nsIID*)));
-  *aArray = array;
-
-  array[0] = NS_GET_IID(nsIXPCScriptable).Clone();
-  array[1] = NS_GET_IID(nsIScriptObjectPrincipal).Clone();
+BackstagePass::GetInterfaces(nsTArray<nsIID>& aArray) {
+  aArray = nsTArray<nsIID>{NS_GET_IID(nsIXPCScriptable),
+                           NS_GET_IID(nsIScriptObjectPrincipal)};
   return NS_OK;
 }
 
@@ -139,12 +146,5 @@ BackstagePass::PreCreate(nsISupports* nativeObj, JSContext* cx,
   if (jsglobal) {
     *parentObj = jsglobal;
   }
-  return NS_OK;
-}
-
-nsresult NS_NewBackstagePass(BackstagePass** ret) {
-  RefPtr<BackstagePass> bsp =
-      new BackstagePass(nsContentUtils::GetSystemPrincipal());
-  bsp.forget(ret);
   return NS_OK;
 }

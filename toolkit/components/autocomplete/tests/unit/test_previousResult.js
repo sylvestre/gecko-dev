@@ -9,7 +9,6 @@
  * searches.
  */
 
-
 /**
  * Dummy nsIAutoCompleteInput source that returns
  * the given list of AutoCompleteSearch names.
@@ -57,8 +56,6 @@ AutoCompleteInput.prototype = {
   QueryInterface: ChromeUtils.generateQI(["nsIAutoCompleteInput"]),
 };
 
-
-
 /**
  * nsIAutoCompleteResult implementation
  */
@@ -66,7 +63,7 @@ function AutoCompleteResult(aValues, aComments, aStyles) {
   this._values = aValues;
   this._comments = aComments;
   this._styles = aStyles;
-  if (this._values.length > 0) {
+  if (this._values.length) {
     this.searchResult = Ci.nsIAutoCompleteResult.RESULT_SUCCESS;
   } else {
     this.searchResult = Ci.nsIAutoCompleteResult.RESULT_NOMATCH;
@@ -113,12 +110,11 @@ AutoCompleteResult.prototype = {
     return this.getValueAt(aIndex);
   },
 
-  removeValueAt(aRowIndex, aRemoveFromDb) {},
+  removeValueAt(aRowIndex) {},
 
   // nsISupports implementation
   QueryInterface: ChromeUtils.generateQI(["nsIAutoCompleteResult"]),
 };
-
 
 /**
  * nsIAutoCompleteSearch implementation that always returns
@@ -139,14 +135,10 @@ AutoCompleteSearch.prototype = {
 
   _previousResult: null,
 
-
   /**
    * Return the same result set for every search
    */
-  startSearch(aSearchString,
-                        aSearchParam,
-                        aPreviousResult,
-                        aListener) {
+  startSearch(aSearchString, aSearchParam, aPreviousResult, aListener) {
     this._previousResult = aPreviousResult;
     aListener.onSearchResult(this, this._result);
   },
@@ -154,14 +146,16 @@ AutoCompleteSearch.prototype = {
   stopSearch() {},
 
   // nsISupports implementation
-  QueryInterface: ChromeUtils.generateQI(["nsIFactory", "nsIAutoCompleteSearch"]),
+  QueryInterface: ChromeUtils.generateQI([
+    "nsIFactory",
+    "nsIAutoCompleteSearch",
+  ]),
 
   // nsIFactory implementation
   createInstance(outer, iid) {
     return this.QueryInterface(iid);
   },
 };
-
 
 /**
  * Helper to register an AutoCompleteSearch with the given name.
@@ -170,52 +164,57 @@ AutoCompleteSearch.prototype = {
 function registerAutoCompleteSearch(aSearch) {
   var name = "@mozilla.org/autocomplete/search;1?name=" + aSearch.name;
 
-  var uuidGenerator = Cc["@mozilla.org/uuid-generator;1"].
-                      getService(Ci.nsIUUIDGenerator);
+  var uuidGenerator = Cc["@mozilla.org/uuid-generator;1"].getService(
+    Ci.nsIUUIDGenerator
+  );
   var cid = uuidGenerator.generateUUID();
 
   var desc = "Test AutoCompleteSearch";
 
-  var componentManager = Components.manager
-                                   .QueryInterface(Ci.nsIComponentRegistrar);
+  var componentManager = Components.manager.QueryInterface(
+    Ci.nsIComponentRegistrar
+  );
   componentManager.registerFactory(cid, desc, name, aSearch);
 
   // Keep the id on the object so we can unregister later
   aSearch.cid = cid;
 }
 
-
 /**
  * Helper to unregister an AutoCompleteSearch.
  */
 function unregisterAutoCompleteSearch(aSearch) {
-  var componentManager = Components.manager
-                                   .QueryInterface(Ci.nsIComponentRegistrar);
+  var componentManager = Components.manager.QueryInterface(
+    Ci.nsIComponentRegistrar
+  );
   componentManager.unregisterFactory(aSearch.cid, aSearch);
 }
-
 
 /**
  */
 function run_test() {
   // Make an AutoCompleteSearch that always returns nothing
-  var search1 = new AutoCompleteSearch("test-previous-result1",
-    new AutoCompleteResult(["hello1"], [""], [""]));
+  var search1 = new AutoCompleteSearch(
+    "test-previous-result1",
+    new AutoCompleteResult(["hello1"], [""], [""])
+  );
 
-  var search2 = new AutoCompleteSearch("test-previous-result2",
-    new AutoCompleteResult(["hello2"], [""], [""]));
+  var search2 = new AutoCompleteSearch(
+    "test-previous-result2",
+    new AutoCompleteResult(["hello2"], [""], [""])
+  );
 
   // Register search so AutoCompleteController can find them
   registerAutoCompleteSearch(search1);
   registerAutoCompleteSearch(search2);
 
-  var controller = Cc["@mozilla.org/autocomplete/controller;1"].
-                   getService(Ci.nsIAutoCompleteController);
+  var controller = Cc["@mozilla.org/autocomplete/controller;1"].getService(
+    Ci.nsIAutoCompleteController
+  );
 
   // Make an AutoCompleteInput that uses our search
   // and confirms results on search complete
-  var input = new AutoCompleteInput([search1.name,
-                                     search2.name]);
+  var input = new AutoCompleteInput([search1.name, search2.name]);
   var numSearchesStarted = 0;
 
   input.onSearchBegin = function() {
@@ -223,8 +222,10 @@ function run_test() {
   };
 
   input.onSearchComplete = function() {
-    Assert.equal(controller.searchStatus,
-                 Ci.nsIAutoCompleteController.STATUS_COMPLETE_MATCH);
+    Assert.equal(
+      controller.searchStatus,
+      Ci.nsIAutoCompleteController.STATUS_COMPLETE_MATCH
+    );
     Assert.equal(controller.matchCount, 2);
 
     if (numSearchesStarted == 1) {

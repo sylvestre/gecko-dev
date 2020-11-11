@@ -5,6 +5,7 @@
 #ifndef nsHtml5StringParser_h
 #define nsHtml5StringParser_h
 
+#include "mozilla/UniquePtr.h"
 #include "nsHtml5AtomTable.h"
 #include "nsParserBase.h"
 
@@ -12,7 +13,11 @@ class nsHtml5OplessBuilder;
 class nsHtml5TreeBuilder;
 class nsHtml5Tokenizer;
 class nsIContent;
-class nsIDocument;
+namespace mozilla {
+namespace dom {
+class Document;
+}
+}  // namespace mozilla
 
 class nsHtml5StringParser : public nsParserBase {
  public:
@@ -48,13 +53,14 @@ class nsHtml5StringParser : public nsParserBase {
    *
    */
   nsresult ParseDocument(const nsAString& aSourceBuffer,
-                         nsIDocument* aTargetDoc,
+                         mozilla::dom::Document* aTargetDoc,
                          bool aScriptingEnabledForNoscriptParsing);
 
  private:
   virtual ~nsHtml5StringParser();
 
-  nsresult Tokenize(const nsAString& aSourceBuffer, nsIDocument* aDocument,
+  nsresult Tokenize(const nsAString& aSourceBuffer,
+                    mozilla::dom::Document* aDocument,
                     bool aScriptingEnabledForNoscriptParsing);
 
   /**
@@ -65,12 +71,12 @@ class nsHtml5StringParser : public nsParserBase {
   /**
    * The HTML5 tree builder
    */
-  const nsAutoPtr<nsHtml5TreeBuilder> mTreeBuilder;
+  const mozilla::UniquePtr<nsHtml5TreeBuilder> mTreeBuilder;
 
   /**
    * The HTML5 tokenizer
    */
-  const nsAutoPtr<nsHtml5Tokenizer> mTokenizer;
+  const mozilla::UniquePtr<nsHtml5Tokenizer> mTokenizer;
 
   /**
    * The scoped atom table

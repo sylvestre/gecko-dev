@@ -2,7 +2,6 @@
 <html>
 <head>
   <title>Test for permissions</title>
-  <script src="chrome://mochikit/content/tests/SimpleTest/AddTask.js"></script>
   <script src="chrome://mochikit/content/tests/SimpleTest/SimpleTest.js"></script>
   <script src="chrome://mochikit/content/tests/SimpleTest/EventUtils.js"></script>
   <script src="chrome://mochikit/content/tests/SimpleTest/ExtensionTestUtils.js"></script>
@@ -57,10 +56,6 @@ add_task(async function test_downloads_open_requires_user_interaction() {
 });
 
 add_task(async function downloads_open_invalid_id() {
-  await SpecialPowers.pushPrefEnv({
-    set: [["extensions.webextensions.remote", false]],
-  });
-
   async function pageScript() {
     window.addEventListener("keypress", async function handler() {
       try {
@@ -98,10 +93,12 @@ add_task(async function downloads_open_invalid_id() {
   await extension.startup();
 
   let url = await extension.awaitMessage("ready");
-  let win = window.open(url);
+  let win = window.open();
+  let browserFrame = win.browsingContext.embedderElement;
+  win.location.href = url;
   await extension.awaitMessage("page-ready");
 
-  synthesizeKey("a", {}, win);
+  synthesizeKey("a", {}, browserFrame.contentWindow);
   let result = await extension.awaitMessage("download-open.result");
 
   is(result.success, false, "Opening download fails.");

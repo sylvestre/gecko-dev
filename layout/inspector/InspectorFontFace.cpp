@@ -21,16 +21,25 @@
 namespace mozilla {
 namespace dom {
 
+InspectorFontFace::InspectorFontFace(gfxFontEntry* aFontEntry,
+                                     gfxFontGroup* aFontGroup,
+                                     FontMatchType aMatchType)
+    : mFontEntry(aFontEntry), mFontGroup(aFontGroup), mMatchType(aMatchType) {
+  MOZ_COUNT_CTOR(InspectorFontFace);
+}
+
+InspectorFontFace::~InspectorFontFace() { MOZ_COUNT_DTOR(InspectorFontFace); }
+
 bool InspectorFontFace::FromFontGroup() {
-  return bool(mMatchType & gfxTextRange::MatchType::kFontGroup);
+  return bool(mMatchType.kind & FontMatchType::Kind::kFontGroup);
 }
 
 bool InspectorFontFace::FromLanguagePrefs() {
-  return bool(mMatchType & gfxTextRange::MatchType::kPrefsFallback);
+  return bool(mMatchType.kind & FontMatchType::Kind::kPrefsFallback);
 }
 
 bool InspectorFontFace::FromSystemFallback() {
-  return bool(mMatchType & gfxTextRange::MatchType::kSystemFallback);
+  return bool(mMatchType.kind & FontMatchType::Kind::kSystemFallback);
 }
 
 void InspectorFontFace::GetName(nsAString& aName) {
@@ -47,11 +56,8 @@ void InspectorFontFace::GetCSSFamilyName(nsAString& aCSSFamilyName) {
 }
 
 void InspectorFontFace::GetCSSGeneric(nsAString& aName) {
-  auto genericType =
-      FontFamilyType(mMatchType & gfxTextRange::MatchType::kGenericMask);
-  if (genericType >= FontFamilyType::eFamily_generic_first &&
-      genericType <= FontFamilyType::eFamily_generic_last) {
-    aName.AssignASCII(gfxPlatformFontList::GetGenericName(genericType));
+  if (mMatchType.generic != StyleGenericFontFamily::None) {
+    aName.AssignASCII(gfxPlatformFontList::GetGenericName(mMatchType.generic));
   } else {
     aName.Truncate(0);
   }
@@ -239,7 +245,7 @@ void InspectorFontFace::GetVariationInstances(
     aRV.Throw(NS_ERROR_OUT_OF_MEMORY);
     return;
   }
-  for (auto i : instances) {
+  for (const auto& i : instances) {
     InspectorVariationInstance& inst = *aResult.AppendElement();
     inst.mName.Append(NS_ConvertUTF8toUTF16(i.mName));
     // inst.mValues is a webidl sequence<>, which is a fallible array,
@@ -250,7 +256,7 @@ void InspectorFontFace::GetVariationInstances(
       aRV.Throw(NS_ERROR_OUT_OF_MEMORY);
       return;
     }
-    for (auto v : i.mValues) {
+    for (const auto& v : i.mValues) {
       InspectorVariationValue value;
       AppendTagAsASCII(value.mAxis, v.mAxis);
       value.mValue = v.mValue;
@@ -280,7 +286,7 @@ void InspectorFontFace::GetFeatures(nsTArray<InspectorFontFeature>& aResult,
 }
 
 void InspectorFontFace::GetRanges(nsTArray<RefPtr<nsRange>>& aResult) {
-  aResult = mRanges;
+  aResult = mRanges.Clone();
 }
 
 void InspectorFontFace::AddRange(nsRange* aRange) {

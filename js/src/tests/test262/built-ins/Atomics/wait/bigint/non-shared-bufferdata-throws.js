@@ -1,4 +1,4 @@
-// |reftest| skip-if(!this.hasOwnProperty('Atomics')||!this.hasOwnProperty('BigInt')) -- Atomics,BigInt is not enabled unconditionally
+// |reftest| skip-if(!this.hasOwnProperty('Atomics')) -- Atomics is not enabled unconditionally
 // Copyright (C) 2018 Amal Hussein. All rights reserved.
 // This code is governed by the BSD license found in the LICENSE file.
 /*---
@@ -15,10 +15,7 @@ info: |
           4.If bufferData is a Data Block, return false.
 features: [ArrayBuffer, Atomics, BigInt, TypedArray]
 ---*/
-
-const i64a = new BigInt64Array(
-  new ArrayBuffer(BigInt64Array.BYTES_PER_ELEMENT)
-);
+const i64a = new BigInt64Array(new ArrayBuffer(BigInt64Array.BYTES_PER_ELEMENT));
 
 const poisoned = {
   valueOf: function() {

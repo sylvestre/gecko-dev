@@ -3,15 +3,16 @@
  * http://creativecommons.org/publicdomain/zero/1.0/
  */
 
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
+const { ComponentUtils } = ChromeUtils.import(
+  "resource://gre/modules/ComponentUtils.jsm"
+);
 Cu.importGlobalProperties(["indexedDB"]);
 
 function GlobalObjectsComponent() {
   this.wrappedJSObject = this;
 }
 
-GlobalObjectsComponent.prototype =
-{
+GlobalObjectsComponent.prototype = {
   classID: Components.ID("{949ebf50-e0da-44b9-8335-cbfd4febfdcc}"),
 
   QueryInterface: ChromeUtils.generateQI([]),
@@ -38,4 +39,6 @@ GlobalObjectsComponent.prototype =
   },
 };
 
-this.NSGetFactory = XPCOMUtils.generateNSGetFactory([GlobalObjectsComponent]);
+this.NSGetFactory = ComponentUtils.generateNSGetFactory([
+  GlobalObjectsComponent,
+]);

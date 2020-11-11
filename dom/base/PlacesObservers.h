@@ -12,7 +12,6 @@
 #include "mozilla/dom/PlacesObserversBinding.h"
 #include "mozilla/dom/PlacesEvent.h"
 #include "mozilla/ErrorResult.h"
-#include "mozilla/Pair.h"
 #include "mozilla/places/INativePlacesEventCallback.h"
 #include "nsIWeakReferenceUtils.h"
 
@@ -41,10 +40,12 @@ class PlacesObservers {
   static void RemoveListener(const nsTArray<PlacesEventType>& aEventTypes,
                              places::INativePlacesEventCallback* aCallback);
 
+  MOZ_CAN_RUN_SCRIPT
   static void NotifyListeners(
       GlobalObject& aGlobal,
       const Sequence<OwningNonNull<PlacesEvent>>& aEvents, ErrorResult& rv);
 
+  MOZ_CAN_RUN_SCRIPT
   static void NotifyListeners(
       const Sequence<OwningNonNull<PlacesEvent>>& aEvents);
 

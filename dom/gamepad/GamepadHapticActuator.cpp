@@ -8,8 +8,7 @@
 #include "mozilla/dom/GamepadManager.h"
 #include "mozilla/dom/Promise.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_IMPL_CYCLE_COLLECTING_ADDREF(GamepadHapticActuator)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(GamepadHapticActuator)
@@ -29,8 +28,9 @@ GamepadHapticActuator::GamepadHapticActuator(nsISupports* aParent,
       mType(GamepadHapticActuatorType::Vibration),
       mIndex(aIndex) {}
 
-/* virtual */ JSObject* GamepadHapticActuator::WrapObject(
-    JSContext* aCx, JS::Handle<JSObject*> aGivenProto) {
+/* virtual */
+JSObject* GamepadHapticActuator::WrapObject(JSContext* aCx,
+                                            JS::Handle<JSObject*> aGivenProto) {
   return GamepadHapticActuator_Binding::Wrap(aCx, this, aGivenProto);
 }
 
@@ -77,5 +77,4 @@ void GamepadHapticActuator::Set(const GamepadHapticActuator* aOther) {
   mIndex = aOther->mIndex;
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

@@ -5,17 +5,13 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 EXPORTS += [
-    'mozStorageCID.h',
+    "mozStorageCID.h",
 ]
 
-SOURCES += [
-    'mozStorageModule.cpp',
+XPCOM_MANIFESTS += [
+    "components.conf",
 ]
 
-FINAL_LIBRARY = 'xul'
+FINAL_LIBRARY = "xul"
 
-LOCAL_INCLUDES += [
-    '..',
-]
-
-CXXFLAGS += CONFIG['SQLITE_CFLAGS']
+CXXFLAGS += CONFIG["SQLITE_CFLAGS"]

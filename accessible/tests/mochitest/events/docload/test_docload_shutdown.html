@@ -6,8 +6,7 @@
   <link rel="stylesheet" type="text/css"
         href="chrome://mochikit/content/tests/SimpleTest/test.css" />
 
-  <script type="application/javascript"
-          src="chrome://mochikit/content/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="chrome://mochikit/content/tests/SimpleTest/SimpleTest.js"></script>
 
   <script type="application/javascript"
           src="../../common.js"></script>
@@ -55,7 +54,7 @@
       ];
 
 
-      this.invoke = () => gDialog = window.openDialog(aURL);
+      this.invoke = () => gDialog = window.browsingContext.topChromeWindow.openDialog(aURL);
 
       this.finalCheck = () => {
         const accTree = {
@@ -110,18 +109,12 @@
     function doTests() {
       // Front end stuff sometimes likes to stuff things in the hidden window(s)
       // in which case we should repress all accessibles for those.
-      ChromeUtils.import("resource://gre/modules/Services.jsm");
+      const {Services} = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
       // Try to create an accessible for the hidden window's document.
       let doc = Services.appShell.hiddenDOMWindow.document;
       let hiddenDocAcc = gAccService.getAccessibleFor(doc);
       ok(!hiddenDocAcc, "hiddenDOMWindow should not have an accessible.");
-
-
-      // Try to create an accessible for the private hidden window's doc.
-      let privateDoc = Services.appShell.hiddenPrivateDOMWindow.document;
-      let hiddenPrivateDoc = gAccService.getAccessibleFor(privateDoc);
-      ok(!hiddenPrivateDoc, "hiddenPrivateDOMWindow should not have an accessible.");
 
       const gQueue = new eventQueue();
       gQueue.push(new openWndShutdownDoc("../../events/docload/docload_wnd.html"));

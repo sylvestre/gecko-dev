@@ -16,11 +16,12 @@
 #include "nsNetUtil.h"
 #include "nsIObjectInputStream.h"
 #include "nsIObjectOutputStream.h"
-#include "nsAutoPtr.h"
 #include "nsIWritablePropertyBag2.h"
 #include "nsIChannel.h"
 #include "nsIScriptError.h"
-#include "nsIEnterprisePolicies.h"
+#include "nsIClassInfoImpl.h"
+
+#include "mozilla/ipc/URIUtils.h"
 
 namespace mozilla {
 namespace net {
@@ -28,7 +29,7 @@ namespace net {
 static NS_DEFINE_CID(kSimpleURICID, NS_SIMPLEURI_CID);
 static NS_DEFINE_CID(kNestedAboutURICID, NS_NESTEDABOUTURI_CID);
 
-static bool IsSafeForUntrustedContent(nsIAboutModule *aModule, nsIURI *aURI) {
+static bool IsSafeForUntrustedContent(nsIAboutModule* aModule, nsIURI* aURI) {
   uint32_t flags;
   nsresult rv = aModule->GetURIFlags(aURI, &flags);
   NS_ENSURE_SUCCESS(rv, false);
@@ -36,15 +37,32 @@ static bool IsSafeForUntrustedContent(nsIAboutModule *aModule, nsIURI *aURI) {
   return (flags & nsIAboutModule::URI_SAFE_FOR_UNTRUSTED_CONTENT) != 0;
 }
 
-static bool IsSafeToLinkForUntrustedContent(nsIAboutModule *aModule,
-                                            nsIURI *aURI) {
-  uint32_t flags;
-  nsresult rv = aModule->GetURIFlags(aURI, &flags);
-  NS_ENSURE_SUCCESS(rv, false);
+static bool IsSafeToLinkForUntrustedContent(nsIURI* aURI) {
+  nsAutoCString path;
+  aURI->GetPathQueryRef(path);
 
-  return (flags & nsIAboutModule::URI_SAFE_FOR_UNTRUSTED_CONTENT) &&
-         (flags & nsIAboutModule::MAKE_LINKABLE);
+  int32_t f = path.FindChar('#');
+  if (f >= 0) {
+    path.SetLength(f);
+  }
+
+  f = path.FindChar('?');
+  if (f >= 0) {
+    path.SetLength(f);
+  }
+
+  ToLowerCase(path);
+
+  // The about modules for these URL types have the
+  // URI_SAFE_FOR_UNTRUSTED_CONTENT and MAKE_LINKABLE flags set.
+  if (path.EqualsLiteral("blank") || path.EqualsLiteral("logo") ||
+      path.EqualsLiteral("srcdoc")) {
+    return true;
+  }
+
+  return false;
 }
+
 ////////////////////////////////////////////////////////////////////////////////
 
 NS_IMPL_ISUPPORTS(nsAboutProtocolHandler, nsIProtocolHandler,
@@ -54,26 +72,26 @@ NS_IMPL_ISUPPORTS(nsAboutProtocolHandler, nsIProtocolHandler,
 // nsIProtocolHandler methods:
 
 NS_IMETHODIMP
-nsAboutProtocolHandler::GetScheme(nsACString &result) {
+nsAboutProtocolHandler::GetScheme(nsACString& result) {
   result.AssignLiteral("about");
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsAboutProtocolHandler::GetDefaultPort(int32_t *result) {
+nsAboutProtocolHandler::GetDefaultPort(int32_t* result) {
   *result = -1;  // no port for about: URLs
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsAboutProtocolHandler::GetProtocolFlags(uint32_t *result) {
+nsAboutProtocolHandler::GetProtocolFlags(uint32_t* result) {
   *result = URI_NORELATIVE | URI_NOAUTH | URI_DANGEROUS_TO_LOAD |
             URI_SCHEME_NOT_SELF_LINKABLE;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsAboutProtocolHandler::GetFlagsForURI(nsIURI *aURI, uint32_t *aFlags) {
+nsAboutProtocolHandler::GetFlagsForURI(nsIURI* aURI, uint32_t* aFlags) {
   // First use the default (which is "unsafe for content"):
   GetProtocolFlags(aFlags);
 
@@ -104,11 +122,12 @@ nsAboutProtocolHandler::GetFlagsForURI(nsIURI *aURI, uint32_t *aFlags) {
   return NS_OK;
 }
 
-NS_IMETHODIMP
-nsAboutProtocolHandler::NewURI(const nsACString &aSpec,
-                               const char *aCharset,  // ignore charset info
-                               nsIURI *aBaseURI, nsIURI **result) {
-  *result = nullptr;
+// static
+nsresult nsAboutProtocolHandler::CreateNewURI(const nsACString& aSpec,
+                                              const char* aCharset,
+                                              nsIURI* aBaseURI,
+                                              nsIURI** aResult) {
+  *aResult = nullptr;
   nsresult rv;
 
   // Use a simple URI to parse out some stuff first
@@ -119,18 +138,7 @@ nsAboutProtocolHandler::NewURI(const nsACString &aSpec,
     return rv;
   }
 
-  // Unfortunately, people create random about: URIs that don't correspond to
-  // about: modules...  Since those URIs will never open a channel, might as
-  // well consider them unsafe for better perf, and just in case.
-  bool isSafe = false;
-
-  nsCOMPtr<nsIAboutModule> aboutMod;
-  rv = NS_GetAboutModule(url, getter_AddRefs(aboutMod));
-  if (NS_SUCCEEDED(rv)) {
-    isSafe = IsSafeToLinkForUntrustedContent(aboutMod, url);
-  }
-
-  if (isSafe) {
+  if (IsSafeToLinkForUntrustedContent(url)) {
     // We need to indicate that this baby is safe.  Use an inner URI that
     // no one but the security manager will see.  Make sure to preserve our
     // path, in case someone decides to hardcode checks for particular
@@ -154,46 +162,27 @@ nsAboutProtocolHandler::NewURI(const nsACString &aSpec,
     NS_ENSURE_SUCCESS(rv, rv);
   }
 
-  url.swap(*result);
+  url.swap(*aResult);
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsAboutProtocolHandler::NewChannel2(nsIURI *uri, nsILoadInfo *aLoadInfo,
-                                    nsIChannel **result) {
+nsAboutProtocolHandler::NewChannel(nsIURI* uri, nsILoadInfo* aLoadInfo,
+                                   nsIChannel** result) {
   NS_ENSURE_ARG_POINTER(uri);
 
   // about:what you ask?
   nsCOMPtr<nsIAboutModule> aboutMod;
   nsresult rv = NS_GetAboutModule(uri, getter_AddRefs(aboutMod));
 
-  bool aboutPageAllowed = true;
   nsAutoCString path;
   nsresult rv2 = NS_GetAboutModuleName(uri, path);
-  if (NS_SUCCEEDED(rv2)) {
-    if (path.EqualsLiteral("srcdoc")) {
-      // about:srcdoc is meant to be unresolvable, yet is included in the
-      // about lookup tables so that it can pass security checks when used in
-      // a srcdoc iframe.  To ensure that it stays unresolvable, we pretend
-      // that it doesn't exist.
-      rv = NS_ERROR_FACTORY_NOT_REGISTERED;
-    } else if (!path.EqualsLiteral("blank") &&
-               !path.EqualsLiteral("neterror") && !path.EqualsLiteral("home") &&
-               !path.EqualsLiteral("welcome") &&
-               !path.EqualsLiteral("newtab") &&
-               !path.EqualsLiteral("certerror")) {
-      nsCOMPtr<nsIEnterprisePolicies> policyManager =
-          do_GetService("@mozilla.org/browser/enterprisepolicies;1", &rv2);
-      if (NS_SUCCEEDED(rv2)) {
-        nsAutoCString normalizedURL;
-        normalizedURL.AssignLiteral("about:");
-        normalizedURL.Append(path);
-        rv2 = policyManager->IsAllowed(normalizedURL, &aboutPageAllowed);
-        if (NS_FAILED(rv2)) {
-          aboutPageAllowed = false;
-        }
-      }
-    }
+  if (NS_SUCCEEDED(rv2) && path.EqualsLiteral("srcdoc")) {
+    // about:srcdoc is meant to be unresolvable, yet is included in the
+    // about lookup tables so that it can pass security checks when used in
+    // a srcdoc iframe.  To ensure that it stays unresolvable, we pretend
+    // that it doesn't exist.
+    rv = NS_ERROR_FACTORY_NOT_REGISTERED;
   }
 
   if (NS_SUCCEEDED(rv)) {
@@ -204,22 +193,18 @@ nsAboutProtocolHandler::NewChannel2(nsIURI *uri, nsILoadInfo *aLoadInfo,
       // set the LoadInfo on the newly created channel yet, as
       // an interim solution we set the LoadInfo here if not
       // available on the channel. Bug 1087720
-      nsCOMPtr<nsILoadInfo> loadInfo = (*result)->GetLoadInfo();
+      nsCOMPtr<nsILoadInfo> loadInfo = (*result)->LoadInfo();
       if (aLoadInfo != loadInfo) {
-        if (loadInfo) {
-          NS_ASSERTION(false,
-                       "nsIAboutModule->newChannel(aURI, aLoadInfo) needs to "
-                       "set LoadInfo");
-          const char16_t *params[] = {
-              u"nsIAboutModule->newChannel(aURI)",
-              u"nsIAboutModule->newChannel(aURI, aLoadInfo)"};
-          nsContentUtils::ReportToConsole(
-              nsIScriptError::warningFlag,
-              NS_LITERAL_CSTRING("Security by Default"),
-              nullptr,  // aDocument
-              nsContentUtils::eNECKO_PROPERTIES, "APIDeprecationWarning",
-              params, mozilla::ArrayLength(params));
-        }
+        NS_ASSERTION(false,
+                     "nsIAboutModule->newChannel(aURI, aLoadInfo) needs to "
+                     "set LoadInfo");
+        AutoTArray<nsString, 2> params = {
+            u"nsIAboutModule->newChannel(aURI)"_ns,
+            u"nsIAboutModule->newChannel(aURI, aLoadInfo)"_ns};
+        nsContentUtils::ReportToConsole(
+            nsIScriptError::warningFlag, "Security by Default"_ns,
+            nullptr,  // aDocument
+            nsContentUtils::eNECKO_PROPERTIES, "APIDeprecationWarning", params);
         (*result)->SetLoadInfo(aLoadInfo);
       }
 
@@ -239,12 +224,9 @@ nsAboutProtocolHandler::NewChannel2(nsIURI *uri, nsILoadInfo *aLoadInfo,
         nsCOMPtr<nsIWritablePropertyBag2> writableBag =
             do_QueryInterface(*result);
         if (writableBag) {
-          writableBag->SetPropertyAsInterface(NS_LITERAL_STRING("baseURI"),
+          writableBag->SetPropertyAsInterface(u"baseURI"_ns,
                                               aboutURI->GetBaseURI());
         }
-      }
-      if (!aboutPageAllowed) {
-        (*result)->Cancel(NS_ERROR_BLOCKED_BY_POLICY);
       }
     }
     return rv;
@@ -262,13 +244,8 @@ nsAboutProtocolHandler::NewChannel2(nsIURI *uri, nsILoadInfo *aLoadInfo,
 }
 
 NS_IMETHODIMP
-nsAboutProtocolHandler::NewChannel(nsIURI *uri, nsIChannel **result) {
-  return NewChannel2(uri, nullptr, result);
-}
-
-NS_IMETHODIMP
-nsAboutProtocolHandler::AllowPort(int32_t port, const char *scheme,
-                                  bool *_retval) {
+nsAboutProtocolHandler::AllowPort(int32_t port, const char* scheme,
+                                  bool* _retval) {
   // don't override anything.
   *_retval = false;
   return NS_OK;
@@ -283,53 +260,34 @@ NS_IMPL_ISUPPORTS(nsSafeAboutProtocolHandler, nsIProtocolHandler,
 // nsIProtocolHandler methods:
 
 NS_IMETHODIMP
-nsSafeAboutProtocolHandler::GetScheme(nsACString &result) {
+nsSafeAboutProtocolHandler::GetScheme(nsACString& result) {
   result.AssignLiteral("moz-safe-about");
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsSafeAboutProtocolHandler::GetDefaultPort(int32_t *result) {
+nsSafeAboutProtocolHandler::GetDefaultPort(int32_t* result) {
   *result = -1;  // no port for moz-safe-about: URLs
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsSafeAboutProtocolHandler::GetProtocolFlags(uint32_t *result) {
+nsSafeAboutProtocolHandler::GetProtocolFlags(uint32_t* result) {
   *result = URI_NORELATIVE | URI_NOAUTH | URI_LOADABLE_BY_ANYONE |
             URI_IS_POTENTIALLY_TRUSTWORTHY;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsSafeAboutProtocolHandler::NewURI(const nsACString &aSpec,
-                                   const char *aCharset,  // ignore charset info
-                                   nsIURI *aBaseURI, nsIURI **result) {
-  nsresult rv =
-      NS_MutateURI(new nsSimpleURI::Mutator()).SetSpec(aSpec).Finalize(result);
-  if (NS_FAILED(rv)) {
-    return rv;
-  }
-
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-nsSafeAboutProtocolHandler::NewChannel2(nsIURI *uri, nsILoadInfo *aLoadInfo,
-                                        nsIChannel **result) {
+nsSafeAboutProtocolHandler::NewChannel(nsIURI* uri, nsILoadInfo* aLoadInfo,
+                                       nsIChannel** result) {
   *result = nullptr;
   return NS_ERROR_NOT_AVAILABLE;
 }
 
 NS_IMETHODIMP
-nsSafeAboutProtocolHandler::NewChannel(nsIURI *uri, nsIChannel **result) {
-  *result = nullptr;
-  return NS_ERROR_NOT_AVAILABLE;
-}
-
-NS_IMETHODIMP
-nsSafeAboutProtocolHandler::AllowPort(int32_t port, const char *scheme,
-                                      bool *_retval) {
+nsSafeAboutProtocolHandler::AllowPort(int32_t port, const char* scheme,
+                                      bool* _retval) {
   // don't override anything.
   *_retval = false;
   return NS_OK;
@@ -337,21 +295,28 @@ nsSafeAboutProtocolHandler::AllowPort(int32_t port, const char *scheme,
 
 ////////////////////////////////////////////////////////////
 // nsNestedAboutURI implementation
+
+NS_IMPL_CLASSINFO(nsNestedAboutURI, nullptr, nsIClassInfo::THREADSAFE,
+                  NS_NESTEDABOUTURI_CID);
+// Empty CI getter. We only need nsIClassInfo for Serialization
+NS_IMPL_CI_INTERFACE_GETTER0(nsNestedAboutURI)
+
 NS_INTERFACE_MAP_BEGIN(nsNestedAboutURI)
   if (aIID.Equals(kNestedAboutURICID))
-    foundInterface = static_cast<nsIURI *>(this);
+    foundInterface = static_cast<nsIURI*>(this);
   else
+    NS_IMPL_QUERY_CLASSINFO(nsNestedAboutURI)
 NS_INTERFACE_MAP_END_INHERITING(nsSimpleNestedURI)
 
 // nsISerializable
 
 NS_IMETHODIMP
-nsNestedAboutURI::Read(nsIObjectInputStream *aStream) {
+nsNestedAboutURI::Read(nsIObjectInputStream* aStream) {
   MOZ_ASSERT_UNREACHABLE("Use nsIURIMutator.read() instead");
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
-nsresult nsNestedAboutURI::ReadPrivate(nsIObjectInputStream *aStream) {
+nsresult nsNestedAboutURI::ReadPrivate(nsIObjectInputStream* aStream) {
   nsresult rv = nsSimpleNestedURI::ReadPrivate(aStream);
   if (NS_FAILED(rv)) return rv;
 
@@ -372,7 +337,7 @@ nsresult nsNestedAboutURI::ReadPrivate(nsIObjectInputStream *aStream) {
 }
 
 NS_IMETHODIMP
-nsNestedAboutURI::Write(nsIObjectOutputStream *aStream) {
+nsNestedAboutURI::Write(nsIObjectOutputStream* aStream) {
   nsresult rv = nsSimpleNestedURI::Write(aStream);
   if (NS_FAILED(rv)) return rv;
 
@@ -395,9 +360,46 @@ nsNestedAboutURI::Write(nsIObjectOutputStream *aStream) {
   return NS_OK;
 }
 
+NS_IMETHODIMP_(void)
+nsNestedAboutURI::Serialize(mozilla::ipc::URIParams& aParams) {
+  using namespace mozilla::ipc;
+
+  NestedAboutURIParams params;
+  URIParams nestedParams;
+
+  nsSimpleNestedURI::Serialize(nestedParams);
+  params.nestedParams() = nestedParams;
+
+  if (mBaseURI) {
+    SerializeURI(mBaseURI, params.baseURI());
+  }
+
+  aParams = params;
+}
+
+bool nsNestedAboutURI::Deserialize(const mozilla::ipc::URIParams& aParams) {
+  using namespace mozilla::ipc;
+
+  if (aParams.type() != URIParams::TNestedAboutURIParams) {
+    NS_ERROR("Received unknown parameters from the other process!");
+    return false;
+  }
+
+  const NestedAboutURIParams& params = aParams.get_NestedAboutURIParams();
+  if (!nsSimpleNestedURI::Deserialize(params.nestedParams())) {
+    return false;
+  }
+
+  mBaseURI = nullptr;
+  if (params.baseURI()) {
+    mBaseURI = DeserializeURI(*params.baseURI());
+  }
+  return true;
+}
+
 // nsSimpleURI
-/* virtual */ nsSimpleURI *nsNestedAboutURI::StartClone(
-    nsSimpleURI::RefHandlingEnum aRefHandlingMode, const nsACString &aNewRef) {
+/* virtual */ nsSimpleURI* nsNestedAboutURI::StartClone(
+    nsSimpleURI::RefHandlingEnum aRefHandlingMode, const nsACString& aNewRef) {
   // Sadly, we can't make use of nsSimpleNestedURI::StartClone here.
   // However, this function is expected to exactly match that function,
   // aside from the "new ns***URI()" call.
@@ -417,7 +419,7 @@ nsNestedAboutURI::Write(nsIObjectOutputStream *aStream) {
     return nullptr;
   }
 
-  nsNestedAboutURI *url = new nsNestedAboutURI(innerClone, mBaseURI);
+  nsNestedAboutURI* url = new nsNestedAboutURI(innerClone, mBaseURI);
   SetRefOnClone(url, aRefHandlingMode, aNewRef);
 
   return url;
@@ -429,20 +431,13 @@ NS_IMPL_NSIURIMUTATOR_ISUPPORTS(nsNestedAboutURI::Mutator, nsIURISetters,
                                 nsINestedAboutURIMutator)
 
 NS_IMETHODIMP
-nsNestedAboutURI::Mutate(nsIURIMutator **aMutator) {
+nsNestedAboutURI::Mutate(nsIURIMutator** aMutator) {
   RefPtr<nsNestedAboutURI::Mutator> mutator = new nsNestedAboutURI::Mutator();
   nsresult rv = mutator->InitFromURI(this);
   if (NS_FAILED(rv)) {
     return rv;
   }
   mutator.forget(aMutator);
-  return NS_OK;
-}
-
-// nsIClassInfo
-NS_IMETHODIMP
-nsNestedAboutURI::GetClassIDNoAlloc(nsCID *aClassIDNoAlloc) {
-  *aClassIDNoAlloc = kNestedAboutURICID;
   return NS_OK;
 }
 

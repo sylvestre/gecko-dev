@@ -8,8 +8,7 @@
 #include "mozilla/dom/DOMStringListBinding.h"
 #include "nsContentUtils.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE_0(DOMStringList)
 
@@ -20,12 +19,11 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(DOMStringList)
   NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END
 
-DOMStringList::~DOMStringList() {}
+DOMStringList::~DOMStringList() = default;
 
 JSObject* DOMStringList::WrapObject(JSContext* aCx,
                                     JS::Handle<JSObject*> aGivenProto) {
   return DOMStringList_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

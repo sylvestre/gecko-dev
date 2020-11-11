@@ -1,4 +1,3 @@
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -21,7 +20,7 @@ const TEST_URI = `
 
 add_task(async function() {
   await addTab("data:text/html;charset=utf-8," + encodeURIComponent(TEST_URI));
-  const {inspector, view} = await openRuleView();
+  const { inspector, view } = await openRuleView();
   const highlighters = view.highlighters;
 
   await selectNode("#grid", inspector);
@@ -29,9 +28,14 @@ add_task(async function() {
   const gridToggle = container.querySelector(".ruleview-grid");
 
   info("Checking the initial state of the CSS grid toggle in the rule-view.");
-  ok(!gridToggle.hasAttribute("disabled"), "Grid highlighter toggle is not disabled.");
-  ok(!gridToggle.classList.contains("active"),
-    "Grid highlighter toggle button is not active.");
+  ok(
+    !gridToggle.hasAttribute("disabled"),
+    "Grid highlighter toggle is not disabled."
+  );
+  ok(
+    !gridToggle.classList.contains("active"),
+    "Grid highlighter toggle button is not active."
+  );
   ok(!highlighters.gridHighlighters.size, "No CSS grid highlighter is shown.");
 
   info("Toggling ON the CSS grid highlighter from the rule-view.");
@@ -39,11 +43,18 @@ add_task(async function() {
   gridToggle.click();
   await onHighlighterShown;
 
-  info("Checking the CSS grid highlighter is created and toggle button is active in " +
-    "the rule-view.");
-  ok(!gridToggle.hasAttribute("disabled"), "Grid highlighter toggle is not disabled.");
-  ok(gridToggle.classList.contains("active"),
-    "Grid highlighter toggle is active.");
+  info(
+    "Checking the CSS grid highlighter is created and toggle button is active in " +
+      "the rule-view."
+  );
+  ok(
+    !gridToggle.hasAttribute("disabled"),
+    "Grid highlighter toggle is not disabled."
+  );
+  ok(
+    gridToggle.classList.contains("active"),
+    "Grid highlighter toggle is active."
+  );
   is(highlighters.gridHighlighters.size, 1, "CSS grid highlighter is shown.");
 
   info("Toggling OFF the CSS grid highlighter from the rule-view.");
@@ -51,10 +62,17 @@ add_task(async function() {
   gridToggle.click();
   await onHighlighterHidden;
 
-  info("Checking the CSS grid highlighter is not shown and toggle button is not active " +
-    "in the rule-view.");
-  ok(!gridToggle.hasAttribute("disabled"), "Grid highlighter toggle is not disabled.");
-  ok(!gridToggle.classList.contains("active"),
-    "Grid highlighter toggle button is not active.");
+  info(
+    "Checking the CSS grid highlighter is not shown and toggle button is not active " +
+      "in the rule-view."
+  );
+  ok(
+    !gridToggle.hasAttribute("disabled"),
+    "Grid highlighter toggle is not disabled."
+  );
+  ok(
+    !gridToggle.classList.contains("active"),
+    "Grid highlighter toggle button is not active."
+  );
   ok(!highlighters.gridHighlighters.size, "No CSS grid highlighter is shown.");
 });

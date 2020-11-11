@@ -9,8 +9,8 @@ import org.mozilla.gecko.GeckoAppShell;
 import org.mozilla.gecko.annotation.JNITarget;
 import org.mozilla.gecko.annotation.RobocopTarget;
 import org.mozilla.gecko.util.HardwareUtils;
-import org.mozilla.geckoview.BuildConfig;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.os.Build;
 import android.os.Environment;
@@ -40,14 +40,14 @@ public final class GeckoLoader {
         // prevent instantiation
     }
 
-    public static File getCacheDir(Context context) {
+    public static File getCacheDir(final Context context) {
         if (sCacheFile == null) {
             sCacheFile = context.getCacheDir();
         }
         return sCacheFile;
     }
 
-    public static File getGREDir(Context context) {
+    public static File getGREDir(final Context context) {
         if (sGREDir == null) {
             sGREDir = new File(context.getApplicationInfo().dataDir);
         }
@@ -71,7 +71,7 @@ public final class GeckoLoader {
         }
     }
 
-    private static void delTree(File file) {
+    private static void delTree(final File file) {
         if (file.isDirectory()) {
             File children[] = file.listFiles();
             for (File child : children) {
@@ -81,7 +81,7 @@ public final class GeckoLoader {
         file.delete();
     }
 
-    private static File getTmpDir(Context context) {
+    private static File getTmpDir(final Context context) {
         File tmpDir = context.getDir("tmpdir", Context.MODE_PRIVATE);
         // check if the old tmp dir is there
         File oldDir = new File(tmpDir.getParentFile(), "app_tmp");
@@ -99,8 +99,11 @@ public final class GeckoLoader {
         if (prefs != null) {
             final StringBuilder prefsEnv = new StringBuilder("MOZ_DEFAULT_PREFS=");
             for (final String key : prefs.keySet()) {
-                prefsEnv.append(String.format("pref(\"%s\",", escapeDoubleQuotes(key)));
                 final Object value = prefs.get(key);
+                if (value == null) {
+                    continue;
+                }
+                prefsEnv.append(String.format("pref(\"%s\",", escapeDoubleQuotes(key)));
                 if (value instanceof String) {
                     prefsEnv.append(String.format("\"%s\"", escapeDoubleQuotes(value.toString())));
                 } else if (value instanceof Boolean) {
@@ -116,6 +119,7 @@ public final class GeckoLoader {
         }
     }
 
+    @SuppressWarnings("deprecation") // for Build.CPU_ABI
     public synchronized static void setupGeckoEnvironment(final Context context,
                                                           final String profilePath,
                                                           final Collection<String> env,
@@ -176,6 +180,7 @@ public final class GeckoLoader {
         }
 
         putenv("MOZ_ANDROID_DEVICE_SDK_VERSION=" + Build.VERSION.SDK_INT);
+        putenv("MOZ_ANDROID_CPU_ABI=" + Build.CPU_ABI);
 
         setupInitialPrefs(prefs);
 
@@ -183,7 +188,7 @@ public final class GeckoLoader {
         loadLibsSetupLocked(context);
     }
 
-    private static void loadLibsSetupLocked(Context context) {
+    private static void loadLibsSetupLocked(final Context context) {
         putenv("GRE_HOME=" + getGREDir(context).getPath());
         putenv("MOZ_ANDROID_LIBDIR=" + context.getApplicationInfo().nativeLibraryDir);
     }
@@ -212,7 +217,7 @@ public final class GeckoLoader {
     }
 
     @SuppressWarnings("deprecation")
-    private static final String getCPUABI() {
+    private static String getCPUABI() {
         return android.os.Build.CPU_ABI;
     }
 
@@ -224,7 +229,8 @@ public final class GeckoLoader {
      * @param outDir the output directory for the .so. No trailing slash.
      * @return true on success, false on failure.
      */
-    private static boolean extractLibrary(final Context context, final String lib, final String outDir) {
+    private static boolean extractLibrary(final Context context, final String lib,
+                                          final String outDir) {
         final String apkPath = context.getApplicationInfo().sourceDir;
 
         // Sanity check.
@@ -256,7 +262,8 @@ public final class GeckoLoader {
         }
     }
 
-    private static boolean tryLoadWithABI(String lib, String outDir, String apkPath, String abi) {
+    private static boolean tryLoadWithABI(final String lib, final String outDir,
+                                          final String apkPath, final String abi) {
         try {
             final ZipFile zipFile = new ZipFile(new File(apkPath));
             try {
@@ -319,14 +326,16 @@ public final class GeckoLoader {
         final StringBuilder message = new StringBuilder("LOAD ");
         message.append(lib);
 
+        final String packageDataDir = context.getApplicationInfo().dataDir;
+
         // These might differ. If so, we know why the library won't load!
         HardwareUtils.init(context);
         message.append(": ABI: " + HardwareUtils.getLibrariesABI() + ", " + getCPUABI());
-        message.append(": Data: " + context.getApplicationInfo().dataDir);
+        message.append(": Data: " + packageDataDir);
 
         try {
             final boolean appLibExists = new File("/data/app-lib/" + androidPackageName + "/lib" + lib + ".so").exists();
-            final boolean dataDataExists = new File("/data/data/" + androidPackageName + "/lib/lib" + lib + ".so").exists();
+            final boolean dataDataExists = new File(packageDataDir + "/lib/lib" + lib + ".so").exists();
             message.append(", ax=" + appLibExists);
             message.append(", ddx=" + dataDataExists);
         } catch (Throwable e) {
@@ -334,8 +343,8 @@ public final class GeckoLoader {
         }
 
         try {
-            final String dashOne = "/data/data/" + androidPackageName + "-1";
-            final String dashTwo = "/data/data/" + androidPackageName + "-2";
+            final String dashOne = packageDataDir + "-1";
+            final String dashTwo = packageDataDir + "-2";
             final boolean dashOneExists = new File(dashOne).exists();
             final boolean dashTwoExists = new File(dashTwo).exists();
             message.append(", -1x=" + dashOneExists);
@@ -359,7 +368,7 @@ public final class GeckoLoader {
         return message.toString();
     }
 
-    private static final boolean attemptLoad(final String path) {
+    private static boolean attemptLoad(final String path) {
         try {
             System.load(path);
             return true;
@@ -376,7 +385,7 @@ public final class GeckoLoader {
      *
      * Returns null or the cause exception.
      */
-    private static final Throwable doLoadLibraryExpected(final Context context, final String lib) {
+    private static Throwable doLoadLibraryExpected(final Context context, final String lib) {
         try {
             // Attempt 1: the way that should work.
             System.loadLibrary(lib);
@@ -404,6 +413,7 @@ public final class GeckoLoader {
         }
     }
 
+    @SuppressLint("SdCardPath")
     public static void doLoadLibrary(final Context context, final String lib) {
         final Throwable e = doLoadLibraryExpected(context, lib);
         if (e == null) {
@@ -477,7 +487,7 @@ public final class GeckoLoader {
 
     @SuppressWarnings("serial")
     public static class AbortException extends Exception {
-        public AbortException(String msg) {
+        public AbortException(final String msg) {
             super(msg);
         }
     }

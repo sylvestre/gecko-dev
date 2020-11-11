@@ -4,7 +4,9 @@
 "use strict";
 
 const { utils: Cu } = Components;
-const { BrowserLoader } = Cu.import("resource://devtools/client/shared/browser-loader.js", {});
+const { BrowserLoader } = Cu.import(
+  "resource://devtools/client/shared/browser-loader.js"
+);
 
 // Module Loader
 const require = BrowserLoader({
@@ -13,4 +15,4 @@ const require = BrowserLoader({
 }).require;
 
 // Load accessibility panel content
-require("./accessibility-view.js");
+require("devtools/client/accessibility/accessibility-view.js");

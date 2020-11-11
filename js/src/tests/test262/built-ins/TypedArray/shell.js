@@ -1,3 +1,4 @@
+// GENERATED, DO NOT EDIT
 // file: byteConversionValues.js
 // Copyright (C) 2016 the V8 project authors. All rights reserved.
 // This code is governed by the BSD license found in the LICENSE file.
@@ -8,6 +9,7 @@ description: |
     This helper is mostly used on tests for TypedArray and DataView, and each
     array from the expected values must match the original values array on every
     index containing its original value.
+defines: [byteConversionValues]
 ---*/
 var byteConversionValues = {
   values: [
@@ -453,7 +455,7 @@ description: |
     A function used in the process of asserting correctness of TypedArray objects.
 
     $262.detachArrayBuffer is defined by a host.
-
+defines: [$DETACHBUFFER]
 ---*/
 
 function $DETACHBUFFER(buffer) {
@@ -472,6 +474,7 @@ description: |
     to create distinct bit representations on various platforms. These provide a
     weak basis for assertions regarding the consistent canonicalization of NaN
     values in Array buffers.
+defines: [NaNs]
 ---*/
 
 var NaNs = [
@@ -492,6 +495,15 @@ var NaNs = [
 /*---
 description: |
     Collection of functions used to assert the correctness of TypedArray objects.
+defines:
+  - typedArrayConstructors
+  - floatArrayConstructors
+  - intArrayConstructors
+  - TypedArray
+  - testWithTypedArrayConstructors
+  - testWithAtomicsFriendlyTypedArrayConstructors
+  - testWithNonAtomicsFriendlyTypedArrayConstructors
+  - testTypedArrayConversions
 ---*/
 
 /**
@@ -541,6 +553,37 @@ function testWithTypedArrayConstructors(f, selected) {
       throw e;
     }
   }
+}
+
+/**
+ * Calls the provided function for every non-"Atomics Friendly" typed array constructor.
+ *
+ * @param {typedArrayConstructorCallback} f - the function to call for each typed array constructor.
+ * @param {Array} selected - An optional Array with filtered typed arrays
+ */
+function testWithNonAtomicsFriendlyTypedArrayConstructors(f) {
+  testWithTypedArrayConstructors(f, [
+    Float64Array,
+    Float32Array,
+    Uint8ClampedArray
+  ]);
+}
+
+/**
+ * Calls the provided function for every "Atomics Friendly" typed array constructor.
+ *
+ * @param {typedArrayConstructorCallback} f - the function to call for each typed array constructor.
+ * @param {Array} selected - An optional Array with filtered typed arrays
+ */
+function testWithAtomicsFriendlyTypedArrayConstructors(f) {
+  testWithTypedArrayConstructors(f, [
+    Int32Array,
+    Int16Array,
+    Int8Array,
+    Uint32Array,
+    Uint16Array,
+    Uint8Array,
+  ]);
 }
 
 /**

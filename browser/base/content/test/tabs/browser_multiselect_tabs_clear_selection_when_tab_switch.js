@@ -1,11 +1,3 @@
-const PREF_MULTISELECT_TABS = "browser.tabs.multiselect";
-
-add_task(async function setPref() {
-  await SpecialPowers.pushPrefEnv({
-    set: [[PREF_MULTISELECT_TABS, true]],
-  });
-});
-
 add_task(async function test() {
   let initialTab = gBrowser.selectedTab;
   let tab1 = await addTab();
@@ -22,7 +14,10 @@ add_task(async function test() {
   is(gBrowser.selectedTab, initialTab, "InitialTab is the active tab");
 
   info("Un-select the active tab");
-  await BrowserTestUtils.switchTab(gBrowser, triggerClickOn(initialTab, { ctrlKey: true }));
+  await BrowserTestUtils.switchTab(
+    gBrowser,
+    triggerClickOn(initialTab, { ctrlKey: true })
+  );
 
   is(gBrowser.multiSelectedTabsCount, 3, "Three multiselected tabs");
   is(gBrowser.selectedTab, tab3, "Tab3 is the active tab");

@@ -6,7 +6,7 @@
 
 var EXPORTED_SYMBOLS = ["AppMenuNotifications"];
 
-ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 function AppMenuNotification(id, mainAction, secondaryAction, options = {}) {
   this.id = id;
@@ -42,7 +42,7 @@ var AppMenuNotifications = {
         this.uninit();
         break;
       case "appMenu-notifications-request":
-        if (this._notifications.length != 0) {
+        if (this._notifications.length) {
           Services.obs.notifyObservers(null, "appMenu-notifications", "init");
         }
         break;
@@ -50,9 +50,10 @@ var AppMenuNotifications = {
   },
 
   get activeNotification() {
-    if (this._notifications.length > 0) {
-      const doorhanger =
-        this._notifications.find(n => !n.dismissed && !n.options.badgeOnly);
+    if (this._notifications.length) {
+      const doorhanger = this._notifications.find(
+        n => !n.dismissed && !n.options.badgeOnly
+      );
       return doorhanger || this._notifications[0];
     }
 
@@ -60,7 +61,12 @@ var AppMenuNotifications = {
   },
 
   showNotification(id, mainAction, secondaryAction, options = {}) {
-    let notification = new AppMenuNotification(id, mainAction, secondaryAction, options);
+    let notification = new AppMenuNotification(
+      id,
+      mainAction,
+      secondaryAction,
+      options
+    );
     let existingIndex = this._notifications.findIndex(n => n.id == id);
     if (existingIndex != -1) {
       this._notifications.splice(existingIndex, 1);
@@ -70,7 +76,9 @@ var AppMenuNotifications = {
     // so don't dismiss any of them and the badge will show once the doorhanger
     // gets resolved.
     if (!options.badgeOnly && !options.dismissed) {
-      this._notifications.forEach(n => { n.dismissed = true; });
+      this._notifications.forEach(n => {
+        n.dismissed = true;
+      });
     }
 
     // Since notifications are generally somewhat pressing, the ideal case is that
@@ -163,12 +171,14 @@ var AppMenuNotifications = {
   _removeNotification(notification) {
     // This notification may already be removed, in which case let's just ignore.
     let notifications = this._notifications;
-    if (!notifications)
+    if (!notifications) {
       return;
+    }
 
     var index = notifications.indexOf(notification);
-    if (index == -1)
+    if (index == -1) {
       return;
+    }
 
     // Remove the notification
     notifications.splice(index, 1);

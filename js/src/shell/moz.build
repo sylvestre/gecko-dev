@@ -4,56 +4,45 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-if CONFIG['JS_SHELL_NAME']:
-    GeckoProgram(CONFIG['JS_SHELL_NAME'], linkage=None)
-    if CONFIG['JS_BUNDLED_EDITLINE']:
-        USE_LIBS += ['editline']
-    USE_LIBS += ['static:js']
-    if CONFIG['ENABLE_WASM_CRANELIFT']:
-        USE_LIBS += [
-            'jsrust'
-        ]
+if CONFIG["JS_SHELL_NAME"]:
+    GeckoProgram(CONFIG["JS_SHELL_NAME"], linkage=None)
+    if CONFIG["JS_BUNDLED_EDITLINE"]:
+        DIRS += ["../editline"]
+        USE_LIBS += ["editline"]
+    USE_LIBS += ["static:js"]
 
-include('../js-config.mozbuild')
-include('../js-cxxflags.mozbuild')
+include("../js-config.mozbuild")
+include("../js-cxxflags.mozbuild")
+include("../js-standalone.mozbuild")
 
 UNIFIED_SOURCES += [
-    'js.cpp',
-    'jsoptparse.cpp',
-    'jsshell.cpp',
-    'OSObject.cpp'
+    "js.cpp",
+    "jsoptparse.cpp",
+    "jsshell.cpp",
+    "ModuleLoader.cpp",
+    "OSObject.cpp",
+    "WasmTesting.cpp",
 ]
 
-DEFINES['EXPORT_JS_API'] = True
+if CONFIG["FUZZING_INTERFACES"]:
+    UNIFIED_SOURCES += ["jsrtfuzzing/jsrtfuzzing.cpp"]
+    USE_LIBS += [
+        "static:fuzzer",
+    ]
 
-if CONFIG['CC_TYPE'] == 'msvc':
-    # PGO is unnecessary for the js shell, but clang/gcc cannot turn off PGO
-    # because we need to resolve symbols from PGO runtime library when our
-    # object files have been compiled for PGO.
-    NO_PGO = True
+DEFINES["EXPORT_JS_API"] = True
 
 LOCAL_INCLUDES += [
-    '!..',
-    '..',
+    "!..",
+    "..",
 ]
 
-OS_LIBS += CONFIG['EDITLINE_LIBS']
-OS_LIBS += CONFIG['MOZ_ZLIB_LIBS']
-
-# Prepare module loader JS code for embedding
-GENERATED_FILES += [('shellmoduleloader.out.h', 'shellmoduleloader.js')]
-shellmoduleloader = GENERATED_FILES[('shellmoduleloader.out.h', 'shellmoduleloader.js')]
-shellmoduleloader.script = '../builtin/embedjs.py:generate_shellmoduleloader'
-shellmoduleloader.inputs = [
-    '../js.msg',
-    'ModuleLoader.js',
-]
+OS_LIBS += CONFIG["EDITLINE_LIBS"]
 
 # Place a GDB Python auto-load file next to the shell executable, both in
 # the build directory and in the dist/bin directory.
-DEFINES['topsrcdir'] = '%s/js/src' % TOPSRCDIR
-FINAL_TARGET_PP_FILES += ['js-gdb.py.in']
-OBJDIR_FILES.js.src.shell += ['!/dist/bin/js-gdb.py']
+FINAL_TARGET_FILES += ["js-gdb.py"]
+OBJDIR_FILES.js.src.shell += ["!/dist/bin/js-gdb.py"]
 
 # People expect the js shell to wind up in the top-level JS dir.
-OBJDIR_FILES.js.src += ['!/dist/bin/js%s' % CONFIG['BIN_SUFFIX']]
+OBJDIR_FILES.js.src += ["!/dist/bin/js%s" % CONFIG["BIN_SUFFIX"]]

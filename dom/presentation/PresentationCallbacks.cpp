@@ -16,8 +16,8 @@
 #include "PresentationConnection.h"
 #include "PresentationTransportBuilderConstructor.h"
 
-using namespace mozilla;
-using namespace mozilla::dom;
+namespace mozilla {
+namespace dom {
 
 /*
  * Implementation of PresentationRequesterCallback
@@ -34,7 +34,7 @@ PresentationRequesterCallback::PresentationRequesterCallback(
   MOZ_ASSERT(!mSessionId.IsEmpty());
 }
 
-PresentationRequesterCallback::~PresentationRequesterCallback() {}
+PresentationRequesterCallback::~PresentationRequesterCallback() = default;
 
 // nsIPresentationServiceCallback
 NS_IMETHODIMP
@@ -77,7 +77,7 @@ PresentationReconnectCallback::PresentationReconnectCallback(
     : PresentationRequesterCallback(aRequest, aSessionId, aPromise),
       mConnection(aConnection) {}
 
-PresentationReconnectCallback::~PresentationReconnectCallback() {}
+PresentationReconnectCallback::~PresentationReconnectCallback() = default;
 
 NS_IMETHODIMP
 PresentationReconnectCallback::NotifySuccess(const nsAString& aUrl) {
@@ -235,7 +235,17 @@ PresentationResponderLoadingCallback::OnStatusChange(
 
 NS_IMETHODIMP
 PresentationResponderLoadingCallback::OnSecurityChange(
-    nsIWebProgress* aWebProgress, nsIRequest* aRequest, uint32_t state) {
+    nsIWebProgress* aWebProgress, nsIRequest* aRequest, uint32_t aState) {
   // Do nothing.
   return NS_OK;
 }
+
+NS_IMETHODIMP
+PresentationResponderLoadingCallback::OnContentBlockingEvent(
+    nsIWebProgress* aWebProgress, nsIRequest* aRequest, uint32_t aEvent) {
+  // Do nothing.
+  return NS_OK;
+}
+
+}  // namespace dom
+}  // namespace mozilla

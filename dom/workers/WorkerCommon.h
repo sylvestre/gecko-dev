@@ -32,18 +32,20 @@ JSContext* GetCurrentWorkerThreadJSContext();
 
 JSObject* GetCurrentThreadWorkerGlobal();
 
-void CancelWorkersForWindow(nsPIDOMWindowInner* aWindow);
+JSObject* GetCurrentThreadWorkerDebuggerGlobal();
 
-void FreezeWorkersForWindow(nsPIDOMWindowInner* aWindow);
+void CancelWorkersForWindow(const nsPIDOMWindowInner& aWindow);
 
-void ThawWorkersForWindow(nsPIDOMWindowInner* aWindow);
+void FreezeWorkersForWindow(const nsPIDOMWindowInner& aWindow);
 
-void SuspendWorkersForWindow(nsPIDOMWindowInner* aWindow);
+void ThawWorkersForWindow(const nsPIDOMWindowInner& aWindow);
 
-void ResumeWorkersForWindow(nsPIDOMWindowInner* aWindow);
+void SuspendWorkersForWindow(const nsPIDOMWindowInner& aWindow);
 
-void PropagateFirstPartyStorageAccessGrantedToWorkers(
-    nsPIDOMWindowInner* aWindow);
+void ResumeWorkersForWindow(const nsPIDOMWindowInner& aWindow);
+
+void PropagateStorageAccessPermissionGrantedToWorkers(
+    const nsPIDOMWindowInner& aWindow);
 
 // All of these are implemented in WorkerScope.cpp
 

@@ -10,8 +10,10 @@
 
 const PropTypes = require("devtools/client/shared/vendor/react-prop-types");
 const dom = require("devtools/client/shared/vendor/react-dom-factories");
-const { L10N } = require("../modules/global");
-const { TickUtils } = require("../modules/waterfall-ticks");
+const { L10N } = require("devtools/client/performance/modules/global");
+const {
+  TickUtils,
+} = require("devtools/client/performance/modules/waterfall-ticks");
 
 const WATERFALL_HEADER_TICKS_MULTIPLE = 5; // ms
 const WATERFALL_HEADER_TICKS_SPACING_MIN = 50; // px
@@ -32,11 +34,14 @@ function WaterfallHeader(props) {
     const time = Math.round(x / dataScale + startTime);
     const label = L10N.getFormatStr("timeline.tick", time);
 
-    const node = dom.div({
-      key: x,
-      className: "plain waterfall-header-tick",
-      style: { transform: `translateX(${left}px)` },
-    }, label);
+    const node = dom.div(
+      {
+        key: x,
+        className: "plain waterfall-header-tick",
+        style: { transform: `translateX(${left}px)` },
+      },
+      label
+    );
     ticks.push(node);
   }
 

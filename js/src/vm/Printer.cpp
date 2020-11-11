@@ -10,14 +10,13 @@
 #include "mozilla/Printf.h"
 #include "mozilla/RangedPtr.h"
 
-#include <ctype.h>
 #include <stdarg.h>
 #include <stdio.h>
 
-#include "jsutil.h"
-
 #include "ds/LifoAlloc.h"
+#include "frontend/ParserAtom.h"
 #include "js/CharacterEncoding.h"
+#include "util/Memory.h"
 #include "util/Text.h"
 #include "util/Windows.h"
 #include "vm/JSContext.h"
@@ -198,19 +197,21 @@ bool Sprinter::put(const char* s, size_t len) {
 bool Sprinter::putString(JSString* s) {
   InvariantChecker ic(this);
 
-  JSFlatString* flat = s->ensureFlat(context);
-  if (!flat) {
+  JSLinearString* linear = s->ensureLinear(context);
+  if (!linear) {
     return false;
   }
 
-  size_t length = JS::GetDeflatedUTF8StringLength(flat);
+  size_t length = JS::GetDeflatedUTF8StringLength(linear);
 
   char* buffer = reserve(length);
   if (!buffer) {
     return false;
   }
 
-  JS::DeflateStringToUTF8Buffer(flat, mozilla::RangedPtr<char>(buffer, length));
+  mozilla::DebugOnly<size_t> written =
+      JS::DeflateStringToUTF8Buffer(linear, mozilla::Span(buffer, length));
+  MOZ_ASSERT(written == length);
 
   buffer[length] = '\0';
   return true;
@@ -266,11 +267,9 @@ static const char JSONEscapeMap[] = {
     // clang-format on
 };
 
-enum class QuoteTarget { String, JSON };
-
 template <QuoteTarget target, typename CharT>
-static bool QuoteString(Sprinter* sp, const mozilla::Range<const CharT> chars,
-                        char quote) {
+bool QuoteString(Sprinter* sp, const mozilla::Range<const CharT> chars,
+                 char quote) {
   MOZ_ASSERT_IF(target == QuoteTarget::JSON, quote == '\0');
 
   using CharPtr = mozilla::RangedPtr<const CharT>;
@@ -293,7 +292,7 @@ static bool QuoteString(Sprinter* sp, const mozilla::Range<const CharT> chars,
     char16_t c = *t;
     while (c < 127 && c != '\\') {
       if (target == QuoteTarget::String) {
-        if (!isprint(c) || c == quote || c == '\t') {
+        if (!IsAsciiPrintable(c) || c == quote || c == '\t') {
           break;
         }
       } else {
@@ -355,6 +354,18 @@ static bool QuoteString(Sprinter* sp, const mozilla::Range<const CharT> chars,
   return true;
 }
 
+template bool QuoteString<QuoteTarget::String, Latin1Char>(
+    Sprinter* sp, const mozilla::Range<const Latin1Char> chars, char quote);
+
+template bool QuoteString<QuoteTarget::String, char16_t>(
+    Sprinter* sp, const mozilla::Range<const char16_t> chars, char quote);
+
+template bool QuoteString<QuoteTarget::JSON, Latin1Char>(
+    Sprinter* sp, const mozilla::Range<const Latin1Char> chars, char quote);
+
+template bool QuoteString<QuoteTarget::JSON, char16_t>(
+    Sprinter* sp, const mozilla::Range<const char16_t> chars, char quote);
+
 bool QuoteString(Sprinter* sp, JSString* str, char quote /*= '\0' */) {
   JSLinearString* linear = str->ensureLinear(sp->context);
   if (!linear) {
@@ -368,12 +379,32 @@ bool QuoteString(Sprinter* sp, JSString* str, char quote /*= '\0' */) {
                                         sp, linear->twoByteRange(nogc), quote);
 }
 
+bool QuoteString(Sprinter* sp, const frontend::ParserAtom* atom,
+                 char quote /*= '\0' */) {
+  return atom->hasLatin1Chars()
+             ? QuoteString<QuoteTarget::String>(sp, atom->latin1Range(), quote)
+             : QuoteString<QuoteTarget::String>(sp, atom->twoByteRange(),
+                                                quote);
+}
+
 UniqueChars QuoteString(JSContext* cx, JSString* str, char quote /* = '\0' */) {
   Sprinter sprinter(cx);
   if (!sprinter.init()) {
     return nullptr;
   }
   if (!QuoteString(&sprinter, str, quote)) {
+    return nullptr;
+  }
+  return sprinter.release();
+}
+
+UniqueChars QuoteString(JSContext* cx, const frontend::ParserAtom* atom,
+                        char quote /* = '\0' */) {
+  Sprinter sprinter(cx);
+  if (!sprinter.init()) {
+    return nullptr;
+  }
+  if (!QuoteString(&sprinter, atom, quote)) {
     return nullptr;
   }
   return sprinter.release();
@@ -434,7 +465,7 @@ bool Fprinter::put(const char* s, size_t len) {
     reportOutOfMemory();
     return false;
   }
-#ifdef XP_WIN32
+#ifdef XP_WIN
   if ((file_ == stderr) && (IsDebuggerPresent())) {
     UniqueChars buf = DuplicateString(s, len);
     if (!buf) {

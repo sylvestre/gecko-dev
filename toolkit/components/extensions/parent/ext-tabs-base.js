@@ -7,23 +7,25 @@
 
 /* globals EventEmitter */
 
-ChromeUtils.defineModuleGetter(this, "PrivateBrowsingUtils",
-                               "resource://gre/modules/PrivateBrowsingUtils.jsm");
-ChromeUtils.defineModuleGetter(this, "Services",
-                               "resource://gre/modules/Services.jsm");
-XPCOMUtils.defineLazyPreferenceGetter(this, "containersEnabled",
-                                      "privacy.userContext.enabled");
+XPCOMUtils.defineLazyModuleGetters(this, {
+  PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.jsm",
+  Services: "resource://gre/modules/Services.jsm",
+});
+
+XPCOMUtils.defineLazyPreferenceGetter(
+  this,
+  "containersEnabled",
+  "privacy.userContext.enabled"
+);
 
 var {
   DefaultMap,
   DefaultWeakMap,
   ExtensionError,
-  getWinUtils,
+  parseMatchPatterns,
 } = ExtensionUtils;
 
-var {
-  defineLazyGetter,
-} = ExtensionCommon;
+var { defineLazyGetter } = ExtensionCommon;
 
 /**
  * The platform-specific type of native tab objects, which are wrapped by
@@ -91,20 +93,26 @@ class TabBase {
    * @returns {Promise}
    */
   sendMessage(context, messageName, data = {}, options = null) {
-    let {browser, innerWindowID} = this;
+    let { browser, innerWindowID } = this;
 
     options = Object.assign({}, options);
-    options.recipient = Object.assign({innerWindowID}, options.recipient);
+    options.recipient = Object.assign({ innerWindowID }, options.recipient);
 
-    return context.sendMessage(browser.messageManager, messageName,
-                               data, options);
+    return context.sendMessage(
+      browser.messageManager,
+      messageName,
+      data,
+      options
+    );
   }
 
   /**
-   * Capture the visible area of this tab, and return the result as a data: URL.
+   * Capture the visible area of this tab, and return the result as a data: URI.
    *
    * @param {BaseContext} context
    *        The extension context for which to perform the capture.
+   * @param {number} zoom
+   *        The current zoom for the page.
    * @param {Object} [options]
    *        The options with which to perform the capture.
    * @param {string} [options.format = "png"]
@@ -113,27 +121,31 @@ class TabBase {
    * @param {integer} [options.quality = 92]
    *        The quality at which to encode the captured image data, ranging from
    *        0 to 100. Has no effect for the "png" format.
-   *
+   * @param {DOMRectInit} [options.rect]
+   *        Area of the document to render, in CSS pixels, relative to the page.
+   *        If null, the currently visible viewport is rendered.
+   * @param {number} [options.scale]
+   *        The scale to render at, defaults to devicePixelRatio.
    * @returns {Promise<string>}
    */
-  capture(context, options = null) {
-    if (!options) {
-      options = {};
-    }
-    if (options.format == null) {
-      options.format = "png";
-    }
-    if (options.quality == null) {
-      options.quality = 92;
-    }
+  async capture(context, zoom, options) {
+    let win = this.browser.ownerGlobal;
+    let scale = options?.scale || win.devicePixelRatio;
+    let rect = options?.rect && win.DOMRect.fromRect(options.rect);
 
-    let message = {
-      options,
-      width: this.width,
-      height: this.height,
-    };
+    let wgp = this.browsingContext.currentWindowGlobal;
+    let image = await wgp.drawSnapshot(rect, scale * zoom, "white");
 
-    return this.sendMessage(context, "Extension:Capture", message);
+    let doc = Services.appShell.hiddenDOMWindow.document;
+    let canvas = doc.createElement("canvas");
+    canvas.width = image.width;
+    canvas.height = image.height;
+
+    let ctx = canvas.getContext("2d", { alpha: false });
+    ctx.drawImage(image, 0, 0);
+    image.close();
+
+    return canvas.toDataURL(`image/${options?.format}`, options?.quality / 100);
   }
 
   /**
@@ -171,9 +183,11 @@ class TabBase {
    *        @readonly
    */
   get hasActiveTabPermission() {
-    return (this.extension.hasPermission("activeTab") &&
-            this.activeTabWindowID != null &&
-            this.activeTabWindowID === this.innerWindowID);
+    return (
+      this.extension.hasPermission("activeTab") &&
+      this.activeTabWindowID != null &&
+      this.activeTabWindowID === this.innerWindowID
+    );
   }
 
   /**
@@ -228,7 +242,6 @@ class TabBase {
   get _title() {
     return this.browser.contentTitle || this.nativeTab.label;
   }
-
 
   /**
    * @property {nsIURI | null} title
@@ -294,6 +307,15 @@ class TabBase {
    */
   get browser() {
     throw new Error("Not implemented");
+  }
+
+  /**
+   * @property {BrowsingContext} browsingContext
+   *        Returns the BrowsingContext for the given tab.
+   *        @readonly
+   */
+  get browsingContext() {
+    return this.browser?.browsingContext;
   }
 
   /**
@@ -476,7 +498,6 @@ class TabBase {
     throw new Error("Not implemented");
   }
 
-
   /**
    * @property {boolean} isArticle
    *        Returns true if the document in the tab can be rendered in reader
@@ -552,8 +573,18 @@ class TabBase {
    *        True if the tab matches the query.
    */
   matches(queryInfo) {
-    const PROPS = ["active", "audible", "cookieStoreId", "discarded", "hidden",
-                   "highlighted", "index", "openerTabId", "pinned", "status"];
+    const PROPS = [
+      "active",
+      "audible",
+      "cookieStoreId",
+      "discarded",
+      "hidden",
+      "highlighted",
+      "index",
+      "openerTabId",
+      "pinned",
+      "status",
+    ];
 
     function checkProperty(prop, obj) {
       return queryInfo[prop] != null && queryInfo[prop] !== obj[prop];
@@ -573,9 +604,10 @@ class TabBase {
     }
     // query for screen can be boolean (ie. any) or string (ie. specific).
     if (queryInfo.screen !== null) {
-      let match = typeof queryInfo.screen == "boolean" ?
-                         queryInfo.screen === !!state.screen :
-                         queryInfo.screen === state.screen;
+      let match =
+        typeof queryInfo.screen == "boolean"
+          ? queryInfo.screen === !!state.screen
+          : queryInfo.screen === state.screen;
       if (!match) {
         return false;
       }
@@ -623,6 +655,7 @@ class TabBase {
       isInReaderMode: this.isInReaderMode,
       sharingState: this.sharingState,
       successorTabId: this.successorTabId,
+      cookieStoreId: this.cookieStoreId,
     };
 
     // If the tab has not been fully layed-out yet, fallback to the geometry
@@ -637,10 +670,6 @@ class TabBase {
       result.openerTabId = opener;
     }
 
-    if (this.extension.hasPermission("cookies")) {
-      result.cookieStoreId = this.cookieStoreId;
-    }
-
     if (this.hasTabPermission) {
       for (let prop of ["url", "title", "favIconUrl"]) {
         // We use the underscored variants here to avoid the redundant
@@ -653,6 +682,62 @@ class TabBase {
     }
 
     return result;
+  }
+
+  /**
+   * Query each content process hosting subframes of the tab, return results.
+   * @param {string} message
+   * @param {object} options
+   * @param {number} options.frameID
+   * @param {boolean} options.allFrames
+   * @returns {Promise[]}
+   */
+  async queryContent(message, options) {
+    let { allFrames, frameID } = options;
+
+    /** @type {Map<nsIDOMProcessParent, innerWindowId[]>} */
+    let byProcess = new DefaultMap(() => []);
+
+    // Recursively walk the tab's BC tree, find all frames, group by process.
+    function visit(bc) {
+      let win = bc.currentWindowGlobal;
+      if (win?.domProcess && (!frameID || frameID === bc.id)) {
+        byProcess.get(win.domProcess).push(win.innerWindowId);
+      }
+      if (allFrames || (frameID && !byProcess.size)) {
+        bc.children.forEach(visit);
+      }
+    }
+    visit(this.browsingContext);
+
+    let promises = Array.from(byProcess.entries(), ([proc, windows]) =>
+      proc.getActor("ExtensionContent").sendQuery(message, { windows, options })
+    );
+
+    let results = await Promise.all(promises).catch(err => {
+      if (err.name === "DataCloneError") {
+        let fileName = options.jsPaths.slice(-1)[0] || "<anonymous code>";
+        let message = `Script '${fileName}' result is non-structured-clonable data`;
+        return Promise.reject({ message, fileName });
+      }
+      throw err;
+    });
+    results = results.flat();
+
+    if (!results.length) {
+      if (frameID) {
+        throw new ExtensionError("Frame not found, or missing host permission");
+      }
+
+      let frames = allFrames ? ", and any iframes" : "";
+      throw new ExtensionError(`Missing host permission for the tab${frames}`);
+    }
+
+    if (!allFrames && results.length > 1) {
+      throw new ExtensionError("Internal error: multiple windows matched");
+    }
+
+    return results;
   }
 
   /**
@@ -679,19 +764,26 @@ class TabBase {
       jsPaths: [],
       cssPaths: [],
       removeCSS: method == "removeCSS",
+      extensionId: context.extension.id,
     };
 
     // We require a `code` or a `file` property, but we can't accept both.
     if ((details.code === null) == (details.file === null)) {
-      return Promise.reject({message: `${method} requires either a 'code' or a 'file' property, but not both`});
+      return Promise.reject({
+        message: `${method} requires either a 'code' or a 'file' property, but not both`,
+      });
     }
 
     if (details.frameId !== null && details.allFrames) {
-      return Promise.reject({message: `'frameId' and 'allFrames' are mutually exclusive`});
+      return Promise.reject({
+        message: `'frameId' and 'allFrames' are mutually exclusive`,
+      });
     }
 
     options.hasActiveTabPermission = this.hasActiveTabPermission;
-    options.matches = this.extension.whiteListedHosts.patterns.map(host => host.pattern);
+    options.matches = this.extension.allowedOrigins.patterns.map(
+      host => host.pattern
+    );
 
     if (details.code !== null) {
       options[`${kind}Code`] = details.code;
@@ -699,7 +791,9 @@ class TabBase {
     if (details.file !== null) {
       let url = context.uri.resolve(details.file);
       if (!this.extension.isExtensionURL(url)) {
-        return Promise.reject({message: "Files to be injected must be within the extension"});
+        return Promise.reject({
+          message: "Files to be injected must be within the extension",
+        });
       }
       options[`${kind}Paths`].push(url);
     }
@@ -724,8 +818,7 @@ class TabBase {
     }
 
     options.wantReturnValue = true;
-
-    return this.sendMessage(context, "Extension:Execute", {options});
+    return this.queryContent("Execute", options);
   }
 
   /**
@@ -764,7 +857,6 @@ class TabBase {
     return this._execute(context, details, "css", "insertCSS").then(() => {});
   }
 
-
   /**
    * Removes CSS which was previously into the tab's content window via
    * `insertCSS`, and returns a Promise which resolves when the operation is
@@ -783,7 +875,9 @@ class TabBase {
   }
 }
 
-defineLazyGetter(TabBase.prototype, "incognito", function() { return this._incognito; });
+defineLazyGetter(TabBase.prototype, "incognito", function() {
+  return this._incognito;
+});
 
 // Note: These must match the values in windows.json.
 const WINDOW_ID_NONE = -1;
@@ -812,14 +906,14 @@ class WindowBase {
   }
 
   /**
-   * @property {nsIXULWindow} xulWindow
-   *        The nsIXULWindow object for this browser window.
+   * @property {nsIAppWindow} appWindow
+   *        The nsIAppWindow object for this browser window.
    *        @readonly
    */
-  get xulWindow() {
+  get appWindow() {
     return this.window.docShell.treeOwner
-               .QueryInterface(Ci.nsIInterfaceRequestor)
-               .getInterface(Ci.nsIXULWindow);
+      .QueryInterface(Ci.nsIInterfaceRequestor)
+      .getInterface(Ci.nsIAppWindow);
   }
 
   /**
@@ -845,7 +939,7 @@ class WindowBase {
    *        @readonly
    */
   get type() {
-    let {chromeFlags} = this.xulWindow;
+    let { chromeFlags } = this.appWindow;
 
     if (chromeFlags & Ci.nsIWebBrowserChrome.CHROME_OPENAS_DIALOG) {
       return "popup";
@@ -915,7 +1009,10 @@ class WindowBase {
    *        True if the window matches the query.
    */
   matches(queryInfo, context) {
-    if (queryInfo.lastFocusedWindow !== null && queryInfo.lastFocusedWindow !== this.isLastFocused) {
+    if (
+      queryInfo.lastFocusedWindow !== null &&
+      queryInfo.lastFocusedWindow !== this.isLastFocused
+    ) {
       return false;
     }
 
@@ -933,7 +1030,10 @@ class WindowBase {
       }
     }
 
-    if (queryInfo.currentWindow !== null && queryInfo.currentWindow !== this.isCurrentFor(context)) {
+    if (
+      queryInfo.currentWindow !== null &&
+      queryInfo.currentWindow !== this.isCurrentFor(context)
+    ) {
       return false;
     }
 
@@ -1110,7 +1210,7 @@ class WindowBase {
   /* eslint-enable valid-jsdoc */
 }
 
-Object.assign(WindowBase, {WINDOW_ID_NONE, WINDOW_ID_CURRENT});
+Object.assign(WindowBase, { WINDOW_ID_NONE, WINDOW_ID_CURRENT });
 
 /**
  * The parameter type of "tab-attached" events, which are emitted when a
@@ -1210,7 +1310,6 @@ class TabTrackerBase extends EventEmitter {
 
     return super.on(...args); // eslint-disable-line mozilla/balanced-listeners
   }
-
 
   /**
    * Called to initialize the tab tracking listeners the first time that an
@@ -1313,20 +1412,22 @@ class StatusListener {
       } else if (stateFlags & Ci.nsIWebProgressListener.STATE_STOP) {
         status = "complete";
       }
-    } else if (stateFlags & Ci.nsIWebProgressListener.STATE_STOP &&
-               statusCode == Cr.NS_BINDING_ABORTED) {
+    } else if (
+      stateFlags & Ci.nsIWebProgressListener.STATE_STOP &&
+      statusCode == Cr.NS_BINDING_ABORTED
+    ) {
       status = "complete";
     }
 
     if (status) {
-      this.listener({browser, status});
+      this.listener({ browser, status });
     }
   }
 
   onLocationChange(browser, webProgress, request, locationURI, flags) {
     if (webProgress.isTopLevel) {
       let status = webProgress.isLoadingDocument ? "loading" : "complete";
-      this.listener({browser, status, url: locationURI.spec});
+      this.listener({ browser, status, url: locationURI.spec });
     }
   }
 }
@@ -1352,12 +1453,12 @@ class WindowTrackerBase extends EventEmitter {
     });
 
     this._windowIds = new DefaultWeakMap(window => {
-      return getWinUtils(window).outerWindowID;
+      return window.docShell.outerWindowID;
     });
   }
 
   isBrowserWindow(window) {
-    let {documentElement} = window.document;
+    let { documentElement } = window.document;
 
     return documentElement.getAttribute("windowtype") === "navigator:browser";
   }
@@ -1375,7 +1476,7 @@ class WindowTrackerBase extends EventEmitter {
    * @returns {Iterator<DOMWindow>}
    */
   /* eslint-enable valid-jsdoc */
-  * browserWindows(includeIncomplete = false) {
+  *browserWindows(includeIncomplete = false) {
     // The window type parameter is only available once the window's document
     // element has been created. This means that, when looking for incomplete
     // browser windows, we need to ignore the type entirely for windows which
@@ -1480,8 +1581,12 @@ class WindowTrackerBase extends EventEmitter {
     }
 
     let window = Services.wm.getOuterWindowWithId(id);
-    if (window && !window.closed && (window.document.readyState !== "complete"
-        || this.isBrowserWindow(window))) {
+    if (
+      window &&
+      !window.closed &&
+      (window.document.readyState !== "complete" ||
+        this.isBrowserWindow(window))
+    ) {
       if (!context || context.canAccessWindow(window)) {
         // Tolerate incomplete windows because isBrowserWindow is only reliable
         // once the window is fully loaded.
@@ -1900,8 +2005,7 @@ class TabManagerBase {
    * @returns {Object}
    */
   convert(nativeTab, fallbackTabSize = null) {
-    return this.getWrapper(nativeTab)
-               .convert(fallbackTabSize);
+    return this.getWrapper(nativeTab).convert(fallbackTabSize);
   }
 
   // The JSDoc validator does not support @returns tags in abstract functions or
@@ -1920,10 +2024,25 @@ class TabManagerBase {
    *
    * @returns {Iterator<TabBase>}
    */
-  * query(queryInfo = null, context = null) {
+  *query(queryInfo = null, context = null) {
+    if (queryInfo) {
+      if (queryInfo.url !== null) {
+        queryInfo.url = parseMatchPatterns([].concat(queryInfo.url), {
+          restrictSchemes: false,
+        });
+      }
+
+      if (queryInfo.title !== null) {
+        try {
+          queryInfo.title = new MatchGlob(queryInfo.title);
+        } catch (e) {
+          throw new ExtensionError(`Invalid title: ${queryInfo.title}`);
+        }
+      }
+    }
     function* candidates(windowWrapper) {
       if (queryInfo) {
-        let {active, highlighted, index} = queryInfo;
+        let { active, highlighted, index } = queryInfo;
         if (active === true) {
           yield windowWrapper.activeTab;
           return;
@@ -2029,6 +2148,23 @@ class WindowManagerBase {
     }
   }
 
+  /**
+   * Returns whether this window can be accessed by the extension in the given
+   * context.
+   *
+   * @param {DOMWindow} window
+   *        The browser window that is being tested
+   * @param {BaseContext|null} context
+   *        The extension context for which this test is being performed.
+   * @returns {boolean}
+   */
+  canAccessWindow(window, context) {
+    return (
+      (context && context.canAccessWindow(window)) ||
+      this.extension.canAccessWindow(window)
+    );
+  }
+
   // The JSDoc validator does not support @returns tags in abstract functions or
   // star functions without return statements.
   /* eslint-disable valid-jsdoc */
@@ -2045,10 +2181,10 @@ class WindowManagerBase {
    *
    * @returns {Iterator<WindowBase>}
    */
-  * query(queryInfo = null, context = null) {
+  *query(queryInfo = null, context = null) {
     function* candidates(windowManager) {
       if (queryInfo) {
-        let {currentWindow, windowId, lastFocusedWindow} = queryInfo;
+        let { currentWindow, windowId, lastFocusedWindow } = queryInfo;
         if (currentWindow === true && windowId == null) {
           windowId = WINDOW_ID_CURRENT;
         }
@@ -2121,9 +2257,15 @@ class WindowManagerBase {
   /* eslint-enable valid-jsdoc */
 }
 
-function getUserContextIdForCookieStoreId(extension, cookieStoreId, isPrivateBrowsing) {
+function getUserContextIdForCookieStoreId(
+  extension,
+  cookieStoreId,
+  isPrivateBrowsing
+) {
   if (!extension.hasPermission("cookies")) {
-    throw new ExtensionError(`No permission for cookieStoreId: ${cookieStoreId}`);
+    throw new ExtensionError(
+      `No permission for cookieStoreId: ${cookieStoreId}`
+    );
   }
 
   if (!isValidCookieStoreId(cookieStoreId)) {
@@ -2131,24 +2273,32 @@ function getUserContextIdForCookieStoreId(extension, cookieStoreId, isPrivateBro
   }
 
   if (isPrivateBrowsing && !isPrivateCookieStoreId(cookieStoreId)) {
-    throw new ExtensionError(`Illegal to set non-private cookieStoreId in a private window`);
+    throw new ExtensionError(
+      `Illegal to set non-private cookieStoreId in a private window`
+    );
   }
 
   if (!isPrivateBrowsing && isPrivateCookieStoreId(cookieStoreId)) {
-    throw new ExtensionError(`Illegal to set private cookieStoreId in a non-private window`);
+    throw new ExtensionError(
+      `Illegal to set private cookieStoreId in a non-private window`
+    );
   }
 
   if (isContainerCookieStoreId(cookieStoreId)) {
     if (PrivateBrowsingUtils.permanentPrivateBrowsing) {
       // Container tabs are not supported in perma-private browsing mode - bug 1320757
-      throw new ExtensionError(`Contextual identities are unavailable in permanent private browsing mode`);
+      throw new ExtensionError(
+        `Contextual identities are unavailable in permanent private browsing mode`
+      );
     }
     if (!containersEnabled) {
       throw new ExtensionError(`Contextual identities are currently disabled`);
     }
     let userContextId = getContainerForCookieStoreId(cookieStoreId);
     if (!userContextId) {
-      throw new ExtensionError(`No cookie store exists with ID ${cookieStoreId}`);
+      throw new ExtensionError(
+        `No cookie store exists with ID ${cookieStoreId}`
+      );
     }
     return userContextId;
   }
@@ -2156,4 +2306,12 @@ function getUserContextIdForCookieStoreId(extension, cookieStoreId, isPrivateBro
   return Services.scriptSecurityManager.DEFAULT_USER_CONTEXT_ID;
 }
 
-Object.assign(global, {TabTrackerBase, TabManagerBase, TabBase, WindowTrackerBase, WindowManagerBase, WindowBase, getUserContextIdForCookieStoreId});
+Object.assign(global, {
+  TabTrackerBase,
+  TabManagerBase,
+  TabBase,
+  WindowTrackerBase,
+  WindowManagerBase,
+  WindowBase,
+  getUserContextIdForCookieStoreId,
+});

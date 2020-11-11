@@ -4,12 +4,19 @@
 
 "use strict";
 
-const { createFactory, PureComponent } = require("devtools/client/shared/vendor/react");
+const {
+  createFactory,
+  PureComponent,
+} = require("devtools/client/shared/vendor/react");
 const dom = require("devtools/client/shared/vendor/react-dom-factories");
 const PropTypes = require("devtools/client/shared/vendor/react-prop-types");
 
-const KeyframeMarkerList = createFactory(require("./KeyframeMarkerList"));
-const KeyframesGraphPath = createFactory(require("./KeyframesGraphPath"));
+const KeyframeMarkerList = createFactory(
+  require("devtools/client/inspector/animation/components/keyframes-graph/KeyframeMarkerList")
+);
+const KeyframesGraphPath = createFactory(
+  require("devtools/client/inspector/animation/components/keyframes-graph/KeyframesGraphPath")
+);
 
 class KeyframesGraph extends PureComponent {
   static get propTypes() {
@@ -33,17 +40,15 @@ class KeyframesGraph extends PureComponent {
 
     return dom.div(
       {
-        className: `keyframes-graph ${ name }`,
+        className: `keyframes-graph ${name}`,
       },
-      KeyframesGraphPath(
-        {
-          getComputedStyle,
-          keyframes,
-          name,
-          simulateAnimation,
-          type,
-        }
-      ),
+      KeyframesGraphPath({
+        getComputedStyle,
+        keyframes,
+        name,
+        simulateAnimation,
+        type,
+      }),
       KeyframeMarkerList({ keyframes })
     );
   }

@@ -1,7 +1,7 @@
 // When a generator frame is resumed, the onEnterFrame fires again.
 // The same Frame object is passed.
 
-let g = newGlobal();
+let g = newGlobal({newCompartment: true});
 g.eval(`
     function* easyMode() {}
 
@@ -34,7 +34,7 @@ function test(mode, expected) {
             log += x;
     `);
     assertEq(g.log, expected);
-    dbg.enabled = false;
+    dbg.removeDebuggee(g);
 }
 
 // We fire onEnterFrame for the initial activation when a generator is first

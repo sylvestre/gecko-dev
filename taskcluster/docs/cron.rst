@@ -11,21 +11,22 @@ In the root of the Gecko directory, you will find `.cron.yml`.  This defines
 the periodic tasks ("cron jobs") run for Gecko.  Each specifies a name, what to
 do, and some parameters to determine when the cron job should occur.
 
-See ``taskcluster/taskgraph/cron/schema.py`` for details on the format and
-meaning of this file.
+See `the scema <https://hg.mozilla.org/ci/ci-admin/file/default/build-decision/src/build_decision/cron/schema.yml>`_
+for details on the format and meaning of this file.
 
 How It Works
 ------------
 
-The `TaskCluster Hooks Service <https://tools.taskcluster.net/hooks>`_ has a
-hook configured for each repository supporting periodic task graphs.  The hook
-runs every 15 minutes, and the resulting task is referred to as a "cron task".
-That cron task runs `./mach taskgraph cron` in a checkout of the Gecko source
-tree.
+The `TaskCluster Hooks Service <https://firefox-ci-tc.services.mozilla.com/hooks>`_
+has a hook configured for each repository supporting periodic task graphs.  The
+hook runs every 15 minutes, and the resulting task is referred to as a "cron task".
+That cron task runs the `build-decision
+<https://hg.mozilla.org/ci/ci-admin/file/default/build-decision>`_ image in a
+checkout of the Gecko source tree.
 
-The mach subcommand reads ``.cron.yml``, then consults the current time
-(actually the time the cron task was created, rounded down to the nearest 15
-minutes) and creates tasks for any cron jobs scheduled at that time.
+The task reads ``.cron.yml``, then consults the current time (actually the time
+the cron task was created, rounded down to the nearest 15 minutes) and creates
+tasks for any cron jobs scheduled at that time.
 
 Each cron job in ``.cron.yml`` specifies a ``job.type``, corresponding to a
 function responsible for creating TaskCluster tasks when the job runs.
@@ -67,6 +68,10 @@ and so is undesirable.
     when:
         - {weekday: 'Monday', hour: 10, minute: 0}
         - {weekday: 'Thursday', hour: 10, minute: 0}
+
+.. note::
+
+   Times are expressed in UTC (Coordinated Universal Time)
 
 
 Decision Tasks

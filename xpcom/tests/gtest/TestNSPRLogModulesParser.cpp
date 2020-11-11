@@ -10,7 +10,8 @@
 
 using namespace mozilla;
 
-TEST(NSPRLogModulesParser, Empty) {
+TEST(NSPRLogModulesParser, Empty)
+{
   bool callbackInvoked = false;
   auto callback = [&](const char*, mozilla::LogLevel, int32_t) mutable {
     callbackInvoked = true;
@@ -23,7 +24,8 @@ TEST(NSPRLogModulesParser, Empty) {
   EXPECT_FALSE(callbackInvoked);
 }
 
-TEST(NSPRLogModulesParser, DefaultLevel) {
+TEST(NSPRLogModulesParser, DefaultLevel)
+{
   bool callbackInvoked = false;
   auto callback = [&](const char* aName, mozilla::LogLevel aLevel, int32_t) {
     EXPECT_STREQ("Foo", aName);
@@ -39,7 +41,8 @@ TEST(NSPRLogModulesParser, DefaultLevel) {
   EXPECT_TRUE(callbackInvoked);
 }
 
-TEST(NSPRLogModulesParser, LevelSpecified) {
+TEST(NSPRLogModulesParser, LevelSpecified)
+{
   std::pair<const char*, mozilla::LogLevel> expected[] = {
       {"Foo:0", mozilla::LogLevel::Disabled},
       {"Foo:1", mozilla::LogLevel::Error},
@@ -67,7 +70,8 @@ TEST(NSPRLogModulesParser, LevelSpecified) {
   }
 }
 
-TEST(NSPRLogModulesParser, Multiple) {
+TEST(NSPRLogModulesParser, Multiple)
+{
   std::pair<const char*, mozilla::LogLevel> expected[] = {
       {"timestamp", mozilla::LogLevel::Error},
       {"Foo", mozilla::LogLevel::Info},
@@ -94,7 +98,34 @@ TEST(NSPRLogModulesParser, Multiple) {
   EXPECT_EQ(kExpectedCount, count);
 }
 
-TEST(NSPRLogModulesParser, RawArg) {
+TEST(NSPRLogModulesParser, Characters)
+{
+  std::pair<const char*, mozilla::LogLevel> expected[] = {
+      {"valid.name", mozilla::LogLevel::Verbose},
+      {"valid_name", mozilla::LogLevel::Debug},
+      {"invalid", mozilla::LogLevel::Error},
+  };
+
+  const size_t kExpectedCount = MOZ_ARRAY_LENGTH(expected);
+
+  auto* currTest = expected;
+
+  size_t count = 0;
+  mozilla::NSPRLogModulesParser(
+      "valid.name:5,valid_name:4,invalid/name:3,aborts-everything:2",
+      [&](const char* aName, mozilla::LogLevel aLevel, int32_t) mutable {
+        ASSERT_LT(count, kExpectedCount);
+        EXPECT_STREQ(currTest->first, aName);
+        EXPECT_EQ(currTest->second, aLevel);
+        currTest++;
+        count++;
+      });
+
+  EXPECT_EQ(kExpectedCount, count);
+}
+
+TEST(NSPRLogModulesParser, RawArg)
+{
   bool callbackInvoked = false;
   auto callback = [&](const char* aName, mozilla::LogLevel aLevel,
                       int32_t aRawValue) {
@@ -106,4 +137,31 @@ TEST(NSPRLogModulesParser, RawArg) {
 
   mozilla::NSPRLogModulesParser("Foo:1000", callback);
   EXPECT_TRUE(callbackInvoked);
+}
+
+TEST(NSPRLogModulesParser, RustModules)
+{
+  std::pair<const char*, mozilla::LogLevel> expected[] = {
+      {"timestamp", mozilla::LogLevel::Error},
+      {"crate::mod::file1", mozilla::LogLevel::Error},
+      {"crate::mod::file2", mozilla::LogLevel::Verbose},
+      {"crate::mod::*", mozilla::LogLevel::Info},
+  };
+
+  const size_t kExpectedCount = MOZ_ARRAY_LENGTH(expected);
+
+  auto* currTest = expected;
+
+  size_t count = 0;
+  mozilla::NSPRLogModulesParser(
+      "timestamp,crate::mod::file1, crate::mod::file2:5, crate::mod::*:3",
+      [&](const char* aName, mozilla::LogLevel aLevel, int32_t) mutable {
+        ASSERT_LT(count, kExpectedCount);
+        EXPECT_STREQ(currTest->first, aName);
+        EXPECT_EQ(currTest->second, aLevel);
+        currTest++;
+        count++;
+      });
+
+  EXPECT_EQ(kExpectedCount, count);
 }

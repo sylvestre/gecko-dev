@@ -4,12 +4,16 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-EXPORTS.mozilla.dom += ['SpeechSynthesisService.h']
+EXPORTS.mozilla.dom += ["SpeechSynthesisService.h"]
 
 UNIFIED_SOURCES += [
-  'AndroidSpeechModule.cpp',
-  'SpeechSynthesisService.cpp'
+    "SpeechSynthesisService.cpp",
 ]
-include('/ipc/chromium/chromium-config.mozbuild')
 
-FINAL_LIBRARY = 'xul'
+XPCOM_MANIFESTS += [
+    "components.conf",
+]
+
+include("/ipc/chromium/chromium-config.mozbuild")
+
+FINAL_LIBRARY = "xul"

@@ -35,12 +35,13 @@ add_task(async function() {
   // The easiest way to get the actual path is to request it from the content
   // process.
   const browser = gBrowser.selectedBrowser;
-  const actualPath = await ContentTask.spawn(browser, null, () => {
+  const actualPath = await SpecialPowers.spawn(browser, [], () => {
     return content.document.location.href;
   });
 
-  const cookiePath = actualPath.substr(0, actualPath.lastIndexOf("/") + 1)
-                               .replace(/file:\/\//g, "");
+  const cookiePath = actualPath
+    .substr(0, actualPath.lastIndexOf("/"))
+    .replace(/file:\/\//g, "");
   await checkState([
     [
       ["cookies", actualPath],
@@ -48,17 +49,18 @@ add_task(async function() {
         getCookieId("test1", "", cookiePath),
         getCookieId("test2", "", cookiePath),
       ],
-    ], [
+    ],
+    [
       ["indexedDB", actualPath, "MyDatabase (default)", "MyObjectStore"],
       [12345, 54321, 67890, 98765],
-    ], [
+    ],
+    [
       ["localStorage", actualPath],
       ["test3", "test4"],
-    ], [
+    ],
+    [
       ["sessionStorage", actualPath],
       ["test5", "test6"],
     ],
   ]);
-
-  await finishTests();
 });

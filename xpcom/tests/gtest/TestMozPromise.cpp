@@ -3,28 +3,26 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "gtest/gtest.h"
-
-#include "base/message_loop.h"
-
-#include "mozilla/TaskQueue.h"
-#include "mozilla/MozPromise.h"
-#include "mozilla/Unused.h"
-
-#include "nsISupportsImpl.h"
-#include "mozilla/SharedThreadPool.h"
 #include "VideoUtils.h"
+#include "base/message_loop.h"
+#include "gtest/gtest.h"
+#include "mozilla/MozPromise.h"
+#include "mozilla/SharedThreadPool.h"
+#include "mozilla/TaskQueue.h"
+#include "mozilla/Unused.h"
+#include "nsISupportsImpl.h"
 
 using namespace mozilla;
 
 typedef MozPromise<int, double, false> TestPromise;
+typedef MozPromise<int, double, true /* exclusive */> TestPromiseExcl;
 typedef TestPromise::ResolveOrRejectValue RRValue;
 
 class MOZ_STACK_CLASS AutoTaskQueue {
  public:
   AutoTaskQueue()
       : mTaskQueue(
-            new TaskQueue(GetMediaThreadPool(MediaThreadType::PLAYBACK))) {}
+            new TaskQueue(GetMediaThreadPool(MediaThreadType::SUPERVISOR))) {}
 
   ~AutoTaskQueue() { mTaskQueue->AwaitShutdownAndIdle(); }
 
@@ -64,7 +62,7 @@ class DelayedResolveOrReject : public Runnable {
   void Cancel() { mPromise = nullptr; }
 
  protected:
-  ~DelayedResolveOrReject() {}
+  ~DelayedResolveOrReject() = default;
 
  private:
   RefPtr<TaskQueue> mTaskQueue;
@@ -86,21 +84,24 @@ void RunOnTaskQueue(TaskQueue* aQueue, FunctionType aFun) {
     return TestPromise::CreateAndReject(0, __func__); \
   }
 
-TEST(MozPromise, BasicResolve) {
+TEST(MozPromise, BasicResolve)
+{
   AutoTaskQueue atq;
   RefPtr<TaskQueue> queue = atq.Queue();
   RunOnTaskQueue(queue, [queue]() -> void {
     TestPromise::CreateAndResolve(42, __func__)
-        ->Then(queue, __func__,
-               [queue](int aResolveValue) -> void {
-                 EXPECT_EQ(aResolveValue, 42);
-                 queue->BeginShutdown();
-               },
-               DO_FAIL);
+        ->Then(
+            queue, __func__,
+            [queue](int aResolveValue) -> void {
+              EXPECT_EQ(aResolveValue, 42);
+              queue->BeginShutdown();
+            },
+            DO_FAIL);
   });
 }
 
-TEST(MozPromise, BasicReject) {
+TEST(MozPromise, BasicReject)
+{
   AutoTaskQueue atq;
   RefPtr<TaskQueue> queue = atq.Queue();
   RunOnTaskQueue(queue, [queue]() -> void {
@@ -112,7 +113,8 @@ TEST(MozPromise, BasicReject) {
   });
 }
 
-TEST(MozPromise, BasicResolveOrRejectResolved) {
+TEST(MozPromise, BasicResolveOrRejectResolved)
+{
   AutoTaskQueue atq;
   RefPtr<TaskQueue> queue = atq.Queue();
   RunOnTaskQueue(queue, [queue]() -> void {
@@ -129,7 +131,8 @@ TEST(MozPromise, BasicResolveOrRejectResolved) {
   });
 }
 
-TEST(MozPromise, BasicResolveOrRejectRejected) {
+TEST(MozPromise, BasicResolveOrRejectRejected)
+{
   AutoTaskQueue atq;
   RefPtr<TaskQueue> queue = atq.Queue();
   RunOnTaskQueue(queue, [queue]() -> void {
@@ -146,7 +149,8 @@ TEST(MozPromise, BasicResolveOrRejectRejected) {
   });
 }
 
-TEST(MozPromise, AsyncResolve) {
+TEST(MozPromise, AsyncResolve)
+{
   AutoTaskQueue atq;
   RefPtr<TaskQueue> queue = atq.Queue();
   RunOnTaskQueue(queue, [queue]() -> void {
@@ -168,51 +172,57 @@ TEST(MozPromise, AsyncResolve) {
     ref = c.get();
     Unused << queue->Dispatch(ref.forget());
 
-    p->Then(queue, __func__,
-            [queue, a, b, c](int aResolveValue) -> void {
-              EXPECT_EQ(aResolveValue, 42);
-              a->Cancel();
-              b->Cancel();
-              c->Cancel();
-              queue->BeginShutdown();
-            },
-            DO_FAIL);
+    p->Then(
+        queue, __func__,
+        [queue, a, b, c](int aResolveValue) -> void {
+          EXPECT_EQ(aResolveValue, 42);
+          a->Cancel();
+          b->Cancel();
+          c->Cancel();
+          queue->BeginShutdown();
+        },
+        DO_FAIL);
   });
 }
 
-TEST(MozPromise, CompletionPromises) {
+TEST(MozPromise, CompletionPromises)
+{
   bool invokedPass = false;
   AutoTaskQueue atq;
   RefPtr<TaskQueue> queue = atq.Queue();
   RunOnTaskQueue(queue, [queue, &invokedPass]() -> void {
     TestPromise::CreateAndResolve(40, __func__)
-        ->Then(queue, __func__,
-               [](int aVal) -> RefPtr<TestPromise> {
-                 return TestPromise::CreateAndResolve(aVal + 10, __func__);
-               },
-               DO_FAIL)
-        ->Then(queue, __func__,
-               [&invokedPass](int aVal) {
-                 invokedPass = true;
-                 return TestPromise::CreateAndResolve(aVal, __func__);
-               },
-               DO_FAIL)
-        ->Then(queue, __func__,
-               [queue](int aVal) -> RefPtr<TestPromise> {
-                 RefPtr<TestPromise::Private> p =
-                     new TestPromise::Private(__func__);
-                 nsCOMPtr<nsIRunnable> resolver = new DelayedResolveOrReject(
-                     queue, p, RRValue::MakeResolve(aVal - 8), 10);
-                 Unused << queue->Dispatch(resolver.forget());
-                 return RefPtr<TestPromise>(p);
-               },
-               DO_FAIL)
-        ->Then(queue, __func__,
-               [](int aVal) -> RefPtr<TestPromise> {
-                 return TestPromise::CreateAndReject(double(aVal - 42) + 42.0,
-                                                     __func__);
-               },
-               DO_FAIL)
+        ->Then(
+            queue, __func__,
+            [](int aVal) -> RefPtr<TestPromise> {
+              return TestPromise::CreateAndResolve(aVal + 10, __func__);
+            },
+            DO_FAIL)
+        ->Then(
+            queue, __func__,
+            [&invokedPass](int aVal) {
+              invokedPass = true;
+              return TestPromise::CreateAndResolve(aVal, __func__);
+            },
+            DO_FAIL)
+        ->Then(
+            queue, __func__,
+            [queue](int aVal) -> RefPtr<TestPromise> {
+              RefPtr<TestPromise::Private> p =
+                  new TestPromise::Private(__func__);
+              nsCOMPtr<nsIRunnable> resolver = new DelayedResolveOrReject(
+                  queue, p, RRValue::MakeResolve(aVal - 8), 10);
+              Unused << queue->Dispatch(resolver.forget());
+              return RefPtr<TestPromise>(p);
+            },
+            DO_FAIL)
+        ->Then(
+            queue, __func__,
+            [](int aVal) -> RefPtr<TestPromise> {
+              return TestPromise::CreateAndReject(double(aVal - 42) + 42.0,
+                                                  __func__);
+            },
+            DO_FAIL)
         ->Then(queue, __func__, DO_FAIL,
                [queue, &invokedPass](double aVal) -> void {
                  EXPECT_EQ(aVal, 42.0);
@@ -222,7 +232,8 @@ TEST(MozPromise, CompletionPromises) {
   });
 }
 
-TEST(MozPromise, PromiseAllResolve) {
+TEST(MozPromise, PromiseAllResolve)
+{
   AutoTaskQueue atq;
   RefPtr<TaskQueue> queue = atq.Queue();
   RunOnTaskQueue(queue, [queue]() -> void {
@@ -232,19 +243,21 @@ TEST(MozPromise, PromiseAllResolve) {
     promises.AppendElement(TestPromise::CreateAndResolve(42, __func__));
 
     TestPromise::All(queue, promises)
-        ->Then(queue, __func__,
-               [queue](const nsTArray<int>& aResolveValues) -> void {
-                 EXPECT_EQ(aResolveValues.Length(), 3UL);
-                 EXPECT_EQ(aResolveValues[0], 22);
-                 EXPECT_EQ(aResolveValues[1], 32);
-                 EXPECT_EQ(aResolveValues[2], 42);
-                 queue->BeginShutdown();
-               },
-               []() { EXPECT_TRUE(false); });
+        ->Then(
+            queue, __func__,
+            [queue](const CopyableTArray<int>& aResolveValues) -> void {
+              EXPECT_EQ(aResolveValues.Length(), 3UL);
+              EXPECT_EQ(aResolveValues[0], 22);
+              EXPECT_EQ(aResolveValues[1], 32);
+              EXPECT_EQ(aResolveValues[2], 42);
+              queue->BeginShutdown();
+            },
+            []() { EXPECT_TRUE(false); });
   });
 }
 
-TEST(MozPromise, PromiseAllReject) {
+TEST(MozPromise, PromiseAllReject)
+{
   AutoTaskQueue atq;
   RefPtr<TaskQueue> queue = atq.Queue();
   RunOnTaskQueue(queue, [queue]() -> void {
@@ -256,17 +269,19 @@ TEST(MozPromise, PromiseAllReject) {
     promises.AppendElement(TestPromise::CreateAndReject(52.0, __func__));
 
     TestPromise::All(queue, promises)
-        ->Then(queue, __func__, []() { EXPECT_TRUE(false); },
-               [queue](float aRejectValue) -> void {
-                 EXPECT_EQ(aRejectValue, 32.0);
-                 queue->BeginShutdown();
-               });
+        ->Then(
+            queue, __func__, []() { EXPECT_TRUE(false); },
+            [queue](float aRejectValue) -> void {
+              EXPECT_EQ(aRejectValue, 32.0);
+              queue->BeginShutdown();
+            });
   });
 }
 
 // Test we don't hit the assertions in MozPromise when exercising promise
 // chaining upon task queue shutdown.
-TEST(MozPromise, Chaining) {
+TEST(MozPromise, Chaining)
+{
   // We declare this variable before |atq| to ensure
   // the destructor is run after |holder.Disconnect()|.
   MozPromiseRequestHolder<TestPromise> holder;
@@ -278,31 +293,36 @@ TEST(MozPromise, Chaining) {
     auto p = TestPromise::CreateAndResolve(42, __func__);
     const size_t kIterations = 100;
     for (size_t i = 0; i < kIterations; ++i) {
-      p = p->Then(queue, __func__,
-                  [](int aVal) {
-                    EXPECT_EQ(aVal, 42);
-                    return TestPromise::CreateAndResolve(aVal, __func__);
-                  },
-                  [](double aVal) {
-                    return TestPromise::CreateAndReject(aVal, __func__);
-                  });
+      p = p->Then(
+          queue, __func__,
+          [](int aVal) {
+            EXPECT_EQ(aVal, 42);
+            return TestPromise::CreateAndResolve(aVal, __func__);
+          },
+          [](double aVal) {
+            return TestPromise::CreateAndReject(aVal, __func__);
+          });
 
       if (i == kIterations / 2) {
-        p->Then(queue, __func__,
-                [queue, &holder]() {
-                  holder.Disconnect();
-                  queue->BeginShutdown();
-                },
-                DO_FAIL);
+        p->Then(
+            queue, __func__,
+            [queue, &holder]() {
+              holder.Disconnect();
+              queue->BeginShutdown();
+            },
+            DO_FAIL);
       }
     }
     // We will hit the assertion if we don't disconnect the leaf Request
     // in the promise chain.
-    p->Then(queue, __func__, []() {}, []() {})->Track(holder);
+    p->Then(
+         queue, __func__, []() {}, []() {})
+        ->Track(holder);
   });
 }
 
-TEST(MozPromise, ResolveOrRejectValue) {
+TEST(MozPromise, ResolveOrRejectValue)
+{
   using MyPromise = MozPromise<UniquePtr<int>, bool, false>;
   using RRValue = MyPromise::ResolveOrRejectValue;
 
@@ -324,7 +344,8 @@ TEST(MozPromise, ResolveOrRejectValue) {
   EXPECT_EQ(val.ResolveValue().get(), nullptr);
 }
 
-TEST(MozPromise, MoveOnlyType) {
+TEST(MozPromise, MoveOnlyType)
+{
   using MyPromise = MozPromise<UniquePtr<int>, bool, true>;
   using RRValue = MyPromise::ResolveOrRejectValue;
 
@@ -332,8 +353,9 @@ TEST(MozPromise, MoveOnlyType) {
   RefPtr<TaskQueue> queue = atq.Queue();
 
   MyPromise::CreateAndResolve(MakeUnique<int>(87), __func__)
-      ->Then(queue, __func__, [](UniquePtr<int> aVal) { EXPECT_EQ(87, *aVal); },
-             []() { EXPECT_TRUE(false); });
+      ->Then(
+          queue, __func__, [](UniquePtr<int> aVal) { EXPECT_EQ(87, *aVal); },
+          []() { EXPECT_TRUE(false); });
 
   MyPromise::CreateAndResolve(MakeUnique<int>(87), __func__)
       ->Then(queue, __func__, [queue](RRValue&& aVal) {
@@ -352,7 +374,8 @@ TEST(MozPromise, MoveOnlyType) {
       });
 }
 
-TEST(MozPromise, HeterogeneousChaining) {
+TEST(MozPromise, HeterogeneousChaining)
+{
   using Promise1 = MozPromise<UniquePtr<char>, bool, true>;
   using Promise2 = MozPromise<UniquePtr<int>, bool, true>;
   using RRValue1 = Promise1::ResolveOrRejectValue;
@@ -380,16 +403,18 @@ TEST(MozPromise, HeterogeneousChaining) {
   });
 
   Promise1::CreateAndResolve(MakeUnique<char>(87), __func__)
-      ->Then(queue, __func__,
-             [](UniquePtr<char> aVal) {
-               EXPECT_EQ(87, *aVal);
-               return Promise2::CreateAndResolve(MakeUnique<int>(94), __func__);
-             },
-             []() {
-               return Promise2::CreateAndResolve(MakeUnique<int>(95), __func__);
-             })
-      ->Then(queue, __func__, [](UniquePtr<int> aVal) { EXPECT_EQ(94, *aVal); },
-             []() { EXPECT_FALSE(true); });
+      ->Then(
+          queue, __func__,
+          [](UniquePtr<char> aVal) {
+            EXPECT_EQ(87, *aVal);
+            return Promise2::CreateAndResolve(MakeUnique<int>(94), __func__);
+          },
+          []() {
+            return Promise2::CreateAndResolve(MakeUnique<int>(95), __func__);
+          })
+      ->Then(
+          queue, __func__, [](UniquePtr<int> aVal) { EXPECT_EQ(94, *aVal); },
+          []() { EXPECT_FALSE(true); });
 
   Promise1::CreateAndResolve(MakeUnique<char>(87), __func__)
       ->Then(queue, __func__,
@@ -403,21 +428,194 @@ TEST(MozPromise, HeterogeneousChaining) {
       });
 }
 
-TEST(MozPromise, XPCOMEventTarget) {
+TEST(MozPromise, XPCOMEventTarget)
+{
   TestPromise::CreateAndResolve(42, __func__)
-      ->Then(GetCurrentThreadSerialEventTarget(), __func__,
-             [](int aResolveValue) -> void { EXPECT_EQ(aResolveValue, 42); },
-             DO_FAIL);
+      ->Then(
+          GetCurrentSerialEventTarget(), __func__,
+          [](int aResolveValue) -> void { EXPECT_EQ(aResolveValue, 42); },
+          DO_FAIL);
 
   // Spin the event loop.
   NS_ProcessPendingEvents(nullptr);
 }
 
-TEST(MozPromise, MessageLoopEventTarget) {
+TEST(MozPromise, MessageLoopEventTarget)
+{
   TestPromise::CreateAndResolve(42, __func__)
-      ->Then(MessageLoop::current()->SerialEventTarget(), __func__,
-             [](int aResolveValue) -> void { EXPECT_EQ(aResolveValue, 42); },
-             DO_FAIL);
+      ->Then(
+          MessageLoop::current()->SerialEventTarget(), __func__,
+          [](int aResolveValue) -> void { EXPECT_EQ(aResolveValue, 42); },
+          DO_FAIL);
+
+  // Spin the event loop.
+  NS_ProcessPendingEvents(nullptr);
+}
+
+TEST(MozPromise, ChainTo)
+{
+  RefPtr<TestPromise> promise1 = TestPromise::CreateAndResolve(42, __func__);
+  RefPtr<TestPromise::Private> promise2 = new TestPromise::Private(__func__);
+  promise2->Then(
+      GetCurrentSerialEventTarget(), __func__,
+      [&](int aResolveValue) -> void { EXPECT_EQ(aResolveValue, 42); },
+      DO_FAIL);
+
+  promise1->ChainTo(promise2.forget(), __func__);
+
+  // Spin the event loop.
+  NS_ProcessPendingEvents(nullptr);
+}
+
+TEST(MozPromise, SynchronousTaskDispatch1)
+{
+  bool value = false;
+  RefPtr<TestPromiseExcl::Private> promise =
+      new TestPromiseExcl::Private(__func__);
+  promise->UseSynchronousTaskDispatch(__func__);
+  promise->Resolve(42, __func__);
+  EXPECT_EQ(value, false);
+  promise->Then(
+      GetCurrentSerialEventTarget(), __func__,
+      [&](int aResolveValue) -> void {
+        EXPECT_EQ(aResolveValue, 42);
+        value = true;
+      },
+      DO_FAIL);
+  EXPECT_EQ(value, true);
+}
+
+TEST(MozPromise, SynchronousTaskDispatch2)
+{
+  bool value = false;
+  RefPtr<TestPromiseExcl::Private> promise =
+      new TestPromiseExcl::Private(__func__);
+  promise->UseSynchronousTaskDispatch(__func__);
+  promise->Then(
+      GetCurrentSerialEventTarget(), __func__,
+      [&](int aResolveValue) -> void {
+        EXPECT_EQ(aResolveValue, 42);
+        value = true;
+      },
+      DO_FAIL);
+  EXPECT_EQ(value, false);
+  promise->Resolve(42, __func__);
+  EXPECT_EQ(value, true);
+}
+
+TEST(MozPromise, DirectTaskDispatch)
+{
+  bool value1 = false;
+  bool value2 = false;
+
+  // For direct task dispatch to be working, we must be within a
+  // nested event loop. So the test itself must be dispatched within
+  // a task.
+  GetCurrentSerialEventTarget()->Dispatch(NS_NewRunnableFunction("test", [&]() {
+    GetCurrentSerialEventTarget()->Dispatch(
+        NS_NewRunnableFunction("test", [&]() {
+          EXPECT_EQ(value1, true);
+          value2 = true;
+        }));
+
+    RefPtr<TestPromise::Private> promise = new TestPromise::Private(__func__);
+    promise->UseDirectTaskDispatch(__func__);
+    promise->Resolve(42, __func__);
+    EXPECT_EQ(value1, false);
+    promise->Then(
+        GetCurrentSerialEventTarget(), __func__,
+        [&](int aResolveValue) -> void {
+          EXPECT_EQ(aResolveValue, 42);
+          EXPECT_EQ(value2, false);
+          value1 = true;
+        },
+        DO_FAIL);
+    EXPECT_EQ(value1, false);
+  }));
+
+  // Spin the event loop.
+  NS_ProcessPendingEvents(nullptr);
+}
+
+TEST(MozPromise, ChainedDirectTaskDispatch)
+{
+  bool value1 = false;
+  bool value2 = false;
+
+  // For direct task dispatch to be working, we must be within a
+  // nested event loop. So the test itself must be dispatched within
+  // a task.
+  GetCurrentSerialEventTarget()->Dispatch(NS_NewRunnableFunction("test", [&]() {
+    GetCurrentSerialEventTarget()->Dispatch(
+        NS_NewRunnableFunction("test", [&]() {
+          EXPECT_EQ(value1, true);
+          value2 = true;
+        }));
+
+    RefPtr<TestPromise::Private> promise1 = new TestPromise::Private(__func__);
+    promise1->UseDirectTaskDispatch(__func__);
+    promise1->Resolve(42, __func__);
+    EXPECT_EQ(value1, false);
+    promise1
+        ->Then(
+            GetCurrentSerialEventTarget(), __func__,
+            [&](int aResolveValue) -> RefPtr<TestPromise> {
+              EXPECT_EQ(aResolveValue, 42);
+              EXPECT_EQ(value2, false);
+              RefPtr<TestPromise::Private> promise2 =
+                  new TestPromise::Private(__func__);
+              promise2->UseDirectTaskDispatch(__func__);
+              promise2->Resolve(43, __func__);
+              return promise2;
+            },
+            DO_FAIL)
+        ->Then(
+            GetCurrentSerialEventTarget(), __func__,
+            [&](int aResolveValue) -> void {
+              EXPECT_EQ(aResolveValue, 43);
+              EXPECT_EQ(value2, false);
+              value1 = true;
+            },
+            DO_FAIL);
+    EXPECT_EQ(value1, false);
+  }));
+
+  // Spin the event loop.
+  NS_ProcessPendingEvents(nullptr);
+}
+
+TEST(MozPromise, ChainToDirectTaskDispatch)
+{
+  bool value1 = false;
+  bool value2 = false;
+
+  // For direct task dispatch to be working, we must be within a
+  // nested event loop. So the test itself must be dispatched within
+  // a task.
+  GetCurrentSerialEventTarget()->Dispatch(NS_NewRunnableFunction("test", [&]() {
+    GetCurrentSerialEventTarget()->Dispatch(
+        NS_NewRunnableFunction("test", [&]() {
+          EXPECT_EQ(value1, true);
+          value2 = true;
+        }));
+
+    RefPtr<TestPromise::Private> promise1 = new TestPromise::Private(__func__);
+    promise1->UseDirectTaskDispatch(__func__);
+
+    RefPtr<TestPromise::Private> promise2 = new TestPromise::Private(__func__);
+    promise2->Then(
+        GetCurrentSerialEventTarget(), __func__,
+        [&](int aResolveValue) -> void {
+          EXPECT_EQ(aResolveValue, 42);
+          EXPECT_EQ(value2, false);
+          value1 = true;
+        },
+        DO_FAIL);
+
+    promise1->ChainTo(promise2.forget(), __func__);
+    EXPECT_EQ(value1, false);
+    promise1->Resolve(42, __func__);
+  }));
 
   // Spin the event loop.
   NS_ProcessPendingEvents(nullptr);

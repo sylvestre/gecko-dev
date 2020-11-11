@@ -15,7 +15,7 @@
 #include "jsapi-tests/tests.h"
 
 static bool MOZ_FORMAT_PRINTF(2, 3)
-    print_one(const char *expect, const char *fmt, ...) {
+    print_one(const char* expect, const char* fmt, ...) {
   va_list ap;
 
   va_start(ap, fmt);
@@ -25,7 +25,11 @@ static bool MOZ_FORMAT_PRINTF(2, 3)
   return output && !strcmp(output.get(), expect);
 }
 
-static const char *zero() { return nullptr; }
+static const char* zero() {
+  // gcc 9 is altogether too clever about detecting that this will always
+  // return nullptr. Do not replace 0x10 with 0x1; it will no longer work.
+  return uintptr_t(&zero) == 0x10 ? "never happens" : nullptr;
+}
 
 BEGIN_TEST(testPrintf) {
   CHECK(print_one("23", "%d", 23));
@@ -46,7 +50,7 @@ BEGIN_TEST(testPrintf) {
   CHECK(print_one("27270", "%zu", (size_t)27270));
   CHECK(print_one("hello", "he%so", "ll"));
   CHECK(print_one("(null)", "%s", ::zero()));
-  CHECK(print_one("0", "%p", (char *)0));
+  CHECK(print_one("0", "%p", (char*)0));
   CHECK(print_one("h", "%c", 'h'));
   CHECK(print_one("1.500000", "%f", 1.5f));
   CHECK(print_one("1.5", "%g", 1.5));

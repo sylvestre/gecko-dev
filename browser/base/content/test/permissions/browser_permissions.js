@@ -2,51 +2,76 @@
  * Test the Permissions section in the Control Center.
  */
 
-const PERMISSIONS_PAGE  = getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com") + "permissions.html";
-const kStrictKeyPressEvents =
-  SpecialPowers.getBoolPref("dom.keyboardevent.keypress.dispatch_non_printable_keys_only_system_group_in_content");
+const PERMISSIONS_PAGE =
+  getRootDirectory(gTestPath).replace(
+    "chrome://mochitests/content",
+    "https://example.com"
+  ) + "permissions.html";
+const kStrictKeyPressEvents = SpecialPowers.getBoolPref(
+  "dom.keyboardevent.keypress.dispatch_non_printable_keys_only_system_group_in_content"
+);
 
 function openIdentityPopup() {
-  let promise = BrowserTestUtils.waitForEvent(gIdentityHandler._identityPopup, "popupshown");
+  let promise = BrowserTestUtils.waitForEvent(
+    window,
+    "popupshown",
+    true,
+    event => event.target == gIdentityHandler._identityPopup
+  );
   gIdentityHandler._identityBox.click();
   return promise;
 }
 
 function closeIdentityPopup() {
-  let promise = BrowserTestUtils.waitForEvent(gIdentityHandler._identityPopup, "popuphidden");
+  let promise = BrowserTestUtils.waitForEvent(
+    gIdentityHandler._identityPopup,
+    "popuphidden"
+  );
   gIdentityHandler._identityPopup.hidePopup();
   return promise;
 }
 
 add_task(async function testMainViewVisible() {
   await BrowserTestUtils.withNewTab(PERMISSIONS_PAGE, async function() {
-    let permissionsList = document.getElementById("identity-popup-permission-list");
-    let emptyLabel = permissionsList.nextElementSibling.nextElementSibling;
-
     await openIdentityPopup();
 
+    let permissionsList = document.getElementById(
+      "identity-popup-permission-list"
+    );
+    let emptyLabel = permissionsList.nextElementSibling.nextElementSibling;
     ok(!BrowserTestUtils.is_hidden(emptyLabel), "List of permissions is empty");
 
     await closeIdentityPopup();
 
-    SitePermissions.set(gBrowser.currentURI, "camera", SitePermissions.ALLOW);
+    PermissionTestUtils.add(
+      gBrowser.currentURI,
+      "camera",
+      Services.perms.ALLOW_ACTION
+    );
 
     await openIdentityPopup();
 
-    ok(BrowserTestUtils.is_hidden(emptyLabel), "List of permissions is not empty");
+    ok(
+      BrowserTestUtils.is_hidden(emptyLabel),
+      "List of permissions is not empty"
+    );
 
     let labelText = SitePermissions.getPermissionLabel("camera");
-    let labels = permissionsList.querySelectorAll(".identity-popup-permission-label");
+    let labels = permissionsList.querySelectorAll(
+      ".identity-popup-permission-label"
+    );
     is(labels.length, 1, "One permission visible in main view");
     is(labels[0].textContent, labelText, "Correct value");
 
-    let img = permissionsList.querySelector("image.identity-popup-permission-icon");
+    let img = permissionsList.querySelector(
+      "image.identity-popup-permission-icon"
+    );
     ok(img, "There is an image for the permissions");
     ok(img.classList.contains("camera-icon"), "proper class is in image class");
 
     await closeIdentityPopup();
 
-    SitePermissions.remove(gBrowser.currentURI, "camera");
+    PermissionTestUtils.remove(gBrowser.currentURI, "camera");
 
     await openIdentityPopup();
 
@@ -58,53 +83,98 @@ add_task(async function testMainViewVisible() {
 
 add_task(async function testIdentityIcon() {
   await BrowserTestUtils.withNewTab(PERMISSIONS_PAGE, function() {
-    SitePermissions.set(gBrowser.currentURI, "geo", SitePermissions.ALLOW);
+    PermissionTestUtils.add(
+      gBrowser.currentURI,
+      "geo",
+      Services.perms.ALLOW_ACTION
+    );
 
-    ok(gIdentityHandler._identityBox.classList.contains("grantedPermissions"),
-      "identity-box signals granted permissions");
+    ok(
+      gIdentityHandler._identityBox.classList.contains("grantedPermissions"),
+      "identity-box signals granted permissions"
+    );
 
-    SitePermissions.remove(gBrowser.currentURI, "geo");
+    PermissionTestUtils.remove(gBrowser.currentURI, "geo");
 
-    ok(!gIdentityHandler._identityBox.classList.contains("grantedPermissions"),
-      "identity-box doesn't signal granted permissions");
+    ok(
+      !gIdentityHandler._identityBox.classList.contains("grantedPermissions"),
+      "identity-box doesn't signal granted permissions"
+    );
 
-    SitePermissions.set(gBrowser.currentURI, "camera", SitePermissions.BLOCK);
+    PermissionTestUtils.add(
+      gBrowser.currentURI,
+      "camera",
+      Services.perms.DENY_ACTION
+    );
 
-    ok(!gIdentityHandler._identityBox.classList.contains("grantedPermissions"),
-      "identity-box doesn't signal granted permissions");
+    ok(
+      !gIdentityHandler._identityBox.classList.contains("grantedPermissions"),
+      "identity-box doesn't signal granted permissions"
+    );
 
-    SitePermissions.set(gBrowser.currentURI, "cookie", SitePermissions.ALLOW_COOKIES_FOR_SESSION);
+    PermissionTestUtils.add(
+      gBrowser.currentURI,
+      "cookie",
+      Ci.nsICookiePermission.ACCESS_SESSION
+    );
 
-    ok(gIdentityHandler._identityBox.classList.contains("grantedPermissions"),
-      "identity-box signals granted permissions");
+    ok(
+      gIdentityHandler._identityBox.classList.contains("grantedPermissions"),
+      "identity-box signals granted permissions"
+    );
 
-    SitePermissions.remove(gBrowser.currentURI, "geo");
-    SitePermissions.remove(gBrowser.currentURI, "camera");
-    SitePermissions.remove(gBrowser.currentURI, "cookie");
+    PermissionTestUtils.remove(gBrowser.currentURI, "geo");
+    PermissionTestUtils.remove(gBrowser.currentURI, "camera");
+    PermissionTestUtils.remove(gBrowser.currentURI, "cookie");
   });
 });
 
 add_task(async function testCancelPermission() {
   await BrowserTestUtils.withNewTab(PERMISSIONS_PAGE, async function() {
-    let permissionsList = document.getElementById("identity-popup-permission-list");
+    let permissionsList = document.getElementById(
+      "identity-popup-permission-list"
+    );
     let emptyLabel = permissionsList.nextElementSibling.nextElementSibling;
 
-    SitePermissions.set(gBrowser.currentURI, "geo", SitePermissions.ALLOW);
-    SitePermissions.set(gBrowser.currentURI, "camera", SitePermissions.BLOCK);
+    PermissionTestUtils.add(
+      gBrowser.currentURI,
+      "geo",
+      Services.perms.ALLOW_ACTION
+    );
+    PermissionTestUtils.add(
+      gBrowser.currentURI,
+      "camera",
+      Services.perms.DENY_ACTION
+    );
 
     await openIdentityPopup();
 
-    ok(BrowserTestUtils.is_hidden(emptyLabel), "List of permissions is not empty");
+    ok(
+      BrowserTestUtils.is_hidden(emptyLabel),
+      "List of permissions is not empty"
+    );
 
-    let cancelButtons = permissionsList
-      .querySelectorAll(".identity-popup-permission-remove-button");
+    permissionsList
+      .querySelector(".identity-popup-permission-remove-button")
+      .click();
 
-    cancelButtons[0].click();
-    let labels = permissionsList.querySelectorAll(".identity-popup-permission-label");
-    is(labels.length, 1, "One permission should be removed");
-    cancelButtons[1].click();
-    labels = permissionsList.querySelectorAll(".identity-popup-permission-label");
-    is(labels.length, 0, "One permission should be removed");
+    is(
+      permissionsList.querySelectorAll(".identity-popup-permission-label")
+        .length,
+      1,
+      "First permission should be removed"
+    );
+
+    permissionsList
+      .querySelector(".identity-popup-permission-remove-button")
+      .click();
+
+    is(
+      permissionsList.querySelectorAll(".identity-popup-permission-label")
+        .length,
+      0,
+      "Second permission should be removed"
+    );
 
     await closeIdentityPopup();
   });
@@ -112,9 +182,15 @@ add_task(async function testCancelPermission() {
 
 add_task(async function testPermissionHints() {
   await BrowserTestUtils.withNewTab(PERMISSIONS_PAGE, async function(browser) {
-    let permissionsList = document.getElementById("identity-popup-permission-list");
-    let emptyHint = document.getElementById("identity-popup-permission-empty-hint");
-    let reloadHint = document.getElementById("identity-popup-permission-reload-hint");
+    let permissionsList = document.getElementById(
+      "identity-popup-permission-list"
+    );
+    let emptyHint = document.getElementById(
+      "identity-popup-permission-empty-hint"
+    );
+    let reloadHint = document.getElementById(
+      "identity-popup-permission-reload-hint"
+    );
 
     await openIdentityPopup();
 
@@ -123,17 +199,26 @@ add_task(async function testPermissionHints() {
 
     await closeIdentityPopup();
 
-    SitePermissions.set(gBrowser.currentURI, "geo", SitePermissions.ALLOW);
-    SitePermissions.set(gBrowser.currentURI, "camera", SitePermissions.BLOCK);
+    PermissionTestUtils.add(
+      gBrowser.currentURI,
+      "geo",
+      Services.perms.ALLOW_ACTION
+    );
+    PermissionTestUtils.add(
+      gBrowser.currentURI,
+      "camera",
+      Services.perms.DENY_ACTION
+    );
 
     await openIdentityPopup();
 
     ok(BrowserTestUtils.is_hidden(emptyHint), "Empty hint is hidden");
     ok(BrowserTestUtils.is_hidden(reloadHint), "Reload hint is hidden");
 
-    let cancelButtons = permissionsList
-      .querySelectorAll(".identity-popup-permission-remove-button");
-    SitePermissions.remove(gBrowser.currentURI, "camera");
+    let cancelButtons = permissionsList.querySelectorAll(
+      ".identity-popup-permission-remove-button"
+    );
+    PermissionTestUtils.remove(gBrowser.currentURI, "camera");
 
     cancelButtons[0].click();
     ok(BrowserTestUtils.is_hidden(emptyHint), "Empty hint is hidden");
@@ -149,8 +234,14 @@ add_task(async function testPermissionHints() {
     await loaded;
     await openIdentityPopup();
 
-    ok(!BrowserTestUtils.is_hidden(emptyHint), "Empty hint is visible after reloading");
-    ok(BrowserTestUtils.is_hidden(reloadHint), "Reload hint is hidden after reloading");
+    ok(
+      !BrowserTestUtils.is_hidden(emptyHint),
+      "Empty hint is visible after reloading"
+    );
+    ok(
+      BrowserTestUtils.is_hidden(reloadHint),
+      "Reload hint is hidden after reloading"
+    );
 
     await closeIdentityPopup();
   });
@@ -158,24 +249,38 @@ add_task(async function testPermissionHints() {
 
 add_task(async function testPermissionIcons() {
   await BrowserTestUtils.withNewTab(PERMISSIONS_PAGE, function() {
-    SitePermissions.set(gBrowser.currentURI, "camera", SitePermissions.ALLOW);
-    SitePermissions.set(gBrowser.currentURI, "geo", SitePermissions.BLOCK);
+    PermissionTestUtils.add(
+      gBrowser.currentURI,
+      "camera",
+      Services.perms.ALLOW_ACTION
+    );
+    PermissionTestUtils.add(
+      gBrowser.currentURI,
+      "geo",
+      Services.perms.DENY_ACTION
+    );
 
-    let geoIcon = gIdentityHandler._identityBox
-      .querySelector(".blocked-permission-icon[data-permission-id='geo']");
+    let geoIcon = gIdentityHandler._identityBox.querySelector(
+      ".blocked-permission-icon[data-permission-id='geo']"
+    );
     ok(geoIcon.hasAttribute("showing"), "blocked permission icon is shown");
 
-    let cameraIcon = gIdentityHandler._identityBox
-      .querySelector(".blocked-permission-icon[data-permission-id='camera']");
-    ok(!cameraIcon.hasAttribute("showing"),
-      "allowed permission icon is not shown");
+    let cameraIcon = gIdentityHandler._identityBox.querySelector(
+      ".blocked-permission-icon[data-permission-id='camera']"
+    );
+    ok(
+      !cameraIcon.hasAttribute("showing"),
+      "allowed permission icon is not shown"
+    );
 
-    SitePermissions.remove(gBrowser.currentURI, "geo");
+    PermissionTestUtils.remove(gBrowser.currentURI, "geo");
 
-    ok(!geoIcon.hasAttribute("showing"),
-      "blocked permission icon is not shown after reset");
+    ok(
+      !geoIcon.hasAttribute("showing"),
+      "blocked permission icon is not shown after reset"
+    );
 
-    SitePermissions.remove(gBrowser.currentURI, "camera");
+    PermissionTestUtils.remove(gBrowser.currentURI, "camera");
   });
 });
 
@@ -184,56 +289,99 @@ add_task(async function testPermissionShortcuts() {
     browser.focus();
 
     await new Promise(r => {
-      SpecialPowers.pushPrefEnv({"set": [["permissions.default.shortcuts", 0]]}, r);
+      SpecialPowers.pushPrefEnv(
+        { set: [["permissions.default.shortcuts", 0]] },
+        r
+      );
     });
 
     async function tryKey(desc, expectedValue) {
       await EventUtils.synthesizeAndWaitKey("c", { accelKey: true });
-      let result = await ContentTask.spawn(browser, null, function() {
-        return {keydowns: content.wrappedJSObject.gKeyDowns,
-                keypresses: content.wrappedJSObject.gKeyPresses};
+      let result = await SpecialPowers.spawn(browser, [], function() {
+        return {
+          keydowns: content.wrappedJSObject.gKeyDowns,
+          keypresses: content.wrappedJSObject.gKeyPresses,
+        };
       });
-      is(result.keydowns, expectedValue, "keydown event was fired or not fired as expected, " + desc);
+      is(
+        result.keydowns,
+        expectedValue,
+        "keydown event was fired or not fired as expected, " + desc
+      );
       if (kStrictKeyPressEvents) {
-        is(result.keypresses, 0, "keypress event shouldn't be fired for shortcut key, " + desc);
+        is(
+          result.keypresses,
+          0,
+          "keypress event shouldn't be fired for shortcut key, " + desc
+        );
       } else {
-        is(result.keypresses, expectedValue, "keypress event should be fired even for shortcut key, " + desc);
+        is(
+          result.keypresses,
+          expectedValue,
+          "keypress event should be fired even for shortcut key, " + desc
+        );
       }
     }
 
     await tryKey("pressed with default permissions", 1);
 
-    SitePermissions.set(gBrowser.currentURI, "shortcuts", SitePermissions.BLOCK);
+    PermissionTestUtils.add(
+      gBrowser.currentURI,
+      "shortcuts",
+      Services.perms.DENY_ACTION
+    );
     await tryKey("pressed when site blocked", 1);
 
-    SitePermissions.set(gBrowser.currentURI, "shortcuts", SitePermissions.ALLOW);
+    PermissionTestUtils.add(
+      gBrowser.currentURI,
+      "shortcuts",
+      PermissionTestUtils.ALLOW
+    );
     await tryKey("pressed when site allowed", 2);
 
-    SitePermissions.remove(gBrowser.currentURI, "shortcuts");
+    PermissionTestUtils.remove(gBrowser.currentURI, "shortcuts");
     await new Promise(r => {
-      SpecialPowers.pushPrefEnv({"set": [["permissions.default.shortcuts", 2]]}, r);
+      SpecialPowers.pushPrefEnv(
+        { set: [["permissions.default.shortcuts", 2]] },
+        r
+      );
     });
 
     await tryKey("pressed when globally blocked", 2);
-    SitePermissions.set(gBrowser.currentURI, "shortcuts", SitePermissions.ALLOW);
+    PermissionTestUtils.add(
+      gBrowser.currentURI,
+      "shortcuts",
+      Services.perms.ALLOW_ACTION
+    );
     await tryKey("pressed when globally blocked but site allowed", 3);
 
-    SitePermissions.set(gBrowser.currentURI, "shortcuts", SitePermissions.BLOCK);
+    PermissionTestUtils.add(
+      gBrowser.currentURI,
+      "shortcuts",
+      Services.perms.DENY_ACTION
+    );
     await tryKey("pressed when globally blocked and site blocked", 3);
 
-    SitePermissions.remove(gBrowser.currentURI, "shortcuts");
+    PermissionTestUtils.remove(gBrowser.currentURI, "shortcuts");
   });
 });
 
 // Test the control center UI when policy permissions are set.
 add_task(async function testPolicyPermission() {
   await BrowserTestUtils.withNewTab(PERMISSIONS_PAGE, async function() {
-    await SpecialPowers.pushPrefEnv({set: [
-      ["dom.disable_open_during_load", true],
-    ]});
+    await SpecialPowers.pushPrefEnv({
+      set: [["dom.disable_open_during_load", true]],
+    });
 
-    let permissionsList = document.getElementById("identity-popup-permission-list");
-    SitePermissions.set(gBrowser.currentURI, "popup", SitePermissions.ALLOW, SitePermissions.SCOPE_POLICY);
+    let permissionsList = document.getElementById(
+      "identity-popup-permission-list"
+    );
+    PermissionTestUtils.add(
+      gBrowser.currentURI,
+      "popup",
+      Services.perms.ALLOW_ACTION,
+      Services.perms.EXPIRE_POLICY
+    );
 
     await openIdentityPopup();
 
@@ -245,12 +393,19 @@ add_task(async function testPolicyPermission() {
     ok(img.classList.contains("popup-icon"), "proper class is in image class");
 
     labelText = SitePermissions.getPermissionLabel("popup");
-    labels = permissionsList.querySelectorAll(".identity-popup-permission-label");
+    labels = permissionsList.querySelectorAll(
+      ".identity-popup-permission-label"
+    );
     is(labels.length, 1, "One permission visible in main view");
     is(labels[0].textContent, labelText, "Correct name label value");
 
-    labelText = SitePermissions.getCurrentStateLabel(SitePermissions.ALLOW, SitePermissions.SCOPE_POLICY);
-    labels = permissionsList.querySelectorAll(".identity-popup-permission-state-label");
+    labelText = SitePermissions.getCurrentStateLabel(
+      SitePermissions.ALLOW,
+      SitePermissions.SCOPE_POLICY
+    );
+    labels = permissionsList.querySelectorAll(
+      ".identity-popup-permission-state-label"
+    );
     is(labels[0].textContent, labelText, "Correct state label value");
 
     // Check if the menulist and the remove button are hidden.
@@ -258,7 +413,9 @@ add_task(async function testPolicyPermission() {
     let menulist = document.getElementById("identity-popup-popup-menulist");
     ok(menulist == null, "The popup permission menulist is not visible");
 
-    let removeButton = permissionsList.querySelector(".identity-popup-permission-remove-button");
+    let removeButton = permissionsList.querySelector(
+      ".identity-popup-permission-remove-button"
+    );
     ok(removeButton == null, "The permission remove button is not visible");
 
     Services.perms.removeAll();
@@ -268,17 +425,166 @@ add_task(async function testPolicyPermission() {
 
 add_task(async function testHiddenAfterRefresh() {
   await BrowserTestUtils.withNewTab(PERMISSIONS_PAGE, async function(browser) {
-
-    ok(BrowserTestUtils.is_hidden(gIdentityHandler._identityPopup), "Popup is hidden");
+    ok(
+      BrowserTestUtils.is_hidden(gIdentityHandler._identityPopup),
+      "Popup is hidden"
+    );
 
     await openIdentityPopup();
 
-    ok(!BrowserTestUtils.is_hidden(gIdentityHandler._identityPopup), "Popup is shown");
+    ok(
+      !BrowserTestUtils.is_hidden(gIdentityHandler._identityPopup),
+      "Popup is shown"
+    );
 
-    let reloaded = BrowserTestUtils.browserLoaded(browser, false, PERMISSIONS_PAGE);
+    let reloaded = BrowserTestUtils.browserLoaded(
+      browser,
+      false,
+      PERMISSIONS_PAGE
+    );
     EventUtils.synthesizeKey("VK_F5", {}, browser.ownerGlobal);
     await reloaded;
 
-    ok(BrowserTestUtils.is_hidden(gIdentityHandler._identityPopup), "Popup is hidden");
+    ok(
+      BrowserTestUtils.is_hidden(gIdentityHandler._identityPopup),
+      "Popup is hidden"
+    );
+  });
+});
+
+add_task(async function test3rdPartyStoragePermission() {
+  // 3rdPartyStorage permissions are listed under an anchor container - test
+  // that this works correctly, i.e. the permission items are added to the
+  // anchor when relevant, and other permission items are added to the default
+  // anchor, and adding/removing permissions preserves this behavior correctly.
+  SpecialPowers.pushPrefEnv({
+    set: [["browser.contentblocking.state-partitioning.mvp.ui.enabled", true]],
+  });
+
+  await BrowserTestUtils.withNewTab(PERMISSIONS_PAGE, async function(browser) {
+    await openIdentityPopup();
+
+    let permissionsList = document.getElementById(
+      "identity-popup-permission-list"
+    );
+    let storagePermissionAnchor = permissionsList.querySelector(
+      `.identity-popup-permission-list-anchor[anchorfor="3rdPartyStorage"]`
+    );
+    let emptyLabel = permissionsList.nextElementSibling.nextElementSibling;
+    ok(!BrowserTestUtils.is_hidden(emptyLabel), "List of permissions is empty");
+    ok(
+      BrowserTestUtils.is_hidden(storagePermissionAnchor.firstElementChild),
+      "Anchor header is hidden"
+    );
+
+    await closeIdentityPopup();
+
+    let storagePermissionID = "3rdPartyStorage^example2.com";
+    PermissionTestUtils.add(
+      browser.currentURI,
+      storagePermissionID,
+      Services.perms.ALLOW_ACTION
+    );
+
+    await openIdentityPopup();
+
+    ok(
+      BrowserTestUtils.is_hidden(emptyLabel),
+      "List of permissions is not empty"
+    );
+    ok(
+      BrowserTestUtils.is_visible(storagePermissionAnchor.firstElementChild),
+      "Anchor header is visible"
+    );
+
+    let labelText = SitePermissions.getPermissionLabel(storagePermissionID);
+    let labels = storagePermissionAnchor.querySelectorAll(
+      ".identity-popup-permission-label"
+    );
+    is(labels.length, 1, "One permission visible in 3rdPartyStorage anchor");
+    is(
+      labels[0].getAttribute("value"),
+      labelText,
+      "Permission label has the correct value"
+    );
+
+    await closeIdentityPopup();
+
+    PermissionTestUtils.add(
+      browser.currentURI,
+      "camera",
+      Services.perms.ALLOW_ACTION
+    );
+
+    await openIdentityPopup();
+
+    ok(
+      BrowserTestUtils.is_hidden(emptyLabel),
+      "List of permissions is not empty"
+    );
+    ok(
+      BrowserTestUtils.is_visible(storagePermissionAnchor.firstElementChild),
+      "Anchor header is visible"
+    );
+
+    labels = permissionsList.querySelectorAll(
+      ".identity-popup-permission-label"
+    );
+    is(labels.length, 2, "Two permissions visible in main view");
+    labels = storagePermissionAnchor.querySelectorAll(
+      ".identity-popup-permission-label"
+    );
+    is(labels.length, 1, "One permission visible in 3rdPartyStorage anchor");
+
+    storagePermissionAnchor
+      .querySelector(".identity-popup-permission-remove-button")
+      .click();
+    is(
+      storagePermissionAnchor.querySelectorAll(
+        ".identity-popup-permission-label"
+      ).length,
+      0,
+      "Permission item should be removed"
+    );
+    is(
+      PermissionTestUtils.testPermission(
+        browser.currentURI,
+        storagePermissionID
+      ),
+      SitePermissions.UNKNOWN,
+      "Permission removed from permission manager"
+    );
+
+    await closeIdentityPopup();
+
+    await openIdentityPopup();
+
+    ok(
+      BrowserTestUtils.is_hidden(emptyLabel),
+      "List of permissions is not empty"
+    );
+    ok(
+      BrowserTestUtils.is_hidden(storagePermissionAnchor.firstElementChild),
+      "Anchor header is hidden"
+    );
+
+    labels = permissionsList.querySelectorAll(
+      ".identity-popup-permission-label"
+    );
+    is(labels.length, 1, "One permission visible in main view");
+
+    await closeIdentityPopup();
+
+    PermissionTestUtils.remove(browser.currentURI, "camera");
+
+    await openIdentityPopup();
+
+    ok(!BrowserTestUtils.is_hidden(emptyLabel), "List of permissions is empty");
+    ok(
+      BrowserTestUtils.is_hidden(storagePermissionAnchor.firstElementChild),
+      "Anchor header is hidden"
+    );
+
+    await closeIdentityPopup();
   });
 });

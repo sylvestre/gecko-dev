@@ -4,7 +4,7 @@
 
 from __future__ import absolute_import
 
-import urllib
+from six.moves.urllib.parse import quote
 
 from marionette_driver.by import By
 
@@ -12,7 +12,8 @@ from marionette_harness import MarionetteTestCase
 
 
 def inline(doc):
-    return "data:text/html;charset=utf-8,{}".format(urllib.quote(doc))
+    return "data:text/html;charset=utf-8,{}".format(quote(doc))
+
 
 class TestPosition(MarionetteTestCase):
     def test_should_get_element_position_back(self):
@@ -43,5 +44,5 @@ class TestPosition(MarionetteTestCase):
 
         r2 = self.marionette.find_element(By.ID, "r")
         location = r2.rect
-        self.assertEqual(11, location['x'])
-        self.assertEqual(10, location['y'])
+        self.assertEqual(11, location["x"])
+        self.assertEqual(10, location["y"])

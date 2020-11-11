@@ -7,6 +7,7 @@
 /* Shared proto object for XPCWrappedNative. */
 
 #include "xpcprivate.h"
+#include "js/Object.h"  // JS::SetPrivate
 #include "pratom.h"
 
 using namespace mozilla;
@@ -15,10 +16,13 @@ using namespace mozilla;
 int32_t XPCWrappedNativeProto::gDEBUG_LiveProtoCount = 0;
 #endif
 
-XPCWrappedNativeProto::XPCWrappedNativeProto(
-    XPCWrappedNativeScope* Scope, nsIClassInfo* ClassInfo,
-    already_AddRefed<XPCNativeSet>&& Set)
-    : mScope(Scope), mJSProtoObject(nullptr), mClassInfo(ClassInfo), mSet(Set) {
+XPCWrappedNativeProto::XPCWrappedNativeProto(XPCWrappedNativeScope* Scope,
+                                             nsIClassInfo* ClassInfo,
+                                             RefPtr<XPCNativeSet>&& Set)
+    : mScope(Scope),
+      mJSProtoObject(nullptr),
+      mClassInfo(ClassInfo),
+      mSet(std::move(Set)) {
   // This native object lives as long as its associated JSObject - killed
   // by finalization of the JSObject (or explicitly if Init fails).
 
@@ -28,8 +32,6 @@ XPCWrappedNativeProto::XPCWrappedNativeProto(
 #ifdef DEBUG
   gDEBUG_LiveProtoCount++;
 #endif
-
-  RecordReplayRegisterDeferredFinalizeThing(nullptr, nullptr, mClassInfo);
 }
 
 XPCWrappedNativeProto::~XPCWrappedNativeProto() {
@@ -48,23 +50,21 @@ XPCWrappedNativeProto::~XPCWrappedNativeProto() {
   DeferredFinalize(mClassInfo.forget().take());
 }
 
-bool XPCWrappedNativeProto::Init(nsIXPCScriptable* scriptable) {
-  AutoJSContext cx;
+bool XPCWrappedNativeProto::Init(JSContext* cx, nsIXPCScriptable* scriptable) {
   mScriptable = scriptable;
 
   JS::RootedObject proto(cx, JS::GetRealmObjectPrototype(cx));
-  mJSProtoObject = JS_NewObjectWithUniqueType(
-      cx, js::Jsvalify(&XPC_WN_Proto_JSClass), proto);
+  mJSProtoObject = JS_NewObjectWithUniqueType(cx, &XPC_WN_Proto_JSClass, proto);
 
   bool success = !!mJSProtoObject;
   if (success) {
-    JS_SetPrivate(mJSProtoObject, this);
+    JS::SetPrivate(mJSProtoObject, this);
   }
 
   return success;
 }
 
-void XPCWrappedNativeProto::JSProtoObjectFinalized(js::FreeOp* fop,
+void XPCWrappedNativeProto::JSProtoObjectFinalized(JSFreeOp* fop,
                                                    JSObject* obj) {
   MOZ_ASSERT(obj == mJSProtoObject, "huh?");
 
@@ -75,14 +75,14 @@ void XPCWrappedNativeProto::JSProtoObjectFinalized(js::FreeOp* fop,
 #endif
 
   GetRuntime()->GetDyingWrappedNativeProtoMap()->Add(this);
-
-  mJSProtoObject.finalize(js::CastToJSFreeOp(fop)->runtime());
+  mJSProtoObject = nullptr;
 }
 
 void XPCWrappedNativeProto::JSProtoObjectMoved(JSObject* obj,
                                                const JSObject* old) {
+  // Update without triggering barriers.
   MOZ_ASSERT(mJSProtoObject == old);
-  mJSProtoObject.init(obj);  // Update without triggering barriers.
+  mJSProtoObject.unbarrieredSet(obj);
 }
 
 void XPCWrappedNativeProto::SystemIsBeingShutDown() {
@@ -91,16 +91,15 @@ void XPCWrappedNativeProto::SystemIsBeingShutDown() {
 
   if (mJSProtoObject) {
     // short circuit future finalization
-    JS_SetPrivate(mJSProtoObject, nullptr);
+    JS::SetPrivate(mJSProtoObject, nullptr);
     mJSProtoObject = nullptr;
   }
 }
 
 // static
 XPCWrappedNativeProto* XPCWrappedNativeProto::GetNewOrUsed(
-    XPCWrappedNativeScope* scope, nsIClassInfo* classInfo,
+    JSContext* cx, XPCWrappedNativeScope* scope, nsIClassInfo* classInfo,
     nsIXPCScriptable* scriptable) {
-  AutoJSContext cx;
   MOZ_ASSERT(scope, "bad param");
   MOZ_ASSERT(classInfo, "bad param");
 
@@ -113,14 +112,14 @@ XPCWrappedNativeProto* XPCWrappedNativeProto::GetNewOrUsed(
     return proto;
   }
 
-  RefPtr<XPCNativeSet> set = XPCNativeSet::GetNewOrUsed(classInfo);
+  RefPtr<XPCNativeSet> set = XPCNativeSet::GetNewOrUsed(cx, classInfo);
   if (!set) {
     return nullptr;
   }
 
-  proto = new XPCWrappedNativeProto(scope, classInfo, set.forget());
+  proto = new XPCWrappedNativeProto(scope, classInfo, std::move(set));
 
-  if (!proto || !proto->Init(scriptable)) {
+  if (!proto->Init(cx, scriptable)) {
     delete proto.get();
     return nullptr;
   }

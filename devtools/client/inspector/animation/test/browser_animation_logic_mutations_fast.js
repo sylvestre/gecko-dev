@@ -11,12 +11,14 @@ add_task(async function() {
 
   info("Check state of the animation inspector after fast mutations");
   await startFastMutations(tab);
-  ok(inspector.panelWin.document.getElementById("animation-container"),
-    "Animation inspector should be live");
+  ok(
+    inspector.panelWin.document.getElementById("animation-container"),
+    "Animation inspector should be live"
+  );
 });
 
 async function startFastMutations(tab) {
-  await ContentTask.spawn(tab.linkedBrowser, {}, async function() {
+  await SpecialPowers.spawn(tab.linkedBrowser, [], async function() {
     await content.wrappedJSObject.startFastMutations();
   });
 }

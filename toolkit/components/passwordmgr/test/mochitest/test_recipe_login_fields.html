@@ -4,12 +4,12 @@
   <meta charset="utf-8">
   <title>Test for recipes overriding login fields</title>
   <script src="/tests/SimpleTest/SimpleTest.js"></script>
-  <script src="/tests/SimpleTest/AddTask.js"></script>
   <script src="pwmgr_common.js"></script>
   <link rel="stylesheet" href="/tests/SimpleTest/test.css" />
 </head>
 <body>
 <script>
+gTestDependsOnDeprecatedLogin = true;
 var chromeScript = runChecksAfterCommonInit();
 
 let fillPromiseResolvers = [];
@@ -25,6 +25,9 @@ function waitForFills(fillCount) {
 }
 
 add_task(async function setup() {
+  // This test should run without any existing loaded recipes interfering.
+  await resetRecipes();
+
   if (document.readyState !== "complete") {
     await new Promise((resolve) => {
       document.onreadystatechange = () => {

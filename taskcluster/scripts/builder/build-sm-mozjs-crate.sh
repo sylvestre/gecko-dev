@@ -4,14 +4,12 @@ set -xe
 
 source $(dirname $0)/sm-tooltool-config.sh
 
-# Ensure that we have a .config/cargo that points us to our vendored crates
-# rather than to crates.io.
-cd "$SRCDIR/.cargo"
-sed -e "s|@top_srcdir@|$SRCDIR|" -e 's|@[^@]*@||g' < config.in > config
+cd "$GECKO_PATH/js/src"
 
-cd "$SRCDIR/js/src"
+cp $GECKO_PATH/.cargo/config.in $GECKO_PATH/.cargo/config
 
-export PATH="$PATH:$TOOLTOOL_CHECKOUT/cargo/bin:$TOOLTOOL_CHECKOUT/rustc/bin"
+export PATH="$PATH:$MOZ_FETCHES_DIR/cargo/bin:$MOZ_FETCHES_DIR/rustc/bin"
+export RUSTFMT="$MOZ_FETCHES_DIR/rustc/bin/rustfmt"
 export RUST_BACKTRACE=1
 export AUTOMATION=1
 

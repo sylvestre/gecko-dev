@@ -1,11 +1,11 @@
-// |jit-test| test-also-no-wasm-baseline; error: TestComplete
+// |jit-test| test-also=--wasm-compiler=optimizing; error: TestComplete
 
-if (!wasmDebuggingIsSupported())
+if (!wasmDebuggingEnabled())
      throw "TestComplete";
 
 var module = new WebAssembly.Module(wasmTextToBinary(`
     (module
-        (import "global" "func" (result i32))
+        (import "global" "func" (func (result i32)))
         (func (export "func_0") (result i32)
          call 0 ;; calls the import, which is func #0
         )
@@ -14,7 +14,7 @@ var module = new WebAssembly.Module(wasmTextToBinary(`
 
 var dbg;
 (function (global) {
-    var dbgGlobal = newGlobal();
+    var dbgGlobal = newGlobal({newCompartment: true});
     dbg = new dbgGlobal.Debugger();
     dbg.addDebuggee(global);
 })(this);

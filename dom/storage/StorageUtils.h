@@ -7,15 +7,13 @@
 #ifndef mozilla_dom_StorageUtils_h
 #define mozilla_dom_StorageUtils_h
 
+#include "nsStringFwd.h"
+
 class nsIPrincipal;
 
 namespace mozilla {
 namespace dom {
 namespace StorageUtils {
-
-nsresult GenerateOriginKey(nsIPrincipal* aPrincipal,
-                           nsACString& aOriginAttrSuffix,
-                           nsACString& aOriginKey);
 
 bool PrincipalsEqual(nsIPrincipal* aObjectPrincipal,
                      nsIPrincipal* aSubjectPrincipal);

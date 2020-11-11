@@ -1,5 +1,3 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 2 -*- */
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -18,29 +16,30 @@ var toolbox;
 var target;
 
 function test() {
-  addTab(TEST_URL).then(async (tab) => {
+  addTab(TEST_URL).then(async tab => {
     target = await TargetFactory.forTab(tab);
 
-    gDevTools.showToolbox(target)
+    gDevTools
+      .showToolbox(target)
       .then(toolboxRegister)
       .then(testToolRegistered);
   });
 }
 
 var resolveToolInstanceBuild;
-var waitForToolInstanceBuild = new Promise((resolve) => {
+var waitForToolInstanceBuild = new Promise(resolve => {
   resolveToolInstanceBuild = resolve;
 });
 
 var resolveToolInstanceDestroyed;
-var waitForToolInstanceDestroyed = new Promise((resolve) => {
+var waitForToolInstanceDestroyed = new Promise(resolve => {
   resolveToolInstanceDestroyed = resolve;
 });
 
 function toolboxRegister(aToolbox) {
   toolbox = aToolbox;
 
-  waitForToolInstanceBuild = new Promise((resolve) => {
+  waitForToolInstanceBuild = new Promise(resolve => {
     resolveToolInstanceBuild = resolve;
   });
 
@@ -48,7 +47,9 @@ function toolboxRegister(aToolbox) {
 
   toolbox.addAdditionalTool({
     id: TOOL_ID,
-    label: "per-toolbox Test Tool",
+    // The size of the label can make the test fail if it's too long.
+    // See ok(tab, ...) assert below and Bug 1596345.
+    label: "Test Tool",
     inMenu: true,
     isTargetSupported: () => true,
     build: function() {
@@ -67,13 +68,19 @@ function toolboxRegister(aToolbox) {
 }
 
 function testToolRegistered() {
-  ok(!gDevTools.getToolDefinitionMap().has(TOOL_ID), "per-toolbox tool is not registered globally");
-  ok(toolbox.hasAdditionalTool(TOOL_ID),
-     "per-toolbox tool registered to the specific toolbox");
+  ok(
+    !gDevTools.getToolDefinitionMap().has(TOOL_ID),
+    "per-toolbox tool is not registered globally"
+  );
+  ok(
+    toolbox.hasAdditionalTool(TOOL_ID),
+    "per-toolbox tool registered to the specific toolbox"
+  );
 
   // Test that the tool appeared in the UI.
   const doc = toolbox.doc;
-  const tab = doc.getElementById("toolbox-tab-" + TOOL_ID);
+  const tab = getToolboxTab(doc, TOOL_ID);
+
   ok(tab, "new tool's tab exists in toolbox UI");
 
   const panel = doc.getElementById("toolbox-panel-" + TOOL_ID);
@@ -91,9 +98,10 @@ function testToolRegistered() {
 
   // Test that the tool is built once selected and then test its unregistering.
   info("select per-toolbox tool in the opened toolbox.");
-  gDevTools.showToolbox(target, TOOL_ID)
-           .then(waitForToolInstanceBuild)
-           .then(testUnregister);
+  gDevTools
+    .showToolbox(target, TOOL_ID)
+    .then(waitForToolInstanceBuild)
+    .then(testUnregister);
 }
 
 function getAllBrowserWindows() {
@@ -104,18 +112,18 @@ function testUnregister() {
   info("remove per-toolbox tool in the opened toolbox.");
   toolbox.removeAdditionalTool(TOOL_ID);
 
-  Promise.all([
-    waitForToolInstanceDestroyed,
-  ]).then(toolboxToolUnregistered);
+  Promise.all([waitForToolInstanceDestroyed]).then(toolboxToolUnregistered);
 }
 
 function toolboxToolUnregistered() {
-  ok(!toolbox.hasAdditionalTool(TOOL_ID),
-     "per-toolbox tool unregistered from the specific toolbox");
+  ok(
+    !toolbox.hasAdditionalTool(TOOL_ID),
+    "per-toolbox tool unregistered from the specific toolbox"
+  );
 
   // test that it disappeared from the UI
   const doc = toolbox.doc;
-  const tab = doc.getElementById("toolbox-tab-" + TOOL_ID);
+  const tab = getToolboxTab(doc, TOOL_ID);
   ok(!tab, "tool's tab was removed from the toolbox UI");
 
   const panel = doc.getElementById("toolbox-panel-" + TOOL_ID);

@@ -7,7 +7,13 @@
 #include "InterceptedHttpChannel.h"
 #include "nsContentSecurityManager.h"
 #include "nsEscape.h"
+#include "mozilla/SchedulerGroup.h"
+#include "mozilla/dom/ChannelInfo.h"
 #include "mozilla/dom/PerformanceStorage.h"
+#include "nsHttpChannel.h"
+#include "nsIRedirectResultListener.h"
+#include "nsStringStream.h"
+#include "nsStreamUtils.h"
 
 namespace mozilla {
 namespace net {
@@ -15,9 +21,7 @@ namespace net {
 NS_IMPL_ISUPPORTS_INHERITED(InterceptedHttpChannel, HttpBaseChannel,
                             nsIInterceptedChannel, nsICacheInfoChannel,
                             nsIAsyncVerifyRedirectCallback, nsIRequestObserver,
-                            nsIStreamListener,
-                            nsIChannelWithDivertableParentListener,
-                            nsIThreadRetargetableRequest,
+                            nsIStreamListener, nsIThreadRetargetableRequest,
                             nsIThreadRetargetableStreamListener)
 
 InterceptedHttpChannel::InterceptedHttpChannel(
@@ -29,8 +33,7 @@ InterceptedHttpChannel::InterceptedHttpChannel(
       mSynthesizedStreamLength(-1),
       mResumeStartPos(0),
       mSynthesizedOrReset(Invalid),
-      mCallingStatusAndProgress(false),
-      mDiverting(false) {
+      mCallingStatusAndProgress(false) {
   // Pre-set the creation and AsyncOpen times based on the original channel
   // we are intercepting.  We don't want our extra internal redirect to mask
   // any time spent processing the channel.
@@ -51,7 +54,6 @@ void InterceptedHttpChannel::ReleaseListeners() {
   mProgressSink = nullptr;
   mBodyCallback = nullptr;
   mPump = nullptr;
-  mParentChannel = nullptr;
 
   MOZ_DIAGNOSTIC_ASSERT(!mIsPending);
 }
@@ -152,7 +154,7 @@ void InterceptedHttpChannel::AsyncOpenInternal() {
 
 bool InterceptedHttpChannel::ShouldRedirect() const {
   // Determine if the synthetic response requires us to perform a real redirect.
-  return nsHttpChannel::WillRedirect(mResponseHead) &&
+  return nsHttpChannel::WillRedirect(*mResponseHead) &&
          !mLoadInfo->GetDontFollowRedirects();
 }
 
@@ -204,7 +206,7 @@ nsresult InterceptedHttpChannel::FollowSyntheticRedirect() {
                                redirectFlags);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  mRedirectChannel = newChannel.forget();
+  mRedirectChannel = std::move(newChannel);
 
   rv = gHttpHandler->AsyncOnChannelRedirect(this, mRedirectChannel,
                                             redirectFlags);
@@ -230,15 +232,11 @@ nsresult InterceptedHttpChannel::RedirectForResponseURL(
   // We want to pass ownership of the body callback to the new synthesized
   // channel.  We need to hold a reference to the callbacks on the stack
   // as well, though, so we can call them if a failure occurs.
-  nsCOMPtr<nsIInterceptedBodyCallback> bodyCallback = mBodyCallback.forget();
+  nsCOMPtr<nsIInterceptedBodyCallback> bodyCallback = std::move(mBodyCallback);
 
   RefPtr<InterceptedHttpChannel> newChannel = CreateForSynthesis(
-      mResponseHead, mBodyReader, bodyCallback, mChannelCreationTime,
+      mResponseHead.get(), mBodyReader, bodyCallback, mChannelCreationTime,
       mChannelCreationTimestamp, mAsyncOpenTime);
-
-  rv = newChannel->Init(aResponseURI, mCaps,
-                        static_cast<nsProxyInfo*>(mProxyInfo.get()),
-                        mProxyResolveFlags, mProxyURI, mChannelId);
 
   // If the response has been redirected, propagate all the URLs to content.
   // Thus, the exact value of the redirect flag does not matter as long as it's
@@ -248,6 +246,14 @@ nsresult InterceptedHttpChannel::RedirectForResponseURL(
 
   nsCOMPtr<nsILoadInfo> redirectLoadInfo =
       CloneLoadInfoForRedirect(aResponseURI, flags);
+
+  nsContentPolicyType contentPolicyType =
+      redirectLoadInfo->GetExternalContentPolicyType();
+
+  rv = newChannel->Init(
+      aResponseURI, mCaps, static_cast<nsProxyInfo*>(mProxyInfo.get()),
+      mProxyResolveFlags, mProxyURI, mChannelId, contentPolicyType);
+
   newChannel->SetLoadInfo(redirectLoadInfo);
   NS_ENSURE_SUCCESS(rv, rv);
 
@@ -266,6 +272,10 @@ nsresult InterceptedHttpChannel::RedirectForResponseURL(
   NS_ENSURE_SUCCESS(rv, rv);
 
   mRedirectChannel = newChannel;
+
+  MOZ_ASSERT(mBodyReader);
+  MOZ_ASSERT(!mApplyConversion);
+  newChannel->SetApplyConversion(false);
 
   rv = gHttpHandler->AsyncOnChannelRedirect(this, mRedirectChannel, flags);
 
@@ -312,7 +322,7 @@ nsresult InterceptedHttpChannel::StartPump() {
       nsInputStreamPump::Create(getter_AddRefs(mPump), mBodyReader, 0, 0, true);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  rv = mPump->AsyncRead(this, mListenerContext);
+  rv = mPump->AsyncRead(this);
   NS_ENSURE_SUCCESS(rv, rv);
 
   uint32_t suspendCount = mSuspendCount;
@@ -341,12 +351,7 @@ nsresult InterceptedHttpChannel::OpenRedirectChannel() {
   mRedirectChannel->SetOriginalURI(mOriginalURI);
 
   // open new channel
-  if (mLoadInfo && mLoadInfo->GetEnforceSecurity()) {
-    MOZ_ASSERT(!mListenerContext, "mListenerContext should be null!");
-    rv = mRedirectChannel->AsyncOpen2(mListener);
-  } else {
-    rv = mRedirectChannel->AsyncOpen(mListener, mListenerContext);
-  }
+  rv = mRedirectChannel->AsyncOpen(mListener);
   NS_ENSURE_SUCCESS(rv, rv);
 
   mStatus = NS_BINDING_REDIRECTED;
@@ -370,7 +375,8 @@ void InterceptedHttpChannel::MaybeCallStatusAndProgress() {
     nsCOMPtr<nsIRunnable> r = NewRunnableMethod(
         "InterceptedHttpChannel::MaybeCallStatusAndProgress", this,
         &InterceptedHttpChannel::MaybeCallStatusAndProgress);
-    MOZ_ALWAYS_SUCCEEDS(SystemGroup::Dispatch(TaskCategory::Other, r.forget()));
+    MOZ_ALWAYS_SUCCEEDS(
+        SchedulerGroup::Dispatch(TaskCategory::Other, r.forget()));
 
     return;
   }
@@ -405,17 +411,15 @@ void InterceptedHttpChannel::MaybeCallStatusAndProgress() {
     CopyUTF8toUTF16(host, mStatusHost);
   }
 
-  mProgressSink->OnStatus(this, mListenerContext, NS_NET_STATUS_READING,
-                          mStatusHost.get());
+  mProgressSink->OnStatus(this, NS_NET_STATUS_READING, mStatusHost.get());
 
-  mProgressSink->OnProgress(this, mListenerContext, progress,
-                            mSynthesizedStreamLength);
+  mProgressSink->OnProgress(this, progress, mSynthesizedStreamLength);
 
   mProgressReported = progress;
 }
 
 void InterceptedHttpChannel::MaybeCallBodyCallback() {
-  nsCOMPtr<nsIInterceptedBodyCallback> callback = mBodyCallback.forget();
+  nsCOMPtr<nsIInterceptedBodyCallback> callback = std::move(mBodyCallback);
   if (callback) {
     callback->BodyComplete(mStatus);
   }
@@ -449,7 +453,7 @@ InterceptedHttpChannel::CreateForSynthesis(
   RefPtr<InterceptedHttpChannel> ref = new InterceptedHttpChannel(
       aCreationTime, aCreationTimestamp, aAsyncOpenTimestamp);
 
-  ref->mResponseHead = new nsHttpResponseHead(*aHead);
+  ref->mResponseHead = MakeUnique<nsHttpResponseHead>(*aHead);
   ref->mBodyReader = aBody;
   ref->mBodyCallback = aBodyCallback;
 
@@ -472,15 +476,6 @@ InterceptedHttpChannel::Cancel(nsresult aStatus) {
     mStatus = aStatus;
   }
 
-  // Everything is suspended during diversion until it completes.  Since the
-  // intercepted channel could be a long-running stream, we need to request that
-  // cancellation be triggered in the child, completing the diversion and
-  // allowing cancellation to run to completion.
-  if (mDiverting) {
-    Unused << mParentChannel->CancelDiversion();
-    // (We want the pump to be canceled as well, so don't directly return.)
-  }
-
   if (mPump) {
     return mPump->Cancel(mStatus);
   }
@@ -490,26 +485,20 @@ InterceptedHttpChannel::Cancel(nsresult aStatus) {
 
 NS_IMETHODIMP
 InterceptedHttpChannel::Suspend(void) {
-  nsresult rv = SuspendInternal();
-
-  nsresult rvParentChannel = NS_OK;
-  if (mParentChannel) {
-    rvParentChannel = mParentChannel->SuspendMessageDiversion();
+  ++mSuspendCount;
+  if (mPump) {
+    return mPump->Suspend();
   }
-
-  return NS_FAILED(rv) ? rv : rvParentChannel;
+  return NS_OK;
 }
 
 NS_IMETHODIMP
 InterceptedHttpChannel::Resume(void) {
-  nsresult rv = ResumeInternal();
-
-  nsresult rvParentChannel = NS_OK;
-  if (mParentChannel) {
-    rvParentChannel = mParentChannel->ResumeMessageDiversion();
+  --mSuspendCount;
+  if (mPump) {
+    return mPump->Resume();
   }
-
-  return NS_FAILED(rv) ? rv : rvParentChannel;
+  return NS_OK;
 }
 
 NS_IMETHODIMP
@@ -520,8 +509,14 @@ InterceptedHttpChannel::GetSecurityInfo(nsISupports** aSecurityInfo) {
 }
 
 NS_IMETHODIMP
-InterceptedHttpChannel::AsyncOpen(nsIStreamListener* aListener,
-                                  nsISupports* aContext) {
+InterceptedHttpChannel::AsyncOpen(nsIStreamListener* aListener) {
+  nsCOMPtr<nsIStreamListener> listener(aListener);
+  nsresult rv =
+      nsContentSecurityManager::doContentSecurityCheck(this, listener);
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    Cancel(rv);
+    return rv;
+  }
   if (mCanceled) {
     return mStatus;
   }
@@ -536,18 +531,6 @@ InterceptedHttpChannel::AsyncOpen(nsIStreamListener* aListener,
 }
 
 NS_IMETHODIMP
-InterceptedHttpChannel::AsyncOpen2(nsIStreamListener* aListener) {
-  nsCOMPtr<nsIStreamListener> listener(aListener);
-  nsresult rv =
-      nsContentSecurityManager::doContentSecurityCheck(this, listener);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    Cancel(rv);
-    return rv;
-  }
-  return AsyncOpen(listener, nullptr);
-}
-
-NS_IMETHODIMP
 InterceptedHttpChannel::LogBlockedCORSRequest(const nsAString& aMessage,
                                               const nsACString& aCategory) {
   // Synthetic responses should not trigger CORS blocking.
@@ -555,9 +538,22 @@ InterceptedHttpChannel::LogBlockedCORSRequest(const nsAString& aMessage,
 }
 
 NS_IMETHODIMP
+InterceptedHttpChannel::LogMimeTypeMismatch(const nsACString& aMessageName,
+                                            bool aWarning,
+                                            const nsAString& aURL,
+                                            const nsAString& aContentType) {
+  return NS_ERROR_NOT_IMPLEMENTED;
+}
+
+NS_IMETHODIMP
 InterceptedHttpChannel::SetupFallbackChannel(const char* aFallbackKey) {
   // AppCache should not be used with service worker intercepted channels.
   // This should never be called.
+  return NS_ERROR_NOT_IMPLEMENTED;
+}
+
+NS_IMETHODIMP
+InterceptedHttpChannel::GetIsAuthChannel(bool* aIsAuthChannel) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
@@ -646,7 +642,7 @@ InterceptedHttpChannel::ResetInterception(void) {
     NS_ENSURE_SUCCESS(rv, rv);
   }
 
-  mRedirectChannel = newChannel.forget();
+  mRedirectChannel = std::move(newChannel);
 
   rv = gHttpHandler->AsyncOnChannelRedirect(this, mRedirectChannel, flags);
 
@@ -689,7 +685,7 @@ InterceptedHttpChannel::SynthesizeHeader(const nsACString& aName,
     mSynthesizedResponseHead.reset(new nsHttpResponseHead());
   }
 
-  nsAutoCString header = aName + NS_LITERAL_CSTRING(": ") + aValue;
+  nsAutoCString header = aName + ": "_ns + aValue;
   // Overwrite any existing header.
   nsresult rv = mSynthesizedResponseHead->ParseHeaderLine(header);
   NS_ENSURE_SUCCESS(rv, rv);
@@ -736,7 +732,7 @@ InterceptedHttpChannel::StartSynthesizedResponse(
     mSynthesizedResponseHead.reset(new nsHttpResponseHead());
   }
 
-  mResponseHead = mSynthesizedResponseHead.release();
+  mResponseHead = std::move(mSynthesizedResponseHead);
 
   if (ShouldRedirect()) {
     rv = FollowSyntheticRedirect();
@@ -752,7 +748,7 @@ InterceptedHttpChannel::StartSynthesizedResponse(
   // stream here so later code can be simpler.
   mBodyReader = aBody;
   if (!mBodyReader) {
-    rv = NS_NewCStringInputStream(getter_AddRefs(mBodyReader), EmptyCString());
+    rv = NS_NewCStringInputStream(getter_AddRefs(mBodyReader), ""_ns);
     NS_ENSURE_SUCCESS(rv, rv);
   }
 
@@ -915,11 +911,10 @@ InterceptedHttpChannel::SaveTimeStamps(void) {
   }
 
   bool isNonSubresourceRequest = nsContentUtils::IsNonSubresourceRequest(this);
-  nsCString navigationOrSubresource = isNonSubresourceRequest
-                                          ? NS_LITERAL_CSTRING("navigation")
-                                          : NS_LITERAL_CSTRING("subresource");
+  nsCString navigationOrSubresource =
+      isNonSubresourceRequest ? "navigation"_ns : "subresource"_ns;
 
-  nsAutoCString subresourceKey(EmptyCString());
+  nsAutoCString subresourceKey(""_ns);
   GetSubresourceTimeStampKey(this, subresourceKey);
 
   // We may have null timestamps if the fetch dispatch runnable was cancelled
@@ -1001,14 +996,18 @@ InterceptedHttpChannel::OnRedirectVerifyCallback(nsresult rv) {
   MaybeCallBodyCallback();
 
   mIsPending = false;
-  ReleaseListeners();
+  // We can only release listeners after the redirected channel really owns
+  // mListener. Otherwise, the OnStart/OnStopRequest functions of mListener will
+  // not be called.
+  if (NS_SUCCEEDED(rv)) {
+    ReleaseListeners();
+  }
 
   return NS_OK;
 }
 
 NS_IMETHODIMP
-InterceptedHttpChannel::OnStartRequest(nsIRequest* aRequest,
-                                       nsISupports* aContext) {
+InterceptedHttpChannel::OnStartRequest(nsIRequest* aRequest) {
   MOZ_ASSERT(NS_IsMainThread());
 
   if (!mProgressSink) {
@@ -1019,15 +1018,39 @@ InterceptedHttpChannel::OnStartRequest(nsIRequest* aRequest,
     mPump->PeekStream(CallTypeSniffers, static_cast<nsIChannel*>(this));
   }
 
+  nsresult rv = ProcessCrossOriginEmbedderPolicyHeader();
+  if (NS_FAILED(rv)) {
+    mStatus = NS_ERROR_BLOCKED_BY_POLICY;
+    Cancel(mStatus);
+  }
+
+  rv = ProcessCrossOriginResourcePolicyHeader();
+  if (NS_FAILED(rv)) {
+    mStatus = NS_ERROR_DOM_CORP_FAILED;
+    Cancel(mStatus);
+  }
+
+  rv = ComputeCrossOriginOpenerPolicyMismatch();
+  if (rv == NS_ERROR_BLOCKED_BY_POLICY) {
+    mStatus = NS_ERROR_BLOCKED_BY_POLICY;
+    Cancel(mStatus);
+  }
+
+  rv = ValidateMIMEType();
+  if (NS_FAILED(rv)) {
+    mStatus = rv;
+    Cancel(mStatus);
+  }
+
+  mOnStartRequestCalled = true;
   if (mListener) {
-    mListener->OnStartRequest(this, mListenerContext);
+    return mListener->OnStartRequest(this);
   }
   return NS_OK;
 }
 
 NS_IMETHODIMP
-InterceptedHttpChannel::OnStopRequest(nsIRequest* aRequest,
-                                      nsISupports* aContext, nsresult aStatus) {
+InterceptedHttpChannel::OnStopRequest(nsIRequest* aRequest, nsresult aStatus) {
   MOZ_ASSERT(NS_IsMainThread());
 
   if (NS_SUCCEEDED(mStatus)) {
@@ -1047,20 +1070,20 @@ InterceptedHttpChannel::OnStopRequest(nsIRequest* aRequest,
   // Register entry to the PerformanceStorage resource timing
   MaybeReportTimingData();
 
+  nsresult rv = NS_OK;
   if (mListener) {
-    mListener->OnStopRequest(this, mListenerContext, mStatus);
+    rv = mListener->OnStopRequest(this, mStatus);
   }
 
   gHttpHandler->OnStopRequest(this);
 
   ReleaseListeners();
 
-  return NS_OK;
+  return rv;
 }
 
 NS_IMETHODIMP
 InterceptedHttpChannel::OnDataAvailable(nsIRequest* aRequest,
-                                        nsISupports* aContext,
                                         nsIInputStream* aInputStream,
                                         uint64_t aOffset, uint32_t aCount) {
   // Any thread if the channel has been retargeted.
@@ -1079,47 +1102,7 @@ InterceptedHttpChannel::OnDataAvailable(nsIRequest* aRequest,
     }
   }
 
-  return mListener->OnDataAvailable(this, mListenerContext, aInputStream,
-                                    aOffset, aCount);
-}
-
-NS_IMETHODIMP
-InterceptedHttpChannel::MessageDiversionStarted(
-    ADivertableParentChannel* aParentChannel) {
-  MOZ_ASSERT(!mParentChannel);
-  mParentChannel = aParentChannel;
-  mDiverting = true;
-  uint32_t suspendCount = mSuspendCount;
-  while (suspendCount--) {
-    mParentChannel->SuspendMessageDiversion();
-  }
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-InterceptedHttpChannel::MessageDiversionStop() {
-  MOZ_ASSERT(mParentChannel);
-  mParentChannel = nullptr;
-  mDiverting = false;
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-InterceptedHttpChannel::SuspendInternal() {
-  ++mSuspendCount;
-  if (mPump) {
-    return mPump->Suspend();
-  }
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-InterceptedHttpChannel::ResumeInternal() {
-  --mSuspendCount;
-  if (mPump) {
-    return mPump->Resume();
-  }
-  return NS_OK;
+  return mListener->OnDataAvailable(this, aInputStream, aOffset, aCount);
 }
 
 NS_IMETHODIMP
@@ -1173,6 +1156,15 @@ NS_IMETHODIMP
 InterceptedHttpChannel::IsFromCache(bool* value) {
   if (mSynthesizedCacheInfo) {
     return mSynthesizedCacheInfo->IsFromCache(value);
+  }
+  *value = false;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+InterceptedHttpChannel::IsRacing(bool* value) {
+  if (mSynthesizedCacheInfo) {
+    return mSynthesizedCacheInfo->IsRacing(value);
   }
   *value = false;
   return NS_OK;
@@ -1243,15 +1235,36 @@ InterceptedHttpChannel::GetAllowStaleCacheContent(
 }
 
 NS_IMETHODIMP
+InterceptedHttpChannel::GetPreferCacheLoadOverBypass(
+    bool* aPreferCacheLoadOverBypass) {
+  if (mSynthesizedCacheInfo) {
+    return mSynthesizedCacheInfo->GetPreferCacheLoadOverBypass(
+        aPreferCacheLoadOverBypass);
+  }
+  return NS_ERROR_NOT_AVAILABLE;
+}
+
+NS_IMETHODIMP
+InterceptedHttpChannel::SetPreferCacheLoadOverBypass(
+    bool aPreferCacheLoadOverBypass) {
+  if (mSynthesizedCacheInfo) {
+    return mSynthesizedCacheInfo->SetPreferCacheLoadOverBypass(
+        aPreferCacheLoadOverBypass);
+  }
+  return NS_ERROR_NOT_AVAILABLE;
+}
+
+NS_IMETHODIMP
 InterceptedHttpChannel::PreferAlternativeDataType(
-    const nsACString& aType, const nsACString& aContentType) {
+    const nsACString& aType, const nsACString& aContentType,
+    bool aDeliverAltData) {
   ENSURE_CALLED_BEFORE_ASYNC_OPEN();
-  mPreferredCachedAltDataTypes.AppendElement(
-      MakePair(nsCString(aType), nsCString(aContentType)));
+  mPreferredCachedAltDataTypes.AppendElement(PreferredAlternativeDataTypeParams(
+      nsCString(aType), nsCString(aContentType), aDeliverAltData));
   return NS_OK;
 }
 
-const nsTArray<mozilla::Tuple<nsCString, nsCString>>&
+const nsTArray<PreferredAlternativeDataTypeParams>&
 InterceptedHttpChannel::PreferredAlternativeDataTypes() {
   return mPreferredCachedAltDataTypes;
 }
@@ -1265,9 +1278,9 @@ InterceptedHttpChannel::GetAlternativeDataType(nsACString& aType) {
 }
 
 NS_IMETHODIMP
-InterceptedHttpChannel::OpenAlternativeOutputStream(const nsACString& type,
-                                                    int64_t predictedSize,
-                                                    nsIOutputStream** _retval) {
+InterceptedHttpChannel::OpenAlternativeOutputStream(
+    const nsACString& type, int64_t predictedSize,
+    nsIAsyncOutputStream** _retval) {
   if (mSynthesizedCacheInfo) {
     return mSynthesizedCacheInfo->OpenAlternativeOutputStream(
         type, predictedSize, _retval);
@@ -1280,6 +1293,15 @@ InterceptedHttpChannel::GetOriginalInputStream(
     nsIInputStreamReceiver* aReceiver) {
   if (mSynthesizedCacheInfo) {
     return mSynthesizedCacheInfo->GetOriginalInputStream(aReceiver);
+  }
+  return NS_ERROR_NOT_AVAILABLE;
+}
+
+NS_IMETHODIMP
+InterceptedHttpChannel::GetAltDataInputStream(
+    const nsACString& aType, nsIInputStreamReceiver* aReceiver) {
+  if (mSynthesizedCacheInfo) {
+    return mSynthesizedCacheInfo->GetAltDataInputStream(aType, aReceiver);
   }
   return NS_ERROR_NOT_AVAILABLE;
 }

@@ -1,4 +1,3 @@
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 /* eslint no-unused-vars: [2, {"vars": "local"}] */
@@ -8,21 +7,23 @@
 // Import the inspector's head.js first (which itself imports shared-head.js).
 Services.scriptloader.loadSubScript(
   "chrome://mochitests/content/browser/devtools/client/inspector/test/head.js",
-  this);
+  this
+);
 
-var {CssRuleView} = require("devtools/client/inspector/rules/rules");
-var {getInplaceEditorForSpan: inplaceEditor} =
-  require("devtools/client/shared/inplace-editor");
-const {getColor: getThemeColor} = require("devtools/client/shared/theme");
+var { CssRuleView } = require("devtools/client/inspector/rules/rules");
+var {
+  getInplaceEditorForSpan: inplaceEditor,
+} = require("devtools/client/shared/inplace-editor");
+const { getColor: getThemeColor } = require("devtools/client/shared/theme");
 
 const TEST_URL_ROOT =
   "http://example.com/browser/devtools/client/inspector/shared/test/";
 const TEST_URL_ROOT_SSL =
   "https://example.com/browser/devtools/client/inspector/shared/test/";
 const ROOT_TEST_DIR = getRootDirectory(gTestPath);
-const FRAME_SCRIPT_URL = ROOT_TEST_DIR + "doc_frame_script.js";
-const STYLE_INSPECTOR_L10N =
-      new LocalizationHelper("devtools/shared/locales/styleinspector.properties");
+const STYLE_INSPECTOR_L10N = new LocalizationHelper(
+  "devtools/shared/locales/styleinspector.properties"
+);
 
 // Clean-up all prefs that might have been changed during a test run
 // (safer here because if the test fails, then the pref is never reverted)
@@ -39,24 +40,23 @@ registerCleanupFunction(() => {
  *
  * All tests should follow the following pattern:
  *
- * add_task(function*() {
- *   yield addTab(TEST_URI);
- *   let {toolbox, inspector} = yield openInspector();
- *   inspector.sidebar.select(viewId);
+ * add_task(async function() {
+ *   await addTab(TEST_URI);
+ *   let {toolbox, inspector} = await openInspector();
+ *   await inspector.sidebar.select(viewId);
  *   let view = inspector.getPanel(viewId).view;
- *   yield selectNode("#test", inspector);
- *   yield someAsyncTestFunction(view);
+ *   await selectNode("#test", inspector);
+ *   await someAsyncTestFunction(view);
  * });
  *
  * add_task is the way to define the testcase in the test file. It accepts
- * a single generator-function argument.
- * The generator function should yield any async call.
+ * a single argument: a function returning a promise (usually async function).
  *
  * There is no need to clean tabs up at the end of a test as this is done
  * automatically.
  *
  * It is advised not to store any references on the global scope. There
- * shouldn't be a need to anyway. Thanks to add_task, test steps, even
+ * shouldn't be a need to anyway. Thanks to async functions, test steps, even
  * though asynchronous, can be described in a nice flat way, and
  * if/for/while/... control flow can be used as in sync code, making it
  * possible to write the outline of the test case all in add_task, and delegate
@@ -70,23 +70,6 @@ registerCleanupFunction(() => {
  * Add new tabs, open the toolbox and switch to the various panels, select
  * nodes, get node references, ...
  */
-
-/**
- * The rule-view tests rely on a frame-script to be injected in the content test
- * page. So override the shared-head's addTab to load the frame script after the
- * tab was added.
- * FIXME: Refactor the rule-view tests to use the testActor instead of a frame
- * script, so they can run on remote targets too.
- */
-var _addTab = addTab;
-addTab = function(url) {
-  return _addTab(url).then(tab => {
-    info("Loading the helper frame script " + FRAME_SCRIPT_URL);
-    const browser = tab.linkedBrowser;
-    browser.messageManager.loadFrameScript(FRAME_SCRIPT_URL, false);
-    return tab;
-  });
-};
 
 /**
  * Polls a given function waiting for it to return true.
@@ -127,7 +110,7 @@ function waitForSuccess(validatorFn, name = "untitled") {
 var getFontFamilyDataURL = async function(font, nodeFront) {
   const fillStyle = getThemeColor("body-color");
 
-  const {data} = await nodeFront.getFontFamilyDataURL(font, fillStyle);
+  const { data } = await nodeFront.getFontFamilyDataURL(font, fillStyle);
   const dataURL = await data.string();
   return dataURL;
 };
@@ -156,8 +139,12 @@ var getFontFamilyDataURL = async function(font, nodeFront) {
  *          - {String} value The expected style value
  * The style will be checked like so: getComputedStyle(element)[name] === value
  */
-var simulateColorPickerChange = async function(ruleView, colorPicker,
-    newRgba, expectedChange) {
+var simulateColorPickerChange = async function(
+  ruleView,
+  colorPicker,
+  newRgba,
+  expectedChange
+) {
   const onRuleViewChanged = ruleView.once("ruleview-changed");
   info("Getting the spectrum colorpicker object");
   const spectrum = await colorPicker.spectrum;
@@ -172,7 +159,7 @@ var simulateColorPickerChange = async function(ruleView, colorPicker,
   if (expectedChange) {
     info("Waiting for the style to be applied on the page");
     await waitForSuccess(() => {
-      const {element, name, value} = expectedChange;
+      const { element, name, value } = expectedChange;
       return content.getComputedStyle(element)[name] === value;
     }, "Color picker change applied on the page");
   }
@@ -197,12 +184,14 @@ var simulateColorPickerChange = async function(ruleView, colorPicker,
  */
 function getComputedViewProperty(view, name) {
   let prop;
-  for (const property of view.styleDocument.querySelectorAll(".computed-property-view")) {
+  for (const property of view.styleDocument.querySelectorAll(
+    ".computed-property-view"
+  )) {
     const nameSpan = property.querySelector(".computed-property-name");
     const valueSpan = property.querySelector(".computed-property-value");
 
     if (nameSpan.firstChild.textContent === name) {
-      prop = {nameSpan, valueSpan};
+      prop = { nameSpan, valueSpan };
       break;
     }
   }
@@ -220,5 +209,6 @@ function getComputedViewProperty(view, name) {
  * @return {String} The property value
  */
 function getComputedViewPropertyValue(view, name, propertyName) {
-  return getComputedViewProperty(view, name, propertyName).valueSpan.textContent;
+  return getComputedViewProperty(view, name, propertyName).valueSpan
+    .textContent;
 }

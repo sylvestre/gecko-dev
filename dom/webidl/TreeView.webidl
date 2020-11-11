@@ -5,8 +5,7 @@
 
 interface nsITreeSelection;
 
-[NoInterfaceObject]
-interface TreeView
+interface mixin TreeView
 {
   /**
    * The total number of rows in the tree (including the offscreen rows).
@@ -140,7 +139,7 @@ interface TreeView
    * Called during initialization to link the view to the front end box object.
    */
   [Throws]
-  void setTree(TreeBoxObject? tree);
+  void setTree(XULTreeElement? tree);
 
   /**
    * Called on the view when an item is opened or closed.
@@ -184,21 +183,4 @@ interface TreeView
    */
   [Throws]
   void setCellText(long row, TreeColumn column, DOMString value);
-
-  /**
-   * A command API that can be used to invoke commands on the selection.  The tree
-   * will automatically invoke this method when certain keys are pressed.  For example,
-   * when the DEL key is pressed, performAction will be called with the "delete" string.
-   */
-  void performAction(DOMString action);
-
-  /**
-   * A command API that can be used to invoke commands on a specific row.
-   */
-  void performActionOnRow(DOMString action, long row);
-
-  /**
-   * A command API that can be used to invoke commands on a specific cell.
-   */
-  void performActionOnCell(DOMString action, long row, TreeColumn column);
 };

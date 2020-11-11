@@ -1,4 +1,3 @@
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -35,8 +34,8 @@ add_task(async function() {
   await addTab("data:text/html;charset=utf-8," + encodeURIComponent(TEST_URI));
 
   info("Check that the grid highlighter can be displayed");
-  const {inspector, view} = await openRuleView();
-  const {highlighters} = view;
+  const { inspector, view } = await openRuleView();
+  const { highlighters } = view;
 
   await selectNode("#grid", inspector);
   const container = getRuleViewProperty(view, "#grid", "display").valueSpan;
@@ -51,17 +50,25 @@ add_task(async function() {
 
   info("Reload the page, expect the highlighter to be displayed once again");
   let onStateRestored = highlighters.once("grid-state-restored");
+
+  const onReloaded = inspector.once("reloaded");
   await refreshTab();
+  info("Wait for inspector to be reloaded after page reload");
+  await onReloaded;
+
   let { restored } = await onStateRestored;
   ok(restored, "The highlighter state was restored");
 
-  info("Check that the grid highlighter can be displayed after reloading the page");
+  info(
+    "Check that the grid highlighter can be displayed after reloading the page"
+  );
   is(highlighters.gridHighlighters.size, 1, "CSS grid highlighter is shown.");
 
   info("Navigate to another URL, and check that the highlighter is hidden");
-  const otherUri = "data:text/html;charset=utf-8," + encodeURIComponent(OTHER_URI);
+  const otherUri =
+    "data:text/html;charset=utf-8," + encodeURIComponent(OTHER_URI);
   onStateRestored = highlighters.once("grid-state-restored");
-  await navigateTo(inspector, otherUri);
+  await navigateTo(otherUri);
   ({ restored } = await onStateRestored);
   ok(!restored, "The highlighter state was not restored");
   ok(!highlighters.gridHighlighters.size, "CSS grid highlighter is hidden.");

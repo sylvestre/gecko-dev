@@ -14,7 +14,9 @@
 #include "nspr.h"
 #include "nsString.h"
 #include "pk11func.h"
+#include "mozpkix/pkix.h"
 #include "mozpkix/pkixtypes.h"
+#include "nsIX509Cert.h"
 
 using mozilla::OriginAttributes;
 using mozilla::TimeDuration;
@@ -28,10 +30,16 @@ void HandshakeCallback(PRFileDesc* fd, void* client_data);
 SECStatus CanFalseStartCallback(PRFileDesc* fd, void* client_data,
                                 PRBool* canFalseStart);
 
-mozilla::pkix::Result DoOCSPRequest(const nsCString& aiaLocation,
-                                    const OriginAttributes& originAttributes,
-                                    Vector<uint8_t>&& ocspRequest,
-                                    TimeDuration timeout,
-                                    /*out*/ Vector<uint8_t>& result);
+mozilla::pkix::Result DoOCSPRequest(
+    const nsCString& aiaLocation, const OriginAttributes& originAttributes,
+    uint8_t (&ocspRequest)[mozilla::pkix::OCSP_REQUEST_MAX_LENGTH],
+    size_t ocspRequestLength, TimeDuration timeout,
+    /*out*/ Vector<uint8_t>& result);
+
+nsCString getKeaGroupName(uint32_t aKeaGroup);
+nsCString getSignatureName(uint32_t aSignatureScheme);
+nsresult IsCertificateDistrustImminent(
+    const nsTArray<RefPtr<nsIX509Cert>>& aCertArray,
+    /* out */ bool& isDistrusted);
 
 #endif  // nsNSSCallbacks_h

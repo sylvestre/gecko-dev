@@ -7,6 +7,7 @@
 #include "mozilla/dom/AccessibleNodeBinding.h"
 #include "mozilla/dom/BindingDeclarations.h"
 #include "mozilla/dom/DOMStringList.h"
+#include "mozilla/StaticPrefs_accessibility.h"
 #include "nsIPersistentProperties2.h"
 #include "nsISimpleEnumerator.h"
 
@@ -19,15 +20,8 @@ using namespace mozilla::a11y;
 using namespace mozilla::dom;
 
 bool AccessibleNode::IsAOMEnabled(JSContext* aCx, JSObject* /*unused*/) {
-  static bool sPrefCached = false;
-  static bool sPrefCacheValue = false;
-
-  if (!sPrefCached) {
-    sPrefCached = true;
-    Preferences::AddBoolVarCache(&sPrefCacheValue, "accessibility.AOM.enabled");
-  }
-
-  return nsContentUtils::IsSystemCaller(aCx) || sPrefCacheValue;
+  return nsContentUtils::IsSystemCaller(aCx) ||
+         StaticPrefs::accessibility_AOM_enabled();
 }
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(AccessibleNode, mRelationProperties,
@@ -62,12 +56,14 @@ AccessibleNode::AccessibleNode(nsINode* aNode)
 
 AccessibleNode::~AccessibleNode() {}
 
-/* virtual */ JSObject* AccessibleNode::WrapObject(
-    JSContext* aCx, JS::Handle<JSObject*> aGivenProto) {
+/* virtual */
+JSObject* AccessibleNode::WrapObject(JSContext* aCx,
+                                     JS::Handle<JSObject*> aGivenProto) {
   return AccessibleNode_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-/* virtual */ ParentObject AccessibleNode::GetParentObject() const {
+/* virtual */
+ParentObject AccessibleNode::GetParentObject() const {
   return mDOMNode->GetParentObject();
 }
 
@@ -86,17 +82,17 @@ void AccessibleNode::GetComputedRole(nsAString& aRole) {
 void AccessibleNode::GetStates(nsTArray<nsString>& aStates) {
   nsAccessibilityService* accService = GetOrCreateAccService();
   if (!mIntl || !accService) {
-    aStates.AppendElement(NS_LITERAL_STRING("defunct"));
+    aStates.AppendElement(u"defunct"_ns);
     return;
   }
 
   if (mStates) {
-    aStates = mStates->StringArray();
+    aStates = mStates->StringArray().Clone();
     return;
   }
 
   mStates = accService->GetStringStates(mIntl->State());
-  aStates = mStates->StringArray();
+  aStates = mStates->StringArray().Clone();
 }
 
 void AccessibleNode::GetAttributes(nsTArray<nsString>& aAttributes) {
@@ -168,7 +164,7 @@ void AccessibleNode::Get(JSContext* aCX, const nsAString& aAttribute,
                          JS::MutableHandle<JS::Value> aValue,
                          ErrorResult& aRv) {
   if (!mIntl) {
-    aRv.Throw(NS_ERROR_DOM_INVALID_STATE_ERR);
+    aRv.ThrowInvalidStateError("No attributes available");
     return;
   }
 
@@ -176,13 +172,10 @@ void AccessibleNode::Get(JSContext* aCX, const nsAString& aAttribute,
   nsAutoString value;
   attrs->GetStringProperty(NS_ConvertUTF16toUTF8(aAttribute), value);
 
-  JS::Rooted<JS::Value> jsval(aCX);
-  if (!ToJSValue(aCX, value, &jsval)) {
-    aRv.Throw(NS_ERROR_UNEXPECTED);
+  if (!ToJSValue(aCX, value, aValue)) {
+    aRv.NoteJSContextException(aCX);
     return;
   }
-
-  aValue.set(jsval);
 }
 
 nsINode* AccessibleNode::GetDOMNode() { return mDOMNode; }

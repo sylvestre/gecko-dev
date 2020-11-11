@@ -84,7 +84,7 @@ nsresult IFoo::QueryInterface(const nsIID& aIID, void** aResult) {
   return status;
 }
 
-nsresult CreateIFoo(void** result)
+static nsresult CreateIFoo(void** result)
 // a typical factory function (that calls AddRef)
 {
   auto* foop = new IFoo;
@@ -95,14 +95,14 @@ nsresult CreateIFoo(void** result)
   return NS_OK;
 }
 
-void set_a_IFoo(nsCOMPtr<IFoo>* result) {
+static void set_a_IFoo(nsCOMPtr<IFoo>* result) {
   // Various places in this file do a static_cast to nsISupports* in order to
   // make the QI non-trivial, to avoid hitting a static assert.
   nsCOMPtr<IFoo> foop(do_QueryInterface(static_cast<nsISupports*>(new IFoo)));
   *result = foop;
 }
 
-nsCOMPtr<IFoo> return_a_IFoo() {
+static nsCOMPtr<IFoo> return_a_IFoo() {
   nsCOMPtr<IFoo> foop(do_QueryInterface(static_cast<nsISupports*>(new IFoo)));
   return foop;
 }
@@ -133,7 +133,7 @@ NS_DEFINE_STATIC_IID_ACCESSOR(IBar, NS_IBAR_IID)
 int IBar::total_destructions_;
 int IBar::total_queries_;
 
-IBar::IBar() {}
+IBar::IBar() = default;
 
 IBar::~IBar() { total_destructions_++; }
 
@@ -161,7 +161,7 @@ nsresult IBar::QueryInterface(const nsID& aIID, void** aResult) {
   return status;
 }
 
-nsresult CreateIBar(void** result)
+static nsresult CreateIBar(void** result)
 // a typical factory function (that calls AddRef)
 {
   auto* barp = new IBar;
@@ -172,17 +172,18 @@ nsresult CreateIBar(void** result)
   return NS_OK;
 }
 
-void AnIFooPtrPtrContext(IFoo**) {}
+static void AnIFooPtrPtrContext(IFoo**) {}
 
-void AVoidPtrPtrContext(void**) {}
+static void AVoidPtrPtrContext(void**) {}
 
-void AnISupportsPtrPtrContext(nsISupports**) {}
+static void AnISupportsPtrPtrContext(nsISupports**) {}
 
 }  // namespace TestCOMPtr
 
 using namespace TestCOMPtr;
 
-TEST(COMPtr, Bloat_Raw_Unsafe) {
+TEST(COMPtr, Bloat_Raw_Unsafe)
+{
   // ER: I'm not sure what this is testing...
   IBar* barP = 0;
   nsresult rv = CreateIBar(reinterpret_cast<void**>(&barP));
@@ -198,7 +199,8 @@ TEST(COMPtr, Bloat_Raw_Unsafe) {
   NS_RELEASE(barP);
 }
 
-TEST(COMPtr, Bloat_Smart) {
+TEST(COMPtr, Bloat_Smart)
+{
   // ER: I'm not sure what this is testing...
   nsCOMPtr<IBar> barP;
   nsresult rv = CreateIBar(getter_AddRefs(barP));
@@ -210,7 +212,8 @@ TEST(COMPtr, Bloat_Smart) {
   ASSERT_TRUE(fooP);
 }
 
-TEST(COMPtr, AddRefAndRelease) {
+TEST(COMPtr, AddRefAndRelease)
+{
   IFoo::total_constructions_ = 0;
   IFoo::total_destructions_ = 0;
   IBar::total_destructions_ = 0;
@@ -260,7 +263,8 @@ TEST(COMPtr, AddRefAndRelease) {
   ASSERT_EQ(IBar::total_destructions_, 1);
 }
 
-void Comparison() {
+TEST(COMPtr, Comparison)
+{
   IFoo::total_constructions_ = 0;
   IFoo::total_destructions_ = 0;
 
@@ -295,7 +299,8 @@ void Comparison() {
   ASSERT_EQ(IFoo::total_destructions_, 2);
 }
 
-void DontAddRef() {
+TEST(COMPtr, DontAddRef)
+{
   {
     auto* raw_foo1p = new IFoo;
     raw_foo1p->AddRef();
@@ -314,7 +319,8 @@ void DontAddRef() {
   }
 }
 
-TEST(COMPtr, AssignmentHelpers) {
+TEST(COMPtr, AssignmentHelpers)
+{
   IFoo::total_constructions_ = 0;
   IFoo::total_destructions_ = 0;
 
@@ -364,7 +370,7 @@ TEST(COMPtr, AssignmentHelpers) {
     ASSERT_EQ(IFoo::total_constructions_, 5);
     ASSERT_EQ(IFoo::total_destructions_, 4);
 
-    nsCOMPtr<IFoo> fooP2(fooP.forget());
+    nsCOMPtr<IFoo> fooP2(std::move(fooP));
     ASSERT_TRUE(fooP2);
 
     ASSERT_EQ(IFoo::total_constructions_, 5);
@@ -375,7 +381,8 @@ TEST(COMPtr, AssignmentHelpers) {
   ASSERT_EQ(IFoo::total_destructions_, 5);
 }
 
-TEST(COMPtr, QueryInterface) {
+TEST(COMPtr, QueryInterface)
+{
   IFoo::total_queries_ = 0;
   IBar::total_queries_ = 0;
 
@@ -407,7 +414,8 @@ TEST(COMPtr, QueryInterface) {
   }
 }
 
-TEST(COMPtr, GetterConversions) {
+TEST(COMPtr, GetterConversions)
+{
   // This is just a compilation test. We add a few asserts to keep gtest happy.
   {
     nsCOMPtr<IFoo> fooP;

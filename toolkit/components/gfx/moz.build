@@ -4,12 +4,15 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-with Files('**'):
-    BUG_COMPONENT = ('Core', 'Graphics')
+with Files("**"):
+    BUG_COMPONENT = ("Core", "Graphics")
 
-EXTRA_COMPONENTS += [
-    'GfxSanityTest.manifest',
-    'SanityTest.js',
+EXTRA_JS_MODULES += [
+    "SanityTest.jsm",
 ]
 
-JAR_MANIFESTS += ['jar.mn']
+XPCOM_MANIFESTS += [
+    "components.conf",
+]
+
+JAR_MANIFESTS += ["jar.mn"]

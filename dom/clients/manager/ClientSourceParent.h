@@ -10,6 +10,7 @@
 #include "ClientOpPromise.h"
 #include "mozilla/dom/PClientSourceParent.h"
 #include "mozilla/dom/ServiceWorkerDescriptor.h"
+#include "mozilla/dom/ipc/IdType.h"
 #include "mozilla/MozPromise.h"
 
 namespace mozilla {
@@ -21,9 +22,10 @@ class ClientManagerService;
 class ClientSourceParent final : public PClientSourceParent {
   ClientInfo mClientInfo;
   Maybe<ServiceWorkerDescriptor> mController;
+  const Maybe<ContentParentId> mContentParentId;
   RefPtr<ClientManagerService> mService;
   nsTArray<ClientHandleParent*> mHandleList;
-  MozPromiseHolder<GenericPromise> mExecutionReadyPromise;
+  MozPromiseHolder<GenericNonExclusivePromise> mExecutionReadyPromise;
   bool mExecutionReady;
   bool mFrozen;
 
@@ -54,7 +56,8 @@ class ClientSourceParent final : public PClientSourceParent {
   bool DeallocPClientSourceOpParent(PClientSourceOpParent* aActor) override;
 
  public:
-  explicit ClientSourceParent(const ClientSourceConstructorArgs& aArgs);
+  explicit ClientSourceParent(const ClientSourceConstructorArgs& aArgs,
+                              const Maybe<ContentParentId>& aContentParentId);
   ~ClientSourceParent();
 
   void Init();
@@ -65,17 +68,21 @@ class ClientSourceParent final : public PClientSourceParent {
 
   bool ExecutionReady() const;
 
-  RefPtr<GenericPromise> ExecutionReadyPromise();
+  RefPtr<GenericNonExclusivePromise> ExecutionReadyPromise();
 
   const Maybe<ServiceWorkerDescriptor>& GetController() const;
 
   void ClearController();
 
+  bool IsOwnedByProcess(ContentParentId aContentParentId) const {
+    return mContentParentId && mContentParentId.value() == aContentParentId;
+  }
+
   void AttachHandle(ClientHandleParent* aClientSource);
 
   void DetachHandle(ClientHandleParent* aClientSource);
 
-  RefPtr<ClientOpPromise> StartOp(const ClientOpConstructorArgs& aArgs);
+  RefPtr<ClientOpPromise> StartOp(ClientOpConstructorArgs&& aArgs);
 };
 
 }  // namespace dom

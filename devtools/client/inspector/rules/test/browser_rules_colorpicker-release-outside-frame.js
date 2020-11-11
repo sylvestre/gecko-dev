@@ -1,4 +1,3 @@
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -11,10 +10,13 @@ const TEST_URI = "<body style='color: red'>Test page for bug 1160720";
 
 add_task(async function() {
   await addTab("data:text/html;charset=utf-8," + encodeURIComponent(TEST_URI));
-  const {view} = await openRuleView();
+  const { view } = await openRuleView();
 
-  const cSwatch = getRuleViewProperty(view, "element", "color").valueSpan
-    .querySelector(".ruleview-colorswatch");
+  const cSwatch = getRuleViewProperty(
+    view,
+    "element",
+    "color"
+  ).valueSpan.querySelector(".ruleview-colorswatch");
 
   const picker = await openColorPickerForSwatch(cSwatch, view);
   const spectrum = picker.spectrum;
@@ -22,9 +24,13 @@ add_task(async function() {
 
   info("Pressing mouse down over color picker.");
   const onRuleViewChanged = view.once("ruleview-changed");
-  EventUtils.synthesizeMouseAtCenter(spectrum.dragger, {
-    type: "mousedown",
-  }, spectrum.dragger.ownerDocument.defaultView);
+  EventUtils.synthesizeMouseAtCenter(
+    spectrum.dragger,
+    {
+      type: "mousedown",
+    },
+    spectrum.dragger.ownerDocument.defaultView
+  );
   await onRuleViewChanged;
 
   const value = await change;
@@ -43,16 +49,22 @@ add_task(async function() {
 
   info("Moving mouse over color picker without any buttons pressed.");
 
-  EventUtils.synthesizeMouse(spectrum.dragger, 10, 10, {
-    // -1 = no buttons are pressed down
-    button: -1,
-    type: "mousemove",
-  }, spectrum.dragger.ownerDocument.defaultView);
+  EventUtils.synthesizeMouse(
+    spectrum.dragger,
+    10,
+    10,
+    {
+      // -1 = no buttons are pressed down
+      button: -1,
+      type: "mousemove",
+    },
+    spectrum.dragger.ownerDocument.defaultView
+  );
 });
 
 async function openColorPickerForSwatch(swatch, view) {
   const cPicker = view.tooltips.getTooltip("colorPicker");
-  ok(cPicker, "The rule-view has the expected colorPicker property");
+  ok(cPicker, "The rule-view has an expected colorPicker widget");
 
   const cPickerPanel = cPicker.tooltip.panel;
   ok(cPickerPanel, "The XUL panel for the color picker exists");

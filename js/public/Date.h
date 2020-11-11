@@ -29,11 +29,15 @@
  * of accessor methods to the various aspects of the represented date.
  */
 
-#include "mozilla/FloatingPoint.h"
-#include "mozilla/MathAlgorithms.h"
+#include "mozilla/FloatingPoint.h"  // mozilla::{IsFinite,IsNaN}, mozilla::UnspecifiedNaN
+#include "mozilla/MathAlgorithms.h"  // mozilla::Abs
 
-#include "js/Conversions.h"
-#include "js/Value.h"
+#include "js/Conversions.h"  // JS::ToInteger
+#include "js/RootingAPI.h"   // JS::Handle
+#include "js/Value.h"        // JS::CanonicalizeNaN, JS::DoubleValue, JS::Value
+
+struct JS_PUBLIC_API JSContext;
+class JS_PUBLIC_API JSObject;
 
 namespace JS {
 
@@ -74,14 +78,14 @@ inline ClippedTime TimeClip(double time);
  * as only the user knows what behavior is desired when clipping occurs.
  */
 class ClippedTime {
-  double t;
+  double t = mozilla::UnspecifiedNaN<double>();
 
   explicit ClippedTime(double time) : t(time) {}
   friend ClippedTime TimeClip(double time);
 
  public:
   // Create an invalid date.
-  ClippedTime() : t(mozilla::UnspecifiedNaN<double>()) {}
+  ClippedTime() = default;
 
   // Create an invalid date/time, more explicitly; prefer this to the default
   // constructor.
@@ -104,19 +108,44 @@ inline ClippedTime TimeClip(double time) {
   }
 
   // Step 3.
-  return ClippedTime(ToInteger(time) + (+0.0));
+  return ClippedTime(ToInteger(time));
 }
 
 // Produce a double Value from the given time.  Because times may be NaN,
 // prefer using this to manual canonicalization.
 inline Value TimeValue(ClippedTime time) {
-  return DoubleValue(JS::CanonicalizeNaN(time.toDouble()));
+  return CanonicalizedDoubleValue(time.toDouble());
 }
 
 // Create a new Date object whose [[DateValue]] internal slot contains the
 // clipped |time|.  (Users who must represent times outside that range must use
 // another representation.)
 extern JS_PUBLIC_API JSObject* NewDateObject(JSContext* cx, ClippedTime time);
+
+/**
+ * Create a new Date object for a year/month/day-of-month/hour/minute/second.
+ *
+ * The created date is initialized with the time value
+ *
+ *   TimeClip(UTC(MakeDate(MakeDay(year, mon, mday),
+ *                MakeTime(hour, min, sec, 0.0))))
+ *
+ * where each function/operation is as specified in ECMAScript.
+ */
+extern JS_PUBLIC_API JSObject* NewDateObject(JSContext* cx, int year, int mon,
+                                             int mday, int hour, int min,
+                                             int sec);
+
+/**
+ * On success, returns true, setting |*isDate| to true if |obj| is a Date
+ * object or a wrapper around one, or to false if not.  Returns false on
+ * failure.
+ *
+ * This method returns true with |*isDate == false| when passed an ES6 proxy
+ * whose target is a Date, or when passed a revoked proxy.
+ */
+extern JS_PUBLIC_API bool ObjectIsDate(JSContext* cx, Handle<JSObject*> obj,
+                                       bool* isDate);
 
 // Year is a year, month is 0-11, day is 1-based.  The return value is a number
 // of milliseconds since the epoch.
@@ -163,7 +192,7 @@ JS_PUBLIC_API double DayWithinYear(double time, double year);
 // The callback will be a wrapper function that accepts a single double (the
 // time to clamp and jitter.) Inside the JS Engine, other parameters that may be
 // needed are all constant, so they are handled inside the wrapper function
-using ReduceMicrosecondTimePrecisionCallback = double (*)(double);
+using ReduceMicrosecondTimePrecisionCallback = double (*)(double, JSContext*);
 
 // Set a callback into the toolkit/components/resistfingerprinting function that
 // will centralize time resolution and jitter into one place.

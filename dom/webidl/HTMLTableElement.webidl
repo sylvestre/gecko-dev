@@ -11,8 +11,10 @@
  * and create derivative works of this document.
  */
 
-[HTMLConstructor]
+[Exposed=Window]
 interface HTMLTableElement : HTMLElement {
+  [HTMLConstructor] constructor();
+
            [CEReactions, SetterThrows]
            attribute HTMLTableCaptionElement? caption;
   HTMLElement createCaption();
@@ -53,10 +55,10 @@ partial interface HTMLTableElement {
            [CEReactions, SetterThrows]
            attribute DOMString width;
 
-  [CEReactions, TreatNullAs=EmptyString, SetterThrows]
-           attribute DOMString bgColor;
-  [CEReactions, TreatNullAs=EmptyString, SetterThrows]
-           attribute DOMString cellPadding;
-  [CEReactions, TreatNullAs=EmptyString, SetterThrows]
-           attribute DOMString cellSpacing;
+  [CEReactions, SetterThrows]
+           attribute [TreatNullAs=EmptyString] DOMString bgColor;
+  [CEReactions, SetterThrows]
+           attribute [TreatNullAs=EmptyString] DOMString cellPadding;
+  [CEReactions, SetterThrows]
+           attribute [TreatNullAs=EmptyString] DOMString cellSpacing;
 };

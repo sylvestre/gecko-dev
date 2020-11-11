@@ -30,29 +30,38 @@ namespace layers {
 class SharedSurfaceTextureClient;
 
 class SharedSurfaceTextureData : public TextureData {
- protected:
-  const UniquePtr<gl::SharedSurface> mSurf;
-
   friend class SharedSurfaceTextureClient;
 
-  explicit SharedSurfaceTextureData(UniquePtr<gl::SharedSurface> surf);
-
  public:
-  ~SharedSurfaceTextureData();
+  const SurfaceDescriptor mDesc;
+  const gfx::SurfaceFormat mFormat;
+  const gfx::IntSize mSize;
 
-  virtual bool Lock(OpenMode) override { return false; }
+  static already_AddRefed<TextureClient> CreateTextureClient(
+      const layers::SurfaceDescriptor& aDesc, const gfx::SurfaceFormat aFormat,
+      gfx::IntSize aSize, TextureFlags aFlags, LayersIPCChannel* aAllocator);
 
-  virtual void Unlock() override {}
+  SharedSurfaceTextureData(const SurfaceDescriptor&, gfx::SurfaceFormat,
+                           gfx::IntSize);
+  virtual ~SharedSurfaceTextureData();
 
-  virtual void FillInfo(TextureData::Info& aInfo) const override;
+  bool Lock(OpenMode) override { return false; }
 
-  virtual bool Serialize(SurfaceDescriptor& aOutDescriptor) override;
+  void Unlock() override {}
 
-  virtual void Deallocate(LayersIPCChannel*) override;
+  void FillInfo(TextureData::Info& aInfo) const override;
 
-  gl::SharedSurface* Surf() const { return mSurf.get(); }
+  bool Serialize(SurfaceDescriptor& aOutDescriptor) override;
+
+  void Deallocate(LayersIPCChannel*) override;
+
+  TextureFlags GetTextureFlags() const override;
+
+  Maybe<uint64_t> GetBufferId() const override;
+
+  mozilla::ipc::FileDescriptor GetAcquireFence() override;
 };
-
+/*
 class SharedSurfaceTextureClient : public TextureClient {
  public:
   SharedSurfaceTextureClient(SharedSurfaceTextureData* aData,
@@ -60,16 +69,16 @@ class SharedSurfaceTextureClient : public TextureClient {
 
   ~SharedSurfaceTextureClient();
 
-  static already_AddRefed<SharedSurfaceTextureClient> Create(
+  static RefPtr<SharedSurfaceTextureClient> Create(
       UniquePtr<gl::SharedSurface> surf, gl::SurfaceFactory* factory,
       LayersIPCChannel* aAllocator, TextureFlags aFlags);
 
-  gl::SharedSurface* Surf() const {
+  const auto& Desc() const {
     return static_cast<const SharedSurfaceTextureData*>(GetInternalData())
-        ->Surf();
+        ->mDesc;
   }
 };
-
+*/
 }  // namespace layers
 }  // namespace mozilla
 

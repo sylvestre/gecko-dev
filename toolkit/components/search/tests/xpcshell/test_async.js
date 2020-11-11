@@ -1,31 +1,32 @@
 /* Any copyright is dedicated to the Public Domain.
    http://creativecommons.org/publicdomain/zero/1.0/ */
 
-function run_test() {
-  do_test_pending();
+add_task(async function setup() {
+  await AddonTestUtils.promiseStartupManager();
+  await SearchTestUtils.useTestEngines("simple-engines");
+});
 
-  do_load_manifest("data/chrome.manifest");
-
-  configureToLoadJarEngines();
-
+add_task(async function test_async() {
   Assert.ok(!Services.search.isInitialized);
 
-  Services.search.init(function search_initialized(aStatus) {
-    Assert.ok(Components.isSuccessCode(aStatus));
-    Assert.ok(Services.search.isInitialized);
+  let aStatus = await Services.search.init();
+  Assert.ok(Components.isSuccessCode(aStatus));
+  Assert.ok(Services.search.isInitialized);
 
-    // test engines from dir are not loaded.
-    let engines = Services.search.getEngines();
-    Assert.equal(engines.length, 1);
+  // test engines from dir are not loaded.
+  let engines = await Services.search.getEngines();
+  Assert.equal(engines.length, 2);
 
-    // test jar engine is loaded ok.
-    let engine = Services.search.getEngineByName("bug645970");
-    Assert.notEqual(engine, null);
+  // test jar engine is loaded ok.
+  let engine = Services.search.getEngineByName("basic");
+  Assert.notEqual(engine, null);
+  Assert.ok(engine.isAppProvided, "Should be shown as an app-provided engine");
 
-    // Check the hidden engine is not loaded.
-    engine = Services.search.getEngineByName("hidden");
-    Assert.equal(engine, null);
+  engine = Services.search.getEngineByName("Simple Engine");
+  Assert.notEqual(engine, null);
+  Assert.ok(engine.isAppProvided, "Should be shown as an app-provided engine");
 
-    do_test_finished();
-  });
-}
+  // Check the hidden engine is not loaded.
+  engine = Services.search.getEngineByName("hidden");
+  Assert.equal(engine, null);
+});

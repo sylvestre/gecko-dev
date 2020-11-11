@@ -12,8 +12,10 @@
 #include "mozilla/layers/WebRenderMessages.h"
 #include "mozilla/layers/WebRenderScrollData.h"
 #include "mozilla/layers/WebRenderUserData.h"
+#include "mozilla/SVGIntegrationUtils.h"  // for WrFiltersHolder
 #include "nsDisplayList.h"
 #include "nsIFrame.h"
+#include "DisplayItemCache.h"
 
 namespace mozilla {
 
@@ -30,20 +32,15 @@ class WebRenderFallbackData;
 class WebRenderParentCommand;
 class WebRenderUserData;
 
-class WebRenderCommandBuilder {
+class WebRenderCommandBuilder final {
   typedef nsTHashtable<nsRefPtrHashKey<WebRenderUserData>>
       WebRenderUserDataRefTable;
   typedef nsTHashtable<nsRefPtrHashKey<WebRenderCanvasData>> CanvasDataSet;
+  typedef nsTHashtable<nsRefPtrHashKey<WebRenderLocalCanvasData>>
+      LocalCanvasDataSet;
 
  public:
-  explicit WebRenderCommandBuilder(WebRenderLayerManager* aManager)
-      : mManager(aManager),
-        mLastAsr(nullptr),
-        mBuilderDumpIndex(0),
-        mDumpIndent(0),
-        mDoGrouping(false),
-        mForEventsAndPluginsOnly(false),
-        mContainsSVGGroup(false) {}
+  explicit WebRenderCommandBuilder(WebRenderLayerManager* aManager);
 
   void Destroy();
 
@@ -56,11 +53,10 @@ class WebRenderCommandBuilder {
                               nsDisplayList* aDisplayList,
                               nsDisplayListBuilder* aDisplayListBuilder,
                               WebRenderScrollData& aScrollData,
-                              wr::LayoutSize& aContentSize,
-                              const nsTArray<wr::WrFilterOp>& aFilters);
+                              WrFiltersHolder&& aFilters);
 
   void PushOverrideForASR(const ActiveScrolledRoot* aASR,
-                          const wr::WrClipId& aClipId);
+                          const wr::WrSpatialId& aSpatialId);
   void PopOverrideForASR(const ActiveScrolledRoot* aASR);
 
   Maybe<wr::ImageKey> CreateImageKey(
@@ -80,8 +76,8 @@ class WebRenderCommandBuilder {
                  const StackingContextHelper& aSc,
                  const LayoutDeviceRect& aRect, const LayoutDeviceRect& aClip);
 
-  Maybe<wr::WrImageMask> BuildWrMaskImage(
-      nsDisplayItem* aItem, wr::DisplayListBuilder& aBuilder,
+  Maybe<wr::ImageMask> BuildWrMaskImage(
+      nsDisplayMasksAndClipPaths* aMaskItem, wr::DisplayListBuilder& aBuilder,
       wr::IpcResourceUpdateQueue& aResources, const StackingContextHelper& aSc,
       nsDisplayListBuilder* aDisplayListBuilder,
       const LayoutDeviceRect& aBounds);
@@ -92,7 +88,7 @@ class WebRenderCommandBuilder {
                        nsDisplayListBuilder* aDisplayListBuilder);
 
   void CreateWebRenderCommandsFromDisplayList(
-      nsDisplayList* aDisplayList, nsDisplayItem* aOuterItem,
+      nsDisplayList* aDisplayList, nsDisplayItem* aWrappingItem,
       nsDisplayListBuilder* aDisplayListBuilder,
       const StackingContextHelper& aSc, wr::DisplayListBuilder& aBuilder,
       wr::IpcResourceUpdateQueue& aResources);
@@ -114,7 +110,7 @@ class WebRenderCommandBuilder {
   void ClearCachedResources();
 
   bool ShouldDumpDisplayList(nsDisplayListBuilder* aBuilder);
-  wr::usize GetBuilderDumpIndex() { return mBuilderDumpIndex; }
+  wr::usize GetBuilderDumpIndex() const { return mBuilderDumpIndex; }
 
   bool GetContainsSVGGroup() { return mContainsSVGGroup; }
 
@@ -142,12 +138,7 @@ class WebRenderCommandBuilder {
     RefPtr<WebRenderUserData>& data = userDataTable->GetOrInsert(
         WebRenderUserDataKey(aItem->GetPerFrameKey(), T::Type()));
     if (!data) {
-      // To recreate a new user data, we should remove the data from the table
-      // first.
-      if (data) {
-        data->RemoveFromTable();
-      }
-      data = new T(mManager, aItem);
+      data = new T(GetRenderRootStateManager(), aItem);
       mWebRenderUserDatas.PutEntry(data);
       if (aOutIsRecycled) {
         *aOutIsRecycled = false;
@@ -161,9 +152,17 @@ class WebRenderCommandBuilder {
     // of EndTransaction.
     data->SetUsed(true);
 
-    if (T::Type() == WebRenderUserData::UserDataType::eCanvas) {
-      mLastCanvasDatas.PutEntry(data->AsCanvasData());
+    switch (T::Type()) {
+      case WebRenderUserData::UserDataType::eCanvas:
+        mLastCanvasDatas.PutEntry(data->AsCanvasData());
+        break;
+      case WebRenderUserData::UserDataType::eLocalCanvas:
+        mLastLocalCanvasDatas.PutEntry(data->AsLocalCanvasData());
+        break;
+      default:
+        break;
     }
+
     RefPtr<T> res = static_cast<T*>(data.get());
     return res.forget();
   }
@@ -171,6 +170,13 @@ class WebRenderCommandBuilder {
   WebRenderLayerManager* mManager;
 
  private:
+  RenderRootStateManager* GetRenderRootStateManager();
+  void CreateWebRenderCommands(nsDisplayItem* aItem,
+                               mozilla::wr::DisplayListBuilder& aBuilder,
+                               mozilla::wr::IpcResourceUpdateQueue& aResources,
+                               const StackingContextHelper& aSc,
+                               nsDisplayListBuilder* aDisplayListBuilder);
+
   ClipManager mClipManager;
 
   // We use this as a temporary data structure while building the mScrollData
@@ -187,22 +193,16 @@ class WebRenderCommandBuilder {
 
   // Store of WebRenderCanvasData objects for use in empty transactions
   CanvasDataSet mLastCanvasDatas;
+  // Store of WebRenderLocalCanvasData objects for use in empty transactions
+  LocalCanvasDataSet mLastLocalCanvasDatas;
 
   wr::usize mBuilderDumpIndex;
   wr::usize mDumpIndent;
-
-  // When zooming is enabled, this stores the animation property that we use
-  // to manipulate the zoom from APZ.
-  Maybe<wr::WrAnimationProperty> mZoomProp;
 
  public:
   // Whether consecutive inactive display items should be grouped into one
   // blob image.
   bool mDoGrouping;
-
-  // True if we're currently within an opacity:0 container, and only
-  // plugin and hit test items should be considered.
-  bool mForEventsAndPluginsOnly;
 
   // True if the most recently build display list contained an svg that
   // we did grouping for.

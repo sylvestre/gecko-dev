@@ -7,33 +7,35 @@
 #ifndef nsDOMMutationObserver_h
 #define nsDOMMutationObserver_h
 
+#include <utility>
+
 #include "mozilla/Attributes.h"
-#include "mozilla/Move.h"
-#include "nsCycleCollectionParticipant.h"
-#include "nsPIDOMWindow.h"
-#include "nsIScriptContext.h"
-#include "nsStubAnimationObserver.h"
-#include "nsCOMArray.h"
-#include "nsTArray.h"
-#include "nsIVariant.h"
-#include "nsContentList.h"
+#include "mozilla/dom/Animation.h"
+#include "mozilla/dom/Document.h"
 #include "mozilla/dom/Element.h"
-#include "nsClassHashtable.h"
-#include "nsNodeUtils.h"
-#include "nsWrapperCache.h"
-#include "mozilla/dom/Nullable.h"
 #include "mozilla/dom/MutationEventBinding.h"
 #include "mozilla/dom/MutationObserverBinding.h"
-#include "nsIDocument.h"
-#include "mozilla/dom/Animation.h"
-#include "nsIAnimationObserver.h"
+#include "mozilla/dom/Nullable.h"
+#include "nsCOMArray.h"
+#include "nsClassHashtable.h"
+#include "nsContentList.h"
+#include "nsCycleCollectionParticipant.h"
 #include "nsGlobalWindow.h"
+#include "nsIAnimationObserver.h"
+#include "nsIScriptContext.h"
+#include "nsIVariant.h"
+#include "nsPIDOMWindow.h"
+#include "nsStubAnimationObserver.h"
+#include "nsTArray.h"
+#include "nsWrapperCache.h"
+
+class nsIPrincipal;
 
 class nsDOMMutationObserver;
 using mozilla::dom::MutationObservingInfo;
 
 class nsDOMMutationRecord final : public nsISupports, public nsWrapperCache {
-  virtual ~nsDOMMutationRecord() {}
+  virtual ~nsDOMMutationRecord() = default;
 
  public:
   typedef nsTArray<RefPtr<mozilla::dom::Animation>> AnimationArray;
@@ -82,15 +84,15 @@ class nsDOMMutationRecord final : public nsISupports, public nsWrapperCache {
   }
 
   void GetAddedAnimations(AnimationArray& aRetVal) const {
-    aRetVal = mAddedAnimations;
+    aRetVal = mAddedAnimations.Clone();
   }
 
   void GetRemovedAnimations(AnimationArray& aRetVal) const {
-    aRetVal = mRemovedAnimations;
+    aRetVal = mRemovedAnimations.Clone();
   }
 
   void GetChangedAnimations(AnimationArray& aRetVal) const {
-    aRetVal = mChangedAnimations;
+    aRetVal = mChangedAnimations.Clone();
   }
 
   nsCOMPtr<nsINode> mTarget;
@@ -114,7 +116,7 @@ class nsDOMMutationRecord final : public nsISupports, public nsWrapperCache {
 // members to make sure we go through getters/setters.
 class nsMutationReceiverBase : public nsStubAnimationObserver {
  public:
-  virtual ~nsMutationReceiverBase() {}
+  virtual ~nsMutationReceiverBase() = default;
 
   nsDOMMutationObserver* Observer();
   nsINode* Target() { return mParent ? mParent->Target() : mTarget; }
@@ -359,8 +361,7 @@ class nsMutationReceiver : public nsMutationReceiverBase {
                                           nsAtom* aAttribute) override {
     // We can reuse AttributeWillChange implementation.
     AttributeWillChange(aElement, aNameSpaceID, aAttribute,
-                        mozilla::dom::MutationEvent_Binding::MODIFICATION,
-                        nullptr);
+                        mozilla::dom::MutationEvent_Binding::MODIFICATION);
   }
 
  protected:
@@ -401,7 +402,7 @@ class nsAnimationReceiver : public nsMutationReceiver {
   NS_DECL_NSIANIMATIONOBSERVER_ANIMATIONREMOVED
 
  protected:
-  virtual ~nsAnimationReceiver() {}
+  virtual ~nsAnimationReceiver() = default;
 
   nsAnimationReceiver(nsINode* aTarget, nsDOMMutationObserver* aObserver)
       : nsMutationReceiver(aTarget, aObserver) {}
@@ -433,9 +434,9 @@ class nsAnimationReceiver : public nsMutationReceiver {
 
 class nsDOMMutationObserver final : public nsISupports, public nsWrapperCache {
  public:
-  nsDOMMutationObserver(already_AddRefed<nsPIDOMWindowInner>&& aOwner,
+  nsDOMMutationObserver(nsCOMPtr<nsPIDOMWindowInner>&& aOwner,
                         mozilla::dom::MutationCallback& aCb, bool aChrome)
-      : mOwner(aOwner),
+      : mOwner(std::move(aOwner)),
         mLastPendingMutation(nullptr),
         mPendingMutationCount(0),
         mCallback(&aCb),
@@ -462,13 +463,13 @@ class nsDOMMutationObserver final : public nsISupports, public nsWrapperCache {
 
   void Observe(nsINode& aTarget,
                const mozilla::dom::MutationObserverInit& aOptions,
-               mozilla::ErrorResult& aRv);
+               nsIPrincipal& aSubjectPrincipal, mozilla::ErrorResult& aRv);
 
   void Disconnect();
 
   void TakeRecords(nsTArray<RefPtr<nsDOMMutationRecord>>& aRetVal);
 
-  void HandleMutation();
+  MOZ_CAN_RUN_SCRIPT void HandleMutation();
 
   void GetObservingInfo(
       nsTArray<mozilla::dom::Nullable<MutationObservingInfo>>& aResult,
@@ -491,25 +492,31 @@ class nsDOMMutationObserver final : public nsISupports, public nsWrapperCache {
     MOZ_ASSERT(record);
     if (!mLastPendingMutation) {
       MOZ_ASSERT(!mFirstPendingMutation);
-      mFirstPendingMutation = record.forget();
+      mFirstPendingMutation = std::move(record);
       mLastPendingMutation = mFirstPendingMutation;
     } else {
       MOZ_ASSERT(mFirstPendingMutation);
-      mLastPendingMutation->mNext = record.forget();
+      mLastPendingMutation->mNext = std::move(record);
       mLastPendingMutation = mLastPendingMutation->mNext;
     }
     ++mPendingMutationCount;
   }
 
   void ClearPendingRecords() {
-    mFirstPendingMutation = nullptr;
+    // Break down the pending mutation record list so that cycle collector
+    // can delete the objects sooner.
+    RefPtr<nsDOMMutationRecord> current = std::move(mFirstPendingMutation);
     mLastPendingMutation = nullptr;
     mPendingMutationCount = 0;
+    while (current) {
+      current = std::move(current->mNext);
+    }
   }
 
   // static methods
   static void QueueMutationObserverMicroTask();
 
+  MOZ_CAN_RUN_SCRIPT
   static void HandleMutations(mozilla::AutoSlowOperation& aAso);
 
   static bool AllScheduledMutationObserversAreSuppressed() {
@@ -557,6 +564,7 @@ class nsDOMMutationObserver final : public nsISupports, public nsWrapperCache {
     return mOwner && nsGlobalWindowInner::Cast(mOwner)->IsInSyncOperation();
   }
 
+  MOZ_CAN_RUN_SCRIPT
   static void HandleMutationsInternal(mozilla::AutoSlowOperation& aAso);
 
   static void AddCurrentlyHandlingObserver(nsDOMMutationObserver* aObserver,
@@ -707,11 +715,11 @@ class nsAutoAnimationMutationBatch {
   struct Entry;
 
  public:
-  explicit nsAutoAnimationMutationBatch(nsIDocument* aDocument) {
+  explicit nsAutoAnimationMutationBatch(mozilla::dom::Document* aDocument) {
     Init(aDocument);
   }
 
-  void Init(nsIDocument* aDocument) {
+  void Init(mozilla::dom::Document* aDocument) {
     if (!aDocument || !aDocument->MayHaveDOMMutationObservers() ||
         sCurrentBatch) {
       return;

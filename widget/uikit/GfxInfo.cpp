@@ -42,10 +42,10 @@ GfxInfo::GetAdapterDescription2(nsAString& aAdapterDescription) {
 }
 
 NS_IMETHODIMP
-GfxInfo::GetAdapterRAM(nsAString& aAdapterRAM) { return NS_ERROR_FAILURE; }
+GfxInfo::GetAdapterRAM(uint32_t* aAdapterRAM) { return NS_ERROR_FAILURE; }
 
 NS_IMETHODIMP
-GfxInfo::GetAdapterRAM2(nsAString& aAdapterRAM) { return NS_ERROR_FAILURE; }
+GfxInfo::GetAdapterRAM2(uint32_t* aAdapterRAM) { return NS_ERROR_FAILURE; }
 
 NS_IMETHODIMP
 GfxInfo::GetAdapterDriver(nsAString& aAdapterDriver) {
@@ -114,11 +114,9 @@ GfxInfo::GetIsGPU2Active(bool* aIsGPU2Active) { return NS_ERROR_FAILURE; }
 const nsTArray<GfxDriverInfo>& GfxInfo::GetGfxDriverInfo() {
   if (sDriverInfo->IsEmpty()) {
     APPEND_TO_DRIVER_BLOCKLIST2(
-        OperatingSystem::Ios,
-        (nsAString&)GfxDriverInfo::GetDeviceVendor(VendorAll),
-        GfxDriverInfo::allDevices, nsIGfxInfo::FEATURE_OPENGL_LAYERS,
-        nsIGfxInfo::FEATURE_STATUS_OK, DRIVER_COMPARISON_IGNORED,
-        GfxDriverInfo::allDriverVersions);
+        OperatingSystem::Ios, DeviceFamily::All,
+        nsIGfxInfo::FEATURE_OPENGL_LAYERS, nsIGfxInfo::FEATURE_STATUS_OK,
+        DRIVER_COMPARISON_IGNORED, GfxDriverInfo::allDriverVersions);
   }
 
   return *sDriverInfo;
@@ -137,12 +135,11 @@ nsresult GfxInfo::GetFeatureStatusImpl(
     return NS_OK;
   }
 
-  // OpenGL layers are never blacklisted on iOS.
+  // OpenGL layers are never blocklisted on iOS.
   // This early return is so we avoid potentially slow
   // GLStrings initialization on startup when we initialize GL layers.
   if (aFeature == nsIGfxInfo::FEATURE_OPENGL_LAYERS ||
-      aFeature == nsIGfxInfo::FEATURE_WEBGL_OPENGL ||
-      aFeature == nsIGfxInfo::FEATURE_WEBGL_MSAA) {
+      aFeature == nsIGfxInfo::FEATURE_WEBGL_OPENGL) {
     *aStatus = nsIGfxInfo::FEATURE_STATUS_OK;
     return NS_OK;
   }

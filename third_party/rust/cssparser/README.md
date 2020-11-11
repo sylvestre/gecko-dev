@@ -1,7 +1,7 @@
 rust-cssparser
 ==============
 
-[![Build Status](https://travis-ci.org/servo/rust-cssparser.svg?branch=travis)](https://travis-ci.org/servo/rust-cssparser)
+[![Build Status](https://travis-ci.com/servo/rust-cssparser.svg)](https://travis-ci.com/servo/rust-cssparser)
 
 [Documentation](https://docs.rs/cssparser/)
 
@@ -39,7 +39,7 @@ Parsing CSS involves a series of steps:
 * Component values can then be parsed into generic rules or declarations.
   The header and body of rules as well as the value of declarations
   are still just lists of component values at this point.
-  See [the `ast` module](src/ast.rs) for the data structures.
+  See [the `Token` enum](src/tokenizer.rs) for the data structure.
 
 * The last step of a full CSS parser is
   parsing the remaining component values

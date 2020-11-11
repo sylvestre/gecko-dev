@@ -6,18 +6,18 @@
 
 #include "nsProgressFrame.h"
 
+#include "mozilla/PresShell.h"
+#include "mozilla/dom/Document.h"
+#include "mozilla/dom/Element.h"
+#include "mozilla/dom/HTMLProgressElement.h"
 #include "nsIContent.h"
 #include "nsPresContext.h"
 #include "nsGkAtoms.h"
 #include "nsNameSpaceManager.h"
-#include "nsIDocument.h"
-#include "nsIPresShell.h"
 #include "nsNodeInfoManager.h"
 #include "nsContentCreatorFunctions.h"
 #include "nsCheckboxRadioFrame.h"
 #include "nsFontMetrics.h"
-#include "mozilla/dom/Element.h"
-#include "mozilla/dom/HTMLProgressElement.h"
 #include "nsCSSPseudoElements.h"
 #include "nsStyleConsts.h"
 #include <algorithm>
@@ -25,16 +25,17 @@
 using namespace mozilla;
 using namespace mozilla::dom;
 
-nsIFrame* NS_NewProgressFrame(nsIPresShell* aPresShell, ComputedStyle* aStyle) {
-  return new (aPresShell) nsProgressFrame(aStyle);
+nsIFrame* NS_NewProgressFrame(PresShell* aPresShell, ComputedStyle* aStyle) {
+  return new (aPresShell) nsProgressFrame(aStyle, aPresShell->GetPresContext());
 }
 
 NS_IMPL_FRAMEARENA_HELPERS(nsProgressFrame)
 
-nsProgressFrame::nsProgressFrame(ComputedStyle* aStyle)
-    : nsContainerFrame(aStyle, kClassID), mBarDiv(nullptr) {}
+nsProgressFrame::nsProgressFrame(ComputedStyle* aStyle,
+                                 nsPresContext* aPresContext)
+    : nsContainerFrame(aStyle, aPresContext, kClassID), mBarDiv(nullptr) {}
 
-nsProgressFrame::~nsProgressFrame() {}
+nsProgressFrame::~nsProgressFrame() = default;
 
 void nsProgressFrame::DestroyFrom(nsIFrame* aDestructRoot,
                                   PostDestroyData& aPostDestroyData) {
@@ -49,15 +50,15 @@ void nsProgressFrame::DestroyFrom(nsIFrame* aDestructRoot,
 nsresult nsProgressFrame::CreateAnonymousContent(
     nsTArray<ContentInfo>& aElements) {
   // Create the progress bar div.
-  nsCOMPtr<nsIDocument> doc = mContent->GetComposedDoc();
+  nsCOMPtr<Document> doc = mContent->GetComposedDoc();
   mBarDiv = doc->CreateHTMLElement(nsGkAtoms::div);
 
   // Associate ::-moz-progress-bar pseudo-element to the anonymous child.
-  mBarDiv->SetPseudoElementType(CSSPseudoElementType::mozProgressBar);
+  mBarDiv->SetPseudoElementType(PseudoStyleType::mozProgressBar);
 
-  if (!aElements.AppendElement(mBarDiv)) {
-    return NS_ERROR_OUT_OF_MEMORY;
-  }
+  // XXX(Bug 1631371) Check if this should use a fallible operation as it
+  // pretended earlier, or change the return type to void.
+  aElements.AppendElement(mBarDiv);
 
   return NS_OK;
 }
@@ -101,8 +102,8 @@ void nsProgressFrame::Reflow(nsPresContext* aPresContext,
     nsCheckboxRadioFrame::RegUnRegAccessKey(this, true);
   }
 
-  aDesiredSize.SetSize(aReflowInput.GetWritingMode(),
-                       aReflowInput.ComputedSizeWithBorderPadding());
+  const auto wm = aReflowInput.GetWritingMode();
+  aDesiredSize.SetSize(wm, aReflowInput.ComputedSizeWithBorderPadding(wm));
   aDesiredSize.SetOverflowAreasToDesiredBounds();
 
   for (auto childFrame : PrincipalChildList()) {
@@ -139,7 +140,7 @@ void nsProgressFrame::ReflowChildFrame(nsIFrame* aChild,
     size *= position;
   }
 
-  if (!vertical && (wm.IsVertical() ? wm.IsVerticalRL() : !wm.IsBidiLTR())) {
+  if (!vertical && wm.IsPhysicalRTL()) {
     xoffset += aReflowInput.ComputedWidth() - size;
   }
 
@@ -177,9 +178,9 @@ void nsProgressFrame::ReflowChildFrame(nsIFrame* aChild,
 
   ReflowOutput barDesiredSize(aReflowInput);
   ReflowChild(aChild, aPresContext, barDesiredSize, reflowInput, xoffset,
-              yoffset, 0, aStatus);
+              yoffset, ReflowChildFlags::Default, aStatus);
   FinishReflowChild(aChild, aPresContext, barDesiredSize, &reflowInput, xoffset,
-                    yoffset, 0);
+                    yoffset, ReflowChildFlags::Default);
 }
 
 nsresult nsProgressFrame::AttributeChanged(int32_t aNameSpaceID,
@@ -189,10 +190,10 @@ nsresult nsProgressFrame::AttributeChanged(int32_t aNameSpaceID,
 
   if (aNameSpaceID == kNameSpaceID_None &&
       (aAttribute == nsGkAtoms::value || aAttribute == nsGkAtoms::max)) {
-    auto shell = PresShell();
+    auto presShell = PresShell();
     for (auto childFrame : PrincipalChildList()) {
-      shell->FrameNeedsReflow(childFrame, nsIPresShell::eResize,
-                              NS_FRAME_IS_DIRTY);
+      presShell->FrameNeedsReflow(childFrame, IntrinsicDirty::Resize,
+                                  NS_FRAME_IS_DIRTY);
     }
     InvalidateFrame();
   }
@@ -203,13 +204,13 @@ nsresult nsProgressFrame::AttributeChanged(int32_t aNameSpaceID,
 LogicalSize nsProgressFrame::ComputeAutoSize(
     gfxContext* aRenderingContext, WritingMode aWM, const LogicalSize& aCBSize,
     nscoord aAvailableISize, const LogicalSize& aMargin,
-    const LogicalSize& aBorder, const LogicalSize& aPadding,
-    ComputeSizeFlags aFlags) {
+    const LogicalSize& aBorderPadding, ComputeSizeFlags aFlags) {
   const WritingMode wm = GetWritingMode();
   LogicalSize autoSize(wm);
   autoSize.BSize(wm) = autoSize.ISize(wm) =
-      NSToCoordRound(StyleFont()->mFont.size *
-                     nsLayoutUtils::FontSizeInflationFor(this));  // 1em
+      StyleFont()
+          ->mFont.size.ScaledBy(nsLayoutUtils::FontSizeInflationFor(this))
+          .ToAppUnits();  // 1em
 
   if (ResolvedOrientationIsVertical() == wm.IsVertical()) {
     autoSize.ISize(wm) *= 10;  // 10em
@@ -224,7 +225,7 @@ nscoord nsProgressFrame::GetMinISize(gfxContext* aRenderingContext) {
   RefPtr<nsFontMetrics> fontMet =
       nsLayoutUtils::GetFontMetricsForFrame(this, 1.0f);
 
-  nscoord minISize = fontMet->Font().size;  // 1em
+  nscoord minISize = fontMet->Font().size.ToAppUnits();  // 1em
 
   if (ResolvedOrientationIsVertical() == GetWritingMode().IsVertical()) {
     // The orientation is inline
@@ -245,14 +246,13 @@ bool nsProgressFrame::ShouldUseNativeStyle() const {
   // - both frames use the native appearance;
   // - neither frame has author specified rules setting the border or the
   //   background.
-  return StyleDisplay()->mAppearance == StyleAppearance::ProgressBar &&
+  return StyleDisplay()->EffectiveAppearance() ==
+             StyleAppearance::ProgressBar &&
          !PresContext()->HasAuthorSpecifiedRules(
-             this,
-             NS_AUTHOR_SPECIFIED_BORDER | NS_AUTHOR_SPECIFIED_BACKGROUND) &&
+             this, NS_AUTHOR_SPECIFIED_BORDER_OR_BACKGROUND) &&
          barFrame &&
-         barFrame->StyleDisplay()->mAppearance ==
+         barFrame->StyleDisplay()->EffectiveAppearance() ==
              StyleAppearance::Progresschunk &&
          !PresContext()->HasAuthorSpecifiedRules(
-             barFrame,
-             NS_AUTHOR_SPECIFIED_BORDER | NS_AUTHOR_SPECIFIED_BACKGROUND);
+             barFrame, NS_AUTHOR_SPECIFIED_BORDER_OR_BACKGROUND);
 }

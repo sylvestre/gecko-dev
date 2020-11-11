@@ -4,13 +4,11 @@
 
 "use strict";
 
-var EXPORTED_SYMBOLS = [
-  "makeFakeAppDir",
-];
+var EXPORTED_SYMBOLS = ["makeFakeAppDir"];
 
-ChromeUtils.import("resource://gre/modules/osfile.jsm");
-ChromeUtils.import("resource://gre/modules/Promise.jsm");
-ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { OS } = ChromeUtils.import("resource://gre/modules/osfile.jsm");
+const { Promise } = ChromeUtils.import("resource://gre/modules/Promise.jsm");
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 // Reference needed in order for fake app dir provider to be active.
 var gFakeAppDirectoryProvider;
@@ -68,16 +66,18 @@ var makeFakeAppDir = function() {
         return appD.clone();
       }
 
-      throw Cr.NS_ERROR_FAILURE;
+      throw Components.Exception("", Cr.NS_ERROR_FAILURE);
     },
 
     QueryInterace(iid) {
-      if (iid.equals(Ci.nsIDirectoryServiceProvider) ||
-          iid.equals(Ci.nsISupports)) {
+      if (
+        iid.equals(Ci.nsIDirectoryServiceProvider) ||
+        iid.equals(Ci.nsISupports)
+      ) {
         return this;
       }
 
-      throw Cr.NS_ERROR_NO_INTERFACE;
+      throw Components.Exception("", Cr.NS_ERROR_NO_INTERFACE);
     },
   };
 

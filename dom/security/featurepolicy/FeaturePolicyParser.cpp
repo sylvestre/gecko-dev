@@ -18,44 +18,59 @@ namespace dom {
 
 namespace {
 
-void ReportToConsoleUnsupportedFeature(nsIDocument* aDocument,
+void ReportToConsoleUnsupportedFeature(Document* aDocument,
                                        const nsString& aFeatureName) {
-  const char16_t* params[] = {aFeatureName.get()};
+  if (!aDocument) {
+    return;
+  }
+
+  AutoTArray<nsString, 1> params = {aFeatureName};
 
   nsContentUtils::ReportToConsole(
-      nsIScriptError::warningFlag, NS_LITERAL_CSTRING("Feature Policy"),
-      aDocument, nsContentUtils::eSECURITY_PROPERTIES,
-      "FeaturePolicyUnsupportedFeatureName", params, ArrayLength(params));
+      nsIScriptError::warningFlag, "Feature Policy"_ns, aDocument,
+      nsContentUtils::eSECURITY_PROPERTIES,
+      "FeaturePolicyUnsupportedFeatureName", params);
 }
 
-void ReportToConsoleInvalidEmptyAllowValue(nsIDocument* aDocument,
+void ReportToConsoleInvalidEmptyAllowValue(Document* aDocument,
                                            const nsString& aFeatureName) {
-  const char16_t* params[] = {aFeatureName.get()};
+  if (!aDocument) {
+    return;
+  }
+
+  AutoTArray<nsString, 1> params = {aFeatureName};
 
   nsContentUtils::ReportToConsole(
-      nsIScriptError::warningFlag, NS_LITERAL_CSTRING("Feature Policy"),
-      aDocument, nsContentUtils::eSECURITY_PROPERTIES,
-      "FeaturePolicyInvalidEmptyAllowValue", params, ArrayLength(params));
+      nsIScriptError::warningFlag, "Feature Policy"_ns, aDocument,
+      nsContentUtils::eSECURITY_PROPERTIES,
+      "FeaturePolicyInvalidEmptyAllowValue", params);
 }
 
-void ReportToConsoleInvalidAllowValue(nsIDocument* aDocument,
+void ReportToConsoleInvalidAllowValue(Document* aDocument,
                                       const nsString& aValue) {
-  const char16_t* params[] = {aValue.get()};
+  if (!aDocument) {
+    return;
+  }
 
-  nsContentUtils::ReportToConsole(
-      nsIScriptError::warningFlag, NS_LITERAL_CSTRING("Feature Policy"),
-      aDocument, nsContentUtils::eSECURITY_PROPERTIES,
-      "FeaturePolicyInvalidAllowValue", params, ArrayLength(params));
+  AutoTArray<nsString, 1> params = {aValue};
+
+  nsContentUtils::ReportToConsole(nsIScriptError::warningFlag,
+                                  "Feature Policy"_ns, aDocument,
+                                  nsContentUtils::eSECURITY_PROPERTIES,
+                                  "FeaturePolicyInvalidAllowValue", params);
 }
 
 }  // namespace
 
-/* static */ bool FeaturePolicyParser::ParseString(
-    const nsAString& aPolicy, nsIDocument* aDocument, nsIPrincipal* aSelfOrigin,
-    nsIPrincipal* aSrcOrigin, nsTArray<Feature>& aParsedFeatures) {
+/* static */
+bool FeaturePolicyParser::ParseString(const nsAString& aPolicy,
+                                      Document* aDocument,
+                                      nsIPrincipal* aSelfOrigin,
+                                      nsIPrincipal* aSrcOrigin,
+                                      nsTArray<Feature>& aParsedFeatures) {
   MOZ_ASSERT(aSelfOrigin);
 
-  nsTArray<nsTArray<nsString>> tokens;
+  nsTArray<CopyableTArray<nsString>> tokens;
   PolicyTokenizer::tokenizePolicy(aPolicy, tokens);
 
   nsTArray<Feature> parsedFeatures;
@@ -110,7 +125,7 @@ void ReportToConsoleInvalidAllowValue(nsIDocument* aDocument,
           continue;
         }
 
-        nsCOMPtr<nsIPrincipal> origin = BasePrincipal::CreateCodebasePrincipal(
+        nsCOMPtr<nsIPrincipal> origin = BasePrincipal::CreateContentPrincipal(
             uri, BasePrincipal::Cast(aSelfOrigin)->OriginAttributesRef());
         if (NS_WARN_IF(!origin)) {
           ReportToConsoleInvalidAllowValue(aDocument, curVal);
@@ -135,7 +150,7 @@ void ReportToConsoleInvalidAllowValue(nsIDocument* aDocument,
     }
   }
 
-  aParsedFeatures.SwapElements(parsedFeatures);
+  aParsedFeatures = std::move(parsedFeatures);
   return true;
 }
 

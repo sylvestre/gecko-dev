@@ -5,7 +5,7 @@
 "use strict";
 
 const promise = require("promise");
-const {KeyCodes} = require("devtools/client/shared/keycodes");
+const { KeyCodes } = require("devtools/client/shared/keycodes");
 
 const EventEmitter = require("devtools/shared/event-emitter");
 const AutocompletePopup = require("devtools/client/shared/autocomplete-popup");
@@ -69,16 +69,17 @@ InspectorSearch.prototype = {
   },
 
   _onSearch: function(reverse = false) {
-    this.doFullTextSearch(this.searchBox.value, reverse)
-        .catch(console.error);
+    this.doFullTextSearch(this.searchBox.value, reverse).catch(console.error);
   },
 
   async doFullTextSearch(query, reverse) {
     const lastSearched = this._lastSearched;
     this._lastSearched = query;
 
+    const searchContainer = this.searchBox.parentNode;
+
     if (query.length === 0) {
-      this.searchBox.classList.remove("devtools-style-searchbox-no-match");
+      searchContainer.classList.remove("devtools-searchbox-no-match");
       if (!lastSearched || lastSearched.length > 0) {
         this.emit("search-cleared");
       }
@@ -93,13 +94,15 @@ InspectorSearch.prototype = {
     }
 
     if (res) {
-      this.inspector.selection.setNodeFront(res.node, { reason: "inspectorsearch" });
-      this.searchBox.classList.remove("devtools-style-searchbox-no-match");
+      this.inspector.selection.setNodeFront(res.node, {
+        reason: "inspectorsearch",
+      });
+      searchContainer.classList.remove("devtools-searchbox-no-match");
 
       res.query = query;
       this.emit("search-result", res);
     } else {
-      this.searchBox.classList.add("devtools-style-searchbox-no-match");
+      searchContainer.classList.add("devtools-searchbox-no-match");
       this.emit("search-result");
     }
   },
@@ -118,8 +121,8 @@ InspectorSearch.prototype = {
       this._onSearch(event.shiftKey);
     }
 
-    const modifierKey = Services.appinfo.OS === "Darwin"
-                        ? event.metaKey : event.ctrlKey;
+    const modifierKey =
+      Services.appinfo.OS === "Darwin" ? event.metaKey : event.ctrlKey;
     if (event.keyCode === KeyCodes.DOM_VK_G && modifierKey) {
       this._onSearch(event.shiftKey);
       event.preventDefault();
@@ -127,7 +130,7 @@ InspectorSearch.prototype = {
   },
 
   _onClearSearch: function() {
-    this.searchBox.classList.remove("devtools-style-searchbox-no-match");
+    this.searchBox.parentNode.classList.remove("devtools-searchbox-no-match");
     this.searchBox.value = "";
     this.searchClearButton.hidden = true;
     this.emit("search-cleared");
@@ -211,6 +214,7 @@ SelectorAutocompleter.prototype = {
    *        '#f' requires an Id suggestion, so the state is States.ID
    *        'div > .foo' requires class suggestion, so state is States.CLASS
    */
+  // eslint-disable-next-line complexity
   get state() {
     if (!this.searchBox || !this.searchBox.value) {
       return null;
@@ -310,8 +314,11 @@ SelectorAutocompleter.prototype = {
    */
   destroy: function() {
     this.searchBox.removeEventListener("input", this.showSuggestions, true);
-    this.searchBox.removeEventListener("keypress",
-      this._onSearchKeypress, true);
+    this.searchBox.removeEventListener(
+      "keypress",
+      this._onSearchKeypress,
+      true
+    );
     this.inspector.off("markupmutation", this._onMarkupMutation);
     this.searchPopup.destroy();
     this.searchPopup = null;
@@ -473,7 +480,7 @@ SelectorAutocompleter.prototype = {
    * Suggests classes,ids and tags based on the user input as user types in the
    * searchbox.
    */
-  showSuggestions: function() {
+  showSuggestions: async function() {
     let query = this.searchBox.value;
     const state = this.state;
     let firstPart = "";
@@ -506,32 +513,52 @@ SelectorAutocompleter.prototype = {
       query += "*";
     }
 
-    const suggestionsPromise = this.walker.getSuggestionsForQuery(
-      query, firstPart, state);
-    this._lastQuery = suggestionsPromise.then(result => {
-      this.emit("processing-done");
-      if (result.query !== query) {
-        // This means that this response is for a previous request and the user
-        // as since typed something extra leading to a new request.
-        return promise.resolve(null);
-      }
+    this._lastQuery = this.inspector
+      // Get all inspectors where we want suggestions from.
+      .getAllInspectorFronts()
+      .then(inspectors => {
+        // Get all of the suggestions.
+        return Promise.all(
+          inspectors.map(async ({ walker }) => {
+            return walker.getSuggestionsForQuery(query, firstPart, state);
+          })
+        );
+      })
+      .then(suggestions => {
+        // Merge all the results
+        const result = { query: "", suggestions: [] };
+        for (const r of suggestions) {
+          result.query = r.query;
+          result.suggestions = result.suggestions.concat(r.suggestions);
+        }
+        return result;
+      })
+      .then(result => {
+        this.emit("processing-done");
+        if (result.query !== query) {
+          // This means that this response is for a previous request and the user
+          // as since typed something extra leading to a new request.
+          return promise.resolve(null);
+        }
 
-      if (state === this.States.CLASS) {
-        firstPart = "." + firstPart;
-      } else if (state === this.States.ID) {
-        firstPart = "#" + firstPart;
-      }
+        if (state === this.States.CLASS) {
+          firstPart = "." + firstPart;
+        } else if (state === this.States.ID) {
+          firstPart = "#" + firstPart;
+        }
 
-      // If there is a single tag match and it's what the user typed, then
-      // don't need to show a popup.
-      if (result.suggestions.length === 1 &&
-          result.suggestions[0][0] === firstPart) {
-        result.suggestions = [];
-      }
+        // If there is a single tag match and it's what the user typed, then
+        // don't need to show a popup.
+        if (
+          result.suggestions.length === 1 &&
+          result.suggestions[0][0] === firstPart
+        ) {
+          result.suggestions = [];
+        }
 
-      // Wait for the autocomplete-popup to fire its popup-opened event, to make sure
-      // the autoSelect item has been selected.
-      return this._showPopup(result.suggestions, state);
-    });
+        // Wait for the autocomplete-popup to fire its popup-opened event, to make sure
+        // the autoSelect item has been selected.
+        return this._showPopup(result.suggestions, state);
+      });
   },
 };

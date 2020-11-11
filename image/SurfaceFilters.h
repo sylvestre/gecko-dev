@@ -20,6 +20,7 @@
 #include "mozilla/Maybe.h"
 #include "mozilla/UniquePtr.h"
 #include "mozilla/gfx/2D.h"
+#include "mozilla/gfx/Swizzle.h"
 #include "skia/src/core/SkBlitRow.h"
 
 #include "DownscalingFilter.h"
@@ -28,6 +29,149 @@
 
 namespace mozilla {
 namespace image {
+
+//////////////////////////////////////////////////////////////////////////////
+// SwizzleFilter
+//////////////////////////////////////////////////////////////////////////////
+
+template <typename Next>
+class SwizzleFilter;
+
+/**
+ * A configuration struct for SwizzleFilter.
+ */
+struct SwizzleConfig {
+  template <typename Next>
+  using Filter = SwizzleFilter<Next>;
+  gfx::SurfaceFormat mInFormat;
+  gfx::SurfaceFormat mOutFormat;
+  bool mPremultiplyAlpha;
+};
+
+/**
+ * SwizzleFilter performs premultiplication, swizzling and unpacking on
+ * rows written to it. It can use accelerated methods to perform these
+ * operations if supported on the platform.
+ *
+ * The 'Next' template parameter specifies the next filter in the chain.
+ */
+template <typename Next>
+class SwizzleFilter final : public SurfaceFilter {
+ public:
+  SwizzleFilter() : mSwizzleFn(nullptr) {}
+
+  template <typename... Rest>
+  nsresult Configure(const SwizzleConfig& aConfig, const Rest&... aRest) {
+    nsresult rv = mNext.Configure(aRest...);
+    if (NS_FAILED(rv)) {
+      return rv;
+    }
+
+    if (aConfig.mPremultiplyAlpha) {
+      mSwizzleFn = gfx::PremultiplyRow(aConfig.mInFormat, aConfig.mOutFormat);
+    } else {
+      mSwizzleFn = gfx::SwizzleRow(aConfig.mInFormat, aConfig.mOutFormat);
+    }
+
+    if (!mSwizzleFn) {
+      return NS_ERROR_INVALID_ARG;
+    }
+
+    ConfigureFilter(mNext.InputSize(), sizeof(uint32_t));
+    return NS_OK;
+  }
+
+  Maybe<SurfaceInvalidRect> TakeInvalidRect() override {
+    return mNext.TakeInvalidRect();
+  }
+
+ protected:
+  uint8_t* DoResetToFirstRow() override { return mNext.ResetToFirstRow(); }
+
+  uint8_t* DoAdvanceRowFromBuffer(const uint8_t* aInputRow) override {
+    uint8_t* rowPtr = mNext.CurrentRowPointer();
+    if (!rowPtr) {
+      return nullptr;  // We already got all the input rows we expect.
+    }
+
+    mSwizzleFn(aInputRow, rowPtr, mNext.InputSize().width);
+    return mNext.AdvanceRow();
+  }
+
+  uint8_t* DoAdvanceRow() override {
+    return DoAdvanceRowFromBuffer(mNext.CurrentRowPointer());
+  }
+
+  Next mNext;  /// The next SurfaceFilter in the chain.
+
+  gfx::SwizzleRowFn mSwizzleFn;
+};
+
+//////////////////////////////////////////////////////////////////////////////
+// ColorManagementFilter
+//////////////////////////////////////////////////////////////////////////////
+
+template <typename Next>
+class ColorManagementFilter;
+
+/**
+ * A configuration struct for ColorManagementFilter.
+ */
+struct ColorManagementConfig {
+  template <typename Next>
+  using Filter = ColorManagementFilter<Next>;
+  qcms_transform* mTransform;
+};
+
+/**
+ * ColorManagementFilter performs color transforms with qcms on rows written
+ * to it.
+ *
+ * The 'Next' template parameter specifies the next filter in the chain.
+ */
+template <typename Next>
+class ColorManagementFilter final : public SurfaceFilter {
+ public:
+  ColorManagementFilter() : mTransform(nullptr) {}
+
+  template <typename... Rest>
+  nsresult Configure(const ColorManagementConfig& aConfig,
+                     const Rest&... aRest) {
+    nsresult rv = mNext.Configure(aRest...);
+    if (NS_FAILED(rv)) {
+      return rv;
+    }
+
+    if (!aConfig.mTransform) {
+      return NS_ERROR_INVALID_ARG;
+    }
+
+    mTransform = aConfig.mTransform;
+    ConfigureFilter(mNext.InputSize(), sizeof(uint32_t));
+    return NS_OK;
+  }
+
+  Maybe<SurfaceInvalidRect> TakeInvalidRect() override {
+    return mNext.TakeInvalidRect();
+  }
+
+ protected:
+  uint8_t* DoResetToFirstRow() override { return mNext.ResetToFirstRow(); }
+
+  uint8_t* DoAdvanceRowFromBuffer(const uint8_t* aInputRow) override {
+    qcms_transform_data(mTransform, aInputRow, mNext.CurrentRowPointer(),
+                        mNext.InputSize().width);
+    return mNext.AdvanceRow();
+  }
+
+  uint8_t* DoAdvanceRow() override {
+    return DoAdvanceRowFromBuffer(mNext.CurrentRowPointer());
+  }
+
+  Next mNext;  /// The next SurfaceFilter in the chain.
+
+  qcms_transform* mTransform;
+};
 
 //////////////////////////////////////////////////////////////////////////////
 // DeinterlacingFilter
@@ -74,26 +218,18 @@ class DeinterlacingFilter final : public SurfaceFilter {
       return rv;
     }
 
-    if (sizeof(PixelType) == 1 && !mNext.IsValidPalettedPipe()) {
-      NS_WARNING("Paletted DeinterlacingFilter used with non-paletted pipe?");
-      return NS_ERROR_INVALID_ARG;
-    }
-    if (sizeof(PixelType) == 4 && mNext.IsValidPalettedPipe()) {
-      NS_WARNING("Non-paletted DeinterlacingFilter used with paletted pipe?");
-      return NS_ERROR_INVALID_ARG;
-    }
-
     gfx::IntSize outputSize = mNext.InputSize();
     mProgressiveDisplay = aConfig.mProgressiveDisplay;
 
-    const uint32_t bufferSize =
-        outputSize.width * outputSize.height * sizeof(PixelType);
+    const CheckedUint32 bufferSize = CheckedUint32(outputSize.width) *
+                                     CheckedUint32(outputSize.height) *
+                                     CheckedUint32(sizeof(PixelType));
 
     // Use the size of the SurfaceCache as a heuristic to avoid gigantic
     // allocations. Even if DownscalingFilter allowed us to allocate space for
     // the output image, the deinterlacing buffer may still be too big, and
     // fallible allocation won't always save us in the presence of overcommit.
-    if (!SurfaceCache::CanHold(bufferSize)) {
+    if (!bufferSize.isValid() || !SurfaceCache::CanHold(bufferSize.value())) {
       return NS_ERROR_OUT_OF_MEMORY;
     }
 
@@ -103,20 +239,16 @@ class DeinterlacingFilter final : public SurfaceFilter {
     // pipeline may be transforming the rows it receives (for example, by
     // downscaling them), the rows may no longer exist in their original form on
     // the surface itself.
-    mBuffer.reset(new (fallible) uint8_t[bufferSize]);
+    mBuffer.reset(new (fallible) uint8_t[bufferSize.value()]);
     if (MOZ_UNLIKELY(!mBuffer)) {
       return NS_ERROR_OUT_OF_MEMORY;
     }
 
     // Clear the buffer to avoid writing uninitialized memory to the output.
-    memset(mBuffer.get(), 0, bufferSize);
+    memset(mBuffer.get(), 0, bufferSize.value());
 
     ConfigureFilter(outputSize, sizeof(PixelType));
     return NS_OK;
-  }
-
-  bool IsValidPalettedPipe() const override {
-    return sizeof(PixelType) == 1 && mNext.IsValidPalettedPipe();
   }
 
   Maybe<SurfaceInvalidRect> TakeInvalidRect() override {
@@ -130,6 +262,11 @@ class DeinterlacingFilter final : public SurfaceFilter {
     mInputRow = 0;
     mOutputRow = InterlaceOffset(mPass);
     return GetRowPointer(mOutputRow);
+  }
+
+  uint8_t* DoAdvanceRowFromBuffer(const uint8_t* aInputRow) override {
+    CopyInputRow(aInputRow);
+    return DoAdvanceRow();
   }
 
   uint8_t* DoAdvanceRow() override {
@@ -295,13 +432,19 @@ class DeinterlacingFilter final : public SurfaceFilter {
   }
 
   uint8_t* GetRowPointer(uint32_t aRow) const {
-    uint32_t offset = aRow * InputSize().width * sizeof(PixelType);
+#ifdef DEBUG
+    uint64_t offset64 = uint64_t(aRow) * uint64_t(InputSize().width) *
+                        uint64_t(sizeof(PixelType));
+    uint64_t bufferLength = uint64_t(InputSize().width) *
+                            uint64_t(InputSize().height) *
+                            uint64_t(sizeof(PixelType));
+    MOZ_ASSERT(offset64 < bufferLength, "Start of row is outside of image");
     MOZ_ASSERT(
-        offset < InputSize().width * InputSize().height * sizeof(PixelType),
-        "Start of row is outside of image");
-    MOZ_ASSERT(offset + InputSize().width * sizeof(PixelType) <=
-                   InputSize().width * InputSize().height * sizeof(PixelType),
-               "End of row is outside of image");
+        offset64 + uint64_t(InputSize().width) * uint64_t(sizeof(PixelType)) <=
+            bufferLength,
+        "End of row is outside of image");
+#endif
+    uint32_t offset = aRow * InputSize().width * sizeof(PixelType);
     return mBuffer.get() + offset;
   }
 
@@ -373,11 +516,6 @@ class BlendAnimationFilter final : public SurfaceFilter {
       return rv;
     }
 
-    if (!aConfig.mDecoder || !aConfig.mDecoder->ShouldBlendAnimation()) {
-      MOZ_ASSERT_UNREACHABLE("Expected image decoder that is blending!");
-      return NS_ERROR_INVALID_ARG;
-    }
-
     imgFrame* currentFrame = aConfig.mDecoder->GetCurrentFrame();
     if (!currentFrame) {
       MOZ_ASSERT_UNREACHABLE("Decoder must have current frame!");
@@ -431,7 +569,7 @@ class BlendAnimationFilter final : public SurfaceFilter {
       const RawAccessFrameRef& restoreFrame =
           aConfig.mDecoder->GetRestoreFrameRef();
       if (restoreFrame) {
-        MOZ_ASSERT(restoreFrame->GetImageSize() == outputSize);
+        MOZ_ASSERT(restoreFrame->GetSize() == outputSize);
         MOZ_ASSERT(restoreFrame->IsFinished());
 
         // We can safely use this pointer without holding a RawAccessFrameRef
@@ -585,6 +723,11 @@ class BlendAnimationFilter final : public SurfaceFilter {
 
     mRow = mFrameRect.YMost();
     return nullptr;  // We're done.
+  }
+
+  uint8_t* DoAdvanceRowFromBuffer(const uint8_t* aInputRow) override {
+    CopyInputRow(aInputRow);
+    return DoAdvanceRow();
   }
 
   uint8_t* DoAdvanceRow() override {
@@ -781,11 +924,6 @@ class RemoveFrameRectFilter final : public SurfaceFilter {
       return rv;
     }
 
-    if (mNext.IsValidPalettedPipe()) {
-      NS_WARNING("RemoveFrameRectFilter used with paletted pipe?");
-      return NS_ERROR_INVALID_ARG;
-    }
-
     mFrameRect = mUnclampedFrameRect = aConfig.mFrameRect;
     gfx::IntSize outputSize = mNext.InputSize();
 
@@ -864,6 +1002,11 @@ class RemoveFrameRectFilter final : public SurfaceFilter {
 
     mRow = mFrameRect.YMost();
     return nullptr;  // We're done.
+  }
+
+  uint8_t* DoAdvanceRowFromBuffer(const uint8_t* aInputRow) override {
+    CopyInputRow(aInputRow);
+    return DoAdvanceRow();
   }
 
   uint8_t* DoAdvanceRow() override {
@@ -1011,11 +1154,6 @@ class ADAM7InterpolatingFilter final : public SurfaceFilter {
       return rv;
     }
 
-    if (mNext.IsValidPalettedPipe()) {
-      NS_WARNING("ADAM7InterpolatingFilter used with paletted pipe?");
-      return NS_ERROR_INVALID_ARG;
-    }
-
     // We have two intermediate buffers, one for the previous row with final
     // pixel values and one for the row that the previous filter in the chain is
     // currently writing to.
@@ -1054,6 +1192,11 @@ class ADAM7InterpolatingFilter final : public SurfaceFilter {
     }
 
     return mCurrentRow.get();
+  }
+
+  uint8_t* DoAdvanceRowFromBuffer(const uint8_t* aInputRow) override {
+    CopyInputRow(aInputRow);
+    return DoAdvanceRow();
   }
 
   uint8_t* DoAdvanceRow() override {
@@ -1113,7 +1256,7 @@ class ADAM7InterpolatingFilter final : public SurfaceFilter {
     }
 
     // The current row is now the previous important row; save it.
-    Swap(mPreviousRow, mCurrentRow);
+    std::swap(mPreviousRow, mCurrentRow);
 
     MOZ_ASSERT(mRow < InputSize().height,
                "Reached the end of the surface without "
@@ -1301,7 +1444,7 @@ class ADAM7InterpolatingFilter final : public SurfaceFilter {
                                      /// now.
   uint8_t mPass;                     /// Which ADAM7 pass we're on. Valid passes
                                      /// are 1..7 during processing and 0 prior
-                                     /// to configuraiton.
+                                     /// to configuration.
   int32_t mRow;                      /// The row we're currently reading.
 };
 

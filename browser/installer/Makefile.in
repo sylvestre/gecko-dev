@@ -29,12 +29,12 @@ DEFINES += -DMOZ_APP_NAME=$(MOZ_APP_NAME) -DPREF_DIR=$(PREF_DIR)
 ifdef MOZ_DEBUG
 DEFINES += -DMOZ_DEBUG=1
 endif
-
-ifneq (,$(filter gtk%,$(MOZ_WIDGET_TOOLKIT)))
-DEFINES += -DMOZ_GTK=1
-ifeq ($(MOZ_WIDGET_TOOLKIT),gtk3)
-DEFINES += -DMOZ_GTK3=1
+ifdef MOZ_LAYOUT_DEBUGGER
+DEFINES += -DMOZ_LAYOUT_DEBUGGER=1
 endif
+
+ifeq ($(MOZ_WIDGET_TOOLKIT),gtk)
+DEFINES += -DMOZ_GTK=1
 endif
 
 ifdef MOZ_SYSTEM_NSPR
@@ -45,12 +45,12 @@ ifdef MOZ_SYSTEM_NSS
 DEFINES += -DMOZ_SYSTEM_NSS=1
 endif
 
-ifdef NSS_DISABLE_DBM
-DEFINES += -DNSS_DISABLE_DBM=1
-endif
-
 ifdef MOZ_ARTIFACT_BUILDS
 DEFINES += -DMOZ_ARTIFACT_BUILDS=1
+endif
+
+ifdef MOZ_EME_WIN32_ARTIFACT
+DEFINES += -DMOZ_EME_WIN32_ARTIFACT=1
 endif
 
 DEFINES += -DJAREXT=
@@ -94,6 +94,10 @@ ifdef MAKENSISU
 DEFINES += -DHAVE_MAKENSISU=1
 endif
 
+ifdef MOZ_DEFAULT_BROWSER_AGENT
+DEFINES += -DMOZ_DEFAULT_BROWSER_AGENT=1
+endif
+
 ifeq (cocoa,$(MOZ_WIDGET_TOOLKIT))
 MOZ_PKG_MAC_DSSTORE=$(topsrcdir)/$(MOZ_BRANDING_DIRECTORY)/dsstore
 MOZ_PKG_MAC_BACKGROUND=$(topsrcdir)/$(MOZ_BRANDING_DIRECTORY)/background.png
@@ -110,7 +114,6 @@ endif
 # and Mac requires some extra care due to cross-compilation.
 MOZ_PACKAGER_MINIFY=1
 
-include $(topsrcdir)/toolkit/mozapps/installer/signing.mk
 include $(topsrcdir)/toolkit/mozapps/installer/packager.mk
 
 ifeq (bundle, $(MOZ_FS_LAYOUT))

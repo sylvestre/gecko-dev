@@ -7,11 +7,11 @@
 use crate::values::animated::ToAnimatedValue;
 use crate::values::generics::NonNegative;
 use crate::values::{serialize_percentage, CSSFloat};
+use crate::Zero;
 use std::fmt;
 use style_traits::{CssWriter, ToCss};
 
 /// A computed percentage.
-#[cfg_attr(feature = "servo", derive(Deserialize, Serialize))]
 #[derive(
     Animate,
     Clone,
@@ -19,24 +19,22 @@ use style_traits::{CssWriter, ToCss};
     Copy,
     Debug,
     Default,
+    Deserialize,
     MallocSizeOf,
     PartialEq,
     PartialOrd,
+    Serialize,
     SpecifiedValueInfo,
     ToAnimatedValue,
     ToAnimatedZero,
     ToComputedValue,
+    ToResolvedValue,
+    ToShmem,
 )]
 #[repr(C)]
 pub struct Percentage(pub CSSFloat);
 
 impl Percentage {
-    /// 0%
-    #[inline]
-    pub fn zero() -> Self {
-        Percentage(0.)
-    }
-
     /// 100%
     #[inline]
     pub fn hundred() -> Self {
@@ -56,6 +54,22 @@ impl Percentage {
     }
 }
 
+impl Zero for Percentage {
+    fn zero() -> Self {
+        Percentage(0.)
+    }
+
+    fn is_zero(&self) -> bool {
+        self.0 == 0.
+    }
+}
+
+impl std::ops::AddAssign for Percentage {
+    fn add_assign(&mut self, other: Self) {
+        self.0 += other.0
+    }
+}
+
 impl ToCss for Percentage {
     fn to_css<W>(&self, dest: &mut CssWriter<W>) -> fmt::Result
     where
@@ -69,12 +83,6 @@ impl ToCss for Percentage {
 pub type NonNegativePercentage = NonNegative<Percentage>;
 
 impl NonNegativePercentage {
-    /// 0%
-    #[inline]
-    pub fn zero() -> Self {
-        NonNegative(Percentage::zero())
-    }
-
     /// 100%
     #[inline]
     pub fn hundred() -> Self {

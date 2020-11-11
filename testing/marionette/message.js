@@ -4,15 +4,17 @@
 
 "use strict";
 
-ChromeUtils.import("chrome://marionette/content/assert.js");
-ChromeUtils.import("chrome://marionette/content/error.js");
-const {truncate} = ChromeUtils.import("chrome://marionette/content/format.js", {});
+const EXPORTED_SYMBOLS = ["Command", "Message", "Response"];
 
-this.EXPORTED_SYMBOLS = [
-  "Command",
-  "Message",
-  "Response",
-];
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+
+XPCOMUtils.defineLazyModuleGetters(this, {
+  assert: "chrome://marionette/content/assert.js",
+  error: "chrome://marionette/content/error.js",
+  truncate: "chrome://marionette/content/format.js",
+});
 
 /** Representation of the packets transproted over the wire. */
 class Message {
@@ -56,7 +58,8 @@ class Message {
 
       default:
         throw new TypeError(
-            "Unrecognised message type in packet: " + JSON.stringify(data));
+          "Unrecognised message type in packet: " + JSON.stringify(data)
+        );
     }
   }
 }
@@ -165,12 +168,7 @@ class Command extends Message {
    *     Packet.
    */
   toPacket() {
-    return [
-      Command.Type,
-      this.id,
-      this.name,
-      this.parameters,
-    ];
+    return [Command.Type, this.id, this.name, this.parameters];
   }
 
   /**
@@ -234,7 +232,7 @@ class Response extends Message {
     this.respHandler_ = assert.callable(respHandler);
 
     this.error = null;
-    this.body = {value: null};
+    this.body = { value: null };
 
     this.origin = Message.Origin.Server;
     this.sent = false;
@@ -299,12 +297,7 @@ class Response extends Message {
    *     Packet.
    */
   toPacket() {
-    return [
-      Response.Type,
-      this.id,
-      this.error,
-      this.body,
-    ];
+    return [Response.Type, this.id, this.error, this.body];
   }
 
   /**

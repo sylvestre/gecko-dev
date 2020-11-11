@@ -22,9 +22,9 @@ add_task(async function urls() {
   for (let parts of permute(sets)) {
     let spec = parts.join("");
     let funcs = {
-      "get_prefix": parts.slice(0, 2).join(""),
-      "get_host_and_port": parts.slice(3, 5).join(""),
-      "strip_prefix_and_userinfo": parts.slice(3).join(""),
+      get_prefix: parts.slice(0, 2).join(""),
+      get_host_and_port: parts.slice(3, 5).join(""),
+      strip_prefix_and_userinfo: parts.slice(3).join(""),
     };
     for (let [func, expectedValue] of Object.entries(funcs)) {
       let rows = await db.execute(`
@@ -36,27 +36,31 @@ add_task(async function urls() {
   }
 });
 
-
 // Tests strings that aren't URLs.
 add_task(async function nonURLs() {
   let db = await PlacesUtils.promiseDBConnection();
 
-  let value = (await db.execute(`
+  let value = (
+    await db.execute(`
     SELECT get_prefix("hello");
-  `))[0].getString(0);
+  `)
+  )[0].getString(0);
   Assert.equal(value, "");
 
-  value = (await db.execute(`
+  value = (
+    await db.execute(`
     SELECT get_host_and_port("hello");
-  `))[0].getString(0);
+  `)
+  )[0].getString(0);
   Assert.equal(value, "hello");
 
-  value = (await db.execute(`
+  value = (
+    await db.execute(`
     SELECT strip_prefix_and_userinfo("hello");
-  `))[0].getString(0);
+  `)
+  )[0].getString(0);
   Assert.equal(value, "hello");
 });
-
 
 function permute(sets = []) {
   if (!sets.length) {

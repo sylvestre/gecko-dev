@@ -47,9 +47,14 @@ ImageLayerComposite::~ImageLayerComposite() {
 
 bool ImageLayerComposite::SetCompositableHost(CompositableHost* aHost) {
   switch (aHost->GetType()) {
-    case CompositableType::IMAGE:
-      mImageHost = static_cast<ImageHost*>(aHost);
+    case CompositableType::IMAGE: {
+      ImageHost* newImageHost = static_cast<ImageHost*>(aHost);
+      if (mImageHost && newImageHost != mImageHost) {
+        mImageHost->Detach(this);
+      }
+      mImageHost = newImageHost;
       return true;
+    }
     default:
       return false;
   }
@@ -64,6 +69,9 @@ void ImageLayerComposite::SetLayerManager(HostLayerManager* aManager) {
   mManager = aManager;
   if (mImageHost) {
     mImageHost->SetTextureSourceProvider(mCompositor);
+    if (aManager && mImageHost->GetAsyncRef()) {
+      mImageHost->SetCompositorBridgeID(aManager->GetCompositorBridgeID());
+    }
   }
 }
 
@@ -133,7 +141,12 @@ bool ImageLayerComposite::IsOpaque() {
     return false;
   }
 
+  // TODO: Handle ScaleMode::NONE where the image
+  // still covers the whole Layer.
   if (mScaleMode == ScaleMode::STRETCH) {
+    if ((GetContentFlags() & CONTENT_OPAQUE) && !mImageHost->IsOpaque()) {
+      NS_WARNING("Must have an opaque ImageHost if we reported CONTENT_OPAQUE");
+    }
     return mImageHost->IsOpaque();
   }
   return false;

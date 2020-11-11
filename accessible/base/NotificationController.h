@@ -11,15 +11,18 @@
 
 #include "mozilla/Tuple.h"
 #include "nsCycleCollectionParticipant.h"
-#include "nsRefreshDriver.h"
+#include "nsRefreshObservers.h"
 
 #include <utility>
 
 #ifdef A11Y_LOG
-#include "Logging.h"
+#  include "Logging.h"
 #endif
 
 namespace mozilla {
+
+class PresShell;
+
 namespace a11y {
 
 class DocAccessible;
@@ -89,7 +92,7 @@ class TNotification : public Notification {
 class NotificationController final : public EventQueue,
                                      public nsARefreshObserver {
  public:
-  NotificationController(DocAccessible* aDocument, nsIPresShell* aPresShell);
+  NotificationController(DocAccessible* aDocument, PresShell* aPresShell);
 
   NS_IMETHOD_(MozExternalRefCountType) AddRef(void) override;
   NS_IMETHOD_(MozExternalRefCountType) Release(void) override;
@@ -188,14 +191,17 @@ class NotificationController final : public EventQueue,
   /**
    * Pend accessible tree update for content insertion.
    */
-  void ScheduleContentInsertion(nsIContent* aStartChildNode,
-                                nsIContent* aEndChildNode);
+  void ScheduleContentInsertion(Accessible* aContainer,
+                                nsTArray<nsCOMPtr<nsIContent>>& aInsertions);
 
   /**
    * Pend an accessible subtree relocation.
    */
   void ScheduleRelocation(Accessible* aOwner) {
-    if (!mRelocations.Contains(aOwner) && mRelocations.AppendElement(aOwner)) {
+    if (!mRelocations.Contains(aOwner)) {
+      // XXX(Bug 1631371) Check if this should use a fallible operation as it
+      // pretended earlier, or change the return type to void.
+      mRelocations.AppendElement(aOwner);
       ScheduleProcessing();
     }
   }
@@ -214,24 +220,29 @@ class NotificationController final : public EventQueue,
    * @note  The caller must guarantee that the given instance still exists when
    *        the notification is processed.
    */
-  template <class Class, class Arg>
+  template <class Class, class... Args>
   inline void HandleNotification(
-      Class* aInstance, typename TNotification<Class, Arg>::Callback aMethod,
-      Arg* aArg) {
+      Class* aInstance,
+      typename TNotification<Class, Args...>::Callback aMethod,
+      Args*... aArgs) {
     if (!IsUpdatePending()) {
 #ifdef A11Y_LOG
       if (mozilla::a11y::logging::IsEnabled(
               mozilla::a11y::logging::eNotifications))
         mozilla::a11y::logging::Text("sync notification processing");
 #endif
-      (aInstance->*aMethod)(aArg);
+      (aInstance->*aMethod)(aArgs...);
       return;
     }
 
     RefPtr<Notification> notification =
-        new TNotification<Class, Arg>(aInstance, aMethod, aArg);
-    if (notification && mNotifications.AppendElement(notification))
+        new TNotification<Class, Args...>(aInstance, aMethod, aArgs...);
+    if (notification) {
+      // XXX(Bug 1631371) Check if this should use a fallible operation as it
+      // pretended earlier.
+      mNotifications.AppendElement(notification);
       ScheduleProcessing();
+    }
   }
 
   /**
@@ -245,8 +256,12 @@ class NotificationController final : public EventQueue,
       Class* aInstance, typename TNotification<Class>::Callback aMethod) {
     RefPtr<Notification> notification =
         new TNotification<Class>(aInstance, aMethod);
-    if (notification && mNotifications.AppendElement(notification))
+    if (notification) {
+      // XXX(Bug 1631371) Check if this should use a fallible operation as it
+      // pretended earlier.
+      mNotifications.AppendElement(notification);
       ScheduleProcessing();
+    }
   }
 
   template <class Class, class Arg>
@@ -255,7 +270,10 @@ class NotificationController final : public EventQueue,
       Arg* aArg) {
     RefPtr<Notification> notification =
         new TNotification<Class, Arg>(aInstance, aMethod, aArg);
-    if (notification && mNotifications.AppendElement(notification)) {
+    if (notification) {
+      // XXX(Bug 1631371) Check if this should use a fallible operation as it
+      // pretended earlier.
+      mNotifications.AppendElement(notification);
       ScheduleProcessing();
     }
   }
@@ -333,7 +351,7 @@ class NotificationController final : public EventQueue,
   /**
    * The presshell of the document accessible.
    */
-  nsIPresShell* mPresShell;
+  PresShell* mPresShell;
 
   /**
    * Child documents that needs to be bound to the tree.

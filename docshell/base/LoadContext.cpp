@@ -10,6 +10,7 @@
 #include "mozilla/Preferences.h"
 #include "mozilla/dom/Element.h"
 #include "mozilla/dom/ScriptSettings.h"  // for AutoJSAPI
+#include "mozilla/dom/BrowsingContext.h"
 #include "nsContentUtils.h"
 #include "xpcpublic.h"
 
@@ -17,19 +18,43 @@ namespace mozilla {
 
 NS_IMPL_ISUPPORTS(LoadContext, nsILoadContext, nsIInterfaceRequestor)
 
+LoadContext::LoadContext(const IPC::SerializedLoadContext& aToCopy,
+                         dom::Element* aTopFrameElement,
+                         OriginAttributes& aAttrs)
+    : mTopFrameElement(do_GetWeakReference(aTopFrameElement)),
+      mIsContent(aToCopy.mIsContent),
+      mUseRemoteTabs(aToCopy.mUseRemoteTabs),
+      mUseRemoteSubframes(aToCopy.mUseRemoteSubframes),
+      mUseTrackingProtection(aToCopy.mUseTrackingProtection),
+#ifdef DEBUG
+      mIsNotNull(aToCopy.mIsNotNull),
+#endif
+      mOriginAttributes(aAttrs) {
+}
+
+LoadContext::LoadContext(OriginAttributes& aAttrs)
+    : mTopFrameElement(nullptr),
+      mIsContent(false),
+      mUseRemoteTabs(false),
+      mUseRemoteSubframes(false),
+      mUseTrackingProtection(false),
+#ifdef DEBUG
+      mIsNotNull(true),
+#endif
+      mOriginAttributes(aAttrs) {
+}
+
 LoadContext::LoadContext(nsIPrincipal* aPrincipal,
                          nsILoadContext* aOptionalBase)
     : mTopFrameElement(nullptr),
-      mNestedFrameId(0),
       mIsContent(true),
       mUseRemoteTabs(false),
-      mUseTrackingProtection(false)
+      mUseRemoteSubframes(false),
+      mUseTrackingProtection(false),
 #ifdef DEBUG
-      ,
-      mIsNotNull(true)
+      mIsNotNull(true),
 #endif
-{
-  mOriginAttributes = aPrincipal->OriginAttributesRef();
+      mOriginAttributes(aPrincipal->OriginAttributesRef()) {
   if (!aOptionalBase) {
     return;
   }
@@ -37,8 +62,12 @@ LoadContext::LoadContext(nsIPrincipal* aPrincipal,
   MOZ_ALWAYS_SUCCEEDS(aOptionalBase->GetIsContent(&mIsContent));
   MOZ_ALWAYS_SUCCEEDS(aOptionalBase->GetUseRemoteTabs(&mUseRemoteTabs));
   MOZ_ALWAYS_SUCCEEDS(
+      aOptionalBase->GetUseRemoteSubframes(&mUseRemoteSubframes));
+  MOZ_ALWAYS_SUCCEEDS(
       aOptionalBase->GetUseTrackingProtection(&mUseTrackingProtection));
 }
+
+LoadContext::~LoadContext() = default;
 
 //-----------------------------------------------------------------------------
 // LoadContext::nsILoadContext
@@ -64,13 +93,6 @@ NS_IMETHODIMP
 LoadContext::GetTopFrameElement(dom::Element** aElement) {
   nsCOMPtr<dom::Element> element = do_QueryReferent(mTopFrameElement);
   element.forget(aElement);
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-LoadContext::GetNestedFrameId(uint64_t* aId) {
-  NS_ENSURE_ARG(aId);
-  *aId = mNestedFrameId;
   return NS_OK;
 }
 
@@ -129,14 +151,21 @@ LoadContext::SetRemoteTabs(bool aUseRemoteTabs) {
 }
 
 NS_IMETHODIMP
-LoadContext::GetIsInIsolatedMozBrowserElement(
-    bool* aIsInIsolatedMozBrowserElement) {
+LoadContext::GetUseRemoteSubframes(bool* aUseRemoteSubframes) {
   MOZ_ASSERT(mIsNotNull);
 
-  NS_ENSURE_ARG_POINTER(aIsInIsolatedMozBrowserElement);
+  NS_ENSURE_ARG_POINTER(aUseRemoteSubframes);
 
-  *aIsInIsolatedMozBrowserElement = mOriginAttributes.mInIsolatedMozBrowser;
+  *aUseRemoteSubframes = mUseRemoteSubframes;
   return NS_OK;
+}
+
+NS_IMETHODIMP
+LoadContext::SetRemoteSubframes(bool aUseRemoteSubframes) {
+  MOZ_ASSERT(mIsNotNull);
+
+  // We shouldn't need this on parent...
+  return NS_ERROR_UNEXPECTED;
 }
 
 NS_IMETHODIMP

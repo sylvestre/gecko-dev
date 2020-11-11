@@ -8,14 +8,16 @@
 #include "DOMSVGNumberList.h"
 #include "DOMSVGAnimatedNumberList.h"
 #include "SVGAnimatedNumberList.h"
-#include "nsSVGElement.h"
+#include "SVGElement.h"
 #include "nsError.h"
 #include "nsContentUtils.h"  // for NS_ENSURE_FINITE
 #include "mozilla/dom/SVGNumberBinding.h"
+#include "mozilla/dom/SVGSVGElement.h"
 
 // See the architecture comment in DOMSVGAnimatedNumberList.h.
 
 namespace mozilla {
+namespace dom {
 
 // We could use NS_IMPL_CYCLE_COLLECTION(, except that in Unlink() we need to
 // clear our list's weak ref to us to be safe. (The other option would be to
@@ -40,46 +42,8 @@ NS_IMPL_CYCLE_COLLECTION_TRACE_BEGIN(DOMSVGNumber)
   NS_IMPL_CYCLE_COLLECTION_TRACE_PRESERVED_WRAPPER
 NS_IMPL_CYCLE_COLLECTION_TRACE_END
 
-NS_IMPL_CYCLE_COLLECTING_ADDREF(DOMSVGNumber)
-NS_IMPL_CYCLE_COLLECTING_RELEASE(DOMSVGNumber)
-
-NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(DOMSVGNumber)
-  NS_WRAPPERCACHE_INTERFACE_MAP_ENTRY
-  NS_INTERFACE_MAP_ENTRY(nsISupports)
-NS_INTERFACE_MAP_END
-
-//----------------------------------------------------------------------
-// Helper class: AutoChangeNumberNotifier
-// Stack-based helper class to pair calls to WillChangeNumberList and
-// DidChangeNumberList.
-class MOZ_RAII AutoChangeNumberNotifier {
- public:
-  explicit AutoChangeNumberNotifier(
-      DOMSVGNumber* aNumber MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
-      : mNumber(aNumber) {
-    MOZ_GUARD_OBJECT_NOTIFIER_INIT;
-    MOZ_ASSERT(mNumber, "Expecting non-null number");
-    MOZ_ASSERT(mNumber->HasOwner(),
-               "Expecting list to have an owner for notification");
-    mEmptyOrOldValue =
-        mNumber->Element()->WillChangeNumberList(mNumber->mAttrEnum);
-  }
-
-  ~AutoChangeNumberNotifier() {
-    mNumber->Element()->DidChangeNumberList(mNumber->mAttrEnum,
-                                            mEmptyOrOldValue);
-    // Null check mNumber->mList, since DidChangeNumberList can run script,
-    // potentially removing mNumber from its list.
-    if (mNumber->mList && mNumber->mList->IsAnimating()) {
-      mNumber->Element()->AnimationNeedsResample();
-    }
-  }
-
- private:
-  DOMSVGNumber* const mNumber;
-  nsAttrValue mEmptyOrOldValue;
-  MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
-};
+NS_IMPL_CYCLE_COLLECTION_ROOT_NATIVE(DOMSVGNumber, AddRef)
+NS_IMPL_CYCLE_COLLECTION_UNROOT_NATIVE(DOMSVGNumber, Release)
 
 DOMSVGNumber::DOMSVGNumber(DOMSVGNumberList* aList, uint8_t aAttrEnum,
                            uint32_t aListIndex, bool aIsAnimValItem)
@@ -104,6 +68,14 @@ DOMSVGNumber::DOMSVGNumber(nsISupports* aParent)
       mIsAnimValItem(false),
       mValue(0.0f) {}
 
+DOMSVGNumber::DOMSVGNumber(SVGSVGElement* aParent)
+    : mList(nullptr),
+      mParent(ToSupports(aParent)),
+      mListIndex(0),
+      mAttrEnum(0),
+      mIsAnimValItem(false),
+      mValue(0.0f) {}
+
 float DOMSVGNumber::Value() {
   if (mIsAnimValItem && HasOwner()) {
     Element()->FlushAnimations();  // May make HasOwner() == false
@@ -121,7 +93,7 @@ void DOMSVGNumber::SetValue(float aValue, ErrorResult& aRv) {
     if (InternalItem() == aValue) {
       return;
     }
-    AutoChangeNumberNotifier notifier(this);
+    AutoChangeNumberListNotifier notifier(this);
     InternalItem() = aValue;
     return;
   }
@@ -167,7 +139,8 @@ bool DOMSVGNumber::IndexIsValid() {
 
 JSObject* DOMSVGNumber::WrapObject(JSContext* aCx,
                                    JS::Handle<JSObject*> aGivenProto) {
-  return dom::SVGNumber_Binding::Wrap(aCx, this, aGivenProto);
+  return SVGNumber_Binding::Wrap(aCx, this, aGivenProto);
 }
 
+}  // namespace dom
 }  // namespace mozilla

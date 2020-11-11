@@ -12,7 +12,7 @@ using namespace mozilla::dom;
 
 SameProcessMessageQueue* SameProcessMessageQueue::sSingleton;
 
-SameProcessMessageQueue::SameProcessMessageQueue() {}
+SameProcessMessageQueue::SameProcessMessageQueue() = default;
 
 SameProcessMessageQueue::~SameProcessMessageQueue() {
   // This code should run during shutdown, and we should already have pumped the
@@ -29,14 +29,14 @@ void SameProcessMessageQueue::Push(Runnable* aRunnable) {
 }
 
 void SameProcessMessageQueue::Flush() {
-  nsTArray<RefPtr<Runnable>> queue;
-  mQueue.SwapElements(queue);
+  const nsTArray<RefPtr<Runnable>> queue = std::move(mQueue);
   for (size_t i = 0; i < queue.Length(); i++) {
     queue[i]->Run();
   }
 }
 
-/* static */ SameProcessMessageQueue* SameProcessMessageQueue::Get() {
+/* static */
+SameProcessMessageQueue* SameProcessMessageQueue::Get() {
   if (!sSingleton) {
     sSingleton = new SameProcessMessageQueue();
   }

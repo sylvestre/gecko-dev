@@ -1,11 +1,3 @@
-const PREF_MULTISELECT_TABS = "browser.tabs.multiselect";
-
-add_task(async function setPref() {
-  await SpecialPowers.pushPrefEnv({
-    set: [[PREF_MULTISELECT_TABS, true]],
-  });
-});
-
 add_task(async function test() {
   let tab0 = gBrowser.selectedTab;
   let tab1 = await addTab("http://example.com/1");
@@ -50,7 +42,7 @@ add_task(async function test() {
 
   ok(true, "Tab1 and tab2 are duplicated succesfully");
 
-  for (let tab of tabs.filter(t => t != tab0))
+  for (let tab of tabs.filter(t => t != tab0)) {
     BrowserTestUtils.removeTab(tab);
+  }
 });
-

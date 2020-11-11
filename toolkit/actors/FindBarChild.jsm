@@ -6,24 +6,40 @@
 
 var EXPORTED_SYMBOLS = ["FindBarChild"];
 
-ChromeUtils.import("resource://gre/modules/ActorChild.jsm");
-ChromeUtils.import("resource://gre/modules/Services.jsm");
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
 
-ChromeUtils.defineModuleGetter(this, "BrowserUtils",
-                               "resource://gre/modules/BrowserUtils.jsm");
+ChromeUtils.defineModuleGetter(
+  this,
+  "BrowserUtils",
+  "resource://gre/modules/BrowserUtils.jsm"
+);
 
-class FindBarChild extends ActorChild {
-  constructor(dispatcher) {
-    super(dispatcher);
+class FindBarChild extends JSWindowActorChild {
+  constructor() {
+    super();
 
     this._findKey = null;
 
-    XPCOMUtils.defineLazyProxy(this, "FindBarContent", () => {
-      let tmp = {};
-      ChromeUtils.import("resource://gre/modules/FindBarContent.jsm", tmp);
-      return new tmp.FindBarContent(this.mm);
-    }, {inQuickFind: false, inPassThrough: false});
+    XPCOMUtils.defineLazyProxy(
+      this,
+      "FindBarContent",
+      () => {
+        let tmp = {};
+        ChromeUtils.import("resource://gre/modules/FindBarContent.jsm", tmp);
+        return new tmp.FindBarContent(this);
+      },
+      { inQuickFind: false, inPassThrough: false }
+    );
+  }
+
+  receiveMessage(msg) {
+    if (msg.name == "Findbar:UpdateState") {
+      let { FindBarContent } = this;
+      FindBarContent.updateState(msg.data);
+    }
   }
 
   /**
@@ -54,22 +70,26 @@ class FindBarChild extends ActorChild {
   }
 
   onKeypress(event) {
-    let {FindBarContent} = this;
+    let { FindBarContent } = this;
 
-    if (!FindBarContent.inPassThrough &&
-        this.eventMatchesFindShortcut(event)) {
+    if (!FindBarContent.inPassThrough && this.eventMatchesFindShortcut(event)) {
       return FindBarContent.start(event);
     }
 
     // disable FAYT in about:blank to prevent FAYT opening unexpectedly.
-    let location = this.content.location.href;
+    let location = this.document.location.href;
     if (location == "about:blank") {
       return null;
     }
 
-    if (event.ctrlKey || event.altKey || event.metaKey || event.defaultPrevented ||
-        !BrowserUtils.mimeTypeIsTextBased(this.content.document.contentType) ||
-        !BrowserUtils.canFindInPage(location)) {
+    if (
+      event.ctrlKey ||
+      event.altKey ||
+      event.metaKey ||
+      event.defaultPrevented ||
+      !BrowserUtils.mimeTypeIsTextBased(this.document.contentType) ||
+      !BrowserUtils.canFindInPage(location)
+    ) {
       return null;
     }
 
@@ -77,7 +97,7 @@ class FindBarChild extends ActorChild {
       return FindBarContent.onKeypress(event);
     }
 
-    if (event.charCode && BrowserUtils.shouldFastFind(event.target)) {
+    if (event.charCode && this.shouldFastFind(event.target)) {
       let key = String.fromCharCode(event.charCode);
       if ((key == "/" || key == "'") && FindBarChild.manualFAYT) {
         return FindBarContent.startQuickFind(event);
@@ -88,10 +108,51 @@ class FindBarChild extends ActorChild {
     }
     return null;
   }
+
+  /**
+   * Return true if we should FAYT for this node:
+   *
+   * @param elt
+   *        The element that is focused
+   */
+  shouldFastFind(elt) {
+    if (elt) {
+      let win = elt.ownerGlobal;
+      if (elt instanceof win.HTMLInputElement && elt.mozIsTextField(false)) {
+        return false;
+      }
+
+      if (elt.isContentEditable || win.document.designMode == "on") {
+        return false;
+      }
+
+      if (
+        elt instanceof win.HTMLTextAreaElement ||
+        elt instanceof win.HTMLSelectElement ||
+        elt instanceof win.HTMLObjectElement ||
+        elt instanceof win.HTMLEmbedElement
+      ) {
+        return false;
+      }
+
+      if (elt instanceof win.HTMLIFrameElement && elt.mozbrowser) {
+        // If we're targeting a mozbrowser iframe, it should be allowed to
+        // handle FastFind itself.
+        return false;
+      }
+    }
+
+    return true;
+  }
 }
 
-XPCOMUtils.defineLazyPreferenceGetter(FindBarChild, "findAsYouType",
-  "accessibility.typeaheadfind");
-XPCOMUtils.defineLazyPreferenceGetter(FindBarChild, "manualFAYT",
-  "accessibility.typeaheadfind.manual");
-
+XPCOMUtils.defineLazyPreferenceGetter(
+  FindBarChild,
+  "findAsYouType",
+  "accessibility.typeaheadfind"
+);
+XPCOMUtils.defineLazyPreferenceGetter(
+  FindBarChild,
+  "manualFAYT",
+  "accessibility.typeaheadfind.manual"
+);

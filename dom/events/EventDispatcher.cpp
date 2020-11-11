@@ -11,10 +11,11 @@
 #include <new>
 #include "nsIContent.h"
 #include "nsIContentInlines.h"
-#include "nsIDocument.h"
+#include "mozilla/dom/Document.h"
 #include "nsINode.h"
 #include "nsIScriptObjectPrincipal.h"
 #include "nsPIDOMWindow.h"
+#include "nsRefreshDriver.h"
 #include "AnimationEvent.h"
 #include "BeforeUnloadEvent.h"
 #include "ClipboardEvent.h"
@@ -24,6 +25,8 @@
 #include "DragEvent.h"
 #include "GeckoProfiler.h"
 #include "KeyboardEvent.h"
+#include "Layers.h"
+#include "mozilla/BasePrincipal.h"
 #include "mozilla/ContentEvents.h"
 #include "mozilla/dom/CloseEvent.h"
 #include "mozilla/dom/CustomEvent.h"
@@ -61,14 +64,10 @@
 #include "mozilla/Unused.h"
 
 #ifdef MOZ_TASK_TRACER
-#include "GeckoTaskTracer.h"
-#include "mozilla/dom/Element.h"
-#include "mozilla/Likely.h"
+#  include "GeckoTaskTracer.h"
+#  include "mozilla/dom/Element.h"
+#  include "mozilla/Likely.h"
 using namespace mozilla::tasktracer;
-#endif
-
-#ifdef MOZ_GECKO_PROFILER
-#include "ProfilerMarkerPayload.h"
 #endif
 
 namespace mozilla {
@@ -97,12 +96,12 @@ class ELMCreationDetector {
 };
 
 static bool IsEventTargetChrome(EventTarget* aEventTarget,
-                                nsIDocument** aDocument = nullptr) {
+                                Document** aDocument = nullptr) {
   if (aDocument) {
     *aDocument = nullptr;
   }
 
-  nsIDocument* doc = nullptr;
+  Document* doc = nullptr;
   if (nsCOMPtr<nsINode> node = do_QueryInterface(aEventTarget)) {
     doc = node->OwnerDoc();
   } else if (nsCOMPtr<nsPIDOMWindowInner> window =
@@ -115,27 +114,25 @@ static bool IsEventTargetChrome(EventTarget* aEventTarget,
   if (doc) {
     isChrome = nsContentUtils::IsChromeDoc(doc);
     if (aDocument) {
-      nsCOMPtr<nsIDocument> retVal = doc;
+      nsCOMPtr<Document> retVal = doc;
       retVal.swap(*aDocument);
     }
   } else if (nsCOMPtr<nsIScriptObjectPrincipal> sop =
                  do_QueryInterface(aEventTarget->GetOwnerGlobal())) {
-    isChrome = nsContentUtils::IsSystemPrincipal(sop->GetPrincipal());
+    isChrome = sop->GetPrincipal()->IsSystemPrincipal();
   }
   return isChrome;
 }
 
 // EventTargetChainItem represents a single item in the event target chain.
 class EventTargetChainItem {
- private:
-  explicit EventTargetChainItem(EventTarget* aTarget);
-
  public:
-  EventTargetChainItem() : mItemFlags(0) {
+  explicit EventTargetChainItem(EventTarget* aTarget)
+      : mTarget(aTarget), mItemFlags(0) {
     MOZ_COUNT_CTOR(EventTargetChainItem);
   }
 
-  ~EventTargetChainItem() { MOZ_COUNT_DTOR(EventTargetChainItem); }
+  MOZ_COUNTED_DTOR(EventTargetChainItem)
 
   static EventTargetChainItem* Create(nsTArray<EventTargetChainItem>& aChain,
                                       EventTarget* aTarget,
@@ -143,16 +140,14 @@ class EventTargetChainItem {
     // The last item which can handle the event must be aChild.
     MOZ_ASSERT(GetLastCanHandleEventTarget(aChain) == aChild);
     MOZ_ASSERT(!aTarget || aTarget == aTarget->GetTargetForEventTargetChain());
-    EventTargetChainItem* etci = aChain.AppendElement();
-    etci->mTarget = aTarget;
+    EventTargetChainItem* etci = aChain.AppendElement(aTarget);
     return etci;
   }
 
   static void DestroyLast(nsTArray<EventTargetChainItem>& aChain,
                           EventTargetChainItem* aItem) {
-    uint32_t lastIndex = aChain.Length() - 1;
-    MOZ_ASSERT(&aChain[lastIndex] == aItem);
-    aChain.RemoveElementAt(lastIndex);
+    MOZ_ASSERT(&aChain.LastElement() == aItem);
+    aChain.RemoveLastElement();
   }
 
   static EventTargetChainItem* GetFirstCanHandleEventTarget(
@@ -185,12 +180,12 @@ class EventTargetChainItem {
     return nullptr;
   }
 
-  bool IsValid() {
+  bool IsValid() const {
     NS_WARNING_ASSERTION(!!(mTarget), "Event target is not valid!");
     return !!(mTarget);
   }
 
-  EventTarget* GetNewTarget() { return mNewTarget; }
+  EventTarget* GetNewTarget() const { return mNewTarget; }
 
   void SetNewTarget(EventTarget* aNewTarget) { mNewTarget = aNewTarget; }
 
@@ -205,7 +200,7 @@ class EventTargetChainItem {
     mRetargetedTouchTargets = std::move(aTargets);
   }
 
-  bool HasRetargetTouchTargets() {
+  bool HasRetargetTouchTargets() const {
     return mRetargetedTouchTargets.isSome() || mInitialTargetTouches.isSome();
   }
 
@@ -253,41 +248,41 @@ class EventTargetChainItem {
     mFlags.mForceContentDispatch = aForce;
   }
 
-  bool ForceContentDispatch() { return mFlags.mForceContentDispatch; }
+  bool ForceContentDispatch() const { return mFlags.mForceContentDispatch; }
 
   void SetWantsWillHandleEvent(bool aWants) {
     mFlags.mWantsWillHandleEvent = aWants;
   }
 
-  bool WantsWillHandleEvent() { return mFlags.mWantsWillHandleEvent; }
+  bool WantsWillHandleEvent() const { return mFlags.mWantsWillHandleEvent; }
 
   void SetWantsPreHandleEvent(bool aWants) {
     mFlags.mWantsPreHandleEvent = aWants;
   }
 
-  bool WantsPreHandleEvent() { return mFlags.mWantsPreHandleEvent; }
+  bool WantsPreHandleEvent() const { return mFlags.mWantsPreHandleEvent; }
 
   void SetPreHandleEventOnly(bool aWants) {
     mFlags.mPreHandleEventOnly = aWants;
   }
 
-  bool PreHandleEventOnly() { return mFlags.mPreHandleEventOnly; }
+  bool PreHandleEventOnly() const { return mFlags.mPreHandleEventOnly; }
 
   void SetRootOfClosedTree(bool aSet) { mFlags.mRootOfClosedTree = aSet; }
 
-  bool IsRootOfClosedTree() { return mFlags.mRootOfClosedTree; }
+  bool IsRootOfClosedTree() const { return mFlags.mRootOfClosedTree; }
 
   void SetItemInShadowTree(bool aSet) { mFlags.mItemInShadowTree = aSet; }
 
-  bool IsItemInShadowTree() { return mFlags.mItemInShadowTree; }
+  bool IsItemInShadowTree() const { return mFlags.mItemInShadowTree; }
 
   void SetIsSlotInClosedTree(bool aSet) { mFlags.mIsSlotInClosedTree = aSet; }
 
-  bool IsSlotInClosedTree() { return mFlags.mIsSlotInClosedTree; }
+  bool IsSlotInClosedTree() const { return mFlags.mIsSlotInClosedTree; }
 
   void SetIsChromeHandler(bool aSet) { mFlags.mIsChromeHandler = aSet; }
 
-  bool IsChromeHandler() { return mFlags.mIsChromeHandler; }
+  bool IsChromeHandler() const { return mFlags.mIsChromeHandler; }
 
   void SetMayHaveListenerManager(bool aMayHave) {
     mFlags.mMayHaveManager = aMayHave;
@@ -295,7 +290,7 @@ class EventTargetChainItem {
 
   bool MayHaveListenerManager() { return mFlags.mMayHaveManager; }
 
-  EventTarget* CurrentTarget() { return mTarget; }
+  EventTarget* CurrentTarget() const { return mTarget; }
 
   /**
    * Dispatches event through the event target chain.
@@ -303,6 +298,7 @@ class EventTargetChainItem {
    * and system event group and calls also PostHandleEvent for each
    * item in the chain.
    */
+  MOZ_CAN_RUN_SCRIPT
   static void HandleEventTargetChain(nsTArray<EventTargetChainItem>& aChain,
                                      EventChainPostVisitor& aVisitor,
                                      EventDispatchingCallback* aCallback,
@@ -330,6 +326,10 @@ class EventTargetChainItem {
     if (aVisitor.mEvent->PropagationStopped()) {
       return;
     }
+    if (aVisitor.mEvent->mFlags.mOnlySystemGroupDispatch &&
+        !aVisitor.mEvent->mFlags.mInSystemGroup) {
+      return;
+    }
     if (aVisitor.mEvent->mFlags.mOnlySystemGroupDispatchInContent &&
         !aVisitor.mEvent->mFlags.mInSystemGroup && !IsCurrentTargetChrome()) {
       return;
@@ -343,6 +343,12 @@ class EventTargetChainItem {
     if (mManager) {
       NS_ASSERTION(aVisitor.mEvent->mCurrentTarget == nullptr,
                    "CurrentTarget should be null!");
+
+      if (aVisitor.mEvent->mMessage == eMouseClick) {
+        aVisitor.mEvent->mFlags.mHadNonPrivilegedClickListeners =
+            aVisitor.mEvent->mFlags.mHadNonPrivilegedClickListeners ||
+            mManager->HasNonPrivilegedClickListeners();
+      }
       mManager->HandleEvent(aVisitor.mPresContext, aVisitor.mEvent,
                             &aVisitor.mDOMEvent, CurrentTarget(),
                             &aVisitor.mEventStatus, IsItemInShadowTree());
@@ -354,10 +360,10 @@ class EventTargetChainItem {
   /**
    * Copies mItemFlags and mItemData to aVisitor and calls PostHandleEvent.
    */
-  void PostHandleEvent(EventChainPostVisitor& aVisitor);
+  MOZ_CAN_RUN_SCRIPT void PostHandleEvent(EventChainPostVisitor& aVisitor);
 
  private:
-  nsCOMPtr<EventTarget> mTarget;
+  const nsCOMPtr<EventTarget> mTarget;
   nsCOMPtr<EventTarget> mRetargetedRelatedTarget;
   Maybe<nsTArray<RefPtr<EventTarget>>> mRetargetedTouchTargets;
   Maybe<nsTArray<RefPtr<dom::Touch>>> mInitialTargetTouches;
@@ -637,7 +643,8 @@ void EventTargetChainItem::HandleEventTargetChain(
 
 static nsTArray<EventTargetChainItem>* sCachedMainThreadChain = nullptr;
 
-/* static */ void EventDispatcher::Shutdown() {
+/* static */
+void EventDispatcher::Shutdown() {
   delete sCachedMainThreadChain;
   sCachedMainThreadChain = nullptr;
 }
@@ -703,10 +710,13 @@ static bool ShouldClearTargets(WidgetEvent* aEvent) {
   return false;
 }
 
-/* static */ nsresult EventDispatcher::Dispatch(
-    nsISupports* aTarget, nsPresContext* aPresContext, WidgetEvent* aEvent,
-    Event* aDOMEvent, nsEventStatus* aEventStatus,
-    EventDispatchingCallback* aCallback, nsTArray<EventTarget*>* aTargets) {
+/* static */
+nsresult EventDispatcher::Dispatch(nsISupports* aTarget,
+                                   nsPresContext* aPresContext,
+                                   WidgetEvent* aEvent, Event* aDOMEvent,
+                                   nsEventStatus* aEventStatus,
+                                   EventDispatchingCallback* aCallback,
+                                   nsTArray<EventTarget*>* aTargets) {
   AUTO_PROFILER_LABEL("EventDispatcher::Dispatch", OTHER);
 
   NS_ASSERTION(aEvent, "Trying to dispatch without WidgetEvent!");
@@ -735,7 +745,7 @@ static bool ShouldClearTargets(WidgetEvent* aEvent) {
     } else {
       Event::GetWidgetEventType(aEvent, eventTypeU16);
     }
-    eventType = NS_ConvertUTF16toUTF8(eventTypeU16);
+    CopyUTF16toUTF8(eventTypeU16, eventType);
 
     nsCOMPtr<Element> element = do_QueryInterface(aTarget);
     nsAutoString elementId;
@@ -768,7 +778,7 @@ static bool ShouldClearTargets(WidgetEvent* aEvent) {
   }
 
   if (aEvent->mFlags.mOnlyChromeDispatch) {
-    nsCOMPtr<nsIDocument> doc;
+    nsCOMPtr<Document> doc;
     if (!IsEventTargetChrome(target, getter_AddRefs(doc)) && doc) {
       nsPIDOMWindowInner* win = doc->GetInnerWindow();
       // If we can't dispatch the event to chrome, do nothing.
@@ -779,8 +789,8 @@ static bool ShouldClearTargets(WidgetEvent* aEvent) {
 
       // Set the target to be the original dispatch target,
       aEvent->mTarget = target;
-      // but use chrome event handler or TabChildMessageManager for event target
-      // chain.
+      // but use chrome event handler or BrowserChildMessageManager for event
+      // target chain.
       target = piTarget;
     } else if (NS_WARN_IF(!doc)) {
       return NS_ERROR_UNEXPECTED;
@@ -790,30 +800,29 @@ static bool ShouldClearTargets(WidgetEvent* aEvent) {
 #ifdef DEBUG
   if (NS_IsMainThread() && aEvent->mMessage != eVoidEvent &&
       !nsContentUtils::IsSafeToRunScript()) {
-    nsCOMPtr<nsINode> node = do_QueryInterface(target);
-    if (!node) {
-      // If the target is not a node, just go ahead and crash. There really
-      // shouldn't be any other event targets in documents that are not being
-      // rendered or scripted.
-      MOZ_CRASH("This is unsafe! Fix the caller!");
-    } else {
+    static const auto warn = [](bool aIsSystem) {
+      if (aIsSystem) {
+        NS_WARNING("Fix the caller!");
+      } else {
+        MOZ_CRASH("This is unsafe! Fix the caller!");
+      }
+    };
+    if (nsCOMPtr<nsINode> node = do_QueryInterface(target)) {
       // If this is a node, it's possible that this is some sort of DOM tree
       // that is never accessed by script (for example an SVG image or XBL
       // binding document or whatnot).  We really only want to warn/assert here
       // if there might be actual scripted listeners for this event, so restrict
       // the warnings/asserts to the case when script can or once could touch
       // this node's document.
-      nsIDocument* doc = node->OwnerDoc();
+      Document* doc = node->OwnerDoc();
       bool hasHadScriptHandlingObject;
       nsIGlobalObject* global =
           doc->GetScriptHandlingObject(hasHadScriptHandlingObject);
       if (global || hasHadScriptHandlingObject) {
-        if (nsContentUtils::IsChromeDoc(doc)) {
-          NS_WARNING("Fix the caller!");
-        } else {
-          MOZ_CRASH("This is unsafe! Fix the caller!");
-        }
+        warn(nsContentUtils::IsChromeDoc(doc));
       }
+    } else if (nsCOMPtr<nsIGlobalObject> global = target->GetOwnerGlobal()) {
+      warn(global->PrincipalOrNull()->IsSystemPrincipal());
     }
   }
 
@@ -837,7 +846,7 @@ static bool ShouldClearTargets(WidgetEvent* aEvent) {
     if (!sCachedMainThreadChain) {
       sCachedMainThreadChain = new nsTArray<EventTargetChainItem>();
     }
-    chain.SwapElements(*sCachedMainThreadChain);
+    chain = std::move(*sCachedMainThreadChain);
     chain.SetCapacity(128);
   }
 
@@ -879,15 +888,19 @@ static bool ShouldClearTargets(WidgetEvent* aEvent) {
   bool clearTargets = false;
 
   nsCOMPtr<nsIContent> content = do_QueryInterface(aEvent->mOriginalTarget);
-  bool isInAnon = content && content->IsInAnonymousSubtree();
+  bool isInAnon = content && content->IsInNativeAnonymousSubtree();
 
   aEvent->mFlags.mIsBeingDispatched = true;
 
   // Create visitor object and start event dispatching.
   // GetEventTargetParent for the original target.
-  nsEventStatus status = aEventStatus ? *aEventStatus : nsEventStatus_eIgnore;
+  nsEventStatus status =
+      aDOMEvent && aDOMEvent->DefaultPrevented()
+          ? nsEventStatus_eConsumeNoDefault
+          : aEventStatus ? *aEventStatus : nsEventStatus_eIgnore;
+  nsCOMPtr<EventTarget> targetForPreVisitor = aEvent->mTarget;
   EventChainPreVisitor preVisitor(aPresContext, aEvent, aDOMEvent, status,
-                                  isInAnon, aEvent->mTarget);
+                                  isInAnon, targetForPreVisitor);
   targetEtci->GetEventTargetParent(preVisitor);
 
   if (!preVisitor.mCanHandle) {
@@ -1007,8 +1020,8 @@ static bool ShouldClearTargets(WidgetEvent* aEvent) {
             // This is tiny bit slow, but happens only once per event.
             // Similar code also in EventListenerManager.
             nsCOMPtr<EventTarget> et = aEvent->mOriginalTarget;
-            RefPtr<Event> event = EventDispatcher::CreateEvent(
-                et, aPresContext, aEvent, EmptyString());
+            RefPtr<Event> event =
+                EventDispatcher::CreateEvent(et, aPresContext, aEvent, u""_ns);
             event.swap(postVisitor.mDOMEvent);
           }
           nsAutoString typeStr;
@@ -1018,20 +1031,62 @@ static bool ShouldClearTargets(WidgetEvent* aEvent) {
 
           nsCOMPtr<nsIDocShell> docShell;
           docShell = nsContentUtils::GetDocShellForEventTarget(aEvent->mTarget);
-          DECLARE_DOCSHELL_AND_HISTORY_ID(docShell);
-          profiler_add_marker(
-              "DOMEvent",
-              MakeUnique<DOMEventMarkerPayload>(
-                  typeStr, aEvent->mTimeStamp, "DOMEvent",
-                  TRACING_INTERVAL_START, docShellId, docShellHistoryId));
+          MarkerInnerWindowId innerWindowId;
+          if (nsCOMPtr<nsPIDOMWindowInner> inner =
+                  do_QueryInterface(aEvent->mTarget->GetOwnerGlobal())) {
+            innerWindowId = MarkerInnerWindowId{inner->WindowID()};
+          }
+
+          struct DOMEventMarker {
+            static constexpr Span<const char> MarkerTypeName() {
+              // Note: DOMEventMarkerPayload was originally a sub-class of
+              // TracingMarkerPayload, so it uses the same payload type.
+              // TODO: Change to its own distinct type, but this will require
+              // front-end changes.
+              return MakeStringSpan("DOMEvent");
+            }
+            static void StreamJSONMarkerData(
+                baseprofiler::SpliceableJSONWriter& aWriter,
+                const ProfilerString16View& aEventType,
+                const TimeStamp& aStartTime, const TimeStamp& aEventTimeStamp) {
+              aWriter.StringProperty(
+                  "eventType", NS_ConvertUTF16toUTF8(aEventType.Data(),
+                                                     aEventType.Length()));
+              // This is the event processing latency, which is the time from
+              // when the event was created, to when it was started to be
+              // processed. Note that the computation of this latency is
+              // deferred until serialization time, at the expense of some extra
+              // memory.
+              aWriter.DoubleProperty(
+                  "latency", (aStartTime - aEventTimeStamp).ToMilliseconds());
+            }
+            static MarkerSchema MarkerTypeDisplay() {
+              using MS = MarkerSchema;
+              MS schema{MS::Location::markerChart, MS::Location::markerTable,
+                        MS::Location::timelineOverview};
+              schema.SetChartLabel("{marker.data.eventType}");
+              schema.SetTooltipLabel("{marker.data.eventType} - DOMEvent");
+              schema.SetTableLabel("{marker.data.eventType}");
+              schema.AddKeyLabelFormat("latency", "Latency",
+                                       MS::Format::duration);
+              return schema;
+            }
+          };
+
+          auto startTime = TimeStamp::NowUnfuzzed();
+          profiler_add_marker("DOMEvent", geckoprofiler::category::DOM,
+                              {MarkerTiming::IntervalStart(),
+                               MarkerInnerWindowId(innerWindowId)},
+                              DOMEventMarker{}, typeStr, startTime,
+                              aEvent->mTimeStamp);
 
           EventTargetChainItem::HandleEventTargetChain(chain, postVisitor,
                                                        aCallback, cd);
 
-          profiler_add_marker("DOMEvent", MakeUnique<DOMEventMarkerPayload>(
-                                              typeStr, aEvent->mTimeStamp,
-                                              "DOMEvent", TRACING_INTERVAL_END,
-                                              docShellId, docShellHistoryId));
+          profiler_add_marker(
+              "DOMEvent", geckoprofiler::category::DOM,
+              {MarkerTiming::IntervalEnd(), std::move(innerWindowId)},
+              DOMEventMarker{}, typeStr, startTime, aEvent->mTimeStamp);
         } else
 #endif
         {
@@ -1039,6 +1094,22 @@ static bool ShouldClearTargets(WidgetEvent* aEvent) {
                                                        aCallback, cd);
         }
         aEvent->mPath = nullptr;
+
+        if (aEvent->mMessage == eKeyPress && aEvent->IsTrusted()) {
+          if (aPresContext && aPresContext->GetRootPresContext()) {
+            nsRefreshDriver* driver =
+                aPresContext->GetRootPresContext()->RefreshDriver();
+            if (driver && driver->ViewManagerFlushIsPending()) {
+              nsIWidget* widget = aPresContext->GetRootWidget();
+              layers::LayerManager* lm =
+                  widget ? widget->GetLayerManager() : nullptr;
+              if (lm) {
+                lm->RegisterPayload({layers::CompositionPayloadType::eKeyPress,
+                                     aEvent->mTimeStamp});
+              }
+            }
+          }
+        }
 
         preVisitor.mEventStatus = postVisitor.mEventStatus;
         // If the DOM event was created during event flow.
@@ -1069,7 +1140,7 @@ static bool ShouldClearTargets(WidgetEvent* aEvent) {
   }
 
   if (!externalDOMEvent && preVisitor.mDOMEvent) {
-    // An dom::Event was created while dispatching the event.
+    // A dom::Event was created while dispatching the event.
     // Duplicate private data if someone holds a pointer to it.
     nsrefcnt rc = 0;
     NS_RELEASE2(preVisitor.mDOMEvent, rc);
@@ -1090,12 +1161,20 @@ static bool ShouldClearTargets(WidgetEvent* aEvent) {
   return rv;
 }
 
-/* static */ nsresult EventDispatcher::DispatchDOMEvent(
-    nsISupports* aTarget, WidgetEvent* aEvent, Event* aDOMEvent,
-    nsPresContext* aPresContext, nsEventStatus* aEventStatus) {
+/* static */
+nsresult EventDispatcher::DispatchDOMEvent(nsISupports* aTarget,
+                                           WidgetEvent* aEvent,
+                                           Event* aDOMEvent,
+                                           nsPresContext* aPresContext,
+                                           nsEventStatus* aEventStatus) {
   if (aDOMEvent) {
     WidgetEvent* innerEvent = aDOMEvent->WidgetEventPtr();
     NS_ENSURE_TRUE(innerEvent, NS_ERROR_ILLEGAL_VALUE);
+
+    // Don't modify the event if it's being dispatched right now.
+    if (innerEvent->mFlags.mIsBeingDispatched) {
+      return NS_ERROR_DOM_INVALID_STATE_ERR;
+    }
 
     bool dontResetTrusted = false;
     if (innerEvent->mFlags.mDispatchedAtLeastOnce) {
@@ -1196,14 +1275,10 @@ static bool ShouldClearTargets(WidgetEvent* aEvent) {
       aEventType.LowerCaseEqualsLiteral("mouseevents")) {
     return NS_NewDOMMouseEvent(aOwner, aPresContext, nullptr);
   }
-  if (aEventType.LowerCaseEqualsLiteral("mousescrollevents")) {
-    return NS_NewDOMMouseScrollEvent(aOwner, aPresContext, nullptr);
-  }
   if (aEventType.LowerCaseEqualsLiteral("dragevent")) {
     return NS_NewDOMDragEvent(aOwner, aPresContext, nullptr);
   }
-  if (aEventType.LowerCaseEqualsLiteral("keyboardevent") ||
-      aEventType.LowerCaseEqualsLiteral("keyevents")) {
+  if (aEventType.LowerCaseEqualsLiteral("keyboardevent")) {
     return NS_NewDOMKeyboardEvent(aOwner, aPresContext, nullptr);
   }
   if (aEventType.LowerCaseEqualsLiteral("compositionevent") ||
@@ -1217,7 +1292,7 @@ static bool ShouldClearTargets(WidgetEvent* aEvent) {
   if (aEventType.LowerCaseEqualsLiteral("deviceorientationevent")) {
     DeviceOrientationEventInit init;
     RefPtr<Event> event =
-        DeviceOrientationEvent::Constructor(aOwner, EmptyString(), init);
+        DeviceOrientationEvent::Constructor(aOwner, u""_ns, init);
     event->MarkUninitialized();
     return event.forget();
   }
@@ -1234,9 +1309,6 @@ static bool ShouldClearTargets(WidgetEvent* aEvent) {
       aEventType.LowerCaseEqualsLiteral("svgevents")) {
     return NS_NewDOMEvent(aOwner, aPresContext, nullptr);
   }
-  if (aEventType.LowerCaseEqualsLiteral("timeevent")) {
-    return NS_NewDOMTimeEvent(aOwner, aPresContext, nullptr);
-  }
   if (aEventType.LowerCaseEqualsLiteral("messageevent")) {
     RefPtr<Event> event = new MessageEvent(aOwner, aPresContext, nullptr);
     return event.forget();
@@ -1244,18 +1316,15 @@ static bool ShouldClearTargets(WidgetEvent* aEvent) {
   if (aEventType.LowerCaseEqualsLiteral("beforeunloadevent")) {
     return NS_NewDOMBeforeUnloadEvent(aOwner, aPresContext, nullptr);
   }
-  if (aEventType.LowerCaseEqualsLiteral("scrollareaevent")) {
-    return NS_NewDOMScrollAreaEvent(aOwner, aPresContext, nullptr);
-  }
   if (aEventType.LowerCaseEqualsLiteral("touchevent") &&
-      TouchEvent::PrefEnabled(
-          nsContentUtils::GetDocShellForEventTarget(aOwner))) {
+      TouchEvent::LegacyAPIEnabled(
+          nsContentUtils::GetDocShellForEventTarget(aOwner),
+          aCallerType == CallerType::System)) {
     return NS_NewDOMTouchEvent(aOwner, aPresContext, nullptr);
   }
   if (aEventType.LowerCaseEqualsLiteral("hashchangeevent")) {
     HashChangeEventInit init;
-    RefPtr<Event> event =
-        HashChangeEvent::Constructor(aOwner, EmptyString(), init);
+    RefPtr<Event> event = HashChangeEvent::Constructor(aOwner, u""_ns, init);
     event->MarkUninitialized();
     return event.forget();
   }
@@ -1264,7 +1333,7 @@ static bool ShouldClearTargets(WidgetEvent* aEvent) {
   }
   if (aEventType.LowerCaseEqualsLiteral("storageevent")) {
     RefPtr<Event> event =
-        StorageEvent::Constructor(aOwner, EmptyString(), StorageEventInit());
+        StorageEvent::Constructor(aOwner, u""_ns, StorageEventInit());
     event->MarkUninitialized();
     return event.forget();
   }
@@ -1291,9 +1360,41 @@ static bool ShouldClearTargets(WidgetEvent* aEvent) {
   return nullptr;
 }
 
-// static
+struct CurrentTargetPathInfo {
+  uint32_t mIndex;
+  int32_t mHiddenSubtreeLevel;
+};
+
+static CurrentTargetPathInfo TargetPathInfo(
+    const nsTArray<EventTargetChainItem>& aEventPath,
+    const EventTarget& aCurrentTarget) {
+  int32_t currentTargetHiddenSubtreeLevel = 0;
+  for (uint32_t index = aEventPath.Length(); index--;) {
+    const EventTargetChainItem& item = aEventPath.ElementAt(index);
+    if (item.PreHandleEventOnly()) {
+      continue;
+    }
+
+    if (item.IsRootOfClosedTree()) {
+      currentTargetHiddenSubtreeLevel++;
+    }
+
+    if (item.CurrentTarget() == &aCurrentTarget) {
+      return {index, currentTargetHiddenSubtreeLevel};
+    }
+
+    if (item.IsSlotInClosedTree()) {
+      currentTargetHiddenSubtreeLevel--;
+    }
+  }
+  MOZ_ASSERT_UNREACHABLE("No target found?");
+  return {0, 0};
+}
+
+// https://dom.spec.whatwg.org/#dom-event-composedpath
 void EventDispatcher::GetComposedPathFor(WidgetEvent* aEvent,
                                          nsTArray<RefPtr<EventTarget>>& aPath) {
+  MOZ_ASSERT(aPath.IsEmpty());
   nsTArray<EventTargetChainItem>* path = aEvent->mPath;
   if (!path || path->IsEmpty() || !aEvent->mCurrentTarget) {
     return;
@@ -1305,47 +1406,68 @@ void EventDispatcher::GetComposedPathFor(WidgetEvent* aEvent,
     return;
   }
 
-  AutoTArray<EventTarget*, 128> reversedComposedPath;
-  bool hasSeenCurrentTarget = false;
-  uint32_t hiddenSubtreeLevel = 0;
-  for (uint32_t i = path->Length(); i;) {
-    --i;
+  CurrentTargetPathInfo currentTargetInfo =
+      TargetPathInfo(*path, *currentTarget);
 
-    EventTargetChainItem& item = path->ElementAt(i);
-    if (item.PreHandleEventOnly()) {
-      continue;
-    }
+  {
+    int32_t maxHiddenLevel = currentTargetInfo.mHiddenSubtreeLevel;
+    int32_t currentHiddenLevel = currentTargetInfo.mHiddenSubtreeLevel;
+    for (uint32_t index = currentTargetInfo.mIndex; index--;) {
+      EventTargetChainItem& item = path->ElementAt(index);
+      if (item.PreHandleEventOnly()) {
+        continue;
+      }
 
-    if (!hasSeenCurrentTarget && currentTarget == item.CurrentTarget()) {
-      hasSeenCurrentTarget = true;
-    } else if (hasSeenCurrentTarget && item.IsRootOfClosedTree()) {
-      ++hiddenSubtreeLevel;
-    }
+      if (item.IsRootOfClosedTree()) {
+        currentHiddenLevel++;
+      }
 
-    if (hiddenSubtreeLevel == 0) {
-      reversedComposedPath.AppendElement(item.CurrentTarget());
-    }
+      if (currentHiddenLevel <= maxHiddenLevel) {
+        aPath.AppendElement(item.CurrentTarget()->GetTargetForDOMEvent());
+      }
 
-    if (item.IsSlotInClosedTree() && hiddenSubtreeLevel > 0) {
-      --hiddenSubtreeLevel;
-    }
-
-    if (item.IsChromeHandler()) {
-      if (hasSeenCurrentTarget) {
-        // The current behavior is to include only EventTargets from
-        // either chrome side of event path or content side, not from both.
+      if (item.IsChromeHandler()) {
         break;
       }
 
-      // Need to start all over to collect the composed path on content side.
-      reversedComposedPath.Clear();
+      if (item.IsSlotInClosedTree()) {
+        currentHiddenLevel--;
+        maxHiddenLevel = std::min(maxHiddenLevel, currentHiddenLevel);
+      }
     }
+
+    aPath.Reverse();
   }
 
-  aPath.SetCapacity(reversedComposedPath.Length());
-  for (uint32_t i = reversedComposedPath.Length(); i;) {
-    --i;
-    aPath.AppendElement(reversedComposedPath[i]->GetTargetForDOMEvent());
+  aPath.AppendElement(currentTarget->GetTargetForDOMEvent());
+
+  {
+    int32_t maxHiddenLevel = currentTargetInfo.mHiddenSubtreeLevel;
+    int32_t currentHiddenLevel = currentTargetInfo.mHiddenSubtreeLevel;
+    for (uint32_t index = currentTargetInfo.mIndex + 1; index < path->Length();
+         ++index) {
+      EventTargetChainItem& item = path->ElementAt(index);
+      if (item.PreHandleEventOnly()) {
+        continue;
+      }
+
+      if (item.IsSlotInClosedTree()) {
+        currentHiddenLevel++;
+      }
+
+      if (item.IsChromeHandler()) {
+        break;
+      }
+
+      if (currentHiddenLevel <= maxHiddenLevel) {
+        aPath.AppendElement(item.CurrentTarget()->GetTargetForDOMEvent());
+      }
+
+      if (item.IsRootOfClosedTree()) {
+        currentHiddenLevel--;
+        maxHiddenLevel = std::min(maxHiddenLevel, currentHiddenLevel);
+      }
+    }
   }
 }
 

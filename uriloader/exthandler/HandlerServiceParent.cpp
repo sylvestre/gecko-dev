@@ -1,3 +1,10 @@
+/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
+/* vim: set ts=8 sts=2 et sw=2 tw=80: */
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "mozilla/ipc/ProtocolUtils.h"
 #include "mozilla/Logging.h"
 #include "HandlerServiceParent.h"
 #include "nsIHandlerService.h"
@@ -5,7 +12,7 @@
 #include "ContentHandlerService.h"
 #include "nsStringEnumerator.h"
 #ifdef MOZ_WIDGET_GTK
-#include "unix/nsGNOMERegistry.h"
+#  include "unix/nsGNOMERegistry.h"
 #endif
 
 using mozilla::dom::ContentHandlerService;
@@ -98,9 +105,9 @@ NS_IMETHODIMP ProxyHandlerInfo::GetDefaultDescription(
 }
 
 /* void launchWithURI (in nsIURI aURI,
-                       [optional] in nsIInterfaceRequestor aWindowContext); */
+                       [optional] in BrowsingContext aBrowsingContext); */
 NS_IMETHODIMP ProxyHandlerInfo::LaunchWithURI(
-    nsIURI* aURI, nsIInterfaceRequestor* aWindowContext) {
+    nsIURI* aURI, mozilla::dom::BrowsingContext* aBrowsingContext) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
@@ -163,13 +170,18 @@ NS_IMETHODIMP ProxyMIMEInfo::SetFileExtensions(const nsACString& aExtensions) {
 /* boolean extensionExists (in AUTF8String aExtension); */
 NS_IMETHODIMP ProxyMIMEInfo::ExtensionExists(const nsACString& aExtension,
                                              bool* _retval) {
-  *_retval = mProxyHandlerInfo->Extensions().Contains(aExtension);
+  *_retval = mProxyHandlerInfo->Extensions().Contains(
+      aExtension, nsCaseInsensitiveCStringArrayComparator());
   return NS_OK;
 }
 
 /* void appendExtension (in AUTF8String aExtension); */
 NS_IMETHODIMP ProxyMIMEInfo::AppendExtension(const nsACString& aExtension) {
-  mProxyHandlerInfo->Extensions().AppendElement(aExtension);
+  if (!aExtension.IsEmpty() &&
+      !mProxyHandlerInfo->Extensions().Contains(
+          aExtension, nsCaseInsensitiveCStringArrayComparator())) {
+    mProxyHandlerInfo->Extensions().AppendElement(aExtension);
+  }
   return NS_OK;
 }
 
@@ -178,6 +190,7 @@ NS_IMETHODIMP ProxyMIMEInfo::GetPrimaryExtension(
     nsACString& aPrimaryExtension) {
   const auto& extensions = mProxyHandlerInfo->Extensions();
   if (extensions.IsEmpty()) {
+    aPrimaryExtension.Truncate();
     return NS_ERROR_FAILURE;
   }
   aPrimaryExtension = extensions[0];
@@ -210,6 +223,11 @@ NS_IMETHODIMP ProxyMIMEInfo::LaunchWithFile(nsIFile* aFile) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
+/* boolean isCurrentAppOSDefault(); */
+NS_IMETHODIMP ProxyMIMEInfo::IsCurrentAppOSDefault(bool* _retval) {
+  return NS_ERROR_NOT_IMPLEMENTED;
+}
+
 static already_AddRefed<nsIHandlerInfo> WrapHandlerInfo(
     const HandlerInfo& aHandlerInfo) {
   nsCOMPtr<nsIHandlerInfo> info;
@@ -238,6 +256,37 @@ mozilla::ipc::IPCResult HandlerServiceParent::RecvFillHandlerInfo(
   return IPC_OK();
 }
 
+mozilla::ipc::IPCResult HandlerServiceParent::RecvGetMIMEInfoFromOS(
+    const nsCString& aMIMEType, const nsCString& aExtension, nsresult* aRv,
+    HandlerInfo* aHandlerInfoData, bool* aFound) {
+  *aFound = false;
+  if (aMIMEType.Length() > MAX_MIMETYPE_LENGTH ||
+      aExtension.Length() > MAX_EXT_LENGTH) {
+    *aRv = NS_OK;
+    return IPC_OK();
+  }
+
+  nsCOMPtr<nsIMIMEService> mimeService =
+      do_GetService(NS_MIMESERVICE_CONTRACTID, aRv);
+  if (NS_WARN_IF(NS_FAILED(*aRv))) {
+    return IPC_OK();
+  }
+
+  nsCOMPtr<nsIMIMEInfo> mimeInfo;
+  *aRv = mimeService->GetMIMEInfoFromOS(aMIMEType, aExtension, aFound,
+                                        getter_AddRefs(mimeInfo));
+  if (NS_WARN_IF(NS_FAILED(*aRv))) {
+    return IPC_OK();
+  }
+
+  if (mimeInfo) {
+    ContentHandlerService::nsIHandlerInfoToHandlerInfo(mimeInfo,
+                                                       aHandlerInfoData);
+  }
+
+  return IPC_OK();
+}
+
 mozilla::ipc::IPCResult HandlerServiceParent::RecvExists(
     const HandlerInfo& aHandlerInfo, bool* exists) {
   nsCOMPtr<nsIHandlerInfo> info(WrapHandlerInfo(aHandlerInfo));
@@ -247,8 +296,12 @@ mozilla::ipc::IPCResult HandlerServiceParent::RecvExists(
   return IPC_OK();
 }
 
-mozilla::ipc::IPCResult HandlerServiceParent::RecvExistsForProtocol(
+mozilla::ipc::IPCResult HandlerServiceParent::RecvExistsForProtocolOS(
     const nsCString& aProtocolScheme, bool* aHandlerExists) {
+  if (aProtocolScheme.Length() > MAX_SCHEME_LENGTH) {
+    *aHandlerExists = false;
+    return IPC_OK();
+  }
 #ifdef MOZ_WIDGET_GTK
   // Check the GNOME registry for a protocol handler
   *aHandlerExists = nsGNOMERegistry::HandlerExists(aProtocolScheme.get());
@@ -258,11 +311,68 @@ mozilla::ipc::IPCResult HandlerServiceParent::RecvExistsForProtocol(
   return IPC_OK();
 }
 
+/*
+ * Check if a handler exists for the provided protocol. Check the datastore
+ * first and then fallback to checking the OS for a handler.
+ */
+mozilla::ipc::IPCResult HandlerServiceParent::RecvExistsForProtocol(
+    const nsCString& aProtocolScheme, bool* aHandlerExists) {
+  if (aProtocolScheme.Length() > MAX_SCHEME_LENGTH) {
+    *aHandlerExists = false;
+    return IPC_OK();
+  }
+#if defined(XP_MACOSX)
+  // Check the datastore and fallback to an OS check.
+  // ExternalProcotolHandlerExists() does the fallback.
+  nsresult rv;
+  nsCOMPtr<nsIExternalProtocolService> protoSvc =
+      do_GetService(NS_EXTERNALPROTOCOLSERVICE_CONTRACTID, &rv);
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    *aHandlerExists = false;
+    return IPC_OK();
+  }
+  rv = protoSvc->ExternalProtocolHandlerExists(aProtocolScheme.get(),
+                                               aHandlerExists);
+
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    *aHandlerExists = false;
+  }
+#else
+  MOZ_RELEASE_ASSERT(false, "No implementation on this platform.");
+  *aHandlerExists = false;
+#endif
+  return IPC_OK();
+}
+
 mozilla::ipc::IPCResult HandlerServiceParent::RecvGetTypeFromExtension(
     const nsCString& aFileExtension, nsCString* type) {
+  if (aFileExtension.Length() > MAX_EXT_LENGTH) {
+    return IPC_OK();
+  }
+
+  nsresult rv;
   nsCOMPtr<nsIHandlerService> handlerSvc =
-      do_GetService(NS_HANDLERSERVICE_CONTRACTID);
-  handlerSvc->GetTypeFromExtension(aFileExtension, *type);
+      do_GetService(NS_HANDLERSERVICE_CONTRACTID, &rv);
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return IPC_OK();
+  }
+
+  rv = handlerSvc->GetTypeFromExtension(aFileExtension, *type);
+  mozilla::Unused << NS_WARN_IF(NS_FAILED(rv));
+
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult HandlerServiceParent::RecvGetApplicationDescription(
+    const nsCString& aScheme, nsresult* aRv, nsString* aDescription) {
+  if (aScheme.Length() > MAX_SCHEME_LENGTH) {
+    *aRv = NS_ERROR_NOT_AVAILABLE;
+    return IPC_OK();
+  }
+  nsCOMPtr<nsIExternalProtocolService> protoSvc =
+      do_GetService(NS_EXTERNALPROTOCOLSERVICE_CONTRACTID);
+  NS_ASSERTION(protoSvc, "No Helper App Service!");
+  *aRv = protoSvc->GetApplicationDescription(aScheme, *aDescription);
   return IPC_OK();
 }
 

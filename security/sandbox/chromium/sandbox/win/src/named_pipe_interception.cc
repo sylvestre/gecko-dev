@@ -16,15 +16,19 @@
 
 namespace sandbox {
 
-HANDLE WINAPI TargetCreateNamedPipeW(
-    CreateNamedPipeWFunction orig_CreateNamedPipeW, LPCWSTR pipe_name,
-    DWORD open_mode, DWORD pipe_mode, DWORD max_instance, DWORD out_buffer_size,
-    DWORD in_buffer_size, DWORD default_timeout,
-    LPSECURITY_ATTRIBUTES security_attributes) {
-  HANDLE pipe = orig_CreateNamedPipeW(pipe_name, open_mode, pipe_mode,
-                                      max_instance, out_buffer_size,
-                                      in_buffer_size, default_timeout,
-                                      security_attributes);
+HANDLE WINAPI
+TargetCreateNamedPipeW(CreateNamedPipeWFunction orig_CreateNamedPipeW,
+                       LPCWSTR pipe_name,
+                       DWORD open_mode,
+                       DWORD pipe_mode,
+                       DWORD max_instance,
+                       DWORD out_buffer_size,
+                       DWORD in_buffer_size,
+                       DWORD default_timeout,
+                       LPSECURITY_ATTRIBUTES security_attributes) {
+  HANDLE pipe = orig_CreateNamedPipeW(
+      pipe_name, open_mode, pipe_mode, max_instance, out_buffer_size,
+      in_buffer_size, default_timeout, security_attributes);
   if (INVALID_HANDLE_VALUE != pipe)
     return pipe;
 
@@ -42,21 +46,21 @@ HANDLE WINAPI TargetCreateNamedPipeW(
 
   do {
     void* memory = GetGlobalIPCMemory();
-    if (NULL == memory)
+    if (!memory)
       break;
 
     CountedParameterSet<NameBased> params;
     params[NameBased::NAME] = ParamPickerMake(pipe_name);
 
-    if (!QueryBroker(IPC_CREATENAMEDPIPEW_TAG, params.GetBase()))
+    if (!QueryBroker(IpcTag::CREATENAMEDPIPEW, params.GetBase()))
       break;
 
     SharedMemIPCClient ipc(memory);
     CrossCallReturn answer = {0};
-    ResultCode code = CrossCall(ipc, IPC_CREATENAMEDPIPEW_TAG, pipe_name,
-                                open_mode, pipe_mode, max_instance,
-                                out_buffer_size, in_buffer_size,
-                                default_timeout, &answer);
+    ResultCode code =
+        CrossCall(ipc, IpcTag::CREATENAMEDPIPEW, pipe_name, open_mode,
+                  pipe_mode, max_instance, out_buffer_size, in_buffer_size,
+                  default_timeout, &answer);
     if (SBOX_ALL_OK != code)
       break;
 

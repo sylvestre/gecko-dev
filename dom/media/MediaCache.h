@@ -11,6 +11,7 @@
 #include "Intervals.h"
 #include "mozilla/Result.h"
 #include "mozilla/UniquePtr.h"
+#include "mozilla/dom/MediaDebugInfoBinding.h"
 #include "nsCOMPtr.h"
 #include "nsHashKeys.h"
 #include "nsTArray.h"
@@ -216,12 +217,12 @@ class MediaCacheStream : public DecoderDoctorLifeLogger<MediaCacheStream> {
   // on this class.
   void InitAsClone(MediaCacheStream* aOriginal);
 
-  nsIEventTarget* OwnerThread() const;
+  nsISerialEventTarget* OwnerThread() const;
 
   // These are called on the main thread.
-  // This must be called (and return) before the ChannelMediaResource
+  // This must be called (and resolve) before the ChannelMediaResource
   // used to create this MediaCacheStream is deleted.
-  void Close();
+  RefPtr<GenericPromise> Close();
   // This returns true when the stream has been closed.
   bool IsClosed(AutoLock&) const { return mClosed; }
   // Returns true when this stream is can be shared by a new resource load.
@@ -330,7 +331,7 @@ class MediaCacheStream : public DecoderDoctorLifeLogger<MediaCacheStream> {
   // real end is not known) is in cache. If we know nothing about the
   // end of the stream, this returns false.
   bool IsDataCachedToEndOfStream(int64_t aOffset);
-  // The mode is initially MODE_PLAYBACK.
+  // The mode is initially MODE_METADATA.
   void SetReadMode(ReadMode aMode);
   // This is the client's estimate of the playback rate assuming
   // the media plays continuously. The cache can't guess this itself
@@ -359,7 +360,7 @@ class MediaCacheStream : public DecoderDoctorLifeLogger<MediaCacheStream> {
 
   size_t SizeOfExcludingThis(MallocSizeOf aMallocSizeOf) const;
 
-  nsCString GetDebugInfo();
+  void GetDebugInfo(dom::MediaCacheStreamDebugInfo& aInfo);
 
  private:
   friend class MediaCache;
@@ -453,7 +454,7 @@ class MediaCacheStream : public DecoderDoctorLifeLogger<MediaCacheStream> {
   // Used by |NotifyDataEnded| to write |mPartialBlock| to disk.
   // If |aNotifyAll| is true, this function will wake up readers who may be
   // waiting on the media cache monitor. Called on the main thread only.
-  void FlushPartialBlockInternal(AutoLock&, bool aNotify);
+  void FlushPartialBlockInternal(AutoLock&, bool aNotifyAll);
 
   void NotifyDataStartedInternal(uint32_t aLoadID, int64_t aOffset,
                                  bool aSeekable, int64_t aLength);

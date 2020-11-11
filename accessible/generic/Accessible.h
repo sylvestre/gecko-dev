@@ -11,20 +11,18 @@
 #include "mozilla/a11y/Role.h"
 #include "mozilla/a11y/States.h"
 
+#include "mozilla/dom/Element.h"
+
 #include "mozilla/UniquePtr.h"
 
 #include "nsIContent.h"
-#include "nsIContentInlines.h"
-#include "nsString.h"
 #include "nsTArray.h"
 #include "nsRefPtrHashtable.h"
 #include "nsRect.h"
 
 struct nsRoleMapEntry;
 
-struct nsRect;
 class nsIFrame;
-class nsAtom;
 class nsIPersistentProperties;
 
 namespace mozilla {
@@ -39,6 +37,7 @@ class EmbeddedObjCollector;
 class EventTree;
 class HTMLImageMapAccessible;
 class HTMLLIAccessible;
+class HTMLLinkAccessible;
 class HyperTextAccessible;
 class ImageAccessible;
 class KeyBinding;
@@ -172,15 +171,7 @@ class Accessible : public nsISupports {
   /**
    * Return the unique identifier of the accessible.
    */
-  void* UniqueID() {
-    // When recording or replaying, use an ID which will be consistent when
-    // recording/replaying (pointer values are not consistent), so that IPC
-    // messages from the parent process can be handled when replaying.
-    if (recordreplay::IsRecordingOrReplaying()) {
-      return reinterpret_cast<void*>(recordreplay::ThingIndex(this));
-    }
-    return static_cast<void*>(this);
-  }
+  void* UniqueID() { return static_cast<void*>(this); }
 
   /**
    * Return language associated with the accessible.
@@ -275,15 +266,6 @@ class Accessible : public nsISupports {
     uint64_t state = NativeLinkState();
     ApplyARIAState(&state);
     return state;
-  }
-
-  /**
-   * Return if accessible is unavailable.
-   */
-  bool Unavailable() const {
-    uint64_t state = NativelyUnavailable() ? states::UNAVAILABLE : 0;
-    ApplyARIAState(&state);
-    return state & states::UNAVAILABLE;
   }
 
   /**
@@ -394,9 +376,9 @@ class Accessible : public nsISupports {
   virtual bool RemoveChild(Accessible* aChild);
 
   /**
-   * Reallocates the child withing its parent.
+   * Reallocates the child within its parent.
    */
-  void MoveChild(uint32_t aNewIndex, Accessible* aChild);
+  virtual void RelocateChild(uint32_t aNewIndex, Accessible* aChild);
 
   //////////////////////////////////////////////////////////////////////////////
   // Accessible tree traverse methods
@@ -542,6 +524,7 @@ class Accessible : public nsISupports {
   /**
    * Scroll the accessible into view.
    */
+  MOZ_CAN_RUN_SCRIPT
   virtual void ScrollTo(uint32_t aHow) const;
 
   /**
@@ -591,6 +574,9 @@ class Accessible : public nsISupports {
 
   bool IsHTMLListItem() const { return mType == eHTMLLiType; }
   HTMLLIAccessible* AsHTMLListItem();
+
+  bool IsHTMLLink() const { return mType == eHTMLLinkType; }
+  HTMLLinkAccessible* AsHTMLLink();
 
   bool IsHTMLOptGroup() const { return mType == eHTMLOptGroupType; }
 
@@ -674,6 +660,8 @@ class Accessible : public nsISupports {
   bool IsXULListItem() const { return mType == eXULListItemType; }
 
   bool IsXULTabpanels() const { return mType == eXULTabpanelsType; }
+
+  bool IsXULTooltip() const { return mType == eXULTooltipType; }
 
   bool IsXULTree() const { return mType == eXULTreeType; }
   XULTreeAccessible* AsXULTree();
@@ -900,6 +888,16 @@ class Accessible : public nsISupports {
   }
 
   /**
+   * Return true if native markup has a numeric value.
+   */
+  bool NativeHasNumericValue() const;
+
+  /**
+   * Return true if ARIA specifies support for a numeric value.
+   */
+  bool ARIAHasNumericValue() const;
+
+  /**
    * Return true if the accessible has a numeric value.
    */
   bool HasNumericValue() const;
@@ -924,12 +922,6 @@ class Accessible : public nsISupports {
     else
       mStateFlags &= ~eRelocated;
   }
-
-  /**
-   * Return true if the accessible doesn't allow accessible children from XBL
-   * anonymous subtree.
-   */
-  bool NoXBLKids() const { return mStateFlags & eNoXBLKids; }
 
   /**
    * Return true if the accessible allows accessible children from subtree of
@@ -979,6 +971,14 @@ class Accessible : public nsISupports {
    * Set if this accessible is a hide event target.
    */
   void SetHideEventTarget(bool aTarget) { mHideEventTarget = aTarget; }
+
+  void Announce(const nsAString& aAnnouncement, uint16_t aPriority);
+
+  /**
+   * Fire a focusable state change event if the previous state
+   * was different.
+   */
+  void MaybeFireFocusableStateChange(bool aPreviouslyFocusable);
 
  protected:
   virtual ~Accessible();
@@ -1034,11 +1034,10 @@ class Accessible : public nsISupports {
     eKidsMutating = 1 << 6,      // subtree is being mutated
     eIgnoreDOMUIEvent = 1 << 7,  // don't process DOM UI events for a11y events
     eRelocated = 1 << 8,         // accessible was moved in tree
-    eNoXBLKids = 1 << 9,         // accessible don't allows XBL children
-    eNoKidsFromDOM = 1 << 10,    // accessible doesn't allow children from DOM
-    eHasTextKids = 1 << 11,      // accessible have a text leaf in children
+    eNoKidsFromDOM = 1 << 9,     // accessible doesn't allow children from DOM
+    eHasTextKids = 1 << 10,      // accessible have a text leaf in children
 
-    eLastStateFlag = eNoKidsFromDOM
+    eLastStateFlag = eHasTextKids
   };
 
   /**
@@ -1068,6 +1067,18 @@ class Accessible : public nsISupports {
    * Returns the accessible name specified by ARIA.
    */
   void ARIAName(nsString& aName) const;
+
+  /**
+   * Returns the accessible description specified by ARIA.
+   */
+  void ARIADescription(nsString& aDescription) const;
+
+  /**
+   * Returns the accessible name specified for this control using XUL
+   * <label control="id" ...>.
+   */
+  static void NameFromAssociatedXULLabel(DocAccessible* aDocument,
+                                         nsIContent* aElm, nsString& aName);
 
   /**
    * Return the name for XUL element.
@@ -1102,6 +1113,7 @@ class Accessible : public nsISupports {
   /**
    * Dispatch click event.
    */
+  MOZ_CAN_RUN_SCRIPT
   virtual void DispatchClickEvent(nsIContent* aContent,
                                   uint32_t aActionIndex) const;
 
@@ -1141,7 +1153,7 @@ class Accessible : public nsISupports {
   nsTArray<Accessible*> mChildren;
   int32_t mIndexInParent;
 
-  static const uint8_t kStateFlagsBits = 12;
+  static const uint8_t kStateFlagsBits = 11;
   static const uint8_t kContextFlagsBits = 2;
   static const uint8_t kTypeBits = 6;
   static const uint8_t kGenericTypesBits = 16;

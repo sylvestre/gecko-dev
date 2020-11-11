@@ -6,15 +6,13 @@
 #include "nsXMLPrettyPrinter.h"
 #include "nsContentUtils.h"
 #include "nsICSSDeclaration.h"
-#include "nsIObserver.h"
 #include "nsSyncLoadService.h"
 #include "nsPIDOMWindow.h"
-#include "nsIServiceManager.h"
 #include "nsNetUtil.h"
 #include "mozilla/dom/Element.h"
-#include "nsIScriptSecurityManager.h"
+#include "mozilla/dom/ShadowRoot.h"
 #include "mozilla/Preferences.h"
-#include "nsIDocument.h"
+#include "mozilla/dom/Document.h"
 #include "nsVariant.h"
 #include "mozilla/dom/CustomEvent.h"
 #include "mozilla/dom/DocumentFragment.h"
@@ -34,7 +32,7 @@ nsXMLPrettyPrinter::~nsXMLPrettyPrinter() {
   NS_ASSERTION(!mDocument, "we shouldn't be referencing the document still");
 }
 
-nsresult nsXMLPrettyPrinter::PrettyPrint(nsIDocument* aDocument,
+nsresult nsXMLPrettyPrinter::PrettyPrint(Document* aDocument,
                                          bool* aDidPrettyPrint) {
   *aDidPrettyPrint = false;
 
@@ -43,22 +41,33 @@ nsresult nsXMLPrettyPrinter::PrettyPrint(nsIDocument* aDocument,
     return NS_OK;
   }
 
+  // Find the root element
+  RefPtr<Element> rootElement = aDocument->GetRootElement();
+  NS_ENSURE_TRUE(rootElement, NS_ERROR_UNEXPECTED);
+
+  // nsXMLContentSink should not ask us to pretty print an XML doc that comes
+  // with a CanAttachShadowDOM() == true root element, but just in case:
+  if (rootElement->CanAttachShadowDOM()) {
+    MOZ_DIAGNOSTIC_ASSERT(false, "We shouldn't be getting this root element");
+    return NS_ERROR_UNEXPECTED;
+  }
+
   // Ok, we should prettyprint. Let's do it!
   *aDidPrettyPrint = true;
   nsresult rv = NS_OK;
 
   // Load the XSLT
   nsCOMPtr<nsIURI> xslUri;
-  rv = NS_NewURI(
-      getter_AddRefs(xslUri),
-      NS_LITERAL_CSTRING("chrome://global/content/xml/XMLPrettyPrint.xsl"));
+  rv = NS_NewURI(getter_AddRefs(xslUri),
+                 "chrome://global/content/xml/XMLPrettyPrint.xsl"_ns);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  nsCOMPtr<nsIDocument> xslDocument;
+  nsCOMPtr<Document> xslDocument;
   rv = nsSyncLoadService::LoadDocument(
       xslUri, nsIContentPolicy::TYPE_XSLT, nsContentUtils::GetSystemPrincipal(),
-      nsILoadInfo::SEC_ALLOW_CROSS_ORIGIN_DATA_IS_NULL, nullptr, true,
-      mozilla::net::RP_Unset, getter_AddRefs(xslDocument));
+      nsILoadInfo::SEC_ALLOW_CROSS_ORIGIN_SEC_CONTEXT_IS_NULL, nullptr,
+      aDocument->CookieJarSettings(), true, ReferrerPolicy::_empty,
+      getter_AddRefs(xslDocument));
   NS_ENSURE_SUCCESS(rv, rv);
 
   // Transform the document
@@ -75,13 +84,11 @@ nsresult nsXMLPrettyPrinter::PrettyPrint(nsIDocument* aDocument,
     return err.StealNSResult();
   }
 
-  // Find the root element
-  RefPtr<Element> rootElement = aDocument->GetRootElement();
-  NS_ENSURE_TRUE(rootElement, NS_ERROR_UNEXPECTED);
-
-  // Attach a closed shadow root on it.
-  RefPtr<ShadowRoot> shadowRoot =
-      rootElement->AttachShadowWithoutNameChecks(ShadowRootMode::Closed);
+  // Attach an UA Widget Shadow Root on it.
+  rootElement->AttachAndSetUAShadowRoot(Element::NotifyUAWidgetSetup::No);
+  RefPtr<ShadowRoot> shadowRoot = rootElement->GetShadowRoot();
+  MOZ_RELEASE_ASSERT(shadowRoot && shadowRoot->IsUAWidget(),
+                     "There should be a UA Shadow Root here.");
 
   // Append the document fragment to the shadow dom.
   shadowRoot->AppendChild(*resultFragment, err);
@@ -103,8 +110,8 @@ void nsXMLPrettyPrinter::MaybeUnhook(nsIContent* aContent) {
   // If it is not null but in the shadow tree or the <scrollbar> NACs,
   // the change was in the generated content, and it should be ignored.
   bool isGeneratedContent =
-      !aContent ? false
-                : aContent->GetBindingParent() || aContent->IsInShadowTree();
+      aContent &&
+      (aContent->IsInNativeAnonymousSubtree() || aContent->IsInShadowTree());
 
   if (!isGeneratedContent && !mUnhookPending) {
     // Can't blindly to mUnhookPending after AddScriptRunner,

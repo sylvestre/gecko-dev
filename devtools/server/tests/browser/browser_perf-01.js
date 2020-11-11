@@ -3,19 +3,31 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 "use strict";
 
+// This test is at the edge of timing out, probably because of LUL
+// initialization on Linux. This is also happening only once, which is why only
+// this test needs it: for other tests LUL is already initialized because
+// they're running in the same Firefox instance.
+// See also bug 1635442.
+requestLongerTimeout(2);
+
 /**
  * Run through a series of basic recording actions for the perf actor.
  */
 add_task(async function() {
-  const {front, client} = await initPerfFront();
+  const { front, client } = await initPerfFront();
 
   // Assert the initial state.
-  is(await front.isSupportedPlatform(), true,
-    "This test only runs on supported platforms.");
-  is(await front.isLockedForPrivateBrowsing(), false,
-    "The browser is not in private browsing mode.");
-  is(await front.isActive(), false,
-    "The profiler is not active yet.");
+  is(
+    await front.isSupportedPlatform(),
+    true,
+    "This test only runs on supported platforms."
+  );
+  is(
+    await front.isLockedForPrivateBrowsing(),
+    false,
+    "The browser is not in private browsing mode."
+  );
+  is(await front.isActive(), false, "The profiler is not active yet.");
 
   // Start the profiler.
   const profilerStarted = once(front, "profiler-started");
@@ -38,8 +50,11 @@ add_task(async function() {
   const profilerStopped2 = once(front, "profiler-stopped");
   await front.stopProfilerAndDiscardProfile();
   await profilerStopped2;
-  is(await front.isActive(), false,
-    "The profiler was stopped and the profile discarded.");
+  is(
+    await front.isActive(),
+    false,
+    "The profiler was stopped and the profile discarded."
+  );
 
   // Clean up.
   await front.destroy();

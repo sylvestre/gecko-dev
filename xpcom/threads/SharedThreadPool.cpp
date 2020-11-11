@@ -17,7 +17,7 @@
 #include "nsIThreadManager.h"
 #include "nsThreadPool.h"
 #ifdef XP_WIN
-#include "ThreadPoolCOMListener.h"
+#  include "ThreadPoolCOMListener.h"
 #endif
 
 namespace mozilla {
@@ -37,7 +37,7 @@ class SharedThreadPoolShutdownObserver : public nsIObserver {
   NS_DECL_ISUPPORTS
   NS_DECL_NSIOBSERVER
  protected:
-  virtual ~SharedThreadPoolShutdownObserver() {}
+  virtual ~SharedThreadPoolShutdownObserver() = default;
 };
 
 NS_IMPL_ISUPPORTS(SharedThreadPoolShutdownObserver, nsIObserver, nsISupports)
@@ -178,7 +178,7 @@ SharedThreadPool::SharedThreadPool(const nsCString& aName, nsIThreadPool* aPool)
   mEventTarget = aPool;
 }
 
-SharedThreadPool::~SharedThreadPool() {}
+SharedThreadPool::~SharedThreadPool() = default;
 
 nsresult SharedThreadPool::EnsureThreadLimitIsAtLeast(uint32_t aLimit) {
   // We limit the number of threads that we use. Note that we

@@ -29,9 +29,7 @@ class HTMLLabelElement final : public nsGenericHTMLElement {
   NS_INLINE_DECL_REFCOUNTING_INHERITED(HTMLLabelElement, nsGenericHTMLElement)
 
   // Element
-  virtual bool IsInteractiveHTMLContent(bool aIgnoreTabindex) const override {
-    return true;
-  }
+  virtual bool IsInteractiveHTMLContent() const override { return true; }
 
   HTMLFormElement* GetForm() const;
   void GetHtmlFor(nsString& aHtmlFor) {
@@ -43,9 +41,12 @@ class HTMLLabelElement final : public nsGenericHTMLElement {
   nsGenericHTMLElement* GetControl() const { return GetLabeledElement(); }
 
   using nsGenericHTMLElement::Focus;
-  virtual void Focus(mozilla::ErrorResult& aError) override;
+  virtual void Focus(const FocusOptions& aOptions,
+                     const mozilla::dom::CallerType aCallerType,
+                     ErrorResult& aError) override;
 
   // nsIContent
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY
   virtual nsresult PostHandleEvent(EventChainPostVisitor& aVisitor) override;
   virtual bool PerformAccesskey(bool aKeyCausesActivation,
                                 bool aIsTrustedEvent) override;

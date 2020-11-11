@@ -7,12 +7,34 @@
 #ifndef mozilla_dom_BlobURL_h
 #define mozilla_dom_BlobURL_h
 
-#include "mozilla/Attributes.h"
 #include "nsCOMPtr.h"
 #include "nsISerializable.h"
 #include "nsSimpleURI.h"
-#include "nsIIPCSerializableURI.h"
 #include "prtime.h"
+
+#define NS_HOSTOBJECTURI_CID                         \
+  {                                                  \
+    0xf5475c51, 0x59a7, 0x4757, {                    \
+      0xb3, 0xd9, 0xe2, 0x11, 0xa9, 0x41, 0x08, 0x72 \
+    }                                                \
+  }
+
+#define NS_IBLOBURLMUTATOR_IID                       \
+  {                                                  \
+    0xf91e646d, 0xe87b, 0x485e, {                    \
+      0xbb, 0xc8, 0x0e, 0x8a, 0x2e, 0xe9, 0x87, 0xa9 \
+    }                                                \
+  }
+
+class NS_NO_VTABLE nsIBlobURLMutator : public nsISupports {
+ public:
+  NS_DECLARE_STATIC_IID_ACCESSOR(NS_IBLOBURLMUTATOR_IID)
+  NS_IMETHOD SetRevoked(bool aRevoked) = 0;
+};
+
+inline NS_DEFINE_CID(kHOSTOBJECTURICID, NS_HOSTOBJECTURI_CID);
+
+NS_DEFINE_STATIC_IID_ACCESSOR(nsIBlobURLMutator, NS_IBLOBURLMUTATOR_IID)
 
 namespace mozilla {
 namespace dom {
@@ -27,8 +49,6 @@ class BlobURL final : public mozilla::net::nsSimpleURI {
  public:
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_NSISERIALIZABLE
-  NS_DECL_NSICLASSINFO
-  NS_DECL_NSIIPCSERIALIZABLEURI
 
   // Override CloneInternal() and EqualsInternal()
   virtual nsresult CloneInternal(RefHandlingEnum aRefHandlingMode,
@@ -37,6 +57,7 @@ class BlobURL final : public mozilla::net::nsSimpleURI {
   virtual nsresult EqualsInternal(nsIURI* aOther,
                                   RefHandlingEnum aRefHandlingMode,
                                   bool* aResult) override;
+  NS_IMETHOD_(void) Serialize(mozilla::ipc::URIParams& aParams) override;
 
   // Override StartClone to hand back a BlobURL
   virtual mozilla::net::nsSimpleURI* StartClone(
@@ -57,9 +78,12 @@ class BlobURL final : public mozilla::net::nsSimpleURI {
   bool Deserialize(const mozilla::ipc::URIParams&);
   nsresult ReadPrivate(nsIObjectInputStream* stream);
 
+  bool mRevoked;
+
  public:
   class Mutator final : public nsIURIMutator,
                         public BaseURIMutator<BlobURL>,
+                        public nsIBlobURLMutator,
                         public nsISerializable {
     NS_DECL_ISUPPORTS
     NS_FORWARD_SAFE_NSIURISETTERS_RET(mURI)
@@ -70,8 +94,13 @@ class BlobURL final : public mozilla::net::nsSimpleURI {
       return NS_ERROR_NOT_IMPLEMENTED;
     }
 
-    MOZ_MUST_USE NS_IMETHOD Read(nsIObjectInputStream* aStream) override {
+    [[nodiscard]] NS_IMETHOD Read(nsIObjectInputStream* aStream) override {
       return InitFromInputStream(aStream);
+    }
+
+    NS_IMETHOD SetRevoked(bool aRevoked) override {
+      mURI->mRevoked = aRevoked;
+      return NS_OK;
     }
 
     Mutator() = default;
@@ -83,16 +112,7 @@ class BlobURL final : public mozilla::net::nsSimpleURI {
   };
 
   friend BaseURIMutator<BlobURL>;
-
-  bool mRevoked;
 };
-
-#define NS_HOSTOBJECTURI_CID                         \
-  {                                                  \
-    0xf5475c51, 0x59a7, 0x4757, {                    \
-      0xb3, 0xd9, 0xe2, 0x11, 0xa9, 0x41, 0x08, 0x72 \
-    }                                                \
-  }
 
 #define NS_HOSTOBJECTURIMUTATOR_CID                  \
   {                                                  \

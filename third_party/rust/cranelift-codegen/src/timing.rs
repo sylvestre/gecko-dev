@@ -2,7 +2,7 @@
 //!
 //! This modules provides facilities for timing the execution of individual compilation passes.
 
-use std::fmt;
+use core::fmt;
 
 pub use self::details::{add_to_current, take_current, PassTimes, TimingToken};
 
@@ -37,7 +37,7 @@ macro_rules! define_passes {
 }
 
 // Pass definitions.
-define_passes!{
+define_passes! {
     Pass, NUM_PASSES, DESCRIPTIONS;
 
     process_file: "Processing test file",
@@ -62,6 +62,12 @@ define_passes!{
     gvn: "Global value numbering",
     licm: "Loop invariant code motion",
     unreachable_code: "Remove unreachable blocks",
+    remove_constant_phis: "Remove constant phi-nodes",
+
+    vcode_lower: "VCode lowering",
+    vcode_post_ra: "VCode post-register allocation finalization",
+    vcode_emit: "VCode emission",
+    vcode_emit_finish: "VCode emission finalization",
 
     regalloc: "Register allocation",
     ra_liveness: "RA liveness analysis",
@@ -102,6 +108,7 @@ impl fmt::Display for Pass {
 #[cfg(feature = "std")]
 mod details {
     use super::{Pass, DESCRIPTIONS, NUM_PASSES};
+    use log::debug;
     use std::cell::{Cell, RefCell};
     use std::fmt;
     use std::mem;
@@ -140,7 +147,7 @@ mod details {
 
     impl Default for PassTimes {
         fn default() -> Self {
-            PassTimes {
+            Self {
                 pass: [Default::default(); NUM_PASSES],
             }
         }
@@ -157,7 +164,7 @@ mod details {
                     continue;
                 }
 
-                // Write a duration as secs.milis, trailing space.
+                // Write a duration as secs.millis, trailing space.
                 fn fmtdur(mut dur: Duration, f: &mut fmt::Formatter) -> fmt::Result {
                     // Round to nearest ms by adding 500us.
                     dur += Duration::new(0, 500_000);
@@ -175,8 +182,8 @@ mod details {
         }
     }
 
-    /// Information about passes in a single thread.
-    thread_local!{
+    // Information about passes in a single thread.
+    thread_local! {
         static CURRENT_PASS: Cell<Pass> = Cell::new(Pass::None);
         static PASS_TIME: RefCell<PassTimes> = RefCell::new(Default::default());
     }
@@ -251,7 +258,7 @@ mod details {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::string::ToString;
+    use alloc::string::ToString;
 
     #[test]
     fn display() {

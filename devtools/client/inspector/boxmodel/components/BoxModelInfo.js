@@ -9,7 +9,7 @@ const dom = require("devtools/client/shared/vendor/react-dom-factories");
 const PropTypes = require("devtools/client/shared/vendor/react-prop-types");
 const { LocalizationHelper } = require("devtools/shared/l10n");
 
-const Types = require("../types");
+const Types = require("devtools/client/inspector/boxmodel/types");
 
 const BOXMODEL_STRINGS_URI = "devtools/client/locales/boxmodel.properties";
 const BOXMODEL_L10N = new LocalizationHelper(BOXMODEL_STRINGS_URI);
@@ -37,34 +37,38 @@ class BoxModelInfo extends PureComponent {
   render() {
     const { boxModel } = this.props;
     const { geometryEditorEnabled, layout } = boxModel;
-    const {
-      height = "-",
-      isPositionEditable,
-      position,
-      width = "-",
-    } = layout;
+    const { height = "-", isPositionEditable, position, width = "-" } = layout;
 
     let buttonClass = "layout-geometry-editor devtools-button";
     if (geometryEditorEnabled) {
       buttonClass += " checked";
     }
 
-    return (
-      dom.div({ className: "boxmodel-info" },
-        dom.span({ className: "boxmodel-element-size" },
-          SHARED_L10N.getFormatStr("dimensions", width, height)
+    return dom.div(
+      {
+        className: "boxmodel-info",
+        role: "region",
+        "aria-label": SHARED_L10N.getFormatStr(
+          "boxModelInfo.accessibleLabel",
+          width,
+          height,
+          position
         ),
-        dom.section({ className: "boxmodel-position-group" },
-          isPositionEditable ?
-            dom.button({
+      },
+      dom.span(
+        { className: "boxmodel-element-size" },
+        SHARED_L10N.getFormatStr("dimensions", width, height)
+      ),
+      dom.section(
+        { className: "boxmodel-position-group" },
+        isPositionEditable
+          ? dom.button({
               className: buttonClass,
               title: BOXMODEL_L10N.getStr("boxmodel.geometryButton.tooltip"),
               onClick: this.onToggleGeometryEditor,
             })
-            :
-            null,
-          dom.span({ className: "boxmodel-element-position" }, position)
-        )
+          : null,
+        dom.span({ className: "boxmodel-element-position" }, position)
       )
     );
   }

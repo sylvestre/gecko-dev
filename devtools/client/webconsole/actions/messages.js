@@ -1,5 +1,3 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 2 -*- */
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -8,22 +6,28 @@
 
 const {
   prepareMessage,
+  getNaturalOrder,
 } = require("devtools/client/webconsole/utils/messages");
-const { IdGenerator } = require("devtools/client/webconsole/utils/id-generator");
-const { batchActions } = require("devtools/client/shared/redux/middleware/debounce");
+const {
+  IdGenerator,
+} = require("devtools/client/webconsole/utils/id-generator");
+const {
+  batchActions,
+} = require("devtools/client/shared/redux/middleware/debounce");
 
 const {
   MESSAGES_ADD,
-  NETWORK_MESSAGE_UPDATE,
-  NETWORK_UPDATE_REQUEST,
+  NETWORK_MESSAGES_UPDATE,
+  NETWORK_UPDATES_REQUEST,
   MESSAGES_CLEAR,
+  MESSAGES_CLEAR_LOGPOINT,
   MESSAGE_OPEN,
   MESSAGE_CLOSE,
   MESSAGE_TYPE,
-  MESSAGE_TABLE_RECEIVE,
-  PAUSED_EXCECUTION_POINT,
+  MESSAGE_REMOVE,
+  MESSAGE_UPDATE_PAYLOAD,
   PRIVATE_MESSAGES_CLEAR,
-} = require("../constants");
+} = require("devtools/client/webconsole/constants");
 
 const defaultIdGenerator = new IdGenerator();
 
@@ -32,6 +36,8 @@ function messagesAdd(packets, idGenerator = null) {
     idGenerator = defaultIdGenerator;
   }
   const messages = packets.map(packet => prepareMessage(packet, idGenerator));
+  // Sort the messages by their timestamps.
+  messages.sort(getNaturalOrder);
   for (let i = messages.length - 1; i >= 0; i--) {
     if (messages[i].type === MESSAGE_TYPE.CLEAR) {
       return batchActions([
@@ -58,10 +64,10 @@ function messagesClear() {
   };
 }
 
-function setPauseExecutionPoint(executionPoint) {
+function messagesClearLogpoint(logpointId) {
   return {
-    type: PAUSED_EXCECUTION_POINT,
-    executionPoint,
+    type: MESSAGES_CLEAR_LOGPOINT,
+    logpointId,
   };
 }
 
@@ -85,67 +91,91 @@ function messageClose(id) {
   };
 }
 
-function messageTableDataGet(id, client, dataType) {
-  return ({dispatch}) => {
-    let fetchObjectActorData;
-    if (["Map", "WeakMap", "Set", "WeakSet"].includes(dataType)) {
-      fetchObjectActorData = (cb) => client.enumEntries(cb);
-    } else {
-      fetchObjectActorData = (cb) => client.enumProperties({
-        ignoreNonIndexedProperties: dataType === "Array",
-      }, cb);
-    }
+/**
+ * Make a query on the server to get a list of DOM elements matching the given
+ * CSS selectors and set the result as a message's additional data payload.
+ *
+ * @param {String} id
+ *        Message ID
+ * @param {String} cssSelectors
+ *        CSS selectors string to use in the querySelectorAll() call
+ * @return {[type]} [description]
+ */
+function messageGetMatchingElements(id, cssSelectors) {
+  return async ({ dispatch, client, getState }) => {
+    try {
+      // We need to do the querySelectorAll using the target the message is coming from,
+      // as well as with the window the warning message was emitted from.
+      const message = getState().messages.messagesById.get(id);
+      const selectedTargetFront = message?.targetFront;
 
-    fetchObjectActorData(enumResponse => {
-      const {iterator} = enumResponse;
-      iterator.slice(0, iterator.count, sliceResponse => {
-        const {ownProperties} = sliceResponse;
-        dispatch(messageTableDataReceive(id, ownProperties));
-      });
-    });
+      const response = await client.evaluateJSAsync(
+        `document.querySelectorAll('${cssSelectors}')`,
+        {
+          selectedTargetFront,
+          innerWindowID: message.innerWindowID,
+        }
+      );
+      dispatch(messageUpdatePayload(id, response.result));
+    } catch (err) {
+      console.error(err);
+    }
   };
 }
 
-function messageTableDataReceive(id, data) {
+/**
+ * Associate additional data with a message without mutating the original message object.
+ *
+ * @param {String} id
+ *        Message ID
+ * @param {Object} data
+ *        Object with arbitrary data.
+ */
+function messageUpdatePayload(id, data) {
   return {
-    type: MESSAGE_TABLE_RECEIVE,
+    type: MESSAGE_UPDATE_PAYLOAD,
     id,
     data,
   };
 }
 
-function networkMessageUpdate(packet, idGenerator = null, response) {
+function messageRemove(id) {
+  return {
+    type: MESSAGE_REMOVE,
+    id,
+  };
+}
+
+function networkMessageUpdates(packets, idGenerator = null) {
   if (idGenerator == null) {
     idGenerator = defaultIdGenerator;
   }
 
-  const message = prepareMessage(packet, idGenerator);
+  const messages = packets.map(packet => prepareMessage(packet, idGenerator));
 
   return {
-    type: NETWORK_MESSAGE_UPDATE,
-    message,
-    response,
+    type: NETWORK_MESSAGES_UPDATE,
+    messages,
   };
 }
 
-function networkUpdateRequest(id, data) {
+function networkUpdateRequests(updates) {
   return {
-    type: NETWORK_UPDATE_REQUEST,
-    id,
-    data,
+    type: NETWORK_UPDATES_REQUEST,
+    updates,
   };
 }
 
 module.exports = {
   messagesAdd,
   messagesClear,
+  messagesClearLogpoint,
   messageOpen,
   messageClose,
-  messageTableDataGet,
-  networkMessageUpdate,
-  networkUpdateRequest,
+  messageRemove,
+  messageGetMatchingElements,
+  messageUpdatePayload,
+  networkMessageUpdates,
+  networkUpdateRequests,
   privateMessagesClear,
-  // for test purpose only.
-  messageTableDataReceive,
-  setPauseExecutionPoint,
 };

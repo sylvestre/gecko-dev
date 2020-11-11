@@ -1,3 +1,9 @@
+/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
+/* vim: set ts=8 sts=2 et sw=2 tw=80: */
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 #ifndef mozilla_jni_Types_h__
 #define mozilla_jni_Types_h__
 
@@ -49,9 +55,9 @@ struct TypeAdapter<LocalRef<Cls>> {
 // clang is picky about function types, including attributes that modify the
 // calling convention, lining up.  GCC appears to be somewhat less so.
 #ifdef __clang__
-#define MOZ_JNICALL_ABI JNICALL
+#  define MOZ_JNICALL_ABI JNICALL
 #else
-#define MOZ_JNICALL_ABI
+#  define MOZ_JNICALL_ABI
 #endif
 
 // NDK r18 made jvalue* method parameters const. We detect the change directly

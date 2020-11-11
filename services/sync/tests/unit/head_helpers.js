@@ -10,50 +10,81 @@
 // is used (from service.js).
 /* global Service */
 
-ChromeUtils.import("resource://testing-common/AddonTestUtils.jsm");
-ChromeUtils.import("resource://services-common/async.js");
-ChromeUtils.import("resource://services-common/utils.js");
-ChromeUtils.import("resource://testing-common/PlacesTestUtils.jsm");
-ChromeUtils.import("resource://services-sync/util.js");
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
-ChromeUtils.import("resource://gre/modules/PlacesUtils.jsm");
-ChromeUtils.import("resource://gre/modules/PlacesSyncUtils.jsm");
-ChromeUtils.import("resource://gre/modules/ObjectUtils.jsm");
-ChromeUtils.import("resource://testing-common/services/sync/utils.js");
-ChromeUtils.defineModuleGetter(this, "AddonManager",
-                               "resource://gre/modules/AddonManager.jsm");
+var { AddonTestUtils, MockAsyncShutdown } = ChromeUtils.import(
+  "resource://testing-common/AddonTestUtils.jsm"
+);
+var { Async } = ChromeUtils.import("resource://services-common/async.js");
+var { CommonUtils } = ChromeUtils.import("resource://services-common/utils.js");
+var { PlacesTestUtils } = ChromeUtils.import(
+  "resource://testing-common/PlacesTestUtils.jsm"
+);
+var { sinon } = ChromeUtils.import("resource://testing-common/Sinon.jsm");
+var { SerializableSet, Svc, Utils, getChromeWindow } = ChromeUtils.import(
+  "resource://services-sync/util.js"
+);
+var { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+var { PlacesUtils } = ChromeUtils.import(
+  "resource://gre/modules/PlacesUtils.jsm"
+);
+var { PlacesSyncUtils } = ChromeUtils.import(
+  "resource://gre/modules/PlacesSyncUtils.jsm"
+);
+var { ObjectUtils } = ChromeUtils.import(
+  "resource://gre/modules/ObjectUtils.jsm"
+);
+var {
+  AccountState,
+  MockFxaStorageManager,
+  SyncTestingInfrastructure,
+  configureFxAccountIdentity,
+  configureIdentity,
+  encryptPayload,
+  getLoginTelemetryScalar,
+  makeFxAccountsInternalMock,
+  makeIdentityConfig,
+  promiseNamedTimer,
+  promiseZeroTimer,
+  sumHistogram,
+  syncTestLogging,
+  waitForZeroTimer,
+} = ChromeUtils.import("resource://testing-common/services/sync/utils.js");
+ChromeUtils.defineModuleGetter(
+  this,
+  "AddonManager",
+  "resource://gre/modules/AddonManager.jsm"
+);
 
 add_task(async function head_setup() {
   // Initialize logging. This will sometimes be reset by a pref reset,
   // so it's also called as part of SyncTestingInfrastructure().
   syncTestLogging();
   // If a test imports Service, make sure it is initialized first.
-  if (this.Service) {
-    await this.Service.promiseInitialized;
+  if (typeof Service !== "undefined") {
+    await Service.promiseInitialized;
   }
 });
-
-// ================================================
-// Load mocking/stubbing library, sinon
-// docs: http://sinonjs.org/releases/v2.3.2/
-ChromeUtils.import("resource://gre/modules/Timer.jsm");
-Services.scriptloader.loadSubScript("resource://testing-common/sinon-2.3.2.js", this);
-/* globals sinon */
-// ================================================
 
 XPCOMUtils.defineLazyGetter(this, "SyncPingSchema", function() {
   let ns = {};
   ChromeUtils.import("resource://gre/modules/FileUtils.jsm", ns);
   ChromeUtils.import("resource://gre/modules/NetUtil.jsm", ns);
-  let stream = Cc["@mozilla.org/network/file-input-stream;1"]
-               .createInstance(Ci.nsIFileInputStream);
+  let stream = Cc["@mozilla.org/network/file-input-stream;1"].createInstance(
+    Ci.nsIFileInputStream
+  );
   let schema;
   try {
     let schemaFile = do_get_file("sync_ping_schema.json");
-    stream.init(schemaFile, ns.FileUtils.MODE_RDONLY, ns.FileUtils.PERMS_FILE, 0);
+    stream.init(
+      schemaFile,
+      ns.FileUtils.MODE_RDONLY,
+      ns.FileUtils.PERMS_FILE,
+      0
+    );
 
     let bytes = ns.NetUtil.readInputStream(stream, stream.available());
-    schema = JSON.parse((new TextDecoder()).decode(bytes));
+    schema = JSON.parse(new TextDecoder().decode(bytes));
   } finally {
     stream.close();
   }
@@ -174,8 +205,7 @@ async function generateNewKeys(collectionKeys, collections = null) {
 // and stub part of Service.wm.
 
 function mockShouldSkipWindow(win) {
-  return win.closed ||
-         win.mockIsPrivate;
+  return win.closed || win.mockIsPrivate;
 }
 
 function mockGetTabState(tab) {
@@ -187,7 +217,7 @@ function mockGetWindowEnumerator(url, numWindows, numTabs, indexes, moreURLs) {
 
   function url2entry(urlToConvert) {
     return {
-      url: ((typeof urlToConvert == "function") ? urlToConvert() : urlToConvert),
+      url: typeof urlToConvert == "function" ? urlToConvert() : urlToConvert,
       title: "title",
     };
   }
@@ -204,14 +234,21 @@ function mockGetWindowEnumerator(url, numWindows, numTabs, indexes, moreURLs) {
     elements.push(win);
 
     for (let t = 0; t < numTabs; ++t) {
-      tabs.push(Cu.cloneInto({
-        index: indexes ? indexes() : 1,
-        entries: (moreURLs ? [url].concat(moreURLs()) : [url]).map(url2entry),
-        attributes: {
-          image: "image",
-        },
-        lastAccessed: 1499,
-      }, {}));
+      tabs.push(
+        Cu.cloneInto(
+          {
+            index: indexes ? indexes() : 1,
+            entries: (moreURLs ? [url].concat(moreURLs()) : [url]).map(
+              url2entry
+            ),
+            attributes: {
+              image: "image",
+            },
+            lastAccessed: 1499,
+          },
+          {}
+        )
+      );
     }
   }
 
@@ -240,7 +277,8 @@ function mockGetWindowEnumerator(url, numWindows, numTabs, indexes, moreURLs) {
 function get_sync_test_telemetry() {
   let ns = {};
   ChromeUtils.import("resource://services-sync/telemetry.js", ns);
-  let testEngines = ["rotary", "steam", "sterling", "catapult"];
+  ns.SyncTelemetry.tryRefreshDevices = function() {};
+  let testEngines = ["rotary", "steam", "sterling", "catapult", "nineties"];
   for (let engineName of testEngines) {
     ns.SyncTelemetry.allowedEngines.add(engineName);
   }
@@ -261,18 +299,19 @@ function assert_valid_ping(record) {
         // the ping actually was - so be helpful.
         info("telemetry ping validation failed");
         info("the ping data is: " + JSON.stringify(record, undefined, 2));
-        info("the validation failures: " + JSON.stringify(SyncPingValidator.errors, undefined, 2));
-        ok(false, "Sync telemetry ping validation failed - see output above for details");
+        info(
+          "the validation failures: " +
+            JSON.stringify(SyncPingValidator.errors, undefined, 2)
+        );
+        ok(
+          false,
+          "Sync telemetry ping validation failed - see output above for details"
+        );
       }
     }
     equal(record.version, 1);
     record.syncs.forEach(p => {
       lessOrEqual(p.when, Date.now());
-      if (p.devices) {
-        ok(!p.devices.some(device => device.id == record.deviceID));
-        equal(new Set(p.devices.map(device => device.id)).size,
-              p.devices.length, "Duplicate device ids in ping devices list");
-      }
     });
   }
 }
@@ -344,16 +383,59 @@ async function wait_for_ping(callback, allowErrorPings, getFullPing = false) {
   return record.syncs[0];
 }
 
-// Short helper for wait_for_ping
-function sync_and_validate_telem(allowErrorPings, getFullPing = false) {
-  return wait_for_ping(() => Service.sync(), allowErrorPings, getFullPing);
+// Perform a sync and validate all telemetry caused by the sync. If fnValidate
+// is null, we just check the ping records success. If fnValidate is specified,
+// then the sync must have recorded just a single sync, and that sync will be
+// passed to the function to be checked.
+async function sync_and_validate_telem(
+  fnValidate = null,
+  wantFullPing = false
+) {
+  let numErrors = 0;
+  let telem = get_sync_test_telemetry();
+  let oldSubmit = telem.submit;
+  try {
+    telem.submit = function(record) {
+      // This is called via an observer, so failures here don't cause the test
+      // to fail :(
+      try {
+        // All pings must be valid.
+        assert_valid_ping(record);
+        if (fnValidate) {
+          // for historical reasons most of these callbacks expect a "sync"
+          // record, not the entire ping.
+          if (wantFullPing) {
+            fnValidate(record);
+          } else {
+            Assert.equal(record.syncs.length, 1);
+            fnValidate(record.syncs[0]);
+          }
+        } else {
+          // no validation function means it must be a "success" ping.
+          assert_success_ping(record);
+        }
+      } catch (ex) {
+        print("Failure in ping validation callback", ex, "\n", ex.stack);
+        numErrors += 1;
+      }
+    };
+    await Service.sync();
+    Assert.ok(numErrors == 0, "There were telemetry validation errors");
+  } finally {
+    telem.submit = oldSubmit;
+  }
 }
 
 // Used for the (many) cases where we do a 'partial' sync, where only a single
 // engine is actually synced, but we still want to ensure we're generating a
 // valid ping. Returns a promise that resolves to the ping, or rejects with the
 // thrown error after calling an optional callback.
-async function sync_engine_and_validate_telem(engine, allowErrorPings, onError) {
+async function sync_engine_and_validate_telem(
+  engine,
+  allowErrorPings,
+  onError,
+  wantFullPing = false
+) {
   let telem = get_sync_test_telemetry();
   let caughtError = null;
   // Clear out status, so failures from previous syncs won't show up in the
@@ -379,22 +461,27 @@ async function sync_engine_and_validate_telem(engine, allowErrorPings, onError) 
       ping.syncs.forEach(record => {
         if (record && record.status) {
           // did we see anything to lead us to believe that something bad actually happened
-          let realProblem = record.failureReason || record.engines.some(e => {
-            if (e.failureReason || e.status) {
-              return true;
-            }
-            if (e.outgoing && e.outgoing.some(o => o.failed > 0)) {
-              return true;
-            }
-            return e.incoming && e.incoming.failed;
-          });
+          let realProblem =
+            record.failureReason ||
+            record.engines.some(e => {
+              if (e.failureReason || e.status) {
+                return true;
+              }
+              if (e.outgoing && e.outgoing.some(o => o.failed > 0)) {
+                return true;
+              }
+              return e.incoming && e.incoming.failed;
+            });
           if (!realProblem) {
             // no, so if the status is the same as it was initially, just assume
             // that its leftover and that we can ignore it.
             if (record.status.sync && record.status.sync == initialSyncStatus) {
               delete record.status.sync;
             }
-            if (record.status.service && record.status.service == initialServiceStatus) {
+            if (
+              record.status.service &&
+              record.status.service == initialServiceStatus
+            ) {
               delete record.status.service;
             }
             if (!record.status.sync && !record.status.service) {
@@ -414,6 +501,8 @@ async function sync_engine_and_validate_telem(engine, allowErrorPings, onError) 
           onError(ping.syncs[0], ping);
         }
         reject(caughtError);
+      } else if (wantFullPing) {
+        resolve(ping);
       } else {
         resolve(ping.syncs[0]);
       }
@@ -454,18 +543,10 @@ function promiseOneObserver(topic, callback) {
   });
 }
 
-// Avoid an issue where `client.name2` containing unicode characters causes
-// a number of tests to fail, due to them assuming that we do not need to utf-8
-// encode or decode data sent through the mocked server (see bug 1268912).
-// We stash away the original implementation so test_utils_misc.js can test it.
-Utils._orig_getDefaultDeviceName = Utils.getDefaultDeviceName;
-Utils.getDefaultDeviceName = function() {
-  return "Test device name";
-};
-
 async function registerRotaryEngine() {
-  let {RotaryEngine} =
-    ChromeUtils.import("resource://testing-common/services/sync/rotaryengine.js", {});
+  let { RotaryEngine } = ChromeUtils.import(
+    "resource://testing-common/services/sync/rotaryengine.js"
+  );
   await Service.engineManager.clear();
 
   await Service.engineManager.register(RotaryEngine);
@@ -526,7 +607,7 @@ async function serverForFoo(engine, callback) {
   // do an engine sync only, there's no locking - so we end up with multiple
   // syncs running. Neuter that by making the threshold very large.
   Service.scheduler.syncThreshold = 10000000;
-  return serverForEnginesWithKeys({"foo": "password"}, engine, callback);
+  return serverForEnginesWithKeys({ foo: "password" }, engine, callback);
 }
 
 // Places notifies history observers asynchronously, so `addVisits` might return
@@ -537,8 +618,10 @@ async function promiseVisit(expectedType, expectedURI) {
     function done(type, uri) {
       if (uri == expectedURI.spec && type == expectedType) {
         PlacesUtils.history.removeObserver(observer);
-        PlacesObservers.removeListener(["page-visited"],
-                                       observer.handlePlacesEvents);
+        PlacesObservers.removeListener(
+          ["page-visited"],
+          observer.handlePlacesEvents
+        );
         resolve();
       }
     }
@@ -561,12 +644,15 @@ async function promiseVisit(expectedType, expectedURI) {
       onDeleteVisits() {},
     };
     PlacesUtils.history.addObserver(observer, false);
-    PlacesObservers.addListener(["page-visited"],
-                                observer.handlePlacesEvents);
+    PlacesObservers.addListener(["page-visited"], observer.handlePlacesEvents);
   });
 }
 
-async function addVisit(suffix, referrer = null, transition = PlacesUtils.history.TRANSITION_LINK) {
+async function addVisit(
+  suffix,
+  referrer = null,
+  transition = PlacesUtils.history.TRANSITION_LINK
+) {
   let uriString = "http://getfirefox.com/" + suffix;
   let uri = CommonUtils.makeURI(uriString);
   _("Adding visit for URI " + uriString);
@@ -592,20 +678,14 @@ function bookmarkNodesToInfos(nodes) {
     if (node.children) {
       info.children = bookmarkNodesToInfos(node.children);
     }
-    if (node.annos) {
-      let orphanAnno = node.annos.find(anno =>
-        anno.name == "sync/parent"
-      );
-      if (orphanAnno) {
-        info.requestedParent = orphanAnno.value;
-      }
-    }
     return info;
   });
 }
 
 async function assertBookmarksTreeMatches(rootGuid, expected, message) {
-  let root = await PlacesUtils.promiseBookmarksTree(rootGuid);
+  let root = await PlacesUtils.promiseBookmarksTree(rootGuid, {
+    includeItemIds: true,
+  });
   let actual = bookmarkNodesToInfos(root.children);
 
   if (!ObjectUtils.deepEqual(actual, expected)) {
@@ -613,4 +693,22 @@ async function assertBookmarksTreeMatches(rootGuid, expected, message) {
     _(`Actual structure for ${rootGuid}`, JSON.stringify(actual));
     throw new Assert.constructor.AssertionError({ actual, expected, message });
   }
+}
+
+function add_bookmark_test(task) {
+  const { BookmarksEngine } = ChromeUtils.import(
+    "resource://services-sync/engines/bookmarks.js"
+  );
+
+  add_task(async function() {
+    _(`Running bookmarks test ${task.name}`);
+    let engine = new BookmarksEngine(Service);
+    await engine.initialize();
+    await engine._resetClient();
+    try {
+      await task(engine);
+    } finally {
+      await engine.finalize();
+    }
+  });
 }

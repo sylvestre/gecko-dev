@@ -8,27 +8,28 @@
 
 #include <stdio.h>
 
-#include "mozilla/WindowsDllBlocklist.h"
 #include "mozilla/Bootstrap.h"
 
 #include "nsXULAppAPI.h"
 #ifdef XP_MACOSX
-#include "xpcshellMacUtils.h"
+#  include "xpcshellMacUtils.h"
 #endif
 #ifdef XP_WIN
-#include <windows.h>
-#include <shlobj.h>
+#  include "mozilla/WindowsDllBlocklist.h"
+
+#  include <windows.h>
+#  include <shlobj.h>
 
 // we want a wmain entry point
-#define XRE_WANT_ENVIRON
-#include "nsWindowsWMain.cpp"
-#ifdef MOZ_SANDBOX
-#include "mozilla/sandboxing/SandboxInitialization.h"
-#endif
+#  define XRE_WANT_ENVIRON
+#  include "nsWindowsWMain.cpp"
+#  ifdef MOZ_SANDBOX
+#    include "mozilla/sandboxing/SandboxInitialization.h"
+#  endif
 #endif
 
 #ifdef MOZ_WIDGET_GTK
-#include <gtk/gtk.h>
+#  include <gtk/gtk.h>
 #endif
 
 int main(int argc, char** argv, char** envp) {

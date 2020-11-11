@@ -8,7 +8,6 @@
 #define nsCSPUtils_h___
 
 #include "nsCOMPtr.h"
-#include "nsIContentPolicy.h"
 #include "nsIContentSecurityPolicy.h"
 #include "nsIURI.h"
 #include "nsLiteralString.h"
@@ -17,23 +16,26 @@
 #include "nsUnicharUtils.h"
 #include "mozilla/Logging.h"
 
+class nsIChannel;
+
 namespace mozilla {
 namespace dom {
 struct CSP;
+class Document;
 }  // namespace dom
 }  // namespace mozilla
 
 /* =============== Logging =================== */
 
-void CSP_LogLocalizedStr(const char* aName, const char16_t** aParams,
-                         uint32_t aLength, const nsAString& aSourceName,
+void CSP_LogLocalizedStr(const char* aName, const nsTArray<nsString>& aParams,
+                         const nsAString& aSourceName,
                          const nsAString& aSourceLine, uint32_t aLineNumber,
                          uint32_t aColumnNumber, uint32_t aFlags,
                          const nsACString& aCategory, uint64_t aInnerWindowID,
                          bool aFromPrivateWindow);
 
-void CSP_GetLocalizedStr(const char* aName, const char16_t** aParams,
-                         uint32_t aLength, nsAString& outResult);
+void CSP_GetLocalizedStr(const char* aName, const nsTArray<nsString>& aParams,
+                         nsAString& outResult);
 
 void CSP_LogStrMessage(const nsAString& aMsg);
 
@@ -55,10 +57,6 @@ void CSP_LogMessage(const nsAString& aMessage, const nsAString& aSourceName,
 #define STYLE_NONCE_VIOLATION_OBSERVER_TOPIC "Inline Style had invalid nonce"
 #define SCRIPT_HASH_VIOLATION_OBSERVER_TOPIC "Inline Script had invalid hash"
 #define STYLE_HASH_VIOLATION_OBSERVER_TOPIC "Inline Style had invalid hash"
-#define REQUIRE_SRI_SCRIPT_VIOLATION_OBSERVER_TOPIC \
-  "Missing required Subresource Integrity for Script"
-#define REQUIRE_SRI_STYLE_VIOLATION_OBSERVER_TOPIC \
-  "Missing required Subresource Integrity for Style"
 
 // these strings map to the CSPDirectives in nsIContentSecurityPolicy
 // NOTE: When implementing a new directive, you will need to add it here but
@@ -87,9 +85,9 @@ static const char* CSPStrDirectives[] = {
     "upgrade-insecure-requests",  // UPGRADE_IF_INSECURE_DIRECTIVE
     "child-src",                  // CHILD_SRC_DIRECTIVE
     "block-all-mixed-content",    // BLOCK_ALL_MIXED_CONTENT
-    "require-sri-for",            // REQUIRE_SRI_FOR
     "sandbox",                    // SANDBOX_DIRECTIVE
-    "worker-src"                  // WORKER_SRC_DIRECTIVE
+    "worker-src",                 // WORKER_SRC_DIRECTIVE
+    "navigate-to"                 // NAVIGATE_TO_DIRECTIVE
 };
 
 inline const char* CSP_CSPDirectiveToString(CSPDirective aDir) {
@@ -116,9 +114,9 @@ inline CSPDirective CSP_StringToCSPDirective(const nsAString& aDir) {
   MACRO(CSP_UNSAFE_EVAL, "'unsafe-eval'")       \
   MACRO(CSP_NONE, "'none'")                     \
   MACRO(CSP_NONCE, "'nonce-")                   \
-  MACRO(CSP_REQUIRE_SRI_FOR, "require-sri-for") \
   MACRO(CSP_REPORT_SAMPLE, "'report-sample'")   \
-  MACRO(CSP_STRICT_DYNAMIC, "'strict-dynamic'")
+  MACRO(CSP_STRICT_DYNAMIC, "'strict-dynamic'") \
+  MACRO(CSP_UNSAFE_ALLOW_REDIRECTS, "'unsafe-allow-redirects'")
 
 enum CSPKeyword {
 #define KEYWORD_ENUM(id_, string_) id_,
@@ -209,6 +207,10 @@ CSPDirective CSP_ContentTypeToDirective(nsContentPolicyType aType);
 class nsCSPSrcVisitor;
 
 void CSP_PercentDecodeStr(const nsAString& aEncStr, nsAString& outDecStr);
+bool CSP_ShouldResponseInheritCSP(nsIChannel* aChannel);
+
+void CSP_ApplyMetaCSPToDoc(mozilla::dom::Document& aDoc,
+                           const nsAString& aPolicyStr);
 
 /* =============== nsCSPSrc ================== */
 
@@ -318,7 +320,8 @@ class nsCSPKeywordSrc : public nsCSPBaseSrc {
 
   inline void invalidate() const override {
     // keywords that need to invalidated
-    if (mKeyword == CSP_SELF || mKeyword == CSP_UNSAFE_INLINE) {
+    if (mKeyword == CSP_SELF || mKeyword == CSP_UNSAFE_INLINE ||
+        mKeyword == CSP_REPORT_SAMPLE) {
       mInvalidated = true;
     }
   }
@@ -428,8 +431,8 @@ class nsCSPSrcVisitor {
   virtual bool visitHashSrc(const nsCSPHashSrc& src) = 0;
 
  protected:
-  explicit nsCSPSrcVisitor(){};
-  virtual ~nsCSPSrcVisitor(){};
+  explicit nsCSPSrcVisitor() = default;
+  virtual ~nsCSPSrcVisitor() = default;
 };
 
 /* =============== nsCSPDirective ============= */
@@ -447,7 +450,9 @@ class nsCSPDirective {
   virtual void toString(nsAString& outStr) const;
   void toDomCSPStruct(mozilla::dom::CSP& outCSP) const;
 
-  virtual void addSrcs(const nsTArray<nsCSPBaseSrc*>& aSrcs) { mSrcs = aSrcs; }
+  virtual void addSrcs(const nsTArray<nsCSPBaseSrc*>& aSrcs) {
+    mSrcs = aSrcs.Clone();
+  }
 
   virtual bool restrictsContentType(nsContentPolicyType aContentType) const;
 
@@ -554,7 +559,7 @@ class nsBlockAllMixedContentDirective : public nsCSPDirective {
 /*
  * Upgrading insecure requests includes the following actors:
  * (1) CSP:
- *     The CSP implementation whitelists the http-request
+ *     The CSP implementation allowlists the http-request
  *     in case the policy is executed in enforcement mode.
  *     The CSP implementation however does not allow http
  *     requests to succeed if executed in report-only mode.
@@ -562,7 +567,7 @@ class nsBlockAllMixedContentDirective : public nsCSPDirective {
  *     error back to the page.
  *
  * (2) MixedContent:
- *     The evalution of MixedContent whitelists all http
+ *     The evalution of MixedContent allowlists all http
  *     requests with the promise that the http requests
  *     gets upgraded to https before any data is fetched
  *     from the network.
@@ -605,26 +610,6 @@ class nsUpgradeInsecureDirective : public nsCSPDirective {
   }
 
   void getDirName(nsAString& outStr) const override;
-};
-
-/* ===== nsRequireSRIForDirective ========================= */
-
-class nsRequireSRIForDirective : public nsCSPDirective {
- public:
-  explicit nsRequireSRIForDirective(CSPDirective aDirective);
-  ~nsRequireSRIForDirective();
-
-  void toString(nsAString& outStr) const override;
-
-  void addType(nsContentPolicyType aType) { mTypes.AppendElement(aType); }
-  bool hasType(nsContentPolicyType aType) const;
-  bool restrictsContentType(nsContentPolicyType aType) const override;
-  bool allows(enum CSPKeyword aKeyword, const nsAString& aHashOrNonce,
-              bool aParserCreated) const override;
-  void getDirName(nsAString& outStr) const override;
-
- private:
-  nsTArray<nsContentPolicyType> mTypes;
 };
 
 /* =============== nsCSPPolicy ================== */
@@ -677,11 +662,12 @@ class nsCSPPolicy {
 
   uint32_t getSandboxFlags() const;
 
-  bool requireSRIForType(nsContentPolicyType aContentType);
-
   inline uint32_t getNumDirectives() const { return mDirectives.Length(); }
 
   bool visitDirectiveSrcs(CSPDirective aDir, nsCSPSrcVisitor* aVisitor) const;
+
+  bool allowsNavigateTo(nsIURI* aURI, bool aWasRedirected,
+                        bool aEnforceAllowlist) const;
 
  private:
   nsUpgradeInsecureDirective* mUpgradeInsecDir;

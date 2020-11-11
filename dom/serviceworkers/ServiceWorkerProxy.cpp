@@ -5,7 +5,12 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "ServiceWorkerProxy.h"
+#include "ServiceWorkerCloneData.h"
+#include "ServiceWorkerManager.h"
+#include "ServiceWorkerParent.h"
 
+#include "mozilla/SchedulerGroup.h"
+#include "mozilla/dom/ClientState.h"
 #include "mozilla/ipc/BackgroundParent.h"
 #include "ServiceWorkerInfo.h"
 
@@ -65,9 +70,7 @@ void ServiceWorkerProxy::StopListeningOnMainThread() {
 
 ServiceWorkerProxy::ServiceWorkerProxy(
     const ServiceWorkerDescriptor& aDescriptor)
-    : mActor(nullptr),
-      mEventTarget(GetCurrentThreadSerialEventTarget()),
-      mDescriptor(aDescriptor) {}
+    : mEventTarget(GetCurrentSerialEventTarget()), mDescriptor(aDescriptor) {}
 
 void ServiceWorkerProxy::Init(ServiceWorkerParent* aActor) {
   AssertIsOnBackgroundThread();
@@ -83,7 +86,8 @@ void ServiceWorkerProxy::Init(ServiceWorkerParent* aActor) {
   // returns.
   nsCOMPtr<nsIRunnable> r = NewRunnableMethod(
       "ServiceWorkerProxy::Init", this, &ServiceWorkerProxy::InitOnMainThread);
-  MOZ_ALWAYS_SUCCEEDS(SystemGroup::Dispatch(TaskCategory::Other, r.forget()));
+  MOZ_ALWAYS_SUCCEEDS(
+      SchedulerGroup::Dispatch(TaskCategory::Other, r.forget()));
 }
 
 void ServiceWorkerProxy::RevokeActor(ServiceWorkerParent* aActor) {
@@ -94,7 +98,8 @@ void ServiceWorkerProxy::RevokeActor(ServiceWorkerParent* aActor) {
 
   nsCOMPtr<nsIRunnable> r = NewRunnableMethod(
       __func__, this, &ServiceWorkerProxy::StopListeningOnMainThread);
-  MOZ_ALWAYS_SUCCEEDS(SystemGroup::Dispatch(TaskCategory::Other, r.forget()));
+  MOZ_ALWAYS_SUCCEEDS(
+      SchedulerGroup::Dispatch(TaskCategory::Other, r.forget()));
 }
 
 void ServiceWorkerProxy::PostMessage(RefPtr<ServiceWorkerCloneData>&& aData,
@@ -110,7 +115,8 @@ void ServiceWorkerProxy::PostMessage(RefPtr<ServiceWorkerCloneData>&& aData,
         }
         self->mInfo->PostMessage(std::move(data), aClientInfo, aClientState);
       });
-  MOZ_ALWAYS_SUCCEEDS(SystemGroup::Dispatch(TaskCategory::Other, r.forget()));
+  MOZ_ALWAYS_SUCCEEDS(
+      SchedulerGroup::Dispatch(TaskCategory::Other, r.forget()));
 }
 
 }  // namespace dom

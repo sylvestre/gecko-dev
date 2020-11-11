@@ -8,16 +8,18 @@ logActiveElement();
 
 async function waitForSearchBarFocus() {
   let searchbar = document.getElementById("searchbar");
-  await waitForCondition(function() {
+  await TestUtils.waitForCondition(function() {
     logActiveElement();
-    return document.activeElement === searchbar.textbox.inputField;
+    return document.activeElement === searchbar.textbox;
   });
 }
 
 // Ctrl+K should open the menu panel and focus the search bar if the search bar is in the panel.
 add_task(async function check_shortcut_when_in_closed_overflow_panel_closed() {
-  CustomizableUI.addWidgetToArea("search-container",
-                                 CustomizableUI.AREA_FIXED_OVERFLOW_PANEL);
+  CustomizableUI.addWidgetToArea(
+    "search-container",
+    CustomizableUI.AREA_FIXED_OVERFLOW_PANEL
+  );
 
   let shownPanelPromise = promiseOverflowShown(window);
   sendWebSearchKeyCommand();
@@ -33,8 +35,10 @@ add_task(async function check_shortcut_when_in_closed_overflow_panel_closed() {
 
 // Ctrl+K should give focus to the searchbar when the searchbar is in the menupanel and the panel is already opened.
 add_task(async function check_shortcut_when_in_opened_overflow_panel() {
-  CustomizableUI.addWidgetToArea("search-container",
-                                 CustomizableUI.AREA_FIXED_OVERFLOW_PANEL);
+  CustomizableUI.addWidgetToArea(
+    "search-container",
+    CustomizableUI.AREA_FIXED_OVERFLOW_PANEL
+  );
 
   await document.getElementById("nav-bar").overflowable.show();
 
@@ -52,24 +56,32 @@ add_task(async function check_shortcut_when_in_opened_overflow_panel() {
 add_task(async function check_shortcut_when_in_overflow() {
   this.originalWindowWidth = window.outerWidth;
   let navbar = document.getElementById(CustomizableUI.AREA_NAVBAR);
-  ok(!navbar.hasAttribute("overflowing"), "Should start with a non-overflowing toolbar.");
+  ok(
+    !navbar.hasAttribute("overflowing"),
+    "Should start with a non-overflowing toolbar."
+  );
   ok(CustomizableUI.inDefaultState, "Should start in default state.");
 
   Services.prefs.setBoolPref("browser.search.widget.inNavBar", true);
 
   window.resizeTo(kForceOverflowWidthPx, window.outerHeight);
-  await waitForCondition(() => {
-    return navbar.getAttribute("overflowing") == "true" &&
-      !navbar.querySelector("#search-container");
+  await TestUtils.waitForCondition(() => {
+    return (
+      navbar.getAttribute("overflowing") == "true" &&
+      !navbar.querySelector("#search-container")
+    );
   });
-  ok(!navbar.querySelector("#search-container"), "Search container should be overflowing");
+  ok(
+    !navbar.querySelector("#search-container"),
+    "Search container should be overflowing"
+  );
 
   let shownPanelPromise = promiseOverflowShown(window);
   sendWebSearchKeyCommand();
   await shownPanelPromise;
 
   let chevron = document.getElementById("nav-bar-overflow-button");
-  await waitForCondition(() => chevron.open);
+  await TestUtils.waitForCondition(() => chevron.open);
 
   await waitForSearchBarFocus();
 
@@ -81,8 +93,11 @@ add_task(async function check_shortcut_when_in_overflow() {
 
   navbar = document.getElementById(CustomizableUI.AREA_NAVBAR);
   window.resizeTo(this.originalWindowWidth, window.outerHeight);
-  await waitForCondition(() => !navbar.hasAttribute("overflowing"));
-  ok(!navbar.hasAttribute("overflowing"), "Should not have an overflowing toolbar.");
+  await TestUtils.waitForCondition(() => !navbar.hasAttribute("overflowing"));
+  ok(
+    !navbar.hasAttribute("overflowing"),
+    "Should not have an overflowing toolbar."
+  );
 });
 
 // Ctrl+K should focus the search bar if it is in the navbar and not overflowing.
@@ -100,7 +115,6 @@ add_task(async function check_shortcut_when_not_in_overflow() {
   Services.prefs.setBoolPref("browser.search.widget.inNavBar", false);
 });
 
-
 function sendWebSearchKeyCommand() {
   document.documentElement.focus();
   EventUtils.synthesizeKey("k", { accelKey: true });
@@ -110,7 +124,15 @@ function logActiveElement() {
   let element = document.activeElement;
   let str = "";
   while (element && element.parentNode) {
-    str = " (" + element.localName + "#" + element.id + "." + [...element.classList].join(".") + ") >" + str;
+    str =
+      " (" +
+      element.localName +
+      "#" +
+      element.id +
+      "." +
+      [...element.classList].join(".") +
+      ") >" +
+      str;
     element = element.parentNode;
   }
   info("Active element: " + element ? str : "null");

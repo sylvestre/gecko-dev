@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef mozilla_dom_SVGTextElement_h
-#define mozilla_dom_SVGTextElement_h
+#ifndef DOM_SVG_SVGTEXTELEMENT_H_
+#define DOM_SVG_SVGTEXTELEMENT_H_
 
 #include "mozilla/dom/SVGTextPositioningElement.h"
 
@@ -15,7 +15,7 @@ nsresult NS_NewSVGTextElement(
 namespace mozilla {
 namespace dom {
 
-typedef SVGTextPositioningElement SVGTextElementBase;
+using SVGTextElementBase = SVGTextPositioningElement;
 
 class SVGTextElement final : public SVGTextElementBase {
  protected:
@@ -31,17 +31,20 @@ class SVGTextElement final : public SVGTextElementBase {
   // nsIContent interface
   NS_IMETHOD_(bool) IsAttributeMapped(const nsAtom* aAttribute) const override;
 
+  bool IsNodeOfType(uint32_t aFlags) const override;
   virtual nsresult Clone(dom::NodeInfo*, nsINode** aResult) const override;
 
  protected:
   virtual EnumAttributesInfo GetEnumInfo() override;
   virtual LengthAttributesInfo GetLengthInfo() override;
 
-  nsSVGEnum mEnumAttributes[1];
-  virtual nsSVGEnum* EnumAttributes() override { return mEnumAttributes; }
+  SVGAnimatedEnumeration mEnumAttributes[1];
+  virtual SVGAnimatedEnumeration* EnumAttributes() override {
+    return mEnumAttributes;
+  }
 
-  nsSVGLength2 mLengthAttributes[1];
-  virtual nsSVGLength2* LengthAttributes() override {
+  SVGAnimatedLength mLengthAttributes[1];
+  virtual SVGAnimatedLength* LengthAttributes() override {
     return mLengthAttributes;
   }
 };
@@ -49,4 +52,4 @@ class SVGTextElement final : public SVGTextElementBase {
 }  // namespace dom
 }  // namespace mozilla
 
-#endif  // mozilla_dom_SVGTextElement_h
+#endif  // DOM_SVG_SVGTEXTELEMENT_H_

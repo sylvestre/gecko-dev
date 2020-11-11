@@ -1,3 +1,9 @@
+/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
+/* vim: set ts=8 sts=2 et sw=2 tw=80: */
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 #include "XZStream.h"
 
 #include <algorithm>
@@ -33,7 +39,8 @@ static size_t ParseVarLenInt(const uint8_t* aBuf, size_t aBufSize,
   return i;
 }
 
-/* static */ bool XZStream::IsXZ(const void* aBuf, size_t aBufSize) {
+/* static */
+bool XZStream::IsXZ(const void* aBuf, size_t aBufSize) {
   static const uint8_t kXzMagic[] = {0xfd, '7', 'z', 'X', 'Z', 0x0};
   MOZ_ASSERT(aBuf);
   return aBufSize > sizeof(kXzMagic) &&
@@ -89,11 +96,11 @@ size_t XZStream::Decode(void* aOutBuf, size_t aOutSize) {
       case XZ_STREAM_END:
         // Stream ended, the next loop iteration should terminate.
         MOZ_ASSERT(mBuffers.in_pos == mBuffers.in_size);
-        MOZ_FALLTHROUGH;
+        [[fallthrough]];
 #ifdef XZ_DEC_ANY_CHECK
       case XZ_UNSUPPORTED_CHECK:
         // Ignore unsupported check.
-        MOZ_FALLTHROUGH;
+        [[fallthrough]];
 #endif
       case XZ_OK:
         // Chunk decoded, proceed.
@@ -116,7 +123,7 @@ size_t XZStream::Decode(void* aOutBuf, size_t aOutSize) {
         return 0;
 
       case XZ_DATA_ERROR:
-        MOZ_FALLTHROUGH;
+        [[fallthrough]];
       case XZ_BUF_ERROR:
         ERROR("XZ decoding: corrupt input stream");
         return 0;

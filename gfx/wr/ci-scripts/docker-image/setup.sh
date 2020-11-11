@@ -14,39 +14,31 @@ test "$(whoami)" == 'root'
 # Install stuff we need
 apt-get -y update
 apt-get install -y \
+    bison \
     bzip2 \
     cmake \
     curl \
+    flex \
     gcc \
     git \
     g++ \
     libfontconfig1-dev \
     libgl1-mesa-dev \
     libx11-dev \
+    llvm-dev \
+    ninja-build \
+    openjdk-8-jdk \
     pkg-config \
     python \
+    python-mako \
     python-pip \
-    software-properties-common
-
-# Build freetype with subpixel rendering enabled
-curl -sSfL -o ft.tar.bz2 \
-    https://download.savannah.gnu.org/releases/freetype/freetype-2.8.1.tar.bz2
-tar xjf ft.tar.bz2
-cd freetype-2.8.1
-# Need to respect 80-char line limit for servo-tidy, or this would be neater
-SUBPIXEL_OPTION="FT_CONFIG_OPTION_SUBPIXEL_RENDERING"
-sed --in-place="" \
-    -e "s/.*${SUBPIXEL_OPTION}.*/#define ${SUBPIXEL_OPTION}/" \
-    include/freetype/config/ftoption.h
-./configure
-make
-make install
-
-# Replace the system libfreetype with the one we just built
-cd /usr/lib/x86_64-linux-gnu/
-rm -f libfreetype.so.6
-ln -s /usr/local/lib/libfreetype.so.6
+    python-setuptools \
+    python-voluptuous \
+    python-yaml \
+    python3-pip \
+    python3-mako \
+    software-properties-common \
+    clang
 
 # Other stuff we need
-pip install setuptools
-pip install mako voluptuous PyYAML servo-tidy
+pip install servo-tidy==0.3.0

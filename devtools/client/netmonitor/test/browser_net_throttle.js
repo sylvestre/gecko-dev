@@ -13,13 +13,15 @@ add_task(async function() {
 async function throttleTest(actuallyThrottle) {
   requestLongerTimeout(2);
 
-  const { monitor } = await initNetMonitor(SIMPLE_URL);
+  const { monitor } = await initNetMonitor(SIMPLE_URL, { requestCount: 1 });
   const { store, windowRequire, connector } = monitor.panelWin;
-  const { ACTIVITY_TYPE } = windowRequire("devtools/client/netmonitor/src/constants");
+  const { ACTIVITY_TYPE } = windowRequire(
+    "devtools/client/netmonitor/src/constants"
+  );
   const { setPreferences, triggerActivity } = connector;
-  const {
-    getSortedRequests,
-  } = windowRequire("devtools/client/netmonitor/src/selectors/index");
+  const { getSortedRequests } = windowRequire(
+    "devtools/client/netmonitor/src/selectors/index"
+  );
 
   info("Starting test... (actuallyThrottle = " + actuallyThrottle + ")");
 
@@ -39,11 +41,7 @@ async function throttleTest(actuallyThrottle) {
   };
 
   info("sending throttle request");
-  await new Promise((resolve) => {
-    setPreferences(request, response => {
-      resolve(response);
-    });
-  });
+  await setPreferences(request);
 
   const wait = waitForNetworkEvents(monitor, 1);
   await triggerActivity(ACTIVITY_TYPE.RELOAD.WITH_CACHE_DISABLED);
@@ -51,7 +49,7 @@ async function throttleTest(actuallyThrottle) {
 
   await waitForRequestData(store, ["eventTimings"]);
 
-  const requestItem = getSortedRequests(store.getState()).get(0);
+  const requestItem = getSortedRequests(store.getState())[0];
   const reportedOneSecond = requestItem.eventTimings.timings.receive > 1000;
   if (actuallyThrottle) {
     ok(reportedOneSecond, "download reported as taking more than one second");

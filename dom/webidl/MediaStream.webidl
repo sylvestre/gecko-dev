@@ -23,11 +23,20 @@ dictionary MediaStreamConstraints {
     DOMString? peerIdentity = null;
 };
 
-[Exposed=Window,
- Constructor,
- Constructor (MediaStream stream),
- Constructor (sequence<MediaStreamTrack> tracks)]
+dictionary DisplayMediaStreamConstraints {
+    (boolean or MediaTrackConstraints) video = true;
+    (boolean or MediaTrackConstraints) audio = false;
+};
+
+[Exposed=Window]
 interface MediaStream : EventTarget {
+    [Throws]
+    constructor();
+    [Throws]
+    constructor(MediaStream stream);
+    [Throws]
+    constructor(sequence<MediaStreamTrack> tracks);
+
     readonly    attribute DOMString    id;
     sequence<MediaStreamTrack> getAudioTracks ();
     sequence<MediaStreamTrack> getVideoTracks ();

@@ -1,4 +1,3 @@
-// |reftest| skip -- Intl.Locale is not supported
 // Copyright 2018 André Bargull; Igalia, S.L. All rights reserved.
 // This code is governed by the BSD license found in the LICENSE file.
 
@@ -25,9 +24,10 @@ includes: [testIntl.js]
 features: [Intl.Locale]
 ---*/
 
+assert.sameValue(typeof Intl.Locale, "function");
+
 // Intl.Locale step 11.a.
 assert.throws(TypeError, function() { new Intl.Locale("en", null) })
-
 
 // ApplyOptionsToTag step 2.
 for (const invalidTag of getInvalidLanguageTags()) {

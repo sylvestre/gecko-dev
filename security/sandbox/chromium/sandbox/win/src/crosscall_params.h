@@ -5,8 +5,14 @@
 #ifndef SANDBOX_SRC_CROSSCALL_PARAMS_H__
 #define SANDBOX_SRC_CROSSCALL_PARAMS_H__
 
+#if !defined(SANDBOX_FUZZ_TARGET)
 #include <windows.h>
+
 #include <lmaccess.h>
+#else
+#include "sandbox/win/fuzzer/fuzzer_types.h"
+#endif
+
 #include <stddef.h>
 #include <stdint.h>
 
@@ -14,14 +20,11 @@
 
 #include "base/macros.h"
 #include "sandbox/win/src/internal_types.h"
+#if !defined(SANDBOX_FUZZ_TARGET)
+#include "sandbox/win/src/sandbox_nt_types.h"
+#endif
+#include "sandbox/win/src/ipc_tags.h"
 #include "sandbox/win/src/sandbox_types.h"
-
-// Increases |value| until there is no need for padding given an int64_t
-// alignment. Returns the increased value.
-inline uint32_t Align(uint32_t value) {
-  uint32_t alignment = sizeof(int64_t);
-  return ((value + alignment - 1) / alignment) * alignment;
-}
 
 // This header is part of CrossCall: the sandbox inter-process communication.
 // This header defines the basic types used both in the client IPC and in the
@@ -42,6 +45,26 @@ inline uint32_t Align(uint32_t value) {
 // strings is not supported.
 
 namespace sandbox {
+
+// This is the list of all imported symbols from ntdll.dll.
+SANDBOX_INTERCEPT NtExports g_nt;
+
+namespace {
+
+// Increases |value| until there is no need for padding given an int64_t
+// alignment. Returns the increased value.
+inline uint32_t Align(uint32_t value) {
+  uint32_t alignment = sizeof(int64_t);
+  return ((value + alignment - 1) / alignment) * alignment;
+}
+
+inline void* memcpy_wrapper(void* dest, const void* src, size_t count) {
+  if (g_nt.memcpy)
+    return g_nt.memcpy(dest, src, count);
+  return memcpy(dest, src, count);
+}
+
+}  // namespace
 
 // max number of extended return parameters. See CrossCallReturn
 const size_t kExtendedReturnCount = 8;
@@ -83,7 +106,7 @@ struct CrossCallReturn {
   // of this value depends on the specific service.
   union {
     NTSTATUS nt_status;
-    DWORD    win32_result;
+    DWORD win32_result;
   };
   // Number of extended return values.
   uint32_t extended_count;
@@ -107,23 +130,19 @@ struct CrossCallReturn {
 class CrossCallParams {
  public:
   // Returns the tag (ipc unique id) associated with this IPC.
-  uint32_t GetTag() const { return tag_; }
+  IpcTag GetTag() const { return tag_; }
 
   // Returns the beggining of the buffer where the IPC params can be stored.
   // prior to an IPC call
-  const void* GetBuffer() const {
-    return this;
-  }
+  const void* GetBuffer() const { return this; }
 
   // Returns how many parameter this IPC call should have.
   uint32_t GetParamsCount() const { return params_count_; }
 
   // Returns a pointer to the CrossCallReturn structure.
-  CrossCallReturn* GetCallReturn() {
-    return &call_return;
-  }
+  CrossCallReturn* GetCallReturn() { return &call_return; }
 
-  // Returns TRUE if this call contains InOut parameters.
+  // Returns true if this call contains InOut parameters.
   bool IsInOut() const { return (1 == is_in_out_); }
 
   // Tells the CrossCall object if it contains InOut parameters.
@@ -136,11 +155,11 @@ class CrossCallParams {
 
  protected:
   // constructs the IPC call params. Called only from the derived classes
-  CrossCallParams(uint32_t tag, uint32_t params_count)
+  CrossCallParams(IpcTag tag, uint32_t params_count)
       : tag_(tag), is_in_out_(0), params_count_(params_count) {}
 
  private:
-  uint32_t tag_;
+  IpcTag tag_;
   uint32_t is_in_out_;
   CrossCallReturn call_return;
   const uint32_t params_count_;
@@ -189,15 +208,14 @@ template <size_t NUMBER_PARAMS, size_t BLOCK_SIZE>
 class ActualCallParams : public CrossCallParams {
  public:
   // constructor. Pass the ipc unique tag as input
-  explicit ActualCallParams(uint32_t tag)
-      : CrossCallParams(tag, NUMBER_PARAMS) {
+  explicit ActualCallParams(IpcTag tag) : CrossCallParams(tag, NUMBER_PARAMS) {
     param_info_[0].offset_ =
         static_cast<uint32_t>(parameters_ - reinterpret_cast<char*>(this));
   }
 
   // Testing-only constructor. Allows setting the |number_params| to a
   // wrong value.
-  ActualCallParams(uint32_t tag, uint32_t number_params)
+  ActualCallParams(IpcTag tag, uint32_t number_params)
       : CrossCallParams(tag, number_params) {
     param_info_[0].offset_ =
         static_cast<uint32_t>(parameters_ - reinterpret_cast<char*>(this));
@@ -237,14 +255,13 @@ class ActualCallParams : public CrossCallParams {
       return false;
     }
 
-    char* dest = reinterpret_cast<char*>(this) +  param_info_[index].offset_;
+    char* dest = reinterpret_cast<char*>(this) + param_info_[index].offset_;
 
     // We might be touching user memory, this has to be done from inside a try
     // except.
     __try {
-      memcpy(dest, parameter_address, size);
-    }
-    __except(EXCEPTION_EXECUTE_HANDLER) {
+      memcpy_wrapper(dest, parameter_address, size);
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
       return false;
     }
 
@@ -253,8 +270,7 @@ class ActualCallParams : public CrossCallParams {
     if (is_in_out)
       SetIsInOut(true);
 
-    param_info_[index + 1].offset_ = Align(param_info_[index].offset_ +
-                                                size);
+    param_info_[index + 1].offset_ = Align(param_info_[index].offset_ + size);
     param_info_[index].size_ = size;
     param_info_[index].type_ = type;
     return true;
@@ -270,12 +286,12 @@ class ActualCallParams : public CrossCallParams {
   uint32_t GetSize() const { return param_info_[NUMBER_PARAMS].offset_; }
 
  protected:
-  ActualCallParams() : CrossCallParams(0, NUMBER_PARAMS) { }
+  ActualCallParams() : CrossCallParams(IpcTag::UNUSED, NUMBER_PARAMS) {}
 
  private:
   ParamInfo param_info_[NUMBER_PARAMS + 1];
-  char parameters_[BLOCK_SIZE - sizeof(CrossCallParams)
-                   - sizeof(ParamInfo) * (NUMBER_PARAMS + 1)];
+  char parameters_[BLOCK_SIZE - sizeof(CrossCallParams) -
+                   sizeof(ParamInfo) * (NUMBER_PARAMS + 1)];
   DISALLOW_COPY_AND_ASSIGN(ActualCallParams);
 
   friend uint32_t GetMinDeclaredActualCallParamsSize(uint32_t param_count);

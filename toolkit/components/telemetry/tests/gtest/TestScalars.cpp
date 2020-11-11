@@ -10,7 +10,6 @@
 #include "mozilla/TelemetryProcessEnums.h"
 #include "mozilla/Unused.h"
 #include "nsJSUtils.h"  // nsAutoJSString
-#include "nsITelemetry.h"
 #include "nsThreadUtils.h"
 #include "TelemetryFixture.h"
 #include "TelemetryTestHelpers.h"
@@ -54,13 +53,47 @@ TEST_F(TelemetryTestFixture, ScalarUnsigned) {
   Telemetry::ScalarSet(Telemetry::ScalarID::TELEMETRY_TEST_UNSIGNED_INT_KIND,
                        false);
   Telemetry::ScalarSet(Telemetry::ScalarID::TELEMETRY_TEST_UNSIGNED_INT_KIND,
-                       NS_LITERAL_STRING("test"));
+                       u"test"_ns);
 #endif
 
   // Check the recorded value.
   GetScalarsSnapshot(false, cx.GetJSContext(), &scalarsSnapshot);
   CheckUintScalar("telemetry.test.unsigned_int_kind", cx.GetJSContext(),
                   scalarsSnapshot, kExpectedUintMaximum);
+}
+
+// Test that the AutoScalarTimer records a proper uint32_t value to a
+// scalar once it goes out of scope.
+TEST_F(TelemetryTestFixture, AutoScalarTimer) {
+  AutoJSContextWithGlobal cx(mCleanGlobal);
+
+  // Make sure we don't get scalars from other tests.
+  Unused << mTelemetry->ClearScalars();
+  {
+    Telemetry::AutoScalarTimer<
+        Telemetry::ScalarID::TELEMETRY_TEST_UNSIGNED_INT_KIND>
+        timer;
+  }
+
+  const char* kScalarName = "telemetry.test.unsigned_int_kind";
+
+  // Check that there's a recorded value that is greater than 0. Since
+  // this is a timer, we'll not check the non-deterministic value - just
+  // that it exists.
+  JS::RootedValue scalarsSnapshot(cx.GetJSContext());
+  GetScalarsSnapshot(false, cx.GetJSContext(), &scalarsSnapshot);
+
+  // Validate the value of the test scalar.
+  JS::RootedValue value(cx.GetJSContext());
+  JS::RootedObject scalarObj(cx.GetJSContext(), &scalarsSnapshot.toObject());
+  ASSERT_TRUE(JS_GetProperty(cx.GetJSContext(), scalarObj, kScalarName, &value))
+  << "The test scalar must be reported.";
+
+  JS_GetProperty(cx.GetJSContext(), scalarObj, kScalarName, &value);
+  ASSERT_TRUE(value.isInt32())
+  << "The scalar value must be of the correct type.";
+  ASSERT_TRUE(value.toInt32() >= 0)
+  << "The uint scalar type must contain a value >= 0.";
 }
 
 // Test that we can properly write boolean scalars using the C++ API.
@@ -81,7 +114,7 @@ TEST_F(TelemetryTestFixture, ScalarBoolean) {
                               20);
   Telemetry::ScalarAdd(Telemetry::ScalarID::TELEMETRY_TEST_BOOLEAN_KIND, 2);
   Telemetry::ScalarSet(Telemetry::ScalarID::TELEMETRY_TEST_BOOLEAN_KIND,
-                       NS_LITERAL_STRING("test"));
+                       u"test"_ns);
 #endif
 
   // Check the recorded value.
@@ -99,7 +132,7 @@ TEST_F(TelemetryTestFixture, ScalarString) {
 
   // Set the test scalar to a known value.
   Telemetry::ScalarSet(Telemetry::ScalarID::TELEMETRY_TEST_STRING_KIND,
-                       NS_LITERAL_STRING(EXPECTED_STRING));
+                       NS_LITERAL_STRING_FROM_CSTRING(EXPECTED_STRING));
 
 // Make sure that calls of the unsupported type don't corrupt the stored value.
 // Don't run this part in debug builds as that intentionally asserts.
@@ -130,19 +163,19 @@ TEST_F(TelemetryTestFixture, KeyedScalarUnsigned) {
   const uint32_t kKey1Value = 1172015;
   const uint32_t kKey2Value = 1172017;
   Telemetry::ScalarSet(Telemetry::ScalarID::TELEMETRY_TEST_KEYED_UNSIGNED_INT,
-                       NS_LITERAL_STRING("key1"), kKey1Value);
+                       u"key1"_ns, kKey1Value);
   Telemetry::ScalarSet(Telemetry::ScalarID::TELEMETRY_TEST_KEYED_UNSIGNED_INT,
-                       NS_LITERAL_STRING("key2"), kKey1Value);
+                       u"key2"_ns, kKey1Value);
   Telemetry::ScalarAdd(Telemetry::ScalarID::TELEMETRY_TEST_KEYED_UNSIGNED_INT,
-                       NS_LITERAL_STRING("key2"), 2);
+                       u"key2"_ns, 2);
 
 // Make sure that calls of the unsupported type don't corrupt the stored value.
 // Don't run this part in debug builds as that intentionally asserts.
 #ifndef DEBUG
   Telemetry::ScalarSet(Telemetry::ScalarID::TELEMETRY_TEST_KEYED_UNSIGNED_INT,
-                       NS_LITERAL_STRING("key1"), false);
+                       u"key1"_ns, false);
   Telemetry::ScalarSet(Telemetry::ScalarID::TELEMETRY_TEST_KEYED_UNSIGNED_INT,
-                       NS_LITERAL_STRING("test"));
+                       u"test"_ns);
 #endif
 
   // Check the recorded value.
@@ -159,8 +192,8 @@ TEST_F(TelemetryTestFixture, KeyedScalarUnsigned) {
   // Try to use SetMaximum.
   const uint32_t kExpectedUintMaximum = kKey1Value * 2;
   Telemetry::ScalarSetMaximum(
-      Telemetry::ScalarID::TELEMETRY_TEST_KEYED_UNSIGNED_INT,
-      NS_LITERAL_STRING("key1"), kExpectedUintMaximum);
+      Telemetry::ScalarID::TELEMETRY_TEST_KEYED_UNSIGNED_INT, u"key1"_ns,
+      kExpectedUintMaximum);
 
   GetScalarsSnapshot(true, cx.GetJSContext(), &scalarsSnapshot);
   // The first key should be different and te second is expected to be the same.
@@ -178,20 +211,19 @@ TEST_F(TelemetryTestFixture, KeyedScalarBoolean) {
 
   // Set the test scalar to a known value.
   Telemetry::ScalarSet(Telemetry::ScalarID::TELEMETRY_TEST_KEYED_BOOLEAN_KIND,
-                       NS_LITERAL_STRING("key1"), false);
+                       u"key1"_ns, false);
   Telemetry::ScalarSet(Telemetry::ScalarID::TELEMETRY_TEST_KEYED_BOOLEAN_KIND,
-                       NS_LITERAL_STRING("key2"), true);
+                       u"key2"_ns, true);
 
 // Make sure that calls of the unsupported type don't corrupt the stored value.
 // Don't run this part in debug builds as that intentionally asserts.
 #ifndef DEBUG
   Telemetry::ScalarSet(Telemetry::ScalarID::TELEMETRY_TEST_KEYED_BOOLEAN_KIND,
-                       NS_LITERAL_STRING("key1"), static_cast<uint32_t>(12));
+                       u"key1"_ns, static_cast<uint32_t>(12));
   Telemetry::ScalarSetMaximum(
-      Telemetry::ScalarID::TELEMETRY_TEST_KEYED_BOOLEAN_KIND,
-      NS_LITERAL_STRING("key1"), 20);
+      Telemetry::ScalarID::TELEMETRY_TEST_KEYED_BOOLEAN_KIND, u"key1"_ns, 20);
   Telemetry::ScalarAdd(Telemetry::ScalarID::TELEMETRY_TEST_KEYED_BOOLEAN_KIND,
-                       NS_LITERAL_STRING("key1"), 2);
+                       u"key1"_ns, 2);
 #endif
 
   // Check the recorded value.
@@ -252,27 +284,27 @@ TEST_F(TelemetryTestFixture, ScalarUnknownID) {
     Telemetry::ScalarID scalarId = static_cast<Telemetry::ScalarID>(id);
     Telemetry::ScalarSet(scalarId, static_cast<uint32_t>(1));
     Telemetry::ScalarSet(scalarId, true);
-    Telemetry::ScalarSet(scalarId, NS_LITERAL_STRING("test"));
+    Telemetry::ScalarSet(scalarId, u"test"_ns);
     Telemetry::ScalarAdd(scalarId, 1);
     Telemetry::ScalarSetMaximum(scalarId, 1);
 
     // Make sure that nothing was recorded in the plain scalars.
     JS::RootedValue scalarsSnapshot(cx.GetJSContext());
     GetScalarsSnapshot(false, cx.GetJSContext(), &scalarsSnapshot);
-    ASSERT_TRUE(scalarsSnapshot.isUndefined()) << "No scalar must be recorded";
+    ASSERT_TRUE(scalarsSnapshot.isUndefined())
+    << "No scalar must be recorded";
 
     // Same for the keyed scalars.
-    Telemetry::ScalarSet(scalarId, NS_LITERAL_STRING("key1"),
-                         static_cast<uint32_t>(1));
-    Telemetry::ScalarSet(scalarId, NS_LITERAL_STRING("key1"), true);
-    Telemetry::ScalarAdd(scalarId, NS_LITERAL_STRING("key1"), 1);
-    Telemetry::ScalarSetMaximum(scalarId, NS_LITERAL_STRING("key1"), 1);
+    Telemetry::ScalarSet(scalarId, u"key1"_ns, static_cast<uint32_t>(1));
+    Telemetry::ScalarSet(scalarId, u"key1"_ns, true);
+    Telemetry::ScalarAdd(scalarId, u"key1"_ns, 1);
+    Telemetry::ScalarSetMaximum(scalarId, u"key1"_ns, 1);
 
     // Make sure that nothing was recorded in the keyed scalars.
     JS::RootedValue keyedSnapshot(cx.GetJSContext());
     GetScalarsSnapshot(true, cx.GetJSContext(), &keyedSnapshot);
     ASSERT_TRUE(keyedSnapshot.isUndefined())
-        << "No keyed scalar must be recorded";
+    << "No keyed scalar must be recorded";
   }
 #endif
 }
@@ -368,7 +400,7 @@ TEST_F(TelemetryTestFixture, WrongScalarOperator) {
   Telemetry::ScalarSet(Telemetry::ScalarID::TELEMETRY_TEST_UNSIGNED_INT_KIND,
                        expectedValue);
   Telemetry::ScalarSet(Telemetry::ScalarID::TELEMETRY_TEST_STRING_KIND,
-                       NS_LITERAL_STRING(EXPECTED_STRING));
+                       NS_LITERAL_STRING_FROM_CSTRING(EXPECTED_STRING));
   Telemetry::ScalarSet(Telemetry::ScalarID::TELEMETRY_TEST_BOOLEAN_KIND, true);
 
   TelemetryScalar::DeserializationStarted();
@@ -398,16 +430,16 @@ TEST_F(TelemetryTestFixture, WrongKeyedScalarOperator) {
   const uint32_t kExpectedUint = 1172017;
 
   Telemetry::ScalarSet(Telemetry::ScalarID::TELEMETRY_TEST_KEYED_UNSIGNED_INT,
-                       NS_LITERAL_STRING("key1"), kExpectedUint);
+                       u"key1"_ns, kExpectedUint);
   Telemetry::ScalarSet(Telemetry::ScalarID::TELEMETRY_TEST_KEYED_BOOLEAN_KIND,
-                       NS_LITERAL_STRING("key2"), true);
+                       u"key2"_ns, true);
 
   TelemetryScalar::DeserializationStarted();
 
   Telemetry::ScalarSet(Telemetry::ScalarID::TELEMETRY_TEST_KEYED_UNSIGNED_INT,
-                       NS_LITERAL_STRING("key1"), false);
+                       u"key1"_ns, false);
   Telemetry::ScalarSet(Telemetry::ScalarID::TELEMETRY_TEST_KEYED_BOOLEAN_KIND,
-                       NS_LITERAL_STRING("key2"), static_cast<uint32_t>(13));
+                       u"key2"_ns, static_cast<uint32_t>(13));
 
   TelemetryScalar::ApplyPendingOperations();
 
@@ -417,4 +449,43 @@ TEST_F(TelemetryTestFixture, WrongKeyedScalarOperator) {
                        cx.GetJSContext(), scalarsSnapshot, kExpectedUint);
   CheckKeyedBoolScalar("telemetry.test.keyed_boolean_kind", "key2",
                        cx.GetJSContext(), scalarsSnapshot, true);
+}
+
+TEST_F(TelemetryTestFixture, TestKeyedScalarAllowedKeys) {
+  AutoJSContextWithGlobal cx(mCleanGlobal);
+  // Make sure we don't get scalars from other tests.
+  Unused << mTelemetry->ClearScalars();
+
+  const uint32_t kExpectedUint = 1172017;
+
+  Telemetry::ScalarSet(Telemetry::ScalarID::TELEMETRY_TEST_KEYED_WITH_KEYS,
+                       u"only"_ns, kExpectedUint);
+  Telemetry::ScalarSet(Telemetry::ScalarID::TELEMETRY_TEST_KEYED_WITH_KEYS,
+                       u"meant"_ns, kExpectedUint);
+  Telemetry::ScalarSet(Telemetry::ScalarID::TELEMETRY_TEST_KEYED_WITH_KEYS,
+                       u"for"_ns, kExpectedUint);
+  Telemetry::ScalarSet(Telemetry::ScalarID::TELEMETRY_TEST_KEYED_WITH_KEYS,
+                       u"testing"_ns, kExpectedUint);
+
+  Telemetry::ScalarSet(Telemetry::ScalarID::TELEMETRY_TEST_KEYED_WITH_KEYS,
+                       u"invalid"_ns, kExpectedUint);
+  Telemetry::ScalarSet(Telemetry::ScalarID::TELEMETRY_TEST_KEYED_WITH_KEYS,
+                       u"not-valid"_ns, kExpectedUint);
+
+  JS::RootedValue scalarsSnapshot(cx.GetJSContext());
+  GetScalarsSnapshot(true, cx.GetJSContext(), &scalarsSnapshot);
+  CheckKeyedUintScalar("telemetry.test.keyed_with_keys", "only",
+                       cx.GetJSContext(), scalarsSnapshot, kExpectedUint);
+  CheckKeyedUintScalar("telemetry.test.keyed_with_keys", "meant",
+                       cx.GetJSContext(), scalarsSnapshot, kExpectedUint);
+  CheckKeyedUintScalar("telemetry.test.keyed_with_keys", "for",
+                       cx.GetJSContext(), scalarsSnapshot, kExpectedUint);
+  CheckKeyedUintScalar("telemetry.test.keyed_with_keys", "testing",
+                       cx.GetJSContext(), scalarsSnapshot, kExpectedUint);
+  CheckNumberOfProperties("telemetry.test.keyed_with_keys", cx.GetJSContext(),
+                          scalarsSnapshot, 4);
+
+  CheckKeyedUintScalar("telemetry.keyed_scalars_unknown_keys",
+                       "telemetry.test.keyed_with_keys", cx.GetJSContext(),
+                       scalarsSnapshot, 2);
 }

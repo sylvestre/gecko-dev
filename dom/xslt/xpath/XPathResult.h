@@ -7,7 +7,6 @@
 #define mozilla_dom_XPathResult_h
 
 #include "nsStubMutationObserver.h"
-#include "nsAutoPtr.h"
 #include "nsCOMPtr.h"
 #include "nsCOMArray.h"
 #include "nsIWeakReferenceUtils.h"
@@ -18,7 +17,6 @@
 #include "nsWrapperCache.h"
 #include "nsINode.h"
 
-class nsIDocument;
 class txAExprResult;
 
 // {662f2c9a-c7cd-4cab-9349-e733df5a838c}
@@ -32,9 +30,9 @@ class txAExprResult;
 class nsIXPathResult : public nsISupports {
  public:
   NS_DECLARE_STATIC_IID_ACCESSOR(NS_IXPATHRESULT_IID)
-  virtual nsresult SetExprResult(txAExprResult* aExprResult,
-                                 uint16_t aResultType,
-                                 nsINode* aContextNode) = 0;
+  virtual void SetExprResult(txAExprResult* aExprResult, uint16_t aResultType,
+                             nsINode* aContextNode,
+                             mozilla::ErrorResult& aRv) = 0;
   virtual nsresult GetExprResult(txAExprResult** aExprResult) = 0;
   virtual nsresult Clone(nsIXPathResult** aResult) = 0;
 };
@@ -84,7 +82,7 @@ class XPathResult final : public nsIXPathResult,
   uint16_t ResultType() const { return mResultType; }
   double GetNumberValue(ErrorResult& aRv) const {
     if (mResultType != NUMBER_TYPE) {
-      aRv.Throw(NS_ERROR_DOM_TYPE_ERR);
+      aRv.ThrowTypeError("Result is not a number");
       return 0;
     }
 
@@ -92,7 +90,7 @@ class XPathResult final : public nsIXPathResult,
   }
   void GetStringValue(nsAString& aStringValue, ErrorResult& aRv) const {
     if (mResultType != STRING_TYPE) {
-      aRv.Throw(NS_ERROR_DOM_TYPE_ERR);
+      aRv.ThrowTypeError("Result is not a string");
       return;
     }
 
@@ -100,7 +98,7 @@ class XPathResult final : public nsIXPathResult,
   }
   bool GetBooleanValue(ErrorResult& aRv) const {
     if (mResultType != BOOLEAN_TYPE) {
-      aRv.Throw(NS_ERROR_DOM_TYPE_ERR);
+      aRv.ThrowTypeError("Result is not a boolean");
       return false;
     }
 
@@ -108,7 +106,7 @@ class XPathResult final : public nsIXPathResult,
   }
   nsINode* GetSingleNodeValue(ErrorResult& aRv) const {
     if (!isNode()) {
-      aRv.Throw(NS_ERROR_DOM_TYPE_ERR);
+      aRv.ThrowTypeError("Result is not a node");
       return nullptr;
     }
 
@@ -119,7 +117,7 @@ class XPathResult final : public nsIXPathResult,
   }
   uint32_t GetSnapshotLength(ErrorResult& aRv) const {
     if (!isSnapshot()) {
-      aRv.Throw(NS_ERROR_DOM_TYPE_ERR);
+      aRv.ThrowTypeError("Result is not a snapshot");
       return 0;
     }
 
@@ -128,7 +126,7 @@ class XPathResult final : public nsIXPathResult,
   nsINode* IterateNext(ErrorResult& aRv);
   nsINode* SnapshotItem(uint32_t aIndex, ErrorResult& aRv) const {
     if (!isSnapshot()) {
-      aRv.Throw(NS_ERROR_DOM_TYPE_ERR);
+      aRv.ThrowTypeError("Result is not a snapshot");
       return nullptr;
     }
 
@@ -143,8 +141,8 @@ class XPathResult final : public nsIXPathResult,
   NS_DECL_NSIMUTATIONOBSERVER_CONTENTREMOVED
   NS_DECL_NSIMUTATIONOBSERVER_NODEWILLBEDESTROYED
 
-  nsresult SetExprResult(txAExprResult* aExprResult, uint16_t aResultType,
-                         nsINode* aContextNode) override;
+  void SetExprResult(txAExprResult* aExprResult, uint16_t aResultType,
+                     nsINode* aContextNode, ErrorResult& aRv) override;
   nsresult GetExprResult(txAExprResult** aExprResult) override;
   nsresult Clone(nsIXPathResult** aResult) override;
   void RemoveObserver();
@@ -171,7 +169,7 @@ class XPathResult final : public nsIXPathResult,
   nsCOMPtr<nsINode> mParent;
   RefPtr<txAExprResult> mResult;
   nsCOMArray<nsINode> mResultNodes;
-  nsCOMPtr<nsIDocument> mDocument;
+  RefPtr<Document> mDocument;
   nsWeakPtr mContextNode;
   uint32_t mCurrentPos;
   uint16_t mResultType;

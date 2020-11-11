@@ -57,8 +57,8 @@
 
 // Helper macro for the common case of a single class
 #define FRAME_STATE_GROUP(name_, class_) \
-  FRAME_STATE_GROUP_NAME(name_)          \
-  FRAME_STATE_GROUP_CLASS(name_, class_)
+FRAME_STATE_GROUP_NAME(name_)            \
+FRAME_STATE_GROUP_CLASS(name_, class_)
 
 // == Frame state bits that apply to all frames ===============================
 
@@ -78,8 +78,7 @@ FRAME_STATE_BIT(Generic, 1, NS_FRAME_FIRST_REFLOW)
 // continuation, e.g. a bidi continuation.
 FRAME_STATE_BIT(Generic, 2, NS_FRAME_IS_FLUID_CONTINUATION)
 
-// For nsIAnonymousContentCreator content that's created using ContentInfo.
-FRAME_STATE_BIT(Generic, 3, NS_FRAME_ANONYMOUSCONTENTCREATOR_CONTENT)
+// Free bit here.
 
 // If this bit is set, then a reference to the frame is being held
 // elsewhere.  The frame may want to send a notification when it is
@@ -117,7 +116,7 @@ FRAME_STATE_BIT(Generic, 9, NS_FRAME_CAN_HAVE_ABSPOS_CHILDREN)
 // This bit is cleared by DidReflow after the required call to Reflow has
 // finished.
 // Do not set this bit yourself if you plan to pass the frame to
-// nsIPresShell::FrameNeedsReflow.  Pass the right arguments instead.
+// PresShell::FrameNeedsReflow.  Pass the right arguments instead.
 FRAME_STATE_BIT(Generic, 10, NS_FRAME_IS_DIRTY)
 
 // If this bit is set then the frame is too deep in the frame tree, and
@@ -137,11 +136,11 @@ FRAME_STATE_BIT(Generic, 11, NS_FRAME_TOO_DEEP_IN_FRAME_TREE)
 // If this bit is set but the NS_FRAME_IS_DIRTY is not set, then Reflow still
 // needs to be called on the frame, but Reflow will likely not do as much work
 // as it would if NS_FRAME_IS_DIRTY were set. See the comment documenting
-// nsFrame::Reflow for more.
+// nsIFrame::Reflow for more.
 // This bit is cleared by DidReflow after the required call to Reflow has
 // finished.
 // Do not set this bit yourself if you plan to pass the frame to
-// nsIPresShell::FrameNeedsReflow.  Pass the right arguments instead.
+// PresShell::FrameNeedsReflow.  Pass the right arguments instead.
 FRAME_STATE_BIT(Generic, 12, NS_FRAME_HAS_DIRTY_CHILDREN)
 
 // If this bit is set, the frame has an associated view
@@ -234,7 +233,7 @@ FRAME_STATE_BIT(Generic, 42, NS_FRAME_FONT_INFLATION_FLOW_ROOT)
 
 // This bit is set on SVG frames that are laid out using SVG's coordinate
 // system based layout (as opposed to any of the CSS layout models). Note that
-// this does not include nsSVGOuterSVGFrame since it takes part is CSS layout.
+// this does not include SVGOuterSVGFrame since it takes part in CSS layout.
 FRAME_STATE_BIT(Generic, 43, NS_FRAME_SVG_LAYOUT)
 
 // This bit is set if a frame has a multi-column ancestor (i.e.
@@ -319,7 +318,6 @@ FRAME_STATE_BIT(Generic, 59, NS_FRAME_IS_IN_SINGLE_CHAR_MI)
 FRAME_STATE_GROUP(Box, nsBoxFrame)
 
 FRAME_STATE_BIT(Box, 20, NS_STATE_BOX_CHILD_RESERVED)
-FRAME_STATE_BIT(Box, 21, NS_STATE_STACK_NOT_POSITIONED)
 FRAME_STATE_BIT(Box, 22, NS_STATE_IS_HORIZONTAL)
 FRAME_STATE_BIT(Box, 23, NS_STATE_AUTO_STRETCH)
 FRAME_STATE_BIT(Box, 24, NS_STATE_IS_ROOT)
@@ -328,8 +326,6 @@ FRAME_STATE_BIT(Box, 28, NS_STATE_MENU_HAS_POPUP_LIST)
 FRAME_STATE_BIT(Box, 29, NS_STATE_BOX_WRAPS_KIDS_IN_BLOCK)
 FRAME_STATE_BIT(Box, 30, NS_STATE_EQUAL_SIZE)
 FRAME_STATE_BIT(Box, 31, NS_STATE_IS_DIRECTION_NORMAL)
-FRAME_STATE_BIT(Box, 60, NS_FRAME_MOUSE_THROUGH_ALWAYS)
-FRAME_STATE_BIT(Box, 61, NS_FRAME_MOUSE_THROUGH_NEVER)
 
 // == Frame state bits that apply to flex container frames ====================
 
@@ -344,11 +340,21 @@ FRAME_STATE_BIT(FlexContainer, 20,
 // 'display:-webkit-{inline-}box' or 'display:-moz-{inline-}box' container.
 FRAME_STATE_BIT(FlexContainer, 21, NS_STATE_FLEX_IS_EMULATING_LEGACY_BOX)
 
-// True iff computed flex values should be generated on the next reflow
-FRAME_STATE_BIT(FlexContainer, 22, NS_STATE_FLEX_GENERATE_COMPUTED_VALUES)
-
 // True if the container has no flex items; may lie if there is a pending reflow
-FRAME_STATE_BIT(FlexContainer, 23, NS_STATE_FLEX_SYNTHESIZE_BASELINE)
+FRAME_STATE_BIT(FlexContainer, 22, NS_STATE_FLEX_SYNTHESIZE_BASELINE)
+
+// True if any flex item in the container has a line with a
+// -webkit-line-ellipsis marker.
+FRAME_STATE_BIT(FlexContainer, 23, NS_STATE_FLEX_HAS_LINE_CLAMP_ELLIPSIS)
+
+// True iff some first-in-flow in-flow children were pushed.
+// Note that those child frames may have been removed without this bit
+// being updated for performance reasons, so code shouldn't depend on
+// actually finding any pushed items when this bit is set.
+FRAME_STATE_BIT(FlexContainer, 24, NS_STATE_FLEX_DID_PUSH_ITEMS)
+
+// We've merged some OverflowList children since last reflow.
+FRAME_STATE_BIT(FlexContainer, 25, NS_STATE_FLEX_HAS_CHILD_NIFS)
 
 // == Frame state bits that apply to grid container frames ====================
 
@@ -365,38 +371,41 @@ FRAME_STATE_BIT(GridContainer, 20,
 // actually finding any pushed items when this bit is set.
 FRAME_STATE_BIT(GridContainer, 21, NS_STATE_GRID_DID_PUSH_ITEMS)
 
-// True iff computed grid values should be generated on the next reflow.
-FRAME_STATE_BIT(GridContainer, 22, NS_STATE_GRID_GENERATE_COMPUTED_VALUES)
-
 // True if the container has no grid items; may lie if there is a pending
 // reflow.
-FRAME_STATE_BIT(GridContainer, 23, NS_STATE_GRID_SYNTHESIZE_BASELINE)
+FRAME_STATE_BIT(GridContainer, 22, NS_STATE_GRID_SYNTHESIZE_BASELINE)
 
 // True if the container is a subgrid in its inline axis.
-FRAME_STATE_BIT(GridContainer, 24, NS_STATE_GRID_IS_COL_SUBGRID)
+FRAME_STATE_BIT(GridContainer, 23, NS_STATE_GRID_IS_COL_SUBGRID)
 
 // True if the container is a subgrid in its block axis.
-FRAME_STATE_BIT(GridContainer, 25, NS_STATE_GRID_IS_ROW_SUBGRID)
+FRAME_STATE_BIT(GridContainer, 24, NS_STATE_GRID_IS_ROW_SUBGRID)
 
 // The container contains one or more items subgridded in its inline axis.
-FRAME_STATE_BIT(GridContainer, 26, NS_STATE_GRID_HAS_COL_SUBGRID_ITEM)
+FRAME_STATE_BIT(GridContainer, 25, NS_STATE_GRID_HAS_COL_SUBGRID_ITEM)
 
 // The container contains one or more items subgridded in its block axis.
-FRAME_STATE_BIT(GridContainer, 27, NS_STATE_GRID_HAS_ROW_SUBGRID_ITEM)
+FRAME_STATE_BIT(GridContainer, 26, NS_STATE_GRID_HAS_ROW_SUBGRID_ITEM)
 
 // We've merged some OverflowList children since last reflow.
-FRAME_STATE_BIT(GridContainer, 28, NS_STATE_GRID_HAS_CHILD_NIFS)
+FRAME_STATE_BIT(GridContainer, 27, NS_STATE_GRID_HAS_CHILD_NIFS)
+
+// True if the container has masonry layout in its inline axis.
+// (mutually exclusive with NS_STATE_GRID_IS_ROW_MASONRY)
+FRAME_STATE_BIT(GridContainer, 28, NS_STATE_GRID_IS_COL_MASONRY)
+
+// True if the container has masonry layout in its block axis.
+// (mutually exclusive with NS_STATE_GRID_IS_COL_MASONRY)
+FRAME_STATE_BIT(GridContainer, 29, NS_STATE_GRID_IS_ROW_MASONRY)
 
 // == Frame state bits that apply to SVG frames ===============================
 
 FRAME_STATE_GROUP_NAME(SVG)
-FRAME_STATE_GROUP_CLASS(SVG, nsSVGDisplayableFrame)
-FRAME_STATE_GROUP_CLASS(SVG, nsSVGContainerFrame)
-
-FRAME_STATE_BIT(SVG, 20, NS_STATE_IS_OUTER_SVG)
+FRAME_STATE_GROUP_CLASS(SVG, ISVGDisplayableFrame)
+FRAME_STATE_GROUP_CLASS(SVG, SVGContainerFrame)
 
 // If this bit is set, we are a <clipPath> element or descendant.
-FRAME_STATE_BIT(SVG, 21, NS_STATE_SVG_CLIPPATH_CHILD)
+FRAME_STATE_BIT(SVG, 20, NS_STATE_SVG_CLIPPATH_CHILD)
 
 // For SVG text, the NS_FRAME_IS_DIRTY and NS_FRAME_HAS_DIRTY_CHILDREN bits
 // indicate that our anonymous block child needs to be reflowed, and that
@@ -406,7 +415,7 @@ FRAME_STATE_BIT(SVG, 21, NS_STATE_SVG_CLIPPATH_CHILD)
 // mPositioningDirty is used to indicate this latter "things are dirty" case
 // to allow us to avoid reflowing the anonymous block when it is not
 // necessary.
-FRAME_STATE_BIT(SVG, 22, NS_STATE_SVG_POSITIONING_DIRTY)
+FRAME_STATE_BIT(SVG, 21, NS_STATE_SVG_POSITIONING_DIRTY)
 
 // For text, whether the values from x/y/dx/dy attributes have any percentage
 // values that are used in determining the positions of glyphs.  The value will
@@ -429,14 +438,14 @@ FRAME_STATE_BIT(SVG, 22, NS_STATE_SVG_POSITIONING_DIRTY)
 // determining a completley accurate value for
 // NS_STATE_SVG_POSITIONING_MAY_USE_PERCENTAGES would require extra work that is
 // probably not worth it.
-FRAME_STATE_BIT(SVG, 23, NS_STATE_SVG_POSITIONING_MAY_USE_PERCENTAGES)
+FRAME_STATE_BIT(SVG, 22, NS_STATE_SVG_POSITIONING_MAY_USE_PERCENTAGES)
 
-FRAME_STATE_BIT(SVG, 24, NS_STATE_SVG_TEXT_IN_REFLOW)
+FRAME_STATE_BIT(SVG, 23, NS_STATE_SVG_TEXT_IN_REFLOW)
 
 // Set on SVGTextFrame frames when they need a
 // TextNodeCorrespondenceRecorder::RecordCorrespondence call
 // to update the cached nsTextNode indexes that they correspond to.
-FRAME_STATE_BIT(SVG, 25, NS_STATE_SVG_TEXT_CORRESPONDENCE_DIRTY)
+FRAME_STATE_BIT(SVG, 24, NS_STATE_SVG_TEXT_CORRESPONDENCE_DIRTY)
 
 // == Frame state bits that apply to text frames ==============================
 
@@ -542,7 +551,7 @@ FRAME_STATE_BIT(Block, 23, NS_BLOCK_FLOAT_MGR)
 
 // For setting the relevant bits on a block formatting context:
 #define NS_BLOCK_FORMATTING_CONTEXT_STATE_BITS \
-  (NS_BLOCK_FLOAT_MGR | NS_BLOCK_MARGIN_ROOT)
+(NS_BLOCK_FLOAT_MGR | NS_BLOCK_MARGIN_ROOT)
 
 FRAME_STATE_BIT(Block, 24, NS_BLOCK_HAS_LINE_CURSOR)
 
@@ -564,10 +573,17 @@ FRAME_STATE_BIT(Block, 28, NS_BLOCK_CLIP_PAGINATED_OVERFLOW)
 // even if it has no actual first-letter frame among its descendants.
 FRAME_STATE_BIT(Block, 29, NS_BLOCK_HAS_FIRST_LETTER_STYLE)
 
-// NS_BLOCK_FRAME_HAS_OUTSIDE_BULLET and NS_BLOCK_FRAME_HAS_INSIDE_BULLET
-// means the block has an associated bullet frame, they are mutually exclusive.
-FRAME_STATE_BIT(Block, 30, NS_BLOCK_FRAME_HAS_OUTSIDE_BULLET)
-FRAME_STATE_BIT(Block, 31, NS_BLOCK_FRAME_HAS_INSIDE_BULLET)
+// NS_BLOCK_FRAME_HAS_OUTSIDE_MARKER and NS_BLOCK_FRAME_HAS_INSIDE_MARKER
+// means the block has an associated ::marker frame, they are mutually
+// exclusive.
+FRAME_STATE_BIT(Block, 30, NS_BLOCK_FRAME_HAS_OUTSIDE_MARKER)
+FRAME_STATE_BIT(Block, 31, NS_BLOCK_FRAME_HAS_INSIDE_MARKER)
+
+// NS_BLOCK_HAS_LINE_CLAMP_ELLIPSIS indicates that exactly one line in this
+// block has the LineClampEllipsis flag set, and that such a line must be found
+// and have that flag cleared when reflowing this element's nearest legacy box
+// container.
+FRAME_STATE_BIT(Block, 60, NS_BLOCK_HAS_LINE_CLAMP_ELLIPSIS)
 
 // This block has had a child marked dirty, so before we reflow we need
 // to look through the lines to find any such children and mark
@@ -662,9 +678,8 @@ FRAME_STATE_BIT(Placeholder, 27, PLACEHOLDER_HAVE_LINE_IS_EMPTY_SO_FAR)
 
 FRAME_STATE_GROUP(TableCell, nsTableCellFrame)
 
-FRAME_STATE_BIT(TableCell, 28, NS_TABLE_CELL_HAS_PCT_OVER_BSIZE)
-FRAME_STATE_BIT(TableCell, 29, NS_TABLE_CELL_HAD_SPECIAL_REFLOW)
-FRAME_STATE_BIT(TableCell, 31, NS_TABLE_CELL_CONTENT_EMPTY)
+FRAME_STATE_BIT(TableCell, 20, NS_TABLE_CELL_HAD_SPECIAL_REFLOW)
+FRAME_STATE_BIT(TableCell, 21, NS_TABLE_CELL_CONTENT_EMPTY)
 
 // == Frame state bits that apply to table column frames ======================
 
@@ -706,6 +721,13 @@ FRAME_STATE_BIT(TableRowGroup, 31, NS_ROWGROUP_REPEATABLE)
 FRAME_STATE_GROUP(Table, nsTableFrame)
 
 FRAME_STATE_BIT(Table, 28, NS_TABLE_PART_HAS_FIXED_BACKGROUND)
+
+// == Frame state bits that apply to page frames ==============================
+FRAME_STATE_GROUP(Page, nsPageFrame)
+
+// If set, this bit indicates that the given nsPageFrame has been skipped
+// via the user's custom-page-range choice, and should not be rendered.
+FRAME_STATE_BIT(Page, 20, NS_PAGE_SKIPPED_BY_CUSTOM_RANGE)
 
 #undef FRAME_STATE_GROUP
 

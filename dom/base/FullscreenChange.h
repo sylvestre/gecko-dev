@@ -16,8 +16,9 @@
 #include "mozilla/UniquePtr.h"
 #include "mozilla/dom/Element.h"
 #include "mozilla/dom/Promise.h"
-#include "nsIDocument.h"
+#include "mozilla/dom/Document.h"
 #include "nsIScriptError.h"
+#include "nsRefreshDriver.h"
 
 namespace mozilla {
 
@@ -31,7 +32,7 @@ class FullscreenChange : public LinkedListElement<FullscreenChange> {
   };
 
   ChangeType Type() const { return mType; }
-  nsIDocument* Document() const { return mDocument; }
+  dom::Document* Document() const { return mDocument; }
   dom::Promise* GetPromise() const { return mPromise; }
 
   void MayResolvePromise() const {
@@ -41,17 +42,21 @@ class FullscreenChange : public LinkedListElement<FullscreenChange> {
     }
   }
 
-  void MayRejectPromise() const {
+  void MayRejectPromise(const nsACString& aMessage) {
     if (mPromise) {
       MOZ_ASSERT(mPromise->State() == Promise::PromiseState::Pending);
-      mPromise->MaybeReject(NS_ERROR_DOM_TYPE_ERR);
+      mPromise->MaybeRejectWithTypeError(aMessage);
     }
+  }
+  template <int N>
+  void MayRejectPromise(const char (&aMessage)[N]) {
+    MayRejectPromise(nsLiteralCString(aMessage));
   }
 
  protected:
   typedef dom::Promise Promise;
 
-  FullscreenChange(ChangeType aType, nsIDocument* aDocument,
+  FullscreenChange(ChangeType aType, dom::Document* aDocument,
                    already_AddRefed<Promise> aPromise)
       : mType(aType), mDocument(aDocument), mPromise(aPromise) {
     MOZ_ASSERT(aDocument);
@@ -64,7 +69,7 @@ class FullscreenChange : public LinkedListElement<FullscreenChange> {
 
  private:
   ChangeType mType;
-  nsCOMPtr<nsIDocument> mDocument;
+  nsCOMPtr<dom::Document> mDocument;
   RefPtr<Promise> mPromise;
 };
 
@@ -72,7 +77,7 @@ class FullscreenRequest : public FullscreenChange {
  public:
   static const ChangeType kType = eEnter;
 
-  static UniquePtr<FullscreenRequest> Create(Element* aElement,
+  static UniquePtr<FullscreenRequest> Create(dom::Element* aElement,
                                              dom::CallerType aCallerType,
                                              ErrorResult& aRv) {
     RefPtr<Promise> promise = Promise::Create(aElement->GetOwnerGlobal(), aRv);
@@ -80,28 +85,28 @@ class FullscreenRequest : public FullscreenChange {
         new FullscreenRequest(aElement, promise.forget(), aCallerType, true));
   }
 
-  static UniquePtr<FullscreenRequest> CreateForRemote(Element* aElement) {
+  static UniquePtr<FullscreenRequest> CreateForRemote(dom::Element* aElement) {
     return WrapUnique(new FullscreenRequest(aElement, nullptr,
                                             dom::CallerType::NonSystem, false));
   }
 
-  ~FullscreenRequest() { MOZ_COUNT_DTOR(FullscreenRequest); }
+  MOZ_COUNTED_DTOR(FullscreenRequest)
 
   dom::Element* Element() const { return mElement; }
 
   // Reject the fullscreen request with the given reason.
   // It will dispatch the fullscreenerror event.
-  void Reject(const char* aReason) const {
+  void Reject(const char* aReason) {
     if (nsPresContext* presContext = Document()->GetPresContext()) {
       auto pendingEvent = MakeUnique<PendingFullscreenEvent>(
           FullscreenEventType::Error, Document(), mElement);
       presContext->RefreshDriver()->ScheduleFullscreenEvent(
           std::move(pendingEvent));
     }
-    MayRejectPromise();
-    nsContentUtils::ReportToConsole(nsIScriptError::warningFlag,
-                                    NS_LITERAL_CSTRING("DOM"), Document(),
-                                    nsContentUtils::eDOM_PROPERTIES, aReason);
+    MayRejectPromise("Fullscreen request denied");
+    nsContentUtils::ReportToConsole(nsIScriptError::warningFlag, "DOM"_ns,
+                                    Document(), nsContentUtils::eDOM_PROPERTIES,
+                                    aReason);
   }
 
  private:
@@ -135,19 +140,20 @@ class FullscreenExit : public FullscreenChange {
  public:
   static const ChangeType kType = eExit;
 
-  static UniquePtr<FullscreenExit> Create(nsIDocument* aDoc, ErrorResult& aRv) {
+  static UniquePtr<FullscreenExit> Create(dom::Document* aDoc,
+                                          ErrorResult& aRv) {
     RefPtr<Promise> promise = Promise::Create(aDoc->GetOwnerGlobal(), aRv);
     return WrapUnique(new FullscreenExit(aDoc, promise.forget()));
   }
 
-  static UniquePtr<FullscreenExit> CreateForRemote(nsIDocument* aDoc) {
+  static UniquePtr<FullscreenExit> CreateForRemote(dom::Document* aDoc) {
     return WrapUnique(new FullscreenExit(aDoc, nullptr));
   }
 
-  ~FullscreenExit() { MOZ_COUNT_DTOR(FullscreenExit); }
+  MOZ_COUNTED_DTOR(FullscreenExit)
 
  private:
-  FullscreenExit(nsIDocument* aDoc, already_AddRefed<Promise> aPromise)
+  FullscreenExit(dom::Document* aDoc, already_AddRefed<Promise> aPromise)
       : FullscreenChange(kType, aDoc, std::move(aPromise)) {
     MOZ_COUNT_CTOR(FullscreenExit);
   }

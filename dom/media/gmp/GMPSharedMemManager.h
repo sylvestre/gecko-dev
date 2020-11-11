@@ -35,7 +35,7 @@ class GMPSharedMem {
       mGmpAllocated[i] = 0;
     }
   }
-  virtual ~GMPSharedMem() {}
+  virtual ~GMPSharedMem() = default;
 
   // Parent and child impls will differ here
   virtual void CheckThread() = 0;
@@ -50,7 +50,7 @@ class GMPSharedMem {
 class GMPSharedMemManager {
  public:
   explicit GMPSharedMemManager(GMPSharedMem* aData) : mData(aData) {}
-  virtual ~GMPSharedMemManager() {}
+  virtual ~GMPSharedMemManager() = default;
 
   virtual bool MgrAllocShmem(GMPSharedMem::GMPMemoryClasses aClass,
                              size_t aSize,
@@ -68,7 +68,7 @@ class GMPSharedMemManager {
   virtual bool Alloc(size_t aSize,
                      ipc::Shmem::SharedMemory::SharedMemoryType aType,
                      ipc::Shmem* aMem) = 0;
-  virtual void Dealloc(ipc::Shmem& aMem) = 0;
+  virtual void Dealloc(ipc::Shmem&& aMem) = 0;
 
  private:
   nsTArray<ipc::Shmem>& GetGmpFreelist(GMPSharedMem::GMPMemoryClasses aTypes) {

@@ -9,6 +9,7 @@
 
 #include "jit/arm/Assembler-arm.h"
 #include "jit/shared/CodeGenerator-shared.h"
+#include "js/ScalarType.h"  // js::Scalar::Type
 
 namespace js {
 namespace jit {
@@ -67,8 +68,6 @@ class CodeGeneratorARM : public CodeGeneratorShared {
                                 LSnapshot* snapshot, T* mir);
 
   bool generateOutOfLineCode();
-
-  void emitRoundDouble(FloatRegister src, Register dest, Label* fail);
 
   // Emits a branch that directs control flow to the true block if |cond| is
   // true, and the false block if |cond| is false.

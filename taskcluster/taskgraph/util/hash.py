@@ -4,9 +4,11 @@
 
 from __future__ import absolute_import, print_function, unicode_literals
 from mozbuild.util import memoize
-from mozpack.files import FileFinder
 import mozpack.path as mozpath
+from mozversioncontrol import get_repository_object
 import hashlib
+import io
+import six
 
 
 @memoize
@@ -15,8 +17,13 @@ def hash_path(path):
 
     Returns the SHA-256 hash in hex form.
     """
-    with open(path) as fh:
+    with io.open(path, mode="rb") as fh:
         return hashlib.sha256(fh.read()).hexdigest()
+
+
+@memoize
+def get_file_finder(base_path):
+    return get_repository_object(base_path).get_tracked_files_finder()
 
 
 def hash_paths(base_path, patterns):
@@ -28,7 +35,7 @@ def hash_paths(base_path, patterns):
     Each file is hashed. The list of all hashes and file paths is then
     itself hashed to produce the result.
     """
-    finder = FileFinder(base_path)
+    finder = get_file_finder(base_path)
     h = hashlib.sha256()
     files = {}
     for pattern in patterns:
@@ -36,10 +43,16 @@ def hash_paths(base_path, patterns):
         if found:
             files.update(found)
         else:
-            raise Exception('%s did not match anything' % pattern)
+            raise Exception("%s did not match anything" % pattern)
     for path in sorted(files.keys()):
-        h.update('{} {}\n'.format(
-            hash_path(mozpath.abspath(mozpath.join(base_path, path))),
-            mozpath.normsep(path)
-        ))
+        if path.endswith((".pyc", ".pyd", ".pyo")):
+            continue
+        h.update(
+            six.ensure_binary(
+                "{} {}\n".format(
+                    hash_path(mozpath.abspath(mozpath.join(base_path, path))),
+                    mozpath.normsep(path),
+                )
+            )
+        )
     return h.hexdigest()

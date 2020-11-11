@@ -9,6 +9,8 @@
 #include "builtin/Array.h"
 
 #include "jit/InlinableNatives.h"
+#include "js/friend/ErrorMessages.h"  // js::GetErrorMessage, JSMSG_NOT_EXPECTED_TYPE
+#include "js/PropertySpec.h"
 #include "vm/ArgumentsObject.h"
 #include "vm/JSContext.h"
 #include "vm/Stack.h"
@@ -26,7 +28,7 @@ static bool Reflect_deleteProperty(JSContext* cx, unsigned argc, Value* vp) {
   // Step 1.
   RootedObject target(
       cx,
-      NonNullObjectArg(cx, "`target`", "Reflect.deleteProperty", args.get(0)));
+      RequireObjectArg(cx, "`target`", "Reflect.deleteProperty", args.get(0)));
   if (!target) {
     return false;
   }
@@ -54,7 +56,7 @@ bool js::Reflect_getPrototypeOf(JSContext* cx, unsigned argc, Value* vp) {
   // Step 1.
   RootedObject target(
       cx,
-      NonNullObjectArg(cx, "`target`", "Reflect.getPrototypeOf", args.get(0)));
+      RequireObjectArg(cx, "`target`", "Reflect.getPrototypeOf", args.get(0)));
   if (!target) {
     return false;
   }
@@ -75,7 +77,7 @@ bool js::Reflect_isExtensible(JSContext* cx, unsigned argc, Value* vp) {
   // Step 1.
   RootedObject target(
       cx,
-      NonNullObjectArg(cx, "`target`", "Reflect.isExtensible", args.get(0)));
+      RequireObjectArg(cx, "`target`", "Reflect.isExtensible", args.get(0)));
   if (!target) {
     return false;
   }
@@ -96,7 +98,7 @@ bool js::Reflect_ownKeys(JSContext* cx, unsigned argc, Value* vp) {
 
   // Step 1.
   RootedObject target(
-      cx, NonNullObjectArg(cx, "`target`", "Reflect.ownKeys", args.get(0)));
+      cx, RequireObjectArg(cx, "`target`", "Reflect.ownKeys", args.get(0)));
   if (!target) {
     return false;
   }
@@ -112,7 +114,7 @@ static bool Reflect_preventExtensions(JSContext* cx, unsigned argc, Value* vp) {
 
   // Step 1.
   RootedObject target(
-      cx, NonNullObjectArg(cx, "`target`", "Reflect.preventExtensions",
+      cx, RequireObjectArg(cx, "`target`", "Reflect.preventExtensions",
                            args.get(0)));
   if (!target) {
     return false;
@@ -133,7 +135,7 @@ static bool Reflect_set(JSContext* cx, unsigned argc, Value* vp) {
 
   // Step 1.
   RootedObject target(
-      cx, NonNullObjectArg(cx, "`target`", "Reflect.set", args.get(0)));
+      cx, RequireObjectArg(cx, "`target`", "Reflect.set", args.get(0)));
   if (!target) {
     return false;
   }
@@ -168,7 +170,7 @@ static bool Reflect_setPrototypeOf(JSContext* cx, unsigned argc, Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
 
   // Step 1.
-  RootedObject obj(cx, NonNullObjectArg(cx, "`target`",
+  RootedObject obj(cx, RequireObjectArg(cx, "`target`",
                                         "Reflect.setPrototypeOf", args.get(0)));
   if (!obj) {
     return false;
@@ -193,7 +195,7 @@ static bool Reflect_setPrototypeOf(JSContext* cx, unsigned argc, Value* vp) {
   return true;
 }
 
-static const JSFunctionSpec methods[] = {
+static const JSFunctionSpec reflect_methods[] = {
     JS_SELF_HOSTED_FN("apply", "Reflect_apply", 3, 0),
     JS_SELF_HOSTED_FN("construct", "Reflect_construct", 2, 0),
     JS_SELF_HOSTED_FN("defineProperty", "Reflect_defineProperty", 3, 0),
@@ -211,30 +213,22 @@ static const JSFunctionSpec methods[] = {
     JS_FN("setPrototypeOf", Reflect_setPrototypeOf, 2, 0),
     JS_FS_END};
 
+static const JSPropertySpec reflect_properties[] = {
+    JS_STRING_SYM_PS(toStringTag, "Reflect", JSPROP_READONLY), JS_PS_END};
+
 /*** Setup ******************************************************************/
 
-JSObject* js::InitReflect(JSContext* cx, Handle<GlobalObject*> global) {
+static JSObject* CreateReflectObject(JSContext* cx, JSProtoKey key) {
+  Handle<GlobalObject*> global = cx->global();
   RootedObject proto(cx, GlobalObject::getOrCreateObjectPrototype(cx, global));
   if (!proto) {
     return nullptr;
   }
-
-  RootedObject reflect(
-      cx, NewObjectWithGivenProto<PlainObject>(cx, proto, SingletonObject));
-  if (!reflect) {
-    return nullptr;
-  }
-  if (!JS_DefineFunctions(cx, reflect, methods)) {
-    return nullptr;
-  }
-
-  RootedValue value(cx, ObjectValue(*reflect));
-  if (!DefineDataProperty(cx, global, cx->names().Reflect, value,
-                          JSPROP_RESOLVING)) {
-    return nullptr;
-  }
-
-  global->setConstructor(JSProto_Reflect, value);
-
-  return reflect;
+  return NewSingletonObjectWithGivenProto<PlainObject>(cx, proto);
 }
+
+static const ClassSpec ReflectClassSpec = {CreateReflectObject, nullptr,
+                                           reflect_methods, reflect_properties};
+
+const JSClass js::ReflectClass = {"Reflect", 0, JS_NULL_CLASS_OPS,
+                                  &ReflectClassSpec};

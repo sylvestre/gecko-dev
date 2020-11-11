@@ -8,23 +8,31 @@ const { Component } = require("devtools/client/shared/vendor/react");
 const { connect } = require("devtools/client/shared/vendor/react-redux");
 const PropTypes = require("devtools/client/shared/vendor/react-prop-types");
 const dom = require("devtools/client/shared/vendor/react-dom-factories");
-const { translateNodeFrontToGrip } = require("devtools/client/inspector/shared/utils");
+const {
+  translateNodeFrontToGrip,
+} = require("devtools/client/inspector/shared/utils");
 
-const { REPS, MODE } = require("devtools/client/shared/components/reps/reps");
+const { REPS, MODE } = require("devtools/client/shared/components/reps/index");
 const { Rep } = REPS;
 const ElementNode = REPS.ElementNode;
 
-const { getInspectorStr } = require("../utils/l10n");
+const {
+  getInspectorStr,
+} = require("devtools/client/inspector/animation/utils/l10n");
+
+const {
+  highlightNode,
+  unhighlightNode,
+} = require("devtools/client/inspector/boxmodel/actions/box-model-highlighter");
 
 class AnimationTarget extends Component {
   static get propTypes() {
     return {
       animation: PropTypes.object.isRequired,
+      dispatch: PropTypes.func.isRequired,
       emitEventForTest: PropTypes.func.isRequired,
       getNodeFromActor: PropTypes.func.isRequired,
       highlightedNode: PropTypes.string.isRequired,
-      onHideBoxModelHighlighter: PropTypes.func.isRequired,
-      onShowBoxModelHighlighterForNode: PropTypes.func.isRequired,
       setHighlightedNode: PropTypes.func.isRequired,
       setSelectedNode: PropTypes.func.isRequired,
     };
@@ -49,8 +57,10 @@ class AnimationTarget extends Component {
   }
 
   shouldComponentUpdate(nextProps, nextState) {
-    return this.state.nodeFront !== nextState.nodeFront ||
-           this.props.highlightedNode !== nextState.highlightedNode;
+    return (
+      this.state.nodeFront !== nextState.nodeFront ||
+      this.props.highlightedNode !== nextState.highlightedNode
+    );
   }
 
   async updateNodeFront(animation) {
@@ -88,8 +98,12 @@ class AnimationTarget extends Component {
     await this.ensureNodeFront();
 
     if (this.state.nodeFront) {
-      this.props.onShowBoxModelHighlighterForNode(
-        this.state.nodeFront, { hideInfoBar: true, hideGuides: true });
+      this.props.dispatch(
+        highlightNode(this.state.nodeFront, {
+          hideInfoBar: true,
+          hideGuides: true,
+        })
+      );
     }
   }
 
@@ -104,7 +118,7 @@ class AnimationTarget extends Component {
   render() {
     const {
       emitEventForTest,
-      onHideBoxModelHighlighter,
+      dispatch,
       highlightedNode,
       setHighlightedNode,
     } = this.props;
@@ -112,11 +126,9 @@ class AnimationTarget extends Component {
     const { nodeFront } = this.state;
 
     if (!nodeFront) {
-      return dom.div(
-        {
-          className: "animation-target",
-        }
-      );
+      return dom.div({
+        className: "animation-target",
+      });
     }
 
     emitEventForTest("animation-target-rendered");
@@ -125,38 +137,37 @@ class AnimationTarget extends Component {
 
     return dom.div(
       {
-        className: "animation-target" +
-                   (isHighlighted ? " highlighting" : ""),
+        className: "animation-target" + (isHighlighted ? " highlighting" : ""),
       },
-      Rep(
-        {
-          defaultRep: ElementNode,
-          mode: MODE.TINY,
-          inspectIconTitle: getInspectorStr("inspector.nodePreview.highlightNodeLabel"),
-          object: translateNodeFrontToGrip(nodeFront),
-          onDOMNodeClick: () => this.select(),
-          onDOMNodeMouseOut: () => {
-            if (!isHighlighted) {
-              onHideBoxModelHighlighter();
-            }
-          },
-          onDOMNodeMouseOver: () => {
-            if (!isHighlighted) {
-              this.highlight();
-            }
-          },
-          onInspectIconClick: (_, e) => {
-            e.stopPropagation();
+      Rep({
+        defaultRep: ElementNode,
+        mode: MODE.TINY,
+        inspectIconTitle: getInspectorStr(
+          "inspector.nodePreview.highlightNodeLabel"
+        ),
+        object: translateNodeFrontToGrip(nodeFront),
+        onDOMNodeClick: () => this.select(),
+        onDOMNodeMouseOut: () => {
+          if (!isHighlighted) {
+            dispatch(unhighlightNode());
+          }
+        },
+        onDOMNodeMouseOver: () => {
+          if (!isHighlighted) {
+            this.highlight();
+          }
+        },
+        onInspectIconClick: (_, e) => {
+          e.stopPropagation();
 
-            if (!isHighlighted) {
-              // At first, hide highlighter which was created by onDOMNodeMouseOver.
-              onHideBoxModelHighlighter();
-            }
+          if (!isHighlighted) {
+            // At first, hide highlighter which was created by onDOMNodeMouseOver.
+            dispatch(unhighlightNode());
+          }
 
-            setHighlightedNode(isHighlighted ? null : nodeFront);
-          },
-        }
-      )
+          setHighlightedNode(isHighlighted ? null : nodeFront);
+        },
+      })
     );
   }
 }

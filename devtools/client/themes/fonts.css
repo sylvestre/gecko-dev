@@ -7,9 +7,7 @@
   --highlight-color: var(--blue-55);
   --input-background-color: white;
   --input-border-color: var(--grey-30);
-  --input-text-color: var(--grey-90);
   --preview-input-background: var(--theme-toolbar-background);
-  --secondary-label-color: var(--grey-45);
   --slider-thumb-color: var(--grey-50);
   --slider-track-color: var(--grey-30);
 }
@@ -17,7 +15,6 @@
 :root.theme-dark {
   --input-background-color: var(--grey-70);
   --input-border-color: var(--grey-70);
-  --input-text-color: var(--grey-40);
   --preview-input-background: #222225;
   --slider-thumb-color: var(--grey-40);
   --slider-track-color: var(--grey-60);
@@ -32,6 +29,10 @@
   overflow: auto;
 }
 
+#font-container, #font-editor {
+  min-width: var(--min-container-width);
+}
+
 #font-container {
   flex: auto;
 }
@@ -41,7 +42,7 @@
 }
 
 #font-editor summary {
-  -moz-user-select: none;
+  user-select: none;
   cursor: pointer;
   margin-bottom: .4em;
   width: -moz-fit-content;
@@ -56,10 +57,7 @@
   display: none;
 }
 
-#font-editor details[open] .label-close {
-  display: inline-block;
-}
-
+#font-editor details[open] .label-close,
 #font-editor details:not([open]) .label-open {
   display: inline-block;
 }
@@ -94,13 +92,13 @@
   background: var(--preview-input-background);
   border-bottom: 1px solid var(--theme-splitter-color);
   display: flex;
-  height: 23px;
+  height: 25px;
 }
 
 #font-preview-input-container input {
   background-image: none;
   flex: 1;
-  padding-left: 14px;
+  padding-inline: 19px;
 }
 
 .font-preview {
@@ -121,7 +119,7 @@
   display: inline-block;
   margin-bottom: 0.6em;
   font-size: 1em;
-  color: var(--grey-50);
+  color: var(--theme-text-color-alt);
 }
 
 .font-family-name {
@@ -135,7 +133,6 @@
 
 .font-group .font-name {
   white-space: unset;
-  margin-right: .5em;
 }
 
 .font-group .font-name::after {
@@ -146,15 +143,38 @@
   content: "";
 }
 
+/* Make font-name hoverable as doing so highlights text runs in the page.
+   The hit target is 3px around the font name, which is why we offset them with a -3px
+   horizontal margin so they appear at the same place as they normall would. */
+
+.font-name {
+  padding: 3px;
+  margin-inline-start: -3px;
+  border-radius: 3px;
+}
+
+.font-name:hover {
+  background-color: var(--theme-selection-background-hover);
+}
+
 .font-css-code {
+  /* Force text direction in LTR and RTL */
   direction: ltr;
+  text-align: left;
   margin: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: var(--theme-toolbar-color);
+  color: var(--theme-text-color-strong);
   grid-column: span 2;
-  position: relative;
-  inset-inline-start: -4px;
+}
+
+.font-css-code .theme-twisty {
+  margin-inline-start: -3px;
+}
+
+/* Force arrow direction in LTR and RTL */
+.font-css-code .theme-twisty:not([open]) {
+  transform: rotate(-90deg) !important;
 }
 
 .font-css-code-expander::before {
@@ -164,7 +184,7 @@
   height: 8px;
   margin: 0 2px;
   line-height: 3px;
-  color: var(--theme-body-color-inactive);
+  color: var(--theme-text-color-inactive);
   border-radius: 3px;
   border-style: solid;
   border-width: 1px;
@@ -178,7 +198,7 @@
   flex-wrap: nowrap;
   justify-content: space-between;
   align-items: center;
-  padding: 0 18px;
+  padding: 0 20px;
   margin: .6em 0;
 }
 
@@ -198,8 +218,7 @@
 .font-control-used-fonts {
   align-items: flex-start;
   border-bottom: 1px solid var(--theme-splitter-color);
-  margin-top: 0;
-  margin-bottom: 1em;
+  margin-block: 0 1em;
   padding-top: 1em;
 }
 
@@ -224,8 +243,8 @@
   flex: 1;
   font-size: 12px;
   min-width: 70px;
-  margin-right: 10px;
-  -moz-user-select: none;
+  margin-inline-end: 10px;
+  user-select: none;
 }
 
 .font-control-label-text {
@@ -236,22 +255,29 @@
 }
 
 .font-control-label-detail {
-  color: var(--secondary-label-color);
+  color: var(--theme-text-color-alt);
   font-size: smaller;
 }
 
 .font-value-input {
-  margin-left: 10px;
   text-align: right;
   width: 60px;
   padding: 2px 3px;
+  padding-inline-end: 5px;
 }
 
 .font-value-input,
 .font-value-select {
-  color: var(--input-text-color);
+  color: var(--theme-text-color-strong);
   border: 1px solid var(--input-border-color);
   background-color: var(--input-background-color);
+}
+
+/* Styles for disabled input fields */
+.font-value-input[disabled],
+.font-value-select[disabled],
+.font-value-slider[disabled] {
+  opacity: 0.5;
 }
 
 /* Do not use browser "invalid" state */
@@ -265,27 +291,28 @@
   outline: none;
 }
 
-/* Add space between input text from number stepper */
-.font-value-input[type=number]::-moz-number-spin-box {
-  margin-left: 3px;
+/* Make native number steppers disappear by treating it as text field*/
+.font-value-input[type=number] {
+  appearance: textfield;
 }
 
-/* Make native number steppers darker to fit the dark theme */
-.theme-dark .font-value-input[type=number]::-moz-number-spin-box {
-  filter: invert(25%);
+/* Swap around order of value input and unit dropdown for RTL */
+.font-value-input:dir(rtl) {
+  order: 3;
 }
 
-/* Do not show number stepper for line height and font-size */
-.font-value-input[name=line-height],
-.font-value-input[name=font-size] {
-  -moz-appearance: textfield;
-  padding-right: 5px;
-  border-right: none;
+.font-value-label {
+  /* Combined width of .font-value-input and .font-value-select */
+  width: calc(60px + 3.8em);
+  padding-block: 2px 4px;
 }
 
 /* Mock separator because inputs don't have distinguishable borders in dark theme */
-.theme-dark .font-value-input + .font-value-select {
-  margin-left: 2px;
+.theme-dark .font-value-input + .font-value-select:dir(ltr) {
+  margin-inline-start: 2px;
+}
+.theme-dark .font-value-input + .font-value-select:dir(rtl) {
+  margin-inline-end: 2px;
 }
 
 /* Custom styles for <select> elements within the font editor. */
@@ -293,17 +320,28 @@
   background-image: url(chrome://devtools/skin/images/select-arrow.svg);
   background-repeat: no-repeat;
   background-position: right 4px center;
-  fill: var(--theme-toolbar-photon-icon-color);
+  fill: var(--theme-icon-color);
   -moz-context-properties: fill;
-  -moz-appearance: none;
+  appearance: none;
   box-shadow: none;
   padding: 1px 10px 1px 2px;
   min-width: 3.8em;
 }
 
+.font-value-input + .font-value-select:dir(ltr) {
+  border-inline-start: none;
+}
+
+/* Swap around order of value input and unit dropdown for RTL */
+.font-value-input + .font-value-select:dir(rtl) {
+  border-inline-end: none;
+  order: 2;
+  text-align: left;
+}
+
 .font-value-select:-moz-focusring {
   color: transparent;
-  text-shadow: 0 0 0 var(--input-text-color);
+  text-shadow: 0 0 0 var(--theme-text-color-strong);
 }
 
 .font-value-input:focus,
@@ -316,13 +354,14 @@
   flex: 1;
   min-width: 50px;
   position: relative;
+  margin-inline-end: 10px;
 }
 
 /* Firefox doesn't support pseudo-elements on inputs. Using the container instead. */
 .font-value-slider-container::before,
 .font-value-slider-container::after {
-  -moz-user-select: none;
-  color: var(--secondary-label-color);
+  user-select: none;
+  color: var(--theme-text-color-alt);
   font-size: smaller;
   position: absolute;
   bottom: -.6em;
@@ -332,18 +371,18 @@
 .font-control-input:hover .font-value-slider-container::before,
 .font-control-input:hover .font-value-slider-container::after,
 .font-control-input:focus-within .font-value-slider-container::before,
-.font-control-input:focus-within .font-value-slider-container::after{
+.font-control-input:focus-within .font-value-slider-container::after {
   visibility: visible;
 }
 
 .font-value-slider-container::before {
   content: attr(data-min);
-  left: .3em;
+  inset-inline-start: .3em;
 }
 
 .font-value-slider-container::after {
   content: attr(data-max);
-  right: .3em;
+  inset-inline-end: .3em;
 }
 
 .font-value-slider {
@@ -371,10 +410,6 @@
 
 .font-value-slider:-moz-focusring {
   outline: none;
-}
-
-.font-value-slider::-moz-focus-outer {
-  border: 0;
 }
 
 .font-value-slider::-moz-range-thumb {
@@ -410,6 +445,7 @@
   text-overflow: ellipsis;
   overflow: hidden;
   white-space: nowrap;
+  direction: ltr;
 }
 
 .font-origin .copy-icon {

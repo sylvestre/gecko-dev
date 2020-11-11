@@ -8,9 +8,9 @@
 #include <shlguid.h>
 
 #include "nsArrayEnumerator.h"
+#include "nsComponentManagerUtils.h"
 #include "nsCOMArray.h"
 #include "nsIURI.h"
-#include "nsIVariant.h"
 #include "nsNetUtil.h"
 #include "nsString.h"
 #include "nsWindowsMigrationUtils.h"
@@ -74,11 +74,10 @@ nsIEHistoryEnumerator::HasMoreElements(bool* _retval) {
   mCachedNextEntry = do_CreateInstance("@mozilla.org/hash-property-bag;1");
   MOZ_ASSERT(mCachedNextEntry, "Should have instanced a new property bag");
   if (mCachedNextEntry) {
-    mCachedNextEntry->SetPropertyAsInterface(NS_LITERAL_STRING("uri"), uri);
-    mCachedNextEntry->SetPropertyAsAString(NS_LITERAL_STRING("title"), title);
+    mCachedNextEntry->SetPropertyAsInterface(u"uri"_ns, uri);
+    mCachedNextEntry->SetPropertyAsAString(u"title"_ns, title);
     if (lastVisitTimeIsValid) {
-      mCachedNextEntry->SetPropertyAsInt64(NS_LITERAL_STRING("time"),
-                                           lastVisited);
+      mCachedNextEntry->SetPropertyAsInt64(u"time"_ns, lastVisited);
     }
 
     *_retval = true;
@@ -93,7 +92,21 @@ NS_IMETHODIMP
 nsIEHistoryEnumerator::GetNext(nsISupports** _retval) {
   *_retval = nullptr;
 
-  if (!mCachedNextEntry) return NS_ERROR_FAILURE;
+  EnsureInitialized();
+  MOZ_ASSERT(mURLEnumerator,
+             "Should have instanced an IE History URLEnumerator");
+  if (!mURLEnumerator) return NS_OK;
+
+  if (!mCachedNextEntry) {
+    bool hasMore = false;
+    nsresult rv = this->HasMoreElements(&hasMore);
+    if (NS_FAILED(rv)) {
+      return rv;
+    }
+    if (!hasMore) {
+      return NS_ERROR_FAILURE;
+    }
+  }
 
   NS_ADDREF(*_retval = mCachedNextEntry);
   // Release the cached entry, so it can't be returned twice.

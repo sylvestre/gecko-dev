@@ -14,17 +14,18 @@
 #include "mozilla/RefPtr.h"
 #include "nsError.h"
 #include "nsString.h"
-#include "nsSVGPathDataParser.h"
+#include "SVGPathDataParser.h"
 #include <stdarg.h>
 #include "nsStyleConsts.h"
 #include "SVGContentUtils.h"
-#include "SVGGeometryElement.h"  // for nsSVGMark
+#include "SVGGeometryElement.h"
 #include "SVGPathSegUtils.h"
 #include <algorithm>
 
-using namespace mozilla;
 using namespace mozilla::dom::SVGPathSeg_Binding;
 using namespace mozilla::gfx;
+
+namespace mozilla {
 
 static inline bool IsMoveto(uint16_t aSegType) {
   return aSegType == PATHSEG_MOVETO_ABS || aSegType == PATHSEG_MOVETO_REL;
@@ -83,7 +84,7 @@ nsresult SVGPathData::SetValueFromString(const nsAString& aValue) {
   // the first error. We still return any error though so that callers know if
   // there's a problem.
 
-  nsSVGPathDataParser pathParser(aValue, this);
+  SVGPathDataParser pathParser(aValue, this);
   return pathParser.Parse() ? NS_OK : NS_ERROR_DOM_SYNTAX_ERR;
 }
 
@@ -134,26 +135,6 @@ uint32_t SVGPathData::CountItems() const {
 }
 #endif
 
-bool SVGPathData::GetSegmentLengths(nsTArray<double>* aLengths) const {
-  aLengths->Clear();
-  SVGPathTraversalState state;
-
-  uint32_t i = 0;
-  while (i < mData.Length()) {
-    state.length = 0.0;
-    SVGPathSegUtils::TraversePathSegment(&mData[i], state);
-    if (!aLengths->AppendElement(state.length)) {
-      aLengths->Clear();
-      return false;
-    }
-    i += 1 + SVGPathSegUtils::ArgCountForType(mData[i]);
-  }
-
-  MOZ_ASSERT(i == mData.Length(), "Very, very bad - mData corrupt");
-
-  return true;
-}
-
 bool SVGPathData::GetDistancesFromOriginToEndsOfVisibleSegments(
     FallibleTArray<double>* aOutput) const {
   SVGPathTraversalState state;
@@ -165,6 +146,12 @@ bool SVGPathData::GetDistancesFromOriginToEndsOfVisibleSegments(
     uint32_t segType = SVGPathSegUtils::DecodeType(mData[i]);
     SVGPathSegUtils::TraversePathSegment(&mData[i], state);
 
+    // With degenerately large point coordinates, TraversePathSegment can fail
+    // and end up producing NaNs.
+    if (!std::isfinite(state.length)) {
+      return false;
+    }
+
     // We skip all moveto commands except an initial moveto. See the text 'A
     // "move to" command does not count as an additional point when dividing up
     // the duration...':
@@ -175,8 +162,7 @@ bool SVGPathData::GetDistancesFromOriginToEndsOfVisibleSegments(
     // this case an equal amount of time is spent on each path segment,
     // except on moveto segments which are jumped over immediately.
 
-    if (i == 0 ||
-        (segType != PATHSEG_MOVETO_ABS && segType != PATHSEG_MOVETO_REL)) {
+    if (i == 0 || !IsMoveto(segType)) {
       if (!aOutput->AppendElement(state.length, fallible)) {
         return false;
       }
@@ -273,13 +259,13 @@ static void ApproximateZeroLengthSubpathSquareCaps(PathBuilder* aPB,
   } while (0)
 
 already_AddRefed<Path> SVGPathData::BuildPath(PathBuilder* aBuilder,
-                                              uint8_t aStrokeLineCap,
+                                              StyleStrokeLinecap aStrokeLineCap,
                                               Float aStrokeWidth) const {
   if (mData.IsEmpty() || !IsMoveto(SVGPathSegUtils::DecodeType(mData[0]))) {
     return nullptr;  // paths without an initial moveto are invalid
   }
 
-  bool hasLineCaps = aStrokeLineCap != NS_STYLE_STROKE_LINECAP_BUTT;
+  bool hasLineCaps = aStrokeLineCap != StyleStrokeLinecap::Butt;
   bool subpathHasLength = false;  // visual length
   bool subpathContainsNonMoveTo = false;
 
@@ -396,8 +382,8 @@ already_AddRefed<Path> SVGPathData::BuildPath(PathBuilder* aBuilder,
           if (radii.x == 0.0f || radii.y == 0.0f) {
             aBuilder->LineTo(segEnd);
           } else {
-            nsSVGArcConverter converter(segStart, segEnd, radii, mData[i + 2],
-                                        mData[i + 3] != 0, mData[i + 4] != 0);
+            SVGArcConverter converter(segStart, segEnd, radii, mData[i + 2],
+                                      mData[i + 3] != 0, mData[i + 4] != 0);
             while (converter.GetNextSegment(&cp1, &cp2, &segEnd)) {
               aBuilder->BezierTo(cp1, cp2, segEnd);
             }
@@ -493,8 +479,7 @@ already_AddRefed<Path> SVGPathData::BuildPath(PathBuilder* aBuilder,
                          // seg anyway
     }
 
-    subpathContainsNonMoveTo =
-        segType != PATHSEG_MOVETO_ABS && segType != PATHSEG_MOVETO_REL;
+    subpathContainsNonMoveTo = !IsMoveto(segType);
     i += argCount;
     prevSegType = segType;
     segStart = segEnd;
@@ -522,15 +507,16 @@ already_AddRefed<Path> SVGPathData::BuildPathForMeasuring() const {
       gfxPlatform::GetPlatform()->ScreenReferenceDrawTarget();
   RefPtr<PathBuilder> builder =
       drawTarget->CreatePathBuilder(FillRule::FILL_WINDING);
-  return BuildPath(builder, NS_STYLE_STROKE_LINECAP_BUTT, 0);
+  return BuildPath(builder, StyleStrokeLinecap::Butt, 0);
 }
 
 // We could simplify this function because this is only used by CSS motion path
 // and clip-path, which don't render the SVG Path. i.e. The returned path is
 // used as a reference.
-/* static */ already_AddRefed<Path> SVGPathData::BuildPath(
-    const nsTArray<StylePathCommand>& aPath, PathBuilder* aBuilder,
-    uint8_t aStrokeLineCap, Float aStrokeWidth, float aZoomFactor) {
+/* static */
+already_AddRefed<Path> SVGPathData::BuildPath(
+    Span<const StylePathCommand> aPath, PathBuilder* aBuilder,
+    StyleStrokeLinecap aStrokeLineCap, Float aStrokeWidth, float aZoomFactor) {
   if (aPath.IsEmpty() || !aPath[0].IsMoveTo()) {
     return nullptr;  // paths without an initial moveto are invalid
   }
@@ -549,7 +535,7 @@ already_AddRefed<Path> SVGPathData::BuildPathForMeasuring() const {
            aType == StylePathCommand::Tag::SmoothQuadBezierCurveTo;
   };
 
-  bool hasLineCaps = aStrokeLineCap != NS_STYLE_STROKE_LINECAP_BUTT;
+  bool hasLineCaps = aStrokeLineCap != StyleStrokeLinecap::Butt;
   bool subpathHasLength = false;  // visual length
   bool subpathContainsNonMoveTo = false;
 
@@ -646,9 +632,8 @@ already_AddRefed<Path> SVGPathData::BuildPathForMeasuring() const {
           if (radii.x == 0.0f || radii.y == 0.0f) {
             aBuilder->LineTo(scale(segEnd));
           } else {
-            nsSVGArcConverter converter(segStart, segEnd, radii, arc.angle,
-                                        arc.large_arc_flag._0,
-                                        arc.sweep_flag._0);
+            SVGArcConverter converter(segStart, segEnd, radii, arc.angle,
+                                      arc.large_arc_flag._0, arc.sweep_flag._0);
             while (converter.GetNextSegment(&cp1, &cp2, &segEnd)) {
               aBuilder->BezierTo(scale(cp1), scale(cp2), scale(segEnd));
             }
@@ -749,7 +734,7 @@ static float AngleOfVector(const Point& cp1, const Point& cp2) {
   return static_cast<float>(AngleOfVector(cp1 - cp2));
 }
 
-void SVGPathData::GetMarkerPositioningData(nsTArray<nsSVGMark>* aMarks) const {
+void SVGPathData::GetMarkerPositioningData(nsTArray<SVGMark>* aMarks) const {
   // This code should assume that ANY type of segment can appear at ANY index.
   // It should also assume that segments such as M and Z can appear in weird
   // places, and repeat multiple times consecutively.
@@ -757,6 +742,7 @@ void SVGPathData::GetMarkerPositioningData(nsTArray<nsSVGMark>* aMarks) const {
   // info on current [sub]path (reset every M command):
   Point pathStart(0.0, 0.0);
   float pathStartAngle = 0.0f;
+  uint32_t pathStartIndex = 0;
 
   // info on previous segment:
   uint16_t prevSegType = PATHSEG_UNKNOWN;
@@ -788,6 +774,7 @@ void SVGPathData::GetMarkerPositioningData(nsTArray<nsSVGMark>* aMarks) const {
           segEnd = segStart + Point(mData[i], mData[i + 1]);
         }
         pathStart = segEnd;
+        pathStartIndex = aMarks->Length();
         // If authors are going to specify multiple consecutive moveto commands
         // with markers, me might as well make the angle do something useful:
         segStartAngle = segEndAngle = AngleOfVector(segEnd, segStart);
@@ -1019,7 +1006,7 @@ void SVGPathData::GetMarkerPositioningData(nsTArray<nsSVGMark>* aMarks) const {
 
     // Set the angle of the mark at the start of this segment:
     if (aMarks->Length()) {
-      nsSVGMark& mark = aMarks->LastElement();
+      SVGMark& mark = aMarks->LastElement();
       if (!IsMoveto(segType) && IsMoveto(prevSegType)) {
         // start of new subpath
         pathStartAngle = mark.angle = segStartAngle;
@@ -1034,16 +1021,14 @@ void SVGPathData::GetMarkerPositioningData(nsTArray<nsSVGMark>* aMarks) const {
     }
 
     // Add the mark at the end of this segment, and set its position:
-    if (!aMarks->AppendElement(nsSVGMark(static_cast<float>(segEnd.x),
-                                         static_cast<float>(segEnd.y), 0.0f,
-                                         nsSVGMark::eMid))) {
-      aMarks->Clear();  // OOM, so try to free some
-      return;
-    }
+    // XXX(Bug 1631371) Check if this should use a fallible operation as it
+    // pretended earlier.
+    aMarks->AppendElement(SVGMark(static_cast<float>(segEnd.x),
+                                  static_cast<float>(segEnd.y), 0.0f,
+                                  SVGMark::eMid));
 
     if (segType == PATHSEG_CLOSEPATH && prevSegType != PATHSEG_CLOSEPATH) {
-      aMarks->LastElement().angle =
-          // aMarks->ElementAt(pathStartIndex).angle =
+      aMarks->LastElement().angle = aMarks->ElementAt(pathStartIndex).angle =
           SVGContentUtils::AngleBisect(segEndAngle, pathStartAngle);
     }
 
@@ -1058,8 +1043,8 @@ void SVGPathData::GetMarkerPositioningData(nsTArray<nsSVGMark>* aMarks) const {
     if (prevSegType != PATHSEG_CLOSEPATH) {
       aMarks->LastElement().angle = prevSegEndAngle;
     }
-    aMarks->LastElement().type = nsSVGMark::eEnd;
-    aMarks->ElementAt(0).type = nsSVGMark::eStart;
+    aMarks->LastElement().type = SVGMark::eEnd;
+    aMarks->ElementAt(0).type = SVGMark::eStart;
   }
 }
 
@@ -1070,3 +1055,5 @@ size_t SVGPathData::SizeOfExcludingThis(MallocSizeOf aMallocSizeOf) const {
 size_t SVGPathData::SizeOfIncludingThis(MallocSizeOf aMallocSizeOf) const {
   return aMallocSizeOf(this) + SizeOfExcludingThis(aMallocSizeOf);
 }
+
+}  // namespace mozilla

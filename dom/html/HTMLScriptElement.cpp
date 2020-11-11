@@ -6,17 +6,14 @@
 
 #include "nsGkAtoms.h"
 #include "nsStyleConsts.h"
-#include "nsIDocument.h"
-#include "nsIURI.h"
+#include "mozilla/dom/Document.h"
 #include "nsNetUtil.h"
 #include "nsContentUtils.h"
 #include "nsUnicharUtils.h"  // for nsCaseInsensitiveStringComparator()
 #include "nsIScriptContext.h"
 #include "nsIScriptGlobalObject.h"
-#include "nsIXPConnect.h"
 #include "nsServiceManagerUtils.h"
 #include "nsError.h"
-#include "nsIArray.h"
 #include "nsTArray.h"
 #include "nsDOMJSUtils.h"
 #include "nsIScriptError.h"
@@ -26,8 +23,7 @@
 
 NS_IMPL_NS_NEW_HTML_ELEMENT_CHECK_PARSER(Script)
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 JSObject* HTMLScriptElement::WrapNode(JSContext* aCx,
                                       JS::Handle<JSObject*> aGivenProto) {
@@ -41,20 +37,18 @@ HTMLScriptElement::HTMLScriptElement(
   AddMutationObserver(this);
 }
 
-HTMLScriptElement::~HTMLScriptElement() {}
+HTMLScriptElement::~HTMLScriptElement() = default;
 
 NS_IMPL_ISUPPORTS_INHERITED(HTMLScriptElement, nsGenericHTMLElement,
                             nsIScriptLoaderObserver, nsIScriptElement,
                             nsIMutationObserver)
 
-nsresult HTMLScriptElement::BindToTree(nsIDocument* aDocument,
-                                       nsIContent* aParent,
-                                       nsIContent* aBindingParent) {
-  nsresult rv =
-      nsGenericHTMLElement::BindToTree(aDocument, aParent, aBindingParent);
+nsresult HTMLScriptElement::BindToTree(BindContext& aContext,
+                                       nsINode& aParent) {
+  nsresult rv = nsGenericHTMLElement::BindToTree(aContext, aParent);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  if (GetComposedDoc()) {
+  if (IsInComposedDoc()) {
     MaybeProcessScript();
   }
 
@@ -85,8 +79,8 @@ nsresult HTMLScriptElement::Clone(dom::NodeInfo* aNodeInfo,
                                   nsINode** aResult) const {
   *aResult = nullptr;
 
-  HTMLScriptElement* it =
-      new HTMLScriptElement(do_AddRef(aNodeInfo), NOT_FROM_PARSER);
+  HTMLScriptElement* it = new (aNodeInfo->NodeInfoManager())
+      HTMLScriptElement(do_AddRef(aNodeInfo), NOT_FROM_PARSER);
 
   nsCOMPtr<nsINode> kungFuDeathGrip = it;
   nsresult rv = const_cast<HTMLScriptElement*>(this)->CopyInnerTo(it);
@@ -142,7 +136,7 @@ void HTMLScriptElement::SetText(const nsAString& aValue, ErrorResult& aRv) {
   aRv = nsContentUtils::SetNodeTextContent(this, aValue, true);
 }
 
-// variation of this code in nsSVGScriptElement - check if changes
+// variation of this code in SVGScriptElement - check if changes
 // need to be transfered when modifying
 
 bool HTMLScriptElement::GetScriptType(nsAString& aType) {
@@ -168,7 +162,7 @@ void HTMLScriptElement::GetScriptCharset(nsAString& charset) {
   GetCharset(charset);
 }
 
-void HTMLScriptElement::FreezeExecutionAttrs(nsIDocument* aOwnerDoc) {
+void HTMLScriptElement::FreezeExecutionAttrs(Document* aOwnerDoc) {
   if (mFrozen) {
     return;
   }
@@ -181,34 +175,31 @@ void HTMLScriptElement::FreezeExecutionAttrs(nsIDocument* aOwnerDoc) {
   mIsModule = aOwnerDoc->ModuleScriptsEnabled() && !type.IsEmpty() &&
               type.LowerCaseEqualsASCII("module");
 
-  // variation of this code in nsSVGScriptElement - check if changes
+  // variation of this code in SVGScriptElement - check if changes
   // need to be transfered when modifying.  Note that we don't use GetSrc here
   // because it will return the base URL when the attr value is "".
   nsAutoString src;
   if (GetAttr(kNameSpaceID_None, nsGkAtoms::src, src)) {
     // Empty src should be treated as invalid URL.
     if (!src.IsEmpty()) {
-      nsCOMPtr<nsIURI> baseURI = GetBaseURI();
       nsContentUtils::NewURIWithDocumentCharset(getter_AddRefs(mUri), src,
-                                                OwnerDoc(), baseURI);
+                                                OwnerDoc(), GetBaseURI());
 
       if (!mUri) {
-        const char16_t* params[] = {u"src", src.get()};
+        AutoTArray<nsString, 2> params = {u"src"_ns, src};
 
         nsContentUtils::ReportToConsole(
-            nsIScriptError::warningFlag, NS_LITERAL_CSTRING("HTML"), OwnerDoc(),
+            nsIScriptError::warningFlag, "HTML"_ns, OwnerDoc(),
             nsContentUtils::eDOM_PROPERTIES, "ScriptSourceInvalidUri", params,
-            ArrayLength(params), nullptr, EmptyString(), GetScriptLineNumber(),
-            GetScriptColumnNumber());
+            nullptr, u""_ns, GetScriptLineNumber(), GetScriptColumnNumber());
       }
     } else {
-      const char16_t* params[] = {u"src"};
+      AutoTArray<nsString, 1> params = {u"src"_ns};
 
       nsContentUtils::ReportToConsole(
-          nsIScriptError::warningFlag, NS_LITERAL_CSTRING("HTML"), OwnerDoc(),
-          nsContentUtils::eDOM_PROPERTIES, "ScriptSourceEmpty", params,
-          ArrayLength(params), nullptr, EmptyString(), GetScriptLineNumber(),
-          GetScriptColumnNumber());
+          nsIScriptError::warningFlag, "HTML"_ns, OwnerDoc(),
+          nsContentUtils::eDOM_PROPERTIES, "ScriptSourceEmpty", params, nullptr,
+          u""_ns, GetScriptLineNumber(), GetScriptColumnNumber());
     }
 
     // At this point mUri will be null for invalid URLs.
@@ -228,7 +219,7 @@ CORSMode HTMLScriptElement::GetCORSMode() const {
   return AttrValueToCORSMode(GetParsedAttr(nsGkAtoms::crossorigin));
 }
 
-mozilla::net::ReferrerPolicy HTMLScriptElement::GetReferrerPolicy() {
+mozilla::dom::ReferrerPolicy HTMLScriptElement::GetReferrerPolicy() {
   return GetReferrerPolicyAsEnum();
 }
 
@@ -237,5 +228,4 @@ bool HTMLScriptElement::HasScriptContent() {
          nsContentUtils::HasNonEmptyTextContent(this);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

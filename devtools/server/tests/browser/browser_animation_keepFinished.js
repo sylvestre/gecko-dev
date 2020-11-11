@@ -1,4 +1,3 @@
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
    http://creativecommons.org/publicdomain/zero/1.0/ */
 /* eslint-disable mozilla/no-arbitrary-setTimeout */
@@ -11,8 +10,9 @@
 // AnimationPlayerActor.
 
 add_task(async function() {
-  const {target, walker, animations} =
-    await initAnimationsFrontForUrl(MAIN_DOMAIN + "animation.html");
+  const { target, walker, animations } = await initAnimationsFrontForUrl(
+    MAIN_DOMAIN + "animation.html"
+  );
 
   info("Retrieve a non-animated node");
   const node = await walker.querySelector(walker.rootNode, ".not-animated");
@@ -30,7 +30,7 @@ add_task(async function() {
 
   info("Add a short animation on the node");
   await node.modifyAttributes([
-    {attributeName: "class", newValue: "short-animation"},
+    { attributeName: "class", newValue: "short-animation" },
   ]);
 
   info("Wait for longer than the animation's duration");

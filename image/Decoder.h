@@ -13,12 +13,12 @@
 #include "mozilla/RefPtr.h"
 #include "AnimationParams.h"
 #include "DecoderFlags.h"
-#include "Downscaler.h"
 #include "ImageMetadata.h"
 #include "Orientation.h"
 #include "SourceBuffer.h"
 #include "StreamingLexer.h"
 #include "SurfaceFlags.h"
+#include "qcms.h"
 
 namespace mozilla {
 
@@ -104,7 +104,7 @@ class IDecoderFrameRecycler {
 
 class Decoder {
  public:
-  NS_INLINE_DECL_THREADSAFE_REFCOUNTING_RECORDED(Decoder)
+  NS_INLINE_DECL_THREADSAFE_REFCOUNTING(Decoder)
 
   explicit Decoder(RasterImage* aImage);
 
@@ -272,14 +272,6 @@ class Decoder {
   }
 
   /**
-   * Should blend the current frame with the previous frames to produce a
-   * complete frame instead of a partial frame for animated images.
-   */
-  bool ShouldBlendAnimation() const {
-    return bool(mDecoderFlags & DecoderFlags::BLEND_ANIMATION);
-  }
-
-  /**
    * @return the number of complete animation frames which have been decoded so
    * far, if it has changed since the last call to TakeCompleteFrameCount();
    * otherwise, returns Nothing().
@@ -336,10 +328,7 @@ class Decoder {
    * Get or set the SurfaceFlags that select the kind of output this decoder
    * will produce.
    */
-  void SetSurfaceFlags(SurfaceFlags aSurfaceFlags) {
-    MOZ_ASSERT(!mInitialized);
-    mSurfaceFlags = aSurfaceFlags;
-  }
+  void SetSurfaceFlags(SurfaceFlags aSurfaceFlags);
   SurfaceFlags GetSurfaceFlags() const { return mSurfaceFlags; }
 
   /// @return true if we know the intrinsic size of the image we're decoding.
@@ -418,20 +407,11 @@ class Decoder {
    * For use during decoding only. Allows the BlendAnimationFilter to get the
    * frame it should be pulling the previous frame data from.
    */
-  const RawAccessFrameRef& GetRestoreFrameRef() const {
-    MOZ_ASSERT(ShouldBlendAnimation());
-    return mRestoreFrame;
-  }
+  const RawAccessFrameRef& GetRestoreFrameRef() const { return mRestoreFrame; }
 
-  const gfx::IntRect& GetRestoreDirtyRect() const {
-    MOZ_ASSERT(ShouldBlendAnimation());
-    return mRestoreDirtyRect;
-  }
+  const gfx::IntRect& GetRestoreDirtyRect() const { return mRestoreDirtyRect; }
 
-  const gfx::IntRect& GetRecycleRect() const {
-    MOZ_ASSERT(ShouldBlendAnimation());
-    return mRecycleRect;
-  }
+  const gfx::IntRect& GetRecycleRect() const { return mRecycleRect; }
 
   const gfx::IntRect& GetFirstFrameRefreshArea() const {
     return mFirstFrameRefreshArea;
@@ -451,6 +431,7 @@ class Decoder {
  protected:
   friend class AutoRecordDecoderTelemetry;
   friend class DecoderTestHelper;
+  friend class nsBMPDecoder;
   friend class nsICODecoder;
   friend class PalettedSurfaceSink;
   friend class SurfaceSink;
@@ -471,6 +452,9 @@ class Decoder {
   virtual nsresult BeforeFinishInternal();
   virtual nsresult FinishInternal();
   virtual nsresult FinishWithErrorInternal();
+
+  qcms_profile* GetCMSOutputProfile() const;
+  qcms_transform* GetCMSsRGBTransform(gfx::SurfaceFormat aFormat) const;
 
   /**
    * @return the per-image-format telemetry ID for recording this decoder's
@@ -542,12 +526,9 @@ class Decoder {
 
   /**
    * Allocates a new frame, making it our current frame if successful.
-   *
-   * If a non-paletted frame is desired, pass 0 for aPaletteDepth.
    */
   nsresult AllocateFrame(const gfx::IntSize& aOutputSize,
-                         const gfx::IntRect& aFrameRect,
-                         gfx::SurfaceFormat aFormat, uint8_t aPaletteDepth = 0,
+                         gfx::SurfaceFormat aFormat,
                          const Maybe<AnimationParams>& aAnimParams = Nothing());
 
  private:
@@ -572,18 +553,21 @@ class Decoder {
   }
 
   RawAccessFrameRef AllocateFrameInternal(
-      const gfx::IntSize& aOutputSize, const gfx::IntRect& aFrameRect,
-      gfx::SurfaceFormat aFormat, uint8_t aPaletteDepth,
+      const gfx::IntSize& aOutputSize, gfx::SurfaceFormat aFormat,
       const Maybe<AnimationParams>& aAnimParams,
       RawAccessFrameRef&& aPreviousFrame);
 
  protected:
-  Maybe<Downscaler> mDownscaler;
+  /// Color management profile from the ICCP chunk in the image.
+  qcms_profile* mInProfile;
 
-  uint8_t* mImageData;  // Pointer to image data in either Cairo or 8bit format
+  /// Color management transform to apply to image data.
+  qcms_transform* mTransform;
+
+  uint8_t* mImageData;  // Pointer to image data in BGRA/X
   uint32_t mImageDataLength;
-  uint32_t* mColormap;  // Current colormap to be used in Cairo format
-  uint32_t mColormapSize;
+
+  uint32_t mCMSMode;
 
  private:
   RefPtr<RasterImage> mImage;

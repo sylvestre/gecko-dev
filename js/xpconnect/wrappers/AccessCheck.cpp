@@ -7,8 +7,6 @@
 #include "AccessCheck.h"
 
 #include "nsJSPrincipals.h"
-#include "BasePrincipal.h"
-#include "nsDOMWindowList.h"
 #include "nsGlobalWindow.h"
 
 #include "XPCWrapper.h"
@@ -16,11 +14,12 @@
 #include "FilteringWrapper.h"
 
 #include "jsfriendapi.h"
+#include "js/Object.h"  // JS::GetClass, JS::GetCompartment
+#include "mozilla/BasePrincipal.h"
 #include "mozilla/ErrorResult.h"
 #include "mozilla/dom/BindingUtils.h"
 #include "mozilla/dom/LocationBinding.h"
 #include "mozilla/dom/WindowBinding.h"
-#include "mozilla/jsipc/CrossProcessObjectWrappers.h"
 #include "nsJSUtils.h"
 #include "xpcprivate.h"
 
@@ -30,20 +29,9 @@ using namespace js;
 
 namespace xpc {
 
-nsIPrincipal* GetCompartmentPrincipal(JS::Compartment* compartment) {
-  // System compartments may contain multiple system realms, but we can't call
-  // JS_DeprecatedGetCompartmentPrincipals on compartments with more than one
-  // realm so we special-case this here.
-  if (js::IsSystemCompartment(compartment)) {
-    return nsXPConnect::SystemPrincipal();
-  }
-
-  JSPrincipals* p = JS_DeprecatedGetCompartmentPrincipals(compartment);
-  return nsJSPrincipals::get(p);
-}
-
-nsIPrincipal* GetRealmPrincipal(JS::Realm* realm) {
-  return nsJSPrincipals::get(JS::GetRealmPrincipals(realm));
+BasePrincipal* GetRealmPrincipal(JS::Realm* realm) {
+  return BasePrincipal::Cast(
+      nsJSPrincipals::get(JS::GetRealmPrincipals(realm)));
 }
 
 nsIPrincipal* GetObjectPrincipal(JSObject* obj) {
@@ -51,171 +39,52 @@ nsIPrincipal* GetObjectPrincipal(JSObject* obj) {
 }
 
 bool AccessCheck::subsumes(JSObject* a, JSObject* b) {
-  return CompartmentOriginInfo::Subsumes(js::GetObjectCompartment(a),
-                                         js::GetObjectCompartment(b));
+  return CompartmentOriginInfo::Subsumes(JS::GetCompartment(a),
+                                         JS::GetCompartment(b));
 }
 
 // Same as above, but considering document.domain.
-bool AccessCheck::subsumesConsideringDomain(JS::Compartment* a,
-                                            JS::Compartment* b) {
+bool AccessCheck::subsumesConsideringDomain(JS::Realm* a, JS::Realm* b) {
   MOZ_ASSERT(OriginAttributes::IsRestrictOpenerAccessForFPI());
-  nsIPrincipal* aprin = GetCompartmentPrincipal(a);
-  nsIPrincipal* bprin = GetCompartmentPrincipal(b);
-  return BasePrincipal::Cast(aprin)->FastSubsumesConsideringDomain(bprin);
+  BasePrincipal* aprin = GetRealmPrincipal(a);
+  BasePrincipal* bprin = GetRealmPrincipal(b);
+  return aprin->FastSubsumesConsideringDomain(bprin);
 }
 
-bool AccessCheck::subsumesConsideringDomainIgnoringFPD(JS::Compartment* a,
-                                                       JS::Compartment* b) {
+bool AccessCheck::subsumesConsideringDomainIgnoringFPD(JS::Realm* a,
+                                                       JS::Realm* b) {
   MOZ_ASSERT(!OriginAttributes::IsRestrictOpenerAccessForFPI());
-  nsIPrincipal* aprin = GetCompartmentPrincipal(a);
-  nsIPrincipal* bprin = GetCompartmentPrincipal(b);
-  return BasePrincipal::Cast(aprin)->FastSubsumesConsideringDomainIgnoringFPD(
-      bprin);
+  BasePrincipal* aprin = GetRealmPrincipal(a);
+  BasePrincipal* bprin = GetRealmPrincipal(b);
+  return aprin->FastSubsumesConsideringDomainIgnoringFPD(bprin);
 }
 
 // Does the compartment of the wrapper subsumes the compartment of the wrappee?
 bool AccessCheck::wrapperSubsumes(JSObject* wrapper) {
   MOZ_ASSERT(js::IsWrapper(wrapper));
   JSObject* wrapped = js::UncheckedUnwrap(wrapper);
-  return CompartmentOriginInfo::Subsumes(js::GetObjectCompartment(wrapper),
-                                         js::GetObjectCompartment(wrapped));
+  return CompartmentOriginInfo::Subsumes(JS::GetCompartment(wrapper),
+                                         JS::GetCompartment(wrapped));
 }
 
 bool AccessCheck::isChrome(JS::Compartment* compartment) {
   return js::IsSystemCompartment(compartment);
 }
 
+bool AccessCheck::isChrome(JS::Realm* realm) {
+  return isChrome(JS::GetCompartmentForRealm(realm));
+}
+
 bool AccessCheck::isChrome(JSObject* obj) {
-  return isChrome(js::GetObjectCompartment(obj));
+  return isChrome(JS::GetCompartment(obj));
 }
 
-// Hardcoded policy for cross origin property access. See the HTML5 Spec.
-static bool IsPermitted(CrossOriginObjectType type, JSFlatString* prop,
-                        bool set) {
-  size_t propLength = JS_GetStringLength(JS_FORGET_STRING_FLATNESS(prop));
-  if (!propLength) {
-    return false;
-  }
-
-  char16_t propChar0 = JS_GetFlatStringCharAt(prop, 0);
-  if (type == CrossOriginLocation) {
-    return dom::Location_Binding::IsPermitted(prop, propChar0, set);
-  }
-  if (type == CrossOriginWindow) {
-    return dom::Window_Binding::IsPermitted(prop, propChar0, set);
-  }
-
-  return false;
-}
-
-static bool IsFrameId(JSContext* cx, JSObject* obj, jsid idArg) {
-  MOZ_ASSERT(!js::IsWrapper(obj));
-  RootedId id(cx, idArg);
-
-  nsGlobalWindowInner* win = WindowOrNull(obj);
-  if (!win) {
-    return false;
-  }
-
-  nsDOMWindowList* col = win->GetFrames();
-  if (!col) {
-    return false;
-  }
-
-  nsCOMPtr<mozIDOMWindowProxy> domwin;
-  if (JSID_IS_INT(id)) {
-    domwin = col->IndexedGetter(JSID_TO_INT(id));
-  } else if (JSID_IS_STRING(id)) {
-    nsAutoJSString idAsString;
-    if (!idAsString.init(cx, JSID_TO_STRING(id))) {
-      return false;
-    }
-    domwin = col->NamedItem(idAsString);
-  }
-
-  return domwin != nullptr;
-}
-
-CrossOriginObjectType IdentifyCrossOriginObject(JSObject* obj) {
+bool IsCrossOriginAccessibleObject(JSObject* obj) {
   obj = js::UncheckedUnwrap(obj, /* stopAtWindowProxy = */ false);
-  const js::Class* clasp = js::GetObjectClass(obj);
+  const JSClass* clasp = JS::GetClass(obj);
 
-  if (clasp->name[0] == 'L' && !strcmp(clasp->name, "Location")) {
-    return CrossOriginLocation;
-  }
-  if (clasp->name[0] == 'W' && !strcmp(clasp->name, "Window")) {
-    return CrossOriginWindow;
-  }
-
-  return CrossOriginOpaque;
-}
-
-bool AccessCheck::isCrossOriginAccessPermitted(JSContext* cx,
-                                               HandleObject wrapper,
-                                               HandleId id,
-                                               Wrapper::Action act) {
-  if (act == Wrapper::CALL) {
-    return false;
-  }
-
-  if (act == Wrapper::ENUMERATE) {
-    return true;
-  }
-
-  // For the case of getting a property descriptor, we allow if either GET or
-  // SET is allowed, and rely on FilteringWrapper to filter out any disallowed
-  // accessors.
-  if (act == Wrapper::GET_PROPERTY_DESCRIPTOR) {
-    return isCrossOriginAccessPermitted(cx, wrapper, id, Wrapper::GET) ||
-           isCrossOriginAccessPermitted(cx, wrapper, id, Wrapper::SET);
-  }
-
-  RootedObject obj(
-      cx, js::UncheckedUnwrap(wrapper, /* stopAtWindowProxy = */ false));
-  CrossOriginObjectType type = IdentifyCrossOriginObject(obj);
-  if (JSID_IS_STRING(id)) {
-    if (IsPermitted(type, JSID_TO_FLAT_STRING(id), act == Wrapper::SET)) {
-      return true;
-    }
-  }
-
-  if (type != CrossOriginOpaque && IsCrossOriginWhitelistedProp(cx, id)) {
-    // We always allow access to "then", @@toStringTag, @@hasInstance, and
-    // @@isConcatSpreadable.  But then we nerf them to be a value descriptor
-    // with value undefined in CrossOriginXrayWrapper.
-    return true;
-  }
-
-  if (act != Wrapper::GET) {
-    return false;
-  }
-
-  // Check for frame IDs. If we're resolving named frames, make sure to only
-  // resolve ones that don't shadow native properties. See bug 860494.
-  if (type == CrossOriginWindow) {
-    if (JSID_IS_STRING(id)) {
-      bool wouldShadow = false;
-      if (!XrayUtils::HasNativeProperty(cx, wrapper, id, &wouldShadow) ||
-          wouldShadow) {
-        // If the named subframe matches the name of a DOM constructor,
-        // the global resolve triggered by the HasNativeProperty call
-        // above will try to perform a CheckedUnwrap on |wrapper|, and
-        // throw a security error if it fails. That exception isn't
-        // really useful for our callers, so we silence it and just
-        // deny access to the property (since it matched a builtin).
-        //
-        // Note that this would be a problem if the resolve code ever
-        // tried to CheckedUnwrap the wrapper _before_ concluding that
-        // the name corresponds to a builtin global property, since it
-        // would mean that we'd never permit cross-origin named subframe
-        // access (something we regrettably need to support).
-        JS_ClearPendingException(cx);
-        return false;
-      }
-    }
-    return IsFrameId(cx, obj, id);
-  }
-  return false;
+  return (clasp->name[0] == 'L' && !strcmp(clasp->name, "Location")) ||
+         (clasp->name[0] == 'W' && !strcmp(clasp->name, "Window"));
 }
 
 bool AccessCheck::checkPassToPrivilegedCode(JSContext* cx, HandleObject wrapper,
@@ -228,16 +97,6 @@ bool AccessCheck::checkPassToPrivilegedCode(JSContext* cx, HandleObject wrapper,
 
   // Non-wrappers are fine.
   if (!js::IsWrapper(obj)) {
-    return true;
-  }
-
-  // CPOWs use COWs (in the unprivileged junk scope) for all child->parent
-  // references. Without this test, the child process wouldn't be able to
-  // pass any objects at all to CPOWs.
-  if (mozilla::jsipc::IsWrappedCPOW(obj) &&
-      js::GetObjectCompartment(wrapper) ==
-          js::GetObjectCompartment(xpc::UnprivilegedJunkScope()) &&
-      XRE_IsParentProcess()) {
     return true;
   }
 
@@ -277,7 +136,7 @@ void AccessCheck::reportCrossOriginDenial(JSContext* cx, JS::HandleId id,
 
   nsAutoCString message;
   if (JSID_IS_VOID(id)) {
-    message = NS_LITERAL_CSTRING("Permission denied to access object");
+    message = "Permission denied to access object"_ns;
   } else {
     // We want to use JS_ValueToSource here, because that most closely
     // matches what AutoEnterPolicy::reportErrorIfExceptionIsNotPending
@@ -288,13 +147,11 @@ void AccessCheck::reportCrossOriginDenial(JSContext* cx, JS::HandleId id,
     if (!idStr || !propName.init(cx, idStr)) {
       return;
     }
-    message = NS_LITERAL_CSTRING("Permission denied to ") + accessType +
-              NS_LITERAL_CSTRING(" property ") +
-              NS_ConvertUTF16toUTF8(propName) +
-              NS_LITERAL_CSTRING(" on cross-origin object");
+    message = "Permission denied to "_ns + accessType + " property "_ns +
+              NS_ConvertUTF16toUTF8(propName) + " on cross-origin object"_ns;
   }
   ErrorResult rv;
-  rv.ThrowDOMException(NS_ERROR_DOM_SECURITY_ERR, message);
+  rv.ThrowSecurityError(message);
   MOZ_ALWAYS_TRUE(rv.MaybeSetPendingException(cx));
 }
 

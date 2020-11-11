@@ -8,12 +8,66 @@
 
 #include "jsapi.h"
 #include "nsContentUtils.h"
+#include "nsNetUtil.h"
 #include "mozilla/CycleCollectedJSContext.h"
 #include "mozilla/dom/SimpleGlobalObject.h"
 
-TEST(DOM_Base_ContentUtils, StringifyJSON_EmptyValue) {
-  JSObject* globalObject = mozilla::dom::SimpleGlobalObject::Create(
-      mozilla::dom::SimpleGlobalObject::GlobalType::BindingDetail);
+struct IsURIInListMatch {
+  nsLiteralCString pattern;
+  bool firstMatch, secondMatch;
+};
+
+TEST(DOM_Base_ContentUtils, IsURIInList)
+{
+  nsCOMPtr<nsIURI> uri, subURI;
+  nsresult rv = NS_NewURI(getter_AddRefs(uri),
+                          "https://example.com/path/favicon.ico#"_ns);
+  ASSERT_TRUE(rv == NS_OK);
+
+  rv = NS_NewURI(getter_AddRefs(subURI),
+                 "http://sub.example.com/favicon.ico?"_ns);
+  ASSERT_TRUE(rv == NS_OK);
+
+  static constexpr IsURIInListMatch patterns[] = {
+      {"bar.com,*.example.com,example.com,foo.com"_ns, true, true},
+      {"bar.com,example.com,*.example.com,foo.com"_ns, true, true},
+      {"*.example.com,example.com,foo.com"_ns, true, true},
+      {"example.com,*.example.com,foo.com"_ns, true, true},
+      {"*.example.com,example.com"_ns, true, true},
+      {"example.com,*.example.com"_ns, true, true},
+      {"*.example.com/,example.com/"_ns, true, true},
+      {"example.com/,*.example.com/"_ns, true, true},
+      {"*.example.com/pa,example.com/pa"_ns, false, false},
+      {"example.com/pa,*.example.com/pa"_ns, false, false},
+      {"*.example.com/pa/,example.com/pa/"_ns, false, false},
+      {"example.com/pa/,*.example.com/pa/"_ns, false, false},
+      {"*.example.com/path,example.com/path"_ns, false, false},
+      {"example.com/path,*.example.com/path"_ns, false, false},
+      {"*.example.com/path/,example.com/path/"_ns, true, false},
+      {"example.com/path/,*.example.com/path/"_ns, true, false},
+      {"*.example.com/favicon.ico"_ns, false, true},
+      {"example.com/path/favicon.ico"_ns, true, false},
+      {"*.example.com"_ns, false, true},
+      {"example.com"_ns, true, false},
+      {"foo.com"_ns, false, false},
+      {"*.foo.com"_ns, false, false},
+  };
+
+  for (auto& entry : patterns) {
+    bool result = nsContentUtils::IsURIInList(uri, entry.pattern);
+    ASSERT_EQ(result, entry.firstMatch) << "Matching " << entry.pattern;
+
+    result = nsContentUtils::IsURIInList(subURI, entry.pattern);
+    ASSERT_EQ(result, entry.secondMatch) << "Matching " << entry.pattern;
+  }
+}
+
+TEST(DOM_Base_ContentUtils, StringifyJSON_EmptyValue)
+{
+  JS::RootedObject globalObject(
+      mozilla::dom::RootingCx(),
+      mozilla::dom::SimpleGlobalObject::Create(
+          mozilla::dom::SimpleGlobalObject::GlobalType::BindingDetail));
   mozilla::dom::AutoJSAPI jsAPI;
   ASSERT_TRUE(jsAPI.Init(globalObject));
   JSContext* cx = jsAPI.cx();
@@ -25,9 +79,12 @@ TEST(DOM_Base_ContentUtils, StringifyJSON_EmptyValue) {
   ASSERT_TRUE(serializedValue.EqualsLiteral("null"));
 }
 
-TEST(DOM_Base_ContentUtils, StringifyJSON_Object) {
-  JSObject* globalObject = mozilla::dom::SimpleGlobalObject::Create(
-      mozilla::dom::SimpleGlobalObject::GlobalType::BindingDetail);
+TEST(DOM_Base_ContentUtils, StringifyJSON_Object)
+{
+  JS::RootedObject globalObject(
+      mozilla::dom::RootingCx(),
+      mozilla::dom::SimpleGlobalObject::Create(
+          mozilla::dom::SimpleGlobalObject::GlobalType::BindingDetail));
   mozilla::dom::AutoJSAPI jsAPI;
   ASSERT_TRUE(jsAPI.Init(globalObject));
   JSContext* cx = jsAPI.cx();

@@ -4,14 +4,22 @@
 
 "use strict";
 
-const {Ci} = require("chrome");
 const protocol = require("devtools/shared/protocol");
 const Services = require("Services");
-const {preferenceSpec} = require("devtools/shared/specs/preference");
+const { preferenceSpec } = require("devtools/shared/specs/preference");
+
+const { PREF_STRING, PREF_INT, PREF_BOOL } = Services.prefs;
+
+function ensurePrefType(name, expectedType) {
+  const type = Services.prefs.getPrefType(name);
+  if (type !== expectedType) {
+    throw new Error(`preference is not of the right type: ${name}`);
+  }
+}
 
 /**
  * Normally the preferences are set using Services.prefs, but this actor allows
- * a debugger client to set preferences on the debuggee. This is particularly useful
+ * a devtools client to set preferences on the debuggee. This is particularly useful
  * when remote debugging, and the preferences should persist to the remote target
  * and not to the client. If used for a local target, it effectively behaves the same
  * as using Services.prefs.
@@ -20,18 +28,33 @@ const {preferenceSpec} = require("devtools/shared/specs/preference");
  * individual tab.
  */
 var PreferenceActor = protocol.ActorClassWithSpec(preferenceSpec, {
-
-  typeName: "preference",
+  getTraits: function() {
+    // The *Pref traits are used to know if remote-debugging bugs related to
+    // specific preferences are fixed on the server or if the client should set
+    // default values for them. See the about:debugging module
+    // runtime-default-preferences.js
+    return {
+      // Backward compatibility: can be removed when FF81 is on release.
+      // Fixed on the server by Bug 1659866.
+      overflowDebuggingPref: true,
+      // Backward compatibility: can be removed when FF82 is on release.
+      // Fixed on the server by Bug 1662058.
+      targetBrowsersPref: true,
+    };
+  },
 
   getBoolPref: function(name) {
+    ensurePrefType(name, PREF_BOOL);
     return Services.prefs.getBoolPref(name);
   },
 
   getCharPref: function(name) {
+    ensurePrefType(name, PREF_STRING);
     return Services.prefs.getCharPref(name);
   },
 
   getIntPref: function(name) {
+    ensurePrefType(name, PREF_INT);
     return Services.prefs.getIntPref(name);
   },
 
@@ -42,13 +65,13 @@ var PreferenceActor = protocol.ActorClassWithSpec(preferenceSpec, {
       try {
         let value;
         switch (Services.prefs.getPrefType(name)) {
-          case Ci.nsIPrefBranch.PREF_STRING:
+          case PREF_STRING:
             value = Services.prefs.getCharPref(name);
             break;
-          case Ci.nsIPrefBranch.PREF_INT:
+          case PREF_INT:
             value = Services.prefs.getIntPref(name);
             break;
-          case Ci.nsIPrefBranch.PREF_BOOL:
+          case PREF_BOOL:
             value = Services.prefs.getBoolPref(name);
             break;
           default:

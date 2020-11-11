@@ -8,6 +8,7 @@ from .graph import Graph
 from .task import Task
 
 import attr
+import six
 
 
 @attr.s(frozen=True)
@@ -17,6 +18,9 @@ class TaskGraph(object):
 
     A task graph is a combination of a Graph and a dictionary of tasks indexed
     by label. TaskGraph instances should be treated as immutable.
+
+    In the graph, tasks are said to "link to" their dependencies. Whereas
+    tasks are "linked from" their dependents.
     """
 
     tasks = attr.ib()
@@ -39,7 +43,7 @@ class TaskGraph(object):
 
     def __iter__(self):
         "Iterate over tasks in undefined order"
-        return self.tasks.itervalues()
+        return six.itervalues(self.tasks)
 
     def to_json(self):
         "Return a JSON-able object representing the task graph, as documented"
@@ -49,7 +53,7 @@ class TaskGraph(object):
         for key in self.graph.visit_postorder():
             tasks[key] = self.tasks[key].to_json()
             # overwrite dependencies with the information in the taskgraph's edges.
-            tasks[key]['dependencies'] = named_links_dict.get(key, {})
+            tasks[key]["dependencies"] = named_links_dict.get(key, {})
         return tasks
 
     @classmethod
@@ -60,11 +64,11 @@ class TaskGraph(object):
         """
         tasks = {}
         edges = set()
-        for key, value in tasks_dict.iteritems():
+        for key, value in six.iteritems(tasks_dict):
             tasks[key] = Task.from_json(value)
-            if 'task_id' in value:
-                tasks[key].task_id = value['task_id']
-            for depname, dep in value['dependencies'].iteritems():
+            if "task_id" in value:
+                tasks[key].task_id = value["task_id"]
+            for depname, dep in six.iteritems(value["dependencies"]):
                 edges.add((key, dep, depname))
         task_graph = cls(tasks, Graph(set(tasks), edges))
         return tasks, task_graph

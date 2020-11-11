@@ -13,44 +13,22 @@
 
 #include "nsEscape.h"
 #include "nsCRT.h"
-#include "nsIUUIDGenerator.h"
+
+#include "mozilla/GkRustUtils.h"
 
 using namespace mozilla;
 
 ////////////////////////////////////////////////////////////////////////////////
 //// NullPrincipalURI
 
-NullPrincipalURI::NullPrincipalURI() {}
+NullPrincipalURI::NullPrincipalURI() {
+  GkRustUtils::GenerateUUID(mPath);
+  MOZ_ASSERT(mPath.Length() == NSID_LENGTH - 1);
+  MOZ_ASSERT(strlen(mPath.get()) == NSID_LENGTH - 1);
+}
 
 NullPrincipalURI::NullPrincipalURI(const NullPrincipalURI& aOther) {
   mPath.Assign(aOther.mPath);
-}
-
-nsresult NullPrincipalURI::Init() {
-  // FIXME: bug 327161 -- make sure the uuid generator is reseeding-resistant.
-  nsCOMPtr<nsIUUIDGenerator> uuidgen = services::GetUUIDGenerator();
-  NS_ENSURE_TRUE(uuidgen, NS_ERROR_NOT_AVAILABLE);
-
-  nsID id;
-  nsresult rv = uuidgen->GenerateUUIDInPlace(&id);
-  NS_ENSURE_SUCCESS(rv, rv);
-
-  mPath.SetLength(NSID_LENGTH - 1);  // -1 because NSID_LENGTH counts the '\0'
-  id.ToProvidedString(
-      *reinterpret_cast<char(*)[NSID_LENGTH]>(mPath.BeginWriting()));
-
-  MOZ_ASSERT(mPath.Length() == NSID_LENGTH - 1);
-  MOZ_ASSERT(strlen(mPath.get()) == NSID_LENGTH - 1);
-
-  return NS_OK;
-}
-
-/* static */
-already_AddRefed<NullPrincipalURI> NullPrincipalURI::Create() {
-  RefPtr<NullPrincipalURI> uri = new NullPrincipalURI();
-  nsresult rv = uri->Init();
-  NS_ENSURE_SUCCESS(rv, nullptr);
-  return uri.forget();
 }
 
 static NS_DEFINE_CID(kNullPrincipalURIImplementationCID,
@@ -66,7 +44,6 @@ NS_INTERFACE_MAP_BEGIN(NullPrincipalURI)
   else
     NS_INTERFACE_MAP_ENTRY(nsIURI)
   NS_INTERFACE_MAP_ENTRY(nsISizeOf)
-  NS_INTERFACE_MAP_ENTRY(nsIIPCSerializableURI)
 NS_INTERFACE_MAP_END
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -169,7 +146,7 @@ nsresult NullPrincipalURI::SetRef(const nsACString& aRef) {
 
 NS_IMETHODIMP
 NullPrincipalURI::GetPrePath(nsACString& _prePath) {
-  _prePath = NS_LITERAL_CSTRING(NS_NULLPRINCIPAL_SCHEME ":");
+  _prePath = nsLiteralCString(NS_NULLPRINCIPAL_SCHEME ":");
   return NS_OK;
 }
 
@@ -182,7 +159,7 @@ nsresult NullPrincipalURI::SetPort(int32_t aPort) {
 
 NS_IMETHODIMP
 NullPrincipalURI::GetScheme(nsACString& _scheme) {
-  _scheme = NS_LITERAL_CSTRING(NS_NULLPRINCIPAL_SCHEME);
+  _scheme = nsLiteralCString(NS_NULLPRINCIPAL_SCHEME);
   return NS_OK;
 }
 
@@ -192,7 +169,7 @@ nsresult NullPrincipalURI::SetScheme(const nsACString& aScheme) {
 
 NS_IMETHODIMP
 NullPrincipalURI::GetSpec(nsACString& _spec) {
-  _spec = NS_LITERAL_CSTRING(NS_NULLPRINCIPAL_SCHEME ":") + mPath;
+  _spec = nsLiteralCString(NS_NULLPRINCIPAL_SCHEME ":") + mPath;
   return NS_OK;
 }
 
@@ -301,9 +278,6 @@ NullPrincipalURI::GetDisplayPrePath(nsACString& aPrePath) {
   return GetPrePath(aPrePath);
 }
 
-////////////////////////////////////////////////////////////////////////////////
-//// nsIIPCSerializableURI
-
 void NullPrincipalURI::Serialize(mozilla::ipc::URIParams& aParams) {
   aParams = mozilla::ipc::NullPrincipalURIParams();
 }
@@ -313,10 +287,6 @@ bool NullPrincipalURI::Deserialize(const mozilla::ipc::URIParams& aParams) {
     MOZ_ASSERT_UNREACHABLE("unexpected URIParams type");
     return false;
   }
-
-  nsresult rv = Init();
-  NS_ENSURE_SUCCESS(rv, false);
-
   return true;
 }
 

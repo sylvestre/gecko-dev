@@ -1,12 +1,29 @@
 # Getting started
 
-1. Learn [where the code is](./where-is-the-code.md) and about the [architecture](./architecture-overview.md) of the tools.
-2. [Set up your machine](./build.md) to build the tools, then [configure a development profile](development-profiles.md).
-3. You can now experiment by changing things and rebuilding, look at the [files and directories overview](../files/README.md) or you could also [find something to work on](../bugs-issues.md).
+Hello, and thanks for your interest in contributing to Firefox DevTools!
 
-## Additional documentation
+DevTools is a complex web app, but if you're familiar with either HTML/CSS or JavaScript, you can contribute! The process goes like this:
 
-* [MDN Web Docs](http://developer.mozilla.org/) (also known as *MDN*) has a lot of information about XUL elements, HTML, JS, DOM, Web APIs, Gecko-specific APIs, and more.
-* [DXR](http://dxr.mozilla.org/mozilla-central/source/) is a source code search engine - search for symbols you want to learn about, eg. `nsIDocument`. [Searchfox](http://searchfox.org/mozilla-central/source) is an alternative.
+- Claim a bug
+- Set up your dev environment
+- Write the patch and get it reviewed
 
-It is a good idea to [add smart keyword searches](https://support.mozilla.org/en-US/kb/how-search-from-address-bar) for DXR and MDN, so you can search faster.
+Feel free to ask questions at any point on [Matrix](https://chat.mozilla.org/#/room/#devtools:mozilla.org).
+
+## Claim a bug
+
+Visit the [Codetribute](https://codetribute.mozilla.org/projects/devtools) bug tracker and find a bug you like. Anything labeled **good-first-bug** is perfect for a newcomer. Many of these tasks will make a visible impact to the DevTools UI.
+
+Claim the bug by creating a Bugzilla account and posting a comment on the bug’s page to say that you’d like to work on it. Ask questions if you have any uncertainty about what the bug means.
+
+## Set up your dev environment
+
+Follow the steps of Firefox’s [contributor guide](https://firefox-source-docs.mozilla.org/contributing/how_to_contribute_firefox.html) to install and run Firefox locally. During installation, follow the steps for “Artifact Mode.” 
+
+If you run into errors about missing libraries, search the web to learn how to install whatever is missing. If you get stuck, ask for help on [Matrix](https://chat.mozilla.org/#/room/#devtools:mozilla.org).
+
+## Write the patch and get it reviewed
+
+The rest of this documentation has info on coding standards as well as specifics of DevTools architecture.
+
+When you’re ready to commit your changes, you can ask the bug’s mentor to review, or refer to the list of [DevTools team members](https://firefox-dev.tools/#about-devtools).

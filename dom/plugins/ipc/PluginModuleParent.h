@@ -25,7 +25,7 @@
 #include "nsHashKeys.h"
 #include "nsIObserver.h"
 #ifdef XP_WIN
-#include "nsWindowsHelpers.h"
+#  include "nsWindowsHelpers.h"
 #endif
 
 class nsPluginTag;
@@ -77,15 +77,16 @@ class PluginModuleParent : public PPluginModuleParent,
                            public CrashReporter::InjectorCrashCallback
 #endif
 {
+  friend class PPluginModuleParent;
+
  protected:
   typedef mozilla::PluginLibrary PluginLibrary;
 
   PPluginInstanceParent* AllocPPluginInstanceParent(
-      const nsCString& aMimeType, const InfallibleTArray<nsCString>& aNames,
-      const InfallibleTArray<nsCString>& aValues) override;
+      const nsCString& aMimeType, const nsTArray<nsCString>& aNames,
+      const nsTArray<nsCString>& aValues);
 
-  virtual bool DeallocPPluginInstanceParent(
-      PPluginInstanceParent* aActor) override;
+  bool DeallocPPluginInstanceParent(PPluginInstanceParent* aActor);
 
  public:
   explicit PluginModuleParent(bool aIsChrome);
@@ -114,65 +115,59 @@ class PluginModuleParent : public PPluginModuleParent,
     return MediateRace(parent, child);
   }
 
-  virtual mozilla::ipc::IPCResult RecvBackUpXResources(
-      const FileDescriptor& aXSocketFd) override;
+  mozilla::ipc::IPCResult RecvBackUpXResources(
+      const FileDescriptor& aXSocketFd);
 
-  virtual mozilla::ipc::IPCResult AnswerProcessSomeEvents() override;
+  mozilla::ipc::IPCResult AnswerProcessSomeEvents();
 
-  virtual mozilla::ipc::IPCResult RecvProcessNativeEventsInInterruptCall()
-      override;
+  mozilla::ipc::IPCResult RecvProcessNativeEventsInInterruptCall();
 
-  virtual mozilla::ipc::IPCResult RecvPluginShowWindow(
+  mozilla::ipc::IPCResult RecvPluginShowWindow(
       const uint32_t& aWindowId, const bool& aModal, const int32_t& aX,
-      const int32_t& aY, const size_t& aWidth, const size_t& aHeight) override;
+      const int32_t& aY, const double& aWidth, const double& aHeight);
 
-  virtual mozilla::ipc::IPCResult RecvPluginHideWindow(
-      const uint32_t& aWindowId) override;
+  mozilla::ipc::IPCResult RecvPluginHideWindow(const uint32_t& aWindowId);
 
-  virtual mozilla::ipc::IPCResult RecvSetCursor(
-      const NSCursorInfo& aCursorInfo) override;
+  mozilla::ipc::IPCResult RecvSetCursor(const NSCursorInfo& aCursorInfo);
 
-  virtual mozilla::ipc::IPCResult RecvShowCursor(const bool& aShow) override;
+  mozilla::ipc::IPCResult RecvShowCursor(const bool& aShow);
 
-  virtual mozilla::ipc::IPCResult RecvPushCursor(
-      const NSCursorInfo& aCursorInfo) override;
+  mozilla::ipc::IPCResult RecvPushCursor(const NSCursorInfo& aCursorInfo);
 
-  virtual mozilla::ipc::IPCResult RecvPopCursor() override;
+  mozilla::ipc::IPCResult RecvPopCursor();
 
-  virtual mozilla::ipc::IPCResult RecvNPN_SetException(
-      const nsCString& aMessage) override;
+  mozilla::ipc::IPCResult RecvNPN_SetException(const nsCString& aMessage);
 
-  virtual mozilla::ipc::IPCResult RecvNPN_ReloadPlugins(
-      const bool& aReloadPages) override;
+  mozilla::ipc::IPCResult RecvNPN_ReloadPlugins(const bool& aReloadPages);
 
   static BrowserStreamParent* StreamCast(NPP instance, NPStream* s);
 
   virtual mozilla::ipc::IPCResult
   AnswerNPN_SetValue_NPPVpluginRequiresAudioDeviceChanges(
-      const bool& shouldRegister, NPError* result) override;
+      const bool& shouldRegister, NPError* result);
 
  protected:
   void SetChildTimeout(const int32_t aChildTimeout);
-  static void TimeoutChanged(const char* aPref, PluginModuleParent* aModule);
+  static void TimeoutChanged(const char* aPref, void* aModule);
 
   virtual void UpdatePluginTimeout() {}
 
-  virtual mozilla::ipc::IPCResult RecvNotifyContentModuleDestroyed() override {
+  virtual mozilla::ipc::IPCResult RecvNotifyContentModuleDestroyed() {
     return IPC_OK();
   }
 
-  virtual mozilla::ipc::IPCResult RecvReturnClearSiteData(
-      const NPError& aRv, const uint64_t& aCallbackId) override;
+  mozilla::ipc::IPCResult RecvReturnClearSiteData(const NPError& aRv,
+                                                  const uint64_t& aCallbackId);
 
-  virtual mozilla::ipc::IPCResult RecvReturnSitesWithData(
-      nsTArray<nsCString>&& aSites, const uint64_t& aCallbackId) override;
+  mozilla::ipc::IPCResult RecvReturnSitesWithData(nsTArray<nsCString>&& aSites,
+                                                  const uint64_t& aCallbackId);
 
   void SetPluginFuncs(NPPluginFuncs* aFuncs);
 
   nsresult NPP_NewInternal(NPMIMEType pluginType, NPP instance,
-                           InfallibleTArray<nsCString>& names,
-                           InfallibleTArray<nsCString>& values,
-                           NPSavedData* saved, NPError* error);
+                           nsTArray<nsCString>& names,
+                           nsTArray<nsCString>& values, NPSavedData* saved,
+                           NPError* error);
 
   // NPP-like API that Gecko calls are trampolined into.  These
   // messages then get forwarded along to the plugin instance,
@@ -315,6 +310,7 @@ class PluginModuleParent : public PPluginModuleParent,
    */
   mozilla::Mutex mCrashReporterMutex;
   UniquePtr<ipc::CrashReporterHost> mCrashReporter;
+  nsString mOrphanedDumpId;
 };
 
 class PluginModuleContentParent : public PluginModuleParent {
@@ -425,7 +421,8 @@ class PluginModuleChromeParent : public PluginModuleParent,
   virtual bool ShouldContinueFromReplyTimeout() override;
 
   void ProcessFirstMinidump();
-  void WriteExtraDataForMinidump();
+  void HandleOrphanedMinidump();
+  void AddCrashAnnotations();
 
   PluginProcessParent* Process() const { return mSubprocess; }
   base::ProcessHandle ChildProcessHandle() {
@@ -460,12 +457,11 @@ class PluginModuleChromeParent : public PluginModuleParent,
 
   bool InitCrashReporter();
 
-  virtual mozilla::ipc::IPCResult RecvNotifyContentModuleDestroyed() override;
+  mozilla::ipc::IPCResult RecvNotifyContentModuleDestroyed() override;
 
-  static void CachedSettingChanged(const char* aPref,
-                                   PluginModuleChromeParent* aModule);
+  static void CachedSettingChanged(const char* aPref, void* aModule);
 
-  virtual mozilla::ipc::IPCResult
+  mozilla::ipc::IPCResult
   AnswerNPN_SetValue_NPPVpluginRequiresAudioDeviceChanges(
       const bool& shouldRegister, NPError* result) override;
 
@@ -482,7 +478,7 @@ class PluginModuleChromeParent : public PluginModuleParent,
   };
   Atomic<uint32_t> mHangAnnotationFlags;
 #ifdef XP_WIN
-  InfallibleTArray<float> mPluginCpuUsageOnHang;
+  nsTArray<float> mPluginCpuUsageOnHang;
   PluginHangUIParent* mHangUIParent;
   bool mHangUIEnabled;
   bool mIsTimerReset;

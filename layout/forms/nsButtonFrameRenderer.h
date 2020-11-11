@@ -7,13 +7,11 @@
 #ifndef nsButtonFrameRenderer_h___
 #define nsButtonFrameRenderer_h___
 
-#include "imgIContainer.h"
 #include "nsMargin.h"
 #include "nsCSSRenderingBorders.h"
 
 class gfxContext;
 class nsIFrame;
-class nsFrame;
 class nsDisplayList;
 class nsDisplayListBuilder;
 class nsPresContext;
@@ -54,7 +52,7 @@ class nsButtonFrameRenderer {
                             gfxContext& aRenderingContext,
                             const nsRect& aDirtyRect, const nsRect& aRect);
 
-  void SetFrame(nsFrame* aFrame, nsPresContext* aPresContext);
+  void SetFrame(nsIFrame* aFrame, nsPresContext* aPresContext);
 
   void SetDisabled(bool aDisabled, bool notify);
 
@@ -73,7 +71,7 @@ class nsButtonFrameRenderer {
   // cached style for optional inner focus outline (used on Windows).
   RefPtr<ComputedStyle> mInnerFocusStyle;
 
-  nsFrame* mFrame;
+  nsIFrame* mFrame;
 };
 
 #endif

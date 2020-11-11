@@ -5,9 +5,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "nsDragServiceProxy.h"
-#include "nsIDocument.h"
-#include "nsISupportsPrimitives.h"
-#include "mozilla/dom/TabChild.h"
+#include "mozilla/dom/Document.h"
+#include "mozilla/dom/BrowserChild.h"
 #include "mozilla/gfx/2D.h"
 #include "mozilla/UniquePtr.h"
 #include "mozilla/Unused.h"
@@ -16,45 +15,37 @@
 using mozilla::CSSIntRegion;
 using mozilla::LayoutDeviceIntRect;
 using mozilla::Maybe;
-using mozilla::dom::OptionalShmem;
-using mozilla::dom::TabChild;
+using mozilla::Nothing;
+using mozilla::Some;
+using mozilla::dom::BrowserChild;
 using mozilla::gfx::DataSourceSurface;
 using mozilla::gfx::SourceSurface;
 using mozilla::gfx::SurfaceFormat;
 using mozilla::ipc::Shmem;
 
-nsDragServiceProxy::nsDragServiceProxy() {}
+nsDragServiceProxy::nsDragServiceProxy() = default;
 
-nsDragServiceProxy::~nsDragServiceProxy() {}
-
-static void GetPrincipalURIFromNode(nsCOMPtr<nsINode>& sourceNode,
-                                    nsCString& aPrincipalURISpec) {
-  if (!sourceNode) {
-    return;
-  }
-
-  nsCOMPtr<nsIPrincipal> principal = sourceNode->NodePrincipal();
-  nsCOMPtr<nsIURI> principalURI;
-  nsresult rv = principal->GetURI(getter_AddRefs(principalURI));
-  if (NS_FAILED(rv) || !principalURI) {
-    return;
-  }
-
-  principalURI->GetSpec(aPrincipalURISpec);
-}
+nsDragServiceProxy::~nsDragServiceProxy() = default;
 
 nsresult nsDragServiceProxy::InvokeDragSessionImpl(
     nsIArray* aArrayTransferables, const Maybe<CSSIntRegion>& aRegion,
     uint32_t aActionType) {
   NS_ENSURE_STATE(mSourceDocument->GetDocShell());
-  TabChild* child = TabChild::GetFrom(mSourceDocument->GetDocShell());
+  BrowserChild* child = BrowserChild::GetFrom(mSourceDocument->GetDocShell());
   NS_ENSURE_STATE(child);
   nsTArray<mozilla::dom::IPCDataTransfer> dataTransfers;
   nsContentUtils::TransferablesToIPCTransferables(
       aArrayTransferables, dataTransfers, false, child->Manager(), nullptr);
 
-  nsCString principalURISpec;
-  GetPrincipalURIFromNode(mSourceNode, principalURISpec);
+  nsCOMPtr<nsIPrincipal> principal;
+  if (mSourceNode) {
+    principal = mSourceNode->NodePrincipal();
+  }
+
+  nsCOMPtr<nsIContentSecurityPolicy> csp;
+  if (mSourceDocument) {
+    csp = mSourceDocument->GetCsp();
+  }
 
   LayoutDeviceIntRect dragRect;
   if (mHasImage || mSelection) {
@@ -82,8 +73,8 @@ nsresult nsDragServiceProxy::InvokeDragSessionImpl(
         }
 
         mozilla::Unused << child->SendInvokeDragSession(
-            dataTransfers, aActionType, surfaceData, stride,
-            dataSurface->GetFormat(), dragRect, principalURISpec);
+            dataTransfers, aActionType, Some(std::move(surfaceData)), stride,
+            dataSurface->GetFormat(), dragRect, principal, csp);
         StartDragSession();
         return NS_OK;
       }
@@ -91,8 +82,8 @@ nsresult nsDragServiceProxy::InvokeDragSessionImpl(
   }
 
   mozilla::Unused << child->SendInvokeDragSession(
-      dataTransfers, aActionType, mozilla::void_t(), 0,
-      static_cast<SurfaceFormat>(0), dragRect, principalURISpec);
+      dataTransfers, aActionType, Nothing(), 0, static_cast<SurfaceFormat>(0),
+      dragRect, principal, csp);
   StartDragSession();
   return NS_OK;
 }

@@ -11,13 +11,18 @@
 #include "mozilla/a11y/ProxyAccessible.h"
 #include "nsIAccessibleEvent.h"
 #include "nsIAccessiblePivot.h"
+#include "nsIStringBundle.h"
+
+#define ROLE_STRINGS_URL "chrome://global/locale/AccessFu.properties"
 
 using namespace mozilla;
 using namespace mozilla::a11y;
 
+static nsIStringBundle* sStringBundle;
+
 void a11y::PlatformInit() {}
 
-void a11y::PlatformShutdown() {}
+void a11y::PlatformShutdown() { NS_IF_RELEASE(sStringBundle); }
 
 void a11y::ProxyCreated(ProxyAccessible* aProxy, uint32_t aInterfaces) {
   AccessibleWrap* wrapper = nullptr;
@@ -48,7 +53,7 @@ void a11y::ProxyDestroyed(ProxyAccessible* aProxy) {
 }
 
 void a11y::ProxyEvent(ProxyAccessible* aTarget, uint32_t aEventType) {
-  SessionAccessibility* sessionAcc =
+  RefPtr<SessionAccessibility> sessionAcc =
       SessionAccessibility::GetInstanceFor(aTarget);
   if (!sessionAcc) {
     return;
@@ -63,7 +68,7 @@ void a11y::ProxyEvent(ProxyAccessible* aTarget, uint32_t aEventType) {
 
 void a11y::ProxyStateChangeEvent(ProxyAccessible* aTarget, uint64_t aState,
                                  bool aEnabled) {
-  SessionAccessibility* sessionAcc =
+  RefPtr<SessionAccessibility> sessionAcc =
       SessionAccessibility::GetInstanceFor(aTarget);
 
   if (!sessionAcc) {
@@ -71,7 +76,17 @@ void a11y::ProxyStateChangeEvent(ProxyAccessible* aTarget, uint64_t aState,
   }
 
   if (aState & states::CHECKED) {
-    sessionAcc->SendClickedEvent(WrapperFor(aTarget), aEnabled);
+    sessionAcc->SendClickedEvent(
+        WrapperFor(aTarget),
+        java::SessionAccessibility::FLAG_CHECKABLE |
+            (aEnabled ? java::SessionAccessibility::FLAG_CHECKED : 0));
+  }
+
+  if (aState & states::EXPANDED) {
+    sessionAcc->SendClickedEvent(
+        WrapperFor(aTarget),
+        java::SessionAccessibility::FLAG_EXPANDABLE |
+            (aEnabled ? java::SessionAccessibility::FLAG_EXPANDED : 0));
   }
 
   if (aState & states::SELECTED) {
@@ -83,8 +98,9 @@ void a11y::ProxyStateChangeEvent(ProxyAccessible* aTarget, uint64_t aState,
   }
 }
 
-void a11y::ProxyCaretMoveEvent(ProxyAccessible* aTarget, int32_t aOffset) {
-  SessionAccessibility* sessionAcc =
+void a11y::ProxyCaretMoveEvent(ProxyAccessible* aTarget, int32_t aOffset,
+                               bool aIsSelectionCollapsed) {
+  RefPtr<SessionAccessibility> sessionAcc =
       SessionAccessibility::GetInstanceFor(aTarget);
 
   if (sessionAcc) {
@@ -95,7 +111,7 @@ void a11y::ProxyCaretMoveEvent(ProxyAccessible* aTarget, int32_t aOffset) {
 void a11y::ProxyTextChangeEvent(ProxyAccessible* aTarget, const nsString& aStr,
                                 int32_t aStart, uint32_t aLen, bool aIsInsert,
                                 bool aFromUser) {
-  SessionAccessibility* sessionAcc =
+  RefPtr<SessionAccessibility> sessionAcc =
       SessionAccessibility::GetInstanceFor(aTarget);
 
   if (sessionAcc) {
@@ -107,11 +123,8 @@ void a11y::ProxyTextChangeEvent(ProxyAccessible* aTarget, const nsString& aStr,
 void a11y::ProxyShowHideEvent(ProxyAccessible* aTarget,
                               ProxyAccessible* aParent, bool aInsert,
                               bool aFromUser) {
-  SessionAccessibility* sessionAcc =
-      SessionAccessibility::GetInstanceFor(aTarget);
-  if (sessionAcc) {
-    sessionAcc->SendWindowContentChangedEvent(WrapperFor(aParent));
-  }
+  // We rely on the window content changed events to be dispatched
+  // after the viewport cache is refreshed.
 }
 
 void a11y::ProxySelectionEvent(ProxyAccessible*, ProxyAccessible*, uint32_t) {}
@@ -122,23 +135,22 @@ void a11y::ProxyVirtualCursorChangeEvent(
     ProxyAccessible* aNewPosition, int32_t aNewStartOffset,
     int32_t aNewEndOffset, int16_t aReason, int16_t aBoundaryType,
     bool aFromUser) {
-  if (!aNewPosition) {
+  if (!aNewPosition || !aFromUser) {
     return;
   }
 
-  SessionAccessibility* sessionAcc =
+  RefPtr<SessionAccessibility> sessionAcc =
       SessionAccessibility::GetInstanceFor(aTarget);
 
   if (!sessionAcc) {
     return;
   }
 
-  if (aOldPosition != aNewPosition) {
-    if (aReason == nsIAccessiblePivot::REASON_POINT) {
-      sessionAcc->SendHoverEnterEvent(WrapperFor(aNewPosition));
-    } else {
-      sessionAcc->SendAccessibilityFocusedEvent(WrapperFor(aNewPosition));
-    }
+  if (aReason == nsIAccessiblePivot::REASON_POINT) {
+    sessionAcc->SendHoverEnterEvent(WrapperFor(aNewPosition));
+  } else if (aBoundaryType == nsIAccessiblePivot::NO_BOUNDARY) {
+    RefPtr<AccessibleWrap> wrapperForNewPosition = WrapperFor(aNewPosition);
+    sessionAcc->SendAccessibilityFocusedEvent(wrapperForNewPosition);
   }
 
   if (aBoundaryType != nsIAccessiblePivot::NO_BOUNDARY) {
@@ -151,7 +163,7 @@ void a11y::ProxyScrollingEvent(ProxyAccessible* aTarget, uint32_t aEventType,
                                uint32_t aScrollX, uint32_t aScrollY,
                                uint32_t aMaxScrollX, uint32_t aMaxScrollY) {
   if (aEventType == nsIAccessibleEvent::EVENT_SCROLLING) {
-    SessionAccessibility* sessionAcc =
+    RefPtr<SessionAccessibility> sessionAcc =
         SessionAccessibility::GetInstanceFor(aTarget);
 
     if (sessionAcc) {
@@ -161,10 +173,22 @@ void a11y::ProxyScrollingEvent(ProxyAccessible* aTarget, uint32_t aEventType,
   }
 }
 
+void a11y::ProxyAnnouncementEvent(ProxyAccessible* aTarget,
+                                  const nsString& aAnnouncement,
+                                  uint16_t aPriority) {
+  RefPtr<SessionAccessibility> sessionAcc =
+      SessionAccessibility::GetInstanceFor(aTarget);
+
+  if (sessionAcc) {
+    sessionAcc->SendAnnouncementEvent(WrapperFor(aTarget), aAnnouncement,
+                                      aPriority);
+  }
+}
+
 void a11y::ProxyBatch(ProxyAccessible* aDocument, const uint64_t aBatchType,
                       const nsTArray<ProxyAccessible*>& aAccessibles,
                       const nsTArray<BatchData>& aData) {
-  SessionAccessibility* sessionAcc =
+  RefPtr<SessionAccessibility> sessionAcc =
       SessionAccessibility::GetInstanceFor(aDocument);
   if (!sessionAcc) {
     return;
@@ -189,4 +213,44 @@ void a11y::ProxyBatch(ProxyAccessible* aDocument, const uint64_t aBatchType,
       MOZ_ASSERT_UNREACHABLE("Unknown batch type.");
       break;
   }
+}
+
+bool a11y::LocalizeString(const char* aToken, nsAString& aLocalized,
+                          const nsTArray<nsString>& aFormatString) {
+  MOZ_ASSERT(XRE_IsParentProcess());
+  nsresult rv = NS_OK;
+  if (!sStringBundle) {
+    nsCOMPtr<nsIStringBundleService> sbs = services::GetStringBundleService();
+    if (NS_FAILED(rv)) {
+      NS_WARNING("Failed to get string bundle service");
+      return false;
+    }
+
+    nsCOMPtr<nsIStringBundle> sb;
+    rv = sbs->CreateBundle(ROLE_STRINGS_URL, getter_AddRefs(sb));
+    if (NS_FAILED(rv)) {
+      NS_WARNING("Failed to get string bundle");
+      return false;
+    }
+
+    sb.forget(&sStringBundle);
+  }
+
+  MOZ_ASSERT(sStringBundle);
+
+  if (aFormatString.Length()) {
+    rv = sStringBundle->FormatStringFromName(aToken, aFormatString, aLocalized);
+    if (NS_SUCCEEDED(rv)) {
+      return true;
+    }
+  } else {
+    rv = sStringBundle->GetStringFromName(aToken, aLocalized);
+    if (NS_SUCCEEDED(rv)) {
+      return true;
+    }
+  }
+
+  NS_WARNING("Failed to localize string");
+  aLocalized.AssignLiteral("");
+  return false;
 }

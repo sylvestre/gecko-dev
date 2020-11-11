@@ -9,6 +9,8 @@
 
 #include "mozilla/Attributes.h"
 #include "mozilla/dom/Element.h"
+#include "mozilla/dom/UserActivation.h"
+#include "mozilla/dom/HTMLDialogElement.h"
 #include "nsCOMPtr.h"
 #include "mozilla/Encoding.h"
 #include "nsString.h"
@@ -36,14 +38,15 @@ class HTMLFormSubmission {
    * METHOD)
    *
    * @param aForm the form to get a submission object based on
-   * @param aOriginatingElement the originating element (can be null)
+   * @param aSubmitter the submitter element (can be null)
    * @param aFormSubmission the form submission object (out param)
    */
   static nsresult GetFromForm(HTMLFormElement* aForm,
-                              nsGenericHTMLElement* aOriginatingElement,
+                              nsGenericHTMLElement* aSubmitter,
+                              NotNull<const Encoding*>& aEncoding,
                               HTMLFormSubmission** aFormSubmission);
 
-  virtual ~HTMLFormSubmission() { MOZ_COUNT_DTOR(HTMLFormSubmission); }
+  MOZ_COUNTED_DTOR_VIRTUAL(HTMLFormSubmission)
 
   /**
    * Submit a name/value pair
@@ -91,7 +94,7 @@ class HTMLFormSubmission {
    */
   void GetCharset(nsACString& aCharset) { mEncoding->Name(aCharset); }
 
-  Element* GetOriginatingElement() const { return mOriginatingElement.get(); }
+  Element* GetSubmitterElement() const { return mSubmitter.get(); }
 
   /**
    * Get the action URI that will be used for submission.
@@ -103,20 +106,28 @@ class HTMLFormSubmission {
    */
   void GetTarget(nsAString& aTarget) { aTarget = mTarget; }
 
+  /**
+   * Return true if this form submission was user-initiated.
+   */
+  bool IsInitiatedFromUserInput() const { return mInitiatedFromUserInput; }
+
+  virtual DialogFormSubmission* GetAsDialogSubmission() { return nullptr; }
+
  protected:
   /**
    * Can only be constructed by subclasses.
    *
    * @param aEncoding the character encoding of the form
-   * @param aOriginatingElement the originating element (can be null)
+   * @param aSubmitter the submitter element (can be null)
    */
   HTMLFormSubmission(nsIURI* aActionURL, const nsAString& aTarget,
                      mozilla::NotNull<const mozilla::Encoding*> aEncoding,
-                     Element* aOriginatingElement)
+                     Element* aSubmitter)
       : mActionURL(aActionURL),
         mTarget(aTarget),
         mEncoding(aEncoding),
-        mOriginatingElement(aOriginatingElement) {
+        mSubmitter(aSubmitter),
+        mInitiatedFromUserInput(UserActivation::IsHandlingUserInput()) {
     MOZ_COUNT_CTOR(HTMLFormSubmission);
   }
 
@@ -129,15 +140,18 @@ class HTMLFormSubmission {
   // The character encoding of this form submission
   mozilla::NotNull<const mozilla::Encoding*> mEncoding;
 
-  // Originating element.
-  RefPtr<Element> mOriginatingElement;
+  // Submitter element.
+  RefPtr<Element> mSubmitter;
+
+  // Keep track of whether this form submission was user-initiated or not
+  bool mInitiatedFromUserInput;
 };
 
 class EncodingFormSubmission : public HTMLFormSubmission {
  public:
   EncodingFormSubmission(nsIURI* aActionURL, const nsAString& aTarget,
                          mozilla::NotNull<const mozilla::Encoding*> aEncoding,
-                         Element* aOriginatingElement);
+                         Element* aSubmitter);
 
   virtual ~EncodingFormSubmission();
 
@@ -154,6 +168,49 @@ class EncodingFormSubmission : public HTMLFormSubmission {
                      bool aHeaderEncode);
 };
 
+class DialogFormSubmission final : public HTMLFormSubmission {
+ public:
+  DialogFormSubmission(nsAString& aResult, nsIURI* aActionURL,
+                       const nsAString& aTarget,
+                       NotNull<const Encoding*> aEncoding, Element* aSubmitter,
+                       HTMLDialogElement* aDialogElement)
+      : HTMLFormSubmission(aActionURL, aTarget, aEncoding, aSubmitter),
+        mDialogElement(aDialogElement),
+        mReturnValue(aResult) {}
+  nsresult AddNameValuePair(const nsAString& aName,
+                            const nsAString& aValue) override {
+    MOZ_CRASH("This method should not be called");
+    return NS_OK;
+  }
+
+  nsresult AddNameBlobOrNullPair(const nsAString& aName, Blob* aBlob) override {
+    MOZ_CRASH("This method should not be called");
+    return NS_OK;
+  }
+
+  nsresult AddNameDirectoryPair(const nsAString& aName,
+                                Directory* aDirectory) override {
+    MOZ_CRASH("This method should not be called");
+    return NS_OK;
+  }
+
+  nsresult GetEncodedSubmission(nsIURI* aURI, nsIInputStream** aPostDataStream,
+                                nsCOMPtr<nsIURI>& aOutURI) override {
+    MOZ_CRASH("This method should not be called");
+    return NS_OK;
+  }
+
+  DialogFormSubmission* GetAsDialogSubmission() override { return this; }
+
+  HTMLDialogElement* DialogElement() { return mDialogElement; }
+
+  nsString& ReturnValue() { return mReturnValue; }
+
+ private:
+  const RefPtr<HTMLDialogElement> mDialogElement;
+  nsString mReturnValue;
+};
+
 /**
  * Handle multipart/form-data encoding, which does files as well as normal
  * inputs.  This always does POST.
@@ -165,7 +222,7 @@ class FSMultipartFormData : public EncodingFormSubmission {
    */
   FSMultipartFormData(nsIURI* aActionURL, const nsAString& aTarget,
                       mozilla::NotNull<const mozilla::Encoding*> aEncoding,
-                      Element* aOriginatingElement);
+                      Element* aSubmitter);
   ~FSMultipartFormData();
 
   virtual nsresult AddNameValuePair(const nsAString& aName,
@@ -182,8 +239,7 @@ class FSMultipartFormData : public EncodingFormSubmission {
                                         nsCOMPtr<nsIURI>& aOutURI) override;
 
   void GetContentType(nsACString& aContentType) {
-    aContentType =
-        NS_LITERAL_CSTRING("multipart/form-data; boundary=") + mBoundary;
+    aContentType = "multipart/form-data; boundary="_ns + mBoundary;
   }
 
   nsIInputStream* GetSubmissionBody(uint64_t* aContentLength);

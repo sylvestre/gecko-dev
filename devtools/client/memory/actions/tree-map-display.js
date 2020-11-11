@@ -4,14 +4,14 @@
 "use strict";
 
 const { assert } = require("devtools/shared/DevToolsUtils");
-const { actions } = require("../constants");
-const { refresh } = require("./refresh");
+const { actions } = require("devtools/client/memory/constants");
+const { refresh } = require("devtools/client/memory/actions/refresh");
 /**
  * Sets the tree map display as the current display and refreshes the tree map
  * census.
  */
 exports.setTreeMapAndRefresh = function(heapWorker, display) {
-  return async function(dispatch, getState) {
+  return async function({ dispatch, getState }) {
     dispatch(setTreeMap(display));
     await dispatch(refresh(heapWorker));
   };
@@ -23,16 +23,18 @@ exports.setTreeMapAndRefresh = function(heapWorker, display) {
  *
  * @param {treeMapModel} display
  */
-const setTreeMap = exports.setTreeMap = function(display) {
-  assert(typeof display === "object"
-         && display
-         && display.breakdown
-         && display.breakdown.by,
-    "Breakdowns must be an object with a \`by\` property, attempted to set: " +
-    uneval(display));
+const setTreeMap = (exports.setTreeMap = function(display) {
+  assert(
+    typeof display === "object" &&
+      display &&
+      display.breakdown &&
+      display.breakdown.by,
+    "Breakdowns must be an object with a `by` property, attempted to set: " +
+      JSON.stringify(display)
+  );
 
   return {
     type: actions.SET_TREE_MAP_DISPLAY,
     display,
   };
-};
+});

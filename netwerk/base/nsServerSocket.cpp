@@ -6,7 +6,6 @@
 #include "nsSocketTransport2.h"
 #include "nsServerSocket.h"
 #include "nsProxyRelease.h"
-#include "nsAutoPtr.h"
 #include "nsError.h"
 #include "nsNetCID.h"
 #include "prnetdb.h"
@@ -25,7 +24,7 @@ namespace net {
 
 typedef void (nsServerSocket::*nsServerSocketFunc)(void);
 
-static nsresult PostEvent(nsServerSocket *s, nsServerSocketFunc func) {
+static nsresult PostEvent(nsServerSocket* s, nsServerSocketFunc func) {
   nsCOMPtr<nsIRunnable> ev = NewRunnableMethod("net::PostEvent", s, func);
   if (!gSocketTransportService) return NS_ERROR_FAILURE;
 
@@ -65,7 +64,7 @@ nsServerSocket::~nsServerSocket() {
   Close();  // just in case :)
 
   // release our reference to the STS
-  nsSocketTransportService *serv = gSocketTransportService;
+  nsSocketTransportService* serv = gSocketTransportService;
   NS_IF_RELEASE(serv);
 }
 
@@ -137,8 +136,8 @@ nsresult nsServerSocket::TryAttach() {
   return NS_OK;
 }
 
-void nsServerSocket::CreateClientTransport(PRFileDesc *aClientFD,
-                                           const NetAddr &aClientAddr) {
+void nsServerSocket::CreateClientTransport(PRFileDesc* aClientFD,
+                                           const NetAddr& aClientAddr) {
   RefPtr<nsSocketTransport> trans = new nsSocketTransport;
   if (NS_WARN_IF(!trans)) {
     mCondition = NS_ERROR_OUT_OF_MEMORY;
@@ -158,7 +157,7 @@ void nsServerSocket::CreateClientTransport(PRFileDesc *aClientFD,
 // nsServerSocket::nsASocketHandler
 //-----------------------------------------------------------------------------
 
-void nsServerSocket::OnSocketReady(PRFileDesc *fd, int16_t outFlags) {
+void nsServerSocket::OnSocketReady(PRFileDesc* fd, int16_t outFlags) {
   NS_ASSERTION(NS_SUCCEEDED(mCondition), "oops");
   NS_ASSERTION(mFD == fd, "wrong file descriptor");
   NS_ASSERTION(outFlags != -1, "unexpected timeout condition reached");
@@ -169,9 +168,8 @@ void nsServerSocket::OnSocketReady(PRFileDesc *fd, int16_t outFlags) {
     return;
   }
 
-  PRFileDesc *clientFD;
+  PRFileDesc* clientFD;
   PRNetAddr prClientAddr;
-  NetAddr clientAddr;
 
   // NSPR doesn't tell us the peer address's length (as provided by the
   // 'accept' system call), so we can't distinguish between named,
@@ -181,18 +179,19 @@ void nsServerSocket::OnSocketReady(PRFileDesc *fd, int16_t outFlags) {
   memset(&prClientAddr, 0, sizeof(prClientAddr));
 
   clientFD = PR_Accept(mFD, &prClientAddr, PR_INTERVAL_NO_WAIT);
-  PRNetAddrToNetAddr(&prClientAddr, &clientAddr);
   if (!clientFD) {
     NS_WARNING("PR_Accept failed");
     mCondition = NS_ERROR_UNEXPECTED;
     return;
   }
+  PR_SetFDInheritable(clientFD, false);
 
+  NetAddr clientAddr(&prClientAddr);
   // Accept succeeded, create socket transport and notify consumer
   CreateClientTransport(clientFD, clientAddr);
 }
 
-void nsServerSocket::OnSocketDetached(PRFileDesc *fd) {
+void nsServerSocket::OnSocketDetached(PRFileDesc* fd) {
   // force a failure condition if none set; maybe the STS is shutting down :-/
   if (NS_SUCCEEDED(mCondition)) mCondition = NS_ERROR_ABORT;
 
@@ -209,7 +208,7 @@ void nsServerSocket::OnSocketDetached(PRFileDesc *fd) {
     RefPtr<nsIServerSocketListener> listener = nullptr;
     {
       MutexAutoLock lock(mLock);
-      listener = mListener.forget();
+      listener = ToRefPtr(std::move(mListener));
     }
 
     // XXX we need to proxy the release to the listener's target thread to work
@@ -221,7 +220,7 @@ void nsServerSocket::OnSocketDetached(PRFileDesc *fd) {
   }
 }
 
-void nsServerSocket::IsLocal(bool *aIsLocal) {
+void nsServerSocket::IsLocal(bool* aIsLocal) {
 #if defined(XP_UNIX)
   // Unix-domain sockets are always local.
   if (mAddr.raw.family == PR_AF_LOCAL) {
@@ -234,7 +233,7 @@ void nsServerSocket::IsLocal(bool *aIsLocal) {
   *aIsLocal = PR_IsNetAddrType(&mAddr, PR_IpAddrLoopback);
 }
 
-void nsServerSocket::KeepWhenOffline(bool *aKeepWhenOffline) {
+void nsServerSocket::KeepWhenOffline(bool* aKeepWhenOffline) {
   *aKeepWhenOffline = mKeepWhenOffline;
 }
 
@@ -274,7 +273,7 @@ nsServerSocket::InitIPv6(int32_t aPort, bool aLoopbackOnly, int32_t aBackLog) {
 }
 
 NS_IMETHODIMP
-nsServerSocket::InitWithFilename(nsIFile *aPath, uint32_t aPermissions,
+nsServerSocket::InitWithFilename(nsIFile* aPath, uint32_t aPermissions,
                                  int32_t aBacklog) {
 #if defined(XP_UNIX)
   nsresult rv;
@@ -301,7 +300,7 @@ nsServerSocket::InitWithFilename(nsIFile *aPath, uint32_t aPermissions,
 }
 
 NS_IMETHODIMP
-nsServerSocket::InitWithAbstractAddress(const nsACString &aName,
+nsServerSocket::InitWithAbstractAddress(const nsACString& aName,
                                         int32_t aBacklog) {
   // Abstract socket address is supported on Linux and Android only.
   // If not Linux, we should return error.
@@ -340,7 +339,7 @@ nsServerSocket::InitSpecialConnection(int32_t aPort, nsServerSocketFlag aFlags,
 }
 
 NS_IMETHODIMP
-nsServerSocket::InitWithAddress(const PRNetAddr *aAddr, int32_t aBackLog) {
+nsServerSocket::InitWithAddress(const PRNetAddr* aAddr, int32_t aBackLog) {
   NS_ENSURE_TRUE(mFD == nullptr, NS_ERROR_ALREADY_INITIALIZED);
   nsresult rv;
 
@@ -353,6 +352,8 @@ nsServerSocket::InitWithAddress(const PRNetAddr *aAddr, int32_t aBackLog) {
     NS_WARNING("unable to create server socket");
     return ErrorAccordingToNSPR(PR_GetError());
   }
+
+  PR_SetFDInheritable(mFD, false);
 
   PRSocketOptionData opt;
 
@@ -422,10 +423,10 @@ class ServerSocketListenerProxy final : public nsIServerSocketListener {
   ~ServerSocketListenerProxy() = default;
 
  public:
-  explicit ServerSocketListenerProxy(nsIServerSocketListener *aListener)
+  explicit ServerSocketListenerProxy(nsIServerSocketListener* aListener)
       : mListener(new nsMainThreadPtrHolder<nsIServerSocketListener>(
             "ServerSocketListenerProxy::mListener", aListener)),
-        mTarget(GetCurrentThreadEventTarget()) {}
+        mTarget(GetCurrentEventTarget()) {}
 
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSISERVERSOCKETLISTENER
@@ -433,8 +434,8 @@ class ServerSocketListenerProxy final : public nsIServerSocketListener {
   class OnSocketAcceptedRunnable : public Runnable {
    public:
     OnSocketAcceptedRunnable(
-        const nsMainThreadPtrHandle<nsIServerSocketListener> &aListener,
-        nsIServerSocket *aServ, nsISocketTransport *aTransport)
+        const nsMainThreadPtrHandle<nsIServerSocketListener>& aListener,
+        nsIServerSocket* aServ, nsISocketTransport* aTransport)
         : Runnable("net::ServerSocketListenerProxy::OnSocketAcceptedRunnable"),
           mListener(aListener),
           mServ(aServ),
@@ -451,8 +452,8 @@ class ServerSocketListenerProxy final : public nsIServerSocketListener {
   class OnStopListeningRunnable : public Runnable {
    public:
     OnStopListeningRunnable(
-        const nsMainThreadPtrHandle<nsIServerSocketListener> &aListener,
-        nsIServerSocket *aServ, nsresult aStatus)
+        const nsMainThreadPtrHandle<nsIServerSocketListener>& aListener,
+        nsIServerSocket* aServ, nsresult aStatus)
         : Runnable("net::ServerSocketListenerProxy::OnStopListeningRunnable"),
           mListener(aListener),
           mServ(aServ),
@@ -474,15 +475,15 @@ class ServerSocketListenerProxy final : public nsIServerSocketListener {
 NS_IMPL_ISUPPORTS(ServerSocketListenerProxy, nsIServerSocketListener)
 
 NS_IMETHODIMP
-ServerSocketListenerProxy::OnSocketAccepted(nsIServerSocket *aServ,
-                                            nsISocketTransport *aTransport) {
+ServerSocketListenerProxy::OnSocketAccepted(nsIServerSocket* aServ,
+                                            nsISocketTransport* aTransport) {
   RefPtr<OnSocketAcceptedRunnable> r =
       new OnSocketAcceptedRunnable(mListener, aServ, aTransport);
   return mTarget->Dispatch(r, NS_DISPATCH_NORMAL);
 }
 
 NS_IMETHODIMP
-ServerSocketListenerProxy::OnStopListening(nsIServerSocket *aServ,
+ServerSocketListenerProxy::OnStopListening(nsIServerSocket* aServ,
                                            nsresult aStatus) {
   RefPtr<OnStopListeningRunnable> r =
       new OnStopListeningRunnable(mListener, aServ, aStatus);
@@ -504,14 +505,14 @@ ServerSocketListenerProxy::OnStopListeningRunnable::Run() {
 }  // namespace
 
 NS_IMETHODIMP
-nsServerSocket::AsyncListen(nsIServerSocketListener *aListener) {
+nsServerSocket::AsyncListen(nsIServerSocketListener* aListener) {
   // ensuring mFD implies ensuring mLock
   NS_ENSURE_TRUE(mFD, NS_ERROR_NOT_INITIALIZED);
   NS_ENSURE_TRUE(mListener == nullptr, NS_ERROR_IN_PROGRESS);
   {
     MutexAutoLock lock(mLock);
     mListener = new ServerSocketListenerProxy(aListener);
-    mListenerTarget = GetCurrentThreadEventTarget();
+    mListenerTarget = GetCurrentEventTarget();
   }
 
   // Child classes may need to do additional setup just before listening begins
@@ -524,7 +525,7 @@ nsServerSocket::AsyncListen(nsIServerSocketListener *aListener) {
 }
 
 NS_IMETHODIMP
-nsServerSocket::GetPort(int32_t *aResult) {
+nsServerSocket::GetPort(int32_t* aResult) {
   // no need to enter the lock here
   uint16_t port;
   if (mAddr.raw.family == PR_AF_INET)
@@ -539,7 +540,7 @@ nsServerSocket::GetPort(int32_t *aResult) {
 }
 
 NS_IMETHODIMP
-nsServerSocket::GetAddress(PRNetAddr *aResult) {
+nsServerSocket::GetAddress(PRNetAddr* aResult) {
   // no need to enter the lock here
   memcpy(aResult, &mAddr, sizeof(mAddr));
   return NS_OK;

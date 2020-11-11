@@ -11,19 +11,19 @@
 #include "mozilla/dom/ContentChild.h"
 #include "mozilla/gfx/GPUParent.h"
 #include "mozilla/gfx/GPUProcessManager.h"
+#include "mozilla/net/SocketProcessChild.h"
+#include "mozilla/SchedulerGroup.h"
 #include "mozilla/StaticMutex.h"
+#include "mozilla/StaticPrefs_toolkit.h"
 #include "mozilla/StaticPtr.h"
-#include "mozilla/SystemGroup.h"
 #include "mozilla/Unused.h"
 #include "nsComponentManagerUtils.h"
 #include "nsITimer.h"
 #include "nsThreadUtils.h"
 
-using mozilla::Preferences;
 using mozilla::StaticAutoPtr;
 using mozilla::StaticMutex;
 using mozilla::StaticMutexAutoLock;
-using mozilla::SystemGroup;
 using mozilla::TaskCategory;
 using mozilla::Telemetry::ChildEventData;
 using mozilla::Telemetry::DiscardedData;
@@ -36,16 +36,10 @@ using mozilla::Telemetry::ScalarVariant;
 
 namespace TelemetryIPCAccumulator = mozilla::TelemetryIPCAccumulator;
 
-// Sending each remote accumulation immediately places undue strain on the
-// IPC subsystem. Batch the remote accumulations for a period of time before
-// sending them all at once. This value was chosen as a balance between data
-// timeliness and performance (see bug 1218576)
-const uint32_t kDefaultBatchTimeoutMs = 2000;
-static uint32_t sBatchTimeoutMs = kDefaultBatchTimeoutMs;
-
-// To stop growing unbounded in memory while waiting for sBatchTimeoutMs to
-// drain the probe accumulation arrays, we request an immediate flush if the
-// arrays manage to reach certain high water mark of elements.
+// To stop growing unbounded in memory while waiting for
+// StaticPrefs::toolkit_telemetry_ipcBatchTimeout() milliseconds to drain the
+// probe accumulation arrays, we request an immediate flush if the arrays
+// manage to reach certain high water mark of elements.
 const size_t kHistogramAccumulationsArrayHighWaterMark = 5 * 1024;
 const size_t kScalarActionsArrayHighWaterMark = 10000;
 // With the current limits, events cost us about 1100 bytes each.
@@ -89,20 +83,12 @@ void DoArmIPCTimerMainThread(const StaticMutexAutoLock& lock) {
     return;
   }
   if (!gIPCTimer) {
-    gIPCTimer =
-        NS_NewTimer(SystemGroup::EventTargetFor(TaskCategory::Other)).take();
+    gIPCTimer = NS_NewTimer().take();
   }
   if (gIPCTimer) {
-    static bool sTimeoutInitialized = false;
-    if (!sTimeoutInitialized && Preferences::IsServiceAvailable()) {
-      Preferences::AddUintVarCache(&sBatchTimeoutMs,
-                                   "toolkit.telemetry.ipcBatchTimeout",
-                                   kDefaultBatchTimeoutMs);
-      sTimeoutInitialized = true;
-    }
-
     gIPCTimer->InitWithNamedFuncCallback(
-        TelemetryIPCAccumulator::IPCTimerFired, nullptr, sBatchTimeoutMs,
+        TelemetryIPCAccumulator::IPCTimerFired, nullptr,
+        mozilla::StaticPrefs::toolkit_telemetry_ipcBatchTimeout(),
         nsITimer::TYPE_ONE_SHOT_LOW_PRIORITY,
         "TelemetryIPCAccumulator::IPCTimerFired");
     gIPCTimerArmed = true;
@@ -246,9 +232,9 @@ void TelemetryIPCAccumulator::RecordChildEvent(
   }
 
   // Store the event.
-  gChildEvents->AppendElement(ChildEventData{
-      timestamp, nsCString(category), nsCString(method), nsCString(object),
-      value, nsTArray<mozilla::Telemetry::EventExtraEntry>(extra)});
+  gChildEvents->AppendElement(
+      ChildEventData{timestamp, nsCString(category), nsCString(method),
+                     nsCString(object), value, extra.Clone()});
   ArmIPCTimer(locker);
 }
 
@@ -268,19 +254,19 @@ static void SendAccumulatedData(TActor* ipcActor) {
   {
     StaticMutexAutoLock locker(gTelemetryIPCAccumulatorMutex);
     if (gHistogramAccumulations) {
-      histogramsToSend.SwapElements(*gHistogramAccumulations);
+      histogramsToSend = std::move(*gHistogramAccumulations);
     }
     if (gKeyedHistogramAccumulations) {
-      keyedHistogramsToSend.SwapElements(*gKeyedHistogramAccumulations);
+      keyedHistogramsToSend = std::move(*gKeyedHistogramAccumulations);
     }
     if (gChildScalarsActions) {
-      scalarsToSend.SwapElements(*gChildScalarsActions);
+      scalarsToSend = std::move(*gChildScalarsActions);
     }
     if (gChildKeyedScalarsActions) {
-      keyedScalarsToSend.SwapElements(*gChildKeyedScalarsActions);
+      keyedScalarsToSend = std::move(*gChildKeyedScalarsActions);
     }
     if (gChildEvents) {
-      eventsToSend.SwapElements(*gChildEvents);
+      eventsToSend = std::move(*gChildEvents);
     }
     discardedData = gDiscardedData;
     gDiscardedData = {0};
@@ -327,6 +313,9 @@ void TelemetryIPCAccumulator::IPCTimerFired(nsITimer* aTimer, void* aClosure) {
     case GeckoProcessType_GPU:
       SendAccumulatedData(mozilla::gfx::GPUParent::GetSingleton());
       break;
+    case GeckoProcessType_Socket:
+      SendAccumulatedData(mozilla::net::SocketProcessChild::GetSingleton());
+      break;
     default:
       MOZ_ASSERT_UNREACHABLE("Unsupported process type");
       break;
@@ -352,6 +341,5 @@ void TelemetryIPCAccumulator::DeInitializeGlobalState() {
 
 void TelemetryIPCAccumulator::DispatchToMainThread(
     already_AddRefed<nsIRunnable>&& aEvent) {
-  SystemGroup::EventTargetFor(TaskCategory::Other)
-      ->Dispatch(std::move(aEvent), nsIEventTarget::DISPATCH_NORMAL);
+  SchedulerGroup::Dispatch(TaskCategory::Other, std::move(aEvent));
 }

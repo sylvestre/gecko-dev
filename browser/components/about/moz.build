@@ -8,21 +8,25 @@ with Files("**"):
     BUG_COMPONENT = ("Firefox", "General")
 
 EXPORTS.mozilla.browser += [
-    'AboutRedirector.h',
+    "AboutRedirector.h",
 ]
 
-XPCSHELL_TESTS_MANIFESTS += ['test/unit/xpcshell.ini']
+XPCSHELL_TESTS_MANIFESTS += ["test/unit/xpcshell.ini"]
 
 SOURCES += [
-    'AboutRedirector.cpp',
+    "AboutRedirector.cpp",
 ]
 
-EXTRA_JS_MODULES.aboutpages = [
-    'AboutPrivateBrowsingHandler.jsm',
+XPCOM_MANIFESTS += [
+    "components.conf",
 ]
 
-FINAL_LIBRARY = 'browsercomps'
+FINAL_LIBRARY = "browsercomps"
 
 LOCAL_INCLUDES += [
-    '../build',
+    "../build",
+    "/dom/base",
+    "/ipc/chromium/src",
 ]
+
+include("/ipc/chromium/chromium-config.mozbuild")

@@ -8,6 +8,7 @@
 #include "mozilla/PRDDParent.h"
 
 #include "mozilla/RefPtr.h"
+#include "mozilla/media/MediaUtils.h"
 
 namespace mozilla {
 
@@ -21,18 +22,31 @@ class RDDParent final : public PRDDParent {
 
   static RDDParent* GetSingleton();
 
-  bool Init(base::ProcessId aParentPid, const char* aParentBuildID,
-            MessageLoop* aIOLoop, IPC::Channel* aChannel);
+  AsyncBlockers& AsyncShutdownService() { return mShutdownBlockers; }
 
-  mozilla::ipc::IPCResult RecvInit() override;
+  bool Init(base::ProcessId aParentPid, const char* aParentBuildID,
+            MessageLoop* aIOLoop, UniquePtr<IPC::Channel> aChannel);
+
+  mozilla::ipc::IPCResult RecvInit(nsTArray<GfxVarUpdate>&& vars,
+                                   const Maybe<ipc::FileDescriptor>& aBrokerFd,
+                                   const bool& aCanRecordReleaseTelemetry);
   mozilla::ipc::IPCResult RecvInitProfiler(
-      Endpoint<PProfilerChild>&& aEndpoint) override;
+      Endpoint<PProfilerChild>&& aEndpoint);
 
   mozilla::ipc::IPCResult RecvNewContentRemoteDecoderManager(
-      Endpoint<PRemoteDecoderManagerParent>&& aEndpoint) override;
+      Endpoint<PRemoteDecoderManagerParent>&& aEndpoint);
+  mozilla::ipc::IPCResult RecvInitVideoBridge(
+      Endpoint<PVideoBridgeChild>&& aEndpoint,
+      const ContentDeviceData& aContentDeviceData);
   mozilla::ipc::IPCResult RecvRequestMemoryReport(
       const uint32_t& generation, const bool& anonymize,
-      const bool& minimizeMemoryUsage, const MaybeFileDesc& DMDFile) override;
+      const bool& minimizeMemoryUsage,
+      const Maybe<ipc::FileDescriptor>& DMDFile,
+      const RequestMemoryReportResolver& aResolver);
+  mozilla::ipc::IPCResult RecvGetUntrustedModulesData(
+      GetUntrustedModulesDataResolver&& aResolver);
+  mozilla::ipc::IPCResult RecvPreferenceUpdate(const Pref& pref);
+  mozilla::ipc::IPCResult RecvUpdateVar(const GfxVarUpdate& pref);
 
   void ActorDestroy(ActorDestroyReason aWhy) override;
 
@@ -41,6 +55,7 @@ class RDDParent final : public PRDDParent {
 #ifdef MOZ_GECKO_PROFILER
   RefPtr<ChildProfilerController> mProfilerController;
 #endif
+  AsyncBlockers mShutdownBlockers;
 };
 
 }  // namespace mozilla

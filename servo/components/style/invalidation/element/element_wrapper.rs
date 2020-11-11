@@ -58,6 +58,13 @@ pub trait ElementSnapshot: Sized {
     /// if `has_attrs()` returns true.
     fn has_class(&self, name: &Atom, case_sensitivity: CaseSensitivity) -> bool;
 
+    /// Whether this snapshot represents the part named `name`. Should only be
+    /// called if `has_attrs()` returns true.
+    fn is_part(&self, name: &Atom) -> bool;
+
+    /// See Element::imported_part.
+    fn imported_part(&self, name: &Atom) -> Option<Atom>;
+
     /// A callback that should be called for each class of the snapshot. Should
     /// only be called if `has_attrs()` returns true.
     fn each_class<F>(&self, _: F)
@@ -208,10 +215,10 @@ where
             // Instead, we use the `visited_handling` to determine if they
             // match.
             NonTSPseudoClass::Link => {
-                return self.is_link() && context.visited_handling().matches_unvisited()
+                return self.is_link() && context.visited_handling().matches_unvisited();
             },
             NonTSPseudoClass::Visited => {
-                return self.is_link() && context.visited_handling().matches_visited()
+                return self.is_link() && context.visited_handling().matches_visited();
             },
 
             #[cfg(feature = "gecko")]
@@ -228,6 +235,15 @@ where
                 if let Some(snapshot) = self.snapshot() {
                     if snapshot.has_other_pseudo_class_state() {
                         return snapshot.mIsMozBrowserFrame();
+                    }
+                }
+            },
+
+            #[cfg(feature = "gecko")]
+            NonTSPseudoClass::MozSelectListBox => {
+                if let Some(snapshot) = self.snapshot() {
+                    if snapshot.has_other_pseudo_class_state() {
+                        return snapshot.mIsSelectListBox();
                     }
                 }
             },
@@ -266,7 +282,10 @@ where
     }
 
     fn is_link(&self) -> bool {
-        self.element.is_link()
+        match self.snapshot().and_then(|s| s.state()) {
+            Some(state) => state.intersects(ElementState::IN_VISITED_OR_UNVISITED_STATE),
+            None => self.element.is_link(),
+        }
     }
 
     fn opaque(&self) -> OpaqueElement {
@@ -308,13 +327,24 @@ where
     }
 
     #[inline]
-    fn local_name(&self) -> &<Self::Impl as ::selectors::SelectorImpl>::BorrowedLocalName {
-        self.element.local_name()
+    fn has_local_name(
+        &self,
+        local_name: &<Self::Impl as ::selectors::SelectorImpl>::BorrowedLocalName,
+    ) -> bool {
+        self.element.has_local_name(local_name)
     }
 
     #[inline]
-    fn namespace(&self) -> &<Self::Impl as ::selectors::SelectorImpl>::BorrowedNamespaceUrl {
-        self.element.namespace()
+    fn has_namespace(
+        &self,
+        ns: &<Self::Impl as ::selectors::SelectorImpl>::BorrowedNamespaceUrl,
+    ) -> bool {
+        self.element.has_namespace(ns)
+    }
+
+    #[inline]
+    fn is_same_type(&self, other: &Self) -> bool {
+        self.element.is_same_type(&other.element)
     }
 
     fn attr_matches(
@@ -340,6 +370,20 @@ where
         }
     }
 
+    fn is_part(&self, name: &Atom) -> bool {
+        match self.snapshot() {
+            Some(snapshot) if snapshot.has_attrs() => snapshot.is_part(name),
+            _ => self.element.is_part(name),
+        }
+    }
+
+    fn imported_part(&self, name: &Atom) -> Option<Atom> {
+        match self.snapshot() {
+            Some(snapshot) if snapshot.has_attrs() => snapshot.imported_part(name),
+            _ => self.element.imported_part(name),
+        }
+    }
+
     fn has_class(&self, name: &Atom, case_sensitivity: CaseSensitivity) -> bool {
         match self.snapshot() {
             Some(snapshot) if snapshot.has_attrs() => snapshot.has_class(name, case_sensitivity),
@@ -353,6 +397,10 @@ where
 
     fn is_root(&self) -> bool {
         self.element.is_root()
+    }
+
+    fn is_pseudo_element(&self) -> bool {
+        self.element.is_pseudo_element()
     }
 
     fn pseudo_element_originating_element(&self) -> Option<Self> {

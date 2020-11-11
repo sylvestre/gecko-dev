@@ -5,10 +5,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "PaymentActionResponse.h"
+#include "BasicCardPayment.h"
 #include "PaymentRequestUtils.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 /* PaymentResponseData */
 
@@ -36,7 +36,7 @@ PaymentResponseData::Init(const uint32_t aType) {
 NS_IMPL_ISUPPORTS_INHERITED(GeneralResponseData, PaymentResponseData,
                             nsIGeneralResponseData)
 
-GeneralResponseData::GeneralResponseData() : mData(NS_LITERAL_STRING("{}")) {
+GeneralResponseData::GeneralResponseData() : mData(u"{}"_ns) {
   Init(nsIPaymentResponseData::GENERAL_RESPONSE);
 }
 
@@ -144,7 +144,7 @@ BasicCardResponseData::InitData(const nsAString& aCardholderName,
 NS_IMPL_ISUPPORTS(PaymentActionResponse, nsIPaymentActionResponse)
 
 PaymentActionResponse::PaymentActionResponse()
-    : mRequestId(EmptyString()), mType(nsIPaymentActionResponse::NO_TYPE) {}
+    : mRequestId(u""_ns), mType(nsIPaymentActionResponse::NO_TYPE) {}
 
 NS_IMETHODIMP
 PaymentActionResponse::GetRequestId(nsAString& aRequestId) {
@@ -268,7 +268,9 @@ PaymentShowActionResponse::Init(const nsAString& aRequestId,
         }
         break;
       }
-      default: { return NS_ERROR_FAILURE; }
+      default: {
+        return NS_ERROR_FAILURE;
+      }
     }
   }
   mData = aData;
@@ -368,8 +370,7 @@ MethodChangeDetails::Init(const uint32_t aType) {
 NS_IMPL_ISUPPORTS_INHERITED(GeneralMethodChangeDetails, MethodChangeDetails,
                             nsIGeneralChangeDetails)
 
-GeneralMethodChangeDetails::GeneralMethodChangeDetails()
-    : mDetails(NS_LITERAL_STRING("{}")) {
+GeneralMethodChangeDetails::GeneralMethodChangeDetails() : mDetails(u"{}"_ns) {
   Init(nsIMethodChangeDetails::GENERAL_DETAILS);
 }
 
@@ -416,5 +417,4 @@ BasicCardMethodChangeDetails::InitData(nsIPaymentAddress* aBillingAddress) {
   return NS_OK;
 }
 
-}  // end of namespace dom
-}  // end of namespace mozilla
+}  // namespace mozilla::dom

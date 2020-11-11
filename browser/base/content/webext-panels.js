@@ -3,21 +3,21 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Via webext-panels.xul
+// Via webext-panels.xhtml
 /* import-globals-from browser.js */
 /* import-globals-from nsContextMenu.js */
 
-ChromeUtils.defineModuleGetter(this, "ExtensionParent",
-                               "resource://gre/modules/ExtensionParent.jsm");
+ChromeUtils.defineModuleGetter(
+  this,
+  "ExtensionParent",
+  "resource://gre/modules/ExtensionParent.jsm"
+);
 
-ChromeUtils.import("resource://gre/modules/Services.jsm");
-ChromeUtils.import("resource://gre/modules/ExtensionUtils.jsm");
+const { ExtensionUtils } = ChromeUtils.import(
+  "resource://gre/modules/ExtensionUtils.jsm"
+);
 
-var {
-  promiseEvent,
-} = ExtensionUtils;
-
-const XUL_NS = "http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul";
+var { promiseEvent } = ExtensionUtils;
 
 function getBrowser(panel) {
   let browser = document.getElementById("webext-panels-browser");
@@ -44,36 +44,76 @@ function getBrowser(panel) {
   browser.setAttribute("autocompletepopup", "PopupAutoComplete");
   browser.setAttribute("selectmenulist", "ContentSelectDropdown");
 
-  // Ensure that the browser is going to run in the same process of the other
+  // Ensure that the browser is going to run in the same bc group as the other
   // extension pages from the same addon.
-  browser.sameProcessAsFrameLoader = panel.extension.groupFrameLoader;
+  browser.setAttribute(
+    "initialBrowsingContextGroupId",
+    panel.extension.policy.browsingContextGroupId
+  );
 
   let readyPromise;
   if (panel.extension.remote) {
     browser.setAttribute("remote", "true");
-    browser.setAttribute("remoteType",
-                         E10SUtils.getRemoteTypeForURI(panel.uri, true,
-                                                       E10SUtils.EXTENSION_REMOTE_TYPE));
+    browser.setAttribute(
+      "remoteType",
+      E10SUtils.getRemoteTypeForURI(
+        panel.uri,
+        /* remote */ true,
+        /* fission */ false,
+        E10SUtils.EXTENSION_REMOTE_TYPE
+      )
+    );
     readyPromise = promiseEvent(browser, "XULFrameLoaderCreated");
-
-    window.messageManager.addMessageListener("contextmenu", openContextMenu);
-    window.addEventListener("unload", () => {
-      window.messageManager.removeMessageListener("contextmenu", openContextMenu);
-    }, {once: true});
   } else {
     readyPromise = Promise.resolve();
   }
 
   stack.appendChild(browser);
 
+  browser.addEventListener(
+    "DoZoomEnlargeBy10",
+    () => {
+      let { ZoomManager } = browser.ownerGlobal;
+      let zoom = browser.fullZoom;
+      zoom += 0.1;
+      if (zoom > ZoomManager.MAX) {
+        zoom = ZoomManager.MAX;
+      }
+      browser.fullZoom = zoom;
+    },
+    true
+  );
+  browser.addEventListener(
+    "DoZoomReduceBy10",
+    () => {
+      let { ZoomManager } = browser.ownerGlobal;
+      let zoom = browser.fullZoom;
+      zoom -= 0.1;
+      if (zoom < ZoomManager.MIN) {
+        zoom = ZoomManager.MIN;
+      }
+      browser.fullZoom = zoom;
+    },
+    true
+  );
+
   return readyPromise.then(() => {
-    browser.messageManager.loadFrameScript("chrome://browser/content/content.js", false, true);
-    ExtensionParent.apiManager.emit("extension-browser-inserted", browser, panel.browserInsertedData);
+    ExtensionParent.apiManager.emit(
+      "extension-browser-inserted",
+      browser,
+      panel.browserInsertedData
+    );
 
     browser.messageManager.loadFrameScript(
-      "chrome://extensions/content/ext-browser-content.js", false, true);
+      "chrome://extensions/content/ext-browser-content.js",
+      false,
+      true
+    );
 
-    let options = panel.browserStyle !== false ? {stylesheets: ExtensionParent.extensionStylesheets} : {};
+    let options =
+      panel.browserStyle !== false
+        ? { stylesheets: ExtensionParent.extensionStylesheets }
+        : {};
     browser.messageManager.sendAsyncMessage("Extension:InitBrowser", options);
     return browser;
   });
@@ -100,12 +140,14 @@ var gBrowser = {
 function updatePosition() {
   // We need both of these to make sure we update the position
   // after any lower level updates have finished.
-  requestAnimationFrame(() => setTimeout(() => {
-    let browser = document.getElementById("webext-panels-browser");
-    if (browser && browser.isRemoteBrowser) {
-      browser.frameLoader.requestUpdatePosition();
-    }
-  }, 0));
+  requestAnimationFrame(() =>
+    setTimeout(() => {
+      let browser = document.getElementById("webext-panels-browser");
+      if (browser && browser.isRemoteBrowser) {
+        browser.frameLoader.requestUpdatePosition();
+      }
+    }, 0)
+  );
 }
 
 function loadPanel(extensionId, extensionUrl, browserStyle) {
@@ -129,7 +171,10 @@ function loadPanel(extensionId, extensionUrl, browserStyle) {
 
   getBrowser(sidebar).then(browser => {
     let uri = Services.io.newURI(policy.getURL());
-    let triggeringPrincipal = Services.scriptSecurityManager.createCodebasePrincipal(uri, {});
-    browser.loadURI(extensionUrl, {triggeringPrincipal});
+    let triggeringPrincipal = Services.scriptSecurityManager.createContentPrincipal(
+      uri,
+      {}
+    );
+    browser.loadURI(extensionUrl, { triggeringPrincipal });
   });
 }

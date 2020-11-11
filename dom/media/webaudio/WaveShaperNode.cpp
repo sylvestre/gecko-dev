@@ -9,11 +9,10 @@
 #include "AlignmentUtils.h"
 #include "AudioNode.h"
 #include "AudioNodeEngine.h"
-#include "AudioNodeStream.h"
+#include "AudioNodeTrack.h"
 #include "mozilla/PodOperations.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_IMPL_CYCLE_COLLECTION_CLASS(WaveShaperNode)
 
@@ -153,8 +152,8 @@ class WaveShaperNodeEngine final : public AudioNodeEngine {
 
   enum Parameters { TYPE };
 
-  void SetRawArrayData(nsTArray<float>& aCurve) override {
-    mCurve.SwapElements(aCurve);
+  void SetRawArrayData(nsTArray<float>&& aCurve) override {
+    mCurve = std::move(aCurve);
   }
 
   void SetInt32Parameter(uint32_t aIndex, int32_t aValue) override {
@@ -190,7 +189,7 @@ class WaveShaperNodeEngine final : public AudioNodeEngine {
     }
   }
 
-  void ProcessBlock(AudioNodeStream* aStream, GraphTime aFrom,
+  void ProcessBlock(AudioNodeTrack* aTrack, GraphTime aFrom,
                     const AudioBlock& aInput, AudioBlock* aOutput,
                     bool* aFinished) override {
     uint32_t channelCount = aInput.ChannelCount();
@@ -212,10 +211,9 @@ class WaveShaperNodeEngine final : public AudioNodeEngine {
           0.0) {
         *aOutput = aInput;
         return;
-      } else {
-        nullInput = true;
-        channelCount = 1;
       }
+      nullInput = true;
+      channelCount = 1;
     }
 
     aOutput->AllocateChannels(channelCount);
@@ -242,19 +240,19 @@ class WaveShaperNodeEngine final : public AudioNodeEngine {
 
       switch (mType) {
         case OverSampleType::None:
-          mResampler.Reset(channelCount, aStream->SampleRate(),
+          mResampler.Reset(channelCount, aTrack->mSampleRate,
                            OverSampleType::None);
           ProcessCurve<1>(inputSamples, outputBuffer);
           break;
         case OverSampleType::_2x:
-          mResampler.Reset(channelCount, aStream->SampleRate(),
+          mResampler.Reset(channelCount, aTrack->mSampleRate,
                            OverSampleType::_2x);
           sampleBuffer = mResampler.UpSample(i, inputSamples, 2);
           ProcessCurve<2>(sampleBuffer, sampleBuffer);
           mResampler.DownSample(i, outputBuffer, 2);
           break;
         case OverSampleType::_4x:
-          mResampler.Reset(channelCount, aStream->SampleRate(),
+          mResampler.Reset(channelCount, aTrack->mSampleRate,
                            OverSampleType::_4x);
           sampleBuffer = mResampler.UpSample(i, inputSamples, 4);
           ProcessCurve<4>(sampleBuffer, sampleBuffer);
@@ -288,17 +286,14 @@ WaveShaperNode::WaveShaperNode(AudioContext* aContext)
                 ChannelInterpretation::Speakers),
       mType(OverSampleType::None) {
   WaveShaperNodeEngine* engine = new WaveShaperNodeEngine(this);
-  mStream = AudioNodeStream::Create(
-      aContext, engine, AudioNodeStream::NO_STREAM_FLAGS, aContext->Graph());
+  mTrack = AudioNodeTrack::Create(
+      aContext, engine, AudioNodeTrack::NO_TRACK_FLAGS, aContext->Graph());
 }
 
-/* static */ already_AddRefed<WaveShaperNode> WaveShaperNode::Create(
+/* static */
+already_AddRefed<WaveShaperNode> WaveShaperNode::Create(
     AudioContext& aAudioContext, const WaveShaperOptions& aOptions,
     ErrorResult& aRv) {
-  if (aAudioContext.CheckClosed(aRv)) {
-    return nullptr;
-  }
-
   RefPtr<WaveShaperNode> audioNode = new WaveShaperNode(&aAudioContext);
 
   audioNode->Initialize(aOptions, aRv);
@@ -333,14 +328,7 @@ void WaveShaperNode::SetCurve(const Nullable<Float32Array>& aCurve,
   }
 
   const Float32Array& floats = aCurve.Value();
-
-  floats.ComputeLengthAndData();
-  if (floats.IsShared()) {
-    // Throw if the object is mapping shared memory (must opt in).
-    aRv.ThrowTypeError<MSG_TYPEDARRAY_IS_SHARED>(
-        NS_LITERAL_STRING("Argument of WaveShaperNode.setCurve"));
-    return;
-  }
+  floats.ComputeState();
 
   nsTArray<float> curve;
   uint32_t argLength = floats.Length();
@@ -356,25 +344,25 @@ void WaveShaperNode::SetCurve(const Nullable<Float32Array>& aCurve,
 void WaveShaperNode::SetCurveInternal(const nsTArray<float>& aCurve,
                                       ErrorResult& aRv) {
   if (aCurve.Length() < 2) {
-    aRv.Throw(NS_ERROR_DOM_INVALID_STATE_ERR);
+    aRv.ThrowInvalidStateError("Must have at least two entries");
     return;
   }
 
-  mCurve = aCurve;
-  SendCurveToStream();
+  mCurve = aCurve.Clone();
+  SendCurveToTrack();
 }
 
 void WaveShaperNode::CleanCurveInternal() {
   mCurve.Clear();
-  SendCurveToStream();
+  SendCurveToTrack();
 }
 
-void WaveShaperNode::SendCurveToStream() {
-  AudioNodeStream* ns = mStream;
-  MOZ_ASSERT(ns, "Why don't we have a stream here?");
+void WaveShaperNode::SendCurveToTrack() {
+  AudioNodeTrack* ns = mTrack;
+  MOZ_ASSERT(ns, "Why don't we have a track here?");
 
-  nsTArray<float> copyCurve(mCurve);
-  ns->SetRawArrayData(copyCurve);
+  nsTArray<float> copyCurve(mCurve.Clone());
+  ns->SetRawArrayData(std::move(copyCurve));
 }
 
 void WaveShaperNode::GetCurve(JSContext* aCx,
@@ -392,9 +380,8 @@ void WaveShaperNode::GetCurve(JSContext* aCx,
 
 void WaveShaperNode::SetOversample(OverSampleType aType) {
   mType = aType;
-  SendInt32ParameterToStream(WaveShaperNodeEngine::TYPE,
-                             static_cast<int32_t>(aType));
+  SendInt32ParameterToTrack(WaveShaperNodeEngine::TYPE,
+                            static_cast<int32_t>(aType));
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

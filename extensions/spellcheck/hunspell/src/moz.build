@@ -5,6 +5,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 UNIFIED_SOURCES += [
+    '../glue/mozHunspellFileMgrSandbox.cpp',
     'affentry.cxx',
     'affixmgr.cxx',
     'csutil.cxx',
@@ -14,6 +15,8 @@ UNIFIED_SOURCES += [
     'replist.cxx',
     'suggestmgr.cxx',
 ]
+
+DEFINES['HUNSPELL_STATIC'] = True
 
 FINAL_LIBRARY = 'xul'
 

@@ -4,31 +4,32 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include <stdint.h>                 // for uint32_t
-#include <stdlib.h>                 // for rand, RAND_MAX
-#include <sys/types.h>              // for int32_t
-#include <stack>                    // for stack
-#include "BasicContainerLayer.h"    // for BasicContainerLayer
-#include "BasicLayersImpl.h"        // for ToData, BasicReadbackLayer, etc
-#include "GeckoProfiler.h"          // for AUTO_PROFILER_LABEL
-#include "ImageContainer.h"         // for ImageFactory
-#include "Layers.h"                 // for Layer, ContainerLayer, etc
-#include "ReadbackLayer.h"          // for ReadbackLayer
-#include "ReadbackProcessor.h"      // for ReadbackProcessor
-#include "RenderTrace.h"            // for RenderTraceLayers, etc
-#include "basic/BasicImplData.h"    // for BasicImplData
-#include "basic/BasicLayers.h"      // for BasicLayerManager, etc
-#include "gfxASurface.h"            // for gfxASurface, etc
-#include "gfxContext.h"             // for gfxContext, etc
-#include "gfxImageSurface.h"        // for gfxImageSurface
-#include "gfxMatrix.h"              // for gfxMatrix
-#include "gfxPlatform.h"            // for gfxPlatform
-#include "gfxPrefs.h"               // for gfxPrefs
-#include "gfxPoint.h"               // for IntSize, gfxPoint
-#include "gfxRect.h"                // for gfxRect
-#include "gfxUtils.h"               // for gfxUtils
-#include "gfx2DGlue.h"              // for thebes --> moz2d transition
-#include "mozilla/Assertions.h"     // for MOZ_ASSERT, etc
+#include <stdint.h>               // for uint32_t
+#include <stdlib.h>               // for rand, RAND_MAX
+#include <sys/types.h>            // for int32_t
+#include <stack>                  // for stack
+#include "BasicContainerLayer.h"  // for BasicContainerLayer
+#include "BasicLayersImpl.h"      // for ToData, BasicReadbackLayer, etc
+#include "GeckoProfiler.h"        // for AUTO_PROFILER_LABEL
+#include "ImageContainer.h"       // for ImageFactory
+#include "Layers.h"               // for Layer, ContainerLayer, etc
+#include "ReadbackLayer.h"        // for ReadbackLayer
+#include "ReadbackProcessor.h"    // for ReadbackProcessor
+#include "RenderTrace.h"          // for RenderTraceLayers, etc
+#include "basic/BasicImplData.h"  // for BasicImplData
+#include "basic/BasicLayers.h"    // for BasicLayerManager, etc
+#include "gfxASurface.h"          // for gfxASurface, etc
+#include "gfxContext.h"           // for gfxContext, etc
+#include "gfxImageSurface.h"      // for gfxImageSurface
+#include "gfxMatrix.h"            // for gfxMatrix
+#include "gfxPlatform.h"          // for gfxPlatform
+
+#include "gfxPoint.h"            // for IntSize, gfxPoint
+#include "gfxRect.h"             // for gfxRect
+#include "gfxUtils.h"            // for gfxUtils
+#include "gfx2DGlue.h"           // for thebes --> moz2d transition
+#include "mozilla/Assertions.h"  // for MOZ_ASSERT, etc
+#include "mozilla/StaticPrefs_nglayout.h"
 #include "mozilla/WidgetUtils.h"    // for ScreenRotation
 #include "mozilla/gfx/2D.h"         // for DrawTarget
 #include "mozilla/gfx/BasePoint.h"  // for BasePoint
@@ -41,6 +42,7 @@
 #include "nsCOMPtr.h"                    // for already_AddRefed
 #include "nsDebug.h"                     // for NS_ASSERTION, etc
 #include "nsISupportsImpl.h"             // for gfxContext::Release, etc
+#include "nsLayoutUtils.h"               // for nsLayoutUtils
 #include "nsPoint.h"                     // for nsIntPoint
 #include "nsRect.h"                      // for mozilla::gfx::IntRect
 #include "nsRegion.h"                    // for nsIntRegion, etc
@@ -105,9 +107,12 @@ bool BasicLayerManager::PushGroupForLayer(gfxContext* aContext, Layer* aLayer,
     ToRect(rect).ToIntRect(&surfRect);
 
     if (!surfRect.IsEmpty()) {
-      RefPtr<DrawTarget> dt =
-          aContext->GetDrawTarget()->CreateSimilarDrawTarget(
-              surfRect.Size(), SurfaceFormat::B8G8R8A8);
+      RefPtr<DrawTarget> dt;
+      if (aContext->GetDrawTarget()->CanCreateSimilarDrawTarget(
+              surfRect.Size(), SurfaceFormat::B8G8R8A8)) {
+        dt = aContext->GetDrawTarget()->CreateSimilarDrawTarget(
+            surfRect.Size(), SurfaceFormat::B8G8R8A8);
+      }
 
       RefPtr<gfxContext> ctx =
           gfxContext::CreateOrNull(dt, ToRect(rect).TopLeft());
@@ -561,11 +566,13 @@ bool BasicLayerManager::EndTransactionInternal(
 
   mTransactionIncomplete = false;
 
+  std::unordered_set<ScrollableLayerGuid::ViewID> scrollIdsUpdated;
+
   if (mRoot) {
     if (aFlags & END_NO_COMPOSITE) {
       // Apply pending tree updates before recomputing effective
       // properties.
-      mRoot->ApplyPendingUpdatesToSubtree();
+      scrollIdsUpdated = mRoot->ApplyPendingUpdatesToSubtree();
     }
 
     // Need to do this before we call ApplyDoubleBuffering,
@@ -621,6 +628,14 @@ bool BasicLayerManager::EndTransactionInternal(
   if (mRoot) {
     mAnimationReadyTime = TimeStamp::Now();
     mRoot->StartPendingAnimations(mAnimationReadyTime);
+
+    // Once we're sure we're not going to fall back to a full paint,
+    // notify the scroll frames which had pending updates.
+    if (!mTransactionIncomplete) {
+      for (ScrollableLayerGuid::ViewID scrollId : scrollIdsUpdated) {
+        nsLayoutUtils::NotifyPaintSkipTransaction(scrollId);
+      }
+    }
   }
 
 #ifdef MOZ_LAYERS_HAVE_LOG
@@ -647,11 +662,11 @@ bool BasicLayerManager::EndTransactionInternal(
 }
 
 void BasicLayerManager::FlashWidgetUpdateArea(gfxContext* aContext) {
-  if (gfxPrefs::WidgetUpdateFlashing()) {
-    float r = float(rand()) / RAND_MAX;
-    float g = float(rand()) / RAND_MAX;
-    float b = float(rand()) / RAND_MAX;
-    aContext->SetColor(Color(r, g, b, 0.2f));
+  if (StaticPrefs::nglayout_debug_widget_update_flashing()) {
+    float r = float(rand()) / float(RAND_MAX);
+    float g = float(rand()) / float(RAND_MAX);
+    float b = float(rand()) / float(RAND_MAX);
+    aContext->SetDeviceColor(DeviceColor(r, g, b, 0.2f));
     aContext->Paint();
   }
 }
@@ -890,9 +905,9 @@ void BasicLayerManager::PaintLayer(gfxContext* aTarget, Layer* aLayer,
     // Revert these changes when 725886 is ready
 #ifdef DEBUG
     if (aLayer->GetDebugColorIndex() != 0) {
-      Color color((aLayer->GetDebugColorIndex() & 1) ? 1.f : 0.f,
-                  (aLayer->GetDebugColorIndex() & 2) ? 1.f : 0.f,
-                  (aLayer->GetDebugColorIndex() & 4) ? 1.f : 0.f);
+      DeviceColor color((aLayer->GetDebugColorIndex() & 1) ? 1.f : 0.f,
+                        (aLayer->GetDebugColorIndex() & 2) ? 1.f : 0.f,
+                        (aLayer->GetDebugColorIndex() & 4) ? 1.f : 0.f);
       untransformedDT->FillRect(Rect(bounds), ColorPattern(color));
     }
 #endif

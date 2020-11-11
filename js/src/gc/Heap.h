@@ -7,53 +7,30 @@
 #ifndef gc_Heap_h
 #define gc_Heap_h
 
-#include "mozilla/ArrayUtils.h"
-#include "mozilla/Atomics.h"
-#include "mozilla/Attributes.h"
 #include "mozilla/DebugOnly.h"
-#include "mozilla/PodOperations.h"
-
-#include <stddef.h>
-#include <stdint.h>
-
-#include "jsfriendapi.h"
-#include "jspubtd.h"
-#include "jstypes.h"
-#include "jsutil.h"
 
 #include "ds/BitArray.h"
 #include "gc/AllocKind.h"
 #include "gc/GCEnum.h"
-#include "gc/Memory.h"
-#include "js/HeapAPI.h"
-#include "js/RootingAPI.h"
-#include "js/TracingAPI.h"
 #include "js/TypeDecls.h"
-
-#include "vm/Printer.h"
+#include "util/Poison.h"
 
 namespace js {
 
 class AutoLockGC;
 class AutoLockGCBgAlloc;
-class FreeOp;
+class NurseryDecommitTask;
 
 namespace gc {
 
 class Arena;
 class ArenaCellSet;
 class ArenaList;
+class GCRuntime;
 class SortedArenaList;
 class StoreBuffer;
 class TenuredCell;
 struct Chunk;
-
-/*
- * This flag allows an allocation site to request a specific heap based upon the
- * estimated lifetime or lifetime requirements of objects allocated from that
- * site.
- */
-enum InitialHeap : uint8_t { DefaultHeap, TenuredHeap };
 
 // Cells are aligned to CellAlignShift, so the largest tagged null pointer is:
 const uintptr_t LargestTaggedNullCellPointer = (1 << CellAlignShift) - 1;
@@ -97,7 +74,7 @@ const size_t ArenaBitmapWords =
  */
 class FreeSpan {
   friend class Arena;
-  friend class ArenaCellIterImpl;
+  friend class ArenaCellIter;
   friend class ArenaFreeCellIter;
 
   uint16_t first;
@@ -166,7 +143,7 @@ class FreeSpan {
       return nullptr;  // The span is empty.
     }
     checkSpan(arena);
-    JS_EXTRA_POISON(reinterpret_cast<void*>(thing),
+    DebugOnlyPoison(reinterpret_cast<void*>(thing),
                     JS_ALLOCATED_TENURED_PATTERN, thingSize,
                     MemCheckKind::MakeUndefined);
     return reinterpret_cast<TenuredCell*>(thing);
@@ -191,10 +168,9 @@ class FreeSpan {
  * <-------------------------> = first thing offset
  */
 class Arena {
-  static JS_FRIEND_DATA const uint32_t ThingSizes[];
-  static JS_FRIEND_DATA const uint32_t FirstThingOffsets[];
-  static JS_FRIEND_DATA const uint32_t ThingsPerArena[];
-
+  static JS_FRIEND_DATA const uint8_t ThingSizes[];
+  static JS_FRIEND_DATA const uint8_t FirstThingOffsets[];
+  static JS_FRIEND_DATA const uint8_t ThingsPerArena[];
   /*
    * The first span of free things in the arena. Most of these spans are
    * stored as offsets in free regions of the data array, and most operations
@@ -230,19 +206,24 @@ class Arena {
    */
   size_t allocKind : 8;
 
- public:
+ private:
   /*
    * When recursive marking uses too much stack we delay marking of
    * arenas and link them into a list for later processing. This
    * uses the following fields.
    */
-  size_t hasDelayedMarking : 1;
-  size_t auxNextLink : JS_BITS_PER_WORD - 8 - 1;
-  static_assert(ArenaShift >= 8 + 1,
-                "Arena::auxNextLink packing assumes that ArenaShift has "
-                "enough bits to cover allocKind and hasDelayedMarking.");
+  static const size_t DELAYED_MARKING_FLAG_BITS = 3;
+  static const size_t DELAYED_MARKING_ARENA_BITS =
+      JS_BITS_PER_WORD - 8 - DELAYED_MARKING_FLAG_BITS;
+  size_t onDelayedMarkingList_ : 1;
+  size_t hasDelayedBlackMarking_ : 1;
+  size_t hasDelayedGrayMarking_ : 1;
+  size_t nextDelayedMarkingArena_ : DELAYED_MARKING_ARENA_BITS;
+  static_assert(
+      DELAYED_MARKING_ARENA_BITS >= JS_BITS_PER_WORD - ArenaShift,
+      "Arena::nextDelayedMarkingArena_ packing assumes that ArenaShift has "
+      "enough bits to cover allocKind and delayed marking state.");
 
- private:
   union {
     /*
      * For arenas in zones other than the atoms zone, if non-null, points
@@ -285,10 +266,16 @@ class Arena {
   // previously allocated for some zone, use release() instead.
   void setAsNotAllocated() {
     firstFreeSpan.initAsEmpty();
-    zone = nullptr;
+
+    // Poison zone pointer to highlight UAF on released arenas in crash data.
+    AlwaysPoison(&zone, JS_FREED_ARENA_PATTERN, sizeof(zone),
+                 MemCheckKind::MakeNoAccess);
+
     allocKind = size_t(AllocKind::LIMIT);
-    hasDelayedMarking = 0;
-    auxNextLink = 0;
+    onDelayedMarkingList_ = 0;
+    hasDelayedBlackMarking_ = 0;
+    hasDelayedGrayMarking_ = 0;
+    nextDelayedMarkingArena_ = 0;
     bufferedCells_ = nullptr;
   }
 
@@ -387,33 +374,67 @@ class Arena {
     return tailOffset % thingSize == 0;
   }
 
+  bool onDelayedMarkingList() const { return onDelayedMarkingList_; }
+
   Arena* getNextDelayedMarking() const {
-    MOZ_ASSERT(hasDelayedMarking);
-    return reinterpret_cast<Arena*>(auxNextLink << ArenaShift);
+    MOZ_ASSERT(onDelayedMarkingList_);
+    return reinterpret_cast<Arena*>(nextDelayedMarkingArena_ << ArenaShift);
   }
 
-  void setNextDelayedMarking(Arena* arena) {
+  void setNextDelayedMarkingArena(Arena* arena) {
     MOZ_ASSERT(!(uintptr_t(arena) & ArenaMask));
-    MOZ_ASSERT(!auxNextLink && !hasDelayedMarking);
-    hasDelayedMarking = 1;
+    MOZ_ASSERT(!onDelayedMarkingList_);
+    MOZ_ASSERT(!hasDelayedBlackMarking_);
+    MOZ_ASSERT(!hasDelayedGrayMarking_);
+    MOZ_ASSERT(!nextDelayedMarkingArena_);
+    onDelayedMarkingList_ = 1;
     if (arena) {
-      auxNextLink = arena->address() >> ArenaShift;
+      nextDelayedMarkingArena_ = arena->address() >> ArenaShift;
     }
   }
 
-  void unsetDelayedMarking() {
-    MOZ_ASSERT(hasDelayedMarking);
-    hasDelayedMarking = 0;
-    auxNextLink = 0;
+  void updateNextDelayedMarkingArena(Arena* arena) {
+    MOZ_ASSERT(!(uintptr_t(arena) & ArenaMask));
+    MOZ_ASSERT(onDelayedMarkingList_);
+    nextDelayedMarkingArena_ = arena ? arena->address() >> ArenaShift : 0;
+  }
+
+  bool hasDelayedMarking(MarkColor color) const {
+    MOZ_ASSERT(onDelayedMarkingList_);
+    return color == MarkColor::Black ? hasDelayedBlackMarking_
+                                     : hasDelayedGrayMarking_;
+  }
+
+  bool hasAnyDelayedMarking() const {
+    MOZ_ASSERT(onDelayedMarkingList_);
+    return hasDelayedBlackMarking_ || hasDelayedGrayMarking_;
+  }
+
+  void setHasDelayedMarking(MarkColor color, bool value) {
+    MOZ_ASSERT(onDelayedMarkingList_);
+    if (color == MarkColor::Black) {
+      hasDelayedBlackMarking_ = value;
+    } else {
+      hasDelayedGrayMarking_ = value;
+    }
+  }
+
+  void clearDelayedMarkingState() {
+    MOZ_ASSERT(onDelayedMarkingList_);
+    onDelayedMarkingList_ = 0;
+    hasDelayedBlackMarking_ = 0;
+    hasDelayedGrayMarking_ = 0;
+    nextDelayedMarkingArena_ = 0;
   }
 
   inline ArenaCellSet*& bufferedCells();
   inline size_t& atomBitmapStart();
 
   template <typename T>
-  size_t finalize(FreeOp* fop, AllocKind thingKind, size_t thingSize);
+  size_t finalize(JSFreeOp* fop, AllocKind thingKind, size_t thingSize);
 
   static void staticAsserts();
+  static void checkLookupTables();
 
   void unmarkAll();
   void unmarkPreMarkedFreeCells();
@@ -513,6 +534,7 @@ struct ChunkInfo {
 
  private:
   friend class ChunkPool;
+  friend class js::NurseryDecommitTask;
   Chunk* next;
   Chunk* prev;
 
@@ -587,39 +609,37 @@ static_assert(ArenasPerChunk == 252,
 
 /* A chunk bitmap contains enough mark bits for all the cells in a chunk. */
 struct ChunkBitmap {
-  volatile uintptr_t bitmap[ArenaBitmapWords * ArenasPerChunk];
-
- public:
-  ChunkBitmap() {}
+  static constexpr size_t WordCount = ArenaBitmapWords * ArenasPerChunk;
+  MarkBitmapWord bitmap[WordCount];
 
   MOZ_ALWAYS_INLINE void getMarkWordAndMask(const TenuredCell* cell,
                                             ColorBit colorBit,
-                                            uintptr_t** wordp,
+                                            MarkBitmapWord** wordp,
                                             uintptr_t* maskp) {
     MOZ_ASSERT(size_t(colorBit) < MarkBitsPerCell);
     detail::GetGCThingMarkWordAndMask(uintptr_t(cell), colorBit, wordp, maskp);
   }
 
-  MOZ_ALWAYS_INLINE MOZ_TSAN_BLACKLIST bool markBit(const TenuredCell* cell,
-                                                    ColorBit colorBit) {
-    uintptr_t *word, mask;
+ public:
+  ChunkBitmap() = default;
+
+  MOZ_ALWAYS_INLINE bool markBit(const TenuredCell* cell, ColorBit colorBit) {
+    MarkBitmapWord* word;
+    uintptr_t mask;
     getMarkWordAndMask(cell, colorBit, &word, &mask);
     return *word & mask;
   }
 
-  MOZ_ALWAYS_INLINE MOZ_TSAN_BLACKLIST bool isMarkedAny(
-      const TenuredCell* cell) {
+  MOZ_ALWAYS_INLINE bool isMarkedAny(const TenuredCell* cell) {
     return markBit(cell, ColorBit::BlackBit) ||
            markBit(cell, ColorBit::GrayOrBlackBit);
   }
 
-  MOZ_ALWAYS_INLINE MOZ_TSAN_BLACKLIST bool isMarkedBlack(
-      const TenuredCell* cell) {
+  MOZ_ALWAYS_INLINE bool isMarkedBlack(const TenuredCell* cell) {
     return markBit(cell, ColorBit::BlackBit);
   }
 
-  MOZ_ALWAYS_INLINE MOZ_TSAN_BLACKLIST bool isMarkedGray(
-      const TenuredCell* cell) {
+  MOZ_ALWAYS_INLINE bool isMarkedGray(const TenuredCell* cell) {
     return !markBit(cell, ColorBit::BlackBit) &&
            markBit(cell, ColorBit::GrayOrBlackBit);
   }
@@ -627,7 +647,8 @@ struct ChunkBitmap {
   // The return value indicates if the cell went from unmarked to marked.
   MOZ_ALWAYS_INLINE bool markIfUnmarked(const TenuredCell* cell,
                                         MarkColor color) {
-    uintptr_t *word, mask;
+    MarkBitmapWord* word;
+    uintptr_t mask;
     getMarkWordAndMask(cell, ColorBit::BlackBit, &word, &mask);
     if (*word & mask) {
       return false;
@@ -649,17 +670,20 @@ struct ChunkBitmap {
   }
 
   MOZ_ALWAYS_INLINE void markBlack(const TenuredCell* cell) {
-    uintptr_t *word, mask;
+    MarkBitmapWord* word;
+    uintptr_t mask;
     getMarkWordAndMask(cell, ColorBit::BlackBit, &word, &mask);
     *word |= mask;
   }
 
   MOZ_ALWAYS_INLINE void copyMarkBit(TenuredCell* dst, const TenuredCell* src,
                                      ColorBit colorBit) {
-    uintptr_t *srcWord, srcMask;
+    MarkBitmapWord* srcWord;
+    uintptr_t srcMask;
     getMarkWordAndMask(src, colorBit, &srcWord, &srcMask);
 
-    uintptr_t *dstWord, dstMask;
+    MarkBitmapWord* dstWord;
+    uintptr_t dstMask;
     getMarkWordAndMask(dst, colorBit, &dstWord, &dstMask);
 
     *dstWord &= ~dstMask;
@@ -669,23 +693,29 @@ struct ChunkBitmap {
   }
 
   MOZ_ALWAYS_INLINE void unmark(const TenuredCell* cell) {
-    uintptr_t *word, mask;
+    MarkBitmapWord* word;
+    uintptr_t mask;
     getMarkWordAndMask(cell, ColorBit::BlackBit, &word, &mask);
     *word &= ~mask;
     getMarkWordAndMask(cell, ColorBit::GrayOrBlackBit, &word, &mask);
     *word &= ~mask;
   }
 
-  void clear() { memset((void*)bitmap, 0, sizeof(bitmap)); }
+  void clear() {
+    for (size_t i = 0; i < WordCount; i++) {
+      bitmap[i] = 0;
+    }
+  }
 
-  uintptr_t* arenaBits(Arena* arena) {
+  MarkBitmapWord* arenaBits(Arena* arena) {
     static_assert(
         ArenaBitmapBits == ArenaBitmapWords * JS_BITS_PER_WORD,
         "We assume that the part of the bitmap corresponding to the arena "
         "has the exact number of words so we do not need to deal with a word "
         "that covers bits from two arenas.");
 
-    uintptr_t *word, unused;
+    MarkBitmapWord* word;
+    uintptr_t unused;
     getMarkWordAndMask(reinterpret_cast<TenuredCell*>(arena->address()),
                        ColorBit::BlackBit, &word, &unused);
     return word;
@@ -697,7 +727,7 @@ static_assert(ArenaBitmapBytes * ArenasPerChunk == sizeof(ChunkBitmap),
 static_assert(js::gc::ChunkMarkBitmapBits == ArenaBitmapBits * ArenasPerChunk,
               "Ensure that the mark bitmap has the right number of bits.");
 
-typedef BitArray<ArenasPerChunk> PerArenaBitmap;
+using PerArenaBitmap = BitArray<ArenasPerChunk>;
 
 const size_t ChunkPadSize = ChunkSize - (sizeof(Arena) * ArenasPerChunk) -
                             sizeof(ChunkBitmap) - sizeof(PerArenaBitmap) -
@@ -751,34 +781,36 @@ struct Chunk {
 
   bool isNurseryChunk() const { return trailer.storeBuffer; }
 
-  Arena* allocateArena(JSRuntime* rt, JS::Zone* zone, AllocKind kind,
+  Arena* allocateArena(GCRuntime* gc, JS::Zone* zone, AllocKind kind,
                        const AutoLockGC& lock);
 
-  void releaseArena(JSRuntime* rt, Arena* arena, const AutoLockGC& lock);
+  void releaseArena(GCRuntime* gc, Arena* arena, const AutoLockGC& lock);
   void recycleArena(Arena* arena, SortedArenaList& dest, size_t thingsPerArena);
 
-  MOZ_MUST_USE bool decommitOneFreeArena(JSRuntime* rt, AutoLockGC& lock);
-  void decommitAllArenasWithoutUnlocking(const AutoLockGC& lock);
-
-  static Chunk* allocate(JSRuntime* rt);
-  void init(JSRuntime* rt);
-
- private:
+  MOZ_MUST_USE bool decommitOneFreeArena(GCRuntime* gc, AutoLockGC& lock);
   void decommitAllArenas();
 
+  // This will decommit each unused not-already decommitted arena. It performs a
+  // system call for each arena but is only used during OOM.
+  void decommitFreeArenasWithoutUnlocking(const AutoLockGC& lock);
+
+  static Chunk* allocate(GCRuntime* gc);
+  void init(GCRuntime* gc);
+
+ private:
   /* Search for a decommitted arena to allocate. */
   unsigned findDecommittedArenaOffset();
   Arena* fetchNextDecommittedArena();
 
-  void addArenaToFreeList(JSRuntime* rt, Arena* arena);
+  void addArenaToFreeList(GCRuntime* gc, Arena* arena);
   void addArenaToDecommittedList(const Arena* arena);
 
-  void updateChunkListAfterAlloc(JSRuntime* rt, const AutoLockGC& lock);
-  void updateChunkListAfterFree(JSRuntime* rt, const AutoLockGC& lock);
+  void updateChunkListAfterAlloc(GCRuntime* gc, const AutoLockGC& lock);
+  void updateChunkListAfterFree(GCRuntime* gc, const AutoLockGC& lock);
 
  public:
   /* Unlink and return the freeArenasHead. */
-  Arena* fetchNextFreeArena(JSRuntime* rt);
+  Arena* fetchNextFreeArena(GCRuntime* gc);
 };
 
 static_assert(
@@ -797,54 +829,6 @@ static_assert(
     js::gc::ChunkStoreBufferOffset ==
         offsetof(Chunk, trailer) + offsetof(ChunkTrailer, storeBuffer),
     "The hardcoded API storeBuffer offset must match the actual offset.");
-
-/*
- * Tracks the used sizes for owned heap data and automatically maintains the
- * memory usage relationship between GCRuntime and Zones.
- */
-class HeapUsage {
-  /*
-   * A heap usage that contains our parent's heap usage, or null if this is
-   * the top-level usage container.
-   */
-  HeapUsage* const parent_;
-
-  /*
-   * The approximate number of bytes in use on the GC heap, to the nearest
-   * ArenaSize. This does not include any malloc data. It also does not
-   * include not-actively-used addresses that are still reserved at the OS
-   * level for GC usage. It is atomic because it is updated by both the active
-   * and GC helper threads.
-   */
-  mozilla::Atomic<size_t, mozilla::ReleaseAcquire,
-                  mozilla::recordreplay::Behavior::DontPreserve>
-      gcBytes_;
-
- public:
-  explicit HeapUsage(HeapUsage* parent) : parent_(parent), gcBytes_(0) {}
-
-  size_t gcBytes() const { return gcBytes_; }
-
-  void addGCArena() {
-    gcBytes_ += ArenaSize;
-    if (parent_) {
-      parent_->addGCArena();
-    }
-  }
-  void removeGCArena() {
-    MOZ_ASSERT(gcBytes_ >= ArenaSize);
-    gcBytes_ -= ArenaSize;
-    if (parent_) {
-      parent_->removeGCArena();
-    }
-  }
-
-  /* Pair to adoptArenas. Adopts the attendant usage statistics. */
-  void adopt(HeapUsage& other) {
-    gcBytes_ += other.gcBytes_;
-    other.gcBytes_ = 0;
-  }
-};
 
 inline void Arena::checkAddress() const {
   mozilla::DebugOnly<uintptr_t> addr = uintptr_t(this);
@@ -865,6 +849,46 @@ static const int32_t ChunkLocationOffsetFromLastByte =
     int32_t(gc::ChunkLocationOffset) - int32_t(gc::ChunkMask);
 static const int32_t ChunkStoreBufferOffsetFromLastByte =
     int32_t(gc::ChunkStoreBufferOffset) - int32_t(gc::ChunkMask);
+
+// Cell header stored before all nursery cells.
+struct alignas(gc::CellAlignBytes) NurseryCellHeader {
+  // Store zone pointer with the trace kind in the lowest three bits.
+  const uintptr_t zoneAndTraceKind;
+
+  // We only need to store a subset of trace kinds so this doesn't cover the
+  // full range.
+  static const uintptr_t TraceKindMask = 3;
+
+  static uintptr_t MakeValue(JS::Zone* const zone, JS::TraceKind kind) {
+    MOZ_ASSERT(uintptr_t(kind) < TraceKindMask);
+    MOZ_ASSERT((uintptr_t(zone) & TraceKindMask) == 0);
+    return uintptr_t(zone) | uintptr_t(kind);
+  }
+
+  NurseryCellHeader(JS::Zone* const zone, JS::TraceKind kind)
+      : zoneAndTraceKind(MakeValue(zone, kind)) {}
+
+  JS::Zone* zone() const {
+    return reinterpret_cast<JS::Zone*>(zoneAndTraceKind & ~TraceKindMask);
+  }
+
+  JS::TraceKind traceKind() const {
+    return JS::TraceKind(zoneAndTraceKind & TraceKindMask);
+  }
+
+  static const NurseryCellHeader* from(const Cell* cell) {
+    MOZ_ASSERT(IsInsideNursery(cell));
+    return reinterpret_cast<const NurseryCellHeader*>(
+        uintptr_t(cell) - sizeof(NurseryCellHeader));
+  }
+};
+
+static_assert(uintptr_t(JS::TraceKind::Object) <=
+              NurseryCellHeader::TraceKindMask);
+static_assert(uintptr_t(JS::TraceKind::String) <=
+              NurseryCellHeader::TraceKindMask);
+static_assert(uintptr_t(JS::TraceKind::BigInt) <=
+              NurseryCellHeader::TraceKindMask);
 
 } /* namespace gc */
 

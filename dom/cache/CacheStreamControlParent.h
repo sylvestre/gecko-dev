@@ -25,12 +25,12 @@ class StreamList;
 class CacheStreamControlParent final : public PCacheStreamControlParent,
                                        public StreamControl,
                                        Manager::Listener {
+  friend class PCacheStreamControlParent;
+
  public:
   CacheStreamControlParent();
-  ~CacheStreamControlParent();
 
-  void SetStreamList(StreamList* aStreamList);
-  void Close(const nsID& aId);
+  void SetStreamList(SafeRefPtr<StreamList> aStreamList);
   void CloseAll();
   void Shutdown();
 
@@ -46,6 +46,7 @@ class CacheStreamControlParent final : public PCacheStreamControlParent,
                           InputStreamResolver&& aResolver) override;
 
  private:
+  ~CacheStreamControlParent();
   virtual void NoteClosedAfterForget(const nsID& aId) override;
 
 #ifdef DEBUG
@@ -55,20 +56,20 @@ class CacheStreamControlParent final : public PCacheStreamControlParent,
   // PCacheStreamControlParent methods
   virtual void ActorDestroy(ActorDestroyReason aReason) override;
 
-  virtual mozilla::ipc::IPCResult RecvOpenStream(
-      const nsID& aStreamId, OpenStreamResolver&& aResolve) override;
+  mozilla::ipc::IPCResult RecvOpenStream(const nsID& aStreamId,
+                                         OpenStreamResolver&& aResolve);
 
-  virtual mozilla::ipc::IPCResult RecvNoteClosed(const nsID& aId) override;
+  mozilla::ipc::IPCResult RecvNoteClosed(const nsID& aId);
 
-  void NotifyClose(const nsID& aId);
   void NotifyCloseAll();
 
   // Cycle with StreamList via a weak-ref to us.  Cleanup occurs when the actor
   // is deleted by the PBackground manager.  ActorDestroy() then calls
   // StreamList::RemoveStreamControl() to clear the weak ref.
-  RefPtr<StreamList> mStreamList;
+  SafeRefPtr<StreamList> mStreamList;
 
   NS_DECL_OWNINGTHREAD
+  NS_INLINE_DECL_THREADSAFE_REFCOUNTING(CacheStreamControlParent, override)
 };
 
 }  // namespace cache

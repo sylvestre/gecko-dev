@@ -8,15 +8,16 @@
  */
 
 add_task(async function() {
-  const { tab, monitor } = await initNetMonitor(CYRILLIC_URL);
+  const { tab, monitor } = await initNetMonitor(CYRILLIC_URL, {
+    requestCount: 1,
+  });
   info("Starting test... ");
 
   const { document, store, windowRequire } = monitor.panelWin;
   const Actions = windowRequire("devtools/client/netmonitor/src/actions/index");
-  const {
-    getDisplayedRequests,
-    getSortedRequests,
-  } = windowRequire("devtools/client/netmonitor/src/selectors/index");
+  const { getDisplayedRequests, getSortedRequests } = windowRequire(
+    "devtools/client/netmonitor/src/selectors/index"
+  );
 
   store.dispatch(Actions.batchEnable(false));
 
@@ -28,11 +29,12 @@ add_task(async function() {
   requestItem.scrollIntoView();
   EventUtils.sendMouseEvent({ type: "mouseover" }, requestsListStatus);
   await waitUntil(() => requestsListStatus.title);
+  await waitForDOMIfNeeded(requestItem, ".requests-list-timings-total");
 
   verifyRequestItemTarget(
     document,
     getDisplayedRequests(store.getState()),
-    getSortedRequests(store.getState()).get(0),
+    getSortedRequests(store.getState())[0],
     "GET",
     CONTENT_TYPE_SJS + "?fmt=txt",
     {
@@ -41,18 +43,25 @@ add_task(async function() {
     }
   );
 
-  wait = waitForDOM(document, "#headers-panel");
-  EventUtils.sendMouseEvent({ type: "mousedown" },
-    document.querySelectorAll(".request-list-item")[0]);
+  let wait = waitForDOM(document, "#headers-panel");
+  EventUtils.sendMouseEvent(
+    { type: "mousedown" },
+    document.querySelectorAll(".request-list-item")[0]
+  );
   await wait;
   wait = waitForDOM(document, "#response-panel .CodeMirror-code");
-  EventUtils.sendMouseEvent({ type: "click" },
-    document.querySelector("#response-tab"));
+  EventUtils.sendMouseEvent(
+    { type: "click" },
+    document.querySelector("#response-tab")
+  );
   await wait;
-  const text = document.querySelector(".CodeMirror-line").textContent;
 
-  ok(text.includes("\u0411\u0440\u0430\u0442\u0430\u043d"),
-    "The text shown in the source editor is correct.");
+  ok(
+    getCodeMirrorValue(monitor).includes(
+      "\u0411\u0440\u0430\u0442\u0430\u043d"
+    ),
+    "The text shown in the source editor is correct."
+  );
 
   return teardown(monitor);
 });

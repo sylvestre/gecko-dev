@@ -18,15 +18,8 @@ class nsPrintSettingsServiceX final : public nsPrintSettingsService {
  public:
   nsPrintSettingsServiceX() {}
 
-  /**
-   * These serialize and deserialize methods are not symmetrical in that
-   * printSettingsX != deserialize(serialize(printSettingsX)). This is because
-   * the native print settings stored in the nsPrintSettingsX's NSPrintInfo
-   * object are not fully serialized. Only the values needed for successful
-   * printing are.
-   */
   NS_IMETHODIMP SerializeToPrintData(
-      nsIPrintSettings* aSettings, nsIWebBrowserPrint* aWBP,
+      nsIPrintSettings* aSettings,
       mozilla::embedding::PrintData* data) override;
 
   NS_IMETHODIMP DeserializeToPrintSettings(
@@ -41,17 +34,6 @@ class nsPrintSettingsServiceX final : public nsPrintSettingsService {
                       uint32_t aFlags) override;
 
   nsresult _CreatePrintSettings(nsIPrintSettings** _retval) override;
-
- private:
-  /* Serialization done in child to be deserialized in the parent */
-  nsresult SerializeToPrintDataChild(nsIPrintSettings* aSettings,
-                                     nsIWebBrowserPrint* aWBP,
-                                     mozilla::embedding::PrintData* data);
-
-  /* Serialization done in parent to be deserialized in the child */
-  nsresult SerializeToPrintDataParent(nsIPrintSettings* aSettings,
-                                      nsIWebBrowserPrint* aWBP,
-                                      mozilla::embedding::PrintData* data);
 };
 
 #endif  // nsPrintSettingsServiceX_h

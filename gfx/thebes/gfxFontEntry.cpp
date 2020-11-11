@@ -18,21 +18,25 @@
 #include "gfxTypes.h"
 #include "gfxContext.h"
 #include "gfxFontConstants.h"
+#include "gfxGraphiteShaper.h"
 #include "gfxHarfBuzzShaper.h"
 #include "gfxUserFontSet.h"
 #include "gfxPlatformFontList.h"
 #include "nsUnicodeProperties.h"
 #include "nsMathUtils.h"
 #include "nsBidiUtils.h"
-#include "nsUnicodeRange.h"
 #include "nsStyleConsts.h"
 #include "mozilla/AppUnits.h"
 #include "mozilla/FloatingPoint.h"
+#ifdef MOZ_WASM_SANDBOXING_GRAPHITE
+#  include "mozilla/ipc/LibrarySandboxPreload.h"
+#endif
 #include "mozilla/Likely.h"
 #include "mozilla/MemoryReporting.h"
 #include "mozilla/Preferences.h"
+#include "mozilla/ScopeExit.h"
 #include "mozilla/Services.h"
-#include "mozilla/StaticPrefs.h"
+#include "mozilla/StaticPrefs_layout.h"
 #include "mozilla/Telemetry.h"
 #include "gfxSVGGlyphs.h"
 #include "gfx2DGlue.h"
@@ -40,6 +44,8 @@
 #include "harfbuzz/hb.h"
 #include "harfbuzz/hb-ot.h"
 #include "graphite2/Font.h"
+
+#include "ThebesRLBox.h"
 
 #include <algorithm>
 
@@ -80,7 +86,9 @@ gfxFontEntry::gfxFontEntry()
       mHasCmapTable(false),
       mGrFaceInitialized(false),
       mCheckedForColorGlyph(false),
-      mCheckedForVariationAxes(false) {
+      mCheckedForVariationAxes(false),
+      mHasColorBitmapTable(false),
+      mCheckedForColorBitmapTables(false) {
   memset(&mDefaultSubSpaceFeatures, 0, sizeof(mDefaultSubSpaceFeatures));
   memset(&mNonDefaultSubSpaceFeatures, 0, sizeof(mNonDefaultSubSpaceFeatures));
 }
@@ -110,7 +118,9 @@ gfxFontEntry::gfxFontEntry(const nsACString& aName, bool aIsStandardFace)
       mHasCmapTable(false),
       mGrFaceInitialized(false),
       mCheckedForColorGlyph(false),
-      mCheckedForVariationAxes(false) {
+      mCheckedForVariationAxes(false),
+      mHasColorBitmapTable(false),
+      mCheckedForColorBitmapTables(false) {
   memset(&mDefaultSubSpaceFeatures, 0, sizeof(mDefaultSubSpaceFeatures));
   memset(&mNonDefaultSubSpaceFeatures, 0, sizeof(mNonDefaultSubSpaceFeatures));
 }
@@ -118,12 +128,12 @@ gfxFontEntry::gfxFontEntry(const nsACString& aName, bool aIsStandardFace)
 gfxFontEntry::~gfxFontEntry() {
   // Should not be dropped by stylo
   MOZ_ASSERT(NS_IsMainThread());
-  if (mCOLR) {
-    hb_blob_destroy(mCOLR);
-  }
-
-  if (mCPAL) {
-    hb_blob_destroy(mCPAL);
+  hb_blob_destroy(mCOLR);
+  hb_blob_destroy(mCPAL);
+  if (TrakTableInitialized()) {
+    // Only if it was initialized, so that we don't try to call hb_blob_destroy
+    // on the kTrakTableUninitialized flag value!
+    hb_blob_destroy(mTrakTable);
   }
 
   // For downloaded fonts, we need to tell the user font cache that this
@@ -146,20 +156,44 @@ gfxFontEntry::~gfxFontEntry() {
   MOZ_ASSERT(!mGrFaceInitialized);
 }
 
+void gfxFontEntry::InitializeFrom(fontlist::Face* aFace,
+                                  const fontlist::Family* aFamily) {
+  mStyleRange = aFace->mStyle;
+  mWeightRange = aFace->mWeight;
+  mStretchRange = aFace->mStretch;
+  mFixedPitch = aFace->mFixedPitch;
+  mIsBadUnderlineFont = aFamily->IsBadUnderlineFamily();
+  mShmemFace = aFace;
+  auto* list = gfxPlatformFontList::PlatformFontList()->SharedFontList();
+  mFamilyName = aFamily->DisplayName().AsString(list);
+  mHasCmapTable = TrySetShmemCharacterMap();
+}
+
+bool gfxFontEntry::TrySetShmemCharacterMap() {
+  MOZ_ASSERT(mShmemFace);
+  auto list = gfxPlatformFontList::PlatformFontList()->SharedFontList();
+  mShmemCharacterMap =
+      static_cast<const SharedBitSet*>(mShmemFace->mCharacterMap.ToPtr(list));
+  return mShmemCharacterMap != nullptr;
+}
+
 bool gfxFontEntry::TestCharacterMap(uint32_t aCh) {
-  if (!mCharacterMap) {
+  if (!mCharacterMap && !mShmemCharacterMap) {
     ReadCMAP();
-    NS_ASSERTION(mCharacterMap, "failed to initialize character map");
+    MOZ_ASSERT(mCharacterMap || mShmemCharacterMap,
+               "failed to initialize character map");
   }
-  return mCharacterMap->test(aCh);
+  return mShmemCharacterMap ? mShmemCharacterMap->test(aCh)
+                            : mCharacterMap->test(aCh);
 }
 
 nsresult gfxFontEntry::InitializeUVSMap() {
   // mUVSOffset will not be initialized
   // until cmap is initialized.
-  if (!mCharacterMap) {
+  if (!mCharacterMap && !mShmemCharacterMap) {
     ReadCMAP();
-    NS_ASSERTION(mCharacterMap, "failed to initialize character map");
+    NS_ASSERTION(mCharacterMap || mShmemCharacterMap,
+                 "failed to initialize character map");
   }
 
   if (!mUVSOffset) {
@@ -201,7 +235,8 @@ uint16_t gfxFontEntry::GetUVSGlyph(uint32_t aCh, uint32_t aVS) {
   return 0;
 }
 
-bool gfxFontEntry::SupportsScriptInGSUB(const hb_tag_t* aScriptTags) {
+bool gfxFontEntry::SupportsScriptInGSUB(const hb_tag_t* aScriptTags,
+                                        uint32_t aNumTags) {
   hb_face_t* face = GetHBFace();
   if (!face) {
     return false;
@@ -209,9 +244,9 @@ bool gfxFontEntry::SupportsScriptInGSUB(const hb_tag_t* aScriptTags) {
 
   unsigned int index;
   hb_tag_t chosenScript;
-  bool found =
-      hb_ot_layout_table_choose_script(face, TRUETYPE_TAG('G', 'S', 'U', 'B'),
-                                       aScriptTags, &index, &chosenScript);
+  bool found = hb_ot_layout_table_select_script(
+      face, TRUETYPE_TAG('G', 'S', 'U', 'B'), aNumTags, aScriptTags, &index,
+      &chosenScript);
   hb_face_destroy(face);
 
   return found && chosenScript != TRUETYPE_TAG('D', 'F', 'L', 'T');
@@ -467,7 +502,7 @@ void gfxFontEntry::FontTableHashEntry::Clear() {
   if (mSharedBlobData) {
     mSharedBlobData->ForgetHashEntry();
     mSharedBlobData = nullptr;
-  } else if (mBlob) {
+  } else {
     hb_blob_destroy(mBlob);
   }
   mBlob = nullptr;
@@ -475,7 +510,8 @@ void gfxFontEntry::FontTableHashEntry::Clear() {
 
 // a hb_destroy_func for hb_blob_create
 
-/* static */ void gfxFontEntry::FontTableHashEntry::DeleteFontTableBlobData(
+/* static */
+void gfxFontEntry::FontTableHashEntry::DeleteFontTableBlobData(
     void* aBlobData) {
   delete static_cast<FontTableBlobData*>(aBlobData);
 }
@@ -546,8 +582,9 @@ hb_blob_t* gfxFontEntry::GetFontTable(uint32_t aTag) {
 
 // callback for HarfBuzz to get a font table (in hb_blob_t form)
 // from the font entry (passed as aUserData)
-/*static*/ hb_blob_t* gfxFontEntry::HBGetTable(hb_face_t* face, uint32_t aTag,
-                                               void* aUserData) {
+/*static*/
+hb_blob_t* gfxFontEntry::HBGetTable(hb_face_t* face, uint32_t aTag,
+                                    void* aUserData) {
   gfxFontEntry* fontEntry = static_cast<gfxFontEntry*>(aUserData);
 
   // bug 589682 - ignore the GDEF table in buggy fonts (applies to
@@ -565,7 +602,8 @@ hb_blob_t* gfxFontEntry::GetFontTable(uint32_t aTag) {
   return fontEntry->GetFontTable(aTag);
 }
 
-/*static*/ void gfxFontEntry::HBFaceDeletedCallback(void* aUserData) {
+/*static*/
+void gfxFontEntry::HBFaceDeletedCallback(void* aUserData) {
   gfxFontEntry* fe = static_cast<gfxFontEntry*>(aUserData);
   fe->ForgetHBFace();
 }
@@ -581,53 +619,162 @@ hb_face_t* gfxFontEntry::GetHBFace() {
   return hb_face_reference(mHBFace);
 }
 
-/*static*/ const void* gfxFontEntry::GrGetTable(const void* aAppFaceHandle,
-                                                unsigned int aName,
-                                                size_t* aLen) {
-  gfxFontEntry* fontEntry =
-      static_cast<gfxFontEntry*>(const_cast<void*>(aAppFaceHandle));
-  hb_blob_t* blob = fontEntry->GetFontTable(aName);
-  if (blob) {
-    unsigned int blobLength;
-    const void* tableData = hb_blob_get_data(blob, &blobLength);
-    fontEntry->mGrTableMap->Put(tableData, blob);
-    *aLen = blobLength;
-    return tableData;
+struct gfxFontEntry::GrSandboxData {
+  rlbox_sandbox_gr sandbox;
+  sandbox_callback_gr<const void* (*)(const void*, unsigned int, size_t*)>
+      grGetTableCallback;
+  sandbox_callback_gr<void (*)(const void*, const void*)>
+      grReleaseTableCallback;
+  // Text Shapers register a callback to get glyph advances
+  sandbox_callback_gr<float (*)(const void*, uint16_t)>
+      grGetGlyphAdvanceCallback;
+
+  GrSandboxData() {
+#ifdef MOZ_WASM_SANDBOXING_GRAPHITE
+    // Firefox preloads the library externally to ensure we won't be stopped by
+    // the content sandbox
+    const bool external_loads_exist = true;
+    // See Bug 1606981: In some environments allowing stdio in the wasm sandbox
+    // fails as the I/O redirection involves querying meta-data of file
+    // descriptors. This querying fails in some environments.
+    const bool allow_stdio = false;
+    sandbox.create_sandbox(mozilla::ipc::GetSandboxedGraphitePath().get(),
+                           external_loads_exist, allow_stdio);
+#else
+    sandbox.create_sandbox();
+#endif
+    grGetTableCallback = sandbox.register_callback(GrGetTable);
+    grReleaseTableCallback = sandbox.register_callback(GrReleaseTable);
+    grGetGlyphAdvanceCallback =
+        sandbox.register_callback(gfxGraphiteShaper::GrGetAdvance);
   }
-  *aLen = 0;
-  return nullptr;
+
+  ~GrSandboxData() {
+    grGetTableCallback.unregister();
+    grReleaseTableCallback.unregister();
+    grGetGlyphAdvanceCallback.unregister();
+    sandbox.destroy_sandbox();
+  }
+};
+
+static thread_local gfxFontEntry* tl_grGetFontTableCallbackData = nullptr;
+
+/*static*/
+tainted_opaque_gr<const void*> gfxFontEntry::GrGetTable(
+    rlbox_sandbox_gr& sandbox,
+    tainted_opaque_gr<const void*> /* aAppFaceHandle */,
+    tainted_opaque_gr<unsigned int> aName, tainted_opaque_gr<size_t*> aLen) {
+  gfxFontEntry* fontEntry = tl_grGetFontTableCallbackData;
+  tainted_gr<size_t*> t_aLen = rlbox::from_opaque(aLen);
+  *t_aLen = 0;
+  tainted_gr<const void*> ret = nullptr;
+
+  if (fontEntry) {
+    unsigned int fontTableKey =
+        rlbox::from_opaque(aName).unverified_safe_because(
+            "This is only being used to index into a hashmap, which is robust "
+            "for any value. No checks needed.");
+    hb_blob_t* blob = fontEntry->GetFontTable(fontTableKey);
+
+    if (blob) {
+      unsigned int blobLength;
+      const void* tableData = hb_blob_get_data(blob, &blobLength);
+      // tableData is read-only data shared with the sandbox.
+      // Making a copy in sandbox memory
+      tainted_gr<void*> t_tableData = rlbox::sandbox_reinterpret_cast<void*>(
+          sandbox.malloc_in_sandbox<char>(blobLength));
+      if (t_tableData) {
+        rlbox::memcpy(sandbox, t_tableData, tableData, blobLength);
+        *t_aLen = blobLength;
+        ret = rlbox::sandbox_const_cast<const void*>(t_tableData);
+      }
+      hb_blob_destroy(blob);
+    }
+  }
+
+  return ret.to_opaque();
 }
 
-/*static*/ void gfxFontEntry::GrReleaseTable(const void* aAppFaceHandle,
-                                             const void* aTableBuffer) {
-  gfxFontEntry* fontEntry =
-      static_cast<gfxFontEntry*>(const_cast<void*>(aAppFaceHandle));
-  void* value;
-  if (fontEntry->mGrTableMap->Remove(aTableBuffer, &value)) {
-    hb_blob_destroy(static_cast<hb_blob_t*>(value));
-  }
+/*static*/
+void gfxFontEntry::GrReleaseTable(
+    rlbox_sandbox_gr& sandbox,
+    tainted_opaque_gr<const void*> /* aAppFaceHandle */,
+    tainted_opaque_gr<const void*> aTableBuffer) {
+  sandbox.free_in_sandbox(rlbox::from_opaque(aTableBuffer));
 }
 
-gr_face* gfxFontEntry::GetGrFace() {
+rlbox_sandbox_gr* gfxFontEntry::GetGrSandbox() {
+  MOZ_ASSERT(mSandboxData != nullptr);
+  return &mSandboxData->sandbox;
+}
+
+sandbox_callback_gr<float (*)(const void*, uint16_t)>*
+gfxFontEntry::GetGrSandboxAdvanceCallbackHandle() {
+  MOZ_ASSERT(mSandboxData != nullptr);
+  return &mSandboxData->grGetGlyphAdvanceCallback;
+}
+
+tainted_opaque_gr<gr_face*> gfxFontEntry::GetGrFace() {
   if (!mGrFaceInitialized) {
-    gr_face_ops faceOps = {sizeof(gr_face_ops), GrGetTable, GrReleaseTable};
-    mGrTableMap = new nsDataHashtable<nsPtrHashKey<const void>, void*>;
-    mGrFace = gr_make_face_with_ops(this, &faceOps, gr_face_default);
+    // When possible, the below code will use WASM as a sandboxing mechanism.
+    // At this time the wasm sandbox does not support threads.
+    // If Thebes is updated to make callst to the sandbox on multiple threaads,
+    // we need to make sure the underlying sandbox supports threading.
+    MOZ_ASSERT(NS_IsMainThread());
+
+    mSandboxData = new GrSandboxData();
+
+    auto p_faceOps = mSandboxData->sandbox.malloc_in_sandbox<gr_face_ops>();
+    if (!p_faceOps) {
+      MOZ_CRASH("Graphite sandbox memory allocation failed");
+    }
+    auto cleanup = MakeScopeExit(
+        [&] { mSandboxData->sandbox.free_in_sandbox(p_faceOps); });
+    p_faceOps->size = sizeof(*p_faceOps);
+    p_faceOps->get_table = mSandboxData->grGetTableCallback;
+    p_faceOps->release_table = mSandboxData->grReleaseTableCallback;
+
+    tl_grGetFontTableCallbackData = this;
+    auto face = sandbox_invoke(
+        mSandboxData->sandbox, gr_make_face_with_ops,
+        // For security, we do not pass the callback data to this arg, and use
+        // a TLS var instead. However, gr_make_face_with_ops expects this to
+        // be a non null ptr. Therefore,  we should pass some dummy non null
+        // pointer which will be passed to callbacks, but never used. Let's just
+        // pass p_faceOps again, as this is a non-null tainted pointer.
+        p_faceOps /* appFaceHandle */, p_faceOps, gr_face_default);
+    tl_grGetFontTableCallbackData = nullptr;
+    mGrFace = face.to_opaque();
     mGrFaceInitialized = true;
   }
   ++mGrFaceRefCnt;
   return mGrFace;
 }
 
-void gfxFontEntry::ReleaseGrFace(gr_face* aFace) {
-  MOZ_ASSERT(aFace == mGrFace);  // sanity-check
+void gfxFontEntry::ReleaseGrFace(tainted_opaque_gr<gr_face*> aFace) {
+  MOZ_ASSERT(
+      (rlbox::from_opaque(aFace) == rlbox::from_opaque(mGrFace))
+          .unverified_safe_because(
+              "This is safe as the only thing we are doing is comparing "
+              "addresses of two tainted pointers. Furthermore this is used "
+              "merely as a debugging aid in the debug builds. This function is "
+              "called only from the trusted Firefox code rather than the "
+              "untrusted libGraphite."));  // sanity-check
   MOZ_ASSERT(mGrFaceRefCnt > 0);
   if (--mGrFaceRefCnt == 0) {
-    gr_face_destroy(mGrFace);
-    mGrFace = nullptr;
+    auto t_mGrFace = rlbox::from_opaque(mGrFace);
+
+    tl_grGetFontTableCallbackData = this;
+    sandbox_invoke(mSandboxData->sandbox, gr_face_destroy, t_mGrFace);
+    tl_grGetFontTableCallbackData = nullptr;
+
+    t_mGrFace = nullptr;
+    mGrFace = t_mGrFace.to_opaque();
+
+    delete mSandboxData;
+    mSandboxData = nullptr;
+
     mGrFaceInitialized = false;
-    delete mGrTableMap;
-    mGrTableMap = nullptr;
   }
 }
 
@@ -647,18 +794,32 @@ void gfxFontEntry::CheckForGraphiteTables() {
   mHasGraphiteTables = HasFontTable(TRUETYPE_TAG('S', 'i', 'l', 'f'));
 }
 
-bool gfxFontEntry::HasGraphiteSpaceContextuals() {
+tainted_boolean_hint gfxFontEntry::HasGraphiteSpaceContextuals() {
   if (!mGraphiteSpaceContextualsInitialized) {
-    gr_face* face = GetGrFace();
-    if (face) {
-      const gr_faceinfo* faceInfo = gr_face_info(face, 0);
-      mHasGraphiteSpaceContextuals =
+    auto face = GetGrFace();
+    auto t_face = rlbox::from_opaque(face);
+    if (t_face) {
+      tainted_gr<const gr_faceinfo*> faceInfo =
+          sandbox_invoke(mSandboxData->sandbox, gr_face_info, t_face, 0);
+      // Comparison with a value in sandboxed memory returns a
+      // tainted_boolean_hint, i.e. a "hint", since the value could be changed
+      // maliciously at any moment.
+      tainted_boolean_hint is_not_none =
           faceInfo->space_contextuals != gr_faceinfo::gr_space_none;
+      mHasGraphiteSpaceContextuals = is_not_none.unverified_safe_because(
+          "Note ideally mHasGraphiteSpaceContextuals would be "
+          "tainted_boolean_hint, but RLBox does not yet support bitfields, so "
+          "it is not wrapped. However, its value is only ever accessed through "
+          "this function which returns a tainted_boolean_hint, so unwrapping "
+          "temporarily is safe. We remove the wrapper now and re-add it "
+          "below.");
     }
     ReleaseGrFace(face);  // always balance GetGrFace, even if face is null
     mGraphiteSpaceContextualsInitialized = true;
   }
-  return mHasGraphiteSpaceContextuals;
+
+  bool ret = mHasGraphiteSpaceContextuals;
+  return tainted_boolean_hint(ret);
 }
 
 #define FEATURE_SCRIPT_MASK 0x000000ff  // script index replaces low byte of tag
@@ -707,23 +868,22 @@ bool gfxFontEntry::SupportsOpenTypeFeature(Script aScript,
         gfxHarfBuzzShaper::GetHBScriptUsedForShaping(aScript);
 
     // Get the OpenType tag(s) that match this script code
-    hb_tag_t scriptTags[4] = {HB_TAG_NONE, HB_TAG_NONE, HB_TAG_NONE,
-                              HB_TAG_NONE};
-    hb_ot_tags_from_script(hbScript, &scriptTags[0], &scriptTags[1]);
+    unsigned int scriptCount = 4;
+    hb_tag_t scriptTags[4];
+    hb_ot_tags_from_script_and_language(hbScript, HB_LANGUAGE_INVALID,
+                                        &scriptCount, scriptTags, nullptr,
+                                        nullptr);
 
-    // Replace the first remaining NONE with DEFAULT
-    hb_tag_t* scriptTag = &scriptTags[0];
-    while (*scriptTag != HB_TAG_NONE) {
-      ++scriptTag;
+    // Append DEFAULT to the returned tags, if room
+    if (scriptCount < 4) {
+      scriptTags[scriptCount++] = HB_OT_TAG_DEFAULT_SCRIPT;
     }
-    *scriptTag = HB_OT_TAG_DEFAULT_SCRIPT;
 
     // Now check for 'smcp' under the first of those scripts that is present
     const hb_tag_t kGSUB = HB_TAG('G', 'S', 'U', 'B');
-    scriptTag = &scriptTags[0];
-    while (*scriptTag != HB_TAG_NONE) {
+    for (unsigned int i = 0; i < scriptCount; i++) {
       unsigned int scriptIndex;
-      if (hb_ot_layout_table_find_script(face, kGSUB, *scriptTag,
+      if (hb_ot_layout_table_find_script(face, kGSUB, scriptTags[i],
                                          &scriptIndex)) {
         if (hb_ot_layout_language_find_feature(
                 face, kGSUB, scriptIndex, HB_OT_LAYOUT_DEFAULT_LANGUAGE_INDEX,
@@ -732,7 +892,6 @@ bool gfxFontEntry::SupportsOpenTypeFeature(Script aScript,
         }
         break;
       }
-      ++scriptTag;
     }
   }
 
@@ -769,16 +928,17 @@ const hb_set_t* gfxFontEntry::InputsForOpenTypeFeature(Script aScript,
         gfxHarfBuzzShaper::GetHBScriptUsedForShaping(aScript);
 
     // Get the OpenType tag(s) that match this script code
-    hb_tag_t scriptTags[4] = {HB_TAG_NONE, HB_TAG_NONE, HB_TAG_NONE,
-                              HB_TAG_NONE};
-    hb_ot_tags_from_script(hbScript, &scriptTags[0], &scriptTags[1]);
+    unsigned int scriptCount = 4;
+    hb_tag_t scriptTags[5];  // space for null terminator
+    hb_ot_tags_from_script_and_language(hbScript, HB_LANGUAGE_INVALID,
+                                        &scriptCount, scriptTags, nullptr,
+                                        nullptr);
 
-    // Replace the first remaining NONE with DEFAULT
-    hb_tag_t* scriptTag = &scriptTags[0];
-    while (*scriptTag != HB_TAG_NONE) {
-      ++scriptTag;
+    // Append DEFAULT to the returned tags, if room
+    if (scriptCount < 4) {
+      scriptTags[scriptCount++] = HB_OT_TAG_DEFAULT_SCRIPT;
     }
-    *scriptTag = HB_OT_TAG_DEFAULT_SCRIPT;
+    scriptTags[scriptCount++] = 0;
 
     const hb_tag_t kGSUB = HB_TAG('G', 'S', 'U', 'B');
     hb_tag_t features[2] = {aFeatureTag, HB_TAG_NONE};
@@ -821,8 +981,11 @@ bool gfxFontEntry::SupportsGraphiteFeature(uint32_t aFeatureTag) {
     return result;
   }
 
-  gr_face* face = GetGrFace();
-  result = face ? gr_face_find_fref(face, aFeatureTag) != nullptr : false;
+  auto face = GetGrFace();
+  auto t_face = rlbox::from_opaque(face);
+  result = t_face ? sandbox_invoke(mSandboxData->sandbox, gr_face_find_fref,
+                                   t_face, aFeatureTag) != nullptr
+                  : false;
   ReleaseGrFace(face);
 
   mSupportedFeatures->Put(scriptFeature, result);
@@ -901,11 +1064,139 @@ void gfxFontEntry::GetFeatureInfo(nsTArray<gfxFontFeatureInfo>& aFeatureInfo) {
 }
 
 bool gfxFontEntry::GetColorLayersInfo(
-    uint32_t aGlyphId, const mozilla::gfx::Color& aDefaultColor,
+    uint32_t aGlyphId, const mozilla::gfx::DeviceColor& aDefaultColor,
     nsTArray<uint16_t>& aLayerGlyphs,
-    nsTArray<mozilla::gfx::Color>& aLayerColors) {
+    nsTArray<mozilla::gfx::DeviceColor>& aLayerColors) {
   return gfxFontUtils::GetColorGlyphLayers(
       mCOLR, mCPAL, aGlyphId, aDefaultColor, aLayerGlyphs, aLayerColors);
+}
+
+typedef struct {
+  AutoSwap_PRUint32 version;
+  AutoSwap_PRUint16 format;
+  AutoSwap_PRUint16 horizOffset;
+  AutoSwap_PRUint16 vertOffset;
+  AutoSwap_PRUint16 reserved;
+  //  TrackData horizData;
+  //  TrackData vertData;
+} TrakHeader;
+
+typedef struct {
+  AutoSwap_PRUint16 nTracks;
+  AutoSwap_PRUint16 nSizes;
+  AutoSwap_PRUint32 sizeTableOffset;
+  //  trackTableEntry trackTable[];
+  //  fixed32 sizeTable[];
+} TrackData;
+
+typedef struct {
+  AutoSwap_PRUint32 track;
+  AutoSwap_PRUint16 nameIndex;
+  AutoSwap_PRUint16 offset;
+} TrackTableEntry;
+
+bool gfxFontEntry::HasTrackingTable() {
+  if (!TrakTableInitialized()) {
+    mTrakTable = GetFontTable(TRUETYPE_TAG('t', 'r', 'a', 'k'));
+    if (mTrakTable) {
+      if (!ParseTrakTable()) {
+        hb_blob_destroy(mTrakTable);
+        mTrakTable = nullptr;
+      }
+    }
+  }
+  return mTrakTable != nullptr;
+}
+
+bool gfxFontEntry::ParseTrakTable() {
+  // Check table validity and set up the subtable pointers we need;
+  // if 'trak' table is invalid, or doesn't contain a 'normal' track,
+  // return false to tell the caller not to try using it.
+  unsigned int len;
+  const char* data = hb_blob_get_data(mTrakTable, &len);
+  if (len < sizeof(TrakHeader)) {
+    return false;
+  }
+  auto trak = reinterpret_cast<const TrakHeader*>(data);
+  uint16_t horizOffset = trak->horizOffset;
+  if (trak->version != 0x00010000 || uint16_t(trak->format) != 0 ||
+      horizOffset == 0 || uint16_t(trak->reserved) != 0) {
+    return false;
+  }
+  // Find the horizontal trackData, and check it doesn't overrun the buffer.
+  if (horizOffset > len - sizeof(TrackData)) {
+    return false;
+  }
+  auto trackData = reinterpret_cast<const TrackData*>(data + horizOffset);
+  uint16_t nTracks = trackData->nTracks;
+  mNumTrakSizes = trackData->nSizes;
+  if (nTracks == 0 || mNumTrakSizes < 2) {
+    return false;
+  }
+  uint32_t sizeTableOffset = trackData->sizeTableOffset;
+  // Find the trackTable, and check it doesn't overrun the buffer.
+  if (horizOffset >
+      len - (sizeof(TrackData) + nTracks * sizeof(TrackTableEntry))) {
+    return false;
+  }
+  auto trackTable = reinterpret_cast<const TrackTableEntry*>(
+      data + horizOffset + sizeof(TrackData));
+  // Look for 'normal' tracking, bail out if no such track is present.
+  unsigned trackIndex;
+  for (trackIndex = 0; trackIndex < nTracks; ++trackIndex) {
+    if (trackTable[trackIndex].track == 0x00000000) {
+      break;
+    }
+  }
+  if (trackIndex == nTracks) {
+    return false;
+  }
+  // Find list of tracking values, and check they won't overrun.
+  uint16_t offset = trackTable[trackIndex].offset;
+  if (offset > len - mNumTrakSizes * sizeof(uint16_t)) {
+    return false;
+  }
+  mTrakValues = reinterpret_cast<const AutoSwap_PRInt16*>(data + offset);
+  // Find the size subtable, and check it doesn't overrun the buffer.
+  mTrakSizeTable =
+      reinterpret_cast<const AutoSwap_PRInt32*>(data + sizeTableOffset);
+  if (mTrakSizeTable + mNumTrakSizes >
+      reinterpret_cast<const AutoSwap_PRInt32*>(data + len)) {
+    return false;
+  }
+  return true;
+}
+
+float gfxFontEntry::TrackingForCSSPx(float aSize) const {
+  MOZ_ASSERT(TrakTableInitialized() && mTrakTable && mTrakValues &&
+             mTrakSizeTable);
+
+  // Find index of first sizeTable entry that is >= the requested size.
+  int32_t fixedSize = int32_t(aSize * 65536.0);  // float -> 16.16 fixed-point
+  unsigned sizeIndex;
+  for (sizeIndex = 0; sizeIndex < mNumTrakSizes; ++sizeIndex) {
+    if (mTrakSizeTable[sizeIndex] >= fixedSize) {
+      break;
+    }
+  }
+  // Return the tracking value for the requested size, or an interpolated
+  // value if the exact size isn't found.
+  if (sizeIndex == mNumTrakSizes) {
+    // Request is larger than last entry in the table, so just use that.
+    // (We don't attempt to extrapolate more extreme tracking values than
+    // the largest or smallest present in the table.)
+    return int16_t(mTrakValues[mNumTrakSizes - 1]);
+  }
+  if (sizeIndex == 0 || mTrakSizeTable[sizeIndex] == fixedSize) {
+    // Found an exact match, or size was smaller than the first entry.
+    return int16_t(mTrakValues[sizeIndex]);
+  }
+  // Requested size falls between two entries: interpolate value.
+  double s0 = mTrakSizeTable[sizeIndex - 1] / 65536.0;  // 16.16 -> float
+  double s1 = mTrakSizeTable[sizeIndex] / 65536.0;
+  double t = (aSize - s0) / (s1 - s0);
+  return (1.0 - t) * int16_t(mTrakValues[sizeIndex - 1]) +
+         t * int16_t(mTrakValues[sizeIndex]);
 }
 
 void gfxFontEntry::SetupVariationRanges() {
@@ -961,9 +1252,12 @@ void gfxFontEntry::SetupVariationRanges() {
               SlantStyle().Min()) {
             mStandardFace = false;
           }
+          // OpenType and CSS measure angles in opposite directions, so we
+          // have to flip signs and swap min/max when setting up the CSS
+          // font-style range here.
           mStyleRange =
-              SlantStyleRange(FontSlantStyle::Oblique(axis.mMinValue),
-                              FontSlantStyle::Oblique(axis.mMaxValue));
+              SlantStyleRange(FontSlantStyle::Oblique(-axis.mMaxValue),
+                              FontSlantStyle::Oblique(-axis.mMinValue));
         }
         break;
 
@@ -1083,7 +1377,9 @@ void gfxFontEntry::GetVariationsForStyle(nsTArray<gfxFontVariation>& aResult,
     if (!(IsUserFont() && (mRangeFlags & RangeFlags::eAutoSlantStyle))) {
       angle = SlantStyle().Clamp(FontSlantStyle::Oblique(angle)).ObliqueAngle();
     }
-    aResult.AppendElement(gfxFontVariation{HB_TAG('s', 'l', 'n', 't'), angle});
+    // OpenType and CSS measure angles in opposite directions, so we have to
+    // invert the sign of the CSS oblique value when setting OpenType 'slnt'.
+    aResult.AppendElement(gfxFontVariation{HB_TAG('s', 'l', 'n', 't'), -angle});
   }
 
   auto replaceOrAppend = [&aResult](const gfxFontVariation& aSetting) {
@@ -1247,250 +1543,13 @@ gfxFontEntry* gfxFontFamily::FindFontForStyle(const gfxFontStyle& aFontStyle,
   return nullptr;
 }
 
-// style distance ==> [0,500]
-static inline double StyleDistance(const gfxFontEntry* aFontEntry,
-                                   FontSlantStyle aTargetStyle) {
-  const FontSlantStyle minStyle = aFontEntry->SlantStyle().Min();
-  if (aTargetStyle == minStyle) {
-    return 0.0;  // styles match exactly ==> 0
-  }
-
-  // bias added to angle difference when searching in the non-preferred
-  // direction from a target angle
-  const double kReverse = 100.0;
-
-  // bias added when we've crossed from positive to negative angles or
-  // vice versa
-  const double kNegate = 200.0;
-
-  if (aTargetStyle.IsNormal()) {
-    if (minStyle.IsOblique()) {
-      // to distinguish oblique 0deg from normal, we add 1.0 to the angle
-      const double minAngle = minStyle.ObliqueAngle();
-      if (minAngle >= 0.0) {
-        return 1.0 + minAngle;
-      }
-      const FontSlantStyle maxStyle = aFontEntry->SlantStyle().Max();
-      const double maxAngle = maxStyle.ObliqueAngle();
-      if (maxAngle >= 0.0) {
-        // [min,max] range includes 0.0, so just return our minimum
-        return 1.0;
-      }
-      // negative oblique is even worse than italic
-      return kNegate - maxAngle;
-    }
-    // must be italic, which is worse than any non-negative oblique;
-    // treat as a match in the wrong search direction
-    MOZ_ASSERT(minStyle.IsItalic());
-    return kReverse;
-  }
-
-  const double kDefaultAngle = FontSlantStyle::Oblique().ObliqueAngle();
-
-  if (aTargetStyle.IsItalic()) {
-    if (minStyle.IsOblique()) {
-      const double minAngle = minStyle.ObliqueAngle();
-      if (minAngle >= kDefaultAngle) {
-        return 1.0 + (minAngle - kDefaultAngle);
-      }
-      const FontSlantStyle maxStyle = aFontEntry->SlantStyle().Max();
-      const double maxAngle = maxStyle.ObliqueAngle();
-      if (maxAngle >= kDefaultAngle) {
-        return 1.0;
-      }
-      if (maxAngle > 0.0) {
-        // wrong direction but still > 0, add bias of 100
-        return kReverse + (kDefaultAngle - maxAngle);
-      }
-      // negative oblique angle, add bias of 300
-      return kReverse + kNegate + (kDefaultAngle - maxAngle);
-    }
-    // normal is worse than oblique > 0, but better than oblique <= 0
-    MOZ_ASSERT(minStyle.IsNormal());
-    return kNegate;
-  }
-
-  // target is oblique <angle>: four different cases depending on
-  // the value of the <angle>, which determines the preferred direction
-  // of search
-  const double targetAngle = aTargetStyle.ObliqueAngle();
-  if (targetAngle >= kDefaultAngle) {
-    if (minStyle.IsOblique()) {
-      const double minAngle = minStyle.ObliqueAngle();
-      if (minAngle >= targetAngle) {
-        return minAngle - targetAngle;
-      }
-      const FontSlantStyle maxStyle = aFontEntry->SlantStyle().Max();
-      const double maxAngle = maxStyle.ObliqueAngle();
-      if (maxAngle >= targetAngle) {
-        return 0.0;
-      }
-      if (maxAngle > 0.0) {
-        return kReverse + (targetAngle - maxAngle);
-      }
-      return kReverse + kNegate + (targetAngle - maxAngle);
-    }
-    if (minStyle.IsItalic()) {
-      return kReverse + kNegate;
-    }
-    return kReverse + kNegate + 1.0;
-  }
-
-  if (targetAngle <= -kDefaultAngle) {
-    if (minStyle.IsOblique()) {
-      const FontSlantStyle maxStyle = aFontEntry->SlantStyle().Max();
-      const double maxAngle = maxStyle.ObliqueAngle();
-      if (maxAngle <= targetAngle) {
-        return targetAngle - maxAngle;
-      }
-      const double minAngle = minStyle.ObliqueAngle();
-      if (minAngle <= targetAngle) {
-        return 0.0;
-      }
-      if (minAngle < 0.0) {
-        return kReverse + (minAngle - targetAngle);
-      }
-      return kReverse + kNegate + (minAngle - targetAngle);
-    }
-    if (minStyle.IsItalic()) {
-      return kReverse + kNegate;
-    }
-    return kReverse + kNegate + 1.0;
-  }
-
-  if (targetAngle >= 0.0) {
-    if (minStyle.IsOblique()) {
-      const double minAngle = minStyle.ObliqueAngle();
-      if (minAngle > targetAngle) {
-        return kReverse + (minAngle - targetAngle);
-      }
-      const FontSlantStyle maxStyle = aFontEntry->SlantStyle().Max();
-      const double maxAngle = maxStyle.ObliqueAngle();
-      if (maxAngle >= targetAngle) {
-        return 0.0;
-      }
-      if (maxAngle > 0.0) {
-        return targetAngle - maxAngle;
-      }
-      return kReverse + kNegate + (targetAngle - maxAngle);
-    }
-    if (minStyle.IsItalic()) {
-      return kReverse + kNegate - 2.0;
-    }
-    return kReverse + kNegate - 1.0;
-  }
-
-  // last case: (targetAngle < 0.0 && targetAngle > kDefaultAngle)
-  if (minStyle.IsOblique()) {
-    const FontSlantStyle maxStyle = aFontEntry->SlantStyle().Max();
-    const double maxAngle = maxStyle.ObliqueAngle();
-    if (maxAngle < targetAngle) {
-      return kReverse + (targetAngle - maxAngle);
-    }
-    const double minAngle = minStyle.ObliqueAngle();
-    if (minAngle <= targetAngle) {
-      return 0.0;
-    }
-    if (minAngle < 0.0) {
-      return minAngle - targetAngle;
-    }
-    return kReverse + kNegate + (minAngle - targetAngle);
-  }
-  if (minStyle.IsItalic()) {
-    return kReverse + kNegate - 2.0;
-  }
-  return kReverse + kNegate - 1.0;
-}
-
-// stretch distance ==> [0,2000]
-static inline double StretchDistance(const gfxFontEntry* aFontEntry,
-                                     FontStretch aTargetStretch) {
-  const double kReverseDistance = 1000.0;
-
-  FontStretch minStretch = aFontEntry->Stretch().Min();
-  FontStretch maxStretch = aFontEntry->Stretch().Max();
-
-  // The stretch value is a (non-negative) percentage; currently we support
-  // values in the range 0 .. 1000. (If the upper limit is ever increased,
-  // the kReverseDistance value used here may need to be adjusted.)
-  // If aTargetStretch is >100, we prefer larger values if available;
-  // if <=100, we prefer smaller values if available.
-  if (aTargetStretch < minStretch) {
-    if (aTargetStretch > FontStretch::Normal()) {
-      return minStretch - aTargetStretch;
-    }
-    return (minStretch - aTargetStretch) + kReverseDistance;
-  }
-  if (aTargetStretch > maxStretch) {
-    if (aTargetStretch <= FontStretch::Normal()) {
-      return aTargetStretch - maxStretch;
-    }
-    return (aTargetStretch - maxStretch) + kReverseDistance;
-  }
-  return 0.0;
-}
-
-// Calculate weight distance with values in the range (0..1000). In general,
-// heavier weights match towards even heavier weights while lighter weights
-// match towards even lighter weights. Target weight values in the range
-// [400..500] are special, since they will first match up to 500, then down
-// towards 0, then up again towards 999.
-//
-// Example: with target 600 and font weight 800, distance will be 200. With
-// target 300 and font weight 600, distance will be 900, since heavier
-// weights are farther away than lighter weights. If the target is 5 and the
-// font weight 995, the distance would be 1590 for the same reason.
-
-// weight distance ==> [0,1600]
-static inline double WeightDistance(const gfxFontEntry* aFontEntry,
-                                    FontWeight aTargetWeight) {
-  const double kNotWithinCentralRange = 100.0;
-  const double kReverseDistance = 600.0;
-
-  FontWeight minWeight = aFontEntry->Weight().Min();
-  FontWeight maxWeight = aFontEntry->Weight().Max();
-
-  if (aTargetWeight >= minWeight && aTargetWeight <= maxWeight) {
-    // Target is within the face's range, so it's a perfect match
-    return 0.0;
-  }
-
-  if (aTargetWeight < FontWeight(400)) {
-    // Requested a lighter-than-400 weight
-    if (maxWeight < aTargetWeight) {
-      return aTargetWeight - maxWeight;
-    }
-    // Add reverse-search penalty for bolder faces
-    return (minWeight - aTargetWeight) + kReverseDistance;
-  }
-
-  if (aTargetWeight > FontWeight(500)) {
-    // Requested a bolder-than-500 weight
-    if (minWeight > aTargetWeight) {
-      return minWeight - aTargetWeight;
-    }
-    // Add reverse-search penalty for lighter faces
-    return (aTargetWeight - maxWeight) + kReverseDistance;
-  }
-
-  // Special case for requested weight in the [400..500] range
-  if (minWeight > aTargetWeight) {
-    if (minWeight <= FontWeight(500)) {
-      // Bolder weight up to 500 is first choice
-      return minWeight - aTargetWeight;
-    }
-    // Other bolder weights get a reverse-search penalty
-    return (minWeight - aTargetWeight) + kReverseDistance;
-  }
-  // Lighter weights are not as good as bolder ones within [400..500]
-  return (aTargetWeight - maxWeight) + kNotWithinCentralRange;
-}
-
 static inline double WeightStyleStretchDistance(
     gfxFontEntry* aFontEntry, const gfxFontStyle& aTargetStyle) {
-  double stretchDist = StretchDistance(aFontEntry, aTargetStyle.stretch);
-  double styleDist = StyleDistance(aFontEntry, aTargetStyle.style);
-  double weightDist = WeightDistance(aFontEntry, aTargetStyle.weight);
+  double stretchDist =
+      StretchDistance(aFontEntry->Stretch(), aTargetStyle.stretch);
+  double styleDist =
+      StyleDistance(aFontEntry->SlantStyle(), aTargetStyle.style);
+  double weightDist = WeightDistance(aFontEntry->Weight(), aTargetStyle.weight);
 
   // Sanity-check that the distances are within the expected range
   // (update if implementation of the distance functions is changed).
@@ -1501,7 +1560,8 @@ static inline double WeightStyleStretchDistance(
   // weight/style/stretch priority: stretch >> style >> weight
   // so we multiply the stretch and style values to make them dominate
   // the result
-  return stretchDist * 1.0e8 + styleDist * 1.0e4 + weightDist;
+  return stretchDist * kStretchFactor + styleDist * kStyleFactor +
+         weightDist * kWeightFactor;
 }
 
 void gfxFontFamily::FindAllFontsForStyle(
@@ -1699,43 +1759,76 @@ void gfxFontFamily::FindFontForChar(GlobalFontMatch* aMatchData) {
     return;
   }
 
-  gfxFontEntry* fe =
-      FindFontForStyle(aMatchData->mStyle, /*aIgnoreSizeTolerance*/ true);
-  if (!fe || fe->SkipDuringSystemFallback()) {
+#ifdef MOZ_GECKO_PROFILER
+  nsCString charAndName;
+  if (profiler_can_accept_markers()) {
+    charAndName = nsPrintfCString("\\u%x %s", aMatchData->mCh, mName.get());
+  }
+  AUTO_PROFILER_LABEL_DYNAMIC_NSCSTRING("gfxFontFamily::FindFontForChar",
+                                        LAYOUT, charAndName);
+#endif
+
+  AutoTArray<gfxFontEntry*, 4> entries;
+  FindAllFontsForStyle(aMatchData->mStyle, entries,
+                       /*aIgnoreSizeTolerance*/ true);
+  if (entries.IsEmpty()) {
     return;
   }
 
+  gfxFontEntry* fe = nullptr;
   float distance = INFINITY;
 
-  if (fe->HasCharacter(aMatchData->mCh)) {
-    aMatchData->mCount++;
-
-    LogModule* log = gfxPlatform::GetLog(eGfxLog_textrun);
-
-    if (MOZ_UNLIKELY(MOZ_LOG_TEST(log, LogLevel::Debug))) {
-      uint32_t unicodeRange = FindCharUnicodeRange(aMatchData->mCh);
-      Script script = GetScriptCode(aMatchData->mCh);
-      MOZ_LOG(log, LogLevel::Debug,
-              ("(textrun-systemfallback-fonts) char: u+%6.6x "
-               "unicode-range: %d script: %d match: [%s]\n",
-               aMatchData->mCh, unicodeRange, int(script), fe->Name().get()));
+  for (auto e : entries) {
+    if (e->SkipDuringSystemFallback()) {
+      continue;
     }
 
-    distance = WeightStyleStretchDistance(fe, aMatchData->mStyle);
-  } else if (!fe->IsNormalStyle()) {
+    aMatchData->mCmapsTested++;
+    if (e->HasCharacter(aMatchData->mCh)) {
+      aMatchData->mCount++;
+
+      LogModule* log = gfxPlatform::GetLog(eGfxLog_textrun);
+
+      if (MOZ_UNLIKELY(MOZ_LOG_TEST(log, LogLevel::Debug))) {
+        Script script = GetScriptCode(aMatchData->mCh);
+        MOZ_LOG(log, LogLevel::Debug,
+                ("(textrun-systemfallback-fonts) char: u+%6.6x "
+                 "script: %d match: [%s]\n",
+                 aMatchData->mCh, int(script), e->Name().get()));
+      }
+
+      fe = e;
+      distance = WeightStyleStretchDistance(fe, aMatchData->mStyle);
+      if (aMatchData->mPresentation != eFontPresentation::Any) {
+        RefPtr<gfxFont> font = fe->FindOrMakeFont(&aMatchData->mStyle);
+        if (!font) {
+          continue;
+        }
+        bool hasColorGlyph =
+            font->HasColorGlyphFor(aMatchData->mCh, aMatchData->mNextCh);
+        if (hasColorGlyph != PrefersColor(aMatchData->mPresentation)) {
+          distance += kPresentationMismatch;
+        }
+      }
+      break;
+    }
+  }
+
+  if (!fe && !aMatchData->mStyle.IsNormalStyle()) {
     // If style/weight/stretch was not Normal, see if we can
     // fall back to a next-best face (e.g. Arial Black -> Bold,
     // or Arial Narrow -> Regular).
-    GlobalFontMatch data(aMatchData->mCh, aMatchData->mStyle);
+    GlobalFontMatch data(aMatchData->mCh, aMatchData->mNextCh,
+                         aMatchData->mStyle, aMatchData->mPresentation);
     SearchAllFontsForChar(&data);
-    if (std::isfinite(data.mMatchDistance)) {
-      fe = data.mBestMatch;
-      distance = data.mMatchDistance;
+    if (!data.mBestMatch) {
+      return;
     }
+    fe = data.mBestMatch;
+    distance = data.mMatchDistance;
   }
-  aMatchData->mCmapsTested++;
 
-  if (std::isinf(distance)) {
+  if (!fe) {
     return;
   }
 
@@ -1749,11 +1842,28 @@ void gfxFontFamily::FindFontForChar(GlobalFontMatch* aMatchData) {
 }
 
 void gfxFontFamily::SearchAllFontsForChar(GlobalFontMatch* aMatchData) {
+  if (!mFamilyCharacterMapInitialized) {
+    ReadAllCMAPs();
+  }
+  if (!mFamilyCharacterMap.test(aMatchData->mCh)) {
+    return;
+  }
   uint32_t i, numFonts = mAvailableFonts.Length();
   for (i = 0; i < numFonts; i++) {
     gfxFontEntry* fe = mAvailableFonts[i];
     if (fe && fe->HasCharacter(aMatchData->mCh)) {
       float distance = WeightStyleStretchDistance(fe, aMatchData->mStyle);
+      if (aMatchData->mPresentation != eFontPresentation::Any) {
+        RefPtr<gfxFont> font = fe->FindOrMakeFont(&aMatchData->mStyle);
+        if (!font) {
+          continue;
+        }
+        bool hasColorGlyph =
+            font->HasColorGlyphFor(aMatchData->mCh, aMatchData->mNextCh);
+        if (hasColorGlyph != PrefersColor(aMatchData->mPresentation)) {
+          distance += kPresentationMismatch;
+        }
+      }
       if (distance < aMatchData->mMatchDistance ||
           (distance == aMatchData->mMatchDistance &&
            Compare(fe->Name(), aMatchData->mBestMatch->Name()) > 0)) {
@@ -1771,50 +1881,6 @@ gfxFontFamily::~gfxFontFamily() {
   MOZ_ASSERT(NS_IsMainThread());
 }
 
-/*static*/ void gfxFontFamily::ReadOtherFamilyNamesForFace(
-    const nsACString& aFamilyName, const char* aNameData, uint32_t aDataLength,
-    nsTArray<nsCString>& aOtherFamilyNames, bool useFullName) {
-  const gfxFontUtils::NameHeader* nameHeader =
-      reinterpret_cast<const gfxFontUtils::NameHeader*>(aNameData);
-
-  uint32_t nameCount = nameHeader->count;
-  if (nameCount * sizeof(gfxFontUtils::NameRecord) > aDataLength) {
-    NS_WARNING("invalid font (name records)");
-    return;
-  }
-
-  const gfxFontUtils::NameRecord* nameRecord =
-      reinterpret_cast<const gfxFontUtils::NameRecord*>(
-          aNameData + sizeof(gfxFontUtils::NameHeader));
-  uint32_t stringsBase = uint32_t(nameHeader->stringOffset);
-
-  for (uint32_t i = 0; i < nameCount; i++, nameRecord++) {
-    uint32_t nameLen = nameRecord->length;
-    uint32_t nameOff =
-        nameRecord->offset;  // offset from base of string storage
-
-    if (stringsBase + nameOff + nameLen > aDataLength) {
-      NS_WARNING("invalid font (name table strings)");
-      return;
-    }
-
-    uint16_t nameID = nameRecord->nameID;
-    if ((useFullName && nameID == gfxFontUtils::NAME_ID_FULL) ||
-        (!useFullName && (nameID == gfxFontUtils::NAME_ID_FAMILY ||
-                          nameID == gfxFontUtils::NAME_ID_PREFERRED_FAMILY))) {
-      nsAutoCString otherFamilyName;
-      bool ok = gfxFontUtils::DecodeFontName(
-          aNameData + stringsBase + nameOff, nameLen,
-          uint32_t(nameRecord->platformID), uint32_t(nameRecord->encodingID),
-          uint32_t(nameRecord->languageID), otherFamilyName);
-      // add if not same as canonical family name
-      if (ok && otherFamilyName != aFamilyName) {
-        aOtherFamilyNames.AppendElement(otherFamilyName);
-      }
-    }
-  }
-}
-
 // returns true if other names were found, false otherwise
 bool gfxFontFamily::ReadOtherFamilyNamesForFace(
     gfxPlatformFontList* aPlatformFontList, hb_blob_t* aNameTable,
@@ -1823,8 +1889,8 @@ bool gfxFontFamily::ReadOtherFamilyNamesForFace(
   const char* nameData = hb_blob_get_data(aNameTable, &dataLength);
   AutoTArray<nsCString, 4> otherFamilyNames;
 
-  ReadOtherFamilyNamesForFace(mName, nameData, dataLength, otherFamilyNames,
-                              useFullName);
+  gfxFontUtils::ReadOtherFamilyNamesForFace(mName, nameData, dataLength,
+                                            otherFamilyNames, useFullName);
 
   uint32_t n = otherFamilyNames.Length();
   for (uint32_t i = 0; i < n; i++) {
@@ -1929,8 +1995,8 @@ bool gfxFontFamily::CheckForLegacyFamilyNames(gfxPlatformFontList* aFontList) {
   const uint32_t kNAME = TRUETYPE_TAG('n', 'a', 'm', 'e');
   // Make a local copy of the array of font faces, in case of changes
   // during the iteration.
-  AutoTArray<RefPtr<gfxFontEntry>, 8> faces(mAvailableFonts);
-  for (auto& fe : faces) {
+  for (auto& fe :
+       CopyableAutoTArray<RefPtr<gfxFontEntry>, 8>(mAvailableFonts)) {
     if (!fe) {
       continue;
     }
@@ -1942,7 +2008,7 @@ bool gfxFontFamily::CheckForLegacyFamilyNames(gfxPlatformFontList* aFontList) {
     uint32_t dataLength;
     const char* nameData = hb_blob_get_data(nameTable, &dataLength);
     if (LookForLegacyFamilyName(Name(), nameData, dataLength, legacyName)) {
-      if (aFontList->AddWithLegacyFamilyName(legacyName, fe)) {
+      if (aFontList->AddWithLegacyFamilyName(legacyName, fe, mVisibility)) {
         added = true;
       }
     }
@@ -1955,20 +2021,19 @@ void gfxFontFamily::ReadFaceNames(gfxPlatformFontList* aPlatformFontList,
                                   FontInfoData* aFontInfoData) {
   // if all needed names have already been read, skip
   if (mOtherFamilyNamesInitialized &&
-      (mFaceNamesInitialized || !aNeedFullnamePostscriptNames))
+      (mFaceNamesInitialized || !aNeedFullnamePostscriptNames)) {
     return;
+  }
 
   bool asyncFontLoaderDisabled = false;
 
   if (!mOtherFamilyNamesInitialized && aFontInfoData &&
       aFontInfoData->mLoadOtherNames && !asyncFontLoaderDisabled) {
-    AutoTArray<nsCString, 4> otherFamilyNames;
-    bool foundOtherNames =
-        aFontInfoData->GetOtherFamilyNames(mName, otherFamilyNames);
-    if (foundOtherNames) {
-      uint32_t i, n = otherFamilyNames.Length();
+    const auto* otherFamilyNames = aFontInfoData->GetOtherFamilyNames(mName);
+    if (otherFamilyNames) {
+      uint32_t i, n = otherFamilyNames->Length();
       for (i = 0; i < n; i++) {
-        aPlatformFontList->AddOtherFamilyName(this, otherFamilyNames[i]);
+        aPlatformFontList->AddOtherFamilyName(this, (*otherFamilyNames)[i]);
       }
     }
     mOtherFamilyNamesInitialized = true;

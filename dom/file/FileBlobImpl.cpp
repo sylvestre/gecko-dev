@@ -5,6 +5,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "FileBlobImpl.h"
+#include "BaseBlobImpl.h"
 #include "mozilla/SlicedInputStream.h"
 #include "mozilla/dom/WorkerPrivate.h"
 #include "mozilla/dom/WorkerRunnable.h"
@@ -15,88 +16,129 @@
 #include "nsNetUtil.h"
 #include "nsStreamUtils.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 FileBlobImpl::FileBlobImpl(nsIFile* aFile)
-    : BaseBlobImpl(NS_LITERAL_STRING("FileBlobImpl"), EmptyString(),
-                   EmptyString(), UINT64_MAX, INT64_MAX),
+    : mMutex("FileBlobImpl::mMutex"),
       mFile(aFile),
-      mWholeFile(true),
-      mFileId(-1) {
+      mSerialNumber(BaseBlobImpl::NextSerialNumber()),
+      mStart(0),
+      mFileId(-1),
+      mIsFile(true),
+      mWholeFile(true) {
   MOZ_ASSERT(mFile, "must have file");
   MOZ_ASSERT(XRE_IsParentProcess());
   // Lazily get the content type and size
   mContentType.SetIsVoid(true);
+  mMozFullPath.SetIsVoid(true);
   mFile->GetLeafName(mName);
 }
 
 FileBlobImpl::FileBlobImpl(const nsAString& aName,
                            const nsAString& aContentType, uint64_t aLength,
                            nsIFile* aFile)
-    : BaseBlobImpl(NS_LITERAL_STRING("FileBlobImpl"), aName, aContentType,
-                   aLength, UINT64_MAX),
+    : mMutex("FileBlobImpl::mMutex"),
       mFile(aFile),
-      mWholeFile(true),
-      mFileId(-1) {
+      mContentType(aContentType),
+      mName(aName),
+      mSerialNumber(BaseBlobImpl::NextSerialNumber()),
+      mStart(0),
+      mFileId(-1),
+      mLength(Some(aLength)),
+      mIsFile(true),
+      mWholeFile(true) {
   MOZ_ASSERT(mFile, "must have file");
   MOZ_ASSERT(XRE_IsParentProcess());
+  mMozFullPath.SetIsVoid(true);
 }
 
 FileBlobImpl::FileBlobImpl(const nsAString& aName,
                            const nsAString& aContentType, uint64_t aLength,
                            nsIFile* aFile, int64_t aLastModificationDate)
-    : BaseBlobImpl(NS_LITERAL_STRING("FileBlobImpl"), aName, aContentType,
-                   aLength, aLastModificationDate),
+    : mMutex("FileBlobImpl::mMutex"),
       mFile(aFile),
-      mWholeFile(true),
-      mFileId(-1) {
+      mContentType(aContentType),
+      mName(aName),
+      mSerialNumber(BaseBlobImpl::NextSerialNumber()),
+      mStart(0),
+      mFileId(-1),
+      mLength(Some(aLength)),
+      mLastModified(Some(aLastModificationDate)),
+      mIsFile(true),
+      mWholeFile(true) {
   MOZ_ASSERT(mFile, "must have file");
   MOZ_ASSERT(XRE_IsParentProcess());
+  mMozFullPath.SetIsVoid(true);
 }
 
 FileBlobImpl::FileBlobImpl(nsIFile* aFile, const nsAString& aName,
                            const nsAString& aContentType)
-    : BaseBlobImpl(NS_LITERAL_STRING("FileBlobImpl"), aName, aContentType,
-                   UINT64_MAX, INT64_MAX),
+    : mMutex("FileBlobImpl::mMutex"),
       mFile(aFile),
-      mWholeFile(true),
-      mFileId(-1) {
+      mContentType(aContentType),
+      mName(aName),
+      mSerialNumber(BaseBlobImpl::NextSerialNumber()),
+      mStart(0),
+      mFileId(-1),
+      mIsFile(true),
+      mWholeFile(true) {
   MOZ_ASSERT(mFile, "must have file");
   MOZ_ASSERT(XRE_IsParentProcess());
   if (aContentType.IsEmpty()) {
     // Lazily get the content type and size
     mContentType.SetIsVoid(true);
   }
+
+  mMozFullPath.SetIsVoid(true);
 }
 
 FileBlobImpl::FileBlobImpl(const FileBlobImpl* aOther, uint64_t aStart,
                            uint64_t aLength, const nsAString& aContentType)
-    : BaseBlobImpl(NS_LITERAL_STRING("FileBlobImpl"), aContentType,
-                   aOther->mStart + aStart, aLength),
+    : mMutex("FileBlobImpl::mMutex"),
       mFile(aOther->mFile),
-      mWholeFile(false),
-      mFileId(-1) {
+      mContentType(aContentType),
+      mSerialNumber(BaseBlobImpl::NextSerialNumber()),
+      mStart(aOther->mStart + aStart),
+      mFileId(-1),
+      mLength(Some(aLength)),
+      mIsFile(false),
+      mWholeFile(false) {
   MOZ_ASSERT(mFile, "must have file");
   MOZ_ASSERT(XRE_IsParentProcess());
-  mImmutable = aOther->mImmutable;
+  mMozFullPath = aOther->mMozFullPath;
 }
 
 already_AddRefed<BlobImpl> FileBlobImpl::CreateSlice(
     uint64_t aStart, uint64_t aLength, const nsAString& aContentType,
     ErrorResult& aRv) {
-  RefPtr<BlobImpl> impl = new FileBlobImpl(this, aStart, aLength, aContentType);
+  RefPtr<FileBlobImpl> impl =
+      new FileBlobImpl(this, aStart, aLength, aContentType);
   return impl.forget();
 }
 
 void FileBlobImpl::GetMozFullPathInternal(nsAString& aFilename,
-                                          ErrorResult& aRv) const {
+                                          ErrorResult& aRv) {
   MOZ_ASSERT(mIsFile, "Should only be called on files");
+
+  MutexAutoLock lock(mMutex);
+
+  if (!mMozFullPath.IsVoid()) {
+    aFilename = mMozFullPath;
+    return;
+  }
+
   aRv = mFile->GetPath(aFilename);
+  if (NS_WARN_IF(aRv.Failed())) {
+    return;
+  }
+
+  mMozFullPath = aFilename;
 }
 
 uint64_t FileBlobImpl::GetSize(ErrorResult& aRv) {
-  if (BaseBlobImpl::IsSizeUnknown()) {
+  MutexAutoLock lock(mMutex);
+
+  if (mLength.isNothing()) {
     MOZ_ASSERT(mWholeFile,
                "Should only use lazy size when using the whole file");
     int64_t fileSize;
@@ -110,20 +152,19 @@ uint64_t FileBlobImpl::GetSize(ErrorResult& aRv) {
       return 0;
     }
 
-    mLength = fileSize;
+    mLength.emplace(fileSize);
   }
 
-  return mLength;
+  return mLength.value();
 }
 
-namespace {
-
-class GetTypeRunnable final : public WorkerMainThreadRunnable {
+class FileBlobImpl::GetTypeRunnable final : public WorkerMainThreadRunnable {
  public:
-  GetTypeRunnable(WorkerPrivate* aWorkerPrivate, BlobImpl* aBlobImpl)
-      : WorkerMainThreadRunnable(aWorkerPrivate,
-                                 NS_LITERAL_CSTRING("FileBlobImpl :: GetType")),
-        mBlobImpl(aBlobImpl) {
+  GetTypeRunnable(WorkerPrivate* aWorkerPrivate, FileBlobImpl* aBlobImpl,
+                  const MutexAutoLock& aProofOfLock)
+      : WorkerMainThreadRunnable(aWorkerPrivate, "FileBlobImpl :: GetType"_ns),
+        mBlobImpl(aBlobImpl),
+        mProofOfLock(aProofOfLock) {
     MOZ_ASSERT(aBlobImpl);
     aWorkerPrivate->AssertIsOnWorkerThread();
   }
@@ -132,19 +173,24 @@ class GetTypeRunnable final : public WorkerMainThreadRunnable {
     MOZ_ASSERT(NS_IsMainThread());
 
     nsAutoString type;
-    mBlobImpl->GetType(type);
+    mBlobImpl->GetTypeInternal(type, mProofOfLock);
     return true;
   }
 
  private:
   ~GetTypeRunnable() = default;
 
-  RefPtr<BlobImpl> mBlobImpl;
+  RefPtr<FileBlobImpl> mBlobImpl;
+  const MutexAutoLock& mProofOfLock;
 };
 
-}  // anonymous namespace
-
 void FileBlobImpl::GetType(nsAString& aType) {
+  MutexAutoLock lock(mMutex);
+  GetTypeInternal(aType, lock);
+}
+
+void FileBlobImpl::GetTypeInternal(nsAString& aType,
+                                   const MutexAutoLock& aProofOfLock) {
   aType.Truncate();
 
   if (mContentType.IsVoid()) {
@@ -160,53 +206,56 @@ void FileBlobImpl::GetType(nsAString& aType) {
       }
 
       RefPtr<GetTypeRunnable> runnable =
-          new GetTypeRunnable(workerPrivate, this);
+          new GetTypeRunnable(workerPrivate, this, aProofOfLock);
 
       ErrorResult rv;
       runnable->Dispatch(Canceling, rv);
       if (NS_WARN_IF(rv.Failed())) {
         rv.SuppressException();
+        return;
       }
-      return;
-    }
+    } else {
+      nsresult rv;
+      nsCOMPtr<nsIMIMEService> mimeService =
+          do_GetService(NS_MIMESERVICE_CONTRACTID, &rv);
+      if (NS_WARN_IF(NS_FAILED(rv))) {
+        return;
+      }
 
-    nsresult rv;
-    nsCOMPtr<nsIMIMEService> mimeService =
-        do_GetService(NS_MIMESERVICE_CONTRACTID, &rv);
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      return;
-    }
+      nsAutoCString mimeType;
+      rv = mimeService->GetTypeFromFile(mFile, mimeType);
+      if (NS_FAILED(rv)) {
+        mimeType.Truncate();
+      }
 
-    nsAutoCString mimeType;
-    rv = mimeService->GetTypeFromFile(mFile, mimeType);
-    if (NS_FAILED(rv)) {
-      mimeType.Truncate();
+      AppendUTF8toUTF16(mimeType, mContentType);
+      mContentType.SetIsVoid(false);
     }
-
-    AppendUTF8toUTF16(mimeType, mContentType);
-    mContentType.SetIsVoid(false);
   }
 
   aType = mContentType;
 }
 
+void FileBlobImpl::GetBlobImplType(nsAString& aBlobImplType) const {
+  aBlobImplType = u"FileBlobImpl"_ns;
+}
+
 int64_t FileBlobImpl::GetLastModified(ErrorResult& aRv) {
   MOZ_ASSERT(mIsFile, "Should only be called on files");
-  if (BaseBlobImpl::IsDateUnknown()) {
+
+  MutexAutoLock lock(mMutex);
+
+  if (mLastModified.isNothing()) {
     PRTime msecs;
     aRv = mFile->GetLastModifiedTime(&msecs);
     if (NS_WARN_IF(aRv.Failed())) {
       return 0;
     }
 
-    mLastModificationDate = msecs;
+    mLastModified.emplace(int64_t(msecs));
   }
 
-  return mLastModificationDate;
-}
-
-void FileBlobImpl::SetLastModified(int64_t aLastModified) {
-  MOZ_CRASH("SetLastModified of a real file is not allowed!");
+  return mLastModified.value();
 }
 
 const uint32_t sFileStreamFlags =
@@ -227,8 +276,10 @@ void FileBlobImpl::CreateInputStream(nsIInputStream** aStream,
     return;
   }
 
+  MOZ_ASSERT(mLength.isSome());
+
   RefPtr<SlicedInputStream> slicedInputStream =
-      new SlicedInputStream(stream.forget(), mStart, mLength);
+      new SlicedInputStream(stream.forget(), mStart, mLength.value());
   slicedInputStream.forget(aStream);
 }
 
@@ -240,5 +291,4 @@ bool FileBlobImpl::IsDirectory() const {
   return isDirectory;
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

@@ -10,11 +10,11 @@
 #include "blink/IIRFilter.h"
 #include "PlayingRefChangeHandler.h"
 #include "AlignmentUtils.h"
+#include "nsPrintfCString.h"
 
 #include "nsGkAtoms.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 class IIRFilterNodeEngine final : public AudioNodeEngine {
  public:
@@ -22,12 +22,12 @@ class IIRFilterNodeEngine final : public AudioNodeEngine {
                       const AudioDoubleArray& aFeedforward,
                       const AudioDoubleArray& aFeedback, uint64_t aWindowID)
       : AudioNodeEngine(aNode),
-        mDestination(aDestination->Stream()),
-        mFeedforward(aFeedforward),
-        mFeedback(aFeedback),
+        mDestination(aDestination->Track()),
+        mFeedforward(aFeedforward.Clone()),
+        mFeedback(aFeedback.Clone()),
         mWindowID(aWindowID) {}
 
-  void ProcessBlock(AudioNodeStream* aStream, GraphTime aFrom,
+  void ProcessBlock(AudioNodeTrack* aTrack, GraphTime aFrom,
                     const AudioBlock& aInput, AudioBlock* aOutput,
                     bool* aFinished) override {
     float inputBuffer[WEBAUDIO_BLOCK_SIZE + 4];
@@ -45,13 +45,12 @@ class IIRFilterNodeEngine final : public AudioNodeEngine {
         // as well.
         if (allZero) {
           mIIRFilters.Clear();
-          aStream->ScheduleCheckForInactive();
+          aTrack->ScheduleCheckForInactive();
 
           RefPtr<PlayingRefChangeHandler> refchanged =
-              new PlayingRefChangeHandler(aStream,
+              new PlayingRefChangeHandler(aTrack,
                                           PlayingRefChangeHandler::RELEASE);
-          aStream->Graph()->DispatchToMainThreadAfterStreamStateUpdate(
-              refchanged.forget());
+          aTrack->Graph()->DispatchToMainThreadStableState(refchanged.forget());
 
           aOutput->SetNull(WEBAUDIO_BLOCK_SIZE);
           return;
@@ -62,10 +61,9 @@ class IIRFilterNodeEngine final : public AudioNodeEngine {
     } else if (mIIRFilters.Length() != aInput.ChannelCount()) {
       if (mIIRFilters.IsEmpty()) {
         RefPtr<PlayingRefChangeHandler> refchanged =
-            new PlayingRefChangeHandler(aStream,
+            new PlayingRefChangeHandler(aTrack,
                                         PlayingRefChangeHandler::ADDREF);
-        aStream->Graph()->DispatchToMainThreadAfterStreamStateUpdate(
-            refchanged.forget());
+        aTrack->Graph()->DispatchToMainThreadStableState(refchanged.forget());
       } else {
         WebAudioUtils::LogToDeveloperConsole(
             mWindowID, "IIRFilterChannelCountChangeWarning");
@@ -74,7 +72,8 @@ class IIRFilterNodeEngine final : public AudioNodeEngine {
       // Adjust the number of filters based on the number of channels
       mIIRFilters.SetLength(aInput.ChannelCount());
       for (size_t i = 0; i < aInput.ChannelCount(); ++i) {
-        mIIRFilters[i] = new blink::IIRFilter(&mFeedforward, &mFeedback);
+        mIIRFilters[i] =
+            MakeUnique<blink::IIRFilter>(&mFeedforward, &mFeedback);
       }
     }
 
@@ -115,8 +114,8 @@ class IIRFilterNodeEngine final : public AudioNodeEngine {
   }
 
  private:
-  RefPtr<AudioNodeStream> mDestination;
-  nsTArray<nsAutoPtr<blink::IIRFilter>> mIIRFilters;
+  RefPtr<AudioNodeTrack> mDestination;
+  nsTArray<UniquePtr<blink::IIRFilter>> mIIRFilters;
   AudioDoubleArray mFeedforward;
   AudioDoubleArray mFeedback;
   uint64_t mWindowID;
@@ -149,28 +148,32 @@ IIRFilterNode::IIRFilterNode(AudioContext* aContext,
   // We check that this is exactly equal to one later in blink/IIRFilter.cpp
   elements[0] = 1.0;
 
-  uint64_t windowID = aContext->GetParentObject()->WindowID();
+  uint64_t windowID = 0;
+  if (aContext->GetParentObject()) {
+    windowID = aContext->GetParentObject()->WindowID();
+  }
   IIRFilterNodeEngine* engine = new IIRFilterNodeEngine(
       this, aContext->Destination(), mFeedforward, mFeedback, windowID);
-  mStream = AudioNodeStream::Create(
-      aContext, engine, AudioNodeStream::NO_STREAM_FLAGS, aContext->Graph());
+  mTrack = AudioNodeTrack::Create(
+      aContext, engine, AudioNodeTrack::NO_TRACK_FLAGS, aContext->Graph());
 }
 
-/* static */ already_AddRefed<IIRFilterNode> IIRFilterNode::Create(
+/* static */
+already_AddRefed<IIRFilterNode> IIRFilterNode::Create(
     AudioContext& aAudioContext, const IIRFilterOptions& aOptions,
     ErrorResult& aRv) {
-  if (aAudioContext.CheckClosed(aRv)) {
-    return nullptr;
-  }
-
   if (aOptions.mFeedforward.Length() == 0 ||
       aOptions.mFeedforward.Length() > 20) {
-    aRv.Throw(NS_ERROR_DOM_NOT_SUPPORTED_ERR);
+    aRv.ThrowNotSupportedError(
+        nsPrintfCString("\"feedforward\" length %zu is not in the range [1,20]",
+                        aOptions.mFeedforward.Length()));
     return nullptr;
   }
 
   if (aOptions.mFeedback.Length() == 0 || aOptions.mFeedback.Length() > 20) {
-    aRv.Throw(NS_ERROR_DOM_NOT_SUPPORTED_ERR);
+    aRv.ThrowNotSupportedError(
+        nsPrintfCString("\"feedback\" length %zu is not in the range [1,20]",
+                        aOptions.mFeedback.Length()));
     return nullptr;
   }
 
@@ -178,11 +181,18 @@ IIRFilterNode::IIRFilterNode(AudioContext* aContext,
   for (size_t i = 0; i < aOptions.mFeedforward.Length(); ++i) {
     if (aOptions.mFeedforward.Elements()[i] != 0.0) {
       feedforwardAllZeros = false;
+      break;
     }
   }
 
-  if (feedforwardAllZeros || aOptions.mFeedback.Elements()[0] == 0.0) {
-    aRv.Throw(NS_ERROR_DOM_INVALID_STATE_ERR);
+  if (feedforwardAllZeros) {
+    aRv.ThrowInvalidStateError(
+        "\"feedforward\" must contain some nonzero values");
+    return nullptr;
+  }
+
+  if (aOptions.mFeedback[0] == 0.0) {
+    aRv.ThrowInvalidStateError("First value in \"feedback\" must be nonzero");
     return nullptr;
   }
 
@@ -214,9 +224,9 @@ JSObject* IIRFilterNode::WrapObject(JSContext* aCx,
 void IIRFilterNode::GetFrequencyResponse(const Float32Array& aFrequencyHz,
                                          const Float32Array& aMagResponse,
                                          const Float32Array& aPhaseResponse) {
-  aFrequencyHz.ComputeLengthAndData();
-  aMagResponse.ComputeLengthAndData();
-  aPhaseResponse.ComputeLengthAndData();
+  aFrequencyHz.ComputeState();
+  aMagResponse.ComputeState();
+  aPhaseResponse.ComputeState();
 
   uint32_t length =
       std::min(std::min(aFrequencyHz.Length(), aMagResponse.Length()),
@@ -243,5 +253,4 @@ void IIRFilterNode::GetFrequencyResponse(const Float32Array& aFrequencyHz,
                               aMagResponse.Data(), aPhaseResponse.Data());
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

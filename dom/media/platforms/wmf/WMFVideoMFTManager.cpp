@@ -6,6 +6,9 @@
 
 #include "WMFVideoMFTManager.h"
 
+#include <psapi.h>
+#include <winsdkver.h>
+#include <algorithm>
 #include "DXVA2Manager.h"
 #include "GMPUtils.h"  // For SplitAt. TODO: Move SplitAt to a central place.
 #include "IMFYCbCrImage.h"
@@ -16,27 +19,24 @@
 #include "MediaTelemetryConstants.h"
 #include "VPXDecoder.h"
 #include "VideoUtils.h"
+#include "WMFDecoderModule.h"
 #include "WMFUtils.h"
 #include "gfx2DGlue.h"
-#include "gfxPrefs.h"
 #include "gfxWindowsPlatform.h"
-#include "mozilla/gfx/gfxVars.h"
-#include "mozilla/gfx/DeviceManagerDx.h"
 #include "mozilla/AbstractThread.h"
 #include "mozilla/ClearOnShutdown.h"
 #include "mozilla/Logging.h"
+#include "mozilla/SchedulerGroup.h"
+#include "mozilla/StaticPrefs_media.h"
 #include "mozilla/SyncRunnable.h"
 #include "mozilla/Telemetry.h"
 #include "mozilla/WindowsVersion.h"
 #include "mozilla/gfx/DeviceManagerDx.h"
+#include "mozilla/gfx/gfxVars.h"
 #include "mozilla/layers/LayersTypes.h"
 #include "nsPrintfCString.h"
 #include "nsThreadUtils.h"
 #include "nsWindowsHelpers.h"
-#include "WMFDecoderModule.h"
-#include <algorithm>
-#include <psapi.h>
-#include <winsdkver.h>
 
 #define LOG(...) MOZ_LOG(sPDMLog, mozilla::LogLevel::Debug, (__VA_ARGS__))
 
@@ -103,8 +103,8 @@ static bool IsWin7H264Decoder4KCapable() {
 template <class T>
 class DeleteObjectTask : public Runnable {
  public:
-  explicit DeleteObjectTask(nsAutoPtr<T>& aObject)
-      : Runnable("VideoUtils::DeleteObjectTask"), mObject(aObject) {}
+  explicit DeleteObjectTask(UniquePtr<T>&& aObject)
+      : Runnable("VideoUtils::DeleteObjectTask"), mObject(std::move(aObject)) {}
   NS_IMETHOD Run() override {
     NS_ASSERTION(NS_IsMainThread(), "Must be on main thread.");
     mObject = nullptr;
@@ -112,13 +112,13 @@ class DeleteObjectTask : public Runnable {
   }
 
  private:
-  nsAutoPtr<T> mObject;
+  UniquePtr<T> mObject;
 };
 
 template <class T>
-void DeleteOnMainThread(nsAutoPtr<T>& aObject) {
-  nsCOMPtr<nsIRunnable> r = new DeleteObjectTask<T>(aObject);
-  SystemGroup::Dispatch(TaskCategory::Other, r.forget());
+void DeleteOnMainThread(UniquePtr<T>&& aObject) {
+  nsCOMPtr<nsIRunnable> r = new DeleteObjectTask<T>(std::move(aObject));
+  SchedulerGroup::Dispatch(TaskCategory::Other, r.forget());
 }
 
 LayersBackend GetCompositorBackendType(
@@ -137,7 +137,10 @@ WMFVideoMFTManager::WMFVideoMFTManager(
       mImageSize(aConfig.mImage),
       mDecodedImageSize(aConfig.mImage),
       mVideoStride(0),
-      mYUVColorSpace(YUVColorSpace::BT601),
+      mColorSpace(aConfig.mColorSpace != gfx::YUVColorSpace::UNKNOWN
+                      ? Some(aConfig.mColorSpace)
+                      : Nothing()),
+      mColorRange(aConfig.mColorRange),
       mImageContainer(aImageContainer),
       mKnowsCompositor(aKnowsCompositor),
       mDXVAEnabled(aDXVAEnabled &&
@@ -173,30 +176,8 @@ WMFVideoMFTManager::~WMFVideoMFTManager() {
   MOZ_COUNT_DTOR(WMFVideoMFTManager);
   // Ensure DXVA/D3D9 related objects are released on the main thread.
   if (mDXVA2Manager) {
-    DeleteOnMainThread(mDXVA2Manager);
+    DeleteOnMainThread(std::move(mDXVA2Manager));
   }
-
-  // Record whether the video decoder successfully decoded, or output null
-  // samples but did/didn't recover.
-  uint32_t telemetry =
-      (mNullOutputCount == 0)
-          ? 0
-          : (mGotValidOutputAfterNullOutput && mGotExcessiveNullOutput)
-                ? 1
-                : mGotExcessiveNullOutput
-                      ? 2
-                      : mGotValidOutputAfterNullOutput ? 3 : 4;
-
-  nsCOMPtr<nsIRunnable> task = NS_NewRunnableFunction(
-      "WMFVideoMFTManager::~WMFVideoMFTManager", [=]() -> void {
-        LOG(nsPrintfCString(
-                "Reporting telemetry VIDEO_MFT_OUTPUT_NULL_SAMPLES=%d",
-                telemetry)
-                .get());
-        Telemetry::Accumulate(
-            Telemetry::HistogramID::VIDEO_MFT_OUTPUT_NULL_SAMPLES, telemetry);
-      });
-  SystemGroup::Dispatch(TaskCategory::Other, task.forget());
 }
 
 const GUID& WMFVideoMFTManager::GetMFTGUID() {
@@ -442,18 +423,18 @@ class CreateDXVAManagerEvent : public Runnable {
     NS_ASSERTION(NS_IsMainThread(), "Must be on main thread.");
     const bool deblacklistingForTelemetry =
         XRE_IsGPUProcess() &&
-        gfxPrefs::PDMWMFDeblacklistingForTelemetryInGPUProcess();
+        StaticPrefs::media_wmf_deblacklisting_for_telemetry_in_gpu_process();
     nsACString* failureReason = &mFailureReason;
     nsCString secondFailureReason;
     if (mBackend == LayersBackend::LAYERS_D3D11 &&
-        gfxPrefs::PDMWMFAllowD3D11() && IsWin8OrLater()) {
+        StaticPrefs::media_wmf_dxva_d3d11_enabled() && IsWin8OrLater()) {
       const nsCString& blacklistedDLL = FindD3D11BlacklistedDLL();
       if (!deblacklistingForTelemetry && !blacklistedDLL.IsEmpty()) {
         failureReason->AppendPrintf("D3D11 blacklisted with DLL %s",
                                     blacklistedDLL.get());
       } else {
-        mDXVA2Manager =
-            DXVA2Manager::CreateD3D11DXVA(mKnowsCompositor, *failureReason);
+        mDXVA2Manager.reset(
+            DXVA2Manager::CreateD3D11DXVA(mKnowsCompositor, *failureReason));
         if (mDXVA2Manager) {
           return NS_OK;
         }
@@ -469,14 +450,14 @@ class CreateDXVAManagerEvent : public Runnable {
       mFailureReason.AppendPrintf("D3D9 blacklisted with DLL %s",
                                   blacklistedDLL.get());
     } else {
-      mDXVA2Manager =
-          DXVA2Manager::CreateD3D9DXVA(mKnowsCompositor, *failureReason);
+      mDXVA2Manager.reset(
+          DXVA2Manager::CreateD3D9DXVA(mKnowsCompositor, *failureReason));
       // Make sure we include the messages from both attempts (if applicable).
       mFailureReason.Append(secondFailureReason);
     }
     return NS_OK;
   }
-  nsAutoPtr<DXVA2Manager> mDXVA2Manager;
+  UniquePtr<DXVA2Manager> mDXVA2Manager;
   layers::LayersBackend mBackend;
   layers::KnowsCompositor* mKnowsCompositor;
   nsACString& mFailureReason;
@@ -505,16 +486,17 @@ bool WMFVideoMFTManager::InitializeDXVA() {
     event->Run();
   } else {
     // This logic needs to run on the main thread
-    mozilla::SyncRunnable::DispatchToThread(
-        SystemGroup::EventTargetFor(mozilla::TaskCategory::Other), event);
+    mozilla::SyncRunnable::DispatchToThread(GetMainThreadSerialEventTarget(),
+                                            event);
   }
-  mDXVA2Manager = event->mDXVA2Manager;
+  mDXVA2Manager = std::move(event->mDXVA2Manager);
 
   return mDXVA2Manager != nullptr;
 }
 
 MediaResult WMFVideoMFTManager::ValidateVideoInfo() {
-  if (mStreamType != H264 || gfxPrefs::PDMWMFAllowUnsupportedResolutions()) {
+  if (mStreamType != H264 ||
+      StaticPrefs::media_wmf_allow_unsupported_resolutions()) {
     return NS_OK;
   }
 
@@ -584,7 +566,10 @@ MediaResult WMFVideoMFTManager::InitInternal() {
     attr->GetUINT32(MF_SA_D3D_AWARE, &aware);
     attr->SetUINT32(CODECAPI_AVDecNumWorkerThreads,
                     WMFDecoderModule::GetNumDecoderThreads());
-    if (mLowLatency || gfxPrefs::PDMWMFLowLatencyEnabled()) {
+    bool lowLatency =
+        (StaticPrefs::media_wmf_low_latency_enabled() || IsWin10OrLater()) &&
+        !StaticPrefs::media_wmf_low_latency_force_disabled();
+    if (mLowLatency || lowLatency) {
       hr = attr->SetUINT32(CODECAPI_AVLowLatencyMode, TRUE);
       if (SUCCEEDED(hr)) {
         LOG("Enabling Low Latency Mode");
@@ -619,7 +604,7 @@ MediaResult WMFVideoMFTManager::InitInternal() {
       // Either mDXVAEnabled was set to false prior the second call to
       // InitInternal() due to CanUseDXVA() returning false, or
       // MFT_MESSAGE_SET_D3D_MANAGER failed
-      DeleteOnMainThread(mDXVA2Manager);
+      DeleteOnMainThread(std::move(mDXVA2Manager));
     }
     if (mStreamType == VP9 || mStreamType == VP8) {
       return MediaResult(NS_ERROR_DOM_MEDIA_FATAL_ERR,
@@ -655,15 +640,17 @@ MediaResult WMFVideoMFTManager::InitInternal() {
       (mUseHwAccel ? "Yes" : "No"));
 
   if (mUseHwAccel) {
-    hr = mDXVA2Manager->ConfigureForSize(outputType,
-                                         mVideoInfo.ImageRect().width,
-                                         mVideoInfo.ImageRect().height);
+    hr = mDXVA2Manager->ConfigureForSize(
+        outputType,
+        mColorSpace.refOr(
+            DefaultColorSpace({mImageSize.width, mImageSize.height})),
+        mColorRange, mVideoInfo.ImageRect().width,
+        mVideoInfo.ImageRect().height);
     NS_ENSURE_TRUE(SUCCEEDED(hr),
                    MediaResult(NS_ERROR_DOM_MEDIA_FATAL_ERR,
                                RESULT_DETAIL("Fail to configure image size for "
                                              "DXVA2Manager.")));
   } else {
-    mYUVColorSpace = GetYUVColorSpace(outputType);
     GetDefaultStride(outputType, mVideoInfo.ImageRect().width, &mVideoStride);
   }
   LOG("WMFVideoMFTManager frame geometry stride=%u picture=(%d, %d, %d, %d) "
@@ -740,7 +727,7 @@ WMFVideoMFTManager::Input(MediaRawData* aSample) {
     // Check the VP9 profile. the VP9 MFT can only handle correctly profile 0
     // and 2 (yuv420 8/10/12 bits)
     int profile =
-        VPXDecoder::GetVP9Profile(MakeSpan(aSample->Data(), aSample->Size()));
+        VPXDecoder::GetVP9Profile(Span(aSample->Data(), aSample->Size()));
     if (profile != 0 && profile != 2) {
       return E_FAIL;
     }
@@ -749,12 +736,18 @@ WMFVideoMFTManager::Input(MediaRawData* aSample) {
   RefPtr<IMFSample> inputSample;
   HRESULT hr = mDecoder->CreateInputSample(
       aSample->Data(), uint32_t(aSample->Size()),
-      aSample->mTime.ToMicroseconds(), &inputSample);
+      aSample->mTime.ToMicroseconds(), aSample->mDuration.ToMicroseconds(),
+      &inputSample);
   NS_ENSURE_TRUE(SUCCEEDED(hr) && inputSample != nullptr, hr);
 
+  if (!mColorSpace && aSample->mTrackInfo) {
+    // The colorspace definition is found in the H264 SPS NAL, available out of
+    // band, while for VP9 it's only available within the VP9 bytestream.
+    // The info would have been updated by the MediaChangeMonitor.
+    mColorSpace = Some(aSample->mTrackInfo->GetAsVideoInfo()->mColorSpace);
+    mColorRange = aSample->mTrackInfo->GetAsVideoInfo()->mColorRange;
+  }
   mLastDuration = aSample->mDuration;
-  mLastTime = aSample->mTime;
-  mSamplesCount++;
 
   // Forward sample data to the decoder.
   return mDecoder->Input(inputSample);
@@ -806,14 +799,14 @@ bool WMFVideoMFTManager::CanUseDXVA(IMFMediaType* aType, float aFramerate) {
   // The supports config check must be done on the main thread since we have
   // a crash guard protecting it.
   RefPtr<SupportsConfigEvent> event =
-      new SupportsConfigEvent(mDXVA2Manager, aType, aFramerate);
+      new SupportsConfigEvent(mDXVA2Manager.get(), aType, aFramerate);
 
   if (NS_IsMainThread()) {
     event->Run();
   } else {
     // This logic needs to run on the main thread
-    mozilla::SyncRunnable::DispatchToThread(
-        SystemGroup::EventTargetFor(mozilla::TaskCategory::Other), event);
+    mozilla::SyncRunnable::DispatchToThread(GetMainThreadSerialEventTarget(),
+                                            event);
   }
 
   return event->mSupportsConfig;
@@ -875,7 +868,6 @@ WMFVideoMFTManager::CreateBasicVideoFrame(IMFSample* aSample,
   b.mPlanes[0].mStride = stride;
   b.mPlanes[0].mHeight = videoHeight;
   b.mPlanes[0].mWidth = videoWidth;
-  b.mPlanes[0].mOffset = 0;
   b.mPlanes[0].mSkip = 0;
 
   MOZ_DIAGNOSTIC_ASSERT(mDecodedImageSize.height % 16 == 0,
@@ -892,7 +884,6 @@ WMFVideoMFTManager::CreateBasicVideoFrame(IMFSample* aSample,
     b.mPlanes[1].mStride = halfStride;
     b.mPlanes[1].mHeight = halfHeight;
     b.mPlanes[1].mWidth = halfWidth;
-    b.mPlanes[1].mOffset = 0;
     b.mPlanes[1].mSkip = 0;
 
     // V plane (Cr)
@@ -900,7 +891,6 @@ WMFVideoMFTManager::CreateBasicVideoFrame(IMFSample* aSample,
     b.mPlanes[2].mStride = halfStride;
     b.mPlanes[2].mHeight = halfHeight;
     b.mPlanes[2].mWidth = halfWidth;
-    b.mPlanes[2].mOffset = 0;
     b.mPlanes[2].mSkip = 0;
   } else {
     // U plane (Cb)
@@ -908,7 +898,6 @@ WMFVideoMFTManager::CreateBasicVideoFrame(IMFSample* aSample,
     b.mPlanes[1].mStride = stride;
     b.mPlanes[1].mHeight = halfHeight;
     b.mPlanes[1].mWidth = halfWidth;
-    b.mPlanes[1].mOffset = 0;
     b.mPlanes[1].mSkip = 1;
 
     // V plane (Cr)
@@ -916,13 +905,14 @@ WMFVideoMFTManager::CreateBasicVideoFrame(IMFSample* aSample,
     b.mPlanes[2].mStride = stride;
     b.mPlanes[2].mHeight = halfHeight;
     b.mPlanes[2].mWidth = halfWidth;
-    b.mPlanes[2].mOffset = 0;
     b.mPlanes[2].mSkip = 1;
   }
 
   // YuvColorSpace
-  b.mYUVColorSpace = mYUVColorSpace;
+  b.mYUVColorSpace =
+      mColorSpace.refOr(DefaultColorSpace({videoWidth, videoHeight}));
   b.mColorDepth = colorDepth;
+  b.mColorRange = mColorRange;
 
   TimeUnit pts = GetSampleTime(aSample);
   NS_ENSURE_TRUE(pts.IsValid(), E_FAIL);
@@ -935,7 +925,7 @@ WMFVideoMFTManager::CreateBasicVideoFrame(IMFSample* aSample,
       !mKnowsCompositor->SupportsD3D11() || !mIMFUsable) {
     RefPtr<VideoData> v = VideoData::CreateAndCopyData(
         mVideoInfo, mImageContainer, aStreamOffset, pts, duration, b, false,
-        TimeUnit::FromMicroseconds(-1), pictureRegion);
+        TimeUnit::FromMicroseconds(-1), pictureRegion, mKnowsCompositor);
     if (twoDBuffer) {
       twoDBuffer->Unlock2D();
     } else {
@@ -999,15 +989,6 @@ WMFVideoMFTManager::Output(int64_t aStreamOffset, RefPtr<MediaData>& aOutData) {
   HRESULT hr;
   aOutData = nullptr;
   int typeChangeCount = 0;
-  bool wasDraining = mDraining;
-  int64_t sampleCount = mSamplesCount;
-  if (wasDraining) {
-    mSamplesCount = 0;
-    mDraining = false;
-  }
-
-  TimeUnit pts;
-  TimeUnit duration;
 
   // Loop until we decode a sample, or an unexpected error that we can't
   // handle occurs.
@@ -1042,13 +1023,15 @@ WMFVideoMFTManager::Output(int64_t aStreamOffset, RefPtr<MediaData>& aOutData) {
       NS_ENSURE_TRUE(SUCCEEDED(hr), hr);
 
       if (mUseHwAccel) {
-        hr = mDXVA2Manager->ConfigureForSize(outputType,
-                                             mVideoInfo.ImageRect().width,
-                                             mVideoInfo.ImageRect().height);
+        hr = mDXVA2Manager->ConfigureForSize(
+            outputType,
+            mColorSpace.refOr(
+                DefaultColorSpace({mImageSize.width, mImageSize.height})),
+            mColorRange, mVideoInfo.ImageRect().width,
+            mVideoInfo.ImageRect().height);
         NS_ENSURE_TRUE(SUCCEEDED(hr), hr);
       } else {
         // The stride may have changed, recheck for it.
-        mYUVColorSpace = GetYUVColorSpace(outputType);
         hr = GetDefaultStride(outputType, mVideoInfo.ImageRect().width,
                               &mVideoStride);
         NS_ENSURE_TRUE(SUCCEEDED(hr), hr);
@@ -1088,19 +1071,10 @@ WMFVideoMFTManager::Output(int64_t aStreamOffset, RefPtr<MediaData>& aOutData) {
         }
         continue;
       }
-      pts = GetSampleTime(sample);
-      duration = GetSampleDuration(sample);
+      TimeUnit pts = GetSampleTime(sample);
+      TimeUnit duration = GetSampleDuration(sample);
       if (!pts.IsValid() || !duration.IsValid()) {
         return E_FAIL;
-      }
-      if (wasDraining && sampleCount == 1 && pts == TimeUnit::Zero()) {
-        // WMF is unable to calculate a duration if only a single sample
-        // was parsed. Additionally, the pts always comes out at 0 under those
-        // circumstances.
-        // Seeing that we've only fed the decoder a single frame, the pts
-        // and duration are known, it's of the last sample.
-        pts = mLastTime;
-        duration = mLastDuration;
       }
       if (mSeekTargetThreshold.isSome()) {
         if ((pts + duration) < mSeekTargetThreshold.ref()) {
@@ -1114,7 +1088,7 @@ WMFVideoMFTManager::Output(int64_t aStreamOffset, RefPtr<MediaData>& aOutData) {
       }
       break;
     }
-    // Else unexpected error, assert, and bail.
+    // Else unexpected error so bail.
     NS_WARNING("WMFVideoMFTManager::Output() unexpected error");
     return hr;
   }
@@ -1131,14 +1105,12 @@ WMFVideoMFTManager::Output(int64_t aStreamOffset, RefPtr<MediaData>& aOutData) {
   NS_ENSURE_TRUE(frame, E_FAIL);
 
   aOutData = frame;
-  // Set the potentially corrected pts and duration.
-  aOutData->mTime = pts;
-  // The VP9 decoder doesn't provide a valid duration. AS VP9 doesn't have a
+  // The VP9 decoder doesn't provide a valid duration. As VP9 doesn't have a
   // concept of pts vs dts and have no latency. We can as such use the last
   // known input duration.
-  aOutData->mDuration = (mStreamType == VP9 && duration == TimeUnit::Zero())
-                            ? mLastDuration
-                            : duration;
+  if (mStreamType == VP9 && aOutData->mDuration == TimeUnit::Zero()) {
+    aOutData->mDuration = mLastDuration;
+  }
 
   if (mNullOutputCount) {
     mGotValidOutputAfterNullOutput = true;
@@ -1149,7 +1121,7 @@ WMFVideoMFTManager::Output(int64_t aStreamOffset, RefPtr<MediaData>& aOutData) {
 
 void WMFVideoMFTManager::Shutdown() {
   mDecoder = nullptr;
-  DeleteOnMainThread(mDXVA2Manager);
+  DeleteOnMainThread(std::move(mDXVA2Manager));
 }
 
 bool WMFVideoMFTManager::IsHardwareAccelerated(
@@ -1161,9 +1133,9 @@ bool WMFVideoMFTManager::IsHardwareAccelerated(
 nsCString WMFVideoMFTManager::GetDescriptionName() const {
   nsCString failureReason;
   bool hw = IsHardwareAccelerated(failureReason);
-  return nsPrintfCString("wmf %s video decoder - %s",
-                         hw ? "hardware" : "software",
-                         hw ? gfxPrefs::PDMWMFUseNV12Format() &&
+  return nsPrintfCString("wmf %s codec %s video decoder - %s",
+                         StreamTypeString(), hw ? "hardware" : "software",
+                         hw ? StaticPrefs::media_wmf_use_nv12_format() &&
                                       gfx::DeviceManagerDx::Get()->CanUseNV12()
                                   ? "nv12"
                                   : "rgba32"

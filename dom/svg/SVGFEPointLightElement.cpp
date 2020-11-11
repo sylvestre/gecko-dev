@@ -6,9 +6,9 @@
 
 #include "mozilla/dom/SVGFEPointLightElement.h"
 #include "mozilla/dom/SVGFEPointLightElementBinding.h"
-#include "nsSVGFilterInstance.h"
+#include "mozilla/SVGFilterInstance.h"
 
-NS_IMPL_NS_NEW_NAMESPACED_SVG_ELEMENT(FEPointLight)
+NS_IMPL_NS_NEW_SVG_ELEMENT(FEPointLight)
 
 using namespace mozilla::gfx;
 
@@ -20,7 +20,7 @@ JSObject* SVGFEPointLightElement::WrapNode(JSContext* aCx,
   return SVGFEPointLightElement_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-nsSVGElement::NumberInfo SVGFEPointLightElement::sNumberInfo[3] = {
+SVGElement::NumberInfo SVGFEPointLightElement::sNumberInfo[3] = {
     {nsGkAtoms::x, 0, false},
     {nsGkAtoms::y, 0, false},
     {nsGkAtoms::z, 0, false}};
@@ -43,7 +43,7 @@ bool SVGFEPointLightElement::AttributeAffectsRendering(
 //----------------------------------------------------------------------
 
 LightType SVGFEPointLightElement::ComputeLightAttributes(
-    nsSVGFilterInstance* aInstance, nsTArray<float>& aFloatAttributes) {
+    SVGFilterInstance* aInstance, nsTArray<float>& aFloatAttributes) {
   Point3D lightPos;
   GetAnimatedNumberValues(&lightPos.x, &lightPos.y, &lightPos.z, nullptr);
   lightPos = aInstance->ConvertLocation(lightPos);
@@ -54,22 +54,22 @@ LightType SVGFEPointLightElement::ComputeLightAttributes(
   return LightType::Point;
 }
 
-already_AddRefed<SVGAnimatedNumber> SVGFEPointLightElement::X() {
+already_AddRefed<DOMSVGAnimatedNumber> SVGFEPointLightElement::X() {
   return mNumberAttributes[ATTR_X].ToDOMAnimatedNumber(this);
 }
 
-already_AddRefed<SVGAnimatedNumber> SVGFEPointLightElement::Y() {
+already_AddRefed<DOMSVGAnimatedNumber> SVGFEPointLightElement::Y() {
   return mNumberAttributes[ATTR_Y].ToDOMAnimatedNumber(this);
 }
 
-already_AddRefed<SVGAnimatedNumber> SVGFEPointLightElement::Z() {
+already_AddRefed<DOMSVGAnimatedNumber> SVGFEPointLightElement::Z() {
   return mNumberAttributes[ATTR_Z].ToDOMAnimatedNumber(this);
 }
 
 //----------------------------------------------------------------------
-// nsSVGElement methods
+// SVGElement methods
 
-nsSVGElement::NumberAttributesInfo SVGFEPointLightElement::GetNumberInfo() {
+SVGElement::NumberAttributesInfo SVGFEPointLightElement::GetNumberInfo() {
   return NumberAttributesInfo(mNumberAttributes, sNumberInfo,
                               ArrayLength(sNumberInfo));
 }

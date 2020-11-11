@@ -8,8 +8,10 @@
  * http://www.whatwg.org/specs/web-apps/current-work/#other-elements,-attributes-and-apis
  */
 
-[HTMLConstructor]
+[Exposed=Window]
 interface HTMLStyleElement : HTMLElement {
+  [HTMLConstructor] constructor();
+
            [Pure]
            attribute boolean disabled;
            [CEReactions, SetterThrows, Pure]
@@ -17,5 +19,16 @@ interface HTMLStyleElement : HTMLElement {
            [CEReactions, SetterThrows, Pure]
            attribute DOMString type;
 };
-HTMLStyleElement implements LinkStyle;
+HTMLStyleElement includes LinkStyle;
 
+// Mozilla-specific additions to support devtools
+partial interface HTMLStyleElement {
+  /**
+   * Mark this style element with a devtools-specific principal that
+   * skips Content Security Policy unsafe-inline checks. This triggering
+   * principal will be overwritten by any callers that set textContent
+   * or innerHTML on this element.
+   */
+  [ChromeOnly]
+  void setDevtoolsAsTriggeringPrincipal();
+};

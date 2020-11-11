@@ -6,28 +6,41 @@
 
 #include "DOMSVGStringList.h"
 
+#include "mozAutoDocUpdate.h"
 #include "mozilla/dom/SVGStringListBinding.h"
 #include "mozilla/dom/SVGTests.h"
-#include "nsError.h"
 #include "nsCOMPtr.h"
-#include "nsSVGAttrTearoffTable.h"
+#include "nsError.h"
 #include "nsQueryObject.h"
+#include "SVGAttrTearoffTable.h"
 #include <algorithm>
 
 // See the architecture comment in this file's header.
 
 namespace mozilla {
+namespace dom {
 
-using namespace dom;
-
-static inline nsSVGAttrTearoffTable<SVGStringList, DOMSVGStringList>&
+static inline SVGAttrTearoffTable<SVGStringList, DOMSVGStringList>&
 SVGStringListTearoffTable() {
-  static nsSVGAttrTearoffTable<SVGStringList, DOMSVGStringList>
+  static SVGAttrTearoffTable<SVGStringList, DOMSVGStringList>
       sSVGStringListTearoffTable;
   return sSVGStringListTearoffTable;
 }
 
-NS_SVG_VAL_IMPL_CYCLE_COLLECTION_WRAPPERCACHED(DOMSVGStringList, mElement)
+NS_IMPL_CYCLE_COLLECTION_CLASS(DOMSVGStringList)
+
+NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(DOMSVGStringList)
+  // No unlinking of mElement, we'd need to null out the value pointer (the
+  // object it points to is held by the element) and null-check it everywhere.
+  tmp->RemoveFromTearoffTable();
+  NS_IMPL_CYCLE_COLLECTION_UNLINK_PRESERVED_WRAPPER
+NS_IMPL_CYCLE_COLLECTION_UNLINK_END
+NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(DOMSVGStringList)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mElement)
+NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
+NS_IMPL_CYCLE_COLLECTION_TRACE_BEGIN(DOMSVGStringList)
+  NS_IMPL_CYCLE_COLLECTION_TRACE_PRESERVED_WRAPPER
+NS_IMPL_CYCLE_COLLECTION_TRACE_END
 
 NS_IMPL_CYCLE_COLLECTING_ADDREF(DOMSVGStringList)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(DOMSVGStringList)
@@ -41,31 +54,31 @@ NS_INTERFACE_MAP_END
 // Helper class: AutoChangeStringListNotifier
 // Stack-based helper class to pair calls to WillChangeStringListList and
 // DidChangeStringListList.
-class MOZ_RAII AutoChangeStringListNotifier {
+class MOZ_RAII AutoChangeStringListNotifier : public mozAutoDocUpdate {
  public:
-  explicit AutoChangeStringListNotifier(
-      DOMSVGStringList* aStringList MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
-      : mStringList(aStringList) {
-    MOZ_GUARD_OBJECT_NOTIFIER_INIT;
+  explicit AutoChangeStringListNotifier(DOMSVGStringList* aStringList)
+      : mozAutoDocUpdate(aStringList->mElement->GetComposedDoc(), true),
+        mStringList(aStringList) {
     MOZ_ASSERT(mStringList, "Expecting non-null stringList");
     mEmptyOrOldValue = mStringList->mElement->WillChangeStringList(
-        mStringList->mIsConditionalProcessingAttribute, mStringList->mAttrEnum);
+        mStringList->mIsConditionalProcessingAttribute, mStringList->mAttrEnum,
+        *this);
   }
 
   ~AutoChangeStringListNotifier() {
     mStringList->mElement->DidChangeStringList(
         mStringList->mIsConditionalProcessingAttribute, mStringList->mAttrEnum,
-        mEmptyOrOldValue);
+        mEmptyOrOldValue, *this);
   }
 
  private:
   DOMSVGStringList* const mStringList;
   nsAttrValue mEmptyOrOldValue;
-  MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
 };
 
-/* static */ already_AddRefed<DOMSVGStringList> DOMSVGStringList::GetDOMWrapper(
-    SVGStringList* aList, nsSVGElement* aElement,
+/* static */
+already_AddRefed<DOMSVGStringList> DOMSVGStringList::GetDOMWrapper(
+    SVGStringList* aList, SVGElement* aElement,
     bool aIsConditionalProcessingAttribute, uint8_t aAttrEnum) {
   RefPtr<DOMSVGStringList> wrapper =
       SVGStringListTearoffTable().GetTearoff(aList);
@@ -77,13 +90,16 @@ class MOZ_RAII AutoChangeStringListNotifier {
   return wrapper.forget();
 }
 
-DOMSVGStringList::~DOMSVGStringList() {
+void DOMSVGStringList::RemoveFromTearoffTable() {
   // Script no longer has any references to us.
   SVGStringListTearoffTable().RemoveTearoff(&InternalList());
 }
 
-/* virtual */ JSObject* DOMSVGStringList::WrapObject(
-    JSContext* aCx, JS::Handle<JSObject*> aGivenProto) {
+DOMSVGStringList::~DOMSVGStringList() { RemoveFromTearoffTable(); }
+
+/* virtual */
+JSObject* DOMSVGStringList::WrapObject(JSContext* aCx,
+                                       JS::Handle<JSObject*> aGivenProto) {
   return SVGStringList_Binding::Wrap(aCx, this, aGivenProto);
 }
 
@@ -182,10 +198,11 @@ void DOMSVGStringList::AppendItem(const nsAString& aNewItem, nsAString& aRetval,
 
 SVGStringList& DOMSVGStringList::InternalList() const {
   if (mIsConditionalProcessingAttribute) {
-    nsCOMPtr<dom::SVGTests> tests = do_QueryObject(mElement.get());
+    nsCOMPtr<dom::SVGTests> tests = do_QueryObject(mElement);
     return tests->mStringListAttributes[mAttrEnum];
   }
   return mElement->GetStringListInfo().mStringLists[mAttrEnum];
 }
 
+}  // namespace dom
 }  // namespace mozilla

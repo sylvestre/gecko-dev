@@ -8,8 +8,9 @@
 
 #include "jsapi.h"
 
-#include "builtin/TypedObject.h"
 #include "gc/Tracer.h"
+#include "js/friend/ErrorMessages.h"  // js::GetErrorMessage, JSMSG_*
+#include "js/PropertySpec.h"
 #include "js/TracingAPI.h"
 #include "vm/ArrayBufferObject.h"
 #include "vm/BigIntType.h"
@@ -53,30 +54,16 @@ static bool BigIntConstructor(JSContext* cx, unsigned argc, Value* vp) {
 }
 
 JSObject* BigIntObject::create(JSContext* cx, HandleBigInt bigInt) {
-  RootedObject obj(cx, NewBuiltinClassInstance(cx, &class_));
-  if (!obj) {
+  BigIntObject* bn = NewBuiltinClassInstance<BigIntObject>(cx);
+  if (!bn) {
     return nullptr;
   }
-  BigIntObject& bn = obj->as<BigIntObject>();
-  bn.setFixedSlot(PRIMITIVE_VALUE_SLOT, BigIntValue(bigInt));
-  return &bn;
+  bn->setFixedSlot(PRIMITIVE_VALUE_SLOT, BigIntValue(bigInt));
+  return bn;
 }
 
 BigInt* BigIntObject::unbox() const {
   return getFixedSlot(PRIMITIVE_VALUE_SLOT).toBigInt();
-}
-
-bool js::intrinsic_ToBigInt(JSContext* cx, unsigned argc, Value* vp) {
-  CallArgs args = CallArgsFromVp(argc, vp);
-  MOZ_ASSERT(args.length() == 1);
-
-  BigInt* result = ToBigInt(cx, args[0]);
-  if (!result) {
-    return false;
-  }
-
-  args.rval().setBigInt(result);
-  return true;
 }
 
 // BigInt proposal section 5.3.4
@@ -84,9 +71,8 @@ bool BigIntObject::valueOf_impl(JSContext* cx, const CallArgs& args) {
   // Step 1.
   HandleValue thisv = args.thisv();
   MOZ_ASSERT(IsBigInt(thisv));
-  RootedBigInt bi(cx, thisv.isBigInt()
-                          ? thisv.toBigInt()
-                          : thisv.toObject().as<BigIntObject>().unbox());
+  BigInt* bi = thisv.isBigInt() ? thisv.toBigInt()
+                                : thisv.toObject().as<BigIntObject>().unbox();
 
   args.rval().setBigInt(bi);
   return true;
@@ -123,7 +109,7 @@ bool BigIntObject::toString_impl(JSContext* cx, const CallArgs& args) {
   }
 
   // Steps 6-7.
-  JSLinearString* str = BigInt::toString(cx, bi, radix);
+  JSLinearString* str = BigInt::toString<CanGC>(cx, bi, radix);
   if (!str) {
     return false;
   }
@@ -136,6 +122,7 @@ bool BigIntObject::toString(JSContext* cx, unsigned argc, Value* vp) {
   return CallNonGenericMethod<IsBigInt, toString_impl>(cx, args);
 }
 
+#ifndef JS_HAS_INTL_API
 // BigInt proposal section 5.3.2. "This function is
 // implementation-dependent, and it is permissible, but not encouraged,
 // for it to return the same thing as toString."
@@ -146,7 +133,7 @@ bool BigIntObject::toLocaleString_impl(JSContext* cx, const CallArgs& args) {
                           ? thisv.toBigInt()
                           : thisv.toObject().as<BigIntObject>().unbox());
 
-  RootedString str(cx, BigInt::toString(cx, bi, 10));
+  JSString* str = BigInt::toString<CanGC>(cx, bi, 10);
   if (!str) {
     return false;
   }
@@ -158,6 +145,7 @@ bool BigIntObject::toLocaleString(JSContext* cx, unsigned argc, Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
   return CallNonGenericMethod<IsBigInt, toLocaleString_impl>(cx, args);
 }
+#endif /* !JS_HAS_INTL_API */
 
 // BigInt proposal section 5.2.1. BigInt.asUintN ( bits, bigint )
 bool BigIntObject::asUintN(JSContext* cx, unsigned argc, Value* vp) {
@@ -165,12 +153,12 @@ bool BigIntObject::asUintN(JSContext* cx, unsigned argc, Value* vp) {
 
   // Step 1.
   uint64_t bits;
-  if (!ToIndex(cx, args[0], &bits)) {
+  if (!ToIndex(cx, args.get(0), &bits)) {
     return false;
   }
 
   // Step 2.
-  RootedBigInt bi(cx, ToBigInt(cx, args[1]));
+  RootedBigInt bi(cx, ToBigInt(cx, args.get(1)));
   if (!bi) {
     return false;
   }
@@ -191,12 +179,12 @@ bool BigIntObject::asIntN(JSContext* cx, unsigned argc, Value* vp) {
 
   // Step 1.
   uint64_t bits;
-  if (!ToIndex(cx, args[0], &bits)) {
+  if (!ToIndex(cx, args.get(0), &bits)) {
     return false;
   }
 
   // Step 2.
-  RootedBigInt bi(cx, ToBigInt(cx, args[1]));
+  RootedBigInt bi(cx, ToBigInt(cx, args.get(1)));
   if (!bi) {
     return false;
   }
@@ -219,16 +207,15 @@ const ClassSpec BigIntObject::classSpec_ = {
     BigIntObject::methods,
     BigIntObject::properties};
 
-// The class is named "Object" as a workaround for bug 1277801.
-const Class BigIntObject::class_ = {
-    "Object",
+const JSClass BigIntObject::class_ = {
+    "BigInt",
     JSCLASS_HAS_CACHED_PROTO(JSProto_BigInt) |
         JSCLASS_HAS_RESERVED_SLOTS(RESERVED_SLOTS),
     JS_NULL_CLASS_OPS, &BigIntObject::classSpec_};
 
-const Class BigIntObject::protoClass_ = {
-    js_Object_str, JSCLASS_HAS_CACHED_PROTO(JSProto_BigInt), JS_NULL_CLASS_OPS,
-    &BigIntObject::classSpec_};
+const JSClass BigIntObject::protoClass_ = {
+    "BigInt.prototype", JSCLASS_HAS_CACHED_PROTO(JSProto_BigInt),
+    JS_NULL_CLASS_OPS, &BigIntObject::classSpec_};
 
 const JSPropertySpec BigIntObject::properties[] = {
     // BigInt proposal section 5.3.5
@@ -236,7 +223,12 @@ const JSPropertySpec BigIntObject::properties[] = {
 
 const JSFunctionSpec BigIntObject::methods[] = {
     JS_FN("valueOf", valueOf, 0, 0), JS_FN("toString", toString, 0, 0),
-    JS_FN("toLocaleString", toLocaleString, 0, 0), JS_FS_END};
+#ifdef JS_HAS_INTL_API
+    JS_SELF_HOSTED_FN("toLocaleString", "BigInt_toLocaleString", 0, 0),
+#else
+    JS_FN("toLocaleString", toLocaleString, 0, 0),
+#endif
+    JS_FS_END};
 
 const JSFunctionSpec BigIntObject::staticMethods[] = {
     JS_FN("asUintN", asUintN, 2, 0), JS_FN("asIntN", asIntN, 2, 0), JS_FS_END};

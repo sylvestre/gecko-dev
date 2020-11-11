@@ -6,22 +6,32 @@
 
 #include "FileStreams.h"
 
+// Local includes
+#include "QuotaCommon.h"
 #include "QuotaManager.h"
+#include "QuotaObject.h"
+
+// Global includes
+#include <utility>
+#include "mozilla/Assertions.h"
+#include "mozilla/DebugOnly.h"
+#include "mozilla/Result.h"
+#include "nsDebug.h"
 #include "prio.h"
 
 BEGIN_QUOTA_NAMESPACE
 
 template <class FileStreamBase>
 NS_IMETHODIMP FileQuotaStream<FileStreamBase>::SetEOF() {
-  nsresult rv = FileStreamBase::SetEOF();
-  NS_ENSURE_SUCCESS(rv, rv);
+  QM_TRY(FileStreamBase::SetEOF());
 
   if (mQuotaObject) {
     int64_t offset;
-    nsresult rv = FileStreamBase::Tell(&offset);
-    NS_ENSURE_SUCCESS(rv, rv);
+    QM_TRY(FileStreamBase::Tell(&offset));
 
-    mQuotaObject->MaybeUpdateSize(offset, /* aTruncate */ true);
+    DebugOnly<bool> res =
+        mQuotaObject->MaybeUpdateSize(offset, /* aTruncate */ true);
+    MOZ_ASSERT(res);
   }
 
   return NS_OK;
@@ -29,8 +39,7 @@ NS_IMETHODIMP FileQuotaStream<FileStreamBase>::SetEOF() {
 
 template <class FileStreamBase>
 NS_IMETHODIMP FileQuotaStream<FileStreamBase>::Close() {
-  nsresult rv = FileStreamBase::Close();
-  NS_ENSURE_SUCCESS(rv, rv);
+  QM_TRY(FileStreamBase::Close());
 
   mQuotaObject = nullptr;
 
@@ -44,13 +53,15 @@ nsresult FileQuotaStream<FileStreamBase>::DoOpen() {
 
   NS_ASSERTION(!mQuotaObject, "Creating quota object more than once?");
   mQuotaObject = quotaManager->GetQuotaObject(
-      mPersistenceType, mGroup, mOrigin, FileStreamBase::mOpenParams.localFile);
+      mPersistenceType, mGroupAndOrigin, mClientType,
+      FileStreamBase::mOpenParams.localFile);
 
-  nsresult rv = FileStreamBase::DoOpen();
-  NS_ENSURE_SUCCESS(rv, rv);
+  QM_TRY(FileStreamBase::DoOpen());
 
   if (mQuotaObject && (FileStreamBase::mOpenParams.ioFlags & PR_TRUNCATE)) {
-    mQuotaObject->MaybeUpdateSize(0, /* aTruncate */ true);
+    DebugOnly<bool> res =
+        mQuotaObject->MaybeUpdateSize(0, /* aTruncate */ true);
+    MOZ_ASSERT(res);
   }
 
   return NS_OK;
@@ -59,12 +70,9 @@ nsresult FileQuotaStream<FileStreamBase>::DoOpen() {
 template <class FileStreamBase>
 NS_IMETHODIMP FileQuotaStreamWithWrite<FileStreamBase>::Write(
     const char* aBuf, uint32_t aCount, uint32_t* _retval) {
-  nsresult rv;
-
   if (FileQuotaStreamWithWrite::mQuotaObject) {
     int64_t offset;
-    rv = FileStreamBase::Tell(&offset);
-    NS_ENSURE_SUCCESS(rv, rv);
+    QM_TRY(FileStreamBase::Tell(&offset));
 
     MOZ_ASSERT(INT64_MAX - offset >= int64_t(aCount));
 
@@ -75,43 +83,44 @@ NS_IMETHODIMP FileQuotaStreamWithWrite<FileStreamBase>::Write(
     }
   }
 
-  rv = FileStreamBase::Write(aBuf, aCount, _retval);
-  NS_ENSURE_SUCCESS(rv, rv);
+  QM_TRY(FileStreamBase::Write(aBuf, aCount, _retval));
 
   return NS_OK;
 }
 
 already_AddRefed<FileInputStream> CreateFileInputStream(
-    PersistenceType aPersistenceType, const nsACString& aGroup,
-    const nsACString& aOrigin, nsIFile* aFile, int32_t aIOFlags, int32_t aPerm,
+    PersistenceType aPersistenceType, const GroupAndOrigin& aGroupAndOrigin,
+    Client::Type aClientType, nsIFile* aFile, int32_t aIOFlags, int32_t aPerm,
     int32_t aBehaviorFlags) {
   RefPtr<FileInputStream> stream =
-      new FileInputStream(aPersistenceType, aGroup, aOrigin);
-  nsresult rv = stream->Init(aFile, aIOFlags, aPerm, aBehaviorFlags);
-  NS_ENSURE_SUCCESS(rv, nullptr);
+      new FileInputStream(aPersistenceType, aGroupAndOrigin, aClientType);
+
+  QM_TRY(stream->Init(aFile, aIOFlags, aPerm, aBehaviorFlags), nullptr);
+
   return stream.forget();
 }
 
 already_AddRefed<FileOutputStream> CreateFileOutputStream(
-    PersistenceType aPersistenceType, const nsACString& aGroup,
-    const nsACString& aOrigin, nsIFile* aFile, int32_t aIOFlags, int32_t aPerm,
+    PersistenceType aPersistenceType, const GroupAndOrigin& aGroupAndOrigin,
+    Client::Type aClientType, nsIFile* aFile, int32_t aIOFlags, int32_t aPerm,
     int32_t aBehaviorFlags) {
   RefPtr<FileOutputStream> stream =
-      new FileOutputStream(aPersistenceType, aGroup, aOrigin);
-  nsresult rv = stream->Init(aFile, aIOFlags, aPerm, aBehaviorFlags);
-  NS_ENSURE_SUCCESS(rv, nullptr);
+      new FileOutputStream(aPersistenceType, aGroupAndOrigin, aClientType);
+
+  QM_TRY(stream->Init(aFile, aIOFlags, aPerm, aBehaviorFlags), nullptr);
+
   return stream.forget();
 }
 
-already_AddRefed<FileStream> CreateFileStream(PersistenceType aPersistenceType,
-                                              const nsACString& aGroup,
-                                              const nsACString& aOrigin,
-                                              nsIFile* aFile, int32_t aIOFlags,
-                                              int32_t aPerm,
-                                              int32_t aBehaviorFlags) {
-  RefPtr<FileStream> stream = new FileStream(aPersistenceType, aGroup, aOrigin);
-  nsresult rv = stream->Init(aFile, aIOFlags, aPerm, aBehaviorFlags);
-  NS_ENSURE_SUCCESS(rv, nullptr);
+already_AddRefed<FileStream> CreateFileStream(
+    PersistenceType aPersistenceType, const GroupAndOrigin& aGroupAndOrigin,
+    Client::Type aClientType, nsIFile* aFile, int32_t aIOFlags, int32_t aPerm,
+    int32_t aBehaviorFlags) {
+  RefPtr<FileStream> stream =
+      new FileStream(aPersistenceType, aGroupAndOrigin, aClientType);
+
+  QM_TRY(stream->Init(aFile, aIOFlags, aPerm, aBehaviorFlags), nullptr);
+
   return stream.forget();
 }
 

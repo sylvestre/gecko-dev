@@ -78,7 +78,7 @@ function compareProperties(a, b, stack, path) {
                 pa.splice(i, 1);
                 i--;
             } else {
-                throw new Error("non-enumerable clone property " + uneval(pa[i][0]) + " " + path);
+                throw new Error("non-enumerable clone property " + propname + " " + path);
             }
         }
     }
@@ -242,11 +242,11 @@ let obj = { 'foo': foo,
             'baz': baz };
 check(obj);
 
-for (obj of new getTestContent)
+for (obj of getTestContent())
     check(obj);
 
 // Stolen wholesale from postMessage_structured_clone_helper.js
-function getTestContent()
+function* getTestContent()
 {
   yield "hello";
   yield 2+3;

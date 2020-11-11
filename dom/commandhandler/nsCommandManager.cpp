@@ -10,29 +10,28 @@
 #include "nsIControllers.h"
 #include "nsIObserver.h"
 
-#include "nsIComponentManager.h"
-
 #include "nsServiceManagerUtils.h"
-#include "nsIScriptSecurityManager.h"
 
 #include "nsContentUtils.h"
-#include "nsIDOMWindow.h"
 #include "nsPIDOMWindow.h"
 #include "nsPIWindowRoot.h"
-#include "nsIFocusManager.h"
 
 #include "nsCOMArray.h"
 
 #include "nsCommandManager.h"
 
-nsCommandManager::nsCommandManager() : mWindow(nullptr) {}
+nsCommandManager::nsCommandManager(mozIDOMWindowProxy* aWindow)
+    : mWindow(aWindow) {
+  MOZ_DIAGNOSTIC_ASSERT(mWindow);
+}
 
-nsCommandManager::~nsCommandManager() {}
+nsCommandManager::~nsCommandManager() = default;
 
 NS_IMPL_CYCLE_COLLECTION_CLASS(nsCommandManager)
 
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(nsCommandManager)
   tmp->mObserversTable.Clear();
+  NS_IMPL_CYCLE_COLLECTION_UNLINK_WEAK_REFERENCE
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(nsCommandManager)
   for (auto iter = tmp->mObserversTable.Iter(); !iter.Done(); iter.Next()) {
@@ -49,21 +48,11 @@ NS_IMPL_CYCLE_COLLECTING_RELEASE(nsCommandManager)
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(nsCommandManager)
   NS_INTERFACE_MAP_ENTRY(nsICommandManager)
-  NS_INTERFACE_MAP_ENTRY(nsPICommandUpdater)
   NS_INTERFACE_MAP_ENTRY(nsISupportsWeakReference)
   NS_INTERFACE_MAP_ENTRY_AMBIGUOUS(nsISupports, nsICommandManager)
 NS_INTERFACE_MAP_END
 
-NS_IMETHODIMP
-nsCommandManager::Init(mozIDOMWindowProxy* aWindow) {
-  NS_ENSURE_ARG_POINTER(aWindow);
-
-  mWindow = aWindow;  // weak ptr
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-nsCommandManager::CommandStatusChanged(const char* aCommandName) {
+void nsCommandManager::CommandStatusChanged(const char* aCommandName) {
   ObserverList* commandObservers;
   mObserversTable.Get(aCommandName, &commandObservers);
 
@@ -77,12 +66,10 @@ nsCommandManager::CommandStatusChanged(const char* aCommandName) {
                         aCommandName, u"command_status_changed");
     }
   }
-
-  return NS_OK;
 }
 
 #if 0
-#pragma mark -
+#  pragma mark -
 #endif
 
 NS_IMETHODIMP
@@ -93,7 +80,7 @@ nsCommandManager::AddCommandObserver(nsIObserver* aCommandObserver,
   // XXX todo: handle special cases of aCommandToObserve being null, or empty
 
   // for each command in the table, we make a list of observers for that command
-  ObserverList* commandObservers =
+  const auto& commandObservers =
       mObserversTable.LookupForAdd(aCommandToObserve).OrInsert([]() {
         return new ObserverList;
       });
@@ -144,17 +131,26 @@ nsCommandManager::IsCommandEnabled(const char* aCommandName,
                                    mozIDOMWindowProxy* aTargetWindow,
                                    bool* aResult) {
   NS_ENSURE_ARG_POINTER(aResult);
-
-  bool commandEnabled = false;
-
-  nsCOMPtr<nsIController> controller;
-  GetControllerForCommand(aCommandName, aTargetWindow,
-                          getter_AddRefs(controller));
-  if (controller) {
-    controller->IsCommandEnabled(aCommandName, &commandEnabled);
+  if (!aCommandName) {
+    *aResult = false;
+    return NS_OK;
   }
-  *aResult = commandEnabled;
+  *aResult = IsCommandEnabled(nsDependentCString(aCommandName), aTargetWindow);
   return NS_OK;
+}
+
+bool nsCommandManager::IsCommandEnabled(const nsCString& aCommandName,
+                                        mozIDOMWindowProxy* aTargetWindow) {
+  nsCOMPtr<nsIController> controller;
+  GetControllerForCommand(aCommandName.get(), aTargetWindow,
+                          getter_AddRefs(controller));
+  if (!controller) {
+    return false;
+  }
+
+  bool enabled = false;
+  controller->IsCommandEnabled(aCommandName.get(), &enabled);
+  return enabled;
 }
 
 NS_IMETHODIMP

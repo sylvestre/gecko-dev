@@ -41,15 +41,14 @@ void MacroAssembler::moveDoubleToGPR64(FloatRegister src, Register64 dest) {
 }
 
 void MacroAssembler::moveGPR64ToDouble(Register64 src, FloatRegister dest) {
-  ScratchDoubleScope scratch(*this);
-
   if (Assembler::HasSSE41()) {
     vmovd(src.low, dest);
     vpinsrd(1, src.high, dest, dest);
   } else {
+    ScratchDoubleScope fpscratch(*this);
     vmovd(src.low, dest);
-    vmovd(src.high, ScratchDoubleReg);
-    vunpcklps(ScratchDoubleReg, dest, dest);
+    vmovd(src.high, fpscratch);
+    vunpcklps(fpscratch, dest, dest);
   }
 }
 
@@ -87,6 +86,17 @@ void MacroAssembler::move32To64SignExtend(Register src, Register64 dest) {
     movl(src, eax);
   }
   masm.cdq();
+}
+
+void MacroAssembler::move32ZeroExtendToPtr(Register src, Register dest) {
+  movl(src, dest);
+}
+
+// ===============================================================
+// Load instructions
+
+void MacroAssembler::load32SignExtendToPtr(const Address& src, Register dest) {
+  load32(src, dest);
 }
 
 // ===============================================================
@@ -145,6 +155,15 @@ void MacroAssembler::xor64(Register64 src, Register64 dest) {
 void MacroAssembler::xorPtr(Register src, Register dest) { xorl(src, dest); }
 
 void MacroAssembler::xorPtr(Imm32 imm, Register dest) { xorl(imm, dest); }
+
+// ===============================================================
+// Swap instructions
+
+void MacroAssembler::byteSwap64(Register64 reg) {
+  bswapl(reg.low);
+  bswapl(reg.high);
+  xchgl(reg.low, reg.high);
+}
 
 // ===============================================================
 // Arithmetic functions
@@ -336,6 +355,8 @@ void MacroAssembler::neg64(Register64 reg) {
   adcl(Imm32(0), reg.high);
   negl(reg.high);
 }
+
+void MacroAssembler::negPtr(Register reg) { negl(reg); }
 
 // ===============================================================
 // Shift functions
@@ -884,6 +905,12 @@ void MacroAssembler::cmp32MovePtr(Condition cond, Register lhs, Imm32 rhs,
   cmovCCl(cond, Operand(src), dest);
 }
 
+void MacroAssembler::cmp32LoadPtr(Condition cond, const Address& lhs, Imm32 rhs,
+                                  const Address& src, Register dest) {
+  cmp32(lhs, rhs);
+  cmovCCl(cond, Operand(src), dest);
+}
+
 void MacroAssembler::test32LoadPtr(Condition cond, const Address& addr,
                                    Imm32 mask, const Address& src,
                                    Register dest) {
@@ -959,6 +986,45 @@ void MacroAssembler::spectreBoundsCheck32(Register index, const Address& length,
 }
 
 // ========================================================================
+// SIMD
+
+void MacroAssembler::anyTrueSimd128(FloatRegister src, Register dest) {
+  Label done;
+  movl(Imm32(1), dest);
+  vptest(src, src);  // SSE4.1
+  j(NonZero, &done);
+  movl(Imm32(0), dest);
+  bind(&done);
+}
+
+void MacroAssembler::extractLaneInt64x2(uint32_t lane, FloatRegister src,
+                                        Register64 dest) {
+  vpextrd(2 * lane, src, dest.low);
+  vpextrd(2 * lane + 1, src, dest.high);
+}
+
+void MacroAssembler::replaceLaneInt64x2(unsigned lane, Register64 rhs,
+                                        FloatRegister lhsDest) {
+  vpinsrd(2 * lane, rhs.low, lhsDest, lhsDest);
+  vpinsrd(2 * lane + 1, rhs.high, lhsDest, lhsDest);
+}
+
+void MacroAssembler::splatX2(Register64 src, FloatRegister dest) {
+  replaceLaneInt64x2(0, src, dest);
+  replaceLaneInt64x2(1, src, dest);
+}
+
+void MacroAssembler::bitwiseAndSimd128(const SimdConstant& rhs,
+                                       FloatRegister lhsDest) {
+  vpandSimd128(rhs, lhsDest);
+}
+
+void MacroAssembler::bitwiseXorSimd128(const SimdConstant& rhs,
+                                       FloatRegister lhsDest) {
+  vpxorSimd128(rhs, lhsDest);
+}
+
+// ========================================================================
 // Truncate floating point.
 
 void MacroAssembler::truncateFloat32ToUInt64(Address src, Address dest,
@@ -1015,6 +1081,43 @@ void MacroAssembler::truncateDoubleToUInt64(Address src, Address dest,
   store32(temp, HighWord(dest));
 
   bind(&done);
+}
+
+template <typename T>
+void MacroAssemblerX86::fallibleUnboxPtrImpl(const T& src, Register dest,
+                                             JSValueType type, Label* fail) {
+  switch (type) {
+    case JSVAL_TYPE_OBJECT:
+      asMasm().branchTestObject(Assembler::NotEqual, src, fail);
+      break;
+    case JSVAL_TYPE_STRING:
+      asMasm().branchTestString(Assembler::NotEqual, src, fail);
+      break;
+    case JSVAL_TYPE_SYMBOL:
+      asMasm().branchTestSymbol(Assembler::NotEqual, src, fail);
+      break;
+    case JSVAL_TYPE_BIGINT:
+      asMasm().branchTestBigInt(Assembler::NotEqual, src, fail);
+      break;
+    default:
+      MOZ_CRASH("Unexpected type");
+  }
+  unboxNonDouble(src, dest, type);
+}
+
+void MacroAssembler::fallibleUnboxPtr(const ValueOperand& src, Register dest,
+                                      JSValueType type, Label* fail) {
+  fallibleUnboxPtrImpl(src, dest, type, fail);
+}
+
+void MacroAssembler::fallibleUnboxPtr(const Address& src, Register dest,
+                                      JSValueType type, Label* fail) {
+  fallibleUnboxPtrImpl(src, dest, type, fail);
+}
+
+void MacroAssembler::fallibleUnboxPtr(const BaseIndex& src, Register dest,
+                                      JSValueType type, Label* fail) {
+  fallibleUnboxPtrImpl(src, dest, type, fail);
 }
 
 //}}} check_macroassembler_style

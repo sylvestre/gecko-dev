@@ -11,18 +11,18 @@
 #include "mozilla/Assertions.h"
 #include "mozilla/ContentEvents.h"
 #include "mozilla/EventStateManager.h"
+#include "mozilla/PresShell.h"
 #include "mozilla/TextEvents.h"
 #include "nsCOMPtr.h"
 #include "nsContentUtils.h"
 #include "nsIContent.h"
 #include "nsIInterfaceRequestorUtils.h"
 #include "nsIDocShell.h"
-#include "nsIDOMWindow.h"
 #include "nsIFrame.h"
+#include "nsLayoutUtils.h"
 #include "prtime.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 UIEvent::UIEvent(EventTarget* aOwner, nsPresContext* aPresContext,
                  WidgetGUIEvent* aEvent)
@@ -72,8 +72,7 @@ UIEvent::UIEvent(EventTarget* aOwner, nsPresContext* aPresContext,
 // static
 already_AddRefed<UIEvent> UIEvent::Constructor(const GlobalObject& aGlobal,
                                                const nsAString& aType,
-                                               const UIEventInit& aParam,
-                                               ErrorResult& aRv) {
+                                               const UIEventInit& aParam) {
   nsCOMPtr<EventTarget> t = do_QueryInterface(aGlobal.GetAsSupports());
   RefPtr<UIEvent> e = new UIEvent(t, nullptr, nullptr);
   bool trusted = e->Init(t);
@@ -133,45 +132,18 @@ void UIEvent::InitUIEvent(const nsAString& typeArg, bool canBubbleArg,
   mView = viewArg ? viewArg->GetOuterWindow() : nullptr;
 }
 
-int32_t UIEvent::PageX() const {
-  if (mEvent->mFlags.mIsPositionless) {
-    return 0;
-  }
-
-  if (mPrivateDataDuplicated) {
-    return mPagePoint.x;
-  }
-
-  return Event::GetPageCoords(mPresContext, mEvent, mEvent->mRefPoint,
-                              mClientPoint)
-      .x;
-}
-
-int32_t UIEvent::PageY() const {
-  if (mEvent->mFlags.mIsPositionless) {
-    return 0;
-  }
-
-  if (mPrivateDataDuplicated) {
-    return mPagePoint.y;
-  }
-
-  return Event::GetPageCoords(mPresContext, mEvent, mEvent->mRefPoint,
-                              mClientPoint)
-      .y;
-}
-
-already_AddRefed<nsINode> UIEvent::GetRangeParent() {
+already_AddRefed<nsIContent> UIEvent::GetRangeParentContentAndOffset(
+    int32_t* aOffset) const {
   if (NS_WARN_IF(!mPresContext)) {
     return nullptr;
   }
-  nsCOMPtr<nsIPresShell> presShell = mPresContext->GetPresShell();
+  RefPtr<PresShell> presShell = mPresContext->GetPresShell();
   if (NS_WARN_IF(!presShell)) {
     return nullptr;
   }
   nsCOMPtr<nsIContent> container;
   nsLayoutUtils::GetContainerAndOffsetAtEvent(
-      presShell, mEvent, getter_AddRefs(container), nullptr);
+      presShell, mEvent, getter_AddRefs(container), aOffset);
   return container.forget();
 }
 
@@ -179,7 +151,7 @@ int32_t UIEvent::RangeOffset() const {
   if (NS_WARN_IF(!mPresContext)) {
     return 0;
   }
-  nsCOMPtr<nsIPresShell> presShell = mPresContext->GetPresShell();
+  RefPtr<PresShell> presShell = mPresContext->GetPresShell();
   if (NS_WARN_IF(!presShell)) {
     return 0;
   }
@@ -209,7 +181,8 @@ nsIntPoint UIEvent::GetLayerPoint() const {
   nsIFrame* targetFrame = mPresContext->EventStateManager()->GetEventTarget();
   if (!targetFrame) return mLayerPoint;
   nsIFrame* layer = nsLayoutUtils::GetClosestLayer(targetFrame);
-  nsPoint pt(nsLayoutUtils::GetEventCoordinatesRelativeTo(mEvent, layer));
+  nsPoint pt(
+      nsLayoutUtils::GetEventCoordinatesRelativeTo(mEvent, RelativeTo{layer}));
   return nsIntPoint(nsPresContext::AppUnitsToIntCSSPixels(pt.x),
                     nsPresContext::AppUnitsToIntCSSPixels(pt.y));
 }
@@ -235,7 +208,7 @@ void UIEvent::DuplicatePrivateData() {
 
 void UIEvent::Serialize(IPC::Message* aMsg, bool aSerializeInterfaceType) {
   if (aSerializeInterfaceType) {
-    IPC::WriteParam(aMsg, NS_LITERAL_STRING("uievent"));
+    IPC::WriteParam(aMsg, u"uievent"_ns);
   }
 
   Event::Serialize(aMsg, false);
@@ -347,8 +320,7 @@ void UIEvent::InitModifiers(const EventModifierInit& aParam) {
 #undef SET_MODIFIER
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom
 
 using namespace mozilla;
 using namespace mozilla::dom;

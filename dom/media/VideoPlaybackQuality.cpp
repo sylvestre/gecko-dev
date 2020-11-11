@@ -11,19 +11,16 @@
 #include "nsCycleCollectionParticipant.h"
 #include "nsWrapperCache.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 VideoPlaybackQuality::VideoPlaybackQuality(HTMLMediaElement* aElement,
                                            DOMHighResTimeStamp aCreationTime,
                                            uint32_t aTotalFrames,
-                                           uint32_t aDroppedFrames,
-                                           uint32_t aCorruptedFrames)
+                                           uint32_t aDroppedFrames)
     : mElement(aElement),
       mCreationTime(aCreationTime),
       mTotalFrames(aTotalFrames),
-      mDroppedFrames(aDroppedFrames),
-      mCorruptedFrames(aCorruptedFrames) {}
+      mDroppedFrames(aDroppedFrames) {}
 
 HTMLMediaElement* VideoPlaybackQuality::GetParentObject() const {
   return mElement;
@@ -39,5 +36,4 @@ NS_IMPL_CYCLE_COLLECTION_UNROOT_NATIVE(VideoPlaybackQuality, Release)
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(VideoPlaybackQuality, mElement)
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

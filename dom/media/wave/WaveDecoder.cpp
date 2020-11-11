@@ -10,8 +10,8 @@
 
 namespace mozilla {
 
-/* static */ bool WaveDecoder::IsSupportedType(
-    const MediaContainerType& aContainerType) {
+/* static */
+bool WaveDecoder::IsSupportedType(const MediaContainerType& aContainerType) {
   if (!MediaDecoder::IsWaveEnabled()) {
     return false;
   }
@@ -21,6 +21,7 @@ namespace mozilla {
       aContainerType.Type() == MEDIAMIMETYPE("audio/x-pn-wav")) {
     return (aContainerType.ExtendedType().Codecs().IsEmpty() ||
             aContainerType.ExtendedType().Codecs() == "1" ||
+            aContainerType.ExtendedType().Codecs() == "3" ||
             aContainerType.ExtendedType().Codecs() == "6" ||
             aContainerType.ExtendedType().Codecs() == "7");
   }
@@ -28,7 +29,8 @@ namespace mozilla {
   return false;
 }
 
-/* static */ nsTArray<UniquePtr<TrackInfo>> WaveDecoder::GetTracksInfo(
+/* static */
+nsTArray<UniquePtr<TrackInfo>> WaveDecoder::GetTracksInfo(
     const MediaContainerType& aType) {
   nsTArray<UniquePtr<TrackInfo>> tracks;
   if (!IsSupportedType(aType)) {
@@ -39,16 +41,14 @@ namespace mozilla {
   if (codecs.IsEmpty()) {
     tracks.AppendElement(
         CreateTrackInfoWithMIMETypeAndContainerTypeExtraParameters(
-            NS_LITERAL_CSTRING("audio/x-wav"), aType));
+            "audio/x-wav"_ns, aType));
     return tracks;
   }
 
   for (const auto& codec : codecs.Range()) {
     tracks.AppendElement(
         CreateTrackInfoWithMIMETypeAndContainerTypeExtraParameters(
-            NS_LITERAL_CSTRING("audio/wave; codecs=") +
-                NS_ConvertUTF16toUTF8(codec),
-            aType));
+            "audio/wave; codecs="_ns + NS_ConvertUTF16toUTF8(codec), aType));
   }
   return tracks;
 }

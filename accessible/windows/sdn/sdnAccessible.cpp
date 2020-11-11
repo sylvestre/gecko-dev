@@ -21,6 +21,7 @@
 #include "mozilla/dom/BorrowedAttrInfo.h"
 #include "mozilla/dom/Element.h"
 #include "mozilla/ErrorResult.h"
+#include "mozilla/PresShell.h"
 
 using namespace mozilla;
 using namespace mozilla::a11y;
@@ -217,7 +218,8 @@ sdnAccessible::get_computedStyle(
   uint32_t index = 0, realIndex = 0;
   for (index = realIndex = 0; index < length && realIndex < aMaxStyleProperties;
        index++) {
-    nsAutoString property, value;
+    nsAutoCString property;
+    nsAutoString value;
 
     // Ignore -moz-* properties.
     cssDecl->Item(index, property);
@@ -225,7 +227,8 @@ sdnAccessible::get_computedStyle(
       cssDecl->GetPropertyValue(property, value);  // Get property value
 
     if (!value.IsEmpty()) {
-      aStyleProperties[realIndex] = ::SysAllocString(property.get());
+      aStyleProperties[realIndex] =
+          ::SysAllocString(NS_ConvertUTF8toUTF16(property).get());
       aStyleValues[realIndex] = ::SysAllocString(value.get());
       ++realIndex;
     }
@@ -254,15 +257,17 @@ sdnAccessible::get_computedStyleForProperties(
   for (index = 0; index < aNumStyleProperties; index++) {
     nsAutoString value;
     if (aStyleProperties[index])
-      cssDecl->GetPropertyValue(nsDependentString(aStyleProperties[index]),
-                                value);  // Get property value
+      cssDecl->GetPropertyValue(
+          NS_ConvertUTF16toUTF8(nsDependentString(aStyleProperties[index])),
+          value);  // Get property value
     aStyleValues[index] = ::SysAllocString(value.get());
   }
 
   return S_OK;
 }
 
-STDMETHODIMP
+// XXX Use MOZ_CAN_RUN_SCRIPT_BOUNDARY for now due to bug 1543294.
+MOZ_CAN_RUN_SCRIPT_BOUNDARY STDMETHODIMP
 sdnAccessible::scrollTo(boolean aScrollTopLeft) {
   DocAccessible* document = GetDocument();
   if (!document)  // that's IsDefunct check
@@ -274,7 +279,9 @@ sdnAccessible::scrollTo(boolean aScrollTopLeft) {
                             ? nsIAccessibleScrollType::SCROLL_TYPE_TOP_LEFT
                             : nsIAccessibleScrollType::SCROLL_TYPE_BOTTOM_RIGHT;
 
-  nsCoreUtils::ScrollTo(document->PresShell(), mNode->AsContent(), scrollType);
+  RefPtr<PresShell> presShell = document->PresShellPtr();
+  nsCOMPtr<nsIContent> content = mNode->AsContent();
+  nsCoreUtils::ScrollTo(presShell, content, scrollType);
   return S_OK;
 }
 

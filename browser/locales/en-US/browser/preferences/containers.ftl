@@ -40,9 +40,9 @@ containers-color-label = Color
     .accesskey = o
     .style = { -containers-labels-style }
 
-containers-button-done =
-    .label = Done
-    .accesskey = D
+containers-dialog =
+    .buttonlabelaccept = Done
+    .buttonaccesskeyaccept = D
 
 containers-color-blue =
     .label = Blue
@@ -60,7 +60,11 @@ containers-color-pink =
     .label = Pink
 containers-color-purple =
     .label = Purple
+containers-color-toolbar =
+    .label = Match toolbar
 
+containers-icon-fence =
+    .label = Fence
 containers-icon-fingerprint =
     .label = Fingerprint
 containers-icon-briefcase =

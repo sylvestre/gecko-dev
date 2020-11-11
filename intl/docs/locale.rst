@@ -44,7 +44,7 @@ On top of that, a locale may contain:
      These fields can be used to carry additional information about a locale.
      Mozilla currently has partial support for them in the JS implementation and plans to
      extend support to all APIs.
- - extkeys and grandfathered tags
+ - extkeys and "grandfathered" tags (unfortunate language, but part of the spec)
      Mozilla does not support these yet.
 
 
@@ -428,6 +428,16 @@ the locales are packaged to allow for bundling applications with different
 sets of locales in different areas - dictionaries, hyphenations, product language resources,
 installer language resources, etc.
 
+Web Exposed Locales
+====================
+
+For anti-tracking or some other reasons, we tend to expose spoofed locale to web content instead
+of default locales. This can be done by setting the pref :js:`intl.locale.privacy.web_exposed`.
+The pref is a comma separated list of locale, and empty string implies default locales.
+
+The pref has no function while :js:`privacy.spoof_english` is set to 2, where *"en-US"* will always
+be returned.
+
 Multi-Process
 =============
 
@@ -440,6 +450,12 @@ may be used by, for example, GeckoView to follow locale selection from a parent
 process.
 
 To check the mode the process is operating in, the :js:`LocaleService::IsServer` method is available.
+
+Note that :js:`L10nRegistry.registerSources`, :js:`L10nRegistry.updateSources`, and
+:js:`L10nRegistry.removeSources` each trigger an IPC synchronization between the parent
+process and any extant content processes, which is expensive. If you need to change the
+registration of multiple sources, the best way to do so is to coalesce multiple requests
+into a single array and then call the method once.
 
 Mozilla Exceptions
 ==================
@@ -504,7 +520,7 @@ It may look like this:
       "resource://mock-addon/localization/ar/test.ftl": "key = Value in Arabic"
     };
 
-    L10nRegistry.registerSource(fs);
+    L10nRegistry.registerSources([fs]);
 
     let availableLocales = Services.locale.availableLocales;
 

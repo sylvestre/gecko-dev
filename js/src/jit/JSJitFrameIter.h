@@ -7,18 +7,21 @@
 #ifndef jit_JSJitFrameIter_h
 #define jit_JSJitFrameIter_h
 
+#include "mozilla/Maybe.h"
+
 #include "jstypes.h"
 
-#include "jit/IonCode.h"
+#include "jit/JitCode.h"
 #include "jit/Snapshots.h"
 #include "js/ProfilingFrameIterator.h"
 #include "vm/JSFunction.h"
 #include "vm/JSScript.h"
 
 namespace js {
-namespace jit {
 
-typedef void* CalleeToken;
+class ArgumentsObject;
+
+namespace jit {
 
 enum class FrameType {
   // A JS frame is analogous to a js::InterpreterFrame, representing one
@@ -26,7 +29,7 @@ enum class FrameType {
   // compiler.
   IonJS,
 
-  // JS frame used by the baseline JIT.
+  // JS frame used by the Baseline Interpreter and Baseline JIT.
   BaselineJS,
 
   // Frame pushed by Baseline stubs that make non-tail calls, so that the
@@ -82,8 +85,9 @@ class JitFrameLayout;
 class ExitFrameLayout;
 
 class BaselineFrame;
-
 class JitActivation;
+class SafepointIndex;
+class OsiIndex;
 
 // Iterate over the JIT stack to assert that all invariants are respected.
 //  - Check that all entry frames are aligned on JitStackAlignment.
@@ -103,8 +107,12 @@ class JSJitFrameIter {
  protected:
   uint8_t* current_;
   FrameType type_;
-  uint8_t* returnAddressToFp_;
+  uint8_t* resumePCinCurrentFrame_;
   size_t frameSize_;
+
+  // Size of the current Baseline frame. Equivalent to
+  // BaselineFrame::debugFrameSize_ in debug builds.
+  mozilla::Maybe<uint32_t> baselineFrameSize_;
 
  private:
   mutable const SafepointIndex* cachedSafepointIndex_;
@@ -121,11 +129,8 @@ class JSJitFrameIter {
   JSJitFrameIter(const JitActivation* activation, FrameType frameType,
                  uint8_t* fp);
 
-  // Used only by DebugModeOSRVolatileJitFrameIter.
-  void exchangeReturnAddressIfMatch(uint8_t* oldAddr, uint8_t* newAddr) {
-    if (returnAddressToFp_ == oldAddr) {
-      returnAddressToFp_ = newAddr;
-    }
+  void setResumePCInCurrentFrame(uint8_t* newAddr) {
+    resumePCinCurrentFrame_ = newAddr;
   }
 
   // Current frame information.
@@ -180,12 +185,13 @@ class JSJitFrameIter {
   JSFunction* maybeCallee() const;
   unsigned numActualArgs() const;
   JSScript* script() const;
+  JSScript* maybeForwardedScript() const;
   void baselineScriptAndPc(JSScript** scriptRes, jsbytecode** pcRes) const;
   Value* actualArgs() const;
 
-  // Returns the return address of the frame above this one (that is, the
-  // return address that returns back to the current frame).
-  uint8_t* returnAddressToFp() const { return returnAddressToFp_; }
+  // Returns the address of the next instruction that will execute in this
+  // frame, once control returns to this frame.
+  uint8_t* resumePCinCurrentFrame() const { return resumePCinCurrentFrame_; }
 
   // Previous frame information extracted from the current frame.
   inline size_t prevFrameLocalSize() const;
@@ -256,6 +262,10 @@ class JSJitFrameIter {
 
   inline BaselineFrame* baselineFrame() const;
 
+  // Returns the number of local and expression stack Values for the current
+  // Baseline frame.
+  inline uint32_t baselineFrameNumValueSlots() const;
+
   // This function isn't used, but we keep it here (debug-only) because it is
   // helpful when chasing issues with the jitcode map.
 #ifdef DEBUG
@@ -270,14 +280,13 @@ class JitcodeGlobalTable;
 class JSJitProfilingFrameIterator {
   uint8_t* fp_;
   FrameType type_;
-  void* returnAddressToFp_;
+  void* resumePCinCurrentFrame_;
 
-  inline JitFrameLayout* framePtr();
-  inline JSScript* frameScript();
+  inline JitFrameLayout* framePtr() const;
+  inline JSScript* frameScript() const;
   MOZ_MUST_USE bool tryInitWithPC(void* pc);
   MOZ_MUST_USE bool tryInitWithTable(JitcodeGlobalTable* table, void* pc,
                                      bool forLastCallSite);
-  void fixBaselineReturnAddress();
 
   void moveToCppEntryFrame();
   void moveToWasmFrame(CommonFrameLayout* frame);
@@ -290,6 +299,10 @@ class JSJitProfilingFrameIterator {
   void operator++();
   bool done() const { return fp_ == nullptr; }
 
+  const char* baselineInterpreterLabel() const;
+  void baselineInterpreterScriptPC(JSScript** script, jsbytecode** pc,
+                                   uint64_t* realmID) const;
+
   void* fp() const {
     MOZ_ASSERT(!done());
     return fp_;
@@ -299,9 +312,9 @@ class JSJitProfilingFrameIterator {
     MOZ_ASSERT(!done());
     return type_;
   }
-  void* returnAddressToFp() const {
+  void* resumePCinCurrentFrame() const {
     MOZ_ASSERT(!done());
-    return returnAddressToFp_;
+    return resumePCinCurrentFrame_;
   }
 };
 
@@ -706,7 +719,7 @@ class InlineFrameIterator {
       unsigned nformal = calleeTemplate()->nargs();
 
       // Get the non overflown arguments, which are taken from the inlined
-      // frame, because it will have the updated value when JSOP_SETARG is
+      // frame, because it will have the updated value when JSOp::SetArg is
       // done.
       if (behavior != ReadFrame_Overflown) {
         s.readFunctionFrameArgs(argOp, argsObj, thisv, 0, nformal, script(),

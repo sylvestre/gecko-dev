@@ -17,30 +17,36 @@
 struct ID3D11DeviceContext;
 struct ID3D11Device;
 struct ID3D11Query;
-struct IDCompositionDevice;
-struct IDCompositionTarget;
-struct IDCompositionVisual;
 struct IDXGIFactory2;
 struct IDXGISwapChain;
+struct IDXGISwapChain1;
 
 namespace mozilla {
+namespace gl {
+class GLLibraryEGL;
+}  // namespace gl
 
 namespace wr {
+
+class DCLayerTree;
 
 class RenderCompositorANGLE : public RenderCompositor {
  public:
   static UniquePtr<RenderCompositor> Create(
-      RefPtr<widget::CompositorWidget>&& aWidget);
+      RefPtr<widget::CompositorWidget>&& aWidget, nsACString& aError);
 
   explicit RenderCompositorANGLE(RefPtr<widget::CompositorWidget>&& aWidget);
   virtual ~RenderCompositorANGLE();
-  bool Initialize();
+  bool Initialize(nsACString& aError);
 
   bool BeginFrame() override;
-  void EndFrame() override;
-  void WaitForGPU() override;
+  RenderedFrameId EndFrame(const nsTArray<DeviceIntRect>& aDirtyRects) final;
+  bool WaitForGPU() override;
+  RenderedFrameId GetLastCompletedFrameId() final;
+  RenderedFrameId UpdateFrameId() final;
   void Pause() override;
   bool Resume() override;
+  void Update() override;
 
   gl::GLContext* gl() const override { return RenderThread::Get()->SharedGL(); }
 
@@ -48,39 +54,103 @@ class RenderCompositorANGLE : public RenderCompositor {
 
   bool UseANGLE() const override { return true; }
 
-  bool UseDComp() const override { return !!mCompositionDevice; }
+  bool UseDComp() const override { return !!mDCLayerTree; }
 
-  bool UseTripleBuffering() const { return mUseTripleBuffering; }
+  bool UseTripleBuffering() const override { return mUseTripleBuffering; }
+
+  layers::WebRenderCompositor CompositorType() const override {
+    if (UseDComp()) {
+      return layers::WebRenderCompositor::DIRECT_COMPOSITION;
+    }
+    return layers::WebRenderCompositor::DRAW;
+  }
 
   LayoutDeviceIntSize GetBufferSize() override;
 
+  bool IsContextLost() override;
+
+  bool SurfaceOriginIsTopLeft() override { return true; }
+
+  bool SupportAsyncScreenshot() override;
+
+  bool ShouldUseNativeCompositor() override;
+  uint32_t GetMaxUpdateRects() override;
+
+  // Interface for wr::Compositor
+  void CompositorBeginFrame() override;
+  void CompositorEndFrame() override;
+  void Bind(wr::NativeTileId aId, wr::DeviceIntPoint* aOffset, uint32_t* aFboId,
+            wr::DeviceIntRect aDirtyRect,
+            wr::DeviceIntRect aValidRect) override;
+  void Unbind() override;
+  void CreateSurface(wr::NativeSurfaceId aId, wr::DeviceIntPoint aVirtualOffset,
+                     wr::DeviceIntSize aTileSize, bool aIsOpaque) override;
+  void CreateExternalSurface(wr::NativeSurfaceId aId, bool aIsOpaque) override;
+  void DestroySurface(NativeSurfaceId aId) override;
+  void CreateTile(wr::NativeSurfaceId aId, int32_t aX, int32_t aY) override;
+  void DestroyTile(wr::NativeSurfaceId aId, int32_t aX, int32_t aY) override;
+  void AttachExternalImage(wr::NativeSurfaceId aId,
+                           wr::ExternalImageId aExternalImage) override;
+  void AddSurface(wr::NativeSurfaceId aId,
+                  const wr::CompositorSurfaceTransform& aTransform,
+                  wr::DeviceIntRect aClipRect,
+                  wr::ImageRendering aImageRendering) override;
+  void EnableNativeCompositor(bool aEnable) override;
+  CompositorCapabilities GetCompositorCapabilities() override;
+
+  // Interface for partial present
+  bool UsePartialPresent() override;
+  bool RequestFullRender() override;
+  uint32_t GetMaxPartialPresentRects() override;
+
+  bool MaybeReadback(const gfx::IntSize& aReadbackSize,
+                     const wr::ImageFormat& aReadbackFormat,
+                     const Range<uint8_t>& aReadbackBuffer,
+                     bool* aNeedsYFlip) override;
+
  protected:
-  void InsertPresentWaitQuery();
-  void WaitForPreviousPresentQuery();
+  bool UseCompositor();
+  void InitializeUsePartialPresent();
+  void InsertGraphicsCommandsFinishedWaitQuery(
+      RenderedFrameId aRenderedFrameId);
+  bool WaitForPreviousGraphicsCommandsFinishedQuery(bool aWaitAll = false);
   bool ResizeBufferIfNeeded();
+  bool CreateEGLSurface();
   void DestroyEGLSurface();
-  ID3D11Device* GetDeviceOfEGLDisplay();
+  ID3D11Device* GetDeviceOfEGLDisplay(nsACString& aError);
+  bool CreateSwapChain(nsACString& aError);
   void CreateSwapChainForDCompIfPossible(IDXGIFactory2* aDXGIFactory2);
-  bool SutdownEGLLibraryIfNecessary();
+  RefPtr<IDXGISwapChain1> CreateSwapChainForDComp(bool aUseTripleBuffering,
+                                                  bool aUseAlpha);
+  bool ShutdownEGLLibraryIfNecessary(nsACString& aError);
   RefPtr<ID3D11Query> GetD3D11Query();
+  void ReleaseNativeCompositorResources();
+  HWND GetCompositorHwnd();
 
   EGLConfig mEGLConfig;
   EGLSurface mEGLSurface;
 
-  int mUseTripleBuffering;
+  bool mUseTripleBuffering;
+  bool mUseAlpha;
 
   RefPtr<ID3D11Device> mDevice;
   RefPtr<ID3D11DeviceContext> mCtx;
   RefPtr<IDXGISwapChain> mSwapChain;
+  RefPtr<IDXGISwapChain1> mSwapChain1;
 
-  RefPtr<IDCompositionDevice> mCompositionDevice;
-  RefPtr<IDCompositionTarget> mCompositionTarget;
-  RefPtr<IDCompositionVisual> mVisual;
+  UniquePtr<DCLayerTree> mDCLayerTree;
 
-  std::queue<RefPtr<ID3D11Query>> mWaitForPresentQueries;
+  std::queue<std::pair<RenderedFrameId, RefPtr<ID3D11Query>>>
+      mWaitForPresentQueries;
   RefPtr<ID3D11Query> mRecycledQuery;
+  RenderedFrameId mLastCompletedFrameId;
 
   Maybe<LayoutDeviceIntSize> mBufferSize;
+  bool mUseNativeCompositor;
+  bool mUsePartialPresent;
+  bool mFullRender;
+  // Used to know a timing of disabling native compositor.
+  bool mDisablingNativeCompositor;
 };
 
 }  // namespace wr

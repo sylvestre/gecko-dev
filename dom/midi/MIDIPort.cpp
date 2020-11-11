@@ -5,6 +5,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "mozilla/dom/MIDIPort.h"
+#include "mozilla/dom/MIDIConnectionEvent.h"
 #include "mozilla/dom/MIDIPortChild.h"
 #include "mozilla/dom/MIDIAccess.h"
 #include "mozilla/dom/MIDITypes.h"
@@ -17,8 +18,7 @@
 
 using namespace mozilla::ipc;
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_IMPL_CYCLE_COLLECTION_INHERITED(MIDIPort, DOMEventTargetHelper,
                                    mOpeningPromise, mClosingPromise)
@@ -72,11 +72,6 @@ bool MIDIPort::Initialize(const MIDIPortInfo& aPortInfo, bool aSysexEnabled) {
 }
 
 void MIDIPort::UnsetIPCPort() { mPort = nullptr; }
-
-JSObject* MIDIPort::WrapObject(JSContext* aCx,
-                               JS::Handle<JSObject*> aGivenProto) {
-  return MIDIPort_Binding::Wrap(aCx, this, aGivenProto);
-}
 
 void MIDIPort::GetId(nsString& aRetVal) const {
   MOZ_ASSERT(mPort);
@@ -190,8 +185,8 @@ void MIDIPort::FireStateChangeEvent() {
 
   MIDIConnectionEventInit init;
   init.mPort = this;
-  RefPtr<MIDIConnectionEvent> event(MIDIConnectionEvent::Constructor(
-      this, NS_LITERAL_STRING("statechange"), init));
+  RefPtr<MIDIConnectionEvent> event(
+      MIDIConnectionEvent::Constructor(this, u"statechange"_ns, init));
   DispatchTrustedEvent(event);
 }
 
@@ -199,5 +194,4 @@ void MIDIPort::Receive(const nsTArray<MIDIMessage>& aMsg) {
   MOZ_CRASH("We should never get here!");
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

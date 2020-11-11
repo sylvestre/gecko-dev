@@ -28,7 +28,7 @@ add_task(async function setup() {
 const TEST_FOLDER_NAME = "Test folder";
 
 add_task(async function test_change_location_from_Toolbar() {
-  let newTabButton = document.getElementById("new-tab-button");
+  let newTabButton = document.getElementById("tabs-newtab-button");
 
   let children = [
     {
@@ -62,18 +62,24 @@ add_task(async function test_change_location_from_Toolbar() {
 
   let folder = getToolbarNodeForItemGuid(guid);
 
-  let loadedPromises = children.filter(item => "url" in item).map(
-    item => BrowserTestUtils.waitForNewTab(gBrowser, item.url, false, true));
+  let loadedPromises = children
+    .filter(item => "url" in item)
+    .map(item =>
+      BrowserTestUtils.waitForNewTab(gBrowser, item.url, false, true)
+    );
 
-  let srcX = 10, srcY = 10;
+  let srcX = 10,
+    srcY = 10;
   // We should drag upwards, since dragging downwards opens menu instead.
-  let stepX = 0, stepY = -5;
+  let stepX = 0,
+    stepY = -5;
 
   // We need to dispatch mousemove before dragging, to populate
   // PlacesToolbar._cachedMouseMoveEvent, with the cursor position after the
   // first step, so that the places code detects it as dragging upward.
-  EventUtils.synthesizeMouse(folder, srcX + stepX, srcY + stepY,
-                             { type: "mousemove" });
+  EventUtils.synthesizeMouse(folder, srcX + stepX, srcY + stepY, {
+    type: "mousemove",
+  });
 
   await EventUtils.synthesizePlainDragAndDrop({
     srcElement: folder,

@@ -120,7 +120,7 @@ namespace layers {
  * alternative of making mIndex a int32_t that can store -1, but then having
  * to cast to uint32_t all over the place.
  */
-class MOZ_STACK_CLASS LayerMetricsWrapper {
+class MOZ_STACK_CLASS LayerMetricsWrapper final {
  public:
   enum StartAt {
     TOP,
@@ -282,6 +282,12 @@ class MOZ_STACK_CLASS LayerMetricsWrapper {
     return false;
   }
 
+  bool Combines3DTransformWithAncestors() const {
+    MOZ_ASSERT(IsValid());
+
+    return mLayer->Combines3DTransformWithAncestors();
+  }
+
   EventRegions GetEventRegions() const {
     MOZ_ASSERT(IsValid());
 
@@ -301,6 +307,13 @@ class MOZ_STACK_CLASS LayerMetricsWrapper {
     return ViewAs<LayerPixel>(
         TransformBy(mLayer->GetTransformTyped(), mLayer->GetVisibleRegion()),
         PixelCastJustification::MovingDownToChildren);
+  }
+
+  LayerIntSize GetRemoteDocumentSize() const {
+    MOZ_ASSERT(IsValid());
+
+    return AsRefLayer() ? AsRefLayer()->GetRemoteDocumentSize()
+                        : LayerIntSize();
   }
 
   bool HasTransformAnimation() const {
@@ -365,8 +378,8 @@ class MOZ_STACK_CLASS LayerMetricsWrapper {
   EventRegionsOverride GetEventRegionsOverride() const {
     MOZ_ASSERT(IsValid());
 
-    if (mLayer->AsRefLayer()) {
-      return mLayer->AsRefLayer()->GetEventRegionsOverride();
+    if (AsRefLayer()) {
+      return AsRefLayer()->GetEventRegionsOverride();
     }
     return EventRegionsOverride::NoOverride;
   }
@@ -377,18 +390,77 @@ class MOZ_STACK_CLASS LayerMetricsWrapper {
     return mLayer->GetScrollbarData();
   }
 
-  uint64_t GetScrollbarAnimationId() const {
+  Maybe<uint64_t> GetScrollbarAnimationId() const {
     MOZ_ASSERT(IsValid());
     // This function is only really needed for template-compatibility with
     // WebRenderScrollDataWrapper. Although it will be called, the return
     // value is not used.
-    return 0;
+    return Nothing();
+  }
+
+  Maybe<uint64_t> GetFixedPositionAnimationId() const {
+    MOZ_ASSERT(IsValid());
+    // This function is only really needed for template-compatibility with
+    // WebRenderScrollDataWrapper. Although it will be called, the return
+    // value is not used.
+    return Nothing();
   }
 
   ScrollableLayerGuid::ViewID GetFixedPositionScrollContainerId() const {
     MOZ_ASSERT(IsValid());
 
-    return mLayer->GetFixedPositionScrollContainerId();
+    if (AtBottomLayer()) {
+      return mLayer->GetFixedPositionScrollContainerId();
+    }
+    return ScrollableLayerGuid::NULL_SCROLL_ID;
+  }
+
+  SideBits GetFixedPositionSides() const {
+    MOZ_ASSERT(IsValid());
+
+    if (AtBottomLayer()) {
+      return mLayer->GetFixedPositionSides();
+    }
+    return SideBits::eNone;
+  }
+
+  ScrollableLayerGuid::ViewID GetStickyScrollContainerId() const {
+    MOZ_ASSERT(IsValid());
+
+    if (AtBottomLayer() && mLayer->GetIsStickyPosition()) {
+      return mLayer->GetStickyScrollContainerId();
+    }
+    return ScrollableLayerGuid::NULL_SCROLL_ID;
+  }
+
+  const LayerRectAbsolute& GetStickyScrollRangeOuter() const {
+    MOZ_ASSERT(IsValid());
+
+    if (AtBottomLayer() && mLayer->GetIsStickyPosition()) {
+      return mLayer->GetStickyScrollRangeOuter();
+    }
+
+    static const LayerRectAbsolute empty;
+    return empty;
+  }
+
+  const LayerRectAbsolute& GetStickyScrollRangeInner() const {
+    MOZ_ASSERT(IsValid());
+
+    if (AtBottomLayer() && mLayer->GetIsStickyPosition()) {
+      return mLayer->GetStickyScrollRangeInner();
+    }
+
+    static const LayerRectAbsolute empty;
+    return empty;
+  }
+
+  Maybe<uint64_t> GetStickyPositionAnimationId() const {
+    MOZ_ASSERT(IsValid());
+    // This function is only really needed for template-compatibility with
+    // WebRenderScrollDataWrapper. Although it will be called, the return
+    // value is not used.
+    return Nothing();
   }
 
   Maybe<uint64_t> GetZoomAnimationId() const {
@@ -403,6 +475,12 @@ class MOZ_STACK_CLASS LayerMetricsWrapper {
     MOZ_ASSERT(IsValid());
 
     return mLayer->IsBackfaceHidden();
+  }
+
+  Maybe<ScrollableLayerGuid::ViewID> IsAsyncZoomContainer() const {
+    MOZ_ASSERT(IsValid());
+
+    return mLayer->IsAsyncZoomContainer();
   }
 
   // Expose an opaque pointer to the layer. Mostly used for printf

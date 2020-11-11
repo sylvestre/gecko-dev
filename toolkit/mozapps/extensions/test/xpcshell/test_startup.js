@@ -5,95 +5,36 @@
 // This verifies startup detection of added/removed/changed items and install
 // location priorities
 
-// Enable loading extensions from the user and system scopes
-Services.prefs.setIntPref("extensions.enabledScopes",
-                          AddonManager.SCOPE_PROFILE + AddonManager.SCOPE_USER +
-                          AddonManager.SCOPE_SYSTEM);
-
-function getID(n) { return `addon${n}@tests.mozilla.org`; }
-function initialVersion(n) { return `${n}.0`; }
+Services.prefs.setIntPref("extensions.autoDisableScopes", 0);
 
 const ID1 = getID(1);
 const ID2 = getID(2);
 const ID3 = getID(3);
 const ID4 = getID(4);
 
-createAppInfo("xpcshell@tests.mozilla.org", "XPCShell", "1", "1.9.2");
-
-const globalDir = gProfD.clone();
-globalDir.append("extensions2");
-globalDir.append(gAppInfo.ID);
-registerDirectory("XRESysSExtPD", globalDir.parent);
-
-const userDir = gProfD.clone();
-userDir.append("extensions3");
-userDir.append(gAppInfo.ID);
-registerDirectory("XREUSysExt", userDir.parent);
-
-const profileDir = gProfD.clone();
-profileDir.append("extensions");
-
-function check_startup_changes(aType, aIds) {
-  var ids = aIds.slice(0);
-  ids.sort();
-  var changes = AddonManager.getStartupChanges(aType);
-  changes = changes.filter(aEl => /@tests.mozilla.org$/.test(aEl));
-  changes.sort();
-
-  Assert.equal(JSON.stringify(ids), JSON.stringify(changes));
-}
-
-function promiseCacheInvalidated() {
-  return new Promise(resolve => {
-    let observer = () => {
-      Services.obs.removeObserver(observer, "startupcache-invalidate");
-      resolve();
-    };
-    Services.obs.addObserver(observer, "startupcache-invalidate");
-  });
-}
-
-function createWebExtension(id, version) {
+function createWebExtensionXPI(id, version) {
   return createTempWebExtensionFile({
     manifest: {
       version,
-      applications: {gecko: {id}},
+      applications: { gecko: { id } },
     },
   });
 }
 
-// Set up the profile
-add_task(async function setup() {
-  await promiseStartupManager();
-  check_startup_changes(AddonManager.STARTUP_CHANGE_INSTALLED, []);
-  check_startup_changes(AddonManager.STARTUP_CHANGE_CHANGED, []);
-  check_startup_changes(AddonManager.STARTUP_CHANGE_UNINSTALLED, []);
-  check_startup_changes(AddonManager.STARTUP_CHANGE_DISABLED, []);
-  check_startup_changes(AddonManager.STARTUP_CHANGE_ENABLED, []);
-
-  Assert.ok(!gExtensionsJSON.exists());
-
-  for (let n of [1, 2, 3]) {
-    let addon = await promiseAddonByID(getID(n));
-    Assert.equal(addon, null);
-    do_check_not_in_crash_annotation(getID(n), initialVersion(n));
-  }
-});
-
 // Try to install all the items into the profile
 add_task(async function test_scan_profile() {
+  await promiseStartupManager();
+
   let ids = [];
   for (let n of [1, 2, 3]) {
     let id = getID(n);
     ids.push(id);
-    let xpi = await createWebExtension(id, initialVersion(n));
-    xpi.copyTo(profileDir, `${id}.xpi`);
+    await createWebExtension(id, initialVersion(n), profileDir);
   }
 
-  await Promise.all([
-    promiseCacheInvalidated(),
-    promiseRestartManager(),
-  ]);
+  await promiseRestartManager();
+  let addons = await AddonManager.getAddonsByTypes(["extension"]);
+  Assert.equal(addons.length, 3, "addons installed");
 
   check_startup_changes(AddonManager.STARTUP_CHANGE_INSTALLED, ids);
   check_startup_changes(AddonManager.STARTUP_CHANGE_CHANGED, []);
@@ -125,31 +66,23 @@ add_task(async function test_scan_profile() {
 
   let extensionAddons = await AddonManager.getAddonsByTypes(["extension"]);
   Assert.equal(extensionAddons.length, 3);
+
+  await promiseShutdownManager();
 });
 
 // Test that modified items are detected and items in other install locations
 // are ignored
 add_task(async function test_modify() {
-  await promiseShutdownManager();
-
-  let xpi = await createWebExtension(ID1, "1.1");
-  xpi.copyTo(userDir, `${ID1}.xpi`);
-
-  xpi = await createWebExtension(ID2, "2.1");
-  xpi.copyTo(profileDir, `${ID2}.xpi`);
-
-  xpi = await createWebExtension(ID2, "2.2");
-  xpi.copyTo(globalDir, `${ID2}.xpi`);
-
-  xpi = await createWebExtension(ID2, "2.3");
-  xpi.copyTo(userDir, `${ID2}.xpi`);
+  await createWebExtension(ID1, "1.1", userDir);
+  await createWebExtension(ID2, "2.1", profileDir);
+  await createWebExtension(ID2, "2.2", globalDir);
+  await createWebExtension(ID2, "2.3", userDir);
 
   await OS.File.remove(OS.Path.join(profileDir.path, `${ID3}.xpi`));
 
-  await Promise.all([
-    promiseCacheInvalidated(),
-    promiseStartupManager(),
-  ]);
+  await promiseStartupManager();
+  let addons = await AddonManager.getAddonsByTypes(["extension"]);
+  Assert.equal(addons.length, 2, "addons installed");
 
   check_startup_changes(AddonManager.STARTUP_CHANGE_INSTALLED, []);
   check_startup_changes(AddonManager.STARTUP_CHANGE_CHANGED, [ID2]);
@@ -189,23 +122,22 @@ add_task(async function test_modify() {
   Assert.equal(a3, null);
   Assert.ok(!isExtensionInBootstrappedList(profileDir, ID3));
   do_check_not_in_crash_annotation(ID3, "3.0");
+
+  await promiseShutdownManager();
 });
 
 // Check that removing items from the profile reveals their hidden versions.
 add_task(async function test_reveal() {
-  await promiseShutdownManager();
-
   await OS.File.remove(OS.Path.join(profileDir.path, `${ID1}.xpi`));
   await OS.File.remove(OS.Path.join(profileDir.path, `${ID2}.xpi`));
 
   // XPI with wrong name (basename doesn't match the id)
-  let xpi = await createWebExtension(ID3, "3.0");
+  let xpi = await createWebExtensionXPI(ID3, "3.0");
   xpi.copyTo(profileDir, `${ID4}.xpi`);
 
-  await Promise.all([
-    promiseCacheInvalidated(),
-    promiseStartupManager(),
-  ]);
+  await promiseStartupManager();
+  let addons = await AddonManager.getAddonsByTypes(["extension"]);
+  Assert.equal(addons.length, 2, "addons installed");
 
   check_startup_changes(AddonManager.STARTUP_CHANGE_INSTALLED, []);
   check_startup_changes(AddonManager.STARTUP_CHANGE_CHANGED, [ID1, ID2]);
@@ -213,7 +145,12 @@ add_task(async function test_reveal() {
   check_startup_changes(AddonManager.STARTUP_CHANGE_DISABLED, []);
   check_startup_changes(AddonManager.STARTUP_CHANGE_ENABLED, []);
 
-  let [a1, a2, a3, a4] = await AddonManager.getAddonsByIDs([ID1, ID2, ID3, ID4]);
+  let [a1, a2, a3, a4] = await AddonManager.getAddonsByIDs([
+    ID1,
+    ID2,
+    ID3,
+    ID4,
+  ]);
 
   // Copy of addon1 in the per-user directory is now revealed.
   const VERSION1 = "1.1";
@@ -246,18 +183,24 @@ add_task(async function test_reveal() {
   Assert.equal(a4, null);
   Assert.ok(!isExtensionInBootstrappedList(profileDir, ID4));
 
-  let addon4Exists = await OS.File.exists(OS.Path.join(profileDir.path, `${ID4}.xpi`));
+  let addon4Exists = await OS.File.exists(
+    OS.Path.join(profileDir.path, `${ID4}.xpi`)
+  );
   Assert.ok(!addon4Exists, "Misnamed xpi should be removed from profile");
+
+  await promiseShutdownManager();
 });
 
 // Test that disabling an install location works
 add_task(async function test_disable_location() {
-  Services.prefs.setIntPref("extensions.enabledScopes", AddonManager.SCOPE_SYSTEM);
+  Services.prefs.setIntPref(
+    "extensions.enabledScopes",
+    AddonManager.SCOPE_SYSTEM
+  );
 
-  await Promise.all([
-    promiseCacheInvalidated(),
-    promiseRestartManager(),
-  ]);
+  await promiseStartupManager();
+  let addons = await AddonManager.getAddonsByTypes(["extension"]);
+  Assert.equal(addons.length, 1, "addons installed");
 
   check_startup_changes(AddonManager.STARTUP_CHANGE_INSTALLED, []);
   check_startup_changes(AddonManager.STARTUP_CHANGE_CHANGED, [ID2]);
@@ -282,16 +225,18 @@ add_task(async function test_disable_location() {
   Assert.ok(!hasFlag(a2.permissions, AddonManager.PERM_CAN_UPGRADE));
   do_check_in_crash_annotation(ID2, VERSION2);
   Assert.equal(a2.scope, AddonManager.SCOPE_SYSTEM);
+
+  await promiseShutdownManager();
 });
 
 // Switching disabled locations works
 add_task(async function test_disable_location2() {
-  Services.prefs.setIntPref("extensions.enabledScopes", AddonManager.SCOPE_USER);
+  Services.prefs.setIntPref(
+    "extensions.enabledScopes",
+    AddonManager.SCOPE_USER
+  );
 
-  await Promise.all([
-    promiseCacheInvalidated(),
-    promiseRestartManager(),
-  ]);
+  await promiseStartupManager();
 
   check_startup_changes(AddonManager.STARTUP_CHANGE_INSTALLED, [ID1]);
   check_startup_changes(AddonManager.STARTUP_CHANGE_CHANGED, [ID2]);
@@ -323,16 +268,15 @@ add_task(async function test_disable_location2() {
   Assert.ok(!hasFlag(a2.permissions, AddonManager.PERM_CAN_UPGRADE));
   do_check_in_crash_annotation(ID2, VERSION2);
   Assert.equal(a2.scope, AddonManager.SCOPE_USER);
+
+  await promiseShutdownManager();
 });
 
 // Resetting the pref makes everything visible again
 add_task(async function test_enable_location() {
   Services.prefs.clearUserPref("extensions.enabledScopes");
 
-  await Promise.all([
-    promiseCacheInvalidated(),
-    promiseRestartManager(),
-  ]);
+  await promiseStartupManager();
 
   check_startup_changes(AddonManager.STARTUP_CHANGE_INSTALLED, []);
   check_startup_changes(AddonManager.STARTUP_CHANGE_CHANGED, []);
@@ -364,22 +308,18 @@ add_task(async function test_enable_location() {
   Assert.ok(!hasFlag(a2.permissions, AddonManager.PERM_CAN_UPGRADE));
   do_check_in_crash_annotation(ID2, VERSION2);
   Assert.equal(a2.scope, AddonManager.SCOPE_USER);
+
+  await promiseShutdownManager();
 });
 
 // Check that items in the profile hide the others again.
 add_task(async function test_profile_hiding() {
-  await promiseShutdownManager();
-
   const VERSION1 = "1.2";
-  let xpi = await createWebExtension(ID1, VERSION1);
-  xpi.copyTo(profileDir, `${ID1}.xpi`);
+  await createWebExtension(ID1, VERSION1, profileDir);
 
   await OS.File.remove(OS.Path.join(userDir.path, `${ID2}.xpi`));
 
-  await Promise.all([
-    promiseCacheInvalidated(),
-    promiseStartupManager(),
-  ]);
+  await promiseStartupManager();
 
   check_startup_changes(AddonManager.STARTUP_CHANGE_INSTALLED, []);
   check_startup_changes(AddonManager.STARTUP_CHANGE_CHANGED, [ID1, ID2]);
@@ -413,20 +353,21 @@ add_task(async function test_profile_hiding() {
 
   Assert.equal(a3, null);
   Assert.ok(!isExtensionInBootstrappedList(profileDir, ID3));
+
+  await promiseShutdownManager();
 });
 
 // Disabling all locations still leaves the profile working
 add_task(async function test_disable3() {
   Services.prefs.setIntPref("extensions.enabledScopes", 0);
 
-  await Promise.all([
-    promiseCacheInvalidated(),
-    await promiseRestartManager(),
-  ]);
+  await promiseStartupManager();
 
   check_startup_changes(AddonManager.STARTUP_CHANGE_INSTALLED, []);
   check_startup_changes(AddonManager.STARTUP_CHANGE_CHANGED, []);
-  check_startup_changes(AddonManager.STARTUP_CHANGE_UNINSTALLED, ["addon2@tests.mozilla.org"]);
+  check_startup_changes(AddonManager.STARTUP_CHANGE_UNINSTALLED, [
+    "2@tests.mozilla.org",
+  ]);
   check_startup_changes(AddonManager.STARTUP_CHANGE_DISABLED, []);
   check_startup_changes(AddonManager.STARTUP_CHANGE_ENABLED, []);
 
@@ -447,27 +388,25 @@ add_task(async function test_disable3() {
   Assert.ok(!isExtensionInBootstrappedList(profileDir, ID2));
   Assert.ok(!isExtensionInBootstrappedList(userDir, ID2));
   Assert.ok(!isExtensionInBootstrappedList(globalDir, ID2));
+
+  await promiseShutdownManager();
 });
 
 // More hiding and revealing
 add_task(async function test_reval() {
   Services.prefs.clearUserPref("extensions.enabledScopes");
 
-  await promiseShutdownManager();
-
   await OS.File.remove(OS.Path.join(userDir.path, `${ID1}.xpi`));
   await OS.File.remove(OS.Path.join(globalDir.path, `${ID2}.xpi`));
 
   const VERSION2 = "2.4";
-  let xpi = createWebExtension(ID2, VERSION2);
-  xpi.copyTo(profileDir, `${ID2}.xpi`);
+  await createWebExtension(ID2, VERSION2, profileDir);
 
-  await Promise.all([
-    promiseCacheInvalidated(),
-    promiseStartupManager(),
+  await promiseStartupManager();
+
+  check_startup_changes(AddonManager.STARTUP_CHANGE_INSTALLED, [
+    "2@tests.mozilla.org",
   ]);
-
-  check_startup_changes(AddonManager.STARTUP_CHANGE_INSTALLED, ["addon2@tests.mozilla.org"]);
   check_startup_changes(AddonManager.STARTUP_CHANGE_CHANGED, []);
   check_startup_changes(AddonManager.STARTUP_CHANGE_UNINSTALLED, []);
   check_startup_changes(AddonManager.STARTUP_CHANGE_DISABLED, []);
@@ -496,22 +435,18 @@ add_task(async function test_reval() {
 
   Assert.equal(a3, null);
   Assert.ok(!isExtensionInBootstrappedList(profileDir, ID3));
+
+  await promiseShutdownManager();
 });
 
 // Checks that a removal from one location and an addition in another location
 // for the same item is handled
 add_task(async function test_move() {
-  await promiseShutdownManager();
-
   await OS.File.remove(OS.Path.join(profileDir.path, `${ID1}.xpi`));
   const VERSION1 = "1.3";
-  let xpi = createWebExtension(ID1, VERSION1);
-  xpi.copyTo(userDir, `${ID1}.xpi`);
+  await createWebExtension(ID1, VERSION1, userDir);
 
-  await Promise.all([
-    promiseCacheInvalidated(),
-    promiseStartupManager(),
-  ]);
+  await promiseStartupManager();
 
   check_startup_changes(AddonManager.STARTUP_CHANGE_INSTALLED, []);
   check_startup_changes(AddonManager.STARTUP_CHANGE_CHANGED, [ID1]);
@@ -540,19 +475,16 @@ add_task(async function test_move() {
   Assert.ok(hasFlag(a2.permissions, AddonManager.PERM_CAN_UNINSTALL));
   Assert.ok(hasFlag(a2.permissions, AddonManager.PERM_CAN_UPGRADE));
   Assert.equal(a2.scope, AddonManager.SCOPE_PROFILE);
+
+  await promiseShutdownManager();
 });
 
 // This should remove any remaining items
 add_task(async function test_remove() {
-  await promiseShutdownManager();
-
   await OS.File.remove(OS.Path.join(userDir.path, `${ID1}.xpi`));
   await OS.File.remove(OS.Path.join(profileDir.path, `${ID2}.xpi`));
 
-  await Promise.all([
-    promiseCacheInvalidated(),
-    promiseStartupManager(),
-  ]);
+  await promiseStartupManager();
 
   check_startup_changes(AddonManager.STARTUP_CHANGE_INSTALLED, []);
   check_startup_changes(AddonManager.STARTUP_CHANGE_CHANGED, []);
@@ -580,29 +512,31 @@ add_task(async function test_remove() {
   Assert.ok(!isExtensionInBootstrappedList(globalDir, ID3));
   Assert.ok(!isExtensionInBootstrappedList(globalDir, ID4));
   Assert.ok(!isExtensionInBootstrappedList(globalDir, ID4));
+
+  await promiseShutdownManager();
 });
 
 // Test that auto-disabling for specific scopes works
 add_task(async function test_autoDisable() {
-  Services.prefs.setIntPref("extensions.autoDisableScopes", AddonManager.SCOPE_USER);
-
-  await promiseShutdownManager();
+  Services.prefs.setIntPref(
+    "extensions.autoDisableScopes",
+    AddonManager.SCOPE_USER
+  );
 
   async function writeAll() {
-    let xpi = await createWebExtension(ID1, "1.0");
-    xpi.copyTo(profileDir, `${ID1}.xpi`);
-
-    xpi = await createWebExtension(ID2, "2.0");
-    xpi.copyTo(userDir, `${ID2}.xpi`);
-
-    xpi = await createWebExtension(ID3, "3.0");
-    xpi.copyTo(globalDir, `${ID3}.xpi`);
+    return Promise.all([
+      createWebExtension(ID1, "1.0", profileDir),
+      createWebExtension(ID2, "2.0", userDir),
+      createWebExtension(ID3, "3.0", globalDir),
+    ]);
   }
 
   async function removeAll() {
-    await OS.File.remove(OS.Path.join(profileDir.path, `${ID1}.xpi`));
-    await OS.File.remove(OS.Path.join(userDir.path, `${ID2}.xpi`));
-    await OS.File.remove(OS.Path.join(globalDir.path, `${ID3}.xpi`));
+    return Promise.all([
+      OS.File.remove(OS.Path.join(profileDir.path, `${ID1}.xpi`)),
+      OS.File.remove(OS.Path.join(userDir.path, `${ID2}.xpi`)),
+      OS.File.remove(OS.Path.join(globalDir.path, `${ID3}.xpi`)),
+    ]);
   }
 
   await writeAll();
@@ -632,7 +566,10 @@ add_task(async function test_autoDisable() {
   await promiseStartupManager();
   await promiseShutdownManager();
 
-  Services.prefs.setIntPref("extensions.autoDisableScopes", AddonManager.SCOPE_SYSTEM);
+  Services.prefs.setIntPref(
+    "extensions.autoDisableScopes",
+    AddonManager.SCOPE_SYSTEM
+  );
 
   await writeAll();
 
@@ -661,7 +598,10 @@ add_task(async function test_autoDisable() {
   await promiseStartupManager();
   await promiseShutdownManager();
 
-  Services.prefs.setIntPref("extensions.autoDisableScopes", AddonManager.SCOPE_USER + AddonManager.SCOPE_SYSTEM);
+  Services.prefs.setIntPref(
+    "extensions.autoDisableScopes",
+    AddonManager.SCOPE_USER + AddonManager.SCOPE_SYSTEM
+  );
 
   await writeAll();
 

@@ -13,6 +13,7 @@
 #include "MP4Decoder.h"
 #include "prsystem.h"
 #include "VPXDecoder.h"
+#include "VideoUtils.h"
 
 namespace mozilla {
 
@@ -25,13 +26,12 @@ static bool IsOnGMPThread() {
   nsCOMPtr<nsIThread> gmpThread;
   nsresult rv = mps->GetThread(getter_AddRefs(gmpThread));
   MOZ_ASSERT(NS_SUCCEEDED(rv) && gmpThread);
-  return gmpThread->EventTarget()->IsOnCurrentThread();
+  return gmpThread->IsOnCurrentThread();
 }
 #endif
 
 GMPVideoDecoderParams::GMPVideoDecoderParams(const CreateDecoderParams& aParams)
     : mConfig(aParams.VideoConfig()),
-      mTaskQueue(aParams.mTaskQueue),
       mImageContainer(aParams.mImageContainer),
       mLayersBackend(aParams.GetLayersBackend()),
       mCrashHelper(aParams.mCrashHelper) {}
@@ -52,9 +52,11 @@ void GMPVideoDecoder::Decoded(GMPVideoi420Frame* aDecodedFrame) {
       b.mPlanes[i].mWidth = (decodedFrame->Width() + 1) / 2;
       b.mPlanes[i].mHeight = (decodedFrame->Height() + 1) / 2;
     }
-    b.mPlanes[i].mOffset = 0;
     b.mPlanes[i].mSkip = 0;
   }
+
+  b.mYUVColorSpace =
+      DefaultColorSpace({decodedFrame->Width(), decodedFrame->Height()});
 
   gfx::IntRect pictureRegion(0, 0, decodedFrame->Width(),
                              decodedFrame->Height());
@@ -125,11 +127,11 @@ GMPVideoDecoder::GMPVideoDecoder(const GMPVideoDecoderParams& aParams)
 
 void GMPVideoDecoder::InitTags(nsTArray<nsCString>& aTags) {
   if (MP4Decoder::IsH264(mConfig.mMimeType)) {
-    aTags.AppendElement(NS_LITERAL_CSTRING("h264"));
+    aTags.AppendElement("h264"_ns);
   } else if (VPXDecoder::IsVP8(mConfig.mMimeType)) {
-    aTags.AppendElement(NS_LITERAL_CSTRING("vp8"));
+    aTags.AppendElement("vp8"_ns);
   } else if (VPXDecoder::IsVP9(mConfig.mMimeType)) {
-    aTags.AppendElement(NS_LITERAL_CSTRING("vp9"));
+    aTags.AppendElement("vp9"_ns);
   }
 }
 

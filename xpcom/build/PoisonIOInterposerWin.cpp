@@ -15,19 +15,20 @@
 #include <winternl.h>
 
 #include "mozilla/Assertions.h"
+#include "mozilla/ClearOnShutdown.h"
 #include "mozilla/FileUtilsWin.h"
 #include "mozilla/IOInterposer.h"
 #include "mozilla/Mutex.h"
+#include "mozilla/SmallArrayLRUCache.h"
 #include "mozilla/TimeStamp.h"
+#include "mozilla/UniquePtr.h"
 #include "nsTArray.h"
 #include "nsWindowsDllInterceptor.h"
 #include "plstr.h"
 
 #ifdef MOZ_REPLACE_MALLOC
-#include "replace_malloc_bridge.h"
+#  include "replace_malloc_bridge.h"
 #endif
-
-using namespace mozilla;
 
 namespace {
 
@@ -107,45 +108,77 @@ typedef NTSTATUS(NTAPI* NtQueryFullAttributesFileFn)(
 
 /*************************** Auxiliary Declarations ***************************/
 
+// Cache of filenames associated with handles.
+// `static` to be shared between all calls to `Filename()`.
+// This assumes handles are not reused, at least within a windows of 32
+// handles.
+// Profiling showed that during startup, around half of `Filename()` calls are
+// resolved with the first entry (best case), and 32 entries cover >95% of
+// cases, reducing the average `Filename()` cost by 5-10x.
+using HandleToFilenameCache = mozilla::SmallArrayLRUCache<HANDLE, nsString, 32>;
+static mozilla::UniquePtr<HandleToFilenameCache> sHandleToFilenameCache;
+
 /**
  * RAII class for timing the duration of an I/O call and reporting the result
- * to the IOInterposeObserver API.
+ * to the mozilla::IOInterposeObserver API.
  */
-class WinIOAutoObservation : public IOInterposeObserver::Observation {
+class WinIOAutoObservation : public mozilla::IOInterposeObserver::Observation {
  public:
-  WinIOAutoObservation(IOInterposeObserver::Operation aOp, HANDLE aFileHandle,
-                       const LARGE_INTEGER* aOffset)
-      : IOInterposeObserver::Observation(
+  WinIOAutoObservation(mozilla::IOInterposeObserver::Operation aOp,
+                       HANDLE aFileHandle, const LARGE_INTEGER* aOffset)
+      : mozilla::IOInterposeObserver::Observation(
             aOp, sReference,
-            !IsDebugFile(reinterpret_cast<intptr_t>(aFileHandle))),
+            !mozilla::IsDebugFile(reinterpret_cast<intptr_t>(aFileHandle))),
         mFileHandle(aFileHandle),
+        mFileHandleType(GetFileType(aFileHandle)),
         mHasQueriedFilename(false) {
     if (mShouldReport) {
       mOffset.QuadPart = aOffset ? aOffset->QuadPart : 0;
     }
   }
 
-  WinIOAutoObservation(IOInterposeObserver::Operation aOp, nsAString& aFilename)
-      : IOInterposeObserver::Observation(aOp, sReference),
+  WinIOAutoObservation(mozilla::IOInterposeObserver::Operation aOp,
+                       nsAString& aFilename)
+      : mozilla::IOInterposeObserver::Observation(aOp, sReference),
         mFileHandle(nullptr),
+        mFileHandleType(FILE_TYPE_UNKNOWN),
         mHasQueriedFilename(false) {
     if (mShouldReport) {
       nsAutoString dosPath;
-      if (NtPathToDosPath(aFilename, dosPath)) {
+      if (mozilla::NtPathToDosPath(aFilename, dosPath)) {
         mFilename = dosPath;
-        mHasQueriedFilename = true;
+      } else {
+        // If we can't get a dosPath, what we have is better than nothing.
+        mFilename = aFilename;
       }
+      mHasQueriedFilename = true;
       mOffset.QuadPart = 0;
     }
   }
 
-  // Custom implementation of IOInterposeObserver::Observation::Filename
+  void SetHandle(HANDLE aFileHandle) {
+    mFileHandle = aFileHandle;
+    if (aFileHandle) {
+      // Note: `GetFileType()` is fast enough that we don't need to cache it.
+      mFileHandleType = GetFileType(aFileHandle);
+
+      if (mHasQueriedFilename) {
+        // `mHasQueriedFilename` indicates we already have a filename, add it to
+        // the cache with the now-known handle.
+        sHandleToFilenameCache->Add(aFileHandle, mFilename);
+      }
+    }
+  }
+
+  const char* FileType() const override;
+
   void Filename(nsAString& aFilename) override;
 
   ~WinIOAutoObservation() { Report(); }
 
  private:
   HANDLE mFileHandle;
+  DWORD mFileHandleType;
   LARGE_INTEGER mOffset;
   bool mHasQueriedFilename;
   nsString mFilename;
@@ -160,31 +193,61 @@ void WinIOAutoObservation::Filename(nsAString& aFilename) {
   // mFilename
   if (mHasQueriedFilename) {
     aFilename = mFilename;
+    return;
   }
 
-  nsAutoString filename;
-  if (HandleToFilename(mFileHandle, mOffset, filename)) {
-    mFilename = filename;
+  if (mFileHandle) {
+    mFilename = sHandleToFilenameCache->FetchOrAdd(mFileHandle, [&]() {
+      nsString filename;
+      if (!mozilla::HandleToFilename(mFileHandle, mOffset, filename)) {
+        // HandleToFilename could fail (return false) but still have added
+        // something to `filename`, so it should be cleared in this case.
+        filename.Truncate();
+      }
+      return filename;
+    });
   }
   mHasQueriedFilename = true;
 
   aFilename = mFilename;
 }
 
+const char* WinIOAutoObservation::FileType() const {
+  if (mFileHandle) {
+    switch (mFileHandleType) {
+      case FILE_TYPE_CHAR:
+        return "Char";
+      case FILE_TYPE_DISK:
+        return "File";
+      case FILE_TYPE_PIPE:
+        return "Pipe";
+      case FILE_TYPE_REMOTE:
+        return "Remote";
+      case FILE_TYPE_UNKNOWN:
+      default:
+        break;
+    }
+  }
+  // Fallback to base class default implementation.
+  return mozilla::IOInterposeObserver::Observation::FileType();
+}
+
 /*************************** IO Interposing Methods ***************************/
 
 // Function pointers to original functions
-static WindowsDllInterceptor::FuncHookType<NtCreateFileFn>
+static mozilla::WindowsDllInterceptor::FuncHookType<NtCreateFileFn>
     gOriginalNtCreateFile;
-static WindowsDllInterceptor::FuncHookType<NtReadFileFn> gOriginalNtReadFile;
-static WindowsDllInterceptor::FuncHookType<NtReadFileScatterFn>
+static mozilla::WindowsDllInterceptor::FuncHookType<NtReadFileFn>
+    gOriginalNtReadFile;
+static mozilla::WindowsDllInterceptor::FuncHookType<NtReadFileScatterFn>
     gOriginalNtReadFileScatter;
-static WindowsDllInterceptor::FuncHookType<NtWriteFileFn> gOriginalNtWriteFile;
-static WindowsDllInterceptor::FuncHookType<NtWriteFileGatherFn>
+static mozilla::WindowsDllInterceptor::FuncHookType<NtWriteFileFn>
+    gOriginalNtWriteFile;
+static mozilla::WindowsDllInterceptor::FuncHookType<NtWriteFileGatherFn>
     gOriginalNtWriteFileGather;
-static WindowsDllInterceptor::FuncHookType<NtFlushBuffersFileFn>
+static mozilla::WindowsDllInterceptor::FuncHookType<NtFlushBuffersFileFn>
     gOriginalNtFlushBuffersFile;
-static WindowsDllInterceptor::FuncHookType<NtQueryFullAttributesFileFn>
+static mozilla::WindowsDllInterceptor::FuncHookType<NtQueryFullAttributesFileFn>
     gOriginalNtQueryFullAttributesFile;
 
 static NTSTATUS NTAPI InterposedNtCreateFile(
@@ -200,16 +263,21 @@ static NTSTATUS NTAPI InterposedNtCreateFile(
                      ? aObjectAttributes->ObjectName->Length / sizeof(WCHAR)
                      : 0;
   nsDependentSubstring filename(buf, len);
-  WinIOAutoObservation timer(IOInterposeObserver::OpCreateOrOpen, filename);
+  WinIOAutoObservation timer(mozilla::IOInterposeObserver::OpCreateOrOpen,
+                             filename);
 
   // Something is badly wrong if this function is undefined
   MOZ_ASSERT(gOriginalNtCreateFile);
 
   // Execute original function
-  return gOriginalNtCreateFile(aFileHandle, aDesiredAccess, aObjectAttributes,
-                               aIoStatusBlock, aAllocationSize, aFileAttributes,
-                               aShareAccess, aCreateDisposition, aCreateOptions,
-                               aEaBuffer, aEaLength);
+  NTSTATUS status = gOriginalNtCreateFile(
+      aFileHandle, aDesiredAccess, aObjectAttributes, aIoStatusBlock,
+      aAllocationSize, aFileAttributes, aShareAccess, aCreateDisposition,
+      aCreateOptions, aEaBuffer, aEaLength);
+  if (NT_SUCCESS(status) && aFileHandle) {
+    timer.SetHandle(*aFileHandle);
+  }
+  return status;
 }
 
 static NTSTATUS NTAPI InterposedNtReadFile(HANDLE aFileHandle, HANDLE aEvent,
@@ -219,7 +287,8 @@ static NTSTATUS NTAPI InterposedNtReadFile(HANDLE aFileHandle, HANDLE aEvent,
                                            PLARGE_INTEGER aOffset,
                                            PULONG aKey) {
   // Report IO
-  WinIOAutoObservation timer(IOInterposeObserver::OpRead, aFileHandle, aOffset);
+  WinIOAutoObservation timer(mozilla::IOInterposeObserver::OpRead, aFileHandle,
+                             aOffset);
 
   // Something is badly wrong if this function is undefined
   MOZ_ASSERT(gOriginalNtReadFile);
@@ -234,7 +303,8 @@ static NTSTATUS NTAPI InterposedNtReadFileScatter(
     PIO_STATUS_BLOCK aIoStatus, FILE_SEGMENT_ELEMENT* aSegments, ULONG aLength,
     PLARGE_INTEGER aOffset, PULONG aKey) {
   // Report IO
-  WinIOAutoObservation timer(IOInterposeObserver::OpRead, aFileHandle, aOffset);
+  WinIOAutoObservation timer(mozilla::IOInterposeObserver::OpRead, aFileHandle,
+                             aOffset);
 
   // Something is badly wrong if this function is undefined
   MOZ_ASSERT(gOriginalNtReadFileScatter);
@@ -253,7 +323,7 @@ static NTSTATUS NTAPI InterposedNtWriteFile(HANDLE aFileHandle, HANDLE aEvent,
                                             PLARGE_INTEGER aOffset,
                                             PULONG aKey) {
   // Report IO
-  WinIOAutoObservation timer(IOInterposeObserver::OpWrite, aFileHandle,
+  WinIOAutoObservation timer(mozilla::IOInterposeObserver::OpWrite, aFileHandle,
                              aOffset);
 
   // Something is badly wrong if this function is undefined
@@ -270,7 +340,7 @@ static NTSTATUS NTAPI InterposedNtWriteFileGather(
     PIO_STATUS_BLOCK aIoStatus, FILE_SEGMENT_ELEMENT* aSegments, ULONG aLength,
     PLARGE_INTEGER aOffset, PULONG aKey) {
   // Report IO
-  WinIOAutoObservation timer(IOInterposeObserver::OpWrite, aFileHandle,
+  WinIOAutoObservation timer(mozilla::IOInterposeObserver::OpWrite, aFileHandle,
                              aOffset);
 
   // Something is badly wrong if this function is undefined
@@ -285,7 +355,7 @@ static NTSTATUS NTAPI InterposedNtWriteFileGather(
 static NTSTATUS NTAPI InterposedNtFlushBuffersFile(
     HANDLE aFileHandle, PIO_STATUS_BLOCK aIoStatusBlock) {
   // Report IO
-  WinIOAutoObservation timer(IOInterposeObserver::OpFSync, aFileHandle,
+  WinIOAutoObservation timer(mozilla::IOInterposeObserver::OpFSync, aFileHandle,
                              nullptr);
 
   // Something is badly wrong if this function is undefined
@@ -305,7 +375,7 @@ static NTSTATUS NTAPI InterposedNtQueryFullAttributesFile(
                      ? aObjectAttributes->ObjectName->Length / sizeof(WCHAR)
                      : 0;
   nsDependentSubstring filename(buf, len);
-  WinIOAutoObservation timer(IOInterposeObserver::OpStat, filename);
+  WinIOAutoObservation timer(mozilla::IOInterposeObserver::OpStat, filename);
 
   // Something is badly wrong if this function is undefined
   MOZ_ASSERT(gOriginalNtQueryFullAttributesFile);
@@ -320,7 +390,7 @@ static NTSTATUS NTAPI InterposedNtQueryFullAttributesFile(
 /******************************** IO Poisoning ********************************/
 
 // Windows DLL interceptor
-static WindowsDllInterceptor sNtDllInterceptor;
+static mozilla::WindowsDllInterceptor sNtDllInterceptor;
 
 namespace mozilla {
 
@@ -332,6 +402,16 @@ void InitPoisonIOInterposer() {
     return;
   }
   sIOPoisoned = true;
+
+  MOZ_RELEASE_ASSERT(!sHandleToFilenameCache);
+  sHandleToFilenameCache = mozilla::MakeUnique<HandleToFilenameCache>();
+  mozilla::RunOnShutdown([]() {
+    // The interposer may still be active after the final shutdown phase
+    // (especially since ClearPoisonIOInterposer() is never called, see bug
+    // 1647107), so we cannot just reset the pointer. Instead we put the cache
+    // in shutdown mode, to clear its memory and stop caching operations.
+    sHandleToFilenameCache->Shutdown();
+  });
 
   // Stdout and Stderr are OK.
   MozillaRegisterDebugFD(1);
@@ -365,11 +445,12 @@ void InitPoisonIOInterposer() {
 }
 
 void ClearPoisonIOInterposer() {
-  MOZ_ASSERT(false);
+  MOZ_ASSERT(false, "Never called! See bug 1647107");
   if (sIOPoisoned) {
     // Destroy the DLL interceptor
     sIOPoisoned = false;
     sNtDllInterceptor.Clear();
+    sHandleToFilenameCache->Clear();
   }
 }
 

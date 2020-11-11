@@ -17,6 +17,10 @@
 #include "vm/SavedFrame.h"
 #include "vm/Stack.h"
 
+namespace JS {
+enum class SavedFrameSelfHosted;
+}
+
 namespace js {
 
 // # Saved Stacks
@@ -168,7 +172,7 @@ class SavedStacks {
                                    HandleString asyncCause,
                                    MutableHandleSavedFrame adoptedStack,
                                    const mozilla::Maybe<size_t>& maxFrameCount);
-  void sweep();
+  void traceWeak(JSTracer* trc);
   void trace(JSTracer* trc);
   uint32_t count();
   void clear();
@@ -203,13 +207,9 @@ class SavedStacks {
   // reentrancy, just change the behavior of SavedStacks::saveCurrentStack to
   // return a nullptr SavedFrame.
   struct MOZ_RAII AutoReentrancyGuard {
-    MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER;
     SavedStacks& stacks;
 
-    explicit AutoReentrancyGuard(
-        SavedStacks& stacks MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
-        : stacks(stacks) {
-      MOZ_GUARD_OBJECT_NOTIFIER_INIT;
+    explicit AutoReentrancyGuard(SavedStacks& stacks) : stacks(stacks) {
       stacks.creatingSavedFrame = true;
     }
 
@@ -221,12 +221,13 @@ class SavedStacks {
   MOZ_MUST_USE bool adoptAsyncStack(
       JSContext* cx, MutableHandleSavedFrame asyncStack, HandleAtom asyncCause,
       const mozilla::Maybe<size_t>& maxFrameCount);
-  MOZ_MUST_USE bool checkForEvalInFramePrev(JSContext* cx,
-                                            SavedFrame::HandleLookup lookup);
+  MOZ_MUST_USE bool checkForEvalInFramePrev(
+      JSContext* cx, MutableHandle<SavedFrame::Lookup> lookup);
   SavedFrame* getOrCreateSavedFrame(JSContext* cx,
-                                    SavedFrame::HandleLookup lookup);
+                                    Handle<SavedFrame::Lookup> lookup);
   SavedFrame* createFrameFromLookup(JSContext* cx,
-                                    SavedFrame::HandleLookup lookup);
+                                    Handle<SavedFrame::Lookup> lookup);
+  void setSamplingProbability(double probability);
 
   // Cache for memoizing PCToLineNumber lookups.
 
@@ -238,29 +239,31 @@ class SavedStacks {
 
     void trace(JSTracer* trc) { /* PCKey is weak. */
     }
-    bool needsSweep() { return IsAboutToBeFinalized(&script); }
+    bool traceWeak(JSTracer* trc) {
+      return TraceWeakEdge(trc, &script, "traceWeak");
+    }
   };
 
  public:
   struct LocationValue {
-    LocationValue() : source(nullptr), line(0), column(0) {}
-    LocationValue(JSAtom* source, size_t line, uint32_t column)
-        : source(source), line(line), column(column) {}
+    LocationValue() : source(nullptr), sourceId(0), line(0), column(0) {}
+    LocationValue(JSAtom* source, uint32_t sourceId, size_t line,
+                  uint32_t column)
+        : source(source), sourceId(sourceId), line(line), column(column) {}
 
     void trace(JSTracer* trc) {
       TraceNullableEdge(trc, &source, "SavedStacks::LocationValue::source");
     }
 
-    bool needsSweep() {
-      // LocationValue is always held strongly, but in a weak map.
-      // Assert that it has been marked already, but allow it to be
-      // ejected from the map when the key dies.
+    bool traceWeak(JSTracer* trc) {
       MOZ_ASSERT(source);
-      MOZ_ASSERT(!IsAboutToBeFinalized(&source));
-      return true;
+      // TODO: Bug 1501334: IsAboutToBeFinalized doesn't work for atoms.
+      // Otherwise we should assert TraceWeakEdge always returns true;
+      return TraceWeakEdge(trc, &source, "traceWeak");
     }
 
     HeapPtr<JSAtom*> source;
+    uint32_t sourceId;
     size_t line;
     uint32_t column;
   };
@@ -299,6 +302,7 @@ class SavedStacks {
 template <typename Wrapper>
 struct WrappedPtrOperations<SavedStacks::LocationValue, Wrapper> {
   JSAtom* source() const { return loc().source; }
+  uint32_t sourceId() const { return loc().sourceId; }
   size_t line() const { return loc().line; }
   uint32_t column() const { return loc().column; }
 
@@ -312,6 +316,7 @@ template <typename Wrapper>
 struct MutableWrappedPtrOperations<SavedStacks::LocationValue, Wrapper>
     : public WrappedPtrOperations<SavedStacks::LocationValue, Wrapper> {
   void setSource(JSAtom* v) { loc().source = v; }
+  void setSourceId(uint32_t v) { loc().sourceId = v; }
   void setLine(size_t v) { loc().line = v; }
   void setColumn(uint32_t v) { loc().column = v; }
 
@@ -325,6 +330,11 @@ JS::UniqueChars BuildUTF8StackString(JSContext* cx, JSPrincipals* principals,
                                      HandleObject stack);
 
 uint32_t FixupColumnForDisplay(uint32_t column);
+
+js::SavedFrame* UnwrapSavedFrame(JSContext* cx, JSPrincipals* principals,
+                                 HandleObject obj,
+                                 JS::SavedFrameSelfHosted selfHosted,
+                                 bool& skippedAsync);
 
 } /* namespace js */
 

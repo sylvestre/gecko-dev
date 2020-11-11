@@ -8,8 +8,6 @@
 #include "IPCStreamSource.h"
 
 #include "mozilla/Unused.h"
-#include "mozilla/dom/nsIContentChild.h"
-#include "mozilla/ipc/PBackgroundChild.h"
 #include "mozilla/ipc/PChildToParentStreamChild.h"
 #include "mozilla/ipc/PParentToChildStreamChild.h"
 
@@ -66,29 +64,10 @@ class IPCStreamSourceChild final : public PChildToParentStreamChild,
 
 }  // anonymous namespace
 
-/* static */ PChildToParentStreamChild* IPCStreamSource::Create(
-    nsIAsyncInputStream* aInputStream, dom::nsIContentChild* aManager) {
-  MOZ_ASSERT(aInputStream);
-  MOZ_ASSERT(aManager);
-
-  // PContent can only be used on the main thread
-  MOZ_ASSERT(NS_IsMainThread());
-
-  IPCStreamSourceChild* source = IPCStreamSourceChild::Create(aInputStream);
-  if (!source) {
-    return nullptr;
-  }
-
-  if (!aManager->SendPChildToParentStreamConstructor(source)) {
-    return nullptr;
-  }
-
-  source->ActorConstructed();
-  return source;
-}
-
-/* static */ PChildToParentStreamChild* IPCStreamSource::Create(
-    nsIAsyncInputStream* aInputStream, PBackgroundChild* aManager) {
+/* static */
+PChildToParentStreamChild* IPCStreamSource::Create(
+    nsIAsyncInputStream* aInputStream,
+    ChildToParentStreamActorManager* aManager) {
   MOZ_ASSERT(aInputStream);
   MOZ_ASSERT(aManager);
 
@@ -105,8 +84,8 @@ class IPCStreamSourceChild final : public PChildToParentStreamChild,
   return source;
 }
 
-/* static */ IPCStreamSource* IPCStreamSource::Cast(
-    PChildToParentStreamChild* aActor) {
+/* static */
+IPCStreamSource* IPCStreamSource::Cast(PChildToParentStreamChild* aActor) {
   MOZ_ASSERT(aActor);
   return static_cast<IPCStreamSourceChild*>(aActor);
 }
@@ -121,7 +100,7 @@ class IPCStreamDestinationChild final : public PParentToChildStreamChild,
  public:
   nsresult Initialize() { return IPCStreamDestination::Initialize(); }
 
-  ~IPCStreamDestinationChild() {}
+  ~IPCStreamDestinationChild() = default;
 
  private:
   // PParentToChildStreamChild methods
@@ -167,7 +146,8 @@ void DeallocPParentToChildStreamChild(PParentToChildStreamChild* aActor) {
   delete aActor;
 }
 
-/* static */ IPCStreamDestination* IPCStreamDestination::Cast(
+/* static */
+IPCStreamDestination* IPCStreamDestination::Cast(
     PParentToChildStreamChild* aActor) {
   MOZ_ASSERT(aActor);
   return static_cast<IPCStreamDestinationChild*>(aActor);

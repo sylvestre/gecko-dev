@@ -6,10 +6,9 @@
 
 #include "PerformanceWorker.h"
 #include "mozilla/dom/WorkerPrivate.h"
-#include "mozilla/StaticPrefs.h"
+#include "mozilla/StaticPrefs_dom.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 PerformanceWorker::PerformanceWorker(WorkerPrivate* aWorkerPrivate)
     : Performance(aWorkerPrivate->UsesSystemPrincipal()),
@@ -46,5 +45,8 @@ uint64_t PerformanceWorker::GetRandomTimelineSeed() {
   return mWorkerPrivate->GetRandomTimelineSeed();
 }
 
-}  // namespace dom
-}  // namespace mozilla
+bool PerformanceWorker::CrossOriginIsolated() const {
+  return mWorkerPrivate->CrossOriginIsolated();
+}
+
+}  // namespace mozilla::dom

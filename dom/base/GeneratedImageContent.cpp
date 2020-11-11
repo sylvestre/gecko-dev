@@ -8,23 +8,24 @@
 
 #include "nsContentCreatorFunctions.h"
 #include "nsGkAtoms.h"
-#include "nsIDocument.h"
+#include "mozilla/dom/Document.h"
 #include "nsNodeInfoManager.h"
 #include "mozilla/dom/HTMLElementBinding.h"
 #include "mozilla/dom/NameSpaceConstants.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_IMPL_ELEMENT_CLONE(GeneratedImageContent);
 
 already_AddRefed<GeneratedImageContent> GeneratedImageContent::Create(
-    nsIDocument& aDocument, uint32_t aContentIndex) {
+    Document& aDocument, uint32_t aContentIndex) {
   RefPtr<dom::NodeInfo> nodeInfo = aDocument.NodeInfoManager()->GetNodeInfo(
       nsGkAtoms::mozgeneratedcontentimage, nullptr, kNameSpaceID_XHTML,
       nsINode::ELEMENT_NODE);
 
-  auto image = MakeRefPtr<GeneratedImageContent>(nodeInfo.forget());
+  auto* nim = nodeInfo->NodeInfoManager();
+  RefPtr<GeneratedImageContent> image =
+      new (nim) GeneratedImageContent(nodeInfo.forget());
   image->mIndex = aContentIndex;
   return image.forget();
 }
@@ -34,5 +35,4 @@ JSObject* GeneratedImageContent::WrapNode(JSContext* aCx,
   return dom::HTMLElement_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

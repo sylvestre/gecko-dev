@@ -1,13 +1,17 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 2 -*- */
-/* vim: set ft= javascript ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 "use strict";
 
-loader.lazyRequireGetter(this, "HUDService", "devtools/client/webconsole/hudservice", true);
-loader.lazyGetter(this, "EventEmitter", () => require("devtools/shared/event-emitter"));
+loader.lazyRequireGetter(
+  this,
+  "WebConsole",
+  "devtools/client/webconsole/webconsole"
+);
+loader.lazyGetter(this, "EventEmitter", () =>
+  require("devtools/shared/event-emitter")
+);
 
 /**
  * A DevToolPanel that controls the Web Console.
@@ -41,14 +45,19 @@ WebConsolePanel.prototype = {
   open: async function() {
     try {
       const parentDoc = this._toolbox.doc;
-      const iframe = parentDoc.getElementById("toolbox-panel-iframe-webconsole");
+      const iframe = parentDoc.getElementById(
+        "toolbox-panel-iframe-webconsole"
+      );
 
       // Make sure the iframe content window is ready.
       const win = iframe.contentWindow;
       const doc = win && win.document;
       if (!doc || doc.readyState !== "complete") {
         await new Promise(resolve => {
-          iframe.addEventListener("load", resolve, {capture: true, once: true});
+          iframe.addEventListener("load", resolve, {
+            capture: true,
+            once: true,
+          });
         });
       }
 
@@ -56,10 +65,14 @@ WebConsolePanel.prototype = {
       const chromeWindow = iframe.ownerDocument.defaultView;
 
       // Open the Web Console.
-      this.hud = await HUDService.openWebConsole(
-        this.target, webConsoleUIWindow, chromeWindow);
+      this.hud = new WebConsole(
+        this._toolbox,
+        webConsoleUIWindow,
+        chromeWindow
+      );
+      await this.hud.init();
 
-      // Pipe 'reloaded' event from WebConsoleFrame to WebConsolePanel.
+      // Pipe 'reloaded' event from WebConsoleUI to WebConsolePanel.
       // These events are listened by the Toolbox.
       this.hud.ui.on("reloaded", () => {
         this.emit("reloaded");
@@ -76,7 +89,7 @@ WebConsolePanel.prototype = {
     return this;
   },
 
-  get target() {
+  get currentTarget() {
     return this._toolbox.target;
   },
 
@@ -86,17 +99,13 @@ WebConsolePanel.prototype = {
   },
 
   destroy: function() {
-    if (this._destroyer) {
-      return this._destroyer;
+    if (!this._toolbox) {
+      return;
     }
-
-    this._destroyer = this.hud.destroy();
-    this._destroyer.then(() => {
-      this._frameWindow = null;
-      this._toolbox = null;
-      this.emit("destroyed");
-    });
-
-    return this._destroyer;
+    this.hud.destroy();
+    this.hud = null;
+    this._frameWindow = null;
+    this._toolbox = null;
+    this.emit("destroyed");
   },
 };

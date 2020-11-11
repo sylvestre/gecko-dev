@@ -4,9 +4,9 @@
 
 "use strict";
 
-const {Cc, Ci, Cm, Cr, components} = require("chrome");
+const { Cc, Ci, Cm, Cr, components } = require("chrome");
 const ChromeUtils = require("ChromeUtils");
-const { XPCOMUtils } = require("resource://gre/modules/XPCOMUtils.jsm");
+const { ComponentUtils } = require("resource://gre/modules/ComponentUtils.jsm");
 const Services = require("Services");
 
 /**
@@ -24,7 +24,7 @@ function ChannelEventSink() {
 }
 
 ChannelEventSink.prototype = {
-  QueryInterface: ChromeUtils.generateQI([Ci.nsIChannelEventSink]),
+  QueryInterface: ChromeUtils.generateQI(["nsIChannelEventSink"]),
 
   registerCollector(collector) {
     this.collectors.add(collector);
@@ -44,14 +44,19 @@ ChannelEventSink.prototype = {
       try {
         collector.onChannelRedirect(oldChannel, newChannel, flags);
       } catch (ex) {
-        console.error("StackTraceCollector.onChannelRedirect threw an exception", ex);
+        console.error(
+          "StackTraceCollector.onChannelRedirect threw an exception",
+          ex
+        );
       }
     }
     callback.onRedirectVerifyCallback(Cr.NS_OK);
   },
 };
 
-const ChannelEventSinkFactory = XPCOMUtils.generateSingletonFactory(ChannelEventSink);
+const ChannelEventSinkFactory = ComponentUtils.generateSingletonFactory(
+  ChannelEventSink
+);
 
 ChannelEventSinkFactory.register = function() {
   const registrar = Cm.QueryInterface(Ci.nsIComponentRegistrar);
@@ -59,27 +64,38 @@ ChannelEventSinkFactory.register = function() {
     return;
   }
 
-  registrar.registerFactory(SINK_CLASS_ID,
-                            SINK_CLASS_DESCRIPTION,
-                            SINK_CONTRACT_ID,
-                            ChannelEventSinkFactory);
+  registrar.registerFactory(
+    SINK_CLASS_ID,
+    SINK_CLASS_DESCRIPTION,
+    SINK_CONTRACT_ID,
+    ChannelEventSinkFactory
+  );
 
-  Services.catMan.addCategoryEntry(SINK_CATEGORY_NAME, SINK_CONTRACT_ID,
-    SINK_CONTRACT_ID, false, true);
+  Services.catMan.addCategoryEntry(
+    SINK_CATEGORY_NAME,
+    SINK_CONTRACT_ID,
+    SINK_CONTRACT_ID,
+    false,
+    true
+  );
 };
 
 ChannelEventSinkFactory.unregister = function() {
   const registrar = Cm.QueryInterface(Ci.nsIComponentRegistrar);
   registrar.unregisterFactory(SINK_CLASS_ID, ChannelEventSinkFactory);
 
-  Services.catMan.deleteCategoryEntry(SINK_CATEGORY_NAME, SINK_CONTRACT_ID,
-    false);
+  Services.catMan.deleteCategoryEntry(
+    SINK_CATEGORY_NAME,
+    SINK_CONTRACT_ID,
+    false
+  );
 };
 
 ChannelEventSinkFactory.getService = function() {
   // Make sure the ChannelEventSink service is registered before accessing it
   ChannelEventSinkFactory.register();
 
-  return Cc[SINK_CONTRACT_ID].getService(Ci.nsIChannelEventSink).wrappedJSObject;
+  return Cc[SINK_CONTRACT_ID].getService(Ci.nsIChannelEventSink)
+    .wrappedJSObject;
 };
 exports.ChannelEventSinkFactory = ChannelEventSinkFactory;

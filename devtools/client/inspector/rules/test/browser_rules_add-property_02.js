@@ -1,4 +1,3 @@
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -18,7 +17,7 @@ const TEST_URI = `
 
 add_task(async function() {
   await addTab("data:text/html;charset=utf-8," + encodeURIComponent(TEST_URI));
-  const {inspector, view} = await openRuleView();
+  const { inspector, view } = await openRuleView();
   await selectNode("#testid", inspector);
 
   info("Focus the new property name field");
@@ -26,10 +25,15 @@ add_task(async function() {
   let editor = await focusNewRuleViewProperty(ruleEditor);
   const input = editor.input;
 
-  is(inplaceEditor(ruleEditor.newPropSpan), editor,
-    "Next focused editor should be the new property editor.");
-  ok(input.selectionStart === 0 && input.selectionEnd === input.value.length,
-    "Editor contents are selected.");
+  is(
+    inplaceEditor(ruleEditor.newPropSpan),
+    editor,
+    "Next focused editor should be the new property editor."
+  );
+  ok(
+    input.selectionStart === 0 && input.selectionEnd === input.value.length,
+    "Editor contents are selected."
+  );
 
   // Try clicking on the editor's input again, shouldn't cause trouble
   // (see bug 761665).
@@ -47,13 +51,22 @@ add_task(async function() {
 
   editor = inplaceEditor(view.styleDocument.activeElement);
 
-  is(ruleEditor.rule.textProps.length, 2,
-    "Should have created a new text property.");
-  is(ruleEditor.propertyList.children.length, 2,
-    "Should have created a property editor.");
+  is(
+    ruleEditor.rule.textProps.length,
+    2,
+    "Should have created a new text property."
+  );
+  is(
+    ruleEditor.propertyList.children.length,
+    2,
+    "Should have created a property editor."
+  );
   const textProp = ruleEditor.rule.textProps[1];
-  is(editor, inplaceEditor(textProp.editor.valueSpan),
-    "Should be editing the value span now.");
+  is(
+    editor,
+    inplaceEditor(textProp.editor.valueSpan),
+    "Should be editing the value span now."
+  );
 
   info("Entering the property value");
   const onValueAdded = view.once("ruleview-changed");

@@ -34,13 +34,13 @@
 void LOG(const char* format, ...);
 
 #ifdef LOG_SAMPLE_DECODE
-#define SAMPLE_LOG LOG
+#  define SAMPLE_LOG LOG
 #else
-#define SAMPLE_LOG(...)
+#  define SAMPLE_LOG(...)
 #endif
 
 #ifndef CLSID_CMSAACDecMFT
-#define WMF_MUST_DEFINE_AAC_MFT_CLSID
+#  define WMF_MUST_DEFINE_AAC_MFT_CLSID
 extern "C" const CLSID CLSID_CMSAACDecMFT;
 #endif
 
@@ -113,7 +113,7 @@ class IntRect {
 typedef int64_t Microseconds;
 
 #ifdef ENSURE
-#undef ENSURE
+#  undef ENSURE
 #endif
 
 #define ENSURE(condition, ret)                                 \
@@ -232,7 +232,7 @@ CreateMFT(const CLSID& clsid, const char* aDllName,
 
 // Returns the name of the DLL that is needed to decode H.264 on
 // the given windows version we're running on.
-const char* WMFDecoderDllName();
+inline const char* WMFDecoderDllName() { return "msmpeg2vdec.dll"; }
 
 // Returns the maximum number of threads we want WMF to use for decoding
 // given the number of logical processors available.

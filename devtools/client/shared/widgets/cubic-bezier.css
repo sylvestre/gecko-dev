@@ -62,8 +62,7 @@
     transparent 15px) no-repeat;
   background-size: 100% 100%, 100% 100%;
   background-position: -2px 5px, -2px 5px;
-
-  -moz-user-select: none;
+  user-select: none;
 }
 
 .cubic-bezier-container canvas.curve {
@@ -195,7 +194,7 @@
 .cubic-bezier-container .preset p {
   font-size: 80%;
   margin: 2px auto 0px auto;
-  color: var(--theme-body-color-alt);
+  color: var(--theme-text-color-alt);
   text-transform: capitalize;
   text-overflow: ellipsis;
   overflow: hidden;

@@ -1,23 +1,39 @@
 /* -*- Mode: indent-tabs-mode: nil; js-indent-level: 2 -*- */
 /* vim: set sts=2 sw=2 et tw=80: */
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 "use strict";
 
 // This file provides some useful code for the |tabs| and |windows|
 // modules. All of the code is installed on |global|, which is a scope
 // shared among the different ext-*.js scripts.
 
-ChromeUtils.defineModuleGetter(this, "PrivateBrowsingUtils",
-                               "resource://gre/modules/PrivateBrowsingUtils.jsm");
-ChromeUtils.defineModuleGetter(this, "BrowserWindowTracker",
-                               "resource:///modules/BrowserWindowTracker.jsm");
+ChromeUtils.defineModuleGetter(
+  this,
+  "PrivateBrowsingUtils",
+  "resource://gre/modules/PrivateBrowsingUtils.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "BrowserWindowTracker",
+  "resource:///modules/BrowserWindowTracker.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "PromiseUtils",
+  "resource://gre/modules/PromiseUtils.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "AboutReaderParent",
+  "resource:///actors/AboutReaderParent.jsm"
+);
 
-var {
-  ExtensionError,
-} = ExtensionUtils;
+var { ExtensionError } = ExtensionUtils;
 
-var {
-  defineLazyGetter,
-} = ExtensionCommon;
+var { defineLazyGetter } = ExtensionCommon;
 
 const READER_MODE_PREFIX = "about:reader";
 
@@ -42,8 +58,10 @@ const getSender = (extension, target, sender) => {
     // page-open listener below).
     tabId = sender.tabId;
     delete sender.tabId;
-  } else if (ExtensionCommon.instanceOf(target, "XULFrameElement") ||
-             ExtensionCommon.instanceOf(target, "HTMLIFrameElement")) {
+  } else if (
+    ExtensionCommon.instanceOf(target, "XULFrameElement") ||
+    ExtensionCommon.instanceOf(target, "HTMLIFrameElement")
+  ) {
     tabId = tabTracker.getBrowserData(target).tabId;
   }
 
@@ -65,7 +83,9 @@ extensions.on("uninstalling", (msg, extension) => {
     browser.addTab(extension.uninstallURL, {
       disallowInheritPrincipal: true,
       relatedToCurrent: true,
-      triggeringPrincipal: Services.scriptSecurityManager.createNullPrincipal({}),
+      triggeringPrincipal: Services.scriptSecurityManager.createNullPrincipal(
+        {}
+      ),
     });
   }
 });
@@ -78,7 +98,7 @@ extensions.on("page-shutdown", (type, context) => {
       // WebExtension as an embedded inline options page.
       return;
     }
-    let {gBrowser} = context.xulBrowser.ownerGlobal;
+    let { gBrowser } = context.xulBrowser.ownerGlobal;
     if (gBrowser && gBrowser.getTabForBrowser) {
       let nativeTab = gBrowser.getTabForBrowser(context.xulBrowser);
       if (nativeTab) {
@@ -89,10 +109,10 @@ extensions.on("page-shutdown", (type, context) => {
 });
 /* eslint-enable mozilla/balanced-listeners */
 
-global.openOptionsPage = (extension) => {
+global.openOptionsPage = extension => {
   let window = windowTracker.topWindow;
   if (!window) {
-    return Promise.reject({message: "No browser window available"});
+    return Promise.reject({ message: "No browser window available" });
   }
 
   if (extension.manifest.options_ui.open_in_tab) {
@@ -102,7 +122,9 @@ global.openOptionsPage = (extension) => {
     return Promise.resolve();
   }
 
-  let viewId = `addons://detail/${encodeURIComponent(extension.id)}/preferences`;
+  let viewId = `addons://detail/${encodeURIComponent(
+    extension.id
+  )}/preferences`;
 
   return window.BrowserOpenAddonsMgr(viewId);
 };
@@ -113,13 +135,33 @@ global.makeWidgetId = id => {
   return id.replace(/[^a-z0-9_-]/g, "_");
 };
 
+global.clickModifiersFromEvent = event => {
+  const map = {
+    shiftKey: "Shift",
+    altKey: "Alt",
+    metaKey: "Command",
+    ctrlKey: "Ctrl",
+  };
+  let modifiers = Object.keys(map)
+    .filter(key => event[key])
+    .map(key => map[key]);
+
+  if (event.ctrlKey && AppConstants.platform === "macosx") {
+    modifiers.push("MacCtrl");
+  }
+
+  return modifiers;
+};
+
 global.waitForTabLoaded = (tab, url) => {
   return new Promise(resolve => {
     windowTracker.addListener("progress", {
       onLocationChange(browser, webProgress, request, locationURI, flags) {
-        if (webProgress.isTopLevel
-            && browser.ownerGlobal.gBrowser.getTabForBrowser(browser) == tab
-            && (!url || locationURI.spec == url)) {
+        if (
+          webProgress.isTopLevel &&
+          browser.ownerGlobal.gBrowser.getTabForBrowser(browser) == tab &&
+          (!url || locationURI.spec == url)
+        ) {
           windowTracker.removeListener("progress", this);
           resolve();
         }
@@ -206,7 +248,9 @@ global.TabContext = class extends EventEmitter {
     let gBrowser = browser.ownerGlobal.gBrowser;
     let tab = gBrowser.getTabForBrowser(browser);
     // fromBrowse will be false in case of e.g. a hash change or history.pushState
-    let fromBrowse = !(flags & Ci.nsIWebProgressListener.LOCATION_CHANGE_SAME_DOCUMENT);
+    let fromBrowse = !(
+      flags & Ci.nsIWebProgressListener.LOCATION_CHANGE_SAME_DOCUMENT
+    );
     this.emit("location-change", tab, fromBrowse);
   }
 
@@ -244,13 +288,16 @@ global.TabContext = class extends EventEmitter {
 
 // This promise is used to wait for the search service to be initialized.
 // None of the code in the WebExtension modules requests that initialization.
-// It is assumed that it is started at some point. If tests start to fail
-// because this promise never resolves, that's likely the cause.
+// It is assumed that it is started at some point. That might never happen,
+// e.g. if the application shuts down before the search service initializes.
 XPCOMUtils.defineLazyGetter(global, "searchInitialized", () => {
   if (Services.search.isInitialized) {
     return Promise.resolve();
   }
-  return ExtensionUtils.promiseObserved("browser-search-service", (_, data) => data == "init-complete");
+  return ExtensionUtils.promiseObserved(
+    "browser-search-service",
+    (_, data) => data == "init-complete"
+  );
 });
 
 class WindowTracker extends WindowTrackerBase {
@@ -271,7 +318,7 @@ class WindowTracker extends WindowTrackerBase {
    *        Will return the topmost "normal" (i.e., not popup) window.
    */
   getTopNormalWindow(context) {
-    let options = {allowPopups: false};
+    let options = { allowPopups: false };
     if (!context.privateBrowsingAllowed) {
       options.private = false;
     }
@@ -287,6 +334,7 @@ class TabTracker extends TabTrackerBase {
     this._browsers = new WeakMap();
     this._tabIds = new Map();
     this._nextId = 1;
+    this._deferredTabOpenEvents = new WeakMap();
 
     this._handleTabDestroyed = this._handleTabDestroyed.bind(this);
   }
@@ -309,7 +357,7 @@ class TabTracker extends TabTrackerBase {
     windowTracker.addOpenListener(this._handleWindowOpen);
     windowTracker.addCloseListener(this._handleWindowClose);
 
-    Services.mm.addMessageListener("Reader:UpdateReaderButton", this);
+    AboutReaderParent.addMessageListener("Reader:UpdateReaderButton", this);
 
     /* eslint-disable mozilla/balanced-listeners */
     this.on("tab-detached", this._handleTabDestroyed);
@@ -381,18 +429,31 @@ class TabTracker extends TabTrackerBase {
       let adoptedBy = adoptingTab;
       let oldWindowId = windowTracker.getId(nativeTab.ownerGlobal);
       let oldPosition = nativeTab._tPos;
-      this.emit("tab-detached", {nativeTab, adoptedBy, tabId, oldWindowId, oldPosition, isPrivate});
+      this.emit("tab-detached", {
+        nativeTab,
+        adoptedBy,
+        tabId,
+        oldWindowId,
+        oldPosition,
+        isPrivate,
+      });
     }
     if (this.has("tab-attached")) {
       let nativeTab = adoptingTab;
       let isPrivate = isPrivateTab(nativeTab);
       let newWindowId = windowTracker.getId(nativeTab.ownerGlobal);
       let newPosition = nativeTab._tPos;
-      this.emit("tab-attached", {nativeTab, tabId, newWindowId, newPosition, isPrivate});
+      this.emit("tab-attached", {
+        nativeTab,
+        tabId,
+        newWindowId,
+        newPosition,
+        isPrivate,
+      });
     }
   }
 
-  _handleTabDestroyed(event, {nativeTab}) {
+  _handleTabDestroyed(event, { nativeTab }) {
     let id = this._tabs.get(nativeTab);
     if (id) {
       this._tabs.delete(nativeTab);
@@ -439,6 +500,23 @@ class TabTracker extends TabTrackerBase {
     tab.openerTab = openerTab;
   }
 
+  deferredForTabOpen(nativeTab) {
+    let deferred = this._deferredTabOpenEvents.get(nativeTab);
+    if (!deferred) {
+      deferred = PromiseUtils.defer();
+      this._deferredTabOpenEvents.set(nativeTab, deferred);
+      deferred.promise.then(() => {
+        this._deferredTabOpenEvents.delete(nativeTab);
+      });
+    }
+    return deferred;
+  }
+
+  async maybeWaitForTabOpen(nativeTab) {
+    let deferred = this._deferredTabOpenEvents.get(nativeTab);
+    return deferred && deferred.promise;
+  }
+
   /**
    * @param {Event} event
    *        The DOM Event to handle.
@@ -449,30 +527,36 @@ class TabTracker extends TabTrackerBase {
 
     switch (event.type) {
       case "TabOpen":
-        let {adoptedTab} = event.detail;
+        let { adoptedTab } = event.detail;
         if (adoptedTab) {
           // This tab is being created to adopt a tab from a different window.
           // Handle the adoption.
           this.adopt(nativeTab, adoptedTab);
-
-          adoptedTab.linkedBrowser.messageManager.sendAsyncMessage("Extension:SetFrameData", {
-            windowId: windowTracker.getId(nativeTab.ownerGlobal),
-          });
+          if (adoptedTab.linkedPanel) {
+            adoptedTab.linkedBrowser.messageManager.sendAsyncMessage(
+              "Extension:SetFrameData",
+              {
+                windowId: windowTracker.getId(nativeTab.ownerGlobal),
+              }
+            );
+          }
         } else {
           // Save the size of the current tab, since the newly-created tab will
           // likely be active by the time the promise below resolves and the
           // event is dispatched.
           const currentTab = nativeTab.ownerGlobal.gBrowser.selectedTab;
-          const {frameLoader} = currentTab.linkedBrowser;
+          const { frameLoader } = currentTab.linkedBrowser;
           const currentTabSize = {
             width: frameLoader.lazyWidth,
             height: frameLoader.lazyHeight,
           };
 
           // We need to delay sending this event until the next tick, since the
-          // tab could have been created with a lazy browser but still not have
-          // been assigned a SessionStore tab state with the URL and title.
+          // tab can become selected immediately after "TabOpen", then onCreated
+          // should be fired with `active: true`.
+          let deferred = this.deferredForTabOpen(event.originalTarget);
           Promise.resolve().then(() => {
+            deferred.resolve();
             if (!event.originalTarget.parentNode) {
               // If the tab is already be destroyed, do nothing.
               return;
@@ -483,7 +567,7 @@ class TabTracker extends TabTrackerBase {
         break;
 
       case "TabClose":
-        let {adoptedBy} = event.detail;
+        let { adoptedBy } = event.detail;
         if (adoptedBy) {
           // This tab is being closed because it was adopted by a new window.
           // Handle the adoption in case it was created as the first tab of a
@@ -498,7 +582,7 @@ class TabTracker extends TabTrackerBase {
       case "TabSelect":
         // Because we are delaying calling emitCreated above, we also need to
         // delay sending this event because it shouldn't fire before onCreated.
-        Promise.resolve().then(() => {
+        this.maybeWaitForTabOpen(nativeTab).then(() => {
           if (!nativeTab.parentNode) {
             // If the tab is already be destroyed, do nothing.
             return;
@@ -511,6 +595,7 @@ class TabTracker extends TabTrackerBase {
         if (this.has("tabs-highlighted")) {
           // Because we are delaying calling emitCreated above, we also need to
           // delay sending this event because it shouldn't fire before onCreated.
+          // event.target is gBrowser, so we don't use maybeWaitForTabOpen.
           Promise.resolve().then(() => {
             this.emitHighlighted(event.target.ownerGlobal);
           });
@@ -601,7 +686,8 @@ class TabTracker extends TabTrackerBase {
       tabId: this.getId(nativeTab),
       previousTabId,
       previousTabIsPrivate,
-      windowId: windowTracker.getId(nativeTab.ownerGlobal)});
+      windowId: windowTracker.getId(nativeTab.ownerGlobal),
+    });
   }
 
   /**
@@ -631,7 +717,11 @@ class TabTracker extends TabTrackerBase {
    * @private
    */
   emitCreated(nativeTab, currentTabSize) {
-    this.emit("tab-created", {nativeTab, currentTabSize, isPrivate: isPrivateTab(nativeTab)});
+    this.emit("tab-created", {
+      nativeTab,
+      currentTabSize,
+      isPrivate: isPrivateTab(nativeTab),
+    });
   }
 
   /**
@@ -648,19 +738,32 @@ class TabTracker extends TabTrackerBase {
     let windowId = windowTracker.getId(nativeTab.ownerGlobal);
     let tabId = this.getId(nativeTab);
 
-    this.emit("tab-removed", {nativeTab, tabId, windowId, isWindowClosing, isPrivate: isPrivateTab(nativeTab)});
+    this.emit("tab-removed", {
+      nativeTab,
+      tabId,
+      windowId,
+      isWindowClosing,
+      isPrivate: isPrivateTab(nativeTab),
+    });
   }
 
   getBrowserData(browser) {
-    let {gBrowser} = browser.ownerGlobal;
+    let window = browser.ownerGlobal;
+    if (!window) {
+      return {
+        tabId: -1,
+        windowId: -1,
+      };
+    }
+    let { gBrowser } = window;
     // Some non-browser windows have gBrowser but not getTabForBrowser!
     if (!gBrowser || !gBrowser.getTabForBrowser) {
-      if (browser.ownerDocument.documentURI === "about:addons") {
+      if (window.top.document.documentURI === "about:addons") {
         // When we're loaded into a <browser> inside about:addons, we need to go up
         // one more level.
-        browser = browser.ownerGlobal.docShell.chromeEventHandler;
+        browser = window.docShell.chromeEventHandler;
 
-        ({gBrowser} = browser.ownerGlobal);
+        ({ gBrowser } = browser.ownerGlobal);
       } else {
         return {
           tabId: -1,
@@ -687,7 +790,7 @@ class TabTracker extends TabTrackerBase {
 windowTracker = new WindowTracker();
 tabTracker = new TabTracker();
 
-Object.assign(global, {tabTracker, windowTracker});
+Object.assign(global, { tabTracker, windowTracker });
 
 class Tab extends TabBase {
   get _favIconUrl() {
@@ -713,7 +816,7 @@ class Tab extends TabBase {
   get frameLoader() {
     // If we don't have a frameLoader yet, just return a dummy with no width and
     // height.
-    return super.frameLoader || {lazyWidth: 0, lazyHeight: 0};
+    return super.frameLoader || { lazyWidth: 0, lazyHeight: 0 };
   }
 
   get hidden() {
@@ -730,7 +833,11 @@ class Tab extends TabBase {
 
   get openerTabId() {
     let opener = this.nativeTab.openerTab;
-    if (opener && opener.parentNode && opener.ownerDocument == this.nativeTab.ownerDocument) {
+    if (
+      opener &&
+      opener.parentNode &&
+      opener.ownerDocument == this.nativeTab.ownerDocument
+    ) {
       return tabTracker.getId(opener);
     }
     return null;
@@ -745,9 +852,9 @@ class Tab extends TabBase {
   }
 
   get mutedInfo() {
-    let {nativeTab} = this;
+    let { nativeTab } = this;
 
-    let mutedInfo = {muted: nativeTab.muted};
+    let mutedInfo = { muted: nativeTab.muted };
     if (nativeTab.muteReason === null) {
       mutedInfo.reason = "user";
     } else if (nativeTab.muteReason) {
@@ -771,7 +878,7 @@ class Tab extends TabBase {
   }
 
   get highlighted() {
-    let {selected, multiselected} = this.nativeTab;
+    let { selected, multiselected } = this.nativeTab;
     return selected || multiselected;
   }
 
@@ -807,7 +914,7 @@ class Tab extends TabBase {
   }
 
   get successorTabId() {
-    const {successor} = this.nativeTab;
+    const { successor } = this.nativeTab;
     return successor ? tabTracker.getId(successor) : -1;
   }
 
@@ -837,7 +944,9 @@ class Tab extends TabBase {
       pinned: false,
       hidden: tabData.state ? tabData.state.hidden : tabData.hidden,
       incognito: Boolean(tabData.state && tabData.state.isPrivate),
-      lastAccessed: tabData.state ? tabData.state.lastAccessed : tabData.lastAccessed,
+      lastAccessed: tabData.state
+        ? tabData.state.lastAccessed
+        : tabData.lastAccessed,
     };
 
     // tabData is a representation of a tab, as stored in the session data,
@@ -879,7 +988,7 @@ class Window extends WindowBase {
    *        The new pixel height of the window.
    */
   updateGeometry(options) {
-    let {window} = this;
+    let { window } = this;
 
     if (options.left !== null || options.top !== null) {
       let left = options.left !== null ? options.left : window.screenX;
@@ -889,7 +998,8 @@ class Window extends WindowBase {
 
     if (options.width !== null || options.height !== null) {
       let width = options.width !== null ? options.width : window.outerWidth;
-      let height = options.height !== null ? options.height : window.outerHeight;
+      let height =
+        options.height !== null ? options.height : window.outerHeight;
       window.resizeTo(width, height);
     }
   }
@@ -899,7 +1009,10 @@ class Window extends WindowBase {
   }
 
   setTitlePreface(titlePreface) {
-    this.window.document.documentElement.setAttribute("titlepreface", titlePreface);
+    this.window.document.documentElement.setAttribute(
+      "titlepreface",
+      titlePreface
+    );
   }
 
   get focused() {
@@ -927,7 +1040,7 @@ class Window extends WindowBase {
   }
 
   get alwaysOnTop() {
-    return this.xulWindow.zLevel >= Ci.nsIXULWindow.raisedZ;
+    return this.appWindow.zLevel >= Ci.nsIAppWindow.raisedZ;
   }
 
   get isLastFocused() {
@@ -952,7 +1065,7 @@ class Window extends WindowBase {
   }
 
   set state(state) {
-    let {window} = this;
+    let { window } = this;
     if (state !== "fullscreen" && window.fullScreen) {
       window.fullScreen = false;
     }
@@ -991,7 +1104,7 @@ class Window extends WindowBase {
     }
   }
 
-  * getTabs() {
+  *getTabs() {
     // A new window is being opened and it is adopting an existing tab, we return
     // an empty iterator here because there should be no other tabs to return during
     // that duration (See Bug 1458918 for a rationale).
@@ -999,22 +1112,22 @@ class Window extends WindowBase {
       return;
     }
 
-    let {tabManager} = this.extension;
+    let { tabManager } = this.extension;
 
     for (let nativeTab of this.window.gBrowser.tabs) {
       yield tabManager.getWrapper(nativeTab);
     }
   }
 
-  * getHighlightedTabs() {
-    let {tabManager} = this.extension;
+  *getHighlightedTabs() {
+    let { tabManager } = this.extension;
     for (let tab of this.window.gBrowser.selectedTabs) {
       yield tabManager.getWrapper(tab);
     }
   }
 
   get activeTab() {
-    let {tabManager} = this.extension;
+    let { tabManager } = this.extension;
 
     // A new window is being opened and it is adopting a tab, and we do not create
     // a TabWrapper for the tab being adopted because it will go away once the tab
@@ -1067,7 +1180,7 @@ class Window extends WindowBase {
   }
 }
 
-Object.assign(global, {Tab, Window});
+Object.assign(global, { Tab, Window });
 
 class TabManager extends TabManagerBase {
   get(tabId, default_ = undefined) {
@@ -1091,8 +1204,10 @@ class TabManager extends TabManagerBase {
   }
 
   canAccessTab(nativeTab) {
-    return this.extension.privateBrowsingAllowed ||
-           !PrivateBrowsingUtils.isBrowserPrivate(nativeTab.linkedBrowser);
+    return (
+      this.extension.privateBrowsingAllowed ||
+      !PrivateBrowsingUtils.isBrowserPrivate(nativeTab.linkedBrowser)
+    );
   }
 
   wrapTab(nativeTab) {
@@ -1107,11 +1222,7 @@ class WindowManager extends WindowManagerBase {
     return this.getWrapper(window);
   }
 
-  canAccessWindow(window, context) {
-    return (context && context.canAccessWindow(window)) || this.extension.canAccessWindow(window);
-  }
-
-  * getAll(context) {
+  *getAll(context) {
     for (let window of windowTracker.browserWindows()) {
       if (!this.canAccessWindow(window, context)) {
         continue;
@@ -1128,10 +1239,12 @@ class WindowManager extends WindowManagerBase {
   }
 }
 
-
-extensions.on("startup", (type, extension) => { // eslint-disable-line mozilla/balanced-listeners
-  defineLazyGetter(extension, "tabManager",
-                   () => new TabManager(extension));
-  defineLazyGetter(extension, "windowManager",
-                   () => new WindowManager(extension));
+// eslint-disable-next-line mozilla/balanced-listeners
+extensions.on("startup", (type, extension) => {
+  defineLazyGetter(extension, "tabManager", () => new TabManager(extension));
+  defineLazyGetter(
+    extension,
+    "windowManager",
+    () => new WindowManager(extension)
+  );
 });

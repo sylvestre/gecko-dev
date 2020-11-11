@@ -7,13 +7,15 @@
 #ifndef MOZILLA_GFX_TOOLS_H_
 #define MOZILLA_GFX_TOOLS_H_
 
+#include <math.h>
+
+#include <utility>
+
+#include "Point.h"
+#include "Types.h"
 #include "mozilla/CheckedInt.h"
 #include "mozilla/MemoryReporting.h"  // for MallocSizeOf
-#include "mozilla/Move.h"
 #include "mozilla/TypeTraits.h"
-#include "Types.h"
-#include "Point.h"
-#include <math.h>
 
 namespace mozilla {
 namespace gfx {
@@ -35,8 +37,8 @@ template <class T>
 struct ClassStorage {
   char bytes[sizeof(T)];
 
-  const T *addr() const { return (const T *)bytes; }
-  T *addr() { return (T *)(void *)bytes; }
+  const T* addr() const { return (const T*)bytes; }
+  T* addr() { return (T*)(void*)bytes; }
 };
 
 static inline bool FuzzyEqual(Float aA, Float aB, Float aErr) {
@@ -46,7 +48,7 @@ static inline bool FuzzyEqual(Float aA, Float aB, Float aErr) {
   return false;
 }
 
-static inline void NudgeToInteger(float *aVal) {
+static inline void NudgeToInteger(float* aVal) {
   float r = floorf(*aVal + 0.5f);
   // The error threshold should be proportional to the rounded value. This
   // bounds the relative error introduced by the nudge operation. However,
@@ -58,14 +60,14 @@ static inline void NudgeToInteger(float *aVal) {
   }
 }
 
-static inline void NudgeToInteger(float *aVal, float aErr) {
+static inline void NudgeToInteger(float* aVal, float aErr) {
   float r = floorf(*aVal + 0.5f);
   if (FuzzyEqual(r, *aVal, aErr)) {
     *aVal = r;
   }
 }
 
-static inline void NudgeToInteger(double *aVal) {
+static inline void NudgeToInteger(double* aVal) {
   float f = float(*aVal);
   NudgeToInteger(&f);
   *aVal = f;
@@ -76,7 +78,7 @@ static inline Float Distance(Point aA, Point aB) {
 }
 
 template <typename T, int alignment = 16>
-struct AlignedArray {
+struct AlignedArray final {
   typedef T value_type;
 
   AlignedArray() : mPtr(nullptr), mStorage(nullptr), mCount(0) {}
@@ -125,9 +127,9 @@ struct AlignedArray {
     if (aZero) {
       // calloc can be more efficient than new[] for large chunks,
       // so we use calloc/malloc/free for everything.
-      mStorage = static_cast<uint8_t *>(calloc(1, storageByteCount.value()));
+      mStorage = static_cast<uint8_t*>(calloc(1u, storageByteCount.value()));
     } else {
-      mStorage = static_cast<uint8_t *>(malloc(storageByteCount.value()));
+      mStorage = static_cast<uint8_t*>(malloc(storageByteCount.value()));
     }
     if (!mStorage) {
       mStorage = nullptr;
@@ -138,10 +140,10 @@ struct AlignedArray {
     if (uintptr_t(mStorage) % alignment) {
       // Our storage does not start at a <alignment>-byte boundary. Make sure
       // mPtr does!
-      mPtr = (T *)(uintptr_t(mStorage) + alignment -
-                   (uintptr_t(mStorage) % alignment));
+      mPtr = (T*)(uintptr_t(mStorage) + alignment -
+                  (uintptr_t(mStorage) % alignment));
     } else {
-      mPtr = (T *)(mStorage);
+      mPtr = (T*)(mStorage);
     }
     // Now that mPtr is pointing to the aligned position we can use placement
     // |operator new| to invoke any ctors at the correct positions. For types
@@ -151,22 +153,22 @@ struct AlignedArray {
     mCount = aCount;
   }
 
-  void Swap(AlignedArray<T, alignment> &aOther) {
-    mozilla::Swap(mPtr, aOther.mPtr);
-    mozilla::Swap(mStorage, aOther.mStorage);
-    mozilla::Swap(mCount, aOther.mCount);
+  void Swap(AlignedArray<T, alignment>& aOther) {
+    std::swap(mPtr, aOther.mPtr);
+    std::swap(mStorage, aOther.mStorage);
+    std::swap(mCount, aOther.mCount);
   }
 
   size_t HeapSizeOfExcludingThis(MallocSizeOf aMallocSizeOf) const {
     return aMallocSizeOf(mStorage);
   }
 
-  MOZ_ALWAYS_INLINE operator T *() { return mPtr; }
+  MOZ_ALWAYS_INLINE operator T*() { return mPtr; }
 
-  T *mPtr;
+  T* mPtr;
 
  private:
-  uint8_t *mStorage;
+  uint8_t* mStorage;
   size_t mCount;
 };
 

@@ -59,10 +59,12 @@ ChildDebuggerTransport.prototype = {
 
   close: function() {
     this._removeListener();
-    this.hooks.onClosed();
+    if (this.hooks.onClosed) {
+      this.hooks.onClosed();
+    }
   },
 
-  receiveMessage: function({data}) {
+  receiveMessage: function({ data }) {
     this.hooks.onPacket(data);
   },
 
@@ -97,7 +99,8 @@ ChildDebuggerTransport.prototype = {
   send: function(packet) {
     if (flags.testing && !this._canBeSerialized(packet)) {
       const attributes = this.pathToUnserializable(packet);
-      let msg = "Following packet can't be serialized: " + JSON.stringify(packet);
+      let msg =
+        "Following packet can't be serialized: " + JSON.stringify(packet);
       msg += "\nBecause of attributes: " + attributes.join(", ") + "\n";
       msg += "Did you pass a function or an XPCOM object in it?";
       throw new Error(msg);
@@ -116,12 +119,6 @@ ChildDebuggerTransport.prototype = {
 
   startBulkSend: function() {
     throw new Error("Can't send bulk data to child processes.");
-  },
-
-  swapBrowser(mm) {
-    this._removeListener();
-    this._mm = mm;
-    this._addListener();
   },
 };
 

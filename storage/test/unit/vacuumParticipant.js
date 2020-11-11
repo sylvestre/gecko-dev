@@ -4,8 +4,10 @@
 
 // This testing component is used in test_vacuum* tests.
 
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
-ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { ComponentUtils } = ChromeUtils.import(
+  "resource://gre/modules/ComponentUtils.jsm"
+);
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 /**
  * Returns a new nsIFile reference for a profile database.
@@ -30,8 +32,7 @@ function vacuumParticipant() {
   Services.obs.addObserver(this, "test-options");
 }
 
-vacuumParticipant.prototype =
-{
+vacuumParticipant.prototype = {
   classDescription: "vacuumParticipant",
   classID: Components.ID("{52aa0b22-b82f-4e38-992a-c3675a3355d2}"),
   contractID: "@unit.test.com/test-vacuum-participant;1",
@@ -100,10 +101,10 @@ vacuumParticipant.prototype =
   },
 
   QueryInterface: ChromeUtils.generateQI([
-    Ci.mozIStorageVacuumParticipant,
-    Ci.nsIObserver,
+    "mozIStorageVacuumParticipant",
+    "nsIObserver",
   ]),
 };
 
 var gComponentsArray = [vacuumParticipant];
-this.NSGetFactory = XPCOMUtils.generateNSGetFactory(gComponentsArray);
+this.NSGetFactory = ComponentUtils.generateNSGetFactory(gComponentsArray);

@@ -19,24 +19,29 @@
 //! extern crate uuid;
 //! ```
 //!
-//! and the following in every module:
-//!
-//! ```rust
-//! use uuid::prelude::*;
-//! ```
-//!
 //! # Prelude Contents
 //!
 //! Currently the prelude reexports the following:
 //!
-//! ## The core types
-//!
-//! [`uuid`]`::{`[`Uuid`], [`UuidVariant`]`}`: The fundamental
-//! types used in [`uuid`] crate.
+//! [`uuid`]`::{`[`Error`], [`Uuid`], [`Variant`], [`Version`],
+//! builder::[`Builder`]`}`: The fundamental types used in [`uuid`] crate.
 //!
 //! [`uuid`]: ../index.html
+//! [`Error`]: ../enum.Error.html
 //! [`Uuid`]: ../struct.Uuid.html
-//! [`UuidVariant`]: enum.UuidVariant.html
+//! [`Variant`]: ../enum.Variant.html
+//! [`Version`]: ../enum.Version.html
+//! [`Builder`]: ../builder/struct.Builder.html
+//!
+#![cfg_attr(feature = "v1",
+doc = "
+[`uuid::v1`]`::{`[`ClockSequence`],[`Context`]`}`: The types useful for
+handling uuid version 1. Requires feature `v1`.
 
-#[doc(inline)]
-pub use super::{Uuid, UuidVariant};
+[`uuid::v1`]: ../v1/index.html
+[`Context`]: ../v1/struct.Context.html
+[`ClockSequence`]: ../v1/trait.ClockSequence.html")]
+
+pub use super::{Builder, Bytes, Error, Uuid, Variant, Version};
+#[cfg(feature = "v1")]
+pub use crate::v1::{ClockSequence, Context};

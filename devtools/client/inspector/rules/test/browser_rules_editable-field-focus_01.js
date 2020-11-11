@@ -1,4 +1,3 @@
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -24,7 +23,7 @@ const TEST_URI = `
 
 add_task(async function() {
   await addTab("data:text/html;charset=utf-8," + encodeURIComponent(TEST_URI));
-  const {inspector, view} = await openRuleView();
+  const { inspector, view } = await openRuleView();
   await selectNode("#testid", inspector);
   await testEditableFieldFocus(inspector, view, "KEY_Enter");
   await testEditableFieldFocus(inspector, view, "KEY_Tab");
@@ -36,14 +35,20 @@ async function testEditableFieldFocus(inspector, view, commitKey) {
   const onFocus = once(ruleEditor.element, "focus", true);
   ruleEditor.selectorText.click();
   await onFocus;
-  assertEditor(view, ruleEditor.newPropSpan,
-    "Focus should be in the element property span");
+  assertEditor(
+    view,
+    ruleEditor.newPropSpan,
+    "Focus should be in the element property span"
+  );
 
   info("Focus the next field with " + commitKey);
   ruleEditor = getRuleViewRuleEditor(view, 1);
   await focusNextEditableField(view, ruleEditor, commitKey);
-  assertEditor(view, ruleEditor.selectorText,
-    "Focus should have moved to the next rule selector");
+  assertEditor(
+    view,
+    ruleEditor.selectorText,
+    "Focus should have moved to the next rule selector"
+  );
 
   for (let i = 0; i < ruleEditor.rule.textProps.length; i++) {
     const textProp = ruleEditor.rule.textProps[i];
@@ -56,27 +61,39 @@ async function testEditableFieldFocus(inspector, view, commitKey) {
     const onRuleViewChanged = i > 0 ? view.once("ruleview-changed") : null;
     await focusNextEditableField(view, ruleEditor, commitKey);
     await onRuleViewChanged;
-    assertEditor(view, propEditor.nameSpan,
-      "Focus should have moved to the property name");
+    assertEditor(
+      view,
+      propEditor.nameSpan,
+      "Focus should have moved to the property name"
+    );
 
     info("Focus the next field with " + commitKey);
     await focusNextEditableField(view, ruleEditor, commitKey);
-    assertEditor(view, propEditor.valueSpan,
-      "Focus should have moved to the property value");
+    assertEditor(
+      view,
+      propEditor.valueSpan,
+      "Focus should have moved to the property value"
+    );
   }
 
   // Expect a ruleview-changed event again as we're bluring a property value.
   const onRuleViewChanged = view.once("ruleview-changed");
   await focusNextEditableField(view, ruleEditor, commitKey);
   await onRuleViewChanged;
-  assertEditor(view, ruleEditor.newPropSpan,
-    "Focus should have moved to the new property span");
+  assertEditor(
+    view,
+    ruleEditor.newPropSpan,
+    "Focus should have moved to the new property span"
+  );
 
   ruleEditor = getRuleViewRuleEditor(view, 2);
 
   await focusNextEditableField(view, ruleEditor, commitKey);
-  assertEditor(view, ruleEditor.selectorText,
-    "Focus should have moved to the next rule selector");
+  assertEditor(
+    view,
+    ruleEditor.selectorText,
+    "Focus should have moved to the next rule selector"
+  );
 
   info("Blur the selector field");
   EventUtils.synthesizeKey("KEY_Escape");

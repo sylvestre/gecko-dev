@@ -30,7 +30,7 @@ static bool LoopContainsPossibleCall(MIRGraph& graph, MBasicBlock* header,
       MInstruction* ins = *insIter;
       if (ins->possiblyCalls()) {
 #ifdef JS_JITSPEW
-        JitSpew(JitSpew_LICM, "    Possile call found at %s%u", ins->opName(),
+        JitSpew(JitSpew_LICM, "    Possible call found at %s%u", ins->opName(),
                 ins->id());
 #endif
         return true;
@@ -62,10 +62,6 @@ static bool IsInLoop(MDefinition* ins) { return ins->block()->isMarked(); }
 // Test whether the given instruction is cheap and not worth hoisting unless
 // one of its users will be hoisted as well.
 static bool RequiresHoistedUse(const MDefinition* ins, bool hasCalls) {
-  if (ins->isConstantElements()) {
-    return true;
-  }
-
   if (ins->isBox()) {
     MOZ_ASSERT(!ins->toBox()->input()->isBox(),
                "Box of a box could lead to unbounded recursion");
@@ -154,6 +150,7 @@ static void MoveDeferredOperands(MInstruction* ins, MInstruction* hoistPoint,
 #endif
 
     opIns->block()->moveBefore(hoistPoint, opIns);
+    opIns->setBailoutKind(BailoutKind::LICM);
   }
 }
 
@@ -194,6 +191,7 @@ static void VisitLoopBlock(MBasicBlock* block, MBasicBlock* header,
 
     // Move the instruction to the hoistPoint.
     block->moveBefore(hoistPoint, ins);
+    ins->setBailoutKind(BailoutKind::LICM);
   }
 }
 

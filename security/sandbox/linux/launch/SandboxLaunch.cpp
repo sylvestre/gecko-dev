@@ -10,9 +10,12 @@
 #include <sched.h>
 #include <setjmp.h>
 #include <signal.h>
+#include <sys/prctl.h>
 #include <sys/socket.h>
 #include <sys/syscall.h>
 #include <unistd.h>
+
+#include <utility>
 
 #include "LinuxCapabilities.h"
 #include "LinuxSched.h"
@@ -25,11 +28,12 @@
 #include "mozilla/ArrayUtils.h"
 #include "mozilla/Assertions.h"
 #include "mozilla/Attributes.h"
-#include "mozilla/Move.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/SandboxReporter.h"
 #include "mozilla/SandboxSettings.h"
 #include "mozilla/Services.h"
+#include "mozilla/StaticPrefs_media.h"
+#include "mozilla/StaticPrefs_security.h"
 #include "mozilla/Unused.h"
 #include "nsCOMPtr.h"
 #include "nsDebug.h"
@@ -40,13 +44,13 @@
 #include "sandbox/linux/system_headers/linux_syscalls.h"
 
 #ifdef MOZ_X11
-#ifndef MOZ_WIDGET_GTK
-#error "Unknown toolkit"
-#endif
-#include <gdk/gdk.h>
-#include <gdk/gdkx.h>
-#include "X11UndefineNone.h"
-#include "gfxPlatform.h"
+#  ifndef MOZ_WIDGET_GTK
+#    error "Unknown toolkit"
+#  endif
+#  include <gdk/gdk.h>
+#  include <gdk/gdkx.h>
+#  include "X11UndefineNone.h"
+#  include "gfxPlatform.h"
 #endif
 
 namespace mozilla {
@@ -100,14 +104,28 @@ static bool IsDisplayLocal() {
     //
     // Unfortunately, the Xorg client libraries prefer the abstract
     // addresses, so this isn't directly detectable by inspecting the
-    // parent process's socket.  Instead, this checks for the
-    // directory the sockets are stored in, which typically won't
-    // exist in a container with a private /tmp that isn't running its
-    // own X server.
-    if (access("/tmp/.X11-unix", X_OK) != 0) {
-      NS_ERROR(
-          "/tmp/.X11-unix is inaccessible; can't isolate network"
-          " namespace in content processes");
+    // parent process's socket.  Instead, parse the DISPLAY env var
+    // (which was updated if necessary in nsAppRunner.cpp) to get the
+    // display number and construct the socket path, falling back to
+    // testing the directory in case that doesn't work.  (See bug
+    // 1565972 and bug 1559368 for cases where we need to test the
+    // specific socket.)
+    const char* const displayStr = PR_GetEnv("DISPLAY");
+    nsAutoCString socketPath("/tmp/.X11-unix");
+    int accessFlags = X_OK;
+    int displayNum;
+    // sscanf ignores trailing text, so display names with a screen
+    // number (e.g., ":0.2") will parse correctly.
+    if (displayStr && (sscanf(displayStr, ":%d", &displayNum) == 1 ||
+                       sscanf(displayStr, "unix:%d", &displayNum) == 1)) {
+      socketPath.AppendPrintf("/X%d", displayNum);
+      accessFlags = R_OK | W_OK;
+    }
+    if (access(socketPath.get(), accessFlags) != 0) {
+      SANDBOX_LOG_ERROR(
+          "%s is inaccessible (%s); can't isolate network namespace in"
+          " content processes",
+          socketPath.get(), strerror(errno));
       return false;
     }
   }
@@ -148,19 +166,21 @@ static bool ContentNeedsSysVIPC() {
   // The ALSA dmix plugin uses SysV semaphores and shared memory to
   // coordinate software mixing.
 #ifdef MOZ_ALSA
-  if (!Preferences::GetBool("media.cubeb.sandbox")) {
+  if (!StaticPrefs::media_cubeb_sandbox()) {
     return true;
   }
 #endif
 
-  // Bug 1438391: VirtualGL uses SysV shm for images and configuration.
-  if (PR_GetEnv("VGL_ISACTIVE") != nullptr) {
-    return true;
-  }
+  if (!StaticPrefs::security_sandbox_content_headless_AtStartup()) {
+    // Bug 1438391: VirtualGL uses SysV shm for images and configuration.
+    if (PR_GetEnv("VGL_ISACTIVE") != nullptr) {
+      return true;
+    }
 
-  // The fglrx (ATI Catalyst) GPU drivers use SysV IPC.
-  if (HasAtiDrivers()) {
-    return true;
+    // The fglrx (ATI Catalyst) GPU drivers use SysV IPC.
+    if (HasAtiDrivers()) {
+      return true;
+    }
   }
 
   return false;
@@ -193,7 +213,8 @@ static void AttachSandboxReporter(base::file_handle_mapping_vector* aFdMap) {
 
 class SandboxFork : public base::LaunchOptions::ForkDelegate {
  public:
-  explicit SandboxFork(int aFlags, bool aChroot);
+  explicit SandboxFork(int aFlags, bool aChroot, int aServerFd = -1,
+                       int aClientFd = -1);
   virtual ~SandboxFork();
 
   void PrepareMapping(base::file_handle_mapping_vector* aMap);
@@ -212,22 +233,30 @@ class SandboxFork : public base::LaunchOptions::ForkDelegate {
 static int GetEffectiveSandboxLevel(GeckoProcessType aType) {
   auto info = SandboxInfo::Get();
   switch (aType) {
-#ifdef MOZ_GMP_SANDBOX
     case GeckoProcessType_GMPlugin:
       if (info.Test(SandboxInfo::kEnabledForMedia)) {
         return 1;
       }
       return 0;
-#endif
-#ifdef MOZ_CONTENT_SANDBOX
     case GeckoProcessType_Content:
+#ifdef MOZ_ENABLE_FORKSERVER
+      // With this env MOZ_SANDBOXED will be set, and mozsandbox will
+      // be preloaded for the fork server.  The content processes rely
+      // on wrappers defined by mozsandbox to work properly.
+    case GeckoProcessType_ForkServer:
+#endif
       // GetEffectiveContentSandboxLevel is main-thread-only due to prefs.
       MOZ_ASSERT(NS_IsMainThread());
       if (info.Test(SandboxInfo::kEnabledForContent)) {
         return GetEffectiveContentSandboxLevel();
       }
       return 0;
-#endif
+    case GeckoProcessType_RDD:
+      return PR_GetEnv("MOZ_DISABLE_RDD_SANDBOX") == nullptr ? 1 : 0;
+    case GeckoProcessType_Socket:
+      // GetEffectiveSocketProcessSandboxLevel is main-thread-only due to prefs.
+      MOZ_ASSERT(NS_IsMainThread());
+      return GetEffectiveSocketProcessSandboxLevel();
     default:
       return 0;
   }
@@ -267,6 +296,10 @@ void SandboxLaunchPrepare(GeckoProcessType aType,
     } else {
       flags |= CLONE_NEWIPC;
     }
+
+    if (StaticPrefs::security_sandbox_content_headless_AtStartup()) {
+      aOptions->env_map["MOZ_HEADLESS"] = "1";
+    }
   }
 
   // Anything below this requires unprivileged user namespaces.
@@ -275,23 +308,30 @@ void SandboxLaunchPrepare(GeckoProcessType aType,
   }
 
   switch (aType) {
-#ifdef MOZ_GMP_SANDBOX
+    case GeckoProcessType_Socket:
+      if (level >= 1) {
+        canChroot = true;
+        flags |= CLONE_NEWIPC;
+      }
+      break;
     case GeckoProcessType_GMPlugin:
+    case GeckoProcessType_RDD:
       if (level >= 1) {
         canChroot = true;
         flags |= CLONE_NEWNET | CLONE_NEWIPC;
       }
       break;
-#endif
-#ifdef MOZ_CONTENT_SANDBOX
     case GeckoProcessType_Content:
       if (level >= 4) {
         canChroot = true;
+
         // Unshare network namespace if allowed by graphics; see
         // function definition above for details.  (The display
         // local-ness is cached because it won't change.)
         static const bool canCloneNet =
-            IsDisplayLocal() && !PR_GetEnv("RENDERDOC_CAPTUREOPTS");
+            StaticPrefs::security_sandbox_content_headless_AtStartup() ||
+            (IsDisplayLocal() && !PR_GetEnv("RENDERDOC_CAPTUREOPTS"));
+
         if (canCloneNet) {
           flags |= CLONE_NEWNET;
         }
@@ -303,25 +343,65 @@ void SandboxLaunchPrepare(GeckoProcessType aType,
         flags |= CLONE_NEWUSER;
       }
       break;
-#endif
     default:
       // Nothing yet.
       break;
   }
 
   if (canChroot || flags != 0) {
-    auto forker = MakeUnique<SandboxFork>(flags | CLONE_NEWUSER, canChroot);
+    flags |= CLONE_NEWUSER;
+    auto forker = MakeUnique<SandboxFork>(flags, canChroot);
     forker->PrepareMapping(&aOptions->fds_to_remap);
     aOptions->fork_delegate = std::move(forker);
-    if (canChroot) {
-      aOptions->env_map[kSandboxChrootEnvFlag] = "1";
-    }
+    // Pass to |SandboxLaunchForkServerPrepare()| in the fork server.
+    aOptions->env_map[kSandboxChrootEnvFlag] =
+        std::to_string(canChroot ? 1 : 0) + std::to_string(flags);
   }
 }
 
-SandboxFork::SandboxFork(int aFlags, bool aChroot)
-    : mFlags(aFlags), mChrootServer(-1), mChrootClient(-1) {
-  if (aChroot) {
+#if defined(MOZ_ENABLE_FORKSERVER)
+/**
+ * Called by the fork server to install a fork delegator.
+ *
+ * In the case of fork server, the value of the flags of |SandboxFork|
+ * are passed as an env variable to the fork server so that we can
+ * recreate a |SandboxFork| as a fork delegator at the fork server.
+ */
+void SandboxLaunchForkServerPrepare(const std::vector<std::string>& aArgv,
+                                    base::LaunchOptions& aOptions) {
+  auto chroot = std::find_if(
+      aOptions.env_map.begin(), aOptions.env_map.end(),
+      [](auto& elt) { return elt.first == kSandboxChrootEnvFlag; });
+  if (chroot == aOptions.env_map.end()) {
+    return;
+  }
+  bool canChroot = chroot->second.c_str()[0] == '1';
+  int flags = atoi(chroot->second.c_str() + 1);
+  MOZ_ASSERT(flags || canChroot);
+
+  // Find chroot server fd.  It is supposed to be map to
+  // kSandboxChrootServerFd so that we find it out from the mapping.
+  auto fdmap = std::find_if(
+      aOptions.fds_to_remap.begin(), aOptions.fds_to_remap.end(),
+      [](auto& elt) { return elt.second == kSandboxChrootServerFd; });
+  MOZ_ASSERT(fdmap != aOptions.fds_to_remap.end(),
+             "ChrootServerFd is not found with sandbox chroot");
+  int chrootserverfd = fdmap->first;
+  aOptions.fds_to_remap.erase(fdmap);
+
+  // Set only the chroot server fd, not the client fd.  Because, the
+  // client fd is already in |fds_to_remap|, we don't need the forker
+  // to do it again.  And, the forker need only the server fd, that
+  // chroot server uses it to sync with the client (content).  See
+  // |SandboxFox::StartChrootServer()|.
+  auto forker = MakeUnique<SandboxFork>(flags, canChroot, chrootserverfd);
+  aOptions.fork_delegate = std::move(forker);
+}
+#endif
+
+SandboxFork::SandboxFork(int aFlags, bool aChroot, int aServerFd, int aClientFd)
+    : mFlags(aFlags), mChrootServer(aServerFd), mChrootClient(aClientFd) {
+  if (aChroot && mChrootServer < 0) {
     int fds[2];
     int rv = socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, fds);
     if (rv != 0) {
@@ -334,9 +414,15 @@ SandboxFork::SandboxFork(int aFlags, bool aChroot)
 }
 
 void SandboxFork::PrepareMapping(base::file_handle_mapping_vector* aMap) {
+  MOZ_ASSERT(XRE_GetProcessType() != GeckoProcessType_ForkServer);
   if (mChrootClient >= 0) {
     aMap->push_back({mChrootClient, kSandboxChrootClientFd});
   }
+#if defined(MOZ_ENABLE_FORKSERVER)
+  if (mChrootServer >= 0) {
+    aMap->push_back({mChrootServer, kSandboxChrootServerFd});
+  }
+#endif
 }
 
 SandboxFork::~SandboxFork() {
@@ -413,7 +499,9 @@ static int CloneCallee(void* aPtr) {
 // we don't currently support sandboxing under valgrind.
 MOZ_NEVER_INLINE MOZ_ASAN_BLACKLIST static pid_t DoClone(int aFlags,
                                                          jmp_buf* aCtx) {
-  uint8_t miniStack[PTHREAD_STACK_MIN];
+  static constexpr size_t kStackAlignment = 16;
+  uint8_t miniStack[PTHREAD_STACK_MIN]
+      __attribute__((aligned(kStackAlignment)));
 #ifdef __hppa__
   void* stackPtr = miniStack;
 #else
@@ -516,6 +604,7 @@ pid_t SandboxFork::Fork() {
   // WARNING: all code from this point on (and in StartChrootServer)
   // must be async signal safe.  In particular, it cannot do anything
   // that could allocate heap memory or use mutexes.
+  prctl(PR_SET_NAME, "Sandbox Forked");
 
   // Clear signal handlers in the child, under the assumption that any
   // actions they would take (running the crash reporter, manipulating
@@ -545,6 +634,7 @@ void SandboxFork::StartChrootServer() {
   if (pid > 0) {
     return;
   }
+  prctl(PR_SET_NAME, "Chroot Helper");
 
   LinuxCapabilities caps;
   caps.Effective(CAP_SYS_CHROOT) = true;

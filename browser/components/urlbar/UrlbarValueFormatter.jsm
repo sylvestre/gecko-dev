@@ -6,12 +6,16 @@
 
 var EXPORTED_SYMBOLS = ["UrlbarValueFormatter"];
 
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
 
 XPCOMUtils.defineLazyModuleGetters(this, {
   AppConstants: "resource://gre/modules/AppConstants.jsm",
+  PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.jsm",
   Services: "resource://gre/modules/Services.jsm",
   UrlbarPrefs: "resource:///modules/UrlbarPrefs.jsm",
+  UrlbarUtils: "resource:///modules/UrlbarUtils.jsm",
 });
 
 /**
@@ -30,6 +34,8 @@ class UrlbarValueFormatter {
     // This is used only as an optimization to avoid removing formatting in
     // the _remove* format methods when no formatting is actually applied.
     this._formattingApplied = false;
+
+    this.window.addEventListener("resize", this);
   }
 
   get inputField() {
@@ -37,11 +43,37 @@ class UrlbarValueFormatter {
   }
 
   get scheme() {
-    return this.document.getAnonymousElementByAttribute(
-      this.urlbarInput.textbox, "anonid", "scheme");
+    return this.urlbarInput.querySelector("#urlbar-scheme");
   }
 
-  update() {
+  async update(forceURLFormat = false) {
+    // _getUrlMetaData does URI fixup, which depends on the search service, so
+    // make sure it's initialized.  It can be uninitialized here on session
+    // restore.  Skip this if the service is already initialized in order to
+    // avoid the async call in the common case.  However, we can't access
+    // Service.search before first paint (delayed startup) because there's a
+    // performance test that prohibits it, so first bail if delayed startup
+    // isn't finished.
+    if (!this.window.gBrowserInit.delayedStartupFinished) {
+      return;
+    }
+    // If this window is being torn down, stop here
+    if (!this.window.docShell) {
+      return;
+    }
+    if (!Services.search.isInitialized) {
+      let instance = (this._updateInstance = {});
+      await Services.search.init();
+      if (this._updateInstance != instance) {
+        return;
+      }
+      delete this._updateInstance;
+    }
+
+    // Cleanup that must be done in any case, even if there's no value.
+    this.urlbarInput.removeAttribute("domaindir");
+    this.scheme.value = "";
+
     if (!this.inputField.value) {
       return;
     }
@@ -53,14 +85,19 @@ class UrlbarValueFormatter {
     // Apply new formatting.  Formatter methods should return true if they
     // successfully formatted the value and false if not.  We apply only
     // one formatter at a time, so we stop at the first successful one.
-    this._formattingApplied =
-      this._formatURL() ||
-      this._formatSearchAlias();
+    if (
+      forceURLFormat ||
+      this.urlbarInput.getAttribute("pageproxystate") === "valid"
+    ) {
+      this._formattingApplied = this._formatURL(forceURLFormat);
+    } else {
+      this._formattingApplied = this._formatSearchAlias();
+    }
   }
 
-  ensureFormattedHostVisible(urlMetaData) {
+  _ensureFormattedHostVisible(urlMetaData) {
     // Used to avoid re-entrance in the requestAnimationFrame callback.
-    let instance = this._formatURLInstance = {};
+    let instance = (this._formatURLInstance = {});
 
     // Make sure the host is always visible. Since it is aligned on
     // the first strong directional character, we set scrollLeft
@@ -78,71 +115,123 @@ class UrlbarValueFormatter {
       // scroll to the left.
       urlMetaData = urlMetaData || this._getUrlMetaData();
       if (!urlMetaData) {
+        this.urlbarInput.removeAttribute("domaindir");
         return;
       }
       let { url, preDomain, domain } = urlMetaData;
       let directionality = this.window.windowUtils.getDirectionFromText(domain);
-      if (directionality == this.window.windowUtils.DIRECTION_RTL &&
-          url[preDomain.length + domain.length] != "\u200E") {
+      if (
+        directionality == this.window.windowUtils.DIRECTION_RTL &&
+        url[preDomain.length + domain.length] != "\u200E"
+      ) {
+        this.urlbarInput.setAttribute("domaindir", "rtl");
         this.inputField.scrollLeft = this.inputField.scrollLeftMax;
+      } else {
+        this.urlbarInput.setAttribute("domaindir", "ltr");
+        this.inputField.scrollLeft = 0;
       }
     });
   }
 
-  _getUrlMetaData() {
-    if (this.urlbarInput.focused) {
+  _getUrlMetaData(forceURLFormat = false) {
+    if (!forceURLFormat && this.urlbarInput.focused) {
       return null;
     }
 
-    let url = this.inputField.value;
+    const inputValue = this.inputField.value;
+    let browser = this.window.gBrowser.selectedBrowser;
+
+    // Since doing a full URIFixup and offset calculations is expensive, we
+    // keep the metadata cached in the browser itself, so when switching tabs
+    // we can skip most of this.
+    if (browser._urlMetaData && browser._urlMetaData.url == inputValue) {
+      return browser._urlMetaData.data;
+    }
 
     // Get the URL from the fixup service:
-    let flags = Services.uriFixup.FIXUP_FLAG_FIX_SCHEME_TYPOS |
-                Services.uriFixup.FIXUP_FLAG_ALLOW_KEYWORD_LOOKUP;
+    let flags =
+      Services.uriFixup.FIXUP_FLAG_FIX_SCHEME_TYPOS |
+      Services.uriFixup.FIXUP_FLAG_ALLOW_KEYWORD_LOOKUP;
+    if (PrivateBrowsingUtils.isWindowPrivate(this.window)) {
+      flags |= Services.uriFixup.FIXUP_FLAG_PRIVATE_CONTEXT;
+    }
     let uriInfo;
     try {
-      uriInfo = Services.uriFixup.getFixupURIInfo(url, flags);
+      uriInfo = Services.uriFixup.getFixupURIInfo(inputValue, flags);
     } catch (ex) {}
     // Ignore if we couldn't make a URI out of this, the URI resulted in a search,
     // or the URI has a non-http(s)/ftp protocol.
-    if (!uriInfo ||
-        !uriInfo.fixedURI ||
-        uriInfo.keywordProviderName ||
-        !["http", "https", "ftp"].includes(uriInfo.fixedURI.scheme)) {
+    if (
+      !uriInfo ||
+      !uriInfo.fixedURI ||
+      uriInfo.keywordProviderName ||
+      !["http", "https", "ftp"].includes(uriInfo.fixedURI.scheme)
+    ) {
+      browser._urlMetaData = { url: inputValue, data: null };
       return null;
     }
+
+    const { displayHostPort, displayPrePath, port, scheme } = uriInfo.fixedURI;
+
+    let url = UrlbarUtils.losslessDecodeURI(uriInfo.fixedURI);
+    // If the fixed uri is just an origin it will have a trailing slash. If the user didn't
+    // type that trailing slash, remove it to improve the uri readability and avoid flicker.
+    url = /\/$/.test(inputValue) ? url : url.replace(/\/$/, "");
+
+    const schemeWSlashes = `${scheme}://`;
+
+    // In order to recognize the domain including brackets [] of IPV6, use displayHostPort.
+    const domain =
+      port === -1
+        ? displayHostPort
+        : displayHostPort.substring(
+            0,
+            displayHostPort.length - `:${port}`.length
+          );
+
+    const preDomain = decodeURI(
+      displayPrePath.substring(
+        0,
+        displayPrePath.length - displayHostPort.length
+      )
+    );
 
     // If we trimmed off the http scheme, ensure we stick it back on before
     // trying to figure out what domain we're accessing, so we don't get
     // confused by user:pass@host http URLs. We later use
     // trimmedLength to ensure we don't count the length of a trimmed protocol
     // when determining which parts of the URL to highlight as "preDomain".
+    let replacedValue = url;
     let trimmedLength = 0;
-    if (uriInfo.fixedURI.scheme == "http" && !url.startsWith("http://")) {
-      url = "http://" + url;
+    if (
+      uriInfo.fixedURI.scheme == "http" &&
+      !inputValue.startsWith("http://")
+    ) {
+      replacedValue = replacedValue.replace(/^http:\/\//, "");
       trimmedLength = "http://".length;
     }
 
-    let matchedURL = url.match(/^(([a-z]+:\/\/)(?:[^\/#?]+@)?)(\S+?)(?::\d+)?\s*(?:[\/#?]|$)/);
-    if (!matchedURL) {
-      return null;
-    }
+    browser._urlMetaData = { url: replacedValue, data: null };
+    this.inputField.value = replacedValue;
 
-    let [, preDomain, schemeWSlashes, domain] = matchedURL;
-    return { preDomain, schemeWSlashes, domain, url, uriInfo, trimmedLength };
+    return (browser._urlMetaData.data = {
+      domain,
+      origin: uriInfo.fixedURI.host,
+      preDomain,
+      schemeWSlashes,
+      trimmedLength,
+      url,
+    });
   }
 
   _removeURLFormat() {
-    this.scheme.value = "";
     if (!this._formattingApplied) {
       return;
     }
     let controller = this.urlbarInput.editor.selectionController;
-    let strikeOut =
-      controller.getSelection(controller.SELECTION_URLSTRIKEOUT);
+    let strikeOut = controller.getSelection(controller.SELECTION_URLSTRIKEOUT);
     strikeOut.removeAllRanges();
-    let selection =
-      controller.getSelection(controller.SELECTION_URLSECONDARY);
+    let selection = controller.getSelection(controller.SELECTION_URLSECONDARY);
     selection.removeAllRanges();
     this._formatScheme(controller.SELECTION_URLSTRIKEOUT, true);
     this._formatScheme(controller.SELECTION_URLSECONDARY, true);
@@ -155,24 +244,37 @@ class UrlbarValueFormatter {
    * it crosses out the https scheme.  It also ensures that the host is
    * visible (not scrolled out of sight).
    *
+   * @param {boolean} [forceURLFormat]
+   *        Whether to format URLs even when conditions forbid it,
+   *        for example when the urlbar has focus.
+   *
    * @returns {boolean}
    *   True if formatting was applied and false if not.
    */
-  _formatURL() {
-    let urlMetaData = this._getUrlMetaData();
+  _formatURL(forceURLFormat = false) {
+    let urlMetaData = this._getUrlMetaData(forceURLFormat);
     if (!urlMetaData) {
       return false;
     }
 
-    let { url, uriInfo, preDomain, schemeWSlashes, domain, trimmedLength } = urlMetaData;
+    let {
+      domain,
+      origin,
+      preDomain,
+      schemeWSlashes,
+      trimmedLength,
+      url,
+    } = urlMetaData;
     // We strip http, so we should not show the scheme box for it.
     if (!UrlbarPrefs.get("trimURLs") || schemeWSlashes != "http://") {
       this.scheme.value = schemeWSlashes;
-      this.inputField.style.setProperty("--urlbar-scheme-size",
-                                        schemeWSlashes.length + "ch");
+      this.inputField.style.setProperty(
+        "--urlbar-scheme-size",
+        schemeWSlashes.length + "ch"
+      );
     }
 
-    this.ensureFormattedHostVisible(urlMetaData);
+    this._ensureFormattedHostVisible(urlMetaData);
 
     if (!UrlbarPrefs.get("formatting.enabled")) {
       return false;
@@ -186,15 +288,18 @@ class UrlbarValueFormatter {
     let textNode = editor.rootElement.firstChild;
 
     // Strike out the "https" part if mixed active content is loaded.
-    if (this.urlbarInput.getAttribute("pageproxystate") == "valid" &&
-        url.startsWith("https:") &&
-        this.window.gBrowser.securityUI.state &
-          Ci.nsIWebProgressListener.STATE_LOADED_MIXED_ACTIVE_CONTENT) {
+    if (
+      this.urlbarInput.getAttribute("pageproxystate") == "valid" &&
+      url.startsWith("https:") &&
+      this.window.gBrowser.securityUI.state &
+        Ci.nsIWebProgressListener.STATE_LOADED_MIXED_ACTIVE_CONTENT
+    ) {
       let range = this.document.createRange();
       range.setStart(textNode, 0);
       range.setEnd(textNode, 5);
-      let strikeOut =
-        controller.getSelection(controller.SELECTION_URLSTRIKEOUT);
+      let strikeOut = controller.getSelection(
+        controller.SELECTION_URLSTRIKEOUT
+      );
       strikeOut.addRange(range);
       this._formatScheme(controller.SELECTION_URLSTRIKEOUT);
     }
@@ -202,11 +307,12 @@ class UrlbarValueFormatter {
     let baseDomain = domain;
     let subDomain = "";
     try {
-      baseDomain = Services.eTLD.getBaseDomainFromHost(uriInfo.fixedURI.host);
+      baseDomain = Services.eTLD.getBaseDomainFromHost(origin);
       if (!domain.endsWith(baseDomain)) {
         // getBaseDomainFromHost converts its resultant to ACE.
-        let IDNService = Cc["@mozilla.org/network/idn-service;1"]
-                         .getService(Ci.nsIIDNService);
+        let IDNService = Cc["@mozilla.org/network/idn-service;1"].getService(
+          Ci.nsIIDNService
+        );
         baseDomain = IDNService.convertACEtoUTF8(baseDomain);
       }
     } catch (e) {}
@@ -215,6 +321,7 @@ class UrlbarValueFormatter {
     }
 
     let selection = controller.getSelection(controller.SELECTION_URLSECONDARY);
+    selection.removeAllRanges();
 
     let rangeLength = preDomain.length + subDomain.length - trimmedLength;
     if (rangeLength) {
@@ -271,71 +378,30 @@ class UrlbarValueFormatter {
       return false;
     }
 
-    let popup = this.urlbarInput.popup;
-    if (!popup) {
-      // TODO: make this work with UrlbarView
-      return false;
-    }
-
-    if (popup.oneOffSearchButtons.selectedButton) {
-      return false;
-    }
-
     let editor = this.urlbarInput.editor;
     let textNode = editor.rootElement.firstChild;
     let value = textNode.textContent;
     let trimmedValue = value.trim();
 
-    if (!trimmedValue.startsWith("@")) {
+    if (
+      !trimmedValue.startsWith("@") ||
+      (this.urlbarInput.popup || this.urlbarInput.view).oneOffSearchButtons
+        .selectedButton
+    ) {
       return false;
     }
 
-    // To determine whether the input contains a valid alias, check the value of
-    // the selected result -- whether it's a search engine result with an alias.
-    // Actually, check the selected listbox item, not the result in the
-    // controller, because we want to continue highlighting the alias when the
-    // popup is closed and the search has stopped.  The selected index when the
-    // popup is closed is zero, however, which is why we also check the previous
-    // selected index.
-    let itemIndex =
-      popup.selectedIndex < 0 ? popup._previousSelectedIndex :
-      popup.selectedIndex;
-    if (itemIndex < 0) {
-      return false;
-    }
-    let item = popup.richlistbox.children[itemIndex] || null;
-
-    // This actiontype check isn't necessary because we call _parseActionUrl
-    // below and we could check action.type instead.  But since this method is
-    // called very often, as an optimization, first do a simple string
-    // comparison on actiontype before continuing with the more expensive regexp
-    // that _parseActionUrl uses.
-    if (!item || item.getAttribute("actiontype") != "searchengine") {
-      return false;
-    }
-
-    let url = item.getAttribute("url");
-    let action = this.urlbarInput._parseActionUrl(url);
-    if (!action) {
-      return false;
-    }
-    let alias = action.params.alias || null;
+    let alias = this._getSearchAlias();
     if (!alias) {
       return false;
     }
 
-    // Make sure the item's input matches the current urlbar input because the
-    // urlbar input can change without the popup results changing.  Most notably
-    // that happens when the user performs a search using an alias: The popup
-    // closes (preserving its items), the search results page is loaded, and the
-    // urlbar value is set to the URL of the page.
-    //
-    // If the item is the heuristic item, then its input is the value that the
-    // user has typed in the input.  If the item is not the heuristic item, then
-    // its input is "@engine ".  So in order to make sure the item's input
-    // matches the current urlbar input, we need to check that the urlbar input
-    // starts with the item's input.
-    if (!trimmedValue.startsWith(action.params.input.trim())) {
+    // Make sure the current input starts with the alias because it can change
+    // without the popup results changing.  Most notably that happens when the
+    // user performs a search using an alias: The popup closes (preserving its
+    // results), the search results page loads, and the input value is set to
+    // the URL of the page.
+    if (trimmedValue != alias && !trimmedValue.startsWith(alias + " ")) {
       return false;
     }
 
@@ -369,9 +435,11 @@ class UrlbarValueFormatter {
     // them as the alternate colors.  Otherwise, allow setColors to swap
     // them, which we can do by passing "currentColor".  See
     // nsTextPaintStyle::GetHighlightColors for details.
-    if (this.document.documentElement.querySelector(":-moz-lwtheme") ||
-        (AppConstants.platform == "win" &&
-         this.window.matchMedia("(-moz-windows-default-theme: 0)").matches)) {
+    if (
+      this.document.documentElement.querySelector(":-moz-lwtheme") ||
+      (AppConstants.platform == "win" &&
+        this.window.matchMedia("(-moz-windows-default-theme: 0)").matches)
+    ) {
       // non-default theme(s)
       selection.setColors(fg, bg, "currentColor", "currentColor");
     } else {
@@ -380,5 +448,57 @@ class UrlbarValueFormatter {
     }
 
     return true;
+  }
+
+  _getSearchAlias() {
+    // To determine whether the input contains a valid alias, check if the
+    // selected result is a search result with an alias. If there is no selected
+    // result, we check the first result in the view, for cases when we do not
+    // highlight token alias results. The selected result is null when the popup
+    // is closed, but we want to continue highlighting the alias when the popup
+    // is closed, and that's why we keep around the previously selected result
+    // in _selectedResult.
+    this._selectedResult =
+      this.urlbarInput.view.selectedResult ||
+      this.urlbarInput.view.getResultAtIndex(0) ||
+      this._selectedResult;
+
+    if (
+      this._selectedResult &&
+      this._selectedResult.type == UrlbarUtils.RESULT_TYPE.SEARCH
+    ) {
+      return this._selectedResult.payload.keyword || null;
+    }
+    return null;
+  }
+
+  /**
+   * Passes DOM events to the _on_<event type> methods.
+   * @param {Event} event
+   *   DOM event.
+   */
+  handleEvent(event) {
+    let methodName = "_on_" + event.type;
+    if (methodName in this) {
+      this[methodName](event);
+    } else {
+      throw new Error("Unrecognized UrlbarValueFormatter event: " + event.type);
+    }
+  }
+
+  _on_resize(event) {
+    if (event.target != this.window) {
+      return;
+    }
+    // Make sure the host remains visible in the input field when the window is
+    // resized.  We don't want to hurt resize performance though, so do this
+    // only after resize events have stopped and a small timeout has elapsed.
+    if (this._resizeThrottleTimeout) {
+      this.window.clearTimeout(this._resizeThrottleTimeout);
+    }
+    this._resizeThrottleTimeout = this.window.setTimeout(() => {
+      this._resizeThrottleTimeout = null;
+      this._ensureFormattedHostVisible();
+    }, 100);
   }
 }

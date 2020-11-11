@@ -8,6 +8,8 @@
 
 #include "gfx2DGlue.h"
 #include "gfxUtils.h"
+#include "mozilla/PresShell.h"
+#include "mozilla/StaticPrefs_mathml.h"
 #include "mozilla/gfx/2D.h"
 #include "mozilla/gfx/PathHelpers.h"
 #include "nsPresContext.h"
@@ -39,22 +41,25 @@ static const uint8_t kArrowHeadSize = 10;
 // phasorangle
 static const uint8_t kPhasorangleWidth = 8;
 
-nsIFrame* NS_NewMathMLmencloseFrame(nsIPresShell* aPresShell,
+nsIFrame* NS_NewMathMLmencloseFrame(PresShell* aPresShell,
                                     ComputedStyle* aStyle) {
-  return new (aPresShell) nsMathMLmencloseFrame(aStyle);
+  return new (aPresShell)
+      nsMathMLmencloseFrame(aStyle, aPresShell->GetPresContext());
 }
 
 NS_IMPL_FRAMEARENA_HELPERS(nsMathMLmencloseFrame)
 
-nsMathMLmencloseFrame::nsMathMLmencloseFrame(ComputedStyle* aStyle, ClassID aID)
-    : nsMathMLContainerFrame(aStyle, aID),
+nsMathMLmencloseFrame::nsMathMLmencloseFrame(ComputedStyle* aStyle,
+                                             nsPresContext* aPresContext,
+                                             ClassID aID)
+    : nsMathMLContainerFrame(aStyle, aPresContext, aID),
       mRuleThickness(0),
       mRadicalRuleThickness(0),
       mLongDivCharIndex(-1),
       mRadicalCharIndex(-1),
       mContentWidth(0) {}
 
-nsMathMLmencloseFrame::~nsMathMLmencloseFrame() {}
+nsMathMLmencloseFrame::~nsMathMLmencloseFrame() = default;
 
 nsresult nsMathMLmencloseFrame::AllocateMathMLChar(nsMencloseNotation mask) {
   // Is the char already allocated?
@@ -68,7 +73,9 @@ nsresult nsMathMLmencloseFrame::AllocateMathMLChar(nsMencloseNotation mask) {
   uint32_t i = mMathMLChar.Length();
   nsAutoString Char;
 
-  if (!mMathMLChar.AppendElement()) return NS_ERROR_OUT_OF_MEMORY;
+  // XXX(Bug 1631371) Check if this should use a fallible operation as it
+  // pretended earlier, or change the return type to void.
+  mMathMLChar.AppendElement();
 
   if (mask == NOTATION_LONGDIV) {
     Char.Assign(kLongDivChar);
@@ -78,10 +85,8 @@ nsresult nsMathMLmencloseFrame::AllocateMathMLChar(nsMencloseNotation mask) {
     mRadicalCharIndex = i;
   }
 
-  nsPresContext* presContext = PresContext();
   mMathMLChar[i].SetData(Char);
-  ResolveMathMLCharStyle(presContext, mContent, mComputedStyle,
-                         &mMathMLChar[i]);
+  mMathMLChar[i].SetComputedStyle(Style());
 
   return NS_OK;
 }
@@ -101,9 +106,13 @@ nsresult nsMathMLmencloseFrame::AddNotation(const nsAString& aNotation) {
     mNotationsToDraw += NOTATION_RIGHT;
     mNotationsToDraw += NOTATION_TOP;
   } else if (aNotation.EqualsLiteral("radical")) {
-    rv = AllocateMathMLChar(NOTATION_RADICAL);
-    NS_ENSURE_SUCCESS(rv, rv);
-    mNotationsToDraw += NOTATION_RADICAL;
+    if (!StaticPrefs::mathml_deprecated_menclose_notation_radical_disabled()) {
+      mContent->OwnerDoc()->WarnOnceAbout(
+          dom::Document::eMathML_DeprecatedMencloseNotationRadical);
+      rv = AllocateMathMLChar(NOTATION_RADICAL);
+      NS_ENSURE_SUCCESS(rv, rv);
+      mNotationsToDraw += NOTATION_RADICAL;
+    }
   } else if (aNotation.EqualsLiteral("box")) {
     mNotationsToDraw += NOTATION_LEFT;
     mNotationsToDraw += NOTATION_RIGHT;
@@ -213,7 +222,10 @@ void nsMathMLmencloseFrame::BuildDisplayList(nsDisplayListBuilder* aBuilder,
 
     nsRect rect;
     mMathMLChar[mRadicalCharIndex].GetRect(rect);
-    rect.MoveBy(StyleVisibility()->mDirection ? -mContentWidth : rect.width, 0);
+    rect.MoveBy(StyleVisibility()->mDirection == StyleDirection::Rtl
+                    ? -mContentWidth
+                    : rect.width,
+                0);
     rect.SizeTo(mContentWidth, mRadicalRuleThickness);
     DisplayBar(aBuilder, this, rect, aLists, NOTATION_RADICAL);
   }
@@ -292,19 +304,24 @@ void nsMathMLmencloseFrame::BuildDisplayList(nsDisplayListBuilder* aBuilder,
   }
 }
 
-/* virtual */ nsresult nsMathMLmencloseFrame::MeasureForWidth(
-    DrawTarget* aDrawTarget, ReflowOutput& aDesiredSize) {
+/* virtual */
+nsresult nsMathMLmencloseFrame::MeasureForWidth(DrawTarget* aDrawTarget,
+                                                ReflowOutput& aDesiredSize) {
   return PlaceInternal(aDrawTarget, false, aDesiredSize, true);
 }
 
-/* virtual */ nsresult nsMathMLmencloseFrame::Place(
-    DrawTarget* aDrawTarget, bool aPlaceOrigin, ReflowOutput& aDesiredSize) {
+/* virtual */
+nsresult nsMathMLmencloseFrame::Place(DrawTarget* aDrawTarget,
+                                      bool aPlaceOrigin,
+                                      ReflowOutput& aDesiredSize) {
   return PlaceInternal(aDrawTarget, aPlaceOrigin, aDesiredSize, false);
 }
 
-/* virtual */ nsresult nsMathMLmencloseFrame::PlaceInternal(
-    DrawTarget* aDrawTarget, bool aPlaceOrigin, ReflowOutput& aDesiredSize,
-    bool aWidthOnly) {
+/* virtual */
+nsresult nsMathMLmencloseFrame::PlaceInternal(DrawTarget* aDrawTarget,
+                                              bool aPlaceOrigin,
+                                              ReflowOutput& aDesiredSize,
+                                              bool aWidthOnly) {
   ///////////////
   // Measure the size of our content using the base class to format like an
   // inferred mrow.
@@ -350,9 +367,9 @@ void nsMathMLmencloseFrame::BuildDisplayList(nsDisplayListBuilder* aBuilder,
   if (delta) padding += onePixel - delta;  // round up
 
   if (IsToDraw(NOTATION_LONGDIV) || IsToDraw(NOTATION_RADICAL)) {
-    GetRadicalParameters(
-        fm, StyleFont()->mMathDisplay == NS_MATHML_DISPLAYSTYLE_BLOCK,
-        mRadicalRuleThickness, leading, psi);
+    GetRadicalParameters(fm,
+                         StyleFont()->mMathStyle == NS_STYLE_MATH_STYLE_NORMAL,
+                         mRadicalRuleThickness, leading, psi);
 
     // make sure that the rule appears on on screen
     if (mRadicalRuleThickness < onePixel) {
@@ -491,7 +508,9 @@ void nsMathMLmencloseFrame::BuildDisplayList(nsDisplayListBuilder* aBuilder,
   ///////////////
   // radical notation:
   if (IsToDraw(NOTATION_RADICAL)) {
-    nscoord* dx_leading = StyleVisibility()->mDirection ? &dx_right : &dx_left;
+    nscoord* dx_leading = StyleVisibility()->mDirection == StyleDirection::Rtl
+                              ? &dx_right
+                              : &dx_left;
 
     if (aWidthOnly) {
       nscoord radical_width = mMathMLChar[mRadicalCharIndex].GetMaxWidth(
@@ -510,7 +529,7 @@ void nsMathMLmencloseFrame::BuildDisplayList(nsDisplayListBuilder* aBuilder,
       mMathMLChar[mRadicalCharIndex].Stretch(
           this, aDrawTarget, fontSizeInflation, NS_STRETCH_DIRECTION_VERTICAL,
           contSize, bmRadicalChar, NS_STRETCH_LARGER,
-          StyleVisibility()->mDirection);
+          StyleVisibility()->mDirection == StyleDirection::Rtl);
       mMathMLChar[mRadicalCharIndex].GetBoundingMetrics(bmRadicalChar);
 
       // Update horizontal parameters
@@ -627,9 +646,9 @@ void nsMathMLmencloseFrame::BuildDisplayList(nsDisplayListBuilder* aBuilder,
           bmLongdivChar.ascent + bmLongdivChar.descent));
 
     if (IsToDraw(NOTATION_RADICAL)) {
-      nscoord dx =
-          (StyleVisibility()->mDirection ? dx_left + bmBase.width
-                                         : dx_left - bmRadicalChar.width);
+      nscoord dx = (StyleVisibility()->mDirection == StyleDirection::Rtl
+                        ? dx_left + bmBase.width
+                        : dx_left - bmRadicalChar.width);
 
       mMathMLChar[mRadicalCharIndex].SetRect(nsRect(
           dx, aDesiredSize.BlockStartAscent() - radicalAscent,
@@ -673,43 +692,27 @@ nsresult nsMathMLmencloseFrame::AttributeChanged(int32_t aNameSpaceID,
                                                   aModType);
 }
 
+void nsMathMLmencloseFrame::DidSetComputedStyle(ComputedStyle* aOldStyle) {
+  nsMathMLContainerFrame::DidSetComputedStyle(aOldStyle);
+  for (auto& ch : mMathMLChar) {
+    ch.SetComputedStyle(Style());
+  }
+}
+
 //////////////////
-// the Style System will use these to pass the proper ComputedStyle to our
-// MathMLChar
-ComputedStyle* nsMathMLmencloseFrame::GetAdditionalComputedStyle(
-    int32_t aIndex) const {
-  int32_t len = mMathMLChar.Length();
-  if (aIndex >= 0 && aIndex < len)
-    return mMathMLChar[aIndex].GetComputedStyle();
-  else
-    return nullptr;
-}
 
-void nsMathMLmencloseFrame::SetAdditionalComputedStyle(
-    int32_t aIndex, ComputedStyle* aComputedStyle) {
-  int32_t len = mMathMLChar.Length();
-  if (aIndex >= 0 && aIndex < len)
-    mMathMLChar[aIndex].SetComputedStyle(aComputedStyle);
-}
-
-class nsDisplayNotation final : public nsDisplayItem {
+class nsDisplayNotation final : public nsPaintedDisplayItem {
  public:
   nsDisplayNotation(nsDisplayListBuilder* aBuilder, nsIFrame* aFrame,
                     const nsRect& aRect, nscoord aThickness,
                     nsMencloseNotation aType)
-      : nsDisplayItem(aBuilder, aFrame),
+      : nsPaintedDisplayItem(aBuilder, aFrame),
         mRect(aRect),
         mThickness(aThickness),
         mType(aType) {
     MOZ_COUNT_CTOR(nsDisplayNotation);
   }
-#ifdef NS_BUILD_REFCNT_LOGGING
-  virtual ~nsDisplayNotation() { MOZ_COUNT_DTOR(nsDisplayNotation); }
-#endif
-
-  virtual uint32_t GetPerFrameKey() const override {
-    return (mType << TYPE_BITS) | nsDisplayItem::GetPerFrameKey();
-  }
+  MOZ_COUNTED_DTOR_OVERRIDE(nsDisplayNotation)
 
   virtual void Paint(nsDisplayListBuilder* aBuilder, gfxContext* aCtx) override;
   NS_DISPLAY_DECL_NAME("MathMLMencloseNotation", TYPE_MATHML_MENCLOSE_NOTATION)
@@ -821,6 +824,7 @@ void nsMathMLmencloseFrame::DisplayNotation(nsDisplayListBuilder* aBuilder,
       aThickness <= 0)
     return;
 
-  aLists.Content()->AppendToTop(MakeDisplayItem<nsDisplayNotation>(
-      aBuilder, aFrame, aRect, aThickness, aType));
+  const uint16_t index = aType;
+  aLists.Content()->AppendNewToTopWithIndex<nsDisplayNotation>(
+      aBuilder, aFrame, index, aRect, aThickness, aType);
 }

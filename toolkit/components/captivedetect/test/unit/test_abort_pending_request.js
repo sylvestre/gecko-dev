@@ -38,7 +38,7 @@ function test_abort() {
   do_test_pending();
 
   let callback = {
-    QueryInterface: ChromeUtils.generateQI([Ci.nsICaptivePortalCallback]),
+    QueryInterface: ChromeUtils.generateQI(["nsICaptivePortalCallback"]),
     prepare: function prepare() {
       Assert.equal(++step, 1);
       gCaptivePortalDetector.finishPreparation(kInterfaceName);
@@ -51,9 +51,11 @@ function test_abort() {
   };
 
   let otherCallback = {
-    QueryInterface: ChromeUtils.generateQI([Ci.nsICaptivePortalCallback]),
+    QueryInterface: ChromeUtils.generateQI(["nsICaptivePortalCallback"]),
     prepare: function prepare() {
-      do_throw("should not execute |prepare| callback for " + kOtherInterfaceName);
+      do_throw(
+        "should not execute |prepare| callback for " + kOtherInterfaceName
+      );
     },
     complete: function complete(success) {
       do_throw("should not execute |complete| callback for " + kInterfaceName);

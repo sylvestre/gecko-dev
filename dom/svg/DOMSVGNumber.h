@@ -4,21 +4,25 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef MOZILLA_DOMSVGNUMBER_H__
-#define MOZILLA_DOMSVGNUMBER_H__
+#ifndef DOM_SVG_DOMSVGNUMBER_H_
+#define DOM_SVG_DOMSVGNUMBER_H_
 
 #include "DOMSVGNumberList.h"
+#include "nsCOMPtr.h"
 #include "nsCycleCollectionParticipant.h"
 #include "nsTArray.h"
 #include "mozilla/Attributes.h"
 #include "mozilla/ErrorResult.h"
+#include "mozilla/RefPtr.h"
 #include "nsWrapperCache.h"
-
-class nsSVGElement;
 
 #define MOZ_SVG_LIST_INDEX_BIT_COUNT 27  // supports > 134 million list items
 
 namespace mozilla {
+
+namespace dom {
+class SVGElement;
+class SVGSVGElement;
 
 /**
  * Class DOMSVGNumber
@@ -27,14 +31,15 @@ namespace mozilla {
  * are in an SVGNumberList. It is also used to create the objects returned by
  * SVGSVGElement.createSVGNumber().
  *
- * For the DOM wrapper classes for non-list SVGNumber, see nsSVGNumber2.h.
+ * For the DOM wrapper classes for non-list SVGNumber, see SVGAnimatedNumber.h.
  *
  * See the architecture comment in DOMSVGAnimatedNumberList.h.
  *
  * See the comment in DOMSVGLength.h (yes, LENGTH), which applies here too.
  */
-class DOMSVGNumber final : public nsISupports, public nsWrapperCache {
-  friend class AutoChangeNumberNotifier;
+class DOMSVGNumber final : public nsWrapperCache {
+  template <class T>
+  friend class AutoChangeNumberListNotifier;
 
   ~DOMSVGNumber() {
     // Our mList's weak ref to us must be nulled out when we die. If GC has
@@ -46,8 +51,8 @@ class DOMSVGNumber final : public nsISupports, public nsWrapperCache {
   }
 
  public:
-  NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(DOMSVGNumber)
+  NS_INLINE_DECL_CYCLE_COLLECTING_NATIVE_REFCOUNTING(DOMSVGNumber)
+  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_NATIVE_CLASS(DOMSVGNumber)
 
   /**
    * Generic ctor for DOMSVGNumber objects that are created for an attribute.
@@ -59,8 +64,12 @@ class DOMSVGNumber final : public nsISupports, public nsWrapperCache {
    * Ctor for creating the objects returned by SVGSVGElement.createSVGNumber(),
    * which do not initially belong to an attribute.
    */
+  explicit DOMSVGNumber(SVGSVGElement* aParent);
+
+ private:
   explicit DOMSVGNumber(nsISupports* aParent);
 
+ public:
   /**
    * Create an unowned copy. The caller is responsible for the first AddRef().
    */
@@ -71,6 +80,11 @@ class DOMSVGNumber final : public nsISupports, public nsWrapperCache {
   }
 
   bool IsInList() const { return !!mList; }
+
+  /**
+   * Returns true if our attribute is animating.
+   */
+  bool IsAnimating() const { return mList && mList->IsAnimating(); }
 
   /**
    * In future, if this class is used for non-list numbers, this will be
@@ -117,7 +131,7 @@ class DOMSVGNumber final : public nsISupports, public nsWrapperCache {
   void SetValue(float aValue, ErrorResult& aRv);
 
  private:
-  nsSVGElement* Element() { return mList->Element(); }
+  dom::SVGElement* Element() { return mList->Element(); }
 
   uint8_t AttrEnum() const { return mAttrEnum; }
 
@@ -150,8 +164,9 @@ class DOMSVGNumber final : public nsISupports, public nsWrapperCache {
   float mValue;
 };
 
+}  // namespace dom
 }  // namespace mozilla
 
 #undef MOZ_SVG_LIST_INDEX_BIT_COUNT
 
-#endif  // MOZILLA_DOMSVGNUMBER_H__
+#endif  // DOM_SVG_DOMSVGNUMBER_H_

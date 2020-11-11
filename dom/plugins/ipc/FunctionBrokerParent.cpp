@@ -8,8 +8,7 @@
 #include "FunctionBroker.h"
 #include "FunctionBrokerThread.h"
 
-namespace mozilla {
-namespace plugins {
+namespace mozilla::plugins {
 
 #if defined(XP_WIN)
 UlongPairToIdMap sPairToIdMap;
@@ -18,7 +17,8 @@ PtrToIdMap sPtrToIdMap;
 IdToPtrMap sIdToPtrMap;
 #endif  // defined(XP_WIN)
 
-/* static */ FunctionBrokerParent* FunctionBrokerParent::Create(
+/* static */
+FunctionBrokerParent* FunctionBrokerParent::Create(
     Endpoint<PFunctionBrokerParent>&& aParentEnd) {
   FunctionBrokerThread* thread = FunctionBrokerThread::Create();
   if (!thread) {
@@ -134,5 +134,4 @@ void FunctionBrokerParent::RemovePermissionsForProcess(
 
 #endif  // defined(XP_WIN) && defined(MOZ_SANDBOX)
 
-}  // namespace plugins
-}  // namespace mozilla
+}  // namespace mozilla::plugins

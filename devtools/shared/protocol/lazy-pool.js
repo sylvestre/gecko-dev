@@ -15,7 +15,7 @@ const { Pool } = require("devtools/shared/protocol");
  * objects. Pools are used on both sides of the connection to help coordinate lifetimes.
  *
  * @param conn
- *   Is a DebuggerServerConnection.  Must have
+ *   Is a DevToolsServerConnection.  Must have
  *   addActorPool, removeActorPool, and poolFor.
  * @constructor
  */
@@ -25,7 +25,7 @@ function LazyPool(conn) {
 
 LazyPool.prototype = extend(Pool.prototype, {
   // The actor for a given actor id stored in this pool
-  actor: function(actorID) {
+  getActorByID: function(actorID) {
     if (this.__poolMap) {
       const entry = this._poolMap.get(actorID);
       if (entry instanceof LazyActor) {
@@ -34,12 +34,6 @@ LazyPool.prototype = extend(Pool.prototype, {
       return entry;
     }
     return null;
-  },
-
-  // Same as actor, should update debugger connection to use 'actor'
-  // and then remove this.
-  get: function(actorID) {
-    return this.actor(actorID);
   },
 });
 
@@ -69,10 +63,10 @@ exports.LazyPool = LazyPool;
  *     - _extraActors
  *        An object whose own property names are factory table (and packet)
  *        property names, and whose values are no-argument actor constructors,
- *        of the sort that one can add to an ActorPool.
+ *        of the sort that one can add to a Pool.
  *
  *     - conn
- *        The DebuggerServerConnection in which the new actors will participate.
+ *        The DevToolsServerConnection in which the new actors will participate.
  *
  *     - actorID
  *        The actor's name, for use as the new actors' parentID.
@@ -130,10 +124,10 @@ exports.createExtraActors = createExtraActors;
  *     - _extraActors
  *        An object whose own property names are factory table (and packet)
  *        property names, and whose values are no-argument actor constructors,
- *        of the sort that one can add to an ActorPool.
+ *        of the sort that one can add to a Pool.
  *
  *     - conn
- *        The DebuggerServerConnection in which the new actors will participate.
+ *        The DevToolsServerConnection in which the new actors will participate.
  *
  *     - actorID
  *        The actor's name, for use as the new actors' parentID.
@@ -171,7 +165,7 @@ LazyActor.prototype = {
   getConstructor() {
     const options = this._options;
     if (options.constructorFun) {
-      // Actor definition registered by ActorRegistryActor or testing helpers
+      // Actor definition registered by testing helpers
       return options.constructorFun;
     }
     // Lazy actor definition, where options contains all the information
@@ -192,7 +186,7 @@ LazyActor.prototype = {
   /**
    * Return the parent pool for this lazy actor.
    */
-  parent: function() {
+  getParent: function() {
     return this.conn && this.conn.poolFor(this.actorID);
   },
 
@@ -203,7 +197,7 @@ LazyActor.prototype = {
    * actor
    */
   destroy() {
-    const parent = this.parent();
+    const parent = this.getParent();
     if (parent) {
       parent.unmanage(this);
     }
@@ -228,4 +222,3 @@ LazyActor.prototype = {
     return instance;
   },
 };
-

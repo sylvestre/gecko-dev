@@ -5,7 +5,7 @@
 <head>
   <meta charset="utf-8">
   <title>Test for B2G PresentationConnection API at receiver side (OOP)</title>
-  <script type="application/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css"/>
 </head>
 <body>
@@ -162,8 +162,6 @@ SpecialPowers.pushPermissions([
                                       ["dom.presentation.controller.enabled", false],
                                       ["dom.presentation.receiver.enabled", true],
                                       ["dom.presentation.session_transport.data_channel.enable", false],
-                                      ["dom.mozBrowserFramesEnabled", true],
-                                      ["network.disable.ipc.security", true],
                                       ["dom.ipc.browser_frames.oop_by_default", true]]},
                             runTests);
 });

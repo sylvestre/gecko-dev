@@ -11,6 +11,7 @@ use super::size_hint;
 ///
 /// See [`.intersperse()`](../trait.Itertools.html#method.intersperse) for more information.
 #[must_use = "iterator adaptors are lazy and do nothing unless consumed"]
+#[derive(Debug)]
 pub struct Intersperse<I>
     where I: Iterator
 {
@@ -26,7 +27,7 @@ pub fn intersperse<I>(iter: I, elt: I::Item) -> Intersperse<I>
     let mut iter = iter.fuse();
     Intersperse {
         peek: iter.next(),
-        iter: iter,
+        iter,
         element: elt,
     }
 }
@@ -55,5 +56,24 @@ impl<I> Iterator for Intersperse<I>
         let has_peek = self.peek.is_some() as usize;
         let sh = self.iter.size_hint();
         size_hint::add_scalar(size_hint::add(sh, sh), has_peek)
+    }
+
+    fn fold<B, F>(mut self, init: B, mut f: F) -> B where
+        Self: Sized, F: FnMut(B, Self::Item) -> B,
+    {
+        let mut accum = init;
+        
+        if let Some(x) = self.peek.take() {
+            accum = f(accum, x);
+        }
+
+        let element = &self.element;
+
+        self.iter.fold(accum,
+            |accum, x| {
+                let accum = f(accum, element.clone());
+                let accum = f(accum, x);
+                accum
+        })
     }
 }

@@ -6,7 +6,7 @@ https://bugzilla.mozilla.org/show_bug.cgi?id=812744
 <head>
   <meta charset="utf-8">
   <title>Test for Bug 812744</title>
-  <script type="application/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css"/>
 </head>
 <body>
@@ -26,8 +26,7 @@ addLoadEvent(function() {
   var el = f.contentDocument.documentElement;
   f.onload = function() {
     el.setAttribute("onmouseleave", "(void 0)");
-    is(el.onmouseleave.toString(), "function onmouseleave(event) {\n(void 0)\n}",
-       "Should have a function here");
+    is(el.onmouseleave, null, "Should not have a function here");
     SimpleTest.finish();
   };
   f.src = "http://www.example.com/"

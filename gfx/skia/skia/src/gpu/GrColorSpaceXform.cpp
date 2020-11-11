@@ -5,13 +5,12 @@
  * found in the LICENSE file.
  */
 
-#include "GrColorSpaceXform.h"
-#include "SkColorSpace.h"
-#include "SkColorSpacePriv.h"
-#include "SkMatrix44.h"
-#include "glsl/GrGLSLColorSpaceXformHelper.h"
-#include "glsl/GrGLSLFragmentProcessor.h"
-#include "glsl/GrGLSLFragmentShaderBuilder.h"
+#include "include/core/SkColorSpace.h"
+#include "src/core/SkColorSpacePriv.h"
+#include "src/gpu/GrColorSpaceXform.h"
+#include "src/gpu/glsl/GrGLSLColorSpaceXformHelper.h"
+#include "src/gpu/glsl/GrGLSLFragmentProcessor.h"
+#include "src/gpu/glsl/GrGLSLFragmentShaderBuilder.h"
 
 sk_sp<GrColorSpaceXform> GrColorSpaceXform::Make(SkColorSpace* src, SkAlphaType srcAT,
                                                  SkColorSpace* dst, SkAlphaType dstAT) {
@@ -48,12 +47,6 @@ bool GrColorSpaceXform::Equals(const GrColorSpaceXform* a, const GrColorSpaceXfo
     return true;
 }
 
-GrColor4f GrColorSpaceXform::apply(const GrColor4f& srcColor) {
-    GrColor4f result = srcColor;
-    fSteps.apply(result.fRGBA);
-    return result;
-}
-
 SkColor4f GrColorSpaceXform::apply(const SkColor4f& srcColor) {
     SkColor4f result = srcColor;
     fSteps.apply(result.vec());
@@ -73,7 +66,7 @@ public:
 
         if (this->numChildProcessors()) {
             SkString childColor("src_color");
-            this->emitChild(0, &childColor, args);
+            this->invokeChild(0, &childColor, args);
 
             SkString xformedColor;
             fragBuilder->appendColorGamutXform(&xformedColor, childColor.c_str(), &fColorSpaceHelper);
@@ -177,4 +170,17 @@ std::unique_ptr<GrFragmentProcessor> GrColorSpaceXformEffect::Make(
 
     return std::unique_ptr<GrFragmentProcessor>(new GrColorSpaceXformEffect(std::move(child),
                                                                             std::move(xform)));
+}
+
+std::unique_ptr<GrFragmentProcessor> GrColorSpaceXformEffect::Make(
+        std::unique_ptr<GrFragmentProcessor> child, sk_sp<GrColorSpaceXform> colorXform) {
+    if (!child) {
+        return nullptr;
+    }
+    if (!colorXform) {
+        return child;
+    }
+
+    return std::unique_ptr<GrFragmentProcessor>(new GrColorSpaceXformEffect(std::move(child),
+                                                                            std::move(colorXform)));
 }

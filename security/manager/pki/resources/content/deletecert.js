@@ -5,10 +5,10 @@
 "use strict";
 
 /**
- * @file Implements the functionality of deletecert.xul: a dialog that allows a
+ * @file Implements the functionality of deletecert.xhtml: a dialog that allows a
  *       user to confirm whether to delete certain certificates.
  * @argument {String} window.arguments[0]
- *           One of the tab IDs listed in certManager.xul.
+ *           One of the tab IDs listed in certManager.xhtml.
  * @argument {nsICertTreeItem[]} window.arguments[1]
  *           An array of cert tree items representing the certs to delete.
  * @argument {DeleteCertReturnValues} window.arguments[2]
@@ -51,7 +51,9 @@ function getLabelForCertTreeItem(certTreeItem) {
     }
   }
 
-  document.l10n.setAttributes(element, "cert-with-serial", { serialNumber: cert.serialNumber});
+  document.l10n.setAttributes(element, "cert-with-serial", {
+    serialNumber: cert.serialNumber,
+  });
   return element;
 }
 
@@ -68,7 +70,7 @@ function onLoad() {
       prefixForType = "delete-user-cert-";
       break;
     case "websites_tab":
-      prefixForType = "delete-ssl-cert-";
+      prefixForType = "delete-ssl-override-";
       break;
     case "ca_tab":
       prefixForType = "delete-ca-cert-";
@@ -80,9 +82,15 @@ function onLoad() {
       return;
   }
 
-  document.l10n.setAttributes(document.documentElement, prefixForType + "title");
+  document.l10n.setAttributes(
+    document.documentElement,
+    prefixForType + "title"
+  );
   document.l10n.setAttributes(confirm, prefixForType + "confirm");
   document.l10n.setAttributes(impact, prefixForType + "impact");
+
+  document.addEventListener("dialogaccept", onDialogAccept);
+  document.addEventListener("dialogcancel", onDialogCancel);
 
   let box = document.getElementById("certlist");
   let certTreeItems = window.arguments[1];
@@ -96,22 +104,16 @@ function onLoad() {
 
 /**
  * ondialogaccept() handler.
- *
- * @returns {Boolean} true to make the dialog close, false otherwise.
  */
 function onDialogAccept() {
   let retVals = window.arguments[2];
   retVals.deleteConfirmed = true;
-  return true;
 }
 
 /**
  * ondialogcancel() handler.
- *
- * @returns {Boolean} true to make the dialog close, false otherwise.
  */
 function onDialogCancel() {
   let retVals = window.arguments[2];
   retVals.deleteConfirmed = false;
-  return true;
 }

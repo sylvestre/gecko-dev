@@ -7,6 +7,7 @@
 #include "DetailsFrame.h"
 
 #include "mozilla/Attributes.h"
+#include "mozilla/PresShell.h"
 #include "mozilla/dom/HTMLDetailsElement.h"
 #include "mozilla/dom/HTMLSummaryElement.h"
 #include "nsContentUtils.h"
@@ -23,17 +24,16 @@ NS_QUERYFRAME_HEAD(DetailsFrame)
   NS_QUERYFRAME_ENTRY(nsIAnonymousContentCreator)
 NS_QUERYFRAME_TAIL_INHERITING(nsBlockFrame)
 
-nsBlockFrame* NS_NewDetailsFrame(nsIPresShell* aPresShell,
-                                 ComputedStyle* aStyle) {
-  return new (aPresShell) DetailsFrame(aStyle);
+nsBlockFrame* NS_NewDetailsFrame(PresShell* aPresShell, ComputedStyle* aStyle) {
+  return new (aPresShell) DetailsFrame(aStyle, aPresShell->GetPresContext());
 }
 
 namespace mozilla {
 
-DetailsFrame::DetailsFrame(ComputedStyle* aStyle)
-    : nsBlockFrame(aStyle, kClassID) {}
+DetailsFrame::DetailsFrame(ComputedStyle* aStyle, nsPresContext* aPresContext)
+    : nsBlockFrame(aStyle, aPresContext, kClassID) {}
 
-DetailsFrame::~DetailsFrame() {}
+DetailsFrame::~DetailsFrame() = default;
 
 void DetailsFrame::SetInitialChildList(ChildListID aListID,
                                        nsFrameList& aChildList) {
@@ -49,9 +49,11 @@ void DetailsFrame::SetInitialChildList(ChildListID aListID,
 #ifdef DEBUG
 bool DetailsFrame::CheckValidMainSummary(const nsFrameList& aFrameList) const {
   for (nsIFrame* child : aFrameList) {
+    if (child->IsGeneratedContentFrame()) {
+      continue;
+    }
     HTMLSummaryElement* summary =
         HTMLSummaryElement::FromNode(child->GetContent());
-
     if (child == aFrameList.FirstChild()) {
       if (summary && summary->IsMainSummary()) {
         return true;
@@ -93,12 +95,14 @@ nsresult DetailsFrame::CreateAnonymousContent(
 
   RefPtr<NodeInfo> nodeInfo = nodeInfoManager->GetNodeInfo(
       nsGkAtoms::summary, nullptr, kNameSpaceID_XHTML, nsINode::ELEMENT_NODE);
-  mDefaultSummary = new HTMLSummaryElement(nodeInfo.forget());
+  mDefaultSummary = new (nodeInfoManager) HTMLSummaryElement(nodeInfo.forget());
 
   nsAutoString defaultSummaryText;
-  nsContentUtils::GetLocalizedString(nsContentUtils::eFORMS_PROPERTIES,
-                                     "DefaultSummary", defaultSummaryText);
-  RefPtr<nsTextNode> description = new nsTextNode(nodeInfoManager);
+  nsContentUtils::GetMaybeLocalizedString(
+      nsContentUtils::eFORMS_PROPERTIES, "DefaultSummary",
+      GetContent()->OwnerDoc(), defaultSummaryText);
+  RefPtr<nsTextNode> description =
+      new (nodeInfoManager) nsTextNode(nodeInfoManager);
   description->SetText(defaultSummaryText, false);
   mDefaultSummary->AppendChildTo(description, false);
 
@@ -115,17 +119,17 @@ void DetailsFrame::AppendAnonymousContentTo(nsTArray<nsIContent*>& aElements,
 }
 
 bool DetailsFrame::HasMainSummaryFrame(nsIFrame* aSummaryFrame) {
-  const ChildListIDs flowLists(kPrincipalList | kOverflowList);
+  const ChildListIDs flowLists = {kPrincipalList, kOverflowList};
   for (nsIFrame* frag = this; frag; frag = frag->GetNextInFlow()) {
-    for (ChildListIterator lists(frag); !lists.IsDone(); lists.Next()) {
-      if (!flowLists.Contains(lists.CurrentID())) {
+    for (const auto& [list, listID] : frag->ChildLists()) {
+      if (!flowLists.contains(listID)) {
         continue;
       }
-      for (nsIFrame* child : lists.CurrentList()) {
+      for (nsIFrame* child : list) {
         child = nsPlaceholderFrame::GetRealFrameFor(child);
         // We skip any non-primary frames such as a list-style-position:inside
         // bullet frame for the <details> itself.
-        if (child->IsPrimaryFrame()) {
+        if (!child->IsGeneratedContentFrame()) {
           return aSummaryFrame == child;
         }
       }

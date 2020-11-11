@@ -12,10 +12,9 @@
 #include <vector>
 
 #include "mozilla/Assertions.h"
+#include "mozilla/Casting.h"
 #include "mozilla/CheckedInt.h"
 #include "mozilla/dom/TypedArray.h"
-#include "mozilla/LinkedList.h"
-#include "nsWrapperCache.h"
 
 #include "CacheInvalidator.h"
 #include "WebGLObjectModel.h"
@@ -73,7 +72,7 @@ struct ImageInfo final {
   uint32_t mWidth = 0;
   uint32_t mHeight = 0;
   uint32_t mDepth = 0;
-  mutable bool mHasData = false;
+  mutable Maybe<std::vector<bool>> mUninitializedSlices;
   uint8_t mSamples = 0;
 
   // -
@@ -94,15 +93,13 @@ struct ImageInfo final {
 
 }  // namespace webgl
 
-// NOTE: When this class is switched to new DOM bindings, update the (then-slow)
-// WrapObject calls in GetParameter and GetFramebufferAttachmentParameter.
-class WebGLTexture final : public nsWrapperCache,
-                           public WebGLRefCountedObject<WebGLTexture>,
-                           public LinkedListElement<WebGLTexture>,
+class WebGLTexture final : public WebGLContextBoundObject,
                            public CacheInvalidator {
   // Friends
   friend class WebGLContext;
   friend class WebGLFramebuffer;
+
+  MOZ_DECLARE_REFCOUNTED_VIRTUAL_TYPENAME(WebGLTexture, override)
 
   ////////////////////////////////////
   // Members
@@ -153,6 +150,7 @@ class WebGLTexture final : public nsWrapperCache,
 
   const auto& Immutable() const { return mImmutable; }
   const auto& BaseMipmapLevel() const { return mBaseMipmapLevel; }
+  const auto& FaceCount() const { return mFaceCount; }
 
   // We can just max this out to 31, which is the number of unsigned bits in
   // GLsizei.
@@ -164,29 +162,19 @@ class WebGLTexture final : public nsWrapperCache,
 
   ////////////////////////////////////
 
-  NS_INLINE_DECL_CYCLE_COLLECTING_NATIVE_REFCOUNTING(WebGLTexture)
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_NATIVE_CLASS(WebGLTexture)
-
   WebGLTexture(WebGLContext* webgl, GLuint tex);
-
-  void Delete();
 
   TexTarget Target() const { return mTarget; }
 
-  WebGLContext* GetParentObject() const { return mContext; }
-
-  virtual JSObject* WrapObject(JSContext* cx,
-                               JS::Handle<JSObject*> givenProto) override;
-
  protected:
-  ~WebGLTexture() { DeleteOnce(); }
+  ~WebGLTexture() override;
 
  public:
   ////////////////////////////////////
   // GL calls
   bool BindTexture(TexTarget texTarget);
   void GenerateMipmap();
-  JS::Value GetTexParameter(TexTarget texTarget, GLenum pname);
+  Maybe<double> GetTexParameter(GLenum pname) const;
   void TexParameter(TexTarget texTarget, GLenum pname, const FloatOrInt& param);
 
   ////////////////////////////////////
@@ -198,57 +186,35 @@ class WebGLTexture final : public nsWrapperCache,
                          GLint zOffset, const webgl::PackingInfo& pi,
                          const webgl::TexUnpackBlob* blob);
 
-  bool ValidateTexImageSpecification(TexImageTarget target, GLint level,
-                                     uint32_t width, uint32_t height,
-                                     uint32_t depth,
+  bool ValidateTexImageSpecification(TexImageTarget target, uint32_t level,
+                                     const uvec3& size,
                                      webgl::ImageInfo** const out_imageInfo);
-  bool ValidateTexImageSelection(TexImageTarget target, GLint level,
-                                 GLint xOffset, GLint yOffset, GLint zOffset,
-                                 uint32_t width, uint32_t height,
-                                 uint32_t depth,
+  bool ValidateTexImageSelection(TexImageTarget target, uint32_t level,
+                                 const uvec3& offset, const uvec3& size,
                                  webgl::ImageInfo** const out_imageInfo);
-  bool ValidateCopyTexImageForFeedback(uint32_t level, GLint layer = 0) const;
 
   bool ValidateUnpack(const webgl::TexUnpackBlob* blob, bool isFunc3D,
                       const webgl::PackingInfo& srcPI) const;
 
  public:
-  void TexStorage(TexTarget target, GLsizei levels, GLenum sizedFormat,
-                  GLsizei width, GLsizei height, GLsizei depth);
-  void TexImage(TexImageTarget target, GLint level, GLenum internalFormat,
-                GLsizei width, GLsizei height, GLsizei depth, GLint border,
-                const webgl::PackingInfo& pi, const TexImageSource& src);
-  void TexSubImage(TexImageTarget target, GLint level, GLint xOffset,
-                   GLint yOffset, GLint zOffset, GLsizei width, GLsizei height,
-                   GLsizei depth, const webgl::PackingInfo& pi,
-                   const TexImageSource& src);
+  void TexStorage(TexTarget target, uint32_t levels, GLenum sizedFormat,
+                  const uvec3& size);
 
- protected:
-  void TexImage(TexImageTarget target, GLint level, GLenum internalFormat,
-                const webgl::PackingInfo& pi, const webgl::TexUnpackBlob* blob);
-  void TexSubImage(TexImageTarget target, GLint level, GLint xOffset,
-                   GLint yOffset, GLint zOffset, const webgl::PackingInfo& pi,
-                   const webgl::TexUnpackBlob* blob);
+  // TexSubImage iff `!respecFormat`
+  void TexImage(uint32_t level, GLenum respecFormat, const uvec3& offset,
+                const webgl::PackingInfo& pi, const webgl::TexUnpackBlobDesc&);
 
- public:
-  void CompressedTexImage(TexImageTarget target, GLint level,
-                          GLenum internalFormat, GLsizei width, GLsizei height,
-                          GLsizei depth, GLint border,
-                          const TexImageSource& src,
-                          const Maybe<GLsizei>& expectedImageSize);
-  void CompressedTexSubImage(TexImageTarget target, GLint level, GLint xOffset,
-                             GLint yOffset, GLint zOffset, GLsizei width,
-                             GLsizei height, GLsizei depth,
-                             GLenum sizedUnpackFormat,
-                             const TexImageSource& src,
-                             const Maybe<GLsizei>& expectedImageSize);
+  // CompressedTexSubImage iff `sub`
+  void CompressedTexImage(bool sub, GLenum imageTarget, uint32_t level,
+                          GLenum formatEnum, const uvec3& offset,
+                          const uvec3& size, const Range<const uint8_t>& src,
+                          const uint32_t pboImageSize,
+                          const Maybe<uint64_t>& pboOffset);
 
-  void CopyTexImage2D(TexImageTarget target, GLint level, GLenum internalFormat,
-                      GLint x, GLint y, GLsizei width, GLsizei height,
-                      GLint border);
-  void CopyTexSubImage(TexImageTarget target, GLint level, GLint xOffset,
-                       GLint yOffset, GLint zOffset, GLint x, GLint y,
-                       GLsizei width, GLsizei height);
+  // CopyTexSubImage iff `!respecFormat`
+  void CopyTexImage(GLenum imageTarget, uint32_t level, GLenum respecFormat,
+                    const uvec3& dstOffset, const ivec2& srcOffset,
+                    const uvec2& size2);
 
   ////////////////////////////////////
 
@@ -269,13 +235,15 @@ class WebGLTexture final : public nsWrapperCache,
       case LOCAL_GL_TEXTURE_CUBE_MAP_NEGATIVE_Y:
       case LOCAL_GL_TEXTURE_CUBE_MAP_POSITIVE_Z:
       case LOCAL_GL_TEXTURE_CUBE_MAP_NEGATIVE_Z:
-        return rawTexImageTarget - LOCAL_GL_TEXTURE_CUBE_MAP_POSITIVE_X;
+        return AutoAssertCast(rawTexImageTarget -
+                              LOCAL_GL_TEXTURE_CUBE_MAP_POSITIVE_X);
 
       default:
         return 0;
     }
   }
 
+ public:
   auto& ImageInfoAtFace(uint8_t face, uint32_t level) {
     MOZ_ASSERT(face < mFaceCount);
     MOZ_ASSERT(level < kMaxLevelCount);
@@ -287,7 +255,6 @@ class WebGLTexture final : public nsWrapperCache,
     return const_cast<WebGLTexture*>(this)->ImageInfoAtFace(face, level);
   }
 
- public:
   auto& ImageInfoAt(TexImageTarget texImageTarget, GLint level) {
     const auto& face = FaceForTarget(texImageTarget);
     return ImageInfoAtFace(face, level);
@@ -309,6 +276,7 @@ class WebGLTexture final : public nsWrapperCache,
   void PopulateMipChain(uint32_t maxLevel);
   bool IsMipAndCubeComplete(uint32_t maxLevel, bool ensureInit,
                             bool* out_initFailed) const;
+  void Truncate();
 
   bool IsCubeMap() const { return (mTarget == LOCAL_GL_TEXTURE_CUBE_MAP); }
 };

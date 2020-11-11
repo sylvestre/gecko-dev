@@ -11,14 +11,12 @@
 #include "ClientNavigateOpChild.h"
 #include "ClientSourceChild.h"
 
-namespace mozilla {
-namespace dom {
+#include "mozilla/dom/WorkerRef.h"
+
+namespace mozilla::dom {
 
 void ClientManagerChild::ActorDestroy(ActorDestroyReason aReason) {
-  if (mWorkerHolderToken) {
-    mWorkerHolderToken->RemoveListener(this);
-    mWorkerHolderToken = nullptr;
-  }
+  mIPCWorkerRef = nullptr;
 
   if (mManager) {
     mManager->RevokeActor(this);
@@ -81,18 +79,32 @@ bool ClientManagerChild::DeallocPClientSourceChild(PClientSourceChild* aActor) {
   return true;
 }
 
-void ClientManagerChild::WorkerShuttingDown() { MaybeStartTeardown(); }
+// static
+ClientManagerChild* ClientManagerChild::Create() {
+  ClientManagerChild* actor = new ClientManagerChild();
 
-ClientManagerChild::ClientManagerChild(WorkerHolderToken* aWorkerHolderToken)
-    : mManager(nullptr),
-      mWorkerHolderToken(aWorkerHolderToken),
-      mTeardownStarted(false) {
-  MOZ_ASSERT_IF(!NS_IsMainThread(), mWorkerHolderToken);
+  if (!NS_IsMainThread()) {
+    WorkerPrivate* workerPrivate = GetCurrentThreadWorkerPrivate();
+    MOZ_DIAGNOSTIC_ASSERT(workerPrivate);
 
-  if (mWorkerHolderToken) {
-    mWorkerHolderToken->AddListener(this);
+    RefPtr<IPCWorkerRefHelper<ClientManagerChild>> helper =
+        new IPCWorkerRefHelper<ClientManagerChild>(actor);
+
+    actor->mIPCWorkerRef = IPCWorkerRef::Create(
+        workerPrivate, "ClientManagerChild",
+        [helper] { helper->Actor()->MaybeStartTeardown(); });
+
+    if (NS_WARN_IF(!actor->mIPCWorkerRef)) {
+      delete actor;
+      return nullptr;
+    }
   }
+
+  return actor;
 }
+
+ClientManagerChild::ClientManagerChild()
+    : mManager(nullptr), mTeardownStarted(false) {}
 
 void ClientManagerChild::SetOwner(ClientThing<ClientManagerChild>* aThing) {
   MOZ_DIAGNOSTIC_ASSERT(aThing);
@@ -115,11 +127,10 @@ void ClientManagerChild::MaybeStartTeardown() {
 }
 
 WorkerPrivate* ClientManagerChild::GetWorkerPrivate() const {
-  if (!mWorkerHolderToken) {
+  if (!mIPCWorkerRef) {
     return nullptr;
   }
-  return mWorkerHolderToken->GetWorkerPrivate();
+  return mIPCWorkerRef->Private();
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

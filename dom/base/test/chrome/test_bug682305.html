@@ -5,7 +5,7 @@ https://bugzilla.mozilla.org/show_bug.cgi?id=682305
 -->
 <head>
   <title>XMLHttpRequest send and channel implemented in JS</title>
-  <script type="application/javascript" src="chrome://mochikit/content/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="chrome://mochikit/content/tests/SimpleTest/SimpleTest.js"></script>
   <script type="application/javascript"  src="chrome://mochikit/content/tests/SimpleTest/EventUtils.js"></script>
   <link rel="stylesheet" type="text/css" href="chrome://mochikit/content/tests/SimpleTest/test.css"/>
 </head>
@@ -18,6 +18,9 @@ https://bugzilla.mozilla.org/show_bug.cgi?id=682305
 </div>
 <pre id="test">
 <script class="testbody" type="application/javascript">
+
+"use strict";
+
 SimpleTest.waitForExplicitFinish();
 
 /*
@@ -26,7 +29,7 @@ SimpleTest.waitForExplicitFinish();
  * nsIChannel component written in Javascript.
  */
 
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
+const {ComponentUtils} = ChromeUtils.import("resource://gre/modules/ComponentUtils.jsm");
 
 var contentSecManager = Cc["@mozilla.org/contentsecuritymanager;1"]
                           .getService(Ci.nsIContentSecurityManager);
@@ -52,47 +55,42 @@ CustomChannel.prototype = {
   loadGroup: null,
   name: null,
   status: Cr.NS_OK,
-  asyncOpen(listener, context) {
-    let stream = this.open();
-    try {
-      listener.onStartRequest(this, context);
-    } catch (e) {}
-    try {
-      listener.onDataAvailable(this, context, stream, 0, stream.available());
-    } catch (e) {}
-    try {
-      listener.onStopRequest(this, context, Cr.NS_OK);
-    } catch (e) {}
-  },
-  asyncOpen2(listener) {
+  asyncOpen(listener) {
     // throws an error if security checks fail
     var outListener = contentSecManager.performSecurityCheck(this, listener);
-    return this.asyncOpen(outListener, null);
+    let stream = this.open();
+    try {
+      outListener.onStartRequest(this);
+    } catch (e) {}
+    try {
+      outListener.onDataAvailable(this, stream, 0, stream.available());
+    } catch (e) {}
+    try {
+      outListener.onStopRequest(this, Cr.NS_OK);
+    } catch (e) {}
   },
   open() {
+    // throws an error if security checks fail
+    contentSecManager.performSecurityCheck(this, null);
+
     let data = "bar";
     let stream = Cc["@mozilla.org/io/string-input-stream;1"].createInstance(Ci.nsIStringInputStream);
     stream.setData(data, data.length);
     return stream;
   },
-  open2() {
-    // throws an error if security checks fail
-    contentSecManager.performSecurityCheck(this, null);
-    return this.open();
-  },
   isPending() {
     return false;
   },
   cancel() {
-    throw Cr.NS_ERROR_NOT_IMPLEMENTED;
+    throw Components.Exception("", Cr.NS_ERROR_NOT_IMPLEMENTED);
   },
   suspend() {
-    throw Cr.NS_ERROR_NOT_IMPLEMENTED;
+    throw Components.Exception("", Cr.NS_ERROR_NOT_IMPLEMENTED);
   },
   resume() {
-    throw Cr.NS_ERROR_NOT_IMPLEMENTED;
+    throw Components.Exception("", Cr.NS_ERROR_NOT_IMPLEMENTED);
   },
-  QueryInterface: ChromeUtils.generateQI([Ci.nsIChannel, Ci.nsIRequest]),
+  QueryInterface: ChromeUtils.generateQI(["nsIChannel", "nsIRequest"]),
 };
 
 
@@ -112,19 +110,10 @@ CustomProtocol.prototype = {
   allowPort: function allowPort() {
     return false;
   },
-  newURI: function newURI(spec, charset, baseURI) {
-    return Cc["@mozilla.org/network/simple-uri-mutator;1"]
-             .createInstance(Ci.nsIURIMutator)
-             .setSpec(spec)
-             .finalize();
-  },
-  newChannel2: function newChannel2(URI, loadInfo) {
+  newChannel: function newChannel(URI, loadInfo) {
     return new CustomChannel(URI, loadInfo);
   },
-  newChannel: function newChannel(URI) {
-    return this.newChannel2(URI);
-  },
-  QueryInterface: ChromeUtils.generateQI([Ci.nsISupportsWeakReference, Ci.nsIProtocolHandler]),
+  QueryInterface: ChromeUtils.generateQI(["nsISupportsWeakReference", "nsIProtocolHandler"]),
 };
 
 var gFactory = {
@@ -134,7 +123,7 @@ var gFactory = {
     var classID = Components.ID("{ed064287-1e76-49ba-a28d-dc74394a8334}");
     var description = PROTOCOL_SCHEME + ": protocol";
     var contractID = "@mozilla.org/network/protocol;1?name=" + PROTOCOL_SCHEME;
-    var factory = XPCOMUtils._getFactory(CustomProtocol);
+    var factory = ComponentUtils._getFactory(CustomProtocol);
 
     registrar.registerFactory(classID, description, contractID, factory);
 

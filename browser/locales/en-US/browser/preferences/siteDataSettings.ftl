@@ -23,23 +23,24 @@ site-data-column-storage =
 site-data-column-last-used =
     .label = Last Used
 
+# This label is used in the "Host" column for local files, which have no host.
+site-data-local-file-host = (local file)
+
 site-data-remove-selected =
     .label = Remove Selected
     .accesskey = R
 
-site-data-button-cancel =
-    .label = Cancel
-    .accesskey = C
-
-site-data-button-save =
-    .label = Save Changes
-    .accesskey = a
+site-data-settings-dialog =
+    .buttonlabelaccept = Save Changes
+    .buttonaccesskeyaccept = a
 
 # Variables:
 #   $value (Number) - Value of the unit (for example: 4.6, 500)
 #   $unit (String) - Name of the unit (for example: "bytes", "KB")
-site-usage-pattern = { $value } { $unit }
-site-usage-persistent = { site-usage-pattern } (Persistent)
+site-storage-usage =
+    .value = { $value } { $unit }
+site-storage-persistent =
+    .value = { site-storage-usage.value } (Persistent)
 
 site-data-remove-all =
     .label = Remove All

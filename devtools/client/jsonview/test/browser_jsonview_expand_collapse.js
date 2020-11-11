@@ -1,5 +1,3 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 2 -*- */
-/* vim: set ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -31,8 +29,19 @@ add_task(async function() {
   ok(countAfter == 6, "There must be six expanded rows");
 
   /* Test big file handling */
-  const json = JSON.stringify({data: Array(1e5).fill().map(x => "hoot"), status: "ok"});
-  ok(json.length > EXPAND_THRESHOLD, "The generated JSON must be larger than 100kB");
+  const json = JSON.stringify({
+    data: Array(1e5)
+      .fill()
+      .map(x => "hoot"),
+    status: "ok",
+  });
+  ok(
+    json.length > EXPAND_THRESHOLD,
+    "The generated JSON must be larger than 100kB"
+  );
   await addJsonViewTab("data:application/json," + json);
-  ok(document.querySelector(selector) == null, "The Expand All button must be gone");
+  ok(
+    document.querySelector(selector) == null,
+    "The Expand All button must be gone"
+  );
 });

@@ -5,6 +5,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "RenderTextureHost.h"
+
+#include "GLContext.h"
 #include "RenderThread.h"
 
 namespace mozilla {
@@ -25,7 +27,10 @@ void ActivateBindAndTexParameteri(gl::GLContext* aGL, GLenum aActiveTexture,
                           : LOCAL_GL_LINEAR);
 }
 
-RenderTextureHost::RenderTextureHost() { MOZ_COUNT_CTOR(RenderTextureHost); }
+RenderTextureHost::RenderTextureHost()
+    : mCachedRendering(wr::ImageRendering::Auto) {
+  MOZ_COUNT_CTOR(RenderTextureHost);
+}
 
 RenderTextureHost::~RenderTextureHost() {
   MOZ_ASSERT(RenderThread::IsInRenderThread());
@@ -34,6 +39,19 @@ RenderTextureHost::~RenderTextureHost() {
 
 bool RenderTextureHost::IsFilterUpdateNecessary(wr::ImageRendering aRendering) {
   return mCachedRendering != aRendering;
+}
+
+wr::WrExternalImage RenderTextureHost::Lock(uint8_t aChannelIndex,
+                                            gl::GLContext* aGL,
+                                            wr::ImageRendering aRendering) {
+  return InvalidToWrExternalImage();
+}
+
+wr::WrExternalImage RenderTextureHost::LockSWGL(uint8_t aChannelIndex,
+                                                void* aContext,
+                                                RenderCompositor* aCompositor,
+                                                wr::ImageRendering aRendering) {
+  return InvalidToWrExternalImage();
 }
 
 }  // namespace wr

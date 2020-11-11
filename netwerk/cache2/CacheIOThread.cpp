@@ -17,12 +17,12 @@
 #include "GeckoProfiler.h"
 
 #ifdef XP_WIN
-#include <windows.h>
+#  include <windows.h>
 #endif
 
 #ifdef MOZ_TASK_TRACER
-#include "GeckoTaskTracer.h"
-#include "TracedTaskCommon.h"
+#  include "GeckoTaskTracer.h"
+#  include "TracedTaskCommon.h"
 #endif
 
 namespace mozilla {
@@ -85,8 +85,6 @@ namespace detail {
  */
 class BlockingIOWatcher {
 #ifdef XP_WIN
-  typedef BOOL(WINAPI* TCancelSynchronousIo)(HANDLE hThread);
-  TCancelSynchronousIo mCancelSynchronousIo;
   // The native handle to the thread
   HANDLE mThread;
   // Event signaling back to the main thread, see NotifyOperationDone.
@@ -115,19 +113,11 @@ class BlockingIOWatcher {
 
 #ifdef XP_WIN
 
-BlockingIOWatcher::BlockingIOWatcher()
-    : mCancelSynchronousIo(NULL), mThread(NULL), mEvent(NULL) {
+BlockingIOWatcher::BlockingIOWatcher() : mThread(NULL), mEvent(NULL) {
   HMODULE kernel32_dll = GetModuleHandle("kernel32.dll");
   if (!kernel32_dll) {
     return;
   }
-
-  FARPROC ptr = GetProcAddress(kernel32_dll, "CancelSynchronousIo");
-  if (!ptr) {
-    return;
-  }
-
-  mCancelSynchronousIo = reinterpret_cast<TCancelSynchronousIo>(ptr);
 
   mEvent = ::CreateEventW(NULL, TRUE, FALSE, NULL);
 }
@@ -179,7 +169,7 @@ void BlockingIOWatcher::WatchAndCancel(Monitor& aMonitor) {
   DWORD result = ::WaitForSingleObject(mEvent, maxLag);
   if (result == WAIT_TIMEOUT) {
     LOG(("CacheIOThread: Attempting to cancel a long blocking IO operation"));
-    BOOL result = mCancelSynchronousIo(thread);
+    BOOL result = ::CancelSynchronousIo(thread);
     if (result) {
       LOG(("  cancelation signal succeeded"));
     } else {
@@ -318,6 +308,8 @@ nsresult CacheIOThread::DispatchInternal(
   }
 #endif
 
+  LogRunnable::LogDispatch(runnable.get());
+
   if (NS_WARN_IF(!runnable)) return NS_ERROR_NULL_POINTER;
 
   mMonitor.AssertCurrentThreadOwns();
@@ -434,8 +426,8 @@ void CacheIOThread::ThreadFunc() {
     MOZ_ASSERT(mBlockingIOWatcher);
     mBlockingIOWatcher->InitThread();
 
-    auto queue = MakeRefPtr<ThreadEventQueue<mozilla::EventQueue>>(
-        MakeUnique<mozilla::EventQueue>());
+    auto queue =
+        MakeRefPtr<ThreadEventQueue>(MakeUnique<mozilla::EventQueue>());
     nsCOMPtr<nsIThread> xpcomThread =
         nsThreadManager::get().CreateCurrentThread(queue,
                                                    nsThread::NOT_MAIN_THREAD);
@@ -495,7 +487,6 @@ void CacheIOThread::ThreadFunc() {
       }
 
       AUTO_PROFILER_LABEL("CacheIOThread::ThreadFunc::Wait", IDLE);
-      AUTO_PROFILER_THREAD_SLEEP;
       lock.Wait();
 
     } while (true);
@@ -512,8 +503,7 @@ void CacheIOThread::ThreadFunc() {
 }
 
 void CacheIOThread::LoopOneLevel(uint32_t aLevel) {
-  EventQueue events;
-  events.SwapElements(mEventQueue[aLevel]);
+  EventQueue events = std::move(mEventQueue[aLevel]);
   EventQueue::size_type length = events.Length();
 
   mCurrentlyExecutingLevel = aLevel;
@@ -542,6 +532,8 @@ void CacheIOThread::LoopOneLevel(uint32_t aLevel) {
       // this flag.
       mRerunCurrentEvent = false;
 
+      LogRunnable::Run log(events[index].get());
+
       events[index]->Run();
 
       MOZ_ASSERT(mBlockingIOWatcher);
@@ -550,6 +542,7 @@ void CacheIOThread::LoopOneLevel(uint32_t aLevel) {
       if (mRerunCurrentEvent) {
         // The event handler yields to higher priority events and wants to
         // rerun.
+        log.WillRunAgain();
         returnEvents = true;
         break;
       }
@@ -562,9 +555,22 @@ void CacheIOThread::LoopOneLevel(uint32_t aLevel) {
     }
   }
 
-  if (returnEvents)
-    mEventQueue[aLevel].InsertElementsAt(0, events.Elements() + index,
-                                         length - index);
+  if (returnEvents) {
+    // This code must prevent any AddRef/Release calls on the stored COMPtrs as
+    // it might be exhaustive and block the monitor's lock for an excessive
+    // amout of time.
+
+    // 'index' points at the event that was interrupted and asked for re-run,
+    // all events before have run, been nullified, and can be removed.
+    events.RemoveElementsAt(0, index);
+    // Move events that might have been scheduled on this queue to the tail to
+    // preserve the expected per-queue FIFO order.
+    // XXX(Bug 1631371) Check if this should use a fallible operation as it
+    // pretended earlier.
+    events.AppendElements(std::move(mEventQueue[aLevel]));
+    // And finally move everything back to the main queue.
+    mEventQueue[aLevel] = std::move(events);
+  }
 }
 
 bool CacheIOThread::EventsPending(uint32_t aLastLevel) {
@@ -596,7 +602,6 @@ size_t CacheIOThread::SizeOfExcludingThis(
   MonitorAutoLock lock(const_cast<CacheIOThread*>(this)->mMonitor);
 
   size_t n = 0;
-  n += mallocSizeOf(mThread);
   for (const auto& event : mEventQueue) {
     n += event.ShallowSizeOfExcludingThis(mallocSizeOf);
     // Events referenced by the queues are arbitrary objects we cannot be sure

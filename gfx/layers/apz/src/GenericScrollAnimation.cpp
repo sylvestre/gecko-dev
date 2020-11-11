@@ -8,11 +8,11 @@
 
 #include "AsyncPanZoomController.h"
 #include "FrameMetrics.h"
-#include "gfxPrefs.h"
 #include "nsPoint.h"
 #include "ScrollAnimationPhysics.h"
 #include "ScrollAnimationBezierPhysics.h"
 #include "ScrollAnimationMSDPhysics.h"
+#include "mozilla/StaticPrefs_general.h"
 
 namespace mozilla {
 namespace layers {
@@ -21,7 +21,7 @@ GenericScrollAnimation::GenericScrollAnimation(
     AsyncPanZoomController& aApzc, const nsPoint& aInitialPosition,
     const ScrollAnimationBezierPhysicsSettings& aSettings)
     : mApzc(aApzc), mFinalDestination(aInitialPosition) {
-  if (gfxPrefs::SmoothScrollMSDPhysicsEnabled()) {
+  if (StaticPrefs::general_smoothScroll_msdPhysics_enabled()) {
     mAnimationPhysics = MakeUnique<ScrollAnimationMSDPhysics>(aInitialPosition);
   } else {
     mAnimationPhysics =
@@ -57,7 +57,7 @@ void GenericScrollAnimation::Update(TimeStamp aTime,
 
 bool GenericScrollAnimation::DoSample(FrameMetrics& aFrameMetrics,
                                       const TimeDuration& aDelta) {
-  TimeStamp now = mApzc.GetFrameTime();
+  TimeStamp now = mApzc.GetFrameTime().Time();
   CSSToParentLayerScale2D zoom = aFrameMetrics.GetZoom();
 
   // If the animation is finished, make sure the final position is correct by
@@ -65,9 +65,9 @@ bool GenericScrollAnimation::DoSample(FrameMetrics& aFrameMetrics,
   // function as normal.
   bool finished = mAnimationPhysics->IsFinished(now);
   nsPoint sampledDest = mAnimationPhysics->PositionAt(now);
-  ParentLayerPoint displacement =
-      (CSSPoint::FromAppUnits(sampledDest) - aFrameMetrics.GetScrollOffset()) *
-      zoom;
+  ParentLayerPoint displacement = (CSSPoint::FromAppUnits(sampledDest) -
+                                   aFrameMetrics.GetVisualScrollOffset()) *
+                                  zoom;
 
   if (finished) {
     mApzc.mX.SetVelocity(0);

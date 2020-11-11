@@ -111,6 +111,8 @@ class SandboxBroker final : private SandboxBrokerCommon,
       return Lookup(nsDependentCString(aPath));
     }
 
+    bool IsEmpty() const { return mMap.Count() == 0; }
+
    private:
     // ValidatePath checks |path| and returns true if these conditions are met
     // * Greater than 0 length
@@ -135,6 +137,7 @@ class SandboxBroker final : private SandboxBrokerCommon,
   const int mChildPid;
   const UniquePtr<const Policy> mPolicy;
   nsCString mTempPath;
+  nsCString mContentTempPath;
 
   typedef nsDataHashtable<nsCStringHashKey, nsCString> PathMap;
   PathMap mSymlinkMap;

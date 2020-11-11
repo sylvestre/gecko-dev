@@ -2,7 +2,9 @@
 
 add_task(async function test_setup() {
   let clearValue = Services.prefs.prefHasUserValue("extensions.pocket.enabled");
-  let enabledOnStartup = Services.prefs.getBoolPref("extensions.pocket.enabled");
+  let enabledOnStartup = Services.prefs.getBoolPref(
+    "extensions.pocket.enabled"
+  );
   registerCleanupFunction(() => {
     if (clearValue) {
       Services.prefs.clearUserPref("extensions.pocket.enabled");
@@ -15,23 +17,56 @@ add_task(async function test_setup() {
 add_task(async function() {
   await promisePocketEnabled();
 
-  checkWindowProperties(true, ["Pocket", "pktUI", "pktUIMessaging"]);
-  checkElements(true, ["pocket-button", "appMenu-library-pocket-button"]);
+  let libraryButton = document.getElementById("library-button");
+  libraryButton.click();
+
+  let libraryView = document.getElementById("appMenu-libraryView");
+  let popupShown = BrowserTestUtils.waitForEvent(libraryView, "ViewShown");
+  await popupShown;
+
+  checkElementsShown(true, ["appMenu-library-pocket-button"]);
+
+  // Close the Library panel.
+  let popupHidden = BrowserTestUtils.waitForEvent(document, "popuphidden");
+  libraryView.closest("panel").hidePopup();
 
   // check context menu exists
   info("checking content context menu");
-  let tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, "https://example.com/browser/browser/components/pocket/test/test.html");
+  let tab = await BrowserTestUtils.openNewForegroundTab(
+    gBrowser,
+    "https://example.com/browser/browser/components/pocket/test/test.html"
+  );
 
   let contextMenu = document.getElementById("contentAreaContextMenu");
-  let popupShown = BrowserTestUtils.waitForEvent(contextMenu, "popupshown");
-  let popupHidden = BrowserTestUtils.waitForEvent(contextMenu, "popuphidden");
-  await BrowserTestUtils.synthesizeMouseAtCenter("body", {
-    type: "contextmenu",
-    button: 2,
-  }, tab.linkedBrowser);
+  popupShown = BrowserTestUtils.waitForEvent(contextMenu, "popupshown");
+  popupHidden = BrowserTestUtils.waitForEvent(contextMenu, "popuphidden");
+  await BrowserTestUtils.synthesizeMouseAtCenter(
+    "body",
+    {
+      type: "contextmenu",
+      button: 2,
+    },
+    tab.linkedBrowser
+  );
   await popupShown;
 
-  checkElements(true, ["context-pocket", "context-savelinktopocket"]);
+  checkElementsShown(true, ["pocket-button", "context-pocket"]);
+
+  contextMenu.hidePopup();
+  await popupHidden;
+  popupShown = BrowserTestUtils.waitForEvent(contextMenu, "popupshown");
+  popupHidden = BrowserTestUtils.waitForEvent(contextMenu, "popuphidden");
+  await BrowserTestUtils.synthesizeMouseAtCenter(
+    "a",
+    {
+      type: "contextmenu",
+      button: 2,
+    },
+    tab.linkedBrowser
+  );
+  await popupShown;
+
+  checkElementsShown(true, ["context-savelinktopocket"]);
 
   contextMenu.hidePopup();
   await popupHidden;
@@ -39,9 +74,37 @@ add_task(async function() {
 
   await promisePocketDisabled();
 
-  checkWindowProperties(false, ["Pocket", "pktUI", "pktUIMessaging"]);
-  checkElements(false, ["pocket-button", "appMenu-library-pocket-button",
-                        "context-pocket", "context-savelinktopocket"]);
+  checkElementsShown(false, [
+    "context-pocket",
+    "context-savelinktopocket",
+    "appMenu-library-pocket-button",
+    "pocket-button",
+  ]);
+
+  let newWin = await BrowserTestUtils.openNewBrowserWindow();
+  libraryButton = newWin.document.getElementById("library-button");
+  libraryButton.click();
+
+  libraryView = newWin.document.getElementById("appMenu-libraryView");
+  popupShown = BrowserTestUtils.waitForEvent(libraryView, "ViewShown");
+  await popupShown;
+
+  checkElementsShown(
+    false,
+    [
+      "context-pocket",
+      "context-savelinktopocket",
+      "appMenu-library-pocket-button",
+      "pocket-button",
+    ],
+    newWin
+  );
+
+  // Close the Library panel.
+  popupHidden = BrowserTestUtils.waitForEvent(newWin.document, "popuphidden");
+  libraryView.closest("panel").hidePopup();
+
+  await BrowserTestUtils.closeWindow(newWin);
 
   await promisePocketReset();
 });

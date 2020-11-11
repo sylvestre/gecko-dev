@@ -6,12 +6,14 @@
 
 #include <stdint.h>
 #include <string.h>
+#include <memory>
 
 #ifdef __MACH__
 #include <mach/clock.h>
 #include <mach/mach.h>
 #endif
 
+#include "mplogic.h"
 #include "mpi.h"
 namespace nss_test {
 
@@ -27,7 +29,7 @@ void gettime(struct timespec* tp) {
   tp->tv_sec = mts.tv_sec;
   tp->tv_nsec = mts.tv_nsec;
 #else
-  clock_gettime(CLOCK_MONOTONIC, tp);
+  ASSERT_NE(0, timespec_get(tp, TIME_UTC));
 #endif
 }
 
@@ -84,8 +86,9 @@ class MPITest : public ::testing::Test {
     mp_int a;
     ASSERT_EQ(MP_OKAY, mp_init(&a));
     ASSERT_EQ(MP_OKAY, mp_read_unsigned_octets(&a, ref.data(), ref.size()));
-    uint8_t buf[len];
-    ASSERT_EQ(MP_OKAY, mp_to_fixlen_octets(&a, buf, len));
+    std::unique_ptr<uint8_t[]> buf(new uint8_t[len]);
+    ASSERT_NE(buf, nullptr);
+    ASSERT_EQ(MP_OKAY, mp_to_fixlen_octets(&a, buf.get(), len));
     size_t compare;
     if (len > ref.size()) {
       for (size_t i = 0; i < len - ref.size(); ++i) {
@@ -96,9 +99,9 @@ class MPITest : public ::testing::Test {
       compare = len;
     }
     dump("value", ref.data(), ref.size());
-    dump("output", buf, len);
-    ASSERT_EQ(0, memcmp(buf + len - compare, ref.data() + ref.size() - compare,
-                        compare))
+    dump("output", buf.get(), len);
+    ASSERT_EQ(0, memcmp(buf.get() + len - compare,
+                        ref.data() + ref.size() - compare, compare))
         << "comparing " << compare << " octets";
     mp_clear(&a);
   }
@@ -146,12 +149,80 @@ TEST_F(MPITest, MpiCmpUnalignedTest) {
 }
 #endif
 
+// The two follow tests ensure very similar mp_set_* functions are ok.
+TEST_F(MPITest, MpiSetUlong) {
+  mp_int a, b, c;
+  MP_DIGITS(&a) = 0;
+  MP_DIGITS(&b) = 0;
+  MP_DIGITS(&c) = 0;
+  ASSERT_EQ(MP_OKAY, mp_init(&a));
+  ASSERT_EQ(MP_OKAY, mp_init(&b));
+  ASSERT_EQ(MP_OKAY, mp_init(&c));
+  EXPECT_EQ(MP_OKAY, mp_set_ulong(&a, 1));
+  EXPECT_EQ(MP_OKAY, mp_set_ulong(&b, 0));
+  EXPECT_EQ(MP_OKAY, mp_set_ulong(&c, -1));
+
+  mp_clear(&a);
+  mp_clear(&b);
+  mp_clear(&c);
+}
+
+TEST_F(MPITest, MpiSetInt) {
+  mp_int a, b, c;
+  MP_DIGITS(&a) = 0;
+  MP_DIGITS(&b) = 0;
+  MP_DIGITS(&c) = 0;
+  ASSERT_EQ(MP_OKAY, mp_init(&a));
+  ASSERT_EQ(MP_OKAY, mp_init(&b));
+  ASSERT_EQ(MP_OKAY, mp_init(&c));
+  EXPECT_EQ(MP_OKAY, mp_set_int(&a, 1));
+  EXPECT_EQ(MP_OKAY, mp_set_int(&b, 0));
+  EXPECT_EQ(MP_OKAY, mp_set_int(&c, -1));
+
+  mp_clear(&a);
+  mp_clear(&b);
+  mp_clear(&c);
+}
+
 TEST_F(MPITest, MpiFixlenOctetsZero) {
   std::vector<uint8_t> zero = {0};
   TestToFixedOctets(zero, 1);
   TestToFixedOctets(zero, 2);
   TestToFixedOctets(zero, sizeof(mp_digit));
   TestToFixedOctets(zero, sizeof(mp_digit) + 1);
+}
+
+TEST_F(MPITest, MpiRadixSizeNeg) {
+  char* str;
+  mp_int a;
+  mp_err rv;
+  const char* negative_edge =
+      "-5400000000000000003000000002200020090919017007777777777870000090"
+      "00000000007500443416610000000000000000000000000000000000000000000"
+      "00000000000000000000000000000000000000000000000000000000075049054"
+      "18610000800555594485440016000031555550000000000000000220030200909"
+      "19017007777777700000000000000000000000000000000000000000000000000"
+      "00000000000500000000000000000000000000004668129841661000071000000"
+      "00000000000000000000000000000000000000000000000007504434166100000"
+      "00000000000000000000000000000000000000000000000000000000000000000"
+      "00000000075049054186100008005555944854400184572169555500000000000"
+      "0000022003020090919017007777777700000000000000000000";
+
+  rv = mp_init(&a);
+  ASSERT_EQ(MP_OKAY, rv);
+  rv = mp_read_variable_radix(&a, negative_edge, 10);
+  ASSERT_EQ(MP_OKAY, rv);
+
+  const int radixSize = mp_radix_size(&a, 10);
+  ASSERT_LE(0, radixSize);
+
+  str = (char*)malloc(radixSize);
+  ASSERT_NE(nullptr, str);
+  rv = mp_toradix(&a, str, 10);
+  ASSERT_EQ(MP_OKAY, rv);
+  ASSERT_EQ(0, strcmp(negative_edge, str));
+  free(str);
+  mp_clear(&a);
 }
 
 TEST_F(MPITest, MpiFixlenOctetsVarlen) {
@@ -185,6 +256,92 @@ TEST_F(MPITest, MpiFixlenOctetsTooSmall) {
 
     mp_clear(&a);
   }
+}
+
+TEST_F(MPITest, MpiSqrMulClamp) {
+  mp_int a, r, expect;
+  MP_DIGITS(&a) = 0;
+  MP_DIGITS(&r) = 0;
+  MP_DIGITS(&expect) = 0;
+
+  // Comba32 result is 64 mp_digits. *=2 as this is an ascii representation.
+  std::string expect_str((64 * sizeof(mp_digit)) * 2, '0');
+
+  // Set second-highest bit (0x80...^2 == 0x4000...)
+  expect_str.replace(0, 1, "4", 1);
+
+  // Test 32, 16, 8, and 4-1 mp_digit values. 32-4 (powers of two) use the comba
+  // assembly implementation, if enabled and supported. 3-1 use non-comba.
+  int n_digits = 32;
+  while (n_digits > 0) {
+    ASSERT_EQ(MP_OKAY, mp_init(&r));
+    ASSERT_EQ(MP_OKAY, mp_init(&a));
+    ASSERT_EQ(MP_OKAY, mp_init(&expect));
+    ASSERT_EQ(MP_OKAY, mp_read_radix(&expect, expect_str.c_str(), 16));
+
+    ASSERT_EQ(MP_OKAY, mp_set_int(&a, 1));
+    ASSERT_EQ(MP_OKAY, mpl_lsh(&a, &a, (n_digits * sizeof(mp_digit) * 8) - 1));
+
+    ASSERT_EQ(MP_OKAY, mp_sqr(&a, &r));
+    EXPECT_EQ(MP_USED(&expect), MP_USED(&r));
+    EXPECT_EQ(0, mp_cmp(&r, &expect));
+    mp_clear(&r);
+
+    // Take the mul path...
+    ASSERT_EQ(MP_OKAY, mp_init(&r));
+    ASSERT_EQ(MP_OKAY, mp_mul(&a, &a, &r));
+    EXPECT_EQ(MP_USED(&expect), MP_USED(&r));
+    EXPECT_EQ(0, mp_cmp(&r, &expect));
+
+    mp_clear(&a);
+    mp_clear(&r);
+    mp_clear(&expect);
+
+    // Once we're down to 4, check non-powers of two.
+    int sub = n_digits > 4 ? n_digits / 2 : 1;
+    n_digits -= sub;
+
+    // "Shift right" the string (to avoid mutating |expect_str| with MPI).
+    expect_str.resize(expect_str.size() - 2 * 2 * sizeof(mp_digit) * sub);
+  }
+}
+
+TEST_F(MPITest, MpiInvModLoop) {
+  mp_int a;
+  mp_int m;
+  mp_int c_actual;
+  mp_int c_expect;
+  MP_DIGITS(&a) = 0;
+  MP_DIGITS(&m) = 0;
+  MP_DIGITS(&c_actual) = 0;
+  MP_DIGITS(&c_expect) = 0;
+  ASSERT_EQ(MP_OKAY, mp_init(&a));
+  ASSERT_EQ(MP_OKAY, mp_init(&m));
+  ASSERT_EQ(MP_OKAY, mp_init(&c_actual));
+  ASSERT_EQ(MP_OKAY, mp_init(&c_expect));
+  mp_read_radix(&a,
+                "3e10b9f4859fb9e8150cc0d94e83ef428d655702a0b6fb1e684f4755eb6be6"
+                "5ac6048cdfc533f73a9bad76125801051f",
+                16);
+  mp_read_radix(&m,
+                "ffffffffffffffffffffffffffffffffffffffffffffffffc7634d81f4372d"
+                "df581a0db248b0a77aecec196accc52973",
+                16);
+  mp_read_radix(&c_expect,
+                "12302214814361c15ab6c0f2131150af186099f8c22f6c9d6e77ad496b551c"
+                "7c8039e61098bfe2af66474420659435c6",
+                16);
+
+  int rv = mp_invmod(&a, &m, &c_actual);
+  ASSERT_EQ(MP_OKAY, rv);
+
+  rv = mp_cmp(&c_actual, &c_expect);
+  EXPECT_EQ(0, rv);
+
+  mp_clear(&a);
+  mp_clear(&m);
+  mp_clear(&c_actual);
+  mp_clear(&c_expect);
 }
 
 // This test is slow. Disable it by default so we can run these tests on CI.
@@ -253,4 +410,4 @@ TEST_F(DISABLED_MPITest, MpiCmpConstTest) {
   mp_clear(&c);
 }
 
-}  // nss_test
+}  // namespace nss_test

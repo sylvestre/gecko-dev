@@ -6,12 +6,11 @@
 
 var EXPORTED_SYMBOLS = ["Preferences"];
 
-ChromeUtils.import("resource://gre/modules/Services.jsm");
-ChromeUtils.import("resource://testing-common/TestUtils.jsm");
-ChromeUtils.import("resource://testing-common/ContentTask.jsm");
-
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { TestUtils } = ChromeUtils.import(
+  "resource://testing-common/TestUtils.jsm"
+);
 var Preferences = {
-
   init(libDir) {
     let panes = [
       ["paneGeneral"],
@@ -36,10 +35,14 @@ var Preferences = {
       this.configurations[configName].selectors = ["#browser"];
       if (primary == "panePrivacy" && customFn) {
         this.configurations[configName].applyConfig = async () => {
-          return {todo: `${configName} times out on the try server`};
+          return { todo: `${configName} times out on the try server` };
         };
       } else {
-        this.configurations[configName].applyConfig = prefHelper.bind(null, primary, customFn);
+        this.configurations[configName].applyConfig = prefHelper.bind(
+          null,
+          primary,
+          customFn
+        );
       }
     }
   },
@@ -52,18 +55,25 @@ let prefHelper = async function(primary, customFn = null) {
   let selectedBrowser = browserWindow.gBrowser.selectedBrowser;
 
   // close any dialog that might still be open
-  await ContentTask.spawn(selectedBrowser, null, async function() {
-    // Check that gSubDialog is defined on the content window
-    // and that there is an open dialog to close
-    if (!content.window.gSubDialog || !content.window.gSubDialog._topDialog) {
-      return;
+  await selectedBrowser.ownerGlobal.SpecialPowers.spawn(
+    selectedBrowser,
+    [],
+    async function() {
+      // Check that gSubDialog is defined on the content window
+      // and that there is an open dialog to close
+      if (!content.window.gSubDialog || !content.window.gSubDialog._topDialog) {
+        return;
+      }
+      content.window.gSubDialog.close();
     }
-    content.window.gSubDialog.close();
-  });
+  );
 
   let readyPromise = null;
   if (selectedBrowser.currentURI.specIgnoringRef == "about:preferences") {
-    if (selectedBrowser.currentURI.spec == "about:preferences#" + primary.replace(/^pane/, "")) {
+    if (
+      selectedBrowser.currentURI.spec ==
+      "about:preferences#" + primary.replace(/^pane/, "")
+    ) {
       // We're already on the correct pane.
       readyPromise = Promise.resolve();
     } else {
@@ -73,7 +83,7 @@ let prefHelper = async function(primary, customFn = null) {
     readyPromise = TestUtils.topicObserved("sync-pane-loaded");
   }
 
-  browserWindow.openPreferences(primary, {origin: "mozscreenshots"});
+  browserWindow.openPreferences(primary);
 
   await readyPromise;
 
@@ -87,56 +97,90 @@ let prefHelper = async function(primary, customFn = null) {
 };
 
 function paintPromise(browserWindow) {
-  return new Promise((resolve) => {
-    browserWindow.addEventListener("MozAfterPaint", function() {
-      resolve();
-    }, {once: true});
+  return new Promise(resolve => {
+    browserWindow.addEventListener(
+      "MozAfterPaint",
+      function() {
+        resolve();
+      },
+      { once: true }
+    );
   });
 }
 
 async function browsingGroup(aBrowser) {
-  await ContentTask.spawn(aBrowser, null, async function() {
-    content.document.getElementById("browsingGroup").scrollIntoView();
-  });
+  await aBrowser.ownerGlobal.SpecialPowers.spawn(
+    aBrowser,
+    [],
+    async function() {
+      content.document.getElementById("browsingGroup").scrollIntoView();
+    }
+  );
 }
 
 async function cacheGroup(aBrowser) {
-  await ContentTask.spawn(aBrowser, null, async function() {
-    content.document.getElementById("cacheGroup").scrollIntoView();
-  });
+  await aBrowser.ownerGlobal.SpecialPowers.spawn(
+    aBrowser,
+    [],
+    async function() {
+      content.document.getElementById("cacheGroup").scrollIntoView();
+    }
+  );
 }
 
 async function DNTDialog(aBrowser) {
-  return ContentTask.spawn(aBrowser, null, async function() {
-    const button = content.document.getElementById("doNotTrackSettings");
-    if (!button) {
-      return {todo: "The dialog may have exited before we could click the button"};
+  return aBrowser.ownerGlobal.SpecialPowers.spawn(
+    aBrowser,
+    [],
+    async function() {
+      const button = content.document.getElementById("doNotTrackSettings");
+      if (!button) {
+        return {
+          todo: "The dialog may have exited before we could click the button",
+        };
+      }
+      button.click();
+      return undefined;
     }
-    button.click();
-    return undefined;
-  });
+  );
 }
 
 async function connectionDialog(aBrowser) {
-  await ContentTask.spawn(aBrowser, null, async function() {
-    content.document.getElementById("connectionSettings").click();
-  });
+  await aBrowser.ownerGlobal.SpecialPowers.spawn(
+    aBrowser,
+    [],
+    async function() {
+      content.document.getElementById("connectionSettings").click();
+    }
+  );
 }
 
 async function clearRecentHistoryDialog(aBrowser) {
-  await ContentTask.spawn(aBrowser, null, async function() {
-    content.document.getElementById("clearHistoryButton").click();
-  });
+  await aBrowser.ownerGlobal.SpecialPowers.spawn(
+    aBrowser,
+    [],
+    async function() {
+      content.document.getElementById("clearHistoryButton").click();
+    }
+  );
 }
 
 async function certManager(aBrowser) {
-  await ContentTask.spawn(aBrowser, null, async function() {
-    content.document.getElementById("viewCertificatesButton").click();
-  });
+  await aBrowser.ownerGlobal.SpecialPowers.spawn(
+    aBrowser,
+    [],
+    async function() {
+      content.document.getElementById("viewCertificatesButton").click();
+    }
+  );
 }
 
 async function deviceManager(aBrowser) {
-  await ContentTask.spawn(aBrowser, null, async function() {
-    content.document.getElementById("viewSecurityDevicesButton").click();
-  });
+  await aBrowser.ownerGlobal.SpecialPowers.spawn(
+    aBrowser,
+    [],
+    async function() {
+      content.document.getElementById("viewSecurityDevicesButton").click();
+    }
+  );
 }

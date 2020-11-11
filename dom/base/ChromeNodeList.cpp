@@ -11,9 +11,9 @@ using namespace mozilla;
 using namespace mozilla::dom;
 
 already_AddRefed<ChromeNodeList> ChromeNodeList::Constructor(
-    const GlobalObject& aGlobal, ErrorResult& aRv) {
+    const GlobalObject& aGlobal) {
   nsCOMPtr<nsPIDOMWindowInner> win = do_QueryInterface(aGlobal.GetAsSupports());
-  nsIDocument* root = win ? win->GetExtantDoc() : nullptr;
+  Document* root = win ? win->GetExtantDoc() : nullptr;
   RefPtr<ChromeNodeList> list = new ChromeNodeList(root);
   return list.forget();
 }
@@ -27,7 +27,7 @@ void ChromeNodeList::Append(nsINode& aNode, ErrorResult& aError) {
   if (!aNode.IsContent()) {
     // nsINodeList deals with nsIContent objects only, so need to
     // filter out other nodes for now.
-    aError.Throw(NS_ERROR_DOM_TYPE_ERR);
+    aError.ThrowTypeError("The node passed in is not a ChildNode");
     return;
   }
 
@@ -36,7 +36,7 @@ void ChromeNodeList::Append(nsINode& aNode, ErrorResult& aError) {
 
 void ChromeNodeList::Remove(nsINode& aNode, ErrorResult& aError) {
   if (!aNode.IsContent()) {
-    aError.Throw(NS_ERROR_DOM_TYPE_ERR);
+    aError.ThrowTypeError("The node passed in is not a ChildNode");
     return;
   }
 

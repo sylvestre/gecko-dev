@@ -4,14 +4,14 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef mozilla_dom_SVGFETurbulenceElement_h
-#define mozilla_dom_SVGFETurbulenceElement_h
+#ifndef DOM_SVG_SVGFETURBULENCEELEMENT_H_
+#define DOM_SVG_SVGFETURBULENCEELEMENT_H_
 
-#include "nsSVGEnum.h"
-#include "nsSVGFilters.h"
-#include "nsSVGNumber2.h"
-#include "nsSVGInteger.h"
-#include "nsSVGString.h"
+#include "SVGAnimatedEnumeration.h"
+#include "SVGAnimatedInteger.h"
+#include "SVGAnimatedNumber.h"
+#include "SVGAnimatedString.h"
+#include "mozilla/dom/SVGFilters.h"
 
 nsresult NS_NewSVGFETurbulenceElement(
     nsIContent** aResult, already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo);
@@ -19,7 +19,7 @@ nsresult NS_NewSVGFETurbulenceElement(
 namespace mozilla {
 namespace dom {
 
-typedef nsSVGFE SVGFETurbulenceElementBase;
+using SVGFETurbulenceElementBase = SVGFE;
 
 class SVGFETurbulenceElement : public SVGFETurbulenceElementBase {
   friend nsresult(::NS_NewSVGFETurbulenceElement(
@@ -37,24 +37,24 @@ class SVGFETurbulenceElement : public SVGFETurbulenceElementBase {
   virtual bool SubregionIsUnionOfRegions() override { return false; }
 
   virtual FilterPrimitiveDescription GetPrimitiveDescription(
-      nsSVGFilterInstance* aInstance, const IntRect& aFilterSubregion,
+      SVGFilterInstance* aInstance, const IntRect& aFilterSubregion,
       const nsTArray<bool>& aInputsAreTainted,
       nsTArray<RefPtr<SourceSurface>>& aInputImages) override;
   virtual bool AttributeAffectsRendering(int32_t aNameSpaceID,
                                          nsAtom* aAttribute) const override;
-  virtual nsSVGString& GetResultImageName() override {
+  virtual SVGAnimatedString& GetResultImageName() override {
     return mStringAttributes[RESULT];
   }
 
   virtual nsresult Clone(dom::NodeInfo*, nsINode** aResult) const override;
 
   // WebIDL
-  already_AddRefed<SVGAnimatedNumber> BaseFrequencyX();
-  already_AddRefed<SVGAnimatedNumber> BaseFrequencyY();
-  already_AddRefed<SVGAnimatedInteger> NumOctaves();
-  already_AddRefed<SVGAnimatedNumber> Seed();
-  already_AddRefed<SVGAnimatedEnumeration> StitchTiles();
-  already_AddRefed<SVGAnimatedEnumeration> Type();
+  already_AddRefed<DOMSVGAnimatedNumber> BaseFrequencyX();
+  already_AddRefed<DOMSVGAnimatedNumber> BaseFrequencyY();
+  already_AddRefed<DOMSVGAnimatedInteger> NumOctaves();
+  already_AddRefed<DOMSVGAnimatedNumber> Seed();
+  already_AddRefed<DOMSVGAnimatedEnumeration> StitchTiles();
+  already_AddRefed<DOMSVGAnimatedEnumeration> Type();
 
  protected:
   virtual NumberAttributesInfo GetNumberInfo() override;
@@ -64,29 +64,29 @@ class SVGFETurbulenceElement : public SVGFETurbulenceElementBase {
   virtual StringAttributesInfo GetStringInfo() override;
 
   enum { SEED };  // floating point seed?!
-  nsSVGNumber2 mNumberAttributes[1];
+  SVGAnimatedNumber mNumberAttributes[1];
   static NumberInfo sNumberInfo[1];
 
   enum { BASE_FREQ };
-  nsSVGNumberPair mNumberPairAttributes[1];
+  SVGAnimatedNumberPair mNumberPairAttributes[1];
   static NumberPairInfo sNumberPairInfo[1];
 
   enum { OCTAVES };
-  nsSVGInteger mIntegerAttributes[1];
+  SVGAnimatedInteger mIntegerAttributes[1];
   static IntegerInfo sIntegerInfo[1];
 
   enum { TYPE, STITCHTILES };
-  nsSVGEnum mEnumAttributes[2];
-  static nsSVGEnumMapping sTypeMap[];
-  static nsSVGEnumMapping sStitchTilesMap[];
+  SVGAnimatedEnumeration mEnumAttributes[2];
+  static SVGEnumMapping sTypeMap[];
+  static SVGEnumMapping sStitchTilesMap[];
   static EnumInfo sEnumInfo[2];
 
   enum { RESULT };
-  nsSVGString mStringAttributes[1];
+  SVGAnimatedString mStringAttributes[1];
   static StringInfo sStringInfo[1];
 };
 
 }  // namespace dom
 }  // namespace mozilla
 
-#endif  // mozilla_dom_SVGFETurbulenceElement_h
+#endif  // DOM_SVG_SVGFETURBULENCEELEMENT_H_

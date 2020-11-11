@@ -48,9 +48,10 @@ var tests = [
   ];
 
 var loadCount = 0;
+var retrying = false;
 var script;
 
-var loadListener = function(evt) {
+var loadListener = async function(evt) {
   if (loadCount == 0) {
     /* eslint-env mozilla/frame-script */
     script = SpecialPowers.loadChromeScript(function() {
@@ -86,7 +87,7 @@ var loadListener = function(evt) {
         hunspell.removeDirectory(de_DE);
       });
     });
-    var existenceChecks = script.sendSyncMessage("check-existence")[0][0];
+    var existenceChecks = await script.sendQuery("check-existence");
     is(existenceChecks[0], true, "true expected (en-GB directory should exist)");
     is(existenceChecks[1], true, "true expected (en-AU directory should exist)");
     is(existenceChecks[2], true, "true expected (de-DE directory should exist)");
@@ -111,25 +112,35 @@ function continueTest(evt) {
       var dict = spellchecker.GetCurrentDictionary();
     } catch (e) {}
 
-    if (tests[loadCount][2] != "*") {
-      is(dict, tests[loadCount][2], "expected " + tests[loadCount][2]);
+    if (!dict && !retrying) {
+      // It's possible for an asynchronous font-list update to cause a reflow
+      // that disrupts the async spell-check and results in not getting a
+      // current dictionary here; if that happens, we retry the same testcase
+      // by reloading the iframe without bumping loadCount.
+      info(`No current dictionary: retrying testcase ${loadCount}`);
+      retrying = true;
     } else {
-      var gotEn = (dict == "en-GB" || dict == "en-AU" || dict == "en-US");
-      is(gotEn, true, "expected en-AU or en-GB or en-US");
+      if (tests[loadCount][2] != "*") {
+        is(dict, tests[loadCount][2], "expected " + tests[loadCount][2]);
+      } else {
+        var gotEn = (dict == "en-GB" || dict == "en-AU" || dict == "en-US");
+        is(gotEn, true, "expected en-AU or en-GB or en-US");
+      }
+
+      loadCount++;
+      retrying = false;
     }
 
-    loadCount++;
     if (loadCount < tests.length) {
       // Load the iframe again.
       content.src = "http://mochi.test:8888/tests/editor/spellchecker/tests/bug1200533_subframe.html?firstload=false";
     } else {
       // Remove the fake  dictionaries again, since it's otherwise picked up by later tests.
-      script.sendSyncMessage("destroy");
+      script.sendAsyncMessage("destroy");
 
       SimpleTest.finish();
     }
   });
-
 }
 
 content.addEventListener("load", loadListener);

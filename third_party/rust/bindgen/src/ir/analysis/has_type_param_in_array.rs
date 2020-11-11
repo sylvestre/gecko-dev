@@ -1,13 +1,12 @@
 //! Determining which types has typed parameters in array.
 
-use super::{ConstrainResult, MonotoneFramework, generate_dependencies};
+use super::{generate_dependencies, ConstrainResult, MonotoneFramework};
 use ir::comp::Field;
 use ir::comp::FieldMethods;
 use ir::context::{BindgenContext, ItemId};
 use ir::traversal::EdgeKind;
 use ir::ty::TypeKind;
-use std::collections::HashMap;
-use std::collections::HashSet;
+use {HashMap, HashSet};
 
 /// An analysis that finds for each IR item whether it has array or not.
 ///
@@ -89,10 +88,8 @@ impl<'ctx> MonotoneFramework for HasTypeParameterInArray<'ctx> {
     type Extra = &'ctx BindgenContext;
     type Output = HashSet<ItemId>;
 
-    fn new(
-        ctx: &'ctx BindgenContext,
-    ) -> HasTypeParameterInArray<'ctx> {
-        let has_type_parameter_in_array = HashSet::new();
+    fn new(ctx: &'ctx BindgenContext) -> HasTypeParameterInArray<'ctx> {
+        let has_type_parameter_in_array = HashSet::default();
         let dependencies = generate_dependencies(ctx, Self::consider_edge);
 
         HasTypeParameterInArray {
@@ -170,7 +167,7 @@ impl<'ctx> MonotoneFramework for HasTypeParameterInArray<'ctx> {
                 if self.has_type_parameter_in_array.contains(&t.into()) {
                     trace!(
                         "    aliases and type refs to T which have array \
-                            also have array"
+                         also have array"
                     );
                     self.insert(id)
                 } else {
@@ -191,9 +188,9 @@ impl<'ctx> MonotoneFramework for HasTypeParameterInArray<'ctx> {
                     return self.insert(id);
                 }
                 let fields_have = info.fields().iter().any(|f| match *f {
-                    Field::DataMember(ref data) => {
-                        self.has_type_parameter_in_array.contains(&data.ty().into())
-                    }
+                    Field::DataMember(ref data) => self
+                        .has_type_parameter_in_array
+                        .contains(&data.ty().into()),
                     Field::Bitfields(..) => false,
                 });
                 if fields_have {
@@ -213,18 +210,18 @@ impl<'ctx> MonotoneFramework for HasTypeParameterInArray<'ctx> {
                 if args_have {
                     trace!(
                         "    template args have array, so \
-                            insantiation also has array"
+                         insantiation also has array"
                     );
                     return self.insert(id);
                 }
 
-                let def_has = self.has_type_parameter_in_array.contains(
-                    &template.template_definition().into(),
-                );
+                let def_has = self
+                    .has_type_parameter_in_array
+                    .contains(&template.template_definition().into());
                 if def_has {
                     trace!(
                         "    template definition has array, so \
-                            insantiation also has"
+                         insantiation also has"
                     );
                     return self.insert(id);
                 }

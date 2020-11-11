@@ -8,10 +8,7 @@ package org.mozilla.gecko.process;
 import org.mozilla.gecko.annotation.WrapForJNI;
 import org.mozilla.gecko.GeckoAppShell;
 import org.mozilla.gecko.IGeckoEditableChild;
-import org.mozilla.gecko.IGeckoEditableParent;
-import org.mozilla.gecko.mozglue.GeckoLoader;
 import org.mozilla.gecko.GeckoThread;
-import org.mozilla.gecko.mozglue.SafeIntent;
 import org.mozilla.gecko.util.ThreadUtils;
 
 import android.app.Service;
@@ -25,7 +22,7 @@ import android.os.RemoteException;
 import android.util.Log;
 
 public class GeckoServiceChildProcess extends Service {
-    private static final String LOGTAG = "GeckoServiceChildProcess";
+    private static final String LOGTAG = "ServiceChildProcess";
     private static IProcessManager sProcessManager;
 
     @WrapForJNI(calledFrom = "gecko")
@@ -86,7 +83,7 @@ public class GeckoServiceChildProcess extends Service {
             final int crashAnnotationFd = crashAnnotationPfd != null ?
                                           crashAnnotationPfd.detachFd() : -1;
 
-            ThreadUtils.postToUiThread(new Runnable() {
+            ThreadUtils.runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
                     if (crashHandlerService != null) {
@@ -134,14 +131,10 @@ public class GeckoServiceChildProcess extends Service {
     }
 
     @Override
-    public boolean onUnbind(Intent intent) {
+    public boolean onUnbind(final Intent intent) {
         Log.i(LOGTAG, "Service has been unbound. Stopping.");
         stopSelf();
         Process.killProcess(Process.myPid());
         return false;
     }
-
-    public static final class geckomediaplugin extends GeckoServiceChildProcess {}
-
-    public static final class tab extends GeckoServiceChildProcess {}
 }

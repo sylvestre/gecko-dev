@@ -9,23 +9,23 @@ const SCHEMES = {
   "ftp://": true,
   "file:///": true,
   "about:": false,
-// nsIIOService.newURI() can throw if e.g. the app knows about imap://
-// but the account is not set up and so the URL is invalid for it.
-//  "imap://": false,
+  // nsIIOService.newURI() can throw if e.g. the app knows about imap://
+  // but the account is not set up and so the URL is invalid for it.
+  //  "imap://": false,
   "news://": false,
   "mailbox:": false,
   "moz-anno:favicon:http://": false,
   "view-source:http://": false,
-  "chrome://browser/content/browser.xul?": false,
+  "chrome://browser/content/browser.xhtml?": false,
   "resource://": false,
   "data:,": false,
-  "wyciwyg:/0/http://": false,
   "javascript:": false,
 };
 
 add_task(async function test_isURIVisited() {
-  let history = Cc["@mozilla.org/browser/history;1"]
-                  .getService(Ci.mozIAsyncHistory);
+  let history = Cc["@mozilla.org/browser/history;1"].getService(
+    Ci.mozIAsyncHistory
+  );
 
   function visitsPromise(uri) {
     return new Promise(resolve => {
@@ -38,6 +38,9 @@ add_task(async function test_isURIVisited() {
   for (let scheme in SCHEMES) {
     info("Testing scheme " + scheme);
     for (let t in PlacesUtils.history.TRANSITIONS) {
+      if (t == "EMBED") {
+        continue;
+      }
       info("With transition " + t);
       let aTransition = PlacesUtils.history.TRANSITIONS[t];
 
@@ -48,10 +51,12 @@ add_task(async function test_isURIVisited() {
       Assert.ok(!visited1);
 
       if (PlacesUtils.history.canAddURI(aURI)) {
-        await PlacesTestUtils.addVisits([{
-          uri: aURI,
-          transition: aTransition,
-        }]);
+        await PlacesTestUtils.addVisits([
+          {
+            uri: aURI,
+            transition: aTransition,
+          },
+        ]);
         info("Added visit for " + aURI.spec);
       }
 

@@ -10,7 +10,9 @@
 
 const PropTypes = require("devtools/client/shared/vendor/react-prop-types");
 const dom = require("devtools/client/shared/vendor/react-dom-factories");
-const { MarkerBlueprintUtils } = require("../modules/marker-blueprint-utils");
+const {
+  MarkerBlueprintUtils,
+} = require("devtools/client/performance/modules/marker-blueprint-utils");
 
 const LEVEL_INDENT = 10; // px
 const ARROW_NODE_OFFSET = -14; // px
@@ -27,23 +29,32 @@ function buildMarkerSidebar(blueprint, props) {
 
   const label = MarkerBlueprintUtils.getMarkerLabel(marker);
 
-  const name = dom.div({
-    className: "plain waterfall-marker-name",
-    style: { transform: `translateX(${level * LEVEL_INDENT}px)` },
-    title: label,
-  }, label);
+  const name = dom.div(
+    {
+      className: "plain waterfall-marker-name",
+      style: { transform: `translateX(${level * LEVEL_INDENT}px)` },
+      title: label,
+    },
+    label
+  );
 
-  return dom.div({
-    className: "waterfall-sidebar theme-sidebar",
-    style: { width: sidebarWidth + "px" },
-  }, bullet, name);
+  return dom.div(
+    {
+      className: "waterfall-sidebar theme-sidebar",
+      style: { width: sidebarWidth + "px" },
+    },
+    bullet,
+    name
+  );
 }
 
 function buildMarkerTimebar(blueprint, props) {
   const { marker, startTime, dataScale, arrow } = props;
   const offset = (marker.start - startTime) * dataScale + ARROW_NODE_OFFSET;
-  const width = Math.max((marker.end - marker.start) * dataScale,
-                         WATERFALL_MARKER_TIMEBAR_WIDTH_MIN);
+  const width = Math.max(
+    (marker.end - marker.start) * dataScale,
+    WATERFALL_MARKER_TIMEBAR_WIDTH_MIN
+  );
 
   const bar = dom.div(
     {

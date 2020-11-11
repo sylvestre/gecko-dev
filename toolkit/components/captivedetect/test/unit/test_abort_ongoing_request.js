@@ -38,7 +38,7 @@ function test_multiple_requests_abort() {
   do_test_pending();
 
   let callback = {
-    QueryInterface: ChromeUtils.generateQI([Ci.nsICaptivePortalCallback]),
+    QueryInterface: ChromeUtils.generateQI(["nsICaptivePortalCallback"]),
     prepare: function prepare() {
       Assert.equal(++step, 1);
       gCaptivePortalDetector.finishPreparation(kInterfaceName);
@@ -49,7 +49,7 @@ function test_multiple_requests_abort() {
   };
 
   let otherCallback = {
-    QueryInterface: ChromeUtils.generateQI([Ci.nsICaptivePortalCallback]),
+    QueryInterface: ChromeUtils.generateQI(["nsICaptivePortalCallback"]),
     prepare: function prepare() {
       Assert.equal(++step, 2);
       gCaptivePortalDetector.finishPreparation(kOtherInterfaceName);
@@ -67,5 +67,9 @@ function test_multiple_requests_abort() {
 }
 
 function run_test() {
-  run_captivedetect_test(xhr_handler, fakeUIResponse, test_multiple_requests_abort);
+  run_captivedetect_test(
+    xhr_handler,
+    fakeUIResponse,
+    test_multiple_requests_abort
+  );
 }

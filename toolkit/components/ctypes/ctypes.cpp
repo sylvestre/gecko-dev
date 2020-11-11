@@ -5,8 +5,8 @@
 
 #include "ctypes.h"
 #include "jsapi.h"
+#include "js/experimental/CTypes.h"  // JS::CTypesCallbacks, JS::InitCTypesClass, JS::SetCTypesCallbacks
 #include "js/MemoryFunctions.h"
-#include "mozilla/ModuleUtils.h"
 #include "nsMemory.h"
 #include "nsString.h"
 #include "nsNativeCharsetUtils.h"
@@ -15,22 +15,12 @@
 #include "nsZipArchive.h"
 #include "xpc_make_class.h"
 
-#define JSCTYPES_CONTRACTID "@mozilla.org/jsctypes;1"
-
-#define JSCTYPES_CID                                \
-  {                                                 \
-    0xc797702, 0x1c60, 0x4051, {                    \
-      0x9d, 0xd7, 0x4d, 0x74, 0x5, 0x60, 0x56, 0x42 \
-    }                                               \
-  }
-
-namespace mozilla {
-namespace ctypes {
+namespace mozilla::ctypes {
 
 static char* UnicodeToNative(JSContext* cx, const char16_t* source,
                              size_t slen) {
   nsAutoCString native;
-  nsDependentString unicode(reinterpret_cast<const char16_t*>(source), slen);
+  nsDependentSubstring unicode(source, slen);
   nsresult rv = NS_CopyUnicodeToNative(unicode, native);
   if (NS_FAILED(rv)) {
     JS_ReportErrorASCII(cx, "could not convert string to native charset");
@@ -44,9 +34,7 @@ static char* UnicodeToNative(JSContext* cx, const char16_t* source,
   return result;
 }
 
-static JSCTypesCallbacks sCallbacks = {UnicodeToNative};
-
-NS_GENERIC_FACTORY_CONSTRUCTOR(Module)
+static JS::CTypesCallbacks sCallbacks = {UnicodeToNative};
 
 NS_IMPL_ISUPPORTS(Module, nsIXPCScriptable)
 
@@ -79,13 +67,13 @@ static bool SealObjectAndPrototype(JSContext* cx, JS::Handle<JSObject*> parent,
 static bool InitAndSealCTypesClass(JSContext* cx,
                                    JS::Handle<JSObject*> global) {
   // Init the ctypes object.
-  if (!JS_InitCTypesClass(cx, global)) return false;
+  if (!JS::InitCTypesClass(cx, global)) return false;
 
   // Set callbacks for charset conversion and such.
   JS::Rooted<JS::Value> ctypes(cx);
   if (!JS_GetProperty(cx, global, "ctypes", &ctypes)) return false;
 
-  JS_SetCTypesCallbacks(ctypes.toObjectOrNull(), &sCallbacks);
+  JS::SetCTypesCallbacks(ctypes.toObjectOrNull(), &sCallbacks);
 
   // Seal up Object, Function, Array and Error and their prototypes.  (This
   // single object instance is shared amongst everyone who imports the ctypes
@@ -110,19 +98,4 @@ Module::Call(nsIXPConnectWrappedNative* wrapper, JSContext* cx, JSObject* obj,
   return NS_OK;
 }
 
-}  // namespace ctypes
-}  // namespace mozilla
-
-NS_DEFINE_NAMED_CID(JSCTYPES_CID);
-
-static const mozilla::Module::CIDEntry kCTypesCIDs[] = {
-    {&kJSCTYPES_CID, false, nullptr, mozilla::ctypes::ModuleConstructor},
-    {nullptr}};
-
-static const mozilla::Module::ContractIDEntry kCTypesContracts[] = {
-    {JSCTYPES_CONTRACTID, &kJSCTYPES_CID}, {nullptr}};
-
-static const mozilla::Module kCTypesModule = {mozilla::Module::kVersion,
-                                              kCTypesCIDs, kCTypesContracts};
-
-NSMODULE_DEFN(jsctypes) = &kCTypesModule;
+}  // namespace mozilla::ctypes

@@ -11,14 +11,16 @@
 
 // Interfaces
 #include "nsCOMPtr.h"
-#include "nsIPresShell.h"
 #include "nsViewManager.h"
 #include "nsIDocShell.h"
 #include "nsIDocShellTreeOwner.h"
 
 class nsIContent;
-class nsIDocument;
 class nsPresContext;
+
+namespace mozilla {
+class PresShell;
+}  // namespace mozilla
 
 // nsPrintObject Document Type
 enum PrintObjectType { eDoc = 0, eFrame = 1, eIFrame = 2, eFrameSet = 3 };
@@ -31,19 +33,37 @@ class nsPrintObject {
   nsPrintObject();
   ~nsPrintObject();  // non-virtual
 
-  // Methods
-  nsresult Init(nsIDocShell* aDocShell, nsIDocument* aDoc, bool aPrintPreview);
+  nsresult InitAsRootObject(nsIDocShell* aDocShell,
+                            mozilla::dom::Document* aDoc,
+                            bool aForPrintPreview);
+  nsresult InitAsNestedObject(nsIDocShell* aDocShell,
+                              mozilla::dom::Document* aDoc,
+                              nsPrintObject* aParent);
 
-  bool IsPrintable() { return !mDontPrint; }
   void DestroyPresentation();
+
+  /**
+   * Recursively sets all the PO items to be printed
+   * from the given item down into the tree
+   */
+  void EnablePrinting(bool aEnable);
+
+  /**
+   * Recursively sets all the PO items to be printed if they have a selection.
+   */
+  void EnablePrintingSelectionOnly();
+
+  bool PrintingIsEnabled() const { return mPrintingIsEnabled; }
+
+  bool HasSelection() const;
 
   // Data Members
   nsCOMPtr<nsIDocShell> mDocShell;
   nsCOMPtr<nsIDocShellTreeOwner> mTreeOwner;
-  nsCOMPtr<nsIDocument> mDocument;
+  RefPtr<mozilla::dom::Document> mDocument;
 
   RefPtr<nsPresContext> mPresContext;
-  nsCOMPtr<nsIPresShell> mPresShell;
+  RefPtr<mozilla::PresShell> mPresShell;
   RefPtr<nsViewManager> mViewManager;
 
   nsCOMPtr<nsIContent> mContent;
@@ -52,16 +72,15 @@ class nsPrintObject {
   nsTArray<mozilla::UniquePtr<nsPrintObject>> mKids;
   nsPrintObject* mParent;  // This is a non-owning pointer.
   bool mHasBeenPrinted;
-  bool mDontPrint;
-  bool mPrintAsIs;
   bool mInvisible;  // Indicates PO is set to not visible by CSS
-  bool mPrintPreview;
   bool mDidCreateDocShell;
   float mShrinkRatio;
   float mZoomRatio;
 
  private:
   nsPrintObject& operator=(const nsPrintObject& aOther) = delete;
+
+  bool mPrintingIsEnabled = false;
 };
 
 #endif /* nsPrintObject_h___ */

@@ -9,20 +9,19 @@
 
 #include "mozilla/AsyncEventDispatcher.h"
 #include "mozilla/Attributes.h"
-#include "mozilla/dom/HTMLFormSubmission.h"
-#include "nsAutoPtr.h"
+#include "mozilla/UniquePtr.h"
+#include "mozilla/dom/BrowsingContext.h"
 #include "nsCOMPtr.h"
 #include "nsIForm.h"
 #include "nsIFormControl.h"
 #include "nsGenericHTMLElement.h"
-#include "nsIWebProgressListener.h"
 #include "nsIRadioGroupContainer.h"
 #include "nsIWeakReferenceUtils.h"
 #include "nsThreadUtils.h"
 #include "nsInterfaceHashtable.h"
 #include "nsRefPtrHashtable.h"
 #include "nsDataHashtable.h"
-#include "jsfriendapi.h"  // For js::ExpandoAndGeneration
+#include "js/friend/DOMProxy.h"  // JS::ExpandoAndGeneration
 
 class nsIMutableArray;
 class nsIURI;
@@ -33,9 +32,9 @@ class EventChainPreVisitor;
 namespace dom {
 class HTMLFormControlsCollection;
 class HTMLImageElement;
+class FormData;
 
 class HTMLFormElement final : public nsGenericHTMLElement,
-                              public nsIWebProgressListener,
                               public nsIForm,
                               public nsIRadioGroupContainer {
   friend class HTMLFormControlsCollection;
@@ -50,9 +49,6 @@ class HTMLFormElement final : public nsGenericHTMLElement,
 
   // nsISupports
   NS_DECL_ISUPPORTS_INHERITED
-
-  // nsIWebProgressListener
-  NS_DECL_NSIWEBPROGRESSLISTENER
 
   // nsIForm
   NS_IMETHOD_(nsIFormControl*) GetElementAt(int32_t aIndex) const override;
@@ -94,10 +90,8 @@ class HTMLFormElement final : public nsGenericHTMLElement,
   void WillHandleEvent(EventChainPostVisitor& aVisitor) override;
   virtual nsresult PostHandleEvent(EventChainPostVisitor& aVisitor) override;
 
-  virtual nsresult BindToTree(nsIDocument* aDocument, nsIContent* aParent,
-                              nsIContent* aBindingParent) override;
-  virtual void UnbindFromTree(bool aDeep = true,
-                              bool aNullParent = true) override;
+  virtual nsresult BindToTree(BindContext&, nsINode& aParent) override;
+  virtual void UnbindFromTree(bool aNullParent = true) override;
   virtual nsresult BeforeSetAttr(int32_t aNamespaceID, nsAtom* aName,
                                  const nsAttrValueOrString* aValue,
                                  bool aNotify) override;
@@ -147,7 +141,7 @@ class HTMLFormElement final : public nsGenericHTMLElement,
    *
    * @param aElement the element to add
    * @param aUpdateValidity If true, the form validity will be updated.
-   * @param aNotify If true, send nsIDocumentObserver notifications as needed.
+   * @param aNotify If true, send DocumentObserver notifications as needed.
    * @return NS_OK if the element was successfully added
    */
   nsresult AddElement(nsGenericHTMLFormElement* aElement, bool aUpdateValidity,
@@ -266,25 +260,19 @@ class HTMLFormElement final : public nsGenericHTMLElement,
    *
    * @note Do not call this method if novalidate/formnovalidate is used.
    * @note This method might disappear with bug 592124, hopefuly.
+   * @see
+   * https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#interactively-validate-the-constraints
    */
   bool CheckValidFormSubmission();
 
   /**
-   * Check whether submission can proceed for this form.  This basically
-   * implements steps 1-4 (more or less) of
-   * <https://html.spec.whatwg.org/multipage/forms.html#concept-form-submit>.
-   * aSubmitter, if not null, is the "submitter" from that algorithm.  Therefore
-   * it must be a valid submit control.
-   */
-  bool SubmissionCanProceed(Element* aSubmitter);
-
-  /**
-   * Walk over the form elements and call SubmitNamesValues() on them to get
-   * their data pumped into the FormSubmitter.
+   * Contruct the entry list to get their data pumped into the FormData and
+   * fire a `formdata` event with the entry list in formData attribute.
+   * <https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#constructing-form-data-set>
    *
-   * @param aFormSubmission the form submission object
+   * @param aFormData the form data object
    */
-  nsresult WalkFormElements(HTMLFormSubmission* aFormSubmission);
+  nsresult ConstructEntryList(FormData* aFormData);
 
   /**
    * Whether the submission of this form has been ever prevented because of
@@ -361,7 +349,31 @@ class HTMLFormElement final : public nsGenericHTMLElement,
 
   int32_t Length();
 
+  /**
+   * Check whether submission can proceed for this form then fire submit event.
+   * This basically implements steps 1-6 (more or less) of
+   * <https://html.spec.whatwg.org/multipage/forms.html#concept-form-submit>.
+   * @param aSubmitter If not null, is the "submitter" from that algorithm.
+   *                   Therefore it must be a valid submit control.
+   */
+  MOZ_CAN_RUN_SCRIPT void MaybeSubmit(Element* aSubmitter);
+  MOZ_CAN_RUN_SCRIPT void MaybeReset(Element* aSubmitter);
   void Submit(ErrorResult& aRv);
+
+  /**
+   * Requests to submit the form. Unlike submit(), this method includes
+   * interactive constraint validation and firing a submit event,
+   * either of which can cancel submission.
+   *
+   * @param aSubmitter The submitter argument can be used to point to a specific
+   *                   submit button.
+   * @param aRv        An ErrorResult.
+   * @see
+   * https://html.spec.whatwg.org/multipage/forms.html#dom-form-requestsubmit
+   */
+  MOZ_CAN_RUN_SCRIPT void RequestSubmit(nsGenericHTMLElement* aSubmitter,
+                                        ErrorResult& aRv);
+
   void Reset();
 
   bool CheckValidity() { return CheckFormValidity(nullptr); }
@@ -386,7 +398,7 @@ class HTMLFormElement final : public nsGenericHTMLElement,
       nsIContent* aForm);
 #endif
 
-  js::ExpandoAndGeneration mExpandoAndGeneration;
+  JS::ExpandoAndGeneration mExpandoAndGeneration;
 
  protected:
   virtual JSObject* WrapNode(JSContext* aCx,
@@ -414,7 +426,6 @@ class HTMLFormElement final : public nsGenericHTMLElement,
     RefPtr<HTMLFormElement> mForm;
   };
 
-  nsresult DoSubmitOrReset(WidgetEvent* aEvent, EventMessage aMessage);
   nsresult DoReset();
 
   // Async callback to handle removal of our default submit
@@ -426,12 +437,11 @@ class HTMLFormElement final : public nsGenericHTMLElement,
   //
   /**
    * Attempt to submit (submission might be deferred)
-   * (called by DoSubmitOrReset)
    *
    * @param aPresContext the presentation context
    * @param aEvent the DOM event that was passed to us for the submit
    */
-  nsresult DoSubmit(WidgetEvent* aEvent);
+  nsresult DoSubmit(Event* aEvent = nullptr);
 
   /**
    * Prepare the submission object (called by DoSubmit)
@@ -439,14 +449,19 @@ class HTMLFormElement final : public nsGenericHTMLElement,
    * @param aFormSubmission the submission object
    * @param aEvent the DOM event that was passed to us for the submit
    */
-  nsresult BuildSubmission(HTMLFormSubmission** aFormSubmission,
-                           WidgetEvent* aEvent);
+  nsresult BuildSubmission(HTMLFormSubmission** aFormSubmission, Event* aEvent);
   /**
    * Perform the submission (called by DoSubmit and FlushPendingSubmission)
    *
    * @param aFormSubmission the submission object
    */
   nsresult SubmitSubmission(HTMLFormSubmission* aFormSubmission);
+
+  /**
+   * Submit a form[method=dialog]
+   * @param aFormSubmission the submission object
+   */
+  nsresult SubmitDialog(DialogFormSubmission* aFormSubmission);
 
   /**
    * Notify any submit observers of the submit.
@@ -477,7 +492,7 @@ class HTMLFormElement final : public nsGenericHTMLElement,
 
   /**
    * Check the form validity following this algorithm:
-   * http://www.whatwg.org/specs/web-apps/current-work/#statically-validate-the-constraints
+   * https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#statically-validate-the-constraints
    *
    * @param aInvalidElements [out] parameter containing the list of unhandled
    * invalid controls.
@@ -522,6 +537,17 @@ class HTMLFormElement final : public nsGenericHTMLElement,
    */
   nsresult GetActionURL(nsIURI** aActionURL, Element* aOriginatingElement);
 
+  // Returns a number for this form that is unique within its owner document.
+  // This is used by nsContentUtils::GenerateStateKey to identify form controls
+  // that are inserted into the document by the parser.
+  int32_t GetFormNumberForStateKey();
+
+  /**
+   * Called when we have been cloned and adopted, and the information of the
+   * node has been changed.
+   */
+  void NodeInfoChanged(Document* aOldDoc) override;
+
  protected:
   //
   // Data members
@@ -538,11 +564,17 @@ class HTMLFormElement final : public nsGenericHTMLElement,
       mValueMissingRadioGroups;
 
   /** The pending submission object */
-  nsAutoPtr<HTMLFormSubmission> mPendingSubmission;
+  UniquePtr<HTMLFormSubmission> mPendingSubmission;
   /** The request currently being submitted */
   nsCOMPtr<nsIRequest> mSubmittingRequest;
   /** The web progress object we are currently listening to */
   nsWeakPtr mWebProgress;
+
+  /** The target browsing context, if any. */
+  RefPtr<BrowsingContext> mTargetContext;
+  /** The load identifier for the pending request created for a
+   * submit, used to be able to block double submits. */
+  Maybe<uint64_t> mCurrentLoadId;
 
   /** The default submit element -- WEAK */
   nsGenericHTMLFormElement* mDefaultSubmitElement;
@@ -582,33 +614,33 @@ class HTMLFormElement final : public nsGenericHTMLElement,
    */
   int32_t mInvalidElementsCount;
 
+  // See GetFormNumberForStateKey.
+  int32_t mFormNumber;
+
   /** Whether we are currently processing a submit event or not */
   bool mGeneratingSubmit;
   /** Whether we are currently processing a reset event or not */
   bool mGeneratingReset;
-  /** Whether we are submitting currently */
-  bool mIsSubmitting;
   /** Whether the submission is to be deferred in case a script triggers it */
   bool mDeferSubmission;
   /** Whether we notified NS_FORMSUBMIT_SUBJECT listeners already */
   bool mNotifiedObservers;
   /** If we notified the listeners early, what was the result? */
   bool mNotifiedObserversResult;
-  /** Keep track of whether a submission was user-initiated or not */
-  bool mSubmitInitiatedFromUserInput;
   /**
    * Whether the submission of this form has been ever prevented because of
    * being invalid.
    */
   bool mEverTriedInvalidSubmit;
-
- protected:
-  /** Detection of first form to notify observers */
-  static bool gFirstFormSubmitted;
-  /** Detection of first password input to initialize the password manager */
-  static bool gPasswordManagerInitialized;
+  /** Whether we are constructing entry list */
+  bool mIsConstructingEntryList;
+  /** Whether we are firing submission event */
+  bool mIsFiringSubmissionEvents;
 
  private:
+  bool IsSubmitting() const;
+
+  NotNull<const Encoding*> GetSubmitEncoding();
   ~HTMLFormElement();
 };
 

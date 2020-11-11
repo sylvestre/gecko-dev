@@ -5,14 +5,15 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "ClientTiledPaintedLayer.h"
-#include "FrameMetrics.h"          // for FrameMetrics
-#include "Units.h"                 // for ScreenIntRect, CSSPoint, etc
-#include "UnitTransforms.h"        // for TransformTo
-#include "ClientLayerManager.h"    // for ClientLayerManager, etc
-#include "gfxPlatform.h"           // for gfxPlatform
-#include "gfxPrefs.h"              // for gfxPrefs
-#include "gfxRect.h"               // for gfxRect
-#include "mozilla/Assertions.h"    // for MOZ_ASSERT, etc
+#include "FrameMetrics.h"        // for FrameMetrics
+#include "Units.h"               // for ScreenIntRect, CSSPoint, etc
+#include "UnitTransforms.h"      // for TransformTo
+#include "ClientLayerManager.h"  // for ClientLayerManager, etc
+#include "gfxPlatform.h"         // for gfxPlatform
+#include "gfxRect.h"             // for gfxRect
+#include "mozilla/Assertions.h"  // for MOZ_ASSERT, etc
+#include "mozilla/StaticPrefs_layers.h"
+#include "mozilla/StaticPrefs_layout.h"
 #include "mozilla/gfx/BaseSize.h"  // for BaseSize
 #include "mozilla/gfx/gfxVars.h"
 #include "mozilla/gfx/Rect.h"  // for Rect, RectTyped
@@ -22,7 +23,6 @@
 #include "mozilla/layers/PaintThread.h"
 #include "mozilla/mozalloc.h"  // for operator delete, etc
 #include "nsISupportsImpl.h"   // for MOZ_COUNT_CTOR, etc
-#include "LayersLogging.h"
 #include "mozilla/layers/MultiTiledContentClient.h"
 #include "mozilla/layers/SingleTiledContentClient.h"
 
@@ -69,27 +69,21 @@ static Maybe<LayerRect> ApplyParentLayerToLayerTransform(
 
 static LayerToParentLayerMatrix4x4 GetTransformToAncestorsParentLayer(
     Layer* aStart, const LayerMetricsWrapper& aAncestor) {
+  // If the ancestor layer Combines3DTransformWithAncestors, then the
+  // scroll offset is contained in the transform of the layer at the
+  // root of the 3D context. So we must first find that layer, then
+  // calcuate the transform to its parent.
+  LayerMetricsWrapper root3dAncestor = aAncestor;
+  while (root3dAncestor.Combines3DTransformWithAncestors()) {
+    root3dAncestor = root3dAncestor.GetParent();
+  }
+
   gfx::Matrix4x4 transform;
-  const LayerMetricsWrapper& ancestorParent = aAncestor.GetParent();
+  const LayerMetricsWrapper& ancestorParent = root3dAncestor.GetParent();
   for (LayerMetricsWrapper iter(aStart, LayerMetricsWrapper::StartAt::BOTTOM);
        ancestorParent ? iter != ancestorParent : iter.IsValid();
        iter = iter.GetParent()) {
     transform = transform * iter.GetTransform();
-
-    if (gfxPrefs::LayoutUseContainersForRootFrames()) {
-      // When scrolling containers, layout adds a post-scale into the transform
-      // of the displayport-ancestor (which we pick up in GetTransform() above)
-      // to cancel out the pres shell resolution (for historical reasons). The
-      // compositor in turn cancels out this post-scale (i.e., scales by the
-      // pres shell resolution), and to get correct calculations, we need to do
-      // so here, too.
-      //
-      // With containerless scrolling, the offending post-scale is on the
-      // parent layer of the displayport-ancestor, which we don't reach in this
-      // loop, so we don't need to worry about it.
-      float presShellResolution = iter.GetPresShellResolution();
-      transform.PostScale(presShellResolution, presShellResolution, 1.0f);
-    }
   }
   return ViewAs<LayerToParentLayerMatrix4x4>(transform);
 }
@@ -223,7 +217,7 @@ void ClientTiledPaintedLayer::BeginPaint() {
 
   // Calculate the scroll offset since the last transaction
   mPaintData.mScrollOffset =
-      displayportMetrics.GetScrollOffset() * displayportMetrics.GetZoom();
+      displayportMetrics.GetLayoutScrollOffset() * displayportMetrics.GetZoom();
   TILING_LOG("TILING %p: Scroll offset %s\n", this,
              Stringify(mPaintData.mScrollOffset).c_str());
 }
@@ -249,16 +243,16 @@ bool ClientTiledPaintedLayer::IsScrollingOnCompositor(
   // is so small then we have nothing to gain from using paint heuristics.
   float COORDINATE_EPSILON = 1.f;
 
-  return !FuzzyEqualsAdditive(compositorMetrics.GetScrollOffset().x,
-                              aParentMetrics.GetScrollOffset().x,
+  return !FuzzyEqualsAdditive(compositorMetrics.GetVisualScrollOffset().x,
+                              aParentMetrics.GetVisualScrollOffset().x,
                               COORDINATE_EPSILON) ||
-         !FuzzyEqualsAdditive(compositorMetrics.GetScrollOffset().y,
-                              aParentMetrics.GetScrollOffset().y,
+         !FuzzyEqualsAdditive(compositorMetrics.GetVisualScrollOffset().y,
+                              aParentMetrics.GetVisualScrollOffset().y,
                               COORDINATE_EPSILON);
 }
 
 bool ClientTiledPaintedLayer::UseProgressiveDraw() {
-  if (!gfxPrefs::ProgressivePaint()) {
+  if (!StaticPrefs::layers_progressive_paint()) {
     // pref is disabled, so never do progressive
     return false;
   }
@@ -448,6 +442,11 @@ void ClientTiledPaintedLayer::EndPaint() {
 }
 
 void ClientTiledPaintedLayer::RenderLayer() {
+  if (!ClientManager()->IsRepeatTransaction()) {
+    // Only paint the mask layers on the first transaction.
+    RenderMaskLayers(this);
+  }
+
   LayerManager::DrawPaintedLayerCallback callback =
       ClientManager()->GetPaintedLayerCallback();
   void* data = ClientManager()->GetPaintedLayerCallbackData();
@@ -465,7 +464,7 @@ void ClientTiledPaintedLayer::RenderLayer() {
        isHalfTileWidthOrHeight) &&
       SingleTiledContentClient::ClientSupportsLayerSize(layerSize,
                                                         ClientManager()) &&
-      gfxPrefs::LayersSingleTileEnabled();
+      StaticPrefs::layers_single_tile_enabled();
 
   if (mContentClient && mHaveSingleTiledContentClient &&
       !wantSingleTiledContentClient) {
@@ -531,9 +530,6 @@ void ClientTiledPaintedLayer::RenderLayer() {
   }
 
   if (!ClientManager()->IsRepeatTransaction()) {
-    // Only paint the mask layers on the first transaction.
-    RenderMaskLayers(this);
-
     // For more complex cases we need to calculate a bunch of metrics before we
     // can do the paint.
     BeginPaint();

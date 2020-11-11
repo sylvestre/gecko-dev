@@ -7,14 +7,11 @@
 #include "OSPreferences.h"
 #include "mozilla/Preferences.h"
 
-#include "FennecJNIWrappers.h"
-#include "GeneratedJNIWrappers.h"
+#include "mozilla/java/GeckoAppShellWrappers.h"
 
 using namespace mozilla::intl;
 
 OSPreferences::OSPreferences() {}
-
-OSPreferences::~OSPreferences() {}
 
 bool OSPreferences::ReadSystemLocales(nsTArray<nsCString>& aLocaleList) {
   if (!mozilla::jni::IsAvailable()) {
@@ -24,9 +21,7 @@ bool OSPreferences::ReadSystemLocales(nsTArray<nsCString>& aLocaleList) {
   // XXX: Notice, this value may be empty on an early read. In that case
   //     we won't add anything to the return list so that it doesn't get
   //     cached in mSystemLocales.
-  auto locales = mozilla::jni::IsFennec()
-                     ? java::BrowserLocaleManager::GetLocales()
-                     : java::GeckoAppShell::GetDefaultLocales();
+  auto locales = java::GeckoAppShell::GetDefaultLocales();
   if (locales) {
     for (size_t i = 0; i < locales->Length(); i++) {
       jni::String::LocalRef locale = locales->GetElement(i);
@@ -46,6 +41,8 @@ bool OSPreferences::ReadRegionalPrefsLocales(nsTArray<nsCString>& aLocaleList) {
 bool OSPreferences::ReadDateTimePattern(DateTimeFormatStyle aDateStyle,
                                         DateTimeFormatStyle aTimeStyle,
                                         const nsACString& aLocale,
-                                        nsAString& aRetVal) {
+                                        nsACString& aRetVal) {
   return false;
 }
+
+void OSPreferences::RemoveObservers() {}

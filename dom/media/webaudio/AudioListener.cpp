@@ -7,10 +7,9 @@
 #include "AudioListener.h"
 #include "AudioContext.h"
 #include "mozilla/dom/AudioListenerBinding.h"
-#include "MediaStreamGraphImpl.h"
+#include "MediaTrackGraphImpl.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(AudioListener, mContext)
 
@@ -127,7 +126,7 @@ void AudioListener::SendListenerEngineEvent(
     ThreeDPoint mValue;
   };
 
-  mContext->DestinationStream()->GraphImpl()->AppendMessage(
+  mContext->DestinationTrack()->GraphImpl()->AppendMessage(
       MakeUnique<Message>(Engine(), aParameter, aValue));
 }
 
@@ -135,5 +134,4 @@ size_t AudioListener::SizeOfIncludingThis(MallocSizeOf aMallocSizeOf) const {
   return aMallocSizeOf(this);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

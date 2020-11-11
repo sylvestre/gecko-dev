@@ -4,13 +4,14 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "nsSVGElement.h"
 #include "DOMSVGNumberList.h"
+
+#include "SVGElement.h"
 #include "DOMSVGNumber.h"
 #include "nsError.h"
 #include "SVGAnimatedNumberList.h"
-#include "nsCOMPtr.h"
 #include "mozilla/dom/SVGNumberListBinding.h"
+#include "mozilla/RefPtr.h"
 #include <algorithm>
 
 // See the comment in this file's header.
@@ -18,7 +19,7 @@
 // local helper functions
 namespace {
 
-using mozilla::DOMSVGNumber;
+using mozilla::dom::DOMSVGNumber;
 
 void UpdateListIndicesFromIndex(FallibleTArray<DOMSVGNumber*>& aItemsArray,
                                 uint32_t aStartingIndex) {
@@ -34,6 +35,7 @@ void UpdateListIndicesFromIndex(FallibleTArray<DOMSVGNumber*>& aItemsArray,
 }  // namespace
 
 namespace mozilla {
+namespace dom {
 
 // We could use NS_IMPL_CYCLE_COLLECTION(, except that in Unlink() we need to
 // clear our DOMSVGAnimatedNumberList's weak ref to us to be safe. (The other
@@ -71,35 +73,6 @@ JSObject* DOMSVGNumberList::WrapObject(JSContext* cx,
                                        JS::Handle<JSObject*> aGivenProto) {
   return mozilla::dom::SVGNumberList_Binding::Wrap(cx, this, aGivenProto);
 }
-
-//----------------------------------------------------------------------
-// Helper class: AutoChangeNumberListNotifier
-// Stack-based helper class to pair calls to WillChangeNumberList and
-// DidChangeNumberList.
-class MOZ_RAII AutoChangeNumberListNotifier {
- public:
-  explicit AutoChangeNumberListNotifier(
-      DOMSVGNumberList* aNumberList MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
-      : mNumberList(aNumberList) {
-    MOZ_GUARD_OBJECT_NOTIFIER_INIT;
-    MOZ_ASSERT(mNumberList, "Expecting non-null numberList");
-    mEmptyOrOldValue =
-        mNumberList->Element()->WillChangeNumberList(mNumberList->AttrEnum());
-  }
-
-  ~AutoChangeNumberListNotifier() {
-    mNumberList->Element()->DidChangeNumberList(mNumberList->AttrEnum(),
-                                                mEmptyOrOldValue);
-    if (mNumberList->IsAnimating()) {
-      mNumberList->Element()->AnimationNeedsResample();
-    }
-  }
-
- private:
-  DOMSVGNumberList* const mNumberList;
-  nsAttrValue mEmptyOrOldValue;
-  MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
-};
 
 void DOMSVGNumberList::InternalListLengthWillChange(uint32_t aNewLength) {
   uint32_t oldLength = mItems.Length();
@@ -367,4 +340,5 @@ void DOMSVGNumberList::MaybeRemoveItemFromAnimValListAt(uint32_t aIndex) {
   UpdateListIndicesFromIndex(animVal->mItems, aIndex);
 }
 
+}  // namespace dom
 }  // namespace mozilla

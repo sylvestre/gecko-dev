@@ -3,15 +3,13 @@
 
 /*---
 info: If Z is empty, return NaN
-es5id: 15.1.2.2_A7.1_T1
-es6id: 18.2.5
 esid: sec-parseint-string-radix
 description: Complex test. R in [2, 36]
 ---*/
 
 //CHECK#
 for (var i = 2; i <= 36; i++) {
-  assert.sameValue(parseInt("$string", i), NaN);
+  assert.sameValue(parseInt("$string", i), NaN, 'parseInt("$string", i) must return NaN');
 }
 
 reportCompare(0, 0);

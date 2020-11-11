@@ -5,8 +5,7 @@
   <link rel="stylesheet" type="text/css"
         href="chrome://mochikit/content/tests/SimpleTest/test.css" />
 
-  <script type="application/javascript"
-          src="chrome://mochikit/content/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="chrome://mochikit/content/tests/SimpleTest/SimpleTest.js"></script>
 
   <script type="application/javascript"
           src="../common.js"></script>
@@ -24,7 +23,7 @@
 
       this.invoke = function addOptGroup_invoke() {
         var optGroup = document.createElement("optgroup");
-        for (i = 0; i < 2; i++) {
+        for (let i = 0; i < 2; i++) {
           var opt = document.createElement("option");
           opt.value = i;
           opt.text = "Option: Value " + i;
@@ -97,13 +96,12 @@
     // gA11yEventDumpToConsole = true;
 
     function doTest() {
-      gQueue = new eventQueue();
+      const gQueue = new eventQueue();
 
       gQueue.push(new addOptGroup("select"));
       gQueue.push(new removeOptGroup("select"));
 
       gQueue.invoke(); // Will call SimpleTest.finish();
-
     }
 
     SimpleTest.waitForExplicitFinish();

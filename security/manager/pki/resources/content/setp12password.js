@@ -4,7 +4,7 @@
 "use strict";
 
 /**
- * @file Implements the functionality of setp12password.xul: a dialog that lets
+ * @file Implements the functionality of setp12password.xhtml: a dialog that lets
  *       the user confirm the password to set on a PKCS #12 file.
  * @argument {nsISupports} window.arguments[0]
  *           Object to set the return values of calling the dialog on, queryable
@@ -28,12 +28,12 @@
 function onLoad() {
   // Ensure the first password textbox has focus.
   document.getElementById("pw1").focus();
+  document.addEventListener("dialogaccept", onDialogAccept);
+  document.addEventListener("dialogcancel", onDialogCancel);
 }
 
 /**
  * ondialogaccept() handler.
- *
- * @returns {Boolean} true to make the dialog close, false otherwise.
  */
 function onDialogAccept() {
   let password = document.getElementById("pw1").value;
@@ -41,18 +41,14 @@ function onDialogAccept() {
   let retVals = window.arguments[0].QueryInterface(Ci.nsIWritablePropertyBag2);
   retVals.setPropertyAsBool("confirmedPassword", true);
   retVals.setPropertyAsAString("password", password);
-  return true;
 }
 
 /**
  * ondialogcancel() handler.
- *
- * @returns {Boolean} true to make the dialog close, false otherwise.
  */
 function onDialogCancel() {
   let retVals = window.arguments[0].QueryInterface(Ci.nsIWritablePropertyBag2);
   retVals.setPropertyAsBool("confirmedPassword", false);
-  return true;
 }
 
 /**
@@ -94,8 +90,12 @@ function getPasswordStrength(password) {
     upperAlphaStrength = 3;
   }
 
-  let strength = (lengthStrength * 10) - 20 + (numericStrength * 10) +
-                 (symbolStrength * 15) + (upperAlphaStrength * 10);
+  let strength =
+    lengthStrength * 10 -
+    20 +
+    numericStrength * 10 +
+    symbolStrength * 15 +
+    upperAlphaStrength * 10;
   if (strength < 0) {
     strength = 0;
   }
@@ -122,5 +122,6 @@ function onPasswordInput(recalculatePasswordStrength) {
   // Disable the accept button if the two passwords don't match, and enable it
   // if the passwords do match.
   let pw2 = document.getElementById("pw2").value;
-  document.documentElement.getButton("accept").disabled = (pw1 != pw2);
+  document.getElementById("setp12password").getButton("accept").disabled =
+    pw1 != pw2;
 }

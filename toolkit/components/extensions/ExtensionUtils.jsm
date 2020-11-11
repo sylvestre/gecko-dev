@@ -7,15 +7,23 @@
 
 var EXPORTED_SYMBOLS = ["ExtensionUtils"];
 
-ChromeUtils.import("resource://gre/modules/Services.jsm");
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
 
-ChromeUtils.defineModuleGetter(this, "setTimeout",
-                               "resource://gre/modules/Timer.jsm");
+ChromeUtils.defineModuleGetter(
+  this,
+  "setTimeout",
+  "resource://gre/modules/Timer.jsm"
+);
+
+XPCOMUtils.defineLazyGlobalGetters(this, ["fetch", "btoa"]);
 
 // xpcshell doesn't handle idle callbacks well.
-XPCOMUtils.defineLazyGetter(this, "idleTimeout",
-                            () => Services.appinfo.name === "XPCShell" ? 500 : undefined);
+XPCOMUtils.defineLazyGetter(this, "idleTimeout", () =>
+  Services.appinfo.name === "XPCShell" ? 500 : undefined
+);
 
 // It would be nicer to go through `Services.appinfo`, but some tests need to be
 // able to replace that field with a custom implementation before it is first
@@ -29,7 +37,7 @@ const uniqueProcessID = appinfo.uniqueProcessID;
 // double's mantissa.
 // Note: We can't use bitwise ops here, since they truncate to a 32 bit
 // integer and we need all 53 mantissa bits.
-const processIDMask = (uniqueProcessID & 0xffff) * (2 ** 37);
+const processIDMask = (uniqueProcessID & 0xffff) * 2 ** 37;
 
 function getUniqueId() {
   // Note: We can't use bitwise ops here, since they truncate to a 32 bit
@@ -45,10 +53,21 @@ function promiseTimeout(delay) {
  * An Error subclass for which complete error messages are always passed
  * to extensions, rather than being interpreted as an unknown error.
  */
-class ExtensionError extends Error {}
+class ExtensionError extends DOMException {
+  constructor(message) {
+    super(message, "ExtensionError");
+  }
+  // Custom JS classes can't survive IPC, so need to check error name.
+  static [Symbol.hasInstance](e) {
+    return e instanceof DOMException && e.name === "ExtensionError";
+  }
+}
 
 function filterStack(error) {
-  return String(error.stack).replace(/(^.*(Task\.jsm|Promise-backend\.js).*\n)+/gm, "<Promise Chain>\n");
+  return String(error.stack).replace(
+    /(^.*(Task\.jsm|Promise-backend\.js).*\n)+/gm,
+    "<Promise Chain>\n"
+  );
 }
 
 /**
@@ -91,13 +110,8 @@ class DefaultMap extends Map {
   }
 }
 
-const _winUtils = new DefaultWeakMap(win => {
-  return win.windowUtils;
-});
-const getWinUtils = win => _winUtils.get(win);
-
 function getInnerWindowID(window) {
-  return getWinUtils(window).currentInnerWindowID;
+  return window.windowGlobalChild?.innerWindowId;
 }
 
 /**
@@ -113,7 +127,7 @@ function getInnerWindowID(window) {
  *        An iterable of initial entries to add to the set.
  */
 class LimitedSet extends Set {
-  constructor(limit, slop = Math.round(limit * .25), iterable = undefined) {
+  constructor(limit, slop = Math.round(limit * 0.25), iterable = undefined) {
     super(iterable);
     this.limit = limit;
     this.slop = slop;
@@ -153,12 +167,16 @@ function promiseDocumentReady(doc) {
   }
 
   return new Promise(resolve => {
-    doc.addEventListener("DOMContentLoaded", function onReady(event) {
-      if (event.target === event.currentTarget) {
-        doc.removeEventListener("DOMContentLoaded", onReady, true);
-        resolve(doc);
-      }
-    }, true);
+    doc.addEventListener(
+      "DOMContentLoaded",
+      function onReady(event) {
+        if (event.target === event.currentTarget) {
+          doc.removeEventListener("DOMContentLoaded", onReady, true);
+          resolve(doc);
+        }
+      },
+      true
+    );
   });
 }
 
@@ -174,7 +192,8 @@ function promiseDocumentReady(doc) {
 function promiseDocumentIdle(window) {
   return window.document.documentReadyForIdle.then(() => {
     return new Promise(resolve =>
-      window.requestIdleCallback(resolve, {timeout: idleTimeout}));
+      window.requestIdleCallback(resolve, { timeout: idleTimeout })
+    );
   });
 }
 
@@ -191,7 +210,9 @@ function promiseDocumentLoaded(doc) {
   }
 
   return new Promise(resolve => {
-    doc.defaultView.addEventListener("load", () => resolve(doc), {once: true});
+    doc.defaultView.addEventListener("load", () => resolve(doc), {
+      once: true,
+    });
   });
 }
 
@@ -212,7 +233,12 @@ function promiseDocumentLoaded(doc) {
  *        expected event, false otherwise.
  * @returns {Promise<Event>}
  */
-function promiseEvent(element, eventName, useCapture = true, test = event => true) {
+function promiseEvent(
+  element,
+  eventName,
+  useCapture = true,
+  test = event => true
+) {
   return new Promise(resolve => {
     function listener(event) {
       if (test(event)) {
@@ -241,7 +267,7 @@ function promiseObserved(topic, test = () => true) {
     let observer = (subject, topic, data) => {
       if (test(subject, data)) {
         Services.obs.removeObserver(observer, topic);
-        resolve({subject, data});
+        resolve({ subject, data });
       }
     };
     Services.obs.addObserver(observer, topic);
@@ -258,24 +284,52 @@ function getMessageManager(target) {
 function flushJarCache(jarPath) {
   Services.obs.notifyObservers(null, "flush-cache-entry", jarPath);
 }
+function parseMatchPatterns(patterns, options) {
+  try {
+    return new MatchPatternSet(patterns, options);
+  } catch (e) {
+    let pattern;
+    for (pattern of patterns) {
+      try {
+        new MatchPattern(pattern, options);
+      } catch (e) {
+        throw new ExtensionError(`Invalid url pattern: ${pattern}`);
+      }
+    }
+    // Unexpectedly MatchPatternSet threw, but MatchPattern did not.
+    throw e;
+  }
+}
 
-const chromeModifierKeyMap = {
-  "Alt": "alt",
-  "Command": "accel",
-  "Ctrl": "accel",
-  "MacCtrl": "control",
-  "Shift": "shift",
-};
-
+/**
+ * Fetch icon content and convert it to a data: URI.
+ * @param {string} iconUrl Icon url to fetch.
+ * @returns {Promise<string>}
+ */
+async function makeDataURI(iconUrl) {
+  let response;
+  try {
+    response = await fetch(iconUrl);
+  } catch (e) {
+    // Failed to fetch, ignore engine's favicon.
+    Cu.reportError(e);
+    return;
+  }
+  let buffer = await response.arrayBuffer();
+  let contentType = response.headers.get("content-type");
+  let bytes = new Uint8Array(buffer);
+  let str = String.fromCharCode.apply(null, bytes);
+  return `data:${contentType};base64,${btoa(str)}`;
+}
 
 var ExtensionUtils = {
-  chromeModifierKeyMap,
   flushJarCache,
   getInnerWindowID,
   getMessageManager,
   getUniqueId,
   filterStack,
-  getWinUtils,
+  makeDataURI,
+  parseMatchPatterns,
   promiseDocumentIdle,
   promiseDocumentLoaded,
   promiseDocumentReady,

@@ -8,8 +8,7 @@
 #include "mozilla/dom/CredentialManagementBinding.h"
 #include "nsCycleCollectionParticipant.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(Credential, mParent)
 
@@ -23,7 +22,7 @@ NS_INTERFACE_MAP_END
 
 Credential::Credential(nsPIDOMWindowInner* aParent) : mParent(aParent) {}
 
-Credential::~Credential() {}
+Credential::~Credential() = default;
 
 JSObject* Credential::WrapObject(JSContext* aCx,
                                  JS::Handle<JSObject*> aGivenProto) {
@@ -38,5 +37,4 @@ void Credential::SetId(const nsAString& aId) { mId.Assign(aId); }
 
 void Credential::SetType(const nsAString& aType) { mType.Assign(aType); }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

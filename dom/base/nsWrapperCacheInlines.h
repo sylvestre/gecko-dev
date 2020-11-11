@@ -14,9 +14,9 @@ inline JSObject* nsWrapperCache::GetWrapperPreserveColor() const {
   JSObject* obj = GetWrapperMaybeDead();
   if (obj && js::gc::EdgeNeedsSweepUnbarriered(&obj)) {
     // The object has been found to be dead and is in the process of being
-    // finalized, so don't let the caller see it. As an optimisation, remove it
-    // from the cache so we don't have to do this check in future.
-    const_cast<nsWrapperCache*>(this)->ClearWrapper();
+    // finalized, so don't let the caller see it.
+    // Don't clear the cache though: this happens when a new wrapper is created
+    // for this native or when the wrapper is finalized.
     return nullptr;
   }
   MOZ_ASSERT(obj == mWrapper);
@@ -66,6 +66,32 @@ inline void nsWrapperCache::MarkWrapperLive() {
   // Just call GetWrapper and ignore the return value.  It will do the
   // gray-unmarking for us.
   GetWrapper();
+}
+
+template <typename T>
+inline void nsWrapperCache::UpdateWrapperForNewGlobal(T* aScriptObjectHolder,
+                                                      JSObject* aNewWrapper) {
+  // If the new wrapper is in a different zone we must ensure the
+  // DropJSObjects/HoldJSObjects are called to move the holder to the new zone.
+
+  bool preserving = PreservingWrapper();
+  bool zoneChanged =
+      preserving && (JS::GetObjectZone(GetWrapperPreserveColor()) !=
+                     JS::GetObjectZone(aNewWrapper));
+
+  if (zoneChanged) {
+    ReleaseWrapper(aScriptObjectHolder);
+  } else if (preserving) {
+    SetPreservingWrapper(false);
+  }
+
+  SetWrapper(aNewWrapper);
+
+  if (zoneChanged) {
+    PreserveWrapper(aScriptObjectHolder);
+  } else if (preserving) {
+    SetPreservingWrapper(true);
+  }
 }
 
 #endif /* nsWrapperCache_h___ */

@@ -6,38 +6,51 @@
 
 var EXPORTED_SYMBOLS = ["FinderIterator"];
 
-ChromeUtils.import("resource://gre/modules/Services.jsm");
-ChromeUtils.import("resource://gre/modules/Timer.jsm");
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { clearTimeout, setTimeout } = ChromeUtils.import(
+  "resource://gre/modules/Timer.jsm"
+);
 
 ChromeUtils.defineModuleGetter(this, "NLP", "resource://gre/modules/NLP.jsm");
-ChromeUtils.defineModuleGetter(this, "Rect", "resource://gre/modules/Geometry.jsm");
+ChromeUtils.defineModuleGetter(
+  this,
+  "Rect",
+  "resource://gre/modules/Geometry.jsm"
+);
 
 const kDebug = false;
 const kIterationSizeMax = 100;
 const kTimeoutPref = "findbar.iteratorTimeout";
 
 /**
- * FinderIterator singleton. See the documentation for the `start()` method to
+ * FinderIterator. See the documentation for the `start()` method to
  * learn more.
  */
-var FinderIterator = {
-  _currentParams: null,
-  _listeners: new Map(),
-  _catchingUp: new Set(),
-  _previousParams: null,
-  _previousRanges: [],
-  _spawnId: 0,
+function FinderIterator() {
+  this._listeners = new Map();
+  this._currentParams = null;
+  this._catchingUp = new Set();
+  this._previousParams = null;
+  this._previousRanges = [];
+  this._spawnId = 0;
+  this._timer = null;
+  this.ranges = [];
+  this.running = false;
+  this.useSubFrames = false;
+}
+
+FinderIterator.prototype = {
   _timeout: Services.prefs.getIntPref(kTimeoutPref),
-  _timer: null,
-  ranges: [],
-  running: false,
 
   // Expose `kIterationSizeMax` to the outside world for unit tests to use.
-  get kIterationSizeMax() { return kIterationSizeMax; },
+  get kIterationSizeMax() {
+    return kIterationSizeMax;
+  },
 
   get params() {
-    if (!this._currentParams && !this._previousParams)
+    if (!this._currentParams && !this._previousParams) {
       return null;
+    }
     return Object.assign({}, this._currentParams || this._previousParams);
   },
 
@@ -75,47 +88,88 @@ var FinderIterator = {
    *                                           - onIteratorReset();
    *                                           - onIteratorRestart({Object} iterParams);
    *                                           - onIteratorStart({Object} iterParams);
+   * @param {Boolean} options.matchDiacritics Whether to search in
+   *                                          diacritic-matching mode
    * @param {Boolean} [options.useCache]        Whether to allow results already
    *                                            present in the cache or demand fresh.
+   *                                            Optional, defaults to `false`.
+   * @param {Boolean} [options.useSubFrames]    Whether to iterate over subframes.
    *                                            Optional, defaults to `false`.
    * @param {String}  options.word              Word to search for
    * @return {Promise}
    */
-  start({ allowDistance, caseSensitive, entireWord, finder, limit, linksOnly, listener, useCache, word }) {
+  start({
+    allowDistance,
+    caseSensitive,
+    entireWord,
+    finder,
+    limit,
+    linksOnly,
+    listener,
+    matchDiacritics,
+    useCache,
+    word,
+    useSubFrames,
+  }) {
     // Take care of default values for non-required options.
-    if (typeof allowDistance != "number")
+    if (typeof allowDistance != "number") {
       allowDistance = 0;
-    if (typeof limit != "number")
+    }
+    if (typeof limit != "number") {
       limit = -1;
-    if (typeof linksOnly != "boolean")
+    }
+    if (typeof linksOnly != "boolean") {
       linksOnly = false;
-    if (typeof useCache != "boolean")
+    }
+    if (typeof useCache != "boolean") {
       useCache = false;
+    }
+    if (typeof useSubFrames != "boolean") {
+      useSubFrames = false;
+    }
 
     // Validate the options.
-    if (typeof caseSensitive != "boolean")
+    if (typeof caseSensitive != "boolean") {
       throw new Error("Missing required option 'caseSensitive'");
-    if (typeof entireWord != "boolean")
+    }
+    if (typeof entireWord != "boolean") {
       throw new Error("Missing required option 'entireWord'");
-    if (!finder)
+    }
+    if (typeof matchDiacritics != "boolean") {
+      throw new Error("Missing required option 'matchDiacritics'");
+    }
+    if (!finder) {
       throw new Error("Missing required option 'finder'");
-    if (!word)
+    }
+    if (!word) {
       throw new Error("Missing required option 'word'");
-    if (typeof listener != "object" || !listener.onIteratorRangeFound)
+    }
+    if (typeof listener != "object" || !listener.onIteratorRangeFound) {
       throw new TypeError("Missing valid, required option 'listener'");
+    }
 
     // If the listener was added before, make sure the promise is resolved before
     // we replace it with another.
     if (this._listeners.has(listener)) {
       let { onEnd } = this._listeners.get(listener);
-      if (onEnd)
+      if (onEnd) {
         onEnd();
+      }
     }
 
     let window = finder._getWindow();
     let resolver;
-    let promise = new Promise(resolve => resolver = resolve);
-    let iterParams = { caseSensitive, entireWord, linksOnly, useCache, window, word };
+    let promise = new Promise(resolve => (resolver = resolve));
+    let iterParams = {
+      caseSensitive,
+      entireWord,
+      linksOnly,
+      matchDiacritics,
+      useCache,
+      window,
+      word,
+      useSubFrames,
+    };
 
     this._listeners.set(listener, { limit, onEnd: resolver });
 
@@ -128,10 +182,14 @@ var FinderIterator = {
     if (this.running) {
       // Double-check if we're not running the iterator with a different set of
       // parameters, otherwise report an error with the most common reason.
-      if (!this._areParamsEqual(this._currentParams, iterParams, allowDistance)) {
+      if (
+        !this._areParamsEqual(this._currentParams, iterParams, allowDistance)
+      ) {
         if (kDebug) {
-          Cu.reportError(`We're currently iterating over '${this._currentParams.word}', not '${word}'\n` +
-            new Error().stack);
+          Cu.reportError(
+            `We're currently iterating over '${this._currentParams.word}', not '${word}'\n` +
+              new Error().stack
+          );
         }
         this._listeners.delete(listener);
         resolver();
@@ -160,8 +218,9 @@ var FinderIterator = {
    *                                  Optional.
    */
   stop(cachePrevious = false) {
-    if (!this.running)
+    if (!this.running) {
       return;
+    }
 
     if (this._timer) {
       clearTimeout(this._timer);
@@ -185,8 +244,9 @@ var FinderIterator = {
     this.ranges = [];
     this.running = false;
 
-    for (let [, { onEnd }] of this._listeners)
+    for (let [, { onEnd }] of this._listeners) {
       onEnd();
+    }
   },
 
   /**
@@ -198,8 +258,9 @@ var FinderIterator = {
   restart(finder) {
     // Capture current iterator params before we stop the show.
     let iterParams = this.params;
-    if (!iterParams)
+    if (!iterParams) {
       return;
+    }
     this.stop();
 
     // Restart manually.
@@ -233,8 +294,9 @@ var FinderIterator = {
     this.running = false;
 
     this._notifyListeners("reset");
-    for (let [, { onEnd }] of this._listeners)
+    for (let [, { onEnd }] of this._listeners) {
       onEnd();
+    }
     this._listeners.clear();
   },
 
@@ -248,15 +310,29 @@ var FinderIterator = {
    * @param {Boolean}  options.entireWord    Whether to search in entire-word mode
    * @param  {Boolean} options.linksOnly     Whether to search for the word to be
    *                                         present in links only
+   * @param {Boolean}  options.matchDiacritics Whether to search in
+   *                                           diacritic-matching mode
    * @param  {String}  options.word          The word being searched for
+   * @param  (Boolean) options.useSubFrames  Whether to search subframes
    * @return {Boolean}
    */
-  continueRunning({ caseSensitive, entireWord, linksOnly, word }) {
-    return (this.running &&
+  continueRunning({
+    caseSensitive,
+    entireWord,
+    linksOnly,
+    matchDiacritics,
+    word,
+    useSubFrames,
+  }) {
+    return (
+      this.running &&
       this._currentParams.caseSensitive === caseSensitive &&
       this._currentParams.entireWord === entireWord &&
       this._currentParams.linksOnly === linksOnly &&
-      this._currentParams.word == word);
+      this._currentParams.matchDiacritics === matchDiacritics &&
+      this._currentParams.word == word &&
+      this._currentParams.useSubFrames == useSubFrames
+    );
   },
 
   /**
@@ -271,9 +347,11 @@ var FinderIterator = {
    * @return {Boolean}
    */
   isAlreadyRunning(paramSet) {
-    return (this.running &&
+    return (
+      this.running &&
       this._areParamsEqual(this._currentParams, paramSet) &&
-      this._listeners.has(paramSet.listener));
+      this._listeners.has(paramSet.listener)
+    );
   },
 
   /**
@@ -286,7 +364,8 @@ var FinderIterator = {
    *                               to `this._listeners.keys()`.
    */
   _notifyListeners(callback, params, listeners = this._listeners.keys()) {
-    callback = "onIterator" + callback.charAt(0).toUpperCase() + callback.substr(1);
+    callback =
+      "onIterator" + callback.charAt(0).toUpperCase() + callback.substr(1);
     for (let listener of listeners) {
       try {
         listener[callback](params);
@@ -305,15 +384,32 @@ var FinderIterator = {
    * @param  {Boolean} options.entireWord    Whether to search in entire-word mode
    * @param  {Boolean} options.linksOnly     Whether to search for the word to be
    *                                         present in links only
+   * @param  {Boolean} options.matchDiacritics Whether to search in
+   *                                           diacritic-matching mode
    * @param  {Boolean} options.useCache      Whether the consumer wants to use the
    *                                         cached previous result at all
    * @param  {String}  options.word          The word being searched for
    * @return {Boolean}
    */
-  _previousResultAvailable({ caseSensitive, entireWord, linksOnly, useCache, word }) {
-    return !!(useCache &&
-      this._areParamsEqual(this._previousParams, { caseSensitive, entireWord, linksOnly, word }) &&
-      this._previousRanges.length);
+  _previousResultAvailable({
+    caseSensitive,
+    entireWord,
+    linksOnly,
+    matchDiacritics,
+    useCache,
+    word,
+  }) {
+    return !!(
+      useCache &&
+      this._areParamsEqual(this._previousParams, {
+        caseSensitive,
+        entireWord,
+        linksOnly,
+        matchDiacritics,
+        word,
+      }) &&
+      this._previousRanges.length
+    );
   },
 
   /**
@@ -327,12 +423,17 @@ var FinderIterator = {
    * @return {Boolean}
    */
   _areParamsEqual(paramSet1, paramSet2, allowDistance = 0) {
-    return (!!paramSet1 && !!paramSet2 &&
+    return (
+      !!paramSet1 &&
+      !!paramSet2 &&
       paramSet1.caseSensitive === paramSet2.caseSensitive &&
       paramSet1.entireWord === paramSet2.entireWord &&
       paramSet1.linksOnly === paramSet2.linksOnly &&
+      paramSet1.matchDiacritics === paramSet2.matchDiacritics &&
       paramSet1.window === paramSet2.window &&
-      NLP.levenshtein(paramSet1.word, paramSet2.word) <= allowDistance);
+      paramSet1.useSubFrames === paramSet2.useSubFrames &&
+      NLP.levenshtein(paramSet1.word, paramSet2.word) <= allowDistance
+    );
   },
 
   /**
@@ -362,8 +463,9 @@ var FinderIterator = {
         range.startContainer;
       } catch (ex) {
         // Don't yield dead objects, so use the escape hatch.
-        if (ex.message.includes("dead object"))
+        if (ex.message.includes("dead object")) {
           return;
+        }
       }
 
       // Pass a flag that is `true` when we're returning the result from a
@@ -409,8 +511,9 @@ var FinderIterator = {
     await this._yieldResult(listener, this._previousRanges, window);
     this._catchingUp.delete(listener);
     let { onEnd } = this._listeners.get(listener);
-    if (onEnd)
+    if (onEnd) {
       onEnd();
+    }
   },
 
   /**
@@ -441,19 +544,22 @@ var FinderIterator = {
    */
   async _findAllRanges(finder, spawnId) {
     if (this._timeout) {
-      if (this._timer)
+      if (this._timer) {
         clearTimeout(this._timer);
-      if (this._runningFindResolver)
+      }
+      if (this._runningFindResolver) {
         this._runningFindResolver();
+      }
 
       let timeout = this._timeout;
       let searchTerm = this._currentParams.word;
       // Wait a little longer when the first or second character is typed into
       // the findbar.
-      if (searchTerm.length == 1)
+      if (searchTerm.length == 1) {
         timeout *= 4;
-      else if (searchTerm.length == 2)
+      } else if (searchTerm.length == 2) {
         timeout *= 2;
+      }
       await new Promise(resolve => {
         this._runningFindResolver = resolve;
         this._timer = setTimeout(resolve, timeout);
@@ -461,34 +567,41 @@ var FinderIterator = {
       this._timer = this._runningFindResolver = null;
       // During the timeout, we could have gotten the signal to stop iterating.
       // Make sure we do here.
-      if (!this.running || spawnId !== this._spawnId)
+      if (!this.running || spawnId !== this._spawnId) {
         return;
+      }
     }
 
     this._notifyListeners("start", this.params);
 
-    let { linksOnly, window } = this._currentParams;
+    let { linksOnly, useSubFrames, window } = this._currentParams;
     // First we collect all frames we need to search through, whilst making sure
     // that the parent window gets dibs.
-    let frames = [window].concat(this._collectFrames(window, finder));
+    let frames = [window];
+    if (useSubFrames) {
+      frames.push(...this._collectFrames(window, finder));
+    }
     let iterCount = 0;
     for (let frame of frames) {
       for (let range of this._iterateDocument(this._currentParams, frame)) {
         // Between iterations, for example after a sleep of one cycle, we could
         // have gotten the signal to stop iterating. Make sure we do here.
-        if (!this.running || spawnId !== this._spawnId)
+        if (!this.running || spawnId !== this._spawnId) {
           return;
+        }
 
         // Deal with links-only mode here.
-        if (linksOnly && !this._rangeStartsInLink(range))
+        if (linksOnly && !this._rangeStartsInLink(range)) {
           continue;
+        }
 
         this.ranges.push(range);
 
         // Call each listener with the range we just found.
         for (let [listener, { limit, onEnd }] of this._listeners) {
-          if (this._catchingUp.has(listener))
+          if (this._catchingUp.has(listener)) {
             continue;
+          }
 
           listener.onIteratorRangeFound(range);
 
@@ -526,16 +639,22 @@ var FinderIterator = {
    *                                             sensitive mode
    * @param {Boolean}      options.entireWord    Whether to search in entire-word
    *                                             mode
+   * @param {Boolean}      options.matchDiacritics Whether to search in
+   *                                               diacritic-matching mode
    * @param {String}       options.word          The word to search for
    * @param {nsIDOMWindow} window                The window to search in
    * @yield {Range}
    */
-  * _iterateDocument({ caseSensitive, entireWord, word }, window) {
+  *_iterateDocument(
+    { caseSensitive, entireWord, matchDiacritics, word },
+    window
+  ) {
     let doc = window.document;
     let body = doc.body || doc.documentElement;
 
-    if (!body)
+    if (!body) {
       return;
+    }
 
     let searchRange = doc.createRange();
     searchRange.selectNodeContents(body);
@@ -549,10 +668,11 @@ var FinderIterator = {
     let retRange = null;
 
     let nsIFind = Cc["@mozilla.org/embedcomp/rangefind;1"]
-                    .createInstance()
-                    .QueryInterface(Ci.nsIFind);
+      .createInstance()
+      .QueryInterface(Ci.nsIFind);
     nsIFind.caseSensitive = caseSensitive;
     nsIFind.entireWord = entireWord;
+    nsIFind.matchDiacritics = matchDiacritics;
 
     while ((retRange = nsIFind.Find(word, searchRange, startPt, endPt))) {
       yield retRange;
@@ -571,8 +691,9 @@ var FinderIterator = {
    */
   _collectFrames(window, finder) {
     let frames = [];
-    if (!("frames" in window) || !window.frames.length)
+    if (!("frames" in window) || !window.frames.length) {
       return frames;
+    }
 
     // Casting `window.frames` to an Iterator doesn't work, so we're stuck with
     // a plain, old for-loop.
@@ -582,8 +703,12 @@ var FinderIterator = {
       // Don't count matches in hidden frames; get the frame element rect and
       // check if it's empty. We shan't flush!
       let frameEl = frame && frame.frameElement;
-      if (!frameEl || Rect.fromRect(dwu.getBoundsWithoutFlushing(frameEl)).isEmpty())
+      if (
+        !frameEl ||
+        Rect.fromRect(dwu.getBoundsWithoutFlushing(frameEl)).isEmpty()
+      ) {
         continue;
+      }
       // All conditions pass, so push the current frame and its children on the
       // stack.
       frames.push(frame, ...this._collectFrames(frame, finder));
@@ -604,8 +729,9 @@ var FinderIterator = {
   _getDocShell(windowOrRange) {
     let window = windowOrRange;
     // Ranges may also be passed in, so fetch its window.
-    if (ChromeUtils.getClassName(windowOrRange) === "Range")
+    if (ChromeUtils.getClassName(windowOrRange) === "Range") {
       window = windowOrRange.startContainer.ownerGlobal;
+    }
     return window.docShell;
   },
 
@@ -622,20 +748,24 @@ var FinderIterator = {
     if (node.nodeType == node.ELEMENT_NODE) {
       if (node.hasChildNodes) {
         let childNode = node.item(range.startOffset);
-        if (childNode)
+        if (childNode) {
           node = childNode;
+        }
       }
     }
 
     const XLink_NS = "http://www.w3.org/1999/xlink";
-    const HTMLAnchorElement = (node.ownerDocument || node).defaultView.HTMLAnchorElement;
+    const HTMLAnchorElement = (node.ownerDocument || node).defaultView
+      .HTMLAnchorElement;
     do {
       if (node instanceof HTMLAnchorElement) {
         isInsideLink = node.hasAttribute("href");
         break;
-      } else if (typeof node.hasAttributeNS == "function" &&
-                 node.hasAttributeNS(XLink_NS, "href")) {
-        isInsideLink = (node.getAttributeNS(XLink_NS, "type") == "simple");
+      } else if (
+        typeof node.hasAttributeNS == "function" &&
+        node.hasAttributeNS(XLink_NS, "href")
+      ) {
+        isInsideLink = node.getAttributeNS(XLink_NS, "type") == "simple";
         break;
       }
 

@@ -13,6 +13,7 @@
  * liability, trademark and document use rules apply.
  */
 
+[Exposed=Window]
 interface Element : Node {
   [Constant]
   readonly attribute DOMString? namespaceURI;
@@ -31,6 +32,10 @@ interface Element : Node {
            attribute DOMString className;
   [Constant, PutForwards=value]
   readonly attribute DOMTokenList classList;
+
+  // https://drafts.csswg.org/css-shadow-parts/#idl
+  [SameObject, PutForwards=value]
+  readonly attribute DOMTokenList part;
 
   [SameObject]
   readonly attribute NamedNodeMap attributes;
@@ -71,8 +76,8 @@ interface Element : Node {
   HTMLCollection getElementsByTagNameNS(DOMString? namespace, DOMString localName);
   [Pure]
   HTMLCollection getElementsByClassName(DOMString classNames);
- 
-  [CEReactions, Throws, Pure]
+
+  [CEReactions, Throws]
   Element? insertAdjacentElement(DOMString where, Element element); // historical
 
   [Throws]
@@ -91,6 +96,13 @@ interface Element : Node {
    */
   [ChromeOnly]
   readonly attribute float fontSizeInflation;
+
+  /**
+   * Returns the pseudo-element string if this element represents a
+   * pseudo-element, or null otherwise.
+   */
+  [ChromeOnly]
+  readonly attribute DOMString? implementedPseudoElement;
 
   // Selectors API
   /**
@@ -121,12 +133,14 @@ interface Element : Node {
    * element.
    *
    */
+  [UseCounter]
   void setCapture(optional boolean retargetToElement = false);
 
   /**
    * If this element has captured the mouse, release the capture. If another
    * element has captured the mouse, this method has no effect.
    */
+  [UseCounter]
   void releaseCapture();
 
   /*
@@ -147,19 +161,35 @@ interface Element : Node {
   [CEReactions, Throws]
   Attr? setAttributeNodeNS(Attr newAttr);
 
-  [ChromeOnly]
-  /**
-   * Scrolls the element by (dx, dy) CSS pixels without doing any
-   * layout flushing.
-   */
-  boolean scrollByNoFlush(long dx, long dy);
-
-  [ChromeOnly]
+  [Func="nsContentUtils::IsCallerChromeOrElementTransformGettersEnabled"]
   DOMMatrixReadOnly getTransformToAncestor(Element ancestor);
-  [ChromeOnly]
+  [Func="nsContentUtils::IsCallerChromeOrElementTransformGettersEnabled"]
   DOMMatrixReadOnly getTransformToParent();
-  [ChromeOnly]
+  [Func="nsContentUtils::IsCallerChromeOrElementTransformGettersEnabled"]
   DOMMatrixReadOnly getTransformToViewport();
+};
+
+// https://html.spec.whatwg.org/#focus-management-apis
+dictionary FocusOptions {
+  boolean preventScroll = false;
+};
+
+interface mixin HTMLOrForeignElement {
+  [SameObject] readonly attribute DOMStringMap dataset;
+  // See bug 1389421
+  // attribute DOMString nonce; // intentionally no [CEReactions]
+
+  // See bug 1575154
+  // [CEReactions] attribute boolean autofocus;
+  [CEReactions, SetterThrows, Pure] attribute long tabIndex;
+  [Throws, NeedsCallerType] void focus(optional FocusOptions options = {});
+  [Throws] void blur();
+};
+
+// https://drafts.csswg.org/cssom/#the-elementcssinlinestyle-mixin
+interface mixin ElementCSSInlineStyle {
+  [SameObject, PutForwards=cssText]
+  readonly attribute CSSStyleDeclaration style;
 };
 
 // http://dev.w3.org/csswg/cssom-view/
@@ -175,7 +205,7 @@ partial interface Element {
   DOMRect getBoundingClientRect();
 
   // scrolling
-  void scrollIntoView(optional (boolean or ScrollIntoViewOptions) arg);
+  void scrollIntoView(optional (boolean or ScrollIntoViewOptions) arg = {});
   // None of the CSSOM attributes are [Pure], because they flush
            attribute long scrollTop;   // scroll on setting
            attribute long scrollLeft;  // scroll on setting
@@ -183,11 +213,11 @@ partial interface Element {
   readonly attribute long scrollHeight;
 
   void scroll(unrestricted double x, unrestricted double y);
-  void scroll(optional ScrollToOptions options);
+  void scroll(optional ScrollToOptions options = {});
   void scrollTo(unrestricted double x, unrestricted double y);
-  void scrollTo(optional ScrollToOptions options);
+  void scrollTo(optional ScrollToOptions options = {});
   void scrollBy(unrestricted double x, unrestricted double y);
-  void scrollBy(optional ScrollToOptions options);
+  void scrollBy(optional ScrollToOptions options = {});
   // mozScrollSnap is used by chrome to perform scroll snapping after the
   // user performs actions that may affect scroll position
   // mozScrollSnap is deprecated, to be replaced by a web accessible API, such
@@ -211,10 +241,10 @@ partial interface Element {
 
 // http://domparsing.spec.whatwg.org/#extensions-to-the-element-interface
 partial interface Element {
-  [CEReactions, SetterNeedsSubjectPrincipal=NonSystem, Pure, SetterThrows, GetterCanOOM, TreatNullAs=EmptyString]
-  attribute DOMString innerHTML;
-  [CEReactions, Pure,SetterThrows,TreatNullAs=EmptyString]
-  attribute DOMString outerHTML;
+  [CEReactions, SetterNeedsSubjectPrincipal=NonSystem, Pure, SetterThrows, GetterCanOOM]
+  attribute [TreatNullAs=EmptyString] DOMString innerHTML;
+  [CEReactions, Pure, SetterThrows]
+  attribute [TreatNullAs=EmptyString] DOMString outerHTML;
   [CEReactions, Throws]
   void insertAdjacentHTML(DOMString position, DOMString text);
 };
@@ -240,7 +270,7 @@ partial interface Element {
   [BinaryName="shadowRootByMode"]
   readonly attribute ShadowRoot? shadowRoot;
 
-  [Func="nsDocument::IsCallerChromeOrAddon", BinaryName="shadowRoot"]
+  [Func="Document::IsCallerChromeOrAddon", BinaryName="shadowRoot"]
   readonly attribute ShadowRoot? openOrClosedShadowRoot;
 
   [BinaryName="assignedSlotByMode"]
@@ -253,23 +283,23 @@ partial interface Element {
            attribute DOMString slot;
 };
 
-Element implements ChildNode;
-Element implements NonDocumentTypeChildNode;
-Element implements ParentNode;
-Element implements Animatable;
-Element implements GeometryUtils;
+Element includes ChildNode;
+Element includes NonDocumentTypeChildNode;
+Element includes ParentNode;
+Element includes Animatable;
+Element includes GeometryUtils;
+Element includes AccessibilityRole;
+Element includes AriaAttributes;
 
 // https://fullscreen.spec.whatwg.org/#api
 partial interface Element {
-  [Throws, Func="nsDocument::IsUnprefixedFullscreenEnabled", NeedsCallerType]
+  [Throws, NeedsCallerType]
   Promise<void> requestFullscreen();
   [Throws, BinaryName="requestFullscreen", NeedsCallerType, Deprecated="MozRequestFullScreenDeprecatedPrefix"]
   Promise<void> mozRequestFullScreen();
 
   // Events handlers
-  [Func="nsDocument::IsUnprefixedFullscreenEnabled"]
   attribute EventHandler onfullscreenchange;
-  [Func="nsDocument::IsUnprefixedFullscreenEnabled"]
   attribute EventHandler onfullscreenerror;
 };
 
@@ -299,7 +329,13 @@ partial interface Element {
    */
   [ChromeOnly, Pure]
   sequence<Grid> getGridFragments();
-  
+
+  /**
+   * Returns whether there are any grid fragments on this element.
+   */
+  [ChromeOnly, Pure]
+  boolean hasGridFragments();
+
   /**
    * Returns a sequence of all the descendent elements of this element
    * that have display:grid or display:inline-grid style and generate
@@ -307,4 +343,36 @@ partial interface Element {
    */
   [ChromeOnly, Pure]
   sequence<Element> getElementsWithGrid();
+
+  /**
+   * Set attribute on the Element with a customized Content-Security-Policy
+   * appropriate to devtools, which includes:
+   * style-src 'unsafe-inline'
+   */
+  [ChromeOnly, CEReactions, Throws]
+  void setAttributeDevtools(DOMString name, DOMString value);
+  [ChromeOnly, CEReactions, Throws]
+  void setAttributeDevtoolsNS(DOMString? namespace, DOMString name, DOMString value);
+
+  /**
+   * Provide a direct way to determine if this Element has visible
+   * scrollbars. Flushes layout.
+   */
+  [ChromeOnly]
+  readonly attribute boolean hasVisibleScrollbars;
+};
+
+// These variables are used in vtt.js, they are used for positioning vtt cues.
+partial interface Element {
+  // These two attributes are a double version of the clientHeight and the
+  // clientWidth.
+  [ChromeOnly]
+  readonly attribute double clientHeightDouble;
+  [ChromeOnly]
+  readonly attribute double clientWidthDouble;
+  // This attribute returns the block size of the first line box under the different
+  // writing directions. If the direction is horizontal, it represents box's
+  // height. If the direction is vertical, it represents box's width.
+  [ChromeOnly]
+  readonly attribute double firstLineBoxBSize;
 };

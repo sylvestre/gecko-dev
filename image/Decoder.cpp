@@ -44,10 +44,11 @@ class MOZ_STACK_CLASS AutoRecordDecoderTelemetry final {
 };
 
 Decoder::Decoder(RasterImage* aImage)
-    : mImageData(nullptr),
+    : mInProfile(nullptr),
+      mTransform(nullptr),
+      mImageData(nullptr),
       mImageDataLength(0),
-      mColormap(nullptr),
-      mColormapSize(0),
+      mCMSMode(gfxPlatform::GetCMSMode()),
       mImage(aImage),
       mFrameRecycler(nullptr),
       mProgress(NoProgress),
@@ -74,10 +75,56 @@ Decoder::~Decoder() {
              "Destroying Decoder without taking all its invalidations");
   mInitialized = false;
 
+  if (mInProfile) {
+    // mTransform belongs to us only if mInProfile is non-null
+    if (mTransform) {
+      qcms_transform_release(mTransform);
+    }
+    qcms_profile_release(mInProfile);
+  }
+
   if (mImage && !NS_IsMainThread()) {
     // Dispatch mImage to main thread to prevent it from being destructed by the
     // decode thread.
-    NS_ReleaseOnMainThreadSystemGroup(mImage.forget());
+    SurfaceCache::ReleaseImageOnMainThread(mImage.forget());
+  }
+}
+
+void Decoder::SetSurfaceFlags(SurfaceFlags aSurfaceFlags) {
+  MOZ_ASSERT(!mInitialized);
+  mSurfaceFlags = aSurfaceFlags;
+  if (mSurfaceFlags & SurfaceFlags::NO_COLORSPACE_CONVERSION) {
+    mCMSMode = eCMSMode_Off;
+  }
+}
+
+qcms_profile* Decoder::GetCMSOutputProfile() const {
+  if (mSurfaceFlags & SurfaceFlags::TO_SRGB_COLORSPACE) {
+    return gfxPlatform::GetCMSsRGBProfile();
+  }
+  return gfxPlatform::GetCMSOutputProfile();
+}
+
+qcms_transform* Decoder::GetCMSsRGBTransform(SurfaceFormat aFormat) const {
+  if (mSurfaceFlags & SurfaceFlags::TO_SRGB_COLORSPACE) {
+    // We want a transform to convert from sRGB to device space, but we are
+    // already using sRGB as our device space. That means we can skip
+    // color management entirely.
+    return nullptr;
+  }
+
+  switch (aFormat) {
+    case SurfaceFormat::B8G8R8A8:
+    case SurfaceFormat::B8G8R8X8:
+      return gfxPlatform::GetCMSBGRATransform();
+    case SurfaceFormat::R8G8B8A8:
+    case SurfaceFormat::R8G8B8X8:
+      return gfxPlatform::GetCMSRGBATransform();
+    case SurfaceFormat::R8G8B8:
+      return gfxPlatform::GetCMSRGBTransform();
+    default:
+      MOZ_ASSERT_UNREACHABLE("Unsupported surface format!");
+      return nullptr;
   }
 }
 
@@ -119,7 +166,7 @@ LexerResult Decoder::Decode(IResumable* aOnResume /* = nullptr */) {
 
   LexerResult lexerResult(TerminalState::FAILURE);
   {
-    AUTO_PROFILER_LABEL("Decoder::Decode", GRAPHICS);
+    AUTO_PROFILER_LABEL_CATEGORY_PAIR(GRAPHICS_ImageDecoding);
     AutoRecordDecoderTelemetry telemetry(this);
 
     lexerResult = DoDecode(*mIterator, aOnResume);
@@ -253,20 +300,16 @@ DecoderTelemetry Decoder::Telemetry() const {
 }
 
 nsresult Decoder::AllocateFrame(const gfx::IntSize& aOutputSize,
-                                const gfx::IntRect& aFrameRect,
                                 gfx::SurfaceFormat aFormat,
-                                uint8_t aPaletteDepth,
                                 const Maybe<AnimationParams>& aAnimParams) {
-  mCurrentFrame =
-      AllocateFrameInternal(aOutputSize, aFrameRect, aFormat, aPaletteDepth,
-                            aAnimParams, std::move(mCurrentFrame));
+  mCurrentFrame = AllocateFrameInternal(aOutputSize, aFormat, aAnimParams,
+                                        std::move(mCurrentFrame));
 
   if (mCurrentFrame) {
     mHasFrameToTake = true;
 
     // Gather the raw pointers the decoders will use.
     mCurrentFrame->GetImageData(&mImageData, &mImageDataLength);
-    mCurrentFrame->GetPaletteData(&mColormap, &mColormapSize);
 
     // We should now be on |aFrameNum|. (Note that we're comparing the frame
     // number, which is zero-based, with the frame count, which is one-based.)
@@ -284,8 +327,7 @@ nsresult Decoder::AllocateFrame(const gfx::IntSize& aOutputSize,
 }
 
 RawAccessFrameRef Decoder::AllocateFrameInternal(
-    const gfx::IntSize& aOutputSize, const gfx::IntRect& aFrameRect,
-    SurfaceFormat aFormat, uint8_t aPaletteDepth,
+    const gfx::IntSize& aOutputSize, SurfaceFormat aFormat,
     const Maybe<AnimationParams>& aAnimParams,
     RawAccessFrameRef&& aPreviousFrame) {
   if (HasError()) {
@@ -298,8 +340,7 @@ RawAccessFrameRef Decoder::AllocateFrameInternal(
     return RawAccessFrameRef();
   }
 
-  if (aOutputSize.width <= 0 || aOutputSize.height <= 0 ||
-      aFrameRect.Width() <= 0 || aFrameRect.Height() <= 0) {
+  if (aOutputSize.width <= 0 || aOutputSize.height <= 0) {
     NS_WARNING("Trying to add frame with zero or negative size");
     return RawAccessFrameRef();
   }
@@ -310,23 +351,21 @@ RawAccessFrameRef Decoder::AllocateFrameInternal(
   }
 
   if (frameNum > 0) {
-    if (ShouldBlendAnimation()) {
-      if (aPreviousFrame->GetDisposalMethod() !=
-          DisposalMethod::RESTORE_PREVIOUS) {
-        // If the new restore frame is the direct previous frame, then we know
-        // the dirty rect is composed only of the current frame's blend rect and
-        // the restore frame's clear rect (if applicable) which are handled in
-        // filters.
-        mRestoreFrame = std::move(aPreviousFrame);
-        mRestoreDirtyRect.SetBox(0, 0, 0, 0);
-      } else {
-        // We only need the previous frame's dirty rect, because while there may
-        // have been several frames between us and mRestoreFrame, the only areas
-        // that changed are the restore frame's clear rect, the current frame
-        // blending rect, and the previous frame's blending rect. All else is
-        // forgotten due to us restoring the same frame again.
-        mRestoreDirtyRect = aPreviousFrame->GetBoundedBlendRect();
-      }
+    if (aPreviousFrame->GetDisposalMethod() !=
+        DisposalMethod::RESTORE_PREVIOUS) {
+      // If the new restore frame is the direct previous frame, then we know
+      // the dirty rect is composed only of the current frame's blend rect and
+      // the restore frame's clear rect (if applicable) which are handled in
+      // filters.
+      mRestoreFrame = std::move(aPreviousFrame);
+      mRestoreDirtyRect.SetBox(0, 0, 0, 0);
+    } else {
+      // We only need the previous frame's dirty rect, because while there may
+      // have been several frames between us and mRestoreFrame, the only areas
+      // that changed are the restore frame's clear rect, the current frame
+      // blending rect, and the previous frame's blending rect. All else is
+      // forgotten due to us restoring the same frame again.
+      mRestoreDirtyRect = aPreviousFrame->GetBoundedBlendRect();
     }
   }
 
@@ -337,10 +376,7 @@ RawAccessFrameRef Decoder::AllocateFrameInternal(
   // memory footprint, then the recycler will allow us to reuse the buffers.
   // Each frame should be the same size and have mostly the same properties.
   if (mFrameRecycler) {
-    MOZ_ASSERT(ShouldBlendAnimation());
-    MOZ_ASSERT(aPaletteDepth == 0);
     MOZ_ASSERT(aAnimParams);
-    MOZ_ASSERT(aFrameRect.IsEqualEdges(IntRect(IntPoint(0, 0), aOutputSize)));
 
     ref = mFrameRecycler->RecycleFrame(mRecycleRect);
     if (ref) {
@@ -350,8 +386,7 @@ RawAccessFrameRef Decoder::AllocateFrameInternal(
       // animation parameters elsewhere. For now we just drop it.
       bool blocked = ref.get() == mRestoreFrame.get();
       if (!blocked) {
-        nsresult rv = ref->InitForDecoderRecycle(aAnimParams.ref());
-        blocked = NS_WARN_IF(NS_FAILED(rv));
+        blocked = NS_FAILED(ref->InitForDecoderRecycle(aAnimParams.ref()));
       }
 
       if (blocked) {
@@ -369,9 +404,8 @@ RawAccessFrameRef Decoder::AllocateFrameInternal(
 
     bool nonPremult = bool(mSurfaceFlags & SurfaceFlags::NO_PREMULTIPLY_ALPHA);
     auto frame = MakeNotNull<RefPtr<imgFrame>>();
-    if (NS_FAILED(frame->InitForDecoder(
-            aOutputSize, aFrameRect, aFormat, aPaletteDepth, nonPremult,
-            aAnimParams, ShouldBlendAnimation(), bool(mFrameRecycler)))) {
+    if (NS_FAILED(frame->InitForDecoder(aOutputSize, aFormat, nonPremult,
+                                        aAnimParams, bool(mFrameRecycler)))) {
       NS_WARNING("imgFrame::Init should succeed");
       return RawAccessFrameRef();
     }
@@ -433,13 +467,6 @@ void Decoder::PostSize(int32_t aWidth, int32_t aHeight,
 
   MOZ_ASSERT(mOutputSize->width <= aWidth && mOutputSize->height <= aHeight,
              "Output size will result in upscaling");
-
-  // Create a downscaler if we need to downscale. This is used by legacy
-  // decoders that haven't been converted to use SurfacePipe yet.
-  // XXX(seth): Obviously, we'll remove this once all decoders use SurfacePipe.
-  if (mOutputSize->width < aWidth || mOutputSize->height < aHeight) {
-    mDownscaler.emplace(*mOutputSize);
-  }
 
   // Record this notification.
   mProgress |= FLAG_SIZE_AVAILABLE;

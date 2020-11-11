@@ -21,6 +21,19 @@ types.addDictType("accessibleWithChildren", {
 });
 
 /**
+ * Data passed via "audit-event" to the client. It may include type, a list of
+ * ancestries for accessible actors that have failing accessibility checks or
+ * a progress information.
+ */
+types.addDictType("auditEventData", {
+  type: "string",
+  // List of ancestries (array:accessibleWithChildren)
+  ancestries: "nullable:array:array:accessibleWithChildren",
+  // Audit progress information
+  progress: "nullable:json",
+});
+
+/**
  * Accessible relation object described by its type that also includes relation targets.
  */
 types.addDictType("accessibleRelation", {
@@ -42,7 +55,6 @@ const accessibleSpec = generateActorSpec({
       type: "nameChange",
       name: Arg(0, "string"),
       parent: Arg(1, "nullable:accessible"),
-      walker: Arg(2, "nullable:accessiblewalker"),
     },
     "value-change": {
       type: "valueChange",
@@ -64,22 +76,30 @@ const accessibleSpec = generateActorSpec({
       type: "shortcutChange",
       shortcut: Arg(0, "string"),
     },
-    "reorder": {
+    reorder: {
       type: "reorder",
       childCount: Arg(0, "number"),
-      walker: Arg(1, "nullable:accessiblewalker"),
     },
     "text-change": {
       type: "textChange",
-      walker: Arg(0, "nullable:accessiblewalker"),
     },
     "index-in-parent-change": {
       type: "indexInParentChange",
       indexInParent: Arg(0, "number"),
     },
+    audited: {
+      type: "audited",
+      audit: Arg(0, "nullable:json"),
+    },
   },
 
   methods: {
+    audit: {
+      request: { options: Arg(0, "nullable:json") },
+      response: {
+        audit: RetVal("nullable:json"),
+      },
+    },
     children: {
       request: {},
       response: {
@@ -90,6 +110,12 @@ const accessibleSpec = generateActorSpec({
       request: {},
       response: {
         relations: RetVal("array:accessibleRelation"),
+      },
+    },
+    hydrate: {
+      request: {},
+      response: {
+        properties: RetVal("json"),
       },
     },
     snapshot: {
@@ -105,10 +131,6 @@ const accessibleWalkerSpec = generateActorSpec({
   typeName: "accessiblewalker",
 
   events: {
-    "accessible-destroy": {
-      type: "accessibleDestroy",
-      accessible: Arg(0, "accessible"),
-    },
     "document-ready": {
       type: "documentReady",
     },
@@ -131,6 +153,10 @@ const accessibleWalkerSpec = generateActorSpec({
       type: "highlighter-event",
       data: Arg(0, "json"),
     },
+    "audit-event": {
+      type: "audit-event",
+      audit: Arg(0, "auditEventData"),
+    },
   },
 
   methods: {
@@ -143,7 +169,7 @@ const accessibleWalkerSpec = generateActorSpec({
     getAccessibleFor: {
       request: { node: Arg(0, "domnode") },
       response: {
-        accessible: RetVal("accessible"),
+        accessible: RetVal("nullable:accessible"),
       },
     },
     getAncestry: {
@@ -151,6 +177,9 @@ const accessibleWalkerSpec = generateActorSpec({
       response: {
         ancestry: RetVal("array:accessibleWithChildren"),
       },
+    },
+    startAudit: {
+      request: { options: Arg(0, "nullable:json") },
     },
     highlightAccessible: {
       request: {
@@ -167,6 +196,29 @@ const accessibleWalkerSpec = generateActorSpec({
     pick: {},
     pickAndFocus: {},
     cancelPick: {},
+    showTabbingOrder: {
+      request: {
+        elm: Arg(0, "domnode"),
+        index: Arg(1, "number"),
+      },
+      response: {
+        tabbingOrderInfo: RetVal("json"),
+      },
+    },
+    hideTabbingOrder() {},
+  },
+});
+
+const simulatorSpec = generateActorSpec({
+  typeName: "simulator",
+
+  methods: {
+    simulate: {
+      request: { options: Arg(0, "nullable:json") },
+      response: {
+        value: RetVal("boolean"),
+      },
+    },
   },
 });
 
@@ -174,12 +226,44 @@ const accessibilitySpec = generateActorSpec({
   typeName: "accessibility",
 
   events: {
-    "init": {
+    init: {
       type: "init",
     },
-    "shutdown": {
+    shutdown: {
       type: "shutdown",
     },
+  },
+
+  methods: {
+    getTraits: {
+      request: {},
+      response: { traits: RetVal("json") },
+    },
+    bootstrap: {
+      request: {},
+      response: {
+        state: RetVal("json"),
+      },
+    },
+    getWalker: {
+      request: {},
+      response: {
+        walker: RetVal("accessiblewalker"),
+      },
+    },
+    getSimulator: {
+      request: {},
+      response: {
+        simulator: RetVal("nullable:simulator"),
+      },
+    },
+  },
+});
+
+const parentAccessibilitySpec = generateActorSpec({
+  typeName: "parentaccessibility",
+
+  events: {
     "can-be-disabled-change": {
       type: "canBeDisabledChange",
       canBeDisabled: Arg(0, "boolean"),
@@ -197,12 +281,6 @@ const accessibilitySpec = generateActorSpec({
         state: RetVal("json"),
       },
     },
-    getWalker: {
-      request: {},
-      response: {
-        walker: RetVal("accessiblewalker"),
-      },
-    },
     enable: {
       request: {},
       response: {},
@@ -217,3 +295,5 @@ const accessibilitySpec = generateActorSpec({
 exports.accessibleSpec = accessibleSpec;
 exports.accessibleWalkerSpec = accessibleWalkerSpec;
 exports.accessibilitySpec = accessibilitySpec;
+exports.parentAccessibilitySpec = parentAccessibilitySpec;
+exports.simulatorSpec = simulatorSpec;

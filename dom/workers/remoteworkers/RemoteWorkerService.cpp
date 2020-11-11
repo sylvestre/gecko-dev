@@ -14,7 +14,6 @@
 #include "mozilla/Services.h"
 #include "mozilla/StaticMutex.h"
 #include "mozilla/StaticPtr.h"
-#include "mozilla/SystemGroup.h"
 #include "nsIObserverService.h"
 #include "nsIThread.h"
 #include "nsThreadUtils.h"
@@ -36,7 +35,8 @@ StaticRefPtr<RemoteWorkerService> sRemoteWorkerService;
 
 }  // namespace
 
-/* static */ void RemoteWorkerService::Initialize() {
+/* static */
+void RemoteWorkerService::Initialize() {
   MOZ_ASSERT(NS_IsMainThread());
 
   StaticMutexAutoLock lock(sRemoteWorkerServiceMutex);
@@ -67,7 +67,8 @@ StaticRefPtr<RemoteWorkerService> sRemoteWorkerService;
   sRemoteWorkerService = service;
 }
 
-/* static */ nsIThread* RemoteWorkerService::Thread() {
+/* static */
+nsIThread* RemoteWorkerService::Thread() {
   StaticMutexAutoLock lock(sRemoteWorkerServiceMutex);
   MOZ_ASSERT(sRemoteWorkerService);
   MOZ_ASSERT(sRemoteWorkerService->mThread);
@@ -130,11 +131,13 @@ void RemoteWorkerService::InitializeOnTargetThread() {
 void RemoteWorkerService::ShutdownOnTargetThread() {
   MOZ_ASSERT(mThread);
   MOZ_ASSERT(mThread->IsOnCurrentThread());
-  MOZ_ASSERT(mActor);
 
-  // Here we need to shutdown the IPC protocol.
-  mActor->Send__delete__(mActor);
-  mActor = nullptr;
+  // If mActor is nullptr it means that initialization failed.
+  if (mActor) {
+    // Here we need to shutdown the IPC protocol.
+    mActor->Send__delete__(mActor);
+    mActor = nullptr;
+  }
 
   // Then we can terminate the thread on the main-thread.
   RefPtr<RemoteWorkerService> self = this;
@@ -144,9 +147,7 @@ void RemoteWorkerService::ShutdownOnTargetThread() {
         self->mThread = nullptr;
       });
 
-  nsCOMPtr<nsIEventTarget> target =
-      SystemGroup::EventTargetFor(TaskCategory::Other);
-  target->Dispatch(r.forget(), NS_DISPATCH_NORMAL);
+  SchedulerGroup::Dispatch(TaskCategory::Other, r.forget());
 }
 
 NS_IMETHODIMP

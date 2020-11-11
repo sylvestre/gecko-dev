@@ -4,11 +4,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef mozilla_dom_SVGFEPointLightElement_h
-#define mozilla_dom_SVGFEPointLightElement_h
+#ifndef DOM_SVG_SVGFEPOINTLIGHTELEMENT_H_
+#define DOM_SVG_SVGFEPOINTLIGHTELEMENT_H_
 
-#include "nsSVGFilters.h"
-#include "nsSVGNumber2.h"
+#include "SVGAnimatedNumber.h"
+#include "mozilla/dom/SVGFilters.h"
 
 nsresult NS_NewSVGFEPointLightElement(
     nsIContent** aResult, already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo);
@@ -16,7 +16,7 @@ nsresult NS_NewSVGFEPointLightElement(
 namespace mozilla {
 namespace dom {
 
-typedef SVGFELightElement SVGFEPointLightElementBase;
+using SVGFEPointLightElementBase = SVGFELightElement;
 
 class SVGFEPointLightElement : public SVGFEPointLightElementBase {
   friend nsresult(::NS_NewSVGFEPointLightElement(
@@ -32,27 +32,26 @@ class SVGFEPointLightElement : public SVGFEPointLightElementBase {
 
  public:
   virtual mozilla::gfx::LightType ComputeLightAttributes(
-      nsSVGFilterInstance* aInstance,
-      nsTArray<float>& aFloatAttributes) override;
+      SVGFilterInstance* aInstance, nsTArray<float>& aFloatAttributes) override;
   virtual bool AttributeAffectsRendering(int32_t aNameSpaceID,
                                          nsAtom* aAttribute) const override;
 
   virtual nsresult Clone(dom::NodeInfo*, nsINode** aResult) const override;
 
   // WebIDL
-  already_AddRefed<SVGAnimatedNumber> X();
-  already_AddRefed<SVGAnimatedNumber> Y();
-  already_AddRefed<SVGAnimatedNumber> Z();
+  already_AddRefed<DOMSVGAnimatedNumber> X();
+  already_AddRefed<DOMSVGAnimatedNumber> Y();
+  already_AddRefed<DOMSVGAnimatedNumber> Z();
 
  protected:
   virtual NumberAttributesInfo GetNumberInfo() override;
 
   enum { ATTR_X, ATTR_Y, ATTR_Z };
-  nsSVGNumber2 mNumberAttributes[3];
+  SVGAnimatedNumber mNumberAttributes[3];
   static NumberInfo sNumberInfo[3];
 };
 
 }  // namespace dom
 }  // namespace mozilla
 
-#endif  // mozilla_dom_SVGFEPointLightElement_h
+#endif  // DOM_SVG_SVGFEPOINTLIGHTELEMENT_H_

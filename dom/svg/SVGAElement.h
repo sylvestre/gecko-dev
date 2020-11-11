@@ -4,12 +4,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef mozilla_dom_SVGAElement_h
-#define mozilla_dom_SVGAElement_h
+#ifndef DOM_SVG_SVGAELEMENT_H_
+#define DOM_SVG_SVGAELEMENT_H_
 
 #include "Link.h"
 #include "nsDOMTokenList.h"
-#include "nsSVGString.h"
+#include "SVGAnimatedString.h"
 #include "mozilla/dom/SVGGraphicsElement.h"
 
 nsresult NS_NewSVGAElement(
@@ -22,7 +22,7 @@ class EventChainPreVisitor;
 
 namespace dom {
 
-typedef SVGGraphicsElement SVGAElementBase;
+using SVGAElementBase = SVGGraphicsElement;
 
 class SVGAElement final : public SVGAElementBase, public Link {
  protected:
@@ -42,17 +42,16 @@ class SVGAElement final : public SVGAElementBase, public Link {
 
   // nsINode interface methods
   void GetEventTargetParent(EventChainPreVisitor& aVisitor) override;
-  virtual nsresult PostHandleEvent(EventChainPostVisitor& aVisitor) override;
+  MOZ_CAN_RUN_SCRIPT
+  nsresult PostHandleEvent(EventChainPostVisitor& aVisitor) override;
   virtual nsresult Clone(dom::NodeInfo*, nsINode** aResult) const override;
 
   // nsIContent
-  virtual nsresult BindToTree(nsIDocument* aDocument, nsIContent* aParent,
-                              nsIContent* aBindingParent) override;
-  virtual void UnbindFromTree(bool aDeep = true,
-                              bool aNullParent = true) override;
+  virtual nsresult BindToTree(BindContext&, nsINode& aParent) override;
+  virtual void UnbindFromTree(bool aNullParent = true) override;
   NS_IMETHOD_(bool) IsAttributeMapped(const nsAtom* aAttribute) const override;
   virtual int32_t TabIndexDefault() override;
-  virtual bool IsSVGFocusable(bool* aIsFocusable, int32_t* aTabIndex) override;
+  bool IsFocusableInternal(int32_t* aTabIndex, bool aWithMouse) override;
   virtual bool IsLink(nsIURI** aURI) const override;
   virtual void GetLinkTarget(nsAString& aTarget) override;
   virtual already_AddRefed<nsIURI> GetHrefURI() const override;
@@ -67,17 +66,16 @@ class SVGAElement final : public SVGAElementBase, public Link {
   virtual bool ElementHasHref() const override;
 
   // WebIDL
-  already_AddRefed<SVGAnimatedString> Href();
-  already_AddRefed<SVGAnimatedString> Target();
+  already_AddRefed<DOMSVGAnimatedString> Href();
+  already_AddRefed<DOMSVGAnimatedString> Target();
   void GetDownload(nsAString& aDownload);
   void SetDownload(const nsAString& aDownload, ErrorResult& rv);
   void GetPing(nsAString& aPing);
   void SetPing(const nsAString& aPing, mozilla::ErrorResult& rv);
   void GetRel(nsAString& aRel);
   void SetRel(const nsAString& aRel, mozilla::ErrorResult& rv);
-  void SetReferrerPolicy(const nsAString& aReferrerPolicy,
-                         mozilla::ErrorResult& rv);
-  void GetReferrerPolicy(nsAString& aReferrerPolicy);
+  void SetReferrerPolicy(const nsAString& aPolicy, mozilla::ErrorResult& rv);
+  void GetReferrerPolicy(nsAString& aPolicy);
   nsDOMTokenList* RelList();
   void GetHreflang(nsAString& aHreflang);
   void SetHreflang(const nsAString& aHreflang, mozilla::ErrorResult& rv);
@@ -86,18 +84,18 @@ class SVGAElement final : public SVGAElementBase, public Link {
   void GetText(nsAString& aText, mozilla::ErrorResult& rv);
   void SetText(const nsAString& aText, mozilla::ErrorResult& rv);
 
-  void NodeInfoChanged(nsIDocument* aOldDoc) final {
+  void NodeInfoChanged(Document* aOldDoc) final {
     ClearHasPendingLinkUpdate();
     SVGAElementBase::NodeInfoChanged(aOldDoc);
   }
 
  protected:
-  virtual ~SVGAElement();
+  virtual ~SVGAElement() = default;
 
   virtual StringAttributesInfo GetStringInfo() override;
 
   enum { HREF, XLINK_HREF, TARGET };
-  nsSVGString mStringAttributes[3];
+  SVGAnimatedString mStringAttributes[3];
   static StringInfo sStringInfo[3];
 
   RefPtr<nsDOMTokenList> mRelList;
@@ -107,4 +105,4 @@ class SVGAElement final : public SVGAElementBase, public Link {
 }  // namespace dom
 }  // namespace mozilla
 
-#endif  // mozilla_dom_SVGAElement_h
+#endif  // DOM_SVG_SVGAELEMENT_H_

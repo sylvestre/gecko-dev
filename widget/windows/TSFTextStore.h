@@ -27,10 +27,10 @@
 // GUID_PROP_INPUTSCOPE is declared in inputscope.h using INIT_GUID.
 // With initguid.h, we get its instance instead of extern declaration.
 #ifdef INPUTSCOPE_INIT_GUID
-#include <initguid.h>
+#  include <initguid.h>
 #endif
 #ifdef TEXTATTRS_INIT_GUID
-#include <tsattrs.h>
+#  include <tsattrs.h>
 #endif
 #include <inputscope.h>
 
@@ -348,7 +348,8 @@ class TSFTextStore final : public ITextStoreACP,
   HRESULT HandleRequestAttrs(DWORD aFlags, ULONG aFilterCount,
                              const TS_ATTRID* aFilterAttrs);
   void SetInputScope(const nsString& aHTMLInputType,
-                     const nsString& aHTMLInputInputmode);
+                     const nsString& aHTMLInputInputmode,
+                     bool aInPrivateBrowsing);
 
   // Creates native caret over our caret.  This method only works on desktop
   // application.  Otherwise, this does nothing.
@@ -678,7 +679,7 @@ class TSFTextStore final : public ITextStoreACP,
     // For eCompositionUpdate
     RefPtr<TextRangeArray> mRanges;
     // For eKeyboardEvent
-    const MSG* mKeyMsg;
+    MSG mKeyMsg;
     // For eSetSelection
     bool mSelectionReversed;
     // For eCompositionUpdate
@@ -1036,8 +1037,6 @@ class TSFTextStore final : public ITextStoreACP,
   // If this is false, MaybeFlushPendingNotifications() will clear the
   // mContentForTSF.
   bool mDeferClearingContentForTSF;
-  // While there is native caret, this is true.  Otherwise, false.
-  bool mNativeCaretIsCreated;
   // While the instance is dispatching events, the event may not be handled
   // synchronously in e10s mode.  So, in such case, in strictly speaking,
   // we shouldn't query layout information.  However, TS_E_NOLAYOUT bugs of

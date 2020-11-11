@@ -15,16 +15,24 @@ const UNICODE_IN_IDN = "\u03c0\u03b1";
  * Test if filtering items in the network table works correctly.
  */
 const BASIC_REQUESTS = [
-  { url: getSjsURLInUnicodeIdn() + "?fmt=html&res=undefined&text=Sample" },
+  {
+    url: getSjsURLInUnicodeIdn() + "?fmt=html&res=undefined&text=Sample&cors=1",
+  },
   { url: "sjs_content-type-test-server.sjs?fmt=css&text=sample" },
   { url: "sjs_content-type-test-server.sjs?fmt=js&text=sample" },
-  { url: `sjs_content-type-test-server.sjs?fmt=html&text=${ENCODED_CHARS_IN_URI_COMP}` },
-  { url: `sjs_content-type-test-server.sjs?fmt=css&text=${ENCODED_CHARS_IN_URI_COMP}` },
-  { url: `sjs_content-type-test-server.sjs?fmt=js&text=${ENCODED_CHARS_IN_URI_COMP}` },
+  {
+    url: `sjs_content-type-test-server.sjs?fmt=html&text=${ENCODED_CHARS_IN_URI_COMP}`,
+  },
+  {
+    url: `sjs_content-type-test-server.sjs?fmt=css&text=${ENCODED_CHARS_IN_URI_COMP}`,
+  },
+  {
+    url: `sjs_content-type-test-server.sjs?fmt=js&text=${ENCODED_CHARS_IN_URI_COMP}`,
+  },
 ];
 
 const REQUESTS_WITH_MEDIA = BASIC_REQUESTS.concat([
-  { url: getSjsURLInUnicodeIdn() + "?fmt=font" },
+  { url: getSjsURLInUnicodeIdn() + "?fmt=font&cors=1" },
   { url: "sjs_content-type-test-server.sjs?fmt=image" },
   { url: "sjs_content-type-test-server.sjs?fmt=audio" },
   { url: "sjs_content-type-test-server.sjs?fmt=video" },
@@ -36,15 +44,17 @@ const REQUESTS_WITH_MEDIA_AND_FLASH = REQUESTS_WITH_MEDIA.concat([
   { url: "sjs_content-type-test-server.sjs?fmt=flash" },
 ]);
 
-const REQUESTS_WITH_MEDIA_AND_FLASH_AND_WS = REQUESTS_WITH_MEDIA_AND_FLASH.concat([
-  /* "Upgrade" is a reserved header and can not be set on XMLHttpRequest */
-  { url: "sjs_content-type-test-server.sjs?fmt=ws" },
-]);
+const REQUESTS_WITH_MEDIA_AND_FLASH_AND_WS = REQUESTS_WITH_MEDIA_AND_FLASH.concat(
+  [
+    /* Use new WebSocket() to mock native websocket request, then "Upgrade" will be added */
+    { url: WS_URL + "sjs_content-type-test-server.sjs?fmt=ws", ws: true },
+  ]
+);
 
 const EXPECTED_REQUESTS = [
   {
     method: "GET",
-    url: getSjsURLInUnicodeIdn() + "?fmt=html",
+    url: getSjsURLInUnicodeIdn() + "?fmt=html&res=undefined&text=Sample&cors=1",
     data: {
       fuzzyUrl: true,
       status: 200,
@@ -55,7 +65,7 @@ const EXPECTED_REQUESTS = [
   },
   {
     method: "GET",
-    url: CONTENT_TYPE_SJS + "?fmt=css",
+    url: CONTENT_TYPE_SJS + "?fmt=css&text=sample",
     data: {
       fuzzyUrl: true,
       status: 200,
@@ -66,7 +76,7 @@ const EXPECTED_REQUESTS = [
   },
   {
     method: "GET",
-    url: CONTENT_TYPE_SJS + "?fmt=js",
+    url: CONTENT_TYPE_SJS + "?fmt=js&text=sample",
     data: {
       fuzzyUrl: true,
       status: 200,
@@ -77,7 +87,7 @@ const EXPECTED_REQUESTS = [
   },
   {
     method: "GET",
-    url: CONTENT_TYPE_SJS + "?fmt=html",
+    url: CONTENT_TYPE_SJS + `?fmt=html&text=${ENCODED_CHARS_IN_URI_COMP}`,
     data: {
       fuzzyUrl: true,
       status: 200,
@@ -88,7 +98,7 @@ const EXPECTED_REQUESTS = [
   },
   {
     method: "GET",
-    url: CONTENT_TYPE_SJS + "?fmt=css",
+    url: CONTENT_TYPE_SJS + `?fmt=css&text=${ENCODED_CHARS_IN_URI_COMP}`,
     data: {
       fuzzyUrl: true,
       status: 200,
@@ -99,7 +109,7 @@ const EXPECTED_REQUESTS = [
   },
   {
     method: "GET",
-    url: CONTENT_TYPE_SJS + "?fmt=js",
+    url: CONTENT_TYPE_SJS + `?fmt=js&text=${ENCODED_CHARS_IN_URI_COMP}`,
     data: {
       fuzzyUrl: true,
       status: 200,
@@ -110,7 +120,7 @@ const EXPECTED_REQUESTS = [
   },
   {
     method: "GET",
-    url: getSjsURLInUnicodeIdn() + "?fmt=font",
+    url: getSjsURLInUnicodeIdn() + "?fmt=font&cors=1",
     data: {
       fuzzyUrl: true,
       status: 200,
@@ -187,7 +197,7 @@ const EXPECTED_REQUESTS = [
   },
   {
     method: "GET",
-    url: CONTENT_TYPE_SJS + "?fmt=ws",
+    url: WS_WS_CONTENT_TYPE_SJS + "?fmt=ws",
     data: {
       fuzzyUrl: true,
       status: 101,
@@ -197,7 +207,7 @@ const EXPECTED_REQUESTS = [
 ];
 
 add_task(async function() {
-  const { monitor } = await initNetMonitor(FILTERING_URL);
+  const { monitor } = await initNetMonitor(FILTERING_URL, { requestCount: 1 });
   const { document, store, windowRequire } = monitor.panelWin;
   const Actions = windowRequire("devtools/client/netmonitor/src/actions/index");
   const {
@@ -214,134 +224,194 @@ add_task(async function() {
 
   info("Starting test... ");
 
-  const wait = waitForNetworkEvents(monitor,
-                                  REQUESTS_WITH_MEDIA_AND_FLASH_AND_WS.length);
-  loadFrameScriptUtils();
+  const wait = waitForNetworkEvents(
+    monitor,
+    REQUESTS_WITH_MEDIA_AND_FLASH_AND_WS.length
+  );
   await performRequestsInContent(REQUESTS_WITH_MEDIA_AND_FLASH_AND_WS);
   await wait;
 
-  EventUtils.sendMouseEvent({ type: "mousedown" },
-    document.querySelectorAll(".request-list-item")[0]);
+  EventUtils.sendMouseEvent(
+    { type: "mousedown" },
+    document.querySelectorAll(".request-list-item")[0]
+  );
 
-  isnot(getSelectedRequest(store.getState()), null,
-    "There should be a selected item in the requests menu.");
-  is(getSelectedIndex(store.getState()), 0,
-    "The first item should be selected in the requests menu.");
-  is(!!document.querySelector(".network-details-panel"), true,
-    "The network details panel should render correctly.");
+  isnot(
+    getSelectedRequest(store.getState()),
+    null,
+    "There should be a selected item in the requests menu."
+  );
+  is(
+    getSelectedIndex(store.getState()),
+    0,
+    "The first item should be selected in the requests menu."
+  );
+  is(
+    !!document.querySelector(".network-details-bar"),
+    true,
+    "The network details panel should render correctly."
+  );
 
   // First test with single filters...
   testFilterButtons(monitor, "all");
   await testContents([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]);
 
-  EventUtils.sendMouseEvent({ type: "click" },
-    document.querySelector(".requests-list-filter-html-button"));
+  EventUtils.sendMouseEvent(
+    { type: "click" },
+    document.querySelector(".requests-list-filter-html-button")
+  );
   testFilterButtons(monitor, "html");
   await testContents([1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
 
   // Reset filters
-  EventUtils.sendMouseEvent({ type: "click" },
-    document.querySelector(".requests-list-filter-all-button"));
-  EventUtils.sendMouseEvent({ type: "click" },
-    document.querySelector(".requests-list-filter-css-button"));
+  EventUtils.sendMouseEvent(
+    { type: "click" },
+    document.querySelector(".requests-list-filter-all-button")
+  );
+  EventUtils.sendMouseEvent(
+    { type: "click" },
+    document.querySelector(".requests-list-filter-css-button")
+  );
   testFilterButtons(monitor, "css");
   await testContents([0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
 
-  EventUtils.sendMouseEvent({ type: "click" },
-    document.querySelector(".requests-list-filter-all-button"));
-  EventUtils.sendMouseEvent({ type: "click" },
-    document.querySelector(".requests-list-filter-js-button"));
+  EventUtils.sendMouseEvent(
+    { type: "click" },
+    document.querySelector(".requests-list-filter-all-button")
+  );
+  EventUtils.sendMouseEvent(
+    { type: "click" },
+    document.querySelector(".requests-list-filter-js-button")
+  );
   testFilterButtons(monitor, "js");
   await testContents([0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0]);
 
-  EventUtils.sendMouseEvent({ type: "click" },
-    document.querySelector(".requests-list-filter-all-button"));
-  EventUtils.sendMouseEvent({ type: "click" },
-    document.querySelector(".requests-list-filter-xhr-button"));
+  EventUtils.sendMouseEvent(
+    { type: "click" },
+    document.querySelector(".requests-list-filter-all-button")
+  );
+  EventUtils.sendMouseEvent(
+    { type: "click" },
+    document.querySelector(".requests-list-filter-xhr-button")
+  );
   testFilterButtons(monitor, "xhr");
   await testContents([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0]);
 
-  EventUtils.sendMouseEvent({ type: "click" },
-    document.querySelector(".requests-list-filter-all-button"));
-  EventUtils.sendMouseEvent({ type: "click" },
-     document.querySelector(".requests-list-filter-fonts-button"));
+  EventUtils.sendMouseEvent(
+    { type: "click" },
+    document.querySelector(".requests-list-filter-all-button")
+  );
+  EventUtils.sendMouseEvent(
+    { type: "click" },
+    document.querySelector(".requests-list-filter-fonts-button")
+  );
   testFilterButtons(monitor, "fonts");
   await testContents([0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0]);
 
-  EventUtils.sendMouseEvent({ type: "click" },
-    document.querySelector(".requests-list-filter-all-button"));
-  EventUtils.sendMouseEvent({ type: "click" },
-    document.querySelector(".requests-list-filter-images-button"));
+  EventUtils.sendMouseEvent(
+    { type: "click" },
+    document.querySelector(".requests-list-filter-all-button")
+  );
+  EventUtils.sendMouseEvent(
+    { type: "click" },
+    document.querySelector(".requests-list-filter-images-button")
+  );
   testFilterButtons(monitor, "images");
   await testContents([0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0]);
 
-  EventUtils.sendMouseEvent({ type: "click" },
-    document.querySelector(".requests-list-filter-all-button"));
-  EventUtils.sendMouseEvent({ type: "click" },
-    document.querySelector(".requests-list-filter-media-button"));
+  EventUtils.sendMouseEvent(
+    { type: "click" },
+    document.querySelector(".requests-list-filter-all-button")
+  );
+  EventUtils.sendMouseEvent(
+    { type: "click" },
+    document.querySelector(".requests-list-filter-media-button")
+  );
   testFilterButtons(monitor, "media");
   await testContents([0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0]);
 
-  EventUtils.sendMouseEvent({ type: "click" },
-    document.querySelector(".requests-list-filter-all-button"));
-  EventUtils.sendMouseEvent({ type: "click" },
-    document.querySelector(".requests-list-filter-ws-button"));
+  EventUtils.sendMouseEvent(
+    { type: "click" },
+    document.querySelector(".requests-list-filter-all-button")
+  );
+  EventUtils.sendMouseEvent(
+    { type: "click" },
+    document.querySelector(".requests-list-filter-ws-button")
+  );
   testFilterButtons(monitor, "ws");
   await testContents([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]);
 
-  EventUtils.sendMouseEvent({ type: "click" },
-    document.querySelector(".requests-list-filter-all-button"));
+  EventUtils.sendMouseEvent(
+    { type: "click" },
+    document.querySelector(".requests-list-filter-all-button")
+  );
 
   testFilterButtons(monitor, "all");
   await testContents([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]);
 
   // Text in filter box that matches nothing should hide all.
-  EventUtils.sendMouseEvent({ type: "click" },
-    document.querySelector(".requests-list-filter-all-button"));
+  EventUtils.sendMouseEvent(
+    { type: "click" },
+    document.querySelector(".requests-list-filter-all-button")
+  );
   setFreetextFilter("foobar");
   await testContents([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
 
   // ASCII text in filter box that matches should filter out everything else.
-  EventUtils.sendMouseEvent({ type: "click" },
-    document.querySelector(".requests-list-filter-all-button"));
+  EventUtils.sendMouseEvent(
+    { type: "click" },
+    document.querySelector(".requests-list-filter-all-button")
+  );
   setFreetextFilter("sample");
   await testContents([1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
 
   // ASCII text in filter box that matches should filter out everything else.
-  EventUtils.sendMouseEvent({ type: "click" },
-    document.querySelector(".requests-list-filter-all-button"));
+  EventUtils.sendMouseEvent(
+    { type: "click" },
+    document.querySelector(".requests-list-filter-all-button")
+  );
   setFreetextFilter("SAMPLE");
   await testContents([1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
 
   // Test negative filtering ASCII text(only show unmatched items)
-  EventUtils.sendMouseEvent({ type: "click" },
-    document.querySelector(".requests-list-filter-all-button"));
+  EventUtils.sendMouseEvent(
+    { type: "click" },
+    document.querySelector(".requests-list-filter-all-button")
+  );
   setFreetextFilter("-sample");
   await testContents([0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]);
 
   // Unicode text in filter box that matches should filter out everything else.
-  EventUtils.sendMouseEvent({ type: "click" },
-    document.querySelector(".requests-list-filter-all-button"));
+  EventUtils.sendMouseEvent(
+    { type: "click" },
+    document.querySelector(".requests-list-filter-all-button")
+  );
   setFreetextFilter(UNICODE_IN_URI_COMPONENT);
   await testContents([0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0]);
 
   // Ditto, except the above is for a Unicode URI component, and this one is for
   // a Unicode domain name.
-  EventUtils.sendMouseEvent({ type: "click" },
-    document.querySelector(".requests-list-filter-all-button"));
+  EventUtils.sendMouseEvent(
+    { type: "click" },
+    document.querySelector(".requests-list-filter-all-button")
+  );
   setFreetextFilter(UNICODE_IN_IDN);
   await testContents([1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0]);
 
   // Test negative filtering Unicode text(only show unmatched items)
-  EventUtils.sendMouseEvent({ type: "click" },
-    document.querySelector(".requests-list-filter-all-button"));
+  EventUtils.sendMouseEvent(
+    { type: "click" },
+    document.querySelector(".requests-list-filter-all-button")
+  );
   setFreetextFilter(`-${UNICODE_IN_URI_COMPONENT}`);
   await testContents([1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1]);
 
   // Ditto, except the above is for a Unicode URI component, and this one is for
   // a Unicode domain name.
-  EventUtils.sendMouseEvent({ type: "click" },
-    document.querySelector(".requests-list-filter-all-button"));
+  EventUtils.sendMouseEvent(
+    { type: "click" },
+    document.querySelector(".requests-list-filter-all-button")
+  );
   setFreetextFilter(`-${UNICODE_IN_IDN}`);
   await testContents([0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1]);
 
@@ -349,10 +419,14 @@ add_task(async function() {
 
   // Enable filtering for html and css; should show request of both type.
   setFreetextFilter("");
-  EventUtils.sendMouseEvent({ type: "click" },
-    document.querySelector(".requests-list-filter-html-button"));
-  EventUtils.sendMouseEvent({ type: "click" },
-    document.querySelector(".requests-list-filter-css-button"));
+  EventUtils.sendMouseEvent(
+    { type: "click" },
+    document.querySelector(".requests-list-filter-html-button")
+  );
+  EventUtils.sendMouseEvent(
+    { type: "click" },
+    document.querySelector(".requests-list-filter-css-button")
+  );
   testFilterButtonsCustom(monitor, [0, 1, 1, 0, 0, 0, 0, 0, 0, 0]);
   await testContents([1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
 
@@ -367,27 +441,39 @@ add_task(async function() {
   await testContents([1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
 
   // Disable some filters. Only one left active.
-  EventUtils.sendMouseEvent({ type: "click" },
-    document.querySelector(".requests-list-filter-css-button"));
+  EventUtils.sendMouseEvent(
+    { type: "click" },
+    document.querySelector(".requests-list-filter-css-button")
+  );
   testFilterButtons(monitor, "html");
   await testContents([1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
 
   // Disable last active filter. Should toggle to all.
-  EventUtils.sendMouseEvent({ type: "click" },
-    document.querySelector(".requests-list-filter-html-button"));
+  EventUtils.sendMouseEvent(
+    { type: "click" },
+    document.querySelector(".requests-list-filter-html-button")
+  );
   testFilterButtons(monitor, "all");
   await testContents([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]);
 
   // Enable few filters and click on all. Only "all" should be checked.
-  EventUtils.sendMouseEvent({ type: "click" },
-    document.querySelector(".requests-list-filter-html-button"));
-  EventUtils.sendMouseEvent({ type: "click" },
-    document.querySelector(".requests-list-filter-css-button"));
-  EventUtils.sendMouseEvent({ type: "click" },
-    document.querySelector(".requests-list-filter-ws-button"));
+  EventUtils.sendMouseEvent(
+    { type: "click" },
+    document.querySelector(".requests-list-filter-html-button")
+  );
+  EventUtils.sendMouseEvent(
+    { type: "click" },
+    document.querySelector(".requests-list-filter-css-button")
+  );
+  EventUtils.sendMouseEvent(
+    { type: "click" },
+    document.querySelector(".requests-list-filter-ws-button")
+  );
   testFilterButtonsCustom(monitor, [0, 1, 1, 0, 0, 0, 0, 0, 1, 0]);
-  EventUtils.sendMouseEvent({ type: "click" },
-    document.querySelector(".requests-list-filter-all-button"));
+  EventUtils.sendMouseEvent(
+    { type: "click" },
+    document.querySelector(".requests-list-filter-all-button")
+  );
   testFilterButtons(monitor, "all");
   await testContents([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]);
 
@@ -397,7 +483,9 @@ add_task(async function() {
     if (!state.requests.selectedId) {
       return -1;
     }
-    return getSortedRequests(state).findIndex(r => r.id === state.requests.selectedId);
+    return getSortedRequests(state).findIndex(
+      r => r.id === state.requests.selectedId
+    );
   }
 
   async function testContents(visibility) {
@@ -416,28 +504,37 @@ add_task(async function() {
     // displayed requests reach final state.
     await waitUntil(() => {
       visibleItems = getDisplayedRequests(store.getState());
-      return visibleItems.size === visibility.filter(e => e).length;
+      return visibleItems.length === visibility.filter(e => e).length;
     });
 
-    is(items.size, visibility.length,
-       "There should be a specific amount of items in the requests menu.");
-    is(visibleItems.size, visibility.filter(e => e).length,
-       "There should be a specific amount of visible items in the requests menu.");
+    is(
+      items.length,
+      visibility.length,
+      "There should be a specific amount of items in the requests menu."
+    );
+    is(
+      visibleItems.length,
+      visibility.filter(e => e).length,
+      "There should be a specific amount of visible items in the requests menu."
+    );
 
     for (let i = 0; i < visibility.length; i++) {
-      const itemId = items.get(i).id;
+      const itemId = items[i].id;
       const shouldBeVisible = !!visibility[i];
       const isThere = visibleItems.some(r => r.id == itemId);
 
-      is(isThere, shouldBeVisible,
-        `The item at index ${i} has visibility=${shouldBeVisible}`);
+      is(
+        isThere,
+        shouldBeVisible,
+        `The item at index ${i} has visibility=${shouldBeVisible}`
+      );
 
       if (shouldBeVisible) {
         const { method, url, data } = EXPECTED_REQUESTS[i];
         verifyRequestItemTarget(
           document,
           getDisplayedRequests(store.getState()),
-          getSortedRequests(store.getState()).get(i),
+          getSortedRequests(store.getState())[i],
           method,
           url,
           data

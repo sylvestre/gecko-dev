@@ -17,15 +17,16 @@
 #include "nsCOMPtr.h"
 #include "nsIFrame.h"
 #include "nsImageRenderer.h"
-#include "nsStyleConsts.h"
-#include "nsStyleStruct.h"
-#include "nsPresContext.h"
 #include "gfxUtils.h"
 
 struct nsBorderColors;
 class nsDisplayBorder;
 
 namespace mozilla {
+
+enum class StyleBorderStyle : uint8_t;
+enum class StyleBorderImageRepeat : uint8_t;
+
 namespace gfx {
 class GradientStops;
 }  // namespace gfx
@@ -66,7 +67,6 @@ typedef enum {
   BorderColorStyleDark
 } BorderColorStyle;
 
-class nsIDocument;
 class nsPresContext;
 
 class nsCSSBorderRenderer final {
@@ -86,7 +86,8 @@ class nsCSSBorderRenderer final {
   friend class nsDisplayButtonForeground;
 
  public:
-  nsCSSBorderRenderer(nsPresContext* aPresContext, const nsIDocument* aDocument,
+  nsCSSBorderRenderer(nsPresContext* aPresContext,
+                      const mozilla::dom::Document* aDocument,
                       DrawTarget* aDrawTarget, const Rect& aDirtyRect,
                       Rect& aOuterRect,
                       const mozilla::StyleBorderStyle* aBorderStyles,
@@ -122,7 +123,7 @@ class nsCSSBorderRenderer final {
 
   // Target document to report warning
   nsPresContext* mPresContext;
-  const nsIDocument* mDocument;
+  const mozilla::dom::Document* mDocument;
 
   // destination DrawTarget and dirty rect
   DrawTarget* mDrawTarget;
@@ -151,7 +152,7 @@ class nsCSSBorderRenderer final {
 
   // For all the sides in the bitmask, would they be rendered
   // in an identical color and style?
-  bool AreBorderSideFinalStylesSame(uint8_t aSides);
+  bool AreBorderSideFinalStylesSame(mozilla::SideBits aSides);
 
   // For the given style, is the given corner a solid color?
   bool IsSolidCornerStyle(mozilla::StyleBorderStyle aStyle,
@@ -207,7 +208,7 @@ class nsCSSBorderRenderer final {
   // clip is needed if we can render the entire border in 1 or 2 passes.
   void FillSolidBorder(const Rect& aOuterRect, const Rect& aInnerRect,
                        const RectCornerRadii& aBorderRadii,
-                       const Float* aBorderSizes, int aSides,
+                       const Float* aBorderSizes, mozilla::SideBits aSides,
                        const ColorPattern& aColor);
 
   //
@@ -216,7 +217,7 @@ class nsCSSBorderRenderer final {
 
   // draw the border for the given sides, using the style of the first side
   // present in the bitmask
-  void DrawBorderSides(int aSides);
+  void DrawBorderSides(mozilla::SideBits aSides);
 
   // Setup the stroke options for the given dashed/dotted side
   void SetupDashedOptions(StrokeOptions* aStrokeOptions, Float aDash[2],
@@ -275,7 +276,7 @@ class nsCSSBorderImageRenderer final {
       mozilla::wr::DisplayListBuilder& aBuilder,
       mozilla::wr::IpcResourceUpdateQueue& aResources,
       const mozilla::layers::StackingContextHelper& aSc,
-      mozilla::layers::WebRenderLayerManager* aManager,
+      mozilla::layers::RenderRootStateManager* aManager,
       nsDisplayListBuilder* aDisplayListBuilder);
 
   nsCSSBorderImageRenderer(const nsCSSBorderImageRenderer& aRhs);
@@ -296,7 +297,7 @@ class nsCSSBorderImageRenderer final {
   nsRect mClip;
   mozilla::StyleBorderImageRepeat mRepeatModeHorizontal;
   mozilla::StyleBorderImageRepeat mRepeatModeVertical;
-  uint8_t mFill;
+  bool mFill;
 
   friend class nsDisplayBorder;
   friend struct nsCSSRendering;
@@ -304,7 +305,7 @@ class nsCSSBorderImageRenderer final {
 
 namespace mozilla {
 #ifdef DEBUG_NEW_BORDERS
-#include <stdarg.h>
+#  include <stdarg.h>
 
 static inline void PrintAsString(const mozilla::gfx::Point& p) {
   fprintf(stderr, "[%f,%f]", p.x, p.y);

@@ -3,10 +3,9 @@
 <head>
   <meta charset="utf-8">
   <title>Test autocomplete on an HTTPS page using upgraded HTTP logins</title>
-  <script type="text/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
-  <script type="text/javascript" src="/tests/SimpleTest/EventUtils.js"></script>
-  <script type="text/javascript" src="/tests/SimpleTest/AddTask.js"></script>
-  <script type="text/javascript" src="satchel_common.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/EventUtils.js"></script>
+  <script type="text/javascript" src="../../../satchel/test/satchel_common.js"></script>
   <script type="text/javascript" src="pwmgr_common.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css" />
 </head>
@@ -14,37 +13,19 @@
 <script>
 const chromeScript = runChecksAfterCommonInit(false);
 
-runInParent(function addLogins() {
-  ChromeUtils.import("resource://gre/modules/Services.jsm");
+let originSecure = "https://" + window.location.host;
+let originNonSecure = "http://" + window.location.host;
 
-  // Create some logins just for this form, since we'll be deleting them.
-  let nsLoginInfo = Components.Constructor("@mozilla.org/login-manager/loginInfo;1",
-                                           Ci.nsILoginInfo, "init");
-
+addLoginsInParent(
   // We have two actual HTTPS to avoid autofill before the schemeUpgrades pref flips to true.
-  let login0 = new nsLoginInfo("https://example.org", "https://example.org", null,
-                               "name", "pass", "uname", "pword");
-
-  let login1 = new nsLoginInfo("https://example.org", "https://example.org", null,
-                               "name1", "pass1", "uname", "pword");
+  [originSecure, originSecure, null, "name", "pass", "uname", "pword"],
+  [originSecure, originSecure, null, "name1", "pass1", "uname", "pword"],
 
   // Same as above but HTTP instead of HTTPS (to test de-duping)
-  let login2 = new nsLoginInfo("http://example.org", "http://example.org", null,
-                               "name1", "passHTTP", "uname", "pword");
+  [originNonSecure, originNonSecure, null, "name1", "pass1", "uname", "pword"],
 
-  // Different HTTP login to upgrade with secure formSubmitURL
-  let login3 = new nsLoginInfo("http://example.org", "https://example.org", null,
-                               "name2", "passHTTPtoHTTPS", "uname", "pword");
-
-  try {
-    Services.logins.addLogin(login0);
-    Services.logins.addLogin(login1);
-    Services.logins.addLogin(login2);
-    Services.logins.addLogin(login3);
-  } catch (e) {
-    assert.ok(false, "addLogin threw: " + e);
-  }
-});
+  // Different HTTP login to upgrade with secure formActionOrigin
+  [originNonSecure, originSecure, null, "name2", "passHTTPtoHTTPS", "uname", "pword"]);
 </script>
 <p id="display"></p>
 
@@ -55,46 +36,48 @@ runInParent(function addLogins() {
 
 <pre id="test">
 <script class="testbody" type="text/javascript">
-let iframe = SpecialPowers.wrap(document.getElementsByTagName("iframe")[0]);
-let iframeDoc;
-let uname;
-let pword;
+let iframe = document.getElementsByTagName("iframe")[0];
+let iframeDoc, hostname;
 
 // Restore the form to the default state.
 function restoreForm() {
-  pword.focus();
-  uname.value = "";
-  pword.value = "";
-  uname.focus();
+  return SpecialPowers.spawn(getIframeBrowsingContext(window), [], function() {
+    this.content.document.getElementById("form-basic-password").focus();
+    this.content.document.getElementById("form-basic-username").value = "";
+    this.content.document.getElementById("form-basic-password").value = "";
+    this.content.document.getElementById("form-basic-username").focus();
+  });
 }
 
-// Check for expected username/password in form.
-function checkACForm(expectedUsername, expectedPassword) {
-  let formID = uname.parentNode.id;
-  is(uname.value, expectedUsername, "Checking " + formID + " username");
-  is(pword.value, expectedPassword, "Checking " + formID + " password");
-}
+const HTTPS_FORM_URL = originSecure + "/tests/toolkit/components/passwordmgr/test/mochitest/form_basic.html";
 
-add_task(async function setup() {
+async function setup(formUrl = HTTPS_FORM_URL) {
   await SpecialPowers.pushPrefEnv({"set": [["signon.schemeUpgrades", true]]});
 
-  iframe.src = "https://example.org/tests/toolkit/components/passwordmgr/test/mochitest/form_basic.html";
+  let processedPromise = promiseFormsProcessed();
+  iframe.src = formUrl;
   await new Promise(resolve => {
     iframe.addEventListener("load", function() {
       resolve();
     }, {once: true});
   });
 
-  iframeDoc = iframe.contentDocument;
-  uname = iframeDoc.getElementById("form-basic-username");
-  pword = iframeDoc.getElementById("form-basic-password");
+  await processedPromise;
+
+  hostname = await SpecialPowers.spawn(getIframeBrowsingContext(window), [], function() {
+    return this.content.document.documentURIObject.host;
+  });
+}
+
+add_task(async function setup_https_frame() {
+  await setup(HTTPS_FORM_URL);
 });
 
 add_task(async function test_empty_first_entry() {
   // Make sure initial form is empty.
-  checkACForm("", "");
+  await checkLoginFormInFrame(getIframeBrowsingContext(window, 0), "form-basic-username", "", "form-basic-password", "");
   // Trigger autocomplete popup
-  restoreForm();
+  await restoreForm();
   let popupState = await getPopupState();
   is(popupState.open, false, "Check popup is initially closed");
   let shownPromise = promiseACShown();
@@ -102,53 +85,57 @@ add_task(async function test_empty_first_entry() {
   let results = await shownPromise;
   popupState = await getPopupState();
   is(popupState.selectedIndex, -1, "Check no entries are selected");
-  checkArrayValues(results, ["name", "name1", "name2"], "initial");
+  checkAutoCompleteResults(results, ["name", "name1", "name2"], hostname, "initial");
 
   // Check first entry
   let index0Promise = notifySelectedIndex(0);
   synthesizeKey("KEY_ArrowDown");
   await index0Promise;
-  checkACForm("", ""); // value shouldn't update
+  await checkLoginFormInFrame(getIframeBrowsingContext(window, 0), "form-basic-username", "", "form-basic-password", ""); // value shouldn't update
   synthesizeKey("KEY_Enter");
-  await promiseFormsProcessed();
-  checkACForm("name", "pass");
+  await promiseFormsProcessedInSameProcess();
+  await checkLoginFormInFrame(getIframeBrowsingContext(window, 0), "form-basic-username", "name", "form-basic-password", "pass");
 });
 
 add_task(async function test_empty_second_entry() {
-  restoreForm();
+  await restoreForm();
   let shownPromise = promiseACShown();
   synthesizeKey("KEY_ArrowDown"); // open
   await shownPromise;
   synthesizeKey("KEY_ArrowDown"); // first
   synthesizeKey("KEY_ArrowDown"); // second
   synthesizeKey("KEY_Enter");
-  await promiseFormsProcessed();
-  checkACForm("name1", "pass1");
+  await promiseFormsProcessedInSameProcess();
+  await checkLoginFormInFrame(getIframeBrowsingContext(window, 0), "form-basic-username", "name1", "form-basic-password", "pass1");
 });
 
 add_task(async function test_search() {
-  restoreForm();
+  await restoreForm();
   let shownPromise = promiseACShown();
+
   // We need to blur for the autocomplete controller to notice the forced value below.
-  uname.blur();
-  uname.value = "name";
-  uname.focus();
+  await SpecialPowers.spawn(getIframeBrowsingContext(window), [], function() {
+    let uname = this.content.document.getElementById("form-basic-username");
+    uname.blur();
+    uname.value = "name";
+    uname.focus();
+  });
+
   sendChar("1");
   synthesizeKey("KEY_ArrowDown"); // open
   let results = await shownPromise;
-  checkArrayValues(results, ["name1"], "check result deduping for 'name1'");
+  checkAutoCompleteResults(results, ["name1"], hostname, "check result deduping for 'name1'");
   synthesizeKey("KEY_ArrowDown"); // first
   synthesizeKey("KEY_Enter");
-  await promiseFormsProcessed();
-  checkACForm("name1", "pass1");
+  await promiseFormsProcessedInSameProcess();
+  await checkLoginFormInFrame(getIframeBrowsingContext(window, 0), "form-basic-username", "name1", "form-basic-password", "pass1");
 
   let popupState = await getPopupState();
   is(popupState.open, false, "Check popup is now closed");
 });
 
 add_task(async function test_delete_first_entry() {
-  restoreForm();
-  uname.focus();
+  await restoreForm();
   let shownPromise = promiseACShown();
   synthesizeKey("KEY_ArrowDown");
   await shownPromise;
@@ -162,11 +149,11 @@ add_task(async function test_delete_first_entry() {
   // On Win/Linux, shift-backspace does not work, delete and shift-delete do.
   synthesizeKey("KEY_Delete", {shiftKey: true});
   await deletionPromise;
-  checkACForm("", "");
+  await checkLoginFormInFrame(getIframeBrowsingContext(window, 0), "form-basic-username", "", "form-basic-password", "");
 
-  let results = await notifyMenuChanged(2, "name1");
+  let results = await notifyMenuChanged(3, "name1");
 
-  checkArrayValues(results, ["name1", "name2"], "two should remain after deleting the first");
+  checkAutoCompleteResults(results, ["name1", "name2"], hostname, "two logins should remain after deleting the first");
   let popupState = await getPopupState();
   is(popupState.open, true, "Check popup stays open after deleting");
   synthesizeKey("KEY_Escape");
@@ -175,8 +162,7 @@ add_task(async function test_delete_first_entry() {
 });
 
 add_task(async function test_delete_duplicate_entry() {
-  restoreForm();
-  uname.focus();
+  await restoreForm();
   let shownPromise = promiseACShown();
   synthesizeKey("KEY_ArrowDown");
   await shownPromise;
@@ -190,18 +176,18 @@ add_task(async function test_delete_duplicate_entry() {
   // On Win/Linux, shift-backspace does not work, delete and shift-delete do.
   synthesizeKey("KEY_Delete", {shiftKey: true});
   await deletionPromise;
-  checkACForm("", "");
+  await checkLoginFormInFrame(getIframeBrowsingContext(window, 0), "form-basic-username", "", "form-basic-password", "");
 
-  is(LoginManager.countLogins("http://example.org", "http://example.org", null), 1,
+  is(await LoginManager.countLogins(originNonSecure, originNonSecure, null), 1,
      "Check that the HTTP login remains");
-  is(LoginManager.countLogins("https://example.org", "https://example.org", null), 0,
+  is(await LoginManager.countLogins(originSecure, originSecure, null), 0,
      "Check that the HTTPS login was deleted");
 
   // Two menu items should remain as the HTTPS login should have been deleted but
   // the HTTP would remain.
-  let results = await notifyMenuChanged(1, "name2");
+  let results = await notifyMenuChanged(2, "name2");
 
-  checkArrayValues(results, ["name2"], "one should remain after deleting the HTTPS name1");
+  checkAutoCompleteResults(results, ["name2"], hostname, "one login should remain after deleting the HTTPS name1");
   let popupState = await getPopupState();
   is(popupState.open, true, "Check popup stays open after deleting");
   synthesizeKey("KEY_Escape");

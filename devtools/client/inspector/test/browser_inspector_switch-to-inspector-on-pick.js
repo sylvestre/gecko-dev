@@ -1,4 +1,3 @@
-/* vim: set ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 "use strict";
@@ -6,9 +5,9 @@
 // Testing that clicking the pick button switches the toolbox to the inspector
 // panel.
 
-const TEST_URI = "data:text/html;charset=UTF-8," +
-  "<p>Switch to inspector on pick</p>";
-const OPTOUT = Ci.nsITelemetry.DATASET_RELEASE_CHANNEL_OPTOUT;
+const TEST_URI =
+  "data:text/html;charset=UTF-8,<script>console.log(`hello`)</script><p>Switch to inspector on pick</p>";
+const ALL_CHANNELS = Ci.nsITelemetry.DATASET_ALL_CHANNELS;
 
 const DATA = [
   {
@@ -21,7 +20,7 @@ const DATA = [
       start_state: "initial_panel",
       panel_name: "webconsole",
       cold: "true",
-      message_count: "0",
+      message_count: "1",
       width: "1300",
     },
   },
@@ -58,7 +57,7 @@ add_task(async function() {
   Services.telemetry.clearEvents();
 
   // Ensure no events have been logged
-  const snapshot = Services.telemetry.snapshotEvents(OPTOUT, true);
+  const snapshot = Services.telemetry.snapshotEvents(ALL_CHANNELS, true);
   ok(!snapshot.parent, "No events have been logged for the main process");
 
   const tab = await addTab(TEST_URI);
@@ -66,8 +65,8 @@ add_task(async function() {
 
   await startPickerAndAssertSwitchToInspector(toolbox);
 
-  info("Stoppping element picker.");
-  await toolbox.highlighterUtils.stopPicker();
+  info("Stopping element picker.");
+  await toolbox.nodePicker.stop();
 
   checkResults();
 });
@@ -89,14 +88,15 @@ async function startPickerAndAssertSwitchToInspector(toolbox) {
 }
 
 function checkResults() {
-  const snapshot = Services.telemetry.snapshotEvents(OPTOUT, true);
-  const events = snapshot.parent.filter(event => event[1] === "devtools.main" &&
-                                                 event[2] === "enter" ||
-                                                 event[2] === "exit"
+  const snapshot = Services.telemetry.snapshotEvents(ALL_CHANNELS, true);
+  const events = snapshot.parent.filter(
+    event =>
+      (event[1] === "devtools.main" && event[2] === "enter") ||
+      event[2] === "exit"
   );
 
   for (const i in DATA) {
-    const [ timestamp, category, method, object, value, extra ] = events[i];
+    const [timestamp, category, method, object, value, extra] = events[i];
     const expected = DATA[i];
 
     // ignore timestamp

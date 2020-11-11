@@ -17,7 +17,7 @@
 #include "nsXULAppAPI.h"
 
 #ifdef MOZ_WIDGET_ANDROID
-#include "jni.h"
+#  include "jni.h"
 
 extern "C" NS_EXPORT void GeckoStart(JNIEnv* aEnv, char** argv, int argc,
                                      const mozilla::StaticXREAppData& aAppData);
@@ -114,6 +114,9 @@ class Bootstrap {
 
   virtual void XRE_SetAndroidChildFds(JNIEnv* aEnv,
                                       const XRE_AndroidChildFds& fds) = 0;
+#  ifdef MOZ_PROFILE_GENERATE
+  virtual void XRE_WriteLLVMProfData() = 0;
+#  endif
 #endif
 
 #ifdef LIBFUZZER
@@ -123,6 +126,15 @@ class Bootstrap {
 #ifdef MOZ_IPDL_TESTS
   virtual int XRE_RunIPDLTest(int argc, char** argv) = 0;
 #endif
+
+#ifdef MOZ_ENABLE_FORKSERVER
+  virtual int XRE_ForkServer(int* argc, char*** argv) = 0;
+#endif
+};
+
+enum class LibLoadingStrategy {
+  NoReadAhead,
+  ReadAhead,
 };
 
 /**
@@ -134,7 +146,9 @@ class Bootstrap {
  */
 #ifdef XPCOM_GLUE
 typedef void (*GetBootstrapType)(Bootstrap::UniquePtr&);
-Bootstrap::UniquePtr GetBootstrap(const char* aXPCOMFile = nullptr);
+Bootstrap::UniquePtr GetBootstrap(
+    const char* aXPCOMFile = nullptr,
+    LibLoadingStrategy aLibLoadingStrategy = LibLoadingStrategy::NoReadAhead);
 #else
 extern "C" NS_EXPORT void NS_FROZENCALL
 XRE_GetBootstrap(Bootstrap::UniquePtr& b);

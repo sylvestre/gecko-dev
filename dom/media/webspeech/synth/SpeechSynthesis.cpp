@@ -14,7 +14,7 @@
 #include "SpeechSynthesis.h"
 #include "nsContentUtils.h"
 #include "nsSynthVoiceRegistry.h"
-#include "nsIDocument.h"
+#include "mozilla/dom/Document.h"
 #include "nsIDocShell.h"
 
 #undef LOG
@@ -25,8 +25,7 @@ mozilla::LogModule* GetSpeechSynthLog() {
 }
 #define LOG(type, msg) MOZ_LOG(GetSpeechSynthLog(), type, msg)
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_IMPL_CYCLE_COLLECTION_CLASS(SpeechSynthesis)
 
@@ -35,6 +34,7 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(SpeechSynthesis,
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mCurrentTask)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mSpeechQueue)
   tmp->mVoiceCache.Clear();
+  NS_IMPL_CYCLE_COLLECTION_UNLINK_WEAK_REFERENCE
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(SpeechSynthesis,
@@ -68,7 +68,7 @@ SpeechSynthesis::SpeechSynthesis(nsPIDOMWindowInner* aParent)
   }
 }
 
-SpeechSynthesis::~SpeechSynthesis() {}
+SpeechSynthesis::~SpeechSynthesis() = default;
 
 JSObject* SpeechSynthesis::WrapObject(JSContext* aCx,
                                       JS::Handle<JSObject*> aGivenProto) {
@@ -76,27 +76,18 @@ JSObject* SpeechSynthesis::WrapObject(JSContext* aCx,
 }
 
 bool SpeechSynthesis::Pending() const {
-  switch (mSpeechQueue.Length()) {
-    case 0:
-      return false;
-
-    case 1:
-      return mSpeechQueue.ElementAt(0)->GetState() ==
-             SpeechSynthesisUtterance::STATE_PENDING;
-
-    default:
-      return true;
-  }
+  // If we don't have any task, nothing is pending. If we have only one task,
+  // check if that task is currently pending. If we have more than one task,
+  // then the tasks after the first one are definitely pending.
+  return mSpeechQueue.Length() > 1 ||
+         (mSpeechQueue.Length() == 1 &&
+          (!mCurrentTask || mCurrentTask->IsPending()));
 }
 
 bool SpeechSynthesis::Speaking() const {
-  if (!mSpeechQueue.IsEmpty() && mSpeechQueue.ElementAt(0)->GetState() ==
-                                     SpeechSynthesisUtterance::STATE_SPEAKING) {
-    return true;
-  }
-
-  // Returns global speaking state if global queue is enabled. Or false.
-  return nsSynthVoiceRegistry::GetInstance()->IsSpeaking();
+  // Check global speaking state if there is no active speaking task.
+  return (!mSpeechQueue.IsEmpty() && HasSpeakingTask()) ||
+         nsSynthVoiceRegistry::GetInstance()->IsSpeaking();
 }
 
 bool SpeechSynthesis::Paused() const {
@@ -126,13 +117,7 @@ void SpeechSynthesis::Speak(SpeechSynthesisUtterance& aUtterance) {
     return;
   }
 
-  if (aUtterance.mState != SpeechSynthesisUtterance::STATE_NONE) {
-    // XXX: Should probably raise an error
-    return;
-  }
-
   mSpeechQueue.AppendElement(&aUtterance);
-  aUtterance.mState = SpeechSynthesisUtterance::STATE_PENDING;
 
   // If we only have one item in the queue, we aren't pre-paused, and
   // we have voices available, speak it.
@@ -154,7 +139,7 @@ void SpeechSynthesis::AdvanceQueue() {
 
   nsAutoString docLang;
   nsCOMPtr<nsPIDOMWindowInner> window = GetOwner();
-  nsIDocument* doc = window ? window->GetExtantDoc() : nullptr;
+  Document* doc = window ? window->GetExtantDoc() : nullptr;
 
   if (doc) {
     Element* elm = doc->GetHtmlElement();
@@ -173,11 +158,10 @@ void SpeechSynthesis::AdvanceQueue() {
 }
 
 void SpeechSynthesis::Cancel() {
-  if (!mSpeechQueue.IsEmpty() && mSpeechQueue.ElementAt(0)->GetState() ==
-                                     SpeechSynthesisUtterance::STATE_SPEAKING) {
+  if (!mSpeechQueue.IsEmpty() && HasSpeakingTask()) {
     // Remove all queued utterances except for current one, we will remove it
     // in OnEnd
-    mSpeechQueue.RemoveElementsAt(1, mSpeechQueue.Length() - 1);
+    mSpeechQueue.RemoveLastElements(mSpeechQueue.Length() - 1);
   } else {
     mSpeechQueue.Clear();
   }
@@ -192,9 +176,7 @@ void SpeechSynthesis::Pause() {
     return;
   }
 
-  if (mCurrentTask && !mSpeechQueue.IsEmpty() &&
-      mSpeechQueue.ElementAt(0)->GetState() ==
-          SpeechSynthesisUtterance::STATE_SPEAKING) {
+  if (!mSpeechQueue.IsEmpty() && HasSpeakingTask()) {
     mCurrentTask->Pause();
   } else {
     mHoldQueue = true;
@@ -266,7 +248,7 @@ void SpeechSynthesis::GetVoices(
 
   for (uint32_t i = 0; i < aResult.Length(); i++) {
     SpeechSynthesisVoice* voice = aResult[i];
-    mVoiceCache.Put(voice->mUri, voice);
+    mVoiceCache.Put(voice->mUri, RefPtr{voice});
   }
 }
 
@@ -307,7 +289,7 @@ SpeechSynthesis::Observe(nsISupports* aSubject, const char* aTopic,
     nsCOMPtr<nsIDocShell> docShell = window ? window->GetDocShell() : nullptr;
 
     if (!nsContentUtils::ShouldResistFingerprinting(docShell)) {
-      DispatchTrustedEvent(NS_LITERAL_STRING("voiceschanged"));
+      DispatchTrustedEvent(u"voiceschanged"_ns);
       // If we have a pending item, and voices become available, speak it.
       if (!mCurrentTask && !mHoldQueue && HasVoices()) {
         AdvanceQueue();
@@ -318,5 +300,4 @@ SpeechSynthesis::Observe(nsISupports* aSubject, const char* aTopic,
   return NS_OK;
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

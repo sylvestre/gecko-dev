@@ -1,4 +1,3 @@
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -18,29 +17,40 @@ const TEST_URI = `
 
 add_task(async function() {
   await addTab("data:text/html;charset=utf-8," + encodeURIComponent(TEST_URI));
-  const {inspector, view} = await openRuleView();
+  const { inspector, view } = await openRuleView();
   await selectNode("#testid", inspector);
 
   const ruleEditor = getRuleViewRuleEditor(view, 1);
-  const propEditor = ruleEditor.rule.textProps[0].editor;
+  const prop = getTextProperty(view, 1, { "background-color": "#00F" });
+  const propEditor = prop.editor;
 
   await focusEditableField(view, propEditor.nameSpan);
-  await sendKeysAndWaitForFocus(view, ruleEditor.element,
-    ["DELETE", "ESCAPE"]);
+  await sendKeysAndWaitForFocus(view, ruleEditor.element, ["DELETE", "ESCAPE"]);
 
-  is(propEditor.nameSpan.textContent, "background-color",
-    "'background-color' property name is correctly set.");
-  is((await getComputedStyleProperty("#testid", null, "background-color")),
-    "rgb(0, 0, 255)", "#00F background color is set.");
+  is(
+    propEditor.nameSpan.textContent,
+    "background-color",
+    "'background-color' property name is correctly set."
+  );
+  is(
+    await getComputedStyleProperty("#testid", null, "background-color"),
+    "rgb(0, 0, 255)",
+    "#00F background color is set."
+  );
 
   await focusEditableField(view, propEditor.valueSpan);
   const onValueDeleted = view.once("ruleview-changed");
-  await sendKeysAndWaitForFocus(view, ruleEditor.element,
-    ["DELETE", "ESCAPE"]);
+  await sendKeysAndWaitForFocus(view, ruleEditor.element, ["DELETE", "ESCAPE"]);
   await onValueDeleted;
 
-  is(propEditor.valueSpan.textContent, "#00F",
-    "'#00F' property value is correctly set.");
-  is((await getComputedStyleProperty("#testid", null, "background-color")),
-    "rgb(0, 0, 255)", "#00F background color is set.");
+  is(
+    propEditor.valueSpan.textContent,
+    "#00F",
+    "'#00F' property value is correctly set."
+  );
+  is(
+    await getComputedStyleProperty("#testid", null, "background-color"),
+    "rgb(0, 0, 255)",
+    "#00F background color is set."
+  );
 });

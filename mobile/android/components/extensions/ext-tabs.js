@@ -2,14 +2,29 @@
 /* vim: set sts=2 sw=2 et tw=80: */
 "use strict";
 
-ChromeUtils.defineModuleGetter(this, "PromiseUtils",
-                               "resource://gre/modules/PromiseUtils.jsm");
+ChromeUtils.defineModuleGetter(
+  this,
+  "PromiseUtils",
+  "resource://gre/modules/PromiseUtils.jsm"
+);
+
+ChromeUtils.defineModuleGetter(
+  this,
+  "GeckoViewTabBridge",
+  "resource://gre/modules/GeckoViewTab.jsm"
+);
+
+ChromeUtils.defineModuleGetter(
+  this,
+  "mobileWindowTracker",
+  "resource://gre/modules/GeckoViewWebExtension.jsm"
+);
 
 const getBrowserWindow = window => {
-  return window.docShell.rootTreeItem.domWindow;
+  return window.browsingContext.topChromeWindow;
 };
 
-let tabListener = {
+const tabListener = {
   tabReadyInitialized: false,
   tabReadyPromises: new WeakMap(),
   initializingTabs: new WeakSet(),
@@ -24,17 +39,21 @@ let tabListener = {
 
   onLocationChange(browser, webProgress, request, locationURI, flags) {
     if (webProgress.isTopLevel) {
-      let {BrowserApp} = browser.ownerGlobal;
-      let nativeTab = BrowserApp.getTabForBrowser(browser);
+      const { tab } = browser.ownerGlobal;
+
+      // Ignore initial about:blank
+      if (!request && this.initializingTabs.has(tab)) {
+        return;
+      }
 
       // Now we are certain that the first page in the tab was loaded.
-      this.initializingTabs.delete(nativeTab);
+      this.initializingTabs.delete(tab);
 
       // browser.innerWindowID is now set, resolve the promises if any.
-      let deferred = this.tabReadyPromises.get(nativeTab);
+      const deferred = this.tabReadyPromises.get(tab);
       if (deferred) {
-        deferred.resolve(nativeTab);
-        this.tabReadyPromises.delete(nativeTab);
+        deferred.resolve(tab);
+        this.tabReadyPromises.delete(tab);
       }
     }
   },
@@ -52,9 +71,11 @@ let tabListener = {
     let deferred = this.tabReadyPromises.get(nativeTab);
     if (!deferred) {
       deferred = PromiseUtils.defer();
-      if (!this.initializingTabs.has(nativeTab) &&
-          (nativeTab.browser.innerWindowID ||
-           nativeTab.browser.currentURI.spec === "about:blank")) {
+      if (
+        !this.initializingTabs.has(nativeTab) &&
+        (nativeTab.browser.innerWindowID ||
+          nativeTab.browser.currentURI.spec === "about:blank")
+      ) {
         deferred.resolve(nativeTab);
       } else {
         this.initTabReady();
@@ -67,9 +88,9 @@ let tabListener = {
 
 this.tabs = class extends ExtensionAPI {
   getAPI(context) {
-    let {extension} = context;
+    const { extension } = context;
 
-    let {tabManager} = extension;
+    const { tabManager } = extension;
 
     function getTabOrActive(tabId) {
       if (tabId !== null) {
@@ -86,8 +107,9 @@ this.tabs = class extends ExtensionAPI {
         tab = tabManager.getWrapper(tabTracker.activeTab);
       }
       if (!tab) {
-        throw new ExtensionError(tabId == null ?
-          "Cannot access activeTab" : `Invalid tab ID: ${tabId}`);
+        throw new ExtensionError(
+          tabId == null ? "Cannot access activeTab" : `Invalid tab ID: ${tabId}`
+        );
       }
 
       await tabListener.awaitTabReady(tab.nativeTab);
@@ -95,23 +117,36 @@ this.tabs = class extends ExtensionAPI {
       return tab;
     }
 
-    let self = {
+    const self = {
       tabs: {
-        onActivated: makeGlobalEvent(context, "tabs.onActivated", "Tab:Selected", (fire, data) => {
-          let tab = tabManager.get(data.id);
+        onActivated: new EventManager({
+          context,
+          name: "tabs.onActivated",
+          register: fire => {
+            const listener = (eventName, event) => {
+              const { windowId, tabId, isPrivate } = event;
+              if (isPrivate && !context.privateBrowsingAllowed) {
+                return;
+              }
+              fire.async({
+                windowId,
+                tabId,
+                // In GeckoView each window has only one tab, so previousTabId is omitted.
+              });
+            };
 
-          fire.async({
-            tabId: tab.id,
-            previousTabId: data.previousTabId,
-            windowId: tab.windowId,
-          });
-        }),
+            mobileWindowTracker.on("tab-activated", listener);
+            return () => {
+              mobileWindowTracker.off("tab-activated", listener);
+            };
+          },
+        }).api(),
 
         onCreated: new EventManager({
           context,
           name: "tabs.onCreated",
           register: fire => {
-            let listener = (eventName, event) => {
+            const listener = (eventName, event) => {
               fire.async(tabManager.convert(event.nativeTab));
             };
 
@@ -127,31 +162,43 @@ this.tabs = class extends ExtensionAPI {
          * essentially acts an alias for self.tabs.onActivated but returns
          * the tabId in an array to match the API.
          * @see  https://developer.mozilla.org/en-US/Add-ons/WebExtensions/API/Tabs/onHighlighted
-        */
-        onHighlighted: makeGlobalEvent(context, "tabs.onHighlighted", "Tab:Selected", (fire, data) => {
-          let tab = tabManager.get(data.id);
+         */
+        onHighlighted: makeGlobalEvent(
+          context,
+          "tabs.onHighlighted",
+          "Tab:Selected",
+          (fire, data) => {
+            const tab = tabManager.get(data.id);
 
-          fire.async({tabIds: [tab.id], windowId: tab.windowId});
-        }),
+            fire.async({ tabIds: [tab.id], windowId: tab.windowId });
+          }
+        ),
 
         onAttached: new EventManager({
           context,
           name: "tabs.onAttached",
-          register: fire => { return () => {}; },
+          register: fire => {
+            return () => {};
+          },
         }).api(),
 
         onDetached: new EventManager({
           context,
           name: "tabs.onDetached",
-          register: fire => { return () => {}; },
+          register: fire => {
+            return () => {};
+          },
         }).api(),
 
         onRemoved: new EventManager({
           context,
           name: "tabs.onRemoved",
           register: fire => {
-            let listener = (eventName, event) => {
-              fire.async(event.tabId, {windowId: event.windowId, isWindowClosing: event.isWindowClosing});
+            const listener = (eventName, event) => {
+              fire.async(event.tabId, {
+                windowId: event.windowId,
+                isWindowClosing: event.isWindowClosing,
+              });
             };
 
             tabTracker.on("tab-removed", listener);
@@ -164,13 +211,17 @@ this.tabs = class extends ExtensionAPI {
         onReplaced: new EventManager({
           context,
           name: "tabs.onReplaced",
-          register: fire => { return () => {}; },
+          register: fire => {
+            return () => {};
+          },
         }).api(),
 
         onMoved: new EventManager({
           context,
           name: "tabs.onMoved",
-          register: fire => { return () => {}; },
+          register: fire => {
+            return () => {};
+          },
         }).api(),
 
         onUpdated: new EventManager({
@@ -180,10 +231,13 @@ this.tabs = class extends ExtensionAPI {
             const restricted = ["url", "favIconUrl", "title"];
 
             function sanitize(extension, changeInfo) {
-              let result = {};
+              const result = {};
               let nonempty = false;
-              for (let prop in changeInfo) {
-                if (extension.hasPermission("tabs") || !restricted.includes(prop)) {
+              for (const prop in changeInfo) {
+                if (
+                  extension.hasPermission("tabs") ||
+                  !restricted.includes(prop)
+                ) {
                   nonempty = true;
                   result[prop] = changeInfo[prop];
                 }
@@ -191,29 +245,29 @@ this.tabs = class extends ExtensionAPI {
               return [nonempty, result];
             }
 
-            let fireForTab = (tab, changed) => {
-              let [needed, changeInfo] = sanitize(extension, changed);
+            const fireForTab = (tab, changed) => {
+              const [needed, changeInfo] = sanitize(extension, changed);
               if (needed) {
                 fire.async(tab.id, changeInfo, tab.convert());
               }
             };
 
-            let listener = event => {
-              let needed = [];
+            const listener = event => {
+              const needed = [];
               let nativeTab;
               switch (event.type) {
                 case "DOMTitleChanged": {
-                  let {BrowserApp} = getBrowserWindow(event.target.ownerGlobal);
+                  const window = getBrowserWindow(event.target.ownerGlobal);
+                  nativeTab = window.tab;
 
-                  nativeTab = BrowserApp.getTabForWindow(event.target.ownerGlobal);
                   needed.push("title");
                   break;
                 }
 
                 case "DOMAudioPlaybackStarted":
                 case "DOMAudioPlaybackStopped": {
-                  let {BrowserApp} = event.target.ownerGlobal;
-                  nativeTab = BrowserApp.getTabForBrowser(event.originalTarget);
+                  const window = event.target.ownerGlobal;
+                  nativeTab = window.tab;
                   needed.push("audible");
                   break;
                 }
@@ -223,25 +277,24 @@ this.tabs = class extends ExtensionAPI {
                 return;
               }
 
-              let tab = tabManager.getWrapper(nativeTab);
-              let changeInfo = {};
-              for (let prop of needed) {
+              const tab = tabManager.getWrapper(nativeTab);
+              const changeInfo = {};
+              for (const prop of needed) {
                 changeInfo[prop] = tab[prop];
               }
 
               fireForTab(tab, changeInfo);
             };
 
-            let statusListener = ({browser, status, url}) => {
-              let {BrowserApp} = browser.ownerGlobal;
-              let nativeTab = BrowserApp.getTabForBrowser(browser);
-              if (nativeTab) {
-                let changed = {status};
+            const statusListener = ({ browser, status, url }) => {
+              const { tab } = browser.ownerGlobal;
+              if (tab) {
+                const changed = { status };
                 if (url) {
                   changed.url = url;
                 }
 
-                fireForTab(tabManager.wrapTab(nativeTab), changed);
+                fireForTab(tabManager.wrapTab(tab), changed);
               }
             };
 
@@ -254,54 +307,66 @@ this.tabs = class extends ExtensionAPI {
           },
         }).api(),
 
-        async create(createProperties) {
-          let principal = context.principal;
-          let window = createProperties.windowId !== null ?
-            windowTracker.getWindow(createProperties.windowId, context) :
-            windowTracker.topWindow;
+        async create({
+          active,
+          cookieStoreId,
+          discarded,
+          index,
+          openInReaderMode,
+          pinned,
+          title,
+          url,
+        } = {}) {
+          if (active === null) {
+            active = true;
+          }
 
-          let {BrowserApp} = window;
-          let url;
+          tabListener.initTabReady();
 
-          if (createProperties.url !== null) {
-            url = context.uri.resolve(createProperties.url);
+          if (url !== null) {
+            url = context.uri.resolve(url);
 
-            if (!context.checkLoadURL(url, {dontReportErrors: true})) {
-              return Promise.reject({message: `Illegal URL: ${url}`});
+            if (!context.checkLoadURL(url, { dontReportErrors: true })) {
+              return Promise.reject({ message: `Illegal URL: ${url}` });
             }
-          } else {
-            // Falling back to system here as about:newtab requires it, however is safe.
-            principal = Services.scriptSecurityManager.getSystemPrincipal();
           }
 
-          let options = {};
+          const nativeTab = await GeckoViewTabBridge.createNewTab({
+            extensionId: context.extension.id,
+            createProperties: {
+              active,
+              cookieStoreId,
+              discarded,
+              index,
+              openInReaderMode,
+              pinned,
+              url,
+            },
+          });
 
-          let active = true;
-          if (createProperties.active !== null) {
-            active = createProperties.active;
-          }
-          options.selected = active;
+          const { browser } = nativeTab;
 
-          if (createProperties.index !== null) {
-            options.tabIndex = createProperties.index;
-          }
+          let flags = Ci.nsIWebNavigation.LOAD_FLAGS_NONE;
 
           // Make sure things like about:blank URIs never inherit,
           // and instead always get a NullPrincipal.
-          if (url && url.startsWith("about:")) {
-            options.disallowInheritPrincipal = true;
+          if (url !== null) {
+            tabListener.initializingTabs.add(nativeTab);
           } else {
-            options.triggeringPrincipal = context.principal;
+            url = "about:blank";
+            flags |= Ci.nsIWebNavigation.LOAD_FLAGS_DISALLOW_INHERIT_PRINCIPAL;
           }
 
-          options.parentId = BrowserApp.selectedTab.id;
+          browser.loadURI(url, {
+            flags,
+            // GeckoView doesn't support about:newtab so we don't need to worry
+            // about using the system principal here.
+            triggeringPrincipal: context.principal,
+          });
 
-          tabListener.initTabReady();
-          options.triggeringPrincipal = principal;
-          let nativeTab = BrowserApp.addTab(url, options);
-
-          if (createProperties.url) {
-            tabListener.initializingTabs.add(nativeTab);
+          if (active) {
+            const newWindow = browser.ownerGlobal;
+            mobileWindowTracker.setTabActive(newWindow, true);
           }
 
           return tabManager.convert(nativeTab);
@@ -312,41 +377,65 @@ this.tabs = class extends ExtensionAPI {
             tabs = [tabs];
           }
 
-          for (let tabId of tabs) {
-            let nativeTab = tabTracker.getTab(tabId);
-            nativeTab.browser.ownerGlobal.BrowserApp.closeTab(nativeTab);
-          }
+          await Promise.all(
+            tabs.map(async tabId => {
+              const windowId = GeckoViewTabBridge.tabIdToWindowId(tabId);
+              const window = windowTracker.getWindow(windowId, context, false);
+              if (!window) {
+                throw new ExtensionError(`Invalid tab ID ${tabId}`);
+              }
+              await GeckoViewTabBridge.closeTab({
+                window,
+                extensionId: context.extension.id,
+              });
+            })
+          );
         },
 
-        async update(tabId, updateProperties) {
-          let nativeTab = getTabOrActive(tabId);
+        async update(
+          tabId,
+          { active, autoDiscardable, highlighted, muted, pinned, url } = {}
+        ) {
+          const nativeTab = getTabOrActive(tabId);
+          const window = nativeTab.browser.ownerGlobal;
 
-          let {BrowserApp} = nativeTab.browser.ownerGlobal;
+          if (url !== null) {
+            url = context.uri.resolve(url);
 
-          if (updateProperties.url !== null) {
-            let url = context.uri.resolve(updateProperties.url);
-
-            if (!context.checkLoadURL(url, {dontReportErrors: true})) {
-              return Promise.reject({message: `Illegal URL: ${url}`});
-            }
-
-            nativeTab.browser.loadURI(url);
-          }
-
-          if (updateProperties.active !== null) {
-            if (updateProperties.active) {
-              BrowserApp.selectTab(nativeTab);
-            } else {
-              // Not sure what to do here? Which tab should we select?
+            if (!context.checkLoadURL(url, { dontReportErrors: true })) {
+              return Promise.reject({ message: `Illegal URL: ${url}` });
             }
           }
-          // FIXME: highlighted/selected, muted, pinned, openerTabId, successorTabId
+
+          await GeckoViewTabBridge.updateTab({
+            window,
+            extensionId: context.extension.id,
+            updateProperties: {
+              active,
+              autoDiscardable,
+              highlighted,
+              muted,
+              pinned,
+              url,
+            },
+          });
+
+          if (url !== null) {
+            nativeTab.browser.loadURI(url, {
+              triggeringPrincipal: context.principal,
+            });
+          }
+
+          // FIXME: openerTabId, successorTabId
+          if (active) {
+            mobileWindowTracker.setTabActive(window, true);
+          }
 
           return tabManager.convert(nativeTab);
         },
 
         async reload(tabId, reloadProperties) {
-          let nativeTab = getTabOrActive(tabId);
+          const nativeTab = getTabOrActive(tabId);
 
           let flags = Ci.nsIWebNavigation.LOAD_FLAGS_NONE;
           if (reloadProperties && reloadProperties.bypassCache) {
@@ -368,50 +457,68 @@ this.tabs = class extends ExtensionAPI {
         async query(queryInfo) {
           if (!extension.hasPermission("tabs")) {
             if (queryInfo.url !== null || queryInfo.title !== null) {
-              return Promise.reject({message: 'The "tabs" permission is required to use the query API with the "url" or "title" parameters'});
+              return Promise.reject({
+                message:
+                  'The "tabs" permission is required to use the query API with the "url" or "title" parameters',
+              });
             }
           }
+          return Array.from(tabManager.query(queryInfo, context), tab =>
+            tab.convert()
+          );
+        },
 
-          queryInfo = Object.assign({}, queryInfo);
+        async captureTab(tabId, options) {
+          const nativeTab = getTabOrActive(tabId);
+          await tabListener.awaitTabReady(nativeTab);
 
-          if (queryInfo.url !== null) {
-            queryInfo.url = new MatchPatternSet([].concat(queryInfo.url));
-          }
-          if (queryInfo.title !== null) {
-            queryInfo.title = new MatchGlob(queryInfo.title);
-          }
+          const { browser } = nativeTab;
+          const window = browser.ownerGlobal;
+          const zoom = window.windowUtils.fullZoom;
 
-          return Array.from(tabManager.query(queryInfo, context),
-                            tab => tab.convert());
+          const tab = tabManager.wrapTab(nativeTab);
+          return tab.capture(context, zoom, options);
         },
 
         async captureVisibleTab(windowId, options) {
-          let window = windowId == null ?
-            windowTracker.topWindow :
-            windowTracker.getWindow(windowId, context);
+          const window =
+            windowId == null
+              ? windowTracker.topWindow
+              : windowTracker.getWindow(windowId, context);
 
-          let tab = tabManager.wrapTab(window.BrowserApp.selectedTab);
+          const tab = tabManager.wrapTab(window.tab);
           await tabListener.awaitTabReady(tab.nativeTab);
+          const zoom = window.windowUtils.fullZoom;
 
-          return tab.capture(context, options);
+          return tab.capture(context, zoom, options);
         },
 
         async executeScript(tabId, details) {
-          let tab = await promiseTabWhenReady(tabId);
+          const tab = await promiseTabWhenReady(tabId);
 
           return tab.executeScript(context, details);
         },
 
         async insertCSS(tabId, details) {
-          let tab = await promiseTabWhenReady(tabId);
+          const tab = await promiseTabWhenReady(tabId);
 
           return tab.insertCSS(context, details);
         },
 
         async removeCSS(tabId, details) {
-          let tab = await promiseTabWhenReady(tabId);
+          const tab = await promiseTabWhenReady(tabId);
 
           return tab.removeCSS(context, details);
+        },
+
+        goForward(tabId) {
+          const { browser } = getTabOrActive(tabId);
+          browser.goForward();
+        },
+
+        goBack(tabId) {
+          const { browser } = getTabOrActive(tabId);
+          browser.goBack();
         },
       },
     };

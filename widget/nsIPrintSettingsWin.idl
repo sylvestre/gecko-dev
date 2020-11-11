@@ -16,21 +16,20 @@
   native nsHdc(HDC);
 
 /**
- * Simplified PrintSettings for Windows interface 
+ * Simplified PrintSettings for Windows interface
  */
-[scriptable, uuid(c63eed41-6ac5-459e-8a64-033eb9ad770a)]
-
+[uuid(c63eed41-6ac5-459e-8a64-033eb9ad770a)]
 interface nsIPrintSettingsWin : nsISupports
 {
   /**
    * Data Members
    *
-   * Each of these data members make a copy 
-   * of the contents. If you get the value, 
+   * Each of these data members make a copy
+   * of the contents. If you get the value,
    * you own the memory.
    *
    * The following three pieces of data are needed
-   * to create a DC for printing. These are typcially 
+   * to create a DC for printing. These are typcially
    * gotten via the PrintDLG call ro can be obtained
    * via the "m_pd" data member of the CPrintDialog
    * in MFC.
@@ -39,18 +38,6 @@ interface nsIPrintSettingsWin : nsISupports
   [noscript] attribute AString driverName;
 
   [noscript] attribute nsDevMode devMode;
-
-  /**
-   * On Windows we use the printable width and height for the printing surface.
-   * We don't want to have to create native print device contexts in the content
-   * process, so we need to store these in the settings.
-   * Storing in Inches is most convenient as they are retrieved from the device
-   * using fields which are in pixels and pixels per inch.
-   * Note these are stored in portrait format to ensure that we can take account
-   * of our own changes to the orientation print setting.
-   */
-  [noscript] attribute double printableWidthInInches;
-  [noscript] attribute double printableHeightInInches;
 
   /**
    * Copy relevant print settings from native Windows device.

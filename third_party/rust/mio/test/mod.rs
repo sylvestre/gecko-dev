@@ -30,6 +30,7 @@ mod test_reregister_without_poll;
 mod test_smoke;
 mod test_tcp;
 mod test_tcp_level;
+mod test_tcp_shutdown;
 mod test_udp_level;
 mod test_udp_socket;
 mod test_write_then_drop;
@@ -43,9 +44,6 @@ mod test_tick;
 
 // The following tests are for deprecated features. Only run these tests on
 // platforms that were supported from before the features were deprecated
-#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
-#[cfg(feature = "with-deprecated")]
-mod test_timer;
 #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
 #[cfg(feature = "with-deprecated")]
 mod test_battery;
@@ -183,7 +181,6 @@ mod ports {
 
 pub fn sleep_ms(ms: u64) {
     use std::thread;
-    use std::time::Duration;
     thread::sleep(Duration::from_millis(ms));
 }
 
@@ -207,11 +204,11 @@ pub fn expect_events(poll: &Poll,
             if let Some(pos) = pos_opt { expected.remove(pos); }
         }
 
-        if expected.len() == 0 {
+        if expected.is_empty() {
             break;
         }
     }
 
-    assert!(expected.len() == 0, "The following expected events were not found: {:?}", expected);
+    assert!(expected.is_empty(), "The following expected events were not found: {:?}", expected);
 }
 

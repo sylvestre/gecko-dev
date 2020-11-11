@@ -101,6 +101,12 @@ class DWriteFontFileStream final : public IDWriteFontFileStream {
   IFACEMETHOD_(ULONG, Release)() {
     uint32_t count = --mRefCnt;
     if (count == 0) {
+      // Avoid locking unless necessary. Verify the refcount hasn't changed
+      // while locked. Delete within the scope of the lock when zero.
+      StaticMutexAutoLock lock(sFontFileStreamsMutex);
+      if (0 != mRefCnt) {
+        return mRefCnt;
+      }
       delete this;
     }
     return count;
@@ -151,7 +157,6 @@ DWriteFontFileStream::DWriteFontFileStream(uint64_t aFontFileKey)
     : mRefCnt(0), mFontFileKey(aFontFileKey) {}
 
 DWriteFontFileStream::~DWriteFontFileStream() {
-  StaticMutexAutoLock lock(sFontFileStreamsMutex);
   sFontFileStreams.erase(mFontFileKey);
 }
 
@@ -195,7 +200,7 @@ DWriteFontFileStream::ReleaseFileFragment(void* fragmentContext) {}
 
 /* static */
 already_AddRefed<NativeFontResourceDWrite> NativeFontResourceDWrite::Create(
-    uint8_t* aFontData, uint32_t aDataLength, bool aNeedsCairo) {
+    uint8_t* aFontData, uint32_t aDataLength) {
   RefPtr<IDWriteFactory> factory = Factory::GetDWriteFactory();
   if (!factory) {
     gfxWarning() << "Failed to get DWrite Factory.";
@@ -234,7 +239,7 @@ already_AddRefed<NativeFontResourceDWrite> NativeFontResourceDWrite::Create(
 
   RefPtr<NativeFontResourceDWrite> fontResource =
       new NativeFontResourceDWrite(factory, fontFile.forget(), ffsRef.forget(),
-                                   faceType, numberOfFaces, aNeedsCairo);
+                                   faceType, numberOfFaces, aDataLength);
   return fontResource.forget();
 }
 
@@ -255,8 +260,7 @@ already_AddRefed<UnscaledFont> NativeFontResourceDWrite::CreateUnscaledFont(
     return nullptr;
   }
 
-  RefPtr<UnscaledFont> unscaledFont = new UnscaledFontDWrite(
-      fontFace, nullptr, DWRITE_FONT_SIMULATIONS_NONE, mNeedsCairo);
+  RefPtr<UnscaledFont> unscaledFont = new UnscaledFontDWrite(fontFace, nullptr);
 
   return unscaledFont.forget();
 }

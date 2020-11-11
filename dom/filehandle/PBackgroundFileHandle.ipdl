@@ -6,8 +6,8 @@ include protocol PBackgroundFileRequest;
 include protocol PBackgroundMutableFile;
 include protocol PChildToParentStream; // FIXME: bug 792908
 include protocol PFileDescriptorSet; // FIXME: bug 792908
-include protocol PIPCBlobInputStream; // FIXME: bug 792908
 include protocol PParentToChildStream; // FIXME: bug 792908
+include protocol PRemoteLazyInputStream; // FIXME: bug 792908
 
 include IPCBlob;
 
@@ -58,10 +58,6 @@ struct FileRequestFlushParams
 {
 };
 
-struct FileRequestGetFileParams
-{
-};
-
 union FileRequestParams
 {
   FileRequestGetMetadataParams;
@@ -69,7 +65,6 @@ union FileRequestParams
   FileRequestWriteParams;
   FileRequestTruncateParams;
   FileRequestFlushParams;
-  FileRequestGetFileParams;
 };
 
 protocol PBackgroundFileHandle

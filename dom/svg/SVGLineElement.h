@@ -4,11 +4,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef mozilla_dom_SVGLineElement_h
-#define mozilla_dom_SVGLineElement_h
+#ifndef DOM_SVG_SVGLINEELEMENT_H_
+#define DOM_SVG_SVGLINEELEMENT_H_
 
+#include "SVGAnimatedLength.h"
 #include "SVGGeometryElement.h"
-#include "nsSVGLength2.h"
 
 nsresult NS_NewSVGLineElement(
     nsIContent** aResult, already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo);
@@ -16,7 +16,7 @@ nsresult NS_NewSVGLineElement(
 namespace mozilla {
 namespace dom {
 
-typedef SVGGeometryElement SVGLineElementBase;
+using SVGLineElementBase = SVGGeometryElement;
 
 class SVGLineElement final : public SVGLineElementBase {
  protected:
@@ -37,7 +37,7 @@ class SVGLineElement final : public SVGLineElementBase {
 
   // SVGGeometryElement methods:
   virtual bool IsMarkable() override { return true; }
-  virtual void GetMarkPoints(nsTArray<nsSVGMark>* aMarks) override;
+  virtual void GetMarkPoints(nsTArray<SVGMark>* aMarks) override;
   virtual void GetAsSimplePath(SimplePath* aSimplePath) override;
   virtual already_AddRefed<Path> BuildPath(PathBuilder* aBuilder) override;
   virtual bool GetGeometryBounds(
@@ -48,20 +48,20 @@ class SVGLineElement final : public SVGLineElementBase {
   virtual nsresult Clone(dom::NodeInfo*, nsINode** aResult) const override;
 
   // WebIDL
-  already_AddRefed<SVGAnimatedLength> X1();
-  already_AddRefed<SVGAnimatedLength> Y1();
-  already_AddRefed<SVGAnimatedLength> X2();
-  already_AddRefed<SVGAnimatedLength> Y2();
+  already_AddRefed<DOMSVGAnimatedLength> X1();
+  already_AddRefed<DOMSVGAnimatedLength> Y1();
+  already_AddRefed<DOMSVGAnimatedLength> X2();
+  already_AddRefed<DOMSVGAnimatedLength> Y2();
 
  protected:
   virtual LengthAttributesInfo GetLengthInfo() override;
 
   enum { ATTR_X1, ATTR_Y1, ATTR_X2, ATTR_Y2 };
-  nsSVGLength2 mLengthAttributes[4];
+  SVGAnimatedLength mLengthAttributes[4];
   static LengthInfo sLengthInfo[4];
 };
 
 }  // namespace dom
 }  // namespace mozilla
 
-#endif  // mozilla_dom_SVGLineElement_h
+#endif  // DOM_SVG_SVGLINEELEMENT_H_

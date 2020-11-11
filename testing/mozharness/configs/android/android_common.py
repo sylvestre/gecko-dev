@@ -1,9 +1,14 @@
 # Shared/common mozharness configuration for Android unit tests.
 #
 # This configuration should be combined with platform-specific mozharness
-# configuration such as androidarm_4_3.py, or similar.
+# configuration such as androidx86_7_0.py, android_hw, or similar.
 
 import os
+
+
+NODEJS_PATH = None
+if "MOZ_FETCHES_DIR" in os.environ:
+    NODEJS_PATH = os.path.join(os.environ["MOZ_FETCHES_DIR"], "node/bin/node")
 
 
 def WebglSuite(name):
@@ -33,32 +38,27 @@ def WebglSuite(name):
 
 config = {
     "default_actions": [
-        'clobber',
-        'setup-avds',
-        'start-emulator',
-        'download-and-extract',
-        'create-virtualenv',
-        'verify-device',
-        'install',
-        'run-tests',
+        "clobber",
+        "setup-avds",
+        "download-and-extract",
+        "create-virtualenv",
+        "start-emulator",
+        "verify-device",
+        "install",
+        "run-tests",
     ],
     "tooltool_cache": os.environ.get("TOOLTOOL_CACHE"),
-    "tooltool_servers": ['http://relengapi/tooltool/'],
     "hostutils_manifest_path": "testing/config/tooltool-manifests/linux64/hostutils.manifest",
-    "avds_dir": "/builds/worker/workspace/build/.android",
     # "log_format": "%(levelname)8s - %(message)s",
     "log_tbpl_level": "info",
     "log_raw_level": "info",
-    "minidump_stackwalk_path": "linux64-minidump_stackwalk",
-    "marionette_address": "localhost:2828",
-    "marionette_test_manifest": "unit-tests.ini",
     # To take device screenshots at timed intervals (each time in seconds, relative
     # to the start of the run-tests step) specify screenshot_times. For example, to
     # take 4 screenshots at one minute intervals you could specify:
     # "screenshot_times": [60, 120, 180, 240],
-
+    "nodejs_path": NODEJS_PATH,
     "suite_definitions": {
-        "mochitest": {
+        "mochitest-plain": {
             "run_filename": "runtestsremote.py",
             "testsdir": "mochitest",
             "options": [
@@ -86,30 +86,7 @@ config = {
         "mochitest-webgl1-ext": WebglSuite("webgl1-ext"),
         "mochitest-webgl2-ext": WebglSuite("webgl2-ext"),
         "mochitest-webgl2-deqp": WebglSuite("webgl2-deqp"),
-        "mochitest-chrome": {
-            "run_filename": "runtestsremote.py",
-            "testsdir": "mochitest",
-            "options": [
-                "--app=%(app)s",
-                "--remote-webserver=%(remote_webserver)s",
-                "--xre-path=%(xre_path)s",
-                "--utility-path=%(utility_path)s",
-                "--http-port=%(http_port)s",
-                "--ssl-port=%(ssl_port)s",
-                "--certificate-path=%(certs_path)s",
-                "--symbols-path=%(symbols_path)s",
-                "--quiet",
-                "--log-raw=%(raw_log_file)s",
-                "--log-raw-level=%(log_raw_level)s",
-                "--log-errorsummary=%(error_summary_file)s",
-                "--log-tbpl-level=%(log_tbpl_level)s",
-                "--extra-profile-file=fonts",
-                "--extra-profile-file=hyphenation",
-                "--screenshot-on-fail",
-                "--flavor=chrome",
-                "--deviceSerial=%(device_serial)s",
-            ],
-        },
+        "mochitest-webgpu": WebglSuite("webgpu"),
         "mochitest-plain-gpu": {
             "run_filename": "runtestsremote.py",
             "testsdir": "mochitest",
@@ -129,28 +106,6 @@ config = {
                 "--log-tbpl-level=%(log_tbpl_level)s",
                 "--screenshot-on-fail",
                 "--subsuite=gpu",
-                "--deviceSerial=%(device_serial)s",
-            ],
-        },
-        "mochitest-plain-clipboard": {
-            "run_filename": "runtestsremote.py",
-            "testsdir": "mochitest",
-            "options": [
-                "--app=%(app)s",
-                "--remote-webserver=%(remote_webserver)s",
-                "--xre-path=%(xre_path)s",
-                "--utility-path=%(utility_path)s",
-                "--http-port=%(http_port)s",
-                "--ssl-port=%(ssl_port)s",
-                "--certificate-path=%(certs_path)s",
-                "--symbols-path=%(symbols_path)s",
-                "--quiet",
-                "--log-raw=%(raw_log_file)s",
-                "--log-raw-level=%(log_raw_level)s",
-                "--log-errorsummary=%(error_summary_file)s",
-                "--log-tbpl-level=%(log_tbpl_level)s",
-                "--screenshot-on-fail",
-                "--subsuite=clipboard",
                 "--deviceSerial=%(device_serial)s",
             ],
         },
@@ -177,25 +132,6 @@ config = {
                 "--deviceSerial=%(device_serial)s",
             ],
         },
-        "robocop": {
-            "run_filename": "runrobocop.py",
-            "testsdir": "mochitest",
-            "options": [
-                "--app=%(app)s",
-                "--remote-webserver=%(remote_webserver)s",
-                "--xre-path=%(xre_path)s",
-                "--utility-path=%(utility_path)s",
-                "--certificate-path=%(certs_path)s",
-                "--symbols-path=%(symbols_path)s",
-                "--quiet",
-                "--log-raw=%(raw_log_file)s",
-                "--log-raw-level=%(log_raw_level)s",
-                "--log-errorsummary=%(error_summary_file)s",
-                "--log-tbpl-level=%(log_tbpl_level)s",
-                "--robocop-apk=../../robocop.apk",
-                "--deviceSerial=%(device_serial)s",
-            ],
-        },
         "reftest": {
             "run_filename": "remotereftest.py",
             "testsdir": "reftest",
@@ -207,7 +143,8 @@ config = {
                 "--utility-path=%(utility_path)s",
                 "--http-port=%(http_port)s",
                 "--ssl-port=%(ssl_port)s",
-                "--httpd-path", "%(modules_dir)s",
+                "--httpd-path",
+                "%(modules_dir)s",
                 "--symbols-path=%(symbols_path)s",
                 "--extra-profile-file=fonts",
                 "--extra-profile-file=hyphenation",
@@ -217,8 +154,39 @@ config = {
                 "--log-errorsummary=%(error_summary_file)s",
                 "--log-tbpl-level=%(log_tbpl_level)s",
                 "--deviceSerial=%(device_serial)s",
+                "--topsrcdir=tests",
             ],
-            "tests": ["tests/layout/reftests/reftest.list",],
+            "tests": [
+                "tests/layout/reftests/reftest.list",
+            ],
+        },
+        "reftest-qr": {
+            "run_filename": "remotereftest.py",
+            "testsdir": "reftest",
+            "options": [
+                "--app=%(app)s",
+                "--ignore-window-size",
+                "--remote-webserver=%(remote_webserver)s",
+                "--xre-path=%(xre_path)s",
+                "--utility-path=%(utility_path)s",
+                "--http-port=%(http_port)s",
+                "--ssl-port=%(ssl_port)s",
+                "--httpd-path",
+                "%(modules_dir)s",
+                "--symbols-path=%(symbols_path)s",
+                "--extra-profile-file=fonts",
+                "--extra-profile-file=hyphenation",
+                "--suite=reftest",
+                "--log-raw=%(raw_log_file)s",
+                "--log-raw-level=%(log_raw_level)s",
+                "--log-errorsummary=%(error_summary_file)s",
+                "--log-tbpl-level=%(log_tbpl_level)s",
+                "--deviceSerial=%(device_serial)s",
+                "--topsrcdir=tests",
+            ],
+            "tests": [
+                "tests/layout/reftests/reftest-qr.list",
+            ],
         },
         "crashtest": {
             "run_filename": "remotereftest.py",
@@ -235,10 +203,42 @@ config = {
                 "%(modules_dir)s",
                 "--symbols-path=%(symbols_path)s",
                 "--suite=crashtest",
+                "--log-raw=%(raw_log_file)s",
+                "--log-raw-level=%(log_raw_level)s",
+                "--log-errorsummary=%(error_summary_file)s",
                 "--log-tbpl-level=%(log_tbpl_level)s",
                 "--deviceSerial=%(device_serial)s",
+                "--topsrcdir=tests",
             ],
-            "tests": ["tests/testing/crashtest/crashtests.list",],
+            "tests": [
+                "tests/testing/crashtest/crashtests.list",
+            ],
+        },
+        "crashtest-qr": {
+            "run_filename": "remotereftest.py",
+            "testsdir": "reftest",
+            "options": [
+                "--app=%(app)s",
+                "--ignore-window-size",
+                "--remote-webserver=%(remote_webserver)s",
+                "--xre-path=%(xre_path)s",
+                "--utility-path=%(utility_path)s",
+                "--http-port=%(http_port)s",
+                "--ssl-port=%(ssl_port)s",
+                "--httpd-path",
+                "%(modules_dir)s",
+                "--symbols-path=%(symbols_path)s",
+                "--suite=crashtest",
+                "--log-raw=%(raw_log_file)s",
+                "--log-raw-level=%(log_raw_level)s",
+                "--log-errorsummary=%(error_summary_file)s",
+                "--log-tbpl-level=%(log_tbpl_level)s",
+                "--deviceSerial=%(device_serial)s",
+                "--topsrcdir=tests",
+            ],
+            "tests": [
+                "tests/testing/crashtest/crashtests-qr.list",
+            ],
         },
         "jittest": {
             "run_filename": "jit_test.py",
@@ -262,16 +262,26 @@ config = {
             "options": [
                 "--app=%(app)s",
                 "--ignore-window-size",
-                "--remote-webserver=%(remote_webserver)s", "--xre-path=%(xre_path)s",
-                "--utility-path=%(utility_path)s", "--http-port=%(http_port)s",
-                "--ssl-port=%(ssl_port)s", "--httpd-path", "%(modules_dir)s",
+                "--remote-webserver=%(remote_webserver)s",
+                "--xre-path=%(xre_path)s",
+                "--utility-path=%(utility_path)s",
+                "--http-port=%(http_port)s",
+                "--ssl-port=%(ssl_port)s",
+                "--httpd-path",
+                "%(modules_dir)s",
                 "--symbols-path=%(symbols_path)s",
-                "--extra-profile-file=jsreftest/tests/user.js",
+                "--extra-profile-file=jsreftest/tests/js/src/tests/user.js",
                 "--suite=jstestbrowser",
+                "--log-raw=%(raw_log_file)s",
+                "--log-raw-level=%(log_raw_level)s",
+                "--log-errorsummary=%(error_summary_file)s",
                 "--log-tbpl-level=%(log_tbpl_level)s",
                 "--deviceSerial=%(device_serial)s",
+                "--topsrcdir=../jsreftest/tests",
             ],
-            "tests": ["../jsreftest/tests/jstests.list",],
+            "tests": [
+                "../jsreftest/tests/js/src/tests/jstests.list",
+            ],
         },
         "xpcshell": {
             "run_filename": "remotexpcshelltests.py",
@@ -304,27 +314,9 @@ config = {
                 "--apk=%(installer_path)s",
                 ".",
                 "--deviceSerial=%(device_serial)s",
-            ],
-        },
-        "marionette": {
-            "run_filename": os.path.join("harness", "marionette_harness", "runtests.py"),
-            "testsdir": "marionette",
-            "options": [
-                "--app=fennec",
-                "--package=%(app)s",
-                "--address=%(address)s",
-                "%(test_manifest)s",
-                "--disable-e10s",
-                "--gecko-log=%(gecko_log)s",
-                "-vv",
                 "--log-raw=%(raw_log_file)s",
                 "--log-raw-level=%(log_raw_level)s",
                 "--log-errorsummary=%(error_summary_file)s",
-                "--log-tbpl-level=%(log_tbpl_level)s",
-                "--symbols-path=%(symbols_path)s",
-                "--startup-timeout=300",
-                "--device=%(device_serial)s",
-                "%(marionette_extra)s",
             ],
         },
         "geckoview-junit": {
@@ -336,8 +328,21 @@ config = {
                 "--symbols-path=%(symbols_path)s",
                 "--utility-path=%(utility_path)s",
                 "--deviceSerial=%(device_serial)s",
+                "--log-raw=%(raw_log_file)s",
+                "--log-raw-level=%(log_raw_level)s",
             ],
         },
-
+        "gtest": {
+            "run_filename": "remotegtests.py",
+            "testsdir": "gtest",
+            "install": True,
+            "options": [
+                "--symbols-path=%(symbols_path)s",
+                "--tests-path=%(gtest_dir)s",
+                "--libxul=%(gtest_dir)s/gtest_bin/gtest/libxul.so",
+                "--package=%(app)s",
+                "--deviceSerial=%(device_serial)s",
+            ],
+        },
     },  # end suite_definitions
 }

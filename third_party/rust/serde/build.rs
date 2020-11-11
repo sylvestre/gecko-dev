@@ -14,10 +14,27 @@ fn main() {
     let target = env::var("TARGET").unwrap();
     let emscripten = target == "asmjs-unknown-emscripten" || target == "wasm32-unknown-emscripten";
 
-    // CString::into_boxed_c_str stabilized in Rust 1.20:
+    // std::collections::Bound was stabilized in Rust 1.17
+    // but it was moved to core::ops later in Rust 1.26:
+    // https://doc.rust-lang.org/core/ops/enum.Bound.html
+    if minor >= 26 {
+        println!("cargo:rustc-cfg=ops_bound");
+    } else if minor >= 17 && cfg!(feature = "std") {
+        println!("cargo:rustc-cfg=collections_bound");
+    }
+
+    // core::cmp::Reverse stabilized in Rust 1.19:
+    // https://doc.rust-lang.org/stable/core/cmp/struct.Reverse.html
+    if minor >= 19 {
+        println!("cargo:rustc-cfg=core_reverse");
+    }
+
+    // CString::into_boxed_c_str and PathBuf::into_boxed_path stabilized in Rust 1.20:
     // https://doc.rust-lang.org/std/ffi/struct.CString.html#method.into_boxed_c_str
+    // https://doc.rust-lang.org/std/path/struct.PathBuf.html#method.into_boxed_path
     if minor >= 20 {
         println!("cargo:rustc-cfg=de_boxed_c_str");
+        println!("cargo:rustc-cfg=de_boxed_path");
     }
 
     // From<Box<T>> for Rc<T> / Arc<T> stabilized in Rust 1.21:
@@ -49,9 +66,34 @@ fn main() {
     }
 
     // Non-zero integers stabilized in Rust 1.28:
-    // https://github.com/rust-lang/rust/pull/50808
+    // https://blog.rust-lang.org/2018/08/02/Rust-1.28.html#library-stabilizations
     if minor >= 28 {
         println!("cargo:rustc-cfg=num_nonzero");
+    }
+
+    // TryFrom, Atomic types, and non-zero signed integers stabilized in Rust 1.34:
+    // https://blog.rust-lang.org/2019/04/11/Rust-1.34.0.html#tryfrom-and-tryinto
+    // https://blog.rust-lang.org/2019/04/11/Rust-1.34.0.html#library-stabilizations
+    if minor >= 34 {
+        println!("cargo:rustc-cfg=core_try_from");
+        println!("cargo:rustc-cfg=num_nonzero_signed");
+
+        // Whitelist of archs that support std::sync::atomic module. Ideally we
+        // would use #[cfg(target_has_atomic = "...")] but it is not stable yet.
+        // Instead this is based on rustc's src/librustc_target/spec/*.rs.
+        let has_atomic64 = target.starts_with("x86_64")
+            || target.starts_with("i686")
+            || target.starts_with("aarch64")
+            || target.starts_with("powerpc64")
+            || target.starts_with("sparc64")
+            || target.starts_with("mips64el");
+        let has_atomic32 = has_atomic64 || emscripten;
+        if has_atomic64 {
+            println!("cargo:rustc-cfg=std_atomic64");
+        }
+        if has_atomic32 {
+            println!("cargo:rustc-cfg=std_atomic");
+        }
     }
 }
 
@@ -70,11 +112,6 @@ fn rustc_minor_version() -> Option<u32> {
         Ok(version) => version,
         Err(_) => return None,
     };
-
-    // Temporary workaround to support the old 1.26-dev compiler on docs.rs.
-    if version.contains("0eb87c9bf") {
-        return Some(25);
-    }
 
     let mut pieces = version.split('.');
     if pieces.next() != Some("rustc 1") {

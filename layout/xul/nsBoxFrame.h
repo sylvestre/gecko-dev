@@ -23,15 +23,16 @@ horizontally. It lays them out according to a min max or preferred size.
 class nsBoxLayoutState;
 
 namespace mozilla {
+class PresShell;
 namespace gfx {
 class DrawTarget;
 }  // namespace gfx
 }  // namespace mozilla
 
-nsIFrame* NS_NewBoxFrame(nsIPresShell* aPresShell,
+nsIFrame* NS_NewBoxFrame(mozilla::PresShell* aPresShell,
                          mozilla::ComputedStyle* aStyle, bool aIsRoot,
                          nsBoxLayout* aLayoutManager);
-nsIFrame* NS_NewBoxFrame(nsIPresShell* aPresShell,
+nsIFrame* NS_NewBoxFrame(mozilla::PresShell* aPresShell,
                          mozilla::ComputedStyle* aStyle);
 
 class nsBoxFrame : public nsContainerFrame {
@@ -44,10 +45,10 @@ class nsBoxFrame : public nsContainerFrame {
   NS_DECL_QUERYFRAME
 #endif
 
-  friend nsIFrame* NS_NewBoxFrame(nsIPresShell* aPresShell,
+  friend nsIFrame* NS_NewBoxFrame(mozilla::PresShell* aPresShell,
                                   ComputedStyle* aStyle, bool aIsRoot,
                                   nsBoxLayout* aLayoutManager);
-  friend nsIFrame* NS_NewBoxFrame(nsIPresShell* aPresShell,
+  friend nsIFrame* NS_NewBoxFrame(mozilla::PresShell* aPresShell,
                                   ComputedStyle* aStyle);
 
   // gets the rect inside our border and debug border. If you wish to paint
@@ -59,8 +60,6 @@ class nsBoxFrame : public nsContainerFrame {
   }
   virtual nsBoxLayout* GetXULLayoutManager() override { return mLayoutManager; }
 
-  virtual nsresult XULRelayoutChildAtOrdinal(nsIFrame* aChild) override;
-
   virtual nsSize GetXULPrefSize(nsBoxLayoutState& aBoxLayoutState) override;
   virtual nsSize GetXULMinSize(nsBoxLayoutState& aBoxLayoutState) override;
   virtual nsSize GetXULMaxSize(nsBoxLayoutState& aBoxLayoutState) override;
@@ -70,7 +69,7 @@ class nsBoxFrame : public nsContainerFrame {
   virtual Halignment GetXULHAlign() const override { return mHalign; }
   NS_IMETHOD DoXULLayout(nsBoxLayoutState& aBoxLayoutState) override;
 
-  virtual bool ComputesOwnOverflowArea() override { return false; }
+  virtual bool XULComputesOwnOverflowArea() override { return false; }
 
   // ----- child and sibling operations ---
 
@@ -95,6 +94,7 @@ class nsBoxFrame : public nsContainerFrame {
   virtual void AppendFrames(ChildListID aListID,
                             nsFrameList& aFrameList) override;
   virtual void InsertFrames(ChildListID aListID, nsIFrame* aPrevFrame,
+                            const nsLineList::iterator* aPrevFrameLine,
                             nsFrameList& aFrameList) override;
   virtual void RemoveFrame(ChildListID aListID, nsIFrame* aOldFrame) override;
 
@@ -112,10 +112,10 @@ class nsBoxFrame : public nsContainerFrame {
     // This is bogus, but it's what we've always done.
     // (Given that we're replaced, we need to say we're a replaced element
     // that contains a block so ReflowInput doesn't tell us to be
-    // NS_INTRINSICSIZE wide.)
+    // NS_UNCONSTRAINEDSIZE wide.)
     return nsContainerFrame::IsFrameOfType(
-        aFlags & ~(nsIFrame::eReplaced | nsIFrame::eReplacedContainsBlock |
-                   eXULBox | nsIFrame::eExcludesIgnorableWhitespace));
+        aFlags &
+        ~(nsIFrame::eReplaced | nsIFrame::eReplacedContainsBlock | eXULBox));
   }
 
 #ifdef DEBUG_FRAME_DUMP
@@ -125,7 +125,7 @@ class nsBoxFrame : public nsContainerFrame {
   virtual void DidReflow(nsPresContext* aPresContext,
                          const ReflowInput* aReflowInput) override;
 
-  virtual bool HonorPrintBackgroundSettings() override;
+  virtual bool HonorPrintBackgroundSettings() const override;
 
   // virtual so nsStackFrame, nsButtonBoxFrame, nsSliderFrame and nsMenuFrame
   // can override it
@@ -153,12 +153,12 @@ class nsBoxFrame : public nsContainerFrame {
   void AppendDirectlyOwnedAnonBoxes(nsTArray<OwnedAnonBox>& aResult) override;
 
  private:
-  explicit nsBoxFrame(ComputedStyle* aStyle)
-      : nsBoxFrame(aStyle, kClassID, false, nullptr) {}
+  explicit nsBoxFrame(ComputedStyle* aStyle, nsPresContext* aPresContext)
+      : nsBoxFrame(aStyle, aPresContext, kClassID, false, nullptr) {}
 
  protected:
-  nsBoxFrame(ComputedStyle* aStyle, ClassID aID, bool aIsRoot = false,
-             nsBoxLayout* aLayoutManager = nullptr);
+  nsBoxFrame(ComputedStyle* aStyle, nsPresContext* aPresContext, ClassID aID,
+             bool aIsRoot = false, nsBoxLayout* aLayoutManager = nullptr);
   virtual ~nsBoxFrame();
 
   virtual bool GetInitialEqualSize(bool& aEqualSize);
@@ -190,11 +190,7 @@ class nsBoxFrame : public nsContainerFrame {
  protected:
   void RegUnregAccessKey(bool aDoReg);
 
-  void CheckBoxOrder();
-
  private:
-  virtual void UpdateMouseThrough();
-
   void CacheAttributes();
 
   // instance variables.

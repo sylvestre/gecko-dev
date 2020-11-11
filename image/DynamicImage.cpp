@@ -9,9 +9,9 @@
 #include "mozilla/gfx/2D.h"
 #include "mozilla/gfx/Logging.h"
 #include "mozilla/RefPtr.h"
+#include "mozilla/SVGImageContext.h"
 #include "ImageRegion.h"
 #include "Orientation.h"
-#include "SVGImageContext.h"
 
 #include "mozilla/MemoryReporting.h"
 
@@ -104,19 +104,26 @@ DynamicImage::GetIntrinsicSize(nsSize* aSize) {
   return NS_OK;
 }
 
-NS_IMETHODIMP
-DynamicImage::GetIntrinsicRatio(nsSize* aSize) {
-  IntSize intSize(mDrawable->Size());
-  *aSize = nsSize(intSize.width, intSize.height);
-  return NS_OK;
+Maybe<AspectRatio> DynamicImage::GetIntrinsicRatio() {
+  auto size = mDrawable->Size();
+  return Some(AspectRatio::FromSize(size.width, size.height));
 }
 
 NS_IMETHODIMP_(Orientation)
 DynamicImage::GetOrientation() { return Orientation(); }
 
+NS_IMETHODIMP_(bool)
+DynamicImage::HandledOrientation() { return false; }
+
 NS_IMETHODIMP
 DynamicImage::GetType(uint16_t* aType) {
   *aType = imgIContainer::TYPE_RASTER;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+DynamicImage::GetProducerId(uint32_t* aId) {
+  *aId = 0;
   return NS_OK;
 }
 
@@ -137,7 +144,7 @@ DynamicImage::GetFrameAtSize(const IntSize& aSize, uint32_t aWhichFrame,
                              uint32_t aFlags) {
   RefPtr<DrawTarget> dt =
       gfxPlatform::GetPlatform()->CreateOffscreenContentDrawTarget(
-          aSize, SurfaceFormat::B8G8R8A8);
+          aSize, SurfaceFormat::OS_RGBA);
   if (!dt || !dt->IsValid()) {
     gfxWarning()
         << "DynamicImage::GetFrame failed in CreateOffscreenContentDrawTarget";
@@ -194,8 +201,8 @@ DynamicImage::Draw(gfxContext* aContext, const nsIntSize& aSize,
 
   if (aSize == drawableSize) {
     gfxUtils::DrawPixelSnapped(aContext, mDrawable, SizeDouble(drawableSize),
-                               aRegion, SurfaceFormat::B8G8R8A8,
-                               aSamplingFilter, aOpacity);
+                               aRegion, SurfaceFormat::OS_RGBA, aSamplingFilter,
+                               aOpacity);
     return ImgDrawResult::SUCCESS;
   }
 
@@ -209,18 +216,29 @@ DynamicImage::Draw(gfxContext* aContext, const nsIntSize& aSize,
   aContext->Multiply(gfxMatrix::Scaling(scale.width, scale.height));
 
   gfxUtils::DrawPixelSnapped(aContext, mDrawable, SizeDouble(drawableSize),
-                             region, SurfaceFormat::B8G8R8A8, aSamplingFilter,
+                             region, SurfaceFormat::OS_RGBA, aSamplingFilter,
                              aOpacity);
   return ImgDrawResult::SUCCESS;
 }
 
 NS_IMETHODIMP
-DynamicImage::StartDecoding(uint32_t aFlags) { return NS_OK; }
+DynamicImage::StartDecoding(uint32_t aFlags, uint32_t aWhichFrame) {
+  return NS_OK;
+}
 
-bool DynamicImage::StartDecodingWithResult(uint32_t aFlags) { return true; }
+bool DynamicImage::StartDecodingWithResult(uint32_t aFlags,
+                                           uint32_t aWhichFrame) {
+  return true;
+}
+
+imgIContainer::DecodeResult DynamicImage::RequestDecodeWithResult(
+    uint32_t aFlags, uint32_t aWhichFrame) {
+  return imgIContainer::DECODE_SURFACE_AVAILABLE;
+}
 
 NS_IMETHODIMP
-DynamicImage::RequestDecodeForSize(const nsIntSize& aSize, uint32_t aFlags) {
+DynamicImage::RequestDecodeForSize(const nsIntSize& aSize, uint32_t aFlags,
+                                   uint32_t aWhichFrame) {
   return NS_OK;
 }
 
@@ -275,8 +293,16 @@ already_AddRefed<imgIContainer> DynamicImage::Unwrap() {
   return self.forget();
 }
 
-void DynamicImage::PropagateUseCounters(nsIDocument*) {
+void DynamicImage::PropagateUseCounters(dom::Document*) {
   // No use counters.
+}
+
+nsresult DynamicImage::GetHotspotX(int32_t* aX) {
+  return Image::GetHotspotX(aX);
+}
+
+nsresult DynamicImage::GetHotspotY(int32_t* aY) {
+  return Image::GetHotspotY(aY);
 }
 
 }  // namespace image

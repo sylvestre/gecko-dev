@@ -94,8 +94,7 @@ PRG_get_bytes_internal(void* prg_vp, unsigned char* bytes, size_t len)
   unsigned char* in = NULL;
 
   P_CHECKA(in = calloc(len, sizeof(unsigned char)));
-  memset(in, 0, len);
-
+  
   int outlen;
   P_CHECKC(PK11_CipherOp(prg->ctx, bytes, &outlen, len, in, len));
   P_CHECKCB((size_t)outlen == len);
@@ -117,6 +116,32 @@ SECStatus
 PRG_get_int(PRG prg, mp_int* out, const mp_int* max)
 {
   return rand_int_rng(out, max, &PRG_get_bytes_internal, (void*)prg);
+}
+
+SECStatus
+PRG_get_int_range(PRG prg, mp_int* out, const mp_int* lower, const mp_int* max)
+{
+  SECStatus rv;
+  mp_int width;
+  MP_DIGITS(&width) = NULL;
+  MP_CHECKC(mp_init(&width));
+
+  // Compute
+  //    width = max - lower
+  MP_CHECKC(mp_sub(max, lower, &width));
+
+  // Get an integer x in the range [0, width)
+  P_CHECKC(PRG_get_int(prg, out, &width));
+
+  // Set
+  //    out = lower + x
+  // which is in the range [lower, width+lower),
+  // which is              [lower, max).
+  MP_CHECKC(mp_add(lower, out, out));
+
+cleanup:
+  mp_clear(&width);
+  return rv;
 }
 
 SECStatus

@@ -13,6 +13,7 @@
 #include "nsArrayEnumerator.h"
 #include "nsCOMPtr.h"
 #include "nsString.h"
+#include "nsTArray.h"
 
 class nsPIDOMWindowOuter;
 class nsIWidget;
@@ -29,6 +30,9 @@ class nsBaseFilePicker : public nsIFilePicker {
 
   NS_IMETHOD Open(nsIFilePickerShownCallback* aCallback) override;
   NS_IMETHOD AppendFilters(int32_t filterMask) override;
+  NS_IMETHOD AppendRawFilter(const nsAString& aFilter) override;
+  NS_IMETHOD GetCapture(int16_t* aCapture) override;
+  NS_IMETHOD SetCapture(int16_t aCapture) override;
   NS_IMETHOD GetFilterIndex(int32_t* aFilterIndex) override;
   NS_IMETHOD SetFilterIndex(int32_t aFilterIndex) override;
   NS_IMETHOD GetFiles(nsISimpleEnumerator** aFiles) override;
@@ -58,6 +62,7 @@ class nsBaseFilePicker : public nsIFilePicker {
   nsCOMPtr<nsPIDOMWindowOuter> mParent;
   int16_t mMode;
   nsString mOkButtonLabel;
+  nsTArray<nsString> mRawFilters;
 };
 
 #endif  // nsBaseFilePicker_h__

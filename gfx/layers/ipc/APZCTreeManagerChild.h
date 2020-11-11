@@ -19,6 +19,9 @@ class RemoteCompositorSession;
 
 class APZCTreeManagerChild : public IAPZCTreeManager,
                              public PAPZCTreeManagerChild {
+  friend class PAPZCTreeManagerChild;
+  using TapType = GeckoContentController_TapType;
+
  public:
   APZCTreeManagerChild();
 
@@ -59,26 +62,35 @@ class APZCTreeManagerChild : public IAPZCTreeManager,
 
   APZInputBridge* InputBridge() override;
 
+  void AddInputBlockCallback(uint64_t aInputBlockId,
+                             InputBlockCallback&& aCallback) override;
+
+  void AddIPDLReference();
+  void ReleaseIPDLReference();
+  void ActorDestroy(ActorDestroyReason aWhy) override;
+
  protected:
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY
   mozilla::ipc::IPCResult RecvHandleTap(const TapType& aType,
                                         const LayoutDevicePoint& aPoint,
                                         const Modifiers& aModifiers,
                                         const ScrollableLayerGuid& aGuid,
-                                        const uint64_t& aInputBlockId) override;
+                                        const uint64_t& aInputBlockId);
 
   mozilla::ipc::IPCResult RecvNotifyPinchGesture(
       const PinchGestureType& aType, const ScrollableLayerGuid& aGuid,
-      const LayoutDeviceCoord& aSpanChange,
-      const Modifiers& aModifiers) override;
+      const LayoutDevicePoint& aFocusPoint,
+      const LayoutDeviceCoord& aSpanChange, const Modifiers& aModifiers);
 
   mozilla::ipc::IPCResult RecvCancelAutoscroll(
-      const ScrollableLayerGuid::ViewID& aScrollId) override;
+      const ScrollableLayerGuid::ViewID& aScrollId);
 
   virtual ~APZCTreeManagerChild();
 
  private:
   MOZ_NON_OWNING_REF RemoteCompositorSession* mCompositorSession;
   RefPtr<APZInputBridgeChild> mInputBridge;
+  bool mIPCOpen;
 };
 
 }  // namespace layers

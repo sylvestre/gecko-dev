@@ -13,21 +13,21 @@
 #include <unistd.h>
 #include <string.h>
 #ifndef NTO
-#include <getopt.h>
+#  include <getopt.h>
 #endif
 #include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
 
 #ifdef NTO
-#include <mem.h>
+#  include <mem.h>
 #endif
 
 #ifndef FALSE
-#define FALSE 0
+#  define FALSE 0
 #endif
 #ifndef TRUE
-#define TRUE 1
+#  define TRUE 1
 #endif
 
 static const u_int DefaultBuckets = 10007;  // arbitrary, but prime
@@ -604,7 +604,7 @@ void leaky::generateReportHTML(FILE* fp, int* countArray, int count,
   // does
   fprintf(fp,
           "<h2><A NAME=hier_%d></A><center><a "
-          "href=\"http://dxr.mozilla.org/mozilla-central/source/tools/jprof/"
+          "href=\"http://searchfox.org/mozilla-central/source/tools/jprof/"
           "README.html#hier\">Hierarchical Profile</a></center></h2><hr>\n",
           thread);
   fprintf(fp, "<pre>\n");
@@ -674,7 +674,7 @@ void leaky::generateReportHTML(FILE* fp, int* countArray, int count,
 
   fprintf(fp,
           "<h2><A NAME=flat_%d></A><center><a "
-          "href=\"http://dxr.mozilla.org/mozilla-central/source/tools/jprof/"
+          "href=\"http://searchfox.org/mozilla-central/source/tools/jprof/"
           "README.html#flat\">Flat Profile</a></center></h2><br>\n",
           thread);
   fprintf(fp, "<pre>\n");

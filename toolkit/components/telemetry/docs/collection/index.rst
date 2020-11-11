@@ -16,13 +16,14 @@ The current data collection possibilities include:
 * :doc:`histograms` can efficiently record multiple data points
 * ``environment`` data records information about the system and settings a session occurs in
 * :doc:`events` can record richer data on individual occurrences of specific actions
-* :doc:`measuring elapsed time <measuring-time>`
-* :doc:`custom pings <custom-pings>`
-* :doc:`stack capture <stack-capture>` allow recording application call stacks
+* :doc:`Measuring elapsed time <measuring-time>`
+* :doc:`Custom pings <custom-pings>`
 * :doc:`Use counters <use-counters>` measure the usage of web platform features
 * :doc:`Experiment annotations <experiments>`
 * :doc:`Remote content uptake <uptake>`
-* :doc:`Hybrid Content Telemetry <hybrid-content>` allows recording telemetry from semi-privileged hosted content
+* :doc:`WebExtension API <webextension-api>` can be used in privileged webextensions
+* :doc:`Origin Telemetry <origin>` Experimental prototype. For use by Content Blocking only for now.
+* :doc:`User Interactions <user-interactions>` allow annotating hang report pings with information on what the user was interacting with at the time
 
 .. toctree::
    :maxdepth: 2
@@ -35,10 +36,8 @@ The current data collection possibilities include:
    events
    measuring-time
    custom-pings
-   stack-capture
    experiments
    uptake
-   hybrid-content
    *
 
 Browser Usage Telemetry

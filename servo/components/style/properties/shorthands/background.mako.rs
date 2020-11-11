@@ -6,6 +6,7 @@
 
 // TODO: other background-* properties
 <%helpers:shorthand name="background"
+                    engines="gecko servo-2013 servo-2020"
                     sub_properties="background-color background-position-x background-position-y background-repeat
                                     background-attachment background-image background-size background-origin
                                     background-clip"
@@ -15,7 +16,7 @@
     use crate::properties::longhands::background_clip;
     use crate::properties::longhands::background_clip::single_value::computed_value::T as Clip;
     use crate::properties::longhands::background_origin::single_value::computed_value::T as Origin;
-    use crate::values::specified::{Color, Position, PositionComponent};
+    use crate::values::specified::{AllowQuirks, Color, Position, PositionComponent};
     use crate::parser::Parse;
 
     // FIXME(emilio): Should be the same type!
@@ -40,11 +41,11 @@
         let mut background_color = None;
 
         % for name in "image position_x position_y repeat size attachment origin clip".split():
-            // Vec grows from 0 to 4 by default on first push().  So allocate
-            // with capacity 1, so in the common case of only one item we don't
-            // way overallocate.  Note that we always push at least one item if
-            // parsing succeeds.
-            let mut background_${name} = background_${name}::SpecifiedValue(Vec::with_capacity(1));
+        // Vec grows from 0 to 4 by default on first push().  So allocate with
+        // capacity 1, so in the common case of only one item we don't way
+        // overallocate, then shrink.  Note that we always push at least one
+        // item if parsing succeeds.
+        let mut background_${name} = Vec::with_capacity(1);
         % endfor
         input.parse_comma_separated(|input| {
             // background-color can only be in the last element, so if it
@@ -58,17 +59,19 @@
             % endfor
             loop {
                 if background_color.is_none() {
-                    if let Ok(value) = input.try(|i| Color::parse(context, i)) {
+                    if let Ok(value) = input.try_parse(|i| Color::parse(context, i)) {
                         background_color = Some(value);
                         continue
                     }
                 }
                 if position.is_none() {
-                    if let Ok(value) = input.try(|input| Position::parse(context, input)) {
+                    if let Ok(value) = input.try_parse(|input| {
+                        Position::parse_three_value_quirky(context, input, AllowQuirks::No)
+                    }) {
                         position = Some(value);
 
                         // Parse background size, if applicable.
-                        size = input.try(|input| {
+                        size = input.try_parse(|input| {
                             input.expect_delim('/')?;
                             background_size::single_value::parse(context, input)
                         }).ok();
@@ -78,7 +81,7 @@
                 }
                 % for name in "image repeat attachment origin clip".split():
                     if ${name}.is_none() {
-                        if let Ok(value) = input.try(|input| background_${name}::single_value
+                        if let Ok(value) = input.try_parse(|input| background_${name}::single_value
                                                                                ::parse(context, input)) {
                             ${name} = Some(value);
                             continue
@@ -99,17 +102,17 @@
             any = any || background_color.is_some();
             if any {
                 if let Some(position) = position {
-                    background_position_x.0.push(position.horizontal);
-                    background_position_y.0.push(position.vertical);
+                    background_position_x.push(position.horizontal);
+                    background_position_y.push(position.vertical);
                 } else {
-                    background_position_x.0.push(PositionComponent::zero());
-                    background_position_y.0.push(PositionComponent::zero());
+                    background_position_x.push(PositionComponent::zero());
+                    background_position_y.push(PositionComponent::zero());
                 }
                 % for name in "image repeat size attachment origin clip".split():
                     if let Some(bg_${name}) = ${name} {
-                        background_${name}.0.push(bg_${name});
+                        background_${name}.push(bg_${name});
                     } else {
-                        background_${name}.0.push(background_${name}::single_value
+                        background_${name}.push(background_${name}::single_value
                                                                     ::get_initial_specified_value());
                     }
                 % endfor
@@ -121,14 +124,9 @@
 
         Ok(expanded! {
              background_color: background_color.unwrap_or(Color::transparent()),
-             background_image: background_image,
-             background_position_x: background_position_x,
-             background_position_y: background_position_y,
-             background_repeat: background_repeat,
-             background_attachment: background_attachment,
-             background_size: background_size,
-             background_origin: background_origin,
-             background_clip: background_clip,
+             % for name in "image position_x position_y repeat size attachment origin clip".split():
+             background_${name}: background_${name}::SpecifiedValue(background_${name}.into()),
+             % endfor
          })
     }
 
@@ -196,6 +194,7 @@
 </%helpers:shorthand>
 
 <%helpers:shorthand name="background-position"
+                    engines="gecko servo-2013 servo-2020"
                     flags="SHORTHAND_IN_GETCS"
                     sub_properties="background-position-x background-position-y"
                     spec="https://drafts.csswg.org/css-backgrounds-4/#the-background-position">
@@ -209,16 +208,16 @@
     ) -> Result<Longhands, ParseError<'i>> {
         // Vec grows from 0 to 4 by default on first push().  So allocate with
         // capacity 1, so in the common case of only one item we don't way
-        // overallocate.  Note that we always push at least one item if parsing
-        // succeeds.
-        let mut position_x = background_position_x::SpecifiedValue(Vec::with_capacity(1));
-        let mut position_y = background_position_y::SpecifiedValue(Vec::with_capacity(1));
+        // overallocate, then shrink.  Note that we always push at least one
+        // item if parsing succeeds.
+        let mut position_x = Vec::with_capacity(1);
+        let mut position_y = Vec::with_capacity(1);
         let mut any = false;
 
         input.parse_comma_separated(|input| {
-            let value = Position::parse_quirky(context, input, AllowQuirks::Yes)?;
-            position_x.0.push(value.horizontal);
-            position_y.0.push(value.vertical);
+            let value = Position::parse_three_value_quirky(context, input, AllowQuirks::Yes)?;
+            position_x.push(value.horizontal);
+            position_y.push(value.vertical);
             any = true;
             Ok(())
         })?;
@@ -227,8 +226,8 @@
         }
 
         Ok(expanded! {
-            background_position_x: position_x,
-            background_position_y: position_y,
+            background_position_x: background_position_x::SpecifiedValue(position_x.into()),
+            background_position_y: background_position_y::SpecifiedValue(position_y.into()),
         })
     }
 

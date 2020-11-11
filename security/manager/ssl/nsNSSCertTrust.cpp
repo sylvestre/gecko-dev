@@ -30,14 +30,14 @@ nsNSSCertTrust::nsNSSCertTrust(unsigned int ssl, unsigned int email) {
   addTrust(&mTrust.emailFlags, email);
 }
 
-nsNSSCertTrust::nsNSSCertTrust(CERTCertTrust *t) {
+nsNSSCertTrust::nsNSSCertTrust(CERTCertTrust* t) {
   if (t)
     memcpy(&mTrust, t, sizeof(CERTCertTrust));
   else
     memset(&mTrust, 0, sizeof(CERTCertTrust));
 }
 
-nsNSSCertTrust::~nsNSSCertTrust() {}
+nsNSSCertTrust::~nsNSSCertTrust() = default;
 
 void nsNSSCertTrust::SetSSLTrust(bool peer, bool tPeer, bool ca, bool tCA,
                                  bool tClientCA, bool user, bool warn) {
@@ -114,7 +114,7 @@ bool nsNSSCertTrust::HasTrustedPeer(bool checkSSL, bool checkEmail) {
   return true;
 }
 
-void nsNSSCertTrust::addTrust(unsigned int *t, unsigned int v) { *t |= v; }
+void nsNSSCertTrust::addTrust(unsigned int* t, unsigned int v) { *t |= v; }
 
 bool nsNSSCertTrust::hasTrust(unsigned int t, unsigned int v) {
   return !!(t & v);

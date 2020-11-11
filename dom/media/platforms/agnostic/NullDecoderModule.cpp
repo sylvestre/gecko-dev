@@ -10,7 +10,7 @@ namespace mozilla {
 
 class NullVideoDataCreator : public DummyDataCreator {
  public:
-  NullVideoDataCreator() {}
+  NullVideoDataCreator() = default;
 
   already_AddRefed<MediaData> Create(MediaRawData* aSample) override {
     // Create a dummy VideoData with no image. This gives us something to
@@ -29,8 +29,7 @@ class NullDecoderModule : public PlatformDecoderModule {
       const CreateDecoderParams& aParams) override {
     UniquePtr<DummyDataCreator> creator = MakeUnique<NullVideoDataCreator>();
     RefPtr<MediaDataDecoder> decoder = new DummyMediaDataDecoder(
-        std::move(creator), NS_LITERAL_CSTRING("null media data decoder"),
-        aParams);
+        std::move(creator), "null media data decoder"_ns, aParams);
     return decoder.forget();
   }
 

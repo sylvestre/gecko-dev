@@ -9,25 +9,25 @@
 // anything else that could possibly pull in Windows header files.
 #define CINTERFACE
 
-#include "mozilla/mscom/ActivationContext.h"
 #include "mozilla/mscom/Registration.h"
-#include "mozilla/mscom/Utils.h"
+
+#include <utility>
 
 #include "mozilla/ArrayUtils.h"
 #include "mozilla/Assertions.h"
-#include "mozilla/Move.h"
-#include "mozilla/Pair.h"
 #include "mozilla/RefPtr.h"
 #include "mozilla/StaticPtr.h"
 #include "mozilla/Vector.h"
+#include "mozilla/mscom/ActivationContext.h"
+#include "mozilla/mscom/Utils.h"
 #include "nsWindowsHelpers.h"
 
 #if defined(MOZILLA_INTERNAL_API)
-#include "mozilla/ClearOnShutdown.h"
-#include "mozilla/mscom/EnsureMTA.h"
+#  include "mozilla/ClearOnShutdown.h"
+#  include "mozilla/mscom/EnsureMTA.h"
 HRESULT RegisterPassthruProxy();
 #else
-#include <stdlib.h>
+#  include <stdlib.h>
 #endif  // defined(MOZILLA_INTERNAL_API)
 
 #include <oaidl.h>
@@ -107,10 +107,36 @@ static bool RegisterPSClsids(const ProxyFileInfo** aProxyInfo,
   return true;
 }
 
+#if !defined(MOZILLA_INTERNAL_API)
+using GetProxyDllInfoFnT = decltype(&GetProxyDllInfo);
+
+static GetProxyDllInfoFnT ResolveGetProxyDllInfo() {
+  HMODULE thisModule = reinterpret_cast<HMODULE>(GetContainingModuleHandle());
+  if (!thisModule) {
+    return nullptr;
+  }
+
+  return reinterpret_cast<GetProxyDllInfoFnT>(
+      GetProcAddress(thisModule, "GetProxyDllInfo"));
+}
+#endif  // !defined(MOZILLA_INTERNAL_API)
+
 UniquePtr<RegisteredProxy> RegisterProxy() {
+#if !defined(MOZILLA_INTERNAL_API)
+  GetProxyDllInfoFnT GetProxyDllInfoFn = ResolveGetProxyDllInfo();
+  MOZ_ASSERT(!!GetProxyDllInfoFn);
+  if (!GetProxyDllInfoFn) {
+    return nullptr;
+  }
+#endif  // !defined(MOZILLA_INTERNAL_API)
+
   const ProxyFileInfo** proxyInfo = nullptr;
   const CLSID* proxyClsid = nullptr;
+#if defined(MOZILLA_INTERNAL_API)
   GetProxyDllInfo(&proxyInfo, &proxyClsid);
+#else
+  GetProxyDllInfoFn(&proxyInfo, &proxyClsid);
+#endif  // defined(MOZILLA_INTERNAL_API)
   if (!proxyInfo || !proxyClsid) {
     return nullptr;
   }
@@ -302,17 +328,19 @@ RegisteredProxy::RegisteredProxy(ITypeLib* aTypeLib)
   AddToRegistry(this);
 }
 
-RegisteredProxy::~RegisteredProxy() {
-  DeleteFromRegistry(this);
+void RegisteredProxy::Clear() {
   if (mTypeLib) {
     mTypeLib->lpVtbl->Release(mTypeLib);
+    mTypeLib = nullptr;
   }
   if (mClassObject) {
     // NB: mClassObject and mRegCookie must be freed from inside the apartment
     // which they were created in.
     auto cleanupFn = [&]() -> void {
       ::CoRevokeClassObject(mRegCookie);
+      mRegCookie = 0;
       mClassObject->lpVtbl->Release(mClassObject);
+      mClassObject = nullptr;
     };
 #if defined(MOZILLA_INTERNAL_API)
     // This code only supports MTA when built internally
@@ -327,14 +355,32 @@ RegisteredProxy::~RegisteredProxy() {
   }
   if (mModule) {
     ::FreeLibrary(reinterpret_cast<HMODULE>(mModule));
+    mModule = 0;
   }
 }
 
-RegisteredProxy::RegisteredProxy(RegisteredProxy&& aOther) {
+RegisteredProxy::~RegisteredProxy() {
+  DeleteFromRegistry(this);
+  Clear();
+}
+
+RegisteredProxy::RegisteredProxy(RegisteredProxy&& aOther)
+    : mModule(0),
+      mClassObject(nullptr),
+      mRegCookie(0),
+      mTypeLib(nullptr)
+#if defined(MOZILLA_INTERNAL_API)
+      ,
+      mIsRegisteredInMTA(false)
+#endif  // defined(MOZILLA_INTERNAL_API)
+{
   *this = std::forward<RegisteredProxy>(aOther);
+  AddToRegistry(this);
 }
 
 RegisteredProxy& RegisteredProxy::operator=(RegisteredProxy&& aOther) {
+  Clear();
+
   mModule = aOther.mModule;
   aOther.mModule = 0;
   mClassObject = aOther.mClassObject;
@@ -343,6 +389,11 @@ RegisteredProxy& RegisteredProxy::operator=(RegisteredProxy&& aOther) {
   aOther.mRegCookie = 0;
   mTypeLib = aOther.mTypeLib;
   aOther.mTypeLib = nullptr;
+
+#if defined(MOZILLA_INTERNAL_API)
+  mIsRegisteredInMTA = aOther.mIsRegisteredInMTA;
+#endif  // defined(MOZILLA_INTERNAL_API)
+
   return *this;
 }
 
@@ -383,7 +434,8 @@ static CRITICAL_SECTION* GetMutex() {
   return &mutex;
 }
 
-/* static */ bool RegisteredProxy::Find(REFIID aIid, ITypeInfo** aTypeInfo) {
+/* static */
+bool RegisteredProxy::Find(REFIID aIid, ITypeInfo** aTypeInfo) {
   AutoCriticalSection lock(GetMutex());
 
   if (!sRegistry) {
@@ -399,7 +451,8 @@ static CRITICAL_SECTION* GetMutex() {
   return false;
 }
 
-/* static */ void RegisteredProxy::AddToRegistry(RegisteredProxy* aProxy) {
+/* static */
+void RegisteredProxy::AddToRegistry(RegisteredProxy* aProxy) {
   MOZ_ASSERT(aProxy);
 
   AutoCriticalSection lock(GetMutex());
@@ -415,10 +468,11 @@ static CRITICAL_SECTION* GetMutex() {
 #endif
   }
 
-  sRegistry->emplaceBack(aProxy);
+  MOZ_ALWAYS_TRUE(sRegistry->emplaceBack(aProxy));
 }
 
-/* static */ void RegisteredProxy::DeleteFromRegistry(RegisteredProxy* aProxy) {
+/* static */
+void RegisteredProxy::DeleteFromRegistry(RegisteredProxy* aProxy) {
   MOZ_ASSERT(aProxy);
 
   AutoCriticalSection lock(GetMutex());
@@ -439,17 +493,17 @@ static CRITICAL_SECTION* GetMutex() {
 
 #if defined(MOZILLA_INTERNAL_API)
 
-static StaticAutoPtr<Vector<Pair<const ArrayData*, size_t>>> sArrayData;
+static StaticAutoPtr<Vector<std::pair<const ArrayData*, size_t>>> sArrayData;
 
 void RegisterArrayData(const ArrayData* aArrayData, size_t aLength) {
   AutoCriticalSection lock(GetMutex());
 
   if (!sArrayData) {
-    sArrayData = new Vector<Pair<const ArrayData*, size_t>>();
+    sArrayData = new Vector<std::pair<const ArrayData*, size_t>>();
     ClearOnShutdown(&sArrayData, ShutdownPhase::ShutdownThreads);
   }
 
-  sArrayData->emplaceBack(MakePair(aArrayData, aLength));
+  MOZ_ALWAYS_TRUE(sArrayData->emplaceBack(std::make_pair(aArrayData, aLength)));
 }
 
 const ArrayData* FindArrayData(REFIID aIid, ULONG aMethodIndex) {
@@ -460,9 +514,9 @@ const ArrayData* FindArrayData(REFIID aIid, ULONG aMethodIndex) {
   }
 
   for (auto&& data : *sArrayData) {
-    for (size_t innerIdx = 0, innerLen = data.second(); innerIdx < innerLen;
+    for (size_t innerIdx = 0, innerLen = data.second; innerIdx < innerLen;
          ++innerIdx) {
-      const ArrayData* array = data.first();
+      const ArrayData* array = data.first;
       if (aMethodIndex == array[innerIdx].mMethodIndex &&
           IsInterfaceEqualToOrInheritedFrom(aIid, array[innerIdx].mIid,
                                             aMethodIndex)) {

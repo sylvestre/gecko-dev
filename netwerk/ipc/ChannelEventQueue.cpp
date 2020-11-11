@@ -10,7 +10,7 @@
 #include "mozilla/Assertions.h"
 #include "mozilla/Unused.h"
 #include "nsIChannel.h"
-#include "nsIDocument.h"
+#include "mozilla/dom/Document.h"
 #include "nsThreadUtils.h"
 
 namespace mozilla {
@@ -75,7 +75,7 @@ void ChannelEventQueue::FlushQueue() {
       // Next event needs to run on another thread. Put it back to
       // the front of the queue can try resume on that thread.
       Suspend();
-      PrependEvent(event);
+      PrependEvent(std::move(event));
 
       needResumeOnOtherThread = true;
       {
@@ -168,8 +168,7 @@ void ChannelEventQueue::ResumeInternal() {
   }
 }
 
-bool
-ChannelEventQueue::MaybeSuspendIfEventsAreSuppressed() {
+bool ChannelEventQueue::MaybeSuspendIfEventsAreSuppressed() {
   // We only ever need to suppress events on the main thread, since this is
   // where content scripts can run.
   if (!NS_IsMainThread()) {
@@ -187,16 +186,12 @@ ChannelEventQueue::MaybeSuspendIfEventsAreSuppressed() {
     return false;
   }
 
-  nsCOMPtr<nsILoadInfo> loadInfo = channel->GetLoadInfo();
-  if (!loadInfo) {
-    return false;
-  }
-
+  nsCOMPtr<nsILoadInfo> loadInfo = channel->LoadInfo();
   // Figure out if this is for an XHR, if we haven't done so already.
   if (!mHasCheckedForXMLHttpRequest) {
     nsContentPolicyType contentType = loadInfo->InternalContentPolicyType();
     mForXMLHttpRequest =
-      (contentType == nsIContentPolicy::TYPE_INTERNAL_XMLHTTPREQUEST);
+        (contentType == nsIContentPolicy::TYPE_INTERNAL_XMLHTTPREQUEST);
     mHasCheckedForXMLHttpRequest = true;
 
     if (!mForXMLHttpRequest) {
@@ -207,10 +202,9 @@ ChannelEventQueue::MaybeSuspendIfEventsAreSuppressed() {
   // Suspend the queue if the associated document has suppressed event handling,
   // *and* it is not in the middle of a synchronous operation that might require
   // XHR events to be processed (such as a synchronous XHR).
-  nsCOMPtr<nsIDocument> document;
+  RefPtr<dom::Document> document;
   loadInfo->GetLoadingDocument(getter_AddRefs(document));
-  if (document &&
-      document->EventHandlingSuppressed() &&
+  if (document && document->EventHandlingSuppressed() &&
       !document->IsInSyncOperation()) {
     document->AddSuspendedChannelEventQueue(this);
     SuspendInternal();

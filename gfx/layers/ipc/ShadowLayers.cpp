@@ -4,43 +4,44 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "ClientLayerManager.h"  // for ClientLayerManager
 #include "ShadowLayers.h"
-#include <set>                  // for _Rb_tree_const_iterator, etc
-#include <vector>               // for vector
-#include "GeckoProfiler.h"      // for AUTO_PROFILER_LABEL
-#include "ISurfaceAllocator.h"  // for IsSurfaceDescriptorValid
-#include "Layers.h"             // for Layer
-#include "RenderTrace.h"        // for RenderTraceScope
-#include "gfx2DGlue.h"          // for Moz2D transition helpers
-#include "gfxPlatform.h"        // for gfxImageFormat, gfxPlatform
-#include "gfxPrefs.h"
-//#include "gfxSharedImageSurface.h"      // for gfxSharedImageSurface
-#include "ipc/IPCMessageUtils.h"  // for gfxContentType, null_t
+
+#include <set>     // for _Rb_tree_const_iterator, etc
+#include <vector>  // for vector
+
+#include "ClientLayerManager.h"  // for ClientLayerManager
+#include "GeckoProfiler.h"       // for AUTO_PROFILER_LABEL
 #include "IPDLActor.h"
-#include "mozilla/Assertions.h"  // for MOZ_ASSERT, etc
-#include "mozilla/dom/TabGroup.h"
-#include "mozilla/gfx/Point.h"                  // for IntSize
+#include "ISurfaceAllocator.h"    // for IsSurfaceDescriptorValid
+#include "Layers.h"               // for Layer
+#include "RenderTrace.h"          // for RenderTraceScope
+#include "gfx2DGlue.h"            // for Moz2D transition helpers
+#include "gfxPlatform.h"          // for gfxImageFormat, gfxPlatform
+#include "ipc/IPCMessageUtils.h"  // for gfxContentType, null_t
+#include "mozilla/Assertions.h"   // for MOZ_ASSERT, etc
+#include "mozilla/gfx/Point.h"    // for IntSize
 #include "mozilla/layers/CompositableClient.h"  // for CompositableClient, etc
 #include "mozilla/layers/CompositorBridgeChild.h"
 #include "mozilla/layers/ContentClient.h"
-#include "mozilla/layers/ImageDataSerializer.h"
 #include "mozilla/layers/ImageBridgeChild.h"
+#include "mozilla/layers/ImageDataSerializer.h"
+#include "mozilla/layers/LayerTransactionChild.h"
 #include "mozilla/layers/LayersMessages.h"  // for Edit, etc
 #include "mozilla/layers/LayersSurfaces.h"  // for SurfaceDescriptor, etc
 #include "mozilla/layers/LayersTypes.h"     // for MOZ_LAYERS_LOG
-#include "mozilla/layers/LayerTransactionChild.h"
 #include "mozilla/layers/PTextureChild.h"
 #include "mozilla/layers/SyncObject.h"
 #ifdef XP_DARWIN
-#include "mozilla/layers/TextureSync.h"
+#  include "mozilla/layers/TextureSync.h"
 #endif
 #include "ShadowLayerUtils.h"
+#include "mozilla/ReentrantMonitor.h"
+#include "mozilla/StaticPrefs_layers.h"
 #include "mozilla/layers/TextureClient.h"  // for TextureClient
 #include "mozilla/mozalloc.h"              // for operator new, etc
+#include "nsIXULRuntime.h"                 // for BrowserTabsRemoteAutostart
 #include "nsTArray.h"                      // for AutoTArray, nsTArray, etc
 #include "nsXULAppAPI.h"                   // for XRE_GetProcessType, etc
-#include "mozilla/ReentrantMonitor.h"
 
 namespace mozilla {
 namespace ipc {
@@ -136,7 +137,7 @@ class Transaction {
   Transaction(const Transaction&);
   Transaction& operator=(const Transaction&);
 };
-struct AutoTxnEnd {
+struct AutoTxnEnd final {
   explicit AutoTxnEnd(Transaction* aTxn) : mTxn(aTxn) {}
   ~AutoTxnEnd() { mTxn->End(); }
   Transaction* mTxn;
@@ -146,13 +147,15 @@ void KnowsCompositor::IdentifyTextureHost(
     const TextureFactoryIdentifier& aIdentifier) {
   mTextureFactoryIdentifier = aIdentifier;
 
-  mSyncObject =
-      SyncObjectClient::CreateSyncObjectClient(aIdentifier.mSyncHandle);
+  if (XRE_IsContentProcess() || !mozilla::BrowserTabsRemoteAutostart()) {
+    mSyncObject = SyncObjectClient::CreateSyncObjectClientForContentDevice(
+        aIdentifier.mSyncHandle);
+  }
 }
 
 KnowsCompositor::KnowsCompositor() : mSerial(++sSerialCounter) {}
 
-KnowsCompositor::~KnowsCompositor() {}
+KnowsCompositor::~KnowsCompositor() = default;
 
 KnowsCompositorMediaProxy::KnowsCompositorMediaProxy(
     const TextureFactoryIdentifier& aIdentifier) {
@@ -163,7 +166,7 @@ KnowsCompositorMediaProxy::KnowsCompositorMediaProxy(
   mSyncObject = mThreadSafeAllocator->GetSyncObject();
 }
 
-KnowsCompositorMediaProxy::~KnowsCompositorMediaProxy() {}
+KnowsCompositorMediaProxy::~KnowsCompositorMediaProxy() = default;
 
 TextureForwarder* KnowsCompositorMediaProxy::GetTextureForwarder() {
   return mThreadSafeAllocator->GetTextureForwarder();
@@ -189,15 +192,13 @@ RefPtr<KnowsCompositor> ShadowLayerForwarder::GetForMedia() {
 ShadowLayerForwarder::ShadowLayerForwarder(
     ClientLayerManager* aClientLayerManager)
     : mClientLayerManager(aClientLayerManager),
-      mMessageLoop(MessageLoop::current()),
+      mThread(NS_GetCurrentThread()),
       mDiagnosticTypes(DiagnosticTypes::NO_DIAGNOSTIC),
       mIsFirstPaint(false),
-      mWindowOverlayChanged(false),
       mNextLayerHandle(1) {
   mTxn = new Transaction();
-  if (TabGroup* tabGroup = mClientLayerManager->GetTabGroup()) {
-    mEventTarget = tabGroup->EventTargetFor(TaskCategory::Other);
-  }
+  mEventTarget = GetMainThreadSerialEventTarget();
+
   MOZ_ASSERT(mEventTarget || !XRE_IsContentProcess());
   mActiveResourceTracker = MakeUnique<ActiveResourceTracker>(
       1000, "CompositableForwarder", mEventTarget);
@@ -424,6 +425,14 @@ void ShadowLayerForwarder::UseTextures(
                      t.mPictureRect, t.mFrameID, t.mProducerID, readLocked));
     mClientLayerManager->GetCompositorBridgeChild()
         ->HoldUntilCompositableRefReleasedIfNecessary(t.mTextureClient);
+
+    auto fenceFd = t.mTextureClient->GetInternalData()->GetAcquireFence();
+    if (fenceFd.IsValid()) {
+      mTxn->AddEdit(CompositableOperation(
+          aCompositable->GetIPCHandle(),
+          OpDeliverAcquireFence(nullptr, t.mTextureClient->GetIPDLActor(),
+                                fenceFd)));
+    }
   }
   mTxn->AddEdit(CompositableOperation(aCompositable->GetIPCHandle(),
                                       OpUseTexture(textures)));
@@ -456,6 +465,22 @@ void ShadowLayerForwarder::UseComponentAlphaTextures(
       ->HoldUntilCompositableRefReleasedIfNecessary(aTextureOnBlack);
   mClientLayerManager->GetCompositorBridgeChild()
       ->HoldUntilCompositableRefReleasedIfNecessary(aTextureOnWhite);
+
+  auto fenceFdB = aTextureOnBlack->GetInternalData()->GetAcquireFence();
+  if (fenceFdB.IsValid()) {
+    mTxn->AddEdit(CompositableOperation(
+        aCompositable->GetIPCHandle(),
+        OpDeliverAcquireFence(nullptr, aTextureOnBlack->GetIPDLActor(),
+                              fenceFdB)));
+  }
+
+  auto fenceFdW = aTextureOnWhite->GetInternalData()->GetAcquireFence();
+  if (fenceFdW.IsValid()) {
+    mTxn->AddEdit(CompositableOperation(
+        aCompositable->GetIPCHandle(),
+        OpDeliverAcquireFence(nullptr, aTextureOnWhite->GetIPDLActor(),
+                              fenceFdW)));
+  }
 
   mTxn->AddEdit(CompositableOperation(
       aCompositable->GetIPCHandle(),
@@ -500,9 +525,7 @@ void ShadowLayerForwarder::RemoveTextureFromCompositable(
 }
 
 bool ShadowLayerForwarder::InWorkerThread() {
-  return MessageLoop::current() &&
-         (GetTextureForwarder()->GetMessageLoop()->id() ==
-          MessageLoop::current()->id());
+  return GetTextureForwarder()->GetThread()->IsOnCurrentThread();
 }
 
 void ShadowLayerForwarder::StorePluginWidgetConfigurations(
@@ -529,9 +552,11 @@ bool ShadowLayerForwarder::EndTransaction(
     const nsIntRegion& aRegionToClear, TransactionId aId,
     bool aScheduleComposite, uint32_t aPaintSequenceNumber,
     bool aIsRepeatTransaction, const mozilla::VsyncId& aVsyncId,
+    const mozilla::TimeStamp& aVsyncStart,
     const mozilla::TimeStamp& aRefreshStart,
-    const mozilla::TimeStamp& aTransactionStart, const nsCString& aURL,
-    bool* aSent) {
+    const mozilla::TimeStamp& aTransactionStart, bool aContainsSVG,
+    const nsCString& aURL, bool* aSent,
+    const nsTArray<CompositionPayload>& aPayload) {
   *aSent = false;
 
   TransactionInfo info;
@@ -542,7 +567,7 @@ bool ShadowLayerForwarder::EndTransaction(
   }
 
   Maybe<TimeStamp> startTime;
-  if (gfxPrefs::LayersDrawFPS()) {
+  if (StaticPrefs::layers_acceleration_draw_fps()) {
     startTime = Some(TimeStamp::Now());
   }
 
@@ -560,9 +585,6 @@ bool ShadowLayerForwarder::EndTransaction(
   if (mDiagnosticTypes != diagnostics) {
     mDiagnosticTypes = diagnostics;
     mTxn->AddEdit(OpSetDiagnosticTypes(diagnostics));
-  }
-  if (mWindowOverlayChanged) {
-    mTxn->AddEdit(OpWindowOverlayChanged());
   }
 
   AutoTxnEnd _(mTxn);
@@ -631,9 +653,10 @@ bool ShadowLayerForwarder::EndTransaction(
       common.maskLayer() = LayerHandle();
     }
     common.compositorAnimations().id() = mutant->GetCompositorAnimationsId();
-    common.compositorAnimations().animations() = mutant->GetAnimations();
+    common.compositorAnimations().animations() =
+        mutant->GetAnimations().Clone();
     common.invalidRegion() = mutant->GetInvalidRegion().GetRegion();
-    common.scrollMetadata() = mutant->GetAllScrollMetadata();
+    common.scrollMetadata() = mutant->GetAllScrollMetadata().Clone();
     for (size_t i = 0; i < mutant->GetAncestorMaskLayerCount(); i++) {
       auto layer =
           Shadow(mutant->GetAncestorMaskLayerAt(i)->AsShadowableLayer());
@@ -656,28 +679,29 @@ bool ShadowLayerForwarder::EndTransaction(
     return true;
   }
 
-  mWindowOverlayChanged = false;
-
   info.cset() = std::move(mTxn->mCset);
   info.setSimpleAttrs() = std::move(setSimpleAttrs);
   info.setAttrs() = std::move(setAttrs);
   info.paints() = std::move(mTxn->mPaints);
-  info.toDestroy() = mTxn->mDestroyedActors;
+  info.toDestroy() = mTxn->mDestroyedActors.Clone();
   info.fwdTransactionId() = GetFwdTransactionId();
   info.id() = aId;
-  info.plugins() = mPluginWindowData;
+  info.plugins() = mPluginWindowData.Clone();
   info.isFirstPaint() = mIsFirstPaint;
   info.focusTarget() = mFocusTarget;
   info.scheduleComposite() = aScheduleComposite;
   info.paintSequenceNumber() = aPaintSequenceNumber;
   info.isRepeatTransaction() = aIsRepeatTransaction;
   info.vsyncId() = aVsyncId;
+  info.vsyncStart() = aVsyncStart;
   info.refreshStart() = aRefreshStart;
   info.transactionStart() = aTransactionStart;
   info.url() = aURL;
+  info.containsSVG() = aContainsSVG;
 #if defined(ENABLE_FRAME_LATENCY_LOG)
   info.fwdTime() = TimeStamp::Now();
 #endif
+  info.payload() = aPayload.Clone();
 
   TargetConfig targetConfig(mTxn->mTargetBounds, mTxn->mTargetRotation,
                             mTxn->mTargetOrientation, aRegionToClear);
@@ -709,10 +733,6 @@ bool ShadowLayerForwarder::EndTransaction(
     mPaintTiming.sendMs() =
         (TimeStamp::Now() - startTime.value()).ToMilliseconds();
     mShadowManager->SendRecordPaintTimes(mPaintTiming);
-  }
-
-  if (recordreplay::IsRecordingOrReplaying()) {
-    recordreplay::child::NotifyPaintStart();
   }
 
   *aSent = true;
@@ -788,7 +808,8 @@ LayerHandle ShadowLayerForwarder::ConstructShadowFor(ShadowableLayer* aLayer) {
 
 #if !defined(MOZ_HAVE_PLATFORM_SPECIFIC_LAYER_BUFFERS)
 
-/*static*/ void ShadowLayerForwarder::PlatformSyncBeforeUpdate() {}
+/*static*/
+void ShadowLayerForwarder::PlatformSyncBeforeUpdate() {}
 
 #endif  // !defined(MOZ_HAVE_PLATFORM_SPECIFIC_LAYER_BUFFERS)
 
@@ -958,7 +979,7 @@ bool ShadowLayerForwarder::AllocSurfaceDescriptorWithCaps(
       return false;
     }
 
-    bufferDesc = shmem;
+    bufferDesc = std::move(shmem);
   }
 
   // Use an intermediate buffer by default. Skipping the intermediate buffer is
@@ -971,7 +992,8 @@ bool ShadowLayerForwarder::AllocSurfaceDescriptorWithCaps(
   return true;
 }
 
-/* static */ bool ShadowLayerForwarder::IsShmem(SurfaceDescriptor* aSurface) {
+/* static */
+bool ShadowLayerForwarder::IsShmem(SurfaceDescriptor* aSurface) {
   return aSurface &&
          (aSurface->type() == SurfaceDescriptor::TSurfaceDescriptorBuffer) &&
          (aSurface->get_SurfaceDescriptorBuffer().data().type() ==

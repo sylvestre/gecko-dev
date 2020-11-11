@@ -8,21 +8,24 @@ const Cm = Components.manager;
 
 const CONTRACT_ID = "@mozilla.org/content-permission/prompt;1";
 
-ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 var registrar = Cm.QueryInterface(Ci.nsIComponentRegistrar);
 var oldClassID, oldFactory;
-var newClassID = Cc["@mozilla.org/uuid-generator;1"].getService(Ci.nsIUUIDGenerator).generateUUID();
+var newClassID = Cc["@mozilla.org/uuid-generator;1"]
+  .getService(Ci.nsIUUIDGenerator)
+  .generateUUID();
 var newFactory = {
   createInstance(aOuter, aIID) {
-    if (aOuter)
-      throw Cr.NS_ERROR_NO_AGGREGATION;
+    if (aOuter) {
+      throw Components.Exception("", Cr.NS_ERROR_NO_AGGREGATION);
+    }
     return new MockPermissionPromptInstance().QueryInterface(aIID);
   },
   lockFactory(aLock) {
-    throw Cr.NS_ERROR_NOT_IMPLEMENTED;
+    throw Components.Exception("", Cr.NS_ERROR_NOT_IMPLEMENTED);
   },
-  QueryInterface: ChromeUtils.generateQI([Ci.nsIFactory]),
+  QueryInterface: ChromeUtils.generateQI(["nsIFactory"]),
 };
 
 var MockPermissionPrompt = {
@@ -35,8 +38,10 @@ var MockPermissionPrompt = {
       } catch (ex) {
         oldClassID = "";
         oldFactory = null;
-        dump("TEST-INFO | can't get permission prompt registered component, " +
-            "assuming there is none");
+        dump(
+          "TEST-INFO | can't get permission prompt registered component, " +
+            "assuming there is none"
+        );
       }
       if (oldFactory) {
         registrar.unregisterFactory(oldClassID, oldFactory);
@@ -45,8 +50,7 @@ var MockPermissionPrompt = {
     }
   },
 
-  reset() {
-  },
+  reset() {},
 
   cleanup() {
     this.reset();
@@ -57,19 +61,22 @@ var MockPermissionPrompt = {
   },
 };
 
-function MockPermissionPromptInstance() { }
+function MockPermissionPromptInstance() {}
 MockPermissionPromptInstance.prototype = {
-  QueryInterface: ChromeUtils.generateQI([Ci.nsIContentPermissionPrompt]),
+  QueryInterface: ChromeUtils.generateQI(["nsIContentPermissionPrompt"]),
 
   promptResult: Ci.nsIPermissionManager.UNKNOWN_ACTION,
 
   prompt(request) {
-
     let perms = request.types.QueryInterface(Ci.nsIArray);
     for (let idx = 0; idx < perms.length; idx++) {
       let perm = perms.queryElementAt(idx, Ci.nsIContentPermissionType);
-      if (Services.perms.testExactPermissionFromPrincipal(
-           request.principal, perm.type) != Ci.nsIPermissionManager.ALLOW_ACTION) {
+      if (
+        Services.perms.testExactPermissionFromPrincipal(
+          request.principal,
+          perm.type
+        ) != Ci.nsIPermissionManager.ALLOW_ACTION
+      ) {
         request.cancel();
         return;
       }

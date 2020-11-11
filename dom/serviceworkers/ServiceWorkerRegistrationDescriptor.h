@@ -19,7 +19,6 @@ class PrincipalInfo;
 namespace dom {
 
 class IPCServiceWorkerRegistrationDescriptor;
-class OptionalIPCServiceWorkerDescriptor;
 class ServiceWorkerInfo;
 enum class ServiceWorkerUpdateViaCache : uint8_t;
 
@@ -71,7 +70,7 @@ class ServiceWorkerRegistrationDescriptor final {
 
   const mozilla::ipc::PrincipalInfo& PrincipalInfo() const;
 
-  nsCOMPtr<nsIPrincipal> GetPrincipal() const;
+  Result<nsCOMPtr<nsIPrincipal>, nsresult> GetPrincipal() const;
 
   const nsCString& Scope() const;
 

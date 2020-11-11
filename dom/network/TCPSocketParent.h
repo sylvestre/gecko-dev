@@ -11,7 +11,6 @@
 #include "mozilla/net/PTCPSocketParent.h"
 #include "nsCycleCollectionParticipant.h"
 #include "nsCOMPtr.h"
-#include "nsISocketFilter.h"
 #include "js/TypeDecls.h"
 
 #define TCPSOCKETPARENT_CID                          \
@@ -34,6 +33,8 @@ class TCPSocketParentBase : public nsISupports {
   void AddIPDLReference();
   void ReleaseIPDLReference();
 
+  bool IPCOpen() const { return mIPCOpen; }
+
  protected:
   TCPSocketParentBase();
   virtual ~TCPSocketParentBase();
@@ -47,25 +48,18 @@ class TCPSocketParent : public mozilla::net::PTCPSocketParent,
  public:
   NS_IMETHOD_(MozExternalRefCountType) Release() override;
 
-  TCPSocketParent() {}
+  TCPSocketParent() = default;
 
-  virtual mozilla::ipc::IPCResult RecvOpen(
-      const nsString& aHost, const uint16_t& aPort, const bool& useSSL,
-      const bool& aUseArrayBuffers) override;
+  mozilla::ipc::IPCResult RecvOpen(const nsString& aHost, const uint16_t& aPort,
+                                   const bool& useSSL,
+                                   const bool& aUseArrayBuffers);
 
-  virtual mozilla::ipc::IPCResult RecvOpenBind(
-      const nsCString& aRemoteHost, const uint16_t& aRemotePort,
-      const nsCString& aLocalAddr, const uint16_t& aLocalPort,
-      const bool& aUseSSL, const bool& aReuseAddrPort,
-      const bool& aUseArrayBuffers, const nsCString& aFilter) override;
-
-  virtual mozilla::ipc::IPCResult RecvStartTLS() override;
-  virtual mozilla::ipc::IPCResult RecvSuspend() override;
-  virtual mozilla::ipc::IPCResult RecvResume() override;
-  virtual mozilla::ipc::IPCResult RecvClose() override;
-  virtual mozilla::ipc::IPCResult RecvData(
-      const SendableData& aData, const uint32_t& aTrackingNumber) override;
-  virtual mozilla::ipc::IPCResult RecvRequestDelete() override;
+  mozilla::ipc::IPCResult RecvStartTLS();
+  mozilla::ipc::IPCResult RecvSuspend();
+  mozilla::ipc::IPCResult RecvResume();
+  mozilla::ipc::IPCResult RecvClose();
+  mozilla::ipc::IPCResult RecvData(const SendableData& aData);
+  mozilla::ipc::IPCResult RecvRequestDelete();
 
   void FireErrorEvent(const nsAString& aName, const nsAString& aType,
                       TCPReadyState aReadyState);
@@ -82,9 +76,6 @@ class TCPSocketParent : public mozilla::net::PTCPSocketParent,
   virtual void ActorDestroy(ActorDestroyReason why) override;
   void SendEvent(const nsAString& aType, CallbackData aData,
                  TCPReadyState aReadyState);
-  nsresult SetFilter(const nsCString& aFilter);
-
-  nsCOMPtr<nsISocketFilter> mFilter;
 };
 
 }  // namespace dom

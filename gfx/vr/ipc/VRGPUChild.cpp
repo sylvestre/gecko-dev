@@ -6,13 +6,16 @@
 
 #include "VRGPUChild.h"
 
+#include "mozilla/layers/CompositorThread.h"
+#include "VRManager.h"
+
 namespace mozilla {
 namespace gfx {
 
 static StaticRefPtr<VRGPUChild> sVRGPUChildSingleton;
 
-/* static */ bool VRGPUChild::InitForGPUProcess(
-    Endpoint<PVRGPUChild>&& aEndpoint) {
+/* static */
+bool VRGPUChild::InitForGPUProcess(Endpoint<PVRGPUChild>&& aEndpoint) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(!sVRGPUChildSingleton);
 
@@ -21,20 +24,56 @@ static StaticRefPtr<VRGPUChild> sVRGPUChildSingleton;
     return false;
   }
   sVRGPUChildSingleton = child;
+
+#if !defined(MOZ_WIDGET_ANDROID)
+  RefPtr<Runnable> task = NS_NewRunnableFunction(
+      "VRServiceHost::NotifyVRProcessStarted", []() -> void {
+        VRServiceHost* host = VRServiceHost::Get();
+        host->NotifyVRProcessStarted();
+      });
+
+  NS_DispatchToMainThread(task.forget());
+#endif
+
   return true;
 }
 
-/* static */ bool VRGPUChild::IsCreated() { return !!sVRGPUChildSingleton; }
+/* static */
+bool VRGPUChild::IsCreated() { return !!sVRGPUChildSingleton; }
 
-/* static */ VRGPUChild* VRGPUChild::Get() {
+/* static */
+VRGPUChild* VRGPUChild::Get() {
   MOZ_ASSERT(IsCreated(), "VRGPUChild haven't initialized yet.");
   return sVRGPUChildSingleton;
 }
 
-/*static*/ void VRGPUChild::ShutDown() {
+/*static*/
+void VRGPUChild::Shutdown() {
   MOZ_ASSERT(NS_IsMainThread());
+  if (sVRGPUChildSingleton && !sVRGPUChildSingleton->IsClosed()) {
+    sVRGPUChildSingleton->Close();
+  }
   sVRGPUChildSingleton = nullptr;
 }
+
+void VRGPUChild::ActorDestroy(ActorDestroyReason aWhy) {
+  VRManager* vm = VRManager::Get();
+  mozilla::layers::CompositorThread()->Dispatch(
+      NewRunnableMethod("VRGPUChild::ActorDestroy", vm, &VRManager::Shutdown));
+
+  mClosed = true;
+}
+
+mozilla::ipc::IPCResult VRGPUChild::RecvNotifyPuppetComplete() {
+#if !defined(MOZ_WIDGET_ANDROID)
+  VRManager* vm = VRManager::Get();
+  mozilla::layers::CompositorThread()->Dispatch(NewRunnableMethod(
+      "VRManager::NotifyPuppetComplete", vm, &VRManager::NotifyPuppetComplete));
+#endif
+  return IPC_OK();
+}
+
+bool VRGPUChild::IsClosed() { return mClosed; }
 
 }  // namespace gfx
 }  // namespace mozilla

@@ -15,26 +15,39 @@ namespace dom {
 class RemoteWorkerController;
 
 class RemoteWorkerParent final : public PRemoteWorkerParent {
+  friend class PRemoteWorkerParent;
+
  public:
   NS_INLINE_DECL_REFCOUNTING(RemoteWorkerParent)
 
   RemoteWorkerParent();
 
-  void Initialize();
+  void Initialize(bool aAlreadyRegistered = false);
 
   void SetController(RemoteWorkerController* aController);
+
+  void MaybeSendDelete();
 
  private:
   ~RemoteWorkerParent();
 
+  PFetchEventOpProxyParent* AllocPFetchEventOpProxyParent(
+      const ServiceWorkerFetchEventOpArgs& aArgs);
+
+  bool DeallocPFetchEventOpProxyParent(PFetchEventOpProxyParent* aActor);
+
   void ActorDestroy(mozilla::ipc::IProtocol::ActorDestroyReason) override;
 
-  mozilla::ipc::IPCResult RecvError(const ErrorValue& aValue) override;
+  mozilla::ipc::IPCResult RecvError(const ErrorValue& aValue);
 
-  mozilla::ipc::IPCResult RecvClose() override;
+  mozilla::ipc::IPCResult RecvClose();
 
-  mozilla::ipc::IPCResult RecvCreated(const bool& aStatus) override;
+  mozilla::ipc::IPCResult RecvCreated(const bool& aStatus);
 
+  mozilla::ipc::IPCResult RecvSetServiceWorkerSkipWaitingFlag(
+      SetServiceWorkerSkipWaitingFlagResolver&& aResolve);
+
+  bool mDeleteSent = false;
   RefPtr<RemoteWorkerController> mController;
 };
 

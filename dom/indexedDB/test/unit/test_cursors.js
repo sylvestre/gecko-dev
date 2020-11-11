@@ -5,8 +5,13 @@
 
 var testGenerator = testSteps();
 
-function* testSteps()
-{
+function* testSteps() {
+  function checkCursor(cursor, expectedKey) {
+    is(cursor.key, expectedKey, "Correct key");
+    is(cursor.primaryKey, expectedKey, "Correct primary key");
+    is(cursor.value, "foo", "Correct value");
+  }
+
   const name = this.window ? window.location.pathname : "Splendid Test";
   const keys = [1, -1, 0, 10, 2000, "q", "z", "two", "b", "a"];
   const sortedKeys = [-1, 0, 1, 10, 2000, "a", "b", "q", "two", "z"];
@@ -21,8 +26,9 @@ function* testSteps()
 
   let db = event.target.result;
 
-  let objectStore = db.createObjectStore("autoIncrement",
-                                         { autoIncrement: true });
+  let objectStore = db.createObjectStore("autoIncrement", {
+    autoIncrement: true,
+  });
 
   request = objectStore.openCursor();
   request.onerror = errorHandler;
@@ -32,9 +38,10 @@ function* testSteps()
   };
   yield undefined;
 
-  objectStore = db.createObjectStore("autoIncrementKeyPath",
-                                     { keyPath: "foo",
-                                       autoIncrement: true });
+  objectStore = db.createObjectStore("autoIncrementKeyPath", {
+    keyPath: "foo",
+    autoIncrement: true,
+  });
 
   request = objectStore.openCursor();
   request.onerror = errorHandler;
@@ -84,29 +91,23 @@ function* testSteps()
   request.onsuccess = function(event) {
     let cursor = event.target.result;
     if (cursor) {
-      is(cursor.key, sortedKeys[keyIndex], "Correct key");
-      is(cursor.primaryKey, sortedKeys[keyIndex], "Correct primary key");
-      is(cursor.value, "foo", "Correct value");
+      checkCursor(cursor, sortedKeys[keyIndex]);
 
       cursor.continue();
 
       try {
         cursor.continue();
         ok(false, "continue twice should throw");
-      }
-      catch (e) {
+      } catch (e) {
         ok(e instanceof DOMException, "got a database exception");
         is(e.name, "InvalidStateError", "correct error");
         is(e.code, DOMException.INVALID_STATE_ERR, "correct code");
       }
 
-      is(cursor.key, sortedKeys[keyIndex], "Correct key");
-      is(cursor.primaryKey, sortedKeys[keyIndex], "Correct primary key");
-      is(cursor.value, "foo", "Correct value");
+      checkCursor(cursor, sortedKeys[keyIndex]);
 
       keyIndex++;
-    }
-    else {
+    } else {
       testGenerator.next();
     }
   };
@@ -122,19 +123,14 @@ function* testSteps()
   request.onsuccess = function(event) {
     let cursor = event.target.result;
     if (cursor) {
-      is(cursor.key, sortedKeys[keyIndex], "Correct key");
-      is(cursor.primaryKey, sortedKeys[keyIndex], "Correct primary key");
-      is(cursor.value, "foo", "Correct value");
+      checkCursor(cursor, sortedKeys[keyIndex]);
 
       cursor.continue();
 
-      is(cursor.key, sortedKeys[keyIndex], "Correct key");
-      is(cursor.primaryKey, sortedKeys[keyIndex], "Correct primary key");
-      is(cursor.value, "foo", "Correct value");
+      checkCursor(cursor, sortedKeys[keyIndex]);
 
       keyIndex++;
-    }
-    else {
+    } else {
       testGenerator.next();
     }
   };
@@ -149,24 +145,18 @@ function* testSteps()
   request.onsuccess = function(event) {
     let cursor = event.target.result;
     if (cursor) {
-      is(cursor.key, sortedKeys[keyIndex], "Correct key");
-      is(cursor.primaryKey, sortedKeys[keyIndex], "Correct primary key");
-      is(cursor.value, "foo", "Correct value");
+      checkCursor(cursor, sortedKeys[keyIndex]);
 
       if (keyIndex) {
         cursor.continue();
-      }
-      else {
+      } else {
         cursor.continue("b");
       }
 
-      is(cursor.key, sortedKeys[keyIndex], "Correct key");
-      is(cursor.primaryKey, sortedKeys[keyIndex], "Correct primary key");
-      is(cursor.value, "foo", "Correct value");
+      checkCursor(cursor, sortedKeys[keyIndex]);
 
       keyIndex += keyIndex ? 1 : 6;
-    }
-    else {
+    } else {
       testGenerator.next();
     }
   };
@@ -181,24 +171,18 @@ function* testSteps()
   request.onsuccess = function(event) {
     let cursor = event.target.result;
     if (cursor) {
-      is(cursor.key, sortedKeys[keyIndex], "Correct key");
-      is(cursor.primaryKey, sortedKeys[keyIndex], "Correct primary key");
-      is(cursor.value, "foo", "Correct value");
+      checkCursor(cursor, sortedKeys[keyIndex]);
 
       if (keyIndex) {
         cursor.continue();
-      }
-      else {
+      } else {
         cursor.continue(10);
       }
 
-      is(cursor.key, sortedKeys[keyIndex], "Correct key");
-      is(cursor.primaryKey, sortedKeys[keyIndex], "Correct primary key");
-      is(cursor.value, "foo", "Correct value");
+      checkCursor(cursor, sortedKeys[keyIndex]);
 
       keyIndex += keyIndex ? 1 : 3;
-    }
-    else {
+    } else {
       testGenerator.next();
     }
   };
@@ -213,24 +197,18 @@ function* testSteps()
   request.onsuccess = function(event) {
     let cursor = event.target.result;
     if (cursor) {
-      is(cursor.key, sortedKeys[keyIndex], "Correct key");
-      is(cursor.primaryKey, sortedKeys[keyIndex], "Correct primary key");
-      is(cursor.value, "foo", "Correct value");
+      checkCursor(cursor, sortedKeys[keyIndex]);
 
       if (keyIndex) {
         cursor.continue();
-      }
-      else {
+      } else {
         cursor.continue("c");
       }
 
-      is(cursor.key, sortedKeys[keyIndex], "Correct key");
-      is(cursor.primaryKey, sortedKeys[keyIndex], "Correct primary key");
-      is(cursor.value, "foo", "Correct value");
+      checkCursor(cursor, sortedKeys[keyIndex]);
 
       keyIndex += keyIndex ? 1 : 7;
-    }
-    else {
+    } else {
       ok(cursor === null, "The request result should be null.");
       testGenerator.next();
     }
@@ -249,9 +227,7 @@ function* testSteps()
     if (cursor) {
       storedCursor = cursor;
 
-      is(cursor.key, sortedKeys[keyIndex], "Correct key");
-      is(cursor.primaryKey, sortedKeys[keyIndex], "Correct primary key");
-      is(cursor.value, "foo", "Correct value");
+      checkCursor(cursor, sortedKeys[keyIndex]);
 
       if (keyIndex == 4) {
         request = cursor.update("bar");
@@ -260,15 +236,16 @@ function* testSteps()
           keyIndex++;
           cursor.continue();
         };
-      }
-      else {
+      } else {
         keyIndex++;
         cursor.continue();
       }
-    }
-    else {
+    } else {
       ok(cursor === null, "The request result should be null.");
-      ok(storedCursor.value === undefined, "The cursor's value should be undefined.");
+      ok(
+        storedCursor.value === undefined,
+        "The cursor's value should be undefined."
+      );
       testGenerator.next();
     }
   };
@@ -300,26 +277,26 @@ function* testSteps()
     if (cursor) {
       storedCursor = cursor;
 
-      is(cursor.key, sortedKeys[keyIndex], "Correct key");
-      is(cursor.primaryKey, sortedKeys[keyIndex], "Correct primary key");
-      is(cursor.value, "foo", "Correct value");
+      checkCursor(cursor, sortedKeys[keyIndex]);
 
       if (keyIndex == 4) {
         request = cursor.delete();
         request.onerror = errorHandler;
         request.onsuccess = function(event) {
           ok(event.target.result === undefined, "Should be undefined");
-          is(keyIndex, 5, "Got result of remove before next continue");
+          is(keyIndex, 5, "Got result of delete before next continue");
           gotRemoveEvent = true;
         };
       }
 
       keyIndex++;
       cursor.continue();
-    }
-    else {
+    } else {
       ok(cursor === null, "The request result should be null.");
-      ok(storedCursor.value === undefined, "The cursor's value should be undefined.");
+      ok(
+        storedCursor.value === undefined,
+        "The cursor's value should be undefined."
+      );
       testGenerator.next();
     }
   };
@@ -350,21 +327,19 @@ function* testSteps()
     if (cursor) {
       storedCursor = cursor;
 
-      is(cursor.key, sortedKeys[keyIndex], "Correct key");
-      is(cursor.primaryKey, sortedKeys[keyIndex], "Correct primary key");
-      is(cursor.value, "foo", "Correct value");
+      checkCursor(cursor, sortedKeys[keyIndex]);
 
       cursor.continue();
 
-      is(cursor.key, sortedKeys[keyIndex], "Correct key");
-      is(cursor.primaryKey, sortedKeys[keyIndex], "Correct primary key");
-      is(cursor.value, "foo", "Correct value");
+      checkCursor(cursor, sortedKeys[keyIndex]);
 
       keyIndex--;
-    }
-    else {
+    } else {
       ok(cursor === null, "The request result should be null.");
-      ok(storedCursor.value === undefined, "The cursor's value should be undefined.");
+      ok(
+        storedCursor.value === undefined,
+        "The cursor's value should be undefined."
+      );
       testGenerator.next();
     }
   };

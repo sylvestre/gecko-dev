@@ -1,17 +1,9 @@
-// Copyright 2018 Syn Developers
-//
-// Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
-// http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
-// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
-// option. This file may not be copied, modified, or distributed
-// except according to those terms.
-
 use super::*;
 
 ast_struct! {
     /// A complete file of Rust source code.
     ///
-    /// *This type is available if Syn is built with the `"full"` feature.*
+    /// *This type is available only if Syn is built with the `"full"` feature.*
     ///
     /// # Example
     ///
@@ -19,8 +11,6 @@ ast_struct! {
     /// representation of the syntax tree.
     ///
     /// ```
-    /// # extern crate syn;
-    /// #
     /// use std::env;
     /// use std::fs::File;
     /// use std::io::Read;
@@ -47,6 +37,8 @@ ast_struct! {
     ///     file.read_to_string(&mut src).expect("Unable to read file");
     ///
     ///     let syntax = syn::parse_file(&src).expect("Unable to parse file");
+    ///
+    ///     // Debug impl is available if Syn is built with "extra-traits" feature.
     ///     println!("{:#?}", syntax);
     /// }
     /// ```
@@ -88,7 +80,7 @@ ast_struct! {
 pub mod parsing {
     use super::*;
 
-    use parse::{Parse, ParseStream, Result};
+    use crate::parse::{Parse, ParseStream, Result};
 
     impl Parse for File {
         fn parse(input: ParseStream) -> Result<Self> {
@@ -110,7 +102,7 @@ pub mod parsing {
 #[cfg(feature = "printing")]
 mod printing {
     use super::*;
-    use attr::FilterAttrs;
+    use crate::attr::FilterAttrs;
     use proc_macro2::TokenStream;
     use quote::{ToTokens, TokenStreamExt};
 

@@ -7,7 +7,7 @@ https://bugzilla.mozilla.org/show_bug.cgi?id=803225
 <head>
   <meta charset="utf-8">
   <title>Tests for Bug 62178</title>
-  <script type="application/javascript" src="/tests/SimpleTest/EventUtils.js"></script>
+  <script src="/tests/SimpleTest/EventUtils.js"></script>
 </head>
 <body>
 <div id="testContent"></div>
@@ -22,6 +22,7 @@ https://bugzilla.mozilla.org/show_bug.cgi?id=803225
 -->
 
 <script>
+  const {AppConstants} = SpecialPowers.Cu.import("resource://gre/modules/AppConstants.jsm", {});
 
   //For tests that require setTimeout, set the timeout interval
   var TIMEOUT_INTERVAL = 100;
@@ -103,7 +104,7 @@ https://bugzilla.mozilla.org/show_bug.cgi?id=803225
     webHandler.name = "Web Handler";
     webHandler.uriTemplate = "http://example.com/tests/dom/security/test/mixedcontentblocker/file_bug803225_test_mailto.html?s=%";
 
-    ChromeUtils.import("resource://gre/modules/Services.jsm");
+    const {Services} = ChromeUtils.import("resource://gre/modules/Services.jsm");
     Services.ppmm.addMessageListener("Test:content-ready", function contentReadyListener() {
       Services.ppmm.removeMessageListener("Test:content-ready", contentReadyListener);
       sendAsyncMessage("Test:content-ready-forward");
@@ -114,12 +115,12 @@ https://bugzilla.mozilla.org/show_bug.cgi?id=803225
       var os = Cc["@mozilla.org/observer-service;1"]
         .getService(Ci.nsIObserverService);
       var observer = {
-        observe: function(subject, topic, data) {
-          if (topic == "content-document-global-created" && data == "http://example.com") {
-             sendAsyncMessage("Test:content-ready");
-             os.removeObserver(observer, "content-document-global-created");
-          }
+        observe(subject, topic, data) {
+        if (topic == "content-document-global-created" && data == "http://example.com") {
+           sendAsyncMessage("Test:content-ready");
+           os.removeObserver(observer, "content-document-global-created");
         }
+      }
       };
       os.addObserver(observer, "content-document-global-created");
     }
@@ -148,22 +149,24 @@ https://bugzilla.mozilla.org/show_bug.cgi?id=803225
   mailtoProtocolStatus();
 
   // Test 7: wss protocol
-  var wss;
-  wss = new WebSocket("wss://example.com/tests/dom/security/test/mixedcontentblocker/file_main_bug803225_websocket");
+  // WebSocket tests are not supported on Android Yet. Bug 1566168.
+  if (AppConstants.platform !== "android") {
+    var wss;
+    wss = new WebSocket("wss://example.com/tests/dom/security/test/mixedcontentblocker/file_main_bug803225_websocket");
 
-  var status_wss = "started";
-  wss.onopen = function(e) {
-     status_wss = "opened";
-     wss.close();
-  }
-  wss.onclose = function(e) {
-    if(status_wss == "opened") {
-      parent.postMessage({"test": "wss", "msg": "resource with wss protocol loaded"}, "http://mochi.test:8888");
-    } else {
-      parent.postMessage({"test": "wss", "msg": "resource with wss protocol did not load"}, "http://mochi.test:8888");
+    var status_wss = "started";
+    wss.onopen = function(e) {
+       status_wss = "opened";
+       wss.close();
+    }
+    wss.onclose = function(e) {
+      if(status_wss == "opened") {
+        parent.postMessage({"test": "wss", "msg": "resource with wss protocol loaded"}, "http://mochi.test:8888");
+      } else {
+        parent.postMessage({"test": "wss", "msg": "resource with wss protocol did not load"}, "http://mochi.test:8888");
+      }
     }
   }
-
 </script>
 </body>
 </html>

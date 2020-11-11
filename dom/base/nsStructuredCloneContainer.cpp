@@ -30,8 +30,10 @@ NS_INTERFACE_MAP_BEGIN(nsStructuredCloneContainer)
 NS_INTERFACE_MAP_END
 
 nsStructuredCloneContainer::nsStructuredCloneContainer() : mVersion(0) {}
+nsStructuredCloneContainer::nsStructuredCloneContainer(uint32_t aVersion)
+    : mVersion(aVersion) {}
 
-nsStructuredCloneContainer::~nsStructuredCloneContainer() {}
+nsStructuredCloneContainer::~nsStructuredCloneContainer() = default;
 
 NS_IMETHODIMP
 nsStructuredCloneContainer::InitFromJSVal(JS::Handle<JS::Value> aData,
@@ -43,7 +45,10 @@ nsStructuredCloneContainer::InitFromJSVal(JS::Handle<JS::Value> aData,
   ErrorResult rv;
   Write(aCx, aData, rv);
   if (NS_WARN_IF(rv.Failed())) {
-    return rv.StealNSResult();
+    // XXX propagate the error message as well.
+    // We cannot StealNSResult because we threw a DOM exception.
+    rv.SuppressException();
+    return NS_ERROR_DOM_DATA_CLONE_ERR;
   }
 
   mVersion = JS_STRUCTURED_CLONE_VERSION;
@@ -79,7 +84,10 @@ nsresult nsStructuredCloneContainer::DeserializeToJsval(
   ErrorResult rv;
   Read(aCx, &jsStateObj, rv);
   if (NS_WARN_IF(rv.Failed())) {
-    return rv.StealNSResult();
+    // XXX propagate the error message as well.
+    // We cannot StealNSResult because we threw a DOM exception.
+    rv.SuppressException();
+    return NS_ERROR_DOM_DATA_CLONE_ERR;
   }
 
   aValue.set(jsStateObj);
@@ -129,16 +137,16 @@ nsStructuredCloneContainer::GetDataAsBase64(nsAString& aOut) {
   auto iter = Data().Start();
   size_t size = Data().Size();
   nsAutoCString binaryData;
-  binaryData.SetLength(size);
-  Data().ReadBytes(iter, binaryData.BeginWriting(), size);
-  nsAutoCString base64Data;
-  nsresult rv = Base64Encode(binaryData, base64Data);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
+  if (!binaryData.SetLength(size, fallible)) {
+    return NS_ERROR_OUT_OF_MEMORY;
   }
 
-  if (!CopyASCIItoUTF16(base64Data, aOut, fallible)) {
-    return NS_ERROR_OUT_OF_MEMORY;
+  DebugOnly<bool> res = Data().ReadBytes(iter, binaryData.BeginWriting(), size);
+  MOZ_ASSERT(res);
+
+  nsresult rv = Base64Encode(binaryData, aOut);
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return rv;
   }
 
   return NS_OK;

@@ -4,12 +4,18 @@
 
 "use strict";
 
-ChromeUtils.import("resource://gre/modules/AddonManager.jsm");
-ChromeUtils.import("resource://gre/modules/FileUtils.jsm");
+const EXPORTED_SYMBOLS = ["Addon"];
 
-const {UnknownError} = ChromeUtils.import("chrome://marionette/content/error.js", {});
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
 
-this.EXPORTED_SYMBOLS = ["Addon"];
+XPCOMUtils.defineLazyModuleGetters(this, {
+  AddonManager: "resource://gre/modules/AddonManager.jsm",
+  FileUtils: "resource://gre/modules/FileUtils.jsm",
+
+  error: "chrome://marionette/content/error.js",
+});
 
 // from https://developer.mozilla.org/en-US/Add-ons/Add-on_Manager/AddonManager#AddonInstall_errors
 const ERRORS = {
@@ -21,14 +27,16 @@ const ERRORS = {
 };
 
 async function installAddon(file) {
-  let install = await AddonManager.getInstallForFile(file, null, {source: "internal"});
+  let install = await AddonManager.getInstallForFile(file, null, {
+    source: "internal",
+  });
 
   if (install.error) {
-    throw new UnknownError(ERRORS[install.error]);
+    throw new error.UnknownError(ERRORS[install.error]);
   }
 
   return install.install().catch(err => {
-    throw new UnknownError(ERRORS[install.error]);
+    throw new error.UnknownError(ERRORS[install.error]);
   });
 }
 
@@ -61,11 +69,11 @@ class Addon {
     try {
       file = new FileUtils.File(path);
     } catch (e) {
-      throw new UnknownError(`Expected absolute path: ${e}`, e);
+      throw new error.UnknownError(`Expected absolute path: ${e}`, e);
     }
 
     if (!file.exists()) {
-      throw new UnknownError(`No such file or directory: ${path}`);
+      throw new error.UnknownError(`No such file or directory: ${path}`);
     }
 
     try {
@@ -75,8 +83,10 @@ class Addon {
         addon = await installAddon(file);
       }
     } catch (e) {
-      throw new UnknownError(
-          `Could not install add-on: ${path}: ${e.message}`, e);
+      throw new error.UnknownError(
+        `Could not install add-on: ${path}: ${e.message}`,
+        e
+      );
     }
 
     return addon.id;
@@ -104,7 +114,9 @@ class Addon {
         onOperationCancelled: addon => {
           if (addon.id === candidate.id) {
             AddonManager.removeAddonListener(listener);
-            throw new UnknownError(`Uninstall of ${candidate.id} has been canceled`);
+            throw new error.UnknownError(
+              `Uninstall of ${candidate.id} has been canceled`
+            );
           }
         },
 

@@ -8,9 +8,12 @@
 
 #include <string>
 #include <vector>
+
+#include "mozilla/ipc/ProtocolUtils.h"
+#include "mozilla/Vector.h"
 #include "nsString.h"
 #if defined(MOZ_GECKO_PROFILER)
-#include "shared-libraries.h"
+#  include "shared-libraries.h"
 #endif  // MOZ_GECKO_PROFILER
 
 namespace mozilla {
@@ -38,13 +41,13 @@ class ProcessedStack {
     nsString mName;
     nsCString mBreakpadId;
 
-    bool operator==(const Module &other) const;
+    bool operator==(const Module& other) const;
   };
 
-  const Frame &GetFrame(unsigned aIndex) const;
-  void AddFrame(const Frame &aFrame);
-  const Module &GetModule(unsigned aIndex) const;
-  void AddModule(const Module &aFrame);
+  const Frame& GetFrame(unsigned aIndex) const;
+  void AddFrame(const Frame& aFrame);
+  const Module& GetModule(unsigned aIndex) const;
+  void AddModule(const Module& aFrame);
 
   void Clear();
 
@@ -56,15 +59,24 @@ class ProcessedStack {
 // Get the current list of loaded modules, filter and pair it to the provided
 // stack. We let the caller collect the stack since different callers have
 // different needs (current thread X main thread, stopping the thread, etc).
-ProcessedStack GetStackAndModules(const std::vector<uintptr_t> &aPCs);
+ProcessedStack GetStackAndModules(const std::vector<uintptr_t>& aPCs);
 
 // This class optimizes repeated calls to GetStackAndModules.
 class BatchProcessedStackGenerator {
  public:
   BatchProcessedStackGenerator();
-  ProcessedStack GetStackAndModules(const std::vector<uintptr_t> &aPCs);
+  ProcessedStack GetStackAndModules(const std::vector<uintptr_t>& aPCs);
+
+  template <typename AllocatorPolicy>
+  ProcessedStack GetStackAndModules(
+      const Vector<void*, 0, AllocatorPolicy>& aPCs) {
+    return GetStackAndModules(reinterpret_cast<const uintptr_t*>(aPCs.begin()),
+                              reinterpret_cast<const uintptr_t*>(aPCs.end()));
+  }
 
  private:
+  ProcessedStack GetStackAndModules(const uintptr_t* aBegin,
+                                    const uintptr_t* aEnd);
 #if defined(MOZ_GECKO_PROFILER)
   SharedLibraryInfo mSortedRawModules;
 #endif
@@ -72,5 +84,55 @@ class BatchProcessedStackGenerator {
 
 }  // namespace Telemetry
 }  // namespace mozilla
+
+namespace IPC {
+
+template <>
+struct ParamTraits<mozilla::Telemetry::ProcessedStack::Module> {
+  typedef mozilla::Telemetry::ProcessedStack::Module paramType;
+
+  static void Write(Message* aMsg, const paramType& aParam) {
+    WriteParam(aMsg, aParam.mName);
+    WriteParam(aMsg, aParam.mBreakpadId);
+  }
+
+  static bool Read(const Message* aMsg, PickleIterator* aIter,
+                   paramType* aResult) {
+    if (!ReadParam(aMsg, aIter, &aResult->mName)) {
+      return false;
+    }
+
+    if (!ReadParam(aMsg, aIter, &aResult->mBreakpadId)) {
+      return false;
+    }
+
+    return true;
+  }
+};
+
+template <>
+struct ParamTraits<mozilla::Telemetry::ProcessedStack::Frame> {
+  typedef mozilla::Telemetry::ProcessedStack::Frame paramType;
+
+  static void Write(Message* aMsg, const paramType& aParam) {
+    WriteParam(aMsg, aParam.mOffset);
+    WriteParam(aMsg, aParam.mModIndex);
+  }
+
+  static bool Read(const Message* aMsg, PickleIterator* aIter,
+                   paramType* aResult) {
+    if (!ReadParam(aMsg, aIter, &aResult->mOffset)) {
+      return false;
+    }
+
+    if (!ReadParam(aMsg, aIter, &aResult->mModIndex)) {
+      return false;
+    }
+
+    return true;
+  }
+};
+
+}  // namespace IPC
 
 #endif  // ProcessedStack_h__

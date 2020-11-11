@@ -4,30 +4,29 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "mozilla/ArrayUtils.h"
-
 #include "SVGAnimatedPreserveAspectRatio.h"
-#include "mozilla/dom/SVGAnimatedPreserveAspectRatioBinding.h"
-#include "nsSMILValue.h"
-#include "nsSVGAttrTearoffTable.h"
-#include "SMILEnumType.h"
-#include "SVGContentUtils.h"
 
-using namespace mozilla;
+#include "mozAutoDocUpdate.h"
+#include "mozilla/ArrayUtils.h"
+#include "mozilla/Maybe.h"
+#include "mozilla/SMILValue.h"
+#include "mozilla/SVGContentUtils.h"
+#include "mozilla/dom/SVGAnimatedPreserveAspectRatioBinding.h"
+#include "SMILEnumType.h"
+#include "SVGAttrTearoffTable.h"
+
 using namespace mozilla::dom;
+
+namespace mozilla {
 
 ////////////////////////////////////////////////////////////////////////
 // SVGAnimatedPreserveAspectRatio class
 NS_SVG_VAL_IMPL_CYCLE_COLLECTION_WRAPPERCACHED(
     DOMSVGAnimatedPreserveAspectRatio, mSVGElement)
 
-NS_IMPL_CYCLE_COLLECTING_ADDREF(DOMSVGAnimatedPreserveAspectRatio)
-NS_IMPL_CYCLE_COLLECTING_RELEASE(DOMSVGAnimatedPreserveAspectRatio)
-
-NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(DOMSVGAnimatedPreserveAspectRatio)
-  NS_WRAPPERCACHE_INTERFACE_MAP_ENTRY
-  NS_INTERFACE_MAP_ENTRY(nsISupports)
-NS_INTERFACE_MAP_END
+NS_IMPL_CYCLE_COLLECTION_ROOT_NATIVE(DOMSVGAnimatedPreserveAspectRatio, AddRef)
+NS_IMPL_CYCLE_COLLECTION_UNROOT_NATIVE(DOMSVGAnimatedPreserveAspectRatio,
+                                       Release)
 
 JSObject* DOMSVGAnimatedPreserveAspectRatio::WrapObject(
     JSContext* aCx, JS::Handle<JSObject*> aGivenProto) {
@@ -36,14 +35,53 @@ JSObject* DOMSVGAnimatedPreserveAspectRatio::WrapObject(
 
 /* Implementation */
 
-static nsSVGAttrTearoffTable<SVGAnimatedPreserveAspectRatio,
-                             DOMSVGAnimatedPreserveAspectRatio>
+//----------------------------------------------------------------------
+// Helper class: AutoChangePreserveAspectRatioNotifier
+// Stack-based helper class to pair calls to WillChangePreserveAspectRatio and
+// DidChangePreserveAspectRatio.
+class MOZ_RAII AutoChangePreserveAspectRatioNotifier {
+ public:
+  AutoChangePreserveAspectRatioNotifier(
+      SVGAnimatedPreserveAspectRatio* aPreserveAspectRatio,
+      SVGElement* aSVGElement, bool aDoSetAttr = true)
+      : mPreserveAspectRatio(aPreserveAspectRatio),
+        mSVGElement(aSVGElement),
+        mDoSetAttr(aDoSetAttr) {
+    MOZ_ASSERT(mPreserveAspectRatio, "Expecting non-null preserveAspectRatio");
+    MOZ_ASSERT(mSVGElement, "Expecting non-null element");
+    if (mDoSetAttr) {
+      mUpdateBatch.emplace(aSVGElement->GetComposedDoc(), true);
+      mEmptyOrOldValue =
+          mSVGElement->WillChangePreserveAspectRatio(mUpdateBatch.ref());
+    }
+  }
+
+  ~AutoChangePreserveAspectRatioNotifier() {
+    if (mDoSetAttr) {
+      mSVGElement->DidChangePreserveAspectRatio(mEmptyOrOldValue,
+                                                mUpdateBatch.ref());
+    }
+    if (mPreserveAspectRatio->mIsAnimated) {
+      mSVGElement->AnimationNeedsResample();
+    }
+  }
+
+ private:
+  SVGAnimatedPreserveAspectRatio* const mPreserveAspectRatio;
+  SVGElement* const mSVGElement;
+  Maybe<mozAutoDocUpdate> mUpdateBatch;
+  nsAttrValue mEmptyOrOldValue;
+  bool mDoSetAttr;
+};
+
+static SVGAttrTearoffTable<SVGAnimatedPreserveAspectRatio,
+                           DOMSVGAnimatedPreserveAspectRatio>
     sSVGAnimatedPAspectRatioTearoffTable;
-static nsSVGAttrTearoffTable<SVGAnimatedPreserveAspectRatio,
-                             DOMSVGPreserveAspectRatio>
+static SVGAttrTearoffTable<SVGAnimatedPreserveAspectRatio,
+                           DOMSVGPreserveAspectRatio>
     sBaseSVGPAspectRatioTearoffTable;
-static nsSVGAttrTearoffTable<SVGAnimatedPreserveAspectRatio,
-                             DOMSVGPreserveAspectRatio>
+static SVGAttrTearoffTable<SVGAnimatedPreserveAspectRatio,
+                           DOMSVGPreserveAspectRatio>
     sAnimSVGPAspectRatioTearoffTable;
 
 already_AddRefed<DOMSVGPreserveAspectRatio>
@@ -79,31 +117,21 @@ DOMSVGAnimatedPreserveAspectRatio::AnimVal() {
 }
 
 nsresult SVGAnimatedPreserveAspectRatio::SetBaseValueString(
-    const nsAString& aValueAsString, nsSVGElement* aSVGElement,
-    bool aDoSetAttr) {
+    const nsAString& aValueAsString, SVGElement* aSVGElement, bool aDoSetAttr) {
   SVGPreserveAspectRatio val;
   nsresult res = SVGPreserveAspectRatio::FromString(aValueAsString, &val);
   if (NS_FAILED(res)) {
     return res;
   }
 
-  nsAttrValue emptyOrOldValue;
-  if (aDoSetAttr) {
-    emptyOrOldValue = aSVGElement->WillChangePreserveAspectRatio();
-  }
+  AutoChangePreserveAspectRatioNotifier notifier(this, aSVGElement, aDoSetAttr);
 
   mBaseVal = val;
   mIsBaseSet = true;
-
   if (!mIsAnimated) {
     mAnimVal = mBaseVal;
   }
-  if (aDoSetAttr) {
-    aSVGElement->DidChangePreserveAspectRatio(emptyOrOldValue);
-  }
-  if (mIsAnimated) {
-    aSVGElement->AnimationNeedsResample();
-  }
+
   return NS_OK;
 }
 
@@ -113,21 +141,17 @@ void SVGAnimatedPreserveAspectRatio::GetBaseValueString(
 }
 
 void SVGAnimatedPreserveAspectRatio::SetBaseValue(
-    const SVGPreserveAspectRatio& aValue, nsSVGElement* aSVGElement) {
+    const SVGPreserveAspectRatio& aValue, SVGElement* aSVGElement) {
   if (mIsBaseSet && mBaseVal == aValue) {
     return;
   }
 
-  nsAttrValue emptyOrOldValue = aSVGElement->WillChangePreserveAspectRatio();
+  AutoChangePreserveAspectRatioNotifier notifier(this, aSVGElement);
+
   mBaseVal = aValue;
   mIsBaseSet = true;
-
   if (!mIsAnimated) {
     mAnimVal = mBaseVal;
-  }
-  aSVGElement->DidChangePreserveAspectRatio(emptyOrOldValue);
-  if (mIsAnimated) {
-    aSVGElement->AnimationNeedsResample();
   }
 }
 
@@ -141,7 +165,7 @@ static uint64_t PackPreserveAspectRatio(const SVGPreserveAspectRatio& par) {
 }
 
 void SVGAnimatedPreserveAspectRatio::SetAnimValue(uint64_t aPackedValue,
-                                                  nsSVGElement* aSVGElement) {
+                                                  SVGElement* aSVGElement) {
   if (mIsAnimated && PackPreserveAspectRatio(mAnimVal) == aPackedValue) {
     return;
   }
@@ -153,7 +177,7 @@ void SVGAnimatedPreserveAspectRatio::SetAnimValue(uint64_t aPackedValue,
 
 already_AddRefed<DOMSVGAnimatedPreserveAspectRatio>
 SVGAnimatedPreserveAspectRatio::ToDOMAnimatedPreserveAspectRatio(
-    nsSVGElement* aSVGElement) {
+    SVGElement* aSVGElement) {
   RefPtr<DOMSVGAnimatedPreserveAspectRatio> domAnimatedPAspectRatio =
       sSVGAnimatedPAspectRatioTearoffTable.GetTearoff(this);
   if (!domAnimatedPAspectRatio) {
@@ -169,31 +193,31 @@ DOMSVGAnimatedPreserveAspectRatio::~DOMSVGAnimatedPreserveAspectRatio() {
   sSVGAnimatedPAspectRatioTearoffTable.RemoveTearoff(mVal);
 }
 
-UniquePtr<nsISMILAttr> SVGAnimatedPreserveAspectRatio::ToSMILAttr(
-    nsSVGElement* aSVGElement) {
+UniquePtr<SMILAttr> SVGAnimatedPreserveAspectRatio::ToSMILAttr(
+    SVGElement* aSVGElement) {
   return MakeUnique<SMILPreserveAspectRatio>(this, aSVGElement);
 }
 
 // typedef for inner class, to make function signatures shorter below:
-typedef SVGAnimatedPreserveAspectRatio::SMILPreserveAspectRatio
-    SMILPreserveAspectRatio;
+using SMILPreserveAspectRatio =
+    SVGAnimatedPreserveAspectRatio::SMILPreserveAspectRatio;
 
 nsresult SMILPreserveAspectRatio::ValueFromString(
     const nsAString& aStr, const SVGAnimationElement* /*aSrcElement*/,
-    nsSMILValue& aValue, bool& aPreventCachingOfSandwich) const {
+    SMILValue& aValue, bool& aPreventCachingOfSandwich) const {
   SVGPreserveAspectRatio par;
   nsresult res = SVGPreserveAspectRatio::FromString(aStr, &par);
   NS_ENSURE_SUCCESS(res, res);
 
-  nsSMILValue val(SMILEnumType::Singleton());
+  SMILValue val(SMILEnumType::Singleton());
   val.mU.mUint = PackPreserveAspectRatio(par);
   aValue = val;
   aPreventCachingOfSandwich = false;
   return NS_OK;
 }
 
-nsSMILValue SMILPreserveAspectRatio::GetBaseValue() const {
-  nsSMILValue val(SMILEnumType::Singleton());
+SMILValue SMILPreserveAspectRatio::GetBaseValue() const {
+  SMILValue val(SMILEnumType::Singleton());
   val.mU.mUint = PackPreserveAspectRatio(mVal->GetBaseValue());
   return val;
 }
@@ -206,7 +230,7 @@ void SMILPreserveAspectRatio::ClearAnimValue() {
   }
 }
 
-nsresult SMILPreserveAspectRatio::SetAnimValue(const nsSMILValue& aValue) {
+nsresult SMILPreserveAspectRatio::SetAnimValue(const SMILValue& aValue) {
   NS_ASSERTION(aValue.mType == SMILEnumType::Singleton(),
                "Unexpected type to assign animated value");
   if (aValue.mType == SMILEnumType::Singleton()) {
@@ -214,3 +238,5 @@ nsresult SMILPreserveAspectRatio::SetAnimValue(const nsSMILValue& aValue) {
   }
   return NS_OK;
 }
+
+}  // namespace mozilla

@@ -18,8 +18,7 @@
 
 using namespace mozilla::ipc;
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 namespace {
 // Singleton object for MIDIAccessManager
@@ -28,7 +27,7 @@ StaticRefPtr<MIDIAccessManager> gMIDIAccessManager;
 
 MIDIAccessManager::MIDIAccessManager() : mHasPortList(false), mChild(nullptr) {}
 
-MIDIAccessManager::~MIDIAccessManager() {}
+MIDIAccessManager::~MIDIAccessManager() = default;
 
 // static
 MIDIAccessManager* MIDIAccessManager::Get() {
@@ -52,13 +51,13 @@ already_AddRefed<Promise> MIDIAccessManager::RequestMIDIAccess(
   if (NS_WARN_IF(aRv.Failed())) {
     return nullptr;
   }
-  nsCOMPtr<nsIDocument> doc = aWindow->GetDoc();
+  nsCOMPtr<Document> doc = aWindow->GetDoc();
   if (NS_WARN_IF(!doc)) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
   }
 
-  if (!FeaturePolicyUtils::IsFeatureAllowed(doc, NS_LITERAL_STRING("midi"))) {
+  if (!FeaturePolicyUtils::IsFeatureAllowed(doc, u"midi"_ns)) {
     aRv.Throw(NS_ERROR_DOM_SECURITY_ERR);
     return nullptr;
   }
@@ -94,7 +93,7 @@ bool MIDIAccessManager::AddObserver(Observer<MIDIPortList>* aObserver) {
       return false;
     }
     MOZ_ASSERT(constructedMgr == mgr);
-    mChild = mgr.forget();
+    mChild = std::move(mgr);
     // Add a ref to mChild here, that will be deref'd by
     // BackgroundChildImpl::DeallocPMIDIManagerChild on IPC cleanup.
     mChild->SetActorAlive();
@@ -146,5 +145,4 @@ void MIDIAccessManager::Update(const MIDIPortList& aPortList) {
   }
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

@@ -24,10 +24,8 @@
 #include "base/os_compat_nacl.h"
 #endif
 
-// Ensure the Mac build does not include this module. Instead, non-POSIX
-// implementation is used to support Time::Exploded.
-#if defined(OS_MACOSX)
-#error "This implementation is for POSIX platforms other than Mac."
+#if defined(OS_MACOSX) || defined(OS_IOS)
+static_assert(sizeof(time_t) >= 8, "Y2038 problem!");
 #endif
 
 namespace {
@@ -60,9 +58,7 @@ void SysTimeToTimeStruct(SysTime t, struct tm* timestruct, bool is_local) {
   else
     gmtime64_r(&t, timestruct);
 }
-
 #elif defined(OS_AIX)
-
 // The function timegm is not available on AIX.
 time_t aix_timegm(struct tm* tm) {
   time_t ret;
@@ -103,15 +99,12 @@ void SysTimeToTimeStruct(SysTime t, struct tm* timestruct, bool is_local) {
     gmtime_r(&t, timestruct);
 }
 
-#else   // OS_ANDROID && !__LP64__
+#else
 typedef time_t SysTime;
 
 SysTime SysTimeFromTimeStruct(struct tm* timestruct, bool is_local) {
   base::AutoLock locked(*GetSysTimeToTimeStructLock());
-  if (is_local)
-    return mktime(timestruct);
-  else
-    return timegm(timestruct);
+  return is_local ? mktime(timestruct) : timegm(timestruct);
 }
 
 void SysTimeToTimeStruct(SysTime t, struct tm* timestruct, bool is_local) {
@@ -121,30 +114,26 @@ void SysTimeToTimeStruct(SysTime t, struct tm* timestruct, bool is_local) {
   else
     gmtime_r(&t, timestruct);
 }
-#endif  // OS_ANDROID
+#endif  // defined(OS_ANDROID) && !defined(__LP64__)
 
 }  // namespace
 
 namespace base {
 
 void Time::Explode(bool is_local, Exploded* exploded) const {
-  // Time stores times with microsecond resolution, but Exploded only carries
-  // millisecond resolution, so begin by being lossy.  Adjust from Windows
-  // epoch (1601) to Unix epoch (1970);
-  int64_t microseconds = us_ - kTimeTToMicrosecondsOffset;
   // The following values are all rounded towards -infinity.
-  int64_t milliseconds;  // Milliseconds since epoch.
+  int64_t milliseconds = ToRoundedDownMillisecondsSinceUnixEpoch();
   SysTime seconds;       // Seconds since epoch.
   int millisecond;       // Exploded millisecond value (0-999).
-  if (microseconds >= 0) {
+
+  // If the microseconds were negative, the rounded down milliseconds will also
+  // be negative. For example, -1 us becomes -1 ms.
+  if (milliseconds >= 0) {
     // Rounding towards -infinity <=> rounding towards 0, in this case.
-    milliseconds = microseconds / kMicrosecondsPerMillisecond;
     seconds = milliseconds / kMillisecondsPerSecond;
     millisecond = milliseconds % kMillisecondsPerSecond;
   } else {
     // Round these *down* (towards -infinity).
-    milliseconds = (microseconds - kMicrosecondsPerMillisecond + 1) /
-                   kMicrosecondsPerMillisecond;
     seconds =
         (milliseconds - kMillisecondsPerSecond + 1) / kMillisecondsPerSecond;
     // Make this nonnegative (and between 0 and 999 inclusive).
@@ -189,7 +178,7 @@ bool Time::FromExploded(bool is_local, const Exploded& exploded, Time* time) {
   timestruct.tm_isdst = -1;                   // attempt to figure it out
 #if !defined(OS_NACL) && !defined(OS_SOLARIS) && !defined(OS_AIX)
   timestruct.tm_gmtoff = 0;   // not a POSIX field, so mktime/timegm ignore
-  timestruct.tm_zone = NULL;  // not a POSIX field, so mktime/timegm ignore
+  timestruct.tm_zone = nullptr;  // not a POSIX field, so mktime/timegm ignore
 #endif
 
   SysTime seconds;
@@ -261,30 +250,26 @@ bool Time::FromExploded(bool is_local, const Exploded& exploded, Time* time) {
       milliseconds += (kMillisecondsPerSecond - 1);
     }
   } else {
-    base::CheckedNumeric<int64_t> checked_millis = seconds;
+    CheckedNumeric<int64_t> checked_millis = seconds;
     checked_millis *= kMillisecondsPerSecond;
     checked_millis += exploded.millisecond;
     if (!checked_millis.IsValid()) {
-      *time = base::Time(0);
+      *time = Time(0);
       return false;
     }
     milliseconds = checked_millis.ValueOrDie();
   }
 
-  // Adjust from Unix (1970) to Windows (1601) epoch avoiding overflows.
-  base::CheckedNumeric<int64_t> checked_microseconds_win_epoch = milliseconds;
-  checked_microseconds_win_epoch *= kMicrosecondsPerMillisecond;
-  checked_microseconds_win_epoch += kTimeTToMicrosecondsOffset;
-  if (!checked_microseconds_win_epoch.IsValid()) {
+  Time converted_time;
+  if (!FromMillisecondsSinceUnixEpoch(milliseconds, &converted_time)) {
     *time = base::Time(0);
     return false;
   }
-  base::Time converted_time(checked_microseconds_win_epoch.ValueOrDie());
 
   // If |exploded.day_of_month| is set to 31 on a 28-30 day month, it will
   // return the first day of the next month. Thus round-trip the time and
   // compare the initial |exploded| with |utc_to_exploded| time.
-  base::Time::Exploded to_exploded;
+  Time::Exploded to_exploded;
   if (!is_local)
     converted_time.UTCExplode(&to_exploded);
   else

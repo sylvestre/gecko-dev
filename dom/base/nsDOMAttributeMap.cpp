@@ -19,7 +19,7 @@
 #include "nsContentUtils.h"
 #include "nsError.h"
 #include "nsIContentInlines.h"
-#include "nsIDocument.h"
+#include "mozilla/dom/Document.h"
 #include "nsNameSpaceManager.h"
 #include "nsNodeInfoManager.h"
 #include "nsUnicharUtils.h"
@@ -96,7 +96,7 @@ NS_INTERFACE_MAP_END
 NS_IMPL_CYCLE_COLLECTING_ADDREF(nsDOMAttributeMap)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(nsDOMAttributeMap)
 
-nsresult nsDOMAttributeMap::SetOwnerDocument(nsIDocument* aDocument) {
+nsresult nsDOMAttributeMap::SetOwnerDocument(Document* aDocument) {
   for (auto iter = mAttributeCache.Iter(); !iter.Done(); iter.Next()) {
     nsresult rv = iter.Data()->SetOwnerDocument(aDocument);
     NS_ENSURE_SUCCESS(rv, NS_ERROR_FAILURE);
@@ -123,7 +123,8 @@ Attr* nsDOMAttributeMap::GetAttribute(mozilla::dom::NodeInfo* aNodeInfo) {
   if (!node) {
     // Newly inserted entry!
     RefPtr<mozilla::dom::NodeInfo> ni = aNodeInfo;
-    entryValue = new Attr(this, ni.forget(), EmptyString());
+    auto* nim = ni->NodeInfoManager();
+    entryValue = new (nim) Attr(this, ni.forget(), u""_ns);
     node = entryValue;
   }
 
@@ -257,7 +258,7 @@ already_AddRefed<Attr> nsDOMAttributeMap::SetNamedItemNS(Attr& aAttr,
   // Add the new attribute to the attribute map before updating
   // its value in the element. @see bug 364413.
   nsAttrKey attrkey(ni->NamespaceID(), ni->NameAtom());
-  mAttributeCache.Put(attrkey, &aAttr);
+  mAttributeCache.Put(attrkey, RefPtr{&aAttr});
   aAttr.SetMap(this);
 
   rv = mContent->SetAttr(ni->NamespaceID(), ni->NameAtom(), ni->GetPrefixAtom(),
@@ -400,8 +401,9 @@ size_t nsDOMAttributeMap::SizeOfIncludingThis(
   return n;
 }
 
-/* virtual */ JSObject* nsDOMAttributeMap::WrapObject(
-    JSContext* aCx, JS::Handle<JSObject*> aGivenProto) {
+/* virtual */
+JSObject* nsDOMAttributeMap::WrapObject(JSContext* aCx,
+                                        JS::Handle<JSObject*> aGivenProto) {
   return NamedNodeMap_Binding::Wrap(aCx, this, aGivenProto);
 }
 

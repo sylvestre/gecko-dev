@@ -29,7 +29,7 @@ function _getUriForModulePath(modulePath) {
 
   // Add resource:// scheme if no scheme is specified.
   if (!modulePath.includes("://")) {
-    modulePath =  "resource://" + modulePath;
+    modulePath = "resource://" + modulePath;
   }
 
   return modulePath;
@@ -51,7 +51,7 @@ function setMockedModule(mock, modulePath) {
       if (typeof target[key] === "function") {
         // Functions are wrapped to be able to update the methods during the test, even if
         // the methods were imported with destructuring. For instance:
-        //   `const { someMethod } = require("./my-module");`
+        //   `const { someMethod } = require("devtools/client/shared/my-module");`
         return function() {
           return target[key].apply(target, arguments);
         };

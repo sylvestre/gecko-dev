@@ -8,26 +8,30 @@
 interface mozIDOMWindowProxy;
 interface nsIDOMWindow;
 interface nsIURI;
-interface nsIFrameLoaderOwner;
 interface nsIPrincipal;
+interface nsIContentSecurityPolicy;
+interface nsIReferrerInfo;
+interface nsIOpenWindowInfo;
+webidl BrowsingContext;
+webidl Element;
 
 [scriptable, uuid(e774db14-79ac-4156-a7a3-aa3fd0a22c10)]
 interface nsIOpenURIInFrameParams : nsISupports
 {
-  attribute AString referrer;
-  attribute unsigned long referrerPolicy;
+  readonly attribute nsIOpenWindowInfo openWindowInfo;
+
+  attribute nsIReferrerInfo referrerInfo;
   readonly attribute boolean isPrivate;
   attribute nsIPrincipal triggeringPrincipal;
+  attribute nsIContentSecurityPolicy csp;
 
   // The browser or frame element in the parent process which holds the
   // opener window in the content process. May be null.
-  readonly attribute nsIFrameLoaderOwner openerBrowser;
+  readonly attribute Element openerBrowser;
 
   [implicit_jscontext]
   readonly attribute jsval openerOriginAttributes;
 };
-
-[scriptable, uuid(2a9bb880-5d73-40f3-8152-c60c8d137a14)]
 
 /**
  * The C++ source has access to the browser script source through
@@ -36,6 +40,7 @@ interface nsIOpenURIInFrameParams : nsISupports
  * happen to be a browser chrome window will simply have no access to any such
  * interface.
  */
+[scriptable, uuid(2a9bb880-5d73-40f3-8152-c60c8d137a14)]
 interface nsIBrowserDOMWindow : nsISupports
 {
   /**
@@ -63,10 +68,9 @@ interface nsIBrowserDOMWindow : nsISupports
    */
   const short OPEN_NEWTAB        = 3;
   /**
-   * Open in an existing content tab based on the URI. If a match can't be
-   * found, revert to OPEN_NEWTAB behavior.
+   * Open in a hidden browser. Used for printing.
    */
-  const short OPEN_SWITCHTAB     = 4;
+  const short OPEN_PRINT_BROWSER = 4;
 
   /**
    * Values for createContentWindow's and openURI's aFlags parameter.
@@ -95,76 +99,76 @@ interface nsIBrowserDOMWindow : nsISupports
   const long OPEN_NO_OPENER     = 0x4;
 
   /**
+   * Don't set the referrer on the navigation inside the window which is
+   * being opened.
+   */
+  const long OPEN_NO_REFERRER   = 0x8;
+
+  /**
    * Create the content window for the given URI.
 
    * @param aURI the URI to be opened in the window (can be null).
    * @param aWhere see possible values described above.
-   * @param aOpener window requesting the creation (can be null).
+   * @param aOpenWindowInfo info about the creation (can be null).
    * @param aFlags flags which control the behavior of the load. The
    *               OPEN_EXTERNAL/OPEN_NEW flag is only used when
    *               aWhere == OPEN_DEFAULTWINDOW.
    * @param aTriggeringPrincipal the principal that would trigger the potential
    *        load of aURI.
+   * @param aCsp the CSP to use (if any) for the new window.
    * @return the window into which the URI would have been opened.
   */
-  mozIDOMWindowProxy
-  createContentWindow(in nsIURI aURI, in mozIDOMWindowProxy aOpener,
+  BrowsingContext
+  createContentWindow(in nsIURI aURI, in nsIOpenWindowInfo aOpenWindowInfo,
                       in short aWhere, in long aFlags,
-                      in nsIPrincipal aTriggeringPrincipal);
+                      in nsIPrincipal aTriggeringPrincipal,
+                      [optional] in nsIContentSecurityPolicy aCsp);
 
   /**
-   * As above, but return the nsIFrameLoaderOwner for the new window.
+   * As above, but return the nsFrameLoaderOwner for the new window. Value is
+   * returned as Element, QI'd back to nsFrameLoaderOwner as needed.
    *
    * Additional Parameters:
-   * @param aNextTabParentId The TabParent to associate the window with.
    * @param aName The name to give the window opened in the new tab.
-   * @return The nsIFrameLoaderOwner for the newly opened window.
+   * @return The frame element for the newly opened window.
    */
-  nsIFrameLoaderOwner
+  Element
   createContentWindowInFrame(in nsIURI aURI, in nsIOpenURIInFrameParams params,
                              in short aWhere, in long aFlags,
-                             in unsigned long long aNextTabParentId,
                              in AString aName);
 
   /**
    * Load a URI.
-
    * @param aURI the URI to open. null is not allowed. To create the window
    *        without loading the URI, use createContentWindow instead.
    * @param aWhere see possible values described above.
-   * @param aOpener window requesting the open (can be null).
+   * @param aOpenWindowInfo info about the open (can be null).
    * @param aFlags flags which control the behavior of the load. The
    *               OPEN_EXTERNAL/OPEN_NEW flag is only used when
    *               aWhere == OPEN_DEFAULTWINDOW.
    * @param aTriggeringPrincipal the principal that triggered the load of aURI.
+   * @param aCsp the CSP to be applied to the new load.
    * @return the window into which the URI was opened.
   */
-  mozIDOMWindowProxy
-  openURI(in nsIURI aURI, in mozIDOMWindowProxy aOpener,
-          in short aWhere, in long aFlags, in nsIPrincipal aTriggeringPrincipal);
+  BrowsingContext
+  openURI(in nsIURI aURI, in nsIOpenWindowInfo aOpenWindowInfo,
+          in short aWhere, in long aFlags, in nsIPrincipal aTriggeringPrincipal,
+          [optional] in nsIContentSecurityPolicy aCsp);
 
   /**
-   * As above, but return the nsIFrameLoaderOwner for the new window.
+   * As above, but return the nsFrameLoaderOwner for the new window. Value is
+   * returned as Element, QI'd back to nsFrameLoaderOwner as needed.
    *
    * Additional Parameters:
-   * @param aNextTabParentId The TabParent to associate the window with.
    * @param aName The name to give the window opened in the new tab.
-   * @return The nsIFrameLoaderOwner for the newly opened window.
+   * @return The frame element for the newly opened window.
    // XXXbz is this the right API?
    // See bug 537428
    */
-  nsIFrameLoaderOwner
+  Element
   openURIInFrame(in nsIURI aURI, in nsIOpenURIInFrameParams params,
                  in short aWhere, in long aFlags,
-                 in unsigned long long aNextTabParentId,
                  in AString aName);
-
-  /**
-   * @param  aWindow the window to test.
-   * @return whether the window is the main content window for any
-   *         currently open tab in this toplevel browser window.
-   */
-  boolean isTabContentWindow(in nsIDOMWindow aWindow);
 
   /**
    * This function is responsible for calling

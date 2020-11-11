@@ -22,9 +22,14 @@ var CaptivePortalWatcher = {
   // This flag exists so that tests can appropriately simulate a recheck.
   _waitingForRecheck: false,
 
+  // This holds a weak reference to the captive portal tab so we can close the tab
+  // after successful login if we're redirected to the canonicalURL.
+  _previousCaptivePortalTab: null,
+
   get _captivePortalNotification() {
     return gHighPriorityNotificationBox.getNotificationWithValue(
-                                           this.PORTAL_NOTIFICATION_VALUE);
+      this.PORTAL_NOTIFICATION_VALUE
+    );
   },
 
   get canonicalURL() {
@@ -33,17 +38,20 @@ var CaptivePortalWatcher = {
 
   get _browserBundle() {
     delete this._browserBundle;
-    return this._browserBundle =
-      Services.strings.createBundle("chrome://browser/locale/browser.properties");
+    return (this._browserBundle = Services.strings.createBundle(
+      "chrome://browser/locale/browser.properties"
+    ));
   },
 
   init() {
+    Services.obs.addObserver(this, "ensure-captive-portal-tab");
     Services.obs.addObserver(this, "captive-portal-login");
     Services.obs.addObserver(this, "captive-portal-login-abort");
     Services.obs.addObserver(this, "captive-portal-login-success");
 
-    this._cps = Cc["@mozilla.org/network/captive-portal-service;1"]
-                  .getService(Ci.nsICaptivePortalService);
+    this._cps = Cc["@mozilla.org/network/captive-portal-service;1"].getService(
+      Ci.nsICaptivePortalService
+    );
 
     if (this._cps.state == this._cps.LOCKED_PORTAL) {
       // A captive portal has already been detected.
@@ -62,11 +70,16 @@ var CaptivePortalWatcher = {
     // This constant is chosen to be large enough for a portal recheck to complete,
     // and small enough that the delay in opening a tab isn't too noticeable.
     // Please see comments for _delayedCaptivePortalDetected for more details.
-    XPCOMUtils.defineLazyPreferenceGetter(this, "PORTAL_RECHECK_DELAY_MS",
-                                          "captivedetect.portalRecheckDelayMS", 500);
+    XPCOMUtils.defineLazyPreferenceGetter(
+      this,
+      "PORTAL_RECHECK_DELAY_MS",
+      "captivedetect.portalRecheckDelayMS",
+      500
+    );
   },
 
   uninit() {
+    Services.obs.removeObserver(this, "ensure-captive-portal-tab");
     Services.obs.removeObserver(this, "captive-portal-login");
     Services.obs.removeObserver(this, "captive-portal-login-abort");
     Services.obs.removeObserver(this, "captive-portal-login-success");
@@ -83,6 +96,9 @@ var CaptivePortalWatcher = {
 
   observe(aSubject, aTopic, aData) {
     switch (aTopic) {
+      case "ensure-captive-portal-tab":
+        this.ensureCaptivePortalTab();
+        break;
       case "captive-portal-login":
         this._captivePortalDetected();
         break;
@@ -94,6 +110,45 @@ var CaptivePortalWatcher = {
         this._cancelDelayedCaptivePortal();
         break;
     }
+  },
+
+  onLocationChange(browser) {
+    if (!this._previousCaptivePortalTab) {
+      return;
+    }
+
+    let tab = this._previousCaptivePortalTab.get();
+    if (!tab || !tab.linkedBrowser) {
+      return;
+    }
+
+    if (browser != tab.linkedBrowser) {
+      return;
+    }
+
+    // There is a race between the release of captive portal i.e.
+    // the time when success/abort events are fired and the time when
+    // the captive portal tab redirects to the canonicalURL. We check for
+    // both conditions to be true and also check that we haven't already removed
+    // the captive portal tab in the success/abort event handlers before we remove
+    // it in the callback below. A tick is added to avoid removing the tab before
+    // onLocationChange handlers across browser code are executed.
+    Services.tm.dispatchToMainThread(() => {
+      if (!this._previousCaptivePortalTab) {
+        return;
+      }
+
+      tab = this._previousCaptivePortalTab.get();
+      let canonicalURI = Services.io.newURI(this.canonicalURL);
+      if (
+        tab &&
+        tab.linkedBrowser.currentURI.equalsExceptRef(canonicalURI) &&
+        (this._cps.state == this._cps.UNLOCKED_PORTAL ||
+          this._cps.state == this._cps.UNKNOWN)
+      ) {
+        gBrowser.removeTab(tab);
+      }
+    });
   },
 
   _captivePortalDetected() {
@@ -168,6 +223,22 @@ var CaptivePortalWatcher = {
   _captivePortalGone() {
     this._cancelDelayedCaptivePortal();
     this._removeNotification();
+
+    if (!this._captivePortalTab) {
+      return;
+    }
+
+    let tab = this._captivePortalTab.get();
+    let canonicalURI = Services.io.newURI(this.canonicalURL);
+    if (
+      tab &&
+      tab.linkedBrowser &&
+      tab.linkedBrowser.currentURI.equalsExceptRef(canonicalURI)
+    ) {
+      this._previousCaptivePortalTab = null;
+      gBrowser.removeTab(tab);
+    }
+    this._captivePortalTab = null;
   },
 
   _cancelDelayedCaptivePortal() {
@@ -206,9 +277,15 @@ var CaptivePortalWatcher = {
   },
 
   _showNotification() {
+    if (this._captivePortalNotification) {
+      return;
+    }
+
     let buttons = [
       {
-        label: this._browserBundle.GetStringFromName("captivePortal.showLoginPage2"),
+        label: this._browserBundle.GetStringFromName(
+          "captivePortal.showLoginPage2"
+        ),
         callback: () => {
           this.ensureCaptivePortalTab();
 
@@ -218,9 +295,11 @@ var CaptivePortalWatcher = {
       },
     ];
 
-    let message = this._browserBundle.GetStringFromName("captivePortal.infoMessage3");
+    let message = this._browserBundle.GetStringFromName(
+      "captivePortal.infoMessage3"
+    );
 
-    let closeHandler = (aEventName) => {
+    let closeHandler = aEventName => {
       if (aEventName != "removed") {
         return;
       }
@@ -228,8 +307,13 @@ var CaptivePortalWatcher = {
     };
 
     gHighPriorityNotificationBox.appendNotification(
-      message, this.PORTAL_NOTIFICATION_VALUE, "",
-      gHighPriorityNotificationBox.PRIORITY_INFO_MEDIUM, buttons, closeHandler);
+      message,
+      this.PORTAL_NOTIFICATION_VALUE,
+      "",
+      gHighPriorityNotificationBox.PRIORITY_INFO_MEDIUM,
+      buttons,
+      closeHandler
+    );
 
     gBrowser.tabContainer.addEventListener("TabSelect", this);
   },
@@ -252,28 +336,17 @@ var CaptivePortalWatcher = {
     if (!tab || tab.closing || !tab.parentNode) {
       tab = gBrowser.addWebTab(this.canonicalURL, {
         ownerTab: gBrowser.selectedTab,
-        triggeringPrincipal: Services.scriptSecurityManager.createNullPrincipal({
-          userContextId: gBrowser.contentPrincipal.userContextId,
-        }),
+        triggeringPrincipal: Services.scriptSecurityManager.createNullPrincipal(
+          {
+            userContextId: gBrowser.contentPrincipal.userContextId,
+          }
+        ),
+        disableTRR: true,
       });
       this._captivePortalTab = Cu.getWeakReference(tab);
+      this._previousCaptivePortalTab = Cu.getWeakReference(tab);
     }
 
     gBrowser.selectedTab = tab;
-
-    let canonicalURI = makeURI(this.canonicalURL);
-
-    // When we are no longer captive, close the tab if it's at the canonical URL.
-    let tabCloser = () => {
-      Services.obs.removeObserver(tabCloser, "captive-portal-login-abort");
-      Services.obs.removeObserver(tabCloser, "captive-portal-login-success");
-      if (!tab || tab.closing || !tab.parentNode || !tab.linkedBrowser ||
-          !tab.linkedBrowser.currentURI.equalsExceptRef(canonicalURI)) {
-        return;
-      }
-      gBrowser.removeTab(tab);
-    };
-    Services.obs.addObserver(tabCloser, "captive-portal-login-abort");
-    Services.obs.addObserver(tabCloser, "captive-portal-login-success");
   },
 };

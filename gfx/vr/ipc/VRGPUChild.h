@@ -19,14 +19,22 @@ class VRGPUChild final : public PVRGPUChild {
   static VRGPUChild* Get();
   static bool InitForGPUProcess(Endpoint<PVRGPUChild>&& aEndpoint);
   static bool IsCreated();
-  static void ShutDown();
+  static void Shutdown();
+
+  mozilla::ipc::IPCResult RecvNotifyPuppetComplete();
+  mozilla::ipc::IPCResult RecvNotifyServiceStarted();
+
+  virtual void ActorDestroy(ActorDestroyReason aWhy) override;
+  bool IsClosed();
 
  protected:
-  explicit VRGPUChild() {}
-  ~VRGPUChild() {}
+  explicit VRGPUChild() : mClosed(false) {}
+  ~VRGPUChild() = default;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(VRGPUChild);
+
+  bool mClosed;
 };
 
 }  // namespace gfx

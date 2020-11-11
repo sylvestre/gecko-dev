@@ -7,7 +7,7 @@
 add_task(async function() {
   let homepage = "about:preferences";
   await SpecialPowers.pushPrefEnv({
-    "set": [
+    set: [
       ["browser.startup.homepage", homepage],
       ["browser.startup.page", 1],
     ],
@@ -25,5 +25,9 @@ add_task(async function() {
 
 function checkIdentityMode(win) {
   let identityMode = win.document.getElementById("identity-box").className;
-  is(identityMode, "chromeUI", "Identity state should be chromeUI for about:home in a new window");
+  is(
+    identityMode,
+    "chromeUI",
+    "Identity state should be chromeUI for about:home in a new window"
+  );
 }

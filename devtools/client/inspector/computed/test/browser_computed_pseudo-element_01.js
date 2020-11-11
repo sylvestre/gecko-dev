@@ -1,4 +1,3 @@
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -10,7 +9,7 @@ const TEST_URI = URL_ROOT + "doc_pseudoelement.html";
 
 add_task(async function() {
   await addTab(TEST_URI);
-  const {inspector, view} = await openComputedView();
+  const { inspector, view } = await openComputedView();
   await testTopLeft(inspector, view);
 });
 

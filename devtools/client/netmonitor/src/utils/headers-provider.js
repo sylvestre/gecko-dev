@@ -4,7 +4,9 @@
 
 "use strict";
 
-const { ObjectProvider } = require("devtools/client/shared/components/tree/ObjectProvider");
+const {
+  ObjectProvider,
+} = require("devtools/client/shared/components/tree/ObjectProvider");
 
 /**
  * Custom tree provider.
@@ -19,9 +21,10 @@ var HeadersProvider = {
   ...ObjectProvider,
 
   getChildren(object) {
-    if (object.value instanceof HeaderList) {
-      return object.value.headers.map((header, index) =>
-        new Header(header.name, header.value, index));
+    if (object && object.value instanceof HeaderList) {
+      return object.value.headers.map(
+        (header, index) => new Header(header.name, header.value, index)
+      );
     }
     return ObjectProvider.getChildren(object);
   },

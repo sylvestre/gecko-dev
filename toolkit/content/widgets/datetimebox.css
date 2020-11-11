@@ -7,6 +7,8 @@
 
 .datetimebox {
   display: flex;
+  /* TODO: Enable selection once bug 1455893 is fixed */
+  user-select: none;
 }
 
 .datetime-input-box-wrapper {
@@ -15,16 +17,17 @@
   background-color: inherit;
   min-width: 0;
   justify-content: space-between;
+  align-items: center;
 }
 
 .datetime-input-edit-wrapper {
   overflow: hidden;
   white-space: nowrap;
+  flex-grow: 1;
 }
 
 .datetime-edit-field {
   display: inline;
-  -moz-user-select: none;
   text-align: center;
   padding: 1px 3px;
   border: 0;
@@ -40,19 +43,18 @@
 }
 
 .datetime-edit-field[disabled="true"],
-.datetime-edit-field[readonly="true"]  {
-  -moz-user-select: none;
+.datetime-edit-field[readonly="true"] {
+  user-select: none;
 }
 
 .datetime-reset-button {
+  color: inherit;
   fill: currentColor;
   opacity: .5;
   background-color: transparent;
   border: none;
-  align-self: center;
   flex: none;
-  padding-left: 2px;
-  padding-right: 2px;
+  padding-inline: 2px;
 }
 
 svg|svg.datetime-reset-button-svg {

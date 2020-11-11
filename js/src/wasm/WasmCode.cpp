@@ -21,11 +21,18 @@
 #include "mozilla/BinarySearch.h"
 #include "mozilla/EnumeratedRange.h"
 
+#include <algorithm>
+
+#include "jsnum.h"
+
 #include "jit/ExecutableAllocator.h"
 #ifdef JS_ION_PERF
-#include "jit/PerfSpewer.h"
+#  include "jit/PerfSpewer.h"
 #endif
-#include "vtune/VTuneWrapper.h"
+#include "util/Poison.h"
+#ifdef MOZ_VTUNE
+#  include "vtune/VTuneWrapper.h"
+#endif
 #include "wasm/WasmModule.h"
 #include "wasm/WasmProcess.h"
 #include "wasm/WasmSerialize.h"
@@ -105,11 +112,11 @@ CodeSegment::~CodeSegment() {
 
 static uint32_t RoundupCodeLength(uint32_t codeLength) {
   // AllocateExecutableMemory() requires a multiple of ExecutableCodePageSize.
-  return JS_ROUNDUP(codeLength, ExecutableCodePageSize);
+  return RoundUp(codeLength, ExecutableCodePageSize);
 }
 
-/* static */ UniqueCodeBytes CodeSegment::AllocateCodeBytes(
-    uint32_t codeLength) {
+/* static */
+UniqueCodeBytes CodeSegment::AllocateCodeBytes(uint32_t codeLength) {
   if (codeLength > MaxCodeBytesPerProcess) {
     return nullptr;
   }
@@ -337,8 +344,9 @@ ModuleSegment::ModuleSegment(Tier tier, UniqueCodeBytes codeBytes,
       tier_(tier),
       trapCode_(base() + linkData.trapOffset) {}
 
-/* static */ UniqueModuleSegment ModuleSegment::create(
-    Tier tier, MacroAssembler& masm, const LinkData& linkData) {
+/* static */
+UniqueModuleSegment ModuleSegment::create(Tier tier, MacroAssembler& masm,
+                                          const LinkData& linkData) {
   uint32_t codeLength = masm.bytesNeeded();
 
   UniqueCodeBytes codeBytes = AllocateCodeBytes(codeLength);
@@ -346,15 +354,15 @@ ModuleSegment::ModuleSegment(Tier tier, UniqueCodeBytes codeBytes,
     return nullptr;
   }
 
-  // We'll flush the icache after static linking, in initialize().
-  masm.executableCopy(codeBytes.get(), /* flushICache = */ false);
+  masm.executableCopy(codeBytes.get());
 
   return js::MakeUnique<ModuleSegment>(tier, std::move(codeBytes), codeLength,
                                        linkData);
 }
 
-/* static */ UniqueModuleSegment ModuleSegment::create(
-    Tier tier, const Bytes& unlinkedBytes, const LinkData& linkData) {
+/* static */
+UniqueModuleSegment ModuleSegment::create(Tier tier, const Bytes& unlinkedBytes,
+                                          const LinkData& linkData) {
   uint32_t codeLength = unlinkedBytes.length();
 
   UniqueCodeBytes codeBytes = AllocateCodeBytes(codeLength);
@@ -368,7 +376,7 @@ ModuleSegment::ModuleSegment(Tier tier, UniqueCodeBytes codeBytes,
                                        linkData);
 }
 
-bool ModuleSegment::initialize(const CodeTier& codeTier,
+bool ModuleSegment::initialize(IsTier2 isTier2, const CodeTier& codeTier,
                                const LinkData& linkData,
                                const Metadata& metadata,
                                const MetadataTier& metadataTier) {
@@ -376,11 +384,15 @@ bool ModuleSegment::initialize(const CodeTier& codeTier,
     return false;
   }
 
-  ExecutableAllocator::cacheFlush(base(), RoundupCodeLength(length()));
+  // Optimized compilation finishes on a background thread, so we must make sure
+  // to flush the icaches of all the executing threads.
+  FlushICacheSpec flushIcacheSpec = isTier2 == IsTier2::Tier2
+                                        ? FlushICacheSpec::AllThreads
+                                        : FlushICacheSpec::LocalThreadOnly;
 
   // Reprotect the whole region to avoid having separate RW and RX mappings.
-  if (!ExecutableAllocator::makeExecutable(base(),
-                                           RoundupCodeLength(length()))) {
+  if (!ExecutableAllocator::makeExecutableAndFlushICache(
+          flushIcacheSpec, base(), RoundupCodeLength(length()))) {
     return false;
   }
 
@@ -607,9 +619,14 @@ bool LazyStubSegment::addStubs(size_t codeLength,
     codeRanges_.back().offsetBy(offsetInSegment);
     i++;
 
+#ifdef ENABLE_WASM_SIMD
+    if (funcExports[funcExportIndex].funcType().hasV128ArgOrRet()) {
+      continue;
+    }
+#endif
     if (funcExports[funcExportIndex]
             .funcType()
-            .temporarilyUnsupportedAnyRef()) {
+            .temporarilyUnsupportedReftypeForEntry()) {
       continue;
     }
 
@@ -648,9 +665,9 @@ struct ProjectLazyFuncIndex {
 
 static constexpr unsigned LAZY_STUB_LIFO_DEFAULT_CHUNK_SIZE = 8 * 1024;
 
-bool LazyStubTier::createMany(HasGcTypes gcTypesConfigured,
-                              const Uint32Vector& funcExportIndices,
+bool LazyStubTier::createMany(const Uint32Vector& funcExportIndices,
                               const CodeTier& codeTier,
+                              bool flushAllThreadsIcaches,
                               size_t* stubSegmentIndex) {
   MOZ_ASSERT(funcExportIndices.length());
 
@@ -667,14 +684,19 @@ bool LazyStubTier::createMany(HasGcTypes gcTypesConfigured,
   DebugOnly<uint32_t> numExpectedRanges = 0;
   for (uint32_t funcExportIndex : funcExportIndices) {
     const FuncExport& fe = funcExports[funcExportIndex];
-    numExpectedRanges += fe.funcType().temporarilyUnsupportedAnyRef() ? 1 : 2;
+    // Entries with unsupported types get only the interp exit
+    bool unsupportedType =
+#ifdef ENABLE_WASM_SIMD
+        fe.funcType().hasV128ArgOrRet() ||
+#endif
+        fe.funcType().temporarilyUnsupportedReftypeForEntry();
+    numExpectedRanges += (unsupportedType ? 1 : 2);
     void* calleePtr =
-        moduleSegmentBase + metadata.codeRange(fe).funcNormalEntry();
+        moduleSegmentBase + metadata.codeRange(fe).funcUncheckedCallEntry();
     Maybe<ImmPtr> callee;
     callee.emplace(calleePtr, ImmPtr::NoCheckToken());
     if (!GenerateEntryStubs(masm, funcExportIndex, fe, callee,
-                            /* asmjs */ false, gcTypesConfigured,
-                            &codeRanges)) {
+                            /* asmjs */ false, &codeRanges)) {
       return false;
     }
   }
@@ -685,10 +707,7 @@ bool LazyStubTier::createMany(HasGcTypes gcTypesConfigured,
 
   MOZ_ASSERT(masm.callSites().empty());
   MOZ_ASSERT(masm.callSiteTargets().empty());
-  MOZ_ASSERT(masm.callFarJumps().empty());
   MOZ_ASSERT(masm.trapSites().empty());
-  MOZ_ASSERT(masm.callFarJumps().empty());
-  MOZ_ASSERT(masm.symbolicAccesses().empty());
 
   if (masm.oom()) {
     return false;
@@ -698,7 +717,7 @@ bool LazyStubTier::createMany(HasGcTypes gcTypesConfigured,
 
   if (!stubSegments_.length() ||
       !stubSegments_[lastStubSegmentIndex_]->hasSpace(codeLength)) {
-    size_t newSegmentSize = Max(codeLength, ExecutableCodePageSize);
+    size_t newSegmentSize = std::max(codeLength, ExecutableCodePageSize);
     UniqueLazyStubSegment newSegment =
         LazyStubSegment::create(codeTier, newSegmentSize);
     if (!newSegment) {
@@ -719,15 +738,21 @@ bool LazyStubTier::createMany(HasGcTypes gcTypesConfigured,
                          &codePtr, &interpRangeIndex))
     return false;
 
-  masm.executableCopy(codePtr, /* flushICache = */ false);
+  masm.executableCopy(codePtr);
+  PatchDebugSymbolicAccesses(codePtr, masm);
   memset(codePtr + masm.bytesNeeded(), 0, codeLength - masm.bytesNeeded());
 
   for (const CodeLabel& label : masm.codeLabels()) {
     Assembler::Bind(codePtr, label);
   }
 
-  ExecutableAllocator::cacheFlush(codePtr, codeLength);
-  if (!ExecutableAllocator::makeExecutable(codePtr, codeLength)) {
+  // Optimized compilation finishes on a background thread, so we must make sure
+  // to flush the icaches of all the executing threads.
+  FlushICacheSpec flushIcacheSpec = flushAllThreadsIcaches
+                                        ? FlushICacheSpec::AllThreads
+                                        : FlushICacheSpec::LocalThreadOnly;
+  if (!ExecutableAllocator::makeExecutableAndFlushICache(flushIcacheSpec,
+                                                         codePtr, codeLength)) {
     return false;
   }
 
@@ -753,9 +778,14 @@ bool LazyStubTier::createMany(HasGcTypes gcTypesConfigured,
     MOZ_ALWAYS_TRUE(
         exports_.insert(exports_.begin() + exportIndex, std::move(lazyExport)));
 
-    // Functions with anyref in their sig have only one entry (interp).
-    // All other functions get an extra jit entry.
-    interpRangeIndex += fe.funcType().temporarilyUnsupportedAnyRef() ? 1 : 2;
+    // Functions with unsupported types in their sig have only one entry
+    // (interp).  All other functions get an extra jit entry.
+    bool unsupportedType =
+#ifdef ENABLE_WASM_SIMD
+        fe.funcType().hasV128ArgOrRet() ||
+#endif
+        fe.funcType().temporarilyUnsupportedReftypeForEntry();
+    interpRangeIndex += (unsupportedType ? 1 : 2);
   }
 
   return true;
@@ -768,20 +798,32 @@ bool LazyStubTier::createOne(uint32_t funcExportIndex,
     return false;
   }
 
+  // This happens on the executing thread (called via GetInterpEntry), so no
+  // need to flush the icaches on all the threads.
+  bool flushAllThreadIcaches = false;
+
   size_t stubSegmentIndex;
-  if (!createMany(codeTier.code().metadata().temporaryGcTypesConfigured,
-                  funcExportIndexes, codeTier, &stubSegmentIndex)) {
+  if (!createMany(funcExportIndexes, codeTier, flushAllThreadIcaches,
+                  &stubSegmentIndex)) {
     return false;
   }
 
   const UniqueLazyStubSegment& segment = stubSegments_[stubSegmentIndex];
   const CodeRangeVector& codeRanges = segment->codeRanges();
 
-  // Functions that have anyref in their sig don't get a jit entry.
+  // Functions that have unsupported types in their sig don't get a jit
+  // entry.
   if (codeTier.metadata()
           .funcExports[funcExportIndex]
           .funcType()
-          .temporarilyUnsupportedAnyRef()) {
+          .temporarilyUnsupportedReftypeForEntry()
+#ifdef ENABLE_WASM_SIMD
+      || codeTier.metadata()
+             .funcExports[funcExportIndex]
+             .funcType()
+             .hasV128ArgOrRet()
+#endif
+  ) {
     MOZ_ASSERT(codeRanges.length() >= 1);
     MOZ_ASSERT(codeRanges.back().isInterpEntry());
     return true;
@@ -797,16 +839,19 @@ bool LazyStubTier::createOne(uint32_t funcExportIndex,
   return true;
 }
 
-bool LazyStubTier::createTier2(HasGcTypes gcTypesConfigured,
-                               const Uint32Vector& funcExportIndices,
+bool LazyStubTier::createTier2(const Uint32Vector& funcExportIndices,
                                const CodeTier& codeTier,
                                Maybe<size_t>* outStubSegmentIndex) {
   if (!funcExportIndices.length()) {
     return true;
   }
 
+  // This compilation happens on a background compiler thread, so the icache may
+  // need to be flushed on all the threads.
+  bool flushAllThreadIcaches = true;
+
   size_t stubSegmentIndex;
-  if (!createMany(gcTypesConfigured, funcExportIndices, codeTier,
+  if (!createMany(funcExportIndices, codeTier, flushAllThreadIcaches,
                   &stubSegmentIndex)) {
     return false;
   }
@@ -837,8 +882,10 @@ bool LazyStubTier::hasStub(uint32_t funcIndex) const {
 
 void* LazyStubTier::lookupInterpEntry(uint32_t funcIndex) const {
   size_t match;
-  MOZ_ALWAYS_TRUE(BinarySearch(ProjectLazyFuncIndex(exports_), 0,
-                               exports_.length(), funcIndex, &match));
+  if (!BinarySearch(ProjectLazyFuncIndex(exports_), 0, exports_.length(),
+                    funcIndex, &match)) {
+    return nullptr;
+  }
   const LazyFuncExport& fe = exports_[match];
   const LazyStubSegment& stub = *stubSegments_[fe.lazyStubSegmentIndex];
   return stub.base() + stub.codeRanges()[fe.funcCodeRangeIndex].begin();
@@ -846,7 +893,7 @@ void* LazyStubTier::lookupInterpEntry(uint32_t funcIndex) const {
 
 void LazyStubTier::addSizeOfMisc(MallocSizeOf mallocSizeOf, size_t* code,
                                  size_t* data) const {
-  *data += sizeof(this);
+  *data += sizeof(*this);
   *data += exports_.sizeOfExcludingThis(mallocSizeOf);
   for (const UniqueLazyStubSegment& stub : stubSegments_) {
     stub->addSizeOfMisc(mallocSizeOf, code, data);
@@ -1007,15 +1054,15 @@ bool Metadata::getFuncName(NameContext ctx, uint32_t funcIndex,
   return AppendFunctionIndexName(funcIndex, name);
 }
 
-bool CodeTier::initialize(const Code& code, const LinkData& linkData,
-                          const Metadata& metadata) {
+bool CodeTier::initialize(IsTier2 isTier2, const Code& code,
+                          const LinkData& linkData, const Metadata& metadata) {
   MOZ_ASSERT(!initialized());
   code_ = &code;
 
   MOZ_ASSERT(lazyStubs_.lock()->empty());
 
   // See comments in CodeSegment::initialize() for why this must be last.
-  if (!segment_->initialize(*this, linkData, metadata, *metadata_)) {
+  if (!segment_->initialize(isTier2, *this, linkData, metadata, *metadata_)) {
     return false;
   }
 
@@ -1073,18 +1120,8 @@ const CodeRange* CodeTier::lookupRange(const void* pc) const {
 
 bool JumpTables::init(CompileMode mode, const ModuleSegment& ms,
                       const CodeRangeVector& codeRanges) {
-  // Note a fast jit entry has two addresses, to be compatible with
-  // ion/baseline functions which have the raw vs checked args entries,
-  // both used all over the place in jit calls. This allows the fast entries
-  // to be compatible with jit code pointer loading routines.
-  // We can use the same entry for both kinds of jit entries since a wasm
-  // entry knows how to convert any kind of arguments and doesn't assume
-  // any input types.
-
   static_assert(JSScript::offsetOfJitCodeRaw() == 0,
-                "wasm fast jit entry is at (void*) jit[2*funcIndex]");
-  static_assert(JSScript::offsetOfJitCodeSkipArgCheck() == sizeof(void*),
-                "wasm fast jit entry is also at (void*) jit[2*funcIndex+1]");
+                "wasm fast jit entry is at (void*) jit[funcIndex]");
 
   mode_ = mode;
 
@@ -1108,7 +1145,7 @@ bool JumpTables::init(CompileMode mode, const ModuleSegment& ms,
   // filling/looking up the jit entries and safe (worst case we'll crash
   // because of a null deref when trying to call the jit entry of an
   // unexported function).
-  jit_ = TablePointer(js_pod_calloc<void*>(2 * numFuncs));
+  jit_ = TablePointer(js_pod_calloc<void*>(numFuncs));
   if (!jit_) {
     return false;
   }
@@ -1136,7 +1173,7 @@ Code::Code(UniqueCodeTier tier1, const Metadata& metadata,
 bool Code::initialize(const LinkData& linkData) {
   MOZ_ASSERT(!initialized());
 
-  if (!tier1_->initialize(*this, linkData, *metadata_)) {
+  if (!tier1_->initialize(IsTier2::NotTier2, *this, linkData, *metadata_)) {
     return false;
   }
 
@@ -1149,7 +1186,7 @@ bool Code::setTier2(UniqueCodeTier tier2, const LinkData& linkData) const {
   MOZ_RELEASE_ASSERT(tier2->tier() == Tier::Optimized &&
                      tier1_->tier() == Tier::Baseline);
 
-  if (!tier2->initialize(*this, linkData, *metadata_)) {
+  if (!tier2->initialize(IsTier2::Tier2, *this, linkData, *metadata_)) {
     return false;
   }
 
@@ -1166,8 +1203,9 @@ void Code::commitTier2() const {
 }
 
 uint32_t Code::getFuncIndex(JSFunction* fun) const {
-  if (fun->isAsmJSNative()) {
-    return fun->asmJSFuncIndex();
+  MOZ_ASSERT(fun->isWasm() || fun->isAsmJSNative());
+  if (!fun->isWasmWithJitEntry()) {
+    return fun->wasmFuncIndex();
   }
   return jumpTables_.funcIndexFromJitEntry(fun->wasmJitEntry());
 }
@@ -1452,4 +1490,29 @@ uint8_t* Code::serialize(uint8_t* cursor, const LinkData& linkData) const {
 
   *out = code;
   return cursor;
+}
+
+void wasm::PatchDebugSymbolicAccesses(uint8_t* codeBase, MacroAssembler& masm) {
+#ifdef WASM_CODEGEN_DEBUG
+  for (auto& access : masm.symbolicAccesses()) {
+    switch (access.target) {
+      case SymbolicAddress::PrintI32:
+      case SymbolicAddress::PrintPtr:
+      case SymbolicAddress::PrintF32:
+      case SymbolicAddress::PrintF64:
+      case SymbolicAddress::PrintText:
+        break;
+      default:
+        MOZ_CRASH("unexpected symbol in PatchDebugSymbolicAccesses");
+    }
+    ABIFunctionType abiType;
+    void* target = AddressOf(access.target, &abiType);
+    uint8_t* patchAt = codeBase + access.patchAt.offset();
+    Assembler::PatchDataWithValueCheck(CodeLocationLabel(patchAt),
+                                       PatchedImmPtr(target),
+                                       PatchedImmPtr((void*)-1));
+  }
+#else
+  MOZ_ASSERT(masm.symbolicAccesses().empty());
+#endif
 }

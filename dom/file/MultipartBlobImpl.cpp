@@ -15,19 +15,19 @@
 #include "nsTArray.h"
 #include "nsJSUtils.h"
 #include "nsContentUtils.h"
-#include "nsIScriptError.h"
-#include "nsIXPConnect.h"
 #include <algorithm>
 
 using namespace mozilla;
 using namespace mozilla::dom;
 
-/* static */ already_AddRefed<MultipartBlobImpl> MultipartBlobImpl::Create(
+/* static */
+already_AddRefed<MultipartBlobImpl> MultipartBlobImpl::Create(
     nsTArray<RefPtr<BlobImpl>>&& aBlobImpls, const nsAString& aName,
-    const nsAString& aContentType, ErrorResult& aRv) {
+    const nsAString& aContentType, bool aCrossOriginIsolated,
+    ErrorResult& aRv) {
   RefPtr<MultipartBlobImpl> blobImpl =
       new MultipartBlobImpl(std::move(aBlobImpls), aName, aContentType);
-  blobImpl->SetLengthAndModifiedDate(aRv);
+  blobImpl->SetLengthAndModifiedDate(Some(aCrossOriginIsolated), aRv);
   if (NS_WARN_IF(aRv.Failed())) {
     return nullptr;
   }
@@ -35,12 +35,13 @@ using namespace mozilla::dom;
   return blobImpl.forget();
 }
 
-/* static */ already_AddRefed<MultipartBlobImpl> MultipartBlobImpl::Create(
+/* static */
+already_AddRefed<MultipartBlobImpl> MultipartBlobImpl::Create(
     nsTArray<RefPtr<BlobImpl>>&& aBlobImpls, const nsAString& aContentType,
     ErrorResult& aRv) {
   RefPtr<MultipartBlobImpl> blobImpl =
       new MultipartBlobImpl(std::move(aBlobImpls), aContentType);
-  blobImpl->SetLengthAndModifiedDate(aRv);
+  blobImpl->SetLengthAndModifiedDate(/* aCrossOriginIsolated */ Nothing(), aRv);
   if (NS_WARN_IF(aRv.Failed())) {
     return nullptr;
   }
@@ -53,8 +54,8 @@ void MultipartBlobImpl::CreateInputStream(nsIInputStream** aStream,
   *aStream = nullptr;
 
   uint32_t length = mBlobImpls.Length();
-  if (length == 0) {
-    aRv = NS_NewCStringInputStream(aStream, EmptyCString());
+  if (length == 0 || mLength == 0) {
+    aRv = NS_NewCStringInputStream(aStream, ""_ns);
     return;
   }
 
@@ -75,6 +76,17 @@ void MultipartBlobImpl::CreateInputStream(nsIInputStream** aStream,
   for (i = 0; i < length; i++) {
     nsCOMPtr<nsIInputStream> scratchStream;
     BlobImpl* blobImpl = mBlobImpls.ElementAt(i).get();
+
+    // nsIMultiplexInputStream doesn't work well with empty sub streams. Let's
+    // skip the empty blobs.
+    uint32_t size = blobImpl->GetSize(aRv);
+    if (NS_WARN_IF(aRv.Failed())) {
+      return;
+    }
+
+    if (size == 0) {
+      continue;
+    }
 
     blobImpl->CreateInputStream(getter_AddRefs(scratchStream), aRv);
     if (NS_WARN_IF(aRv.Failed())) {
@@ -163,14 +175,17 @@ already_AddRefed<BlobImpl> MultipartBlobImpl::CreateSlice(
   return impl.forget();
 }
 
-void MultipartBlobImpl::InitializeBlob(ErrorResult& aRv) {
-  SetLengthAndModifiedDate(aRv);
+void MultipartBlobImpl::InitializeBlob(bool aCrossOriginIsolated,
+                                       ErrorResult& aRv) {
+  SetLengthAndModifiedDate(Some(aCrossOriginIsolated), aRv);
   NS_WARNING_ASSERTION(!aRv.Failed(), "SetLengthAndModifiedDate failed");
 }
 
 void MultipartBlobImpl::InitializeBlob(const Sequence<Blob::BlobPart>& aData,
                                        const nsAString& aContentType,
-                                       bool aNativeEOL, ErrorResult& aRv) {
+                                       bool aNativeEOL,
+                                       bool aCrossOriginIsolated,
+                                       ErrorResult& aRv) {
   mContentType = aContentType;
   BlobSet blobSet;
 
@@ -194,7 +209,7 @@ void MultipartBlobImpl::InitializeBlob(const Sequence<Blob::BlobPart>& aData,
 
     else if (data.IsArrayBuffer()) {
       const ArrayBuffer& buffer = data.GetAsArrayBuffer();
-      buffer.ComputeLengthAndData();
+      buffer.ComputeState();
       aRv = blobSet.AppendVoidPtr(buffer.Data(), buffer.Length());
       if (aRv.Failed()) {
         return;
@@ -203,7 +218,7 @@ void MultipartBlobImpl::InitializeBlob(const Sequence<Blob::BlobPart>& aData,
 
     else if (data.IsArrayBufferView()) {
       const ArrayBufferView& buffer = data.GetAsArrayBufferView();
-      buffer.ComputeLengthAndData();
+      buffer.ComputeState();
       aRv = blobSet.AppendVoidPtr(buffer.Data(), buffer.Length());
       if (aRv.Failed()) {
         return;
@@ -216,13 +231,14 @@ void MultipartBlobImpl::InitializeBlob(const Sequence<Blob::BlobPart>& aData,
   }
 
   mBlobImpls = blobSet.GetBlobImpls();
-  SetLengthAndModifiedDate(aRv);
+  SetLengthAndModifiedDate(Some(aCrossOriginIsolated), aRv);
   NS_WARNING_ASSERTION(!aRv.Failed(), "SetLengthAndModifiedDate failed");
 }
 
-void MultipartBlobImpl::SetLengthAndModifiedDate(ErrorResult& aRv) {
-  MOZ_ASSERT(mLength == UINT64_MAX);
-  MOZ_ASSERT(mLastModificationDate == INT64_MAX);
+void MultipartBlobImpl::SetLengthAndModifiedDate(
+    const Maybe<bool>& aCrossOriginIsolated, ErrorResult& aRv) {
+  MOZ_ASSERT(mLength == MULTIPARTBLOBIMPL_UNKNOWN_LENGTH);
+  MOZ_ASSERT_IF(mIsFile, IsLastModificationDateUnset());
 
   uint64_t totalLength = 0;
   int64_t lastModified = 0;
@@ -231,11 +247,6 @@ void MultipartBlobImpl::SetLengthAndModifiedDate(ErrorResult& aRv) {
   for (uint32_t index = 0, count = mBlobImpls.Length(); index < count;
        index++) {
     RefPtr<BlobImpl>& blob = mBlobImpls[index];
-
-#ifdef DEBUG
-    MOZ_ASSERT(!blob->IsSizeUnknown());
-    MOZ_ASSERT(!blob->IsDateUnknown());
-#endif
 
     uint64_t subBlobLength = blob->GetSize(aRv);
     if (NS_WARN_IF(aRv.Failed())) {
@@ -252,7 +263,7 @@ void MultipartBlobImpl::SetLengthAndModifiedDate(ErrorResult& aRv) {
       }
 
       if (lastModified < partLastModified) {
-        lastModified = partLastModified;
+        lastModified = partLastModified * PR_USEC_PER_MSEC;
         lastModifiedSet = true;
       }
     }
@@ -261,144 +272,18 @@ void MultipartBlobImpl::SetLengthAndModifiedDate(ErrorResult& aRv) {
   mLength = totalLength;
 
   if (mIsFile) {
-    // We cannot use PR_Now() because bug 493756 and, for this reason:
-    //   var x = new Date(); var f = new File(...);
-    //   x.getTime() < f.dateModified.getTime()
-    // could fail.
-    mLastModificationDate = nsRFPService::ReduceTimePrecisionAsUSecs(
-        lastModifiedSet ? lastModified * PR_USEC_PER_MSEC : JS_Now(), 0);
-    // mLastModificationDate is an absolute timestamp so we supply a zero
-    // context mix-in
-  }
-}
+    if (lastModifiedSet) {
+      SetLastModificationDatePrecisely(lastModified);
+    } else {
+      MOZ_ASSERT(aCrossOriginIsolated.isSome());
 
-void MultipartBlobImpl::GetMozFullPathInternal(nsAString& aFilename,
-                                               ErrorResult& aRv) const {
-  if (!mIsFromNsIFile || mBlobImpls.Length() == 0) {
-    BaseBlobImpl::GetMozFullPathInternal(aFilename, aRv);
-    return;
-  }
-
-  BlobImpl* blobImpl = mBlobImpls.ElementAt(0).get();
-  if (!blobImpl) {
-    BaseBlobImpl::GetMozFullPathInternal(aFilename, aRv);
-    return;
-  }
-
-  blobImpl->GetMozFullPathInternal(aFilename, aRv);
-}
-
-nsresult MultipartBlobImpl::SetMutable(bool aMutable) {
-  nsresult rv;
-
-  // This looks a little sketchy since BlobImpl objects are supposed to be
-  // threadsafe. However, we try to enforce that all BlobImpl objects must be
-  // set to immutable *before* being passed to another thread, so this should
-  // be safe.
-  if (!aMutable && !mImmutable && !mBlobImpls.IsEmpty()) {
-    for (uint32_t index = 0, count = mBlobImpls.Length(); index < count;
-         index++) {
-      rv = mBlobImpls[index]->SetMutable(aMutable);
-      if (NS_WARN_IF(NS_FAILED(rv))) {
-        return rv;
-      }
+      // We cannot use PR_Now() because bug 493756 and, for this reason:
+      //   var x = new Date(); var f = new File(...);
+      //   x.getTime() < f.dateModified.getTime()
+      // could fail.
+      SetLastModificationDate(aCrossOriginIsolated.value(), JS_Now());
     }
   }
-
-  rv = BaseBlobImpl::SetMutable(aMutable);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
-
-  MOZ_ASSERT_IF(!aMutable, mImmutable);
-
-  return NS_OK;
-}
-
-nsresult MultipartBlobImpl::InitializeChromeFile(
-    nsIFile* aFile, const nsAString& aType, const nsAString& aName,
-    bool aLastModifiedPassed, int64_t aLastModified, bool aIsFromNsIFile) {
-  MOZ_ASSERT(!mImmutable, "Something went wrong ...");
-  if (mImmutable) {
-    return NS_ERROR_UNEXPECTED;
-  }
-
-  mName = aName;
-  mContentType = aType;
-  mIsFromNsIFile = aIsFromNsIFile;
-
-  bool exists;
-  nsresult rv = aFile->Exists(&exists);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
-
-  if (!exists) {
-    return NS_ERROR_FILE_NOT_FOUND;
-  }
-
-  bool isDir;
-  rv = aFile->IsDirectory(&isDir);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
-
-  if (isDir) {
-    return NS_ERROR_FILE_IS_DIRECTORY;
-  }
-
-  if (mName.IsEmpty()) {
-    aFile->GetLeafName(mName);
-  }
-
-  RefPtr<File> blob = File::CreateFromFile(nullptr, aFile);
-
-  // Pre-cache size.
-  ErrorResult error;
-  blob->GetSize(error);
-  if (NS_WARN_IF(error.Failed())) {
-    return error.StealNSResult();
-  }
-
-  // Pre-cache modified date.
-  blob->GetLastModified(error);
-  if (NS_WARN_IF(error.Failed())) {
-    return error.StealNSResult();
-  }
-
-  // XXXkhuey this is terrible
-  if (mContentType.IsEmpty()) {
-    blob->GetType(mContentType);
-  }
-
-  BlobSet blobSet;
-  rv = blobSet.AppendBlobImpl(static_cast<File*>(blob.get())->Impl());
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
-
-  mBlobImpls = blobSet.GetBlobImpls();
-
-  SetLengthAndModifiedDate(error);
-  if (NS_WARN_IF(error.Failed())) {
-    return error.StealNSResult();
-  }
-
-  if (aLastModifiedPassed) {
-    SetLastModified(aLastModified);
-  }
-
-  return NS_OK;
-}
-
-bool MultipartBlobImpl::MayBeClonedToOtherThreads() const {
-  for (uint32_t i = 0; i < mBlobImpls.Length(); ++i) {
-    if (!mBlobImpls[i]->MayBeClonedToOtherThreads()) {
-      return false;
-    }
-  }
-
-  return true;
 }
 
 size_t MultipartBlobImpl::GetAllocationSize() const {
@@ -446,4 +331,8 @@ void MultipartBlobImpl::GetBlobImplType(nsAString& aBlobImplType) const {
   }
 
   aBlobImplType.AppendLiteral("]");
+}
+
+void MultipartBlobImpl::SetLastModified(int64_t aLastModified) {
+  SetLastModificationDatePrecisely(aLastModified * PR_USEC_PER_MSEC);
 }

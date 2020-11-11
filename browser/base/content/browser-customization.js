@@ -8,7 +8,7 @@
 
 /**
  * Customization handler prepares this browser window for entering and exiting
- * customization mode by handling customizationstarting and customizationending
+ * customization mode by handling customizationstarting and aftercustomization
  * events.
  */
 var CustomizationHandler = {
@@ -17,8 +17,8 @@ var CustomizationHandler = {
       case "customizationstarting":
         this._customizationStarting();
         break;
-      case "customizationending":
-        this._customizationEnding(aEvent.detail);
+      case "aftercustomization":
+        this._afterCustomization();
         break;
     }
   },
@@ -30,47 +30,42 @@ var CustomizationHandler = {
   _customizationStarting() {
     // Disable the toolbar context menu items
     let menubar = document.getElementById("main-menubar");
-    for (let childNode of menubar.children)
+    for (let childNode of menubar.children) {
       childNode.setAttribute("disabled", true);
-
-    let cmd = document.getElementById("cmd_CustomizeToolbars");
-    cmd.setAttribute("disabled", "true");
+    }
 
     UpdateUrlbarSearchSplitterState();
 
     PlacesToolbarHelper.customizeStart();
   },
 
-  _customizationEnding(aDetails) {
+  _afterCustomization() {
     // Update global UI elements that may have been added or removed
-    if (aDetails.changed &&
-        AppConstants.platform != "macosx") {
+    if (AppConstants.platform != "macosx") {
       updateEditUIVisibility();
     }
 
     PlacesToolbarHelper.customizeDone();
 
-    UpdateUrlbarSearchSplitterState();
-
-    // Update the urlbar
-    URLBarSetURI();
     XULBrowserWindow.asyncUpdateUI();
-
     // Re-enable parts of the UI we disabled during the dialog
     let menubar = document.getElementById("main-menubar");
-    for (let childNode of menubar.children)
+    for (let childNode of menubar.children) {
       childNode.setAttribute("disabled", false);
-    let cmd = document.getElementById("cmd_CustomizeToolbars");
-    cmd.removeAttribute("disabled");
+    }
 
     gBrowser.selectedBrowser.focus();
+
+    // Update the urlbar
+    gURLBar.setURI();
+    UpdateUrlbarSearchSplitterState();
   },
 };
 
 var AutoHideMenubar = {
   get _node() {
     delete this._node;
-    return this._node = document.getElementById("toolbar-menubar");
+    return (this._node = document.getElementById("toolbar-menubar"));
   },
 
   _contextMenuListener: {
@@ -124,7 +119,12 @@ var AutoHideMenubar = {
     }
   },
 
-  _events: ["DOMMenuBarInactive", "DOMMenuBarActive", "popupshowing", "mousedown"],
+  _events: [
+    "DOMMenuBarInactive",
+    "DOMMenuBarActive",
+    "popupshowing",
+    "mousedown",
+  ],
   _enable() {
     this._node.setAttribute("inactive", "true");
     for (let event of this._events) {
@@ -145,7 +145,7 @@ var AutoHideMenubar = {
         this._updateState();
         break;
       case "popupshowing":
-        // fall through
+      // fall through
       case "DOMMenuBarActive":
         this._setActive();
         break;
@@ -155,8 +155,9 @@ var AutoHideMenubar = {
         }
         break;
       case "DOMMenuBarInactive":
-        if (!this._contextMenuListener.active)
+        if (!this._contextMenuListener.active) {
           this._setInactiveAsync();
+        }
         break;
     }
   },

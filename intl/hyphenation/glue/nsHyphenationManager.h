@@ -6,48 +6,50 @@
 #ifndef nsHyphenationManager_h__
 #define nsHyphenationManager_h__
 
-#include "nsInterfaceHashtable.h"
-#include "nsRefPtrHashtable.h"
-#include "nsHashKeys.h"
-#include "nsIObserver.h"
+#include "base/shared_memory.h"
 #include "mozilla/Omnijar.h"
+#include "nsHashKeys.h"
+#include "nsInterfaceHashtable.h"
+#include "nsIObserver.h"
+#include "nsRefPtrHashtable.h"
 
 class nsHyphenator;
 class nsAtom;
 class nsIURI;
 
-class nsHyphenationManager {
+class nsHyphenationManager : public nsIObserver {
  public:
+  NS_DECL_ISUPPORTS
+  NS_DECL_NSIOBSERVER
+
   nsHyphenationManager();
 
-  already_AddRefed<nsHyphenator> GetHyphenator(nsAtom *aLocale);
+  already_AddRefed<nsHyphenator> GetHyphenator(nsAtom* aLocale);
 
-  static nsHyphenationManager *Instance();
+  void ShareHyphDictToProcess(nsIURI* aURI, base::ProcessId aPid,
+                              base::SharedMemoryHandle* aOutHandle,
+                              uint32_t* aOutSize);
+
+  static nsHyphenationManager* Instance();
 
   static void Shutdown();
 
+  size_t SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf);
+
  private:
-  ~nsHyphenationManager();
+  virtual ~nsHyphenationManager();
 
  protected:
-  class MemoryPressureObserver final : public nsIObserver {
-    ~MemoryPressureObserver() {}
-
-   public:
-    NS_DECL_ISUPPORTS
-    NS_DECL_NSIOBSERVER
-  };
-
   void LoadPatternList();
   void LoadPatternListFromOmnijar(mozilla::Omnijar::Type aType);
-  void LoadPatternListFromDir(nsIFile *aDir);
+  void LoadPatternListFromDir(nsIFile* aDir);
   void LoadAliases();
 
   nsRefPtrHashtable<nsRefPtrHashKey<nsAtom>, nsAtom> mHyphAliases;
   nsInterfaceHashtable<nsRefPtrHashKey<nsAtom>, nsIURI> mPatternFiles;
   nsRefPtrHashtable<nsRefPtrHashKey<nsAtom>, nsHyphenator> mHyphenators;
 
-  static nsHyphenationManager *sInstance;
+  static nsHyphenationManager* sInstance;
 };
 
 #endif  // nsHyphenationManager_h__

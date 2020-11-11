@@ -1,4 +1,3 @@
-/* vim:set ts=2 sw=2 sts=2 et: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -27,6 +26,10 @@ function OriginalSource(url, sourceId, sourceMapService) {
 }
 
 OriginalSource.prototype = {
+  get sourceId() {
+    return this._sourceId;
+  },
+
   /** Get the original source's URL.  */
   get url() {
     return this._url;
@@ -46,15 +49,14 @@ OriginalSource.prototype = {
    */
   getText: function() {
     if (!this._sourcePromise) {
-      this._sourcePromise = this._sourceMapService.getOriginalSourceText({
-        id: this._sourceId,
-        url: this._url,
-      }).then(contents => {
-        // Make it look like a long string actor.
-        return {
-          string: () => contents.text,
-        };
-      });
+      this._sourcePromise = this._sourceMapService
+        .getOriginalSourceText(this._sourceId)
+        .then(contents => {
+          // Make it look like a long string actor.
+          return {
+            string: () => contents.text,
+          };
+        });
     }
     return this._sourcePromise;
   },
@@ -76,24 +78,26 @@ OriginalSource.prototype = {
    *        properties.
    */
   getOriginalLocation: function(relatedSheet, line, column) {
-    const {href, nodeHref, actorID: sourceId} = relatedSheet;
+    const { href, nodeHref, resourceId: sourceId } = relatedSheet;
     const sourceUrl = href || nodeHref;
-    return this._sourceMapService.getOriginalLocation({
-      sourceId,
-      line,
-      column,
-      sourceUrl,
-    }).then(location => {
-      // Add some properties for the style editor.
-      location.source = location.sourceUrl;
-      location.styleSheet = relatedSheet;
-      return location;
-    });
+    return this._sourceMapService
+      .getOriginalLocation({
+        sourceId,
+        line,
+        column,
+        sourceUrl,
+      })
+      .then(location => {
+        // Add some properties for the style editor.
+        location.source = location.sourceUrl;
+        location.styleSheet = relatedSheet;
+        return location;
+      });
   },
 
   // Dummy implementations, as we never emit an event.
-  on: function() { },
-  off: function() { },
+  on: function() {},
+  off: function() {},
 };
 
 exports.OriginalSource = OriginalSource;

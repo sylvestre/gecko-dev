@@ -1,12 +1,12 @@
 #filter substitution
 #include @TOPOBJDIR@/source-repo.h
+#include @TOPOBJDIR@/buildid.h
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 "use strict";
 
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
 ChromeUtils.defineModuleGetter(this, "Services", "resource://gre/modules/Services.jsm");
 ChromeUtils.defineModuleGetter(this, "AddonManager", "resource://gre/modules/AddonManager.jsm");
 
@@ -18,6 +18,13 @@ this.AppConstants = Object.freeze({
   // defines: https://wiki.mozilla.org/Platform/Channel-specific_build_defines
   NIGHTLY_BUILD:
 #ifdef NIGHTLY_BUILD
+  true,
+#else
+  false,
+#endif
+
+  FENNEC_NIGHTLY:
+#ifdef FENNEC_NIGHTLY
   true,
 #else
   false,
@@ -68,6 +75,13 @@ this.AppConstants = Object.freeze({
   false,
 #endif
 
+  MOZ_SERVICES_SYNC:
+#ifdef MOZ_SERVICES_SYNC
+  true,
+#else
+  false,
+#endif
+
   MOZ_SERVICES_HEALTHREPORT:
 #ifdef MOZ_SERVICES_HEALTHREPORT
   true,
@@ -84,13 +98,6 @@ this.AppConstants = Object.freeze({
 
   MOZ_SANDBOX:
 #ifdef MOZ_SANDBOX
-  true,
-#else
-  false,
-#endif
-
-  MOZ_CONTENT_SANDBOX:
-#ifdef MOZ_CONTENT_SANDBOX
   true,
 #else
   false,
@@ -145,8 +152,8 @@ this.AppConstants = Object.freeze({
   false,
 #endif
 
-# NOTE! XP_LINUX has to go after MOZ_WIDGET_ANDROID otherwise Android
-# builds will be misidentified as linux.
+// NOTE! XP_LINUX has to go after MOZ_WIDGET_ANDROID otherwise Android
+// builds will be misidentified as linux.
   platform:
 #ifdef MOZ_WIDGET_GTK
   "linux",
@@ -160,6 +167,23 @@ this.AppConstants = Object.freeze({
   "linux",
 #else
   "other",
+#endif
+
+// Most of our frontend code assumes that any desktop Unix platform
+// is "linux". Add the distinction for code that needs it.
+  unixstyle:
+#ifdef XP_LINUX
+    "linux",
+#elif XP_OPENBSD
+    "openbsd",
+#elif XP_NETBSD
+    "netbsd",
+#elif XP_FREEBSD
+    "freebsd",
+#elif XP_SOLARIS
+    "solaris",
+#else
+    "other",
 #endif
 
   isPlatformAndVersionAtLeast(platform, version) {
@@ -181,8 +205,29 @@ this.AppConstants = Object.freeze({
   false,
 #endif
 
+  MOZ_NORMANDY:
+#ifdef MOZ_NORMANDY
+  true,
+#else
+  false,
+#endif
+
   MOZ_MAINTENANCE_SERVICE:
 #ifdef MOZ_MAINTENANCE_SERVICE
+  true,
+#else
+  false,
+#endif
+
+  MOZ_UPDATE_AGENT:
+#ifdef MOZ_UPDATE_AGENT
+  true,
+#else
+  false,
+#endif
+
+  MOZ_BITS_DOWNLOAD:
+#ifdef MOZ_BITS_DOWNLOAD
   true,
 #else
   false,
@@ -209,8 +254,8 @@ this.AppConstants = Object.freeze({
   false,
 #endif
 
-  MOZ_GRAPHENE:
-#ifdef MOZ_GRAPHENE
+  TSAN:
+#ifdef MOZ_TSAN
   true,
 #else
   false,
@@ -248,8 +293,8 @@ this.AppConstants = Object.freeze({
     return result;
   },
 
-  MOZ_ALLOW_LEGACY_EXTENSIONS:
-#ifdef MOZ_ALLOW_LEGACY_EXTENSIONS
+  MOZ_ALLOW_ADDON_SIDELOAD:
+#ifdef MOZ_ALLOW_ADDON_SIDELOAD
   true,
 #else
   false,
@@ -269,29 +314,8 @@ this.AppConstants = Object.freeze({
   false,
 #endif
 
-  MOZ_TOOLKIT_SEARCH:
-#ifdef MOZ_TOOLKIT_SEARCH
-  true,
-#else
-  false,
-#endif
-
   MOZ_GECKO_PROFILER:
 #ifdef MOZ_GECKO_PROFILER
-  true,
-#else
-  false,
-#endif
-
-  MOZ_ANDROID_ACTIVITY_STREAM:
-#ifdef MOZ_ANDROID_ACTIVITY_STREAM
-  true,
-#else
-  false,
-#endif
-
-  MOZ_ANDROID_MOZILLA_ONLINE:
-#ifdef MOZ_ANDROID_MOZILLA_ONLINE
   true,
 #else
   false,
@@ -301,12 +325,13 @@ this.AppConstants = Object.freeze({
   DLL_SUFFIX: "@DLL_SUFFIX@",
 
   MOZ_APP_NAME: "@MOZ_APP_NAME@",
+  MOZ_APP_BASENAME: "@MOZ_APP_BASENAME@",
   MOZ_APP_VERSION: "@MOZ_APP_VERSION@",
   MOZ_APP_VERSION_DISPLAY: "@MOZ_APP_VERSION_DISPLAY@",
+  MOZ_BUILDID: "@MOZ_BUILDID@",
   MOZ_BUILD_APP: "@MOZ_BUILD_APP@",
   MOZ_MACBUNDLE_NAME: "@MOZ_MACBUNDLE_NAME@",
   MOZ_UPDATE_CHANNEL: "@MOZ_UPDATE_CHANNEL@",
-  INSTALL_LOCALE: "@AB_CD@",
   MOZ_WIDGET_TOOLKIT: "@MOZ_WIDGET_TOOLKIT@",
   ANDROID_PACKAGE_NAME: "@ANDROID_PACKAGE_NAME@",
 
@@ -314,10 +339,13 @@ this.AppConstants = Object.freeze({
 
   MOZ_BING_API_CLIENTID: "@MOZ_BING_API_CLIENTID@",
   MOZ_BING_API_KEY: "@MOZ_BING_API_KEY@",
-  MOZ_GOOGLE_API_KEY: "@MOZ_GOOGLE_API_KEY@",
+  MOZ_GOOGLE_LOCATION_SERVICE_API_KEY: "@MOZ_GOOGLE_LOCATION_SERVICE_API_KEY@",
+  MOZ_GOOGLE_SAFEBROWSING_API_KEY: "@MOZ_GOOGLE_SAFEBROWSING_API_KEY@",
   MOZ_MOZILLA_API_KEY: "@MOZ_MOZILLA_API_KEY@",
 
   BROWSER_CHROME_URL: "@BROWSER_CHROME_URL@",
+
+  OMNIJAR_NAME: "@OMNIJAR_NAME@",
 
   // URL to the hg revision this was built from (e.g.
   // "https://hg.mozilla.org/mozilla-central/rev/6256ec9113c1")
@@ -343,6 +371,57 @@ this.AppConstants = Object.freeze({
 
   MOZ_CODE_COVERAGE:
 #ifdef MOZ_CODE_COVERAGE
+    true,
+#else
+    false,
+#endif
+
+  TELEMETRY_PING_FORMAT_VERSION: @TELEMETRY_PING_FORMAT_VERSION@,
+
+  MOZ_NEW_XULSTORE:
+#ifdef MOZ_NEW_XULSTORE
+    true,
+#else
+    false,
+#endif
+
+  MOZ_NEW_NOTIFICATION_STORE:
+#ifdef MOZ_NEW_NOTIFICATION_STORE
+    true,
+#else
+    false,
+#endif
+
+  MOZ_NEW_CERT_STORAGE:
+#ifdef MOZ_NEW_CERT_STORAGE
+    true,
+#else
+    false,
+#endif
+
+  ENABLE_REMOTE_AGENT:
+#ifdef ENABLE_REMOTE_AGENT
+    true,
+#else
+    false,
+#endif
+
+  MOZ_RUST_FXA_CLIENT:
+#ifdef MOZ_RUST_FXA_CLIENT
+    true,
+#else
+    false,
+#endif
+
+  REMOTE_SETTINGS_VERIFY_SIGNATURE:
+#ifdef MOZ_THUNDERBIRD
+    false,
+#else
+    true,
+#endif
+
+  MOZ_GLEAN:
+#ifdef MOZ_GLEAN
     true,
 #else
     false,

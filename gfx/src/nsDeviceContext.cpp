@@ -8,9 +8,9 @@
 #include <algorithm>      // for max
 #include "gfxASurface.h"  // for gfxASurface, etc
 #include "gfxContext.h"
-#include "gfxFont.h"             // for gfxFontGroup
 #include "gfxImageSurface.h"     // for gfxImageSurface
 #include "gfxPoint.h"            // for gfxSize
+#include "gfxTextRun.h"          // for gfxFontGroup
 #include "mozilla/Attributes.h"  // for final
 #include "mozilla/gfx/PathHelpers.h"
 #include "mozilla/gfx/PrintTarget.h"
@@ -73,7 +73,7 @@ class nsFontCache final : public nsIObserver {
   // productive because it can then take too long to scan the cache.
   static const int32_t kMaxCacheEntries = 128;
 
-  ~nsFontCache() {}
+  ~nsFontCache() = default;
 
   nsDeviceContext* mContext;  // owner
   RefPtr<nsAtom> mLocaleLanguage;
@@ -137,8 +137,9 @@ nsFontCache::Observe(nsISupports*, const char* aTopic, const char16_t*) {
 
 already_AddRefed<nsFontMetrics> nsFontCache::GetMetricsFor(
     const nsFont& aFont, const nsFontMetrics::Params& aParams) {
-  nsAtom* language =
-      aParams.language ? aParams.language : mLocaleLanguage.get();
+  nsAtom* language = aParams.language && !aParams.language->IsEmpty()
+                         ? aParams.language
+                         : mLocaleLanguage.get();
 
   // First check our cache
   // start from the end, which is where we put the most-recent-used element

@@ -1,4 +1,3 @@
-/* vim: set ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -10,10 +9,10 @@
 const TEST_URL = "data:text/html;charset=utf8,<div></div>";
 
 add_task(async function() {
-  const {inspector, toolbox} = await openInspectorForURL(TEST_URL);
+  const { inspector, toolbox } = await openInspectorForURL(TEST_URL);
 
   info("Focusing the tag editor of the test element");
-  const {editor} = await getContainerForSelector("div", inspector);
+  const { editor } = await getContainerForSelector("div", inspector);
   editor.tag.focus();
 
   info("Pressing ESC and wait for the split-console to open");

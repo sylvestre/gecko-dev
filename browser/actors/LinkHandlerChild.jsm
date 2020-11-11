@@ -6,15 +6,17 @@
 
 const EXPORTED_SYMBOLS = ["LinkHandlerChild"];
 
-ChromeUtils.import("resource://gre/modules/Services.jsm");
-ChromeUtils.import("resource://gre/modules/ActorChild.jsm");
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
-ChromeUtils.defineModuleGetter(this, "FaviconLoader",
-  "resource:///modules/FaviconLoader.jsm");
+ChromeUtils.defineModuleGetter(
+  this,
+  "FaviconLoader",
+  "resource:///modules/FaviconLoader.jsm"
+);
 
-class LinkHandlerChild extends ActorChild {
-  constructor(dispatcher) {
-    super(dispatcher);
+class LinkHandlerChild extends JSWindowActorChild {
+  constructor() {
+    super();
 
     this.seenTabIcon = false;
     this._iconLoader = null;
@@ -22,17 +24,20 @@ class LinkHandlerChild extends ActorChild {
 
   get iconLoader() {
     if (!this._iconLoader) {
-      this._iconLoader = new FaviconLoader(this.mm);
+      this._iconLoader = new FaviconLoader(this);
     }
     return this._iconLoader;
   }
 
   addRootIcon() {
-    if (!this.seenTabIcon && Services.prefs.getBoolPref("browser.chrome.guess_favicon", true) &&
-        Services.prefs.getBoolPref("browser.chrome.site_icons", true)) {
+    if (
+      !this.seenTabIcon &&
+      Services.prefs.getBoolPref("browser.chrome.guess_favicon", true) &&
+      Services.prefs.getBoolPref("browser.chrome.site_icons", true)
+    ) {
       // Inject the default icon. Use documentURIObject so that we do the right
       // thing with about:-style error pages. See bug 453442
-      let pageURI = this.content.document.documentURIObject;
+      let pageURI = this.document.documentURIObject;
       if (["http", "https"].includes(pageURI.scheme)) {
         this.seenTabIcon = true;
         this.iconLoader.addDefaultIcon(pageURI);
@@ -41,7 +46,7 @@ class LinkHandlerChild extends ActorChild {
   }
 
   onHeadParsed(event) {
-    if (event.target.ownerDocument != this.content.document) {
+    if (event.target.ownerDocument != this.document) {
       return;
     }
 
@@ -57,7 +62,7 @@ class LinkHandlerChild extends ActorChild {
   }
 
   onPageShow(event) {
-    if (event.target != this.content.document) {
+    if (event.target != this.document) {
       return;
     }
 
@@ -69,7 +74,7 @@ class LinkHandlerChild extends ActorChild {
   }
 
   onPageHide(event) {
-    if (event.target != this.content.document) {
+    if (event.target != this.document) {
       return;
     }
 
@@ -83,23 +88,25 @@ class LinkHandlerChild extends ActorChild {
   onLinkEvent(event) {
     let link = event.target;
     // Ignore sub-frames (bugs 305472, 479408).
-    if (link.ownerGlobal != this.content) {
+    if (link.ownerGlobal != this.contentWindow) {
       return;
     }
 
     let rel = link.rel && link.rel.toLowerCase();
     // We also check .getAttribute, since an empty href attribute will give us
     // a link.href that is the same as the document.
-    if (!rel || !link.href || !link.getAttribute("href"))
+    if (!rel || !link.href || !link.getAttribute("href")) {
       return;
+    }
 
     // Note: following booleans only work for the current link, not for the
     // whole content
     let iconAdded = false;
     let searchAdded = false;
     let rels = {};
-    for (let relString of rel.split(/\s+/))
+    for (let relString of rel.split(/\s+/)) {
       rels[relString] = true;
+    }
 
     for (let relVal in rels) {
       let isRichIcon = false;
@@ -109,8 +116,10 @@ class LinkHandlerChild extends ActorChild {
         case "apple-touch-icon-precomposed":
         case "fluid-icon":
           isRichIcon = true;
+        // fall through
         case "icon":
-          if (iconAdded || link.hasAttribute("mask")) { // Masked icons are not supported yet.
+          if (iconAdded || link.hasAttribute("mask")) {
+            // Masked icons are not supported yet.
             break;
           }
 
@@ -126,7 +135,10 @@ class LinkHandlerChild extends ActorChild {
           }
           break;
         case "search":
-          if (Services.policies && !Services.policies.isAllowed("installSearchEngine")) {
+          if (
+            Services.policies &&
+            !Services.policies.isAllowed("installSearchEngine")
+          ) {
             break;
           }
 
@@ -135,10 +147,13 @@ class LinkHandlerChild extends ActorChild {
             type = type.replace(/^\s+|\s*(?:;.*)?$/g, "");
 
             let re = /^(?:https?|ftp):/i;
-            if (type == "application/opensearchdescription+xml" && link.title &&
-                re.test(link.href)) {
+            if (
+              type == "application/opensearchdescription+xml" &&
+              link.title &&
+              re.test(link.href)
+            ) {
               let engine = { title: link.title, href: link.href };
-              this.mm.sendAsyncMessage("Link:AddSearch", {
+              this.sendAsyncMessage("Link:AddSearch", {
                 engine,
                 url: link.ownerDocument.documentURI,
               });

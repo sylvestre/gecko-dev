@@ -16,14 +16,14 @@
 
 #include "nsWrapperCache.h"
 
-class nsIDocument;
-class nsPresContext;
 class nsMediaQueryResultCacheKey;
 
 namespace mozilla {
 class StyleSheet;
 
 namespace dom {
+
+class Document;
 
 class MediaList final : public nsISupports, public nsWrapperCache {
  public:
@@ -40,16 +40,15 @@ class MediaList final : public nsISupports, public nsWrapperCache {
   already_AddRefed<MediaList> Clone();
 
   JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) final;
-  nsISupports* GetParentObject() const { return nullptr; }
+  nsISupports* GetParentObject() const;
 
   void GetText(nsAString& aMediaText);
   void SetText(const nsAString& aMediaText);
-  bool Matches(nsPresContext* aPresContext) const;
+  bool Matches(const Document&) const;
 
   void SetStyleSheet(StyleSheet* aSheet);
 
   // WebIDL
-  void Stringify(nsAString& aString) { GetMediaText(aString); }
   void GetMediaText(nsAString& aMediaText);
   void SetMediaText(const nsAString& aMediaText);
   uint32_t Length();
@@ -70,12 +69,14 @@ class MediaList final : public nsISupports, public nsWrapperCache {
 
   void SetTextInternal(const nsAString& aMediaText, CallerType);
 
-  nsresult Delete(const nsAString& aOldMedium);
-  nsresult Append(const nsAString& aNewMedium);
+  void Delete(const nsAString& aOldMedium, ErrorResult& aRv);
+  void Append(const nsAString& aNewMedium, ErrorResult& aRv);
 
   ~MediaList() {
     MOZ_ASSERT(!mStyleSheet, "Backpointer should have been cleared");
   }
+
+  bool IsReadOnly() const;
 
   // not refcounted; sheet will let us know when it goes away
   // mStyleSheet is the sheet that needs to be dirtied when this
@@ -84,7 +85,7 @@ class MediaList final : public nsISupports, public nsWrapperCache {
 
  private:
   template <typename Func>
-  inline nsresult DoMediaChange(Func aCallback);
+  inline void DoMediaChange(Func aCallback, ErrorResult& aRv);
   RefPtr<RawServoMediaList> mRawList;
 };
 

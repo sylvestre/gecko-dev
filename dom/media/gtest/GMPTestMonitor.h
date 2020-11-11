@@ -3,11 +3,11 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-
-#include "nsThreadUtils.h"
-
 #ifndef __GMPTestMonitor_h__
 #define __GMPTestMonitor_h__
+
+#include "nsThreadUtils.h"
+#include "mozilla/SchedulerGroup.h"
 
 class GMPTestMonitor {
  public:
@@ -27,10 +27,10 @@ class GMPTestMonitor {
 
  public:
   void SetFinished() {
-    mozilla::SystemGroup::Dispatch(mozilla::TaskCategory::Other,
-                                   mozilla::NewNonOwningRunnableMethod(
-                                       "GMPTestMonitor::MarkFinished", this,
-                                       &GMPTestMonitor::MarkFinished));
+    mozilla::SchedulerGroup::Dispatch(mozilla::TaskCategory::Other,
+                                      mozilla::NewNonOwningRunnableMethod(
+                                          "GMPTestMonitor::MarkFinished", this,
+                                          &GMPTestMonitor::MarkFinished));
   }
 
  private:

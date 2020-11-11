@@ -1,4 +1,3 @@
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
    http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -7,8 +6,9 @@
 // Simple checks for the LayoutActor and GridActor
 
 add_task(async function() {
-  const {target, walker, layout} = await initLayoutFrontForUrl(
-    "data:text/html;charset=utf-8,<title>test</title><div></div>");
+  const { target, walker, layout } = await initLayoutFrontForUrl(
+    "data:text/html;charset=utf-8,<title>test</title><div></div>"
+  );
 
   ok(layout, "The LayoutFront was created");
   ok(layout.getGrids, "The getGrids method exists");

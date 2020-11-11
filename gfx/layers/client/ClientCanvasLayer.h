@@ -30,39 +30,38 @@ class ClientCanvasLayer : public CanvasLayer, public ClientLayer {
     MOZ_COUNT_CTOR(ClientCanvasLayer);
   }
 
-  CanvasRenderer* CreateCanvasRendererInternal() override;
+  RefPtr<CanvasRenderer> CreateCanvasRendererInternal() override;
 
  protected:
   virtual ~ClientCanvasLayer();
 
  public:
-  virtual void SetVisibleRegion(const LayerIntRegion& aRegion) override {
+  void SetVisibleRegion(const LayerIntRegion& aRegion) override {
     NS_ASSERTION(ClientManager()->InConstruction(),
                  "Can only set properties in construction phase");
     CanvasLayer::SetVisibleRegion(aRegion);
   }
 
-  virtual void RenderLayer() override;
+  void RenderLayer() override;
 
-  virtual void ClearCachedResources() override {
+  void ClearCachedResources() override {
     mCanvasRenderer->ClearCachedResources();
   }
 
-  virtual void HandleMemoryPressure() override {
+  void HandleMemoryPressure() override {
     mCanvasRenderer->ClearCachedResources();
   }
 
-  virtual void FillSpecificAttributes(
-      SpecificLayerAttributes& aAttrs) override {
+  void FillSpecificAttributes(SpecificLayerAttributes& aAttrs) override {
     aAttrs = CanvasLayerAttributes(mSamplingFilter, mBounds);
   }
 
-  virtual Layer* AsLayer() override { return this; }
-  virtual ShadowableLayer* AsShadowableLayer() override { return this; }
+  Layer* AsLayer() override { return this; }
+  ShadowableLayer* AsShadowableLayer() override { return this; }
 
-  virtual void Disconnect() override { mCanvasRenderer->Destroy(); }
+  void Disconnect() override { mCanvasRenderer->DisconnectClient(); }
 
-  virtual CompositableClient* GetCompositableClient() override {
+  CompositableClient* GetCompositableClient() override {
     ClientCanvasRenderer* canvasRenderer =
         mCanvasRenderer->AsClientCanvasRenderer();
     MOZ_ASSERT(canvasRenderer);

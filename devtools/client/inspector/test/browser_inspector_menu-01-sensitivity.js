@@ -1,4 +1,3 @@
-/* vim: set ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
 http://creativecommons.org/publicdomain/zero/1.0/ */
 "use strict";
@@ -21,6 +20,12 @@ const ACTIVE_ON_DOCTYPE_ITEMS = [
   "node-menu-useinconsole",
 ];
 
+const ACTIVE_ON_SHADOW_ROOT_ITEMS = [
+  "node-menu-pasteinnerhtml",
+  "node-menu-copyinner",
+  "node-menu-edithtml",
+].concat(ACTIVE_ON_DOCTYPE_ITEMS);
+
 const ALL_MENU_ITEMS = [
   "node-menu-edithtml",
   "node-menu-copyinner",
@@ -42,8 +47,15 @@ const ALL_MENU_ITEMS = [
   "node-menu-remove-attribute",
 ].concat(PASTE_MENU_ITEMS, ACTIVE_ON_DOCTYPE_ITEMS);
 
-const INACTIVE_ON_DOCTYPE_ITEMS =
-  ALL_MENU_ITEMS.filter(item => !ACTIVE_ON_DOCTYPE_ITEMS.includes(item));
+const INACTIVE_ON_DOCTYPE_ITEMS = ALL_MENU_ITEMS.filter(
+  item => !ACTIVE_ON_DOCTYPE_ITEMS.includes(item)
+);
+
+const INACTIVE_ON_DOCUMENT_ITEMS = INACTIVE_ON_DOCTYPE_ITEMS;
+
+const INACTIVE_ON_SHADOW_ROOT_ITEMS = ALL_MENU_ITEMS.filter(
+  item => !ACTIVE_ON_SHADOW_ROOT_ITEMS.includes(item)
+);
 
 /**
  * Test cases, each item of this array may define the following properties:
@@ -53,6 +65,8 @@ const INACTIVE_ON_DOCTYPE_ITEMS =
  *   clipboardData: clipboard content
  *   clipboardDataType: clipboard content type
  *   attributeTrigger: attribute that will be used as context menu trigger
+ *   shadowRoot: if true, selects the shadow root from the node, rather than
+ *   the node itself.
  */
 const TEST_CASES = [
   {
@@ -225,6 +239,20 @@ const TEST_CASES = [
     disabled: PASTE_MENU_ITEMS.concat(["node-menu-copyimagedatauri"]),
     attributeTrigger: "data-edit",
   },
+  {
+    desc: "Shadow Root",
+    clipboardData: "<p>some text</p>",
+    clipboardDataType: "text",
+    disabled: INACTIVE_ON_SHADOW_ROOT_ITEMS,
+    selector: "#host",
+    shadowRoot: true,
+  },
+  {
+    desc: "Document node in iFrame",
+    disabled: INACTIVE_ON_DOCUMENT_ITEMS,
+    selector: "iframe",
+    documentNode: true,
+  },
 ];
 
 var clipboard = require("devtools/shared/platform/clipboard");
@@ -236,12 +264,24 @@ registerCleanupFunction(() => {
 add_task(async function() {
   const { inspector } = await openInspectorForURL(TEST_URL);
   for (const test of TEST_CASES) {
-    const { desc, disabled, selector, attributeTrigger } = test;
+    const {
+      desc,
+      disabled,
+      selector,
+      attributeTrigger,
+      documentNode = false,
+      shadowRoot = false,
+    } = test;
 
     info(`Test ${desc}`);
     setupClipboard(test.clipboardData, test.clipboardDataType);
 
-    const front = await getNodeFrontForSelector(selector, inspector);
+    const front = await getNodeFrontForSelector(
+      selector,
+      inspector,
+      documentNode,
+      shadowRoot
+    );
 
     info("Selecting the specified node.");
     await selectNode(front, inspector);
@@ -250,7 +290,8 @@ add_task(async function() {
     const nodeFrontContainer = getContainerForNodeFront(front, inspector);
     const contextMenuTrigger = attributeTrigger
       ? nodeFrontContainer.tagLine.querySelector(
-          `[data-attr="${attributeTrigger}"]`)
+          `[data-attr="${attributeTrigger}"]`
+        )
       : nodeFrontContainer.tagLine;
 
     const allMenuItems = openContextMenuAndGetAllItems(inspector, {
@@ -261,8 +302,11 @@ add_task(async function() {
       const menuItem = allMenuItems.find(item => item.id === id);
       const shouldBeDisabled = disabled.includes(id);
       const shouldBeDisabledText = shouldBeDisabled ? "disabled" : "enabled";
-      is(menuItem.disabled, shouldBeDisabled,
-        `#${id} should be ${shouldBeDisabledText} for test case ${desc}`);
+      is(
+        menuItem.disabled,
+        shouldBeDisabled,
+        `#${id} should be ${shouldBeDisabledText} for test case ${desc}`
+      );
     }
   }
 });
@@ -271,14 +315,26 @@ add_task(async function() {
  * A helper that fetches a front for a node that matches the given selector or
  * doctype node if the selector is falsy.
  */
-async function getNodeFrontForSelector(selector, inspector) {
+async function getNodeFrontForSelector(
+  selector,
+  inspector,
+  documentNode,
+  shadowRoot
+) {
   if (selector) {
     info("Retrieving front for selector " + selector);
-    return getNodeFront(selector, inspector);
+    const node = await getNodeFront(selector, inspector);
+    if (shadowRoot) {
+      return getShadowRoot(node, inspector);
+    }
+    if (documentNode) {
+      return getFrameDocument(node, inspector);
+    }
+    return node;
   }
 
   info("Retrieving front for doctype node");
-  const {nodes} = await inspector.walker.children(inspector.walker.rootNode);
+  const { nodes } = await inspector.walker.children(inspector.walker.rootNode);
   return nodes[0];
 }
 
@@ -303,21 +359,30 @@ function setupClipboard(data, type) {
  * The code below is a simplified version of the sdk/clipboard helper set() method.
  */
 function copyImageToClipboard(data) {
-  const imageTools = Cc["@mozilla.org/image/tools;1"]
-                     .getService(Ci.imgITools);
+  const imageTools = Cc["@mozilla.org/image/tools;1"].getService(Ci.imgITools);
 
   // Image data is stored as base64 in the test.
   const image = atob(data);
 
-  const imgPtr = Cc["@mozilla.org/supports-interface-pointer;1"]
-                 .createInstance(Ci.nsISupportsInterfacePointer);
-  imgPtr.data = imageTools.decodeImageFromBuffer(image, image.length, "image/png");
+  const imgPtr = Cc["@mozilla.org/supports-interface-pointer;1"].createInstance(
+    Ci.nsISupportsInterfacePointer
+  );
+  imgPtr.data = imageTools.decodeImageFromBuffer(
+    image,
+    image.length,
+    "image/png"
+  );
 
-  const xferable = Cc["@mozilla.org/widget/transferable;1"]
-                   .createInstance(Ci.nsITransferable);
+  const xferable = Cc["@mozilla.org/widget/transferable;1"].createInstance(
+    Ci.nsITransferable
+  );
   xferable.init(null);
   xferable.addDataFlavor("image/png");
   xferable.setTransferData("image/png", imgPtr, -1);
 
-  Services.clipboard.setData(xferable, null, Services.clipboard.kGlobalClipboard);
+  Services.clipboard.setData(
+    xferable,
+    null,
+    Services.clipboard.kGlobalClipboard
+  );
 }

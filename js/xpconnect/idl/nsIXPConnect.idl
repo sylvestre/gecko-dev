@@ -10,6 +10,7 @@
 
 %{ C++
 #include "jspubtd.h"
+#include "js/CompileOptions.h"
 #include "js/TypeDecls.h"
 #include "mozilla/Attributes.h"
 #include "xptinfo.h"
@@ -27,7 +28,7 @@ class nsWrapperCache;
 [ptr] native JSScriptPtr(JSScript);
 [ptr] native nsWrapperCachePtr(nsWrapperCache);
       native JSHandleId(JS::Handle<jsid>);
-[ptr] native InterfaceInfoPtr(const nsXPTInterfaceInfo);
+[ref] native const_JSReadOnlyCompileOptionsRef(const JS::ReadOnlyCompileOptions);
 
 /***************************************************************************/
 
@@ -68,10 +69,13 @@ public:
 interface nsIXPConnectWrappedJS : nsIXPConnectJSObjectHolder
 {
     /* attribute 'JSObject' inherited from nsIXPConnectJSObjectHolder */
-    readonly attribute InterfaceInfoPtr InterfaceInfo;
     readonly attribute nsIIDPtr         InterfaceIID;
 
-    // Match the GetJSObject() signature.
+    // Returns the global object for our JS object. If this object is a
+    // cross-compartment wrapper, returns the compartment's first global.
+    // The global we return is guaranteed to be same-compartment with the
+    // object.
+    // Note: this matches the GetJSObject() signature.
     [notxpcom, nostdcall] JSObjectPtr GetJSObjectGlobal();
 
     void debugDump(in short depth);
@@ -262,14 +266,8 @@ interface nsIXPConnect : nsISupports
                                 in JSScriptPtr aJSScript);
 
     [noscript] JSScriptPtr readScript(in nsIObjectInputStream aStream,
-                                      in JSContextPtr aJSContext);
-
-    [noscript] void writeFunction(in nsIObjectOutputStream aStream,
-                                  in JSContextPtr aJSContext,
-                                  in JSObjectPtr aJSObject);
-
-    [noscript] JSObjectPtr readFunction(in nsIObjectInputStream aStream,
-                                        in JSContextPtr aJSContext);
+                                      in JSContextPtr aJSContext,
+                                      in const_JSReadOnlyCompileOptionsRef aOptions);
 
     [infallible] readonly attribute boolean isShuttingDown;
 };

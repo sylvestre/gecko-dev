@@ -1,9 +1,8 @@
 addMessageListener("getCookieFromManager", ({ host, path }) => {
-  let cm = Cc["@mozilla.org/cookiemanager;1"]
-             .getService(Ci.nsICookieManager);
+  let cm = Cc["@mozilla.org/cookiemanager;1"].getService(Ci.nsICookieManager);
   let values = [];
-  path = path.substring(0, path.lastIndexOf("/") + 1);
-  for (let cookie of cm.enumerator) {
+  path = path.substring(0, path.lastIndexOf("/"));
+  for (let cookie of cm.cookies) {
     if (!cookie) {
       break;
     }
@@ -13,5 +12,7 @@ addMessageListener("getCookieFromManager", ({ host, path }) => {
     values.push(cookie.name + "=" + cookie.value);
   }
 
-  sendAsyncMessage("getCookieFromManager:return", { cookie: values.join("; ") });
+  sendAsyncMessage("getCookieFromManager:return", {
+    cookie: values.join("; "),
+  });
 });

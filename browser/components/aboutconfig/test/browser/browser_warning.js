@@ -1,38 +1,41 @@
 /* Any copyright is dedicated to the Public Domain.
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
-const PAGE_URL = "chrome://browser/content/aboutconfig/aboutconfig.html";
-
 add_task(async function setup() {
   await SpecialPowers.pushPrefEnv({
-    set: [
-      ["browser.aboutConfig.showWarning", true],
-    ],
+    set: [["browser.aboutConfig.showWarning", true]],
   });
 });
 
-add_task(async function test_load_warningpage() {
-  await BrowserTestUtils.withNewTab({
-    gBrowser,
-    url: PAGE_URL,
-  }, browser => {
-    info("about:config loaded");
-    return ContentTask.spawn(browser, null, async () => {
-      // Test that the warning page is presented:
-      Assert.equal(content.document.getElementsByTagName("button").length, 1);
-      Assert.equal(content.document.getElementById("search"), undefined);
-      Assert.equal(content.document.getElementById("prefs"), undefined);
+add_task(async function test_showWarningNextTime() {
+  for (let test of [
+    { expectWarningPage: true, disableShowWarningNextTime: false },
+    { expectWarningPage: true, disableShowWarningNextTime: true },
+    { expectWarningPage: false },
+  ]) {
+    await AboutConfigTest.withNewTab(
+      async function() {
+        if (test.expectWarningPage) {
+          this.assertWarningPage(true);
+          Assert.ok(
+            this.document.getElementById("showWarningNextTime").checked
+          );
+          if (test.disableShowWarningNextTime) {
+            this.document.getElementById("showWarningNextTime").click();
+          }
+          this.bypassWarningButton.click();
+        }
 
-      // Disable checkbox and reload.
-      content.document.getElementById("showWarningNextTime").click();
-      content.document.querySelector("button").click();
-    });
-  });
-  await BrowserTestUtils.withNewTab({
-    gBrowser,
-    url: PAGE_URL,
-  }, browser => {
-    Assert.ok(content.document.getElementById("search"));
-    Assert.ok(content.document.getElementById("prefs"));
-  });
+        // No results are shown after the warning page is dismissed or bypassed.
+        this.assertWarningPage(false);
+        Assert.ok(!this.prefsTable.firstElementChild);
+        Assert.equal(this.document.activeElement, this.searchInput);
+
+        // The show all button should be present and show all results immediately.
+        this.showAll();
+        Assert.ok(this.prefsTable.firstElementChild);
+      },
+      { dontBypassWarning: true }
+    );
+  }
 });

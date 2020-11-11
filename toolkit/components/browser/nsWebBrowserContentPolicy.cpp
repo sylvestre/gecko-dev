@@ -8,11 +8,11 @@
 #include "nsIDocShell.h"
 #include "nsCOMPtr.h"
 #include "nsContentPolicyUtils.h"
-#include "nsIContentViewer.h"
+#include "nsNetUtil.h"
 
-nsWebBrowserContentPolicy::nsWebBrowserContentPolicy() {}
+nsWebBrowserContentPolicy::nsWebBrowserContentPolicy() = default;
 
-nsWebBrowserContentPolicy::~nsWebBrowserContentPolicy() {}
+nsWebBrowserContentPolicy::~nsWebBrowserContentPolicy() = default;
 
 NS_IMPL_ISUPPORTS(nsWebBrowserContentPolicy, nsIContentPolicy)
 
@@ -41,9 +41,6 @@ nsWebBrowserContentPolicy::ShouldLoad(nsIURI* aContentLocation,
   bool allowed = true;
 
   switch (contentType) {
-    case nsIContentPolicy::TYPE_SCRIPT:
-      rv = shell->GetAllowJavascript(&allowed);
-      break;
     case nsIContentPolicy::TYPE_SUBDOCUMENT:
       rv = shell->GetAllowSubframes(&allowed);
       break;
@@ -62,6 +59,8 @@ nsWebBrowserContentPolicy::ShouldLoad(nsIURI* aContentLocation,
   }
 
   if (NS_SUCCEEDED(rv) && !allowed) {
+    NS_SetRequestBlockingReason(
+        aLoadInfo, nsILoadInfo::BLOCKING_REASON_CONTENT_POLICY_WEB_BROWSER);
     *aShouldLoad = nsIContentPolicy::REJECT_TYPE;
   }
   return rv;
@@ -91,6 +90,8 @@ nsWebBrowserContentPolicy::ShouldProcess(nsIURI* aContentLocation,
   nsCOMPtr<nsISupports> context = aLoadInfo->GetLoadingContext();
   nsIDocShell* shell = NS_CP_GetDocShellFromContext(context);
   if (shell && (!shell->PluginsAllowedInCurrentDoc())) {
+    NS_SetRequestBlockingReason(
+        aLoadInfo, nsILoadInfo::BLOCKING_REASON_CONTENT_POLICY_WEB_BROWSER);
     *aShouldProcess = nsIContentPolicy::REJECT_TYPE;
   }
 

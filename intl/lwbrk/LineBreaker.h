@@ -17,10 +17,18 @@ class LineBreaker {
  public:
   NS_INLINE_DECL_REFCOUNTING(LineBreaker)
 
-  enum {
-    kWordBreak_Normal = 0,    // default
-    kWordBreak_BreakAll = 1,  // break all
-    kWordBreak_KeepAll = 2    // always keep
+  enum class WordBreak : uint8_t {
+    Normal = 0,    // default
+    BreakAll = 1,  // break all
+    KeepAll = 2    // always keep
+  };
+
+  enum class Strictness : uint8_t {
+    Auto = 0,
+    Loose = 1,
+    Normal = 2,
+    Strict = 3,
+    Anywhere = 4
   };
 
   static already_AddRefed<LineBreaker> Create();
@@ -36,12 +44,14 @@ class LineBreaker {
   // aLength is the length of the aText array and also the length of the
   // aBreakBefore output array.
   void GetJISx4051Breaks(const char16_t* aText, uint32_t aLength,
-                         uint8_t aWordBreak, uint8_t* aBreakBefore);
+                         WordBreak aWordBreak, Strictness aLevel,
+                         bool aIsChineseOrJapanese, uint8_t* aBreakBefore);
   void GetJISx4051Breaks(const uint8_t* aText, uint32_t aLength,
-                         uint8_t aWordBreak, uint8_t* aBreakBefore);
+                         WordBreak aWordBreak, Strictness aLevel,
+                         bool aIsChineseOrJapanese, uint8_t* aBreakBefore);
 
  private:
-  ~LineBreaker() {}
+  ~LineBreaker() = default;
 
   int32_t WordMove(const char16_t* aText, uint32_t aLen, uint32_t aPos,
                    int8_t aDirection);
@@ -62,8 +72,14 @@ static inline bool NS_IsSpace(char16_t u) {
 }
 
 static inline bool NS_NeedsPlatformNativeHandling(char16_t aChar) {
-  return (0x0e01 <= aChar && aChar <= 0x0fff) ||  // Thai, Lao, Tibetan
-         (0x1780 <= aChar && aChar <= 0x17ff);    // Khmer
+  return
+#if ANDROID  // Bug 1647377: no "platform native" support for Tibetan;
+             // better to just use our class-based breaker.
+      (0x0e01 <= aChar && aChar <= 0x0eff) ||  // Thai, Lao
+#else
+      (0x0e01 <= aChar && aChar <= 0x0fff) ||  // Thai, Lao, Tibetan
+#endif
+      (0x1780 <= aChar && aChar <= 0x17ff);  // Khmer
 }
 
 }  // namespace intl

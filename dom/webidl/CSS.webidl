@@ -11,12 +11,10 @@
  * liability, trademark and document use rules apply.
  */
 
+[Exposed=Window]
 namespace CSS {
-  [Throws]
-  boolean supports(DOMString property, DOMString value);
-
-  [Throws]
-  boolean supports(DOMString conditionText);
+  boolean supports(UTF8String property, UTF8String value);
+  boolean supports(UTF8String conditionText);
 };
 
 // http://dev.w3.org/csswg/cssom/#the-css.escape%28%29-method

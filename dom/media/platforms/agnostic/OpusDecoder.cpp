@@ -5,17 +5,17 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "OpusDecoder.h"
-#include "OpusParser.h"
-#include "TimeUnits.h"
-#include "VorbisUtils.h"
-#include "VorbisDecoder.h"  // For VorbisLayout
-#include "mozilla/EndianUtils.h"
-#include "mozilla/PodOperations.h"
-#include "mozilla/SyncRunnable.h"
-#include "VideoUtils.h"
 
 #include <inttypes.h>  // For PRId64
 
+#include "OpusParser.h"
+#include "TimeUnits.h"
+#include "VideoUtils.h"
+#include "VorbisDecoder.h"  // For VorbisLayout
+#include "VorbisUtils.h"
+#include "mozilla/EndianUtils.h"
+#include "mozilla/PodOperations.h"
+#include "mozilla/SyncRunnable.h"
 #include "opus/opus.h"
 extern "C" {
 #include "opus/opus_multistream.h"
@@ -29,15 +29,17 @@ namespace mozilla {
 
 OpusDataDecoder::OpusDataDecoder(const CreateDecoderParams& aParams)
     : mInfo(aParams.AudioConfig()),
-      mTaskQueue(aParams.mTaskQueue),
       mOpusDecoder(nullptr),
       mSkip(0),
       mDecodedHeader(false),
       mPaddingDiscarded(false),
       mFrames(0),
-      mChannelMap(AudioConfig::ChannelLayout::UNKNOWN_MAP) {}
+      mChannelMap(AudioConfig::ChannelLayout::UNKNOWN_MAP),
+      mDefaultPlaybackDeviceMono(aParams.mOptions.contains(
+          CreateDecoderParams::Option::DefaultPlaybackDeviceMono)) {}
 
 OpusDataDecoder::~OpusDataDecoder() {
+  MOZ_ASSERT(mThread->IsOnCurrentThread());
   if (mOpusDecoder) {
     opus_multistream_decoder_destroy(mOpusDecoder);
     mOpusDecoder = nullptr;
@@ -45,10 +47,8 @@ OpusDataDecoder::~OpusDataDecoder() {
 }
 
 RefPtr<ShutdownPromise> OpusDataDecoder::Shutdown() {
-  RefPtr<OpusDataDecoder> self = this;
-  return InvokeAsync(mTaskQueue, __func__, [self]() {
-    return ShutdownPromise::CreateAndResolve(true, __func__);
-  });
+  MOZ_ASSERT(mThread->IsOnCurrentThread());
+  return ShutdownPromise::CreateAndResolve(true, __func__);
 }
 
 void OpusDataDecoder::AppendCodecDelay(MediaByteBuffer* config,
@@ -59,6 +59,7 @@ void OpusDataDecoder::AppendCodecDelay(MediaByteBuffer* config,
 }
 
 RefPtr<MediaDataDecoder::InitPromise> OpusDataDecoder::Init() {
+  mThread = GetCurrentSerialEventTarget();
   size_t length = mInfo.mCodecSpecificConfig->Length();
   uint8_t* p = mInfo.mCodecSpecificConfig->Elements();
   if (length < sizeof(uint64_t)) {
@@ -86,13 +87,20 @@ RefPtr<MediaDataDecoder::InitPromise> OpusDataDecoder::Init() {
       mOpusParser->mRate, mOpusParser->mChannels, mOpusParser->mStreams,
       mOpusParser->mCoupledStreams, mMappingTable.Elements(), &r);
 
+  if (!mOpusDecoder) {
+    OPUS_DEBUG("Error creating decoder!");
+    return InitPromise::CreateAndReject(
+        MediaResult(NS_ERROR_DOM_MEDIA_FATAL_ERR,
+                    RESULT_DETAIL("Error creating decoder!")),
+        __func__);
+  }
+
   // Opus has a special feature for stereo coding where it represent wide
   // stereo channels by 180-degree out of phase. This improves quality, but
   // needs to be disabled when the output is downmixed to mono. Playback number
   // of channels are set in AudioSink, using the same method
   // `DecideAudioPlaybackChannels()`, and triggers downmix if needed.
-  if (IsDefaultPlaybackDeviceMono() ||
-      DecideAudioPlaybackChannels(mInfo) == 1) {
+  if (mDefaultPlaybackDeviceMono || DecideAudioPlaybackChannels(mInfo) == 1) {
     opus_multistream_decoder_ctl(mOpusDecoder,
                                  OPUS_SET_PHASE_INVERSION_DISABLED(1));
   }
@@ -131,7 +139,7 @@ nsresult OpusDataDecoder::DecodeHeader(const unsigned char* aData,
   MOZ_ASSERT(!mDecodedHeader);
   mDecodedHeader = true;
 
-  mOpusParser = new OpusParser;
+  mOpusParser = MakeUnique<OpusParser>();
   if (!mOpusParser->DecodeHeader(const_cast<unsigned char*>(aData), aLength)) {
     return NS_ERROR_FAILURE;
   }
@@ -170,12 +178,7 @@ nsresult OpusDataDecoder::DecodeHeader(const unsigned char* aData,
 
 RefPtr<MediaDataDecoder::DecodePromise> OpusDataDecoder::Decode(
     MediaRawData* aSample) {
-  return InvokeAsync<MediaRawData*>(mTaskQueue, this, __func__,
-                                    &OpusDataDecoder::ProcessDecode, aSample);
-}
-
-RefPtr<MediaDataDecoder::DecodePromise> OpusDataDecoder::ProcessDecode(
-    MediaRawData* aSample) {
+  MOZ_ASSERT(mThread->IsOnCurrentThread());
   uint32_t channels = mOpusParser->mChannels;
 
   if (mPaddingDiscarded) {
@@ -329,37 +332,34 @@ RefPtr<MediaDataDecoder::DecodePromise> OpusDataDecoder::ProcessDecode(
     return DecodePromise::CreateAndResolve(DecodedData(), __func__);
   }
 
+  // Trim extra allocated frames.
+  buffer.SetLength(frames * channels);
+
   return DecodePromise::CreateAndResolve(
-      DecodedData{new AudioData(aSample->mOffset, time, duration, frames,
-                                std::move(buffer), mOpusParser->mChannels,
-                                mOpusParser->mRate, mChannelMap)},
+      DecodedData{new AudioData(aSample->mOffset, time, std::move(buffer),
+                                mOpusParser->mChannels, mOpusParser->mRate,
+                                mChannelMap)},
       __func__);
 }
 
 RefPtr<MediaDataDecoder::DecodePromise> OpusDataDecoder::Drain() {
-  RefPtr<OpusDataDecoder> self = this;
-  // InvokeAsync dispatches a task that will be run after any pending decode
-  // completes. As such, once the drain task run, there's nothing more to do.
-  return InvokeAsync(mTaskQueue, __func__, [] {
-    return DecodePromise::CreateAndResolve(DecodedData(), __func__);
-  });
+  MOZ_ASSERT(mThread->IsOnCurrentThread());
+  return DecodePromise::CreateAndResolve(DecodedData(), __func__);
 }
 
 RefPtr<MediaDataDecoder::FlushPromise> OpusDataDecoder::Flush() {
+  MOZ_ASSERT(mThread->IsOnCurrentThread());
   if (!mOpusDecoder) {
     return FlushPromise::CreateAndResolve(true, __func__);
   }
 
-  RefPtr<OpusDataDecoder> self = this;
-  return InvokeAsync(mTaskQueue, __func__, [self, this]() {
-    MOZ_ASSERT(mOpusDecoder);
-    // Reset the decoder.
-    opus_multistream_decoder_ctl(mOpusDecoder, OPUS_RESET_STATE);
-    mSkip = mOpusParser->mPreSkip;
-    mPaddingDiscarded = false;
-    mLastFrameTime.reset();
-    return FlushPromise::CreateAndResolve(true, __func__);
-  });
+  MOZ_ASSERT(mOpusDecoder);
+  // Reset the decoder.
+  opus_multistream_decoder_ctl(mOpusDecoder, OPUS_RESET_STATE);
+  mSkip = mOpusParser->mPreSkip;
+  mPaddingDiscarded = false;
+  mLastFrameTime.reset();
+  return FlushPromise::CreateAndResolve(true, __func__);
 }
 
 /* static */

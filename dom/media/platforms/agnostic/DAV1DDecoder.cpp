@@ -6,6 +6,12 @@
 
 #include "DAV1DDecoder.h"
 
+#include "ImageContainer.h"
+#include "mozilla/TaskQueue.h"
+#include "mozilla/gfx/gfxVars.h"
+#include "nsThreadUtils.h"
+#include "VideoUtils.h"
+
 #undef LOG
 #define LOG(arg, ...)                                                  \
   DDMOZ_LOG(sPDMLog, mozilla::LogLevel::Debug, "::%s: " arg, __func__, \
@@ -15,20 +21,28 @@ namespace mozilla {
 
 DAV1DDecoder::DAV1DDecoder(const CreateDecoderParams& aParams)
     : mInfo(aParams.VideoConfig()),
-      mTaskQueue(aParams.mTaskQueue),
-      mImageContainer(aParams.mImageContainer) {}
+      mTaskQueue(
+          new TaskQueue(GetMediaThreadPool(MediaThreadType::PLATFORM_DECODER),
+                        "Dav1dDecoder")),
+      mImageContainer(aParams.mImageContainer),
+      mImageAllocator(aParams.mKnowsCompositor) {}
 
 RefPtr<MediaDataDecoder::InitPromise> DAV1DDecoder::Init() {
   Dav1dSettings settings;
   dav1d_default_settings(&settings);
-  int decoder_threads = 2;
+  size_t decoder_threads = 2;
   if (mInfo.mDisplay.width >= 2048) {
     decoder_threads = 8;
   } else if (mInfo.mDisplay.width >= 1024) {
     decoder_threads = 4;
   }
   settings.n_frame_threads =
-      std::min(decoder_threads, PR_GetNumberOfProcessors());
+      static_cast<int>(std::min(decoder_threads, GetNumberOfProcessors()));
+  // There is not much improvement with more than 2 tile threads at least with
+  // the content being currently served. The ideal number of tile thread would
+  // much the tile count of the content. Maybe dav1d can help to do that in the
+  // future.
+  settings.n_tile_threads = 2;
 
   int res = dav1d_open(&mContext, &settings);
   if (res < 0) {
@@ -55,19 +69,24 @@ void ReleaseDataBuffer_s(const uint8_t* buf, void* user_data) {
 }
 
 void DAV1DDecoder::ReleaseDataBuffer(const uint8_t* buf) {
-  // The release callback may be called on a
-  // different thread defined by third party
-  // dav1d execution. Post a task into TaskQueue
-  // to ensure mDecodingBuffers is only ever
-  // accessed on the TaskQueue
+  // The release callback may be called on a different thread defined by the
+  // third party dav1d execution. In that case post a task into TaskQueue to
+  // ensure that mDecodingBuffers is only ever accessed on the TaskQueue.
   RefPtr<DAV1DDecoder> self = this;
-  nsresult rv = mTaskQueue->Dispatch(
-      NS_NewRunnableFunction("DAV1DDecoder::ReleaseDataBuffer", [self, buf]() {
-        DebugOnly<bool> found = self->mDecodingBuffers.Remove(buf);
-        MOZ_ASSERT(found);
-      }));
-  MOZ_DIAGNOSTIC_ASSERT(NS_SUCCEEDED(rv));
-  Unused << rv;
+  auto releaseBuffer = [self, buf] {
+    MOZ_ASSERT(self->mTaskQueue->IsCurrentThreadIn());
+    DebugOnly<bool> found = self->mDecodingBuffers.Remove(buf);
+    MOZ_ASSERT(found);
+  };
+
+  if (mTaskQueue->IsCurrentThreadIn()) {
+    releaseBuffer();
+  } else {
+    nsresult rv = mTaskQueue->Dispatch(NS_NewRunnableFunction(
+        "DAV1DDecoder::ReleaseDataBuffer", std::move(releaseBuffer)));
+    MOZ_DIAGNOSTIC_ASSERT(NS_SUCCEEDED(rv));
+    Unused << rv;
+  }
 }
 
 RefPtr<MediaDataDecoder::DecodePromise> DAV1DDecoder::InvokeDecode(
@@ -83,7 +102,7 @@ RefPtr<MediaDataDecoder::DecodePromise> DAV1DDecoder::InvokeDecode(
   // release callback are not coming in the same order that the
   // buffers have been added in the decoder (threading ordering
   // inside decoder)
-  mDecodingBuffers.Put(aSample->Data(), aSample);
+  mDecodingBuffers.Put(aSample->Data(), RefPtr{aSample});
   Dav1dData data;
   int res = dav1d_data_wrap(&data, aSample->Data(), aSample->Size(),
                             ReleaseDataBuffer_s, this);
@@ -149,6 +168,13 @@ int DAV1DDecoder::GetPicture(DecodedData& aData, MediaResult& aResult) {
     return 0;
   }
 
+#ifdef ANDROID
+  if (!gfxVars::UseWebRender() && (*picture).p.bpc != 8) {
+    aResult = MediaResult(NS_ERROR_DOM_MEDIA_NOT_SUPPORTED_ERR, __func__);
+    return -1;
+  }
+#endif
+
   RefPtr<VideoData> v = ConstructImage(*picture);
   if (!v) {
     LOG("Image allocation error: %ux%u"
@@ -166,35 +192,68 @@ already_AddRefed<VideoData> DAV1DDecoder::ConstructImage(
     const Dav1dPicture& aPicture) {
   VideoData::YCbCrBuffer b;
   if (aPicture.p.bpc == 10) {
-    b.mColorDepth = ColorDepth::COLOR_10;
+    b.mColorDepth = gfx::ColorDepth::COLOR_10;
   } else if (aPicture.p.bpc == 12) {
-    b.mColorDepth = ColorDepth::COLOR_12;
+    b.mColorDepth = gfx::ColorDepth::COLOR_12;
   }
 
   // On every other case use the default (BT601).
   if (aPicture.seq_hdr->color_description_present) {
-    if (aPicture.seq_hdr->pri == DAV1D_COLOR_PRI_BT709) {
-      b.mYUVColorSpace = YUVColorSpace::BT709;
+    switch (aPicture.seq_hdr->mtrx) {
+      case DAV1D_MC_BT2020_NCL:
+      case DAV1D_MC_BT2020_CL:
+        b.mYUVColorSpace = gfx::YUVColorSpace::BT2020;
+        break;
+      case DAV1D_MC_BT601:
+        b.mYUVColorSpace = gfx::YUVColorSpace::BT601;
+        break;
+      case DAV1D_MC_BT709:
+        b.mYUVColorSpace = gfx::YUVColorSpace::BT709;
+        break;
+      case DAV1D_MC_IDENTITY:
+        b.mYUVColorSpace = gfx::YUVColorSpace::Identity;
+        break;
+      case DAV1D_MC_CHROMAT_NCL:
+      case DAV1D_MC_CHROMAT_CL:
+      case DAV1D_MC_UNKNOWN:  // MIAF specific
+        switch (aPicture.seq_hdr->pri) {
+          case DAV1D_COLOR_PRI_BT601:
+            b.mYUVColorSpace = gfx::YUVColorSpace::BT601;
+            break;
+          case DAV1D_COLOR_PRI_BT709:
+            b.mYUVColorSpace = gfx::YUVColorSpace::BT709;
+            break;
+          case DAV1D_COLOR_PRI_BT2020:
+            b.mYUVColorSpace = gfx::YUVColorSpace::BT2020;
+            break;
+          default:
+            b.mYUVColorSpace = gfx::YUVColorSpace::UNKNOWN;
+            break;
+        }
+        break;
+      default:
+        LOG("Unsupported color matrix value: %u", aPicture.seq_hdr->mtrx);
+        b.mYUVColorSpace = gfx::YUVColorSpace::UNKNOWN;
     }
-  } else if (aPicture.p.h >= 720) {
-    b.mYUVColorSpace = YUVColorSpace::BT709;
   }
+  if (b.mYUVColorSpace == gfx::YUVColorSpace::UNKNOWN) {
+    b.mYUVColorSpace = DefaultColorSpace({aPicture.p.w, aPicture.p.h});
+  }
+  b.mColorRange = aPicture.seq_hdr->color_range ? gfx::ColorRange::FULL
+                                                : gfx::ColorRange::LIMITED;
 
   b.mPlanes[0].mData = static_cast<uint8_t*>(aPicture.data[0]);
   b.mPlanes[0].mStride = aPicture.stride[0];
   b.mPlanes[0].mHeight = aPicture.p.h;
   b.mPlanes[0].mWidth = aPicture.p.w;
-  b.mPlanes[0].mOffset = 0;
   b.mPlanes[0].mSkip = 0;
 
   b.mPlanes[1].mData = static_cast<uint8_t*>(aPicture.data[1]);
   b.mPlanes[1].mStride = aPicture.stride[1];
-  b.mPlanes[1].mOffset = 0;
   b.mPlanes[1].mSkip = 0;
 
   b.mPlanes[2].mData = static_cast<uint8_t*>(aPicture.data[2]);
   b.mPlanes[2].mStride = aPicture.stride[1];
-  b.mPlanes[2].mOffset = 0;
   b.mPlanes[2].mSkip = 0;
 
   // https://code.videolan.org/videolan/dav1d/blob/master/tools/output/yuv.c#L67
@@ -219,7 +278,7 @@ already_AddRefed<VideoData> DAV1DDecoder::ConstructImage(
 
   return VideoData::CreateAndCopyData(
       mInfo, mImageContainer, offset, timecode, duration, b, keyframe, timecode,
-      mInfo.ScaledImageRect(aPicture.p.w, aPicture.p.h));
+      mInfo.ScaledImageRect(aPicture.p.w, aPicture.p.h), mImageAllocator);
 }
 
 RefPtr<MediaDataDecoder::DecodePromise> DAV1DDecoder::Drain() {
@@ -250,7 +309,7 @@ RefPtr<ShutdownPromise> DAV1DDecoder::Shutdown() {
   RefPtr<DAV1DDecoder> self = this;
   return InvokeAsync(mTaskQueue, __func__, [self]() {
     dav1d_close(&self->mContext);
-    return ShutdownPromise::CreateAndResolve(true, __func__);
+    return self->mTaskQueue->BeginShutdown();
   });
 }
 

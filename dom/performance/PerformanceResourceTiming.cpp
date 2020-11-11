@@ -27,8 +27,7 @@ NS_IMPL_RELEASE_INHERITED(PerformanceResourceTiming, PerformanceEntry)
 PerformanceResourceTiming::PerformanceResourceTiming(
     UniquePtr<PerformanceTimingData>&& aPerformanceTiming,
     Performance* aPerformance, const nsAString& aName)
-    : PerformanceEntry(aPerformance->GetParentObject(), aName,
-                       NS_LITERAL_STRING("resource")),
+    : PerformanceEntry(aPerformance->GetParentObject(), aName, u"resource"_ns),
       mTimingData(std::move(aPerformanceTiming)),
       mPerformance(aPerformance) {
   MOZ_ASSERT(aPerformance, "Parent performance object should be provided");
@@ -39,7 +38,7 @@ PerformanceResourceTiming::PerformanceResourceTiming(
   }
 }
 
-PerformanceResourceTiming::~PerformanceResourceTiming() {}
+PerformanceResourceTiming::~PerformanceResourceTiming() = default;
 
 DOMHighResTimeStamp PerformanceResourceTiming::StartTime() const {
   // Force the start time to be the earliest of:
@@ -49,16 +48,19 @@ DOMHighResTimeStamp PerformanceResourceTiming::StartTime() const {
   // Ignore zero values.  The RedirectStart and WorkerStart values
   // can come from earlier redirected channels prior to the AsyncOpen
   // time being recorded.
-  DOMHighResTimeStamp redirect =
-      mTimingData->RedirectStartHighRes(mPerformance);
-  redirect = redirect ? redirect : DBL_MAX;
+  if (mCachedStartTime.isNothing()) {
+    DOMHighResTimeStamp redirect =
+        mTimingData->RedirectStartHighRes(mPerformance);
+    redirect = redirect ? redirect : DBL_MAX;
 
-  DOMHighResTimeStamp worker = mTimingData->WorkerStartHighRes(mPerformance);
-  worker = worker ? worker : DBL_MAX;
+    DOMHighResTimeStamp worker = mTimingData->WorkerStartHighRes(mPerformance);
+    worker = worker ? worker : DBL_MAX;
 
-  DOMHighResTimeStamp asyncOpen = mTimingData->AsyncOpenHighRes(mPerformance);
+    DOMHighResTimeStamp asyncOpen = mTimingData->AsyncOpenHighRes(mPerformance);
 
-  return std::min(asyncOpen, std::min(redirect, worker));
+    mCachedStartTime.emplace(std::min(asyncOpen, std::min(redirect, worker)));
+  }
+  return mCachedStartTime.value();
 }
 
 JSObject* PerformanceResourceTiming::WrapObject(

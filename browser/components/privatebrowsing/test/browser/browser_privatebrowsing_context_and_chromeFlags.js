@@ -2,7 +2,7 @@
 
 /**
  * Given some window in the parent process, ensure that
- * the nsIXULWindow has the CHROME_PRIVATE_WINDOW chromeFlag,
+ * the nsIAppWindow has the CHROME_PRIVATE_WINDOW chromeFlag,
  * and that the usePrivateBrowsing property is set to true on
  * both the window's nsILoadContext, as well as on the initial
  * browser's content docShell nsILoadContext.
@@ -14,24 +14,33 @@
 function assertWindowIsPrivate(win) {
   let winDocShell = win.docShell;
   let chromeFlags = winDocShell.treeOwner
-                               .QueryInterface(Ci.nsIInterfaceRequestor)
-                               .getInterface(Ci.nsIXULWindow)
-                               .chromeFlags;
+    .QueryInterface(Ci.nsIInterfaceRequestor)
+    .getInterface(Ci.nsIAppWindow).chromeFlags;
 
   if (!win.gBrowser.selectedBrowser.hasContentOpener) {
-    Assert.ok(chromeFlags & Ci.nsIWebBrowserChrome.CHROME_PRIVATE_WINDOW,
-              "Should have the private window chrome flag");
+    Assert.ok(
+      chromeFlags & Ci.nsIWebBrowserChrome.CHROME_PRIVATE_WINDOW,
+      "Should have the private window chrome flag"
+    );
   }
 
   let loadContext = winDocShell.QueryInterface(Ci.nsILoadContext);
-  Assert.ok(loadContext.usePrivateBrowsing,
-            "The parent window should be using private browsing");
+  Assert.ok(
+    loadContext.usePrivateBrowsing,
+    "The parent window should be using private browsing"
+  );
 
-  return ContentTask.spawn(win.gBrowser.selectedBrowser, null, async function() {
-    let contentLoadContext = docShell.QueryInterface(Ci.nsILoadContext);
-    Assert.ok(contentLoadContext.usePrivateBrowsing,
-              "Content docShell should be using private browsing");
-  });
+  return SpecialPowers.spawn(
+    win.gBrowser.selectedBrowser,
+    [],
+    async function() {
+      let contentLoadContext = docShell.QueryInterface(Ci.nsILoadContext);
+      Assert.ok(
+        contentLoadContext.usePrivateBrowsing,
+        "Content docShell should be using private browsing"
+      );
+    }
+  );
 }
 
 /**
@@ -45,8 +54,10 @@ add_task(async function test_context_and_chromeFlags() {
 
   let browser = win.gBrowser.selectedBrowser;
 
-  let newWinPromise = BrowserTestUtils.waitForNewWindow();
-  await ContentTask.spawn(browser, null, async function() {
+  let newWinPromise = BrowserTestUtils.waitForNewWindow({
+    url: "http://example.com/",
+  });
+  await SpecialPowers.spawn(browser, [], async function() {
     content.open("http://example.com", "_blank", "width=100,height=100");
   });
 

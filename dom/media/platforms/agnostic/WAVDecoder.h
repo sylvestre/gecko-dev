@@ -5,9 +5,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #if !defined(WaveDecoder_h_)
-#define WaveDecoder_h_
+#  define WaveDecoder_h_
 
-#include "PlatformDecoderModule.h"
+#  include "PlatformDecoderModule.h"
 
 namespace mozilla {
 
@@ -27,13 +27,12 @@ class WaveDataDecoder : public MediaDataDecoder,
   RefPtr<FlushPromise> Flush() override;
   RefPtr<ShutdownPromise> Shutdown() override;
   nsCString GetDescriptionName() const override {
-    return NS_LITERAL_CSTRING("wave audio decoder");
+    return "wave audio decoder"_ns;
   }
 
  private:
-  RefPtr<DecodePromise> ProcessDecode(MediaRawData* aSample);
   const AudioInfo& mInfo;
-  const RefPtr<TaskQueue> mTaskQueue;
+  nsCOMPtr<nsISerialEventTarget> mThread;
 };
 
 }  // namespace mozilla

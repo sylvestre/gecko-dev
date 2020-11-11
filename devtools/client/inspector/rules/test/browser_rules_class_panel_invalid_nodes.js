@@ -1,4 +1,3 @@
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -17,11 +16,11 @@ add_task(async function() {
     </body>`);
 
   info("Open the class panel");
-  const {inspector, view} = await openRuleView();
+  const { inspector, view } = await openRuleView();
   view.showClassPanel();
 
   info("Selecting the DOCTYPE node");
-  const {nodes} = await inspector.walker.children(inspector.walker.rootNode);
+  const { nodes } = await inspector.walker.children(inspector.walker.rootNode);
   await selectNode(nodes[0], inspector);
   checkMessageIsDisplayed(view);
 
@@ -44,7 +43,9 @@ add_task(async function() {
 });
 
 function checkMessageIsDisplayed(view) {
-  ok(view.classListPreviewer.classesEl.querySelector(".no-classes"),
-     "The message is displayed");
+  ok(
+    view.classListPreviewer.classesEl.querySelector(".no-classes"),
+    "The message is displayed"
+  );
   checkClassPanelContent(view, []);
 }

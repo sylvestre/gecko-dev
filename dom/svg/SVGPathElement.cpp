@@ -10,20 +10,20 @@
 
 #include "DOMSVGPathSeg.h"
 #include "DOMSVGPathSegList.h"
+#include "SVGGeometryProperty.h"
 #include "gfx2DGlue.h"
 #include "gfxPlatform.h"
-#include "mozilla/dom/SVGPathElementBinding.h"
-#include "mozilla/gfx/2D.h"
-#include "mozilla/RefPtr.h"
-#include "nsCOMPtr.h"
-#include "nsComputedDOMStyle.h"
 #include "nsGkAtoms.h"
+#include "nsIFrame.h"
 #include "nsStyleConsts.h"
 #include "nsStyleStruct.h"
 #include "nsWindowSizes.h"
-#include "SVGContentUtils.h"
+#include "mozilla/dom/SVGPathElementBinding.h"
+#include "mozilla/gfx/2D.h"
+#include "mozilla/RefPtr.h"
+#include "mozilla/SVGContentUtils.h"
 
-NS_IMPL_NS_NEW_NAMESPACED_SVG_ELEMENT(Path)
+NS_IMPL_NS_NEW_SVG_ELEMENT(Path)
 
 using namespace mozilla::gfx;
 
@@ -215,9 +215,10 @@ already_AddRefed<DOMSVGPathSegList> SVGPathElement::AnimatedPathSegList() {
 }
 
 //----------------------------------------------------------------------
-// nsSVGElement methods
+// SVGElement methods
 
-/* virtual */ bool SVGPathElement::HasValidDimensions() const {
+/* virtual */
+bool SVGPathElement::HasValidDimensions() const {
   return !mD.GetAnimValue().IsEmpty();
 }
 
@@ -245,7 +246,7 @@ bool SVGPathElement::AttributeDefinesGeometry(const nsAtom* aName) {
 
 bool SVGPathElement::IsMarkable() { return true; }
 
-void SVGPathElement::GetMarkPoints(nsTArray<nsSVGMark>* aMarks) {
+void SVGPathElement::GetMarkPoints(nsTArray<SVGMark>* aMarks) {
   mD.GetAnimValue().GetMarkerPositioningData(aMarks);
 }
 
@@ -257,23 +258,20 @@ already_AddRefed<Path> SVGPathElement::BuildPath(PathBuilder* aBuilder) {
   // also our stroke width. See the comment for
   // ApproximateZeroLengthSubpathSquareCaps for more info.
 
-  uint8_t strokeLineCap = NS_STYLE_STROKE_LINECAP_BUTT;
+  auto strokeLineCap = StyleStrokeLinecap::Butt;
   Float strokeWidth = 0;
 
-  RefPtr<ComputedStyle> computedStyle =
-      nsComputedDOMStyle::GetComputedStyleNoFlush(this, nullptr);
-  if (computedStyle) {
-    const nsStyleSVG* style = computedStyle->StyleSVG();
+  SVGGeometryProperty::DoForComputedStyle(this, [&](const ComputedStyle* s) {
+    const nsStyleSVG* style = s->StyleSVG();
     // Note: the path that we return may be used for hit-testing, and SVG
     // exposes hit-testing of strokes that are not actually painted. For that
     // reason we do not check for eStyleSVGPaintType_None or check the stroke
     // opacity here.
-    if (style->mStrokeLinecap != NS_STYLE_STROKE_LINECAP_BUTT) {
+    if (style->mStrokeLinecap != StyleStrokeLinecap::Butt) {
       strokeLineCap = style->mStrokeLinecap;
-      strokeWidth =
-          SVGContentUtils::GetStrokeWidth(this, computedStyle, nullptr);
+      strokeWidth = SVGContentUtils::GetStrokeWidth(this, s, nullptr);
     }
-  }
+  });
 
   return mD.GetAnimValue().BuildPath(aBuilder, strokeLineCap, strokeWidth);
 }

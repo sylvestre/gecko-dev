@@ -1,7 +1,8 @@
 // This file tests channel event sinks (bug 315598 et al)
 
-ChromeUtils.import("resource://testing-common/httpd.js");
-ChromeUtils.import("resource://gre/modules/NetUtil.jsm");
+"use strict";
+
+const { HttpServer } = ChromeUtils.import("resource://testing-common/httpd.js");
 
 XPCOMUtils.defineLazyGetter(this, "URL", function() {
   return "http://localhost:" + httpserv.identity.primaryPort;
@@ -18,41 +19,42 @@ const categoryName = "net-channel-event-sinks";
  * itself when asked for nsIChannelEventSink.
  */
 var eventsink = {
-  QueryInterface: function eventsink_qi(iid) {
-    if (iid.equals(Ci.nsISupports) ||
-        iid.equals(Ci.nsIFactory) ||
-        iid.equals(Ci.nsIChannelEventSink))
-      return this;
-    throw Cr.NS_ERROR_NO_INTERFACE;
-  },
+  QueryInterface: ChromeUtils.generateQI(["nsIFactory", "nsIChannelEventSink"]),
   createInstance: function eventsink_ci(outer, iid) {
-    if (outer)
-      throw Cr.NS_ERROR_NO_AGGREGATION;
+    if (outer) {
+      throw Components.Exception("", Cr.NS_ERROR_NO_AGGREGATION);
+    }
     return this.QueryInterface(iid);
   },
   lockFactory: function eventsink_lockf(lock) {
-    throw Cr.NS_ERROR_NOT_IMPLEMENTED;
+    throw Components.Exception("", Cr.NS_ERROR_NOT_IMPLEMENTED);
   },
 
-  asyncOnChannelRedirect: function eventsink_onredir(oldChan, newChan, flags, callback) {
+  asyncOnChannelRedirect: function eventsink_onredir(
+    oldChan,
+    newChan,
+    flags,
+    callback
+  ) {
     // veto
     this.called = true;
-    throw Cr.NS_BINDING_ABORTED;
+    throw Components.Exception("", Cr.NS_BINDING_ABORTED);
   },
 
   getInterface: function eventsink_gi(iid) {
-    if (iid.equals(Ci.nsIChannelEventSink))
+    if (iid.equals(Ci.nsIChannelEventSink)) {
       return this;
-    throw Cr.NS_ERROR_NO_INTERFACE;
+    }
+    throw Components.Exception("", Cr.NS_ERROR_NO_INTERFACE);
   },
 
-  called: false
+  called: false,
 };
 
 var listener = {
   expectSinkCall: true,
 
-  onStartRequest: function test_onStartR(request, ctx) {
+  onStartRequest: function test_onStartR(request) {
     try {
       // Commenting out this check pending resolution of bug 255119
       //if (Components.isSuccessCode(request.status))
@@ -60,10 +62,18 @@ var listener = {
 
       // The current URI must be the original URI, as all redirects have been
       // cancelled
-      if (!(request instanceof Ci.nsIChannel) ||
-          !request.URI.equals(request.originalURI))
-        do_throw("Wrong URI: Is <" + request.URI.spec + ">, should be <" +
-                 request.originalURI.spec + ">");
+      if (
+        !(request instanceof Ci.nsIChannel) ||
+        !request.URI.equals(request.originalURI)
+      ) {
+        do_throw(
+          "Wrong URI: Is <" +
+            request.URI.spec +
+            ">, should be <" +
+            request.originalURI.spec +
+            ">"
+        );
+      }
 
       if (request instanceof Ci.nsIHttpChannel) {
         // As we expect a blocked redirect, verify that we have a 3xx status
@@ -76,14 +86,14 @@ var listener = {
       do_throw("Unexpected exception: " + e);
     }
 
-    throw Cr.NS_ERROR_ABORT;
+    throw Components.Exception("", Cr.NS_ERROR_ABORT);
   },
 
   onDataAvailable: function test_ODA() {
     do_throw("Should not get any data!");
   },
 
-  onStopRequest: function test_onStopR(request, ctx, status) {
+  onStopRequest: function test_onStopR(request, status) {
     if (this._iteration <= 2) {
       run_test_continued();
     } else {
@@ -93,11 +103,11 @@ var listener = {
     do_test_finished();
   },
 
-  _iteration: 1
+  _iteration: 1,
 };
 
 function makeChan(url) {
-  return NetUtil.newChannel({uri: url, loadUsingSystemPrincipal: true});
+  return NetUtil.newChannel({ uri: url, loadUsingSystemPrincipal: true });
 }
 
 var httpserv = null;
@@ -108,14 +118,18 @@ function run_test() {
   httpserv.registerPathHandler("/redirectfile", redirectfile);
   httpserv.start(-1);
 
-  Components.manager.nsIComponentRegistrar.registerFactory(sinkCID,
-    "Unit test Event sink", sinkContract, eventsink);
+  Components.manager.nsIComponentRegistrar.registerFactory(
+    sinkCID,
+    "Unit test Event sink",
+    sinkContract,
+    eventsink
+  );
 
   // Step 1: Set the callbacks on the listener itself
   var chan = makeChan(URL + "/redirect");
   chan.notificationCallbacks = eventsink;
 
-  chan.asyncOpen2(listener);
+  chan.asyncOpen(listener);
 
   do_test_pending();
 }
@@ -123,25 +137,34 @@ function run_test() {
 function run_test_continued() {
   eventsink.called = false;
 
-  var catMan = Cc["@mozilla.org/categorymanager;1"]
-                 .getService(Ci.nsICategoryManager);
+  var catMan = Cc["@mozilla.org/categorymanager;1"].getService(
+    Ci.nsICategoryManager
+  );
 
   var chan;
   if (listener._iteration == 1) {
     // Step 2: Category entry
-    catMan.nsICategoryManager.addCategoryEntry(categoryName, "unit test",
-                                               sinkContract, false, true);
-    chan = makeChan(URL + "/redirect")
+    catMan.nsICategoryManager.addCategoryEntry(
+      categoryName,
+      "unit test",
+      sinkContract,
+      false,
+      true
+    );
+    chan = makeChan(URL + "/redirect");
   } else {
     // Step 3: Global contract id
-    catMan.nsICategoryManager.deleteCategoryEntry(categoryName, "unit test",
-                                                  false);
+    catMan.nsICategoryManager.deleteCategoryEntry(
+      categoryName,
+      "unit test",
+      false
+    );
     listener.expectSinkCall = false;
     chan = makeChan(URL + "/redirectfile");
   }
 
   listener._iteration++;
-  chan.asyncOpen2(listener);
+  chan.asyncOpen(listener);
 
   do_test_pending();
 }
@@ -151,9 +174,11 @@ function run_test_continued() {
 // /redirect
 function redirect(metadata, response) {
   response.setStatusLine(metadata.httpVersion, 301, "Moved Permanently");
-  response.setHeader("Location",
-                     "http://localhost:" + metadata.port + "/",
-                     false);
+  response.setHeader(
+    "Location",
+    "http://localhost:" + metadata.port + "/",
+    false
+  );
 
   var body = "Moved\n";
   response.bodyOutputStream.write(body, body.length);

@@ -20,22 +20,21 @@ namespace detail {
 // pointers. The only users should be for NurseryAwareHashMap; it is defined
 // externally because we need a GCPolicy for its use in the contained map.
 template <typename T>
-class UnsafeBareReadBarriered : public ReadBarrieredBase<T> {
+class UnsafeBareWeakHeapPtr : public ReadBarriered<T> {
  public:
-  UnsafeBareReadBarriered()
-      : ReadBarrieredBase<T>(JS::SafelyInitialized<T>()) {}
-  MOZ_IMPLICIT UnsafeBareReadBarriered(const T& v) : ReadBarrieredBase<T>(v) {}
-  explicit UnsafeBareReadBarriered(const UnsafeBareReadBarriered& v)
-      : ReadBarrieredBase<T>(v) {}
-  UnsafeBareReadBarriered(UnsafeBareReadBarriered&& v)
-      : ReadBarrieredBase<T>(std::move(v)) {}
+  UnsafeBareWeakHeapPtr() : ReadBarriered<T>(JS::SafelyInitialized<T>()) {}
+  MOZ_IMPLICIT UnsafeBareWeakHeapPtr(const T& v) : ReadBarriered<T>(v) {}
+  explicit UnsafeBareWeakHeapPtr(const UnsafeBareWeakHeapPtr& v)
+      : ReadBarriered<T>(v) {}
+  UnsafeBareWeakHeapPtr(UnsafeBareWeakHeapPtr&& v)
+      : ReadBarriered<T>(std::move(v)) {}
 
-  UnsafeBareReadBarriered& operator=(const UnsafeBareReadBarriered& v) {
+  UnsafeBareWeakHeapPtr& operator=(const UnsafeBareWeakHeapPtr& v) {
     this->value = v.value;
     return *this;
   }
 
-  UnsafeBareReadBarriered& operator=(const T& v) {
+  UnsafeBareWeakHeapPtr& operator=(const T& v) {
     this->value = v;
     return *this;
   }
@@ -56,6 +55,8 @@ class UnsafeBareReadBarriered : public ReadBarrieredBase<T> {
 };
 }  // namespace detail
 
+enum : bool { DuplicatesNotPossible, DuplicatesPossible };
+
 // The "nursery aware" hash map is a special case of GCHashMap that is able to
 // treat nursery allocated members weakly during a minor GC: e.g. it allows for
 // nursery allocated objects to be collected during nursery GC where a normal
@@ -69,9 +70,10 @@ class UnsafeBareReadBarriered : public ReadBarrieredBase<T> {
 // moment, but might serve as a useful base for other tables in future.
 template <typename Key, typename Value,
           typename HashPolicy = DefaultHasher<Key>,
-          typename AllocPolicy = TempAllocPolicy>
+          typename AllocPolicy = TempAllocPolicy,
+          bool AllowDuplicates = DuplicatesNotPossible>
 class NurseryAwareHashMap {
-  using BarrieredValue = detail::UnsafeBareReadBarriered<Value>;
+  using BarrieredValue = detail::UnsafeBareWeakHeapPtr<Value>;
   using MapType =
       GCRekeyableHashMap<Key, BarrieredValue, HashPolicy, AllocPolicy>;
   MapType map;
@@ -87,9 +89,11 @@ class NurseryAwareHashMap {
   using Range = typename MapType::Range;
   using Entry = typename MapType::Entry;
 
-  explicit NurseryAwareHashMap(AllocPolicy a = AllocPolicy()) : map(a) {}
+  explicit NurseryAwareHashMap(AllocPolicy a = AllocPolicy())
+      : map(a), nurseryEntries(std::move(a)) {}
   explicit NurseryAwareHashMap(size_t length) : map(length) {}
-  NurseryAwareHashMap(AllocPolicy a, size_t length) : map(a, length) {}
+  NurseryAwareHashMap(AllocPolicy a, size_t length)
+      : map(a, length), nurseryEntries(std::move(a)) {}
 
   bool empty() const { return map.empty(); }
   Ptr lookup(const Lookup& l) const { return map.lookup(l); }
@@ -163,14 +167,34 @@ class NurseryAwareHashMap {
         map.remove(key);
         continue;
       }
-      map.rekeyIfMoved(key, copy);
+      if (AllowDuplicates) {
+        // Drop duplicated keys.
+        //
+        // A key can be forwarded to another place. In this case, rekey the
+        // item. If two or more different keys are forwarded to the same new
+        // key, simply drop the later ones.
+        if (key == copy) {
+          // No rekey needed.
+        } else if (map.has(copy)) {
+          // Key was forwarded to the same place that another key was already
+          // forwarded to.
+          map.remove(key);
+        } else {
+          map.rekeyAs(key, copy, copy);
+        }
+      } else {
+        MOZ_ASSERT(key == copy || !map.has(copy));
+        map.rekeyIfMoved(key, copy);
+      }
     }
     nurseryEntries.clear();
   }
 
-  void sweep() {
-    MOZ_ASSERT(nurseryEntries.empty());
-    map.sweep();
+  void sweep() { map.sweep(); }
+
+  void clear() {
+    map.clear();
+    nurseryEntries.clear();
   }
 
   bool hasNurseryEntries() const { return !nurseryEntries.empty(); }
@@ -180,13 +204,12 @@ class NurseryAwareHashMap {
 
 namespace JS {
 template <typename T>
-struct GCPolicy<js::detail::UnsafeBareReadBarriered<T>> {
-  static void trace(JSTracer* trc,
-                    js::detail::UnsafeBareReadBarriered<T>* thingp,
+struct GCPolicy<js::detail::UnsafeBareWeakHeapPtr<T>> {
+  static void trace(JSTracer* trc, js::detail::UnsafeBareWeakHeapPtr<T>* thingp,
                     const char* name) {
     js::TraceEdge(trc, thingp, name);
   }
-  static bool needsSweep(js::detail::UnsafeBareReadBarriered<T>* thingp) {
+  static bool needsSweep(js::detail::UnsafeBareWeakHeapPtr<T>* thingp) {
     return js::gc::IsAboutToBeFinalized(thingp);
   }
 };

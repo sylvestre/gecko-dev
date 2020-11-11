@@ -2,12 +2,10 @@
    - License, v. 2.0. If a copy of the MPL was not distributed with this file,
    - You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-%include ../shared.inc
 %include ../../../shared/in-content/common.inc.css
 
 xul|tabs {
-  padding-right: 0;
-  padding-left: 0;
+  padding-inline: 0;
   position: static;
 }
 
@@ -17,7 +15,7 @@ xul|tab[visuallyselected] {
 }
 
 xul|button[dlgtype="help"] {
-  -moz-appearance: none;
+  appearance: none;
   width: auto;
 }
 
@@ -26,16 +24,13 @@ xul|menulist > xul|menupopup > xul|menuitem[selected="true"]::before {
   display: none;
 }
 
-xul|*.menulist-dropmarker {
+xul|menulist::part(dropmarker) {
   display: -moz-box;
-  margin-top: 1px;
-  margin-bottom: 1px;
+  margin-block: 1px;
 }
 
 xul|menulist > xul|menupopup xul|menu,
-xul|menulist > xul|menupopup xul|menuitem,
-xul|button[type="menu"] > xul|menupopup xul|menu,
-xul|button[type="menu"] > xul|menupopup xul|menuitem {
+xul|menulist > xul|menupopup xul|menuitem {
   padding-inline-end: 34px;
 }
 
@@ -43,10 +38,7 @@ xul|*.help-button > xul|*.button-box > xul|*.button-icon {
   margin-inline-start: 0;
 }
 
-xul|*.checkbox-icon {
-  margin-right: 0;
-}
-
+xul|*.checkbox-icon,
 xul|*.radio-icon {
   margin-inline-end: 0;
 }
@@ -57,7 +49,6 @@ xul|*.text-link:-moz-focusring {
   box-shadow: none;
 }
 
-xul|menulist:-moz-focusring,
 xul|checkbox:-moz-focusring > .checkbox-check,
 html|input[type="checkbox"]:-moz-focusring + html|label:before,
 xul|radio[focused="true"] > .radio-check,
@@ -71,21 +62,15 @@ xul|radio[focused="true"] > .radio-check {
   -moz-outline-radius: 100%;
 }
 
-html|*.numberbox-input::-moz-number-spin-up {
-  border-radius: 4px 4px 0 0;
+xul|search-textbox {
+  appearance: none;
+  padding-inline: 8px;
 }
 
-html|*.numberbox-input::-moz-number-spin-down  {
-  border-radius: 0 0 4px 4px;
-}
-
-textbox[type="search"] {
-  -moz-appearance: none;
-  padding-inline-start: 8px;
-  padding-inline-end: 8px;
-}
-
-xul|textbox[type="search"] > moz-input-box > .textbox-search-sign {
+xul|search-textbox::part(search-sign) {
+  -moz-context-properties: fill, fill-opacity;
+  fill: currentColor;
+  fill-opacity: 0.8;
   list-style-image: url(chrome://global/skin/icons/search-textbox.svg);
   margin-inline-end: 5px;
 }
@@ -93,4 +78,13 @@ xul|textbox[type="search"] > moz-input-box > .textbox-search-sign {
 html|button {
   /* XUL button min-width */
   min-width: 79px;
+}
+
+html|input[type="email"],
+html|input[type="tel"],
+html|input[type="text"],
+html|input[type="password"],
+html|input[type="number"],
+html|textarea {
+  margin: 4px;
 }

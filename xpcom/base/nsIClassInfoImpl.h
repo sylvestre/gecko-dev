@@ -89,8 +89,7 @@ class GenericClassInfo : public nsIClassInfo {
   struct ClassInfoData {
     // This function pointer uses NS_CALLBACK_ because it's always set to an
     // NS_IMETHOD function, which uses __stdcall on Win32.
-    typedef NS_CALLBACK_(nsresult, GetInterfacesProc)(uint32_t* aCountP,
-                                                      nsIID*** aArray);
+    typedef NS_CALLBACK_(nsresult, GetInterfacesProc)(nsTArray<nsIID>& aArray);
     GetInterfacesProc getinterfaces;
 
     // This function pointer doesn't use NS_CALLBACK_ because it's always set to
@@ -113,8 +112,9 @@ class GenericClassInfo : public nsIClassInfo {
 
 #define NS_CLASSINFO_NAME(_class) g##_class##_classInfoGlobal
 #define NS_CI_INTERFACE_GETTER_NAME(_class) _class##_GetInterfacesHelper
-#define NS_DECL_CI_INTERFACE_GETTER(_class) \
-  extern NS_IMETHODIMP NS_CI_INTERFACE_GETTER_NAME(_class)(uint32_t*, nsIID***);
+#define NS_DECL_CI_INTERFACE_GETTER(_class)                                  \
+  extern NS_IMETHODIMP NS_CI_INTERFACE_GETTER_NAME(_class)(nsTArray<nsIID> & \
+                                                           array);
 
 #define NS_IMPL_CLASSINFO(_class, _getscriptablehelper, _flags, _cid)       \
   NS_DECL_CI_INTERFACE_GETTER(_class)                                       \
@@ -135,19 +135,17 @@ class GenericClassInfo : public nsIClassInfo {
     foundInterface = NS_CLASSINFO_NAME(_class);                              \
   } else
 
-#define NS_CLASSINFO_HELPER_BEGIN(_class, _c)                              \
-  NS_IMETHODIMP                                                            \
-  NS_CI_INTERFACE_GETTER_NAME(_class)(uint32_t * count, nsIID * **array) { \
-    *count = _c;                                                           \
-    *array = (nsIID**)moz_xmalloc(sizeof(nsIID*) * _c);                    \
-    uint32_t i = 0;
+#define NS_CLASSINFO_HELPER_BEGIN(_class, _c)                    \
+  NS_IMETHODIMP                                                  \
+  NS_CI_INTERFACE_GETTER_NAME(_class)(nsTArray<nsIID> & array) { \
+    array.Clear();                                               \
+    array.SetCapacity(_c);
 
 #define NS_CLASSINFO_HELPER_ENTRY(_interface) \
-  (*array)[i++] = NS_GET_IID(_interface).Clone();
+  array.AppendElement(NS_GET_IID(_interface));
 
-#define NS_CLASSINFO_HELPER_END                           \
-  MOZ_ASSERT(i == *count, "Incorrent number of entries"); \
-  return NS_OK;                                           \
+#define NS_CLASSINFO_HELPER_END \
+  return NS_OK;                 \
   }
 
 #define NS_IMPL_CI_INTERFACE_GETTER(aClass, ...)                       \
@@ -157,14 +155,34 @@ class GenericClassInfo : public nsIClassInfo {
   MOZ_FOR_EACH(NS_CLASSINFO_HELPER_ENTRY, (), (__VA_ARGS__))           \
   NS_CLASSINFO_HELPER_END
 
-#define NS_IMPL_QUERY_INTERFACE_CI(aClass, ...)                           \
+#define NS_IMPL_CI_INTERFACE_GETTER0(aClass) \
+  NS_CLASSINFO_HELPER_BEGIN(aClass, 0)       \
+  NS_CLASSINFO_HELPER_END
+
+// Note that this macro is an internal implementation of this header and
+// should not be used outside it. It does not end the interface map as this
+// is done in NS_IMPL_QUERY_INTERFACE_CI or the _INHERITED variant.
+#define NS_IMPL_QUERY_INTERFACE_CI_GUTS(aClass, ...)                      \
   static_assert(MOZ_ARG_COUNT(__VA_ARGS__) > 0,                           \
                 "Need more arguments to NS_IMPL_QUERY_INTERFACE_CI");     \
   NS_INTERFACE_MAP_BEGIN(aClass)                                          \
     MOZ_FOR_EACH(NS_INTERFACE_MAP_ENTRY, (), (__VA_ARGS__))               \
     NS_INTERFACE_MAP_ENTRY_AMBIGUOUS(nsISupports, MOZ_ARG_1(__VA_ARGS__)) \
-    NS_IMPL_QUERY_CLASSINFO(aClass)                                       \
+    NS_IMPL_QUERY_CLASSINFO(aClass)
+
+#define NS_IMPL_QUERY_INTERFACE_CI(aClass, ...)        \
+  NS_IMPL_QUERY_INTERFACE_CI_GUTS(aClass, __VA_ARGS__) \
   NS_INTERFACE_MAP_END
+
+#define NS_IMPL_QUERY_INTERFACE_CI_INHERITED(aClass, aSuper, ...) \
+  NS_IMPL_QUERY_INTERFACE_CI_GUTS(aClass, __VA_ARGS__)            \
+  NS_INTERFACE_MAP_END_INHERITING                                 \
+  (aSuper)
+
+#define NS_IMPL_QUERY_INTERFACE_CI_INHERITED0(aClass, aSuper) \
+  NS_INTERFACE_MAP_BEGIN(aClass)                              \
+    NS_IMPL_QUERY_CLASSINFO(aClass)                           \
+  NS_INTERFACE_MAP_END_INHERITING(aSuper)
 
 #define NS_IMPL_ISUPPORTS_CI(aClass, ...)         \
   NS_IMPL_ADDREF(aClass)                          \

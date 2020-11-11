@@ -6,30 +6,13 @@
 
 #[cfg(feature = "gecko")]
 pub use crate::values::specified::list::ListStyleType;
-pub use crate::values::specified::list::{QuotePair, Quotes};
-
-use servo_arc::Arc;
-
-lazy_static! {
-    static ref INITIAL_QUOTES: Arc<Box<[QuotePair]>> = Arc::new(
-        vec![
-            QuotePair {
-                opening: "\u{201c}".to_owned().into_boxed_str(),
-                closing: "\u{201d}".to_owned().into_boxed_str(),
-            },
-            QuotePair {
-                opening: "\u{2018}".to_owned().into_boxed_str(),
-                closing: "\u{2019}".to_owned().into_boxed_str(),
-            },
-        ]
-        .into_boxed_slice()
-    );
-}
+pub use crate::values::specified::list::MozListReversed;
+pub use crate::values::specified::list::Quotes;
 
 impl Quotes {
     /// Initial value for `quotes`.
     #[inline]
     pub fn get_initial_value() -> Quotes {
-        Quotes(INITIAL_QUOTES.clone())
+        Quotes::Auto
     }
 }

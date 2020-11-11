@@ -4,10 +4,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef mozilla_dom_SVGFEDiffuseLightingElement_h
-#define mozilla_dom_SVGFEDiffuseLightingElement_h
+#ifndef DOM_SVG_SVGFEDIFFUSELIGHTINGELEMENT_H_
+#define DOM_SVG_SVGFEDIFFUSELIGHTINGELEMENT_H_
 
-#include "nsSVGFilters.h"
+#include "mozilla/dom/SVGFilters.h"
 
 nsresult NS_NewSVGFEDiffuseLightingElement(
     nsIContent** aResult, already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo);
@@ -15,7 +15,7 @@ nsresult NS_NewSVGFEDiffuseLightingElement(
 namespace mozilla {
 namespace dom {
 
-typedef nsSVGFELightingElement SVGFEDiffuseLightingElementBase;
+using SVGFEDiffuseLightingElementBase = SVGFELightingElement;
 
 class SVGFEDiffuseLightingElement : public SVGFEDiffuseLightingElementBase {
   friend nsresult(::NS_NewSVGFEDiffuseLightingElement(
@@ -31,7 +31,7 @@ class SVGFEDiffuseLightingElement : public SVGFEDiffuseLightingElementBase {
 
  public:
   virtual FilterPrimitiveDescription GetPrimitiveDescription(
-      nsSVGFilterInstance* aInstance, const IntRect& aFilterSubregion,
+      SVGFilterInstance* aInstance, const IntRect& aFilterSubregion,
       const nsTArray<bool>& aInputsAreTainted,
       nsTArray<RefPtr<SourceSurface>>& aInputImages) override;
   virtual bool AttributeAffectsRendering(int32_t aNameSpaceID,
@@ -40,14 +40,14 @@ class SVGFEDiffuseLightingElement : public SVGFEDiffuseLightingElementBase {
   virtual nsresult Clone(dom::NodeInfo*, nsINode** aResult) const override;
 
   // WebIDL
-  already_AddRefed<SVGAnimatedString> In1();
-  already_AddRefed<SVGAnimatedNumber> SurfaceScale();
-  already_AddRefed<SVGAnimatedNumber> DiffuseConstant();
-  already_AddRefed<SVGAnimatedNumber> KernelUnitLengthX();
-  already_AddRefed<SVGAnimatedNumber> KernelUnitLengthY();
+  already_AddRefed<DOMSVGAnimatedString> In1();
+  already_AddRefed<DOMSVGAnimatedNumber> SurfaceScale();
+  already_AddRefed<DOMSVGAnimatedNumber> DiffuseConstant();
+  already_AddRefed<DOMSVGAnimatedNumber> KernelUnitLengthX();
+  already_AddRefed<DOMSVGAnimatedNumber> KernelUnitLengthY();
 };
 
 }  // namespace dom
 }  // namespace mozilla
 
-#endif  // mozilla_dom_SVGFEDiffuseLightingElement_h
+#endif  // DOM_SVG_SVGFEDIFFUSELIGHTINGELEMENT_H_

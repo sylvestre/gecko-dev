@@ -6,8 +6,7 @@
 
 #include "FileDescriptorSetChild.h"
 
-namespace mozilla {
-namespace ipc {
+namespace mozilla::ipc {
 
 FileDescriptorSetChild::FileDescriptorSetChild(
     const FileDescriptor& aFileDescriptor) {
@@ -20,8 +19,7 @@ FileDescriptorSetChild::~FileDescriptorSetChild() {
 
 void FileDescriptorSetChild::ForgetFileDescriptors(
     nsTArray<FileDescriptor>& aFileDescriptors) {
-  aFileDescriptors.Clear();
-  mFileDescriptors.SwapElements(aFileDescriptors);
+  aFileDescriptors = std::move(mFileDescriptors);
 }
 
 mozilla::ipc::IPCResult FileDescriptorSetChild::RecvAddFileDescriptor(
@@ -30,5 +28,4 @@ mozilla::ipc::IPCResult FileDescriptorSetChild::RecvAddFileDescriptor(
   return IPC_OK();
 }
 
-}  // namespace ipc
-}  // namespace mozilla
+}  // namespace mozilla::ipc

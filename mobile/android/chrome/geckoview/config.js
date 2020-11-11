@@ -4,7 +4,7 @@
 "use strict";
 
 var Cm = Components.manager;
-ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 const VKB_ENTER_KEY = 13; // User press of VKB enter key
 const INITIAL_PAGE_DELAY = 500; // Initial pause on program start for scroll alignment
@@ -13,9 +13,12 @@ const PAGE_SCROLL_TRIGGER = 200; // Triggers additional getPrefsBuffer() on user
 const FILTER_CHANGE_TRIGGER = 200; // Delay between responses to filterInput changes
 const INNERHTML_VALUE_DELAY = 100; // Delay before providing prefs innerHTML value
 
-var gStringBundle = Services.strings.createBundle("chrome://browser/locale/config.properties");
-var gClipboardHelper = Cc["@mozilla.org/widget/clipboardhelper;1"].getService(Ci.nsIClipboardHelper);
-
+var gStringBundle = Services.strings.createBundle(
+  "chrome://browser/locale/config.properties"
+);
+var gClipboardHelper = Cc["@mozilla.org/widget/clipboardhelper;1"].getService(
+  Ci.nsIClipboardHelper
+);
 
 /* ============================== NewPrefDialog ==============================
  *
@@ -25,7 +28,6 @@ var gClipboardHelper = Cc["@mozilla.org/widget/clipboardhelper;1"].getService(Ci
  *
  */
 var NewPrefDialog = {
-
   _prefsShield: null,
 
   _newPrefsDialog: null,
@@ -80,16 +82,22 @@ var NewPrefDialog = {
   // Called to update positive button to display text ("Create"/"Change), and enabled/disabled status
   // As new pref name is initially displayed, re-focused, or modifed during user input
   _updatePositiveButton: function AC_updatePositiveButton(aPrefName) {
-    this._positiveButton.textContent = gStringBundle.GetStringFromName("newPref.createButton");
+    this._positiveButton.textContent = gStringBundle.GetStringFromName(
+      "newPref.createButton"
+    );
     this._positiveButton.setAttribute("disabled", true);
     if (aPrefName == "") {
       return;
     }
 
     // If item already in list, it's being changed, else added
-    let item = AboutConfig._list.filter(i => { return i.name == aPrefName; });
+    const item = AboutConfig._list.filter(i => {
+      return i.name == aPrefName;
+    });
     if (item.length) {
-      this._positiveButton.textContent = gStringBundle.GetStringFromName("newPref.changeButton");
+      this._positiveButton.textContent = gStringBundle.GetStringFromName(
+        "newPref.changeButton"
+      );
     } else {
       this._positiveButton.removeAttribute("disabled");
     }
@@ -134,8 +142,9 @@ var NewPrefDialog = {
   // Watch user key input so we can provide Enter key action, commit input values
   handleKeypress: function AC_handleKeypress(aEvent) {
     // Close our VKB on new pref enter key press
-    if (aEvent.keyCode == VKB_ENTER_KEY)
+    if (aEvent.keyCode == VKB_ENTER_KEY) {
       aEvent.target.blur();
+    }
   },
 
   // New prefs create dialog only allows creating a non-existing preference, doesn't allow for
@@ -147,13 +156,22 @@ var NewPrefDialog = {
 
     switch (this.type) {
       case "boolean":
-        Services.prefs.setBoolPref(this._prefNameInputElt.value, !!(this._booleanValue.value == "true"));
+        Services.prefs.setBoolPref(
+          this._prefNameInputElt.value,
+          !!(this._booleanValue.value == "true")
+        );
         break;
       case "string":
-        Services.prefs.setCharPref(this._prefNameInputElt.value, this._stringValue.value);
+        Services.prefs.setCharPref(
+          this._prefNameInputElt.value,
+          this._stringValue.value
+        );
         break;
       case "int":
-        Services.prefs.setIntPref(this._prefNameInputElt.value, this._intValue.value);
+        Services.prefs.setIntPref(
+          this._prefNameInputElt.value,
+          this._intValue.value
+        );
         break;
     }
 
@@ -176,10 +194,10 @@ var NewPrefDialog = {
   // In new prefs dialog, bool prefs are <input type="text">, as they aren't yet tied to an
   // Actual Services.prefs.*etBoolPref()
   toggleBoolValue: function AC_toggleBoolValue() {
-    this._booleanValue.value = (this._booleanValue.value == "true" ? "false" : "true");
+    this._booleanValue.value =
+      this._booleanValue.value == "true" ? "false" : "true";
   },
 };
-
 
 /* ============================== AboutConfig ==============================
  *
@@ -189,7 +207,6 @@ var NewPrefDialog = {
  *
  */
 var AboutConfig = {
-
   contextMenuLINode: null,
   filterInput: null,
   _filterPrevInput: null,
@@ -204,13 +221,13 @@ var AboutConfig = {
     this._prefsContainer = document.getElementById("prefs-container");
     this._loadingContainer = document.getElementById("loading-container");
 
-    let list = Services.prefs.getChildList("");
-    this._list = list.sort().map( function AC_getMapPref(aPref) {
+    const list = Services.prefs.getChildList("");
+    this._list = list.sort().map(function AC_getMapPref(aPref) {
       return new Pref(aPref);
     }, this);
 
     // Support filtering about:config via a ?filter=<string> param
-    let match = /[?&]filter=([^&]+)/i.exec(window.location.href);
+    const match = /[?&]filter=([^&]+)/i.exec(window.location.href);
     if (match) {
       this.filterInput.value = decodeURIComponent(match[1]);
     }
@@ -273,7 +290,7 @@ var AboutConfig = {
   // Clear the displayed preferences list
   _clearPrefsContainer: function AC_clearPrefsContainer() {
     // Quick clear the prefsContainer list
-    let empty = this._prefsContainer.cloneNode(false);
+    const empty = this._prefsContainer.cloneNode(false);
     this._prefsContainer.parentNode.replaceChild(empty, this._prefsContainer);
     this._prefsContainer = empty;
 
@@ -286,12 +303,17 @@ var AboutConfig = {
   // Get a small manageable block of prefs items, and add them to the displayed list
   _addMorePrefsToContainer: function AC_addMorePrefsToContainer() {
     // Create filter regex
-    let filterExp = this.filterInput.value ?
-      new RegExp(this.filterInput.value, "i") : null;
+    const filterExp = this.filterInput.value
+      ? new RegExp(this.filterInput.value, "i")
+      : null;
 
     // Get a new block for the display list
-    let prefsBuffer = [];
-    for (let i = 0; i < this._list.length && prefsBuffer.length < PREFS_BUFFER_MAX; i++) {
+    const prefsBuffer = [];
+    for (
+      let i = 0;
+      i < this._list.length && prefsBuffer.length < PREFS_BUFFER_MAX;
+      i++
+    ) {
       if (!this._list[i].li && this._list[i].test(filterExp)) {
         prefsBuffer.push(this._list[i]);
       }
@@ -323,13 +345,16 @@ var AboutConfig = {
 
   // If scrolling at the bottom, maybe add some more entries
   onScroll: function AC_onScroll(aEvent) {
-    if (this._prefsContainer.scrollHeight - (window.pageYOffset + window.innerHeight) < PAGE_SCROLL_TRIGGER) {
+    if (
+      this._prefsContainer.scrollHeight -
+        (window.pageYOffset + window.innerHeight) <
+      PAGE_SCROLL_TRIGGER
+    ) {
       if (!this._filterChangeTimer) {
         this._addMorePrefsToContainer();
       }
     }
   },
-
 
   // Return currently selected list item node
   get selected() {
@@ -338,7 +363,7 @@ var AboutConfig = {
 
   // Set list item node as selected
   set selected(aSelection) {
-    let currentSelection = this.selected;
+    const currentSelection = this.selected;
     if (aSelection == currentSelection) {
       return;
     }
@@ -358,8 +383,9 @@ var AboutConfig = {
 
   // Watch user key input so we can provide Enter key action, commit input values
   handleKeypress: function AC_handleKeypress(aEvent) {
-    if (aEvent.keyCode == VKB_ENTER_KEY)
+    if (aEvent.keyCode == VKB_ENTER_KEY) {
       aEvent.target.blur();
+    }
   },
 
   // Return the target list item node of an action event
@@ -374,14 +400,14 @@ var AboutConfig = {
 
   // Return a pref of a list item node
   _getPrefForNode: function AC_getPrefForNode(aNode) {
-    let pref = aNode.getAttribute("name");
+    const pref = aNode.getAttribute("name");
 
     return new Pref(pref);
   },
 
   // When list item name or value are tapped
   selectOrToggleBoolPref: function AC_selectOrToggleBoolPref(aEvent) {
-    let node = this.getLINodeForEvent(aEvent);
+    const node = this.getLINodeForEvent(aEvent);
 
     // If not already selected, just do so
     if (this.selected != node) {
@@ -390,7 +416,7 @@ var AboutConfig = {
     }
 
     // If already selected, and value is boolean, toggle it
-    let pref = this._getPrefForNode(node);
+    const pref = this._getPrefForNode(node);
     if (pref.type != Services.prefs.PREF_BOOL) {
       return;
     }
@@ -400,10 +426,10 @@ var AboutConfig = {
 
   // When finalizing list input values due to blur
   setIntOrStringPref: function AC_setIntOrStringPref(aEvent) {
-    let node = this.getLINodeForEvent(aEvent);
+    const node = this.getLINodeForEvent(aEvent);
 
     // Skip if locked
-    let pref = this._getPrefForNode(node);
+    const pref = this._getPrefForNode(node);
     if (pref.locked) {
       return;
     }
@@ -419,7 +445,7 @@ var AboutConfig = {
 
   // When we reset a pref to it's default value (note resetting a user created pref will delete it)
   resetDefaultPref: function AC_resetDefaultPref(aEvent) {
-    let node = this.getLINodeForEvent(aEvent);
+    const node = this.getLINodeForEvent(aEvent);
 
     // If not already selected, do so
     if (this.selected != node) {
@@ -427,7 +453,7 @@ var AboutConfig = {
     }
 
     // Reset will handle any locked condition
-    let pref = this._getPrefForNode(node);
+    const pref = this._getPrefForNode(node);
     pref.reset();
 
     // Ensure pref reset flushed to disk immediately
@@ -436,10 +462,10 @@ var AboutConfig = {
 
   // When we want to toggle a bool pref
   toggleBoolPref: function AC_toggleBoolPref(aEvent) {
-    let node = this.getLINodeForEvent(aEvent);
+    const node = this.getLINodeForEvent(aEvent);
 
     // Skip if locked, or not boolean
-    let pref = this._getPrefForNode(node);
+    const pref = this._getPrefForNode(node);
     if (pref.locked) {
       return;
     }
@@ -451,10 +477,10 @@ var AboutConfig = {
 
   // When Int inputs have their Up or Down arrows toggled
   incrOrDecrIntPref: function AC_incrOrDecrIntPref(aEvent, aInt) {
-    let node = this.getLINodeForEvent(aEvent);
+    const node = this.getLINodeForEvent(aEvent);
 
     // Skip if locked
-    let pref = this._getPrefForNode(node);
+    const pref = this._getPrefForNode(node);
     if (pref.locked) {
       return;
     }
@@ -464,7 +490,7 @@ var AboutConfig = {
 
   // Observe preference changes
   observe: function AC_observe(aSubject, aTopic, aPrefName) {
-    let pref = new Pref(aPrefName);
+    const pref = new Pref(aPrefName);
 
     // Ignore uninteresting changes, and avoid "private" preferences
     if (aTopic != "nsPref:changed") {
@@ -478,21 +504,25 @@ var AboutConfig = {
     }
 
     // If pref onscreen, update in place.
-    let item = document.querySelector(".pref-item[name=\"" + CSS.escape(pref.name) + "\"]");
+    const item = document.querySelector(
+      '.pref-item[name="' + CSS.escape(pref.name) + '"]'
+    );
     if (item) {
       item.setAttribute("value", pref.value);
-      let input = item.querySelector("input");
+      const input = item.querySelector("input");
       input.setAttribute("value", pref.value);
       input.value = pref.value;
 
-      pref.default ?
-        item.querySelector(".reset").setAttribute("disabled", "true") :
-        item.querySelector(".reset").removeAttribute("disabled");
+      pref.default
+        ? item.querySelector(".reset").setAttribute("disabled", "true")
+        : item.querySelector(".reset").removeAttribute("disabled");
       return;
     }
 
     // If pref not already in list, refresh display as it's being added
-    let anyWhere = this._list.filter(i => { return i.name == pref.name; });
+    const anyWhere = this._list.filter(i => {
+      return i.name == pref.name;
+    });
     if (!anyWhere.length) {
       document.location.reload();
     }
@@ -500,7 +530,7 @@ var AboutConfig = {
 
   // Quick context menu helpers for about:config
   clipboardCopy: function AC_clipboardCopy(aField) {
-    let pref = this._getPrefForNode(this.contextMenuLINode);
+    const pref = this._getPrefForNode(this.contextMenuLINode);
     if (aField == "name") {
       gClipboardHelper.copyString(pref.name);
     } else {
@@ -508,7 +538,6 @@ var AboutConfig = {
     }
   },
 };
-
 
 /* ============================== Pref ==============================
  *
@@ -537,7 +566,6 @@ Pref.prototype = {
       default:
         return Services.prefs.getCharPref(this.name);
     }
-
   },
   set value(aPrefValue) {
     switch (this.type) {
@@ -581,22 +609,18 @@ Pref.prototype = {
       this.li.setAttribute("name", this.name);
 
       // Click callback to ensure list item selected even on no-action tap events
-      this.li.addEventListener("click",
-        function(aEvent) {
-          AboutConfig.selected = AboutConfig.getLINodeForEvent(aEvent);
-        }
-      );
+      this.li.addEventListener("click", function(aEvent) {
+        AboutConfig.selected = AboutConfig.getLINodeForEvent(aEvent);
+      });
 
       // Contextmenu callback to identify selected list item
-      this.li.addEventListener("contextmenu",
-        function(aEvent) {
-          AboutConfig.contextMenuLINode = AboutConfig.getLINodeForEvent(aEvent);
-        }
-      );
+      this.li.addEventListener("contextmenu", function(aEvent) {
+        AboutConfig.contextMenuLINode = AboutConfig.getLINodeForEvent(aEvent);
+      });
 
       this.li.setAttribute("contextmenu", "prefs-context-menu");
 
-      let prefName = document.createElement("div");
+      const prefName = document.createElement("div");
       prefName.className = "pref-name";
       prefName.addEventListener("click", function(event) {
         AboutConfig.selectOrToggleBoolPref(event);
@@ -605,10 +629,10 @@ Pref.prototype = {
 
       this.li.appendChild(prefName);
 
-      let prefItemLine = document.createElement("div");
+      const prefItemLine = document.createElement("div");
       prefItemLine.className = "pref-item-line";
 
-      let prefValue = document.createElement("input");
+      const prefValue = document.createElement("input");
       prefValue.className = "pref-value";
       prefValue.addEventListener("blur", function(event) {
         AboutConfig.setIntOrStringPref(event);
@@ -619,30 +643,34 @@ Pref.prototype = {
       prefValue.value = "";
       prefItemLine.appendChild(prefValue);
 
-      let resetButton = document.createElement("div");
+      const resetButton = document.createElement("div");
       resetButton.className = "pref-button reset";
       resetButton.addEventListener("click", function(event) {
         AboutConfig.resetDefaultPref(event);
       });
-      resetButton.textContent = gStringBundle.GetStringFromName("pref.resetButton");
+      resetButton.textContent = gStringBundle.GetStringFromName(
+        "pref.resetButton"
+      );
       prefItemLine.appendChild(resetButton);
 
-      let toggleButton = document.createElement("div");
+      const toggleButton = document.createElement("div");
       toggleButton.className = "pref-button toggle";
       toggleButton.addEventListener("click", function(event) {
         AboutConfig.toggleBoolPref(event);
       });
-      toggleButton.textContent = gStringBundle.GetStringFromName("pref.toggleButton");
+      toggleButton.textContent = gStringBundle.GetStringFromName(
+        "pref.toggleButton"
+      );
       prefItemLine.appendChild(toggleButton);
 
-      let upButton = document.createElement("div");
+      const upButton = document.createElement("div");
       upButton.className = "pref-button up";
       upButton.addEventListener("click", function(event) {
         AboutConfig.incrOrDecrIntPref(event, 1);
       });
       prefItemLine.appendChild(upButton);
 
-      let downButton = document.createElement("div");
+      const downButton = document.createElement("div");
       downButton.className = "pref-button down";
       downButton.addEventListener("click", function(event) {
         AboutConfig.incrOrDecrIntPref(event, -1);
@@ -660,11 +688,10 @@ Pref.prototype = {
 
   // Initialize list item object values
   _valueSetup: function AC_valueSetup() {
-
     this.li.setAttribute("type", this.type);
     this.li.setAttribute("value", this.value);
 
-    let valDiv = this.li.querySelector(".pref-value");
+    const valDiv = this.li.querySelector(".pref-value");
     valDiv.value = this.value;
 
     switch (this.type) {
@@ -696,4 +723,3 @@ Pref.prototype = {
     }
   },
 };
-

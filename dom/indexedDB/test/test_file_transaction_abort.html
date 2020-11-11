@@ -6,7 +6,7 @@
 <head>
   <title>Indexed Database Property Test</title>
 
-  <script type="text/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css"/>
 
   <script type="text/javascript">
@@ -58,10 +58,7 @@
       fileData.file = null;
     }
 
-    scheduleGC();
-    yield undefined;
-
-    ok(!hasFileInfo(name, 1), "Correct ref count");
+    yield* assertEventuallyHasNoFileInfo(name, 1);
 
     finishTest();
   }

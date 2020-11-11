@@ -1,4 +1,3 @@
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -28,7 +27,7 @@ const TEST_URI = `
 
 add_task(async function() {
   await addTab("data:text/html;charset=utf-8," + encodeURIComponent(TEST_URI));
-  const {inspector, view} = await openRuleView();
+  const { inspector, view } = await openRuleView();
   await selectNode(".pickme", inspector);
   await testEditSelector(view);
 });
@@ -52,7 +51,11 @@ async function testEditSelector(view) {
 
   info("Check that the correct rules are visible");
   is(view._elementStyle.rules.length, 4, "Should have 4 rules.");
-  is(ruleEditor.element.getAttribute("unmatched"), "false", "Rule editor is matched.");
+  is(
+    ruleEditor.element.getAttribute("unmatched"),
+    "false",
+    "Rule editor is matched."
+  );
 
   let props = ruleEditor.rule.textProps;
   is(props.length, 1, "Rule has correct number of properties");

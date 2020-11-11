@@ -5,16 +5,12 @@
 "use strict";
 
 /* eslint no-unused-vars: [2, {"vars": "local"}] */
-/* globals registerTestActor, getTestActor, openToolboxForTab, gBrowser */
+/* globals getTestActor, openToolboxForTab, gBrowser */
 /* import-globals-from ../../shared/test/shared-head.js */
-/* import-globals-from ../../shared/test/test-actor-registry.js */
 
-// Import helpers registering the test-actor in remote targets
-Services.scriptloader.loadSubScript(
-  "chrome://mochitests/content/browser/devtools/client/shared/test/test-actor-registry.js",
-  this);
-
-var {getInplaceEditorForSpan: inplaceEditor} = require("devtools/client/shared/inplace-editor");
+var {
+  getInplaceEditorForSpan: inplaceEditor,
+} = require("devtools/client/shared/inplace-editor");
 
 // This file contains functions related to the inspector that are also of interest to
 // other test directores as well.
@@ -27,8 +23,11 @@ var {getInplaceEditorForSpan: inplaceEditor} = require("devtools/client/shared/i
 var openInspector = async function(hostType) {
   info("Opening the inspector");
 
-  const toolbox = await openToolboxForTab(gBrowser.selectedTab, "inspector",
-                                        hostType);
+  const toolbox = await openToolboxForTab(
+    gBrowser.selectedTab,
+    "inspector",
+    hostType
+  );
   const inspector = toolbox.getPanel("inspector");
 
   if (inspector._updateProgress) {
@@ -36,10 +35,9 @@ var openInspector = async function(hostType) {
     await inspector.once("inspector-updated");
   }
 
-  await registerTestActor(toolbox.target.client);
   const testActor = await getTestActor(toolbox);
 
-  return {toolbox, inspector, testActor};
+  return { toolbox, inspector, testActor };
 };
 
 /**
@@ -52,7 +50,7 @@ var openInspector = async function(hostType) {
  * visible and ready
  */
 var openInspectorSidebarTab = async function(id) {
-  const {toolbox, inspector, testActor} = await openInspector();
+  const { toolbox, inspector, testActor } = await openInspector();
 
   info("Selecting the " + id + " sidebar");
 
@@ -147,18 +145,6 @@ function openChangesView() {
  */
 function openLayoutView() {
   return openInspectorSidebarTab("layoutview").then(data => {
-    // The actual highligher show/hide methods are mocked in box model tests.
-    // The highlighter is tested in devtools/inspector/test.
-    function mockHighlighter({highlighter}) {
-      highlighter.showBoxModel = function() {
-        return promise.resolve();
-      };
-      highlighter.hideBoxModel = function() {
-        return promise.resolve();
-      };
-    }
-    mockHighlighter(data.toolbox);
-
     return {
       toolbox: data.toolbox,
       inspector: data.inspector,
@@ -225,7 +211,7 @@ function selectLayoutView(inspector) {
  * loaded in the toolbox
  * @return {Promise} Resolves to the NodeFront instance
  */
-function getNodeFront(selector, {walker}) {
+function getNodeFront(selector, { walker }) {
   if (selector._form) {
     return selector;
   }
@@ -242,7 +228,12 @@ function getNodeFront(selector, {walker}) {
  * to highlight the node upon selection
  * @return {Promise} Resolves when the inspector is updated with the new node
  */
-var selectNode = async function(selector, inspector, reason = "test", isSlotted) {
+var selectNode = async function(
+  selector,
+  inspector,
+  reason = "test",
+  isSlotted
+) {
   info("Selecting the node for '" + selector + "'");
   const nodeFront = await getNodeFront(selector, inspector);
   const updated = inspector.once("inspector-updated");
@@ -273,7 +264,7 @@ function manualDebounce() {
   }
 
   debounce.flush = function() {
-    calls.forEach(({func, scope, args}) => func.apply(scope, args));
+    calls.forEach(({ func, scope, args }) => func.apply(scope, args));
     calls = [];
   };
 
@@ -281,96 +272,98 @@ function manualDebounce() {
 }
 
 /**
- * Wait for a content -> chrome message on the message manager (the window
- * messagemanager is used).
+ * Get the requested rule style property from the current browser.
  *
+ * @param {Number} styleSheetIndex
+ * @param {Number} ruleIndex
  * @param {String} name
- *        The message name
- * @return {Promise} A promise that resolves to the response data when the
- * message has been received
+ * @return {String} The value, if found, null otherwise
  */
-function waitForContentMessage(name) {
-  info("Expecting message " + name + " from content");
 
-  const mm = gBrowser.selectedBrowser.messageManager;
+async function getRulePropertyValue(styleSheetIndex, ruleIndex, name) {
+  return SpecialPowers.spawn(
+    gBrowser.selectedBrowser,
+    [styleSheetIndex, ruleIndex, name],
+    (styleSheetIndexChild, ruleIndexChild, nameChild) => {
+      let value = null;
 
-  return new Promise(resolve => {
-    mm.addMessageListener(name, function onMessage(msg) {
-      mm.removeMessageListener(name, onMessage);
-      resolve(msg.data);
-    });
-  });
+      info(
+        "Getting the value for property name " +
+          nameChild +
+          " in sheet " +
+          styleSheetIndexChild +
+          " and rule " +
+          ruleIndexChild
+      );
+
+      const sheet = content.document.styleSheets[styleSheetIndexChild];
+      if (sheet) {
+        const rule = sheet.cssRules[ruleIndexChild];
+        if (rule) {
+          value = rule.style.getPropertyValue(nameChild);
+        }
+      }
+
+      return value;
+    }
+  );
 }
 
 /**
- * Send an async message to the frame script (chrome -> content) and wait for a
- * response message with the same name (content -> chrome).
- *
- * @param {String} name
- *        The message name. Should be one of the messages defined
- *        in doc_frame_script.js
- * @param {Object} data
- *        Optional data to send along
- * @param {Object} objects
- *        Optional CPOW objects to send along
- * @param {Boolean} expectResponse
- *        If set to false, don't wait for a response with the same name
- *        from the content script. Defaults to true.
- * @return {Promise} Resolves to the response data if a response is expected,
- * immediately resolves otherwise
- */
-function executeInContent(name, data = {}, objects = {},
-                          expectResponse = true) {
-  info("Sending message " + name + " to content");
-  const mm = gBrowser.selectedBrowser.messageManager;
-
-  mm.sendAsyncMessage(name, data, objects);
-  if (expectResponse) {
-    return waitForContentMessage(name);
-  }
-
-  return promise.resolve();
-}
-
-/**
- * Send an async message to the frame script and get back the requested
- * computed style property.
+ * Get the requested computed style property from the current browser.
  *
  * @param {String} selector
  *        The selector used to obtain the element.
  * @param {String} pseudo
  *        pseudo id to query, or null.
- * @param {String} name
+ * @param {String} propName
  *        name of the property.
  */
 async function getComputedStyleProperty(selector, pseudo, propName) {
-  return executeInContent("Test:GetComputedStylePropertyValue",
-    {selector,
-     pseudo,
-     name: propName});
+  return SpecialPowers.spawn(
+    gBrowser.selectedBrowser,
+    [selector, pseudo, propName],
+    (selectorChild, pseudoChild, propNameChild) => {
+      const element = content.document.querySelector(selectorChild);
+      return content.document.defaultView
+        .getComputedStyle(element, pseudoChild)
+        .getPropertyValue(propNameChild);
+    }
+  );
 }
 
 /**
- * Send an async message to the frame script and wait until the requested
- * computed style property has the expected value.
+ * Wait until the requested computed style property has the
+ * expected value in the the current browser.
  *
  * @param {String} selector
  *        The selector used to obtain the element.
  * @param {String} pseudo
  *        pseudo id to query, or null.
- * @param {String} prop
+ * @param {String} propName
  *        name of the property.
  * @param {String} expected
  *        expected value of property
- * @param {String} name
- *        the name used in test message
  */
-async function waitForComputedStyleProperty(selector, pseudo, name, expected) {
-  return executeInContent("Test:WaitForComputedStylePropertyValue",
-    {selector,
-     pseudo,
-     expected,
-     name});
+async function waitForComputedStyleProperty(
+  selector,
+  pseudo,
+  propName,
+  expected
+) {
+  return SpecialPowers.spawn(
+    gBrowser.selectedBrowser,
+    [selector, pseudo, propName, expected],
+    (selectorChild, pseudoChild, propNameChild, expectedChild) => {
+      const element = content.document.querySelector(selectorChild);
+      return ContentTaskUtils.waitForCondition(() => {
+        const value = content.document.defaultView
+          .getComputedStyle(element, pseudoChild)
+          .getPropertyValue(propNameChild);
+        return value === expectedChild;
+      });
+    }
+  );
 }
 
 /**
@@ -379,12 +372,46 @@ async function waitForComputedStyleProperty(selector, pseudo, name, expected) {
  *
  * @return a promise that resolves to the inplace-editor element when ready
  */
-var focusEditableField = async function(ruleView, editable, xOffset = 1,
-    yOffset = 1, options = {}) {
+var focusEditableField = async function(
+  ruleView,
+  editable,
+  xOffset = 1,
+  yOffset = 1,
+  options = {}
+) {
   const onFocus = once(editable.parentNode, "focus", true);
   info("Clicking on editable field to turn to edit mode");
-  EventUtils.synthesizeMouse(editable, xOffset, yOffset, options,
-    editable.ownerDocument.defaultView);
+  if (options.type === undefined) {
+    // "mousedown" and "mouseup" flushes any pending layout.  Therefore,
+    // if the caller wants to click an element, e.g., closebrace to add new
+    // property, we need to guarantee that the element is clicked here even
+    // if it's moved by flushing the layout because whether the UI is useful
+    // or not when there is pending reflow is not scope of the tests.
+    options.type = "mousedown";
+    EventUtils.synthesizeMouse(
+      editable,
+      xOffset,
+      yOffset,
+      options,
+      editable.ownerGlobal
+    );
+    options.type = "mouseup";
+    EventUtils.synthesizeMouse(
+      editable,
+      xOffset,
+      yOffset,
+      options,
+      editable.ownerGlobal
+    );
+  } else {
+    EventUtils.synthesizeMouse(
+      editable,
+      xOffset,
+      yOffset,
+      options,
+      editable.ownerGlobal
+    );
+  }
   await onFocus;
 
   info("Editable field gained focus, returning the input field now");
@@ -411,8 +438,9 @@ function getRuleViewRule(view, selectorText, index = 0) {
   let rule;
   let pos = 0;
   for (const r of view.styleDocument.querySelectorAll(".ruleview-rule")) {
-    const selector = r.querySelector(".ruleview-selectorcontainer, " +
-                                   ".ruleview-selector-matched");
+    const selector = r.querySelector(
+      ".ruleview-selectorcontainer, " + ".ruleview-selector-matched"
+    );
     if (selector && selector.textContent === selectorText) {
       if (index == pos) {
         rule = r;
@@ -448,7 +476,7 @@ function getRuleViewProperty(view, selectorText, propertyName) {
       const valueSpan = p.querySelector(".ruleview-propertyvalue");
 
       if (nameSpan.textContent === propertyName) {
-        prop = {nameSpan: nameSpan, valueSpan: valueSpan};
+        prop = { nameSpan: nameSpan, valueSpan: valueSpan };
         break;
       }
     }
@@ -469,8 +497,8 @@ function getRuleViewProperty(view, selectorText, propertyName) {
  * @return {String} The property value
  */
 function getRuleViewPropertyValue(view, selectorText, propertyName) {
-  return getRuleViewProperty(view, selectorText, propertyName)
-    .valueSpan.textContent;
+  return getRuleViewProperty(view, selectorText, propertyName).valueSpan
+    .textContent;
 }
 
 /**
@@ -487,31 +515,6 @@ function getRuleViewSelector(view, selectorText) {
   const rule = getRuleViewRule(view, selectorText);
   return rule.querySelector(".ruleview-selector, .ruleview-selector-matched");
 }
-
-/**
- * Get a reference to the selectorhighlighter icon DOM element corresponding to
- * a given selector in the rule-view
- *
- * @param {CssRuleView} view
- *        The instance of the rule-view panel
- * @param {String} selectorText
- *        The selector in the rule-view to look for
- * @param {Number} index
- *        If there are more than 1 rule with the same selector, use this index
- *        to determine which one should be retrieved. Defaults to 0
- * @return {DOMNode} The selectorhighlighter icon DOM element
- */
-var getRuleViewSelectorHighlighterIcon = async function(view,
-    selectorText, index = 0) {
-  const rule = getRuleViewRule(view, selectorText, index);
-
-  const editor = rule._ruleEditor;
-  if (!editor.uniqueSelector) {
-    await once(editor, "selector-icon-created");
-  }
-
-  return rule.querySelector(".ruleview-selectorhighlighter");
-};
 
 /**
  * Get a rule-link from the rule-view given its index
@@ -554,11 +557,16 @@ var focusNewRuleViewProperty = async function(ruleEditor) {
 
   // Use bottom alignment to avoid scrolling out of the parent element area.
   ruleEditor.closeBrace.scrollIntoView(false);
-  const editor = await focusEditableField(ruleEditor.ruleView,
-    ruleEditor.closeBrace);
+  const editor = await focusEditableField(
+    ruleEditor.ruleView,
+    ruleEditor.closeBrace
+  );
 
-  is(inplaceEditor(ruleEditor.newPropSpan), editor,
-    "Focused editor is the new property editor.");
+  is(
+    inplaceEditor(ruleEditor.newPropSpan),
+    editor,
+    "Focused editor is the new property editor."
+  );
 
   return editor;
 };
@@ -585,8 +593,11 @@ var createNewRuleViewProperty = async function(ruleEditor, inputValue) {
 
   info("Submitting the new value and waiting for value field focus");
   const onFocus = once(ruleEditor.element, "focus", true);
-  EventUtils.synthesizeKey("VK_RETURN", {},
-    ruleEditor.element.ownerDocument.defaultView);
+  EventUtils.synthesizeKey(
+    "VK_RETURN",
+    {},
+    ruleEditor.element.ownerDocument.defaultView
+  );
   await onFocus;
 };
 
@@ -601,7 +612,7 @@ var createNewRuleViewProperty = async function(ruleEditor, inputValue) {
  * search term
  */
 var setSearchFilter = async function(view, searchValue) {
-  info("Setting filter text to \"" + searchValue + "\"");
+  info('Setting filter text to "' + searchValue + '"');
 
   const searchField = view.searchField;
   searchField.focus();
@@ -618,12 +629,15 @@ var setSearchFilter = async function(view, searchValue) {
  * it easier.
  */
 function buildContextMenuItems(menu) {
-  const allItems = [].concat.apply([], menu.items.map(function addItem(item) {
-    if (item.submenu) {
-      return addItem(item.submenu.items);
-    }
-    return item;
-  }));
+  const allItems = [].concat.apply(
+    [],
+    menu.items.map(function addItem(item) {
+      if (item.submenu) {
+        return addItem(item.submenu.items);
+      }
+      return item;
+    })
+  );
 
   return allItems;
 }
@@ -635,7 +649,7 @@ function buildContextMenuItems(menu) {
  * @return An array of MenuItems
  */
 function openStyleContextMenuAndGetAllItems(view, target) {
-  const menu = view.contextMenu._openMenu({target: target});
+  const menu = view.contextMenu._openMenu({ target: target });
   return buildContextMenuItems(menu);
 }
 
@@ -646,6 +660,42 @@ function openStyleContextMenuAndGetAllItems(view, target) {
  * @return An array of MenuItems
  */
 function openContextMenuAndGetAllItems(inspector, options) {
-  const menu = inspector._openMenu(options);
+  const menu = inspector.markup.contextMenu._openMenu(options);
   return buildContextMenuItems(menu);
+}
+
+/**
+ * Wait until the elements the given selectors indicate come to have the visited state.
+ *
+ * @param {Tab} tab
+ *        The tab where the elements on.
+ * @param {Array} selectors
+ *        The selectors for the elements.
+ */
+async function waitUntilVisitedState(tab, selectors) {
+  await asyncWaitUntil(async () => {
+    const hasVisitedState = await ContentTask.spawn(
+      tab.linkedBrowser,
+      selectors,
+      args => {
+        const NS_EVENT_STATE_VISITED = 1 << 24;
+
+        for (const selector of args) {
+          const target = content.wrappedJSObject.document.querySelector(
+            selector
+          );
+          if (
+            !(
+              target &&
+              InspectorUtils.getContentState(target) & NS_EVENT_STATE_VISITED
+            )
+          ) {
+            return false;
+          }
+        }
+        return true;
+      }
+    );
+    return hasVisitedState;
+  });
 }

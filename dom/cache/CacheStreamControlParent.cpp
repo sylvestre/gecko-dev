@@ -18,9 +18,7 @@
 #include "nsISupportsImpl.h"
 #include "nsTArray.h"
 
-namespace mozilla {
-namespace dom {
-namespace cache {
+namespace mozilla::dom::cache {
 
 using mozilla::dom::OptionalFileDescriptorSet;
 using mozilla::ipc::AutoIPCStream;
@@ -79,7 +77,7 @@ void CacheStreamControlParent::OpenStream(const nsID& aId,
   // a separate resolver function to signal the completion of the
   // operation.  The Manager uses the existence of the Listener to ensure
   // that its safe to complete the operation.
-  mStreamList->GetManager()->ExecuteOpenStream(this, std::move(aResolver), aId);
+  mStreamList->GetManager().ExecuteOpenStream(this, std::move(aResolver), aId);
 }
 
 void CacheStreamControlParent::NoteClosedAfterForget(const nsID& aId) {
@@ -101,7 +99,7 @@ void CacheStreamControlParent::ActorDestroy(ActorDestroyReason aReason) {
   if (!mStreamList) {
     return;
   }
-  mStreamList->GetManager()->RemoveListener(this);
+  mStreamList->GetManager().RemoveListener(this);
   mStreamList->RemoveStreamControl(this);
   mStreamList->NoteClosedAll();
   mStreamList = nullptr;
@@ -126,16 +124,11 @@ mozilla::ipc::IPCResult CacheStreamControlParent::RecvNoteClosed(
   return IPC_OK();
 }
 
-void CacheStreamControlParent::SetStreamList(StreamList* aStreamList) {
+void CacheStreamControlParent::SetStreamList(
+    SafeRefPtr<StreamList> aStreamList) {
   NS_ASSERT_OWNINGTHREAD(CacheStreamControlParent);
   MOZ_DIAGNOSTIC_ASSERT(!mStreamList);
-  mStreamList = aStreamList;
-}
-
-void CacheStreamControlParent::Close(const nsID& aId) {
-  NS_ASSERT_OWNINGTHREAD(CacheStreamControlParent);
-  NotifyClose(aId);
-  Unused << SendClose(aId);
+  mStreamList = std::move(aStreamList);
 }
 
 void CacheStreamControlParent::CloseAll() {
@@ -153,16 +146,9 @@ void CacheStreamControlParent::Shutdown() {
   }
 }
 
-void CacheStreamControlParent::NotifyClose(const nsID& aId) {
-  NS_ASSERT_OWNINGTHREAD(CacheStreamControlParent);
-  CloseReadStreams(aId);
-}
-
 void CacheStreamControlParent::NotifyCloseAll() {
   NS_ASSERT_OWNINGTHREAD(CacheStreamControlParent);
   CloseAllReadStreams();
 }
 
-}  // namespace cache
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom::cache

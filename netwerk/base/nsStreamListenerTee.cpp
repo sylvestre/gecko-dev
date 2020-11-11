@@ -9,22 +9,28 @@ namespace mozilla {
 namespace net {
 
 NS_IMPL_ISUPPORTS(nsStreamListenerTee, nsIStreamListener, nsIRequestObserver,
-                  nsIStreamListenerTee, nsIThreadRetargetableStreamListener)
+                  nsIStreamListenerTee, nsIThreadRetargetableStreamListener,
+                  nsIMultiPartChannelListener)
 
 NS_IMETHODIMP
-nsStreamListenerTee::OnStartRequest(nsIRequest *request, nsISupports *context) {
+nsStreamListenerTee::OnStartRequest(nsIRequest* request) {
   NS_ENSURE_TRUE(mListener, NS_ERROR_NOT_INITIALIZED);
-  nsresult rv1 = mListener->OnStartRequest(request, context);
+
+  nsCOMPtr<nsIMultiPartChannel> multiPartChannel = do_QueryInterface(request);
+  if (multiPartChannel) {
+    mIsMultiPart = true;
+  }
+
+  nsresult rv1 = mListener->OnStartRequest(request);
   nsresult rv2 = NS_OK;
-  if (mObserver) rv2 = mObserver->OnStartRequest(request, context);
+  if (mObserver) rv2 = mObserver->OnStartRequest(request);
 
   // Preserve NS_SUCCESS_XXX in rv1 in case mObserver didn't throw
   return (NS_FAILED(rv2) && NS_SUCCEEDED(rv1)) ? rv2 : rv1;
 }
 
 NS_IMETHODIMP
-nsStreamListenerTee::OnStopRequest(nsIRequest *request, nsISupports *context,
-                                   nsresult status) {
+nsStreamListenerTee::OnStopRequest(nsIRequest* request, nsresult status) {
   NS_ENSURE_TRUE(mListener, NS_ERROR_NOT_INITIALIZED);
   // it is critical that we close out the input stream tee
   if (mInputTee) {
@@ -32,23 +38,27 @@ nsStreamListenerTee::OnStopRequest(nsIRequest *request, nsISupports *context,
     mInputTee = nullptr;
   }
 
-  // release sink on the same thread where the data was written (bug 716293)
-  if (mEventTarget) {
-    NS_ProxyRelease("nsStreamListenerTee::mSink", mEventTarget, mSink.forget());
-  } else {
-    mSink = nullptr;
+  if (!mIsMultiPart) {
+    // release sink on the same thread where the data was written (bug 716293)
+    if (mEventTarget) {
+      NS_ProxyRelease("nsStreamListenerTee::mSink", mEventTarget,
+                      mSink.forget());
+    } else {
+      mSink = nullptr;
+    }
   }
 
-  nsresult rv = mListener->OnStopRequest(request, context, status);
-  if (mObserver) mObserver->OnStopRequest(request, context, status);
-  mObserver = nullptr;
+  nsresult rv = mListener->OnStopRequest(request, status);
+  if (mObserver) mObserver->OnStopRequest(request, status);
+  if (!mIsMultiPart) {
+    mObserver = nullptr;
+  }
   return rv;
 }
 
 NS_IMETHODIMP
-nsStreamListenerTee::OnDataAvailable(nsIRequest *request, nsISupports *context,
-                                     nsIInputStream *input, uint64_t offset,
-                                     uint32_t count) {
+nsStreamListenerTee::OnDataAvailable(nsIRequest* request, nsIInputStream* input,
+                                     uint64_t offset, uint32_t count) {
   NS_ENSURE_TRUE(mListener, NS_ERROR_NOT_INITIALIZED);
   NS_ENSURE_TRUE(mSink, NS_ERROR_NOT_INITIALIZED);
 
@@ -73,7 +83,31 @@ nsStreamListenerTee::OnDataAvailable(nsIRequest *request, nsISupports *context,
     tee = mInputTee;
   }
 
-  return mListener->OnDataAvailable(request, context, tee, offset, count);
+  return mListener->OnDataAvailable(request, tee, offset, count);
+}
+
+NS_IMETHODIMP
+nsStreamListenerTee::OnAfterLastPart(nsresult aStatus) {
+  // release sink on the same thread where the data was written (bug 716293)
+  if (mEventTarget) {
+    NS_ProxyRelease("nsStreamListenerTee::mSink", mEventTarget, mSink.forget());
+  } else {
+    mSink = nullptr;
+  }
+
+  if (nsCOMPtr<nsIMultiPartChannelListener> multi =
+          do_QueryInterface(mListener)) {
+    multi->OnAfterLastPart(aStatus);
+  }
+  if (!SameCOMIdentity(mListener, mObserver)) {
+    if (nsCOMPtr<nsIMultiPartChannelListener> multi =
+            do_QueryInterface(mObserver)) {
+      multi->OnAfterLastPart(aStatus);
+    }
+  }
+
+  mObserver = nullptr;
+  return NS_OK;
 }
 
 NS_IMETHODIMP
@@ -99,8 +133,8 @@ nsStreamListenerTee::CheckListenerChain() {
 }
 
 NS_IMETHODIMP
-nsStreamListenerTee::Init(nsIStreamListener *listener, nsIOutputStream *sink,
-                          nsIRequestObserver *requestObserver) {
+nsStreamListenerTee::Init(nsIStreamListener* listener, nsIOutputStream* sink,
+                          nsIRequestObserver* requestObserver) {
   NS_ENSURE_ARG_POINTER(listener);
   NS_ENSURE_ARG_POINTER(sink);
   mListener = listener;
@@ -110,10 +144,10 @@ nsStreamListenerTee::Init(nsIStreamListener *listener, nsIOutputStream *sink,
 }
 
 NS_IMETHODIMP
-nsStreamListenerTee::InitAsync(nsIStreamListener *listener,
-                               nsIEventTarget *eventTarget,
-                               nsIOutputStream *sink,
-                               nsIRequestObserver *requestObserver) {
+nsStreamListenerTee::InitAsync(nsIStreamListener* listener,
+                               nsIEventTarget* eventTarget,
+                               nsIOutputStream* sink,
+                               nsIRequestObserver* requestObserver) {
   NS_ENSURE_ARG_POINTER(eventTarget);
   mEventTarget = eventTarget;
   return Init(listener, sink, requestObserver);

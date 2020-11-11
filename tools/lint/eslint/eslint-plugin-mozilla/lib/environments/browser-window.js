@@ -1,5 +1,5 @@
 /**
- * @fileoverview Defines the environment when in the browser.xul window.
+ * @fileoverview Defines the environment when in the browser.xhtml window.
  *               Imports many globals from various files.
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
@@ -14,16 +14,13 @@
 // -----------------------------------------------------------------------------
 
 var fs = require("fs");
-var path = require("path");
 var helpers = require("../helpers");
-var globals = require("../globals");
-
-const rootDir = helpers.rootDir;
+var { getScriptGlobals } = require("./utils");
 
 // When updating EXTRA_SCRIPTS or MAPPINGS, be sure to also update the
 // 'support-files' config in `tools/lint/eslint.yml`.
 
-// These are scripts not loaded from browser.xul or global-scripts.inc
+// These are scripts not loaded from browser.xhtml or global-scripts.inc
 // but via other includes.
 const EXTRA_SCRIPTS = [
   "browser/base/content/nsContextMenu.js",
@@ -38,8 +35,9 @@ const extraDefinitions = [
   // Via Components.utils, defineModuleGetter, defineLazyModuleGetters or
   // defineLazyScriptGetter (and map to
   // single) variable.
-  {name: "XPCOMUtils", writable: false},
-  {name: "Task", writable: false},
+  { name: "XPCOMUtils", writable: false },
+  { name: "Task", writable: false },
+  { name: "windowGlobalChild", writable: false },
 ];
 
 // Some files in global-scripts.inc need mapping to specific locations.
@@ -48,15 +46,17 @@ const MAPPINGS = {
   "panelUI.js": "browser/components/customizableui/content/panelUI.js",
   "viewSourceUtils.js":
     "toolkit/components/viewsource/content/viewSourceUtils.js",
+  "places-tree.js": "browser/components/places/content/places-tree.js",
+  "places-menupopup.js":
+    "browser/components/places/content/places-menupopup.js",
 };
 
-const globalScriptsRegExp =
-  /^\s*Services.scriptloader.loadSubScript\(\"(.*?)\", this\);$/;
+const globalScriptsRegExp = /^\s*Services.scriptloader.loadSubScript\(\"(.*?)\", this\);$/;
 
 function getGlobalScriptIncludes(scriptPath) {
   let fileData;
   try {
-    fileData = fs.readFileSync(scriptPath, {encoding: "utf8"});
+    fileData = fs.readFileSync(scriptPath, { encoding: "utf8" });
   } catch (ex) {
     // The file isn't present, so this isn't an m-c repository.
     return null;
@@ -70,9 +70,12 @@ function getGlobalScriptIncludes(scriptPath) {
     let match = line.match(globalScriptsRegExp);
     if (match) {
       let sourceFile = match[1]
-                .replace("chrome://browser/content/search/", "browser/components/search/content/")
-                .replace("chrome://browser/content/", "browser/base/content/")
-                .replace("chrome://global/content/", "toolkit/content/");
+        .replace(
+          "chrome://browser/content/search/",
+          "browser/components/search/content/"
+        )
+        .replace("chrome://browser/content/", "browser/base/content/")
+        .replace("chrome://global/content/", "toolkit/content/");
 
       for (let mapping of Object.getOwnPropertyNames(MAPPINGS)) {
         if (sourceFile.includes(mapping)) {
@@ -95,43 +98,11 @@ function getGlobalScripts() {
   return results;
 }
 
-function getScriptGlobals() {
-  let fileGlobals = [];
-  let scripts = getGlobalScripts();
-  if (!scripts) {
-    return [];
-  }
-
-  for (let script of scripts.concat(EXTRA_SCRIPTS)) {
-    let fileName = path.join(rootDir, script);
-    try {
-      fileGlobals = fileGlobals.concat(globals.getGlobalsForFile(fileName));
-    } catch (e) {
-      console.error(`Could not load globals from file ${fileName}: ${e}`);
-      console.error(
-        `You may need to update the mappings in ${module.filename}`);
-      throw new Error(`Could not load globals from file ${fileName}: ${e}`);
-    }
-  }
-
-  return fileGlobals.concat(extraDefinitions);
-}
-
-function mapGlobals(fileGlobals) {
-  let globalObjects = {};
-  for (let global of fileGlobals) {
-    globalObjects[global.name] = global.writable;
-  }
-  return globalObjects;
-}
-
-function getMozillaCentralItems() {
-  return {
-    globals: mapGlobals(getScriptGlobals()),
+module.exports = getScriptGlobals(
+  "browser-window",
+  getGlobalScripts().concat(EXTRA_SCRIPTS),
+  extraDefinitions,
+  {
     browserjsScripts: getGlobalScripts().concat(EXTRA_SCRIPTS),
-  };
-}
-
-module.exports = helpers.isMozillaCentralBased() ?
- getMozillaCentralItems() :
- helpers.getSavedEnvironmentItems("browser-window");
+  }
+);

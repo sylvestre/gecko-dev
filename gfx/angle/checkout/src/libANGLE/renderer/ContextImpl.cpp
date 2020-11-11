@@ -13,15 +13,11 @@
 
 namespace rx
 {
+ContextImpl::ContextImpl(const gl::State &state, gl::ErrorSet *errorSet)
+    : mState(state), mMemoryProgramCache(nullptr), mErrors(errorSet)
+{}
 
-ContextImpl::ContextImpl(const gl::ContextState &state)
-    : mState(state), mMemoryProgramCache(nullptr), mErrors(nullptr)
-{
-}
-
-ContextImpl::~ContextImpl()
-{
-}
+ContextImpl::~ContextImpl() {}
 
 void ContextImpl::stencilFillPath(const gl::Path *path, GLenum fillMode, GLuint mask)
 {
@@ -113,13 +109,30 @@ void ContextImpl::stencilThenCoverStrokePathInstanced(const std::vector<gl::Path
     UNREACHABLE();
 }
 
+void ContextImpl::invalidateTexture(gl::TextureType target)
+{
+    UNREACHABLE();
+}
+
+angle::Result ContextImpl::onUnMakeCurrent(const gl::Context *context)
+{
+    return angle::Result::Continue;
+}
+
 void ContextImpl::setMemoryProgramCache(gl::MemoryProgramCache *memoryProgramCache)
 {
     mMemoryProgramCache = memoryProgramCache;
 }
 
-void ContextImpl::setErrorSet(gl::ErrorSet *errorSet)
+void ContextImpl::handleError(GLenum errorCode,
+                              const char *message,
+                              const char *file,
+                              const char *function,
+                              unsigned int line)
 {
-    mErrors = errorSet;
+    std::stringstream errorStream;
+    errorStream << "Internal error: " << gl::FmtHex(errorCode) << ": " << message;
+    mErrors->handleError(errorCode, errorStream.str().c_str(), file, function, line);
 }
+
 }  // namespace rx

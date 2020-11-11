@@ -38,7 +38,7 @@ $(foreach var,$1,$(call print_var,$(var)))
 endef
 
 showtargs:
-ifneq (,$(filter $(PROGRAM) $(HOST_PROGRAM) $(SIMPLE_PROGRAMS) $(HOST_LIBRARY) $(LIBRARY) $(SHARED_LIBRARY),$(TARGETS)))
+ifneq (,$(filter $(PROGRAM) $(HOST_PROGRAM) $(SIMPLE_PROGRAMS) $(LIBRARY) $(SHARED_LIBRARY),$(TARGETS)))
 	@echo --------------------------------------------------------------------------------
 	$(call print_vars,\
 		PROGRAM \
@@ -61,7 +61,6 @@ showbuild showhost: _DEPEND_CFLAGS=
 showbuild showhost: COMPILE_PDB_FLAG=
 showbuild:
 	$(call print_vars,\
-		MOZ_BUILD_ROOT \
 		MOZ_WIDGET_TOOLKIT \
 		CC \
 		CXX \
@@ -93,7 +92,6 @@ showbuild:
 		ACDEFINES \
 		BIN_SUFFIX \
 		LIB_SUFFIX \
-		RUST_LIB_SUFFIX \
 		DLL_SUFFIX \
 		IMPORT_LIB_SUFFIX \
 		INSTALL \
@@ -112,7 +110,6 @@ showhost:
 		HOST_PROGRAM \
 		HOST_OBJS \
 		HOST_PROGOBJS \
-		HOST_LIBRARY \
 	)
 
 INCLUDED_DEBUGMAKE_MK = 1

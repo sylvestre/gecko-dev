@@ -2,8 +2,11 @@
 // License & terms of use: http://www.unicode.org/copyright.html#License
 en_CA{
     %%Parent{"en_001"}
-    Version{"2.1.44.88"}
+    Version{"37"}
     zoneStrings{
+        "Asia:Rangoon"{
+            ec{"Rangoon"}
+        }
         "Pacific:Honolulu"{
             sd{"HDT"}
             sg{"HST"}
@@ -34,10 +37,6 @@ en_CA{
             sg{"PT"}
             ss{"PST"}
         }
-        "meta:Argentina"{
-            lg{"Argentina Time"}
-            ls{"Argentina Standard Time"}
-        }
         "meta:Atlantic"{
             sd{"ADT"}
             sg{"AT"}
@@ -53,6 +52,7 @@ en_CA{
             sg{"NT"}
             ss{"NST"}
         }
+        gmtZeroFormat{"GMT"}
         regionFormatDaylight{"{0} Daylight Saving Time"}
     }
 }

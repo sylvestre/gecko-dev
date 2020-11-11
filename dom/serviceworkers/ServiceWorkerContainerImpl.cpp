@@ -6,7 +6,10 @@
 
 #include "ServiceWorkerContainerImpl.h"
 
+#include "ServiceWorkerManager.h"
 #include "ServiceWorkerRegistration.h"
+
+#include "mozilla/dom/DOMMozPromiseRequestHolder.h"
 
 namespace mozilla {
 namespace dom {
@@ -54,17 +57,18 @@ void ServiceWorkerContainerImpl::Register(
           global);
 
   swm->Register(aClientInfo, aScopeURL, aScriptURL, aUpdateViaCache)
-      ->Then(global->EventTargetFor(TaskCategory::Other), __func__,
-             [successCB = std::move(aSuccessCB),
-              holder](const ServiceWorkerRegistrationDescriptor& aDescriptor) {
-               holder->Complete();
-               successCB(aDescriptor);
-             },
-             [failureCB = std::move(aFailureCB),
-              holder](const CopyableErrorResult& aResult) {
-               holder->Complete();
-               failureCB(CopyableErrorResult(aResult));
-             })
+      ->Then(
+          global->EventTargetFor(TaskCategory::Other), __func__,
+          [successCB = std::move(aSuccessCB),
+           holder](const ServiceWorkerRegistrationDescriptor& aDescriptor) {
+            holder->Complete();
+            successCB(aDescriptor);
+          },
+          [failureCB = std::move(aFailureCB),
+           holder](const CopyableErrorResult& aResult) {
+            holder->Complete();
+            failureCB(CopyableErrorResult(aResult));
+          })
       ->Track(*holder);
 }
 
@@ -91,17 +95,18 @@ void ServiceWorkerContainerImpl::GetRegistration(
           global);
 
   swm->GetRegistration(aClientInfo, aURL)
-      ->Then(global->EventTargetFor(TaskCategory::Other), __func__,
-             [successCB = std::move(aSuccessCB),
-              holder](const ServiceWorkerRegistrationDescriptor& aDescriptor) {
-               holder->Complete();
-               successCB(aDescriptor);
-             },
-             [failureCB = std::move(aFailureCB),
-              holder](const CopyableErrorResult& aResult) {
-               holder->Complete();
-               failureCB(CopyableErrorResult(aResult));
-             })
+      ->Then(
+          global->EventTargetFor(TaskCategory::Other), __func__,
+          [successCB = std::move(aSuccessCB),
+           holder](const ServiceWorkerRegistrationDescriptor& aDescriptor) {
+            holder->Complete();
+            successCB(aDescriptor);
+          },
+          [failureCB = std::move(aFailureCB),
+           holder](const CopyableErrorResult& aResult) {
+            holder->Complete();
+            failureCB(CopyableErrorResult(aResult));
+          })
       ->Track(*holder);
 }
 
@@ -127,17 +132,18 @@ void ServiceWorkerContainerImpl::GetRegistrations(
       DOMMozPromiseRequestHolder<ServiceWorkerRegistrationListPromise>>(global);
 
   swm->GetRegistrations(aClientInfo)
-      ->Then(global->EventTargetFor(TaskCategory::Other), __func__,
-             [successCB = std::move(aSuccessCB), holder](
-                 const nsTArray<ServiceWorkerRegistrationDescriptor>& aList) {
-               holder->Complete();
-               successCB(aList);
-             },
-             [failureCB = std::move(aFailureCB),
-              holder](const CopyableErrorResult& aResult) {
-               holder->Complete();
-               failureCB(CopyableErrorResult(aResult));
-             })
+      ->Then(
+          global->EventTargetFor(TaskCategory::Other), __func__,
+          [successCB = std::move(aSuccessCB),
+           holder](const nsTArray<ServiceWorkerRegistrationDescriptor>& aList) {
+            holder->Complete();
+            successCB(aList);
+          },
+          [failureCB = std::move(aFailureCB),
+           holder](const CopyableErrorResult& aResult) {
+            holder->Complete();
+            failureCB(CopyableErrorResult(aResult));
+          })
       ->Track(*holder);
 }
 
@@ -164,17 +170,18 @@ void ServiceWorkerContainerImpl::GetReady(
           global);
 
   swm->WhenReady(aClientInfo)
-      ->Then(global->EventTargetFor(TaskCategory::Other), __func__,
-             [successCB = std::move(aSuccessCB),
-              holder](const ServiceWorkerRegistrationDescriptor& aDescriptor) {
-               holder->Complete();
-               successCB(aDescriptor);
-             },
-             [failureCB = std::move(aFailureCB),
-              holder](const CopyableErrorResult& aResult) {
-               holder->Complete();
-               failureCB(CopyableErrorResult(aResult));
-             })
+      ->Then(
+          global->EventTargetFor(TaskCategory::Other), __func__,
+          [successCB = std::move(aSuccessCB),
+           holder](const ServiceWorkerRegistrationDescriptor& aDescriptor) {
+            holder->Complete();
+            successCB(aDescriptor);
+          },
+          [failureCB = std::move(aFailureCB),
+           holder](const CopyableErrorResult& aResult) {
+            holder->Complete();
+            failureCB(CopyableErrorResult(aResult));
+          })
       ->Track(*holder);
 }
 

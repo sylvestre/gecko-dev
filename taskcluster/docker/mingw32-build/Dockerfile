@@ -1,4 +1,3 @@
-# %ARG DOCKER_IMAGE_PARENT
 FROM $DOCKER_IMAGE_PARENT
 MAINTAINER Mike Hommey <mhommey@mozilla.com>
 
@@ -24,7 +23,9 @@ RUN apt-get update && \
       gawk \
       g++-multilib \
       gnupg \
-      libucl-dev \
+      jq \
+      libucl1 \
+      libxml2 \
       patch \
       p7zip-full \
       scons \

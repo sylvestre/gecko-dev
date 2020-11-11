@@ -1,6 +1,6 @@
 // |jit-test| error: Error: can't start debugging: a debuggee script is on the stack
 
-var g = newGlobal();
+var g = newGlobal({newCompartment: true});
 var dbg = Debugger(g);
 
 function loop(i) {
@@ -8,7 +8,7 @@ function loop(i) {
   for (n = 0; n < i; n++)
     debugger;
 }
-g.eval(loop.toSource());
+g.eval(loop.toString());
 
 var countDown = 20;
 dbg.onDebuggerStatement = function (f) {

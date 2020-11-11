@@ -41,7 +41,7 @@ class ActiveResourceTracker : public nsExpirationTracker<ActiveResource, 3> {
                         nsIEventTarget* aEventTarget)
       : nsExpirationTracker(aExpirationCycle, aName, aEventTarget) {}
 
-  virtual void NotifyExpired(ActiveResource* aResource) override {
+  void NotifyExpired(ActiveResource* aResource) override {
     RemoveObject(aResource);
     aResource->NotifyInactive();
   }
@@ -56,10 +56,11 @@ class KnowsCompositor {
   NS_INLINE_DECL_PURE_VIRTUAL_REFCOUNTING
 
   KnowsCompositor();
-  ~KnowsCompositor();
+  virtual ~KnowsCompositor();
 
   void IdentifyTextureHost(const TextureFactoryIdentifier& aIdentifier);
 
+  // The sync object for the global content device.
   SyncObjectClient* GetSyncObject() { return mSyncObject; }
 
   /// And by "thread-safe" here we merely mean "okay to hold strong references
@@ -102,7 +103,9 @@ class KnowsCompositor {
   bool SupportsD3D11() const {
     return GetCompositorBackendType() == layers::LayersBackend::LAYERS_D3D11 ||
            (GetCompositorBackendType() == layers::LayersBackend::LAYERS_WR &&
-            GetCompositorUseANGLE());
+            (GetCompositorUseANGLE() ||
+             mTextureFactoryIdentifier.mWebRenderCompositor ==
+                 layers::WebRenderCompositor::D3D11));
   }
 
   bool GetCompositorUseANGLE() const {
@@ -111,6 +114,16 @@ class KnowsCompositor {
 
   bool GetCompositorUseDComp() const {
     return mTextureFactoryIdentifier.mCompositorUseDComp;
+  }
+
+  bool GetUseCompositorWnd() const {
+    return mTextureFactoryIdentifier.mUseCompositorWnd;
+  }
+
+  bool UsingSoftwareWebRender() const {
+    return GetCompositorBackendType() == layers::LayersBackend::LAYERS_WR &&
+           mTextureFactoryIdentifier.mWebRenderBackend ==
+               WebRenderBackend::SOFTWARE;
   }
 
   const TextureFactoryIdentifier& GetTextureFactoryIdentifier() const {
@@ -169,13 +182,13 @@ class KnowsCompositorMediaProxy : public KnowsCompositor {
   explicit KnowsCompositorMediaProxy(
       const TextureFactoryIdentifier& aIdentifier);
 
-  virtual TextureForwarder* GetTextureForwarder() override;
+  TextureForwarder* GetTextureForwarder() override;
 
-  virtual LayersIPCActor* GetLayersIPCActor() override;
+  LayersIPCActor* GetLayersIPCActor() override;
 
-  virtual ActiveResourceTracker* GetActiveResourceTracker() override;
+  ActiveResourceTracker* GetActiveResourceTracker() override;
 
-  virtual void SyncWithCompositor() override;
+  void SyncWithCompositor() override;
 
  protected:
   virtual ~KnowsCompositorMediaProxy();

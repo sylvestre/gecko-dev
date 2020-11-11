@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <meta charset=utf-8>
 <title>Test introduction type of a top-level module</title>
-<script type="application/javascript" src="chrome://mochikit/content/tests/SimpleTest/SimpleTest.js"></script>
+<script src="chrome://mochikit/content/tests/SimpleTest/SimpleTest.js"></script>
 <script>
   var introType;
   var extractIntroType;
@@ -11,7 +11,7 @@
 
   function testIntroductionType() {
     extractIntroType();
-    ok(introType == "scriptElement", 'Check introduction type');
+    ok(introType == "srcScript", 'Check introduction type');
     SimpleTest.finish();
   }
 </script>

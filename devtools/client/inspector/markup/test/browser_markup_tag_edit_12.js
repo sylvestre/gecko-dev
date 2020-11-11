@@ -1,4 +1,3 @@
-/* vim: set ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -7,12 +6,13 @@
 // Tests that focus position is correct when tabbing through and editing
 // attributes.
 
-const TEST_URL = "data:text/html;charset=utf8," +
-                 "<div id='attr' a='1' b='2' c='3'></div>" +
-                 "<div id='delattr' tobeinvalid='1' last='2'></div>";
+const TEST_URL =
+  "data:text/html;charset=utf8," +
+  "<div id='attr' a='1' b='2' c='3'></div>" +
+  "<div id='delattr' tobeinvalid='1' last='2'></div>";
 
 add_task(async function() {
-  const {inspector} = await openInspectorForURL(TEST_URL);
+  const { inspector } = await openInspectorForURL(TEST_URL);
 
   await testAttributeEditing(inspector);
   await testAttributeDeletion(inspector);
@@ -29,13 +29,17 @@ async function testAttributeEditing(inspector) {
 
   const attrs = await getAttributesFromEditor("#attr", inspector);
 
-  info("Editing this attribute, keeping the same name, " +
-       "and tabbing to the next");
+  info(
+    "Editing this attribute, keeping the same name, " +
+      "and tabbing to the next"
+  );
   await editAttributeAndTab(attrs[1] + '="99"', inspector);
   checkFocusedAttribute(attrs[2], true);
 
-  info("Editing the new focused attribute, keeping the name, " +
-       "and tabbing to the previous");
+  info(
+    "Editing the new focused attribute, keeping the name, " +
+      "and tabbing to the previous"
+  );
   await editAttributeAndTab(attrs[2] + '="99"', inspector, true);
   checkFocusedAttribute(attrs[1], true);
 
@@ -67,8 +71,10 @@ async function testAttributeDeletion(inspector) {
 
   // Check we're on the newattr element
   const focusedAttr = Services.focus.focusedElement;
-  ok(focusedAttr.classList.contains("styleinspector-propertyeditor"),
-     "in newattr");
+  ok(
+    focusedAttr.classList.contains("styleinspector-propertyeditor"),
+    "in newattr"
+  );
   is(focusedAttr.tagName, "textarea", "newattr is active");
 }
 
@@ -76,8 +82,7 @@ async function editAttributeAndTab(newValue, inspector, goPrevious) {
   const onEditMutation = inspector.markup.once("refocusedonedit");
   inspector.markup.doc.activeElement.value = newValue;
   if (goPrevious) {
-    EventUtils.synthesizeKey("VK_TAB", { shiftKey: true },
-      inspector.panelWin);
+    EventUtils.synthesizeKey("VK_TAB", { shiftKey: true }, inspector.panelWin);
   } else {
     EventUtils.sendKey("tab", inspector.panelWin);
   }
@@ -89,7 +94,7 @@ async function editAttributeAndTab(newValue, inspector, goPrevious) {
  * field.
  */
 async function activateFirstAttribute(container, inspector) {
-  const {editor} = await focusNode(container, inspector);
+  const { editor } = await focusNode(container, inspector);
   editor.tag.focus();
 
   // Go to "id" attribute and trigger edit mode.

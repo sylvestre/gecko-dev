@@ -1,4 +1,3 @@
-/* vim: set ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -9,7 +8,7 @@
 
 add_task(async function() {
   await addTab(URL_ROOT + "doc_markup_image_and_canvas.html");
-  const {inspector, testActor} = await openInspector();
+  const { inspector, testActor } = await openInspector();
 
   await selectNode("div", inspector);
   await assertCopyImageDataNotAvailable(inspector);
@@ -49,17 +48,31 @@ function assertCopyImageDataAvailable(inspector) {
 
 function triggerCopyImageUrlAndWaitForClipboard(expected, inspector) {
   return new Promise(resolve => {
-    SimpleTest.waitForClipboard(expected, () => {
-      inspector.markup.getContainer(inspector.selection.nodeFront)
-                      .copyImageDataUri();
-    }, () => {
-      ok(true, "The clipboard contains the expected value " +
-               expected.substring(0, 50) + "...");
-      resolve();
-    }, () => {
-      ok(false, "The clipboard doesn't contain the expected value " +
-                expected.substring(0, 50) + "...");
-      resolve();
-    });
+    SimpleTest.waitForClipboard(
+      expected,
+      () => {
+        inspector.markup
+          .getContainer(inspector.selection.nodeFront)
+          .copyImageDataUri();
+      },
+      () => {
+        ok(
+          true,
+          "The clipboard contains the expected value " +
+            expected.substring(0, 50) +
+            "..."
+        );
+        resolve();
+      },
+      () => {
+        ok(
+          false,
+          "The clipboard doesn't contain the expected value " +
+            expected.substring(0, 50) +
+            "..."
+        );
+        resolve();
+      }
+    );
   });
 }

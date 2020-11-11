@@ -6,15 +6,26 @@
 
 const { Ci, Cc } = require("chrome");
 const nodeFilterConstants = require("devtools/shared/dom-node-filter-constants");
+loader.lazyRequireGetter(
+  this,
+  "DevToolsUtils",
+  "devtools/shared/DevToolsUtils"
+);
+loader.lazyRequireGetter(this, "ChromeUtils");
 
 const SHEET_TYPE = {
-  "agent": "AGENT_SHEET",
-  "user": "USER_SHEET",
-  "author": "AUTHOR_SHEET",
+  agent: "AGENT_SHEET",
+  user: "USER_SHEET",
+  author: "AUTHOR_SHEET",
 };
 
 // eslint-disable-next-line no-unused-vars
-loader.lazyRequireGetter(this, "setIgnoreLayoutChanges", "devtools/server/actors/reflow", true);
+loader.lazyRequireGetter(
+  this,
+  "setIgnoreLayoutChanges",
+  "devtools/server/actors/reflow",
+  true
+);
 exports.setIgnoreLayoutChanges = (...args) =>
   this.setIgnoreLayoutChanges(...args);
 
@@ -35,51 +46,18 @@ function utilsFor(win) {
 }
 
 /**
- * like win.top, but goes through mozbrowsers and mozapps iframes.
+ * Check a window is part of the boundary window given.
  *
- * @param {DOMWindow} win
- * @return {DOMWindow}
- */
-function getTopWindow(win) {
-  const docShell = win.docShell;
-
-  if (!docShell.isMozBrowser) {
-    return win.top;
-  }
-
-  const topDocShell =
-    docShell.getSameTypeRootTreeItemIgnoreBrowserBoundaries();
-
-  return topDocShell
-          ? topDocShell.contentViewer.DOMDocument.defaultView
-          : null;
-}
-
-exports.getTopWindow = getTopWindow;
-
-/**
- * Returns `true` is the window given is a top level window.
- * like win.top === win, but goes through mozbrowsers and mozapps iframes.
- *
+ * @param {DOMWindow} boundaryWindow
  * @param {DOMWindow} win
  * @return {Boolean}
  */
-const isTopWindow = win => win && getTopWindow(win) === win;
-exports.isTopWindow = isTopWindow;
-
-/**
-   * Check a window is part of the boundary window given.
-   *
-   * @param {DOMWindow} boundaryWindow
-   * @param {DOMWindow} win
-   * @return {Boolean}
-   */
 function isWindowIncluded(boundaryWindow, win) {
   if (win === boundaryWindow) {
     return true;
   }
 
-  const parent = getParentWindow(win);
+  const parent = win.parent;
 
   if (!parent || parent === win) {
     return false;
@@ -90,33 +68,6 @@ function isWindowIncluded(boundaryWindow, win) {
 exports.isWindowIncluded = isWindowIncluded;
 
 /**
- * like win.parent, but goes through mozbrowsers and mozapps iframes.
- *
- * @param {DOMWindow} win
- * @return {DOMWindow}
- */
-function getParentWindow(win) {
-  if (isTopWindow(win)) {
-    return null;
-  }
-
-  const docShell = win.docShell;
-
-  if (!docShell.isMozBrowser) {
-    return win.parent;
-  }
-
-  const parentDocShell =
-    docShell.getSameTypeParentIgnoreBrowserBoundaries();
-
-  return parentDocShell
-          ? parentDocShell.contentViewer.DOMDocument.defaultView
-          : null;
-}
-
-exports.getParentWindow = getParentWindow;
-
-/**
  * like win.frameElement, but goes through mozbrowsers and mozapps iframes.
  *
  * @param {DOMWindow} win
@@ -124,8 +75,10 @@ exports.getParentWindow = getParentWindow;
  * @return {DOMNode}
  *         The element in which the window is embedded.
  */
-const getFrameElement = (win) =>
-  isTopWindow(win) ? null : utilsFor(win).containerElement;
+const getFrameElement = win => {
+  const isTopWindow = win && DevToolsUtils.getTopWindow(win) === win;
+  return isTopWindow ? null : win.browsingContext.embedderElement;
+};
 exports.getFrameElement = getFrameElement;
 
 /**
@@ -148,7 +101,7 @@ function getFrameOffsets(boundaryWindow, node) {
   const scale = getCurrentZoom(node);
 
   if (boundaryWindow === null) {
-    boundaryWindow = getTopWindow(frameWin);
+    boundaryWindow = DevToolsUtils.getTopWindow(frameWin);
   } else if (typeof boundaryWindow === "undefined") {
     throw new Error("No boundaryWindow given. Use null for the default one.");
   }
@@ -169,7 +122,7 @@ function getFrameOffsets(boundaryWindow, node) {
     xOffset += frameRect.left + offsetLeft;
     yOffset += frameRect.top + offsetTop;
 
-    frameWin = getParentWindow(frameWin);
+    frameWin = frameWin.parent;
   }
 
   return [xOffset * scale, yOffset * scale];
@@ -199,7 +152,12 @@ exports.getFrameOffsets = getFrameOffsets;
  *        An array of objects that have the same structure as quads returned by
  *        getBoxQuads. An empty array if the node has no quads or is invalid.
  */
-function getAdjustedQuads(boundaryWindow, node, region, {ignoreZoom} = {}) {
+function getAdjustedQuads(
+  boundaryWindow,
+  node,
+  region,
+  { ignoreZoom, ignoreScroll } = {}
+) {
   if (!node || !node.getBoxQuads) {
     return [];
   }
@@ -207,6 +165,7 @@ function getAdjustedQuads(boundaryWindow, node, region, {ignoreZoom} = {}) {
   const quads = node.getBoxQuads({
     box: region,
     relativeTo: boundaryWindow.document,
+    createFramesForSuppressedWhitespace: false,
   });
 
   if (!quads.length) {
@@ -214,7 +173,9 @@ function getAdjustedQuads(boundaryWindow, node, region, {ignoreZoom} = {}) {
   }
 
   const scale = ignoreZoom ? 1 : getCurrentZoom(node);
-  const { scrollX, scrollY } = boundaryWindow;
+  const { scrollX, scrollY } = ignoreScroll
+    ? { scrollX: 0, scrollY: 0 }
+    : boundaryWindow;
 
   const xOffset = scrollX * scale;
   const yOffset = scrollY * scale;
@@ -283,7 +244,7 @@ function getRect(boundaryWindow, node, contentWindow) {
   const clientRect = node.getBoundingClientRect();
 
   if (boundaryWindow === null) {
-    boundaryWindow = getTopWindow(frameWin);
+    boundaryWindow = DevToolsUtils.getTopWindow(frameWin);
   } else if (typeof boundaryWindow === "undefined") {
     throw new Error("No boundaryWindow given. Use null for the default one.");
   }
@@ -314,7 +275,7 @@ function getRect(boundaryWindow, node, contentWindow) {
     rect.top += frameRect.top + offsetTop;
     rect.left += frameRect.left + offsetLeft;
 
-    frameWin = getParentWindow(frameWin);
+    frameWin = frameWin.parent;
   }
 
   return rect;
@@ -343,7 +304,7 @@ function getNodeBounds(boundaryWindow, node) {
   let offsetLeft = 0;
   let offsetTop = 0;
   let el = node;
-  while (el && el.parentNode) {
+  while (el?.parentNode) {
     offsetLeft += el.offsetLeft;
     offsetTop += el.offsetTop;
     el = el.offsetParent;
@@ -351,7 +312,7 @@ function getNodeBounds(boundaryWindow, node) {
 
   // Also take scrolled containers into account
   el = node;
-  while (el && el.parentNode) {
+  while (el?.parentNode) {
     if (el.scrollTop) {
       offsetTop -= el.scrollTop;
     }
@@ -371,10 +332,10 @@ function getNodeBounds(boundaryWindow, node) {
   const height = node.offsetHeight * scale;
 
   return {
-    p1: {x: xOffset, y: yOffset},
-    p2: {x: xOffset + width, y: yOffset},
-    p3: {x: xOffset + width, y: yOffset + height},
-    p4: {x: xOffset, y: yOffset + height},
+    p1: { x: xOffset, y: yOffset },
+    p2: { x: xOffset + width, y: yOffset },
+    p3: { x: xOffset + width, y: yOffset + height },
+    p4: { x: xOffset, y: yOffset + height },
     top: yOffset,
     right: xOffset + width,
     bottom: yOffset + height,
@@ -398,8 +359,9 @@ function safelyGetContentWindow(frame) {
     return frame.contentWindow;
   }
 
-  const walker = Cc["@mozilla.org/inspector/deep-tree-walker;1"]
-               .createInstance(Ci.inIDeepTreeWalker);
+  const walker = Cc["@mozilla.org/inspector/deep-tree-walker;1"].createInstance(
+    Ci.inIDeepTreeWalker
+  );
   walker.showSubDocuments = true;
   walker.showDocumentsAsNodes = true;
   walker.init(frame, nodeFilterConstants.SHOW_ALL);
@@ -457,8 +419,10 @@ function isNodeConnected(node) {
   }
 
   try {
-    return !(node.compareDocumentPosition(node.ownerDocument.documentElement) &
-             node.DOCUMENT_POSITION_DISCONNECTED);
+    return !(
+      node.compareDocumentPosition(node.ownerDocument.documentElement) &
+      node.DOCUMENT_POSITION_DISCONNECTED
+    );
   } catch (e) {
     // "can't access dead object" error
     return false;
@@ -467,118 +431,17 @@ function isNodeConnected(node) {
 exports.isNodeConnected = isNodeConnected;
 
 /**
- * Traverse getBindingParent until arriving upon the bound element
- * responsible for the generation of the specified node.
- * See https://developer.mozilla.org/en-US/docs/XBL/XBL_1.0_Reference/DOM_Interfaces#getBindingParent.
- *
- * @param {DOMNode} node
- * @return {DOMNode}
- *         If node is not anonymous, this will return node. Otherwise,
- *         it will return the bound element
- *
- */
-function getRootBindingParent(node) {
-  let parent;
-  const doc = node.ownerDocument;
-  if (!doc) {
-    return node;
-  }
-  while ((parent = doc.getBindingParent(node))) {
-    node = parent;
-  }
-  return node;
-}
-exports.getRootBindingParent = getRootBindingParent;
-
-function getBindingParent(node) {
-  const doc = node.ownerDocument;
-  if (!doc) {
-    return null;
-  }
-
-  // If there is no binding parent then it is not anonymous.
-  const parent = doc.getBindingParent(node);
-  if (!parent) {
-    return null;
-  }
-
-  return parent;
-}
-exports.getBindingParent = getBindingParent;
-
-/**
- * Determine whether a node is anonymous by determining if there
- * is a bindingParent.
+ * Determine whether a node is anonymous.
  *
  * @param {DOMNode} node
  * @return {Boolean}
  *
+ * FIXME(bug 1597411): Remove one of these (or both, as
+ * `node.isNativeAnonymous` is quite clear).
  */
-const isAnonymous = (node) => getRootBindingParent(node) !== node;
+const isAnonymous = node => node.isNativeAnonymous;
 exports.isAnonymous = isAnonymous;
-
-/**
- * Determine whether a node has a bindingParent.
- *
- * @param {DOMNode} node
- * @return {Boolean}
- *
- */
-const hasBindingParent = (node) => !!getBindingParent(node);
-
-/**
- * Determine whether a node is native anonymous content (as opposed
- * to XBL anonymous or shadow DOM).
- * Native anonymous content includes elements like internals to form
- * controls and ::before/::after.
- *
- * @param {DOMNode} node
- * @return {Boolean}
- *
- */
-const isNativeAnonymous = (node) =>
-  hasBindingParent(node) && !(isXBLAnonymous(node) || isShadowAnonymous(node));
-
-exports.isNativeAnonymous = isNativeAnonymous;
-
-/**
- * Determine whether a node is XBL anonymous content (as opposed
- * to native anonymous or shadow DOM).
- * See https://developer.mozilla.org/en-US/docs/XBL/XBL_1.0_Reference/Anonymous_Content.
- *
- * @param {DOMNode} node
- * @return {Boolean}
- *
- */
-function isXBLAnonymous(node) {
-  const parent = getBindingParent(node);
-  if (!parent) {
-    return false;
-  }
-
-  const anonNodes = [...node.ownerDocument.getAnonymousNodes(parent) || []];
-  return anonNodes.indexOf(node) > -1;
-}
-exports.isXBLAnonymous = isXBLAnonymous;
-
-/**
- * Determine whether a node is a child of a shadow root.
- * See https://w3c.github.io/webcomponents/spec/shadow/
- *
- * @param {DOMNode} node
- * @return {Boolean}
- */
-function isShadowAnonymous(node) {
-  const parent = getBindingParent(node);
-  if (!parent) {
-    return false;
-  }
-
-  // If there is a shadowRoot and this is part of it then this
-  // is not native anonymous
-  return parent.openOrClosedShadowRoot && parent.openOrClosedShadowRoot.contains(node);
-}
-exports.isShadowAnonymous = isShadowAnonymous;
+exports.isNativeAnonymous = isAnonymous;
 
 /**
  * Determine whether a node is a template element.
@@ -587,7 +450,9 @@ exports.isShadowAnonymous = isShadowAnonymous;
  * @return {Boolean}
  */
 function isTemplateElement(node) {
-  return node.ownerGlobal && node instanceof node.ownerGlobal.HTMLTemplateElement;
+  return (
+    node.ownerGlobal && node instanceof node.ownerGlobal.HTMLTemplateElement
+  );
 }
 exports.isTemplateElement = isTemplateElement;
 
@@ -597,10 +462,7 @@ exports.isTemplateElement = isTemplateElement;
  * @param {DOMNode} node
  * @return {Boolean}
  */
-function isShadowRoot(node) {
-  const isFragment = node.nodeType === Node.DOCUMENT_FRAGMENT_NODE;
-  return isFragment && !!node.host;
-}
+const isShadowRoot = node => node.containingShadowRoot == node;
 exports.isShadowRoot = isShadowRoot;
 
 /*
@@ -636,8 +498,13 @@ exports.isShadowHost = isShadowHost;
  * @return {Boolean}
  */
 function isDirectShadowHostChild(node) {
-  // Pseudo elements are always part of the anonymous tree.
-  if (isBeforePseudoElement(node) || isAfterPseudoElement(node)) {
+  // Pseudo elements and native anonymous elements are always part of the anonymous tree.
+  if (
+    isMarkerPseudoElement(node) ||
+    isBeforePseudoElement(node) ||
+    isAfterPseudoElement(node) ||
+    node.isNativeAnonymous
+  ) {
     return false;
   }
 
@@ -645,6 +512,17 @@ function isDirectShadowHostChild(node) {
   return parentNode && !!parentNode.openOrClosedShadowRoot;
 }
 exports.isDirectShadowHostChild = isDirectShadowHostChild;
+
+/**
+ * Determine whether a node is a ::marker pseudo.
+ *
+ * @param {DOMNode} node
+ * @return {Boolean}
+ */
+function isMarkerPseudoElement(node) {
+  return node.nodeName === "_moz_generated_content_marker";
+}
+exports.isMarkerPseudoElement = isMarkerPseudoElement;
 
 /**
  * Determine whether a node is a ::before pseudo.
@@ -903,3 +781,72 @@ function getUntransformedQuad(node, region = "border") {
   return quad;
 }
 exports.getUntransformedQuad = getUntransformedQuad;
+
+/**
+ * Calculate the total of the node and all of its ancestor's scrollTop and
+ * scrollLeft values.
+ *
+ * @param  {DOMNode} node
+ *         The node for which the absolute scroll offsets should be calculated.
+ * @return {Object} object
+ *         An object containing scrollTop and scrollLeft values.
+ * @return {Number} object.scrollLeft
+ *         The total scrollLeft values of the node and all of its ancestors.
+ * @return {Number} object.scrollTop
+ *         The total scrollTop values of the node and all of its ancestors.
+ */
+function getAbsoluteScrollOffsetsForNode(node) {
+  const doc = node.ownerDocument;
+
+  // Our walker will only iterate up to document.body so we start by saving the
+  // scroll values for `document.documentElement`.
+  let scrollTop = doc.documentElement.scrollTop;
+  let scrollLeft = doc.documentElement.scrollLeft;
+  const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_ELEMENT);
+  walker.currentNode = node;
+  let currentNode = walker.currentNode;
+
+  // Iterate from `node` up the tree to `document.body` adding scroll offsets
+  // as we go.
+  while (currentNode) {
+    const nodeScrollTop = currentNode.scrollTop;
+    const nodeScrollLeft = currentNode.scrollLeft;
+
+    if (nodeScrollTop || nodeScrollLeft) {
+      scrollTop += nodeScrollTop;
+      scrollLeft += nodeScrollLeft;
+    }
+
+    currentNode = walker.parentNode();
+  }
+
+  return {
+    scrollLeft,
+    scrollTop,
+  };
+}
+exports.getAbsoluteScrollOffsetsForNode = getAbsoluteScrollOffsetsForNode;
+
+/**
+ * Check if the provided node is representing a remote frame.
+ *
+ * - In the context of the browser toolbox, a remote frame can be the <browser remote>
+ * element found inside each tab.
+ * - In the context of the content toolbox, a remote frame can be a <iframe> that contains
+ * a different origin document.
+ *
+ * @param  {DOMNode} node
+ * @return {Boolean}
+ */
+function isRemoteFrame(node) {
+  if (ChromeUtils.getClassName(node) == "HTMLIFrameElement") {
+    return node.frameLoader?.isRemoteFrame;
+  }
+
+  if (ChromeUtils.getClassName(node) == "XULFrameElement") {
+    return !node.childNodes.length && node.getAttribute("remote") == "true";
+  }
+
+  return false;
+}
+exports.isRemoteFrame = isRemoteFrame;

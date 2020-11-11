@@ -9,15 +9,14 @@
 
 NS_IMPL_NS_NEW_HTML_ELEMENT_CHECK_PARSER(Frame)
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 HTMLFrameElement::HTMLFrameElement(
     already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo,
     FromParser aFromParser)
     : nsGenericHTMLFrameElement(std::move(aNodeInfo), aFromParser) {}
 
-HTMLFrameElement::~HTMLFrameElement() {}
+HTMLFrameElement::~HTMLFrameElement() = default;
 
 NS_IMPL_ELEMENT_CLONE(HTMLFrameElement)
 
@@ -33,10 +32,10 @@ bool HTMLFrameElement::ParseAttribute(int32_t aNamespaceID, nsAtom* aAttribute,
       return ParseFrameborderValue(aValue, aResult);
     }
     if (aAttribute == nsGkAtoms::marginwidth) {
-      return aResult.ParseSpecialIntValue(aValue);
+      return aResult.ParseNonNegativeIntValue(aValue);
     }
     if (aAttribute == nsGkAtoms::marginheight) {
-      return aResult.ParseSpecialIntValue(aValue);
+      return aResult.ParseNonNegativeIntValue(aValue);
     }
     if (aAttribute == nsGkAtoms::scrolling) {
       return ParseScrollingValue(aValue, aResult);
@@ -52,5 +51,4 @@ JSObject* HTMLFrameElement::WrapNode(JSContext* aCx,
   return HTMLFrameElement_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

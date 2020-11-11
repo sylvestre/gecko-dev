@@ -9,7 +9,7 @@ https://bugzilla.mozilla.org/show_bug.cgi?id=209275
 -->
 <head>
   <title>Test for Bug 209275</title>
-  <script type="text/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css" />
 
   <style>
@@ -97,9 +97,6 @@ function continueTest() {
   gGen.next();
 }
 
-var iframe = document.getElementById("iframe");
-var iframeCw = iframe.contentWindow;
-
 function* run() {
   var iframe = document.getElementById("iframe");
   var iframeCw = iframe.contentWindow;
@@ -123,14 +120,15 @@ function* run() {
   $('colorlink').href = "http://example.com/" + rand;
   setXlinkHref($("ellipselink"), "http://example.com/" + rand);
 
-  // Load http://example.com/${rand} into an iframe so we can test that changing
-  // the document's base changes the visitedness of our links.
-  iframe.onload = continueTest;
-  iframeCw.location = "http://example.com/" + rand;
-  yield undefined; // wait for onload to fire.
+  // Load http://example.com/${rand} into a new window so we can test that
+  // changing the document's base changes the visitedness of our links.
+  //
+  // cross-origin window.open'd windows don't fire load / error events, so we
+  // wait to close it until we observed the visited color.
+  let win = window.open("http://example.com/" + rand, "_blank");
 
   // Make sure things are what as we expect them at the beginning.
-  link123HrefIs("http://mochi.test:8888/", 1);
+  link123HrefIs(`${location.origin}/`, 1);
   is($('link4').href, loc + "#", "link 4 test 1");
   is($('link5').href, loc + "#", "link 5 test 1");
 
@@ -150,29 +148,31 @@ function* run() {
   // Because link coloring is asynchronous, we wait until it is updated (or we
   // timeout and fail anyway).
   while (getColor($('colorlink')) != visitedColor) {
-    setTimeout(continueTest, 0);
+    requestIdleCallback(continueTest);
     yield undefined;
   }
   is(getColor($('colorlink')), visitedColor,
      "Wrong link color after base change.");
   while (getFill($('ellipselink')) != visitedFill) {
-    setTimeout(continueTest, 0);
+    requestIdleCallback(continueTest);
     yield undefined;
   }
   is(getFill($('ellipselink')), visitedFill,
           "Wrong ellipse fill after base change.");
 
+  win.close();
+
   $('base1').href = "foo/";
   // Should be interpreted relative to current URI (not the current base), so
   // base should now be http://mochi.test:8888/foo/
 
-  link123HrefIs("http://mochi.test:8888/", 3);
+  link123HrefIs(`${location.origin}/`, 3);
   is($('link4').href, path + "foo/#", "link 4 test 3");
 
   // Changing base2 shouldn't affect anything, because it's not the first base
   // tag.
   $('base2').href = "http://example.org/bar/";
-  link123HrefIs("http://mochi.test:8888/", 4);
+  link123HrefIs(`${location.origin}/`, 4);
   is($('link4').href, path + "foo/#", "link 4 test 4");
 
   // If we unset base1's href attribute, the document's base should come from
@@ -208,13 +208,13 @@ function* run() {
   base3.remove();
   base4.remove();
 
-  link123HrefIs("http://mochi.test:8888/", 9);
+  link123HrefIs(`${location.origin}/`, 9);
   is($('link4').href, loc + "#", "link 4 test 9");
 
   // Setting the href of base0 shouldn't do anything because it's not in the
   // XHTML namespace.
   $('base0').href = "http://bar.com";
-  link123HrefIs("http://mochi.test:8888/", 10);
+  link123HrefIs(`${location.origin}/`, 10);
   is($('link4').href, loc + "#", "link 4 test 10");
 
   // We load into an iframe a document with a <base href="...">, then remove
@@ -223,7 +223,6 @@ function* run() {
   // original base.  We do this twice, rebuilding the document in a different
   // way each time.
 
-  iframe.onload = null;
   iframeCw.location = "file_bug209275_1.html";
   yield undefined; // wait for our child to call us back.
   is(iframeCw.document.getElementById("link").href,
@@ -233,7 +232,7 @@ function* run() {
   iframeCw.location = "file_bug209275_2.html";
   yield undefined; // wait for callback from child
   is(iframeCw.document.getElementById("link").href,
-     "http://mochi.test:8888/",
+     `${location.origin}/`,
      "Wrong href after nuking document second time.");
 
   // Make sure that document.open() makes the document forget about any <base>
@@ -257,4 +256,3 @@ window.addEventListener("load", function() {
 </pre>
 </body>
 </html>
-

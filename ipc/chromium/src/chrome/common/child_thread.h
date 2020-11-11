@@ -30,7 +30,7 @@ class ChildThread : public IPC::Channel::Listener, public base::Thread {
   // Returns the one child thread.
   static ChildThread* current();
 
-  IPC::Channel* channel() { return channel_.get(); }
+  mozilla::UniquePtr<IPC::Channel> TakeChannel() { return std::move(channel_); }
 
   // Thread implementation.
   virtual void Init() override;
@@ -44,7 +44,7 @@ class ChildThread : public IPC::Channel::Listener, public base::Thread {
   // The message loop used to run tasks on the thread that started this thread.
   MessageLoop* owner_loop_;
 
-  std::wstring channel_name_;
+  IPC::Channel::ChannelId channel_name_;
   mozilla::UniquePtr<IPC::Channel> channel_;
 
   Thread::Options options_;

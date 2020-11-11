@@ -10,7 +10,6 @@
 #include "nsNetCID.h"
 #include "nsNetUtil.h"
 #include "nsIObserverService.h"
-#include "nsIPrincipal.h"
 #include "mozilla/LoadContextInfo.h"
 
 using namespace mozilla;
@@ -30,8 +29,8 @@ nsApplicationCacheService::nsApplicationCacheService() {
 
 NS_IMETHODIMP
 nsApplicationCacheService::BuildGroupIDForInfo(
-    nsIURI *aManifestURL, nsILoadContextInfo *aLoadContextInfo,
-    nsACString &_result) {
+    nsIURI* aManifestURL, nsILoadContextInfo* aLoadContextInfo,
+    nsACString& _result) {
   nsresult rv;
 
   nsAutoCString originSuffix;
@@ -48,8 +47,8 @@ nsApplicationCacheService::BuildGroupIDForInfo(
 
 NS_IMETHODIMP
 nsApplicationCacheService::BuildGroupIDForSuffix(
-    nsIURI *aManifestURL, nsACString const &aOriginSuffix,
-    nsACString &_result) {
+    nsIURI* aManifestURL, nsACString const& aOriginSuffix,
+    nsACString& _result) {
   nsresult rv;
 
   rv = nsOfflineCacheDevice::BuildApplicationCacheGroupID(
@@ -60,8 +59,8 @@ nsApplicationCacheService::BuildGroupIDForSuffix(
 }
 
 NS_IMETHODIMP
-nsApplicationCacheService::CreateApplicationCache(const nsACString &group,
-                                                  nsIApplicationCache **out) {
+nsApplicationCacheService::CreateApplicationCache(const nsACString& group,
+                                                  nsIApplicationCache** out) {
   if (!mCacheService) return NS_ERROR_UNEXPECTED;
 
   RefPtr<nsOfflineCacheDevice> device;
@@ -72,8 +71,8 @@ nsApplicationCacheService::CreateApplicationCache(const nsACString &group,
 
 NS_IMETHODIMP
 nsApplicationCacheService::CreateCustomApplicationCache(
-    const nsACString &group, nsIFile *profileDir, int32_t quota,
-    nsIApplicationCache **out) {
+    const nsACString& group, nsIFile* profileDir, int32_t quota,
+    nsIApplicationCache** out) {
   if (!mCacheService) return NS_ERROR_UNEXPECTED;
 
   RefPtr<nsOfflineCacheDevice> device;
@@ -84,8 +83,8 @@ nsApplicationCacheService::CreateCustomApplicationCache(
 }
 
 NS_IMETHODIMP
-nsApplicationCacheService::GetApplicationCache(const nsACString &clientID,
-                                               nsIApplicationCache **out) {
+nsApplicationCacheService::GetApplicationCache(const nsACString& clientID,
+                                               nsIApplicationCache** out) {
   if (!mCacheService) return NS_ERROR_UNEXPECTED;
 
   RefPtr<nsOfflineCacheDevice> device;
@@ -95,8 +94,8 @@ nsApplicationCacheService::GetApplicationCache(const nsACString &clientID,
 }
 
 NS_IMETHODIMP
-nsApplicationCacheService::GetActiveCache(const nsACString &group,
-                                          nsIApplicationCache **out) {
+nsApplicationCacheService::GetActiveCache(const nsACString& group,
+                                          nsIApplicationCache** out) {
   if (!mCacheService) return NS_ERROR_UNEXPECTED;
 
   RefPtr<nsOfflineCacheDevice> device;
@@ -106,7 +105,7 @@ nsApplicationCacheService::GetActiveCache(const nsACString &group,
 }
 
 NS_IMETHODIMP
-nsApplicationCacheService::DeactivateGroup(const nsACString &group) {
+nsApplicationCacheService::DeactivateGroup(const nsACString& group) {
   if (!mCacheService) return NS_ERROR_UNEXPECTED;
 
   RefPtr<nsOfflineCacheDevice> device;
@@ -117,20 +116,23 @@ nsApplicationCacheService::DeactivateGroup(const nsACString &group) {
 
 NS_IMETHODIMP
 nsApplicationCacheService::ChooseApplicationCache(
-    const nsACString &key, nsILoadContextInfo *aLoadContextInfo,
-    nsIApplicationCache **out) {
+    const nsACString& key, nsILoadContextInfo* aLoadContextInfo,
+    nsIApplicationCache** out) {
   if (!mCacheService) return NS_ERROR_UNEXPECTED;
 
   RefPtr<nsOfflineCacheDevice> device;
   nsresult rv = mCacheService->GetOfflineDevice(getter_AddRefs(device));
-  NS_ENSURE_SUCCESS(rv, rv);
+  if (NS_FAILED(rv)) {
+    // Silently fail and provide no appcache to the caller.
+    return NS_OK;
+  }
 
   return device->ChooseApplicationCache(key, aLoadContextInfo, out);
 }
 
 NS_IMETHODIMP
-nsApplicationCacheService::CacheOpportunistically(nsIApplicationCache *cache,
-                                                  const nsACString &key) {
+nsApplicationCacheService::CacheOpportunistically(nsIApplicationCache* cache,
+                                                  const nsACString& key) {
   if (!mCacheService) return NS_ERROR_UNEXPECTED;
 
   RefPtr<nsOfflineCacheDevice> device;
@@ -140,7 +142,7 @@ nsApplicationCacheService::CacheOpportunistically(nsIApplicationCache *cache,
 }
 
 NS_IMETHODIMP
-nsApplicationCacheService::Evict(nsILoadContextInfo *aInfo) {
+nsApplicationCacheService::Evict(nsILoadContextInfo* aInfo) {
   if (!mCacheService) return NS_ERROR_UNEXPECTED;
 
   RefPtr<nsOfflineCacheDevice> device;
@@ -151,7 +153,7 @@ nsApplicationCacheService::Evict(nsILoadContextInfo *aInfo) {
 
 NS_IMETHODIMP
 nsApplicationCacheService::EvictMatchingOriginAttributes(
-    nsAString const &aPattern) {
+    nsAString const& aPattern) {
   if (!mCacheService) return NS_ERROR_UNEXPECTED;
 
   RefPtr<nsOfflineCacheDevice> device;
@@ -170,66 +172,21 @@ nsApplicationCacheService::EvictMatchingOriginAttributes(
 }
 
 NS_IMETHODIMP
-nsApplicationCacheService::GetGroups(uint32_t *count, char ***keys) {
+nsApplicationCacheService::GetGroups(nsTArray<nsCString>& keys) {
   if (!mCacheService) return NS_ERROR_UNEXPECTED;
 
   RefPtr<nsOfflineCacheDevice> device;
   nsresult rv = mCacheService->GetOfflineDevice(getter_AddRefs(device));
   NS_ENSURE_SUCCESS(rv, rv);
-  return device->GetGroups(count, keys);
+  return device->GetGroups(keys);
 }
 
 NS_IMETHODIMP
-nsApplicationCacheService::GetGroupsTimeOrdered(uint32_t *count, char ***keys) {
+nsApplicationCacheService::GetGroupsTimeOrdered(nsTArray<nsCString>& keys) {
   if (!mCacheService) return NS_ERROR_UNEXPECTED;
 
   RefPtr<nsOfflineCacheDevice> device;
   nsresult rv = mCacheService->GetOfflineDevice(getter_AddRefs(device));
   NS_ENSURE_SUCCESS(rv, rv);
-  return device->GetGroupsTimeOrdered(count, keys);
-}
-
-//-----------------------------------------------------------------------------
-// AppCacheClearDataObserver: handles clearing appcache data for app uninstall
-// and clearing user data events.
-//-----------------------------------------------------------------------------
-
-namespace {
-
-class AppCacheClearDataObserver final : public nsIObserver {
- public:
-  NS_DECL_ISUPPORTS
-
-  // nsIObserver implementation.
-  NS_IMETHOD
-  Observe(nsISupports *aSubject, const char *aTopic,
-          const char16_t *aData) override {
-    MOZ_ASSERT(!nsCRT::strcmp(aTopic, "clear-origin-attributes-data"));
-
-    nsresult rv;
-
-    nsCOMPtr<nsIApplicationCacheService> cacheService =
-        do_GetService(NS_APPLICATIONCACHESERVICE_CONTRACTID, &rv);
-    NS_ENSURE_SUCCESS(rv, rv);
-
-    return cacheService->EvictMatchingOriginAttributes(
-        nsDependentString(aData));
-  }
-
- private:
-  ~AppCacheClearDataObserver() = default;
-};
-
-NS_IMPL_ISUPPORTS(AppCacheClearDataObserver, nsIObserver)
-
-}  // namespace
-
-// Instantiates and registers AppCacheClearDataObserver for notifications
-void nsApplicationCacheService::AppClearDataObserverInit() {
-  nsCOMPtr<nsIObserverService> observerService = services::GetObserverService();
-  if (observerService) {
-    RefPtr<AppCacheClearDataObserver> obs = new AppCacheClearDataObserver();
-    observerService->AddObserver(obs, "clear-origin-attributes-data",
-                                 /*ownsWeak=*/false);
-  }
+  return device->GetGroupsTimeOrdered(keys);
 }

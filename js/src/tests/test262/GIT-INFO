@@ -1,7 +1,7 @@
-commit 8e3c6d048449a2e47c7748eafa350f49c0b8b7bc
-Author: Leo Balter <leonardo.balter@gmail.com>
-Date:   Mon Dec 10 10:59:09 2018 -0500
+commit 00014894735c3bee62bed234594abf387ea0c57b
+Author: Rick Waldron <waldron.rick@gmail.com>
+Date:   Wed Oct 21 20:14:28 2020 -0400
 
-    Merge pull request #1987 from test262-automation/v8-test262-automation-export-07b313100e
+    Update test/built-ins/TypedArray/prototype/forEach/callbackfn-detachbuffer.js
     
-    Import test changes from V8
+    Co-authored-by: Ross Kirsling <rkirsling@gmail.com>

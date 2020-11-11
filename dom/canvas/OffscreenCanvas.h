@@ -8,8 +8,8 @@
 #define MOZILLA_DOM_OFFSCREENCANVAS_H_
 
 #include "gfxTypes.h"
+#include "mozilla/dom/ImageEncoder.h"
 #include "mozilla/DOMEventTargetHelper.h"
-#include "mozilla/dom/DOMPrefs.h"
 #include "mozilla/layers/LayersTypes.h"
 #include "mozilla/RefPtr.h"
 #include "CanvasRenderingContextHelper.h"
@@ -22,8 +22,9 @@ namespace mozilla {
 class ErrorResult;
 
 namespace layers {
-class AsyncCanvasRenderer;
 class CanvasClient;
+class CanvasRenderer;
+class ImageContainer;
 }  // namespace layers
 
 namespace dom {
@@ -35,13 +36,13 @@ class ImageBitmap;
 // Canvas to worker thread directly. Thus, we create this helper class and
 // store necessary data in it then pass it to worker thread.
 struct OffscreenCanvasCloneData final {
-  OffscreenCanvasCloneData(layers::AsyncCanvasRenderer* aRenderer,
-                           uint32_t aWidth, uint32_t aHeight,
+  OffscreenCanvasCloneData(layers::CanvasRenderer* aRenderer, uint32_t aWidth,
+                           uint32_t aHeight,
                            layers::LayersBackend aCompositorBackend,
                            bool aNeutered, bool aIsWriteOnly);
   ~OffscreenCanvasCloneData();
 
-  RefPtr<layers::AsyncCanvasRenderer> mRenderer;
+  RefPtr<layers::CanvasRenderer> mRenderer;
   uint32_t mWidth;
   uint32_t mHeight;
   layers::LayersBackend mCompositorBackendType;
@@ -58,7 +59,7 @@ class OffscreenCanvas final : public DOMEventTargetHelper,
 
   OffscreenCanvas(nsIGlobalObject* aGlobal, uint32_t aWidth, uint32_t aHeight,
                   layers::LayersBackend aCompositorBackend,
-                  layers::AsyncCanvasRenderer* aRenderer);
+                  layers::CanvasRenderer* aRenderer);
 
   nsCOMPtr<nsIGlobalObject> GetParentObject() const { return GetOwnerGlobal(); }
 
@@ -66,8 +67,7 @@ class OffscreenCanvas final : public DOMEventTargetHelper,
                                JS::Handle<JSObject*> aGivenProto) override;
 
   static already_AddRefed<OffscreenCanvas> Constructor(
-      const GlobalObject& aGlobal, uint32_t aWidth, uint32_t aHeight,
-      ErrorResult& aRv);
+      const GlobalObject& aGlobal, uint32_t aWidth, uint32_t aHeight);
 
   void ClearResources();
 
@@ -148,6 +148,8 @@ class OffscreenCanvas final : public DOMEventTargetHelper,
     return mCompositorBackendType;
   }
 
+  layers::ImageContainer* GetImageContainer();
+
  private:
   ~OffscreenCanvas();
 
@@ -169,7 +171,7 @@ class OffscreenCanvas final : public DOMEventTargetHelper,
   layers::LayersBackend mCompositorBackendType;
 
   RefPtr<layers::CanvasClient> mCanvasClient;
-  RefPtr<layers::AsyncCanvasRenderer> mCanvasRenderer;
+  RefPtr<layers::CanvasRenderer> mCanvasRenderer;
 };
 
 }  // namespace dom

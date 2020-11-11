@@ -1,6 +1,6 @@
 // If debugger.onEnterFrame returns undefined, the frame should continue execution.
 
-var g = newGlobal();
+var g = newGlobal({newCompartment: true});
 var dbg = Debugger(g);
 var hits = 0;
 var savedFrame;
@@ -12,5 +12,5 @@ dbg.onEnterFrame = function (frame) {
 
 savedFrame = undefined;
 assertEq(g.eval("'pass';"), "pass");
-assertEq(savedFrame.live, false);
+assertEq(savedFrame.onStack, false);
 assertEq(hits, 1);

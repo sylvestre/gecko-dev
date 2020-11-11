@@ -5,20 +5,20 @@
  * found in the LICENSE file.
  */
 
-#include "SkWebpCodec.h"
+#include "src/codec/SkWebpCodec.h"
 
-#include "../jumper/SkJumper.h"
-#include "SkBitmap.h"
-#include "SkCanvas.h"
-#include "SkCodecAnimation.h"
-#include "SkCodecAnimationPriv.h"
-#include "SkCodecPriv.h"
-#include "SkMakeUnique.h"
-#include "SkRasterPipeline.h"
-#include "SkSampler.h"
-#include "SkStreamPriv.h"
-#include "SkTemplates.h"
-#include "SkTo.h"
+#include "include/codec/SkCodecAnimation.h"
+#include "include/core/SkBitmap.h"
+#include "include/core/SkCanvas.h"
+#include "include/private/SkTemplates.h"
+#include "include/private/SkTo.h"
+#include "src/codec/SkCodecAnimationPriv.h"
+#include "src/codec/SkCodecPriv.h"
+#include "src/codec/SkParseEncodedOrigin.h"
+#include "src/codec/SkSampler.h"
+#include "src/core/SkMakeUnique.h"
+#include "src/core/SkRasterPipeline.h"
+#include "src/core/SkStreamPriv.h"
 
 // A WebP decoder on top of (subset of) libwebp
 // For more information on WebP image format, and libwebp library, see:
@@ -107,7 +107,7 @@ std::unique_ptr<SkCodec> SkWebpCodec::MakeFromStream(std::unique_ptr<SkStream> s
         WebPChunkIterator chunkIterator;
         SkAutoTCallVProc<WebPChunkIterator, WebPDemuxReleaseChunkIterator> autoCI(&chunkIterator);
         if (WebPDemuxGetChunk(demux, "EXIF", 1, &chunkIterator)) {
-            is_orientation_marker(chunkIterator.chunk.bytes, chunkIterator.chunk.size, &origin);
+            SkParseEncodedOrigin(chunkIterator.chunk.bytes, chunkIterator.chunk.size, &origin);
         }
     }
 
@@ -175,21 +175,6 @@ std::unique_ptr<SkCodec> SkWebpCodec::MakeFromStream(std::unique_ptr<SkStream> s
     SkEncodedInfo info = SkEncodedInfo::Make(width, height, color, alpha, 8, std::move(profile));
     return std::unique_ptr<SkCodec>(new SkWebpCodec(std::move(info), std::move(stream),
                                                     demux.release(), std::move(data), origin));
-}
-
-SkISize SkWebpCodec::onGetScaledDimensions(float desiredScale) const {
-    SkISize dim = this->dimensions();
-    // SkCodec treats zero dimensional images as errors, so the minimum size
-    // that we will recommend is 1x1.
-    dim.fWidth = SkTMax(1, SkScalarRoundToInt(desiredScale * dim.fWidth));
-    dim.fHeight = SkTMax(1, SkScalarRoundToInt(desiredScale * dim.fHeight));
-    return dim;
-}
-
-bool SkWebpCodec::onDimensionsSupported(const SkISize& dim) {
-    const SkEncodedInfo& info = this->getEncodedInfo();
-    return dim.width() >= 1 && dim.width() <= info.width()
-            && dim.height() >= 1 && dim.height() <= info.height();
 }
 
 static WEBP_CSP_MODE webp_decode_mode(SkColorType dstCT, bool premultiply) {
@@ -333,79 +318,33 @@ static bool is_8888(SkColorType colorType) {
     }
 }
 
-static void pick_memory_stages(SkColorType ct, SkRasterPipeline::StockStage* load,
-                                               SkRasterPipeline::StockStage* store) {
-    switch(ct) {
-        case kUnknown_SkColorType:
-        case kAlpha_8_SkColorType:
-        case kARGB_4444_SkColorType:
-        case kGray_8_SkColorType:
-        case kRGB_888x_SkColorType:
-        case kRGB_101010x_SkColorType:
-            SkASSERT(false);
-            break;
-        case kRGB_565_SkColorType:
-            if (load) *load = SkRasterPipeline::load_565;
-            if (store) *store = SkRasterPipeline::store_565;
-            break;
-        case kRGBA_8888_SkColorType:
-            if (load) *load = SkRasterPipeline::load_8888;
-            if (store) *store = SkRasterPipeline::store_8888;
-            break;
-        case kBGRA_8888_SkColorType:
-            if (load) *load = SkRasterPipeline::load_bgra;
-            if (store) *store = SkRasterPipeline::store_bgra;
-            break;
-        case kRGBA_1010102_SkColorType:
-            if (load) *load = SkRasterPipeline::load_1010102;
-            if (store) *store = SkRasterPipeline::store_1010102;
-            break;
-        case kRGBA_F16_SkColorType:
-            if (load) *load = SkRasterPipeline::load_f16;
-            if (store) *store = SkRasterPipeline::store_f16;
-            break;
-        case kRGBA_F32_SkColorType:
-            if (load) *load = SkRasterPipeline::load_f32;
-            if (store) *store = SkRasterPipeline::store_f32;
-            break;
-    }
-}
-
 // Requires that the src input be unpremultiplied (or opaque).
 static void blend_line(SkColorType dstCT, void* dst,
                        SkColorType srcCT, const void* src,
                        SkAlphaType dstAt,
                        bool srcHasAlpha,
                        int width) {
-    SkJumper_MemoryCtx dst_ctx = { (void*)dst, 0 },
-                       src_ctx = { (void*)src, 0 };
+    SkRasterPipeline_MemoryCtx dst_ctx = { (void*)dst, 0 },
+                               src_ctx = { (void*)src, 0 };
 
     SkRasterPipeline_<256> p;
-    SkRasterPipeline::StockStage load_dst, store_dst;
-    pick_memory_stages(dstCT, &load_dst, &store_dst);
 
-    // Load the final dst.
-    p.append(load_dst, &dst_ctx);
+    p.append_load_dst(dstCT, &dst_ctx);
     if (kUnpremul_SkAlphaType == dstAt) {
-        p.append(SkRasterPipeline::premul);
+        p.append(SkRasterPipeline::premul_dst);
     }
-    p.append(SkRasterPipeline::move_src_dst);
 
-    // Load the src.
-    SkRasterPipeline::StockStage load_src;
-    pick_memory_stages(srcCT, &load_src, nullptr);
-    p.append(load_src, &src_ctx);
+    p.append_load(srcCT, &src_ctx);
     if (srcHasAlpha) {
         p.append(SkRasterPipeline::premul);
     }
 
     p.append(SkRasterPipeline::srcover);
 
-    // Convert back to dst.
     if (kUnpremul_SkAlphaType == dstAt) {
         p.append(SkRasterPipeline::unpremul);
     }
-    p.append(store_dst, &dst_ctx);
+    p.append_store(dstCT, &dst_ctx);
 
     p.run(0,0, width,1);
 }
@@ -452,7 +391,7 @@ SkCodec::Result SkWebpCodec::onGetPixels(const SkImageInfo& dstInfo, void* dst, 
         SkASSERT(SkIsAlign2(subset.fLeft) && SkIsAlign2(subset.fTop));
         SkASSERT(this->getValidSubset(&subset) && subset == *options.fSubset);
 
-        if (!SkIRect::IntersectsNoEmptyCheck(subset, frameRect)) {
+        if (!SkIRect::Intersects(subset, frameRect)) {
             return kSuccess;
         }
 

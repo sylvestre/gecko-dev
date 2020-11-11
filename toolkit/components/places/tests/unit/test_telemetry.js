@@ -3,7 +3,9 @@
 
 // Tests common Places telemetry probes by faking the telemetry service.
 
-ChromeUtils.import("resource://gre/modules/PlacesDBUtils.jsm");
+const { PlacesDBUtils } = ChromeUtils.import(
+  "resource://gre/modules/PlacesDBUtils.jsm"
+);
 
 var histograms = {
   PLACES_PAGES_COUNT: val => Assert.equal(val, 1),
@@ -17,10 +19,9 @@ var histograms = {
   PLACES_DATABASE_PAGESIZE_B: val => Assert.equal(val, 32768),
   PLACES_DATABASE_SIZE_PER_PAGE_B: val => Assert.ok(val > 0),
   PLACES_EXPIRATION_STEPS_TO_CLEAN2: val => Assert.ok(val > 1),
-  // PLACES_AUTOCOMPLETE_1ST_RESULT_TIME_MS:  val => do_check_true(val > 1),
   PLACES_IDLE_FRECENCY_DECAY_TIME_MS: val => Assert.ok(val >= 0),
   PLACES_IDLE_MAINTENANCE_TIME_MS: val => Assert.ok(val > 0),
-  PLACES_ANNOS_BOOKMARKS_COUNT: val => Assert.equal(val, 1),
+  PLACES_ANNOS_BOOKMARKS_COUNT: val => Assert.equal(val, 0),
   PLACES_ANNOS_PAGES_COUNT: val => Assert.equal(val, 1),
   PLACES_MAINTENANCE_DAYSFROMLAST: val => Assert.ok(val >= 0),
 };
@@ -38,7 +39,9 @@ var histograms = {
  */
 function promiseForceExpirationStep(aLimit) {
   let promise = promiseTopicObserved(PlacesUtils.TOPIC_EXPIRATION_FINISHED);
-  let expire = Cc["@mozilla.org/places/expiration;1"].getService(Ci.nsIObserver);
+  let expire = Cc["@mozilla.org/places/expiration;1"].getService(
+    Ci.nsIObserver
+  );
   expire.observe(null, "places-debug-start-expiration", aLimit);
   return promise;
 }
@@ -66,20 +69,24 @@ add_task(async function test_execute() {
   // Put some trash in the database.
   let uri = Services.io.newURI("http://moz.org/");
 
-  let bookmarks = await PlacesUtils.bookmarks.insertTree({
+  PlacesUtils.bookmarks.insertTree({
     guid: PlacesUtils.bookmarks.unfiledGuid,
-    children: [{
-      title: "moz test",
-      type: PlacesUtils.bookmarks.TYPE_FOLDER,
-      children: [{
+    children: [
+      {
         title: "moz test",
-        url: uri,
-      }],
-    }],
+        type: PlacesUtils.bookmarks.TYPE_FOLDER,
+        children: [
+          {
+            title: "moz test",
+            url: uri,
+          },
+        ],
+      },
+    ],
   });
 
   PlacesUtils.tagging.tagURI(uri, ["tag"]);
-  await PlacesUtils.keywords.insert({ url: uri.spec, keyword: "keyword"});
+  await PlacesUtils.keywords.insert({ url: uri.spec, keyword: "keyword" });
 
   // Set a large annotation.
   let content = "";
@@ -87,19 +94,15 @@ add_task(async function test_execute() {
     content += "0";
   }
 
-  let itemId = await PlacesUtils.promiseItemId(bookmarks[1].guid);
-
-  PlacesUtils.annotations.setItemAnnotation(itemId, "test-anno", content, 0,
-                                            PlacesUtils.annotations.EXPIRE_NEVER);
   await PlacesUtils.history.update({
     url: uri,
     annotations: new Map([["test-anno", content]]),
   });
 
-  // Request to gather telemetry data.
+  // Request to gather Places telemetry data.
   Cc["@mozilla.org/places/categoriesStarter;1"]
     .getService(Ci.nsIObserver)
-    .observe(null, "gather-telemetry", null);
+    .observe(null, "gather-places-telemetry", null);
 
   await PlacesTestUtils.promiseAsyncUpdates();
 
@@ -121,45 +124,10 @@ add_task(async function test_execute() {
   await promiseForceExpirationStep(2);
   await promiseForceExpirationStep(2);
 
-  // Test autocomplete probes.
-  /*
-  // This is useful for manual testing by changing the minimum time for
-  // autocomplete telemetry to 0, but there is no way to artificially delay
-  // autocomplete by more than 50ms in a realiable way.
-  Services.prefs.setIntPref("browser.urlbar.search.sources", 3);
-  Services.prefs.setIntPref("browser.urlbar.default.behavior", 0);
-  function AutoCompleteInput(aSearches) {
-    this.searches = aSearches;
-  }
-  AutoCompleteInput.prototype = {
-    timeout: 10,
-    textValue: "",
-    searchParam: "",
-    popupOpen: false,
-    minResultsForPopup: 0,
-    invalidate: function() {},
-    disableAutoComplete: false,
-    completeDefaultIndex: false,
-    get popup() { return this; },
-    onSearchBegin: function() {},
-    onSearchComplete: function() {},
-    setSelectedIndex: function() {},
-    get searchCount() { return this.searches.length; },
-    getSearchAt: function(aIndex) { return this.searches[aIndex]; },
-    QueryInterface: ChromeUtils.generateQI([
-      Ci.nsIAutoCompleteInput,
-      Ci.nsIAutoCompletePopup,
-    ])
-  };
-  let controller = Cc["@mozilla.org/autocomplete/controller;1"].
-                   getService(Ci.nsIAutoCompleteController);
-  controller.input = new AutoCompleteInput(["unifiedcomplete"]);
-  controller.startSearch("moz");
-  */
-
   // Test idle probes.
-  PlacesUtils.history.QueryInterface(Ci.nsIObserver)
-                     .observe(null, "idle-daily", null);
+  PlacesUtils.history
+    .QueryInterface(Ci.nsIObserver)
+    .observe(null, "idle-daily", null);
   await PlacesDBUtils.maintenanceOnIdle();
 
   for (let histogramId in histograms) {

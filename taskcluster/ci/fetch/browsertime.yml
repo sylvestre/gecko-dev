@@ -1,0 +1,128 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+---
+win64-ffmpeg-4.1.1:
+    description: 'Win64 ffmpeg'
+    fetch:
+        type: static-url
+        # url: https://ffmpeg.zeranoe.com/builds/win64/static/ffmpeg-4.1.1-win64-static.zip is 403 (from AWS only?).
+        url: https://github.com/ncalexan/geckodriver/releases/download/v0.24.0-android/ffmpeg-4.1.1-win64-static.zip
+        sha256: 2c19658d69de08ea7ef585fbf801ef6a364795b5288e23d79066876ff0465df6
+        size: 66347524
+
+linux64-ffmpeg-4.1.4:
+    description: 'Linux64 ffmpeg'
+    fetch:
+        type: static-url
+        # url: https://www.johnvansickle.com/ffmpeg/old-releases/ffmpeg-4.1.4-i686-static.tar.xz is 406 (from AWS only?).
+        url: https://github.com/ncalexan/geckodriver/releases/download/v0.24.0-android/ffmpeg-4.1.4-i686-static.tar.xz
+        sha256: f7a2f0f8f91506d67f80fbe5b8a5c264d0fb60cb3cd258d03344890fbd55e6fd
+        size: 16633296
+
+mac64-ffmpeg-4.1.1:
+    description: 'Mac64 ffmpeg'
+    fetch:
+        type: static-url
+        # url: https://ffmpeg.zeranoe.com/builds/macos64/static/ffmpeg-4.1.1-macos64-static.zip is 403 (from AWS only?).
+        url: https://github.com/ncalexan/geckodriver/releases/download/v0.24.0-android/ffmpeg-4.1.1-macos64-static.zip
+        sha256: 8612d1e07901779e7ed0eeb5433aea37c7bbaf308d725741f432f454a9f97275
+        size: 66853411
+
+linux64-chromedriver:
+    description: 'Linux64 chromedriver'
+    fetch:
+        type: static-url
+        url: https://chromedriver.storage.googleapis.com/2.46/chromedriver_linux64.zip
+        sha256: 461919e080e19335a34224e2d353b96b07c7d068621aa940f9c136e86d090047
+        size: 5404417
+
+win32-chromedriver-84:
+    description: 'Win32 chromedriver v84'
+    fetch:
+        type: static-url
+        artifact-name: chromedriver_win32_84.tar.zst
+        add-prefix: '84'
+        url: https://chromedriver.storage.googleapis.com/84.0.4147.30/chromedriver_win32.zip
+        sha256: 533994dba537979e16e04eb6537ca851c6cee241716cceccc76703fbabf0f12c
+        size: 4851011
+
+linux64-chromedriver-84:
+    description: 'Linux64 chromedriver v84'
+    fetch:
+        type: static-url
+        artifact-name: chromedriver_linux64_84.tar.zst
+        add-prefix: '84'
+        url: https://chromedriver.storage.googleapis.com/84.0.4147.30/chromedriver_linux64.zip
+        sha256: 160531e8f98f13b486411cd6445ec0e3c56cd4d4b2839e3e9a0fda09a279797a
+        size: 5306126
+
+mac64-chromedriver-84:
+    description: 'Mac64 chromedriver v84'
+    fetch:
+        type: static-url
+        artifact-name: chromedriver_mac64_84.tar.zst
+        add-prefix: '84'
+        url: https://chromedriver.storage.googleapis.com/84.0.4147.30/chromedriver_mac64.zip
+        sha256: 1bed996247f5f93eed28110927a10b45f01a7deeda4ab1b1acfd6bb66784acc5
+        size: 7332572
+
+win32-chromedriver-85:
+    description: 'Win32 chromedriver v85'
+    fetch:
+        type: static-url
+        artifact-name: chromedriver_win32_85.tar.zst
+        add-prefix: '85'
+        url: https://chromedriver.storage.googleapis.com/85.0.4183.87/chromedriver_win32.zip
+        sha256: 6d5f81e2a07b4cd8a8dc23f65a50aecc03f6652e35ad14db8e02ab9ed92a68f5
+        size: 5204275
+
+linux64-chromedriver-85:
+    description: 'Linux64 chromedriver v85'
+    fetch:
+        type: static-url
+        artifact-name: chromedriver_linux64_85.tar.zst
+        add-prefix: '85'
+        url: https://chromedriver.storage.googleapis.com/85.0.4183.87/chromedriver_linux64.zip
+        sha256: 5eba5ca454bb7def6021610477079c132e8d8013b24bc3fd7d0741715dc87a29
+        size: 5359609
+
+mac64-chromedriver-85:
+    description: 'Mac64 chromedriver v85'
+    fetch:
+        type: static-url
+        artifact-name: chromedriver_mac64_85.tar.zst
+        add-prefix: '85'
+        url: https://chromedriver.storage.googleapis.com/85.0.4183.87/chromedriver_mac64.zip
+        sha256: 717ff47c926b6cfa5ebcb60d7cb57a42f338fa657083928d8e1d74ff9c4833dd
+        size: 7717718
+
+win32-chromedriver-86:
+    description: 'Win32 chromedriver v86'
+    fetch:
+        type: static-url
+        artifact-name: chromedriver_win32_86.tar.zst
+        add-prefix: '86'
+        url: https://chromedriver.storage.googleapis.com/86.0.4240.22/chromedriver_win32.zip
+        sha256: 89a40eca457cbfc098af4bbb4342e697c90284c841bc72d3363ce7007673826b
+        size: 5239100
+
+linux64-chromedriver-86:
+    description: 'Linux64 chromedriver v86'
+    fetch:
+        type: static-url
+        artifact-name: chromedriver_linux64_86.tar.zst
+        add-prefix: '86'
+        url: https://chromedriver.storage.googleapis.com/86.0.4240.22/chromedriver_linux64.zip
+        sha256: d498eaacc414adbaf638333b59390cdfea5d780f941f57f41fd90280df78b159
+        size: 5456932
+
+mac64-chromedriver-86:
+    description: 'Mac64 chromedriver v86'
+    fetch:
+        type: static-url
+        artifact-name: chromedriver_mac64_86.tar.zst
+        add-prefix: '86'
+        url: https://chromedriver.storage.googleapis.com/86.0.4240.22/chromedriver_mac64.zip
+        sha256: 351ae30e9feab7ca6ccb94a549afcd62d6355561b78b8386cd4271d480a2fdc6
+        size: 7796598

@@ -5,7 +5,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "nsMathMLmspaceFrame.h"
-#include "nsMathMLElement.h"
+#include "mozilla/dom/MathMLElement.h"
+#include "mozilla/PresShell.h"
 #include "mozilla/gfx/2D.h"
 #include <algorithm>
 
@@ -15,14 +16,15 @@ using namespace mozilla;
 // <mspace> -- space - implementation
 //
 
-nsIFrame* NS_NewMathMLmspaceFrame(nsIPresShell* aPresShell,
+nsIFrame* NS_NewMathMLmspaceFrame(PresShell* aPresShell,
                                   ComputedStyle* aStyle) {
-  return new (aPresShell) nsMathMLmspaceFrame(aStyle);
+  return new (aPresShell)
+      nsMathMLmspaceFrame(aStyle, aPresShell->GetPresContext());
 }
 
 NS_IMPL_FRAMEARENA_HELPERS(nsMathMLmspaceFrame)
 
-nsMathMLmspaceFrame::~nsMathMLmspaceFrame() {}
+nsMathMLmspaceFrame::~nsMathMLmspaceFrame() = default;
 
 void nsMathMLmspaceFrame::ProcessAttributes(nsPresContext* aPresContext) {
   nsAutoString value;
@@ -43,7 +45,7 @@ void nsMathMLmspaceFrame::ProcessAttributes(nsPresContext* aPresContext) {
   mWidth = 0;
   mContent->AsElement()->GetAttr(kNameSpaceID_None, nsGkAtoms::width, value);
   if (!value.IsEmpty()) {
-    ParseNumericValue(value, &mWidth, nsMathMLElement::PARSE_ALLOW_NEGATIVE,
+    ParseNumericValue(value, &mWidth, dom::MathMLElement::PARSE_ALLOW_NEGATIVE,
                       aPresContext, mComputedStyle, fontSizeInflation);
   }
 
@@ -92,27 +94,30 @@ void nsMathMLmspaceFrame::Reflow(nsPresContext* aPresContext,
   mPresentationData.flags &= ~NS_MATHML_ERROR;
   ProcessAttributes(aPresContext);
 
+  auto borderPadding = aReflowInput.ComputedPhysicalBorderPadding();
   mBoundingMetrics = nsBoundingMetrics();
-  mBoundingMetrics.width = mWidth;
-  mBoundingMetrics.ascent = mHeight;
-  mBoundingMetrics.descent = mDepth;
+  mBoundingMetrics.width = mWidth + borderPadding.LeftRight();
+  mBoundingMetrics.ascent = mHeight + borderPadding.Side(eSideTop);
+  mBoundingMetrics.descent = mDepth + borderPadding.Side(eSideBottom);
   mBoundingMetrics.leftBearing = 0;
   mBoundingMetrics.rightBearing = mBoundingMetrics.width;
 
-  aDesiredSize.SetBlockStartAscent(mHeight);
+  aDesiredSize.SetBlockStartAscent(mBoundingMetrics.ascent);
   aDesiredSize.Width() = std::max(0, mBoundingMetrics.width);
-  aDesiredSize.Height() = aDesiredSize.BlockStartAscent() + mDepth;
+  aDesiredSize.Height() = mBoundingMetrics.ascent + mBoundingMetrics.descent;
   // Also return our bounding metrics
   aDesiredSize.mBoundingMetrics = mBoundingMetrics;
 
   NS_FRAME_SET_TRUNCATION(aStatus, aReflowInput, aDesiredSize);
 }
 
-/* virtual */ nsresult nsMathMLmspaceFrame::MeasureForWidth(
-    DrawTarget* aDrawTarget, ReflowOutput& aDesiredSize) {
+/* virtual */
+nsresult nsMathMLmspaceFrame::MeasureForWidth(DrawTarget* aDrawTarget,
+                                              ReflowOutput& aDesiredSize) {
   ProcessAttributes(PresContext());
   mBoundingMetrics = nsBoundingMetrics();
-  mBoundingMetrics.width = mWidth;
+  auto offsets = IntrinsicISizeOffsets();
+  mBoundingMetrics.width = mWidth + offsets.padding + offsets.border;
   aDesiredSize.Width() = std::max(0, mBoundingMetrics.width);
   aDesiredSize.mBoundingMetrics = mBoundingMetrics;
   return NS_OK;

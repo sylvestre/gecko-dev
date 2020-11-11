@@ -4,13 +4,13 @@
 
 //! https://html.spec.whatwg.org/multipage/#source-size-list
 
-use app_units::Au;
 #[cfg(feature = "gecko")]
 use crate::gecko_bindings::sugar::ownership::{HasBoxFFI, HasFFI, HasSimpleFFI};
 use crate::media_queries::{Device, MediaCondition};
 use crate::parser::{Parse, ParserContext};
 use crate::values::computed::{self, ToComputedValue};
 use crate::values::specified::{Length, NoCalcLength, ViewportPercentageLength};
+use app_units::Au;
 use cssparser::{Delimiter, Parser, Token};
 use selectors::context::QuirksMode;
 use style_traits::ParseError;
@@ -54,11 +54,6 @@ impl SourceSizeList {
         }
     }
 
-    /// Set content of `value`, which can be used as fall-back during evaluate.
-    pub fn set_fallback_value(&mut self, width: Option<Length>) {
-        self.value = width;
-    }
-
     /// Evaluate this <source-size-list> to get the final viewport length.
     pub fn evaluate(&self, device: &Device, quirks_mode: QuirksMode) -> Au {
         let matching_source_size = self
@@ -92,7 +87,7 @@ impl Parse for SourceSizeOrLength {
         context: &ParserContext,
         input: &mut Parser<'i, 't>,
     ) -> Result<Self, ParseError<'i>> {
-        if let Ok(size) = input.try(|input| SourceSize::parse(context, input)) {
+        if let Ok(size) = input.try_parse(|input| SourceSize::parse(context, input)) {
             return Ok(SourceSizeOrLength::SourceSize(size));
         }
 
@@ -118,7 +113,7 @@ impl SourceSizeList {
                     return Self {
                         source_sizes,
                         value: Some(value),
-                    }
+                    };
                 },
                 Ok(SourceSizeOrLength::SourceSize(source_size)) => {
                     source_sizes.push(source_size);

@@ -1,27 +1,12 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
-from __future__ import print_function, division, absolute_import
+#!/usr/bin/env python3
 
 import sys
 import array
 from gi.repository import HarfBuzz as hb
 from gi.repository import GLib
 
-# Python 2/3 compatibility
-try:
-	unicode
-except NameError:
-	unicode = str
-
-def tounicode(s, encoding='utf-8'):
-	if not isinstance(s, unicode):
-		return s.decode(encoding)
-	else:
-		return s
-
 fontdata = open (sys.argv[1], 'rb').read ()
-text = tounicode(sys.argv[2])
+text = sys.argv[2]
 # Need to create GLib.Bytes explicitly until this bug is fixed:
 # https://bugzilla.gnome.org/show_bug.cgi?id=729541
 blob = hb.glib_blob_create (GLib.Bytes.new (fontdata))
@@ -54,11 +39,11 @@ if False:
 	# buffer:
 	hb.buffer_add_utf8 (buf, text.encode('utf-8'), 0, -1)
 	# Otherwise, then following handles both narrow and wide
-	# Python builds:
+	# Python builds (the first item in the array is BOM, so we skip it):
 elif sys.maxunicode == 0x10FFFF:
-	hb.buffer_add_utf32 (buf, array.array('I', text.encode('utf-32')), 0, -1)
+	hb.buffer_add_utf32 (buf, array.array('I', text.encode('utf-32'))[1:], 0, -1)
 else:
-	hb.buffer_add_utf16 (buf, array.array('H', text.encode('utf-16')), 0, -1)
+	hb.buffer_add_utf16 (buf, array.array('H', text.encode('utf-16'))[1:], 0, -1)
 
 
 hb.buffer_guess_segment_properties (buf)

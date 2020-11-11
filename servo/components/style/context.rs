@@ -4,13 +4,10 @@
 
 //! The context within which style is calculated.
 
-use app_units::Au;
 #[cfg(feature = "servo")]
-use crate::animation::Animation;
+use crate::animation::DocumentAnimationSet;
 use crate::bloom::StyleBloom;
 use crate::data::{EagerPseudoStyles, ElementData};
-#[cfg(feature = "servo")]
-use crate::dom::OpaqueNode;
 use crate::dom::{SendElement, TElement};
 use crate::font_metrics::FontMetricsProvider;
 #[cfg(feature = "gecko")]
@@ -26,25 +23,20 @@ use crate::shared_lock::StylesheetGuards;
 use crate::sharing::StyleSharingCache;
 use crate::stylist::Stylist;
 use crate::thread_state::{self, ThreadState};
-use crate::timer::Timer;
 use crate::traversal::DomTraversal;
 use crate::traversal_flags::TraversalFlags;
-#[cfg(feature = "servo")]
-use crossbeam_channel::Sender;
-use euclid::Size2D;
-use euclid::TypedScale;
+use app_units::Au;
+use euclid::default::Size2D;
+use euclid::Scale;
 use fxhash::FxHashMap;
-#[cfg(feature = "servo")]
-use parking_lot::RwLock;
 use selectors::matching::ElementSelectorFlags;
 use selectors::NthIndexCache;
+#[cfg(feature = "gecko")]
 use servo_arc::Arc;
 #[cfg(feature = "servo")]
 use servo_atoms::Atom;
 use std::fmt;
 use std::ops;
-#[cfg(feature = "servo")]
-use std::sync::Mutex;
 use style_traits::CSSPixel;
 use style_traits::DevicePixel;
 #[cfg(feature = "servo")]
@@ -53,22 +45,6 @@ use time;
 use uluru::{Entry, LRUCache};
 
 pub use selectors::matching::QuirksMode;
-
-/// This structure is used to create a local style context from a shared one.
-#[cfg(feature = "servo")]
-pub struct ThreadLocalStyleContextCreationInfo {
-    new_animations_sender: Sender<Animation>,
-}
-
-#[cfg(feature = "servo")]
-impl ThreadLocalStyleContextCreationInfo {
-    /// Trivially constructs a `ThreadLocalStyleContextCreationInfo`.
-    pub fn new(animations_sender: Sender<Animation>) -> Self {
-        ThreadLocalStyleContextCreationInfo {
-            new_animations_sender: animations_sender,
-        }
-    }
-}
 
 /// A global options structure for the style system. We use this instead of
 /// opts to abstract across Gecko and Servo.
@@ -103,14 +79,29 @@ fn get_env_usize(name: &str) -> Option<usize> {
     })
 }
 
+/// A global variable holding the state of
+/// `StyleSystemOptions::default().disable_style_sharing_cache`.
+/// See [#22854](https://github.com/servo/servo/issues/22854).
+#[cfg(feature = "servo")]
+pub static DEFAULT_DISABLE_STYLE_SHARING_CACHE: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
+/// A global variable holding the state of
+/// `StyleSystemOptions::default().dump_style_statistics`.
+/// See [#22854](https://github.com/servo/servo/issues/22854).
+#[cfg(feature = "servo")]
+pub static DEFAULT_DUMP_STYLE_STATISTICS: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
 impl Default for StyleSystemOptions {
     #[cfg(feature = "servo")]
     fn default() -> Self {
-        use servo_config::opts;
+        use std::sync::atomic::Ordering;
 
         StyleSystemOptions {
-            disable_style_sharing_cache: opts::get().disable_share_style_cache,
-            dump_style_statistics: opts::get().style_sharing_stats,
+            disable_style_sharing_cache: DEFAULT_DISABLE_STYLE_SHARING_CACHE
+                .load(Ordering::Relaxed),
+            dump_style_statistics: DEFAULT_DUMP_STYLE_STATISTICS.load(Ordering::Relaxed),
             style_statistics_threshold: DEFAULT_STATISTICS_THRESHOLD,
         }
     }
@@ -161,9 +152,9 @@ pub struct SharedStyleContext<'a> {
     /// Guards for pre-acquired locks
     pub guards: StylesheetGuards<'a>,
 
-    /// The current timer for transitions and animations. This is needed to test
-    /// them.
-    pub timer: Timer,
+    /// The current time for transitions and animations. This is needed to ensure
+    /// a consistent sampling time and also to adjust the time for testing.
+    pub current_time_for_animations: f64,
 
     /// Flags controlling how we traverse the tree.
     pub traversal_flags: TraversalFlags,
@@ -171,21 +162,13 @@ pub struct SharedStyleContext<'a> {
     /// A map with our snapshots in order to handle restyle hints.
     pub snapshot_map: &'a SnapshotMap,
 
-    /// The animations that are currently running.
+    /// The state of all animations for our styled elements.
     #[cfg(feature = "servo")]
-    pub running_animations: Arc<RwLock<FxHashMap<OpaqueNode, Vec<Animation>>>>,
-
-    /// The list of animations that have expired since the last style recalculation.
-    #[cfg(feature = "servo")]
-    pub expired_animations: Arc<RwLock<FxHashMap<OpaqueNode, Vec<Animation>>>>,
+    pub animations: DocumentAnimationSet,
 
     /// Paint worklets
     #[cfg(feature = "servo")]
-    pub registered_speculative_painters: &'a RegisteredSpeculativePainters,
-
-    /// Data needed to create the thread-local style context from the shared one.
-    #[cfg(feature = "servo")]
-    pub local_context_creation_data: Mutex<ThreadLocalStyleContextCreationInfo>,
+    pub registered_speculative_painters: &'a dyn RegisteredSpeculativePainters,
 }
 
 impl<'a> SharedStyleContext<'a> {
@@ -195,7 +178,7 @@ impl<'a> SharedStyleContext<'a> {
     }
 
     /// The device pixel ratio
-    pub fn device_pixel_ratio(&self) -> TypedScale<f32, CSSPixel, DevicePixel> {
+    pub fn device_pixel_ratio(&self) -> Scale<f32, CSSPixel, DevicePixel> {
         self.stylist.device().device_pixel_ratio()
     }
 
@@ -304,7 +287,7 @@ impl ElementCascadeInputs {
 /// Statistics gathered during the traversal. We gather statistics on each
 /// thread and then combine them after the threads join via the Add
 /// implementation below.
-#[derive(Default)]
+#[derive(AddAssign, Clone, Default)]
 pub struct PerThreadTraversalStatistics {
     /// The total number of elements traversed.
     pub elements_traversed: u32,
@@ -317,20 +300,6 @@ pub struct PerThreadTraversalStatistics {
     /// The number of styles reused via rule node comparison from the
     /// StyleSharingCache.
     pub styles_reused: u32,
-}
-
-/// Implementation of Add to aggregate statistics across different threads.
-impl<'a> ops::Add for &'a PerThreadTraversalStatistics {
-    type Output = PerThreadTraversalStatistics;
-    fn add(self, other: Self) -> PerThreadTraversalStatistics {
-        PerThreadTraversalStatistics {
-            elements_traversed: self.elements_traversed + other.elements_traversed,
-            elements_styled: self.elements_styled + other.elements_styled,
-            elements_matched: self.elements_matched + other.elements_matched,
-            styles_shared: self.styles_shared + other.styles_shared,
-            styles_reused: self.styles_reused + other.styles_reused,
-        }
-    }
 }
 
 /// Statistics gathered during the traversal plus some information from
@@ -736,10 +705,6 @@ pub struct ThreadLocalStyleContext<E: TElement> {
     pub rule_cache: RuleCache,
     /// The bloom filter used to fast-reject selector-matching.
     pub bloom_filter: StyleBloom<E>,
-    /// A channel on which new animations that have been triggered by style
-    /// recalculation can be sent.
-    #[cfg(feature = "servo")]
-    pub new_animations_sender: Sender<Animation>,
     /// A set of tasks to be run (on the parent thread) in sequential mode after
     /// the rest of the styling is complete. This is useful for
     /// infrequently-needed non-threadsafe operations.
@@ -773,12 +738,6 @@ impl<E: TElement> ThreadLocalStyleContext<E> {
             sharing_cache: StyleSharingCache::new(),
             rule_cache: RuleCache::new(),
             bloom_filter: StyleBloom::new(),
-            new_animations_sender: shared
-                .local_context_creation_data
-                .lock()
-                .unwrap()
-                .new_animations_sender
-                .clone(),
             tasks: SequentialTaskList(Vec::new()),
             selector_flags: SelectorFlagsMap::new(),
             statistics: PerThreadTraversalStatistics::default(),
@@ -840,5 +799,5 @@ pub trait RegisteredSpeculativePainter: SpeculativePainter {
 #[cfg(feature = "servo")]
 pub trait RegisteredSpeculativePainters: Sync {
     /// Look up a speculative painter
-    fn get(&self, name: &Atom) -> Option<&RegisteredSpeculativePainter>;
+    fn get(&self, name: &Atom) -> Option<&dyn RegisteredSpeculativePainter>;
 }

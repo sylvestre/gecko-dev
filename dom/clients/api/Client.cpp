@@ -18,8 +18,7 @@
 #include "mozilla/dom/WorkerScope.h"
 #include "nsIGlobalObject.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 using mozilla::dom::ipc::StructuredCloneData;
 
@@ -55,7 +54,7 @@ TimeStamp Client::LastFocusTime() const {
   return mData->state().get_IPCClientWindowState().lastFocusTime();
 }
 
-nsContentUtils::StorageAccess Client::GetStorageAccess() const {
+StorageAccess Client::GetStorageAccess() const {
   ClientState state(ClientState::FromIPC(mData->state()));
   return state.GetStorageAccess();
 }
@@ -104,7 +103,7 @@ void Client::PostMessage(JSContext* aCx, JS::Handle<JS::Value> aMessage,
   }
 
   StructuredCloneData data;
-  data.Write(aCx, aMessage, transferable, aRv);
+  data.Write(aCx, aMessage, transferable, JS::CloneDataPolicy(), aRv);
   if (aRv.Failed()) {
     return;
   }
@@ -126,7 +125,8 @@ bool Client::Focused() const {
   return mData->state().get_IPCClientWindowState().focused();
 }
 
-already_AddRefed<Promise> Client::Focus(ErrorResult& aRv) {
+already_AddRefed<Promise> Client::Focus(CallerType aCallerType,
+                                        ErrorResult& aRv) {
   MOZ_ASSERT(!NS_IsMainThread());
   WorkerPrivate* workerPrivate = GetCurrentThreadWorkerPrivate();
   MOZ_DIAGNOSTIC_ASSERT(workerPrivate);
@@ -149,20 +149,22 @@ already_AddRefed<Promise> Client::Focus(ErrorResult& aRv) {
   auto holder =
       MakeRefPtr<DOMMozPromiseRequestHolder<ClientStatePromise>>(mGlobal);
 
-  mHandle->Focus()
-      ->Then(mGlobal->EventTargetFor(TaskCategory::Other), __func__,
-             [ipcClientInfo, holder, outerPromise](const ClientState& aResult) {
-               holder->Complete();
-               NS_ENSURE_TRUE_VOID(holder->GetParentObject());
-               RefPtr<Client> newClient = new Client(
-                   holder->GetParentObject(),
-                   ClientInfoAndState(ipcClientInfo, aResult.ToIPC()));
-               outerPromise->MaybeResolve(newClient);
-             },
-             [holder, outerPromise](nsresult aResult) {
-               holder->Complete();
-               outerPromise->MaybeReject(aResult);
-             })
+  mHandle->Focus(aCallerType)
+      ->Then(
+          mGlobal->EventTargetFor(TaskCategory::Other), __func__,
+          [ipcClientInfo, holder, outerPromise](const ClientState& aResult) {
+            holder->Complete();
+            NS_ENSURE_TRUE_VOID(holder->GetParentObject());
+            RefPtr<Client> newClient =
+                new Client(holder->GetParentObject(),
+                           ClientInfoAndState(ipcClientInfo, aResult.ToIPC()));
+            outerPromise->MaybeResolve(newClient);
+          },
+          [holder, outerPromise](const CopyableErrorResult& aResult) {
+            holder->Complete();
+            // MaybeReject needs a non-const-ref result, so make a copy.
+            outerPromise->MaybeReject(CopyableErrorResult(aResult));
+          })
       ->Track(*holder);
 
   return outerPromise.forget();
@@ -182,7 +184,8 @@ already_AddRefed<Promise> Client::Navigate(const nsAString& aURL,
   }
 
   ClientNavigateArgs args(mData->info(), NS_ConvertUTF16toUTF8(aURL),
-                          workerPrivate->GetLocationInfo().mHref);
+                          workerPrivate->GetLocationInfo().mHref,
+                          workerPrivate->GetServiceWorkerDescriptor().ToIPC());
   RefPtr<Client> self = this;
 
   StartClientManagerOp(
@@ -196,14 +199,12 @@ already_AddRefed<Promise> Client::Navigate(const nsAString& aURL,
             new Client(self->mGlobal, aResult.get_ClientInfoAndState());
         outerPromise->MaybeResolve(newClient);
       },
-      [self, outerPromise](nsresult aResult) {
-        // TODO: Improve this error in bug 1412856.  Ideally we should throw
-        //       the TypeError in the child process and pass it back to here.
-        outerPromise->MaybeReject(NS_ERROR_TYPE_ERR);
+      [self, outerPromise](const CopyableErrorResult& aResult) {
+        // MaybeReject needs a non-const-ref result, so make a copy.
+        outerPromise->MaybeReject(CopyableErrorResult(aResult));
       });
 
   return outerPromise.forget();
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

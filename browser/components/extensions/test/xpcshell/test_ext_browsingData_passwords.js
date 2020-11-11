@@ -2,30 +2,35 @@
 /* vim: set sts=2 sw=2 et tw=80: */
 "use strict";
 
-XPCOMUtils.defineLazyServiceGetter(this, "loginManager",
-                                   "@mozilla.org/login-manager;1",
-                                   "nsILoginManager");
+XPCOMUtils.defineLazyServiceGetter(
+  this,
+  "loginManager",
+  "@mozilla.org/login-manager;1",
+  "nsILoginManager"
+);
 
 const REFERENCE_DATE = Date.now();
 const LOGIN_USERNAME = "username";
 const LOGIN_PASSWORD = "password";
-const LOGIN_USERNAME_FIELD = "username_field";
-const LOGIN_PASSWORD_FIELD = "password_field";
 const OLD_HOST = "http://mozilla.org";
 const NEW_HOST = "http://mozilla.com";
+const FXA_HOST = "chrome://FirefoxAccounts";
 
 function checkLoginExists(host, shouldExist) {
-  let count = {value: 0};
-  loginManager.findLogins(count, host, "", null);
-  equal(count.value, shouldExist ? 1 : 0, `Login was ${shouldExist ? "" : "not "} found.`);
+  let logins = loginManager.findLogins(host, "", null);
+  equal(
+    logins.length,
+    shouldExist ? 1 : 0,
+    `Login was ${shouldExist ? "" : "not "} found.`
+  );
 }
 
 function addLogin(host, timestamp) {
   checkLoginExists(host, false);
-  let login = Cc["@mozilla.org/login-manager/loginInfo;1"]
-              .createInstance(Ci.nsILoginInfo);
-  login.init(host, "", null, LOGIN_USERNAME, LOGIN_PASSWORD,
-             LOGIN_USERNAME_FIELD, LOGIN_PASSWORD_FIELD);
+  let login = Cc["@mozilla.org/login-manager/loginInfo;1"].createInstance(
+    Ci.nsILoginInfo
+  );
+  login.init(host, "", null, LOGIN_USERNAME, LOGIN_PASSWORD);
   login.QueryInterface(Ci.nsILoginMetaInfo);
   login.timePasswordChanged = timestamp;
   loginManager.addLogin(login);
@@ -34,6 +39,7 @@ function addLogin(host, timestamp) {
 
 async function setupPasswords() {
   loginManager.removeAllLogins();
+  addLogin(FXA_HOST, REFERENCE_DATE);
   addLogin(NEW_HOST, REFERENCE_DATE);
   addLogin(OLD_HOST, REFERENCE_DATE - 10000);
 }
@@ -44,7 +50,7 @@ add_task(async function testPasswords() {
       if (msg == "removeHistory") {
         await browser.browsingData.removePasswords(options);
       } else {
-        await browser.browsingData.remove(options, {passwords: true});
+        await browser.browsingData.remove(options, { passwords: true });
       }
       browser.test.sendMessage("passwordsRemoved");
     });
@@ -65,22 +71,25 @@ add_task(async function testPasswords() {
 
     checkLoginExists(OLD_HOST, false);
     checkLoginExists(NEW_HOST, false);
+    checkLoginExists(FXA_HOST, true);
 
     // Clear passwords with recent since value.
     await setupPasswords();
-    extension.sendMessage(method, {since: REFERENCE_DATE - 1000});
+    extension.sendMessage(method, { since: REFERENCE_DATE - 1000 });
     await extension.awaitMessage("passwordsRemoved");
 
     checkLoginExists(OLD_HOST, true);
     checkLoginExists(NEW_HOST, false);
+    checkLoginExists(FXA_HOST, true);
 
     // Clear passwords with old since value.
     await setupPasswords();
-    extension.sendMessage(method, {since: REFERENCE_DATE - 20000});
+    extension.sendMessage(method, { since: REFERENCE_DATE - 20000 });
     await extension.awaitMessage("passwordsRemoved");
 
     checkLoginExists(OLD_HOST, false);
     checkLoginExists(NEW_HOST, false);
+    checkLoginExists(FXA_HOST, true);
   }
 
   await extension.startup();

@@ -14,16 +14,12 @@ add_task(async function get_nonexistent() {
 
 add_task(async function isomorphicDomains() {
   await set("a.com", "foo", 1);
-  await dbOK([
-    ["a.com", "foo", 1],
-  ]);
+  await dbOK([["a.com", "foo", 1]]);
   await getOK(["a.com", "foo"], 1);
   await getOK(["http://a.com/huh", "foo"], 1, "a.com");
 
   await set("http://a.com/huh", "foo", 2);
-  await dbOK([
-    ["a.com", "foo", 2],
-  ]);
+  await dbOK([["a.com", "foo", 2]]);
   await getOK(["a.com", "foo"], 2);
   await getOK(["http://a.com/yeah", "foo"], 2, "a.com");
   await reset();
@@ -31,9 +27,7 @@ add_task(async function isomorphicDomains() {
 
 add_task(async function names() {
   await set("a.com", "foo", 1);
-  await dbOK([
-    ["a.com", "foo", 1],
-  ]);
+  await dbOK([["a.com", "foo", 1]]);
   await getOK(["a.com", "foo"], 1);
 
   await set("a.com", "bar", 2);
@@ -157,17 +151,19 @@ add_task(async function set_invalidateCache() {
 
   // (5) Call getByDomainAndName.
   let fetchedPref;
-  let getPromise = new Promise(resolve => cps.getByDomainAndName("a.com", "foo", null, {
-    handleResult(pref) {
-      fetchedPref = pref;
-    },
-    handleCompletion() {
-      // (7) Finally, this callback should be called after set's above.
-      Assert.ok(!!fetchedPref);
-      Assert.equal(fetchedPref.value, 2);
-      resolve();
-    },
-  }));
+  let getPromise = new Promise(resolve =>
+    cps.getByDomainAndName("a.com", "foo", null, {
+      handleResult(pref) {
+        fetchedPref = pref;
+      },
+      handleCompletion() {
+        // (7) Finally, this callback should be called after set's above.
+        Assert.ok(!!fetchedPref);
+        Assert.equal(fetchedPref.value, 2);
+        resolve();
+      },
+    })
+  );
 
   await getPromise;
   await reset();
@@ -179,20 +175,28 @@ add_task(async function get_nameOnly() {
   await set("b.com", "foo", 3);
   await setGlobal("foo", 4);
 
-  await getOKEx("getByName", ["foo", undefined], [
-    {"domain": "a.com", "name": "foo", "value": 1},
-    {"domain": "b.com", "name": "foo", "value": 3},
-    {"domain": null, "name": "foo", "value": 4},
-  ]);
+  await getOKEx(
+    "getByName",
+    ["foo", undefined],
+    [
+      { domain: "a.com", name: "foo", value: 1 },
+      { domain: "b.com", name: "foo", value: 3 },
+      { domain: null, name: "foo", value: 4 },
+    ]
+  );
 
   let context = privateLoadContext;
   await set("b.com", "foo", 5, context);
 
-  await getOKEx("getByName", ["foo", context], [
-    {"domain": "a.com", "name": "foo", "value": 1},
-    {"domain": null, "name": "foo", "value": 4},
-    {"domain": "b.com", "name": "foo", "value": 5},
-  ]);
+  await getOKEx(
+    "getByName",
+    ["foo", context],
+    [
+      { domain: "a.com", name: "foo", value: 1 },
+      { domain: null, name: "foo", value: 4 },
+      { domain: "b.com", name: "foo", value: 5 },
+    ]
+  );
   await reset();
 });
 
@@ -205,7 +209,13 @@ add_task(async function setSetsCurrentDate() {
   let end = now + MINUTE;
   await set("a.com", "foo", 1);
   let timestamp = await getDate("a.com", "foo");
-  ok(start <= timestamp, "Timestamp is not too early (" + start + "<=" + timestamp + ").");
-  ok(timestamp <= end, "Timestamp is not too late (" + timestamp + "<=" + end + ").");
+  ok(
+    start <= timestamp,
+    "Timestamp is not too early (" + start + "<=" + timestamp + ")."
+  );
+  ok(
+    timestamp <= end,
+    "Timestamp is not too late (" + timestamp + "<=" + end + ")."
+  );
   await reset();
 });

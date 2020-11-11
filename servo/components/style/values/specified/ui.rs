@@ -9,20 +9,15 @@ use crate::values::generics::ui as generics;
 use crate::values::specified::color::Color;
 use crate::values::specified::url::SpecifiedImageUrl;
 use crate::values::specified::Number;
-use crate::values::{Auto, Either};
 use cssparser::Parser;
 use std::fmt::{self, Write};
-use style_traits::cursor::CursorKind;
 use style_traits::{CssWriter, ParseError, StyleParseErrorKind, ToCss};
 
-/// auto | <color>
-pub type ColorOrAuto = Either<Color, Auto>;
-
 /// A specified value for the `cursor` property.
-pub type Cursor = generics::Cursor<CursorImage>;
+pub type Cursor = generics::GenericCursor<CursorImage>;
 
 /// A specified value for item of `image cursors`.
-pub type CursorImage = generics::CursorImage<SpecifiedImageUrl, Number>;
+pub type CursorImage = generics::GenericCursorImage<SpecifiedImageUrl, Number>;
 
 impl Parse for Cursor {
     /// cursor: [<url> [<number> <number>]?]# [auto | default | ...]
@@ -32,28 +27,16 @@ impl Parse for Cursor {
     ) -> Result<Self, ParseError<'i>> {
         let mut images = vec![];
         loop {
-            match input.try(|input| CursorImage::parse(context, input)) {
+            match input.try_parse(|input| CursorImage::parse(context, input)) {
                 Ok(image) => images.push(image),
                 Err(_) => break,
             }
             input.expect_comma()?;
         }
         Ok(Self {
-            images: images.into_boxed_slice(),
-            keyword: CursorKind::parse(context, input)?,
+            images: images.into(),
+            keyword: CursorKind::parse(input)?,
         })
-    }
-}
-
-impl Parse for CursorKind {
-    fn parse<'i, 't>(
-        _context: &ParserContext,
-        input: &mut Parser<'i, 't>,
-    ) -> Result<Self, ParseError<'i>> {
-        let location = input.current_source_location();
-        let ident = input.expect_ident()?;
-        CursorKind::from_css_keyword(&ident)
-            .map_err(|_| location.new_custom_error(StyleParseErrorKind::UnspecifiedError))
     }
 }
 
@@ -62,18 +45,40 @@ impl Parse for CursorImage {
         context: &ParserContext,
         input: &mut Parser<'i, 't>,
     ) -> Result<Self, ParseError<'i>> {
+        use crate::Zero;
+
+        let url = SpecifiedImageUrl::parse(context, input)?;
+        let mut has_hotspot = false;
+        let mut hotspot_x = Number::zero();
+        let mut hotspot_y = Number::zero();
+
+        if let Ok(x) = input.try_parse(|input| Number::parse(context, input)) {
+            has_hotspot = true;
+            hotspot_x = x;
+            hotspot_y = Number::parse(context, input)?;
+        }
+
         Ok(Self {
-            url: SpecifiedImageUrl::parse(context, input)?,
-            hotspot: match input.try(|input| Number::parse(context, input)) {
-                Ok(number) => Some((number, Number::parse(context, input)?)),
-                Err(_) => None,
-            },
+            url,
+            has_hotspot,
+            hotspot_x,
+            hotspot_y,
         })
     }
 }
 
 /// Specified value of `-moz-force-broken-image-icon`
-#[derive(Clone, Copy, Debug, MallocSizeOf, PartialEq, SpecifiedValueInfo, ToComputedValue)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    MallocSizeOf,
+    PartialEq,
+    SpecifiedValueInfo,
+    ToComputedValue,
+    ToResolvedValue,
+    ToShmem,
+)]
 pub struct MozForceBrokenImageIcon(pub bool);
 
 impl MozForceBrokenImageIcon {
@@ -131,7 +136,7 @@ impl Parse for ScrollbarColor {
         context: &ParserContext,
         input: &mut Parser<'i, 't>,
     ) -> Result<Self, ParseError<'i>> {
-        if input.try(|i| i.expect_ident_matching("auto")).is_ok() {
+        if input.try_parse(|i| i.expect_ident_matching("auto")).is_ok() {
             return Ok(generics::ScrollbarColor::Auto);
         }
         Ok(generics::ScrollbarColor::Colors {
@@ -156,6 +161,8 @@ impl Parse for ScrollbarColor {
     SpecifiedValueInfo,
     ToComputedValue,
     ToCss,
+    ToResolvedValue,
+    ToShmem,
 )]
 #[repr(u8)]
 pub enum UserSelect {
@@ -165,4 +172,67 @@ pub enum UserSelect {
     None,
     /// Force selection of all children.
     All,
+}
+
+/// The keywords allowed in the Cursor property.
+///
+/// https://drafts.csswg.org/css-ui-4/#propdef-cursor
+#[allow(missing_docs)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    FromPrimitive,
+    MallocSizeOf,
+    Parse,
+    PartialEq,
+    SpecifiedValueInfo,
+    ToComputedValue,
+    ToCss,
+    ToResolvedValue,
+    ToShmem,
+)]
+#[repr(u8)]
+pub enum CursorKind {
+    None,
+    Default,
+    Pointer,
+    ContextMenu,
+    Help,
+    Progress,
+    Wait,
+    Cell,
+    Crosshair,
+    Text,
+    VerticalText,
+    Alias,
+    Copy,
+    Move,
+    NoDrop,
+    NotAllowed,
+    #[parse(aliases = "-moz-grab")]
+    Grab,
+    #[parse(aliases = "-moz-grabbing")]
+    Grabbing,
+    EResize,
+    NResize,
+    NeResize,
+    NwResize,
+    SResize,
+    SeResize,
+    SwResize,
+    WResize,
+    EwResize,
+    NsResize,
+    NeswResize,
+    NwseResize,
+    ColResize,
+    RowResize,
+    AllScroll,
+    #[parse(aliases = "-moz-zoom-in")]
+    ZoomIn,
+    #[parse(aliases = "-moz-zoom-out")]
+    ZoomOut,
+    Auto,
 }

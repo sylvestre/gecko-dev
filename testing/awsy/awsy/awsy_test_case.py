@@ -1,22 +1,28 @@
+# -*- Mode: python; c-basic-offset: 4; indent-tabs-mode: nil; tab-width: 40 -*-
+# vim: set filetype=python:
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+from __future__ import absolute_import
 
 import fnmatch
 import glob
 import gzip
 import json
 import os
-import sys
-import time
 import shutil
+import sys
 import tempfile
+import time
 
-from marionette_harness import MarionetteTestCase
-from marionette_driver import Actions
-from marionette_driver.errors import JavascriptException, ScriptTimeoutException
 import mozlog.structured
+
+from marionette_driver import Wait
+from marionette_driver.legacy_actions import Actions
+from marionette_driver.errors import JavascriptException, ScriptTimeoutException
 from marionette_driver.keys import Keys
+from marionette_harness import MarionetteTestCase
 
 AWSY_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 if AWSY_PATH not in sys.path:
@@ -24,6 +30,7 @@ if AWSY_PATH not in sys.path:
 
 from awsy import ITERATIONS, PER_TAB_PAUSE, SETTLE_WAIT_TIME, MAX_TABS
 from awsy import process_perf_data
+
 
 class AwsyTestCase(MarionetteTestCase):
     """
@@ -38,6 +45,9 @@ class AwsyTestCase(MarionetteTestCase):
 
     def perf_checkpoints(self):
         raise NotImplementedError()
+
+    def perf_extra_opts(self):
+        return None
 
     def iterations(self):
         return self._iterations
@@ -55,13 +65,18 @@ class AwsyTestCase(MarionetteTestCase):
         MarionetteTestCase.setUp(self)
 
         self.logger = mozlog.structured.structuredlog.get_default_logger()
-        self.marionette.set_context('chrome')
+        self.marionette.set_context("chrome")
         self._resultsDir = self.testvars["resultsDir"]
 
+        self._binary = self.testvars["bin"]
+        self._run_local = self.testvars.get("run_local", False)
+
         # Cleanup our files from previous runs.
-        for patt in ('memory-report-*.json.gz',
-                     'perfherder_data.json',
-                     'dmd-*.json.gz'):
+        for patt in (
+            "memory-report-*.json.gz",
+            "perfherder_data.json",
+            "dmd-*.json.gz",
+        ):
             for f in glob.glob(os.path.join(self._resultsDir, patt)):
                 os.unlink(f)
 
@@ -73,8 +88,16 @@ class AwsyTestCase(MarionetteTestCase):
         self._maxTabs = self.testvars.get("maxTabs", MAX_TABS)
         self._dmd = self.testvars.get("dmd", False)
 
-        self.logger.info("areweslimyet run by %d pages, %d iterations, %d perTabPause, %d settleWaitTime"
-                         % (self._pages_to_load, self._iterations, self._perTabPause, self._settleWaitTime))
+        self.logger.info(
+            "areweslimyet run by %d pages, %d iterations,"
+            " %d perTabPause, %d settleWaitTime"
+            % (
+                self._pages_to_load,
+                self._iterations,
+                self._perTabPause,
+                self._settleWaitTime,
+            )
+        )
         self.reset_state()
 
     def tearDown(self):
@@ -83,15 +106,18 @@ class AwsyTestCase(MarionetteTestCase):
         try:
             self.logger.info("processing data in %s!" % self._resultsDir)
             perf_blob = process_perf_data.create_perf_data(
-                            self._resultsDir, self.perf_suites(),
-                            self.perf_checkpoints())
+                self._resultsDir,
+                self.perf_suites(),
+                self.perf_checkpoints(),
+                self.perf_extra_opts(),
+            )
             self.logger.info("PERFHERDER_DATA: %s" % json.dumps(perf_blob))
 
             perf_file = os.path.join(self._resultsDir, "perfherder_data.json")
-            with open(perf_file, 'w') as fp:
+            with open(perf_file, "w") as fp:
                 json.dump(perf_blob, fp, indent=2)
             self.logger.info("Perfherder data written to %s" % perf_file)
-        except:
+        except Exception:
             raise
         finally:
             # Make sure we cleanup and upload any existing files even if there
@@ -100,7 +126,7 @@ class AwsyTestCase(MarionetteTestCase):
                 self.cleanup_dmd()
 
             # copy it to moz upload dir if set
-            if 'MOZ_UPLOAD_DIR' in os.environ:
+            if "MOZ_UPLOAD_DIR" in os.environ:
                 for file in os.listdir(self._resultsDir):
                     file = os.path.join(self._resultsDir, file)
                     if os.path.isfile(file):
@@ -117,9 +143,12 @@ class AwsyTestCase(MarionetteTestCase):
         tmp_files = os.listdir(tmpdir)
         for f in fnmatch.filter(tmp_files, "dmd-*.json.gz"):
             f = os.path.join(tmpdir, f)
-            self.logger.info("Fixing stacks for %s, this may take a while" % f)
-            isZipped = True
-            fixStackTraces(f, isZipped, gzip.open)
+            # We don't fix stacks on Windows, even though we could, due to the
+            # tale of woe in bug 1626272.
+            if not sys.platform.startswith("win"):
+                self.logger.info("Fixing stacks for %s, this may take a while" % f)
+                isZipped = True
+                fixStackTraces(f, isZipped, gzip.open)
             shutil.move(f, self._resultsDir)
 
         # Also attempt to cleanup the unified memory reports.
@@ -141,37 +170,7 @@ class AwsyTestCase(MarionetteTestCase):
         self._tabs = self.marionette.window_handles
         self.marionette.switch_to_window(self._tabs[0])
 
-    def do_full_gc(self):
-        """Performs a full garbage collection cycle and returns when it is finished.
-
-        Returns True on success and False on failure.
-        """
-        # NB: we could do this w/ a signal or the fifo queue too
-        self.logger.info("starting gc...")
-        gc_script = """
-            let [resolve] = arguments;
-            Cu.import("resource://gre/modules/Services.jsm");
-            Services.obs.notifyObservers(null, "child-mmu-request", null);
-
-            let memMgrSvc = Cc["@mozilla.org/memory-reporter-manager;1"].getService(Ci.nsIMemoryReporterManager);
-            memMgrSvc.minimizeMemoryUsage(() => {resolve("gc done!");});
-            """
-        result = None
-        try:
-            result = self.marionette.execute_async_script(
-                gc_script, script_timeout=180000)
-        except JavascriptException, e:
-            self.logger.error("GC JavaScript error: %s" % e)
-        except ScriptTimeoutException:
-            self.logger.error("GC timed out")
-        except:
-            self.logger.error("Unexpected error: %s" % sys.exc_info()[0])
-        else:
-            self.logger.info(result)
-
-        return result is not None
-
-    def do_memory_report(self, checkpointName, iteration):
+    def do_memory_report(self, checkpointName, iteration, minimize=False):
         """Creates a memory report for all processes and and returns the
         checkpoint.
 
@@ -179,6 +178,8 @@ class AwsyTestCase(MarionetteTestCase):
         Returns the checkpoint or None on error.
 
         :param checkpointName: The name of the checkpoint.
+
+        :param minimize: If true, minimize memory before getting the report.
         """
         self.logger.info("starting checkpoint %s..." % checkpointName)
 
@@ -187,32 +188,37 @@ class AwsyTestCase(MarionetteTestCase):
         # On Windows, replace / with the Windows directory
         # separator \ and escape it to prevent it from being
         # interpreted as an escape character.
-        if sys.platform.startswith('win'):
-            checkpoint_path = (checkpoint_path.
-                               replace('\\', '\\\\').
-                               replace('/', '\\\\'))
+        if sys.platform.startswith("win"):
+            checkpoint_path = checkpoint_path.replace("\\", "\\\\").replace("/", "\\\\")
 
         checkpoint_script = r"""
             let [resolve] = arguments;
-            let dumper = Cc["@mozilla.org/memory-info-dumper;1"].getService(Ci.nsIMemoryInfoDumper);
+            let dumper =
+            Cc["@mozilla.org/memory-info-dumper;1"].getService(
+            Ci.nsIMemoryInfoDumper);
             dumper.dumpMemoryReportsToNamedFile(
                 "%s",
                 () => resolve("memory report done!"),
                 null,
-                /* anonymize */ false);
-            """ % checkpoint_path
+                /* anonymize */ false,
+                /* minimize memory usage */ %s);
+            """ % (
+            checkpoint_path,
+            "true" if minimize else "false",
+        )
 
         checkpoint = None
         try:
             finished = self.marionette.execute_async_script(
-                checkpoint_script, script_timeout=60000)
+                checkpoint_script, script_timeout=60000
+            )
             if finished:
-              checkpoint = checkpoint_path
-        except JavascriptException, e:
+                checkpoint = checkpoint_path
+        except JavascriptException as e:
             self.logger.error("Checkpoint JavaScript error: %s" % e)
         except ScriptTimeoutException:
             self.logger.error("Memory report timed out")
-        except:
+        except Exception:
             self.logger.error("Unexpected error: %s" % sys.exc_info()[0])
         else:
             self.logger.info("checkpoint created, stored in %s" % checkpoint_path)
@@ -246,20 +252,28 @@ class AwsyTestCase(MarionetteTestCase):
         #
         # and for the memory report:
         #   unified-memory-report-<checkpoint>-<iteration>.json.gz
-        dmd_script = r"""
-            let dumper = Cc["@mozilla.org/memory-info-dumper;1"].getService(Ci.nsIMemoryInfoDumper);
+        dmd_script = (
+            r"""
+            let dumper =
+            Cc["@mozilla.org/memory-info-dumper;1"].getService(
+            Ci.nsIMemoryInfoDumper);
             dumper.dumpMemoryInfoToTempDir(
                 "%s",
                 /* anonymize = */ false,
                 /* minimize = */ false);
-            """ % ident
+            """
+            % ident
+        )
 
         try:
             # This is async and there's no callback so we use the existence
             # of an incomplete memory report to check if it hasn't finished yet.
             self.marionette.execute_script(dmd_script, script_timeout=60000)
             tmpdir = tempfile.gettempdir()
-            prefix = "incomplete-unified-memory-report-%s-%d-*" % (checkpointName, iteration)
+            prefix = "incomplete-unified-memory-report-%s-%d-*" % (
+                checkpointName,
+                iteration,
+            )
             max_wait = 240
             elapsed = 0
             while fnmatch.filter(os.listdir(tmpdir), prefix) and elapsed < max_wait:
@@ -274,11 +288,11 @@ class AwsyTestCase(MarionetteTestCase):
                 for f in incomplete:
                     os.remove(os.path.join(tmpdir, f))
 
-        except JavascriptException, e:
+        except JavascriptException as e:
             self.logger.error("DMD JavaScript error: %s" % e)
         except ScriptTimeoutException:
             self.logger.error("DMD timed out")
-        except:
+        except Exception:
             self.logger.error("Unexpected error: %s" % sys.exc_info()[0])
         else:
             self.logger.info("DMD started, prefixed with %s" % ident)
@@ -291,20 +305,22 @@ class AwsyTestCase(MarionetteTestCase):
         """
         page_to_load = self.urls()[self._pages_loaded % len(self.urls())]
         tabs_loaded = len(self._tabs)
-        is_new_tab = False
+        open_tab_script = r"""
+            gBrowser.loadOneTab("about:blank", {
+                inBackground: false,
+                triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
+            });
+        """
 
         if tabs_loaded < self._maxTabs and tabs_loaded <= self._pages_loaded:
             full_tab_list = self.marionette.window_handles
 
-            # Trigger opening a new tab by finding the new tab button and
-            # clicking it
-            newtab_button = (self.marionette.find_element('id', 'tabbrowser-tabs')
-                                            .find_element('anon attribute',
-                                                          {'anonid': 'tabs-newtab-button'}))
-            newtab_button.click()
+            self.marionette.execute_script(open_tab_script, script_timeout=60000)
 
-            self.wait_for_condition(lambda mn: len(
-                mn.window_handles) == tabs_loaded + 1)
+            Wait(self.marionette).until(
+                lambda mn: len(mn.window_handles) == tabs_loaded + 1,
+                message="No new tab has been opened",
+            )
 
             # NB: The tab list isn't sorted, so we do a set diff to determine
             #     which is the new tab
@@ -313,8 +329,6 @@ class AwsyTestCase(MarionetteTestCase):
 
             self._tabs.append(new_tabs[0])
             tabs_loaded += 1
-
-            is_new_tab = True
 
         tab_idx = self._pages_loaded % self._maxTabs
 
@@ -328,21 +342,21 @@ class AwsyTestCase(MarionetteTestCase):
             self.marionette.switch_to_window(tab)
             self.logger.info("switched to tab")
 
-        with self.marionette.using_context('content'):
+        with self.marionette.using_context("content"):
             self.logger.info("loading %s" % page_to_load)
             self.marionette.navigate(page_to_load)
             self.logger.info("loaded!")
 
-        # On e10s the tab handle can change after actually loading content
-        if is_new_tab:
-            # First build a set up w/o the current tab
-            old_tabs = set(self._tabs)
-            old_tabs.remove(tab)
-            # Perform a set diff to get the (possibly) new handle
-            [new_tab] = set(self.marionette.window_handles) - old_tabs
-            # Update the tab list at the current index to preserve the tab
-            # ordering
-            self._tabs[tab_idx] = new_tab
+        # The tab handle can change after actually loading content
+        # First build a set up w/o the current tab
+        old_tabs = set(self._tabs)
+        old_tabs.remove(tab)
+        # Perform a set diff to get the (possibly) new handle
+        new_tabs = set(self.marionette.window_handles) - old_tabs
+        # Update the tab list at the current index to preserve the tab
+        # ordering
+        if new_tabs:
+            self._tabs[tab_idx] = list(new_tabs)[0]
 
         # give the page time to settle
         time.sleep(self._perTabPause)

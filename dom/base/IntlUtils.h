@@ -16,7 +16,7 @@ namespace mozilla {
 namespace dom {
 
 #ifdef XP_WIN
-#undef GetLocaleInfo
+#  undef GetLocaleInfo
 #endif
 
 class IntlUtils final : public nsISupports, public nsWrapperCache {
@@ -39,6 +39,8 @@ class IntlUtils final : public nsISupports, public nsWrapperCache {
   void GetLocaleInfo(const Sequence<nsString>& aLocales,
                      mozilla::dom::LocaleInfo& aResult,
                      mozilla::ErrorResult& aError);
+
+  bool IsAppLocaleRTL();
 
  private:
   ~IntlUtils();

@@ -8,6 +8,7 @@
 #define mozilla_dom_ServiceWorkerScriptCache_h
 
 #include "nsIRequest.h"
+#include "nsISupportsImpl.h"
 #include "nsString.h"
 
 class nsILoadGroup;
@@ -45,8 +46,7 @@ class CompareCallback {
 
 nsresult Compare(ServiceWorkerRegistrationInfo* aRegistration,
                  nsIPrincipal* aPrincipal, const nsAString& aCacheName,
-                 const nsAString& aURL, CompareCallback* aCallback,
-                 nsILoadGroup* aLoadGroup);
+                 const nsAString& aURL, CompareCallback* aCallback);
 
 }  // namespace serviceWorkerScriptCache
 

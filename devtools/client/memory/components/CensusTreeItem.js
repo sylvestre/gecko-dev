@@ -4,13 +4,20 @@
 "use strict";
 
 const { isSavedFrame } = require("devtools/shared/DevToolsUtils");
-const { Component, createFactory } = require("devtools/client/shared/vendor/react");
+const {
+  Component,
+  createFactory,
+} = require("devtools/client/shared/vendor/react");
 const dom = require("devtools/client/shared/vendor/react-dom-factories");
 const PropTypes = require("devtools/client/shared/vendor/react-prop-types");
-const { L10N, formatNumber, formatPercent } = require("../utils");
+const {
+  L10N,
+  formatNumber,
+  formatPercent,
+} = require("devtools/client/memory/utils");
 const Frame = createFactory(require("devtools/client/shared/components/Frame"));
-const { TREE_ROW_HEIGHT } = require("../constants");
-const models = require("../models");
+const { TREE_ROW_HEIGHT } = require("devtools/client/memory/constants");
+const models = require("devtools/client/memory/models");
 
 class CensusTreeItem extends Component {
   static get propTypes() {
@@ -35,18 +42,20 @@ class CensusTreeItem extends Component {
   }
 
   shouldComponentUpdate(nextProps, nextState) {
-    return this.props.item != nextProps.item
-      || this.props.depth != nextProps.depth
-      || this.props.expanded != nextProps.expanded
-      || this.props.focused != nextProps.focused
-      || this.props.diffing != nextProps.diffing;
+    return (
+      this.props.item != nextProps.item ||
+      this.props.depth != nextProps.depth ||
+      this.props.expanded != nextProps.expanded ||
+      this.props.focused != nextProps.focused ||
+      this.props.diffing != nextProps.diffing
+    );
   }
 
-  toLabel(name, linkToDebugger) {
+  toLabel(name, onViewSourceInDebugger) {
     if (isSavedFrame(name)) {
       return Frame({
         frame: name,
-        onClick: () => linkToDebugger(name),
+        onClick: onViewSourceInDebugger,
         showFunctionName: true,
         showHost: true,
       });
@@ -88,15 +97,21 @@ class CensusTreeItem extends Component {
     const percentCount = formatPercent(getPercentCount(item.count), !!diffing);
 
     const totalBytes = formatNumber(item.totalBytes, !!diffing);
-    const percentTotalBytes = formatPercent(getPercentBytes(item.totalBytes), !!diffing);
+    const percentTotalBytes = formatPercent(
+      getPercentBytes(item.totalBytes),
+      !!diffing
+    );
 
     const totalCount = formatNumber(item.totalCount, !!diffing);
-    const percentTotalCount = formatPercent(getPercentCount(item.totalCount), !!diffing);
+    const percentTotalCount = formatPercent(
+      getPercentCount(item.totalCount),
+      !!diffing
+    );
 
     let pointer;
     if (inverted && depth > 0) {
       pointer = dom.span({ className: "children-pointer" }, "↖");
-    } else if (!inverted && item.children && item.children.length) {
+    } else if (!inverted && item.children?.length) {
       pointer = dom.span({ className: "children-pointer" }, "↘");
     }
 
@@ -129,18 +144,26 @@ class CensusTreeItem extends Component {
 
     return dom.div(
       { className: `heap-tree-item ${focused ? "focused" : ""}` },
-      dom.span({ className: "heap-tree-item-field heap-tree-item-bytes" },
-               dom.span({ className: "heap-tree-number" }, bytes),
-               dom.span({ className: "heap-tree-percent" }, percentBytes)),
-      dom.span({ className: "heap-tree-item-field heap-tree-item-count" },
-               dom.span({ className: "heap-tree-number" }, count),
-               dom.span({ className: "heap-tree-percent" }, percentCount)),
-      dom.span({ className: "heap-tree-item-field heap-tree-item-total-bytes" },
-               dom.span({ className: "heap-tree-number" }, totalBytes),
-               dom.span({ className: "heap-tree-percent" }, percentTotalBytes)),
-      dom.span({ className: "heap-tree-item-field heap-tree-item-total-count" },
-               dom.span({ className: "heap-tree-number" }, totalCount),
-               dom.span({ className: "heap-tree-percent" }, percentTotalCount)),
+      dom.span(
+        { className: "heap-tree-item-field heap-tree-item-bytes" },
+        dom.span({ className: "heap-tree-number" }, bytes),
+        dom.span({ className: "heap-tree-percent" }, percentBytes)
+      ),
+      dom.span(
+        { className: "heap-tree-item-field heap-tree-item-count" },
+        dom.span({ className: "heap-tree-number" }, count),
+        dom.span({ className: "heap-tree-percent" }, percentCount)
+      ),
+      dom.span(
+        { className: "heap-tree-item-field heap-tree-item-total-bytes" },
+        dom.span({ className: "heap-tree-number" }, totalBytes),
+        dom.span({ className: "heap-tree-percent" }, percentTotalBytes)
+      ),
+      dom.span(
+        { className: "heap-tree-item-field heap-tree-item-total-count" },
+        dom.span({ className: "heap-tree-number" }, totalCount),
+        dom.span({ className: "heap-tree-percent" }, percentTotalCount)
+      ),
       individualsCell,
       dom.span(
         {

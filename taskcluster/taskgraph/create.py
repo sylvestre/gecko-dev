@@ -5,47 +5,31 @@
 from __future__ import absolute_import, print_function, unicode_literals
 
 import concurrent.futures as futures
-import requests
-import requests.adapters
 import json
-import os
 import sys
 import logging
+
+import six
 
 from slugid import nice as slugid
 from taskgraph.util.parameterization import resolve_timestamps
 from taskgraph.util.time import current_json_time
+from taskgraph.util.taskcluster import get_session, CONCURRENCY
 
 logger = logging.getLogger(__name__)
-
-# the maximum number of parallel createTask calls to make
-CONCURRENCY = 50
 
 # this is set to true for `mach taskgraph action-callback --test`
 testing = False
 
 
-def create_tasks(taskgraph, label_to_taskid, params, decision_task_id=None):
-    taskid_to_label = {t: l for l, t in label_to_taskid.iteritems()}
-
-    session = requests.Session()
-
-    # Default HTTPAdapter uses 10 connections. Mount custom adapter to increase
-    # that limit. Connections are established as needed, so using a large value
-    # should not negatively impact performance.
-    http_adapter = requests.adapters.HTTPAdapter(pool_connections=CONCURRENCY,
-                                                 pool_maxsize=CONCURRENCY)
-    session.mount('https://', http_adapter)
-    session.mount('http://', http_adapter)
-
-    decision_task_id = decision_task_id or os.environ.get('TASK_ID')
+def create_tasks(graph_config, taskgraph, label_to_taskid, params, decision_task_id):
+    taskid_to_label = {t: l for l, t in six.iteritems(label_to_taskid)}
 
     # when running as an actual decision task, we use the decision task's
     # taskId as the taskGroupId.  The process that created the decision task
     # helpfully placed it in this same taskGroup.  If there is no $TASK_ID,
     # fall back to a slugid
-    task_group_id = decision_task_id or slugid()
-    scheduler_id = 'gecko-level-{}'.format(params['level'])
+    scheduler_id = "{}-level-{}".format(graph_config["trust-domain"], params["level"])
 
     # Add the taskGroupId, schedulerId and optionally the decision task
     # dependency
@@ -57,15 +41,15 @@ def create_tasks(taskgraph, label_to_taskid, params, decision_task_id=None):
         # the taskgraph, then it already implicitly depends on the decision
         # task.  The result is that tasks do not start immediately. if this
         # loop fails halfway through, none of the already-created tasks run.
-        if decision_task_id:
-            if not any(t in taskgraph.tasks for t in task_def.get('dependencies', [])):
-                task_def.setdefault('dependencies', []).append(decision_task_id)
+        if not any(t in taskgraph.tasks for t in task_def.get("dependencies", [])):
+            task_def.setdefault("dependencies", []).append(decision_task_id)
 
-        task_def['taskGroupId'] = task_group_id
-        task_def['schedulerId'] = scheduler_id
+        task_def["taskGroupId"] = decision_task_id
+        task_def["schedulerId"] = scheduler_id
 
     # If `testing` is True, then run without parallelization
     concurrency = CONCURRENCY if not testing else 1
+    session = get_session()
     with futures.ThreadPoolExecutor(concurrency) as e:
         fs = {}
 
@@ -94,7 +78,7 @@ def create_tasks(taskgraph, label_to_taskid, params, decision_task_id=None):
                 # come back to this later.
                 # Some dependencies aren't in our graph, so make sure to filter
                 # those out
-                deps = set(task_def.get('dependencies', [])) & alltasks
+                deps = set(task_def.get("dependencies", [])) & alltasks
                 if any((d not in fs or not fs[d].done()) for d in deps):
                     continue
 
@@ -103,9 +87,9 @@ def create_tasks(taskgraph, label_to_taskid, params, decision_task_id=None):
 
                 # Schedule tasks as many times as task_duplicates indicates
                 attributes = taskgraph.tasks[task_id].attributes
-                for i in range(1, attributes.get('task_duplicates', 1)):
+                for i in range(1, attributes.get("task_duplicates", 1)):
                     # We use slugid() since we want a distinct task id
-                    submit(slugid(), taskid_to_label[task_id], task_def)
+                    submit(slugid().decode("ascii"), taskid_to_label[task_id], task_def)
             tasklist.difference_update(to_remove)
 
             # as each of those futures complete, try to schedule more tasks
@@ -129,18 +113,24 @@ def create_task(session, task_id, label, task_def):
     task_def = resolve_timestamps(now, task_def)
 
     if testing:
-        json.dump([task_id, task_def], sys.stdout,
-                  sort_keys=True, indent=4, separators=(',', ': '))
+        json.dump(
+            [task_id, task_def],
+            sys.stdout,
+            sort_keys=True,
+            indent=4,
+            separators=(",", ": "),
+        )
         # add a newline
         print("")
         return
 
     logger.debug("Creating task with taskId {} for {}".format(task_id, label))
-    res = session.put('http://taskcluster/queue/v1/task/{}'.format(task_id),
-                      data=json.dumps(task_def))
+    res = session.put(
+        "http://taskcluster/queue/v1/task/{}".format(task_id), data=json.dumps(task_def)
+    )
     if res.status_code != 200:
         try:
-            logger.error(res.json()['message'])
+            logger.error(res.json()["message"])
         except Exception:
             logger.error(res.text)
         res.raise_for_status()

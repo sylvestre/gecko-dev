@@ -1,4 +1,3 @@
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -17,7 +16,7 @@ const TEST_URI = `
 
 add_task(async function() {
   await addTab("data:text/html;charset=utf-8," + encodeURIComponent(TEST_URI));
-  const {inspector, view} = await openComputedView();
+  const { inspector, view } = await openComputedView();
   await selectNode(".matches", inspector);
 
   const propView = getFirstVisiblePropertyView(view);
@@ -30,10 +29,18 @@ add_task(async function() {
   EventUtils.synthesizeMouseAtCenter(matchedExpander, {}, view.styleWindow);
   await onMatchedExpanderFocus;
 
-  await checkToggleKeyBinding(view.styleWindow, "VK_SPACE", rulesTable,
-                              inspector);
-  await checkToggleKeyBinding(view.styleWindow, "VK_RETURN", rulesTable,
-                              inspector);
+  await checkToggleKeyBinding(
+    view.styleWindow,
+    "VK_SPACE",
+    rulesTable,
+    inspector
+  );
+  await checkToggleKeyBinding(
+    view.styleWindow,
+    "VK_RETURN",
+    rulesTable,
+    inspector
+  );
   await checkHelpLinkKeybinding(view);
 });
 
@@ -51,8 +58,12 @@ function getFirstVisiblePropertyView(view) {
 }
 
 async function checkToggleKeyBinding(win, key, rulesTable, inspector) {
-  info("Pressing " + key + " key a couple of times to check that the " +
-    "property gets expanded/collapsed");
+  info(
+    "Pressing " +
+      key +
+      " key a couple of times to check that the " +
+      "property gets expanded/collapsed"
+  );
 
   const onExpand = inspector.once("computed-view-property-expanded");
   const onCollapse = inspector.once("computed-view-property-collapsed");
@@ -69,7 +80,7 @@ async function checkToggleKeyBinding(win, key, rulesTable, inspector) {
 }
 
 function checkHelpLinkKeybinding(view) {
-  info("Check that MDN link is opened on \"F1\"");
+  info('Check that MDN link is opened on "F1"');
   const propView = getFirstVisiblePropertyView(view);
   return new Promise(resolve => {
     propView.mdnLinkClick = function(event) {

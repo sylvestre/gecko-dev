@@ -1,5 +1,3 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 2 -*- */
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -7,98 +5,129 @@
 
 const {
   isGroupType,
+  isMessageNetworkError,
   l10n,
 } = require("devtools/client/webconsole/utils/messages");
 
 const constants = require("devtools/client/webconsole/constants");
-const {
-  DEFAULT_FILTERS,
-  FILTERS,
-  MESSAGE_TYPE,
-  MESSAGE_SOURCE,
-} = constants;
-const { getGripPreviewItems } = require("devtools/client/shared/components/reps/reps");
-const { getUnicodeUrlPath } = require("devtools/client/shared/unicode-url");
-const { getSourceNames } = require("devtools/client/shared/source-utils");
+const { DEFAULT_FILTERS, FILTERS, MESSAGE_TYPE, MESSAGE_SOURCE } = constants;
 
-const {
-  UPDATE_REQUEST,
-} = require("devtools/client/netmonitor/src/constants");
+loader.lazyRequireGetter(
+  this,
+  "getGripPreviewItems",
+  "devtools/client/shared/components/reps/index",
+  true
+);
+loader.lazyRequireGetter(
+  this,
+  "getUnicodeUrlPath",
+  "devtools/client/shared/unicode-url",
+  true
+);
+loader.lazyRequireGetter(
+  this,
+  "getSourceNames",
+  "devtools/client/shared/source-utils",
+  true
+);
+loader.lazyRequireGetter(
+  this,
+  [
+    "createWarningGroupMessage",
+    "isWarningGroup",
+    "getWarningGroupType",
+    "getDescriptorValue",
+    "getParentWarningGroupMessageId",
+    "getNaturalOrder",
+  ],
+  "devtools/client/webconsole/utils/messages",
+  true
+);
+
+const { UPDATE_REQUEST } = require("devtools/client/netmonitor/src/constants");
 
 const {
   processNetworkUpdates,
 } = require("devtools/client/netmonitor/src/utils/request-utils");
 
-const MessageState = overrides => Object.freeze(Object.assign({
-  // List of all the messages added to the console.
-  messagesById: new Map(),
-  // When recording or replaying, all progress values in messagesById.
-  replayProgressMessages: new Set(),
-  // Array of the visible messages.
-  visibleMessages: [],
-  // Object for the filtered messages.
-  filteredMessagesCount: getDefaultFiltersCounter(),
-  // List of the message ids which are opened.
-  messagesUiById: [],
-  // Map of the form {messageId : tableData}, which represent the data passed
-  // as an argument in console.table calls.
-  messagesTableDataById: new Map(),
-  // Map of the form {groupMessageId : groupArray},
-  // where groupArray is the list of of all the parent groups' ids of the groupMessageId.
-  groupsById: new Map(),
-  // Message id of the current group (no corresponding console.groupEnd yet).
-  currentGroup: null,
-  // Array of removed actors (i.e. actors logged in removed messages) we keep track of
-  // in order to properly release them.
-  // This array is not supposed to be consumed by any UI component.
-  removedActors: [],
-  // Map of the form {messageId : numberOfRepeat}
-  repeatById: {},
-  // Map of the form {messageId : networkInformation}
-  // `networkInformation` holds request, response, totalTime, ...
-  networkMessagesUpdateById: {},
-  pausedExecutionPoint: null,
-}, overrides));
+const MessageState = overrides =>
+  Object.freeze(
+    Object.assign(
+      {
+        // List of all the messages added to the console.
+        messagesById: new Map(),
+        // List of additional data associated with messages (populated async or on-demand at a
+        // later time after the message is received).
+        messagesPayloadById: new Map(),
+        // Array of the visible messages.
+        visibleMessages: [],
+        // Object for the filtered messages.
+        filteredMessagesCount: getDefaultFiltersCounter(),
+        // List of the message ids which are opened.
+        messagesUiById: [],
+        // Map of the form {groupMessageId : groupArray},
+        // where groupArray is the list of of all the parent groups' ids of the groupMessageId.
+        // This handles console API groups.
+        groupsById: new Map(),
+        // Message id of the current console API group (no corresponding console.groupEnd yet).
+        currentGroup: null,
+        // This group handles "warning groups" (Content Blocking, CORS, CSP, …)
+        warningGroupsById: new Map(),
+        // Array of fronts to release (i.e. fronts logged in removed messages).
+        // This array *should not* be consumed by any UI component.
+        frontsToRelease: [],
+        // Map of the form {messageId : numberOfRepeat}
+        repeatById: {},
+        // Map of the form {messageId : networkInformation}
+        // `networkInformation` holds request, response, totalTime, ...
+        networkMessagesUpdateById: {},
+        // Id of the last messages that was added.
+        lastMessageId: null,
+      },
+      overrides
+    )
+  );
 
 function cloneState(state) {
   return {
     messagesById: new Map(state.messagesById),
-    replayProgressMessages: new Set(state.replayProgressMessages),
     visibleMessages: [...state.visibleMessages],
-    filteredMessagesCount: {...state.filteredMessagesCount},
+    filteredMessagesCount: { ...state.filteredMessagesCount },
     messagesUiById: [...state.messagesUiById],
-    messagesTableDataById: new Map(state.messagesTableDataById),
+    messagesPayloadById: new Map(state.messagesPayloadById),
     groupsById: new Map(state.groupsById),
     currentGroup: state.currentGroup,
-    removedActors: [...state.removedActors],
-    repeatById: {...state.repeatById},
-    networkMessagesUpdateById: {...state.networkMessagesUpdateById},
-    pausedExecutionPoint: state.pausedExecutionPoint,
+    frontsToRelease: [...state.frontsToRelease],
+    repeatById: { ...state.repeatById },
+    networkMessagesUpdateById: { ...state.networkMessagesUpdateById },
+    warningGroupsById: new Map(state.warningGroupsById),
+    lastMessageId: state.lastMessageId,
   };
 }
 
-function addMessage(state, filtersState, prefsState, newMessage) {
-  const {
-    messagesById,
-    replayProgressMessages,
-    groupsById,
-    currentGroup,
-    repeatById,
-  } = state;
+/**
+ * Add a console message to the state.
+ *
+ * @param {ConsoleMessage} newMessage: The message to add to the state.
+ * @param {MessageState} state: The message state ( = managed by this reducer).
+ * @param {FiltersState} filtersState: The filters state.
+ * @param {PrefsState} prefsState: The preferences state.
+ * @param {UiState} uiState: The ui state.
+ * @returns {MessageState} a new messages state.
+ */
+// eslint-disable-next-line complexity
+function addMessage(newMessage, state, filtersState, prefsState, uiState) {
+  const { messagesById, groupsById, repeatById } = state;
+
+  if (newMessage.type === constants.MESSAGE_TYPE.NAVIGATION_MARKER) {
+    // We set the state's currentGroup property to null after navigating
+    state.currentGroup = null;
+  }
+  const { currentGroup } = state;
 
   if (newMessage.type === constants.MESSAGE_TYPE.NULL_MESSAGE) {
     // When the message has a NULL type, we don't add it.
     return state;
-  }
-
-  if (newMessage.executionPoint) {
-    // When replaying old behaviors in a tab, we might see the same messages
-    // multiple times. Ignore duplicate messages with the same progress values.
-    const progress = newMessage.executionPoint.progress;
-    if (replayProgressMessages.has(progress)) {
-      return state;
-    }
-    state.replayProgressMessages.add(progress);
   }
 
   if (newMessage.type === constants.MESSAGE_TYPE.END_GROUP) {
@@ -107,25 +136,138 @@ function addMessage(state, filtersState, prefsState, newMessage) {
     return state;
   }
 
-  if (newMessage.allowRepeating && messagesById.size > 0) {
-    const lastMessage = [...messagesById.values()][messagesById.size - 1];
+  const lastMessage = messagesById.get(state.lastMessageId);
+  // It can happen that the new message was actually emitted earlier than the last message,
+  // which means we need to insert it at the right position.
+  const isUnsorted =
+    lastMessage && lastMessage.timeStamp > newMessage.timeStamp;
 
+  if (lastMessage && newMessage.allowRepeating && messagesById.size > 0) {
     if (
-      lastMessage.repeatId === newMessage.repeatId
-      && lastMessage.groupId === currentGroup
+      lastMessage.repeatId === newMessage.repeatId &&
+      lastMessage.groupId === currentGroup
     ) {
       state.repeatById[lastMessage.id] = (repeatById[lastMessage.id] || 1) + 1;
       return state;
     }
   }
 
+  // Store the id of the message as being the last one being added.
+  if (!isUnsorted) {
+    state.lastMessageId = newMessage.id;
+  }
+
   // Add the new message with a reference to the parent group.
   const parentGroups = getParentGroups(currentGroup, groupsById);
-  newMessage.groupId = currentGroup;
-  newMessage.indent = parentGroups.length;
+  if (!isWarningGroup(newMessage)) {
+    newMessage.groupId = currentGroup;
+    newMessage.indent = parentGroups.length;
+  }
+
+  const removedIds = [];
+
+  // Check if the current message could be placed in a Warning Group.
+  // This needs to be done before setting the new message in messagesById so we have a
+  // proper message.
+  const warningGroupType = getWarningGroupType(newMessage);
+
+  // If the preference for warning grouping is true, and the new message could be in a
+  // warning group.
+  if (prefsState.groupWarnings && warningGroupType !== null) {
+    const warningGroupMessageId = getParentWarningGroupMessageId(newMessage);
+
+    // If there's no warning group for the type/innerWindowID yet
+    if (!state.messagesById.has(warningGroupMessageId)) {
+      // We create it and add it to the store.
+      const groupMessage = createWarningGroupMessage(
+        warningGroupMessageId,
+        warningGroupType,
+        newMessage
+      );
+      state = addMessage(
+        groupMessage,
+        state,
+        filtersState,
+        prefsState,
+        uiState
+      );
+    }
+
+    // We add the new message to the appropriate warningGroup.
+    state.warningGroupsById.get(warningGroupMessageId).push(newMessage.id);
+
+    // If the warningGroup message is not visible yet, but should be.
+    if (
+      !state.visibleMessages.includes(warningGroupMessageId) &&
+      getMessageVisibility(state.messagesById.get(warningGroupMessageId), {
+        messagesState: state,
+        filtersState,
+        prefsState,
+        uiState,
+      }).visible
+    ) {
+      // Then we put it in the visibleMessages properties, at the position of the first
+      // warning message inside the warningGroup.
+      // If that first warning message is in a console.group, we place it before the
+      // outermost console.group message.
+      const firstWarningMessageId = state.warningGroupsById.get(
+        warningGroupMessageId
+      )[0];
+      const firstWarningMessage = state.messagesById.get(firstWarningMessageId);
+      const outermostGroupId = getOutermostGroup(
+        firstWarningMessage,
+        groupsById
+      );
+      const groupIndex = state.visibleMessages.indexOf(outermostGroupId);
+      const warningMessageIndex = state.visibleMessages.indexOf(
+        firstWarningMessageId
+      );
+
+      if (groupIndex > -1) {
+        // We remove the warning message
+        if (warningMessageIndex > -1) {
+          state.visibleMessages.splice(warningMessageIndex, 1);
+        }
+
+        // And we put the warning group before the console.group
+        state.visibleMessages.splice(groupIndex, 0, warningGroupMessageId);
+      } else {
+        // If the warning message is not in a console.group, we replace it by the
+        // warning group message.
+        state.visibleMessages.splice(
+          warningMessageIndex,
+          1,
+          warningGroupMessageId
+        );
+      }
+    }
+  }
+
+  // If we're creating a warningGroup, we init the array for its children.
+  if (isWarningGroup(newMessage)) {
+    state.warningGroupsById.set(newMessage.id, []);
+  }
 
   const addedMessage = Object.freeze(newMessage);
-  state.messagesById.set(newMessage.id, addedMessage);
+
+  // If the new message isn't the "oldest" one, then we need to insert it at the right
+  // position in the message map.
+  if (isUnsorted) {
+    const entries = Array.from(state.messagesById.entries());
+    const newMessageIndex = entries.findIndex(
+      entry => entry[1].timeStamp > addedMessage.timeStamp
+    );
+    // This shouldn't happen as `isUnsorted` would only be true if the last message is
+    // younger than the added message.
+    if (newMessageIndex === -1) {
+      state.messagesById.set(addedMessage.id, addedMessage);
+    } else {
+      entries.splice(newMessageIndex, 0, [addedMessage.id, addedMessage]);
+      state.messagesById = new Map(entries);
+    }
+  } else {
+    state.messagesById.set(addedMessage.id, addedMessage);
+  }
 
   if (newMessage.type === "trace") {
     // We want the stacktrace to be open by default.
@@ -140,13 +282,52 @@ function addMessage(state, filtersState, prefsState, newMessage) {
     }
   }
 
-  const {
-    visible,
-    cause,
-  } = getMessageVisibility(addedMessage, state, filtersState);
+  const { visible, cause } = getMessageVisibility(addedMessage, {
+    messagesState: state,
+    filtersState,
+    prefsState,
+    uiState,
+  });
 
   if (visible) {
-    state.visibleMessages.push(newMessage.id);
+    // If the message is part of a visible warning group, we want to add it after the last
+    // visible message of the group.
+    const warningGroupId = getParentWarningGroupMessageId(newMessage);
+    if (warningGroupId && state.visibleMessages.includes(warningGroupId)) {
+      // Defaults to the warning group message.
+      let index = state.visibleMessages.indexOf(warningGroupId);
+
+      // We loop backward through the warning group's messages to get the latest visible
+      // messages in it.
+      const messagesInWarningGroup = state.warningGroupsById.get(
+        warningGroupId
+      );
+      for (let i = messagesInWarningGroup.length - 1; i >= 0; i--) {
+        const idx = state.visibleMessages.indexOf(messagesInWarningGroup[i]);
+        if (idx > -1) {
+          index = idx;
+          break;
+        }
+      }
+      // Inserts the new warning message at the wanted location "in" the warning group.
+      state.visibleMessages.splice(index + 1, 0, newMessage.id);
+    } else if (isUnsorted) {
+      // If the new message wasn't the "oldest" one, then we need to insert its id at
+      // the right position in the array.
+      const index = state.visibleMessages.findIndex(
+        id => state.messagesById.get(id).timeStamp > newMessage.timeStamp
+      );
+      // If the index wasn't found, it means the new message is the oldest of the visible
+      // messages, so we can directly push it into the array.
+      if (index == -1) {
+        state.visibleMessages.push(newMessage.id);
+      } else {
+        state.visibleMessages.splice(index, 0, newMessage.id);
+      }
+    } else {
+      state.visibleMessages.push(newMessage.id);
+    }
+    maybeSortVisibleMessages(state, false);
   } else if (DEFAULT_FILTERS.includes(cause)) {
     state.filteredMessagesCount.global++;
     state.filteredMessagesCount[cause]++;
@@ -158,25 +339,30 @@ function addMessage(state, filtersState, prefsState, newMessage) {
     state.networkMessagesUpdateById[newMessage.actor] = newMessage;
   }
 
-  return state;
+  return removeMessagesFromState(state, removedIds);
 }
 
-function messages(state = MessageState(), action, filtersState, prefsState) {
+// eslint-disable-next-line complexity
+function messages(
+  state = MessageState(),
+  action,
+  filtersState,
+  prefsState,
+  uiState
+) {
   const {
     messagesById,
+    messagesPayloadById,
     messagesUiById,
-    messagesTableDataById,
     networkMessagesUpdateById,
     groupsById,
     visibleMessages,
   } = state;
 
-  const {logLimit} = prefsState;
+  const { logLimit } = prefsState;
 
   let newState;
   switch (action.type) {
-    case constants.PAUSED_EXCECUTION_POINT:
-      return { ...state, pausedExecutionPoint: action.executionPoint };
     case constants.MESSAGES_ADD:
       // Preemptively remove messages that will never be rendered
       const list = [];
@@ -185,7 +371,8 @@ function messages(state = MessageState(), action, filtersState, prefsState) {
       for (let i = action.messages.length - 1; i >= 0; i--) {
         const message = action.messages[i];
         if (
-          !message.groupId && !isGroupType(message.type) &&
+          !message.groupId &&
+          !isGroupType(message.type) &&
           message.type !== MESSAGE_TYPE.END_GROUP
         ) {
           if (message.repeatId !== lastMessageRepeatId) {
@@ -193,7 +380,10 @@ function messages(state = MessageState(), action, filtersState, prefsState) {
           }
           // Once we've added the max number of messages that can be added, stop.
           // Except for repeated messages, where we keep adding over the limit.
-          if (prunableCount <= logLimit || message.repeatId == lastMessageRepeatId) {
+          if (
+            prunableCount <= logLimit ||
+            message.repeatId == lastMessageRepeatId
+          ) {
             list.unshift(action.messages[i]);
           } else {
             break;
@@ -205,9 +395,15 @@ function messages(state = MessageState(), action, filtersState, prefsState) {
       }
 
       newState = cloneState(state);
-      list.forEach(message => {
-        newState = addMessage(newState, filtersState, prefsState, message);
-      });
+      for (const message of list) {
+        newState = addMessage(
+          message,
+          newState,
+          filtersState,
+          prefsState,
+          uiState
+        );
+      }
 
       return limitTopLevelMessageCount(newState, logLimit);
 
@@ -215,13 +411,13 @@ function messages(state = MessageState(), action, filtersState, prefsState) {
       return MessageState({
         // Store all actors from removed messages. This array is used by
         // `releaseActorsEnhancer` to release all of those backend actors.
-        removedActors: [...state.messagesById.values()].reduce((res, msg) => {
-          res.push(...getAllActorsInMessage(msg));
+        frontsToRelease: [...state.messagesById.values()].reduce((res, msg) => {
+          res.push(...getAllFrontsInMessage(msg));
           return res;
         }, []),
       });
 
-    case constants.PRIVATE_MESSAGES_CLEAR:
+    case constants.PRIVATE_MESSAGES_CLEAR: {
       const removedIds = [];
       for (const [id, message] of messagesById) {
         if (message.private === true) {
@@ -234,35 +430,48 @@ function messages(state = MessageState(), action, filtersState, prefsState) {
         return state;
       }
 
-      return removeMessagesFromState({
-        ...state,
-      }, removedIds);
+      return removeMessagesFromState(
+        {
+          ...state,
+        },
+        removedIds
+      );
+    }
 
     case constants.MESSAGE_OPEN:
-      const openState = {...state};
+      const openState = { ...state };
       openState.messagesUiById = [...messagesUiById, action.id];
       const currMessage = messagesById.get(action.id);
 
-      // If the message is a group
-      if (isGroupType(currMessage.type)) {
+      // If the message is a console.group/groupCollapsed or a warning group.
+      if (isGroupType(currMessage.type) || isWarningGroup(currMessage)) {
         // We want to make its children visible
-        const messagesToShow = [...messagesById].reduce((res, [id, message]) => {
-          if (
-            !visibleMessages.includes(message.id)
-            && getParentGroups(message.groupId, groupsById).includes(action.id)
-            && getMessageVisibility(
-              message,
-              openState,
-              filtersState,
-              // We want to check if the message is in an open group
-              // only if it is not a direct child of the group we're opening.
-              message.groupId !== action.id
-            ).visible
-          ) {
-            res.push(id);
-          }
-          return res;
-        }, []);
+        const messagesToShow = [...messagesById].reduce(
+          (res, [id, message]) => {
+            if (
+              !visibleMessages.includes(message.id) &&
+              ((isWarningGroup(currMessage) &&
+                !!getWarningGroupType(message)) ||
+                (isGroupType(currMessage.type) &&
+                  getParentGroups(message.groupId, groupsById).includes(
+                    action.id
+                  ))) &&
+              getMessageVisibility(message, {
+                messagesState: openState,
+                filtersState,
+                prefsState,
+                uiState,
+                // We want to check if the message is in an open group
+                // only if it is not a direct child of the group we're opening.
+                checkGroup: message.groupId !== action.id,
+              }).visible
+            ) {
+              res.push(id);
+            }
+            return res;
+          },
+          []
+        );
 
         // We can then insert the messages ids right after the one of the group.
         const insertIndex = visibleMessages.indexOf(action.id) + 1;
@@ -277,16 +486,15 @@ function messages(state = MessageState(), action, filtersState, prefsState) {
       // so HTTP details are not fetched again the next time the user
       // opens the log.
       if (currMessage.source == "network") {
-        openState.messagesById = (new Map(messagesById)).set(
-          action.id, {
-            ...currMessage,
-            openedOnce: true,
-          });
+        openState.messagesById = new Map(messagesById).set(action.id, {
+          ...currMessage,
+          openedOnce: true,
+        });
       }
       return openState;
 
     case constants.MESSAGE_CLOSE:
-      const closeState = {...state};
+      const closeState = { ...state };
       const messageId = action.id;
       const index = closeState.messagesUiById.indexOf(messageId);
       closeState.messagesUiById.splice(index, 1);
@@ -294,84 +502,285 @@ function messages(state = MessageState(), action, filtersState, prefsState) {
 
       // If the message is a group
       if (isGroupType(messagesById.get(messageId).type)) {
-        // Hide all its children
-        closeState.visibleMessages = visibleMessages.filter(id =>
-          getParentGroups(messagesById.get(id).groupId, groupsById)
-            .includes(messageId) === false
+        // Hide all its children, unless they're in a warningGroup.
+        closeState.visibleMessages = visibleMessages.filter((id, i, arr) => {
+          const message = messagesById.get(id);
+          const warningGroupMessage = messagesById.get(
+            getParentWarningGroupMessageId(message)
+          );
+
+          // If the message is in a warning group, then we return its current visibility.
+          if (
+            shouldGroupWarningMessages(
+              warningGroupMessage,
+              closeState,
+              prefsState
+            )
+          ) {
+            return arr.includes(id);
+          }
+
+          const parentGroups = getParentGroups(message.groupId, groupsById);
+          return parentGroups.includes(messageId) === false;
+        });
+      } else if (isWarningGroup(messagesById.get(messageId))) {
+        // If the message was a warningGroup, we hide all the messages in the group.
+        const groupMessages = closeState.warningGroupsById.get(messageId);
+        closeState.visibleMessages = visibleMessages.filter(
+          id => !groupMessages.includes(id)
         );
       }
       return closeState;
 
-    case constants.MESSAGE_TABLE_RECEIVE:
-      const {id, data} = action;
-
+    case constants.MESSAGE_UPDATE_PAYLOAD:
       return {
         ...state,
-        messagesTableDataById: (new Map(messagesTableDataById)).set(id, data),
+        messagesPayloadById: new Map(messagesPayloadById).set(
+          action.id,
+          action.data
+        ),
       };
 
-    case constants.NETWORK_MESSAGE_UPDATE:
-      return {
+    case constants.NETWORK_MESSAGES_UPDATE:
+      const updatedState = {
+        ...state,
+        // Update messagesById since the nested object of message might be changed.
+        messagesById: new Map(messagesById),
+        networkMessagesUpdateById: {
+          ...networkMessagesUpdateById,
+        },
+      };
+      let hasNetworkError = null;
+      for (const message of action.messages) {
+        updatedState.messagesById.set(message.id, message);
+        updatedState.networkMessagesUpdateById[message.id] = message;
+        if (isMessageNetworkError(message)) {
+          hasNetworkError = true;
+        }
+      }
+
+      // If the message updates contained a network error, then we may have to display it.
+      if (hasNetworkError) {
+        return setVisibleMessages({
+          messagesState: updatedState,
+          filtersState,
+          prefsState,
+          uiState,
+        });
+      }
+
+      return updatedState;
+
+    case UPDATE_REQUEST:
+    case constants.NETWORK_UPDATES_REQUEST: {
+      newState = {
         ...state,
         networkMessagesUpdateById: {
           ...networkMessagesUpdateById,
-          [action.message.id]: action.message,
         },
       };
 
-    case UPDATE_REQUEST:
-    case constants.NETWORK_UPDATE_REQUEST: {
-      const request = networkMessagesUpdateById[action.id];
-      if (!request) {
+      // Netmonitor's UPDATE_REQUEST action comes for only one request
+      const updates =
+        action.type == UPDATE_REQUEST
+          ? [{ id: action.id, data: action.data }]
+          : action.updates;
+      for (const { id, data } of updates) {
+        const request = networkMessagesUpdateById[id];
+        if (!request) {
+          continue;
+        }
+        newState.networkMessagesUpdateById[id] = {
+          ...request,
+          ...processNetworkUpdates(data),
+        };
+      }
+      return newState;
+    }
+
+    case constants.FRONTS_TO_RELEASE_CLEAR:
+      return {
+        ...state,
+        frontsToRelease: [],
+      };
+
+    case constants.WARNING_GROUPS_TOGGLE:
+      // There's no warningGroups, and the pref was set to false,
+      // we don't need to do anything.
+      if (!prefsState.groupWarnings && state.warningGroupsById.size === 0) {
         return state;
       }
 
-      return {
-        ...state,
-        networkMessagesUpdateById: {
-          ...networkMessagesUpdateById,
-          [action.id]: {
-            ...request,
-            ...processNetworkUpdates(action.data, request),
-          },
-        },
-      };
-    }
+      let needSort = false;
+      const messageEntries = state.messagesById.entries();
+      for (const [msgId, message] of messageEntries) {
+        const warningGroupType = getWarningGroupType(message);
+        if (warningGroupType) {
+          const warningGroupMessageId = getParentWarningGroupMessageId(message);
 
-    case constants.REMOVED_ACTORS_CLEAR:
-      return {
-        ...state,
-        removedActors: [],
-      };
+          // If there's no warning group for the type/innerWindowID yet.
+          if (!state.messagesById.has(warningGroupMessageId)) {
+            // We create it and add it to the store.
+            const groupMessage = createWarningGroupMessage(
+              warningGroupMessageId,
+              warningGroupType,
+              message
+            );
+            state = addMessage(
+              groupMessage,
+              state,
+              filtersState,
+              prefsState,
+              uiState
+            );
+          }
+
+          // We add the new message to the appropriate warningGroup.
+          const warningGroup = state.warningGroupsById.get(
+            warningGroupMessageId
+          );
+          if (warningGroup && !warningGroup.includes(msgId)) {
+            warningGroup.push(msgId);
+          }
+
+          needSort = true;
+        }
+      }
+
+      // If we don't have any warning messages that could be in a group, we don't do
+      // anything.
+      if (!needSort) {
+        return state;
+      }
+
+      return setVisibleMessages({
+        messagesState: state,
+        filtersState,
+        prefsState,
+        uiState,
+        // If the user disabled warning groups, we want the messages to be sorted by their
+        // timestamps.
+        forceTimestampSort: !prefsState.groupWarnings,
+      });
+
+    case constants.MESSAGE_REMOVE:
+      return removeMessagesFromState(
+        {
+          ...state,
+        },
+        [action.id]
+      );
 
     case constants.FILTER_TOGGLE:
     case constants.FILTER_TEXT_SET:
     case constants.FILTERS_CLEAR:
     case constants.DEFAULT_FILTERS_RESET:
-      const messagesToShow = [];
-      const filtered = getDefaultFiltersCounter();
-
-      messagesById.forEach((message, msgId) => {
-        const {
-          visible,
-          cause,
-        } = getMessageVisibility(message, state, filtersState);
-        if (visible) {
-          messagesToShow.push(msgId);
-        } else if (DEFAULT_FILTERS.includes(cause)) {
-          filtered.global = filtered.global + 1;
-          filtered[cause] = filtered[cause] + 1;
-        }
+    case constants.SHOW_CONTENT_MESSAGES_TOGGLE:
+      return setVisibleMessages({
+        messagesState: state,
+        filtersState,
+        prefsState,
+        uiState,
       });
-
-      return {
-        ...state,
-        visibleMessages: messagesToShow,
-        filteredMessagesCount: filtered,
-      };
   }
 
   return state;
+}
+
+function setVisibleMessages({
+  messagesState,
+  filtersState,
+  prefsState,
+  uiState,
+  forceTimestampSort = false,
+}) {
+  const { messagesById, visibleMessages, messagesUiById } = messagesState;
+
+  const messagesToShow = new Set();
+  const matchedGroups = new Set();
+  const filtered = getDefaultFiltersCounter();
+
+  messagesById.forEach((message, msgId) => {
+    const groupParentId = message.groupId;
+    let hasMatchedAncestor = false;
+    const ancestors = [];
+
+    if (groupParentId) {
+      let ancestorId = groupParentId;
+
+      // we track the message's ancestors and their state
+      while (ancestorId) {
+        ancestors.push({
+          ancestorId: ancestorId,
+          matchedFilters: matchedGroups.has(ancestorId),
+          isOpen: messagesUiById.includes(ancestorId),
+          isCurrentlyVisible: visibleMessages.includes(ancestorId),
+        });
+        if (!hasMatchedAncestor && matchedGroups.has(ancestorId)) {
+          hasMatchedAncestor = true;
+        }
+        ancestorId = messagesById.get(ancestorId).groupId;
+      }
+    }
+
+    const { visible, cause } = getMessageVisibility(message, {
+      messagesState,
+      filtersState,
+      prefsState,
+      uiState,
+      hasMatchedAncestor,
+    });
+
+    // if the message is not visible but passes the search filters, we show its visible ancestors
+    if (!visible && passSearchFilters(message, filtersState)) {
+      const tmp = [];
+      ancestors.forEach(msg => {
+        if (msg.isCurrentlyVisible) {
+          tmp.push(msg.ancestorId);
+        }
+      });
+      tmp.reverse().forEach(id => {
+        messagesToShow.add(id);
+      });
+    }
+    if (visible) {
+      // if the visible message is a child of a group, we add its ancestors to the visible messages
+      if (groupParentId) {
+        // We need to reverse the visibleAncestors array to show the groups in the correct order
+        ancestors.reverse().forEach(msg => {
+          messagesToShow.add(msg.ancestorId);
+        });
+      }
+
+      // we keep track of matched startGroup and startGroupCollapsed messages so we don't filter their children
+      if (
+        message.type === "startGroup" ||
+        message.type === "startGroupCollapsed"
+      ) {
+        matchedGroups.add(msgId);
+      }
+
+      messagesToShow.add(msgId);
+    } else if (DEFAULT_FILTERS.includes(cause)) {
+      filtered.global = filtered.global + 1;
+      filtered[cause] = filtered[cause] + 1;
+    }
+  });
+
+  const newState = {
+    ...messagesState,
+    visibleMessages: Array.from(messagesToShow),
+    filteredMessagesCount: filtered,
+  };
+
+  maybeSortVisibleMessages(
+    newState,
+    // Only sort for warningGroups if the feature is enabled
+    prefsState.groupWarnings,
+    forceTimestampSort
+  );
+
+  return newState;
 }
 
 /**
@@ -420,15 +829,24 @@ function getParentGroups(currentGroup, groupsById) {
   return groups;
 }
 
+function getOutermostGroup(message, groupsById) {
+  const groups = getParentGroups(message.groupId, groupsById);
+  if (groups.length === 0) {
+    return null;
+  }
+  return groups[groups.length - 1];
+}
+
 /**
  * Remove all top level messages that exceeds message limit.
  * Also populate an array of all backend actors associated with these
  * messages so they can be released.
  */
 function limitTopLevelMessageCount(newState, logLimit) {
-  let topLevelCount = newState.groupsById.size === 0
-    ? newState.messagesById.size
-    : getToplevelMessageCount(newState);
+  let topLevelCount =
+    newState.groupsById.size === 0
+      ? newState.messagesById.size
+      : getToplevelMessageCount(newState);
 
   if (topLevelCount <= logLimit) {
     return newState;
@@ -479,7 +897,7 @@ function removeMessagesFromState(state, removedMessagesIds) {
     return state;
   }
 
-  const removedActors = [];
+  const frontsToRelease = [];
   const visibleMessages = [...state.visibleMessages];
   removedMessagesIds.forEach(id => {
     const index = visibleMessages.indexOf(id);
@@ -487,28 +905,29 @@ function removeMessagesFromState(state, removedMessagesIds) {
       visibleMessages.splice(index, 1);
     }
 
-    removedActors.push(...getAllActorsInMessage(state.messagesById.get(id)));
+    frontsToRelease.push(...getAllFrontsInMessage(state.messagesById.get(id)));
   });
 
   if (state.visibleMessages.length > visibleMessages.length) {
     state.visibleMessages = visibleMessages;
   }
 
-  if (removedActors.length > 0) {
-    state.removedActors =  state.removedActors.concat(removedActors);
+  if (frontsToRelease.length > 0) {
+    state.frontsToRelease = state.frontsToRelease.concat(frontsToRelease);
   }
 
   const isInRemovedId = id => removedMessagesIds.includes(id);
   const mapHasRemovedIdKey = map => removedMessagesIds.some(id => map.has(id));
-  const objectHasRemovedIdKey = obj => Object.keys(obj).findIndex(isInRemovedId) !== -1;
+  const objectHasRemovedIdKey = obj =>
+    Object.keys(obj).findIndex(isInRemovedId) !== -1;
 
   const cleanUpMap = map => {
     const clonedMap = new Map(map);
     removedMessagesIds.forEach(id => clonedMap.delete(id));
     return clonedMap;
   };
-  const cleanUpObject = object => [...Object.entries(object)]
-    .reduce((res, [id, value]) => {
+  const cleanUpObject = object =>
+    [...Object.entries(object)].reduce((res, [id, value]) => {
       if (!isInRemovedId(id)) {
         res[id] = value;
       }
@@ -518,16 +937,21 @@ function removeMessagesFromState(state, removedMessagesIds) {
   state.messagesById = cleanUpMap(state.messagesById);
 
   if (state.messagesUiById.find(isInRemovedId)) {
-    state.messagesUiById = state.messagesUiById.filter(id => !isInRemovedId(id));
+    state.messagesUiById = state.messagesUiById.filter(
+      id => !isInRemovedId(id)
+    );
   }
 
   if (isInRemovedId(state.currentGroup)) {
-    state.currentGroup =
-      getNewCurrentGroup(state.currentGroup, state.groupsById, removedMessagesIds);
+    state.currentGroup = getNewCurrentGroup(
+      state.currentGroup,
+      state.groupsById,
+      removedMessagesIds
+    );
   }
 
-  if (mapHasRemovedIdKey(state.messagesTableDataById)) {
-    state.messagesTableDataById = cleanUpMap(state.messagesTableDataById);
+  if (mapHasRemovedIdKey(state.messagesPayloadById)) {
+    state.messagesPayloadById = cleanUpMap(state.messagesPayloadById);
   }
   if (mapHasRemovedIdKey(state.groupsById)) {
     state.groupsById = cleanUpMap(state.groupsById);
@@ -541,38 +965,40 @@ function removeMessagesFromState(state, removedMessagesIds) {
   }
 
   if (objectHasRemovedIdKey(state.networkMessagesUpdateById)) {
-    state.networkMessagesUpdateById = cleanUpObject(state.networkMessagesUpdateById);
+    state.networkMessagesUpdateById = cleanUpObject(
+      state.networkMessagesUpdateById
+    );
   }
 
   return state;
 }
 
 /**
- * Get an array of all the actors logged in a specific message.
+ * Get an array of all the fronts logged in a specific message.
  *
  * @param {Message} message: The message to get actors from.
- * @return {Array} An array containing all the actors logged in a message.
+ * @return {Array<ObjectFront|LongStringFront>} An array containing all the fronts logged
+ *                                              in a message.
  */
-function getAllActorsInMessage(message) {
-  const {
-    parameters,
-    messageText,
-  } = message;
+function getAllFrontsInMessage(message) {
+  const { parameters, messageText } = message;
 
-  const actors = [];
+  const fronts = [];
+  const isFront = p => p && typeof p.release === "function";
+
   if (Array.isArray(parameters)) {
     message.parameters.forEach(parameter => {
-      if (parameter && parameter.actor) {
-        actors.push(parameter.actor);
+      if (isFront(parameter)) {
+        fronts.push(parameter);
       }
     });
   }
 
-  if (messageText && messageText.actor) {
-    actors.push(messageText.actor);
+  if (isFront(messageText)) {
+    fronts.push(messageText);
   }
 
-  return actors;
+  return fronts;
 }
 
 /**
@@ -592,20 +1018,162 @@ function getToplevelMessageCount(state) {
 /**
  * Check if a message should be visible in the console output, and if not, what
  * causes it to be hidden.
+ * @param {Message} message: The message to check
+ * @param {Object} option: An option object of the following shape:
+ *                   - {MessageState} messagesState: The current messages state
+ *                   - {FilterState} filtersState: The current filters state
+ *                   - {PrefsState} prefsState: The current preferences state
+ *                   - {UiState} uiState: The current ui state
+ *                   - {Boolean} checkGroup: Set to false to not check if a message should
+ *                                 be visible because it is in a console.group.
+ *                   - {Boolean} checkParentWarningGroupVisibility: Set to false to not
+ *                                 check if a message should be visible because it is in a
+ *                                 warningGroup and the warningGroup is visible.
+ *                   - {Boolean} hasMatchedAncestor: Set to true if message is part of a
+ *                                 group that has been set to visible
  *
  * @return {Object} An object of the following form:
  *         - visible {Boolean}: true if the message should be visible
  *         - cause {String}: if visible is false, what causes the message to be hidden.
  */
-function getMessageVisibility(message, messagesState, filtersState, checkGroup = true) {
-  // Do not display the message if it's in closed group.
+// eslint-disable-next-line complexity
+function getMessageVisibility(
+  message,
+  {
+    messagesState,
+    filtersState,
+    prefsState,
+    uiState,
+    checkGroup = true,
+    checkParentWarningGroupVisibility = true,
+    hasMatchedAncestor = false,
+  }
+) {
+  // Do not display the message if it's not from chromeContext and we don't show content
+  // messages.
   if (
-    checkGroup
-    && !isInOpenedGroup(message, messagesState.groupsById, messagesState.messagesUiById)
+    !uiState.showContentMessages &&
+    message.chromeContext === false &&
+    message.type !== MESSAGE_TYPE.COMMAND &&
+    message.type !== MESSAGE_TYPE.RESULT
+  ) {
+    return {
+      visible: false,
+      cause: "contentMessage",
+    };
+  }
+
+  const warningGroupMessageId = getParentWarningGroupMessageId(message);
+  const parentWarningGroupMessage = messagesState.messagesById.get(
+    warningGroupMessageId
+  );
+
+  // Do not display the message if it's in closed group and not in a warning group.
+  if (
+    checkGroup &&
+    !isInOpenedGroup(
+      message,
+      messagesState.groupsById,
+      messagesState.messagesUiById
+    ) &&
+    !shouldGroupWarningMessages(
+      parentWarningGroupMessage,
+      messagesState,
+      prefsState
+    )
   ) {
     return {
       visible: false,
       cause: "closedGroup",
+    };
+  }
+
+  // If the message is a warningGroup, check if it should be displayed.
+  if (isWarningGroup(message)) {
+    if (!shouldGroupWarningMessages(message, messagesState, prefsState)) {
+      return {
+        visible: false,
+        cause: "warningGroupHeuristicNotMet",
+      };
+    }
+
+    // Hide a warningGroup if the warning filter is off.
+    if (!filtersState[FILTERS.WARN]) {
+      // We don't include any cause as we don't want that message to be reflected in the
+      // message count.
+      return {
+        visible: false,
+      };
+    }
+
+    // Display a warningGroup if at least one of its message will be visible.
+    const childrenMessages = messagesState.warningGroupsById.get(message.id);
+    const hasVisibleChild =
+      childrenMessages &&
+      childrenMessages.some(id => {
+        const child = messagesState.messagesById.get(id);
+        if (!child) {
+          return false;
+        }
+
+        const { visible, cause } = getMessageVisibility(child, {
+          messagesState,
+          filtersState,
+          prefsState,
+          uiState,
+          checkParentWarningGroupVisibility: false,
+        });
+        return visible && cause !== "visibleWarningGroup";
+      });
+
+    if (hasVisibleChild) {
+      return {
+        visible: true,
+        cause: "visibleChild",
+      };
+    }
+  }
+
+  // Do not display the message if it can be in a warningGroup, and the group is
+  // displayed but collapsed.
+  if (
+    parentWarningGroupMessage &&
+    shouldGroupWarningMessages(
+      parentWarningGroupMessage,
+      messagesState,
+      prefsState
+    ) &&
+    !messagesState.messagesUiById.includes(warningGroupMessageId)
+  ) {
+    return {
+      visible: false,
+      cause: "closedWarningGroup",
+    };
+  }
+
+  // Display a message if it is in a warningGroup that is visible. We don't check the
+  // warningGroup visibility if `checkParentWarningGroupVisibility` is false, because
+  // it means we're checking the warningGroup visibility based on the visibility of its
+  // children, which would cause an infinite loop.
+  const parentVisibility =
+    parentWarningGroupMessage && checkParentWarningGroupVisibility
+      ? getMessageVisibility(parentWarningGroupMessage, {
+          messagesState,
+          filtersState,
+          prefsState,
+          uiState,
+          checkGroup,
+          checkParentWarningGroupVisibility,
+        })
+      : null;
+  if (
+    parentVisibility &&
+    parentVisibility.visible &&
+    parentVisibility.cause !== "visibleChild"
+  ) {
+    return {
+      visible: true,
+      cause: "visibleWarningGroup",
     };
   }
 
@@ -614,13 +1182,6 @@ function getMessageVisibility(message, messagesState, filtersState, checkGroup =
   if (isUnfilterable(message)) {
     return {
       visible: true,
-    };
-  }
-
-  if (!passSearchFilters(message, filtersState)) {
-    return {
-      visible: false,
-      cause: FILTERS.TEXT,
     };
   }
 
@@ -654,6 +1215,17 @@ function getMessageVisibility(message, messagesState, filtersState, checkGroup =
     };
   }
 
+  // This should always be the last check, or we might report that a message was hidden
+  // because of text search, while it may be hidden because its category is disabled.
+  // Do not check for search filters if it is part of a group and one of its ancestor
+  // has matched the current search filters and set to visible
+  if (!hasMatchedAncestor && !passSearchFilters(message, filtersState)) {
+    return {
+      visible: false,
+      cause: FILTERS.TEXT,
+    };
+  }
+
   return {
     visible: true,
   };
@@ -663,17 +1235,16 @@ function isUnfilterable(message) {
   return [
     MESSAGE_TYPE.COMMAND,
     MESSAGE_TYPE.RESULT,
-    MESSAGE_TYPE.START_GROUP,
-    MESSAGE_TYPE.START_GROUP_COLLAPSED,
+    MESSAGE_TYPE.NAVIGATION_MARKER,
   ].includes(message.type);
 }
 
 function isInOpenedGroup(message, groupsById, messagesUI) {
-  return !message.groupId
-    || (
-      !isGroupClosed(message.groupId, messagesUI)
-      && !hasClosedParentGroup(groupsById.get(message.groupId), messagesUI)
-    );
+  return (
+    !message.groupId ||
+    (!isGroupClosed(message.groupId, messagesUI) &&
+      !hasClosedParentGroup(groupsById.get(message.groupId), messagesUI))
+  );
 }
 
 function hasClosedParentGroup(group, messagesUI) {
@@ -698,7 +1269,8 @@ function passNetworkFilter(message, filters) {
   return (
     message.source !== MESSAGE_SOURCE.NETWORK ||
     message.isXHR === true ||
-    filters[FILTERS.NET] === true
+    filters[FILTERS.NET] === true ||
+    (filters[FILTERS.ERROR] && isMessageNetworkError(message))
   );
 }
 
@@ -716,7 +1288,8 @@ function passXhrFilter(message, filters) {
   return (
     message.source !== MESSAGE_SOURCE.NETWORK ||
     message.isXHR === false ||
-    filters[FILTERS.NETXHR] === true
+    filters[FILTERS.NETXHR] === true ||
+    (filters[FILTERS.ERROR] && isMessageNetworkError(message))
   );
 }
 
@@ -732,8 +1305,9 @@ function passLevelFilters(message, filters) {
   // or if its level matches the state of the corresponding filter.
   return (
     (message.source !== MESSAGE_SOURCE.CONSOLE_API &&
-    message.source !== MESSAGE_SOURCE.JAVASCRIPT) ||
-    filters[message.level] === true
+      message.source !== MESSAGE_SOURCE.JAVASCRIPT) ||
+    filters[message.level] === true ||
+    (filters[FILTERS.ERROR] && isMessageNetworkError(message))
   );
 }
 
@@ -747,10 +1321,7 @@ function passLevelFilters(message, filters) {
 function passCssFilters(message, filters) {
   // The message passes the filter if it is not a CSS message,
   // or if the CSS filter is on.
-  return (
-    message.source !== MESSAGE_SOURCE.CSS ||
-    filters.css === true
-  );
+  return message.source !== MESSAGE_SOURCE.CSS || filters.css === true;
 }
 
 /**
@@ -761,172 +1332,194 @@ function passCssFilters(message, filters) {
  * @returns {Boolean}
  */
 function passSearchFilters(message, filters) {
-  const text = (filters.text || "").trim();
+  const trimmed = (filters.text || "").trim().toLocaleLowerCase();
+
+  // "-"-prefix switched to exclude mode
+  const exclude = trimmed.startsWith("-");
+  const term = exclude ? trimmed.slice(1) : trimmed;
+
+  let regex;
+  if (term.startsWith("/") && term.endsWith("/") && term.length > 2) {
+    try {
+      regex = new RegExp(term.slice(1, -1), "im");
+    } catch (e) {}
+  }
+  const matchStr = regex
+    ? str => regex.test(str)
+    : str => str.toLocaleLowerCase().includes(term);
 
   // If there is no search, the message passes the filter.
-  if (!text) {
+  if (!term) {
     return true;
   }
 
-  return (
+  const matched =
     // Look for a match in parameters.
-    isTextInParameters(text, message.parameters)
+    isTextInParameters(matchStr, message.parameters) ||
     // Look for a match in location.
-    || isTextInFrame(text, message.frame)
+    isTextInFrame(matchStr, message.frame) ||
     // Look for a match in net events.
-    || isTextInNetEvent(text, message.request)
+    isTextInNetEvent(matchStr, message) ||
     // Look for a match in stack-trace.
-    || isTextInStackTrace(text, message.stacktrace)
+    isTextInStackTrace(matchStr, message.stacktrace) ||
     // Look for a match in messageText.
-    || isTextInMessageText(text, message.messageText)
+    isTextInMessageText(matchStr, message.messageText) ||
     // Look for a match in notes.
-    || isTextInNotes(text, message.notes)
+    isTextInNotes(matchStr, message.notes) ||
     // Look for a match in prefix.
-    || isTextInPrefix(text, message.prefix)
-  );
+    isTextInPrefix(matchStr, message.prefix);
+
+  return matched ? !exclude : exclude;
 }
 
 /**
-* Returns true if given text is included in provided stack frame.
-*/
-function isTextInFrame(text, frame) {
+ * Returns true if given text is included in provided stack frame.
+ */
+function isTextInFrame(matchStr, frame) {
   if (!frame) {
     return false;
   }
 
-  const {
-    functionName,
-    line,
-    column,
-    source,
-  } = frame;
+  const { functionName, line, column, source } = frame;
   const { short } = getSourceNames(source);
   const unicodeShort = getUnicodeUrlPath(short);
 
-  const includes =
-    `${functionName ? functionName + " " : ""}${unicodeShort}:${line}:${column}`
-    .toLocaleLowerCase()
-    .includes(text.toLocaleLowerCase());
-  return includes;
+  const str = `${
+    functionName ? functionName + " " : ""
+  }${unicodeShort}:${line}:${column}`;
+  return matchStr(str);
 }
 
 /**
-* Returns true if given text is included in provided parameters.
-*/
-function isTextInParameters(text, parameters) {
+ * Returns true if given text is included in provided parameters.
+ */
+function isTextInParameters(matchStr, parameters) {
   if (!parameters) {
     return false;
   }
 
-  text = text.toLocaleLowerCase();
-  return getAllProps(parameters).some(prop =>
-    (prop + "").toLocaleLowerCase().includes(text)
-  );
+  return parameters.some(parameter => isTextInParameter(matchStr, parameter));
 }
 
 /**
-* Returns true if given text is included in provided net event grip.
-*/
-function isTextInNetEvent(text, request) {
-  if (!request) {
-    return false;
+ * Returns true if given text is included in provided parameter.
+ */
+function isTextInParameter(matchStr, parameter) {
+  const paramGrip =
+    parameter && parameter.getGrip ? parameter.getGrip() : parameter;
+
+  if (paramGrip && paramGrip.class && matchStr(paramGrip.class)) {
+    return true;
   }
 
-  text = text.toLocaleLowerCase();
+  const parameterType = typeof parameter;
+  if (parameterType !== "object" && parameterType !== "undefined") {
+    const str = paramGrip + "";
+    if (matchStr(str)) {
+      return true;
+    }
+  }
 
-  const method = request.method.toLocaleLowerCase();
-  const url = request.url.toLocaleLowerCase();
-  return method.includes(text) || url.includes(text);
+  const previewItems = getGripPreviewItems(paramGrip);
+  for (const item of previewItems) {
+    if (isTextInParameter(matchStr, item)) {
+      return true;
+    }
+  }
+
+  if (paramGrip && paramGrip.ownProperties) {
+    for (const [key, desc] of Object.entries(paramGrip.ownProperties)) {
+      if (matchStr(key)) {
+        return true;
+      }
+
+      if (isTextInParameter(matchStr, getDescriptorValue(desc))) {
+        return true;
+      }
+    }
+  }
+
+  return false;
 }
 
 /**
-* Returns true if given text is included in provided stack trace.
-*/
-function isTextInStackTrace(text, stacktrace) {
+ * Returns true if given text is included in provided net event grip.
+ */
+function isTextInNetEvent(matchStr, { method, url } = {}) {
+  if (!method && !url) {
+    return false;
+  }
+  return matchStr(method) || matchStr(url);
+}
+
+/**
+ * Returns true if given text is included in provided stack trace.
+ */
+function isTextInStackTrace(matchStr, stacktrace) {
   if (!Array.isArray(stacktrace)) {
     return false;
   }
 
   // isTextInFrame expect the properties of the frame object to be in the same
   // order they are rendered in the Frame component.
-  return stacktrace.some(frame => isTextInFrame(text, {
-    functionName: frame.functionName || l10n.getStr("stacktrace.anonymousFunction"),
-    source: frame.filename,
-    lineNumber: frame.lineNumber,
-    columnNumber: frame.columnNumber,
-  }));
+  return stacktrace.some(frame =>
+    isTextInFrame(matchStr, {
+      functionName:
+        frame.functionName || l10n.getStr("stacktrace.anonymousFunction"),
+      source: frame.filename,
+      lineNumber: frame.lineNumber,
+      columnNumber: frame.columnNumber,
+    })
+  );
 }
 
 /**
-* Returns true if given text is included in `messageText` field.
-*/
-function isTextInMessageText(text, messageText) {
+ * Returns true if given text is included in `messageText` field.
+ */
+function isTextInMessageText(matchStr, messageText) {
   if (!messageText) {
     return false;
   }
 
   if (typeof messageText === "string") {
-    return messageText.toLocaleLowerCase().includes(text.toLocaleLowerCase());
+    return matchStr(messageText);
   }
 
-  if (messageText.type === "longString") {
-    return messageText.initial.toLocaleLowerCase().includes(text.toLocaleLowerCase());
+  const grip =
+    messageText && messageText.getGrip ? messageText.getGrip() : messageText;
+  if (grip && grip.type === "longString") {
+    return matchStr(grip.initial);
   }
 
   return true;
 }
 
 /**
-* Returns true if given text is included in notes.
-*/
-function isTextInNotes(text, notes) {
+ * Returns true if given text is included in notes.
+ */
+function isTextInNotes(matchStr, notes) {
   if (!Array.isArray(notes)) {
     return false;
   }
 
-  return notes.some(note =>
-    // Look for a match in location.
-    isTextInFrame(text, note.frame) ||
-    // Look for a match in messageBody.
-    (
-      note.messageBody &&
-      note.messageBody.toLocaleLowerCase().includes(text.toLocaleLowerCase())
-    )
+  return notes.some(
+    note =>
+      // Look for a match in location.
+      isTextInFrame(matchStr, note.frame) ||
+      // Look for a match in messageBody.
+      (note.messageBody && matchStr(note.messageBody))
   );
 }
 
 /**
-* Returns true if given text is included in prefix.
-*/
-function isTextInPrefix(text, prefix) {
+ * Returns true if given text is included in prefix.
+ */
+function isTextInPrefix(matchStr, prefix) {
   if (!prefix) {
     return false;
   }
 
-  return `${prefix}: `.toLocaleLowerCase().includes(text.toLocaleLowerCase());
-}
-
-/**
- * Get a flat array of all the grips and their properties.
- *
- * @param {Array} Grips
- * @return {Array} Flat array of the grips and their properties.
- */
-function getAllProps(grips) {
-  let result = grips.reduce((res, grip) => {
-    const previewItems = getGripPreviewItems(grip);
-    const allProps = previewItems.length > 0 ? getAllProps(previewItems) : [];
-    return [...res, grip, grip.class, ...allProps];
-  }, []);
-
-  // We are interested only in primitive props (to search for)
-  // not in objects and undefined previews.
-  result = result.filter(grip =>
-    typeof grip != "object" &&
-    typeof grip != "undefined"
-  );
-
-  return [...new Set(result)];
+  return matchStr(`${prefix}: `);
 }
 
 function getDefaultFiltersCounter() {
@@ -936,6 +1529,110 @@ function getDefaultFiltersCounter() {
   }, {});
   count.global = 0;
   return count;
+}
+
+/**
+ * Sort state.visibleMessages if needed.
+ *
+ * @param {MessageState} state
+ * @param {Boolean} sortWarningGroupMessage: set to true to sort warningGroup
+ *                                           messages. Default to false, as in some
+ *                                           situations we already take care of putting
+ *                                           the ids at the right position.
+ * @param {Boolean} timeStampSort: set to true to sort messages by their timestamps.
+ */
+function maybeSortVisibleMessages(
+  state,
+  sortWarningGroupMessage = false,
+  timeStampSort = false
+) {
+  if (state.warningGroupsById.size > 0 && sortWarningGroupMessage) {
+    state.visibleMessages.sort((a, b) => {
+      const messageA = state.messagesById.get(a);
+      const messageB = state.messagesById.get(b);
+
+      const warningGroupIdA = getParentWarningGroupMessageId(messageA);
+      const warningGroupIdB = getParentWarningGroupMessageId(messageB);
+
+      const warningGroupA = state.messagesById.get(warningGroupIdA);
+      const warningGroupB = state.messagesById.get(warningGroupIdB);
+
+      const aFirst = -1;
+      const bFirst = 1;
+
+      // If both messages are in a warningGroup, or if both are not in warningGroups.
+      if (
+        (warningGroupA && warningGroupB) ||
+        (!warningGroupA && !warningGroupB)
+      ) {
+        return getNaturalOrder(messageA, messageB);
+      }
+
+      // If `a` is in a warningGroup (and `b` isn't).
+      if (warningGroupA) {
+        // If `b` is the warningGroup of `a`, `a` should be after `b`.
+        if (warningGroupIdA === messageB.id) {
+          return bFirst;
+        }
+        // `b` is a regular message, we place `a` before `b` if `b` came after `a`'s
+        // warningGroup.
+        return getNaturalOrder(warningGroupA, messageB);
+      }
+
+      // If `b` is in a warningGroup (and `a` isn't).
+      if (warningGroupB) {
+        // If `a` is the warningGroup of `b`, `a` should be before `b`.
+        if (warningGroupIdB === messageA.id) {
+          return aFirst;
+        }
+        // `a` is a regular message, we place `a` after `b` if `a` came after `b`'s
+        // warningGroup.
+        return getNaturalOrder(messageA, warningGroupB);
+      }
+
+      return 0;
+    });
+  }
+
+  if (timeStampSort) {
+    state.visibleMessages.sort((a, b) => {
+      const messageA = state.messagesById.get(a);
+      const messageB = state.messagesById.get(b);
+      return getNaturalOrder(messageA, messageB);
+    });
+  }
+}
+
+/**
+ * Returns if a given type of warning message should be grouped.
+ *
+ * @param {ConsoleMessage} warningGroupMessage
+ * @param {MessageState} messagesState
+ * @param {PrefsState} prefsState
+ */
+function shouldGroupWarningMessages(
+  warningGroupMessage,
+  messagesState,
+  prefsState
+) {
+  if (!warningGroupMessage) {
+    return false;
+  }
+
+  // Only group if the preference is ON.
+  if (!prefsState.groupWarnings) {
+    return false;
+  }
+
+  // We group warning messages if there are at least 2 messages that could go in it.
+  const warningGroup = messagesState.warningGroupsById.get(
+    warningGroupMessage.id
+  );
+  if (!warningGroup || !Array.isArray(warningGroup)) {
+    return false;
+  }
+
+  return warningGroup.length > 1;
 }
 
 exports.messages = messages;

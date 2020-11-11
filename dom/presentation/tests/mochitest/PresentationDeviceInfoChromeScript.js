@@ -5,13 +5,16 @@
 
 /* eslint-env mozilla/frame-script */
 
-const { XPCOMUtils } = ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm", {});
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
 
-const manager = Cc["@mozilla.org/presentation-device/manager;1"]
-                  .getService(Ci.nsIPresentationDeviceManager);
+const manager = Cc["@mozilla.org/presentation-device/manager;1"].getService(
+  Ci.nsIPresentationDeviceManager
+);
 
 var testProvider = {
-  QueryInterface: ChromeUtils.generateQI([Ci.nsIPresentationDeviceProvider]),
+  QueryInterface: ChromeUtils.generateQI(["nsIPresentationDeviceProvider"]),
   forceDiscovery() {
     sendAsyncMessage("force-discovery");
   },
@@ -19,7 +22,7 @@ var testProvider = {
 };
 
 var testDevice = {
-  QueryInterface: ChromeUtils.generateQI([Ci.nsIPresentationDevice]),
+  QueryInterface: ChromeUtils.generateQI(["nsIPresentationDevice"]),
   establishControlChannel() {
     return null;
   },
@@ -34,7 +37,7 @@ var testDevice = {
 };
 
 var testDevice1 = {
-  QueryInterface: ChromeUtils.generateQI([Ci.nsIPresentationDevice]),
+  QueryInterface: ChromeUtils.generateQI(["nsIPresentationDevice"]),
   id: "dummyid",
   name: "dummyName",
   type: "dummyType",
@@ -48,7 +51,7 @@ var testDevice1 = {
 };
 
 var testDevice2 = {
-  QueryInterface: ChromeUtils.generateQI([Ci.nsIPresentationDevice]),
+  QueryInterface: ChromeUtils.generateQI(["nsIPresentationDevice"]),
   id: "dummyid",
   name: "dummyName",
   type: "dummyType",
@@ -62,7 +65,7 @@ var testDevice2 = {
 };
 
 var mockedDeviceWithoutSupportedURL = {
-  QueryInterface: ChromeUtils.generateQI([Ci.nsIPresentationDevice]),
+  QueryInterface: ChromeUtils.generateQI(["nsIPresentationDevice"]),
   id: "dummyid",
   name: "dummyName",
   type: "dummyType",
@@ -76,7 +79,7 @@ var mockedDeviceWithoutSupportedURL = {
 };
 
 var mockedDeviceSupportHttpsURL = {
-  QueryInterface: ChromeUtils.generateQI([Ci.nsIPresentationDevice]),
+  QueryInterface: ChromeUtils.generateQI(["nsIPresentationDevice"]),
   id: "dummyid",
   name: "dummyName",
   type: "dummyType",
@@ -117,7 +120,6 @@ addMessageListener("trigger-add-multiple-devices", function() {
 addMessageListener("trigger-add-https-devices", function() {
   manager.addDevice(mockedDeviceSupportHttpsURL);
 });
-
 
 addMessageListener("trigger-device-update", function(device) {
   testDevice.id = device.id;

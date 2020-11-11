@@ -15,6 +15,14 @@ template <class>
 struct already_AddRefed;
 
 namespace mozilla {
+
+namespace net {
+
+class SocketProcessBridgeParent;
+class SocketProcessParent;
+
+}  // namespace net
+
 namespace dom {
 
 class BlobImpl;
@@ -38,6 +46,8 @@ class BackgroundParent final {
   typedef mozilla::dom::BlobImpl BlobImpl;
   typedef mozilla::dom::ContentParent ContentParent;
   typedef mozilla::ipc::Transport Transport;
+  friend class mozilla::net::SocketProcessBridgeParent;
+  friend class mozilla::net::SocketProcessParent;
 
  public:
   // This function allows the caller to determine if the given parent actor
@@ -73,6 +83,10 @@ class BackgroundParent final {
   // Only called by ContentParent for cross-process actors.
   static bool Alloc(ContentParent* aContent,
                     Endpoint<PBackgroundParent>&& aEndpoint);
+
+  // Called by SocketProcessBridgeParent and SocketProcessParent for
+  // cross-process actors.
+  static bool Alloc(Endpoint<PBackgroundParent>&& aEndpoint);
 };
 
 // Implemented in BackgroundImpl.cpp.
@@ -90,6 +104,10 @@ inline void AssertIsOnBackgroundThread() {}
 #endif  // DEBUG
 
 inline void AssertIsInMainProcess() { MOZ_ASSERT(XRE_IsParentProcess()); }
+
+inline void AssertIsInMainOrSocketProcess() {
+  MOZ_ASSERT(XRE_IsParentProcess() || XRE_IsSocketProcess());
+}
 
 }  // namespace ipc
 }  // namespace mozilla

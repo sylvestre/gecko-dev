@@ -53,99 +53,99 @@
  */
 
 #ifdef MESSAGE_TO_EVENT
-#ifdef EVENT
-#error "Don't define EVENT"
-#endif /* EVENT */
-#ifdef WINDOW_ONLY_EVENT
-#error "Don't define WINDOW_ONLY_EVENT"
-#endif /* WINDOW_ONLY_EVENT */
-#ifdef TOUCH_EVENT
-#error "Don't define TOUCH_EVENT"
-#endif /* TOUCH_EVENT */
-#ifdef DOCUMENT_ONLY_EVENT
-#error "Don't define DOCUMENT_ONLY_EVENT"
-#endif /* DOCUMENT_ONLY_EVENT */
-#ifdef NON_IDL_EVENT
-#error "Don't define NON_IDL_EVENT"
-#endif /* NON_IDL_EVENT */
+#  ifdef EVENT
+#    error "Don't define EVENT"
+#  endif /* EVENT */
+#  ifdef WINDOW_ONLY_EVENT
+#    error "Don't define WINDOW_ONLY_EVENT"
+#  endif /* WINDOW_ONLY_EVENT */
+#  ifdef TOUCH_EVENT
+#    error "Don't define TOUCH_EVENT"
+#  endif /* TOUCH_EVENT */
+#  ifdef DOCUMENT_ONLY_EVENT
+#    error "Don't define DOCUMENT_ONLY_EVENT"
+#  endif /* DOCUMENT_ONLY_EVENT */
+#  ifdef NON_IDL_EVENT
+#    error "Don't define NON_IDL_EVENT"
+#  endif /* NON_IDL_EVENT */
 
-#define EVENT MESSAGE_TO_EVENT
-#define WINDOW_ONLY_EVENT MESSAGE_TO_EVENT
-#define TOUCH_EVENT MESSAGE_TO_EVENT
-#define DOCUMENT_ONLY_EVENT MESSAGE_TO_EVENT
-#define NON_IDL_EVENT MESSAGE_TO_EVENT
+#  define EVENT MESSAGE_TO_EVENT
+#  define WINDOW_ONLY_EVENT MESSAGE_TO_EVENT
+#  define TOUCH_EVENT MESSAGE_TO_EVENT
+#  define DOCUMENT_ONLY_EVENT MESSAGE_TO_EVENT
+#  define NON_IDL_EVENT MESSAGE_TO_EVENT
 #endif /* MESSAGE_TO_EVENT */
 
 #ifdef DEFINED_FORWARDED_EVENT
-#error "Don't define DEFINED_FORWARDED_EVENT"
+#  error "Don't define DEFINED_FORWARDED_EVENT"
 #endif /* DEFINED_FORWARDED_EVENT */
 
 #ifndef FORWARDED_EVENT
-#define FORWARDED_EVENT EVENT
-#define DEFINED_FORWARDED_EVENT
+#  define FORWARDED_EVENT EVENT
+#  define DEFINED_FORWARDED_EVENT
 #endif /* FORWARDED_EVENT */
 
 #ifdef DEFINED_WINDOW_ONLY_EVENT
-#error "Don't define DEFINED_WINDOW_ONLY_EVENT"
+#  error "Don't define DEFINED_WINDOW_ONLY_EVENT"
 #endif /* DEFINED_WINDOW_ONLY_EVENT */
 
 #ifndef WINDOW_ONLY_EVENT
-#define WINDOW_ONLY_EVENT(_name, _message, _type, _struct)
-#define DEFINED_WINDOW_ONLY_EVENT
+#  define WINDOW_ONLY_EVENT(_name, _message, _type, _struct)
+#  define DEFINED_WINDOW_ONLY_EVENT
 #endif /* WINDOW_ONLY_EVENT */
 
 #ifdef DEFINED_WINDOW_EVENT
-#error "Don't define DEFINED_WINDOW_EVENT"
+#  error "Don't define DEFINED_WINDOW_EVENT"
 #endif /* DEFINED_WINDOW_EVENT */
 
 #ifndef WINDOW_EVENT
-#define WINDOW_EVENT WINDOW_ONLY_EVENT
-#define DEFINED_WINDOW_EVENT
+#  define WINDOW_EVENT WINDOW_ONLY_EVENT
+#  define DEFINED_WINDOW_EVENT
 #endif /* WINDOW_EVENT */
 
 #ifdef DEFINED_TOUCH_EVENT
-#error "Don't define DEFINED_TOUCH_EVENT"
+#  error "Don't define DEFINED_TOUCH_EVENT"
 #endif /* DEFINED_TOUCH_EVENT */
 
 #ifndef TOUCH_EVENT
-#define TOUCH_EVENT(_name, _message, _type, _struct)
-#define DEFINED_TOUCH_EVENT
+#  define TOUCH_EVENT(_name, _message, _type, _struct)
+#  define DEFINED_TOUCH_EVENT
 #endif /* TOUCH_EVENT */
 
 #ifdef DEFINED_DOCUMENT_ONLY_EVENT
-#error "Don't define DEFINED_DOCUMENT_ONLY_EVENT"
+#  error "Don't define DEFINED_DOCUMENT_ONLY_EVENT"
 #endif /* DEFINED_DOCUMENT_ONLY_EVENT */
 
 #ifndef DOCUMENT_ONLY_EVENT
-#define DOCUMENT_ONLY_EVENT(_name, _message, _type, _struct)
-#define DEFINED_DOCUMENT_ONLY_EVENT
+#  define DOCUMENT_ONLY_EVENT(_name, _message, _type, _struct)
+#  define DEFINED_DOCUMENT_ONLY_EVENT
 #endif /* DOCUMENT_ONLY_EVENT */
 
 #ifdef DEFINED_NON_IDL_EVENT
-#error "Don't define DEFINED_NON_IDL_EVENT"
+#  error "Don't define DEFINED_NON_IDL_EVENT"
 #endif /* DEFINED_NON_IDL_EVENT */
 
 #ifndef NON_IDL_EVENT
-#define NON_IDL_EVENT(_name, _message, _type, _struct)
-#define DEFINED_NON_IDL_EVENT
+#  define NON_IDL_EVENT(_name, _message, _type, _struct)
+#  define DEFINED_NON_IDL_EVENT
 #endif /* NON_IDL_EVENT */
 
 #ifdef DEFINED_ERROR_EVENT
-#error "Don't define DEFINED_ERROR_EVENT"
+#  error "Don't define DEFINED_ERROR_EVENT"
 #endif /* DEFINED_ERROR_EVENT */
 
 #ifndef ERROR_EVENT
-#define ERROR_EVENT FORWARDED_EVENT
-#define DEFINED_ERROR_EVENT
+#  define ERROR_EVENT FORWARDED_EVENT
+#  define DEFINED_ERROR_EVENT
 #endif /* ERROR_EVENT */
 
 #ifdef DEFINED_BEFOREUNLOAD_EVENT
-#error "Don't define DEFINED_BEFOREUNLOAD_EVENT"
+#  error "Don't define DEFINED_BEFOREUNLOAD_EVENT"
 #endif /* DEFINED_BEFOREUNLOAD_EVENT */
 
 #ifndef BEFOREUNLOAD_EVENT
-#define BEFOREUNLOAD_EVENT WINDOW_EVENT
-#define DEFINED_BEFOREUNLOAD_EVENT
+#  define BEFOREUNLOAD_EVENT WINDOW_EVENT
+#  define DEFINED_BEFOREUNLOAD_EVENT
 #endif /* BEFOREUNLOAD_EVENT */
 
 EVENT(abort, eImageAbort, EventNameType_All, eBasicEventClass)
@@ -163,8 +163,7 @@ EVENT(close, eClose, EventNameType_HTMLXUL, eBasicEventClass)
 EVENT(contextmenu, eContextMenu, EventNameType_HTMLXUL, eMouseEventClass)
 NON_IDL_EVENT(mouselongtap, eMouseLongTap, EventNameType_HTMLXUL,
               eMouseEventClass)
-// Not supported yet
-// EVENT(cuechange)
+EVENT(cuechange, eCueChange, EventNameType_All, eBasicEventClass)
 EVENT(dblclick, eMouseDoubleClick, EventNameType_HTMLXUL, eMouseEventClass)
 EVENT(drag, eDrag, EventNameType_HTMLXUL, eDragEventClass)
 EVENT(dragend, eDragEnd, EventNameType_HTMLXUL, eDragEventClass)
@@ -178,8 +177,11 @@ EVENT(durationchange, eDurationChange, EventNameType_HTML, eBasicEventClass)
 EVENT(emptied, eEmptied, EventNameType_HTML, eBasicEventClass)
 EVENT(ended, eEnded, EventNameType_HTML, eBasicEventClass)
 EVENT(finish, eMarqueeFinish, EventNameType_HTMLMarqueeOnly, eBasicEventClass)
+EVENT(formdata, eFormData, EventNameType_HTML, eBasicEventClass)
 EVENT(fullscreenchange, eFullscreenChange, EventNameType_HTML, eBasicEventClass)
 EVENT(fullscreenerror, eFullscreenError, EventNameType_HTML, eBasicEventClass)
+EVENT(beforeinput, eEditorBeforeInput, EventNameType_HTMLXUL,
+      eEditorInputEventClass)
 EVENT(input, eEditorInput, EventNameType_HTMLXUL, eEditorInputEventClass)
 EVENT(invalid, eFormInvalid, EventNameType_HTMLXUL, eBasicEventClass)
 EVENT(keydown, eKeyDown, EventNameType_HTMLXUL, eKeyboardEventClass)
@@ -247,9 +249,12 @@ EVENT(toggle, eToggle, EventNameType_HTML, eBasicEventClass)
 EVENT(volumechange, eVolumeChange, EventNameType_HTML, eBasicEventClass)
 EVENT(waiting, eWaiting, EventNameType_HTML, eBasicEventClass)
 EVENT(wheel, eWheel, EventNameType_All, eWheelEventClass)
-EVENT(copy, eCopy, EventNameType_HTMLXUL, eClipboardEventClass)
-EVENT(cut, eCut, EventNameType_HTMLXUL, eClipboardEventClass)
-EVENT(paste, ePaste, EventNameType_HTMLXUL, eClipboardEventClass)
+EVENT(copy, eCopy, EventNameType_HTMLXUL | EventNameType_SVGGraphic,
+      eClipboardEventClass)
+EVENT(cut, eCut, EventNameType_HTMLXUL | EventNameType_SVGGraphic,
+      eClipboardEventClass)
+EVENT(paste, ePaste, EventNameType_HTMLXUL | EventNameType_SVGGraphic,
+      eClipboardEventClass)
 // Gecko-specific extensions that apply to elements
 EVENT(beforescriptexecute, eBeforeScriptExecute, EventNameType_HTMLXUL,
       eBasicEventClass)
@@ -265,6 +270,10 @@ FORWARDED_EVENT(load, eLoad, EventNameType_All, eBasicEventClass)
 FORWARDED_EVENT(resize, eResize, EventNameType_All, eBasicEventClass)
 FORWARDED_EVENT(scroll, eScroll, (EventNameType_HTMLXUL | EventNameType_SVGSVG),
                 eBasicEventClass)
+NON_IDL_EVENT(mozvisualresize, eMozVisualResize, EventNameType_None,
+              eBasicEventClass)
+NON_IDL_EVENT(mozvisualscroll, eMozVisualScroll, EventNameType_None,
+              eBasicEventClass)
 
 WINDOW_EVENT(afterprint, eAfterPrint,
              EventNameType_XUL | EventNameType_HTMLBodyOrFramesetOnly,
@@ -303,12 +312,12 @@ WINDOW_EVENT(pageshow, ePageShow, EventNameType_HTMLBodyOrFramesetOnly,
 WINDOW_EVENT(popstate, ePopState,
              EventNameType_XUL | EventNameType_HTMLBodyOrFramesetOnly,
              eBasicEventClass)
-// Not supported yet
-// WINDOW_EVENT(redo)
+WINDOW_EVENT(rejectionhandled, eRejectionHandled,
+             EventNameType_HTMLBodyOrFramesetOnly, eBasicEventClass)
 WINDOW_EVENT(storage, eStorage, EventNameType_HTMLBodyOrFramesetOnly,
              eBasicEventClass)
-// Not supported yet
-// WINDOW_EVENT(undo)
+WINDOW_EVENT(unhandledrejection, eUnhandledRejection,
+             EventNameType_HTMLBodyOrFramesetOnly, eBasicEventClass)
 WINDOW_EVENT(unload, eUnload,
              (EventNameType_XUL | EventNameType_SVGSVG |
               EventNameType_HTMLBodyOrFramesetOnly),
@@ -336,9 +345,6 @@ WINDOW_ONLY_EVENT(vrdisplaydisconnect, eVRDisplayDisconnect, EventNameType_None,
                   eBasicEventClass)
 WINDOW_ONLY_EVENT(vrdisplaypresentchange, eVRDisplayPresentChange,
                   EventNameType_None, eBasicEventClass)
-// Install events as per W3C Manifest spec
-WINDOW_ONLY_EVENT(appinstalled, eAppInstalled, EventNameType_None,
-                  eBasicEventClass)
 
 TOUCH_EVENT(touchstart, eTouchStart, EventNameType_All, eTouchEventClass)
 TOUCH_EVENT(touchend, eTouchEnd, EventNameType_All, eTouchEventClass)
@@ -409,8 +415,6 @@ NON_IDL_EVENT(command, eXULCommand, EventNameType_XUL, eInputEventClass)
 NON_IDL_EVENT(popupshowing, eXULPopupShowing, EventNameType_XUL,
               eBasicEventClass)
 NON_IDL_EVENT(popupshown, eXULPopupShown, EventNameType_XUL, eBasicEventClass)
-NON_IDL_EVENT(popuppositioned, eXULPopupPositioned, EventNameType_XUL,
-              eBasicEventClass)
 NON_IDL_EVENT(popuphiding, eXULPopupHiding, EventNameType_XUL, eBasicEventClass)
 NON_IDL_EVENT(popuphidden, eXULPopupHidden, EventNameType_XUL, eBasicEventClass)
 NON_IDL_EVENT(broadcast, eXULBroadcast, EventNameType_XUL, eBasicEventClass)
@@ -423,8 +427,6 @@ NON_IDL_EVENT(underflow, eScrollPortUnderflow, EventNameType_XUL,
 
 // Various SVG events
 NON_IDL_EVENT(SVGLoad, eSVGLoad, EventNameType_None, eBasicEventClass)
-NON_IDL_EVENT(SVGUnload, eSVGUnload, EventNameType_None, eBasicEventClass)
-NON_IDL_EVENT(SVGResize, eSVGResize, EventNameType_None, eBasicEventClass)
 NON_IDL_EVENT(SVGScroll, eSVGScroll, EventNameType_None, eBasicEventClass)
 
 // Only map the ID to the real event name when MESSAGE_TO_EVENT is defined.
@@ -519,13 +521,17 @@ EVENT(webkitAnimationStart, eWebkitAnimationStart, EventNameType_All,
 EVENT(webkitTransitionEnd, eWebkitTransitionEnd, EventNameType_All,
       eTransitionEventClass)
 #ifndef MESSAGE_TO_EVENT
-EVENT(webkitanimationend, eWebkitAnimationEnd, EventNameType_All,
+// These are only here so that IsEventAttributeName() will return the right
+// thing for these events.  We could probably remove them if we used
+// Element::GetEventNameForAttr on the input to IsEventAttributeName before
+// looking it up in the hashtable...
+EVENT(webkitanimationend, eUnidentifiedEvent, EventNameType_All,
       eAnimationEventClass)
-EVENT(webkitanimationiteration, eWebkitAnimationIteration, EventNameType_All,
+EVENT(webkitanimationiteration, eUnidentifiedEvent, EventNameType_All,
       eAnimationEventClass)
-EVENT(webkitanimationstart, eWebkitAnimationStart, EventNameType_All,
+EVENT(webkitanimationstart, eUnidentifiedEvent, EventNameType_All,
       eAnimationEventClass)
-EVENT(webkittransitionend, eWebkitTransitionEnd, EventNameType_All,
+EVENT(webkittransitionend, eUnidentifiedEvent, EventNameType_All,
       eTransitionEventClass)
 #endif
 
@@ -534,49 +540,49 @@ NON_IDL_EVENT(audioprocess, eAudioProcess, EventNameType_None, eBasicEventClass)
 NON_IDL_EVENT(complete, eAudioComplete, EventNameType_None, eBasicEventClass)
 
 #ifdef DEFINED_FORWARDED_EVENT
-#undef DEFINED_FORWARDED_EVENT
-#undef FORWARDED_EVENT
+#  undef DEFINED_FORWARDED_EVENT
+#  undef FORWARDED_EVENT
 #endif /* DEFINED_FORWARDED_EVENT */
 
 #ifdef DEFINED_WINDOW_EVENT
-#undef DEFINED_WINDOW_EVENT
-#undef WINDOW_EVENT
+#  undef DEFINED_WINDOW_EVENT
+#  undef WINDOW_EVENT
 #endif /* DEFINED_WINDOW_EVENT */
 
 #ifdef DEFINED_WINDOW_ONLY_EVENT
-#undef DEFINED_WINDOW_ONLY_EVENT
-#undef WINDOW_ONLY_EVENT
+#  undef DEFINED_WINDOW_ONLY_EVENT
+#  undef WINDOW_ONLY_EVENT
 #endif /* DEFINED_WINDOW_ONLY_EVENT */
 
 #ifdef DEFINED_TOUCH_EVENT
-#undef DEFINED_TOUCH_EVENT
-#undef TOUCH_EVENT
+#  undef DEFINED_TOUCH_EVENT
+#  undef TOUCH_EVENT
 #endif /* DEFINED_TOUCH_EVENT */
 
 #ifdef DEFINED_DOCUMENT_ONLY_EVENT
-#undef DEFINED_DOCUMENT_ONLY_EVENT
-#undef DOCUMENT_ONLY_EVENT
+#  undef DEFINED_DOCUMENT_ONLY_EVENT
+#  undef DOCUMENT_ONLY_EVENT
 #endif /* DEFINED_DOCUMENT_ONLY_EVENT */
 
 #ifdef DEFINED_NON_IDL_EVENT
-#undef DEFINED_NON_IDL_EVENT
-#undef NON_IDL_EVENT
+#  undef DEFINED_NON_IDL_EVENT
+#  undef NON_IDL_EVENT
 #endif /* DEFINED_NON_IDL_EVENT */
 
 #ifdef DEFINED_ERROR_EVENT
-#undef DEFINED_ERROR_EVENT
-#undef ERROR_EVENT
+#  undef DEFINED_ERROR_EVENT
+#  undef ERROR_EVENT
 #endif /* DEFINED_ERROR_EVENT */
 
 #ifdef DEFINED_BEFOREUNLOAD_EVENT
-#undef DEFINED_BEFOREUNLOAD_EVENT
-#undef BEFOREUNLOAD_EVENT
+#  undef DEFINED_BEFOREUNLOAD_EVENT
+#  undef BEFOREUNLOAD_EVENT
 #endif /* BEFOREUNLOAD_EVENT */
 
 #ifdef MESSAGE_TO_EVENT
-#undef EVENT
-#undef WINDOW_ONLY_EVENT
-#undef TOUCH_EVENT
-#undef DOCUMENT_ONLY_EVENT
-#undef NON_IDL_EVENT
+#  undef EVENT
+#  undef WINDOW_ONLY_EVENT
+#  undef TOUCH_EVENT
+#  undef DOCUMENT_ONLY_EVENT
+#  undef NON_IDL_EVENT
 #endif /* MESSAGE_TO_EVENT */

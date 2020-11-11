@@ -6,14 +6,22 @@
  * The origin of this IDL file is
  * https://dom.spec.whatwg.org/#documentorshadowroot
  * http://w3c.github.io/webcomponents/spec/shadow/#extensions-to-the-documentorshadowroot-mixin
+ * https://wicg.github.io/construct-stylesheets/#using-constructed-stylesheets
  */
 
-[NoInterfaceObject]
-interface DocumentOrShadowRoot {
+interface mixin DocumentOrShadowRoot {
   // Not implemented yet: bug 1430308.
   // Selection? getSelection();
-  Element? elementFromPoint (float x, float y);
-  sequence<Element> elementsFromPoint (float x, float y);
+  Element? elementFromPoint(float x, float y);
+  sequence<Element> elementsFromPoint(float x, float y);
+
+  // TODO: Avoid making these ChromeOnly, see:
+  // https://github.com/w3c/csswg-drafts/issues/556
+  [ChromeOnly]
+  Node? nodeFromPoint(float x, float y);
+  [ChromeOnly]
+  sequence<Node> nodesFromPoint(float x, float y);
+
   // Not implemented yet: bug 1430307.
   // CaretPosition? caretPositionFromPoint (float x, float y);
 
@@ -21,8 +29,22 @@ interface DocumentOrShadowRoot {
   readonly attribute StyleSheetList styleSheets;
 
   readonly attribute Element? pointerLockElement;
-  [LenientSetter, Func="nsIDocument::IsUnprefixedFullscreenEnabled"]
+  [LenientSetter]
   readonly attribute Element? fullscreenElement;
   [BinaryName="fullscreenElement"]
   readonly attribute Element? mozFullScreenElement;
+};
+
+// https://drafts.csswg.org/web-animations-1/#extensions-to-the-documentorshadowroot-interface-mixin
+partial interface mixin DocumentOrShadowRoot {
+  [Func="Document::IsWebAnimationsGetAnimationsEnabled"]
+  sequence<Animation> getAnimations();
+};
+
+// https://wicg.github.io/construct-stylesheets/#using-constructed-stylesheets
+partial interface mixin DocumentOrShadowRoot {
+  // We are using [Pure, Cached, Frozen] sequence until `FrozenArray` is implemented.
+  // See https://bugzilla.mozilla.org/show_bug.cgi?id=1236777 for more details.
+  [Pure, Cached, Frozen, SetterThrows, Pref="layout.css.constructable-stylesheets.enabled"]
+  attribute sequence<CSSStyleSheet> adoptedStyleSheets;
 };

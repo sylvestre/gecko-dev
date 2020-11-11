@@ -6,8 +6,14 @@
 #include "nsXULAppAPI.h"
 #include "nsINIParser.h"
 #include "nsIFile.h"
-#include "nsAutoPtr.h"
 #include "mozilla/XREAppData.h"
+
+// This include must appear early in the unified cpp file for toolkit/xre to
+// make sure OSX APIs make use of the OSX TextRange before mozilla::TextRange is
+// declared and made a global symbol by a "using namespace mozilla" declaration.
+#ifdef XP_MACOSX
+#  include <Carbon/Carbon.h>
+#endif
 
 using namespace mozilla;
 
@@ -61,6 +67,7 @@ nsresult XRE_ParseAppData(nsIFile* aINIFile, XREAppData& aAppData) {
   ReadString(parser, "Gecko", "MaxVersion", aAppData.maxVersion);
   ReadString(parser, "Crash Reporter", "ServerURL", aAppData.crashReporterURL);
   ReadString(parser, "App", "UAName", aAppData.UAName);
+  ReadString(parser, "AppUpdate", "URL", aAppData.updateURL);
   ReadFlag(parser, "XRE", "EnableProfileMigrator",
            NS_XRE_ENABLE_PROFILE_MIGRATOR, aAppData.flags);
   ReadFlag(parser, "Crash Reporter", "Enabled", NS_XRE_ENABLE_CRASH_REPORTER,

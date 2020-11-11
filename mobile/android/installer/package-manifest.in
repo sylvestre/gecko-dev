@@ -24,12 +24,10 @@
 @BINPATH@/hyphenation/*
 @BINPATH@/localization/*
 
-; We want fennec/lib for both Fennec and GeckoView, so we turn
-; geckoview/lib into fennec/lib.
-#ifndef MOZ_GECKOVIEW_JAR
 [lib destdir="lib/@ANDROID_CPU_ARCH@"]
-#else
-[lib destdir="../fennec/lib/@ANDROID_CPU_ARCH@"]
+
+#ifdef MOZ_CLANG_RT_ASAN_LIB
+@BINPATH@/@MOZ_CLANG_RT_ASAN_LIB@
 #endif
 
 #ifndef MOZ_STATIC_JS
@@ -67,12 +65,6 @@
 @BINPATH@/@DLL_PREFIX@freebl3.chk
 @BINPATH@/@DLL_PREFIX@softokn3.chk
 #endif
-#ifndef NSS_DISABLE_DBM
-@BINPATH@/@DLL_PREFIX@nssdbm3@DLL_SUFFIX@
-#ifndef CROSS_COMPILE
-@BINPATH@/@DLL_PREFIX@nssdbm3.chk
-#endif
-#endif
 
 #ifndef MOZ_FOLD_LIBS
 @BINPATH@/@DLL_PREFIX@mozsqlite3@DLL_SUFFIX@
@@ -93,126 +85,27 @@
 ; [Base Browser Files]
 @BINPATH@/application.ini
 @BINPATH@/platform.ini
-@BINPATH@/blocklist.xml
 @BINPATH@/defaults/settings/blocklists/addons.json
-@BINPATH@/defaults/settings/blocklists/certificates.json
+; TODO bug 1639050: addons-bloomfilters should be used instead of addons.json
+@BINPATH@/defaults/settings/security-state/onecrl.json
+@BINPATH@/defaults/settings/main/password-recipes.json
 
 ; [Components]
 @BINPATH@/components/components.manifest
 
 ; JavaScript components
-@BINPATH@/components/ConsoleAPI.manifest
-@BINPATH@/components/ConsoleAPIStorage.js
-@BINPATH@/components/NotificationStorage.js
-@BINPATH@/components/NotificationStorage.manifest
-#ifdef MOZ_ANDROID_GCM
-@BINPATH@/components/Push.js
-@BINPATH@/components/Push.manifest
-@BINPATH@/components/PushComponents.js
-#endif
-@BINPATH@/components/BrowserElementParent.manifest
-@BINPATH@/components/BrowserElementParent.js
-@BINPATH@/components/UAOverridesBootstrapper.js
-@BINPATH@/components/UAOverridesBootstrapper.manifest
-@BINPATH@/components/WellKnownOpportunisticUtils.js
-@BINPATH@/components/WellKnownOpportunisticUtils.manifest
-@BINPATH@/components/mozProtocolHandler.js
-@BINPATH@/components/mozProtocolHandler.manifest
-#ifndef MOZ_GECKOVIEW_JAR
-@BINPATH@/components/nsDNSServiceDiscovery.manifest
-@BINPATH@/components/nsDNSServiceDiscovery.js
-#endif
 @BINPATH@/components/toolkitsearch.manifest
-@BINPATH@/components/nsSearchService.js
-@BINPATH@/components/nsSidebar.js
-@BINPATH@/components/passwordmgr.manifest
-@BINPATH@/components/nsLoginInfo.js
-@BINPATH@/components/nsLoginManager.js
-@BINPATH@/components/nsLoginManagerPrompter.js
-@BINPATH@/components/storage-mozStorage.js
-@BINPATH@/components/crypto-SDR.js
-@BINPATH@/components/TooltipTextProvider.js
-@BINPATH@/components/TooltipTextProvider.manifest
-@BINPATH@/components/NetworkGeolocationProvider.manifest
-@BINPATH@/components/NetworkGeolocationProvider.js
 
 @BINPATH@/components/extensions.manifest
-@BINPATH@/components/addonManager.js
 
-#ifndef MOZ_GECKOVIEW_JAR
-@BINPATH@/components/utils.manifest
-@BINPATH@/components/simpleServices.js
-@BINPATH@/components/amContentHandler.js
-@BINPATH@/components/amWebAPI.js
-@BINPATH@/components/amInstallTrigger.js
-#ifndef RELEASE_OR_BETA
-@BINPATH@/components/TabSource.js
-#endif
-#endif
+@BINPATH@/components/antitracking.manifest
 
-@BINPATH@/components/WebVTT.manifest
-@BINPATH@/components/WebVTTParserWrapper.js
-
-#ifndef MOZ_GECKOVIEW_JAR
-#ifdef MOZ_UPDATER
-@BINPATH@/components/nsUpdateService.manifest
-@BINPATH@/components/nsUpdateService.js
-@BINPATH@/components/nsUpdateServiceStub.js
-#endif
-#endif
-
-@BINPATH@/components/ClearDataService.manifest
-@BINPATH@/components/ClearDataService.js
-
-@BINPATH@/components/nsUpdateTimerManager.manifest
-@BINPATH@/components/nsUpdateTimerManager.js
-
-@BINPATH@/components/pluginGlue.manifest
 @BINPATH@/components/ProcessSingleton.manifest
-@BINPATH@/components/MainProcessSingleton.js
-@BINPATH@/components/ContentProcessSingleton.js
-@BINPATH@/components/nsURLFormatter.manifest
-@BINPATH@/components/nsURLFormatter.js
-@BINPATH@/components/ContentPrefService2.manifest
-@BINPATH@/components/ContentPrefService2.js
 @BINPATH@/components/HandlerService.manifest
 @BINPATH@/components/HandlerService.js
-@BINPATH@/components/nsWebHandlerApp.manifest
-@BINPATH@/components/nsWebHandlerApp.js
-@BINPATH@/components/satchel.manifest
-@BINPATH@/components/nsFormAutoComplete.js
-@BINPATH@/components/FormHistoryStartup.js
-@BINPATH@/components/nsInputListAutoComplete.js
-@BINPATH@/components/contentAreaDropListener.manifest
-@BINPATH@/components/contentAreaDropListener.js
-@BINPATH@/components/nsINIProcessor.manifest
-@BINPATH@/components/nsINIProcessor.js
 @BINPATH@/components/servicesComponents.manifest
 @BINPATH@/components/servicesSettings.manifest
-@BINPATH@/components/RemoteSettingsComponents.js
-
-#ifndef MOZ_GECKOVIEW_JAR
-@BINPATH@/components/TelemetryStartup.js
-@BINPATH@/components/TelemetryStartup.manifest
-#endif
-
-@BINPATH@/components/XULStore.js
-@BINPATH@/components/XULStore.manifest
-@BINPATH@/components/htmlMenuBuilder.js
-@BINPATH@/components/htmlMenuBuilder.manifest
-
-@BINPATH@/components/SystemMessageInternal.js
-@BINPATH@/components/SystemMessageManager.js
-@BINPATH@/components/SystemMessageCache.js
-@BINPATH@/components/SystemMessageManager.manifest
-
-#ifdef MOZ_WEBRTC
-@BINPATH@/components/PeerConnection.js
-@BINPATH@/components/PeerConnection.manifest
-#endif
-
-@BINPATH@/components/CaptivePortalDetectComponents.manifest
-@BINPATH@/components/captivedetect.js
+@BINPATH@/components/l10n-registry.manifest
 
 #if defined(ENABLE_TESTS) && defined(MOZ_DEBUG)
 @BINPATH@/components/TestInterfaceJS.js
@@ -220,42 +113,9 @@
 @BINPATH@/components/TestInterfaceJSMaplike.js
 #endif
 
-@BINPATH@/components/nsAsyncShutdown.manifest
-@BINPATH@/components/nsAsyncShutdown.js
-
-@BINPATH@/components/Downloads.manifest
-@BINPATH@/components/DownloadLegacy.js
-
-#ifndef MOZ_GECKOVIEW_JAR
-@BINPATH@/components/BuiltinProviders.manifest
-@BINPATH@/components/PresentationControlService.js
-@BINPATH@/components/PresentationNetworkHelper.js
-@BINPATH@/components/PresentationNetworkHelper.manifest
-@BINPATH@/components/PresentationDataChannelSessionTransport.js
-@BINPATH@/components/PresentationDataChannelSessionTransport.manifest
-@BINPATH@/components/AndroidCastDeviceProvider.manifest
-@BINPATH@/components/AndroidCastDeviceProvider.js
-#endif
-
-@BINPATH@/components/mozIntl.manifest
-@BINPATH@/components/mozIntl.js
-
-@BINPATH@/components/mozDOMLocalization.js
-@BINPATH@/components/mozDOMLocalization.manifest
-
 ; Modules
 @BINPATH@/modules/*
 @BINPATH@/actors/*
-
-; Safe Browsing
-@BINPATH@/components/nsURLClassifier.manifest
-@BINPATH@/components/nsUrlClassifierHashCompleter.js
-@BINPATH@/components/nsUrlClassifierListManager.js
-@BINPATH@/components/nsUrlClassifierLib.js
-
-; Security Reports
-@BINPATH@/components/SecurityReporter.manifest
-@BINPATH@/components/SecurityReporter.js
 
 ; [Browser Chrome Files]
 @BINPATH@/chrome/toolkit@JAREXT@
@@ -264,7 +124,6 @@
 ; [Extensions]
 @BINPATH@/components/extensions-toolkit.manifest
 @BINPATH@/components/extensions-mobile.manifest
-@BINPATH@/components/extension-process-script.js
 
 ; Features
 @BINPATH@/features/*
@@ -275,14 +134,14 @@
 
 ; [Default Preferences]
 ; All the pref files must be part of base to prevent migration bugs
-#ifdef MOZ_GECKOVIEW_JAR
-@BINPATH@/@PREF_DIR@/geckoview-prefs.js
+#ifndef MOZ_ANDROID_FAT_AAR_ARCHITECTURES
+@BINPATH@/@ANDROID_CPU_ARCH@/greprefs.js
+@BINPATH@/@PREF_DIR@/@ANDROID_CPU_ARCH@/geckoview-prefs.js
 #else
-@BINPATH@/@PREF_DIR@/mobile.js
-#endif
+@BINPATH@/*/greprefs.js
+@BINPATH@/@PREF_DIR@/*/geckoview-prefs.js
+#endif # !MOZ_ANDROID_FAT_AAR_ARCHITECTURES
 @BINPATH@/@PREF_DIR@/channel-prefs.js
-@BINPATH@/ua-update.json
-@BINPATH@/greprefs.js
 @BINPATH@/defaults/autoconfig/prefcalls.js
 
 ; [Layout Engine Resources]
@@ -311,6 +170,10 @@
 @BINPATH@/res/grabber.gif
 @BINPATH@/res/dtd/*
 @BINPATH@/res/language.properties
+@BINPATH@/res/locale/layout/HtmlForm.properties
+@BINPATH@/res/locale/layout/MediaDocument.properties
+@BINPATH@/res/locale/layout/xmlparser.properties
+@BINPATH@/res/locale/dom/dom.properties
 
 #ifndef MOZ_ANDROID_EXCLUDE_FONTS
 @BINPATH@/res/fonts/*
@@ -337,44 +200,11 @@
 @BINPATH@/crashreporter-override.ini
 #endif
 
-@BINPATH@/components/RemoteWebNavigation.js
-@BINPATH@/components/remotebrowserutils.manifest
-
 [mobile]
 @BINPATH@/chrome/geckoview@JAREXT@
 @BINPATH@/chrome/geckoview.manifest
 
-#ifdef MOZ_GECKOVIEW_JAR
 @BINPATH@/components/GeckoView.manifest
-@BINPATH@/components/GeckoViewExternalAppService.js
-@BINPATH@/components/GeckoViewPrompt.js
-@BINPATH@/components/GeckoViewPermission.js
-@BINPATH@/components/GeckoViewStartup.js
-#else
-@BINPATH@/chrome/chrome@JAREXT@
-@BINPATH@/chrome/chrome.manifest
-@BINPATH@/components/AboutRedirector.js
-@BINPATH@/components/AddonUpdateService.js
-@BINPATH@/components/BlocklistPrompt.js
-@BINPATH@/components/BrowserCLH.js
-@BINPATH@/components/ColorPicker.js
-@BINPATH@/components/ContentDispatchChooser.js
-@BINPATH@/components/ContentPermissionPrompt.js
-@BINPATH@/components/ImageBlockingPolicy.js
-@BINPATH@/components/DirectoryProvider.js
-@BINPATH@/components/FilePicker.js
-@BINPATH@/components/FxAccountsPush.js
-@BINPATH@/components/HelperAppDialog.js
-@BINPATH@/components/LoginManagerPrompter.js
-@BINPATH@/components/MobileComponents.manifest
-@BINPATH@/components/NSSDialogService.js
-@BINPATH@/components/PersistentNotificationHandler.js
-@BINPATH@/components/PresentationDevicePrompt.js
-@BINPATH@/components/PresentationRequestUIGlue.js
-@BINPATH@/components/PromptService.js
-@BINPATH@/components/SessionStore.js
-@BINPATH@/components/XPIDialogService.js
-#endif
 
 ; Remote control protocol
 #ifdef ENABLE_MARIONETTE
@@ -382,16 +212,8 @@
 @BINPATH@/chrome/marionette.manifest
 @BINPATH@/components/marionette.manifest
 @BINPATH@/components/marionette.js
-@BINPATH@/defaults/pref/marionette.js
 #endif
 
 #ifdef PKG_LOCALE_MANIFEST
 #include @PKG_LOCALE_MANIFEST@
-#endif
-
-; NOTE: This must match the config checks in
-; /toolkit/components/backgroundhangmonitor/moz.build.
-#if defined(NIGHTLY_BUILD) && !defined(MOZ_DEBUG) && !defined(MOZ_TSAN) && !defined(MOZ_ASAN)
-@BINPATH@/components/BHRTelemetryService.js
-@BINPATH@/components/BHRTelemetryService.manifest
 #endif

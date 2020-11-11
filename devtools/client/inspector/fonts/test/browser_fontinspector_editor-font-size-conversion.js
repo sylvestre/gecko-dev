@@ -1,7 +1,5 @@
-/* vim: set ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
    http://creativecommons.org/publicdomain/zero/1.0/ */
-/* global getPropertyValue waitFor */
 
 "use strict";
 
@@ -17,19 +15,19 @@ add_task(async function() {
   const property = "font-size";
   const selector = ".viewport-size";
   const UNITS = {
-    "px": 50,
-    "vw": 10,
-    "vh": 20,
-    "vmin": 20,
-    "vmax": 10,
-    "em": 1.389,
-    "rem": 3.125,
+    px: 50,
+    vw: 10,
+    vh: 20,
+    vmin: 20,
+    vmax: 10,
+    em: 1.389,
+    rem: 3.125,
     "%": 138.889,
-    "pt": 37.5,
-    "pc": 3.125,
-    "mm": 13.229,
-    "cm": 1.323,
-    "in": 0.521,
+    pt: 37.5,
+    pc: 3.125,
+    mm: 13.229,
+    cm: 1.323,
+    in: 0.521,
   };
 
   const node = await getNodeFrontInFrame(selector, "#frame", inspector);
@@ -48,8 +46,17 @@ add_task(async function() {
     const value = UNITS[unit];
 
     info(`Convert font-size from ${prevValue}${prevUnit} to ${unit}`);
-    const convertedValue = await view.convertUnits(property, prevValue, prevUnit, unit);
-    is(convertedValue, value, `Converting to ${unit} returns transformed value.`);
+    const convertedValue = await view.convertUnits(
+      property,
+      prevValue,
+      prevUnit,
+      unit
+    );
+    is(
+      parseFloat(convertedValue),
+      parseFloat(value),
+      `Converting to ${unit} returns transformed value.`
+    );
 
     // Store current unit and value to use in conversion on the next iteration.
     prevUnit = unit;
@@ -65,6 +72,15 @@ add_task(async function() {
   is(valueToFakeUnit, 1, `Converting to fake unit returns same value.`);
 
   info(`Check that conversion between fake units returns 1-to-1 mapping.`);
-  const valueBetweenFakeUnit = await view.convertUnits(property, 1, "bogus", "fake");
-  is(valueBetweenFakeUnit, 1, `Converting between fake units returns same value.`);
+  const valueBetweenFakeUnit = await view.convertUnits(
+    property,
+    1,
+    "bogus",
+    "fake"
+  );
+  is(
+    valueBetweenFakeUnit,
+    1,
+    `Converting between fake units returns same value.`
+  );
 });

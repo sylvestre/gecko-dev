@@ -8,12 +8,12 @@
 
 #include "ClientHandleOpParent.h"
 #include "ClientManagerService.h"
+#include "ClientPrincipalUtils.h"
 #include "ClientSourceParent.h"
 #include "mozilla/dom/ClientIPCTypes.h"
 #include "mozilla/Unused.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 using mozilla::ipc::IPCResult;
 
@@ -26,6 +26,14 @@ void ClientHandleParent::ActorDestroy(ActorDestroyReason aReason) {
   if (mSource) {
     mSource->DetachHandle(this);
     mSource = nullptr;
+  } else {
+    mService->StopWaitingForSource(this, mClientId);
+  }
+
+  if (mSourcePromise) {
+    CopyableErrorResult rv;
+    rv.ThrowAbortError("Client aborted");
+    mSourcePromise->Reject(rv, __func__);
   }
 }
 
@@ -43,7 +51,7 @@ bool ClientHandleParent::DeallocPClientHandleOpParent(
 IPCResult ClientHandleParent::RecvPClientHandleOpConstructor(
     PClientHandleOpParent* aActor, const ClientOpConstructorArgs& aArgs) {
   auto actor = static_cast<ClientHandleOpParent*>(aActor);
-  actor->Init(aArgs);
+  actor->Init(std::move(const_cast<ClientOpConstructorArgs&>(aArgs)));
   return IPC_OK();
 }
 
@@ -53,9 +61,11 @@ ClientHandleParent::ClientHandleParent()
 ClientHandleParent::~ClientHandleParent() { MOZ_DIAGNOSTIC_ASSERT(!mSource); }
 
 void ClientHandleParent::Init(const IPCClientInfo& aClientInfo) {
+  mClientId = aClientInfo.id();
+  mPrincipalInfo = aClientInfo.principalInfo();
   mSource = mService->FindSource(aClientInfo.id(), aClientInfo.principalInfo());
   if (!mSource) {
-    Unused << Send__delete__(this);
+    mService->WaitForSource(this, aClientInfo.id());
     return;
   }
 
@@ -64,5 +74,35 @@ void ClientHandleParent::Init(const IPCClientInfo& aClientInfo) {
 
 ClientSourceParent* ClientHandleParent::GetSource() const { return mSource; }
 
-}  // namespace dom
-}  // namespace mozilla
+RefPtr<SourcePromise> ClientHandleParent::EnsureSource() {
+  if (mSource) {
+    return SourcePromise::CreateAndResolve(mSource, __func__);
+  }
+
+  if (!mSourcePromise) {
+    mSourcePromise = new SourcePromise::Private(__func__);
+  }
+  return mSourcePromise;
+}
+
+void ClientHandleParent::FoundSource(ClientSourceParent* aSource) {
+  MOZ_ASSERT(aSource->Info().Id() == mClientId);
+  if (!ClientMatchPrincipalInfo(aSource->Info().PrincipalInfo(),
+                                mPrincipalInfo)) {
+    if (mSourcePromise) {
+      CopyableErrorResult rv;
+      rv.ThrowAbortError("Client aborted");
+      mSourcePromise->Reject(rv, __func__);
+    }
+    Unused << Send__delete__(this);
+    return;
+  }
+
+  mSource = aSource;
+  mSource->AttachHandle(this);
+  if (mSourcePromise) {
+    mSourcePromise->Resolve(aSource, __func__);
+  }
+}
+
+}  // namespace mozilla::dom

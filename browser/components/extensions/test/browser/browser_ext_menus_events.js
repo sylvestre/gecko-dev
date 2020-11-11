@@ -3,26 +3,38 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 "use strict";
 
-const PAGE = "http://mochi.test:8888/browser/browser/components/extensions/test/browser/context.html";
+const { GlobalManager } = ChromeUtils.import(
+  "resource://gre/modules/Extension.jsm",
+  null
+);
+const { ExtensionPermissions } = ChromeUtils.import(
+  "resource://gre/modules/ExtensionPermissions.jsm"
+);
+
+const PAGE =
+  "http://mochi.test:8888/browser/browser/components/extensions/test/browser/context.html";
 const PAGE_BASE = PAGE.replace("context.html", "");
 const PAGE_HOST_PATTERN = "http://mochi.test/*";
 
 const EXPECT_TARGET_ELEMENT = 13337;
 
 async function grantOptionalPermission(extension, permissions) {
-  const {GlobalManager} = ChromeUtils.import("resource://gre/modules/Extension.jsm", {});
-  const {ExtensionPermissions} = ChromeUtils.import("resource://gre/modules/ExtensionPermissions.jsm", {});
   let ext = GlobalManager.extensionMap.get(extension.id);
-  return ExtensionPermissions.add(ext, permissions);
+  return ExtensionPermissions.add(extension.id, permissions, ext);
 }
 
 // Registers a context menu using menus.create(menuCreateParams) and checks
 // whether the menus.onShown and menus.onHidden events are fired as expected.
 // doOpenMenu must open the menu and its returned promise must resolve after the
 // menu is shown. Similarly, doCloseMenu must hide the menu.
-async function testShowHideEvent({menuCreateParams, doOpenMenu, doCloseMenu,
-                                  expectedShownEvent,
-                                  expectedShownEventWithPermissions = null}) {
+async function testShowHideEvent({
+  menuCreateParams,
+  doOpenMenu,
+  doCloseMenu,
+  expectedShownEvent,
+  expectedShownEventWithPermissions = null,
+  forceTabToBackground = false,
+}) {
   async function background() {
     function awaitMessage(expectedId) {
       return new Promise(resolve => {
@@ -42,7 +54,10 @@ async function testShowHideEvent({menuCreateParams, doOpenMenu, doCloseMenu,
     }
 
     let menuCreateParams = await awaitMessage("create-params");
-    const [tab] = await browser.tabs.query({active: true, currentWindow: true});
+    const [tab] = await browser.tabs.query({
+      active: true,
+      currentWindow: true,
+    });
 
     let shownEvents = [];
     let hiddenEvents = [];
@@ -88,6 +103,9 @@ async function testShowHideEvent({menuCreateParams, doOpenMenu, doCloseMenu,
     browser.test.sendMessage("onShown-event-data2", shownEvents[1]);
   }
 
+  const someOtherTab = gBrowser.selectedTab;
+  // Tab must initially open as a foreground tab, because the test extension
+  // looks for the active tab.
   const tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, PAGE);
 
   let extension = ExtensionTestUtils.loadExtension({
@@ -108,7 +126,11 @@ async function testShowHideEvent({menuCreateParams, doOpenMenu, doCloseMenu,
   extension.sendMessage("create-params", menuCreateParams);
   let menuId = await extension.awaitMessage("menu-registered");
 
-  await doOpenMenu(extension);
+  if (forceTabToBackground) {
+    gBrowser.selectedTab = someOtherTab;
+  }
+
+  await doOpenMenu(extension, tab);
   extension.sendMessage("assert-menu-shown");
   let shownEvent = await extension.awaitMessage("onShown-event-data");
 
@@ -127,11 +149,14 @@ async function testShowHideEvent({menuCreateParams, doOpenMenu, doCloseMenu,
       permissions: [],
       origins: [PAGE_HOST_PATTERN],
     });
-    await doOpenMenu(extension);
+    await doOpenMenu(extension, tab);
     extension.sendMessage("optional-menu-shown-with-permissions");
     let shownEvent2 = await extension.awaitMessage("onShown-event-data2");
-    Assert.deepEqual(shownEvent2, expectedShownEventWithPermissions,
-                     "expected onShown info when host permissions are enabled");
+    Assert.deepEqual(
+      shownEvent2,
+      expectedShownEventWithPermissions,
+      "expected onShown info when host permissions are enabled"
+    );
     await doCloseMenu(extension);
   }
 
@@ -147,8 +172,11 @@ add_task(async function test_no_show_hide_for_unsupported_menu() {
       browser.menus.onShown.addListener(data => events.push(data));
       browser.menus.onHidden.addListener(() => events.push("onHidden"));
       browser.test.onMessage.addListener(() => {
-        browser.test.assertEq("[]", JSON.stringify(events),
-                              "Should not have any events when the context is unsupported.");
+        browser.test.assertEq(
+          "[]",
+          JSON.stringify(events),
+          "Should not have any events when the context is unsupported."
+        );
         browser.test.notifyPass("done listening to menu events");
       });
     },
@@ -219,14 +247,18 @@ add_task(async function test_show_hide_without_menu_item() {
   is(events[1], "onHidden", "last event should be onHidden");
   ok(events[0].targetElementId, "info.targetElementId must be set in onShown");
   delete events[0].targetElementId;
-  Assert.deepEqual(events[0], {
-    menuIds: [],
-    contexts: ["page", "all"],
-    viewType: "tab",
-    editable: false,
-    pageUrl: PAGE,
-    frameId: 0,
-  }, "expected onShown info from menuless extension");
+  Assert.deepEqual(
+    events[0],
+    {
+      menuIds: [],
+      contexts: ["page", "all"],
+      viewType: "tab",
+      editable: false,
+      pageUrl: PAGE,
+      frameId: 0,
+    },
+    "expected onShown info from menuless extension"
+  );
   await extension.unload();
 });
 
@@ -294,7 +326,9 @@ add_task(async function test_show_hide_browserAction_popup() {
       viewType: "popup",
       frameId: 0,
       editable: false,
-      get pageUrl() { return popupUrl; },
+      get pageUrl() {
+        return popupUrl;
+      },
       targetElementId: EXPECT_TARGET_ELEMENT,
     },
     expectedShownEventWithPermissions: {
@@ -302,7 +336,9 @@ add_task(async function test_show_hide_browserAction_popup() {
       viewType: "popup",
       frameId: 0,
       editable: false,
-      get pageUrl() { return popupUrl; },
+      get pageUrl() {
+        return popupUrl;
+      },
       targetElementId: EXPECT_TARGET_ELEMENT,
     },
     async doOpenMenu(extension) {
@@ -317,8 +353,15 @@ add_task(async function test_show_hide_browserAction_popup() {
   });
 });
 
-add_task(async function test_show_hide_tab() {
+// Common code used by test_show_hide_tab and test_show_hide_tab_via_tab_panel.
+async function testShowHideTabMenu({
+  doOpenTabContextMenu,
+  doCloseTabContextMenu,
+}) {
   await testShowHideEvent({
+    // To verify that the event matches the contextmenu target, switch to
+    // an unrelated tab before opening a contextmenu on the desired tab.
+    forceTabToBackground: true,
     menuCreateParams: {
       title: "tab menu item",
       contexts: ["tab"],
@@ -334,13 +377,85 @@ add_task(async function test_show_hide_tab() {
       editable: false,
       pageUrl: PAGE,
     },
-    async doOpenMenu() {
-      await openTabContextMenu();
+    async doOpenMenu(extension, contextTab) {
+      await doOpenTabContextMenu(contextTab);
     },
     async doCloseMenu() {
+      await doCloseTabContextMenu();
+    },
+  });
+}
+
+add_task(async function test_show_hide_tab() {
+  await testShowHideTabMenu({
+    async doOpenTabContextMenu(contextTab) {
+      await openTabContextMenu(contextTab);
+    },
+    async doCloseTabContextMenu() {
       await closeTabContextMenu();
     },
   });
+});
+
+// Checks that right-clicking on a tab in the tabs panel (the one that appears
+// when there are many tabs, or when browser.tabs.tabmanager.enabled = true)
+// results in an event that is associated with the expected tab.
+add_task(async function test_show_hide_tab_via_tab_panel() {
+  gTabsPanel.init();
+  const tabContainer = document.getElementById("tabbrowser-tabs");
+  let shouldAddOverflow = !tabContainer.hasAttribute("overflow");
+  const revertTabContainerAttribute = () => {
+    if (shouldAddOverflow) {
+      // Revert attribute if it was changed.
+      tabContainer.removeAttribute("overflow");
+      // The function is going to be called twice, but let's run the logic once.
+      shouldAddOverflow = false;
+    }
+  };
+  if (shouldAddOverflow) {
+    // Ensure the visibility of the "all tabs menu" button (#alltabs-button).
+    tabContainer.setAttribute("overflow", "true");
+    // Register cleanup function in case the test fails before we reach the end.
+    registerCleanupFunction(revertTabContainerAttribute);
+  }
+
+  const allTabsView = document.getElementById("allTabsMenu-allTabsView");
+
+  await testShowHideTabMenu({
+    async doOpenTabContextMenu(contextTab) {
+      // Show the tabs panel.
+      let allTabsPopupShownPromise = BrowserTestUtils.waitForEvent(
+        allTabsView,
+        "ViewShown"
+      );
+      gTabsPanel.showAllTabsPanel();
+      await allTabsPopupShownPromise;
+
+      // Find the menu item that is associated with the given tab
+      let index = Array.prototype.findIndex.call(
+        gTabsPanel.allTabsViewTabs.children,
+        toolbaritem => toolbaritem.tab === contextTab
+      );
+      ok(index !== -1, "sanity check: tabs panel has item for the tab");
+
+      // Finally, open the context menu on it.
+      await openChromeContextMenu(
+        "tabContextMenu",
+        `.all-tabs-item:nth-child(${index + 1})`
+      );
+    },
+    async doCloseTabContextMenu() {
+      await closeTabContextMenu();
+      let allTabsPopupHiddenPromise = BrowserTestUtils.waitForEvent(
+        allTabsView.panelMultiView,
+        "PanelMultiViewHidden"
+      );
+      gTabsPanel.hideAllTabsPanel();
+      await allTabsPopupHiddenPromise;
+    },
+  });
+
+  revertTabContainerAttribute();
 });
 
 add_task(async function test_show_hide_tools_menu() {
@@ -410,25 +525,35 @@ add_task(async function test_show_hide_frame() {
       contexts: ["frame", "all"],
       viewType: "tab",
       editable: false,
-      get frameId() { return frameId; },
+      get frameId() {
+        return frameId;
+      },
     },
     expectedShownEventWithPermissions: {
       contexts: ["frame", "all"],
       viewType: "tab",
       editable: false,
-      get frameId() { return frameId; },
+      get frameId() {
+        return frameId;
+      },
       pageUrl: PAGE,
       frameUrl: PAGE_BASE + "context_frame.html",
       targetElementId: EXPECT_TARGET_ELEMENT,
     },
     async doOpenMenu() {
-      frameId = await ContentTask.spawn(gBrowser.selectedBrowser, {}, function() {
-        ChromeUtils.import("resource://gre/modules/WebNavigationFrames.jsm");
+      frameId = await SpecialPowers.spawn(
+        gBrowser.selectedBrowser,
+        [],
+        function() {
+          const { WebNavigationFrames } = ChromeUtils.import(
+            "resource://gre/modules/WebNavigationFrames.jsm"
+          );
 
-        let {contentWindow} = content.document.getElementById("frame");
-        return WebNavigationFrames.getFrameId(contentWindow);
-      });
-      await openContextMenuInFrame("#frame");
+          let { contentWindow } = content.document.getElementById("frame");
+          return WebNavigationFrames.getFrameId(contentWindow);
+        }
+      );
+      await openContextMenuInFrame();
     },
     async doCloseMenu() {
       await closeExtensionContextMenu();
@@ -550,17 +675,23 @@ add_task(async function test_show_hide_editable_selection() {
       editable: true,
       frameId: 0,
       pageUrl: PAGE,
-      get selectionText() { return selectionText; },
+      get selectionText() {
+        return selectionText;
+      },
       targetElementId: EXPECT_TARGET_ELEMENT,
     },
     async doOpenMenu() {
       // Select lots of text in the test page before opening the menu.
-      selectionText = await ContentTask.spawn(gBrowser.selectedBrowser, {}, function() {
-        let node = content.document.getElementById("editabletext");
-        node.select();
-        node.focus();
-        return node.value;
-      });
+      selectionText = await SpecialPowers.spawn(
+        gBrowser.selectedBrowser,
+        [],
+        function() {
+          let node = content.document.getElementById("editabletext");
+          node.select();
+          node.focus();
+          return node.value;
+        }
+      );
 
       await openContextMenu("#editabletext");
     },
@@ -595,7 +726,9 @@ add_task(async function test_show_hide_video() {
       targetElementId: EXPECT_TARGET_ELEMENT,
     },
     async doOpenMenu() {
-      await ContentTask.spawn(gBrowser.selectedBrowser, VIDEO_URL, function(VIDEO_URL) {
+      await SpecialPowers.spawn(gBrowser.selectedBrowser, [VIDEO_URL], function(
+        VIDEO_URL
+      ) {
         let video = content.document.createElement("video");
         video.controls = true;
         video.src = VIDEO_URL;
@@ -636,7 +769,9 @@ add_task(async function test_show_hide_audio() {
       targetElementId: EXPECT_TARGET_ELEMENT,
     },
     async doOpenMenu() {
-      await ContentTask.spawn(gBrowser.selectedBrowser, AUDIO_URL, function(AUDIO_URL) {
+      await SpecialPowers.spawn(gBrowser.selectedBrowser, [AUDIO_URL], function(
+        AUDIO_URL
+      ) {
         let audio = content.document.createElement("audio");
         audio.controls = true;
         audio.src = AUDIO_URL;

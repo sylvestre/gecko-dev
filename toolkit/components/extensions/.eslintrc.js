@@ -1,77 +1,53 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 "use strict";
 
 module.exports = {
-
-  "globals": {
+  globals: {
     // These are defined in the WebExtension script scopes by ExtensionCommon.jsm
-    "Cc": true,
-    "Ci": true,
-    "Cr": true,
-    "Cu": true,
-    "AppConstants": true,
-    "ExtensionAPI": true,
-    "ExtensionCommon": true,
-    "ExtensionUtils": true,
-    "extensions": true,
-    "global": true,
-    "require": false,
-    "Services": true,
-    "XPCOMUtils": true,
+    Cc: true,
+    Ci: true,
+    Cr: true,
+    Cu: true,
+    AppConstants: true,
+    ExtensionAPI: true,
+    ExtensionCommon: true,
+    ExtensionUtils: true,
+    extensions: true,
+    global: true,
+    require: false,
+    Services: true,
+    XPCOMUtils: true,
   },
 
-  "rules": {
+  rules: {
     // Rules from the mozilla plugin
     "mozilla/balanced-listeners": "error",
     "mozilla/no-aArgs": "error",
     "mozilla/var-only-at-top-level": "error",
 
-    "valid-jsdoc": ["error", {
-      "prefer": {
-        "return": "returns",
-      },
-      "preferType": {
-        "Boolean": "boolean",
-        "Number": "number",
-        "String": "string",
-        "bool": "boolean",
-      },
-      "requireParamDescription": false,
-      "requireReturn": false,
-      "requireReturnDescription": false,
-    }],
-
-    // Forbid spaces inside the square brackets of array literals.
-    "array-bracket-spacing": ["error", "never"],
-
-    // Forbid spaces inside the curly brackets of object literals.
-    "object-curly-spacing": ["error", "never"],
-
-    // No space padding in parentheses
-    "space-in-parens": ["error", "never"],
-
-    // Functions are not required to consistently return something or nothing
-    "consistent-return": "off",
-
-    // Require braces around blocks that start a new line
-    "curly": ["error", "all"],
-
-    // Two space indent
-    "indent": [
-      "error", 2,
+    "valid-jsdoc": [
+      "error",
       {
-        "ArrayExpression": "first",
-        "CallExpression": {"arguments": "first"},
-        "FunctionDeclaration": {"parameters": "first"},
-        "FunctionExpression": {"parameters": "first"},
-        "MemberExpression": "off",
-        "ObjectExpression": "first",
-        "SwitchCase": 1,
-        "ignoredNodes": ["ConditionalExpression"],
+        prefer: {
+          return: "returns",
+        },
+        preferType: {
+          Boolean: "boolean",
+          Number: "number",
+          String: "string",
+          bool: "boolean",
+        },
+        requireParamDescription: false,
+        requireReturn: false,
+        requireReturnDescription: false,
       },
     ],
 
-    // Always require parenthesis for new calls
-    "new-parens": "error",
+    // Functions are not required to consistently return something or nothing
+    "consistent-return": "off",
 
     // Disallow empty statements. This will report an error for:
     // try { something(); } catch (e) {}
@@ -80,37 +56,28 @@ module.exports = {
     // which is a valid use case.
     "no-empty": "error",
 
-    // No mixing different operators without parens
-    "no-mixed-operators": ["error", {"groups": [["&&", "||"], ["==", "!=", "===", "!==", ">", ">=", "<", "<="], ["in", "instanceof"]]}],
-
-    // Disallow use of multiple spaces (sometimes used to align const values,
-    // array or object items, etc.). It's hard to maintain and doesn't add that
-    // much benefit.
-    "no-multi-spaces": "error",
-
     // No expressions where a statement is expected
     "no-unused-expressions": "error",
 
     // No declaring variables that are never used
-    "no-unused-vars": ["error", {
-      "args": "none", "vars": "all", "varsIgnorePattern": "^console$"
-    }],
+    "no-unused-vars": [
+      "error",
+      {
+        args: "none",
+        vars: "all",
+        varsIgnorePattern: "^console$",
+      },
+    ],
 
     // No using variables before defined
     "no-use-before-define": "error",
-
-    // Never use spaces before function parentheses
-    "space-before-function-paren": ["error", {"anonymous": "never", "named": "never"}],
-
-    // ++ and -- should not need spacing
-    "space-unary-ops": ["error", {"nonwords": false, "words": true, "overrides": {"typeof": false}}],
 
     // Disallow using variables outside the blocks they are defined (especially
     // since only let and const are used, see "no-var").
     "block-scoped-var": "error",
 
     // Warn about cyclomatic complexity in functions.
-    "complexity": "error",
+    complexity: "error",
 
     // Don't warn for inconsistent naming when capturing this (not so important
     // with auto-binding fat arrow functions).
@@ -120,12 +87,9 @@ module.exports = {
     // add a bogus default when you know all possible cases are handled.
     "default-case": "off",
 
-    // Enforce dots on the next line with property name.
-    "dot-location": ["error", "property"],
-
     // Allow using == instead of ===, in the interest of landing something since
     // the devtools codebase is split on convention here.
-    "eqeqeq": "off",
+    eqeqeq: "off",
 
     // Don't require function expressions to have a name.
     // This makes the code more verbose and hard to read. Our engine already
@@ -136,10 +100,6 @@ module.exports = {
 
     // Allow use of function declarations and expressions.
     "func-style": "off",
-
-    // Maximum length of a line.
-    // Disabled because we exceed this in too many places.
-    "max-len": [0, 80],
 
     // Maximum depth callbacks can be nested.
     "max-nested-callbacks": ["error", 4],
@@ -154,7 +114,7 @@ module.exports = {
     // Don't require a capital letter for constructors, only check if all new
     // operators are followed by a capital letter. Don't warn when capitalized
     // functions are used without the new operator.
-    "new-cap": ["off", {"capIsNew": false}],
+    "new-cap": ["off", { capIsNew: false }],
 
     // Allow use of bitwise operators.
     "no-bitwise": "off",
@@ -174,26 +134,17 @@ module.exports = {
     // Disallow adding to native types
     "no-extend-native": "error",
 
-    // Allow unnecessary parentheses, as they may make the code more readable.
-    "no-extra-parens": "off",
-
     // Disallow fallthrough of case statements, except if there is a comment.
     "no-fallthrough": "error",
-
-    // Allow the use of leading or trailing decimal points in numeric literals.
-    "no-floating-decimal": "off",
 
     // Allow comments inline after code.
     "no-inline-comments": "off",
 
     // Disallow use of labels for anything other then loops and switches.
-    "no-labels": ["error", {"allowLoop": true}],
+    "no-labels": ["error", { allowLoop: true }],
 
     // Disallow use of multiline strings (use template strings instead).
     "no-multi-str": "error",
-
-    // Disallow multiple empty lines.
-    "no-multiple-empty-lines": [1, {"max": 2}],
 
     // Allow reassignment of function parameters.
     "no-param-reassign": "off",
@@ -229,10 +180,6 @@ module.exports = {
     // Allow the use of ternary operators.
     "no-ternary": "off",
 
-    // Disallow throwing literals (eg. throw "error" instead of
-    // throw new Error("error")).
-    "no-throw-literal": "error",
-
     // Allow dangling underscores in identifiers (for privates).
     "no-underscore-dangle": "off",
 
@@ -254,40 +201,21 @@ module.exports = {
     // Allow more than one variable declaration per function.
     "one-var": "off",
 
-    // Disallow padding within blocks.
-    "padded-blocks": ["error", "never"],
-
-    // Don't require quotes around object literal property names.
-    "quote-props": "off",
-
     // Require use of the second argument for parseInt().
-    "radix": "error",
-
-    // Enforce spacing after semicolons.
-    "semi-spacing": ["error", {"before": false, "after": true}],
+    radix: "error",
 
     // Don't require to sort variables within the same declaration block.
     // Anyway, one-var is disabled.
     "sort-vars": "off",
 
-    // Require a space immediately following the // in a line comment.
-    "spaced-comment": ["error", "always"],
-
     // Require "use strict" to be defined globally in the script.
-    "strict": ["error", "global"],
+    strict: ["error", "global"],
 
     // Allow vars to be declared anywhere in the scope.
     "vars-on-top": "off",
 
-    // Don't require immediate function invocation to be wrapped in parentheses.
-    "wrap-iife": "off",
-
-    // Don't require regex literals to be wrapped in parentheses (which
-    // supposedly prevent them from being mistaken for division operators).
-    "wrap-regex": "off",
-
     // Disallow Yoda conditions (where literal value comes first).
-    "yoda": "error",
+    yoda: "error",
 
     // Disallow function or variable declarations in nested blocks
     "no-inner-declarations": "error",
@@ -295,4 +223,19 @@ module.exports = {
     // Disallow labels that share a name with a variable
     "no-label-var": "error",
   },
+
+  overrides: [
+    {
+      files: "test/xpcshell/head*.js",
+      rules: {
+        "no-unused-vars": [
+          "error",
+          {
+            args: "none",
+            vars: "local",
+          },
+        ],
+      },
+    },
+  ],
 };

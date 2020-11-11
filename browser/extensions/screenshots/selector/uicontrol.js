@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 /* globals log, catcher, util, ui, slides */
 /* globals shooter, callBackground, selectorLoader, assertIsTrusted, buildSettings, selection */
 
@@ -294,27 +298,6 @@ this.uicontrol = (function() {
     },
   };
 
-  stateHandlers.onboarding = {
-    start() {
-      if (typeof slides === "undefined") {
-        throw new Error("Attempted to set state to onboarding without loading slides");
-      }
-      sendEvent("internal", "unhide-onboarding-frame");
-      catcher.watchPromise(slides.display({
-        onEnd: this.slidesOnEnd.bind(this),
-      }));
-    },
-
-    slidesOnEnd() {
-      callBackground("hasSeenOnboarding");
-      setState("crosshairs");
-    },
-
-    end() {
-      slides.remove();
-    },
-  };
-
   stateHandlers.crosshairs = {
 
     cachedEl: null,
@@ -474,6 +457,7 @@ this.uicontrol = (function() {
         exc.unloadTime = unloadTime;
         exc.nowTime = Date.now();
         exc.noPopup = true;
+        exc.noReport = true;
         throw exc;
       }
       if (ui.isHeader(event.target)) {
@@ -778,9 +762,6 @@ this.uicontrol = (function() {
    * Selection communication
    */
 
-   // If the slides module is loaded then we're supposed to onboard
-  const shouldOnboard = typeof slides !== "undefined";
-
   exports.activate = function() {
     if (!document.body) {
       callBackground("abortStartShot");
@@ -796,11 +777,7 @@ this.uicontrol = (function() {
       return;
     }
     addHandlers();
-    if (shouldOnboard) {
-      setState("onboarding");
-    } else {
-      setState("crosshairs");
-    }
+    setState("crosshairs");
   };
 
   function isFrameset() {
@@ -911,13 +888,8 @@ this.uicontrol = (function() {
     if ((event.key || event.code) === "Enter"
         && getState.state === "selected"
         && ui.iframe.document().activeElement.tagName === "BODY") {
-      if (ui.isDownloadOnly()) {
-        sendEvent("download-shot", "keyboard-enter");
-        downloadShot();
-      } else {
-        sendEvent("save-shot", "keyboard-enter");
-        shooter.takeShot("selection", selectedPos);
-      }
+      sendEvent("download-shot", "keyboard-enter");
+      downloadShot();
     }
   }
 

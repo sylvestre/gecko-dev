@@ -5,13 +5,61 @@
 "use strict";
 
 const DevToolsUtils = require("devtools/shared/DevToolsUtils");
-const { getCurrentZoom, getViewportDimensions } = require("devtools/shared/layout/utils");
-const { moveInfobar, createNode } = require("./markup");
+const { getCurrentZoom } = require("devtools/shared/layout/utils");
+const {
+  moveInfobar,
+} = require("devtools/server/actors/highlighters/utils/markup");
 const { truncateString } = require("devtools/shared/inspector/utils");
 
 const STRINGS_URI = "devtools/shared/locales/accessibility.properties";
-loader.lazyRequireGetter(this, "LocalizationHelper", "devtools/shared/l10n", true);
-DevToolsUtils.defineLazyGetter(this, "L10N", () => new LocalizationHelper(STRINGS_URI));
+loader.lazyRequireGetter(
+  this,
+  "LocalizationHelper",
+  "devtools/shared/l10n",
+  true
+);
+DevToolsUtils.defineLazyGetter(
+  this,
+  "L10N",
+  () => new LocalizationHelper(STRINGS_URI)
+);
+
+const {
+  accessibility: {
+    AUDIT_TYPE,
+    ISSUE_TYPE: {
+      [AUDIT_TYPE.KEYBOARD]: {
+        FOCUSABLE_NO_SEMANTICS,
+        FOCUSABLE_POSITIVE_TABINDEX,
+        INTERACTIVE_NO_ACTION,
+        INTERACTIVE_NOT_FOCUSABLE,
+        MOUSE_INTERACTIVE_ONLY,
+        NO_FOCUS_VISIBLE,
+      },
+      [AUDIT_TYPE.TEXT_LABEL]: {
+        AREA_NO_NAME_FROM_ALT,
+        DIALOG_NO_NAME,
+        DOCUMENT_NO_TITLE,
+        EMBED_NO_NAME,
+        FIGURE_NO_NAME,
+        FORM_FIELDSET_NO_NAME,
+        FORM_FIELDSET_NO_NAME_FROM_LEGEND,
+        FORM_NO_NAME,
+        FORM_NO_VISIBLE_NAME,
+        FORM_OPTGROUP_NO_NAME_FROM_LABEL,
+        FRAME_NO_NAME,
+        HEADING_NO_CONTENT,
+        HEADING_NO_NAME,
+        IFRAME_NO_NAME_FROM_TITLE,
+        IMAGE_NO_NAME,
+        INTERACTIVE_NO_NAME,
+        MATHML_GLYPH_NO_NAME,
+        TOOLBAR_NO_NAME,
+      },
+    },
+    SCORES,
+  },
+} = require("devtools/shared/constants");
 
 // Max string length for truncating accessible name values.
 const MAX_STRING_LENGTH = 50;
@@ -25,6 +73,10 @@ class Infobar {
   constructor(highlighter) {
     this.highlighter = highlighter;
     this.audit = new Audit(this);
+  }
+
+  get markup() {
+    return this.highlighter.markup;
   }
 
   get document() {
@@ -68,51 +120,51 @@ class Infobar {
    *         Root element to build infobar with.
    */
   buildMarkup(root) {
-    const container = createNode(this.win, {
+    const container = this.markup.createNode({
       parent: root,
       attributes: {
-        "class": "infobar-container",
-        "id": "infobar-container",
+        class: "infobar-container",
+        id: "infobar-container",
         "aria-hidden": "true",
-        "hidden": "true",
+        hidden: "true",
       },
       prefix: this.prefix,
     });
 
-    const infobar = createNode(this.win, {
+    const infobar = this.markup.createNode({
       parent: container,
       attributes: {
-        "class": "infobar",
-        "id": "infobar",
+        class: "infobar",
+        id: "infobar",
       },
       prefix: this.prefix,
     });
 
-    const infobarText = createNode(this.win, {
+    const infobarText = this.markup.createNode({
       parent: infobar,
       attributes: {
-        "class": "infobar-text",
-        "id": "infobar-text",
+        class: "infobar-text",
+        id: "infobar-text",
       },
       prefix: this.prefix,
     });
 
-    createNode(this.win, {
+    this.markup.createNode({
       nodeType: "span",
       parent: infobarText,
       attributes: {
-        "class": "infobar-role",
-        "id": "infobar-role",
+        class: "infobar-role",
+        id: "infobar-role",
       },
       prefix: this.prefix,
     });
 
-    createNode(this.win, {
+    this.markup.createNode({
       nodeType: "span",
       parent: infobarText,
       attributes: {
-        "class": "infobar-name",
-        "id": "infobar-name",
+        class: "infobar-name",
+        id: "infobar-name",
       },
       prefix: this.prefix,
     });
@@ -148,7 +200,7 @@ class Infobar {
    * @return {String} The text content of the element.
    */
   getTextContent(id) {
-    const anonymousContent = this.highlighter.markup.content;
+    const anonymousContent = this.markup.content;
     return anonymousContent.getTextContentForElement(`${this.prefix}${id}`);
   }
 
@@ -227,146 +279,6 @@ class Infobar {
 }
 
 /**
- * The XULAccessibleInfobar handles building the XUL infobar markup where it isn't
- * possible with the regular accessible highlighter.
- */
-class XULWindowInfobar extends Infobar {
-  /**
-   * A helper function that calculates the positioning of a XUL accessible's infobar.
-   *
-   * @param  {Object} container
-   *         The infobar container.
-   */
-  _moveInfobar(container) {
-    const arrow = this.getElement("arrow");
-
-    // Show the container and arrow elements first.
-    container.removeAttribute("hidden");
-    arrow.removeAttribute("hidden");
-
-    // Set the left value of the infobar container in relation to
-    // highlighter's bounds position.
-    const {
-      left: boundsLeft,
-      right: boundsRight,
-      top: boundsTop,
-      bottom: boundsBottom,
-    } = this.bounds;
-    const boundsMidPoint = (boundsLeft + boundsRight) / 2;
-    container.style.left = `${boundsMidPoint}px`;
-
-    const zoom = getCurrentZoom(this.win);
-    let {
-      width: viewportWidth,
-      height: viewportHeight,
-    } = getViewportDimensions(this.win);
-
-    const { width, height, left } = container.getBoundingClientRect();
-
-    const containerHalfWidth = width / 2;
-    const containerHeight = height;
-    const margin = 100 * zoom;
-
-    viewportHeight *= zoom;
-    viewportWidth *= zoom;
-
-    // Determine viewport boundaries for infobar.
-    const topBoundary = margin;
-    const bottomBoundary = viewportHeight - containerHeight;
-    const leftBoundary = containerHalfWidth;
-    const rightBoundary = viewportWidth - containerHalfWidth;
-
-    // Determine if an infobar's position is offscreen.
-    const isOffScreenOnTop = boundsBottom < topBoundary;
-    const isOffScreenOnBottom = boundsBottom > bottomBoundary;
-    const isOffScreenOnLeft = left < leftBoundary;
-    const isOffScreenOnRight = left > rightBoundary;
-
-    // Check if infobar is offscreen on either left/right of viewport and position.
-    if (isOffScreenOnLeft) {
-      container.style.left = `${leftBoundary + boundsLeft}px`;
-      arrow.setAttribute("hidden", "true");
-    } else if (isOffScreenOnRight) {
-      const leftOffset = rightBoundary - boundsRight;
-      container.style.left = `${rightBoundary - leftOffset - containerHalfWidth}px`;
-      arrow.setAttribute("hidden", "true");
-    }
-
-    // Check if infobar is offscreen on either top/bottom of viewport and position.
-    const bubbleArrowSize = "var(--highlighter-bubble-arrow-size)";
-
-    if (isOffScreenOnTop) {
-      if (boundsTop < 0) {
-        container.style.top = bubbleArrowSize;
-      } else {
-        container.style.top = `calc(${boundsBottom}px + ${bubbleArrowSize})`;
-      }
-      arrow.setAttribute("class", "accessible-arrow top");
-    } else if (isOffScreenOnBottom) {
-      container.style.top = `calc(${bottomBoundary}px - ${bubbleArrowSize})`;
-      arrow.setAttribute("hidden", "true");
-    } else {
-      container.style.top = `calc(${boundsTop}px -
-        (${containerHeight}px + ${bubbleArrowSize}))`;
-      arrow.setAttribute("class", "accessible-arrow bottom");
-    }
-  }
-
-  /**
-   * Build markup for XUL window infobar.
-   *
-   * @param  {Element} root
-   *         Root element to build infobar with.
-   */
-  buildMarkup(root) {
-    super.buildMarkup(root, createNode);
-
-    createNode(this.win, {
-      parent: this.getElement("infobar"),
-      attributes: {
-        "class": "arrow",
-        "id": "arrow",
-      },
-      prefix: this.prefix,
-    });
-  }
-
-  /**
-   * Override of Infobar class's getTextContent method.
-   *
-   * @param  {String} id
-   *         Element ID to retrieve text content from.
-   * @return {String} Returns the text content of the element.
-   */
-  getTextContent(id) {
-    return this.getElement(id).textContent;
-  }
-
-  /**
-   * Override of Infobar class's getElement method.
-   *
-   * @param  {String} id
-   *         Element ID.
-   * @return {String} Returns the specified element.
-   */
-  getElement(id) {
-    return this.win.document.getElementById(`${this.prefix}${id}`);
-  }
-
-  /**
-   * Override of Infobar class's setTextContent method.
-   *
-   * @param  {Element} el
-   *         Element to set text content on.
-   * @param  {String} text
-   *         Text for content.
-   */
-  setTextContent(el, text) {
-    el.textContent = text;
-  }
-}
-
-/**
  * Audit component used within the accessible highlighter infobar. This component is
  * responsible for rendering and updating its containing AuditReport components that
  * display various audit information such as contrast ratio score.
@@ -377,31 +289,33 @@ class Audit {
 
     // A list of audit reports to be shown on the fly when highlighting an accessible
     // object.
-    this.reports = [
-      new ContrastRatio(this),
-    ];
+    this.reports = {
+      [AUDIT_TYPE.CONTRAST]: new ContrastRatio(this),
+      [AUDIT_TYPE.KEYBOARD]: new Keyboard(this),
+      [AUDIT_TYPE.TEXT_LABEL]: new TextLabel(this),
+    };
   }
 
   get prefix() {
     return this.infobar.prefix;
   }
 
-  get win() {
-    return this.infobar.win;
+  get markup() {
+    return this.infobar.markup;
   }
 
   buildMarkup(root) {
-    const audit = createNode(this.win, {
+    const audit = this.markup.createNode({
       nodeType: "span",
       parent: root,
       attributes: {
-        "class": "infobar-audit",
-        "id": "infobar-audit",
+        class: "infobar-audit",
+        id: "infobar-audit",
       },
       prefix: this.prefix,
     });
 
-    this.reports.forEach(report => report.buildMarkup(audit));
+    Object.values(this.reports).forEach(report => report.buildMarkup(audit));
   }
 
   update(audit = {}) {
@@ -409,7 +323,7 @@ class Audit {
     el.setAttribute("hidden", true);
 
     let updated = false;
-    this.reports.forEach(report => {
+    Object.values(this.reports).forEach(report => {
       if (report.update(audit)) {
         updated = true;
       }
@@ -430,7 +344,7 @@ class Audit {
 
   destroy() {
     this.infobar = null;
-    this.reports.forEach(report => report.destroy());
+    Object.values(this.reports).forEach(report => report.destroy());
     this.reports = null;
   }
 }
@@ -448,8 +362,8 @@ class AuditReport {
     return this.audit.prefix;
   }
 
-  get win() {
-    return this.audit.win;
+  get markup() {
+    return this.audit.markup;
   }
 
   getElement(id) {
@@ -471,83 +385,86 @@ class AuditReport {
  */
 class ContrastRatio extends AuditReport {
   buildMarkup(root) {
-    createNode(this.win, {
+    this.markup.createNode({
       nodeType: "span",
       parent: root,
       attributes: {
-        "class": "contrast-ratio-label",
-        "id": "contrast-ratio-label",
+        class: "contrast-ratio-label",
+        id: "contrast-ratio-label",
       },
       prefix: this.prefix,
     });
 
-    createNode(this.win, {
+    this.markup.createNode({
       nodeType: "span",
       parent: root,
       attributes: {
-        "class": "contrast-ratio-error",
-        "id": "contrast-ratio-error",
+        class: "contrast-ratio-error",
+        id: "contrast-ratio-error",
       },
       prefix: this.prefix,
       text: L10N.getStr("accessibility.contrast.ratio.error"),
     });
 
-    createNode(this.win, {
+    this.markup.createNode({
       nodeType: "span",
       parent: root,
       attributes: {
-        "class": "contrast-ratio",
-        "id": "contrast-ratio-min",
+        class: "contrast-ratio",
+        id: "contrast-ratio-min",
       },
       prefix: this.prefix,
     });
 
-    createNode(this.win, {
+    this.markup.createNode({
       nodeType: "span",
       parent: root,
       attributes: {
-        "class": "contrast-ratio-separator",
-        "id": "contrast-ratio-separator",
+        class: "contrast-ratio-separator",
+        id: "contrast-ratio-separator",
       },
       prefix: this.prefix,
     });
 
-    createNode(this.win, {
+    this.markup.createNode({
       nodeType: "span",
       parent: root,
       attributes: {
-        "class": "contrast-ratio",
-        "id": "contrast-ratio-max",
+        class: "contrast-ratio",
+        id: "contrast-ratio-max",
       },
       prefix: this.prefix,
     });
   }
 
-  _fillAndStyleContrastValue(el, { value, isLargeText, color, backgroundColor }) {
+  _fillAndStyleContrastValue(el, { value, className, color, backgroundColor }) {
     value = value.toFixed(2);
-    const style = getContrastRatioScoreStyle(value, isLargeText);
     this.setTextContent(el, value);
-    el.classList.add(style);
-    el.setAttribute("style",
+    el.classList.add(className);
+    el.setAttribute(
+      "style",
       `--accessibility-highlighter-contrast-ratio-color: rgba(${color});` +
-      `--accessibility-highlighter-contrast-ratio-bg: rgba(${backgroundColor});`);
+        `--accessibility-highlighter-contrast-ratio-bg: rgba(${backgroundColor});`
+    );
     el.removeAttribute("hidden");
   }
 
   /**
    * Update contrast ratio score infobar markup.
-   * @param  {Number}
-   *         Contrast ratio for an accessible object being highlighted.
+   * @param  {Object}
+   *         Audit report for a given highlighted accessible.
    * @return {Boolean}
    *         True if the contrast ratio markup was updated correctly and infobar audit
    *         block should be visible.
    */
-  update({ contrastRatio }) {
+  update(audit) {
     const els = {};
     for (const key of ["label", "min", "max", "error", "separator"]) {
-      const el = els[key] = this.getElement(`contrast-ratio-${key}`);
+      const el = (els[key] = this.getElement(`contrast-ratio-${key}`));
       if (["min", "max"].includes(key)) {
-        ["fail", "AA", "AAA"].forEach(className => el.classList.remove(className));
+        Object.values(SCORES).forEach(className =>
+          el.classList.remove(className)
+        );
         this.setTextContent(el, "");
       }
 
@@ -555,13 +472,22 @@ class ContrastRatio extends AuditReport {
       el.removeAttribute("style");
     }
 
+    if (!audit) {
+      return false;
+    }
+
+    const contrastRatio = audit[AUDIT_TYPE.CONTRAST];
     if (!contrastRatio) {
       return false;
     }
 
     const { isLargeText, error } = contrastRatio;
-    this.setTextContent(els.label,
-      L10N.getStr(`accessibility.contrast.ratio.label${isLargeText ? ".large" : ""}`));
+    this.setTextContent(
+      els.label,
+      L10N.getStr(
+        `accessibility.contrast.ratio.label${isLargeText ? ".large" : ""}`
+      )
+    );
     els.label.removeAttribute("hidden");
     if (error) {
       els.error.removeAttribute("hidden");
@@ -569,18 +495,182 @@ class ContrastRatio extends AuditReport {
     }
 
     if (contrastRatio.value) {
-      const { value, color, backgroundColor } = contrastRatio;
-      this._fillAndStyleContrastValue(els.min,
-        { value, isLargeText, color, backgroundColor });
+      const { value, color, score, backgroundColor } = contrastRatio;
+      this._fillAndStyleContrastValue(els.min, {
+        value,
+        className: score,
+        color,
+        backgroundColor,
+      });
       return true;
     }
 
-    const { min, max, color, backgroundColorMin, backgroundColorMax } = contrastRatio;
-    this._fillAndStyleContrastValue(els.min,
-      { value: min, isLargeText, color, backgroundColor: backgroundColorMin });
+    const {
+      min,
+      max,
+      color,
+      backgroundColorMin,
+      backgroundColorMax,
+      scoreMin,
+      scoreMax,
+    } = contrastRatio;
+    this._fillAndStyleContrastValue(els.min, {
+      value: min,
+      className: scoreMin,
+      color,
+      backgroundColor: backgroundColorMin,
+    });
     els.separator.removeAttribute("hidden");
-    this._fillAndStyleContrastValue(els.max,
-      { value: max, isLargeText, color, backgroundColor: backgroundColorMax });
+    this._fillAndStyleContrastValue(els.max, {
+      value: max,
+      className: scoreMax,
+      color,
+      backgroundColor: backgroundColorMax,
+    });
+
+    return true;
+  }
+}
+
+/**
+ * Keyboard audit report that is used to display a problem with keyboard
+ * accessibility as part of the inforbar.
+ */
+class Keyboard extends AuditReport {
+  /**
+   * A map from keyboard issues to annotation component properties.
+   */
+  static get ISSUE_TO_INFOBAR_LABEL_MAP() {
+    return {
+      [FOCUSABLE_NO_SEMANTICS]: "accessibility.keyboard.issue.semantics",
+      [FOCUSABLE_POSITIVE_TABINDEX]: "accessibility.keyboard.issue.tabindex",
+      [INTERACTIVE_NO_ACTION]: "accessibility.keyboard.issue.action",
+      [INTERACTIVE_NOT_FOCUSABLE]: "accessibility.keyboard.issue.focusable",
+      [MOUSE_INTERACTIVE_ONLY]: "accessibility.keyboard.issue.mouse.only",
+      [NO_FOCUS_VISIBLE]: "accessibility.keyboard.issue.focus.visible",
+    };
+  }
+
+  buildMarkup(root) {
+    this.markup.createNode({
+      nodeType: "span",
+      parent: root,
+      attributes: {
+        class: "audit",
+        id: "keyboard",
+      },
+      prefix: this.prefix,
+    });
+  }
+
+  /**
+   * Update keyboard audit infobar markup.
+   * @param  {Object}
+   *         Audit report for a given highlighted accessible.
+   * @return {Boolean}
+   *         True if the keyboard markup was updated correctly and infobar audit
+   *         block should be visible.
+   */
+  update(audit) {
+    const el = this.getElement("keyboard");
+    el.setAttribute("hidden", true);
+    Object.values(SCORES).forEach(className => el.classList.remove(className));
+
+    if (!audit) {
+      return false;
+    }
+
+    const keyboardAudit = audit[AUDIT_TYPE.KEYBOARD];
+    if (!keyboardAudit) {
+      return false;
+    }
+
+    const { issue, score } = keyboardAudit;
+    this.setTextContent(
+      el,
+      L10N.getStr(Keyboard.ISSUE_TO_INFOBAR_LABEL_MAP[issue])
+    );
+    el.classList.add(score);
+    el.removeAttribute("hidden");
+
+    return true;
+  }
+}
+
+/**
+ * Text label audit report that is used to display a problem with text alternatives
+ * as part of the inforbar.
+ */
+class TextLabel extends AuditReport {
+  /**
+   * A map from text label issues to annotation component properties.
+   */
+  static get ISSUE_TO_INFOBAR_LABEL_MAP() {
+    return {
+      [AREA_NO_NAME_FROM_ALT]: "accessibility.text.label.issue.area",
+      [DIALOG_NO_NAME]: "accessibility.text.label.issue.dialog",
+      [DOCUMENT_NO_TITLE]: "accessibility.text.label.issue.document.title",
+      [EMBED_NO_NAME]: "accessibility.text.label.issue.embed",
+      [FIGURE_NO_NAME]: "accessibility.text.label.issue.figure",
+      [FORM_FIELDSET_NO_NAME]: "accessibility.text.label.issue.fieldset",
+      [FORM_FIELDSET_NO_NAME_FROM_LEGEND]:
+        "accessibility.text.label.issue.fieldset.legend2",
+      [FORM_NO_NAME]: "accessibility.text.label.issue.form",
+      [FORM_NO_VISIBLE_NAME]: "accessibility.text.label.issue.form.visible",
+      [FORM_OPTGROUP_NO_NAME_FROM_LABEL]:
+        "accessibility.text.label.issue.optgroup.label2",
+      [FRAME_NO_NAME]: "accessibility.text.label.issue.frame",
+      [HEADING_NO_CONTENT]: "accessibility.text.label.issue.heading.content",
+      [HEADING_NO_NAME]: "accessibility.text.label.issue.heading",
+      [IFRAME_NO_NAME_FROM_TITLE]: "accessibility.text.label.issue.iframe",
+      [IMAGE_NO_NAME]: "accessibility.text.label.issue.image",
+      [INTERACTIVE_NO_NAME]: "accessibility.text.label.issue.interactive",
+      [MATHML_GLYPH_NO_NAME]: "accessibility.text.label.issue.glyph",
+      [TOOLBAR_NO_NAME]: "accessibility.text.label.issue.toolbar",
+    };
+  }
+
+  buildMarkup(root) {
+    this.markup.createNode({
+      nodeType: "span",
+      parent: root,
+      attributes: {
+        class: "audit",
+        id: "text-label",
+      },
+      prefix: this.prefix,
+    });
+  }
+
+  /**
+   * Update text label audit infobar markup.
+   * @param  {Object}
+   *         Audit report for a given highlighted accessible.
+   * @return {Boolean}
+   *         True if the text label markup was updated correctly and infobar
+   *         audit block should be visible.
+   */
+  update(audit) {
+    const el = this.getElement("text-label");
+    el.setAttribute("hidden", true);
+    Object.values(SCORES).forEach(className => el.classList.remove(className));
+
+    if (!audit) {
+      return false;
+    }
+
+    const textLabelAudit = audit[AUDIT_TYPE.TEXT_LABEL];
+    if (!textLabelAudit) {
+      return false;
+    }
+
+    const { issue, score } = textLabelAudit;
+    this.setTextContent(
+      el,
+      L10N.getStr(TextLabel.ISSUE_TO_INFOBAR_LABEL_MAP[issue])
+    );
+    el.classList.add(score);
+    el.removeAttribute("hidden");
 
     return true;
   }
@@ -602,38 +692,26 @@ class ContrastRatio extends AuditReport {
  *           width of the the accessible object
  *         - {Number} h
  *           height of the the accessible object
- *         - {Number} zoom
- *           zoom level of the accessible object's parent window
  * @return {Object|null} Returns, if available, positioning and bounds information for
  *                 the accessible object.
  */
-function getBounds(win, { x, y, w, h, zoom }) {
-  let { mozInnerScreenX, mozInnerScreenY, scrollX, scrollY } = win;
-  let zoomFactor = getCurrentZoom(win);
+function getBounds(win, { x, y, w, h }) {
+  const { mozInnerScreenX, mozInnerScreenY, scrollX, scrollY } = win;
+  const zoom = getCurrentZoom(win);
   let left = x;
   let right = x + w;
   let top = y;
   let bottom = y + h;
-
-  // For a XUL accessible, normalize the top-level window with its current zoom level.
-  // We need to do this because top-level browser content does not allow zooming.
-  if (zoom) {
-    zoomFactor = zoom;
-    mozInnerScreenX /= zoomFactor;
-    mozInnerScreenY /= zoomFactor;
-    scrollX /= zoomFactor;
-    scrollY /= zoomFactor;
-  }
 
   left -= mozInnerScreenX - scrollX;
   right -= mozInnerScreenX - scrollX;
   top -= mozInnerScreenY - scrollY;
   bottom -= mozInnerScreenY - scrollY;
 
-  left *= zoomFactor;
-  right *= zoomFactor;
-  top *= zoomFactor;
-  bottom *= zoomFactor;
+  left *= zoom;
+  right *= zoom;
+  top *= zoom;
+  bottom *= zoom;
 
   const width = right - left;
   const height = bottom - top;
@@ -642,29 +720,50 @@ function getBounds(win, { x, y, w, h, zoom }) {
 }
 
 /**
- * Get contrast ratio score styling to be applied on the element that renders the contrast
- * ratio.
- * @param  {Number} ratio
- *         Value of the contrast ratio for a given accessible object.
- * @param  {Boolean} isLargeText
- *         True if the accessible object contains large text.
- * @return {String}
- *         CSS class that represents the appropriate contrast ratio score styling.
+ * A helper function that calculate accessible object bounds and positioning to
+ * be used for highlighting in browser toolbox.
+ *
+ * @param  {Object} win
+ *         window that contains accessible object.
+ * @param  {Object} options
+ *         Object used for passing options:
+ *         - {Number} x
+ *           x coordinate of the top left corner of the accessible object
+ *         - {Number} y
+ *           y coordinate of the top left corner of the accessible object
+ *         - {Number} w
+ *           width of the the accessible object
+ *         - {Number} h
+ *           height of the the accessible object
+ *         - {Number} zoom
+ *           zoom level of the accessible object's parent window
+ * @return {Object|null} Returns, if available, positioning and bounds information for
+ *                 the accessible object.
  */
-function getContrastRatioScoreStyle(ratio, isLargeText) {
-  const levels = isLargeText ? { AA: 3, AAA: 4.5 } : { AA: 4.5, AAA: 7 };
+function getBoundsXUL(win, { x, y, w, h, zoom }) {
+  const { mozInnerScreenX, mozInnerScreenY } = win;
+  let left = x;
+  let right = x + w;
+  let top = y;
+  let bottom = y + h;
 
-  let style = "fail";
-  if (ratio >= levels.AAA) {
-    style = "AAA";
-  } else if (ratio >= levels.AA) {
-    style = "AA";
-  }
+  left *= zoom;
+  right *= zoom;
+  top *= zoom;
+  bottom *= zoom;
 
-  return style;
+  left -= mozInnerScreenX;
+  right -= mozInnerScreenX;
+  top -= mozInnerScreenY;
+  bottom -= mozInnerScreenY;
+
+  const width = right - left;
+  const height = bottom - top;
+
+  return { left, right, top, bottom, width, height };
 }
 
 exports.MAX_STRING_LENGTH = MAX_STRING_LENGTH;
 exports.getBounds = getBounds;
+exports.getBoundsXUL = getBoundsXUL;
 exports.Infobar = Infobar;
-exports.XULWindowInfobar = XULWindowInfobar;

@@ -14,22 +14,31 @@
 
 var EXPORTED_SYMBOLS = ["FxAccountsProfile"];
 
-ChromeUtils.import("resource://gre/modules/Services.jsm");
-ChromeUtils.import("resource://gre/modules/FxAccountsCommon.js");
-ChromeUtils.import("resource://gre/modules/FxAccounts.jsm");
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { ON_PROFILE_CHANGE_NOTIFICATION, log } = ChromeUtils.import(
+  "resource://gre/modules/FxAccountsCommon.js"
+);
+const { fxAccounts } = ChromeUtils.import(
+  "resource://gre/modules/FxAccounts.jsm"
+);
 
-ChromeUtils.defineModuleGetter(this, "FxAccountsProfileClient",
-  "resource://gre/modules/FxAccountsProfileClient.jsm");
+ChromeUtils.defineModuleGetter(
+  this,
+  "FxAccountsProfileClient",
+  "resource://gre/modules/FxAccountsProfileClient.jsm"
+);
 
 var FxAccountsProfile = function(options = {}) {
   this._currentFetchPromise = null;
   this._cachedAt = 0; // when we saved the cached version.
   this._isNotifying = false; // are we sending a notification?
-  this.fxa = options.fxa || fxAccounts;
-  this.client = options.profileClient || new FxAccountsProfileClient({
-    fxa: this.fxa,
-    serverURL: options.profileServerUrl,
-  });
+  this.fxai = options.fxai || fxAccounts._internal;
+  this.client =
+    options.profileClient ||
+    new FxAccountsProfileClient({
+      fxai: this.fxai,
+      serverURL: options.profileServerUrl,
+    });
 
   // An observer to invalidate our _cachedAt optimization. We use a weak-ref
   // just incase this.tearDown isn't called in some cases.
@@ -40,7 +49,7 @@ var FxAccountsProfile = function(options = {}) {
   }
 };
 
-this.FxAccountsProfile.prototype = {
+FxAccountsProfile.prototype = {
   // If we get subsequent requests for a profile within this period, don't bother
   // making another request to determine if it is fresh or not.
   PROFILE_FRESHNESS_THRESHOLD: 120000, // 2 minutes
@@ -56,7 +65,7 @@ this.FxAccountsProfile.prototype = {
   },
 
   tearDown() {
-    this.fxa = null;
+    this.fxai = null;
     this.client = null;
     Services.obs.removeObserver(this, ON_PROFILE_CHANGE_NOTIFICATION);
   },
@@ -68,30 +77,48 @@ this.FxAccountsProfile.prototype = {
   },
 
   // Cache fetched data and send out a notification so that UI can update.
-  async _cacheProfile(response) {
-    const profile = response.body;
-    const userData = await this.fxa.getSignedInUser();
-    if (profile.uid != userData.uid) {
-      throw new Error("The fetched profile does not correspond with the current account.");
-    }
-    let profileCache = {
-      profile,
-      etag: response.etag,
-    };
-    await this.fxa.setProfileCache(profileCache);
-    if (profile.email != userData.email) {
-      await this.fxa.handleEmailUpdated(profile.email);
-    }
-    log.debug("notifying profile changed for user ${uid}", userData);
-    this._notifyProfileChange(userData.uid);
-    return profile;
+  _cacheProfile(response) {
+    return this.fxai.withCurrentAccountState(async state => {
+      const profile = response.body;
+      const userData = await state.getUserAccountData();
+      if (profile.uid != userData.uid) {
+        throw new Error(
+          "The fetched profile does not correspond with the current account."
+        );
+      }
+      let profileCache = {
+        profile,
+        etag: response.etag,
+      };
+      await state.updateUserAccountData({ profileCache });
+      if (profile.email != userData.email) {
+        await this.fxai._handleEmailUpdated(profile.email);
+      }
+      log.debug("notifying profile changed for user ${uid}", userData);
+      this._notifyProfileChange(userData.uid);
+      return profile;
+    });
+  },
+
+  async _getProfileCache() {
+    let data = await this.fxai.currentAccountState.getUserAccountData([
+      "profileCache",
+    ]);
+    return data ? data.profileCache : null;
   },
 
   async _fetchAndCacheProfileInternal() {
     try {
-      const profileCache = await this.fxa.getProfileCache();
+      const profileCache = await this._getProfileCache();
       const etag = profileCache ? profileCache.etag : null;
-      const response = await this.client.fetchProfile(etag);
+      let response;
+      try {
+        response = await this.client.fetchProfile(etag);
+      } catch (err) {
+        await this.fxai._handleTokenError(err);
+        // _handleTokenError always re-throws.
+        throw new Error("not reached!");
+      }
 
       // response may be null if the profile was not modified (same ETag).
       if (!response) {
@@ -116,7 +143,7 @@ this.FxAccountsProfile.prototype = {
   // fetch the latest profile data in the background. After data is fetched a
   // notification will be sent out if the profile has changed.
   async getProfile() {
-    const profileCache = await this.fxa.getProfileCache();
+    const profileCache = await this._getProfileCache();
     if (!profileCache) {
       // fetch and cache it in the background.
       this._fetchAndCacheProfile().catch(err => {
@@ -136,8 +163,33 @@ this.FxAccountsProfile.prototype = {
     return profileCache.profile;
   },
 
+  // Get the user's profile data, fetching from the network if necessary.
+  // Most callers should instead use `getProfile()`; this methods exists to support
+  // callers who need to await the underlying network request.
+  async ensureProfile({ staleOk = false, forceFresh = false } = {}) {
+    if (staleOk && forceFresh) {
+      throw new Error("contradictory options specified");
+    }
+    const profileCache = await this._getProfileCache();
+    if (
+      forceFresh ||
+      !profileCache ||
+      (Date.now() > this._cachedAt + this.PROFILE_FRESHNESS_THRESHOLD &&
+        !staleOk)
+    ) {
+      const profile = await this._fetchAndCacheProfile().catch(err => {
+        log.error("Background refresh of profile failed", err);
+      });
+      if (profile) {
+        return profile;
+      }
+    }
+    log.trace("not checking freshness of profile as it remains recent");
+    return profileCache ? profileCache.profile : null;
+  },
+
   QueryInterface: ChromeUtils.generateQI([
-      Ci.nsIObserver,
-      Ci.nsISupportsWeakReference,
+    "nsIObserver",
+    "nsISupportsWeakReference",
   ]),
 };

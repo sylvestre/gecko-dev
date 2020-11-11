@@ -11,6 +11,8 @@
 #ifndef vm_AtomsTable_h
 #define vm_AtomsTable_h
 
+#include <type_traits>  // std::{enable_if_t,is_const_v}
+
 #include "js/GCHashTable.h"
 #include "js/TypeDecls.h"
 #include "vm/JSAtom.h"
@@ -37,6 +39,9 @@ class MOZ_RAII AutoLockAllAtoms {
   ~AutoLockAllAtoms();
 };
 
+// This is a tagged pointer to an atom that duplicates the atom's pinned flag so
+// that we don't have to check the atom itself when marking pinned atoms (there
+// can be a great many atoms). See bug 1445196.
 class AtomStateEntry {
   uintptr_t bits;
 
@@ -44,7 +49,7 @@ class AtomStateEntry {
 
  public:
   AtomStateEntry() : bits(0) {}
-  AtomStateEntry(const AtomStateEntry& other) : bits(other.bits) {}
+  AtomStateEntry(const AtomStateEntry& other) = default;
   AtomStateEntry(JSAtom* ptr, bool tagged)
       : bits(uintptr_t(ptr) | uintptr_t(tagged)) {
     MOZ_ASSERT((uintptr_t(ptr) & 0x1) == 0);
@@ -104,7 +109,7 @@ class FrozenAtomSet {
     return mSet->shallowSizeOfIncludingThis(mallocSizeOf);
   }
 
-  typedef AtomSet::Range Range;
+  using Range = AtomSet::Range;
 
   AtomSet::Range all() const { return mSet->all(); }
 };
@@ -154,7 +159,7 @@ class AtomsTable {
    public:
     explicit SweepIterator(AtomsTable& atoms);
     bool empty() const;
-    JSAtom* front() const;
+    AtomStateEntry front() const;
     void removeFront();
     void popFront();
   };
@@ -162,18 +167,30 @@ class AtomsTable {
   ~AtomsTable();
   bool init();
 
-  template <typename CharT>
+  template <typename Chars>
   MOZ_ALWAYS_INLINE JSAtom* atomizeAndCopyChars(
-      JSContext* cx, const CharT* tbchars, size_t length, PinningBehavior pin,
+      JSContext* cx, Chars chars, size_t length, PinningBehavior pin,
       const mozilla::Maybe<uint32_t>& indexValue,
       const AtomHasher::Lookup& lookup);
 
-  void pinExistingAtom(JSContext* cx, JSAtom* atom);
+  template <typename CharT,
+            typename = std::enable_if_t<!std::is_const_v<CharT>>>
+  MOZ_ALWAYS_INLINE JSAtom* atomizeAndCopyChars(
+      JSContext* cx, CharT* chars, size_t length, PinningBehavior pin,
+      const mozilla::Maybe<uint32_t>& indexValue,
+      const AtomHasher::Lookup& lookup) {
+    return atomizeAndCopyChars(cx, const_cast<const CharT*>(chars), length, pin,
+                               indexValue, lookup);
+  }
+
+  bool atomIsPinned(JSRuntime* rt, JSAtom* atom);
+
+  void maybePinExistingAtom(JSContext* cx, JSAtom* atom);
 
   void tracePinnedAtoms(JSTracer* trc, const AutoAccessAtomsZone& access);
 
   // Sweep all atoms non-incrementally.
-  void sweepAll(JSRuntime* rt);
+  void traceWeak(JSTracer* trc);
 
   bool startIncrementalSweep();
 
@@ -197,6 +214,8 @@ class AtomsTable {
   void lockAll();
   void unlockAll();
 };
+
+bool AtomIsPinned(JSContext* cx, JSAtom* atom);
 
 }  // namespace js
 

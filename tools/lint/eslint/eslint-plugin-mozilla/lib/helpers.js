@@ -6,11 +6,13 @@
  */
 "use strict";
 
-const espree = require("espree");
+const parser = require("babel-eslint");
+const { analyze } = require("eslint-scope");
+const { KEYS: defaultVisitorKeys } = require("eslint-visitor-keys");
 const estraverse = require("estraverse");
 const path = require("path");
 const fs = require("fs");
-const ini = require("ini-parser");
+const ini = require("multi-ini");
 const recommendedConfig = require("./configs/recommended");
 
 var gModules = null;
@@ -41,19 +43,33 @@ const callExpressionMultiDefinitions = [
   "XPCOMUtils.defineLazyGlobalGetters(this,",
   "XPCOMUtils.defineLazyModuleGetters(this,",
   "XPCOMUtils.defineLazyServiceGetters(this,",
+  "loader.lazyRequireGetter(this,",
 ];
 
 const imports = [
-  /^(?:Cu|Components\.utils|ChromeUtils)\.import\(".*\/((.*?)\.jsm?)"(?:, this)?\)/,
+  /^(?:Cu|Components\.utils|ChromeUtils)\.import\(".*\/((.*?)\.jsm?)", this\)/,
 ];
 
 const workerImportFilenameMatch = /(.*\/)*((.*?)\.jsm?)/;
 
 module.exports = {
+  get iniParser() {
+    if (!this._iniParser) {
+      this._iniParser = new ini.Parser();
+    }
+    return this._iniParser;
+  },
+
   get modulesGlobalData() {
     if (!gModules) {
       if (this.isMozillaCentralBased()) {
-        gModules = require(path.join(this.rootDir, "tools", "lint", "eslint", "modules.json"));
+        gModules = require(path.join(
+          this.rootDir,
+          "tools",
+          "lint",
+          "eslint",
+          "modules.json"
+        ));
       } else {
         gModules = require("./modules.json");
       }
@@ -62,9 +78,14 @@ module.exports = {
     return gModules;
   },
 
+  get servicesData() {
+    return require("./services.json");
+  },
+
   /**
    * Gets the abstract syntax tree (AST) of the JavaScript source code contained
-   * in sourceText.
+   * in sourceText. This matches the results for an eslint parser, see
+   * https://eslint.org/docs/developer-guide/working-with-custom-parsers.
    *
    * @param  {String} sourceText
    *         Text containing valid JavaScript.
@@ -73,14 +94,28 @@ module.exports = {
    *         the configuration from getPermissiveConfig().
    *
    * @return {Object}
-   *         The resulting AST.
+   *         Returns an object containing `ast`, `scopeManager` and
+   *         `visitorKeys`
    */
-  getAST(sourceText, astOptions = {}) {
+  parseCode(sourceText, astOptions = {}) {
     // Use a permissive config file to allow parsing of anything that Espree
     // can parse.
-    let config = {...this.getPermissiveConfig(), ...astOptions};
+    let config = { ...this.getPermissiveConfig(), ...astOptions };
 
-    return espree.parse(sourceText, config);
+    let parseResult =
+      "parseForESLint" in parser
+        ? parser.parseForESLint(sourceText, config)
+        : { ast: parser.parse(sourceText, config) };
+
+    let visitorKeys = parseResult.visitorKeys || defaultVisitorKeys;
+    visitorKeys.ExperimentalRestProperty = visitorKeys.RestElement;
+    visitorKeys.ExperimentalSpreadProperty = visitorKeys.SpreadElement;
+
+    return {
+      ast: parseResult.ast,
+      scopeManager: parseResult.scopeManager || analyze(parseResult.ast),
+      visitorKeys,
+    };
   },
 
   /**
@@ -97,10 +132,15 @@ module.exports = {
       case "MemberExpression":
         if (node.computed) {
           let filename = context && context.getFilename();
-          throw new Error(`getASTSource unsupported computed MemberExpression in ${filename}`);
+          throw new Error(
+            `getASTSource unsupported computed MemberExpression in ${filename}`
+          );
         }
-        return this.getASTSource(node.object) + "." +
-          this.getASTSource(node.property);
+        return (
+          this.getASTSource(node.object) +
+          "." +
+          this.getASTSource(node.property)
+        );
       case "ThisExpression":
         return "this";
       case "Identifier":
@@ -121,10 +161,17 @@ module.exports = {
       case "ArrowFunctionExpression":
         return "() => {}";
       case "AssignmentExpression":
-        return this.getASTSource(node.left) + " = " +
-          this.getASTSource(node.right);
+        return (
+          this.getASTSource(node.left) + " = " + this.getASTSource(node.right)
+        );
       case "BinaryExpression":
-        return this.getASTSource(node.left) + " " + node.operator + " " + this.getASTSource(node.right);
+        return (
+          this.getASTSource(node.left) +
+          " " +
+          node.operator +
+          " " +
+          this.getASTSource(node.right)
+        );
       default:
         throw new Error("getASTSource unsupported node type: " + node.type);
     }
@@ -137,11 +184,13 @@ module.exports = {
    *
    * @param  {Object} ast
    *         The AST to walk.
+   * @param  {Array} visitorKeys
+   *         The visitor keys to use for the AST.
    * @param  {Function} listener
    *         A callback function to call for the nodes. Passed three arguments,
    *         event type, node and an array of parent nodes for the current node.
    */
-  walkAST(ast, listener) {
+  walkAST(ast, visitorKeys, listener) {
     let parents = [];
 
     estraverse.traverse(ast, {
@@ -157,6 +206,8 @@ module.exports = {
         }
         parents.pop();
       },
+
+      keys: visitorKeys,
     });
     if (parents.length) {
       throw new Error("Entered more nodes than left.");
@@ -187,10 +238,12 @@ module.exports = {
     let results = [];
     let expr = node.expression;
 
-    if (node.expression.type === "CallExpression" &&
-        expr.callee &&
-        expr.callee.type === "Identifier" &&
-        expr.callee.name === "importScripts") {
+    if (
+      node.expression.type === "CallExpression" &&
+      expr.callee &&
+      expr.callee.type === "Identifier" &&
+      expr.callee.name === "importScripts"
+    ) {
       for (var arg of expr.arguments) {
         var match = arg.value && arg.value.match(workerImportFilenameMatch);
         if (match) {
@@ -201,9 +254,11 @@ module.exports = {
               results = results.concat(additionalGlobals);
             }
           } else if (match[2] in globalModules) {
-            results = results.concat(globalModules[match[2]].map(name => {
-              return { name, writable: true };
-            }));
+            results = results.concat(
+              globalModules[match[2]].map(name => {
+                return { name, writable: true };
+              })
+            );
           } else {
             results.push({ name: match[3], writable: true, explicit: true });
           }
@@ -231,12 +286,14 @@ module.exports = {
    *                     If the global is writeable or not.
    */
   convertThisAssignmentExpressionToGlobals(node, isGlobal) {
-    if (isGlobal &&
-        node.expression.left &&
-        node.expression.left.object &&
-        node.expression.left.object.type === "ThisExpression" &&
-        node.expression.left.property &&
-        node.expression.left.property.type === "Identifier") {
+    if (
+      isGlobal &&
+      node.expression.left &&
+      node.expression.left.object &&
+      node.expression.left.object.type === "ThisExpression" &&
+      node.expression.left.property &&
+      node.expression.left.property.type === "Identifier"
+    ) {
       return [{ name: node.expression.left.property.name, writable: true }];
     }
     return [];
@@ -260,14 +317,16 @@ module.exports = {
    */
   convertCallExpressionToGlobals(node, isGlobal) {
     let express = node.expression;
-    if (express.type === "CallExpression" &&
-        express.callee.type === "MemberExpression" &&
-        express.callee.object &&
-        express.callee.object.type === "Identifier" &&
-        express.arguments.length === 1 &&
-        express.arguments[0].type === "ArrayExpression" &&
-        express.callee.property.type === "Identifier" &&
-        express.callee.property.name === "importGlobalProperties") {
+    if (
+      express.type === "CallExpression" &&
+      express.callee.type === "MemberExpression" &&
+      express.callee.object &&
+      express.callee.object.type === "Identifier" &&
+      express.arguments.length === 1 &&
+      express.arguments[0].type === "ArrayExpression" &&
+      express.callee.property.type === "Identifier" &&
+      express.callee.property.name === "importGlobalProperties"
+    ) {
       return express.arguments[0].elements.map(literal => {
         return {
           explicit: true,
@@ -301,7 +360,9 @@ module.exports = {
           // of them.
           let explicit = globalModules[match[1]].length == 1;
           return globalModules[match[1]].map(name => ({
-            name, writable: true, explicit,
+            name,
+            writable: true,
+            explicit,
           }));
         }
 
@@ -322,27 +383,43 @@ module.exports = {
       }
     }
 
-    if (callExpressionMultiDefinitions.some(expr => source.startsWith(expr)) &&
-        node.expression.arguments[1]) {
+    if (
+      callExpressionMultiDefinitions.some(expr => source.startsWith(expr)) &&
+      node.expression.arguments[1]
+    ) {
       let arg = node.expression.arguments[1];
       if (arg.type === "ObjectExpression") {
         return arg.properties
-                  .map(p => ({ name: p.type === "Property" && p.key.name, writable: true, explicit: true }))
-                  .filter(g => g.name);
+          .map(p => ({
+            name: p.type === "Property" && p.key.name,
+            writable: true,
+            explicit: true,
+          }))
+          .filter(g => g.name);
       }
       if (arg.type === "ArrayExpression") {
         return arg.elements
-                  .map(p => ({ name: p.type === "Literal" && p.value, writable: true, explicit: true }))
-                  .filter(g => typeof g.name == "string");
+          .map(p => ({
+            name: p.type === "Literal" && p.value,
+            writable: true,
+            explicit: true,
+          }))
+          .filter(g => typeof g.name == "string");
       }
     }
 
-    if (node.expression.callee.type == "MemberExpression" &&
-        node.expression.callee.property.type == "Identifier" &&
-        node.expression.callee.property.name == "defineLazyScriptGetter") {
+    if (
+      node.expression.callee.type == "MemberExpression" &&
+      node.expression.callee.property.type == "Identifier" &&
+      node.expression.callee.property.name == "defineLazyScriptGetter"
+    ) {
       // The case where we have a single symbol as a string has already been
       // handled by the regexp, so we have an array of symbols here.
-      return node.expression.arguments[1].elements.map(n => ({ name: n.value, writable: true, explicit: true }));
+      return node.expression.arguments[1].elements.map(n => ({
+        name: n.value,
+        writable: true,
+        explicit: true,
+      }));
     }
 
     return [];
@@ -368,7 +445,7 @@ module.exports = {
     variable.eslintExplicitGlobal = false;
     variable.writeable = writable;
     if (node) {
-      variable.defs.push({node, name: {name}});
+      variable.defs.push({ node, name: { name } });
       variable.identifiers.push(node);
     }
 
@@ -402,7 +479,9 @@ module.exports = {
    *        The AST node that defined the globals.
    */
   addGlobals(globalVars, scope, node) {
-    globalVars.forEach(v => this.addVarToScope(v.name, scope, v.writable, v.explicit && node));
+    globalVars.forEach(v =>
+      this.addVarToScope(v.name, scope, v.writable, v.explicit && node)
+    );
   },
 
   /**
@@ -503,11 +582,14 @@ module.exports = {
     let filepath = this.cleanUpPath(scope.getFilename());
     let dir = path.dirname(filepath);
 
-    let names =
-      fs.readdirSync(dir)
-        .filter(name => (name.startsWith("head") ||
-                         name.startsWith("xpcshell-head")) && name.endsWith(".js"))
-        .map(name => path.join(dir, name));
+    let names = fs
+      .readdirSync(dir)
+      .filter(
+        name =>
+          (name.startsWith("head") || name.startsWith("xpcshell-head")) &&
+          name.endsWith(".js")
+      )
+      .map(name => path.join(dir, name));
     return names;
   },
 
@@ -542,14 +624,14 @@ module.exports = {
       }
 
       try {
-        let manifest = ini.parse(fs.readFileSync(path.join(dir, name), "utf8"));
-
+        let manifest = this.iniParser.parse(
+          fs.readFileSync(path.join(dir, name), "utf8").split("\n")
+        );
         manifests.push({
           file: path.join(dir, name),
           manifest,
         });
-      } catch (e) {
-      }
+      } catch (e) {}
     }
 
     directoryManifests.set(dir, manifests);
@@ -673,7 +755,10 @@ module.exports = {
         return null;
       }
 
-      let possibleRoot = searchUpForIgnore(path.dirname(module.filename), ".eslintignore");
+      let possibleRoot = searchUpForIgnore(
+        path.dirname(module.filename),
+        ".eslintignore"
+      );
       if (!possibleRoot) {
         possibleRoot = searchUpForIgnore(path.resolve(), ".eslintignore");
       }
@@ -717,12 +802,11 @@ module.exports = {
       // without any path info (happens in Atom with linter-eslint)
       return path.join(cwd, fileName);
     }
-      // Case 1: executed form in a nested directory, e.g. from a text editor:
-      //   fileName: a/b/c/d.js
-      //   cwd: /path/to/mozilla/repo/a/b/c
+    // Case 1: executed form in a nested directory, e.g. from a text editor:
+    //   fileName: a/b/c/d.js
+    //   cwd: /path/to/mozilla/repo/a/b/c
     var dirName = path.dirname(fileName);
     return cwd.slice(0, cwd.length - dirName.length) + fileName;
-
   },
 
   /**
@@ -736,8 +820,14 @@ module.exports = {
 
   get globalScriptPaths() {
     return [
-      path.join(this.rootDir, "browser", "base", "content", "browser.xul"),
-      path.join(this.rootDir, "browser", "base", "content", "global-scripts.inc"),
+      path.join(this.rootDir, "browser", "base", "content", "browser.xhtml"),
+      path.join(
+        this.rootDir,
+        "browser",
+        "base",
+        "content",
+        "global-scripts.inc"
+      ),
     ];
   },
 
@@ -746,10 +836,46 @@ module.exports = {
   },
 
   getSavedEnvironmentItems(environment) {
-    return require("./environments/saved-globals.json").environments[environment];
+    return require("./environments/saved-globals.json").environments[
+      environment
+    ];
   },
 
   getSavedRuleData(rule) {
     return require("./rules/saved-rules-data.json").rulesData[rule];
+  },
+
+  getBuildEnvironment() {
+    var { execFileSync } = require("child_process");
+    var output = execFileSync(
+      path.join(this.rootDir, "mach"),
+      ["environment", "--format=json"],
+      { silent: true }
+    );
+    return JSON.parse(output);
+  },
+
+  /**
+   * Extract the path of require (and require-like) helpers used in DevTools.
+   */
+  getDevToolsRequirePath(node) {
+    if (
+      node.callee.type == "Identifier" &&
+      node.callee.name == "require" &&
+      node.arguments.length == 1 &&
+      node.arguments[0].type == "Literal"
+    ) {
+      return node.arguments[0].value;
+    } else if (
+      node.callee.type == "MemberExpression" &&
+      node.callee.property.type == "Identifier" &&
+      (node.callee.property.name == "lazyRequireGetter" ||
+        node.callee.property.name == "lazyImporter") &&
+      node.arguments.length >= 3 &&
+      node.arguments[2].type == "Literal"
+    ) {
+      return node.arguments[2].value;
+    }
+    return null;
   },
 };

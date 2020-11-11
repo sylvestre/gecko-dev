@@ -1,5 +1,3 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 2 -*- */
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -17,19 +15,12 @@ define(function(require, exports, module) {
   class Toolbar extends Component {
     static get propTypes() {
       return {
-        children: PropTypes.oneOfType([
-          PropTypes.array,
-          PropTypes.element,
-        ]),
+        children: PropTypes.oneOfType([PropTypes.array, PropTypes.element]),
       };
     }
 
     render() {
-      return (
-        dom.div({className: "toolbar"},
-          this.props.children
-        )
-      );
+      return dom.div({ className: "toolbar" }, this.props.children);
     }
   }
 
@@ -46,10 +37,8 @@ define(function(require, exports, module) {
     }
 
     render() {
-      const props = Object.assign({className: "btn"}, this.props);
-      return (
-        dom.button(props, this.props.children)
-      );
+      const props = Object.assign({ className: "btn" }, this.props);
+      return dom.button(props, this.props.children);
     }
   }
 

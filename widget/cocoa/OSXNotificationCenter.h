@@ -8,8 +8,6 @@
 
 #import <Foundation/Foundation.h>
 #include "nsIAlertsService.h"
-#include "imgINotificationObserver.h"
-#include "nsITimer.h"
 #include "nsTArray.h"
 #include "mozilla/RefPtr.h"
 
@@ -30,28 +28,31 @@ class OSXNotificationInfo;
 
 class OSXNotificationCenter : public nsIAlertsService,
                               public nsIAlertsIconData,
+                              public nsIAlertsDoNotDisturb,
                               public nsIAlertNotificationImageListener {
  public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIALERTSSERVICE
   NS_DECL_NSIALERTSICONDATA
+  NS_DECL_NSIALERTSDONOTDISTURB
   NS_DECL_NSIALERTNOTIFICATIONIMAGELISTENER
 
   OSXNotificationCenter();
 
   nsresult Init();
-  void CloseAlertCocoaString(NSString *aAlertName);
-  void OnActivate(NSString *aAlertName, NSUserNotificationActivationType aActivationType,
+  void CloseAlertCocoaString(NSString* aAlertName);
+  void OnActivate(NSString* aAlertName, NSUserNotificationActivationType aActivationType,
                   unsigned long long aAdditionalActionIndex);
-  void ShowPendingNotification(OSXNotificationInfo *osxni);
+  void ShowPendingNotification(OSXNotificationInfo* osxni);
 
  protected:
   virtual ~OSXNotificationCenter();
 
  private:
-  mozNotificationCenterDelegate *mDelegate;
+  mozNotificationCenterDelegate* mDelegate;
   nsTArray<RefPtr<OSXNotificationInfo> > mActiveAlerts;
   nsTArray<RefPtr<OSXNotificationInfo> > mPendingAlerts;
+  bool mSuppressForScreenSharing;
 };
 
 }  // namespace mozilla

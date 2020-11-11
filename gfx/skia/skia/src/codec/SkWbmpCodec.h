@@ -8,9 +8,9 @@
 #ifndef SkCodec_wbmp_DEFINED
 #define SkCodec_wbmp_DEFINED
 
-#include "SkCodec.h"
-#include "SkColorSpace.h"
-#include "SkSwizzler.h"
+#include "include/codec/SkCodec.h"
+#include "include/core/SkColorSpace.h"
+#include "src/codec/SkSwizzler.h"
 
 class SkWbmpCodec final : public SkCodec {
 public:
@@ -33,11 +33,6 @@ protected:
     // No need to Xform; all pixels are either black or white.
     bool usesColorXform() const override { return false; }
 private:
-    /*
-     * Returns a swizzler on success, nullptr on failure
-     */
-    SkSwizzler* initializeSwizzler(const SkImageInfo& info,
-                                   const Options& opts);
     SkSampler* getSampler(bool createIfNecessary) override {
         SkASSERT(fSwizzler || !createIfNecessary);
         return fSwizzler.get();

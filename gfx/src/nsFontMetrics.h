@@ -8,7 +8,6 @@
 
 #include <stdint.h>              // for uint32_t
 #include <sys/types.h>           // for int32_t
-#include "gfxTextRun.h"          // for gfxFont, gfxFontGroup
 #include "mozilla/Assertions.h"  // for MOZ_ASSERT_HELPER2
 #include "mozilla/RefPtr.h"      // for RefPtr
 #include "nsCOMPtr.h"            // for nsCOMPtr
@@ -19,11 +18,19 @@
 #include "nscore.h"              // for char16_t
 
 class gfxContext;
+class gfxFontGroup;
 class gfxUserFontSet;
 class gfxTextPerfMetrics;
 class nsDeviceContext;
 class nsAtom;
 struct nsBoundingMetrics;
+struct FontMatchingStats;
+
+namespace mozilla {
+namespace gfx {
+class DrawTarget;
+}  // namespace gfx
+}  // namespace mozilla
 
 /**
  * Font metrics
@@ -45,15 +52,18 @@ struct nsBoundingMetrics;
  */
 class nsFontMetrics final {
  public:
-  typedef gfxTextRun::Range Range;
   typedef mozilla::gfx::DrawTarget DrawTarget;
+
+  enum FontOrientation { eHorizontal, eVertical };
 
   struct MOZ_STACK_CLASS Params {
     nsAtom* language = nullptr;
     bool explicitLanguage = false;
-    gfxFont::Orientation orientation = gfxFont::eHorizontal;
+    FontOrientation orientation = eHorizontal;
     gfxUserFontSet* userFontSet = nullptr;
     gfxTextPerfMetrics* textPerf = nullptr;
+    FontMatchingStats* fontStats = nullptr;
+    gfxFontFeatureValueSet* featureValueLookup = nullptr;
   };
 
   nsFontMetrics(const nsFont& aFont, const Params& aParams,
@@ -183,7 +193,7 @@ class nsFontMetrics final {
   /**
    * Returns the orientation (horizontal/vertical) of these metrics.
    */
-  gfxFont::Orientation Orientation() const { return mOrientation; }
+  FontOrientation Orientation() const { return mOrientation; }
 
   int32_t GetMaxStringLength();
 
@@ -208,9 +218,9 @@ class nsFontMetrics final {
 
   // Returns the LOOSE_INK_EXTENTS bounds of the text for determing the
   // overflow area of the string.
-  nsBoundingMetrics GetInkBoundsForVisualOverflow(const char16_t* aString,
-                                                  uint32_t aLength,
-                                                  DrawTarget* aDrawTarget);
+  nsBoundingMetrics GetInkBoundsForInkOverflow(const char16_t* aString,
+                                               uint32_t aLength,
+                                               DrawTarget* aDrawTarget);
 
   void SetTextRunRTL(bool aIsRTL) { mTextRunRTL = aIsRTL; }
   bool GetTextRunRTL() const { return mTextRunRTL; }
@@ -218,28 +228,21 @@ class nsFontMetrics final {
   void SetVertical(bool aVertical) { mVertical = aVertical; }
   bool GetVertical() const { return mVertical; }
 
-  void SetTextOrientation(uint8_t aTextOrientation) {
+  void SetTextOrientation(mozilla::StyleTextOrientation aTextOrientation) {
     mTextOrientation = aTextOrientation;
   }
-  uint8_t GetTextOrientation() const { return mTextOrientation; }
+  mozilla::StyleTextOrientation GetTextOrientation() const {
+    return mTextOrientation;
+  }
 
   gfxFontGroup* GetThebesFontGroup() const { return mFontGroup; }
-  gfxUserFontSet* GetUserFontSet() const {
-    return mFontGroup->GetUserFontSet();
-  }
+  gfxUserFontSet* GetUserFontSet() const;
 
   int32_t AppUnitsPerDevPixel() const { return mP2A; }
 
  private:
   // Private destructor, to discourage deletion outside of Release():
   ~nsFontMetrics();
-
-  const gfxFont::Metrics& GetMetrics() const {
-    return GetMetrics(mOrientation);
-  }
-
-  const gfxFont::Metrics& GetMetrics(
-      const gfxFont::Orientation aFontOrientation) const;
 
   nsFont mFont;
   RefPtr<gfxFontGroup> mFontGroup;
@@ -252,14 +255,14 @@ class nsFontMetrics final {
   // The font orientation (horizontal or vertical) for which these metrics
   // have been initialized. This determines which line metrics (ascent and
   // descent) they will return.
-  gfxFont::Orientation mOrientation;
+  FontOrientation mOrientation;
 
   // These fields may be set by clients to control the behavior of methods
   // like GetWidth and DrawString according to the writing mode, direction
   // and text-orientation desired.
   bool mTextRunRTL;
   bool mVertical;
-  uint8_t mTextOrientation;
+  mozilla::StyleTextOrientation mTextOrientation;
 };
 
 #endif /* NSFONTMETRICS__H__ */

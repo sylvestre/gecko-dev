@@ -26,12 +26,13 @@
  */
 
 #include "src/arm/asm.S"
+#include "util.S"
 
-// void dav1d_wiener_filter_h_neon(int16_t *dst, const pixel (*left)[4],
-//                                 const pixel *src, ptrdiff_t stride,
-//                                 const int16_t fh[7], const intptr_t w,
-//                                 int h, enum LrEdgeFlags edges);
-function wiener_filter_h_neon, export=1
+// void dav1d_wiener_filter_h_8bpc_neon(int16_t *dst, const pixel (*left)[4],
+//                                      const pixel *src, ptrdiff_t stride,
+//                                      const int16_t fh[7], const intptr_t w,
+//                                      int h, enum LrEdgeFlags edges);
+function wiener_filter_h_8bpc_neon, export=1
         mov             w8,  w5
         ld1             {v0.8h},  [x4]
         mov             w9,  #(1 << 14) - (1 << 2)
@@ -52,7 +53,7 @@ function wiener_filter_h_neon, export=1
         add             x13, x2,  x3
         lsl             x3,  x3,  #1
 
-        // Subtract the width from mid_strid3
+        // Subtract the width from mid_stride
         sub             x10, x10, w5, uxtw #1
 
         // For w >= 8, we read (w+5)&~7+8 pixels, for w < 8 we read 16 pixels.
@@ -224,31 +225,25 @@ function wiener_filter_h_neon, export=1
         mov             v3.16b,  v28.16b
         mov             v5.16b,  v29.16b
         br              x11
+44:     // 4 pixels valid in v2/v4, fill the high half with padding.
+        ins             v2.d[1], v3.d[0]
+        ins             v4.d[1], v5.d[0]
+        b               88f
         // Shift v2 right, shifting out invalid pixels,
         // shift v2 left to the original offset, shifting in padding pixels.
-44:     // 4 pixels valid
-        ext             v2.16b,  v2.16b,  v2.16b,  #8
-        ext             v2.16b,  v2.16b,  v3.16b,  #8
-        ext             v4.16b,  v4.16b,  v4.16b,  #8
-        ext             v4.16b,  v4.16b,  v5.16b,  #8
-        b               88f
 55:     // 5 pixels valid
         ext             v2.16b,  v2.16b,  v2.16b,  #10
         ext             v2.16b,  v2.16b,  v3.16b,  #6
         ext             v4.16b,  v4.16b,  v4.16b,  #10
         ext             v4.16b,  v4.16b,  v5.16b,  #6
         b               88f
-66:     // 6 pixels valid
-        ext             v2.16b,  v2.16b,  v2.16b,  #12
-        ext             v2.16b,  v2.16b,  v3.16b,  #4
-        ext             v4.16b,  v4.16b,  v4.16b,  #12
-        ext             v4.16b,  v4.16b,  v5.16b,  #4
+66:     // 6 pixels valid, fill the upper 2 pixels with padding.
+        ins             v2.s[3], v3.s[0]
+        ins             v4.s[3], v5.s[0]
         b               88f
-77:     // 7 pixels valid
-        ext             v2.16b,  v2.16b,  v2.16b,  #14
-        ext             v2.16b,  v2.16b,  v3.16b,  #2
-        ext             v4.16b,  v4.16b,  v4.16b,  #14
-        ext             v4.16b,  v4.16b,  v5.16b,  #2
+77:     // 7 pixels valid, fill the last pixel with padding.
+        ins             v2.h[7], v3.h[0]
+        ins             v4.h[7], v5.h[0]
         b               88f
 
 L(variable_shift_tbl):
@@ -282,19 +277,15 @@ L(variable_shift_tbl):
         addv            h6,      v6.8h
         addv            h7,      v7.8h
         dup             v16.4h,  v2.h[3]
-        dup             v17.4h,  v4.h[3]
+        ins             v16.h[1], v4.h[3]
+        ins             v6.h[1], v7.h[0]
         shl             v16.4h,  v16.4h,  #7
-        shl             v17.4h,  v17.4h,  #7
         sub             v16.4h,  v16.4h,  v30.4h
-        sub             v17.4h,  v17.4h,  v30.4h
         sqadd           v6.4h,   v6.4h,   v16.4h
-        sqadd           v7.4h,   v7.4h,   v17.4h
         sshr            v6.4h,   v6.4h,   #3
-        sshr            v7.4h,   v7.4h,   #3
         add             v6.4h,   v6.4h,   v31.4h
-        add             v7.4h,   v7.4h,   v31.4h
         st1             {v6.h}[0], [x0],  #2
-        st1             {v7.h}[0], [x12], #2
+        st1             {v6.h}[1], [x12], #2
         subs            w5,  w5,  #1
         ext             v2.16b,  v2.16b,  v3.16b,  #2
         ext             v4.16b,  v4.16b,  v5.16b,  #2
@@ -315,15 +306,14 @@ L(variable_shift_tbl):
 .purgem filter
 endfunc
 
-// void dav1d_wiener_filter_v_neon(pixel *dst, ptrdiff_t stride,
-//                                 const int16_t *mid, int w, int h,
-//                                 const int16_t fv[7], enum LrEdgeFlags edges,
-//                                 ptrdiff_t mid_stride);
-function wiener_filter_v_neon, export=1
+// void dav1d_wiener_filter_v_8bpc_neon(pixel *dst, ptrdiff_t stride,
+//                                      const int16_t *mid, int w, int h,
+//                                      const int16_t fv[7], enum LrEdgeFlags edges,
+//                                      ptrdiff_t mid_stride);
+function wiener_filter_v_8bpc_neon, export=1
         mov             w8,  w4
         ld1             {v0.8h},  [x5]
-        mov             w9,  #128
-        dup             v1.8h, w9
+        movi            v1.8h, #128
         add             v1.8h,  v1.8h,  v0.8h
 
         // Calculate the number of rows to move back when looping vertically
@@ -437,7 +427,7 @@ function wiener_filter_v_neon, export=1
         mov             v21.16b,  v19.16b
         mov             v22.16b,  v19.16b
         b               8f
-62:     // 2 rows in total, v19 already loaded, load v20 and pad that into v20-v23.
+62:     // 2 rows in total, v19 already loaded, load v20 and pad that into v21-v23.
         ld1             {v20.8h}, [x2], x7
         mov             v21.16b,  v20.16b
         mov             v22.16b,  v20.16b
@@ -492,9 +482,9 @@ function wiener_filter_v_neon, export=1
 .purgem filter
 endfunc
 
-// void dav1d_copy_narrow_neon(pixel *dst, ptrdiff_t stride,
-//                             const pixel *src, int w, int h);
-function copy_narrow_neon, export=1
+// void dav1d_copy_narrow_8bpc_neon(pixel *dst, ptrdiff_t stride,
+//                                  const pixel *src, int w, int h);
+function copy_narrow_8bpc_neon, export=1
         adr             x5,  L(copy_narrow_tbl)
         ldrh            w6,  [x5, w3, uxtw #1]
         sub             x5,  x5,  w6, uxth
@@ -503,9 +493,8 @@ function copy_narrow_neon, export=1
         add             x7,  x0,  x1
         lsl             x1,  x1,  #1
 18:
-        cmp             w4,  #8
-        b.lt            110f
         subs            w4,  w4,  #8
+        b.lt            110f
         ld1             {v0.8b}, [x2], #8
         st1             {v0.b}[0], [x0], x1
         st1             {v0.b}[1], [x7], x1
@@ -518,12 +507,13 @@ function copy_narrow_neon, export=1
         b.le            0f
         b               18b
 110:
+        add             w4,  w4,  #8
         asr             x1,  x1,  #1
 11:
         subs            w4,  w4,  #1
         ld1             {v0.b}[0], [x2], #1
         st1             {v0.b}[0], [x0], x1
-        b.ge            11b
+        b.gt            11b
 0:
         ret
 
@@ -531,9 +521,8 @@ function copy_narrow_neon, export=1
         add             x7,  x0,  x1
         lsl             x1,  x1,  #1
 24:
-        cmp             w4,  #4
-        b.lt            210f
         subs            w4,  w4,  #4
+        b.lt            210f
         ld1             {v0.4h}, [x2], #8
         st1             {v0.h}[0], [x0], x1
         st1             {v0.h}[1], [x7], x1
@@ -542,12 +531,13 @@ function copy_narrow_neon, export=1
         b.le            0f
         b               24b
 210:
+        add             w4,  w4,  #4
         asr             x1,  x1,  #1
 22:
         subs            w4,  w4,  #1
         ld1             {v0.h}[0], [x2], #2
         st1             {v0.h}[0], [x0], x1
-        b.ge            22b
+        b.gt            22b
 0:
         ret
 
@@ -566,9 +556,8 @@ function copy_narrow_neon, export=1
         add             x7,  x0,  x1
         lsl             x1,  x1,  #1
 42:
-        cmp             w4,  #2
-        b.lt            41f
         subs            w4,  w4,  #2
+        b.lt            41f
         ld1             {v0.2s}, [x2], #8
         st1             {v0.s}[0], [x0], x1
         st1             {v0.s}[1], [x7], x1
@@ -625,3 +614,539 @@ L(copy_narrow_tbl):
         .hword L(copy_narrow_tbl) - 60b
         .hword L(copy_narrow_tbl) - 70b
 endfunc
+
+#define SUM_STRIDE (384+16)
+
+#include "looprestoration_tmpl.S"
+
+// void dav1d_sgr_box3_h_8bpc_neon(int32_t *sumsq, int16_t *sum,
+//                                 const pixel (*left)[4],
+//                                 const pixel *src, const ptrdiff_t stride,
+//                                 const int w, const int h,
+//                                 const enum LrEdgeFlags edges);
+function sgr_box3_h_8bpc_neon, export=1
+        add             w5,  w5,  #2 // w += 2
+
+        // Set up pointers for reading/writing alternate rows
+        add             x10, x0,  #(4*SUM_STRIDE)   // sumsq
+        add             x11, x1,  #(2*SUM_STRIDE)   // sum
+        add             x12, x3,  x4                // src
+        lsl             x4,  x4,  #1
+        mov             x9,       #(2*2*SUM_STRIDE) // double sum stride
+
+        // Subtract the aligned width from the output stride.
+        // With LR_HAVE_RIGHT, align to 8, without it, align to 4.
+        tst             w7,  #2 // LR_HAVE_RIGHT
+        b.ne            0f
+        // !LR_HAVE_RIGHT
+        add             w13, w5,  #3
+        bic             w13, w13, #3
+        b               1f
+0:
+        add             w13, w5,  #7
+        bic             w13, w13, #7
+1:
+        sub             x9,  x9,  w13, uxtw #1
+
+        // Store the width for the vertical loop
+        mov             w8,  w5
+
+        // Subtract the number of pixels read from the input from the stride
+        add             w13, w5,  #14
+        bic             w13, w13, #7
+        sub             x4,  x4,  w13, uxtw
+
+        // Set up the src pointers to include the left edge, for LR_HAVE_LEFT, left == NULL
+        tst             w7,  #1 // LR_HAVE_LEFT
+        b.eq            2f
+        // LR_HAVE_LEFT
+        cbnz            x2,  0f
+        // left == NULL
+        sub             x3,  x3,  #2
+        sub             x12, x12, #2
+        b               1f
+0:      // LR_HAVE_LEFT, left != NULL
+2:      // !LR_HAVE_LEFT, increase the stride.
+        // For this case we don't read the left 2 pixels from the src pointer,
+        // but shift it as if we had done that.
+        add             x4,  x4,  #2
+
+
+1:      // Loop vertically
+        ld1             {v0.16b},  [x3],  #16
+        ld1             {v4.16b},  [x12], #16
+
+        tst             w7,  #1 // LR_HAVE_LEFT
+        b.eq            0f
+        cbz             x2,  2f
+        // LR_HAVE_LEFT, left != NULL
+        ld1             {v1.s}[3],  [x2], #4
+        // Move x3/x12 back to account for the last 2 bytes we loaded earlier,
+        // which we'll shift out.
+        sub             x3,  x3,  #2
+        sub             x12, x12, #2
+        ld1             {v5.s}[3],  [x2], #4
+        ext             v0.16b, v1.16b, v0.16b, #14
+        ext             v4.16b, v5.16b, v4.16b, #14
+        b               2f
+0:
+        // !LR_HAVE_LEFT, fill v1 with the leftmost byte
+        // and shift v0 to have 2x the first byte at the front.
+        dup             v1.16b, v0.b[0]
+        dup             v5.16b, v4.b[0]
+        // Move x3 back to account for the last 2 bytes we loaded before,
+        // which we shifted out.
+        sub             x3,  x3,  #2
+        sub             x12, x12, #2
+        ext             v0.16b, v1.16b, v0.16b, #14
+        ext             v4.16b, v5.16b, v4.16b, #14
+
+2:
+        umull           v1.8h,   v0.8b,   v0.8b
+        umull2          v2.8h,   v0.16b,  v0.16b
+        umull           v5.8h,   v4.8b,   v4.8b
+        umull2          v6.8h,   v4.16b,  v4.16b
+
+        tst             w7,  #2 // LR_HAVE_RIGHT
+        b.ne            4f
+        // If we'll need to pad the right edge, load that byte to pad with
+        // here since we can find it pretty easily from here.
+        sub             w13, w5, #(2 + 16 - 2 + 1)
+        ldr             b30, [x3,  w13, sxtw]
+        ldr             b31, [x12, w13, sxtw]
+        // Fill v30/v31 with the right padding pixel
+        dup             v30.8b,  v30.b[0]
+        dup             v31.8b,  v31.b[0]
+3:      // !LR_HAVE_RIGHT
+        // If we'll have to pad the right edge we need to quit early here.
+        cmp             w5,  #10
+        b.ge            4f   // If w >= 10, all used input pixels are valid
+        cmp             w5,  #6
+        b.ge            5f   // If w >= 6, we can filter 4 pixels
+        b               6f
+
+4:      // Loop horizontally
+.macro uaddl_nh         dst1, dst2, src1, src2, w
+        uaddl           \dst1,  \src1\().4h,  \src2\().4h
+.if \w > 4
+        uaddl2          \dst2,  \src1\().8h,  \src2\().8h
+.endif
+.endm
+.macro uaddw_nh         dst1, dst2, src, w
+        uaddw           \dst1,  \dst1,  \src\().4h
+.if \w > 4
+        uaddw2          \dst2,  \dst2,  \src\().8h
+.endif
+.endm
+.macro add_nh           dst1, dst2, src1, src2, w
+        add             \dst1,  \dst1,  \src1
+.if \w > 4
+        add             \dst2,  \dst2,  \src2
+.endif
+.endm
+
+.macro add3 w
+        ext             v16.16b, v0.16b,  v0.16b, #1
+        ext             v17.16b, v0.16b,  v0.16b, #2
+        ext             v18.16b, v4.16b,  v4.16b, #1
+        ext             v19.16b, v4.16b,  v4.16b, #2
+        uaddl           v3.8h,   v0.8b,   v16.8b
+        uaddw           v3.8h,   v3.8h,   v17.8b
+        uaddl           v7.8h,   v4.8b,   v18.8b
+        uaddw           v7.8h,   v7.8h,   v19.8b
+
+        ext             v20.16b, v1.16b,  v2.16b, #2
+        ext             v21.16b, v1.16b,  v2.16b, #4
+        ext             v22.16b, v5.16b,  v6.16b, #2
+        ext             v23.16b, v5.16b,  v6.16b, #4
+
+        uaddl_nh        v26.4s,  v27.4s,  v1,   v20,  \w
+        uaddw_nh        v26.4s,  v27.4s,  v21,        \w
+
+        uaddl_nh        v28.4s,  v29.4s,  v5,   v22,  \w
+        uaddw_nh        v28.4s,  v29.4s,  v23,        \w
+.endm
+        add3            8
+        st1             {v3.8h},         [x1],  #16
+        st1             {v7.8h},         [x11], #16
+        st1             {v26.4s,v27.4s}, [x0],  #32
+        st1             {v28.4s,v29.4s}, [x10], #32
+
+        subs            w5,  w5,  #8
+        b.le            9f
+        tst             w7,  #2 // LR_HAVE_RIGHT
+        ld1             {v3.8b},  [x3],  #8
+        ld1             {v7.8b},  [x12], #8
+        mov             v1.16b,  v2.16b
+        mov             v5.16b,  v6.16b
+        ext             v0.16b,  v0.16b,  v3.16b, #8
+        ext             v4.16b,  v4.16b,  v7.16b, #8
+        umull           v2.8h,   v3.8b,   v3.8b
+        umull           v6.8h,   v7.8b,   v7.8b
+
+        b.ne            4b // If we don't need to pad, just keep summing.
+        b               3b // If we need to pad, check how many pixels we have left.
+
+5:      // Produce 4 pixels, 6 <= w < 10
+        add3            4
+        st1             {v3.4h},  [x1],  #8
+        st1             {v7.4h},  [x11], #8
+        st1             {v26.4s}, [x0],  #16
+        st1             {v28.4s}, [x10], #16
+
+        subs            w5,  w5,  #4 // 2 <= w < 6
+        ext             v0.16b,  v0.16b,  v0.16b, #4
+        ext             v4.16b,  v4.16b,  v4.16b, #4
+
+6:      // Pad the right edge and produce the last few pixels.
+        // 2 <= w < 6, 2-5 pixels valid in v0
+        sub             w13,  w5,  #2
+        // w13 = (pixels valid - 2)
+        adr             x14, L(box3_variable_shift_tbl)
+        ldrh            w13, [x14, w13, uxtw #1]
+        sub             x13, x14, w13, uxth
+        br              x13
+        // Shift v0 right, shifting out invalid pixels,
+        // shift v0 left to the original offset, shifting in padding pixels.
+22:     // 2 pixels valid
+        ext             v0.16b,  v0.16b,  v0.16b,  #2
+        ext             v4.16b,  v4.16b,  v4.16b,  #2
+        ext             v0.16b,  v0.16b,  v30.16b, #14
+        ext             v4.16b,  v4.16b,  v31.16b, #14
+        b               88f
+33:     // 3 pixels valid
+        ext             v0.16b,  v0.16b,  v0.16b,  #3
+        ext             v4.16b,  v4.16b,  v4.16b,  #3
+        ext             v0.16b,  v0.16b,  v30.16b, #13
+        ext             v4.16b,  v4.16b,  v31.16b, #13
+        b               88f
+44:     // 4 pixels valid
+        ext             v0.16b,  v0.16b,  v0.16b,  #4
+        ext             v4.16b,  v4.16b,  v4.16b,  #4
+        ext             v0.16b,  v0.16b,  v30.16b, #12
+        ext             v4.16b,  v4.16b,  v31.16b, #12
+        b               88f
+55:     // 5 pixels valid
+        ext             v0.16b,  v0.16b,  v0.16b,  #5
+        ext             v4.16b,  v4.16b,  v4.16b,  #5
+        ext             v0.16b,  v0.16b,  v30.16b, #11
+        ext             v4.16b,  v4.16b,  v31.16b, #11
+        b               88f
+
+L(box3_variable_shift_tbl):
+        .hword L(box3_variable_shift_tbl) - 22b
+        .hword L(box3_variable_shift_tbl) - 33b
+        .hword L(box3_variable_shift_tbl) - 44b
+        .hword L(box3_variable_shift_tbl) - 55b
+
+88:
+        umull           v1.8h,   v0.8b,   v0.8b
+        umull2          v2.8h,   v0.16b,  v0.16b
+        umull           v5.8h,   v4.8b,   v4.8b
+        umull2          v6.8h,   v4.16b,  v4.16b
+
+        add3            4
+        subs            w5,  w5,  #4
+        st1             {v3.4h},  [x1],  #8
+        st1             {v7.4h},  [x11], #8
+        st1             {v26.4s}, [x0],  #16
+        st1             {v28.4s}, [x10], #16
+        b.le            9f
+        ext             v0.16b,  v0.16b,  v0.16b, #4
+        ext             v4.16b,  v4.16b,  v4.16b, #4
+        ext             v1.16b,  v1.16b,  v2.16b, #8
+        ext             v5.16b,  v5.16b,  v6.16b, #8
+        // Only one needed pixel left, but do a normal 4 pixel
+        // addition anyway
+        add3            4
+        st1             {v3.4h},  [x1],  #8
+        st1             {v7.4h},  [x11], #8
+        st1             {v26.4s}, [x0],  #16
+        st1             {v28.4s}, [x10], #16
+
+9:
+        subs            w6,  w6,  #2
+        b.le            0f
+        // Jump to the next row and loop horizontally
+        add             x0,  x0,  x9, lsl #1
+        add             x10, x10, x9, lsl #1
+        add             x1,  x1,  x9
+        add             x11, x11, x9
+        add             x3,  x3,  x4
+        add             x12, x12, x4
+        mov             w5,  w8
+        b               1b
+0:
+        ret
+.purgem add3
+endfunc
+
+// void dav1d_sgr_box5_h_8bpc_neon(int32_t *sumsq, int16_t *sum,
+//                                 const pixel (*left)[4],
+//                                 const pixel *src, const ptrdiff_t stride,
+//                                 const int w, const int h,
+//                                 const enum LrEdgeFlags edges);
+function sgr_box5_h_8bpc_neon, export=1
+        add             w5,  w5,  #2 // w += 2
+
+        // Set up pointers for reading/writing alternate rows
+        add             x10, x0,  #(4*SUM_STRIDE)   // sumsq
+        add             x11, x1,  #(2*SUM_STRIDE)   // sum
+        add             x12, x3,  x4                // src
+        lsl             x4,  x4,  #1
+        mov             x9,       #(2*2*SUM_STRIDE) // double sum stride
+
+        // Subtract the aligned width from the output stride.
+        // With LR_HAVE_RIGHT, align to 8, without it, align to 4.
+        // Subtract the number of pixels read from the input from the stride.
+        tst             w7,  #2 // LR_HAVE_RIGHT
+        b.ne            0f
+        // !LR_HAVE_RIGHT
+        add             w13, w5,  #3
+        bic             w13, w13, #3
+        add             w14, w5,  #13
+        b               1f
+0:
+        add             w13, w5,  #7
+        bic             w13, w13, #7
+        add             w14, w5,  #15
+1:
+        sub             x9,  x9,  w13, uxtw #1
+        bic             w14, w14, #7
+        sub             x4,  x4,  w14, uxtw
+
+        // Store the width for the vertical loop
+        mov             w8,  w5
+
+        // Set up the src pointers to include the left edge, for LR_HAVE_LEFT, left == NULL
+        tst             w7,  #1 // LR_HAVE_LEFT
+        b.eq            2f
+        // LR_HAVE_LEFT
+        cbnz            x2,  0f
+        // left == NULL
+        sub             x3,  x3,  #3
+        sub             x12, x12, #3
+        b               1f
+0:      // LR_HAVE_LEFT, left != NULL
+2:      // !LR_HAVE_LEFT, increase the stride.
+        // For this case we don't read the left 3 pixels from the src pointer,
+        // but shift it as if we had done that.
+        add             x4,  x4,  #3
+
+1:      // Loop vertically
+        ld1             {v0.16b},  [x3],  #16
+        ld1             {v4.16b},  [x12], #16
+
+        tst             w7,  #1 // LR_HAVE_LEFT
+        b.eq            0f
+        cbz             x2,  2f
+        // LR_HAVE_LEFT, left != NULL
+        ld1             {v1.s}[3],  [x2], #4
+        // Move x3/x12 back to account for the last 3 bytes we loaded earlier,
+        // which we'll shift out.
+        sub             x3,  x3,  #3
+        sub             x12, x12, #3
+        ld1             {v5.s}[3],  [x2], #4
+        ext             v0.16b, v1.16b, v0.16b, #13
+        ext             v4.16b, v5.16b, v4.16b, #13
+        b               2f
+0:
+        // !LR_HAVE_LEFT, fill v1 with the leftmost byte
+        // and shift v0 to have 3x the first byte at the front.
+        dup             v1.16b, v0.b[0]
+        dup             v5.16b, v4.b[0]
+        // Move x3 back to account for the last 3 bytes we loaded before,
+        // which we shifted out.
+        sub             x3,  x3,  #3
+        sub             x12, x12, #3
+        ext             v0.16b, v1.16b, v0.16b, #13
+        ext             v4.16b, v5.16b, v4.16b, #13
+
+2:
+        umull           v1.8h,   v0.8b,   v0.8b
+        umull2          v2.8h,   v0.16b,  v0.16b
+        umull           v5.8h,   v4.8b,   v4.8b
+        umull2          v6.8h,   v4.16b,  v4.16b
+
+        tst             w7,  #2 // LR_HAVE_RIGHT
+        b.ne            4f
+        // If we'll need to pad the right edge, load that byte to pad with
+        // here since we can find it pretty easily from here.
+        sub             w13, w5, #(2 + 16 - 3 + 1)
+        ldr             b30, [x3,  w13, sxtw]
+        ldr             b31, [x12, w13, sxtw]
+        // Fill v30/v31 with the right padding pixel
+        dup             v30.8b,  v30.b[0]
+        dup             v31.8b,  v31.b[0]
+3:      // !LR_HAVE_RIGHT
+        // If we'll have to pad the right edge we need to quit early here.
+        cmp             w5,  #11
+        b.ge            4f   // If w >= 11, all used input pixels are valid
+        cmp             w5,  #7
+        b.ge            5f   // If w >= 7, we can produce 4 pixels
+        b               6f
+
+4:      // Loop horizontally
+.macro add5 w
+        ext             v16.16b, v0.16b,  v0.16b, #1
+        ext             v17.16b, v0.16b,  v0.16b, #2
+        ext             v18.16b, v0.16b,  v0.16b, #3
+        ext             v19.16b, v0.16b,  v0.16b, #4
+        ext             v20.16b, v4.16b,  v4.16b, #1
+        ext             v21.16b, v4.16b,  v4.16b, #2
+        ext             v22.16b, v4.16b,  v4.16b, #3
+        ext             v23.16b, v4.16b,  v4.16b, #4
+        uaddl           v3.8h,   v0.8b,   v16.8b
+        uaddl           v24.8h,  v17.8b,  v18.8b
+        uaddl           v7.8h,   v4.8b,   v20.8b
+        uaddw           v3.8h,   v3.8h,   v19.8b
+        uaddl           v25.8h,  v21.8b,  v22.8b
+        uaddw           v7.8h,   v7.8h,   v23.8b
+        add             v3.8h,   v3.8h,   v24.8h
+        add             v7.8h,   v7.8h,   v25.8h
+
+        ext             v16.16b, v1.16b,  v2.16b, #2
+        ext             v17.16b, v1.16b,  v2.16b, #4
+        ext             v18.16b, v1.16b,  v2.16b, #6
+        ext             v19.16b, v1.16b,  v2.16b, #8
+        ext             v20.16b, v5.16b,  v6.16b, #2
+        ext             v21.16b, v5.16b,  v6.16b, #4
+        ext             v22.16b, v5.16b,  v6.16b, #6
+        ext             v23.16b, v5.16b,  v6.16b, #8
+
+        uaddl_nh        v26.4s,  v27.4s,  v1,   v16,  \w
+        uaddl_nh        v16.4s,  v17.4s,  v17,  v18,  \w
+        uaddl_nh        v28.4s,  v29.4s,  v5,   v20,  \w
+        uaddw_nh        v26.4s,  v27.4s,  v19,        \w
+        uaddl_nh        v20.4s,  v21.4s,  v21,  v22,  \w
+        uaddw_nh        v28.4s,  v29.4s,  v23,        \w
+        add_nh          v26.4s,  v27.4s,  v16.4s, v17.4s, \w
+        add_nh          v28.4s,  v29.4s,  v20.4s, v21.4s, \w
+.endm
+        add5            8
+        st1             {v3.8h},         [x1],  #16
+        st1             {v7.8h},         [x11], #16
+        st1             {v26.4s,v27.4s}, [x0],  #32
+        st1             {v28.4s,v29.4s}, [x10], #32
+
+        subs            w5,  w5,  #8
+        b.le            9f
+        tst             w7,  #2 // LR_HAVE_RIGHT
+        ld1             {v3.8b},  [x3],  #8
+        ld1             {v7.8b},  [x12], #8
+        mov             v1.16b,  v2.16b
+        mov             v5.16b,  v6.16b
+        ext             v0.16b,  v0.16b,  v3.16b, #8
+        ext             v4.16b,  v4.16b,  v7.16b, #8
+        umull           v2.8h,   v3.8b,   v3.8b
+        umull           v6.8h,   v7.8b,   v7.8b
+        b.ne            4b // If we don't need to pad, just keep summing.
+        b               3b // If we need to pad, check how many pixels we have left.
+
+5:      // Produce 4 pixels, 7 <= w < 11
+        add5            4
+        st1             {v3.4h},  [x1],  #8
+        st1             {v7.4h},  [x11], #8
+        st1             {v26.4s}, [x0],  #16
+        st1             {v28.4s}, [x10], #16
+
+        subs            w5,  w5,  #4 // 3 <= w < 7
+        ext             v0.16b,  v0.16b,  v0.16b, #4
+        ext             v4.16b,  v4.16b,  v4.16b, #4
+
+6:      // Pad the right edge and produce the last few pixels.
+        // w < 7, w+1 pixels valid in v0/v4
+        sub             w13,  w5,  #1
+        // w13 = pixels valid - 2
+        adr             x14, L(box5_variable_shift_tbl)
+        ldrh            w13, [x14, w13, uxtw #1]
+        sub             x13, x14, w13, uxth
+        br              x13
+        // Shift v0 right, shifting out invalid pixels,
+        // shift v0 left to the original offset, shifting in padding pixels.
+22:     // 2 pixels valid
+        ext             v0.16b,  v0.16b,  v0.16b,  #2
+        ext             v4.16b,  v4.16b,  v4.16b,  #2
+        ext             v0.16b,  v0.16b,  v30.16b, #14
+        ext             v4.16b,  v4.16b,  v31.16b, #14
+        b               88f
+33:     // 3 pixels valid
+        ext             v0.16b,  v0.16b,  v0.16b,  #3
+        ext             v4.16b,  v4.16b,  v4.16b,  #3
+        ext             v0.16b,  v0.16b,  v30.16b, #13
+        ext             v4.16b,  v4.16b,  v31.16b, #13
+        b               88f
+44:     // 4 pixels valid
+        ext             v0.16b,  v0.16b,  v0.16b,  #4
+        ext             v4.16b,  v4.16b,  v4.16b,  #4
+        ext             v0.16b,  v0.16b,  v30.16b, #12
+        ext             v4.16b,  v4.16b,  v31.16b, #12
+        b               88f
+55:     // 5 pixels valid
+        ext             v0.16b,  v0.16b,  v0.16b,  #5
+        ext             v4.16b,  v4.16b,  v4.16b,  #5
+        ext             v0.16b,  v0.16b,  v30.16b, #11
+        ext             v4.16b,  v4.16b,  v31.16b, #11
+        b               88f
+66:     // 6 pixels valid
+        ext             v0.16b,  v0.16b,  v0.16b,  #6
+        ext             v4.16b,  v4.16b,  v4.16b,  #6
+        ext             v0.16b,  v0.16b,  v30.16b, #10
+        ext             v4.16b,  v4.16b,  v31.16b, #10
+        b               88f
+77:     // 7 pixels valid
+        ext             v0.16b,  v0.16b,  v0.16b,  #7
+        ext             v4.16b,  v4.16b,  v4.16b,  #7
+        ext             v0.16b,  v0.16b,  v30.16b, #9
+        ext             v4.16b,  v4.16b,  v31.16b, #9
+        b               88f
+
+L(box5_variable_shift_tbl):
+        .hword L(box5_variable_shift_tbl) - 22b
+        .hword L(box5_variable_shift_tbl) - 33b
+        .hword L(box5_variable_shift_tbl) - 44b
+        .hword L(box5_variable_shift_tbl) - 55b
+        .hword L(box5_variable_shift_tbl) - 66b
+        .hword L(box5_variable_shift_tbl) - 77b
+
+88:
+        umull           v1.8h,   v0.8b,   v0.8b
+        umull2          v2.8h,   v0.16b,  v0.16b
+        umull           v5.8h,   v4.8b,   v4.8b
+        umull2          v6.8h,   v4.16b,  v4.16b
+
+        add5            4
+        subs            w5,  w5,  #4
+        st1             {v3.4h},  [x1],  #8
+        st1             {v7.4h},  [x11], #8
+        st1             {v26.4s}, [x0],  #16
+        st1             {v28.4s}, [x10], #16
+        b.le            9f
+        ext             v0.16b,  v0.16b,  v0.16b, #4
+        ext             v1.16b,  v1.16b,  v2.16b, #8
+        ext             v4.16b,  v4.16b,  v4.16b, #4
+        ext             v5.16b,  v5.16b,  v6.16b, #8
+        add5            4
+        st1             {v3.4h},  [x1],  #8
+        st1             {v7.4h},  [x11], #8
+        st1             {v26.4s}, [x0],  #16
+        st1             {v28.4s}, [x10], #16
+
+9:
+        subs            w6,  w6,  #2
+        b.le            0f
+        // Jump to the next row and loop horizontally
+        add             x0,  x0,  x9, lsl #1
+        add             x10, x10, x9, lsl #1
+        add             x1,  x1,  x9
+        add             x11, x11, x9
+        add             x3,  x3,  x4
+        add             x12, x12, x4
+        mov             w5,  w8
+        b               1b
+0:
+        ret
+.purgem add5
+endfunc
+
+sgr_funcs 8

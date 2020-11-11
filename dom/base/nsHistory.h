@@ -12,7 +12,8 @@
 #include "mozilla/dom/ChildSHistory.h"
 #include "nsCOMPtr.h"
 #include "nsCycleCollectionParticipant.h"
-#include "nsPIDOMWindow.h"  // for GetParentObject
+#include "nsIWeakReferenceUtils.h"  // for nsWeakPtr
+#include "nsPIDOMWindow.h"          // for GetParentObject
 #include "nsStringFwd.h"
 #include "nsWrapperCache.h"
 
@@ -41,23 +42,25 @@ class nsHistory final : public nsISupports, public nsWrapperCache {
                             mozilla::ErrorResult& aRv);
   void GetState(JSContext* aCx, JS::MutableHandle<JS::Value> aResult,
                 mozilla::ErrorResult& aRv) const;
-  void Go(int32_t aDelta, mozilla::ErrorResult& aRv);
-  void Back(mozilla::ErrorResult& aRv);
-  void Forward(mozilla::ErrorResult& aRv);
+  void Go(int32_t aDelta, mozilla::dom::CallerType aCallerType,
+          mozilla::ErrorResult& aRv);
+  void Back(mozilla::dom::CallerType aCallerType, mozilla::ErrorResult& aRv);
+  void Forward(mozilla::dom::CallerType aCallerType, mozilla::ErrorResult& aRv);
   void PushState(JSContext* aCx, JS::Handle<JS::Value> aData,
                  const nsAString& aTitle, const nsAString& aUrl,
+                 mozilla::dom::CallerType aCallerType,
                  mozilla::ErrorResult& aRv);
   void ReplaceState(JSContext* aCx, JS::Handle<JS::Value> aData,
                     const nsAString& aTitle, const nsAString& aUrl,
+                    mozilla::dom::CallerType aCallerType,
                     mozilla::ErrorResult& aRv);
 
  protected:
   virtual ~nsHistory();
 
-  nsIDocShell* GetDocShell() const;
-
   void PushOrReplaceState(JSContext* aCx, JS::Handle<JS::Value> aData,
                           const nsAString& aTitle, const nsAString& aUrl,
+                          mozilla::dom::CallerType aCallerType,
                           mozilla::ErrorResult& aRv, bool aReplace);
 
   already_AddRefed<mozilla::dom::ChildSHistory> GetSessionHistory() const;

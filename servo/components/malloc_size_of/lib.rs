@@ -42,8 +42,15 @@
 //!   fields in structs, because it makes it clear that the Box is being
 //!   measured as well as the thing it points to. E.g.
 //!   `<Box<_> as MallocSizeOf>::size_of(field, ops)`.
+//!
+//!   Note: WebRender has a reduced fork of this crate, so that we can avoid
+//!   publishing this crate on crates.io.
 
+#[cfg(feature = "servo")]
+extern crate accountable_refcell;
 extern crate app_units;
+#[cfg(feature = "servo")]
+extern crate content_security_policy;
 #[cfg(feature = "servo")]
 extern crate crossbeam_channel;
 extern crate cssparser;
@@ -55,8 +62,6 @@ extern crate hyper;
 extern crate hyper_serde;
 #[cfg(feature = "servo")]
 extern crate keyboard_types;
-#[cfg(feature = "servo")]
-extern crate mozjs as js;
 extern crate selectors;
 #[cfg(feature = "servo")]
 extern crate serde;
@@ -72,6 +77,8 @@ extern crate thin_slice;
 extern crate time;
 #[cfg(feature = "url")]
 extern crate url;
+#[cfg(feature = "servo")]
+extern crate uuid;
 extern crate void;
 #[cfg(feature = "webrender_api")]
 extern crate webrender_api;
@@ -79,19 +86,23 @@ extern crate webrender_api;
 extern crate xml5ever;
 
 #[cfg(feature = "servo")]
+use content_security_policy as csp;
+#[cfg(feature = "servo")]
 use serde_bytes::ByteBuf;
 use std::hash::{BuildHasher, Hash};
 use std::mem::size_of;
 use std::ops::Range;
 use std::ops::{Deref, DerefMut};
 use std::os::raw::c_void;
+#[cfg(feature = "servo")]
+use uuid::Uuid;
 use void::Void;
 
 /// A C function that takes a pointer to a heap allocation and returns its size.
 type VoidPtrToSizeFn = unsafe extern "C" fn(ptr: *const c_void) -> usize;
 
 /// A closure implementing a stateful predicate on pointers.
-type VoidPtrToBoolFnMut = FnMut(*const c_void) -> bool;
+type VoidPtrToBoolFnMut = dyn FnMut(*const c_void) -> bool;
 
 /// Operations used when measuring heap usage of data structures.
 pub struct MallocSizeOfOps {
@@ -624,25 +635,25 @@ impl<T: MallocSizeOf, Unit> MallocSizeOf for euclid::Length<T, Unit> {
     }
 }
 
-impl<T: MallocSizeOf, Src, Dst> MallocSizeOf for euclid::TypedScale<T, Src, Dst> {
+impl<T: MallocSizeOf, Src, Dst> MallocSizeOf for euclid::Scale<T, Src, Dst> {
     fn size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
         self.0.size_of(ops)
     }
 }
 
-impl<T: MallocSizeOf, U> MallocSizeOf for euclid::TypedPoint2D<T, U> {
+impl<T: MallocSizeOf, U> MallocSizeOf for euclid::Point2D<T, U> {
     fn size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
         self.x.size_of(ops) + self.y.size_of(ops)
     }
 }
 
-impl<T: MallocSizeOf, U> MallocSizeOf for euclid::TypedRect<T, U> {
+impl<T: MallocSizeOf, U> MallocSizeOf for euclid::Rect<T, U> {
     fn size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
         self.origin.size_of(ops) + self.size.size_of(ops)
     }
 }
 
-impl<T: MallocSizeOf, U> MallocSizeOf for euclid::TypedSideOffsets2D<T, U> {
+impl<T: MallocSizeOf, U> MallocSizeOf for euclid::SideOffsets2D<T, U> {
     fn size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
         self.top.size_of(ops) +
             self.right.size_of(ops) +
@@ -651,13 +662,13 @@ impl<T: MallocSizeOf, U> MallocSizeOf for euclid::TypedSideOffsets2D<T, U> {
     }
 }
 
-impl<T: MallocSizeOf, U> MallocSizeOf for euclid::TypedSize2D<T, U> {
+impl<T: MallocSizeOf, U> MallocSizeOf for euclid::Size2D<T, U> {
     fn size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
         self.width.size_of(ops) + self.height.size_of(ops)
     }
 }
 
-impl<T: MallocSizeOf, Src, Dst> MallocSizeOf for euclid::TypedTransform2D<T, Src, Dst> {
+impl<T: MallocSizeOf, Src, Dst> MallocSizeOf for euclid::Transform2D<T, Src, Dst> {
     fn size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
         self.m11.size_of(ops) +
             self.m12.size_of(ops) +
@@ -668,7 +679,7 @@ impl<T: MallocSizeOf, Src, Dst> MallocSizeOf for euclid::TypedTransform2D<T, Src
     }
 }
 
-impl<T: MallocSizeOf, Src, Dst> MallocSizeOf for euclid::TypedTransform3D<T, Src, Dst> {
+impl<T: MallocSizeOf, Src, Dst> MallocSizeOf for euclid::Transform3D<T, Src, Dst> {
     fn size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
         self.m11.size_of(ops) +
             self.m12.size_of(ops) +
@@ -689,7 +700,7 @@ impl<T: MallocSizeOf, Src, Dst> MallocSizeOf for euclid::TypedTransform3D<T, Src
     }
 }
 
-impl<T: MallocSizeOf, U> MallocSizeOf for euclid::TypedVector2D<T, U> {
+impl<T: MallocSizeOf, U> MallocSizeOf for euclid::Vector2D<T, U> {
     fn size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
         self.x.size_of(ops) + self.y.size_of(ops)
     }
@@ -737,6 +748,7 @@ where
             Component::Slotted(ref selector) | Component::Host(Some(ref selector)) => {
                 selector.size_of(ops)
             },
+            Component::Is(ref list) | Component::Where(ref list) => list.size_of(ops),
             Component::PseudoElement(ref pseudo) => (*pseudo).size_of(ops),
             Component::Combinator(..) |
             Component::ExplicitAnyNamespace |
@@ -746,6 +758,7 @@ where
             Component::ExplicitUniversalType |
             Component::LocalName(..) |
             Component::ID(..) |
+            Component::Part(..) |
             Component::Class(..) |
             Component::AttributeInNoNamespaceExists { .. } |
             Component::AttributeInNoNamespace { .. } |
@@ -784,15 +797,6 @@ impl MallocSizeOf for Void {
 
 #[cfg(feature = "servo")]
 impl<Static: string_cache::StaticAtomSet> MallocSizeOf for string_cache::Atom<Static> {
-    fn size_of(&self, _ops: &mut MallocSizeOfOps) -> usize {
-        0
-    }
-}
-
-// This is measured properly by the heap measurement implemented in
-// SpiderMonkey.
-#[cfg(feature = "servo")]
-impl<T: Copy + js::rust::GCMethods> MallocSizeOf for js::jsapi::Heap<T> {
     fn size_of(&self, _ops: &mut MallocSizeOfOps) -> usize {
         0
     }
@@ -840,6 +844,12 @@ malloc_size_of_is_0!(app_units::Au);
 
 malloc_size_of_is_0!(cssparser::RGBA, cssparser::TokenSerializationType);
 
+#[cfg(feature = "servo")]
+malloc_size_of_is_0!(csp::Destination);
+
+#[cfg(feature = "servo")]
+malloc_size_of_is_0!(Uuid);
+
 #[cfg(feature = "url")]
 impl MallocSizeOf for url::Host {
     fn size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
@@ -855,8 +865,6 @@ malloc_size_of_is_0!(webrender_api::BorderRadius);
 malloc_size_of_is_0!(webrender_api::BorderStyle);
 #[cfg(feature = "webrender_api")]
 malloc_size_of_is_0!(webrender_api::BoxShadowClipMode);
-#[cfg(feature = "webrender_api")]
-malloc_size_of_is_0!(webrender_api::ClipAndScrollInfo);
 #[cfg(feature = "webrender_api")]
 malloc_size_of_is_0!(webrender_api::ColorF);
 #[cfg(feature = "webrender_api")]
@@ -963,5 +971,12 @@ impl<T: MallocSizeOf> Deref for Measurable<T> {
 impl<T: MallocSizeOf> DerefMut for Measurable<T> {
     fn deref_mut(&mut self) -> &mut T {
         &mut self.0
+    }
+}
+
+#[cfg(feature = "servo")]
+impl<T: MallocSizeOf> MallocSizeOf for accountable_refcell::RefCell<T> {
+    fn size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
+        self.borrow().size_of(ops)
     }
 }

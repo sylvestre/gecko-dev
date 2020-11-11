@@ -162,7 +162,7 @@ static LayerSortOrder CompareDepth(Layer* aOne, Layer* aTwo) {
 
 #ifdef DEBUG
 // #define USE_XTERM_COLORING
-#ifdef USE_XTERM_COLORING
+#  ifdef USE_XTERM_COLORING
 // List of color values, which can be added to the xterm foreground offset or
 // background offset to generate a xterm color code.
 // NOTE: The colors that we don't explicitly use (by name) are commented out,
@@ -201,7 +201,7 @@ static void print_layer_internal(FILE* aFile, Layer* aLayer, uint32_t aColor) {
   fprintf(aFile, "%p", aLayer);
   SetTextColor(GREEN);
 }
-#else
+#  else
 
 const char* colors[] = {"Black", "Red",     "Green", "Yellow",
                         "Blue",  "Magenta", "Cyan",  "White"};
@@ -209,7 +209,7 @@ const char* colors[] = {"Black", "Red",     "Green", "Yellow",
 static void print_layer_internal(FILE* aFile, Layer* aLayer, uint32_t aColor) {
   fprintf(aFile, "%p(%s)", aLayer, colors[aColor]);
 }
-#endif
+#  endif
 
 static void print_layer(FILE* aFile, Layer* aLayer) {
   print_layer_internal(aFile, aLayer, aLayer->GetDebugColorIndex());
@@ -301,12 +301,9 @@ void SortLayersBy3DZOrder(nsTArray<Layer*>& aLayers) {
   // and remove edges from it.
   do {
     if (!noIncoming.IsEmpty()) {
-      uint32_t last = noIncoming.Length() - 1;
-
-      Layer* layer = noIncoming.ElementAt(last);
+      Layer* layer = noIncoming.PopLastElement();
       MOZ_ASSERT(layer);  // don't let null layer pointers sneak into sortedList
 
-      noIncoming.RemoveElementAt(last);
       sortedList.AppendElement(layer);
 
       nsTArray<DirectedGraph<Layer*>::Edge> outgoing;

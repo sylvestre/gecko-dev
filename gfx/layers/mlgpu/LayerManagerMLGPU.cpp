@@ -9,6 +9,7 @@
 #include "PaintedLayerMLGPU.h"
 #include "ImageLayerMLGPU.h"
 #include "CanvasLayerMLGPU.h"
+#include "ContainerLayerMLGPU.h"
 #include "GeckoProfiler.h"  // for profiler_*
 #include "gfxEnv.h"         // for gfxEnv
 #include "MLGDevice.h"
@@ -20,17 +21,17 @@
 #include "TextureSourceProviderMLGPU.h"
 #include "TreeTraversal.h"
 #include "FrameBuilder.h"
-#include "LayersLogging.h"
 #include "UtilityMLGPU.h"
+#include "CompositionRecorder.h"
 #include "mozilla/layers/Diagnostics.h"
 #include "mozilla/layers/TextRenderer.h"
+#include "mozilla/StaticPrefs_layers.h"
+#include "mozilla/ToString.h"
 
 #ifdef XP_WIN
-#include "mozilla/widget/WinCompositorWidget.h"
-#include "mozilla/gfx/DeviceManagerDx.h"
+#  include "mozilla/widget/WinCompositorWidget.h"
+#  include "mozilla/gfx/DeviceManagerDx.h"
 #endif
-
-using namespace std;
 
 namespace mozilla {
 namespace layers {
@@ -41,6 +42,49 @@ static const int kDebugOverlayX = 2;
 static const int kDebugOverlayY = 5;
 static const int kDebugOverlayMaxWidth = 600;
 static const int kDebugOverlayMaxHeight = 96;
+
+class RecordedFrameMLGPU : public RecordedFrame {
+ public:
+  RecordedFrameMLGPU(MLGDevice* aDevice, MLGTexture* aTexture,
+                     const TimeStamp& aTimestamp)
+      : RecordedFrame(aTimestamp), mDevice(aDevice) {
+    mSoftTexture =
+        aDevice->CreateTexture(aTexture->GetSize(), SurfaceFormat::B8G8R8A8,
+                               MLGUsage::Staging, MLGTextureFlags::None);
+
+    aDevice->CopyTexture(mSoftTexture, IntPoint(), aTexture,
+                         IntRect(IntPoint(), aTexture->GetSize()));
+  }
+
+  ~RecordedFrameMLGPU() {
+    if (mIsMapped) {
+      mDevice->Unmap(mSoftTexture);
+    }
+  }
+
+  virtual already_AddRefed<gfx::DataSourceSurface> GetSourceSurface() override {
+    if (mDataSurf) {
+      return RefPtr<DataSourceSurface>(mDataSurf).forget();
+    }
+    MLGMappedResource map;
+    if (!mDevice->Map(mSoftTexture, MLGMapType::READ, &map)) {
+      return nullptr;
+    }
+
+    mIsMapped = true;
+    mDataSurf = Factory::CreateWrappingDataSourceSurface(
+        map.mData, map.mStride, mSoftTexture->GetSize(),
+        SurfaceFormat::B8G8R8A8);
+    return RefPtr<DataSourceSurface>(mDataSurf).forget();
+  }
+
+ private:
+  RefPtr<MLGDevice> mDevice;
+  // Software texture in VRAM.
+  RefPtr<MLGTexture> mSoftTexture;
+  RefPtr<DataSourceSurface> mDataSurf;
+  bool mIsMapped = false;
+};
 
 LayerManagerMLGPU::LayerManagerMLGPU(widget::CompositorWidget* aWidget)
     : mWidget(aWidget),
@@ -91,6 +135,7 @@ void LayerManagerMLGPU::Destroy() {
   }
 
   LayerManager::Destroy();
+  mProfilerScreenshotGrabber.Destroy();
 
   if (mDevice && mDevice->IsValid()) {
     mDevice->Flush();
@@ -147,7 +192,7 @@ already_AddRefed<CanvasLayer> LayerManagerMLGPU::CreateCanvasLayer() {
 TextureFactoryIdentifier LayerManagerMLGPU::GetTextureFactoryIdentifier() {
   TextureFactoryIdentifier ident;
   if (mDevice) {
-    ident = mDevice->GetTextureFactoryIdentifier();
+    ident = mDevice->GetTextureFactoryIdentifier(mWidget);
   }
   ident.mUsingAdvancedLayers = true;
   return ident;
@@ -159,10 +204,7 @@ LayersBackend LayerManagerMLGPU::GetBackendType() {
 
 void LayerManagerMLGPU::SetRoot(Layer* aLayer) { mRoot = aLayer; }
 
-bool LayerManagerMLGPU::BeginTransaction(const nsCString& aURL) {
-  MOZ_ASSERT(!mTarget);
-  return true;
-}
+bool LayerManagerMLGPU::BeginTransaction(const nsCString& aURL) { return true; }
 
 void LayerManagerMLGPU::BeginTransactionWithDrawTarget(
     gfx::DrawTarget* aTarget, const gfx::IntRect& aRect) {
@@ -170,11 +212,10 @@ void LayerManagerMLGPU::BeginTransactionWithDrawTarget(
 
   mTarget = aTarget;
   mTargetRect = aRect;
-  return;
 }
 
 // Helper class for making sure textures are unlocked.
-class MOZ_STACK_CLASS AutoUnlockAllTextures {
+class MOZ_STACK_CLASS AutoUnlockAllTextures final {
  public:
   explicit AutoUnlockAllTextures(MLGDevice* aDevice) : mDevice(aDevice) {}
   ~AutoUnlockAllTextures() { mDevice->UnlockAllTextures(); }
@@ -187,13 +228,19 @@ void LayerManagerMLGPU::EndTransaction(const TimeStamp& aTimeStamp,
                                        EndTransactionFlags aFlags) {
   AUTO_PROFILER_LABEL("LayerManager::EndTransaction", GRAPHICS);
 
-  SetCompositionTime(aTimeStamp);
-
   TextureSourceProvider::AutoReadUnlockTextures unlock(mTextureSourceProvider);
 
   if (!mRoot || (aFlags & END_NO_IMMEDIATE_REDRAW) || !mWidget) {
     return;
   }
+
+  if (!mDevice->IsValid()) {
+    // Waiting device reset handling.
+    return;
+  }
+
+  mCompositionOpportunityId = mCompositionOpportunityId.Next();
+  SetCompositionTime(aTimeStamp);
 
   mCompositionStartTime = TimeStamp::Now();
 
@@ -203,6 +250,9 @@ void LayerManagerMLGPU::EndTransaction(const TimeStamp& aTimeStamp,
   }
 
   // Resize the window if needed.
+#ifdef XP_WIN
+  mWidget->AsWindows()->UpdateCompositorWndSizeIfNecessary();
+#endif
   if (mSwapChain->GetSize() != windowSize) {
     // Note: all references to the backbuffer must be cleared.
     mDevice->SetRenderTarget(nullptr);
@@ -215,8 +265,8 @@ void LayerManagerMLGPU::EndTransaction(const TimeStamp& aTimeStamp,
   }
 
   // Don't draw the diagnostic overlay if we want to snapshot the output.
-  mDrawDiagnostics = gfxPrefs::LayersDrawFPS() && !mTarget;
-  mUsingInvalidation = gfxPrefs::AdvancedLayersUseInvalidation();
+  mDrawDiagnostics = StaticPrefs::layers_acceleration_draw_fps() && !mTarget;
+  mUsingInvalidation = StaticPrefs::layers_mlgpu_enable_invalidation();
   mDebugFrameNumber++;
 
   AL_LOG("--- Compositing frame %d ---\n", mDebugFrameNumber);
@@ -264,6 +314,13 @@ void LayerManagerMLGPU::Composite() {
   // will tell us if we still need to render.
   if (!mSwapChain->ApplyNewInvalidRegion(std::move(mInvalidRegion),
                                          diagnosticRect)) {
+    mProfilerScreenshotGrabber.NotifyEmptyFrame();
+
+    // Discard the current payloads. These payloads did not require a composite
+    // (they caused no changes to anything visible), so we don't want to measure
+    // their latency.
+    mPayload.Clear();
+
     return;
   }
 
@@ -304,6 +361,10 @@ void LayerManagerMLGPU::Composite() {
   // performs invalidation against the clean layer tree.
   mClonedLayerTreeProperties = nullptr;
   mClonedLayerTreeProperties = LayerProperties::CloneFrom(mRoot);
+
+  PayloadPresented();
+
+  mPayload.Clear();
 }
 
 void LayerManagerMLGPU::RenderLayers() {
@@ -342,6 +403,25 @@ void LayerManagerMLGPU::RenderLayers() {
 
   // Execute all render passes.
   builder.Render();
+
+  mProfilerScreenshotGrabber.MaybeGrabScreenshot(
+      mDevice, builder.GetWidgetRT()->GetTexture());
+
+  if (mCompositionRecorder) {
+    bool hasContentPaint = false;
+    for (CompositionPayload& payload : mPayload) {
+      if (payload.mType == CompositionPayloadType::eContentPaint) {
+        hasContentPaint = true;
+        break;
+      }
+    }
+
+    if (hasContentPaint) {
+      RefPtr<RecordedFrame> frame = new RecordedFrameMLGPU(
+          mDevice, builder.GetWidgetRT()->GetTexture(), TimeStamp::Now());
+      mCompositionRecorder->RecordFrame(frame);
+    }
+  }
   mCurrentFrame = nullptr;
 
   if (mDrawDiagnostics) {
@@ -359,9 +439,8 @@ void LayerManagerMLGPU::DrawDebugOverlay() {
   stats.mScreenPixels = windowSize.width * windowSize.height;
 
   std::string text = mDiagnostics->GetFrameOverlayString(stats);
-  RefPtr<TextureSource> texture =
-      mTextRenderer->RenderText(mTextureSourceProvider, text, 30, 600,
-                                TextRenderer::FontType::FixedWidth);
+  RefPtr<TextureSource> texture = mTextRenderer->RenderText(
+      mTextureSourceProvider, text, 600, TextRenderer::FontType::FixedWidth);
   if (!texture) {
     return;
   }
@@ -370,7 +449,7 @@ void LayerManagerMLGPU::DrawDebugOverlay() {
       (texture->GetSize().width > kDebugOverlayMaxWidth ||
        texture->GetSize().height > kDebugOverlayMaxHeight)) {
     gfxCriticalNote << "Diagnostic overlay exceeds invalidation area: %s"
-                    << Stringify(texture->GetSize()).c_str();
+                    << ToString(texture->GetSize()).c_str();
   }
 
   struct DebugRect {
@@ -479,7 +558,7 @@ void LayerManagerMLGPU::ClearCachedResources(Layer* aSubtree) {
 }
 
 void LayerManagerMLGPU::NotifyShadowTreeTransaction() {
-  if (gfxPrefs::LayersDrawFPS()) {
+  if (StaticPrefs::layers_acceleration_draw_fps()) {
     mDiagnostics->AddTxnFrame();
   }
 }
@@ -501,6 +580,7 @@ bool LayerManagerMLGPU::PreRender() {
 
 void LayerManagerMLGPU::PostRender() {
   mWidget->PostRender(mWidgetContext.ptr());
+  mProfilerScreenshotGrabber.MaybeProcessQueue();
   mWidgetContext = Nothing();
 }
 

@@ -207,7 +207,7 @@ static nsresult InitOperators(void) {
   nsCOMPtr<nsIPersistentProperties> mathfontProp;
   rv = NS_LoadPersistentPropertiesFromURISpec(
       getter_AddRefs(mathfontProp),
-      NS_LITERAL_CSTRING("resource://gre/res/fonts/mathfont.properties"));
+      "resource://gre/res/fonts/mathfont.properties"_ns);
 
   if (NS_FAILED(rv)) return rv;
 
@@ -395,8 +395,8 @@ void nsMathMLOperators::LookupOperators(const nsString& aOperator,
   }
 }
 
-/* static */ bool nsMathMLOperators::IsMirrorableOperator(
-    const nsString& aOperator) {
+/* static */
+bool nsMathMLOperators::IsMirrorableOperator(const nsString& aOperator) {
   // LookupOperator will search infix, postfix and prefix forms of aOperator and
   // return the first form found. It is assumed that all these forms have same
   // mirrorability.
@@ -407,7 +407,8 @@ void nsMathMLOperators::LookupOperators(const nsString& aOperator,
   return NS_MATHML_OPERATOR_IS_MIRRORABLE(flags);
 }
 
-/* static */ nsStretchDirection nsMathMLOperators::GetStretchyDirection(
+/* static */
+nsStretchDirection nsMathMLOperators::GetStretchyDirection(
     const nsString& aOperator) {
   // LookupOperator will search infix, postfix and prefix forms of aOperator and
   // return the first form found. It is assumed that all these forms have same

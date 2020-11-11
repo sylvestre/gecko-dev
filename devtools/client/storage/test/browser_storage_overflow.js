@@ -26,8 +26,6 @@ add_task(async function() {
 
   info("Run the tests with tall DevTools");
   await runTests();
-
-  await finishTests();
 });
 
 async function runTests() {
@@ -52,8 +50,9 @@ async function runTests() {
 }
 
 function checkCellValues(order) {
-  const cells = [...gPanelWindow.document
-                              .querySelectorAll("#name .table-widget-cell")];
+  const cells = [
+    ...gPanelWindow.document.querySelectorAll("#name .table-widget-cell"),
+  ];
   cells.forEach(function(cell, index, arr) {
     const i = order === "ASC" ? index + 1 : arr.length - index;
     is(cell.value, `item-${i}`, `Cell value is correct (${order}).`);

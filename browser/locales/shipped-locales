@@ -2,16 +2,15 @@ ach
 af
 an
 ar
-as
 ast
 az
 be
 bg
-bn-BD
-bn-IN
+bn
 br
 bs
 ca
+ca-valencia
 cak
 cs
 cy
@@ -22,7 +21,6 @@ el
 en-CA
 en-GB
 en-US
-en-ZA
 eo
 es-AR
 es-CL
@@ -50,8 +48,8 @@ ia
 id
 is
 it
-ja linux win32
-ja-JP-mac osx
+ja
+ja-JP-mac
 ka
 kab
 kk
@@ -61,9 +59,7 @@ ko
 lij
 lt
 lv
-mai
 mk
-ml
 mr
 ms
 my
@@ -72,7 +68,6 @@ ne-NP
 nl
 nn-NO
 oc
-or
 pa-IN
 pl
 pt-BR
@@ -90,7 +85,9 @@ sv-SE
 ta
 te
 th
+tl
 tr
+trs
 uk
 ur
 uz

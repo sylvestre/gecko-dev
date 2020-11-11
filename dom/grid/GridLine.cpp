@@ -9,8 +9,7 @@
 #include "GridLines.h"
 #include "mozilla/dom/GridBinding.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(GridLine, mParent)
 NS_IMPL_CYCLE_COLLECTING_ADDREF(GridLine)
@@ -30,9 +29,14 @@ GridLine::GridLine(GridLines* aParent)
   MOZ_ASSERT(aParent, "Should never be instantiated with a null GridLines");
 }
 
-GridLine::~GridLine() {}
+GridLine::~GridLine() = default;
 
-void GridLine::GetNames(nsTArray<nsString>& aNames) const { aNames = mNames; }
+void GridLine::GetNames(nsTArray<nsString>& aNames) const {
+  aNames.SetCapacity(mNames.Length());
+  for (auto& name : mNames) {
+    aNames.AppendElement(nsDependentAtomString(name));
+  }
+}
 
 JSObject* GridLine::WrapObject(JSContext* aCx,
                                JS::Handle<JSObject*> aGivenProto) {
@@ -49,10 +53,10 @@ uint32_t GridLine::Number() const { return mNumber; }
 
 int32_t GridLine::NegativeNumber() const { return mNegativeNumber; }
 
-void GridLine::SetLineValues(const nsTArray<nsString>& aNames, double aStart,
-                             double aBreadth, uint32_t aNumber,
+void GridLine::SetLineValues(const nsTArray<RefPtr<nsAtom>>& aNames,
+                             double aStart, double aBreadth, uint32_t aNumber,
                              int32_t aNegativeNumber, GridDeclaration aType) {
-  mNames = aNames;
+  mNames = aNames.Clone();
   mStart = aStart;
   mBreadth = aBreadth;
   mNumber = aNumber;
@@ -60,5 +64,8 @@ void GridLine::SetLineValues(const nsTArray<nsString>& aNames, double aStart,
   mType = aType;
 }
 
-}  // namespace dom
-}  // namespace mozilla
+void GridLine::SetLineNames(const nsTArray<RefPtr<nsAtom>>& aNames) {
+  mNames = aNames.Clone();
+}
+
+}  // namespace mozilla::dom

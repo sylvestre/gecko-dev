@@ -7,28 +7,37 @@ add_task(async function() {
   await pushPrefs([HOMEPAGE_PREF, "about:mozilla"]);
 
   let EventUtils = {};
-  Services.scriptloader.loadSubScript("chrome://mochikit/content/tests/SimpleTest/EventUtils.js", EventUtils);
+  Services.scriptloader.loadSubScript(
+    "chrome://mochikit/content/tests/SimpleTest/EventUtils.js",
+    EventUtils
+  );
 
-  // Since synthesizeDrop triggers the srcElement, need to use another button.
-  let dragSrcElement = document.getElementById("downloads-button");
-  ok(dragSrcElement, "Downloads button exists");
+  // Since synthesizeDrop triggers the srcElement, need to use another button
+  // that should be visible.
+  let dragSrcElement = document.getElementById("sidebar-button");
+  ok(dragSrcElement, "Sidebar button exists");
   let homeButton = document.getElementById("home-button");
   ok(homeButton, "home button present");
 
   async function drop(dragData, homepage) {
-    let setHomepageDialogPromise = BrowserTestUtils.domWindowOpened();
+    let setHomepageDialogPromise = BrowserTestUtils.domWindowOpenedAndLoaded();
 
-    EventUtils.synthesizeDrop(dragSrcElement, homeButton, dragData, "copy", window);
+    EventUtils.synthesizeDrop(
+      dragSrcElement,
+      homeButton,
+      dragData,
+      "copy",
+      window
+    );
     // Ensure dnd suppression is cleared.
     EventUtils.synthesizeMouseAtCenter(homeButton, { type: "mouseup" }, window);
 
     let setHomepageDialog = await setHomepageDialogPromise;
     ok(true, "dialog appeared in response to home button drop");
-    await BrowserTestUtils.waitForEvent(setHomepageDialog, "load", false);
 
     let setHomepagePromise = new Promise(function(resolve) {
       let observer = {
-        QueryInterface: ChromeUtils.generateQI([Ci.nsIObserver]),
+        QueryInterface: ChromeUtils.generateQI(["nsIObserver"]),
         observe(subject, topic, data) {
           is(topic, "nsPref:changed", "observed correct topic");
           is(data, HOMEPAGE_PREF, "observed correct data");
@@ -44,7 +53,7 @@ add_task(async function() {
       Services.prefs.addObserver(HOMEPAGE_PREF, observer);
     });
 
-    setHomepageDialog.document.documentElement.acceptDialog();
+    setHomepageDialog.document.getElementById("commonDialog").acceptDialog();
 
     await setHomepagePromise;
   }
@@ -69,18 +78,38 @@ add_task(async function() {
         // The drop handler throws an exception when dragging URIs that inherit
         // principal, e.g. javascript:
         expectUncaughtException();
-        EventUtils.synthesizeDrop(dragSrcElement, homeButton, [[{type: "text/plain", data: "javascript:8888"}]], "copy", window);
+        EventUtils.synthesizeDrop(
+          dragSrcElement,
+          homeButton,
+          [[{ type: "text/plain", data: "javascript:8888" }]],
+          "copy",
+          window
+        );
         // Ensure dnd suppression is cleared.
-        EventUtils.synthesizeMouseAtCenter(homeButton, { type: "mouseup" }, window);
+        EventUtils.synthesizeMouseAtCenter(
+          homeButton,
+          { type: "mouseup" },
+          window
+        );
       });
     });
   }
 
-  await drop([[{type: "text/plain",
-                 data: "http://mochi.test:8888/"}]],
-              "http://mochi.test:8888/");
-  await drop([[{type: "text/plain",
-                 data: "http://mochi.test:8888/\nhttp://mochi.test:8888/b\nhttp://mochi.test:8888/c"}]],
-              "http://mochi.test:8888/|http://mochi.test:8888/b|http://mochi.test:8888/c");
+  await drop(
+    [[{ type: "text/plain", data: "http://mochi.test:8888/" }]],
+    "http://mochi.test:8888/"
+  );
+  await drop(
+    [
+      [
+        {
+          type: "text/plain",
+          data:
+            "http://mochi.test:8888/\nhttp://mochi.test:8888/b\nhttp://mochi.test:8888/c",
+        },
+      ],
+    ],
+    "http://mochi.test:8888/|http://mochi.test:8888/b|http://mochi.test:8888/c"
+  );
   await dropInvalidURI();
 });

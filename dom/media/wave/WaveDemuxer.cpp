@@ -11,6 +11,7 @@
 
 #include "mozilla/Assertions.h"
 #include "mozilla/EndianUtils.h"
+#include "mozilla/Utf8.h"
 #include "BufferReader.h"
 #include "VideoUtils.h"
 #include "TimeUnits.h"
@@ -229,27 +230,23 @@ bool WAVTrackDemuxer::ListChunkParserInit(uint32_t aChunkSize) {
 
     bytesRead += length;
 
-    if (!IsUTF8(val)) {
+    if (!IsUtf8(val)) {
       mHeaderParser.Reset();
       continue;
     }
 
     switch (id) {
       case 0x49415254:  // IART
-        mInfo->mTags.AppendElement(
-            MetadataTag(NS_LITERAL_CSTRING("artist"), val));
+        mInfo->mTags.AppendElement(MetadataTag("artist"_ns, val));
         break;
       case 0x49434d54:  // ICMT
-        mInfo->mTags.AppendElement(
-            MetadataTag(NS_LITERAL_CSTRING("comments"), val));
+        mInfo->mTags.AppendElement(MetadataTag("comments"_ns, val));
         break;
       case 0x49474e52:  // IGNR
-        mInfo->mTags.AppendElement(
-            MetadataTag(NS_LITERAL_CSTRING("genre"), val));
+        mInfo->mTags.AppendElement(MetadataTag("genre"_ns, val));
         break;
       case 0x494e414d:  // INAM
-        mInfo->mTags.AppendElement(
-            MetadataTag(NS_LITERAL_CSTRING("name"), val));
+        mInfo->mTags.AppendElement(MetadataTag("name"_ns, val));
         break;
     }
 
@@ -318,10 +315,14 @@ RefPtr<WAVTrackDemuxer::SamplesPromise> WAVTrackDemuxer::GetSamples(
     if (!datachunk) {
       break;
     }
-    datachunks->mSamples.AppendElement(datachunk);
+    if (!datachunk->HasValidTime()) {
+      return SamplesPromise::CreateAndReject(NS_ERROR_DOM_MEDIA_DEMUXER_ERR,
+                                             __func__);
+    }
+    datachunks->AppendSample(datachunk);
   }
 
-  if (datachunks->mSamples.IsEmpty()) {
+  if (datachunks->GetSamples().IsEmpty()) {
     return SamplesPromise::CreateAndReject(NS_ERROR_DOM_MEDIA_END_OF_STREAM,
                                            __func__);
   }
@@ -716,7 +717,7 @@ void FormatParser::FormatChunk::Update(uint8_t c) {
 
 // DataParser
 
-DataParser::DataParser() {}
+DataParser::DataParser() = default;
 
 void DataParser::Reset() { mChunk.Reset(); }
 

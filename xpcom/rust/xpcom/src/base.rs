@@ -2,13 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use {
-    RefCounted,
-    RefPtr,
-    GetterAddrefs
-};
-use interfaces::nsISupports;
-use nserror::NsresultExt;
+use crate::interfaces::{nsIInterfaceRequestor, nsISupports};
+use crate::{GetterAddrefs, RefCounted, RefPtr};
 
 #[repr(C)]
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -26,7 +21,7 @@ pub type nsCID = nsID;
 /// * The result of a QueryInterface or similar call, passing IID, must return a
 ///   valid reference to an object of the given type.
 /// * It must be valid to cast a &self reference to a &nsISupports reference.
-pub unsafe trait XpCom : RefCounted {
+pub unsafe trait XpCom: RefCounted {
     const IID: nsIID;
 
     /// Perform a QueryInterface call on this object, attempting to dynamically
@@ -35,10 +30,26 @@ pub unsafe trait XpCom : RefCounted {
     fn query_interface<T: XpCom>(&self) -> Option<RefPtr<T>> {
         let mut ga = GetterAddrefs::<T>::new();
         unsafe {
-            if (*(self as *const Self as *const nsISupports)).QueryInterface(
-                &T::IID,
-                ga.void_ptr(),
-            ).succeeded() {
+            if (*(self as *const Self as *const nsISupports))
+                .QueryInterface(&T::IID, ga.void_ptr())
+                .succeeded()
+            {
+                ga.refptr()
+            } else {
+                None
+            }
+        }
+    }
+
+    /// Perform a `GetInterface` call on this object, returning `None` if the
+    /// object doesn't implement `nsIInterfaceRequestor`, or can't access the
+    /// interface `T`.
+    fn get_interface<T: XpCom>(&self) -> Option<RefPtr<T>> {
+        let ireq = self.query_interface::<nsIInterfaceRequestor>()?;
+
+        let mut ga = GetterAddrefs::<T>::new();
+        unsafe {
+            if ireq.GetInterface(&T::IID, ga.void_ptr()).succeeded() {
                 ga.refptr()
             } else {
                 None

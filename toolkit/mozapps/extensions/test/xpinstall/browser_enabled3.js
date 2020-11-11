@@ -1,6 +1,6 @@
 // ----------------------------------------------------------------------------
 // Test whether an InstallTrigger.install call fails when xpinstall is disabled
-function test() {
+async function test() {
   Harness.installDisabledCallback = install_disabled;
   Harness.installBlockedCallback = allow_blocked;
   Harness.installConfirmCallback = confirm_install;
@@ -8,28 +8,36 @@ function test() {
 
   Services.prefs.setBoolPref("xpinstall.enabled", false);
 
-  var triggers = encodeURIComponent(JSON.stringify({
-    "Unsigned XPI": TESTROOT + "amosigned.xpi",
-  }));
-  gBrowser.selectedTab = BrowserTestUtils.addTab(gBrowser);
+  var triggers = encodeURIComponent(
+    JSON.stringify({
+      "Unsigned XPI": TESTROOT + "amosigned.xpi",
+    })
+  );
+  let tab = BrowserTestUtils.addTab(gBrowser, TESTROOT);
+  gBrowser.selectedTab = tab;
+  await BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, TESTROOT);
 
-  ContentTask.spawn(gBrowser.selectedBrowser, TESTROOT + "installtrigger.html?" + triggers, url => {
-    return new Promise(resolve => {
-      function page_loaded() {
-        content.removeEventListener("PageLoaded", page_loaded);
-        resolve(content.document.getElementById("return").textContent);
-      }
+  ContentTask.spawn(
+    gBrowser.selectedBrowser,
+    TESTROOT + "installtrigger.html?" + triggers,
+    url => {
+      return new Promise(resolve => {
+        function page_loaded() {
+          content.removeEventListener("PageLoaded", page_loaded);
+          resolve(content.document.getElementById("return").textContent);
+        }
 
-      function load_listener() {
-        removeEventListener("load", load_listener, true);
-        content.addEventListener("InstallTriggered", page_loaded);
-      }
+        function load_listener() {
+          removeEventListener("load", load_listener, true);
+          content.addEventListener("InstallTriggered", page_loaded);
+        }
 
-      addEventListener("load", load_listener, true);
+        addEventListener("load", load_listener, true);
 
-      content.location.href = url;
-    });
-  }).then(text => {
+        content.location.href = url;
+      });
+    }
+  ).then(text => {
     is(text, "false", "installTrigger should have not been enabled");
     Services.prefs.clearUserPref("xpinstall.enabled");
     gBrowser.removeCurrentTab();

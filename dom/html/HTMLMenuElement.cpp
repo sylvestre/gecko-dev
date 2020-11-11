@@ -8,6 +8,7 @@
 
 #include "mozilla/BasicEvents.h"
 #include "mozilla/EventDispatcher.h"
+#include "mozilla/dom/DocumentInlines.h"
 #include "mozilla/dom/HTMLMenuElementBinding.h"
 #include "mozilla/dom/HTMLMenuItemElement.h"
 #include "nsIMenuBuilder.h"
@@ -19,8 +20,7 @@
 
 NS_IMPL_NS_NEW_HTML_ELEMENT(Menu)
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 enum MenuType : uint8_t { MENU_TYPE_CONTEXT = 1, MENU_TYPE_TOOLBAR };
 
@@ -37,12 +37,12 @@ HTMLMenuElement::HTMLMenuElement(
     already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo)
     : nsGenericHTMLElement(std::move(aNodeInfo)), mType(MENU_TYPE_TOOLBAR) {}
 
-HTMLMenuElement::~HTMLMenuElement() {}
+HTMLMenuElement::~HTMLMenuElement() = default;
 
 NS_IMPL_ELEMENT_CLONE(HTMLMenuElement)
 
 void HTMLMenuElement::SendShowEvent() {
-  nsCOMPtr<nsIDocument> document = GetComposedDoc();
+  nsCOMPtr<Document> document = GetComposedDoc();
   if (!document) {
     return;
   }
@@ -77,7 +77,7 @@ void HTMLMenuElement::Build(nsIMenuBuilder* aBuilder) {
     return;
   }
 
-  BuildSubmenu(EmptyString(), this, aBuilder);
+  BuildSubmenu(u""_ns, this, aBuilder);
 }
 
 nsresult HTMLMenuElement::AfterSetAttr(int32_t aNameSpaceID, nsAtom* aName,
@@ -132,12 +132,11 @@ bool HTMLMenuElement::CanLoadIcon(nsIContent* aContent,
     return false;
   }
 
-  nsIDocument* doc = aContent->OwnerDoc();
+  Document* doc = aContent->OwnerDoc();
 
-  nsCOMPtr<nsIURI> baseURI = aContent->GetBaseURI();
   nsCOMPtr<nsIURI> uri;
   nsContentUtils::NewURIWithDocumentCharset(getter_AddRefs(uri), aIcon, doc,
-                                            baseURI);
+                                            aContent->GetBaseURI());
 
   if (!uri) {
     return false;
@@ -213,5 +212,4 @@ JSObject* HTMLMenuElement::WrapNode(JSContext* aCx,
   return HTMLMenuElement_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

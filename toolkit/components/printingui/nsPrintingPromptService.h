@@ -18,13 +18,12 @@
 
 #include "nsCOMPtr.h"
 #include "nsIPrintingPromptService.h"
-#include "nsPIPromptService.h"
 #include "nsIWindowWatcher.h"
 
 // Printing Progress Includes
 #include "nsIWebProgressListener.h"
 #if !defined(XP_MACOSX)
-#include "nsPrintProgress.h"
+#  include "nsPrintProgress.h"
 
 class nsIDOMWindow;
 class nsIDialogParamBlock;

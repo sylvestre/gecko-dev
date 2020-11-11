@@ -25,7 +25,7 @@ struct ChildNPObject : NPObject {
     MOZ_COUNT_CTOR(ChildNPObject);
   }
 
-  ~ChildNPObject() { MOZ_COUNT_DTOR(ChildNPObject); }
+  MOZ_COUNTED_DTOR(ChildNPObject)
 
   // |parent| is always valid as long as the actor is alive. Once the actor is
   // destroyed this will be set to null.
@@ -44,43 +44,43 @@ class PluginScriptableObjectChild : public PPluginScriptableObjectChild {
 
   void InitializeLocal(NPObject* aObject);
 
-  virtual mozilla::ipc::IPCResult AnswerInvalidate() override;
+  mozilla::ipc::IPCResult AnswerInvalidate();
 
-  virtual mozilla::ipc::IPCResult AnswerHasMethod(const PluginIdentifier& aId,
-                                                  bool* aHasMethod) override;
+  mozilla::ipc::IPCResult AnswerHasMethod(const PluginIdentifier& aId,
+                                          bool* aHasMethod);
 
-  virtual mozilla::ipc::IPCResult AnswerInvoke(
-      const PluginIdentifier& aId, InfallibleTArray<Variant>&& aArgs,
-      Variant* aResult, bool* aSuccess) override;
+  mozilla::ipc::IPCResult AnswerInvoke(const PluginIdentifier& aId,
+                                       nsTArray<Variant>&& aArgs,
+                                       Variant* aResult, bool* aSuccess);
 
-  virtual mozilla::ipc::IPCResult AnswerInvokeDefault(
-      InfallibleTArray<Variant>&& aArgs, Variant* aResult,
-      bool* aSuccess) override;
+  mozilla::ipc::IPCResult AnswerInvokeDefault(nsTArray<Variant>&& aArgs,
+                                              Variant* aResult, bool* aSuccess);
 
-  virtual mozilla::ipc::IPCResult AnswerHasProperty(
-      const PluginIdentifier& aId, bool* aHasProperty) override;
+  mozilla::ipc::IPCResult AnswerHasProperty(const PluginIdentifier& aId,
+                                            bool* aHasProperty);
 
-  virtual mozilla::ipc::IPCResult AnswerGetChildProperty(
-      const PluginIdentifier& aId, bool* aHasProperty, bool* aHasMethod,
-      Variant* aResult, bool* aSuccess) override;
+  mozilla::ipc::IPCResult AnswerGetChildProperty(const PluginIdentifier& aId,
+                                                 bool* aHasProperty,
+                                                 bool* aHasMethod,
+                                                 Variant* aResult,
+                                                 bool* aSuccess);
 
-  virtual mozilla::ipc::IPCResult AnswerSetProperty(const PluginIdentifier& aId,
-                                                    const Variant& aValue,
-                                                    bool* aSuccess) override;
+  mozilla::ipc::IPCResult AnswerSetProperty(const PluginIdentifier& aId,
+                                            const Variant& aValue,
+                                            bool* aSuccess);
 
-  virtual mozilla::ipc::IPCResult AnswerRemoveProperty(
-      const PluginIdentifier& aId, bool* aSuccess) override;
+  mozilla::ipc::IPCResult AnswerRemoveProperty(const PluginIdentifier& aId,
+                                               bool* aSuccess);
 
-  virtual mozilla::ipc::IPCResult AnswerEnumerate(
-      InfallibleTArray<PluginIdentifier>* aProperties, bool* aSuccess) override;
+  mozilla::ipc::IPCResult AnswerEnumerate(
+      nsTArray<PluginIdentifier>* aProperties, bool* aSuccess);
 
-  virtual mozilla::ipc::IPCResult AnswerConstruct(
-      InfallibleTArray<Variant>&& aArgs, Variant* aResult,
-      bool* aSuccess) override;
+  mozilla::ipc::IPCResult AnswerConstruct(nsTArray<Variant>&& aArgs,
+                                          Variant* aResult, bool* aSuccess);
 
-  virtual mozilla::ipc::IPCResult RecvProtect() override;
+  mozilla::ipc::IPCResult RecvProtect();
 
-  virtual mozilla::ipc::IPCResult RecvUnprotect() override;
+  mozilla::ipc::IPCResult RecvUnprotect();
 
   NPObject* GetObject(bool aCanResurrect);
 
@@ -143,7 +143,7 @@ class PluginScriptableObjectChild : public PPluginScriptableObjectChild {
       MOZ_COUNT_CTOR(StoredIdentifier);
     }
 
-    ~StoredIdentifier() { MOZ_COUNT_DTOR(StoredIdentifier); }
+    MOZ_COUNTED_DTOR(StoredIdentifier)
   };
 
  public:

@@ -7,6 +7,13 @@
 #ifndef mozilla_dom_localstorage_LocalStorageCommon_h
 #define mozilla_dom_localstorage_LocalStorageCommon_h
 
+#include <cstdint>
+#include "ErrorList.h"
+#include "mozilla/Attributes.h"
+#include "mozilla/dom/quota/QuotaCommon.h"
+#include "nsLiteralString.h"
+#include "nsStringFwd.h"
+
 /*
  * Local storage
  * ~~~~~~~~~~~~~
@@ -81,16 +88,16 @@
  * like directory locking before sending a reply to a synchronous message, then
  * we would have to block the thread or spin the event loop which is usually a
  * bad idea, especially in the main process.
- * Instead, we can use a special thread in the content process called DOM File
- * thread for communication with the main process using asynchronous messages
- * and synchronously block the main thread until the DOM File thread is done
- * (the main thread blocking is a bit more complicated, see the comment in
- * RequestHelper::StartAndReturnResponse for more details).
- * Anyway, the extra hop to the DOM File thread brings another overhead and
- * latency. The final solution is to use a combination of the special thread
- * for complex stuff like datastore preparation and synchronous IPC messages
- * sent directly from the main thread for database access when data is already
- * loaded from disk into memory.
+ * Instead, we can use a special thread in the content process called
+ * RemoteLazyInputStream thread for communication with the main process using
+ * asynchronous messages and synchronously block the main thread until the DOM
+ * File thread is done (the main thread blocking is a bit more complicated, see
+ * the comment in RequestHelper::StartAndReturnResponse for more details).
+ * Anyway, the extra hop to the RemoteLazyInputStream thread brings another
+ * overhead and latency. The final solution is to use a combination of the
+ * special thread for complex stuff like datastore preparation and synchronous
+ * IPC messages sent directly from the main thread for database access when data
+ * is already loaded from disk into memory.
  *
  * Requests
  * ~~~~~~~~
@@ -116,13 +123,13 @@
  * responses and do safe main thread blocking at the same time.
  * It inherits from the "Runnable" class, so instances are ref counted and
  * they are internally used on multiple threads (specifically on the main
- * thread and on the DOM File thread). Anyway, users should create and use
- * instances of this class only on the main thread (apart from a special case
- * when we need to cancel the request from an internal chromium IPC thread to
- * prevent a dead lock involving CPOWs).
+ * thread and on the RemoteLazyInputStream thread). Anyway, users should create
+ * and use instances of this class only on the main thread (apart from a special
+ * case when we need to cancel the request from an internal chromium IPC thread
+ * to prevent a dead lock involving CPOWs).
  * The actual child actor is represented by the "LSRequestChild" class that
  * implements the "PBackgroundLSRequestChild" interface. An "LSRequestChild"
- * instance is not ref counted and lives on the DOM File thread.
+ * instance is not ref counted and lives on the RemoteLazyInputStream thread.
  * Request responses are passed using the "LSRequestChildCallback" interface.
  *
  * Preparation of a datastore
@@ -157,9 +164,10 @@
  * In theory, the datastore preparation request could return a database actor
  * directly (instead of returning an id intended for database linking to a
  * datastore). However, as it was explained above, the preparation must be done
- * on the DOM File thread and database objects are used on the main thread. The
- * returned actor would have to be migrated from the DOM File thread to the
- * main thread and that's something which our IPDL doesn't support yet.
+ * on the RemoteLazyInputStream thread and database objects are used on the main
+ * thread. The returned actor would have to be migrated from the
+ * RemoteLazyInputStream thread to the main thread and that's something which
+ * our IPDL doesn't support yet.
  *
  * Exposing local storage
  * ~~~~~~~~~~~~~~~~~~~~~~
@@ -181,7 +189,40 @@
  * interface.
  */
 
+// LocalStorage equivalents of QM_TRY.
+#define LS_TRY_GLUE(...)                                             \
+  QM_TRY_META(mozilla::dom::localstorage, MOZ_UNIQUE_VAR(tryResult), \
+              ##__VA_ARGS__)
+#define LS_TRY(...) LS_TRY_GLUE(__VA_ARGS__)
+
+// LocalStorage equivalents of QM_TRY_UNWRAP and QM_TRY_INSPECT.
+#define LS_TRY_ASSIGN_GLUE(accessFunction, ...)                             \
+  QM_TRY_ASSIGN_META(mozilla::dom::localstorage, MOZ_UNIQUE_VAR(tryResult), \
+                     accessFunction, ##__VA_ARGS__)
+#define LS_TRY_UNWRAP(...) LS_TRY_ASSIGN_GLUE(unwrap, __VA_ARGS__)
+#define LS_TRY_INSPECT(...) LS_TRY_ASSIGN_GLUE(inspect, __VA_ARGS__)
+
+// LocalStorage equivalents of QM_TRY_RETURN.
+#define LS_TRY_RETURN_GLUE(...)                                             \
+  QM_TRY_RETURN_META(mozilla::dom::localstorage, MOZ_UNIQUE_VAR(tryResult), \
+                     ##__VA_ARGS__)
+#define LS_TRY_RETURN(...) LS_TRY_RETURN_GLUE(__VA_ARGS__)
+
+// LocalStorage equivalents of QM_FAIL.
+#define LS_FAIL_GLUE(...) \
+  QM_FAIL_META(mozilla::dom::localstorage, ##__VA_ARGS__)
+#define LS_FAIL(...) LS_FAIL_GLUE(__VA_ARGS__)
+
 namespace mozilla {
+
+class LogModule;
+
+namespace ipc {
+
+class PrincipalInfo;
+
+}  // namespace ipc
+
 namespace dom {
 
 extern const char16_t* kLocalStorageType;
@@ -210,8 +251,12 @@ class MOZ_STACK_CLASS LSNotifyInfo {
 };
 
 /**
- * Main-thread-only check of LSNG being enabled, the value is latched once
- * initialized so changing the preference during runtime has no effect.
+ * A check of LSNG being enabled, the value is latched once initialized so
+ * changing the preference during runtime has no effect.
+ * May be called on any thread in the parent process, but you should call
+ * CachedNextGenLocalStorageEnabled if you know that NextGenLocalStorageEnabled
+ * was already called because it is faster.
+ * May be called on the main thread only in a content process.
  */
 bool NextGenLocalStorageEnabled();
 
@@ -219,6 +264,18 @@ bool NextGenLocalStorageEnabled();
  * Cached any-thread version of NextGenLocalStorageEnabled().
  */
 bool CachedNextGenLocalStorageEnabled();
+
+nsresult GenerateOriginKey2(const mozilla::ipc::PrincipalInfo& aPrincipalInfo,
+                            nsACString& aOriginAttrSuffix,
+                            nsACString& aOriginKey);
+
+LogModule* GetLocalStorageLogger();
+
+namespace localstorage {
+
+QM_META_HANDLE_ERROR("LocalStorage"_ns)
+
+}  // namespace localstorage
 
 }  // namespace dom
 }  // namespace mozilla

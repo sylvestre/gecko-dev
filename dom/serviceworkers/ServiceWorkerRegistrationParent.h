@@ -20,6 +20,8 @@ class ServiceWorkerRegistrationParent final
   RefPtr<ServiceWorkerRegistrationProxy> mProxy;
   bool mDeleteSent;
 
+  ~ServiceWorkerRegistrationParent();
+
   // PServiceWorkerRegistrationParent
   void ActorDestroy(ActorDestroyReason aReason) override;
 
@@ -28,11 +30,13 @@ class ServiceWorkerRegistrationParent final
   mozilla::ipc::IPCResult RecvUnregister(
       UnregisterResolver&& aResolver) override;
 
-  mozilla::ipc::IPCResult RecvUpdate(UpdateResolver&& aResolver) override;
+  mozilla::ipc::IPCResult RecvUpdate(const nsCString& aNewestWorkerScriptUrl,
+                                     UpdateResolver&& aResolver) override;
 
  public:
+  NS_INLINE_DECL_REFCOUNTING(ServiceWorkerRegistrationParent, override);
+
   ServiceWorkerRegistrationParent();
-  ~ServiceWorkerRegistrationParent();
 
   void Init(const IPCServiceWorkerRegistrationDescriptor& aDescriptor);
 

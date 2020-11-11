@@ -1,23 +1,21 @@
-// Copyright 2013 The Rust Project Developers. See the COPYRIGHT
-// file at the top-level directory of this distribution and at
-// http://rust-lang.org/COPYRIGHT.
+// Copyright 2018 Developers of the Rand project.
+// Copyright 2013 The Rust Project Developers.
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
-// http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
-// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// https://www.apache.org/licenses/LICENSE-2.0> or the MIT license
+// <LICENSE-MIT or https://opensource.org/licenses/MIT>, at your
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
-//
-// ignore-lexer-test FIXME #15679
 
 //! The Gamma and derived distributions.
+#![allow(deprecated)]
 
 use self::GammaRepr::*;
 use self::ChiSquaredRepr::*;
 
-use {Rng, Open01};
-use super::normal::StandardNormal;
-use super::{IndependentSample, Sample, Exp};
+use crate::Rng;
+use crate::distributions::normal::StandardNormal;
+use crate::distributions::{Distribution, Exp, Open01};
 
 /// The Gamma distribution `Gamma(shape, scale)` distribution.
 ///
@@ -30,25 +28,16 @@ use super::{IndependentSample, Sample, Exp};
 /// where `Γ` is the Gamma function, `k` is the shape and `θ` is the
 /// scale and both `k` and `θ` are strictly positive.
 ///
-/// The algorithm used is that described by Marsaglia & Tsang 2000[1],
+/// The algorithm used is that described by Marsaglia & Tsang 2000[^1],
 /// falling back to directly sampling from an Exponential for `shape
-/// == 1`, and using the boosting technique described in [1] for
+/// == 1`, and using the boosting technique described in that paper for
 /// `shape < 1`.
 ///
-/// # Example
-///
-/// ```rust
-/// use rand::distributions::{IndependentSample, Gamma};
-///
-/// let gamma = Gamma::new(2.0, 5.0);
-/// let v = gamma.ind_sample(&mut rand::thread_rng());
-/// println!("{} is from a Gamma(2, 5) distribution", v);
-/// ```
-///
-/// [1]: George Marsaglia and Wai Wan Tsang. 2000. "A Simple Method
-/// for Generating Gamma Variables" *ACM Trans. Math. Softw.* 26, 3
-/// (September 2000),
-/// 363-372. DOI:[10.1145/358407.358414](http://doi.acm.org/10.1145/358407.358414)
+/// [^1]: George Marsaglia and Wai Wan Tsang. 2000. "A Simple Method for
+///       Generating Gamma Variables" *ACM Trans. Math. Softw.* 26, 3
+///       (September 2000), 363-372.
+///       DOI:[10.1145/358407.358414](https://doi.acm.org/10.1145/358407.358414)
+#[deprecated(since="0.7.0", note="moved to rand_distr crate")]
 #[derive(Clone, Copy, Debug)]
 pub struct Gamma {
     repr: GammaRepr,
@@ -109,7 +98,7 @@ impl Gamma {
         } else {
             Large(GammaLargeShape::new_raw(shape, scale))
         };
-        Gamma { repr: repr }
+        Gamma { repr }
     }
 }
 
@@ -126,50 +115,40 @@ impl GammaLargeShape {
     fn new_raw(shape: f64, scale: f64) -> GammaLargeShape {
         let d = shape - 1. / 3.;
         GammaLargeShape {
-            scale: scale,
+            scale,
             c: 1. / (9. * d).sqrt(),
-            d: d
+            d
         }
     }
 }
 
-impl Sample<f64> for Gamma {
-    fn sample<R: Rng>(&mut self, rng: &mut R) -> f64 { self.ind_sample(rng) }
-}
-impl Sample<f64> for GammaSmallShape {
-    fn sample<R: Rng>(&mut self, rng: &mut R) -> f64 { self.ind_sample(rng) }
-}
-impl Sample<f64> for GammaLargeShape {
-    fn sample<R: Rng>(&mut self, rng: &mut R) -> f64 { self.ind_sample(rng) }
-}
-
-impl IndependentSample<f64> for Gamma {
-    fn ind_sample<R: Rng>(&self, rng: &mut R) -> f64 {
+impl Distribution<f64> for Gamma {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> f64 {
         match self.repr {
-            Small(ref g) => g.ind_sample(rng),
-            One(ref g) => g.ind_sample(rng),
-            Large(ref g) => g.ind_sample(rng),
+            Small(ref g) => g.sample(rng),
+            One(ref g) => g.sample(rng),
+            Large(ref g) => g.sample(rng),
         }
     }
 }
-impl IndependentSample<f64> for GammaSmallShape {
-    fn ind_sample<R: Rng>(&self, rng: &mut R) -> f64 {
-        let Open01(u) = rng.gen::<Open01<f64>>();
+impl Distribution<f64> for GammaSmallShape {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> f64 {
+        let u: f64 = rng.sample(Open01);
 
-        self.large_shape.ind_sample(rng) * u.powf(self.inv_shape)
+        self.large_shape.sample(rng) * u.powf(self.inv_shape)
     }
 }
-impl IndependentSample<f64> for GammaLargeShape {
-    fn ind_sample<R: Rng>(&self, rng: &mut R) -> f64 {
+impl Distribution<f64> for GammaLargeShape {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> f64 {
         loop {
-            let StandardNormal(x) = rng.gen::<StandardNormal>();
+            let x = rng.sample(StandardNormal);
             let v_cbrt = 1.0 + self.c * x;
             if v_cbrt <= 0.0 { // a^3 <= 0 iff a <= 0
                 continue
             }
 
             let v = v_cbrt * v_cbrt * v_cbrt;
-            let Open01(u) = rng.gen::<Open01<f64>>();
+            let u: f64 = rng.sample(Open01);
 
             let x_sqr = x * x;
             if u < 1.0 - 0.0331 * x_sqr * x_sqr ||
@@ -187,16 +166,7 @@ impl IndependentSample<f64> for GammaLargeShape {
 /// of `k` independent standard normal random variables. For other
 /// `k`, this uses the equivalent characterisation
 /// `χ²(k) = Gamma(k/2, 2)`.
-///
-/// # Example
-///
-/// ```rust
-/// use rand::distributions::{ChiSquared, IndependentSample};
-///
-/// let chi = ChiSquared::new(11.0);
-/// let v = chi.ind_sample(&mut rand::thread_rng());
-/// println!("{} is from a χ²(11) distribution", v)
-/// ```
+#[deprecated(since="0.7.0", note="moved to rand_distr crate")]
 #[derive(Clone, Copy, Debug)]
 pub struct ChiSquared {
     repr: ChiSquaredRepr,
@@ -221,21 +191,18 @@ impl ChiSquared {
             assert!(k > 0.0, "ChiSquared::new called with `k` < 0");
             DoFAnythingElse(Gamma::new(0.5 * k, 2.0))
         };
-        ChiSquared { repr: repr }
+        ChiSquared { repr }
     }
 }
-impl Sample<f64> for ChiSquared {
-    fn sample<R: Rng>(&mut self, rng: &mut R) -> f64 { self.ind_sample(rng) }
-}
-impl IndependentSample<f64> for ChiSquared {
-    fn ind_sample<R: Rng>(&self, rng: &mut R) -> f64 {
+impl Distribution<f64> for ChiSquared {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> f64 {
         match self.repr {
             DoFExactlyOne => {
                 // k == 1 => N(0,1)^2
-                let StandardNormal(norm) = rng.gen::<StandardNormal>();
+                let norm = rng.sample(StandardNormal);
                 norm * norm
             }
-            DoFAnythingElse(ref g) => g.ind_sample(rng)
+            DoFAnythingElse(ref g) => g.sample(rng)
         }
     }
 }
@@ -245,16 +212,7 @@ impl IndependentSample<f64> for ChiSquared {
 /// This distribution is equivalent to the ratio of two normalised
 /// chi-squared distributions, that is, `F(m,n) = (χ²(m)/m) /
 /// (χ²(n)/n)`.
-///
-/// # Example
-///
-/// ```rust
-/// use rand::distributions::{FisherF, IndependentSample};
-///
-/// let f = FisherF::new(2.0, 32.0);
-/// let v = f.ind_sample(&mut rand::thread_rng());
-/// println!("{} is from an F(2, 32) distribution", v)
-/// ```
+#[deprecated(since="0.7.0", note="moved to rand_distr crate")]
 #[derive(Clone, Copy, Debug)]
 pub struct FisherF {
     numer: ChiSquared,
@@ -278,27 +236,15 @@ impl FisherF {
         }
     }
 }
-impl Sample<f64> for FisherF {
-    fn sample<R: Rng>(&mut self, rng: &mut R) -> f64 { self.ind_sample(rng) }
-}
-impl IndependentSample<f64> for FisherF {
-    fn ind_sample<R: Rng>(&self, rng: &mut R) -> f64 {
-        self.numer.ind_sample(rng) / self.denom.ind_sample(rng) * self.dof_ratio
+impl Distribution<f64> for FisherF {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> f64 {
+        self.numer.sample(rng) / self.denom.sample(rng) * self.dof_ratio
     }
 }
 
 /// The Student t distribution, `t(nu)`, where `nu` is the degrees of
 /// freedom.
-///
-/// # Example
-///
-/// ```rust
-/// use rand::distributions::{StudentT, IndependentSample};
-///
-/// let t = StudentT::new(11.0);
-/// let v = t.ind_sample(&mut rand::thread_rng());
-/// println!("{} is from a t(11) distribution", v)
-/// ```
+#[deprecated(since="0.7.0", note="moved to rand_distr crate")]
 #[derive(Clone, Copy, Debug)]
 pub struct StudentT {
     chi: ChiSquared,
@@ -316,46 +262,72 @@ impl StudentT {
         }
     }
 }
-impl Sample<f64> for StudentT {
-    fn sample<R: Rng>(&mut self, rng: &mut R) -> f64 { self.ind_sample(rng) }
+impl Distribution<f64> for StudentT {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> f64 {
+        let norm = rng.sample(StandardNormal);
+        norm * (self.dof / self.chi.sample(rng)).sqrt()
+    }
 }
-impl IndependentSample<f64> for StudentT {
-    fn ind_sample<R: Rng>(&self, rng: &mut R) -> f64 {
-        let StandardNormal(norm) = rng.gen::<StandardNormal>();
-        norm * (self.dof / self.chi.ind_sample(rng)).sqrt()
+
+/// The Beta distribution with shape parameters `alpha` and `beta`.
+#[deprecated(since="0.7.0", note="moved to rand_distr crate")]
+#[derive(Clone, Copy, Debug)]
+pub struct Beta {
+    gamma_a: Gamma,
+    gamma_b: Gamma,
+}
+
+impl Beta {
+    /// Construct an object representing the `Beta(alpha, beta)`
+    /// distribution.
+    ///
+    /// Panics if `shape <= 0` or `scale <= 0`.
+    pub fn new(alpha: f64, beta: f64) -> Beta {
+        assert!((alpha > 0.) & (beta > 0.));
+        Beta {
+            gamma_a: Gamma::new(alpha, 1.),
+            gamma_b: Gamma::new(beta, 1.),
+        }
+    }
+}
+
+impl Distribution<f64> for Beta {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> f64 {
+        let x = self.gamma_a.sample(rng);
+        let y = self.gamma_b.sample(rng);
+        x / (x + y)
     }
 }
 
 #[cfg(test)]
 mod test {
-    use distributions::{Sample, IndependentSample};
-    use super::{ChiSquared, StudentT, FisherF};
+    use crate::distributions::Distribution;
+    use super::{Beta, ChiSquared, StudentT, FisherF};
+
+    const N: u32 = 100;
 
     #[test]
     fn test_chi_squared_one() {
-        let mut chi = ChiSquared::new(1.0);
-        let mut rng = ::test::rng();
-        for _ in 0..1000 {
+        let chi = ChiSquared::new(1.0);
+        let mut rng = crate::test::rng(201);
+        for _ in 0..N {
             chi.sample(&mut rng);
-            chi.ind_sample(&mut rng);
         }
     }
     #[test]
     fn test_chi_squared_small() {
-        let mut chi = ChiSquared::new(0.5);
-        let mut rng = ::test::rng();
-        for _ in 0..1000 {
+        let chi = ChiSquared::new(0.5);
+        let mut rng = crate::test::rng(202);
+        for _ in 0..N {
             chi.sample(&mut rng);
-            chi.ind_sample(&mut rng);
         }
     }
     #[test]
     fn test_chi_squared_large() {
-        let mut chi = ChiSquared::new(30.0);
-        let mut rng = ::test::rng();
-        for _ in 0..1000 {
+        let chi = ChiSquared::new(30.0);
+        let mut rng = crate::test::rng(203);
+        for _ in 0..N {
             chi.sample(&mut rng);
-            chi.ind_sample(&mut rng);
         }
     }
     #[test]
@@ -366,21 +338,34 @@ mod test {
 
     #[test]
     fn test_f() {
-        let mut f = FisherF::new(2.0, 32.0);
-        let mut rng = ::test::rng();
-        for _ in 0..1000 {
+        let f = FisherF::new(2.0, 32.0);
+        let mut rng = crate::test::rng(204);
+        for _ in 0..N {
             f.sample(&mut rng);
-            f.ind_sample(&mut rng);
         }
     }
 
     #[test]
     fn test_t() {
-        let mut t = StudentT::new(11.0);
-        let mut rng = ::test::rng();
-        for _ in 0..1000 {
+        let t = StudentT::new(11.0);
+        let mut rng = crate::test::rng(205);
+        for _ in 0..N {
             t.sample(&mut rng);
-            t.ind_sample(&mut rng);
         }
+    }
+
+    #[test]
+    fn test_beta() {
+        let beta = Beta::new(1.0, 2.0);
+        let mut rng = crate::test::rng(201);
+        for _ in 0..N {
+            beta.sample(&mut rng);
+        }
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_beta_invalid_dof() {
+        Beta::new(0., 0.);
     }
 }

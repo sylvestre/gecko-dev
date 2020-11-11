@@ -14,44 +14,35 @@ from telemetry_harness.ping_filters import (
 class TestSearchCounts(TelemetryTestCase):
     """Test for SEARCH_COUNTS across sessions."""
 
-    def get_current_search_engine(self):
-        """Retrieve the identifier of the current search engine."""
+    def get_default_search_engine(self):
+        """Retrieve the identifier of the default search engine.
 
-        script = """\
-        let searchService = Components.classes[
-                "@mozilla.org/browser/search-service;1"]
-            .getService(Components.interfaces.nsIBrowserSearchService);
-        return searchService.currentEngine.identifier;
+        We found that it's required to initialize the search service before
+        attempting to retrieve the default search engine. Not calling init
+        would result in a JavaScript error (see bug 1543960 for more
+        information).
         """
 
-        return self.marionette.execute_script(textwrap.dedent(script))
+        script = """\
+        let [resolve] = arguments;
+        let searchService = Components.classes[
+                "@mozilla.org/browser/search-service;1"]
+            .getService(Components.interfaces.nsISearchService);
+        return searchService.init().then(function () {
+          resolve(searchService.defaultEngine.identifier);
+        });
+        """
+
+        with self.marionette.using_context(self.marionette.CONTEXT_CHROME):
+            return self.marionette.execute_async_script(textwrap.dedent(script))
 
     def setUp(self):
-        """Set up the test case and store the identifier of the current
+        """Set up the test case and store the identifier of the default
         search engine, which is required for reading SEARCH_COUNTS from
         keyed histograms in pings.
         """
         super(TestSearchCounts, self).setUp()
-        self.search_engine = self.get_current_search_engine()
-
-    def search(self, text):
-        """Perform a search via the browser's location bar."""
-        with self.marionette.using_context(self.marionette.CONTEXT_CHROME):
-            self.browser.navbar.locationbar.load_url(text)
-
-    def search_in_new_tab(self, text):
-        """Open a new tab and perform a search via the browser's location
-        bar, then close the new tab.
-        """
-        with self.marionette.using_context(self.marionette.CONTEXT_CHROME):
-            new_tab = self.browser.tabbar.open_tab()
-            self.browser.tabbar.switch_to(new_tab)
-            self.browser.navbar.locationbar.load_url(text)
-            new_tab.close()
-
-    def restart_with_new_session(self):
-        """Restart the browser with the same profile."""
-        return self.restart(clean=False, in_app=True)
+        self.search_engine = self.get_default_search_engine()
 
     def test_search_counts(self):
         """Test for SEARCH_COUNTS across sessions."""
@@ -64,9 +55,7 @@ class TestSearchCounts(TelemetryTestCase):
 
         self.search_in_new_tab("mozilla firefox")
 
-        ping1 = self.wait_for_ping(
-            self.restart_with_new_session, MAIN_SHUTDOWN_PING
-        )
+        ping1 = self.wait_for_ping(self.restart_browser, MAIN_SHUTDOWN_PING)
 
         # Session S2, subsession 1:
         # - Outcome 1
@@ -101,12 +90,8 @@ class TestSearchCounts(TelemetryTestCase):
         self.assertEqual(ping1_info["profileSubsessionCounter"], 1)
 
         scalars1 = ping1["payload"]["processes"]["parent"]["scalars"]
-        self.assertNotIn(
-            "browser.engagement.window_open_event_count", scalars1
-        )
-        self.assertEqual(
-            scalars1["browser.engagement.tab_open_event_count"], 1
-        )
+        self.assertNotIn("browser.engagement.window_open_event_count", scalars1)
+        self.assertEqual(scalars1["browser.engagement.tab_open_event_count"], 1)
 
         keyed_histograms1 = ping1["payload"]["keyedHistograms"]
         search_counts1 = keyed_histograms1["SEARCH_COUNTS"][
@@ -141,9 +126,7 @@ class TestSearchCounts(TelemetryTestCase):
         # - Verify that there should be no listing for tab scalar as we started a new
         # session
 
-        ping2 = self.wait_for_ping(
-            self.install_addon, MAIN_ENVIRONMENT_CHANGE_PING
-        )
+        ping2 = self.wait_for_ping(self.install_addon, MAIN_ENVIRONMENT_CHANGE_PING)
 
         self.assertEqual(ping2["clientId"], client_id)
 
@@ -157,16 +140,12 @@ class TestSearchCounts(TelemetryTestCase):
         self.assertNotEqual(s2_s1_subsession_id, s1_s1_subsession_id)
 
         self.assertEqual(ping2_info["previousSessionId"], s1_session_id)
-        self.assertEqual(
-            ping2_info["previousSubsessionId"], s1_s1_subsession_id
-        )
+        self.assertEqual(ping2_info["previousSubsessionId"], s1_s1_subsession_id)
         self.assertEqual(ping2_info["subsessionCounter"], 1)
         self.assertEqual(ping2_info["profileSubsessionCounter"], 2)
 
         scalars2 = ping2["payload"]["processes"]["parent"]["scalars"]
-        self.assertNotIn(
-            "browser.engagement.window_open_event_count", scalars2
-        )
+        self.assertNotIn("browser.engagement.window_open_event_count", scalars2)
         self.assertNotIn("browser.engagement.tab_open_event_count", scalars2)
 
         keyed_histograms2 = ping2["payload"]["keyedHistograms"]
@@ -179,9 +158,7 @@ class TestSearchCounts(TelemetryTestCase):
         self.search("python unittest")
         self.search("python pytest")
 
-        ping3 = self.wait_for_ping(
-            self.restart_with_new_session, MAIN_SHUTDOWN_PING
-        )
+        ping3 = self.wait_for_ping(self.restart_browser, MAIN_SHUTDOWN_PING)
 
         # Session S3, subsession 1:
         # - Outcome 3
@@ -211,16 +188,12 @@ class TestSearchCounts(TelemetryTestCase):
         self.assertNotEqual(s2_s2_subsession_id, s2_s1_subsession_id)
 
         self.assertEqual(ping3_info["previousSessionId"], s1_session_id)
-        self.assertEqual(
-            ping3_info["previousSubsessionId"], s2_s1_subsession_id
-        )
+        self.assertEqual(ping3_info["previousSubsessionId"], s2_s1_subsession_id)
         self.assertEqual(ping3_info["subsessionCounter"], 2)
         self.assertEqual(ping3_info["profileSubsessionCounter"], 3)
 
         scalars3 = ping3["payload"]["processes"]["parent"]["scalars"]
-        self.assertNotIn(
-            "browser.engagement.window_open_event_count", scalars3
-        )
+        self.assertNotIn("browser.engagement.window_open_event_count", scalars3)
         self.assertNotIn("browser.engagement.tab_open_event_count", scalars3)
 
         keyed_histograms3 = ping3["payload"]["keyedHistograms"]

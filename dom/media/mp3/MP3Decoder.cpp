@@ -13,7 +13,7 @@ namespace mozilla {
 /* static */
 bool MP3Decoder::IsEnabled() {
   RefPtr<PDMFactory> platform = new PDMFactory();
-  return platform->SupportsMimeType(NS_LITERAL_CSTRING("audio/mpeg"),
+  return platform->SupportsMimeType("audio/mpeg"_ns,
                                     /* DecoderDoctorDiagnostics* */ nullptr);
 }
 
@@ -27,7 +27,8 @@ bool MP3Decoder::IsSupportedType(const MediaContainerType& aContainerType) {
   return false;
 }
 
-/* static */ nsTArray<UniquePtr<TrackInfo>> MP3Decoder::GetTracksInfo(
+/* static */
+nsTArray<UniquePtr<TrackInfo>> MP3Decoder::GetTracksInfo(
     const MediaContainerType& aType) {
   nsTArray<UniquePtr<TrackInfo>> tracks;
   if (!IsSupportedType(aType)) {
@@ -36,7 +37,7 @@ bool MP3Decoder::IsSupportedType(const MediaContainerType& aContainerType) {
 
   tracks.AppendElement(
       CreateTrackInfoWithMIMETypeAndContainerTypeExtraParameters(
-          NS_LITERAL_CSTRING("audio/mpeg"), aType));
+          "audio/mpeg"_ns, aType));
 
   return tracks;
 }

@@ -42,9 +42,9 @@ enum class LineReflowStatus {
 };
 
 class nsBlockInFlowLineIterator;
-class nsBulletFrame;
 namespace mozilla {
 class BlockReflowInput;
+class PresShell;
 class ServoRestyleState;
 class ServoStyleSet;
 }  // namespace mozilla
@@ -102,7 +102,11 @@ class nsBlockFrame : public nsContainerFrame {
     return mLines.rbegin(aList);
   }
 
-  friend nsBlockFrame* NS_NewBlockFrame(nsIPresShell* aPresShell,
+  // Methods declared to be used in 'range-based-for-loop'
+  nsLineList& Lines() { return mLines; }
+  const nsLineList& Lines() const { return mLines; }
+
+  friend nsBlockFrame* NS_NewBlockFrame(mozilla::PresShell* aPresShell,
                                         ComputedStyle* aStyle);
 
   // nsQueryFrame
@@ -115,15 +119,21 @@ class nsBlockFrame : public nsContainerFrame {
                            nsFrameList& aChildList) override;
   void AppendFrames(ChildListID aListID, nsFrameList& aFrameList) override;
   void InsertFrames(ChildListID aListID, nsIFrame* aPrevFrame,
+                    const nsLineList::iterator* aPrevFrameLine,
                     nsFrameList& aFrameList) override;
   void RemoveFrame(ChildListID aListID, nsIFrame* aOldFrame) override;
+  nsContainerFrame* GetContentInsertionFrame() override;
+  void AppendDirectlyOwnedAnonBoxes(nsTArray<OwnedAnonBox>& aResult) override;
   const nsFrameList& GetChildList(ChildListID aListID) const override;
   void GetChildLists(nsTArray<ChildList>* aLists) const override;
   nscoord GetLogicalBaseline(mozilla::WritingMode aWritingMode) const override;
   bool GetVerticalAlignBaseline(mozilla::WritingMode aWM,
                                 nscoord* aBaseline) const override {
+    NS_ASSERTION(!aWM.IsOrthogonalTo(GetWritingMode()),
+                 "You should only call this on frames with a WM that's "
+                 "parallel to aWM");
     nscoord lastBaseline;
-    if (GetNaturalBaselineBOffset(aWM, BaselineSharingGroup::eLast,
+    if (GetNaturalBaselineBOffset(aWM, BaselineSharingGroup::Last,
                                   &lastBaseline)) {
       *aBaseline = BSize() - lastBaseline;
       return true;
@@ -141,8 +151,7 @@ class nsBlockFrame : public nsContainerFrame {
                         const nsDisplayListSet& aLists) override;
   bool IsFrameOfType(uint32_t aFlags) const override {
     return nsContainerFrame::IsFrameOfType(
-        aFlags &
-        ~(nsIFrame::eCanContainOverflowContainers | nsIFrame::eBlockFrame));
+        aFlags & ~(nsIFrame::eCanContainOverflowContainers));
   }
 
   void InvalidateFrame(uint32_t aDisplayItemKey = 0,
@@ -153,7 +162,7 @@ class nsBlockFrame : public nsContainerFrame {
 
 #ifdef DEBUG_FRAME_DUMP
   void List(FILE* out = stderr, const char* aPrefix = "",
-            uint32_t aFlags = 0) const override;
+            ListFlags aFlags = ListFlags()) const override;
   nsresult GetFrameName(nsAString& aResult) const override;
 #endif
 
@@ -172,10 +181,10 @@ class nsBlockFrame : public nsContainerFrame {
   // as a cache for local computation. Use AutoLineCursorSetup for the
   // latter case so that it wouldn't interact unexpectedly with the
   // former. The basic idea for the former is that we set the cursor
-  // property if the lines' overflowArea.VisualOverflow().ys and
-  // overflowArea.VisualOverflow().yMosts are non-decreasing
-  // (considering only non-empty overflowArea.VisualOverflow()s; empty
-  // overflowArea.VisualOverflow()s never participate in event handling
+  // property if the lines' overflowArea.InkOverflow().ys and
+  // overflowArea.InkOverflow().yMosts are non-decreasing
+  // (considering only non-empty overflowArea.InkOverflow()s; empty
+  // overflowArea.InkOverflow()s never participate in event handling
   // or painting), and the block has sufficient number of lines. The
   // cursor property points to a "recently used" line. If we get a
   // series of requests that work on lines
@@ -228,41 +237,36 @@ class nsBlockFrame : public nsContainerFrame {
   bool CachedIsEmpty() override;
   bool IsSelfEmpty() override;
 
-  // Given that we have a bullet, does it actually draw something, i.e.,
+  // Given that we have a ::marker frame, does it actually draw something, i.e.,
   // do we have either a 'list-style-type' or 'list-style-image' that is
-  // not 'none'?
-  bool BulletIsEmpty() const;
+  // not 'none', and no 'content'?
+  bool MarkerIsEmpty() const;
 
   /**
-   * Return the bullet text equivalent.
+   * Return true if this frame has a ::marker frame.
    */
-  void GetSpokenBulletText(nsAString& aText) const;
+  bool HasMarker() const { return HasOutsideMarker() || HasInsideMarker(); }
 
   /**
-   * Return true if there's a bullet.
+   * @return true if this frame has an inside ::marker frame.
    */
-  bool HasBullet() const { return HasOutsideBullet() || HasInsideBullet(); }
-
-  /**
-   * @return true if this frame has an inside bullet frame.
-   */
-  bool HasInsideBullet() const {
-    return 0 != (mState & NS_BLOCK_FRAME_HAS_INSIDE_BULLET);
+  bool HasInsideMarker() const {
+    return 0 != (mState & NS_BLOCK_FRAME_HAS_INSIDE_MARKER);
   }
 
   /**
-   * @return true if this frame has an outside bullet frame.
+   * @return true if this frame has an outside ::marker frame.
    */
-  bool HasOutsideBullet() const {
-    return 0 != (mState & NS_BLOCK_FRAME_HAS_OUTSIDE_BULLET);
+  bool HasOutsideMarker() const {
+    return 0 != (mState & NS_BLOCK_FRAME_HAS_OUTSIDE_MARKER);
   }
 
   /**
-   * @return the bullet frame or nullptr if we don't have one.
+   * @return the ::marker frame or nullptr if we don't have one.
    */
-  nsBulletFrame* GetBullet() const {
-    nsBulletFrame* outside = GetOutsideBullet();
-    return outside ? outside : GetInsideBullet();
+  nsIFrame* GetMarker() const {
+    nsIFrame* outside = GetOutsideMarker();
+    return outside ? outside : GetInsideMarker();
   }
 
   /**
@@ -293,30 +297,30 @@ class nsBlockFrame : public nsContainerFrame {
    * Compute the final block size of this frame.
    *
    * @param aReflowInput Data structure passed from parent during reflow.
-   * @param aReflowStatus A pointer to the reflow status for when we're finished
-   *        doing reflow. this will get set appropriately if the block-size
-   *        causes us to exceed the current available (page) block-size.
-   * @param aContentBSize The block-size of content, precomputed outside of this
-   *        function. The final block-size that is used in aMetrics will be set
-   *        to either this or the available block-size, whichever is larger, in
-   *        the case where our available block-size is constrained, and we
-   *        overflow that available block-size.
+   * @param aStatus [in/out] The reflow status for this reflow operation. When
+   *        this function is called, aStatus should represent what our status
+   *        would be as if we were shrinkwrapping our children's block-size.
+   *        This function will then adjust aStatus before returning, if our
+   *        status is different in light of our actual final block-size and
+   *        current page/column's available block-size.
+   * @param aBEndEdgeOfChildren The distance between this frame's block-start
+   *        border-edge and the block-end edge of our last child's border-box.
+   *        This is effectively our block-start border-padding plus the
+   *        block-size of our children, precomputed outside of this function.
    * @param aBorderPadding The margins representing the border padding for block
    *        frames. Can be 0.
-   * @param aFinalSize Out parameter for final block-size.
    * @param aConsumed The block-size already consumed by our previous-in-flows.
+   * @return our final block-size with respect to aReflowInput's writing-mode.
    */
-  void ComputeFinalBSize(const ReflowInput& aReflowInput,
-                         nsReflowStatus* aStatus, nscoord aContentBSize,
-                         const mozilla::LogicalMargin& aBorderPadding,
-                         mozilla::LogicalSize& aFinalSize, nscoord aConsumed);
+  nscoord ComputeFinalBSize(const ReflowInput& aReflowInput,
+                            nsReflowStatus& aStatus,
+                            nscoord aBEndEdgeOfChildren,
+                            const mozilla::LogicalMargin& aBorderPadding,
+                            nscoord aConsumed);
 
   void Reflow(nsPresContext* aPresContext, ReflowOutput& aDesiredSize,
               const ReflowInput& aReflowInput,
               nsReflowStatus& aStatus) override;
-
-  nsresult AttributeChanged(int32_t aNameSpaceID, nsAtom* aAttribute,
-                            int32_t aModType) override;
 
   /**
    * Move any frames on our overflow list to the end of our principal list.
@@ -324,7 +328,7 @@ class nsBlockFrame : public nsContainerFrame {
    */
   bool DrainSelfOverflowList() override;
 
-  nsresult StealFrame(nsIFrame* aChild) override;
+  void StealFrame(nsIFrame* aChild) override;
 
   void DeleteNextInFlowChild(nsIFrame* aNextInFlow,
                              bool aDeletingEmptyFrames) override;
@@ -364,7 +368,7 @@ class nsBlockFrame : public nsContainerFrame {
   /**
    * Returns the inline size that needs to be cleared past floats for
    * blocks that cannot intersect floats.  aState must already have
-   * GetAvailableSpace called on it for the block-dir position that we
+   * GetFloatAvailableSpace called on it for the block-dir position that we
    * care about (which need not be its current mBCoord)
    */
   struct ReplacedElementISizeToClear {
@@ -397,7 +401,7 @@ class nsBlockFrame : public nsContainerFrame {
   };
 
   /**
-   * Update the styles of our various pseudo-elements (bullets, first-line,
+   * Update the styles of our various pseudo-elements (marker, first-line,
    * etc, but _not_ first-letter).
    */
   void UpdatePseudoElementStyles(mozilla::ServoRestyleState& aRestyleState);
@@ -407,10 +411,9 @@ class nsBlockFrame : public nsContainerFrame {
   void UpdateFirstLetterStyle(mozilla::ServoRestyleState& aRestyleState);
 
  protected:
-  explicit nsBlockFrame(ComputedStyle* aStyle, ClassID aID = kClassID)
-      : nsContainerFrame(aStyle, aID),
-        mMinWidth(NS_INTRINSIC_WIDTH_UNKNOWN),
-        mPrefWidth(NS_INTRINSIC_WIDTH_UNKNOWN) {
+  explicit nsBlockFrame(ComputedStyle* aStyle, nsPresContext* aPresContext,
+                        ClassID aID = kClassID)
+      : nsContainerFrame(aStyle, aPresContext, aID) {
 #ifdef DEBUG
     InitDebugFlags();
 #endif
@@ -424,7 +427,7 @@ class nsBlockFrame : public nsContainerFrame {
 #endif
 
   NS_DECLARE_FRAME_PROPERTY_WITHOUT_DTOR(LineCursorProperty, nsLineBox)
-  bool HasLineCursor() { return GetStateBits() & NS_BLOCK_HAS_LINE_CURSOR; }
+  bool HasLineCursor() { return HasAnyStateBits(NS_BLOCK_HAS_LINE_CURSOR); }
   nsLineBox* GetLineCursor() {
     return HasLineCursor() ? GetProperty(LineCursorProperty()) : nullptr;
   }
@@ -467,11 +470,11 @@ class nsBlockFrame : public nsContainerFrame {
 
   void ComputeFinalSize(const ReflowInput& aReflowInput,
                         BlockReflowInput& aState, ReflowOutput& aMetrics,
-                        nscoord* aBottomEdgeOfChildren);
+                        nscoord* aBEndEdgeOfChildren);
 
   void ComputeOverflowAreas(const nsRect& aBounds,
                             const nsStyleDisplay* aDisplay,
-                            nscoord aBottomEdgeOfChildren,
+                            nscoord aBEndEdgeOfChildren,
                             nsOverflowAreas& aOverflowAreas);
 
   /**
@@ -481,8 +484,16 @@ class nsBlockFrame : public nsContainerFrame {
    * contains aPrevSibling and add aFrameList after aPrevSibling on that line.
    * New lines are created as necessary to handle block data in aFrameList.
    * This function will clear aFrameList.
+   *
+   * aPrevSiblingLine, if present, must be the line containing aPrevSibling.
+   * Providing it will make this function faster.
    */
-  void AddFrames(nsFrameList& aFrameList, nsIFrame* aPrevSibling);
+  void AddFrames(nsFrameList& aFrameList, nsIFrame* aPrevSibling,
+                 const nsLineList::iterator* aPrevSiblingLine);
+
+  // Return the :-moz-block-ruby-content child frame, if any.
+  // (It's non-null only if this block frame is for 'display:block ruby'.)
+  nsContainerFrame* GetRubyContentPseudoFrame();
 
   /**
    * Perform Bidi resolution on this frame
@@ -501,9 +512,9 @@ class nsBlockFrame : public nsContainerFrame {
 
  public:
   /**
-   * Helper function to create bullet frame.
+   * Helper function for the frame ctor to register a ::marker frame.
    */
-  void CreateBulletFrameForListItem();
+  void SetMarkerFrameForListItem(nsIFrame* aMarkerFrame);
 
   /**
    * Does all the real work for removing aDeletedFrame
@@ -522,7 +533,7 @@ class nsBlockFrame : public nsContainerFrame {
   }
 
   void ReparentFloats(nsIFrame* aFirstFrame, nsBlockFrame* aOldParent,
-                      bool aReparentSiblings, ReparentingDirection aDirection);
+                      bool aReparentSiblings);
 
   virtual bool ComputeCustomOverflow(nsOverflowAreas& aOverflowAreas) override;
 
@@ -549,7 +560,7 @@ class nsBlockFrame : public nsContainerFrame {
     if (!mFloats.IsEmpty()) {
       // If we have pushed floats, then they should be at the beginning of our
       // float list.
-      if (mFloats.FirstChild()->GetStateBits() & NS_FRAME_IS_PUSHED_FLOAT) {
+      if (mFloats.FirstChild()->HasAnyStateBits(NS_FRAME_IS_PUSHED_FLOAT)) {
         return true;
       }
     }
@@ -559,7 +570,7 @@ class nsBlockFrame : public nsContainerFrame {
     // beginning of our floats list.
     for (nsFrameList::Enumerator e(mFloats); !e.AtEnd(); e.Next()) {
       nsIFrame* f = e.get();
-      NS_ASSERTION(!(f->GetStateBits() & NS_FRAME_IS_PUSHED_FLOAT),
+      NS_ASSERTION(!f->HasAnyStateBits(NS_FRAME_IS_PUSHED_FLOAT),
                    "pushed floats must be at the beginning of the float list");
     }
 #endif
@@ -574,12 +585,14 @@ class nsBlockFrame : public nsContainerFrame {
     return false;
   }
 
-  virtual bool RenumberChildFrames(int32_t* aOrdinal, int32_t aDepth,
-                                   int32_t aIncrement,
-                                   bool aForCounting) override;
-
   // @see nsIFrame::AddSizeOfExcludingThisForTree
   void AddSizeOfExcludingThisForTree(nsWindowSizes&) const override;
+
+  /**
+   * Clears any -webkit-line-clamp ellipsis on a line in this block or one
+   * of its descendants.
+   */
+  void ClearLineClampEllipsis();
 
  protected:
   /** @see DoRemoveFrame */
@@ -608,7 +621,7 @@ class nsBlockFrame : public nsContainerFrame {
     }
     // For the OverflowOutOfFlowsProperty I think we do enforce that, but it's
     // a mix of out-of-flow frames, so that's why the method name has "Maybe".
-    return GetStateBits() & NS_BLOCK_HAS_OVERFLOW_OUT_OF_FLOWS;
+    return HasAnyStateBits(NS_BLOCK_HAS_OVERFLOW_OUT_OF_FLOWS);
   }
 
   /**
@@ -676,7 +689,7 @@ class nsBlockFrame : public nsContainerFrame {
    * Reflow a line.
    *
    * @param aState
-   *   the current reflow state
+   *   the current reflow input
    * @param aLine
    *   the line to reflow.  can contain a single block frame or contain 1 or
    *   more inline frames.
@@ -721,8 +734,7 @@ class nsBlockFrame : public nsContainerFrame {
   //----------------------------------------
   // Methods for individual frame reflow
 
-  bool ShouldApplyBStartMargin(BlockReflowInput& aState, nsLineBox* aLine,
-                               nsIFrame* aChildFrame);
+  bool ShouldApplyBStartMargin(BlockReflowInput& aState, nsLineBox* aLine);
 
   void ReflowBlockFrame(BlockReflowInput& aState, LineIterator aLine,
                         bool* aKeepGoing);
@@ -740,10 +752,10 @@ class nsBlockFrame : public nsContainerFrame {
                          LineIterator aLine, nsIFrame* aFrame,
                          LineReflowStatus* aLineReflowStatus);
 
-  // Compute the available inline size for a float.
+  // Compute the available size for a float.
   mozilla::LogicalRect AdjustFloatAvailableSpace(
       BlockReflowInput& aState,
-      const mozilla::LogicalRect& aFloatAvailableSpace, nsIFrame* aFloatFrame);
+      const mozilla::LogicalRect& aFloatAvailableSpace);
   // Computes the border-box inline size of the float
   nscoord ComputeFloatISize(BlockReflowInput& aState,
                             const mozilla::LogicalRect& aFloatAvailableSpace,
@@ -767,7 +779,7 @@ class nsBlockFrame : public nsContainerFrame {
   /**
    * Create a next-in-flow, if necessary, for aFrame. If a new frame is
    * created, place it in aLine if aLine is not null.
-   * @param aState the block reflow state
+   * @param aState the block reflow input
    * @param aLine where to put a new frame
    * @param aFrame the frame
    * @return true if a new frame was created, false if not
@@ -824,8 +836,8 @@ class nsBlockFrame : public nsContainerFrame {
   //----------------------------------------
   // List handling kludge
 
-  void ReflowBullet(nsIFrame* aBulletFrame, BlockReflowInput& aState,
-                    ReflowOutput& aMetrics, nscoord aLineTop);
+  void ReflowOutsideMarker(nsIFrame* aMarkerFrame, BlockReflowInput& aState,
+                           ReflowOutput& aMetrics, nscoord aLineTop);
 
   //----------------------------------------
 
@@ -833,7 +845,7 @@ class nsBlockFrame : public nsContainerFrame {
 
  public:
   bool HasOverflowLines() const {
-    return 0 != (GetStateBits() & NS_BLOCK_HAS_OVERFLOW_LINES);
+    return HasAnyStateBits(NS_BLOCK_HAS_OVERFLOW_LINES);
   }
   FrameLines* GetOverflowLines() const;
 
@@ -869,25 +881,25 @@ class nsBlockFrame : public nsContainerFrame {
   void SetOverflowOutOfFlows(const nsFrameList& aList, nsFrameList* aPropValue);
 
   /**
-   * @return the inside bullet frame or nullptr if we don't have one.
+   * @return the inside ::marker frame or nullptr if we don't have one.
    */
-  nsBulletFrame* GetInsideBullet() const;
+  nsIFrame* GetInsideMarker() const;
 
   /**
-   * @return the outside bullet frame or nullptr if we don't have one.
+   * @return the outside ::marker frame or nullptr if we don't have one.
    */
-  nsBulletFrame* GetOutsideBullet() const;
+  nsIFrame* GetOutsideMarker() const;
 
   /**
-   * @return the outside bullet frame list frame property.
+   * @return the outside ::marker frame list frame property.
    */
-  nsFrameList* GetOutsideBulletList() const;
+  nsFrameList* GetOutsideMarkerList() const;
 
   /**
    * @return true if this frame has pushed floats.
    */
   bool HasPushedFloats() const {
-    return 0 != (GetStateBits() & NS_BLOCK_HAS_PUSHED_FLOATS);
+    return HasAnyStateBits(NS_BLOCK_HAS_PUSHED_FLOATS);
   }
 
   // Get the pushed floats list, which is used for *temporary* storage
@@ -900,21 +912,14 @@ class nsBlockFrame : public nsContainerFrame {
   // Remove and return the pushed floats list.
   nsFrameList* RemovePushedFloats();
 
-  // Resolve a ComputedStyle for our bullet frame.  aType should be
-  // mozListBullet or mozListNumber.  Passing in the style set is an
-  // optimization, because all callsites have it.
-  already_AddRefed<ComputedStyle> ResolveBulletStyle(
-      mozilla::CSSPseudoElementType aType, mozilla::ServoStyleSet* aStyleSet);
-
 #ifdef DEBUG
   void VerifyLines(bool aFinalCheckOK);
   void VerifyOverflowSituation();
   int32_t GetDepth() const;
 #endif
 
-  // FIXME The two variables should go through a renaming refactoring to reflect
-  // the fact that they mean an inline size, not a width.
-  nscoord mMinWidth, mPrefWidth;
+  nscoord mCachedMinISize = NS_INTRINSIC_ISIZE_UNKNOWN;
+  nscoord mCachedPrefISize = NS_INTRINSIC_ISIZE_UNKNOWN;
 
   nsLineList mLines;
 
@@ -995,6 +1000,9 @@ class nsBlockInFlowLineIterator {
   nsBlockInFlowLineIterator(nsBlockFrame* aFrame, nsIFrame* aFindFrame,
                             bool* aFoundValidLine);
 
+  // Allow to be uninitialized (and then assigned from another object).
+  nsBlockInFlowLineIterator() : mFrame(nullptr) {}
+
   LineIterator GetLine() { return mLine; }
   bool IsLastLineInList();
   nsBlockFrame* GetContainer() { return mFrame; }
@@ -1022,14 +1030,12 @@ class nsBlockInFlowLineIterator {
    */
   bool Prev();
 
- private:
-  friend class nsBlockFrame;
-  friend class nsBidiPresUtils;
   // XXX nsBlockFrame uses this internally in one place.  Try to remove it.
   // XXX uhm, and nsBidiPresUtils::Resolve too.
   nsBlockInFlowLineIterator(nsBlockFrame* aFrame, LineIterator aLine,
                             bool aInOverflow);
 
+ private:
   nsBlockFrame* mFrame;
   LineIterator mLine;
   nsLineList* mLineList;  // the line list mLine is in

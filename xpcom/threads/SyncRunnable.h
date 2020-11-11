@@ -7,10 +7,12 @@
 #ifndef mozilla_SyncRunnable_h
 #define mozilla_SyncRunnable_h
 
-#include "nsThreadUtils.h"
+#include <utility>
+
 #include "mozilla/AbstractThread.h"
 #include "mozilla/Monitor.h"
-#include "mozilla/Move.h"
+#include "mozilla/dom/JSExecutionManager.h"
+#include "nsThreadUtils.h"
 
 namespace mozilla {
 
@@ -44,7 +46,8 @@ class SyncRunnable : public Runnable {
         mMonitor("SyncRunnable"),
         mDone(false) {}
 
-  void DispatchToThread(nsIEventTarget* aThread, bool aForceDispatch = false) {
+  nsresult DispatchToThread(nsIEventTarget* aThread,
+                            bool aForceDispatch = false) {
     nsresult rv;
     bool on;
 
@@ -53,46 +56,57 @@ class SyncRunnable : public Runnable {
       MOZ_ASSERT(NS_SUCCEEDED(rv));
       if (NS_SUCCEEDED(rv) && on) {
         mRunnable->Run();
-        return;
+        return NS_OK;
       }
     }
 
     rv = aThread->Dispatch(this, NS_DISPATCH_NORMAL);
     if (NS_SUCCEEDED(rv)) {
       mozilla::MonitorAutoLock lock(mMonitor);
+      // This could be synchronously dispatching to a thread currently waiting
+      // for JS execution clearance. Yield JS execution.
+      dom::AutoYieldJSThreadExecution yield;
+
       while (!mDone) {
         lock.Wait();
       }
     }
+    return rv;
   }
 
-  void DispatchToThread(AbstractThread* aThread, bool aForceDispatch = false) {
+  nsresult DispatchToThread(AbstractThread* aThread,
+                            bool aForceDispatch = false) {
     if (!aForceDispatch && aThread->IsCurrentThreadIn()) {
       mRunnable->Run();
-      return;
+      return NS_OK;
     }
 
     // Check we don't have tail dispatching here. Otherwise we will deadlock
     // ourself when spinning the loop below.
     MOZ_ASSERT(!aThread->RequiresTailDispatchFromCurrentThread());
 
-    aThread->Dispatch(RefPtr<nsIRunnable>(this).forget());
-    mozilla::MonitorAutoLock lock(mMonitor);
-    while (!mDone) {
-      lock.Wait();
+    nsresult rv = aThread->Dispatch(RefPtr<nsIRunnable>(this).forget());
+    if (NS_SUCCEEDED(rv)) {
+      mozilla::MonitorAutoLock lock(mMonitor);
+      while (!mDone) {
+        lock.Wait();
+      }
     }
+    return rv;
   }
 
-  static void DispatchToThread(nsIEventTarget* aThread, nsIRunnable* aRunnable,
-                               bool aForceDispatch = false) {
+  static nsresult DispatchToThread(nsIEventTarget* aThread,
+                                   nsIRunnable* aRunnable,
+                                   bool aForceDispatch = false) {
     RefPtr<SyncRunnable> s(new SyncRunnable(aRunnable));
-    s->DispatchToThread(aThread, aForceDispatch);
+    return s->DispatchToThread(aThread, aForceDispatch);
   }
 
-  static void DispatchToThread(AbstractThread* aThread, nsIRunnable* aRunnable,
-                               bool aForceDispatch = false) {
+  static nsresult DispatchToThread(AbstractThread* aThread,
+                                   nsIRunnable* aRunnable,
+                                   bool aForceDispatch = false) {
     RefPtr<SyncRunnable> s(new SyncRunnable(aRunnable));
-    s->DispatchToThread(aThread, aForceDispatch);
+    return s->DispatchToThread(aThread, aForceDispatch);
   }
 
  protected:

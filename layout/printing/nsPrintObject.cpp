@@ -13,16 +13,19 @@
 #include "nsPresContext.h"
 #include "nsGkAtoms.h"
 #include "nsComponentManagerUtils.h"
-#include "nsIDocShellTreeItem.h"
 #include "nsIBaseWindow.h"
-#include "nsIDocument.h"
 #include "nsDocShell.h"
 
+#include "mozilla/PresShell.h"
 #include "mozilla/dom/BrowsingContext.h"
+#include "mozilla/dom/Document.h"
 #include "mozilla/dom/Element.h"
 
+using namespace mozilla;
 using mozilla::dom::BrowsingContext;
+using mozilla::dom::Document;
 using mozilla::dom::Element;
+using mozilla::dom::Selection;
 
 //---------------------------------------------------
 //-- nsPrintObject Class Impl
@@ -32,10 +35,7 @@ nsPrintObject::nsPrintObject()
       mFrameType(eFrame),
       mParent(nullptr),
       mHasBeenPrinted(false),
-      mDontPrint(true),
-      mPrintAsIs(false),
       mInvisible(false),
-      mPrintPreview(false),
       mDidCreateDocShell(false),
       mShrinkRatio(1.0),
       mZoomRatio(1.0) {
@@ -47,79 +47,90 @@ nsPrintObject::~nsPrintObject() {
 
   DestroyPresentation();
   if (mDidCreateDocShell && mDocShell) {
-    nsCOMPtr<nsIBaseWindow> baseWin(do_QueryInterface(mDocShell));
-    if (baseWin) {
-      baseWin->Destroy();
-    }
+    RefPtr<BrowsingContext> bc(mDocShell->GetBrowsingContext());
+    nsDocShell::Cast(mDocShell)->Destroy();
+    bc->Detach();
   }
   mDocShell = nullptr;
   mTreeOwner = nullptr;  // mTreeOwner must be released after mDocShell;
 }
 
 //------------------------------------------------------------------
-nsresult nsPrintObject::Init(nsIDocShell* aDocShell, nsIDocument* aDoc,
-                             bool aPrintPreview) {
+
+nsresult nsPrintObject::InitAsRootObject(nsIDocShell* aDocShell, Document* aDoc,
+                                         bool aForPrintPreview) {
+  NS_ENSURE_STATE(aDocShell);
   NS_ENSURE_STATE(aDoc);
 
-  mPrintPreview = aPrintPreview;
+  MOZ_ASSERT(aDoc->IsStaticDocument());
 
-  if (mPrintPreview || mParent) {
-    mDocShell = aDocShell;
+  mDocShell = aDocShell;
+  mDocument = aDoc;
+
+  // Ensure the document has no presentation.
+  DestroyPresentation();
+
+  return NS_OK;
+}
+
+nsresult nsPrintObject::InitAsNestedObject(nsIDocShell* aDocShell,
+                                           Document* aDoc,
+                                           nsPrintObject* aParent) {
+  NS_ENSURE_STATE(aDocShell);
+  NS_ENSURE_STATE(aDoc);
+
+  mParent = aParent;
+  mDocShell = aDocShell;
+  mDocument = aDoc;
+
+  nsCOMPtr<nsPIDOMWindowOuter> window = aDoc->GetWindow();
+  mContent = window->GetFrameElementInternal();
+
+  // "frame" elements not in a frameset context should be treated
+  // as iframes
+  if (mContent->IsHTMLElement(nsGkAtoms::frame) &&
+      mParent->mFrameType == eFrameSet) {
+    mFrameType = eFrame;
   } else {
-    mTreeOwner = do_GetInterface(aDocShell);
-
-    // Create a new BrowsingContext to create our DocShell in.
-    RefPtr<BrowsingContext> bc = BrowsingContext::Create(
-        /* aParent */ nullptr,
-        /* aOpener */ nullptr, EmptyString(),
-        aDocShell->ItemType() == nsIDocShellTreeItem::typeContent
-            ? BrowsingContext::Type::Content
-            : BrowsingContext::Type::Chrome);
-
-    // Create a container docshell for printing.
-    mDocShell = nsDocShell::Create(bc);
-    NS_ENSURE_TRUE(mDocShell, NS_ERROR_OUT_OF_MEMORY);
-
-    mDidCreateDocShell = true;
-    MOZ_ASSERT(mDocShell->ItemType() == aDocShell->ItemType());
-    mDocShell->SetTreeOwner(mTreeOwner);
+    // Assume something iframe-like, i.e. iframe, object, or embed
+    mFrameType = eIFrame;
   }
-  NS_ENSURE_TRUE(mDocShell, NS_ERROR_FAILURE);
-
-  // Keep the document related to this docshell alive
-  nsCOMPtr<nsIDocument> dummy = do_GetInterface(mDocShell);
-  mozilla::Unused << dummy;
-
-  nsCOMPtr<nsIContentViewer> viewer;
-  mDocShell->GetContentViewer(getter_AddRefs(viewer));
-  NS_ENSURE_STATE(viewer);
-
-  if (mParent) {
-    nsCOMPtr<nsPIDOMWindowOuter> window = aDoc->GetWindow();
-    if (window) {
-      mContent = window->GetFrameElementInternal();
-    }
-    mDocument = aDoc;
-    return NS_OK;
-  }
-
-  mDocument = aDoc->CreateStaticClone(mDocShell);
-  NS_ENSURE_STATE(mDocument);
-
-  viewer->SetDocument(mDocument);
   return NS_OK;
 }
 
 //------------------------------------------------------------------
 // Resets PO by destroying the presentation
 void nsPrintObject::DestroyPresentation() {
-  if (mPresShell) {
-    mPresShell->EndObservingDocument();
-    nsAutoScriptBlocker scriptBlocker;
-    nsCOMPtr<nsIPresShell> shell = mPresShell;
-    mPresShell = nullptr;
-    shell->Destroy();
+  if (mDocument) {
+    if (RefPtr<PresShell> ps = mDocument->GetPresShell()) {
+      MOZ_DIAGNOSTIC_ASSERT(!mPresShell || ps == mPresShell);
+      mPresShell = nullptr;
+      nsAutoScriptBlocker scriptBlocker;
+      ps->EndObservingDocument();
+      ps->Destroy();
+    }
   }
+  mPresShell = nullptr;
   mPresContext = nullptr;
   mViewManager = nullptr;
+}
+
+void nsPrintObject::EnablePrinting(bool aEnable) {
+  mPrintingIsEnabled = aEnable;
+
+  for (const UniquePtr<nsPrintObject>& kid : mKids) {
+    kid->EnablePrinting(aEnable);
+  }
+}
+
+bool nsPrintObject::HasSelection() const {
+  return mDocument && mDocument->GetProperty(nsGkAtoms::printselectionranges);
+}
+
+void nsPrintObject::EnablePrintingSelectionOnly() {
+  mPrintingIsEnabled = HasSelection();
+
+  for (const UniquePtr<nsPrintObject>& kid : mKids) {
+    kid->EnablePrintingSelectionOnly();
+  }
 }

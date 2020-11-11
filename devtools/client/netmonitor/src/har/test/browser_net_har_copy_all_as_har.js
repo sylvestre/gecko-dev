@@ -11,11 +11,13 @@ add_task(async function() {
   // (bug 1352274). TCP Fast Open is not present on all platforms therefore the
   // number of response headers will vary depending on the platform.
   await pushPref("network.tcp.tcp_fastopen_enable", false);
-  const { tab, monitor } = await initNetMonitor(SIMPLE_URL);
+  const { tab, monitor, toolbox } = await initNetMonitor(SIMPLE_URL, {
+    requestCount: 1,
+  });
 
   info("Starting test... ");
 
-  let har = await reloadAndCopyAllAsHar(tab, monitor);
+  let har = await reloadAndCopyAllAsHar(tab, monitor, toolbox);
 
   // Check out HAR log
   isnot(har.log, null, "The HAR log must exist");
@@ -25,6 +27,8 @@ add_task(async function() {
   is(har.log.entries.length, 1, "There must be one request");
 
   const page = har.log.pages[0];
+
+  is(page.title, "Network Monitor test page", "There must be some page title");
   ok("onContentLoad" in page.pageTimings, "There must be onContentLoad time");
   ok("onLoad" in page.pageTimings, "There must be onLoad time");
 
@@ -39,22 +43,25 @@ add_task(async function() {
   is(entry.response.content.mimeType, // eslint-disable-line
     "text/html", "Check response content type"); // eslint-disable-line
   isnot(entry.response.content.text, undefined, // eslint-disable-line
-    "Check response body");
+    "Check response body"
+  );
   isnot(entry.timings, undefined, "Check timings");
 
   // Test response body limit (non zero).
   await pushPref("devtools.netmonitor.responseBodyLimit", 10);
-  har = await reloadAndCopyAllAsHar(tab, monitor);
+  har = await reloadAndCopyAllAsHar(tab, monitor, toolbox);
   entry = har.log.entries[0];
   is(entry.response.content.text.length, 10, // eslint-disable-line
-    "Response body must be truncated");
+    "Response body must be truncated"
+  );
 
   // Test response body limit (zero).
   await pushPref("devtools.netmonitor.responseBodyLimit", 0);
-  har = await reloadAndCopyAllAsHar(tab, monitor);
+  har = await reloadAndCopyAllAsHar(tab, monitor, toolbox);
   entry = har.log.entries[0];
   is(entry.response.content.text.length, 465, // eslint-disable-line
-    "Response body must not be truncated");
+    "Response body must not be truncated"
+  );
 
   return teardown(monitor);
 });
@@ -62,21 +69,32 @@ add_task(async function() {
 /**
  * Reload the page and copy all as HAR.
  */
-async function reloadAndCopyAllAsHar(tab, monitor) {
+async function reloadAndCopyAllAsHar(tab, monitor, toolbox) {
   const { connector, store, windowRequire } = monitor.panelWin;
   const Actions = windowRequire("devtools/client/netmonitor/src/actions/index");
   const { HarMenuUtils } = windowRequire(
-    "devtools/client/netmonitor/src/har/har-menu-utils");
+    "devtools/client/netmonitor/src/har/har-menu-utils"
+  );
   const { getSortedRequests } = windowRequire(
-    "devtools/client/netmonitor/src/selectors/index");
+    "devtools/client/netmonitor/src/selectors/index"
+  );
 
   store.dispatch(Actions.batchEnable(false));
 
   const wait = waitForNetworkEvents(monitor, 1);
-  tab.linkedBrowser.reload();
-  await wait;
+  const waitForNavigate = toolbox.target.once("navigate");
 
-  await HarMenuUtils.copyAllAsHar(getSortedRequests(store.getState()), connector);
+  tab.linkedBrowser.reload();
+
+  info("Waiting for network events");
+  await wait;
+  info("Waiting for navigate");
+  await waitForNavigate;
+
+  await HarMenuUtils.copyAllAsHar(
+    getSortedRequests(store.getState()),
+    connector
+  );
 
   const jsonString = SpecialPowers.getClipboardData("text/unicode");
   return JSON.parse(jsonString);

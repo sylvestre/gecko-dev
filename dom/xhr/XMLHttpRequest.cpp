@@ -7,11 +7,14 @@
 #include "XMLHttpRequest.h"
 #include "XMLHttpRequestMainThread.h"
 #include "XMLHttpRequestWorker.h"
+#include "mozilla/net/CookieJarSettings.h"
+#include "nsGlobalWindowInner.h"
 
 namespace mozilla {
 namespace dom {
 
-/* static */ already_AddRefed<XMLHttpRequest> XMLHttpRequest::Constructor(
+/* static */
+already_AddRefed<XMLHttpRequest> XMLHttpRequest::Constructor(
     const GlobalObject& aGlobal, const MozXMLHttpRequestParameters& aParams,
     ErrorResult& aRv) {
   if (NS_IsMainThread()) {
@@ -24,8 +27,23 @@ namespace dom {
       return nullptr;
     }
 
-    RefPtr<XMLHttpRequestMainThread> req = new XMLHttpRequestMainThread();
-    req->Construct(principal->GetPrincipal(), global);
+    nsCOMPtr<nsICookieJarSettings> cookieJarSettings;
+    nsCOMPtr<nsPIDOMWindowInner> window = do_QueryInterface(global);
+    if (window) {
+      Document* document = window->GetExtantDoc();
+      if (NS_WARN_IF(!document)) {
+        aRv.Throw(NS_ERROR_FAILURE);
+        return nullptr;
+      }
+
+      cookieJarSettings = document->CookieJarSettings();
+    } else {
+      // We are here because this is a sandbox.
+      cookieJarSettings = net::CookieJarSettings::Create();
+    }
+
+    RefPtr<XMLHttpRequestMainThread> req = new XMLHttpRequestMainThread(global);
+    req->Construct(principal->GetPrincipal(), cookieJarSettings, false);
     req->InitParameters(aParams.mMozAnon, aParams.mMozSystem);
     return req.forget();
   }

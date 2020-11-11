@@ -1,4 +1,3 @@
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -36,7 +35,7 @@ const TEST_URI = `
 
 add_task(async function() {
   await addTab("data:text/html;charset=utf-8," + encodeURIComponent(TEST_URI));
-  const {inspector, view} = await openRuleView();
+  const { inspector, view } = await openRuleView();
   await selectNode("#testid", inspector);
   await testMarkOverridden(inspector, view);
 });
@@ -47,12 +46,16 @@ function testMarkOverridden(inspector, view) {
   const RESULTS = [
     // We skip the first element
     [],
-    [{name: "margin-left", value: "23px", overridden: true}],
-    [{name: "margin-right", value: "23px", overridden: false},
-     {name: "margin-left", value: "1px", overridden: false}],
-    [{name: "font-size", value: "12px", overridden: false}],
-    [{name: "margin-right", value: "1px", overridden: true},
-     {name: "font-size", value: "79px", overridden: true}],
+    [{ name: "margin-left", value: "23px", overridden: true }],
+    [
+      { name: "margin-right", value: "23px", overridden: false },
+      { name: "margin-left", value: "1px", overridden: false },
+    ],
+    [{ name: "font-size", value: "12px", overridden: false }],
+    [
+      { name: "margin-right", value: "1px", overridden: true },
+      { name: "font-size", value: "79px", overridden: true },
+    ],
   ];
 
   for (let i = 1; i < RESULTS.length; ++i) {

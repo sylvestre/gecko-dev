@@ -3,22 +3,19 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 "use strict";
 
-const { types, generateActorSpec, RetVal, Arg, Option } = require("devtools/shared/protocol");
+const {
+  types,
+  generateActorSpec,
+  RetVal,
+  Arg,
+  Option,
+} = require("devtools/shared/protocol");
 
-types.addDictType("root.getTab", {
-  tab: "json",
-});
-types.addDictType("root.getWindow", {
-  window: "json",
-});
 types.addDictType("root.listWorkers", {
-  workers: "array:workerTarget",
+  workers: "array:workerDescriptor",
 });
 types.addDictType("root.listServiceWorkerRegistrations", {
-  registrations: "array:json",
-});
-types.addDictType("root.listProcesses", {
-  processes: "array:json",
+  registrations: "array:serviceWorkerRegistration",
 });
 
 const rootSpecPrototype = {
@@ -32,9 +29,13 @@ const rootSpecPrototype = {
 
     listTabs: {
       request: {
+        // Backward compatibility: this is only used for FF75 or older.
+        // The argument can be dropped when FF76 hits the release channel.
         favicons: Option(0, "boolean"),
       },
-      response: RetVal("json"),
+      response: {
+        tabs: RetVal("array:tabDescriptor"),
+      },
     },
 
     getTab: {
@@ -42,20 +43,26 @@ const rootSpecPrototype = {
         outerWindowID: Option(0, "number"),
         tabId: Option(0, "number"),
       },
-      response: RetVal("root.getTab"),
+      response: {
+        tab: RetVal("tabDescriptor"),
+      },
     },
 
     getWindow: {
       request: {
         outerWindowID: Option(0, "number"),
       },
-      response: RetVal("root.getWindow"),
+      response: {
+        window: RetVal("browsingContextTarget"),
+      },
     },
 
     listAddons: {
-      request: {},
+      request: {
+        iconDataURL: Option(0, "boolean"),
+      },
       response: {
-        addons: RetVal("array:addonTarget"),
+        addons: RetVal("array:webExtensionDescriptor"),
       },
     },
 
@@ -71,19 +78,18 @@ const rootSpecPrototype = {
 
     listProcesses: {
       request: {},
-      response: RetVal("root.listProcesses"),
+      response: {
+        processes: RetVal("array:processDescriptor"),
+      },
     },
 
     getProcess: {
       request: {
         id: Arg(0, "number"),
       },
-      response: RetVal("json"),
-    },
-
-    protocolDescription: {
-      request: {},
-      response: RetVal("json"),
+      response: {
+        processDescriptor: RetVal("processDescriptor"),
+      },
     },
 
     requestTypes: {

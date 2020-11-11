@@ -8,9 +8,9 @@
 
   <script type="text/javascript">
     function report(result) {
-      let message = { source: "iframe" };
+      let message = { source: "iframe2" };
       message.result = result;
-      window.parent.postMessage(message.toSource(), "*");
+      window.parent.postMessage(JSON.stringify(message), "*");
     }
 
     function runIndexedDBTest() {

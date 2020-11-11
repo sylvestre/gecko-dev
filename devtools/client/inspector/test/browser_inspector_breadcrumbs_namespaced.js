@@ -1,4 +1,3 @@
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
    http://creativecommons.org/publicdomain/zero/1.0/ */
 "use strict";
@@ -23,10 +22,18 @@ const XHTML = `
 const TEST_URI = "data:application/xhtml+xml;charset=utf-8," + encodeURI(XHTML);
 
 const NODES = [
-  {selector: "clipPath", nodes: ["svg:svg", "svg:clipPath"],
-   nodeName: "svg:clipPath", title: "svg:clipPath#clip"},
-  {selector: "circle", nodes: ["svg:svg", "svg:circle"],
-   nodeName: "svg:circle", title: "svg:circle"},
+  {
+    selector: "clipPath",
+    nodes: ["svg:svg", "svg:clipPath"],
+    nodeName: "svg:clipPath",
+    title: "svg:clipPath#clip",
+  },
+  {
+    selector: "circle",
+    nodes: ["svg:svg", "svg:circle"],
+    nodeName: "svg:circle",
+    title: "svg:circle",
+  },
 ];
 
 add_task(async function() {
@@ -45,11 +52,19 @@ add_task(async function() {
 
     const checkedButton = container.querySelector("button[checked]");
 
-    const labelTag = checkedButton.querySelector(".breadcrumbs-widget-item-tag");
-    is(labelTag.textContent, node.nodeName,
-      "Node " + node.selector + " has the expected tag name");
+    const labelTag = checkedButton.querySelector(
+      ".breadcrumbs-widget-item-tag"
+    );
+    is(
+      labelTag.textContent,
+      node.nodeName,
+      "Node " + node.selector + " has the expected tag name"
+    );
 
-    is(checkedButton.getAttribute("title"), node.title,
-      "Node " + node.selector + " has the expected tooltip");
+    is(
+      checkedButton.getAttribute("title"),
+      node.title,
+      "Node " + node.selector + " has the expected tooltip"
+    );
   }
 });

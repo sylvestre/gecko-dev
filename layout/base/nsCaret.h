@@ -23,10 +23,10 @@ class nsFrameSelection;
 class nsIContent;
 class nsIFrame;
 class nsINode;
-class nsIPresShell;
 class nsITimer;
 
 namespace mozilla {
+class PresShell;
 namespace gfx {
 class DrawTarget;
 }  // namespace gfx
@@ -47,7 +47,7 @@ class nsCaret final : public nsISelectionListener {
 
   typedef mozilla::CaretAssociationHint CaretAssociationHint;
 
-  nsresult Init(nsIPresShell* inPresShell);
+  nsresult Init(mozilla::PresShell* aPresShell);
   void Terminate();
 
   void SetSelection(mozilla::dom::Selection* aDOMSel);
@@ -172,11 +172,10 @@ class nsCaret final : public nsISelectionListener {
    */
   static nsIFrame* GetGeometry(mozilla::dom::Selection* aSelection,
                                nsRect* aRect);
-  static nsresult GetCaretFrameForNodeOffset(
+  static nsIFrame* GetCaretFrameForNodeOffset(
       nsFrameSelection* aFrameSelection, nsIContent* aContentNode,
       int32_t aOffset, CaretAssociationHint aFrameHint, uint8_t aBidiLevel,
-      nsIFrame** aReturnFrame, nsIFrame** aReturnUnadjustedFrame,
-      int32_t* aReturnOffset);
+      nsIFrame** aReturnUnadjustedFrame, int32_t* aReturnOffset);
   static nsRect GetGeometryForFrame(nsIFrame* aFrame, int32_t aFrameOffset,
                                     nscoord* aBidiIndicatorSize);
 

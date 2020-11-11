@@ -6,12 +6,17 @@
 
 #include "ConsoleUtils.h"
 #include "ConsoleCommon.h"
+#include "nsContentUtils.h"
+#include "nsIConsoleAPIStorage.h"
+#include "nsIXPConnect.h"
 
 #include "mozilla/ClearOnShutdown.h"
 #include "mozilla/NullPrincipal.h"
+#include "mozilla/dom/ConsoleBinding.h"
+#include "mozilla/dom/RootedDictionary.h"
+#include "mozilla/dom/ScriptSettings.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 namespace {
 
@@ -19,7 +24,8 @@ StaticRefPtr<ConsoleUtils> gConsoleUtilsService;
 
 }
 
-/* static */ ConsoleUtils* ConsoleUtils::GetOrCreate() {
+/* static */
+ConsoleUtils* ConsoleUtils::GetOrCreate() {
   if (!gConsoleUtilsService) {
     MOZ_ASSERT(NS_IsMainThread());
 
@@ -33,10 +39,13 @@ StaticRefPtr<ConsoleUtils> gConsoleUtilsService;
 ConsoleUtils::ConsoleUtils() = default;
 ConsoleUtils::~ConsoleUtils() = default;
 
-/* static */ void ConsoleUtils::ReportForServiceWorkerScope(
-    const nsAString& aScope, const nsAString& aMessage,
-    const nsAString& aFilename, uint32_t aLineNumber, uint32_t aColumnNumber,
-    Level aLevel) {
+/* static */
+void ConsoleUtils::ReportForServiceWorkerScope(const nsAString& aScope,
+                                               const nsAString& aMessage,
+                                               const nsAString& aFilename,
+                                               uint32_t aLineNumber,
+                                               uint32_t aColumnNumber,
+                                               Level aLevel) {
   MOZ_ASSERT(NS_IsMainThread());
 
   RefPtr<ConsoleUtils> service = ConsoleUtils::GetOrCreate();
@@ -77,19 +86,19 @@ void ConsoleUtils::ReportForServiceWorkerScopeInternal(
   event.mID.Value().SetAsString() = aScope;
 
   event.mInnerID.Construct();
-  event.mInnerID.Value().SetAsString() = NS_LITERAL_STRING("ServiceWorker");
+  event.mInnerID.Value().SetAsString() = u"ServiceWorker"_ns;
 
   switch (aLevel) {
     case eLog:
-      event.mLevel = NS_LITERAL_STRING("log");
+      event.mLevel = u"log"_ns;
       break;
 
     case eWarning:
-      event.mLevel = NS_LITERAL_STRING("warn");
+      event.mLevel = u"warn"_ns;
       break;
 
     case eError:
-      event.mLevel = NS_LITERAL_STRING("error");
+      event.mLevel = u"error"_ns;
       break;
   }
 
@@ -127,7 +136,7 @@ void ConsoleUtils::ReportForServiceWorkerScopeInternal(
     return;
   }
 
-  storage->RecordEvent(NS_LITERAL_STRING("ServiceWorker"), aScope, eventValue);
+  storage->RecordEvent(u"ServiceWorker"_ns, aScope, eventValue);
 }
 
 JSObject* ConsoleUtils::GetOrCreateSandbox(JSContext* aCx) {
@@ -152,5 +161,4 @@ JSObject* ConsoleUtils::GetOrCreateSandbox(JSContext* aCx) {
   return mSandbox->GetJSObject();
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

@@ -6,12 +6,14 @@
 
 /* import-globals-from ../../mochitest/states.js */
 /* import-globals-from ../../mochitest/role.js */
-loadScripts({ name: "states.js", dir: MOCHITESTS_DIR },
-            { name: "role.js", dir: MOCHITESTS_DIR });
+loadScripts(
+  { name: "states.js", dir: MOCHITESTS_DIR },
+  { name: "role.js", dir: MOCHITESTS_DIR }
+);
 
 async function runTests(browser, accDoc) {
   let onFocus = waitForEvent(EVENT_FOCUS, "button");
-  await ContentTask.spawn(browser, {}, () => {
+  await SpecialPowers.spawn(browser, [], () => {
     content.document.getElementById("button").focus();
   });
   let button = (await onFocus).accessible;
@@ -31,8 +33,10 @@ async function runTests(browser, accDoc) {
   testStates((await onFocus).accessible, STATE_FOCUSED);
 
   onFocus = waitForEvent(EVENT_FOCUS, "body2");
-  await ContentTask.spawn(browser, {}, () => {
-    content.document.getElementById("editabledoc").contentWindow.document.body.focus();
+  await SpecialPowers.spawn(browser, [], () => {
+    content.document
+      .getElementById("editabledoc")
+      .contentWindow.document.body.focus();
   });
   testStates((await onFocus).accessible, STATE_FOCUSED);
 
@@ -43,7 +47,7 @@ async function runTests(browser, accDoc) {
 
   let onShow = waitForEvent(EVENT_SHOW, "alertdialog");
   onFocus = waitForEvent(EVENT_FOCUS, "alertdialog");
-  await ContentTask.spawn(browser, {}, () => {
+  await SpecialPowers.spawn(browser, [], () => {
     let alertDialog = content.document.getElementById("alertdialog");
     alertDialog.style.display = "block";
     alertDialog.focus();
@@ -55,13 +59,18 @@ async function runTests(browser, accDoc) {
 /**
  * Accessible dialog focus testing
  */
-addAccessibleTask(`
+addAccessibleTask(
+  `
   <button id="button">button</button>
   <iframe id="editabledoc"
-          src="${snippetToURL("", { id: "body2", contentEditable: "true"})}">
+          src="${snippetToURL("", {
+            contentDocBodyAttrs: { id: "body2", contentEditable: "true" },
+          })}">
   </iframe>
   <div id="alertdialog" style="display: none" tabindex="-1" role="alertdialog" aria-labelledby="title2" aria-describedby="desc2">
     <div id="title2">Blah blah</div>
     <div id="desc2">Woof woof woof.</div>
     <button>Close</button>
-  </div>`, runTests);
+  </div>`,
+  runTests
+);

@@ -8,13 +8,12 @@
 
 #include "mozilla/dom/ClientIPCTypes.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 ClientWindowState::ClientWindowState(
     mozilla::dom::VisibilityState aVisibilityState,
-    const TimeStamp& aLastFocusTime,
-    nsContentUtils::StorageAccess aStorageAccess, bool aFocused)
+    const TimeStamp& aLastFocusTime, StorageAccess aStorageAccess,
+    bool aFocused)
     : mData(MakeUnique<IPCClientWindowState>(aVisibilityState, aLastFocusTime,
                                              aStorageAccess, aFocused)) {}
 
@@ -41,7 +40,7 @@ ClientWindowState& ClientWindowState::operator=(ClientWindowState&& aRight) {
   return *this;
 }
 
-ClientWindowState::~ClientWindowState() {}
+ClientWindowState::~ClientWindowState() = default;
 
 mozilla::dom::VisibilityState ClientWindowState::VisibilityState() const {
   return mData->visibilityState();
@@ -53,14 +52,13 @@ const TimeStamp& ClientWindowState::LastFocusTime() const {
 
 bool ClientWindowState::Focused() const { return mData->focused(); }
 
-nsContentUtils::StorageAccess ClientWindowState::GetStorageAccess() const {
+StorageAccess ClientWindowState::GetStorageAccess() const {
   return mData->storageAccess();
 }
 
 const IPCClientWindowState& ClientWindowState::ToIPC() const { return *mData; }
 
-ClientWorkerState::ClientWorkerState(
-    nsContentUtils::StorageAccess aStorageAccess)
+ClientWorkerState::ClientWorkerState(StorageAccess aStorageAccess)
     : mData(MakeUnique<IPCClientWorkerState>(aStorageAccess)) {}
 
 ClientWorkerState::ClientWorkerState(const IPCClientWorkerState& aData)
@@ -86,15 +84,15 @@ ClientWorkerState& ClientWorkerState::operator=(ClientWorkerState&& aRight) {
   return *this;
 }
 
-ClientWorkerState::~ClientWorkerState() {}
+ClientWorkerState::~ClientWorkerState() = default;
 
-nsContentUtils::StorageAccess ClientWorkerState::GetStorageAccess() const {
+StorageAccess ClientWorkerState::GetStorageAccess() const {
   return mData->storageAccess();
 }
 
 const IPCClientWorkerState& ClientWorkerState::ToIPC() const { return *mData; }
 
-ClientState::ClientState() {}
+ClientState::ClientState() = default;
 
 ClientState::ClientState(const ClientWindowState& aWindowState) {
   mData.emplace(AsVariant(aWindowState));
@@ -120,7 +118,7 @@ ClientState& ClientState::operator=(ClientState&& aRight) {
   return *this;
 }
 
-ClientState::~ClientState() {}
+ClientState::~ClientState() = default;
 
 // static
 ClientState ClientState::FromIPC(const IPCClientState& aData) {
@@ -150,7 +148,7 @@ const ClientWorkerState& ClientState::AsWorkerState() const {
   return mData.ref().as<ClientWorkerState>();
 }
 
-nsContentUtils::StorageAccess ClientState::GetStorageAccess() const {
+StorageAccess ClientState::GetStorageAccess() const {
   if (IsWindowState()) {
     return AsWindowState().GetStorageAccess();
   }
@@ -166,5 +164,4 @@ const IPCClientState ClientState::ToIPC() const {
   return IPCClientState(AsWorkerState().ToIPC());
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

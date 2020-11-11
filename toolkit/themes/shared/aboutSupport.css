@@ -50,8 +50,21 @@ td.integer {
   overflow: hidden;
 }
 
+#crashes-table th:first-child {
+  width: 50%;
+}
+
+#features-table th:first-child,
+#remote-processes-table th:first-child {
+  width: 30%;
+}
+
+#features-table th:nth-child(2) {
+  width: 20%;
+}
+
 #action-box {
-  float: right;
+  float: inline-end;
   margin-top: 2em;
   margin-bottom: 20px;
   margin-inline-start: 20px;
@@ -59,14 +72,9 @@ td.integer {
   width: 30%;
 }
 
-#action-box,
 #reset-box,
 #safe-mode-box {
   display: none;
-}
-
-#action-box:dir(rtl) {
-  float: left;
 }
 
 #reset-box > h3 {
@@ -77,9 +85,12 @@ td.integer {
   display: block;
 }
 
+#enumerate-database-result,
 #verify-place-result {
   max-height: 200px;
   overflow: auto;
+  text-align: left;
+  direction: ltr;
 }
 
 .hidden {

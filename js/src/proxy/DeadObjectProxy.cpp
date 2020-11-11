@@ -8,7 +8,8 @@
 
 #include "jsapi.h"
 
-#include "vm/JSFunction.h"  // XXXefaust Bug 1064662
+#include "js/friend/ErrorMessages.h"  // js::GetErrorMessage, JSMSG_*
+#include "vm/JSFunction.h"            // XXXefaust Bug 1064662
 #include "vm/ProxyObject.h"
 
 using namespace js;
@@ -36,7 +37,7 @@ bool DeadObjectProxy::defineProperty(JSContext* cx, HandleObject wrapper,
 }
 
 bool DeadObjectProxy::ownPropertyKeys(JSContext* cx, HandleObject wrapper,
-                                      AutoIdVector& props) const {
+                                      MutableHandleIdVector props) const {
   ReportDead(cx);
   return false;
 }
@@ -157,6 +158,21 @@ JSObject* js::NewDeadProxyObject(JSContext* cx, JSObject* origObj) {
     target = Int32Value(DeadObjectProxyIsBackgroundFinalized);
   }
 
+  return NewProxyObject(cx, &DeadObjectProxy::singleton, target, nullptr,
+                        ProxyOptions());
+}
+
+JSObject* js::NewDeadProxyObject(JSContext* cx, IsCallableFlag isCallable,
+                                 IsConstructorFlag isConstructor) {
+  int32_t flags = 0;
+  if (isCallable == IsCallableFlag::True) {
+    flags |= DeadObjectProxyIsCallable;
+  }
+  if (isConstructor == IsConstructorFlag::True) {
+    flags |= DeadObjectProxyIsConstructor;
+  }
+
+  RootedValue target(cx, Int32Value(flags));
   return NewProxyObject(cx, &DeadObjectProxy::singleton, target, nullptr,
                         ProxyOptions());
 }

@@ -23,7 +23,7 @@
 use std::{fmt, u32};
 use std::marker::PhantomData;
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, MallocSizeOf, PartialEq)]
 #[cfg_attr(feature = "capture", derive(Serialize))]
 #[cfg_attr(feature = "replay", derive(Deserialize))]
 struct Epoch(u32);
@@ -76,6 +76,13 @@ impl<M> FreeListHandle<M> {
             _marker: PhantomData,
         }
     }
+
+    /// Returns true if this handle and the supplied weak handle reference
+    /// the same underlying location in the freelist.
+    pub fn matches(&self, weak_handle: &WeakFreeListHandle<M>) -> bool {
+        self.index == weak_handle.index &&
+        self.epoch == weak_handle.epoch
+    }
 }
 
 impl<M> Clone for WeakFreeListHandle<M> {
@@ -96,6 +103,7 @@ impl<M> PartialEq for WeakFreeListHandle<M> {
 
 #[cfg_attr(feature = "capture", derive(Serialize))]
 #[cfg_attr(feature = "replay", derive(Deserialize))]
+#[derive(MallocSizeOf)]
 pub struct WeakFreeListHandle<M> {
     index: u32,
     epoch: Epoch,
@@ -142,11 +150,6 @@ pub struct FreeList<T, M> {
     _marker: PhantomData<M>,
 }
 
-pub enum UpsertResult<T, M> {
-    Updated(T),
-    Inserted(FreeListHandle<M>),
-}
-
 impl<T, M> FreeList<T, M> {
     /// Mints a new `FreeList` with no entries.
     ///
@@ -169,8 +172,13 @@ impl<T, M> FreeList<T, M> {
     }
 
     pub fn clear(&mut self) {
-        self.slots.clear();
-        self.free_list_head = None;
+        self.slots.truncate(1);
+        self.slots[0] = Slot {
+            next: None,
+            epoch: Epoch::new(),
+            value: None,
+        };
+        self.free_list_head = Some(0);
         self.active_count = 0;
     }
 
@@ -199,21 +207,6 @@ impl<T, M> FreeList<T, M> {
             slot.value.as_mut()
         } else {
             None
-        }
-    }
-
-    // Perform a database style UPSERT operation. If the provided
-    // handle is a valid entry, update the value and return the
-    // previous data. If the provided handle is invalid, then
-    // insert the data into a new slot and return the new handle.
-    pub fn upsert(&mut self, id: &WeakFreeListHandle<M>, data: T) -> UpsertResult<T, M> {
-        if self.slots[id.index as usize].epoch == id.epoch {
-            let slot = &mut self.slots[id.index as usize];
-            let result = UpsertResult::Updated(slot.value.take().unwrap());
-            slot.value = Some(data);
-            result
-        } else {
-            UpsertResult::Inserted(self.insert(data))
         }
     }
 
@@ -263,6 +256,7 @@ impl<T, M> FreeList<T, M> {
         slot.value.take().unwrap()
     }
 
+    #[allow(dead_code)]
     pub fn len(&self) -> usize {
         self.active_count
     }

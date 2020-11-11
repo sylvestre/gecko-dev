@@ -7,69 +7,65 @@ Support for running hazard jobs via dedicated scripts
 
 from __future__ import absolute_import, print_function, unicode_literals
 
+from six import text_type
 from taskgraph.util.schema import Schema
 from voluptuous import Required, Optional, Any
 
-from taskgraph.transforms.job import run_job_using
+from taskgraph.transforms.job import (
+    run_job_using,
+    configure_taskdesc_for_run,
+)
 from taskgraph.transforms.job.common import (
-    docker_worker_add_workspace_cache,
-    docker_worker_setup_secrets,
+    setup_secrets,
     docker_worker_add_artifacts,
-    docker_worker_add_tooltool,
-    support_vcs_checkout,
+    add_tooltool,
 )
 
-haz_run_schema = Schema({
-    Required('using'): 'hazard',
-
-    # The command to run within the task image (passed through to the worker)
-    Required('command'): basestring,
-
-    # The mozconfig to use; default in the script is used if omitted
-    Optional('mozconfig'): basestring,
-
-    # The set of secret names to which the task has access; these are prefixed
-    # with `project/releng/gecko/{treeherder.kind}/level-{level}/`.   Setting
-    # this will enable any worker features required and set the task's scopes
-    # appropriately.  `true` here means ['*'], all secrets.  Not supported on
-    # Windows
-    Required('secrets', default=False): Any(bool, [basestring]),
-
-    # Base work directory used to set up the task.
-    Required('workdir'): basestring,
-})
+haz_run_schema = Schema(
+    {
+        Required("using"): "hazard",
+        # The command to run within the task image (passed through to the worker)
+        Required("command"): text_type,
+        # The mozconfig to use; default in the script is used if omitted
+        Optional("mozconfig"): text_type,
+        # The set of secret names to which the task has access; these are prefixed
+        # with `project/releng/gecko/{treeherder.kind}/level-{level}/`.   Setting
+        # this will enable any worker features required and set the task's scopes
+        # appropriately.  `true` here means ['*'], all secrets.  Not supported on
+        # Windows
+        Optional("secrets"): Any(bool, [text_type]),
+        # Base work directory used to set up the task.
+        Optional("workdir"): text_type,
+    }
+)
 
 
 @run_job_using("docker-worker", "hazard", schema=haz_run_schema)
 def docker_worker_hazard(config, job, taskdesc):
-    run = job['run']
+    run = job["run"]
 
-    worker = taskdesc['worker']
-    worker['artifacts'] = []
+    worker = taskdesc["worker"] = job["worker"]
+    worker.setdefault("artifacts", [])
 
     docker_worker_add_artifacts(config, job, taskdesc)
-    docker_worker_add_workspace_cache(config, job, taskdesc)
-    docker_worker_add_tooltool(config, job, taskdesc)
-    docker_worker_setup_secrets(config, job, taskdesc)
-    support_vcs_checkout(config, job, taskdesc)
+    worker.setdefault("required-volumes", []).append(
+        "{workdir}/workspace".format(**run)
+    )
+    add_tooltool(config, job, taskdesc)
+    setup_secrets(config, job, taskdesc)
 
-    env = worker['env']
-    env.update({
-        'MOZ_BUILD_DATE': config.params['moz_build_date'],
-        'MOZ_SCM_LEVEL': config.params['level'],
-    })
+    env = worker["env"]
+    env.update(
+        {
+            "MOZ_BUILD_DATE": config.params["moz_build_date"],
+            "MOZ_SCM_LEVEL": config.params["level"],
+        }
+    )
 
     # script parameters
-    if run.get('mozconfig'):
-        env['MOZCONFIG'] = run['mozconfig']
+    if run.get("mozconfig"):
+        env["MOZCONFIG"] = run.pop("mozconfig")
 
-    # build-haz-linux.sh needs this otherwise it assumes the checkout is in
-    # the workspace.
-    env['GECKO_DIR'] = '{workdir}/checkouts/gecko'.format(**run)
-
-    worker['command'] = [
-        '{workdir}/bin/run-task'.format(**run),
-        '--vcs-checkout', '{workdir}/checkouts/gecko'.format(**run),
-        '--',
-        '/bin/bash', '-c', run['command']
-    ]
+    run["using"] = "run-task"
+    run["cwd"] = run["workdir"]
+    configure_taskdesc_for_run(config, job, taskdesc, worker["implementation"])

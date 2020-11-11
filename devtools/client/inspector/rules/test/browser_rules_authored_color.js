@@ -1,4 +1,3 @@
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -14,30 +13,40 @@
  *   {String} result: expected value of the color property after edition.
  */
 const colors = [
-  {name: "hex", id: "test1", color: "#f06", result: "#0f0"},
-  {name: "rgb", id: "test2", color: "rgb(0,128,250)", result: "rgb(0, 255, 0)"},
+  { name: "hex", id: "test1", color: "#f06", result: "#0f0" },
+  {
+    name: "rgb",
+    id: "test2",
+    color: "rgb(0,128,250)",
+    result: "rgb(0, 255, 0)",
+  },
   // Test case preservation.
-  {name: "hex", id: "test3", color: "#F06", result: "#0F0"},
+  { name: "hex", id: "test3", color: "#F06", result: "#0F0" },
 ];
 
 add_task(async function() {
   Services.prefs.setCharPref("devtools.defaultColorUnit", "authored");
 
   let html = "";
-  for (const {color, id} of colors) {
+  for (const { color, id } of colors) {
     html += `<div id="${id}" style="color: ${color}">Styled Node</div>`;
   }
 
-  const tab = await addTab("data:text/html;charset=utf-8," + encodeURIComponent(html));
+  const tab = await addTab(
+    "data:text/html;charset=utf-8," + encodeURIComponent(html)
+  );
 
-  const {inspector, view} = await openRuleView();
+  const { inspector, view } = await openRuleView();
 
   for (const color of colors) {
     const selector = "#" + color.id;
     await selectNode(selector, inspector);
 
-    const swatch = getRuleViewProperty(view, "element", "color").valueSpan
-        .querySelector(".ruleview-colorswatch");
+    const swatch = getRuleViewProperty(
+      view,
+      "element",
+      "color"
+    ).valueSpan.querySelector(".ruleview-colorswatch");
     const cPicker = view.tooltips.getTooltip("colorPicker");
     const onColorPickerReady = cPicker.once("ready");
     swatch.click();
@@ -57,8 +66,11 @@ add_task(async function() {
     await onHidden;
     await onRuleViewChanged;
 
-    is(getRuleViewPropertyValue(view, "element", "color"), color.result,
-       "changing the color preserved the unit for " + color.name);
+    is(
+      getRuleViewPropertyValue(view, "element", "color"),
+      color.result,
+      "changing the color preserved the unit for " + color.name
+    );
   }
 
   const target = await TargetFactory.forTab(tab);

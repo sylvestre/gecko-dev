@@ -24,23 +24,23 @@
 #include "mozilla/FStream.h"
 #include "mozilla/Unused.h"
 
-#if defined(XP_WIN32)
+#if defined(XP_WIN)
 
-#include <windows.h>
-#include "mozilla/glue/WindowsDllServices.h"
+#  include <windows.h>
+#  include "mozilla/glue/WindowsDllServices.h"
 
 #elif defined(XP_UNIX) || defined(XP_MACOSX)
 
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <unistd.h>
+#  include <sys/types.h>
+#  include <sys/stat.h>
+#  include <unistd.h>
 
 #endif
 
 #include "MinidumpAnalyzerUtils.h"
 
 #if XP_WIN && HAVE_64BIT_BUILD && defined(_M_X64)
-#include "MozStackFrameSymbolizer.h"
+#  include "MozStackFrameSymbolizer.h"
 #endif
 
 namespace CrashReporter {
@@ -71,6 +71,7 @@ using google_breakpad::ProcessResult;
 using google_breakpad::ProcessState;
 using google_breakpad::StackFrame;
 
+using mozilla::IFStream;
 using mozilla::OFStream;
 using mozilla::Unused;
 
@@ -86,6 +87,42 @@ struct ModuleCompare {
 };
 
 typedef map<const CodeModule*, unsigned int, ModuleCompare> OrderedModulesMap;
+
+static void AddModulesFromCallStack(OrderedModulesMap& aOrderedModules,
+                                    const CallStack* aStack) {
+  int frameCount = aStack->frames()->size();
+
+  for (int frameIndex = 0; frameIndex < frameCount; ++frameIndex) {
+    const StackFrame* frame = aStack->frames()->at(frameIndex);
+
+    if (frame->module) {
+      aOrderedModules.insert(
+          std::pair<const CodeModule*, unsigned int>(frame->module, 0));
+    }
+  }
+}
+
+static void PopulateModuleList(const ProcessState& aProcessState,
+                               OrderedModulesMap& aOrderedModules,
+                               bool aFullStacks) {
+  int threadCount = aProcessState.threads()->size();
+  int requestingThread = aProcessState.requesting_thread();
+
+  if (!aFullStacks && (requestingThread != -1)) {
+    AddModulesFromCallStack(aOrderedModules,
+                            aProcessState.threads()->at(requestingThread));
+  } else {
+    for (int threadIndex = 0; threadIndex < threadCount; ++threadIndex) {
+      AddModulesFromCallStack(aOrderedModules,
+                              aProcessState.threads()->at(threadIndex));
+    }
+  }
+
+  int moduleCount = 0;
+  for (auto& itr : aOrderedModules) {
+    itr.second = moduleCount++;
+  }
+}
 
 static const char kExtraDataExtension[] = ".extra";
 
@@ -153,18 +190,16 @@ static void ConvertStackToJSON(const ProcessState& aProcessState,
                                const OrderedModulesMap& aOrderedModules,
                                const CallStack* aStack, Json::Value& aNode) {
   int frameCount = aStack->frames()->size();
-  unsigned int moduleIndex = 0;
 
   for (int frameIndex = 0; frameIndex < frameCount; ++frameIndex) {
     const StackFrame* frame = aStack->frames()->at(frameIndex);
     Json::Value frameNode;
 
     if (frame->module) {
-      auto itr = aOrderedModules.find(frame->module);
+      const auto& itr = aOrderedModules.find(frame->module);
 
       if (itr != aOrderedModules.end()) {
-        moduleIndex = (*itr).second;
-        frameNode["module_index"] = moduleIndex;
+        frameNode["module_index"] = (*itr).second;
       }
     }
 
@@ -180,20 +215,13 @@ static void ConvertStackToJSON(const ProcessState& aProcessState,
 // in the |aNode| parameter.
 
 static int ConvertModulesToJSON(const ProcessState& aProcessState,
-                                OrderedModulesMap& aOrderedModules,
+                                const OrderedModulesMap& aOrderedModules,
                                 Json::Value& aNode,
                                 Json::Value& aCertSubjects) {
   const CodeModules* modules = aProcessState.modules();
 
   if (!modules) {
     return -1;
-  }
-
-  // Create a sorted set of modules so that we'll be able to lookup the index
-  // of a particular module.
-  for (unsigned int i = 0; i < modules->module_count(); ++i) {
-    aOrderedModules.insert(std::pair<const CodeModule*, unsigned int>(
-        modules->GetModuleAtSequence(i), i));
   }
 
   uint64_t mainAddress = 0;
@@ -203,15 +231,13 @@ static int ConvertModulesToJSON(const ProcessState& aProcessState,
     mainAddress = mainModule->base_address();
   }
 
-  unsigned int moduleCount = modules->module_count();
   int mainModuleIndex = -1;
 
-  for (unsigned int moduleSequence = 0; moduleSequence < moduleCount;
-       ++moduleSequence) {
-    const CodeModule* module = modules->GetModuleAtSequence(moduleSequence);
+  for (const auto& itr : aOrderedModules) {
+    const CodeModule* module = itr.first;
 
-    if (module->base_address() == mainAddress) {
-      mainModuleIndex = moduleSequence;
+    if ((module->base_address() == mainAddress) && mainModule) {
+      mainModuleIndex = itr.second;
     }
 
 #if defined(XP_WIN)
@@ -254,9 +280,6 @@ static void ConvertProcessStateToJSON(const ProcessState& aProcessState,
                                       Json::Value& aStackTraces,
                                       const bool aFullStacks,
                                       Json::Value& aCertSubjects) {
-  // We use this map to get the index of a module when listed by address
-  OrderedModulesMap orderedModules;
-
   // Crash info
   Json::Value crashInfo;
   int requestingThread = aProcessState.requesting_thread();
@@ -284,6 +307,9 @@ static void ConvertProcessStateToJSON(const ProcessState& aProcessState,
   aStackTraces["crash_info"] = crashInfo;
 
   // Modules
+  OrderedModulesMap orderedModules;
+  PopulateModuleList(aProcessState, orderedModules, aFullStacks);
+
   Json::Value modules(Json::arrayValue);
   int mainModule = ConvertModulesToJSON(aProcessState, orderedModules, modules,
                                         aCertSubjects);
@@ -360,6 +386,22 @@ static bool ProcessMinidump(Json::Value& aStackTraces,
   return true;
 }
 
+static bool ReadExtraFile(const string& aExtraDataPath, Json::Value& aExtra) {
+  IFStream f(
+#if defined(XP_WIN)
+      UTF8ToWide(aExtraDataPath).c_str(),
+#else
+      aExtraDataPath.c_str(),
+#endif  // defined(XP_WIN)
+      ios::in);
+  if (!f.is_open()) {
+    return false;
+  }
+
+  Json::CharReaderBuilder builder;
+  return parseFromStream(builder, f, &aExtra, nullptr);
+}
+
 // Update the extra data file by adding the StackTraces and ModuleSignatureInfo
 // fields that contain the JSON outputs of this program.
 static bool UpdateExtraDataFile(const string& aDumpPath,
@@ -373,29 +415,38 @@ static bool UpdateExtraDataFile(const string& aDumpPath,
   }
 
   extraDataPath.replace(dot, extraDataPath.length() - dot, kExtraDataExtension);
-  bool res = false;
 
-  // We want to open the extra file in append mode.
-  ios_base::openmode mode = ios::out | ios::app;
+  Json::Value extra;
+  if (!ReadExtraFile(extraDataPath, extra)) {
+    return false;
+  }
+
   OFStream f(
 #if defined(XP_WIN)
       UTF8ToWide(extraDataPath).c_str(),
 #else
       extraDataPath.c_str(),
 #endif  // defined(XP_WIN)
-      mode);
+      ios::out | ios::trunc);
 
+  bool res = false;
   if (f.is_open()) {
-    Json::FastWriter writer;
+    Json::StreamWriterBuilder builder;
+    builder["indentation"] = "";
 
-    f << "StackTraces=" << writer.write(aStackTraces);
-    res = !f.fail();
+    // The StackTraces field is not stored as a string because it's not a
+    // crash annotation. It's only used by the crash reporter client which
+    // strips it before submitting the other annotations to Socorro.
+    extra["StackTraces"] = aStackTraces;
 
     if (!!aCertSubjects) {
-      f << "ModuleSignatureInfo=" << writer.write(aCertSubjects);
-      res &= !f.fail();
+      extra["ModuleSignatureInfo"] = Json::writeString(builder, aCertSubjects);
     }
 
+    std::unique_ptr<Json::StreamWriter> writer(builder.newStreamWriter());
+    writer->write(extra, &f);
+    f << "\n";
+    res = !f.fail();
     f.close();
   }
 
@@ -418,9 +469,9 @@ bool GenerateStacks(const string& aDumpPath, const bool aFullStacks) {
 using namespace CrashReporter;
 
 #if defined(XP_WIN)
-#define XP_LITERAL(s) L##s
+#  define XP_LITERAL(s) L##s
 #else
-#define XP_LITERAL(s) s
+#  define XP_LITERAL(s) s
 #endif
 
 template <typename CharT>

@@ -5,15 +5,14 @@
  * found in the LICENSE file.
  */
 
-#include "SkDashPathEffect.h"
+#include "include/effects/SkDashPathEffect.h"
 
-#include "SkDashImpl.h"
-#include "SkDashPathPriv.h"
-#include "SkFlattenablePriv.h"
-#include "SkReadBuffer.h"
-#include "SkStrokeRec.h"
-#include "SkTo.h"
-#include "SkWriteBuffer.h"
+#include "include/core/SkStrokeRec.h"
+#include "include/private/SkTo.h"
+#include "src/core/SkReadBuffer.h"
+#include "src/core/SkWriteBuffer.h"
+#include "src/effects/SkDashImpl.h"
+#include "src/utils/SkDashPathPriv.h"
 
 #include <utility>
 
@@ -374,11 +373,6 @@ void SkDashImpl::flatten(SkWriteBuffer& buffer) const {
 }
 
 sk_sp<SkFlattenable> SkDashImpl::CreateProc(SkReadBuffer& buffer) {
-#ifdef SK_DISABLE_READBUFFER
-    // Should not be reachable by PathKit WebAssembly Code.
-    SkASSERT(false);
-    return nullptr;
-#else
     const SkScalar phase = buffer.readScalar();
     uint32_t count = buffer.getArrayCount();
 
@@ -392,7 +386,6 @@ sk_sp<SkFlattenable> SkDashImpl::CreateProc(SkReadBuffer& buffer) {
         return SkDashPathEffect::Make(intervals.get(), SkToInt(count), phase);
     }
     return nullptr;
-#endif
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////

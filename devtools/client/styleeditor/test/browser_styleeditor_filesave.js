@@ -1,4 +1,3 @@
-/* vim: set ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
    http://creativecommons.org/publicdomain/zero/1.0/ */
 "use strict";
@@ -8,11 +7,9 @@
 const TESTCASE_URI_HTML = TEST_BASE_HTTP + "simple.html";
 const TESTCASE_URI_CSS = TEST_BASE_HTTP + "simple.css";
 
-var tempScope = {};
-ChromeUtils.import("resource://gre/modules/FileUtils.jsm", tempScope);
-ChromeUtils.import("resource://gre/modules/NetUtil.jsm", tempScope);
-var FileUtils = tempScope.FileUtils;
-var NetUtil = tempScope.NetUtil;
+const { FileUtils } = ChromeUtils.import(
+  "resource://gre/modules/FileUtils.jsm"
+);
 
 add_task(async function() {
   const htmlFile = await copy(TESTCASE_URI_HTML, "simple.html");
@@ -27,14 +24,16 @@ add_task(async function() {
 
   info("Editing the style sheet.");
   let dirty = editor.sourceEditor.once("dirty-change");
-  const beginCursor = {line: 0, ch: 0};
+  const beginCursor = { line: 0, ch: 0 };
   editor.sourceEditor.replaceText("DIRTY TEXT", beginCursor, beginCursor);
 
   await dirty;
 
   is(editor.sourceEditor.isClean(), false, "Editor is dirty.");
-  ok(editor.summary.classList.contains("unsaved"),
-     "Star icon is present in the corresponding summary.");
+  ok(
+    editor.summary.classList.contains("unsaved"),
+    "Star icon is present in the corresponding summary."
+  );
 
   info("Saving the changes.");
   dirty = editor.sourceEditor.once("dirty-change");
@@ -46,8 +45,10 @@ add_task(async function() {
   await dirty;
 
   is(editor.sourceEditor.isClean(), true, "Editor is clean.");
-  ok(!editor.summary.classList.contains("unsaved"),
-     "Star icon is not present in the corresponding summary.");
+  ok(
+    !editor.summary.classList.contains("unsaved"),
+    "Star icon is not present in the corresponding summary."
+  );
 });
 
 function copy(srcChromeURL, destFileName) {
@@ -58,14 +59,15 @@ function copy(srcChromeURL, destFileName) {
 }
 
 function read(srcChromeURL) {
-  const scriptableStream = Cc["@mozilla.org/scriptableinputstream;1"]
-    .getService(Ci.nsIScriptableInputStream);
+  const scriptableStream = Cc[
+    "@mozilla.org/scriptableinputstream;1"
+  ].getService(Ci.nsIScriptableInputStream);
 
   const channel = NetUtil.newChannel({
     uri: srcChromeURL,
     loadUsingSystemPrincipal: true,
   });
-  const input = channel.open2();
+  const input = channel.open();
   scriptableStream.init(input);
 
   let data = "";
@@ -79,8 +81,9 @@ function read(srcChromeURL) {
 }
 
 function write(data, file, callback) {
-  const converter = Cc["@mozilla.org/intl/scriptableunicodeconverter"]
-    .createInstance(Ci.nsIScriptableUnicodeConverter);
+  const converter = Cc[
+    "@mozilla.org/intl/scriptableunicodeconverter"
+  ].createInstance(Ci.nsIScriptableUnicodeConverter);
 
   converter.charset = "UTF-8";
 

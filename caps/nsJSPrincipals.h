@@ -9,6 +9,12 @@
 #include "jsapi.h"
 #include "nsIPrincipal.h"
 
+namespace mozilla {
+namespace ipc {
+class PrincipalInfo;
+}  // namespace ipc
+}  // namespace mozilla
+
 class nsJSPrincipals : public nsIPrincipal, public JSPrincipals {
  public:
   /* SpiderMonkey security callbacks. */
@@ -24,7 +30,23 @@ class nsJSPrincipals : public nsIPrincipal, public JSPrincipals {
                                      uint32_t aTag,
                                      JSPrincipals** aOutPrincipals);
 
+  /* For write() implementations of off-main-thread JSPrincipals. */
+  static bool WritePrincipalInfo(JSStructuredCloneWriter* aWriter,
+                                 const mozilla::ipc::PrincipalInfo& aInfo);
+  // This class is used on the main thread to specify which principal to use
+  // when reading principals data that was set on a DOM worker thread.
+  // DOM workers do not use principals from Gecko's point of view, and any
+  // JSPrincipals used internally will be a shared singleton object. When that
+  // singleton is written out and later read on the main thread, we substitute
+  // the principal specified with this class.
+  struct MOZ_RAII AutoSetActiveWorkerPrincipal {
+    explicit AutoSetActiveWorkerPrincipal(nsIPrincipal* aPrincipal);
+    ~AutoSetActiveWorkerPrincipal();
+  };
+
   bool write(JSContext* aCx, JSStructuredCloneWriter* aWriter) final;
+
+  bool isSystemOrAddonPrincipal() final;
 
   /*
    * Get a weak reference to nsIPrincipal associated with the given JS

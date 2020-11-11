@@ -1,4 +1,3 @@
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -12,7 +11,7 @@ const TEST_URI = URL_ROOT + "doc_keyframeanimation.html";
 
 add_task(async function() {
   await addTab(TEST_URI);
-  const {inspector, view} = await openRuleView();
+  const { inspector, view } = await openRuleView();
   await selectNode("#boxy", inspector);
   await testAddTextInFilter(inspector, view);
 });
@@ -21,12 +20,17 @@ async function testAddTextInFilter(inspector, view) {
   await setSearchFilter(view, SEARCH);
 
   info("Check that the correct rules are visible");
-  is(getRuleViewRuleEditor(view, 0).rule.selectorText, "element",
-    "First rule is inline element.");
+  is(
+    getRuleViewRuleEditor(view, 0).rule.selectorText,
+    "element",
+    "First rule is inline element."
+  );
 
   const ruleEditor = getRuleViewRuleEditor(view, 2, 0);
 
   is(ruleEditor.rule.domRule.keyText, "20%", "Second rule is 20%.");
-  ok(ruleEditor.selectorText.classList.contains("ruleview-highlight"),
-    "20% selector is highlighted.");
+  ok(
+    ruleEditor.selectorText.classList.contains("ruleview-highlight"),
+    "20% selector is highlighted."
+  );
 }

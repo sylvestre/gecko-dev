@@ -9,7 +9,6 @@
 
 #include "mozilla/Attributes.h"
 #include "FrameLayerBuilder.h"
-#include "imgIContainer.h"
 #include "nsRect.h"
 #include "nsColor.h"
 #include "gfxRect.h"
@@ -27,7 +26,7 @@ class nsDisplayFilters;
 
 namespace mozilla {
 namespace gfx {
-struct Color;
+struct sRGBColor;
 }
 }  // namespace mozilla
 
@@ -220,6 +219,24 @@ class nsDisplayThemedBackgroundGeometry : public nsDisplayItemGeometry {
   bool mWindowIsActive;
 };
 
+class nsDisplayTreeBodyGeometry
+    : public nsDisplayItemGenericGeometry,
+      public nsImageGeometryMixin<nsDisplayTreeBodyGeometry> {
+ public:
+  nsDisplayTreeBodyGeometry(nsDisplayItem* aItem,
+                            nsDisplayListBuilder* aBuilder,
+                            bool aWindowIsActive)
+      : nsDisplayItemGenericGeometry(aItem, aBuilder),
+        nsImageGeometryMixin(aItem, aBuilder),
+        mWindowIsActive(aWindowIsActive) {}
+
+  bool InvalidateForSyncDecodeImages() const override {
+    return ShouldInvalidateToSyncDecodeImages();
+  }
+
+  bool mWindowIsActive = false;
+};
+
 class nsDisplayBoxShadowInnerGeometry : public nsDisplayItemGeometry {
  public:
   nsDisplayBoxShadowInnerGeometry(nsDisplayItem* aItem,
@@ -253,7 +270,7 @@ class nsDisplaySolidColorRegionGeometry : public nsDisplayItemBoundsGeometry {
   nsDisplaySolidColorRegionGeometry(nsDisplayItem* aItem,
                                     nsDisplayListBuilder* aBuilder,
                                     const nsRegion& aRegion,
-                                    mozilla::gfx::Color aColor)
+                                    mozilla::gfx::sRGBColor aColor)
       : nsDisplayItemBoundsGeometry(aItem, aBuilder),
         mRegion(aRegion),
         mColor(aColor) {}
@@ -261,7 +278,7 @@ class nsDisplaySolidColorRegionGeometry : public nsDisplayItemBoundsGeometry {
   void MoveBy(const nsPoint& aOffset) override;
 
   nsRegion mRegion;
-  mozilla::gfx::Color mColor;
+  mozilla::gfx::sRGBColor mColor;
 };
 
 class nsDisplaySVGEffectGeometry : public nsDisplayItemGeometry {
@@ -302,15 +319,6 @@ class nsDisplayFiltersGeometry
   bool InvalidateForSyncDecodeImages() const override {
     return ShouldInvalidateToSyncDecodeImages();
   }
-};
-
-class nsCharClipGeometry : public nsDisplayItemGenericGeometry {
- public:
-  nsCharClipGeometry(nsCharClipDisplayItem* aItem,
-                     nsDisplayListBuilder* aBuilder);
-
-  nscoord mVisIStartEdge;
-  nscoord mVisIEndEdge;
 };
 
 class nsDisplayTableItemGeometry

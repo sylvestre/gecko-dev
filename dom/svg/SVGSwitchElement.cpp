@@ -7,13 +7,13 @@
 #include "mozilla/dom/SVGSwitchElement.h"
 
 #include "nsLayoutUtils.h"
-#include "nsSVGUtils.h"
 #include "mozilla/Preferences.h"
+#include "mozilla/SVGUtils.h"
 #include "mozilla/dom/SVGSwitchElementBinding.h"
 
 class nsIFrame;
 
-NS_IMPL_NS_NEW_NAMESPACED_SVG_ELEMENT(Switch)
+NS_IMPL_NS_NEW_SVG_ELEMENT(Switch)
 
 namespace mozilla {
 namespace dom {
@@ -42,8 +42,6 @@ SVGSwitchElement::SVGSwitchElement(
     already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo)
     : SVGSwitchElementBase(std::move(aNodeInfo)) {}
 
-SVGSwitchElement::~SVGSwitchElement() {}
-
 void SVGSwitchElement::MaybeInvalidate() {
   // We must not change mActiveChild until after
   // InvalidateAndScheduleBoundsUpdate has been called, otherwise
@@ -57,9 +55,9 @@ void SVGSwitchElement::MaybeInvalidate() {
 
   nsIFrame* frame = GetPrimaryFrame();
   if (frame) {
-    nsLayoutUtils::PostRestyleEvent(this, nsRestyleHint(0),
+    nsLayoutUtils::PostRestyleEvent(this, RestyleHint{0},
                                     nsChangeHint_InvalidateRenderingObservers);
-    nsSVGUtils::ScheduleReflowSVG(frame);
+    SVGUtils::ScheduleReflowSVG(frame);
   }
 
   mActiveChild = newActiveChild;
@@ -114,62 +112,47 @@ nsIContent* SVGSwitchElement::FindActiveChild() const {
   nsAutoString acceptLangs;
   Preferences::GetLocalizedString("intl.accept_languages", acceptLangs);
 
-  if (!acceptLangs.IsEmpty()) {
-    int32_t bestLanguagePreferenceRank = -1;
-    nsIContent* bestChild = nullptr;
-    nsIContent* defaultChild = nullptr;
-    for (nsIContent* child = nsINode::GetFirstChild(); child;
-         child = child->GetNextSibling()) {
-      if (!child->IsElement()) {
-        continue;
-      }
-      nsCOMPtr<SVGTests> tests(do_QueryInterface(child));
-      if (tests) {
-        if (tests->PassesConditionalProcessingTests(
-                SVGTests::kIgnoreSystemLanguage)) {
-          int32_t languagePreferenceRank =
-              tests->GetBestLanguagePreferenceRank(acceptLangs);
-          switch (languagePreferenceRank) {
-            case 0:
-              // best possible match
-              return child;
-            case -1:
-              // no match
-              break;
-            case -2:
-              // no systemLanguage attribute. If there's nothing better
-              // we'll use the first such child.
-              if (!defaultChild) {
-                defaultChild = child;
-              }
-              break;
-            default:
-              if (bestLanguagePreferenceRank == -1 ||
-                  languagePreferenceRank < bestLanguagePreferenceRank) {
-                bestLanguagePreferenceRank = languagePreferenceRank;
-                bestChild = child;
-              }
-              break;
-          }
-        }
-      } else if (!bestChild) {
-        bestChild = child;
-      }
-    }
-    return bestChild ? bestChild : defaultChild;
-  }
-
+  int32_t bestLanguagePreferenceRank = -1;
+  nsIContent* bestChild = nullptr;
+  nsIContent* defaultChild = nullptr;
   for (nsIContent* child = nsINode::GetFirstChild(); child;
        child = child->GetNextSibling()) {
     if (!child->IsElement()) {
       continue;
     }
     nsCOMPtr<SVGTests> tests(do_QueryInterface(child));
-    if (!tests || tests->PassesConditionalProcessingTests(&acceptLangs)) {
-      return child;
+    if (tests) {
+      if (tests->PassesConditionalProcessingTestsIgnoringSystemLanguage()) {
+        int32_t languagePreferenceRank =
+            tests->GetBestLanguagePreferenceRank(acceptLangs);
+        switch (languagePreferenceRank) {
+          case 0:
+            // best possible match
+            return child;
+          case -1:
+            // no match
+            break;
+          case -2:
+            // no systemLanguage attribute. If there's nothing better
+            // we'll use the first such child.
+            if (!defaultChild) {
+              defaultChild = child;
+            }
+            break;
+          default:
+            if (bestLanguagePreferenceRank == -1 ||
+                languagePreferenceRank < bestLanguagePreferenceRank) {
+              bestLanguagePreferenceRank = languagePreferenceRank;
+              bestChild = child;
+            }
+            break;
+        }
+      }
+    } else if (!bestChild) {
+      bestChild = child;
     }
   }
-  return nullptr;
+  return bestChild ? bestChild : defaultChild;
 }
 
 }  // namespace dom

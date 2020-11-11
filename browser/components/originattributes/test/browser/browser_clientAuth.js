@@ -15,7 +15,10 @@ registerCleanupFunction(() => {
 
 async function setup() {
   await SpecialPowers.pushPrefEnv({
-    set: [["security.default_personal_cert", "Ask Every Time"]],
+    set: [
+      ["security.default_personal_cert", "Ask Every Time"],
+      ["privacy.partition.network_state", false],
+    ],
   });
 }
 
@@ -37,8 +40,10 @@ function getResult() {
 
 // aGetResultImmediately must be true because we need to get the result before
 // the next tab is opened.
-IsolationTestTools.runTests("https://requireclientcert.example.com",
-                            getResult,
-                            null, // aCompareResultFunc
-                            setup, // aBeginFunc
-                            true); // aGetResultImmediately
+IsolationTestTools.runTests(
+  "https://requireclientcert.example.com",
+  getResult,
+  null, // aCompareResultFunc
+  setup, // aBeginFunc
+  true
+); // aGetResultImmediately

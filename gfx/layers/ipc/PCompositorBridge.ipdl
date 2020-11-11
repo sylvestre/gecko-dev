@@ -8,14 +8,18 @@
 include LayersSurfaces;
 include LayersMessages;
 include PlatformWidgetTypes;
+include PCompositorBridgeTypes;
 include protocol PAPZ;
 include protocol PAPZCTreeManager;
 include protocol PBrowser;
+include protocol PCanvas;
 include protocol PCompositorManager;
 include protocol PCompositorWidget;
 include protocol PLayerTransaction;
 include protocol PTexture;
+include protocol PWebGL;
 include protocol PWebRenderBridge;
+include protocol PWebGPU;
 include "mozilla/GfxMessageUtils.h";
 include "mozilla/layers/LayersMessageUtils.h";
 include "mozilla/layers/WebRenderMessageUtils.h";
@@ -34,16 +38,15 @@ using mozilla::LayoutDeviceIntPoint from "Units.h";
 using mozilla::LayoutDeviceIntRegion from "Units.h";
 using mozilla::LayoutDeviceIntSize from "Units.h";
 using class mozilla::TimeStamp from "mozilla/TimeStamp.h";
-using class mozilla::layers::FrameUniformityData from "mozilla/layers/FrameUniformityData.h";
 using mozilla::layers::TextureFlags from "mozilla/layers/CompositorTypes.h";
 using mozilla::layers::CompositorOptions from "mozilla/layers/CompositorOptions.h";
 using mozilla::wr::PipelineId from "mozilla/webrender/WebRenderTypes.h";
 using mozilla::wr::IdNamespace from "mozilla/webrender/WebRenderTypes.h";
 using base::ProcessId from "base/process.h";
 using mozilla::wr::MaybeExternalImageId from "mozilla/webrender/WebRenderTypes.h";
-using mozilla::wr::WebRenderError from "mozilla/webrender/WebRenderTypes.h";
 using mozilla::layers::LayersObserverEpoch from "mozilla/layers/LayersTypes.h";
 using mozilla::layers::TransactionId from "mozilla/layers/LayersTypes.h";
+using struct DxgiAdapterDesc from "mozilla/D3DMessageUtils.h";
 
 namespace mozilla {
 namespace layers {
@@ -64,7 +67,6 @@ struct FrameStats {
   nsCString url;
 };
 
-
 /**
  * The PCompositorBridge protocol is a top-level protocol for the compositor.
  * There is an instance of the protocol for each compositor, plus one for each
@@ -74,15 +76,15 @@ struct FrameStats {
  *   CompositorBridgeChild instance lives in the UI process, and the
  *   CompositorBridgeParent lives in the GPU process (if there is one) or the
  *   UI process otherwise.
- * - There is also a CrossProcessCompositorBridgeParent/CompositorBridgeChild
- *   pair created for each content process. The CrossProcessCompositorBridgeParent
+ * - There is also a ContentCompositorBridgeParent/CompositorBridgeChild
+ *   pair created for each content process. The ContentCompositorBridgeParent
  *   lives in the GPU process (if there is one) or the UI process otherwise. The
  *   CompositorBridgeChild is a singleton in the content process. Note that
  *   a given content process may have multiple browser instances (represented
- *   by TabChild instances), that are attached to different windows, and therefore
+ *   by BrowserChild instances), that are attached to different windows, and therefore
  *   rendered by different compositors. This means that when a browser instance
  *   sends messages via its CompositorBridgeChild, the corresponding
- *   CrossProcessCompositorBridgeParent has to use the layers id in the message
+ *   ContentCompositorBridgeParent has to use the layers id in the message
  *   to find the correct compositor or CompositorBridgeParent to pass the message
  *   on to.
  *
@@ -90,7 +92,7 @@ struct FrameStats {
  * protocol, which is per-browser. A lot of the functions in the protocol are
  * basically multiplexing/demultiplexing stuff in PLayerTransaction.
  */
-sync protocol PCompositorBridge
+sync refcounted protocol PCompositorBridge
 {
   manager PCompositorManager;
 
@@ -101,6 +103,8 @@ sync protocol PCompositorBridge
   manages PTexture;
   manages PCompositorWidget;
   manages PWebRenderBridge;
+  manages PWebGL;
+  manages PWebGPU;
 
 child:
   // The child should invalidate retained layers. This is used for local
@@ -113,8 +117,9 @@ child:
   // the root layer tree).
   // transactionId is the id of the transaction before this composite, or 0
   // if there was no transaction since the last composite.
-  async DidComposite(LayersId id, TransactionId transactionId,
-                     TimeStamp compositeStart, TimeStamp compositeEnd);
+  prio(mediumhigh) async DidComposite(LayersId id, TransactionId transactionId,
+                                      TimeStamp compositeStart,
+                                      TimeStamp compositeEnd);
 
   async NotifyFrameStats(FrameStats[] aFrameStats);
 
@@ -153,6 +158,10 @@ child:
 
   async ObserveLayersUpdate(LayersId aLayersId, LayersObserverEpoch aEpoch, bool aActive);
 
+  async CompositorOptionsChanged(LayersId id, CompositorOptions newOptions);
+
+  async NotifyJankedAnimations(LayersId id, uint64_t[] aJankedAnimations);
+
 parent:
   async __delete__();
 
@@ -166,13 +175,14 @@ parent:
   async PAPZ(LayersId layersId);
   async PAPZCTreeManager(LayersId layersId);
 
+  // Constructor for WebGPU IPDL
+  // Must be called before Initialize().
+  async PWebGPU();
+
   /**
    * Confirmation callback for UpdatePluginConfigurations and HideAllPlugins.
    */
   async RemotePluginsReady();
-
-  // Child requests frame uniformity measurements
-  sync GetFrameUniformity() returns (FrameUniformityData data);
 
   // The child is about to be destroyed, so perform any necessary cleanup.
   sync WillClose();
@@ -181,6 +191,7 @@ parent:
   // the compositor needs to pause/resume in lockstep with the application.
   sync Pause();
   sync Resume();
+  async ResumeAsync();
 
   // See bug 1316632 comment #33 for why this has to be sync. Otherwise,
   // there are ordering issues with SendPLayerTransactionConstructor.
@@ -256,6 +267,9 @@ parent:
 
   async PTexture(SurfaceDescriptor aSharedData, ReadLockDescriptor aReadLock, LayersBackend aBackend, TextureFlags aTextureFlags, LayersId id, uint64_t aSerial, MaybeExternalImageId aExternalImageId);
 
+  async InitPCanvasParent(Endpoint<PCanvasParent> aEndpoint);
+  async ReleasePCanvasParent();
+
   sync SyncWithCompositor();
 
   // The pipelineId is the same as the layersId
@@ -264,12 +278,31 @@ parent:
   sync CheckContentOnlyTDR(uint32_t sequenceNum)
     returns (bool isContentOnlyTDR);
 
+  async BeginRecording(TimeStamp aRecordingStart)
+    returns (bool success);
+
+  async EndRecordingToDisk()
+    returns (bool success);
+
+  async EndRecordingToMemory()
+    returns (CollectedFramesParams? frames);
+
+  sync SupportsAsyncDXGISurface()
+    returns (bool value);
+  sync PreferredDXGIAdapter()
+    returns (DxgiAdapterDesc desc);
+
+  // To set up sharing the composited output to Firefox Reality on Desktop
+  async RequestFxrOutput();
+
+  // Actor that represents one WebGL context.
+  async PWebGL();
+
 child:
   // Send back Compositor Frame Metrics from APZCs so tiled layers can
   // update progressively.
   async SharedCompositorFrameMetrics(Handle metrics, CrossProcessMutexHandle mutex, LayersId aLayersId, uint32_t aAPZCId);
   async ReleaseSharedCompositorFrameMetrics(ViewID aId, uint32_t aAPZCId);
-  async NotifyWebRenderError(WebRenderError error);
 };
 
 } // layers

@@ -9,9 +9,7 @@
 #include "mozilla/dom/cache/DBSchema.h"
 #include "mozStorageHelper.h"
 
-namespace mozilla {
-namespace dom {
-namespace cache {
+namespace mozilla::dom::cache {
 
 using mozilla::dom::quota::QuotaObject;
 
@@ -38,8 +36,8 @@ Connection::Close() {
   mClosed = true;
 
   // If we are closing here, then Cache must not have a transaction
-  // open anywhere else.  This should be guaranteed to succeed.
-  MOZ_ALWAYS_SUCCEEDS(db::IncrementalVacuum(this));
+  // open anywhere else.  This may fail if storage is corrupted.
+  Unused << NS_WARN_IF(NS_FAILED(db::IncrementalVacuum(*this)));
 
   return mBase->Close();
 }
@@ -82,7 +80,7 @@ Connection::CreateAsyncStatement(const nsACString&,
 }
 
 NS_IMETHODIMP
-Connection::ExecuteAsync(mozIStorageBaseStatement**, uint32_t,
+Connection::ExecuteAsync(const nsTArray<RefPtr<mozIStorageBaseStatement>>&,
                          mozIStorageStatementCallback*,
                          mozIStoragePendingStatement**) {
   // async methods are not supported
@@ -103,14 +101,6 @@ Connection::CreateFunction(const nsACString& aFunctionName,
                            mozIStorageFunction* aFunction) {
   // async methods are not supported
   return NS_ERROR_NOT_IMPLEMENTED;
-}
-
-NS_IMETHODIMP
-Connection::CreateAggregateFunction(const nsACString& aFunctionName,
-                                    int32_t aNumArguments,
-                                    mozIStorageAggregateFunction* aFunction) {
-  return mBase->CreateAggregateFunction(aFunctionName, aNumArguments,
-                                        aFunction);
 }
 
 NS_IMETHODIMP
@@ -226,6 +216,11 @@ Connection::SetDefaultTransactionType(int32_t aType) {
 }
 
 NS_IMETHODIMP
+Connection::GetVariableLimit(int32_t* aResultOut) {
+  return mBase->GetVariableLimit(aResultOut);
+}
+
+NS_IMETHODIMP
 Connection::BeginTransaction() { return mBase->BeginTransaction(); }
 
 NS_IMETHODIMP
@@ -256,6 +251,4 @@ Connection::GetQuotaObjects(QuotaObject** aDatabaseQuotaObject,
   return mBase->GetQuotaObjects(aDatabaseQuotaObject, aJournalQuotaObject);
 }
 
-}  // namespace cache
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom::cache

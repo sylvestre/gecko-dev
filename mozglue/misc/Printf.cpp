@@ -11,6 +11,7 @@
  */
 
 #include "mozilla/AllocPolicy.h"
+#include "mozilla/Likely.h"
 #include "mozilla/Printf.h"
 #include "mozilla/Sprintf.h"
 #include "mozilla/UniquePtrExtensions.h"
@@ -22,7 +23,7 @@
 #include <string.h>
 
 #if defined(XP_WIN)
-#include <windows.h>
+#  include <windows.h>
 #endif
 
 /*
@@ -30,11 +31,11 @@
  * and requires array notation.
  */
 #ifdef HAVE_VA_COPY
-#define VARARGS_ASSIGN(foo, bar) VA_COPY(foo, bar)
+#  define VARARGS_ASSIGN(foo, bar) VA_COPY(foo, bar)
 #elif defined(HAVE_VA_LIST_AS_ARRAY)
-#define VARARGS_ASSIGN(foo, bar) foo[0] = bar[0]
+#  define VARARGS_ASSIGN(foo, bar) foo[0] = bar[0]
 #else
-#define VARARGS_ASSIGN(foo, bar) (foo) = (bar)
+#  define VARARGS_ASSIGN(foo, bar) (foo) = (bar)
 #endif
 
 /*
@@ -61,7 +62,7 @@ typedef mozilla::Vector<NumArgState, 20, mozilla::MallocAllocPolicy>
 #define TYPE_INTSTR 10
 #define TYPE_POINTER 11
 #if defined(XP_WIN)
-#define TYPE_WSTRING 12
+#  define TYPE_WSTRING 12
 #endif
 #define TYPE_UNKNOWN 20
 
@@ -70,6 +71,9 @@ typedef mozilla::Vector<NumArgState, 20, mozilla::MallocAllocPolicy>
 #define FLAG_SPACED 0x4
 #define FLAG_ZEROS 0x8
 #define FLAG_NEG 0x10
+
+static const char hex[] = "0123456789abcdef";
+static const char HEX[] = "0123456789ABCDEF";
 
 // Fill into the buffer using the data in src
 bool mozilla::PrintfTarget::fill2(const char* src, int srclen, int width,
@@ -166,6 +170,55 @@ bool mozilla::PrintfTarget::fill_n(const char* src, int srclen, int width,
   return true;
 }
 
+// All that the cvt_* functions care about as far as the TYPE_* constants is
+// that the low bit is set to indicate unsigned, or unset to indicate signed.
+// So we don't try to hard to ensure that the passed TYPE_* constant lines
+// up with the actual size of the number being printed here.  The main printf
+// code, below, does have to care so that the correct bits are extracted from
+// the varargs list.
+bool mozilla::PrintfTarget::appendIntDec(int32_t num) {
+  int flags = 0;
+  long n = num;
+  if (n < 0) {
+    n = -n;
+    flags |= FLAG_NEG;
+  }
+  return cvt_l(n, -1, -1, 10, TYPE_INTN, flags, hex);
+}
+
+bool mozilla::PrintfTarget::appendIntDec(uint32_t num) {
+  return cvt_l(num, -1, -1, 10, TYPE_UINTN, 0, hex);
+}
+
+bool mozilla::PrintfTarget::appendIntOct(uint32_t num) {
+  return cvt_l(num, -1, -1, 8, TYPE_UINTN, 0, hex);
+}
+
+bool mozilla::PrintfTarget::appendIntHex(uint32_t num) {
+  return cvt_l(num, -1, -1, 16, TYPE_UINTN, 0, hex);
+}
+
+bool mozilla::PrintfTarget::appendIntDec(int64_t num) {
+  int flags = 0;
+  if (num < 0) {
+    num = -num;
+    flags |= FLAG_NEG;
+  }
+  return cvt_ll(num, -1, -1, 10, TYPE_INTN, flags, hex);
+}
+
+bool mozilla::PrintfTarget::appendIntDec(uint64_t num) {
+  return cvt_ll(num, -1, -1, 10, TYPE_UINTN, 0, hex);
+}
+
+bool mozilla::PrintfTarget::appendIntOct(uint64_t num) {
+  return cvt_ll(num, -1, -1, 8, TYPE_UINTN, 0, hex);
+}
+
+bool mozilla::PrintfTarget::appendIntHex(uint64_t num) {
+  return cvt_ll(num, -1, -1, 16, TYPE_UINTN, 0, hex);
+}
+
 /* Convert a long into its printable form. */
 bool mozilla::PrintfTarget::cvt_l(long num, int width, int prec, int radix,
                                   int type, int flags, const char* hexp) {
@@ -258,9 +311,27 @@ bool mozilla::PrintfTarget::cvt_f(double d, const char* fmt0,
   }
 #endif
   size_t len = SprintfLiteral(fout, fin, d);
-  MOZ_RELEASE_ASSERT(len <= sizeof(fout));
+  // Note that SprintfLiteral will always write a \0 at the end, so a
+  // "<=" check here would be incorrect -- the buffer size passed to
+  // snprintf includes the trailing \0, but the returned length does
+  // not.
+  if (MOZ_LIKELY(len < sizeof(fout))) {
+    return emit(fout, len);
+  }
 
-  return emit(fout, len);
+  // Maybe the user used "%500.500f" or something like that.
+  size_t buf_size = len + 1;
+  UniqueFreePtr<char> buf((char*)malloc(buf_size));
+  if (!buf) {
+    return false;
+  }
+  len = snprintf(buf.get(), buf_size, fin, d);
+  // If this assert fails, then SprintfLiteral has a bug -- and in
+  // this case we would like to learn of it, which is why there is a
+  // release assert.
+  MOZ_RELEASE_ASSERT(len < buf_size);
+
+  return emit(buf.get(), len);
 }
 
 /*
@@ -543,8 +614,6 @@ bool mozilla::PrintfTarget::vprint(const char* fmt, va_list ap) {
 #endif
   } u;
   const char* fmt0;
-  static const char hex[] = "0123456789abcdef";
-  static const char HEX[] = "0123456789ABCDEF";
   const char* hexp;
   int i;
   char pattern[20];
@@ -804,7 +873,7 @@ bool mozilla::PrintfTarget::vprint(const char* fmt, va_list ap) {
           break;
         }
         MOZ_ASSERT(type == TYPE_LONG);
-        MOZ_FALLTHROUGH;
+        [[fallthrough]];
       case 'S':
 #if defined(XP_WIN)
       {

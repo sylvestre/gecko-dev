@@ -11,7 +11,11 @@
 #include "mozilla/ipc/URIUtils.h"
 #include "mozilla/Sprintf.h"
 
+#include "nsIClassInfoImpl.h"
 #include "nsIIOService.h"
+#include "nsISerializable.h"
+#include "nsIObjectInputStream.h"
+#include "nsIObjectOutputStream.h"
 #include "nsIURL.h"
 #include "nsNetUtil.h"
 #include "plstr.h"
@@ -23,12 +27,16 @@ using namespace mozilla::ipc;
 #define DEFAULT_IMAGE_SIZE 16
 
 #if defined(MAX_PATH)
-#define SANE_FILE_NAME_LEN MAX_PATH
+#  define SANE_FILE_NAME_LEN MAX_PATH
 #elif defined(PATH_MAX)
-#define SANE_FILE_NAME_LEN PATH_MAX
+#  define SANE_FILE_NAME_LEN PATH_MAX
 #else
-#define SANE_FILE_NAME_LEN 1024
+#  define SANE_FILE_NAME_LEN 1024
 #endif
+
+static NS_DEFINE_CID(kThisIconURIImplementationCID,
+                     NS_THIS_ICONURI_IMPLEMENTATION_CID);
+static NS_DEFINE_CID(kIconURICID, NS_ICONURI_CID);
 
 // helper function for parsing out attributes like size, and contentType
 // from the icon url.
@@ -43,6 +51,11 @@ static const char* kStateStrings[] = {"normal", "disabled"};
 
 ////////////////////////////////////////////////////////////////////////////////
 
+NS_IMPL_CLASSINFO(nsMozIconURI, nullptr, nsIClassInfo::THREADSAFE,
+                  NS_ICONURI_CID)
+// Empty CI getter. We only need nsIClassInfo for Serialization
+NS_IMPL_CI_INTERFACE_GETTER0(nsMozIconURI)
+
 nsMozIconURI::nsMozIconURI()
     : mSize(DEFAULT_IMAGE_SIZE), mIconSize(-1), mIconState(-1) {}
 
@@ -52,11 +65,15 @@ NS_IMPL_ADDREF(nsMozIconURI)
 NS_IMPL_RELEASE(nsMozIconURI)
 
 NS_INTERFACE_MAP_BEGIN(nsMozIconURI)
-  NS_INTERFACE_MAP_ENTRY(nsIMozIconURI)
+  if (aIID.Equals(kThisIconURIImplementationCID)) {
+    foundInterface = static_cast<nsIURI*>(this);
+  } else
+    NS_INTERFACE_MAP_ENTRY(nsIMozIconURI)
   NS_INTERFACE_MAP_ENTRY_AMBIGUOUS(nsISupports, nsIURI)
   NS_INTERFACE_MAP_ENTRY(nsIURI)
-  NS_INTERFACE_MAP_ENTRY(nsIIPCSerializableURI)
   NS_INTERFACE_MAP_ENTRY_CONDITIONAL(nsINestedURI, mIconURL)
+  NS_INTERFACE_MAP_ENTRY(nsISerializable)
+  NS_IMPL_QUERY_CLASSINFO(nsMozIconURI)
 NS_INTERFACE_MAP_END
 
 #define MOZICON_SCHEME "moz-icon:"
@@ -133,7 +150,8 @@ nsMozIconURI::GetHasRef(bool* result) {
   return NS_OK;
 }
 
-NS_IMPL_ISUPPORTS(nsMozIconURI::Mutator, nsIURISetters, nsIURIMutator)
+NS_IMPL_NSIURIMUTATOR_ISUPPORTS(nsMozIconURI::Mutator, nsIURISetters,
+                                nsIURIMutator, nsISerializable)
 
 NS_IMETHODIMP
 nsMozIconURI::Mutate(nsIURIMutator** aMutator) {
@@ -255,7 +273,7 @@ nsresult nsMozIconURI::SetSpecInternal(const nsACString& aSpec) {
     return NS_OK;
   }
 
-  if (StringBeginsWith(iconPath, NS_LITERAL_CSTRING("//"))) {
+  if (StringBeginsWith(iconPath, "//"_ns)) {
     // Sanity check this supposed dummy file name.
     if (iconPath.Length() > SANE_FILE_NAME_LEN) {
       return NS_ERROR_MALFORMED_URI;
@@ -273,8 +291,7 @@ nsresult nsMozIconURI::SetSpecInternal(const nsACString& aSpec) {
   mIconURL = do_QueryInterface(uri);
   if (mIconURL) {
     // The inner URI should be a 'file:' one. If not, bail.
-    bool isFile = false;
-    if (!NS_SUCCEEDED(mIconURL->SchemeIs("file", &isFile)) || !isFile) {
+    if (!mIconURL->SchemeIs("file")) {
       return NS_ERROR_MALFORMED_URI;
     }
     mFileName.Truncate();
@@ -418,9 +435,10 @@ nsMozIconURI::EqualsExceptRef(nsIURI* other, bool* result) {
 
 NS_IMETHODIMP
 nsMozIconURI::SchemeIs(const char* aScheme, bool* aEquals) {
-  NS_ENSURE_ARG_POINTER(aEquals);
+  MOZ_ASSERT(aEquals, "null pointer");
   if (!aScheme) {
-    return NS_ERROR_INVALID_ARG;
+    *aEquals = false;
+    return NS_OK;
   }
 
   *aEquals = PL_strcasecmp("moz-icon", aScheme) ? false : true;
@@ -540,8 +558,6 @@ nsMozIconURI::GetIconState(nsACString& aState) {
   }
   return NS_OK;
 }
-////////////////////////////////////////////////////////////////////////////////
-// nsIIPCSerializableURI methods:
 
 void nsMozIconURI::Serialize(URIParams& aParams) {
   IconURIParams params;
@@ -554,9 +570,9 @@ void nsMozIconURI::Serialize(URIParams& aParams) {
       return;
     }
 
-    params.uri() = iconURLParams;
+    params.uri() = Some(std::move(iconURLParams));
   } else {
-    params.uri() = void_t();
+    params.uri() = Nothing();
   }
 
   params.size() = mSize;
@@ -575,8 +591,8 @@ bool nsMozIconURI::Deserialize(const URIParams& aParams) {
   }
 
   const IconURIParams& params = aParams.get_IconURIParams();
-  if (params.uri().type() != OptionalURIParams::Tvoid_t) {
-    nsCOMPtr<nsIURI> uri = DeserializeURI(params.uri().get_URIParams());
+  if (params.uri().isSome()) {
+    nsCOMPtr<nsIURI> uri = DeserializeURI(params.uri().ref());
     mIconURL = do_QueryInterface(uri);
     if (!mIconURL) {
       MOZ_ASSERT_UNREACHABLE("bad nsIURI passed");
@@ -619,4 +635,25 @@ nsMozIconURI::GetInnerURI(nsIURI** aURI) {
 NS_IMETHODIMP
 nsMozIconURI::GetInnermostURI(nsIURI** aURI) {
   return NS_ImplGetInnermostURI(this, aURI);
+}
+
+NS_IMETHODIMP
+nsMozIconURI::Read(nsIObjectInputStream* aStream) {
+  MOZ_ASSERT_UNREACHABLE("Use nsIURIMutator.read() instead");
+  return NS_ERROR_NOT_IMPLEMENTED;
+}
+
+nsresult nsMozIconURI::ReadPrivate(nsIObjectInputStream* aStream) {
+  nsAutoCString spec;
+  nsresult rv = aStream->ReadCString(spec);
+  NS_ENSURE_SUCCESS(rv, rv);
+  return SetSpecInternal(spec);
+}
+
+NS_IMETHODIMP
+nsMozIconURI::Write(nsIObjectOutputStream* aStream) {
+  nsAutoCString spec;
+  nsresult rv = GetSpec(spec);
+  NS_ENSURE_SUCCESS(rv, rv);
+  return aStream->WriteStringZ(spec.get());
 }

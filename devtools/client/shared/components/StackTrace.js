@@ -4,13 +4,18 @@
 
 "use strict";
 
-const { Component, createFactory } = require("devtools/client/shared/vendor/react");
+const {
+  Component,
+  createFactory,
+} = require("devtools/client/shared/vendor/react");
 const PropTypes = require("devtools/client/shared/vendor/react-prop-types");
 const dom = require("devtools/client/shared/vendor/react-dom-factories");
 const { LocalizationHelper } = require("devtools/shared/l10n");
-const Frame = createFactory(require("./Frame"));
+const Frame = createFactory(require("devtools/client/shared/components/Frame"));
 
-const l10n = new LocalizationHelper("devtools/client/locales/webconsole.properties");
+const l10n = new LocalizationHelper(
+  "devtools/client/locales/webconsole.properties"
+);
 
 class AsyncFrameClass extends Component {
   static get propTypes() {
@@ -34,9 +39,8 @@ class StackTrace extends Component {
     return {
       stacktrace: PropTypes.array.isRequired,
       onViewSourceInDebugger: PropTypes.func.isRequired,
-      onViewSourceInScratchpad: PropTypes.func,
       // Service to enable the source map feature.
-      sourceMapService: PropTypes.object,
+      sourceMapURLService: PropTypes.object,
     };
   }
 
@@ -44,36 +48,44 @@ class StackTrace extends Component {
     const {
       stacktrace,
       onViewSourceInDebugger,
-      onViewSourceInScratchpad,
-      sourceMapService,
+      sourceMapURLService,
     } = this.props;
+
+    if (!stacktrace || !stacktrace.length) {
+      return null;
+    }
 
     const frames = [];
     stacktrace.forEach((s, i) => {
       if (s.asyncCause) {
-        frames.push("\t", AsyncFrame({
-          key: `${i}-asyncframe`,
-          asyncCause: s.asyncCause,
-        }), "\n");
+        frames.push(
+          "\t",
+          AsyncFrame({
+            key: `${i}-asyncframe`,
+            asyncCause: s.asyncCause,
+          }),
+          "\n"
+        );
       }
 
-      const source = s.filename;
-      frames.push("\t", Frame({
-        key: `${i}-frame`,
-        frame: {
-          functionDisplayName: s.functionName,
-          source,
-          line: s.lineNumber,
-          column: s.columnNumber,
-        },
-        showFunctionName: true,
-        showAnonymousFunctionName: true,
-        showFullSourceUrl: true,
-        onClick: (/^Scratchpad\/\d+$/.test(source))
-          ? onViewSourceInScratchpad
-          : onViewSourceInDebugger,
-        sourceMapService,
-      }), "\n");
+      frames.push(
+        "\t",
+        Frame({
+          key: `${i}-frame`,
+          frame: {
+            functionDisplayName: s.functionName,
+            source: s.filename,
+            line: s.lineNumber,
+            column: s.columnNumber,
+          },
+          showFunctionName: true,
+          showAnonymousFunctionName: true,
+          showFullSourceUrl: true,
+          onClick: onViewSourceInDebugger,
+          sourceMapURLService,
+        }),
+        "\n"
+      );
     });
 
     return dom.div({ className: "stack-trace" }, frames);

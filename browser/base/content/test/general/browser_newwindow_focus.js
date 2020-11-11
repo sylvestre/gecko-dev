@@ -8,57 +8,43 @@
 const PAGE = `data:text/html,<a id="target" href="%23" onclick="window.open('http://www.example.com', '_blank', 'width=100,height=100');">Click me</a>`;
 
 /**
- * Returns a Promise that resolves when a new window has
- * opened, and the "load" event has fired in that window.
- * We can't use BrowserTestUtils.domWindowOpened directly,
- * because by the time the "then" on the Promise runs,
- * DOMContentLoaded and load may have already run in the new
- * window. However, we want to be very explicit about what
- * events we're waiting for, and not rely on a quirk of our
- * Promises infrastructure.
- */
-function promiseNewWindow() {
-  return new Promise((resolve) => {
-    let observer = (subject, topic, data) => {
-      if (topic == "domwindowopened") {
-        Services.ww.unregisterNotification(observer);
-        let win = subject.QueryInterface(Ci.nsIDOMWindow);
-        win.addEventListener("load", function() {
-          resolve(win);
-        }, {once: true});
-      }
-    };
-
-    Services.ww.registerNotification(observer);
-  });
-}
-
-/**
  * Test that when a new window is opened from content, focus moves
  * to the initial browser in that window once the window has finished
  * painting.
  */
 add_task(async function test_focus_browser() {
-  await BrowserTestUtils.withNewTab({
-    url: PAGE,
-    gBrowser,
-  }, async function(browser) {
-    let newWinPromise = promiseNewWindow();
-    let delayedStartupPromise = BrowserTestUtils.waitForNewWindow();
+  await BrowserTestUtils.withNewTab(
+    {
+      url: PAGE,
+      gBrowser,
+    },
+    async function(browser) {
+      let newWinPromise = BrowserTestUtils.domWindowOpenedAndLoaded(null);
+      let delayedStartupPromise = BrowserTestUtils.waitForNewWindow();
 
-    await BrowserTestUtils.synthesizeMouseAtCenter("#target", {}, browser);
-    let newWin = await newWinPromise;
-    await BrowserTestUtils.contentPainted(newWin.gBrowser.selectedBrowser);
-    await delayedStartupPromise;
+      await BrowserTestUtils.synthesizeMouseAtCenter("#target", {}, browser);
+      let newWin = await newWinPromise;
+      await BrowserTestUtils.waitForContentEvent(
+        newWin.gBrowser.selectedBrowser,
+        "MozAfterPaint"
+      );
+      await delayedStartupPromise;
 
-    let focusedElement =
-      Services.focus.getFocusedElementForWindow(newWin, false, {});
+      let focusedElement = Services.focus.getFocusedElementForWindow(
+        newWin,
+        false,
+        {}
+      );
 
-    Assert.equal(focusedElement, newWin.gBrowser.selectedBrowser,
-                 "Initial browser should be focused");
+      Assert.equal(
+        focusedElement,
+        newWin.gBrowser.selectedBrowser,
+        "Initial browser should be focused"
+      );
 
-    await BrowserTestUtils.closeWindow(newWin);
-  });
+      await BrowserTestUtils.closeWindow(newWin);
+    }
+  );
 });
 
 /**
@@ -67,29 +53,41 @@ add_task(async function test_focus_browser() {
  * that we _don't_ steal focus once content has painted.
  */
 add_task(async function test_no_steal_focus() {
-  await BrowserTestUtils.withNewTab({
-    url: PAGE,
-    gBrowser,
-  }, async function(browser) {
-    let newWinPromise = promiseNewWindow();
-    let delayedStartupPromise = BrowserTestUtils.waitForNewWindow();
+  await BrowserTestUtils.withNewTab(
+    {
+      url: PAGE,
+      gBrowser,
+    },
+    async function(browser) {
+      let newWinPromise = BrowserTestUtils.domWindowOpenedAndLoaded(null);
+      let delayedStartupPromise = BrowserTestUtils.waitForNewWindow();
 
-    await BrowserTestUtils.synthesizeMouseAtCenter("#target", {}, browser);
-    let newWin = await newWinPromise;
+      await BrowserTestUtils.synthesizeMouseAtCenter("#target", {}, browser);
+      let newWin = await newWinPromise;
 
-    // Because we're switching focus, we shouldn't steal it once
-    // content paints.
-    newWin.gURLBar.focus();
+      // Because we're switching focus, we shouldn't steal it once
+      // content paints.
+      newWin.gURLBar.focus();
 
-    await BrowserTestUtils.contentPainted(newWin.gBrowser.selectedBrowser);
-    await delayedStartupPromise;
+      await BrowserTestUtils.waitForContentEvent(
+        newWin.gBrowser.selectedBrowser,
+        "MozAfterPaint"
+      );
+      await delayedStartupPromise;
 
-    let focusedElement =
-      Services.focus.getFocusedElementForWindow(newWin, false, {});
+      let focusedElement = Services.focus.getFocusedElementForWindow(
+        newWin,
+        false,
+        {}
+      );
 
-    Assert.equal(focusedElement, newWin.gURLBar.inputField,
-                 "URLBar should be focused");
+      Assert.equal(
+        focusedElement,
+        newWin.gURLBar.inputField,
+        "URLBar should be focused"
+      );
 
-    await BrowserTestUtils.closeWindow(newWin);
-  });
+      await BrowserTestUtils.closeWindow(newWin);
+    }
+  );
 });

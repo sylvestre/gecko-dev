@@ -1,4 +1,3 @@
-// Copyright © 2015-2017 winapi-rs developers
 // Licensed under the Apache License, Version 2.0
 // <LICENSE-APACHE or http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
 // <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your option.
@@ -771,7 +770,7 @@ STRUCT!{struct NMHDFILTERBTNCLICK {
 }}
 pub type LPNMHDFILTERBTNCLICK = *mut NMHDFILTERBTNCLICK;
 pub const TOOLBARCLASSNAME: &'static str = "ToolbarWindow32";
-#[cfg(target_arch = "x86")]
+#[cfg(target_pointer_width = "32")]
 STRUCT!{struct TBBUTTON {
     iBitmap: c_int,
     idCommand: c_int,
@@ -1491,7 +1490,7 @@ STRUCT!{struct TTTOOLINFOW {
     uId: UINT_PTR,
     rect: RECT,
     hinst: HINSTANCE,
-    lpszText: LPSTR,
+    lpszText: LPWSTR,
     lParam: LPARAM,
     lpReserved: *mut c_void,
 }}

@@ -16,12 +16,17 @@
 #include "../layers/ImageTypes.h"
 
 #ifdef XP_WIN
-#include <windows.h>
+#  include <windows.h>
+#endif
+
+#ifdef XP_MACOSX
+class MacIOSurface;
 #endif
 
 namespace mozilla {
 
 namespace layers {
+class D3D11ShareHandleImage;
 class D3D11YCbCrImage;
 class Image;
 class GPUVideoImage;
@@ -91,7 +96,7 @@ class DrawBlitProg final {
   };
   struct YUVArgs final {
     Mat3 texMatrix1;
-    YUVColorSpace colorSpace;
+    gfx::YUVColorSpace colorSpace;
   };
 
   void Draw(const BaseArgs& args, const YUVArgs* argsYUV = nullptr) const;
@@ -157,12 +162,12 @@ class GLBlitHelper final {
  public:
   ~GLBlitHelper();
 
-  void BlitFramebuffer(const gfx::IntSize& srcSize,
-                       const gfx::IntSize& destSize,
+  void BlitFramebuffer(const gfx::IntRect& srcRect,
+                       const gfx::IntRect& destRect,
                        GLuint filter = LOCAL_GL_NEAREST) const;
   void BlitFramebufferToFramebuffer(GLuint srcFB, GLuint destFB,
-                                    const gfx::IntSize& srcSize,
-                                    const gfx::IntSize& destSize,
+                                    const gfx::IntRect& srcRect,
+                                    const gfx::IntRect& destRect,
                                     GLuint filter = LOCAL_GL_NEAREST) const;
   void BlitFramebufferToTexture(GLuint destTex, const gfx::IntSize& srcSize,
                                 const gfx::IntSize& destSize,
@@ -185,20 +190,28 @@ class GLBlitHelper final {
                               OriginPos destOrigin);
 
  private:
-#ifdef XP_WIN
-  // GLBlitHelperD3D.cpp:
   bool BlitImage(layers::GPUVideoImage* srcImage, const gfx::IntSize& destSize,
                  OriginPos destOrigin) const;
+#ifdef XP_MACOSX
+  bool BlitImage(MacIOSurface* const iosurf, const gfx::IntSize& destSize,
+                 OriginPos destOrigin) const;
+#endif
+#ifdef XP_WIN
+  // GLBlitHelperD3D.cpp:
+  bool BlitImage(layers::D3D11ShareHandleImage* srcImage,
+                 const gfx::IntSize& destSize, OriginPos destOrigin) const;
   bool BlitImage(layers::D3D11YCbCrImage* srcImage,
                  const gfx::IntSize& destSize, OriginPos destOrigin) const;
 
   bool BlitDescriptor(const layers::SurfaceDescriptorD3D10& desc,
                       const gfx::IntSize& destSize, OriginPos destOrigin) const;
-
+  bool BlitDescriptor(const layers::SurfaceDescriptorDXGIYCbCr& desc,
+                      const gfx::IntSize& destSize,
+                      const OriginPos destOrigin) const;
   bool BlitAngleYCbCr(const WindowsHandle (&handleList)[3],
                       const gfx::IntRect& clipRect, const gfx::IntSize& ySize,
                       const gfx::IntSize& uvSize,
-                      const YUVColorSpace colorSpace,
+                      const gfx::YUVColorSpace colorSpace,
                       const gfx::IntSize& destSize, OriginPos destOrigin) const;
 
   bool BlitAnglePlanes(uint8_t numPlanes,

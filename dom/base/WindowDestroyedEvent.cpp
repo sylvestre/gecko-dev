@@ -12,10 +12,10 @@
 #include "nsIPrincipal.h"
 #include "nsISupportsPrimitives.h"
 #include "nsIAppStartup.h"
-#include "nsToolkitCompsCID.h"
 #include "nsCOMPtr.h"
 #include "nsContentUtils.h"
 #include "xpcpublic.h"
+#include "mozilla/Components.h"
 
 namespace mozilla {
 
@@ -65,8 +65,7 @@ WindowDestroyedEvent::Run() {
     case Phase::Destroying: {
       bool skipNukeCrossCompartment = false;
 #ifndef DEBUG
-      nsCOMPtr<nsIAppStartup> appStartup =
-          do_GetService(NS_APPSTARTUP_CONTRACTID);
+      nsCOMPtr<nsIAppStartup> appStartup = components::AppStartup::Service();
 
       if (appStartup) {
         appStartup->GetShuttingDown(&skipNukeCrossCompartment);
@@ -88,7 +87,8 @@ WindowDestroyedEvent::Run() {
         mPhase = Phase::Nuking;
 
         nsCOMPtr<nsIRunnable> copy(this);
-        NS_IdleDispatchToCurrentThread(copy.forget(), 1000);
+        NS_DispatchToCurrentThreadQueue(copy.forget(), 1000,
+                                        EventQueuePriority::Idle);
       }
     } break;
 
@@ -105,10 +105,15 @@ WindowDestroyedEvent::Run() {
         }
         NS_ENSURE_TRUE(currentInner, NS_OK);
 
-        AutoSafeJSContext cx;
-        JS::Rooted<JSObject*> obj(cx, currentInner->FastGetGlobalJSObject());
+        dom::AutoJSAPI jsapi;
+        jsapi.Init();
+        JSContext* cx = jsapi.cx();
+        JS::Rooted<JSObject*> obj(cx, currentInner->GetGlobalJSObject());
         if (obj && !js::IsSystemRealm(js::GetNonCCWObjectRealm(obj))) {
           JS::Realm* realm = js::GetNonCCWObjectRealm(obj);
+
+          xpc::NukeJSStackFrames(realm);
+
           nsCOMPtr<nsIPrincipal> pc =
               nsJSPrincipals::get(JS::GetRealmPrincipals(realm));
 

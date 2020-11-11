@@ -17,14 +17,23 @@
 
 class nsIScrollbarMediator;
 
-nsIFrame* NS_NewScrollbarFrame(nsIPresShell* aPresShell,
+namespace mozilla {
+class PresShell;
+namespace dom {
+class Element;
+}
+}  // namespace mozilla
+
+nsIFrame* NS_NewScrollbarFrame(mozilla::PresShell* aPresShell,
                                mozilla::ComputedStyle* aStyle);
 
 class nsScrollbarFrame final : public nsBoxFrame,
                                public nsIAnonymousContentCreator {
+  using Element = mozilla::dom::Element;
+
  public:
-  explicit nsScrollbarFrame(ComputedStyle* aStyle)
-      : nsBoxFrame(aStyle, kClassID),
+  explicit nsScrollbarFrame(ComputedStyle* aStyle, nsPresContext* aPresContext)
+      : nsBoxFrame(aStyle, aPresContext, kClassID),
         mIncrement(0),
         mSmoothScroll(false),
         mScrollbarMediator(nullptr),
@@ -40,7 +49,7 @@ class nsScrollbarFrame final : public nsBoxFrame,
 
 #ifdef DEBUG_FRAME_DUMP
   virtual nsresult GetFrameName(nsAString& aResult) const override {
-    return MakeFrameName(NS_LITERAL_STRING("ScrollbarFrame"), aResult);
+    return MakeFrameName(u"ScrollbarFrame"_ns, aResult);
   }
 #endif
 
@@ -57,6 +66,7 @@ class nsScrollbarFrame final : public nsBoxFrame,
                                  nsEventStatus* aEventStatus,
                                  bool aControlHeld) override;
 
+  MOZ_CAN_RUN_SCRIPT
   NS_IMETHOD HandleDrag(nsPresContext* aPresContext,
                         mozilla::WidgetGUIEvent* aEvent,
                         nsEventStatus* aEventStatus) override;
@@ -87,7 +97,7 @@ class nsScrollbarFrame final : public nsBoxFrame,
    * scrollframe by setting its height or width to zero, that will
    * hide the children too.
    */
-  virtual bool DoesClipChildren() override { return true; }
+  virtual bool DoesClipChildrenInBothAxes() override { return true; }
 
   virtual nsresult GetXULMargin(nsMargin& aMargin) override;
 

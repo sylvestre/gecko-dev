@@ -1,10 +1,13 @@
+// GENERATED, DO NOT EDIT
 // file: assert.js
 // Copyright (C) 2017 Ecma International.  All rights reserved.
 // This code is governed by the BSD license found in the LICENSE file.
 /*---
 description: |
     Collection of assertion functions used throughout test262
+defines: [assert]
 ---*/
+
 
 function assert(mustBeTrue, message) {
   if (mustBeTrue === true) {
@@ -12,7 +15,7 @@ function assert(mustBeTrue, message) {
   }
 
   if (message === undefined) {
-    message = 'Expected true but got ' + String(mustBeTrue);
+    message = 'Expected true but got ' + assert._toString(mustBeTrue);
   }
   $ERROR(message);
 }
@@ -43,7 +46,7 @@ assert.sameValue = function (actual, expected, message) {
     message += ' ';
   }
 
-  message += 'Expected SameValue(«' + String(actual) + '», «' + String(expected) + '») to be true';
+  message += 'Expected SameValue(«' + assert._toString(actual) + '», «' + assert._toString(expected) + '») to be true';
 
   $ERROR(message);
 };
@@ -59,7 +62,7 @@ assert.notSameValue = function (actual, unexpected, message) {
     message += ' ';
   }
 
-  message += 'Expected SameValue(«' + String(actual) + '», «' + String(unexpected) + '») to be false';
+  message += 'Expected SameValue(«' + assert._toString(actual) + '», «' + assert._toString(unexpected) + '») to be false';
 
   $ERROR(message);
 };
@@ -93,12 +96,29 @@ assert.throws = function (expectedErrorConstructor, func, message) {
   $ERROR(message);
 };
 
+assert._toString = function (value) {
+  try {
+    if (value === 0 && 1 / value === -Infinity) {
+      return '-0';
+    }
+
+    return String(value);
+  } catch (err) {
+    if (err.name === 'TypeError') {
+      return Object.prototype.toString.call(value);
+    }
+
+    throw err;
+  }
+};
+
 // file: compareArray.js
 // Copyright (C) 2017 Ecma International.  All rights reserved.
 // This code is governed by the BSD license found in the LICENSE file.
 /*---
 description: |
     Compare the contents of two arrays
+defines: [compareArray]
 ---*/
 
 function compareArray(a, b) {
@@ -107,16 +127,32 @@ function compareArray(a, b) {
   }
 
   for (var i = 0; i < a.length; i++) {
-    if (b[i] !== a[i]) {
+    if (!compareArray.isSameValue(b[i], a[i])) {
       return false;
     }
   }
   return true;
 }
 
-assert.compareArray = function(actual, expected, message) {
-  assert(compareArray(actual, expected),
-         'Expected [' + actual.join(', ') + '] and [' + expected.join(', ') + '] to have the same contents. ' + message);
+compareArray.isSameValue = function(a, b) {
+  if (a === 0 && b === 0) return 1 / a === 1 / b;
+  if (a !== a && b !== b) return true;
+
+  return a === b;
+};
+
+compareArray.format = function(array) {
+  return `[${array.map(String).join(', ')}]`;
+};
+
+assert.compareArray = function(actual, expected, message = '') {
+  assert(actual != null, `First argument shouldn't be nullish. ${message}`);
+  assert(expected != null, `Second argument shouldn't be nullish. ${message}`);
+  var format = compareArray.format;
+  assert(
+    compareArray(actual, expected),
+    `Expected ${format(actual)} and ${format(expected)} to have the same contents. ${message}`
+  );
 };
 
 // file: propertyHelper.js
@@ -126,8 +162,26 @@ assert.compareArray = function(actual, expected, message) {
 description: |
     Collection of functions used to safely verify the correctness of
     property descriptors.
+defines:
+  - verifyProperty
+  - verifyEqualTo
+  - verifyWritable
+  - verifyNotWritable
+  - verifyEnumerable
+  - verifyNotEnumerable
+  - verifyConfigurable
+  - verifyNotConfigurable
 ---*/
 
+// @ts-check
+
+/**
+ * @param {object} obj
+ * @param {string|symbol} name
+ * @param {PropertyDescriptor|undefined} desc
+ * @param {object} [options]
+ * @param {boolean} [options.restore]
+ */
 function verifyProperty(obj, name, desc, options) {
   assert(
     arguments.length > 2,
@@ -169,7 +223,7 @@ function verifyProperty(obj, name, desc, options) {
   var failures = [];
 
   if (Object.prototype.hasOwnProperty.call(desc, 'value')) {
-    if (desc.value !== originalDesc.value) {
+    if (!isSameValue(desc.value, originalDesc.value)) {
       failures.push("descriptor value should be " + desc.value);
     }
   }
@@ -205,6 +259,7 @@ function verifyProperty(obj, name, desc, options) {
 }
 
 function isConfigurable(obj, name) {
+  var hasOwnProperty = Object.prototype.hasOwnProperty;
   try {
     delete obj[name];
   } catch (e) {
@@ -212,7 +267,7 @@ function isConfigurable(obj, name) {
       $ERROR("Expected TypeError, got " + e);
     }
   }
-  return !Object.prototype.hasOwnProperty.call(obj, name);
+  return !hasOwnProperty.call(obj, name);
 }
 
 function isEnumerable(obj, name) {
@@ -235,14 +290,19 @@ function isEnumerable(obj, name) {
     Object.prototype.propertyIsEnumerable.call(obj, name);
 }
 
-function isEqualTo(obj, name, expectedValue) {
-  var actualValue = obj[name];
+function isSameValue(a, b) {
+  if (a === 0 && b === 0) return 1 / a === 1 / b;
+  if (a !== a && b !== b) return true;
 
-  return assert._isSameValue(actualValue, expectedValue);
+  return a === b;
 }
 
+var __isArray = Array.isArray;
 function isWritable(obj, name, verifyProp, value) {
-  var newValue = value || "unlikelyValue";
+  var unlikelyValue = __isArray(obj) && name === "length" ?
+    Math.pow(2, 32) - 1 :
+    "unlikelyValue";
+  var newValue = value || unlikelyValue;
   var hadValue = Object.prototype.hasOwnProperty.call(obj, name);
   var oldValue = obj[name];
   var writeSucceeded;
@@ -255,7 +315,7 @@ function isWritable(obj, name, verifyProp, value) {
     }
   }
 
-  writeSucceeded = isEqualTo(obj, verifyProp || name, newValue);
+  writeSucceeded = isSameValue(obj[verifyProp || name], newValue);
 
   // Revert the change only if it was successful (in other cases, reverting
   // is unnecessary and may trigger exceptions for certain property
@@ -272,7 +332,7 @@ function isWritable(obj, name, verifyProp, value) {
 }
 
 function verifyEqualTo(obj, name, value) {
-  if (!isEqualTo(obj, name, value)) {
+  if (!isSameValue(obj[name], value)) {
     $ERROR("Expected obj[" + String(name) + "] to equal " + value +
            ", actually " + obj[name]);
   }
@@ -339,6 +399,7 @@ description: |
 
     - An error class to avoid false positives when testing for thrown exceptions
     - A function to explicitly throw an exception using the Test262Error class
+defines: [Test262Error, $ERROR, $DONOTEVALUATE]
 ---*/
 
 
@@ -350,10 +411,11 @@ Test262Error.prototype.toString = function () {
   return "Test262Error: " + this.message;
 };
 
-var $ERROR;
-$ERROR = function $ERROR(message) {
-  throw new Test262Error(message);
+Test262Error.thrower = (...args) => {
+  throw new Test262Error(...args);
 };
+
+var $ERROR = Test262Error.thrower;
 
 function $DONOTEVALUATE() {
   throw "Test262: This statement should not be evaluated.";
@@ -364,7 +426,7 @@ function $DONOTEVALUATE() {
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-// https://github.com/tc39/test262/blob/master/INTERPRETING.md#host-defined-functions
+// https://github.com/tc39/test262/blob/main/INTERPRETING.md#host-defined-functions
 ;(function createHostObject(global) {
     "use strict";
 
@@ -382,6 +444,8 @@ function $DONOTEVALUATE() {
     var getSharedArrayBuffer = global.getSharedArrayBuffer;
     var evalInWorker = global.evalInWorker;
     var monotonicNow = global.monotonicNow;
+    var gc = global.gc;
+    var clearKeptObjects = global.clearKeptObjects;
 
     var hasCreateIsHTMLDDA = "createIsHTMLDDA" in global;
     var hasThreads = ("helperThreadCount" in global ? global.helperThreadCount() > 0 : true);
@@ -413,6 +477,12 @@ function $DONOTEVALUATE() {
         evalScript: global.evaluateScript || global.evaluate,
         global,
         IsHTMLDDA,
+        gc() {
+            gc();
+        },
+        clearKeptObjects() {
+            clearKeptObjects();
+        },
         agent: (function () {
 
             // SpiderMonkey complication: With run-time argument --no-threads
@@ -589,4 +659,14 @@ function $DONE(failure) {
         reportFailure(failure);
     else
         reportCompare(0, 0);
+
+    if (typeof jsTestDriverEnd === "function") {
+        gDelayTestDriverEnd = false;
+        jsTestDriverEnd();
+    }
+}
+
+// Some tests in test262 leave promise rejections unhandled.
+if ("ignoreUnhandledRejections" in this) {
+  ignoreUnhandledRejections();
 }

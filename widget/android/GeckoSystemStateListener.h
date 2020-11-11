@@ -6,12 +6,9 @@
 #ifndef GeckoSystemStateListener_h
 #define GeckoSystemStateListener_h
 
-#include "GeneratedJNINatives.h"
-#include "nsIDocument.h"
-#include "nsIPresShell.h"
-#include "nsIWindowMediator.h"
-#include "nsPIDOMWindow.h"
 #include "mozilla/Assertions.h"
+#include "mozilla/LookAndFeel.h"
+#include "mozilla/java/GeckoSystemStateListenerNatives.h"
 
 namespace mozilla {
 
@@ -22,34 +19,10 @@ class GeckoSystemStateListener final
  public:
   static void OnDeviceChanged() {
     MOZ_ASSERT(NS_IsMainThread());
-
-    // Iterate all toplevel windows
-    nsCOMPtr<nsIWindowMediator> windowMediator =
-        do_GetService(NS_WINDOWMEDIATOR_CONTRACTID);
-    NS_ENSURE_TRUE_VOID(windowMediator);
-
-    nsCOMPtr<nsISimpleEnumerator> windowEnumerator;
-    windowMediator->GetEnumerator(nullptr, getter_AddRefs(windowEnumerator));
-    NS_ENSURE_TRUE_VOID(windowEnumerator);
-
-    bool more;
-    while (NS_SUCCEEDED(windowEnumerator->HasMoreElements(&more)) && more) {
-      nsCOMPtr<nsISupports> elements;
-      if (NS_FAILED(windowEnumerator->GetNext(getter_AddRefs(elements)))) {
-        break;
-      }
-
-      if (nsCOMPtr<nsPIDOMWindowOuter> window = do_QueryInterface(elements)) {
-        if (window->Closed()) {
-          continue;
-        }
-        if (nsIDocument* doc = window->GetExtantDoc()) {
-          if (nsIPresShell* presShell = doc->GetShell()) {
-            presShell->ThemeChanged();
-          }
-        }
-      }
-    }
+    // TODO(emilio, bug 1673318): This could become more granular and avoid work
+    // if we get whether these are layout/style-affecting from the caller.
+    mozilla::LookAndFeel::NotifyChangedAllWindows(
+        widget::ThemeChangeKind::StyleAndLayout);
   }
 };
 

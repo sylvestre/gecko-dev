@@ -11,8 +11,10 @@
  * and create derivative works of this document.
  */
 
-[HTMLConstructor]
+[Exposed=Window]
 interface HTMLTableRowElement : HTMLElement {
+  [HTMLConstructor] constructor();
+
   readonly attribute long rowIndex;
   readonly attribute long sectionRowIndex;
   readonly attribute HTMLCollection cells;
@@ -32,6 +34,6 @@ partial interface HTMLTableRowElement {
            [CEReactions, SetterThrows]
            attribute DOMString vAlign;
 
-  [CEReactions, TreatNullAs=EmptyString, SetterThrows]
-           attribute DOMString bgColor;
+  [CEReactions, SetterThrows]
+           attribute [TreatNullAs=EmptyString] DOMString bgColor;
 };

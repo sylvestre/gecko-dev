@@ -20,8 +20,6 @@ one time. So the can be flipped though like a deck of cards.
 #include "nsCOMPtr.h"
 #include "nsCoord.h"
 
-class nsIPresShell;
-
 nsresult NS_NewStackLayout(nsCOMPtr<nsBoxLayout>& aNewLayout);
 
 class nsStackLayout : public nsBoxLayout {
@@ -41,12 +39,6 @@ class nsStackLayout : public nsBoxLayout {
                                nsBoxLayoutState& aBoxLayoutState) override;
   virtual nscoord GetAscent(nsIFrame* aBox,
                             nsBoxLayoutState& aBoxLayoutState) override;
-
-  // get the child offsets for aChild and set them in aMargin. Returns a
-  // bitfield mask of the SPECIFIED_LEFT, SPECIFIED_RIGHT, SPECIFIED_TOP and
-  // SPECIFIED_BOTTOM offsets indicating which sides have been specified by
-  // attributes.
-  static uint8_t GetOffset(nsIFrame* aChild, nsMargin& aMargin);
 
  private:
   static nsBoxLayout* gInstance;

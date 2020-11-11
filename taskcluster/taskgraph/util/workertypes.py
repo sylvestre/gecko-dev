@@ -4,61 +4,92 @@
 
 from __future__ import absolute_import, print_function, unicode_literals
 
+from mozbuild.util import memoize
+
+from .keyed_by import evaluate_keyed_by
+from .attributes import keymatch
+
 WORKER_TYPES = {
-    'aws-provisioner-v1/gecko-1-b-android': ('docker-worker', 'linux'),
-    'aws-provisioner-v1/gecko-1-b-linux': ('docker-worker', 'linux'),
-    'aws-provisioner-v1/gecko-1-b-linux-large': ('docker-worker', 'linux'),
-    'aws-provisioner-v1/gecko-1-b-linux-xlarge': ('docker-worker', 'linux'),
-    'aws-provisioner-v1/gecko-1-b-win2012': ('generic-worker', 'windows'),
-    'aws-provisioner-v1/gecko-1-images': ('docker-worker', 'linux'),
-    'aws-provisioner-v1/gecko-2-b-android': ('docker-worker', 'linux'),
-    'aws-provisioner-v1/gecko-2-b-linux': ('docker-worker', 'linux'),
-    'aws-provisioner-v1/gecko-2-b-linux-large': ('docker-worker', 'linux'),
-    'aws-provisioner-v1/gecko-2-b-linux-xlarge': ('docker-worker', 'linux'),
-    'aws-provisioner-v1/gecko-2-b-win2012': ('generic-worker', 'windows'),
-    'aws-provisioner-v1/gecko-2-images': ('docker-worker', 'linux'),
-    'aws-provisioner-v1/gecko-3-b-android': ('docker-worker', 'linux'),
-    'aws-provisioner-v1/gecko-3-b-linux': ('docker-worker', 'linux'),
-    'aws-provisioner-v1/gecko-3-b-linux-large': ('docker-worker', 'linux'),
-    'aws-provisioner-v1/gecko-3-b-linux-xlarge': ('docker-worker', 'linux'),
-    'aws-provisioner-v1/gecko-3-b-win2012': ('generic-worker', 'windows'),
-    'aws-provisioner-v1/gecko-3-images': ('docker-worker', 'linux'),
-    'aws-provisioner-v1/gecko-symbol-upload': ('docker-worker', 'linux'),
-    'aws-provisioner-v1/gecko-t-linux-large': ('docker-worker', 'linux'),
-    'aws-provisioner-v1/gecko-t-linux-medium': ('docker-worker', 'linux'),
-    'aws-provisioner-v1/gecko-t-linux-xlarge': ('docker-worker', 'linux'),
-    'aws-provisioner-v1/gecko-t-win10-64': ('generic-worker', 'windows'),
-    'aws-provisioner-v1/gecko-t-win10-64-gpu': ('generic-worker', 'windows'),
-    'releng-hardware/gecko-t-win10-64-hw': ('generic-worker', 'windows'),
-    'releng-hardware/gecko-t-win10-64-ux': ('generic-worker', 'windows'),
-    'aws-provisioner-v1/gecko-t-win7-32': ('generic-worker', 'windows'),
-    'aws-provisioner-v1/gecko-t-win7-32-gpu': ('generic-worker', 'windows'),
-    'releng-hardware/gecko-t-win7-32-hw': ('generic-worker', 'windows'),
-    'aws-provisioner-v1/taskcluster-generic': ('docker-worker', 'linux'),
-    'invalid/invalid': ('invalid', None),
-    'invalid/always-optimized': ('always-optimized', None),
-    'releng-hardware/gecko-t-linux-talos': ('generic-worker', 'linux'),
-    'scriptworker-prov-v1/balrog-dev': ('balrog', None),
-    'scriptworker-prov-v1/balrogworker-v1': ('balrog', None),
-    'scriptworker-prov-v1/beetmoverworker-v1': ('beetmover', None),
-    'scriptworker-prov-v1/pushapk-v1': ('push-apk', None),
-    "scriptworker-prov-v1/signing-linux-v1": ('scriptworker-signing', None),
-    "scriptworker-prov-v1/shipit": ('shipit', None),
-    "scriptworker-prov-v1/shipit-dev": ('shipit', None),
-    "scriptworker-prov-v1/treescript-v1": ('treescript', None),
-    'releng-hardware/gecko-t-osx-1010': ('generic-worker', 'macosx'),
-    'proj-autophone/gecko-t-ap-perf-g5': ('script-engine-autophone', 'linux'),
-    'proj-autophone/gecko-t-ap-unit-g5': ('script-engine-autophone', 'linux'),
-    'proj-autophone/gecko-t-ap-perf-p2': ('script-engine-autophone', 'linux'),
-    'proj-autophone/gecko-t-ap-unit-p2': ('script-engine-autophone', 'linux'),
-    'terraform-packet/gecko-t-linux': ('docker-worker', 'linux'),
+    "gce/gecko-1-b-linux": ("docker-worker", "linux"),
+    "gce/gecko-2-b-linux": ("docker-worker", "linux"),
+    "gce/gecko-3-b-linux": ("docker-worker", "linux"),
+    "invalid/invalid": ("invalid", None),
+    "invalid/always-optimized": ("always-optimized", None),
+    "scriptworker-prov-v1/signing-linux-v1": ("scriptworker-signing", None),
+    "scriptworker-k8s/gecko-3-shipit": ("shipit", None),
+    "scriptworker-k8s/gecko-1-shipit": ("shipit", None),
 }
 
 
-def worker_type_implementation(worker_type):
+@memoize
+def _get(graph_config, alias, level, release_level):
+    """Get the configuration for this worker_type alias: {provisioner,
+    worker-type, implementation, os}"""
+    level = str(level)
+
+    # handle the legacy (non-alias) format
+    if "/" in alias:
+        alias = alias.format(level=level)
+        provisioner, worker_type = alias.split("/", 1)
+        try:
+            implementation, os = WORKER_TYPES[alias]
+            return {
+                "provisioner": provisioner,
+                "worker-type": worker_type,
+                "implementation": implementation,
+                "os": os,
+            }
+        except KeyError:
+            return {
+                "provisioner": provisioner,
+                "worker-type": worker_type,
+            }
+
+    matches = keymatch(graph_config["workers"]["aliases"], alias)
+    if len(matches) > 1:
+        raise KeyError("Multiple matches for worker-type alias " + alias)
+    elif not matches:
+        raise KeyError("No matches for worker-type alias " + alias)
+    worker_config = matches[0].copy()
+
+    worker_config["provisioner"] = evaluate_keyed_by(
+        worker_config["provisioner"],
+        "worker-type alias {} field provisioner".format(alias),
+        {"level": level},
+    ).format(
+        **{
+            "trust-domain": graph_config["trust-domain"],
+            "level": level,
+            "alias": alias,
+        }
+    )
+    worker_config["worker-type"] = evaluate_keyed_by(
+        worker_config["worker-type"],
+        "worker-type alias {} field worker-type".format(alias),
+        {"level": level, "release-level": release_level},
+    ).format(
+        **{
+            "trust-domain": graph_config["trust-domain"],
+            "level": level,
+            "alias": alias,
+        }
+    )
+
+    return worker_config
+
+
+def worker_type_implementation(graph_config, worker_type):
     """Get the worker implementation and OS for the given workerType, where the
     OS represents the host system, not the target OS, in the case of
     cross-compiles."""
-    # assume that worker types for all levels are the same implementation
-    worker_type = worker_type.replace('{level}', '1')
-    return WORKER_TYPES[worker_type]
+    worker_config = _get(graph_config, worker_type, "1", "staging")
+    return worker_config["implementation"], worker_config.get("os")
+
+
+def get_worker_type(graph_config, worker_type, level, release_level):
+    """
+    Get the worker type provisioner and worker-type, optionally evaluating
+    aliases from the graph config.
+    """
+    worker_config = _get(graph_config, worker_type, level, release_level)
+    return worker_config["provisioner"], worker_config["worker-type"]

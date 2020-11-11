@@ -7,11 +7,11 @@
 #ifndef MOZILLA_LAYERS_BUFFERETEXTURE
 #define MOZILLA_LAYERS_BUFFERETEXTURE
 
-#include "mozilla/layers/TextureClient.h"
-#include "mozilla/ipc/SharedMemory.h"
-#include "mozilla/gfx/Types.h"
-#include "mozilla/gfx/2D.h"
 #include "mozilla/RefPtr.h"
+#include "mozilla/gfx/2D.h"
+#include "mozilla/gfx/Types.h"
+#include "mozilla/ipc/SharedMemory.h"
+#include "mozilla/layers/TextureClient.h"
 
 namespace mozilla {
 namespace layers {
@@ -22,43 +22,52 @@ bool ComputeHasIntermediateBuffer(gfx::SurfaceFormat aFormat,
 
 class BufferTextureData : public TextureData {
  public:
+  // ShmemAllocator needs to implement IShmemAllocator and IsSameProcess,
+  // as done in LayersIPCChannel and ISurfaceAllocator.
+  template <typename ShmemAllocator>
   static BufferTextureData* Create(gfx::IntSize aSize,
                                    gfx::SurfaceFormat aFormat,
                                    gfx::BackendType aMoz2DBackend,
                                    LayersBackend aLayersBackend,
                                    TextureFlags aFlags,
                                    TextureAllocationFlags aAllocFlags,
-                                   LayersIPCChannel* aAllocator);
+                                   ShmemAllocator aAllocator);
 
   static BufferTextureData* CreateForYCbCr(
-      KnowsCompositor* aAllocator, gfx::IntSize aYSize, uint32_t aYStride,
-      gfx::IntSize aCbCrSize, uint32_t aCbCrStride, StereoMode aStereoMode,
-      gfx::ColorDepth aColorDepth, YUVColorSpace aYUVColorSpace,
+      KnowsCompositor* aAllocator, const gfx::IntRect& aDisplay,
+      const gfx::IntSize& aYSize, uint32_t aYStride,
+      const gfx::IntSize& aCbCrSize, uint32_t aCbCrStride,
+      StereoMode aStereoMode, gfx::ColorDepth aColorDepth,
+      gfx::YUVColorSpace aYUVColorSpace, gfx::ColorRange aColorRange,
       TextureFlags aTextureFlags);
 
-  virtual bool Lock(OpenMode aMode) override { return true; }
+  bool Lock(OpenMode aMode) override { return true; }
 
-  virtual void Unlock() override {}
+  void Unlock() override {}
 
-  virtual void FillInfo(TextureData::Info& aInfo) const override;
+  void FillInfo(TextureData::Info& aInfo) const override;
 
-  virtual already_AddRefed<gfx::DrawTarget> BorrowDrawTarget() override;
+  already_AddRefed<gfx::DrawTarget> BorrowDrawTarget() override;
 
-  virtual bool BorrowMappedData(MappedTextureData& aMap) override;
+  bool BorrowMappedData(MappedTextureData& aMap) override;
 
-  virtual bool BorrowMappedYCbCrData(MappedYCbCrTextureData& aMap) override;
+  bool BorrowMappedYCbCrData(MappedYCbCrTextureData& aMap) override;
 
   // use TextureClient's default implementation
-  virtual bool UpdateFromSurface(gfx::SourceSurface* aSurface) override;
+  bool UpdateFromSurface(gfx::SourceSurface* aSurface) override;
 
-  virtual BufferTextureData* AsBufferTextureData() override { return this; }
+  BufferTextureData* AsBufferTextureData() override { return this; }
 
   // Don't use this.
   void SetDescriptor(BufferDescriptor&& aDesc);
 
   Maybe<gfx::IntSize> GetCbCrSize() const;
 
-  Maybe<YUVColorSpace> GetYUVColorSpace() const;
+  Maybe<int32_t> GetYStride() const;
+
+  Maybe<int32_t> GetCbCrStride() const;
+
+  Maybe<gfx::YUVColorSpace> GetYUVColorSpace() const;
 
   Maybe<gfx::ColorDepth> GetColorDepth() const;
 
@@ -66,8 +75,15 @@ class BufferTextureData : public TextureData {
 
  protected:
   gfx::IntSize GetSize() const;
+  gfx::IntRect GetPictureRect() const;
 
   gfx::SurfaceFormat GetFormat() const;
+
+  static BufferTextureData* Create(
+      gfx::IntSize aSize, gfx::SurfaceFormat aFormat,
+      gfx::BackendType aMoz2DBackend, LayersBackend aLayersBackend,
+      TextureFlags aFlags, TextureAllocationFlags aAllocFlags,
+      mozilla::ipc::IShmemAllocator* aAllocator, bool aIsSameProcess);
 
   static BufferTextureData* CreateInternal(LayersIPCChannel* aAllocator,
                                            const BufferDescriptor& aDesc,
@@ -85,6 +101,26 @@ class BufferTextureData : public TextureData {
   BufferDescriptor mDescriptor;
   gfx::BackendType mMoz2DBackend;
 };
+
+template <typename ShmemAllocator>
+inline BufferTextureData* BufferTextureData::Create(
+    gfx::IntSize aSize, gfx::SurfaceFormat aFormat,
+    gfx::BackendType aMoz2DBackend, LayersBackend aLayersBackend,
+    TextureFlags aFlags, TextureAllocationFlags aAllocFlags,
+    ShmemAllocator aAllocator) {
+  return Create(aSize, aFormat, aMoz2DBackend, aLayersBackend, aFlags,
+                aAllocFlags, aAllocator, aAllocator->IsSameProcess());
+}
+
+// nullptr allocator specialization
+template <>
+inline BufferTextureData* BufferTextureData::Create(
+    gfx::IntSize aSize, gfx::SurfaceFormat aFormat,
+    gfx::BackendType aMoz2DBackend, LayersBackend aLayersBackend,
+    TextureFlags aFlags, TextureAllocationFlags aAllocFlags, std::nullptr_t) {
+  return Create(aSize, aFormat, aMoz2DBackend, aLayersBackend, aFlags,
+                aAllocFlags, nullptr, true);
+}
 
 }  // namespace layers
 }  // namespace mozilla

@@ -6,7 +6,6 @@
 
 #include <stdio.h>
 #include "nsXPCOM.h"
-#include "nsIComponentManager.h"
 #include "nsISupports.h"
 #include "nsServiceManagerUtils.h"
 #include "nsString.h"
@@ -125,7 +124,8 @@ bool TestASCIIWB(mozilla::intl::WordBreaker* lb, const char* in,
   return Check(in, out, outlen, i, res);
 }
 
-TEST(LineBreak, LineBreaker) {
+TEST(LineBreak, LineBreaker)
+{
   RefPtr<mozilla::intl::LineBreaker> t = mozilla::intl::LineBreaker::Create();
 
   ASSERT_TRUE(t);
@@ -135,7 +135,8 @@ TEST(LineBreak, LineBreaker) {
   ASSERT_TRUE(TestASCIILB(t, teng3, lexp3, sizeof(lexp3) / sizeof(uint32_t)));
 }
 
-TEST(LineBreak, WordBreaker) {
+TEST(LineBreak, WordBreaker)
+{
   RefPtr<mozilla::intl::WordBreaker> t = mozilla::intl::WordBreaker::Create();
   ASSERT_TRUE(t);
 
@@ -251,7 +252,22 @@ void TestFindWordBreakFromPosition(uint32_t fragN, uint32_t offset,
       << "FindWordBreakFromPosition(" << fragN << ", " << offset << ")";
 }
 
-TEST(LineBreak, WordBreakUsage) {
+void TestNextWordBreakWithComplexLanguage() {
+  RefPtr<mozilla::intl::WordBreaker> wbk = mozilla::intl::WordBreaker::Create();
+  nsString fragText(u"\u0e40\u0e1b\u0e47\u0e19\u0e19\u0e31\u0e01");
+
+  int32_t offset = 0;
+  while (offset != NS_WORDBREAKER_NEED_MORE_TEXT) {
+    int32_t newOffset =
+        wbk->NextWord(fragText.get(), fragText.Length(), offset);
+    ASSERT_NE(offset, newOffset);
+    offset = newOffset;
+  }
+  ASSERT_TRUE(true);
+}
+
+TEST(LineBreak, WordBreakUsage)
+{
   TestPrintWordWithBreak();
   TestFindWordBreakFromPosition(0, 0, "This");
   TestFindWordBreakFromPosition(1, 0, "his");
@@ -263,4 +279,5 @@ TEST(LineBreak, WordBreakUsage) {
   TestFindWordBreakFromPosition(3, 8, "ernationalization");
   TestFindWordBreakFromPosition(4, 6, " ");
   TestFindWordBreakFromPosition(4, 7, "work");
+  TestNextWordBreakWithComplexLanguage();
 }

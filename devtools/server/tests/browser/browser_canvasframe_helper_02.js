@@ -1,4 +1,3 @@
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
    http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -8,11 +7,17 @@
 // XUL windows.
 
 add_task(async function() {
-  const browser = await addTab("about:preferences");
+  const browser = await addTab(
+    "chrome://mochitests/content/browser/devtools/server/tests/browser/test-window.xhtml"
+  );
 
-  await ContentTask.spawn(browser, null, async function() {
-    const {require} = ChromeUtils.import("resource://devtools/shared/Loader.jsm", {});
-    const {HighlighterEnvironment} = require("devtools/server/actors/highlighters");
+  await SpecialPowers.spawn(browser, [], async function() {
+    const { require } = ChromeUtils.import(
+      "resource://devtools/shared/Loader.jsm"
+    );
+    const {
+      HighlighterEnvironment,
+    } = require("devtools/server/actors/highlighters");
     const {
       CanvasFrameAnonymousContentHelper,
     } = require("devtools/server/actors/highlighters/utils/markup");
@@ -35,8 +40,10 @@ add_task(async function() {
     const helper = new CanvasFrameAnonymousContentHelper(env, nodeBuilder);
 
     ok(!helper.content, "The AnonymousContent was not inserted in the window");
-    ok(!helper.getTextContentForElement("child-element"),
-      "No text content is returned");
+    ok(
+      !helper.getTextContentForElement("child-element"),
+      "No text content is returned"
+    );
 
     env.destroy();
     helper.destroy();

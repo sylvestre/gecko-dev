@@ -30,7 +30,10 @@ if (typeof Components == "undefined") {
   module.exports = Path;
 } else {
   let Scope = {};
-  ChromeUtils.import("resource://gre/modules/osfile/osfile_shared_allthreads.jsm", Scope);
+  ChromeUtils.import(
+    "resource://gre/modules/osfile/osfile_shared_allthreads.jsm",
+    Scope
+  );
 
   let Path = {};
   if (Scope.OS.Constants.Win) {
@@ -41,7 +44,7 @@ if (typeof Components == "undefined") {
 
   this.EXPORTED_SYMBOLS = [];
   for (let k in Path) {
-    this.EXPORTED_SYMBOLS.push(k);
+    EXPORTED_SYMBOLS.push(k);
     this[k] = Path[k];
   }
 }

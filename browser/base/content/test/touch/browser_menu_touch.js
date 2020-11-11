@@ -13,7 +13,11 @@ async function openAndCheckMenu(menu, target) {
   await popupshown;
 
   is(menu.state, "open", `Menu panel (${menu.id}) is open.`);
-  is(menu.getAttribute("touchmode"), "true", `Menu panel (${menu.id}) is in touchmode.`);
+  is(
+    menu.getAttribute("touchmode"),
+    "true",
+    `Menu panel (${menu.id}) is in touchmode.`
+  );
 
   menu.hidePopup();
 
@@ -22,7 +26,44 @@ async function openAndCheckMenu(menu, target) {
   await popupshown;
 
   is(menu.state, "open", `Menu panel (${menu.id}) is open.`);
-  ok(!menu.hasAttribute("touchmode"), `Menu panel (${menu.id}) is not in touchmode.`);
+  ok(
+    !menu.hasAttribute("touchmode"),
+    `Menu panel (${menu.id}) is not in touchmode.`
+  );
+
+  menu.hidePopup();
+}
+
+async function openAndCheckLazyMenu(id, target) {
+  let menu = document.getElementById(id);
+
+  EventUtils.synthesizeNativeTapAtCenter(target);
+  let ev = await BrowserTestUtils.waitForEvent(
+    window,
+    "popupshown",
+    true,
+    e => e.target.id == id
+  );
+  menu = ev.target;
+
+  is(menu.state, "open", `Menu panel (${menu.id}) is open.`);
+  is(
+    menu.getAttribute("touchmode"),
+    "true",
+    `Menu panel (${menu.id}) is in touchmode.`
+  );
+
+  menu.hidePopup();
+
+  let popupshown = BrowserTestUtils.waitForEvent(menu, "popupshown");
+  EventUtils.synthesizeMouseAtCenter(target, {});
+  await popupshown;
+
+  is(menu.state, "open", `Menu panel (${menu.id}) is open.`);
+  ok(
+    !menu.hasAttribute("touchmode"),
+    `Menu panel (${menu.id}) is not in touchmode.`
+  );
 
   menu.hidePopup();
 }
@@ -32,8 +73,9 @@ async function openAndCheckMenu(menu, target) {
 async function openAndCheckCustomizationUIMenu(target) {
   EventUtils.synthesizeNativeTapAtCenter(target);
 
-  await BrowserTestUtils.waitForCondition(() =>
-      document.getElementById("customizationui-widget-panel") != null);
+  await BrowserTestUtils.waitForCondition(
+    () => document.getElementById("customizationui-widget-panel") != null
+  );
   let menu = document.getElementById("customizationui-widget-panel");
 
   if (menu.state != "open") {
@@ -41,14 +83,19 @@ async function openAndCheckCustomizationUIMenu(target) {
     is(menu.state, "open", `Menu for ${target.id} is open`);
   }
 
-  is(menu.getAttribute("touchmode"), "true", `Menu for ${target.id} is in touchmode.`);
+  is(
+    menu.getAttribute("touchmode"),
+    "true",
+    `Menu for ${target.id} is in touchmode.`
+  );
 
   menu.hidePopup();
 
   EventUtils.synthesizeMouseAtCenter(target, {});
 
-  await BrowserTestUtils.waitForCondition(() =>
-      document.getElementById("customizationui-widget-panel") != null);
+  await BrowserTestUtils.waitForCondition(
+    () => document.getElementById("customizationui-widget-panel") != null
+  );
   menu = document.getElementById("customizationui-widget-panel");
 
   if (menu.state != "open") {
@@ -56,7 +103,10 @@ async function openAndCheckCustomizationUIMenu(target) {
     is(menu.state, "open", `Menu for ${target.id} is open`);
   }
 
-  ok(!menu.hasAttribute("touchmode"), `Menu for ${target.id} is not in touchmode.`);
+  ok(
+    !menu.hasAttribute("touchmode"),
+    `Menu for ${target.id} is not in touchmode.`
+  );
 
   menu.hidePopup();
 }
@@ -65,9 +115,7 @@ async function openAndCheckCustomizationUIMenu(target) {
 add_task(async function setup() {
   let isWindows = AppConstants.isPlatformAndVersionAtLeast("win", "10.0");
   await SpecialPowers.pushPrefEnv({
-    set: [
-      ["apz.test.fails_with_native_injection", isWindows],
-    ],
+    set: [["apz.test.fails_with_native_injection", isWindows]],
   });
 });
 
@@ -82,9 +130,8 @@ add_task(async function test_main_menu_touch() {
 add_task(async function test_page_action_panel_touch() {
   // The page action menu only appears on a web page.
   await BrowserTestUtils.withNewTab("https://example.com", async function() {
-    let pageActionPanel = document.getElementById("pageActionPanel");
     let target = document.getElementById("pageActionButton");
-    await openAndCheckMenu(pageActionPanel, target);
+    await openAndCheckLazyMenu("pageActionPanel", target);
   });
 });
 
@@ -92,10 +139,15 @@ add_task(async function test_page_action_panel_touch() {
 // such as library, history, sync, developer and encoding.
 add_task(async function test_customizationui_panel_touch() {
   CustomizableUI.addWidgetToArea("library-button", CustomizableUI.AREA_NAVBAR);
-  CustomizableUI.addWidgetToArea("history-panelmenu", CustomizableUI.AREA_NAVBAR);
+  CustomizableUI.addWidgetToArea(
+    "history-panelmenu",
+    CustomizableUI.AREA_NAVBAR
+  );
 
-  await BrowserTestUtils.waitForCondition(() =>
-    CustomizableUI.getPlacementOfWidget("library-button").area == "nav-bar");
+  await BrowserTestUtils.waitForCondition(
+    () =>
+      CustomizableUI.getPlacementOfWidget("library-button").area == "nav-bar"
+  );
 
   let target = document.getElementById("library-button");
   await openAndCheckCustomizationUIMenu(target);
@@ -109,13 +161,32 @@ add_task(async function test_customizationui_panel_touch() {
 // Test the overflow menu panel.
 add_task(async function test_overflow_panel_touch() {
   // Move something in the overflow menu to make the button appear.
-  CustomizableUI.addWidgetToArea("library-button", CustomizableUI.AREA_FIXED_OVERFLOW_PANEL);
-  await BrowserTestUtils.waitForCondition(() =>
-    CustomizableUI.getPlacementOfWidget("library-button").area == CustomizableUI.AREA_FIXED_OVERFLOW_PANEL);
+  CustomizableUI.addWidgetToArea(
+    "library-button",
+    CustomizableUI.AREA_FIXED_OVERFLOW_PANEL
+  );
+  await BrowserTestUtils.waitForCondition(
+    () =>
+      CustomizableUI.getPlacementOfWidget("library-button").area ==
+      CustomizableUI.AREA_FIXED_OVERFLOW_PANEL
+  );
 
   let overflowPanel = document.getElementById("widget-overflow");
   let target = document.getElementById("nav-bar-overflow-button");
   await openAndCheckMenu(overflowPanel, target);
 
   CustomizableUI.reset();
+});
+
+// Test the list all tabs menu.
+add_task(async function test_list_all_tabs_touch() {
+  // Force the menu button to be shown.
+  let tabs = document.getElementById("tabbrowser-tabs");
+  if (!tabs.hasAttribute("overflow")) {
+    tabs.setAttribute("overflow", true);
+    registerCleanupFunction(() => tabs.removeAttribute("overflow"));
+  }
+
+  let target = document.getElementById("alltabs-button");
+  await openAndCheckCustomizationUIMenu(target);
 });

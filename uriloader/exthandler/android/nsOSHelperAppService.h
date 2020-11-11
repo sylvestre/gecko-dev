@@ -14,20 +14,25 @@ class nsOSHelperAppService : public nsExternalHelperAppService {
   nsOSHelperAppService();
   virtual ~nsOSHelperAppService();
 
-  virtual already_AddRefed<nsIMIMEInfo> GetMIMEInfoFromOS(
-      const nsACString& aMIMEType, const nsACString& aFileExt, bool* aFound);
+  nsresult GetMIMEInfoFromOS(const nsACString& aMIMEType,
+                             const nsACString& aFileExt, bool* aFound,
+                             nsIMIMEInfo** aMIMEInfo) override;
 
-  virtual MOZ_MUST_USE nsresult OSProtocolHandlerExists(const char* aScheme,
-                                                        bool* aExists);
+  [[nodiscard]] nsresult OSProtocolHandlerExists(const char* aScheme,
+                                                 bool* aExists) override;
 
   NS_IMETHOD GetProtocolHandlerInfoFromOS(const nsACString& aScheme,
                                           bool* found,
-                                          nsIHandlerInfo** _retval);
+                                          nsIHandlerInfo** _retval) override;
+  NS_IMETHOD GetApplicationDescription(const nsACString& aScheme,
+                                       nsAString& _retval) override;
+  NS_IMETHOD IsCurrentAppOSDefaultForProtocol(const nsACString& aScheme,
+                                              bool* _retval) override;
 
   static nsIHandlerApp* CreateAndroidHandlerApp(
       const nsAString& aName, const nsAString& aDescription,
       const nsAString& aPackageName, const nsAString& aClassName,
-      const nsACString& aMimeType, const nsAString& aAction = EmptyString());
+      const nsACString& aMimeType, const nsAString& aAction = u""_ns);
 };
 
 #endif /* nsOSHelperAppService_h */

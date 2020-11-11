@@ -3,9 +3,8 @@
 <html>
 <head>
 <meta charset="utf-8">
-  <script type="text/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
-  <script type="text/javascript" src="/tests/SimpleTest/AddTask.js"></script>
-  <script type="text/javascript" src="/tests/SimpleTest/ExtensionTestUtils.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/ExtensionTestUtils.js"></script>
   <script type="text/javascript" src="head_webrequest.js"></script>
   <script type="text/javascript" src="head.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css"/>
@@ -15,7 +14,7 @@
 // This file defines content scripts.
 /* eslint-env mozilla/frame-script */
 
-let baseUrl = "http://mochi.test:8888/tests/toolkit/components/passwordmgr/test/authenticate.sjs";
+let baseUrl = "http://mochi.test:8888/tests/toolkit/components/passwordmgr/test/mochitest/authenticate.sjs";
 function testXHR(url) {
   return new Promise((resolve, reject) => {
     let xhr = new XMLHttpRequest();
@@ -68,7 +67,7 @@ add_task(async function test_webRequest_auth_nonblocking_forwardAuthProvider() {
   // if the authorization is not handled by the onAuthRequired handler.
 
   let chromeScript = SpecialPowers.loadChromeScript(() => {
-    ChromeUtils.import("resource://gre/modules/Services.jsm");
+    const {Services} = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
     let observer = channel => {
       if (!(channel instanceof Ci.nsIHttpChannel && channel.URI.host === "mochi.test")) {
@@ -76,13 +75,13 @@ add_task(async function test_webRequest_auth_nonblocking_forwardAuthProvider() {
       }
       Services.obs.removeObserver(observer, "http-on-modify-request");
       channel.notificationCallbacks = {
-        QueryInterface: ChromeUtils.generateQI([Ci.nsIInterfaceRequestor,
-                                                Ci.nsIAuthPromptProvider,
-                                                Ci.nsIAuthPrompt2]),
-        getInterface: ChromeUtils.generateQI([Ci.nsIAuthPromptProvider,
-                                              Ci.nsIAuthPrompt2]),
+        QueryInterface: ChromeUtils.generateQI(["nsIInterfaceRequestor",
+                                                "nsIAuthPromptProvider",
+                                                "nsIAuthPrompt2"]),
+        getInterface: ChromeUtils.generateQI(["nsIAuthPromptProvider",
+                                              "nsIAuthPrompt2"]),
         promptAuth(channel, level, authInfo) {
-          throw Cr.NS_ERROR_NO_INTERFACE;
+          throw Components.Exception("", Cr.NS_ERROR_NO_INTERFACE);
         },
         getAuthPrompt(reason, iid) {
           return this;
@@ -129,7 +128,7 @@ add_task(async function test_webRequest_auth_nonblocking_forwardAuthPrompt2() {
   // if the authorization is not handled by the onAuthRequired handler.
 
   let chromeScript = SpecialPowers.loadChromeScript(() => {
-    ChromeUtils.import("resource://gre/modules/Services.jsm");
+    const {Services} = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
     let observer = channel => {
       if (!(channel instanceof Ci.nsIHttpChannel && channel.URI.host === "mochi.test")) {
@@ -137,11 +136,11 @@ add_task(async function test_webRequest_auth_nonblocking_forwardAuthPrompt2() {
       }
       Services.obs.removeObserver(observer, "http-on-modify-request");
       channel.notificationCallbacks = {
-        QueryInterface: ChromeUtils.generateQI([Ci.nsIInterfaceRequestor,
-                                                Ci.nsIAuthPrompt2]),
-        getInterface: ChromeUtils.generateQI([Ci.nsIAuthPrompt2]),
+        QueryInterface: ChromeUtils.generateQI(["nsIInterfaceRequestor",
+                                                "nsIAuthPrompt2"]),
+        getInterface: ChromeUtils.generateQI(["nsIAuthPrompt2"]),
         promptAuth(request, level, authInfo) {
-          throw Cr.NS_ERROR_NO_INTERFACE;
+          throw Components.Exception("", Cr.NS_ERROR_NO_INTERFACE);
         },
         asyncPromptAuth(request, callback, context, level, authInfo) {
           // We just cancel here, we're only ensuring that non-webrequest

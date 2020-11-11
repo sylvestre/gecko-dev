@@ -9,18 +9,17 @@
 #include "nsComponentManagerUtils.h"
 #include "nsCOMPtr.h"
 #include "mozilla/ClearOnShutdown.h"
+#include "mozilla/EventForwards.h"
 #include "mozilla/LookAndFeel.h"
 #include "mozilla/dom/Notification.h"
 #include "mozilla/Unused.h"
-#include "nsIServiceManager.h"
 #include "nsISupportsPrimitives.h"
 #include "nsPIDOMWindow.h"
 #include "nsIWindowWatcher.h"
 
 using namespace mozilla;
-using mozilla::dom::NotificationTelemetryService;
 
-#define ALERT_CHROME_URL "chrome://global/content/alerts/alert.xul"
+#define ALERT_CHROME_URL "chrome://global/content/alerts/alert.xhtml"_ns
 
 namespace {
 StaticRefPtr<nsXULAlerts> gXULAlerts;
@@ -66,7 +65,8 @@ nsXULAlertObserver::Observe(nsISupports* aSubject, const char* aTopic,
 NS_IMPL_ISUPPORTS(nsXULAlerts, nsIAlertsService, nsIAlertsDoNotDisturb,
                   nsIAlertsIconURI)
 
-/* static */ already_AddRefed<nsXULAlerts> nsXULAlerts::GetInstance() {
+/* static */
+already_AddRefed<nsXULAlerts> nsXULAlerts::GetInstance() {
   // Gecko on Android does not fully support XUL windows.
 #ifndef MOZ_WIDGET_ANDROID
   if (!gXULAlerts) {
@@ -271,7 +271,7 @@ nsXULAlerts::ShowAlertWithIconURI(nsIAlertNotification* aAlert,
   NS_ENSURE_TRUE(scriptableOrigin, NS_ERROR_FAILURE);
 
   int32_t origin =
-      LookAndFeel::GetInt(LookAndFeel::eIntID_AlertNotificationOrigin);
+      LookAndFeel::GetInt(LookAndFeel::IntID::AlertNotificationOrigin);
   scriptableOrigin->SetData(origin);
 
   rv = argsArray->AppendElement(scriptableOrigin);
@@ -356,7 +356,7 @@ nsXULAlerts::ShowAlertWithIconURI(nsIAlertNotification* aAlert,
   if (inPrivateBrowsing) {
     features.AppendLiteral(",private");
   }
-  rv = wwatch->OpenWindow(nullptr, ALERT_CHROME_URL, "_blank", features.get(),
+  rv = wwatch->OpenWindow(nullptr, ALERT_CHROME_URL, "_blank"_ns, features,
                           argsArray, getter_AddRefs(newWindow));
   NS_ENSURE_SUCCESS(rv, rv);
 
@@ -379,11 +379,25 @@ nsXULAlerts::GetManualDoNotDisturb(bool* aRetVal) {
 }
 
 NS_IMETHODIMP
+nsXULAlerts::GetSuppressForScreenSharing(bool* aRetVal) {
+  NS_ENSURE_ARG(aRetVal);
+  *aRetVal = mSuppressForScreenSharing;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsXULAlerts::SetSuppressForScreenSharing(bool aSuppress) {
+  mSuppressForScreenSharing = aSuppress;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
 nsXULAlerts::CloseAlert(const nsAString& aAlertName, nsIPrincipal* aPrincipal) {
   mozIDOMWindowProxy* alert = mNamedWindows.GetWeak(aAlertName);
   if (nsCOMPtr<nsPIDOMWindowOuter> domWindow =
           nsPIDOMWindowOuter::From(alert)) {
-    domWindow->DispatchCustomEvent(NS_LITERAL_STRING("XULAlertClose"));
+    domWindow->DispatchCustomEvent(u"XULAlertClose"_ns,
+                                   ChromeOnlyDispatch::eYes);
   }
   return NS_OK;
 }

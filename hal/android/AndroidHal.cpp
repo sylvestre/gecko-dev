@@ -8,6 +8,7 @@
 #include "WindowIdentifier.h"
 #include "AndroidBridge.h"
 #include "mozilla/dom/network/Constants.h"
+#include "mozilla/java/GeckoAppShellWrappers.h"
 #include "nsIScreenManager.h"
 #include "nsPIDOMWindow.h"
 #include "nsServiceManagerUtils.h"
@@ -20,7 +21,7 @@ namespace java = mozilla::java;
 namespace mozilla {
 namespace hal_impl {
 
-void Vibrate(const nsTArray<uint32_t>& pattern, const WindowIdentifier&) {
+void Vibrate(const nsTArray<uint32_t>& pattern, WindowIdentifier&&) {
   // Ignore the WindowIdentifier parameter; it's here only because hal::Vibrate,
   // hal_sandbox::Vibrate, and hal_impl::Vibrate all must have the same
   // signature.
@@ -49,7 +50,7 @@ void Vibrate(const nsTArray<uint32_t>& pattern, const WindowIdentifier&) {
   b->Vibrate(pattern);
 }
 
-void CancelVibrate(const WindowIdentifier&) {
+void CancelVibrate(WindowIdentifier&&) {
   // Ignore WindowIdentifier parameter.
 
   java::GeckoAppShell::CancelVibrate();
@@ -103,7 +104,7 @@ void GetCurrentScreenConfiguration(ScreenConfiguration* aScreenConfiguration) {
 
   int32_t colorDepth, pixelDepth;
   int16_t angle;
-  ScreenOrientation orientation;
+  hal::ScreenOrientation orientation;
   nsCOMPtr<nsIScreen> screen;
 
   int32_t rectX, rectY, rectWidth, rectHeight;
@@ -113,7 +114,8 @@ void GetCurrentScreenConfiguration(ScreenConfiguration* aScreenConfiguration) {
   screen->GetRect(&rectX, &rectY, &rectWidth, &rectHeight);
   screen->GetColorDepth(&colorDepth);
   screen->GetPixelDepth(&pixelDepth);
-  orientation = static_cast<ScreenOrientation>(bridge->GetScreenOrientation());
+  orientation =
+      static_cast<hal::ScreenOrientation>(bridge->GetScreenOrientation());
   angle = bridge->GetScreenAngle();
 
   *aScreenConfiguration =
@@ -121,11 +123,12 @@ void GetCurrentScreenConfiguration(ScreenConfiguration* aScreenConfiguration) {
                                orientation, angle, colorDepth, pixelDepth);
 }
 
-bool LockScreenOrientation(const ScreenOrientation& aOrientation) {
+bool LockScreenOrientation(const hal::ScreenOrientation& aOrientation) {
   // Force the default orientation to be portrait-primary.
-  ScreenOrientation orientation = aOrientation == eScreenOrientation_Default
-                                      ? eScreenOrientation_PortraitPrimary
-                                      : aOrientation;
+  hal::ScreenOrientation orientation =
+      aOrientation == eScreenOrientation_Default
+          ? eScreenOrientation_PortraitPrimary
+          : aOrientation;
 
   switch (orientation) {
     // The Android backend only supports these orientations.

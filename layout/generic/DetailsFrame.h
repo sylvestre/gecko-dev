@@ -24,13 +24,13 @@ class DetailsFrame final : public nsBlockFrame,
   NS_DECL_FRAMEARENA_HELPERS(DetailsFrame)
   NS_DECL_QUERYFRAME
 
-  explicit DetailsFrame(ComputedStyle* aStyle);
+  explicit DetailsFrame(ComputedStyle* aStyle, nsPresContext* aPresContext);
 
   virtual ~DetailsFrame();
 
 #ifdef DEBUG_FRAME_DUMP
   nsresult GetFrameName(nsAString& aResult) const override {
-    return MakeFrameName(NS_LITERAL_STRING("Details"), aResult);
+    return MakeFrameName(u"Details"_ns, aResult);
   }
 #endif
 

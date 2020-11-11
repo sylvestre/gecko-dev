@@ -4,48 +4,48 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef mozilla_dom_SVGAnimationElement_h
-#define mozilla_dom_SVGAnimationElement_h
+#ifndef DOM_SVG_SVGANIMATIONELEMENT_H_
+#define DOM_SVG_SVGANIMATIONELEMENT_H_
 
 #include "mozilla/Attributes.h"
+#include "mozilla/SMILTimedElement.h"
 #include "mozilla/dom/IDTracker.h"
+#include "mozilla/dom/SVGElement.h"
 #include "mozilla/dom/SVGTests.h"
-#include "nsSMILTimedElement.h"
-#include "nsSVGElement.h"
 
-typedef nsSVGElement SVGAnimationElementBase;
+// {f80ef85f-ef48-401a-8aed-1652312326b0}
+#define MOZILLA_SVGANIMATIONELEMENT_IID              \
+  {                                                  \
+    0xf80ef85f, 0xef48, 0x401a, {                    \
+      0x8a, 0xed, 0x16, 0x52, 0x31, 0x23, 0x26, 0xb0 \
+    }                                                \
+  }
 
 namespace mozilla {
 namespace dom {
 
-enum nsSMILTargetAttrType {
-  eSMILTargetAttrType_auto,
-  eSMILTargetAttrType_CSS,
-  eSMILTargetAttrType_XML
-};
+using SVGAnimationElementBase = SVGElement;
 
 class SVGAnimationElement : public SVGAnimationElementBase, public SVGTests {
  protected:
   explicit SVGAnimationElement(
       already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo);
   nsresult Init();
-  virtual ~SVGAnimationElement();
+  virtual ~SVGAnimationElement() = default;
 
  public:
   // interfaces:
   NS_DECL_ISUPPORTS_INHERITED
 
+  NS_DECLARE_STATIC_IID_ACCESSOR(MOZILLA_SVGANIMATIONELEMENT_IID)
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(SVGAnimationElement,
                                            SVGAnimationElementBase)
 
   virtual nsresult Clone(dom::NodeInfo*, nsINode** aResult) const override = 0;
 
   // nsIContent specializations
-  virtual nsresult BindToTree(nsIDocument* aDocument, nsIContent* aParent,
-                              nsIContent* aBindingParent) override;
-  virtual void UnbindFromTree(bool aDeep, bool aNullParent) override;
-
-  virtual bool IsNodeOfType(uint32_t aFlags) const override;
+  virtual nsresult BindToTree(BindContext&, nsINode& aParent) override;
+  virtual void UnbindFromTree(bool aNullParent) override;
 
   // Element specializations
   virtual bool ParseAttribute(int32_t aNamespaceID, nsAtom* aAttribute,
@@ -61,9 +61,9 @@ class SVGAnimationElement : public SVGAnimationElementBase, public SVGTests {
   Element* GetTargetElementContent();
   virtual bool GetTargetAttributeName(int32_t* aNamespaceID,
                                       nsAtom** aLocalName) const;
-  nsSMILTimedElement& TimedElement();
-  nsSMILTimeContainer* GetTimeContainer();
-  virtual nsSMILAnimationFunction& AnimationFunction() = 0;
+  mozilla::SMILTimedElement& TimedElement();
+  mozilla::SMILTimeContainer* GetTimeContainer();
+  virtual SMILAnimationFunction& AnimationFunction() = 0;
 
   virtual bool IsEventAttributeNameInternal(nsAtom* aName) override;
 
@@ -71,9 +71,9 @@ class SVGAnimationElement : public SVGAnimationElementBase, public SVGTests {
   void ActivateByHyperlink();
 
   // WebIDL
-  nsSVGElement* GetTargetElement();
+  SVGElement* GetTargetElement();
   float GetStartTime(ErrorResult& rv);
-  float GetCurrentTime();
+  float GetCurrentTimeAsFloat();
   float GetSimpleDuration(ErrorResult& rv);
   void BeginElement(ErrorResult& rv) { BeginElementAt(0.f, rv); }
   void BeginElementAt(float offset, ErrorResult& rv);
@@ -81,10 +81,10 @@ class SVGAnimationElement : public SVGAnimationElementBase, public SVGTests {
   void EndElementAt(float offset, ErrorResult& rv);
 
   // SVGTests
-  nsSVGElement* AsSVGElement() final { return this; }
+  SVGElement* AsSVGElement() final { return this; }
 
  protected:
-  // nsSVGElement overrides
+  // SVGElement overrides
 
   void UpdateHrefTarget(const nsAString& aHrefStr);
   void AnimationTargetChanged();
@@ -120,10 +120,13 @@ class SVGAnimationElement : public SVGAnimationElementBase, public SVGTests {
   };
 
   HrefTargetTracker mHrefTarget;
-  nsSMILTimedElement mTimedElement;
+  mozilla::SMILTimedElement mTimedElement;
 };
+
+NS_DEFINE_STATIC_IID_ACCESSOR(SVGAnimationElement,
+                              MOZILLA_SVGANIMATIONELEMENT_IID)
 
 }  // namespace dom
 }  // namespace mozilla
 
-#endif  // mozilla_dom_SVGAnimationElement_h
+#endif  // DOM_SVG_SVGANIMATIONELEMENT_H_

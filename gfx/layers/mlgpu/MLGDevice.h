@@ -68,7 +68,7 @@ class MLGRenderTarget {
 
  protected:
   explicit MLGRenderTarget(MLGRenderTargetFlags aFlags);
-  virtual ~MLGRenderTarget() {}
+  virtual ~MLGRenderTarget() = default;
 
  protected:
   MLGRenderTargetFlags mFlags;
@@ -80,7 +80,7 @@ class MLGRenderTarget {
 
 class MLGSwapChain {
  protected:
-  virtual ~MLGSwapChain() {}
+  virtual ~MLGSwapChain() = default;
 
  public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(MLGSwapChain)
@@ -142,7 +142,7 @@ class MLGResource {
   virtual MLGResourceD3D11* AsResourceD3D11() { return nullptr; }
 
  protected:
-  virtual ~MLGResource() {}
+  virtual ~MLGResource() = default;
 };
 
 // A buffer for use as a shader input.
@@ -153,7 +153,7 @@ class MLGBuffer : public MLGResource {
   virtual size_t GetSize() const = 0;
 
  protected:
-  ~MLGBuffer() override {}
+  virtual ~MLGBuffer() = default;
 };
 
 // This is a lower-level resource than a TextureSource. It wraps
@@ -188,8 +188,10 @@ enum class PixelShaderID {
   TexturedVertexRGB,
   TexturedVertexRGBA,
   TexturedQuadIMC4,
+  TexturedQuadIdentityIMC4,
   TexturedQuadNV12,
   TexturedVertexIMC4,
+  TexturedVertexIdentityIMC4,
   TexturedVertexNV12,
   ComponentAlphaQuad,
   ComponentAlphaVertex,
@@ -222,7 +224,8 @@ class MLGDevice {
 
   virtual bool Initialize();
 
-  virtual TextureFactoryIdentifier GetTextureFactoryIdentifier() const = 0;
+  virtual TextureFactoryIdentifier GetTextureFactoryIdentifier(
+      widget::CompositorWidget* aWidget) const = 0;
   virtual int32_t GetMaxTextureSize() const = 0;
   virtual LayersBackend GetLayersBackend() const = 0;
 
@@ -307,11 +310,11 @@ class MLGDevice {
       MLGRenderTargetFlags aFlags = MLGRenderTargetFlags::Default) = 0;
 
   // Clear a render target to the given color, or clear a depth buffer.
-  virtual void Clear(MLGRenderTarget* aRT, const gfx::Color& aColor) = 0;
+  virtual void Clear(MLGRenderTarget* aRT, const gfx::DeviceColor& aColor) = 0;
   virtual void ClearDepthBuffer(MLGRenderTarget* aRT) = 0;
 
   // This is only available if CanUseClearView() returns true.
-  virtual void ClearView(MLGRenderTarget* aRT, const gfx::Color& aColor,
+  virtual void ClearView(MLGRenderTarget* aRT, const gfx::DeviceColor& aColor,
                          const gfx::IntRect* aRects, size_t aNumRects) = 0;
 
   // Drawing Commands
@@ -337,7 +340,7 @@ class MLGDevice {
 
   // This creates or returns a previously created constant buffer, containing
   // a YCbCrShaderConstants instance.
-  RefPtr<MLGBuffer> GetBufferForColorSpace(YUVColorSpace aColorSpace);
+  RefPtr<MLGBuffer> GetBufferForColorSpace(gfx::YUVColorSpace aColorSpace);
   // This creates or returns a previously created constant buffer, containing
   // a YCbCrBitDepthConstants instance.
   RefPtr<MLGBuffer> GetBufferForColorDepthCoefficient(
@@ -423,8 +426,8 @@ class MLGDevice {
   // MOZ_FORMAT_PRINTF macro does not work on this function, so we
   // disable the warning.
 #if defined(__GNUC__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wformat-security"
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wformat-security"
 #endif
   template <typename... T>
   bool Fail(const char* aFailureId) {
@@ -438,7 +441,7 @@ class MLGDevice {
     return Fail(failureId, &message);
   }
 #if defined(__GNUC__)
-#pragma GCC diagnostic pop
+#  pragma GCC diagnostic pop
 #endif
 
   void UnmapSharedBuffers();
@@ -454,7 +457,7 @@ class MLGDevice {
   nsCString mFailureMessage;
   bool mInitialized;
 
-  typedef EnumeratedArray<YUVColorSpace, YUVColorSpace::UNKNOWN,
+  typedef EnumeratedArray<gfx::YUVColorSpace, gfx::YUVColorSpace::UNKNOWN,
                           RefPtr<MLGBuffer>>
       ColorSpaceArray;
   ColorSpaceArray mColorSpaceBuffers;

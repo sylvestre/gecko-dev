@@ -7,6 +7,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "ssl.h"
+#include "sslexp.h"
+#include "sslimpl.h"
 #include "sslproto.h"
 #include "pk11func.h"
 #include "secitem.h"
@@ -113,7 +115,7 @@ ssl_GetMacDef(const sslSocket *ss, const ssl3CipherSuiteDef *suiteDef)
 }
 
 ssl3CipherSpec *
-ssl_FindCipherSpecByEpoch(sslSocket *ss, CipherSpecDirection direction,
+ssl_FindCipherSpecByEpoch(sslSocket *ss, SSLSecretDirection direction,
                           DTLSEpoch epoch)
 {
     PRCList *cur_p;
@@ -134,7 +136,7 @@ ssl_FindCipherSpecByEpoch(sslSocket *ss, CipherSpecDirection direction,
 }
 
 ssl3CipherSpec *
-ssl_CreateCipherSpec(sslSocket *ss, CipherSpecDirection direction)
+ssl_CreateCipherSpec(sslSocket *ss, SSLSecretDirection direction)
 {
     ssl3CipherSpec *spec = PORT_ZNew(ssl3CipherSpec);
     if (!spec) {
@@ -159,7 +161,7 @@ ssl_SaveCipherSpec(sslSocket *ss, ssl3CipherSpec *spec)
 /* Called from ssl3_InitState. */
 /* Caller must hold the SpecWriteLock. */
 SECStatus
-ssl_SetupNullCipherSpec(sslSocket *ss, CipherSpecDirection dir)
+ssl_SetupNullCipherSpec(sslSocket *ss, SSLSecretDirection dir)
 {
     ssl3CipherSpec *spec;
 
@@ -187,7 +189,7 @@ ssl_SetupNullCipherSpec(sslSocket *ss, CipherSpecDirection dir)
     dtls_InitRecvdRecords(&spec->recvdRecords);
 
     ssl_SaveCipherSpec(ss, spec);
-    if (dir == CipherSpecRead) {
+    if (dir == ssl_secret_read) {
         ss->ssl3.crSpec = spec;
     } else {
         ss->ssl3.cwSpec = spec;
@@ -227,6 +229,7 @@ ssl_FreeCipherSpec(ssl3CipherSpec *spec)
     }
     PK11_FreeSymKey(spec->masterSecret);
     ssl_DestroyKeyMaterial(&spec->keyMaterial);
+    ssl_DestroyMaskingContextInner(spec->maskContext);
 
     PORT_ZFree(spec, sizeof(*spec));
 }
@@ -259,13 +262,13 @@ ssl_DestroyCipherSpecs(PRCList *list)
 }
 
 void
-ssl_CipherSpecReleaseByEpoch(sslSocket *ss, CipherSpecDirection dir,
+ssl_CipherSpecReleaseByEpoch(sslSocket *ss, SSLSecretDirection dir,
                              DTLSEpoch epoch)
 {
     ssl3CipherSpec *spec;
     SSL_TRC(10, ("%d: SSL[%d]: releasing %s cipher spec for epoch %d",
                  SSL_GETPID(), ss->fd,
-                 (dir == CipherSpecRead) ? "read" : "write", epoch));
+                 (dir == ssl_secret_read) ? "read" : "write", epoch));
 
     spec = ssl_FindCipherSpecByEpoch(ss, dir, epoch);
     if (spec) {

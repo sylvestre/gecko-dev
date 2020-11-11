@@ -7,6 +7,8 @@
 #include "nsCOMPtr.h"
 #include "mozIJSSubScriptLoader.h"
 
+#include "js/CompileOptions.h"  // JS::ReadOnlyCompileOptions
+
 class nsIPrincipal;
 class nsIURI;
 class LoadSubScriptOptions;
@@ -31,14 +33,13 @@ class mozJSSubScriptLoader : public mozIJSSubScriptLoader {
  private:
   virtual ~mozJSSubScriptLoader();
 
-  bool ReadScript(nsIURI* uri, JSContext* cx, JS::HandleObject targetObj,
-                  const nsAString& charset, const char* uriStr,
-                  nsIIOService* serv, bool wantReturnValue,
-                  bool useCompilationScope, JS::MutableHandleScript script);
+  bool ReadScript(JS::MutableHandle<JSScript*> script, nsIURI* uri,
+                  JSContext* cx, const JS::ReadOnlyCompileOptions& options,
+                  nsIIOService* serv, bool useCompilationScope);
 
   nsresult ReadScriptAsync(nsIURI* uri, JS::HandleObject targetObj,
-                           JS::HandleObject loadScope, const nsAString& charset,
-                           nsIIOService* serv, bool wantReturnValue, bool cache,
+                           JS::HandleObject loadScope, nsIIOService* serv,
+                           bool wantReturnValue, bool cache,
                            JS::MutableHandleValue retval);
 
   nsresult DoLoadSubScriptWithOptions(const nsAString& url,

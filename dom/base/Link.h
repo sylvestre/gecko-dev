@@ -13,7 +13,6 @@
 
 #include "mozilla/MemoryReporting.h"
 #include "nsIContent.h"  // for nsLinkState
-#include "nsIContentPolicy.h"
 
 namespace mozilla {
 
@@ -38,14 +37,14 @@ class Link : public nsISupports {
   /**
    * aElement is the element pointer corresponding to this link.
    */
-  explicit Link(Element *aElement);
+  explicit Link(Element* aElement);
 
   /**
    * This constructor is only used for testing.
    */
   explicit Link();
 
-  virtual void SetLinkState(nsLinkState aState);
+  virtual void VisitedQueryFinished(bool aVisited);
 
   /**
    * @return NS_EVENT_STATE_VISITED if this link is visited,
@@ -57,31 +56,31 @@ class Link : public nsISupports {
   /**
    * @return the URI this link is for, if available.
    */
-  nsIURI *GetURI() const;
-  virtual nsIURI *GetURIExternal() const { return GetURI(); }
+  nsIURI* GetURI() const;
+  virtual nsIURI* GetURIExternal() const { return GetURI(); }
 
   /**
    * Helper methods for modifying and obtaining parts of the URI of the Link.
    */
-  void SetProtocol(const nsAString &aProtocol);
-  void SetUsername(const nsAString &aUsername);
-  void SetPassword(const nsAString &aPassword);
-  void SetHost(const nsAString &aHost);
-  void SetHostname(const nsAString &aHostname);
-  void SetPathname(const nsAString &aPathname);
-  void SetSearch(const nsAString &aSearch);
-  void SetPort(const nsAString &aPort);
-  void SetHash(const nsAString &aHash);
-  void GetOrigin(nsAString &aOrigin);
-  void GetProtocol(nsAString &_protocol);
-  void GetUsername(nsAString &aUsername);
-  void GetPassword(nsAString &aPassword);
-  void GetHost(nsAString &_host);
-  void GetHostname(nsAString &_hostname);
-  void GetPathname(nsAString &_pathname);
-  void GetSearch(nsAString &_search);
-  void GetPort(nsAString &_port);
-  void GetHash(nsAString &_hash);
+  void SetProtocol(const nsAString& aProtocol);
+  void SetUsername(const nsAString& aUsername);
+  void SetPassword(const nsAString& aPassword);
+  void SetHost(const nsAString& aHost);
+  void SetHostname(const nsAString& aHostname);
+  void SetPathname(const nsAString& aPathname);
+  void SetSearch(const nsAString& aSearch);
+  void SetPort(const nsAString& aPort);
+  void SetHash(const nsAString& aHash);
+  void GetOrigin(nsAString& aOrigin);
+  void GetProtocol(nsAString& _protocol);
+  void GetUsername(nsAString& aUsername);
+  void GetPassword(nsAString& aPassword);
+  void GetHost(nsAString& _host);
+  void GetHostname(nsAString& _hostname);
+  void GetPathname(nsAString& _pathname);
+  void GetSearch(nsAString& _search);
+  void GetPort(nsAString& _port);
+  void GetHash(nsAString& _hash);
 
   /**
    * Invalidates any link caching, and resets the state to the default.
@@ -93,7 +92,7 @@ class Link : public nsISupports {
   void ResetLinkState(bool aNotify, bool aHasHref);
 
   // This method nevers returns a null element.
-  Element *GetElement() const { return mElement; }
+  Element* GetElement() const { return mElement; }
 
   /**
    * DNS prefetch has been deferred until later, e.g. page load complete.
@@ -115,20 +114,14 @@ class Link : public nsISupports {
    */
   virtual bool HasDeferredDNSPrefetchRequest() { return true; }
 
-  virtual size_t SizeOfExcludingThis(mozilla::SizeOfState &aState) const;
+  virtual size_t SizeOfExcludingThis(mozilla::SizeOfState& aState) const;
 
   virtual bool ElementHasHref() const;
 
-  // This is called by HTMLAnchorElement.
+  // This is called by HTMLAnchorElement and HTMLLinkElement.
   void TryDNSPrefetch();
   void CancelDNSPrefetch(nsWrapperCache::FlagsType aDeferredFlag,
                          nsWrapperCache::FlagsType aRequestedFlag);
-
-  // This is called by HTMLLinkElement.
-  void TryDNSPrefetchOrPreconnectOrPrefetchOrPreloadOrPrerender();
-  void UpdatePreload(nsAtom *aName, const nsAttrValue *aValue,
-                     const nsAttrValue *aOldValue);
-  void CancelPrefetchOrPreload();
 
   bool HasPendingLinkUpdate() const { return mHasPendingLinkUpdate; }
   void SetHasPendingLinkUpdate() { mHasPendingLinkUpdate = true; }
@@ -137,15 +130,12 @@ class Link : public nsISupports {
   // To ensure correct mHasPendingLinkUpdate handling, we have this method
   // similar to the one in Element. Overriders must call
   // ClearHasPendingLinkUpdate().
-  // If you change this, change also the method in Element.
-  virtual void NodeInfoChanged(nsIDocument *aOldDoc) = 0;
+  // If you change this, change also the method in nsINode.
+  virtual void NodeInfoChanged(Document* aOldDoc) = 0;
 
   bool IsInDNSPrefetch() { return mInDNSPrefetch; }
   void SetIsInDNSPrefetch() { mInDNSPrefetch = true; }
   void ClearIsInDNSPrefetch() { mInDNSPrefetch = false; }
-
-  static void ParseAsValue(const nsAString &aValue, nsAttrValue &aResult);
-  static nsContentPolicyType AsValueToContentPolicy(const nsAttrValue &aValue);
 
  protected:
   virtual ~Link();
@@ -161,7 +151,7 @@ class Link : public nsISupports {
     return !!GetURI();
   }
 
-  nsIURI *GetCachedURI() const { return mCachedURI; }
+  nsIURI* GetCachedURI() const { return mCachedURI; }
   bool HasCachedURI() const { return !!mCachedURI; }
 
  private:
@@ -171,15 +161,11 @@ class Link : public nsISupports {
    */
   void UnregisterFromHistory();
 
-  void SetHrefAttribute(nsIURI *aURI);
-
-  void GetContentPolicyMimeTypeMedia(nsAttrValue &aAsAttr,
-                                     nsContentPolicyType &aPolicyType,
-                                     nsString &aMimeType, nsAString &aMedia);
+  void SetHrefAttribute(nsIURI* aURI);
 
   mutable nsCOMPtr<nsIURI> mCachedURI;
 
-  Element *const mElement;
+  Element* const mElement;
 
   uint16_t mLinkState;
 

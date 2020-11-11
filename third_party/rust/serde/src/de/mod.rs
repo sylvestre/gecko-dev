@@ -1,11 +1,3 @@
-// Copyright 2017 Serde Developers
-//
-// Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
-// http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
-// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
-// option. This file may not be copied, modified, or distributed
-// except according to those terms.
-
 //! Generic data structure deserialization framework.
 //!
 //! The two most important traits in this module are [`Deserialize`] and
@@ -67,13 +59,13 @@
 //!    - Box\<T\>
 //!    - Box\<\[T\]\>
 //!    - Box\<str\>
-//!    - Rc\<T\>
-//!    - Arc\<T\>
 //!    - Cow\<'a, T\>
 //!    - Cell\<T\>
 //!    - RefCell\<T\>
 //!    - Mutex\<T\>
 //!    - RwLock\<T\>
+//!    - Rc\<T\>&emsp;*(if* features = ["rc"] *is enabled)*
+//!    - Arc\<T\>&emsp;*(if* features = ["rc"] *is enabled)*
 //!  - **Collection types**:
 //!    - BTreeMap\<K, V\>
 //!    - BTreeSet\<T\>
@@ -97,6 +89,7 @@
 //!    - PathBuf
 //!    - Range\<T\>
 //!    - RangeInclusive\<T\>
+//!    - Bound\<T\>
 //!    - num::NonZero*
 //!    - `!` *(unstable)*
 //!  - **Net types**:
@@ -111,7 +104,7 @@
 //! [`Deserialize`]: ../trait.Deserialize.html
 //! [`Deserializer`]: ../trait.Deserializer.html
 //! [`LinkedHashMap<K, V>`]: https://docs.rs/linked-hash-map/*/linked_hash_map/struct.LinkedHashMap.html
-//! [`bincode`]: https://github.com/TyOverby/bincode
+//! [`bincode`]: https://github.com/servo/bincode
 //! [`linked-hash-map`]: https://crates.io/crates/linked-hash-map
 //! [`serde_derive`]: https://crates.io/crates/serde_derive
 //! [`serde_json`]: https://github.com/serde-rs/json
@@ -131,6 +124,13 @@ mod impls;
 mod utf8;
 
 pub use self::ignored_any::IgnoredAny;
+
+#[cfg(feature = "std")]
+#[doc(no_inline)]
+pub use std::error::Error as StdError;
+#[cfg(not(feature = "std"))]
+#[doc(no_inline)]
+pub use std_error::Error as StdError;
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -161,7 +161,7 @@ macro_rules! declare_error_trait {
             ///
             /// The message should not be capitalized and should not end with a period.
             ///
-            /// ```rust
+            /// ```edition2018
             /// # use std::str::FromStr;
             /// #
             /// # struct IpAddr;
@@ -181,7 +181,7 @@ macro_rules! declare_error_trait {
             ///     where
             ///         D: Deserializer<'de>,
             ///     {
-            ///         let s = try!(String::deserialize(deserializer));
+            ///         let s = String::deserialize(deserializer)?;
             ///         s.parse().map_err(de::Error::custom)
             ///     }
             /// }
@@ -245,12 +245,16 @@ macro_rules! declare_error_trait {
             #[cold]
             fn unknown_variant(variant: &str, expected: &'static [&'static str]) -> Self {
                 if expected.is_empty() {
-                    Error::custom(format_args!("unknown variant `{}`, there are no variants",
-                                               variant))
+                    Error::custom(format_args!(
+                        "unknown variant `{}`, there are no variants",
+                        variant
+                    ))
                 } else {
-                    Error::custom(format_args!("unknown variant `{}`, expected {}",
-                                               variant,
-                                               OneOf { names: expected }))
+                    Error::custom(format_args!(
+                        "unknown variant `{}`, expected {}",
+                        variant,
+                        OneOf { names: expected }
+                    ))
                 }
             }
 
@@ -259,12 +263,16 @@ macro_rules! declare_error_trait {
             #[cold]
             fn unknown_field(field: &str, expected: &'static [&'static str]) -> Self {
                 if expected.is_empty() {
-                    Error::custom(format_args!("unknown field `{}`, there are no fields",
-                                               field))
+                    Error::custom(format_args!(
+                        "unknown field `{}`, there are no fields",
+                        field
+                    ))
                 } else {
-                    Error::custom(format_args!("unknown field `{}`, expected {}",
-                                               field,
-                                               OneOf { names: expected }))
+                    Error::custom(format_args!(
+                        "unknown field `{}`, expected {}",
+                        field,
+                        OneOf { names: expected }
+                    ))
                 }
             }
 
@@ -287,7 +295,7 @@ macro_rules! declare_error_trait {
 }
 
 #[cfg(feature = "std")]
-declare_error_trait!(Error: Sized + error::Error);
+declare_error_trait!(Error: Sized + StdError);
 
 #[cfg(not(feature = "std"))]
 declare_error_trait!(Error: Sized + Debug + Display);
@@ -298,7 +306,7 @@ declare_error_trait!(Error: Sized + Debug + Display);
 /// This is used as an argument to the `invalid_type`, `invalid_value`, and
 /// `invalid_length` methods of the `Error` trait to build error messages.
 ///
-/// ```rust
+/// ```edition2018
 /// # use std::fmt;
 /// #
 /// # use serde::de::{self, Unexpected, Visitor};
@@ -423,7 +431,7 @@ impl<'a> fmt::Display for Unexpected<'a> {
 /// Within the context of a `Visitor` implementation, the `Visitor` itself
 /// (`&self`) is an implementation of this trait.
 ///
-/// ```rust
+/// ```edition2018
 /// # use std::fmt;
 /// #
 /// # use serde::de::{self, Unexpected, Visitor};
@@ -448,7 +456,7 @@ impl<'a> fmt::Display for Unexpected<'a> {
 ///
 /// Outside of a `Visitor`, `&"..."` can be used.
 ///
-/// ```rust
+/// ```edition2018
 /// # use serde::de::{self, Unexpected};
 /// #
 /// # fn example<E>() -> Result<(), E>
@@ -569,7 +577,7 @@ pub trait Deserialize<'de>: Sized {
 /// from the input string, but a `from_reader` function may only deserialize
 /// owned data.
 ///
-/// ```rust
+/// ```edition2018
 /// # use serde::de::{Deserialize, DeserializeOwned};
 /// # use std::io::{Read, Result};
 /// #
@@ -608,7 +616,7 @@ impl<T> DeserializeOwned for T where T: for<'de> Deserialize<'de> {}
 ///
 /// The canonical API for stateless deserialization looks like this:
 ///
-/// ```rust
+/// ```edition2018
 /// # use serde::Deserialize;
 /// #
 /// # enum Error {}
@@ -622,7 +630,7 @@ impl<T> DeserializeOwned for T where T: for<'de> Deserialize<'de> {}
 /// Adjusting an API like this to support stateful deserialization is a matter
 /// of accepting a seed as input:
 ///
-/// ```rust
+/// ```edition2018
 /// # use serde::de::DeserializeSeed;
 /// #
 /// # enum Error {}
@@ -655,7 +663,7 @@ impl<T> DeserializeOwned for T where T: for<'de> Deserialize<'de> {}
 /// into it. This requires stateful deserialization using the `DeserializeSeed`
 /// trait.
 ///
-/// ```rust
+/// ```edition2018
 /// use std::fmt;
 /// use std::marker::PhantomData;
 ///
@@ -786,7 +794,7 @@ where
 ///
 /// The role of this trait is to define the deserialization half of the [Serde
 /// data model], which is a way to categorize every Rust data type into one of
-/// 29 possible types. Each method of the `Serializer` trait corresponds to one
+/// 29 possible types. Each method of the `Deserializer` trait corresponds to one
 /// of the types of the data model.
 ///
 /// Implementations of `Deserialize` map themselves into this data model by
@@ -1145,7 +1153,7 @@ pub trait Deserializer<'de>: Sized {
     /// human-readable one and binary formats like Bincode will prefer the
     /// compact one.
     ///
-    /// ```
+    /// ```edition2018
     /// # use std::ops::Add;
     /// # use std::str::FromStr;
     /// #
@@ -1222,7 +1230,7 @@ pub trait Deserializer<'de>: Sized {
 ///
 /// # Example
 ///
-/// ```rust
+/// ```edition2018
 /// # use std::fmt;
 /// #
 /// # use serde::de::{self, Unexpected, Visitor};
@@ -1263,7 +1271,7 @@ pub trait Visitor<'de>: Sized {
     /// "an integer between 0 and 64". The message should not be capitalized and
     /// should not end with a period.
     ///
-    /// ```rust
+    /// ```edition2018
     /// # use std::fmt;
     /// #
     /// # struct S {
@@ -2004,7 +2012,7 @@ pub trait VariantAccess<'de>: Sized {
     /// If the data contains a different type of variant, the following
     /// `invalid_type` error should be constructed:
     ///
-    /// ```rust
+    /// ```edition2018
     /// # use serde::de::{self, value, DeserializeSeed, Visitor, VariantAccess, Unexpected};
     /// #
     /// # struct X;
@@ -2044,7 +2052,7 @@ pub trait VariantAccess<'de>: Sized {
     /// If the data contains a different type of variant, the following
     /// `invalid_type` error should be constructed:
     ///
-    /// ```rust
+    /// ```edition2018
     /// # use serde::de::{self, value, DeserializeSeed, Visitor, VariantAccess, Unexpected};
     /// #
     /// # struct X;
@@ -2100,7 +2108,7 @@ pub trait VariantAccess<'de>: Sized {
     /// If the data contains a different type of variant, the following
     /// `invalid_type` error should be constructed:
     ///
-    /// ```rust
+    /// ```edition2018
     /// # use serde::de::{self, value, DeserializeSeed, Visitor, VariantAccess, Unexpected};
     /// #
     /// # struct X;
@@ -2147,7 +2155,7 @@ pub trait VariantAccess<'de>: Sized {
     /// If the data contains a different type of variant, the following
     /// `invalid_type` error should be constructed:
     ///
-    /// ```rust
+    /// ```edition2018
     /// # use serde::de::{self, value, DeserializeSeed, Visitor, VariantAccess, Unexpected};
     /// #
     /// # struct X;
@@ -2207,14 +2215,10 @@ pub trait VariantAccess<'de>: Sized {
 ///
 /// # Example
 ///
-/// ```rust
-/// #[macro_use]
-/// extern crate serde_derive;
-///
-/// extern crate serde;
-///
+/// ```edition2018
 /// use std::str::FromStr;
-/// use serde::de::{value, Deserialize, IntoDeserializer};
+/// use serde::Deserialize;
+/// use serde::de::{value, IntoDeserializer};
 ///
 /// #[derive(Deserialize)]
 /// enum Setting {
@@ -2229,8 +2233,6 @@ pub trait VariantAccess<'de>: Sized {
 ///         Self::deserialize(s.into_deserializer())
 ///     }
 /// }
-/// #
-/// # fn main() {}
 /// ```
 pub trait IntoDeserializer<'de, E: Error = value::Error> {
     /// The type of the deserializer being converted into.

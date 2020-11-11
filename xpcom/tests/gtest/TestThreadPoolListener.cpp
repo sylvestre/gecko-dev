@@ -38,7 +38,7 @@ static bool gAllThreadsCreated = false;
 static bool gAllThreadsShutDown = false;
 
 class Listener final : public nsIThreadPoolListener {
-  ~Listener() {}
+  ~Listener() = default;
 
  public:
   NS_DECL_THREADSAFE_ISUPPORTS
@@ -120,7 +120,8 @@ class AutoCreateAndDestroyReentrantMonitor {
   ReentrantMonitor** mReentrantMonitorPtr;
 };
 
-TEST(ThreadPoolListener, Test) {
+TEST(ThreadPoolListener, Test)
+{
   nsIThread* createdThreadList[NUMBER_OF_THREADS] = {nullptr};
   gCreatedThreadList = createdThreadList;
 

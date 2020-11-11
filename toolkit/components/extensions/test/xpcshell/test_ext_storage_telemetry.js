@@ -2,38 +2,60 @@
 /* vim: set sts=2 sw=2 et tw=80: */
 "use strict";
 
-ChromeUtils.import("resource://gre/modules/ExtensionStorageIDB.jsm");
+const { ExtensionStorageIDB } = ChromeUtils.import(
+  "resource://gre/modules/ExtensionStorageIDB.jsm"
+);
+const { getTrimmedString } = ChromeUtils.import(
+  "resource://gre/modules/ExtensionTelemetry.jsm"
+);
+const { TelemetryController } = ChromeUtils.import(
+  "resource://gre/modules/TelemetryController.jsm"
+);
+const { TelemetryTestUtils } = ChromeUtils.import(
+  "resource://testing-common/TelemetryTestUtils.jsm"
+);
 
 const HISTOGRAM_JSON_IDS = [
-  "WEBEXT_STORAGE_LOCAL_SET_MS", "WEBEXT_STORAGE_LOCAL_GET_MS",
+  "WEBEXT_STORAGE_LOCAL_SET_MS",
+  "WEBEXT_STORAGE_LOCAL_GET_MS",
 ];
 const KEYED_HISTOGRAM_JSON_IDS = [
-  "WEBEXT_STORAGE_LOCAL_SET_MS_BY_ADDONID", "WEBEXT_STORAGE_LOCAL_GET_MS_BY_ADDONID",
+  "WEBEXT_STORAGE_LOCAL_SET_MS_BY_ADDONID",
+  "WEBEXT_STORAGE_LOCAL_GET_MS_BY_ADDONID",
 ];
 
 const HISTOGRAM_IDB_IDS = [
-  "WEBEXT_STORAGE_LOCAL_IDB_SET_MS", "WEBEXT_STORAGE_LOCAL_IDB_GET_MS",
+  "WEBEXT_STORAGE_LOCAL_IDB_SET_MS",
+  "WEBEXT_STORAGE_LOCAL_IDB_GET_MS",
 ];
 const KEYED_HISTOGRAM_IDB_IDS = [
-  "WEBEXT_STORAGE_LOCAL_IDB_SET_MS_BY_ADDONID", "WEBEXT_STORAGE_LOCAL_IDB_GET_MS_BY_ADDONID",
+  "WEBEXT_STORAGE_LOCAL_IDB_SET_MS_BY_ADDONID",
+  "WEBEXT_STORAGE_LOCAL_IDB_GET_MS_BY_ADDONID",
 ];
 
 const HISTOGRAM_IDS = [].concat(HISTOGRAM_JSON_IDS, HISTOGRAM_IDB_IDS);
-const KEYED_HISTOGRAM_IDS = [].concat(KEYED_HISTOGRAM_JSON_IDS, KEYED_HISTOGRAM_IDB_IDS);
+const KEYED_HISTOGRAM_IDS = [].concat(
+  KEYED_HISTOGRAM_JSON_IDS,
+  KEYED_HISTOGRAM_IDB_IDS
+);
 
 const EXTENSION_ID1 = "@test-extension1";
 const EXTENSION_ID2 = "@test-extension2";
 
 async function test_telemetry_background() {
-  const expectedEmptyHistograms = ExtensionStorageIDB.isBackendEnabled ?
-          HISTOGRAM_JSON_IDS : HISTOGRAM_IDB_IDS;
-  const expectedEmptyKeyedHistograms = ExtensionStorageIDB.isBackendEnabled ?
-          KEYED_HISTOGRAM_JSON_IDS : KEYED_HISTOGRAM_IDB_IDS;
+  const expectedEmptyHistograms = ExtensionStorageIDB.isBackendEnabled
+    ? HISTOGRAM_JSON_IDS
+    : HISTOGRAM_IDB_IDS;
+  const expectedEmptyKeyedHistograms = ExtensionStorageIDB.isBackendEnabled
+    ? KEYED_HISTOGRAM_JSON_IDS
+    : KEYED_HISTOGRAM_IDB_IDS;
 
-  const expectedNonEmptyHistograms = ExtensionStorageIDB.isBackendEnabled ?
-          HISTOGRAM_IDB_IDS : HISTOGRAM_JSON_IDS;
-  const expectedNonEmptyKeyedHistograms = ExtensionStorageIDB.isBackendEnabled ?
-          KEYED_HISTOGRAM_IDB_IDS : KEYED_HISTOGRAM_JSON_IDS;
+  const expectedNonEmptyHistograms = ExtensionStorageIDB.isBackendEnabled
+    ? HISTOGRAM_IDB_IDS
+    : HISTOGRAM_JSON_IDS;
+  const expectedNonEmptyKeyedHistograms = ExtensionStorageIDB.isBackendEnabled
+    ? KEYED_HISTOGRAM_IDB_IDS
+    : KEYED_HISTOGRAM_JSON_IDS;
 
   const server = createHttpServer();
   server.registerDirectory("/data/", do_get_file("data"));
@@ -41,7 +63,7 @@ async function test_telemetry_background() {
   const BASE_URL = `http://localhost:${server.identity.primaryPort}/data`;
 
   async function contentScript() {
-    await browser.storage.local.set({a: "b"});
+    await browser.storage.local.set({ a: "b" });
     await browser.storage.local.get("a");
     browser.test.sendMessage("contentDone");
   }
@@ -50,15 +72,15 @@ async function test_telemetry_background() {
     permissions: ["storage"],
     content_scripts: [
       {
-        "matches": ["http://*/*/file_sample.html"],
-        "js": ["content_script.js"],
+        matches: ["http://*/*/file_sample.html"],
+        js: ["content_script.js"],
       },
     ],
   };
 
   let baseExtInfo = {
     async background() {
-      await browser.storage.local.set({a: "b"});
+      await browser.storage.local.set({ a: "b" });
       await browser.storage.local.get("a");
       browser.test.sendMessage("backgroundDone");
     },
@@ -72,7 +94,7 @@ async function test_telemetry_background() {
     manifest: {
       ...baseManifest,
       applications: {
-        gecko: {id: EXTENSION_ID1},
+        gecko: { id: EXTENSION_ID1 },
       },
     },
   });
@@ -81,7 +103,7 @@ async function test_telemetry_background() {
     manifest: {
       ...baseManifest,
       applications: {
-        gecko: {id: EXTENSION_ID2},
+        gecko: { id: EXTENSION_ID2 },
       },
     },
   });
@@ -97,7 +119,11 @@ async function test_telemetry_background() {
   }
 
   for (let id of KEYED_HISTOGRAM_IDS) {
-    Assert.deepEqual(Object.keys(keyedSnapshots[id] || {}), [], `No data recorded for histogram: ${id}.`);
+    Assert.deepEqual(
+      Object.keys(keyedSnapshots[id] || {}),
+      [],
+      `No data recorded for histogram: ${id}.`
+    );
   }
 
   await extension1.startup();
@@ -114,15 +140,24 @@ async function test_telemetry_background() {
   keyedSnapshots = getKeyedSnapshots(process);
 
   for (let id of expectedNonEmptyHistograms) {
-    equal(valueSum(snapshots[id].values), 1,
-          `Data recorded for histogram: ${id}.`);
+    equal(
+      valueSum(snapshots[id].values),
+      1,
+      `Data recorded for histogram: ${id}.`
+    );
   }
 
   for (let id of expectedNonEmptyKeyedHistograms) {
-    Assert.deepEqual(Object.keys(keyedSnapshots[id]), [EXTENSION_ID1],
-                     `Data recorded for histogram: ${id}.`);
-    equal(valueSum(keyedSnapshots[id][EXTENSION_ID1].values), 1,
-          `Data recorded for histogram: ${id}.`);
+    Assert.deepEqual(
+      Object.keys(keyedSnapshots[id]),
+      [EXTENSION_ID1],
+      `Data recorded for histogram: ${id}.`
+    );
+    equal(
+      valueSum(keyedSnapshots[id][EXTENSION_ID1].values),
+      1,
+      `Data recorded for histogram: ${id}.`
+    );
   }
 
   await extension2.startup();
@@ -140,15 +175,24 @@ async function test_telemetry_background() {
   keyedSnapshots = getKeyedSnapshots(process);
 
   for (let id of expectedNonEmptyHistograms) {
-    equal(valueSum(snapshots[id].values), 2,
-          `Additional data recorded for histogram: ${id}.`);
+    equal(
+      valueSum(snapshots[id].values),
+      2,
+      `Additional data recorded for histogram: ${id}.`
+    );
   }
 
   for (let id of expectedNonEmptyKeyedHistograms) {
-    Assert.deepEqual(Object.keys(keyedSnapshots[id]).sort(), [EXTENSION_ID1, EXTENSION_ID2],
-                     `Additional data recorded for histogram: ${id}.`);
-    equal(valueSum(keyedSnapshots[id][EXTENSION_ID2].values), 1,
-          `Additional data recorded for histogram: ${id}.`);
+    Assert.deepEqual(
+      Object.keys(keyedSnapshots[id]).sort(),
+      [EXTENSION_ID1, EXTENSION_ID2],
+      `Additional data recorded for histogram: ${id}.`
+    );
+    equal(
+      valueSum(keyedSnapshots[id][EXTENSION_ID2].values),
+      1,
+      `Additional data recorded for histogram: ${id}.`
+    );
   }
 
   await extension2.unload();
@@ -158,14 +202,21 @@ async function test_telemetry_background() {
   let expectedCount = IS_OOP ? 1 : 3;
   let expectedKeyedCount = IS_OOP ? 1 : 2;
 
-  let contentPage = await ExtensionTestUtils.loadContentPage(`${BASE_URL}/file_sample.html`);
+  let contentPage = await ExtensionTestUtils.loadContentPage(
+    `${BASE_URL}/file_sample.html`
+  );
   await extension1.awaitMessage("contentDone");
 
   for (let id of expectedNonEmptyHistograms) {
     await promiseTelemetryRecorded(id, process, expectedCount);
   }
   for (let id of expectedNonEmptyKeyedHistograms) {
-    await promiseKeyedTelemetryRecorded(id, process, EXTENSION_ID1, expectedKeyedCount);
+    await promiseKeyedTelemetryRecorded(
+      id,
+      process,
+      EXTENSION_ID1,
+      expectedKeyedCount
+    );
   }
 
   // Telemetry from extension1's content script should be recorded.
@@ -173,16 +224,24 @@ async function test_telemetry_background() {
   keyedSnapshots = getKeyedSnapshots(process);
 
   for (let id of expectedNonEmptyHistograms) {
-    equal(valueSum(snapshots[id].values), expectedCount,
-          `Data recorded in content script for histogram: ${id}.`);
+    equal(
+      valueSum(snapshots[id].values),
+      expectedCount,
+      `Data recorded in content script for histogram: ${id}.`
+    );
   }
 
   for (let id of expectedNonEmptyKeyedHistograms) {
-    Assert.deepEqual(Object.keys(keyedSnapshots[id]).sort(),
-                     IS_OOP ? [EXTENSION_ID1] : [EXTENSION_ID1, EXTENSION_ID2],
-                     `Additional data recorded for histogram: ${id}.`);
-    equal(valueSum(keyedSnapshots[id][EXTENSION_ID1].values), expectedKeyedCount,
-          `Additional data recorded for histogram: ${id}.`);
+    Assert.deepEqual(
+      Object.keys(keyedSnapshots[id]).sort(),
+      IS_OOP ? [EXTENSION_ID1] : [EXTENSION_ID1, EXTENSION_ID2],
+      `Additional data recorded for histogram: ${id}.`
+    );
+    equal(
+      valueSum(keyedSnapshots[id][EXTENSION_ID1].values),
+      expectedKeyedCount,
+      `Additional data recorded for histogram: ${id}.`
+    );
   }
 
   await extension1.unload();
@@ -193,25 +252,118 @@ async function test_telemetry_background() {
   }
 
   for (let id of expectedEmptyKeyedHistograms) {
-    Assert.deepEqual(Object.keys(keyedSnapshots[id] || {}), [], `No data recorded for histogram: ${id}.`);
+    Assert.deepEqual(
+      Object.keys(keyedSnapshots[id] || {}),
+      [],
+      `No data recorded for histogram: ${id}.`
+    );
   }
 
   await contentPage.close();
 }
 
+add_task(async function setup() {
+  Services.prefs.setBoolPref(
+    "toolkit.telemetry.testing.overrideProductsCheck",
+    true
+  );
+
+  // Telemetry test setup needed to ensure that the builtin events are defined
+  // and they can be collected and verified.
+  await TelemetryController.testSetup();
+
+  // This is actually only needed on Android, because it does not properly support unified telemetry
+  // and so, if not enabled explicitly here, it would make these tests to fail when running on a
+  // non-Nightly build.
+  const oldCanRecordBase = Services.telemetry.canRecordBase;
+  Services.telemetry.canRecordBase = true;
+  registerCleanupFunction(() => {
+    Services.telemetry.canRecordBase = oldCanRecordBase;
+  });
+});
+
 add_task(function test_telemetry_background_file_backend() {
-  return runWithPrefs([[ExtensionStorageIDB.BACKEND_ENABLED_PREF, false]],
-                      test_telemetry_background);
+  return runWithPrefs(
+    [[ExtensionStorageIDB.BACKEND_ENABLED_PREF, false]],
+    test_telemetry_background
+  );
 });
 
 add_task(function test_telemetry_background_idb_backend() {
-  return runWithPrefs([
-    [ExtensionStorageIDB.BACKEND_ENABLED_PREF, true],
-    // Set the migrated preference for the two test extension, because the
-    // first storage.local call fallbacks to run in the parent process when we
-    // don't know which is the selected backend during the extension startup
-    // and so we can't choose the telemetry histogram to use.
-    [`${ExtensionStorageIDB.IDB_MIGRATED_PREF_BRANCH}.${EXTENSION_ID1}`, true],
-    [`${ExtensionStorageIDB.IDB_MIGRATED_PREF_BRANCH}.${EXTENSION_ID2}`, true],
-  ], test_telemetry_background);
+  return runWithPrefs(
+    [
+      [ExtensionStorageIDB.BACKEND_ENABLED_PREF, true],
+      // Set the migrated preference for the two test extension, because the
+      // first storage.local call fallbacks to run in the parent process when we
+      // don't know which is the selected backend during the extension startup
+      // and so we can't choose the telemetry histogram to use.
+      [
+        `${ExtensionStorageIDB.IDB_MIGRATED_PREF_BRANCH}.${EXTENSION_ID1}`,
+        true,
+      ],
+      [
+        `${ExtensionStorageIDB.IDB_MIGRATED_PREF_BRANCH}.${EXTENSION_ID2}`,
+        true,
+      ],
+    ],
+    test_telemetry_background
+  );
+});
+
+// This test verifies that we do record the expected telemetry event when we
+// normalize the error message for an unexpected error (an error raised internally
+// by the QuotaManager and/or IndexedDB, which it is being normalized into the generic
+// "An unexpected error occurred" error message).
+add_task(async function test_telemetry_storage_local_unexpected_error() {
+  // Clear any telemetry events collected so far.
+  Services.telemetry.clearEvents();
+
+  const methods = ["clear", "get", "remove", "set"];
+  const veryLongErrorName = `VeryLongErrorName${Array(200)
+    .fill(0)
+    .join("")}`;
+  const otherError = new Error("an error recorded as OtherError");
+
+  const recordedErrors = [
+    new DOMException("error message", "UnexpectedDOMException"),
+    new DOMException("error message", veryLongErrorName),
+    otherError,
+  ];
+
+  // We expect the following errors to not be recorded in telemetry (because they
+  // are raised on scenarios that we already expect).
+  const nonRecordedErrors = [
+    new DOMException("error message", "QuotaExceededError"),
+    new DOMException("error message", "DataCloneError"),
+  ];
+
+  const expectedEvents = [];
+
+  const errors = [].concat(recordedErrors, nonRecordedErrors);
+
+  for (let i = 0; i < errors.length; i++) {
+    const error = errors[i];
+    const storageMethod = methods[i] || "set";
+    ExtensionStorageIDB.normalizeStorageError({
+      error: errors[i],
+      extensionId: EXTENSION_ID1,
+      storageMethod,
+    });
+
+    if (recordedErrors.includes(error)) {
+      let error_name =
+        error === otherError ? "OtherError" : getTrimmedString(error.name);
+
+      expectedEvents.push({
+        value: EXTENSION_ID1,
+        object: storageMethod,
+        extra: { error_name },
+      });
+    }
+  }
+
+  await TelemetryTestUtils.assertEvents(expectedEvents, {
+    category: "extensions.data",
+    method: "storageLocalError",
+  });
 });

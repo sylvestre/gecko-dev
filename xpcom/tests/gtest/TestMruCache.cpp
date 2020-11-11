@@ -49,13 +49,14 @@ struct Convertable {
 };
 
 // Helper to create a StringStructMap key.
-nsCString MakeStringKey(char aKey) {
+static nsCString MakeStringKey(char aKey) {
   nsCString key;
   key.Append(aKey);
   return key;
 }
 
-TEST(MruCache, TestNullChecker) {
+TEST(MruCache, TestNullChecker)
+{
   using mozilla::detail::EmptyChecker;
 
   {
@@ -84,7 +85,8 @@ TEST(MruCache, TestNullChecker) {
   }
 }
 
-TEST(MruCache, TestEmptyCache) {
+TEST(MruCache, TestEmptyCache)
+{
   {
     // Test a basic empty cache.
     IntMap mru;
@@ -126,7 +128,8 @@ TEST(MruCache, TestEmptyCache) {
   }
 }
 
-TEST(MruCache, TestPut) {
+TEST(MruCache, TestPut)
+{
   IntMap mru;
 
   // Fill it up.
@@ -144,7 +147,8 @@ TEST(MruCache, TestPut) {
   }
 }
 
-TEST(MruCache, TestPutConvertable) {
+TEST(MruCache, TestPutConvertable)
+{
   UintPtrMap mru;
 
   // Fill it up.
@@ -163,7 +167,8 @@ TEST(MruCache, TestPutConvertable) {
   }
 }
 
-TEST(MruCache, TestOverwriting) {
+TEST(MruCache, TestOverwriting)
+{
   // Test overwrting
   IntMap mru;
 
@@ -182,7 +187,8 @@ TEST(MruCache, TestOverwriting) {
   }
 }
 
-TEST(MruCache, TestRemove) {
+TEST(MruCache, TestRemove)
+{
   {
     IntMap mru;
 
@@ -233,7 +239,7 @@ TEST(MruCache, TestRemove) {
     // Fill it up.
     for (char i = 1; i < 32; i++) {
       const nsCString key = MakeStringKey(i);
-      mru.Put(key, StringStruct{key, NS_LITERAL_CSTRING("foo")});
+      mru.Put(key, StringStruct{key, "foo"_ns});
     }
 
     // Now remove each value.
@@ -253,7 +259,8 @@ TEST(MruCache, TestRemove) {
   }
 }
 
-TEST(MruCache, TestClear) {
+TEST(MruCache, TestClear)
+{
   IntMap mru;
 
   // Fill it up.
@@ -273,7 +280,8 @@ TEST(MruCache, TestClear) {
   }
 }
 
-TEST(MruCache, TestLookupMissingAndSet) {
+TEST(MruCache, TestLookupMissingAndSet)
+{
   IntMap mru;
 
   // Value not found.
@@ -306,7 +314,8 @@ TEST(MruCache, TestLookupMissingAndSet) {
   EXPECT_EQ(p.Data(), 2);
 }
 
-TEST(MruCache, TestLookupAndOverwrite) {
+TEST(MruCache, TestLookupAndOverwrite)
+{
   IntMap mru;
 
   // Set 1.
@@ -331,7 +340,8 @@ TEST(MruCache, TestLookupAndOverwrite) {
   EXPECT_EQ(p.Data(), 32);
 }
 
-TEST(MruCache, TestLookupAndRemove) {
+TEST(MruCache, TestLookupAndRemove)
+{
   IntMap mru;
 
   // Set 1.
@@ -349,7 +359,8 @@ TEST(MruCache, TestLookupAndRemove) {
   EXPECT_FALSE(p);
 }
 
-TEST(MruCache, TestLookupNotMatchedAndRemove) {
+TEST(MruCache, TestLookupNotMatchedAndRemove)
+{
   IntMap mru;
 
   // Set 1.
@@ -368,16 +379,17 @@ TEST(MruCache, TestLookupNotMatchedAndRemove) {
   EXPECT_EQ(p.Data(), 1);
 }
 
-TEST(MruCache, TestLookupAndSetWithMove) {
+TEST(MruCache, TestLookupAndSetWithMove)
+{
   StringStructMap mru;
 
   const nsCString key = MakeStringKey((char)1);
-  StringStruct val{key, NS_LITERAL_CSTRING("foo")};
+  StringStruct val{key, "foo"_ns};
 
   auto p = mru.Lookup(key);
   EXPECT_FALSE(p);
   p.Set(std::move(val));
 
   EXPECT_TRUE(p.Data().mKey == key);
-  EXPECT_TRUE(p.Data().mOther == NS_LITERAL_CSTRING("foo"));
+  EXPECT_TRUE(p.Data().mOther == "foo"_ns);
 }

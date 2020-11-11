@@ -1,12 +1,12 @@
 // Hooks and Debugger.prototype.getNewestFrame produce the same Frame object.
 
-var g = newGlobal();
+var g = newGlobal({newCompartment: true});
 var dbg = Debugger(g);
 var hits = 0;
 var savedFrame, savedCallee;
 dbg.onDebuggerStatement = function (frame) {
     assertEq(frame, savedFrame);
-    assertEq(frame.live, true);
+    assertEq(frame.onStack, true);
     assertEq(frame.callee, savedCallee);
     hits++;
 };

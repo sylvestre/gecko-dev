@@ -6,18 +6,17 @@
 
 #ifndef AndroidNativeWindow_h__
 #define AndroidNativeWindow_h__
-#ifdef MOZ_WIDGET_ANDROID
 
 #include <jni.h>
 #include <android/native_window.h>
 #include <android/native_window_jni.h>
-#include "GeneratedJNIWrappers.h"
+#include "mozilla/java/GeckoSurfaceWrappers.h"
 #include "SurfaceTexture.h"
 
 namespace mozilla {
 namespace gl {
 
-class AndroidNativeWindow {
+class AndroidNativeWindow final {
  public:
   AndroidNativeWindow() : mNativeWindow(nullptr) {}
 
@@ -49,5 +48,4 @@ class AndroidNativeWindow {
 }  // namespace gl
 }  // namespace mozilla
 
-#endif  // MOZ_WIDGET_ANDROID
 #endif  // AndroidNativeWindow_h__

@@ -12,10 +12,16 @@
 #include "OpenGL/OpenGL.h"
 
 #ifdef __OBJC__
-#include <AppKit/NSOpenGL.h>
+#  include <AppKit/NSOpenGL.h>
 #else
 typedef void NSOpenGLContext;
 #endif
+
+#include <CoreGraphics/CGDisplayConfiguration.h>
+
+#include "mozilla/Atomics.h"
+
+class nsIWidget;
 
 namespace mozilla {
 namespace gl {
@@ -25,10 +31,11 @@ class GLContextCGL : public GLContext {
 
   NSOpenGLContext* mContext;
 
+  mozilla::Atomic<bool> mActiveGPUSwitchMayHaveOccurred;
+
  public:
   MOZ_DECLARE_REFCOUNTED_VIRTUAL_TYPENAME(GLContextCGL, override)
-  GLContextCGL(CreateContextFlags flags, const SurfaceCaps& caps,
-               NSOpenGLContext* context, bool isOffscreen);
+  GLContextCGL(const GLContextDesc&, NSOpenGLContext* context);
 
   ~GLContextCGL();
 
@@ -41,10 +48,18 @@ class GLContextCGL : public GLContext {
     return static_cast<GLContextCGL*>(gl);
   }
 
-  bool Init() override;
-
   NSOpenGLContext* GetNSOpenGLContext() const { return mContext; }
   CGLContextObj GetCGLContext() const;
+
+  // Can be called on any thread
+  static void DisplayReconfigurationCallback(CGDirectDisplayID aDisplay,
+                                             CGDisplayChangeSummaryFlags aFlags,
+                                             void* aUserInfo);
+
+  // Call at the beginning of a frame, on contexts that should stay on the
+  // active GPU. This method will migrate the context to the new active GPU, if
+  // the active GPU has changed since the last call.
+  void MigrateToActiveGPU();
 
   virtual bool MakeCurrentImpl() const override;
 
@@ -52,13 +67,11 @@ class GLContextCGL : public GLContext {
 
   virtual GLenum GetPreferredARGB32Format() const override;
 
-  virtual bool SetupLookupFunction() override;
-
-  virtual bool IsDoubleBuffered() const override;
-
   virtual bool SwapBuffers() override;
 
   virtual void GetWSIInfo(nsCString* const out) const override;
+
+  Maybe<SymbolLoader> GetSymbolLoader() const override;
 };
 
 }  // namespace gl

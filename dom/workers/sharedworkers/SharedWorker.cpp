@@ -12,8 +12,8 @@
 #include "mozilla/dom/Event.h"
 #include "mozilla/dom/MessageChannel.h"
 #include "mozilla/dom/MessagePort.h"
-#include "mozilla/dom/nsCSPUtils.h"
 #include "mozilla/dom/PMessagePort.h"
+#include "mozilla/dom/RemoteWorkerManager.h"  // RemoteWorkerManager::GetRemoteType
 #include "mozilla/dom/RemoteWorkerTypes.h"
 #include "mozilla/dom/SharedWorkerBinding.h"
 #include "mozilla/dom/SharedWorkerChild.h"
@@ -24,84 +24,19 @@
 #include "mozilla/ipc/BackgroundUtils.h"
 #include "mozilla/ipc/PBackgroundChild.h"
 #include "mozilla/ipc/URIUtils.h"
+#include "mozilla/net/CookieJarSettings.h"
+#include "mozilla/StorageAccess.h"
 #include "nsContentUtils.h"
 #include "nsGlobalWindowInner.h"
 #include "nsPIDOMWindow.h"
 
 #ifdef XP_WIN
-#undef PostMessage
+#  undef PostMessage
 #endif
 
 using namespace mozilla;
 using namespace mozilla::dom;
 using namespace mozilla::ipc;
-
-namespace {
-
-nsresult PopulateContentSecurityPolicies(
-    nsIContentSecurityPolicy* aCSP,
-    nsTArray<ContentSecurityPolicy>& aPolicies) {
-  MOZ_ASSERT(NS_IsMainThread());
-  MOZ_ASSERT(aCSP);
-  MOZ_ASSERT(aPolicies.IsEmpty());
-
-  uint32_t count = 0;
-  nsresult rv = aCSP->GetPolicyCount(&count);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
-
-  for (uint32_t i = 0; i < count; ++i) {
-    const nsCSPPolicy* policy = aCSP->GetPolicy(i);
-    MOZ_ASSERT(policy);
-
-    nsAutoString policyString;
-    policy->toString(policyString);
-
-    aPolicies.AppendElement(
-        ContentSecurityPolicy(policyString, policy->getReportOnlyFlag(),
-                              policy->getDeliveredViaMetaTagFlag()));
-  }
-
-  return NS_OK;
-}
-
-nsresult PopulateContentSecurityPolicyArray(
-    nsIPrincipal* aPrincipal, nsTArray<ContentSecurityPolicy>& policies,
-    nsTArray<ContentSecurityPolicy>& preloadPolicies) {
-  MOZ_ASSERT(aPrincipal);
-  MOZ_ASSERT(policies.IsEmpty());
-  MOZ_ASSERT(preloadPolicies.IsEmpty());
-
-  nsCOMPtr<nsIContentSecurityPolicy> csp;
-  nsresult rv = BasePrincipal::Cast(aPrincipal)->GetCsp(getter_AddRefs(csp));
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
-
-  if (csp) {
-    rv = PopulateContentSecurityPolicies(csp, policies);
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      return rv;
-    }
-  }
-
-  rv = BasePrincipal::Cast(aPrincipal)->GetPreloadCsp(getter_AddRefs(csp));
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
-
-  if (csp) {
-    rv = PopulateContentSecurityPolicies(csp, preloadPolicies);
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      return rv;
-    }
-  }
-
-  return NS_OK;
-}
-
-}  // namespace
 
 SharedWorker::SharedWorker(nsPIDOMWindowInner* aWindow,
                            SharedWorkerChild* aActor, MessagePort* aMessagePort)
@@ -130,14 +65,15 @@ already_AddRefed<SharedWorker> SharedWorker::Constructor(
       do_QueryInterface(aGlobal.GetAsSupports());
   MOZ_ASSERT(window);
 
-  // If the window is blocked from accessing storage, do not allow it
-  // to connect to a SharedWorker.  This would potentially allow it
-  // to communicate with other windows that do have storage access.
-  // Allow private browsing, however, as we handle that isolation
-  // via the principal.
-  auto storageAllowed = nsContentUtils::StorageAllowedForWindow(window);
-  if (storageAllowed != nsContentUtils::StorageAccess::eAllow &&
-      storageAllowed != nsContentUtils::StorageAccess::ePrivateBrowsing) {
+  auto storageAllowed = StorageAllowedForWindow(window);
+  if (storageAllowed == StorageAccess::eDeny) {
+    aRv.Throw(NS_ERROR_DOM_SECURITY_ERR);
+    return nullptr;
+  }
+
+  if (ShouldPartitionStorage(storageAllowed) &&
+      !StoragePartitioningEnabled(
+          storageAllowed, window->GetExtantDoc()->CookieJarSettings())) {
     aRv.Throw(NS_ERROR_DOM_SECURITY_ERR);
     return nullptr;
   }
@@ -145,8 +81,8 @@ already_AddRefed<SharedWorker> SharedWorker::Constructor(
   // Assert that the principal private browsing state matches the
   // StorageAccess value.
 #ifdef MOZ_DIAGNOSTIC_ASSERT_ENABLED
-  if (storageAllowed == nsContentUtils::StorageAccess::ePrivateBrowsing) {
-    nsCOMPtr<nsIDocument> doc = window->GetExtantDoc();
+  if (storageAllowed == StorageAccess::ePrivateBrowsing) {
+    nsCOMPtr<Document> doc = window->GetExtantDoc();
     nsCOMPtr<nsIPrincipal> principal = doc ? doc->NodePrincipal() : nullptr;
     uint32_t privateBrowsingId = 0;
     if (principal) {
@@ -180,14 +116,6 @@ already_AddRefed<SharedWorker> SharedWorker::Constructor(
     return nullptr;
   }
 
-  nsTArray<ContentSecurityPolicy> principalCSP;
-  nsTArray<ContentSecurityPolicy> principalPreloadCSP;
-  aRv = PopulateContentSecurityPolicyArray(loadInfo.mPrincipal, principalCSP,
-                                           principalPreloadCSP);
-  if (NS_WARN_IF(aRv.Failed())) {
-    return nullptr;
-  }
-
   PrincipalInfo loadingPrincipalInfo;
   aRv = PrincipalToPrincipalInfo(loadInfo.mLoadingPrincipal,
                                  &loadingPrincipalInfo);
@@ -195,13 +123,46 @@ already_AddRefed<SharedWorker> SharedWorker::Constructor(
     return nullptr;
   }
 
-  nsTArray<ContentSecurityPolicy> loadingPrincipalCSP;
-  nsTArray<ContentSecurityPolicy> loadingPrincipalPreloadCSP;
-  aRv = PopulateContentSecurityPolicyArray(loadInfo.mLoadingPrincipal,
-                                           loadingPrincipalCSP,
-                                           loadingPrincipalPreloadCSP);
-  if (NS_WARN_IF(aRv.Failed())) {
-    return nullptr;
+  // Here, the PartitionedPrincipal is always equal to the SharedWorker's
+  // principal because the channel is not opened yet, and, because of this, it's
+  // not classified. We need to force the correct originAttributes.
+  if (ShouldPartitionStorage(storageAllowed)) {
+    nsCOMPtr<nsIScriptObjectPrincipal> sop = do_QueryInterface(window);
+    if (!sop) {
+      aRv.Throw(NS_ERROR_FAILURE);
+      return nullptr;
+    }
+
+    nsIPrincipal* windowPrincipal = sop->GetPrincipal();
+    if (!windowPrincipal) {
+      aRv.Throw(NS_ERROR_UNEXPECTED);
+      return nullptr;
+    }
+
+    nsIPrincipal* windowPartitionedPrincipal = sop->PartitionedPrincipal();
+    if (!windowPartitionedPrincipal) {
+      aRv.Throw(NS_ERROR_UNEXPECTED);
+      return nullptr;
+    }
+
+    if (!windowPrincipal->Equals(windowPartitionedPrincipal)) {
+      loadInfo.mPartitionedPrincipal =
+          BasePrincipal::Cast(loadInfo.mPrincipal)
+              ->CloneForcingOriginAttributes(
+                  BasePrincipal::Cast(windowPartitionedPrincipal)
+                      ->OriginAttributesRef());
+    }
+  }
+
+  PrincipalInfo partitionedPrincipalInfo;
+  if (loadInfo.mPrincipal->Equals(loadInfo.mPartitionedPrincipal)) {
+    partitionedPrincipalInfo = principalInfo;
+  } else {
+    aRv = PrincipalToPrincipalInfo(loadInfo.mPartitionedPrincipal,
+                                   &partitionedPrincipalInfo);
+    if (NS_WARN_IF(aRv.Failed())) {
+      return nullptr;
+    }
   }
 
   // We don't actually care about this MessageChannel, but we use it to 'steal'
@@ -212,7 +173,7 @@ already_AddRefed<SharedWorker> SharedWorker::Constructor(
     return nullptr;
   }
 
-  MessagePortIdentifier portIdentifier;
+  UniqueMessagePortId portIdentifier;
   channel->Port1()->CloneAndDisentangle(portIdentifier);
 
   URIParams resolvedScriptURL;
@@ -226,22 +187,36 @@ already_AddRefed<SharedWorker> SharedWorker::Constructor(
 
   bool isSecureContext = JS::GetIsSecureContext(js::GetContextRealm(cx));
 
-  OptionalIPCClientInfo ipcClientInfo;
+  Maybe<IPCClientInfo> ipcClientInfo;
   Maybe<ClientInfo> clientInfo = window->GetClientInfo();
   if (clientInfo.isSome()) {
-    ipcClientInfo = clientInfo.value().ToIPC();
-  } else {
-    ipcClientInfo = void_t();
+    ipcClientInfo.emplace(clientInfo.value().ToIPC());
+  }
+
+  nsID agentClusterId = nsContentUtils::GenerateUUID();
+
+  net::CookieJarSettingsArgs cjsData;
+  MOZ_ASSERT(loadInfo.mCookieJarSettings);
+  net::CookieJarSettings::Cast(loadInfo.mCookieJarSettings)->Serialize(cjsData);
+
+  auto remoteType = RemoteWorkerManager::GetRemoteType(
+      loadInfo.mPrincipal, WorkerType::WorkerTypeShared);
+  if (NS_WARN_IF(remoteType.isErr())) {
+    aRv.Throw(remoteType.unwrapErr());
+    return nullptr;
   }
 
   RemoteWorkerData remoteWorkerData(
       nsString(aScriptURL), baseURL, resolvedScriptURL, name,
-      loadingPrincipalInfo, loadingPrincipalCSP, loadingPrincipalPreloadCSP,
-      principalInfo, principalCSP, principalPreloadCSP, loadInfo.mDomain,
-      isSecureContext, ipcClientInfo, true /* sharedWorker */);
+      loadingPrincipalInfo, principalInfo, partitionedPrincipalInfo,
+      loadInfo.mUseRegularPrincipal,
+      loadInfo.mHasStorageAccessPermissionGranted, cjsData, loadInfo.mDomain,
+      isSecureContext, ipcClientInfo, loadInfo.mReferrerInfo, storageAllowed,
+      void_t() /* OptionalServiceWorkerData */, agentClusterId,
+      remoteType.unwrap());
 
   PSharedWorkerChild* pActor = actorChild->SendPSharedWorkerConstructor(
-      remoteWorkerData, loadInfo.mWindowID, portIdentifier);
+      remoteWorkerData, loadInfo.mWindowID, portIdentifier.release());
 
   RefPtr<SharedWorkerChild> actor = static_cast<SharedWorkerChild*>(pActor);
   MOZ_ASSERT(actor);
@@ -291,8 +266,7 @@ void SharedWorker::Thaw() {
   }
 
   if (!mFrozenEvents.IsEmpty()) {
-    nsTArray<RefPtr<Event>> events;
-    mFrozenEvents.SwapElements(events);
+    nsTArray<RefPtr<Event>> events = std::move(mFrozenEvents);
 
     for (uint32_t index = 0; index < events.Length(); index++) {
       RefPtr<Event>& event = events[index];
@@ -393,7 +367,7 @@ void SharedWorker::GetEventTargetParent(EventChainPreVisitor& aVisitor) {
     if (!event) {
       event = EventDispatcher::CreateEvent(aVisitor.mEvent->mOriginalTarget,
                                            aVisitor.mPresContext,
-                                           aVisitor.mEvent, EmptyString());
+                                           aVisitor.mEvent, u""_ns);
     }
 
     QueueEvent(event);
@@ -411,8 +385,8 @@ void SharedWorker::ErrorPropagation(nsresult aError) {
   MOZ_ASSERT(mActor);
   MOZ_ASSERT(NS_FAILED(aError));
 
-  RefPtr<AsyncEventDispatcher> errorEvent = new AsyncEventDispatcher(
-      this, NS_LITERAL_STRING("error"), CanBubble::eNo);
+  RefPtr<AsyncEventDispatcher> errorEvent =
+      new AsyncEventDispatcher(this, u"error"_ns, CanBubble::eNo);
   errorEvent->PostDOMEvent();
 
   Close();

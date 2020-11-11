@@ -12,7 +12,7 @@
 #include "ContentChild.h"
 
 #if defined(XP_WIN)
-#include "mozilla/mscom/MainThreadRuntime.h"
+#  include "mozilla/mscom/ProcessRuntime.h"
 #endif
 
 namespace mozilla {
@@ -28,7 +28,7 @@ class ContentProcess : public mozilla::ipc::ProcessChild {
  public:
   explicit ContentProcess(ProcessId aParentPid) : ProcessChild(aParentPid) {}
 
-  ~ContentProcess() {}
+  ~ContentProcess() = default;
 
   virtual bool Init(int aArgc, char* aArgv[]) override;
   virtual void CleanUp() override;
@@ -39,18 +39,13 @@ class ContentProcess : public mozilla::ipc::ProcessChild {
 
 #if defined(XP_WIN)
   // This object initializes and configures COM.
-  mozilla::mscom::MainThreadRuntime mCOMRuntime;
+  mozilla::mscom::ProcessRuntime mCOMRuntime;
 #endif
 
-  DISALLOW_EVIL_CONSTRUCTORS(ContentProcess);
+  ContentProcess(const ContentProcess&) = delete;
+
+  const ContentProcess& operator=(const ContentProcess&) = delete;
 };
-
-#ifdef ANDROID
-// Android doesn't use -prefsHandle or -prefMapHandle. It gets those FDs
-// another way.
-void SetPrefsFd(int aFd);
-void SetPrefMapFd(int aFd);
-#endif
 
 }  // namespace dom
 }  // namespace mozilla

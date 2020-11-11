@@ -7,18 +7,17 @@
 #ifndef TaskQueue_h_
 #define TaskQueue_h_
 
+#include <queue>
+
+#include "mozilla/AbstractThread.h"
+#include "mozilla/Maybe.h"
 #include "mozilla/Monitor.h"
 #include "mozilla/MozPromise.h"
 #include "mozilla/RefPtr.h"
 #include "mozilla/TaskDispatcher.h"
 #include "mozilla/Unused.h"
-
-#include <queue>
-
+#include "nsIDirectTaskDispatcher.h"
 #include "nsThreadUtils.h"
-
-class nsIEventTarget;
-class nsIRunnable;
 
 namespace mozilla {
 
@@ -49,7 +48,7 @@ typedef MozPromise<bool, bool, false> ShutdownPromise;
 // A TaskQueue does not require explicit shutdown, however it provides a
 // BeginShutdown() method that places TaskQueue in a shut down state and returns
 // a promise that gets resolved once all pending tasks have completed
-class TaskQueue : public AbstractThread {
+class TaskQueue : public AbstractThread, public nsIDirectTaskDispatcher {
   class EventTargetWrapper;
 
  public:
@@ -59,15 +58,18 @@ class TaskQueue : public AbstractThread {
   TaskQueue(already_AddRefed<nsIEventTarget> aTarget, const char* aName,
             bool aSupportsTailDispatch = false);
 
+  NS_DECL_ISUPPORTS_INHERITED
+  NS_DECL_NSIDIRECTTASKDISPATCHER
+
   TaskDispatcher& TailDispatcher() override;
 
-  MOZ_MUST_USE nsresult
-  Dispatch(already_AddRefed<nsIRunnable> aRunnable,
-           DispatchReason aReason = NormalDispatch) override {
-    nsCOMPtr<nsIRunnable> r = aRunnable;
+  NS_IMETHOD Dispatch(already_AddRefed<nsIRunnable> aEvent,
+                      uint32_t aFlags) override {
+    nsCOMPtr<nsIRunnable> runnable = aEvent;
     {
       MonitorAutoLock mon(mQueueMonitor);
-      return DispatchLocked(/* passed by ref */ r, aReason);
+      return DispatchLocked(/* passed by ref */ runnable, aFlags,
+                            NormalDispatch);
     }
     // If the ownership of |r| is not transferred in DispatchLocked() due to
     // dispatch failure, it will be deleted here outside the lock. We do so
@@ -75,8 +77,22 @@ class TaskQueue : public AbstractThread {
     // in deadlocks.
   }
 
-  // Prevent a GCC warning about the other overload of Dispatch being hidden.
-  using AbstractThread::Dispatch;
+  [[nodiscard]] nsresult Dispatch(
+      already_AddRefed<nsIRunnable> aRunnable,
+      DispatchReason aReason = NormalDispatch) override {
+    nsCOMPtr<nsIRunnable> r = aRunnable;
+    {
+      MonitorAutoLock mon(mQueueMonitor);
+      return DispatchLocked(/* passed by ref */ r, NS_DISPATCH_NORMAL, aReason);
+    }
+    // If the ownership of |r| is not transferred in DispatchLocked() due to
+    // dispatch failure, it will be deleted here outside the lock. We do so
+    // since the destructor of the runnable might access TaskQueue and result
+    // in deadlocks.
+  }
+
+  // So we can access nsIEventTarget::Dispatch(nsIRunnable*, uint32_t aFlags)
+  using nsIEventTarget::Dispatch;
 
   // Puts the queue in a shutdown state and returns immediately. The queue will
   // remain alive at least until all the events are drained, because the Runners
@@ -98,10 +114,7 @@ class TaskQueue : public AbstractThread {
   // Returns true if the current thread is currently running a Runnable in
   // the task queue.
   bool IsCurrentThreadIn() const override;
-
-  // Create a new nsIEventTarget wrapper object that dispatches to this
-  // TaskQueue.
-  already_AddRefed<nsISerialEventTarget> WrapAsEventTarget();
+  using nsISerialEventTarget::IsOnCurrentThread;
 
  protected:
   virtual ~TaskQueue();
@@ -111,7 +124,7 @@ class TaskQueue : public AbstractThread {
   // mQueueMonitor must be held.
   void AwaitIdleLocked();
 
-  nsresult DispatchLocked(nsCOMPtr<nsIRunnable>& aRunnable,
+  nsresult DispatchLocked(nsCOMPtr<nsIRunnable>& aRunnable, uint32_t aFlags,
                           DispatchReason aReason = NormalDispatch);
 
   void MaybeResolveShutdown() {
@@ -127,8 +140,13 @@ class TaskQueue : public AbstractThread {
   // Monitor that protects the queue and mIsRunning;
   Monitor mQueueMonitor;
 
+  typedef struct TaskStruct {
+    nsCOMPtr<nsIRunnable> event;
+    uint32_t flags;
+  } TaskStruct;
+
   // Queue of tasks to run.
-  std::queue<nsCOMPtr<nsIRunnable>> mTasks;
+  std::queue<TaskStruct> mTasks;
 
   // The thread currently running the task queue. We store a reference
   // to this so that IsCurrentThreadIn() can tell if the current thread
@@ -141,28 +159,29 @@ class TaskQueue : public AbstractThread {
   Atomic<PRThread*> mRunningThread;
 
   // RAII class that gets instantiated for each dispatched task.
-  class AutoTaskGuard : public AutoTaskDispatcher {
+  class AutoTaskGuard {
    public:
     explicit AutoTaskGuard(TaskQueue* aQueue)
-        : AutoTaskDispatcher(/* aIsTailDispatcher = */ true),
-          mQueue(aQueue),
-          mLastCurrentThread(nullptr) {
+        : mQueue(aQueue), mLastCurrentThread(nullptr) {
       // NB: We don't hold the lock to aQueue here. Don't do anything that
       // might require it.
       MOZ_ASSERT(!mQueue->mTailDispatcher);
-      mQueue->mTailDispatcher = this;
+      mTaskDispatcher.emplace(aQueue,
+                              /* aIsTailDispatcher = */ true);
+      mQueue->mTailDispatcher = mTaskDispatcher.ptr();
 
       mLastCurrentThread = sCurrentThreadTLS.get();
       sCurrentThreadTLS.set(aQueue);
 
       MOZ_ASSERT(mQueue->mRunningThread == nullptr);
-      mQueue->mRunningThread = GetCurrentPhysicalThread();
+      mQueue->mRunningThread = PR_GetCurrentThread();
     }
 
     ~AutoTaskGuard() {
-      DrainDirectTasks();
+      mTaskDispatcher->DrainDirectTasks();
+      mTaskDispatcher.reset();
 
-      MOZ_ASSERT(mQueue->mRunningThread == GetCurrentPhysicalThread());
+      MOZ_ASSERT(mQueue->mRunningThread == PR_GetCurrentThread());
       mQueue->mRunningThread = nullptr;
 
       sCurrentThreadTLS.set(mLastCurrentThread);
@@ -170,6 +189,7 @@ class TaskQueue : public AbstractThread {
     }
 
    private:
+    Maybe<AutoTaskDispatcher> mTaskDispatcher;
     TaskQueue* mQueue;
     AbstractThread* mLastCurrentThread;
   };
@@ -186,6 +206,8 @@ class TaskQueue : public AbstractThread {
 
   // The name of this TaskQueue. Useful when debugging dispatch failures.
   const char* const mName;
+
+  SimpleTaskQueue mDirectTasks;
 
   class Runner : public Runnable {
    public:

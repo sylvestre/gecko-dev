@@ -36,13 +36,13 @@ static mozilla::LazyLogModule gWin32SoundLog("nsSound");
 
 class nsSoundPlayer : public mozilla::Runnable {
  public:
-  explicit nsSoundPlayer(const nsAString &aSoundName)
+  explicit nsSoundPlayer(const nsAString& aSoundName)
       : mozilla::Runnable("nsSoundPlayer"),
         mSoundName(aSoundName),
         mSoundData(nullptr) {}
 
-  nsSoundPlayer(const uint8_t *aData, size_t aSize)
-      : mozilla::Runnable("nsSoundPlayer"), mSoundName(EmptyString()) {
+  nsSoundPlayer(const uint8_t* aData, size_t aSize)
+      : mozilla::Runnable("nsSoundPlayer"), mSoundName(u""_ns) {
     MOZ_ASSERT(aSize > 0, "Size should not be zero");
     MOZ_ASSERT(aData, "Data shoud not be null");
 
@@ -57,7 +57,7 @@ class nsSoundPlayer : public mozilla::Runnable {
   ~nsSoundPlayer();
 
   nsString mSoundName;
-  uint8_t *mSoundData;
+  uint8_t* mSoundData;
 };
 
 NS_IMETHODIMP
@@ -80,7 +80,8 @@ nsSoundPlayer::~nsSoundPlayer() { delete[] mSoundData; }
 
 mozilla::StaticRefPtr<nsISound> nsSound::sInstance;
 
-/* static */ already_AddRefed<nsISound> nsSound::GetInstance() {
+/* static */
+already_AddRefed<nsISound> nsSound::GetInstance() {
   if (!sInstance) {
     if (gfxPlatform::IsHeadless()) {
       sInstance = new mozilla::widget::HeadlessSound();
@@ -102,7 +103,7 @@ mozilla::StaticRefPtr<nsISound> nsSound::sInstance;
 #ifndef SND_PURGE
 // Not available on Windows CE, and according to MSDN
 // doesn't do anything on recent windows either.
-#define SND_PURGE 0
+#  define SND_PURGE 0
 #endif
 
 NS_IMPL_ISUPPORTS(nsSound, nsISound, nsIStreamLoaderObserver, nsIObserver)
@@ -113,12 +114,19 @@ nsSound::~nsSound() {}
 
 void nsSound::PurgeLastSound() {
   // Halt any currently playing sound.
-  if (mPlayerThread) {
-    mPlayerThread->Dispatch(
-        NS_NewRunnableFunction(
-            "nsSound::PurgeLastSound",
-            []() { ::PlaySound(nullptr, nullptr, SND_PURGE); }),
-        NS_DISPATCH_NORMAL);
+  if (mSoundPlayer) {
+    if (mPlayerThread) {
+      mPlayerThread->Dispatch(
+          NS_NewRunnableFunction("nsSound::PurgeLastSound",
+                                 [player = std::move(mSoundPlayer)]() {
+                                   // Capture move mSoundPlayer to lambda then
+                                   // PlaySoundW(nullptr, nullptr, SND_PURGE)
+                                   // will be called before freeing the
+                                   // nsSoundPlayer.
+                                   ::PlaySoundW(nullptr, nullptr, SND_PURGE);
+                                 }),
+          NS_DISPATCH_NORMAL);
+    }
   }
 }
 
@@ -128,9 +136,9 @@ NS_IMETHODIMP nsSound::Beep() {
   return NS_OK;
 }
 
-NS_IMETHODIMP nsSound::OnStreamComplete(nsIStreamLoader *aLoader,
-                                        nsISupports *context, nsresult aStatus,
-                                        uint32_t dataLen, const uint8_t *data) {
+NS_IMETHODIMP nsSound::OnStreamComplete(nsIStreamLoader* aLoader,
+                                        nsISupports* context, nsresult aStatus,
+                                        uint32_t dataLen, const uint8_t* data) {
   MOZ_ASSERT(mPlayerThread, "player thread should not be null ");
   // print a load error on bad status
   if (NS_FAILED(aStatus)) {
@@ -158,10 +166,11 @@ NS_IMETHODIMP nsSound::OnStreamComplete(nsIStreamLoader *aLoader,
   PurgeLastSound();
 
   if (data && dataLen > 0) {
-    RefPtr<nsSoundPlayer> player = new nsSoundPlayer(data, dataLen);
-    MOZ_ASSERT(player, "Could not create player");
+    MOZ_ASSERT(!mSoundPlayer, "mSoundPlayer should be null");
+    mSoundPlayer = new nsSoundPlayer(data, dataLen);
+    MOZ_ASSERT(mSoundPlayer, "Could not create player");
 
-    nsresult rv = mPlayerThread->Dispatch(player, NS_DISPATCH_NORMAL);
+    nsresult rv = mPlayerThread->Dispatch(mSoundPlayer, NS_DISPATCH_NORMAL);
     if (NS_WARN_IF(FAILED(rv))) {
       return rv;
     }
@@ -170,21 +179,22 @@ NS_IMETHODIMP nsSound::OnStreamComplete(nsIStreamLoader *aLoader,
   return NS_OK;
 }
 
-NS_IMETHODIMP nsSound::Play(nsIURL *aURL) {
+NS_IMETHODIMP nsSound::Play(nsIURL* aURL) {
   nsresult rv;
 
 #ifdef DEBUG_SOUND
-  char *url;
+  char* url;
   aURL->GetSpec(&url);
   MOZ_LOG(gWin32SoundLog, LogLevel::Info, ("%s\n", url));
 #endif
 
   nsCOMPtr<nsIStreamLoader> loader;
-  rv = NS_NewStreamLoader(getter_AddRefs(loader), aURL,
-                          this,  // aObserver
-                          nsContentUtils::GetSystemPrincipal(),
-                          nsILoadInfo::SEC_ALLOW_CROSS_ORIGIN_DATA_IS_NULL,
-                          nsIContentPolicy::TYPE_OTHER);
+  rv = NS_NewStreamLoader(
+      getter_AddRefs(loader), aURL,
+      this,  // aObserver
+      nsContentUtils::GetSystemPrincipal(),
+      nsILoadInfo::SEC_ALLOW_CROSS_ORIGIN_SEC_CONTEXT_IS_NULL,
+      nsIContentPolicy::TYPE_OTHER);
   return rv;
 }
 
@@ -209,8 +219,8 @@ nsresult nsSound::CreatePlayerThread() {
 }
 
 NS_IMETHODIMP
-nsSound::Observe(nsISupports *aSubject, const char *aTopic,
-                 const char16_t *aData) {
+nsSound::Observe(nsISupports* aSubject, const char* aTopic,
+                 const char16_t* aData) {
   if (!strcmp(aTopic, "xpcom-shutdown-threads")) {
     PurgeLastSound();
 
@@ -238,7 +248,7 @@ NS_IMETHODIMP nsSound::Init() {
   // at the first time loading sound library.
   mPlayerThread->Dispatch(
       NS_NewRunnableFunction(
-          "nsSound::Init", []() { ::PlaySound(nullptr, nullptr, SND_PURGE); }),
+          "nsSound::Init", []() { ::PlaySoundW(nullptr, nullptr, SND_PURGE); }),
       NS_DISPATCH_NORMAL);
 
   mInited = true;
@@ -250,7 +260,7 @@ NS_IMETHODIMP nsSound::PlayEventSound(uint32_t aEventId) {
   MOZ_ASSERT(mPlayerThread, "player thread should not be null ");
   PurgeLastSound();
 
-  const wchar_t *sound = nullptr;
+  const wchar_t* sound = nullptr;
   switch (aEventId) {
     case EVENT_NEW_MAIL_RECEIVED:
       sound = L"MailBeep";
@@ -276,10 +286,10 @@ NS_IMETHODIMP nsSound::PlayEventSound(uint32_t aEventId) {
       return NS_OK;
   }
   NS_ASSERTION(sound, "sound is null");
-
-  nsCOMPtr<nsIRunnable> player = new nsSoundPlayer(nsDependentString(sound));
-  MOZ_ASSERT(player, "Could not create player");
-  nsresult rv = mPlayerThread->Dispatch(player, NS_DISPATCH_NORMAL);
+  MOZ_ASSERT(!mSoundPlayer, "mSoundPlayer should be null");
+  mSoundPlayer = new nsSoundPlayer(nsDependentString(sound));
+  MOZ_ASSERT(mSoundPlayer, "Could not create player");
+  nsresult rv = mPlayerThread->Dispatch(mSoundPlayer, NS_DISPATCH_NORMAL);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }

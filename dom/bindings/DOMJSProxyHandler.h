@@ -9,9 +9,12 @@
 
 #include "mozilla/Attributes.h"
 #include "mozilla/Likely.h"
+#include "mozilla/TextUtils.h"
 
 #include "jsapi.h"
+#include "js/Object.h"  // JS::GetClass
 #include "js/Proxy.h"
+#include "js/String.h"  // JS::AtomToLinearString, JS::GetLinearString{CharAt,Length}
 #include "nsString.h"
 
 namespace mozilla {
@@ -27,10 +30,10 @@ namespace dom {
  * interface is annotated with the [OverrideBuiltins] extended attribute.
  *
  * If it is, the proxy is initialized with a PrivateValue, which contains a
- * pointer to a js::ExpandoAndGeneration object; this contains a pointer to
+ * pointer to a JS::ExpandoAndGeneration object; this contains a pointer to
  * the actual expando object as well as the "generation" of the object.  The
  * proxy handler will trace the expando object stored in the
- * js::ExpandoAndGeneration while the proxy itself is alive.
+ * JS::ExpandoAndGeneration while the proxy itself is alive.
  *
  * If it is not, the proxy is initialized with an UndefinedValue. In
  * EnsureExpandoObject, it is set to an ObjectValue that points to the
@@ -52,8 +55,9 @@ class BaseDOMProxyHandler : public js::BaseProxyHandler {
   bool getOwnPropertyDescriptor(
       JSContext* cx, JS::Handle<JSObject*> proxy, JS::Handle<jsid> id,
       JS::MutableHandle<JS::PropertyDescriptor> desc) const override;
-  virtual bool ownPropertyKeys(JSContext* cx, JS::Handle<JSObject*> proxy,
-                               JS::AutoIdVector& props) const override;
+  virtual bool ownPropertyKeys(
+      JSContext* cx, JS::Handle<JSObject*> proxy,
+      JS::MutableHandleVector<jsid> props) const override;
 
   virtual bool getPrototypeIfOrdinary(
       JSContext* cx, JS::Handle<JSObject*> proxy, bool* isOrdinary,
@@ -65,7 +69,7 @@ class BaseDOMProxyHandler : public js::BaseProxyHandler {
   // unnecessary work during enumeration.
   virtual bool getOwnEnumerablePropertyKeys(
       JSContext* cx, JS::Handle<JSObject*> proxy,
-      JS::AutoIdVector& props) const override;
+      JS::MutableHandleVector<jsid> props) const override;
 
  protected:
   // Hook for subclasses to implement shared ownPropertyKeys()/keys()
@@ -73,7 +77,8 @@ class BaseDOMProxyHandler : public js::BaseProxyHandler {
   // or JSITER_OWNONLY | JSITER_HIDDEN | JSITER_SYMBOLS (for
   // ownPropertyKeys()).
   virtual bool ownPropNames(JSContext* cx, JS::Handle<JSObject*> proxy,
-                            unsigned flags, JS::AutoIdVector& props) const = 0;
+                            unsigned flags,
+                            JS::MutableHandleVector<jsid> props) const = 0;
 
   // Hook for subclasses to allow set() to ignore named props while other things
   // that look at property descriptors see them.  This is intentionally not
@@ -99,7 +104,7 @@ class DOMProxyHandler : public BaseDOMProxyHandler {
   virtual bool defineProperty(JSContext* cx, JS::Handle<JSObject*> proxy,
                               JS::Handle<jsid> id,
                               JS::Handle<JS::PropertyDescriptor> desc,
-                              JS::ObjectOpResult& result, bool* defined) const;
+                              JS::ObjectOpResult& result, bool* done) const;
   bool delete_(JSContext* cx, JS::Handle<JSObject*> proxy, JS::Handle<jsid> id,
                JS::ObjectOpResult& result) const override;
   bool preventExtensions(JSContext* cx, JS::Handle<JSObject*> proxy,
@@ -109,6 +114,12 @@ class DOMProxyHandler : public BaseDOMProxyHandler {
   bool set(JSContext* cx, JS::Handle<JSObject*> proxy, JS::Handle<jsid> id,
            JS::Handle<JS::Value> v, JS::Handle<JS::Value> receiver,
            JS::ObjectOpResult& result) const override;
+
+  // Use the DOMProxyExpando object for private fields, rather than the proxy
+  // expando object.
+  virtual bool useProxyExpandoObjectForPrivateFields() const override {
+    return false;
+  }
 
   /*
    * If assigning to proxy[id] hits a named setter with OverrideBuiltins or
@@ -145,13 +156,13 @@ class DOMProxyHandler : public BaseDOMProxyHandler {
 };
 
 // Class used by shadowing handlers (the ones that have [OverrideBuiltins].
-// This handles tracing the expando in ExpandoAndGeneration.
+// This handles tracing the expando in JS::ExpandoAndGeneration.
 class ShadowingDOMProxyHandler : public DOMProxyHandler {
   virtual void trace(JSTracer* trc, JSObject* proxy) const override;
 };
 
 inline bool IsDOMProxy(JSObject* obj) {
-  const js::Class* clasp = js::GetObjectClass(obj);
+  const JSClass* clasp = JS::GetClass(obj);
   return clasp->isProxy() &&
          js::GetProxyHandler(obj)->family() == &DOMProxyHandler::family;
 }
@@ -165,7 +176,7 @@ extern jsid s_length_id;
 
 // A return value of UINT32_MAX indicates "not an array index".  Note, in
 // particular, that UINT32_MAX itself is not a valid array index in general.
-inline uint32_t GetArrayIndexFromId(JSContext* cx, JS::Handle<jsid> id) {
+inline uint32_t GetArrayIndexFromId(JS::Handle<jsid> id) {
   // Much like js::IdIsIndex, except with a fast path for "length" and another
   // fast path for starting with a lowercase ascii char.  Is that second one
   // really needed?  I guess it is because StringIsArrayIndex is out of line...
@@ -181,17 +192,15 @@ inline uint32_t GetArrayIndexFromId(JSContext* cx, JS::Handle<jsid> id) {
     return UINT32_MAX;
   }
 
-  JSLinearString* str = js::AtomToLinearString(JSID_TO_ATOM(id));
-  char16_t s;
-  {
-    JS::AutoCheckCannotGC nogc;
-    if (js::LinearStringHasLatin1Chars(str)) {
-      s = *js::GetLatin1LinearStringChars(nogc, str);
-    } else {
-      s = *js::GetTwoByteLinearStringChars(nogc, str);
-    }
+  JSLinearString* str = JS::AtomToLinearString(JSID_TO_ATOM(id));
+  if (MOZ_UNLIKELY(JS::GetLinearStringLength(str) == 0)) {
+    return UINT32_MAX;
   }
-  if (MOZ_LIKELY((unsigned)s >= 'a' && (unsigned)s <= 'z')) return UINT32_MAX;
+
+  char16_t firstChar = JS::GetLinearStringCharAt(str, 0);
+  if (MOZ_LIKELY(IsAsciiLowercaseAlpha(firstChar))) {
+    return UINT32_MAX;
+  }
 
   uint32_t i;
   return js::StringIsArrayIndex(str, &i) ? i : UINT32_MAX;

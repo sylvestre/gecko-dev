@@ -6,7 +6,6 @@
 //!
 //! [attr]: https://dom.spec.whatwg.org/#interface-attr
 
-use app_units::Au;
 use crate::properties::PropertyDeclarationBlock;
 use crate::shared_lock::Locked;
 use crate::str::str_join;
@@ -14,6 +13,7 @@ use crate::str::{read_exponent, read_fraction, HTML_SPACE_CHARACTERS};
 use crate::str::{read_numbers, split_commas, split_html_space_chars};
 use crate::values::specified::Length;
 use crate::{Atom, LocalName, Namespace, Prefix};
+use app_units::Au;
 use cssparser::{self, Color, RGBA};
 use euclid::num::Zero;
 use num_traits::ToPrimitive;
@@ -298,18 +298,6 @@ impl AttrValue {
         }
     }
 
-    /// Assumes the `AttrValue` is a `Length` and returns its value
-    ///
-    /// ## Panics
-    ///
-    /// Panics if the `AttrValue` is not a `Length`
-    pub fn as_length(&self) -> Option<&Length> {
-        match *self {
-            AttrValue::Length(_, ref length) => length.as_ref(),
-            _ => panic!("Length not found"),
-        }
-    }
-
     /// Assumes the `AttrValue` is a `Dimension` and returns its value
     ///
     /// ## Panics
@@ -520,9 +508,9 @@ pub fn parse_legacy_color(mut input: &str) -> Result<RGBA, ()> {
 
     fn hex(ch: char) -> Result<u8, ()> {
         match ch {
-            '0'...'9' => Ok((ch as u8) - b'0'),
-            'a'...'f' => Ok((ch as u8) - b'a' + 10),
-            'A'...'F' => Ok((ch as u8) - b'A' + 10),
+            '0'..='9' => Ok((ch as u8) - b'0'),
+            'a'..='f' => Ok((ch as u8) - b'a' + 10),
+            'A'..='F' => Ok((ch as u8) - b'A' + 10),
             _ => Err(()),
         }
     }
@@ -543,41 +531,31 @@ pub fn parse_legacy_color(mut input: &str) -> Result<RGBA, ()> {
 /// Parses a [dimension value][dim]. If unparseable, `Auto` is returned.
 ///
 /// [dim]: https://html.spec.whatwg.org/multipage/#rules-for-parsing-dimension-values
-// TODO: this function can be rewritten to return Result<LengthOrPercentage, _>
+// TODO: this function can be rewritten to return Result<LengthPercentage, _>
 pub fn parse_length(mut value: &str) -> LengthOrPercentageOrAuto {
     // Steps 1 & 2 are not relevant
 
     // Step 3
-    value = value.trim_left_matches(HTML_SPACE_CHARACTERS);
+    value = value.trim_start_matches(HTML_SPACE_CHARACTERS);
 
     // Step 4
-    if value.is_empty() {
-        return LengthOrPercentageOrAuto::Auto;
-    }
-
-    // Step 5
-    if value.starts_with('+') {
-        value = &value[1..]
-    }
-
-    // Steps 6 & 7
     match value.chars().nth(0) {
-        Some('0'...'9') => {},
+        Some('0'..='9') => {},
         _ => return LengthOrPercentageOrAuto::Auto,
     }
 
-    // Steps 8 to 13
+    // Steps 5 to 8
     // We trim the string length to the minimum of:
     // 1. the end of the string
     // 2. the first occurence of a '%' (U+0025 PERCENT SIGN)
     // 3. the second occurrence of a '.' (U+002E FULL STOP)
     // 4. the occurrence of a character that is neither a digit nor '%' nor '.'
-    // Note: Step 10 is directly subsumed by FromStr::from_str
+    // Note: Step 7.4 is directly subsumed by FromStr::from_str
     let mut end_index = value.len();
     let (mut found_full_stop, mut found_percent) = (false, false);
     for (i, ch) in value.chars().enumerate() {
         match ch {
-            '0'...'9' => continue,
+            '0'..='9' => continue,
             '%' => {
                 found_percent = true;
                 end_index = i;

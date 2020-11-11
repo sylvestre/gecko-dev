@@ -6,9 +6,12 @@
 
 #include "frontend/TryEmitter.h"
 
-#include "frontend/BytecodeEmitter.h"
-#include "frontend/SourceNotes.h"
-#include "vm/Opcodes.h"
+#include "mozilla/Assertions.h"  // MOZ_ASSERT
+
+#include "frontend/BytecodeEmitter.h"  // BytecodeEmitter
+#include "frontend/SharedContext.h"    // StatementKind
+#include "vm/JSScript.h"               // JSTRY_CATCH, JSTRY_FINALLY
+#include "vm/Opcodes.h"                // JSOp
 
 using namespace js;
 using namespace js::frontend;
@@ -20,8 +23,7 @@ TryEmitter::TryEmitter(BytecodeEmitter* bce, Kind kind, ControlKind controlKind)
       kind_(kind),
       controlKind_(controlKind),
       depth_(0),
-      noteIndex_(0),
-      tryStart_(0)
+      tryOpOffset_(0)
 #ifdef DEBUG
       ,
       state_(State::Start)
@@ -31,16 +33,6 @@ TryEmitter::TryEmitter(BytecodeEmitter* bce, Kind kind, ControlKind controlKind)
     controlInfo_.emplace(
         bce_, hasFinally() ? StatementKind::Finally : StatementKind::Try);
   }
-  finallyStart_.offset = 0;
-}
-
-// Emits JSOP_GOTO to the end of try-catch-finally.
-// Used in `yield*`.
-bool TryEmitter::emitJumpOverCatchAndFinally() {
-  if (!bce_->emitJump(JSOP_GOTO, &catchAndFinallyJump_)) {
-    return false;
-  }
-  return true;
 }
 
 bool TryEmitter::emitTry() {
@@ -53,16 +45,12 @@ bool TryEmitter::emitTry() {
   // For that we store in a try note associated with the catch or
   // finally block the stack depth upon the try entry. The interpreter
   // uses this depth to properly unwind the stack and the scope chain.
-  depth_ = bce_->stackDepth;
+  depth_ = bce_->bytecodeSection().stackDepth();
 
-  // Record the try location, then emit the try block.
-  if (!bce_->newSrcNote(SRC_TRY, &noteIndex_)) {
+  tryOpOffset_ = bce_->bytecodeSection().offset();
+  if (!bce_->emit1(JSOp::Try)) {
     return false;
   }
-  if (!bce_->emit1(JSOP_TRY)) {
-    return false;
-  }
-  tryStart_ = bce_->offset();
 
 #ifdef DEBUG
   state_ = State::Try;
@@ -72,23 +60,17 @@ bool TryEmitter::emitTry() {
 
 bool TryEmitter::emitTryEnd() {
   MOZ_ASSERT(state_ == State::Try);
-  MOZ_ASSERT(depth_ == bce_->stackDepth);
+  MOZ_ASSERT(depth_ == bce_->bytecodeSection().stackDepth());
 
-  // GOSUB to finally, if present.
+  // Gosub to finally, if present.
   if (hasFinally() && controlInfo_) {
     if (!bce_->emitGoSub(&controlInfo_->gosubs)) {
       return false;
     }
   }
 
-  // Source note points to the jump at the end of the try block.
-  if (!bce_->setSrcNoteOffset(noteIndex_, SrcNote::Try::EndOfTryJumpOffset,
-                              bce_->offset() - tryStart_ + JSOP_TRY_LENGTH)) {
-    return false;
-  }
-
   // Emit jump over catch and/or finally.
-  if (!bce_->emitJump(JSOP_GOTO, &catchAndFinallyJump_)) {
+  if (!bce_->emitJump(JSOp::Goto, &catchAndFinallyJump_)) {
     return false;
   }
 
@@ -105,19 +87,27 @@ bool TryEmitter::emitCatch() {
     return false;
   }
 
-  MOZ_ASSERT(bce_->stackDepth == depth_);
+  MOZ_ASSERT(bce_->bytecodeSection().stackDepth() == depth_);
 
   if (controlKind_ == ControlKind::Syntactic) {
     // Clear the frame's return value that might have been set by the
     // try block:
     //
     //   eval("try { 1; throw 2 } catch(e) {}"); // undefined, not 1
-    if (!bce_->emit1(JSOP_UNDEFINED)) {
+    if (!bce_->emit1(JSOp::Undefined)) {
       return false;
     }
-    if (!bce_->emit1(JSOP_SETRVAL)) {
+    if (!bce_->emit1(JSOp::SetRval)) {
       return false;
     }
+  }
+
+  if (!bce_->emit1(JSOp::Exception)) {
+    return false;
+  }
+
+  if (!instrumentEntryPoint()) {
+    return false;
   }
 
 #ifdef DEBUG
@@ -138,10 +128,10 @@ bool TryEmitter::emitCatchEnd() {
     if (!bce_->emitGoSub(&controlInfo_->gosubs)) {
       return false;
     }
-    MOZ_ASSERT(bce_->stackDepth == depth_);
+    MOZ_ASSERT(bce_->bytecodeSection().stackDepth() == depth_);
 
     // Jump over the finally block.
-    if (!bce_->emitJump(JSOP_GOTO, &catchAndFinallyJump_)) {
+    if (!bce_->emitJump(JSOp::Goto, &catchAndFinallyJump_)) {
       return false;
     }
   }
@@ -177,7 +167,7 @@ bool TryEmitter::emitFinally(
     }
   }
 
-  MOZ_ASSERT(bce_->stackDepth == depth_);
+  MOZ_ASSERT(bce_->bytecodeSection().stackDepth() == depth_);
 
   if (!bce_->emitJumpTarget(&finallyStart_)) {
     return false;
@@ -196,12 +186,12 @@ bool TryEmitter::emitFinally(
       return false;
     }
   }
-  if (!bce_->emit1(JSOP_FINALLY)) {
+  if (!bce_->emit1(JSOp::Finally)) {
     return false;
   }
 
   if (controlKind_ == ControlKind::Syntactic) {
-    if (!bce_->emit1(JSOP_GETRVAL)) {
+    if (!bce_->emit1(JSOp::GetRval)) {
       return false;
     }
 
@@ -209,12 +199,16 @@ bool TryEmitter::emitFinally(
     // correct value even if there's no other statement before them:
     //
     //   eval("x: try { 1 } finally { break x; }"); // undefined, not 1
-    if (!bce_->emit1(JSOP_UNDEFINED)) {
+    if (!bce_->emit1(JSOp::Undefined)) {
       return false;
     }
-    if (!bce_->emit1(JSOP_SETRVAL)) {
+    if (!bce_->emit1(JSOp::SetRval)) {
       return false;
     }
+  }
+
+  if (!instrumentEntryPoint()) {
+    return false;
   }
 
 #ifdef DEBUG
@@ -227,12 +221,12 @@ bool TryEmitter::emitFinallyEnd() {
   MOZ_ASSERT(state_ == State::Finally);
 
   if (controlKind_ == ControlKind::Syntactic) {
-    if (!bce_->emit1(JSOP_SETRVAL)) {
+    if (!bce_->emit1(JSOp::SetRval)) {
       return false;
     }
   }
 
-  if (!bce_->emit1(JSOP_RETSUB)) {
+  if (!bce_->emit1(JSOp::Retsub)) {
     return false;
   }
 
@@ -253,13 +247,7 @@ bool TryEmitter::emitEnd() {
     }
   }
 
-  MOZ_ASSERT(bce_->stackDepth == depth_);
-
-  // ReconstructPCStack needs a NOP here to mark the end of the last
-  // catch block.
-  if (!bce_->emit1(JSOP_NOP)) {
-    return false;
-  }
+  MOZ_ASSERT(bce_->bytecodeSection().stackDepth() == depth_);
 
   // Fix up the end-of-try/catch jumps to come here.
   if (!bce_->emitJumpTargetAndPatch(catchAndFinallyJump_)) {
@@ -269,7 +257,8 @@ bool TryEmitter::emitEnd() {
   // Add the try note last, to let post-order give us the right ordering
   // (first to last for a given nesting level, inner to outer by level).
   if (hasCatch()) {
-    if (!bce_->addTryNote(JSTRY_CATCH, depth_, tryStart_, tryEnd_.offset)) {
+    if (!bce_->addTryNote(TryNoteKind::Catch, depth_, offsetAfterTryOp(),
+                          tryEnd_.offset)) {
       return false;
     }
   }
@@ -278,7 +267,7 @@ bool TryEmitter::emitEnd() {
   // trynote to catch exceptions (re)thrown from a catch block or
   // for the try{}finally{} case.
   if (hasFinally()) {
-    if (!bce_->addTryNote(JSTRY_FINALLY, depth_, tryStart_,
+    if (!bce_->addTryNote(TryNoteKind::Finally, depth_, offsetAfterTryOp(),
                           finallyStart_.offset)) {
       return false;
     }
@@ -287,5 +276,16 @@ bool TryEmitter::emitEnd() {
 #ifdef DEBUG
   state_ = State::End;
 #endif
+  return true;
+}
+
+bool TryEmitter::instrumentEntryPoint() {
+  // Frames for async functions can resume execution at catch or finally blocks
+  // if an await operation threw an exception. While the frame might already be
+  // on the stack, the Entry instrumentation kind only indicates that a new
+  // frame *might* have been pushed.
+  if (bce_->sc->isFunctionBox() && bce_->sc->asFunctionBox()->isAsync()) {
+    return bce_->emitInstrumentation(InstrumentationKind::Entry);
+  }
   return true;
 }

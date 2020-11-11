@@ -5,11 +5,15 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "mozilla/dom/CSPEvalChecker.h"
+#include "mozilla/dom/Document.h"
 #include "mozilla/dom/WorkerPrivate.h"
 #include "mozilla/dom/WorkerRunnable.h"
+#include "mozilla/BasePrincipal.h"
 #include "mozilla/ErrorResult.h"
+#include "nsIParentChannel.h"
 #include "nsGlobalWindowInner.h"
-#include "nsIDocument.h"
+#include "nsContentSecurityUtils.h"
+#include "nsContentUtils.h"
 #include "nsCOMPtr.h"
 #include "nsJSUtils.h"
 
@@ -18,8 +22,11 @@ using namespace mozilla::dom;
 
 namespace {
 
+// We use the subjectPrincipal to assert that eval() is never
+// executed in system privileged context.
 nsresult CheckInternal(nsIContentSecurityPolicy* aCSP,
                        nsICSPEventListener* aCSPEventListener,
+                       nsIPrincipal* aSubjectPrincipal,
                        const nsAString& aExpression,
                        const nsAString& aFileNameString, uint32_t aLineNum,
                        uint32_t aColumnNum, bool* aAllowed) {
@@ -28,6 +35,15 @@ nsresult CheckInternal(nsIContentSecurityPolicy* aCSP,
 
   // The value is set at any "return", but better to have a default value here.
   *aAllowed = false;
+
+#if !defined(ANDROID)
+  JSContext* cx = nsContentUtils::GetCurrentJSContext();
+  if (!nsContentSecurityUtils::IsEvalAllowed(
+          cx, aSubjectPrincipal->IsSystemPrincipal(), aExpression)) {
+    *aAllowed = false;
+    return NS_OK;
+  }
+#endif
 
   if (!aCSP) {
     *aAllowed = true;
@@ -45,8 +61,7 @@ nsresult CheckInternal(nsIContentSecurityPolicy* aCSP,
     aCSP->LogViolationDetails(nsIContentSecurityPolicy::VIOLATION_TYPE_EVAL,
                               nullptr,  // triggering element
                               aCSPEventListener, aFileNameString, aExpression,
-                              aLineNum, aColumnNum, EmptyString(),
-                              EmptyString());
+                              aLineNum, aColumnNum, u""_ns, u""_ns);
   }
 
   return NS_OK;
@@ -58,8 +73,7 @@ class WorkerCSPCheckRunnable final : public WorkerMainThreadRunnable {
                          const nsAString& aExpression,
                          const nsAString& aFileNameString, uint32_t aLineNum,
                          uint32_t aColumnNum)
-      : WorkerMainThreadRunnable(aWorkerPrivate,
-                                 NS_LITERAL_CSTRING("CSP Eval Check")),
+      : WorkerMainThreadRunnable(aWorkerPrivate, "CSP Eval Check"_ns),
         mExpression(aExpression),
         mFileNameString(aFileNameString),
         mLineNum(aLineNum),
@@ -69,7 +83,8 @@ class WorkerCSPCheckRunnable final : public WorkerMainThreadRunnable {
   bool MainThreadRun() override {
     mResult = CheckInternal(
         mWorkerPrivate->GetCSP(), mWorkerPrivate->CSPEventListener(),
-        mExpression, mFileNameString, mLineNum, mColumnNum, &mEvalAllowed);
+        mWorkerPrivate->GetLoadingPrincipal(), mExpression, mFileNameString,
+        mLineNum, mColumnNum, &mEvalAllowed);
     return true;
   }
 
@@ -90,9 +105,11 @@ class WorkerCSPCheckRunnable final : public WorkerMainThreadRunnable {
 
 }  // namespace
 
-/* static */ nsresult CSPEvalChecker::CheckForWindow(
-    JSContext* aCx, nsGlobalWindowInner* aWindow, const nsAString& aExpression,
-    bool* aAllowEval) {
+/* static */
+nsresult CSPEvalChecker::CheckForWindow(JSContext* aCx,
+                                        nsGlobalWindowInner* aWindow,
+                                        const nsAString& aExpression,
+                                        bool* aAllowEval) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aWindow);
   MOZ_ASSERT(aAllowEval);
@@ -102,19 +119,14 @@ class WorkerCSPCheckRunnable final : public WorkerMainThreadRunnable {
 
   // if CSP is enabled, and setTimeout/setInterval was called with a string,
   // disable the registration and log an error
-  nsCOMPtr<nsIDocument> doc = aWindow->GetExtantDoc();
+  nsCOMPtr<Document> doc = aWindow->GetExtantDoc();
   if (!doc) {
     // if there's no document, we don't have to do anything.
     *aAllowEval = true;
     return NS_OK;
   }
 
-  nsCOMPtr<nsIContentSecurityPolicy> csp;
-  nsresult rv = doc->NodePrincipal()->GetCsp(getter_AddRefs(csp));
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    *aAllowEval = false;
-    return rv;
-  }
+  nsresult rv = NS_OK;
 
   // Get the calling location.
   uint32_t lineNum = 0;
@@ -125,9 +137,10 @@ class WorkerCSPCheckRunnable final : public WorkerMainThreadRunnable {
     fileNameString.AssignLiteral("unknown");
   }
 
+  nsCOMPtr<nsIContentSecurityPolicy> csp = doc->GetCsp();
   rv = CheckInternal(csp, nullptr /* no CSPEventListener for window */,
-                     aExpression, fileNameString, lineNum, columnNum,
-                     aAllowEval);
+                     doc->NodePrincipal(), aExpression, fileNameString, lineNum,
+                     columnNum, aAllowEval);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     *aAllowEval = false;
     return rv;
@@ -136,9 +149,11 @@ class WorkerCSPCheckRunnable final : public WorkerMainThreadRunnable {
   return NS_OK;
 }
 
-/* static */ nsresult CSPEvalChecker::CheckForWorker(
-    JSContext* aCx, WorkerPrivate* aWorkerPrivate, const nsAString& aExpression,
-    bool* aAllowEval) {
+/* static */
+nsresult CSPEvalChecker::CheckForWorker(JSContext* aCx,
+                                        WorkerPrivate* aWorkerPrivate,
+                                        const nsAString& aExpression,
+                                        bool* aAllowEval) {
   MOZ_ASSERT(aWorkerPrivate);
   aWorkerPrivate->AssertIsOnWorkerThread();
   MOZ_ASSERT(aAllowEval);

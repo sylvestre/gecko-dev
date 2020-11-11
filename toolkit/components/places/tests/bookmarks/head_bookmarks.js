@@ -3,7 +3,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-ChromeUtils.import("resource://gre/modules/Services.jsm");
+var { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 // Import common head.
 {
@@ -15,14 +15,10 @@ ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 // Put any other stuff relative to this test folder below.
 
-function expectNotifications(skipDescendants, checkAllArgs) {
+function expectNotifications(checkAllArgs) {
   let notifications = [];
   let observer = new Proxy(NavBookmarkObserver, {
     get(target, name) {
-      if (name == "skipDescendantsOnItemRemoval") {
-        return skipDescendants;
-      }
-
       if (name == "check") {
         PlacesUtils.bookmarks.removeObserver(observer);
         return expectedNotifications =>
@@ -32,22 +28,25 @@ function expectNotifications(skipDescendants, checkAllArgs) {
       if (name.startsWith("onItem")) {
         return (...origArgs) => {
           let args = Array.from(origArgs, arg => {
-            if (arg && arg instanceof Ci.nsIURI)
+            if (arg && arg instanceof Ci.nsIURI) {
               return new URL(arg.spec);
-            if (arg && typeof(arg) == "number" && arg >= Date.now() * 1000)
+            }
+            if (arg && typeof arg == "number" && arg >= Date.now() * 1000) {
               return PlacesUtils.toDate(arg);
+            }
             return arg;
           });
           if (checkAllArgs) {
             notifications.push({ name, arguments: args });
           } else {
-            notifications.push({ name, arguments: { guid: args[5] }});
+            notifications.push({ name, arguments: { guid: args[5] } });
           }
         };
       }
 
-      if (name in target)
+      if (name in target) {
         return target[name];
+      }
       return undefined;
     },
   });
@@ -55,24 +54,60 @@ function expectNotifications(skipDescendants, checkAllArgs) {
   return observer;
 }
 
-function expectPlacesObserverNotifications(types, checkAllArgs) {
+function expectPlacesObserverNotifications(
+  types,
+  checkAllArgs = true,
+  skipDescendants = false
+) {
   let notifications = [];
-  let listener = (events) => {
+  let listener = events => {
     for (let event of events) {
-      notifications.push({
-        type: event.type,
-        id: event.id,
-        itemType: event.itemType,
-        parentId: event.parentId,
-        index: event.index,
-        url: event.url || undefined,
-        title: event.title,
-        dateAdded: new Date(event.dateAdded),
-        guid: event.guid,
-        parentGuid: event.parentGuid,
-        source: event.source,
-        isTagging: event.isTagging,
-      });
+      switch (event.type) {
+        case "bookmark-added":
+          notifications.push({
+            type: event.type,
+            id: event.id,
+            itemType: event.itemType,
+            parentId: event.parentId,
+            index: event.index,
+            url: event.url || undefined,
+            title: event.title,
+            dateAdded: new Date(event.dateAdded),
+            guid: event.guid,
+            parentGuid: event.parentGuid,
+            source: event.source,
+            isTagging: event.isTagging,
+          });
+          break;
+        case "bookmark-removed":
+          if (
+            !(
+              skipDescendants &&
+              event.isDescendantRemoval &&
+              !PlacesUtils.bookmarks.userContentRoots.includes(event.parentGuid)
+            )
+          ) {
+            if (checkAllArgs) {
+              notifications.push({
+                type: event.type,
+                id: event.id,
+                itemType: event.itemType,
+                parentId: event.parentId,
+                index: event.index,
+                url: event.url || null,
+                guid: event.guid,
+                parentGuid: event.parentGuid,
+                source: event.source,
+                isTagging: event.isTagging,
+              });
+            } else {
+              notifications.push({
+                type: event.type,
+                guid: event.guid,
+              });
+            }
+          }
+      }
     }
   };
   PlacesUtils.observers.addListener(types, listener);

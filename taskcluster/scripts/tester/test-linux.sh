@@ -4,13 +4,23 @@ set -x -e
 
 echo "running as" $(id)
 
-# Detect release version.
-. /etc/lsb-release
-if [ "${DISTRIB_RELEASE}" == "12.04" ]; then
-    echo "Ubuntu 12.04 not supported"
-    exit 1
-elif [ "${DISTRIB_RELEASE}" == "16.04" ]; then
-    UBUNTU_1604=1
+# Detect distribution
+. /etc/os-release
+if [ "${ID}" == "ubuntu" ]; then
+    DISTRIBUTION="Ubuntu"
+elif [ "${ID}" == "debian" ]; then
+    DISTRIBUTION="Debian"
+else
+    DISTRIBUTION="Unknown"
+fi
+
+# Detect release version if supported
+FILE="/etc/lsb-release"
+if [ -e $FILE ] ; then
+    . /etc/lsb-release
+    RELEASE="${DISTRIB_RELEASE}"
+else
+    RELEASE="unknown"
 fi
 
 ####
@@ -19,13 +29,16 @@ fi
 
 # Inputs, with defaults
 
+: GECKO_PATH                    ${GECKO_PATH}
 : MOZHARNESS_PATH               ${MOZHARNESS_PATH}
 : MOZHARNESS_URL                ${MOZHARNESS_URL}
 : MOZHARNESS_SCRIPT             ${MOZHARNESS_SCRIPT}
 : MOZHARNESS_CONFIG             ${MOZHARNESS_CONFIG}
+: MOZHARNESS_OPTIONS            ${MOZHARNESS_OPTIONS}
 : NEED_XVFB                     ${NEED_XVFB:=true}
 : NEED_WINDOW_MANAGER           ${NEED_WINDOW_MANAGER:=false}
 : NEED_PULSEAUDIO               ${NEED_PULSEAUDIO:=false}
+: NEED_COMPIZ                   ${NEED_COPMPIZ:=false}
 : START_VNC                     ${START_VNC:=false}
 : TASKCLUSTER_INTERACTIVE       ${TASKCLUSTER_INTERACTIVE:=false}
 : mozharness args               "${@}"
@@ -42,10 +55,13 @@ fail() {
     exit 1
 }
 
+# start pulseaudio
 maybe_start_pulse() {
     if $NEED_PULSEAUDIO; then
-        pulseaudio --fail --daemonize --start
-        pactl load-module module-null-sink
+        # call pulseaudio for Ubuntu only
+        if [ $DISTRIBUTION == "Ubuntu" ]; then
+            pulseaudio --daemonize --log-level=4 --log-time=1 --log-target=stderr --start --fail -vvvvv --exit-idle-time=-1 --cleanup-shm --dump-conf
+        fi
     fi
 }
 
@@ -57,10 +73,24 @@ fi
 if [[ -z ${MOZHARNESS_SCRIPT} ]]; then fail "MOZHARNESS_SCRIPT is not set"; fi
 if [[ -z ${MOZHARNESS_CONFIG} ]]; then fail "MOZHARNESS_CONFIG is not set"; fi
 
+if [ $MOZ_ENABLE_WAYLAND ]; then
+  NEED_XVFB=true
+fi
+
 # make sure artifact directories exist
 mkdir -p "$WORKSPACE/logs"
 mkdir -p "$WORKING_DIR/artifacts/public"
 mkdir -p "$WORKSPACE/build/blobber_upload_dir"
+
+cleanup_mutter() {
+    local mutter_pids=`ps aux | grep 'mutter --wayland' | grep -v grep | awk '{print $2}'`
+    if [ "$mutter_pids" != "" ]; then
+        echo "Killing the following Mutter processes: $mutter_pids"
+        sudo kill $mutter_pids
+    else
+        echo "No Mutter processes to kill"
+    fi
+}
 
 cleanup() {
     local rv=$?
@@ -70,6 +100,9 @@ cleanup() {
     fi
     if $NEED_XVFB; then
         cleanup_xvfb
+    fi
+    if [ $MOZ_ENABLE_WAYLAND ]; then
+        cleanup_mutter
     fi
     exit $rv
 }
@@ -89,7 +122,7 @@ download_mozharness() {
     while [[ $attempt < $max_attempts ]]; do
         if curl --fail -o mozharness.zip --retry 10 -L $MOZHARNESS_URL; then
             rm -rf mozharness
-            if unzip -q mozharness.zip; then
+            if unzip -q mozharness.zip -d mozharness; then
                 return 0
             fi
             echo "error unzipping mozharness.zip" >&2
@@ -122,6 +155,10 @@ if $NEED_XVFB; then
     # note that this file is not available when run under native-worker
     . $HOME/scripts/xvfb.sh
     start_xvfb '1600x1200x24' 0
+    if [ $MOZ_ENABLE_WAYLAND ]; then
+        mutter --wayland &
+        export WAYLAND_DISPLAY=wayland-0
+    fi
 fi
 
 if $START_VNC; then
@@ -130,11 +167,22 @@ fi
 
 if $NEED_WINDOW_MANAGER; then
     # This is read by xsession to select the window manager
-    echo DESKTOP_SESSION=ubuntu > $HOME/.xsessionrc
+    . /etc/lsb-release
+    if [ $DISTRIBUTION == "Ubuntu" ] && [ $RELEASE == "16.04" ]; then
+        echo DESKTOP_SESSION=ubuntu > $HOME/.xsessionrc
+    elif [ $DISTRIBUTION == "Ubuntu" ] && [ $RELEASE == "18.04" ]; then
+        echo export DESKTOP_SESSION=gnome > $HOME/.xsessionrc
+        echo export XDG_CURRENT_DESKTOP=GNOME > $HOME/.xsessionrc
+        if [ $MOZ_ENABLE_WAYLAND ]; then
+            echo export XDG_SESSION_TYPE=wayland >> $HOME/.xsessionrc
+            echo export XDG_RUNTIME_DIR=/run/user/$(id -u) >> $HOME/.xsessionrc
+        else
+            echo export XDG_SESSION_TYPE=x11 >> $HOME/.xsessionrc
+        fi
+    else
+        :
+    fi
 
-    # note that doing anything with this display before running Xsession will cause sadness (like,
-    # crashes in compiz). Make sure that X has enough time to start
-    sleep 15
     # DISPLAY has already been set above
     # XXX: it would be ideal to add a semaphore logic to make sure that the
     # window manager is ready
@@ -144,25 +192,32 @@ if $NEED_WINDOW_MANAGER; then
     gsettings set org.gnome.desktop.screensaver idle-activation-enabled false
     gsettings set org.gnome.desktop.screensaver lock-enabled false
     gsettings set org.gnome.desktop.screensaver lock-delay 3600
+
     # Disable the screen saver
     xset s off s reset
 
     # This starts the gnome-keyring-daemon with an unlocked login keyring. libsecret uses this to
     # store secrets. Firefox uses libsecret to store a key that protects sensitive information like
     # credit card numbers.
-    eval `dbus-launch --sh-syntax`
-    eval `echo '' | /usr/bin/gnome-keyring-daemon -r -d --unlock --components=secrets`
-
-    if [ "${UBUNTU_1604}" ]; then
-        # start compiz for our window manager
-        compiz 2>&1 &
-        #TODO: how to determine if compiz starts correctly?
+    if test -z "$DBUS_SESSION_BUS_ADDRESS" ; then
+        # if not found, launch a new one
+        eval `dbus-launch --sh-syntax`
     fi
+    eval `echo '' | /usr/bin/gnome-keyring-daemon -r -d --unlock --components=secrets`
 fi
 
-if [ "${UBUNTU_1604}" ]; then
-    maybe_start_pulse
+if [[ $NEED_COMPIZ == true ]]  && [[ $RELEASE == 16.04 ]]; then
+    compiz 2>&1 &
+elif [[ $NEED_COMPIZ == true ]] && [[ $RELEASE == 18.04 ]]; then
+    compiz --replace 2>&1 &
 fi
+
+# Bug 1607713 - set cursor position to 0,0 to avoid odd libx11 interaction
+if [ $NEED_WINDOW_MANAGER ] && [ $DISPLAY == ':0' ]; then
+    xwit -root -warp 0 0
+fi
+
+maybe_start_pulse
 
 # For telemetry purposes, the build process wants information about the
 # source it is running
@@ -175,16 +230,27 @@ for cfg in $MOZHARNESS_CONFIG; do
   config_cmds="${config_cmds} --config-file ${MOZHARNESS_PATH}/configs/${cfg}"
 done
 
+if [ -n "$MOZHARNESS_OPTIONS" ]; then
+    options=""
+    for option in $MOZHARNESS_OPTIONS; do
+        options="$options --$option"
+    done
+fi
+
+# Use |mach python| if a source checkout exists so in-tree packages are
+# available.
+[[ -x "${GECKO_PATH}/mach" ]] && python="python2.7 ${GECKO_PATH}/mach python" || python="python2.7"
+
+# Save the computed mozharness command to a binary which is useful for
+# interactive mode.
 mozharness_bin="$HOME/bin/run-mozharness"
 mkdir -p $(dirname $mozharness_bin)
 
-# Save the computed mozharness command to a binary which is useful
-# for interactive mode.
 echo -e "#!/usr/bin/env bash
 # Some mozharness scripts assume base_work_dir is in
 # the current working directory, see bug 1279237
 cd "$WORKSPACE"
-cmd=\"python2.7 ${MOZHARNESS_PATH}/scripts/${MOZHARNESS_SCRIPT} ${config_cmds} ${@} \${@}\"
+cmd=\"${python} ${MOZHARNESS_PATH}/scripts/${MOZHARNESS_SCRIPT} ${config_cmds} ${options} ${@} \${@}\"
 echo \"Running: \${cmd}\"
 exec \${cmd}" > ${mozharness_bin}
 chmod +x ${mozharness_bin}
@@ -199,6 +265,6 @@ fi
 # Run a custom mach command (this is typically used by action tasks to run
 # harnesses in a particular way)
 if [ "$CUSTOM_MACH_COMMAND" ]; then
-    eval "'$WORKSPACE/build/tests/mach' ${CUSTOM_MACH_COMMAND}"
+    eval "'$WORKSPACE/build/tests/mach' ${CUSTOM_MACH_COMMAND} ${@}"
     exit $?
 fi

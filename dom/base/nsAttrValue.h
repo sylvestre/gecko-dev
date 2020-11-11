@@ -22,21 +22,21 @@
 #include "nsMargin.h"
 #include "nsCOMPtr.h"
 #include "nsStringFwd.h"
-#include "SVGAttrValueWrapper.h"
 #include "nsTArrayForwardDeclare.h"
 #include "nsAtom.h"
-#include "mozilla/AtomArray.h"
-#include "mozilla/MemoryReporting.h"
 #include "mozilla/dom/BindingDeclarations.h"
+#include "mozilla/AtomArray.h"
 #include "mozilla/EnumTypeTraits.h"
+#include "mozilla/MemoryReporting.h"
+#include "mozilla/SVGAttrValueWrapper.h"
 
-class nsIDocument;
 class nsIURI;
 class nsStyledElement;
 struct MiscContainer;
 
 namespace mozilla {
 class DeclarationBlock;
+class ShadowParts;
 }  // namespace mozilla
 
 #define NS_ATTRVALUE_MAX_STRINGLENGTH_ATOM 12
@@ -102,9 +102,13 @@ class nsAttrValue {
     eAtomArray,
     eDoubleValue,
     eIntMarginValue,
-    eSVGAngle,
-    eSVGTypesBegin = eSVGAngle,
+    // eShadowParts is refcounted in the misc container, as we do copy attribute
+    // values quite a bit (for example to process style invalidation), and the
+    // underlying value could get expensive to copy.
+    eShadowParts,
     eSVGIntegerPair,
+    eSVGTypesBegin = eSVGIntegerPair,
+    eSVGOrient,
     eSVGLength,
     eSVGLengthList,
     eSVGNumberList,
@@ -129,7 +133,7 @@ class nsAttrValue {
 
   inline const nsAttrValue& operator=(const nsAttrValue& aOther);
 
-  static nsresult Init();
+  static void Init();
   static void Shutdown();
 
   inline ValueType Type() const;
@@ -152,23 +156,28 @@ class nsAttrValue {
              const nsAString* aSerialized);
   void SetTo(nsIURI* aValue, const nsAString* aSerialized);
   void SetTo(const nsIntMargin& aValue);
-  void SetTo(const nsSVGAngle& aValue, const nsAString* aSerialized);
-  void SetTo(const nsSVGIntegerPair& aValue, const nsAString* aSerialized);
-  void SetTo(const nsSVGLength2& aValue, const nsAString* aSerialized);
+  void SetTo(const mozilla::SVGAnimatedIntegerPair& aValue,
+             const nsAString* aSerialized);
+  void SetTo(const mozilla::SVGAnimatedLength& aValue,
+             const nsAString* aSerialized);
+  void SetTo(const mozilla::SVGAnimatedNumberPair& aValue,
+             const nsAString* aSerialized);
+  void SetTo(const mozilla::SVGAnimatedOrient& aValue,
+             const nsAString* aSerialized);
+  void SetTo(const mozilla::SVGAnimatedPreserveAspectRatio& aValue,
+             const nsAString* aSerialized);
+  void SetTo(const mozilla::SVGAnimatedViewBox& aValue,
+             const nsAString* aSerialized);
   void SetTo(const mozilla::SVGLengthList& aValue,
              const nsAString* aSerialized);
   void SetTo(const mozilla::SVGNumberList& aValue,
              const nsAString* aSerialized);
-  void SetTo(const nsSVGNumberPair& aValue, const nsAString* aSerialized);
   void SetTo(const mozilla::SVGPathData& aValue, const nsAString* aSerialized);
   void SetTo(const mozilla::SVGPointList& aValue, const nsAString* aSerialized);
-  void SetTo(const mozilla::SVGAnimatedPreserveAspectRatio& aValue,
-             const nsAString* aSerialized);
   void SetTo(const mozilla::SVGStringList& aValue,
              const nsAString* aSerialized);
   void SetTo(const mozilla::SVGTransformList& aValue,
              const nsAString* aSerialized);
-  void SetTo(const nsSVGViewBox& aValue, const nsAString* aSerialized);
 
   /**
    * Sets this object with the string or atom representation of aValue.
@@ -198,12 +207,13 @@ class nsAttrValue {
   inline int32_t GetIntegerValue() const;
   bool GetColorValue(nscolor& aColor) const;
   inline int16_t GetEnumValue() const;
-  inline float GetPercentValue() const;
+  inline double GetPercentValue() const;
   inline mozilla::AtomArray* GetAtomArrayValue() const;
   inline mozilla::DeclarationBlock* GetCSSDeclarationValue() const;
   inline nsIURI* GetURLValue() const;
   inline double GetDoubleValue() const;
   bool GetIntMarginValue(nsIntMargin& aMargin) const;
+  inline const mozilla::ShadowParts& GetShadowPartsValue() const;
 
   /**
    * Returns the string corresponding to the stored enum value.
@@ -226,6 +236,10 @@ class nsAttrValue {
   // aCaseSensitive == eIgnoreCase means ASCII case-insenstive matching
   bool Equals(const nsAString& aValue, nsCaseTreatment aCaseSensitive) const;
   bool Equals(const nsAtom* aValue, nsCaseTreatment aCaseSensitive) const;
+  bool HasPrefix(const nsAString& aValue, nsCaseTreatment aCaseSensitive) const;
+  bool HasSuffix(const nsAString& aValue, nsCaseTreatment aCaseSensitive) const;
+  bool HasSubstring(const nsAString& aValue,
+                    nsCaseTreatment aCaseSensitive) const;
 
   /**
    * Compares this object with aOther according to their string representation.
@@ -251,6 +265,13 @@ class nsAttrValue {
   void ParseAtom(const nsAString& aValue);
   void ParseAtomArray(const nsAString& aValue);
   void ParseStringOrAtom(const nsAString& aValue);
+
+  /**
+   * Parses an exportparts attribute.
+   *
+   * https://drafts.csswg.org/css-shadow-parts/#parsing-mapping-list
+   */
+  void ParsePartMapping(const nsAString&);
 
   /**
    * Structure for a mapping from int (enum) values to strings.  When you use
@@ -299,16 +320,33 @@ class nsAttrValue {
                       const EnumTable* aDefaultValue = nullptr);
 
   /**
-   * Parse a string into an integer. Can optionally parse percent (n%).
-   * This method explicitly sets a lower bound of zero on the element,
-   * whether it be percent or raw integer.
+   * Parse a string into a dimension value.  This is similar to
+   * https://html.spec.whatwg.org/multipage/#rules-for-parsing-dimension-values
+   * but drops the fractional part of the value for now, until we figure out how
+   * to store that in our nsAttrValue.
    *
-   * @param aString the string to parse
+   * The resulting value (if the parse succeeds) is one of eInteger,
+   * eDoubleValue, or ePercent, depending on whether we found a fractional part
+   * and whether we found '%' at the end of the value.
+   *
+   * @param aInput the string to parse
    * @return whether the value could be parsed
-   *
-   * @see http://www.whatwg.org/html/#rules-for-parsing-dimension-values
    */
-  bool ParseSpecialIntValue(const nsAString& aString);
+  bool ParseHTMLDimension(const nsAString& aInput) {
+    return DoParseHTMLDimension(aInput, false);
+  }
+
+  /**
+   * Parse a string into a nonzero dimension value.  This implements
+   * https://html.spec.whatwg.org/multipage/#rules-for-parsing-non-zero-dimension-values
+   * subject to the same constraints as ParseHTMLDimension above.
+   *
+   * @param aInput the string to parse
+   * @return whether the value could be parsed
+   */
+  bool ParseNonzeroHTMLDimension(const nsAString& aInput) {
+    return DoParseHTMLDimension(aInput, true);
+  }
 
   /**
    * Parse a string value into an integer.
@@ -399,12 +437,6 @@ class nsAttrValue {
   bool ParseDoubleValue(const nsAString& aString);
 
   /**
-   * Parse a lazy URI.  This just sets up the storage for the URI; it
-   * doesn't actually allocate it.
-   */
-  bool ParseLazyURIValue(const nsAString& aString);
-
-  /**
    * Parse a margin string of format 'top, right, bottom, left' into
    * an nsIntMargin.
    *
@@ -452,6 +484,9 @@ class nsAttrValue {
   inline void SetPtrValueAndType(void* aValue, ValueBaseType aType);
   void SetIntValueAndType(int32_t aValue, ValueType aType,
                           const nsAString* aStringValue);
+  // aType can be ePercent or eDoubleValue.
+  void SetDoubleValueAndType(double aValue, ValueType aType,
+                             const nsAString* aStringValue);
   void SetColorValue(nscolor aColor, const nsAString& aString);
   void SetMiscAtomOrString(const nsAString* aValue);
   void ResetMiscAtomOrString();
@@ -477,11 +512,24 @@ class nsAttrValue {
   int32_t EnumTableEntryToValue(const EnumTable* aEnumTable,
                                 const EnumTable* aTableEntry);
 
+  template <typename F>
+  bool SubstringCheck(const nsAString& aValue,
+                      nsCaseTreatment aCaseSensitive) const;
+
   static MiscContainer* AllocMiscContainer();
   static void DeallocMiscContainer(MiscContainer* aCont);
 
   static nsTArray<const EnumTable*>* sEnumTableArray;
   static MiscContainer* sMiscContainerCache;
+
+  /**
+   * Helper for ParseHTMLDimension and ParseNonzeroHTMLDimension.
+   *
+   * @param aInput the string to parse
+   * @param aEnsureNonzero whether to fail the parse if the value is 0
+   * @return whether the value could be parsed
+   */
+  bool DoParseHTMLDimension(const nsAString& aInput, bool aEnsureNonzero);
 
   uintptr_t mBits;
 };

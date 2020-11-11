@@ -4,20 +4,36 @@
 
 "use strict";
 
-const { Component, createFactory } = require("devtools/client/shared/vendor/react");
+const {
+  Component,
+  createFactory,
+} = require("devtools/client/shared/vendor/react");
 const PropTypes = require("devtools/client/shared/vendor/react-prop-types");
 const dom = require("devtools/client/shared/vendor/react-dom-factories");
-const { connect } = require("devtools/client/shared/redux/visibility-handler-connect");
+const {
+  connect,
+} = require("devtools/client/shared/redux/visibility-handler-connect");
 
 // Components
+loader.lazyGetter(this, "AppErrorBoundary", function() {
+  return createFactory(
+    require("devtools/client/netmonitor/src/components/AppErrorBoundary")
+  );
+});
 loader.lazyGetter(this, "MonitorPanel", function() {
-  return createFactory(require("./MonitorPanel"));
+  return createFactory(
+    require("devtools/client/netmonitor/src/components/MonitorPanel")
+  );
 });
 loader.lazyGetter(this, "StatisticsPanel", function() {
-  return createFactory(require("./StatisticsPanel"));
+  return createFactory(
+    require("devtools/client/netmonitor/src/components/StatisticsPanel")
+  );
 });
 loader.lazyGetter(this, "DropHarHandler", function() {
-  return createFactory(require("./DropHarHandler"));
+  return createFactory(
+    require("devtools/client/netmonitor/src/components/DropHarHandler")
+  );
 });
 
 const { div } = dom;
@@ -38,12 +54,15 @@ class App extends Component {
       // Callback for opening split console.
       openSplitConsole: PropTypes.func,
       // Service to enable the source map feature.
-      sourceMapService: PropTypes.object,
+      sourceMapURLService: PropTypes.object,
       // True if the stats panel is opened.
       statisticsOpen: PropTypes.bool.isRequired,
+      // Document which settings menu will be injected to
+      toolboxDoc: PropTypes.object.isRequired,
+      // Syncing blocked requests
+      addBlockedUrl: PropTypes.func,
     };
   }
-
   // Rendering
 
   render() {
@@ -52,27 +71,33 @@ class App extends Component {
       connector,
       openLink,
       openSplitConsole,
-      sourceMapService,
+      sourceMapURLService,
       statisticsOpen,
+      toolboxDoc,
     } = this.props;
 
-    return (
-      div({className: "network-monitor"},
-        !statisticsOpen ?
-          DropHarHandler({
-            actions,
-            openSplitConsole,
-          },
-            MonitorPanel({
-              actions,
+    return div(
+      { className: "network-monitor" },
+      AppErrorBoundary(
+        { className: "app-error-boundary" },
+        !statisticsOpen
+          ? DropHarHandler(
+              {
+                actions,
+                openSplitConsole,
+              },
+              MonitorPanel({
+                actions,
+                connector,
+                openSplitConsole,
+                sourceMapURLService,
+                openLink,
+                toolboxDoc,
+              })
+            )
+          : StatisticsPanel({
               connector,
-              openSplitConsole,
-              sourceMapService,
-              openLink,
             })
-          ) : StatisticsPanel({
-            connector,
-          }),
       )
     );
   }
@@ -80,6 +105,6 @@ class App extends Component {
 
 // Exports
 
-module.exports = connect(
-  (state) => ({ statisticsOpen: state.ui.statisticsOpen }),
-)(App);
+module.exports = connect(state => ({
+  statisticsOpen: state.ui.statisticsOpen,
+}))(App);

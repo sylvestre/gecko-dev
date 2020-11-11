@@ -10,7 +10,6 @@
 #include <AudioToolbox/AudioToolbox.h>
 #include "PlatformDecoderModule.h"
 #include "mozilla/Vector.h"
-#include "nsIThread.h"
 #include "AudioConverter.h"
 
 namespace mozilla {
@@ -22,7 +21,7 @@ DDLoggedTypeDeclNameAndBase(AppleATDecoder, MediaDataDecoder);
 class AppleATDecoder : public MediaDataDecoder,
                        public DecoderDoctorLifeLogger<AppleATDecoder> {
  public:
-  AppleATDecoder(const AudioInfo& aConfig, TaskQueue* aTaskQueue);
+  explicit AppleATDecoder(const AudioInfo& aConfig);
   ~AppleATDecoder();
 
   RefPtr<InitPromise> Init() override;
@@ -32,7 +31,7 @@ class AppleATDecoder : public MediaDataDecoder,
   RefPtr<ShutdownPromise> Shutdown() override;
 
   nsCString GetDescriptionName() const override {
-    return NS_LITERAL_CSTRING("apple coremedia decoder");
+    return "apple coremedia decoder"_ns;
   }
 
   // Callbacks also need access to the config.
@@ -44,7 +43,7 @@ class AppleATDecoder : public MediaDataDecoder,
   // the magic cookie property.
   bool mFileStreamError;
 
-  const RefPtr<TaskQueue> mTaskQueue;
+  nsCOMPtr<nsISerialEventTarget> mThread;
 
  private:
   AudioConverterRef mConverter;
@@ -56,8 +55,6 @@ class AppleATDecoder : public MediaDataDecoder,
   UniquePtr<AudioConverter> mAudioConverter;
   DecodedData mDecodedSamples;
 
-  RefPtr<DecodePromise> ProcessDecode(MediaRawData* aSample);
-  RefPtr<FlushPromise> ProcessFlush();
   void ProcessShutdown();
   MediaResult DecodeSample(MediaRawData* aSample);
   MediaResult GetInputAudioDescription(AudioStreamBasicDescription& aDesc,

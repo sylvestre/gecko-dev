@@ -16,7 +16,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
-import android.support.v4.util.SimpleArrayMap;
+import androidx.collection.SimpleArrayMap;
 
 import java.lang.reflect.Array;
 import java.util.Arrays;
@@ -129,6 +129,30 @@ public final class GeckoBundle implements Parcelable {
     }
 
     /**
+     * Returns the value associated with a Boolean mapping, or defaultValue if the mapping
+     * does not exist.
+     *
+     * @param key Key to look for.
+     * @param defaultValue Value to return if mapping does not exist.
+     * @return Boolean value
+     */
+    public Boolean getBooleanObject(final String key, final Boolean defaultValue) {
+        final Object value = mMap.get(key);
+        return value == null ? defaultValue : (Boolean) value;
+    }
+
+    /**
+     * Returns the value associated with a Boolean mapping, or null if the mapping does
+     * not exist.
+     *
+     * @param key Key to look for.
+     * @return Boolean value
+     */
+    public Boolean getBooleanObject(final String key) {
+        return getBooleanObject(key, null);
+    }
+
+    /**
      * Returns the value associated with a boolean array mapping, or null if the mapping
      * does not exist.
      *
@@ -209,6 +233,30 @@ public final class GeckoBundle implements Parcelable {
      */
     public int getInt(final String key) {
         return getInt(key, 0);
+    }
+
+    /**
+     * Returns the value associated with an Integer mapping, or defaultValue if the mapping
+     * does not exist.
+     *
+     * @param key Key to look for.
+     * @param defaultValue Value to return if mapping does not exist.
+     * @return Int value
+     */
+    public Integer getInteger(final String key, final Integer defaultValue) {
+        final Object value = mMap.get(key);
+        return value == null ? defaultValue : ((Integer) value);
+    }
+
+    /**
+     * Returns the value associated with an Integer mapping, or null if the mapping does not
+     * exist.
+     *
+     * @param key Key to look for.
+     * @return Int value
+     */
+    public Integer getInteger(final String key) {
+        return getInteger(key, null);
     }
 
     private static int[] getIntArray(final double[] array) {
@@ -392,20 +440,20 @@ public final class GeckoBundle implements Parcelable {
     }
 
     private void put(final String key, final Object value) {
-      // We intentionally disallow a generic put() method for type safety and sanity. For
-      // example, we assume elsewhere in the code that a value belongs to a small list of
-      // predefined types, and cannot be any arbitrary object. If you want to put an
-      // Object in the bundle, check the type of the Object first and call the
-      // corresponding put methods. For example,
-      //
-      //   if (obj instanceof Integer) {
-      //     bundle.putInt(key, (Integer) key);
-      //   } else if (obj instanceof String) {
-      //     bundle.putString(key, (String) obj);
-      //   } else {
-      //     throw new IllegalArgumentException("unexpected type");
-      //   }
-      throw new UnsupportedOperationException();
+        // We intentionally disallow a generic put() method for type safety and sanity. For
+        // example, we assume elsewhere in the code that a value belongs to a small list of
+        // predefined types, and cannot be any arbitrary object. If you want to put an
+        // Object in the bundle, check the type of the Object first and call the
+        // corresponding put methods. For example,
+        //
+        //   if (obj instanceof Integer) {
+        //     bundle.putInt(key, (Integer) key);
+        //   } else if (obj instanceof String) {
+        //     bundle.putString(key, (String) obj);
+        //   } else {
+        //     throw new IllegalArgumentException("unexpected type");
+        //   }
+        throw new UnsupportedOperationException();
     }
 
     /**
@@ -740,7 +788,7 @@ public final class GeckoBundle implements Parcelable {
     }
 
     @Override // Object
-    public boolean equals(Object other) {
+    public boolean equals(final Object other) {
         if (!(other instanceof GeckoBundle)) {
             return false;
         }
@@ -925,7 +973,7 @@ public final class GeckoBundle implements Parcelable {
         return new GeckoBundle(keys, values);
     }
 
-    private static Object fromJSONValue(Object value) throws JSONException {
+    private static Object fromJSONValue(final Object value) throws JSONException {
         if (value == null || value == JSONObject.NULL) {
             return null;
         } else if (value instanceof JSONObject) {

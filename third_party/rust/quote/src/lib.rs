@@ -6,8 +6,8 @@
 //! Procedural macros in Rust receive a stream of tokens as input, execute
 //! arbitrary Rust code to determine how to manipulate those tokens, and produce
 //! a stream of tokens to hand back to the compiler to compile into the caller's
-//! crate. Quasi-quoting is a solution to one piece of that -- producing tokens
-//! to return to the compiler.
+//! crate. Quasi-quoting is a solution to one piece of that &mdash; producing
+//! tokens to return to the compiler.
 //!
 //! The idea of quasi-quoting is that we write *code* that we treat as *data*.
 //! Within the `quote!` macro, we can write what looks like code to our text
@@ -21,20 +21,12 @@
 //! general-purpose Rust quasi-quoting library and is not specific to procedural
 //! macros.
 //!
-//! *Version requirement: Quote supports any compiler version back to Rust's
-//! very first support for procedural macros in Rust 1.15.0.*
-//!
 //! ```toml
 //! [dependencies]
-//! quote = "0.6"
+//! quote = "1.0"
 //! ```
 //!
-//! ```
-//! #[macro_use]
-//! extern crate quote;
-//! #
-//! # fn main() {}
-//! ```
+//! <br>
 //!
 //! # Example
 //!
@@ -49,104 +41,100 @@
 //! [`quote_spanned!`]: macro.quote_spanned.html
 //!
 //! ```
-//! # #[macro_use]
-//! # extern crate quote;
+//! # use quote::quote;
 //! #
-//! # fn main() {
-//! #     let generics = "";
-//! #     let where_clause = "";
-//! #     let field_ty = "";
-//! #     let item_ty = "";
-//! #     let path = "";
-//! #     let value = "";
+//! # let generics = "";
+//! # let where_clause = "";
+//! # let field_ty = "";
+//! # let item_ty = "";
+//! # let path = "";
+//! # let value = "";
 //! #
 //! let tokens = quote! {
 //!     struct SerializeWith #generics #where_clause {
 //!         value: &'a #field_ty,
-//!         phantom: ::std::marker::PhantomData<#item_ty>,
+//!         phantom: core::marker::PhantomData<#item_ty>,
 //!     }
 //!
 //!     impl #generics serde::Serialize for SerializeWith #generics #where_clause {
-//!         fn serialize<S>(&self, s: &mut S) -> Result<(), S::Error>
+//!         fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
 //!         where
 //!             S: serde::Serializer,
 //!         {
-//!             #path(self.value, s)
+//!             #path(self.value, serializer)
 //!         }
 //!     }
 //!
 //!     SerializeWith {
 //!         value: #value,
-//!         phantom: ::std::marker::PhantomData::<#item_ty>,
+//!         phantom: core::marker::PhantomData::<#item_ty>,
 //!     }
 //! };
-//! #
-//! # }
 //! ```
-//!
-//! ## Recursion limit
-//!
-//! The `quote!` macro relies on deep recursion so some large invocations may
-//! fail with "recursion limit reached" when you compile. If it fails, bump up
-//! the recursion limit by adding `#![recursion_limit = "128"]` to your crate.
-//! An even higher limit may be necessary for especially large invocations.
 
 // Quote types in rustdoc of other crates get linked to here.
-#![doc(html_root_url = "https://docs.rs/quote/0.6.3")]
+#![doc(html_root_url = "https://docs.rs/quote/1.0.2")]
 
-#[cfg(feature = "proc-macro")]
+#[cfg(all(
+    not(all(target_arch = "wasm32", target_os = "unknown")),
+    feature = "proc-macro"
+))]
 extern crate proc_macro;
-extern crate proc_macro2;
 
 mod ext;
-pub use ext::TokenStreamExt;
-
+mod format;
+mod ident_fragment;
 mod to_tokens;
-pub use to_tokens::ToTokens;
 
 // Not public API.
 #[doc(hidden)]
-pub mod __rt {
-    // Not public API.
-    pub use proc_macro2::*;
+#[path = "runtime.rs"]
+pub mod __rt;
 
-    // Not public API.
-    pub fn parse(tokens: &mut TokenStream, span: Span, s: &str) {
-        let s: TokenStream = s.parse().expect("invalid token stream");
-        tokens.extend(s.into_iter().map(|mut t| {
-            t.set_span(span);
-            t
-        }));
-    }
-}
+pub use crate::ext::TokenStreamExt;
+pub use crate::ident_fragment::IdentFragment;
+pub use crate::to_tokens::ToTokens;
+
+// Not public API.
+#[doc(hidden)]
+pub mod spanned;
 
 /// The whole point.
 ///
 /// Performs variable interpolation against the input and produces it as
-/// [`TokenStream`]. For returning tokens to the compiler in a procedural macro, use
-/// `into()` to build a `TokenStream`.
+/// [`proc_macro2::TokenStream`].
 ///
-/// [`TokenStream`]: https://docs.rs/proc-macro2/0.4/proc_macro2/struct.TokenStream.html
+/// Note: for returning tokens to the compiler in a procedural macro, use
+/// `.into()` on the result to convert to [`proc_macro::TokenStream`].
+///
+/// [`TokenStream`]: https://docs.rs/proc-macro2/1.0/proc_macro2/struct.TokenStream.html
+///
+/// <br>
 ///
 /// # Interpolation
 ///
 /// Variable interpolation is done with `#var` (similar to `$var` in
 /// `macro_rules!` macros). This grabs the `var` variable that is currently in
-/// scope and inserts it in that location in the output tokens. The variable
-/// must implement the [`ToTokens`] trait.
+/// scope and inserts it in that location in the output tokens. Any type
+/// implementing the [`ToTokens`] trait can be interpolated. This includes most
+/// Rust primitive types as well as most of the syntax tree types from the [Syn]
+/// crate.
 ///
 /// [`ToTokens`]: trait.ToTokens.html
+/// [Syn]: https://github.com/dtolnay/syn
 ///
 /// Repetition is done using `#(...)*` or `#(...),*` again similar to
 /// `macro_rules!`. This iterates through the elements of any variable
 /// interpolated within the repetition and inserts a copy of the repetition body
-/// for each one. The variables in an interpolation may be anything that
-/// implements `IntoIterator`, including `Vec` or a pre-existing iterator.
+/// for each one. The variables in an interpolation may be a `Vec`, slice,
+/// `BTreeSet`, or any `Iterator`.
 ///
 /// - `#(#var)*` — no separators
 /// - `#(#var),*` — the character before the asterisk is used as a separator
 /// - `#( struct #var; )*` — the repetition can contain other tokens
 /// - `#( #k => println!("{}", #v), )*` — even multiple interpolations
+///
+/// <br>
 ///
 /// # Hygiene
 ///
@@ -154,23 +142,55 @@ pub mod __rt {
 /// `ToTokens` implementation. Tokens that originate within the `quote!`
 /// invocation are spanned with [`Span::call_site()`].
 ///
-/// [`Span::call_site()`]: https://docs.rs/proc-macro2/0.4/proc_macro2/struct.Span.html#method.call_site
+/// [`Span::call_site()`]: https://docs.rs/proc-macro2/1.0/proc_macro2/struct.Span.html#method.call_site
 ///
 /// A different span can be provided through the [`quote_spanned!`] macro.
 ///
 /// [`quote_spanned!`]: macro.quote_spanned.html
 ///
-/// # Example
+/// <br>
+///
+/// # Return type
+///
+/// The macro evaluates to an expression of type `proc_macro2::TokenStream`.
+/// Meanwhile Rust procedural macros are expected to return the type
+/// `proc_macro::TokenStream`.
+///
+/// The difference between the two types is that `proc_macro` types are entirely
+/// specific to procedural macros and cannot ever exist in code outside of a
+/// procedural macro, while `proc_macro2` types may exist anywhere including
+/// tests and non-macro code like main.rs and build.rs. This is why even the
+/// procedural macro ecosystem is largely built around `proc_macro2`, because
+/// that ensures the libraries are unit testable and accessible in non-macro
+/// contexts.
+///
+/// There is a [`From`]-conversion in both directions so returning the output of
+/// `quote!` from a procedural macro usually looks like `tokens.into()` or
+/// `proc_macro::TokenStream::from(tokens)`.
+///
+/// [`From`]: https://doc.rust-lang.org/std/convert/trait.From.html
+///
+/// <br>
+///
+/// # Examples
+///
+/// ### Procedural macro
+///
+/// The structure of a basic procedural macro is as follows. Refer to the [Syn]
+/// crate for further useful guidance on using `quote!` as part of a procedural
+/// macro.
+///
+/// [Syn]: https://github.com/dtolnay/syn
 ///
 /// ```
 /// # #[cfg(any())]
 /// extern crate proc_macro;
-/// # extern crate proc_macro2 as proc_macro;
+/// # extern crate proc_macro2;
 ///
-/// #[macro_use]
-/// extern crate quote;
-///
+/// # #[cfg(any())]
 /// use proc_macro::TokenStream;
+/// # use proc_macro2::TokenStream;
+/// use quote::quote;
 ///
 /// # const IGNORE_TOKENS: &'static str = stringify! {
 /// #[proc_macro_derive(HeapSize)]
@@ -187,7 +207,7 @@ pub mod __rt {
 ///
 ///     let expanded = quote! {
 ///         // The generated impl.
-///         impl ::heapsize::HeapSize for #name {
+///         impl heapsize::HeapSize for #name {
 ///             fn heap_size_of_children(&self) -> usize {
 ///                 #expr
 ///             }
@@ -195,35 +215,276 @@ pub mod __rt {
 ///     };
 ///
 ///     // Hand the output tokens back to the compiler.
-///     expanded.into()
+///     TokenStream::from(expanded)
 /// }
+/// ```
+///
+/// <p><br></p>
+///
+/// ### Combining quoted fragments
+///
+/// Usually you don't end up constructing an entire final `TokenStream` in one
+/// piece. Different parts may come from different helper functions. The tokens
+/// produced by `quote!` themselves implement `ToTokens` and so can be
+/// interpolated into later `quote!` invocations to build up a final result.
+///
+/// ```
+/// # use quote::quote;
 /// #
-/// # fn main() {}
+/// let type_definition = quote! {...};
+/// let methods = quote! {...};
+///
+/// let tokens = quote! {
+///     #type_definition
+///     #methods
+/// };
+/// ```
+///
+/// <p><br></p>
+///
+/// ### Constructing identifiers
+///
+/// Suppose we have an identifier `ident` which came from somewhere in a macro
+/// input and we need to modify it in some way for the macro output. Let's
+/// consider prepending the identifier with an underscore.
+///
+/// Simply interpolating the identifier next to an underscore will not have the
+/// behavior of concatenating them. The underscore and the identifier will
+/// continue to be two separate tokens as if you had written `_ x`.
+///
+/// ```
+/// # use proc_macro2::{self as syn, Span};
+/// # use quote::quote;
+/// #
+/// # let ident = syn::Ident::new("i", Span::call_site());
+/// #
+/// // incorrect
+/// quote! {
+///     let mut _#ident = 0;
+/// }
+/// # ;
+/// ```
+///
+/// The solution is to build a new identifier token with the correct value. As
+/// this is such a common case, the [`format_ident!`] macro provides a
+/// convenient utility for doing so correctly.
+///
+/// ```
+/// # use proc_macro2::{Ident, Span};
+/// # use quote::{format_ident, quote};
+/// #
+/// # let ident = Ident::new("i", Span::call_site());
+/// #
+/// let varname = format_ident!("_{}", ident);
+/// quote! {
+///     let mut #varname = 0;
+/// }
+/// # ;
+/// ```
+///
+/// Alternatively, the APIs provided by Syn and proc-macro2 can be used to
+/// directly build the identifier. This is roughly equivalent to the above, but
+/// will not handle `ident` being a raw identifier.
+///
+/// ```
+/// # use proc_macro2::{self as syn, Span};
+/// # use quote::quote;
+/// #
+/// # let ident = syn::Ident::new("i", Span::call_site());
+/// #
+/// let concatenated = format!("_{}", ident);
+/// let varname = syn::Ident::new(&concatenated, ident.span());
+/// quote! {
+///     let mut #varname = 0;
+/// }
+/// # ;
+/// ```
+///
+/// <p><br></p>
+///
+/// ### Making method calls
+///
+/// Let's say our macro requires some type specified in the macro input to have
+/// a constructor called `new`. We have the type in a variable called
+/// `field_type` of type `syn::Type` and want to invoke the constructor.
+///
+/// ```
+/// # use quote::quote;
+/// #
+/// # let field_type = quote!(...);
+/// #
+/// // incorrect
+/// quote! {
+///     let value = #field_type::new();
+/// }
+/// # ;
+/// ```
+///
+/// This works only sometimes. If `field_type` is `String`, the expanded code
+/// contains `String::new()` which is fine. But if `field_type` is something
+/// like `Vec<i32>` then the expanded code is `Vec<i32>::new()` which is invalid
+/// syntax. Ordinarily in handwritten Rust we would write `Vec::<i32>::new()`
+/// but for macros often the following is more convenient.
+///
+/// ```
+/// # use quote::quote;
+/// #
+/// # let field_type = quote!(...);
+/// #
+/// quote! {
+///     let value = <#field_type>::new();
+/// }
+/// # ;
+/// ```
+///
+/// This expands to `<Vec<i32>>::new()` which behaves correctly.
+///
+/// A similar pattern is appropriate for trait methods.
+///
+/// ```
+/// # use quote::quote;
+/// #
+/// # let field_type = quote!(...);
+/// #
+/// quote! {
+///     let value = <#field_type as core::default::Default>::default();
+/// }
+/// # ;
+/// ```
+///
+/// <p><br></p>
+///
+/// ### Interpolating text inside of doc comments
+///
+/// Neither doc comments nor string literals get interpolation behavior in
+/// quote:
+///
+/// ```compile_fail
+/// quote! {
+///     /// try to interpolate: #ident
+///     ///
+///     /// ...
+/// }
+/// ```
+///
+/// ```compile_fail
+/// quote! {
+///     #[doc = "try to interpolate: #ident"]
+/// }
+/// ```
+///
+/// Macro calls in a doc attribute are not valid syntax:
+///
+/// ```compile_fail
+/// quote! {
+///     #[doc = concat!("try to interpolate: ", stringify!(#ident))]
+/// }
+/// ```
+///
+/// Instead the best way to build doc comments that involve variables is by
+/// formatting the doc string literal outside of quote.
+///
+/// ```rust
+/// # use proc_macro2::{Ident, Span};
+/// # use quote::quote;
+/// #
+/// # const IGNORE: &str = stringify! {
+/// let msg = format!(...);
+/// # };
+/// #
+/// # let ident = Ident::new("var", Span::call_site());
+/// # let msg = format!("try to interpolate: {}", ident);
+/// quote! {
+///     #[doc = #msg]
+///     ///
+///     /// ...
+/// }
+/// # ;
+/// ```
+///
+/// <p><br></p>
+///
+/// ### Indexing into a tuple struct
+///
+/// When interpolating indices of a tuple or tuple struct, we need them not to
+/// appears suffixed as integer literals by interpolating them as [`syn::Index`]
+/// instead.
+///
+/// [`syn::Index`]: https://docs.rs/syn/1.0/syn/struct.Index.html
+///
+/// ```compile_fail
+/// let i = 0usize..self.fields.len();
+///
+/// // expands to 0 + self.0usize.heap_size() + self.1usize.heap_size() + ...
+/// // which is not valid syntax
+/// quote! {
+///     0 #( + self.#i.heap_size() )*
+/// }
+/// ```
+///
+/// ```
+/// # use proc_macro2::{Ident, TokenStream};
+/// # use quote::quote;
+/// #
+/// # mod syn {
+/// #     use proc_macro2::{Literal, TokenStream};
+/// #     use quote::{ToTokens, TokenStreamExt};
+/// #
+/// #     pub struct Index(usize);
+/// #
+/// #     impl From<usize> for Index {
+/// #         fn from(i: usize) -> Self {
+/// #             Index(i)
+/// #         }
+/// #     }
+/// #
+/// #     impl ToTokens for Index {
+/// #         fn to_tokens(&self, tokens: &mut TokenStream) {
+/// #             tokens.append(Literal::usize_unsuffixed(self.0));
+/// #         }
+/// #     }
+/// # }
+/// #
+/// # struct Struct {
+/// #     fields: Vec<Ident>,
+/// # }
+/// #
+/// # impl Struct {
+/// #     fn example(&self) -> TokenStream {
+/// let i = (0..self.fields.len()).map(syn::Index::from);
+///
+/// // expands to 0 + self.0.heap_size() + self.1.heap_size() + ...
+/// quote! {
+///     0 #( + self.#i.heap_size() )*
+/// }
+/// #     }
+/// # }
 /// ```
 #[macro_export]
 macro_rules! quote {
-    ($($tt:tt)*) => (quote_spanned!($crate::__rt::Span::call_site()=> $($tt)*));
+    ($($tt:tt)*) => {
+        $crate::quote_spanned!($crate::__rt::Span::call_site()=> $($tt)*)
+    };
 }
 
 /// Same as `quote!`, but applies a given span to all tokens originating within
 /// the macro invocation.
 ///
+/// <br>
+///
 /// # Syntax
 ///
 /// A span expression of type [`Span`], followed by `=>`, followed by the tokens
-/// to quote. The span expression should be brief -- use a variable for anything
-/// more than a few characters. There should be no space before the `=>` token.
+/// to quote. The span expression should be brief &mdash; use a variable for
+/// anything more than a few characters. There should be no space before the
+/// `=>` token.
 ///
-/// [`Span`]: https://docs.rs/proc-macro2/0.4/proc_macro2/struct.Span.html
+/// [`Span`]: https://docs.rs/proc-macro2/1.0/proc_macro2/struct.Span.html
 ///
 /// ```
-/// # #[macro_use]
-/// # extern crate quote;
-/// # extern crate proc_macro2;
-/// #
 /// # use proc_macro2::Span;
+/// # use quote::quote_spanned;
 /// #
-/// # fn main() {
 /// # const IGNORE_TOKENS: &'static str = stringify! {
 /// let span = /* ... */;
 /// # };
@@ -237,7 +498,6 @@ macro_rules! quote {
 /// let tokens = quote_spanned! {span=>
 ///     Box::into_raw(Box::new(#init))
 /// };
-/// # }
 /// ```
 ///
 /// The lack of space before the `=>` should look jarring to Rust programmers
@@ -246,11 +506,15 @@ macro_rules! quote {
 /// being evaluated in the context of the procedural macro and the remaining
 /// tokens being evaluated in the generated code.
 ///
+/// <br>
+///
 /// # Hygiene
 ///
 /// Any interpolated tokens preserve the `Span` information provided by their
 /// `ToTokens` implementation. Tokens that originate within the `quote_spanned!`
 /// invocation are spanned with the given span argument.
+///
+/// <br>
 ///
 /// # Example
 ///
@@ -261,11 +525,7 @@ macro_rules! quote {
 /// [`Sync`]: https://doc.rust-lang.org/std/marker/trait.Sync.html
 ///
 /// ```
-/// # #[macro_use]
-/// # extern crate quote;
-/// # extern crate proc_macro2;
-/// #
-/// # use quote::{TokenStreamExt, ToTokens};
+/// # use quote::{quote_spanned, TokenStreamExt, ToTokens};
 /// # use proc_macro2::{Span, TokenStream};
 /// #
 /// # struct Type;
@@ -280,7 +540,6 @@ macro_rules! quote {
 /// #     fn to_tokens(&self, _tokens: &mut TokenStream) {}
 /// # }
 /// #
-/// # fn main() {
 /// # let ty = Type;
 /// # let call_site = Span::call_site();
 /// #
@@ -288,7 +547,6 @@ macro_rules! quote {
 /// let assert_sync = quote_spanned! {ty_span=>
 ///     struct _AssertSync where #ty: Sync;
 /// };
-/// # }
 /// ```
 ///
 /// If the assertion fails, the user will see an error like the following. The
@@ -304,208 +562,387 @@ macro_rules! quote {
 ///
 /// In this example it is important for the where-clause to be spanned with the
 /// line/column information of the user's input type so that error messages are
-/// placed appropriately by the compiler. But it is also incredibly important
-/// that `Sync` resolves at the macro definition site and not the macro call
-/// site. If we resolve `Sync` at the same span that the user's type is going to
-/// be resolved, then they could bypass our check by defining their own trait
-/// named `Sync` that is implemented for their type.
+/// placed appropriately by the compiler.
 #[macro_export]
 macro_rules! quote_spanned {
-    ($span:expr=> $($tt:tt)*) => {
-        {
-            let mut _s = $crate::__rt::TokenStream::new();
-            let _span = $span;
-            quote_each_token!(_s _span $($tt)*);
-            _s
-        }
-    };
+    ($span:expr=> $($tt:tt)*) => {{
+        let mut _s = $crate::__rt::TokenStream::new();
+        let _span: $crate::__rt::Span = $span;
+        $crate::quote_each_token!(_s _span $($tt)*);
+        _s
+    }};
 }
 
-// Extract the names of all #metavariables and pass them to the $finish macro.
+// Extract the names of all #metavariables and pass them to the $call macro.
 //
-// in:   pounded_var_names!(then () a #b c #( #d )* #e)
-// out:  then!(() b d e)
+// in:   pounded_var_names!(then!(...) a #b c #( #d )* #e)
+// out:  then!(... b);
+//       then!(... d);
+//       then!(... e);
 #[macro_export]
 #[doc(hidden)]
 macro_rules! pounded_var_names {
-    ($finish:ident ($($found:ident)*) # ( $($inner:tt)* ) $($rest:tt)*) => {
-        pounded_var_names!($finish ($($found)*) $($inner)* $($rest)*)
-    };
-
-    ($finish:ident ($($found:ident)*) # [ $($inner:tt)* ] $($rest:tt)*) => {
-        pounded_var_names!($finish ($($found)*) $($inner)* $($rest)*)
-    };
-
-    ($finish:ident ($($found:ident)*) # { $($inner:tt)* } $($rest:tt)*) => {
-        pounded_var_names!($finish ($($found)*) $($inner)* $($rest)*)
-    };
-
-    ($finish:ident ($($found:ident)*) # $first:ident $($rest:tt)*) => {
-        pounded_var_names!($finish ($($found)* $first) $($rest)*)
-    };
-
-    ($finish:ident ($($found:ident)*) ( $($inner:tt)* ) $($rest:tt)*) => {
-        pounded_var_names!($finish ($($found)*) $($inner)* $($rest)*)
-    };
-
-    ($finish:ident ($($found:ident)*) [ $($inner:tt)* ] $($rest:tt)*) => {
-        pounded_var_names!($finish ($($found)*) $($inner)* $($rest)*)
-    };
-
-    ($finish:ident ($($found:ident)*) { $($inner:tt)* } $($rest:tt)*) => {
-        pounded_var_names!($finish ($($found)*) $($inner)* $($rest)*)
-    };
-
-    ($finish:ident ($($found:ident)*) $ignore:tt $($rest:tt)*) => {
-        pounded_var_names!($finish ($($found)*) $($rest)*)
-    };
-
-    ($finish:ident ($($found:ident)*)) => {
-        $finish!(() $($found)*)
+    ($call:ident! $extra:tt $($tts:tt)*) => {
+        $crate::pounded_var_names_with_context!($call! $extra
+            (@ $($tts)*)
+            ($($tts)* @)
+        )
     };
 }
 
-// in:   nested_tuples_pat!(() a b c d e)
-// out:  ((((a b) c) d) e)
-//
-// in:   nested_tuples_pat!(() a)
-// out:  a
 #[macro_export]
 #[doc(hidden)]
-macro_rules! nested_tuples_pat {
-    (()) => {
-        &()
-    };
-
-    (() $first:ident $($rest:ident)*) => {
-        nested_tuples_pat!(($first) $($rest)*)
-    };
-
-    (($pat:pat) $first:ident $($rest:ident)*) => {
-        nested_tuples_pat!((($pat, $first)) $($rest)*)
-    };
-
-    (($done:pat)) => {
-        $done
+macro_rules! pounded_var_names_with_context {
+    ($call:ident! $extra:tt ($($b1:tt)*) ($($curr:tt)*)) => {
+        $(
+            $crate::pounded_var_with_context!($call! $extra $b1 $curr);
+        )*
     };
 }
 
-// in:   multi_zip_expr!(() a b c d e)
-// out:  a.into_iter().zip(b).zip(c).zip(d).zip(e)
-//
-// in:   multi_zip_iter!(() a)
-// out:  a
 #[macro_export]
 #[doc(hidden)]
-macro_rules! multi_zip_expr {
-    (()) => {
-        &[]
+macro_rules! pounded_var_with_context {
+    ($call:ident! $extra:tt $b1:tt ( $($inner:tt)* )) => {
+        $crate::pounded_var_names!($call! $extra $($inner)*);
     };
 
-    (() $single:ident) => {
-        $single
+    ($call:ident! $extra:tt $b1:tt [ $($inner:tt)* ]) => {
+        $crate::pounded_var_names!($call! $extra $($inner)*);
     };
 
-    (() $first:ident $($rest:ident)*) => {
-        multi_zip_expr!(($first.into_iter()) $($rest)*)
+    ($call:ident! $extra:tt $b1:tt { $($inner:tt)* }) => {
+        $crate::pounded_var_names!($call! $extra $($inner)*);
     };
 
-    (($zips:expr) $first:ident $($rest:ident)*) => {
-        multi_zip_expr!(($zips.zip($first)) $($rest)*)
+    ($call:ident!($($extra:tt)*) # $var:ident) => {
+        $crate::$call!($($extra)* $var);
     };
 
-    (($done:expr)) => {
-        $done
+    ($call:ident! $extra:tt $b1:tt $curr:tt) => {};
+}
+
+#[macro_export]
+#[doc(hidden)]
+macro_rules! quote_bind_into_iter {
+    ($has_iter:ident $var:ident) => {
+        // `mut` may be unused if $var occurs multiple times in the list.
+        #[allow(unused_mut)]
+        let (mut $var, i) = $var.quote_into_iter();
+        let $has_iter = $has_iter | i;
+    };
+}
+
+#[macro_export]
+#[doc(hidden)]
+macro_rules! quote_bind_next_or_break {
+    ($var:ident) => {
+        let $var = match $var.next() {
+            Some(_x) => $crate::__rt::RepInterp(_x),
+            None => break,
+        };
     };
 }
 
 #[macro_export]
 #[doc(hidden)]
 macro_rules! quote_each_token {
-    ($tokens:ident $span:ident) => {};
-
-    ($tokens:ident $span:ident # ! $($rest:tt)*) => {
-        quote_each_token!($tokens $span #);
-        quote_each_token!($tokens $span !);
-        quote_each_token!($tokens $span $($rest)*);
+    ($tokens:ident $span:ident $($tts:tt)*) => {
+        $crate::quote_tokens_with_context!($tokens $span
+            (@ @ @ @ @ @ $($tts)*)
+            (@ @ @ @ @ $($tts)* @)
+            (@ @ @ @ $($tts)* @ @)
+            (@ @ @ $(($tts))* @ @ @)
+            (@ @ $($tts)* @ @ @ @)
+            (@ $($tts)* @ @ @ @ @)
+            ($($tts)* @ @ @ @ @ @)
+        );
     };
+}
 
-    ($tokens:ident $span:ident # ( $($inner:tt)* ) * $($rest:tt)*) => {
-        for pounded_var_names!(nested_tuples_pat () $($inner)*)
-        in pounded_var_names!(multi_zip_expr () $($inner)*) {
-            quote_each_token!($tokens $span $($inner)*);
+#[macro_export]
+#[doc(hidden)]
+macro_rules! quote_tokens_with_context {
+    ($tokens:ident $span:ident
+        ($($b3:tt)*) ($($b2:tt)*) ($($b1:tt)*)
+        ($($curr:tt)*)
+        ($($a1:tt)*) ($($a2:tt)*) ($($a3:tt)*)
+    ) => {
+        $(
+            $crate::quote_token_with_context!($tokens $span $b3 $b2 $b1 $curr $a1 $a2 $a3);
+        )*
+    };
+}
+
+#[macro_export]
+#[doc(hidden)]
+macro_rules! quote_token_with_context {
+    ($tokens:ident $span:ident $b3:tt $b2:tt $b1:tt @ $a1:tt $a2:tt $a3:tt) => {};
+
+    ($tokens:ident $span:ident $b3:tt $b2:tt $b1:tt (#) ( $($inner:tt)* ) * $a3:tt) => {{
+        use $crate::__rt::ext::*;
+        let has_iter = $crate::__rt::ThereIsNoIteratorInRepetition;
+        $crate::pounded_var_names!(quote_bind_into_iter!(has_iter) () $($inner)*);
+        let _: $crate::__rt::HasIterator = has_iter;
+        // This is `while true` instead of `loop` because if there are no
+        // iterators used inside of this repetition then the body would not
+        // contain any `break`, so the compiler would emit unreachable code
+        // warnings on anything below the loop. We use has_iter to detect and
+        // fail to compile when there are no iterators, so here we just work
+        // around the unneeded extra warning.
+        while true {
+            $crate::pounded_var_names!(quote_bind_next_or_break!() () $($inner)*);
+            $crate::quote_each_token!($tokens $span $($inner)*);
         }
-        quote_each_token!($tokens $span $($rest)*);
-    };
+    }};
+    ($tokens:ident $span:ident $b3:tt $b2:tt # (( $($inner:tt)* )) * $a2:tt $a3:tt) => {};
+    ($tokens:ident $span:ident $b3:tt # ( $($inner:tt)* ) (*) $a1:tt $a2:tt $a3:tt) => {};
 
-    ($tokens:ident $span:ident # ( $($inner:tt)* ) $sep:tt * $($rest:tt)*) => {
-        for (_i, pounded_var_names!(nested_tuples_pat () $($inner)*))
-        in pounded_var_names!(multi_zip_expr () $($inner)*).into_iter().enumerate() {
+    ($tokens:ident $span:ident $b3:tt $b2:tt $b1:tt (#) ( $($inner:tt)* ) $sep:tt *) => {{
+        use $crate::__rt::ext::*;
+        let mut _i = 0usize;
+        let has_iter = $crate::__rt::ThereIsNoIteratorInRepetition;
+        $crate::pounded_var_names!(quote_bind_into_iter!(has_iter) () $($inner)*);
+        let _: $crate::__rt::HasIterator = has_iter;
+        while true {
+            $crate::pounded_var_names!(quote_bind_next_or_break!() () $($inner)*);
             if _i > 0 {
-                quote_each_token!($tokens $span $sep);
+                $crate::quote_token!($tokens $span $sep);
             }
-            quote_each_token!($tokens $span $($inner)*);
+            _i += 1;
+            $crate::quote_each_token!($tokens $span $($inner)*);
         }
-        quote_each_token!($tokens $span $($rest)*);
+    }};
+    ($tokens:ident $span:ident $b3:tt $b2:tt # (( $($inner:tt)* )) $sep:tt * $a3:tt) => {};
+    ($tokens:ident $span:ident $b3:tt # ( $($inner:tt)* ) ($sep:tt) * $a2:tt $a3:tt) => {};
+    ($tokens:ident $span:ident # ( $($inner:tt)* ) * (*) $a1:tt $a2:tt $a3:tt) => {
+        // https://github.com/dtolnay/quote/issues/130
+        $crate::quote_token!($tokens $span *);
     };
+    ($tokens:ident $span:ident # ( $($inner:tt)* ) $sep:tt (*) $a1:tt $a2:tt $a3:tt) => {};
 
-    ($tokens:ident $span:ident # [ $($inner:tt)* ] $($rest:tt)*) => {
-        quote_each_token!($tokens $span #);
-        $tokens.extend({
-            let mut g = $crate::__rt::Group::new(
-                $crate::__rt::Delimiter::Bracket,
-                quote_spanned!($span=> $($inner)*).into(),
-            );
-            g.set_span($span);
-            Some($crate::__rt::TokenTree::from(g))
-        });
-        quote_each_token!($tokens $span $($rest)*);
+    ($tokens:ident $span:ident $b3:tt $b2:tt $b1:tt (#) $var:ident $a2:tt $a3:tt) => {
+        $crate::ToTokens::to_tokens(&$var, &mut $tokens);
     };
-
-    ($tokens:ident $span:ident # $first:ident $($rest:tt)*) => {
-        $crate::ToTokens::to_tokens(&$first, &mut $tokens);
-        quote_each_token!($tokens $span $($rest)*);
+    ($tokens:ident $span:ident $b3:tt $b2:tt # ($var:ident) $a1:tt $a2:tt $a3:tt) => {};
+    ($tokens:ident $span:ident $b3:tt $b2:tt $b1:tt ($curr:tt) $a1:tt $a2:tt $a3:tt) => {
+        $crate::quote_token!($tokens $span $curr);
     };
+}
 
-    ($tokens:ident $span:ident ( $($first:tt)* ) $($rest:tt)*) => {
+#[macro_export]
+#[doc(hidden)]
+macro_rules! quote_token {
+    ($tokens:ident $span:ident ( $($inner:tt)* )) => {
         $tokens.extend({
             let mut g = $crate::__rt::Group::new(
                 $crate::__rt::Delimiter::Parenthesis,
-                quote_spanned!($span=> $($first)*).into(),
+                $crate::quote_spanned!($span=> $($inner)*),
             );
             g.set_span($span);
             Some($crate::__rt::TokenTree::from(g))
         });
-        quote_each_token!($tokens $span $($rest)*);
     };
 
-    ($tokens:ident $span:ident [ $($first:tt)* ] $($rest:tt)*) => {
+    ($tokens:ident $span:ident [ $($inner:tt)* ]) => {
         $tokens.extend({
             let mut g = $crate::__rt::Group::new(
                 $crate::__rt::Delimiter::Bracket,
-                quote_spanned!($span=> $($first)*).into(),
+                $crate::quote_spanned!($span=> $($inner)*),
             );
             g.set_span($span);
             Some($crate::__rt::TokenTree::from(g))
         });
-        quote_each_token!($tokens $span $($rest)*);
     };
 
-    ($tokens:ident $span:ident { $($first:tt)* } $($rest:tt)*) => {
+    ($tokens:ident $span:ident { $($inner:tt)* }) => {
         $tokens.extend({
             let mut g = $crate::__rt::Group::new(
                 $crate::__rt::Delimiter::Brace,
-                quote_spanned!($span=> $($first)*).into(),
+                $crate::quote_spanned!($span=> $($inner)*),
             );
             g.set_span($span);
             Some($crate::__rt::TokenTree::from(g))
         });
-        quote_each_token!($tokens $span $($rest)*);
     };
 
-    ($tokens:ident $span:ident $first:tt $($rest:tt)*) => {
-        // TODO: this seems slow... special case some `:tt` arguments?
-        $crate::__rt::parse(&mut $tokens, $span, stringify!($first));
-        quote_each_token!($tokens $span $($rest)*);
+    ($tokens:ident $span:ident +) => {
+        $crate::__rt::push_add(&mut $tokens, $span);
+    };
+
+    ($tokens:ident $span:ident +=) => {
+        $crate::__rt::push_add_eq(&mut $tokens, $span);
+    };
+
+    ($tokens:ident $span:ident &) => {
+        $crate::__rt::push_and(&mut $tokens, $span);
+    };
+
+    ($tokens:ident $span:ident &&) => {
+        $crate::__rt::push_and_and(&mut $tokens, $span);
+    };
+
+    ($tokens:ident $span:ident &=) => {
+        $crate::__rt::push_and_eq(&mut $tokens, $span);
+    };
+
+    ($tokens:ident $span:ident @) => {
+        $crate::__rt::push_at(&mut $tokens, $span);
+    };
+
+    ($tokens:ident $span:ident !) => {
+        $crate::__rt::push_bang(&mut $tokens, $span);
+    };
+
+    ($tokens:ident $span:ident ^) => {
+        $crate::__rt::push_caret(&mut $tokens, $span);
+    };
+
+    ($tokens:ident $span:ident ^=) => {
+        $crate::__rt::push_caret_eq(&mut $tokens, $span);
+    };
+
+    ($tokens:ident $span:ident :) => {
+        $crate::__rt::push_colon(&mut $tokens, $span);
+    };
+
+    ($tokens:ident $span:ident ::) => {
+        $crate::__rt::push_colon2(&mut $tokens, $span);
+    };
+
+    ($tokens:ident $span:ident ,) => {
+        $crate::__rt::push_comma(&mut $tokens, $span);
+    };
+
+    ($tokens:ident $span:ident /) => {
+        $crate::__rt::push_div(&mut $tokens, $span);
+    };
+
+    ($tokens:ident $span:ident /=) => {
+        $crate::__rt::push_div_eq(&mut $tokens, $span);
+    };
+
+    ($tokens:ident $span:ident .) => {
+        $crate::__rt::push_dot(&mut $tokens, $span);
+    };
+
+    ($tokens:ident $span:ident ..) => {
+        $crate::__rt::push_dot2(&mut $tokens, $span);
+    };
+
+    ($tokens:ident $span:ident ...) => {
+        $crate::__rt::push_dot3(&mut $tokens, $span);
+    };
+
+    ($tokens:ident $span:ident ..=) => {
+        $crate::__rt::push_dot_dot_eq(&mut $tokens, $span);
+    };
+
+    ($tokens:ident $span:ident =) => {
+        $crate::__rt::push_eq(&mut $tokens, $span);
+    };
+
+    ($tokens:ident $span:ident ==) => {
+        $crate::__rt::push_eq_eq(&mut $tokens, $span);
+    };
+
+    ($tokens:ident $span:ident >=) => {
+        $crate::__rt::push_ge(&mut $tokens, $span);
+    };
+
+    ($tokens:ident $span:ident >) => {
+        $crate::__rt::push_gt(&mut $tokens, $span);
+    };
+
+    ($tokens:ident $span:ident <=) => {
+        $crate::__rt::push_le(&mut $tokens, $span);
+    };
+
+    ($tokens:ident $span:ident <) => {
+        $crate::__rt::push_lt(&mut $tokens, $span);
+    };
+
+    ($tokens:ident $span:ident *=) => {
+        $crate::__rt::push_mul_eq(&mut $tokens, $span);
+    };
+
+    ($tokens:ident $span:ident !=) => {
+        $crate::__rt::push_ne(&mut $tokens, $span);
+    };
+
+    ($tokens:ident $span:ident |) => {
+        $crate::__rt::push_or(&mut $tokens, $span);
+    };
+
+    ($tokens:ident $span:ident |=) => {
+        $crate::__rt::push_or_eq(&mut $tokens, $span);
+    };
+
+    ($tokens:ident $span:ident ||) => {
+        $crate::__rt::push_or_or(&mut $tokens, $span);
+    };
+
+    ($tokens:ident $span:ident #) => {
+        $crate::__rt::push_pound(&mut $tokens, $span);
+    };
+
+    ($tokens:ident $span:ident ?) => {
+        $crate::__rt::push_question(&mut $tokens, $span);
+    };
+
+    ($tokens:ident $span:ident ->) => {
+        $crate::__rt::push_rarrow(&mut $tokens, $span);
+    };
+
+    ($tokens:ident $span:ident <-) => {
+        $crate::__rt::push_larrow(&mut $tokens, $span);
+    };
+
+    ($tokens:ident $span:ident %) => {
+        $crate::__rt::push_rem(&mut $tokens, $span);
+    };
+
+    ($tokens:ident $span:ident %=) => {
+        $crate::__rt::push_rem_eq(&mut $tokens, $span);
+    };
+
+    ($tokens:ident $span:ident =>) => {
+        $crate::__rt::push_fat_arrow(&mut $tokens, $span);
+    };
+
+    ($tokens:ident $span:ident ;) => {
+        $crate::__rt::push_semi(&mut $tokens, $span);
+    };
+
+    ($tokens:ident $span:ident <<) => {
+        $crate::__rt::push_shl(&mut $tokens, $span);
+    };
+
+    ($tokens:ident $span:ident <<=) => {
+        $crate::__rt::push_shl_eq(&mut $tokens, $span);
+    };
+
+    ($tokens:ident $span:ident >>) => {
+        $crate::__rt::push_shr(&mut $tokens, $span);
+    };
+
+    ($tokens:ident $span:ident >>=) => {
+        $crate::__rt::push_shr_eq(&mut $tokens, $span);
+    };
+
+    ($tokens:ident $span:ident *) => {
+        $crate::__rt::push_star(&mut $tokens, $span);
+    };
+
+    ($tokens:ident $span:ident -) => {
+        $crate::__rt::push_sub(&mut $tokens, $span);
+    };
+
+    ($tokens:ident $span:ident -=) => {
+        $crate::__rt::push_sub_eq(&mut $tokens, $span);
+    };
+
+    ($tokens:ident $span:ident $other:tt) => {
+        $crate::__rt::parse(&mut $tokens, $span, stringify!($other));
     };
 }

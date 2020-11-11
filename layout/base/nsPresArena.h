@@ -12,7 +12,6 @@
 
 #include "mozilla/ArenaAllocator.h"
 #include "mozilla/ArenaObjectID.h"
-#include "mozilla/ArenaRefPtr.h"
 #include "mozilla/Assertions.h"
 #include "mozilla/MemoryChecking.h"  // Note: Do not remove this, needed for MOZ_HAVE_MEM_CHECKS below
 #include "mozilla/MemoryReporting.h"
@@ -25,95 +24,30 @@
 
 class nsWindowSizes;
 
-template <size_t ArenaSize>
+template <size_t ArenaSize, typename ObjectId, size_t ObjectIdCount>
 class nsPresArena {
  public:
   nsPresArena() = default;
   ~nsPresArena();
 
   /**
-   * Pool allocation with recycler lists indexed by frame-type ID.
-   * Every aID must always be used with the same object size, aSize.
-   */
-  void* AllocateByFrameID(nsQueryFrame::FrameIID aID, size_t aSize) {
-    return Allocate(aID, aSize);
-  }
-  void FreeByFrameID(nsQueryFrame::FrameIID aID, void* aPtr) {
-    Free(aID, aPtr);
-  }
-
-  /**
    * Pool allocation with recycler lists indexed by object-type ID (see above).
    * Every aID must always be used with the same object size, aSize.
    */
-  void* AllocateByObjectID(mozilla::ArenaObjectID aID, size_t aSize) {
-    return Allocate(aID, aSize);
-  }
-  void FreeByObjectID(mozilla::ArenaObjectID aID, void* aPtr) {
-    Free(aID, aPtr);
-  }
+  void* Allocate(ObjectId aCode, size_t aSize);
+  void Free(ObjectId aCode, void* aPtr);
 
-  void* AllocateByCustomID(uint32_t aID, size_t aSize) {
-    return Allocate(aID, aSize);
-  }
-  void FreeByCustomID(uint32_t aID, void* ptr) { Free(aID, ptr); }
-
-  /**
-   * Register an ArenaRefPtr to be cleared when this arena is about to
-   * be destroyed.
-   *
-   * (Defined in ArenaRefPtrInlines.h.)
-   *
-   * @param aPtr The ArenaRefPtr to clear.
-   * @param aObjectID The ArenaObjectID value that uniquely identifies
-   *   the type of object the ArenaRefPtr holds.
-   */
-  template <typename T>
-  void RegisterArenaRefPtr(mozilla::ArenaRefPtr<T>* aPtr) {
-    MOZ_ASSERT(!mArenaRefPtrs.Contains(aPtr));
-    mArenaRefPtrs.Put(aPtr, T::ArenaObjectID());
-  }
-
-  /**
-   * Deregister an ArenaRefPtr that was previously registered with
-   * RegisterArenaRefPtr.
-   */
-  template <typename T>
-  void DeregisterArenaRefPtr(mozilla::ArenaRefPtr<T>* aPtr) {
-    MOZ_ASSERT(mArenaRefPtrs.Contains(aPtr));
-    mArenaRefPtrs.Remove(aPtr);
-  }
-
-  /**
-   * Clears all currently registered ArenaRefPtrs.  This will be called during
-   * the destructor, but can be called by users of nsPresArena who want to
-   * ensure arena-allocated objects are released earlier.
-   */
-  void ClearArenaRefPtrs();
-
-  /**
-   * Clears all currently registered ArenaRefPtrs for the given ArenaObjectID.
-   * This is called when we reconstruct the rule tree so that ComputedStyles
-   * pointing into the old rule tree aren't released afterwards, triggering an
-   * assertion in ~ComputedStyle.
-   */
-  void ClearArenaRefPtrs(mozilla::ArenaObjectID aObjectID);
-
+  enum class ArenaKind { PresShell, DisplayList };
   /**
    * Increment nsWindowSizes with sizes of interesting objects allocated in this
-   * arena.
+   * arena, and put the general unclassified size in the relevant field
+   * depending on the arena size.
    */
-  void AddSizeOfExcludingThis(nsWindowSizes& aWindowSizes) const;
+  void AddSizeOfExcludingThis(nsWindowSizes&, ArenaKind) const;
 
   void Check() { mPool.Check(); }
 
  private:
-  void* Allocate(uint32_t aCode, size_t aSize);
-  void Free(uint32_t aCode, void* aPtr);
-
-  inline void ClearArenaRefPtrWithoutDeregistering(
-      void* aPtr, mozilla::ArenaObjectID aObjectID);
-
   class FreeList {
    public:
     nsTArray<void*> mEntries;
@@ -127,9 +61,8 @@ class nsPresArena {
     }
   };
 
-  FreeList mFreeLists[mozilla::eArenaObjectID_COUNT];
+  FreeList mFreeLists[ObjectIdCount];
   mozilla::ArenaAllocator<ArenaSize, 8> mPool;
-  nsDataHashtable<nsPtrHashKey<void>, mozilla::ArenaObjectID> mArenaRefPtrs;
 };
 
 #endif

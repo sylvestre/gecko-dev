@@ -6,6 +6,7 @@
 
 #include "ServiceWorkerUpdateJob.h"
 
+#include "mozilla/Telemetry.h"
 #include "nsIScriptError.h"
 #include "nsIURL.h"
 #include "nsNetUtil.h"
@@ -46,32 +47,22 @@ enum ScopeStringPrefixMode { eUseDirectory, eUsePath };
 
 nsresult GetRequiredScopeStringPrefix(nsIURI* aScriptURI, nsACString& aPrefix,
                                       ScopeStringPrefixMode aPrefixMode) {
-  nsresult rv = aScriptURI->GetPrePath(aPrefix);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
-
+  nsresult rv;
   if (aPrefixMode == eUseDirectory) {
     nsCOMPtr<nsIURL> scriptURL(do_QueryInterface(aScriptURI));
     if (NS_WARN_IF(!scriptURL)) {
       return NS_ERROR_FAILURE;
     }
 
-    nsAutoCString dir;
-    rv = scriptURL->GetDirectory(dir);
+    rv = scriptURL->GetDirectory(aPrefix);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return rv;
     }
-
-    aPrefix.Append(dir);
   } else if (aPrefixMode == eUsePath) {
-    nsAutoCString path;
-    rv = aScriptURI->GetPathQueryRef(path);
+    rv = aScriptURI->GetPathQueryRef(aPrefix);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return rv;
     }
-
-    aPrefix.Append(path);
   } else {
     MOZ_ASSERT_UNREACHABLE("Invalid value for aPrefixMode");
   }
@@ -84,7 +75,7 @@ class ServiceWorkerUpdateJob::CompareCallback final
     : public serviceWorkerScriptCache::CompareCallback {
   RefPtr<ServiceWorkerUpdateJob> mJob;
 
-  ~CompareCallback() {}
+  ~CompareCallback() = default;
 
  public:
   explicit CompareCallback(ServiceWorkerUpdateJob* aJob) : mJob(aJob) {
@@ -150,13 +141,10 @@ class ServiceWorkerUpdateJob::ContinueInstallRunnable final
 };
 
 ServiceWorkerUpdateJob::ServiceWorkerUpdateJob(
-    nsIPrincipal* aPrincipal, const nsACString& aScope,
-    const nsACString& aScriptSpec, nsILoadGroup* aLoadGroup,
+    nsIPrincipal* aPrincipal, const nsACString& aScope, nsCString aScriptSpec,
     ServiceWorkerUpdateViaCache aUpdateViaCache)
-    : ServiceWorkerJob(Type::Update, aPrincipal, aScope, aScriptSpec),
-      mLoadGroup(aLoadGroup),
-      mUpdateViaCache(aUpdateViaCache),
-      mOnFailure(OnFailure::DoNothing) {}
+    : ServiceWorkerUpdateJob(Type::Update, aPrincipal, aScope,
+                             std::move(aScriptSpec), aUpdateViaCache) {}
 
 already_AddRefed<ServiceWorkerRegistrationInfo>
 ServiceWorkerUpdateJob::GetRegistration() const {
@@ -167,14 +155,12 @@ ServiceWorkerUpdateJob::GetRegistration() const {
 
 ServiceWorkerUpdateJob::ServiceWorkerUpdateJob(
     Type aType, nsIPrincipal* aPrincipal, const nsACString& aScope,
-    const nsACString& aScriptSpec, nsILoadGroup* aLoadGroup,
-    ServiceWorkerUpdateViaCache aUpdateViaCache)
-    : ServiceWorkerJob(aType, aPrincipal, aScope, aScriptSpec),
-      mLoadGroup(aLoadGroup),
+    nsCString aScriptSpec, ServiceWorkerUpdateViaCache aUpdateViaCache)
+    : ServiceWorkerJob(aType, aPrincipal, aScope, std::move(aScriptSpec)),
       mUpdateViaCache(aUpdateViaCache),
       mOnFailure(serviceWorkerScriptCache::OnFailure::DoNothing) {}
 
-ServiceWorkerUpdateJob::~ServiceWorkerUpdateJob() {}
+ServiceWorkerUpdateJob::~ServiceWorkerUpdateJob() = default;
 
 void ServiceWorkerUpdateJob::FailUpdateJob(ErrorResult& aRv) {
   MOZ_ASSERT(NS_IsMainThread());
@@ -236,29 +222,32 @@ void ServiceWorkerUpdateJob::AsyncExecute() {
     return;
   }
 
-  // Begin step 1 of the Update algorithm.
+  // Invoke Update algorithm:
+  // https://w3c.github.io/ServiceWorker/#update-algorithm
   //
-  //  https://slightlyoff.github.io/ServiceWorker/spec/service_worker/index.html#update-algorithm
-
+  // "Let registration be the result of running the Get Registration algorithm
+  // passing job’s scope url as the argument."
   RefPtr<ServiceWorkerRegistrationInfo> registration =
       swm->GetRegistration(mPrincipal, mScope);
 
-  if (!registration || registration->IsPendingUninstall()) {
+  if (!registration) {
     ErrorResult rv;
-    rv.ThrowTypeError<MSG_SW_UPDATE_BAD_REGISTRATION>(
-        NS_ConvertUTF8toUTF16(mScope), NS_LITERAL_STRING("uninstalled"));
+    rv.ThrowTypeError<MSG_SW_UPDATE_BAD_REGISTRATION>(mScope, "uninstalled");
     FailUpdateJob(rv);
     return;
   }
 
-  // If a Register job with a new script executed ahead of us in the job queue,
-  // then our update for the old script no longer makes sense.  Simply abort
-  // in this case.
+  // "Let newestWorker be the result of running Get Newest Worker algorithm
+  // passing registration as the argument."
   RefPtr<ServiceWorkerInfo> newest = registration->Newest();
-  if (newest && !mScriptSpec.Equals(newest->ScriptSpec())) {
+
+  // "If job’s job type is update, and newestWorker is not null and its script
+  // url does not equal job’s script url, then:
+  //   1. Invoke Reject Job Promise with job and TypeError.
+  //   2. Invoke Finish Job with job and abort these steps."
+  if (newest && !newest->ScriptSpec().Equals(mScriptSpec)) {
     ErrorResult rv;
-    rv.ThrowTypeError<MSG_SW_UPDATE_BAD_REGISTRATION>(
-        NS_ConvertUTF8toUTF16(mScope), NS_LITERAL_STRING("changed"));
+    rv.ThrowTypeError<MSG_SW_UPDATE_BAD_REGISTRATION>(mScope, "changed");
     FailUpdateJob(rv);
     return;
   }
@@ -300,7 +289,7 @@ void ServiceWorkerUpdateJob::Update() {
 
   nsresult rv = serviceWorkerScriptCache::Compare(
       mRegistration, mPrincipal, cacheName, NS_ConvertUTF8toUTF16(mScriptSpec),
-      callback, mLoadGroup);
+      callback);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     FailUpdateJob(rv);
     return;
@@ -376,17 +365,31 @@ void ServiceWorkerUpdateJob::ComparisonResult(nsresult aStatus,
     }
   }
 
-  if (!StringBeginsWith(mRegistration->Scope(), maxPrefix)) {
+  nsCOMPtr<nsIURI> scopeURI;
+  rv = NS_NewURI(getter_AddRefs(scopeURI), mRegistration->Scope(), nullptr,
+                 scriptURI);
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    FailUpdateJob(NS_ERROR_FAILURE);
+    return;
+  }
+
+  nsAutoCString scopeString;
+  rv = scopeURI->GetPathQueryRef(scopeString);
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    FailUpdateJob(NS_ERROR_FAILURE);
+    return;
+  }
+
+  if (!StringBeginsWith(scopeString, maxPrefix)) {
     nsAutoString message;
     NS_ConvertUTF8toUTF16 reportScope(mRegistration->Scope());
     NS_ConvertUTF8toUTF16 reportMaxPrefix(maxPrefix);
-    const char16_t* params[] = {reportScope.get(), reportMaxPrefix.get()};
 
-    rv = nsContentUtils::FormatLocalizedString(nsContentUtils::eDOM_PROPERTIES,
-                                               "ServiceWorkerScopePathMismatch",
-                                               params, message);
+    rv = nsContentUtils::FormatLocalizedString(
+        message, nsContentUtils::eDOM_PROPERTIES,
+        "ServiceWorkerScopePathMismatch", reportScope, reportMaxPrefix);
     NS_WARNING_ASSERTION(NS_SUCCEEDED(rv), "Failed to format localized string");
-    swm->ReportToAllClients(mScope, message, EmptyString(), EmptyString(), 0, 0,
+    swm->ReportToAllClients(mScope, message, u""_ns, u""_ns, 0, 0,
                             nsIScriptError::errorFlag);
     FailUpdateJob(NS_ERROR_DOM_SECURITY_ERR);
     return;
@@ -451,10 +454,8 @@ void ServiceWorkerUpdateJob::ContinueUpdateAfterScriptEval(
 
   if (NS_WARN_IF(!aScriptEvaluationResult)) {
     ErrorResult error;
-
-    NS_ConvertUTF8toUTF16 scriptSpec(mScriptSpec);
-    NS_ConvertUTF8toUTF16 scope(mRegistration->Scope());
-    error.ThrowTypeError<MSG_SW_SCRIPT_THREW>(scriptSpec, scope);
+    error.ThrowTypeError<MSG_SW_SCRIPT_THREW>(mScriptSpec,
+                                              mRegistration->Scope());
     FailUpdateJob(error);
     return;
   }
@@ -489,8 +490,7 @@ void ServiceWorkerUpdateJob::Install() {
   // Send the install event to the worker thread
   ServiceWorkerPrivate* workerPrivate =
       mRegistration->GetInstalling()->WorkerPrivate();
-  nsresult rv =
-      workerPrivate->SendLifeCycleEvent(NS_LITERAL_STRING("install"), callback);
+  nsresult rv = workerPrivate->SendLifeCycleEvent(u"install"_ns, callback);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     ContinueAfterInstallEvent(false /* aSuccess */);
   }
@@ -519,7 +519,12 @@ void ServiceWorkerUpdateJob::ContinueAfterInstallEvent(
     return;
   }
 
-  MOZ_DIAGNOSTIC_ASSERT(mRegistration->GetInstalling());
+  // Abort the update Job if the installWorker is null (e.g. when an extension
+  // is shutting down and all its workers have been terminated).
+  if (!mRegistration->GetInstalling()) {
+    return FailUpdateJob(NS_ERROR_DOM_ABORT_ERR);
+  }
+
   mRegistration->TransitionInstallingToWaiting();
 
   Finish(NS_OK);

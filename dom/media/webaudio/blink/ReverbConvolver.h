@@ -31,16 +31,18 @@
 
 #include "ReverbAccumulationBuffer.h"
 #include "ReverbInputBuffer.h"
-#include "nsAutoPtr.h"
 #include "mozilla/MemoryReporting.h"
+#include "mozilla/Monitor.h"
+#include "mozilla/UniquePtr.h"
 #ifdef LOG
-#undef LOG
+#  undef LOG
 #endif
-#include "base/condition_variable.h"
-#include "base/lock.h"
 #include "base/thread.h"
+#include <atomic>
 
 namespace WebCore {
+
+using mozilla::UniquePtr;
 
 class ReverbConvolverStage;
 
@@ -68,8 +70,8 @@ class ReverbConvolver {
   size_t sizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf) const;
 
  private:
-  nsTArray<nsAutoPtr<ReverbConvolverStage> > m_stages;
-  nsTArray<nsAutoPtr<ReverbConvolverStage> > m_backgroundStages;
+  nsTArray<UniquePtr<ReverbConvolverStage> > m_stages;
+  nsTArray<UniquePtr<ReverbConvolverStage> > m_backgroundStages;
   size_t m_impulseResponseLength;
 
   ReverbAccumulationBuffer m_accumulationBuffer;
@@ -80,11 +82,10 @@ class ReverbConvolver {
 
   // Background thread and synchronization
   base::Thread m_backgroundThread;
-  Lock m_backgroundThreadLock;
-  ConditionVariable m_backgroundThreadCondition;
+  mozilla::Monitor m_backgroundThreadMonitor;
   bool m_useBackgroundThreads;
-  bool m_wantsToExit;
-  bool m_moreInputBuffered;
+  std::atomic<bool> m_wantsToExit;
+  std::atomic<bool> m_moreInputBuffered;
 };
 
 }  // namespace WebCore

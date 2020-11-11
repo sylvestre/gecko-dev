@@ -4,8 +4,8 @@ https://bugzilla.mozilla.org/show_bug.cgi=id=1368544
 -->
 <html>
 <head>
-  <script type="application/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
-  <script type="application/javascript" src="/tests/SimpleTest/EventUtils.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/EventUtils.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css" />
 </head>
 <body>
@@ -29,7 +29,6 @@ SimpleTest.waitForFocus(() => {
   SpecialPowers.Cu.import(
     "resource://testing-common/AsyncSpellCheckTestHelper.jsm")
   .onSpellCheck(textarea, () => {
-
     spellChecker.UpdateCurrentDictionary(() => {
       textarea.value = "ABC";
       ok(editor.rootElement.hasChildNodes(),
@@ -58,7 +57,8 @@ SimpleTest.waitForFocus(() => {
         if (editor.rootElement.childNodes.length > 0) {
           is(editor.rootElement.childNodes.length, 1, "There should be only one <br> node");
           is(editor.rootElement.firstChild.tagName.toLowerCase(), "br", "The node should be a <br> element node");
-          is(editor.rootElement.firstChild.getAttribute("_moz_editor_bogus_node"), null, "The <br> should not be a bogus node");
+          ok(!SpecialPowers.wrap(editor.rootElement.firstChild).isPaddingForEmptyEditor,
+             "The <br> should not be a padding <br> element");
         }
       } else {
         ok(!editor.rootElement.hasChildNodes(),

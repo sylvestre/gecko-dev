@@ -5,11 +5,12 @@
 
 #include "txURIUtils.h"
 #include "nsNetUtil.h"
-#include "nsIDocument.h"
-#include "nsIHttpChannelInternal.h"
+#include "mozilla/dom/Document.h"
 #include "nsIPrincipal.h"
 #include "mozilla/LoadInfo.h"
+#include "mozilla/dom/nsCSPContext.h"
 
+using mozilla::dom::Document;
 using mozilla::net::LoadInfo;
 
 /**
@@ -42,9 +43,10 @@ void URIUtils::resolveHref(const nsAString& href, const nsAString& base,
 }  //-- resolveHref
 
 // static
-void URIUtils::ResetWithSource(nsIDocument* aNewDoc, nsINode* aSourceNode) {
-  nsCOMPtr<nsIDocument> sourceDoc = aSourceNode->OwnerDoc();
+void URIUtils::ResetWithSource(Document* aNewDoc, nsINode* aSourceNode) {
+  nsCOMPtr<Document> sourceDoc = aSourceNode->OwnerDoc();
   nsIPrincipal* sourcePrincipal = sourceDoc->NodePrincipal();
+  nsIPrincipal* sourcePartitionedPrincipal = sourceDoc->PartitionedPrincipal();
 
   // Copy the channel and loadgroup from the source document.
   nsCOMPtr<nsILoadGroup> loadGroup = sourceDoc->GetDocumentLoadGroup();
@@ -65,9 +67,16 @@ void URIUtils::ResetWithSource(nsIDocument* aNewDoc, nsINode* aSourceNode) {
   }
 
   aNewDoc->Reset(channel, loadGroup);
-  aNewDoc->SetPrincipal(sourcePrincipal);
+  aNewDoc->SetPrincipals(sourcePrincipal, sourcePartitionedPrincipal);
   aNewDoc->SetBaseURI(sourceDoc->GetDocBaseURI());
 
+  // Inherit the csp if there is one
+  nsCOMPtr<nsIContentSecurityPolicy> csp = sourceDoc->GetCsp();
+  if (csp) {
+    RefPtr<nsCSPContext> cspToInherit = new nsCSPContext();
+    cspToInherit->InitFromOther(static_cast<nsCSPContext*>(csp.get()));
+    aNewDoc->SetCsp(cspToInherit);
+  }
   // Copy charset
   aNewDoc->SetDocumentCharacterSetSource(
       sourceDoc->GetDocumentCharacterSetSource());

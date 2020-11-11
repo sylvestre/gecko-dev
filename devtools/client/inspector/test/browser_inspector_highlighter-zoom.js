@@ -10,18 +10,17 @@
 const TEST_URL = "data:text/html;charset=utf-8,<div>zoom me</div>";
 
 // TEST_LEVELS entries should contain the zoom level to test.
-const TEST_LEVELS = [2, 1, .5];
+const TEST_LEVELS = [2, 1, 0.5];
 
 // Returns the expected style attribute value to check for on the highlighter's elements
 // node, for the values given.
 const expectedStyle = (w, h, z) =>
-        (z !== 1 ? `transform-origin:top left; transform:scale(${1 / z}); ` : "") +
-        `position:absolute; width:${w * z}px;height:${h * z}px; ` +
-        "overflow:hidden";
+  (z !== 1 ? `transform-origin:top left; transform:scale(${1 / z}); ` : "") +
+  `position:absolute; width:${w * z}px;height:${h * z}px; ` +
+  "overflow:hidden";
 
 add_task(async function() {
-  const {inspector, testActor} = await openInspectorForURL(TEST_URL);
-  const highlighter = inspector.highlighter;
+  const { inspector, testActor } = await openInspectorForURL(TEST_URL);
 
   const div = await getNodeFront("div", inspector);
 
@@ -30,7 +29,10 @@ add_task(async function() {
     await testActor.zoomPageTo(level, false);
 
     info("Highlight the test node");
-    await highlighter.highlight(div);
+    await inspector.highlighters.showHighlighterTypeForNode(
+      inspector.highlighters.TYPES.BOXMODEL,
+      div
+    );
 
     const isVisible = await testActor.isHighlighting();
     ok(isVisible, `The highlighter is visible at zoom level ${level}`);
@@ -41,16 +43,23 @@ add_task(async function() {
 
     const style = await getElementsNodeStyle(testActor);
     const { width, height } = await testActor.getWindowDimensions();
-    is(style, expectedStyle(width, height, level),
-      "The style attribute of the root element is correct");
+    is(
+      style,
+      expectedStyle(width, height, level),
+      "The style attribute of the root element is correct"
+    );
 
     info("Unhighlight the node");
-    await highlighter.unhighlight();
+    await inspector.highlighters.hideHighlighterType(
+      inspector.highlighters.TYPES.BOXMODEL
+    );
   }
 });
 
 async function getElementsNodeStyle(testActor) {
-  const value =
-    await testActor.getHighlighterNodeAttribute("box-model-elements", "style");
+  const value = await testActor.getHighlighterNodeAttribute(
+    "box-model-elements",
+    "style"
+  );
   return value;
 }

@@ -45,9 +45,9 @@ class MulticastDNSDeviceProvider final
   NS_DECL_NSIPRESENTATIONCONTROLSERVERLISTENER
   NS_DECL_NSIOBSERVER
 
-  explicit MulticastDNSDeviceProvider() = default;
+  explicit MulticastDNSDeviceProvider();
   nsresult Init();
-  nsresult Uninit();
+  void Uninit();
 
  private:
   enum class DeviceState : uint32_t { eUnknown, eActive };
@@ -119,10 +119,10 @@ class MulticastDNSDeviceProvider final
 
   virtual ~MulticastDNSDeviceProvider();
   nsresult StartServer();
-  nsresult StopServer();
+  void StopServer();
   void AbortServerRetry();
   nsresult RegisterMDNSService();
-  nsresult UnregisterMDNSService(nsresult aReason);
+  void UnregisterMDNSService(nsresult aReason);
   nsresult StopDiscovery(nsresult aReason);
   nsresult Connect(Device* aDevice, nsIPresentationControlChannel** aRetVal);
   bool IsCompatibleServer(nsIDNSServiceInfo* aServiceInfo);

@@ -6,11 +6,11 @@
 
 const {
   TOGGLE_RECORDING,
-} = require("../constants");
+} = require("devtools/client/netmonitor/src/constants");
 
 const {
   getRecordingState,
-} = require("../selectors/index");
+} = require("devtools/client/netmonitor/src/selectors/index");
 
 /**
  * Start/stop HTTP traffic recording.

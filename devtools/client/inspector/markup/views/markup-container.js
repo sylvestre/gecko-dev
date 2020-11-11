@@ -4,12 +4,20 @@
 
 "use strict";
 
-const {KeyCodes} = require("devtools/client/shared/keycodes");
-const {flashElementOn, flashElementOff} =
-      require("devtools/client/inspector/markup/utils");
+const { KeyCodes } = require("devtools/client/shared/keycodes");
+const {
+  flashElementOn,
+  flashElementOff,
+} = require("devtools/client/inspector/markup/utils");
+
+loader.lazyRequireGetter(
+  this,
+  "wrapMoveFocus",
+  "devtools/client/shared/focus",
+  true
+);
 
 const DRAG_DROP_MIN_INITIAL_DISTANCE = 10;
-
 const TYPES = {
   TEXT_CONTAINER: "textcontainer",
   ELEMENT_CONTAINER: "elementcontainer",
@@ -27,7 +35,7 @@ const TYPES = {
  *    MarkupTextContainer
  *    MarkupElementContainer
  */
-function MarkupContainer() { }
+function MarkupContainer() {}
 
 /**
  * Unique identifier used to set markup container node id.
@@ -81,7 +89,10 @@ MarkupContainer.prototype = {
     this.updateIsDisplayed();
 
     if (node.isShadowRoot) {
-      this.markup.telemetry.scalarSet("devtools.shadowdom.shadow_root_displayed", true);
+      this.markup.telemetry.scalarSet(
+        "devtools.shadowdom.shadow_root_displayed",
+        true
+      );
     }
   },
 
@@ -97,6 +108,11 @@ MarkupContainer.prototype = {
     this.tagLine.setAttribute("aria-level", this.level);
     this.tagLine.setAttribute("aria-grabbed", this.isDragging);
     this.elt.appendChild(this.tagLine);
+
+    this.mutationMarker = this.win.document.createElement("div");
+    this.mutationMarker.classList.add("markup-tag-mutation-marker");
+    this.mutationMarker.style.setProperty("--markup-level", this.level);
+    this.tagLine.appendChild(this.mutationMarker);
 
     this.tagState = this.win.document.createElement("span");
     this.tagState.classList.add("tag-state");
@@ -267,8 +283,10 @@ MarkupContainer.prototype = {
    * group from the accessibility point of view.
    */
   setChildrenRole: function() {
-    this.children.setAttribute("role",
-      this.hasChildren ? "group" : "presentation");
+    this.children.setAttribute(
+      "role",
+      this.hasChildren ? "group" : "presentation"
+    );
   },
 
   /**
@@ -299,8 +317,9 @@ MarkupContainer.prototype = {
       return null;
     }
 
-    return [...this.children.children].filter(node => node.container)
-                                      .map(node => node.container);
+    return [...this.children.children]
+      .filter(node => node.container)
+      .map(node => node.container);
   },
 
   /**
@@ -343,7 +362,10 @@ MarkupContainer.prototype = {
     }
 
     if (this.node.isShadowRoot) {
-      this.markup.telemetry.scalarSet("devtools.shadowdom.shadow_root_expanded", true);
+      this.markup.telemetry.scalarSet(
+        "devtools.shadowdom.shadow_root_expanded",
+        true
+      );
     }
   },
 
@@ -445,46 +467,24 @@ MarkupContainer.prototype = {
   isDraggable: function() {
     const tagName = this.node.tagName && this.node.tagName.toLowerCase();
 
-    return !this.node.isPseudoElement &&
-           !this.node.isAnonymous &&
-           !this.node.isDocumentElement &&
-           tagName !== "body" &&
-           tagName !== "head" &&
-           this.win.getSelection().isCollapsed &&
-           this.node.parentNode() &&
-           this.node.parentNode().tagName !== null;
+    return (
+      !this.node.isPseudoElement &&
+      !this.node.isAnonymous &&
+      !this.node.isDocumentElement &&
+      tagName !== "body" &&
+      tagName !== "head" &&
+      this.win.getSelection().isCollapsed &&
+      this.node.parentNode() &&
+      this.node.parentNode().tagName !== null
+    );
   },
 
   isSlotted: function() {
     return false;
   },
 
-  /**
-   * Move keyboard focus to a next/previous focusable element inside container
-   * that is not part of its children (only if current focus is on first or last
-   * element).
-   *
-   * @param  {DOMNode} current  currently focused element
-   * @param  {Boolean} back     direction
-   * @return {DOMNode}          newly focused element if any
-   */
-  _wrapMoveFocus: function(current, back) {
-    const elms = this.focusableElms;
-    let next;
-    if (back) {
-      if (elms.indexOf(current) === 0) {
-        next = elms[elms.length - 1];
-        next.focus();
-      }
-    } else if (elms.indexOf(current) === elms.length - 1) {
-      next = elms[0];
-      next.focus();
-    }
-    return next;
-  },
-
   _onKeyDown: function(event) {
-    const {target, keyCode, shiftKey} = event;
+    const { target, keyCode, shiftKey } = event;
     const isInput = this.markup._isInputOrTextarea(target);
 
     // Ignore all keystrokes that originated in editors except for when 'Tab' is
@@ -498,7 +498,11 @@ MarkupContainer.prototype = {
         // Only handle 'Tab' if tabbable element is on the edge (first or last).
         if (isInput) {
           // Corresponding tabbable element is editor's next sibling.
-          const next = this._wrapMoveFocus(target.nextSibling, shiftKey);
+          const next = wrapMoveFocus(
+            this.focusableElms,
+            target.nextSibling,
+            shiftKey
+          );
           if (next) {
             event.preventDefault();
             // Keep the editing state if possible.
@@ -509,7 +513,7 @@ MarkupContainer.prototype = {
             }
           }
         } else {
-          const next = this._wrapMoveFocus(target, shiftKey);
+          const next = wrapMoveFocus(this.focusableElms, target, shiftKey);
           if (next) {
             event.preventDefault();
           }
@@ -531,7 +535,7 @@ MarkupContainer.prototype = {
   },
 
   _onMouseDown: function(event) {
-    const {target, button, metaKey, ctrlKey} = event;
+    const { target, button, metaKey, ctrlKey } = event;
     const isLeftClick = button === 0;
     const isMiddleClick = button === 1;
     const isMetaClick = isLeftClick && (metaKey || ctrlKey);
@@ -558,13 +562,22 @@ MarkupContainer.prototype = {
       event.preventDefault();
     }
 
+    // Middle clicks will trigger the scroll lock feature to turn on.
+    // The toolbox is normally responsible for calling preventDefault when
+    // needed, but we prevent markup-view mousedown events from bubbling up (via
+    // stopPropagation). So we have to preventDefault here as well in order to
+    // avoid this issue.
+    if (isMiddleClick) {
+      event.preventDefault();
+    }
+
     // Follow attribute links if middle or meta click.
     if (isMiddleClick || isMetaClick) {
       const link = target.dataset.link;
       const type = target.dataset.type;
       // Make container tabbable descendants not tabbable (by default).
       this.canFocus = false;
-      this.markup.inspector.followAttributeLink(type, link);
+      this.markup.followAttributeLink(type, link);
       return;
     }
 
@@ -587,14 +600,13 @@ MarkupContainer.prototype = {
     if (this.isDragging) {
       this.cancelDragging();
 
-      const dropTargetNodes = this.markup.dropTargetNodes;
-
-      if (!dropTargetNodes) {
+      if (!this.markup.dropTargetNodes) {
         return;
       }
 
-      await this.markup.walker.insertBefore(this.node, dropTargetNodes.parent,
-                                            dropTargetNodes.nextSibling);
+      const { nextSibling, parent } = this.markup.dropTargetNodes;
+      const { walkerFront } = parent;
+      await walkerFront.insertBefore(this.node, parent, nextSibling);
       this.markup.emit("drop-completed");
     }
   },
@@ -613,9 +625,9 @@ MarkupContainer.prototype = {
 
       // If this is the last child, use the closing <div.tag-line> of parent as
       // indicator.
-      const position = this.elt.nextElementSibling ||
-                     this.markup.getContainer(this.node.parentNode())
-                                .closeTagLine;
+      const position =
+        this.elt.nextElementSibling ||
+        this.markup.getContainer(this.node.parentNode()).closeTagLine;
       this.markup.indicateDragTarget(position);
     }
 
@@ -654,13 +666,19 @@ MarkupContainer.prototype = {
    */
   flashMutation: function() {
     if (!this.selected) {
-      flashElementOn(this.tagState, this.editor.elt);
+      flashElementOn(this.tagState, {
+        foregroundElt: this.editor.elt,
+        backgroundClass: "theme-bg-contrast",
+      });
       if (this._flashMutationTimer) {
         clearTimeout(this._flashMutationTimer);
         this._flashMutationTimer = null;
       }
       this._flashMutationTimer = setTimeout(() => {
-        flashElementOff(this.tagState, this.editor.elt);
+        flashElementOff(this.tagState, {
+          foregroundElt: this.editor.elt,
+          backgroundClass: "theme-bg-contrast",
+        });
       }, this.markup.CONTAINER_FLASHING_DURATION);
     }
   },
@@ -679,12 +697,16 @@ MarkupContainer.prototype = {
         this.tagState.classList.add("tag-hover");
       }
       if (this.closeTagLine) {
-        this.closeTagLine.querySelector(".tag-state").classList.add("tag-hover");
+        this.closeTagLine
+          .querySelector(".tag-state")
+          .classList.add("tag-hover");
       }
     } else {
       this.tagState.classList.remove("tag-hover");
       if (this.closeTagLine) {
-        this.closeTagLine.querySelector(".tag-state").classList.remove("tag-hover");
+        this.closeTagLine
+          .querySelector(".tag-state")
+          .classList.remove("tag-hover");
       }
     }
   },
@@ -735,6 +757,16 @@ MarkupContainer.prototype = {
       this.elt.classList.remove("pseudoclass-locked");
     }
 
+    // Show and hide icon for DOM Mutation Breakpoints
+    const hasMutationBreakpoint = Object.values(
+      this.node.mutationBreakpoints
+    ).some(Boolean);
+    if (hasMutationBreakpoint) {
+      this.mutationMarker.classList.add("has-mutations");
+    } else {
+      this.mutationMarker.classList.remove("has-mutations");
+    }
+
     this.updateIsDisplayed();
 
     if (this.editor.update) {
@@ -756,9 +788,13 @@ MarkupContainer.prototype = {
   _onToggle: function(event) {
     event.stopPropagation();
 
-    // Prevent the html tree from expanding when an event bubble or display node is
-    // clicked.
-    if (event.target.dataset.event || event.target.dataset.display) {
+    // Prevent the html tree from expanding when an event bubble, display or scrollable
+    // node is clicked.
+    if (
+      event.target.dataset.event ||
+      event.target.dataset.display ||
+      event.target.dataset.scrollable
+    ) {
       return;
     }
 
@@ -775,7 +811,11 @@ MarkupContainer.prototype = {
     this.markup.navigate(this);
 
     if (this.hasChildren) {
-      this.markup.setNodeExpanded(this.node, !this.expanded, applyToDescendants);
+      this.markup.setNodeExpanded(
+        this.node,
+        !this.expanded,
+        applyToDescendants
+      );
     }
   },
 

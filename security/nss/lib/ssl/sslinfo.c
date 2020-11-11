@@ -7,6 +7,8 @@
 #include "sslimpl.h"
 #include "sslproto.h"
 #include "tls13hkdf.h"
+#include "tls13psk.h"
+#include "tls13subcerts.h"
 
 SECStatus
 SSL_GetChannelInfo(PRFileDesc *fd, SSLChannelInfo *info, PRUintn len)
@@ -79,6 +81,14 @@ SSL_GetChannelInfo(PRFileDesc *fd, SSLChannelInfo *info, PRUintn len)
             inf.signatureScheme = sid->sigScheme;
         }
         inf.resumed = ss->statelessResume || ss->ssl3.hs.isResuming;
+        if (inf.resumed) {
+            inf.pskType = ssl_psk_resume;
+        } else if (inf.authType == ssl_auth_psk) {
+            inf.pskType = ssl_psk_external;
+        } else {
+            inf.pskType = ssl_psk_none;
+        }
+        inf.peerDelegCred = tls13_IsVerifyingWithDelegatedCredential(ss);
 
         if (sid) {
             unsigned int sidLen;
@@ -145,11 +155,22 @@ SSL_GetPreliminaryChannelInfo(PRFileDesc *fd,
     if (ss->sec.ci.sid &&
         (ss->ssl3.hs.zeroRttState == ssl_0rtt_sent ||
          ss->ssl3.hs.zeroRttState == ssl_0rtt_accepted)) {
-        inf.maxEarlyDataSize =
-            ss->sec.ci.sid->u.ssl3.locked.sessionTicket.max_early_data_size;
+        if (ss->statelessResume) {
+            inf.maxEarlyDataSize =
+                ss->sec.ci.sid->u.ssl3.locked.sessionTicket.max_early_data_size;
+        } else if (ss->psk) {
+            /* We may have cleared the handshake list, so check the socket.
+             * This is permissable since we only support one EPSK at a time. */
+            inf.maxEarlyDataSize = ss->psk->maxEarlyData;
+        }
     } else {
         inf.maxEarlyDataSize = 0;
     }
+    inf.zeroRttCipherSuite = ss->ssl3.hs.zeroRttSuite;
+
+    inf.peerDelegCred = tls13_IsVerifyingWithDelegatedCredential(ss);
+    inf.authKeyBits = ss->sec.authKeyBits;
+    inf.signatureScheme = ss->sec.signatureScheme;
 
     memcpy(info, &inf, inf.length);
     return SECSuccess;
@@ -234,89 +255,89 @@ SSL_GetPreliminaryChannelInfo(PRFileDesc *fd,
 
 static const SSLCipherSuiteInfo suiteInfo[] = {
     /* <------ Cipher suite --------------------> <auth> <KEA>  <bulk cipher> <MAC> <FIPS> */
-    { 0, CS_(TLS_AES_128_GCM_SHA256), S_ANY, K_ANY, C_AESGCM, B_128, M_AEAD_128, F_FIPS_STD, A_ANY },
-    { 0, CS_(TLS_CHACHA20_POLY1305_SHA256), S_ANY, K_ANY, C_CHACHA20, B_256, M_AEAD_128, F_NFIPS_STD, A_ANY },
-    { 0, CS_(TLS_AES_256_GCM_SHA384), S_ANY, K_ANY, C_AESGCM, B_256, M_AEAD_128, F_NFIPS_STD, A_ANY },
+    { 0, CS_(TLS_AES_128_GCM_SHA256), S_ANY, K_ANY, C_AESGCM, B_128, M_AEAD_128, F_FIPS_STD, A_ANY, ssl_hash_sha256 },
+    { 0, CS_(TLS_CHACHA20_POLY1305_SHA256), S_ANY, K_ANY, C_CHACHA20, B_256, M_AEAD_128, F_NFIPS_STD, A_ANY, ssl_hash_sha256 },
+    { 0, CS_(TLS_AES_256_GCM_SHA384), S_ANY, K_ANY, C_AESGCM, B_256, M_AEAD_128, F_FIPS_STD, A_ANY, ssl_hash_sha384 },
 
-    { 0, CS(RSA_WITH_AES_128_GCM_SHA256), S_RSA, K_RSA, C_AESGCM, B_128, M_AEAD_128, F_FIPS_STD, A_RSAD },
-    { 0, CS(DHE_RSA_WITH_CHACHA20_POLY1305_SHA256), S_RSA, K_DHE, C_CHACHA20, B_256, M_AEAD_128, F_NFIPS_STD, A_RSAS },
+    { 0, CS(RSA_WITH_AES_128_GCM_SHA256), S_RSA, K_RSA, C_AESGCM, B_128, M_AEAD_128, F_FIPS_STD, A_RSAD, ssl_hash_sha256 },
+    { 0, CS(DHE_RSA_WITH_CHACHA20_POLY1305_SHA256), S_RSA, K_DHE, C_CHACHA20, B_256, M_AEAD_128, F_NFIPS_STD, A_RSAS, ssl_hash_sha256 },
 
-    { 0, CS(DHE_RSA_WITH_CAMELLIA_256_CBC_SHA), S_RSA, K_DHE, C_CAMELLIA, B_256, M_SHA, F_NFIPS_STD, A_RSAS },
-    { 0, CS(DHE_DSS_WITH_CAMELLIA_256_CBC_SHA), S_DSA, K_DHE, C_CAMELLIA, B_256, M_SHA, F_NFIPS_STD, A_DSA },
-    { 0, CS(DHE_RSA_WITH_AES_256_CBC_SHA256), S_RSA, K_DHE, C_AES, B_256, M_SHA256, F_FIPS_STD, A_RSAS },
-    { 0, CS(DHE_RSA_WITH_AES_256_CBC_SHA), S_RSA, K_DHE, C_AES, B_256, M_SHA, F_FIPS_STD, A_RSAS },
-    { 0, CS(DHE_DSS_WITH_AES_256_CBC_SHA), S_DSA, K_DHE, C_AES, B_256, M_SHA, F_FIPS_STD, A_DSA },
-    { 0, CS(DHE_DSS_WITH_AES_256_CBC_SHA256), S_DSA, K_DHE, C_AES, B_256, M_SHA256, F_FIPS_STD, A_DSA },
-    { 0, CS(RSA_WITH_CAMELLIA_256_CBC_SHA), S_RSA, K_RSA, C_CAMELLIA, B_256, M_SHA, F_NFIPS_STD, A_RSAD },
-    { 0, CS(RSA_WITH_AES_256_CBC_SHA256), S_RSA, K_RSA, C_AES, B_256, M_SHA256, F_FIPS_STD, A_RSAD },
-    { 0, CS(RSA_WITH_AES_256_CBC_SHA), S_RSA, K_RSA, C_AES, B_256, M_SHA, F_FIPS_STD, A_RSAD },
+    { 0, CS(DHE_RSA_WITH_CAMELLIA_256_CBC_SHA), S_RSA, K_DHE, C_CAMELLIA, B_256, M_SHA, F_NFIPS_STD, A_RSAS, ssl_hash_none },
+    { 0, CS(DHE_DSS_WITH_CAMELLIA_256_CBC_SHA), S_DSA, K_DHE, C_CAMELLIA, B_256, M_SHA, F_NFIPS_STD, A_DSA, ssl_hash_none },
+    { 0, CS(DHE_RSA_WITH_AES_256_CBC_SHA256), S_RSA, K_DHE, C_AES, B_256, M_SHA256, F_FIPS_STD, A_RSAS, ssl_hash_sha256 },
+    { 0, CS(DHE_RSA_WITH_AES_256_CBC_SHA), S_RSA, K_DHE, C_AES, B_256, M_SHA, F_FIPS_STD, A_RSAS, ssl_hash_none },
+    { 0, CS(DHE_DSS_WITH_AES_256_CBC_SHA), S_DSA, K_DHE, C_AES, B_256, M_SHA, F_FIPS_STD, A_DSA, ssl_hash_none },
+    { 0, CS(DHE_DSS_WITH_AES_256_CBC_SHA256), S_DSA, K_DHE, C_AES, B_256, M_SHA256, F_FIPS_STD, A_DSA, ssl_hash_sha256 },
+    { 0, CS(RSA_WITH_CAMELLIA_256_CBC_SHA), S_RSA, K_RSA, C_CAMELLIA, B_256, M_SHA, F_NFIPS_STD, A_RSAD, ssl_hash_none },
+    { 0, CS(RSA_WITH_AES_256_CBC_SHA256), S_RSA, K_RSA, C_AES, B_256, M_SHA256, F_FIPS_STD, A_RSAD, ssl_hash_sha256 },
+    { 0, CS(RSA_WITH_AES_256_CBC_SHA), S_RSA, K_RSA, C_AES, B_256, M_SHA, F_FIPS_STD, A_RSAD, ssl_hash_none },
 
-    { 0, CS(DHE_RSA_WITH_CAMELLIA_128_CBC_SHA), S_RSA, K_DHE, C_CAMELLIA, B_128, M_SHA, F_NFIPS_STD, A_RSAS },
-    { 0, CS(DHE_DSS_WITH_CAMELLIA_128_CBC_SHA), S_DSA, K_DHE, C_CAMELLIA, B_128, M_SHA, F_NFIPS_STD, A_DSA },
-    { 0, CS(DHE_DSS_WITH_RC4_128_SHA), S_DSA, K_DHE, C_RC4, B_128, M_SHA, F_NFIPS_STD, A_DSA },
-    { 0, CS(DHE_RSA_WITH_AES_128_CBC_SHA256), S_RSA, K_DHE, C_AES, B_128, M_SHA256, F_FIPS_STD, A_RSAS },
-    { 0, CS(DHE_RSA_WITH_AES_128_GCM_SHA256), S_RSA, K_DHE, C_AESGCM, B_128, M_AEAD_128, F_FIPS_STD, A_RSAS },
-    { 0, CS(DHE_RSA_WITH_AES_128_CBC_SHA), S_RSA, K_DHE, C_AES, B_128, M_SHA, F_FIPS_STD, A_RSAS },
-    { 0, CS(DHE_DSS_WITH_AES_128_GCM_SHA256), S_DSA, K_DHE, C_AESGCM, B_128, M_AEAD_128, F_FIPS_STD, A_DSA },
-    { 0, CS(DHE_DSS_WITH_AES_128_CBC_SHA), S_DSA, K_DHE, C_AES, B_128, M_SHA, F_FIPS_STD, A_DSA },
-    { 0, CS(DHE_DSS_WITH_AES_128_CBC_SHA256), S_DSA, K_DHE, C_AES, B_128, M_SHA256, F_FIPS_STD, A_DSA },
-    { 0, CS(RSA_WITH_SEED_CBC_SHA), S_RSA, K_RSA, C_SEED, B_128, M_SHA, F_FIPS_STD, A_RSAD },
-    { 0, CS(RSA_WITH_CAMELLIA_128_CBC_SHA), S_RSA, K_RSA, C_CAMELLIA, B_128, M_SHA, F_NFIPS_STD, A_RSAD },
-    { 0, CS(RSA_WITH_RC4_128_SHA), S_RSA, K_RSA, C_RC4, B_128, M_SHA, F_NFIPS_STD, A_RSAD },
-    { 0, CS(RSA_WITH_RC4_128_MD5), S_RSA, K_RSA, C_RC4, B_128, M_MD5, F_NFIPS_STD, A_RSAD },
-    { 0, CS(RSA_WITH_AES_128_CBC_SHA256), S_RSA, K_RSA, C_AES, B_128, M_SHA256, F_FIPS_STD, A_RSAD },
-    { 0, CS(RSA_WITH_AES_128_CBC_SHA), S_RSA, K_RSA, C_AES, B_128, M_SHA, F_FIPS_STD, A_RSAD },
+    { 0, CS(DHE_RSA_WITH_CAMELLIA_128_CBC_SHA), S_RSA, K_DHE, C_CAMELLIA, B_128, M_SHA, F_NFIPS_STD, A_RSAS, ssl_hash_none },
+    { 0, CS(DHE_DSS_WITH_CAMELLIA_128_CBC_SHA), S_DSA, K_DHE, C_CAMELLIA, B_128, M_SHA, F_NFIPS_STD, A_DSA, ssl_hash_none },
+    { 0, CS(DHE_DSS_WITH_RC4_128_SHA), S_DSA, K_DHE, C_RC4, B_128, M_SHA, F_NFIPS_STD, A_DSA, ssl_hash_none },
+    { 0, CS(DHE_RSA_WITH_AES_128_CBC_SHA256), S_RSA, K_DHE, C_AES, B_128, M_SHA256, F_FIPS_STD, A_RSAS, ssl_hash_sha256 },
+    { 0, CS(DHE_RSA_WITH_AES_128_GCM_SHA256), S_RSA, K_DHE, C_AESGCM, B_128, M_AEAD_128, F_FIPS_STD, A_RSAS, ssl_hash_sha256 },
+    { 0, CS(DHE_RSA_WITH_AES_128_CBC_SHA), S_RSA, K_DHE, C_AES, B_128, M_SHA, F_FIPS_STD, A_RSAS, ssl_hash_none },
+    { 0, CS(DHE_DSS_WITH_AES_128_GCM_SHA256), S_DSA, K_DHE, C_AESGCM, B_128, M_AEAD_128, F_FIPS_STD, A_DSA, ssl_hash_sha256 },
+    { 0, CS(DHE_DSS_WITH_AES_128_CBC_SHA), S_DSA, K_DHE, C_AES, B_128, M_SHA, F_FIPS_STD, A_DSA, ssl_hash_none },
+    { 0, CS(DHE_DSS_WITH_AES_128_CBC_SHA256), S_DSA, K_DHE, C_AES, B_128, M_SHA256, F_FIPS_STD, A_DSA, ssl_hash_sha256 },
+    { 0, CS(RSA_WITH_SEED_CBC_SHA), S_RSA, K_RSA, C_SEED, B_128, M_SHA, F_FIPS_STD, A_RSAD, ssl_hash_none },
+    { 0, CS(RSA_WITH_CAMELLIA_128_CBC_SHA), S_RSA, K_RSA, C_CAMELLIA, B_128, M_SHA, F_NFIPS_STD, A_RSAD, ssl_hash_none },
+    { 0, CS(RSA_WITH_RC4_128_SHA), S_RSA, K_RSA, C_RC4, B_128, M_SHA, F_NFIPS_STD, A_RSAD, ssl_hash_none },
+    { 0, CS(RSA_WITH_RC4_128_MD5), S_RSA, K_RSA, C_RC4, B_128, M_MD5, F_NFIPS_STD, A_RSAD, ssl_hash_none },
+    { 0, CS(RSA_WITH_AES_128_CBC_SHA256), S_RSA, K_RSA, C_AES, B_128, M_SHA256, F_FIPS_STD, A_RSAD, ssl_hash_sha256 },
+    { 0, CS(RSA_WITH_AES_128_CBC_SHA), S_RSA, K_RSA, C_AES, B_128, M_SHA, F_FIPS_STD, A_RSAD, ssl_hash_none },
 
-    { 0, CS(DHE_RSA_WITH_3DES_EDE_CBC_SHA), S_RSA, K_DHE, C_3DES, B_3DES, M_SHA, F_FIPS_STD, A_RSAS },
-    { 0, CS(DHE_DSS_WITH_3DES_EDE_CBC_SHA), S_DSA, K_DHE, C_3DES, B_3DES, M_SHA, F_FIPS_STD, A_DSA },
-    { 0, CS(RSA_WITH_3DES_EDE_CBC_SHA), S_RSA, K_RSA, C_3DES, B_3DES, M_SHA, F_FIPS_STD, A_RSAD },
+    { 0, CS(DHE_RSA_WITH_3DES_EDE_CBC_SHA), S_RSA, K_DHE, C_3DES, B_3DES, M_SHA, F_FIPS_STD, A_RSAS, ssl_hash_none },
+    { 0, CS(DHE_DSS_WITH_3DES_EDE_CBC_SHA), S_DSA, K_DHE, C_3DES, B_3DES, M_SHA, F_FIPS_STD, A_DSA, ssl_hash_none },
+    { 0, CS(RSA_WITH_3DES_EDE_CBC_SHA), S_RSA, K_RSA, C_3DES, B_3DES, M_SHA, F_FIPS_STD, A_RSAD, ssl_hash_none },
 
-    { 0, CS(DHE_RSA_WITH_DES_CBC_SHA), S_RSA, K_DHE, C_DES, B_DES, M_SHA, F_NFIPS_STD, A_RSAS },
-    { 0, CS(DHE_DSS_WITH_DES_CBC_SHA), S_DSA, K_DHE, C_DES, B_DES, M_SHA, F_NFIPS_STD, A_DSA },
-    { 0, CS(RSA_WITH_DES_CBC_SHA), S_RSA, K_RSA, C_DES, B_DES, M_SHA, F_NFIPS_STD, A_RSAD },
+    { 0, CS(DHE_RSA_WITH_DES_CBC_SHA), S_RSA, K_DHE, C_DES, B_DES, M_SHA, F_NFIPS_STD, A_RSAS, ssl_hash_none },
+    { 0, CS(DHE_DSS_WITH_DES_CBC_SHA), S_DSA, K_DHE, C_DES, B_DES, M_SHA, F_NFIPS_STD, A_DSA, ssl_hash_none },
+    { 0, CS(RSA_WITH_DES_CBC_SHA), S_RSA, K_RSA, C_DES, B_DES, M_SHA, F_NFIPS_STD, A_RSAD, ssl_hash_none },
 
-    { 0, CS(RSA_WITH_NULL_SHA256), S_RSA, K_RSA, C_NULL, B_0, M_SHA256, F_EXPORT, A_RSAD },
-    { 0, CS(RSA_WITH_NULL_SHA), S_RSA, K_RSA, C_NULL, B_0, M_SHA, F_EXPORT, A_RSAD },
-    { 0, CS(RSA_WITH_NULL_MD5), S_RSA, K_RSA, C_NULL, B_0, M_MD5, F_EXPORT, A_RSAD },
+    { 0, CS(RSA_WITH_NULL_SHA256), S_RSA, K_RSA, C_NULL, B_0, M_SHA256, F_EXPORT, A_RSAD, ssl_hash_sha256 },
+    { 0, CS(RSA_WITH_NULL_SHA), S_RSA, K_RSA, C_NULL, B_0, M_SHA, F_EXPORT, A_RSAD, ssl_hash_none },
+    { 0, CS(RSA_WITH_NULL_MD5), S_RSA, K_RSA, C_NULL, B_0, M_MD5, F_EXPORT, A_RSAD, ssl_hash_none },
 
     /* ECC cipher suites */
-    { 0, CS(ECDHE_RSA_WITH_AES_128_GCM_SHA256), S_RSA, K_ECDHE, C_AESGCM, B_128, M_AEAD_128, F_FIPS_STD, A_RSAS },
-    { 0, CS(ECDHE_ECDSA_WITH_AES_128_GCM_SHA256), S_ECDSA, K_ECDHE, C_AESGCM, B_128, M_AEAD_128, F_FIPS_STD, A_ECDSA },
-    { 0, CS(ECDH_ECDSA_WITH_NULL_SHA), S_ECDSA, K_ECDH, C_NULL, B_0, M_SHA, F_NFIPS_STD, A_ECDH_E },
-    { 0, CS(ECDH_ECDSA_WITH_RC4_128_SHA), S_ECDSA, K_ECDH, C_RC4, B_128, M_SHA, F_NFIPS_STD, A_ECDH_E },
-    { 0, CS(ECDH_ECDSA_WITH_3DES_EDE_CBC_SHA), S_ECDSA, K_ECDH, C_3DES, B_3DES, M_SHA, F_FIPS_STD, A_ECDH_E },
-    { 0, CS(ECDH_ECDSA_WITH_AES_128_CBC_SHA), S_ECDSA, K_ECDH, C_AES, B_128, M_SHA, F_FIPS_STD, A_ECDH_E },
-    { 0, CS(ECDH_ECDSA_WITH_AES_256_CBC_SHA), S_ECDSA, K_ECDH, C_AES, B_256, M_SHA, F_FIPS_STD, A_ECDH_E },
+    { 0, CS(ECDHE_RSA_WITH_AES_128_GCM_SHA256), S_RSA, K_ECDHE, C_AESGCM, B_128, M_AEAD_128, F_FIPS_STD, A_RSAS, ssl_hash_sha256 },
+    { 0, CS(ECDHE_ECDSA_WITH_AES_128_GCM_SHA256), S_ECDSA, K_ECDHE, C_AESGCM, B_128, M_AEAD_128, F_FIPS_STD, A_ECDSA, ssl_hash_sha256 },
+    { 0, CS(ECDH_ECDSA_WITH_NULL_SHA), S_ECDSA, K_ECDH, C_NULL, B_0, M_SHA, F_NFIPS_STD, A_ECDH_E, ssl_hash_none },
+    { 0, CS(ECDH_ECDSA_WITH_RC4_128_SHA), S_ECDSA, K_ECDH, C_RC4, B_128, M_SHA, F_NFIPS_STD, A_ECDH_E, ssl_hash_none },
+    { 0, CS(ECDH_ECDSA_WITH_3DES_EDE_CBC_SHA), S_ECDSA, K_ECDH, C_3DES, B_3DES, M_SHA, F_FIPS_STD, A_ECDH_E, ssl_hash_none },
+    { 0, CS(ECDH_ECDSA_WITH_AES_128_CBC_SHA), S_ECDSA, K_ECDH, C_AES, B_128, M_SHA, F_FIPS_STD, A_ECDH_E, ssl_hash_none },
+    { 0, CS(ECDH_ECDSA_WITH_AES_256_CBC_SHA), S_ECDSA, K_ECDH, C_AES, B_256, M_SHA, F_FIPS_STD, A_ECDH_E, ssl_hash_none },
 
-    { 0, CS(ECDHE_ECDSA_WITH_NULL_SHA), S_ECDSA, K_ECDHE, C_NULL, B_0, M_SHA, F_NFIPS_STD, A_ECDSA },
-    { 0, CS(ECDHE_ECDSA_WITH_RC4_128_SHA), S_ECDSA, K_ECDHE, C_RC4, B_128, M_SHA, F_NFIPS_STD, A_ECDSA },
-    { 0, CS(ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA), S_ECDSA, K_ECDHE, C_3DES, B_3DES, M_SHA, F_FIPS_STD, A_ECDSA },
-    { 0, CS(ECDHE_ECDSA_WITH_AES_128_CBC_SHA), S_ECDSA, K_ECDHE, C_AES, B_128, M_SHA, F_FIPS_STD, A_ECDSA },
-    { 0, CS(ECDHE_ECDSA_WITH_AES_128_CBC_SHA256), S_ECDSA, K_ECDHE, C_AES, B_128, M_SHA256, F_FIPS_STD, A_ECDSA },
-    { 0, CS(ECDHE_ECDSA_WITH_AES_256_CBC_SHA), S_ECDSA, K_ECDHE, C_AES, B_256, M_SHA, F_FIPS_STD, A_ECDSA },
-    { 0, CS(ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256), S_ECDSA, K_ECDHE, C_CHACHA20, B_256, M_AEAD_128, F_NFIPS_STD, A_ECDSA },
+    { 0, CS(ECDHE_ECDSA_WITH_NULL_SHA), S_ECDSA, K_ECDHE, C_NULL, B_0, M_SHA, F_NFIPS_STD, A_ECDSA, ssl_hash_none },
+    { 0, CS(ECDHE_ECDSA_WITH_RC4_128_SHA), S_ECDSA, K_ECDHE, C_RC4, B_128, M_SHA, F_NFIPS_STD, A_ECDSA, ssl_hash_none },
+    { 0, CS(ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA), S_ECDSA, K_ECDHE, C_3DES, B_3DES, M_SHA, F_FIPS_STD, A_ECDSA, ssl_hash_none },
+    { 0, CS(ECDHE_ECDSA_WITH_AES_128_CBC_SHA), S_ECDSA, K_ECDHE, C_AES, B_128, M_SHA, F_FIPS_STD, A_ECDSA, ssl_hash_none },
+    { 0, CS(ECDHE_ECDSA_WITH_AES_128_CBC_SHA256), S_ECDSA, K_ECDHE, C_AES, B_128, M_SHA256, F_FIPS_STD, A_ECDSA, ssl_hash_sha256 },
+    { 0, CS(ECDHE_ECDSA_WITH_AES_256_CBC_SHA), S_ECDSA, K_ECDHE, C_AES, B_256, M_SHA, F_FIPS_STD, A_ECDSA, ssl_hash_none },
+    { 0, CS(ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256), S_ECDSA, K_ECDHE, C_CHACHA20, B_256, M_AEAD_128, F_NFIPS_STD, A_ECDSA, ssl_hash_sha256 },
 
-    { 0, CS(ECDH_RSA_WITH_NULL_SHA), S_RSA, K_ECDH, C_NULL, B_0, M_SHA, F_NFIPS_STD, A_ECDH_R },
-    { 0, CS(ECDH_RSA_WITH_RC4_128_SHA), S_RSA, K_ECDH, C_RC4, B_128, M_SHA, F_NFIPS_STD, A_ECDH_R },
-    { 0, CS(ECDH_RSA_WITH_3DES_EDE_CBC_SHA), S_RSA, K_ECDH, C_3DES, B_3DES, M_SHA, F_FIPS_STD, A_ECDH_R },
-    { 0, CS(ECDH_RSA_WITH_AES_128_CBC_SHA), S_RSA, K_ECDH, C_AES, B_128, M_SHA, F_FIPS_STD, A_ECDH_R },
-    { 0, CS(ECDH_RSA_WITH_AES_256_CBC_SHA), S_RSA, K_ECDH, C_AES, B_256, M_SHA, F_FIPS_STD, A_ECDH_R },
+    { 0, CS(ECDH_RSA_WITH_NULL_SHA), S_RSA, K_ECDH, C_NULL, B_0, M_SHA, F_NFIPS_STD, A_ECDH_R, ssl_hash_none },
+    { 0, CS(ECDH_RSA_WITH_RC4_128_SHA), S_RSA, K_ECDH, C_RC4, B_128, M_SHA, F_NFIPS_STD, A_ECDH_R, ssl_hash_none },
+    { 0, CS(ECDH_RSA_WITH_3DES_EDE_CBC_SHA), S_RSA, K_ECDH, C_3DES, B_3DES, M_SHA, F_FIPS_STD, A_ECDH_R, ssl_hash_none },
+    { 0, CS(ECDH_RSA_WITH_AES_128_CBC_SHA), S_RSA, K_ECDH, C_AES, B_128, M_SHA, F_FIPS_STD, A_ECDH_R, ssl_hash_none },
+    { 0, CS(ECDH_RSA_WITH_AES_256_CBC_SHA), S_RSA, K_ECDH, C_AES, B_256, M_SHA, F_FIPS_STD, A_ECDH_R, ssl_hash_none },
 
-    { 0, CS(ECDHE_RSA_WITH_NULL_SHA), S_RSA, K_ECDHE, C_NULL, B_0, M_SHA, F_NFIPS_STD, A_RSAS },
-    { 0, CS(ECDHE_RSA_WITH_RC4_128_SHA), S_RSA, K_ECDHE, C_RC4, B_128, M_SHA, F_NFIPS_STD, A_RSAS },
-    { 0, CS(ECDHE_RSA_WITH_3DES_EDE_CBC_SHA), S_RSA, K_ECDHE, C_3DES, B_3DES, M_SHA, F_FIPS_STD, A_RSAS },
-    { 0, CS(ECDHE_RSA_WITH_AES_128_CBC_SHA), S_RSA, K_ECDHE, C_AES, B_128, M_SHA, F_FIPS_STD, A_RSAS },
-    { 0, CS(ECDHE_RSA_WITH_AES_128_CBC_SHA256), S_RSA, K_ECDHE, C_AES, B_128, M_SHA256, F_FIPS_STD, A_RSAS },
-    { 0, CS(ECDHE_RSA_WITH_AES_256_CBC_SHA), S_RSA, K_ECDHE, C_AES, B_256, M_SHA, F_FIPS_STD, A_RSAS },
-    { 0, CS(ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256), S_RSA, K_ECDHE, C_CHACHA20, B_256, M_AEAD_128, F_NFIPS_STD, A_RSAS },
-    { 0, CS(ECDHE_RSA_WITH_AES_256_CBC_SHA384), S_RSA, K_ECDHE, C_AES, B_256, M_SHA384, F_FIPS_STD, A_RSAS },
-    { 0, CS(ECDHE_ECDSA_WITH_AES_256_CBC_SHA384), S_ECDSA, K_ECDHE, C_AES, B_256, M_SHA384, F_FIPS_STD, A_ECDSA },
-    { 0, CS(ECDHE_ECDSA_WITH_AES_256_GCM_SHA384), S_ECDSA, K_ECDHE, C_AESGCM, B_256, M_AEAD_128, F_FIPS_STD, A_ECDSA },
-    { 0, CS(ECDHE_RSA_WITH_AES_256_GCM_SHA384), S_RSA, K_ECDHE, C_AESGCM, B_256, M_AEAD_128, F_FIPS_STD, A_RSAS },
+    { 0, CS(ECDHE_RSA_WITH_NULL_SHA), S_RSA, K_ECDHE, C_NULL, B_0, M_SHA, F_NFIPS_STD, A_RSAS, ssl_hash_none },
+    { 0, CS(ECDHE_RSA_WITH_RC4_128_SHA), S_RSA, K_ECDHE, C_RC4, B_128, M_SHA, F_NFIPS_STD, A_RSAS, ssl_hash_none },
+    { 0, CS(ECDHE_RSA_WITH_3DES_EDE_CBC_SHA), S_RSA, K_ECDHE, C_3DES, B_3DES, M_SHA, F_FIPS_STD, A_RSAS, ssl_hash_none },
+    { 0, CS(ECDHE_RSA_WITH_AES_128_CBC_SHA), S_RSA, K_ECDHE, C_AES, B_128, M_SHA, F_FIPS_STD, A_RSAS, ssl_hash_none },
+    { 0, CS(ECDHE_RSA_WITH_AES_128_CBC_SHA256), S_RSA, K_ECDHE, C_AES, B_128, M_SHA256, F_FIPS_STD, A_RSAS, ssl_hash_sha256 },
+    { 0, CS(ECDHE_RSA_WITH_AES_256_CBC_SHA), S_RSA, K_ECDHE, C_AES, B_256, M_SHA, F_FIPS_STD, A_RSAS, ssl_hash_none },
+    { 0, CS(ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256), S_RSA, K_ECDHE, C_CHACHA20, B_256, M_AEAD_128, F_NFIPS_STD, A_RSAS, ssl_hash_sha256 },
+    { 0, CS(ECDHE_RSA_WITH_AES_256_CBC_SHA384), S_RSA, K_ECDHE, C_AES, B_256, M_SHA384, F_FIPS_STD, A_RSAS, ssl_hash_sha384 },
+    { 0, CS(ECDHE_ECDSA_WITH_AES_256_CBC_SHA384), S_ECDSA, K_ECDHE, C_AES, B_256, M_SHA384, F_FIPS_STD, A_ECDSA, ssl_hash_sha384 },
+    { 0, CS(ECDHE_ECDSA_WITH_AES_256_GCM_SHA384), S_ECDSA, K_ECDHE, C_AESGCM, B_256, M_AEAD_128, F_FIPS_STD, A_ECDSA, ssl_hash_sha384 },
+    { 0, CS(ECDHE_RSA_WITH_AES_256_GCM_SHA384), S_RSA, K_ECDHE, C_AESGCM, B_256, M_AEAD_128, F_FIPS_STD, A_RSAS, ssl_hash_sha384 },
 
-    { 0, CS(DHE_DSS_WITH_AES_256_GCM_SHA384), S_DSA, K_DHE, C_AESGCM, B_256, M_AEAD_128, F_FIPS_STD, A_DSA },
-    { 0, CS(DHE_RSA_WITH_AES_256_GCM_SHA384), S_RSA, K_DHE, C_AESGCM, B_256, M_AEAD_128, F_FIPS_STD, A_RSAS },
-    { 0, CS(RSA_WITH_AES_256_GCM_SHA384), S_RSA, K_RSA, C_AESGCM, B_256, M_AEAD_128, F_FIPS_STD, A_RSAD },
+    { 0, CS(DHE_DSS_WITH_AES_256_GCM_SHA384), S_DSA, K_DHE, C_AESGCM, B_256, M_AEAD_128, F_FIPS_STD, A_DSA, ssl_hash_sha384 },
+    { 0, CS(DHE_RSA_WITH_AES_256_GCM_SHA384), S_RSA, K_DHE, C_AESGCM, B_256, M_AEAD_128, F_FIPS_STD, A_RSAS, ssl_hash_sha384 },
+    { 0, CS(RSA_WITH_AES_256_GCM_SHA384), S_RSA, K_RSA, C_AESGCM, B_256, M_AEAD_128, F_FIPS_STD, A_RSAD, ssl_hash_sha384 },
 };
 
 #define NUM_SUITEINFOS ((sizeof suiteInfo) / (sizeof suiteInfo[0]))
@@ -408,24 +429,37 @@ tls13_Exporter(sslSocket *ss, PK11SymKey *secret,
         return SECFailure;
     }
 
+    SSLHashType hashAlg;
+    /* Early export requires a PSK. As in 0-RTT, default
+     * to the first PSK if no suite is negotiated yet. */
+    if (secret == ss->ssl3.hs.earlyExporterSecret && !ss->ssl3.hs.suite_def) {
+        if (PR_CLIST_IS_EMPTY(&ss->ssl3.hs.psks)) {
+            PORT_SetError(SEC_ERROR_INVALID_ARGS);
+            return SECFailure;
+        }
+        hashAlg = ((sslPsk *)PR_LIST_HEAD(&ss->ssl3.hs.psks))->hash;
+    } else {
+        hashAlg = tls13_GetHash(ss);
+    }
+
     /* Pre-hash the context. */
-    rv = tls13_ComputeHash(ss, &contextHash, context, contextLen);
+    rv = tls13_ComputeHash(ss, &contextHash, context, contextLen, hashAlg);
     if (rv != SECSuccess) {
         return rv;
     }
 
     rv = tls13_DeriveSecretNullHash(ss, secret, label, labelLen,
-                                    &innerSecret);
+                                    &innerSecret, hashAlg);
     if (rv != SECSuccess) {
         return rv;
     }
 
     rv = tls13_HkdfExpandLabelRaw(innerSecret,
-                                  tls13_GetHash(ss),
+                                  hashAlg,
                                   contextHash.u.raw, contextHash.len,
                                   kExporterInnerLabel,
                                   strlen(kExporterInnerLabel),
-                                  out, outLen);
+                                  ss->protocolVariant, out, outLen);
     PK11_FreeSymKey(innerSecret);
     return rv;
 }

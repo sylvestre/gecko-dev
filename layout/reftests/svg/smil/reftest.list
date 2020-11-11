@@ -256,6 +256,8 @@ fuzzy-if(cocoaWidget&&layersGPUAccelerated,0-1,0-2) == anim-gradient-attr-presen
 
 == min-1.svg lime.svg
 
+== shadow-dom-01.html lime.svg
+
 == smil-transitions-interaction-1a.svg lime.svg
 == smil-transitions-interaction-1b.svg lime.svg
 == smil-transitions-interaction-2a.svg lime.svg
@@ -288,7 +290,7 @@ pref(privacy.reduceTimerPrecision,false) == anim-display-in-g-element.svg lime.s
 == anim-change-display-none-for-dynamically-appended-elem.html lime.html
 == anim-change-display-block-for-dynamically-appended-elem.html anim-standard-ref.html
 
-fuzzy(0-63,0-146) == anim-clipPath-viewBox.svg anim-clipPath-viewBox-ref.svg
+fuzzy(0-63,0-146) fuzzy-if(skiaContent,0-31,0-308) fuzzy-if(webrender,0-7,0-241) == anim-clipPath-viewBox.svg anim-clipPath-viewBox-ref.svg
 
 # Test animations for overflow.
 == anim-overflow-shorthand.svg anim-overflow-shorthand-ref.svg

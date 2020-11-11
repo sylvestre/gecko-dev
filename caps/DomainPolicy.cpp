@@ -8,8 +8,6 @@
 #include "mozilla/dom/ContentParent.h"
 #include "mozilla/ipc/URIUtils.h"
 #include "mozilla/Unused.h"
-#include "nsIMessageManager.h"
-#include "nsIURIMutator.h"
 #include "nsScriptSecurityManager.h"
 
 namespace mozilla {
@@ -31,11 +29,8 @@ static nsresult BroadcastDomainSetChange(DomainSetType aSetType,
     return NS_OK;
   }
 
-  OptionalURIParams uri;
-  SerializeURI(aDomain, uri);
-
   for (uint32_t i = 0; i < parents.Length(); i++) {
-    Unused << parents[i]->SendDomainSetChanged(aSetType, aChangeType, uri);
+    Unused << parents[i]->SendDomainSetChanged(aSetType, aChangeType, aDomain);
   }
   return NS_OK;
 }
@@ -120,11 +115,13 @@ void DomainPolicy::CloneDomainPolicy(DomainPolicyClone* aClone) {
   mSuperAllowlist->CloneSet(&aClone->superAllowlist());
 }
 
-static void CopyURIs(const InfallibleTArray<URIParams>& aDomains,
+static void CopyURIs(const nsTArray<RefPtr<nsIURI>>& aDomains,
                      nsIDomainSet* aSet) {
   for (uint32_t i = 0; i < aDomains.Length(); i++) {
-    nsCOMPtr<nsIURI> uri = DeserializeURI(aDomains[i]);
-    aSet->Add(uri);
+    if (NS_WARN_IF(!aDomains[i])) {
+      continue;
+    }
+    aSet->Add(aDomains[i]);
   }
 }
 
@@ -137,10 +134,9 @@ void DomainPolicy::ApplyClone(const DomainPolicyClone* aClone) {
 
 static already_AddRefed<nsIURI> GetCanonicalClone(nsIURI* aURI) {
   nsCOMPtr<nsIURI> clone;
-  nsresult rv = NS_MutateURI(aURI)
-                    .SetUserPass(EmptyCString())
-                    .SetPathQueryRef(EmptyCString())
-                    .Finalize(clone);
+  nsresult rv =
+      NS_MutateURI(aURI).SetUserPass(""_ns).SetPathQueryRef(""_ns).Finalize(
+          clone);
   NS_ENSURE_SUCCESS(rv, nullptr);
   return clone.forget();
 }
@@ -152,8 +148,9 @@ DomainSet::Add(nsIURI* aDomain) {
   nsCOMPtr<nsIURI> clone = GetCanonicalClone(aDomain);
   NS_ENSURE_TRUE(clone, NS_ERROR_FAILURE);
   mHashTable.PutEntry(clone);
-  if (XRE_IsParentProcess())
+  if (XRE_IsParentProcess()) {
     return BroadcastDomainSetChange(mType, ADD_DOMAIN, aDomain);
+  }
 
   return NS_OK;
 }
@@ -163,8 +160,9 @@ DomainSet::Remove(nsIURI* aDomain) {
   nsCOMPtr<nsIURI> clone = GetCanonicalClone(aDomain);
   NS_ENSURE_TRUE(clone, NS_ERROR_FAILURE);
   mHashTable.RemoveEntry(clone);
-  if (XRE_IsParentProcess())
+  if (XRE_IsParentProcess()) {
     return BroadcastDomainSetChange(mType, REMOVE_DOMAIN, aDomain);
+  }
 
   return NS_OK;
 }
@@ -172,8 +170,9 @@ DomainSet::Remove(nsIURI* aDomain) {
 NS_IMETHODIMP
 DomainSet::Clear() {
   mHashTable.Clear();
-  if (XRE_IsParentProcess())
+  if (XRE_IsParentProcess()) {
     return BroadcastDomainSetChange(mType, CLEAR_DOMAINS);
+  }
 
   return NS_OK;
 }
@@ -215,14 +214,10 @@ DomainSet::ContainsSuperDomain(nsIURI* aDomain, bool* aContains) {
   return NS_OK;
 }
 
-void DomainSet::CloneSet(InfallibleTArray<URIParams>* aDomains) {
+void DomainSet::CloneSet(nsTArray<RefPtr<nsIURI>>* aDomains) {
   for (auto iter = mHashTable.Iter(); !iter.Done(); iter.Next()) {
     nsIURI* key = iter.Get()->GetKey();
-
-    URIParams uri;
-    SerializeURI(key, uri);
-
-    aDomains->AppendElement(uri);
+    aDomains->AppendElement(key);
   }
 }
 

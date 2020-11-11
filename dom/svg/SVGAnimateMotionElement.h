@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef mozilla_dom_SVGAnimateMotionElement_h
-#define mozilla_dom_SVGAnimateMotionElement_h
+#ifndef DOM_SVG_SVGANIMATEMOTIONELEMENT_H_
+#define DOM_SVG_SVGANIMATEMOTIONELEMENT_H_
 
 #include "mozilla/Attributes.h"
 #include "mozilla/dom/SVGAnimationElement.h"
@@ -35,11 +35,11 @@ class SVGAnimateMotionElement final : public SVGAnimationElement {
   virtual nsresult Clone(dom::NodeInfo*, nsINode** aResult) const override;
 
   // SVGAnimationElement
-  virtual nsSMILAnimationFunction& AnimationFunction() override;
+  virtual SMILAnimationFunction& AnimationFunction() override;
   virtual bool GetTargetAttributeName(int32_t* aNamespaceID,
                                       nsAtom** aLocalName) const override;
 
-  // nsSVGElement
+  // SVGElement
   virtual nsStaticAtom* GetPathDataAttrName() const override {
     return nsGkAtoms::path;
   }
@@ -52,4 +52,4 @@ class SVGAnimateMotionElement final : public SVGAnimationElement {
 }  // namespace dom
 }  // namespace mozilla
 
-#endif  // mozilla_dom_SVGAnimateMotionElement_h
+#endif  // DOM_SVG_SVGANIMATEMOTIONELEMENT_H_

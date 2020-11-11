@@ -10,11 +10,9 @@
 #include "nsServiceManagerUtils.h"
 #include "nsString.h"
 #include "nsArrayUtils.h"
-#include "nsIMutableArray.h"
 #include "nsWidgetsCID.h"
 #include "WinTaskbar.h"
 #include "nsDirectoryServiceUtils.h"
-#include "nsISimpleEnumerator.h"
 #include "mozilla/Preferences.h"
 #include "nsStringStream.h"
 #include "nsThreadUtils.h"
@@ -23,7 +21,7 @@
 #include "mozilla/ScopeExit.h"
 #include "mozilla/Unused.h"
 #include "mozilla/dom/Promise.h"
-#include "mozilla/mscom/COMApartmentRegion.h"
+#include "mozilla/mscom/ApartmentRegion.h"
 #include "mozilla/mscom/EnsureMTA.h"
 
 #include <shellapi.h>
@@ -119,8 +117,7 @@ JumpListBuilder::JumpListBuilder()
   }
 
   // Make a lazy thread for any IO
-  mIOThread = new LazyIdleThread(DEFAULT_THREAD_TIMEOUT_MS,
-                                 NS_LITERAL_CSTRING("Jump List"),
+  mIOThread = new LazyIdleThread(DEFAULT_THREAD_TIMEOUT_MS, "Jump List"_ns,
                                  LazyIdleThread::ManualShutdown);
   Preferences::AddStrongObserver(this, kPrefTaskbarEnabled);
 
@@ -129,6 +126,17 @@ JumpListBuilder::JumpListBuilder()
   if (observerService) {
     observerService->AddObserver(this, TOPIC_PROFILE_BEFORE_CHANGE, false);
     observerService->AddObserver(this, TOPIC_CLEAR_PRIVATE_DATA, false);
+  }
+
+  RefPtr<ICustomDestinationList> jumpListMgr = mJumpListMgr;
+  if (!jumpListMgr) {
+    return;
+  }
+
+  // GetAppUserModelID can only be called once we're back on the main thread.
+  nsString modelId;
+  if (mozilla::widget::WinTaskbar::GetAppUserModelID(modelId)) {
+    jumpListMgr->SetAppID(modelId.get());
   }
 }
 

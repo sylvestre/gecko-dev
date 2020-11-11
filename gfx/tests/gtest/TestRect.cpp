@@ -7,12 +7,18 @@
 
 #include "gtest/gtest.h"
 
+#include "gfxTypes.h"
 #include "nsRect.h"
 #include "gfxRect.h"
+#include "mozilla/gfx/Rect.h"
+#include "mozilla/gfx/RectAbsolute.h"
 #include "mozilla/WritingModes.h"
 #ifdef XP_WIN
-#include <windows.h>
+#  include <windows.h>
 #endif
+
+using mozilla::gfx::IntRect;
+using mozilla::gfx::IntRectAbsolute;
 
 template <class RectType>
 static bool TestConstructors() {
@@ -517,18 +523,18 @@ static void TestIntersectionLogicalHelper(nscoord x1, nscoord y1, nscoord w1,
   mozilla::LogicalRect r2(mozilla::WritingMode(), rect2.X(), rect2.Y(),
                           rect2.Width(), rect2.Height());
   EXPECT_TRUE(isNonEmpty == r1.IntersectRect(r1, r2));
-  EXPECT_TRUE(rectDebug.IsEqualEdges(
-      nsRect(r1.IStart(WritingMode()), r1.BStart(WritingMode()),
-             r1.ISize(WritingMode()), r1.BSize(WritingMode()))));
+  EXPECT_TRUE(rectDebug.IsEqualEdges(nsRect(
+      r1.IStart(mozilla::WritingMode()), r1.BStart(mozilla::WritingMode()),
+      r1.ISize(mozilla::WritingMode()), r1.BSize(mozilla::WritingMode()))));
 
   mozilla::LogicalRect r3(mozilla::WritingMode(), rect1.X(), rect1.Y(),
                           rect1.Width(), rect1.Height());
   mozilla::LogicalRect r4(mozilla::WritingMode(), rect2.X(), rect2.Y(),
                           rect2.Width(), rect2.Height());
   EXPECT_TRUE(isNonEmpty == r4.IntersectRect(r3, r4));
-  EXPECT_TRUE(rectDebug.IsEqualEdges(
-      nsRect(r4.IStart(WritingMode()), r4.BStart(WritingMode()),
-             r4.ISize(WritingMode()), r4.BSize(WritingMode()))));
+  EXPECT_TRUE(rectDebug.IsEqualEdges(nsRect(
+      r4.IStart(mozilla::WritingMode()), r4.BStart(mozilla::WritingMode()),
+      r4.ISize(mozilla::WritingMode()), r4.BSize(mozilla::WritingMode()))));
 
   mozilla::LogicalRect r5(mozilla::WritingMode(), rect1.X(), rect1.Y(),
                           rect1.Width(), rect1.Height());
@@ -536,9 +542,9 @@ static void TestIntersectionLogicalHelper(nscoord x1, nscoord y1, nscoord w1,
                           rect2.Width(), rect2.Height());
   mozilla::LogicalRect r7(mozilla::WritingMode(), 0, 0, 1, 1);
   EXPECT_TRUE(isNonEmpty == r7.IntersectRect(r5, r6));
-  EXPECT_TRUE(rectDebug.IsEqualEdges(
-      nsRect(r7.IStart(WritingMode()), r7.BStart(WritingMode()),
-             r7.ISize(WritingMode()), r7.BSize(WritingMode()))));
+  EXPECT_TRUE(rectDebug.IsEqualEdges(nsRect(
+      r7.IStart(mozilla::WritingMode()), r7.BStart(mozilla::WritingMode()),
+      r7.ISize(mozilla::WritingMode()), r7.BSize(mozilla::WritingMode()))));
 }
 
 static void TestIntersectionLogical(nscoord x1, nscoord y1, nscoord w1,
@@ -552,7 +558,8 @@ static void TestIntersectionLogical(nscoord x1, nscoord y1, nscoord w1,
                                 isNonEmpty);
 }
 
-TEST(Gfx, Logical) {
+TEST(Gfx, Logical)
+{
   TestIntersectionLogical(578, 0, 2650, 1152, 1036, 0, 2312, 1, 1036, 0, 2192,
                           1, true);
   TestIntersectionLogical(0, 0, 1000, 1000, 500, 500, 1000, 1000, 500, 500, 500,
@@ -563,7 +570,8 @@ TEST(Gfx, Logical) {
                           false);
 }
 
-TEST(Gfx, nsRect) {
+TEST(Gfx, nsRect)
+{
   TestConstructors<nsRect>();
   TestEqualityOperator<nsRect>();
   TestContainment<nsRect>();
@@ -575,7 +583,8 @@ TEST(Gfx, nsRect) {
   TestSwap<nsRect>();
 }
 
-TEST(Gfx, nsIntRect) {
+TEST(Gfx, nsIntRect)
+{
   TestConstructors<nsIntRect>();
   TestEqualityOperator<nsIntRect>();
   TestContainment<nsIntRect>();
@@ -587,7 +596,8 @@ TEST(Gfx, nsIntRect) {
   TestSwap<nsIntRect>();
 }
 
-TEST(Gfx, gfxRect) {
+TEST(Gfx, gfxRect)
+{
   TestConstructors<gfxRect>();
   // Skip TestEqualityOperator<gfxRect>(); as gfxRect::operator== is private
   TestContainment<gfxRect>();
@@ -598,4 +608,38 @@ TEST(Gfx, gfxRect) {
   TestFiniteGfx();
   TestSetWH<gfxRect>();
   TestSwap<gfxRect>();
+}
+
+static void TestMoveInsideAndClamp(IntRect aSrc, IntRect aTarget,
+                                   IntRect aExpected) {
+  // Test the implementation in BaseRect (x/y/width/height representation)
+  IntRect result = aSrc.MoveInsideAndClamp(aTarget);
+  EXPECT_TRUE(result.IsEqualEdges(aExpected))
+      << "Source " << aSrc << " Target " << aTarget << " Expected " << aExpected
+      << " Actual " << result;
+
+  // Also test the implementation in RectAbsolute (left/top/right/bottom
+  // representation)
+  IntRectAbsolute absSrc = IntRectAbsolute::FromRect(aSrc);
+  IntRectAbsolute absTarget = IntRectAbsolute::FromRect(aTarget);
+  IntRectAbsolute absExpected = IntRectAbsolute::FromRect(aExpected);
+
+  IntRectAbsolute absResult = absSrc.MoveInsideAndClamp(absTarget);
+  EXPECT_TRUE(absResult.IsEqualEdges(absExpected))
+      << "AbsSource " << absSrc << " AbsTarget " << absTarget << " AbsExpected "
+      << absExpected << " AbsActual " << absResult;
+}
+
+TEST(Gfx, MoveInsideAndClamp)
+{
+  TestMoveInsideAndClamp(IntRect(0, 0, 10, 10), IntRect(1, -1, 10, 10),
+                         IntRect(1, -1, 10, 10));
+  TestMoveInsideAndClamp(IntRect(0, 0, 10, 10), IntRect(-1, -1, 12, 5),
+                         IntRect(0, -1, 10, 5));
+  TestMoveInsideAndClamp(IntRect(0, 0, 10, 10), IntRect(10, 11, 10, 0),
+                         IntRect(10, 11, 10, 0));
+  TestMoveInsideAndClamp(IntRect(0, 0, 10, 10), IntRect(-10, -1, 10, 0),
+                         IntRect(-10, -1, 10, 0));
+  TestMoveInsideAndClamp(IntRect(0, 0, 0, 0), IntRect(10, -10, 10, 10),
+                         IntRect(10, 0, 0, 0));
 }

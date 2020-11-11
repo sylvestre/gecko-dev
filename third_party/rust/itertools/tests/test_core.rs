@@ -5,12 +5,14 @@
 //! except according to those terms.
 #![no_std]
 
-#[macro_use] extern crate itertools as it;
-
-use it::Itertools;
-use it::interleave;
-use it::multizip;
-use it::free::put_back;
+use core::iter;
+use itertools as it;
+use crate::it::Itertools;
+use crate::it::interleave;
+use crate::it::multizip;
+use crate::it::free::put_back;
+use crate::it::iproduct;
+use crate::it::izip;
 
 #[test]
 fn product2() {
@@ -54,7 +56,22 @@ fn izip_macro() {
 }
 
 #[test]
+fn izip2() {
+    let _zip1: iter::Zip<_, _> = izip!(1.., 2..);
+    let _zip2: iter::Zip<_, _> = izip!(1.., 2.., );
+}
+
+#[test]
 fn izip3() {
+    let mut zip: iter::Map<iter::Zip<_, _>, _> = izip!(0..3, 0..2, 0..2i8);
+    for i in 0..2 {
+        assert!((i as usize, i, i as i8) == zip.next().unwrap());
+    }
+    assert!(zip.next().is_none());
+}
+
+#[test]
+fn multizip3() {
     let mut zip = multizip((0..3, 0..2, 0..2i8));
     for i in 0..2 {
         assert!((i as usize, i, i as i8) == zip.next().unwrap());
@@ -96,6 +113,7 @@ fn test_interleave() {
     it::assert_equal(it, rs.iter());
 }
 
+#[allow(deprecated)]
 #[test]
 fn foreach() {
     let xs = [1i32, 2, 3];
@@ -142,16 +160,18 @@ fn test_put_back() {
     it::assert_equal(pb, xs.iter().cloned());
 }
 
+#[allow(deprecated)]
 #[test]
 fn step() {
-    it::assert_equal((0..10).step(1), (0..10));
+    it::assert_equal((0..10).step(1), 0..10);
     it::assert_equal((0..10).step(2), (0..10).filter(|x: &i32| *x % 2 == 0));
     it::assert_equal((0..10).step(10), 0..1);
 }
 
+#[allow(deprecated)]
 #[test]
 fn merge() {
-    it::assert_equal((0..10).step(2).merge((1..10).step(2)), (0..10));
+    it::assert_equal((0..10).step(2).merge((1..10).step(2)), 0..10);
 }
 
 
@@ -219,16 +239,34 @@ fn part() {
 }
 
 #[test]
-fn flatten_clone() {
-    let data = &[
-        &[1,2,3],
-        &[4,5,6]
-    ];
-    let flattened1 = data.into_iter().cloned().flatten();
-    let flattened2 = flattened1.clone();
-
-    it::assert_equal(flattened1, &[1,2,3,4,5,6]);
-    it::assert_equal(flattened2, &[1,2,3,4,5,6]);
+fn tree_fold1() {
+    for i in 0..100 {
+        assert_eq!((0..i).tree_fold1(|x, y| x + y), (0..i).fold1(|x, y| x + y));
+    }
 }
 
+#[test]
+fn exactly_one() {
+    assert_eq!((0..10).filter(|&x| x == 2).exactly_one().unwrap(), 2);
+    assert!((0..10).filter(|&x| x > 1 && x < 4).exactly_one().unwrap_err().eq(2..4));
+    assert!((0..10).filter(|&x| x > 1 && x < 5).exactly_one().unwrap_err().eq(2..5));
+    assert!((0..10).filter(|&_| false).exactly_one().unwrap_err().eq(0..0));
+}
 
+#[test]
+fn sum1() {
+    let v: &[i32] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    assert_eq!(v[..0].iter().cloned().sum1::<i32>(), None);
+    assert_eq!(v[1..2].iter().cloned().sum1::<i32>(), Some(1));
+    assert_eq!(v[1..3].iter().cloned().sum1::<i32>(), Some(3));
+    assert_eq!(v.iter().cloned().sum1::<i32>(), Some(55));
+}
+
+#[test]
+fn product1() {
+    let v: &[i32] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    assert_eq!(v[..0].iter().cloned().product1::<i32>(), None);
+    assert_eq!(v[..1].iter().cloned().product1::<i32>(), Some(0));
+    assert_eq!(v[1..3].iter().cloned().product1::<i32>(), Some(2));
+    assert_eq!(v[1..5].iter().cloned().product1::<i32>(), Some(24));
+}

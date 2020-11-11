@@ -7,7 +7,13 @@
 #ifndef mozilla_dom_quota_MemoryOutputStream_h
 #define mozilla_dom_quota_MemoryOutputStream_h
 
+#include <cstdint>
+#include "mozilla/AlreadyAddRefed.h"
 #include "nsIOutputStream.h"
+#include "nsISupports.h"
+#include "nsString.h"
+
+class nsIInputStream;
 
 namespace mozilla {
 namespace dom {
@@ -35,7 +41,7 @@ class MemoryOutputStream final : public nsIOutputStream {
  private:
   MemoryOutputStream() : mOffset(0) {}
 
-  virtual ~MemoryOutputStream() {}
+  virtual ~MemoryOutputStream() = default;
 
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIOUTPUTSTREAM

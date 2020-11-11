@@ -44,7 +44,7 @@ nsresult GetPermissionState(nsIPrincipal* aPrincipal,
   }
   uint32_t permission = nsIPermissionManager::UNKNOWN_ACTION;
   nsresult rv = permManager->TestExactPermissionFromPrincipal(
-      aPrincipal, "desktop-notification", &permission);
+      aPrincipal, "desktop-notification"_ns, &permission);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -58,38 +58,6 @@ nsresult GetPermissionState(nsIPrincipal* aPrincipal,
     aState = PushPermissionState::Prompt;
   }
 
-  return NS_OK;
-}
-
-// A helper class that frees an `nsIPushSubscription` key buffer when it
-// goes out of scope.
-class MOZ_RAII AutoFreeKeyBuffer final {
-  uint8_t** mKeyBuffer;
-
- public:
-  explicit AutoFreeKeyBuffer(uint8_t** aKeyBuffer) : mKeyBuffer(aKeyBuffer) {
-    MOZ_ASSERT(mKeyBuffer);
-  }
-
-  ~AutoFreeKeyBuffer() { free(*mKeyBuffer); }
-};
-
-// Copies a subscription key buffer into an array.
-nsresult CopySubscriptionKeyToArray(nsIPushSubscription* aSubscription,
-                                    const nsAString& aKeyName,
-                                    nsTArray<uint8_t>& aKey) {
-  uint8_t* keyBuffer = nullptr;
-  AutoFreeKeyBuffer autoFree(&keyBuffer);
-
-  uint32_t keyLen;
-  nsresult rv = aSubscription->GetKey(aKeyName, &keyLen, &keyBuffer);
-  if (NS_FAILED(rv)) {
-    return rv;
-  }
-  if (!aKey.SetCapacity(keyLen, fallible) ||
-      !aKey.InsertElementsAt(0, keyBuffer, keyLen, fallible)) {
-    return NS_ERROR_OUT_OF_MEMORY;
-  }
   return NS_OK;
 }
 
@@ -107,18 +75,15 @@ nsresult GetSubscriptionParams(nsIPushSubscription* aSubscription,
     return rv;
   }
 
-  rv = CopySubscriptionKeyToArray(aSubscription, NS_LITERAL_STRING("p256dh"),
-                                  aRawP256dhKey);
+  rv = aSubscription->GetKey(u"p256dh"_ns, aRawP256dhKey);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
-  rv = CopySubscriptionKeyToArray(aSubscription, NS_LITERAL_STRING("auth"),
-                                  aAuthSecret);
+  rv = aSubscription->GetKey(u"auth"_ns, aAuthSecret);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
-  rv = CopySubscriptionKeyToArray(aSubscription, NS_LITERAL_STRING("appServer"),
-                                  aAppServerKey);
+  rv = aSubscription->GetKey(u"appServer"_ns, aAppServerKey);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -129,7 +94,7 @@ nsresult GetSubscriptionParams(nsIPushSubscription* aSubscription,
 class GetSubscriptionResultRunnable final : public WorkerRunnable {
  public:
   GetSubscriptionResultRunnable(WorkerPrivate* aWorkerPrivate,
-                                already_AddRefed<PromiseWorkerProxy>&& aProxy,
+                                RefPtr<PromiseWorkerProxy>&& aProxy,
                                 nsresult aStatus, const nsAString& aEndpoint,
                                 const nsAString& aScope,
                                 nsTArray<uint8_t>&& aRawP256dhKey,
@@ -167,7 +132,7 @@ class GetSubscriptionResultRunnable final : public WorkerRunnable {
   }
 
  private:
-  ~GetSubscriptionResultRunnable() {}
+  ~GetSubscriptionResultRunnable() = default;
 
   RefPtr<PromiseWorkerProxy> mProxy;
   nsresult mStatus;
@@ -206,10 +171,12 @@ class GetSubscriptionCallback final : public nsIPushSubscriptionCallback {
 
     WorkerPrivate* worker = mProxy->GetWorkerPrivate();
     RefPtr<GetSubscriptionResultRunnable> r = new GetSubscriptionResultRunnable(
-        worker, mProxy.forget(), aStatus, endpoint, mScope,
+        worker, std::move(mProxy), aStatus, endpoint, mScope,
         std::move(rawP256dhKey), std::move(authSecret),
         std::move(appServerKey));
-    MOZ_ALWAYS_TRUE(r->Dispatch());
+    if (!r->Dispatch()) {
+      return NS_ERROR_UNEXPECTED;
+    }
 
     return NS_OK;
   }
@@ -220,7 +187,7 @@ class GetSubscriptionCallback final : public nsIPushSubscriptionCallback {
   }
 
  protected:
-  ~GetSubscriptionCallback() {}
+  ~GetSubscriptionCallback() = default;
 
  private:
   RefPtr<PromiseWorkerProxy> mProxy;
@@ -290,9 +257,8 @@ class GetSubscriptionRunnable final : public Runnable {
       if (mAppServerKey.IsEmpty()) {
         rv = service->Subscribe(mScope, principal, callback);
       } else {
-        rv =
-            service->SubscribeWithKey(mScope, principal, mAppServerKey.Length(),
-                                      mAppServerKey.Elements(), callback);
+        rv = service->SubscribeWithKey(mScope, principal, mAppServerKey,
+                                       callback);
       }
     } else {
       MOZ_ASSERT(mAction == PushManager::GetSubscriptionAction);
@@ -308,7 +274,7 @@ class GetSubscriptionRunnable final : public Runnable {
   }
 
  private:
-  ~GetSubscriptionRunnable() {}
+  ~GetSubscriptionRunnable() = default;
 
   RefPtr<PromiseWorkerProxy> mProxy;
   nsString mScope;
@@ -335,7 +301,7 @@ class PermissionResultRunnable final : public WorkerRunnable {
     if (NS_SUCCEEDED(mStatus)) {
       promise->MaybeResolve(mState);
     } else {
-      promise->MaybeReject(aCx, JS::UndefinedHandleValue);
+      promise->MaybeRejectWithUndefined();
     }
 
     mProxy->CleanUp();
@@ -344,7 +310,7 @@ class PermissionResultRunnable final : public WorkerRunnable {
   }
 
  private:
-  ~PermissionResultRunnable() {}
+  ~PermissionResultRunnable() = default;
 
   RefPtr<PromiseWorkerProxy> mProxy;
   nsresult mStatus;
@@ -376,7 +342,7 @@ class PermissionStateRunnable final : public Runnable {
   }
 
  private:
-  ~PermissionStateRunnable() {}
+  ~PermissionStateRunnable() = default;
 
   RefPtr<PromiseWorkerProxy> mProxy;
 };
@@ -399,7 +365,7 @@ PushManager::PushManager(const nsAString& aScope) : mScope(aScope) {
 #endif
 }
 
-PushManager::~PushManager() {}
+PushManager::~PushManager() = default;
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(PushManager, mGlobal, mImpl)
 NS_IMPL_CYCLE_COLLECTING_ADDREF(PushManager)
@@ -473,7 +439,7 @@ already_AddRefed<Promise> PushManager::PermissionState(
 
   RefPtr<PromiseWorkerProxy> proxy = PromiseWorkerProxy::Create(worker, p);
   if (!proxy) {
-    p->MaybeReject(worker->GetJSContext(), JS::UndefinedHandleValue);
+    p->MaybeRejectWithUndefined();
     return p.forget();
   }
 

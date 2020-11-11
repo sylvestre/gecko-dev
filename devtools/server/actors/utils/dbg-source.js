@@ -60,7 +60,8 @@ function getSourceLineOffsets(source) {
 
     // Calculate the end codepoint offset.
     let end = offset;
-    for (const c of line) { // eslint-disable-line no-unused-vars
+    // eslint-disable-next-line no-unused-vars
+    for (const c of line) {
       end++;
     }
     const textEnd = end;
@@ -77,3 +78,20 @@ function getSourceLineOffsets(source) {
   SOURCE_OFFSETS.set(source, offsets);
   return offsets;
 }
+
+/**
+ * Given a target actor and a source platform internal ID,
+ * return the related SourceActor ID.
+
+ * @param TargetActor targetActor
+ *        The Target Actor from which this source originates.
+ * @param String id
+ *        Platform Source ID
+ * @return String
+ *         The SourceActor ID
+ */
+function getActorIdForInternalSourceId(targetActor, id) {
+  const actor = targetActor.sourcesManager.getSourceActorByInternalSourceId(id);
+  return actor ? actor.actorID : null;
+}
+exports.getActorIdForInternalSourceId = getActorIdForInternalSourceId;

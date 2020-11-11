@@ -69,14 +69,9 @@ NativeT CastQueryValueToInt(GLenum pname, QueryT value)
 
 }  // anonymous namespace
 
-// ES 3.10 Section 2.2.2
-// When querying bitmasks(such as SAMPLE_MASK_VALUE or STENCIL_WRITEMASK) with GetIntegerv, the
-// mask value is treated as a signed integer, so that mask values with the high bit set will not be
-// clamped when returned as signed integers.
-GLint CastMaskValue(const Context *context, GLuint value)
+GLint CastMaskValue(GLuint value)
 {
-    return (context->getClientVersion() >= Version(3, 1) ? static_cast<GLint>(value)
-                                                         : clampCast<GLint>(value));
+    return clampCast<GLint>(value);
 }
 
 template <typename QueryT, typename InternalT>
@@ -89,6 +84,7 @@ template GLfloat CastFromGLintStateValue<GLfloat, GLenum>(GLenum pname, GLenum v
 template GLint CastFromGLintStateValue<GLint, GLenum>(GLenum pname, GLenum value);
 template GLint64 CastFromGLintStateValue<GLint64, GLenum>(GLenum pname, GLenum value);
 template GLuint CastFromGLintStateValue<GLuint, GLenum>(GLenum pname, GLenum value);
+template GLuint CastFromGLintStateValue<GLuint, GLint>(GLenum pname, GLint value);
 template GLfloat CastFromGLintStateValue<GLfloat, GLint>(GLenum pname, GLint value);
 template GLint CastFromGLintStateValue<GLint, GLint>(GLenum pname, GLint value);
 template GLfloat CastFromGLintStateValue<GLfloat, bool>(GLenum pname, bool value);
@@ -121,8 +117,10 @@ template GLint CastFromStateValue<GLint, GLint64>(GLenum pname, GLint64 value);
 template GLint64 CastFromStateValue<GLint64, GLint>(GLenum pname, GLint value);
 template GLint64 CastFromStateValue<GLint64, GLint64>(GLenum pname, GLint64 value);
 template GLfloat CastFromStateValue<GLfloat, GLint>(GLenum pname, GLint value);
+template GLfloat CastFromStateValue<GLfloat, GLuint>(GLenum pname, GLuint value);
 template GLfloat CastFromStateValue<GLfloat, GLfloat>(GLenum pname, GLfloat value);
 template GLint CastFromStateValue<GLint, GLfloat>(GLenum pname, GLfloat value);
+template GLuint CastFromStateValue<GLuint, GLfloat>(GLenum pname, GLfloat value);
 template GLuint CastFromStateValue<GLuint, GLint>(GLenum pname, GLint value);
 template GLuint CastFromStateValue<GLuint, GLuint>(GLenum pname, GLuint value);
 template GLint CastFromStateValue<GLint, GLboolean>(GLenum pname, GLboolean value);
@@ -156,9 +154,12 @@ NativeT CastQueryValueTo(GLenum pname, QueryT value)
 template GLint CastQueryValueTo<GLint, GLfloat>(GLenum pname, GLfloat value);
 template GLboolean CastQueryValueTo<GLboolean, GLint>(GLenum pname, GLint value);
 template GLint CastQueryValueTo<GLint, GLint>(GLenum pname, GLint value);
+template GLint CastQueryValueTo<GLint, GLuint>(GLenum pname, GLuint value);
 template GLfloat CastQueryValueTo<GLfloat, GLint>(GLenum pname, GLint value);
+template GLfloat CastQueryValueTo<GLfloat, GLuint>(GLenum pname, GLuint value);
 template GLfloat CastQueryValueTo<GLfloat, GLfloat>(GLenum pname, GLfloat value);
 template GLuint CastQueryValueTo<GLuint, GLint>(GLenum pname, GLint value);
+template GLuint CastQueryValueTo<GLuint, GLuint>(GLenum pname, GLuint value);
 template GLuint CastQueryValueTo<GLuint, GLfloat>(GLenum pname, GLfloat value);
 
 template <typename QueryT>
@@ -296,4 +297,4 @@ template void CastIndexedStateValues<GLint64>(Context *,
                                               GLuint index,
                                               unsigned int,
                                               GLint64 *);
-}
+}  // namespace gl

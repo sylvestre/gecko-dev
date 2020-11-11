@@ -4,25 +4,25 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef mozilla_dom_SVGFEImageElement_h
-#define mozilla_dom_SVGFEImageElement_h
+#ifndef DOM_SVG_SVGFEIMAGEELEMENT_H_
+#define DOM_SVG_SVGFEIMAGEELEMENT_H_
 
-#include "nsSVGFilters.h"
+#include "mozilla/dom/SVGFilters.h"
 #include "SVGAnimatedPreserveAspectRatio.h"
-
-class SVGFEImageFrame;
 
 nsresult NS_NewSVGFEImageElement(
     nsIContent** aResult, already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo);
 
 namespace mozilla {
+class SVGFEImageFrame;
+
 namespace dom {
 
-typedef nsSVGFE SVGFEImageElementBase;
+using SVGFEImageElementBase = SVGFE;
 
 class SVGFEImageElement final : public SVGFEImageElementBase,
                                 public nsImageLoadingContent {
-  friend class ::SVGFEImageFrame;
+  friend class mozilla::SVGFEImageFrame;
 
  protected:
   friend nsresult(::NS_NewSVGFEImageElement(
@@ -44,12 +44,12 @@ class SVGFEImageElement final : public SVGFEImageElementBase,
   virtual void AsyncEventRunning(AsyncEventDispatcher* aEvent) override;
 
   virtual FilterPrimitiveDescription GetPrimitiveDescription(
-      nsSVGFilterInstance* aInstance, const IntRect& aFilterSubregion,
+      SVGFilterInstance* aInstance, const IntRect& aFilterSubregion,
       const nsTArray<bool>& aInputsAreTainted,
       nsTArray<RefPtr<SourceSurface>>& aInputImages) override;
   virtual bool AttributeAffectsRendering(int32_t aNameSpaceID,
                                          nsAtom* aAttribute) const override;
-  virtual nsSVGString& GetResultImageName() override {
+  virtual SVGAnimatedString& GetResultImageName() override {
     return mStringAttributes[RESULT];
   }
   virtual bool OutputIsTainted(const nsTArray<bool>& aInputsAreTainted,
@@ -65,13 +65,12 @@ class SVGFEImageElement final : public SVGFEImageElementBase,
                                 const nsAttrValue* aOldValue,
                                 nsIPrincipal* aSubjectPrincipal,
                                 bool aNotify) override;
-  virtual nsresult BindToTree(nsIDocument* aDocument, nsIContent* aParent,
-                              nsIContent* aBindingParent) override;
-  virtual void UnbindFromTree(bool aDeep, bool aNullParent) override;
+  virtual nsresult BindToTree(BindContext&, nsINode& aParent) override;
+  virtual void UnbindFromTree(bool aNullParent) override;
   virtual EventStates IntrinsicState() const override;
+  virtual void DestroyContent() override;
 
-  NS_IMETHOD Notify(imgIRequest* aRequest, int32_t aType,
-                    const nsIntRect* aData) override;
+  NS_DECL_IMGINOTIFICATIONOBSERVER
 
   // Override for nsIImageLoadingContent.
   NS_IMETHOD_(void) FrameCreated(nsIFrame* aFrame) override;
@@ -79,23 +78,25 @@ class SVGFEImageElement final : public SVGFEImageElementBase,
   void MaybeLoadSVGImage();
 
   // WebIDL
-  already_AddRefed<SVGAnimatedString> Href();
+  already_AddRefed<DOMSVGAnimatedString> Href();
   already_AddRefed<DOMSVGAnimatedPreserveAspectRatio> PreserveAspectRatio();
 
  private:
   nsresult LoadSVGImage(bool aForce, bool aNotify);
+  bool ShouldLoadImage() const;
 
  protected:
   virtual bool ProducesSRGB() override { return true; }
 
-  virtual SVGAnimatedPreserveAspectRatio* GetPreserveAspectRatio() override;
+  virtual SVGAnimatedPreserveAspectRatio* GetAnimatedPreserveAspectRatio()
+      override;
   virtual StringAttributesInfo GetStringInfo() override;
 
   // Override for nsImageLoadingContent.
   nsIContent* AsContent() override { return this; }
 
   enum { RESULT, HREF, XLINK_HREF };
-  nsSVGString mStringAttributes[3];
+  SVGAnimatedString mStringAttributes[3];
   static StringInfo sStringInfo[3];
 
   SVGAnimatedPreserveAspectRatio mPreserveAspectRatio;
@@ -105,4 +106,4 @@ class SVGFEImageElement final : public SVGFEImageElementBase,
 }  // namespace dom
 }  // namespace mozilla
 
-#endif
+#endif  // DOM_SVG_SVGFEIMAGEELEMENT_H_

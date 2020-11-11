@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 const path = require("path");
 
 const PATHS = {
@@ -44,17 +48,147 @@ module.exports = function(config) {
     reporters: [
       "coverage-istanbul", // require("karma-coverage")
       "mocha", // require("karma-mocha-reporter")
+
+      // for bin/try-runner.js to parse the output easily
+      "json", // require("karma-json-reporter")
     ],
+    jsonReporter: {
+      // So this doesn't get interleaved with other karma output
+      stdout: false,
+      outputFile: path.join("logs", "karma-run-results.json"),
+    },
     coverageIstanbulReporter: {
       reports: ["html", "text-summary"],
       dir: PATHS.coverageReportingPath,
       // This will make karma fail if coverage reporting is less than the minimums here
       thresholds: !isTDD && {
-        global: {
+        each: {
           statements: 100,
           lines: 100,
           functions: 100,
-          branches: 90,
+          branches: 66,
+          overrides: {
+            "lib/AboutPreferences.jsm": {
+              statements: 98,
+              lines: 98,
+              functions: 100,
+              branches: 66,
+            },
+            "lib/ASRouter.jsm": {
+              statements: 75,
+              lines: 75,
+              functions: 64,
+              branches: 66,
+            },
+            "lib/ASRouterDefaultConfig.jsm": {
+              statements: 0,
+              lines: 0,
+              functions: 0,
+              branches: 0,
+            },
+            "content-src/asrouter/asrouter-utils.js": {
+              statements: 66,
+              lines: 66,
+              functions: 100,
+              branches: 63,
+            },
+            "lib/TelemetryFeed.jsm": {
+              statements: 99,
+              lines: 99,
+              functions: 100,
+              branches: 96,
+            },
+            "lib/ASRouterParentProcessMessageHandler.jsm": {
+              statements: 98,
+              lines: 98,
+              functions: 100,
+              branches: 88,
+            },
+            "content-src/lib/init-store.js": {
+              statements: 98,
+              lines: 98,
+              functions: 100,
+              branches: 100,
+            },
+            "lib/ActivityStreamStorage.jsm": {
+              statements: 100,
+              lines: 100,
+              functions: 100,
+              branches: 83,
+            },
+            "lib/PlacesFeed.jsm": {
+              statements: 98,
+              lines: 98,
+              functions: 100,
+              branches: 84,
+            },
+            "lib/UTEventReporting.jsm": {
+              statements: 100,
+              lines: 100,
+              functions: 100,
+              branches: 75,
+            },
+            "lib/TopSitesFeed.jsm": {
+              statements: 75,
+              lines: 75,
+              functions: 80,
+              branches: 60,
+            },
+            "lib/Screenshots.jsm": {
+              statements: 94,
+              lines: 94,
+              functions: 100,
+              branches: 84,
+            },
+            "lib/*.jsm": {
+              statements: 100,
+              lines: 100,
+              functions: 100,
+              branches: 84,
+            },
+            "content-src/components/DiscoveryStreamComponents/**/*.jsx": {
+              statements: 90.48,
+              lines: 90.48,
+              functions: 85.71,
+              branches: 68.75,
+            },
+            "content-src/asrouter/**/*.jsx": {
+              statements: 57,
+              lines: 58,
+              functions: 60,
+              branches: 50,
+            },
+            "content-src/components/ASRouterAdmin/*.jsx": {
+              statements: 0,
+              lines: 0,
+              functions: 0,
+              branches: 0,
+            },
+            "content-src/lib/aboutwelcome-utils.js": {
+              statements: 50,
+              lines: 50,
+              functions: 100,
+              branches: 0,
+            },
+            "content-src/lib/link-menu-options.js": {
+              statements: 96,
+              lines: 96,
+              functions: 96,
+              branches: 70,
+            },
+            "content-src/aboutwelcome/**/*.jsx": {
+              statements: 50,
+              lines: 50,
+              functions: 76,
+              branches: 0,
+            },
+            "content-src/components/**/*.jsx": {
+              statements: 51.1,
+              lines: 52.38,
+              functions: 31.2,
+              branches: 31.2,
+            },
+          },
         },
       },
     },
@@ -64,14 +198,13 @@ module.exports = function(config) {
       mode: "none",
       devtool: "inline-source-map",
       // This loader allows us to override required files in tests
-      resolveLoader: {alias: {inject: path.join(__dirname, "loaders/inject-loader")}},
+      resolveLoader: {
+        alias: { inject: path.join(__dirname, "loaders/inject-loader") },
+      },
       // This resolve config allows us to import with paths relative to the root directory, e.g. "lib/ActivityStream.jsm"
       resolve: {
         extensions: [".js", ".jsx"],
-        modules: [
-          PATHS.moduleResolveDirectory,
-          "node_modules",
-        ],
+        modules: [PATHS.moduleResolveDirectory, "node_modules"],
       },
       externals: {
         // enzyme needs these for backwards compatibility with 0.13.
@@ -86,42 +219,39 @@ module.exports = function(config) {
           {
             test: /\.jsm$/,
             exclude: [/node_modules/],
-            use: [{
-              loader: "babel-loader", // require("babel-core")
-              options: {
-                plugins: [
-                  // Converts .jsm files into common-js modules
-                  ["jsm-to-commonjs", {basePath: PATHS.resourcePathRegEx, replace: true}], // require("babel-plugin-jsm-to-commonjs")
-                  ["transform-async-to-module-method", {module: "co-task", method: "async"}], // require("babel-plugin-transform-async-to-module-method")
-                  "transform-es2015-modules-commonjs", // require("babel-plugin-transform-es2015-modules-commonjs")
-                  ["transform-object-rest-spread", {"useBuiltIns": true}], // require("babel-plugin-transform-object-rest-spread")
-                ],
+            use: [
+              {
+                loader: "babel-loader", // require("babel-core")
+                options: {
+                  plugins: [
+                    // Converts .jsm files into common-js modules
+                    [
+                      "jsm-to-commonjs",
+                      {
+                        basePath: PATHS.resourcePathRegEx,
+                        removeOtherImports: true,
+                        replace: true,
+                      },
+                    ], // require("babel-plugin-jsm-to-commonjs")
+                    "@babel/plugin-proposal-nullish-coalescing-operator",
+                    "@babel/plugin-proposal-optional-chaining",
+                    "@babel/plugin-proposal-class-properties",
+                  ],
+                },
               },
-            }],
+            ],
           },
           {
             test: /\.js$/,
             exclude: [/node_modules\/(?!(fluent|fluent-react)\/).*/, /test/],
-            use: [{
-              loader: "babel-loader",
-              options: {
-                plugins: [
-                  ["transform-async-to-module-method", {module: "co-task", method: "async"}],
-                  "transform-es2015-modules-commonjs",
-                  ["transform-object-rest-spread", {"useBuiltIns": true}],
-                  ["transform-async-to-generator"],
-                  ["transform-async-generator-functions"],
-                ],
-              },
-            }],
+            loader: "babel-loader",
           },
           {
             test: /\.jsx$/,
             exclude: /node_modules/,
             loader: "babel-loader",
             options: {
-              presets: ["react"], // require("babel-preset-react")
-              plugins: [["transform-object-rest-spread", {"useBuiltIns": true}]],
+              presets: ["@babel/preset-react"],
             },
           },
           {
@@ -130,8 +260,9 @@ module.exports = function(config) {
           },
           {
             enforce: "post",
-            test: /\.jsm?$/,
+            test: /\.js[mx]?$/,
             loader: "istanbul-instrumenter-loader",
+            options: { esModules: true },
             include: [
               path.resolve("content-src"),
               path.resolve("lib"),
@@ -141,7 +272,6 @@ module.exports = function(config) {
               path.resolve("test"),
               path.resolve("vendor"),
               path.resolve("lib/ASRouterTargeting.jsm"),
-              path.resolve("content-src/lib/snippets.js"),
               path.resolve("lib/ASRouterTriggerListeners.jsm"),
               path.resolve("lib/OnboardingMessageProvider.jsm"),
               path.resolve("lib/CFRMessageProvider.jsm"),
@@ -152,6 +282,6 @@ module.exports = function(config) {
       },
     },
     // Silences some overly-verbose logging of individual module builds
-    webpackMiddleware: {noInfo: true},
+    webpackMiddleware: { noInfo: true },
   });
 };

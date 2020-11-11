@@ -7,10 +7,10 @@
 
 #include "cairo.h"
 #ifdef CAIRO_HAS_QUARTZ_SURFACE
-#include "cairo-quartz.h"
+#  include "cairo-quartz.h"
 #endif
 #ifdef CAIRO_HAS_WIN32_SURFACE
-#include "cairo-win32.h"
+#  include "cairo-win32.h"
 #endif
 #include "mozilla/gfx/2D.h"
 #include "mozilla/gfx/HelpersCairo.h"
@@ -23,8 +23,7 @@
 // RFC: https://tools.ietf.org/html/rfc2911#section-4.1.2
 #define IPP_JOB_NAME_LIMIT_LENGTH 255
 
-namespace mozilla {
-namespace gfx {
+namespace mozilla::gfx {
 
 PrintTarget::PrintTarget(cairo_surface_t* aCairoSurface, const IntSize& aSize)
     : mCairoSurface(aCairoSurface),
@@ -86,7 +85,7 @@ already_AddRefed<DrawTarget> PrintTarget::MakeDrawTarget(
   }
 
   if (aRecorder) {
-    dt = CreateWrapAndRecordDrawTarget(aRecorder, dt);
+    dt = CreateRecordingDrawTarget(aRecorder, dt);
     if (!dt || !dt->IsValid()) {
       return nullptr;
     }
@@ -135,7 +134,7 @@ already_AddRefed<DrawTarget> PrintTarget::GetReferenceDrawTarget() {
     if (!dt || !dt->IsValid()) {
       return nullptr;
     }
-    mRefDT = dt.forget();
+    mRefDT = std::move(dt);
   }
 
   return do_AddRef(mRefDT);
@@ -163,9 +162,9 @@ void PrintTarget::AdjustPrintJobNameForIPP(const nsAString& aJobName,
   CopyUTF8toUTF16(jobName, aAdjustedJobName);
 }
 
-/* static */ already_AddRefed<DrawTarget>
-PrintTarget::CreateWrapAndRecordDrawTarget(DrawEventRecorder* aRecorder,
-                                           DrawTarget* aDrawTarget) {
+/* static */
+already_AddRefed<DrawTarget> PrintTarget::CreateRecordingDrawTarget(
+    DrawEventRecorder* aRecorder, DrawTarget* aDrawTarget) {
   MOZ_ASSERT(aRecorder);
   MOZ_ASSERT(aDrawTarget);
 
@@ -173,7 +172,8 @@ PrintTarget::CreateWrapAndRecordDrawTarget(DrawEventRecorder* aRecorder,
 
   if (aRecorder) {
     // It doesn't really matter what we pass as the DrawTarget here.
-    dt = gfx::Factory::CreateWrapAndRecordDrawTarget(aRecorder, aDrawTarget);
+    dt = gfx::Factory::CreateRecordingDrawTarget(aRecorder, aDrawTarget,
+                                                 aDrawTarget->GetRect());
   }
 
   if (!dt || !dt->IsValid()) {
@@ -202,5 +202,4 @@ void PrintTarget::RegisterPageDoneCallback(PageDoneCallback&& aCallback) {
 
 void PrintTarget::UnregisterPageDoneCallback() { mPageDoneCallback = nullptr; }
 
-}  // namespace gfx
-}  // namespace mozilla
+}  // namespace mozilla::gfx

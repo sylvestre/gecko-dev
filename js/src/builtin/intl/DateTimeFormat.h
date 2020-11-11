@@ -15,33 +15,61 @@
 #include "js/RootingAPI.h"
 #include "vm/NativeObject.h"
 
-namespace js {
+using UDateFormat = void*;
+struct UDateIntervalFormat;
 
-class FreeOp;
-class GlobalObject;
+namespace js {
 
 class DateTimeFormatObject : public NativeObject {
  public:
-  static const Class class_;
+  static const JSClass class_;
+  static const JSClass& protoClass_;
 
   static constexpr uint32_t INTERNALS_SLOT = 0;
   static constexpr uint32_t UDATE_FORMAT_SLOT = 1;
-  static constexpr uint32_t SLOT_COUNT = 2;
+  static constexpr uint32_t UDATE_INTERVAL_FORMAT_SLOT = 2;
+  static constexpr uint32_t SLOT_COUNT = 3;
 
   static_assert(INTERNALS_SLOT == INTL_INTERNALS_OBJECT_SLOT,
                 "INTERNALS_SLOT must match self-hosting define for internals "
                 "object slot");
 
+  // Estimated memory use for UDateFormat (see IcuMemoryUsage).
+  static constexpr size_t UDateFormatEstimatedMemoryUse = 91922;
+
+  // Estimated memory use for UDateIntervalFormat (see IcuMemoryUsage).
+  static constexpr size_t UDateIntervalFormatEstimatedMemoryUse = 119856;
+
+  UDateFormat* getDateFormat() const {
+    const auto& slot = getFixedSlot(UDATE_FORMAT_SLOT);
+    if (slot.isUndefined()) {
+      return nullptr;
+    }
+    return static_cast<UDateFormat*>(slot.toPrivate());
+  }
+
+  void setDateFormat(UDateFormat* dateFormat) {
+    setFixedSlot(UDATE_FORMAT_SLOT, PrivateValue(dateFormat));
+  }
+
+  UDateIntervalFormat* getDateIntervalFormat() const {
+    const auto& slot = getFixedSlot(UDATE_INTERVAL_FORMAT_SLOT);
+    if (slot.isUndefined()) {
+      return nullptr;
+    }
+    return static_cast<UDateIntervalFormat*>(slot.toPrivate());
+  }
+
+  void setDateIntervalFormat(UDateIntervalFormat* dateIntervalFormat) {
+    setFixedSlot(UDATE_INTERVAL_FORMAT_SLOT, PrivateValue(dateIntervalFormat));
+  }
+
  private:
-  static const ClassOps classOps_;
+  static const JSClassOps classOps_;
+  static const ClassSpec classSpec_;
 
-  static void finalize(FreeOp* fop, JSObject* obj);
+  static void finalize(JSFreeOp* fop, JSObject* obj);
 };
-
-extern JSObject* CreateDateTimeFormatPrototype(
-    JSContext* cx, JS::Handle<JSObject*> Intl, JS::Handle<GlobalObject*> global,
-    JS::MutableHandle<JSObject*> constructor,
-    intl::DateTimeFormatOptions dtfOptions);
 
 /**
  * Returns a new instance of the standard built-in DateTimeFormat constructor.
@@ -52,18 +80,6 @@ extern JSObject* CreateDateTimeFormatPrototype(
  */
 extern MOZ_MUST_USE bool intl_DateTimeFormat(JSContext* cx, unsigned argc,
                                              JS::Value* vp);
-
-/**
- * Returns an object indicating the supported locales for date and time
- * formatting by having a true-valued property for each such locale with the
- * canonicalized language tag as the property name. The object has no
- * prototype.
- *
- * Usage: availableLocales = intl_DateTimeFormat_availableLocales()
- */
-extern MOZ_MUST_USE bool intl_DateTimeFormat_availableLocales(JSContext* cx,
-                                                              unsigned argc,
-                                                              JS::Value* vp);
 
 /**
  * Returns an array with the calendar type identifiers per Unicode
@@ -140,7 +156,7 @@ extern MOZ_MUST_USE bool intl_isDefaultTimeZone(JSContext* cx, unsigned argc,
  * best-fit date-time format pattern corresponding to skeleton for the
  * given locale.
  *
- * Usage: pattern = intl_patternForSkeleton(locale, skeleton)
+ * Usage: pattern = intl_patternForSkeleton(locale, skeleton, hourCycle)
  */
 extern MOZ_MUST_USE bool intl_patternForSkeleton(JSContext* cx, unsigned argc,
                                                  JS::Value* vp);
@@ -149,7 +165,7 @@ extern MOZ_MUST_USE bool intl_patternForSkeleton(JSContext* cx, unsigned argc,
  * Return a pattern in the date-time format pattern language of Unicode
  * Technical Standard 35, Unicode Locale Data Markup Language, for the
  * best-fit date-time style for the given locale.
- * The function takes four arguments:
+ * The function takes six arguments:
  *
  *   locale
  *     BCP47 compliant locale string
@@ -159,6 +175,10 @@ extern MOZ_MUST_USE bool intl_patternForSkeleton(JSContext* cx, unsigned argc,
  *     A string with values: full or long or medium or short, or `undefined`
  *   timeZone
  *     IANA time zone name
+ *   hour12
+ *     A boolean to request hour12 representation, or `undefined`
+ *   hourCycle
+ *     A string with values: h11, h12, h23, or h24, or `undefined`
  *
  * Date and time style categories map to CLDR time/date standard
  * format patterns.
@@ -169,10 +189,20 @@ extern MOZ_MUST_USE bool intl_patternForSkeleton(JSContext* cx, unsigned argc,
  * If `undefined` is passed to `dateStyle` or `timeStyle`, the respective
  * portions of the pattern will not be included in the result.
  *
- * Usage: pattern = intl_patternForStyle(locale, dateStyle, timeStyle, timeZone)
+ * Usage: pattern = intl_patternForStyle(locale, dateStyle, timeStyle, timeZone,
+ *                                       hour12, hourCycle)
  */
 extern MOZ_MUST_USE bool intl_patternForStyle(JSContext* cx, unsigned argc,
                                               JS::Value* vp);
+
+/**
+ * Return a skeleton for the pattern in the date-time format pattern language of
+ * Unicode Technical Standard 35, Unicode Locale Data Markup Language.
+ *
+ * Usage: skeleton = intl_skeletonForPattern(pattern)
+ */
+extern MOZ_MUST_USE bool intl_skeletonForPattern(JSContext* cx, unsigned argc,
+                                                 JS::Value* vp);
 
 /**
  * Returns a String value representing x (which must be a Number value)
@@ -185,6 +215,18 @@ extern MOZ_MUST_USE bool intl_patternForStyle(JSContext* cx, unsigned argc,
  */
 extern MOZ_MUST_USE bool intl_FormatDateTime(JSContext* cx, unsigned argc,
                                              JS::Value* vp);
+
+/**
+ * Returns a String value representing the range between x and y (which both
+ * must be Number values) according to the effective locale and the formatting
+ * options of the given DateTimeFormat.
+ *
+ * Spec: Intl.DateTimeFormat.prototype.formatRange proposal
+ *
+ * Usage: formatted = intl_FormatDateTimeRange(dateTimeFmt, x, y, formatToParts)
+ */
+extern MOZ_MUST_USE bool intl_FormatDateTimeRange(JSContext* cx, unsigned argc,
+                                                  JS::Value* vp);
 
 }  // namespace js
 

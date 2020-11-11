@@ -49,7 +49,7 @@ TestArray.addTest(
     var that = this;
     var alg = {
       get name() {
-        throw "Oh no, no name!";
+        throw new Error("Oh no, no name!");
       },
     };
 
@@ -70,14 +70,14 @@ TestArray.addTest(
 
     function doExport(x) {
       if (!hasKeyFields(x)) {
-        throw "Invalid key; missing field(s)";
+        throw new Error("Invalid key; missing field(s)");
       } else if ((x.algorithm.name != alg) ||
         (x.algorithm.length != 8 * tv.raw.length) ||
         (x.type != "secret") ||
         (!x.extractable) ||
         (x.usages.length != 1) ||
         (x.usages[0] != "encrypt")) {
-        throw "Invalid key: incorrect key data";
+        throw new Error("Invalid key: incorrect key data");
       }
       return crypto.subtle.exportKey("raw", x);
     }
@@ -136,7 +136,7 @@ TestArray.addTest(
 
     function doExport(x) {
       if (!hasKeyFields(x)) {
-        throw "Invalid key; missing field(s)";
+        throw new Error("Invalid key; missing field(s)");
       } else if ((x.algorithm.name != alg.name) ||
         (x.algorithm.hash.name != alg.hash) ||
         (x.algorithm.modulusLength != 512) ||
@@ -145,7 +145,7 @@ TestArray.addTest(
         (!x.extractable) ||
         (x.usages.length != 1) ||
         (x.usages[0] != "sign")) {
-        throw "Invalid key: incorrect key data";
+        throw new Error("Invalid key: incorrect key data");
       }
       return crypto.subtle.exportKey("pkcs8", x);
     }
@@ -183,7 +183,7 @@ TestArray.addTest(
 
     function doExport(x) {
       if (!hasKeyFields(x)) {
-        throw "Invalid key; missing field(s)";
+        throw new Error("Invalid key; missing field(s)");
       } else if ((x.algorithm.name != alg.name) ||
         (x.algorithm.modulusLength != 1024) ||
         (x.algorithm.publicExponent.byteLength != 3) ||
@@ -191,7 +191,7 @@ TestArray.addTest(
         (!x.extractable) ||
         (x.usages.length != 1) ||
         (x.usages[0] != "verify")) {
-        throw "Invalid key: incorrect key data";
+        throw new Error("Invalid key: incorrect key data");
       }
       return crypto.subtle.exportKey("spki", x);
     }
@@ -383,7 +383,36 @@ TestArray.addTest(
 
 // -----------------------------------------------------------------------------
 TestArray.addTest(
-  "Generate a 1024-bit RSA key",
+  "Fail generating an AES key of wrong length",
+  function() {
+    var that = this;
+    var alg = { name: "AES-CBC", length: 64 };
+    crypto.subtle.generateKey(alg, false, ["encrypt"]).then(
+      error(that),
+      complete(that, function(e) {
+        return e.name == "OperationError";
+      })
+    );
+  }
+);
+
+// -----------------------------------------------------------------------------
+TestArray.addTest(
+  "Fail generating a key with bad algorithm argument",
+  function() {
+    var that = this;
+    var alg = { name: "AES", length: 128 };
+    crypto.subtle.generateKey(alg, false, ["encrypt"]).then(
+      error(that),
+      complete(that, function(e) {
+        return e.name == "NotSupportedError";
+      })
+    );
+  }
+);
+
+// -----------------------------------------------------------------------------
+TestArray.addTest(  "Generate a 1024-bit RSA key",
   function() {
     var that = this;
     var alg = {
@@ -1030,10 +1059,9 @@ TestArray.addTest(
   "Ensure that importing an invalid key doesn't crash",
   function() {
     var that = this;
-    // TODO Change the algorithm to "DH" once we support it.
     var alg = {name: "RSA-OAEP", hash: "SHA-1"};
 
-    crypto.subtle.importKey("pkcs8", tv.broken_pkcs8.dh, alg, false, ["decrypt"])
+    crypto.subtle.importKey("pkcs8", tv.broken_pkcs8.rsa, alg, false, ["decrypt"])
       .then(error(that), complete(that));
   }
 );

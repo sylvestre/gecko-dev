@@ -1,7 +1,12 @@
-use byteorder::{BigEndian, ByteOrder};
-use {tables, CharacterSet, Config, STANDARD};
+use crate::{tables, Config};
 
-use std::{error, fmt, str};
+#[cfg(any(feature = "alloc", feature = "std", test))]
+use crate::STANDARD;
+#[cfg(any(feature = "alloc", feature = "std", test))]
+use alloc::vec::Vec;
+use core::fmt;
+#[cfg(any(feature = "std", test))]
+use std::error;
 
 // decode logic operates on chunks of 8 input bytes without padding
 const INPUT_CHUNK_LEN: usize = 8;
@@ -25,6 +30,11 @@ pub enum DecodeError {
     InvalidByte(usize, u8),
     /// The length of the input is invalid.
     InvalidLength,
+    /// The last non-padding input symbol's encoded 6 bits have nonzero bits that will be discarded.
+    /// This is indicative of corrupted or truncated Base64.
+    /// Unlike InvalidByte, which reports symbols that aren't in the alphabet, this error is for
+    /// symbols that are in the alphabet but represent nonsensical encodings.
+    InvalidLastSymbol(usize, u8),
 }
 
 impl fmt::Display for DecodeError {
@@ -34,19 +44,24 @@ impl fmt::Display for DecodeError {
                 write!(f, "Invalid byte {}, offset {}.", byte, index)
             }
             DecodeError::InvalidLength => write!(f, "Encoded text cannot have a 6-bit remainder."),
+            DecodeError::InvalidLastSymbol(index, byte) => {
+                write!(f, "Invalid last symbol {}, offset {}.", byte, index)
+            }
         }
     }
 }
 
+#[cfg(any(feature = "std", test))]
 impl error::Error for DecodeError {
     fn description(&self) -> &str {
         match *self {
             DecodeError::InvalidByte(_, _) => "invalid byte",
             DecodeError::InvalidLength => "invalid length",
+            DecodeError::InvalidLastSymbol(_, _) => "invalid last symbol",
         }
     }
 
-    fn cause(&self) -> Option<&error::Error> {
+    fn cause(&self) -> Option<&dyn error::Error> {
         None
     }
 }
@@ -65,7 +80,8 @@ impl error::Error for DecodeError {
 ///    println!("{:?}", bytes);
 ///}
 ///```
-pub fn decode<T: ?Sized + AsRef<[u8]>>(input: &T) -> Result<Vec<u8>, DecodeError> {
+#[cfg(any(feature = "alloc", feature = "std", test))]
+pub fn decode<T: AsRef<[u8]>>(input: T) -> Result<Vec<u8>, DecodeError> {
     decode_config(input, STANDARD)
 }
 
@@ -85,10 +101,8 @@ pub fn decode<T: ?Sized + AsRef<[u8]>>(input: &T) -> Result<Vec<u8>, DecodeError
 ///    println!("{:?}", bytes_url);
 ///}
 ///```
-pub fn decode_config<T: ?Sized + AsRef<[u8]>>(
-    input: &T,
-    config: Config,
-) -> Result<Vec<u8>, DecodeError> {
+#[cfg(any(feature = "alloc", feature = "std", test))]
+pub fn decode_config<T: AsRef<[u8]>>(input: T, config: Config) -> Result<Vec<u8>, DecodeError> {
     let mut buffer = Vec::<u8>::with_capacity(input.as_ref().len() * 4 / 3);
 
     decode_config_buf(input, config, &mut buffer).map(|_| buffer)
@@ -115,18 +129,13 @@ pub fn decode_config<T: ?Sized + AsRef<[u8]>>(
 ///    println!("{:?}", buffer);
 ///}
 ///```
-pub fn decode_config_buf<T: ?Sized + AsRef<[u8]>>(
-    input: &T,
+#[cfg(any(feature = "alloc", feature = "std", test))]
+pub fn decode_config_buf<T: AsRef<[u8]>>(
+    input: T,
     config: Config,
     buffer: &mut Vec<u8>,
 ) -> Result<(), DecodeError> {
-    let input_copy;
-    let input_bytes = if config.strip_whitespace {
-        input_copy = copy_without_whitespace(input.as_ref());
-        input_copy.as_ref()
-    } else {
-        input.as_ref()
-    };
+    let input_bytes = input.as_ref();
 
     let starting_output_len = buffer.len();
 
@@ -140,7 +149,7 @@ pub fn decode_config_buf<T: ?Sized + AsRef<[u8]>>(
     let bytes_written;
     {
         let buffer_slice = &mut buffer.as_mut_slice()[starting_output_len..];
-        bytes_written = decode_helper(input_bytes, num_chunks, &config.char_set, buffer_slice)?;
+        bytes_written = decode_helper(input_bytes, num_chunks, config, buffer_slice)?;
     }
 
     buffer.truncate(starting_output_len + bytes_written);
@@ -157,25 +166,14 @@ pub fn decode_config_buf<T: ?Sized + AsRef<[u8]>>(
 /// input, rounded up, or in other words `(input_len + 3) / 4 * 3`.
 ///
 /// If the slice is not large enough, this will panic.
-pub fn decode_config_slice<T: ?Sized + AsRef<[u8]>>(
-    input: &T,
+pub fn decode_config_slice<T: AsRef<[u8]>>(
+    input: T,
     config: Config,
     output: &mut [u8],
 ) -> Result<usize, DecodeError> {
-    let input_copy;
-    let input_bytes = if config.strip_whitespace {
-        input_copy = copy_without_whitespace(input.as_ref());
-        input_copy.as_ref()
-    } else {
-        input.as_ref()
-    };
+    let input_bytes = input.as_ref();
 
-    decode_helper(
-        input_bytes,
-        num_chunks(input_bytes),
-        &config.char_set,
-        output,
-    )
+    decode_helper(input_bytes, num_chunks(input_bytes), config, output)
 }
 
 /// Return the number of input chunks (including a possibly partial final chunk) in the input
@@ -183,14 +181,8 @@ fn num_chunks(input: &[u8]) -> usize {
     input
         .len()
         .checked_add(INPUT_CHUNK_LEN - 1)
-        .expect("Overflow when calculating number of chunks in input") / INPUT_CHUNK_LEN
-}
-
-fn copy_without_whitespace(input: &[u8]) -> Vec<u8> {
-    let mut input_copy = Vec::<u8>::with_capacity(input.len());
-    input_copy.extend(input.iter().filter(|b| !b" \n\t\r\x0b\x0c".contains(b)));
-
-    input_copy
+        .expect("Overflow when calculating number of chunks in input")
+        / INPUT_CHUNK_LEN
 }
 
 /// Helper to avoid duplicating num_chunks calculation, which is costly on short inputs.
@@ -202,9 +194,10 @@ fn copy_without_whitespace(input: &[u8]) -> Vec<u8> {
 fn decode_helper(
     input: &[u8],
     num_chunks: usize,
-    char_set: &CharacterSet,
+    config: Config,
     output: &mut [u8],
 ) -> Result<usize, DecodeError> {
+    let char_set = config.char_set;
     let decode_table = char_set.decode_table();
 
     let remainder_len = input.len() % INPUT_CHUNK_LEN;
@@ -321,6 +314,10 @@ fn decode_helper(
         output_index += DECODED_CHUNK_LEN;
     }
 
+    // always have one more (possibly partial) block of 8 input
+    debug_assert!(input.len() - input_index > 1 || input.is_empty());
+    debug_assert!(input.len() - input_index <= 8);
+
     // Stage 4
     // Finally, decode any leftovers that aren't a complete input block of 8 bytes.
     // Use a u64 as a stack-resident 8 byte buffer.
@@ -328,6 +325,7 @@ fn decode_helper(
     let mut morsels_in_leftover = 0;
     let mut padding_bytes = 0;
     let mut first_padding_index: usize = 0;
+    let mut last_symbol = 0_u8;
     let start_of_leftovers = input_index;
     for (i, b) in input[start_of_leftovers..].iter().enumerate() {
         // '=' padding
@@ -343,16 +341,17 @@ fn decode_helper(
 
             if i % 4 < 2 {
                 // Check for case #2.
-                let bad_padding_index = start_of_leftovers + if padding_bytes > 0 {
-                    // If we've already seen padding, report the first padding index.
-                    // This is to be consistent with the faster logic above: it will report an
-                    // error on the first padding character (since it doesn't expect to see
-                    // anything but actual encoded data).
-                    first_padding_index
-                } else {
-                    // haven't seen padding before, just use where we are now
-                    i
-                };
+                let bad_padding_index = start_of_leftovers
+                    + if padding_bytes > 0 {
+                        // If we've already seen padding, report the first padding index.
+                        // This is to be consistent with the faster logic above: it will report an
+                        // error on the first padding character (since it doesn't expect to see
+                        // anything but actual encoded data).
+                        first_padding_index
+                    } else {
+                        // haven't seen padding before, just use where we are now
+                        i
+                    };
                 return Err(DecodeError::InvalidByte(bad_padding_index, *b));
             }
 
@@ -374,6 +373,7 @@ fn decode_helper(
                 0x3D,
             ));
         }
+        last_symbol = *b;
 
         // can use up to 8 * 6 = 48 bits of the u64, if last chunk has no padding.
         // To minimize shifts, pack the leftovers from left to right.
@@ -401,6 +401,17 @@ fn decode_helper(
         ),
     };
 
+    // if there are bits set outside the bits we care about, last symbol encodes trailing bits that
+    // will not be included in the output
+    let mask = !0 >> leftover_bits_ready_to_append;
+    if !config.decode_allow_trailing_bits && (leftover_bits & mask) != 0 {
+        // last morsel is at `morsels_in_leftover` - 1
+        return Err(DecodeError::InvalidLastSymbol(
+            start_of_leftovers + morsels_in_leftover - 1,
+            last_symbol,
+        ));
+    }
+
     let mut leftover_bits_appended_to_buf = 0;
     while leftover_bits_appended_to_buf < leftover_bits_ready_to_append {
         // `as` simply truncates the higher bits, which is what we want here
@@ -412,6 +423,11 @@ fn decode_helper(
     }
 
     Ok(output_index)
+}
+
+#[inline]
+fn write_u64(output: &mut [u8], value: u64) {
+    output[..8].copy_from_slice(&value.to_be_bytes());
 }
 
 /// Decode 8 bytes of input into 6 bytes of output. 8 bytes of output will be written, but only the
@@ -502,7 +518,7 @@ fn decode_chunk(
     }
     accum |= (morsel as u64) << 16;
 
-    BigEndian::write_u64(output, accum);
+    write_u64(output, accum);
 
     Ok(())
 }
@@ -532,14 +548,17 @@ fn decode_chunk_precise(
 
 #[cfg(test)]
 mod tests {
-    extern crate rand;
-
     use super::*;
-    use encode::encode_config_buf;
-    use tests::{assert_encode_sanity, random_config};
+    use crate::{
+        encode::encode_config_buf,
+        encode::encode_config_slice,
+        tests::{assert_encode_sanity, random_config},
+    };
 
-    use self::rand::distributions::{IndependentSample, Range};
-    use self::rand::Rng;
+    use rand::{
+        distributions::{Distribution, Uniform},
+        FromEntropy, Rng,
+    };
 
     #[test]
     fn decode_chunk_precise_writes_only_6_bytes() {
@@ -565,11 +584,10 @@ mod tests {
         let mut decoded_without_prefix = Vec::new();
         let mut prefix = Vec::new();
 
-        let prefix_len_range = Range::new(0, 1000);
-        let input_len_range = Range::new(0, 1000);
-        let line_len_range = Range::new(1, 1000);
+        let prefix_len_range = Uniform::new(0, 1000);
+        let input_len_range = Uniform::new(0, 1000);
 
-        let mut rng = rand::weak_rng();
+        let mut rng = rand::rngs::SmallRng::from_entropy();
 
         for _ in 0..10_000 {
             orig_data.clear();
@@ -578,17 +596,17 @@ mod tests {
             decoded_without_prefix.clear();
             prefix.clear();
 
-            let input_len = input_len_range.ind_sample(&mut rng);
+            let input_len = input_len_range.sample(&mut rng);
 
             for _ in 0..input_len {
                 orig_data.push(rng.gen());
             }
 
-            let config = random_config(&mut rng, &line_len_range);
+            let config = random_config(&mut rng);
             encode_config_buf(&orig_data, config, &mut encoded_data);
-            assert_encode_sanity(&encoded_data, &config, input_len);
+            assert_encode_sanity(&encoded_data, config, input_len);
 
-            let prefix_len = prefix_len_range.ind_sample(&mut rng);
+            let prefix_len = prefix_len_range.sample(&mut rng);
 
             // fill the buf with a prefix
             for _ in 0..prefix_len {
@@ -623,10 +641,9 @@ mod tests {
         let mut decode_buf = Vec::new();
         let mut decode_buf_copy: Vec<u8> = Vec::new();
 
-        let input_len_range = Range::new(0, 1000);
-        let line_len_range = Range::new(1, 1000);
+        let input_len_range = Uniform::new(0, 1000);
 
-        let mut rng = rand::weak_rng();
+        let mut rng = rand::rngs::SmallRng::from_entropy();
 
         for _ in 0..10_000 {
             orig_data.clear();
@@ -634,15 +651,15 @@ mod tests {
             decode_buf.clear();
             decode_buf_copy.clear();
 
-            let input_len = input_len_range.ind_sample(&mut rng);
+            let input_len = input_len_range.sample(&mut rng);
 
             for _ in 0..input_len {
                 orig_data.push(rng.gen());
             }
 
-            let config = random_config(&mut rng, &line_len_range);
+            let config = random_config(&mut rng);
             encode_config_buf(&orig_data, config, &mut encoded_data);
-            assert_encode_sanity(&encoded_data, &config, input_len);
+            assert_encode_sanity(&encoded_data, config, input_len);
 
             // fill the buffer with random garbage, long enough to have some room before and after
             for _ in 0..5000 {
@@ -677,25 +694,24 @@ mod tests {
         let mut encoded_data = String::new();
         let mut decode_buf = Vec::new();
 
-        let input_len_range = Range::new(0, 1000);
-        let line_len_range = Range::new(1, 1000);
+        let input_len_range = Uniform::new(0, 1000);
 
-        let mut rng = rand::weak_rng();
+        let mut rng = rand::rngs::SmallRng::from_entropy();
 
         for _ in 0..10_000 {
             orig_data.clear();
             encoded_data.clear();
             decode_buf.clear();
 
-            let input_len = input_len_range.ind_sample(&mut rng);
+            let input_len = input_len_range.sample(&mut rng);
 
             for _ in 0..input_len {
                 orig_data.push(rng.gen());
             }
 
-            let config = random_config(&mut rng, &line_len_range);
+            let config = random_config(&mut rng);
             encode_config_buf(&orig_data, config, &mut encoded_data);
-            assert_encode_sanity(&encoded_data, &config, input_len);
+            assert_encode_sanity(&encoded_data, config, input_len);
 
             decode_buf.resize(input_len, 0);
 
@@ -706,5 +722,146 @@ mod tests {
             assert_eq!(orig_data.len(), decode_bytes_written);
             assert_eq!(orig_data, decode_buf);
         }
+    }
+
+    #[test]
+    fn detect_invalid_last_symbol_two_bytes() {
+        let decode =
+            |input, forgiving| decode_config(input, STANDARD.decode_allow_trailing_bits(forgiving));
+
+        // example from https://github.com/marshallpierce/rust-base64/issues/75
+        assert!(decode("iYU=", false).is_ok());
+        // trailing 01
+        assert_eq!(
+            Err(DecodeError::InvalidLastSymbol(2, b'V')),
+            decode("iYV=", false)
+        );
+        assert_eq!(Ok(vec![137, 133]), decode("iYV=", true));
+        // trailing 10
+        assert_eq!(
+            Err(DecodeError::InvalidLastSymbol(2, b'W')),
+            decode("iYW=", false)
+        );
+        assert_eq!(Ok(vec![137, 133]), decode("iYV=", true));
+        // trailing 11
+        assert_eq!(
+            Err(DecodeError::InvalidLastSymbol(2, b'X')),
+            decode("iYX=", false)
+        );
+        assert_eq!(Ok(vec![137, 133]), decode("iYV=", true));
+
+        // also works when there are 2 quads in the last block
+        assert_eq!(
+            Err(DecodeError::InvalidLastSymbol(6, b'X')),
+            decode("AAAAiYX=", false)
+        );
+        assert_eq!(Ok(vec![0, 0, 0, 137, 133]), decode("AAAAiYX=", true));
+    }
+
+    #[test]
+    fn detect_invalid_last_symbol_one_byte() {
+        // 0xFF -> "/w==", so all letters > w, 0-9, and '+', '/' should get InvalidLastSymbol
+
+        assert!(decode("/w==").is_ok());
+        // trailing 01
+        assert_eq!(Err(DecodeError::InvalidLastSymbol(1, b'x')), decode("/x=="));
+        assert_eq!(Err(DecodeError::InvalidLastSymbol(1, b'z')), decode("/z=="));
+        assert_eq!(Err(DecodeError::InvalidLastSymbol(1, b'0')), decode("/0=="));
+        assert_eq!(Err(DecodeError::InvalidLastSymbol(1, b'9')), decode("/9=="));
+        assert_eq!(Err(DecodeError::InvalidLastSymbol(1, b'+')), decode("/+=="));
+        assert_eq!(Err(DecodeError::InvalidLastSymbol(1, b'/')), decode("//=="));
+
+        // also works when there are 2 quads in the last block
+        assert_eq!(
+            Err(DecodeError::InvalidLastSymbol(5, b'x')),
+            decode("AAAA/x==")
+        );
+    }
+
+    #[test]
+    fn detect_invalid_last_symbol_every_possible_three_symbols() {
+        let mut base64_to_bytes = ::std::collections::HashMap::new();
+
+        let mut bytes = [0_u8; 2];
+        for b1 in 0_u16..256 {
+            bytes[0] = b1 as u8;
+            for b2 in 0_u16..256 {
+                bytes[1] = b2 as u8;
+                let mut b64 = vec![0_u8; 4];
+                assert_eq!(4, encode_config_slice(&bytes, STANDARD, &mut b64[..]));
+                let mut v = ::std::vec::Vec::with_capacity(2);
+                v.extend_from_slice(&bytes[..]);
+
+                assert!(base64_to_bytes.insert(b64, v).is_none());
+            }
+        }
+
+        // every possible combination of symbols must either decode to 2 bytes or get InvalidLastSymbol
+
+        let mut symbols = [0_u8; 4];
+        for &s1 in STANDARD.char_set.encode_table().iter() {
+            symbols[0] = s1;
+            for &s2 in STANDARD.char_set.encode_table().iter() {
+                symbols[1] = s2;
+                for &s3 in STANDARD.char_set.encode_table().iter() {
+                    symbols[2] = s3;
+                    symbols[3] = b'=';
+
+                    match base64_to_bytes.get(&symbols[..]) {
+                        Some(bytes) => {
+                            assert_eq!(Ok(bytes.to_vec()), decode_config(&symbols, STANDARD))
+                        }
+                        None => assert_eq!(
+                            Err(DecodeError::InvalidLastSymbol(2, s3)),
+                            decode_config(&symbols[..], STANDARD)
+                        ),
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn detect_invalid_last_symbol_every_possible_two_symbols() {
+        let mut base64_to_bytes = ::std::collections::HashMap::new();
+
+        for b in 0_u16..256 {
+            let mut b64 = vec![0_u8; 4];
+            assert_eq!(4, encode_config_slice(&[b as u8], STANDARD, &mut b64[..]));
+            let mut v = ::std::vec::Vec::with_capacity(1);
+            v.push(b as u8);
+
+            assert!(base64_to_bytes.insert(b64, v).is_none());
+        }
+
+        // every possible combination of symbols must either decode to 1 byte or get InvalidLastSymbol
+
+        let mut symbols = [0_u8; 4];
+        for &s1 in STANDARD.char_set.encode_table().iter() {
+            symbols[0] = s1;
+            for &s2 in STANDARD.char_set.encode_table().iter() {
+                symbols[1] = s2;
+                symbols[2] = b'=';
+                symbols[3] = b'=';
+
+                match base64_to_bytes.get(&symbols[..]) {
+                    Some(bytes) => {
+                        assert_eq!(Ok(bytes.to_vec()), decode_config(&symbols, STANDARD))
+                    }
+                    None => assert_eq!(
+                        Err(DecodeError::InvalidLastSymbol(1, s2)),
+                        decode_config(&symbols[..], STANDARD)
+                    ),
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn decode_imap() {
+        assert_eq!(
+            decode_config(b"+,,+", crate::IMAP_MUTF7),
+            decode_config(b"+//+", crate::STANDARD_NO_PAD)
+        );
     }
 }

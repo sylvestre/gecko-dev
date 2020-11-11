@@ -8,7 +8,6 @@
 #include "MediaContainerType.h"
 #include "nsMimeTypes.h"
 #include "mozilla/Preferences.h"
-#include "mozilla/Telemetry.h"
 
 #include "OggDecoder.h"
 #include "OggDemuxer.h"
@@ -17,11 +16,11 @@
 #include "WebMDemuxer.h"
 
 #ifdef MOZ_ANDROID_HLS_SUPPORT
-#include "HLSDecoder.h"
+#  include "HLSDecoder.h"
 #endif
 #ifdef MOZ_FMP4
-#include "MP4Decoder.h"
-#include "MP4Demuxer.h"
+#  include "MP4Decoder.h"
+#  include "MP4Demuxer.h"
 #endif
 #include "MediaFormatReader.h"
 
@@ -41,8 +40,8 @@
 
 namespace mozilla {
 
-/* static */ bool DecoderTraits::IsHttpLiveStreamingType(
-    const MediaContainerType& aType) {
+/* static */
+bool DecoderTraits::IsHttpLiveStreamingType(const MediaContainerType& aType) {
   const auto& mimeType = aType.Type();
   return  // For m3u8.
           // https://tools.ietf.org/html/draft-pantos-http-live-streaming-19#section-10
@@ -53,16 +52,17 @@ namespace mozilla {
       mimeType == MEDIAMIMETYPE("audio/x-mpegurl");
 }
 
-/* static */ bool DecoderTraits::IsMatroskaType(
-    const MediaContainerType& aType) {
+/* static */
+bool DecoderTraits::IsMatroskaType(const MediaContainerType& aType) {
   const auto& mimeType = aType.Type();
   // https://matroska.org/technical/specs/notes.html
   return mimeType == MEDIAMIMETYPE("audio/x-matroska") ||
          mimeType == MEDIAMIMETYPE("video/x-matroska");
 }
 
-/* static */ bool DecoderTraits::IsMP4SupportedType(
-    const MediaContainerType& aType, DecoderDoctorDiagnostics* aDiagnostics) {
+/* static */
+bool DecoderTraits::IsMP4SupportedType(const MediaContainerType& aType,
+                                       DecoderDoctorDiagnostics* aDiagnostics) {
 #ifdef MOZ_FMP4
   return MP4Decoder::IsSupportedType(aType, aDiagnostics);
 #else
@@ -143,15 +143,17 @@ static CanPlayStatus CanHandleCodecsType(
 
 static CanPlayStatus CanHandleMediaType(
     const MediaContainerType& aType, DecoderDoctorDiagnostics* aDiagnostics) {
+  if (DecoderTraits::IsHttpLiveStreamingType(aType)) {
+    Telemetry::Accumulate(Telemetry::MEDIA_HLS_CANPLAY_REQUESTED, true);
+  }
 #ifdef MOZ_ANDROID_HLS_SUPPORT
   if (HLSDecoder::IsSupportedType(aType)) {
+    Telemetry::Accumulate(Telemetry::MEDIA_HLS_CANPLAY_SUPPORTED, true);
     return CANPLAY_MAYBE;
   }
 #endif
 
-  if (DecoderTraits::IsHttpLiveStreamingType(aType)) {
-    Telemetry::Accumulate(Telemetry::MEDIA_HLS_CANPLAY_REQUESTED, true);
-  } else if (DecoderTraits::IsMatroskaType(aType)) {
+  if (DecoderTraits::IsMatroskaType(aType)) {
     Telemetry::Accumulate(Telemetry::MEDIA_MKV_CANPLAY_REQUESTED, true);
   }
 
@@ -230,33 +232,50 @@ bool DecoderTraits::ShouldHandleMediaType(
 }
 
 /* static */
-MediaFormatReader* DecoderTraits::CreateReader(const MediaContainerType& aType,
-                                               MediaFormatReaderInit& aInit) {
+already_AddRefed<MediaDataDemuxer> DecoderTraits::CreateDemuxer(
+    const MediaContainerType& aType, MediaResource* aResource) {
   MOZ_ASSERT(NS_IsMainThread());
-  MediaFormatReader* decoderReader = nullptr;
-  MediaResource* resource = aInit.mResource;
+  RefPtr<MediaDataDemuxer> demuxer;
 
 #ifdef MOZ_FMP4
   if (MP4Decoder::IsSupportedType(aType,
                                   /* DecoderDoctorDiagnostics* */ nullptr)) {
-    decoderReader = new MediaFormatReader(aInit, new MP4Demuxer(resource));
+    demuxer = new MP4Demuxer(aResource);
   } else
 #endif
       if (MP3Decoder::IsSupportedType(aType)) {
-    decoderReader = new MediaFormatReader(aInit, new MP3Demuxer(resource));
+    demuxer = new MP3Demuxer(aResource);
   } else if (ADTSDecoder::IsSupportedType(aType)) {
-    decoderReader = new MediaFormatReader(aInit, new ADTSDemuxer(resource));
+    demuxer = new ADTSDemuxer(aResource);
   } else if (WaveDecoder::IsSupportedType(aType)) {
-    decoderReader = new MediaFormatReader(aInit, new WAVDemuxer(resource));
+    demuxer = new WAVDemuxer(aResource);
   } else if (FlacDecoder::IsSupportedType(aType)) {
-    decoderReader = new MediaFormatReader(aInit, new FlacDemuxer(resource));
+    demuxer = new FlacDemuxer(aResource);
   } else if (OggDecoder::IsSupportedType(aType)) {
-    RefPtr<OggDemuxer> demuxer = new OggDemuxer(resource);
-    decoderReader = new MediaFormatReader(aInit, demuxer);
-    demuxer->SetChainingEvents(&decoderReader->TimedMetadataProducer(),
-                               &decoderReader->MediaNotSeekableProducer());
+    demuxer = new OggDemuxer(aResource);
   } else if (WebMDecoder::IsSupportedType(aType)) {
-    decoderReader = new MediaFormatReader(aInit, new WebMDemuxer(resource));
+    demuxer = new WebMDemuxer(aResource);
+  }
+
+  return demuxer.forget();
+}
+
+/* static */
+MediaFormatReader* DecoderTraits::CreateReader(const MediaContainerType& aType,
+                                               MediaFormatReaderInit& aInit) {
+  MOZ_ASSERT(NS_IsMainThread());
+
+  RefPtr<MediaDataDemuxer> demuxer = CreateDemuxer(aType, aInit.mResource);
+  if (!demuxer) {
+    return nullptr;
+  }
+
+  MediaFormatReader* decoderReader = new MediaFormatReader(aInit, demuxer);
+
+  if (OggDecoder::IsSupportedType(aType)) {
+    static_cast<OggDemuxer*>(demuxer.get())
+        ->SetChainingEvents(&decoderReader->TimedMetadataProducer(),
+                            &decoderReader->MediaNotSeekableProducer());
   }
 
   return decoderReader;
@@ -314,7 +333,8 @@ bool DecoderTraits::IsSupportedInVideoDocument(const nsACString& aType) {
          false;
 }
 
-/* static */ nsTArray<UniquePtr<TrackInfo>> DecoderTraits::GetTracksInfo(
+/* static */
+nsTArray<UniquePtr<TrackInfo>> DecoderTraits::GetTracksInfo(
     const MediaContainerType& aType) {
   // Container type with just the MIME type/subtype, no codecs.
   const MediaContainerType mimeType(aType.Type());

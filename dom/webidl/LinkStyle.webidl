@@ -7,8 +7,7 @@
  * http://dev.w3.org/csswg/cssom/#the-linkstyle-interface
  */
 
-[NoInterfaceObject]
-interface LinkStyle {
-      readonly attribute StyleSheet? sheet;
+interface mixin LinkStyle {
+  [BinaryName="sheetForBindings"] readonly attribute StyleSheet? sheet;
 };
 

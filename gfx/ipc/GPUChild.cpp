@@ -5,27 +5,29 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 #include "GPUChild.h"
 #include "gfxConfig.h"
-#include "gfxPrefs.h"
+#include "GfxInfoBase.h"
+#include "gfxPlatform.h"
 #include "GPUProcessHost.h"
 #include "GPUProcessManager.h"
 #include "VRProcessManager.h"
+#include "mozilla/StaticPrefs_dom.h"
 #include "mozilla/Telemetry.h"
 #include "mozilla/TelemetryIPC.h"
 #include "mozilla/dom/CheckerboardReportService.h"
 #include "mozilla/dom/MemoryReportRequest.h"
 #include "mozilla/gfx/gfxVars.h"
 #if defined(XP_WIN)
-#include "mozilla/gfx/DeviceManagerDx.h"
+#  include "mozilla/gfx/DeviceManagerDx.h"
 #endif
-#include "mozilla/ipc/CrashReporterHost.h"
 #include "mozilla/layers/APZInputBridgeChild.h"
 #include "mozilla/layers/LayerTreeOwnerTracker.h"
 #include "mozilla/Unused.h"
 #include "mozilla/HangDetails.h"
+#include "nsIGfxInfo.h"
 #include "nsIObserverService.h"
 
 #ifdef MOZ_GECKO_PROFILER
-#include "ProfilerParent.h"
+#  include "ProfilerParent.h"
 #endif
 
 namespace mozilla {
@@ -40,22 +42,6 @@ GPUChild::GPUChild(GPUProcessHost* aHost) : mHost(aHost), mGPUReady(false) {
 GPUChild::~GPUChild() { MOZ_COUNT_DTOR(GPUChild); }
 
 void GPUChild::Init() {
-  // Build a list of prefs the GPU process will need. Note that because we
-  // limit the GPU process to prefs contained in gfxPrefs, we can simplify
-  // the message in two ways: one, we only need to send its index in gfxPrefs
-  // rather than its name, and two, we only need to send prefs that don't
-  // have their default value.
-  nsTArray<GfxPrefSetting> prefs;
-  for (auto pref : gfxPrefs::all()) {
-    if (pref->HasDefaultValue()) {
-      continue;
-    }
-
-    GfxPrefValue value;
-    pref->GetCachedValue(&value);
-    prefs.AppendElement(GfxPrefSetting(pref->Index(), value));
-  }
-
   nsTArray<GfxVarUpdate> updates = gfxVars::FetchNonDefaultVars();
 
   DevicePrefs devicePrefs;
@@ -66,6 +52,8 @@ void GPUChild::Init() {
       gfxConfig::GetValue(Feature::OPENGL_COMPOSITING);
   devicePrefs.advancedLayers() = gfxConfig::GetValue(Feature::ADVANCED_LAYERS);
   devicePrefs.useD2D1() = gfxConfig::GetValue(Feature::DIRECT2D);
+  devicePrefs.webGPU() = gfxConfig::GetValue(Feature::WEBGPU);
+  devicePrefs.d3d11HwAngle() = gfxConfig::GetValue(Feature::D3D11_HW_ANGLE);
 
   nsTArray<LayerTreeIdMapping> mappings;
   LayerTreeOwnerTracker::Get()->Iterate(
@@ -73,7 +61,14 @@ void GPUChild::Init() {
         mappings.AppendElement(LayerTreeIdMapping(aLayersId, aProcessId));
       });
 
-  SendInit(prefs, updates, devicePrefs, mappings);
+  nsCOMPtr<nsIGfxInfo> gfxInfo = services::GetGfxInfo();
+  nsTArray<GfxInfoFeatureStatus> features;
+  if (gfxInfo) {
+    auto* gfxInfoRaw = static_cast<widget::GfxInfoBase*>(gfxInfo.get());
+    features = gfxInfoRaw->GetAllFeatures();
+  }
+
+  SendInit(updates, devicePrefs, mappings, features);
 
   gfxVars::AddReceiver(this);
 
@@ -105,19 +100,6 @@ base::ProcessHandle GPUChild::GetChildProcessHandle() {
   return mHost->GetChildProcessHandle();
 }
 
-PAPZInputBridgeChild* GPUChild::AllocPAPZInputBridgeChild(
-    const LayersId& aLayersId) {
-  APZInputBridgeChild* child = new APZInputBridgeChild();
-  child->AddRef();
-  return child;
-}
-
-bool GPUChild::DeallocPAPZInputBridgeChild(PAPZInputBridgeChild* aActor) {
-  APZInputBridgeChild* child = static_cast<APZInputBridgeChild*>(aActor);
-  child->Release();
-  return true;
-}
-
 mozilla::ipc::IPCResult GPUChild::RecvInitComplete(const GPUDeviceData& aData) {
   // We synchronously requested GPU parameters before this arrived.
   if (mGPUReady) {
@@ -147,18 +129,10 @@ mozilla::ipc::IPCResult GPUChild::RecvGraphicsError(const nsCString& aError) {
   return IPC_OK();
 }
 
-mozilla::ipc::IPCResult GPUChild::RecvInitCrashReporter(
-    Shmem&& aShmem, const NativeThreadId& aThreadId) {
-  mCrashReporter = MakeUnique<ipc::CrashReporterHost>(GeckoProcessType_GPU,
-                                                      aShmem, aThreadId);
-
-  return IPC_OK();
-}
-
 mozilla::ipc::IPCResult GPUChild::RecvCreateVRProcess() {
   // Make sure create VR process at the main process
   MOZ_ASSERT(XRE_IsParentProcess());
-  if (gfxPrefs::VRProcessEnabled()) {
+  if (StaticPrefs::dom_vr_process_enabled_AtStartup()) {
     VRProcessManager::Initialize();
     VRProcessManager* vr = VRProcessManager::Get();
     MOZ_ASSERT(vr, "VRProcessManager must be initialized first.");
@@ -166,6 +140,16 @@ mozilla::ipc::IPCResult GPUChild::RecvCreateVRProcess() {
     if (vr) {
       vr->LaunchVRProcess();
     }
+  }
+
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult GPUChild::RecvShutdownVRProcess() {
+  // Make sure stopping VR process at the main process
+  MOZ_ASSERT(XRE_IsParentProcess());
+  if (StaticPrefs::dom_vr_process_enabled_AtStartup()) {
+    VRProcessManager::Shutdown();
   }
 
   return IPC_OK();
@@ -182,27 +166,27 @@ mozilla::ipc::IPCResult GPUChild::RecvNotifyUiObservers(
 }
 
 mozilla::ipc::IPCResult GPUChild::RecvAccumulateChildHistograms(
-    InfallibleTArray<HistogramAccumulation>&& aAccumulations) {
+    nsTArray<HistogramAccumulation>&& aAccumulations) {
   TelemetryIPC::AccumulateChildHistograms(Telemetry::ProcessID::Gpu,
                                           aAccumulations);
   return IPC_OK();
 }
 
 mozilla::ipc::IPCResult GPUChild::RecvAccumulateChildKeyedHistograms(
-    InfallibleTArray<KeyedHistogramAccumulation>&& aAccumulations) {
+    nsTArray<KeyedHistogramAccumulation>&& aAccumulations) {
   TelemetryIPC::AccumulateChildKeyedHistograms(Telemetry::ProcessID::Gpu,
                                                aAccumulations);
   return IPC_OK();
 }
 
 mozilla::ipc::IPCResult GPUChild::RecvUpdateChildScalars(
-    InfallibleTArray<ScalarAction>&& aScalarActions) {
+    nsTArray<ScalarAction>&& aScalarActions) {
   TelemetryIPC::UpdateChildScalars(Telemetry::ProcessID::Gpu, aScalarActions);
   return IPC_OK();
 }
 
 mozilla::ipc::IPCResult GPUChild::RecvUpdateChildKeyedScalars(
-    InfallibleTArray<KeyedScalarAction>&& aScalarActions) {
+    nsTArray<KeyedScalarAction>&& aScalarActions) {
   TelemetryIPC::UpdateChildKeyedScalars(Telemetry::ProcessID::Gpu,
                                         aScalarActions);
   return IPC_OK();
@@ -230,10 +214,29 @@ mozilla::ipc::IPCResult GPUChild::RecvNotifyDeviceReset(
 bool GPUChild::SendRequestMemoryReport(const uint32_t& aGeneration,
                                        const bool& aAnonymize,
                                        const bool& aMinimizeMemoryUsage,
-                                       const MaybeFileDesc& aDMDFile) {
+                                       const Maybe<FileDescriptor>& aDMDFile) {
   mMemoryReportRequest = MakeUnique<MemoryReportRequestHost>(aGeneration);
-  Unused << PGPUChild::SendRequestMemoryReport(aGeneration, aAnonymize,
-                                               aMinimizeMemoryUsage, aDMDFile);
+
+  PGPUChild::SendRequestMemoryReport(
+      aGeneration, aAnonymize, aMinimizeMemoryUsage, aDMDFile,
+      [&](const uint32_t& aGeneration2) {
+        if (GPUProcessManager* gpm = GPUProcessManager::Get()) {
+          if (GPUChild* child = gpm->GetGPUChild()) {
+            if (child->mMemoryReportRequest) {
+              child->mMemoryReportRequest->Finish(aGeneration2);
+              child->mMemoryReportRequest = nullptr;
+            }
+          }
+        }
+      },
+      [&](mozilla::ipc::ResponseRejectReason) {
+        if (GPUProcessManager* gpm = GPUProcessManager::Get()) {
+          if (GPUChild* child = gpm->GetGPUChild()) {
+            child->mMemoryReportRequest = nullptr;
+          }
+        }
+      });
+
   return true;
 }
 
@@ -245,25 +248,13 @@ mozilla::ipc::IPCResult GPUChild::RecvAddMemoryReport(
   return IPC_OK();
 }
 
-mozilla::ipc::IPCResult GPUChild::RecvFinishMemoryReport(
-    const uint32_t& aGeneration) {
-  if (mMemoryReportRequest) {
-    mMemoryReportRequest->Finish(aGeneration);
-    mMemoryReportRequest = nullptr;
-  }
-  return IPC_OK();
-}
-
 void GPUChild::ActorDestroy(ActorDestroyReason aWhy) {
   if (aWhy == AbnormalShutdown) {
-    if (mCrashReporter) {
-      mCrashReporter->GenerateCrashReport(OtherPid());
-      mCrashReporter = nullptr;
-    }
+    GenerateCrashReport(OtherPid());
 
     Telemetry::Accumulate(
         Telemetry::SUBPROCESS_ABNORMAL_ABORT,
-        nsDependentCString(XRE_ChildProcessTypeToString(GeckoProcessType_GPU)),
+        nsDependentCString(XRE_GeckoProcessTypeToString(GeckoProcessType_GPU)),
         1);
 
     // Notify the Telemetry environment so that we can refresh and do a
@@ -299,7 +290,7 @@ mozilla::ipc::IPCResult GPUChild::RecvBHRThreadHang(
     // XXX: We should be able to avoid this potentially expensive copy here by
     // moving our deserialized argument.
     nsCOMPtr<nsIHangDetails> hangDetails =
-        new nsHangDetails(HangDetails(aDetails));
+        new nsHangDetails(HangDetails(aDetails), PersistedToDisk::No);
     obs->NotifyObservers(hangDetails, "bhr-thread-hang", nullptr);
   }
   return IPC_OK();
@@ -316,7 +307,8 @@ class DeferredDeleteGPUChild : public Runnable {
   UniquePtr<GPUChild> mChild;
 };
 
-/* static */ void GPUChild::Destroy(UniquePtr<GPUChild>&& aChild) {
+/* static */
+void GPUChild::Destroy(UniquePtr<GPUChild>&& aChild) {
   NS_DispatchToMainThread(new DeferredDeleteGPUChild(std::move(aChild)));
 }
 

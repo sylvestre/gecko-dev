@@ -17,6 +17,8 @@ namespace dom {
 class MessagePort;
 
 class MessagePortChild final : public PMessagePortChild {
+  friend class PMessagePortChild;
+
  public:
   NS_INLINE_DECL_REFCOUNTING(MessagePortChild)
 
@@ -27,13 +29,11 @@ class MessagePortChild final : public PMessagePortChild {
  private:
   ~MessagePortChild() { MOZ_ASSERT(!mPort); }
 
-  virtual mozilla::ipc::IPCResult RecvEntangled(
-      nsTArray<ClonedMessageData>&& aMessages) override;
+  mozilla::ipc::IPCResult RecvEntangled(nsTArray<MessageData>&& aMessages);
 
-  virtual mozilla::ipc::IPCResult RecvReceiveData(
-      nsTArray<ClonedMessageData>&& aMessages) override;
+  mozilla::ipc::IPCResult RecvReceiveData(nsTArray<MessageData>&& aMessages);
 
-  virtual mozilla::ipc::IPCResult RecvStopSendingDataConfirmed() override;
+  mozilla::ipc::IPCResult RecvStopSendingDataConfirmed();
 
   virtual void ActorDestroy(ActorDestroyReason aWhy) override;
 

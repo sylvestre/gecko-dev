@@ -5,41 +5,47 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "mozilla/dom/TextEncoder.h"
-#include "mozilla/Encoding.h"
+#include "mozilla/CheckedInt.h"
+#include "mozilla/UniquePtrExtensions.h"
+#include "nsReadableUtils.h"
 
-namespace mozilla {
-namespace dom {
-
-void TextEncoder::Init() {}
+namespace mozilla::dom {
 
 void TextEncoder::Encode(JSContext* aCx, JS::Handle<JSObject*> aObj,
-                         const nsAString& aString,
+                         const nsACString& aUtf8String,
                          JS::MutableHandle<JSObject*> aRetval,
-                         ErrorResult& aRv) {
-  nsAutoCString utf8;
-  nsresult rv;
-  const Encoding* ignored;
-  Tie(rv, ignored) = UTF_8_ENCODING->Encode(aString, utf8);
-  if (NS_FAILED(rv)) {
-    aRv.Throw(rv);
-    return;
-  }
-
+                         OOMReporter& aRv) {
   JSAutoRealm ar(aCx, aObj);
-  JSObject* outView =
-      Uint8Array::Create(aCx, utf8.Length(),
-                         reinterpret_cast<const uint8_t*>(utf8.BeginReading()));
+  JSObject* outView = Uint8Array::Create(aCx, aUtf8String);
   if (!outView) {
-    aRv.Throw(NS_ERROR_OUT_OF_MEMORY);
+    aRv.ReportOOM();
     return;
   }
 
   aRetval.set(outView);
 }
 
-void TextEncoder::GetEncoding(nsAString& aEncoding) {
+void TextEncoder::EncodeInto(JSContext* aCx, JS::Handle<JSString*> aSrc,
+                             const Uint8Array& aDst,
+                             TextEncoderEncodeIntoResult& aResult,
+                             OOMReporter& aError) {
+  aDst.ComputeState();
+  size_t read;
+  size_t written;
+  auto maybe = JS_EncodeStringToUTF8BufferPartial(
+      aCx, aSrc, AsWritableChars(Span(aDst.Data(), aDst.Length())));
+  if (!maybe) {
+    aError.ReportOOM();
+    return;
+  }
+  Tie(read, written) = *maybe;
+  MOZ_ASSERT(written <= aDst.Length());
+  aResult.mRead.Construct() = read;
+  aResult.mWritten.Construct() = written;
+}
+
+void TextEncoder::GetEncoding(nsACString& aEncoding) {
   aEncoding.AssignLiteral("utf-8");
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

@@ -6,31 +6,124 @@
  * and are CC licensed by https://www.flickr.com/photos/legofenris/.
  */
 
-// services required be initialized in order to run CacheStorage
-var ss = Cc['@mozilla.org/storage/service;1']
-         .createInstance(Ci.mozIStorageService);
-var sts = Cc['@mozilla.org/network/stream-transport-service;1']
-          .getService(Ci.nsIStreamTransportService);
-var hash = Cc['@mozilla.org/security/hash;1']
-           .createInstance(Ci.nsICryptoHash);
+// testSteps is expected to be defined by the file including this file.
+/* global testSteps */
 
-// Expose Cache and Fetch symbols on the global
-Cu.importGlobalProperties(['caches', 'File', 'fetch']);
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+
+const NS_APP_USER_PROFILE_50_DIR = "ProfD";
+const osWindowsName = "WINNT";
+const pathDelimiter = "/";
+
+const storageDirName = "storage";
+const defaultPersistenceDirName = "default";
+const cacheClientDirName = "cache";
+
+// services required be initialized in order to run CacheStorage
+var ss = Cc["@mozilla.org/storage/service;1"].createInstance(
+  Ci.mozIStorageService
+);
+var sts = Cc["@mozilla.org/network/stream-transport-service;1"].getService(
+  Ci.nsIStreamTransportService
+);
+var hash = Cc["@mozilla.org/security/hash;1"].createInstance(Ci.nsICryptoHash);
+
+class RequestError extends Error {
+  constructor(resultCode, resultName) {
+    super(`Request failed (code: ${resultCode}, name: ${resultName})`);
+    this.name = "RequestError";
+    this.resultCode = resultCode;
+    this.resultName = resultName;
+  }
+}
+
+function run_test() {
+  runTest();
+}
+
+function runTest() {
+  do_get_profile();
+
+  enableTesting();
+
+  // Expose Cache and Fetch symbols on the global
+  Cu.importGlobalProperties(["caches", "fetch"]);
+
+  Assert.ok(
+    typeof testSteps === "function",
+    "There should be a testSteps function"
+  );
+  Assert.ok(
+    testSteps.constructor.name === "AsyncFunction",
+    "testSteps should be an async function"
+  );
+
+  registerCleanupFunction(resetTesting);
+
+  add_task(testSteps);
+
+  // Since we defined run_test, we must invoke run_next_test() to start the
+  // async test.
+  run_next_test();
+}
+
+function enableTesting() {
+  Services.prefs.setBoolPref("dom.quotaManager.testing", true);
+}
+
+function resetTesting() {
+  Services.prefs.clearUserPref("dom.quotaManager.testing");
+}
+
+function reset() {
+  let request = Services.qms.reset();
+
+  return request;
+}
+
+function clearOrigin(principal) {
+  let request = Services.qms.clearStoragesForPrincipal(principal, "default");
+
+  return request;
+}
+
+function initStorageAndOrigin(principal) {
+  let request = Services.qms.initStorageAndOrigin(
+    principal,
+    "default",
+    "cache"
+  );
+
+  return request;
+}
+
+async function requestFinished(request) {
+  await new Promise(function(resolve) {
+    request.callback = function() {
+      resolve();
+    };
+  });
+
+  if (request.resultCode !== Cr.NS_OK) {
+    throw new RequestError(request.resultCode, request.resultName);
+  }
+
+  return request.result;
+}
 
 // Extract a zip file into the profile
 function create_test_profile(zipFileName) {
-  do_get_profile();
+  var directoryService = Services.dirsvc;
 
-  var directoryService = Cc['@mozilla.org/file/directory_service;1']
-                         .getService(Ci.nsIProperties);
-  var profileDir = directoryService.get('ProfD', Ci.nsIFile);
-  var currentDir = directoryService.get('CurWorkD', Ci.nsIFile);
+  var profileDir = directoryService.get(NS_APP_USER_PROFILE_50_DIR, Ci.nsIFile);
+  var currentDir = directoryService.get("CurWorkD", Ci.nsIFile);
 
   var packageFile = currentDir.clone();
   packageFile.append(zipFileName);
 
-  var zipReader = Cc['@mozilla.org/libjar/zip-reader;1']
-                  .createInstance(Ci.nsIZipReader);
+  var zipReader = Cc["@mozilla.org/libjar/zip-reader;1"].createInstance(
+    Ci.nsIZipReader
+  );
   zipReader.open(packageFile);
 
   var entryNames = Array.from(zipReader.findEntries(null));
@@ -40,21 +133,23 @@ function create_test_profile(zipFileName) {
     var zipentry = zipReader.getEntry(entryName);
 
     var file = profileDir.clone();
-    entryName.split('/').forEach(function(part) {
+    entryName.split(pathDelimiter).forEach(function(part) {
       file.append(part);
     });
 
     if (zipentry.isDirectory) {
-      file.create(Ci.nsIFile.DIRECTORY_TYPE, parseInt('0755', 8));
+      file.create(Ci.nsIFile.DIRECTORY_TYPE, parseInt("0755", 8));
     } else {
       var istream = zipReader.getInputStream(entryName);
 
-      var ostream = Cc['@mozilla.org/network/file-output-stream;1']
-                    .createInstance(Ci.nsIFileOutputStream);
-      ostream.init(file, -1, parseInt('0644', 8), 0);
+      var ostream = Cc[
+        "@mozilla.org/network/file-output-stream;1"
+      ].createInstance(Ci.nsIFileOutputStream);
+      ostream.init(file, -1, parseInt("0644", 8), 0);
 
-      var bostream = Cc['@mozilla.org/network/buffered-output-stream;1']
-                     .createInstance(Ci.nsIBufferedOutputStream);
+      var bostream = Cc[
+        "@mozilla.org/network/buffered-output-stream;1"
+      ].createInstance(Ci.nsIBufferedOutputStream);
       bostream.init(ostream, 32 * 1024);
 
       bostream.writeFrom(istream, istream.available());
@@ -67,18 +162,37 @@ function create_test_profile(zipFileName) {
   zipReader.close();
 }
 
-function getCacheDir()
-{
-  let dirService = Cc["@mozilla.org/file/directory_service;1"]
-                   .getService(Ci.nsIProperties);
-
-  let profileDir = dirService.get("ProfD", Ci.nsIFile);
-  let cacheDir = profileDir.clone();
-  cacheDir.append("storage");
-  cacheDir.append("default");
-  cacheDir.append("chrome");
-  cacheDir.append("cache");
-
-  return cacheDir;
+function getCacheDir() {
+  return getRelativeFile(
+    `${storageDirName}/${defaultPersistenceDirName}/chrome/${cacheClientDirName}`
+  );
 }
 
+function getPrincipal(url, attrs) {
+  let uri = Services.io.newURI(url);
+  if (!attrs) {
+    attrs = {};
+  }
+  return Services.scriptSecurityManager.createContentPrincipal(uri, attrs);
+}
+
+function getRelativeFile(relativePath) {
+  let file = Services.dirsvc
+    .get(NS_APP_USER_PROFILE_50_DIR, Ci.nsIFile)
+    .clone();
+
+  if (Services.appinfo.OS === osWindowsName) {
+    let winFile = file.QueryInterface(Ci.nsILocalFileWin);
+    winFile.useDOSDevicePathSyntax = true;
+  }
+
+  relativePath.split(pathDelimiter).forEach(function(component) {
+    if (component == "..") {
+      file = file.parent;
+    } else {
+      file.append(component);
+    }
+  });
+
+  return file;
+}

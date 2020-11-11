@@ -42,7 +42,7 @@
 if (typeof Components != "undefined") {
   // Specify exported symbols for JSM module loader.
   this.EXPORTED_SYMBOLS = ["AndroidLog"];
-  ChromeUtils.import("resource://gre/modules/ctypes.jsm");
+  var { ctypes } = ChromeUtils.import("resource://gre/modules/ctypes.jsm");
 }
 
 // From <https://android.googlesource.com/platform/system/core/+/master/include/android/log.h>.
@@ -59,24 +59,26 @@ const ANDROID_LOG_ERROR = 6;
 const MAX_TAG_LENGTH = 18;
 
 var liblog = ctypes.open("liblog.so"); // /system/lib/liblog.so
-var __android_log_write = liblog.declare("__android_log_write",
-                                         ctypes.default_abi,
-                                         ctypes.int, // return value: num bytes logged
-                                         ctypes.int, // priority (ANDROID_LOG_* constant)
-                                         ctypes.char.ptr, // tag
-                                         ctypes.char.ptr); // message
+var __android_log_write = liblog.declare(
+  "__android_log_write",
+  ctypes.default_abi,
+  ctypes.int, // return value: num bytes logged
+  ctypes.int, // priority (ANDROID_LOG_* constant)
+  ctypes.char.ptr, // tag
+  ctypes.char.ptr
+); // message
 
 var AndroidLog = {
-  MAX_TAG_LENGTH: MAX_TAG_LENGTH,
+  MAX_TAG_LENGTH,
   v: (tag, msg) => __android_log_write(ANDROID_LOG_VERBOSE, "Gecko" + tag, msg),
   d: (tag, msg) => __android_log_write(ANDROID_LOG_DEBUG, "Gecko" + tag, msg),
   i: (tag, msg) => __android_log_write(ANDROID_LOG_INFO, "Gecko" + tag, msg),
   w: (tag, msg) => __android_log_write(ANDROID_LOG_WARN, "Gecko" + tag, msg),
   e: (tag, msg) => __android_log_write(ANDROID_LOG_ERROR, "Gecko" + tag, msg),
 
-  bind: function(tag) {
+  bind(tag) {
     return {
-      MAX_TAG_LENGTH: MAX_TAG_LENGTH,
+      MAX_TAG_LENGTH,
       v: AndroidLog.v.bind(null, tag),
       d: AndroidLog.d.bind(null, tag),
       i: AndroidLog.i.bind(null, tag),

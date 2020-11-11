@@ -17,7 +17,7 @@ class gfxContext;
 
 namespace mozilla {
 namespace gfx {
-struct Color;
+struct sRGBColor;
 struct RectCornerRadii;
 class SourceSurface;
 class DrawTarget;
@@ -43,13 +43,13 @@ class DrawTarget;
  * any desired content onto the context acquired through GetContext, and lastly
  * calls Paint to apply the blurred content as an alpha mask.
  */
-class gfxAlphaBoxBlur {
-  typedef mozilla::gfx::Color Color;
+class gfxAlphaBoxBlur final {
+  typedef mozilla::gfx::sRGBColor sRGBColor;
   typedef mozilla::gfx::DrawTarget DrawTarget;
   typedef mozilla::gfx::RectCornerRadii RectCornerRadii;
 
  public:
-  gfxAlphaBoxBlur();
+  gfxAlphaBoxBlur() = default;
 
   ~gfxAlphaBoxBlur();
 
@@ -99,7 +99,7 @@ class gfxAlphaBoxBlur {
    * null.
    */
   already_AddRefed<mozilla::gfx::SourceSurface> DoBlur(
-      const mozilla::gfx::Color* aShadowColor = nullptr,
+      const mozilla::gfx::sRGBColor* aShadowColor = nullptr,
       mozilla::gfx::IntPoint* aOutTopLeft = nullptr);
 
   /**
@@ -141,7 +141,7 @@ class gfxAlphaBoxBlur {
   static void BlurRectangle(gfxContext* aDestinationCtx, const gfxRect& aRect,
                             const RectCornerRadii* aCornerRadii,
                             const gfxPoint& aBlurStdDev,
-                            const Color& aShadowColor,
+                            const sRGBColor& aShadowColor,
                             const gfxRect& aDirtyRect,
                             const gfxRect& aSkipRect);
 
@@ -167,7 +167,7 @@ class gfxAlphaBoxBlur {
                     const mozilla::gfx::Rect& aDestinationRect,
                     const mozilla::gfx::Rect& aShadowClipRect,
                     const mozilla::gfx::IntSize& aBlurRadius,
-                    const mozilla::gfx::Color& aShadowColor,
+                    const mozilla::gfx::sRGBColor& aShadowColor,
                     const RectCornerRadii* aInnerClipRadii,
                     const mozilla::gfx::Rect& aSkipRect,
                     const mozilla::gfx::Point& aShadowOffset);
@@ -176,7 +176,7 @@ class gfxAlphaBoxBlur {
   already_AddRefed<mozilla::gfx::SourceSurface> GetInsetBlur(
       const mozilla::gfx::Rect& aOuterRect,
       const mozilla::gfx::Rect& aWhitespaceRect, bool aIsDestRect,
-      const mozilla::gfx::Color& aShadowColor,
+      const mozilla::gfx::sRGBColor& aShadowColor,
       const mozilla::gfx::IntSize& aBlurRadius,
       const RectCornerRadii* aInnerClipRadii, DrawTarget* aDestDrawTarget,
       bool aMirrorCorners);
@@ -189,7 +189,7 @@ class gfxAlphaBoxBlur {
   /**
    * The temporary alpha surface.
    */
-  uint8_t* mData;
+  uint8_t* mData = nullptr;
 
   /**
    * The object that actually does the blurring for us.
@@ -199,7 +199,7 @@ class gfxAlphaBoxBlur {
   /**
    * Indicates using DrawTarget-accelerated blurs.
    */
-  bool mAccelerated;
+  bool mAccelerated = false;
 };
 
 #endif /* GFX_BLUR_H */

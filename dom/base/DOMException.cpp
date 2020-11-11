@@ -11,7 +11,7 @@
 #include "mozilla/dom/Exceptions.h"
 #include "nsContentUtils.h"
 #include "nsCOMPtr.h"
-#include "nsIDocument.h"
+#include "mozilla/dom/Document.h"
 #include "nsIException.h"
 #include "nsMemory.h"
 #include "xpcprivate.h"
@@ -137,8 +137,7 @@ nsresult NS_GetNameAndMessageForDOMNSResult(nsresult aNSResult,
   return NS_ERROR_NOT_AVAILABLE;
 }
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(Exception)
   NS_WRAPPERCACHE_INTERFACE_MAP_ENTRY
@@ -290,6 +289,14 @@ void Exception::GetMessageMoz(nsString& retval) {
 
 uint32_t Exception::Result() const { return (uint32_t)mResult; }
 
+uint32_t Exception::SourceId(JSContext* aCx) const {
+  if (mLocation) {
+    return mLocation->GetSourceId(aCx);
+  }
+
+  return 0;
+}
+
 uint32_t Exception::LineNumber(JSContext* aCx) const {
   if (mLocation) {
     return mLocation->GetLineNumber(aCx);
@@ -320,8 +327,9 @@ void Exception::Stringify(JSContext* aCx, nsString& retval) {
 }
 
 DOMException::DOMException(nsresult aRv, const nsACString& aMessage,
-                           const nsACString& aName, uint16_t aCode)
-    : Exception(aMessage, aRv, aName, nullptr, nullptr), mCode(aCode) {}
+                           const nsACString& aName, uint16_t aCode,
+                           nsIStackFrame* aLocation)
+    : Exception(aMessage, aRv, aName, aLocation, nullptr), mCode(aCode) {}
 
 void DOMException::ToString(JSContext* aCx, nsACString& aReturn) {
   aReturn.Truncate();
@@ -350,10 +358,10 @@ void DOMException::GetName(nsString& retval) { CopyUTF8toUTF16(mName, retval); }
 
 already_AddRefed<DOMException> DOMException::Constructor(
     GlobalObject& /* unused */, const nsAString& aMessage,
-    const Optional<nsAString>& aName, ErrorResult& aError) {
+    const Optional<nsAString>& aName) {
   nsresult exceptionResult = NS_OK;
   uint16_t exceptionCode = 0;
-  nsCString name(NS_LITERAL_CSTRING("Error"));
+  nsCString name("Error"_ns);
 
   if (aName.WasPassed()) {
     CopyUTF16toUTF8(aName.Value(), name);
@@ -376,7 +384,8 @@ JSObject* DOMException::WrapObject(JSContext* aCx,
   return DOMException_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-/* static */ already_AddRefed<DOMException> DOMException::Create(nsresult aRv) {
+/* static */
+already_AddRefed<DOMException> DOMException::Create(nsresult aRv) {
   nsCString name;
   nsCString message;
   uint16_t code;
@@ -385,7 +394,8 @@ JSObject* DOMException::WrapObject(JSContext* aCx,
   return inst.forget();
 }
 
-/* static */ already_AddRefed<DOMException> DOMException::Create(
+/* static */
+already_AddRefed<DOMException> DOMException::Create(
     nsresult aRv, const nsACString& aMessage) {
   nsCString name;
   nsCString message;
@@ -395,5 +405,4 @@ JSObject* DOMException::WrapObject(JSContext* aCx,
   return inst.forget();
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

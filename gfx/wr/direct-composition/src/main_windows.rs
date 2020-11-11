@@ -8,9 +8,11 @@ extern crate gleam;
 extern crate webrender;
 extern crate winit;
 
+use euclid::size2;
 use direct_composition::DirectComposition;
 use std::sync::mpsc;
 use webrender::api;
+use webrender::render_api::*;
 use winit::os::windows::{WindowExt, WindowBuilderExt};
 use winit::dpi::LogicalSize;
 
@@ -34,10 +36,9 @@ fn main() {
 
     let mut clicks: usize = 0;
     let mut offset_y = 100.;
-    let size = api::DeviceIntSize::new;
     let mut rects = [
-        Rectangle::new(&composition, &notifier, factor, size(300, 200), 0., 0.2, 0.4, 1.),
-        Rectangle::new(&composition, &notifier, factor, size(400, 300), 0., 0.5, 0., 0.5),
+        Rectangle::new(&composition, &notifier, factor, size2(300, 200), 0., 0.2, 0.4, 1.),
+        Rectangle::new(&composition, &notifier, factor, size2(400, 300), 0., 0.5, 0., 0.5),
     ];
     rects[0].render(factor, &rx);
     rects[1].render(factor, &rx);
@@ -93,15 +94,15 @@ fn direct_composition_from_window(window: &winit::Window) -> DirectComposition {
 struct Rectangle {
     visual: direct_composition::AngleVisual,
     renderer: Option<webrender::Renderer>,
-    api: api::RenderApi,
+    api: RenderApi,
     document_id: api::DocumentId,
-    size: api::DeviceIntSize,
+    size: api::units::DeviceIntSize,
     color: api::ColorF,
 }
 
 impl Rectangle {
     fn new(composition: &DirectComposition, notifier: &Box<Notifier>,
-           device_pixel_ratio: f32, size: api::DeviceIntSize, r: f32, g: f32, b: f32, a: f32)
+           device_pixel_ratio: f32, size: api::units::DeviceIntSize, r: f32, g: f32, b: f32, a: f32)
            -> Self {
         let visual = composition.create_angle_visual(size.width as u32, size.height as u32);
         visual.make_current();
@@ -121,7 +122,7 @@ impl Rectangle {
        Rectangle {
             visual,
             renderer: Some(renderer),
-            document_id: api.add_document(size, 0),
+            document_id: api.add_document(size),
             api,
             size,
             color: api::ColorF { r, g, b, a },
@@ -132,24 +133,34 @@ impl Rectangle {
         self.visual.make_current();
 
         let pipeline_id = api::PipelineId(0, 0);
-        let layout_size = self.size.to_f32() / euclid::TypedScale::new(device_pixel_ratio);
-        let mut builder = api::DisplayListBuilder::new(pipeline_id, layout_size);
+        let layout_size = self.size.to_f32() / euclid::Scale::new(device_pixel_ratio);
+        let mut builder = api::DisplayListBuilder::new(pipeline_id);
 
-        let rect = euclid::TypedRect::new(euclid::TypedPoint2D::zero(), layout_size);
+        let rect = euclid::Rect::new(euclid::Point2D::zero(), layout_size);
 
         let region = api::ComplexClipRegion::new(
             rect,
             api::BorderRadius::uniform(20.),
             api::ClipMode::Clip
         );
-        let clip_id = builder.define_clip(rect, vec![region], None);
-        builder.push_clip_id(clip_id);
+        let clip_id = builder.define_clip_rounded_rect(
+            &api::SpaceAndClipInfo::root_scroll(pipeline_id),
+            region,
+        );
 
-        builder.push_rect(&api::PrimitiveInfo::new(rect), self.color);
+        builder.push_rect(
+            &api::CommonItemProperties::new(
+                rect,
+                api::SpaceAndClipInfo {
+                    spatial_id: api::SpatialId::root_scroll_node(pipeline_id),
+                    clip_id,
+                },
+            ),
+            rect,
+            self.color,
+        );
 
-        builder.pop_clip_id();
-
-        let mut transaction = api::Transaction::new();
+        let mut transaction = Transaction::new();
         transaction.set_display_list(
             api::Epoch(0),
             None,
@@ -163,7 +174,7 @@ impl Rectangle {
         rx.recv().unwrap();
         let renderer = self.renderer.as_mut().unwrap();
         renderer.update();
-        renderer.render(self.size).unwrap();
+        renderer.render(self.size, 0).unwrap();
         let _ = renderer.flush_pipeline_info();
         self.visual.present();
     }
@@ -182,7 +193,7 @@ struct Notifier {
 }
 
 impl api::RenderNotifier for Notifier {
-    fn clone(&self) -> Box<api::RenderNotifier> {
+    fn clone(&self) -> Box<dyn api::RenderNotifier> {
         Box::new(Clone::clone(self))
     }
 

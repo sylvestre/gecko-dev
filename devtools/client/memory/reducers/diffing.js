@@ -5,8 +5,12 @@
 
 const Immutable = require("devtools/client/shared/vendor/immutable");
 const { immutableUpdate, assert } = require("devtools/shared/DevToolsUtils");
-const { actions, diffingState, viewState } = require("../constants");
-const { snapshotIsDiffable } = require("../utils");
+const {
+  actions,
+  diffingState,
+  viewState,
+} = require("devtools/client/memory/constants");
+const { snapshotIsDiffable } = require("devtools/client/memory/utils");
 
 const handlers = Object.create(null);
 
@@ -33,14 +37,20 @@ handlers[actions.CHANGE_VIEW] = function(diffing, { newViewState }) {
   return null;
 };
 
-handlers[actions.SELECT_SNAPSHOT_FOR_DIFFING] = function(diffing, { snapshot }) {
-  assert(diffing,
-         "Should never select a snapshot for diffing when we aren't diffing " +
-         "anything");
-  assert(diffing.state === diffingState.SELECTING,
-         "Can't select when not in SELECTING state");
-  assert(snapshotIsDiffable(snapshot),
-         "snapshot must be in a diffable state");
+handlers[actions.SELECT_SNAPSHOT_FOR_DIFFING] = function(
+  diffing,
+  { snapshot }
+) {
+  assert(
+    diffing,
+    "Should never select a snapshot for diffing when we aren't diffing " +
+      "anything"
+  );
+  assert(
+    diffing.state === diffingState.SELECTING,
+    "Can't select when not in SELECTING state"
+  );
+  assert(snapshotIsDiffable(snapshot), "snapshot must be in a diffable state");
 
   if (!diffing.firstSnapshotId) {
     return immutableUpdate(diffing, {
@@ -48,9 +58,11 @@ handlers[actions.SELECT_SNAPSHOT_FOR_DIFFING] = function(diffing, { snapshot }) 
     });
   }
 
-  assert(!diffing.secondSnapshotId,
-         "If we aren't selecting the first, then we must be selecting the " +
-         "second");
+  assert(
+    !diffing.secondSnapshotId,
+    "If we aren't selecting the first, then we must be selecting the " +
+      "second"
+  );
 
   if (snapshot.id === diffing.firstSnapshotId) {
     // Ignore requests to select the same snapshot.
@@ -64,10 +76,14 @@ handlers[actions.SELECT_SNAPSHOT_FOR_DIFFING] = function(diffing, { snapshot }) 
 
 handlers[actions.TAKE_CENSUS_DIFF_START] = function(diffing, action) {
   assert(diffing, "Should be diffing when starting a census diff");
-  assert(action.first.id === diffing.firstSnapshotId,
-         "First snapshot's id should match");
-  assert(action.second.id === diffing.secondSnapshotId,
-         "Second snapshot's id should match");
+  assert(
+    action.first.id === diffing.firstSnapshotId,
+    "First snapshot's id should match"
+  );
+  assert(
+    action.second.id === diffing.secondSnapshotId,
+    "Second snapshot's id should match"
+  );
 
   return immutableUpdate(diffing, {
     state: diffingState.TAKING_DIFF,
@@ -82,10 +98,14 @@ handlers[actions.TAKE_CENSUS_DIFF_START] = function(diffing, action) {
 
 handlers[actions.TAKE_CENSUS_DIFF_END] = function(diffing, action) {
   assert(diffing, "Should be diffing when ending a census diff");
-  assert(action.first.id === diffing.firstSnapshotId,
-         "First snapshot's id should match");
-  assert(action.second.id === diffing.secondSnapshotId,
-         "Second snapshot's id should match");
+  assert(
+    action.first.id === diffing.firstSnapshotId,
+    "First snapshot's id should match"
+  );
+  assert(
+    action.second.id === diffing.secondSnapshotId,
+    "Second snapshot's id should match"
+  );
 
   return immutableUpdate(diffing, {
     state: diffingState.TOOK_DIFF,
@@ -109,8 +129,10 @@ handlers[actions.DIFFING_ERROR] = function(diffing, action) {
 
 handlers[actions.EXPAND_DIFFING_CENSUS_NODE] = function(diffing, { node }) {
   assert(diffing, "Should be diffing if expanding diffing's census nodes");
-  assert(diffing.state === diffingState.TOOK_DIFF,
-         "Should have taken the census diff if expanding nodes");
+  assert(
+    diffing.state === diffingState.TOOK_DIFF,
+    "Should have taken the census diff if expanding nodes"
+  );
   assert(diffing.census, "Should have a census");
   assert(diffing.census.report, "Should have a census report");
   assert(diffing.census.expanded, "Should have a census's expanded set");
@@ -122,8 +144,10 @@ handlers[actions.EXPAND_DIFFING_CENSUS_NODE] = function(diffing, { node }) {
 
 handlers[actions.COLLAPSE_DIFFING_CENSUS_NODE] = function(diffing, { node }) {
   assert(diffing, "Should be diffing if expanding diffing's census nodes");
-  assert(diffing.state === diffingState.TOOK_DIFF,
-         "Should have taken the census diff if expanding nodes");
+  assert(
+    diffing.state === diffingState.TOOK_DIFF,
+    "Should have taken the census diff if expanding nodes"
+  );
   assert(diffing.census, "Should have a census");
   assert(diffing.census.report, "Should have a census report");
   assert(diffing.census.expanded, "Should have a census's expanded set");

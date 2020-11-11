@@ -2,8 +2,8 @@
 <head>
   <title>Tests for Data URI</title>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css">
-  <script type="application/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
-  <script type="application/javascript" src="/tests/SimpleTest/EventUtils.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/EventUtils.js"></script>
   <style>
     @font-face {
       font-family: 'DataFont';
@@ -14,10 +14,8 @@
 <script>
 SimpleTest.waitForExplicitFinish();
 
-SpecialPowers.setBoolPref("security.data_uri.unique_opaque_origin", true);
 SpecialPowers.setBoolPref("security.data_uri.block_toplevel_data_uri_navigations", false);
 SimpleTest.registerCleanupFunction(() => {
-  SpecialPowers.clearUserPref("security.data_uri.unique_opaque_origin");
   SpecialPowers.clearUserPref("security.data_uri.block_toplevel_data_uri_navigations");
 });
 

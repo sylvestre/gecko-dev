@@ -9,7 +9,7 @@ const {
   UPDATE_FLEXBOX,
   UPDATE_FLEXBOX_COLOR,
   UPDATE_FLEXBOX_HIGHLIGHTED,
-} = require("../actions/index");
+} = require("devtools/client/inspector/flexbox/actions/index");
 
 const INITIAL_FLEXBOX = {
   // The color of the flexbox highlighter overlay.
@@ -58,7 +58,6 @@ const INITIAL_FLEXBOX = {
 };
 
 const reducers = {
-
   [CLEAR_FLEXBOX](flexbox, _) {
     return INITIAL_FLEXBOX;
   },
@@ -80,7 +79,6 @@ const reducers = {
       highlighted,
     };
   },
-
 };
 
 module.exports = function(flexbox = INITIAL_FLEXBOX, action) {

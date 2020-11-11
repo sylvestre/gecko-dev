@@ -7,6 +7,7 @@ package org.mozilla.gecko;
 
 import android.content.ContentResolver;
 import android.content.Context;
+import android.content.res.Configuration;
 import android.database.ContentObserver;
 import android.hardware.input.InputManager;
 import android.net.Uri;
@@ -14,7 +15,7 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
-import android.support.annotation.RequiresApi;
+import androidx.annotation.RequiresApi;
 import android.util.Log;
 import android.view.InputDevice;
 import org.mozilla.gecko.annotation.WrapForJNI;
@@ -23,14 +24,15 @@ import org.mozilla.gecko.util.ThreadUtils;
 
 public class GeckoSystemStateListener
         implements InputManager.InputDeviceListener {
-    private static final String LOGTAG = "GeckoSystemStateListener";
+    private static final String LOGTAG = "SystemStateListener";
 
     private static final GeckoSystemStateListener listenerInstance = new GeckoSystemStateListener();
 
-    private boolean initialized;
+    private boolean mInitialized;
     private ContentObserver mContentObserver;
     private static Context sApplicationContext;
     private InputManager mInputManager;
+    private boolean mIsNightMode;
 
     public static GeckoSystemStateListener getInstance() {
         return listenerInstance;
@@ -40,7 +42,7 @@ public class GeckoSystemStateListener
     }
 
     public synchronized void initialize(final Context context) {
-        if (initialized) {
+        if (mInitialized) {
             Log.w(LOGTAG, "Already initialized!");
             return;
         }
@@ -53,17 +55,20 @@ public class GeckoSystemStateListener
         Uri animationSetting = Settings.System.getUriFor(Settings.Global.ANIMATOR_DURATION_SCALE);
         mContentObserver = new ContentObserver(new Handler(Looper.getMainLooper())) {
             @Override
-            public void onChange(boolean selfChange) {
+            public void onChange(final boolean selfChange) {
                 onDeviceChanged();
             }
         };
         contentResolver.registerContentObserver(animationSetting, false, mContentObserver);
 
-        initialized = true;
+        mIsNightMode = (sApplicationContext.getResources().getConfiguration().uiMode &
+            Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
+
+        mInitialized = true;
     }
 
     public synchronized void shutdown() {
-        if (!initialized) {
+        if (!mInitialized) {
             Log.w(LOGTAG, "Already shut down!");
             return;
         }
@@ -78,7 +83,7 @@ public class GeckoSystemStateListener
         ContentResolver contentResolver = sApplicationContext.getContentResolver();
         contentResolver.unregisterContentObserver(mContentObserver);
 
-        initialized = false;
+        mInitialized = false;
         mInputManager = null;
         mContentObserver = null;
     }
@@ -92,7 +97,7 @@ public class GeckoSystemStateListener
      */
     private static boolean prefersReducedMotion() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN_MR1) {
-          return false;
+            return false;
         }
 
         ContentResolver contentResolver = sApplicationContext.getContentResolver();
@@ -102,17 +107,27 @@ public class GeckoSystemStateListener
                                         1) == 0.0f;
     }
 
-    @WrapForJNI(calledFrom = "gecko")
-    private static void notifyPrefersReducedMotionChangedForTest() {
-        ContentResolver contentResolver = sApplicationContext.getContentResolver();
-        Uri animationSetting = Settings.System.getUriFor(Settings.Global.ANIMATOR_DURATION_SCALE);
-        contentResolver.notifyChange(animationSetting, null);
+    /**
+     * For prefers-color-scheme media queries feature.
+     */
+    public boolean isNightMode() {
+        return mIsNightMode;
     }
 
-    @WrapForJNI(stubName = "OnDeviceChanged", calledFrom = "ui", dispatchTo = "gecko")
+    public void updateNightMode(final int newUIMode) {
+        boolean isNightMode = (newUIMode & Configuration.UI_MODE_NIGHT_MASK)
+            == Configuration.UI_MODE_NIGHT_YES;
+        if (isNightMode == mIsNightMode) {
+            return;
+        }
+        mIsNightMode = isNightMode;
+        onDeviceChanged();
+    }
+
+    @WrapForJNI(stubName = "OnDeviceChanged", calledFrom = "any", dispatchTo = "gecko")
     private static native void nativeOnDeviceChanged();
 
-    private static void onDeviceChanged() {
+    public static void onDeviceChanged() {
         if (GeckoThread.isStateAtLeast(GeckoThread.State.PROFILE_READY)) {
             nativeOnDeviceChanged();
         } else {
@@ -122,7 +137,7 @@ public class GeckoSystemStateListener
         }
     }
 
-    private void notifyDeviceChanged(int deviceId) {
+    private void notifyDeviceChanged(final int deviceId) {
         InputDevice device = InputDevice.getDevice(deviceId);
         if (device == null ||
             !InputDeviceUtils.isPointerTypeDevice(device)) {
@@ -132,12 +147,12 @@ public class GeckoSystemStateListener
     }
 
     @Override
-    public void onInputDeviceAdded(int deviceId) {
+    public void onInputDeviceAdded(final int deviceId) {
         notifyDeviceChanged(deviceId);
     }
 
     @Override
-    public void onInputDeviceRemoved(int deviceId) {
+    public void onInputDeviceRemoved(final int deviceId) {
         // Call onDeviceChanged directly without checking device source types
         // since we can no longer get a valid `InputDevice` in the case of
         // device removal.
@@ -145,7 +160,7 @@ public class GeckoSystemStateListener
     }
 
     @Override
-    public void onInputDeviceChanged(int deviceId) {
+    public void onInputDeviceChanged(final int deviceId) {
         notifyDeviceChanged(deviceId);
     }
 }

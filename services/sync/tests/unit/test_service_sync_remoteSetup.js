@@ -1,12 +1,27 @@
 /* Any copyright is dedicated to the Public Domain.
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
-ChromeUtils.import("resource://gre/modules/Log.jsm");
-ChromeUtils.import("resource://services-sync/constants.js");
-ChromeUtils.import("resource://services-sync/keys.js");
-ChromeUtils.import("resource://services-sync/service.js");
-ChromeUtils.import("resource://services-sync/util.js");
-ChromeUtils.import("resource://testing-common/services/sync/fakeservices.js");
+const { Service } = ChromeUtils.import("resource://services-sync/service.js");
+
+// This sucks, but this test fails if this engine is enabled, due to dumb
+// things that aren't related to this engine. In short:
+// * Because the addon manager isn't initialized, the addons engine fails to
+//   initialize. So we end up writing a meta/global with `extension-storage`
+//   but not addons.
+// * After we sync, we discover 'addons' is locally enabled, but because it's
+//   not in m/g, we decide it's been remotely declined (and it decides this
+//   without even considering `declined`). So we disable 'addons'.
+// * Disabling 'addons' means 'extension-storage' is disabled - but because
+//   that *is* in meta/global we re-update meta/global to remove it.
+// * This test fails due to the extra, unexpected update of m/g.
+//
+// Another option would be to ensure the addons manager is initialized, but
+// that's a larger patch and still isn't strictly relevant to what's being
+// tested here, so...
+Services.prefs.setBoolPref(
+  "services.sync.engine.extension-storage.force",
+  false
+);
 
 add_task(async function run_test() {
   enableValidationPrefs();
@@ -30,8 +45,8 @@ add_task(async function run_test() {
   }
 
   let keysWBO = new ServerWBO("keys");
-  let cryptoColl = new ServerCollection({keys: keysWBO});
-  let metaColl = new ServerCollection({global: meta_global});
+  let cryptoColl = new ServerCollection({ keys: keysWBO });
+  let metaColl = new ServerCollection({ global: meta_global });
   do_test_pending();
 
   /**
@@ -61,14 +76,19 @@ add_task(async function run_test() {
     "/1.1/johndoe/storage/crypto": upd("crypto", cryptoColl.handler()),
     "/1.1/johndoe/storage/clients": upd("clients", clients.handler()),
     "/1.1/johndoe/storage/meta": upd("meta", wasCalledHandler(metaColl)),
-    "/1.1/johndoe/storage/meta/global": upd("meta", wasCalledHandler(meta_global)),
+    "/1.1/johndoe/storage/meta/global": upd(
+      "meta",
+      wasCalledHandler(meta_global)
+    ),
     "/1.1/johndoe/info/collections": collectionsHelper.handler,
   };
 
   function mockHandler(path, mock) {
     server.registerPathHandler(path, mock(handlers[path]));
     return {
-      restore() { server.registerPathHandler(path, handlers[path]); },
+      restore() {
+        server.registerPathHandler(path, handlers[path]);
+      },
     };
   }
 
@@ -84,10 +104,11 @@ add_task(async function run_test() {
 
     await Service.login();
     _("Checking that remoteSetup returns true when credentials have changed.");
-    (await Service.recordManager.get(Service.metaURL)).payload.syncID = "foobar";
-    Assert.ok((await Service._remoteSetup()));
+    (await Service.recordManager.get(Service.metaURL)).payload.syncID =
+      "foobar";
+    Assert.ok(await Service._remoteSetup());
 
-    let returnStatusCode = (method, code) => (oldMethod) => (req, res) => {
+    let returnStatusCode = (method, code) => oldMethod => (req, res) => {
       if (req.method === method) {
         res.setStatusLine(req.httpVersion, code, "");
       } else {
@@ -97,15 +118,19 @@ add_task(async function run_test() {
 
     let mock = mockHandler(GLOBAL_PATH, returnStatusCode("GET", 401));
     Service.recordManager.del(Service.metaURL);
-    _("Checking that remoteSetup returns false on 401 on first get /meta/global.");
-    Assert.equal(false, (await Service._remoteSetup()));
+    _(
+      "Checking that remoteSetup returns false on 401 on first get /meta/global."
+    );
+    Assert.equal(false, await Service._remoteSetup());
     mock.restore();
 
     await Service.login();
     mock = mockHandler(GLOBAL_PATH, returnStatusCode("GET", 503));
     Service.recordManager.del(Service.metaURL);
-    _("Checking that remoteSetup returns false on 503 on first get /meta/global.");
-    Assert.equal(false, (await Service._remoteSetup()));
+    _(
+      "Checking that remoteSetup returns false on 503 on first get /meta/global."
+    );
+    Assert.equal(false, await Service._remoteSetup());
     Assert.equal(Service.status.sync, METARECORD_DOWNLOAD_FAIL);
     mock.restore();
 
@@ -113,7 +138,7 @@ add_task(async function run_test() {
     mock = mockHandler(GLOBAL_PATH, returnStatusCode("GET", 404));
     Service.recordManager.del(Service.metaURL);
     _("Checking that remoteSetup recovers on 404 on first get /meta/global.");
-    Assert.ok((await Service._remoteSetup()));
+    Assert.ok(await Service._remoteSetup());
     mock.restore();
 
     let makeOutdatedMeta = async () => {
@@ -129,17 +154,21 @@ add_task(async function run_test() {
       };
     };
 
-    _("Checking that remoteSetup recovers on 404 on get /meta/global after clear cached one.");
+    _(
+      "Checking that remoteSetup recovers on 404 on get /meta/global after clear cached one."
+    );
     mock = mockHandler(GLOBAL_PATH, returnStatusCode("GET", 404));
     Service.recordManager.set(Service.metaURL, { isNew: false });
-    Assert.ok((await Service._remoteSetup((await makeOutdatedMeta()))));
+    Assert.ok(await Service._remoteSetup(await makeOutdatedMeta()));
     mock.restore();
 
-    _("Checking that remoteSetup returns false on 503 on get /meta/global after clear cached one.");
+    _(
+      "Checking that remoteSetup returns false on 503 on get /meta/global after clear cached one."
+    );
     mock = mockHandler(GLOBAL_PATH, returnStatusCode("GET", 503));
     Service.status.sync = "";
     Service.recordManager.set(Service.metaURL, { isNew: false });
-    Assert.equal(false, (await Service._remoteSetup((await makeOutdatedMeta()))));
+    Assert.equal(false, await Service._remoteSetup(await makeOutdatedMeta()));
     Assert.equal(Service.status.sync, "");
     mock.restore();
 
@@ -149,15 +178,23 @@ add_task(async function run_test() {
     await Service.sync();
 
     _("Checking that remoteSetup returns true.");
-    Assert.ok((await Service._remoteSetup()));
+    Assert.ok(await Service._remoteSetup());
 
     _("Verify that the meta record was uploaded.");
     Assert.equal(meta_global.data.syncID, Service.syncID);
     Assert.equal(meta_global.data.storageVersion, STORAGE_VERSION);
-    Assert.equal(meta_global.data.engines.clients.version, Service.clientsEngine.version);
-    Assert.equal(meta_global.data.engines.clients.syncID, await Service.clientsEngine.getSyncID());
+    Assert.equal(
+      meta_global.data.engines.clients.version,
+      Service.clientsEngine.version
+    );
+    Assert.equal(
+      meta_global.data.engines.clients.syncID,
+      await Service.clientsEngine.getSyncID()
+    );
 
-    _("Set the collection info hash so that sync() will remember the modified times for future runs.");
+    _(
+      "Set the collection info hash so that sync() will remember the modified times for future runs."
+    );
     let lastSync = await Service.clientsEngine.getLastSync();
     collections.meta = lastSync;
     collections.clients = lastSync;
@@ -168,7 +205,9 @@ add_task(async function run_test() {
     await Service.sync();
     Assert.ok(!meta_global.wasCalled);
 
-    _("Fake modified records. This will cause a redownload, but not reupload since it hasn't changed.");
+    _(
+      "Fake modified records. This will cause a redownload, but not reupload since it hasn't changed."
+    );
     collections.meta += 42;
     meta_global.wasCalled = false;
 
@@ -185,11 +224,11 @@ add_task(async function run_test() {
     let keys = Service.collectionKeys.asWBO();
     let b = new BulkKeyBundle("hmacerror");
     await b.generateRandom();
-    collections.crypto = keys.modified = 100 + (Date.now() / 1000); // Future modification time.
+    collections.crypto = keys.modified = 100 + Date.now() / 1000; // Future modification time.
     await keys.encrypt(b);
     await keys.upload(Service.resource(Service.cryptoKeysURL));
 
-    Assert.equal(false, (await Service.verifyAndFetchSymmetricKeys()));
+    Assert.equal(false, await Service.verifyAndFetchSymmetricKeys());
     Assert.equal(Service.status.login, LOGIN_FAILED_INVALID_PASSPHRASE);
   } finally {
     Svc.Prefs.resetBranch("");

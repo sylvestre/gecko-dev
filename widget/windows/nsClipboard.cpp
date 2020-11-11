@@ -14,24 +14,19 @@
 #include "nsArrayUtils.h"
 #include "nsCOMPtr.h"
 #include "nsDataObj.h"
-#include "nsIClipboardOwner.h"
 #include "nsString.h"
 #include "nsNativeCharsetUtils.h"
-#include "nsIFormatConverter.h"
 #include "nsITransferable.h"
 #include "nsCOMPtr.h"
 #include "nsXPCOM.h"
-#include "nsISupportsPrimitives.h"
 #include "nsReadableUtils.h"
 #include "nsUnicharUtils.h"
 #include "nsPrimitiveHelpers.h"
 #include "nsIWidget.h"
-#include "nsIComponentManager.h"
 #include "nsWidgetsCID.h"
 #include "nsCRT.h"
 #include "nsNetUtil.h"
 #include "nsIFileProtocolHandler.h"
-#include "nsIOutputStream.h"
 #include "nsEscape.h"
 #include "nsIObserverService.h"
 #include "nsMimeTypes.h"
@@ -134,7 +129,7 @@ nsresult nsClipboard::CreateNativeDataObject(nsITransferable* aTransferable,
   if (NS_OK == res) {
     *aDataObj = dataObj;
   } else {
-    delete dataObj;
+    dataObj->Release();
   }
   return res;
 }
@@ -287,16 +282,21 @@ nsresult nsClipboard::GetGlobalData(HGLOBAL aHGBL, void** aData,
   nsresult result = NS_ERROR_FAILURE;
   if (aHGBL != nullptr) {
     LPSTR lpStr = (LPSTR)GlobalLock(aHGBL);
-    DWORD allocSize = GlobalSize(aHGBL);
-    char* data = static_cast<char*>(malloc(allocSize + 3));
+    CheckedInt<uint32_t> allocSize =
+        CheckedInt<uint32_t>(GlobalSize(aHGBL)) + 3;
+    if (!allocSize.isValid()) {
+      return NS_ERROR_INVALID_ARG;
+    }
+    char* data = static_cast<char*>(malloc(allocSize.value()));
     if (data) {
-      memcpy(data, lpStr, allocSize);
-      data[allocSize] = data[allocSize + 1] = data[allocSize + 2] =
-          '\0';  // null terminate for safety
+      uint32_t size = allocSize.value() - 3;
+      memcpy(data, lpStr, size);
+      // null terminate for safety
+      data[size] = data[size + 1] = data[size + 2] = '\0';
 
       GlobalUnlock(aHGBL);
       *aData = data;
-      *aLen = allocSize;
+      *aLen = size;
 
       result = NS_OK;
     }
@@ -470,7 +470,7 @@ nsresult nsClipboard::GetNativeDataOffClipboard(IDataObject* aDataObject,
                     do_CreateInstance("@mozilla.org/image/tools;1");
                 result = imgTools->DecodeImageFromBuffer(
                     clipboardData, allocLen,
-                    NS_LITERAL_CSTRING(IMAGE_BMP_MS_CLIPBOARD),
+                    nsLiteralCString(IMAGE_BMP_MS_CLIPBOARD),
                     getter_AddRefs(container));
                 if (NS_FAILED(result)) {
                   break;
@@ -484,9 +484,8 @@ nsresult nsClipboard::GetNativeDataOffClipboard(IDataObject* aDataObject,
                 }
 
                 nsCOMPtr<nsIInputStream> inputStream;
-                result =
-                    imgTools->EncodeImage(container, mimeType, EmptyString(),
-                                          getter_AddRefs(inputStream));
+                result = imgTools->EncodeImage(container, mimeType, u""_ns,
+                                               getter_AddRefs(inputStream));
                 if (NS_FAILED(result)) {
                   break;
                 }
@@ -880,7 +879,7 @@ bool nsClipboard ::FindURLFromLocalFile(IDataObject* inDataObject, UINT inIndex,
         if (title.IsEmpty()) {
           title = urlString;
         }
-        *outData = ToNewUnicode(urlString + NS_LITERAL_STRING("\n") + title);
+        *outData = ToNewUnicode(urlString + u"\n"_ns + title);
         *outDataLen =
             NS_strlen(static_cast<char16_t*>(*outData)) * sizeof(char16_t);
 
@@ -925,7 +924,7 @@ bool nsClipboard ::FindURLFromNativeURL(IDataObject* inDataObject, UINT inIndex,
     // the internal mozilla URL format, text/x-moz-url, contains
     // URL\ntitle.  Since we don't actually have a title here,
     // just repeat the URL to fake it.
-    *outData = ToNewUnicode(urlString + NS_LITERAL_STRING("\n") + urlString);
+    *outData = ToNewUnicode(urlString + u"\n"_ns + urlString);
     *outDataLen =
         NS_strlen(static_cast<char16_t*>(*outData)) * sizeof(char16_t);
     free(tempOutData);
@@ -954,7 +953,7 @@ bool nsClipboard ::FindURLFromNativeURL(IDataObject* inDataObject, UINT inIndex,
       // the internal mozilla URL format, text/x-moz-url, contains
       // URL\ntitle.  Since we don't actually have a title here,
       // just repeat the URL to fake it.
-      *outData = ToNewUnicode(urlString + NS_LITERAL_STRING("\n") + urlString);
+      *outData = ToNewUnicode(urlString + u"\n"_ns + urlString);
       *outDataLen =
           NS_strlen(static_cast<char16_t*>(*outData)) * sizeof(char16_t);
       free(tempOutData);
@@ -990,8 +989,8 @@ void nsClipboard ::ResolveShortcut(nsIFile* aFile, nsACString& outURL) {
 // A file is an Internet Shortcut if it ends with .URL
 //
 bool nsClipboard ::IsInternetShortcut(const nsAString& inFileName) {
-  return StringEndsWith(inFileName, NS_LITERAL_STRING(".url"),
-                        nsCaseInsensitiveStringComparator());
+  return StringEndsWith(inFileName, u".url"_ns,
+                        nsCaseInsensitiveStringComparator);
 }  // IsInternetShortcut
 
 //-------------------------------------------------------------------------
@@ -1032,37 +1031,37 @@ nsClipboard::EmptyClipboard(int32_t aWhichClipboard) {
 }
 
 //-------------------------------------------------------------------------
-NS_IMETHODIMP nsClipboard::HasDataMatchingFlavors(const char** aFlavorList,
-                                                  uint32_t aLength,
-                                                  int32_t aWhichClipboard,
-                                                  bool* _retval) {
+NS_IMETHODIMP nsClipboard::HasDataMatchingFlavors(
+    const nsTArray<nsCString>& aFlavorList, int32_t aWhichClipboard,
+    bool* _retval) {
   *_retval = false;
-  if (aWhichClipboard != kGlobalClipboard || !aFlavorList) {
+  if (aWhichClipboard != kGlobalClipboard) {
     return NS_OK;
   }
 
-  for (uint32_t i = 0; i < aLength; ++i) {
+  for (auto& flavor : aFlavorList) {
 #ifdef DEBUG
-    if (strcmp(aFlavorList[i], kTextMime) == 0) {
+    if (flavor.EqualsLiteral(kTextMime)) {
       NS_WARNING(
           "DO NOT USE THE text/plain DATA FLAVOR ANY MORE. USE text/unicode "
           "INSTEAD");
     }
 #endif
 
-    UINT format = GetFormat(aFlavorList[i]);
+    UINT format = GetFormat(flavor.get());
     if (IsClipboardFormatAvailable(format)) {
       *_retval = true;
       break;
     } else {
       // We haven't found the exact flavor the client asked for, but maybe we
       // can still find it from something else that's on the clipboard...
-      if (strcmp(aFlavorList[i], kUnicodeMime) == 0) {
+      if (flavor.EqualsLiteral(kUnicodeMime)) {
         // client asked for unicode and it wasn't present, check if we have
         // CF_TEXT. We'll handle the actual data substitution in the data
         // object.
         if (IsClipboardFormatAvailable(GetFormat(kTextMime))) {
           *_retval = true;
+          break;
         }
       }
     }

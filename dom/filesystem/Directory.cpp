@@ -17,8 +17,7 @@
 #include "mozilla/dom/OSFileSystem.h"
 #include "mozilla/dom/WorkerPrivate.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_IMPL_CYCLE_COLLECTION_CLASS(Directory)
 
@@ -27,7 +26,7 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(Directory)
     tmp->mFileSystem->Unlink();
     tmp->mFileSystem = nullptr;
   }
-  NS_IMPL_CYCLE_COLLECTION_UNLINK(mParent)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mGlobal)
   NS_IMPL_CYCLE_COLLECTION_UNLINK_PRESERVED_WRAPPER
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
@@ -35,7 +34,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(Directory)
   if (tmp->mFileSystem) {
     tmp->mFileSystem->Traverse(cb);
   }
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mParent)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mGlobal)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_CYCLE_COLLECTION_TRACE_WRAPPERCACHE(Directory)
@@ -47,44 +46,54 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(Directory)
   NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END
 
-/* static */ already_AddRefed<Directory> Directory::Constructor(
-    const GlobalObject& aGlobal, const nsAString& aRealPath, ErrorResult& aRv) {
+/* static */
+already_AddRefed<Directory> Directory::Constructor(const GlobalObject& aGlobal,
+                                                   const nsAString& aRealPath,
+                                                   ErrorResult& aRv) {
   nsCOMPtr<nsIFile> path;
   aRv = NS_NewLocalFile(aRealPath, true, getter_AddRefs(path));
   if (NS_WARN_IF(aRv.Failed())) {
     return nullptr;
   }
 
-  return Create(aGlobal.GetAsSupports(), path);
+  nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(aGlobal.GetAsSupports());
+  if (NS_WARN_IF(!global)) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return nullptr;
+  }
+
+  return Create(global, path);
 }
 
-/* static */ already_AddRefed<Directory> Directory::Create(
-    nsISupports* aParent, nsIFile* aFile, FileSystemBase* aFileSystem) {
-  MOZ_ASSERT(aParent);
+/* static */
+already_AddRefed<Directory> Directory::Create(nsIGlobalObject* aGlobal,
+                                              nsIFile* aFile,
+                                              FileSystemBase* aFileSystem) {
+  MOZ_ASSERT(aGlobal);
   MOZ_ASSERT(aFile);
 
-  RefPtr<Directory> directory = new Directory(aParent, aFile, aFileSystem);
+  RefPtr<Directory> directory = new Directory(aGlobal, aFile, aFileSystem);
   return directory.forget();
 }
 
-Directory::Directory(nsISupports* aParent, nsIFile* aFile,
+Directory::Directory(nsIGlobalObject* aGlobal, nsIFile* aFile,
                      FileSystemBase* aFileSystem)
-    : mParent(aParent), mFile(aFile) {
+    : mGlobal(aGlobal), mFile(aFile) {
   MOZ_ASSERT(aFile);
 
   // aFileSystem can be null. In this case we create a OSFileSystem when needed.
   if (aFileSystem) {
     // More likely, this is a OSFileSystem. This object keeps a reference of
-    // mParent but it's not cycle collectable and to avoid manual
+    // mGlobal but it's not cycle collectable and to avoid manual
     // addref/release, it's better to have 1 object per directory. For this
     // reason we clone it here.
     mFileSystem = aFileSystem->Clone();
   }
 }
 
-Directory::~Directory() {}
+Directory::~Directory() = default;
 
-nsISupports* Directory::GetParentObject() const { return mParent; }
+nsIGlobalObject* Directory::GetParentObject() const { return mGlobal; }
 
 JSObject* Directory::WrapObject(JSContext* aCx,
                                 JS::Handle<JSObject*> aGivenProto) {
@@ -179,7 +188,7 @@ FileSystemBase* Directory::GetFileSystem(ErrorResult& aRv) {
     }
 
     RefPtr<OSFileSystem> fs = new OSFileSystem(path);
-    fs->Init(mParent);
+    fs->Init(mGlobal);
 
     mFileSystem = fs;
   }
@@ -187,5 +196,4 @@ FileSystemBase* Directory::GetFileSystem(ErrorResult& aRv) {
   return mFileSystem;
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

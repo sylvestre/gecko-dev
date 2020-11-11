@@ -5,8 +5,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "nsMathMLmpaddedFrame.h"
-#include "nsMathMLElement.h"
+#include "mozilla/dom/MathMLElement.h"
 #include "mozilla/gfx/2D.h"
+#include "mozilla/PresShell.h"
 #include "mozilla/TextUtils.h"
 #include <algorithm>
 
@@ -28,14 +29,15 @@ using namespace mozilla;
 #define NS_MATHML_PSEUDO_UNIT_DEPTH 4
 #define NS_MATHML_PSEUDO_UNIT_NAMEDSPACE 5
 
-nsIFrame* NS_NewMathMLmpaddedFrame(nsIPresShell* aPresShell,
+nsIFrame* NS_NewMathMLmpaddedFrame(PresShell* aPresShell,
                                    ComputedStyle* aStyle) {
-  return new (aPresShell) nsMathMLmpaddedFrame(aStyle);
+  return new (aPresShell)
+      nsMathMLmpaddedFrame(aStyle, aPresShell->GetPresContext());
 }
 
 NS_IMPL_FRAMEARENA_HELPERS(nsMathMLmpaddedFrame)
 
-nsMathMLmpaddedFrame::~nsMathMLmpaddedFrame() {}
+nsMathMLmpaddedFrame::~nsMathMLmpaddedFrame() = default;
 
 NS_IMETHODIMP
 nsMathMLmpaddedFrame::InheritAutomaticData(nsIFrame* aParent) {
@@ -205,8 +207,9 @@ bool nsMathMLmpaddedFrame::ParseAttribute(nsString& aString, int32_t& aSign,
   else if (!gotPercent) {  // percentage can only apply to a pseudo-unit
 
     // see if the unit is a named-space
-    if (nsMathMLElement::ParseNamedSpaceValue(
-            unit, aCSSValue, nsMathMLElement::PARSE_ALLOW_NEGATIVE)) {
+    if (dom::MathMLElement::ParseNamedSpaceValue(
+            unit, aCSSValue, dom::MathMLElement::PARSE_ALLOW_NEGATIVE,
+            *mContent->OwnerDoc())) {
       // re-scale properly, and we know that the unit of the named-space is 'em'
       floatValue *= aCSSValue.GetFloatValue();
       aCSSValue.SetFloatValue(floatValue, eCSSUnit_EM);
@@ -218,8 +221,8 @@ bool nsMathMLmpaddedFrame::ParseAttribute(nsString& aString, int32_t& aSign,
     // We are not supposed to have a unitless, percent, negative or namedspace
     // value here.
     number.Append(unit);  // leave the sign out if it was there
-    if (nsMathMLElement::ParseNumericValue(
-            number, aCSSValue, nsMathMLElement::PARSE_SUPPRESS_WARNINGS,
+    if (dom::MathMLElement::ParseNumericValue(
+            number, aCSSValue, dom::MathMLElement::PARSE_SUPPRESS_WARNINGS,
             nullptr))
       return true;
   }
@@ -308,9 +311,9 @@ void nsMathMLmpaddedFrame::Reflow(nsPresContext* aPresContext,
   // NS_ASSERTION(aStatus.IsComplete(), "bad status");
 }
 
-/* virtual */ nsresult nsMathMLmpaddedFrame::Place(DrawTarget* aDrawTarget,
-                                                   bool aPlaceOrigin,
-                                                   ReflowOutput& aDesiredSize) {
+/* virtual */
+nsresult nsMathMLmpaddedFrame::Place(DrawTarget* aDrawTarget, bool aPlaceOrigin,
+                                     ReflowOutput& aDesiredSize) {
   nsresult rv = nsMathMLContainerFrame::Place(aDrawTarget, false, aDesiredSize);
   if (NS_MATHML_HAS_ERROR(mPresentationData.flags) || NS_FAILED(rv)) {
     DidReflowChildren(PrincipalChildList().FirstChild());
@@ -394,23 +397,21 @@ void nsMathMLmpaddedFrame::Reflow(nsPresContext* aPresContext,
   // there are attributes, tweak our metrics and move children to achieve the
   // desired visual effects.
 
-  if ((StyleVisibility()->mDirection ? mWidthSign : mLeadingSpaceSign) !=
-      NS_MATHML_SIGN_INVALID) {
+  const bool isRTL = StyleVisibility()->mDirection == StyleDirection::Rtl;
+  if ((isRTL ? mWidthSign : mLeadingSpaceSign) != NS_MATHML_SIGN_INVALID) {
     // there was padding on the left. dismiss the left italic correction now
     // (so that our parent won't correct us)
     mBoundingMetrics.leftBearing = 0;
   }
 
-  if ((StyleVisibility()->mDirection ? mLeadingSpaceSign : mWidthSign) !=
-      NS_MATHML_SIGN_INVALID) {
+  if ((isRTL ? mLeadingSpaceSign : mWidthSign) != NS_MATHML_SIGN_INVALID) {
     // there was padding on the right. dismiss the right italic correction now
     // (so that our parent won't correct us)
     mBoundingMetrics.width = width;
     mBoundingMetrics.rightBearing = mBoundingMetrics.width;
   }
 
-  nscoord dx =
-      (StyleVisibility()->mDirection ? width - initialWidth - lspace : lspace);
+  nscoord dx = (isRTL ? width - initialWidth - lspace : lspace);
 
   aDesiredSize.SetBlockStartAscent(height);
   aDesiredSize.Width() = mBoundingMetrics.width;
@@ -430,8 +431,9 @@ void nsMathMLmpaddedFrame::Reflow(nsPresContext* aPresContext,
   return NS_OK;
 }
 
-/* virtual */ nsresult nsMathMLmpaddedFrame::MeasureForWidth(
-    DrawTarget* aDrawTarget, ReflowOutput& aDesiredSize) {
+/* virtual */
+nsresult nsMathMLmpaddedFrame::MeasureForWidth(DrawTarget* aDrawTarget,
+                                               ReflowOutput& aDesiredSize) {
   ProcessAttributes();
   return Place(aDrawTarget, false, aDesiredSize);
 }

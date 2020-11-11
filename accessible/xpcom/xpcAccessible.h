@@ -34,6 +34,7 @@ class xpcAccessible : public nsIAccessible {
   NS_IMETHOD GetChildren(nsIArray** aChildren) final;
   NS_IMETHOD GetIndexInParent(int32_t* aIndexInParent) final;
 
+  NS_IMETHOD GetUniqueID(int64_t* aUniqueID) final;
   NS_IMETHOD GetDOMNode(nsINode** aDOMNode) final;
   NS_IMETHOD GetId(nsAString& aID) final;
   NS_IMETHOD GetDocument(nsIAccessibleDocument** aDocument) final;
@@ -52,6 +53,9 @@ class xpcAccessible : public nsIAccessible {
   NS_IMETHOD GetKeyboardShortcut(nsAString& aKeyBinding) final;
 
   NS_IMETHOD GetAttributes(nsIPersistentProperties** aAttributes) final;
+
+  NS_IMETHOD GetNativeInterface(nsISupports** aNativeInterface) final;
+
   NS_IMETHOD GetBounds(int32_t* aX, int32_t* aY, int32_t* aWidth,
                        int32_t* aHeight) final;
   NS_IMETHOD GetBoundsInCSSPixels(int32_t* aX, int32_t* aY, int32_t* aWidth,
@@ -67,6 +71,8 @@ class xpcAccessible : public nsIAccessible {
                              nsIAccessible** aAccessible) final;
   NS_IMETHOD GetDeepestChildAtPoint(int32_t aX, int32_t aY,
                                     nsIAccessible** aAccessible) final;
+  NS_IMETHOD GetDeepestChildAtPointInProcess(int32_t aX, int32_t aY,
+                                             nsIAccessible** aAccessible) final;
 
   NS_IMETHOD SetSelected(bool aSelect) final;
   NS_IMETHOD TakeSelection() final;
@@ -78,9 +84,12 @@ class xpcAccessible : public nsIAccessible {
                                   nsAString& aDescription) final;
   NS_IMETHOD DoAction(uint8_t aIndex) final;
 
+  MOZ_CAN_RUN_SCRIPT
   NS_IMETHOD ScrollTo(uint32_t aHow) final;
   NS_IMETHOD ScrollToPoint(uint32_t aCoordinateType, int32_t aX,
                            int32_t aY) final;
+
+  NS_IMETHOD Announce(const nsAString& aAnnouncement, uint16_t aPriority) final;
 
  protected:
   xpcAccessible() {}

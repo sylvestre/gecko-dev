@@ -1,4 +1,3 @@
-/* vim: set ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
    http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -16,25 +15,29 @@ const sassContent = `body {
 }
 `;
 
-const cssContent = `body {
+const cssContent =
+  `body {
   background-color: black;
 }
 body > h1 {
   color: white;
 }
 ` +
-"/*# sourceMappingURL=data:application/json;base64,ewoidmVyc2lvbiI6IDMsCiJtY" +
-"XBwaW5ncyI6ICJBQUFBLElBQUs7RUFDSCxnQkFBZ0IsRUFBRSxLQUFLO0VBQ3ZCLFNBQU87SUFD" +
-"TCxLQUFLLEVBQUUsS0FBSyIsCiJzb3VyY2VzIjogWyJ0ZXN0LnNjc3MiXSwKInNvdXJjZXNDb25" +
-"0ZW50IjogWyJib2R5IHtcbiAgYmFja2dyb3VuZC1jb2xvcjogYmxhY2s7XG4gICYgPiBoMSB7XG" +
-"4gICAgY29sb3I6IHdoaXRlO1xuICB9XG59XG4iXSwKIm5hbWVzIjogW10sCiJmaWxlIjogInRlc" +
-"3QuY3NzIgp9Cg== */";
+  "/*# sourceMappingURL=data:application/json;base64,ewoidmVyc2lvbiI6IDMsCiJtY" +
+  "XBwaW5ncyI6ICJBQUFBLElBQUs7RUFDSCxnQkFBZ0IsRUFBRSxLQUFLO0VBQ3ZCLFNBQU87SUFD" +
+  "TCxLQUFLLEVBQUUsS0FBSyIsCiJzb3VyY2VzIjogWyJ0ZXN0LnNjc3MiXSwKInNvdXJjZXNDb25" +
+  "0ZW50IjogWyJib2R5IHtcbiAgYmFja2dyb3VuZC1jb2xvcjogYmxhY2s7XG4gICYgPiBoMSB7XG" +
+  "4gICAgY29sb3I6IHdoaXRlO1xuICB9XG59XG4iXSwKIm5hbWVzIjogW10sCiJmaWxlIjogInRlc" +
+  "3QuY3NzIgp9Cg== */";
 
 add_task(async function() {
-  const {ui} = await openStyleEditorForURL(TESTCASE_URI);
+  const { ui } = await openStyleEditorForURL(TESTCASE_URI);
 
-  is(ui.editors.length, 1,
-    "correct number of editors with source maps enabled");
+  is(
+    ui.editors.length,
+    1,
+    "correct number of editors with source maps enabled"
+  );
 
   await testEditor(ui.editors[0], "test.scss", sassContent);
 
@@ -61,7 +64,7 @@ async function testEditor(editor, expectedName, expectedText) {
 /* Helpers */
 
 function togglePref(UI) {
-  const editorsPromise = UI.once("stylesheets-reset");
+  const editorsPromise = UI.once("stylesheets-refreshed");
   const selectedPromise = UI.once("editor-selected");
 
   Services.prefs.setBoolPref(PREF, false);
@@ -80,6 +83,7 @@ function getLinkFor(editor) {
 }
 
 function getStylesheetNameFor(editor) {
-  return editor.summary.querySelector(".stylesheet-name > label")
+  return editor.summary
+    .querySelector(".stylesheet-name > label")
     .getAttribute("value");
 }

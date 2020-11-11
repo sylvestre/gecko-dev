@@ -1,8 +1,8 @@
-.. _telemetry:
+.. _telemetry_obsolete:
 
-=======
+======================
 Obsolete Documentation
-=======
+======================
 
 .. toctree::
    :maxdepth: 5
@@ -10,3 +10,5 @@ Obsolete Documentation
 
    uitelemetry/index
    fhr/index
+   hybrid-content
+   optout-ping

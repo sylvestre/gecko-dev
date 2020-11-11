@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include "GLContext.h"
+#include "mozilla/Casting.h"
 #include "mozilla/dom/WebGLRenderingContextBinding.h"
 #include "mozilla/gfx/Logging.h"
 #include "mozilla/MathAlgorithms.h"
@@ -55,6 +56,9 @@ Maybe<ImageInfo> ImageInfo::NextMip(const GLenum target) const {
       return {};
     }
   }
+  if (next.mUninitializedSlices) {
+    next.mUninitializedSlices = Some(std::vector<bool>(next.mDepth, true));
+  }
 
   next.mWidth = std::max(uint32_t(1), next.mWidth / 2);
   next.mHeight = std::max(uint32_t(1), next.mHeight / 2);
@@ -65,37 +69,27 @@ Maybe<ImageInfo> ImageInfo::NextMip(const GLenum target) const {
 
 ////////////////////////////////////////
 
-JSObject* WebGLTexture::WrapObject(JSContext* cx,
-                                   JS::Handle<JSObject*> givenProto) {
-  return dom::WebGLTexture_Binding::Wrap(cx, this, givenProto);
-}
-
 WebGLTexture::WebGLTexture(WebGLContext* webgl, GLuint tex)
-    : WebGLRefCountedObject(webgl),
+    : WebGLContextBoundObject(webgl),
       mGLName(tex),
       mTarget(LOCAL_GL_NONE),
       mFaceCount(0),
       mImmutable(false),
       mImmutableLevelCount(0),
       mBaseMipmapLevel(0),
-      mMaxMipmapLevel(1000) {
-  mContext->mTextures.insertBack(this);
-}
+      mMaxMipmapLevel(1000) {}
 
-void WebGLTexture::Delete() {
+WebGLTexture::~WebGLTexture() {
   for (auto& cur : mImageInfoArr) {
     cur = webgl::ImageInfo();
   }
   InvalidateCaches();
 
+  if (!mContext) return;
   mContext->gl->fDeleteTextures(1, &mGLName);
-
-  LinkedListElement<WebGLTexture>::removeFrom(mContext->mTextures);
 }
 
 size_t WebGLTexture::MemoryUsage() const {
-  if (IsDeleted()) return 0;
-
   size_t accum = 0;
   for (const auto& cur : mImageInfoArr) {
     accum += cur.MemoryUsage();
@@ -131,8 +125,7 @@ void WebGLTexture::PopulateMipChain(const uint32_t maxLevel) {
 
 static bool ZeroTextureData(const WebGLContext* webgl, GLuint tex,
                             TexImageTarget target, uint32_t level,
-                            const webgl::FormatUsageInfo* usage, uint32_t width,
-                            uint32_t height, uint32_t depth);
+                            const webgl::ImageInfo& info);
 
 bool WebGLTexture::IsMipAndCubeComplete(const uint32_t maxLevel,
                                         const bool ensureInit,
@@ -163,18 +156,17 @@ bool WebGLTexture::IsMipAndCubeComplete(const uint32_t maxLevel,
         return false;
       }
 
-      if (MOZ_UNLIKELY(ensureInit && !cur.mHasData)) {
+      if (MOZ_UNLIKELY(ensureInit && cur.mUninitializedSlices)) {
         auto imageTarget = mTarget.get();
         if (imageTarget == LOCAL_GL_TEXTURE_CUBE_MAP) {
           imageTarget = LOCAL_GL_TEXTURE_CUBE_MAP_POSITIVE_X + face;
         }
-        if (!ZeroTextureData(mContext, mGLName, imageTarget, level, cur.mFormat,
-                             cur.mWidth, cur.mHeight, cur.mDepth)) {
+        if (!ZeroTextureData(mContext, mGLName, imageTarget, level, cur)) {
           mContext->ErrorOutOfMemory("Failed to zero tex image data.");
           *out_initFailed = true;
           return false;
         }
-        cur.mHasData = true;
+        cur.mUninitializedSlices = Nothing();
       }
     }
 
@@ -260,7 +252,7 @@ Maybe<const WebGLTexture::CompletenessInfo> WebGLTexture::CalcCompletenessInfo(
     ret->incompleteReason = "Bad mipmap dimension or format.";
     return ret;
   }
-  ret->levels = maxLevel - mBaseMipmapLevel + 1;
+  ret->levels = AutoAssertCast(maxLevel - mBaseMipmapLevel + 1);
   ret->mipmapComplete = true;
 
   // -
@@ -448,6 +440,8 @@ void WebGLTexture::RefreshSwizzle() const {
   const auto& swizzle = imageInfo.mFormat->textureSwizzleRGBA;
 
   if (swizzle != mCurSwizzle) {
+    const gl::ScopedBindTexture scopeBindTexture(mContext->gl, mGLName,
+                                                 mTarget.get());
     SetSwizzle(mContext->gl, mTarget, swizzle);
     mCurSwizzle = swizzle;
   }
@@ -458,27 +452,27 @@ bool WebGLTexture::EnsureImageDataInitialized(const TexImageTarget target,
   auto& imageInfo = ImageInfoAt(target, level);
   if (!imageInfo.IsDefined()) return true;
 
-  if (imageInfo.mHasData) return true;
+  if (!imageInfo.mUninitializedSlices) return true;
 
-  if (!ZeroTextureData(mContext, mGLName, target, level, imageInfo.mFormat,
-                       imageInfo.mWidth, imageInfo.mHeight, imageInfo.mDepth)) {
+  if (!ZeroTextureData(mContext, mGLName, target, level, imageInfo)) {
     return false;
   }
-  imageInfo.mHasData = true;
+  imageInfo.mUninitializedSlices = Nothing();
   return true;
 }
 
 static bool ClearDepthTexture(const WebGLContext& webgl, const GLuint tex,
                               const TexImageTarget imageTarget,
                               const uint32_t level,
-                              const webgl::FormatUsageInfo* const usage,
-                              const uint32_t depth) {
+                              const webgl::ImageInfo& info) {
+  const auto& gl = webgl.gl;
+  const auto& usage = info.mFormat;
+  const auto& format = usage->format;
+
   // Depth resources actually clear to 1.0f, not 0.0f!
   // They are also always renderable.
   MOZ_ASSERT(usage->IsRenderable());
-
-  const auto& gl = webgl.gl;
-  const auto& format = usage->format;
+  MOZ_ASSERT(info.mUninitializedSlices);
 
   GLenum attachPoint = LOCAL_GL_DEPTH_ATTACHMENT;
   GLbitfield clearBits = LOCAL_GL_DEPTH_BUFFER_BIT;
@@ -517,9 +511,11 @@ static bool ClearDepthTexture(const WebGLContext& webgl, const GLuint tex,
     }
   };
 
-  for (uint32_t z = 0; z < depth; ++z) {
-    fnAttach(z);
-    gl->fClear(clearBits);
+  for (const auto z : IntegerRange(info.mDepth)) {
+    if ((*info.mUninitializedSlices)[z]) {
+      fnAttach(z);
+      gl->fClear(clearBits);
+    }
   }
   const auto& status = gl->fCheckFramebufferStatus(LOCAL_GL_FRAMEBUFFER);
   const bool isComplete = (status == LOCAL_GL_FRAMEBUFFER_COMPLETE);
@@ -529,23 +525,27 @@ static bool ClearDepthTexture(const WebGLContext& webgl, const GLuint tex,
 
 static bool ZeroTextureData(const WebGLContext* webgl, GLuint tex,
                             TexImageTarget target, uint32_t level,
-                            const webgl::FormatUsageInfo* usage, uint32_t width,
-                            uint32_t height, uint32_t depth) {
-  // This has two usecases:
-  // 1. Lazy zeroing of uninitialized textures:
+                            const webgl::ImageInfo& info) {
+  // This has one usecase:
+  // Lazy zeroing of uninitialized textures:
   //    a. Before draw.
   //    b. Before partial upload. (TexStorage + TexSubImage)
-  // 2. Zero subrects from out-of-bounds blits. (CopyTex(Sub)Image)
 
-  // We have no sympathy for any of these cases.
+  // We have no sympathy for this case.
 
   // "Doctor, it hurts when I do this!" "Well don't do that!"
+  MOZ_ASSERT(info.mUninitializedSlices);
+
   const auto targetStr = EnumString(target.get());
-  webgl->GeneratePerfWarning(
+  webgl->GenerateWarning(
       "Tex image %s level %u is incurring lazy initialization.",
       targetStr.c_str(), level);
 
   gl::GLContext* gl = webgl->GL();
+  const auto& width = info.mWidth;
+  const auto& height = info.mHeight;
+  const auto& depth = info.mDepth;
+  const auto& usage = info.mFormat;
 
   GLenum scopeBindTarget;
   switch (target.get()) {
@@ -578,22 +578,30 @@ static bool ZeroTextureData(const WebGLContext* webgl, GLuint tex,
     CheckedUint32 checkedByteCount = compression->bytesPerBlock;
     checkedByteCount *= widthBlocks;
     checkedByteCount *= heightBlocks;
-    checkedByteCount *= depth;
 
     if (!checkedByteCount.isValid()) return false;
 
-    const size_t byteCount = checkedByteCount.value();
+    const size_t sliceByteCount = checkedByteCount.value();
 
-    UniqueBuffer zeros = calloc(1, byteCount);
+    UniqueBuffer zeros = calloc(1u, sliceByteCount);
     if (!zeros) return false;
 
-    ScopedUnpackReset scopedReset(webgl);
-    gl->fPixelStorei(LOCAL_GL_UNPACK_ALIGNMENT, 1);  // Don't bother with
-                                                     // striding it well.
+    // Don't bother with striding it well.
+    // TODO: We shouldn't need to do this for CompressedTexSubImage.
+    WebGLPixelStore::AssertDefault(*gl, webgl->IsWebGL2());
+    gl->fPixelStorei(LOCAL_GL_UNPACK_ALIGNMENT, 1);
+    const auto revert = MakeScopeExit(
+        [&]() { gl->fPixelStorei(LOCAL_GL_UNPACK_ALIGNMENT, 4); });
 
-    const auto error =
-        DoCompressedTexSubImage(gl, target.get(), level, 0, 0, 0, width, height,
-                                depth, sizedFormat, byteCount, zeros.get());
+    GLenum error = 0;
+    for (const auto z : IntegerRange(depth)) {
+      if ((*info.mUninitializedSlices)[z]) {
+        error = DoCompressedTexSubImage(gl, target.get(), level, 0, 0, z, width,
+                                        height, 1, sizedFormat, sliceByteCount,
+                                        zeros.get());
+        if (error) break;
+      }
+    }
     return !error;
   }
 
@@ -605,7 +613,7 @@ static bool ZeroTextureData(const WebGLContext* webgl, GLuint tex,
     // (Restriction because of D3D9)
     // Also, depth resources are cleared to 1.0f and are always renderable, so
     // just use FB clears.
-    return ClearDepthTexture(*webgl, tex, target, level, usage, depth);
+    return ClearDepthTexture(*webgl, tex, target, level, info);
   }
 
   const webgl::PackingInfo packing = driverUnpackInfo->ToPacking();
@@ -615,21 +623,45 @@ static bool ZeroTextureData(const WebGLContext* webgl, GLuint tex,
   CheckedUint32 checkedByteCount = bytesPerPixel;
   checkedByteCount *= width;
   checkedByteCount *= height;
-  checkedByteCount *= depth;
 
   if (!checkedByteCount.isValid()) return false;
 
-  const size_t byteCount = checkedByteCount.value();
+  const size_t sliceByteCount = checkedByteCount.value();
 
-  UniqueBuffer zeros = calloc(1, byteCount);
+  UniqueBuffer zeros = calloc(1u, sliceByteCount);
   if (!zeros) return false;
 
-  ScopedUnpackReset scopedReset(webgl);
-  gl->fPixelStorei(LOCAL_GL_UNPACK_ALIGNMENT,
-                   1);  // Don't bother with striding it well.
-  const auto error = DoTexSubImage(gl, target, level, 0, 0, 0, width, height,
-                                   depth, packing, zeros.get());
+  // Don't bother with striding it well.
+  WebGLPixelStore::AssertDefault(*gl, webgl->IsWebGL2());
+  gl->fPixelStorei(LOCAL_GL_UNPACK_ALIGNMENT, 1);
+  const auto revert =
+      MakeScopeExit([&]() { gl->fPixelStorei(LOCAL_GL_UNPACK_ALIGNMENT, 4); });
+
+  GLenum error = 0;
+  for (const auto z : IntegerRange(depth)) {
+    if ((*info.mUninitializedSlices)[z]) {
+      error = DoTexSubImage(gl, target, level, 0, 0, z, width, height, 1,
+                            packing, zeros.get());
+      if (error) break;
+    }
+  }
   return !error;
+}
+
+template <typename T, typename R>
+static R Clamp(const T val, const R min, const R max) {
+  if (val < min) return min;
+  if (val > max) return max;
+  return static_cast<R>(val);
+}
+
+template <typename T, typename A, typename B>
+static void ClampSelf(T* const out, const A min, const B max) {
+  if (*out < min) {
+    *out = T{min};
+  } else if (*out > max) {
+    *out = T{max};
+  }
 }
 
 void WebGLTexture::ClampLevelBaseAndMax() {
@@ -640,10 +672,8 @@ void WebGLTexture::ClampLevelBaseAndMax() {
   //  `[0, levels-1]`, `level_max` is then clamped to the range `
   //  `[level_base, levels-1]`, where `levels` is the parameter passed to
   //   TexStorage* for the texture object."
-  mBaseMipmapLevel =
-      Clamp<uint32_t>(mBaseMipmapLevel, 0, mImmutableLevelCount - 1);
-  mMaxMipmapLevel = Clamp<uint32_t>(mMaxMipmapLevel, mBaseMipmapLevel,
-                                    mImmutableLevelCount - 1);
+  ClampSelf(&mBaseMipmapLevel, 0u, mImmutableLevelCount - 1u);
+  ClampSelf(&mMaxMipmapLevel, mBaseMipmapLevel, mImmutableLevelCount - 1u);
 
   // Note: This means that immutable textures are *always* texture-complete!
 }
@@ -652,12 +682,6 @@ void WebGLTexture::ClampLevelBaseAndMax() {
 // GL calls
 
 bool WebGLTexture::BindTexture(TexTarget texTarget) {
-  if (IsDeleted()) {
-    mContext->ErrorInvalidOperation(
-        "bindTexture: Cannot bind a deleted object.");
-    return false;
-  }
-
   const bool isFirstBinding = !mTarget;
   if (!isFirstBinding && mTarget != texTarget) {
     mContext->ErrorInvalidOperation(
@@ -758,6 +782,10 @@ void WebGLTexture::GenerateMipmap() {
     return;
   }
 
+  if (usage->IsRenderable() && !usage->IsExplicitlyRenderable()) {
+    mContext->WarnIfImplicit(usage->GetExtensionID());
+  }
+
   // Done with validation. Do the operation.
 
   gl::GLContext* gl = mContext->gl;
@@ -785,22 +813,22 @@ void WebGLTexture::GenerateMipmap() {
   PopulateMipChain(maxLevel);
 }
 
-JS::Value WebGLTexture::GetTexParameter(TexTarget texTarget, GLenum pname) {
+Maybe<double> WebGLTexture::GetTexParameter(GLenum pname) const {
   GLint i = 0;
   GLfloat f = 0.0f;
 
   switch (pname) {
     case LOCAL_GL_TEXTURE_BASE_LEVEL:
-      return JS::NumberValue(mBaseMipmapLevel);
+      return Some(mBaseMipmapLevel);
 
     case LOCAL_GL_TEXTURE_MAX_LEVEL:
-      return JS::NumberValue(mMaxMipmapLevel);
+      return Some(mMaxMipmapLevel);
 
     case LOCAL_GL_TEXTURE_IMMUTABLE_FORMAT:
-      return JS::BooleanValue(mImmutable);
+      return Some(mImmutable);
 
     case LOCAL_GL_TEXTURE_IMMUTABLE_LEVELS:
-      return JS::NumberValue(uint32_t(mImmutableLevelCount));
+      return Some(uint32_t(mImmutableLevelCount));
 
     case LOCAL_GL_TEXTURE_MIN_FILTER:
     case LOCAL_GL_TEXTURE_MAG_FILTER:
@@ -808,15 +836,21 @@ JS::Value WebGLTexture::GetTexParameter(TexTarget texTarget, GLenum pname) {
     case LOCAL_GL_TEXTURE_WRAP_T:
     case LOCAL_GL_TEXTURE_WRAP_R:
     case LOCAL_GL_TEXTURE_COMPARE_MODE:
-    case LOCAL_GL_TEXTURE_COMPARE_FUNC:
-      mContext->gl->fGetTexParameteriv(texTarget.get(), pname, &i);
-      return JS::NumberValue(uint32_t(i));
+    case LOCAL_GL_TEXTURE_COMPARE_FUNC: {
+      MOZ_ASSERT(mTarget);
+      const gl::ScopedBindTexture autoTex(mContext->gl, mGLName, mTarget.get());
+      mContext->gl->fGetTexParameteriv(mTarget.get(), pname, &i);
+      return Some(i);
+    }
 
     case LOCAL_GL_TEXTURE_MAX_ANISOTROPY_EXT:
     case LOCAL_GL_TEXTURE_MAX_LOD:
-    case LOCAL_GL_TEXTURE_MIN_LOD:
-      mContext->gl->fGetTexParameterfv(texTarget.get(), pname, &f);
-      return JS::NumberValue(float(f));
+    case LOCAL_GL_TEXTURE_MIN_LOD: {
+      MOZ_ASSERT(mTarget);
+      const gl::ScopedBindTexture autoTex(mContext->gl, mGLName, mTarget.get());
+      mContext->gl->fGetTexParameterfv(mTarget.get(), pname, &f);
+      return Some(f);
+    }
 
     default:
       MOZ_CRASH("GFX: Unhandled pname.");
@@ -977,17 +1011,22 @@ void WebGLTexture::TexParameter(TexTarget texTarget, GLenum pname,
   FloatOrInt clamped = param;
   bool invalidate = true;
   switch (pname) {
-    case LOCAL_GL_TEXTURE_BASE_LEVEL:
+    case LOCAL_GL_TEXTURE_BASE_LEVEL: {
       mBaseMipmapLevel = clamped.i;
       ClampLevelBaseAndMax();
-      clamped = FloatOrInt(GLint(mBaseMipmapLevel));
+      const auto forDriver =
+          Clamp(mBaseMipmapLevel, uint8_t{0}, kMaxLevelCount);
+      clamped = FloatOrInt(forDriver);
       break;
+    }
 
-    case LOCAL_GL_TEXTURE_MAX_LEVEL:
+    case LOCAL_GL_TEXTURE_MAX_LEVEL: {
       mMaxMipmapLevel = clamped.i;
       ClampLevelBaseAndMax();
-      clamped = FloatOrInt(GLint(mMaxMipmapLevel));
+      const auto forDriver = Clamp(mMaxMipmapLevel, uint8_t{0}, kMaxLevelCount);
+      clamped = FloatOrInt(forDriver);
       break;
+    }
 
     case LOCAL_GL_TEXTURE_MIN_FILTER:
       mSamplingState.minFilter = clamped.i;
@@ -1026,11 +1065,11 @@ void WebGLTexture::TexParameter(TexTarget texTarget, GLenum pname,
     mContext->gl->fTexParameterf(texTarget.get(), pname, clamped.f);
 }
 
-////////////////////////////////////////////////////////////////////////////////
-
-NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE_0(WebGLTexture)
-
-NS_IMPL_CYCLE_COLLECTION_ROOT_NATIVE(WebGLTexture, AddRef)
-NS_IMPL_CYCLE_COLLECTION_UNROOT_NATIVE(WebGLTexture, Release)
+void WebGLTexture::Truncate() {
+  for (auto& cur : mImageInfoArr) {
+    cur = {};
+  }
+  InvalidateCaches();
+}
 
 }  // namespace mozilla

@@ -1,25 +1,24 @@
-/* global sinon */
-Services.scriptloader.loadSubScript("resource://testing-common/sinon-2.3.2.js");
-
 ChromeUtils.import("resource://services-sync/UIState.jsm", this);
-
-registerCleanupFunction(function() {
-  delete window.sinon;
-});
+const { sinon } = ChromeUtils.import("resource://testing-common/Sinon.jsm");
 
 function promiseSyncReady() {
-  let service = Cc["@mozilla.org/weave/service;1"]
-                  .getService(Ci.nsISupports)
-                  .wrappedJSObject;
+  let service = Cc["@mozilla.org/weave/service;1"].getService(Ci.nsISupports)
+    .wrappedJSObject;
   return service.whenLoaded();
 }
 
-function setupSendTabMocks({ syncReady, clientsSynced, targets, state, isSendableURI }) {
-  const sandbox = sinon.sandbox.create();
-  sandbox.stub(gSync, "syncReady").get(() => syncReady);
-  sandbox.stub(Weave.Service.clientsEngine, "isFirstSync").get(() => !clientsSynced);
-  sandbox.stub(gSync, "sendTabTargets").get(() => targets);
-  sandbox.stub(UIState, "get").returns({ status: state });
+function setupSendTabMocks({
+  fxaDevices = null,
+  state = UIState.STATUS_SIGNED_IN,
+  isSendableURI = true,
+}) {
+  const sandbox = sinon.createSandbox();
+  sandbox.stub(fxAccounts.device, "recentDeviceList").get(() => fxaDevices);
+  sandbox.stub(UIState, "get").returns({
+    status: state,
+    syncEnabled: true,
+  });
   sandbox.stub(gSync, "isSendableURI").returns(isSendableURI);
+  sandbox.stub(fxAccounts.device, "refreshDeviceList").resolves(true);
   return sandbox;
 }

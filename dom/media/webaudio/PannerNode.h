@@ -9,9 +9,9 @@
 
 #include "AudioNode.h"
 #include "AudioParam.h"
+#include "nsPrintfCString.h"
 #include "mozilla/dom/PannerNodeBinding.h"
 #include "ThreeDPoint.h"
-#include "mozilla/WeakPtr.h"
 #include <limits>
 #include <set>
 
@@ -22,13 +22,11 @@ class AudioContext;
 class AudioBufferSourceNode;
 struct PannerOptions;
 
-class PannerNode final : public AudioNode, public SupportsWeakPtr<PannerNode> {
+class PannerNode final : public AudioNode {
  public:
   static already_AddRefed<PannerNode> Create(AudioContext& aAudioContext,
                                              const PannerOptions& aOptions,
                                              ErrorResult& aRv);
-
-  MOZ_DECLARE_WEAKREFERENCE_TYPENAME(PannerNode)
 
   static already_AddRefed<PannerNode> Constructor(const GlobalObject& aGlobal,
                                                   AudioContext& aAudioContext,
@@ -42,7 +40,8 @@ class PannerNode final : public AudioNode, public SupportsWeakPtr<PannerNode> {
 
   void SetChannelCount(uint32_t aChannelCount, ErrorResult& aRv) override {
     if (aChannelCount > 2) {
-      aRv.Throw(NS_ERROR_DOM_NOT_SUPPORTED_ERR);
+      aRv.ThrowNotSupportedError(
+          nsPrintfCString("%u is greater than 2", aChannelCount));
       return;
     }
     AudioNode::SetChannelCount(aChannelCount, aRv);
@@ -50,7 +49,7 @@ class PannerNode final : public AudioNode, public SupportsWeakPtr<PannerNode> {
   void SetChannelCountModeValue(ChannelCountMode aMode,
                                 ErrorResult& aRv) override {
     if (aMode == ChannelCountMode::Max) {
-      aRv.Throw(NS_ERROR_DOM_NOT_SUPPORTED_ERR);
+      aRv.ThrowNotSupportedError("Cannot set channel count mode to \"max\"");
       return;
     }
     AudioNode::SetChannelCountModeValue(aMode, aRv);
@@ -65,7 +64,7 @@ class PannerNode final : public AudioNode, public SupportsWeakPtr<PannerNode> {
   DistanceModelType DistanceModel() const { return mDistanceModel; }
   void SetDistanceModel(DistanceModelType aDistanceModel) {
     mDistanceModel = aDistanceModel;
-    SendInt32ParameterToStream(DISTANCE_MODEL, int32_t(mDistanceModel));
+    SendInt32ParameterToTrack(DISTANCE_MODEL, int32_t(mDistanceModel));
   }
 
   void SetPosition(double aX, double aY, double aZ) {
@@ -77,8 +76,6 @@ class PannerNode final : public AudioNode, public SupportsWeakPtr<PannerNode> {
     mPositionX->SetValue(aX);
     mPositionY->SetValue(aY);
     mPositionZ->SetValue(aZ);
-    SendThreeDPointParameterToStream(
-        POSITION, ConvertAudioParamTo3DP(mPositionX, mPositionY, mPositionZ));
   }
 
   void SetOrientation(double aX, double aY, double aZ) {
@@ -90,9 +87,6 @@ class PannerNode final : public AudioNode, public SupportsWeakPtr<PannerNode> {
     mOrientationX->SetValue(aX);
     mOrientationY->SetValue(aY);
     mOrientationZ->SetValue(aZ);
-    SendThreeDPointParameterToStream(
-        ORIENTATION,
-        ConvertAudioParamTo3DP(mOrientationX, mOrientationY, mOrientationZ));
   }
 
   double RefDistance() const { return mRefDistance; }
@@ -102,12 +96,13 @@ class PannerNode final : public AudioNode, public SupportsWeakPtr<PannerNode> {
     }
 
     if (aRefDistance < 0) {
-      aRv.template ThrowRangeError<MSG_INVALID_PANNERNODE_REFDISTANCE_ERROR>();
+      aRv.ThrowRangeError(
+          "The refDistance value passed to PannerNode must not be negative.");
       return;
     }
 
     mRefDistance = aRefDistance;
-    SendDoubleParameterToStream(REF_DISTANCE, mRefDistance);
+    SendDoubleParameterToTrack(REF_DISTANCE, mRefDistance);
   }
 
   double MaxDistance() const { return mMaxDistance; }
@@ -117,12 +112,13 @@ class PannerNode final : public AudioNode, public SupportsWeakPtr<PannerNode> {
     }
 
     if (aMaxDistance <= 0) {
-      aRv.template ThrowRangeError<MSG_INVALID_PANNERNODE_MAXDISTANCE_ERROR>();
+      aRv.ThrowRangeError(
+          "The maxDistance value passed to PannerNode must be positive.");
       return;
     }
 
     mMaxDistance = aMaxDistance;
-    SendDoubleParameterToStream(MAX_DISTANCE, mMaxDistance);
+    SendDoubleParameterToTrack(MAX_DISTANCE, mMaxDistance);
   }
 
   double RolloffFactor() const { return mRolloffFactor; }
@@ -132,11 +128,13 @@ class PannerNode final : public AudioNode, public SupportsWeakPtr<PannerNode> {
     }
 
     if (aRolloffFactor < 0) {
-      aRv.template ThrowRangeError<MSG_INVALID_PANNERNODE_ROLLOFF_ERROR>();
+      aRv.ThrowRangeError(
+          "The rolloffFactor value passed to PannerNode must not be negative.");
+      return;
     }
 
     mRolloffFactor = aRolloffFactor;
-    SendDoubleParameterToStream(ROLLOFF_FACTOR, mRolloffFactor);
+    SendDoubleParameterToTrack(ROLLOFF_FACTOR, mRolloffFactor);
   }
 
   double ConeInnerAngle() const { return mConeInnerAngle; }
@@ -145,7 +143,7 @@ class PannerNode final : public AudioNode, public SupportsWeakPtr<PannerNode> {
       return;
     }
     mConeInnerAngle = aConeInnerAngle;
-    SendDoubleParameterToStream(CONE_INNER_ANGLE, mConeInnerAngle);
+    SendDoubleParameterToTrack(CONE_INNER_ANGLE, mConeInnerAngle);
   }
 
   double ConeOuterAngle() const { return mConeOuterAngle; }
@@ -154,7 +152,7 @@ class PannerNode final : public AudioNode, public SupportsWeakPtr<PannerNode> {
       return;
     }
     mConeOuterAngle = aConeOuterAngle;
-    SendDoubleParameterToStream(CONE_OUTER_ANGLE, mConeOuterAngle);
+    SendDoubleParameterToTrack(CONE_OUTER_ANGLE, mConeOuterAngle);
   }
 
   double ConeOuterGain() const { return mConeOuterGain; }
@@ -164,12 +162,13 @@ class PannerNode final : public AudioNode, public SupportsWeakPtr<PannerNode> {
     }
 
     if (aConeOuterGain < 0 || aConeOuterGain > 1) {
-      aRv.Throw(NS_ERROR_DOM_INVALID_STATE_ERR);
+      aRv.ThrowInvalidStateError(
+          nsPrintfCString("%g is not in the range [0, 1]", aConeOuterGain));
       return;
     }
 
     mConeOuterGain = aConeOuterGain;
-    SendDoubleParameterToStream(CONE_OUTER_GAIN, mConeOuterGain);
+    SendDoubleParameterToTrack(CONE_OUTER_GAIN, mConeOuterGain);
   }
 
   AudioParam* PositionX() { return mPositionX; }

@@ -2,9 +2,8 @@
 <head>
   <title>Test for DOM prompts</title>
   <script type="text/javascript" src="/MochiKit/MochiKit.js"></script>
-  <script type="text/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
-  <script type="text/javascript" src="/tests/SimpleTest/AddTask.js"></script>
-  <script type="text/javascript" src="/tests/SimpleTest/EventUtils.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/EventUtils.js"></script>
   <script type="text/javascript" src="prompt_common.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css" />
 </head>
@@ -15,6 +14,7 @@
 <script class="testbody" type="text/javascript">
 var rv;
 var state, action;
+modalType = Ci.nsIPrompt.MODAL_TYPE_CONTENT;
 
 add_task(async function test_alert_ok() {
     info("Starting test: Alert");

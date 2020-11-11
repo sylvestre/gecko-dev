@@ -7,22 +7,22 @@ DevTools has a client module that allows applications to be written that debug o
 In order to communicate, a client and a server instance must be created and a protocol connection must be established. The connection can be either over a TCP socket or an nsIPipe. The `start` function displayed below establishes an nsIPipe-backed connection:
 
 ```javascript
-Components.utils.import("resource://gre/modules/devtools/dbg-server.jsm");
-Components.utils.import("resource://gre/modules/devtools/dbg-client.jsm");
+const { DevToolsServer } = require("devtools/server/devtools-server");
+const { DevToolsClient } = require("devtools/client/devtools-client");
 
 function start() {
   // Start the server.
-  DebuggerServer.init();
-  DebuggerServer.registerAllActors();
+  DevToolsServer.init();
+  DevToolsServer.registerAllActors();
 
   // Listen to an nsIPipe
-  let transport = DebuggerServer.connectPipe();
+  let transport = DevToolsServer.connectPipe();
 
   // Start the client.
-  client = new DebuggerClient(transport);
+  client = new DevToolsClient(transport);
 
   client.connect((type, traits) => {
-    // Now the client is conected to the server.
+    // Now the client is connected to the server.
     debugTab();
   });
 }
@@ -31,26 +31,26 @@ function start() {
 If a TCP socket is required, the function should be split in two parts, a server-side and a client-side, like this:
 
 ```javascript
-Components.utils.import("resource://gre/modules/devtools/dbg-server.jsm");
-Components.utils.import("resource://gre/modules/devtools/dbg-client.jsm");
+const { DevToolsServer } = require("devtools/server/devtools-server");
+const { DevToolsClient } = require("devtools/client/devtools-client");
 
 function startServer() {
   // Start the server.
-  DebuggerServer.init();
-  DebuggerServer.registerAllActors();
+  DevToolsServer.init();
+  DevToolsServer.registerAllActors();
 
   // For an nsIServerSocket we do this:
-  DebuggerServer.openListener(2929); // A connection on port 2929.
+  DevToolsServer.openListener(2929); // A connection on port 2929.
 }
 
 async function startClient() {
-  let transport = await DebuggerClient.socketConnect({ host: "localhost", port: 2929 });
+  let transport = await DevToolsClient.socketConnect({ host: "localhost", port: 2929 });
 
   // Start the client.
-  client = new DebuggerClient(transport);
+  client = new DevToolsClient(transport);
 
   client.connect((type, traits) => {
-    // Now the client is conected to the server.
+    // Now the client is connected to the server.
     debugTab();
   });
 }
@@ -73,26 +73,22 @@ Attaching to a browser tab requires enumerating the available tabs and attaching
 ```javascript
 function attachToTab() {
   // Get the list of tabs to find the one to attach to.
-  client.listTabs().then((response) => {
+  client.mainRoot.listTabs().then(tabs => {
     // Find the active tab.
-    let tab = response.tabs[response.selected];
+    let targetFront = tabs.find(tab => tab.selected);
 
     // Attach to the tab.
-    client.attachTarget(tab).then(([response, targetFront]) => {
-      if (!targetFront) {
-        return;
-      }
-
+    targetFront.attach().then(() => {
       // Now the targetFront is ready and can be used.
 
       // Attach listeners for client events.
-      targetFront.addListener("tabNavigated", onTab);
+      targetFront.on("tabNavigated", onTab);
     });
   });
 }
 ```
 
-The debugger client will send event notifications for a number of events the application may be interested in. These events include state changes in the debugger, like pausing and resuming, stack frames or source scripts being ready for retrieval, etc.
+The devtools client will send event notifications for a number of events the application may be interested in. These events include state changes in the debugger, like pausing and resuming, stack frames or source scripts being ready for retrieval, etc.
 
 ## Handling location changes
 
@@ -100,10 +96,8 @@ When the user navigates away from a page, a `tabNavigated` event will be fired. 
 
 ```javascript
 async function onTab() {
-  // Detach from the previous thread.
-  await client.activeThread.detach();
   // Detach from the previous tab.
-  await targetFront.activeTab.detach();
+  await targetFront.detach();
   // Start debugging the new tab.
   start();
 }
@@ -117,22 +111,17 @@ Once the application is attached to a tab, it can attach to its thread in order 
 // Assuming the application is already attached to the tab, and response is the first
 // argument of the attachTarget callback.
 
-client.attachThread(response.threadActor).then(function([response, threadClient]) {
-  if (!threadClient) {
+client.attachThread(response.threadActor).then(function(threadFront) {
+  if (!threadFront) {
     return;
   }
 
   // Attach listeners for thread events.
-  threadClient.addListener("paused", onPause);
-  threadClient.addListener("resumed", fooListener);
-  threadClient.addListener("detached", fooListener);
-  threadClient.addListener("framesadded", onFrames);
-  threadClient.addListener("framescleared", fooListener);
-  threadClient.addListener("scriptsadded", onScripts);
-  threadClient.addListener("scriptscleared", fooListener);
+  threadFront.on("paused", onPause);
+  threadFront.on("resumed", fooListener);
 
   // Resume the thread.
-  threadClient.resume();
+  threadFront.resume();
 
   // Debugger is now ready and debuggee is running.
 });
@@ -145,30 +134,28 @@ Here is the source code for a complete debugger application:
 ```javascript
 /*
  * Debugger API demo.
- * Try it in Scratchpad with Environment -> Browser, using
- * http://htmlpad.org/debugger/ as the current page.
  */
-Components.utils.import("resource://gre/modules/devtools/dbg-server.jsm");
-Components.utils.import("resource://gre/modules/devtools/dbg-client.jsm");
+const { DevToolsServer } = require("devtools/server/devtools-server");
+const { DevToolsClient } = require("devtools/client/devtools-client");
 
 let client;
-let threadClient;
+let threadFront;
 
 function startDebugger() {
   // Start the server.
-  DebuggerServer.init();
-  DebuggerServer.registerAllActors();
+  DevToolsServer.init();
+  DevToolsServer.registerAllActors();
   // Listen to an nsIPipe
-  let transport = DebuggerServer.connectPipe();
+  let transport = DevToolsServer.connectPipe();
   // For an nsIServerSocket we do this:
-  // DebuggerServer.openListener(port);
+  // DevToolsServer.openListener(port);
   // ...and this at the client:
   // let transport = debuggerSocketConnect(host, port);
 
   // Start the client.
-  client = new DebuggerClient(transport);
+  client = new DevToolsClient(transport);
   client.connect((type, traits) => {
-    // Now the client is conected to the server.
+    // Now the client is connected to the server.
     debugTab();
   });
 }
@@ -182,33 +169,19 @@ function shutdownDebugger() {
  */
 function debugTab() {
   // Get the list of tabs to find the one to attach to.
-  client.listTabs().then(response => {
+  client.mainRoot.listTabs().then(tabs => {
     // Find the active tab.
-    let tab = response.tabs[response.selected];
+    let targetFront = tabs.find(tab => tab.selected);
     // Attach to the tab.
-    client.attachTarget(tab).then(([response, targetFront]) => {
-      if (!targetFront) {
-        return;
-      }
-
+    targetFront.attach().then(() => {
       // Attach to the thread (context).
-      client.attachThread(response.threadActor, (response, thread) => {
-        if (!thread) {
-          return;
-        }
-
-        threadClient = thread;
+      targetFront.attachThread().then((threadFront) => {
         // Attach listeners for thread events.
-        threadClient.addListener("paused", onPause);
-        threadClient.addListener("resumed", fooListener);
-        threadClient.addListener("detached", fooListener);
-        threadClient.addListener("framesadded", onFrames);
-        threadClient.addListener("framescleared", fooListener);
-        threadClient.addListener("scriptsadded", onScripts);
-        threadClient.addListener("scriptscleared", fooListener);
+        threadFront.on("paused", onPause);
+        threadFront.on("resumed", fooListener);
 
         // Resume the thread.
-        threadClient.resume();
+        threadFront.resume();
         // Debugger is now ready and debuggee is running.
       });
     });
@@ -219,54 +192,11 @@ function debugTab() {
  * Handler for location changes.
  */
 function onTab() {
-  // Detach from the previous thread.
-  client.activeThread.detach(() => {
-    // Detach from the previous tab.
-    client.activeTab.detach(() => {
-      // Start debugging the new tab.
-      debugTab();
-    });
+  // Detach from the previous tab.
+  client.detach().then(() => {
+    // Start debugging the new tab.
+    debugTab();
   });
-}
-
-/**
- * Handler for entering pause state.
- */
-function onPause() {
-  // Get the top 20 frames in the server's frame stack cache.
-  client.activeThread.fillFrames(20);
-  // Get the scripts loaded in the server's source script cache.
-  client.activeThread.fillScripts();
-}
-
-/**
- * Handler for framesadded events.
- */
-function onFrames() {
-  // Get the list of frames in the server.
-  for (let frame of client.activeThread.cachedFrames) {
-    // frame is a Debugger.Frame grip.
-    dump("frame: " + frame.toSource() + "\n");
-    inspectFrame(frame);
-  }
-}
-
-/**
- * Handler for scriptsadded events.
- */
-function onScripts() {
-  // Get the list of scripts in the server.
-  for (let script of client.activeThread.cachedScripts) {
-    // script is a Debugger.Script grip.
-    dump("script: " + script.toSource() + "\n");
-  }
-
-  // Resume execution, since this is the last thing going on in the paused
-  // state and there is no UI in this program. Wait a bit so that object
-  // inspection has a chance to finish.
-  setTimeout(() => {
-    threadClient.resume();
-  }, 1000);
 }
 
 /**

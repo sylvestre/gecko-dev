@@ -2,7 +2,7 @@
 <html>
 <head>
   <title>Test loading of the same resource in multiple elements</title>
-  <script type="text/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css" />
   <script type="text/javascript" src="manifest.js"></script>
 </head>
@@ -38,11 +38,11 @@ function tryClone(e) {
                 "loadeddata", "playing", "ended", "error", "stalled", "emptied", "abort",
                 "waiting", "pause"];
   function logEvent(evt) {
-    var e = evt.target;
-    info(`${e.token} got ${evt.type}`);
+    var event = evt.target;
+    info(`${event.token} got ${evt.type}`);
   }
-  events.forEach(function(e) {
-    clone.addEventListener(e, logEvent);
+  events.forEach(function(event) {
+    clone.addEventListener(event, logEvent);
   });
 
 

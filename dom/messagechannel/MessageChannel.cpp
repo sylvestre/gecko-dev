@@ -11,13 +11,11 @@
 #include "mozilla/dom/Navigator.h"
 #include "mozilla/dom/WorkerRunnable.h"
 #include "nsContentUtils.h"
-#include "nsIDocument.h"
+#include "mozilla/dom/Document.h"
 #include "nsIGlobalObject.h"
-#include "nsIPrincipal.h"
 #include "nsServiceManagerUtils.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(MessageChannel, mGlobal, mPort1, mPort2)
 NS_IMPL_CYCLE_COLLECTING_ADDREF(MessageChannel)
@@ -32,20 +30,22 @@ MessageChannel::MessageChannel(nsIGlobalObject* aGlobal) : mGlobal(aGlobal) {
   MOZ_ASSERT(aGlobal);
 }
 
-MessageChannel::~MessageChannel() {}
+MessageChannel::~MessageChannel() = default;
 
 JSObject* MessageChannel::WrapObject(JSContext* aCx,
                                      JS::Handle<JSObject*> aGivenProto) {
   return MessageChannel_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-/* static */ already_AddRefed<MessageChannel> MessageChannel::Constructor(
+/* static */
+already_AddRefed<MessageChannel> MessageChannel::Constructor(
     const GlobalObject& aGlobal, ErrorResult& aRv) {
   nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(aGlobal.GetAsSupports());
   return Constructor(global, aRv);
 }
 
-/* static */ already_AddRefed<MessageChannel> MessageChannel::Constructor(
+/* static */
+already_AddRefed<MessageChannel> MessageChannel::Constructor(
     nsIGlobalObject* aGlobal, ErrorResult& aRv) {
   MOZ_ASSERT(aGlobal);
 
@@ -76,8 +76,15 @@ JSObject* MessageChannel::WrapObject(JSContext* aCx,
   channel->mPort1->UnshippedEntangle(channel->mPort2);
   channel->mPort2->UnshippedEntangle(channel->mPort1);
 
+  // MessagePorts should not work if created from a disconnected window.
+  nsCOMPtr<nsPIDOMWindowInner> window = do_QueryInterface(aGlobal);
+  if (window && !window->GetDocShell()) {
+    // The 2 ports are entangled. We can close one of them to close the other
+    // too.
+    channel->mPort1->CloseForced();
+  }
+
   return channel.forget();
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

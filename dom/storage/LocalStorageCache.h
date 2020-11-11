@@ -8,7 +8,6 @@
 #define mozilla_dom_LocalStorageCache_h
 
 #include "nsIPrincipal.h"
-#include "nsITimer.h"
 
 #include "nsString.h"
 #include "nsDataHashtable.h"
@@ -63,7 +62,7 @@ class LocalStorageCacheBridge {
   virtual void LoadWait() = 0;
 
  protected:
-  virtual ~LocalStorageCacheBridge() {}
+  virtual ~LocalStorageCacheBridge() = default;
 
   ThreadSafeAutoRefCnt mRefCnt;
   NS_DECL_OWNINGTHREAD
@@ -164,8 +163,8 @@ class LocalStorageCache : public LocalStorageCacheBridge {
   };
 
  public:
-  // Number of data sets we keep: default, private, session
-  static const uint32_t kDataSetCount = 3;
+  // Number of data sets we keep: default, session
+  static const uint32_t kDataSetCount = 2;
 
  private:
   // API to clear the cache data, this is invoked by chrome operations
@@ -173,10 +172,8 @@ class LocalStorageCache : public LocalStorageCacheBridge {
   friend class LocalStorageManager;
 
   static const uint32_t kUnloadDefault = 1 << 0;
-  static const uint32_t kUnloadPrivate = 1 << 1;
-  static const uint32_t kUnloadSession = 1 << 2;
-  static const uint32_t kUnloadComplete =
-      kUnloadDefault | kUnloadPrivate | kUnloadSession;
+  static const uint32_t kUnloadSession = 1 << 1;
+  static const uint32_t kUnloadComplete = kUnloadDefault | kUnloadSession;
 
 #ifdef DOM_STORAGE_TESTS
   static const uint32_t kTestReload = 1 << 15;
@@ -259,6 +256,9 @@ class LocalStorageCache : public LocalStorageCacheBridge {
   // Result of load from the database.  Valid after mLoaded flag has been set.
   nsresult mLoadResult;
 
+  // Expected to be only 0 or 1.
+  uint32_t mPrivateBrowsingId;
+
   // Init() method has been called
   bool mInitialized : 1;
 
@@ -266,12 +266,6 @@ class LocalStorageCache : public LocalStorageCacheBridge {
   // to load from the DB first and has to persist when modifying the
   // default data set.)
   bool mPersistent : 1;
-
-  // - False when the session-only data set was never used.
-  // - True after access to session-only data has been made for the first time.
-  // We also fill session-only data set with the default one at that moment.
-  // Drops back to false when session-only data are cleared from chrome.
-  bool mSessionOnlyDataSetActive : 1;
 
   // Whether we have already captured state of the cache preload on our first
   // access.
@@ -289,7 +283,7 @@ class StorageUsageBridge {
 
  protected:
   // Protected destructor, to discourage deletion outside of Release():
-  virtual ~StorageUsageBridge() {}
+  virtual ~StorageUsageBridge() = default;
 };
 
 class StorageUsage : public StorageUsageBridge {

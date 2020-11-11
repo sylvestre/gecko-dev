@@ -5,18 +5,20 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 with Files("**"):
-    BUG_COMPONENT = ("Core", "DOM")
+    BUG_COMPONENT = ("Core", "DOM: Core & HTML")
 
-TEST_DIRS += ['tests']
+TEST_DIRS += ["tests"]
 
 EXPORTS.mozilla.dom += [
-    'AbortController.h',
-    'AbortSignal.h',
+    "AbortController.h",
+    "AbortSignal.h",
 ]
 
 UNIFIED_SOURCES += [
-    'AbortController.cpp',
-    'AbortSignal.cpp',
+    "AbortController.cpp",
+    "AbortSignal.cpp",
 ]
 
-FINAL_LIBRARY = 'xul'
+include("/ipc/chromium/chromium-config.mozbuild")
+
+FINAL_LIBRARY = "xul"

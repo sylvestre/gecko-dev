@@ -7,8 +7,9 @@
 #ifndef ChromiumCDMProxy_h_
 #define ChromiumCDMProxy_h_
 
-#include "mozilla/CDMProxy.h"
 #include "mozilla/AbstractThread.h"
+#include "mozilla/ErrorResult.h"
+#include "mozilla/CDMProxy.h"
 #include "ChromiumCDMParent.h"
 
 namespace mozilla {
@@ -22,8 +23,8 @@ class ChromiumCDMProxy : public CDMProxy {
 
   ChromiumCDMProxy(dom::MediaKeys* aKeys, const nsAString& aKeySystem,
                    GMPCrashHelper* aCrashHelper,
-                   bool aAllowDistinctiveIdentifier, bool aAllowPersistentState,
-                   nsIEventTarget* aMainThread);
+                   bool aAllowDistinctiveIdentifier,
+                   bool aAllowPersistentState);
 
   void Init(PromiseId aPromiseId, const nsAString& aOrigin,
             const nsAString& aTopLevelOrigin,
@@ -71,7 +72,7 @@ class ChromiumCDMProxy : public CDMProxy {
   void OnSessionError(const nsAString& aSessionId, nsresult aException,
                       uint32_t aSystemCode, const nsAString& aMsg) override;
 
-  void OnRejectPromise(uint32_t aPromiseId, nsresult aDOMException,
+  void OnRejectPromise(uint32_t aPromiseId, ErrorResult&& aException,
                        const nsCString& aMsg) override;
 
   RefPtr<DecryptPromise> Decrypt(MediaRawData* aSample) override;
@@ -79,8 +80,14 @@ class ChromiumCDMProxy : public CDMProxy {
   void OnDecrypted(uint32_t aId, DecryptStatus aResult,
                    const nsTArray<uint8_t>& aDecryptedData) override;
 
-  void RejectPromise(PromiseId aId, nsresult aExceptionCode,
+  void RejectPromise(PromiseId aId, ErrorResult&& aException,
                      const nsCString& aReason) override;
+  // Reject promise with an InvalidStateError and the given message.
+  void RejectPromiseWithStateError(PromiseId aId, const nsCString& aReason);
+  // For use for moving rejections from off-main thread.
+  void RejectPromiseOnMainThread(PromiseId aId,
+                                 CopyableErrorResult&& aException,
+                                 const nsCString& aReason);
 
   void ResolvePromise(PromiseId aId) override;
 
@@ -108,14 +115,19 @@ class ChromiumCDMProxy : public CDMProxy {
 
  private:
   void OnCDMCreated(uint32_t aPromiseId);
+  void ShutdownCDMIfExists();
 
   ~ChromiumCDMProxy();
 
-  GMPCrashHelper* mCrashHelper;
+  // True if Shutdown() has been called. Should only be read and written on
+  // main thread.
+  bool mIsShutdown = false;
+
+  RefPtr<GMPCrashHelper> mCrashHelper;
 
   Mutex mCDMMutex;
   RefPtr<gmp::ChromiumCDMParent> mCDM;
-  RefPtr<AbstractThread> mGMPThread;
+  nsCOMPtr<nsISerialEventTarget> mGMPThread;
   UniquePtr<ChromiumCDMCallbackProxy> mCallback;
 };
 

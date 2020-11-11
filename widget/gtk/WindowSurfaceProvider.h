@@ -7,14 +7,15 @@
 #ifndef _MOZILLA_WIDGET_GTK_WINDOW_SURFACE_PROVIDER_H
 #define _MOZILLA_WIDGET_GTK_WINDOW_SURFACE_PROVIDER_H
 
-#include "mozilla/widget/WindowSurface.h"
-#include "mozilla/gfx/Types.h"
 #include "mozilla/gfx/2D.h"
+#include "mozilla/gfx/Types.h"
+#include "mozilla/layers/LayersTypes.h"
+#include "mozilla/widget/WindowSurface.h"
 #include "Units.h"
 
 #include <gdk/gdk.h>
 #ifdef MOZ_WAYLAND
-#include <gdk/gdkwayland.h>
+#  include <gdk/gdkwayland.h>
 #endif
 #include <X11/Xlib.h>  // for Window, Display, Visual, etc.
 #include "X11UndefineNone.h"
@@ -56,7 +57,7 @@ class WindowSurfaceProvider final {
   already_AddRefed<gfx::DrawTarget> StartRemoteDrawingInRegion(
       LayoutDeviceIntRegion& aInvalidRegion, layers::BufferMode* aBufferMode);
   void EndRemoteDrawingInRegion(gfx::DrawTarget* aDrawTarget,
-                                LayoutDeviceIntRegion& aInvalidRegion);
+                                const LayoutDeviceIntRegion& aInvalidRegion);
 
  private:
   UniquePtr<WindowSurface> CreateWindowSurface();

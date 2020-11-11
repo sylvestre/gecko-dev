@@ -29,21 +29,6 @@
 
 /*** Downloads View ***/
 
-/**
- * The downloads richlistbox may list thousands of items, and it turns out
- * XBL binding attachment, and even more so detachment, is a performance hog.
- * This hack makes sure we don't apply any binding to inactive items (inactive
- * items are history downloads that haven't been in the visible area).
- * We can do this because the richlistbox implementation does not interact
- * much with the richlistitem binding.  However, this may turn out to have
- * some side effects (see bug 828111 for the details).
- *
- * We might be able to do away with this workaround once bug 653881 is fixed.
- */
-#downloadsRichListBox > richlistitem:not([active]) {
-  -moz-binding: none;
-}
-
 #downloadsRichListBox > richlistitem button {
   /* These buttons should never get focus, as that would "disable"
      the downloads view controller (it's only used when the richlistbox
@@ -58,77 +43,82 @@
   display: none;
 }
 
-.download-state:not(:-moz-any([state="6"], /* Blocked (parental) */
-                              [state="8"], /* Blocked (dirty)    */
-                              [state="9"]) /* Blocked (policy)   */)
+.download-state:not(:is([state="6"], /* Blocked (parental) */
+                        [state="8"], /* Blocked (dirty)    */
+                        [state="9"]) /* Blocked (policy)   */)
                                            .downloadBlockedBadge,
 
-.download-state:not(:-moz-any([state="-1"],/* Starting (initial) */
-                              [state="5"], /* Starting (queued)  */
-                              [state="0"], /* Downloading        */
-                              [state="4"], /* Paused             */
-                              [state="7"]) /* Scanning           */)
+.download-state:not(:is([state="-1"],/* Starting (initial) */
+                        [state="5"], /* Starting (queued)  */
+                        [state="0"], /* Downloading        */
+                        [state="4"], /* Paused             */
+                        [state="7"]) /* Scanning           */)
                                            .downloadProgress,
 
-.download-state:not(          [state="0"]  /* Downloading        */)
+.download-state:not(    [state="0"]  /* Downloading        */)
                                            .downloadPauseMenuItem,
 
-.download-state:not(          [state="4"]  /* Paused             */)
+.download-state:not(    [state="4"]  /* Paused             */)
                                            .downloadResumeMenuItem,
 
 /* Blocked (dirty) downloads that have not been confirmed and
    have temporary data. */
-.download-state:not(          [state="8"]  /* Blocked (dirty)    */)
+.download-state:not(    [state="8"]  /* Blocked (dirty)    */)
                                            .downloadUnblockMenuItem,
 .download-state[state="8"]:not(.temporary-block)
                                            .downloadUnblockMenuItem,
 
-.download-state:not(:-moz-any([state="1"], /* Finished           */
-                              [state="2"], /* Failed             */
-                              [state="3"], /* Canceled           */
-                              [state="6"], /* Blocked (parental) */
-                              [state="8"], /* Blocked (dirty)    */
-                              [state="9"]) /* Blocked (policy)   */)
+.download-state:not(:is([state="1"], /* Finished           */
+                        [state="2"], /* Failed             */
+                        [state="3"], /* Canceled           */
+                        [state="6"], /* Blocked (parental) */
+                        [state="8"], /* Blocked (dirty)    */
+                        [state="9"]) /* Blocked (policy)   */)
                                            .downloadRemoveFromHistoryMenuItem,
 
-.download-state:not(:-moz-any([state="-1"],/* Starting (initial) */
-                              [state="0"], /* Downloading        */
-                              [state="1"], /* Finished           */
-                              [state="4"], /* Paused             */
-                              [state="5"]) /* Starting (queued)  */)
+.download-state:not(:is([state="-1"],/* Starting (initial) */
+                        [state="0"], /* Downloading        */
+                        [state="1"], /* Finished           */
+                        [state="4"], /* Paused             */
+                        [state="5"]) /* Starting (queued)  */)
                                            .downloadShowMenuItem,
 .download-state[state="1"]:not([exists])
                                            .downloadShowMenuItem,
 
-.download-state:not(:-moz-any([state="-1"],/* Starting (initial) */
-                              [state="0"], /* Downloading        */
-                              [state="1"], /* Finished           */
-                              [state="4"], /* Paused             */
-                              [state="5"], /* Starting (queued)  */
-                              [state="8"]) /* Blocked (dirty)    */)
+.download-state:not(:is([state="-1"],/* Starting (initial) */
+                        [state="0"], /* Downloading        */
+                        [state="1"], /* Finished           */
+                        [state="4"], /* Paused             */
+                        [state="5"], /* Starting (queued)  */
+                        [state="8"]) /* Blocked (dirty)    */)
                                            .downloadCommandsSeparator,
 .download-state[state="1"]:not([exists])
                                            .downloadCommandsSeparator,
 .download-state[state="8"]:not(.temporary-block)
-                                           .downloadCommandsSeparator
+                                           .downloadCommandsSeparator,
 
-{
+/* the system-viewer context menu items are only shown for certain mime-types
+   and can be individually enabled via prefs */
+.download-state:not([viewable-internally]) .downloadUseSystemDefaultMenuItem,
+.download-state                            .downloadUseSystemDefaultMenuItem:not([enabled]),
+.download-state                            .downloadAlwaysUseSystemDefaultMenuItem:not([enabled]),
+.download-state:not([viewable-internally]) .downloadAlwaysUseSystemDefaultMenuItem {
   display: none;
 }
 
 /*** Visibility of download button labels ***/
 
-.download-state:not(:-moz-any([state="-1"],/* Starting (initial) */
-                              [state="5"], /* Starting (queued)  */
-                              [state="0"], /* Downloading        */
-                              [state="4"]) /* Paused             */)
+.download-state:not(:is([state="-1"],/* Starting (initial) */
+                        [state="5"], /* Starting (queued)  */
+                        [state="0"], /* Downloading        */
+                        [state="4"]) /* Paused             */)
                                            .downloadCancel,
 
-.download-state:not(:-moz-any([state="2"], /* Failed             */
-                              [state="3"]) /* Canceled           */)
+.download-state:not(:is([state="2"], /* Failed             */
+                        [state="3"]) /* Canceled           */)
                                            .downloadRetry,
 
-.download-state:not(          [state="1"]  /* Finished           */)
+.download-state:not(    [state="1"]  /* Finished           */)
                                            .downloadShow
 {
   display: none;
@@ -152,10 +142,6 @@
 
 /* DownloadsSubview styles: */
 
-.subviewbutton.download {
-  -moz-binding: url("chrome://browser/content/downloads/download.xml#download-subview-toolbarbutton");
-}
-
 /* Hide all status labels by default and selectively display one at a time,
    depending on the state of the Download. */
 .subviewbutton.download > .toolbarbutton-text > .status-text,
@@ -170,18 +156,18 @@
 .subviewbutton.download:not(:hover) > .toolbarbutton-text > .status-full,
 /* When a Download is hovered when the file doesn't exist and cannot be retried,
    keep showing the full status message. */
-.subviewbutton.download:hover:-moz-any(:not([openLabel]),:not([exists])):not([retryLabel]) > .toolbarbutton-text > .status-full,
+.subviewbutton.download:hover:is(:not([canShow]),:not([exists])):not([canRetry]) > .toolbarbutton-text > .status-full,
 /* When a Download is hovered and the it can be retried, but the action button
    is _not_ hovered, keep showing the full status message. */
-.subviewbutton.download:hover[retryLabel]:not(.downloadHoveringButton) > .toolbarbutton-text > .status-full,
+.subviewbutton.download:hover[canRetry]:not(.downloadHoveringButton) > .toolbarbutton-text > .status-full,
 /* When a Download is hovered and the file can be opened, but the action button
    is _not_ hovered, show the 'Open File' status label. */
-.subviewbutton.download:hover[openLabel][exists]:not(.downloadHoveringButton) > .toolbarbutton-text > .status-open,
+.subviewbutton.download:hover[canShow][exists]:not(.downloadHoveringButton) > .toolbarbutton-text > .status-open,
 /* When a Download is hovered - its action button explicitly - and it can be
    retried, show the 'Retry Download' label. */
-.subviewbutton.download:hover[retryLabel].downloadHoveringButton > .toolbarbutton-text > .status-retry,
+.subviewbutton.download:hover[canRetry].downloadHoveringButton > .toolbarbutton-text > .status-retry,
 /* When a Download is hovered - its action button explicitly - and the file can
    be shown in the OS's shell, show the 'Open Containing Folder' label. */
-.subviewbutton.download:hover[openLabel][exists].downloadHoveringButton > .toolbarbutton-text > .status-show {
+.subviewbutton.download:hover[canShow][exists].downloadHoveringButton > .toolbarbutton-text > .status-show {
   display: inline;
 }

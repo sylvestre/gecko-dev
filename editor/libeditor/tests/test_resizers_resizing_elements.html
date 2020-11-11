@@ -2,8 +2,8 @@
 <html>
 <head>
   <title>Test for resizers of some elements</title>
-  <script type="application/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
-  <script type="text/javascript" src="/tests/SimpleTest/EventUtils.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/EventUtils.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css"/>
   <style>
   #target {
@@ -21,7 +21,11 @@
 "use strict";
 
 SimpleTest.waitForExplicitFinish();
-SimpleTest.waitForFocus(async function() {
+SimpleTest.waitForFocus(async () => {
+  await SpecialPowers.pushPrefEnv({
+    set: [["dom.input_events.beforeinput.enabled", true]],
+  });
+
   document.execCommand("enableObjectResizing", false, true);
   ok(document.queryCommandState("enableObjectResizing"),
      "Object resizer should be enabled by the call of execCommand");
@@ -62,6 +66,7 @@ SimpleTest.waitForFocus(async function() {
      * In specifying baseX, W can be considered to be the width of the image, and for baseY, H
      * can be considered to be the height of the image. deltaX and deltaY are regular pixel values
      * which can be positive or negative.
+     * TODO: Should test canceling "beforeinput" events case.
      */
     const W = 1;
     const H = 1;
@@ -88,17 +93,46 @@ SimpleTest.waitForFocus(async function() {
       let inputEventExpected = true;
       function onInput(aEvent) {
         if (!inputEventExpected) {
-          ok(false, "\"input\" event shouldn't be fired after stopping resizing");
+          ok(false, `"${aEvent.type}" event shouldn't be fired after stopping resizing`);
           return;
         }
         ok(aEvent instanceof InputEvent,
-           '"input" event should be dispatched with InputEvent interface');
+           `"${aEvent.type}" event should be dispatched with InputEvent interface`);
         is(aEvent.cancelable, false,
-           '"input" event should be never cancelable');
+           `"${aEvent.type}" event should be never cancelable`);
         is(aEvent.bubbles, true,
-           '"input" event should always bubble');
+           `"${aEvent.type}" event should always bubble`);
+        is(aEvent.inputType, "",
+           `inputType of "${aEvent.type}" event should be empty string when an element is resized`);
+        is(aEvent.data, null,
+           `data of "${aEvent.type}" event should be null ${aDescription}`);
+        is(aEvent.dataTransfer, null,
+           `data of "${aEvent.type}" event should be null ${aDescription}`);
+        let targetRanges = aEvent.getTargetRanges();
+        if (aEvent.type === "beforeinput") {
+          let selection = document.getSelection();
+          is(targetRanges.length, selection.rangeCount,
+             `getTargetRanges() of "beforeinput" event for position changing of absolute position should return selection ranges ${aDescription}`);
+          if (targetRanges.length === selection.rangeCount) {
+            for (let i = 0; i < selection.rangeCount; i++) {
+              let range = selection.getRangeAt(i);
+              is(targetRanges[i].startContainer, range.startContainer,
+                 `startContainer of getTargetRanges()[${i}] of "beforeinput" event for position changing of absolute position does not match ${aDescription}`);
+              is(targetRanges[i].startOffset, range.startOffset,
+                 `startOffset of getTargetRanges()[${i}] of "beforeinput" event for position changing of absolute position does not match ${aDescription}`);
+              is(targetRanges[i].endContainer, range.endContainer,
+                 `endContainer of getTargetRanges()[${i}] of "beforeinput" event for position changing of absolute position does not match ${aDescription}`);
+              is(targetRanges[i].endOffset, range.endOffset,
+                 `endOffset of getTargetRanges()[${i}] of "beforeinput" event for position changing of absolute position does not match ${aDescription}`);
+            }
+          }
+        } else {
+          is(targetRanges.length, 0,
+             `getTargetRanges() of "${aEvent.type}" event for position changing of absolute position should return empty array ${aDescription}`);
+        }
       }
 
+      content.addEventListener("beforeinput", onInput);
       content.addEventListener("input", onInput);
 
       // Click on the correct resizer
@@ -113,8 +147,12 @@ SimpleTest.waitForFocus(async function() {
       // Move the mouse delta more pixels to the same direction to make sure that the
       // resize operation has stopped.
       synthesizeMouse(target, basePosX + deltaX * 2, basePosY + deltaY * 2, {type: "mousemove"});
+
       // Click outside of the editor to hide the resizers
+      ok(true, "waiting selectionchange to select outside the target element");
+      let promiseSelectionExitEvent = waitForSelectionChange();
       synthesizeMouseAtCenter(outOfEditor, {});
+      await promiseSelectionExitEvent;
 
       // Get the new dimensions for the target
       // XXX I don't know why we need 2px margin to check this on Android.
@@ -124,6 +162,7 @@ SimpleTest.waitForFocus(async function() {
       isfuzzy(newRect.width, rect.width + expectedDeltaX, 2, description + "The width should be increased by " + expectedDeltaX + " pixels");
       isfuzzy(newRect.height, rect.height + expectedDeltaY, 2, description + "The height should be increased by " + expectedDeltaY + "pixels");
 
+      content.removeEventListener("beforeinput", onInput);
       content.removeEventListener("input", onInput);
     }
 
@@ -233,17 +272,17 @@ SimpleTest.waitForFocus(async function() {
   }
 
   const kTests = [
-    { description: "Resiziers for <img>",
+    { description: "Resizers for <img>",
       innerHTML: "<img id=\"target\" src=\"green.png\">",
       mayPreserveRatio: true,
       isAbsolutePosition: false,
     },
-    { description: "Resiziers for <table>",
+    { description: "Resizers for <table>",
       innerHTML: "<table id=\"target\" border><tr><td>cell</td><td>cell</td></tr></table>",
       mayPreserveRatio: false,
       isAbsolutePosition: false,
     },
-    { description: "Resiziers for absolute positioned <div>",
+    { description: "Resizers for absolute positioned <div>",
       innerHTML: "<div id=\"target\" style=\"position: absolute; top: 50px; left: 50px;\">positioned</div>",
       mayPreserveRatio: false,
       isAbsolutePosition: true,

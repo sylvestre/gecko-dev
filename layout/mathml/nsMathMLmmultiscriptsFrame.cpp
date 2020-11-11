@@ -5,10 +5,14 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "nsMathMLmmultiscriptsFrame.h"
+
+#include "mozilla/PresShell.h"
+#include "mozilla/StaticPrefs_mathml.h"
 #include "nsPresContext.h"
 #include <algorithm>
 #include "gfxContext.h"
 #include "gfxMathTable.h"
+#include "gfxTextRun.h"
 
 using namespace mozilla;
 
@@ -19,14 +23,15 @@ using namespace mozilla;
 // <msup> -- attach a superscript to a base - implementation
 //
 
-nsIFrame* NS_NewMathMLmmultiscriptsFrame(nsIPresShell* aPresShell,
+nsIFrame* NS_NewMathMLmmultiscriptsFrame(PresShell* aPresShell,
                                          ComputedStyle* aStyle) {
-  return new (aPresShell) nsMathMLmmultiscriptsFrame(aStyle);
+  return new (aPresShell)
+      nsMathMLmmultiscriptsFrame(aStyle, aPresShell->GetPresContext());
 }
 
 NS_IMPL_FRAMEARENA_HELPERS(nsMathMLmmultiscriptsFrame)
 
-nsMathMLmmultiscriptsFrame::~nsMathMLmmultiscriptsFrame() {}
+nsMathMLmmultiscriptsFrame::~nsMathMLmmultiscriptsFrame() = default;
 
 uint8_t nsMathMLmmultiscriptsFrame::ScriptIncrement(nsIFrame* aFrame) {
   if (!aFrame) return 0;
@@ -83,47 +88,51 @@ nsMathMLmmultiscriptsFrame::TransmitAutomaticData() {
   return NS_OK;
 }
 
-/* virtual */ nsresult nsMathMLmmultiscriptsFrame::Place(
-    DrawTarget* aDrawTarget, bool aPlaceOrigin, ReflowOutput& aDesiredSize) {
+/* virtual */
+nsresult nsMathMLmmultiscriptsFrame::Place(DrawTarget* aDrawTarget,
+                                           bool aPlaceOrigin,
+                                           ReflowOutput& aDesiredSize) {
   nscoord subScriptShift = 0;
   nscoord supScriptShift = 0;
   float fontSizeInflation = nsLayoutUtils::FontSizeInflationFor(this);
 
-  // subscriptshift
-  //
-  // "Specifies the minimum amount to shift the baseline of subscript down; the
-  // default is for the rendering agent to use its own positioning rules."
-  //
-  // values: length
-  // default: automatic
-  //
-  // We use 0 as the default value so unitless values can be ignored.
-  // As a minimum, negative values can be ignored.
-  //
-  nsAutoString value;
-  if (!mContent->IsMathMLElement(nsGkAtoms::msup_)) {
-    mContent->AsElement()->GetAttr(kNameSpaceID_None,
-                                   nsGkAtoms::subscriptshift_, value);
-    if (!value.IsEmpty()) {
+  if (!StaticPrefs::mathml_script_shift_attributes_disabled()) {
+    // subscriptshift
+    //
+    // "Specifies the minimum amount to shift the baseline of subscript down;
+    // the default is for the rendering agent to use its own positioning rules."
+    //
+    // values: length
+    // default: automatic
+    //
+    // We use 0 as the default value so unitless values can be ignored.
+    // As a minimum, negative values can be ignored.
+    //
+    nsAutoString value;
+    if (!mContent->IsMathMLElement(nsGkAtoms::msup_) &&
+        mContent->AsElement()->GetAttr(kNameSpaceID_None,
+                                       nsGkAtoms::subscriptshift_, value)) {
+      mContent->OwnerDoc()->WarnOnceAbout(
+          dom::Document::eMathML_DeprecatedScriptShiftAttributes);
       ParseNumericValue(value, &subScriptShift, 0, PresContext(),
                         mComputedStyle, fontSizeInflation);
     }
-  }
-  // superscriptshift
-  //
-  // "Specifies the minimum amount to shift the baseline of superscript up; the
-  // default is for the rendering agent to use its own positioning rules."
-  //
-  // values: length
-  // default: automatic
-  //
-  // We use 0 as the default value so unitless values can be ignored.
-  // As a minimum, negative values can be ignored.
-  //
-  if (!mContent->IsMathMLElement(nsGkAtoms::msub_)) {
-    mContent->AsElement()->GetAttr(kNameSpaceID_None,
-                                   nsGkAtoms::superscriptshift_, value);
-    if (!value.IsEmpty()) {
+    // superscriptshift
+    //
+    // "Specifies the minimum amount to shift the baseline of superscript up;
+    // the default is for the rendering agent to use its own positioning rules."
+    //
+    // values: length
+    // default: automatic
+    //
+    // We use 0 as the default value so unitless values can be ignored.
+    // As a minimum, negative values can be ignored.
+    //
+    if (!mContent->IsMathMLElement(nsGkAtoms::msub_) &&
+        mContent->AsElement()->GetAttr(kNameSpaceID_None,
+                                       nsGkAtoms::superscriptshift_, value)) {
+      mContent->OwnerDoc()->WarnOnceAbout(
+          dom::Document::eMathML_DeprecatedScriptShiftAttributes);
       ParseNumericValue(value, &supScriptShift, 0, PresContext(),
                         mComputedStyle, fontSizeInflation);
     }
@@ -258,8 +267,8 @@ nsresult nsMathMLmmultiscriptsFrame::PlaceMultiScript(
 
     // get sup script shift depending on current script level and display style
     // Rule 18c, App. G, TeXbook
-    if (font->mScriptLevel == 0 &&
-        font->mMathDisplay == NS_MATHML_DISPLAYSTYLE_BLOCK &&
+    if (font->mMathDepth == 0 &&
+        font->mMathStyle == NS_STYLE_MATH_STYLE_NORMAL &&
         !NS_MATHML_IS_COMPRESSED(presentationData.flags)) {
       // Style D in TeXbook
       supScriptShift = supScriptShift1;
@@ -614,7 +623,7 @@ nsresult nsMathMLmmultiscriptsFrame::PlaceMultiScript(
         FinishReflowChild(
             baseFrame, aPresContext, baseSize, nullptr,
             aFrame->MirrorIfRTL(aDesiredSize.Width(), baseSize.Width(), dx), dy,
-            0);
+            ReflowChildFlags::Default);
         dx += bmBase.width;
       } else if (prescriptsFrame == childFrame) {
         // Clear reflow flags of prescripts frame.
@@ -650,7 +659,7 @@ nsresult nsMathMLmmultiscriptsFrame::PlaceMultiScript(
                               nullptr,
                               aFrame->MirrorIfRTL(aDesiredSize.Width(),
                                                   subScriptSize.Width(), x),
-                              dy, 0);
+                              dy, ReflowChildFlags::Default);
           }
 
           if (supScriptFrame) {
@@ -667,7 +676,7 @@ nsresult nsMathMLmmultiscriptsFrame::PlaceMultiScript(
                               nullptr,
                               aFrame->MirrorIfRTL(aDesiredSize.Width(),
                                                   supScriptSize.Width(), x),
-                              dy, 0);
+                              dy, ReflowChildFlags::Default);
           }
           dx += width + scriptSpace;
         }

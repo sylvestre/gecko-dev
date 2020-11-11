@@ -8,14 +8,19 @@
 
 #include "mozilla/Assertions.h"
 #include "mozilla/Attributes.h"
+#include "mozilla/Maybe.h"
 #include "mozilla/RangeBoundary.h"
+#include "mozilla/dom/AbstractRange.h"
 #include "mozilla/dom/Element.h"
 #include "mozilla/dom/Text.h"
 #include "nsAtom.h"
 #include "nsCOMPtr.h"
+#include "nsContentUtils.h"
+#include "nsCRT.h"
 #include "nsGkAtoms.h"
 #include "nsIContent.h"
 #include "nsINode.h"
+#include "nsStyledElement.h"
 
 namespace mozilla {
 
@@ -67,6 +72,8 @@ class EditorDOMPointBase;
 typedef EditorDOMPointBase<nsCOMPtr<nsINode>, nsCOMPtr<nsIContent>>
     EditorDOMPoint;
 typedef EditorDOMPointBase<nsINode*, nsIContent*> EditorRawDOMPoint;
+typedef EditorDOMPointBase<RefPtr<dom::Text>, nsIContent*> EditorDOMPointInText;
+typedef EditorDOMPointBase<dom::Text*, nsIContent*> EditorRawDOMPointInText;
 
 template <typename ParentType, typename ChildType>
 class EditorDOMPointBase final {
@@ -77,7 +84,7 @@ class EditorDOMPointBase final {
       : mParent(nullptr), mChild(nullptr), mIsChildInitialized(false) {}
 
   template <typename ContainerType>
-  EditorDOMPointBase(ContainerType aContainer, int32_t aOffset)
+  EditorDOMPointBase(ContainerType* aContainer, int32_t aOffset)
       : mParent(aContainer),
         mChild(nullptr),
         mOffset(mozilla::Some(aOffset)),
@@ -89,6 +96,11 @@ class EditorDOMPointBase final {
       mOffset.reset();
     }
   }
+
+  template <typename ContainerType, template <typename> typename StrongPtr>
+  EditorDOMPointBase(const StrongPtr<ContainerType>& aContainer,
+                     int32_t aOffset)
+      : EditorDOMPointBase(aContainer.get(), aOffset) {}
 
   /**
    * Different from RangeBoundary, aPointedNode should be a child node
@@ -115,10 +127,11 @@ class EditorDOMPointBase final {
         mChild(aPointedNode),
         mOffset(mozilla::Some(aOffset)),
         mIsChildInitialized(true) {
-    MOZ_RELEASE_ASSERT(
+    MOZ_DIAGNOSTIC_ASSERT(
         aContainer, "This constructor shouldn't be used when pointing nowhere");
     MOZ_ASSERT(mOffset.value() <= mParent->Length());
-    MOZ_ASSERT(mChild || mParent->Length() == mOffset.value());
+    MOZ_ASSERT(mChild || mParent->Length() == mOffset.value() ||
+               !mParent->IsContainerNode());
     MOZ_ASSERT(!mChild || mParent == mChild->GetParentNode());
     MOZ_ASSERT(mParent->GetChildAt_Deprecated(mOffset.value()) == mChild);
   }
@@ -147,15 +160,52 @@ class EditorDOMPointBase final {
   nsINode* GetContainer() const { return mParent; }
 
   nsIContent* GetContainerAsContent() const {
-    return mParent && mParent->IsContent() ? mParent->AsContent() : nullptr;
+    return nsIContent::FromNodeOrNull(mParent);
+  }
+
+  MOZ_NEVER_INLINE_DEBUG nsIContent* ContainerAsContent() const {
+    MOZ_ASSERT(mParent);
+    MOZ_ASSERT(mParent->IsContent());
+    return mParent->AsContent();
   }
 
   dom::Element* GetContainerAsElement() const {
-    return Element::FromNodeOrNull(mParent);
+    return dom::Element::FromNodeOrNull(mParent);
+  }
+
+  MOZ_NEVER_INLINE_DEBUG dom::Element* ContainerAsElement() const {
+    MOZ_ASSERT(mParent);
+    MOZ_ASSERT(mParent->IsElement());
+    return mParent->AsElement();
+  }
+
+  nsStyledElement* GetContainerAsStyledElement() const {
+    return nsStyledElement::FromNodeOrNull(mParent);
   }
 
   dom::Text* GetContainerAsText() const {
-    return mParent ? mParent->GetAsText() : nullptr;
+    return dom::Text::FromNodeOrNull(mParent);
+  }
+
+  MOZ_NEVER_INLINE_DEBUG dom::Text* ContainerAsText() const {
+    MOZ_ASSERT(mParent);
+    MOZ_ASSERT(IsInTextNode());
+    return mParent->AsText();
+  }
+
+  /**
+   * GetContainerParent() returns parent of the container node at the point.
+   */
+  nsINode* GetContainerParent() const {
+    return mParent ? mParent->GetParent() : nullptr;
+  }
+
+  nsIContent* GetContainerParentAsContent() const {
+    return nsIContent::FromNodeOrNull(GetContainerParent());
+  }
+
+  dom::Element* GetContainerParentAsElement() const {
+    return dom::Element::FromNodeOrNull(GetContainerParent());
   }
 
   /**
@@ -166,6 +216,17 @@ class EditorDOMPointBase final {
   bool CanContainerHaveChildren() const {
     return mParent && mParent->IsContainerNode();
   }
+
+  /**
+   * IsContainerEmpty() returns true if it has no children or its text is empty.
+   */
+  bool IsContainerEmpty() const { return mParent && !mParent->Length(); }
+
+  /**
+   * IsInContentNode() returns true if the container is a subclass of
+   * nsIContent.
+   */
+  bool IsInContentNode() const { return mParent && mParent->IsContent(); }
 
   /**
    * IsInDataNode() returns true if the container node is a data node including
@@ -270,6 +331,72 @@ class EditorDOMPointBase final {
     return mChild ? mChild->GetPreviousSibling() : mParent->GetLastChild();
   }
 
+  /**
+   * Simple accessors of the character in dom::Text so that when you call
+   * these methods, you need to guarantee that the container is a dom::Text.
+   */
+  MOZ_NEVER_INLINE_DEBUG char16_t Char() const {
+    MOZ_ASSERT(IsSetAndValid());
+    MOZ_ASSERT(!IsEndOfContainer());
+    return ContainerAsText()->TextFragment().CharAt(mOffset.value());
+  }
+  MOZ_NEVER_INLINE_DEBUG bool IsCharASCIISpace() const {
+    return nsCRT::IsAsciiSpace(Char());
+  }
+  MOZ_NEVER_INLINE_DEBUG bool IsCharNBSP() const { return Char() == 0x00A0; }
+  MOZ_NEVER_INLINE_DEBUG bool IsCharASCIISpaceOrNBSP() const {
+    char16_t ch = Char();
+    return nsCRT::IsAsciiSpace(ch) || ch == 0x00A0;
+  }
+
+  MOZ_NEVER_INLINE_DEBUG bool IsCharHighSurrogateFollowedByLowSurrogate()
+      const {
+    MOZ_ASSERT(IsSetAndValid());
+    MOZ_ASSERT(!IsEndOfContainer());
+    return ContainerAsText()
+        ->TextFragment()
+        .IsHighSurrogateFollowedByLowSurrogateAt(mOffset.value());
+  }
+  MOZ_NEVER_INLINE_DEBUG bool IsCharLowSurrogateFollowingHighSurrogate() const {
+    MOZ_ASSERT(IsSetAndValid());
+    MOZ_ASSERT(!IsEndOfContainer());
+    return ContainerAsText()
+        ->TextFragment()
+        .IsLowSurrogateFollowingHighSurrogateAt(mOffset.value());
+  }
+
+  MOZ_NEVER_INLINE_DEBUG char16_t PreviousChar() const {
+    MOZ_ASSERT(IsSetAndValid());
+    MOZ_ASSERT(!IsStartOfContainer());
+    return ContainerAsText()->TextFragment().CharAt(mOffset.value() - 1);
+  }
+  MOZ_NEVER_INLINE_DEBUG bool IsPreviousCharASCIISpace() const {
+    return nsCRT::IsAsciiSpace(PreviousChar());
+  }
+  MOZ_NEVER_INLINE_DEBUG bool IsPreviousCharNBSP() const {
+    return PreviousChar() == 0x00A0;
+  }
+  MOZ_NEVER_INLINE_DEBUG bool IsPreviousCharASCIISpaceOrNBSP() const {
+    char16_t ch = PreviousChar();
+    return nsCRT::IsAsciiSpace(ch) || ch == 0x00A0;
+  }
+
+  MOZ_NEVER_INLINE_DEBUG char16_t NextChar() const {
+    MOZ_ASSERT(IsSetAndValid());
+    MOZ_ASSERT(!IsAtLastContent() && !IsEndOfContainer());
+    return ContainerAsText()->TextFragment().CharAt(mOffset.value() + 1);
+  }
+  MOZ_NEVER_INLINE_DEBUG bool IsNextCharASCIISpace() const {
+    return nsCRT::IsAsciiSpace(NextChar());
+  }
+  MOZ_NEVER_INLINE_DEBUG bool IsNextCharNBSP() const {
+    return NextChar() == 0x00A0;
+  }
+  MOZ_NEVER_INLINE_DEBUG bool IsNextCharASCIISpaceOrNBSP() const {
+    char16_t ch = NextChar();
+    return nsCRT::IsAsciiSpace(ch) || ch == 0x00A0;
+  }
+
   uint32_t Offset() const {
     if (mOffset.isSome()) {
       MOZ_ASSERT(mOffset.isSome());
@@ -303,13 +430,18 @@ class EditorDOMPointBase final {
    * If it's set with aOffset, mChild is invalidated.  If it's set with aChild,
    * mOffset may be invalidated.
    */
-  void Set(nsINode* aContainer, int32_t aOffset) {
+  template <typename ContainerType>
+  void Set(ContainerType* aContainer, int32_t aOffset) {
     mParent = aContainer;
     mChild = nullptr;
     mOffset = mozilla::Some(aOffset);
     mIsChildInitialized = false;
     NS_ASSERTION(!mParent || mOffset.value() <= mParent->Length(),
                  "The offset is out of bounds");
+  }
+  template <typename ContainerType, template <typename> typename StrongPtr>
+  void Set(const StrongPtr<ContainerType>& aContainer, int32_t aOffset) {
+    Set(aContainer.get(), aOffset);
   }
   void Set(const nsINode* aChild) {
     MOZ_ASSERT(aChild);
@@ -327,12 +459,31 @@ class EditorDOMPointBase final {
    * SetToEndOf() sets this to the end of aContainer.  Then, mChild is always
    * nullptr but marked as initialized and mOffset is always set.
    */
-  void SetToEndOf(const nsINode* aContainer) {
+  template <typename ContainerType>
+  MOZ_NEVER_INLINE_DEBUG void SetToEndOf(const ContainerType* aContainer) {
     MOZ_ASSERT(aContainer);
-    mParent = const_cast<nsINode*>(aContainer);
+    mParent = const_cast<ContainerType*>(aContainer);
     mChild = nullptr;
     mOffset = mozilla::Some(mParent->Length());
     mIsChildInitialized = true;
+  }
+  template <typename ContainerType, template <typename> typename StrongPtr>
+  MOZ_NEVER_INLINE_DEBUG void SetToEndOf(
+      const StrongPtr<ContainerType>& aContainer) {
+    SetToEndOf(aContainer.get());
+  }
+  template <typename ContainerType>
+  MOZ_NEVER_INLINE_DEBUG static SelfType AtEndOf(
+      const ContainerType& aContainer) {
+    SelfType point;
+    point.SetToEndOf(&aContainer);
+    return point;
+  }
+  template <typename ContainerType, template <typename> typename StrongPtr>
+  MOZ_NEVER_INLINE_DEBUG static SelfType AtEndOf(
+      const StrongPtr<ContainerType>& aContainer) {
+    MOZ_ASSERT(aContainer.get());
+    return AtEndOf(*aContainer.get());
   }
 
   /**
@@ -351,6 +502,50 @@ class EditorDOMPointBase final {
       return;
     }
     SetToEndOf(parentNode);
+  }
+  template <typename ContainerType>
+  static SelfType After(const ContainerType& aContainer) {
+    SelfType point;
+    point.SetAfter(&aContainer);
+    return point;
+  }
+  template <typename ContainerType, template <typename> typename StrongPtr>
+  MOZ_NEVER_INLINE_DEBUG static SelfType After(
+      const StrongPtr<ContainerType>& aContainer) {
+    MOZ_ASSERT(aContainer.get());
+    return After(*aContainer.get());
+  }
+  template <typename PT, typename CT>
+  MOZ_NEVER_INLINE_DEBUG static SelfType After(
+      const EditorDOMPointBase<PT, CT>& aPoint) {
+    MOZ_ASSERT(aPoint.IsSet());
+    if (aPoint.mChild) {
+      return After(*aPoint.mChild);
+    }
+    if (NS_WARN_IF(aPoint.IsEndOfContainer())) {
+      return SelfType();
+    }
+    SelfType point(aPoint);
+    MOZ_ALWAYS_TRUE(point.AdvanceOffset());
+    return point;
+  }
+
+  /**
+   * NextPoint() and PreviousPoint() returns next/previous DOM point in
+   * the container.
+   */
+  MOZ_NEVER_INLINE_DEBUG SelfType NextPoint() const {
+    NS_ASSERTION(!IsEndOfContainer(), "Should not be at end of the container");
+    SelfType result(*this);
+    result.AdvanceOffset();
+    return result;
+  }
+  MOZ_NEVER_INLINE_DEBUG SelfType PreviousPoint() const {
+    NS_ASSERTION(!IsStartOfContainer(),
+                 "Should not be at start of the container");
+    SelfType result(*this);
+    result.RewindOffset();
+    return result;
   }
 
   /**
@@ -474,7 +669,7 @@ class EditorDOMPointBase final {
     nsINode* parent;
     for (parent = mParent->GetParentNode();
          parent && parent->IsInNativeAnonymousSubtree();
-         parent = mParent->GetParentNode()) {
+         parent = parent->GetParentNode()) {
     }
     if (!parent) {
       return EditorRawDOMPoint();
@@ -500,6 +695,10 @@ class EditorDOMPointBase final {
     return true;
   }
 
+  bool HasChildMovedFromContainer() const {
+    return mChild && mChild->GetParentNode() != mParent;
+  }
+
   bool IsStartOfContainer() const {
     // If we're referring the first point in the container:
     //   If mParent is not a container like a text node, mOffset is 0.
@@ -519,7 +718,7 @@ class EditorDOMPointBase final {
       }
       NS_WARNING_ASSERTION(!mOffset.isSome() || mParent->GetChildAt_Deprecated(
                                                     mOffset.value()) == mChild,
-                           "If mOffset and mChild are mismatched");
+                           "mOffset and mChild are mismatched");
       return false;
     }
     MOZ_ASSERT(mOffset.isSome());
@@ -548,11 +747,39 @@ class EditorDOMPointBase final {
       }
       NS_WARNING_ASSERTION(!mOffset.isSome() || mParent->GetChildAt_Deprecated(
                                                     mOffset.value()) == mChild,
-                           "If mOffset and mChild are mismatched");
+                           "mOffset and mChild are mismatched");
       return false;
     }
     MOZ_ASSERT(mOffset.isSome());
     return mOffset.value() == mParent->Length();
+  }
+
+  /**
+   * IsAtLastContent() returns true when it refers last child of the container
+   * or last character offset of text node.
+   */
+  bool IsAtLastContent() const {
+    if (NS_WARN_IF(!mParent)) {
+      return false;
+    }
+    if (mParent->IsContainerNode() && mOffset.isSome()) {
+      return mOffset.value() == mParent->Length() - 1;
+    }
+    if (mIsChildInitialized) {
+      if (mChild && mChild == mParent->GetLastChild()) {
+        NS_WARNING_ASSERTION(
+            !mOffset.isSome() || mOffset.value() == mParent->Length() - 1,
+            "If mOffset was initialized, it should be length - 1 of the "
+            "container");
+        return true;
+      }
+      NS_WARNING_ASSERTION(!mOffset.isSome() || mParent->GetChildAt_Deprecated(
+                                                    mOffset.value()) == mChild,
+                           "mOffset and mChild are mismatched");
+      return false;
+    }
+    MOZ_ASSERT(mOffset.isSome());
+    return mOffset.value() == mParent->Length() - 1;
   }
 
   bool IsBRElementAtEndOfContainer() const {
@@ -647,7 +874,19 @@ class EditorDOMPointBase final {
   }
 
   template <typename A, typename B>
+  bool operator==(const RangeBoundaryBase<A, B>& aOther) const {
+    // TODO: Optimize this with directly comparing with RangeBoundaryBase
+    //       members.
+    return *this == SelfType(aOther);
+  }
+
+  template <typename A, typename B>
   bool operator!=(const EditorDOMPointBase<A, B>& aOther) const {
+    return !(*this == aOther);
+  }
+
+  template <typename A, typename B>
+  bool operator!=(const RangeBoundaryBase<A, B>& aOther) const {
     return !(*this == aOther);
   }
 
@@ -655,11 +894,13 @@ class EditorDOMPointBase final {
    * This operator should be used if API of other modules take RawRangeBoundary,
    * e.g., methods of Selection and nsRange.
    */
-  operator const RawRangeBoundary() const {
+  operator const RawRangeBoundary() const { return ToRawRangeBoundary(); }
+  const RawRangeBoundary ToRawRangeBoundary() const {
     if (!IsSet() || NS_WARN_IF(!mIsChildInitialized && !mOffset.isSome())) {
       return RawRangeBoundary();
     }
     if (!mParent->IsContainerNode()) {
+      MOZ_ASSERT(mOffset.value() <= mParent->Length());
       // If the container is a data node like a text node, we need to create
       // RangeBoundaryBase instance only with mOffset because mChild is always
       // nullptr.
@@ -687,6 +928,35 @@ class EditorDOMPointBase final {
       return RawRangeBoundary(mParent, mChild->GetPreviousSibling());
     }
     return RawRangeBoundary(mParent, mParent->GetLastChild());
+  }
+
+  EditorDOMPointInText GetAsInText() const {
+    return IsInTextNode() ? EditorDOMPointInText(ContainerAsText(), Offset())
+                          : EditorDOMPointInText();
+  }
+  MOZ_NEVER_INLINE_DEBUG EditorDOMPointInText AsInText() const {
+    MOZ_ASSERT(IsInTextNode());
+    return EditorDOMPointInText(ContainerAsText(), Offset());
+  }
+
+  template <typename A, typename B>
+  bool IsBefore(const EditorDOMPointBase<A, B>& aOther) const {
+    if (!IsSetAndValid() || !aOther.IsSetAndValid()) {
+      return false;
+    }
+    Maybe<int32_t> comp = nsContentUtils::ComparePoints(
+        ToRawRangeBoundary(), aOther.ToRawRangeBoundary());
+    return comp.isSome() && comp.value() == -1;
+  }
+
+  template <typename A, typename B>
+  bool EqualsOrIsBefore(const EditorDOMPointBase<A, B>& aOther) const {
+    if (!IsSetAndValid() || !aOther.IsSetAndValid()) {
+      return false;
+    }
+    Maybe<int32_t> comp = nsContentUtils::ComparePoints(
+        ToRawRangeBoundary(), aOther.ToRawRangeBoundary());
+    return comp.isSome() && comp.value() <= 0;
   }
 
  private:
@@ -734,6 +1004,135 @@ inline void ImplCycleCollectionTraverse(
     const char* aName, uint32_t aFlags) {
   ImplCycleCollectionTraverse(aCallback, aField.mParent, "mParent", 0);
   ImplCycleCollectionTraverse(aCallback, aField.mChild, "mChild", 0);
+}
+
+template <typename EditorDOMPointType>
+class EditorDOMRangeBase;
+
+/**
+ * EditorDOMRangeBase class stores a pair of same EditorDOMPointBase type.
+ * The instance must be created with valid DOM points and start must be
+ * before or same as end.
+ */
+
+typedef EditorDOMRangeBase<EditorDOMPoint> EditorDOMRange;
+typedef EditorDOMRangeBase<EditorRawDOMPoint> EditorRawDOMRange;
+typedef EditorDOMRangeBase<EditorDOMPointInText> EditorDOMRangeInTexts;
+typedef EditorDOMRangeBase<EditorRawDOMPointInText> EditorRawDOMRangeInTexts;
+
+template <typename EditorDOMPointType>
+class EditorDOMRangeBase final {
+ public:
+  EditorDOMRangeBase() = default;
+  template <typename PT, typename CT>
+  explicit EditorDOMRangeBase(const EditorDOMPointBase<PT, CT>& aStart)
+      : mStart(aStart), mEnd(aStart) {
+    MOZ_ASSERT(!mStart.IsSet() || mStart.IsSetAndValid());
+  }
+  template <typename StartPointType, typename EndPointType>
+  explicit EditorDOMRangeBase(const StartPointType& aStart,
+                              const EndPointType& aEnd)
+      : mStart(aStart), mEnd(aEnd) {
+    MOZ_ASSERT_IF(mStart.IsSet(), mStart.IsSetAndValid());
+    MOZ_ASSERT_IF(mEnd.IsSet(), mEnd.IsSetAndValid());
+    MOZ_ASSERT_IF(mStart.IsSet() && mEnd.IsSet(),
+                  mStart.EqualsOrIsBefore(mEnd));
+  }
+  explicit EditorDOMRangeBase(const dom::AbstractRange& aRange)
+      : mStart(aRange.StartRef()), mEnd(aRange.EndRef()) {
+    MOZ_ASSERT_IF(mStart.IsSet(), mStart.IsSetAndValid());
+    MOZ_ASSERT_IF(mEnd.IsSet(), mEnd.IsSetAndValid());
+    MOZ_ASSERT_IF(mStart.IsSet() && mEnd.IsSet(),
+                  mStart.EqualsOrIsBefore(mEnd));
+  }
+
+  template <typename PointType>
+  MOZ_NEVER_INLINE_DEBUG void SetStart(const PointType& aStart) {
+    mStart = aStart;
+  }
+  template <typename PointType>
+  MOZ_NEVER_INLINE_DEBUG void SetEnd(const PointType& aEnd) {
+    mEnd = aEnd;
+  }
+  template <typename StartPointType, typename EndPointType>
+  MOZ_NEVER_INLINE_DEBUG void SetStartAndEnd(const StartPointType& aStart,
+                                             const EndPointType& aEnd) {
+    MOZ_ASSERT_IF(aStart.IsSet() && aEnd.IsSet(),
+                  aStart.EqualsOrIsBefore(aEnd));
+    mStart = aStart;
+    mEnd = aEnd;
+  }
+
+  const EditorDOMPointType& StartRef() const { return mStart; }
+  const EditorDOMPointType& EndRef() const { return mEnd; }
+
+  bool Collapsed() const {
+    MOZ_ASSERT(IsPositioned());
+    return mStart == mEnd;
+  }
+  bool IsPositioned() const { return mStart.IsSet() && mEnd.IsSet(); }
+  bool IsPositionedAndValid() const {
+    return mStart.IsSetAndValid() && mEnd.IsSetAndValid() &&
+           mStart.EqualsOrIsBefore(mEnd);
+  }
+  template <typename OtherPointType>
+  MOZ_NEVER_INLINE_DEBUG bool Contains(const OtherPointType& aPoint) const {
+    MOZ_ASSERT(aPoint.IsSetAndValid());
+    return IsPositioned() && aPoint.IsSet() &&
+           mStart.EqualsOrIsBefore(aPoint) && aPoint.IsBefore(mEnd);
+  }
+  bool InSameContainer() const {
+    MOZ_ASSERT(IsPositioned());
+    return IsPositioned() && mStart.GetContainer() == mEnd.GetContainer();
+  }
+  bool IsInContentNodes() const {
+    MOZ_ASSERT(IsPositioned());
+    return IsPositioned() && mStart.IsInContentNode() && mEnd.IsInContentNode();
+  }
+  bool IsInTextNodes() const {
+    MOZ_ASSERT(IsPositioned());
+    return IsPositioned() && mStart.IsInTextNode() && mEnd.IsInTextNode();
+  }
+  template <typename OtherRangeType>
+  bool operator==(const OtherRangeType& aOther) const {
+    return (!IsPositioned() && !aOther.IsPositioned()) ||
+           (mStart == aOther.mStart && mEnd == aOther.mEnd);
+  }
+  template <typename OtherRangeType>
+  bool operator!=(const OtherRangeType& aOther) const {
+    return !(*this == aOther);
+  }
+
+  EditorDOMRangeInTexts GetAsInTexts() const {
+    return IsInTextNodes()
+               ? EditorDOMRangeInTexts(mStart.AsInText(), mEnd.AsInText())
+               : EditorDOMRangeInTexts();
+  }
+  MOZ_NEVER_INLINE_DEBUG EditorDOMRangeInTexts AsInTexts() const {
+    MOZ_ASSERT(IsInTextNodes());
+    return EditorDOMRangeInTexts(mStart.AsInText(), mEnd.AsInText());
+  }
+
+ private:
+  EditorDOMPointType mStart;
+  EditorDOMPointType mEnd;
+
+  friend void ImplCycleCollectionTraverse(nsCycleCollectionTraversalCallback&,
+                                          EditorDOMRange&, const char*,
+                                          uint32_t);
+  friend void ImplCycleCollectionUnlink(EditorDOMRange&);
+};
+
+inline void ImplCycleCollectionUnlink(EditorDOMRange& aField) {
+  ImplCycleCollectionUnlink(aField.mStart);
+  ImplCycleCollectionUnlink(aField.mEnd);
+}
+
+inline void ImplCycleCollectionTraverse(
+    nsCycleCollectionTraversalCallback& aCallback, EditorDOMRange& aField,
+    const char* aName, uint32_t aFlags) {
+  ImplCycleCollectionTraverse(aCallback, aField.mStart, "mStart", 0);
+  ImplCycleCollectionTraverse(aCallback, aField.mEnd, "mEnd", 0);
 }
 
 /**

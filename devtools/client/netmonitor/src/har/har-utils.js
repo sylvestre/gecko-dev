@@ -38,11 +38,12 @@ function formatDate(date) {
  * Helper API for HAR export features.
  */
 var HarUtils = {
-  getHarFileName: function(defaultFileName, jsonp, compress) {
+  getHarFileName: function(defaultFileName, jsonp, compress, hostname) {
     const extension = jsonp ? ".harp" : ".har";
 
     const now = new Date();
     let name = defaultFileName.replace(/%date/g, formatDate(now));
+    name = name.replace(/%hostname/g, hostname);
     name = name.replace(/\:/gm, "-", "");
     name = name.replace(/\//gm, "_", "");
 
@@ -66,18 +67,20 @@ var HarUtils = {
    * @param {Boolean} compress The result file is zipped if set to true.
    */
   saveToFile: function(file, jsonString, compress) {
-    const openFlags = OPEN_FLAGS.WRONLY | OPEN_FLAGS.CREATE_FILE |
-      OPEN_FLAGS.TRUNCATE;
+    const openFlags =
+      OPEN_FLAGS.WRONLY | OPEN_FLAGS.CREATE_FILE | OPEN_FLAGS.TRUNCATE;
 
     try {
-      const foStream = Cc["@mozilla.org/network/file-output-stream;1"]
-        .createInstance(Ci.nsIFileOutputStream);
+      const foStream = Cc[
+        "@mozilla.org/network/file-output-stream;1"
+      ].createInstance(Ci.nsIFileOutputStream);
 
       const permFlags = parseInt("0666", 8);
       foStream.init(file, openFlags, permFlags, 0);
 
-      const convertor = Cc["@mozilla.org/intl/converter-output-stream;1"]
-        .createInstance(Ci.nsIConverterOutputStream);
+      const convertor = Cc[
+        "@mozilla.org/intl/converter-output-stream;1"
+      ].createInstance(Ci.nsIConverterOutputStream);
       convertor.init(foStream, "UTF-8");
 
       // The entire jsonString can be huge so, write the data in chunks.
@@ -109,11 +112,12 @@ var HarUtils = {
 
     try {
       // Rename using unique name (the file is going to be removed).
-      file.moveTo(null, "temp" + (new Date()).getTime() + "temphar");
+      file.moveTo(null, "temp" + new Date().getTime() + "temphar");
 
       // Create compressed file with the original file path name.
-      const zipFile = Cc["@mozilla.org/file/local;1"]
-        .createInstance(Ci.nsIFile);
+      const zipFile = Cc["@mozilla.org/file/local;1"].createInstance(
+        Ci.nsIFile
+      );
       zipFile.initWithPath(originalFilePath);
 
       // The file within the zipped file doesn't use .zip extension.
@@ -124,8 +128,12 @@ var HarUtils = {
 
       const zip = new ZipWriter();
       zip.open(zipFile, openFlags);
-      zip.addEntryFile(fileName, Ci.nsIZipWriter.COMPRESSION_DEFAULT,
-        file, false);
+      zip.addEntryFile(
+        fileName,
+        Ci.nsIZipWriter.COMPRESSION_DEFAULT,
+        file,
+        false
+      );
       zip.close();
 
       // Remove the original file (now zipped).

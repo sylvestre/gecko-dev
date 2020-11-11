@@ -583,10 +583,10 @@ AtkRole getRoleCB(AtkObject* aAtkObj) {
   }
 #endif
 
-#define ROLE(geckoRole, stringRole, atkRole, macRole, msaaRole, ia2Role, \
-             androidClass, nameRule)                                     \
-  case roles::geckoRole:                                                 \
-    aAtkObj->role = atkRole;                                             \
+#define ROLE(geckoRole, stringRole, atkRole, macRole, macSubrole, msaaRole, \
+             ia2Role, androidClass, nameRule)                               \
+  case roles::geckoRole:                                                    \
+    aAtkObj->role = atkRole;                                                \
     break;
 
   switch (acc.Role()) {
@@ -615,6 +615,14 @@ AtkRole getRoleCB(AtkObject* aAtkObj) {
             aAtkObj->role == ATK_ROLE_MATH_ROOT) &&
            !IsAtkVersionAtLeast(2, 16))
     aAtkObj->role = ATK_ROLE_SECTION;
+  else if (aAtkObj->role == ATK_ROLE_MARK && !IsAtkVersionAtLeast(2, 36)) {
+    aAtkObj->role = ATK_ROLE_TEXT;
+  } else if (aAtkObj->role == ATK_ROLE_SUGGESTION &&
+             !IsAtkVersionAtLeast(2, 36)) {
+    aAtkObj->role = ATK_ROLE_SECTION;
+  } else if (aAtkObj->role == ATK_ROLE_COMMENT && !IsAtkVersionAtLeast(2, 36)) {
+    aAtkObj->role = ATK_ROLE_SECTION;
+  }
 
   return aAtkObj->role;
 }
@@ -644,6 +652,11 @@ static AtkAttributeSet* ConvertToAtkAttributeSet(
     nsAutoString value;
     rv = propElem->GetValue(value);
     NS_ENSURE_SUCCESS(rv, objAttributeSet);
+
+    // On ATK, the placeholder attribute is called placeholder-text.
+    if (name.Equals("placeholder")) {
+      name.AssignLiteral("placeholder-text");
+    }
 
     AtkAttribute* objAttr = (AtkAttribute*)g_malloc(sizeof(AtkAttribute));
     objAttr->name = g_strdup(name.get());
@@ -676,6 +689,10 @@ AtkAttributeSet* getAttributesCB(AtkObject* aAtkObj) {
   AtkAttributeSet* objAttributeSet = nullptr;
   for (uint32_t i = 0; i < attrs.Length(); i++) {
     AtkAttribute* objAttr = (AtkAttribute*)g_malloc(sizeof(AtkAttribute));
+    // On ATK, the placeholder attribute is called placeholder-text.
+    if (attrs[i].Name().Equals("placeholder")) {
+      attrs[i].Name().AssignLiteral("placeholder-text");
+    }
     objAttr->name = g_strdup(attrs[i].Name().get());
     objAttr->value = g_strdup(NS_ConvertUTF16toUTF8(attrs[i].Value()).get());
     objAttributeSet = g_slist_prepend(objAttributeSet, objAttr);
@@ -726,7 +743,7 @@ gint getChildCountCB(AtkObject* aAtkObj) {
   }
 
   ProxyAccessible* proxy = GetProxy(aAtkObj);
-  if (proxy && !proxy->MustPruneChildren()) {
+  if (proxy && !nsAccUtils::MustPrune(proxy)) {
     return proxy->EmbeddedChildCount();
   }
 
@@ -757,7 +774,9 @@ AtkObject* refChildCB(AtkObject* aAtkObj, gint aChildIndex) {
       }
     }
   } else if (ProxyAccessible* proxy = GetProxy(aAtkObj)) {
-    if (proxy->MustPruneChildren()) return nullptr;
+    if (nsAccUtils::MustPrune(proxy)) {
+      return nullptr;
+    }
 
     ProxyAccessible* child = proxy->EmbeddedChildAt(aChildIndex);
     if (child) childAtkObj = GetWrapperFor(child);
@@ -799,10 +818,14 @@ gint getIndexInParentCB(AtkObject* aAtkObj) {
   return parent->GetIndexOfEmbeddedChild(accWrap);
 }
 
-static void TranslateStates(uint64_t aState, AtkStateSet* aStateSet) {
+static void TranslateStates(uint64_t aState, roles::Role aRole,
+                            AtkStateSet* aStateSet) {
   // atk doesn't have a read only state so read only things shouldn't be
-  // editable.
-  if (aState & states::READONLY) aState &= ~states::EDITABLE;
+  // editable. However, we don't do this for list items because Gecko always
+  // exposes those as read only.
+  if ((aState & states::READONLY) && aRole != roles::LISTITEM) {
+    aState &= ~states::EDITABLE;
+  }
 
   // Convert every state to an entry in AtkStateMap
   uint64_t bitMask = 1;
@@ -826,12 +849,13 @@ AtkStateSet* refStateSetCB(AtkObject* aAtkObj) {
   state_set = ATK_OBJECT_CLASS(parent_class)->ref_state_set(aAtkObj);
 
   AccessibleWrap* accWrap = GetAccessibleWrap(aAtkObj);
-  if (accWrap)
-    TranslateStates(accWrap->State(), state_set);
-  else if (ProxyAccessible* proxy = GetProxy(aAtkObj))
-    TranslateStates(proxy->State(), state_set);
-  else
-    TranslateStates(states::DEFUNCT, state_set);
+  if (accWrap) {
+    TranslateStates(accWrap->State(), accWrap->Role(), state_set);
+  } else if (ProxyAccessible* proxy = GetProxy(aAtkObj)) {
+    TranslateStates(proxy->State(), proxy->Role(), state_set);
+  } else {
+    TranslateStates(states::DEFUNCT, roles::NOTHING, state_set);
+  }
 
   return state_set;
 }
@@ -1329,8 +1353,13 @@ void a11y::ProxyEvent(ProxyAccessible* aTarget, uint32_t aEventType) {
       g_object_notify((GObject*)wrapper, "accessible-value");
       break;
     case nsIAccessibleEvent::EVENT_TEXT_SELECTION_CHANGED:
+      g_signal_emit_by_name(wrapper, "text_selection_changed");
+      break;
     case nsIAccessibleEvent::EVENT_SELECTION_WITHIN:
       g_signal_emit_by_name(wrapper, "selection_changed");
+      break;
+    case nsIAccessibleEvent::EVENT_TEXT_ATTRIBUTE_CHANGED:
+      g_signal_emit_by_name(wrapper, "text-attributes-changed");
       break;
   }
 }
@@ -1341,7 +1370,8 @@ void a11y::ProxyStateChangeEvent(ProxyAccessible* aTarget, uint64_t aState,
   atkObj->FireStateChangeEvent(aState, aEnabled);
 }
 
-void a11y::ProxyCaretMoveEvent(ProxyAccessible* aTarget, int32_t aOffset) {
+void a11y::ProxyCaretMoveEvent(ProxyAccessible* aTarget, int32_t aOffset,
+                               bool aIsSelectionCollapsed) {
   AtkObject* wrapper = GetWrapperFor(aTarget);
   g_signal_emit_by_name(wrapper, "text_caret_moved", aOffset);
 }

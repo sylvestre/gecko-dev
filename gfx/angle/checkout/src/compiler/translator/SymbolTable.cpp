@@ -8,7 +8,7 @@
 //
 
 #if defined(_MSC_VER)
-#pragma warning(disable : 4718)
+#    pragma warning(disable : 4718)
 #endif
 
 #include "compiler/translator/SymbolTable.h"
@@ -17,6 +17,7 @@
 #include "compiler/translator/ImmutableString.h"
 #include "compiler/translator/IntermNode.h"
 #include "compiler/translator/StaticType.h"
+#include "compiler/translator/util.h"
 
 namespace sh
 {
@@ -69,8 +70,7 @@ TSymbolTable::TSymbolTable()
       mUniqueIdCounter(0),
       mShaderType(GL_FRAGMENT_SHADER),
       mGlInVariableWithArraySize(nullptr)
-{
-}
+{}
 
 TSymbolTable::~TSymbolTable() = default;
 
@@ -156,8 +156,9 @@ const TVariable *TSymbolTable::gl_SecondaryFragDataEXT() const
     return mVar_gl_SecondaryFragDataEXT;
 }
 
-TSymbolTable::VariableMetadata *TSymbolTable::getOrCreateVariableMetadata(const TVariable &variable) {
-    int id = variable.uniqueId().get();
+TSymbolTable::VariableMetadata *TSymbolTable::getOrCreateVariableMetadata(const TVariable &variable)
+{
+    int id    = variable.uniqueId().get();
     auto iter = mVariableMetadata.find(id);
     if (iter == mVariableMetadata.end())
     {
@@ -168,13 +169,13 @@ TSymbolTable::VariableMetadata *TSymbolTable::getOrCreateVariableMetadata(const 
 
 void TSymbolTable::markStaticWrite(const TVariable &variable)
 {
-    auto metadata = getOrCreateVariableMetadata(variable);
+    auto metadata         = getOrCreateVariableMetadata(variable);
     metadata->staticWrite = true;
 }
 
 void TSymbolTable::markStaticRead(const TVariable &variable)
 {
-    auto metadata = getOrCreateVariableMetadata(variable);
+    auto metadata        = getOrCreateVariableMetadata(variable);
     metadata->staticRead = true;
 }
 
@@ -189,18 +190,18 @@ bool TSymbolTable::isStaticallyUsed(const TVariable &variable) const
 void TSymbolTable::addInvariantVarying(const TVariable &variable)
 {
     ASSERT(atGlobalLevel());
-    auto metadata = getOrCreateVariableMetadata(variable);
+    auto metadata       = getOrCreateVariableMetadata(variable);
     metadata->invariant = true;
 }
 
 bool TSymbolTable::isVaryingInvariant(const TVariable &variable) const
 {
     ASSERT(atGlobalLevel());
-    if (mGlobalInvariant)
+    if (mGlobalInvariant && (IsShaderOutput(variable.getType().getQualifier())))
     {
         return true;
     }
-    int id = variable.uniqueId().get();
+    int id    = variable.uniqueId().get();
     auto iter = mVariableMetadata.find(id);
     return iter != mVariableMetadata.end() && iter->second.invariant;
 }
@@ -249,6 +250,32 @@ const TSymbol *TSymbolTable::findGlobal(const ImmutableString &name) const
 {
     ASSERT(!mTable.empty());
     return mTable[0]->find(name);
+}
+
+const TSymbol *TSymbolTable::findGlobalWithConversion(
+    const std::vector<ImmutableString> &names) const
+{
+    const TSymbol *target;
+    for (ImmutableString name : names)
+    {
+        target = findGlobal(name);
+        if (target != nullptr)
+            break;
+    }
+    return target;
+}
+
+const TSymbol *TSymbolTable::findBuiltInWithConversion(const std::vector<ImmutableString> &names,
+                                                       int shaderVersion) const
+{
+    const TSymbol *target;
+    for (ImmutableString name : names)
+    {
+        target = findBuiltIn(name, shaderVersion);
+        if (target != nullptr)
+            break;
+    }
+    return target;
 }
 
 bool TSymbolTable::declare(TSymbol *symbol)
@@ -337,20 +364,29 @@ void TSymbolTable::initializeBuiltIns(sh::GLenum type,
     // We need just one precision stack level for predefined precisions.
     mPrecisionStack.emplace_back(new PrecisionStackLevel);
 
-    switch (type)
+    if (IsDesktopGLSpec(spec))
     {
-        case GL_FRAGMENT_SHADER:
-            setDefaultPrecision(EbtInt, EbpMedium);
-            break;
-        case GL_VERTEX_SHADER:
-        case GL_COMPUTE_SHADER:
-        case GL_GEOMETRY_SHADER_EXT:
-            setDefaultPrecision(EbtInt, EbpHigh);
-            setDefaultPrecision(EbtFloat, EbpHigh);
-            break;
-        default:
-            UNREACHABLE();
+        setDefaultPrecision(EbtInt, EbpUndefined);
+        setDefaultPrecision(EbtFloat, EbpUndefined);
     }
+    else
+    {
+        switch (type)
+        {
+            case GL_FRAGMENT_SHADER:
+                setDefaultPrecision(EbtInt, EbpMedium);
+                break;
+            case GL_VERTEX_SHADER:
+            case GL_COMPUTE_SHADER:
+            case GL_GEOMETRY_SHADER_EXT:
+                setDefaultPrecision(EbtInt, EbpHigh);
+                setDefaultPrecision(EbtFloat, EbpHigh);
+                break;
+            default:
+                UNREACHABLE();
+        }
+    }
+
     // Set defaults for sampler types that have default precision, even those that are
     // only available if an extension exists.
     // New sampler types in ESSL3 don't have default precision. ESSL1 types do.
@@ -375,7 +411,7 @@ void TSymbolTable::initSamplerDefaultPrecision(TBasicType samplerType)
     setDefaultPrecision(samplerType, EbpLow);
 }
 
-TSymbolTable::VariableMetadata::VariableMetadata() : staticRead(false), staticWrite(false), invariant(false)
-{
-}
+TSymbolTable::VariableMetadata::VariableMetadata()
+    : staticRead(false), staticWrite(false), invariant(false)
+{}
 }  // namespace sh

@@ -6,13 +6,12 @@
 #ifndef mozilla_a11y_SelectionManager_h__
 #define mozilla_a11y_SelectionManager_h__
 
-#include "nsIFrame.h"
 #include "nsISelectionListener.h"
 #include "mozilla/WeakPtr.h"
 
-class nsIPresShell;
-
 namespace mozilla {
+
+class PresShell;
 
 namespace dom {
 class Element;
@@ -70,12 +69,12 @@ class SelectionManager : public nsISelectionListener {
   /**
    * Listen to selection events on the document.
    */
-  void AddDocSelectionListener(nsIPresShell* aPresShell);
+  void AddDocSelectionListener(PresShell* aPresShell);
 
   /**
    * Stop listening to selection events for a given document
    */
-  void RemoveDocSelectionListener(nsIPresShell* aShell);
+  void RemoveDocSelectionListener(PresShell* aPresShell);
 
   /**
    * Process delayed event, results in caret move and text selection change
@@ -106,6 +105,8 @@ class SelectionManager : public nsISelectionListener {
     mCaretOffset = -1;
     mAccWithCaret = nullptr;
   }
+
+  ~SelectionManager();
 
  protected:
   SelectionManager();

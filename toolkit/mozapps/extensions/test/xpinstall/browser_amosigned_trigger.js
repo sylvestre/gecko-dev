@@ -1,3 +1,15 @@
+/* Any copyright is dedicated to the Public Domain.
+ * http://creativecommons.org/publicdomain/zero/1.0/
+ */
+
+"use strict";
+
+const { AddonTestUtils } = ChromeUtils.import(
+  "resource://testing-common/AddonTestUtils.jsm"
+);
+
+AddonTestUtils.initMochitest(this);
+
 // ----------------------------------------------------------------------------
 // Tests installing an unsigned add-on through an InstallTrigger call in web
 // content.
@@ -8,18 +20,28 @@ function test() {
   Harness.finalContentEvent = "InstallComplete";
   Harness.setup();
 
-  var pm = Services.perms;
-  pm.add(makeURI("http://example.com/"), "install", pm.ALLOW_ACTION);
+  PermissionTestUtils.add(
+    "http://example.com/",
+    "install",
+    Services.perms.ALLOW_ACTION
+  );
 
-  var triggers = encodeURIComponent(JSON.stringify({
-    "Unsigned XPI": {
-      URL: TESTROOT + "amosigned.xpi",
-      IconURL: TESTROOT + "icon.png",
-      toString() { return this.URL; },
-    },
-  }));
+  var triggers = encodeURIComponent(
+    JSON.stringify({
+      "Unsigned XPI": {
+        URL: TESTROOT + "amosigned.xpi",
+        IconURL: TESTROOT + "icon.png",
+        toString() {
+          return this.URL;
+        },
+      },
+    })
+  );
   gBrowser.selectedTab = BrowserTestUtils.addTab(gBrowser);
-  BrowserTestUtils.loadURI(gBrowser, TESTROOT + "installtrigger.html?" + triggers);
+  BrowserTestUtils.loadURI(
+    gBrowser,
+    TESTROOT + "installtrigger.html?" + triggers
+  );
 }
 
 function confirm_install(panel) {
@@ -28,22 +50,30 @@ function confirm_install(panel) {
 }
 
 function install_ended(install, addon) {
-  Assert.deepEqual(install.installTelemetryInfo, {source: "test-host", method: "installTrigger"},
-                   "Got the expected install.installTelemetryInfo");
-  install.cancel();
+  AddonTestUtils.checkInstallInfo(install, {
+    method: "installTrigger",
+    source: "test-host",
+    sourceURL: /http:\/\/example.com\/.*\/installtrigger.html/,
+  });
+
+  return addon.uninstall();
 }
 
 const finish_test = async function(count) {
   is(count, 1, "1 Add-on should have been successfully installed");
 
-  Services.perms.remove(makeURI("http://example.com"), "install");
+  PermissionTestUtils.remove("http://example.com", "install");
 
-  const results = await ContentTask.spawn(gBrowser.selectedBrowser, null, () => {
-    return {
-      return: content.document.getElementById("return").textContent,
-      status: content.document.getElementById("status").textContent,
-    };
-  });
+  const results = await SpecialPowers.spawn(
+    gBrowser.selectedBrowser,
+    [],
+    () => {
+      return {
+        return: content.document.getElementById("return").textContent,
+        status: content.document.getElementById("status").textContent,
+      };
+    }
+  );
 
   is(results.return, "true", "installTrigger should have claimed success");
   is(results.status, "0", "Callback should have seen a success");

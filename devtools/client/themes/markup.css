@@ -3,19 +3,26 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 :root {
-  --markup-hidden-attr-name-color: #BA89B8;
-  --markup-hidden-attr-value-color: #5C6D87;
-  --markup-hidden-punctuation-color: #909090;
-  --markup-hidden-tag-color: #97A4B3;
+  --markup-hidden-attr-name-color: var(--grey-43);
+  --markup-hidden-attr-value-color: var(--grey-55);
+  --markup-hidden-punctuation-color: var(--grey-43);
+  --markup-pseudoclass-disk-color: #e9c600;
+  --markup-hidden-tag-color: var(--grey-50);
   --markup-outline: var(--theme-splitter-color);
+  --markup-drag-line: var(--grey-40);
+  --markup-drop-line: var(--blue-55);
+  --markup-overflow-causing-background-color: rgba(128, 0, 215, 0.15);
 }
 
 .theme-dark:root {
-  --markup-hidden-attr-name-color: #B07EB3;
-  --markup-hidden-attr-value-color: #9893A3;
-  --markup-hidden-punctuation-color: #909090;
-  --markup-hidden-tag-color: #AFB5BF;
+  --markup-hidden-attr-name-color: #787878;
+  --markup-hidden-attr-value-color: #a4a4a4;
+  --markup-hidden-punctuation-color: #787878;
+  --markup-hidden-tag-color: var(--grey-45);
   --markup-outline: var(--theme-selection-background);
+  --markup-drag-line: var(--grey-55);
+  --markup-drop-line: var(--blue-50);
+  --markup-overflow-causing-background-color: rgba(148, 0, 255, 0.38);
 }
 
 * {
@@ -28,15 +35,26 @@
 }
 
 body {
-  -moz-user-select: none;
+  user-select: none;
 }
 
 /* Force height and width (possibly overflowing) from inline elements.
  * This allows long overflows of text or input fields to still be styled with
  * the container, rather than the background disappearing when scrolling */
 #root {
-  float: left;
+  float: left; /* The markup view should always be LTR */
   min-width: 100%;
+  /* Reserve extra space (in addition to the indent size) for DOM mutation
+   * breakpoint and pseudo icons. */
+  padding-left: 6px;
+  box-sizing: border-box;
+}
+
+/* Reset the global rotation of the icon done for RTL layout.
+   Markup view is always LTR */
+#root .theme-twisty:not(.open):dir(rtl),
+#root .theme-twisty:not([open]):-moz-locale-dir(rtl) {
+  transform: rotate(-90deg);
 }
 
 /* Don't display a parent-child outline for the root elements */
@@ -97,8 +115,8 @@ body.dragging .tag-line {
  * A very large padding is used in combination with a slightly smaller margin
  * to make sure childs actually span from edge-to-edge. */
 .child {
-  margin-left: -1000em;
-  padding-left: 1001em;
+  margin-left: -10000px;
+  padding-left: 10011px;
 }
 
 /* Normally this element takes space in the layout even if it's position: relative
@@ -123,11 +141,11 @@ body.dragging .tag-line {
   /* Offset these by 1000px to make sure they cover the full width of the view */
   width: calc(100% + 1000px);
   left: -1000px;
-  background-color: var(--theme-content-color2);
+  background-color: var(--markup-drag-line);
 }
 
 .tag-line.drop-target::before {
-  background-color: var(--theme-contrast-background);
+  background-color: var(--markup-drop-line);
 }
 
 /* In case the indicator is put on the closing .tag-line, the indentation level
@@ -142,19 +160,19 @@ ul.children + .tag-line::before {
   font-size: var(--theme-code-font-size);
   min-height: 1.2727em;
   line-height: 1.2727em;
+  padding-block: 1px;
   position: relative;
   cursor: default;
-  padding: 1px 0 1px 2px;
 }
 
 .tag-line[selected] + .children,
 .tag-line[selected] ~ .tag-line {
   background-image: linear-gradient(to top, var(--markup-outline), var(--markup-outline));
-  background-position-x: -6px;
+  background-position: 0 0;
   background-repeat: no-repeat;
   background-size: 1.5px 100%;
-  border-left: 6px solid transparent;
-  margin-left: -6px;
+  padding-left: 8px;
+  margin-left: -8px;
 }
 
 .tag-line[selected] + .children {
@@ -165,6 +183,39 @@ ul.children + .tag-line::before {
   background-position-y: -2px;
   /* Unset transition-property to prevent the markup outline from horizontal shifting */
   transition-property: none;
+}
+
+/**
+ * Positioning the mutation marker on the viewport's left edge:
+ * - left: walk back the indentation level up
+ * - margin-left: walk back the #root's 6px padding-left
+ *   (plus hide the leftmost 2px of the icon outside the viewport)
+ */
+.markup-tag-mutation-marker {
+  display: none;
+  position: absolute;
+  top: 2px;
+  left: calc(var(--markup-level, 1) * -11px);
+  margin-left: -8px;
+  height: 12px;
+  width: 12px;
+  background-image: url(chrome://devtools/content/debugger/images/markup-breakpoint.svg);
+  background-repeat: no-repeat;
+  background-size: 12px 12px;
+  background-position: right center;
+  -moz-context-properties: fill, stroke;
+  fill: var(--blue-50);
+  fill-opacity: 1;
+  stroke: none;
+  z-index: 2;
+}
+
+.markup-tag-mutation-marker.has-mutations {
+  display: block;
+}
+
+.tag-line[selected] .markup-tag-mutation-marker {
+  stroke: #fff;
 }
 
 .html-editor-container {
@@ -237,6 +288,7 @@ ul.children + .tag-line::before {
   background-image: url(chrome://devtools/skin/images/more.svg);
   background-repeat: no-repeat;
   background-position: center;
+  background-size: 8px;
   border: 1px solid var(--badge-border-color);
   color: var(--badge-color);
   fill: var(--badge-interactive-color);
@@ -257,6 +309,10 @@ ul.children + .tag-line::before {
  * expanded (it can be if it has pseudo-elements attached) */
 .child.collapsed > .tag-line .void-element .close {
   display: none;
+}
+
+.tag-line .tag-state.overflow-causing-highlighted:not(.theme-selected) {
+  background-color: var(--markup-overflow-causing-background-color);
 }
 
 .closing-bracket {
@@ -280,7 +336,7 @@ ul.children + .tag-line::before {
 }
 
 .flash-out {
-  transition: background .5s;
+  transition: background,color .5s;
 }
 
 .editor {
@@ -303,34 +359,7 @@ ul.children + .tag-line::before {
 }
 
 .theme-dark .editor.text pre {
-  color: var(--theme-content-color1);
-}
-
-/* Whitespace only text nodes are sometimes shown in the markup-view, and when they do
-   they get a greyed-out whitespace symbol so users know what they are */
-.editor.text .whitespace {
-  padding: 0 .5em;
-}
-
-.editor.text .whitespace::before {
-  /* black circle (full) character */
-  content: "\25cf";
-  display: inline-block;
-  width: 12px;
-  height: 8px;
-  margin: 0 2px;
-  line-height: 7px;
-  font-size: 0.6em;
-  color: var(--theme-body-color-inactive);
-  border-radius: 3px;
-  border-style: solid;
-  border-width: 1px;
-  text-align: center;
-  vertical-align: middle;
-}
-
-.tag-line[selected] .editor.text .whitespace::before {
-  color: white;
+  color: var(--theme-text-color-strong);
 }
 
 .more-nodes {
@@ -358,12 +387,12 @@ ul.children + .tag-line::before {
    Center vertically with the 1.4em line height on .tag-line */
 .child.pseudoclass-locked::before {
   content: "";
-  background: var(--theme-highlight-lightorange);
+  background: var(--markup-pseudoclass-disk-color);
   border-radius: 50%;
-  width: .8em;
-  height: .8em;
-  margin-top: .3em;
-  left: 1px;
+  width: 6px;
+  height: 6px;
+  margin-top: 5px;
+  left: 8px;
   position: absolute;
   z-index: 1;
 }
@@ -389,12 +418,19 @@ ul.children + .tag-line::before {
    sibling of the class, not a child. */
 .theme-selected ~ .editor,
 .theme-selected ~ .editor.comment,
+.theme-selected ~ .editor .tag,
 .theme-selected ~ .editor .theme-fg-color1,
 .theme-selected ~ .editor .theme-fg-color2,
-.theme-selected ~ .editor .theme-fg-color3,
-.theme-selected ~ .editor .theme-fg-color4,
-.theme-selected ~ .editor .theme-fg-color5 {
+.theme-selected ~ .editor .theme-fg-color3 {
   color: var(--theme-selection-color);
+}
+
+/* Selected nodes being flashed in the tree should have dark selected text. Here we target
+   nodes with theme-selected text colors and apply a dark, accessible text color for when
+   the yellow flashing background is applied. */
+.theme-selected.theme-bg-contrast ~ .editor,
+.theme-selected ~ .editor .theme-fg-contrast {
+  color: var(--theme-contrast-color);
 }
 
 /* Applicable to the DOCTYPE */

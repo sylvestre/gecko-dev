@@ -11,16 +11,17 @@
 
 #include "nsIDOMEventListener.h"
 
-class nsIDocument;
-
 namespace mozilla {
+
+class PresShell;
+
 namespace a11y {
 
 class RootAccessible : public DocAccessibleWrap, public nsIDOMEventListener {
   NS_DECL_ISUPPORTS_INHERITED
 
  public:
-  RootAccessible(nsIDocument* aDocument, nsIPresShell* aPresShell);
+  RootAccessible(dom::Document* aDocument, PresShell* aPresShell);
 
   // nsIDOMEventListener
   NS_DECL_NSIDOMEVENTLISTENER
@@ -29,7 +30,6 @@ class RootAccessible : public DocAccessibleWrap, public nsIDOMEventListener {
   virtual void Shutdown() override;
   virtual mozilla::a11y::ENameValueFlag Name(nsString& aName) const override;
   virtual Relation RelationByType(RelationType aType) const override;
-  virtual mozilla::a11y::role NativeRole() const override;
   virtual uint64_t NativeState() const override;
 
   // RootAccessible
@@ -56,7 +56,7 @@ class RootAccessible : public DocAccessibleWrap, public nsIDOMEventListener {
   /**
    * Process the DOM event.
    */
-  void ProcessDOMEvent(dom::Event* aEvent);
+  void ProcessDOMEvent(dom::Event* aDOMEvent, nsINode* aTarget);
 
   /**
    * Process "popupshown" event. Used by HandleEvent().

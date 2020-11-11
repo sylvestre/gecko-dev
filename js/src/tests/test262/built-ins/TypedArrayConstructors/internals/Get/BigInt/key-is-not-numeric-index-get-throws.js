@@ -1,10 +1,9 @@
-// |reftest| skip-if(!this.hasOwnProperty('BigInt')) -- BigInt is not enabled unconditionally
 // Copyright (C) 2016 the V8 project authors. All rights reserved.
 // This code is governed by the BSD license found in the LICENSE file.
 /*---
 esid: sec-integer-indexed-exotic-objects-get-p-receiver
 description: >
-  Returns abrupt from OrginaryGet when key is not a numeric index
+  Returns abrupt from OrdinaryGet when key is not a numeric index
 info: |
   9.4.5.4 [[Get]] (P, Receiver)
 
@@ -21,7 +20,7 @@ info: |
   8. Return ? Call(getter, Receiver).
   ...
 includes: [testBigIntTypedArray.js]
-features: [BigInt, TypedArray]
+features: [align-detached-buffer-semantics-with-web-reality, BigInt, TypedArray]
 ---*/
 
 testWithBigIntTypedArrayConstructors(function(TA) {

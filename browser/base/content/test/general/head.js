@@ -1,13 +1,30 @@
 ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm", this);
 
-ChromeUtils.defineModuleGetter(this, "PlacesUtils",
-  "resource://gre/modules/PlacesUtils.jsm");
-ChromeUtils.defineModuleGetter(this, "PlacesTestUtils",
-  "resource://testing-common/PlacesTestUtils.jsm");
-ChromeUtils.defineModuleGetter(this, "BrowserTestUtils",
-  "resource://testing-common/BrowserTestUtils.jsm");
-ChromeUtils.defineModuleGetter(this, "TabCrashHandler",
-  "resource:///modules/ContentCrashHandlers.jsm");
+ChromeUtils.defineModuleGetter(
+  this,
+  "AboutNewTab",
+  "resource:///modules/AboutNewTab.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "PlacesUtils",
+  "resource://gre/modules/PlacesUtils.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "PlacesTestUtils",
+  "resource://testing-common/PlacesTestUtils.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "BrowserTestUtils",
+  "resource://testing-common/BrowserTestUtils.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "TabCrashHandler",
+  "resource:///modules/ContentCrashHandlers.jsm"
+);
 
 /**
  * Wait for a <notification> to be closed then call the specified callback.
@@ -25,7 +42,7 @@ function waitForNotificationClose(notification, cb) {
       }
     }
   });
-  observer.observe(notification.control.stack, {childList: true});
+  observer.observe(notification.control.stack, { childList: true });
 }
 
 function closeAllNotifications() {
@@ -42,7 +59,6 @@ function closeAllNotifications() {
       });
       notification.close();
     }
-
   });
 }
 
@@ -56,22 +72,31 @@ function whenDelayedStartupFinished(aWindow, aCallback) {
 }
 
 function openToolbarCustomizationUI(aCallback, aBrowserWin) {
-  if (!aBrowserWin)
+  if (!aBrowserWin) {
     aBrowserWin = window;
+  }
 
   aBrowserWin.gCustomizeMode.enter();
 
-  aBrowserWin.gNavToolbox.addEventListener("customizationready", function() {
-    executeSoon(function() {
-      aCallback(aBrowserWin);
-    });
-  }, {once: true});
+  aBrowserWin.gNavToolbox.addEventListener(
+    "customizationready",
+    function() {
+      executeSoon(function() {
+        aCallback(aBrowserWin);
+      });
+    },
+    { once: true }
+  );
 }
 
 function closeToolbarCustomizationUI(aCallback, aBrowserWin) {
-  aBrowserWin.gNavToolbox.addEventListener("aftercustomization", function() {
-    executeSoon(aCallback);
-  }, {once: true});
+  aBrowserWin.gNavToolbox.addEventListener(
+    "aftercustomization",
+    function() {
+      executeSoon(aCallback);
+    },
+    { once: true }
+  );
 
   aBrowserWin.gCustomizeMode.exit();
 }
@@ -96,7 +121,10 @@ function waitForCondition(condition, nextTest, errorMsg, retryTimes) {
     }
     tries++;
   }, 100);
-  var moveOn = function() { clearInterval(interval); nextTest(); };
+  var moveOn = function() {
+    clearInterval(interval);
+    nextTest();
+  };
 }
 
 function promiseWaitForCondition(aConditionFn) {
@@ -105,8 +133,13 @@ function promiseWaitForCondition(aConditionFn) {
   });
 }
 
-function promiseWaitForEvent(object, eventName, capturing = false, chrome = false) {
-  return new Promise((resolve) => {
+function promiseWaitForEvent(
+  object,
+  eventName,
+  capturing = false,
+  chrome = false
+) {
+  return new Promise(resolve => {
     function listener(event) {
       info("Saw " + eventName);
       object.removeEventListener(eventName, listener, capturing, chrome);
@@ -130,7 +163,7 @@ function promiseWaitForEvent(object, eventName, capturing = false, chrome = fals
  * @rejects Never.
  */
 function promiseWaitForFocus(aWindow) {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     waitForFocus(resolve, aWindow);
   });
 }
@@ -142,8 +175,9 @@ function getTestPlugin(aName) {
 
   // Find the test plugin
   for (var i = 0; i < tags.length; i++) {
-    if (tags[i].name == pluginName)
+    if (tags[i].name == pluginName) {
       return tags[i];
+    }
   }
   ok(false, "Unable to find plugin");
   return null;
@@ -162,38 +196,11 @@ function setTestPluginEnabledState(newEnabledState, pluginName) {
 }
 
 function pushPrefs(...aPrefs) {
-  return new Promise(resolve => {
-    SpecialPowers.pushPrefEnv({"set": aPrefs}, resolve);
-  });
+  return SpecialPowers.pushPrefEnv({ set: aPrefs });
 }
 
 function popPrefs() {
-  return new Promise(resolve => {
-    SpecialPowers.popPrefEnv(resolve);
-  });
-}
-
-function updateBlocklist(aCallback) {
-  var blocklistNotifier = Cc["@mozilla.org/extensions/blocklist;1"]
-                          .getService(Ci.nsITimerCallback);
-  var observer = function() {
-    Services.obs.removeObserver(observer, "blocklist-updated");
-    SimpleTest.executeSoon(aCallback);
-  };
-  Services.obs.addObserver(observer, "blocklist-updated");
-  blocklistNotifier.notify(null);
-}
-
-var _originalTestBlocklistURL = null;
-function setAndUpdateBlocklist(aURL, aCallback) {
-  if (!_originalTestBlocklistURL)
-    _originalTestBlocklistURL = Services.prefs.getCharPref("extensions.blocklist.url");
-  Services.prefs.setCharPref("extensions.blocklist.url", aURL);
-  updateBlocklist(aCallback);
-}
-
-function resetBlocklist() {
-  Services.prefs.setCharPref("extensions.blocklist.url", _originalTestBlocklistURL);
+  return SpecialPowers.popPrefEnv();
 }
 
 function promiseWindowClosed(win) {
@@ -213,11 +220,14 @@ function promiseOpenAndLoadWindow(aOptions, aWaitForDelayedStartup = false) {
         Services.obs.removeObserver(onDS, "browser-delayed-startup-finished");
         resolve(win);
       }, "browser-delayed-startup-finished");
-
     } else {
-      win.addEventListener("load", function() {
-        resolve(win);
-      }, {once: true});
+      win.addEventListener(
+        "load",
+        function() {
+          resolve(win);
+        },
+        { once: true }
+      );
     }
   });
 }
@@ -225,10 +235,10 @@ function promiseOpenAndLoadWindow(aOptions, aWaitForDelayedStartup = false) {
 async function whenNewTabLoaded(aWindow, aCallback) {
   aWindow.BrowserOpenTab();
 
-  let expectedURL = aboutNewTabService.newTabURL;
+  let expectedURL = AboutNewTab.newTabURL;
   let browser = aWindow.gBrowser.selectedBrowser;
   let loadPromise = BrowserTestUtils.browserLoaded(browser, false, expectedURL);
-  let alreadyLoaded = await ContentTask.spawn(browser, expectedURL, url => {
+  let alreadyLoaded = await SpecialPowers.spawn(browser, [expectedURL], url => {
     let doc = content.document;
     return doc && doc.readyState === "complete" && doc.location.href == url;
   });
@@ -247,107 +257,6 @@ function promiseTabLoaded(aTab) {
     whenTabLoaded(aTab, resolve);
   });
 }
-
-var FullZoomHelper = {
-
-  selectTabAndWaitForLocationChange: function selectTabAndWaitForLocationChange(tab) {
-    if (!tab)
-      throw new Error("tab must be given.");
-    if (gBrowser.selectedTab == tab)
-      return Promise.resolve();
-
-    return Promise.all([BrowserTestUtils.switchTab(gBrowser, tab),
-                        this.waitForLocationChange()]);
-  },
-
-  removeTabAndWaitForLocationChange: function removeTabAndWaitForLocationChange(tab) {
-    tab = tab || gBrowser.selectedTab;
-    let selected = gBrowser.selectedTab == tab;
-    gBrowser.removeTab(tab);
-    if (selected)
-      return this.waitForLocationChange();
-    return Promise.resolve();
-  },
-
-  waitForLocationChange: function waitForLocationChange() {
-    return new Promise(resolve => {
-      Services.obs.addObserver(function obs(subj, topic, data) {
-        Services.obs.removeObserver(obs, topic);
-        resolve();
-      }, "browser-fullZoom:location-change");
-    });
-  },
-
-  load: function load(tab, url) {
-    return new Promise(resolve => {
-      let didLoad = false;
-      let didZoom = false;
-
-      promiseTabLoadEvent(tab).then(event => {
-        didLoad = true;
-        if (didZoom)
-          resolve();
-      }, true);
-
-      this.waitForLocationChange().then(function() {
-        didZoom = true;
-        if (didLoad)
-          resolve();
-      });
-
-      BrowserTestUtils.loadURI(tab.linkedBrowser, url);
-    });
-  },
-
-  zoomTest: function zoomTest(tab, val, msg) {
-    is(ZoomManager.getZoomForBrowser(tab.linkedBrowser), val, msg);
-  },
-
-  enlarge: function enlarge() {
-    return new Promise(resolve => FullZoom.enlarge(resolve));
-  },
-
-  reduce: function reduce() {
-    return new Promise(resolve => FullZoom.reduce(resolve));
-  },
-
-  reset: function reset() {
-    return FullZoom.reset();
-  },
-
-  BACK: 0,
-  FORWARD: 1,
-  navigate: function navigate(direction) {
-    return new Promise(resolve => {
-      let didPs = false;
-      let didZoom = false;
-
-      BrowserTestUtils.waitForContentEvent(gBrowser.selectedBrowser, "pageshow", true).then(() => {
-        didPs = true;
-        if (didZoom)
-          resolve();
-      });
-
-      if (direction == this.BACK)
-        gBrowser.goBack();
-      else if (direction == this.FORWARD)
-        gBrowser.goForward();
-
-      this.waitForLocationChange().then(function() {
-        didZoom = true;
-        if (didPs)
-          resolve();
-      });
-    });
-  },
-
-  failAndContinue: function failAndContinue(func) {
-    return function(err) {
-      ok(false, err);
-      func();
-    };
-  },
-};
 
 /**
  * Waits for a load (or custom) event to finish in a given tab. If provided
@@ -376,8 +285,9 @@ function promiseTabLoadEvent(tab, url) {
 
   let loaded = BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, handle);
 
-  if (url)
+  if (url) {
     BrowserTestUtils.loadURI(tab.linkedBrowser, url);
+  }
 
   return loaded;
 }
@@ -394,21 +304,25 @@ function promiseTabLoadEvent(tab, url) {
  * @rejects Never.
  */
 function waitForNewTabEvent(aTabBrowser) {
-  return promiseWaitForEvent(aTabBrowser.tabContainer, "TabOpen");
+  return BrowserTestUtils.waitForEvent(aTabBrowser.tabContainer, "TabOpen");
 }
 
 function is_hidden(element) {
   var style = element.ownerGlobal.getComputedStyle(element);
-  if (style.display == "none")
+  if (style.display == "none") {
     return true;
-  if (style.visibility != "visible")
+  }
+  if (style.visibility != "visible") {
     return true;
-  if (style.display == "-moz-popup")
+  }
+  if (style.display == "-moz-popup") {
     return ["hiding", "closed"].includes(element.state);
+  }
 
   // Hiding a parent element will hide all its children
-  if (element.parentNode != element.ownerDocument)
+  if (element.parentNode != element.ownerDocument) {
     return is_hidden(element.parentNode);
+  }
 
   return false;
 }
@@ -423,27 +337,12 @@ function is_element_hidden(element, msg) {
   ok(is_hidden(element), msg || "Element should be hidden");
 }
 
-function promisePopupEvent(popup, eventSuffix) {
-  let endState = {shown: "open", hidden: "closed"}[eventSuffix];
-
-  if (popup.state == endState)
-    return Promise.resolve();
-
-  let eventType = "popup" + eventSuffix;
-  return new Promise(resolve => {
-    popup.addEventListener(eventType, function(event) {
-      resolve();
-    }, {once: true});
-
-  });
-}
-
 function promisePopupShown(popup) {
-  return promisePopupEvent(popup, "shown");
+  return BrowserTestUtils.waitForPopupEvent(popup, "shown");
 }
 
 function promisePopupHidden(popup) {
-  return promisePopupEvent(popup, "hidden");
+  return BrowserTestUtils.waitForPopupEvent(popup, "hidden");
 }
 
 function promiseNotificationShown(notification) {
@@ -477,53 +376,31 @@ function promiseOnBookmarkItemAdded(aExpectedURI) {
 }
 
 async function loadBadCertPage(url) {
-  const EXCEPTION_DIALOG_URI = "chrome://pippki/content/exceptionDialog.xul";
-  let exceptionDialogResolved = new Promise(function(resolve) {
-    // When the certificate exception dialog has opened, click the button to add
-    // an exception.
-    let certExceptionDialogObserver = {
-      observe(aSubject, aTopic, aData) {
-        if (aTopic == "cert-exception-ui-ready") {
-          Services.obs.removeObserver(this, "cert-exception-ui-ready");
-          let certExceptionDialog = getCertExceptionDialog(EXCEPTION_DIALOG_URI);
-          ok(certExceptionDialog, "found exception dialog");
-          executeSoon(function() {
-            certExceptionDialog.documentElement.getButton("extra1").click();
-            resolve();
-          });
-        }
-      },
-    };
-
-    Services.obs.addObserver(certExceptionDialogObserver,
-                             "cert-exception-ui-ready");
-  });
-
   let loaded = BrowserTestUtils.waitForErrorPage(gBrowser.selectedBrowser);
   await BrowserTestUtils.loadURI(gBrowser.selectedBrowser, url);
   await loaded;
 
-  await ContentTask.spawn(gBrowser.selectedBrowser, null, async function() {
+  await SpecialPowers.spawn(gBrowser.selectedBrowser, [], async function() {
     content.document.getElementById("exceptionDialogButton").click();
   });
-  if (!Services.prefs.getBoolPref("browser.security.newcerterrorpage.enabled", false)) {
-    await exceptionDialogResolved;
-  }
   await BrowserTestUtils.browserLoaded(gBrowser.selectedBrowser);
 }
 
-// Utility function to get a handle on the certificate exception dialog.
-// Modified from toolkit/components/passwordmgr/test/prompt_common.js
-function getCertExceptionDialog(aLocation) {
-  for (let {docShell} of Services.wm.getXULWindowEnumerator(null)) {
-    let containedDocShells = docShell.getDocShellEnumerator(
-                                      docShell.typeChrome,
-                                      docShell.ENUMERATE_FORWARDS);
-    for (let {domWindow} of containedDocShells) {
-      if (domWindow.location.href == aLocation) {
-        return domWindow.document;
-      }
-    }
-  }
-  return undefined;
+/**
+ * Waits for the stylesheets to be loaded into the browser menu.
+ *
+ * @param tab
+ *        The tab that contains the webpage we're testing.
+ * @param styleSheetCount
+ *        How many stylesheets we expect to be loaded.
+ * @return Promise
+ */
+async function promiseStylesheetsLoaded(tab, styleSheetCount) {
+  let styleMenu = tab.ownerGlobal.gPageStyleMenu;
+  let permanentKey = tab.permanentKey;
+
+  await TestUtils.waitForCondition(() => {
+    let menu = styleMenu._pageStyleSheets.get(permanentKey);
+    return menu && menu.filteredStyleSheets.length >= styleSheetCount;
+  }, "waiting for style sheets to load");
 }

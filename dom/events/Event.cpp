@@ -7,9 +7,8 @@
 #include "AccessCheck.h"
 #include "base/basictypes.h"
 #include "ipc/IPCMessageUtils.h"
-#include "mozilla/dom/Event.h"
-#include "mozilla/dom/ShadowRoot.h"
 #include "mozilla/EventDispatcher.h"
+#include "mozilla/BasePrincipal.h"
 #include "mozilla/ContentEvents.h"
 #include "mozilla/DOMEventTargetHelper.h"
 #include "mozilla/EventStateManager.h"
@@ -19,8 +18,14 @@
 #include "mozilla/MiscEvents.h"
 #include "mozilla/MouseEvents.h"
 #include "mozilla/Preferences.h"
+#include "mozilla/PresShell.h"
 #include "mozilla/TextEvents.h"
 #include "mozilla/TouchEvents.h"
+#include "mozilla/ViewportUtils.h"
+#include "mozilla/dom/Document.h"
+#include "mozilla/dom/DocumentInlines.h"
+#include "mozilla/dom/Event.h"
+#include "mozilla/dom/ShadowRoot.h"
 #include "nsContentUtils.h"
 #include "nsCOMPtr.h"
 #include "nsDeviceContext.h"
@@ -29,19 +34,13 @@
 #include "nsIFrame.h"
 #include "nsIContent.h"
 #include "nsIContentInlines.h"
-#include "nsIDocument.h"
-#include "nsIPresShell.h"
 #include "nsIScrollableFrame.h"
 #include "nsJSEnvironment.h"
 #include "nsLayoutUtils.h"
 #include "nsPIWindowRoot.h"
 #include "nsRFPService.h"
 
-namespace mozilla {
-namespace dom {
-
-static bool sReturnHighResTimeStamp = false;
-static bool sReturnHighResTimeStampIsSet = false;
+namespace mozilla::dom {
 
 Event::Event(EventTarget* aOwner, nsPresContext* aPresContext,
              WidgetEvent* aEvent) {
@@ -56,13 +55,6 @@ void Event::ConstructorInit(EventTarget* aOwner, nsPresContext* aPresContext,
                             WidgetEvent* aEvent) {
   SetOwner(aOwner);
   mIsMainThreadEvent = NS_IsMainThread();
-
-  if (mIsMainThreadEvent && !sReturnHighResTimeStampIsSet) {
-    Preferences::AddBoolVarCache(&sReturnHighResTimeStamp,
-                                 "dom.event.highrestimestamp.enabled",
-                                 sReturnHighResTimeStamp);
-    sReturnHighResTimeStampIsSet = true;
-  }
 
   mPrivateDataDuplicated = false;
   mWantsPopupControlCheck = false;
@@ -109,7 +101,7 @@ void Event::InitPresContextData(nsPresContext* aPresContext) {
   {
     nsCOMPtr<nsIContent> content = GetTargetFromFrame();
     mExplicitOriginalTarget = content;
-    if (content && content->IsInAnonymousSubtree()) {
+    if (content && content->IsInNativeAnonymousSubtree()) {
       mExplicitOriginalTarget = nullptr;
     }
   }
@@ -154,6 +146,13 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(Event)
       case eClipboardEventClass:
         tmp->mEvent->AsClipboardEvent()->mClipboardData = nullptr;
         break;
+      case eEditorInputEventClass: {
+        InternalEditorInputEvent* inputEvent =
+            tmp->mEvent->AsEditorInputEvent();
+        inputEvent->mDataTransfer = nullptr;
+        inputEvent->mTargetRanges.Clear();
+        break;
+      }
       case eMutationEventClass:
         tmp->mEvent->AsMutationEvent()->mRelatedNode = nullptr;
         break;
@@ -189,6 +188,12 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(Event)
         NS_CYCLE_COLLECTION_NOTE_EDGE_NAME(cb, "mEvent->mClipboardData");
         cb.NoteXPCOMChild(tmp->mEvent->AsClipboardEvent()->mClipboardData);
         break;
+      case eEditorInputEventClass:
+        NS_CYCLE_COLLECTION_NOTE_EDGE_NAME(cb, "mEvent->mDataTransfer");
+        cb.NoteXPCOMChild(tmp->mEvent->AsEditorInputEvent()->mDataTransfer);
+        NS_IMPL_CYCLE_COLLECTION_TRAVERSE(
+            mEvent->AsEditorInputEvent()->mTargetRanges);
+        break;
       case eMutationEventClass:
         NS_CYCLE_COLLECTION_NOTE_EDGE_NAME(cb, "mEvent->mRelatedNode");
         cb.NoteXPCOMChild(tmp->mEvent->AsMutationEvent()->mRelatedNode);
@@ -222,7 +227,7 @@ void Event::GetType(nsAString& aType) const {
 
 EventTarget* Event::GetTarget() const { return mEvent->GetDOMEventTarget(); }
 
-already_AddRefed<nsIDocument> Event::GetDocument() const {
+already_AddRefed<Document> Event::GetDocument() const {
   nsCOMPtr<EventTarget> eventTarget = GetTarget();
 
   if (!eventTarget) {
@@ -236,7 +241,7 @@ already_AddRefed<nsIDocument> Event::GetDocument() const {
     return nullptr;
   }
 
-  nsCOMPtr<nsIDocument> doc;
+  nsCOMPtr<Document> doc;
   doc = win->GetExtantDoc();
 
   return doc.forget();
@@ -301,7 +306,7 @@ bool Event::Init(mozilla::dom::EventTarget* aGlobal) {
   bool trusted = false;
   nsCOMPtr<nsPIDOMWindowInner> w = do_QueryInterface(aGlobal);
   if (w) {
-    nsCOMPtr<nsIDocument> d = w->GetExtantDoc();
+    nsCOMPtr<Document> d = w->GetExtantDoc();
     if (d) {
       trusted = nsContentUtils::IsChromeDoc(d);
       nsPresContext* presContext = d->GetPresContext();
@@ -316,8 +321,7 @@ bool Event::Init(mozilla::dom::EventTarget* aGlobal) {
 // static
 already_AddRefed<Event> Event::Constructor(const GlobalObject& aGlobal,
                                            const nsAString& aType,
-                                           const EventInit& aParam,
-                                           ErrorResult& aRv) {
+                                           const EventInit& aParam) {
   nsCOMPtr<mozilla::dom::EventTarget> t =
       do_QueryInterface(aGlobal.GetAsSupports());
   return Constructor(t, aType, aParam);
@@ -384,12 +388,11 @@ void Event::PreventDefaultInternal(bool aCalledByDefaultHandler,
   if (mEvent->mFlags.mInPassiveListener) {
     nsCOMPtr<nsPIDOMWindowInner> win(do_QueryInterface(mOwner));
     if (win) {
-      if (nsIDocument* doc = win->GetExtantDoc()) {
-        nsString type;
-        GetType(type);
-        const char16_t* params[] = {type.get()};
-        doc->WarnOnceAbout(nsIDocument::ePreventDefaultFromPassiveListener,
-                           false, params, ArrayLength(params));
+      if (Document* doc = win->GetExtantDoc()) {
+        AutoTArray<nsString, 1> params;
+        GetType(*params.AppendElement());
+        doc->WarnOnceAbout(Document::ePreventDefaultFromPassiveListener, false,
+                           params);
       }
     }
     return;
@@ -427,8 +430,7 @@ void Event::SetEventType(const nsAString& aEventTypeArg) {
         aEventTypeArg, mEvent->mClass, &(mEvent->mMessage));
     mEvent->SetDefaultComposed();
   } else {
-    mEvent->mSpecifiedEventType =
-        NS_Atomize(NS_LITERAL_STRING("on") + aEventTypeArg);
+    mEvent->mSpecifiedEventType = NS_Atomize(u"on"_ns + aEventTypeArg);
     mEvent->mMessage = eUnidentifiedEvent;
     mEvent->SetComposed(aEventTypeArg);
   }
@@ -531,16 +533,23 @@ CSSIntPoint Event::GetScreenCoords(nsPresContext* aPresContext,
     return CSSIntPoint(aPoint.x, aPoint.y);
   }
 
+  // (Potentially) transform the point from the coordinate space of an
+  // out-of-process iframe to the coordinate space of the native
+  // window. The transform can only be applied to a point whose components
+  // are floating-point values, so convert the integer point first, then
+  // transform, and then round the result back to an integer point.
+  LayoutDevicePoint floatPoint(aPoint);
+  LayoutDevicePoint topLevelPoint =
+      guiEvent->mWidget->WidgetToTopLevelWidgetTransform().TransformPoint(
+          floatPoint);
+  LayoutDeviceIntPoint rounded = RoundedToInt(topLevelPoint);
+
   nsPoint pt = LayoutDevicePixel::ToAppUnits(
-      aPoint,
+      rounded,
       aPresContext->DeviceContext()->AppUnitsPerDevPixelAtUnitFullZoom());
 
-  if (nsIPresShell* ps = aPresContext->GetPresShell()) {
-    pt = pt.RemoveResolution(nsLayoutUtils::GetCurrentAPZResolutionScale(ps));
-  }
-
   pt += LayoutDevicePixel::ToAppUnits(
-      guiEvent->mWidget->WidgetToScreenOffset(),
+      guiEvent->mWidget->TopLevelWidgetToScreenOffset(),
       aPresContext->DeviceContext()->AppUnitsPerDevPixelAtUnitFullZoom());
 
   return CSSPixel::FromAppUnitsRounded(pt);
@@ -556,8 +565,9 @@ CSSIntPoint Event::GetPageCoords(nsPresContext* aPresContext,
 
   // If there is some scrolling, add scroll info to client point.
   if (aPresContext && aPresContext->GetPresShell()) {
-    nsIPresShell* shell = aPresContext->GetPresShell();
-    nsIScrollableFrame* scrollframe = shell->GetRootScrollFrameAsScrollable();
+    PresShell* presShell = aPresContext->PresShell();
+    nsIScrollableFrame* scrollframe =
+        presShell->GetRootScrollFrameAsScrollable();
     if (scrollframe) {
       pagePoint +=
           CSSIntPoint::FromAppUnitsRounded(scrollframe->GetScrollPosition());
@@ -588,16 +598,16 @@ CSSIntPoint Event::GetClientCoords(nsPresContext* aPresContext,
     return aDefaultPoint;
   }
 
-  nsIPresShell* shell = aPresContext->GetPresShell();
-  if (!shell) {
+  PresShell* presShell = aPresContext->GetPresShell();
+  if (!presShell) {
     return CSSIntPoint(0, 0);
   }
-  nsIFrame* rootFrame = shell->GetRootFrame();
+  nsIFrame* rootFrame = presShell->GetRootFrame();
   if (!rootFrame) {
     return CSSIntPoint(0, 0);
   }
-  nsPoint pt =
-      nsLayoutUtils::GetEventCoordinatesRelativeTo(aEvent, aPoint, rootFrame);
+  nsPoint pt = nsLayoutUtils::GetEventCoordinatesRelativeTo(
+      aEvent, aPoint, RelativeTo{rootFrame});
 
   return CSSIntPoint::FromAppUnitsRounded(pt);
 }
@@ -614,24 +624,24 @@ CSSIntPoint Event::GetOffsetCoords(nsPresContext* aPresContext,
   if (!content || !aPresContext) {
     return CSSIntPoint(0, 0);
   }
-  nsCOMPtr<nsIPresShell> shell = aPresContext->GetPresShell();
-  if (!shell) {
+  RefPtr<PresShell> presShell = aPresContext->GetPresShell();
+  if (!presShell) {
     return CSSIntPoint(0, 0);
   }
-  shell->FlushPendingNotifications(FlushType::Layout);
+  presShell->FlushPendingNotifications(FlushType::Layout);
   nsIFrame* frame = content->GetPrimaryFrame();
   if (!frame) {
     return CSSIntPoint(0, 0);
   }
-  nsIFrame* rootFrame = shell->GetRootFrame();
+  nsIFrame* rootFrame = presShell->GetRootFrame();
   if (!rootFrame) {
     return CSSIntPoint(0, 0);
   }
   CSSIntPoint clientCoords =
       GetClientCoords(aPresContext, aEvent, aPoint, aDefaultPoint);
   nsPoint pt = CSSPixel::ToAppUnits(clientCoords);
-  if (nsLayoutUtils::TransformPoint(rootFrame, frame, pt) ==
-      nsLayoutUtils::TRANSFORM_SUCCEEDED) {
+  if (nsLayoutUtils::TransformPoint(RelativeTo{rootFrame}, RelativeTo{frame},
+                                    pt) == nsLayoutUtils::TRANSFORM_SUCCEEDED) {
     pt -= frame->GetPaddingRectRelativeToSelf().TopLeft();
     return CSSPixel::FromAppUnitsRounded(pt);
   }
@@ -685,15 +695,6 @@ void Event::SetReturnValue(bool aReturnValue, CallerType aCallerType) {
 }
 
 double Event::TimeStamp() {
-  if (!sReturnHighResTimeStamp) {
-    // In the situation where you have set a very old, not-very-supported
-    // non-default preference, we will always reduce the precision,
-    // regardless of system principal or not.
-    // The timestamp is absolute, so we supply a zero context mix-in.
-    double ret = static_cast<double>(mEvent->mTime);
-    return nsRFPService::ReduceTimePrecisionAsMSecs(ret, 0);
-  }
-
   if (mEvent->mTimeStamp.IsNull()) {
     return 0.0;
   }
@@ -716,26 +717,27 @@ double Event::TimeStamp() {
     double ret =
         perf->GetDOMTiming()->TimeStampToDOMHighRes(mEvent->mTimeStamp);
     MOZ_ASSERT(mOwner->PrincipalOrNull());
-    if (nsContentUtils::IsSystemPrincipal(mOwner->PrincipalOrNull()))
-      return ret;
 
     return nsRFPService::ReduceTimePrecisionAsMSecs(
-        ret, perf->GetRandomTimelineSeed());
+        ret, perf->GetRandomTimelineSeed(),
+        mOwner->PrincipalOrNull()->IsSystemPrincipal(),
+        mOwner->CrossOriginIsolated());
   }
 
   WorkerPrivate* workerPrivate = GetCurrentThreadWorkerPrivate();
   MOZ_ASSERT(workerPrivate);
 
   double ret = workerPrivate->TimeStampToDOMHighRes(mEvent->mTimeStamp);
-  if (workerPrivate->UsesSystemPrincipal()) return ret;
 
   return nsRFPService::ReduceTimePrecisionAsMSecs(
-      ret, workerPrivate->GetRandomTimelineSeed());
+      ret, workerPrivate->GetRandomTimelineSeed(),
+      workerPrivate->UsesSystemPrincipal(),
+      workerPrivate->CrossOriginIsolated());
 }
 
 void Event::Serialize(IPC::Message* aMsg, bool aSerializeInterfaceType) {
   if (aSerializeInterfaceType) {
-    IPC::WriteParam(aMsg, NS_LITERAL_STRING("event"));
+    IPC::WriteParam(aMsg, u"event"_ns);
   }
 
   nsString type;
@@ -826,8 +828,7 @@ void Event::GetWidgetEventType(WidgetEvent* aEvent, nsAString& aType) {
   aType.Truncate();
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom
 
 using namespace mozilla;
 using namespace mozilla::dom;

@@ -23,6 +23,10 @@ class gfxVarReceiver;
 // Generator for graphics vars.
 #define GFX_VARS_LIST(_)                                           \
   /* C++ Name,                  Data Type,        Default Value */ \
+  _(AllowEglRbab, bool, true)                                      \
+  _(AllowWebgl2, bool, true)                                       \
+  _(AllowWebglAccelAngle, bool, true)                              \
+  _(AllowWebglOop, bool, true)                                     \
   _(BrowserTabsRemoteAutostart, bool, false)                       \
   _(ContentBackend, BackendType, BackendType::NONE)                \
   _(SoftwareBackend, BackendType, BackendType::NONE)               \
@@ -40,23 +44,44 @@ class gfxVarReceiver;
   _(DXP016Blocked, bool, false)                                    \
   _(UseWebRender, bool, false)                                     \
   _(UseWebRenderANGLE, bool, false)                                \
+  _(UseWebRenderFlipSequentialWin, bool, false)                    \
   _(UseWebRenderDCompWin, bool, false)                             \
-  _(UseWebRenderDCompWinTripleBuffering, bool, false)              \
-  _(UseWebRenderProgramBinary, bool, false)                        \
+  _(UseWebRenderDCompVideoOverlayWin, bool, false)                 \
+  _(UseWebRenderTripleBufferingWin, bool, false)                   \
+  _(UseWebRenderCompositor, bool, false)                           \
   _(UseWebRenderProgramBinaryDisk, bool, false)                    \
+  _(UseWebRenderOptimizedShaders, bool, false)                     \
+  _(UseWebRenderMultithreading, bool, false)                       \
+  _(UseWebRenderScissoredCacheClears, bool, true)                  \
+  _(WebRenderProfilerUI, nsCString, nsCString())                   \
+  _(WebglAllowCoreProfile, bool, true)                             \
+  _(WebglAllowWindowsNativeGl, bool, false)                        \
+  _(WebRenderMaxPartialPresentRects, int32_t, 0)                   \
   _(WebRenderDebugFlags, int32_t, 0)                               \
+  _(WebRenderBatchingLookback, int32_t, 10)                        \
+  _(UseSoftwareWebRender, bool, false)                             \
   _(ScreenDepth, int32_t, 0)                                       \
   _(GREDirectory, nsString, nsString())                            \
   _(ProfDirectory, nsString, nsString())                           \
   _(UseOMTP, bool, false)                                          \
   _(AllowD3D11KeyedMutex, bool, false)                             \
-  _(SystemTextQuality, int32_t, 5 /* CLEARTYPE_QUALITY */)
+  _(SystemTextQuality, int32_t, 5 /* CLEARTYPE_QUALITY */)         \
+  _(LayersWindowRecordingPath, nsCString, nsCString())             \
+  _(RemoteCanvasEnabled, bool, false)                              \
+  _(UseDoubleBufferingWithCompositor, bool, false)                 \
+  _(UseGLSwizzle, bool, true)                                      \
+  _(ForceSubpixelAAWherePossible, bool, false)                     \
+  _(DwmCompositionEnabled, bool, true)                             \
+  _(FxREmbedded, bool, false)                                      \
+  _(UseAHardwareBufferContent, bool, false)                        \
+  _(UseAHardwareBufferSharedSurface, bool, false)                  \
+  _(UseEGL, bool, false)
 
 /* Add new entries above this line. */
 
 // Some graphics settings are computed on the UI process and must be
 // communicated to content and GPU processes. gfxVars helps facilitate
-// this. Its function is similar to gfxPrefs, except rather than hold
+// this. Its function is similar to StaticPrefs, except rather than hold
 // user preferences, it holds dynamically computed values.
 //
 // Each variable in GFX_VARS_LIST exposes the following static methods:
@@ -102,12 +127,12 @@ class gfxVars final {
   static StaticAutoPtr<gfxVars> sInstance;
   static StaticAutoPtr<nsTArray<VarBase*>> sVarList;
 
-  template <typename T, T Default()>
+  template <typename T, T Default(), T GetFrom(const GfxVarValue& aValue)>
   class VarImpl final : public VarBase {
    public:
     VarImpl() : mValue(Default()) {}
     void SetValue(const GfxVarValue& aValue) override {
-      aValue.get(&mValue);
+      mValue = GetFrom(aValue);
       if (mListener) {
         mListener();
       }
@@ -142,7 +167,10 @@ class gfxVars final {
 #define GFX_VAR_DECL(CxxName, DataType, DefaultValue)                          \
  private:                                                                      \
   static DataType Get##CxxName##Default() { return DefaultValue; }             \
-  VarImpl<DataType, Get##CxxName##Default> mVar##CxxName;                      \
+  static DataType Get##CxxName##From(const GfxVarValue& aValue) {              \
+    return aValue.get_##DataType();                                            \
+  }                                                                            \
+  VarImpl<DataType, Get##CxxName##Default, Get##CxxName##From> mVar##CxxName;  \
                                                                                \
  public:                                                                       \
   static const DataType& CxxName() { return sInstance->mVar##CxxName.Get(); }  \

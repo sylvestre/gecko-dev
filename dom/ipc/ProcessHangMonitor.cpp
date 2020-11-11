@@ -8,25 +8,31 @@
 #include "mozilla/ProcessHangMonitorIPC.h"
 
 #include "jsapi.h"
+#include "xpcprivate.h"
 
 #include "mozilla/Atomics.h"
 #include "mozilla/BackgroundHangMonitor.h"
+#include "mozilla/BasePrincipal.h"
+#include "mozilla/dom/CancelContentJSOptionsBinding.h"
 #include "mozilla/dom/ContentParent.h"
 #include "mozilla/dom/Element.h"
 #include "mozilla/dom/ScriptSettings.h"
-#include "mozilla/dom/TabChild.h"
-#include "mozilla/dom/TabParent.h"
+#include "mozilla/dom/BrowserChild.h"
+#include "mozilla/dom/BrowserParent.h"
 #include "mozilla/ipc/TaskFactory.h"
 #include "mozilla/Monitor.h"
 #include "mozilla/plugins/PluginBridge.h"
 #include "mozilla/Preferences.h"
+#include "mozilla/StaticPrefs_browser.h"
+#include "mozilla/StaticPrefs_dom.h"
 #include "mozilla/Unused.h"
 #include "mozilla/WeakPtr.h"
 
 #include "nsExceptionHandler.h"
 #include "nsFrameLoader.h"
 #include "nsIHangReport.h"
-#include "nsITabParent.h"
+#include "nsIRemoteTab.h"
+#include "nsNetUtil.h"
 #include "nsQueryObject.h"
 #include "nsPluginHost.h"
 #include "nsThreadUtils.h"
@@ -36,7 +42,7 @@
 
 #ifdef XP_WIN
 // For IsDebuggerPresent()
-#include <windows.h>
+#  include <windows.h>
 #endif
 
 using namespace mozilla;
@@ -81,11 +87,12 @@ class HangMonitorChild : public PProcessHangMonitorChild,
   void Bind(Endpoint<PProcessHangMonitorChild>&& aEndpoint);
 
   typedef ProcessHangMonitor::SlowScriptAction SlowScriptAction;
-  SlowScriptAction NotifySlowScript(nsITabChild* aTabChild,
+  SlowScriptAction NotifySlowScript(nsIBrowserChild* aBrowserChild,
                                     const char* aFileName,
-                                    const nsString& aAddonId);
+                                    const nsString& aAddonId,
+                                    const double aDuration);
   void NotifySlowScriptAsync(TabId aTabId, const nsCString& aFileName,
-                             const nsString& aAddonId);
+                             const nsString& aAddonId, const double aDuration);
 
   bool IsDebuggerStartupComplete();
 
@@ -109,12 +116,17 @@ class HangMonitorChild : public PProcessHangMonitorChild,
   mozilla::ipc::IPCResult RecvEndStartingDebugger() override;
 
   mozilla::ipc::IPCResult RecvPaintWhileInterruptingJS(
-      const TabId& aTabId, const bool& aForceRepaint,
-      const LayersObserverEpoch& aEpoch) override;
+      const TabId& aTabId, const LayersObserverEpoch& aEpoch) override;
+
+  mozilla::ipc::IPCResult RecvCancelContentJSExecutionIfRunning(
+      const TabId& aTabId, const nsIRemoteTab::NavigationType& aNavigationType,
+      const int32_t& aNavigationIndex,
+      const mozilla::Maybe<nsCString>& aNavigationURI,
+      const int32_t& aEpoch) override;
 
   void ActorDestroy(ActorDestroyReason aWhy) override;
 
-  void InterruptCallback();
+  bool InterruptCallback();
   void Shutdown();
 
   static HangMonitorChild* Get() { return sInstance; }
@@ -126,14 +138,16 @@ class HangMonitorChild : public PProcessHangMonitorChild,
 
   void AnnotateHang(BackgroundHangAnnotations& aAnnotations) override;
 
+ protected:
+  friend class mozilla::ProcessHangMonitor;
+  static Maybe<Monitor> sMonitor;
+
+  static Atomic<bool, SequentiallyConsistent> sInitializing;
+
  private:
   void ShutdownOnThread();
 
-  // Ordering of this atomic is not preserved while recording/replaying, as it
-  // may be accessed during the JS interrupt callback.
-  static Atomic<HangMonitorChild*, SequentiallyConsistent,
-                recordreplay::Behavior::DontPreserve>
-      sInstance;
+  static Atomic<HangMonitorChild*, SequentiallyConsistent> sInstance;
 
   const RefPtr<ProcessHangMonitor> mHangMonitor;
   Monitor mMonitor;
@@ -147,9 +161,14 @@ class HangMonitorChild : public PProcessHangMonitorChild,
   bool mStartDebugger;
   bool mFinishedStartingDebugger;
   bool mPaintWhileInterruptingJS;
-  bool mPaintWhileInterruptingJSForce;
   TabId mPaintWhileInterruptingJSTab;
   MOZ_INIT_OUTSIDE_CTOR LayersObserverEpoch mPaintWhileInterruptingJSEpoch;
+  bool mCancelContentJS;
+  TabId mCancelContentJSTab;
+  nsIRemoteTab::NavigationType mCancelContentJSNavigationType;
+  int32_t mCancelContentJSNavigationIndex;
+  mozilla::Maybe<nsCString> mCancelContentJSNavigationURI;
+  int32_t mCancelContentJSEpoch;
   JSContext* mContext;
   bool mShutdownDone;
 
@@ -161,9 +180,11 @@ class HangMonitorChild : public PProcessHangMonitorChild,
   Atomic<bool> mPaintWhileInterruptingJSActive;
 };
 
-Atomic<HangMonitorChild*, SequentiallyConsistent,
-       recordreplay::Behavior::DontPreserve>
-    HangMonitorChild::sInstance;
+Maybe<Monitor> HangMonitorChild::sMonitor;
+
+Atomic<bool, SequentiallyConsistent> HangMonitorChild::sInitializing;
+
+Atomic<HangMonitorChild*, SequentiallyConsistent> HangMonitorChild::sInstance;
 
 /* Parent process objects */
 
@@ -213,12 +234,10 @@ class HangMonitoredProcess final : public nsIHangReport {
 };
 
 class HangMonitorParent : public PProcessHangMonitorParent,
-                          public SupportsWeakPtr<HangMonitorParent> {
+                          public SupportsWeakPtr {
  public:
   explicit HangMonitorParent(ProcessHangMonitor* aMonitor);
   ~HangMonitorParent() override;
-
-  MOZ_DECLARE_WEAKREFERENCE_TYPENAME(HangMonitorParent)
 
   void Bind(Endpoint<PProcessHangMonitorParent>&& aEndpoint);
 
@@ -231,8 +250,12 @@ class HangMonitorParent : public PProcessHangMonitorParent,
 
   void Shutdown();
 
-  void PaintWhileInterruptingJS(dom::TabParent* aTabParent, bool aForceRepaint,
+  void PaintWhileInterruptingJS(dom::BrowserParent* aBrowserParent,
                                 const LayersObserverEpoch& aEpoch);
+  void CancelContentJSExecutionIfRunning(
+      dom::BrowserParent* aBrowserParent,
+      nsIRemoteTab::NavigationType aNavigationType,
+      const dom::CancelContentJSOptions& aCancelContentJSOptions);
 
   void TerminateScript(bool aTerminateGlobal);
   void BeginStartingDebugger();
@@ -259,15 +282,15 @@ class HangMonitorParent : public PProcessHangMonitorParent,
 
   void ClearHangNotification();
 
-  void PaintWhileInterruptingJSOnThread(TabId aTabId, bool aForceRepaint,
+  void PaintWhileInterruptingJSOnThread(TabId aTabId,
                                         const LayersObserverEpoch& aEpoch);
+  void CancelContentJSExecutionIfRunningOnThread(
+      TabId aTabId, nsIRemoteTab::NavigationType aNavigationType,
+      int32_t aNavigationIndex, nsIURI* aNavigationURI, int32_t aEpoch);
 
   void ShutdownOnThread();
 
   const RefPtr<ProcessHangMonitor> mHangMonitor;
-
-  // This field is read-only after construction.
-  bool mReportHangs;
 
   // This field is only accessed on the hang thread.
   bool mIPCOpen;
@@ -282,11 +305,7 @@ class HangMonitorParent : public PProcessHangMonitorParent,
   nsDataHashtable<nsUint32HashKey, nsString> mBrowserCrashDumpIds;
   Mutex mBrowserCrashDumpHashLock;
   mozilla::ipc::TaskFactory<HangMonitorParent> mMainThreadTaskFactory;
-
-  static bool sShouldPaintWhileInterruptingJS;
 };
-
-bool HangMonitorParent::sShouldPaintWhileInterruptingJS = true;
 
 }  // namespace
 
@@ -294,23 +313,32 @@ bool HangMonitorParent::sShouldPaintWhileInterruptingJS = true;
 
 HangMonitorChild::HangMonitorChild(ProcessHangMonitor* aMonitor)
     : mHangMonitor(aMonitor),
-      // Ordering of this atomic is not preserved while recording/replaying, as
-      // it may be accessed during the JS interrupt callback.
-      mMonitor("HangMonitorChild lock", recordreplay::Behavior::DontPreserve),
+      mMonitor("HangMonitorChild lock"),
       mSentReport(false),
       mTerminateScript(false),
       mTerminateGlobal(false),
       mStartDebugger(false),
       mFinishedStartingDebugger(false),
       mPaintWhileInterruptingJS(false),
-      mPaintWhileInterruptingJSForce(false),
+      mCancelContentJS(false),
+      mCancelContentJSNavigationType(nsIRemoteTab::NAVIGATE_BACK),
+      mCancelContentJSNavigationIndex(0),
+      mCancelContentJSEpoch(0),
       mShutdownDone(false),
       mIPCOpen(true),
       mPaintWhileInterruptingJSActive(false) {
   MOZ_RELEASE_ASSERT(NS_IsMainThread());
+  MOZ_ASSERT(!sInstance);
   mContext = danger::GetJSContext();
 
   BackgroundHangMonitor::RegisterAnnotator(*this);
+
+  MOZ_ASSERT(!sMonitor.isSome());
+  sMonitor.emplace("HangMonitorChild::sMonitor");
+  MonitorAutoLock mal(*sMonitor);
+
+  MOZ_ASSERT(!sInitializing);
+  sInitializing = true;
 }
 
 HangMonitorChild::~HangMonitorChild() {
@@ -319,46 +347,127 @@ HangMonitorChild::~HangMonitorChild() {
   sInstance = nullptr;
 }
 
-void HangMonitorChild::InterruptCallback() {
+bool HangMonitorChild::InterruptCallback() {
   MOZ_RELEASE_ASSERT(NS_IsMainThread());
 
+  // Don't start painting if we're not in a good place to run script. We run
+  // chrome script during layout and such, and it wouldn't be good to interrupt
+  // painting code from there.
+  if (!nsContentUtils::IsSafeToRunScript()) {
+    return true;
+  }
+
   bool paintWhileInterruptingJS;
-  bool paintWhileInterruptingJSForce;
   TabId paintWhileInterruptingJSTab;
   LayersObserverEpoch paintWhileInterruptingJSEpoch;
 
   {
     MonitorAutoLock lock(mMonitor);
     paintWhileInterruptingJS = mPaintWhileInterruptingJS;
-    paintWhileInterruptingJSForce = mPaintWhileInterruptingJSForce;
     paintWhileInterruptingJSTab = mPaintWhileInterruptingJSTab;
     paintWhileInterruptingJSEpoch = mPaintWhileInterruptingJSEpoch;
 
     mPaintWhileInterruptingJS = false;
   }
 
-  // Don't paint from the interrupt callback when recording or replaying, as
-  // the interrupt callback is triggered non-deterministically.
-  if (paintWhileInterruptingJS && !recordreplay::IsRecordingOrReplaying()) {
-    RefPtr<TabChild> tabChild =
-        TabChild::FindTabChild(paintWhileInterruptingJSTab);
-    if (tabChild) {
+  if (paintWhileInterruptingJS) {
+    RefPtr<BrowserChild> browserChild =
+        BrowserChild::FindBrowserChild(paintWhileInterruptingJSTab);
+    if (browserChild) {
       js::AutoAssertNoContentJS nojs(mContext);
-      tabChild->PaintWhileInterruptingJS(paintWhileInterruptingJSEpoch,
-                                         paintWhileInterruptingJSForce);
+      browserChild->PaintWhileInterruptingJS(paintWhileInterruptingJSEpoch);
     }
   }
+
+  // Only handle the interrupt for cancelling content JS if we have a
+  // non-privileged script (i.e. not part of Gecko or an add-on).
+  JS::RootedObject global(mContext, JS::CurrentGlobalOrNull(mContext));
+  nsIPrincipal* principal = xpc::GetObjectPrincipal(global);
+  if (principal && (principal->IsSystemPrincipal() ||
+                    principal->GetIsAddonOrExpandedAddonPrincipal())) {
+    return true;
+  }
+
+  nsCOMPtr<nsPIDOMWindowInner> win = xpc::WindowOrNull(global);
+  if (!win) {
+    return true;
+  }
+
+  bool cancelContentJS;
+  TabId cancelContentJSTab;
+  nsIRemoteTab::NavigationType cancelContentJSNavigationType;
+  int32_t cancelContentJSNavigationIndex;
+  mozilla::Maybe<nsCString> cancelContentJSNavigationURI;
+  int32_t cancelContentJSEpoch;
+
+  {
+    MonitorAutoLock lock(mMonitor);
+    cancelContentJS = mCancelContentJS;
+    cancelContentJSTab = mCancelContentJSTab;
+    cancelContentJSNavigationType = mCancelContentJSNavigationType;
+    cancelContentJSNavigationIndex = mCancelContentJSNavigationIndex;
+    cancelContentJSNavigationURI = std::move(mCancelContentJSNavigationURI);
+    cancelContentJSEpoch = mCancelContentJSEpoch;
+
+    mCancelContentJS = false;
+  }
+
+  if (cancelContentJS) {
+    js::AutoAssertNoContentJS nojs(mContext);
+
+    RefPtr<BrowserChild> browserChild =
+        BrowserChild::FindBrowserChild(cancelContentJSTab);
+    RefPtr<BrowserChild> browserChildFromWin = BrowserChild::GetFrom(win);
+    if (!browserChild || !browserChildFromWin) {
+      return true;
+    }
+
+    TabId tabIdFromWin = browserChildFromWin->GetTabId();
+    if (tabIdFromWin != cancelContentJSTab) {
+      // The currently-executing content JS doesn't belong to the tab that
+      // requested cancellation of JS. Just return and let the JS continue.
+      return true;
+    }
+
+    nsresult rv;
+    nsCOMPtr<nsIURI> uri;
+
+    if (cancelContentJSNavigationURI) {
+      rv = NS_NewURI(getter_AddRefs(uri), cancelContentJSNavigationURI.value());
+      if (NS_FAILED(rv)) {
+        return true;
+      }
+    }
+
+    bool canCancel;
+    rv = browserChild->CanCancelContentJS(cancelContentJSNavigationType,
+                                          cancelContentJSNavigationIndex, uri,
+                                          cancelContentJSEpoch, &canCancel);
+    if (NS_SUCCEEDED(rv) && canCancel) {
+      // Don't add this page to the BF cache, since we're cancelling its JS.
+      if (Document* doc = win->GetExtantDoc()) {
+        if (Document* topLevelDoc = doc->GetTopLevelContentDocument()) {
+          topLevelDoc->DisallowBFCaching();
+        }
+      }
+
+      return false;
+    }
+  }
+
+  return true;
 }
 
 void HangMonitorChild::AnnotateHang(BackgroundHangAnnotations& aAnnotations) {
   if (mPaintWhileInterruptingJSActive) {
-    aAnnotations.AddAnnotation(NS_LITERAL_STRING("PaintWhileInterruptingJS"),
-                               true);
+    aAnnotations.AddAnnotation(u"PaintWhileInterruptingJS"_ns, true);
   }
 }
 
 void HangMonitorChild::Shutdown() {
   MOZ_RELEASE_ASSERT(NS_IsMainThread());
+
+  BackgroundHangMonitor::UnregisterAnnotator(*this);
 
   MonitorAutoLock lock(mMonitor);
   while (!mShutdownDone) {
@@ -416,15 +525,13 @@ mozilla::ipc::IPCResult HangMonitorChild::RecvEndStartingDebugger() {
 }
 
 mozilla::ipc::IPCResult HangMonitorChild::RecvPaintWhileInterruptingJS(
-    const TabId& aTabId, const bool& aForceRepaint,
-    const LayersObserverEpoch& aEpoch) {
+    const TabId& aTabId, const LayersObserverEpoch& aEpoch) {
   MOZ_RELEASE_ASSERT(IsOnThread());
 
   {
     MonitorAutoLock lock(mMonitor);
     MaybeStartPaintWhileInterruptingJS();
     mPaintWhileInterruptingJS = true;
-    mPaintWhileInterruptingJSForce = aForceRepaint;
     mPaintWhileInterruptingJSTab = aTabId;
     mPaintWhileInterruptingJSEpoch = aEpoch;
   }
@@ -445,26 +552,55 @@ void HangMonitorChild::ClearPaintWhileInterruptingJS(
   mPaintWhileInterruptingJSActive = false;
 }
 
+mozilla::ipc::IPCResult HangMonitorChild::RecvCancelContentJSExecutionIfRunning(
+    const TabId& aTabId, const nsIRemoteTab::NavigationType& aNavigationType,
+    const int32_t& aNavigationIndex,
+    const mozilla::Maybe<nsCString>& aNavigationURI, const int32_t& aEpoch) {
+  MOZ_RELEASE_ASSERT(IsOnThread());
+
+  {
+    MonitorAutoLock lock(mMonitor);
+    mCancelContentJS = true;
+    mCancelContentJSTab = aTabId;
+    mCancelContentJSNavigationType = aNavigationType;
+    mCancelContentJSNavigationIndex = aNavigationIndex;
+    mCancelContentJSNavigationURI = aNavigationURI;
+    mCancelContentJSEpoch = aEpoch;
+  }
+
+  JS_RequestInterruptCallback(mContext);
+
+  return IPC_OK();
+}
+
 void HangMonitorChild::Bind(Endpoint<PProcessHangMonitorChild>&& aEndpoint) {
   MOZ_RELEASE_ASSERT(IsOnThread());
+
+  MonitorAutoLock mal(*sMonitor);
 
   MOZ_ASSERT(!sInstance);
   sInstance = this;
 
   DebugOnly<bool> ok = aEndpoint.Bind(this);
   MOZ_ASSERT(ok);
+
+  sInitializing = false;
+  mal.Notify();
 }
 
 void HangMonitorChild::NotifySlowScriptAsync(TabId aTabId,
                                              const nsCString& aFileName,
-                                             const nsString& aAddonId) {
+                                             const nsString& aAddonId,
+                                             const double aDuration) {
   if (mIPCOpen) {
-    Unused << SendHangEvidence(SlowScriptData(aTabId, aFileName, aAddonId));
+    Unused << SendHangEvidence(
+        SlowScriptData(aTabId, aFileName, aAddonId, aDuration));
   }
 }
 
 HangMonitorChild::SlowScriptAction HangMonitorChild::NotifySlowScript(
-    nsITabChild* aTabChild, const char* aFileName, const nsString& aAddonId) {
+    nsIBrowserChild* aBrowserChild, const char* aFileName,
+    const nsString& aAddonId, const double aDuration) {
   MOZ_RELEASE_ASSERT(NS_IsMainThread());
 
   mSentReport = true;
@@ -489,15 +625,17 @@ HangMonitorChild::SlowScriptAction HangMonitorChild::NotifySlowScript(
   }
 
   TabId id;
-  if (aTabChild) {
-    RefPtr<TabChild> tabChild = static_cast<TabChild*>(aTabChild);
-    id = tabChild->GetTabId();
+  if (aBrowserChild) {
+    RefPtr<BrowserChild> browserChild =
+        static_cast<BrowserChild*>(aBrowserChild);
+    id = browserChild->GetTabId();
   }
   nsAutoCString filename(aFileName);
 
-  Dispatch(NewNonOwningRunnableMethod<TabId, nsCString, nsString>(
+  Dispatch(NewNonOwningRunnableMethod<TabId, nsCString, nsString, double>(
       "HangMonitorChild::NotifySlowScriptAsync", this,
-      &HangMonitorChild::NotifySlowScriptAsync, id, filename, aAddonId));
+      &HangMonitorChild::NotifySlowScriptAsync, id, filename, aAddonId,
+      aDuration));
   return SlowScriptAction::Continue;
 }
 
@@ -573,15 +711,6 @@ HangMonitorParent::HangMonitorParent(ProcessHangMonitor* aMonitor)
       mBrowserCrashDumpHashLock("mBrowserCrashDumpIds lock"),
       mMainThreadTaskFactory(this) {
   MOZ_RELEASE_ASSERT(NS_IsMainThread());
-  mReportHangs =
-      mozilla::Preferences::GetBool("dom.ipc.reportProcessHangs", false);
-
-  static bool sInited = false;
-  if (!sInited) {
-    sInited = true;
-    Preferences::AddBoolVarCache(&sShouldPaintWhileInterruptingJS,
-                                 "browser.tabs.remote.force-paint", true);
-  }
 }
 
 HangMonitorParent::~HangMonitorParent() {
@@ -630,24 +759,63 @@ void HangMonitorParent::ShutdownOnThread() {
 }
 
 void HangMonitorParent::PaintWhileInterruptingJS(
-    dom::TabParent* aTab, bool aForceRepaint,
-    const LayersObserverEpoch& aEpoch) {
+    dom::BrowserParent* aTab, const LayersObserverEpoch& aEpoch) {
   MOZ_RELEASE_ASSERT(NS_IsMainThread());
-  if (sShouldPaintWhileInterruptingJS) {
+  if (StaticPrefs::browser_tabs_remote_force_paint()) {
     TabId id = aTab->GetTabId();
-    Dispatch(NewNonOwningRunnableMethod<TabId, bool, LayersObserverEpoch>(
+    Dispatch(NewNonOwningRunnableMethod<TabId, LayersObserverEpoch>(
         "HangMonitorParent::PaintWhileInterruptingJSOnThread", this,
-        &HangMonitorParent::PaintWhileInterruptingJSOnThread, id, aForceRepaint,
-        aEpoch));
+        &HangMonitorParent::PaintWhileInterruptingJSOnThread, id, aEpoch));
   }
 }
 
 void HangMonitorParent::PaintWhileInterruptingJSOnThread(
-    TabId aTabId, bool aForceRepaint, const LayersObserverEpoch& aEpoch) {
+    TabId aTabId, const LayersObserverEpoch& aEpoch) {
   MOZ_RELEASE_ASSERT(IsOnThread());
 
   if (mIPCOpen) {
-    Unused << SendPaintWhileInterruptingJS(aTabId, aForceRepaint, aEpoch);
+    Unused << SendPaintWhileInterruptingJS(aTabId, aEpoch);
+  }
+}
+
+void HangMonitorParent::CancelContentJSExecutionIfRunning(
+    dom::BrowserParent* aBrowserParent,
+    nsIRemoteTab::NavigationType aNavigationType,
+    const dom::CancelContentJSOptions& aCancelContentJSOptions) {
+  MOZ_RELEASE_ASSERT(NS_IsMainThread());
+
+  if (!aBrowserParent->CanCancelContentJS(aNavigationType,
+                                          aCancelContentJSOptions.mIndex,
+                                          aCancelContentJSOptions.mUri)) {
+    return;
+  }
+
+  TabId id = aBrowserParent->GetTabId();
+  Dispatch(NewNonOwningRunnableMethod<TabId, nsIRemoteTab::NavigationType,
+                                      int32_t, nsIURI*, int32_t>(
+      "HangMonitorParent::CancelContentJSExecutionIfRunningOnThread", this,
+      &HangMonitorParent::CancelContentJSExecutionIfRunningOnThread, id,
+      aNavigationType, aCancelContentJSOptions.mIndex,
+      aCancelContentJSOptions.mUri, aCancelContentJSOptions.mEpoch));
+}
+
+void HangMonitorParent::CancelContentJSExecutionIfRunningOnThread(
+    TabId aTabId, nsIRemoteTab::NavigationType aNavigationType,
+    int32_t aNavigationIndex, nsIURI* aNavigationURI, int32_t aEpoch) {
+  MOZ_RELEASE_ASSERT(IsOnThread());
+
+  mozilla::Maybe<nsCString> spec;
+  if (aNavigationURI) {
+    nsAutoCString tmp;
+    nsresult rv = aNavigationURI->GetSpec(tmp);
+    if (NS_SUCCEEDED(rv)) {
+      spec.emplace(tmp);
+    }
+  }
+
+  if (mIPCOpen) {
+    Unused << SendCancelContentJSExecutionIfRunning(
+        aTabId, aNavigationType, aNavigationIndex, spec, aEpoch);
   }
 }
 
@@ -693,11 +861,12 @@ void HangMonitorParent::SendHangNotification(const HangData& aHangData,
 void HangMonitorParent::ClearHangNotification() {
   // chrome process, main thread
   MOZ_RELEASE_ASSERT(NS_IsMainThread());
-  mProcess->ClearHang();
 
   nsCOMPtr<nsIObserverService> observerService =
       mozilla::services::GetObserverService();
   observerService->NotifyObservers(mProcess, "clear-hang-report", nullptr);
+
+  mProcess->ClearHang();
 }
 
 // Take a minidump of the browser process if one wasn't already taken for the
@@ -730,7 +899,7 @@ mozilla::ipc::IPCResult HangMonitorParent::RecvHangEvidence(
   // chrome process, background thread
   MOZ_RELEASE_ASSERT(IsOnThread());
 
-  if (!mReportHangs) {
+  if (!StaticPrefs::dom_ipc_reportProcessHangs()) {
     return IPC_OK();
   }
 
@@ -765,7 +934,7 @@ mozilla::ipc::IPCResult HangMonitorParent::RecvClearHang() {
   // chrome process, background thread
   MOZ_RELEASE_ASSERT(IsOnThread());
 
-  if (!mReportHangs) {
+  if (!StaticPrefs::dom_ipc_reportProcessHangs()) {
     return IPC_OK();
   }
 
@@ -850,6 +1019,17 @@ HangMonitoredProcess::GetHangType(uint32_t* aHangType) {
 }
 
 NS_IMETHODIMP
+HangMonitoredProcess::GetHangDuration(double* aHangDuration) {
+  MOZ_RELEASE_ASSERT(NS_IsMainThread());
+  if (mHangData.type() != HangData::TSlowScriptData) {
+    *aHangDuration = -1;
+  } else {
+    *aHangDuration = mHangData.get_SlowScriptData().duration();
+  }
+  return NS_OK;
+}
+
+NS_IMETHODIMP
 HangMonitoredProcess::GetScriptBrowser(Element** aBrowser) {
   MOZ_RELEASE_ASSERT(NS_IsMainThread());
   if (mHangData.type() != HangData::TSlowScriptData) {
@@ -864,7 +1044,7 @@ HangMonitoredProcess::GetScriptBrowser(Element** aBrowser) {
   nsTArray<PBrowserParent*> tabs;
   mContentParent->ManagedPBrowserParent(tabs);
   for (size_t i = 0; i < tabs.Length(); i++) {
-    TabParent* tp = TabParent::GetFrom(tabs[i]);
+    BrowserParent* tp = BrowserParent::GetFrom(tabs[i]);
     if (tp->GetTabId() == tabId) {
       RefPtr<Element> node = tp->GetOwnerElement();
       node.forget(aBrowser);
@@ -996,8 +1176,7 @@ HangMonitoredProcess::TerminatePlugin() {
   uint32_t id = mHangData.get_PluginHangData().pluginId();
   base::ProcessId contentPid =
       mHangData.get_PluginHangData().contentProcessId();
-  plugins::TerminatePlugin(id, contentPid, NS_LITERAL_CSTRING("HangMonitor"),
-                           mDumpId);
+  plugins::TerminatePlugin(id, contentPid, "HangMonitor"_ns, mDumpId);
 
   if (mActor) {
     mActor->CleanupPluginHang(id, false);
@@ -1017,7 +1196,7 @@ HangMonitoredProcess::IsReportForBrowser(nsFrameLoader* aFrameLoader,
 
   NS_ENSURE_STATE(aFrameLoader);
 
-  TabParent* tp = TabParent::GetFrom(aFrameLoader);
+  BrowserParent* tp = BrowserParent::GetFrom(aFrameLoader);
   if (!tp) {
     *aResult = false;
     return NS_OK;
@@ -1041,9 +1220,18 @@ HangMonitoredProcess::UserCanceled() {
   return NS_OK;
 }
 
+NS_IMETHODIMP
+HangMonitoredProcess::GetChildID(uint64_t* aChildID) {
+  if (!mContentParent) {
+    return NS_ERROR_NOT_AVAILABLE;
+  }
+  *aChildID = mContentParent->ChildID();
+  return NS_OK;
+}
+
 static bool InterruptCallback(JSContext* cx) {
   if (HangMonitorChild* child = HangMonitorChild::Get()) {
-    child->InterruptCallback();
+    return child->InterruptCallback();
   }
 
   return true;
@@ -1089,24 +1277,31 @@ ProcessHangMonitor::Observe(nsISupports* aSubject, const char* aTopic,
                             const char16_t* aData) {
   MOZ_RELEASE_ASSERT(NS_IsMainThread());
   if (!strcmp(aTopic, "xpcom-shutdown")) {
-    if (HangMonitorChild* child = HangMonitorChild::Get()) {
-      child->Shutdown();
-      delete child;
+    if (HangMonitorChild::sMonitor) {
+      MonitorAutoLock mal(*HangMonitorChild::sMonitor);
+      if (HangMonitorChild::sInitializing) {
+        mal.Wait();
+      }
+
+      if (HangMonitorChild* child = HangMonitorChild::Get()) {
+        child->Shutdown();
+        delete child;
+      }
     }
+    HangMonitorChild::sMonitor.reset();
 
     nsCOMPtr<nsIObserverService> obs = mozilla::services::GetObserverService();
-    if (obs) {
-      obs->RemoveObserver(this, "xpcom-shutdown");
-    }
+    obs->RemoveObserver(this, "xpcom-shutdown");
   }
   return NS_OK;
 }
 
 ProcessHangMonitor::SlowScriptAction ProcessHangMonitor::NotifySlowScript(
-    nsITabChild* aTabChild, const char* aFileName, const nsString& aAddonId) {
+    nsIBrowserChild* aBrowserChild, const char* aFileName,
+    const nsString& aAddonId, const double aDuration) {
   MOZ_RELEASE_ASSERT(NS_IsMainThread());
-  return HangMonitorChild::Get()->NotifySlowScript(aTabChild, aFileName,
-                                                   aAddonId);
+  return HangMonitorChild::Get()->NotifySlowScript(aBrowserChild, aFileName,
+                                                   aAddonId, aDuration);
 }
 
 bool ProcessHangMonitor::IsDebuggerStartupComplete() {
@@ -1178,11 +1373,12 @@ bool ProcessHangMonitor::IsOnThread() {
   return NS_SUCCEEDED(mThread->IsOnCurrentThread(&on)) && on;
 }
 
-/* static */ PProcessHangMonitorParent* ProcessHangMonitor::AddProcess(
+/* static */
+PProcessHangMonitorParent* ProcessHangMonitor::AddProcess(
     ContentParent* aContentParent) {
   MOZ_RELEASE_ASSERT(NS_IsMainThread());
 
-  if (!mozilla::Preferences::GetBool("dom.ipc.processHangMonitor", false)) {
+  if (!StaticPrefs::dom_ipc_processHangMonitor_AtStartup()) {
     return nullptr;
   }
 
@@ -1204,30 +1400,33 @@ bool ProcessHangMonitor::IsOnThread() {
   return CreateHangMonitorParent(aContentParent, std::move(parent));
 }
 
-/* static */ void ProcessHangMonitor::RemoveProcess(
-    PProcessHangMonitorParent* aParent) {
+/* static */
+void ProcessHangMonitor::RemoveProcess(PProcessHangMonitorParent* aParent) {
   MOZ_RELEASE_ASSERT(NS_IsMainThread());
   auto parent = static_cast<HangMonitorParent*>(aParent);
   parent->Shutdown();
   delete parent;
 }
 
-/* static */ void ProcessHangMonitor::ClearHang() {
+/* static */
+void ProcessHangMonitor::ClearHang() {
   MOZ_ASSERT(NS_IsMainThread());
   if (HangMonitorChild* child = HangMonitorChild::Get()) {
     child->ClearHang();
   }
 }
 
-/* static */ void ProcessHangMonitor::PaintWhileInterruptingJS(
-    PProcessHangMonitorParent* aParent, dom::TabParent* aTabParent,
-    bool aForceRepaint, const layers::LayersObserverEpoch& aEpoch) {
+/* static */
+void ProcessHangMonitor::PaintWhileInterruptingJS(
+    PProcessHangMonitorParent* aParent, dom::BrowserParent* aBrowserParent,
+    const layers::LayersObserverEpoch& aEpoch) {
   MOZ_RELEASE_ASSERT(NS_IsMainThread());
   auto parent = static_cast<HangMonitorParent*>(aParent);
-  parent->PaintWhileInterruptingJS(aTabParent, aForceRepaint, aEpoch);
+  parent->PaintWhileInterruptingJS(aBrowserParent, aEpoch);
 }
 
-/* static */ void ProcessHangMonitor::ClearPaintWhileInterruptingJS(
+/* static */
+void ProcessHangMonitor::ClearPaintWhileInterruptingJS(
     const layers::LayersObserverEpoch& aEpoch) {
   MOZ_RELEASE_ASSERT(NS_IsMainThread());
   MOZ_RELEASE_ASSERT(XRE_IsContentProcess());
@@ -1237,11 +1436,23 @@ bool ProcessHangMonitor::IsOnThread() {
   }
 }
 
-/* static */ void ProcessHangMonitor::MaybeStartPaintWhileInterruptingJS() {
+/* static */
+void ProcessHangMonitor::MaybeStartPaintWhileInterruptingJS() {
   MOZ_RELEASE_ASSERT(NS_IsMainThread());
   MOZ_RELEASE_ASSERT(XRE_IsContentProcess());
 
   if (HangMonitorChild* child = HangMonitorChild::Get()) {
     child->MaybeStartPaintWhileInterruptingJS();
   }
+}
+
+/* static */
+void ProcessHangMonitor::CancelContentJSExecutionIfRunning(
+    PProcessHangMonitorParent* aParent, dom::BrowserParent* aBrowserParent,
+    nsIRemoteTab::NavigationType aNavigationType,
+    const dom::CancelContentJSOptions& aCancelContentJSOptions) {
+  MOZ_RELEASE_ASSERT(NS_IsMainThread());
+  auto parent = static_cast<HangMonitorParent*>(aParent);
+  parent->CancelContentJSExecutionIfRunning(aBrowserParent, aNavigationType,
+                                            aCancelContentJSOptions);
 }

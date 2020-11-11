@@ -6,8 +6,7 @@
 #include "GMPStorage.h"
 #include "nsClassHashtable.h"
 
-namespace mozilla {
-namespace gmp {
+namespace mozilla::gmp {
 
 class GMPMemoryStorage : public GMPStorage {
  public:
@@ -37,7 +36,7 @@ class GMPMemoryStorage : public GMPStorage {
     if (!record) {
       return GMPGenericErr;
     }
-    aOutBytes = record->mData;
+    aOutBytes = record->mData.Clone();
     return GMPNoErr;
   }
 
@@ -47,7 +46,7 @@ class GMPMemoryStorage : public GMPStorage {
     if (!mRecords.Get(aRecordName, &record)) {
       return GMPClosedErr;
     }
-    record->mData = aBytes;
+    record->mData = aBytes.Clone();
     return GMPNoErr;
   }
 
@@ -77,5 +76,4 @@ already_AddRefed<GMPStorage> CreateGMPMemoryStorage() {
   return RefPtr<GMPStorage>(new GMPMemoryStorage()).forget();
 }
 
-}  // namespace gmp
-}  // namespace mozilla
+}  // namespace mozilla::gmp

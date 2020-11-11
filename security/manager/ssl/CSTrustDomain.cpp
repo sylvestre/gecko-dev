@@ -4,14 +4,17 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#ifdef MOZ_NEW_CERT_STORAGE
+#  include "cert_storage/src/cert_storage.h"
+#endif
 #include "CSTrustDomain.h"
 #include "mozilla/Base64.h"
+#include "mozilla/Logging.h"
 #include "mozilla/Preferences.h"
-#include "nsNSSCertificate.h"
+#include "nsDirectoryServiceUtils.h"
 #include "nsNSSComponent.h"
 #include "NSSCertDBTrustDomain.h"
 #include "nsServiceManagerUtils.h"
-#include "nsThreadUtils.h"
 #include "mozpkix/pkixnss.h"
 
 using namespace mozilla::pkix;
@@ -22,9 +25,15 @@ namespace psm {
 static LazyLogModule gTrustDomainPRLog("CSTrustDomain");
 #define CSTrust_LOG(args) MOZ_LOG(gTrustDomainPRLog, LogLevel::Debug, args)
 
-CSTrustDomain::CSTrustDomain(UniqueCERTCertList& certChain)
-    : mCertChain(certChain),
-      mCertBlocklist(do_GetService(NS_CERTBLOCKLIST_CONTRACTID)) {}
+CSTrustDomain::CSTrustDomain(nsTArray<nsTArray<uint8_t>>& certList)
+    : mCertList(certList),
+#ifdef MOZ_NEW_CERT_STORAGE
+      mCertBlocklist(do_GetService(NS_CERT_STORAGE_CID)) {
+}
+#else
+      mCertBlocklist(do_GetService(NS_CERTBLOCKLIST_CONTRACTID)) {
+}
+#endif
 
 Result CSTrustDomain::GetCertTrust(EndEntityOrCA endEntityOrCA,
                                    const CertPolicyId& policy,
@@ -35,32 +44,47 @@ Result CSTrustDomain::GetCertTrust(EndEntityOrCA endEntityOrCA,
     return Result::FATAL_ERROR_INVALID_ARGS;
   }
 
-  SECItem candidateCertDERSECItem = UnsafeMapInputToSECItem(candidateCertDER);
-  UniqueCERTCertificate candidateCert(CERT_NewTempCertificate(
-      CERT_GetDefaultCertDB(), &candidateCertDERSECItem, nullptr, false, true));
-  if (!candidateCert) {
-    return MapPRErrorCodeToResult(PR_GetError());
-  }
+#ifdef MOZ_NEW_CERT_STORAGE
+  nsTArray<uint8_t> issuerBytes;
+  nsTArray<uint8_t> serialBytes;
+  nsTArray<uint8_t> subjectBytes;
+  nsTArray<uint8_t> pubKeyBytes;
 
+  Result result =
+      BuildRevocationCheckArrays(candidateCertDER, endEntityOrCA, issuerBytes,
+                                 serialBytes, subjectBytes, pubKeyBytes);
+#else
   nsAutoCString encIssuer;
   nsAutoCString encSerial;
   nsAutoCString encSubject;
   nsAutoCString encPubKey;
 
-  nsresult nsrv = BuildRevocationCheckStrings(candidateCert.get(), encIssuer,
-                                              encSerial, encSubject, encPubKey);
-  if (NS_FAILED(nsrv)) {
-    return Result::FATAL_ERROR_LIBRARY_FAILURE;
+  Result result =
+      BuildRevocationCheckStrings(candidateCertDER, endEntityOrCA, encIssuer,
+                                  encSerial, encSubject, encPubKey);
+#endif
+  if (result != Success) {
+    return result;
   }
 
+#ifdef MOZ_NEW_CERT_STORAGE
+  int16_t revocationState;
+  nsresult nsrv = mCertBlocklist->GetRevocationState(
+      issuerBytes, serialBytes, subjectBytes, pubKeyBytes, &revocationState);
+#else
   bool isCertRevoked;
-  nsrv = mCertBlocklist->IsCertRevoked(encIssuer, encSerial, encSubject,
-                                       encPubKey, &isCertRevoked);
+  nsresult nsrv = mCertBlocklist->IsCertRevoked(
+      encIssuer, encSerial, encSubject, encPubKey, &isCertRevoked);
+#endif
   if (NS_FAILED(nsrv)) {
     return Result::FATAL_ERROR_LIBRARY_FAILURE;
   }
 
+#ifdef MOZ_NEW_CERT_STORAGE
+  if (revocationState == nsICertStorage::STATE_ENFORCE) {
+#else
   if (isCertRevoked) {
+#endif
     CSTrust_LOG(("CSTrustDomain: certificate is revoked\n"));
     return Result::ERROR_REVOKED_CERTIFICATE;
   }
@@ -71,7 +95,9 @@ Result CSTrustDomain::GetCertTrust(EndEntityOrCA endEntityOrCA,
   if (!component) {
     return Result::FATAL_ERROR_LIBRARY_FAILURE;
   }
-  nsrv = component->IsCertContentSigningRoot(candidateCert.get(), &isRoot);
+  nsTArray<uint8_t> candidateCert(candidateCertDER.UnsafeGetData(),
+                                  candidateCertDER.GetLength());
+  nsrv = component->IsCertContentSigningRoot(candidateCert, &isRoot);
   if (NS_FAILED(nsrv)) {
     return Result::FATAL_ERROR_LIBRARY_FAILURE;
   }
@@ -89,28 +115,14 @@ Result CSTrustDomain::GetCertTrust(EndEntityOrCA endEntityOrCA,
 Result CSTrustDomain::FindIssuer(Input encodedIssuerName,
                                  IssuerChecker& checker, Time time) {
   // Loop over the chain, look for a matching subject
-  for (CERTCertListNode* n = CERT_LIST_HEAD(mCertChain);
-       !CERT_LIST_END(n, mCertChain); n = CERT_LIST_NEXT(n)) {
-    Input certDER;
-    Result rv = certDER.Init(n->cert->derCert.data, n->cert->derCert.len);
+  for (const auto& certBytes : mCertList) {
+    Input certInput;
+    Result rv = certInput.Init(certBytes.Elements(), certBytes.Length());
     if (rv != Success) {
       continue;  // probably too big
     }
-
-    // if the subject does not match, try the next certificate
-    Input subjectDER;
-    rv = subjectDER.Init(n->cert->derSubject.data, n->cert->derSubject.len);
-    if (rv != Success) {
-      continue;  // just try the next one
-    }
-    if (!InputsAreEqual(subjectDER, encodedIssuerName)) {
-      CSTrust_LOG(("CSTrustDomain: subjects don't match\n"));
-      continue;
-    }
-
-    // If the subject does match, try the next step
     bool keepGoing;
-    rv = checker.Check(certDER, nullptr /*additionalNameConstraints*/,
+    rv = checker.Check(certInput, nullptr /*additionalNameConstraints*/,
                        keepGoing);
     if (rv != Success) {
       return rv;
@@ -128,7 +140,8 @@ Result CSTrustDomain::CheckRevocation(
     EndEntityOrCA endEntityOrCA, const CertID& certID, Time time,
     Duration validityDuration,
     /*optional*/ const Input* stapledOCSPresponse,
-    /*optional*/ const Input* aiaExtension) {
+    /*optional*/ const Input* aiaExtension,
+    /*optional*/ const Input* sctExtension) {
   // We're relying solely on the CertBlocklist for revocation - and we're
   // performing checks on this in GetCertTrust (as per nsNSSCertDBTrustDomain)
   return Success;

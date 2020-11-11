@@ -123,34 +123,13 @@ class UrlClassifierDBServiceWorkerProxy final
         : mozilla::Runnable(
               "UrlClassifierDBServiceWorkerProxy::CacheCompletionsRunnable"),
           mTarget(aTarget),
-          mEntries(aEntries) {}
+          mEntries(aEntries.Clone()) {}
 
     NS_DECL_NSIRUNNABLE
 
    private:
     const RefPtr<nsUrlClassifierDBServiceWorker> mTarget;
     const mozilla::safebrowsing::ConstCacheResultArray mEntries;
-  };
-
-  class DoLocalLookupRunnable : public mozilla::Runnable {
-   public:
-    DoLocalLookupRunnable(nsUrlClassifierDBServiceWorker* aTarget,
-                          const nsACString& spec,
-                          const nsTArray<nsCString>& tables,
-                          mozilla::safebrowsing::LookupResultArray& results)
-        : mozilla::Runnable(
-              "UrlClassifierDBServiceWorkerProxy::DoLocalLookupRunnable"),
-          mTarget(aTarget),
-          mSpec(spec),
-          mTables(tables),
-          mResults(results) {}
-
-    NS_DECL_NSIRUNNABLE
-   private:
-    const RefPtr<nsUrlClassifierDBServiceWorker> mTarget;
-    const nsCString mSpec;
-    const nsTArray<nsCString> mTables;
-    mozilla::safebrowsing::LookupResultArray& mResults;
   };
 
   class ClearLastResultsRunnable : public mozilla::Runnable {
@@ -205,10 +184,6 @@ class UrlClassifierDBServiceWorkerProxy final
   };
 
  public:
-  nsresult DoLocalLookupWithURI(
-      const nsACString& spec, const nsTArray<nsCString>& tables,
-      mozilla::safebrowsing::LookupResultArray& results) const;
-
   nsresult OpenDb() const;
   nsresult CloseDb() const;
   nsresult PreShutdown() const;
@@ -220,7 +195,7 @@ class UrlClassifierDBServiceWorkerProxy final
                         nsIUrlClassifierGetCacheCallback* aCallback) const;
 
  private:
-  ~UrlClassifierDBServiceWorkerProxy() {}
+  ~UrlClassifierDBServiceWorkerProxy() = default;
 
   const RefPtr<nsUrlClassifierDBServiceWorker> mTarget;
 };
@@ -256,7 +231,7 @@ class UrlClassifierLookupCallbackProxy final
   };
 
  private:
-  ~UrlClassifierLookupCallbackProxy() {}
+  ~UrlClassifierLookupCallbackProxy() = default;
 
   const nsMainThreadPtrHandle<nsIUrlClassifierLookupCallback> mTarget;
 };
@@ -287,7 +262,7 @@ class UrlClassifierCallbackProxy final : public nsIUrlClassifierCallback {
   };
 
  private:
-  ~UrlClassifierCallbackProxy() {}
+  ~UrlClassifierCallbackProxy() = default;
 
   const nsMainThreadPtrHandle<nsIUrlClassifierCallback> mTarget;
 };
@@ -376,7 +351,7 @@ class UrlClassifierUpdateObserverProxy final
   };
 
  private:
-  ~UrlClassifierUpdateObserverProxy() {}
+  ~UrlClassifierUpdateObserverProxy() = default;
 
   const nsMainThreadPtrHandle<nsIUrlClassifierUpdateObserver> mTarget;
 };

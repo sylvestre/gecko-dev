@@ -15,10 +15,10 @@
 #include "nsTObserverArray.h"
 
 class nsAppShellWindowEnumerator;
-class nsASXULWindowEarlyToLateEnumerator;
+class nsASAppWindowEarlyToLateEnumerator;
 class nsASDOMWindowEarlyToLateEnumerator;
-class nsASXULWindowFrontToBackEnumerator;
-class nsASXULWindowBackToFrontEnumerator;
+class nsASAppWindowFrontToBackEnumerator;
+class nsASAppWindowBackToFrontEnumerator;
 class nsIWindowMediatorListener;
 struct nsWindowInfo;
 
@@ -26,10 +26,10 @@ class nsWindowMediator : public nsIWindowMediator,
                          public nsIObserver,
                          public nsSupportsWeakReference {
   friend class nsAppShellWindowEnumerator;
-  friend class nsASXULWindowEarlyToLateEnumerator;
+  friend class nsASAppWindowEarlyToLateEnumerator;
   friend class nsASDOMWindowEarlyToLateEnumerator;
-  friend class nsASXULWindowFrontToBackEnumerator;
-  friend class nsASXULWindowBackToFrontEnumerator;
+  friend class nsASAppWindowFrontToBackEnumerator;
+  friend class nsASAppWindowBackToFrontEnumerator;
 
  protected:
   virtual ~nsWindowMediator();
@@ -43,24 +43,24 @@ class nsWindowMediator : public nsIWindowMediator,
   NS_DECL_NSIWINDOWMEDIATOR
   NS_DECL_NSIOBSERVER
 
-  static nsresult GetDOMWindow(nsIXULWindow *inWindow,
-                               nsCOMPtr<nsPIDOMWindowOuter> &outDOMWindow);
+  static nsresult GetDOMWindow(nsIAppWindow* inWindow,
+                               nsCOMPtr<nsPIDOMWindowOuter>& outDOMWindow);
 
  private:
-  int32_t AddEnumerator(nsAppShellWindowEnumerator *inEnumerator);
-  int32_t RemoveEnumerator(nsAppShellWindowEnumerator *inEnumerator);
-  nsWindowInfo *MostRecentWindowInfo(const char16_t *inType,
+  void AddEnumerator(nsAppShellWindowEnumerator* inEnumerator);
+  int32_t RemoveEnumerator(nsAppShellWindowEnumerator* inEnumerator);
+  nsWindowInfo* MostRecentWindowInfo(const char16_t* inType,
                                      bool aSkipPrivateBrowsingOrClosed = false);
 
-  nsresult UnregisterWindow(nsWindowInfo *inInfo);
-  nsWindowInfo *GetInfoFor(nsIXULWindow *aWindow);
-  nsWindowInfo *GetInfoFor(nsIWidget *aWindow);
+  nsresult UnregisterWindow(nsWindowInfo* inInfo);
+  nsWindowInfo* GetInfoFor(nsIAppWindow* aWindow);
+  nsWindowInfo* GetInfoFor(nsIWidget* aWindow);
   void SortZOrderFrontToBack();
   void SortZOrderBackToFront();
 
-  nsTArray<nsAppShellWindowEnumerator *> mEnumeratorList;
-  nsWindowInfo *mOldestWindow;
-  nsWindowInfo *mTopmostWindow;
+  nsTArray<nsAppShellWindowEnumerator*> mEnumeratorList;
+  nsWindowInfo* mOldestWindow;
+  nsWindowInfo* mTopmostWindow;
   int32_t mTimeStamp;
   bool mSortingZOrder;
   bool mReady;

@@ -26,13 +26,10 @@ class nsHttpNegotiateAuth final : public nsIHttpAuthenticator {
   ~nsHttpNegotiateAuth() {}
 
   // returns the value of the given boolean pref
-  bool TestBoolPref(const char *pref);
+  bool TestBoolPref(const char* pref);
 
   // tests if the host part of an uri is fully qualified
-  bool TestNonFqdn(nsIURI *uri);
-
-  // Thread for GenerateCredentialsAsync
-  RefPtr<mozilla::LazyIdleThread> mNegotiateThread;
+  bool TestNonFqdn(nsIURI* uri);
 
   // Singleton pointer
   static mozilla::StaticRefPtr<nsHttpNegotiateAuth> gSingleton;

@@ -5,8 +5,7 @@
   <link id="link" rel="stylesheet" type="text/css"
         href="chrome://mochikit/content/tests/SimpleTest/test.css" />
 
-  <script type="application/javascript"
-          src="chrome://mochikit/content/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="chrome://mochikit/content/tests/SimpleTest/SimpleTest.js"></script>
 
   <script type="application/javascript"
           src="../common.js"></script>
@@ -24,7 +23,7 @@
           src="../name.js"></script>
 
   <script type="application/javascript">
-    function doTest() {
+    async function doTest() {
       // ////////////////////////////////////////////////////////////////////////
       // HTML:a@href
 
@@ -191,7 +190,10 @@
 
       obj = {
         role: ROLE_PARAGRAPH,
-        children: [ { role: ROLE_WHITESPACE } ],
+        children: [
+          { role: ROLE_WHITESPACE },
+          { role: ROLE_WHITESPACE }
+        ]
       };
       testElm("br_container", obj);
 
@@ -417,7 +419,16 @@
       // ////////////////////////////////////////////////////////////////////////
       // HTML:dialog
 
-      ok(isAccessible("dialog"), "dialog element is not accessible");
+      // XXX: Remove the pushing of the pref and just run the test once the
+      // dialog element is enabled by default.
+      await SpecialPowers.pushPrefEnv({ set: [["dom.dialog_element.enabled", true]] });
+      obj = {
+        role: ROLE_DIALOG,
+        children: [
+          { role: ROLE_TEXT_LEAF },
+        ],
+      };
+      testElm("dialog", obj);
 
       // ////////////////////////////////////////////////////////////////////////
       // HTML:div
@@ -448,7 +459,7 @@
       testElm("em_container", obj);
 
       // ////////////////////////////////////////////////////////////////////////
-      // HTML:embed (windowless and windowed plugins)
+      // HTML:embed (windowless/windowed plugins and media)
 
       if (WIN) {
         obj = {
@@ -465,17 +476,42 @@
         testElm("embed_plugin_windowed", obj);
       }
 
+      obj = {
+        role: ROLE_GRAPHIC,
+        interfaces: [ nsIAccessibleImage ],
+      };
+      testElm("embed_png", obj);
+
+      obj = {
+        INTERNAL_FRAME: [ {
+          DOCUMENT: [ {
+            role: ROLE_PARAGRAPH,
+          } ],
+        } ],
+      };
+      testElm("embed_html", obj);
+
+      obj = {
+        INTERNAL_FRAME: [ {
+          DOCUMENT: [ {
+          } ],
+        } ],
+      };
+      testElm("embed_pdf", obj);
+
       // ////////////////////////////////////////////////////////////////////////
       // HTML:fieldset and HTML:legend
 
       obj = {
         role: ROLE_GROUPING,
+        name: "legend",
         relations: {
           RELATION_LABELLED_BY: "legend",
         },
         children: [
           {
             role: ROLE_LABEL,
+            name: "legend",
             relations: {
               RELATION_LABEL_FOR: "fieldset",
             },
@@ -527,6 +563,7 @@
       };
       testElm("footer_in_article", obj);
       testElm("footer_in_aside", obj);
+      testElm("footer_in_main", obj);
       testElm("footer_in_nav", obj);
       testElm("footer_in_section", obj);
       testElm("footer_in_blockquote", obj);
@@ -570,47 +607,21 @@
       // ////////////////////////////////////////////////////////////////////////
       // HTML:h1, HTML:h2, HTML:h3, HTML:h4, HTML:h5, HTML:h6
 
-      obj = {
-        role: ROLE_HEADING,
-        attributes: { "level": "1" },
-        interfaces: [ nsIAccessibleText, nsIAccessibleHyperText ],
-      };
-      testElm("h1", obj);
+      function headingWithLevel(i) {
+        return {
+          role: ROLE_HEADING,
+          attributes: { "level": i.toString() },
+          interfaces: [ nsIAccessibleText, nsIAccessibleHyperText ],
+        };
+      }
 
-      obj = {
-        role: ROLE_HEADING,
-        attributes: { "level": "2" },
-        interfaces: [ nsIAccessibleText, nsIAccessibleHyperText ],
-      };
-      testElm("h2", obj);
-
-      obj = {
-        role: ROLE_HEADING,
-        attributes: { "level": "3" },
-        interfaces: [ nsIAccessibleText, nsIAccessibleHyperText ],
-      };
-      testElm("h3", obj);
-
-      obj = {
-        role: ROLE_HEADING,
-        attributes: { "level": "4" },
-        interfaces: [ nsIAccessibleText, nsIAccessibleHyperText ],
-      };
-      testElm("h4", obj);
-
-      obj = {
-        role: ROLE_HEADING,
-        attributes: { "level": "5" },
-        interfaces: [ nsIAccessibleText, nsIAccessibleHyperText ],
-      };
-      testElm("h5", obj);
-
-      obj = {
-        role: ROLE_HEADING,
-        attributes: { "level": "6" },
-        interfaces: [ nsIAccessibleText, nsIAccessibleHyperText ],
-      };
-      testElm("h6", obj);
+      for (let level = 1; level <= 6; ++level) {
+        testElm("h" + level, headingWithLevel(level));
+        for (const ancestor of ["section", "article", "aside", "nav"]) {
+          testElm("h" + level + "_in_" + ancestor, headingWithLevel(level));
+          testElm("h" + level + "_in_" + ancestor + "_in_hgroup", headingWithLevel(level));
+        }
+      }
 
       // ////////////////////////////////////////////////////////////////////////
       // HTML:header
@@ -629,6 +640,7 @@
       };
       testElm("header_in_article", obj);
       testElm("header_in_aside", obj);
+      testElm("header_in_main", obj);
       testElm("header_in_nav", obj);
       testElm("header_in_section", obj);
       testElm("header_in_blockquote", obj);
@@ -700,7 +712,7 @@
       // HTML:input@type="file"
 
       obj = {
-        TEXT_CONTAINER: [
+        GROUPING: [
           { role: ROLE_PUSHBUTTON },
           { role: ROLE_LABEL },
         ],
@@ -716,6 +728,7 @@
         actions: "press",
       };
       testElm("input_image", obj);
+      testElm("input_image_display", obj);
       testElm("input_submit", obj);
 
       obj = {
@@ -731,25 +744,9 @@
 
       obj = {
         role: ROLE_SPINBUTTON,
-        interfaces: [ nsIAccessibleValue ],
+        interfaces: [ nsIAccessibleValue, nsIAccessibleText, nsIAccessibleEditableText ],
         children: [
-          {
-            role: ROLE_ENTRY,
-            extraStates: EXT_STATE_EDITABLE | EXT_STATE_SINGLE_LINE,
-            actions: "activate",
-            interfaces: [ nsIAccessibleText, nsIAccessibleEditableText ],
-            children: [
-              { role: ROLE_TEXT_LEAF },
-            ],
-          },
-          {
-            role: ROLE_PUSHBUTTON,
-            actions: "press",
-          },
-          {
-            role: ROLE_PUSHBUTTON,
-            actions: "press",
-          },
+          { role: ROLE_TEXT_LEAF },
         ],
       };
       testElm("input_number", obj);
@@ -771,6 +768,45 @@
       testElm("input_tel", obj);
       testElm("input_text", obj);
       testElm("input_url", obj);
+
+      // ////////////////////////////////////////////////////////////////////////
+      // input @type="text" with placeholder attribute
+
+      // First: Label and placeholder, text is the same, no attribute.
+      obj = {
+        role: ROLE_ENTRY,
+        name: "Your name",
+        extraStates: EXT_STATE_EDITABLE | EXT_STATE_SINGLE_LINE,
+        actions: "activate",
+        absentAttributes: { placeholder: "Your name" },
+        interfaces: [ nsIAccessibleText, nsIAccessibleEditableText ],
+        children: [],
+      };
+      testElm("input_placeholder_same", obj);
+
+      // Second: Label and placeholder, text is different, attribute.
+      obj = {
+        role: ROLE_ENTRY,
+        name: "First name:",
+        extraStates: EXT_STATE_EDITABLE | EXT_STATE_SINGLE_LINE,
+        actions: "activate",
+        attributes: { placeholder: "Enter your first name" },
+        interfaces: [ nsIAccessibleText, nsIAccessibleEditableText ],
+        children: [],
+      };
+      testElm("input_placeholder_different", obj);
+
+      // Third: placeholder only, text is name, no attribute.
+      obj = {
+        role: ROLE_ENTRY,
+        name: "Date of birth",
+        extraStates: EXT_STATE_EDITABLE | EXT_STATE_SINGLE_LINE,
+        actions: "activate",
+        absentAttributes: { placeholder: "Date of birth" },
+        interfaces: [ nsIAccessibleText, nsIAccessibleEditableText ],
+        children: [],
+      };
+      testElm("input_placeholder_only", obj);
 
       // ////////////////////////////////////////////////////////////////////////
       // HTML:input@type="password"
@@ -844,7 +880,9 @@
       // HTML:input@type="time"
 
       obj = {
-        role: ROLE_GROUPING,
+        role: ROLE_TIME_EDITOR,
+        name: "time label",
+        attributes: { "text-input-type": "time" },
         children: [
           { role: ROLE_SPINBUTTON },
           { role: ROLE_TEXT_LEAF },
@@ -861,6 +899,8 @@
 
       obj = {
         role: ROLE_DATE_EDITOR,
+        name: "date label",
+        attributes: { "text-input-type": "date" },
         children: [
           { role: ROLE_SPINBUTTON },
           { role: ROLE_TEXT_LEAF },
@@ -899,23 +939,6 @@
         ],
       };
       testElm("kbd_container", obj);
-
-      // ////////////////////////////////////////////////////////////////////////
-      // HTML:keygen
-
-      obj = {
-        role: ROLE_COMBOBOX,
-        states: STATE_COLLAPSED | STATE_HASPOPUP,
-        extraStates: EXT_STATE_EXPANDABLE,
-        actions: "open",
-        children: [
-          { COMBOBOX_LIST: [
-            { role: ROLE_COMBOBOX_OPTION }, // high grade
-            { role: ROLE_COMBOBOX_OPTION }, // medium grade
-          ] },
-        ],
-      };
-      testElm("keygen", obj);
 
       // ////////////////////////////////////////////////////////////////////////
       // HTML:label
@@ -1001,13 +1024,15 @@
 
       obj = {
         role: ROLE_PARAGRAPH,
-        textAttrs: {
-          0: { },
-          6: { "background-color": "rgb(255, 255, 0)" },
-        },
         children: [
           { role: ROLE_TEXT_LEAF }, // plain text
-          { role: ROLE_TEXT_LEAF }, // HTML:mark text
+          { role: ROLE_MARK,  // HTML:mark text
+            attributes: { "xml-roles": "mark" },
+            interfaces: [ nsIAccessibleText, nsIAccessibleHyperText ],
+            textAttrs: {
+              0: { },
+            }
+          }
         ],
       };
       testElm("mark_container", obj);
@@ -1024,9 +1049,71 @@
       // HTML:menu
 
       obj = {
-        todo_role: ROLE_MENUPOPUP,
+        role: ROLE_LIST, // menu
+        children: [
+          { role: ROLE_LISTITEM,
+            children: [ // home
+              { role: ROLE_LISTITEM_MARKER },
+              { role: ROLE_TEXT_LEAF }
+            ]
+          },
+          {
+            role: ROLE_LISTITEM,
+            children: [
+              { role: ROLE_LISTITEM_MARKER },
+              { role: ROLE_TEXT_LEAF }, // about
+              {
+                role: ROLE_LIST, // menu
+                children: [
+                  { role: ROLE_LISTITEM,
+                    children: [
+                    { role: ROLE_LISTITEM_MARKER },
+                    { role: ROLE_TEXT_LEAF } // our story
+                    ]
+                  },
+                ]
+              },
+            ]
+          },
+        ]
       };
+
       testElm("menu", obj);
+      obj = {
+        role: ROLE_LIST,
+        children: [
+        {
+          role: ROLE_LISTITEM,
+          children: [
+          { role: ROLE_LISTITEM_MARKER },
+          {
+            role: ROLE_PUSHBUTTON,
+            children: [
+              { role: ROLE_TEXT_LEAF }
+            ]
+          },
+          {
+            role: ROLE_LIST,
+            children: [
+            {
+              role: ROLE_LISTITEM,
+              children: [
+                { role: ROLE_LISTITEM_MARKER },
+                {
+                  role: ROLE_PUSHBUTTON,
+                  children: [
+                    { role: ROLE_TEXT_LEAF }
+                  ]
+                }
+              ]
+            },
+            ]
+          }
+          ]
+        }
+        ]
+      };
+      testElm("menu1", obj);
 
       // ////////////////////////////////////////////////////////////////////////
       // HTML:meter
@@ -1044,7 +1131,7 @@
       testElm("nav", obj);
 
       // ////////////////////////////////////////////////////////////////////////
-      // HTML:object (windowless and windowed plugins) and HTML:param
+      // HTML:object (windowless/windowed plugins and media) and HTML:param
 
       if (WIN) {
         obj = {
@@ -1060,6 +1147,29 @@
         };
         testElm("object_plugin_windowed", obj);
       }
+
+      obj = {
+        role: ROLE_GRAPHIC,
+        interfaces: [ nsIAccessibleImage ],
+      };
+      testElm("object_png", obj);
+
+      obj = {
+        INTERNAL_FRAME: [ {
+          DOCUMENT: [ {
+            role: ROLE_PARAGRAPH,
+          } ],
+        } ],
+      };
+      testElm("object_html", obj);
+
+      obj = {
+        INTERNAL_FRAME: [ {
+          DOCUMENT: [ {
+          } ],
+        } ],
+      };
+      testElm("object_pdf", obj);
 
       // ////////////////////////////////////////////////////////////////////////
       // HTML:select, HTML:optgroup and HTML:option
@@ -1116,7 +1226,7 @@
       // HTML:output
 
       obj = {
-        role: ROLE_SECTION,
+        role: ROLE_STATUSBAR,
         attributes: { "live": "polite" },
         todo_relations: {
           RELATION_CONTROLLED_BY: "output_input",
@@ -1249,6 +1359,13 @@
       // HTML:span
 
       ok(!isAccessible("span"), "span element is not accessible");
+
+      // ////////////////////////////////////////////////////////////////////////
+      // html:span with a title attribute, which should make it accessible.
+      obj = {
+        role: ROLE_TEXT,
+      };
+      testElm("span_explicit", obj);
 
       // ////////////////////////////////////////////////////////////////////////
       // HTML:strong contained by paragraph
@@ -1423,7 +1540,7 @@
     <p>This is a quotation taken from the Mozilla Developer Center.</p>
   </blockquote>
 
-  <!--  two BRs, one will be eaten -->
+  <!--  two BRs, both will be present -->
   <p id="br_container"><br><br></p>
 
   <button id="button">button</button>
@@ -1507,6 +1624,16 @@
   <embed id="embed_plugin_windowed" type="application/x-test" wmode="window"
          width="300" height="300"></embed>
 
+  <embed id="embed_png" type="image/png" src="../moz.png"
+         width="300" height="300">
+  </embed>
+  <embed id="embed_html" type="text/html" src="../longdesc_src.html"
+         width="300" height="300">
+  </embed>
+  <embed id="embed_pdf" type="application/pdf" src="../dummy.pdf"
+         width="300" height="300">
+  </embed>
+
   <fieldset id="fieldset">
     <legend id="legend">legend</legend>
     <input />
@@ -1525,6 +1652,9 @@
   <aside>
     <footer id="footer_in_aside">Some copyright info</footer>
   </aside>
+  <main>
+    <footer id="footer_in_main">Some copyright info</footer>
+  </main>
   <nav>
     <footer id="footer_in_nav">Some copyright info</footer>
   </nav>
@@ -1567,15 +1697,74 @@
   <header id="header">A logo</header>
   <article>
     <header id="header_in_article">Not logo</header>
+    <h1 id="h1_in_article">heading1</h1>
+    <h2 id="h2_in_article">heading2</h2>
+    <h3 id="h3_in_article">heading3</h3>
+    <h4 id="h4_in_article">heading4</h4>
+    <h5 id="h5_in_article">heading5</h5>
+    <h6 id="h6_in_article">heading6</h6>
+    <hgroup>
+      <h1 id="h1_in_article_in_hgroup">heading1</h1>
+      <h2 id="h2_in_article_in_hgroup">heading2</h2>
+      <h3 id="h3_in_article_in_hgroup">heading3</h3>
+      <h4 id="h4_in_article_in_hgroup">heading4</h4>
+      <h5 id="h5_in_article_in_hgroup">heading5</h5>
+      <h6 id="h6_in_article_in_hgroup">heading6</h6>
+    </hgroup>
   </article>
   <aside>
     <header id="header_in_aside">Not logo</header>
+    <h1 id="h1_in_aside">heading1</h1>
+    <h2 id="h2_in_aside">heading2</h2>
+    <h3 id="h3_in_aside">heading3</h3>
+    <h4 id="h4_in_aside">heading4</h4>
+    <h5 id="h5_in_aside">heading5</h5>
+    <h6 id="h6_in_aside">heading6</h6>
+    <hgroup>
+      <h1 id="h1_in_aside_in_hgroup">heading1</h1>
+      <h2 id="h2_in_aside_in_hgroup">heading2</h2>
+      <h3 id="h3_in_aside_in_hgroup">heading3</h3>
+      <h4 id="h4_in_aside_in_hgroup">heading4</h4>
+      <h5 id="h5_in_aside_in_hgroup">heading5</h5>
+      <h6 id="h6_in_aside_in_hgroup">heading6</h6>
+    </hgroup>
   </aside>
+  <main>
+    <header id="header_in_main">Not logo</header>
+  </main>
   <nav>
     <header id="header_in_nav">Not logo</header>
+    <h1 id="h1_in_nav">heading1</h1>
+    <h2 id="h2_in_nav">heading2</h2>
+    <h3 id="h3_in_nav">heading3</h3>
+    <h4 id="h4_in_nav">heading4</h4>
+    <h5 id="h5_in_nav">heading5</h5>
+    <h6 id="h6_in_nav">heading6</h6>
+    <hgroup>
+      <h1 id="h1_in_nav_in_hgroup">heading1</h1>
+      <h2 id="h2_in_nav_in_hgroup">heading2</h2>
+      <h3 id="h3_in_nav_in_hgroup">heading3</h3>
+      <h4 id="h4_in_nav_in_hgroup">heading4</h4>
+      <h5 id="h5_in_nav_in_hgroup">heading5</h5>
+      <h6 id="h6_in_nav_in_hgroup">heading6</h6>
+    </hgroup>
   </nav>
   <section>
     <header id="header_in_section">Not logo</header>
+    <h1 id="h1_in_section">heading1</h1>
+    <h2 id="h2_in_section">heading2</h2>
+    <h3 id="h3_in_section">heading3</h3>
+    <h4 id="h4_in_section">heading4</h4>
+    <h5 id="h5_in_section">heading5</h5>
+    <h6 id="h6_in_section">heading6</h6>
+    <hgroup>
+      <h1 id="h1_in_section_in_hgroup">heading1</h1>
+      <h2 id="h2_in_section_in_hgroup">heading2</h2>
+      <h3 id="h3_in_section_in_hgroup">heading3</h3>
+      <h4 id="h4_in_section_in_hgroup">heading4</h4>
+      <h5 id="h5_in_section_in_hgroup">heading5</h5>
+      <h6 id="h6_in_section_in_hgroup">heading6</h6>
+    </hgroup>
   </section>
   <blockquote>
     <header id="header_in_blockquote">Not logo</header>
@@ -1605,6 +1794,7 @@
   <input id="input_checkbox_true" type="checkbox" checked>
   <input id="input_file" type="file">
   <input id="input_image" type="image">
+  <input id="input_image_display" type="image" style="display: block">
   <form>
     <input id="input_image_default" type="image">
   </form>
@@ -1614,6 +1804,13 @@
   </form>
   <input id="input_number" type="number" value="44">
   <input id="input_text" type="text" value="hi">
+  <form>
+    <label for="input_placeholder_same">Your name</label>
+    <input id="input_placeholder_same" placeholder="Your name"/>
+    <label for="input_placeholder_different">First name:</label>
+    <input id="input_placeholder_different" placeholder="Enter your first name"/>
+    <input id="input_placeholder_only" placeholder="Date of birth"/>
+  </form>
   <input id="input_search" type="search" value="cats">
   <input id="input_email" type="email" value="me@mozilla.com">
   <input id="input_tel" type="tel" value="111.111.1111">
@@ -1626,12 +1823,15 @@
   <form>
     <input id="input_reset" type="reset">
   </form>
-  <input id="input_time" type="time" value="23:23">
-  <input id="input_date" type="date" value="2017-11-10">
+  <label>time label
+    <input id="input_time" type="time" value="23:23">
+  </label>
+  <label>date label
+    <input id="input_date" type="date" value="2017-11-10">
+  </label>
 
   <p id="ins_container">normal<ins>Inserted</ins></p>
   <p id="kbd_container">normal<kbd>cmd</kbd></p>
-  <keygen id="keygen" name="RSA public key" challenge="123456789" keytype="RSA">
 
   <label id="label">label<input id="label_input"></label>
   <label id="label_for" for="label_for_input">label</label>
@@ -1686,18 +1886,22 @@
     </mrow>
   </math>
 
-  <menu id="menu" type="toolbar">
-    <li>
-      <menu label="File">
-        <button type="button" onclick="new()">New...</button>
-        <button type="button" onclick="save()">Save...</button>
+  <menu id="menu">
+    <li>Home</li>
+    <li>About
+      <menu>
+        <li>Our Story</li>
       </menu>
     </li>
+  </menu>
+
+  <menu id="menu1">
     <li>
-      <menu label="Edit">
-        <button type="button" onclick="cut()">Cut...</button>
-        <button type="button" onclick="copy()">Copy...</button>
-        <button type="button" onclick="paste()">Paste...</button>
+      <button>File</button>
+      <menu>
+        <li>
+          <button type="button" onclick="new()">New...</button>
+        </li>
       </menu>
     </li>
   </menu>
@@ -1718,6 +1922,16 @@
   </object>
   <object id="object_plugin_windowed" type="application/x-test" wmode="window"
          width="300" height="300"></object>
+
+  <object id="object_png" type="image/png" data="../moz.png"
+         width="300" height="300">
+  </object>
+  <object id="object_html" type="text/html" data="../longdesc_src.html"
+         width="300" height="300">
+  </object>
+  <object id="object_pdf" type="application/pdf" data="../dummy.pdf"
+         width="300" height="300">
+  </object>
 
   <select id="select_listbox" size="4">
     <optgroup label="Colors">
@@ -1762,6 +1976,7 @@
   <section id="named_section" aria-label="foo">named section</section>
   <p id="small_container">normal<small>small</small></p>
   <span id="span"></span>
+  <span id="span_explicit" title="explicit"></span>
   <p id="strong_container">normal<strong>strong</strong></p>
   <p id="sub_container">normal<sub>sub</sub></p>
   <p id="sup_container">normal<sup>sup</sup></p>

@@ -7,14 +7,16 @@
 #ifndef ProfiledThreadData_h
 #define ProfiledThreadData_h
 
-#include "mozilla/NotNull.h"
-#include "mozilla/TimeStamp.h"
-#include "mozilla/UniquePtrExtensions.h"
+#include "platform.h"
+#include "ProfileBufferEntry.h"
+#include "ThreadInfo.h"
 
 #include "js/ProfilingStack.h"
-#include "platform.h"
-#include "ProfileBuffer.h"
-#include "ThreadInfo.h"
+#include "mozilla/TimeStamp.h"
+#include "mozilla/UniquePtr.h"
+#include "nsIEventTarget.h"
+
+class ProfileBuffer;
 
 // This class contains information about a thread that is only relevant while
 // the profiler is running, for any threads (both alive and dead) whose thread
@@ -41,17 +43,15 @@
 // when the profiler is stopped.
 class ProfiledThreadData final {
  public:
-  ProfiledThreadData(ThreadInfo* aThreadInfo, nsIEventTarget* aEventTarget,
-                     bool aIncludeResponsiveness);
+  ProfiledThreadData(ThreadInfo* aThreadInfo, nsIEventTarget* aEventTarget);
   ~ProfiledThreadData();
 
   void NotifyUnregistered(uint64_t aBufferPosition) {
-    mResponsiveness.reset();
     mLastSample = mozilla::Nothing();
     MOZ_ASSERT(!mBufferPositionWhenReceivedJSContext,
                "JSContext should have been cleared before the thread was "
                "unregistered");
-    mUnregisterTime = TimeStamp::Now();
+    mUnregisterTime = mozilla::TimeStamp::NowUnfuzzed();
     mBufferPositionWhenUnregistered = mozilla::Some(aBufferPosition);
   }
   mozilla::Maybe<uint64_t> BufferPositionWhenUnregistered() {
@@ -61,19 +61,14 @@ class ProfiledThreadData final {
   mozilla::Maybe<uint64_t>& LastSample() { return mLastSample; }
 
   void StreamJSON(const ProfileBuffer& aBuffer, JSContext* aCx,
-                  SpliceableJSONWriter& aWriter,
+                  SpliceableJSONWriter& aWriter, const nsACString& aProcessName,
+                  const nsACString& aETLDplus1,
                   const mozilla::TimeStamp& aProcessStartTime,
-                  double aSinceTime, bool aJSTracerEnabled);
+                  double aSinceTime, bool aJSTracerEnabled,
+                  ProfilerCodeAddressService* aService);
 
   void StreamTraceLoggerJSON(JSContext* aCx, SpliceableJSONWriter& aWriter,
-                             const TimeStamp& aProcessStartTime);
-
-  // Returns nullptr if this is not the main thread, the responsiveness
-  // feature is not turned on, or if this thread is not being profiled.
-  ThreadResponsiveness* GetThreadResponsiveness() {
-    ThreadResponsiveness* responsiveness = mResponsiveness.ptrOr(nullptr);
-    return responsiveness;
-  }
+                             const mozilla::TimeStamp& aProcessStartTime);
 
   const RefPtr<ThreadInfo> Info() const { return mThreadInfo; }
 
@@ -85,7 +80,7 @@ class ProfiledThreadData final {
   // Call this method when the JS entries inside the buffer are about to
   // become invalid, i.e., just before JS shutdown.
   void NotifyAboutToLoseJSContext(JSContext* aCx,
-                                  const TimeStamp& aProcessStartTime,
+                                  const mozilla::TimeStamp& aProcessStartTime,
                                   ProfileBuffer& aBuffer);
 
  private:
@@ -100,15 +95,11 @@ class ProfiledThreadData final {
   // thread in the past.
   // Null if this thread has never lost a JSContext or if all samples from
   // previous JSContexts have been evicted from the profiler buffer.
-  UniquePtr<JITFrameInfo> mJITFrameInfoForPreviousJSContexts;
+  mozilla::UniquePtr<JITFrameInfo> mJITFrameInfoForPreviousJSContexts;
 
   // Group B:
   // The following fields are only used while this thread is alive and
   // registered. They become Nothing() once the thread is unregistered.
-
-  // A helper object that instruments nsIThreads to obtain responsiveness
-  // information about their event loop.
-  mozilla::Maybe<ThreadResponsiveness> mResponsiveness;
 
   // When sampling, this holds the position in ActivePS::mBuffer of the most
   // recent sample for this thread, or Nothing() if there is no sample for this
@@ -125,12 +116,17 @@ class ProfiledThreadData final {
   mozilla::TimeStamp mUnregisterTime;
 };
 
-void StreamSamplesAndMarkers(const char* aName, int aThreadId,
-                             const ProfileBuffer& aBuffer,
-                             SpliceableJSONWriter& aWriter,
-                             const mozilla::TimeStamp& aProcessStartTime,
-                             const TimeStamp& aRegisterTime,
-                             const TimeStamp& aUnregisterTime,
-                             double aSinceTime, UniqueStacks& aUniqueStacks);
+// Stream all samples and markers from aBuffer with the given aThreadId (or 0
+// for everything, which is assumed to be a single backtrace sample.)
+// Returns the thread id of the output sample(s), or 0 if none was present.
+int StreamSamplesAndMarkers(const char* aName, int aThreadId,
+                            const ProfileBuffer& aBuffer,
+                            SpliceableJSONWriter& aWriter,
+                            const nsACString& aProcessName,
+                            const nsACString& aETLDplus1,
+                            const mozilla::TimeStamp& aProcessStartTime,
+                            const mozilla::TimeStamp& aRegisterTime,
+                            const mozilla::TimeStamp& aUnregisterTime,
+                            double aSinceTime, UniqueStacks& aUniqueStacks);
 
 #endif  // ProfiledThreadData_h

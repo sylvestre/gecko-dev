@@ -12,6 +12,8 @@
 #include "nsIBufferedStreams.h"
 #include "nsICloneableInputStream.h"
 #include "nsIPipe.h"
+#include "nsThreadUtils.h"
+#include "mozilla/webrender/WebRenderTypes.h"
 
 namespace mozilla {
 namespace ipc {
@@ -25,6 +27,7 @@ namespace ipc {
 
 class IPCStreamDestination::DelayedStartInputStream final
     : public nsIAsyncInputStream,
+      public nsIInputStreamCallback,
       public nsISearchableInputStream,
       public nsICloneableInputStream,
       public nsIBufferedInputStream {
@@ -32,9 +35,9 @@ class IPCStreamDestination::DelayedStartInputStream final
   NS_DECL_THREADSAFE_ISUPPORTS
 
   DelayedStartInputStream(IPCStreamDestination* aDestination,
-                          already_AddRefed<nsIAsyncInputStream>&& aStream)
+                          nsCOMPtr<nsIAsyncInputStream>&& aStream)
       : mDestination(aDestination),
-        mStream(aStream),
+        mStream(std::move(aStream)),
         mMutex("IPCStreamDestination::DelayedStartInputStream::mMutex") {
     MOZ_ASSERT(mDestination);
     MOZ_ASSERT(mStream);
@@ -89,8 +92,19 @@ class IPCStreamDestination::DelayedStartInputStream final
   NS_IMETHOD
   AsyncWait(nsIInputStreamCallback* aCallback, uint32_t aFlags,
             uint32_t aRequestedCount, nsIEventTarget* aTarget) override {
-    MaybeStartReading();
-    return mStream->AsyncWait(aCallback, aFlags, aRequestedCount, aTarget);
+    {
+      MutexAutoLock lock(mMutex);
+      if (mAsyncWaitCallback && aCallback) {
+        return NS_ERROR_FAILURE;
+      }
+
+      mAsyncWaitCallback = aCallback;
+
+      MaybeStartReading(lock);
+    }
+
+    nsCOMPtr<nsIInputStreamCallback> callback = aCallback ? this : nullptr;
+    return mStream->AsyncWait(callback, aFlags, aRequestedCount, aTarget);
   }
 
   NS_IMETHOD
@@ -136,7 +150,29 @@ class IPCStreamDestination::DelayedStartInputStream final
     return NS_ERROR_NOT_IMPLEMENTED;
   }
 
+  // nsIInputStreamCallback
+
+  NS_IMETHOD
+  OnInputStreamReady(nsIAsyncInputStream* aStream) override {
+    nsCOMPtr<nsIInputStreamCallback> callback;
+
+    {
+      MutexAutoLock lock(mMutex);
+
+      // We have been canceled in the meanwhile.
+      if (!mAsyncWaitCallback) {
+        return NS_OK;
+      }
+
+      callback.swap(mAsyncWaitCallback);
+    }
+
+    callback->OnInputStreamReady(this);
+    return NS_OK;
+  }
+
   void MaybeStartReading();
+  void MaybeStartReading(const MutexAutoLock& aProofOfLook);
 
   void MaybeCloseDestination();
 
@@ -145,6 +181,8 @@ class IPCStreamDestination::DelayedStartInputStream final
 
   IPCStreamDestination* mDestination;
   nsCOMPtr<nsIAsyncInputStream> mStream;
+
+  nsCOMPtr<nsIInputStreamCallback> mAsyncWaitCallback;
 
   // This protects mDestination: any method can be called by any thread.
   Mutex mMutex;
@@ -193,6 +231,11 @@ class IPCStreamDestination::DelayedStartInputStream::HelperRunnable final
 
 void IPCStreamDestination::DelayedStartInputStream::MaybeStartReading() {
   MutexAutoLock lock(mMutex);
+  MaybeStartReading(lock);
+}
+
+void IPCStreamDestination::DelayedStartInputStream::MaybeStartReading(
+    const MutexAutoLock& aProofOfLook) {
   if (!mDestination) {
     return;
   }
@@ -230,6 +273,7 @@ NS_IMPL_RELEASE(IPCStreamDestination::DelayedStartInputStream);
 
 NS_INTERFACE_MAP_BEGIN(IPCStreamDestination::DelayedStartInputStream)
   NS_INTERFACE_MAP_ENTRY(nsIAsyncInputStream)
+  NS_INTERFACE_MAP_ENTRY(nsIInputStreamCallback)
   NS_INTERFACE_MAP_ENTRY(nsISearchableInputStream)
   NS_INTERFACE_MAP_ENTRY(nsICloneableInputStream)
   NS_INTERFACE_MAP_ENTRY(nsIBufferedInputStream)
@@ -250,7 +294,7 @@ IPCStreamDestination::IPCStreamDestination()
 {
 }
 
-IPCStreamDestination::~IPCStreamDestination() {}
+IPCStreamDestination::~IPCStreamDestination() = default;
 
 nsresult IPCStreamDestination::Initialize() {
   MOZ_ASSERT(!mReader);
@@ -300,7 +344,7 @@ already_AddRefed<nsIInputStream> IPCStreamDestination::TakeReader() {
 
   if (mDelayedStart) {
     mDelayedStartInputStream =
-        new DelayedStartInputStream(this, mReader.forget());
+        new DelayedStartInputStream(this, std::move(mReader));
     RefPtr<nsIAsyncInputStream> inputStream = mDelayedStartInputStream;
     return inputStream.forget();
   }

@@ -17,6 +17,13 @@ class nsIInputStream;
 class nsILoadGroup;
 class nsIStreamListener;
 
+#define NS_INPUT_STREAM_PUMP_IID                     \
+  {                                                  \
+    0x42f1cc9b, 0xdf5f, 0x4c9b, {                    \
+      0xbd, 0x71, 0x8d, 0x4a, 0xe2, 0x27, 0xc1, 0x8a \
+    }                                                \
+  }
+
 class nsInputStreamPump final : public nsIInputStreamPump,
                                 public nsIInputStreamCallback,
                                 public nsIThreadRetargetableRequest {
@@ -30,15 +37,16 @@ class nsInputStreamPump final : public nsIInputStreamPump,
   NS_DECL_NSIINPUTSTREAMPUMP
   NS_DECL_NSIINPUTSTREAMCALLBACK
   NS_DECL_NSITHREADRETARGETABLEREQUEST
+  NS_DECLARE_STATIC_IID_ACCESSOR(NS_INPUT_STREAM_PUMP_IID)
 
   nsInputStreamPump();
 
-  static nsresult Create(nsInputStreamPump **result, nsIInputStream *stream,
+  static nsresult Create(nsInputStreamPump** result, nsIInputStream* stream,
                          uint32_t segsize = 0, uint32_t segcount = 0,
                          bool closeWhenDone = false,
-                         nsIEventTarget *mainThreadTarget = nullptr);
+                         nsIEventTarget* mainThreadTarget = nullptr);
 
-  typedef void (*PeekSegmentFun)(void *closure, const uint8_t *buf,
+  typedef void (*PeekSegmentFun)(void* closure, const uint8_t* buf,
                                  uint32_t bufLen);
   /**
    * Peek into the first chunk of data that's in the stream. Note that this
@@ -50,7 +58,7 @@ class nsInputStreamPump final : public nsIInputStreamPump,
    *
    * Do not call before asyncRead. Do not call after onStopRequest.
    */
-  nsresult PeekStream(PeekSegmentFun callback, void *closure);
+  nsresult PeekStream(PeekSegmentFun callback, void* closure);
 
   /**
    * Dispatched (to the main thread) by OnStateStop if it's called off main
@@ -70,7 +78,6 @@ class nsInputStreamPump final : public nsIInputStreamPump,
   uint32_t mState;
   nsCOMPtr<nsILoadGroup> mLoadGroup;
   nsCOMPtr<nsIStreamListener> mListener;
-  nsCOMPtr<nsISupports> mListenerContext;
   nsCOMPtr<nsIEventTarget> mTargetThread;
   nsCOMPtr<nsIEventTarget> mLabeledMainThreadTarget;
   nsCOMPtr<nsIInputStream> mStream;
@@ -91,8 +98,13 @@ class nsInputStreamPump final : public nsIInputStreamPump,
   bool mCloseWhenDone;
   bool mRetargeting;
   bool mAsyncStreamIsBuffered;
+  // Indicate whether nsInputStreamPump is used completely off main thread.
+  // If true, OnStateStop() is executed off main thread.
+  bool mOffMainThread;
   // Protects state/member var accesses across multiple threads.
   mozilla::RecursiveMutex mMutex;
 };
+
+NS_DEFINE_STATIC_IID_ACCESSOR(nsInputStreamPump, NS_INPUT_STREAM_PUMP_IID)
 
 #endif  // !nsInputStreamChannel_h__

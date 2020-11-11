@@ -7,17 +7,19 @@
 #ifndef nsImageRenderer_h__
 #define nsImageRenderer_h__
 
-#include "nsLayoutUtils.h"
 #include "nsStyleStruct.h"
 #include "Units.h"
+#include "mozilla/AspectRatio.h"
+#include "mozilla/SurfaceFromElementResult.h"
 
 class gfxDrawable;
+class nsDisplayItem;
 namespace mozilla {
 
 namespace layers {
 class StackingContextHelper;
 class WebRenderParentCommand;
-class WebRenderLayerManager;
+class RenderRootStateManager;
 }  // namespace layers
 
 namespace wr {
@@ -31,20 +33,16 @@ class IpcResourceUpdateQueue;
 // of these then we can compute a concrete size, that is a width and height.
 struct CSSSizeOrRatio {
   CSSSizeOrRatio()
-      : mRatio(0, 0),
-        mWidth(0),
-        mHeight(0),
-        mHasWidth(false),
-        mHasHeight(false) {}
+      : mWidth(0), mHeight(0), mHasWidth(false), mHasHeight(false) {}
 
   bool CanComputeConcreteSize() const {
     return mHasWidth + mHasHeight + HasRatio() >= 2;
   }
   bool IsConcrete() const { return mHasWidth && mHasHeight; }
-  bool HasRatio() const { return mRatio.width > 0 && mRatio.height > 0; }
+  bool HasRatio() const { return !!mRatio; }
   bool IsEmpty() const {
     return (mHasWidth && mWidth <= 0) || (mHasHeight && mHeight <= 0) ||
-           mRatio.width <= 0 || mRatio.height <= 0;
+           !mRatio;
   }
 
   // CanComputeConcreteSize must return true when ComputeConcreteSize is
@@ -55,14 +53,14 @@ struct CSSSizeOrRatio {
     mWidth = aWidth;
     mHasWidth = true;
     if (mHasHeight) {
-      mRatio = nsSize(mWidth, mHeight);
+      mRatio = AspectRatio::FromSize(mWidth, mHeight);
     }
   }
   void SetHeight(nscoord aHeight) {
     mHeight = aHeight;
     mHasHeight = true;
     if (mHasWidth) {
-      mRatio = nsSize(mWidth, mHeight);
+      mRatio = AspectRatio::FromSize(mWidth, mHeight);
     }
   }
   void SetSize(const nsSize& aSize) {
@@ -70,16 +68,16 @@ struct CSSSizeOrRatio {
     mHeight = aSize.height;
     mHasWidth = true;
     mHasHeight = true;
-    mRatio = aSize;
+    mRatio = AspectRatio::FromSize(mWidth, mHeight);
   }
-  void SetRatio(const nsSize& aRatio) {
+  void SetRatio(const AspectRatio& aRatio) {
     MOZ_ASSERT(
         !mHasWidth || !mHasHeight,
         "Probably shouldn't be setting a ratio if we have a concrete size");
     mRatio = aRatio;
   }
 
-  nsSize mRatio;
+  AspectRatio mRatio;
   nscoord mWidth;
   nscoord mHeight;
   bool mHasWidth;
@@ -88,8 +86,8 @@ struct CSSSizeOrRatio {
 
 /**
  * This is a small wrapper class to encapsulate image drawing that can draw an
- * nsStyleImage image, which may internally be a real image, a sub image, or a
- * CSS gradient.
+ * StyleImage image, which may internally be a real image, a sub image, or a CSS
+ * gradient, etc...
  *
  * @note Always call the member functions in the order of PrepareImage(),
  * SetSize(), and Draw*().
@@ -100,10 +98,14 @@ class nsImageRenderer {
   typedef mozilla::layers::LayerManager LayerManager;
   typedef mozilla::layers::ImageContainer ImageContainer;
 
-  enum { FLAG_SYNC_DECODE_IMAGES = 0x01, FLAG_PAINTING_TO_WINDOW = 0x02 };
+  enum {
+    FLAG_SYNC_DECODE_IMAGES = 0x01,
+    FLAG_PAINTING_TO_WINDOW = 0x02,
+    FLAG_HIGH_QUALITY_SCALING = 0x04
+  };
   enum FitType { CONTAIN, COVER };
 
-  nsImageRenderer(nsIFrame* aForFrame, const nsStyleImage* aImage,
+  nsImageRenderer(nsIFrame* aForFrame, const mozilla::StyleImage* aImage,
                   uint32_t aFlags);
   ~nsImageRenderer() = default;
   /**
@@ -156,12 +158,10 @@ class nsImageRenderer {
   /**
    * Compute the size of the rendered image using either the 'cover' or
    * 'contain' constraints (aFitType).
-   * aIntrinsicRatio may be an invalid ratio, that is one or both of its
-   * dimensions can be less than or equal to zero.
    */
-  static nsSize ComputeConstrainedSize(const nsSize& aConstrainingSize,
-                                       const nsSize& aIntrinsicRatio,
-                                       FitType aFitType);
+  static nsSize ComputeConstrainedSize(
+      const nsSize& aConstrainingSize,
+      const mozilla::AspectRatio& aIntrinsicRatio, FitType aFitType);
   /**
    * Compute the size of the rendered image (the concrete size) where no cover/
    * contain constraints are given. The 'default algorithm' from the CSS Image
@@ -200,7 +200,7 @@ class nsImageRenderer {
       nsPresContext* aPresContext, mozilla::wr::DisplayListBuilder& aBuilder,
       mozilla::wr::IpcResourceUpdateQueue& aResource,
       const mozilla::layers::StackingContextHelper& aSc,
-      mozilla::layers::WebRenderLayerManager* aManager, nsDisplayItem* aItem,
+      mozilla::layers::RenderRootStateManager* aManager, nsDisplayItem* aItem,
       const nsRect& aDest, const nsRect& aFill, const nsPoint& aAnchor,
       const nsRect& aDirty, const nsSize& aRepeatSize, float aOpacity);
 
@@ -249,11 +249,14 @@ class nsImageRenderer {
   bool IsReady() const { return mPrepareResult == ImgDrawResult::SUCCESS; }
   ImgDrawResult PrepareResult() const { return mPrepareResult; }
   void SetExtendMode(mozilla::gfx::ExtendMode aMode) { mExtendMode = aMode; }
-  void SetMaskOp(uint8_t aMaskOp) { mMaskOp = aMaskOp; }
+  void SetMaskOp(mozilla::StyleMaskMode aMaskOp) { mMaskOp = aMaskOp; }
   void PurgeCacheForViewportChange(
       const mozilla::Maybe<nsSize>& aSVGViewportSize, const bool aHasRatio);
-  nsStyleImageType GetType() const { return mType; }
-  already_AddRefed<nsStyleGradient> GetGradientData();
+  const nsSize& GetSize() const { return mSize; }
+  mozilla::StyleImage::Tag GetType() const { return mType; }
+  const mozilla::StyleGradient* GetGradientData() const {
+    return mGradientData;
+  }
 
  private:
   /**
@@ -280,7 +283,7 @@ class nsImageRenderer {
       nsPresContext* aPresContext, mozilla::wr::DisplayListBuilder& aBuilder,
       mozilla::wr::IpcResourceUpdateQueue& aResources,
       const mozilla::layers::StackingContextHelper& aSc,
-      mozilla::layers::WebRenderLayerManager* aManager, nsDisplayItem* aItem,
+      mozilla::layers::RenderRootStateManager* aManager, nsDisplayItem* aItem,
       const nsRect& aDirtyRect, const nsRect& aDest, const nsRect& aFill,
       const nsPoint& aAnchor, const nsSize& aRepeatSize,
       const mozilla::CSSIntRect& aSrc, float aOpacity = 1.0);
@@ -288,24 +291,24 @@ class nsImageRenderer {
   /**
    * Helper method for creating a gfxDrawable from mPaintServerFrame or
    * mImageElementSurface.
-   * Requires mType is eStyleImageType_Element.
+   * Requires mType to be Element.
    * Returns null if we cannot create the drawable.
    */
   already_AddRefed<gfxDrawable> DrawableForElement(const nsRect& aImageRect,
                                                    gfxContext& aContext);
 
   nsIFrame* mForFrame;
-  const nsStyleImage* mImage;
-  nsStyleImageType mType;
+  const mozilla::StyleImage* mImage;
+  mozilla::StyleImage::Tag mType;
   nsCOMPtr<imgIContainer> mImageContainer;
-  RefPtr<nsStyleGradient> mGradientData;
+  const mozilla::StyleGradient* mGradientData;
   nsIFrame* mPaintServerFrame;
-  nsLayoutUtils::SurfaceFromElementResult mImageElementSurface;
+  SurfaceFromElementResult mImageElementSurface;
   ImgDrawResult mPrepareResult;
   nsSize mSize;  // unscaled size of the image, in app units
   uint32_t mFlags;
   mozilla::gfx::ExtendMode mExtendMode;
-  uint8_t mMaskOp;
+  mozilla::StyleMaskMode mMaskOp;
 };
 
 }  // namespace mozilla

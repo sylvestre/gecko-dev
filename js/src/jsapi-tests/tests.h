@@ -9,17 +9,20 @@
 
 #include "mozilla/ArrayUtils.h"
 #include "mozilla/Sprintf.h"
-#include "mozilla/TypeTraits.h"
 
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <type_traits>
 
 #include "gc/GC.h"
 #include "js/AllocPolicy.h"
 #include "js/CharacterEncoding.h"
+#include "js/Equality.h"     // JS::SameValue
+#include "js/RegExpFlags.h"  // JS::RegExpFlags
 #include "js/Vector.h"
+#include "js/Warnings.h"  // JS::SetWarningReporter
 #include "vm/JSContext.h"
 
 /* Note: Aborts on OOM. */
@@ -74,7 +77,13 @@ class JSAPITest {
   bool knownFail;
   JSAPITestString msgs;
 
-  JSAPITest() : cx(nullptr), knownFail(false) {
+  // Whether this test is willing to skip its init() and reuse a global (and
+  // JSContext etc.) from a previous test that also has reuseGlobal=true. It
+  // also means this test is willing to skip its uninit() if it is followed by
+  // another reuseGlobal test.
+  bool reuseGlobal;
+
+  JSAPITest() : cx(nullptr), knownFail(false), reuseGlobal(false) {
     next = list;
     list = this;
   }
@@ -84,7 +93,19 @@ class JSAPITest {
     MOZ_RELEASE_ASSERT(!global);
   }
 
-  virtual bool init();
+  // Initialize this test, possibly with the cx from a previously run test.
+  bool init(JSContext* maybeReusedContext);
+
+  // If this test is ok with its cx and global being reused, release this
+  // test's cx to be reused by another test.
+  JSContext* maybeForgetContext();
+
+  static void MaybeFreeContext(JSContext* maybeCx);
+
+  // The real initialization happens in init(JSContext*), above, but this
+  // method may be overridden to perform additional initialization after the
+  // JSContext and global have been created.
+  virtual bool init() { return true; }
   virtual void uninit();
 
   virtual const char* name() = 0;
@@ -116,6 +137,11 @@ class JSAPITest {
     }
     JS_ClearPendingException(cx);
     return JSAPITestString("<<error converting value to string>>");
+  }
+
+  JSAPITestString toSource(char c) {
+    char buf[2] = {c, '\0'};
+    return JSAPITestString(buf);
   }
 
   JSAPITestString toSource(long v) {
@@ -158,6 +184,29 @@ class JSAPITest {
     return JSAPITestString(v ? "true" : "false");
   }
 
+  JSAPITestString toSource(JS::RegExpFlags flags) {
+    JSAPITestString str;
+    if (flags.global()) {
+      str += "g";
+    }
+    if (flags.ignoreCase()) {
+      str += "i";
+    }
+    if (flags.multiline()) {
+      str += "m";
+    }
+    if (flags.dotAll()) {
+      str += "s";
+    }
+    if (flags.unicode()) {
+      str += "u";
+    }
+    if (flags.sticky()) {
+      str += "y";
+    }
+    return str;
+  }
+
   JSAPITestString toSource(JSAtom* v) {
     JS::RootedValue val(cx, JS::StringValue((JSString*)v));
     return jsvalToSource(val);
@@ -169,11 +218,11 @@ class JSAPITest {
   template <typename T, typename U>
   bool checkEqual(const T& actual, const U& expected, const char* actualExpr,
                   const char* expectedExpr, const char* filename, int lineno) {
-    static_assert(mozilla::IsSigned<T>::value == mozilla::IsSigned<U>::value,
+    static_assert(std::is_signed_v<T> == std::is_signed_v<U>,
                   "using CHECK_EQUAL with different-signed inputs triggers "
                   "compiler warnings");
     static_assert(
-        mozilla::IsUnsigned<T>::value == mozilla::IsUnsigned<U>::value,
+        std::is_unsigned_v<T> == std::is_unsigned_v<U>,
         "using CHECK_EQUAL with different-signed inputs triggers compiler "
         "warnings");
     return (actual == expected) ||
@@ -208,12 +257,12 @@ class JSAPITest {
                  const char* filename, int lineno) {
     bool same;
     JS::RootedValue actual(cx, actualArg), expected(cx, expectedArg);
-    return (JS_SameValue(cx, actual, expected, &same) && same) ||
+    return (JS::SameValue(cx, actual, expected, &same) && same) ||
            fail(JSAPITestString(
-                    "CHECK_SAME failed: expected JS_SameValue(cx, ") +
+                    "CHECK_SAME failed: expected JS::SameValue(cx, ") +
                     actualExpr + ", " + expectedExpr +
-                    "), got !JS_SameValue(cx, " + jsvalToSource(actual) + ", " +
-                    jsvalToSource(expected) + ")",
+                    "), got !JS::SameValue(cx, " + jsvalToSource(actual) +
+                    ", " + jsvalToSource(expected) + ")",
                 filename, lineno);
   }
 
@@ -266,18 +315,8 @@ class JSAPITest {
   JSAPITestString messages() const { return msgs; }
 
   static const JSClass* basicGlobalClass() {
-    static const JSClassOps cOps = {nullptr,
-                                    nullptr,
-                                    nullptr,
-                                    nullptr,
-                                    nullptr,
-                                    nullptr,
-                                    nullptr,
-                                    nullptr,
-                                    nullptr,
-                                    nullptr,
-                                    JS_GlobalObjectTraceHook};
-    static const JSClass c = {"global", JSCLASS_GLOBAL_FLAGS, &cOps};
+    static const JSClass c = {"global", JSCLASS_GLOBAL_FLAGS,
+                              &JS::DefaultGlobalClassOps};
     return &c;
   }
 
@@ -332,15 +371,8 @@ class JSAPITest {
     return cx;
   }
 
-  virtual void destroyContext() {
-    MOZ_RELEASE_ASSERT(cx);
-    JS_DestroyContext(cx);
-    cx = nullptr;
-  }
-
   static void reportWarning(JSContext* cx, JSErrorReport* report) {
-    MOZ_RELEASE_ASSERT(report);
-    MOZ_RELEASE_ASSERT(JSREPORT_IS_WARNING(report->flags));
+    MOZ_RELEASE_ASSERT(report->isWarning());
 
     fprintf(stderr, "%s:%u:%s\n",
             report->filename ? report->filename : "<no filename>",
@@ -352,11 +384,21 @@ class JSAPITest {
   virtual JSObject* createGlobal(JSPrincipals* principals = nullptr);
 };
 
-#define BEGIN_TEST(testname)                                  \
-  class cls_##testname : public JSAPITest {                   \
-   public:                                                    \
-    virtual const char* name() override { return #testname; } \
-    virtual bool run(JS::HandleObject global) override
+#define BEGIN_TEST_WITH_ATTRIBUTES_AND_EXTRA(testname, attrs, extra) \
+  class cls_##testname : public JSAPITest {                          \
+   public:                                                           \
+    virtual const char* name() override { return #testname; }        \
+    extra virtual bool run(JS::HandleObject global) override attrs
+
+#define BEGIN_TEST_WITH_ATTRIBUTES(testname, attrs) \
+  BEGIN_TEST_WITH_ATTRIBUTES_AND_EXTRA(testname, attrs, )
+
+#define BEGIN_TEST(testname) BEGIN_TEST_WITH_ATTRIBUTES(testname, )
+
+#define BEGIN_REUSABLE_TEST(testname)   \
+  BEGIN_TEST_WITH_ATTRIBUTES_AND_EXTRA( \
+      testname, , cls_##testname()      \
+      : JSAPITest() { reuseGlobal = true; })
 
 #define END_TEST(testname) \
   }                        \
@@ -451,6 +493,8 @@ class TestJSPrincipals : public JSPrincipals {
     MOZ_ASSERT(false, "not implemented");
     return false;
   }
+
+  bool isSystemOrAddonPrincipal() override { return true; }
 };
 
 // A class that simulates externally memory-managed data, for testing with
@@ -497,7 +541,7 @@ class AutoLeaveZeal {
     JS_GetGCZealBits(cx_, &zealBits_, &frequency_, &dummy);
     JS_SetGCZeal(cx_, 0, 0);
     JS::PrepareForFullGC(cx_);
-    JS::NonIncrementalGC(cx_, GC_SHRINK, JS::gcreason::DEBUG_GC);
+    JS::NonIncrementalGC(cx_, GC_SHRINK, JS::GCReason::DEBUG_GC);
   }
   ~AutoLeaveZeal() {
     JS_SetGCZeal(cx_, 0, 0);
@@ -507,12 +551,12 @@ class AutoLeaveZeal {
       }
     }
 
-#ifdef DEBUG
+#  ifdef DEBUG
     uint32_t zealBitsAfter, frequencyAfter, dummy;
     JS_GetGCZealBits(cx_, &zealBitsAfter, &frequencyAfter, &dummy);
     MOZ_ASSERT(zealBitsAfter == zealBits_);
     MOZ_ASSERT(frequencyAfter == frequency_);
-#endif
+#  endif
   }
 };
 #endif /* JS_GC_ZEAL */

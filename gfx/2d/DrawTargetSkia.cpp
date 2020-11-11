@@ -14,6 +14,8 @@
 #include "mozilla/CheckedInt.h"
 #include "mozilla/Vector.h"
 
+#include "skia/include/core/SkFont.h"
+#include "skia/include/core/SkTextBlob.h"
 #include "skia/include/core/SkSurface.h"
 #include "skia/include/core/SkTypeface.h"
 #include "skia/include/effects/SkGradientShader.h"
@@ -29,28 +31,18 @@
 #include "Swizzle.h"
 #include <algorithm>
 
-#ifdef USE_SKIA_GPU
-#include "GLDefs.h"
-#include "skia/include/gpu/GrContext.h"
-#include "skia/include/gpu/GrTexture.h"
-#include "skia/include/gpu/gl/GrGLInterface.h"
-#endif
-
 #ifdef MOZ_WIDGET_COCOA
-#include "BorrowedContext.h"
-#include <ApplicationServices/ApplicationServices.h>
-#include "ScaledFontMac.h"
-#include "CGTextDrawing.h"
+#  include "BorrowedContext.h"
+#  include <ApplicationServices/ApplicationServices.h>
+#  include "ScaledFontMac.h"
+#  include "CGTextDrawing.h"
 #endif
 
 #ifdef XP_WIN
-#include "ScaledFontDWrite.h"
+#  include "ScaledFontDWrite.h"
 #endif
 
-using namespace std;
-
-namespace mozilla {
-namespace gfx {
+namespace mozilla::gfx {
 
 class GradientStopsSkia : public GradientStops {
  public:
@@ -226,6 +218,7 @@ static bool VerifyRGBXCorners(uint8_t* aData, const IntSize& aSize,
 #endif
 
 static sk_sp<SkImage> GetSkImageForSurface(SourceSurface* aSurface,
+                                           Maybe<MutexAutoLock>* aLock,
                                            const Rect* aBounds = nullptr,
                                            const Matrix* aMatrix = nullptr) {
   if (!aSurface) {
@@ -241,11 +234,11 @@ static sk_sp<SkImage> GetSkImageForSurface(SourceSurface* aSurface,
       return nullptr;
     }
     MOZ_ASSERT(resolved->GetType() != SurfaceType::CAPTURE);
-    return GetSkImageForSurface(resolved, aBounds, aMatrix);
+    return GetSkImageForSurface(resolved, aLock, aBounds, aMatrix);
   }
 
   if (aSurface->GetType() == SurfaceType::SKIA) {
-    return static_cast<SourceSurfaceSkia*>(aSurface)->GetImage();
+    return static_cast<SourceSurfaceSkia*>(aSurface)->GetImage(aLock);
   }
 
   DataSourceSurface* surf = aSurface->GetDataSurface().take();
@@ -253,6 +246,11 @@ static sk_sp<SkImage> GetSkImageForSurface(SourceSurface* aSurface,
     gfxWarning() << "Failed getting DataSourceSurface for Skia image";
     return nullptr;
   }
+
+  // Skia doesn't support RGBX surfaces so ensure that the alpha value is opaque
+  // white.
+  MOZ_ASSERT(VerifyRGBXCorners(surf->GetData(), surf->GetSize(), surf->Stride(),
+                               surf->GetFormat(), aBounds, aMatrix));
 
   SkPixmap pixmap(MakeSkiaImageInfo(surf->GetSize(), surf->GetFormat()),
                   surf->GetData(), surf->Stride());
@@ -263,10 +261,6 @@ static sk_sp<SkImage> GetSkImageForSurface(SourceSurface* aSurface,
     gfxDebug() << "Failed making Skia raster image for temporary surface";
   }
 
-  // Skia doesn't support RGBX surfaces so ensure that the alpha value is opaque
-  // white.
-  MOZ_ASSERT(VerifyRGBXCorners(surf->GetData(), surf->GetSize(), surf->Stride(),
-                               surf->GetFormat(), aBounds, aMatrix));
   return image;
 }
 
@@ -325,6 +319,14 @@ already_AddRefed<SourceSurface> DrawTargetSkia::Snapshot() {
   }
 
   return snapshot.forget();
+}
+
+already_AddRefed<SourceSurface> DrawTargetSkia::GetBackingSurface() {
+  if (mBackingSurface) {
+    RefPtr<SourceSurface> snapshot = mBackingSurface;
+    return snapshot.forget();
+  }
+  return Snapshot();
 }
 
 bool DrawTargetSkia::LockBits(uint8_t** aData, IntSize* aSize, int32_t* aStride,
@@ -405,8 +407,9 @@ static bool ExtractAlphaBitmap(const sk_sp<SkImage>& aImage,
   return false;
 }
 
-static sk_sp<SkImage> ExtractAlphaForSurface(SourceSurface* aSurface) {
-  sk_sp<SkImage> image = GetSkImageForSurface(aSurface);
+static sk_sp<SkImage> ExtractAlphaForSurface(SourceSurface* aSurface,
+                                             Maybe<MutexAutoLock>& aLock) {
+  sk_sp<SkImage> image = GetSkImageForSurface(aSurface, &aLock);
   if (!image) {
     return nullptr;
   }
@@ -425,12 +428,12 @@ static sk_sp<SkImage> ExtractAlphaForSurface(SourceSurface* aSurface) {
 }
 
 static void SetPaintPattern(SkPaint& aPaint, const Pattern& aPattern,
-                            Float aAlpha = 1.0,
+                            Maybe<MutexAutoLock>& aLock, Float aAlpha = 1.0,
                             const SkMatrix* aMatrix = nullptr,
                             const Rect* aBounds = nullptr) {
   switch (aPattern.GetType()) {
     case PatternType::COLOR: {
-      Color color = static_cast<const ColorPattern&>(aPattern).mColor;
+      DeviceColor color = static_cast<const ColorPattern&>(aPattern).mColor;
       aPaint.setColor(ColorToSkColor(color, aAlpha));
       break;
     }
@@ -440,11 +443,10 @@ static void SetPaintPattern(SkPaint& aPaint, const Pattern& aPattern,
       GradientStopsSkia* stops =
           static_cast<GradientStopsSkia*>(pat.mStops.get());
       if (!stops || stops->mCount < 2 || !pat.mBegin.IsFinite() ||
-          !pat.mEnd.IsFinite()) {
+          !pat.mEnd.IsFinite() || pat.mBegin == pat.mEnd) {
         aPaint.setColor(SK_ColorTRANSPARENT);
       } else {
-        SkShader::TileMode mode =
-            ExtendModeToTileMode(stops->mExtendMode, Axis::BOTH);
+        SkTileMode mode = ExtendModeToTileMode(stops->mExtendMode, Axis::BOTH);
         SkPoint points[2];
         points[0] = SkPoint::Make(SkFloatToScalar(pat.mBegin.x),
                                   SkFloatToScalar(pat.mBegin.y));
@@ -474,11 +476,11 @@ static void SetPaintPattern(SkPaint& aPaint, const Pattern& aPattern,
           static_cast<GradientStopsSkia*>(pat.mStops.get());
       if (!stops || stops->mCount < 2 || !pat.mCenter1.IsFinite() ||
           !IsFinite(pat.mRadius1) || !pat.mCenter2.IsFinite() ||
-          !IsFinite(pat.mRadius2)) {
+          !IsFinite(pat.mRadius2) ||
+          (pat.mCenter1 == pat.mCenter2 && pat.mRadius1 == pat.mRadius2)) {
         aPaint.setColor(SK_ColorTRANSPARENT);
       } else {
-        SkShader::TileMode mode =
-            ExtendModeToTileMode(stops->mExtendMode, Axis::BOTH);
+        SkTileMode mode = ExtendModeToTileMode(stops->mExtendMode, Axis::BOTH);
         SkPoint points[2];
         points[0] = SkPoint::Make(SkFloatToScalar(pat.mCenter1.x),
                                   SkFloatToScalar(pat.mCenter1.y));
@@ -502,10 +504,49 @@ static void SetPaintPattern(SkPaint& aPaint, const Pattern& aPattern,
       }
       break;
     }
+    case PatternType::CONIC_GRADIENT: {
+      const ConicGradientPattern& pat =
+          static_cast<const ConicGradientPattern&>(aPattern);
+      GradientStopsSkia* stops =
+          static_cast<GradientStopsSkia*>(pat.mStops.get());
+      if (!stops || stops->mCount < 2 || !pat.mCenter.IsFinite() ||
+          !IsFinite(pat.mAngle)) {
+        aPaint.setColor(SK_ColorTRANSPARENT);
+      } else {
+        SkMatrix mat;
+        GfxMatrixToSkiaMatrix(pat.mMatrix, mat);
+        if (aMatrix) {
+          mat.postConcat(*aMatrix);
+        }
+
+        SkScalar cx = SkFloatToScalar(pat.mCenter.x);
+        SkScalar cy = SkFloatToScalar(pat.mCenter.y);
+
+        // Skia's sweep gradient angles are relative to the x-axis, not the
+        // y-axis.
+        Float angle = (pat.mAngle * 180.0 / M_PI) - 90.0;
+        if (angle != 0.0) {
+          mat.preRotate(angle, cx, cy);
+        }
+
+        SkTileMode mode = ExtendModeToTileMode(stops->mExtendMode, Axis::BOTH);
+        sk_sp<SkShader> shader = SkGradientShader::MakeSweep(
+            cx, cy, &stops->mColors.front(), &stops->mPositions.front(),
+            stops->mCount, mode, 360 * pat.mStartOffset, 360 * pat.mEndOffset,
+            0, &mat);
+
+        if (shader) {
+          aPaint.setShader(shader);
+        } else {
+          aPaint.setColor(SK_ColorTRANSPARENT);
+        }
+      }
+      break;
+    }
     case PatternType::SURFACE: {
       const SurfacePattern& pat = static_cast<const SurfacePattern&>(aPattern);
       sk_sp<SkImage> image =
-          GetSkImageForSurface(pat.mSurface, aBounds, &pat.mMatrix);
+          GetSkImageForSurface(pat.mSurface, &aLock, aBounds, &pat.mMatrix);
       if (!image) {
         aPaint.setColor(SK_ColorTRANSPARENT);
         break;
@@ -522,12 +563,10 @@ static void SetPaintPattern(SkPaint& aPaint, const Pattern& aPattern,
         mat.preTranslate(pat.mSamplingRect.X(), pat.mSamplingRect.Y());
       }
 
-      SkShader::TileMode xTileMode =
-          ExtendModeToTileMode(pat.mExtendMode, Axis::X_AXIS);
-      SkShader::TileMode yTileMode =
-          ExtendModeToTileMode(pat.mExtendMode, Axis::Y_AXIS);
+      SkTileMode xTile = ExtendModeToTileMode(pat.mExtendMode, Axis::X_AXIS);
+      SkTileMode yTile = ExtendModeToTileMode(pat.mExtendMode, Axis::Y_AXIS);
 
-      aPaint.setShader(image->makeShader(xTileMode, yTileMode, &mat));
+      aPaint.setShader(image->makeShader(xTile, yTile, &mat));
 
       if (pat.mSamplingFilter == SamplingFilter::POINT) {
         aPaint.setFilterQuality(kNone_SkFilterQuality);
@@ -561,7 +600,7 @@ struct AutoPaintSetup {
                  const Rect* aSourceBounds = nullptr)
       : mNeedsRestore(false), mAlpha(1.0) {
     Init(aCanvas, aOptions, aMaskBounds, false);
-    SetPaintPattern(mPaint, aPattern, mAlpha, aMatrix, aSourceBounds);
+    SetPaintPattern(mPaint, aPattern, mLock, mAlpha, aMatrix, aSourceBounds);
   }
 
   AutoPaintSetup(SkCanvas* aCanvas, const DrawOptions& aOptions,
@@ -602,7 +641,9 @@ struct AutoPaintSetup {
       temp.setBlendMode(GfxOpToSkiaOp(aOptions.mCompositionOp));
       temp.setAlpha(ColorFloatToByte(aOptions.mAlpha));
       // TODO: Get a rect here
-      mCanvas->saveLayerPreserveLCDTextRequests(nullptr, &temp);
+      SkCanvas::SaveLayerRec rec(nullptr, &temp,
+                                 SkCanvas::kPreserveLCDText_SaveLayerFlag);
+      mCanvas->saveLayer(rec);
       mNeedsRestore = true;
     } else {
       mPaint.setAlpha(ColorFloatToByte(aOptions.mAlpha));
@@ -615,6 +656,7 @@ struct AutoPaintSetup {
   SkPaint mPaint;
   bool mNeedsRestore;
   SkCanvas* mCanvas;
+  Maybe<MutexAutoLock> mLock;
   Float mAlpha;
 };
 
@@ -630,7 +672,8 @@ void DrawTargetSkia::DrawSurface(SourceSurface* aSurface, const Rect& aDest,
 
   MarkChanged();
 
-  sk_sp<SkImage> image = GetSkImageForSurface(aSurface);
+  Maybe<MutexAutoLock> lock;
+  sk_sp<SkImage> image = GetSkImageForSurface(aSurface, &lock);
   if (!image) {
     return;
   }
@@ -649,11 +692,6 @@ void DrawTargetSkia::DrawSurface(SourceSurface* aSurface, const Rect& aDest,
 }
 
 DrawTargetType DrawTargetSkia::GetType() const {
-#ifdef USE_SKIA_GPU
-  if (mGrContext) {
-    return DrawTargetType::HARDWARE_RASTER;
-  }
-#endif
   return DrawTargetType::SOFTWARE_RASTER;
 }
 
@@ -666,7 +704,7 @@ void DrawTargetSkia::DrawFilter(FilterNode* aNode, const Rect& aSourceRect,
 
 void DrawTargetSkia::DrawSurfaceWithShadow(SourceSurface* aSurface,
                                            const Point& aDest,
-                                           const Color& aColor,
+                                           const DeviceColor& aColor,
                                            const Point& aOffset, Float aSigma,
                                            CompositionOp aOperator) {
   if (aSurface->GetSize().IsEmpty()) {
@@ -675,7 +713,8 @@ void DrawTargetSkia::DrawSurfaceWithShadow(SourceSurface* aSurface,
 
   MarkChanged();
 
-  sk_sp<SkImage> image = GetSkImageForSurface(aSurface);
+  Maybe<MutexAutoLock> lock;
+  sk_sp<SkImage> image = GetSkImageForSurface(aSurface, &lock);
   if (!image) {
     return;
   }
@@ -700,10 +739,9 @@ void DrawTargetSkia::DrawSurfaceWithShadow(SourceSurface* aSurface,
   auto shadowDest = IntPoint::Round(aDest + aOffset);
 
   SkBitmap blurMask;
-  if (!UsingSkiaGPU() && ExtractAlphaBitmap(image, &blurMask)) {
-    // Prefer using our own box blur instead of Skia's when we're
-    // not using the GPU. It currently performs much better than
-    // SkBlurImageFilter or SkBlurMaskFilter on the CPU.
+  if (ExtractAlphaBitmap(image, &blurMask)) {
+    // Prefer using our own box blur instead of Skia's. It currently performs
+    // much better than SkBlurImageFilter or SkBlurMaskFilter on the CPU.
     AlphaBoxBlur blur(Rect(0, 0, blurMask.width(), blurMask.height()),
                       int32_t(blurMask.rowBytes()), aSigma, aSigma);
     blur.Blur(reinterpret_cast<uint8_t*>(blurMask.getPixels()));
@@ -715,7 +753,7 @@ void DrawTargetSkia::DrawSurfaceWithShadow(SourceSurface* aSurface,
   } else {
     sk_sp<SkImageFilter> blurFilter(
         SkBlurImageFilter::Make(aSigma, aSigma, nullptr));
-    sk_sp<SkColorFilter> colorFilter(SkColorFilter::MakeModeFilter(
+    sk_sp<SkColorFilter> colorFilter(SkColorFilters::Blend(
         ColorToSkColor(aColor, 1.0f), SkBlendMode::kSrcIn));
 
     shadowPaint.setImageFilter(blurFilter);
@@ -919,29 +957,6 @@ void DrawTargetSkia::Fill(const Path* aPath, const Pattern& aPattern,
   }
 
   mCanvas->drawPath(skiaPath->GetPath(), paint.mPaint);
-}
-
-bool DrawTargetSkia::ShouldLCDRenderText(FontType aFontType,
-                                         AntialiasMode aAntialiasMode) {
-  // Only allow subpixel AA if explicitly permitted.
-  if (!GetPermitSubpixelAA()) {
-    return false;
-  }
-
-  if (aAntialiasMode == AntialiasMode::DEFAULT) {
-    switch (aFontType) {
-      case FontType::MAC:
-      case FontType::GDI:
-      case FontType::DWRITE:
-      case FontType::FONTCONFIG:
-        return true;
-      case FontType::FREETYPE:
-      default:
-        // TODO: Figure out what to do for the other platforms.
-        return false;
-    }
-  }
-  return (aAntialiasMode == AntialiasMode::SUBPIXEL);
 }
 
 #ifdef MOZ_WIDGET_COCOA
@@ -1185,7 +1200,7 @@ void BorrowedCGContext::ReturnCGContextToDrawTarget(DrawTarget* aDT,
 
 static void SetFontColor(CGContextRef aCGContext, CGColorSpaceRef aColorSpace,
                          const Pattern& aPattern) {
-  const Color& color = static_cast<const ColorPattern&>(aPattern).mColor;
+  const DeviceColor& color = static_cast<const ColorPattern&>(aPattern).mColor;
   CGColorRef textColor = ColorToCGColor(aColorSpace, color);
   CGContextSetFillColorWithColor(aCGContext, textColor);
   CGColorRelease(textColor);
@@ -1227,16 +1242,8 @@ bool DrawTargetSkia::FillGlyphsWithCG(ScaledFont* aFont,
                                   macFont->FontSmoothingBackgroundColor());
   SetFontColor(cgContext, mColorSpace, aPattern);
 
-  if (ScaledFontMac::CTFontDrawGlyphsPtr != nullptr) {
-    ScaledFontMac::CTFontDrawGlyphsPtr(macFont->mCTFont, glyphs.begin(),
-                                       positions.begin(), aBuffer.mNumGlyphs,
-                                       cgContext);
-  } else {
-    CGContextSetFont(cgContext, macFont->mFont);
-    CGContextSetFontSize(cgContext, macFont->mSize);
-    CGContextShowGlyphsAtPositions(cgContext, glyphs.begin(), positions.begin(),
-                                   aBuffer.mNumGlyphs);
-  }
+  CTFontDrawGlyphs(macFont->mCTFont, glyphs.begin(), positions.begin(),
+                   aBuffer.mNumGlyphs, cgContext);
 
   // Calculate the area of the text we just drew
   auto* bboxes = new CGRect[aBuffer.mNumGlyphs];
@@ -1264,7 +1271,7 @@ bool DrawTargetSkia::FillGlyphsWithCG(ScaledFont* aFont,
 static bool HasFontSmoothingBackgroundColor(ScaledFont* aFont) {
   // This should generally only be true if we have a popup context menu
   if (aFont && aFont->GetType() == FontType::MAC) {
-    Color fontSmoothingBackgroundColor =
+    DeviceColor fontSmoothingBackgroundColor =
         static_cast<ScaledFontMac*>(aFont)->FontSmoothingBackgroundColor();
     return fontSmoothingBackgroundColor.a > 0;
   }
@@ -1327,77 +1334,35 @@ void DrawTargetSkia::DrawGlyphs(ScaledFont* aFont, const GlyphBuffer& aBuffer,
     aaMode = aOptions.mAntialiasMode;
   }
   bool aaEnabled = aaMode != AntialiasMode::NONE;
-
   paint.mPaint.setAntiAlias(aaEnabled);
-  paint.mPaint.setTypeface(sk_ref_sp(typeface));
-  paint.mPaint.setTextSize(SkFloatToScalar(skiaFont->mSize));
-  paint.mPaint.setTextEncoding(SkPaint::kGlyphID_TextEncoding);
 
-  bool shouldLCDRenderText = ShouldLCDRenderText(aFont->GetType(), aaMode);
-  paint.mPaint.setLCDRenderText(shouldLCDRenderText);
+  SkFont font(sk_ref_sp(typeface), SkFloatToScalar(skiaFont->mSize));
 
-  bool useSubpixelText = true;
+  bool useSubpixelAA =
+      GetPermitSubpixelAA() &&
+      (aaMode == AntialiasMode::DEFAULT || aaMode == AntialiasMode::SUBPIXEL);
+  font.setEdging(useSubpixelAA ? SkFont::Edging::kSubpixelAntiAlias
+                               : (aaEnabled ? SkFont::Edging::kAntiAlias
+                                            : SkFont::Edging::kAlias));
 
-  switch (aFont->GetType()) {
-    case FontType::FREETYPE:
-    case FontType::FONTCONFIG:
-      // SkFontHost_cairo does not support subpixel text positioning,
-      // so only enable it for other font hosts.
-      useSubpixelText = false;
-      break;
-    case FontType::MAC:
-      if (aaMode == AntialiasMode::GRAY) {
-        // Normally, Skia enables LCD FontSmoothing which creates thicker fonts
-        // and also enables subpixel AA. CoreGraphics without font smoothing
-        // explicitly creates thinner fonts and grayscale AA.
-        // CoreGraphics doesn't support a configuration that produces thicker
-        // fonts with grayscale AA as LCD Font Smoothing enables or disables
-        // both. However, Skia supports it by enabling font smoothing (producing
-        // subpixel AA) and converts it to grayscale AA. Since Skia doesn't
-        // support subpixel AA on transparent backgrounds, we still want font
-        // smoothing for the thicker fonts, even if it is grayscale AA.
-        //
-        // With explicit Grayscale AA (from -moz-osx-font-smoothing:grayscale),
-        // we want to have grayscale AA with no smoothing at all. This means
-        // disabling the LCD font smoothing behaviour.
-        // To accomplish this we have to explicitly disable hinting,
-        // and disable LCDRenderText.
-        paint.mPaint.setHinting(SkPaint::kNo_Hinting);
-      }
-      break;
-#ifdef XP_WIN
-    case FontType::DWRITE: {
-      ScaledFontDWrite* dwriteFont = static_cast<ScaledFontDWrite*>(aFont);
-      paint.mPaint.setEmbeddedBitmapText(dwriteFont->UseEmbeddedBitmaps());
+  skiaFont->SetupSkFontDrawOptions(font);
 
-      if (dwriteFont->ForceGDIMode()) {
-        paint.mPaint.setEmbeddedBitmapText(true);
-        useSubpixelText = false;
-      }
-      break;
+  // Limit the amount of internal batch allocations Skia does.
+  const uint32_t kMaxGlyphBatchSize = 8192;
+
+  for (uint32_t offset = 0; offset < aBuffer.mNumGlyphs;) {
+    uint32_t batchSize =
+        std::min(aBuffer.mNumGlyphs - offset, kMaxGlyphBatchSize);
+    SkTextBlobBuilder builder;
+    auto runBuffer = builder.allocRunPos(font, batchSize);
+    for (uint32_t i = 0; i < batchSize; i++, offset++) {
+      runBuffer.glyphs[i] = aBuffer.mGlyphs[offset].mIndex;
+      runBuffer.points()[i] = PointToSkPoint(aBuffer.mGlyphs[offset].mPosition);
     }
-#endif
-    default:
-      break;
+
+    sk_sp<SkTextBlob> text = builder.make();
+    mCanvas->drawTextBlob(text, 0, 0, paint.mPaint);
   }
-
-  paint.mPaint.setSubpixelText(useSubpixelText);
-
-  Vector<uint16_t, 64> indices;
-  Vector<SkPoint, 64> offsets;
-  if (!indices.resizeUninitialized(aBuffer.mNumGlyphs) ||
-      !offsets.resizeUninitialized(aBuffer.mNumGlyphs)) {
-    gfxDebug() << "Failed allocating Skia text buffers for GlyphBuffer";
-    return;
-  }
-
-  for (uint32_t i = 0; i < aBuffer.mNumGlyphs; i++) {
-    indices[i] = aBuffer.mGlyphs[i].mIndex;
-    offsets[i] = PointToSkPoint(aBuffer.mGlyphs[i].mPosition);
-  }
-
-  mCanvas->drawPosText(indices.begin(), indices.length() * sizeof(uint16_t),
-                       offsets.begin(), paint.mPaint);
 }
 
 void DrawTargetSkia::FillGlyphs(ScaledFont* aFont, const GlyphBuffer& aBuffer,
@@ -1428,8 +1393,9 @@ void DrawTargetSkia::Mask(const Pattern& aSource, const Pattern& aMask,
   MarkChanged();
   AutoPaintSetup paint(mCanvas, aOptions, aSource, nullptr, &maskMatrix);
 
+  Maybe<MutexAutoLock> lock;
   SkPaint maskPaint;
-  SetPaintPattern(maskPaint, aMask);
+  SetPaintPattern(maskPaint, aMask, lock);
 
   SkBitmap maskBitmap;
   if (!maskBitmap.tryAllocPixelsFlags(
@@ -1458,13 +1424,15 @@ void DrawTargetSkia::MaskSurface(const Pattern& aSource, SourceSurface* aMask,
                                            SkFloatToScalar(-aOffset.y));
   AutoPaintSetup paint(mCanvas, aOptions, aSource, nullptr, &invOffset);
 
-  sk_sp<SkImage> alphaMask = ExtractAlphaForSurface(aMask);
+  Maybe<MutexAutoLock> lock;
+  sk_sp<SkImage> alphaMask = ExtractAlphaForSurface(aMask, lock);
   if (!alphaMask) {
     gfxDebug() << *this << ": MaskSurface() failed to extract alpha for mask";
     return;
   }
 
-  mCanvas->drawImage(alphaMask, aOffset.x, aOffset.y, &paint.mPaint);
+  mCanvas->drawImage(alphaMask, aOffset.x + aMask->GetRect().x,
+                     aOffset.y + aMask->GetRect().y, &paint.mPaint);
 }
 
 bool DrawTarget::Draw3DTransformedSurface(SourceSurface* aSurface,
@@ -1485,7 +1453,8 @@ bool DrawTarget::Draw3DTransformedSurface(SourceSurface* aSurface,
   fullMat.PostTranslate(-xformBounds.X(), -xformBounds.Y(), 0);
 
   // Read in the source data.
-  sk_sp<SkImage> srcImage = GetSkImageForSurface(aSurface);
+  Maybe<MutexAutoLock> lock;
+  sk_sp<SkImage> srcImage = GetSkImageForSurface(aSurface, &lock);
   if (!srcImage) {
     return true;
   }
@@ -1547,7 +1516,8 @@ bool DrawTargetSkia::Draw3DTransformedSurface(SourceSurface* aSurface,
 
   MarkChanged();
 
-  sk_sp<SkImage> image = GetSkImageForSurface(aSurface);
+  Maybe<MutexAutoLock> lock;
+  sk_sp<SkImage> image = GetSkImageForSurface(aSurface, &lock);
   if (!image) {
     return true;
   }
@@ -1587,18 +1557,6 @@ already_AddRefed<SourceSurface> DrawTargetSkia::CreateSourceSurfaceFromData(
 already_AddRefed<DrawTarget> DrawTargetSkia::CreateSimilarDrawTarget(
     const IntSize& aSize, SurfaceFormat aFormat) const {
   RefPtr<DrawTargetSkia> target = new DrawTargetSkia();
-#ifdef USE_SKIA_GPU
-  if (UsingSkiaGPU()) {
-    // Try to create a GPU draw target first if we're currently using the GPU.
-    // Mark the DT as cached so that shadow DTs, extracted subrects, and similar
-    // can be reused.
-    if (target->InitWithGrContext(mGrContext.get(), aSize, aFormat, true)) {
-      return target.forget();
-    }
-    // Otherwise, just fall back to a software draw target.
-  }
-#endif
-
 #ifdef DEBUG
   if (!IsBackedByPixels(mCanvas)) {
     // If our canvas is backed by vector storage such as PDF then we want to
@@ -1617,60 +1575,38 @@ already_AddRefed<DrawTarget> DrawTargetSkia::CreateSimilarDrawTarget(
 
 bool DrawTargetSkia::CanCreateSimilarDrawTarget(const IntSize& aSize,
                                                 SurfaceFormat aFormat) const {
-  return size_t(std::max(aSize.width, aSize.height)) < GetMaxSurfaceSize();
+  auto minmaxPair = std::minmax(aSize.width, aSize.height);
+  return minmaxPair.first >= 0 &&
+         size_t(minmaxPair.second) < GetMaxSurfaceSize();
 }
 
-bool DrawTargetSkia::UsingSkiaGPU() const {
-#ifdef USE_SKIA_GPU
-  return !!mGrContext;
-#else
-  return false;
-#endif
+RefPtr<DrawTarget> DrawTargetSkia::CreateClippedDrawTarget(
+    const Rect& aBounds, SurfaceFormat aFormat) {
+  SkIRect clipBounds;
+
+  RefPtr<DrawTarget> result;
+  // Doing this save()/restore() dance is wasteful
+  mCanvas->save();
+  if (!aBounds.IsEmpty()) {
+    mCanvas->clipRect(RectToSkRect(aBounds), SkClipOp::kIntersect, true);
+  }
+  if (mCanvas->getDeviceClipBounds(&clipBounds)) {
+    RefPtr<DrawTarget> dt = CreateSimilarDrawTarget(
+        IntSize(clipBounds.width(), clipBounds.height()), aFormat);
+    result = gfx::Factory::CreateOffsetDrawTarget(
+        dt, IntPoint(clipBounds.x(), clipBounds.y()));
+    result->SetTransform(mTransform);
+  } else {
+    // Everything is clipped but we still want some kind of surface
+    result = CreateSimilarDrawTarget(IntSize(1, 1), aFormat);
+  }
+  mCanvas->restore();
+  return result;
 }
-
-#ifdef USE_SKIA_GPU
-already_AddRefed<SourceSurface> DrawTargetSkia::OptimizeGPUSourceSurface(
-    SourceSurface* aSurface) const {
-  // Check if the underlying SkImage already has an associated GrTexture.
-  sk_sp<SkImage> image = GetSkImageForSurface(aSurface);
-  if (!image || image->isTextureBacked()) {
-    RefPtr<SourceSurface> surface(aSurface);
-    return surface.forget();
-  }
-
-  // Upload the SkImage to a GrTexture otherwise.
-  sk_sp<SkImage> texture = image->makeTextureImage(mGrContext.get(), nullptr);
-  if (texture) {
-    // Create a new SourceSurfaceSkia whose SkImage contains the GrTexture.
-    RefPtr<SourceSurfaceSkia> surface = new SourceSurfaceSkia();
-    if (surface->InitFromImage(texture, aSurface->GetFormat())) {
-      return surface.forget();
-    }
-  }
-
-  // The data was too big to fit in a GrTexture.
-  if (aSurface->GetType() == SurfaceType::SKIA) {
-    // It is already a Skia source surface, so just reuse it as-is.
-    RefPtr<SourceSurface> surface(aSurface);
-    return surface.forget();
-  }
-
-  // Wrap it in a Skia source surface so that can do tiled uploads on-demand.
-  RefPtr<SourceSurfaceSkia> surface = new SourceSurfaceSkia();
-  surface->InitFromImage(image);
-  return surface.forget();
-}
-#endif
 
 already_AddRefed<SourceSurface>
 DrawTargetSkia::OptimizeSourceSurfaceForUnknownAlpha(
     SourceSurface* aSurface) const {
-#ifdef USE_SKIA_GPU
-  if (UsingSkiaGPU()) {
-    return OptimizeGPUSourceSurface(aSurface);
-  }
-#endif
-
   if (aSurface->GetType() == SurfaceType::SKIA) {
     RefPtr<SourceSurface> surface(aSurface);
     return surface.forget();
@@ -1690,12 +1626,6 @@ DrawTargetSkia::OptimizeSourceSurfaceForUnknownAlpha(
 
 already_AddRefed<SourceSurface> DrawTargetSkia::OptimizeSourceSurface(
     SourceSurface* aSurface) const {
-#ifdef USE_SKIA_GPU
-  if (UsingSkiaGPU()) {
-    return OptimizeGPUSourceSurface(aSurface);
-  }
-#endif
-
   if (aSurface->GetType() == SurfaceType::SKIA) {
     RefPtr<SourceSurface> surface(aSurface);
     return surface.forget();
@@ -1714,48 +1644,9 @@ already_AddRefed<SourceSurface> DrawTargetSkia::OptimizeSourceSurface(
   return dataSurface.forget();
 }
 
-#ifdef USE_SKIA_GPU
-static inline GrGLenum GfxFormatToGrGLFormat(SurfaceFormat format) {
-  switch (format) {
-    case SurfaceFormat::B8G8R8A8:
-      return LOCAL_GL_BGRA8_EXT;
-    case SurfaceFormat::B8G8R8X8:
-      // We probably need to do something here.
-      return LOCAL_GL_BGRA8_EXT;
-    case SurfaceFormat::R5G6B5_UINT16:
-      return LOCAL_GL_RGB565;
-    case SurfaceFormat::A8:
-      return LOCAL_GL_ALPHA8;
-    default:
-      return LOCAL_GL_RGBA8;
-  }
-}
-#endif
-
 already_AddRefed<SourceSurface>
 DrawTargetSkia::CreateSourceSurfaceFromNativeSurface(
     const NativeSurface& aSurface) const {
-#ifdef USE_SKIA_GPU
-  if (aSurface.mType == NativeSurfaceType::OPENGL_TEXTURE && UsingSkiaGPU()) {
-    // Wrap the OpenGL texture id in a Skia texture handle.
-    GrGLTextureInfo texInfo;
-    texInfo.fTarget = LOCAL_GL_TEXTURE_2D;
-    texInfo.fID = (GrGLuint)(uintptr_t)aSurface.mSurface;
-    texInfo.fFormat = GfxFormatToGrGLFormat(aSurface.mFormat);
-    GrBackendTexture texDesc(aSurface.mSize.width, aSurface.mSize.height,
-                             GrMipMapped::kNo, texInfo);
-    sk_sp<SkImage> texture = SkImage::MakeFromAdoptedTexture(
-        mGrContext.get(), texDesc, kTopLeft_GrSurfaceOrigin,
-        GfxFormatToSkiaColorType(aSurface.mFormat),
-        GfxFormatToSkiaAlphaType(aSurface.mFormat));
-    RefPtr<SourceSurfaceSkia> newSurf = new SourceSurfaceSkia();
-    if (texture && newSurf->InitFromImage(texture, aSurface.mFormat)) {
-      return newSurf.forget();
-    }
-    return nullptr;
-  }
-#endif
-
   return nullptr;
 }
 
@@ -1764,7 +1655,8 @@ void DrawTargetSkia::CopySurface(SourceSurface* aSurface,
                                  const IntPoint& aDestination) {
   MarkChanged();
 
-  sk_sp<SkImage> image = GetSkImageForSurface(aSurface);
+  Maybe<MutexAutoLock> lock;
+  sk_sp<SkImage> image = GetSkImageForSurface(aSurface, &lock);
   if (!image) {
     return;
   }
@@ -1791,6 +1683,11 @@ void DrawTargetSkia::CopySurface(SourceSurface* aSurface,
   mCanvas->restore();
 }
 
+static inline SkPixelGeometry GetSkPixelGeometry() {
+  return Factory::GetBGRSubpixelOrder() ? kBGR_H_SkPixelGeometry
+                                        : kRGB_H_SkPixelGeometry;
+}
+
 bool DrawTargetSkia::Init(const IntSize& aSize, SurfaceFormat aFormat) {
   if (size_t(std::max(aSize.width, aSize.height)) > GetMaxSurfaceSize()) {
     return false;
@@ -1800,7 +1697,8 @@ bool DrawTargetSkia::Init(const IntSize& aSize, SurfaceFormat aFormat) {
   // cairo
   SkImageInfo info = MakeSkiaImageInfo(aSize, aFormat);
   size_t stride = SkAlign4(info.minRowBytes());
-  mSurface = SkSurface::MakeRaster(info, stride, nullptr);
+  SkSurfaceProps props(0, GetSkPixelGeometry());
+  mSurface = SkSurface::MakeRaster(info, stride, &props);
   if (!mSurface) {
     return false;
   }
@@ -1838,46 +1736,19 @@ bool DrawTargetSkia::Init(SkCanvas* aCanvas) {
   return true;
 }
 
-#ifdef USE_SKIA_GPU
-/** Indicating a DT should be cached means that space will be reserved in Skia's
- * cache for the render target at creation time, with any unused resources
- * exceeding the cache limits being purged. When the DT is freed, it will then
- * be guaranteed to be kept around for subsequent allocations until it gets
- * incidentally purged.
- *
- * If it is not marked as cached, no space will be purged to make room for the
- * render target in the cache. When the DT is freed, If there is space within
- * the resource limits it may be added to the cache, otherwise it will be freed
- * immediately if the cache is already full.
- *
- * If you want to ensure that the resources will be kept around for reuse, it is
- * better to mark them as cached. Such resources should be short-lived to ensure
- * they don't permanently tie up cache resource limits. Long-lived resources
- * should generally be left as uncached.
- *
- * In neither case will cache resource limits affect whether the resource
- * allocation succeeds. The amount of in-use GPU resources is allowed to exceed
- * the size of the cache. Thus, only hard GPU out-of-memory conditions will
- * cause resource allocation to fail.
- */
-bool DrawTargetSkia::InitWithGrContext(GrContext* aGrContext,
-                                       const IntSize& aSize,
-                                       SurfaceFormat aFormat, bool aCached) {
-  MOZ_ASSERT(aGrContext, "null GrContext");
+bool DrawTargetSkia::Init(unsigned char* aData, const IntSize& aSize,
+                          int32_t aStride, SurfaceFormat aFormat,
+                          bool aUninitialized) {
+  MOZ_ASSERT((aFormat != SurfaceFormat::B8G8R8X8) || aUninitialized ||
+             VerifyRGBXFormat(aData, aSize, aStride, aFormat));
 
-  if (size_t(std::max(aSize.width, aSize.height)) > GetMaxSurfaceSize()) {
-    return false;
-  }
-
-  // Create a GPU rendertarget/texture using the supplied GrContext.
-  // MakeRenderTarget also implicitly clears the underlying texture on creation.
-  mSurface = SkSurface::MakeRenderTarget(aGrContext, SkBudgeted(aCached),
-                                         MakeSkiaImageInfo(aSize, aFormat));
+  SkSurfaceProps props(0, GetSkPixelGeometry());
+  mSurface = SkSurface::MakeRasterDirect(MakeSkiaImageInfo(aSize, aFormat),
+                                         aData, aStride, &props);
   if (!mSurface) {
     return false;
   }
 
-  mGrContext = sk_ref_sp(aGrContext);
   mSize = aSize;
   mFormat = aFormat;
   mCanvas = mSurface->getCanvas();
@@ -1885,25 +1756,41 @@ bool DrawTargetSkia::InitWithGrContext(GrContext* aGrContext,
   return true;
 }
 
-#endif
-
-bool DrawTargetSkia::Init(unsigned char* aData, const IntSize& aSize,
-                          int32_t aStride, SurfaceFormat aFormat,
-                          bool aUninitialized) {
-  MOZ_ASSERT((aFormat != SurfaceFormat::B8G8R8X8) || aUninitialized ||
-             VerifyRGBXFormat(aData, aSize, aStride, aFormat));
-
-  mSurface = SkSurface::MakeRasterDirect(MakeSkiaImageInfo(aSize, aFormat),
-                                         aData, aStride);
-  if (!mSurface) {
+bool DrawTargetSkia::Init(RefPtr<DataSourceSurface>&& aSurface) {
+  auto map =
+      new DataSourceSurface::ScopedMap(aSurface, DataSourceSurface::READ_WRITE);
+  if (!map->IsMapped()) {
+    delete map;
     return false;
   }
 
-  mSize = aSize;
-  mFormat = aFormat;
+  SurfaceFormat format = aSurface->GetFormat();
+  IntSize size = aSurface->GetSize();
+  MOZ_ASSERT((format != SurfaceFormat::B8G8R8X8) ||
+             VerifyRGBXFormat(map->GetData(), size, map->GetStride(), format));
+
+  SkSurfaceProps props(0, GetSkPixelGeometry());
+  mSurface = SkSurface::MakeRasterDirectReleaseProc(
+      MakeSkiaImageInfo(size, format), map->GetData(), map->GetStride(),
+      DrawTargetSkia::ReleaseMappedSkSurface, map, &props);
+  if (!mSurface) {
+    delete map;
+    return false;
+  }
+
+  // map is now owned by mSurface
+  mBackingSurface = std::move(aSurface);
+  mSize = size;
+  mFormat = format;
   mCanvas = mSurface->getCanvas();
-  SetPermitSubpixelAA(IsOpaque(mFormat));
+  SetPermitSubpixelAA(IsOpaque(format));
   return true;
+}
+
+/* static */ void DrawTargetSkia::ReleaseMappedSkSurface(void* aPixels,
+                                                         void* aContext) {
+  auto map = reinterpret_cast<DataSourceSurface::ScopedMap*>(aContext);
+  delete map;
 }
 
 void DrawTargetSkia::SetTransform(const Matrix& aTransform) {
@@ -1914,16 +1801,6 @@ void DrawTargetSkia::SetTransform(const Matrix& aTransform) {
 }
 
 void* DrawTargetSkia::GetNativeSurface(NativeSurfaceType aType) {
-#ifdef USE_SKIA_GPU
-  if (aType == NativeSurfaceType::OPENGL_TEXTURE && mSurface) {
-    GrBackendTexture tex =
-        mSurface->getBackendTexture(SkSurface::kFlushRead_BackendHandleAccess);
-    GrGLTextureInfo info;
-    if (tex.getGLTextureInfo(&info)) {
-      return (void*)(uintptr_t)info.fID;
-    }
-  }
-#endif
   return nullptr;
 }
 
@@ -2013,11 +1890,16 @@ void DrawTargetSkia::PushLayerWithBlend(bool aOpaque, Float aOpacity,
     }
   }
 
-  sk_sp<SkImage> clipImage = aMask ? GetSkImageForSurface(aMask) : nullptr;
+  // We don't pass a lock object to GetSkImageForSurface here, to force a
+  // copy of the data if this is a copy-on-write snapshot. If we instead held
+  // the lock until the corresponding PopLayer, we'd risk deadlocking if someone
+  // tried to touch the originating DrawTarget while the layer was pushed.
+  sk_sp<SkImage> clipImage =
+      aMask ? GetSkImageForSurface(aMask, nullptr) : nullptr;
   SkMatrix clipMatrix;
   GfxMatrixToSkiaMatrix(aMaskTransform, clipMatrix);
   if (aMask) {
-    clipMatrix.postTranslate(aMask->GetRect().X(), aMask->GetRect().Y());
+    clipMatrix.preTranslate(aMask->GetRect().X(), aMask->GetRect().Y());
   }
 
   SkCanvas::SaveLayerRec saveRec(
@@ -2093,5 +1975,4 @@ void DrawTargetSkia::MarkChanged() {
   }
 }
 
-}  // namespace gfx
-}  // namespace mozilla
+}  // namespace mozilla::gfx

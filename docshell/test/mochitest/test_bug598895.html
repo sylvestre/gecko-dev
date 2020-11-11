@@ -5,8 +5,8 @@ https://bugzilla.mozilla.org/show_bug.cgi?id=598895
 -->
 <head>
   <title>Test for Bug 598895</title>
-  <script type="application/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
-  <script type="text/javascript" src="/tests/SimpleTest/WindowSnapshot.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/WindowSnapshot.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css"/>
 </head>
 <body>
@@ -27,12 +27,12 @@ win1.document.body.textContent = "Should show";
 
 var windowsLoaded = 0;
 
-window.onmessage = function (ev) {
+window.onmessage = async function(ev) {
   is(ev.data, "loaded", "Message should be 'loaded'");
   if (++windowsLoaded == 2) {
-    var one = snapshotWindow(win1);
-    var two = snapshotWindow(win2);
-    var three = snapshotWindow(win3);
+    var one = await snapshotWindow(win1);
+    var two = await snapshotWindow(win2);
+    var three = await snapshotWindow(win3);
     win1.close();
     win2.close();
     win3.close();
@@ -41,7 +41,7 @@ window.onmessage = function (ev) {
 
     SimpleTest.finish();
   }
-}
+};
 
 var win2 = window.open("file_bug598895_1.html");
 var win3 = window.open("file_bug598895_2.html");

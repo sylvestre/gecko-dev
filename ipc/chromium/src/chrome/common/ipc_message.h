@@ -11,23 +11,26 @@
 
 #include "base/basictypes.h"
 #include "base/pickle.h"
+#include "mozilla/RefPtr.h"
 #include "mozilla/TimeStamp.h"
 
 #ifdef MOZ_TASK_TRACER
-#include "GeckoTaskTracer.h"
-#endif
-
-#if defined(OS_POSIX)
-#include "nsAutoPtr.h"
+#  include "GeckoTaskTracer.h"
 #endif
 
 #ifdef FUZZING
-#include "mozilla/ipc/Faulty.h"
+#  include "mozilla/ipc/Faulty.h"
 #endif
 
 namespace base {
 struct FileDescriptor;
 }
+
+namespace mozilla {
+namespace ipc {
+class MiniTransceiver;
+}
+}  // namespace mozilla
 
 class FileDescriptorSet;
 
@@ -59,6 +62,7 @@ class Message : public Pickle {
     NORMAL_PRIORITY = 0,
     INPUT_PRIORITY = 1,
     HIGH_PRIORITY = 2,
+    MEDIUMHIGH_PRIORITY = 3,
   };
 
   enum MessageCompression {
@@ -216,6 +220,8 @@ class Message : public Pickle {
 
   bool is_reply_error() const { return header()->flags.IsReplyError(); }
 
+  bool is_valid() const { return !!header(); }
+
   msgid_t type() const { return header()->type; }
 
   int32_t routing_id() const { return header()->routing; }
@@ -282,6 +288,9 @@ class Message : public Pickle {
     return true;
   }
 
+  // We should not be sending messages that are smaller than our header size.
+  void AssertAsLargeAsHeader() const;
+
   // Used for async messages with no parameters.
   static void Log(const Message* msg, std::wstring* l) {}
 
@@ -318,10 +327,10 @@ class Message : public Pickle {
   bool ReadFileDescriptor(PickleIterator* iter,
                           base::FileDescriptor* descriptor) const;
 
-#if defined(OS_MACOSX)
+#  if defined(OS_MACOSX)
   void set_fd_cookie(uint32_t cookie) { header()->cookie = cookie; }
   uint32_t fd_cookie() const { return header()->cookie; }
-#endif
+#  endif
 #endif
 
   friend class Channel;
@@ -330,6 +339,7 @@ class Message : public Pickle {
 #ifdef FUZZING
   friend class mozilla::ipc::Faulty;
 #endif
+  friend class mozilla::ipc::MiniTransceiver;
 
 #ifdef MOZ_TASK_TRACER
   void TaskTracerDispatch();
@@ -354,9 +364,9 @@ class Message : public Pickle {
     HeaderFlags flags;  // specifies control flags for the message
 #if defined(OS_POSIX)
     uint32_t num_fds;  // the number of descriptors included with this message
-#if defined(OS_MACOSX)
+#  if defined(OS_MACOSX)
     uint32_t cookie;  // cookie to ACK that the descriptors have been read.
-#endif
+#  endif
 #endif
     union {
       // For Interrupt messages, a guess at what the *other* side's stack depth

@@ -4,21 +4,20 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 #if !defined(MediaInfo_h)
-#define MediaInfo_h
+#  define MediaInfo_h
 
-#include "mozilla/UniquePtr.h"
-#include "mozilla/RefPtr.h"
-#include "nsDataHashtable.h"
-#include "nsString.h"
-#include "nsTArray.h"
-#include "AudioConfig.h"
-#include "ImageTypes.h"
-#include "MediaData.h"
-#include "TrackID.h"  // for TrackID
-#include "TimeUnits.h"
-#include "mozilla/gfx/Point.h"  // for gfx::IntSize
-#include "mozilla/gfx/Rect.h"   // for gfx::IntRect
-#include "mozilla/gfx/Types.h"  // for gfx::ColorDepth
+#  include "mozilla/UniquePtr.h"
+#  include "mozilla/RefPtr.h"
+#  include "nsDataHashtable.h"
+#  include "nsString.h"
+#  include "nsTArray.h"
+#  include "AudioConfig.h"
+#  include "ImageTypes.h"
+#  include "MediaData.h"
+#  include "TimeUnits.h"
+#  include "mozilla/gfx/Point.h"  // for gfx::IntSize
+#  include "mozilla/gfx/Rect.h"   // for gfx::IntRect
+#  include "mozilla/gfx/Types.h"  // for gfx::ColorDepth
 
 namespace mozilla {
 
@@ -32,6 +31,9 @@ class MetadataTag {
       : mKey(aKey), mValue(aValue) {}
   nsCString mKey;
   nsCString mValue;
+  bool operator==(const MetadataTag& rhs) const {
+    return mKey == rhs.mKey && mValue == rhs.mValue;
+  }
 };
 
 typedef nsDataHashtable<nsCStringHashKey, nsCString> MetadataTags;
@@ -41,7 +43,7 @@ class TrackInfo {
   enum TrackType { kUndefinedTrack, kAudioTrack, kVideoTrack, kTextTrack };
   TrackInfo(TrackType aType, const nsAString& aId, const nsAString& aKind,
             const nsAString& aLabel, const nsAString& aLanguage, bool aEnabled,
-            TrackID aTrackId)
+            uint32_t aTrackId)
       : mId(aId),
         mKind(aKind),
         mLabel(aLabel),
@@ -71,14 +73,14 @@ class TrackInfo {
   nsString mLanguage;
   bool mEnabled;
 
-  TrackID mTrackId;
+  uint32_t mTrackId;
 
   nsCString mMimeType;
   media::TimeUnit mDuration;
   media::TimeUnit mMediaTime;
   CryptoTrack mCrypto;
 
-  nsTArray<MetadataTag> mTags;
+  CopyableTArray<MetadataTag> mTags;
 
   // True if the track is gonna be (decrypted)/decoded and
   // rendered directly by non-gecko components.
@@ -100,7 +102,7 @@ class TrackInfo {
 
   virtual UniquePtr<TrackInfo> Clone() const = 0;
 
-  virtual ~TrackInfo() { MOZ_COUNT_DTOR(TrackInfo); }
+  MOZ_COUNTED_DTOR_VIRTUAL(TrackInfo)
 
  protected:
   TrackInfo(const TrackInfo& aOther) {
@@ -116,9 +118,10 @@ class TrackInfo {
     mCrypto = aOther.mCrypto;
     mIsRenderedExternally = aOther.mIsRenderedExternally;
     mType = aOther.mType;
-    mTags = aOther.mTags;
+    mTags = aOther.mTags.Clone();
     MOZ_COUNT_CTOR(TrackInfo);
   }
+  bool IsEqualTo(const TrackInfo& rhs) const;
 
  private:
   TrackType mType;
@@ -142,9 +145,7 @@ class VideoInfo : public TrackInfo {
       : VideoInfo(gfx::IntSize(aWidth, aHeight)) {}
 
   explicit VideoInfo(const gfx::IntSize& aSize)
-      : TrackInfo(kVideoTrack, NS_LITERAL_STRING("2"),
-                  NS_LITERAL_STRING("main"), EmptyString(), EmptyString(), true,
-                  2),
+      : TrackInfo(kVideoTrack, u"2"_ns, u"main"_ns, u""_ns, u""_ns, true, 2),
         mDisplay(aSize),
         mStereoMode(StereoMode::MONO),
         mImage(aSize),
@@ -153,17 +154,9 @@ class VideoInfo : public TrackInfo {
         mRotation(kDegree_0),
         mImageRect(gfx::IntRect(gfx::IntPoint(), aSize)) {}
 
-  VideoInfo(const VideoInfo& aOther)
-      : TrackInfo(aOther),
-        mDisplay(aOther.mDisplay),
-        mStereoMode(aOther.mStereoMode),
-        mImage(aOther.mImage),
-        mCodecSpecificConfig(aOther.mCodecSpecificConfig),
-        mExtraData(aOther.mExtraData),
-        mRotation(aOther.mRotation),
-        mColorDepth(aOther.mColorDepth),
-        mImageRect(aOther.mImageRect),
-        mAlphaPresent(aOther.mAlphaPresent) {}
+  VideoInfo(const VideoInfo& aOther) = default;
+
+  bool operator==(const VideoInfo& rhs) const;
 
   bool IsValid() const override {
     return mDisplay.width > 0 && mDisplay.height > 0;
@@ -251,6 +244,15 @@ class VideoInfo : public TrackInfo {
   // Should be 8, 10 or 12. Default value is 8.
   gfx::ColorDepth mColorDepth = gfx::ColorDepth::COLOR_8;
 
+  gfx::YUVColorSpace mColorSpace = gfx::YUVColorSpace::UNKNOWN;
+
+  // True indicates no restriction on Y, U, V values (otherwise 16-235 for 8
+  // bits etc)
+  gfx::ColorRange mColorRange = gfx::ColorRange::LIMITED;
+
+  Maybe<int32_t> GetFrameRate() const { return mFrameRate; }
+  void SetFrameRate(int32_t aRate) { mFrameRate = Some(aRate); }
+
  private:
   // mImage may be cropped; currently only used with the WebM container.
   // A negative width or height indicate that no cropping is to occur.
@@ -258,14 +260,14 @@ class VideoInfo : public TrackInfo {
 
   // Indicates whether or not frames may contain alpha information.
   bool mAlphaPresent = false;
+
+  Maybe<int32_t> mFrameRate;
 };
 
 class AudioInfo : public TrackInfo {
  public:
   AudioInfo()
-      : TrackInfo(kAudioTrack, NS_LITERAL_STRING("1"),
-                  NS_LITERAL_STRING("main"), EmptyString(), EmptyString(), true,
-                  1),
+      : TrackInfo(kAudioTrack, u"1"_ns, u"main"_ns, u""_ns, u""_ns, true, 1),
         mRate(0),
         mChannels(0),
         mChannelMap(AudioConfig::ChannelLayout::UNKNOWN_MAP),
@@ -275,16 +277,9 @@ class AudioInfo : public TrackInfo {
         mCodecSpecificConfig(new MediaByteBuffer),
         mExtraData(new MediaByteBuffer) {}
 
-  AudioInfo(const AudioInfo& aOther)
-      : TrackInfo(aOther),
-        mRate(aOther.mRate),
-        mChannels(aOther.mChannels),
-        mChannelMap(aOther.mChannelMap),
-        mBitDepth(aOther.mBitDepth),
-        mProfile(aOther.mProfile),
-        mExtendedProfile(aOther.mExtendedProfile),
-        mCodecSpecificConfig(aOther.mCodecSpecificConfig),
-        mExtraData(aOther.mExtraData) {}
+  AudioInfo(const AudioInfo& aOther) = default;
+
+  bool operator==(const AudioInfo& rhs) const;
 
   static const uint32_t MAX_RATE = 640000;
 
@@ -337,9 +332,9 @@ class EncryptionInfo {
     nsString mType;
 
     // Encryption data.
-    nsTArray<uint8_t> mInitData;
+    CopyableTArray<uint8_t> mInitData;
   };
-  typedef nsTArray<InitData> InitDatas;
+  typedef CopyableTArray<InitData> InitDatas;
 
   // True if the stream has encryption metadata
   bool IsEncrypted() const { return mEncrypted; }
@@ -394,21 +389,11 @@ class MediaInfo {
   }
 
   bool IsEncrypted() const {
-    return (HasAudio() && mAudio.mCrypto.mValid) ||
-           (HasVideo() && mVideo.mCrypto.mValid);
+    return (HasAudio() && mAudio.mCrypto.IsEncrypted()) ||
+           (HasVideo() && mVideo.mCrypto.IsEncrypted());
   }
 
   bool HasValidMedia() const { return HasVideo() || HasAudio(); }
-
-  void AssertValid() const {
-    NS_ASSERTION(!HasAudio() || mAudio.mTrackId != TRACK_INVALID,
-                 "Audio track ID must be valid");
-    NS_ASSERTION(!HasVideo() || mVideo.mTrackId != TRACK_INVALID,
-                 "Audio track ID must be valid");
-    NS_ASSERTION(
-        !HasAudio() || !HasVideo() || mAudio.mTrackId != mVideo.mTrackId,
-        "Duplicate track IDs");
-  }
 
   // TODO: Store VideoInfo and AudioIndo in arrays to support multi-tracks.
   VideoInfo mVideo;
@@ -467,7 +452,7 @@ class TrackInfoSharedPtr {
   }
 
  private:
-  ~TrackInfoSharedPtr() {}
+  ~TrackInfoSharedPtr() = default;
   UniquePtr<TrackInfo> mInfo;
   // A unique ID, guaranteed to change when changing streams.
   uint32_t mStreamSourceID;

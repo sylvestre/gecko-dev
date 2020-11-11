@@ -5,21 +5,21 @@
 
 #include "gtest/gtest.h"
 #include "mozilla/intl/LocaleService.h"
-#include "nsIToolkitChromeRegistry.h"
 
 using namespace mozilla::intl;
 
-TEST(Intl_Locale_LocaleService, Negotiate) {
+TEST(Intl_Locale_LocaleService, Negotiate)
+{
   nsTArray<nsCString> requestedLocales;
   nsTArray<nsCString> availableLocales;
   nsTArray<nsCString> supportedLocales;
   nsAutoCString defaultLocale("en-US");
   int32_t strategy = LocaleService::kLangNegStrategyFiltering;
 
-  requestedLocales.AppendElement(NS_LITERAL_CSTRING("sr"));
+  requestedLocales.AppendElement("sr"_ns);
 
-  availableLocales.AppendElement(NS_LITERAL_CSTRING("sr-Cyrl"));
-  availableLocales.AppendElement(NS_LITERAL_CSTRING("sr-Latn"));
+  availableLocales.AppendElement("sr-Cyrl"_ns);
+  availableLocales.AppendElement("sr-Latn"_ns);
 
   LocaleService::GetInstance()->NegotiateLanguages(
       requestedLocales, availableLocales, defaultLocale, strategy,
@@ -30,16 +30,17 @@ TEST(Intl_Locale_LocaleService, Negotiate) {
   ASSERT_TRUE(supportedLocales[1].EqualsLiteral("en-US"));
 }
 
-TEST(Intl_Locale_LocaleService, UseLSDefaultLocale) {
+TEST(Intl_Locale_LocaleService, UseLSDefaultLocale)
+{
   nsTArray<nsCString> requestedLocales;
   nsTArray<nsCString> availableLocales;
   nsTArray<nsCString> supportedLocales;
-  nsAutoCString defaultLocale("");
+  nsAutoCString defaultLocale("en-US");
   int32_t strategy = LocaleService::kLangNegStrategyLookup;
 
-  requestedLocales.AppendElement(NS_LITERAL_CSTRING("sr"));
+  requestedLocales.AppendElement("sr"_ns);
 
-  availableLocales.AppendElement(NS_LITERAL_CSTRING("de"));
+  availableLocales.AppendElement("de"_ns);
 
   LocaleService::GetInstance()->NegotiateLanguages(
       requestedLocales, availableLocales, defaultLocale, strategy,

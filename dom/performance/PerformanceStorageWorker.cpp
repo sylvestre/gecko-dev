@@ -5,12 +5,14 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "PerformanceStorageWorker.h"
+#include "Performance.h"
+#include "PerformanceResourceTiming.h"
+#include "PerformanceTiming.h"
 #include "mozilla/dom/WorkerRef.h"
 #include "mozilla/dom/WorkerRunnable.h"
 #include "mozilla/dom/WorkerPrivate.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 class PerformanceProxyData {
  public:
@@ -59,30 +61,11 @@ class PerformanceEntryAdder final : public WorkerControlRunnable {
   UniquePtr<PerformanceProxyData> mData;
 };
 
-class PerformanceStorageWorkerHolder final : public WorkerHolder {
-  RefPtr<PerformanceStorageWorker> mStorage;
-
- public:
-  explicit PerformanceStorageWorkerHolder(PerformanceStorageWorker* aStorage)
-      : WorkerHolder("PerformanceStorageWorkerHolder",
-                     WorkerHolder::AllowIdleShutdownStart),
-        mStorage(aStorage) {}
-
-  bool Notify(WorkerStatus aStatus) override {
-    if (mStorage) {
-      RefPtr<PerformanceStorageWorker> storage;
-      storage.swap(mStorage);
-      storage->ShutdownOnWorker();
-    }
-
-    return true;
-  }
-};
-
 }  // namespace
 
-/* static */ already_AddRefed<PerformanceStorageWorker>
-PerformanceStorageWorker::Create(WorkerPrivate* aWorkerPrivate) {
+/* static */
+already_AddRefed<PerformanceStorageWorker> PerformanceStorageWorker::Create(
+    WorkerPrivate* aWorkerPrivate) {
   MOZ_ASSERT(aWorkerPrivate);
   aWorkerPrivate->AssertIsOnWorkerThread();
 
@@ -181,5 +164,4 @@ void PerformanceStorageWorker::AddEntryOnWorker(
   performance->InsertResourceEntry(performanceEntry);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

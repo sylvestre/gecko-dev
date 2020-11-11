@@ -11,7 +11,6 @@
 #include "nsDocShellTreeOwner.h"
 
 // Core Includes
-#include "nsAutoPtr.h"
 #include "nsCOMPtr.h"
 #include "nsCycleCollectionParticipant.h"
 
@@ -21,11 +20,8 @@
 #include "nsIDocShellTreeItem.h"
 #include "nsIInterfaceRequestor.h"
 #include "nsIInterfaceRequestorUtils.h"
-#include "nsIScrollable.h"
-#include "nsISHistory.h"
 #include "nsIWidget.h"
 #include "nsIWebProgress.h"
-#include "nsISecureBrowserUI.h"
 #include "nsIWebBrowser.h"
 #include "nsIWebNavigation.h"
 #include "nsIWebBrowserPersist.h"
@@ -58,11 +54,16 @@ class nsWebBrowserInitInfo {
 
 class mozIDOMWindowProxy;
 
+namespace mozilla {
+namespace dom {
+class WindowGlobalChild;
+}  // namespace dom
+}  // namespace mozilla
+
 class nsWebBrowser final : public nsIWebBrowser,
                            public nsIWebNavigation,
                            public nsIDocShellTreeItem,
                            public nsIBaseWindow,
-                           public nsIScrollable,
                            public nsIInterfaceRequestor,
                            public nsIWebBrowserPersist,
                            public nsIWebProgressListener,
@@ -94,7 +95,6 @@ class nsWebBrowser final : public nsIWebBrowser,
   NS_DECL_NSIBASEWINDOW
   NS_DECL_NSIDOCSHELLTREEITEM
   NS_DECL_NSIINTERFACEREQUESTOR
-  NS_DECL_NSISCROLLABLE
   NS_DECL_NSIWEBBROWSER
   NS_DECL_NSIWEBNAVIGATION
   NS_DECL_NSIWEBBROWSERPERSIST
@@ -104,21 +104,19 @@ class nsWebBrowser final : public nsIWebBrowser,
   void SetAllowDNSPrefetch(bool aAllowPrefetch);
   void FocusActivate();
   void FocusDeactivate();
+  void SetWillChangeProcess();
 
   static already_AddRefed<nsWebBrowser> Create(
       nsIWebBrowserChrome* aContainerWindow, nsIWidget* aParentWidget,
-      const mozilla::OriginAttributes& aOriginAttributes,
-      mozIDOMWindowProxy* aOpener, int aItemType);
+      mozilla::dom::BrowsingContext* aBrowsingContext,
+      mozilla::dom::WindowGlobalChild* aInitialWindowChild);
 
  protected:
   virtual ~nsWebBrowser();
-  NS_IMETHOD InternalDestroy();
+  void InternalDestroy();
 
-  // XXXbz why are these NS_IMETHOD?  They're not interface methods!
-  NS_IMETHOD SetDocShell(nsIDocShell* aDocShell);
-  NS_IMETHOD EnsureDocShellTreeOwner();
-  NS_IMETHOD BindListener(nsISupports* aListener, const nsIID& aIID);
-  NS_IMETHOD EnableGlobalHistory(bool aEnable);
+  void SetDocShell(nsDocShell* aDocShell);
+  void EnsureDocShellTreeOwner();
 
   nsIWidget* EnsureWidget();
 
@@ -132,22 +130,16 @@ class nsWebBrowser final : public nsIWebBrowser,
 
  protected:
   RefPtr<nsDocShellTreeOwner> mDocShellTreeOwner;
-  nsCOMPtr<nsIDocShell> mDocShell;
-  nsCOMPtr<nsIInterfaceRequestor> mDocShellAsReq;
-  nsCOMPtr<nsIBaseWindow> mDocShellAsWin;
-  nsCOMPtr<nsIWebNavigation> mDocShellAsNav;
-  nsCOMPtr<nsIScrollable> mDocShellAsScrollable;
+  RefPtr<nsDocShell> mDocShell;
   mozilla::OriginAttributes mOriginAttributes;
 
   nsCOMPtr<nsIWidget> mInternalWidget;
   nsCOMPtr<nsIWindowWatcher> mWWatch;
   const uint32_t mContentType;
-  bool mActivating;
   bool mShouldEnableHistory;
-  bool mIsActive;
+  bool mWillChangeProcess;
   nativeWindow mParentNativeWindow;
   nsIWebProgressListener* mProgressListener;
-  nsCOMPtr<nsIWebProgress> mWebProgress;
 
   nsCOMPtr<nsIPrintSettings> mPrintSettings;
 

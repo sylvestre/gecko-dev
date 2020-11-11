@@ -26,7 +26,8 @@ class Storage : public nsISupports, public nsWrapperCache {
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(Storage)
 
-  Storage(nsPIDOMWindowInner* aWindow, nsIPrincipal* aPrincipal);
+  Storage(nsPIDOMWindowInner* aWindow, nsIPrincipal* aPrincipal,
+          nsIPrincipal* aStoragePrincipal);
 
   static bool StoragePrefIsEnabled();
 
@@ -43,6 +44,12 @@ class Storage : public nsISupports, public nsWrapperCache {
   virtual int64_t GetOriginQuotaUsage() const = 0;
 
   nsIPrincipal* Principal() const { return mPrincipal; }
+
+  nsIPrincipal* StoragePrincipal() const { return mStoragePrincipal; }
+
+  bool IsPrivateBrowsing() const { return mPrivateBrowsing; }
+
+  bool IsSessionScopedOrLess() const { return mSessionScopedOrLess; }
 
   // WebIDL
   JSObject* WrapObject(JSContext* aCx,
@@ -88,7 +95,10 @@ class Storage : public nsISupports, public nsWrapperCache {
 
   virtual void Clear(nsIPrincipal& aSubjectPrincipal, ErrorResult& aRv) = 0;
 
-  bool IsSessionOnly() const { return mIsSessionOnly; }
+  // The attribute in the WebIDL interface has rather confusing name. So we
+  // shouldn't use this method internally. IsSessionScopedOrLess should be used
+  // directly.
+  bool IsSessionOnly() const { return IsSessionScopedOrLess(); }
 
   //////////////////////////////////////////////////////////////////////////////
   // Testing Methods:
@@ -106,6 +116,11 @@ class Storage : public nsISupports, public nsWrapperCache {
 
   virtual void EndExplicitSnapshot(nsIPrincipal& aSubjectPrincipal,
                                    ErrorResult& aRv) {}
+
+  virtual bool GetHasActiveSnapshot(nsIPrincipal& aSubjectPrincipal,
+                                    ErrorResult& aRv) {
+    return false;
+  }
 
   //////////////////////////////////////////////////////////////////////////////
 
@@ -134,12 +149,6 @@ class Storage : public nsISupports, public nsWrapperCache {
   virtual ~Storage();
 
   // The method checks whether the caller can use a storage.
-  // CanUseStorage is called before any DOM initiated operation
-  // on a storage is about to happen and ensures that the storage's
-  // session-only flag is properly set according the current settings.
-  // It is an optimization since the privileges check and session only
-  // state determination are complex and share the code (comes hand in
-  // hand together).
   bool CanUseStorage(nsIPrincipal& aSubjectPrincipal);
 
   virtual void LastRelease() {}
@@ -147,11 +156,14 @@ class Storage : public nsISupports, public nsWrapperCache {
  private:
   nsCOMPtr<nsPIDOMWindowInner> mWindow;
   nsCOMPtr<nsIPrincipal> mPrincipal;
+  nsCOMPtr<nsIPrincipal> mStoragePrincipal;
+
+  bool mPrivateBrowsing : 1;
 
   // Whether storage is set to persist data only per session, may change
   // dynamically and is set by CanUseStorage function that is called
   // before any operation on the storage.
-  bool mIsSessionOnly : 1;
+  bool mSessionScopedOrLess : 1;
 };
 
 }  // namespace dom

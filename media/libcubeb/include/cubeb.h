@@ -31,19 +31,13 @@ extern "C" {
 
     @code
     cubeb * app_ctx;
-    cubeb_init(&app_ctx, "Example Application");
+    cubeb_init(&app_ctx, "Example Application", NULL);
     int rv;
     uint32_t rate;
     uint32_t latency_frames;
     uint64_t ts;
 
-    rv = cubeb_get_min_latency(app_ctx, &output_params, &latency_frames);
-    if (rv != CUBEB_OK) {
-      fprintf(stderr, "Could not get minimum latency");
-      return rv;
-    }
-
-    rv = cubeb_get_preferred_sample_rate(app_ctx, output_params, &rate);
+    rv = cubeb_get_preferred_sample_rate(app_ctx, &rate);
     if (rv != CUBEB_OK) {
       fprintf(stderr, "Could not get preferred sample-rate");
       return rv;
@@ -53,12 +47,20 @@ extern "C" {
     output_params.format = CUBEB_SAMPLE_FLOAT32NE;
     output_params.rate = rate;
     output_params.channels = 2;
+    output_params.layout = CUBEB_LAYOUT_UNDEFINED;
     output_params.prefs = CUBEB_STREAM_PREF_NONE;
+
+    rv = cubeb_get_min_latency(app_ctx, &output_params, &latency_frames);
+    if (rv != CUBEB_OK) {
+      fprintf(stderr, "Could not get minimum latency");
+      return rv;
+    }
 
     cubeb_stream_params input_params;
     input_params.format = CUBEB_SAMPLE_FLOAT32NE;
     input_params.rate = rate;
     input_params.channels = 1;
+    input_params.layout = CUBEB_LAYOUT_UNDEFINED;
     input_params.prefs = CUBEB_STREAM_PREF_NONE;
 
     cubeb_stream * stm;
@@ -95,14 +97,14 @@ extern "C" {
 
     @code
     long data_cb(cubeb_stream * stm, void * user,
-                 void * input_buffer, void * output_buffer, long nframes)
+                 const void * input_buffer, void * output_buffer, long nframes)
     {
-      float * in  = input_buffer;
+      const float * in  = input_buffer;
       float * out = output_buffer;
 
-      for (i = 0; i < nframes; ++i) {
-        for (c = 0; c < 2; ++c) {
-          buf[i][c] = in[i];
+      for (int i = 0; i < nframes; ++i) {
+        for (int c = 0; c < 2; ++c) {
+          out[2 * i + c] = in[i];
         }
       }
       return nframes;
@@ -222,12 +224,28 @@ enum {
 typedef enum {
   CUBEB_STREAM_PREF_NONE     = 0x00, /**< No stream preferences are requested. */
   CUBEB_STREAM_PREF_LOOPBACK = 0x01, /**< Request a loopback stream. Should be
-                                          specified on the input params and an
-                                          output device to loopback from should
-                                          be passed in place of an input device. */
+                                         specified on the input params and an
+                                         output device to loopback from should
+                                         be passed in place of an input device. */
   CUBEB_STREAM_PREF_DISABLE_DEVICE_SWITCHING = 0x02, /**< Disable switching
                                                           default device on OS
                                                           changes. */
+  CUBEB_STREAM_PREF_VOICE = 0x04, /**< This stream is going to transport voice data.
+                                       Depending on the backend and platform, this can
+                                       change the audio input or output devices
+                                       selected, as well as the quality of the stream,
+                                       for example to accomodate bluetooth SCO modes on
+                                       bluetooth devices. */
+  CUBEB_STREAM_PREF_RAW = 0x08, /**< Windows only. Bypass all signal processing
+                                     except for always on APO, driver and hardware. */
+  CUBEB_STREAM_PREF_PERSIST = 0x10, /**< Request that the volume and mute settings
+                                         should persist across restarts of the stream
+                                         and/or application. May not be honored for
+                                         all backends and platforms. */
+
+  CUBEB_STREAM_PREF_JACK_NO_AUTO_CONNECT = 0x20  /**< Don't automatically try to connect
+                                                      ports.  Only affects the jack
+                                                      backend. */
 } cubeb_stream_prefs;
 
 /** Stream format initialization parameters. */
@@ -479,13 +497,21 @@ CUBEB_EXPORT void cubeb_destroy(cubeb * context);
                   cubeb stream.
     @param stream_name A name for this stream.
     @param input_device Device for the input side of the stream. If NULL the
-                        default input device is used.
+                        default input device is used. Passing a valid cubeb_devid
+                        means the stream only ever uses that device. Passing a NULL
+                        cubeb_devid allows the stream to follow that device type's
+                        OS default.
     @param input_stream_params Parameters for the input side of the stream, or
                                NULL if this stream is output only.
     @param output_device Device for the output side of the stream. If NULL the
-                         default output device is used.
+                         default output device is used. Passing a valid cubeb_devid
+                         means the stream only ever uses that device. Passing a NULL
+                         cubeb_devid allows the stream to follow that device type's
+                         OS default.
     @param output_stream_params Parameters for the output side of the stream, or
-                                NULL if this stream is input only.
+                                NULL if this stream is input only. When input
+                                and output stream parameters are supplied, their
+                                rate has to be the same.
     @param latency_frames Stream latency in frames.  Valid range
                           is [1, 96000].
     @param data_callback Will be called to preroll data before playback is
@@ -551,6 +577,16 @@ CUBEB_EXPORT int cubeb_stream_get_position(cubeb_stream * stream, uint64_t * pos
     @retval CUBEB_ERROR */
 CUBEB_EXPORT int cubeb_stream_get_latency(cubeb_stream * stream, uint32_t * latency);
 
+/** Get the input latency for this stream, in frames. This is the number of
+    frames between the time the audio input devices records the data, and they
+    are available in the data callback.
+    This returns CUBEB_ERROR when the stream is output-only.
+    @param stream
+    @param latency Current approximate stream latency in frames.
+    @retval CUBEB_OK
+    @retval CUBEB_ERROR_NOT_SUPPORTED
+    @retval CUBEB_ERROR */
+CUBEB_EXPORT int cubeb_stream_get_input_latency(cubeb_stream * stream, uint32_t * latency);
 /** Set the volume for a stream.
     @param stream the stream for which to adjust the volume.
     @param volume a float between 0.0 (muted) and 1.0 (maximum volume)
@@ -560,19 +596,13 @@ CUBEB_EXPORT int cubeb_stream_get_latency(cubeb_stream * stream, uint32_t * late
     @retval CUBEB_ERROR_NOT_SUPPORTED */
 CUBEB_EXPORT int cubeb_stream_set_volume(cubeb_stream * stream, float volume);
 
-/** If the stream is stereo, set the left/right panning. If the stream is mono,
-    this has no effect.
-    @param stream the stream for which to change the panning
-    @param panning a number from -1.0 to 1.0. -1.0 means that the stream is
-           fully mixed in the left channel, 1.0 means the stream is fully
-           mixed in the right channel. 0.0 is equal power in the right and
-           left channel (default).
+/** Change a stream's name.
+    @param stream the stream for which to set the name.
+    @param stream_name the new name for the stream
     @retval CUBEB_OK
-    @retval CUBEB_ERROR_INVALID_PARAMETER if stream is null or if panning is
-            outside the [-1.0, 1.0] range.
-    @retval CUBEB_ERROR_NOT_SUPPORTED
-    @retval CUBEB_ERROR stream is not mono nor stereo */
-CUBEB_EXPORT int cubeb_stream_set_panning(cubeb_stream * stream, float panning);
+    @retval CUBEB_ERROR_INVALID_PARAMETER if any pointer is invalid
+    @retval CUBEB_ERROR_NOT_SUPPORTED */
+CUBEB_EXPORT int cubeb_stream_set_name(cubeb_stream * stream, char const * stream_name);
 
 /** Get the current output device for this stream.
     @param stm the stream for which to query the current output device

@@ -7,6 +7,7 @@
 #include "nsStyleUtil.h"
 #include "nsStyleConsts.h"
 
+#include "mozilla/ExpandedPrincipal.h"
 #include "mozilla/FontPropertyTypes.h"
 #include "nsIContent.h"
 #include "nsCSSProps.h"
@@ -15,8 +16,6 @@
 #include "nsStyleStruct.h"
 #include "nsIContentPolicy.h"
 #include "nsIContentSecurityPolicy.h"
-#include "nsIURI.h"
-#include "nsISupportsPrimitives.h"
 #include "nsLayoutUtils.h"
 #include "nsPrintfCString.h"
 #include <cctype>
@@ -107,8 +106,9 @@ void nsStyleUtil::AppendEscapedCSSString(const nsAString& aString,
   aReturn.Append(quoteChar);
 }
 
-/* static */ void nsStyleUtil::AppendEscapedCSSIdent(const nsAString& aIdent,
-                                                     nsAString& aReturn) {
+/* static */
+void nsStyleUtil::AppendEscapedCSSIdent(const nsAString& aIdent,
+                                        nsAString& aReturn) {
   // The relevant parts of the CSS grammar are:
   //   ident    ([-]?{nmstart}|[-][-]){nmchar}*
   //   nmstart  [_a-z]|{nonascii}|{escape}
@@ -166,97 +166,8 @@ void nsStyleUtil::AppendEscapedCSSString(const nsAString& aString,
   }
 }
 
-/* static */ void nsStyleUtil::AppendBitmaskCSSValue(
-    const nsCSSKTableEntry aTable[], int32_t aMaskedValue, int32_t aFirstMask,
-    int32_t aLastMask, nsAString& aResult) {
-  for (int32_t mask = aFirstMask; mask <= aLastMask; mask <<= 1) {
-    if (mask & aMaskedValue) {
-      AppendASCIItoUTF16(nsCSSProps::ValueToKeyword(mask, aTable), aResult);
-      aMaskedValue &= ~mask;
-      if (aMaskedValue) {  // more left
-        aResult.Append(char16_t(' '));
-      }
-    }
-  }
-  MOZ_ASSERT(aMaskedValue == 0, "unexpected bit remaining in bitfield");
-}
-
-/* static */ void nsStyleUtil::AppendAngleValue(const nsStyleCoord& aAngle,
-                                                nsAString& aResult) {
-  MOZ_ASSERT(aAngle.IsAngleValue(), "Should have angle value");
-
-  // Append number.
-  AppendCSSNumber(aAngle.GetAngleValue(), aResult);
-
-  // Append unit.
-  switch (aAngle.GetUnit()) {
-    case eStyleUnit_Degree:
-      aResult.AppendLiteral("deg");
-      break;
-    default:
-      MOZ_ASSERT_UNREACHABLE("unrecognized angle unit");
-  }
-}
-
-/* static */ void nsStyleUtil::AppendPaintOrderValue(uint8_t aValue,
-                                                     nsAString& aResult) {
-  static_assert(
-      NS_STYLE_PAINT_ORDER_BITWIDTH * NS_STYLE_PAINT_ORDER_LAST_VALUE <= 8,
-      "SVGStyleStruct::mPaintOrder and local variables not big enough");
-
-  if (aValue == NS_STYLE_PAINT_ORDER_NORMAL) {
-    aResult.AppendLiteral("normal");
-    return;
-  }
-
-  // Append the minimal value necessary for the given paint order.
-  static_assert(NS_STYLE_PAINT_ORDER_LAST_VALUE == 3,
-                "paint-order values added; check serialization");
-
-  // The following relies on the default order being the order of the
-  // constant values.
-
-  const uint8_t MASK = (1 << NS_STYLE_PAINT_ORDER_BITWIDTH) - 1;
-
-  uint32_t lastPositionToSerialize = 0;
-  for (uint32_t position = NS_STYLE_PAINT_ORDER_LAST_VALUE - 1; position > 0;
-       position--) {
-    uint8_t component =
-        (aValue >> (position * NS_STYLE_PAINT_ORDER_BITWIDTH)) & MASK;
-    uint8_t earlierComponent =
-        (aValue >> ((position - 1) * NS_STYLE_PAINT_ORDER_BITWIDTH)) & MASK;
-    if (component < earlierComponent) {
-      lastPositionToSerialize = position - 1;
-      break;
-    }
-  }
-
-  for (uint32_t position = 0; position <= lastPositionToSerialize; position++) {
-    if (position > 0) {
-      aResult.Append(' ');
-    }
-    uint8_t component = aValue & MASK;
-    switch (component) {
-      case NS_STYLE_PAINT_ORDER_FILL:
-        aResult.AppendLiteral("fill");
-        break;
-
-      case NS_STYLE_PAINT_ORDER_STROKE:
-        aResult.AppendLiteral("stroke");
-        break;
-
-      case NS_STYLE_PAINT_ORDER_MARKERS:
-        aResult.AppendLiteral("markers");
-        break;
-
-      default:
-        MOZ_ASSERT_UNREACHABLE("unexpected paint-order component value");
-    }
-    aValue >>= NS_STYLE_PAINT_ORDER_BITWIDTH;
-  }
-}
-
-/* static */ float nsStyleUtil::ColorComponentToFloat(uint8_t aAlpha) {
+/* static */
+float nsStyleUtil::ColorComponentToFloat(uint8_t aAlpha) {
   // Alpha values are expressed as decimals, so we should convert
   // back, using as few decimal places as possible for
   // round-tripping.
@@ -269,8 +180,33 @@ void nsStyleUtil::AppendEscapedCSSString(const nsAString& aString,
   return rounded;
 }
 
-/* static */ bool nsStyleUtil::IsSignificantChild(
-    nsIContent* aChild, bool aWhitespaceIsSignificant) {
+/* static */
+void nsStyleUtil::GetSerializedColorValue(nscolor aColor,
+                                          nsAString& aSerializedColor) {
+  MOZ_ASSERT(aSerializedColor.IsEmpty());
+
+  const bool hasAlpha = NS_GET_A(aColor) != 255;
+  if (hasAlpha) {
+    aSerializedColor.AppendLiteral("rgba(");
+  } else {
+    aSerializedColor.AppendLiteral("rgb(");
+  }
+  aSerializedColor.AppendInt(NS_GET_R(aColor));
+  aSerializedColor.AppendLiteral(", ");
+  aSerializedColor.AppendInt(NS_GET_G(aColor));
+  aSerializedColor.AppendLiteral(", ");
+  aSerializedColor.AppendInt(NS_GET_B(aColor));
+  if (hasAlpha) {
+    aSerializedColor.AppendLiteral(", ");
+    float alpha = nsStyleUtil::ColorComponentToFloat(NS_GET_A(aColor));
+    nsStyleUtil::AppendCSSNumber(alpha, aSerializedColor);
+  }
+  aSerializedColor.AppendLiteral(")");
+}
+
+/* static */
+bool nsStyleUtil::IsSignificantChild(nsIContent* aChild,
+                                     bool aWhitespaceIsSignificant) {
   bool isText = aChild->IsText();
 
   if (!isText && !aChild->IsComment() && !aChild->IsProcessingInstruction()) {
@@ -281,8 +217,9 @@ void nsStyleUtil::AppendEscapedCSSString(const nsAString& aString,
          (aWhitespaceIsSignificant || !aChild->TextIsOnlyWhitespace());
 }
 
-/* static */ bool nsStyleUtil::ThreadSafeIsSignificantChild(
-    const nsIContent* aChild, bool aWhitespaceIsSignificant) {
+/* static */
+bool nsStyleUtil::ThreadSafeIsSignificantChild(const nsIContent* aChild,
+                                               bool aWhitespaceIsSignificant) {
   bool isText = aChild->IsText();
 
   if (!isText && !aChild->IsComment() && !aChild->IsProcessingInstruction()) {
@@ -298,32 +235,29 @@ void nsStyleUtil::AppendEscapedCSSString(const nsAString& aString,
 // element's content-box, this method checks whether the given
 // "object-position" coordinate might cause overflow in its dimension.
 static bool ObjectPositionCoordMightCauseOverflow(
-    const Position::Coord& aCoord) {
+    const LengthPercentage& aCoord) {
   // Any nonzero length in "object-position" can push us to overflow
   // (particularly if our concrete object size is exactly the same size as the
   // replaced element's content-box).
-  if (aCoord.mLength != 0) {
-    return true;
+  if (!aCoord.ConvertsToPercentage()) {
+    return !aCoord.ConvertsToLength() || aCoord.ToLengthInCSSPixels() != 0.0f;
   }
 
   // Percentages are interpreted as a fraction of the extra space. So,
   // percentages in the 0-100% range are safe, but values outside of that
   // range could cause overflow.
-  if (aCoord.mHasPercent &&
-      (aCoord.mPercent < 0.0f || aCoord.mPercent > 1.0f)) {
-    return true;
-  }
-  return false;
+  float percentage = aCoord.ToPercentage();
+  return percentage < 0.0f || percentage > 1.0f;
 }
 
-/* static */ bool nsStyleUtil::ObjectPropsMightCauseOverflow(
+/* static */
+bool nsStyleUtil::ObjectPropsMightCauseOverflow(
     const nsStylePosition* aStylePos) {
   auto objectFit = aStylePos->mObjectFit;
 
   // "object-fit: cover" & "object-fit: none" can give us a render rect that's
   // larger than our container element's content-box.
-  if (objectFit == NS_STYLE_OBJECT_FIT_COVER ||
-      objectFit == NS_STYLE_OBJECT_FIT_NONE) {
+  if (objectFit == StyleObjectFit::Cover || objectFit == StyleObjectFit::None) {
     return true;
   }
   // (All other object-fit values produce a concrete object size that's no
@@ -332,37 +266,34 @@ static bool ObjectPositionCoordMightCauseOverflow(
   // Check each of our "object-position" coords to see if it could cause
   // overflow in its dimension:
   const Position& objectPosistion = aStylePos->mObjectPosition;
-  if (ObjectPositionCoordMightCauseOverflow(objectPosistion.mXPosition) ||
-      ObjectPositionCoordMightCauseOverflow(objectPosistion.mYPosition)) {
+  if (ObjectPositionCoordMightCauseOverflow(objectPosistion.horizontal) ||
+      ObjectPositionCoordMightCauseOverflow(objectPosistion.vertical)) {
     return true;
   }
 
   return false;
 }
 
-/* static */ bool nsStyleUtil::CSPAllowsInlineStyle(
-    Element* aElement, nsIPrincipal* aPrincipal,
-    nsIPrincipal* aTriggeringPrincipal, nsIURI* aSourceURI,
-    uint32_t aLineNumber, uint32_t aColumnNumber, const nsAString& aStyleText,
-    nsresult* aRv) {
+/* static */
+bool nsStyleUtil::CSPAllowsInlineStyle(
+    dom::Element* aElement, dom::Document* aDocument,
+    nsIPrincipal* aTriggeringPrincipal, uint32_t aLineNumber,
+    uint32_t aColumnNumber, const nsAString& aStyleText, nsresult* aRv) {
   nsresult rv;
 
   if (aRv) {
     *aRv = NS_OK;
   }
 
-  nsIPrincipal* principal = aPrincipal;
-  if (aTriggeringPrincipal &&
-      BasePrincipal::Cast(aTriggeringPrincipal)->OverridesCSP(aPrincipal)) {
-    principal = aTriggeringPrincipal;
-  }
-
   nsCOMPtr<nsIContentSecurityPolicy> csp;
-  rv = principal->GetCsp(getter_AddRefs(csp));
-
-  if (NS_FAILED(rv)) {
-    if (aRv) *aRv = rv;
-    return false;
+  if (aTriggeringPrincipal && BasePrincipal::Cast(aTriggeringPrincipal)
+                                  ->OverridesCSP(aDocument->NodePrincipal())) {
+    nsCOMPtr<nsIExpandedPrincipal> ep = do_QueryInterface(aTriggeringPrincipal);
+    if (ep) {
+      csp = ep->GetCsp();
+    }
+  } else {
+    csp = aDocument->GetCsp();
   }
 
   if (!csp) {
@@ -370,10 +301,19 @@ static bool ObjectPositionCoordMightCauseOverflow(
     return true;
   }
 
+  // Hack to allow Devtools to edit inline styles
+  if (csp->GetSkipAllowInlineStyleCheck()) {
+    return true;
+  }
+
   // query the nonce
   nsAutoString nonce;
   if (aElement && aElement->NodeInfo()->NameAtom() == nsGkAtoms::style) {
-    aElement->GetAttr(kNameSpaceID_None, nsGkAtoms::nonce, nonce);
+    nsString* cspNonce =
+        static_cast<nsString*>(aElement->GetProperty(nsGkAtoms::nonce));
+    if (cspNonce) {
+      nonce = *cspNonce;
+    }
   }
 
   bool allowInlineStyle = true;
@@ -398,7 +338,8 @@ void nsStyleUtil::AppendFontSlantStyle(const FontSlantStyle& aStyle,
     auto angle = aStyle.ObliqueAngle();
     if (angle != FontSlantStyle::kDefaultAngle) {
       aOut.AppendLiteral(" ");
-      AppendAngleValue(nsStyleCoord(angle, eStyleUnit_Degree), aOut);
+      AppendCSSNumber(angle, aOut);
+      aOut.AppendLiteral("deg");
     }
   }
 }

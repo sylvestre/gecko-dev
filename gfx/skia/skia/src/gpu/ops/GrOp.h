@@ -8,21 +8,19 @@
 #ifndef GrOp_DEFINED
 #define GrOp_DEFINED
 
-#include "../private/SkAtomics.h"
-#include "GrGpuResource.h"
-#include "GrNonAtomicRef.h"
-#include "GrTracing.h"
-#include "GrXferProcessor.h"
-#include "SkMatrix.h"
-#include "SkRect.h"
-#include "SkString.h"
-
+#include "include/core/SkMatrix.h"
+#include "include/core/SkRect.h"
+#include "include/core/SkString.h"
+#include "include/gpu/GrGpuResource.h"
+#include "src/gpu/GrNonAtomicRef.h"
+#include "src/gpu/GrTracing.h"
+#include "src/gpu/GrXferProcessor.h"
+#include <atomic>
 #include <new>
 
 class GrCaps;
-class GrGpuCommandBuffer;
 class GrOpFlushState;
-class GrRenderTargetOpList;
+class GrOpsRenderPass;
 
 /**
  * GrOp is the base class for all Ganesh deferred GPU operations. To facilitate reordering and to
@@ -36,6 +34,10 @@ class GrRenderTargetOpList;
  * for drawing the data from both the original ops. When ops are chained each op maintains its own
  * data but they are linked in a list and the head op becomes responsible for executing the work for
  * the chain.
+ *
+ * It is required that chainability is transitive. Moreover, if op A is able to merge with B then
+ * it must be the case that any op that can chain with A will either merge or chain with any op
+ * that can chain to B.
  *
  * The bounds of the op must contain all the vertices in device space *irrespective* of the clip.
  * The bounds are used in determining which clip elements must be applied and thus the bounds cannot
@@ -62,11 +64,11 @@ class GrRenderTargetOpList;
 
 class GrOp : private SkNoncopyable {
 public:
-    virtual ~GrOp();
+    virtual ~GrOp() = default;
 
     virtual const char* name() const = 0;
 
-    typedef std::function<void(GrSurfaceProxy*)> VisitProxyFunc;
+    using VisitProxyFunc = std::function<void(GrTextureProxy*, GrMipMapped)>;
 
     virtual void visitProxies(const VisitProxyFunc&) const {
         // This default implementation assumes the op has no proxies
@@ -152,24 +154,35 @@ public:
     }
 
     /**
+     * This can optionally be called before 'prepare' (but after sorting). Each op that overrides
+     * onPrePrepare must be prepared to handle both cases (when onPrePrepare has been called
+     * ahead of time and when it has not been called).
+     */
+    void prePrepare(GrRecordingContext* context) { this->onPrePrepare(context); }
+
+    /**
      * Called prior to executing. The op should perform any resource creation or data transfers
      * necessary before execute() is called.
      */
     void prepare(GrOpFlushState* state) { this->onPrepare(state); }
 
     /** Issues the op's commands to GrGpu. */
-    void execute(GrOpFlushState* state) {
-        TRACE_EVENT0("skia", name());
-        this->onExecute(state);
+    void execute(GrOpFlushState* state, const SkRect& chainBounds) {
+        TRACE_EVENT0("skia.gpu", name());
+        this->onExecute(state, chainBounds);
     }
 
     /** Used for spewing information about ops when debugging. */
+#ifdef SK_DEBUG
     virtual SkString dumpInfo() const {
         SkString string;
         string.appendf("OpBounds: [L: %.2f, T: %.2f, R: %.2f, B: %.2f]\n",
                        fBounds.fLeft, fBounds.fTop, fBounds.fRight, fBounds.fBottom);
         return string;
     }
+#else
+    SkString dumpInfo() const { return SkString("<Op information unavailable>"); }
+#endif
 
     /**
      * A helper for iterating over an op chain in a range for loop that also downcasts to a GrOp
@@ -178,37 +191,51 @@ public:
      *         // ...
      *     }
      */
-    template <typename OpSubclass> class ChainRange {
+    template <typename OpSubclass = GrOp> class ChainRange {
     private:
         class Iter {
         public:
-            explicit Iter(const GrOp* head) : fCurr(head) {}
-            inline Iter& operator++() { return *this = Iter(fCurr->nextInChain()); }
-            const OpSubclass& operator*() const { return fCurr->cast<OpSubclass>(); }
+            explicit Iter(const OpSubclass* head) : fCurr(head) {}
+            inline Iter& operator++() {
+                return *this = Iter(static_cast<const OpSubclass*>(fCurr->nextInChain()));
+            }
+            const OpSubclass& operator*() const { return *fCurr; }
             bool operator!=(const Iter& that) const { return fCurr != that.fCurr; }
 
         private:
-            const GrOp* fCurr;
+            const OpSubclass* fCurr;
         };
-        const GrOp* fHead;
+        const OpSubclass* fHead;
 
     public:
-        explicit ChainRange(const GrOp* head) : fHead(head) {}
+        explicit ChainRange(const OpSubclass* head) : fHead(head) {}
         Iter begin() { return Iter(fHead); }
         Iter end() { return Iter(nullptr); }
     };
 
-    void setNextInChain(GrOp*);
+    /**
+     * Concatenates two op chains. This op must be a tail and the passed op must be a head. The ops
+     * must be of the same subclass.
+     */
+    void chainConcat(std::unique_ptr<GrOp>);
     /** Returns true if this is the head of a chain (including a length 1 chain). */
-    bool isChainHead() const { return !fChainHead || (fChainHead == this); }
-    /** Gets the head op of the chain. */
-    const GrOp* chainHead() const { return fChainHead ? fChainHead : this; }
+    bool isChainHead() const { return !fPrevInChain; }
     /** Returns true if this is the tail of a chain (including a length 1 chain). */
     bool isChainTail() const { return !fNextInChain; }
-    /** Returns true if this is part of chain with length > 1. */
-    bool isChained() const { return SkToBool(fChainHead); }
     /** The next op in the chain. */
-    const GrOp* nextInChain() const { return fNextInChain; }
+    GrOp* nextInChain() const { return fNextInChain.get(); }
+    /** The previous op in the chain. */
+    GrOp* prevInChain() const { return fPrevInChain; }
+    /**
+     * Cuts the chain after this op. The returned op is the op that was previously next in the
+     * chain or null if this was already a tail.
+     */
+    std::unique_ptr<GrOp> cutChain();
+    SkDEBUGCODE(void validateChain(GrOp* expectedTail = nullptr) const);
+
+#ifdef SK_DEBUG
+    virtual void validate() const {}
+#endif
 
 protected:
     GrOp(uint32_t classID);
@@ -223,28 +250,31 @@ protected:
         kYes = true
     };
     /**
-     * Indicates that the geometry represented by the op has zero area (e.g. it is hairline or
-     * points).
+     * Indicates that the geometry being drawn in a hairline stroke. A point that is drawn in device
+     * space is also considered a hairline.
      */
-    enum class IsZeroArea : bool {
+    enum class IsHairline : bool {
         kNo = false,
         kYes = true
     };
 
-    void setBounds(const SkRect& newBounds, HasAABloat aabloat, IsZeroArea zeroArea) {
+    void setBounds(const SkRect& newBounds, HasAABloat aabloat, IsHairline zeroArea) {
         fBounds = newBounds;
         this->setBoundsFlags(aabloat, zeroArea);
     }
     void setTransformedBounds(const SkRect& srcBounds, const SkMatrix& m,
-                              HasAABloat aabloat, IsZeroArea zeroArea) {
+                              HasAABloat aabloat, IsHairline zeroArea) {
         m.mapRect(&fBounds, srcBounds);
         this->setBoundsFlags(aabloat, zeroArea);
     }
     void makeFullScreen(GrSurfaceProxy* proxy) {
         this->setBounds(SkRect::MakeIWH(proxy->width(), proxy->height()),
-                        HasAABloat::kNo, IsZeroArea::kNo);
+                        HasAABloat::kNo, IsHairline::kNo);
     }
 
+    static uint32_t GenOpClassID() { return GenID(&gCurrOpClassID); }
+
+private:
     void joinBounds(const GrOp& that) {
         if (that.hasAABloat()) {
             fBoundsFlags |= kAABloat_BoundsFlag;
@@ -255,36 +285,30 @@ protected:
         return fBounds.joinPossiblyEmptyRect(that.fBounds);
     }
 
-    void replaceBounds(const GrOp& that) {
-        fBounds = that.fBounds;
-        fBoundsFlags = that.fBoundsFlags;
-    }
-
-    static uint32_t GenOpClassID() { return GenID(&gCurrOpClassID); }
-
-private:
     virtual CombineResult onCombineIfPossible(GrOp*, const GrCaps&) {
         return CombineResult::kCannotCombine;
     }
 
+    // Only GrMeshDrawOp currently overrides this virtual
+    virtual void onPrePrepare(GrRecordingContext*) {}
     virtual void onPrepare(GrOpFlushState*) = 0;
-    virtual void onExecute(GrOpFlushState*) = 0;
+    // If this op is chained then chainBounds is the union of the bounds of all ops in the chain.
+    // Otherwise, this op's bounds.
+    virtual void onExecute(GrOpFlushState*, const SkRect& chainBounds) = 0;
 
-    static uint32_t GenID(int32_t* idCounter) {
-        // The atomic inc returns the old value not the incremented value. So we add
-        // 1 to the returned value.
-        uint32_t id = static_cast<uint32_t>(sk_atomic_inc(idCounter)) + 1;
-        if (!id) {
+    static uint32_t GenID(std::atomic<uint32_t>* idCounter) {
+        uint32_t id = (*idCounter)++;
+        if (id == 0) {
             SK_ABORT("This should never wrap as it should only be called once for each GrOp "
                    "subclass.");
         }
         return id;
     }
 
-    void setBoundsFlags(HasAABloat aabloat, IsZeroArea zeroArea) {
+    void setBoundsFlags(HasAABloat aabloat, IsHairline zeroArea) {
         fBoundsFlags = 0;
         fBoundsFlags |= (HasAABloat::kYes == aabloat) ? kAABloat_BoundsFlag : 0;
-        fBoundsFlags |= (IsZeroArea ::kYes == zeroArea) ? kZeroArea_BoundsFlag : 0;
+        fBoundsFlags |= (IsHairline ::kYes == zeroArea) ? kZeroArea_BoundsFlag : 0;
     }
 
     enum {
@@ -297,8 +321,8 @@ private:
         SkDEBUGCODE(kUninitialized_BoundsFlag   = 0x4)
     };
 
-    GrOp*                               fNextInChain = nullptr;
-    GrOp*                               fChainHead = nullptr;    // null if this is not in a chain.
+    std::unique_ptr<GrOp>               fNextInChain;
+    GrOp*                               fPrevInChain = nullptr;
     const uint16_t                      fClassID;
     uint16_t                            fBoundsFlags;
 
@@ -306,8 +330,8 @@ private:
     mutable uint32_t                    fUniqueID = SK_InvalidUniqueID;
     SkRect                              fBounds;
 
-    static int32_t                      gCurrOpUniqueID;
-    static int32_t                      gCurrOpClassID;
+    static std::atomic<uint32_t> gCurrOpUniqueID;
+    static std::atomic<uint32_t> gCurrOpClassID;
 };
 
 #endif

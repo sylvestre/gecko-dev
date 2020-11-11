@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef MOZILLA_SVGSTRINGLIST_H__
-#define MOZILLA_SVGSTRINGLIST_H__
+#ifndef DOM_SVG_SVGSTRINGLIST_H_
+#define DOM_SVG_SVGSTRINGLIST_H_
 
 #include "nsDebug.h"
 #include "nsTArray.h"
@@ -13,16 +13,20 @@
 
 namespace mozilla {
 
+namespace dom {
+class DOMSVGStringList;
+}
+
 /**
  *
  * The DOM wrapper class for this class is DOMSVGStringList.
  */
 class SVGStringList {
-  friend class DOMSVGStringList;
+  friend class dom::DOMSVGStringList;
 
  public:
   SVGStringList() : mIsSet(false), mIsCommaSeparated(false) {}
-  ~SVGStringList() {}
+  ~SVGStringList() = default;
 
   void SetIsCommaSeparated(bool aIsCommaSeparated) {
     mIsCommaSeparated = aIsCommaSeparated;
@@ -63,7 +67,7 @@ class SVGStringList {
   // limited. This is to reduce the chances of someone modifying objects of
   // this type without taking the necessary steps to keep DOM wrappers in sync.
   // If you need wider access to these methods, consider adding a method to
-  // SVGAnimatedStringList and having that class act as an intermediary so it
+  // DOMSVGAnimatedStringList and having that class act as an intermediary so it
   // can take care of keeping DOM wrappers in sync.
 
  protected:
@@ -130,4 +134,4 @@ class SVGStringList {
 
 }  // namespace mozilla
 
-#endif  // MOZILLA_SVGSTRINGLIST_H__
+#endif  // DOM_SVG_SVGSTRINGLIST_H_

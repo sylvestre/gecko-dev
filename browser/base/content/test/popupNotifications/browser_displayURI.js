@@ -3,16 +3,20 @@
  */
 
 async function check(contentTask, options = {}) {
-  await BrowserTestUtils.withNewTab("https://test1.example.com/", async function(browser) {
-    let popupShownPromise = waitForNotificationPanel();
-    await ContentTask.spawn(browser, null, contentTask);
-    let panel = await popupShownPromise;
-    let notification = panel.children[0];
-    let body = document.getAnonymousElementByAttribute(notification,
-                                                       "class",
-                                                       "popup-notification-body");
-    ok(body.innerHTML.includes("example.com"), "Check that at least the eTLD+1 is present in the markup");
-  });
+  await BrowserTestUtils.withNewTab(
+    "https://test1.example.com/",
+    async function(browser) {
+      let popupShownPromise = waitForNotificationPanel();
+      await SpecialPowers.spawn(browser, [], contentTask);
+      let panel = await popupShownPromise;
+      let notification = panel.children[0];
+      let body = notification.querySelector(".popup-notification-body");
+      ok(
+        body.innerHTML.includes("example.com"),
+        "Check that at least the eTLD+1 is present in the markup"
+      );
+    }
+  );
 
   let channel = NetUtil.newChannel({
     uri: getRootDirectory(gTestPath),
@@ -22,16 +26,23 @@ async function check(contentTask, options = {}) {
 
   await BrowserTestUtils.withNewTab(channel.file.path, async function(browser) {
     let popupShownPromise = waitForNotificationPanel();
-    await ContentTask.spawn(browser, null, contentTask);
+    await SpecialPowers.spawn(browser, [], contentTask);
     let panel = await popupShownPromise;
     let notification = panel.children[0];
-    let body = document.getAnonymousElementByAttribute(notification,
-                                                       "class",
-                                                       "popup-notification-body");
-    if (notification.id == "geolocation-notification") {
-      ok(body.innerHTML.includes("local file"), `file:// URIs should be displayed as local file.`);
+    let body = notification.querySelector(".popup-notification-body");
+    if (
+      notification.id == "geolocation-notification" ||
+      notification.id == "xr-notification"
+    ) {
+      ok(
+        body.innerHTML.includes("local file"),
+        `file:// URIs should be displayed as local file.`
+      );
     } else {
-      ok(body.innerHTML.includes("Unknown origin"), "file:// URIs should be displayed as unknown origin.");
+      ok(
+        body.innerHTML.includes("Unknown origin"),
+        "file:// URIs should be displayed as unknown origin."
+      );
     }
   });
 
@@ -43,9 +54,11 @@ async function check(contentTask, options = {}) {
         name: "Test Extension Name",
       },
       background() {
-        let {browser} = this;
-        browser.test.sendMessage("extension-tab-url",
-                                 browser.extension.getURL("extension-tab-page.html"));
+        let { browser } = this;
+        browser.test.sendMessage(
+          "extension-tab-url",
+          browser.extension.getURL("extension-tab-page.html")
+        );
       },
       files: {
         "extension-tab-page.html": `<!DOCTYPE html><html><body></body></html>`,
@@ -57,14 +70,14 @@ async function check(contentTask, options = {}) {
 
     await BrowserTestUtils.withNewTab(extensionURI, async function(browser) {
       let popupShownPromise = waitForNotificationPanel();
-      await ContentTask.spawn(browser, null, contentTask);
+      await SpecialPowers.spawn(browser, [], contentTask);
       let panel = await popupShownPromise;
       let notification = panel.children[0];
-      let body = document.getAnonymousElementByAttribute(notification,
-                                                         "class",
-                                                         "popup-notification-body");
-      ok(body.innerHTML.includes("Test Extension Name"),
-         "Check the the extension name is present in the markup");
+      let body = notification.querySelector(".popup-notification-body");
+      ok(
+        body.innerHTML.includes("Test Extension Name"),
+        "Check the the extension name is present in the markup"
+      );
     });
 
     await extension.unload();
@@ -72,10 +85,13 @@ async function check(contentTask, options = {}) {
 }
 
 add_task(async function setup() {
-  await SpecialPowers.pushPrefEnv({set: [
-    ["media.navigator.permission.fake", true],
-    ["media.navigator.permission.force", true],
-  ]});
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      ["media.navigator.permission.fake", true],
+      ["media.navigator.permission.force", true],
+      ["dom.vr.always_support_vr", true],
+    ],
+  });
 });
 
 add_task(async function test_displayURI_geo() {
@@ -84,26 +100,57 @@ add_task(async function test_displayURI_geo() {
   });
 });
 
+const kVREnabled = SpecialPowers.getBoolPref("dom.vr.enabled");
+if (kVREnabled) {
+  add_task(async function test_displayURI_xr() {
+    await check(async function() {
+      content.navigator.getVRDisplays();
+    });
+  });
+}
+
 add_task(async function test_displayURI_camera() {
   await check(async function() {
-    content.navigator.mediaDevices.getUserMedia({video: true, fake: true});
+    content.navigator.mediaDevices.getUserMedia({ video: true, fake: true });
   });
 });
 
 add_task(async function test_displayURI_geo_blob() {
-  await check(async function() {
-    let text = "<script>navigator.geolocation.getCurrentPosition(() => {})</script>";
-    let blob = new Blob([text], {type: "text/html"});
-    let url = content.URL.createObjectURL(blob);
-    content.location.href = url;
-  }, {skipOnExtension: true});
+  await check(
+    async function() {
+      let text =
+        "<script>navigator.geolocation.getCurrentPosition(() => {})</script>";
+      let blob = new Blob([text], { type: "text/html" });
+      let url = content.URL.createObjectURL(blob);
+      content.location.href = url;
+    },
+    { skipOnExtension: true }
+  );
 });
 
+if (kVREnabled) {
+  add_task(async function test_displayURI_xr_blob() {
+    await check(
+      async function() {
+        let text = "<script>navigator.getVRDisplays()</script>";
+        let blob = new Blob([text], { type: "text/html" });
+        let url = content.URL.createObjectURL(blob);
+        content.location.href = url;
+      },
+      { skipOnExtension: true }
+    );
+  });
+}
+
 add_task(async function test_displayURI_camera_blob() {
-  await check(async function() {
-    let text = "<script>navigator.mediaDevices.getUserMedia({video: true, fake: true})</script>";
-    let blob = new Blob([text], {type: "text/html"});
-    let url = content.URL.createObjectURL(blob);
-    content.location.href = url;
-  }, {skipOnExtension: true});
+  await check(
+    async function() {
+      let text =
+        "<script>navigator.mediaDevices.getUserMedia({video: true, fake: true})</script>";
+      let blob = new Blob([text], { type: "text/html" });
+      let url = content.URL.createObjectURL(blob);
+      content.location.href = url;
+    },
+    { skipOnExtension: true }
+  );
 });

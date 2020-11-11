@@ -1,3 +1,7 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+---
 loader: taskgraph.loader.test:loader
 
 kind-dependencies:
@@ -9,7 +13,6 @@ kind-dependencies:
 transforms:
     - taskgraph.transforms.tests:transforms
     - taskgraph.transforms.job:transforms
-    - taskgraph.transforms.coalesce:transforms
     - taskgraph.transforms.task:transforms
 
 # Each stanza in a file pointed to by 'jobs-from' describes a particular test
@@ -23,19 +26,26 @@ transforms:
 
 jobs-from:
     - awsy.yml
+    - browsertime-desktop.yml
+    - browsertime-mobile.yml
     - compiled.yml
     - firefox-ui.yml
     - marionette.yml
     - misc.yml
     - mochitest.yml
     - raptor.yml
+    - raptor-chrome.yml
+    - raptor-chromium.yml
+    - raptor-gve.yml
+    - raptor-refbrow.yml
     - reftest.yml
     - talos.yml
     - web-platform.yml
     - xpcshell.yml
 
-
 job-defaults:
+    attributes:
+        retrigger: true
     require-signed-extensions:
         by-release-type:
             release|esr.*: true
@@ -44,3 +54,19 @@ job-defaults:
                     .*-devedition/.*: false
                     default: true
             default: false
+    fetches:
+        toolchain:
+            by-test-platform:
+                win.*:
+                    - win32-minidump-stackwalk
+                    - win32-fix-stacks
+                macosx.*:
+                    - macosx64-minidump-stackwalk
+                    - macosx64-fix-stacks
+                android-em-7.*:
+                    - android-emulator-linux
+                    - linux64-minidump-stackwalk
+                    - linux64-fix-stacks
+                default:
+                    - linux64-minidump-stackwalk
+                    - linux64-fix-stacks

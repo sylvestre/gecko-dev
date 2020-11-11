@@ -10,6 +10,7 @@ const {
   runTest,
   testSetup,
   testTeardown,
+  waitForTick,
 } = require("../head");
 
 const TEST_NAME = "console.autocomplete";
@@ -37,40 +38,56 @@ module.exports = async function() {
   const test = runTest(TEST_NAME);
   const ITERATIONS = 5;
   for (let i = 0; i < ITERATIONS; i++) {
-    await showAndHideAutoCompletePopup(jsterm);
+    await triggerAutocompletePopupAndUpdate(jsterm);
+    await hideAutocompletePopup(jsterm);
   }
-
   test.done();
+
+  const longInputTest = runTest(TEST_NAME + ".longInput");
+  for (let i = 0; i < ITERATIONS; i++) {
+    await triggerAutocompletePopup(jsterm, true);
+    await hideAutocompletePopup(jsterm);
+  }
+  longInputTest.done();
 
   await closeToolbox();
   await testTeardown();
 };
 
-async function showAndHideAutoCompletePopup(jsterm) {
+async function triggerAutocompletePopupAndUpdate(jsterm) {
   await triggerAutocompletePopup(jsterm);
-  await hideAutocompletePopup(jsterm);
-}
-
-async function triggerAutocompletePopup(jsterm) {
-  const onPopupOpened = jsterm.autocompletePopup.once("popup-opened");
-  setJsTermValueForCompletion(jsterm, "window.autocompleteTest.");
-  await onPopupOpened;
 
   const onPopupUpdated = jsterm.once("autocomplete-updated");
   setJsTermValueForCompletion(jsterm, "window.autocompleteTest.item9");
   await onPopupUpdated;
+  await waitForTick();
 }
 
-function hideAutocompletePopup(jsterm) {
+const LONG_INPUT_PREFIX = `var data = [ ${"{ hello : 'world', foo: [ 1, 2, 3] }, ".repeat(
+  500
+)}];`;
+
+async function triggerAutocompletePopup(jsterm, withLongPrefix = false) {
+  const onPopupOpened = jsterm.autocompletePopup.once("popup-opened");
+
+  let inputValue = "window.autocompleteTest.";
+  if (withLongPrefix) {
+    inputValue = `${LONG_INPUT_PREFIX}\n${inputValue}`;
+  }
+  setJsTermValueForCompletion(jsterm, inputValue);
+  await onPopupOpened;
+}
+
+async function hideAutocompletePopup(jsterm) {
   let onPopUpClosed = jsterm.autocompletePopup.once("popup-closed");
   setJsTermValueForCompletion(jsterm, "");
-  return onPopUpClosed;
+  await onPopUpClosed;
+  await waitForTick();
 }
 
 function setJsTermValueForCompletion(jsterm, value) {
   // setInputValue does not trigger the autocompletion;
   // we need to call the `autocompleteUpdate` action in order to display the popup.
-  jsterm.setInputValue(value);
+  jsterm._setValue(value);
   jsterm.props.autocompleteUpdate();
 }
-

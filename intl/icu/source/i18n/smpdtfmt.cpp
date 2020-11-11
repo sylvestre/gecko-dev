@@ -230,7 +230,7 @@ static const int32_t gFieldRangeBias[] = {
 static const int32_t HEBREW_CAL_CUR_MILLENIUM_START_YEAR = 5000;
 static const int32_t HEBREW_CAL_CUR_MILLENIUM_END_YEAR = 6000;
 
-static UMutex LOCK = U_MUTEX_INITIALIZER;
+static UMutex LOCK;
 
 UOBJECT_DEFINE_RTTI_IMPLEMENTATION(SimpleDateFormat)
 
@@ -583,11 +583,14 @@ SimpleDateFormat& SimpleDateFormat::operator=(const SimpleDateFormat& other)
     fHasMinute = other.fHasMinute;
     fHasSecond = other.fHasSecond;
 
-    // TimeZoneFormat in ICU4C only depends on a locale for now
-    if (fLocale != other.fLocale) {
-        delete fTimeZoneFormat;
-        fTimeZoneFormat = NULL; // forces lazy instantiation with the other locale
-        fLocale = other.fLocale;
+    fLocale = other.fLocale;
+
+    // TimeZoneFormat can now be set independently via setter.
+    // If it is NULL, it will be lazily initialized from locale
+    delete fTimeZoneFormat;
+    fTimeZoneFormat = NULL;
+    if (other.fTimeZoneFormat) {
+        fTimeZoneFormat = new TimeZoneFormat(*other.fTimeZoneFormat);
     }
 
 #if !UCONFIG_NO_BREAK_ITERATION
@@ -620,7 +623,7 @@ SimpleDateFormat& SimpleDateFormat::operator=(const SimpleDateFormat& other)
 
 //----------------------------------------------------------------------
 
-Format*
+SimpleDateFormat*
 SimpleDateFormat::clone() const
 {
     return new SimpleDateFormat(*this);
@@ -856,6 +859,17 @@ SimpleDateFormat::initialize(const Locale& locale,
 {
     if (U_FAILURE(status)) return;
 
+    parsePattern(); // Need this before initNumberFormatters(), to set fHasHanYearChar
+
+    // Simple-minded hack to force Gannen year numbering for ja@calendar=japanese
+    // if format is non-numeric (includes 年) and fDateOverride is not already specified.
+    // Now this does get updated if applyPattern subsequently changes the pattern type.
+    if (fDateOverride.isBogus() && fHasHanYearChar &&
+            fCalendar != nullptr && uprv_strcmp(fCalendar->getType(),"japanese") == 0 &&
+            uprv_strcmp(fLocale.getLanguage(),"ja") == 0) {
+        fDateOverride.setTo(u"y=jpanyear", -1);
+    }
+
     // We don't need to check that the row count is >= 1, since all 2d arrays have at
     // least one row
     fNumberFormat = NumberFormat::createInstance(locale, status);
@@ -872,8 +886,6 @@ SimpleDateFormat::initialize(const Locale& locale,
     {
         status = U_MISSING_RESOURCE_ERROR;
     }
-
-    parsePattern();
 }
 
 /* Initialize the fields we use to disambiguate ambiguous years. Separate
@@ -987,7 +999,8 @@ SimpleDateFormat::_format(Calendar& cal, UnicodeString& appendTo,
         // Use subFormat() to format a repeated pattern character
         // when a different pattern or non-pattern character is seen
         if (ch != prevCh && count > 0) {
-            subFormat(appendTo, prevCh, count, capitalizationContext, fieldNum++, handler, *workCal, status);
+            subFormat(appendTo, prevCh, count, capitalizationContext, fieldNum++,
+                      prevCh, handler, *workCal, status);
             count = 0;
         }
         if (ch == QUOTE) {
@@ -1014,7 +1027,8 @@ SimpleDateFormat::_format(Calendar& cal, UnicodeString& appendTo,
 
     // Format the last item in the pattern, if any
     if (count > 0) {
-        subFormat(appendTo, prevCh, count, capitalizationContext, fieldNum++, handler, *workCal, status);
+        subFormat(appendTo, prevCh, count, capitalizationContext, fieldNum++,
+                  prevCh, handler, *workCal, status);
     }
 
     if (calClone != NULL) {
@@ -1211,10 +1225,14 @@ _appendSymbolWithMonthPattern(UnicodeString& dst, int32_t value, const UnicodeSt
 //----------------------------------------------------------------------
 
 static number::LocalizedNumberFormatter*
-createFastFormatter(const DecimalFormat* df, int32_t minInt, int32_t maxInt) {
-    return new number::LocalizedNumberFormatter(
-            df->toNumberFormatter()
-                    .integerWidth(number::IntegerWidth::zeroFillTo(minInt).truncateAt(maxInt)));
+createFastFormatter(const DecimalFormat* df, int32_t minInt, int32_t maxInt, UErrorCode& status) {
+    const number::LocalizedNumberFormatter* lnfBase = df->toNumberFormatter(status);
+    if (U_FAILURE(status)) {
+        return nullptr;
+    }
+    return lnfBase->integerWidth(
+        number::IntegerWidth::zeroFillTo(minInt).truncateAt(maxInt)
+    ).clone().orphan();
 }
 
 void SimpleDateFormat::initFastNumberFormatters(UErrorCode& status) {
@@ -1225,11 +1243,11 @@ void SimpleDateFormat::initFastNumberFormatters(UErrorCode& status) {
     if (df == nullptr) {
         return;
     }
-    fFastNumberFormatters[SMPDTFMT_NF_1x10] = createFastFormatter(df, 1, 10);
-    fFastNumberFormatters[SMPDTFMT_NF_2x10] = createFastFormatter(df, 2, 10);
-    fFastNumberFormatters[SMPDTFMT_NF_3x10] = createFastFormatter(df, 3, 10);
-    fFastNumberFormatters[SMPDTFMT_NF_4x10] = createFastFormatter(df, 4, 10);
-    fFastNumberFormatters[SMPDTFMT_NF_2x2] = createFastFormatter(df, 2, 2);
+    fFastNumberFormatters[SMPDTFMT_NF_1x10] = createFastFormatter(df, 1, 10, status);
+    fFastNumberFormatters[SMPDTFMT_NF_2x10] = createFastFormatter(df, 2, 10, status);
+    fFastNumberFormatters[SMPDTFMT_NF_3x10] = createFastFormatter(df, 3, 10, status);
+    fFastNumberFormatters[SMPDTFMT_NF_4x10] = createFastFormatter(df, 4, 10, status);
+    fFastNumberFormatters[SMPDTFMT_NF_2x2] = createFastFormatter(df, 2, 2, status);
 }
 
 void SimpleDateFormat::freeFastNumberFormatters() {
@@ -1389,10 +1407,11 @@ SimpleDateFormat::processOverrideString(const Locale &locale, const UnicodeStrin
 //---------------------------------------------------------------------
 void
 SimpleDateFormat::subFormat(UnicodeString &appendTo,
-                            UChar ch,
+                            char16_t ch,
                             int32_t count,
                             UDisplayContext capitalizationContext,
                             int32_t fieldNum,
+                            char16_t fieldToOutput,
                             FieldPositionHandler& handler,
                             Calendar& cal,
                             UErrorCode& status) const
@@ -1778,7 +1797,7 @@ SimpleDateFormat::subFormat(UnicodeString &appendTo,
                     }
                 }
                 else {
-                    U_ASSERT(FALSE);
+                    UPRV_UNREACHABLE;
                 }
             }
             appendTo += zoneString;
@@ -1840,8 +1859,11 @@ SimpleDateFormat::subFormat(UnicodeString &appendTo,
         // In either case, fall back to am/pm.
         if (toAppend == NULL || toAppend->isBogus()) {
             // Reformat with identical arguments except ch, now changed to 'a'.
-            subFormat(appendTo, 0x61, count, capitalizationContext, fieldNum,
-                      handler, cal, status);
+            // We are passing a different fieldToOutput because we want to add
+            // 'b' to field position. This makes this fallback stable when
+            // there is a data change on locales.
+            subFormat(appendTo, u'a', count, capitalizationContext, fieldNum, u'b', handler, cal, status);
+            return;
         } else {
             appendTo += *toAppend;
         }
@@ -1861,9 +1883,11 @@ SimpleDateFormat::subFormat(UnicodeString &appendTo,
         if (ruleSet == NULL) {
             // Data doesn't exist for the locale we're looking for.
             // Falling back to am/pm.
-            subFormat(appendTo, 0x61, count, capitalizationContext, fieldNum,
-                      handler, cal, status);
-            break;
+            // We are passing a different fieldToOutput because we want to add
+            // 'B' to field position. This makes this fallback stable when
+            // there is a data change on locales.
+            subFormat(appendTo, u'a', count, capitalizationContext, fieldNum, u'B', handler, cal, status);
+            return;
         }
 
         // Get current display time.
@@ -1932,8 +1956,11 @@ SimpleDateFormat::subFormat(UnicodeString &appendTo,
         if (periodType == DayPeriodRules::DAYPERIOD_AM ||
             periodType == DayPeriodRules::DAYPERIOD_PM ||
             toAppend->isBogus()) {
-            subFormat(appendTo, 0x61, count, capitalizationContext, fieldNum,
-                      handler, cal, status);
+            // We are passing a different fieldToOutput because we want to add
+            // 'B' to field position iterator. This makes this fallback stable when
+            // there is a data change on locales.
+            subFormat(appendTo, u'a', count, capitalizationContext, fieldNum, u'B', handler, cal, status);
+            return;
         }
         else {
             appendTo += *toAppend;
@@ -1950,7 +1977,8 @@ SimpleDateFormat::subFormat(UnicodeString &appendTo,
     }
 #if !UCONFIG_NO_BREAK_ITERATION
     // if first field, check to see whether we need to and are able to titlecase it
-    if (fieldNum == 0 && u_islower(appendTo.char32At(beginOffset)) && fCapitalizationBrkIter != NULL) {
+    if (fieldNum == 0 && fCapitalizationBrkIter != NULL && appendTo.length() > beginOffset &&
+            u_islower(appendTo.char32At(beginOffset))) {
         UBool titlecase = FALSE;
         switch (capitalizationContext) {
             case UDISPCTX_CAPITALIZATION_FOR_BEGINNING_OF_SENTENCE:
@@ -1967,14 +1995,16 @@ SimpleDateFormat::subFormat(UnicodeString &appendTo,
                 break;
         }
         if (titlecase) {
+            BreakIterator* const mutableCapitalizationBrkIter = fCapitalizationBrkIter->clone();
             UnicodeString firstField(appendTo, beginOffset);
-            firstField.toTitle(fCapitalizationBrkIter, fLocale, U_TITLECASE_NO_LOWERCASE | U_TITLECASE_NO_BREAK_ADJUSTMENT);
+            firstField.toTitle(mutableCapitalizationBrkIter, fLocale, U_TITLECASE_NO_LOWERCASE | U_TITLECASE_NO_BREAK_ADJUSTMENT);
             appendTo.replaceBetween(beginOffset, appendTo.length(), firstField);
+            delete mutableCapitalizationBrkIter;
         }
     }
 #endif
 
-    handler.addAttribute(fgPatternIndexToDateFormatField[patternCharIndex], beginOffset, appendTo.length());
+    handler.addAttribute(DateFormatSymbols::getPatternCharIndex(fieldToOutput), beginOffset, appendTo.length());
 }
 
 //----------------------------------------------------------------------
@@ -2079,7 +2109,7 @@ SimpleDateFormat::zeroPaddingNumber(
         if (U_FAILURE(localStatus)) {
             return;
         }
-        appendTo.append(result.string.toTempUnicodeString());
+        appendTo.append(result.getStringRef().toTempUnicodeString());
         return;
     }
 
@@ -2094,7 +2124,7 @@ SimpleDateFormat::zeroPaddingNumber(
     // Fall back to slow path (clone and mutate the NumberFormat)
     if (currentNumberFormat != nullptr) {
         FieldPosition pos(FieldPosition::DONT_CARE);
-        LocalPointer<NumberFormat> nf(dynamic_cast<NumberFormat*>(currentNumberFormat->clone()));
+        LocalPointer<NumberFormat> nf(currentNumberFormat->clone());
         nf->setMinimumIntegerDigits(minDigits);
         nf->setMaximumIntegerDigits(maxDigits);
         nf->format(value, appendTo, pos);  // 3rd arg is there to speed up processing
@@ -3757,7 +3787,7 @@ void SimpleDateFormat::parseInt(const UnicodeString& text,
     auto* fmtAsDF = dynamic_cast<const DecimalFormat*>(fmt);
     LocalPointer<DecimalFormat> df;
     if (!allowNegative && fmtAsDF != nullptr) {
-        df.adoptInstead(dynamic_cast<DecimalFormat*>(fmtAsDF->clone()));
+        df.adoptInstead(fmtAsDF->clone());
         if (df.isNull()) {
             // Memory allocation error
             return;
@@ -3872,6 +3902,42 @@ SimpleDateFormat::applyPattern(const UnicodeString& pattern)
 {
     fPattern = pattern;
     parsePattern();
+
+    // Hack to update use of Gannen year numbering for ja@calendar=japanese -
+    // use only if format is non-numeric (includes 年) and no other fDateOverride.
+    if (fCalendar != nullptr && uprv_strcmp(fCalendar->getType(),"japanese") == 0 &&
+            uprv_strcmp(fLocale.getLanguage(),"ja") == 0) {
+        if (fDateOverride==UnicodeString(u"y=jpanyear") && !fHasHanYearChar) {
+            // Gannen numbering is set but new pattern should not use it, unset;
+            // use procedure from adoptNumberFormat to clear overrides
+            if (fSharedNumberFormatters) {
+                freeSharedNumberFormatters(fSharedNumberFormatters);
+                fSharedNumberFormatters = NULL;
+            }
+            fDateOverride.setToBogus(); // record status
+        } else if (fDateOverride.isBogus() && fHasHanYearChar) {
+            // No current override (=> no Gannen numbering) but new pattern needs it;
+            // use procedures from initNUmberFormatters / adoptNumberFormat
+            umtx_lock(&LOCK);
+            if (fSharedNumberFormatters == NULL) {
+                fSharedNumberFormatters = allocSharedNumberFormatters();
+            }
+            umtx_unlock(&LOCK);
+            if (fSharedNumberFormatters != NULL) {
+                Locale ovrLoc(fLocale.getLanguage(),fLocale.getCountry(),fLocale.getVariant(),"numbers=jpanyear");
+                UErrorCode status = U_ZERO_ERROR;
+                const SharedNumberFormat *snf = createSharedNumberFormat(ovrLoc, status);
+                if (U_SUCCESS(status)) {
+                    // Now that we have an appropriate number formatter, fill in the
+                    // appropriate slot in the number formatters table.
+                    UDateFormatField patternCharIndex = DateFormatSymbols::getPatternCharIndex(u'y');
+                    SharedObject::copyPtr(snf, fSharedNumberFormatters[patternCharIndex]);
+                    snf->deleteIfZeroRefCount();
+                    fDateOverride.setTo(u"y=jpanyear", -1); // record status
+                }
+            }
+        }
+    }
 }
 
 //----------------------------------------------------------------------
@@ -3949,6 +4015,7 @@ void SimpleDateFormat::adoptCalendar(Calendar* calendarToAdopt)
   DateFormatSymbols *newSymbols =
           DateFormatSymbols::createForLocale(calLocale, status);
   if (U_FAILURE(status)) {
+      delete calendarToAdopt;
       return;
   }
   DateFormat::adoptCalendar(calendarToAdopt);
@@ -4207,6 +4274,7 @@ SimpleDateFormat::tzFormat(UErrorCode &status) const {
 void SimpleDateFormat::parsePattern() {
     fHasMinute = FALSE;
     fHasSecond = FALSE;
+    fHasHanYearChar = FALSE;
 
     int len = fPattern.length();
     UBool inQuote = FALSE;
@@ -4214,6 +4282,9 @@ void SimpleDateFormat::parsePattern() {
         UChar ch = fPattern[i];
         if (ch == QUOTE) {
             inQuote = !inQuote;
+        }
+        if (ch == 0x5E74) { // don't care whether this is inside quotes
+            fHasHanYearChar = TRUE;
         }
         if (!inQuote) {
             if (ch == 0x6D) {  // 0x6D == 'm'

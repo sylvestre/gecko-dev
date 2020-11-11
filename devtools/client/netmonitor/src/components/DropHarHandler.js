@@ -8,10 +8,14 @@ const { Component } = require("devtools/client/shared/vendor/react");
 const { findDOMNode } = require("devtools/client/shared/vendor/react-dom");
 const PropTypes = require("devtools/client/shared/vendor/react-prop-types");
 const dom = require("devtools/client/shared/vendor/react-dom-factories");
-const { L10N } = require("../utils/l10n");
+const { L10N } = require("devtools/client/netmonitor/src/utils/l10n");
 
-loader.lazyRequireGetter(this, "HarMenuUtils",
-  "devtools/client/netmonitor/src/har/har-menu-utils", true);
+loader.lazyRequireGetter(
+  this,
+  "HarMenuUtils",
+  "devtools/client/netmonitor/src/har/har-menu-utils",
+  true
+);
 
 const { div } = dom;
 
@@ -47,6 +51,10 @@ class DropHarHandler extends Component {
 
   onDragEnter(event) {
     event.preventDefault();
+    if (event.dataTransfer.files.length === 0) {
+      return;
+    }
+
     startDragging(findDOMNode(this));
   }
 
@@ -64,15 +72,12 @@ class DropHarHandler extends Component {
     event.preventDefault();
     stopDragging(findDOMNode(this));
 
-    const files = event.dataTransfer.files;
+    const { files } = event.dataTransfer;
     if (!files) {
       return;
     }
 
-    const {
-      actions,
-      openSplitConsole,
-    } = this.props;
+    const { actions, openSplitConsole } = this.props;
 
     // Import only the first dragged file for now
     // See also:
@@ -90,17 +95,15 @@ class DropHarHandler extends Component {
   // Rendering
 
   render() {
-    return (
-      div({
+    return div(
+      {
         onDragEnter: this.onDragEnter,
         onDragOver: this.onDragOver,
         onDragExit: this.onDragExit,
-        onDrop: this.onDrop},
-        this.props.children,
-        div({className: "dropHarFiles"},
-          div({}, DROP_HAR_FILES)
-        )
-      )
+        onDrop: this.onDrop,
+      },
+      this.props.children,
+      div({ className: "dropHarFiles" }, div({}, DROP_HAR_FILES))
     );
   }
 }

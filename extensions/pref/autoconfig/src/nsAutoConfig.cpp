@@ -9,13 +9,13 @@
 
 #include "nsIURI.h"
 #include "nsIHttpChannel.h"
-#include "nsIFileStreams.h"
 #include "nsThreadUtils.h"
 #include "nsAppDirectoryServiceDefs.h"
 #include "nsIObserverService.h"
 #include "nsLiteralString.h"
 #include "nsIPromptService.h"
-#include "nsIServiceManager.h"
+#include "nsIInputStream.h"
+#include "nsIOutputStream.h"
 #include "nsIStringBundle.h"
 #include "nsContentUtils.h"
 #include "nsCRT.h"
@@ -57,19 +57,16 @@ nsresult nsAutoConfig::Init() {
 
 nsAutoConfig::~nsAutoConfig() {}
 
-void nsAutoConfig::SetConfigURL(const char *aConfigURL) {
+void nsAutoConfig::SetConfigURL(const char* aConfigURL) {
   mConfigURL.Assign(aConfigURL);
 }
 
 NS_IMETHODIMP
-nsAutoConfig::OnStartRequest(nsIRequest *request, nsISupports *context) {
-  return NS_OK;
-}
+nsAutoConfig::OnStartRequest(nsIRequest* request) { return NS_OK; }
 
 NS_IMETHODIMP
-nsAutoConfig::OnDataAvailable(nsIRequest *request, nsISupports *context,
-                              nsIInputStream *aIStream, uint64_t aSourceOffset,
-                              uint32_t aLength) {
+nsAutoConfig::OnDataAvailable(nsIRequest* request, nsIInputStream* aIStream,
+                              uint64_t aSourceOffset, uint32_t aLength) {
   uint32_t amt, size;
   nsresult rv;
   char buf[1024];
@@ -85,8 +82,7 @@ nsAutoConfig::OnDataAvailable(nsIRequest *request, nsISupports *context,
 }
 
 NS_IMETHODIMP
-nsAutoConfig::OnStopRequest(nsIRequest *request, nsISupports *context,
-                            nsresult aStatus) {
+nsAutoConfig::OnStopRequest(nsIRequest* request, nsresult aStatus) {
   nsresult rv;
 
   // If the request is failed, go read the failover.jsc file
@@ -132,13 +128,13 @@ nsAutoConfig::OnStopRequest(nsIRequest *request, nsISupports *context,
 }
 
 // Notify method as a TimerCallBack function
-NS_IMETHODIMP nsAutoConfig::Notify(nsITimer *timer) {
+NS_IMETHODIMP nsAutoConfig::Notify(nsITimer* timer) {
   downloadAutoConfig();
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsAutoConfig::GetName(nsACString &aName) {
+nsAutoConfig::GetName(nsACString& aName) {
   aName.AssignLiteral("nsAutoConfig");
   return NS_OK;
 }
@@ -148,8 +144,8 @@ nsAutoConfig::GetName(nsACString &aName) {
    creation time. Second time it calls  downloadAutoConfig().
 */
 
-NS_IMETHODIMP nsAutoConfig::Observe(nsISupports *aSubject, const char *aTopic,
-                                    const char16_t *someData) {
+NS_IMETHODIMP nsAutoConfig::Observe(nsISupports* aSubject, const char* aTopic,
+                                    const char16_t* someData) {
   nsresult rv = NS_OK;
   if (!nsCRT::strcmp(aTopic, "profile-after-change")) {
     // We will be calling downloadAutoConfig even if there is no profile
@@ -234,7 +230,7 @@ nsresult nsAutoConfig::downloadAutoConfig() {
   nsCOMPtr<nsIURI> url;
   nsCOMPtr<nsIChannel> channel;
 
-  rv = NS_NewURI(getter_AddRefs(url), mConfigURL.get(), nullptr, nullptr);
+  rv = NS_NewURI(getter_AddRefs(url), mConfigURL);
   if (NS_FAILED(rv)) {
     MOZ_LOG(
         MCD, LogLevel::Debug,
@@ -247,8 +243,9 @@ nsresult nsAutoConfig::downloadAutoConfig() {
   // open a channel for the url
   rv = NS_NewChannel(
       getter_AddRefs(channel), url, nsContentUtils::GetSystemPrincipal(),
-      nsILoadInfo::SEC_ALLOW_CROSS_ORIGIN_DATA_IS_NULL,
+      nsILoadInfo::SEC_ALLOW_CROSS_ORIGIN_SEC_CONTEXT_IS_NULL,
       nsIContentPolicy::TYPE_OTHER,
+      nullptr,  // nsICookieJarSettings
       nullptr,  // PerformanceStorage
       nullptr,  // loadGroup
       nullptr,  // aCallbacks
@@ -256,7 +253,7 @@ nsresult nsAutoConfig::downloadAutoConfig() {
 
   if (NS_FAILED(rv)) return rv;
 
-  rv = channel->AsyncOpen2(this);
+  rv = channel->AsyncOpen(this);
   if (NS_FAILED(rv)) {
     readOfflineFile();
     return rv;
@@ -340,14 +337,14 @@ nsresult nsAutoConfig::readOfflineFile() {
                               getter_AddRefs(failoverFile));
   if (NS_FAILED(rv)) return rv;
 
-  failoverFile->AppendNative(NS_LITERAL_CSTRING("failover.jsc"));
+  failoverFile->AppendNative("failover.jsc"_ns);
   rv = evaluateLocalFile(failoverFile);
   if (NS_FAILED(rv))
     NS_WARNING("Couldn't open failover.jsc, going back to default prefs");
   return NS_OK;
 }
 
-nsresult nsAutoConfig::evaluateLocalFile(nsIFile *file) {
+nsresult nsAutoConfig::evaluateLocalFile(nsIFile* file) {
   nsresult rv;
   nsCOMPtr<nsIInputStream> inStr;
 
@@ -357,7 +354,7 @@ nsresult nsAutoConfig::evaluateLocalFile(nsIFile *file) {
   int64_t fileSize;
   file->GetFileSize(&fileSize);
   uint32_t fs = fileSize;  // Converting 64 bit structure to unsigned int
-  char *buf = (char *)malloc(fs * sizeof(char));
+  char* buf = (char*)malloc(fs * sizeof(char));
   if (!buf) return NS_ERROR_OUT_OF_MEMORY;
 
   uint32_t amt = 0;
@@ -380,7 +377,7 @@ nsresult nsAutoConfig::writeFailoverFile() {
                               getter_AddRefs(failoverFile));
   if (NS_FAILED(rv)) return rv;
 
-  failoverFile->AppendNative(NS_LITERAL_CSTRING("failover.jsc"));
+  failoverFile->AppendNative("failover.jsc"_ns);
 
   rv = NS_NewLocalFileOutputStream(getter_AddRefs(outStr), failoverFile);
   if (NS_FAILED(rv)) return rv;
@@ -389,7 +386,7 @@ nsresult nsAutoConfig::writeFailoverFile() {
   return rv;
 }
 
-nsresult nsAutoConfig::getEmailAddr(nsACString &emailAddr) {
+nsresult nsAutoConfig::getEmailAddr(nsACString& emailAddr) {
   nsresult rv;
   nsAutoCString prefValue;
 
@@ -403,16 +400,14 @@ nsresult nsAutoConfig::getEmailAddr(nsACString &emailAddr) {
   rv =
       mPrefBranch->GetCharPref("mail.accountmanager.defaultaccount", prefValue);
   if (NS_SUCCEEDED(rv) && !prefValue.IsEmpty()) {
-    emailAddr = NS_LITERAL_CSTRING("mail.account.") + prefValue +
-                NS_LITERAL_CSTRING(".identities");
+    emailAddr = "mail.account."_ns + prefValue + ".identities"_ns;
     rv = mPrefBranch->GetCharPref(PromiseFlatCString(emailAddr).get(),
                                   prefValue);
     if (NS_FAILED(rv) || prefValue.IsEmpty())
       return PromptForEMailAddress(emailAddr);
     int32_t commandIndex = prefValue.FindChar(',');
     if (commandIndex != kNotFound) prefValue.Truncate(commandIndex);
-    emailAddr = NS_LITERAL_CSTRING("mail.identity.") + prefValue +
-                NS_LITERAL_CSTRING(".useremail");
+    emailAddr = "mail.identity."_ns + prefValue + ".useremail"_ns;
     rv = mPrefBranch->GetCharPref(PromiseFlatCString(emailAddr).get(),
                                   prefValue);
     if (NS_FAILED(rv) || prefValue.IsEmpty())
@@ -430,7 +425,7 @@ nsresult nsAutoConfig::getEmailAddr(nsACString &emailAddr) {
   return NS_OK;
 }
 
-nsresult nsAutoConfig::PromptForEMailAddress(nsACString &emailAddress) {
+nsresult nsAutoConfig::PromptForEMailAddress(nsACString& emailAddress) {
   nsresult rv;
   nsCOMPtr<nsIPromptService> promptService =
       do_GetService("@mozilla.org/embedcomp/prompt-service;1", &rv);

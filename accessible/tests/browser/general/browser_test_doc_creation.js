@@ -32,22 +32,24 @@ const tab2URL = `data:text/html,
 add_task(async function testDocumentCreation() {
   let tab1 = await openNewTab(tab1URL);
   let tab2 = await openNewTab(tab2URL);
-  let accService = await initAccessibilityService(); // eslint-disable-line no-unused-vars
+  let accService = await initAccessibilityService();
 
   info("Verifying that each tab content document is in accessible cache.");
   for (const browser of [...gBrowser.browsers]) {
-    await ContentTask.spawn(browser, null, async () => {
-      let accServiceContent =
-        Cc["@mozilla.org/accessibilityService;1"].getService(
-          Ci.nsIAccessibilityService);
-      ok(!!accServiceContent.getAccessibleFromCache(content.document),
-        "Document accessible is in cache.");
+    await SpecialPowers.spawn(browser, [], async () => {
+      let accServiceContent = Cc[
+        "@mozilla.org/accessibilityService;1"
+      ].getService(Ci.nsIAccessibilityService);
+      Assert.ok(
+        !!accServiceContent.getAccessibleFromCache(content.document),
+        "Document accessible is in cache."
+      );
     });
   }
 
   BrowserTestUtils.removeTab(tab1);
   BrowserTestUtils.removeTab(tab2);
 
-  accService = null;
+  accService = null; // eslint-disable-line no-unused-vars
   await shutdownAccessibilityService();
 });

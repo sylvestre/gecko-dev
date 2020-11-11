@@ -12,8 +12,7 @@
 #include "States.h"
 
 // NOTE: alphabetically ordered
-#include "nsIDocument.h"
-#include "nsIDOMXULSelectCntrlEl.h"
+#include "mozilla/dom/Document.h"
 #include "nsIDOMXULSelectCntrlItemEl.h"
 #include "nsIDOMXULRelatedElement.h"
 #include "nsXULElement.h"
@@ -87,7 +86,8 @@ Relation XULTabAccessible::RelationByType(RelationType aType) const {
   if (aType != RelationType::LABEL_FOR) return rel;
 
   // Expose 'LABEL_FOR' relation on tab accessible for tabpanel accessible.
-  nsIContent* parent = mContent->GetParent();
+  ErrorResult rv;
+  nsIContent* parent = mContent->AsElement()->Closest(u"tabs"_ns, rv);
   if (!parent) return rel;
 
   nsCOMPtr<nsIDOMXULRelatedElement> tabsElm =

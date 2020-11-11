@@ -5,11 +5,13 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "nsTreeImageListener.h"
-#include "nsITreeBoxObject.h"
+#include "XULTreeElement.h"
 #include "imgIRequest.h"
 #include "imgIContainer.h"
 #include "nsIContent.h"
 #include "nsTreeColumns.h"
+
+using mozilla::dom::XULTreeElement;
 
 NS_IMPL_ISUPPORTS(nsTreeImageListener, imgINotificationObserver)
 
@@ -20,11 +22,13 @@ nsTreeImageListener::nsTreeImageListener(nsTreeBodyFrame* aTreeFrame)
 
 nsTreeImageListener::~nsTreeImageListener() { delete mInvalidationArea; }
 
-NS_IMETHODIMP
-nsTreeImageListener::Notify(imgIRequest* aRequest, int32_t aType,
-                            const nsIntRect* aData) {
+void nsTreeImageListener::Notify(imgIRequest* aRequest, int32_t aType,
+                                 const nsIntRect* aData) {
   if (aType == imgINotificationObserver::IS_ANIMATED) {
-    return mTreeFrame ? mTreeFrame->OnImageIsAnimated(aRequest) : NS_OK;
+    if (mTreeFrame) {
+      mTreeFrame->OnImageIsAnimated(aRequest);
+    }
+    return;
   }
 
   if (aType == imgINotificationObserver::SIZE_AVAILABLE) {
@@ -46,8 +50,6 @@ nsTreeImageListener::Notify(imgIRequest* aRequest, int32_t aType,
   if (aType == imgINotificationObserver::FRAME_UPDATE) {
     Invalidate();
   }
-
-  return NS_OK;
 }
 
 void nsTreeImageListener::AddCell(int32_t aIndex, nsTreeColumn* aCol) {
@@ -80,7 +82,8 @@ void nsTreeImageListener::Invalidate() {
       // this image.
       for (int32_t i = currArea->GetMin(); i <= currArea->GetMax(); ++i) {
         if (mTreeFrame) {
-          nsITreeBoxObject* tree = mTreeFrame->GetTreeBoxObject();
+          RefPtr<XULTreeElement> tree =
+              XULTreeElement::FromNodeOrNull(mTreeFrame->GetBaseElement());
           if (tree) {
             tree->InvalidateCell(i, currArea->GetCol());
           }

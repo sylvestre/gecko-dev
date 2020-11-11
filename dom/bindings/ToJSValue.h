@@ -7,22 +7,24 @@
 #ifndef mozilla_dom_ToJSValue_h
 #define mozilla_dom_ToJSValue_h
 
-#include "mozilla/TypeTraits.h"
 #include "mozilla/Assertions.h"
 #include "mozilla/UniquePtr.h"
 #include "mozilla/dom/BindingUtils.h"
+#include "mozilla/dom/CallbackObject.h"
 #include "mozilla/dom/NonRefcountedDOMObject.h"
 #include "mozilla/dom/TypedArray.h"
 #include "jsapi.h"
+#include "js/Array.h"  // JS::NewArrayObject
 #include "nsISupports.h"
 #include "nsTArray.h"
 #include "nsWrapperCache.h"
-#include "nsAutoPtr.h"
+#include <type_traits>
 
 namespace mozilla {
 namespace dom {
 
 class Promise;
+class WindowProxyHolder;
 
 // If ToJSValue returns false, it must set an exception on the
 // JSContext.
@@ -37,7 +39,7 @@ MOZ_MUST_USE bool ToJSValue(JSContext* aCx, const nsAString& aArgument,
 // desirable.  So make this a template that only gets used if the argument type
 // is actually boolean
 template <typename T>
-MOZ_MUST_USE typename EnableIf<IsSame<T, bool>::value, bool>::Type ToJSValue(
+MOZ_MUST_USE std::enable_if_t<std::is_same<T, bool>::value, bool> ToJSValue(
     JSContext* aCx, T aArgument, JS::MutableHandle<JS::Value> aValue) {
   // Make sure we're called in a compartment
   MOZ_ASSERT(JS::CurrentGlobalOrNull(aCx));
@@ -116,7 +118,7 @@ MOZ_MUST_USE inline bool ToJSValue(JSContext* aCx, CallbackObject& aArgument,
 // Accept objects that inherit from nsWrapperCache (e.g. most
 // DOM objects).
 template <class T>
-MOZ_MUST_USE typename EnableIf<IsBaseOf<nsWrapperCache, T>::value, bool>::Type
+MOZ_MUST_USE std::enable_if_t<std::is_base_of<nsWrapperCache, T>::value, bool>
 ToJSValue(JSContext* aCx, T& aArgument, JS::MutableHandle<JS::Value> aValue) {
   // Make sure we're called in a compartment
   MOZ_ASSERT(JS::CurrentGlobalOrNull(aCx));
@@ -130,7 +132,7 @@ ToJSValue(JSContext* aCx, T& aArgument, JS::MutableHandle<JS::Value> aValue) {
 namespace binding_detail {
 template <class T>
 MOZ_MUST_USE
-    typename EnableIf<IsBaseOf<NonRefcountedDOMObject, T>::value, bool>::Type
+    std::enable_if_t<std::is_base_of<NonRefcountedDOMObject, T>::value, bool>
     ToJSValueFromPointerHelper(JSContext* aCx, T* aArgument,
                                JS::MutableHandle<JS::Value> aValue) {
   // Make sure we're called in a compartment
@@ -154,28 +156,11 @@ MOZ_MUST_USE
 }
 }  // namespace binding_detail
 
-// We can take a non-refcounted non-wrapper-cached DOM object that lives in an
-// nsAutoPtr.
-template <class T>
-MOZ_MUST_USE
-    typename EnableIf<IsBaseOf<NonRefcountedDOMObject, T>::value, bool>::Type
-    ToJSValue(JSContext* aCx, nsAutoPtr<T>&& aArgument,
-              JS::MutableHandle<JS::Value> aValue) {
-  if (!binding_detail::ToJSValueFromPointerHelper(aCx, aArgument.get(),
-                                                  aValue)) {
-    return false;
-  }
-
-  // JS object took ownership
-  aArgument.forget();
-  return true;
-}
-
 // We can take a non-refcounted non-wrapper-cached DOM object that lives in a
 // UniquePtr.
 template <class T>
 MOZ_MUST_USE
-    typename EnableIf<IsBaseOf<NonRefcountedDOMObject, T>::value, bool>::Type
+    std::enable_if_t<std::is_base_of<NonRefcountedDOMObject, T>::value, bool>
     ToJSValue(JSContext* aCx, UniquePtr<T>&& aArgument,
               JS::MutableHandle<JS::Value> aValue) {
   if (!binding_detail::ToJSValueFromPointerHelper(aCx, aArgument.get(),
@@ -191,7 +176,8 @@ MOZ_MUST_USE
 // Accept typed arrays built from appropriate nsTArray values
 template <typename T>
 MOZ_MUST_USE
-    typename EnableIf<IsBaseOf<AllTypedArraysBase, T>::value, bool>::Type
+    typename std::enable_if<std::is_base_of<AllTypedArraysBase, T>::value,
+                            bool>::type
     ToJSValue(JSContext* aCx, const TypedArrayCreator<T>& aArgument,
               JS::MutableHandle<JS::Value> aValue) {
   // Make sure we're called in a compartment
@@ -205,21 +191,52 @@ MOZ_MUST_USE
   return true;
 }
 
+namespace binding_detail {
+// Helper type alias for picking a script-exposable non-wrappercached XPIDL
+// interface to expose to JS code. Falls back to `nsISupports` if the specific
+// interface type is ambiguous.
+template <typename T, typename = void>
+struct GetScriptableInterfaceType {
+  using Type = nsISupports;
+
+  static_assert(std::is_base_of_v<nsISupports, T>,
+                "T must inherit from nsISupports");
+};
+template <typename T>
+struct GetScriptableInterfaceType<
+    T, std::void_t<typename T::ScriptableInterfaceType>> {
+  using Type = typename T::ScriptableInterfaceType;
+
+  static_assert(std::is_base_of_v<Type, T>,
+                "T must inherit from ScriptableInterfaceType");
+  static_assert(std::is_base_of_v<nsISupports, Type>,
+                "ScriptableInterfaceType must inherit from nsISupports");
+};
+
+template <typename T>
+using ScriptableInterfaceType = typename GetScriptableInterfaceType<T>::Type;
+}  // namespace binding_detail
+
 // Accept objects that inherit from nsISupports but not nsWrapperCache (e.g.
 // DOM File).
 template <class T>
-MOZ_MUST_USE typename EnableIf<!IsBaseOf<nsWrapperCache, T>::value &&
-                                   !IsBaseOf<CallbackObject, T>::value &&
-                                   IsBaseOf<nsISupports, T>::value,
-                               bool>::Type
+MOZ_MUST_USE std::enable_if_t<!std::is_base_of<nsWrapperCache, T>::value &&
+                                  !std::is_base_of<CallbackObject, T>::value &&
+                                  std::is_base_of<nsISupports, T>::value,
+                              bool>
 ToJSValue(JSContext* aCx, T& aArgument, JS::MutableHandle<JS::Value> aValue) {
   // Make sure we're called in a compartment
   MOZ_ASSERT(JS::CurrentGlobalOrNull(aCx));
 
   xpcObjectHelper helper(ToSupports(&aArgument));
   JS::Rooted<JSObject*> scope(aCx, JS::CurrentGlobalOrNull(aCx));
-  return XPCOMObjectToJsval(aCx, scope, helper, nullptr, true, aValue);
+  const nsIID& iid =
+      NS_GET_TEMPLATE_IID(binding_detail::ScriptableInterfaceType<T>);
+  return XPCOMObjectToJsval(aCx, scope, helper, &iid, true, aValue);
 }
+
+MOZ_MUST_USE bool ToJSValue(JSContext* aCx, const WindowProxyHolder& aArgument,
+                            JS::MutableHandle<JS::Value> aValue);
 
 // Accept nsRefPtr/nsCOMPtr
 template <typename T>
@@ -242,7 +259,7 @@ MOZ_MUST_USE bool ToJSValue(JSContext* aCx, const NonNull<T>& aArgument,
 
 // Accept WebIDL dictionaries
 template <class T>
-MOZ_MUST_USE typename EnableIf<IsBaseOf<DictionaryBase, T>::value, bool>::Type
+MOZ_MUST_USE std::enable_if_t<std::is_base_of<DictionaryBase, T>::value, bool>
 ToJSValue(JSContext* aCx, const T& aArgument,
           JS::MutableHandle<JS::Value> aValue) {
   return aArgument.ToObjectInternal(aCx, aValue);
@@ -295,13 +312,13 @@ MOZ_MUST_USE bool ToJSValue(JSContext* aCx, nsresult aArgument,
 // Accept ErrorResult, for use in rejections, and create an exception
 // representing the failure.  Note, the ErrorResult must indicate a failure
 // with aArgument.Failure() returning true.
-MOZ_MUST_USE bool ToJSValue(JSContext* aCx, ErrorResult& aArgument,
+MOZ_MUST_USE bool ToJSValue(JSContext* aCx, ErrorResult&& aArgument,
                             JS::MutableHandle<JS::Value> aValue);
 
 // Accept owning WebIDL unions.
 template <typename T>
 MOZ_MUST_USE
-    typename EnableIf<IsBaseOf<AllOwningUnionBase, T>::value, bool>::Type
+    std::enable_if_t<std::is_base_of<AllOwningUnionBase, T>::value, bool>
     ToJSValue(JSContext* aCx, const T& aArgument,
               JS::MutableHandle<JS::Value> aValue) {
   JS::Rooted<JSObject*> global(aCx, JS::CurrentGlobalOrNull(aCx));
@@ -310,7 +327,7 @@ MOZ_MUST_USE
 
 // Accept pointers to other things we accept
 template <typename T>
-MOZ_MUST_USE typename EnableIf<IsPointer<T>::value, bool>::Type ToJSValue(
+MOZ_MUST_USE std::enable_if_t<std::is_pointer<T>::value, bool> ToJSValue(
     JSContext* aCx, T aArgument, JS::MutableHandle<JS::Value> aValue) {
   return ToJSValue(aCx, *aArgument, aValue);
 }
@@ -349,7 +366,7 @@ MOZ_MUST_USE bool ToJSValue(JSContext* aCx, T* aArguments, size_t aLength,
   // Make sure we're called in a compartment
   MOZ_ASSERT(JS::CurrentGlobalOrNull(aCx));
 
-  JS::AutoValueVector v(aCx);
+  JS::RootedVector<JS::Value> v(aCx);
   if (!v.resize(aLength)) {
     return false;
   }
@@ -358,7 +375,7 @@ MOZ_MUST_USE bool ToJSValue(JSContext* aCx, T* aArguments, size_t aLength,
       return false;
     }
   }
-  JSObject* arrayObj = JS_NewArrayObject(aCx, v);
+  JSObject* arrayObj = JS::NewArrayObject(aCx, v);
   if (!arrayObj) {
     return false;
   }

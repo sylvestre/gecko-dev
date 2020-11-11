@@ -1,7 +1,9 @@
 // When resuming a generator triggers one Debugger's onEnterFrame handler,
 // all Debuggers' Debugger.Frames become usable at once.
 
-let g = newGlobal();
+load(libdir + "asserts.js");
+
+let g = newGlobal({newCompartment: true});
 g.eval(`
     function* f() {
        yield 1;
@@ -29,4 +31,4 @@ dbg1.onEnterFrame = frame => {
 
 let values = [...g.f()];
 assertEq(hits, 2);
-assertEq(values.toSource(), "[1]");
+assertDeepEq(values, [1]);

@@ -15,6 +15,7 @@
 #include "nsThreadUtils.h"
 #include "mozilla/Logging.h"
 #include "prtime.h"
+#include "mozilla/StaticPrefs_storage.h"
 
 #include "mozStorageConnection.h"
 #include "mozIStorageStatement.h"
@@ -60,7 +61,7 @@ class BaseCallback : public mozIStorageStatementCallback {
 };
 
 NS_IMETHODIMP
-BaseCallback::HandleError(mozIStorageError *aError) {
+BaseCallback::HandleError(mozIStorageError* aError) {
 #ifdef DEBUG
   int32_t result;
   nsresult rv = aError->GetResult(&result);
@@ -80,7 +81,7 @@ BaseCallback::HandleError(mozIStorageError *aError) {
 }
 
 NS_IMETHODIMP
-BaseCallback::HandleResult(mozIStorageResultSet *aResultSet) {
+BaseCallback::HandleResult(mozIStorageResultSet* aResultSet) {
   // We could get results from PRAGMA statements, but we don't mind them.
   return NS_OK;
 }
@@ -100,7 +101,7 @@ class Vacuumer : public BaseCallback {
  public:
   NS_DECL_MOZISTORAGESTATEMENTCALLBACK
 
-  explicit Vacuumer(mozIStorageVacuumParticipant *aParticipant);
+  explicit Vacuumer(mozIStorageVacuumParticipant* aParticipant);
 
   bool execute();
   nsresult notifyCompletion(bool aSucceeded);
@@ -114,7 +115,7 @@ class Vacuumer : public BaseCallback {
 ////////////////////////////////////////////////////////////////////////////////
 //// Vacuumer implementation.
 
-Vacuumer::Vacuumer(mozIStorageVacuumParticipant *aParticipant)
+Vacuumer::Vacuumer(mozIStorageVacuumParticipant* aParticipant)
     : mParticipant(aParticipant) {}
 
 bool Vacuumer::execute() {
@@ -137,7 +138,7 @@ bool Vacuumer::execute() {
   if (NS_FAILED(rv) || !Service::pageSizeIsValid(expectedPageSize)) {
     NS_WARNING("Invalid page size requested for database, will use default ");
     NS_WARNING(mDBFilename.get());
-    expectedPageSize = Service::getDefaultPageSize();
+    expectedPageSize = Service::kDefaultPageSize;
   }
 
   // Get the database filename.  Last vacuum time is stored under this name
@@ -151,7 +152,7 @@ bool Vacuumer::execute() {
   nsAutoString databaseFilename;
   rv = databaseFile->GetLeafName(databaseFilename);
   NS_ENSURE_SUCCESS(rv, false);
-  mDBFilename = NS_ConvertUTF16toUTF8(databaseFilename);
+  CopyUTF16toUTF8(databaseFilename, mDBFilename);
   MOZ_ASSERT(!mDBFilename.IsEmpty(), "Database filename cannot be empty");
 
   // Check interval from last vacuum.
@@ -198,8 +199,7 @@ bool Vacuumer::execute() {
   NS_ENSURE_SUCCESS(rv, false);
 
   nsCOMPtr<mozIStorageAsyncStatement> stmt;
-  rv = mDBConn->CreateAsyncStatement(NS_LITERAL_CSTRING("VACUUM"),
-                                     getter_AddRefs(stmt));
+  rv = mDBConn->CreateAsyncStatement("VACUUM"_ns, getter_AddRefs(stmt));
   NS_ENSURE_SUCCESS(rv, false);
   rv = stmt->ExecuteAsync(this, getter_AddRefs(ps));
   NS_ENSURE_SUCCESS(rv, false);
@@ -211,7 +211,7 @@ bool Vacuumer::execute() {
 //// mozIStorageStatementCallback
 
 NS_IMETHODIMP
-Vacuumer::HandleError(mozIStorageError *aError) {
+Vacuumer::HandleError(mozIStorageError* aError) {
   int32_t result;
   nsresult rv;
   nsAutoCString message;
@@ -245,7 +245,7 @@ Vacuumer::HandleError(mozIStorageError *aError) {
 }
 
 NS_IMETHODIMP
-Vacuumer::HandleResult(mozIStorageResultSet *aResultSet) {
+Vacuumer::HandleResult(mozIStorageResultSet* aResultSet) {
   MOZ_ASSERT_UNREACHABLE("Got a resultset from a vacuum?");
   return NS_OK;
 }
@@ -287,7 +287,7 @@ nsresult Vacuumer::notifyCompletion(bool aSucceeded) {
 
 NS_IMPL_ISUPPORTS(VacuumManager, nsIObserver)
 
-VacuumManager *VacuumManager::gVacuumManager = nullptr;
+VacuumManager* VacuumManager::gVacuumManager = nullptr;
 
 already_AddRefed<VacuumManager> VacuumManager::getSingleton() {
   // Don't allocate it in the child Process.
@@ -323,8 +323,8 @@ VacuumManager::~VacuumManager() {
 //// nsIObserver
 
 NS_IMETHODIMP
-VacuumManager::Observe(nsISupports *aSubject, const char *aTopic,
-                       const char16_t *aData) {
+VacuumManager::Observe(nsISupports* aSubject, const char* aTopic,
+                       const char16_t* aData) {
   if (strcmp(aTopic, OBSERVER_TOPIC_IDLE_DAILY) == 0) {
     // Try to run vacuum on all registered entries.  Will stop at the first
     // successful one.
@@ -332,7 +332,7 @@ VacuumManager::Observe(nsISupports *aSubject, const char *aTopic,
     mParticipants.GetEntries(entries);
     // If there are more entries than what a month can contain, we could end up
     // skipping some, since we run daily.  So we use a starting index.
-    static const char *kPrefName = PREF_VACUUM_BRANCH "index";
+    static const char* kPrefName = PREF_VACUUM_BRANCH "index";
     int32_t startIndex = Preferences::GetInt(kPrefName, 0);
     if (startIndex >= entries.Count()) {
       startIndex = 0;

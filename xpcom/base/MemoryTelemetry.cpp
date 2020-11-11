@@ -7,15 +7,12 @@
 #include "MemoryTelemetry.h"
 #include "nsMemoryReporterManager.h"
 
-#include "GCTelemetry.h"
-#include "mozJSComponentLoader.h"
 #include "mozilla/ClearOnShutdown.h"
 #include "mozilla/Result.h"
 #include "mozilla/ResultExtensions.h"
 #include "mozilla/Services.h"
 #include "mozilla/ScopeExit.h"
 #include "mozilla/SimpleEnumerator.h"
-#include "mozilla/SystemGroup.h"
 #include "mozilla/Telemetry.h"
 #include "mozilla/TimeStamp.h"
 #include "mozilla/dom/ContentParent.h"
@@ -25,6 +22,7 @@
 #include "nsIDOMChromeWindow.h"
 #include "nsIMemoryReporter.h"
 #include "nsIWindowMediator.h"
+#include "nsImportModule.h"
 #include "nsNetCID.h"
 #include "nsObserverService.h"
 #include "nsReadableUtils.h"
@@ -47,27 +45,6 @@ static constexpr const char* kTopicCycleCollectorBegin =
 
 // How long to wait in millis for all the child memory reports to come in
 static constexpr uint32_t kTotalMemoryCollectorTimeout = 200;
-
-static Result<nsCOMPtr<mozIGCTelemetry>, nsresult> GetGCTelemetry() {
-  AutoJSAPI jsapi;
-  MOZ_ALWAYS_TRUE(jsapi.Init(xpc::PrivilegedJunkScope()));
-  JSContext* cx = jsapi.cx();
-
-  JS::RootedObject global(cx);
-  JS::RootedObject exports(cx);
-  MOZ_TRY(mozJSComponentLoader::Get()->Import(
-      cx, NS_LITERAL_CSTRING("resource://gre/modules/GCTelemetry.jsm"), &global,
-      &exports));
-
-  nsCOMPtr<mozIGCTelemetryJSM> jsm;
-  MOZ_TRY(nsContentUtils::XPConnect()->WrapJS(
-      cx, exports, NS_GET_IID(mozIGCTelemetryJSM), getter_AddRefs(jsm)));
-
-  nsCOMPtr<mozIGCTelemetry> gcTelemetry;
-  MOZ_TRY(jsm->GetGCTelemetry(getter_AddRefs(gcTelemetry)));
-
-  return std::move(gcTelemetry);
-}
 
 namespace {
 
@@ -150,13 +127,6 @@ nsresult MemoryTelemetry::DelayedInit() {
 
   GatherReports();
 
-  if (Telemetry::CanRecordExtended()) {
-    nsCOMPtr<mozIGCTelemetry> gcTelemetry;
-    MOZ_TRY_VAR(gcTelemetry, GetGCTelemetry());
-
-    MOZ_TRY(gcTelemetry->Init());
-  }
-
   return NS_OK;
 }
 
@@ -165,13 +135,6 @@ nsresult MemoryTelemetry::Shutdown() {
   MOZ_RELEASE_ASSERT(obs);
 
   obs->RemoveObserver(this, kTopicCycleCollectorBegin);
-
-  if (Telemetry::CanRecordExtended()) {
-    nsCOMPtr<mozIGCTelemetry> gcTelemetry;
-    MOZ_TRY_VAR(gcTelemetry, GetGCTelemetry());
-
-    MOZ_TRY(gcTelemetry->Shutdown());
-  }
 
   return NS_OK;
 }
@@ -239,19 +202,26 @@ nsresult MemoryTelemetry::GatherReports(
   MOZ_DIAGNOSTIC_ASSERT(mgr);
   NS_ENSURE_TRUE(mgr, NS_ERROR_FAILURE);
 
-  auto startTime = TimeStamp::Now();
-
 #define RECORD(id, metric, units)                                       \
   do {                                                                  \
     int64_t amt;                                                        \
     nsresult rv = mgr->Get##metric(&amt);                               \
-    if (!NS_WARN_IF(NS_FAILED(rv))) {                                   \
+    if (NS_SUCCEEDED(rv)) {                                             \
       HandleMemoryReport(Telemetry::id, nsIMemoryReporter::units, amt); \
+    } else if (rv != NS_ERROR_NOT_AVAILABLE) {                          \
+      NS_WARNING("Failed to retrieve memory telemetry for " #metric);   \
     }                                                                   \
   } while (0)
 
   // GHOST_WINDOWS is opt-out as of Firefox 55
   RECORD(GHOST_WINDOWS, GhostWindows, UNITS_COUNT);
+
+  // If we're running in the parent process, collect data from all processes for
+  // the MEMORY_TOTAL histogram.
+  if (XRE_IsParentProcess() && !mTotalMemoryGatherer) {
+    mTotalMemoryGatherer = new TotalMemoryGatherer();
+    mTotalMemoryGatherer->Begin(mThreadPool);
+  }
 
   if (!Telemetry::CanRecordReleaseData()) {
     return NS_OK;
@@ -277,8 +247,12 @@ nsresult MemoryTelemetry::GatherReports(
   // Collect cheap or main-thread only metrics synchronously, on the main
   // thread.
   RECORD(MEMORY_JS_GC_HEAP, JSMainRuntimeGCHeap, UNITS_BYTES);
-  RECORD(MEMORY_JS_COMPARTMENTS_SYSTEM, JSMainRuntimeRealmsSystem, UNITS_COUNT);
-  RECORD(MEMORY_JS_COMPARTMENTS_USER, JSMainRuntimeRealmsUser, UNITS_COUNT);
+  RECORD(MEMORY_JS_COMPARTMENTS_SYSTEM, JSMainRuntimeCompartmentsSystem,
+         UNITS_COUNT);
+  RECORD(MEMORY_JS_COMPARTMENTS_USER, JSMainRuntimeCompartmentsUser,
+         UNITS_COUNT);
+  RECORD(MEMORY_JS_REALMS_SYSTEM, JSMainRuntimeRealmsSystem, UNITS_COUNT);
+  RECORD(MEMORY_JS_REALMS_USER, JSMainRuntimeRealmsUser, UNITS_COUNT);
   RECORD(MEMORY_IMAGES_CONTENT_USED_UNCOMPRESSED, ImagesContentUsedUncompressed,
          UNITS_BYTES);
   RECORD(MEMORY_STORAGE_SQLITE, StorageSQLite, UNITS_BYTES);
@@ -308,6 +282,7 @@ nsresult MemoryTelemetry::GatherReports(
         RECORD(MEMORY_VSIZE_MAX_CONTIGUOUS, VsizeMaxContiguous, UNITS_BYTES);
 #endif
         RECORD(MEMORY_RESIDENT_FAST, ResidentFast, UNITS_BYTES);
+        RECORD(MEMORY_RESIDENT_PEAK, ResidentPeak, UNITS_BYTES);
         RECORD(MEMORY_UNIQUE, ResidentUnique, UNITS_BYTES);
         RECORD(MEMORY_HEAP_ALLOCATED, HeapAllocated, UNITS_BYTES);
         RECORD(MEMORY_HEAP_OVERHEAD_FRACTION, HeapOverheadFraction,
@@ -326,16 +301,6 @@ nsresult MemoryTelemetry::GatherReports(
     cleanup.release();
   }
 
-  // If we're running in the parent process, collect data from all processes for
-  // the MEMORY_TOTAL histogram.
-  if (XRE_IsParentProcess() && !mTotalMemoryGatherer) {
-    mTotalMemoryGatherer = new TotalMemoryGatherer();
-    mTotalMemoryGatherer->Begin(mThreadPool);
-  }
-
-  Telemetry::AccumulateTimeDelta(
-      Telemetry::HistogramID::TELEMETRY_MEMORY_REPORTER_MS, startTime,
-      TimeStamp::Now());
   return NS_OK;
 }
 
@@ -347,8 +312,7 @@ NS_IMPL_ISUPPORTS(MemoryTelemetry::TotalMemoryGatherer, nsITimerCallback)
  * results.
  */
 void MemoryTelemetry::TotalMemoryGatherer::Begin(nsIEventTarget* aThreadPool) {
-  nsCOMPtr<nsISerialEventTarget> target =
-      SystemGroup::EventTargetFor(TaskCategory::Other);
+  nsCOMPtr<nsISerialEventTarget> target = GetMainThreadSerialEventTarget();
 
   nsTArray<ContentParent*> parents;
   ContentParent::GetAll(parents);
@@ -529,9 +493,11 @@ nsresult MemoryTelemetry::Observe(nsISupports* aSubject, const char* aTopic,
 
     mLastPoll = now;
 
-    NS_IdleDispatchToCurrentThread(NewRunnableMethod<std::function<void()>>(
-        "MemoryTelemetry::GatherReports", this, &MemoryTelemetry::GatherReports,
-        nullptr));
+    NS_DispatchToCurrentThreadQueue(
+        NewRunnableMethod<std::function<void()>>(
+            "MemoryTelemetry::GatherReports", this,
+            &MemoryTelemetry::GatherReports, nullptr),
+        EventQueuePriority::Idle);
   } else if (strcmp(aTopic, "content-child-shutdown") == 0) {
     if (nsCOMPtr<nsITelemetry> telemetry =
             do_GetService("@mozilla.org/base/telemetry;1")) {

@@ -5,19 +5,18 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#include "nsComponentManagerUtils.h"
 #include "nsOSHelperAppService.h"
 #include "nsISupports.h"
 #include "nsString.h"
-#include "nsIURL.h"
 #include "nsIMIMEInfo.h"
 #include "nsMIMEInfoWin.h"
 #include "nsMimeTypes.h"
-#include "nsIProcess.h"
 #include "plstr.h"
-#include "nsAutoPtr.h"
 #include "nsNativeCharsetUtils.h"
 #include "nsLocalFile.h"
 #include "nsIWindowsRegKey.h"
+#include "nsXULAppAPI.h"
 #include "mozilla/UniquePtrExtensions.h"
 #include "mozilla/WindowsVersion.h"
 
@@ -64,7 +63,7 @@ static nsresult GetExtensionFromWindowsMimeDatabase(const nsACString& aMimeType,
                    nsIWindowsRegKey::ACCESS_QUERY_VALUE);
 
   if (NS_SUCCEEDED(rv))
-    regKey->ReadStringValue(NS_LITERAL_STRING("Extension"), aFileExtension);
+    regKey->ReadStringValue(u"Extension"_ns, aFileExtension);
 
   return NS_OK;
 }
@@ -83,6 +82,29 @@ nsresult nsOSHelperAppService::OSProtocolHandlerExists(
                                                 AL_EFFECTIVE, &pResult);
     if (SUCCEEDED(hr)) {
       CoTaskMemFree(pResult);
+      nsCOMPtr<nsIWindowsRegKey> regKey =
+          do_CreateInstance("@mozilla.org/windows-registry-key;1");
+      if (!regKey) {
+        return NS_ERROR_NOT_AVAILABLE;
+      }
+
+      nsresult rv = regKey->Open(nsIWindowsRegKey::ROOT_KEY_CLASSES_ROOT,
+                                 nsDependentString(scheme.get()),
+                                 nsIWindowsRegKey::ACCESS_QUERY_VALUE);
+      if (NS_FAILED(rv)) {
+        // Open will fail if the registry key path doesn't exist.
+        return NS_OK;
+      }
+
+      bool hasValue;
+      rv = regKey->HasValue(u"URL Protocol"_ns, &hasValue);
+      if (NS_FAILED(rv)) {
+        return NS_ERROR_FAILURE;
+      }
+      if (!hasValue) {
+        return NS_OK;
+      }
+
       *aHandlerExists = true;
     }
   }
@@ -125,6 +147,44 @@ NS_IMETHODIMP nsOSHelperAppService::GetApplicationDescription(
   return NS_ERROR_NOT_AVAILABLE;
 }
 
+NS_IMETHODIMP nsOSHelperAppService::IsCurrentAppOSDefaultForProtocol(
+    const nsACString& aScheme, bool* _retval) {
+  *_retval = false;
+
+  NS_ENSURE_TRUE(mAppAssoc, NS_ERROR_NOT_AVAILABLE);
+
+  NS_ConvertASCIItoUTF16 buf(aScheme);
+
+  // Find the progID
+  wchar_t* pResult = nullptr;
+  HRESULT hr = mAppAssoc->QueryCurrentDefault(buf.get(), AT_URLPROTOCOL,
+                                              AL_EFFECTIVE, &pResult);
+  if (FAILED(hr)) {
+    return NS_ERROR_FAILURE;
+  }
+  nsAutoString progID(pResult);
+  // We are responsible for freeing returned strings.
+  CoTaskMemFree(pResult);
+
+  // Find the default executable.
+  nsAutoString description;
+  nsCOMPtr<nsIFile> appFile;
+  nsresult rv = GetDefaultAppInfo(progID, description, getter_AddRefs(appFile));
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
+  // Determine if the default executable is our executable.
+  nsCOMPtr<nsIFile> ourBinary;
+  XRE_GetBinaryPath(getter_AddRefs(ourBinary));
+  bool isSame = false;
+  rv = appFile->Equals(ourBinary, &isSame);
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
+  *_retval = isSame;
+  return NS_OK;
+}
+
 // GetMIMEInfoFromRegistry: This function obtains the values of some of the
 // nsIMIMEInfo attributes for the mimeType/extension associated with the input
 // registry key.  The default entry for that key is the name of a registry key
@@ -150,7 +210,7 @@ nsresult nsOSHelperAppService::GetMIMEInfoFromRegistry(const nsString& fileType,
 
   // OK, the default value here is the description of the type.
   nsAutoString description;
-  rv = regKey->ReadStringValue(EmptyString(), description);
+  rv = regKey->ReadStringValue(u""_ns, description);
   if (NS_SUCCEEDED(rv)) pInfo->SetDescription(description);
 
   return NS_OK;
@@ -162,8 +222,9 @@ nsresult nsOSHelperAppService::GetMIMEInfoFromRegistry(const nsString& fileType,
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
 /// Looks up the type for the extension aExt and compares it to aType
-/* static */ bool nsOSHelperAppService::typeFromExtEquals(const char16_t* aExt,
-                                                          const char* aType) {
+/* static */
+bool nsOSHelperAppService::typeFromExtEquals(const char16_t* aExt,
+                                             const char* aType) {
   if (!aType) return false;
   nsAutoString fileExtToUse;
   if (aExt[0] != char16_t('.')) fileExtToUse = char16_t('.');
@@ -181,8 +242,8 @@ nsresult nsOSHelperAppService::GetMIMEInfoFromRegistry(const nsString& fileType,
   if (NS_FAILED(rv)) return eq;
 
   nsAutoString type;
-  rv = regKey->ReadStringValue(NS_LITERAL_STRING("Content Type"), type);
-  if (NS_SUCCEEDED(rv)) eq = type.EqualsASCII(aType);
+  rv = regKey->ReadStringValue(u"Content Type"_ns, type);
+  if (NS_SUCCEEDED(rv)) eq = type.LowerCaseEqualsASCII(aType);
 
   return eq;
 }
@@ -233,12 +294,11 @@ nsresult nsOSHelperAppService::GetDefaultAppInfo(
     if (NS_FAILED(rv)) return NS_ERROR_FAILURE;
 
     // OK, the default value here is the description of the type.
-    rv = regKey->ReadStringValue(EmptyString(), handlerCommand);
+    rv = regKey->ReadStringValue(u""_ns, handlerCommand);
     if (NS_FAILED(rv)) {
       // Check if there is a DelegateExecute string
       nsAutoString delegateExecute;
-      rv = regKey->ReadStringValue(NS_LITERAL_STRING("DelegateExecute"),
-                                   delegateExecute);
+      rv = regKey->ReadStringValue(u"DelegateExecute"_ns, delegateExecute);
       NS_ENSURE_SUCCESS(rv, rv);
 
       // Look for InProcServer32
@@ -250,7 +310,7 @@ nsresult nsOSHelperAppService::GetDefaultAppInfo(
                         delegateExecuteRegPath,
                         nsIWindowsRegKey::ACCESS_QUERY_VALUE);
       if (NS_SUCCEEDED(rv)) {
-        rv = chkKey->ReadStringValue(EmptyString(), handlerCommand);
+        rv = chkKey->ReadStringValue(u""_ns, handlerCommand);
       }
 
       if (NS_FAILED(rv)) {
@@ -262,7 +322,7 @@ nsresult nsOSHelperAppService::GetDefaultAppInfo(
                           delegateExecuteRegPath,
                           nsIWindowsRegKey::ACCESS_QUERY_VALUE);
         NS_ENSURE_SUCCESS(rv, rv);
-        rv = chkKey->ReadStringValue(EmptyString(), handlerCommand);
+        rv = chkKey->ReadStringValue(u""_ns, handlerCommand);
         NS_ENSURE_SUCCESS(rv, rv);
       }
     }
@@ -276,10 +336,16 @@ nsresult nsOSHelperAppService::GetDefaultAppInfo(
   nsCOMPtr<nsILocalFileWin> lf = new nsLocalFile();
   rv = lf->InitWithCommandLine(handlerCommand);
   NS_ENSURE_SUCCESS(rv, rv);
-
-  // The "FileDescription" field contains the actual name of the application.
-  lf->GetVersionInfoField("FileDescription", aDefaultDescription);
   lf.forget(aDefaultApplication);
+
+  wchar_t friendlyName[1024];
+  DWORD friendlyNameSize = 1024;
+  HRESULT hr = AssocQueryString(ASSOCF_NONE, ASSOCSTR_FRIENDLYAPPNAME,
+                                PromiseFlatString(aAppInfo).get(), NULL,
+                                friendlyName, &friendlyNameSize);
+  if (SUCCEEDED(hr) && friendlyNameSize > 1) {
+    aDefaultDescription.Assign(friendlyName, friendlyNameSize - 1);
+  }
 
   return NS_OK;
 }
@@ -307,7 +373,10 @@ already_AddRefed<nsMIMEInfoWin> nsOSHelperAppService::GetByExtension(
   fileExtToUse.Append(aFileExt);
 
   // don't append the '.' for our APIs.
-  mimeInfo->AppendExtension(NS_ConvertUTF16toUTF8(Substring(fileExtToUse, 1)));
+  nsAutoCString lowerFileExt =
+      NS_ConvertUTF16toUTF8(Substring(fileExtToUse, 1));
+  ToLowerCase(lowerFileExt);
+  mimeInfo->AppendExtension(lowerFileExt);
   mimeInfo->SetPreferredAction(nsIMIMEInfo::useSystemDefault);
 
   nsAutoString appInfo;
@@ -352,82 +421,111 @@ already_AddRefed<nsMIMEInfoWin> nsOSHelperAppService::GetByExtension(
   return mimeInfo.forget();
 }
 
-already_AddRefed<nsIMIMEInfo> nsOSHelperAppService::GetMIMEInfoFromOS(
-    const nsACString& aMIMEType, const nsACString& aFileExt, bool* aFound) {
-  *aFound = true;
+NS_IMETHODIMP
+nsOSHelperAppService::GetMIMEInfoFromOS(const nsACString& aMIMEType,
+                                        const nsACString& aFileExt,
+                                        bool* aFound, nsIMIMEInfo** aMIMEInfo) {
+  *aFound = false;
 
   const nsCString& flatType = PromiseFlatCString(aMIMEType);
-  const nsCString& flatExt = PromiseFlatCString(aFileExt);
-
   nsAutoString fileExtension;
-  /* XXX The Equals is a gross hack to wallpaper over the most common Win32
-   * extension issues caused by the fix for bug 116938.  See bug
+  CopyUTF8toUTF16(aFileExt, fileExtension);
+
+  /* XXX The octet-stream check is a gross hack to wallpaper over the most
+   * common Win32 extension issues caused by the fix for bug 116938.  See bug
    * 120327, comment 271 for why this is needed.  Not even sure we
    * want to remove this once we have fixed all this stuff to work
    * right; any info we get from the OS on this type is pretty much
    * useless....
-   * We'll do extension-based lookup for this type later in this function.
    */
-  if (!aMIMEType.IsEmpty() &&
-      !aMIMEType.LowerCaseEqualsLiteral(APPLICATION_OCTET_STREAM)) {
-    // try to use the windows mime database to see if there is a mapping to a
-    // file extension
-    GetExtensionFromWindowsMimeDatabase(aMIMEType, fileExtension);
-    LOG(("Windows mime database: extension '%s'\n", fileExtension.get()));
-  }
-  // If we found an extension for the type, do the lookup
+  bool haveMeaningfulMimeType =
+      !aMIMEType.IsEmpty() &&
+      !aMIMEType.LowerCaseEqualsLiteral(APPLICATION_OCTET_STREAM);
+  LOG(("Extension lookup on '%s' with mimetype '%s'%s\n", fileExtension.get(),
+       flatType.get(),
+       haveMeaningfulMimeType ? " (treated as meaningful)" : ""));
+
   RefPtr<nsMIMEInfoWin> mi;
-  if (!fileExtension.IsEmpty())
-    mi = GetByExtension(fileExtension, flatType.get());
+
+  // We should have *something* to go on here.
+  nsAutoString extensionFromMimeType;
+  if (haveMeaningfulMimeType) {
+    GetExtensionFromWindowsMimeDatabase(aMIMEType, extensionFromMimeType);
+  }
+  if (fileExtension.IsEmpty() && extensionFromMimeType.IsEmpty()) {
+    // Without an extension from the mimetype or the file, we can't
+    // do anything here.
+    mi = new nsMIMEInfoWin(flatType.get());
+    mi.forget(aMIMEInfo);
+    return NS_OK;
+  }
+
+  // Either fileExtension or extensionFromMimeType must now be non-empty.
+
+  *aFound = true;
+
+  // On Windows, we prefer the file extension for lookups over the mimetype,
+  // because that's how windows does things.
+  // If we have no file extension or it doesn't match the mimetype, use the
+  // mime type's default file extension instead.
+  bool usedMimeTypeExtensionForLookup = false;
+  if (fileExtension.IsEmpty() ||
+      (!extensionFromMimeType.IsEmpty() &&
+       !typeFromExtEquals(fileExtension.get(), flatType.get()))) {
+    usedMimeTypeExtensionForLookup = true;
+    fileExtension = extensionFromMimeType;
+    LOG(("Now using '%s' mimetype's default file extension '%s' for lookup\n",
+         flatType.get(), fileExtension.get()));
+  }
+
+  // If we have an extension, use it for lookup:
+  mi = GetByExtension(fileExtension, flatType.get());
   LOG(("Extension lookup on '%s' found: 0x%p\n", fileExtension.get(),
        mi.get()));
 
-  bool hasDefault = false;
   if (mi) {
+    bool hasDefault = false;
     mi->GetHasDefaultHandler(&hasDefault);
-    // OK. We might have the case that |aFileExt| is a valid extension for the
-    // mimetype we were given. In that case, we do want to append aFileExt
-    // to the mimeinfo that we have. (E.g.: We are asked for video/mpeg and
-    // .mpg, but the primary extension for video/mpeg is .mpeg. But because
-    // .mpg is an extension for video/mpeg content, we want to append it)
-    if (!aFileExt.IsEmpty() &&
-        typeFromExtEquals(NS_ConvertUTF8toUTF16(flatExt).get(),
-                          flatType.get())) {
-      LOG(
-          ("Appending extension '%s' to mimeinfo, because its mimetype is "
-           "'%s'\n",
-           flatExt.get(), flatType.get()));
-      bool extExist = false;
-      mi->ExtensionExists(aFileExt, &extExist);
-      if (!extExist) mi->AppendExtension(aFileExt);
-    }
-  }
-  if (!mi || !hasDefault) {
-    RefPtr<nsMIMEInfoWin> miByExt =
-        GetByExtension(NS_ConvertUTF8toUTF16(aFileExt), flatType.get());
-    LOG(("Ext. lookup for '%s' found 0x%p\n", flatExt.get(), miByExt.get()));
-    if (!miByExt && mi) return mi.forget();
-    if (miByExt && !mi) {
-      return miByExt.forget();
-    }
-    if (!miByExt && !mi) {
-      *aFound = false;
-      mi = new nsMIMEInfoWin(flatType);
-      if (!aFileExt.IsEmpty()) {
-        mi->AppendExtension(aFileExt);
+    // If we don't find a default handler description, see if we can find one
+    // using the mimetype.
+    if (!hasDefault && !usedMimeTypeExtensionForLookup) {
+      RefPtr<nsMIMEInfoWin> miFromMimeType =
+          GetByExtension(extensionFromMimeType, flatType.get());
+      LOG(("Mime-based ext. lookup for '%s' found 0x%p\n",
+           extensionFromMimeType.get(), miFromMimeType.get()));
+      if (miFromMimeType) {
+        nsAutoString desc;
+        miFromMimeType->GetDefaultDescription(desc);
+        mi->SetDefaultDescription(desc);
       }
-
-      return mi.forget();
     }
-
-    // if we get here, mi has no default app. copy from extension lookup.
-    nsCOMPtr<nsIFile> defaultApp;
-    nsAutoString desc;
-    miByExt->GetDefaultDescription(desc);
-
-    mi->SetDefaultDescription(desc);
+    mi.forget(aMIMEInfo);
+    return NS_OK;
   }
-  return mi.forget();
+
+  // The extension didn't work. Try the extension from the mimetype if
+  // different:
+  if (!extensionFromMimeType.IsEmpty() && !usedMimeTypeExtensionForLookup) {
+    mi = GetByExtension(extensionFromMimeType, flatType.get());
+    LOG(("Mime-based ext. lookup for '%s' found 0x%p\n",
+         extensionFromMimeType.get(), mi.get()));
+  }
+  if (mi) {
+    mi.forget(aMIMEInfo);
+    return NS_OK;
+  }
+  // This didn't work either, so just return an empty dummy mimeinfo.
+  *aFound = false;
+  mi = new nsMIMEInfoWin(flatType.get());
+  // If we didn't resort to the mime type's extension, we must have had a
+  // valid extension, so stick its lowercase version on the mime info.
+  if (!usedMimeTypeExtensionForLookup) {
+    nsAutoCString lowerFileExt;
+    ToLowerCase(aFileExt, lowerFileExt);
+    mi->AppendExtension(lowerFileExt);
+  }
+  mi.forget(aMIMEInfo);
+  return NS_OK;
 }
 
 NS_IMETHODIMP
@@ -480,8 +578,7 @@ bool nsOSHelperAppService::GetMIMETypeFromOSForExtension(
   if (NS_FAILED(rv)) return false;
 
   nsAutoString mimeType;
-  if (NS_FAILED(regKey->ReadStringValue(NS_LITERAL_STRING("Content Type"),
-                                        mimeType)) ||
+  if (NS_FAILED(regKey->ReadStringValue(u"Content Type"_ns, mimeType)) ||
       mimeType.IsEmpty()) {
     return false;
   }

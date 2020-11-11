@@ -4,17 +4,17 @@
 "use strict";
 
 const { assert } = require("devtools/shared/DevToolsUtils");
-const { actions } = require("../constants");
-const { findSelectedSnapshot } = require("../utils");
-const refresh = require("./refresh");
+const { actions } = require("devtools/client/memory/constants");
+const { findSelectedSnapshot } = require("devtools/client/memory/utils");
+const refresh = require("devtools/client/memory/actions/refresh");
 
 /**
  * Change the currently selected view.
  *
  * @param {viewState} view
  */
-const changeView = exports.changeView = function(view) {
-  return function(dispatch, getState) {
+const changeView = (exports.changeView = function(view) {
+  return function({ dispatch, getState }) {
     dispatch({
       type: actions.CHANGE_VIEW,
       newViewState: view,
@@ -22,14 +22,14 @@ const changeView = exports.changeView = function(view) {
       oldSelected: findSelectedSnapshot(getState()),
     });
   };
-};
+});
 
 /**
  * Given that we are in the INDIVIDUALS view state, go back to the state we were
  * in before.
  */
-const popView = exports.popView = function() {
-  return function(dispatch, getState) {
+const popView = (exports.popView = function() {
+  return function({ dispatch, getState }) {
     const { previous } = getState().view;
     assert(previous);
     dispatch({
@@ -37,7 +37,7 @@ const popView = exports.popView = function() {
       previousView: previous,
     });
   };
-};
+});
 
 /**
  * Change the currently selected view and ensure all our data is up to date from
@@ -47,7 +47,7 @@ const popView = exports.popView = function() {
  * @param {HeapAnalysesClient} heapWorker
  */
 exports.changeViewAndRefresh = function(view, heapWorker) {
-  return async function(dispatch, getState) {
+  return async function({ dispatch, getState }) {
     dispatch(changeView(view));
     await dispatch(refresh.refresh(heapWorker));
   };
@@ -60,7 +60,7 @@ exports.changeViewAndRefresh = function(view, heapWorker) {
  * @param {HeapAnalysesClient} heapWorker
  */
 exports.popViewAndRefresh = function(heapWorker) {
-  return async function(dispatch, getState) {
+  return async function({ dispatch, getState }) {
     dispatch(popView());
     await dispatch(refresh.refresh(heapWorker));
   };

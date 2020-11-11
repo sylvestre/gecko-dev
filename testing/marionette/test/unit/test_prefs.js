@@ -4,18 +4,24 @@
 
 "use strict";
 
-ChromeUtils.import("resource://gre/modules/Log.jsm");
-ChromeUtils.import("resource://gre/modules/Services.jsm");
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+
+const { Log } = ChromeUtils.import("resource://gre/modules/Log.jsm");
 
 XPCOMUtils.defineLazyServiceGetter(
-    this, "env", "@mozilla.org/process/environment;1", "nsIEnvironment");
+  this,
+  "env",
+  "@mozilla.org/process/environment;1",
+  "nsIEnvironment"
+);
 
-const {
-  Branch,
-  EnvironmentPrefs,
-  MarionettePrefs,
-} = ChromeUtils.import("chrome://marionette/content/prefs.js", {});
+const { Branch, EnvironmentPrefs, MarionettePrefs } = ChromeUtils.import(
+  "chrome://marionette/content/prefs.js",
+  null
+);
 
 function reset() {
   Services.prefs.setBoolPref("test.bool", false);
@@ -114,14 +120,11 @@ add_test(function test_MarionettePrefs_getters() {
 
 add_test(function test_MarionettePrefs_setters() {
   try {
-    MarionettePrefs.enabled = true;
     MarionettePrefs.contentListener = true;
     MarionettePrefs.port = 777;
-    equal(true, MarionettePrefs.enabled);
     equal(true, MarionettePrefs.contentListener);
     equal(777, MarionettePrefs.port);
   } finally {
-    Services.prefs.clearUserPref("marionette.enabled");
     Services.prefs.clearUserPref("marionette.contentListener");
     Services.prefs.clearUserPref("marionette.port");
   }

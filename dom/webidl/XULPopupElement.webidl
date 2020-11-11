@@ -1,4 +1,4 @@
-/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
+/* -*- Mode: IDL; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -20,9 +20,12 @@ dictionary OpenPopupOptions {
 
 typedef (DOMString or OpenPopupOptions) StringOrOpenPopupOptions;
 
-[HTMLConstructor, Func="IsChromeOrXBL"]
+[ChromeOnly,
+ Exposed=Window]
 interface XULPopupElement : XULElement
 {
+  [HTMLConstructor] constructor();
+
   /**
    * Allow the popup to automatically position itself.
    */
@@ -65,7 +68,7 @@ interface XULPopupElement : XULElement
    * @param triggerEvent the event that triggered this popup (mouse click for example)
    */
   void openPopup(optional Element? anchorElement = null,
-                 optional StringOrOpenPopupOptions options,
+                 optional StringOrOpenPopupOptions options = {},
                  optional long x = 0,
                  optional long y = 0,
                  optional boolean isContextMenu = false,
@@ -140,6 +143,12 @@ interface XULPopupElement : XULElement
   readonly attribute Node? triggerNode;
 
   /**
+   * True if the popup is anchored to a point or rectangle. False if it
+   * appears at a fixed screen coordinate.
+   */
+  readonly attribute boolean isAnchored;
+
+  /**
    * Retrieve the anchor that was specified to openPopup or for menupopups in a
    * menu, the parent menu.
    */
@@ -170,12 +179,6 @@ interface XULPopupElement : XULElement
    * Size the popup to the given dimensions
    */
   void sizeTo(long width, long height);
-
-  /** Returns the alignment position where the popup has appeared relative to its
-   *  anchor node or point, accounting for any flipping that occurred.
-   */
-  readonly attribute DOMString alignmentPosition;
-  readonly attribute long alignmentOffset;
 
   void setConstraintRect(DOMRectReadOnly rect);
 };

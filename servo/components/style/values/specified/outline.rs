@@ -22,6 +22,8 @@ use style_traits::ParseError;
     SpecifiedValueInfo,
     ToComputedValue,
     ToCss,
+    ToResolvedValue,
+    ToShmem,
 )]
 #[repr(C, u8)]
 /// <https://drafts.csswg.org/css-ui/#propdef-outline-style>
@@ -54,7 +56,7 @@ impl Parse for OutlineStyle {
         _context: &ParserContext,
         input: &mut Parser<'i, 't>,
     ) -> Result<OutlineStyle, ParseError<'i>> {
-        if let Ok(border_style) = input.try(BorderStyle::parse) {
+        if let Ok(border_style) = input.try_parse(BorderStyle::parse) {
             if let BorderStyle::Hidden = border_style {
                 return Err(input
                     .new_custom_error(SelectorParseErrorKind::UnexpectedIdent("hidden".into())));

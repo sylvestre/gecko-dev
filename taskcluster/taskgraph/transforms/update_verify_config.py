@@ -7,7 +7,7 @@ Transform the beetmover task into an actual task description.
 
 from __future__ import absolute_import, print_function, unicode_literals
 
-import urlparse
+import six.moves.urllib.parse as urlparse
 
 from taskgraph.transforms.base import TransformSequence
 from taskgraph.util.schema import resolve_keyed_by
@@ -33,6 +33,8 @@ INCLUDE_VERSION_REGEXES = {
     "devedition_hack": r"'^((?!58\.0b1$)\d+\.\d+(b\d+)?)$'",
     # Same as nonbeta, except for the esr suffix
     "esr": r"'^\d+\.\d+(\.\d+)?esr$'",
+    # Previous esr versions, for update testing before we update users to esr78
+    "esr78-next": r"'^(52|60|68)+\.\d+(\.\d+)?esr$'",
 }
 
 MAR_CHANNEL_ID_OVERRIDE_REGEXES = {
@@ -66,17 +68,28 @@ def add_command(config, tasks):
         command = [
             "python",
             "testing/mozharness/scripts/release/update-verify-config-creator.py",
-            "--product", task["extra"]["product"],
-            "--stage-product", task["shipping-product"],
-            "--app-name", task["extra"]["app-name"],
-            "--branch-prefix", task["extra"]["branch-prefix"],
-            "--platform", task["extra"]["platform"],
-            "--to-version", release_config["version"],
-            "--to-app-version", release_config["appVersion"],
-            "--to-build-number", str(release_config["build_number"]),
-            "--to-buildid", config.params["moz_build_date"],
-            "--to-revision", get_branch_rev(config),
-            "--output-file", "update-verify.cfg",
+            "--product",
+            task["extra"]["product"],
+            "--stage-product",
+            task["shipping-product"],
+            "--app-name",
+            task["extra"]["app-name"],
+            "--branch-prefix",
+            task["extra"]["branch-prefix"],
+            "--platform",
+            task["extra"]["platform"],
+            "--to-version",
+            release_config["version"],
+            "--to-app-version",
+            release_config["appVersion"],
+            "--to-build-number",
+            str(release_config["build_number"]),
+            "--to-buildid",
+            config.params["moz_build_date"],
+            "--to-revision",
+            get_branch_rev(config),
+            "--output-file",
+            "update-verify.cfg",
         ]
 
         repo_path = urlparse.urlsplit(get_branch_repo(config)).path.lstrip("/")
@@ -94,12 +107,13 @@ def add_command(config, tasks):
         for arg in keyed_by_args:
             thing = "extra.{}".format(arg)
             resolve_keyed_by(
-                task, thing,
-                item_name=task['name'],
-                platform=task['attributes']['build_platform'],
+                task,
+                thing,
+                item_name=task["name"],
+                platform=task["attributes"]["build_platform"],
                 **{
-                    'release-type': config.params['release_type'],
-                    'release-level': config.params.release_level(),
+                    "release-type": config.params["release_type"],
+                    "release-level": config.params.release_level(),
                 }
             )
             # ignore things that resolved to null
@@ -113,9 +127,11 @@ def add_command(config, tasks):
             command.append("--{}".format(arg))
             command.append(task["extra"][arg])
 
-        task['run'].update({
-            'using': 'mach',
-            'mach': " ".join(command),
-        })
+        task["run"].update(
+            {
+                "using": "mach",
+                "mach": " ".join(command),
+            }
+        )
 
         yield task

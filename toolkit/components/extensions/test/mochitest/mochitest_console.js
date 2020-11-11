@@ -1,7 +1,7 @@
 "use strict";
 
-const {Services} = ChromeUtils.import("resource://gre/modules/Services.jsm", {});
-const {addMessageListener, sendAsyncMessage} = this;
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { addMessageListener, sendAsyncMessage } = this;
 
 // Much of the console monitoring code is copied from TestUtils but simplified
 // to our needs.
@@ -11,7 +11,7 @@ function monitorConsole(msgs) {
       if (!(k in msg)) {
         return false;
       }
-      if (pat[k] instanceof RegExp && typeof(msg[k]) === "string") {
+      if (pat[k] instanceof RegExp && typeof msg[k] === "string") {
         if (!pat[k].test(msg[k])) {
           return false;
         }
@@ -45,7 +45,7 @@ addMessageListener("consoleStart", messages => {
     // instanceof RegExp will fail.  If we have an object, lets just make
     // sure.
     let message = msg.message;
-    if (typeof(message) == "object" && !(message instanceof RegExp)) {
+    if (typeof message == "object" && !(message instanceof RegExp)) {
       msg.message = new RegExp(message);
     }
   }

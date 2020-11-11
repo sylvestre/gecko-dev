@@ -7,14 +7,22 @@
 #ifndef mozilla_dom_quota_QuotaManagerService_h
 #define mozilla_dom_quota_QuotaManagerService_h
 
-#include "mozilla/dom/ipc/IdType.h"
+#include <cstdint>
+#include "ErrorList.h"
+#include "mozilla/AlreadyAddRefed.h"
 #include "mozilla/HalBatteryInformation.h"
-#include "nsAutoPtr.h"
+#include "mozilla/dom/ipc/IdType.h"
 #include "nsIObserver.h"
 #include "nsIQuotaManagerService.h"
+#include "nsISupports.h"
 
 #define QUOTAMANAGER_SERVICE_CONTRACTID \
   "@mozilla.org/dom/quota-manager-service;1"
+
+class nsIPrincipal;
+class nsIQuotaRequest;
+class nsIQuotaUsageCallback;
+class nsIQuotaUsageRequest;
 
 namespace mozilla {
 namespace ipc {
@@ -44,8 +52,6 @@ class QuotaManagerService final : public nsIQuotaManagerService,
   class RequestInfo;
   class IdleMaintenanceInfo;
 
-  nsCOMPtr<nsIEventTarget> mBackgroundThread;
-
   QuotaChild* mBackgroundActor;
 
   bool mBackgroundActorFailed;
@@ -63,10 +69,6 @@ class QuotaManagerService final : public nsIQuotaManagerService,
 
   void ClearBackgroundActor();
 
-  void NoteLiveManager(QuotaManager* aManager);
-
-  void NoteShuttingDownManager();
-
   // Called when a process is being shot down. Aborts any running operations
   // for the given process.
   void AbortOperationsForProcess(ContentParentId aContentParentId);
@@ -79,11 +81,9 @@ class QuotaManagerService final : public nsIQuotaManagerService,
 
   void Destroy();
 
-  nsresult InitiateRequest(nsAutoPtr<PendingRequestInfo>& aInfo);
+  nsresult EnsureBackgroundActor();
 
-  nsresult BackgroundActorCreated(PBackgroundChild* aBackgroundActor);
-
-  void BackgroundActorFailed();
+  nsresult InitiateRequest(PendingRequestInfo& aInfo);
 
   void PerformIdleMaintenance();
 

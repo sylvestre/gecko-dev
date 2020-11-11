@@ -6,12 +6,16 @@
 #include "nss.h"
 #include "pk11pub.h"
 #include "sechash.h"
+#include "cryptohi.h"
 
 #include "gtest/gtest.h"
 #include "nss_scoped_ptrs.h"
 
 #include "pk11_ecdsa_vectors.h"
 #include "pk11_signature_test.h"
+#include "testvectors/p256ecdsa-sha256-vectors.h"
+#include "testvectors/p384ecdsa-sha384-vectors.h"
+#include "testvectors/p521ecdsa-sha512-vectors.h"
 
 namespace nss_test {
 
@@ -45,6 +49,11 @@ static const Pkcs11EcdsaTestParams kEcdsaVectors[] = {
       DataBuffer(kP256Spki, sizeof(kP256Spki)),
       DataBuffer(kP256Data, sizeof(kP256Data)),
       DataBuffer(kP256Signature, sizeof(kP256Signature))}},
+    {SEC_OID_SHA256,
+     {DataBuffer(kP256Pkcs8ZeroPad, sizeof(kP256Pkcs8ZeroPad)),
+      DataBuffer(kP256SpkiZeroPad, sizeof(kP256SpkiZeroPad)),
+      DataBuffer(kP256DataZeroPad, sizeof(kP256DataZeroPad)),
+      DataBuffer(kP256SignatureZeroPad, sizeof(kP256SignatureZeroPad))}},
     {SEC_OID_SHA384,
      {DataBuffer(kP384Pkcs8, sizeof(kP384Pkcs8)),
       DataBuffer(kP384Spki, sizeof(kP384Spki)),
@@ -166,5 +175,49 @@ TEST_F(Pkcs11EcdsaSha256Test, ImportSpkiPointNotOnCurve) {
   auto handle = PK11_ImportPublicKey(slot.get(), pubKey.get(), false);
   EXPECT_EQ(handle, static_cast<decltype(handle)>(CK_INVALID_HANDLE));
 }
+
+class Pkcs11EcdsaWycheproofTest
+    : public ::testing::TestWithParam<EcdsaTestVector> {
+ protected:
+  void Derive(const EcdsaTestVector vec) {
+    SECItem spki_item = {siBuffer, toUcharPtr(vec.public_key.data()),
+                         static_cast<unsigned int>(vec.public_key.size())};
+    SECItem sig_item = {siBuffer, toUcharPtr(vec.sig.data()),
+                        static_cast<unsigned int>(vec.sig.size())};
+
+    DataBuffer hash;
+    hash.Allocate(static_cast<size_t>(HASH_ResultLenByOidTag(vec.hash_oid)));
+    SECStatus rv = PK11_HashBuf(vec.hash_oid, toUcharPtr(hash.data()),
+                                toUcharPtr(vec.msg.data()), vec.msg.size());
+    ASSERT_EQ(rv, SECSuccess);
+    SECItem hash_item = {siBuffer, toUcharPtr(hash.data()),
+                         static_cast<unsigned int>(hash.len())};
+
+    ScopedCERTSubjectPublicKeyInfo cert_spki(
+        SECKEY_DecodeDERSubjectPublicKeyInfo(&spki_item));
+    ASSERT_TRUE(cert_spki);
+    ScopedSECKEYPublicKey pub_key(SECKEY_ExtractPublicKey(cert_spki.get()));
+    ASSERT_TRUE(pub_key);
+
+    rv = VFY_VerifyDigestDirect(&hash_item, pub_key.get(), &sig_item,
+                                SEC_OID_ANSIX962_EC_PUBLIC_KEY, vec.hash_oid,
+                                nullptr);
+    EXPECT_EQ(rv, vec.valid ? SECSuccess : SECFailure);
+  };
+};
+
+TEST_P(Pkcs11EcdsaWycheproofTest, Verify) { Derive(GetParam()); }
+
+INSTANTIATE_TEST_CASE_P(WycheproofP256SignatureSha256Test,
+                        Pkcs11EcdsaWycheproofTest,
+                        ::testing::ValuesIn(kP256EcdsaSha256Vectors));
+
+INSTANTIATE_TEST_CASE_P(WycheproofP384SignatureSha384Test,
+                        Pkcs11EcdsaWycheproofTest,
+                        ::testing::ValuesIn(kP384EcdsaSha384Vectors));
+
+INSTANTIATE_TEST_CASE_P(WycheproofP521SignatureSha512Test,
+                        Pkcs11EcdsaWycheproofTest,
+                        ::testing::ValuesIn(kP521EcdsaSha512Vectors));
 
 }  // namespace nss_test

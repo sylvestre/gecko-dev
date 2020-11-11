@@ -4,14 +4,14 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #if defined(MOZ_WIDGET_GTK)
-#include "gfxPlatformGtk.h"
-#define gfxToolkitPlatform gfxPlatformGtk
+#  include "gfxPlatformGtk.h"
+#  define gfxToolkitPlatform gfxPlatformGtk
 #elif defined(XP_WIN)
-#include "gfxWindowsPlatform.h"
-#define gfxToolkitPlatform gfxWindowsPlatform
+#  include "gfxWindowsPlatform.h"
+#  define gfxToolkitPlatform gfxWindowsPlatform
 #elif defined(ANDROID)
-#include "gfxAndroidPlatform.h"
-#define gfxToolkitPlatform gfxAndroidPlatform
+#  include "gfxAndroidPlatform.h"
+#  define gfxToolkitPlatform gfxAndroidPlatform
 #endif
 
 #include "gfxTypes.h"
@@ -23,7 +23,6 @@
 #include <locale.h>
 #include "nsGkAtoms.h"
 #include "nsTArray.h"
-#include "nsUnicodeRange.h"
 #include "nsCRT.h"
 #include "nsXULAppAPI.h"
 
@@ -41,10 +40,10 @@ using namespace mozilla::gfx;
  * gfxFT2Font
  */
 
-bool gfxFT2Font::ShapeText(DrawTarget *aDrawTarget, const char16_t *aText,
+bool gfxFT2Font::ShapeText(DrawTarget* aDrawTarget, const char16_t* aText,
                            uint32_t aOffset, uint32_t aLength, Script aScript,
                            bool aVertical, RoundingFlags aRounding,
-                           gfxShapedText *aShapedText) {
+                           gfxShapedText* aShapedText) {
   if (!gfxFont::ShapeText(aDrawTarget, aText, aOffset, aLength, aScript,
                           aVertical, aRounding, aShapedText)) {
     // harfbuzz must have failed(?!), just render raw glyphs
@@ -56,8 +55,8 @@ bool gfxFT2Font::ShapeText(DrawTarget *aDrawTarget, const char16_t *aText,
   return true;
 }
 
-void gfxFT2Font::AddRange(const char16_t *aText, uint32_t aOffset,
-                          uint32_t aLength, gfxShapedText *aShapedText) {
+void gfxFT2Font::AddRange(const char16_t* aText, uint32_t aOffset,
+                          uint32_t aLength, gfxShapedText* aShapedText) {
   typedef gfxShapedText::CompressedGlyph CompressedGlyph;
 
   const uint32_t appUnitsPerDevUnit = aShapedText->GetAppUnitsPerDevUnit();
@@ -66,7 +65,7 @@ void gfxFT2Font::AddRange(const char16_t *aText, uint32_t aOffset,
   gfxFT2LockedFace faceLock(this);
   FT_Face face = faceLock.get();
 
-  CompressedGlyph *charGlyphs = aShapedText->GetCharacterGlyphs();
+  CompressedGlyph* charGlyphs = aShapedText->GetCharacterGlyphs();
 
   const gfxFT2Font::CachedGlyphData *cgd = nullptr, *cgdNext = nullptr;
 
@@ -145,36 +144,30 @@ void gfxFT2Font::AddRange(const char16_t *aText, uint32_t aOffset,
       NS_ASSERTION(details.mGlyphID == gid,
                    "Seriously weird glyph ID detected!");
       details.mAdvance = advance;
-      bool isClusterStart = charGlyphs[aOffset].IsClusterStart();
-      aShapedText->SetGlyphs(
-          aOffset, CompressedGlyph::MakeComplex(isClusterStart, true, 1),
-          &details);
+      aShapedText->SetDetailedGlyphs(aOffset, 1, &details);
     }
   }
 }
 
-gfxFT2Font::gfxFT2Font(const RefPtr<UnscaledFontFreeType> &aUnscaledFont,
-                       cairo_scaled_font_t *aCairoFont, FT_Face aFTFace,
-                       FT2FontEntry *aFontEntry, const gfxFontStyle *aFontStyle)
-    : gfxFT2FontBase(aUnscaledFont, aCairoFont, aFontEntry, aFontStyle),
-      mCharGlyphCache(32),
-      mFTFace(aFTFace) {
+gfxFT2Font::gfxFT2Font(const RefPtr<UnscaledFontFreeType>& aUnscaledFont,
+                       RefPtr<mozilla::gfx::SharedFTFace>&& aFTFace,
+                       FT2FontEntry* aFontEntry, const gfxFontStyle* aFontStyle,
+                       int aLoadFlags)
+    : gfxFT2FontBase(aUnscaledFont, std::move(aFTFace), aFontEntry, aFontStyle,
+                     aLoadFlags, aFontStyle->NeedsSyntheticBold(aFontEntry)),
+      mCharGlyphCache(32) {
   NS_ASSERTION(mFontEntry,
                "Unable to find font entry for font.  Something is whack.");
-  // TODO: use FreeType emboldening instead of multi-strike?
-  mApplySyntheticBold = aFontStyle->NeedsSyntheticBold(aFontEntry);
+  InitMetrics();
 }
 
 gfxFT2Font::~gfxFT2Font() {}
 
-already_AddRefed<ScaledFont> gfxFT2Font::GetScaledFont(DrawTarget *aTarget) {
+already_AddRefed<ScaledFont> gfxFT2Font::GetScaledFont(DrawTarget* aTarget) {
   if (!mAzureScaledFont) {
-    NativeFont nativeFont;
-    nativeFont.mType = NativeFontType::FREETYPE_FACE;
-    nativeFont.mFont = mFTFace;
-
-    mAzureScaledFont = Factory::CreateScaledFontForNativeFont(
-        nativeFont, GetUnscaledFont(), GetAdjustedSize(), GetCairoScaledFont());
+    mAzureScaledFont = Factory::CreateScaledFontForFreeTypeFont(
+        GetUnscaledFont(), GetAdjustedSize(), mFTFace,
+        GetStyle()->NeedsSyntheticBold(GetFontEntry()));
     InitializeScaledFont();
   }
 
@@ -182,10 +175,18 @@ already_AddRefed<ScaledFont> gfxFT2Font::GetScaledFont(DrawTarget *aTarget) {
   return scaledFont.forget();
 }
 
+bool gfxFT2Font::ShouldHintMetrics() const {
+  return !gfxPlatform::GetPlatform()->RequiresLinearZoom();
+}
+
 void gfxFT2Font::FillGlyphDataForChar(FT_Face face, uint32_t ch,
-                                      CachedGlyphData *gd) {
-  if (!face->charmap || face->charmap->encoding != FT_ENCODING_UNICODE) {
-    FT_Select_Charmap(face, FT_ENCODING_UNICODE);
+                                      CachedGlyphData* gd) {
+  if (!face->charmap || (face->charmap->encoding != FT_ENCODING_UNICODE &&
+                         face->charmap->encoding != FT_ENCODING_MS_SYMBOL)) {
+    if (FT_Err_Ok != FT_Select_Charmap(face, FT_ENCODING_UNICODE) &&
+        FT_Err_Ok != FT_Select_Charmap(face, FT_ENCODING_MS_SYMBOL)) {
+      NS_WARNING("failed to select Unicode or symbol charmap!");
+    }
   }
   FT_UInt gid = FT_Get_Char_Index(face, ch);
 
@@ -198,10 +199,7 @@ void gfxFT2Font::FillGlyphDataForChar(FT_Face face, uint32_t ch,
     return;
   }
 
-  FT_Int32 flags = gfxPlatform::GetPlatform()->FontHintingEnabled()
-                       ? FT_LOAD_DEFAULT
-                       : (FT_LOAD_NO_AUTOHINT | FT_LOAD_NO_HINTING);
-  FT_Error err = Factory::LoadFTGlyph(face, gid, flags);
+  FT_Error err = Factory::LoadFTGlyph(face, gid, mFTLoadFlags);
 
   if (err) {
     // hmm, this is weird, we failed to load a glyph that we had?
@@ -215,17 +213,20 @@ void gfxFT2Font::FillGlyphDataForChar(FT_Face face, uint32_t ch,
   gd->lsbDelta = face->glyph->lsb_delta;
   gd->rsbDelta = face->glyph->rsb_delta;
   gd->xAdvance = face->glyph->advance.x;
+  if (gd->xAdvance) {
+    gd->xAdvance += GetEmboldenStrength(face).x;
+  }
 }
 
 void gfxFT2Font::AddSizeOfExcludingThis(MallocSizeOf aMallocSizeOf,
-                                        FontCacheSizes *aSizes) const {
+                                        FontCacheSizes* aSizes) const {
   gfxFont::AddSizeOfExcludingThis(aMallocSizeOf, aSizes);
   aSizes->mFontInstances +=
       mCharGlyphCache.ShallowSizeOfExcludingThis(aMallocSizeOf);
 }
 
 void gfxFT2Font::AddSizeOfIncludingThis(MallocSizeOf aMallocSizeOf,
-                                        FontCacheSizes *aSizes) const {
+                                        FontCacheSizes* aSizes) const {
   aSizes->mFontInstances += aMallocSizeOf(this);
   AddSizeOfExcludingThis(aMallocSizeOf, aSizes);
 }

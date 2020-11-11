@@ -5,8 +5,10 @@
 
 add_task(async function() {
   Services.scriptloader.loadSubScript(
-    CHROME_URL_ROOT + "summary-graph_delay-sign_head.js", this);
-  await pushPref("intl.uidirection", 1);
+    CHROME_URL_ROOT + "summary-graph_delay-sign_head.js",
+    this
+  );
+  await pushPref("intl.l10n.pseudo", "bidi");
   // eslint-disable-next-line no-undef
   await testSummaryGraphDelaySign();
 });

@@ -29,10 +29,6 @@ if CONFIG['MOZ_PULSEAUDIO'] or CONFIG['MOZ_JACK']:
     ]
 
 if CONFIG['MOZ_PULSEAUDIO']:
-    SOURCES += [
-        'cubeb_pulse.c',
-    ]
-    DEFINES['USE_PULSE'] = True
     DEFINES['USE_PULSE_RUST'] = True
 
 if CONFIG['MOZ_JACK']:
@@ -44,11 +40,18 @@ if CONFIG['MOZ_JACK']:
     ]
     DEFINES['USE_JACK'] = True
 
+if CONFIG['OS_ARCH'] in ('DragonFly', 'FreeBSD', 'SunOS'):
+    SOURCES += [
+        'cubeb_oss.c',
+    ]
+    DEFINES['USE_OSS'] = True
+
 if CONFIG['OS_ARCH'] == 'OpenBSD':
     SOURCES += [
         'cubeb_sndio.c',
     ]
     DEFINES['USE_SNDIO'] = True
+    DEFINES['DISABLE_LIBSNDIO_DLOPEN'] = True
 
 if CONFIG['OS_TARGET'] == 'Darwin':
     SOURCES += [
@@ -60,6 +63,8 @@ if CONFIG['OS_TARGET'] == 'Darwin':
             'cubeb_osx_run_loop.c',
         ]
     DEFINES['USE_AUDIOUNIT'] = True
+    if CONFIG['MOZ_AUDIOUNIT_RUST']:
+        DEFINES['USE_AUDIOUNIT_RUST'] = True
 
 if CONFIG['OS_TARGET'] == 'WINNT':
     SOURCES += [
@@ -72,18 +77,16 @@ if CONFIG['OS_TARGET'] == 'WINNT':
     OS_LIBS += [
       "avrt",
     ]
-    if CONFIG['CC_TYPE'] in ('msvc', 'clang-cl'):
-        CXXFLAGS += ['-wd4005'] # C4005: '_USE_MATH_DEFINES' : macro redefinition
+    if CONFIG['CC_TYPE'] == 'clang-cl':
+        CXXFLAGS += ['-Wno-macro-redefined'] # '_USE_MATH_DEFINES' : macro redefinition
 
 if CONFIG['OS_TARGET'] == 'Android':
+    SOURCES += ['cubeb_aaudio.cpp']
     SOURCES += ['cubeb_opensl.c']
     SOURCES += ['cubeb_resampler.cpp']
     SOURCES += ['cubeb-jni.cpp']
     DEFINES['USE_OPENSL'] = True
-    SOURCES += [
-        'cubeb_audiotrack.c',
-    ]
-    DEFINES['USE_AUDIOTRACK'] = True
+    DEFINES['USE_AAUDIO'] = True
 
 FINAL_LIBRARY = 'gkmedias'
 

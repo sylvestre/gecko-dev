@@ -50,8 +50,8 @@ class CheckerboardEventStorage {
 
  private:
   /* Stuff for refcounted singleton */
-  CheckerboardEventStorage() {}
-  virtual ~CheckerboardEventStorage() {}
+  CheckerboardEventStorage() = default;
+  virtual ~CheckerboardEventStorage() = default;
 
   static StaticRefPtr<CheckerboardEventStorage> sInstance;
 
@@ -105,7 +105,7 @@ class CheckerboardReportService : public nsWrapperCache {
    */
 
   static already_AddRefed<CheckerboardReportService> Constructor(
-      const dom::GlobalObject& aGlobal, ErrorResult& aRv);
+      const dom::GlobalObject& aGlobal);
 
   explicit CheckerboardReportService(nsISupports* aSupports);
 
@@ -127,7 +127,7 @@ class CheckerboardReportService : public nsWrapperCache {
   void FlushActiveReports();
 
  private:
-  virtual ~CheckerboardReportService() {}
+  virtual ~CheckerboardReportService() = default;
 
   nsCOMPtr<nsISupports> mParent;
 };

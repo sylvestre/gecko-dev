@@ -6,33 +6,33 @@
 
 #include "PresentationRequest.h"
 
+#include <utility>
+
 #include "AvailabilityCollection.h"
 #include "ControllerConnectionCollection.h"
+#include "Presentation.h"
+#include "PresentationAvailability.h"
+#include "PresentationCallbacks.h"
+#include "PresentationLog.h"
+#include "PresentationTransportBuilderConstructor.h"
 #include "mozilla/BasePrincipal.h"
+#include "mozilla/dom/Document.h"
 #include "mozilla/dom/Navigator.h"
-#include "mozilla/dom/PresentationRequestBinding.h"
 #include "mozilla/dom/PresentationConnectionAvailableEvent.h"
+#include "mozilla/dom/PresentationRequestBinding.h"
 #include "mozilla/dom/Promise.h"
-#include "mozilla/Move.h"
-#include "mozIThirdPartyUtil.h"
 #include "nsContentSecurityManager.h"
 #include "nsCycleCollectionParticipant.h"
 #include "nsGlobalWindow.h"
-#include "nsIDocument.h"
 #include "nsIPresentationService.h"
 #include "nsIURI.h"
 #include "nsIUUIDGenerator.h"
 #include "nsNetUtil.h"
 #include "nsSandboxFlags.h"
 #include "nsServiceManagerUtils.h"
-#include "Presentation.h"
-#include "PresentationAvailability.h"
-#include "PresentationCallbacks.h"
-#include "PresentationLog.h"
-#include "PresentationTransportBuilderConstructor.h"
 
-using namespace mozilla;
-using namespace mozilla::dom;
+namespace mozilla {
+namespace dom {
 
 NS_IMPL_ADDREF_INHERITED(PresentationRequest, DOMEventTargetHelper)
 NS_IMPL_RELEASE_INHERITED(PresentationRequest, DOMEventTargetHelper)
@@ -41,8 +41,7 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(PresentationRequest)
 NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
 
 static nsresult GetAbsoluteURL(const nsAString& aUrl, nsIURI* aBaseUri,
-                               nsIDocument* aDocument,
-                               nsAString& aAbsoluteUrl) {
+                               Document* aDocument, nsAString& aAbsoluteUrl) {
   nsCOMPtr<nsIURI> uri;
   nsresult rv;
   if (aDocument) {
@@ -59,23 +58,26 @@ static nsresult GetAbsoluteURL(const nsAString& aUrl, nsIURI* aBaseUri,
   nsAutoCString spec;
   uri->GetSpec(spec);
 
-  aAbsoluteUrl = NS_ConvertUTF8toUTF16(spec);
+  CopyUTF8toUTF16(spec, aAbsoluteUrl);
 
   return NS_OK;
 }
 
-/* static */ already_AddRefed<PresentationRequest>
-PresentationRequest::Constructor(const GlobalObject& aGlobal,
-                                 const nsAString& aUrl, ErrorResult& aRv) {
+/* static */
+already_AddRefed<PresentationRequest> PresentationRequest::Constructor(
+    const GlobalObject& aGlobal, const nsAString& aUrl, ErrorResult& aRv) {
   Sequence<nsString> urls;
-  urls.AppendElement(aUrl, fallible);
+  if (!urls.AppendElement(aUrl, fallible)) {
+    aRv.Throw(NS_ERROR_OUT_OF_MEMORY);
+    return nullptr;
+  }
   return Constructor(aGlobal, urls, aRv);
 }
 
-/* static */ already_AddRefed<PresentationRequest>
-PresentationRequest::Constructor(const GlobalObject& aGlobal,
-                                 const Sequence<nsString>& aUrls,
-                                 ErrorResult& aRv) {
+/* static */
+already_AddRefed<PresentationRequest> PresentationRequest::Constructor(
+    const GlobalObject& aGlobal, const Sequence<nsString>& aUrls,
+    ErrorResult& aRv) {
   nsCOMPtr<nsPIDOMWindowInner> window =
       do_QueryInterface(aGlobal.GetAsSupports());
   if (!window) {
@@ -112,12 +114,13 @@ PresentationRequest::PresentationRequest(nsPIDOMWindowInner* aWindow,
                                          nsTArray<nsString>&& aUrls)
     : DOMEventTargetHelper(aWindow), mUrls(std::move(aUrls)) {}
 
-PresentationRequest::~PresentationRequest() {}
+PresentationRequest::~PresentationRequest() = default;
 
 bool PresentationRequest::Init() { return true; }
 
-/* virtual */ JSObject* PresentationRequest::WrapObject(
-    JSContext* aCx, JS::Handle<JSObject*> aGivenProto) {
+/* virtual */
+JSObject* PresentationRequest::WrapObject(JSContext* aCx,
+                                          JS::Handle<JSObject*> aGivenProto) {
   return PresentationRequest_Binding::Wrap(aCx, this, aGivenProto);
 }
 
@@ -141,7 +144,7 @@ already_AddRefed<Promise> PresentationRequest::StartWithDevice(
     return nullptr;
   }
 
-  nsCOMPtr<nsIDocument> doc = GetOwner()->GetExtantDoc();
+  nsCOMPtr<Document> doc = GetOwner()->GetExtantDoc();
   if (NS_WARN_IF(!doc)) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
@@ -196,7 +199,7 @@ already_AddRefed<Promise> PresentationRequest::StartWithDevice(
   char buffer[NSID_LENGTH];
   uuid.ToProvidedString(buffer);
   nsAutoString id;
-  CopyASCIItoUTF16(MakeSpan(buffer, NSID_LENGTH - 1), id);
+  CopyASCIItoUTF16(Span(buffer, NSID_LENGTH - 1), id);
 
   nsCOMPtr<nsIPresentationService> service =
       do_GetService(PRESENTATION_SERVICE_CONTRACTID);
@@ -236,7 +239,7 @@ already_AddRefed<Promise> PresentationRequest::Reconnect(
     return nullptr;
   }
 
-  nsCOMPtr<nsIDocument> doc = GetOwner()->GetExtantDoc();
+  nsCOMPtr<Document> doc = GetOwner()->GetExtantDoc();
   if (NS_WARN_IF(!doc)) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
@@ -342,7 +345,7 @@ already_AddRefed<Promise> PresentationRequest::GetAvailability(
     return nullptr;
   }
 
-  nsCOMPtr<nsIDocument> doc = GetOwner()->GetExtantDoc();
+  nsCOMPtr<Document> doc = GetOwner()->GetExtantDoc();
   if (NS_WARN_IF(!doc)) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
@@ -424,7 +427,7 @@ nsresult PresentationRequest::DispatchConnectionAvailableEvent(
 
   RefPtr<PresentationConnectionAvailableEvent> event =
       PresentationConnectionAvailableEvent::Constructor(
-          this, NS_LITERAL_STRING("connectionavailable"), init);
+          this, u"connectionavailable"_ns, init);
   if (NS_WARN_IF(!event)) {
     return NS_ERROR_FAILURE;
   }
@@ -456,21 +459,20 @@ void PresentationRequest::NotifyPromiseSettled() {
   }
 }
 
-bool PresentationRequest::IsProhibitMixedSecurityContexts(
-    nsIDocument* aDocument) {
+bool PresentationRequest::IsProhibitMixedSecurityContexts(Document* aDocument) {
   MOZ_ASSERT(aDocument);
 
   if (nsContentUtils::IsChromeDoc(aDocument)) {
     return true;
   }
 
-  nsCOMPtr<nsIDocument> doc = aDocument;
+  nsCOMPtr<Document> doc = aDocument;
   while (doc && !nsContentUtils::IsChromeDoc(doc)) {
     if (nsContentUtils::HttpsStateIsModern(doc)) {
       return true;
     }
 
-    doc = doc->GetParentDocument();
+    doc = doc->GetInProcessParentDocument();
   }
 
   return false;
@@ -505,20 +507,12 @@ bool PresentationRequest::IsPrioriAuthenticatedURL(const nsAString& aUrl) {
 
   OriginAttributes attrs;
   nsCOMPtr<nsIPrincipal> principal =
-      BasePrincipal::CreateCodebasePrincipal(uri, attrs);
+      BasePrincipal::CreateContentPrincipal(uri, attrs);
   if (NS_WARN_IF(!principal)) {
     return false;
   }
 
-  nsCOMPtr<nsIContentSecurityManager> csm =
-      do_GetService(NS_CONTENTSECURITYMANAGER_CONTRACTID);
-  if (NS_WARN_IF(!csm)) {
-    return false;
-  }
-
-  bool isTrustworthyOrigin = false;
-  csm->IsOriginPotentiallyTrustworthy(principal, &isTrustworthyOrigin);
-  return isTrustworthyOrigin;
+  return principal->GetIsOriginPotentiallyTrustworthy();
 }
 
 bool PresentationRequest::IsAllURLAuthenticated() {
@@ -530,3 +524,6 @@ bool PresentationRequest::IsAllURLAuthenticated() {
 
   return true;
 }
+
+}  // namespace dom
+}  // namespace mozilla

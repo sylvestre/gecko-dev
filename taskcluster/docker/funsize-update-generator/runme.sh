@@ -3,14 +3,19 @@
 set -xe
 
 test "$TASK_ID"
-test "$SHA1_SIGNING_CERT"
-test "$SHA384_SIGNING_CERT"
+test "$SIGNING_CERT"
 
 ARTIFACTS_DIR="/home/worker/artifacts"
 mkdir -p "$ARTIFACTS_DIR"
 
-curl --location --retry 10 --retry-delay 10 -o /home/worker/task.json \
-    "https://queue.taskcluster.net/v1/task/$TASK_ID"
+# Strip trailing / if present
+TASKCLUSTER_ROOT_URL="${TASKCLUSTER_ROOT_URL%/}"
+export TASKCLUSTER_ROOT_URL
+
+# duplicate the functionality of taskcluster-lib-urls, but in bash..
+queue_base="${TASKCLUSTER_ROOT_URL%/}/api/queue/v1"
+
+curl --location --retry 10 --retry-delay 10 -o /home/worker/task.json "$queue_base/task/$TASK_ID"
 
 # auth:aws-s3:read-write:tc-gp-private-1d-us-east-1/releng/mbsdiff-cache/
 # -> bucket of tc-gp-private-1d-us-east-1, path of releng/mbsdiff-cache/
@@ -27,7 +32,7 @@ then
   test "${AWS_BUCKET_NAME}"
 
   set +x  # Don't echo these.
-  secret_url="taskcluster/auth/v1/aws/s3/read-write/${AWS_BUCKET_NAME}/${S3_PATH}"
+  secret_url="${TASKCLUSTER_PROXY_URL}/api/auth/v1/aws/s3/read-write/${AWS_BUCKET_NAME}/${S3_PATH}"
   AUTH=$(curl "${secret_url}")
   AWS_ACCESS_KEY_ID=$(echo "${AUTH}" | jq -r '.credentials.accessKeyId')
   AWS_SECRET_ACCESS_KEY=$(echo "${AUTH}" | jq -r '.credentials.secretAccessKey')
@@ -47,15 +52,10 @@ else
   export MBSDIFF_HOOK=
 fi
 
-if [ ! -z "$FILENAME_TEMPLATE" ]; then
-    EXTRA_PARAMS="--filename-template $FILENAME_TEMPLATE $EXTRA_PARAMS"
-fi
-
 # EXTRA_PARAMS is optional
 # shellcheck disable=SC2086
-pipenv run /home/worker/bin/funsize.py \
+python3.8 /home/worker/bin/funsize.py \
     --artifacts-dir "$ARTIFACTS_DIR" \
     --task-definition /home/worker/task.json \
-    --sha1-signing-cert "/home/worker/keys/${SHA1_SIGNING_CERT}.pubkey" \
-    --sha384-signing-cert "/home/worker/keys/${SHA384_SIGNING_CERT}.pubkey" \
+    --signing-cert "/home/worker/keys/${SIGNING_CERT}.pubkey" \
     $EXTRA_PARAMS

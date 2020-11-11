@@ -26,7 +26,7 @@
 class gfxMacPlatformFontList;
 
 // a single member of a font family (i.e. a single face, such as Times Italic)
-class MacOSFontEntry : public gfxFontEntry {
+class MacOSFontEntry final : public gfxFontEntry {
  public:
   friend class gfxMacPlatformFontList;
   friend class gfxMacFont;
@@ -39,16 +39,23 @@ class MacOSFontEntry : public gfxFontEntry {
                  WeightRange aWeight, StretchRange aStretch,
                  SlantStyleRange aStyle, bool aIsDataUserFont, bool aIsLocal);
 
-  virtual ~MacOSFontEntry() {
-    if (mTrakTable) {
-      hb_blob_destroy(mTrakTable);
-    }
-    ::CGFontRelease(mFontRef);
-  }
+  virtual ~MacOSFontEntry() { ::CGFontRelease(mFontRef); }
 
   gfxFontEntry* Clone() const override;
 
+  // Return a non-owning reference to our CGFont; caller must not release it.
+  // This will cause the fontEntry to create & retain a CGFont for the life
+  // of the entry.
+  // Note that in the case of a broken font, this could return null.
   CGFontRef GetFontRef();
+
+  // Return a new reference to our CGFont. Caller is responsible to release
+  // this reference.
+  // (If the entry has a cached CGFont, this just bumps its refcount and
+  // returns it; if not, the instance returned will be owned solely by the
+  // caller.)
+  // Note that in the case of a broken font, this could return null.
+  CGFontRef CreateOrCopyFontRef();
 
   // override gfxFontEntry table access function to bypass table cache,
   // use CGFontRef API to get direct access to system font data
@@ -69,26 +76,12 @@ class MacOSFontEntry : public gfxFontEntry {
 
   bool IsCFF();
 
-  // Return true if the font has a 'trak' table (and we can successfully
-  // interpret it), otherwise false. This will load and cache the table
-  // the first time it is called.
-  bool HasTrackingTable();
-
   bool SupportsOpenTypeFeature(Script aScript, uint32_t aFeatureTag) override;
-
-  // Return the tracking (in font units) to be applied for the given size.
-  // (This is a floating-point number because of possible interpolation.)
-  float TrackingForCSSPx(float aPointSize) const;
 
  protected:
   gfxFont* CreateFontInstance(const gfxFontStyle* aFontStyle) override;
 
   bool HasFontTable(uint32_t aTableTag) override;
-
-  // Helper for HasTrackingTable; check/parse the table and cache pointers
-  // to the subtables we need. Returns false on failure, in which case the
-  // table is unusable.
-  bool ParseTrakTable();
 
   static void DestroyBlobFunc(void* aUserData);
 
@@ -105,7 +98,6 @@ class MacOSFontEntry : public gfxFontEntry {
   bool mHasVariationsInitialized;
   bool mHasAATSmallCaps;
   bool mHasAATSmallCapsInitialized;
-  bool mCheckedForTracking;
 
   // To work around Core Text's mishandling of the default value for 'opsz',
   // we need to record whether the font has an a optical size axis, what its
@@ -122,28 +114,20 @@ class MacOSFontEntry : public gfxFontEntry {
   nsTHashtable<nsUint32HashKey> mAvailableTables;
 
   mozilla::ThreadSafeWeakPtr<mozilla::gfx::UnscaledFontMac> mUnscaledFont;
-
-  // For AAT font being shaped by Core Text, a strong reference to the 'trak'
-  // table (if present).
-  hb_blob_t* mTrakTable;
-  // Cached pointers to tables within 'trak', initialized by ParseTrakTable.
-  const mozilla::AutoSwap_PRInt16* mTrakValues;
-  const mozilla::AutoSwap_PRInt32* mTrakSizeTable;
-  uint16_t mNumTrakSizes;
 };
 
-class gfxMacPlatformFontList : public gfxPlatformFontList {
+class gfxMacPlatformFontList final : public gfxPlatformFontList {
+  using FontFamilyListEntry = mozilla::dom::SystemFontListEntry;
+
  public:
   static gfxMacPlatformFontList* PlatformFontList() {
     return static_cast<gfxMacPlatformFontList*>(sPlatformFontList);
   }
 
-  gfxFontFamily* CreateFontFamily(const nsACString& aName) const override;
+  gfxFontFamily* CreateFontFamily(const nsACString& aName,
+                                  FontVisibility aVisibility) const override;
 
   static int32_t AppleWeightToCSSWeight(int32_t aAppleWeight);
-
-  bool GetStandardFamilyName(const nsCString& aFontName,
-                             nsACString& aFamilyName) override;
 
   gfxFontEntry* LookupLocalFont(const nsACString& aFontName,
                                 WeightRange aWeightForEntry,
@@ -157,7 +141,8 @@ class gfxMacPlatformFontList : public gfxPlatformFontList {
                                  const uint8_t* aFontData,
                                  uint32_t aLength) override;
 
-  bool FindAndAddFamilies(const nsACString& aFamily,
+  bool FindAndAddFamilies(mozilla::StyleGenericFontFamily aGeneric,
+                          const nsACString& aFamily,
                           nsTArray<FamilyAndGeneric>* aOutput,
                           FindFamiliesFlags aFlags,
                           gfxFontStyle* aStyle = nullptr,
@@ -166,22 +151,19 @@ class gfxMacPlatformFontList : public gfxPlatformFontList {
   // lookup the system font for a particular system font type and set
   // the name and style characteristics
   void LookupSystemFont(mozilla::LookAndFeel::FontID aSystemFontID,
-                        nsACString& aSystemFontName, gfxFontStyle& aFontStyle,
-                        float aDevPixPerCSSPixel);
+                        nsACString& aSystemFontName, gfxFontStyle& aFontStyle);
 
   // Values for the entryType field in FontFamilyListEntry records passed
   // from chrome to content process.
   enum FontFamilyEntryType {
     kStandardFontFamily = 0,          // a standard installed font family
-    kHiddenSystemFontFamily = 1,      // hidden system family, not exposed to UI
-    kTextSizeSystemFontFamily = 2,    // name of 'system' font at text sizes
-    kDisplaySizeSystemFontFamily = 3  // 'system' font at display sizes
+    kTextSizeSystemFontFamily = 1,    // name of 'system' font at text sizes
+    kDisplaySizeSystemFontFamily = 2  // 'system' font at display sizes
   };
-  void ReadSystemFontList(
-      InfallibleTArray<mozilla::dom::SystemFontListEntry>* aList);
+  void ReadSystemFontList(nsTArray<FontFamilyListEntry>* aList);
 
  protected:
-  gfxFontFamily* GetDefaultFontForPlatform(const gfxFontStyle* aStyle) override;
+  FontFamily GetDefaultFontForPlatform(const gfxFontStyle* aStyle) override;
 
  private:
   friend class gfxPlatformMac;
@@ -191,9 +173,11 @@ class gfxMacPlatformFontList : public gfxPlatformFontList {
 
   // initialize font lists
   nsresult InitFontListForPlatform() override;
+  void InitSharedFontListForPlatform() override;
 
   // special case font faces treated as font families (set via prefs)
   void InitSingleFaceList();
+  void InitAliasesForSingleFaceList();
 
   // initialize system fonts
   void InitSystemFontNames();
@@ -201,30 +185,45 @@ class gfxMacPlatformFontList : public gfxPlatformFontList {
   // helper function to lookup in both hidden system fonts and normal fonts
   gfxFontFamily* FindSystemFontFamily(const nsACString& aFamily);
 
+  FontVisibility GetVisibilityForFamily(const nsACString& aName) const;
+
   static void RegisteredFontsChangedNotificationCallback(
       CFNotificationCenterRef center, void* observer, CFStringRef name,
       const void* object, CFDictionaryRef userInfo);
 
   // attempt to use platform-specific fallback for the given character
   // return null if no usable result found
-  gfxFontEntry* PlatformGlobalFontFallback(
-      const uint32_t aCh, Script aRunScript, const gfxFontStyle* aMatchStyle,
-      gfxFontFamily** aMatchedFamily) override;
+  gfxFontEntry* PlatformGlobalFontFallback(const uint32_t aCh,
+                                           Script aRunScript,
+                                           const gfxFontStyle* aMatchStyle,
+                                           FontFamily& aMatchedFamily) override;
 
   bool UsesSystemFallback() override { return true; }
 
   already_AddRefed<FontInfoData> CreateFontInfoData() override;
 
-  // Add the specified family to mSystemFontFamilies or mFontFamilies.
+  // Add the specified family to mFontFamilies.
   // Ideally we'd use NSString* instead of CFStringRef here, but this header
   // file is included in .cpp files, so we can't use objective C classes here.
   // But CFStringRef and NSString* are the same thing anyway (they're
   // toll-free bridged).
   void AddFamily(CFStringRef aFamily);
 
-  void AddFamily(const nsACString& aFamilyName, bool aSystemFont);
+  void AddFamily(const nsACString& aFamilyName, FontVisibility aVisibility);
 
   void ActivateFontsFromDir(nsIFile* aDir);
+
+  gfxFontEntry* CreateFontEntry(
+      mozilla::fontlist::Face* aFace,
+      const mozilla::fontlist::Family* aFamily) override;
+
+  void GetFacesInitDataForFamily(
+      const mozilla::fontlist::Family* aFamily,
+      nsTArray<mozilla::fontlist::Face::InitData>& aFaces,
+      bool aLoadCmaps) const override;
+
+  void ReadFaceNamesForFamily(mozilla::fontlist::Family* aFamily,
+                              bool aNeedFullnamePostscriptNames) override;
 
 #ifdef MOZ_BUNDLED_FONTS
   void ActivateBundledFonts();
@@ -234,10 +233,6 @@ class gfxMacPlatformFontList : public gfxPlatformFontList {
 
   // default font for use with system-wide font fallback
   CTFontRef mDefaultFont;
-
-  // hidden system fonts used within UI elements, there may be a whole set
-  // for different locales (e.g. .Helvetica Neue UI, .SF NS Text)
-  FontFamilyTable mSystemFontFamilies;
 
   // font families that -apple-system maps to
   // Pre-10.11 this was always a single font family, such as Lucida Grande

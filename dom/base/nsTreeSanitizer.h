@@ -39,7 +39,7 @@ class MOZ_STACK_CLASS nsTreeSanitizer {
    * not have had a chance to get mutation event listeners attached to it.
    * The root element must be <html>.
    */
-  void Sanitize(nsIDocument* aDocument);
+  void Sanitize(mozilla::dom::Document* aDocument);
 
  private:
   /**
@@ -81,6 +81,11 @@ class MOZ_STACK_CLASS nsTreeSanitizer {
    * Whether we should notify to the console for anything that's stripped.
    */
   bool mLogRemovals;
+
+  /**
+   * Whether we should remove CSS conditional rules, no other changes.
+   */
+  bool mOnlyConditionalCSS;
 
   /**
    * We have various tables of static atoms for elements and attributes.
@@ -181,21 +186,24 @@ class MOZ_STACK_CLASS nsTreeSanitizer {
    * Parses a style sheet and reserializes it with the 'binding' property
    * removed if it was present.
    *
-   * @param aOrigin the original style sheet source
-   * @param aSanitized the reserialization without 'binding'; only valid if
-   *                   this method return true
+   * @param aOriginal the original style sheet source
+   * @param aSanitized the reserialization without dangerous CSS.
    * @param aDocument the document the style sheet belongs to
    * @param aBaseURI the base URI to use
-   * @return true if the 'binding' property was encountered and false
-   *              otherwise
    */
-  bool SanitizeStyleSheet(const nsAString& aOriginal, nsAString& aSanitized,
-                          nsIDocument* aDocument, nsIURI* aBaseURI);
+  void SanitizeStyleSheet(const nsAString& aOriginal, nsAString& aSanitized,
+                          mozilla::dom::Document* aDocument, nsIURI* aBaseURI);
 
   /**
    * Removes all attributes from an element node.
    */
   void RemoveAllAttributes(mozilla::dom::Element* aElement);
+
+  /**
+   * Removes all attributes from the descendants of an element but not from
+   * the element itself.
+   */
+  void RemoveAllAttributesFromDescendants(mozilla::dom::Element* aElement);
 
   /**
    * Log a Console Service message to indicate we removed something.
@@ -208,8 +216,9 @@ class MOZ_STACK_CLASS nsTreeSanitizer {
    * @param aElement   optional, the element being removed or modified.
    * @param aAttribute optional, the attribute being removed or modified.
    */
-  void LogMessage(const char* aMessage, nsIDocument* aDoc,
-                  Element* aElement = nullptr, nsAtom* aAttr = nullptr);
+  void LogMessage(const char* aMessage, mozilla::dom::Document* aDoc,
+                  mozilla::dom::Element* aElement = nullptr,
+                  nsAtom* aAttr = nullptr);
 
   /**
    * The whitelist of HTML elements.

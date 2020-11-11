@@ -5,7 +5,7 @@ https://bugzilla.mozilla.org/show_bug.cgi?id=185236
 -->
 <head>
   <title>Test for Bug 185236</title>
-  <script type="application/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css"/>
   <script>
     var pendingEventCounter = 0;
@@ -119,13 +119,9 @@ link.onerror = function() { --pendingEventCounter;
 }
 document.body.appendChild(link);
 
-// Make sure we have that last stylesheet
-is(document.styleSheets.length, 7, "Should have seven stylesheets here");
-
-// Make sure that the sixth stylesheet is all loaded
 // If we ever switch away from sync loading of already-complete sheets, this
 // test will need adjusting
-checkSheetComplete(document.styleSheets[6], 1);
+checkSheetComplete(link.sheet, 1);
 
 ++pendingEventCounter;
 link = document.createElement("link");

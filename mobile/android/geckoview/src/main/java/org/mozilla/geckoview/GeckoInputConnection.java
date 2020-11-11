@@ -14,7 +14,7 @@ import android.media.AudioManager;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
-import android.support.annotation.NonNull;
+import androidx.annotation.NonNull;
 import android.text.Editable;
 import android.text.Selection;
 import android.text.SpannableString;
@@ -133,9 +133,9 @@ import java.lang.reflect.Proxy;
         return (SessionTextInput.InputConnectionClient) Proxy.newProxyInstance(
                 GeckoInputConnection.class.getClassLoader(),
                 new Class<?>[] {
-                        InputConnection.class,
-                        SessionTextInput.InputConnectionClient.class,
-                        SessionTextInput.EditableListener.class
+                    InputConnection.class,
+                    SessionTextInput.InputConnectionClient.class,
+                    SessionTextInput.EditableListener.class
                 }, handler);
     }
 
@@ -183,7 +183,7 @@ import java.lang.reflect.Proxy;
     }
 
     @Override
-    public boolean performContextMenuAction(int id) {
+    public boolean performContextMenuAction(final int id) {
         final View view = getView();
         final Editable editable = getEditable();
         if (view == null || editable == null) {
@@ -228,7 +228,24 @@ import java.lang.reflect.Proxy;
     }
 
     @Override
-    public ExtractedText getExtractedText(ExtractedTextRequest req, int flags) {
+    public boolean performEditorAction(final int editorAction) {
+        if (editorAction == EditorInfo.IME_ACTION_PREVIOUS &&
+            !mIMEActionHint.equals("previous")) {
+            // This action is [Previous] key on FireTV's keyboard.
+            // [Previous] closes software keyboard, and don't generate any keyboard event.
+            getView().post(new Runnable() {
+                @Override
+                public void run() {
+                    getInputDelegate().hideSoftInput(mSession);
+                }
+            });
+            return true;
+        }
+        return super.performEditorAction(editorAction);
+    }
+
+    @Override
+    public ExtractedText getExtractedText(final ExtractedTextRequest req, final int flags) {
         if (req == null)
             return null;
 
@@ -326,6 +343,28 @@ import java.lang.reflect.Proxy;
         });
     }
 
+    @Override // SessionTextInput.EditableListener
+    public void onDiscardComposition() {
+        final View view = getView();
+        if (view == null) {
+            return;
+        }
+
+        // InputMethodManager.updateSelection will remove composition
+        // on most IMEs. But ATOK series do nothing. So we have to
+        // restart input method to remove composition as workaround.
+        if (!InputMethods.needsRestartInput(InputMethods.getCurrentInputMethod(view.getContext()))) {
+            return;
+        }
+
+        view.post(new Runnable() {
+            @Override
+            public void run() {
+                getInputDelegate().restartInput(mSession, GeckoSession.TextInputDelegate.RESTART_REASON_CONTENT_CHANGE);
+            }
+        });
+    }
+
     @TargetApi(21)
     @Override // SessionTextInput.EditableListener
     public void updateCompositionRects(final RectF[] rects) {
@@ -393,7 +432,7 @@ import java.lang.reflect.Proxy;
     }
 
     @Override
-    public boolean requestCursorUpdates(int cursorUpdateMode) {
+    public boolean requestCursorUpdates(final int cursorUpdateMode) {
 
         if ((cursorUpdateMode & InputConnection.CURSOR_UPDATE_IMMEDIATE) != 0) {
             mEditableClient.requestCursorUpdates(
@@ -412,7 +451,7 @@ import java.lang.reflect.Proxy;
 
     @Override // SessionTextInput.EditableListener
     public void onDefaultKeyEvent(final KeyEvent event) {
-        ThreadUtils.postToUiThread(new Runnable() {
+        ThreadUtils.runOnUiThread(new Runnable() {
             @Override
             public void run() {
                 GeckoInputConnection.this.performDefaultKeyAction(event);
@@ -499,7 +538,7 @@ import java.lang.reflect.Proxy;
     }
 
     @Override // SessionTextInput.InputConnectionClient
-    public Handler getHandler(Handler defHandler) {
+    public Handler getHandler(final Handler defHandler) {
         if (!canReturnCustomHandler()) {
             return defHandler;
         }
@@ -514,7 +553,7 @@ import java.lang.reflect.Proxy;
     }
 
     @Override // SessionTextInput.InputConnectionClient
-    public synchronized InputConnection onCreateInputConnection(EditorInfo outAttrs) {
+    public synchronized InputConnection onCreateInputConnection(final EditorInfo outAttrs) {
         if (mIMEState == IME_STATE_DISABLED) {
             return null;
         }
@@ -563,7 +602,7 @@ import java.lang.reflect.Proxy;
     }
 
     @Override
-    public boolean commitText(CharSequence text, int newCursorPosition) {
+    public boolean commitText(final CharSequence text, final int newCursorPosition) {
         if (InputMethods.shouldCommitCharAsKey(mCurrentInputMethod) &&
             text.length() == 1 && newCursorPosition > 0) {
             if (DEBUG) {
@@ -580,7 +619,7 @@ import java.lang.reflect.Proxy;
     }
 
     @Override
-    public boolean setSelection(int start, int end) {
+    public boolean setSelection(final int start, final int end) {
         if (start < 0 || end < 0) {
             // Some keyboards (e.g. Samsung) can call setSelection with
             // negative offsets. In that case we ignore the call, similar to how
@@ -591,9 +630,9 @@ import java.lang.reflect.Proxy;
     }
 
     @Override
-    public boolean sendKeyEvent(@NonNull KeyEvent event) {
-        event = translateKey(event.getKeyCode(), event);
-        mEditableClient.sendKeyEvent(getView(), event.getAction(), event);
+    public boolean sendKeyEvent(final @NonNull KeyEvent event) {
+        KeyEvent translatedEvent = translateKey(event.getKeyCode(), event);
+        mEditableClient.sendKeyEvent(getView(), event.getAction(), translatedEvent);
         return false; // seems to always return false
     }
 
@@ -601,8 +640,10 @@ import java.lang.reflect.Proxy;
         switch (keyCode) {
             case KeyEvent.KEYCODE_ENTER:
                 if ((event.getFlags() & KeyEvent.FLAG_EDITOR_ACTION) != 0 &&
-                        mIMEActionHint.equalsIgnoreCase("next")) {
-                    return new KeyEvent(event.getAction(), KeyEvent.KEYCODE_TAB);
+                        mIMEActionHint.equals("maybenext")) {
+                    // XXX It is not good to dispatch tab key for web compatibility.
+                    // See https://github.com/w3c/uievents/issues/253 and bug 1600540.
+                    return new KeyEvent(event.getDownTime(), event.getEventTime(), event.getAction(), KeyEvent.KEYCODE_TAB, 0);
                 }
                 break;
         }
@@ -610,7 +651,7 @@ import java.lang.reflect.Proxy;
     }
 
     // Called by OnDefaultKeyEvent handler, up from Gecko
-    /* package */ void performDefaultKeyAction(KeyEvent event) {
+    /* package */ void performDefaultKeyAction(final KeyEvent event) {
         switch (event.getKeyCode()) {
             case KeyEvent.KEYCODE_MUTE:
             case KeyEvent.KEYCODE_HEADSETHOOK:

@@ -134,7 +134,7 @@ where
 
     /// An optional hook function for checking whether a pseudo-element
     /// should match when matching_mode is ForStatelessPseudoElement.
-    pub pseudo_element_matching_fn: Option<&'a Fn(&Impl::PseudoElement) -> bool>,
+    pub pseudo_element_matching_fn: Option<&'a dyn Fn(&Impl::PseudoElement) -> bool>,
 
     /// Extra implementation-dependent matching data.
     pub extra_data: Impl::ExtraMatchingData,
@@ -189,15 +189,6 @@ where
         }
     }
 
-    /// Override the quirks mode we're matching against.
-    ///
-    /// FIXME(emilio): This is a hack for XBL quirks-mode mismatches.
-    #[inline]
-    pub fn set_quirks_mode(&mut self, quirks_mode: QuirksMode) {
-        self.quirks_mode = quirks_mode;
-        self.classes_and_ids_case_sensitivity = quirks_mode.classes_and_ids_case_sensitivity();
-    }
-
     /// Whether we're matching a nested selector.
     #[inline]
     pub fn is_nested(&self) -> bool {
@@ -247,10 +238,10 @@ where
     where
         F: FnOnce(&mut Self) -> R,
     {
-        debug_assert!(!self.in_negation, "Someone messed up parsing?");
+        let old_in_negation = self.in_negation;
         self.in_negation = true;
         let result = self.nest(f);
-        self.in_negation = false;
+        self.in_negation = old_in_negation;
         result
     }
 

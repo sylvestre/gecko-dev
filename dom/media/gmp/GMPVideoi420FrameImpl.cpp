@@ -7,8 +7,7 @@
 #include "mozilla/gmp/GMPTypes.h"
 #include "mozilla/CheckedInt.h"
 
-namespace mozilla {
-namespace gmp {
+namespace mozilla::gmp {
 
 GMPVideoi420FrameImpl::GMPVideoi420FrameImpl(GMPVideoHostImpl* aHost)
     : mYPlane(aHost),
@@ -33,7 +32,7 @@ GMPVideoi420FrameImpl::GMPVideoi420FrameImpl(
   MOZ_ASSERT(aHost);
 }
 
-GMPVideoi420FrameImpl::~GMPVideoi420FrameImpl() {}
+GMPVideoi420FrameImpl::~GMPVideoi420FrameImpl() = default;
 
 bool GMPVideoi420FrameImpl::InitFrameData(GMPVideoi420FrameData& aFrameData) {
   mYPlane.InitPlaneData(aFrameData.mYPlane());
@@ -52,7 +51,8 @@ GMPVideoFrameFormat GMPVideoi420FrameImpl::GetFrameFormat() {
 
 void GMPVideoi420FrameImpl::Destroy() { delete this; }
 
-/* static */ bool GMPVideoi420FrameImpl::CheckFrameData(
+/* static */
+bool GMPVideoi420FrameImpl::CheckFrameData(
     const GMPVideoi420FrameData& aFrameData) {
   // We may be passed the "wrong" shmem (one smaller than the actual size).
   // This implies a bug or serious error on the child size.  Ignore this frame
@@ -312,5 +312,4 @@ void GMPVideoi420FrameImpl::ResetSize() {
   mVPlane.ResetSize();
 }
 
-}  // namespace gmp
-}  // namespace mozilla
+}  // namespace mozilla::gmp

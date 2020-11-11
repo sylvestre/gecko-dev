@@ -53,6 +53,9 @@ struct ScaleFactors2D {
     return ScaleFactor<src, dst>(xScale);
   }
 
+  ScaleFactors2D<src, dst>& operator=(const ScaleFactors2D<src, dst>&) =
+      default;
+
   bool operator==(const ScaleFactors2D<src, dst>& aOther) const {
     return xScale == aOther.xScale && yScale == aOther.yScale;
   }
@@ -135,7 +138,7 @@ struct ScaleFactors2D {
   }
 
   // Divide two scales of the same units, yielding a scale with no units,
-  // represented as a gfxSize. This can mean e.g. the cahnge in a particular
+  // represented as a gfxSize. This can mean e.g. the change in a particular
   // scale from one frame to the next.
   gfxSize operator/(const ScaleFactors2D& aOther) const {
     return gfxSize(xScale / aOther.xScale, yScale / aOther.yScale);

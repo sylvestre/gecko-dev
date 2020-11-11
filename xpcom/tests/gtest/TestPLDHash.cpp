@@ -14,9 +14,9 @@
 // operations wouldn't be a bad thing.
 
 #ifdef XP_UNIX
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/wait.h>
+#  include <unistd.h>
+#  include <sys/types.h>
+#  include <sys/wait.h>
 
 // This global variable is defined in toolkit/xre/nsSigHandlers.cpp.
 extern unsigned int _gdb_sleep_duration;
@@ -30,7 +30,7 @@ extern unsigned int _gdb_sleep_duration;
 //   up when running this test locally, which is surprising and annoying.
 // - On ASAN builds, because ASAN alters the way a MOZ_CRASHing process
 //   terminates, which makes it harder to test if the right thing has occurred.
-void TestCrashyOperation(void (*aCrashyOperation)()) {
+static void TestCrashyOperation(const char* label, void (*aCrashyOperation)()) {
 #if defined(XP_UNIX) && defined(DEBUG) && !defined(MOZ_ASAN)
   // We're about to trigger a crash. When it happens don't pause to allow GDB
   // to be attached.
@@ -52,10 +52,11 @@ void TestCrashyOperation(void (*aCrashyOperation)()) {
 
     // Child: perform the crashy operation.
     fprintf(stderr,
-            "TestCrashyOperation: The following crash is expected. Do not "
-            "panic.\n");
+            "TestCrashyOperation %s: The following crash is expected. Do not "
+            "panic.\n",
+            label);
     aCrashyOperation();
-    fprintf(stderr, "TestCrashyOperation: didn't crash?!\n");
+    fprintf(stderr, "TestCrashyOperation %s: didn't crash?!\n", label);
     ASSERT_TRUE(false);  // shouldn't reach here
   }
 
@@ -70,7 +71,8 @@ void TestCrashyOperation(void (*aCrashyOperation)()) {
     // It returns the number of the caught signal.
     int signum = WEXITSTATUS(status);
     if (signum != SIGSEGV && signum != SIGBUS) {
-      fprintf(stderr, "TestCrashyOperation 'exited' failure: %d\n", signum);
+      fprintf(stderr, "TestCrashyOperation %s: 'exited' failure: %d\n", label,
+              signum);
       ASSERT_TRUE(false);
     }
   } else if (WIFSIGNALED(status)) {
@@ -78,7 +80,8 @@ void TestCrashyOperation(void (*aCrashyOperation)()) {
     // number of the terminating signal.
     int signum = WTERMSIG(status);
     if (signum != SIGSEGV && signum != SIGBUS) {
-      fprintf(stderr, "TestCrashyOperation 'signaled' failure: %d\n", signum);
+      fprintf(stderr, "TestCrashyOperation %s: 'signaled' failure: %d\n", label,
+              signum);
       ASSERT_TRUE(false);
     }
   }
@@ -87,24 +90,25 @@ void TestCrashyOperation(void (*aCrashyOperation)()) {
 #endif
 }
 
-void InitCapacityOk_InitialLengthTooBig() {
+static void InitCapacityOk_InitialLengthTooBig() {
   PLDHashTable t(PLDHashTable::StubOps(), sizeof(PLDHashEntryStub),
                  PLDHashTable::kMaxInitialLength + 1);
 }
 
-void InitCapacityOk_InitialEntryStoreTooBig() {
+static void InitCapacityOk_InitialEntryStoreTooBig() {
   // Try the smallest disallowed power-of-two entry store size, which is 2^32
   // bytes (which overflows to 0). (Note that the 2^23 *length* gets converted
   // to a 2^24 *capacity*.)
   PLDHashTable t(PLDHashTable::StubOps(), (uint32_t)1 << 8, (uint32_t)1 << 23);
 }
 
-void InitCapacityOk_EntrySizeTooBig() {
+static void InitCapacityOk_EntrySizeTooBig() {
   // Try the smallest disallowed entry size, which is 256 bytes.
   PLDHashTable t(PLDHashTable::StubOps(), 256);
 }
 
-TEST(PLDHashTableTest, InitCapacityOk) {
+TEST(PLDHashTableTest, InitCapacityOk)
+{
   // Try the largest allowed capacity.  With kMaxCapacity==1<<26, this
   // would allocate (if we added an element) 0.5GB of entry store on 32-bit
   // platforms and 1GB on 64-bit platforms.
@@ -116,17 +120,18 @@ TEST(PLDHashTableTest, InitCapacityOk) {
   PLDHashTable t2(PLDHashTable::StubOps(), (uint32_t)1 << 7, (uint32_t)1 << 23);
 
   // Try a too-large capacity (which aborts).
-  TestCrashyOperation(InitCapacityOk_InitialLengthTooBig);
+  TestCrashyOperation("length too big", InitCapacityOk_InitialLengthTooBig);
 
   // Try a large capacity combined with a large entry size that when multiplied
   // overflow (causing abort).
-  TestCrashyOperation(InitCapacityOk_InitialEntryStoreTooBig);
+  TestCrashyOperation("entry store too big",
+                      InitCapacityOk_InitialEntryStoreTooBig);
 
   // Try the largest allowed entry size.
   PLDHashTable t3(PLDHashTable::StubOps(), 255);
 
   // Try an overly large entry size.
-  TestCrashyOperation(InitCapacityOk_EntrySizeTooBig);
+  TestCrashyOperation("entry size too big", InitCapacityOk_EntrySizeTooBig);
 
   // Ideally we'd also try a large-but-ok capacity that almost but doesn't
   // quite overflow, but that would result in allocating slightly less than 4
@@ -134,7 +139,8 @@ TEST(PLDHashTableTest, InitCapacityOk) {
   // platforms, so such a test wouldn't be reliable.
 }
 
-TEST(PLDHashTableTest, LazyStorage) {
+TEST(PLDHashTableTest, LazyStorage)
+{
   PLDHashTable t(PLDHashTable::StubOps(), sizeof(PLDHashEntryStub));
 
   // PLDHashTable allocates entry storage lazily. Check that all the non-add
@@ -174,19 +180,20 @@ static const PLDHashTableOps trivialOps = {
     TrivialHash, PLDHashTable::MatchEntryStub, PLDHashTable::MoveEntryStub,
     PLDHashTable::ClearEntryStub, TrivialInitEntry};
 
-TEST(PLDHashTableTest, MoveSemantics) {
+TEST(PLDHashTableTest, MoveSemantics)
+{
   PLDHashTable t1(&trivialOps, sizeof(PLDHashEntryStub));
   t1.Add((const void*)88);
   PLDHashTable t2(&trivialOps, sizeof(PLDHashEntryStub));
   t2.Add((const void*)99);
 
 #if defined(__clang__)
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wself-move"
+#  pragma clang diagnostic push
+#  pragma clang diagnostic ignored "-Wself-move"
 #endif
   t1 = std::move(t1);  // self-move
 #if defined(__clang__)
-#pragma clang diagnostic pop
+#  pragma clang diagnostic pop
 #endif
 
   t1 = std::move(t2);  // empty overwritten with empty
@@ -211,7 +218,8 @@ TEST(PLDHashTableTest, MoveSemantics) {
   PLDHashTable t10(std::move(t9));  // new table constructed with inited
 }
 
-TEST(PLDHashTableTest, Clear) {
+TEST(PLDHashTableTest, Clear)
+{
   PLDHashTable t1(&trivialOps, sizeof(PLDHashEntryStub));
 
   t1.Clear();
@@ -239,7 +247,8 @@ TEST(PLDHashTableTest, Clear) {
   ASSERT_EQ(t1.EntryCount(), 0u);
 }
 
-TEST(PLDHashTableTest, Iterator) {
+TEST(PLDHashTableTest, Iterator)
+{
   PLDHashTable t(&trivialOps, sizeof(PLDHashEntryStub));
 
   // Explicitly test the move constructor. We do this because, due to copy
@@ -335,7 +344,8 @@ TEST(PLDHashTableTest, Iterator) {
 //
 // Also, it's slow, and so should always be last.
 #ifdef HAVE_64BIT_BUILD
-TEST(PLDHashTableTest, GrowToMaxCapacity) {
+TEST(PLDHashTableTest, GrowToMaxCapacity)
+{
   // This is infallible.
   PLDHashTable* t =
       new PLDHashTable(&trivialOps, sizeof(PLDHashEntryStub), 128);

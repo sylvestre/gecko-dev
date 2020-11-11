@@ -6,11 +6,11 @@
 #define RemoteDataDecoder_h_
 
 #include "AndroidDecoderModule.h"
-#include "FennecJNIWrappers.h"
 #include "SurfaceTexture.h"
 #include "TimeUnits.h"
 #include "mozilla/Maybe.h"
 #include "mozilla/Monitor.h"
+#include "mozilla/java/CodecProxyWrappers.h"
 
 namespace mozilla {
 
@@ -32,23 +32,32 @@ class RemoteDataDecoder : public MediaDataDecoder,
   RefPtr<FlushPromise> Flush() override;
   RefPtr<ShutdownPromise> Shutdown() override;
   nsCString GetDescriptionName() const override {
-    return NS_LITERAL_CSTRING("android decoder (remote)");
+    return "android decoder (remote)"_ns;
   }
 
  protected:
   virtual ~RemoteDataDecoder() {}
   RemoteDataDecoder(MediaData::Type aType, const nsACString& aMimeType,
                     java::sdk::MediaFormat::Param aFormat,
-                    const nsString& aDrmStubId, TaskQueue* aTaskQueue);
+                    const nsString& aDrmStubId);
 
-  // Methods only called on mTaskQueue.
-  RefPtr<ShutdownPromise> ProcessShutdown();
+  // Methods only called on mThread.
   void UpdateInputStatus(int64_t aTimestamp, bool aProcessed);
   void UpdateOutputStatus(RefPtr<MediaData>&& aSample);
   void ReturnDecodedData();
   void DrainComplete();
   void Error(const MediaResult& aError);
-  void AssertOnTaskQueue() { MOZ_ASSERT(mTaskQueue->IsCurrentThreadIn()); }
+  void AssertOnThread() const { MOZ_ASSERT(mThread->IsOnCurrentThread()); }
+
+  enum class State { DRAINED, DRAINABLE, DRAINING, SHUTDOWN };
+  void SetState(State aState) {
+    AssertOnThread();
+    mState = aState;
+  }
+  State GetState() const {
+    AssertOnThread();
+    return mState;
+  }
 
   // Whether the sample will be used.
   virtual bool IsUsefulData(const RefPtr<MediaData>& aSample) { return true; }
@@ -62,18 +71,29 @@ class RemoteDataDecoder : public MediaDataDecoder,
   java::CodecProxy::NativeCallbacks::GlobalRef mJavaCallbacks;
   nsString mDrmStubId;
 
-  RefPtr<TaskQueue> mTaskQueue;
-  // Only ever accessed on mTaskqueue.
-  bool mShutdown = false;
+  nsCOMPtr<nsISerialEventTarget> mThread;
+
+  // Preallocated Java object used as a reusable storage for input buffer
+  // information. Contents must be changed only on mThread.
+  java::sdk::BufferInfo::GlobalRef mInputBufferInfo;
+
+  // Session ID attached to samples. It is returned by CodecProxy::Input().
+  // Accessed on mThread only.
+  int64_t mSession;
+
+ private:
+  enum class PendingOp { INCREASE, DECREASE, CLEAR };
+  void UpdatePendingInputStatus(PendingOp aOp);
+  size_t HasPendingInputs() {
+    AssertOnThread();
+    return mNumPendingInputs > 0;
+  }
+
+  // The following members must only be accessed on mThread.
   MozPromiseHolder<DecodePromise> mDecodePromise;
   MozPromiseHolder<DecodePromise> mDrainPromise;
-  enum class DrainStatus {
-    DRAINED,
-    DRAINABLE,
-    DRAINING,
-  };
-  DrainStatus mDrainStatus = DrainStatus::DRAINED;
   DecodedData mDecodedData;
+  State mState = State::DRAINED;
   size_t mNumPendingInputs;
 };
 

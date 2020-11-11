@@ -17,8 +17,6 @@
 #include "nsString.h"
 #include "nsTHashtable.h"
 
-class nsPIDOMWindowInner;
-
 namespace mozilla {
 
 class ErrorResult;
@@ -105,17 +103,13 @@ class IDBMutableFile final : public DOMEventTargetHelper {
   void AbortFileHandles();
 
   // WebIDL
-  nsPIDOMWindowInner* GetParentObject() const { return GetOwner(); }
-
   void GetName(nsString& aName) const { aName = mName; }
 
   void GetType(nsString& aType) const { aType = mType; }
 
   IDBDatabase* Database() const;
 
-  already_AddRefed<IDBFileHandle> Open(FileMode aMode, ErrorResult& aError);
-
-  already_AddRefed<DOMRequest> GetFile(ErrorResult& aError);
+  [[nodiscard]] RefPtr<IDBFileHandle> Open(FileMode aMode, ErrorResult& aError);
 
   IMPL_EVENT_HANDLER(abort)
   IMPL_EVENT_HANDLER(error)

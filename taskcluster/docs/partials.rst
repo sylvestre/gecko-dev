@@ -31,7 +31,7 @@ artifact.
 .. code-block:: json
 
     {
-       "to_mar": "https://queue.taskcluster.net/v1/task/EWtBFqVuT-WqG3tGLxWhmA/artifacts/public/build/ach/target.complete.mar",
+       "to_mar": "https://tc.net/api/queue/v1/task/EWtBFqVuT-WqG3tGLxWhmA/artifacts/public/build/ach/target.complete.mar",
        "product": "Firefox",
        "dest_mar": "target-60.0b8.partial.mar",
        "locale": "ach",
@@ -62,22 +62,6 @@ For Releases
 Partials are made as part of the ``promote`` task group. The previous
 versions used to create the update are specified in ship-it by
 Release Management.
-
-Data About Partials
--------------------
-
-Some metrics are collected in Datadog_ about partial update tasks.
-The prefix used is ``releng.releases.partials``, so the relevant metric names
-will all start with that.
-
-Some dashboards in Datadog are public, some require a login. If you need
-access, file a bug under 'Cloud Services :: Operations: Metrics/Monitoring'
-
-Some examples of potentially useful metrics:
-
-* ``releng.releases.partials.partial_mar_size`` (tagged with branch, platform and update-number)
-* ``releng.releases.partials.task_duration`` - the time the task took, running partial generation concurrently.
-* ``releng.releases.partials.generate_partial.time`` - the time taken to make one partial update
 
 Nightly Partials
 ----------------
@@ -137,5 +121,3 @@ Otherwise, it will depend on ``repackage-signing``.
 
 This is not ideal, as it results in unclear logic in the task graph
 generation. It will be improved.
-
-.. _Datadog: https://app.datadoghq.com/metric/explorer

@@ -1,5 +1,3 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 2 -*- */
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -9,43 +7,45 @@
  * Make sure the listTabs request works as specified.
  */
 
-var { DebuggerServer } = require("devtools/server/main");
-var { DebuggerClient } = require("devtools/shared/client/debugger-client");
+var { DevToolsServer } = require("devtools/server/devtools-server");
+var { DevToolsClient } = require("devtools/client/devtools-client");
 
 const TAB1_URL = EXAMPLE_URL + "doc_empty-tab-01.html";
 
 add_task(async function test() {
-  DebuggerServer.init();
-  DebuggerServer.registerAllActors();
+  DevToolsServer.init();
+  DevToolsServer.registerAllActors();
 
-  const transport = DebuggerServer.connectPipe();
-  const client = new DebuggerClient(transport);
+  const transport = DevToolsServer.connectPipe();
+  const client = new DevToolsClient(transport);
   const [type] = await client.connect();
   is(type, "browser", "Root actor should identify itself as a browser.");
   const tab = await addTab(TAB1_URL);
 
-  let { tabs } = await client.listTabs();
-  is(tabs.length, 2, "Should be two tabs");
-  const tabGrip = tabs.filter(a => a.url == TAB1_URL).pop();
-  ok(tabGrip, "Should have an actor for the tab");
+  const tabDescriptors = await client.mainRoot.listTabs();
+  is(tabDescriptors.length, 2, "Should be two tabs");
+  const tabDescriptor = tabDescriptors.find(d => d.url == TAB1_URL);
+  ok(tabDescriptor, "Should have a descriptor actor for the tab");
 
-  let [response, targetFront] = await client.attachTarget(tabGrip);
-  is(response.type, "tabAttached", "Should have attached");
+  let tabTarget = await tabDescriptor.getTarget();
+  ok(isTargetAttached(tabTarget), "The tab target should be attached");
+  const targetActorId = tabTarget.actorID;
 
-  response = await client.listTabs();
-  tabs = response.tabs;
+  info("Detach the tab target");
+  await tabTarget.detach();
 
-  response = await targetFront.detach();
-  is(response.type, "detached", "Should have detached");
+  info("Wait until the tab target is destroyed");
+  await waitUntil(() => !tabTarget.actorID);
 
-  const newGrip = tabs.filter(a => a.url == TAB1_URL).pop();
-  is(newGrip.actor, tabGrip.actor, "Should have the same actor for the same tab");
-
-  [response, targetFront] = await client.attachTarget(tabGrip);
-  is(response.type, "tabAttached", "Should have attached");
-  response = await targetFront.detach();
-  is(response.type, "detached", "Should have detached");
+  info("Call getTarget() again on the tabDescriptor");
+  tabTarget = await tabDescriptor.getTarget();
+  ok(targetActorId !== tabTarget.actorID, "We should get a new target actor");
+  ok(isTargetAttached(tabTarget), "The new tab target should also be attached");
 
   await removeTab(tab);
   await client.close();
 });
+
+function isTargetAttached(targetFront) {
+  return !!targetFront?.targetForm?.threadActor;
+}

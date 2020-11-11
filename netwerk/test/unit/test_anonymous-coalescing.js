@@ -1,12 +1,11 @@
-ChromeUtils.import("resource://testing-common/httpd.js");
-ChromeUtils.import("resource://gre/modules/NetUtil.jsm");
-
 /*
 - test to check we use only a single connection for both onymous and anonymous requests over an existing h2 session
 - request from a domain w/o LOAD_ANONYMOUS flag
 - request again from the same domain, but different URI, with LOAD_ANONYMOUS flag, check the client is using the same conn
 - close all and do it in the opposite way (do an anonymous req first)
 */
+
+"use strict";
 
 var h2Port;
 var prefs;
@@ -15,7 +14,9 @@ var http2pref;
 var extpref;
 
 function run_test() {
-  var env = Cc["@mozilla.org/process/environment;1"].getService(Ci.nsIEnvironment);
+  var env = Cc["@mozilla.org/process/environment;1"].getService(
+    Ci.nsIEnvironment
+  );
   h2Port = env.get("MOZHTTP2_PORT");
   Assert.notEqual(h2Port, null);
   Assert.notEqual(h2Port, "");
@@ -31,13 +32,17 @@ function run_test() {
   prefs.setBoolPref("network.http.spdy.enabled", true);
   prefs.setBoolPref("network.http.spdy.enabled.http2", true);
   prefs.setBoolPref("network.http.originextension", true);
-  prefs.setCharPref("network.dns.localDomains", "foo.example.com, alt1.example.com");
+  prefs.setCharPref(
+    "network.dns.localDomains",
+    "foo.example.com, alt1.example.com"
+  );
 
-  // The moz-http2 cert is for {foo, alt1, alt2}.example.com and is signed by CA.cert.der
+  // The moz-http2 cert is for {foo, alt1, alt2}.example.com and is signed by http2-ca.pem
   // so add that cert to the trust list as a signing cert.
-  let certdb = Cc["@mozilla.org/security/x509certdb;1"]
-                  .getService(Ci.nsIX509CertDB);
-  addCertFromFile(certdb, "CA.cert.der", "CTu,u,u");
+  let certdb = Cc["@mozilla.org/security/x509certdb;1"].getService(
+    Ci.nsIX509CertDB
+  );
+  addCertFromFile(certdb, "http2-ca.pem", "CTu,u,u");
 
   doTest1();
 }
@@ -49,25 +54,10 @@ function resetPrefs() {
   prefs.clearUserPref("network.dns.localDomains");
 }
 
-function readFile(file) {
-  let fstream = Cc["@mozilla.org/network/file-input-stream;1"]
-                  .createInstance(Ci.nsIFileInputStream);
-  fstream.init(file, -1, 0, 0);
-  let data = NetUtil.readInputStreamToString(fstream, fstream.available());
-  fstream.close();
-  return data;
-}
-
-function addCertFromFile(certdb, filename, trustString) {
-  let certFile = do_get_file(filename, false);
-  let der = readFile(certFile);
-  certdb.addCert(der, trustString);
-}
-
 function makeChan(origin) {
   return NetUtil.newChannel({
     uri: origin,
-    loadUsingSystemPrincipal: true
+    loadUsingSystemPrincipal: true,
   }).QueryInterface(Ci.nsIHttpChannel);
 }
 
@@ -81,7 +71,7 @@ var anonymous = false;
 var Listener = function() {};
 Listener.prototype.clientPort = 0;
 Listener.prototype = {
-  onStartRequest: function testOnStartRequest(request, ctx) {
+  onStartRequest: function testOnStartRequest(request) {
     Assert.ok(request instanceof Ci.nsIHttpChannel);
 
     if (!Components.isSuccessCode(request.status)) {
@@ -91,31 +81,29 @@ Listener.prototype = {
     this.clientPort = parseInt(request.getResponseHeader("x-client-port"));
   },
 
-  onDataAvailable: function testOnDataAvailable(request, ctx, stream, off, cnt) {
+  onDataAvailable: function testOnDataAvailable(request, stream, off, cnt) {
     read_stream(stream, cnt);
   },
 
-  onStopRequest: function testOnStopRequest(request, ctx, status) {
+  onStopRequest: function testOnStopRequest(request, status) {
     Assert.ok(Components.isSuccessCode(status));
     if (nextPortExpectedToBeSame) {
-     Assert.equal(currentPort, this.clientPort);
+      Assert.equal(currentPort, this.clientPort);
     } else {
-     Assert.notEqual(currentPort, this.clientPort);
+      Assert.notEqual(currentPort, this.clientPort);
     }
     currentPort = this.clientPort;
     nextTest();
     do_test_finished();
-  }
+  },
 };
 
-function testsDone()
-{
+function testsDone() {
   dump("testsDone\n");
   resetPrefs();
 }
 
-function doTest()
-{
+function doTest() {
   dump("execute doTest " + origin + "\n");
 
   var loadFlags = Ci.nsIChannel.LOAD_INITIAL_DOCUMENT_URI;
@@ -132,11 +120,10 @@ function doTest()
   chan.loadFlags = loadFlags;
 
   var listener = new Listener();
-  chan.asyncOpen2(listener);
+  chan.asyncOpen(listener);
 }
 
-function doTest1()
-{
+function doTest1() {
   dump("doTest1()\n");
   origin = "https://foo.example.com:" + h2Port + "/origin-1";
   nextTest = doTest2;
@@ -145,23 +132,31 @@ function doTest1()
   doTest();
 }
 
-function doTest2()
-{
-  // connection expected to be reused for an anonymous request
+function doTest2() {
+  // Run the same test as above to make sure connection is marked experienced.
   dump("doTest2()\n");
-  origin = "https://foo.example.com:" + h2Port + "/origin-2";
+  origin = "https://foo.example.com:" + h2Port + "/origin-1";
   nextTest = doTest3;
+  nextPortExpectedToBeSame = true;
+  do_test_pending();
+  doTest();
+}
+
+function doTest3() {
+  // connection expected to be reused for an anonymous request
+  dump("doTest3()\n");
+  origin = "https://foo.example.com:" + h2Port + "/origin-2";
+  nextTest = doTest4;
   nextPortExpectedToBeSame = true;
   anonymous = true;
   do_test_pending();
   doTest();
 }
 
-function doTest3()
-{
-  dump("doTest3()\n");
+function doTest4() {
+  dump("doTest4()\n");
   origin = "https://foo.example.com:" + h2Port + "/origin-3";
-  nextTest = doTest4;
+  nextTest = doTest5;
   nextPortExpectedToBeSame = false;
   forceReload = true;
   anonymous = true;
@@ -169,9 +164,20 @@ function doTest3()
   doTest();
 }
 
-function doTest4()
-{
-  dump("doTest4()\n");
+function doTest5() {
+  // Run the same test as above just without forceReload to make sure connection
+  // is marked experienced.
+  dump("doTest5()\n");
+  origin = "https://foo.example.com:" + h2Port + "/origin-3";
+  nextTest = doTest6;
+  nextPortExpectedToBeSame = true;
+  anonymous = true;
+  do_test_pending();
+  doTest();
+}
+
+function doTest6() {
+  dump("doTest6()\n");
   origin = "https://foo.example.com:" + h2Port + "/origin-4";
   nextTest = testsDone;
   nextPortExpectedToBeSame = true;

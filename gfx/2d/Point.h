@@ -16,9 +16,9 @@
 #include "BasePoint4D.h"
 #include "BaseSize.h"
 #include "mozilla/Maybe.h"
-#include "mozilla/TypeTraits.h"
 
 #include <cmath>
+#include <type_traits>
 
 namespace mozilla {
 
@@ -33,7 +33,7 @@ struct UnknownUnits {};
 }  // namespace gfx
 
 template <>
-struct IsPixel<gfx::UnknownUnits> : TrueType {};
+struct IsPixel<gfx::UnknownUnits> : std::true_type {};
 
 namespace gfx {
 
@@ -139,7 +139,7 @@ struct PointTyped
   constexpr MOZ_IMPLICIT PointTyped(const IntPointTyped<units>& point)
       : Super(F(point.x), F(point.y)) {}
 
-  bool WithinEpsilonOf(const PointTyped<units, F>& aPoint, F aEpsilon) {
+  bool WithinEpsilonOf(const PointTyped<units, F>& aPoint, F aEpsilon) const {
     return fabs(aPoint.x - this->x) < aEpsilon &&
            fabs(aPoint.y - this->y) < aEpsilon;
   }

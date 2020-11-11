@@ -22,20 +22,24 @@ namespace ipc {
 class TestShellCommandParent;
 
 class TestShellParent : public PTestShellParent {
+  friend class PTestShellParent;
+
  public:
   virtual void ActorDestroy(ActorDestroyReason aWhy) override;
 
   PTestShellCommandParent* AllocPTestShellCommandParent(
-      const nsString& aCommand) override;
+      const nsString& aCommand);
 
-  bool DeallocPTestShellCommandParent(PTestShellCommandParent* aActor) override;
+  bool DeallocPTestShellCommandParent(PTestShellCommandParent* aActor);
 
   bool CommandDone(TestShellCommandParent* aActor, const nsString& aResponse);
 };
 
 class TestShellCommandParent : public PTestShellCommandParent {
+  friend class PTestShellCommandParent;
+
  public:
-  TestShellCommandParent() {}
+  TestShellCommandParent() = default;
 
   bool SetCallback(JSContext* aCx, const JS::Value& aCallback);
 
@@ -48,7 +52,7 @@ class TestShellCommandParent : public PTestShellCommandParent {
 
   void ActorDestroy(ActorDestroyReason why) override;
 
-  mozilla::ipc::IPCResult Recv__delete__(const nsString& aResponse) override {
+  mozilla::ipc::IPCResult Recv__delete__(const nsString& aResponse) {
     if (!ExecuteCallback(aResponse)) {
       return IPC_FAIL_NO_REASON(this);
     }

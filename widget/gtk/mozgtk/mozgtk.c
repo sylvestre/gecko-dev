@@ -1,3 +1,9 @@
+/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
+/* vim: set ts=8 sts=2 et sw=2 tw=80: */
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 #include "mozilla/Types.h"
 #include "mozilla/Assertions.h"
 
@@ -95,6 +101,7 @@ STUB(gdk_window_get_parent)
 STUB(gdk_window_get_position)
 STUB(gdk_window_get_root_origin)
 STUB(gdk_window_get_screen)
+STUB(gtk_window_get_size)
 STUB(gdk_window_get_state)
 STUB(gdk_window_get_toplevel)
 STUB(gdk_window_get_update_area)
@@ -317,6 +324,7 @@ STUB(gtk_page_setup_set_paper_size)
 STUB(gtk_page_setup_set_paper_size_and_default_margins)
 STUB(gtk_page_setup_set_right_margin)
 STUB(gtk_page_setup_set_top_margin)
+STUB(gtk_page_setup_to_key_file)
 STUB(gtk_paper_size_free)
 STUB(gtk_paper_size_get_display_name)
 STUB(gtk_paper_size_get_height)
@@ -474,6 +482,7 @@ STUB(gtk_widget_reparent)
 STUB(gtk_widget_set_allocation)
 STUB(gtk_widget_set_app_paintable)
 STUB(gtk_window_set_auto_startup_notification)
+STUB(gtk_window_set_keep_above)
 STUB(gtk_window_set_opacity)
 STUB(gtk_window_set_screen)
 STUB(gtk_widget_set_can_focus)
@@ -516,10 +525,12 @@ STUB(gtk_window_set_accept_focus)
 STUB(gtk_window_set_decorated)
 STUB(gtk_window_set_deletable)
 STUB(gtk_window_set_destroy_with_parent)
+STUB(gtk_window_set_focus_on_map)
 STUB(gtk_window_set_geometry_hints)
 STUB(gtk_window_set_icon_name)
 STUB(gtk_window_set_modal)
 STUB(gtk_window_set_skip_taskbar_hint)
+STUB(gtk_window_set_startup_id)
 STUB(gtk_window_set_title)
 STUB(gtk_window_set_transient_for)
 STUB(gtk_window_set_type_hint)
@@ -541,9 +552,13 @@ STUB(gdk_error_trap_pop_ignored)
 STUB(gdk_event_get_source_device)
 STUB(gdk_screen_get_monitor_workarea)
 STUB(gdk_window_get_type)
+STUB(gdk_window_set_opaque_region)
 STUB(gdk_x11_window_get_xid)
 STUB(gdk_x11_display_get_type)
 STUB(gdk_wayland_display_get_type)
+STUB(gdk_wayland_display_get_wl_compositor)
+STUB(gdk_wayland_display_get_wl_display)
+STUB(gdk_wayland_window_get_wl_surface)
 STUB(gtk_box_new)
 STUB(gtk_cairo_should_draw_window)
 STUB(gtk_cairo_transform_to_window)
@@ -618,6 +633,7 @@ STUB(gtk_widget_path_new)
 STUB(gtk_widget_path_unref)
 STUB(gtk_widget_set_valign)
 STUB(gtk_widget_set_visual)
+STUB(gtk_window_set_titlebar)
 STUB(gtk_app_chooser_dialog_new_for_content_type)
 STUB(gtk_app_chooser_get_type)
 STUB(gtk_app_chooser_get_app_info)
@@ -649,7 +665,7 @@ STUB(gtk_object_get_type)
 #ifndef GTK3_SYMBOLS
 // Only define the following workaround when using GTK3, which we detect
 // by checking if GTK3 stubs are not provided.
-#include <X11/Xlib.h>
+#  include <X11/Xlib.h>
 // Bug 1271100
 // We need to trick system Cairo into not using the XShm extension due to
 // a race condition in it that results in frequent BadAccess errors. Cairo

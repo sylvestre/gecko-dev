@@ -5,15 +5,15 @@ var url1 = scriptdir + 'Debugger-findScripts-12-script1';
 var url2 = scriptdir + 'Debugger-findScripts-12-script2';
 
 // Three globals: two with code, one with nothing.
-var g1 = newGlobal();
+var g1 = newGlobal({newCompartment: true});
 g1.toSource = () => "[global g1]";
 g1.load(url1);
 g1.load(url2);
-var g2 = newGlobal();
+var g2 = newGlobal({newCompartment: true});
 g2.toSource = () => "[global g2]";
 g2.load(url1);
 g2.load(url2);
-var g3 = newGlobal();
+var g3 = newGlobal({newCompartment: true});
 
 var dbg = new Debugger(g1, g2, g3);
 
@@ -21,7 +21,7 @@ function script(func) {
     var gw = dbg.addDebuggee(func.global);
     var script = gw.makeDebuggeeValue(func).script;
     script.toString = function () {
-        return "[Debugger.Script for " + func.name + " in " + uneval(func.global) + "]";
+        return "[Debugger.Script for " + func.name + " in " + JSON.stringify(func.global) + "]";
     };
     return script;
 }
@@ -36,7 +36,7 @@ var allScripts = ([g1.f, g1.f(), g1.g, g1.h, g1.h(), g1.i,
 // omitted, expect no members of allScripts at all.
 function queryExpectOnly(query, expected) {
     print();
-    print("queryExpectOnly(" + uneval(query) + ")");
+    print("queryExpectOnly(" + JSON.stringify(query) + ")");
     var scripts = dbg.findScripts(query);
     var present = allScripts.filter(function (s) { return scripts.indexOf(s) != -1; });
     if (expected) {

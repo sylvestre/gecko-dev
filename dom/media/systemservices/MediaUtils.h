@@ -7,9 +7,12 @@
 #ifndef mozilla_MediaUtils_h
 #define mozilla_MediaUtils_h
 
+#include <map>
+
 #include "mozilla/Assertions.h"
 #include "mozilla/Monitor.h"
 #include "mozilla/MozPromise.h"
+#include "mozilla/Mutex.h"
 #include "mozilla/RefPtr.h"
 #include "mozilla/SharedThreadPool.h"
 #include "mozilla/TaskQueue.h"
@@ -102,7 +105,7 @@ class RefcountableBase {
  public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(RefcountableBase)
  protected:
-  virtual ~RefcountableBase() {}
+  virtual ~RefcountableBase() = default;
 };
 
 template <typename T>
@@ -116,8 +119,18 @@ class Refcountable : public T, public RefcountableBase {
     return RefcountableBase::Release();
   }
 
+  Refcountable<T>& operator=(T&& aOther) {
+    T::operator=(std::move(aOther));
+    return *this;
+  }
+
+  Refcountable<T>& operator=(T& aOther) {
+    T::operator=(aOther);
+    return *this;
+  }
+
  private:
-  ~Refcountable<T>() {}
+  ~Refcountable<T>() = default;
 };
 
 template <typename T>
@@ -126,13 +139,13 @@ class Refcountable<UniquePtr<T>> : public UniquePtr<T> {
   explicit Refcountable<UniquePtr<T>>(T* aPtr) : UniquePtr<T>(aPtr) {}
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(Refcountable<T>)
  private:
-  ~Refcountable<UniquePtr<T>>() {}
+  ~Refcountable<UniquePtr<T>>() = default;
 };
 
 /* Async shutdown helpers
  */
 
-already_AddRefed<nsIAsyncShutdownClient> GetShutdownBarrier();
+nsCOMPtr<nsIAsyncShutdownClient> GetShutdownBarrier();
 
 class ShutdownBlocker : public nsIAsyncShutdownBlocker {
  public:
@@ -150,7 +163,7 @@ class ShutdownBlocker : public nsIAsyncShutdownBlocker {
 
   NS_DECL_ISUPPORTS
  protected:
-  virtual ~ShutdownBlocker() {}
+  virtual ~ShutdownBlocker() = default;
 
  private:
   const nsString mName;
@@ -162,10 +175,7 @@ class ShutdownTicket final {
       : mBlocker(aBlocker) {}
   NS_INLINE_DECL_REFCOUNTING(ShutdownTicket)
  private:
-  ~ShutdownTicket() {
-    nsCOMPtr<nsIAsyncShutdownClient> barrier = GetShutdownBarrier();
-    barrier->RemoveBlocker(mBlocker);
-  }
+  ~ShutdownTicket() { GetShutdownBarrier()->RemoveBlocker(mBlocker); }
 
   nsCOMPtr<nsIAsyncShutdownBlocker> mBlocker;
 };
@@ -224,19 +234,20 @@ Await(already_AddRefed<nsIEventTarget> aPool,
 
   typename MozPromise<ResolveValueType, RejectValueType,
                       Excl>::ResolveOrRejectValue val;
-  aPromise->Then(taskQueue, __func__,
-                 [&](ResolveValueType aResolveValue) {
-                   val.SetResolve(std::move(aResolveValue));
-                   MonitorAutoLock lock(mon);
-                   done = true;
-                   mon.Notify();
-                 },
-                 [&](RejectValueType aRejectValue) {
-                   val.SetReject(std::move(aRejectValue));
-                   MonitorAutoLock lock(mon);
-                   done = true;
-                   mon.Notify();
-                 });
+  aPromise->Then(
+      taskQueue, __func__,
+      [&](ResolveValueType aResolveValue) {
+        val.SetResolve(std::move(aResolveValue));
+        MonitorAutoLock lock(mon);
+        done = true;
+        mon.Notify();
+      },
+      [&](RejectValueType aRejectValue) {
+        val.SetReject(std::move(aRejectValue));
+        MonitorAutoLock lock(mon);
+        done = true;
+        mon.Notify();
+      });
 
   MonitorAutoLock lock(mon);
   while (!done) {
@@ -285,6 +296,89 @@ AwaitAll(already_AddRefed<nsIEventTarget> aPool,
 }
 
 }  // namespace media
+
+/**
+ * AsyncBlockers provide a simple registration service that allows to suspend
+ * completion of a particular task until all registered entries have been
+ * cleared. This can be used to implement a similar service to
+ * nsAsyncShutdownService in processes where it wouldn't normally be available.
+ * This class is thread-safe.
+ */
+class AsyncBlockers {
+ public:
+  AsyncBlockers()
+      : mLock("AsyncRegistrar"),
+        mPromise(new GenericPromise::Private(__func__)) {}
+  void Register(void* aBlocker) {
+    MutexAutoLock lock(mLock);
+    if (mResolved) {
+      // Too late.
+      return;
+    }
+    mBlockers.insert({aBlocker, true});
+  }
+  void Deregister(void* aBlocker) {
+    MutexAutoLock lock(mLock);
+    if (mResolved) {
+      // Too late.
+      return;
+    }
+    auto it = mBlockers.find(aBlocker);
+    MOZ_ASSERT(it != mBlockers.end());
+
+    mBlockers.erase(it);
+    MaybeResolve();
+  }
+  RefPtr<GenericPromise> WaitUntilClear(uint32_t aTimeOutInMs = 0) {
+    if (!aTimeOutInMs) {
+      // We don't need to wait, resolve the promise right away.
+      MutexAutoLock lock(mLock);
+      if (!mResolved) {
+        mPromise->Resolve(true, __func__);
+        mResolved = true;
+      }
+    } else {
+      GetCurrentEventTarget()->DelayedDispatch(
+          NS_NewRunnableFunction("AsyncBlockers::WaitUntilClear",
+                                 [promise = mPromise]() {
+                                   // The AsyncBlockers object may have been
+                                   // deleted by now and the object isn't
+                                   // refcounted (nor do we want it to be). We
+                                   // can unconditionally resolve the promise
+                                   // even it has already been resolved as
+                                   // MozPromise are thread-safe and will just
+                                   // ignore the action if already resolved.
+                                   promise->Resolve(true, __func__);
+                                 }),
+          aTimeOutInMs);
+    }
+    return mPromise;
+  }
+
+  virtual ~AsyncBlockers() {
+    if (!mResolved) {
+      mPromise->Resolve(true, __func__);
+    }
+  }
+
+ private:
+  void MaybeResolve() {
+    mLock.AssertCurrentThreadOwns();
+    if (mResolved) {
+      return;
+    }
+    if (!mBlockers.empty()) {
+      return;
+    }
+    mPromise->Resolve(true, __func__);
+    mResolved = true;
+  }
+  Mutex mLock;  // protects mBlockers and mResolved.
+  std::map<void*, bool> mBlockers;
+  bool mResolved = false;
+  const RefPtr<GenericPromise::Private> mPromise;
+};
+
 }  // namespace mozilla
 
 #endif  // mozilla_MediaUtils_h

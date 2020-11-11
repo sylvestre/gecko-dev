@@ -4,18 +4,18 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef mozilla_dom_SVGFEBlendElement_h
-#define mozilla_dom_SVGFEBlendElement_h
+#ifndef DOM_SVG_SVGFEBLENDELEMENT_H_
+#define DOM_SVG_SVGFEBLENDELEMENT_H_
 
-#include "nsSVGFilters.h"
-#include "nsSVGEnum.h"
+#include "SVGAnimatedEnumeration.h"
+#include "mozilla/dom/SVGFilters.h"
 
 nsresult NS_NewSVGFEBlendElement(
     nsIContent** aResult, already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo);
 namespace mozilla {
 namespace dom {
 
-typedef nsSVGFE SVGFEBlendElementBase;
+using SVGFEBlendElementBase = SVGFE;
 
 class SVGFEBlendElement : public SVGFEBlendElementBase {
   friend nsresult(::NS_NewSVGFEBlendElement(
@@ -31,39 +31,38 @@ class SVGFEBlendElement : public SVGFEBlendElementBase {
 
  public:
   virtual FilterPrimitiveDescription GetPrimitiveDescription(
-      nsSVGFilterInstance* aInstance, const IntRect& aFilterSubregion,
+      SVGFilterInstance* aInstance, const IntRect& aFilterSubregion,
       const nsTArray<bool>& aInputsAreTainted,
       nsTArray<RefPtr<SourceSurface>>& aInputImages) override;
   virtual bool AttributeAffectsRendering(int32_t aNameSpaceID,
                                          nsAtom* aAttribute) const override;
-  virtual nsSVGString& GetResultImageName() override {
+  virtual SVGAnimatedString& GetResultImageName() override {
     return mStringAttributes[RESULT];
   }
-  virtual void GetSourceImageNames(
-      nsTArray<nsSVGStringInfo>& aSources) override;
+  virtual void GetSourceImageNames(nsTArray<SVGStringInfo>& aSources) override;
 
   virtual nsresult Clone(dom::NodeInfo*, nsINode** aResult) const override;
 
   // WebIDL
-  already_AddRefed<SVGAnimatedString> In1();
-  already_AddRefed<SVGAnimatedString> In2();
-  already_AddRefed<SVGAnimatedEnumeration> Mode();
+  already_AddRefed<DOMSVGAnimatedString> In1();
+  already_AddRefed<DOMSVGAnimatedString> In2();
+  already_AddRefed<DOMSVGAnimatedEnumeration> Mode();
 
  protected:
   virtual EnumAttributesInfo GetEnumInfo() override;
   virtual StringAttributesInfo GetStringInfo() override;
 
   enum { MODE };
-  nsSVGEnum mEnumAttributes[1];
-  static nsSVGEnumMapping sModeMap[];
+  SVGAnimatedEnumeration mEnumAttributes[1];
+  static SVGEnumMapping sModeMap[];
   static EnumInfo sEnumInfo[1];
 
   enum { RESULT, IN1, IN2 };
-  nsSVGString mStringAttributes[3];
+  SVGAnimatedString mStringAttributes[3];
   static StringInfo sStringInfo[3];
 };
 
 }  // namespace dom
 }  // namespace mozilla
 
-#endif  // mozilla_dom_SVGFEBlendElement_h
+#endif  // DOM_SVG_SVGFEBLENDELEMENT_H_

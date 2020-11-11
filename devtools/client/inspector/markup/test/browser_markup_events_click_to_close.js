@@ -1,4 +1,3 @@
-/* vim: set ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 /* import-globals-from helper_events_test_runner.js */
@@ -21,18 +20,26 @@ const TEST_URL = `
 `;
 
 add_task(async function() {
-  const {inspector, toolbox} = await openInspectorForURL(
-    "data:text/html;charset=utf-8," + encodeURI(TEST_URL));
+  // Make the toolbox tall enough to show the full markup without the need
+  // to manage scrolling event badges into view.
+  await pushPref("devtools.toolbox.footer.height", 400);
+
+  const { inspector } = await openInspectorForURL(
+    "data:text/html;charset=utf-8," + encodeURI(TEST_URL)
+  );
+  const { waitForHighlighterTypeHidden } = getHighlighterTestHelpers(inspector);
 
   await inspector.markup.expandAll();
 
   const container1 = await getContainerForSelector("#d1", inspector);
   const evHolder1 = container1.elt.querySelector(
-    ".inspector-badge.interactive[data-event]");
+    ".inspector-badge.interactive[data-event]"
+  );
 
   const container2 = await getContainerForSelector("#d2", inspector);
   const evHolder2 = container2.elt.querySelector(
-    ".inspector-badge.interactive[data-event]");
+    ".inspector-badge.interactive[data-event]"
+  );
 
   const tooltip = inspector.markup.eventDetailsTooltip;
 
@@ -60,8 +67,11 @@ add_task(async function() {
 
   info("Check that the tooltip does not reappear immediately after");
   await waitForTime(1000);
-  is(tooltip.isVisible(), false,
-    "The tooltip is still hidden after waiting for one second");
+  is(
+    tooltip.isVisible(),
+    false,
+    "The tooltip is still hidden after waiting for one second"
+  );
 
   info("Open the tooltip on evHolder2 again");
   onShown = tooltip.once("shown");
@@ -69,15 +79,24 @@ add_task(async function() {
   await onShown;
 
   info("Click on the computed view tab");
-  const onHighlighterHidden = toolbox.highlighter.once("node-unhighlight");
-  const onTabComputedViewSelected = inspector.sidebar.once("computedview-selected");
+  const onHighlighterHidden = waitForHighlighterTypeHidden(
+    inspector.highlighters.TYPES.BOXMODEL
+  );
+  const onTabComputedViewSelected = inspector.sidebar.once(
+    "computedview-selected"
+  );
   const computedViewTab = inspector.panelDoc.querySelector("#computedview-tab");
-  EventUtils.synthesizeMouseAtCenter(computedViewTab, {},
-    inspector.panelDoc.defaultView);
+  EventUtils.synthesizeMouseAtCenter(
+    computedViewTab,
+    {},
+    inspector.panelDoc.defaultView
+  );
 
   await onTabComputedViewSelected;
   info("computed view was selected");
 
   await onHighlighterHidden;
-  info("box model highlighter hidden after moving the mouse out of the markup view");
+  info(
+    "box model highlighter hidden after moving the mouse out of the markup view"
+  );
 });

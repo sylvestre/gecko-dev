@@ -1,11 +1,3 @@
-// Copyright 2017 Serde Developers
-//
-// Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
-// http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
-// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
-// option. This file may not be copied, modified, or distributed
-// except according to those terms.
-
 use lib::*;
 
 use ser::{Error, Serialize, SerializeTuple, Serializer};
@@ -168,10 +160,12 @@ macro_rules! array_impls {
     }
 }
 
-array_impls!(01 02 03 04 05 06 07 08 09 10
-             11 12 13 14 15 16 17 18 19 20
-             21 22 23 24 25 26 27 28 29 30
-             31 32);
+array_impls! {
+    01 02 03 04 05 06 07 08 09 10
+    11 12 13 14 15 16 17 18 19 20
+    21 22 23 24 25 26 27 28 29 30
+    31 32
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -259,6 +253,29 @@ where
         try!(state.serialize_field("start", &self.start()));
         try!(state.serialize_field("end", &self.end()));
         state.end()
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+#[cfg(any(ops_bound, collections_bound))]
+impl<T> Serialize for Bound<T>
+where
+    T: Serialize,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match *self {
+            Bound::Unbounded => serializer.serialize_unit_variant("Bound", 0, "Unbounded"),
+            Bound::Included(ref value) => {
+                serializer.serialize_newtype_variant("Bound", 1, "Included", value)
+            }
+            Bound::Excluded(ref value) => {
+                serializer.serialize_newtype_variant("Bound", 2, "Excluded", value)
+            }
+        }
     }
 }
 
@@ -464,7 +481,6 @@ macro_rules! nonzero_integers {
 }
 
 nonzero_integers! {
-    // Not including signed NonZeroI* since they might be removed
     NonZeroU8,
     NonZeroU16,
     NonZeroU32,
@@ -472,11 +488,25 @@ nonzero_integers! {
     NonZeroUsize,
 }
 
+#[cfg(num_nonzero_signed)]
+nonzero_integers! {
+    NonZeroI8,
+    NonZeroI16,
+    NonZeroI32,
+    NonZeroI64,
+    NonZeroIsize,
+}
+
 // Currently 128-bit integers do not work on Emscripten targets so we need an
 // additional `#[cfg]`
 serde_if_integer128! {
     nonzero_integers! {
         NonZeroU128,
+    }
+
+    #[cfg(num_nonzero_signed)]
+    nonzero_integers! {
+        NonZeroI128,
     }
 }
 
@@ -586,7 +616,7 @@ impl Serialize for SystemTime {
         use super::SerializeStruct;
         let duration_since_epoch = self
             .duration_since(UNIX_EPOCH)
-            .expect("SystemTime must be later than UNIX_EPOCH");
+            .map_err(|_| S::Error::custom("SystemTime must be later than UNIX_EPOCH"))?;
         let mut state = try!(serializer.serialize_struct("SystemTime", 2));
         try!(state.serialize_field("secs_since_epoch", &duration_since_epoch.as_secs()));
         try!(state.serialize_field("nanos_since_epoch", &duration_since_epoch.subsec_nanos()));
@@ -603,7 +633,7 @@ impl Serialize for SystemTime {
 #[cfg(feature = "std")]
 macro_rules! serialize_display_bounded_length {
     ($value:expr, $max:expr, $serializer:expr) => {{
-        let mut buffer: [u8; $max] = unsafe { mem::uninitialized() };
+        let mut buffer = [0u8; $max];
         let remaining_len = {
             let mut remaining = &mut buffer[..];
             write!(remaining, "{}", $value).unwrap();
@@ -615,7 +645,7 @@ macro_rules! serialize_display_bounded_length {
         // write! only provides fmt::Formatter to Display implementations, which
         // has methods write_str and write_char but no method to write arbitrary
         // bytes. Therefore `written` must be valid UTF-8.
-        let written_str = unsafe { str::from_utf8_unchecked(written) };
+        let written_str = str::from_utf8(written).expect("must be valid UTF-8");
         $serializer.serialize_str(written_str)
     }};
 }
@@ -806,4 +836,48 @@ where
     {
         self.0.serialize(serializer)
     }
+}
+
+#[cfg(core_reverse)]
+impl<T> Serialize for Reverse<T>
+where
+    T: Serialize,
+{
+    #[inline]
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.0.serialize(serializer)
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+#[cfg(all(feature = "std", std_atomic))]
+macro_rules! atomic_impl {
+    ($($ty:ident)*) => {
+        $(
+            impl Serialize for $ty {
+                fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+                where
+                    S: Serializer,
+                {
+                    self.load(Ordering::SeqCst).serialize(serializer)
+                }
+            }
+        )*
+    }
+}
+
+#[cfg(all(feature = "std", std_atomic))]
+atomic_impl! {
+    AtomicBool
+    AtomicI8 AtomicI16 AtomicI32 AtomicIsize
+    AtomicU8 AtomicU16 AtomicU32 AtomicUsize
+}
+
+#[cfg(all(feature = "std", std_atomic64))]
+atomic_impl! {
+    AtomicI64 AtomicU64
 }

@@ -7,6 +7,8 @@
 #include "nsString.h"
 #include "jsapi.h"
 #include "js/CallNonGenericMethod.h"
+#include "js/Object.h"  // JS::GetClass, JS::GetReservedSlot
+#include "js/PropertySpec.h"
 #include "mozJSComponentLoader.h"
 #include "nsZipArchive.h"
 
@@ -72,7 +74,7 @@ enum { WITNESS_SLOT_EVENT, WITNESS_INSTANCES_SLOTS };
  */
 already_AddRefed<FinalizationEvent> ExtractFinalizationEvent(
     JSObject* objSelf) {
-  JS::Value slotEvent = JS_GetReservedSlot(objSelf, WITNESS_SLOT_EVENT);
+  JS::Value slotEvent = JS::GetReservedSlot(objSelf, WITNESS_SLOT_EVENT);
   if (slotEvent.isUndefined()) {
     // Forget() has been called
     return nullptr;
@@ -123,7 +125,7 @@ static const JSClass sWitnessClass = {
     &sWitnessClassOps};
 
 bool IsWitness(JS::Handle<JS::Value> v) {
-  return v.isObject() && JS_GetClass(&v.toObject()) == &sWitnessClass;
+  return v.isObject() && JS::GetClass(&v.toObject()) == &sWitnessClass;
 }
 
 /**
@@ -181,12 +183,6 @@ NS_IMETHODIMP
 FinalizationWitnessService::Make(const char* aTopic, const char16_t* aValue,
                                  JSContext* aCx,
                                  JS::MutableHandle<JS::Value> aRetval) {
-  // Finalize witnesses are not created when recording or replaying, as
-  // finalizations occur non-deterministically in the recording.
-  if (recordreplay::IsRecordingOrReplaying()) {
-    return NS_ERROR_NOT_AVAILABLE;
-  }
-
   JS::Rooted<JSObject*> objResult(aCx, JS_NewObject(aCx, &sWitnessClass));
   if (!objResult) {
     return NS_ERROR_OUT_OF_MEMORY;

@@ -4,10 +4,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef mozilla_dom_SVGFEMergeNodeElement_h
-#define mozilla_dom_SVGFEMergeNodeElement_h
+#ifndef DOM_SVG_SVGFEMERGENODEELEMENT_H_
+#define DOM_SVG_SVGFEMERGENODEELEMENT_H_
 
-#include "nsSVGFilters.h"
+#include "mozilla/dom/SVGFilters.h"
 
 nsresult NS_NewSVGFEMergeNodeElement(
     nsIContent** aResult, already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo);
@@ -15,7 +15,7 @@ nsresult NS_NewSVGFEMergeNodeElement(
 namespace mozilla {
 namespace dom {
 
-typedef SVGFEUnstyledElement SVGFEMergeNodeElementBase;
+using SVGFEMergeNodeElementBase = SVGFEUnstyledElement;
 
 class SVGFEMergeNodeElement : public SVGFEMergeNodeElementBase {
   friend nsresult(::NS_NewSVGFEMergeNodeElement(
@@ -35,20 +35,20 @@ class SVGFEMergeNodeElement : public SVGFEMergeNodeElementBase {
   virtual bool AttributeAffectsRendering(int32_t aNameSpaceID,
                                          nsAtom* aAttribute) const override;
 
-  const nsSVGString* GetIn1() { return &mStringAttributes[IN1]; }
+  const SVGAnimatedString* GetIn1() { return &mStringAttributes[IN1]; }
 
   // WebIDL
-  already_AddRefed<SVGAnimatedString> In1();
+  already_AddRefed<DOMSVGAnimatedString> In1();
 
  protected:
   virtual StringAttributesInfo GetStringInfo() override;
 
   enum { IN1 };
-  nsSVGString mStringAttributes[1];
+  SVGAnimatedString mStringAttributes[1];
   static StringInfo sStringInfo[1];
 };
 
 }  // namespace dom
 }  // namespace mozilla
 
-#endif  // mozilla_dom_SVGFEMergeNodeElement_h
+#endif  // DOM_SVG_SVGFEMERGENODEELEMENT_H_

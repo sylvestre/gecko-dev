@@ -9,31 +9,12 @@
 interface nsIMediaDevice : nsISupports
 {
   readonly attribute AString type;
-  readonly attribute AString name;
+  readonly attribute AString name; // may have personal info filtered out
   readonly attribute AString id;
   readonly attribute AString mediaSource;
   readonly attribute AString rawId;
+  readonly attribute AString groupId;
+  readonly attribute AString rawGroupId;
   readonly attribute boolean scary;
-};
-
-[scriptable, function, uuid(24544878-d35e-4962-8c5f-fb84e97bdfee)]
-interface nsIGetUserMediaDevicesSuccessCallback : nsISupports
-{
-  void onSuccess(in nsIVariant devices);
-};
-
-[scriptable, function, uuid(f2a144fc-3534-4761-8c5d-989ae720f89a)]
-interface nsIDOMGetUserMediaSuccessCallback : nsISupports
-{
-  /*
-   * value must be a Blob if picture is true and a
-   * DOMMediaStream if either audio or video are true.
-   */
-  void onSuccess(in nsISupports value);
-};
-
-[scriptable, function, uuid(39e96c61-2636-4f0e-918e-9bb64276492a)]
-interface nsIDOMGetUserMediaErrorCallback : nsISupports
-{
-  void onError(in nsISupports error);
+  readonly attribute AString rawName; // unfiltered device name, from 1616661
 };

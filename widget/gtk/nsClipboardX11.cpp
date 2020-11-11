@@ -14,19 +14,16 @@
 #include "nsString.h"
 #include "nsReadableUtils.h"
 #include "nsPrimitiveHelpers.h"
-#include "nsIServiceManager.h"
 #include "nsImageToPixbuf.h"
 #include "nsStringStream.h"
-#include "nsIObserverService.h"
 #include "mozilla/RefPtr.h"
 #include "mozilla/TimeStamp.h"
-
-#include "imgIContainer.h"
 
 #include <gtk/gtk.h>
 
 // For manipulation of the X event queue
 #include <X11/Xlib.h>
+#include <poll.h>
 #include <gdk/gdkx.h>
 #include <sys/time.h>
 #include <sys/types.h>
@@ -41,47 +38,15 @@ bool nsRetrievalContextX11::HasSelectionSupport(void) {
   return true;
 }
 
-static GdkFilterReturn selection_request_filter(GdkXEvent *gdk_xevent,
-                                                GdkEvent *event,
-                                                gpointer data) {
-  XEvent *xevent = static_cast<XEvent *>(gdk_xevent);
-  if (xevent->xany.type == SelectionRequest) {
-    if (xevent->xselectionrequest.requestor == X11None)
-      return GDK_FILTER_REMOVE;
-
-    GdkDisplay *display =
-        gdk_x11_lookup_xdisplay(xevent->xselectionrequest.display);
-    if (!display) return GDK_FILTER_REMOVE;
-
-    GdkWindow *window = gdk_x11_window_foreign_new_for_display(
-        display, xevent->xselectionrequest.requestor);
-    if (!window) return GDK_FILTER_REMOVE;
-
-    g_object_unref(window);
-  }
-  return GDK_FILTER_CONTINUE;
-}
-
 nsRetrievalContextX11::nsRetrievalContextX11()
     : mState(INITIAL),
       mClipboardRequestNumber(0),
       mClipboardData(nullptr),
       mClipboardDataLength(0),
-      mTargetMIMEType(gdk_atom_intern("TARGETS", FALSE)) {
-  // A custom event filter to workaround attempting to dereference a null
-  // selection requestor in GTK3 versions before 3.11.3. See bug 1178799.
-#if defined(MOZ_WIDGET_GTK) && defined(MOZ_X11)
-  if (gtk_check_version(3, 11, 3))
-    gdk_window_add_filter(nullptr, selection_request_filter, nullptr);
-#endif
-}
+      mTargetMIMEType(gdk_atom_intern("TARGETS", FALSE)) {}
 
-nsRetrievalContextX11::~nsRetrievalContextX11() {
-  gdk_window_remove_filter(nullptr, selection_request_filter, nullptr);
-}
-
-static void DispatchSelectionNotifyEvent(GtkWidget *widget, XEvent *xevent) {
-  GdkEvent event;
+static void DispatchSelectionNotifyEvent(GtkWidget* widget, XEvent* xevent) {
+  GdkEvent event = {};
   event.selection.type = GDK_SELECTION_NOTIFY;
   event.selection.window = gtk_widget_get_window(widget);
   event.selection.selection =
@@ -93,10 +58,10 @@ static void DispatchSelectionNotifyEvent(GtkWidget *widget, XEvent *xevent) {
   gtk_widget_event(widget, &event);
 }
 
-static void DispatchPropertyNotifyEvent(GtkWidget *widget, XEvent *xevent) {
-  GdkWindow *window = gtk_widget_get_window(widget);
+static void DispatchPropertyNotifyEvent(GtkWidget* widget, XEvent* xevent) {
+  GdkWindow* window = gtk_widget_get_window(widget);
   if ((gdk_window_get_events(window)) & GDK_PROPERTY_CHANGE_MASK) {
-    GdkEvent event;
+    GdkEvent event = {};
     event.property.type = GDK_PROPERTY_NOTIFY;
     event.property.window = window;
     event.property.atom = gdk_x11_xatom_to_atom(xevent->xproperty.atom);
@@ -108,29 +73,29 @@ static void DispatchPropertyNotifyEvent(GtkWidget *widget, XEvent *xevent) {
 }
 
 struct checkEventContext {
-  GtkWidget *cbWidget;
+  GtkWidget* cbWidget;
   Atom selAtom;
 };
 
-static Bool checkEventProc(Display *display, XEvent *event, XPointer arg) {
-  checkEventContext *context = (checkEventContext *)arg;
+static Bool checkEventProc(Display* display, XEvent* event, XPointer arg) {
+  checkEventContext* context = (checkEventContext*)arg;
 
   if (event->xany.type == SelectionNotify ||
       (event->xany.type == PropertyNotify &&
        event->xproperty.atom == context->selAtom)) {
-    GdkWindow *cbWindow = gdk_x11_window_lookup_for_display(
+    GdkWindow* cbWindow = gdk_x11_window_lookup_for_display(
         gdk_x11_lookup_xdisplay(display), event->xany.window);
     if (cbWindow) {
-      GtkWidget *cbWidget = nullptr;
-      gdk_window_get_user_data(cbWindow, (gpointer *)&cbWidget);
+      GtkWidget* cbWidget = nullptr;
+      gdk_window_get_user_data(cbWindow, (gpointer*)&cbWidget);
       if (cbWidget && GTK_IS_WIDGET(cbWidget)) {
         context->cbWidget = cbWidget;
-        return True;
+        return X11True;
       }
     }
   }
 
-  return False;
+  return X11False;
 }
 
 bool nsRetrievalContextX11::WaitForX11Content() {
@@ -138,9 +103,10 @@ bool nsRetrievalContextX11::WaitForX11Content() {
     return true;
   }
 
-  GdkDisplay *gdkDisplay = gdk_display_get_default();
-  if (GDK_IS_X11_DISPLAY(gdkDisplay)) {
-    Display *xDisplay = GDK_DISPLAY_XDISPLAY(gdkDisplay);
+  GdkDisplay* gdkDisplay = gdk_display_get_default();
+  // gdk_display_get_default() returns null on headless
+  if (gdkDisplay && GDK_IS_X11_DISPLAY(gdkDisplay)) {
+    Display* xDisplay = GDK_DISPLAY_XDISPLAY(gdkDisplay);
     checkEventContext context;
     context.cbWidget = nullptr;
     context.selAtom =
@@ -150,13 +116,11 @@ bool nsRetrievalContextX11::WaitForX11Content() {
     // to the clipboard widget.  Wait until either the operation completes, or
     // we hit our timeout.  All other X events remain queued.
 
-    int select_result;
+    int poll_result;
 
-    int cnumber = ConnectionNumber(xDisplay);
-    fd_set select_set;
-    FD_ZERO(&select_set);
-    FD_SET(cnumber, &select_set);
-    ++cnumber;
+    struct pollfd pfd;
+    pfd.fd = ConnectionNumber(xDisplay);
+    pfd.events = POLLIN;
     TimeStamp start = TimeStamp::Now();
 
     do {
@@ -175,12 +139,11 @@ bool nsRetrievalContextX11::WaitForX11Content() {
       }
 
       TimeStamp now = TimeStamp::Now();
-      struct timeval tv;
-      tv.tv_sec = 0;
-      tv.tv_usec = std::max<int32_t>(
-          0, kClipboardTimeout - (now - start).ToMicroseconds());
-      select_result = select(cnumber, &select_set, nullptr, nullptr, &tv);
-    } while (select_result == 1 || (select_result == -1 && errno == EINTR));
+      int timeout = std::max<int>(
+          0, kClipboardTimeout / 1000 - (now - start).ToMilliseconds());
+      poll_result = poll(&pfd, 1, timeout);
+    } while ((poll_result == 1 && (pfd.revents & (POLLHUP | POLLERR)) == 0) ||
+             (poll_result == -1 && errno == EINTR));
   }
 #ifdef DEBUG_CLIPBOARD
   printf("exceeded clipboard timeout\n");
@@ -191,8 +154,10 @@ bool nsRetrievalContextX11::WaitForX11Content() {
 
 // Call this when data has been retrieved.
 void nsRetrievalContextX11::Complete(ClipboardDataType aDataType,
-                                     const void *aData,
+                                     const void* aData,
                                      int aDataRequestNumber) {
+  LOGCLIP(("nsRetrievalContextX11::Complete\n"));
+
   if (mClipboardRequestNumber != aDataRequestNumber) {
     NS_WARNING(
         "nsRetrievalContextX11::Complete() got obsoleted clipboard data.");
@@ -207,7 +172,7 @@ void nsRetrievalContextX11::Complete(ClipboardDataType aDataType,
 
     switch (aDataType) {
       case CLIPBOARD_TEXT: {
-        const char *text = static_cast<const char *>(aData);
+        const char* text = static_cast<const char*>(aData);
         if (text) {
           mClipboardDataLength = sizeof(char) * (strlen(text) + 1);
           mClipboardData = moz_xmalloc(mClipboardDataLength);
@@ -215,11 +180,11 @@ void nsRetrievalContextX11::Complete(ClipboardDataType aDataType,
         }
       } break;
       case CLIPBOARD_TARGETS: {
-        const GtkSelectionData *selection =
-            static_cast<const GtkSelectionData *>(aData);
+        const GtkSelectionData* selection =
+            static_cast<const GtkSelectionData*>(aData);
 
         gint n_targets = 0;
-        GdkAtom *targets = nullptr;
+        GdkAtom* targets = nullptr;
 
         if (!gtk_selection_data_get_targets(selection, &targets, &n_targets) ||
             !n_targets) {
@@ -230,8 +195,8 @@ void nsRetrievalContextX11::Complete(ClipboardDataType aDataType,
         mClipboardDataLength = n_targets;
       } break;
       case CLIPBOARD_DATA: {
-        const GtkSelectionData *selection =
-            static_cast<const GtkSelectionData *>(aData);
+        const GtkSelectionData* selection =
+            static_cast<const GtkSelectionData*>(aData);
 
         gint dataLength = gtk_selection_data_get_length(selection);
         if (dataLength > 0) {
@@ -248,26 +213,38 @@ void nsRetrievalContextX11::Complete(ClipboardDataType aDataType,
   }
 }
 
-static void clipboard_contents_received(GtkClipboard *clipboard,
-                                        GtkSelectionData *selection_data,
+static void clipboard_contents_received(GtkClipboard* clipboard,
+                                        GtkSelectionData* selection_data,
                                         gpointer data) {
-  ClipboardRequestHandler *handler =
-      static_cast<ClipboardRequestHandler *>(data);
+  int whichClipboard = GetGeckoClipboardType(clipboard);
+  LOGCLIP(("clipboard_contents_received (%s) callback\n",
+           whichClipboard == nsClipboard::kSelectionClipboard ? "primary"
+                                                              : "clipboard"));
+
+  ClipboardRequestHandler* handler =
+      static_cast<ClipboardRequestHandler*>(data);
   handler->Complete(selection_data);
   delete handler;
 }
 
-static void clipboard_text_received(GtkClipboard *clipboard, const gchar *text,
+static void clipboard_text_received(GtkClipboard* clipboard, const gchar* text,
                                     gpointer data) {
-  ClipboardRequestHandler *handler =
-      static_cast<ClipboardRequestHandler *>(data);
+  int whichClipboard = GetGeckoClipboardType(clipboard);
+  LOGCLIP(("clipboard_text_received (%s) callback\n",
+           whichClipboard == nsClipboard::kSelectionClipboard ? "primary"
+                                                              : "clipboard"));
+
+  ClipboardRequestHandler* handler =
+      static_cast<ClipboardRequestHandler*>(data);
   handler->Complete(text);
   delete handler;
 }
 
 bool nsRetrievalContextX11::WaitForClipboardData(ClipboardDataType aDataType,
-                                                 GtkClipboard *clipboard,
-                                                 const char *aMimeType) {
+                                                 GtkClipboard* clipboard,
+                                                 const char* aMimeType) {
+  LOGCLIP(("nsRetrievalContextX11::WaitForClipboardData\n"));
+
   mState = INITIAL;
   NS_ASSERTION(!mClipboardData, "Leaking clipboard content!");
 
@@ -276,7 +253,7 @@ bool nsRetrievalContextX11::WaitForClipboardData(ClipboardDataType aDataType,
   // with clipboard_contents_received() callback where the data
   // is provided by Gtk.
   mClipboardRequestNumber++;
-  ClipboardRequestHandler *handler =
+  ClipboardRequestHandler* handler =
       new ClipboardRequestHandler(this, aDataType, mClipboardRequestNumber);
 
   switch (aDataType) {
@@ -297,49 +274,66 @@ bool nsRetrievalContextX11::WaitForClipboardData(ClipboardDataType aDataType,
   return WaitForX11Content();
 }
 
-GdkAtom *nsRetrievalContextX11::GetTargets(int32_t aWhichClipboard,
-                                           int *aTargetNums) {
-  GtkClipboard *clipboard =
+GdkAtom* nsRetrievalContextX11::GetTargets(int32_t aWhichClipboard,
+                                           int* aTargetNums) {
+  LOGCLIP(("nsRetrievalContextX11::GetTargets(%s)\n",
+           aWhichClipboard == nsClipboard::kSelectionClipboard ? "primary"
+                                                               : "clipboard"));
+
+  GtkClipboard* clipboard =
       gtk_clipboard_get(GetSelectionAtom(aWhichClipboard));
 
-  if (!WaitForClipboardData(CLIPBOARD_TARGETS, clipboard)) return nullptr;
+  if (!WaitForClipboardData(CLIPBOARD_TARGETS, clipboard)) {
+    LOGCLIP(("    WaitForClipboardData() failed!\n"));
+    return nullptr;
+  }
 
   *aTargetNums = mClipboardDataLength;
-  GdkAtom *targets = static_cast<GdkAtom *>(mClipboardData);
+  GdkAtom* targets = static_cast<GdkAtom*>(mClipboardData);
 
   // We don't hold the target list internally but we transfer the ownership.
   mClipboardData = nullptr;
   mClipboardDataLength = 0;
 
+  LOGCLIP(("    returned %d targets\n", *aTargetNums));
   return targets;
 }
 
-const char *nsRetrievalContextX11::GetClipboardData(const char *aMimeType,
+const char* nsRetrievalContextX11::GetClipboardData(const char* aMimeType,
                                                     int32_t aWhichClipboard,
-                                                    uint32_t *aContentLength) {
-  GtkClipboard *clipboard;
+                                                    uint32_t* aContentLength) {
+  LOGCLIP(("nsRetrievalContextX11::GetClipboardData(%s)\n",
+           aWhichClipboard == nsClipboard::kSelectionClipboard ? "primary"
+                                                               : "clipboard"));
+
+  GtkClipboard* clipboard;
   clipboard = gtk_clipboard_get(GetSelectionAtom(aWhichClipboard));
 
   if (!WaitForClipboardData(CLIPBOARD_DATA, clipboard, aMimeType))
     return nullptr;
 
   *aContentLength = mClipboardDataLength;
-  return static_cast<const char *>(mClipboardData);
+  return static_cast<const char*>(mClipboardData);
 }
 
-const char *nsRetrievalContextX11::GetClipboardText(int32_t aWhichClipboard) {
-  GtkClipboard *clipboard;
+const char* nsRetrievalContextX11::GetClipboardText(int32_t aWhichClipboard) {
+  LOGCLIP(("nsRetrievalContextX11::GetClipboardText(%s)\n",
+           aWhichClipboard == nsClipboard::kSelectionClipboard ? "primary"
+                                                               : "clipboard"));
+
+  GtkClipboard* clipboard;
   clipboard = gtk_clipboard_get(GetSelectionAtom(aWhichClipboard));
 
   if (!WaitForClipboardData(CLIPBOARD_TEXT, clipboard)) return nullptr;
 
-  return static_cast<const char *>(mClipboardData);
+  return static_cast<const char*>(mClipboardData);
 }
 
-void nsRetrievalContextX11::ReleaseClipboardData(const char *aClipboardData) {
+void nsRetrievalContextX11::ReleaseClipboardData(const char* aClipboardData) {
+  LOGCLIP(("nsRetrievalContextX11::ReleaseClipboardData\n"));
   NS_ASSERTION(aClipboardData == mClipboardData,
                "Releasing unknown clipboard data!");
-  free((void *)aClipboardData);
+  free((void*)aClipboardData);
 
   mClipboardData = nullptr;
   mClipboardDataLength = 0;

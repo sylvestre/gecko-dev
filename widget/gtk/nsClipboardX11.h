@@ -8,7 +8,6 @@
 #ifndef __nsClipboardX11_h_
 #define __nsClipboardX11_h_
 
-#include "nsIClipboard.h"
 #include <gtk/gtk.h>
 
 enum ClipboardDataType { CLIPBOARD_DATA, CLIPBOARD_TEXT, CLIPBOARD_TARGETS };
@@ -33,7 +32,6 @@ class nsRetrievalContextX11 : public nsRetrievalContext {
                 int aDataRequestNumber);
 
   nsRetrievalContextX11();
-  virtual ~nsRetrievalContextX11() override;
 
  private:
   bool WaitForClipboardData(ClipboardDataType aDataType,

@@ -1,4 +1,3 @@
-/* vim: set ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -41,20 +40,24 @@ async function testAddDuplicateDeclarations(ruleView, store, doc) {
   info("Wait for the change to be tracked");
   await onTrackChange;
 
+  await waitFor(() => {
+    const decls = getAddedDeclarations(doc);
+    return decls.length == 2 && decls[1].value == "red";
+  }, "Two declarations were tracked as added");
   const addDecl = getAddedDeclarations(doc);
-  is(addDecl.length, 2, "Two declarations were tracked as added");
-  is(addDecl[0].value, "red",
-     "First declaration has correct property value"
-  );
-  is(addDecl[0].value, addDecl[1].value,
-     "First and second declarations have identical property values"
+  is(addDecl[0].value, "red", "First declaration has correct property value");
+  is(
+    addDecl[0].value,
+    addDecl[1].value,
+    "First and second declarations have identical property values"
   );
 }
 
 async function testChangeDuplicateDeclarations(ruleView, store, doc) {
-  info("Test that changing one of the duplicate declarations won't change the other");
-  const rule = getRuleViewRuleEditor(ruleView, 1).rule;
-  const prop = rule.textProps[0];
+  info(
+    "Test that changing one of the duplicate declarations won't change the other"
+  );
+  const prop = getTextProperty(ruleView, 1, { color: "red" });
 
   info("Change the value of the first of the duplicate declarations");
   const onTrackChange = waitUntilAction(store, "TRACK_CHANGE");
@@ -62,16 +65,24 @@ async function testChangeDuplicateDeclarations(ruleView, store, doc) {
   info("Wait for the change to be tracked");
   await onTrackChange;
 
+  await waitFor(
+    () => getAddedDeclarations(doc).length == 2,
+    "Two declarations were tracked as added"
+  );
   const addDecl = getAddedDeclarations(doc);
   is(addDecl[0].value, "black", "First declaration has changed property value");
-  is(addDecl[1].value, "red", "Second declaration has not changed property value");
+  is(
+    addDecl[1].value,
+    "red",
+    "Second declaration has not changed property value"
+  );
 }
 
 async function testRemoveDuplicateDeclarations(ruleView, store, doc) {
   info(`Test that removing the first of the duplicate declarations
         will not remove the second.`);
-  const rule = getRuleViewRuleEditor(ruleView, 1).rule;
-  const prop = rule.textProps[0];
+
+  const prop = getTextProperty(ruleView, 1, { color: "black" });
 
   info("Remove first declaration");
   const onTrackChange = waitUntilAction(store, "TRACK_CHANGE");
@@ -79,12 +90,18 @@ async function testRemoveDuplicateDeclarations(ruleView, store, doc) {
   info("Wait for the change to be tracked");
   await onTrackChange;
 
+  await waitFor(
+    () => getAddedDeclarations(doc).length == 1,
+    "One declaration was tracked as added"
+  );
   const addDecl = getAddedDeclarations(doc);
   const removeDecl = getRemovedDeclarations(doc);
   // Expect no remove operation tracked because it cancels out the original add operation.
   is(removeDecl.length, 0, "No declaration was tracked as removed");
   is(addDecl.length, 1, "Just one declaration left tracked as added");
-  is(addDecl[0].value, "red",
-     "Leftover declaration has property value of the former second declaration"
+  is(
+    addDecl[0].value,
+    "red",
+    "Leftover declaration has property value of the former second declaration"
   );
 }

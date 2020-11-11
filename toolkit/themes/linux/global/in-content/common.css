@@ -4,19 +4,30 @@
 
 %include ../../../shared/in-content/common.inc.css
 
+@media (prefers-color-scheme: dark) {
+  /* Don't apply scrollbar-color since it removes the native scrollbar style on Linux */
+  :root {
+    scrollbar-color: initial;
+  }
+}
+
 xul|tab[visuallyselected] {
   /* Override styles for tab[selected] from
      toolkit/themes/linux/global/tabbox.css */
   margin-bottom: 0;
 }
 
+/* Overriding appearance also avoids incorrect selection background color with
+   light text. */
 xul|button > xul|*.button-box,
-xul|menulist > xul|*.menulist-label-box {
-  -moz-appearance: none;
+xul|menulist::part(label-box),
+xul|*.radio-label-box,
+xul|*.checkbox-label-box {
+  appearance: none;
 }
 
 xul|button[type="menu"] > xul|*.button-box > xul|*.button-menu-dropmarker {
-  -moz-appearance: none !important;
+  appearance: none !important;
 }
 
 xul|*.help-button > xul|*.button-box > xul|*.button-icon {
@@ -27,28 +38,21 @@ xul|menulist {
   font-size: inherit;
 }
 
-xul|*.menulist-dropmarker {
+xul|menulist::part(dropmarker) {
   display: -moz-box;
-  margin-top: 6px;
-  margin-bottom: 6px;
+  margin-block: 6px;
 }
 
-xul|*.checkbox-check[checked],
+xul|checkbox[checked] > xul|*.checkbox-check,
 xul|*.radio-check[selected] {
-  background-color: -moz-field;
-  fill: -moz-fieldText;
+  background-color: Field;
+  fill: FieldText;
 }
 
-xul|*.radio-label-box {
-  -moz-appearance: none;
+xul|menulist:-moz-focusring::part(label-box) {
+  outline: none;
 }
 
-xul|*.numberbox-input-box {
-  -moz-appearance: none;
-  border-width: 0;
-}
-
-xul|menulist:-moz-focusring > xul|*.menulist-label-box,
 html|input[type="checkbox"]:-moz-focusring + html|label:before {
   outline: 1px dotted;
 }

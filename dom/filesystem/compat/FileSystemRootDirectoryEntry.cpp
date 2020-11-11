@@ -7,9 +7,9 @@
 #include "FileSystemRootDirectoryEntry.h"
 #include "FileSystemRootDirectoryReader.h"
 #include "mozilla/dom/FileSystemUtils.h"
+#include "CallbackRunnables.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_IMPL_CYCLE_COLLECTION_INHERITED(FileSystemRootDirectoryEntry,
                                    FileSystemDirectoryEntry, mEntries)
@@ -22,14 +22,14 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(FileSystemRootDirectoryEntry)
 NS_INTERFACE_MAP_END_INHERITING(FileSystemDirectoryEntry)
 
 FileSystemRootDirectoryEntry::FileSystemRootDirectoryEntry(
-    nsIGlobalObject* aGlobal, const Sequence<RefPtr<FileSystemEntry>>& aEntries,
+    nsIGlobalObject* aGlobal, Sequence<RefPtr<FileSystemEntry>> aEntries,
     FileSystem* aFileSystem)
     : FileSystemDirectoryEntry(aGlobal, nullptr, nullptr, aFileSystem),
-      mEntries(aEntries) {
+      mEntries(std::move(aEntries)) {
   MOZ_ASSERT(aGlobal);
 }
 
-FileSystemRootDirectoryEntry::~FileSystemRootDirectoryEntry() {}
+FileSystemRootDirectoryEntry::~FileSystemRootDirectoryEntry() = default;
 
 void FileSystemRootDirectoryEntry::GetName(nsAString& aName,
                                            ErrorResult& aRv) const {
@@ -136,5 +136,4 @@ void FileSystemRootDirectoryEntry::GetInternal(
                               aType);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

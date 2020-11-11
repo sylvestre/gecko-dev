@@ -10,8 +10,10 @@ extern crate winit;
 #[path = "common/boilerplate.rs"]
 mod boilerplate;
 
-use boilerplate::{Example, HandyDandyRectBuilder};
+use crate::boilerplate::{Example, HandyDandyRectBuilder};
 use webrender::api::*;
+use webrender::render_api::*;
+use webrender::api::units::*;
 
 // This example uses the push_iframe API to nest a second pipeline's displaylist
 // inside the root pipeline's display list. When it works, a green square is
@@ -22,10 +24,10 @@ struct App {}
 impl Example for App {
     fn render(
         &mut self,
-        api: &RenderApi,
+        api: &mut RenderApi,
         builder: &mut DisplayListBuilder,
         _txn: &mut Transaction,
-        _framebuffer_size: DeviceIntSize,
+        _device_size: DeviceIntSize,
         pipeline_id: PipelineId,
         document_id: DocumentId,
     ) {
@@ -34,20 +36,21 @@ impl Example for App {
         let sub_bounds = (0, 0).to(sub_size.width as i32, sub_size.height as i32);
 
         let sub_pipeline_id = PipelineId(pipeline_id.0, 42);
-        let mut sub_builder = DisplayListBuilder::new(sub_pipeline_id, sub_bounds.size);
+        let mut sub_builder = DisplayListBuilder::new(sub_pipeline_id);
+        let mut space_and_clip = SpaceAndClipInfo::root_scroll(pipeline_id);
 
-        let info = LayoutPrimitiveInfo::new(sub_bounds);
-        sub_builder.push_stacking_context(
-            &info,
-            None,
-            TransformStyle::Flat,
-            MixBlendMode::Normal,
-            &[],
-            RasterSpace::Screen,
+        sub_builder.push_simple_stacking_context(
+            sub_bounds.origin,
+            space_and_clip.spatial_id,
+            PrimitiveFlags::IS_BACKFACE_VISIBLE,
         );
 
         // green rect visible == success
-        sub_builder.push_rect(&info, ColorF::new(0.0, 1.0, 0.0, 1.0));
+        sub_builder.push_rect(
+            &CommonItemProperties::new(sub_bounds, space_and_clip),
+            sub_bounds,
+            ColorF::new(0.0, 1.0, 0.0, 1.0)
+        );
         sub_builder.pop_stacking_context();
 
         let mut txn = Transaction::new();
@@ -60,31 +63,29 @@ impl Example for App {
         );
         api.send_transaction(document_id, txn);
 
-        let info = LayoutPrimitiveInfo::new(sub_bounds);
-        let reference_frame_id = builder.push_reference_frame(
-            &info,
+        space_and_clip.spatial_id = builder.push_reference_frame(
+            sub_bounds.origin,
+            space_and_clip.spatial_id,
             TransformStyle::Flat,
-            Some(PropertyBinding::Binding(PropertyBindingKey::new(42), LayoutTransform::identity())),
-            None,
+            PropertyBinding::Binding(PropertyBindingKey::new(42), LayoutTransform::identity()),
+            ReferenceFrameKind::Transform,
         );
-        builder.push_clip_id(reference_frame_id);
-
 
         // And this is for the root pipeline
-        builder.push_stacking_context(
-            &info,
-            None,
-            TransformStyle::Flat,
-            MixBlendMode::Normal,
-            &[],
-            RasterSpace::Screen,
+        builder.push_simple_stacking_context(
+            sub_bounds.origin,
+            space_and_clip.spatial_id,
+            PrimitiveFlags::IS_BACKFACE_VISIBLE,
         );
-        // red rect under the iframe: if this is visible, things have gone wrong
-        builder.push_rect(&info, ColorF::new(1.0, 0.0, 0.0, 1.0));
-        builder.push_iframe(&info, sub_pipeline_id, false);
-        builder.pop_stacking_context();
 
-        builder.pop_clip_id();
+        // red rect under the iframe: if this is visible, things have gone wrong
+        builder.push_rect(
+            &CommonItemProperties::new(sub_bounds, space_and_clip),
+            sub_bounds,
+            ColorF::new(1.0, 0.0, 0.0, 1.0)
+        );
+        builder.push_iframe(sub_bounds, sub_bounds, &space_and_clip, sub_pipeline_id, false);
+        builder.pop_stacking_context();
         builder.pop_reference_frame();
     }
 }

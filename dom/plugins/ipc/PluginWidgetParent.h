@@ -6,18 +6,18 @@
 #define mozilla_plugins_PluginWidgetParent_h
 
 #ifndef XP_WIN
-#error "This header should be Windows-only."
+#  error "This header should be Windows-only."
 #endif
 
 #include "mozilla/plugins/PPluginWidgetParent.h"
-#include "nsAutoPtr.h"
+#include "mozilla/UniquePtr.h"
 #include "nsIWidget.h"
 #include "nsCOMPtr.h"
 
 namespace mozilla {
 
 namespace dom {
-class TabParent;
+class BrowserParent;
 }  // namespace dom
 
 namespace plugins {
@@ -31,7 +31,8 @@ class PluginWidgetParent : public PPluginWidgetParent {
   virtual mozilla::ipc::IPCResult RecvCreate(
       nsresult* aResult, uint64_t* aScrollCaptureId,
       uintptr_t* aPluginInstanceId) override;
-  virtual mozilla::ipc::IPCResult RecvSetFocus(const bool& aRaise) override;
+  virtual mozilla::ipc::IPCResult RecvSetFocus(
+      const bool& aRaise, const mozilla::dom::CallerType& aCallerType) override;
   virtual mozilla::ipc::IPCResult RecvGetNativePluginPort(
       uintptr_t* value) override;
   mozilla::ipc::IPCResult RecvSetNativeChildWindow(
@@ -48,7 +49,7 @@ class PluginWidgetParent : public PPluginWidgetParent {
 
  private:
   // The tab our connection is associated with.
-  mozilla::dom::TabParent* GetTabParent();
+  mozilla::dom::BrowserParent* GetBrowserParent();
 
  private:
   void KillWidget();

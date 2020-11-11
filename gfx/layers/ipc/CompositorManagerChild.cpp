@@ -6,15 +6,14 @@
 
 #include "mozilla/layers/CompositorManagerChild.h"
 
-#include "gfxPrefs.h"
+#include "mozilla/StaticPrefs_layers.h"
 #include "mozilla/layers/CompositorBridgeChild.h"
 #include "mozilla/layers/CompositorManagerParent.h"
 #include "mozilla/layers/CompositorThread.h"
 #include "mozilla/gfx/gfxVars.h"
 #include "mozilla/gfx/GPUProcessManager.h"
 #include "mozilla/dom/ContentChild.h"  // for ContentChild
-#include "mozilla/dom/TabChild.h"      // for TabChild
-#include "mozilla/dom/TabGroup.h"      // for TabGroup
+#include "mozilla/dom/BrowserChild.h"  // for BrowserChild
 #include "VsyncSource.h"
 
 namespace mozilla {
@@ -24,15 +23,16 @@ using gfx::GPUProcessManager;
 
 StaticRefPtr<CompositorManagerChild> CompositorManagerChild::sInstance;
 
-/* static */ bool CompositorManagerChild::IsInitialized(
-    uint64_t aProcessToken) {
+/* static */
+bool CompositorManagerChild::IsInitialized(uint64_t aProcessToken) {
   MOZ_ASSERT(NS_IsMainThread());
   return sInstance && sInstance->CanSend() &&
          sInstance->mProcessToken == aProcessToken;
 }
 
-/* static */ void CompositorManagerChild::InitSameProcess(
-    uint32_t aNamespace, uint64_t aProcessToken) {
+/* static */
+void CompositorManagerChild::InitSameProcess(uint32_t aNamespace,
+                                             uint64_t aProcessToken) {
   MOZ_ASSERT(NS_IsMainThread());
   if (NS_WARN_IF(IsInitialized(aProcessToken))) {
     MOZ_ASSERT_UNREACHABLE("Already initialized same process");
@@ -48,13 +48,14 @@ StaticRefPtr<CompositorManagerChild> CompositorManagerChild::sInstance;
     return;
   }
 
-  parent->BindComplete();
-  sInstance = child.forget();
+  parent->BindComplete(/* aIsRoot */ true);
+  sInstance = std::move(child);
 }
 
-/* static */ bool CompositorManagerChild::Init(
-    Endpoint<PCompositorManagerChild>&& aEndpoint, uint32_t aNamespace,
-    uint64_t aProcessToken /* = 0 */) {
+/* static */
+bool CompositorManagerChild::Init(Endpoint<PCompositorManagerChild>&& aEndpoint,
+                                  uint32_t aNamespace,
+                                  uint64_t aProcessToken /* = 0 */) {
   MOZ_ASSERT(NS_IsMainThread());
   if (sInstance) {
     MOZ_ASSERT(sInstance->mNamespace != aNamespace);
@@ -65,7 +66,8 @@ StaticRefPtr<CompositorManagerChild> CompositorManagerChild::sInstance;
   return sInstance->CanSend();
 }
 
-/* static */ void CompositorManagerChild::Shutdown() {
+/* static */
+void CompositorManagerChild::Shutdown() {
   MOZ_ASSERT(NS_IsMainThread());
   CompositorBridgeChild::ShutDown();
 
@@ -77,8 +79,8 @@ StaticRefPtr<CompositorManagerChild> CompositorManagerChild::sInstance;
   sInstance = nullptr;
 }
 
-/* static */ void CompositorManagerChild::OnGPUProcessLost(
-    uint64_t aProcessToken) {
+/* static */
+void CompositorManagerChild::OnGPUProcessLost(uint64_t aProcessToken) {
   MOZ_ASSERT(NS_IsMainThread());
 
   // Since GPUChild and CompositorManagerChild will race on ActorDestroy, we
@@ -89,7 +91,8 @@ StaticRefPtr<CompositorManagerChild> CompositorManagerChild::sInstance;
   }
 }
 
-/* static */ bool CompositorManagerChild::CreateContentCompositorBridge(
+/* static */
+bool CompositorManagerChild::CreateContentCompositorBridge(
     uint32_t aNamespace) {
   MOZ_ASSERT(NS_IsMainThread());
   if (NS_WARN_IF(!sInstance || !sInstance->CanSend())) {
@@ -97,18 +100,19 @@ StaticRefPtr<CompositorManagerChild> CompositorManagerChild::sInstance;
   }
 
   CompositorBridgeOptions options = ContentCompositorOptions();
-  PCompositorBridgeChild* pbridge =
-      sInstance->SendPCompositorBridgeConstructor(options);
-  if (NS_WARN_IF(!pbridge)) {
+
+  RefPtr<CompositorBridgeChild> bridge = new CompositorBridgeChild(sInstance);
+  if (NS_WARN_IF(
+          !sInstance->SendPCompositorBridgeConstructor(bridge, options))) {
     return false;
   }
 
-  auto bridge = static_cast<CompositorBridgeChild*>(pbridge);
   bridge->InitForContent(aNamespace);
   return true;
 }
 
-/* static */ already_AddRefed<CompositorBridgeChild>
+/* static */
+already_AddRefed<CompositorBridgeChild>
 CompositorManagerChild::CreateWidgetCompositorBridge(
     uint64_t aProcessToken, LayerManager* aLayerManager, uint32_t aNamespace,
     CSSToLayoutDeviceScale aScale, const CompositorOptions& aOptions,
@@ -126,36 +130,35 @@ CompositorManagerChild::CreateWidgetCompositorBridge(
 
   CompositorBridgeOptions options = WidgetCompositorOptions(
       aScale, vsyncRate, aOptions, aUseExternalSurfaceSize, aSurfaceSize);
-  PCompositorBridgeChild* pbridge =
-      sInstance->SendPCompositorBridgeConstructor(options);
-  if (NS_WARN_IF(!pbridge)) {
+
+  RefPtr<CompositorBridgeChild> bridge = new CompositorBridgeChild(sInstance);
+  if (NS_WARN_IF(
+          !sInstance->SendPCompositorBridgeConstructor(bridge, options))) {
     return nullptr;
   }
 
-  RefPtr<CompositorBridgeChild> bridge =
-      static_cast<CompositorBridgeChild*>(pbridge);
   bridge->InitForWidget(aProcessToken, aLayerManager, aNamespace);
   return bridge.forget();
 }
 
-/* static */ already_AddRefed<CompositorBridgeChild>
+/* static */
+already_AddRefed<CompositorBridgeChild>
 CompositorManagerChild::CreateSameProcessWidgetCompositorBridge(
     LayerManager* aLayerManager, uint32_t aNamespace) {
-  MOZ_ASSERT(XRE_IsParentProcess() || recordreplay::IsRecordingOrReplaying());
+  MOZ_ASSERT(XRE_IsParentProcess());
   MOZ_ASSERT(NS_IsMainThread());
   if (NS_WARN_IF(!sInstance || !sInstance->CanSend())) {
     return nullptr;
   }
 
   CompositorBridgeOptions options = SameProcessWidgetCompositorOptions();
-  PCompositorBridgeChild* pbridge =
-      sInstance->SendPCompositorBridgeConstructor(options);
-  if (NS_WARN_IF(!pbridge)) {
+
+  RefPtr<CompositorBridgeChild> bridge = new CompositorBridgeChild(sInstance);
+  if (NS_WARN_IF(
+          !sInstance->SendPCompositorBridgeConstructor(bridge, options))) {
     return nullptr;
   }
 
-  RefPtr<CompositorBridgeChild> bridge =
-      static_cast<CompositorBridgeChild*>(pbridge);
   bridge->InitForWidget(1, aLayerManager, aNamespace);
   return bridge.forget();
 }
@@ -170,9 +173,8 @@ CompositorManagerChild::CompositorManagerChild(CompositorManagerParent* aParent,
   MOZ_ASSERT(aParent);
 
   SetOtherProcessId(base::GetCurrentProcId());
-  MessageLoop* loop = CompositorThreadHolder::Loop();
   ipc::MessageChannel* channel = aParent->GetIPCChannel();
-  if (NS_WARN_IF(!Open(channel, loop, ipc::ChildSide))) {
+  if (NS_WARN_IF(!Open(channel, CompositorThread(), ipc::ChildSide))) {
     return;
   }
 
@@ -197,7 +199,7 @@ CompositorManagerChild::CompositorManagerChild(
   SetReplyTimeout();
 }
 
-void CompositorManagerChild::DeallocPCompositorManagerChild() {
+void CompositorManagerChild::ActorDealloc() {
   MOZ_ASSERT(!mCanSend);
   Release();
 }
@@ -207,19 +209,6 @@ void CompositorManagerChild::ActorDestroy(ActorDestroyReason aReason) {
   if (sInstance == this) {
     sInstance = nullptr;
   }
-}
-
-PCompositorBridgeChild* CompositorManagerChild::AllocPCompositorBridgeChild(
-    const CompositorBridgeOptions& aOptions) {
-  CompositorBridgeChild* child = new CompositorBridgeChild(this);
-  child->AddRef();
-  return child;
-}
-
-bool CompositorManagerChild::DeallocPCompositorBridgeChild(
-    PCompositorBridgeChild* aActor) {
-  static_cast<CompositorBridgeChild*>(aActor)->Release();
-  return true;
 }
 
 void CompositorManagerChild::HandleFatalError(const char* aMsg) const {
@@ -234,35 +223,12 @@ void CompositorManagerChild::ProcessingError(Result aCode,
   }
 }
 
-already_AddRefed<nsIEventTarget>
-CompositorManagerChild::GetSpecificMessageEventTarget(const Message& aMsg) {
-  if (aMsg.type() == PCompositorBridge::Msg_DidComposite__ID) {
-    LayersId layersId;
-    PickleIterator iter(aMsg);
-    if (!IPC::ReadParam(&aMsg, &iter, &layersId)) {
-      return nullptr;
-    }
-
-    TabChild* tabChild = TabChild::GetFrom(layersId);
-    if (!tabChild) {
-      return nullptr;
-    }
-
-    return do_AddRef(tabChild->TabGroup()->EventTargetFor(TaskCategory::Other));
-  }
-
-  if (aMsg.type() == PCompositorBridge::Msg_ParentAsyncMessages__ID) {
-    return do_AddRef(SystemGroup::EventTargetFor(TaskCategory::Other));
-  }
-
-  return nullptr;
-}
-
 void CompositorManagerChild::SetReplyTimeout() {
 #ifndef DEBUG
   // Add a timeout for release builds to kill GPU process when it hangs.
   if (XRE_IsParentProcess() && GPUProcessManager::Get()->GetGPUChild()) {
-    int32_t timeout = gfxPrefs::GPUProcessIPCReplyTimeoutMs();
+    int32_t timeout =
+        StaticPrefs::layers_gpu_process_ipc_reply_timeout_ms_AtStartup();
     SetReplyTimeoutMs(timeout);
   }
 #endif
@@ -275,6 +241,14 @@ bool CompositorManagerChild::ShouldContinueFromReplyTimeout() {
     GPUProcessManager::Get()->KillProcess();
   }
   return false;
+}
+
+mozilla::ipc::IPCResult CompositorManagerChild::RecvNotifyWebRenderError(
+    const WebRenderError&& aError) {
+  MOZ_ASSERT(XRE_IsParentProcess());
+  MOZ_ASSERT(NS_IsMainThread());
+  GPUProcessManager::Get()->NotifyWebRenderError(aError);
+  return IPC_OK();
 }
 
 }  // namespace layers

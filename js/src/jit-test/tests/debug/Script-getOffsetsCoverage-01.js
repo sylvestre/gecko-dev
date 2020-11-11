@@ -29,7 +29,7 @@ function checkGetOffsetsCoverage(fun) {
   };
 
   // Extract the body of the function, as the code to be executed.
-  var source = fun.toSource();
+  var source = fun.toString();
   source = source.slice(source.indexOf('{') + 1, source.lastIndexOf('}'));
 
   // Extract comment starting with the previous keys, as a reference.
@@ -66,7 +66,7 @@ function checkGetOffsetsCoverage(fun) {
 
   // Create a new global and instrument it with a debugger, to find all scripts,
   // created in the current global.
-  var g = newGlobal();
+  var g = newGlobal({newCompartment: true});
   var dbg = Debugger(g);
   dbg.collectCoverageInfo = true;
 

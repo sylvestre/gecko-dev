@@ -1,7 +1,7 @@
 // Frame properties and methods work in generator-resuming onEnterFrame events.
 // Also tests onPop events, for good measure.
 
-let g = newGlobal();
+let g = newGlobal({newCompartment: true});
 g.eval(`\
     function* gen(lo, hi) {
         var a = 1/2;
@@ -48,15 +48,14 @@ function check(frame) {
     let a_expected = hits < 3 ? undefined : 1/2;
     assertEq(savedEnv.getVariable("a"), a_expected);
 
-    assertEq(frame.generator, true);
-    assertEq(frame.live, true);
+    assertEq(frame.onStack, true);
 
     let pc = frame.offset;
     assertEq(savedOffsets.has(pc), false);
     savedOffsets.add(pc);
 
     assertEq(frame.older, null);
-    assertEq(frame.this, gw);
+    assertEq(frame.this, gw.makeDebuggeeValue(g));
     assertEq(typeof frame.implementation, "string");
 
     // And the moment of truth:

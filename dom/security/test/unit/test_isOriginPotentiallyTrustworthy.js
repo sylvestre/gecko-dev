@@ -6,25 +6,39 @@
  * <https://w3c.github.io/webappsec-secure-contexts/#is-origin-trustworthy>.
  */
 
-ChromeUtils.import("resource://gre/modules/NetUtil.jsm");
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
+const { NetUtil } = ChromeUtils.import("resource://gre/modules/NetUtil.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
-XPCOMUtils.defineLazyServiceGetter(this, "gScriptSecurityManager",
-                                   "@mozilla.org/scriptsecuritymanager;1",
-                                   "nsIScriptSecurityManager");
+XPCOMUtils.defineLazyServiceGetter(
+  this,
+  "gScriptSecurityManager",
+  "@mozilla.org/scriptsecuritymanager;1",
+  "nsIScriptSecurityManager"
+);
 
-XPCOMUtils.defineLazyServiceGetter(this, "gContentSecurityManager",
-                                   "@mozilla.org/contentsecuritymanager;1",
-                                   "nsIContentSecurityManager");
+XPCOMUtils.defineLazyServiceGetter(
+  this,
+  "gContentSecurityManager",
+  "@mozilla.org/contentsecuritymanager;1",
+  "nsIContentSecurityManager"
+);
 
-var prefs = Cc["@mozilla.org/preferences-service;1"].getService(Ci.nsIPrefBranch);
-prefs.setCharPref("dom.securecontext.whitelist", "example.net,example.org");
+Services.prefs.setCharPref(
+  "dom.securecontext.whitelist",
+  "example.net,example.org"
+);
+
+Services.prefs.setBoolPref("dom.securecontext.whitelist_onions", false);
 
 add_task(async function test_isOriginPotentiallyTrustworthy() {
   for (let [uriSpec, expectedResult] of [
     ["http://example.com/", false],
     ["https://example.com/", true],
     ["http://localhost/", true],
+    ["http://localhost.localhost/", true],
     ["http://127.0.0.1/", true],
     ["file:///", true],
     ["resource:///", true],
@@ -37,15 +51,13 @@ add_task(async function test_isOriginPotentiallyTrustworthy() {
     ["http://1234567890abcdef.onion/", false],
   ]) {
     let uri = NetUtil.newURI(uriSpec);
-    let principal = gScriptSecurityManager.createCodebasePrincipal(uri, {});
-    Assert.equal(gContentSecurityManager.isOriginPotentiallyTrustworthy(principal),
-                 expectedResult);
+    let principal = gScriptSecurityManager.createContentPrincipal(uri, {});
+    Assert.equal(principal.isOriginPotentiallyTrustworthy, expectedResult);
   }
   // And now let's test whether .onion sites are properly treated when
-  // whitelisted, see bug 1382359.
-  prefs.setBoolPref("dom.securecontext.whitelist_onions", true);
+  // allowlisted, see bug 1382359.
+  Services.prefs.setBoolPref("dom.securecontext.whitelist_onions", true);
   let uri = NetUtil.newURI("http://1234567890abcdef.onion/");
-  let principal = gScriptSecurityManager.createCodebasePrincipal(uri, {});
-  Assert.equal(gContentSecurityManager.isOriginPotentiallyTrustworthy(principal),
-               true);
+  let principal = gScriptSecurityManager.createContentPrincipal(uri, {});
+  Assert.equal(principal.isOriginPotentiallyTrustworthy, true);
 });

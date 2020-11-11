@@ -9,8 +9,7 @@
 #include "mozilla/dom/StyleSheetListBinding.h"
 #include "nsINode.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE_0(StyleSheetList)
 
@@ -23,8 +22,9 @@ NS_INTERFACE_MAP_END
 NS_IMPL_CYCLE_COLLECTING_ADDREF(StyleSheetList)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(StyleSheetList)
 
-/* virtual */ JSObject* StyleSheetList::WrapObject(
-    JSContext* aCx, JS::Handle<JSObject*> aGivenProto) {
+/* virtual */
+JSObject* StyleSheetList::WrapObject(JSContext* aCx,
+                                     JS::Handle<JSObject*> aGivenProto) {
   return StyleSheetList_Binding::Wrap(aCx, this, aGivenProto);
 }
 
@@ -43,5 +43,4 @@ StyleSheetList::~StyleSheetList() {
   }
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

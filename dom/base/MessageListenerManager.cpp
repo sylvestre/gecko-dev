@@ -7,8 +7,7 @@
 #include "mozilla/dom/MessageListenerManager.h"
 #include "mozilla/dom/MessageBroadcaster.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 MessageListenerManager::MessageListenerManager(
     ipc::MessageManagerCallback* aCallback, MessageBroadcaster* aParentManager,
@@ -16,7 +15,7 @@ MessageListenerManager::MessageListenerManager(
     : nsFrameMessageManager(aCallback, aFlags),
       mParentManager(aParentManager) {}
 
-MessageListenerManager::~MessageListenerManager() {}
+MessageListenerManager::~MessageListenerManager() = default;
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(MessageListenerManager)
   NS_WRAPPERCACHE_INTERFACE_MAP_ENTRY
@@ -46,5 +45,4 @@ void MessageListenerManager::ClearParentManager(bool aRemove) {
   mParentManager = nullptr;
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

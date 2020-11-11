@@ -48,32 +48,18 @@ class nsNavHistoryQuery final : public nsINavHistoryQuery {
   nsIURI* Uri() { return mUri; }  // NOT AddRef-ed!
   bool AnnotationIsNot() { return mAnnotationIsNot; }
   const nsCString& Annotation() { return mAnnotation; }
-  const nsTArray<nsCString>& Parents() { return mParents; }
-  nsresult SetParents(const nsTArray<nsCString>& aParents) {
-    if (!mParents.ReplaceElementsAt(0, mParents.Length(), aParents))
-      return NS_ERROR_OUT_OF_MEMORY;
-    return NS_OK;
-  }
+  const nsTArray<nsCString>& Parents() const { return mParents; }
 
   const nsTArray<nsString>& Tags() const { return mTags; }
-  nsresult SetTags(const nsTArray<nsString>& aTags) {
-    if (!mTags.ReplaceElementsAt(0, mTags.Length(), aTags))
-      return NS_ERROR_OUT_OF_MEMORY;
-    return NS_OK;
-  }
+  void SetTags(nsTArray<nsString> aTags) { mTags = std::move(aTags); }
   bool TagsAreNot() { return mTagsAreNot; }
 
   const nsTArray<uint32_t>& Transitions() const { return mTransitions; }
-  nsresult SetTransitions(const nsTArray<uint32_t>& aTransitions) {
-    if (!mTransitions.ReplaceElementsAt(0, mTransitions.Length(), aTransitions))
-      return NS_ERROR_OUT_OF_MEMORY;
-    return NS_OK;
-  }
 
   nsresult Clone(nsNavHistoryQuery** _clone);
 
  private:
-  ~nsNavHistoryQuery() {}
+  ~nsNavHistoryQuery() = default;
 
  protected:
   // IF YOU ADD MORE ITEMS:
@@ -131,7 +117,7 @@ class nsNavHistoryQueryOptions final : public nsINavHistoryQueryOptions {
   nsresult Clone(nsNavHistoryQueryOptions** _clone);
 
  private:
-  ~nsNavHistoryQueryOptions() {}
+  ~nsNavHistoryQueryOptions() = default;
 
   // IF YOU ADD MORE ITEMS:
   //  * Add to the copy constructor

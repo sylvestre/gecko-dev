@@ -1,4 +1,3 @@
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
    http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -16,8 +15,11 @@ add_task(async function() {
 
   const sheets = await front.getStyleSheets();
   ok(sheets, "getStyleSheets() succeeded");
-  is(sheets.length, 1,
-     "getStyleSheets() returned the correct number of sheets");
+  is(
+    sheets.length,
+    1,
+    "getStyleSheets() returned the correct number of sheets"
+  );
 
   const sheet = sheets[0];
   await sheet.update("", false);

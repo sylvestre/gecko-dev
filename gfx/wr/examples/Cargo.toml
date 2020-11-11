@@ -4,6 +4,7 @@ version = "0.1.0"
 authors = ["Glenn Watson <gw@intuitionlibrary.com>"]
 license = "MPL-2.0"
 repository = "https://github.com/servo/webrender"
+edition = "2018"
 
 [[bin]]
 name = "alpha_perf"
@@ -24,10 +25,6 @@ path = "blob.rs"
 [[bin]]
 name = "document"
 path = "document.rs"
-
-[[bin]]
-name = "frame_output"
-path = "frame_output.rs"
 
 [[bin]]
 name = "iframe"
@@ -54,14 +51,17 @@ name = "yuv"
 path = "yuv.rs"
 
 [features]
-debug = ["webrender/capture", "webrender/debugger", "webrender/profiler", "webrender/debug_renderer"]
+debug = ["webrender/capture", "webrender/debugger", "webrender/profiler"]
 
 [dependencies]
 app_units = "0.7"
 env_logger = "0.5"
-euclid = "0.19"
-gleam = "0.6.2"
-glutin = "0.17"
+euclid = "0.22"
+gleam = "0.13"
+glutin = "0.21"
 rayon = "1"
 webrender = { path = "../webrender" }
-winit = "0.16"
+winit = "0.19"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+core-foundation = "0.7"

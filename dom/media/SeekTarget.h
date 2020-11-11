@@ -27,16 +27,16 @@ struct SeekTarget {
       : mTime(media::TimeUnit::Invalid()),
         mType(SeekTarget::Invalid),
         mVideoOnly(false) {}
-  SeekTarget(int64_t aTimeUsecs, Type aType, bool aVideoOnly = false)
-      : mTime(media::TimeUnit::FromMicroseconds(aTimeUsecs)),
-        mType(aType),
-        mVideoOnly(aVideoOnly) {}
   SeekTarget(const media::TimeUnit& aTime, Type aType, bool aVideoOnly = false)
-      : mTime(aTime), mType(aType), mVideoOnly(aVideoOnly) {}
+      : mTime(aTime), mType(aType), mVideoOnly(aVideoOnly) {
+    MOZ_ASSERT(mTime.IsValid());
+  }
   SeekTarget(const SeekTarget& aOther)
       : mTime(aOther.mTime),
         mType(aOther.mType),
-        mVideoOnly(aOther.mVideoOnly) {}
+        mVideoOnly(aOther.mVideoOnly) {
+    MOZ_ASSERT(mTime.IsValid());
+  }
   bool IsValid() const { return mType != SeekTarget::Invalid; }
   void Reset() {
     mTime = media::TimeUnit::Invalid();
@@ -44,11 +44,11 @@ struct SeekTarget {
     mVideoOnly = false;
   }
   media::TimeUnit GetTime() const {
-    NS_ASSERTION(mTime.IsValid(), "Invalid SeekTarget");
+    MOZ_ASSERT(mTime.IsValid(), "Invalid SeekTarget");
     return mTime;
   }
   void SetTime(const media::TimeUnit& aTime) {
-    NS_ASSERTION(aTime.IsValid(), "Invalid SeekTarget destination");
+    MOZ_ASSERT(aTime.IsValid(), "Invalid SeekTarget destination");
     mTime = aTime;
   }
   void SetType(Type aType) { mType = aType; }
@@ -57,6 +57,7 @@ struct SeekTarget {
   bool IsAccurate() const { return mType == SeekTarget::Type::Accurate; }
   bool IsNextFrame() const { return mType == SeekTarget::Type::NextFrame; }
   bool IsVideoOnly() const { return mVideoOnly; }
+  Type GetType() const { return mType; }
 
  private:
   // Seek target time.

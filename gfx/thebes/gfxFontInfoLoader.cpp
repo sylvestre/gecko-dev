@@ -6,11 +6,12 @@
 #include "gfxFontInfoLoader.h"
 #include "nsCRT.h"
 #include "nsIObserverService.h"
+#include "nsXPCOM.h"        // for gXPCOMThreadsShutDown
 #include "nsThreadUtils.h"  // for nsRunnable
 #include "gfxPlatformFontList.h"
 
 #ifdef XP_WIN
-#include <windows.h>
+#  include <windows.h>
 #endif
 
 using namespace mozilla;
@@ -39,12 +40,12 @@ void FontInfoData::Load() {
 }
 
 class FontInfoLoadCompleteEvent : public Runnable {
-  virtual ~FontInfoLoadCompleteEvent() {}
+  virtual ~FontInfoLoadCompleteEvent() = default;
 
  public:
   NS_INLINE_DECL_REFCOUNTING_INHERITED(FontInfoLoadCompleteEvent, Runnable)
 
-  explicit FontInfoLoadCompleteEvent(FontInfoData *aFontInfo)
+  explicit FontInfoLoadCompleteEvent(FontInfoData* aFontInfo)
       : mozilla::Runnable("FontInfoLoadCompleteEvent"), mFontInfo(aFontInfo) {}
 
   NS_IMETHOD Run() override;
@@ -54,12 +55,12 @@ class FontInfoLoadCompleteEvent : public Runnable {
 };
 
 class AsyncFontInfoLoader : public Runnable {
-  virtual ~AsyncFontInfoLoader() {}
+  virtual ~AsyncFontInfoLoader() = default;
 
  public:
   NS_INLINE_DECL_REFCOUNTING_INHERITED(AsyncFontInfoLoader, Runnable)
 
-  explicit AsyncFontInfoLoader(FontInfoData *aFontInfo)
+  explicit AsyncFontInfoLoader(FontInfoData* aFontInfo)
       : mozilla::Runnable("AsyncFontInfoLoader"), mFontInfo(aFontInfo) {
     mCompleteEvent = new FontInfoLoadCompleteEvent(aFontInfo);
   }
@@ -72,12 +73,12 @@ class AsyncFontInfoLoader : public Runnable {
 };
 
 class ShutdownThreadEvent : public Runnable {
-  virtual ~ShutdownThreadEvent() {}
+  virtual ~ShutdownThreadEvent() = default;
 
  public:
   NS_INLINE_DECL_REFCOUNTING_INHERITED(ShutdownThreadEvent, Runnable)
 
-  explicit ShutdownThreadEvent(nsIThread *aThread)
+  explicit ShutdownThreadEvent(nsIThread* aThread)
       : mozilla::Runnable("ShutdownThreadEvent"), mThread(aThread) {}
   NS_IMETHOD Run() override {
     mThread->Shutdown();
@@ -90,8 +91,8 @@ class ShutdownThreadEvent : public Runnable {
 
 // runs on main thread after async font info loading is done
 nsresult FontInfoLoadCompleteEvent::Run() {
-  gfxFontInfoLoader *loader =
-      static_cast<gfxFontInfoLoader *>(gfxPlatformFontList::PlatformFontList());
+  gfxFontInfoLoader* loader =
+      static_cast<gfxFontInfoLoader*>(gfxPlatformFontList::PlatformFontList());
 
   loader->FinalizeLoader(mFontInfo);
 
@@ -111,21 +112,23 @@ nsresult AsyncFontInfoLoader::Run() {
 
 NS_IMPL_ISUPPORTS(gfxFontInfoLoader::ShutdownObserver, nsIObserver)
 
+static bool sFontLoaderShutdownObserved = false;
+
 NS_IMETHODIMP
-gfxFontInfoLoader::ShutdownObserver::Observe(nsISupports *aSubject,
-                                             const char *aTopic,
-                                             const char16_t *someData) {
-  if (!nsCRT::strcmp(aTopic, "quit-application")) {
+gfxFontInfoLoader::ShutdownObserver::Observe(nsISupports* aSubject,
+                                             const char* aTopic,
+                                             const char16_t* someData) {
+  if (!nsCRT::strcmp(aTopic, "quit-application") ||
+      !nsCRT::strcmp(aTopic, "xpcom-shutdown")) {
     mLoader->CancelLoader();
+    sFontLoaderShutdownObserved = true;
   } else {
     MOZ_ASSERT_UNREACHABLE("unexpected notification topic");
   }
   return NS_OK;
 }
 
-void gfxFontInfoLoader::StartLoader(uint32_t aDelay, uint32_t aInterval) {
-  mInterval = aInterval;
-
+void gfxFontInfoLoader::StartLoader(uint32_t aDelay) {
   NS_ASSERTION(!mFontInfo, "fontinfo should be null when starting font loader");
 
   // sanity check
@@ -147,12 +150,25 @@ void gfxFontInfoLoader::StartLoader(uint32_t aDelay, uint32_t aInterval) {
 
   // delay? ==> start async thread after a delay
   if (aDelay) {
+    NS_ASSERTION(!sFontLoaderShutdownObserved,
+                 "Bug 1508626 - Setting delay timer for font loader after "
+                 "shutdown observed");
+    NS_ASSERTION(!gXPCOMThreadsShutDown,
+                 "Bug 1508626 - Setting delay timer for font loader after "
+                 "shutdown but before observer");
     mState = stateTimerOnDelay;
     mTimer->InitWithNamedFuncCallback(DelayedStartCallback, this, aDelay,
                                       nsITimer::TYPE_ONE_SHOT,
                                       "gfxFontInfoLoader::StartLoader");
     return;
   }
+
+  NS_ASSERTION(
+      !sFontLoaderShutdownObserved,
+      "Bug 1508626 - Initializing font loader after shutdown observed");
+  NS_ASSERTION(!gXPCOMThreadsShutDown,
+               "Bug 1508626 - Initializing font loader after shutdown but "
+               "before observer");
 
   mFontInfo = CreateFontInfoData();
 
@@ -165,6 +181,12 @@ void gfxFontInfoLoader::StartLoader(uint32_t aDelay, uint32_t aInterval) {
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return;
   }
+
+  PRThread* prThread;
+  if (NS_SUCCEEDED(mFontLoaderThread->GetPRThread(&prThread))) {
+    PR_SetThreadPriority(prThread, PR_PRIORITY_LOW);
+  }
+
   mState = stateAsyncLoad;
 
   nsCOMPtr<nsIRunnable> loadEvent = new AsyncFontInfoLoader(mFontInfo);
@@ -177,7 +199,33 @@ void gfxFontInfoLoader::StartLoader(uint32_t aDelay, uint32_t aInterval) {
   }
 }
 
-void gfxFontInfoLoader::FinalizeLoader(FontInfoData *aFontInfo) {
+class FinalizeLoaderRunnable : public Runnable {
+  virtual ~FinalizeLoaderRunnable() = default;
+
+ public:
+  NS_INLINE_DECL_REFCOUNTING_INHERITED(FinalizeLoaderRunnable, Runnable)
+
+  explicit FinalizeLoaderRunnable(gfxFontInfoLoader* aLoader)
+      : mozilla::Runnable("FinalizeLoaderRunnable"), mLoader(aLoader) {}
+
+  NS_IMETHOD Run() override {
+    nsresult rv;
+    if (mLoader->LoadFontInfo()) {
+      mLoader->CancelLoader();
+      rv = NS_OK;
+    } else {
+      nsCOMPtr<nsIRunnable> runnable = this;
+      rv = NS_DispatchToCurrentThreadQueue(
+          runnable.forget(), PR_INTERVAL_NO_TIMEOUT, EventQueuePriority::Idle);
+    }
+    return rv;
+  }
+
+ private:
+  gfxFontInfoLoader* mLoader;
+};
+
+void gfxFontInfoLoader::FinalizeLoader(FontInfoData* aFontInfo) {
   // Avoid loading data if loader has already been canceled.
   // This should mean that CancelLoader() ran and the Load
   // thread has already Shutdown(), and likely before processing
@@ -189,17 +237,13 @@ void gfxFontInfoLoader::FinalizeLoader(FontInfoData *aFontInfo) {
 
   mLoadTime = mFontInfo->mLoadTime;
 
-  // try to load all font data immediately
-  if (LoadFontInfo()) {
-    CancelLoader();
-    return;
+  MOZ_ASSERT(NS_IsMainThread());
+  nsCOMPtr<nsIRunnable> runnable = new FinalizeLoaderRunnable(this);
+  if (NS_FAILED(NS_DispatchToCurrentThreadQueue(runnable.forget(),
+                                                PR_INTERVAL_NO_TIMEOUT,
+                                                EventQueuePriority::Idle))) {
+    NS_WARNING("Failed to finalize async font info");
   }
-
-  // not all work completed ==> run load on interval
-  mState = stateTimerOnInterval;
-  mTimer->InitWithNamedFuncCallback(LoadFontInfoCallback, this, mInterval,
-                                    nsITimer::TYPE_REPEATING_SLACK,
-                                    "gfxFontInfoLoader::FinalizeLoader");
 }
 
 void gfxFontInfoLoader::CancelLoader() {
@@ -221,18 +265,6 @@ void gfxFontInfoLoader::CancelLoader() {
   CleanupLoader();
 }
 
-void gfxFontInfoLoader::LoadFontInfoTimerFire() {
-  if (mState == stateTimerOnDelay) {
-    mState = stateTimerOnInterval;
-    mTimer->SetDelay(mInterval);
-  }
-
-  bool done = LoadFontInfo();
-  if (done) {
-    CancelLoader();
-  }
-}
-
 gfxFontInfoLoader::~gfxFontInfoLoader() {
   RemoveShutdownObserver();
   MOZ_COUNT_DTOR(gfxFontInfoLoader);
@@ -247,6 +279,7 @@ void gfxFontInfoLoader::AddShutdownObserver() {
   if (obs) {
     mObserver = new ShutdownObserver(this);
     obs->AddObserver(mObserver, "quit-application", false);
+    obs->AddObserver(mObserver, "xpcom-shutdown", false);
   }
 }
 
@@ -255,6 +288,7 @@ void gfxFontInfoLoader::RemoveShutdownObserver() {
     nsCOMPtr<nsIObserverService> obs = GetObserverService();
     if (obs) {
       obs->RemoveObserver(mObserver, "quit-application");
+      obs->RemoveObserver(mObserver, "xpcom-shutdown");
       mObserver = nullptr;
     }
   }

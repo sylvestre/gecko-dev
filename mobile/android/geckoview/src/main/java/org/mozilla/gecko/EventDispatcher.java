@@ -16,20 +16,17 @@ import org.mozilla.gecko.util.GeckoBundle;
 import org.mozilla.gecko.util.ThreadUtils;
 import org.mozilla.geckoview.BuildConfig;
 
-import org.json.JSONException;
-import org.json.JSONObject;
-
-import android.os.Bundle;
 import android.os.Handler;
+import androidx.annotation.AnyThread;
 import android.util.Log;
 
-import java.util.ArrayList;
+import java.util.ArrayDeque;
 import java.util.Arrays;
+import java.util.Deque;
 import java.util.HashMap;
-import java.util.List;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 @RobocopTarget
 public final class EventDispatcher extends JNIObject {
@@ -43,20 +40,30 @@ public final class EventDispatcher extends JNIObject {
      * empirically determine the initial capacity that avoids rehashing, we need to
      * determine the initial size, divide it by 75%, and round up to the next power-of-2.
      */
-    private static final int DEFAULT_GECKO_EVENTS_COUNT = 64; // Empirically measured
     private static final int DEFAULT_UI_EVENTS_COUNT = 128; // Empirically measured
-    private static final int DEFAULT_BACKGROUND_EVENTS_COUNT = 64; // Empirically measured
+
+    private static class Message {
+        final String type;
+        final GeckoBundle bundle;
+        final EventCallback callback;
+
+        Message(final String type, final GeckoBundle bundle, final EventCallback callback) {
+            this.type = type;
+            this.bundle = bundle;
+            this.callback = callback;
+        }
+    }
 
     // GeckoBundle-based events.
-    private final Map<String, List<BundleEventListener>> mGeckoThreadListeners =
-        new HashMap<String, List<BundleEventListener>>(DEFAULT_GECKO_EVENTS_COUNT);
-    private final Map<String, List<BundleEventListener>> mUiThreadListeners =
-        new HashMap<String, List<BundleEventListener>>(DEFAULT_UI_EVENTS_COUNT);
-    private final Map<String, List<BundleEventListener>> mBackgroundThreadListeners =
-        new HashMap<String, List<BundleEventListener>>(DEFAULT_BACKGROUND_EVENTS_COUNT);
+    private final MultiMap<String, BundleEventListener> mListeners =
+        new MultiMap<>(DEFAULT_UI_EVENTS_COUNT);
+    private Deque<Message> mPendingMessages = new ArrayDeque<>();
 
     private boolean mAttachedToGecko;
     private final NativeQueue mNativeQueue;
+    private final String mName;
+
+    private static Map<String, EventDispatcher> sDispatchers = new HashMap<>();
 
     @ReflectionTarget
     @WrapForJNI(calledFrom = "gecko")
@@ -64,12 +71,50 @@ public final class EventDispatcher extends JNIObject {
         return INSTANCE;
     }
 
+    /**
+     * Gets a named EventDispatcher.
+     *
+     * Named EventDispatchers can be used to communicate to Gecko's corresponding
+     * named EventDispatcher.
+     *
+     * Messages for named EventDispatcher are queued by default when no listener is present.
+     * Queued messages will be released automatically when a listener is attached.
+     *
+     * A named EventDispatcher needs to be disposed manually by calling {@link #shutdown}
+     * when it is not needed anymore.
+     *
+     * @param name Name for this EventDispatcher.
+     * @return the existing named EventDispatcher for a given name or a newly created one if
+     *         it doesn't exist.
+     */
+    @ReflectionTarget
+    @WrapForJNI(calledFrom = "gecko")
+    public static EventDispatcher byName(final String name) {
+        synchronized (sDispatchers) {
+            EventDispatcher dispatcher = sDispatchers.get(name);
+
+            if (dispatcher == null) {
+                dispatcher = new EventDispatcher(name);
+                sDispatchers.put(name, dispatcher);
+            }
+
+            return dispatcher;
+        }
+    }
+
     /* package */ EventDispatcher() {
         mNativeQueue = GeckoThread.getNativeQueue();
+        mName = null;
+    }
+
+    /* package */ EventDispatcher(final String name) {
+        mNativeQueue = GeckoThread.getNativeQueue();
+        mName = name;
     }
 
     public EventDispatcher(final NativeQueue queue) {
         mNativeQueue = queue;
+        mName = null;
     }
 
     private boolean isReadyForDispatchingToGecko() {
@@ -78,6 +123,9 @@ public final class EventDispatcher extends JNIObject {
 
     @WrapForJNI @Override // JNIObject
     protected native void disposeNative();
+
+    @WrapForJNI(stubName = "Shutdown")
+    protected native void shutdownNative();
 
     @WrapForJNI private static final int DETACHED = 0;
     @WrapForJNI private static final int ATTACHED = 1;
@@ -91,7 +139,27 @@ public final class EventDispatcher extends JNIObject {
         mAttachedToGecko = (state == ATTACHED);
     }
 
-    private void dispose(boolean force) {
+    /**
+     * Shuts down this EventDispatcher and release resources.
+     *
+     * Only named EventDispatcher can be shut down manually. A shut down EventDispatcher will
+     * not receive any further messages.
+     */
+    public void shutdown() {
+        if (mName == null) {
+            throw new RuntimeException("Only named EventDispatcher's can be shut down.");
+        }
+
+        mAttachedToGecko = false;
+        shutdownNative();
+        dispose(false);
+
+        synchronized (sDispatchers) {
+            sDispatchers.put(mName, null);
+        }
+    }
+
+    private void dispose(final boolean force) {
         final Handler geckoHandler = ThreadUtils.sGeckoHandler;
         if (geckoHandler == null) {
             return;
@@ -107,119 +175,33 @@ public final class EventDispatcher extends JNIObject {
         });
     }
 
-    private <T> void registerListener(final Class<?> listType,
-                                      final Map<String, List<T>> listenersMap,
-                                      final T listener,
-                                      final String[] events) {
+    public void registerUiThreadListener(final BundleEventListener listener,
+                                         final String... events) {
         try {
-            synchronized (listenersMap) {
+            synchronized (mListeners) {
                 for (final String event : events) {
-                    if (event == null) {
-                        continue;
-                    }
-                    List<T> listeners = listenersMap.get(event);
-                    if (listeners == null) {
-                        // Java doesn't let us put Class<? extends List<T>> as the type for listType.
-                        @SuppressWarnings("unchecked")
-                        final Class<? extends List<T>> type = (Class) listType;
-                        listeners = type.newInstance();
-                        listenersMap.put(event, listeners);
-                    }
-                    if (!BuildConfig.RELEASE_OR_BETA && listeners.contains(listener)) {
+                    if (!BuildConfig.RELEASE_OR_BETA
+                            && mListeners.containsEntry(event, listener)) {
                         throw new IllegalStateException("Already registered " + event);
                     }
-                    listeners.add(listener);
+                    mListeners.add(event, listener);
                 }
+                flush(events);
             }
         } catch (final Exception e) {
             throw new IllegalArgumentException("Invalid new list type", e);
         }
     }
 
-    private void checkNotRegisteredElsewhere(final Map<String, ?> allowedMap,
-                                             final String[] events) {
-        if (BuildConfig.RELEASE_OR_BETA) {
-            // for performance reasons, we only check for
-            // already-registered listeners in non-release builds.
-            return;
-        }
-        for (final Map<String, ?> listenersMap : Arrays.asList(mGeckoThreadListeners,
-                                                               mUiThreadListeners,
-                                                               mBackgroundThreadListeners)) {
-            if (listenersMap == allowedMap) {
-                continue;
-            }
-            synchronized (listenersMap) {
-                for (final String event : events) {
-                    if (listenersMap.get(event) != null) {
-                        throw new IllegalStateException(
-                            "Already registered " + event + " under a different type");
-                    }
-                }
-            }
-        }
-    }
-
-    private <T> void unregisterListener(final Map<String, List<T>> listenersMap,
-                                        final T listener,
-                                        final String[] events) {
-        synchronized (listenersMap) {
+    public void unregisterUiThreadListener(final BundleEventListener listener,
+                                           final String... events) {
+        synchronized (mListeners) {
             for (final String event : events) {
-                if (event == null) {
-                    continue;
-                }
-                List<T> listeners = listenersMap.get(event);
-                if ((listeners == null ||
-                     !listeners.remove(listener)) && !BuildConfig.RELEASE_OR_BETA) {
+                if (!mListeners.remove(event, listener) && !BuildConfig.RELEASE_OR_BETA) {
                     throw new IllegalArgumentException(event + " was not registered");
                 }
             }
         }
-    }
-
-    public void registerGeckoThreadListener(final BundleEventListener listener,
-                                            final String... events) {
-        checkNotRegisteredElsewhere(mGeckoThreadListeners, events);
-
-        // For listeners running on the Gecko thread, we want to notify the listeners
-        // outside of our synchronized block, because the listeners may take an
-        // indeterminate amount of time to run. Therefore, to ensure concurrency when
-        // iterating the list outside of the synchronized block, we use a
-        // CopyOnWriteArrayList.
-        registerListener(CopyOnWriteArrayList.class,
-                         mGeckoThreadListeners, listener, events);
-    }
-
-    public void registerUiThreadListener(final BundleEventListener listener,
-                                         final String... events) {
-        checkNotRegisteredElsewhere(mUiThreadListeners, events);
-
-        registerListener(ArrayList.class,
-                         mUiThreadListeners, listener, events);
-    }
-
-    @ReflectionTarget
-    public void registerBackgroundThreadListener(final BundleEventListener listener,
-                                                 final String... events) {
-        checkNotRegisteredElsewhere(mBackgroundThreadListeners, events);
-
-        registerListener(ArrayList.class,
-                         mBackgroundThreadListeners, listener, events);
-    }
-
-    public void unregisterGeckoThreadListener(final BundleEventListener listener,
-                                              final String... events) {
-        unregisterListener(mGeckoThreadListeners, listener, events);
-    }
-
-    public void unregisterUiThreadListener(final BundleEventListener listener,
-                                           final String... events) {
-        unregisterListener(mUiThreadListeners, listener, events);
-    }
-
-    public void unregisterBackgroundThreadListener(final BundleEventListener listener,
-                                                   final String... events) {
-        unregisterListener(mBackgroundThreadListeners, listener, events);
     }
 
     @WrapForJNI
@@ -240,12 +222,43 @@ public final class EventDispatcher extends JNIObject {
     }
 
     /**
+     * Flushes pending messages of given types.
+     *
+     * All unhandled messages are put into a pending state by default for named EventDispatcher
+     * obtained from {@link #byName}.
+     *
+     * @param types Types of message to flush.
+     */
+    private void flush(final String[] types) {
+        final Set<String> typeSet = new HashSet<>(Arrays.asList(types));
+
+        final Deque<Message> pendingMessages;
+        synchronized (mPendingMessages) {
+            pendingMessages = mPendingMessages;
+            mPendingMessages = new ArrayDeque<>(pendingMessages.size());
+        }
+
+        Message message;
+        while (!pendingMessages.isEmpty()) {
+            message = pendingMessages.removeFirst();
+            if (typeSet.contains(message.type)) {
+                dispatchToThreads(message.type, message.bundle, message.callback);
+            } else {
+                synchronized (mPendingMessages) {
+                    mPendingMessages.addLast(message);
+                }
+            }
+        }
+    }
+
+    /**
      * Dispatch event to any registered Bundle listeners (non-Gecko thread listeners).
      *
      * @param type Event type
      * @param message Bundle message
      * @param callback Optional object for callbacks from events.
      */
+    @AnyThread
     public void dispatch(final String type, final GeckoBundle message,
                          final EventCallback callback) {
         final boolean isGeckoReady;
@@ -271,40 +284,26 @@ public final class EventDispatcher extends JNIObject {
                                       final GeckoBundle message,
                                       final EventCallback callback,
                                       final boolean isGeckoReady) {
-        final List<BundleEventListener> geckoListeners;
-        synchronized (mGeckoThreadListeners) {
-            geckoListeners = mGeckoThreadListeners.get(type);
-        }
-        if (geckoListeners != null && !geckoListeners.isEmpty()) {
-            final boolean onGeckoThread = ThreadUtils.isOnGeckoThread();
-            final EventCallback wrappedCallback = JavaCallbackDelegate.wrap(callback);
+        // We need to hold the lock throughout dispatching, to ensure the listeners list
+        // is consistent, while we iterate over it. We don't have to worry about listeners
+        // running for a long time while we have the lock, because the listeners will run
+        // on a separate thread.
+        synchronized (mListeners) {
+            if (mListeners.containsKey(type)) {
+                // Use a delegate to make sure callbacks happen on a specific thread.
+                final EventCallback wrappedCallback = JavaCallbackDelegate.wrap(callback);
 
-            for (final BundleEventListener listener : geckoListeners) {
-                // For other threads, we always dispatch asynchronously. However, for
-                // Gecko listeners only, we dispatch synchronously if we're already on
-                // Gecko thread.
-                if (onGeckoThread) {
-                    listener.handleMessage(type, message, wrappedCallback);
-                    continue;
+                // Event listeners will call | callback.sendError | if applicable.
+                for (final BundleEventListener listener : mListeners.get(type)) {
+                    ThreadUtils.getUiHandler().post(new Runnable() {
+                        @Override
+                        public void run() {
+                            listener.handleMessage(type, message, wrappedCallback);
+                        }
+                    });
                 }
-                ThreadUtils.sGeckoHandler.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        listener.handleMessage(type, message, wrappedCallback);
-                    }
-                });
+                return true;
             }
-            return true;
-        }
-
-        if (dispatchToThread(type, message, callback,
-                             mUiThreadListeners, ThreadUtils.getUiHandler())) {
-            return true;
-        }
-
-        if (dispatchToThread(type, message, callback,
-                             mBackgroundThreadListeners, ThreadUtils.getBackgroundHandler())) {
-            return true;
         }
 
         if (!isGeckoReady) {
@@ -321,58 +320,27 @@ public final class EventDispatcher extends JNIObject {
             return true;
         }
 
-        Log.w(LOGTAG, "No listener for " + type);
+        // Named EventDispatchers use pending messages
+        if (mName != null) {
+            synchronized (mPendingMessages) {
+                mPendingMessages.addLast(new Message(type, message, callback));
+            }
+            return true;
+        }
+
+        final String error = "No listener for " + type;
+        if (callback != null) {
+            callback.sendError(error);
+        }
+
+        Log.w(LOGTAG, error);
         return false;
     }
 
     @WrapForJNI
     public boolean hasListener(final String event) {
-        for (final Map<String, ?> listenersMap : Arrays.asList(mGeckoThreadListeners,
-                mUiThreadListeners,
-                mBackgroundThreadListeners)) {
-            synchronized (listenersMap) {
-                if (listenersMap.get(event) != null) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
-    private boolean dispatchToThread(final String type,
-                                     final GeckoBundle message,
-                                     final EventCallback callback,
-                                     final Map<String, List<BundleEventListener>> listenersMap,
-                                     final Handler thread) {
-        // We need to hold the lock throughout dispatching, to ensure the listeners list
-        // is consistent, while we iterate over it. We don't have to worry about listeners
-        // running for a long time while we have the lock, because the listeners will run
-        // on a separate thread.
-        synchronized (listenersMap) {
-            final List<BundleEventListener> listeners = listenersMap.get(type);
-            if (listeners == null) {
-                return false;
-            }
-
-            if (listeners.isEmpty()) {
-                // There were native listeners, and they're gone.
-                return false;
-            }
-
-            // Use a delegate to make sure callbacks happen on a specific thread.
-            final EventCallback wrappedCallback = JavaCallbackDelegate.wrap(callback);
-
-            // Event listeners will call | callback.sendError | if applicable.
-            for (final BundleEventListener listener : listeners) {
-                thread.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        listener.handleMessage(type, message, wrappedCallback);
-                    }
-                });
-            }
-            return true;
+        synchronized (mListeners) {
+            return mListeners.containsKey(event);
         }
     }
 
@@ -403,8 +371,8 @@ public final class EventDispatcher extends JNIObject {
     }
 
     private static class JavaCallbackDelegate implements EventCallback {
-        private final Thread originalThread = Thread.currentThread();
-        private final EventCallback callback;
+        private final Thread mOriginalThread = Thread.currentThread();
+        private final EventCallback mCallback;
 
         public static EventCallback wrap(final EventCallback callback) {
             if (callback == null) {
@@ -418,7 +386,7 @@ public final class EventDispatcher extends JNIObject {
         }
 
         JavaCallbackDelegate(final EventCallback callback) {
-            this.callback = callback;
+            mCallback = callback;
         }
 
         private void makeCallback(final boolean callSuccess, final Object rawResponse) {
@@ -443,11 +411,11 @@ public final class EventDispatcher extends JNIObject {
 
             // Call back synchronously if we happen to be on the same thread as the thread
             // making the original request.
-            if (ThreadUtils.isOnThread(originalThread)) {
+            if (ThreadUtils.isOnThread(mOriginalThread)) {
                 if (callSuccess) {
-                    callback.sendSuccess(response);
+                    mCallback.sendSuccess(response);
                 } else {
-                    callback.sendError(response);
+                    mCallback.sendError(response);
                 }
                 return;
             }
@@ -455,10 +423,10 @@ public final class EventDispatcher extends JNIObject {
             // Make callback on the thread of the original request, if the original thread
             // is the UI or Gecko thread. Otherwise default to the background thread.
             final Handler handler =
-                    originalThread == ThreadUtils.getUiThread() ? ThreadUtils.getUiHandler() :
-                    originalThread == ThreadUtils.sGeckoThread ? ThreadUtils.sGeckoHandler :
+                    mOriginalThread == ThreadUtils.getUiThread() ? ThreadUtils.getUiHandler() :
+                    mOriginalThread == ThreadUtils.sGeckoThread ? ThreadUtils.sGeckoHandler :
                                                                  ThreadUtils.getBackgroundHandler();
-            final EventCallback callback = this.callback;
+            final EventCallback callback = mCallback;
 
             handler.post(new Runnable() {
                 @Override
@@ -473,12 +441,12 @@ public final class EventDispatcher extends JNIObject {
         }
 
         @Override // EventCallback
-        public void sendSuccess(Object response) {
+        public void sendSuccess(final Object response) {
             makeCallback(/* success */ true, response);
         }
 
         @Override // EventCallback
-        public void sendError(Object response) {
+        public void sendError(final Object response) {
             makeCallback(/* success */ false, response);
         }
     }

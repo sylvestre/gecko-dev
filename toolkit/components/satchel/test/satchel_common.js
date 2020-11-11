@@ -16,6 +16,12 @@ var gPopupShownListener;
 var gLastAutoCompleteResults;
 var gChromeScript;
 
+const TelemetryFilterPropsAC = Object.freeze({
+  category: "form_autocomplete",
+  method: "show",
+  object: "logins",
+});
+
 /*
  * Returns the element with the specified |name| attribute.
  */
@@ -63,7 +69,11 @@ function getMenuEntries() {
 }
 
 function checkArrayValues(actualValues, expectedValues, msg) {
-  is(actualValues.length, expectedValues.length, "Checking array values: " + msg);
+  is(
+    actualValues.length,
+    expectedValues.length,
+    "Checking array values: " + msg
+  );
   for (let i = 0; i < expectedValues.length; i++) {
     is(actualValues[i], expectedValues[i], msg + " Checking array entry #" + i);
   }
@@ -75,7 +85,10 @@ var checkObserver = {
 
   init() {
     gChromeScript.sendAsyncMessage("addObserver");
-    gChromeScript.addMessageListener("satchel-storage-changed", this.observe.bind(this));
+    gChromeScript.addMessageListener(
+      "satchel-storage-changed",
+      this.observe.bind(this)
+    );
   },
 
   uninit() {
@@ -83,7 +96,7 @@ var checkObserver = {
   },
 
   waitForChecks(callback) {
-    if (this.verifyStack.length == 0) {
+    if (!this.verifyStack.length) {
       callback();
     } else {
       this.callback = callback;
@@ -94,7 +107,7 @@ var checkObserver = {
     if (data != "formhistory-add" && data != "formhistory-update") {
       return;
     }
-    ok(this.verifyStack.length > 0, "checking if saved form data was expected");
+    ok(!!this.verifyStack.length, "checking if saved form data was expected");
 
     // Make sure that every piece of data we expect to be saved is saved, and no
     // more. Here it is assumed that for every entry satchel saves or modifies, a
@@ -107,15 +120,14 @@ var checkObserver = {
     //
     let expected = this.verifyStack.shift();
 
-    countEntries(expected.name, expected.value,
-                 function(num) {
-                   ok(num > 0, expected.message);
-                   if (checkObserver.verifyStack.length == 0) {
-                     let callback = checkObserver.callback;
-                     checkObserver.callback = null;
-                     callback();
-                   }
-                 });
+    countEntries(expected.name, expected.value, function(num) {
+      ok(num > 0, expected.message);
+      if (!checkObserver.verifyStack.length) {
+        let callback = checkObserver.callback;
+        checkObserver.callback = null;
+        callback();
+      }
+    });
   },
 };
 
@@ -130,7 +142,9 @@ function getFormSubmitButton(formNum) {
   // we can't just call form.submit(), because that doesn't seem to
   // invoke the form onsubmit handler.
   let button = form.firstChild;
-  while (button && button.type != "submit") { button = button.nextSibling; }
+  while (button && button.type != "submit") {
+    button = button.nextSibling;
+  }
   ok(button != null, "getting form submit button");
 
   return button;
@@ -161,7 +175,9 @@ function countEntries(name, value, then = null) {
 function updateFormHistory(changes, then = null) {
   return new Promise(resolve => {
     gChromeScript.sendAsyncMessage("updateFormHistory", { changes });
-    gChromeScript.addMessageListener("formHistoryUpdated", function updated({ ok }) {
+    gChromeScript.addMessageListener("formHistoryUpdated", function updated({
+      ok,
+    }) {
       gChromeScript.removeMessageListener("formHistoryUpdated", updated);
       if (!ok) {
         ok(false, "Error occurred updating form history");
@@ -179,10 +195,13 @@ function updateFormHistory(changes, then = null) {
 
 function notifyMenuChanged(expectedCount, expectedFirstValue, then = null) {
   return new Promise(resolve => {
-    gChromeScript.sendAsyncMessage("waitForMenuChange",
-                                   { expectedCount,
-                                     expectedFirstValue });
-    gChromeScript.addMessageListener("gotMenuChange", function changed({ results }) {
+    gChromeScript.sendAsyncMessage("waitForMenuChange", {
+      expectedCount,
+      expectedFirstValue,
+    });
+    gChromeScript.addMessageListener("gotMenuChange", function changed({
+      results,
+    }) {
       gChromeScript.removeMessageListener("gotMenuChange", changed);
       gLastAutoCompleteResults = results;
       if (then) {
@@ -201,6 +220,19 @@ function notifySelectedIndex(expectedIndex, then = null) {
       if (then) {
         then();
       }
+      resolve();
+    });
+  });
+}
+
+function testMenuEntry(index, statement) {
+  return new Promise(resolve => {
+    gChromeScript.sendAsyncMessage("waitForMenuEntryTest", {
+      index,
+      statement,
+    });
+    gChromeScript.addMessageListener("menuEntryTested", function changed() {
+      gChromeScript.removeMessageListener("menuEntryTested", changed);
       resolve();
     });
   });
@@ -230,7 +262,9 @@ function listenForUnexpectedPopupShown() {
 async function promiseNoUnexpectedPopupShown() {
   gPopupShownExpected = false;
   listenForUnexpectedPopupShown();
-  SimpleTest.requestFlakyTimeout("Giving a chance for an unexpected popupshown to occur");
+  SimpleTest.requestFlakyTimeout(
+    "Giving a chance for an unexpected popupshown to occur"
+  );
   await new Promise(resolve => setTimeout(resolve, 1000));
 }
 
@@ -248,13 +282,28 @@ function promiseACShown() {
   });
 }
 
+function checkACTelemetryEvent(actualEvent, input, augmentedExtra) {
+  ok(
+    parseInt(actualEvent[4], 10) > 0,
+    "elapsed time is a positive integer after converting from a string"
+  );
+  let expectedExtra = {
+    acFieldName: SpecialPowers.wrap(input).getAutocompleteInfo().fieldName,
+    typeWasPassword: SpecialPowers.wrap(input).hasBeenTypePassword ? "1" : "0",
+    fieldType: input.type,
+    stringLength: input.value.length + "",
+    ...augmentedExtra,
+  };
+  isDeeply(actualEvent[5], expectedExtra, "Check event extra object");
+}
+
 function satchelCommonSetup() {
   let chromeURL = SimpleTest.getTestFileURL("parent_utils.js");
   gChromeScript = SpecialPowers.loadChromeScript(chromeURL);
   gChromeScript.addMessageListener("onpopupshown", ({ results }) => {
     gLastAutoCompleteResults = results;
     if (gPopupShownListener) {
-      gPopupShownListener({results});
+      gPopupShownListener({ results });
     }
   });
 
@@ -269,6 +318,5 @@ function satchelCommonSetup() {
     });
   });
 }
-
 
 satchelCommonSetup();

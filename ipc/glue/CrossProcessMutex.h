@@ -11,9 +11,9 @@
 #include "mozilla/Mutex.h"
 
 #if !defined(OS_WIN) && !defined(OS_NETBSD) && !defined(OS_OPENBSD)
-#include <pthread.h>
-#include "SharedMemoryBasic.h"
-#include "mozilla/Atomics.h"
+#  include <pthread.h>
+#  include "SharedMemoryBasic.h"
+#  include "mozilla/Atomics.h"
 #endif
 
 namespace IPC {
@@ -107,8 +107,8 @@ class CrossProcessMutex {
 #endif
 };
 
-typedef BaseAutoLock<CrossProcessMutex&> CrossProcessMutexAutoLock;
-typedef BaseAutoUnlock<CrossProcessMutex&> CrossProcessMutexAutoUnlock;
+typedef detail::BaseAutoLock<CrossProcessMutex&> CrossProcessMutexAutoLock;
+typedef detail::BaseAutoUnlock<CrossProcessMutex&> CrossProcessMutexAutoUnlock;
 
 }  // namespace mozilla
 

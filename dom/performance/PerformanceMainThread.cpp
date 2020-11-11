@@ -6,11 +6,15 @@
 
 #include "PerformanceMainThread.h"
 #include "PerformanceNavigation.h"
-#include "mozilla/StaticPrefs.h"
-#include "nsICacheInfoChannel.h"
+#include "PerformancePaintTiming.h"
+#include "mozilla/dom/Event.h"
+#include "mozilla/dom/PerformanceNavigationTiming.h"
+#include "mozilla/dom/PerformanceResourceTiming.h"
+#include "mozilla/dom/PerformanceTiming.h"
+#include "mozilla/StaticPrefs_dom.h"
+#include "mozilla/StaticPrefs_privacy.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 namespace {
 
@@ -34,7 +38,7 @@ void GetURLSpecFromChannel(nsITimedChannel* aChannel, nsAString& aSpec) {
     return;
   }
 
-  aSpec = NS_ConvertUTF8toUTF16(spec);
+  CopyUTF8toUTF16(spec, aSpec);
 }
 
 }  // namespace
@@ -43,14 +47,14 @@ NS_IMPL_CYCLE_COLLECTION_CLASS(PerformanceMainThread)
 
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(PerformanceMainThread,
                                                 Performance)
-  NS_IMPL_CYCLE_COLLECTION_UNLINK(mTiming, mNavigation, mDocEntry)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mTiming, mNavigation, mDocEntry, mFCPTiming)
   tmp->mMozMemory = nullptr;
   mozilla::DropJSObjects(this);
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(PerformanceMainThread,
                                                   Performance)
-  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mTiming, mNavigation, mDocEntry)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mTiming, mNavigation, mDocEntry, mFCPTiming)
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_CYCLE_COLLECTION_TRACE_BEGIN_INHERITED(PerformanceMainThread,
@@ -73,7 +77,8 @@ PerformanceMainThread::PerformanceMainThread(nsPIDOMWindowInner* aWindow,
                                              bool aPrincipal)
     : Performance(aWindow, aPrincipal),
       mDOMTiming(aDOMTiming),
-      mChannel(aChannel) {
+      mChannel(aChannel),
+      mCrossOriginIsolated(aWindow->AsGlobal()->CrossOriginIsolated()) {
   MOZ_ASSERT(aWindow, "Parent window object should be provided");
   CreateNavigationTimingEntry();
 }
@@ -85,10 +90,17 @@ PerformanceMainThread::~PerformanceMainThread() {
 void PerformanceMainThread::GetMozMemory(JSContext* aCx,
                                          JS::MutableHandle<JSObject*> aObj) {
   if (!mMozMemory) {
-    mMozMemory = js::gc::NewMemoryInfoObject(aCx);
-    if (mMozMemory) {
-      mozilla::HoldJSObjects(this);
+    JS::Rooted<JSObject*> mozMemoryObj(aCx, JS_NewPlainObject(aCx));
+    JS::Rooted<JSObject*> gcMemoryObj(aCx, js::gc::NewMemoryInfoObject(aCx));
+    if (!mozMemoryObj || !gcMemoryObj) {
+      MOZ_CRASH("out of memory creating performance.mozMemory");
     }
+    if (!JS_DefineProperty(aCx, mozMemoryObj, "gc", gcMemoryObj,
+                           JSPROP_ENUMERATE)) {
+      MOZ_CRASH("out of memory creating performance.mozMemory");
+    }
+    mMozMemory = mozMemoryObj;
+    mozilla::HoldJSObjects(this);
   }
 
   aObj.set(mMozMemory);
@@ -109,7 +121,7 @@ PerformanceTiming* PerformanceMainThread::Timing() {
 void PerformanceMainThread::DispatchBufferFullEvent() {
   RefPtr<Event> event = NS_NewDOMEvent(this, nullptr, nullptr);
   // it bubbles, and it isn't cancelable
-  event->InitEvent(NS_LITERAL_STRING("resourcetimingbufferfull"), true, false);
+  event->InitEvent(u"resourcetimingbufferfull"_ns, true, false);
   event->SetTrusted(true);
   DispatchEvent(*event);
 }
@@ -139,15 +151,26 @@ void PerformanceMainThread::AddEntry(nsIHttpChannel* channel,
   if (!performanceTimingData) {
     return;
   }
+  AddRawEntry(std::move(performanceTimingData), initiatorType, entryName);
+}
 
+void PerformanceMainThread::AddRawEntry(UniquePtr<PerformanceTimingData> aData,
+                                        const nsAString& aInitiatorType,
+                                        const nsAString& aEntryName) {
   // The PerformanceResourceTiming object will use the PerformanceTimingData
   // object to get all the required timings.
-  RefPtr<PerformanceResourceTiming> performanceEntry =
-      new PerformanceResourceTiming(std::move(performanceTimingData), this,
-                                    entryName);
+  auto entry =
+      MakeRefPtr<PerformanceResourceTiming>(std::move(aData), this, aEntryName);
+  entry->SetInitiatorType(aInitiatorType);
+  InsertResourceEntry(entry);
+}
 
-  performanceEntry->SetInitiatorType(initiatorType);
-  InsertResourceEntry(performanceEntry);
+void PerformanceMainThread::SetFCPTimingEntry(PerformancePaintTiming* aEntry) {
+  MOZ_ASSERT(aEntry);
+  if (!mFCPTiming) {
+    mFCPTiming = aEntry;
+    QueueEntry(aEntry);
+  }
 }
 
 // To be removed once bug 1124165 lands
@@ -188,20 +211,12 @@ bool PerformanceMainThread::IsPerformanceTimingAttribute(
 
 DOMHighResTimeStamp PerformanceMainThread::GetPerformanceTimingFromString(
     const nsAString& aProperty) {
+  // ::Measure expects the values returned from this function to be passed
+  // through ReduceTimePrecision already.
   if (!IsPerformanceTimingAttribute(aProperty)) {
     return 0;
   }
-  if (aProperty.EqualsLiteral("navigationStart")) {
-    // DOMHighResTimeStamp is in relation to navigationStart, so this will be
-    // zero.
-    return GetDOMTiming()->GetNavigationStart();
-  }
-  if (aProperty.EqualsLiteral("unloadEventStart")) {
-    return GetDOMTiming()->GetUnloadEventStart();
-  }
-  if (aProperty.EqualsLiteral("unloadEventEnd")) {
-    return GetDOMTiming()->GetUnloadEventEnd();
-  }
+  // Values from Timing() are already reduced
   if (aProperty.EqualsLiteral("redirectStart")) {
     return Timing()->RedirectStart();
   }
@@ -235,31 +250,39 @@ DOMHighResTimeStamp PerformanceMainThread::GetPerformanceTimingFromString(
   if (aProperty.EqualsLiteral("responseEnd")) {
     return Timing()->ResponseEnd();
   }
-  if (aProperty.EqualsLiteral("domLoading")) {
-    return GetDOMTiming()->GetDomLoading();
+  // Values from GetDOMTiming() are not.
+  DOMHighResTimeStamp retValue;
+  if (aProperty.EqualsLiteral("navigationStart")) {
+    // DOMHighResTimeStamp is in relation to navigationStart, so this will be
+    // zero.
+    retValue = GetDOMTiming()->GetNavigationStart();
+  } else if (aProperty.EqualsLiteral("unloadEventStart")) {
+    retValue = GetDOMTiming()->GetUnloadEventStart();
+  } else if (aProperty.EqualsLiteral("unloadEventEnd")) {
+    retValue = GetDOMTiming()->GetUnloadEventEnd();
+  } else if (aProperty.EqualsLiteral("domLoading")) {
+    retValue = GetDOMTiming()->GetDomLoading();
+  } else if (aProperty.EqualsLiteral("domInteractive")) {
+    retValue = GetDOMTiming()->GetDomInteractive();
+  } else if (aProperty.EqualsLiteral("domContentLoadedEventStart")) {
+    retValue = GetDOMTiming()->GetDomContentLoadedEventStart();
+  } else if (aProperty.EqualsLiteral("domContentLoadedEventEnd")) {
+    retValue = GetDOMTiming()->GetDomContentLoadedEventEnd();
+  } else if (aProperty.EqualsLiteral("domComplete")) {
+    retValue = GetDOMTiming()->GetDomComplete();
+  } else if (aProperty.EqualsLiteral("loadEventStart")) {
+    retValue = GetDOMTiming()->GetLoadEventStart();
+  } else if (aProperty.EqualsLiteral("loadEventEnd")) {
+    retValue = GetDOMTiming()->GetLoadEventEnd();
+  } else {
+    MOZ_CRASH(
+        "IsPerformanceTimingAttribute and GetPerformanceTimingFromString are "
+        "out "
+        "of sync");
   }
-  if (aProperty.EqualsLiteral("domInteractive")) {
-    return GetDOMTiming()->GetDomInteractive();
-  }
-  if (aProperty.EqualsLiteral("domContentLoadedEventStart")) {
-    return GetDOMTiming()->GetDomContentLoadedEventStart();
-  }
-  if (aProperty.EqualsLiteral("domContentLoadedEventEnd")) {
-    return GetDOMTiming()->GetDomContentLoadedEventEnd();
-  }
-  if (aProperty.EqualsLiteral("domComplete")) {
-    return GetDOMTiming()->GetDomComplete();
-  }
-  if (aProperty.EqualsLiteral("loadEventStart")) {
-    return GetDOMTiming()->GetLoadEventStart();
-  }
-  if (aProperty.EqualsLiteral("loadEventEnd")) {
-    return GetDOMTiming()->GetLoadEventEnd();
-  }
-  MOZ_CRASH(
-      "IsPerformanceTimingAttribute and GetPerformanceTimingFromString are out "
-      "of sync");
-  return 0;
+  return nsRFPService::ReduceTimePrecisionAsMSecs(
+      retValue, GetRandomTimelineSeed(), /* aIsSystemPrinciapl */ false,
+      CrossOriginIsolated());
 }
 
 void PerformanceMainThread::InsertUserEntry(PerformanceEntry* aEntry) {
@@ -269,7 +292,7 @@ void PerformanceMainThread::InsertUserEntry(PerformanceEntry* aEntry) {
   uint64_t markCreationEpoch = 0;
 
   if (StaticPrefs::dom_performance_enable_user_timing_logging() ||
-      nsContentUtils::SendPerformanceTimingNotifications()) {
+      StaticPrefs::dom_performance_enable_notify_performance_timing()) {
     nsresult rv = NS_ERROR_FAILURE;
     nsCOMPtr<nsPIDOMWindowInner> owner = GetOwner();
     if (owner && owner->GetDocumentURI()) {
@@ -287,7 +310,7 @@ void PerformanceMainThread::InsertUserEntry(PerformanceEntry* aEntry) {
     }
   }
 
-  if (nsContentUtils::SendPerformanceTimingNotifications()) {
+  if (StaticPrefs::dom_performance_enable_notify_performance_timing()) {
     TimingNotification(aEntry, uri, markCreationEpoch);
   }
 
@@ -305,7 +328,8 @@ DOMHighResTimeStamp PerformanceMainThread::CreationTime() const {
 void PerformanceMainThread::CreateNavigationTimingEntry() {
   MOZ_ASSERT(!mDocEntry, "mDocEntry should be null.");
 
-  if (!nsContentUtils::IsPerformanceNavigationTimingEnabled()) {
+  if (!StaticPrefs::dom_enable_performance_navigation_timing() ||
+      StaticPrefs::privacy_resistFingerprinting()) {
     return;
   }
 
@@ -323,7 +347,7 @@ void PerformanceMainThread::CreateNavigationTimingEntry() {
   mDocEntry = new PerformanceNavigationTiming(std::move(timing), this, name);
 }
 
-void PerformanceMainThread::QueueNavigationTimingEntry() {
+void PerformanceMainThread::UpdateNavigationTimingEntry() {
   if (!mDocEntry) {
     return;
   }
@@ -333,8 +357,20 @@ void PerformanceMainThread::QueueNavigationTimingEntry() {
   if (httpChannel) {
     mDocEntry->UpdatePropertiesFromHttpChannel(httpChannel, mChannel);
   }
+}
+
+void PerformanceMainThread::QueueNavigationTimingEntry() {
+  if (!mDocEntry) {
+    return;
+  }
+
+  UpdateNavigationTimingEntry();
 
   QueueEntry(mDocEntry);
+}
+
+bool PerformanceMainThread::CrossOriginIsolated() const {
+  return mCrossOriginIsolated;
 }
 
 void PerformanceMainThread::GetEntries(
@@ -345,13 +381,16 @@ void PerformanceMainThread::GetEntries(
     return;
   }
 
-  aRetval = mResourceEntries;
+  aRetval = mResourceEntries.Clone();
   aRetval.AppendElements(mUserEntries);
 
   if (mDocEntry) {
     aRetval.AppendElement(mDocEntry);
   }
 
+  if (mFCPTiming) {
+    aRetval.AppendElement(mFCPTiming);
+  }
   aRetval.Sort(PerformanceEntryComparator());
 }
 
@@ -372,6 +411,13 @@ void PerformanceMainThread::GetEntriesByType(
     return;
   }
 
+  if (aEntryType.EqualsLiteral("paint")) {
+    if (mFCPTiming) {
+      aRetval.AppendElement(mFCPTiming);
+      return;
+    }
+  }
+
   Performance::GetEntriesByType(aEntryType, aRetval);
 }
 
@@ -386,6 +432,13 @@ void PerformanceMainThread::GetEntriesByName(
 
   Performance::GetEntriesByName(aName, aEntryType, aRetval);
 
+  if (mFCPTiming && mFCPTiming->GetName().Equals(aName) &&
+      (!aEntryType.WasPassed() ||
+       mFCPTiming->GetEntryType().Equals(aEntryType.Value()))) {
+    aRetval.AppendElement(mFCPTiming);
+    return;
+  }
+
   // The navigation entry is the first one. If it exists and the name matches,
   // let put it in front.
   if (mDocEntry && mDocEntry->GetName().Equals(aName)) {
@@ -394,5 +447,4 @@ void PerformanceMainThread::GetEntriesByName(
   }
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

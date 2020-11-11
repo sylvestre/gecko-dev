@@ -9,8 +9,10 @@
 #include "nsTArrayForwardDeclare.h"
 %}
 [ref] native StringArrayRef(nsTArray<nsCString>);
+[ref] native ConstStringArrayRef(const nsTArray<nsCString>);
 
 interface nsIChannel;
+interface nsIURI;
 
 /**
  * A single URLClassifier feature.
@@ -19,8 +21,14 @@ interface nsIChannel;
 interface nsIUrlClassifierFeature : nsISupports
 {
   cenum listType: 8 {
-    blacklist = 0,
-    whitelist = 1,
+    blocklist = 0,
+    entitylist = 1,
+  };
+
+  cenum URIType: 8 {
+    blocklistURI = 0,
+    entitylistURI = 1,
+    pairwiseEntitylistURI = 2,
   };
 
   /**
@@ -48,9 +56,9 @@ interface nsIUrlClassifierFeature : nsISupports
                                           out ACString aPrefTableName);
 
   /**
-   * Returns true if this host has to be ignored also if blacklisted.
+   * Returns a comma-separated list of hosts to be ignored.
    */
-  readonly attribute ACString skipHostList;
+  readonly attribute ACString exceptionHostList;
 
   /**
    * When this feature matches the channel, this method is executed to do
@@ -61,7 +69,20 @@ interface nsIUrlClassifierFeature : nsISupports
    * tracking-protection cancel the channel, and after that we should stop
    * processing other features.
    */
-  [noscript] boolean processChannel(in nsIChannel aChannel, in ACString aList);
+  [noscript] boolean processChannel(in nsIChannel aChannel,
+                                    in ConstStringArrayRef aList,
+                                    in ConstStringArrayRef aHashes);
+
+  /**
+   * Features can work with different URLs from a channel (channel url, or
+   * top-level, or something else). This method returns what we need to use for
+   * the current list.
+   * If the returned URI is created by CreatePairwiseEntityListURI(), the
+   * URIType is pairwiseEntitylistURI. Otherwise, it depends on the listType.
+   */
+  [noscript] nsIURI getURIByListType(in nsIChannel channel,
+                                     in nsIUrlClassifierFeature_listType listType,
+                                     out nsIUrlClassifierFeature_URIType URIType);
 };
 
 /**
@@ -71,6 +92,8 @@ interface nsIUrlClassifierFeature : nsISupports
 [builtinclass, scriptable, uuid(ccb88140-5d66-4873-9815-a1b98d6cdc92)]
 interface nsIUrlClassifierFeatureResult : nsISupports
 {
+  readonly attribute nsIURI uri;
+
   readonly attribute nsIUrlClassifierFeature feature;
 
   // Comma separate tables or preferences.

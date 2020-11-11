@@ -12,12 +12,13 @@
 #include "nsClassHashtable.h"
 #include "nsHashKeys.h"
 #include "mozilla/Monitor.h"
-#include "nsIThread.h"
 
 namespace mozilla {
 namespace gmp {
 
 class GMPTimerParent : public PGMPTimerParent {
+  friend class PGMPTimerParent;
+
  public:
   NS_INLINE_DECL_REFCOUNTING(GMPTimerParent)
   explicit GMPTimerParent(nsISerialEventTarget* aGMPEventTarget);
@@ -26,17 +27,17 @@ class GMPTimerParent : public PGMPTimerParent {
 
  protected:
   mozilla::ipc::IPCResult RecvSetTimer(const uint32_t& aTimerId,
-                                       const uint32_t& aTimeoutMs) override;
+                                       const uint32_t& aTimeoutMs);
   void ActorDestroy(ActorDestroyReason aWhy) override;
 
  private:
-  ~GMPTimerParent() {}
+  ~GMPTimerParent() = default;
 
   static void GMPTimerExpired(nsITimer* aTimer, void* aClosure);
 
   struct Context {
     Context() : mId(0) { MOZ_COUNT_CTOR(Context); }
-    ~Context() { MOZ_COUNT_DTOR(Context); }
+    MOZ_COUNTED_DTOR(Context)
     nsCOMPtr<nsITimer> mTimer;
     RefPtr<GMPTimerParent>
         mParent;  // Note: live timers keep the GMPTimerParent alive.

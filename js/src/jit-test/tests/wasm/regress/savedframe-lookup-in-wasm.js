@@ -1,11 +1,11 @@
-g = newGlobal();
+g = newGlobal({newCompartment: true});
 g.parent = this;
 g.eval(`(function() {
   Debugger(parent).onExceptionUnwind = function(frame) { return frame.eval(""); }
 })()`);
 
 var module = new WebAssembly.Module(wasmTextToBinary(`
-  (module (import $imp "" "inc") (func) (func $start (call $imp)) (start $start) (export "" $start))
+  (module (import $imp "" "inc") (func) (func $start (call $imp)) (start $start) (export "" (func $start)))
 `));
 
 var imports = {

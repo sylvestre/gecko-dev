@@ -9,6 +9,7 @@
 #include <knownfolders.h>
 #include <winioctl.h>
 
+#include "GeckoProfiler.h"
 #include "gfxPlatform.h"
 #include "gfxUtils.h"
 #include "nsWindow.h"
@@ -23,6 +24,7 @@
 #include "mozilla/gfx/DataSurfaceHelpers.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/RefPtr.h"
+#include "mozilla/SchedulerGroup.h"
 #include "mozilla/WindowsVersion.h"
 #include "mozilla/Unused.h"
 #include "nsIContentPolicy.h"
@@ -40,24 +42,19 @@
 #include "nsNetCID.h"
 #include "prtime.h"
 #ifdef MOZ_PLACES
-#include "nsIFaviconService.h"
+#  include "nsIFaviconService.h"
 #endif
-#include "nsIIconURI.h"
 #include "nsIDownloader.h"
-#include "nsINetUtil.h"
 #include "nsIChannel.h"
-#include "nsIObserver.h"
-#include "imgIEncoder.h"
 #include "nsIThread.h"
 #include "MainThreadUtils.h"
 #include "nsLookAndFeel.h"
 #include "nsUnicharUtils.h"
 #include "nsWindowsHelpers.h"
+#include "WinContentSystemParameters.h"
 
-#ifdef NS_ENABLE_TSF
 #include <textstor.h>
 #include "TSFTextStore.h"
-#endif  // #ifdef NS_ENABLE_TSF
 
 #include <shlobj.h>
 #include <shlwapi.h>
@@ -466,6 +463,9 @@ void WinUtils::Initialize() {
 LRESULT WINAPI WinUtils::NonClientDpiScalingDefWindowProcW(HWND hWnd, UINT msg,
                                                            WPARAM wParam,
                                                            LPARAM lParam) {
+  // NOTE: this function was copied out into the body of the pre-XUL skeleton
+  // UI window proc (PreXULSkeletonUI.cpp). If this function changes at any
+  // point, we should probably factor this out and use it from both locations.
   if (msg == WM_NCCREATE && sEnableNonClientDpiScaling) {
     sEnableNonClientDpiScaling(hWnd);
   }
@@ -542,6 +542,9 @@ void WinUtils::Log(const char* fmt, ...) {
 
 // static
 float WinUtils::SystemDPI() {
+  if (XRE_IsContentProcess()) {
+    return WinContentSystemParameters::GetSingleton()->SystemDPI();
+  }
   // The result of GetDeviceCaps won't change dynamically, as it predates
   // per-monitor DPI and support for on-the-fly resolution changes.
   // Therefore, we only need to look it up once.
@@ -602,7 +605,11 @@ static bool SlowIsPerMonitorDPIAware() {
          dpiAwareness == PROCESS_PER_MONITOR_DPI_AWARE;
 }
 
-/* static */ bool WinUtils::IsPerMonitorDPIAware() {
+/* static */
+bool WinUtils::IsPerMonitorDPIAware() {
+  if (XRE_IsContentProcess()) {
+    return WinContentSystemParameters::GetSingleton()->IsPerMonitorDPIAware();
+  }
   static bool perMonitorDPIAware = SlowIsPerMonitorDPIAware();
   return perMonitorDPIAware;
 }
@@ -667,6 +674,40 @@ int WinUtils::GetSystemMetricsForDpi(int nIndex, UINT dpi) {
   }
 }
 
+/* static */
+gfx::MarginDouble WinUtils::GetUnwriteableMarginsForDeviceInInches(HDC aHdc) {
+  if (!aHdc) {
+    return gfx::MarginDouble();
+  }
+
+  int pixelsPerInchY = ::GetDeviceCaps(aHdc, LOGPIXELSY);
+  int marginTop = ::GetDeviceCaps(aHdc, PHYSICALOFFSETY);
+  int printableAreaHeight = ::GetDeviceCaps(aHdc, VERTRES);
+  int physicalHeight = ::GetDeviceCaps(aHdc, PHYSICALHEIGHT);
+
+  double marginTopInch = double(marginTop) / pixelsPerInchY;
+
+  double printableAreaHeightInch = double(printableAreaHeight) / pixelsPerInchY;
+  double physicalHeightInch = double(physicalHeight) / pixelsPerInchY;
+  double marginBottomInch =
+      physicalHeightInch - printableAreaHeightInch - marginTopInch;
+
+  int pixelsPerInchX = ::GetDeviceCaps(aHdc, LOGPIXELSX);
+  int marginLeft = ::GetDeviceCaps(aHdc, PHYSICALOFFSETX);
+  int printableAreaWidth = ::GetDeviceCaps(aHdc, HORZRES);
+  int physicalWidth = ::GetDeviceCaps(aHdc, PHYSICALWIDTH);
+
+  double marginLeftInch = double(marginLeft) / pixelsPerInchX;
+
+  double printableAreaWidthInch = double(printableAreaWidth) / pixelsPerInchX;
+  double physicalWidthInch = double(physicalWidth) / pixelsPerInchX;
+  double marginRightInch =
+      physicalWidthInch - printableAreaWidthInch - marginLeftInch;
+
+  return gfx::MarginDouble(marginTopInch, marginRightInch, marginBottomInch,
+                           marginLeftInch);
+}
+
 #ifdef ACCESSIBILITY
 /* static */
 a11y::Accessible* WinUtils::GetRootAccessibleForHWND(HWND aHwnd) {
@@ -682,7 +723,6 @@ a11y::Accessible* WinUtils::GetRootAccessibleForHWND(HWND aHwnd) {
 /* static */
 bool WinUtils::PeekMessage(LPMSG aMsg, HWND aWnd, UINT aFirstMessage,
                            UINT aLastMessage, UINT aOption) {
-#ifdef NS_ENABLE_TSF
   RefPtr<ITfMessagePump> msgPump = TSFTextStore::GetMessagePump();
   if (msgPump) {
     BOOL ret = FALSE;
@@ -691,14 +731,12 @@ bool WinUtils::PeekMessage(LPMSG aMsg, HWND aWnd, UINT aFirstMessage,
     NS_ENSURE_TRUE(SUCCEEDED(hr), false);
     return ret;
   }
-#endif  // #ifdef NS_ENABLE_TSF
   return ::PeekMessageW(aMsg, aWnd, aFirstMessage, aLastMessage, aOption);
 }
 
 /* static */
 bool WinUtils::GetMessage(LPMSG aMsg, HWND aWnd, UINT aFirstMessage,
                           UINT aLastMessage) {
-#ifdef NS_ENABLE_TSF
   RefPtr<ITfMessagePump> msgPump = TSFTextStore::GetMessagePump();
   if (msgPump) {
     BOOL ret = FALSE;
@@ -707,7 +745,6 @@ bool WinUtils::GetMessage(LPMSG aMsg, HWND aWnd, UINT aFirstMessage,
     NS_ENSURE_TRUE(SUCCEEDED(hr), false);
     return ret;
   }
-#endif  // #ifdef NS_ENABLE_TSF
   return ::GetMessageW(aMsg, aWnd, aFirstMessage, aLastMessage);
 }
 
@@ -738,8 +775,12 @@ void WinUtils::WaitForMessage(DWORD aTimeoutMs) {
     if (elapsed >= aTimeoutMs) {
       break;
     }
-    DWORD result = ::MsgWaitForMultipleObjectsEx(0, NULL, aTimeoutMs - elapsed,
-                                                 MOZ_QS_ALLEVENT, waitFlags);
+    DWORD result;
+    {
+      AUTO_PROFILER_THREAD_SLEEP;
+      result = ::MsgWaitForMultipleObjectsEx(0, NULL, aTimeoutMs - elapsed,
+                                             MOZ_QS_ALLEVENT, waitFlags);
+    }
     NS_WARNING_ASSERTION(result != WAIT_FAILED, "Wait failed");
     if (result == WAIT_TIMEOUT) {
       break;
@@ -1109,12 +1150,17 @@ void WinUtils::InvalidatePluginAsWorkaround(nsIWidget* aWidget,
  * @param aIOThread : the thread which performs the action
  * @param aURLShortcut : Differentiates between (false)Jumplistcache and
  *                       (true)Shortcutcache
+ * @param aRunnable : Executed in the aIOThread when the favicon cache is
+ *                    avaiable
  ************************************************************************/
 
-AsyncFaviconDataReady::AsyncFaviconDataReady(nsIURI* aNewURI,
-                                             nsCOMPtr<nsIThread>& aIOThread,
-                                             const bool aURLShortcut)
-    : mNewURI(aNewURI), mIOThread(aIOThread), mURLShortcut(aURLShortcut) {}
+AsyncFaviconDataReady::AsyncFaviconDataReady(
+    nsIURI* aNewURI, nsCOMPtr<nsIThread>& aIOThread, const bool aURLShortcut,
+    already_AddRefed<nsIRunnable> aRunnable)
+    : mNewURI(aNewURI),
+      mIOThread(aIOThread),
+      mRunnable(aRunnable),
+      mURLShortcut(aURLShortcut) {}
 
 NS_IMETHODIMP
 myDownloadObserver::OnDownloadComplete(nsIDownloader* downloader,
@@ -1142,7 +1188,7 @@ nsresult AsyncFaviconDataReady::OnFaviconDataNotAvailable(void) {
   nsCOMPtr<nsIChannel> channel;
   rv = NS_NewChannel(getter_AddRefs(channel), mozIconURI,
                      nsContentUtils::GetSystemPrincipal(),
-                     nsILoadInfo::SEC_ALLOW_CROSS_ORIGIN_DATA_IS_NULL,
+                     nsILoadInfo::SEC_ALLOW_CROSS_ORIGIN_SEC_CONTEXT_IS_NULL,
                      nsIContentPolicy::TYPE_INTERNAL_IMAGE);
 
   NS_ENSURE_SUCCESS(rv, rv);
@@ -1152,7 +1198,7 @@ nsresult AsyncFaviconDataReady::OnFaviconDataNotAvailable(void) {
   rv = NS_NewDownloader(getter_AddRefs(listener), downloadObserver, icoFile);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  return channel->AsyncOpen2(listener);
+  return channel->AsyncOpen(listener);
 }
 
 NS_IMETHODIMP
@@ -1193,10 +1239,11 @@ AsyncFaviconDataReady::OnComplete(nsIURI* aFaviconURI, uint32_t aDataLen,
   RefPtr<DataSourceSurface> dataSurface;
   IntSize size;
 
-  if (mURLShortcut) {
-    // Create a 48x48 surface and paint the icon into the central 16x16 rect.
-    size.width = 48;
-    size.height = 48;
+  if (mURLShortcut &&
+      (surface->GetSize().width < 48 || surface->GetSize().height < 48)) {
+    // Create a 48x48 surface and paint the icon into the central rect.
+    size.width = std::max(surface->GetSize().width, 48);
+    size.height = std::max(surface->GetSize().height, 48);
     dataSurface =
         Factory::CreateDataSourceSurface(size, SurfaceFormat::B8G8R8A8);
     NS_ENSURE_TRUE(dataSurface, NS_ERROR_FAILURE);
@@ -1215,8 +1262,13 @@ AsyncFaviconDataReady::OnComplete(nsIURI* aFaviconURI, uint32_t aDataLen,
       return NS_ERROR_OUT_OF_MEMORY;
     }
     dt->FillRect(Rect(0, 0, size.width, size.height),
-                 ColorPattern(Color(1.0f, 1.0f, 1.0f, 1.0f)));
-    dt->DrawSurface(surface, Rect(16, 16, 16, 16),
+                 ColorPattern(ToDeviceColor(sRGBColor::OpaqueWhite())));
+    IntPoint point;
+    point.x = (size.width - surface->GetSize().width) / 2;
+    point.y = (size.height - surface->GetSize().height) / 2;
+    dt->DrawSurface(surface,
+                    Rect(point.x, point.y, surface->GetSize().width,
+                         surface->GetSize().height),
                     Rect(Point(0, 0), Size(surface->GetSize().width,
                                            surface->GetSize().height)));
 
@@ -1244,8 +1296,9 @@ AsyncFaviconDataReady::OnComplete(nsIURI* aFaviconURI, uint32_t aDataLen,
   int32_t stride = 4 * size.width;
 
   // AsyncEncodeAndWriteIcon takes ownership of the heap allocated buffer
-  nsCOMPtr<nsIRunnable> event = new AsyncEncodeAndWriteIcon(
-      path, std::move(data), stride, size.width, size.height, mURLShortcut);
+  nsCOMPtr<nsIRunnable> event =
+      new AsyncEncodeAndWriteIcon(path, std::move(data), stride, size.width,
+                                  size.height, mRunnable.forget());
   mIOThread->Dispatch(event, NS_DISPATCH_NORMAL);
 
   return NS_OK;
@@ -1256,10 +1309,10 @@ AsyncFaviconDataReady::OnComplete(nsIURI* aFaviconURI, uint32_t aDataLen,
 // in
 AsyncEncodeAndWriteIcon::AsyncEncodeAndWriteIcon(
     const nsAString& aIconPath, UniquePtr<uint8_t[]> aBuffer, uint32_t aStride,
-    uint32_t aWidth, uint32_t aHeight, const bool aURLShortcut)
-    : mURLShortcut(aURLShortcut),
-      mIconPath(aIconPath),
+    uint32_t aWidth, uint32_t aHeight, already_AddRefed<nsIRunnable> aRunnable)
+    : mIconPath(aIconPath),
       mBuffer(std::move(aBuffer)),
+      mRunnable(aRunnable),
       mStride(aStride),
       mWidth(aWidth),
       mHeight(aHeight) {}
@@ -1273,13 +1326,12 @@ NS_IMETHODIMP AsyncEncodeAndWriteIcon::Run() {
       mBuffer.get(), mStride, IntSize(mWidth, mHeight),
       SurfaceFormat::B8G8R8A8);
 
-  FILE* file = fopen(NS_ConvertUTF16toUTF8(mIconPath).get(), "wb");
+  FILE* file = _wfopen(mIconPath.get(), L"wb");
   if (!file) {
     // Maybe the directory doesn't exist; try creating it, then fopen again.
     nsresult rv = NS_ERROR_FAILURE;
     nsCOMPtr<nsIFile> comFile = do_CreateInstance("@mozilla.org/file/local;1");
     if (comFile) {
-      // NS_ConvertUTF8toUTF16 utf16path(mIconPath);
       rv = comFile->InitWithPath(mIconPath);
       if (NS_SUCCEEDED(rv)) {
         nsCOMPtr<nsIFile> dirPath;
@@ -1287,7 +1339,7 @@ NS_IMETHODIMP AsyncEncodeAndWriteIcon::Run() {
         if (dirPath) {
           rv = dirPath->Create(nsIFile::DIRECTORY_TYPE, 0777);
           if (NS_SUCCEEDED(rv) || rv == NS_ERROR_FILE_ALREADY_EXISTS) {
-            file = fopen(NS_ConvertUTF16toUTF8(mIconPath).get(), "wb");
+            file = _wfopen(mIconPath.get(), L"wb");
             if (!file) {
               rv = NS_ERROR_FAILURE;
             }
@@ -1299,15 +1351,13 @@ NS_IMETHODIMP AsyncEncodeAndWriteIcon::Run() {
       return rv;
     }
   }
-  nsresult rv = gfxUtils::EncodeSourceSurface(
-      surface, NS_LITERAL_CSTRING("image/vnd.microsoft.icon"), EmptyString(),
-      gfxUtils::eBinaryEncode, file);
+  nsresult rv = gfxUtils::EncodeSourceSurface(surface, ImageType::ICO, u""_ns,
+                                              gfxUtils::eBinaryEncode, file);
   fclose(file);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  if (mURLShortcut) {
-    SendNotifyMessage(HWND_BROADCAST, WM_SETTINGCHANGE, SPI_SETNONCLIENTMETRICS,
-                      0);
+  if (mRunnable) {
+    mRunnable->Run();
   }
   return rv;
 }
@@ -1388,12 +1438,15 @@ AsyncDeleteAllFaviconsFromDisk::~AsyncDeleteAllFaviconsFromDisk() {}
  * @param aICOFilePath The path of the icon file
  * @param aIOThread The thread to perform the Fetch on
  * @param aURLShortcut to distinguish between jumplistcache(false) and
- *        shortcutcache(true)
+ *                     shortcutcache(true)
+ * @param aRunnable Executed in the aIOThread when the favicon cache is
+ *                  avaiable
  */
-nsresult FaviconHelper::ObtainCachedIconFile(nsCOMPtr<nsIURI> aFaviconPageURI,
-                                             nsString& aICOFilePath,
-                                             nsCOMPtr<nsIThread>& aIOThread,
-                                             bool aURLShortcut) {
+nsresult FaviconHelper::ObtainCachedIconFile(
+    nsCOMPtr<nsIURI> aFaviconPageURI, nsString& aICOFilePath,
+    nsCOMPtr<nsIThread>& aIOThread, bool aURLShortcut,
+    already_AddRefed<nsIRunnable> aRunnable) {
+  nsCOMPtr<nsIRunnable> runnable = aRunnable;
   // Obtain the ICO file path
   nsCOMPtr<nsIFile> icoFile;
   nsresult rv = GetOutputIconPath(aFaviconPageURI, icoFile, aURLShortcut);
@@ -1417,14 +1470,14 @@ nsresult FaviconHelper::ObtainCachedIconFile(nsCOMPtr<nsIURI> aFaviconPageURI,
     // the next time we try to build the jump list, the data will be available.
     if (NS_FAILED(rv) || (nowTime - fileModTime) > icoReCacheSecondsTimeout) {
       CacheIconFileFromFaviconURIAsync(aFaviconPageURI, icoFile, aIOThread,
-                                       aURLShortcut);
+                                       aURLShortcut, runnable.forget());
       return NS_ERROR_NOT_AVAILABLE;
     }
   } else {
     // The file does not exist yet, obtain it async from the favicon service so
     // that the next time we try to build the jump list it'll be available.
     CacheIconFileFromFaviconURIAsync(aFaviconPageURI, icoFile, aIOThread,
-                                     aURLShortcut);
+                                     aURLShortcut, runnable.forget());
     return NS_ERROR_NOT_AVAILABLE;
   }
 
@@ -1496,7 +1549,9 @@ nsresult FaviconHelper::GetOutputIconPath(nsCOMPtr<nsIURI> aFaviconPageURI,
 // page aFaviconPageURI and stores it to disk at the path of aICOFile.
 nsresult FaviconHelper::CacheIconFileFromFaviconURIAsync(
     nsCOMPtr<nsIURI> aFaviconPageURI, nsCOMPtr<nsIFile> aICOFile,
-    nsCOMPtr<nsIThread>& aIOThread, bool aURLShortcut) {
+    nsCOMPtr<nsIThread>& aIOThread, bool aURLShortcut,
+    already_AddRefed<nsIRunnable> aRunnable) {
+  nsCOMPtr<nsIRunnable> runnable = aRunnable;
 #ifdef MOZ_PLACES
   // Obtain the favicon service and get the favicon for the specified page
   nsCOMPtr<nsIFaviconService> favIconSvc(
@@ -1504,8 +1559,8 @@ nsresult FaviconHelper::CacheIconFileFromFaviconURIAsync(
   NS_ENSURE_TRUE(favIconSvc, NS_ERROR_FAILURE);
 
   nsCOMPtr<nsIFaviconDataCallback> callback =
-      new mozilla::widget::AsyncFaviconDataReady(aFaviconPageURI, aIOThread,
-                                                 aURLShortcut);
+      new mozilla::widget::AsyncFaviconDataReady(
+          aFaviconPageURI, aIOThread, aURLShortcut, runnable.forget());
 
   favIconSvc->GetFaviconDataForPage(aFaviconPageURI, callback, 0);
 #endif
@@ -1632,7 +1687,8 @@ void WinUtils::SetupKeyModifiersSequence(nsTArray<KeyPair>* aArray,
 /* static */
 nsresult WinUtils::WriteBitmap(nsIFile* aFile, imgIContainer* aImage) {
   RefPtr<SourceSurface> surface = aImage->GetFrame(
-      imgIContainer::FRAME_FIRST, imgIContainer::FLAG_SYNC_DECODE);
+      imgIContainer::FRAME_FIRST,
+      imgIContainer::FLAG_SYNC_DECODE | imgIContainer::FLAG_ASYNC_NOTIFY);
   NS_ENSURE_TRUE(surface, NS_ERROR_FAILURE);
 
   return WriteBitmap(aFile, surface);
@@ -1656,28 +1712,35 @@ nsresult WinUtils::WriteBitmap(nsIFile* aFile, SourceSurface* surface) {
   int32_t height = dataSurface->GetSize().height;
   int32_t bytesPerPixel = 4 * sizeof(uint8_t);
   uint32_t bytesPerRow = bytesPerPixel * width;
+  bool hasAlpha = surface->GetFormat() == SurfaceFormat::B8G8R8A8;
 
   // initialize these bitmap structs which we will later
   // serialize directly to the head of the bitmap file
-  BITMAPINFOHEADER bmi;
-  bmi.biSize = sizeof(BITMAPINFOHEADER);
-  bmi.biWidth = width;
-  bmi.biHeight = height;
-  bmi.biPlanes = 1;
-  bmi.biBitCount = (WORD)bytesPerPixel * 8;
-  bmi.biCompression = BI_RGB;
-  bmi.biSizeImage = bytesPerRow * height;
-  bmi.biXPelsPerMeter = 0;
-  bmi.biYPelsPerMeter = 0;
-  bmi.biClrUsed = 0;
-  bmi.biClrImportant = 0;
+  BITMAPV4HEADER bmi;
+  memset(&bmi, 0, sizeof(BITMAPV4HEADER));
+  bmi.bV4Size = sizeof(BITMAPV4HEADER);
+  bmi.bV4Width = width;
+  bmi.bV4Height = height;
+  bmi.bV4Planes = 1;
+  bmi.bV4BitCount = (WORD)bytesPerPixel * 8;
+  bmi.bV4V4Compression = hasAlpha ? BI_BITFIELDS : BI_RGB;
+  bmi.bV4SizeImage = bytesPerRow * height;
+  bmi.bV4CSType = LCS_sRGB;
+  if (hasAlpha) {
+    bmi.bV4RedMask = 0x00FF0000;
+    bmi.bV4GreenMask = 0x0000FF00;
+    bmi.bV4BlueMask = 0x000000FF;
+    bmi.bV4AlphaMask = 0xFF000000;
+  }
 
   BITMAPFILEHEADER bf;
+  DWORD colormask[3];
   bf.bfType = 0x4D42;  // 'BM'
   bf.bfReserved1 = 0;
   bf.bfReserved2 = 0;
-  bf.bfOffBits = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER);
-  bf.bfSize = bf.bfOffBits + bmi.biSizeImage;
+  bf.bfOffBits = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPV4HEADER) +
+                 (hasAlpha ? sizeof(colormask) : 0);
+  bf.bfSize = bf.bfOffBits + bmi.bV4SizeImage;
 
   // get a file output stream
   nsCOMPtr<nsIOutputStream> stream;
@@ -1695,21 +1758,31 @@ nsresult WinUtils::WriteBitmap(nsIFile* aFile, SourceSurface* surface) {
     uint32_t written;
     stream->Write((const char*)&bf, sizeof(BITMAPFILEHEADER), &written);
     if (written == sizeof(BITMAPFILEHEADER)) {
-      stream->Write((const char*)&bmi, sizeof(BITMAPINFOHEADER), &written);
-      if (written == sizeof(BITMAPINFOHEADER)) {
-        // write out the image data backwards because the desktop won't
-        // show bitmaps with negative heights for top-to-bottom
-        uint32_t i = map.mStride * height;
-        do {
-          i -= map.mStride;
-          stream->Write(((const char*)map.mData) + i, bytesPerRow, &written);
-          if (written == bytesPerRow) {
-            rv = NS_OK;
-          } else {
-            rv = NS_ERROR_FAILURE;
-            break;
-          }
-        } while (i != 0);
+      stream->Write((const char*)&bmi, sizeof(BITMAPV4HEADER), &written);
+      if (written == sizeof(BITMAPV4HEADER)) {
+        if (hasAlpha) {
+          // color mask
+          colormask[0] = 0x00FF0000;
+          colormask[1] = 0x0000FF00;
+          colormask[2] = 0x000000FF;
+
+          stream->Write((const char*)colormask, sizeof(colormask), &written);
+        }
+        if (!hasAlpha || written == sizeof(colormask)) {
+          // write out the image data backwards because the desktop won't
+          // show bitmaps with negative heights for top-to-bottom
+          uint32_t i = map.mStride * height;
+          do {
+            i -= map.mStride;
+            stream->Write(((const char*)map.mData) + i, bytesPerRow, &written);
+            if (written == bytesPerRow) {
+              rv = NS_OK;
+            } else {
+              rv = NS_ERROR_FAILURE;
+              break;
+            }
+          } while (i != 0);
+        }
       }
     }
 
@@ -2017,6 +2090,43 @@ bool WinUtils::UnexpandEnvVars(nsAString& aPath) {
   return true;
 }
 
+/* static */
+WinUtils::WhitelistVec WinUtils::BuildWhitelist() {
+  WhitelistVec result;
+
+  Unused << result.emplaceBack(
+      std::make_pair(nsString(u"%ProgramFiles%"_ns), nsDependentString()));
+
+  // When no substitution is required, set the void flag
+  result.back().second.SetIsVoid(true);
+
+  Unused << result.emplaceBack(
+      std::make_pair(nsString(u"%SystemRoot%"_ns), nsDependentString()));
+  result.back().second.SetIsVoid(true);
+
+  wchar_t tmpPath[MAX_PATH + 1] = {};
+  if (GetTempPath(MAX_PATH, tmpPath)) {
+    // GetTempPath's result always ends with a backslash, which we don't want
+    uint32_t tmpPathLen = wcslen(tmpPath);
+    if (tmpPathLen) {
+      tmpPath[tmpPathLen - 1] = 0;
+    }
+
+    nsAutoString cleanTmpPath(tmpPath);
+    if (UnexpandEnvVars(cleanTmpPath)) {
+      constexpr auto tempVar = u"%TEMP%"_ns;
+      Unused << result.emplaceBack(std::make_pair(
+          nsString(cleanTmpPath), nsDependentString(tempVar, 0)));
+    }
+  }
+
+  // If we add more items to the whitelist, ensure we still don't invoke an
+  // unnecessary heap allocation.
+  MOZ_ASSERT(result.length() <= kMaxWhitelistedItems);
+
+  return result;
+}
+
 /**
  * This function provides an array of (system path, substitution) pairs that are
  * considered to be acceptable with respect to privacy, for the purposes of
@@ -2029,42 +2139,25 @@ bool WinUtils::UnexpandEnvVars(nsAString& aPath) {
  * @see PreparePathForTelemetry for an example of its usage.
  */
 /* static */
-const nsTArray<mozilla::Pair<nsString, nsDependentString>>&
-WinUtils::GetWhitelistedPaths() {
-  // We know the maximum number of items this array will hold, so avoid a heap
-  // allocation by using AutoTArray<T,N>
-  static const size_t kMaxWhitelistedItems = 2;
-  static StaticAutoPtr<
-      AutoTArray<Pair<nsString, nsDependentString>, kMaxWhitelistedItems>>
-      sWhitelist;
-  if (sWhitelist) {
-    return *sWhitelist;
-  }
-  sWhitelist =
-      new AutoTArray<Pair<nsString, nsDependentString>, kMaxWhitelistedItems>();
-  sWhitelist->AppendElement(mozilla::MakePair(
-      nsString(NS_LITERAL_STRING("%ProgramFiles%")), nsDependentString()));
-  // When no substitution is required, set the void flag
-  sWhitelist->LastElement().second().SetIsVoid(true);
-  wchar_t tmpPath[MAX_PATH + 1] = {0};
-  if (GetTempPath(MAX_PATH, tmpPath)) {
-    // GetTempPath's result always ends with a backslash, which we don't want
-    uint32_t tmpPathLen = wcslen(tmpPath);
-    if (tmpPathLen) {
-      tmpPath[tmpPathLen - 1] = 0;
-    }
-    nsAutoString cleanTmpPath(tmpPath);
-    if (UnexpandEnvVars(cleanTmpPath)) {
-      sWhitelist->AppendElement(mozilla::MakePair(
-          nsString(cleanTmpPath), nsDependentString(L"%TEMP%")));
-    }
-  }
-  ClearOnShutdown(&sWhitelist);
+const WinUtils::WhitelistVec& WinUtils::GetWhitelistedPaths() {
+  static WhitelistVec sWhitelist([]() -> WhitelistVec {
+    auto setClearFn = [ptr = &sWhitelist]() -> void {
+      RunOnShutdown([ptr]() -> void { ptr->clear(); },
+                    ShutdownPhase::ShutdownFinal);
+    };
 
-  // If we add more items to the whitelist, ensure we still don't invoke an
-  // unnecessary heap allocation.
-  MOZ_ASSERT(sWhitelist->Length() <= kMaxWhitelistedItems);
-  return *sWhitelist;
+    if (NS_IsMainThread()) {
+      setClearFn();
+    } else {
+      SchedulerGroup::Dispatch(
+          TaskCategory::Other,
+          NS_NewRunnableFunction("WinUtils::GetWhitelistedPaths",
+                                 std::move(setClearFn)));
+    }
+
+    return BuildWhitelist();
+  }());
+  return sWhitelist;
 }
 
 /**
@@ -2152,14 +2245,12 @@ bool WinUtils::PreparePathForTelemetry(nsAString& aPath,
     }
   }
 
-  const nsTArray<Pair<nsString, nsDependentString>>& whitelistedPaths =
-      GetWhitelistedPaths();
+  const WhitelistVec& whitelistedPaths = GetWhitelistedPaths();
 
-  for (uint32_t i = 0; i < whitelistedPaths.Length(); ++i) {
-    const nsString& testPath = whitelistedPaths[i].first();
-    const nsDependentString& substitution = whitelistedPaths[i].second();
-    if (StringBeginsWith(aPath, testPath,
-                         nsCaseInsensitiveStringComparator())) {
+  for (uint32_t i = 0; i < whitelistedPaths.length(); ++i) {
+    const nsString& testPath = whitelistedPaths[i].first;
+    const nsDependentString& substitution = whitelistedPaths[i].second;
+    if (StringBeginsWith(aPath, testPath, nsCaseInsensitiveStringComparator)) {
       if (!substitution.IsVoid()) {
         aPath.Replace(0, testPath.Length(), substitution);
       }
@@ -2171,13 +2262,15 @@ bool WinUtils::PreparePathForTelemetry(nsAString& aPath,
   // the filename. We can't use nsLocalFile to do this because these paths may
   // begin with environment variables, and nsLocalFile doesn't like
   // non-absolute paths.
-  MOZ_ASSERT(aPath.Length() <= MAX_PATH);
-  wchar_t tmpPath[MAX_PATH + 1] = {0};
-  if (wcsncpy_s(tmpPath, ArrayLength(tmpPath),
-                (char16ptr_t)aPath.BeginReading(), aPath.Length())) {
+  const nsString& flatPath = PromiseFlatString(aPath);
+  LPCWSTR leafStart = ::PathFindFileNameW(flatPath.get());
+  ptrdiff_t cutLen = leafStart - flatPath.get();
+  if (cutLen) {
+    aPath.Cut(0, cutLen);
+  } else if (aFlags & PathTransformFlags::RequireFilePath) {
     return false;
   }
-  aPath.Assign((char16ptr_t)::PathFindFileNameW(tmpPath));
+
   return true;
 }
 

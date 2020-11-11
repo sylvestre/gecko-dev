@@ -5,8 +5,6 @@ set -x
 
 make_flags="-j$(nproc)"
 
-. $data_dir/download-tools.sh
-
 prepare_mingw() {
   export prefix=/tools/mingw32
   export install_dir=$root_dir$prefix
@@ -26,7 +24,7 @@ apply_patch() {
     pushd $root_dir/$1
     shift
   else
-    pushd $root_dir/gcc-$gcc_version
+    pushd $root_dir/gcc-source
   fi
   patch -p1 < $1
   popd
@@ -41,12 +39,15 @@ build_binutils() {
     #
     # --enable-targets builds extra target support in ld.
     # Enabling aarch64 support brings in arm support, so we don't need to specify that too.
-    binutils_configure_flags="--enable-targets=aarch64-unknown-linux-gnu --disable-gold --enable-plugins --disable-nls --with-sysroot=/"
+    #
+    # It is important to have the binutils --target and the gcc --target match,
+    # so binutils will install binaries in a place that gcc will look for them.
+    binutils_configure_flags="--enable-targets=aarch64-unknown-linux-gnu --build=x86_64-unknown-linux-gnu --target=x86_64-unknown-linux-gnu --disable-gold --enable-plugins --disable-nls --with-sysroot=/"
   fi
 
   mkdir $root_dir/binutils-objdir
   pushd $root_dir/binutils-objdir
-  ../binutils-$binutils_version/configure --prefix=${prefix-/tools/gcc}/ $binutils_configure_flags
+  ../binutils-source/configure --prefix=${prefix-/tools/gcc}/ $binutils_configure_flags
   make $make_flags
   make install $make_flags DESTDIR=$root_dir
   export PATH=$root_dir/${prefix-/tools/gcc}/bin:$PATH
@@ -54,9 +55,13 @@ build_binutils() {
 }
 
 build_gcc() {
+  # Be explicit about --build and --target so header and library install
+  # directories are consistent.
+  local target="${1:-x86_64-unknown-linux-gnu}"
+
   mkdir $root_dir/gcc-objdir
   pushd $root_dir/gcc-objdir
-  ../gcc-$gcc_version/configure --prefix=${prefix-/tools/gcc} --enable-languages=c,c++  --disable-nls --disable-gnu-unique-object --enable-__cxa_atexit --with-arch-32=pentiumpro --with-sysroot=/
+  ../gcc-source/configure --prefix=${prefix-/tools/gcc} --build=x86_64-unknown-linux-gnu --target="${target}" --enable-languages=c,c++  --disable-nls --disable-gnu-unique-object --enable-__cxa_atexit --with-arch-32=pentiumpro --with-sysroot=/
   make $make_flags
   make $make_flags install DESTDIR=$root_dir
 
@@ -70,7 +75,7 @@ build_gcc() {
 build_gcc_and_mingw() {
   mkdir gcc-objdir
   pushd gcc-objdir
-  ../gcc-$gcc_version/configure --prefix=$install_dir --target=i686-w64-mingw32 --with-gnu-ld --with-gnu-as --disable-multilib --enable-threads=posix
+  ../gcc-source/configure --prefix=$install_dir --target=i686-w64-mingw32 --with-gnu-ld --with-gnu-as --disable-multilib --enable-threads=posix
   make $make_flags all-gcc
   make $make_flags install-gcc
   popd

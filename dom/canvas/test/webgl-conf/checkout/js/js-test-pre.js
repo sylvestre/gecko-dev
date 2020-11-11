@@ -1,24 +1,7 @@
 /*
-** Copyright (c) 2012 The Khronos Group Inc.
-**
-** Permission is hereby granted, free of charge, to any person obtaining a
-** copy of this software and/or associated documentation files (the
-** "Materials"), to deal in the Materials without restriction, including
-** without limitation the rights to use, copy, modify, merge, publish,
-** distribute, sublicense, and/or sell copies of the Materials, and to
-** permit persons to whom the Materials are furnished to do so, subject to
-** the following conditions:
-**
-** The above copyright notice and this permission notice shall be included
-** in all copies or substantial portions of the Materials.
-**
-** THE MATERIALS ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-** EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-** MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-** IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-** CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-** TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-** MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
+Copyright (c) 2019 The Khronos Group Inc.
+Use of this source code is governed by an MIT-style license that can be
+found in the LICENSE.txt file.
 */
 
 (function() {
@@ -373,6 +356,16 @@ function evalAndLog(_a)
   return _av;
 }
 
+function shouldBeString(evalable, expected) {
+    const val = eval(evalable);
+    const text = evalable + " should be " + expected + ".";
+    if (val == expected) {
+        testPassed(text);
+    } else {
+        testFailed(text + " (was " + val + ")");
+    }
+}
+
 function shouldBe(_a, _b, quiet)
 {
     if (typeof _a != "string" || typeof _b != "string")
@@ -589,6 +582,31 @@ function expectTrue(v, msg) {
   } else {
     testFailed(msg);
   }
+}
+
+function maxArrayDiff(a, b) {
+    if (a.length != b.length)
+        throw new Error(`a and b have different lengths: ${a.length} vs ${b.length}`);
+
+    let diff = 0;
+    for (const i in a) {
+        diff = Math.max(diff, Math.abs(a[i] - b[i]));
+    }
+    return diff;
+}
+
+function expectArray(was, expected, maxDiff=0) {
+    const diff = maxArrayDiff(expected, was);
+    let str = `Expected [${expected.toString()}]`;
+    let fn = testPassed;
+    if (maxDiff) {
+        str += ' +/- ' + maxDiff;
+    }
+    if (diff > maxDiff) {
+        fn = testFailed;
+        str += `, was [${was.toString()}]`;
+    }
+    fn(str);
 }
 
 function shouldThrow(_a, _e)

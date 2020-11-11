@@ -11,15 +11,13 @@
 #include "HyperTextAccessibleWrap.h"
 #include "AccEvent.h"
 
-#include "nsAutoPtr.h"
 #include "nsClassHashtable.h"
 #include "nsDataHashtable.h"
-#include "nsIDocument.h"
+#include "mozilla/dom/Document.h"
+#include "mozilla/UniquePtr.h"
 #include "nsIDocumentObserver.h"
 #include "nsIObserver.h"
-#include "nsIScrollPositionListener.h"
 #include "nsITimer.h"
-#include "nsIWeakReference.h"
 
 class nsAccessiblePivot;
 
@@ -27,7 +25,12 @@ const uint32_t kDefaultCacheLength = 128;
 
 namespace mozilla {
 
+class PresShell;
 class TextEditor;
+
+namespace dom {
+class Document;
+}
 
 namespace a11y {
 
@@ -41,7 +44,6 @@ class TNotification;
 class DocAccessible : public HyperTextAccessibleWrap,
                       public nsIDocumentObserver,
                       public nsIObserver,
-                      public nsIScrollPositionListener,
                       public nsSupportsWeakReference,
                       public nsIAccessiblePivotObserver {
   NS_DECL_ISUPPORTS_INHERITED
@@ -50,12 +52,11 @@ class DocAccessible : public HyperTextAccessibleWrap,
   NS_DECL_NSIOBSERVER
   NS_DECL_NSIACCESSIBLEPIVOTOBSERVER
 
- public:
-  DocAccessible(nsIDocument* aDocument, nsIPresShell* aPresShell);
+ protected:
+  typedef mozilla::dom::Document Document;
 
-  // nsIScrollPositionListener
-  virtual void ScrollPositionWillChange(nscoord aX, nscoord aY) override {}
-  virtual void ScrollPositionDidChange(nscoord aX, nscoord aY) override;
+ public:
+  DocAccessible(Document* aDocument, PresShell* aPresShell);
 
   // nsIDocumentObserver
   NS_DECL_NSIDOCUMENTOBSERVER
@@ -65,7 +66,7 @@ class DocAccessible : public HyperTextAccessibleWrap,
   virtual void Shutdown() override;
   virtual nsIFrame* GetFrame() const override;
   virtual nsINode* GetNode() const override { return mDocumentNode; }
-  nsIDocument* DocumentNode() const { return mDocumentNode; }
+  Document* DocumentNode() const { return mDocumentNode; }
 
   virtual mozilla::a11y::ENameValueFlag Name(nsString& aName) const override;
   virtual void Description(nsString& aDescription) override;
@@ -118,9 +119,17 @@ class DocAccessible : public HyperTextAccessibleWrap,
   nsIAccessiblePivot* VirtualCursor();
 
   /**
+   * Returns true if the instance has shutdown.
+   */
+  bool HasShutdown() const { return !mPresShell; }
+
+  /**
    * Return presentation shell for this document accessible.
    */
-  nsIPresShell* PresShell() const { return mPresShell; }
+  PresShell* PresShellPtr() const {
+    MOZ_DIAGNOSTIC_ASSERT(!HasShutdown());
+    return mPresShell;
+  }
 
   /**
    * Return the presentation shell's context.
@@ -133,7 +142,7 @@ class DocAccessible : public HyperTextAccessibleWrap,
   bool IsContentLoaded() const {
     // eDOMLoaded flag check is used for error pages as workaround to make this
     // method return correct result since error pages do not receive 'pageshow'
-    // event and as consequence nsIDocument::IsShowing() returns false.
+    // event and as consequence Document::IsShowing() returns false.
     return mDocumentNode && mDocumentNode->IsVisible() &&
            (mDocumentNode->IsShowing() || HasLoadState(eDOMLoaded));
   }
@@ -219,10 +228,10 @@ class DocAccessible : public HyperTextAccessibleWrap,
    *          notification is processed.
    * @see   NotificationController::HandleNotification
    */
-  template <class Class, class Arg>
-  void HandleNotification(Class* aInstance,
-                          typename TNotification<Class, Arg>::Callback aMethod,
-                          Arg* aArg);
+  template <class Class, class... Args>
+  void HandleNotification(
+      Class* aInstance,
+      typename TNotification<Class, Args...>::Callback aMethod, Args*... aArgs);
 
   /**
    * Return the cached accessible by the given DOM node if it's in subtree of
@@ -268,11 +277,12 @@ class DocAccessible : public HyperTextAccessibleWrap,
 
   /**
    * Return an accessible for the given DOM node or container accessible if
-   * the node is not accessible.
+   * the node is not accessible. If aNoContainerIfPruned is true it will return
+   * null if the node is in a pruned subtree (eg. aria-hidden or unselected deck
+   * panel)
    */
-  enum { eIgnoreARIAHidden = 0, eNoContainerIfARIAHidden = 1 };
-  Accessible* GetAccessibleOrContainer(
-      nsINode* aNode, int aARIAHiddenFlag = eIgnoreARIAHidden) const;
+  Accessible* GetAccessibleOrContainer(nsINode* aNode,
+                                       bool aNoContainerIfPruned = false) const;
 
   /**
    * Return a container accessible for the given DOM node.
@@ -286,7 +296,7 @@ class DocAccessible : public HyperTextAccessibleWrap,
    * container for it.
    */
   Accessible* AccessibleOrTrueContainer(
-      nsINode* aNode, int aARIAHiddenFlag = eIgnoreARIAHidden) const;
+      nsINode* aNode, bool aNoContainerIfPruned = false) const;
 
   /**
    * Return an accessible for the given node or its first accessible descendant.
@@ -310,10 +320,6 @@ class DocAccessible : public HyperTextAccessibleWrap,
 
   /**
    * Return true if the given ID is referred by relation attribute.
-   *
-   * @note Different elements may share the same ID if they are hosted inside
-   *       XBL bindings. Be careful the result of this method may be  senseless
-   *       while it's called for XUL elements (where XBL is used widely).
    */
   bool IsDependentID(dom::Element* aElement, const nsAString& aID) const {
     return GetRelProviders(aElement, aID);
@@ -372,6 +378,13 @@ class DocAccessible : public HyperTextAccessibleWrap,
    */
   DocAccessibleChild* IPCDoc() const { return mIPCDoc; }
 
+  /**
+   * Notify the document that a DOM node has been scrolled. document will
+   * dispatch throttled accessibility events for scrolling, and a scroll-end
+   * event.
+   */
+  void HandleScroll(nsINode* aTarget);
+
  protected:
   virtual ~DocAccessible();
 
@@ -407,17 +420,14 @@ class DocAccessible : public HyperTextAccessibleWrap,
   void ProcessLoad();
 
   /**
-   * Add/remove scroll listeners, @see nsIScrollPositionListener interface.
-   */
-  void AddScrollListener();
-  void RemoveScrollListener();
-
-  /**
    * Append the given document accessible to this document's child document
    * accessibles.
    */
   bool AppendChildDocument(DocAccessible* aChildDocument) {
-    return mChildDocuments.AppendElement(aChildDocument);
+    // XXX(Bug 1631371) Check if this should use a fallible operation as it
+    // pretended earlier, or change the return type to void.
+    mChildDocuments.AppendElement(aChildDocument);
+    return true;
   }
 
   /**
@@ -465,9 +475,10 @@ class DocAccessible : public HyperTextAccessibleWrap,
    * @param aAccessible   [in] accessible the DOM attribute is changed for
    * @param aNameSpaceID  [in] namespace of changed attribute
    * @param aAttribute    [in] changed attribute
+   * @param aModType      [in] modification type (changed/added/removed)
    */
   void AttributeChangedImpl(Accessible* aAccessible, int32_t aNameSpaceID,
-                            nsAtom* aAttribute);
+                            nsAtom* aAttribute, int32_t aModType);
 
   /**
    * Fire accessible events when ARIA attribute is changed.
@@ -553,7 +564,7 @@ class DocAccessible : public HyperTextAccessibleWrap,
    * Set the object responsible for communicating with the main process on
    * behalf of this document.
    */
-  void SetIPCDoc(DocAccessibleChild* aIPCDoc) { mIPCDoc = aIPCDoc; }
+  void SetIPCDoc(DocAccessibleChild* aIPCDoc);
 
   friend class DocAccessibleChildBase;
 
@@ -565,7 +576,7 @@ class DocAccessible : public HyperTextAccessibleWrap,
    */
   static void ScrollTimerCallback(nsITimer* aTimer, void* aClosure);
 
-  void DispatchScrollingEvent(uint32_t aEventType);
+  void DispatchScrollingEvent(nsINode* aTarget, uint32_t aEventType);
 
   /**
    * Check if an id attribute change affects aria-activedescendant and handle
@@ -577,16 +588,26 @@ class DocAccessible : public HyperTextAccessibleWrap,
    */
   void ARIAActiveDescendantIDMaybeMoved(dom::Element* aElm);
 
+  /**
+   * Traverse content subtree and for each node do one of 3 things:
+   * 1. Check if content node has an accessible that should be removed and
+   *    remove it.
+   * 2. Check if content node has an accessible that needs to be recreated.
+   *    Remove it and schedule it for reinsertion.
+   * 3. Check if content node has no accessible but needs one. Schedule one for
+   *    insertion.
+   *
+   * Returns true if the root node should be reinserted.
+   */
+  bool PruneOrInsertSubtree(nsIContent* aRoot);
+
  protected:
   /**
    * State and property flags, kept by mDocFlags.
    */
   enum {
-    // Whether scroll listeners were added.
-    eScrollInitialized = 1 << 0,
-
-    // Whether the document is a tab document.
-    eTabDocument = 1 << 1
+    // Whether the document is a top level content document in this process.
+    eTopLevelContentDocInProcess = 1 << 0
   };
 
   /**
@@ -596,10 +617,9 @@ class DocAccessible : public HyperTextAccessibleWrap,
   nsDataHashtable<nsPtrHashKey<const nsINode>, Accessible*>
       mNodeToAccessibleMap;
 
-  nsIDocument* mDocumentNode;
+  Document* mDocumentNode;
   nsCOMPtr<nsITimer> mScrollWatchTimer;
-  uint16_t mScrollPositionChangedTicks;  // Used for tracking scroll events
-  TimeStamp mLastScrollingDispatch;
+  nsDataHashtable<nsPtrHashKey<nsINode>, TimeStamp> mLastScrollingDispatch;
 
   /**
    * Bit mask of document load states (@see LoadState).
@@ -629,8 +649,8 @@ class DocAccessible : public HyperTextAccessibleWrap,
     // ARIA attribute value
     const nsAtom* mARIAAttrOldValue;
 
-    // True if the accessible state bit was on
-    bool mStateBitWasOn;
+    // Previous state bits before attribute change
+    uint64_t mPrevStateBits;
   };
 
   nsTArray<RefPtr<DocAccessible>> mChildDocuments;
@@ -657,7 +677,7 @@ class DocAccessible : public HyperTextAccessibleWrap,
     AttrRelProvider& operator=(const AttrRelProvider&);
   };
 
-  typedef nsTArray<nsAutoPtr<AttrRelProvider>> AttrRelProviders;
+  typedef nsTArray<mozilla::UniquePtr<AttrRelProvider>> AttrRelProviders;
   typedef nsClassHashtable<nsStringHashKey, AttrRelProviders>
       DependentIDsHashtable;
 
@@ -703,7 +723,9 @@ class DocAccessible : public HyperTextAccessibleWrap,
   friend class NotificationController;
 
  private:
-  nsIPresShell* mPresShell;
+  void SetRoleMapEntryForDoc(dom::Element* aElement);
+
+  PresShell* mPresShell;
 
   // Exclusively owned by IPDL so don't manually delete it!
   DocAccessibleChild* mIPCDoc;

@@ -3,11 +3,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 DevToolsModules(
-    'long-string.js',
-    'previewers.js',
-    'property-iterator.js',
-    'stringifiers.js',
-    'symbol-iterator.js',
-    'symbol.js',
-    'utils.js',
+    "previewers.js",
+    "property-iterator.js",
+    "stringifiers.js",
+    "symbol-iterator.js",
+    "symbol.js",
+    "utils.js",
 )

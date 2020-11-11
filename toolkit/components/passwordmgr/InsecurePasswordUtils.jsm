@@ -5,21 +5,32 @@
 /* ownerGlobal doesn't exist in content privileged windows. */
 /* eslint-disable mozilla/use-ownerGlobal */
 
-var EXPORTED_SYMBOLS = [ "InsecurePasswordUtils" ];
+const EXPORTED_SYMBOLS = ["InsecurePasswordUtils"];
 
 const STRINGS_URI = "chrome://global/locale/security/security.properties";
 
-ChromeUtils.import("resource://gre/modules/Services.jsm");
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
 
-XPCOMUtils.defineLazyServiceGetter(this, "gContentSecurityManager",
-                                   "@mozilla.org/contentsecuritymanager;1",
-                                   "nsIContentSecurityManager");
-XPCOMUtils.defineLazyServiceGetter(this, "gScriptSecurityManager",
-                                   "@mozilla.org/scriptsecuritymanager;1",
-                                   "nsIScriptSecurityManager");
-ChromeUtils.defineModuleGetter(this, "LoginHelper",
-                               "resource://gre/modules/LoginHelper.jsm");
+XPCOMUtils.defineLazyServiceGetter(
+  this,
+  "gContentSecurityManager",
+  "@mozilla.org/contentsecuritymanager;1",
+  "nsIContentSecurityManager"
+);
+XPCOMUtils.defineLazyServiceGetter(
+  this,
+  "gScriptSecurityManager",
+  "@mozilla.org/scriptsecuritymanager;1",
+  "nsIScriptSecurityManager"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "LoginHelper",
+  "resource://gre/modules/LoginHelper.jsm"
+);
 
 XPCOMUtils.defineLazyGetter(this, "log", () => {
   return LoginHelper.createLogger("InsecurePasswordUtils");
@@ -29,7 +40,7 @@ XPCOMUtils.defineLazyGetter(this, "log", () => {
  * A module that provides utility functions for form security.
  *
  */
-var InsecurePasswordUtils = {
+this.InsecurePasswordUtils = {
   _formRootsWarned: new WeakMap(),
 
   /**
@@ -40,7 +51,7 @@ var InsecurePasswordUtils = {
    *         Inner ID for the given window.
    */
   _getInnerWindowId(window) {
-    return window.windowUtils.currentInnerWindowID;
+    return window.windowGlobalChild.innerWindowId;
   },
 
   _sendWebConsoleMessage(messageTag, domDoc) {
@@ -50,8 +61,19 @@ var InsecurePasswordUtils = {
     let flag = Ci.nsIScriptError.warningFlag;
     let bundle = Services.strings.createBundle(STRINGS_URI);
     let message = bundle.GetStringFromName(messageTag);
-    let consoleMsg = Cc["@mozilla.org/scripterror;1"].createInstance(Ci.nsIScriptError);
-    consoleMsg.initWithWindowID(message, domDoc.location.href, 0, 0, 0, flag, category, windowId);
+    let consoleMsg = Cc["@mozilla.org/scripterror;1"].createInstance(
+      Ci.nsIScriptError
+    );
+    consoleMsg.initWithWindowID(
+      message,
+      domDoc.location.href,
+      0,
+      0,
+      0,
+      flag,
+      category,
+      windowId
+    );
 
     Services.console.logMessage(consoleMsg);
   },
@@ -67,17 +89,24 @@ var InsecurePasswordUtils = {
    *    either because it is HTTPS or because its origin is considered trustworthy
    */
   _checkFormSecurity(aForm) {
-    let isFormSubmitHTTP = false, isFormSubmitSecure = false;
+    let isFormSubmitHTTP = false,
+      isFormSubmitSecure = false;
     if (ChromeUtils.getClassName(aForm.rootElement) === "HTMLFormElement") {
-      let uri = Services.io.newURI(aForm.rootElement.action || aForm.rootElement.baseURI);
-      let principal = gScriptSecurityManager.createCodebasePrincipal(uri, {});
+      let uri = Services.io.newURI(
+        aForm.rootElement.action || aForm.rootElement.baseURI
+      );
+      let principal = gScriptSecurityManager.createContentPrincipal(uri, {});
 
       if (uri.schemeIs("http")) {
         isFormSubmitHTTP = true;
-        if (gContentSecurityManager.isOriginPotentiallyTrustworthy(principal) ||
-            // Ignore sites with local IP addresses pointing to local forms.
-            (this._isPrincipalForLocalIPAddress(aForm.rootElement.nodePrincipal) &&
-             this._isPrincipalForLocalIPAddress(principal))) {
+        if (
+          principal.isOriginPotentiallyTrustworthy ||
+          // Ignore sites with local IP addresses pointing to local forms.
+          (this._isPrincipalForLocalIPAddress(
+            aForm.rootElement.nodePrincipal
+          ) &&
+            this._isPrincipalForLocalIPAddress(principal))
+        ) {
           isFormSubmitSecure = true;
         }
       } else {
@@ -89,19 +118,17 @@ var InsecurePasswordUtils = {
   },
 
   _isPrincipalForLocalIPAddress(aPrincipal) {
-    try {
-      let uri = aPrincipal.URI;
-      if (Services.io.hostnameIsLocalIPAddress(uri)) {
-        log.debug("hasInsecureLoginForms: detected local IP address:", uri);
-        return true;
-      }
-    } catch (e) {
-      log.debug("hasInsecureLoginForms: unable to check for local IP address:", e);
+    let res = aPrincipal.isLocalIpAddress;
+    if (res) {
+      log.debug(
+        "hasInsecureLoginForms: detected local IP address:",
+        aPrincipal.asciispec
+      );
     }
-    return false;
+    return res;
   },
 
-  /**
+  /**s
    * Checks if there are insecure password fields present on the form's document
    * i.e. passwords inside forms with http action, inside iframes with http src,
    * or on insecure web pages.
@@ -117,9 +144,20 @@ var InsecurePasswordUtils = {
     // on the network do not use HTTPS, making this warning show up almost
     // constantly on local connections, which annoys users and hurts our cause.
     if (!isSafePage && this._ignoreLocalIPAddress) {
-      let isLocalIP = this._isPrincipalForLocalIPAddress(aForm.rootElement.nodePrincipal);
-      let topWindow = aForm.ownerDocument.defaultView.top;
-      let topIsLocalIP = this._isPrincipalForLocalIPAddress(topWindow.document.nodePrincipal);
+      let isLocalIP = this._isPrincipalForLocalIPAddress(
+        aForm.rootElement.nodePrincipal
+      );
+      // XXXndeakin fix this: bug 1582499 - top document not accessible in OOP frame
+      // So for now, just use the current document if access to top fails.
+      let topDocument;
+      try {
+        topDocument = aForm.ownerDocument.defaultView.top.document;
+      } catch (ex) {
+        topDocument = aForm.ownerDocument.defaultView.document;
+      }
+      let topIsLocalIP = this._isPrincipalForLocalIPAddress(
+        topDocument.nodePrincipal
+      );
 
       // Only consider the page safe if the top window has a local IP address
       // and, if this is an iframe, the iframe also has a local IP address.
@@ -128,7 +166,9 @@ var InsecurePasswordUtils = {
       }
     }
 
-    let { isFormSubmitSecure, isFormSubmitHTTP } = this._checkFormSecurity(aForm);
+    let { isFormSubmitSecure, isFormSubmitHTTP } = this._checkFormSecurity(
+      aForm
+    );
 
     return isSafePage && (isFormSubmitSecure || !isFormSubmitHTTP);
   },
@@ -139,15 +179,19 @@ var InsecurePasswordUtils = {
    * @param {FormLike} aForm A form-like object. @See {FormLikeFactory}
    */
   reportInsecurePasswords(aForm) {
-    if (this._formRootsWarned.has(aForm.rootElement) ||
-        this._formRootsWarned.get(aForm.rootElement)) {
+    if (
+      this._formRootsWarned.has(aForm.rootElement) ||
+      this._formRootsWarned.get(aForm.rootElement)
+    ) {
       return;
     }
 
     let domDoc = aForm.ownerDocument;
     let isSafePage = domDoc.defaultView.isSecureContext;
 
-    let { isFormSubmitHTTP, isFormSubmitSecure } = this._checkFormSecurity(aForm);
+    let { isFormSubmitHTTP, isFormSubmitSecure } = this._checkFormSecurity(
+      aForm
+    );
 
     if (!isSafePage) {
       if (domDoc.defaultView == domDoc.defaultView.parent) {
@@ -179,9 +223,15 @@ var InsecurePasswordUtils = {
       passwordSafety = 5;
     }
 
-    Services.telemetry.getHistogramById("PWMGR_LOGIN_PAGE_SAFETY").add(passwordSafety);
+    Services.telemetry
+      .getHistogramById("PWMGR_LOGIN_PAGE_SAFETY")
+      .add(passwordSafety);
   },
 };
 
-XPCOMUtils.defineLazyPreferenceGetter(this.InsecurePasswordUtils, "_ignoreLocalIPAddress",
-                                      "security.insecure_field_warning.ignore_local_ip_address", true);
+XPCOMUtils.defineLazyPreferenceGetter(
+  InsecurePasswordUtils,
+  "_ignoreLocalIPAddress",
+  "security.insecure_field_warning.ignore_local_ip_address",
+  true
+);

@@ -1,4 +1,3 @@
-// |reftest| skip-if(!this.hasOwnProperty('BigInt')) -- BigInt is not enabled unconditionally
 // Copyright (C) 2018 Valerie Young. All rights reserved.
 // This code is governed by the BSD license found in the LICENSE file.
 /*---
@@ -49,7 +48,7 @@ info: |
     Result: Throw a TypeError exception.
 
 includes: [testBigIntTypedArray.js]
-features: [BigInt, TypedArray]
+features: [align-detached-buffer-semantics-with-web-reality, BigInt, TypedArray]
 ---*/
 
 testWithBigIntTypedArrayConstructors(function(TA) {
@@ -57,31 +56,31 @@ testWithBigIntTypedArrayConstructors(function(TA) {
 
   assert.throws(TypeError, function() {
     typedArray[0] = 1;
-  }, "abrupt completion from Number: 1");
+  }, '`typedArray[0] = 1` throws TypeError');
 
   assert.throws(TypeError, function() {
     typedArray[0] = Math.pow(2, 63);
-  }, "abrupt completion from Number: 2**63");
+  }, '`typedArray[0] = Math.pow(2, 63)` throws TypeError');
 
   assert.throws(TypeError, function() {
     typedArray[0] = +0;
-  }, "abrupt completion from Number: +0");
+  }, '`typedArray[0] = +0` throws TypeError');
 
   assert.throws(TypeError, function() {
     typedArray[0] = -0;
-  }, "abrupt completion from Number: -0");
+  }, '`typedArray[0] = -0` throws TypeError');
 
   assert.throws(TypeError, function() {
     typedArray[0] = Infinity;
-  }, "abrupt completion from Number: Infinity");
+  }, '`typedArray[0] = Infinity` throws TypeError');
 
   assert.throws(TypeError, function() {
     typedArray[0] = -Infinity;
-  }, "abrupt completion from Number: -Infinity");
+  }, '`typedArray[0] = -Infinity` throws TypeError');
 
   assert.throws(TypeError, function() {
     typedArray[0] = NaN;
-  }, "abrupt completion from Number: NaN");
+  }, '`typedArray[0] = NaN` throws TypeError');
 
 });
 

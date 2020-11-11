@@ -48,6 +48,7 @@
 #include "gtest/gtest.h"
 #include "gtest/MozGTestBench.h"  // For MOZ_GTEST_BENCH
 #include "mozilla/AllocPolicy.h"
+#include "mozilla/ArrayUtils.h"
 #include "mozilla/HashFunctions.h"
 #include "mozilla/HashTable.h"
 #include "mozilla/StaticMutex.h"
@@ -62,7 +63,7 @@ using namespace mozilla;
 // - No duplicates in the first VALS_LEN results, which is useful for ensuring
 //   the tables get to a particular size, and also for guaranteeing lookups
 //   that fail.
-uintptr_t MyRand() {
+static uintptr_t MyRand() {
   static uintptr_t s = 0;
   s = s * 1103515245 + 12345;
   return s;
@@ -82,7 +83,8 @@ struct Params {
 // benchmark against.
 //
 // Keep this in sync with all the other Bench_*() functions.
-void Bench_Cpp_unordered_set(const Params* aParams, void** aVals, size_t aLen) {
+static void Bench_Cpp_unordered_set(const Params* aParams, void** aVals,
+                                    size_t aLen) {
   std::unordered_set<void*> hs;
 
   for (size_t j = 0; j < aParams->mNumInserts; j++) {
@@ -122,7 +124,8 @@ void Bench_Cpp_unordered_set(const Params* aParams, void** aVals, size_t aLen) {
 }
 
 // Keep this in sync with all the other Bench_*() functions.
-void Bench_Cpp_PLDHashTable(const Params* aParams, void** aVals, size_t aLen) {
+static void Bench_Cpp_PLDHashTable(const Params* aParams, void** aVals,
+                                   size_t aLen) {
   PLDHashTable hs(PLDHashTable::StubOps(), sizeof(PLDHashEntryStub));
 
   for (size_t j = 0; j < aParams->mNumInserts; j++) {
@@ -163,7 +166,8 @@ void Bench_Cpp_PLDHashTable(const Params* aParams, void** aVals, size_t aLen) {
 }
 
 // Keep this in sync with all the other Bench_*() functions.
-void Bench_Cpp_MozHashSet(const Params* aParams, void** aVals, size_t aLen) {
+static void Bench_Cpp_MozHashSet(const Params* aParams, void** aVals,
+                                 size_t aLen) {
   mozilla::HashSet<void*, mozilla::DefaultHasher<void*>, MallocAllocPolicy> hs;
 
   for (size_t j = 0; j < aParams->mNumInserts; j++) {

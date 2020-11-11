@@ -12,7 +12,6 @@
 
 #include "mozilla/AbstractThread.h"
 #include "mozilla/HoldDropJSObjects.h"
-#include "mozilla/SystemGroup.h"
 #include "mozilla/extensions/StreamFilterChild.h"
 #include "mozilla/extensions/StreamFilterEvents.h"
 #include "mozilla/extensions/StreamFilterParent.h"
@@ -50,8 +49,10 @@ void StreamFilter::ForgetActor() {
   }
 }
 
-/* static */ already_AddRefed<StreamFilter> StreamFilter::Create(
-    GlobalObject& aGlobal, uint64_t aRequestId, const nsAString& aAddonId) {
+/* static */
+already_AddRefed<StreamFilter> StreamFilter::Create(GlobalObject& aGlobal,
+                                                    uint64_t aRequestId,
+                                                    const nsAString& aAddonId) {
   nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(aGlobal.GetAsSupports());
   MOZ_ASSERT(global);
 
@@ -73,28 +74,25 @@ void StreamFilter::Connect() {
   mAddonId->ToString(addonId);
 
   ContentChild* cc = ContentChild::GetSingleton();
+  RefPtr<StreamFilter> self(this);
   if (cc) {
-    RefPtr<StreamFilter> self(this);
-
     cc->SendInitStreamFilter(mChannelId, addonId)
-        ->Then(GetCurrentThreadSerialEventTarget(), __func__,
-               [=](mozilla::ipc::Endpoint<PStreamFilterChild>&& aEndpoint) {
-                 self->FinishConnect(std::move(aEndpoint));
-               },
-               [=](mozilla::ipc::ResponseRejectReason&& aReason) {
-                 self->mActor->RecvInitialized(false);
-               });
+        ->Then(
+            GetCurrentSerialEventTarget(), __func__,
+            [self](mozilla::ipc::Endpoint<PStreamFilterChild>&& aEndpoint) {
+              self->FinishConnect(std::move(aEndpoint));
+            },
+            [self](mozilla::ipc::ResponseRejectReason&& aReason) {
+              self->mActor->RecvInitialized(false);
+            });
   } else {
-    mozilla::ipc::Endpoint<PStreamFilterChild> endpoint;
-    Unused << StreamFilterParent::Create(nullptr, mChannelId, addonId,
-                                         &endpoint);
-
-    // Always dispatch asynchronously so JS callers have a chance to attach
-    // event listeners before we dispatch events.
-    NS_DispatchToCurrentThread(
-        NewRunnableMethod<mozilla::ipc::Endpoint<PStreamFilterChild>&&>(
-            "StreamFilter::FinishConnect", this, &StreamFilter::FinishConnect,
-            std::move(endpoint)));
+    StreamFilterParent::Create(nullptr, mChannelId, addonId)
+        ->Then(
+            GetCurrentSerialEventTarget(), __func__,
+            [self](mozilla::ipc::Endpoint<PStreamFilterChild>&& aEndpoint) {
+              self->FinishConnect(std::move(aEndpoint));
+            },
+            [self](bool aDummy) { self->mActor->RecvInitialized(false); });
   }
 }
 
@@ -129,7 +127,7 @@ bool StreamFilter::CheckAlive() {
 template <typename T>
 static inline bool ReadTypedArrayData(nsTArray<uint8_t>& aData, const T& aArray,
                                       ErrorResult& aRv) {
-  aArray.ComputeLengthAndData();
+  aArray.ComputeState();
   if (!aData.SetLength(aArray.Length(), fallible)) {
     aRv.Throw(NS_ERROR_OUT_OF_MEMORY);
     return false;
@@ -227,14 +225,14 @@ void StreamFilter::FireDataEvent(const nsTArray<uint8_t>& aData) {
   auto buffer = ArrayBuffer::Create(cx, aData.Length(), aData.Elements());
   if (!buffer) {
     // TODO: There is no way to recover from this. This chunk of data is lost.
-    FireErrorEvent(NS_LITERAL_STRING("Out of memory"));
+    FireErrorEvent(u"Out of memory"_ns);
     return;
   }
 
   init.mData.Init(buffer);
 
   RefPtr<StreamFilterDataEvent> event =
-      StreamFilterDataEvent::Constructor(this, NS_LITERAL_STRING("data"), init);
+      StreamFilterDataEvent::Constructor(this, u"data"_ns, init);
   event->SetTrusted(true);
 
   DispatchEvent(*event);
@@ -244,15 +242,15 @@ void StreamFilter::FireErrorEvent(const nsAString& aError) {
   MOZ_ASSERT(mError.IsEmpty());
 
   mError = aError;
-  FireEvent(NS_LITERAL_STRING("error"));
+  FireEvent(u"error"_ns);
 }
 
 /*****************************************************************************
  * Glue
  *****************************************************************************/
 
-/* static */ bool StreamFilter::IsAllowedInContext(JSContext* aCx,
-                                                   JSObject* /* unused */) {
+/* static */
+bool StreamFilter::IsAllowedInContext(JSContext* aCx, JSObject* /* unused */) {
   return nsContentUtils::CallerHasPermission(aCx,
                                              nsGkAtoms::webRequestBlocking);
 }

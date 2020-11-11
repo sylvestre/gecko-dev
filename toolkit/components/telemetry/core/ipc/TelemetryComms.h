@@ -1,7 +1,7 @@
 /* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2; -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
- */
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #ifndef Telemetry_Comms_h__
 #define Telemetry_Comms_h__
@@ -69,12 +69,13 @@ struct DynamicScalarDefinition {
   uint32_t dataset;
   bool expired;
   bool keyed;
+  bool builtin;
   nsCString name;
 
   bool operator==(const DynamicScalarDefinition& rhs) const {
     return type == rhs.type && dataset == rhs.dataset &&
            expired == rhs.expired && keyed == rhs.keyed &&
-           name.Equals(rhs.name);
+           builtin == rhs.builtin && name.Equals(rhs.name);
   }
 };
 
@@ -89,7 +90,7 @@ struct ChildEventData {
   nsCString method;
   nsCString object;
   mozilla::Maybe<nsCString> value;
-  nsTArray<EventExtraEntry> extra;
+  CopyableTArray<EventExtraEntry> extra;
 };
 
 struct DiscardedData {
@@ -337,6 +338,7 @@ struct ParamTraits<mozilla::Telemetry::DynamicScalarDefinition> {
     WriteParam(aMsg, aParam.dataset);
     WriteParam(aMsg, aParam.expired);
     WriteParam(aMsg, aParam.keyed);
+    WriteParam(aMsg, aParam.builtin);
     WriteParam(aMsg, aParam.name);
   }
 
@@ -348,6 +350,7 @@ struct ParamTraits<mozilla::Telemetry::DynamicScalarDefinition> {
                    reinterpret_cast<uint32_t*>(&(aResult->dataset))) ||
         !ReadParam(aMsg, aIter, reinterpret_cast<bool*>(&(aResult->expired))) ||
         !ReadParam(aMsg, aIter, reinterpret_cast<bool*>(&(aResult->keyed))) ||
+        !ReadParam(aMsg, aIter, reinterpret_cast<bool*>(&(aResult->builtin))) ||
         !ReadParam(aMsg, aIter, &(aResult->name))) {
       return false;
     }

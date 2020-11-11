@@ -5,19 +5,71 @@
 
 #include "VideoStreamTrack.h"
 
-#include "MediaStreamVideoSink.h"
-#include "MediaStreamGraph.h"
+#include "MediaTrackGraph.h"
+#include "MediaTrackListener.h"
 #include "nsContentUtils.h"
+#include "nsGlobalWindowInner.h"
+#include "VideoOutput.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
-void VideoStreamTrack::AddVideoOutput(MediaStreamVideoSink* aSink) {
-  GetOwnedStream()->AddVideoOutput(aSink, mTrackID);
+VideoStreamTrack::VideoStreamTrack(nsPIDOMWindowInner* aWindow,
+                                   mozilla::MediaTrack* aInputTrack,
+                                   MediaStreamTrackSource* aSource,
+                                   MediaStreamTrackState aReadyState,
+                                   bool aMuted,
+                                   const MediaTrackConstraints& aConstraints)
+    : MediaStreamTrack(aWindow, aInputTrack, aSource, aReadyState, aMuted,
+                       aConstraints) {}
+
+void VideoStreamTrack::Destroy() {
+  mVideoOutputs.Clear();
+  MediaStreamTrack::Destroy();
 }
 
-void VideoStreamTrack::RemoveVideoOutput(MediaStreamVideoSink* aSink) {
-  GetOwnedStream()->RemoveVideoOutput(aSink, mTrackID);
+void VideoStreamTrack::AddVideoOutput(VideoFrameContainer* aSink) {
+  if (Ended()) {
+    return;
+  }
+  auto output = MakeRefPtr<VideoOutput>(
+      aSink, nsGlobalWindowInner::Cast(GetParentObject())
+                 ->AbstractMainThreadFor(TaskCategory::Other));
+  AddVideoOutput(output);
+}
+
+void VideoStreamTrack::AddVideoOutput(VideoOutput* aOutput) {
+  if (Ended()) {
+    return;
+  }
+  for (const auto& output : mVideoOutputs) {
+    if (output == aOutput) {
+      MOZ_ASSERT_UNREACHABLE("A VideoOutput was already added");
+      return;
+    }
+  }
+  mVideoOutputs.AppendElement(aOutput);
+  AddDirectListener(aOutput);
+  AddListener(aOutput);
+}
+
+void VideoStreamTrack::RemoveVideoOutput(VideoFrameContainer* aSink) {
+  for (const auto& output : mVideoOutputs.Clone()) {
+    if (output->mVideoFrameContainer == aSink) {
+      mVideoOutputs.RemoveElement(output);
+      RemoveDirectListener(output);
+      RemoveListener(output);
+    }
+  }
+}
+
+void VideoStreamTrack::RemoveVideoOutput(VideoOutput* aOutput) {
+  for (const auto& output : mVideoOutputs.Clone()) {
+    if (output == aOutput) {
+      mVideoOutputs.RemoveElement(aOutput);
+      RemoveDirectListener(aOutput);
+      RemoveListener(aOutput);
+    }
+  }
 }
 
 void VideoStreamTrack::GetLabel(nsAString& aLabel, CallerType aCallerType) {
@@ -28,5 +80,9 @@ void VideoStreamTrack::GetLabel(nsAString& aLabel, CallerType aCallerType) {
   MediaStreamTrack::GetLabel(aLabel, aCallerType);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+already_AddRefed<MediaStreamTrack> VideoStreamTrack::CloneInternal() {
+  return do_AddRef(new VideoStreamTrack(mWindow, mInputTrack, mSource,
+                                        ReadyState(), Muted(), mConstraints));
+}
+
+}  // namespace mozilla::dom

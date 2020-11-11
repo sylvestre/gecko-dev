@@ -5,11 +5,14 @@
 //!
 //! This module declares the data types used to represent external functions and call signatures.
 
-use ir::{ArgumentLoc, ExternalName, SigRef, Type};
-use isa::{CallConv, RegInfo, RegUnit};
-use std::fmt;
-use std::str::FromStr;
-use std::vec::Vec;
+use crate::ir::{ArgumentLoc, ExternalName, SigRef, Type};
+use crate::isa::{CallConv, RegInfo, RegUnit};
+use crate::machinst::RelocDistance;
+use alloc::vec::Vec;
+use core::fmt;
+use core::str::FromStr;
+#[cfg(feature = "enable-serde")]
+use serde::{Deserialize, Serialize};
 
 /// Function signature.
 ///
@@ -19,6 +22,7 @@ use std::vec::Vec;
 /// A signature can optionally include ISA-specific ABI information which specifies exactly how
 /// arguments and return values are passed.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct Signature {
     /// The arguments passed to the function.
     pub params: Vec<AbiParam>,
@@ -54,6 +58,53 @@ impl Signature {
     /// Find the index of a presumed unique special-purpose parameter.
     pub fn special_param_index(&self, purpose: ArgumentPurpose) -> Option<usize> {
         self.params.iter().rposition(|arg| arg.purpose == purpose)
+    }
+
+    /// Find the index of a presumed unique special-purpose parameter.
+    pub fn special_return_index(&self, purpose: ArgumentPurpose) -> Option<usize> {
+        self.returns.iter().rposition(|arg| arg.purpose == purpose)
+    }
+
+    /// Does this signature have a parameter whose `ArgumentPurpose` is
+    /// `purpose`?
+    pub fn uses_special_param(&self, purpose: ArgumentPurpose) -> bool {
+        self.special_param_index(purpose).is_some()
+    }
+
+    /// Does this signature have a return whose `ArgumentPurpose` is `purpose`?
+    pub fn uses_special_return(&self, purpose: ArgumentPurpose) -> bool {
+        self.special_return_index(purpose).is_some()
+    }
+
+    /// How many special parameters does this function have?
+    pub fn num_special_params(&self) -> usize {
+        self.params
+            .iter()
+            .filter(|p| p.purpose != ArgumentPurpose::Normal)
+            .count()
+    }
+
+    /// How many special returns does this function have?
+    pub fn num_special_returns(&self) -> usize {
+        self.returns
+            .iter()
+            .filter(|r| r.purpose != ArgumentPurpose::Normal)
+            .count()
+    }
+
+    /// Does this signature take an struct return pointer parameter?
+    pub fn uses_struct_return_param(&self) -> bool {
+        self.uses_special_param(ArgumentPurpose::StructReturn)
+    }
+
+    /// Does this return more than one normal value? (Pre-struct return
+    /// legalization)
+    pub fn is_multi_return(&self) -> bool {
+        self.returns
+            .iter()
+            .filter(|r| r.purpose == ArgumentPurpose::Normal)
+            .count()
+            > 1
     }
 }
 
@@ -97,6 +148,7 @@ impl fmt::Display for Signature {
 /// This describes the value type being passed to or from a function along with flags that affect
 /// how the argument is passed.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct AbiParam {
     /// Type of the argument value.
     pub value_type: Type,
@@ -108,6 +160,8 @@ pub struct AbiParam {
     /// ABI-specific location of this argument, or `Unassigned` for arguments that have not yet
     /// been legalized.
     pub location: ArgumentLoc,
+    /// Was the argument converted to pointer during legalization?
+    pub legalized_to_pointer: bool,
 }
 
 impl AbiParam {
@@ -118,6 +172,7 @@ impl AbiParam {
             extension: ArgumentExtension::None,
             purpose: ArgumentPurpose::Normal,
             location: Default::default(),
+            legalized_to_pointer: false,
         }
     }
 
@@ -128,6 +183,7 @@ impl AbiParam {
             extension: ArgumentExtension::None,
             purpose,
             location: Default::default(),
+            legalized_to_pointer: false,
         }
     }
 
@@ -138,6 +194,7 @@ impl AbiParam {
             extension: ArgumentExtension::None,
             purpose,
             location: ArgumentLoc::Reg(regunit),
+            legalized_to_pointer: false,
         }
     }
 
@@ -171,6 +228,9 @@ pub struct DisplayAbiParam<'a>(&'a AbiParam, Option<&'a RegInfo>);
 impl<'a> fmt::Display for DisplayAbiParam<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.0.value_type)?;
+        if self.0.legalized_to_pointer {
+            write!(f, " ptr")?;
+        }
         match self.0.extension {
             ArgumentExtension::None => {}
             ArgumentExtension::Uext => write!(f, " uext")?,
@@ -199,6 +259,7 @@ impl fmt::Display for AbiParam {
 /// On some architectures, small integer function arguments are extended to the width of a
 /// general-purpose register.
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum ArgumentExtension {
     /// No extension, high bits are indeterminate.
     None,
@@ -216,9 +277,13 @@ pub enum ArgumentExtension {
 ///
 /// The argument purpose is used to indicate any special meaning of an argument or return value.
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum ArgumentPurpose {
     /// A normal user program value passed to or from a function.
     Normal,
+
+    /// A C struct passed as argument.
+    StructArgument(u32),
 
     /// Struct return pointer.
     ///
@@ -270,23 +335,37 @@ pub enum ArgumentPurpose {
     /// This is a pointer to a stack limit. It is used to check the current stack pointer
     /// against. Can only appear once in a signature.
     StackLimit,
-}
 
-/// Text format names of the `ArgumentPurpose` variants.
-static PURPOSE_NAMES: [&str; 8] = [
-    "normal",
-    "sret",
-    "link",
-    "fp",
-    "csr",
-    "vmctx",
-    "sigid",
-    "stack_limit",
-];
+    /// A callee TLS value.
+    ///
+    /// In the Baldrdash-2020 calling convention, the stack upon entry to the callee contains the
+    /// TLS-register values for the caller and the callee. This argument is used to provide the
+    /// value for the callee.
+    CalleeTLS,
+
+    /// A caller TLS value.
+    ///
+    /// In the Baldrdash-2020 calling convention, the stack upon entry to the callee contains the
+    /// TLS-register values for the caller and the callee. This argument is used to provide the
+    /// value for the caller.
+    CallerTLS,
+}
 
 impl fmt::Display for ArgumentPurpose {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_str(PURPOSE_NAMES[*self as usize])
+        f.write_str(match self {
+            Self::Normal => "normal",
+            Self::StructArgument(size) => return write!(f, "sarg({})", size),
+            Self::StructReturn => "sret",
+            Self::Link => "link",
+            Self::FramePointer => "fp",
+            Self::CalleeSaved => "csr",
+            Self::VMContext => "vmctx",
+            Self::SignatureId => "sigid",
+            Self::StackLimit => "stack_limit",
+            Self::CalleeTLS => "callee_tls",
+            Self::CallerTLS => "caller_tls",
+        })
     }
 }
 
@@ -294,14 +373,22 @@ impl FromStr for ArgumentPurpose {
     type Err = ();
     fn from_str(s: &str) -> Result<Self, ()> {
         match s {
-            "normal" => Ok(ArgumentPurpose::Normal),
-            "sret" => Ok(ArgumentPurpose::StructReturn),
-            "link" => Ok(ArgumentPurpose::Link),
-            "fp" => Ok(ArgumentPurpose::FramePointer),
-            "csr" => Ok(ArgumentPurpose::CalleeSaved),
-            "vmctx" => Ok(ArgumentPurpose::VMContext),
-            "sigid" => Ok(ArgumentPurpose::SignatureId),
-            "stack_limit" => Ok(ArgumentPurpose::StackLimit),
+            "normal" => Ok(Self::Normal),
+            "sret" => Ok(Self::StructReturn),
+            "link" => Ok(Self::Link),
+            "fp" => Ok(Self::FramePointer),
+            "csr" => Ok(Self::CalleeSaved),
+            "vmctx" => Ok(Self::VMContext),
+            "sigid" => Ok(Self::SignatureId),
+            "stack_limit" => Ok(Self::StackLimit),
+            _ if s.starts_with("sarg(") => {
+                if !s.ends_with(")") {
+                    return Err(());
+                }
+                // Parse 'sarg(size)'
+                let size: u32 = s["sarg(".len()..s.len() - 1].parse().map_err(|_| ())?;
+                Ok(Self::StructArgument(size))
+            }
             _ => Err(()),
         }
     }
@@ -319,6 +406,16 @@ pub struct ExtFuncData {
     /// Will this function be defined nearby, such that it will always be a certain distance away,
     /// after linking? If so, references to it can avoid going through a GOT or PLT. Note that
     /// symbols meant to be preemptible cannot be considered colocated.
+    ///
+    /// If `true`, some backends may use relocation forms that have limited range. The exact
+    /// distance depends on the code model in use. Currently on AArch64, for example, Cranelift
+    /// uses a custom code model supporting up to +/- 128MB displacements. If it is unknown how
+    /// far away the target will be, it is best not to set the `colocated` flag; in general, this
+    /// flag is best used when the target is known to be in the same unit of code generation, such
+    /// as a Wasm module.
+    ///
+    /// See the documentation for [`RelocDistance`](crate::machinst::RelocDistance) for more details. A
+    /// `colocated` flag value of `true` implies `RelocDistance::Near`.
     pub colocated: bool,
 }
 
@@ -331,11 +428,22 @@ impl fmt::Display for ExtFuncData {
     }
 }
 
+impl ExtFuncData {
+    /// Return an estimate of the distance to the referred-to function symbol.
+    pub fn reloc_distance(&self) -> RelocDistance {
+        if self.colocated {
+            RelocDistance::Near
+        } else {
+            RelocDistance::Far
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ir::types::{B8, F32, I32};
-    use std::string::ToString;
+    use crate::ir::types::{B8, F32, I32};
+    use alloc::string::ToString;
 
     #[test]
     fn argument_type() {
@@ -346,21 +454,24 @@ mod tests {
         assert_eq!(t.sext().to_string(), "i32 sext");
         t.purpose = ArgumentPurpose::StructReturn;
         assert_eq!(t.to_string(), "i32 uext sret");
+        t.legalized_to_pointer = true;
+        assert_eq!(t.to_string(), "i32 ptr uext sret");
     }
 
     #[test]
     fn argument_purpose() {
         let all_purpose = [
-            ArgumentPurpose::Normal,
-            ArgumentPurpose::StructReturn,
-            ArgumentPurpose::Link,
-            ArgumentPurpose::FramePointer,
-            ArgumentPurpose::CalleeSaved,
-            ArgumentPurpose::VMContext,
-            ArgumentPurpose::SignatureId,
-            ArgumentPurpose::StackLimit,
+            (ArgumentPurpose::Normal, "normal"),
+            (ArgumentPurpose::StructReturn, "sret"),
+            (ArgumentPurpose::Link, "link"),
+            (ArgumentPurpose::FramePointer, "fp"),
+            (ArgumentPurpose::CalleeSaved, "csr"),
+            (ArgumentPurpose::VMContext, "vmctx"),
+            (ArgumentPurpose::SignatureId, "sigid"),
+            (ArgumentPurpose::StackLimit, "stack_limit"),
+            (ArgumentPurpose::StructArgument(42), "sarg(42)"),
         ];
-        for (&e, &n) in all_purpose.iter().zip(PURPOSE_NAMES.iter()) {
+        for &(e, n) in &all_purpose {
             assert_eq!(e.to_string(), n);
             assert_eq!(Ok(e), n.parse());
         }
@@ -373,7 +484,9 @@ mod tests {
             CallConv::Cold,
             CallConv::SystemV,
             CallConv::WindowsFastcall,
-            CallConv::Baldrdash,
+            CallConv::BaldrdashSystemV,
+            CallConv::BaldrdashWindows,
+            CallConv::Baldrdash2020,
         ] {
             assert_eq!(Ok(cc), cc.to_string().parse())
         }
@@ -381,16 +494,19 @@ mod tests {
 
     #[test]
     fn signatures() {
-        let mut sig = Signature::new(CallConv::Baldrdash);
-        assert_eq!(sig.to_string(), "() baldrdash");
+        let mut sig = Signature::new(CallConv::BaldrdashSystemV);
+        assert_eq!(sig.to_string(), "() baldrdash_system_v");
         sig.params.push(AbiParam::new(I32));
-        assert_eq!(sig.to_string(), "(i32) baldrdash");
+        assert_eq!(sig.to_string(), "(i32) baldrdash_system_v");
         sig.returns.push(AbiParam::new(F32));
-        assert_eq!(sig.to_string(), "(i32) -> f32 baldrdash");
+        assert_eq!(sig.to_string(), "(i32) -> f32 baldrdash_system_v");
         sig.params.push(AbiParam::new(I32.by(4).unwrap()));
-        assert_eq!(sig.to_string(), "(i32, i32x4) -> f32 baldrdash");
+        assert_eq!(sig.to_string(), "(i32, i32x4) -> f32 baldrdash_system_v");
         sig.returns.push(AbiParam::new(B8));
-        assert_eq!(sig.to_string(), "(i32, i32x4) -> f32, b8 baldrdash");
+        assert_eq!(
+            sig.to_string(),
+            "(i32, i32x4) -> f32, b8 baldrdash_system_v"
+        );
 
         // Order does not matter.
         sig.params[0].location = ArgumentLoc::Stack(24);
@@ -399,7 +515,7 @@ mod tests {
         // Writing ABI-annotated signatures.
         assert_eq!(
             sig.to_string(),
-            "(i32 [24], i32x4 [8]) -> f32, b8 baldrdash"
+            "(i32 [24], i32x4 [8]) -> f32, b8 baldrdash_system_v"
         );
     }
 }

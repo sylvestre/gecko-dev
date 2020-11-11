@@ -3,9 +3,7 @@
 <head>
   <title>Test for simple WebExtension</title>
   <script src="chrome://mochikit/content/tests/SimpleTest/SimpleTest.js"></script>
-  <script src="chrome://mochikit/content/tests/SimpleTest/AddTask.js"></script>
   <script src="chrome://mochikit/content/tests/SimpleTest/ExtensionTestUtils.js"></script>
-  <script type="text/javascript" src="chrome_head.js"></script>
   <script type="text/javascript" src="head.js"></script>
   <link rel="stylesheet" href="chrome://mochikit/content/tests/SimpleTest/test.css"/>
 </head>
@@ -19,7 +17,7 @@ add_task(async function webnav_unresolved_uri_on_expected_URI_scheme() {
     let checkURLs;
 
     browser.webNavigation.onCompleted.addListener(async msg => {
-      if (checkURLs.length > 0) {
+      if (checkURLs.length) {
         let expectedURL = checkURLs.shift();
         browser.test.assertEq(expectedURL, msg.url, "Got the expected URL");
         await browser.tabs.remove(msg.tabId);

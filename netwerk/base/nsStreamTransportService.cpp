@@ -12,7 +12,6 @@
 
 #include "nsIAsyncInputStream.h"
 #include "nsIAsyncOutputStream.h"
-#include "nsISeekableStream.h"
 #include "nsIPipe.h"
 #include "nsITransport.h"
 #include "nsIObserverService.h"
@@ -30,22 +29,32 @@ namespace net {
 // and close-when-done semantics while utilizing NS_AsyncCopy.
 //-----------------------------------------------------------------------------
 
-class nsInputStreamTransport : public nsITransport, public nsIInputStream {
+class nsInputStreamTransport : public nsITransport,
+                               public nsIAsyncInputStream,
+                               public nsIInputStreamCallback {
  public:
-  // Record refcount changes to ensure that stream transports are destroyed
-  // on consistent threads when recording/replaying.
-  NS_DECL_THREADSAFE_ISUPPORTS_WITH_RECORDING(recordreplay::Behavior::Preserve)
+  NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSITRANSPORT
   NS_DECL_NSIINPUTSTREAM
+  NS_DECL_NSIASYNCINPUTSTREAM
+  NS_DECL_NSIINPUTSTREAMCALLBACK
 
-  nsInputStreamTransport(nsIInputStream *source, bool closeWhenDone)
-      : mSource(source),
+  nsInputStreamTransport(nsIInputStream* source, bool closeWhenDone)
+      : mMutex("nsInputStreamTransport::mMutex"),
+        mSource(source),
         mOffset(0),
         mCloseWhenDone(closeWhenDone),
-        mInProgress(false) {}
+        mInProgress(false) {
+    mAsyncSource = do_QueryInterface(mSource);
+  }
 
  private:
   virtual ~nsInputStreamTransport() = default;
+
+  Mutex mMutex;
+
+  // This value is protected by mutex.
+  nsCOMPtr<nsIInputStreamCallback> mAsyncWaitCallback;
 
   nsCOMPtr<nsIAsyncInputStream> mPipeIn;
 
@@ -53,22 +62,35 @@ class nsInputStreamTransport : public nsITransport, public nsIInputStream {
   // nsIInputStream implementation.
   nsCOMPtr<nsITransportEventSink> mEventSink;
   nsCOMPtr<nsIInputStream> mSource;
+
+  // It can be null.
+  nsCOMPtr<nsIAsyncInputStream> mAsyncSource;
+
   int64_t mOffset;
-  bool mCloseWhenDone;
+  const bool mCloseWhenDone;
 
   // this variable serves as a lock to prevent the state of the transport
   // from being modified once the copy is in progress.
   bool mInProgress;
 };
 
-NS_IMPL_ISUPPORTS(nsInputStreamTransport, nsITransport, nsIInputStream)
+NS_IMPL_ADDREF(nsInputStreamTransport);
+NS_IMPL_RELEASE(nsInputStreamTransport);
+
+NS_INTERFACE_MAP_BEGIN(nsInputStreamTransport)
+  NS_INTERFACE_MAP_ENTRY(nsITransport)
+  NS_INTERFACE_MAP_ENTRY(nsIInputStream)
+  NS_INTERFACE_MAP_ENTRY_CONDITIONAL(nsIAsyncInputStream, !!mAsyncSource)
+  NS_INTERFACE_MAP_ENTRY_CONDITIONAL(nsIInputStreamCallback, !!mAsyncSource)
+  NS_INTERFACE_MAP_ENTRY_AMBIGUOUS(nsISupports, nsITransport)
+NS_INTERFACE_MAP_END
 
 /** nsITransport **/
 
 NS_IMETHODIMP
 nsInputStreamTransport::OpenInputStream(uint32_t flags, uint32_t segsize,
                                         uint32_t segcount,
-                                        nsIInputStream **result) {
+                                        nsIInputStream** result) {
   NS_ENSURE_TRUE(!mInProgress, NS_ERROR_IN_PROGRESS);
 
   nsresult rv;
@@ -94,15 +116,17 @@ nsInputStreamTransport::OpenInputStream(uint32_t flags, uint32_t segsize,
   // startup async copy process...
   rv = NS_AsyncCopy(this, pipeOut, target, NS_ASYNCCOPY_VIA_WRITESEGMENTS,
                     segsize);
-  if (NS_SUCCEEDED(rv)) NS_ADDREF(*result = mPipeIn);
-
-  return rv;
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
+  *result = do_AddRef(mPipeIn).take();
+  return NS_OK;
 }
 
 NS_IMETHODIMP
 nsInputStreamTransport::OpenOutputStream(uint32_t flags, uint32_t segsize,
                                          uint32_t segcount,
-                                         nsIOutputStream **result) {
+                                         nsIOutputStream** result) {
   // this transport only supports reading!
   MOZ_ASSERT_UNREACHABLE("nsInputStreamTransport::OpenOutputStream");
   return NS_ERROR_UNEXPECTED;
@@ -116,8 +140,8 @@ nsInputStreamTransport::Close(nsresult reason) {
 }
 
 NS_IMETHODIMP
-nsInputStreamTransport::SetEventSink(nsITransportEventSink *sink,
-                                     nsIEventTarget *target) {
+nsInputStreamTransport::SetEventSink(nsITransportEventSink* sink,
+                                     nsIEventTarget* target) {
   NS_ENSURE_TRUE(!mInProgress, NS_ERROR_IN_PROGRESS);
 
   if (target)
@@ -140,12 +164,12 @@ nsInputStreamTransport::Close() {
 }
 
 NS_IMETHODIMP
-nsInputStreamTransport::Available(uint64_t *result) {
+nsInputStreamTransport::Available(uint64_t* result) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
 NS_IMETHODIMP
-nsInputStreamTransport::Read(char *buf, uint32_t count, uint32_t *result) {
+nsInputStreamTransport::Read(char* buf, uint32_t count, uint32_t* result) {
   nsresult rv = mSource->Read(buf, count, result);
 
   if (NS_SUCCEEDED(rv)) {
@@ -157,15 +181,62 @@ nsInputStreamTransport::Read(char *buf, uint32_t count, uint32_t *result) {
 }
 
 NS_IMETHODIMP
-nsInputStreamTransport::ReadSegments(nsWriteSegmentFun writer, void *closure,
-                                     uint32_t count, uint32_t *result) {
+nsInputStreamTransport::ReadSegments(nsWriteSegmentFun writer, void* closure,
+                                     uint32_t count, uint32_t* result) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
 NS_IMETHODIMP
-nsInputStreamTransport::IsNonBlocking(bool *result) {
+nsInputStreamTransport::IsNonBlocking(bool* result) {
   *result = false;
   return NS_OK;
+}
+
+// nsIAsyncInputStream interface
+
+NS_IMETHODIMP
+nsInputStreamTransport::CloseWithStatus(nsresult aStatus) { return Close(); }
+
+NS_IMETHODIMP
+nsInputStreamTransport::AsyncWait(nsIInputStreamCallback* aCallback,
+                                  uint32_t aFlags, uint32_t aRequestedCount,
+                                  nsIEventTarget* aEventTarget) {
+  NS_ENSURE_STATE(!!mAsyncSource);
+
+  nsCOMPtr<nsIInputStreamCallback> callback = aCallback ? this : nullptr;
+
+  {
+    MutexAutoLock lock(mMutex);
+
+    if (mAsyncWaitCallback && aCallback) {
+      return NS_ERROR_FAILURE;
+    }
+
+    mAsyncWaitCallback = aCallback;
+  }
+
+  return mAsyncSource->AsyncWait(callback, aFlags, aRequestedCount,
+                                 aEventTarget);
+}
+
+// nsIInputStreamCallback
+
+NS_IMETHODIMP
+nsInputStreamTransport::OnInputStreamReady(nsIAsyncInputStream* aStream) {
+  nsCOMPtr<nsIInputStreamCallback> callback;
+  {
+    MutexAutoLock lock(mMutex);
+
+    // We have been canceled in the meanwhile.
+    if (!mAsyncWaitCallback) {
+      return NS_OK;
+    }
+
+    callback.swap(mAsyncWaitCallback);
+  }
+
+  MOZ_ASSERT(callback);
+  return callback->OnInputStreamReady(this);
 }
 
 //-----------------------------------------------------------------------------
@@ -180,9 +251,10 @@ nsresult nsStreamTransportService::Init() {
   mPool = new nsThreadPool();
 
   // Configure the pool
-  mPool->SetName(NS_LITERAL_CSTRING("StreamTrans"));
+  mPool->SetName("StreamTrans"_ns);
   mPool->SetThreadLimit(25);
-  mPool->SetIdleThreadLimit(1);
+  mPool->SetIdleThreadLimit(5);
+  mPool->SetIdleThreadTimeoutRegressive(true);
   mPool->SetIdleThreadTimeout(PR_SecondsToInterval(30));
 
   nsCOMPtr<nsIObserverService> obsSvc = mozilla::services::GetObserverService();
@@ -194,7 +266,7 @@ NS_IMPL_ISUPPORTS(nsStreamTransportService, nsIStreamTransportService,
                   nsIEventTarget, nsIObserver)
 
 NS_IMETHODIMP
-nsStreamTransportService::DispatchFromScript(nsIRunnable *task,
+nsStreamTransportService::DispatchFromScript(nsIRunnable* task,
                                              uint32_t flags) {
   nsCOMPtr<nsIRunnable> event(task);
   return Dispatch(event.forget(), flags);
@@ -236,7 +308,7 @@ nsStreamTransportService::IsOnCurrentThreadInfallible() {
 }
 
 NS_IMETHODIMP
-nsStreamTransportService::IsOnCurrentThread(bool *result) {
+nsStreamTransportService::IsOnCurrentThread(bool* result) {
   nsCOMPtr<nsIThreadPool> pool;
   {
     mozilla::MutexAutoLock lock(mShutdownLock);
@@ -250,19 +322,18 @@ nsStreamTransportService::IsOnCurrentThread(bool *result) {
 }
 
 NS_IMETHODIMP
-nsStreamTransportService::CreateInputTransport(nsIInputStream *stream,
+nsStreamTransportService::CreateInputTransport(nsIInputStream* stream,
                                                bool closeWhenDone,
-                                               nsITransport **result) {
-  nsInputStreamTransport *trans =
+                                               nsITransport** result) {
+  RefPtr<nsInputStreamTransport> trans =
       new nsInputStreamTransport(stream, closeWhenDone);
-  if (!trans) return NS_ERROR_OUT_OF_MEMORY;
-  NS_ADDREF(*result = trans);
+  trans.forget(result);
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsStreamTransportService::Observe(nsISupports *subject, const char *topic,
-                                  const char16_t *data) {
+nsStreamTransportService::Observe(nsISupports* subject, const char* topic,
+                                  const char16_t* data) {
   NS_ASSERTION(strcmp(topic, "xpcom-shutdown-threads") == 0, "oops");
 
   {
@@ -279,14 +350,14 @@ nsStreamTransportService::Observe(nsISupports *subject, const char *topic,
 
 class AvailableEvent final : public Runnable {
  public:
-  AvailableEvent(nsIInputStream *stream, nsIInputAvailableCallback *callback)
+  AvailableEvent(nsIInputStream* stream, nsIInputAvailableCallback* callback)
       : Runnable("net::AvailableEvent"),
         mStream(stream),
         mCallback(callback),
         mDoingCallback(false),
         mSize(0),
         mResultForCallback(NS_OK) {
-    mCallbackTarget = GetCurrentThreadEventTarget();
+    mCallbackTarget = GetCurrentEventTarget();
   }
 
   NS_IMETHOD Run() override {
@@ -319,8 +390,8 @@ class AvailableEvent final : public Runnable {
 };
 
 NS_IMETHODIMP
-nsStreamTransportService::InputAvailable(nsIInputStream *stream,
-                                         nsIInputAvailableCallback *callback) {
+nsStreamTransportService::InputAvailable(nsIInputStream* stream,
+                                         nsIInputAvailableCallback* callback) {
   nsCOMPtr<nsIThreadPool> pool;
   {
     mozilla::MutexAutoLock lock(mShutdownLock);

@@ -11,7 +11,9 @@
 #include "mozilla/Unused.h"
 #include "mozilla/ipc/BackgroundUtils.h"
 
+#include "nsDebug.h"
 #include "nsIPrincipal.h"
+#include "nsISHEntry.h"
 
 namespace mozilla {
 
@@ -21,8 +23,12 @@ WebBrowserPersistRemoteDocument ::WebBrowserPersistRemoteDocument(
     WebBrowserPersistDocumentParent* aActor, const Attrs& aAttrs,
     nsIInputStream* aPostData)
     : mActor(aActor), mAttrs(aAttrs), mPostData(aPostData) {
-  nsresult rv;
-  mPrincipal = ipc::PrincipalInfoToPrincipal(mAttrs.principal(), &rv);
+  auto principalOrErr = ipc::PrincipalInfoToPrincipal(mAttrs.principal());
+  if (principalOrErr.isOk()) {
+    mPrincipal = principalOrErr.unwrap();
+  } else {
+    NS_WARNING("Failed to obtain principal!");
+  }
 }
 
 WebBrowserPersistRemoteDocument::~WebBrowserPersistRemoteDocument() {
@@ -35,6 +41,12 @@ WebBrowserPersistRemoteDocument::~WebBrowserPersistRemoteDocument() {
 }
 
 void WebBrowserPersistRemoteDocument::ActorDestroy(void) { mActor = nullptr; }
+
+NS_IMETHODIMP
+WebBrowserPersistRemoteDocument::GetIsClosed(bool* aIsClosed) {
+  *aIsClosed = !mActor;
+  return NS_OK;
+}
 
 NS_IMETHODIMP
 WebBrowserPersistRemoteDocument::GetIsPrivate(bool* aIsPrivate) {
@@ -73,8 +85,10 @@ WebBrowserPersistRemoteDocument::GetTitle(nsAString& aTitle) {
 }
 
 NS_IMETHODIMP
-WebBrowserPersistRemoteDocument::GetReferrer(nsAString& aReferrer) {
-  aReferrer = mAttrs.referrer();
+WebBrowserPersistRemoteDocument::GetReferrerInfo(
+    nsIReferrerInfo** aReferrerInfo) {
+  *aReferrerInfo = mAttrs.referrerInfo();
+  NS_IF_ADDREF(*aReferrerInfo);
   return NS_OK;
 }
 
@@ -86,7 +100,7 @@ WebBrowserPersistRemoteDocument::GetContentDisposition(nsAString& aDisp) {
 
 NS_IMETHODIMP
 WebBrowserPersistRemoteDocument::GetCacheKey(uint32_t* aCacheKey) {
-  *aCacheKey = mAttrs.cacheKey();
+  *aCacheKey = mAttrs.sessionHistoryCacheKey();
   return NS_OK;
 }
 
@@ -168,6 +182,14 @@ WebBrowserPersistRemoteDocument::WriteContent(
              subActor, map, requestedContentType, aEncoderFlags, aWrapColumn)
              ? NS_OK
              : NS_ERROR_FAILURE;
+}
+
+// Forcing WebBrowserPersistRemoteDocument to implement GetHistory is the
+// easiest way to ensure that we can call GetHistory in
+// WebBrowserPersistDocumentChild::Start
+already_AddRefed<nsISHEntry> WebBrowserPersistRemoteDocument::GetHistory() {
+  MOZ_CRASH("We should not call GetHistory on WebBrowserPersistRemoteDocument");
+  return nullptr;
 }
 
 }  // namespace mozilla

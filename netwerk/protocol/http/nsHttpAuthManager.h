@@ -19,13 +19,13 @@ class nsHttpAuthManager : public nsIHttpAuthManager {
   NS_DECL_NSIHTTPAUTHMANAGER
 
   nsHttpAuthManager();
-  MOZ_MUST_USE nsresult Init();
+  [[nodiscard]] nsresult Init();
 
  protected:
   virtual ~nsHttpAuthManager() = default;
 
-  nsHttpAuthCache *mAuthCache;
-  nsHttpAuthCache *mPrivateAuthCache;
+  nsHttpAuthCache* mAuthCache;
+  nsHttpAuthCache* mPrivateAuthCache;
 };
 
 }  // namespace net

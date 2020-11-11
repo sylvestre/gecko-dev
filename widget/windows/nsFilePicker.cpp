@@ -17,10 +17,6 @@
 #include "nsReadableUtils.h"
 #include "nsNetUtil.h"
 #include "nsWindow.h"
-#include "nsILoadContext.h"
-#include "nsIServiceManager.h"
-#include "nsIURL.h"
-#include "nsIStringBundle.h"
 #include "nsEnumeratorUtils.h"
 #include "nsCRT.h"
 #include "nsString.h"
@@ -35,8 +31,7 @@ using mozilla::UniquePtr;
 using mozilla::mscom::EnsureMTA;
 using namespace mozilla::widget;
 
-char16_t *nsFilePicker::mLastUsedUnicodeDirectory;
-char nsFilePicker::mLastUsedDirectory[MAX_PATH + 1] = {0};
+char16_t* nsFilePicker::mLastUsedUnicodeDirectory;
 
 static const unsigned long kDialogTimerTimeout = 300;
 
@@ -47,25 +42,6 @@ typedef DWORD FILEOPENDIALOGOPTIONS;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Helper classes
-
-// Manages matching SuppressBlurEvents calls on the parent widget.
-class AutoSuppressEvents {
- public:
-  explicit AutoSuppressEvents(nsIWidget *aWidget)
-      : mWindow(static_cast<nsWindow *>(aWidget)) {
-    SuppressWidgetEvents(true);
-  }
-
-  ~AutoSuppressEvents() { SuppressWidgetEvents(false); }
-
- private:
-  void SuppressWidgetEvents(bool aFlag) {
-    if (mWindow) {
-      mWindow->SuppressBlurEvents(aFlag);
-    }
-  }
-  RefPtr<nsWindow> mWindow;
-};
 
 // Manages the current working path.
 class AutoRestoreWorkingPath {
@@ -110,8 +86,8 @@ class AutoDestroyTmpWindow {
 // Manages matching PickerOpen/PickerClosed calls on the parent widget.
 class AutoWidgetPickerState {
  public:
-  explicit AutoWidgetPickerState(nsIWidget *aWidget)
-      : mWindow(static_cast<nsWindow *>(aWidget)) {
+  explicit AutoWidgetPickerState(nsIWidget* aWidget)
+      : mWindow(static_cast<nsWindow*>(aWidget)) {
     PickerState(true);
   }
 
@@ -132,9 +108,9 @@ class AutoWidgetPickerState {
 // Manages a simple callback timer
 class AutoTimerCallbackCancel {
  public:
-  AutoTimerCallbackCancel(nsFilePicker *aTarget,
+  AutoTimerCallbackCancel(nsFilePicker* aTarget,
                           nsTimerCallbackFunc aCallbackFunc,
-                          const char *aName) {
+                          const char* aName) {
     Init(aTarget, aCallbackFunc, aName);
   }
 
@@ -145,8 +121,8 @@ class AutoTimerCallbackCancel {
   }
 
  private:
-  void Init(nsFilePicker *aTarget, nsTimerCallbackFunc aCallbackFunc,
-            const char *aName) {
+  void Init(nsFilePicker* aTarget, nsTimerCallbackFunc aCallbackFunc,
+            const char* aName) {
     NS_NewTimerWithFuncCallback(getter_AddRefs(mPickerCallbackTimer),
                                 aCallbackFunc, aTarget, kDialogTimerTimeout,
                                 nsITimer::TYPE_REPEATING_SLACK, aName);
@@ -175,16 +151,16 @@ nsFilePicker::~nsFilePicker() {
 
 NS_IMPL_ISUPPORTS(nsFilePicker, nsIFilePicker)
 
-NS_IMETHODIMP nsFilePicker::Init(mozIDOMWindowProxy *aParent,
-                                 const nsAString &aTitle, int16_t aMode) {
+NS_IMETHODIMP nsFilePicker::Init(mozIDOMWindowProxy* aParent,
+                                 const nsAString& aTitle, int16_t aMode) {
   nsCOMPtr<nsPIDOMWindowOuter> window = do_QueryInterface(aParent);
-  nsIDocShell *docShell = window ? window->GetDocShell() : nullptr;
+  nsIDocShell* docShell = window ? window->GetDocShell() : nullptr;
   mLoadContext = do_QueryInterface(docShell);
 
   return nsBaseFilePicker::Init(aParent, aTitle, aMode);
 }
 
-STDMETHODIMP nsFilePicker::QueryInterface(REFIID refiid, void **ppvResult) {
+STDMETHODIMP nsFilePicker::QueryInterface(REFIID refiid, void** ppvResult) {
   *ppvResult = nullptr;
   if (IID_IUnknown == refiid || refiid == IID_IFileDialogEvents) {
     *ppvResult = this;
@@ -203,27 +179,27 @@ STDMETHODIMP nsFilePicker::QueryInterface(REFIID refiid, void **ppvResult) {
  */
 
 HRESULT
-nsFilePicker::OnFileOk(IFileDialog *pfd) { return S_OK; }
+nsFilePicker::OnFileOk(IFileDialog* pfd) { return S_OK; }
 
 HRESULT
-nsFilePicker::OnFolderChanging(IFileDialog *pfd, IShellItem *psiFolder) {
+nsFilePicker::OnFolderChanging(IFileDialog* pfd, IShellItem* psiFolder) {
   return S_OK;
 }
 
 HRESULT
-nsFilePicker::OnFolderChange(IFileDialog *pfd) { return S_OK; }
+nsFilePicker::OnFolderChange(IFileDialog* pfd) { return S_OK; }
 
 HRESULT
-nsFilePicker::OnSelectionChange(IFileDialog *pfd) { return S_OK; }
+nsFilePicker::OnSelectionChange(IFileDialog* pfd) { return S_OK; }
 
 HRESULT
-nsFilePicker::OnShareViolation(IFileDialog *pfd, IShellItem *psi,
-                               FDE_SHAREVIOLATION_RESPONSE *pResponse) {
+nsFilePicker::OnShareViolation(IFileDialog* pfd, IShellItem* psi,
+                               FDE_SHAREVIOLATION_RESPONSE* pResponse) {
   return S_OK;
 }
 
 HRESULT
-nsFilePicker::OnTypeChange(IFileDialog *pfd) {
+nsFilePicker::OnTypeChange(IFileDialog* pfd) {
   // Failures here result in errors due to security concerns.
   RefPtr<IOleWindow> win;
   pfd->QueryInterface(IID_IOleWindow, getter_AddRefs(win));
@@ -243,8 +219,8 @@ nsFilePicker::OnTypeChange(IFileDialog *pfd) {
 }
 
 HRESULT
-nsFilePicker::OnOverwrite(IFileDialog *pfd, IShellItem *psi,
-                          FDE_OVERWRITE_RESPONSE *pResponse) {
+nsFilePicker::OnOverwrite(IFileDialog* pfd, IShellItem* psi,
+                          FDE_OVERWRITE_RESPONSE* pResponse) {
   return S_OK;
 }
 
@@ -255,7 +231,7 @@ nsFilePicker::OnOverwrite(IFileDialog *pfd, IShellItem *psi,
 bool nsFilePicker::ClosePickerIfNeeded() {
   if (!mParentWidget || !mDlgWnd) return false;
 
-  nsWindow *win = static_cast<nsWindow *>(mParentWidget.get());
+  nsWindow* win = static_cast<nsWindow*>(mParentWidget.get());
   if (IsWindow(mDlgWnd) && IsWindowVisible(mDlgWnd) && win->DestroyCalled()) {
     wchar_t className[64];
     // Make sure we have the right window
@@ -268,8 +244,8 @@ bool nsFilePicker::ClosePickerIfNeeded() {
   return false;
 }
 
-void nsFilePicker::PickerCallbackTimerFunc(nsITimer *aTimer, void *aCtx) {
-  nsFilePicker *picker = (nsFilePicker *)aCtx;
+void nsFilePicker::PickerCallbackTimerFunc(nsITimer* aTimer, void* aCtx) {
+  nsFilePicker* picker = (nsFilePicker*)aCtx;
   if (picker->ClosePickerIfNeeded()) {
     aTimer->Cancel();
   }
@@ -291,7 +267,7 @@ void nsFilePicker::SetDialogHandle(HWND aWnd) {
  *                      used if left blank.
  * @return true if a file was selected successfully.
  */
-bool nsFilePicker::ShowFolderPicker(const nsString &aInitialDir) {
+bool nsFilePicker::ShowFolderPicker(const nsString& aInitialDir) {
   if (!IsWin8OrLater()) {
     // Some Windows 7 users are experiencing a race condition when some dlls
     // that are loaded by the file picker cause a crash while attempting to shut
@@ -373,7 +349,7 @@ bool nsFilePicker::ShowFolderPicker(const nsString &aInitialDir) {
  *                      used if left blank.
  * @return true if a file was selected successfully.
  */
-bool nsFilePicker::ShowFilePicker(const nsString &aInitialDir) {
+bool nsFilePicker::ShowFilePicker(const nsString& aInitialDir) {
   AUTO_PROFILER_LABEL("nsFilePicker::ShowFilePicker", OTHER);
 
   if (!IsWin8OrLater()) {
@@ -532,12 +508,10 @@ bool nsFilePicker::ShowFilePicker(const nsString &aInitialDir) {
 ///////////////////////////////////////////////////////////////////////////////
 // nsIFilePicker impl.
 
-nsresult nsFilePicker::ShowW(int16_t *aReturnVal) {
+nsresult nsFilePicker::ShowW(int16_t* aReturnVal) {
   NS_ENSURE_ARG_POINTER(aReturnVal);
 
   *aReturnVal = returnCancel;
-
-  AutoSuppressEvents supress(mParentWidget);
 
   nsAutoString initialDir;
   if (mDisplayDirectory) mDisplayDirectory->GetPath(initialDir);
@@ -584,10 +558,10 @@ nsresult nsFilePicker::ShowW(int16_t *aReturnVal) {
   return NS_OK;
 }
 
-nsresult nsFilePicker::Show(int16_t *aReturnVal) { return ShowW(aReturnVal); }
+nsresult nsFilePicker::Show(int16_t* aReturnVal) { return ShowW(aReturnVal); }
 
 NS_IMETHODIMP
-nsFilePicker::GetFile(nsIFile **aFile) {
+nsFilePicker::GetFile(nsIFile** aFile) {
   NS_ENSURE_ARG_POINTER(aFile);
   *aFile = nullptr;
 
@@ -605,7 +579,7 @@ nsFilePicker::GetFile(nsIFile **aFile) {
 }
 
 NS_IMETHODIMP
-nsFilePicker::GetFileURL(nsIURI **aFileURL) {
+nsFilePicker::GetFileURL(nsIURI** aFileURL) {
   *aFileURL = nullptr;
   nsCOMPtr<nsIFile> file;
   nsresult rv = GetFile(getter_AddRefs(file));
@@ -615,14 +589,14 @@ nsFilePicker::GetFileURL(nsIURI **aFileURL) {
 }
 
 NS_IMETHODIMP
-nsFilePicker::GetFiles(nsISimpleEnumerator **aFiles) {
+nsFilePicker::GetFiles(nsISimpleEnumerator** aFiles) {
   NS_ENSURE_ARG_POINTER(aFiles);
   return NS_NewArrayEnumerator(aFiles, mFiles, NS_GET_IID(nsIFile));
 }
 
 // Get the file + path
 NS_IMETHODIMP
-nsBaseWinFilePicker::SetDefaultString(const nsAString &aString) {
+nsBaseWinFilePicker::SetDefaultString(const nsAString& aString) {
   mDefaultFilePath = aString;
 
   // First, make sure the file name is not too long.
@@ -655,26 +629,26 @@ nsBaseWinFilePicker::SetDefaultString(const nsAString &aString) {
 }
 
 NS_IMETHODIMP
-nsBaseWinFilePicker::GetDefaultString(nsAString &aString) {
+nsBaseWinFilePicker::GetDefaultString(nsAString& aString) {
   return NS_ERROR_FAILURE;
 }
 
 // The default extension to use for files
 NS_IMETHODIMP
-nsBaseWinFilePicker::GetDefaultExtension(nsAString &aExtension) {
+nsBaseWinFilePicker::GetDefaultExtension(nsAString& aExtension) {
   aExtension = mDefaultExtension;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsBaseWinFilePicker::SetDefaultExtension(const nsAString &aExtension) {
+nsBaseWinFilePicker::SetDefaultExtension(const nsAString& aExtension) {
   mDefaultExtension = aExtension;
   return NS_OK;
 }
 
 // Set the filter index
 NS_IMETHODIMP
-nsFilePicker::GetFilterIndex(int32_t *aFilterIndex) {
+nsFilePicker::GetFilterIndex(int32_t* aFilterIndex) {
   // Windows' filter index is 1-based, we use a 0-based system.
   *aFilterIndex = mSelectedType - 1;
   return NS_OK;
@@ -687,13 +661,13 @@ nsFilePicker::SetFilterIndex(int32_t aFilterIndex) {
   return NS_OK;
 }
 
-void nsFilePicker::InitNative(nsIWidget *aParent, const nsAString &aTitle) {
+void nsFilePicker::InitNative(nsIWidget* aParent, const nsAString& aTitle) {
   mParentWidget = aParent;
   mTitle.Assign(aTitle);
 }
 
 NS_IMETHODIMP
-nsFilePicker::AppendFilter(const nsAString &aTitle, const nsAString &aFilter) {
+nsFilePicker::AppendFilter(const nsAString& aTitle, const nsAString& aFilter) {
   mComFilterList.Append(aTitle, aFilter);
   return NS_OK;
 }
@@ -729,9 +703,8 @@ bool nsFilePicker::IsDefaultPathLink() {
   NS_ConvertUTF16toUTF8 ext(mDefaultFilePath);
   ext.Trim(" .", false, true);  // watch out for trailing space and dots
   ToLowerCase(ext);
-  if (StringEndsWith(ext, NS_LITERAL_CSTRING(".lnk")) ||
-      StringEndsWith(ext, NS_LITERAL_CSTRING(".pif")) ||
-      StringEndsWith(ext, NS_LITERAL_CSTRING(".url")))
+  if (StringEndsWith(ext, ".lnk"_ns) || StringEndsWith(ext, ".pif"_ns) ||
+      StringEndsWith(ext, ".url"_ns))
     return true;
   return false;
 }
@@ -749,15 +722,15 @@ bool nsFilePicker::IsDefaultPathHtml() {
   return false;
 }
 
-void nsFilePicker::ComDlgFilterSpec::Append(const nsAString &aTitle,
-                                            const nsAString &aFilter) {
-  COMDLG_FILTERSPEC *pSpecForward = mSpecList.AppendElement();
+void nsFilePicker::ComDlgFilterSpec::Append(const nsAString& aTitle,
+                                            const nsAString& aFilter) {
+  COMDLG_FILTERSPEC* pSpecForward = mSpecList.AppendElement();
   if (!pSpecForward) {
     NS_WARNING("mSpecList realloc failed.");
     return;
   }
   memset(pSpecForward, 0, sizeof(*pSpecForward));
-  nsString *pStr = mStrings.AppendElement(aTitle);
+  nsString* pStr = mStrings.AppendElement(aTitle);
   if (!pStr) {
     NS_WARNING("mStrings.AppendElement failed.");
     return;

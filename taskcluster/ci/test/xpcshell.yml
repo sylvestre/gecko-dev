@@ -1,8 +1,18 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+---
 job-defaults:
-    serviceworker-e10s:
+    suite: xpcshell
+    variants:
         by-test-platform:
-            linux64/debug: both
-            default: false
+            linux1804-64/debug: ['fission', 'socketprocess_networking']
+            default: ['fission']
+    target:
+        by-test-platform:
+            android-em-7.*: geckoview-androidTest.apk
+            default: null
+    fission-tier: 2
     mozharness:
         script:
             by-test-platform:
@@ -10,25 +20,28 @@ job-defaults:
                 default: desktop_unittest.py
         config:
             by-test-platform:
-                android-em.*:
+                android-em-7.*:
                     - android/android_common.py
-                    - android/androidarm_4_3.py
+                    - android/androidx86_7_0.py
                 linux.*:
                     - unittests/linux_unittest.py
                     - remove_executables.py
                 macosx.*:
                     - unittests/mac_unittest.py
                 windows.*:
-                    - unittests/win_taskcluster_unittest.py
+                    - unittests/win_unittest.py
         requires-signed-builds:
             by-test-platform:
                 windows10-64-asan/opt: false    # No XPCShell on ASAN yet
+                windows7-32-mingwclang/opt: false
+                windows7-32-mingwclang/debug: false
+                windows10-64-mingwclang/opt: false
+                windows10-64-mingwclang/debug: false
                 windows.*: true
                 default: false
 
 xpcshell:
     description: "xpcshell test run"
-    suite: xpcshell
     treeherder-symbol: X(X)
     run-on-projects:
         by-test-platform:
@@ -36,25 +49,50 @@ xpcshell:
             default: built-projects
     chunks:
         by-test-platform:
-            linux32/debug: 12
-            linux64/debug: 10
-            android-em-4.3-arm7-api-16/debug: 12
-            macosx.*: 1
-            windows.*: 1
-            windows10-64-ccov/debug: 8
-            macosx64-ccov/debug: 8
-            default: 8
-    instance-size:
-        by-test-platform:
-            android-em.*: xlarge
-            default: default
+            .*-ccov.*/.*: 6
+            windows10-64-ccov-qr/opt: 6
+            android-em-7.*: 4
+            macosx1014-64(-shippable|-devedition|-asan)?(-qr)?/.*: 2
+            linux1804-64(-qr)?/debug: 6
+            .*-tsan/opt: 8
+            windows(7-32|10-64)(-shippable|-devedition|-asan|.*-qr)?/.*: 2
+            default: 5
     max-run-time:
         by-test-platform:
-            android-em-4.3-arm7-api-16/debug: 7200
-            default: 5400
-    e10s: false
+            macosx1014-64(-shippable|-devedition|-asan)?(-qr)?/.*: 5400
+            windows(7-32|10-64)(-shippable)?/opt: 5400
+            .*-ccov.*/.*: 7200
+            .*-tsan/opt: 7200
+            android-em-7.*: 5400
+            default: 2700
     allow-software-gl-layers: false
     tier:
         by-test-platform:
             windows10-64-asan.*: 3
             default: default
+    fetches:
+        toolchain:
+            by-test-platform:
+                linux.*:
+                    - linux64-node
+                    - linux64-minidump-stackwalk
+                    - linux64-fix-stacks
+                macosx.*:
+                    - macosx64-node
+                    - macosx64-minidump-stackwalk
+                    - macosx64-fix-stacks
+                win.*aarch64.*:
+                    - win32-node
+                    - win32-minidump-stackwalk
+                win.*-64.*:
+                    - win64-node
+                    - win32-minidump-stackwalk
+                    - win32-fix-stacks
+                win.*32.*:
+                    - win32-node
+                    - win32-minidump-stackwalk
+                    - win32-fix-stacks
+                android-em-7.*:
+                    - android-emulator-linux
+                    - linux64-node
+                    - linux64-minidump-stackwalk

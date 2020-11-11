@@ -20,18 +20,26 @@
  *    for certain types of links (_blank links for example) to open new tabs.
  */
 
-ChromeUtils.defineModuleGetter(this, "Services",
-                               "resource://gre/modules/Services.jsm");
-ChromeUtils.defineModuleGetter(this, "TalosParentProfiler",
-                               "resource://talos-powers/TalosParentProfiler.jsm");
+ChromeUtils.defineModuleGetter(
+  this,
+  "Services",
+  "resource://gre/modules/Services.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "TalosParentProfiler",
+  "resource://talos-powers/TalosParentProfiler.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "BrowserWindowTracker",
+  "resource:///modules/BrowserWindowTracker.jsm"
+);
 
-const ANIMATION_PREF = "toolkit.cosmeticAnimations.enabled";
+const REDUCE_MOTION_PREF = "ui.prefersReducedMotion";
 const MULTI_OPT_OUT_PREF = "dom.ipc.multiOptOut";
 
-const MESSAGES = [
-  "TabPaint:Go",
-  "TabPaint:Painted",
-];
+const MESSAGES = ["TabPaint:Go", "TabPaint:Painted"];
 
 /* globals ExtensionAPI */
 this.tabpaint = class extends ExtensionAPI {
@@ -48,10 +56,11 @@ this.tabpaint = class extends ExtensionAPI {
     this.framescriptURL = this.extension.baseURI.resolve("/framescript.js");
     Services.mm.loadFrameScript(this.framescriptURL, true);
 
-    this.originalAnimate = Services.prefs.getBoolPref(ANIMATION_PREF);
-    Services.prefs.setBoolPref(ANIMATION_PREF, false);
-    Services.prefs.setIntPref(MULTI_OPT_OUT_PREF,
-                              Services.appinfo.E10S_MULTI_EXPERIMENT);
+    Services.prefs.setIntPref(REDUCE_MOTION_PREF, 1);
+    Services.prefs.setIntPref(
+      MULTI_OPT_OUT_PREF,
+      Services.appinfo.E10S_MULTI_EXPERIMENT
+    );
 
     /**
      * We'll store a callback here to be fired once the target page
@@ -67,7 +76,7 @@ this.tabpaint = class extends ExtensionAPI {
 
     Services.mm.removeDelayedFrameScript(this.framescriptURL);
 
-    Services.prefs.setBoolPref(ANIMATION_PREF, this.originalAnimate);
+    Services.prefs.clearUserPref(REDUCE_MOTION_PREF);
     Services.prefs.clearUserPref(MULTI_OPT_OUT_PREF);
   }
 
@@ -91,7 +100,7 @@ this.tabpaint = class extends ExtensionAPI {
 
         let tab = gBrowser.getTabForBrowser(browser);
         let delta = msg.data.delta;
-        this.paintCallback({tab, delta});
+        this.paintCallback({ tab, delta });
         break;
       }
     }
@@ -124,14 +133,19 @@ this.tabpaint = class extends ExtensionAPI {
    *         with the time (in ms) it took to open the tab from the parent.
    */
   async openTabFromParent(gBrowser, target) {
+    let win = BrowserWindowTracker.getTopWindow();
     TalosParentProfiler.resume("tabpaint parent start");
 
-    // eslint-disable-next-line mozilla/avoid-Date-timing
-    gBrowser.selectedTab = gBrowser.addTab(`${target}?${Date.now()}`, {
-      triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
-    });
+    gBrowser.selectedTab = gBrowser.addTab(
+      //win.performance.now() + win.performance.timing.navigationStart gives the UNIX timestamp.
+      `${target}?${win.performance.now() +
+        win.performance.timing.navigationStart}`,
+      {
+        triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
+      }
+    );
 
-    let {tab, delta} = await this.whenTabShown();
+    let { tab, delta } = await this.whenTabShown();
     TalosParentProfiler.pause("tabpaint parent end");
     await this.removeTab(tab);
     return delta;
@@ -153,7 +167,7 @@ this.tabpaint = class extends ExtensionAPI {
 
     Services.mm.broadcastAsyncMessage("TabPaint:OpenFromContent");
 
-    let {tab, delta} = await this.whenTabShown();
+    let { tab, delta } = await this.whenTabShown();
     TalosParentProfiler.pause("tabpaint content end");
     await this.removeTab(tab);
     return delta;
@@ -166,7 +180,7 @@ this.tabpaint = class extends ExtensionAPI {
    * @return Promise
    */
   whenTabShown() {
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       this.paintCallback = resolve;
     });
   }
@@ -181,14 +195,18 @@ this.tabpaint = class extends ExtensionAPI {
    * @return Promise
    */
   removeTab(tab) {
-    return new Promise((resolve) => {
-      let {messageManager: mm, frameLoader} = tab.linkedBrowser;
-      mm.addMessageListener("SessionStore:update", function onMessage(msg) {
-        if (msg.targetFrameLoader == frameLoader && msg.data.isFinal) {
-          mm.removeMessageListener("SessionStore:update", onMessage);
-          resolve();
-        }
-      }, true);
+    return new Promise(resolve => {
+      let { messageManager: mm, frameLoader } = tab.linkedBrowser;
+      mm.addMessageListener(
+        "SessionStore:update",
+        function onMessage(msg) {
+          if (msg.targetFrameLoader == frameLoader && msg.data.isFinal) {
+            mm.removeMessageListener("SessionStore:update", onMessage);
+            resolve();
+          }
+        },
+        true
+      );
 
       tab.ownerGlobal.gBrowser.removeTab(tab);
     });

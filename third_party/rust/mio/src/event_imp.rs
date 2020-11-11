@@ -685,7 +685,7 @@ impl Ready {
     /// Returns a `Ready` representing readiness for all operations.
     ///
     /// This includes platform specific operations as well (`hup`, `aio`,
-    /// `error`, `lio`).
+    /// `error`, `lio`, `pri`).
     ///
     /// See [`Poll`] for more documentation on polling.
     ///
@@ -718,6 +718,8 @@ impl Ready {
     /// let ready = Ready::empty();
     /// assert!(ready.is_empty());
     /// ```
+    ///
+    /// [`Poll`]: struct.Poll.html
     #[inline]
     pub fn is_empty(&self) -> bool {
         *self == Ready::empty()
@@ -1088,7 +1090,7 @@ impl Event {
     pub fn new(readiness: Ready, token: Token) -> Event {
         Event {
             kind: readiness,
-            token: token,
+            token,
         }
     }
 

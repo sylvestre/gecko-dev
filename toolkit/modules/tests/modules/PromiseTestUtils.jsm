@@ -3,20 +3,19 @@
 
 /*
  * Detects and reports unhandled rejections during test runs. Test harnesses
- * will fail tests in this case, unless the test whitelists itself.
+ * will fail tests in this case, unless the test explicitly allows rejections.
  */
 
 "use strict";
 
-var EXPORTED_SYMBOLS = [
-  "PromiseTestUtils",
-];
+var EXPORTED_SYMBOLS = ["PromiseTestUtils"];
 
 ChromeUtils.import("resource://gre/modules/Services.jsm", this);
 ChromeUtils.import("resource://testing-common/Assert.jsm", this);
 
 // Keep "JSMPromise" separate so "Promise" still refers to DOM Promises.
-let JSMPromise = ChromeUtils.import("resource://gre/modules/Promise.jsm", {}).Promise;
+let JSMPromise = ChromeUtils.import("resource://gre/modules/Promise.jsm", {})
+  .Promise;
 
 var PromiseTestUtils = {
   /**
@@ -68,8 +67,9 @@ var PromiseTestUtils = {
 
     // Promise.jsm rejections are only reported to this observer when requested,
     // so we don't have to store a key to remove them when consumed.
-    JSMPromise.Debugging.addUncaughtErrorObserver(
-                            rejection => this._rejections.push(rejection));
+    JSMPromise.Debugging.addUncaughtErrorObserver(rejection =>
+      this._rejections.push(rejection)
+    );
 
     this._initialized = true;
   },
@@ -90,6 +90,23 @@ var PromiseTestUtils = {
   },
 
   /**
+   * Called only by the test infrastructure, collect all the
+   * JavaScript Developer Errors that have been thrown and
+   * treat them as uncaught promise rejections.
+   */
+  collectJSDevErrors() {
+    let recentJSDevError = ChromeUtils.recentJSDevError;
+    if (!recentJSDevError) {
+      // Either `recentJSDevError` is not implemented in this version or there is no recent JS dev error.
+      return;
+    }
+    ChromeUtils.clearRecentJSDevError();
+    Promise.reject(
+      `${recentJSDevError.message}\n${recentJSDevError.stack}\ndetected at\n`
+    );
+  },
+
+  /**
    * Called only by the test infrastructure, spins the event loop until the
    * messages for pending DOM Promise rejections have been processed.
    */
@@ -97,10 +114,14 @@ var PromiseTestUtils = {
     let observed = false;
     let observer = {
       onLeftUncaught: promise => {
-        if (PromiseDebugging.getState(promise).reason ===
-            this._ensureDOMPromiseRejectionsProcessedReason) {
+        if (
+          PromiseDebugging.getState(promise).reason ===
+          this._ensureDOMPromiseRejectionsProcessedReason
+        ) {
           observed = true;
+          return true;
         }
+        return false;
       },
       onConsumed() {},
     };
@@ -121,7 +142,7 @@ var PromiseTestUtils = {
   },
 
   /**
-   * Called by tests that have been whitelisted, disables the observers in this
+   * Called by tests with uncaught rejections to disable the observers in this
    * module. For new tests where uncaught rejections are expected, you should
    * use the more granular expectUncaughtRejection function instead.
    */
@@ -139,7 +160,7 @@ var PromiseTestUtils = {
         // Ignore the special promise for ensureDOMPromiseRejectionsProcessed.
         return;
       }
-      message = reason.message || ("" + reason);
+      message = reason.message || "" + reason;
     } catch (ex) {}
 
     // We should convert the rejection stack to a string immediately. This is
@@ -150,9 +171,11 @@ var PromiseTestUtils = {
       // In some cases, the rejection stack from `PromiseDebugging` may be null.
       // If the rejection reason was an Error object, use its `stack` to recover
       // a meaningful value.
-      stack = "" + ((reason && reason.stack) ||
-                    PromiseDebugging.getRejectionStack(promise) ||
-                    "(No stack available.)");
+      stack =
+        "" +
+        ((reason && reason.stack) ||
+          PromiseDebugging.getRejectionStack(promise) ||
+          "(No stack available.)");
     } catch (ex) {}
 
     // Always add a newline at the end of the stack for consistent reporting.
@@ -200,27 +223,29 @@ var PromiseTestUtils = {
    *        the rejection details object as its first argument.
    */
   expectUncaughtRejection(regExpOrCheckFn) {
-    let checkFn = !("test" in regExpOrCheckFn) ? regExpOrCheckFn :
-                  rejection => regExpOrCheckFn.test(rejection.message);
+    let checkFn = !("test" in regExpOrCheckFn)
+      ? regExpOrCheckFn
+      : rejection => regExpOrCheckFn.test(rejection.message);
     this._rejectionIgnoreFns.push(checkFn);
   },
 
   /**
-   * Whitelists an entire class of Promise rejections. Usage of this function
+   * Allows an entire class of Promise rejections. Usage of this function
    * should be kept to a minimum because it has a broad scope and doesn't
    * prevent new unhandled rejections of this class from being added.
    *
    * @param regExp
    *        This should match the error message of the rejection.
    */
-  whitelistRejectionsGlobally(regExp) {
-    this._globalRejectionIgnoreFns.push(
-      rejection => regExp.test(rejection.message));
+  allowMatchingRejectionsGlobally(regExp) {
+    this._globalRejectionIgnoreFns.push(rejection =>
+      regExp.test(rejection.message)
+    );
   },
 
   /**
    * Fails the test if there are any uncaught rejections at this time that have
-   * not been whitelisted using expectUncaughtRejection.
+   * not been explicitly allowed using expectUncaughtRejection.
    *
    * Depending on the configuration of the test suite, this function might only
    * report the details of the first uncaught rejection that was generated.
@@ -232,7 +257,7 @@ var PromiseTestUtils = {
     JSMPromise.Debugging.flushUncaughtErrors();
 
     // If there is any uncaught rejection left at this point, the test fails.
-    while (this._rejections.length > 0) {
+    while (this._rejections.length) {
       let rejection = this._rejections.shift();
 
       // If one of the ignore functions matches, ignore the rejection, then
@@ -243,7 +268,7 @@ var PromiseTestUtils = {
         continue;
       }
 
-      // Check the global whitelisting functions.
+      // Check the global ignore functions.
       if (this._globalRejectionIgnoreFns.some(fn => fn(rejection))) {
         continue;
       }
@@ -254,10 +279,12 @@ var PromiseTestUtils = {
       // used to identify related test failures. To keep the first line similar
       // between executions, we place the time-dependent rejection date on its
       // own line, after all the other stack lines.
-      Assert.ok(false,
-                `A promise chain failed to handle a rejection:` +
-                ` ${rejection.message} - stack: ${rejection.stack}` +
-                `Rejection date: ${rejection.date}`);
+      Assert.ok(
+        false,
+        `A promise chain failed to handle a rejection:` +
+          ` ${rejection.message} - stack: ${rejection.stack}` +
+          `Rejection date: ${rejection.date}`
+      );
     }
   },
 
@@ -269,9 +296,12 @@ var PromiseTestUtils = {
    */
   assertNoMoreExpectedRejections() {
     // Only log this condition is there is a failure.
-    if (this._rejectionIgnoreFns.length > 0) {
-      Assert.equal(this._rejectionIgnoreFns.length, 0,
-             "Unable to find a rejection expected by expectUncaughtRejection.");
+    if (this._rejectionIgnoreFns.length) {
+      Assert.equal(
+        this._rejectionIgnoreFns.length,
+        0,
+        "Unable to find a rejection expected by expectUncaughtRejection."
+      );
     }
     // Reset the list of expected rejections in case the test suite continues.
     this._rejectionIgnoreFns = [];

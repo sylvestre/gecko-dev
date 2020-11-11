@@ -6,9 +6,12 @@
 
 #include "QuotaResults.h"
 
-namespace mozilla {
-namespace dom {
-namespace quota {
+#include "ErrorList.h"
+#include "mozilla/Assertions.h"
+#include "mozilla/MacroForEach.h"
+#include "nscore.h"
+
+namespace mozilla::dom::quota {
 
 UsageResult::UsageResult(const nsACString& aOrigin, bool aPersisted,
                          uint64_t aUsage, uint64_t aLastAccessed)
@@ -49,9 +52,8 @@ UsageResult::GetLastAccessed(uint64_t* aLastAccessed) {
   return NS_OK;
 }
 
-OriginUsageResult::OriginUsageResult(uint64_t aUsage, uint64_t aFileUsage,
-                                     uint64_t aLimit)
-    : mUsage(aUsage), mFileUsage(aFileUsage), mLimit(aLimit) {}
+OriginUsageResult::OriginUsageResult(uint64_t aUsage, uint64_t aFileUsage)
+    : mUsage(aUsage), mFileUsage(aFileUsage) {}
 
 NS_IMPL_ISUPPORTS(OriginUsageResult, nsIQuotaOriginUsageResult)
 
@@ -71,14 +73,25 @@ OriginUsageResult::GetFileUsage(uint64_t* aFileUsage) {
   return NS_OK;
 }
 
+EstimateResult::EstimateResult(uint64_t aUsage, uint64_t aLimit)
+    : mUsage(aUsage), mLimit(aLimit) {}
+
+NS_IMPL_ISUPPORTS(EstimateResult, nsIQuotaEstimateResult)
+
 NS_IMETHODIMP
-OriginUsageResult::GetLimit(uint64_t* aLimit) {
+EstimateResult::GetUsage(uint64_t* aUsage) {
+  MOZ_ASSERT(aUsage);
+
+  *aUsage = mUsage;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+EstimateResult::GetLimit(uint64_t* aLimit) {
   MOZ_ASSERT(aLimit);
 
   *aLimit = mLimit;
   return NS_OK;
 }
 
-}  // namespace quota
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom::quota

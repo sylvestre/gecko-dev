@@ -1,4 +1,3 @@
-// |reftest| skip -- Intl.Locale is not supported
 // Copyright 2018 André Bargull; Igalia, S.L. All rights reserved.
 // This code is governed by the BSD license found in the LICENSE file.
 
@@ -38,9 +37,10 @@ const testDataMaximal = {
     "und-419": "es-Latn-419",
     "und-150": "ru-Cyrl-RU",
     "und-AT": "de-Latn-AT",
+    "und-Cyrl-RO": "bg-Cyrl-RO",
 
-    // privateuse only.
-    "x-private": "x-private",
+    // Undefined primary language not required to change in all cases.
+    "und-AQ": "und-Latn-AQ",
 };
 
 const testDataMinimal = {
@@ -66,9 +66,8 @@ const testDataMinimal = {
     "es-Latn-419": "es-419",
     "ru-Cyrl-RU": "ru",
     "de-Latn-AT": "de-AT",
-
-    // privateuse only.
-    "x-private": "x-private",
+    "bg-Cyrl-RO": "bg-RO",
+    "und-Latn-AQ": "und-AQ",
 };
 
 // Add variants, extensions, and privateuse subtags and ensure they don't
@@ -106,5 +105,10 @@ for (const [tag, minimal] of Object.entries(testDataMinimal)) {
                          `"${input}".minimize() should be "${output}"`);
     }
 }
+
+// privateuse only.
+// "x" in "x-private" does not match unicode_language_subtag
+// unicode_language_subtag = alpha{2,3} | alpha{5,8};
+assert.throws(RangeError, () => new Intl.Locale("x-private"));
 
 reportCompare(0, 0);

@@ -4,19 +4,22 @@
 
 from __future__ import absolute_import
 
+import six
+
 from marionette_harness import MarionetteTestCase
 
 
 class TestEnforcePreferences(MarionetteTestCase):
-
     def setUp(self):
         super(TestEnforcePreferences, self).setUp()
 
-        self.marionette.enforce_gecko_prefs({
-            "marionette.test.bool": True,
-            "marionette.test.int": 3,
-            "marionette.test.string": "testing",
-        })
+        self.marionette.enforce_gecko_prefs(
+            {
+                "marionette.test.bool": True,
+                "marionette.test.int": 3,
+                "marionette.test.string": "testing",
+            }
+        )
         self.marionette.set_context("chrome")
 
     def tearDown(self):

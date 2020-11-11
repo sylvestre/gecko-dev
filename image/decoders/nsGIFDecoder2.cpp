@@ -44,7 +44,6 @@ mailing address.
 
 #include "imgFrame.h"
 #include "mozilla/EndianUtils.h"
-#include "nsIInputStream.h"
 #include "RasterImage.h"
 #include "SurfacePipeFactory.h"
 
@@ -86,11 +85,18 @@ nsGIFDecoder2::nsGIFDecoder2(RasterImage* aImage)
       mOldColor(0),
       mCurrentFrameIndex(-1),
       mColorTablePos(0),
+      mColormap(nullptr),
+      mColormapSize(0),
       mColorMask('\0'),
       mGIFOpen(false),
-      mSawTransparency(false) {
+      mSawTransparency(false),
+      mSwizzleFn(nullptr) {
   // Clear out the structure, excluding the arrays.
   memset(&mGIFStruct, 0, sizeof(mGIFStruct));
+
+  // Each color table will need to be unpacked.
+  mSwizzleFn = SwizzleRow(SurfaceFormat::R8G8B8, SurfaceFormat::OS_RGBA);
+  MOZ_ASSERT(mSwizzleFn);
 }
 
 nsGIFDecoder2::~nsGIFDecoder2() { free(mGIFStruct.local_colormap); }
@@ -164,15 +170,17 @@ nsresult nsGIFDecoder2::BeginImageFrame(const IntRect& aFrameRect,
   MOZ_ASSERT(HasSize());
 
   bool hasTransparency = CheckForTransparency(aFrameRect);
-  bool blendAnimation = ShouldBlendAnimation();
 
   // Make sure there's no animation if we're downscaling.
   MOZ_ASSERT_IF(Size() != OutputSize(), !GetImageMetadata().HasAnimation());
 
-  AnimationParams animParams{
-      aFrameRect, FrameTimeout::FromRawMilliseconds(mGIFStruct.delay_time),
-      uint32_t(mGIFStruct.images_decoded), BlendMethod::OVER,
-      DisposalMethod(mGIFStruct.disposal_method)};
+  Maybe<AnimationParams> animParams;
+  if (!IsFirstFrameDecode()) {
+    animParams.emplace(aFrameRect,
+                       FrameTimeout::FromRawMilliseconds(mGIFStruct.delay_time),
+                       uint32_t(mGIFStruct.images_decoded), BlendMethod::OVER,
+                       DisposalMethod(mGIFStruct.disposal_method));
+  }
 
   SurfacePipeFlags pipeFlags =
       aIsInterlaced ? SurfacePipeFlags::DEINTERLACE : SurfacePipeFlags();
@@ -182,36 +190,19 @@ nsresult nsGIFDecoder2::BeginImageFrame(const IntRect& aFrameRect,
     // The first frame may be displayed progressively.
     pipeFlags |= SurfacePipeFlags::PROGRESSIVE_DISPLAY;
 
-    format =
-        hasTransparency ? SurfaceFormat::B8G8R8A8 : SurfaceFormat::B8G8R8X8;
+    // Only allow opaque surfaces if we are decoding a single image without
+    // transparency. For an animation, there isn't much benefit to RGBX given
+    // the current frame is constantly changing, and there are many risks
+    // since BlendAnimationFilter is able to clear rows of data.
+    format = hasTransparency || animParams ? SurfaceFormat::OS_RGBA
+                                           : SurfaceFormat::OS_RGBX;
   } else {
-    format = SurfaceFormat::B8G8R8A8;
+    format = SurfaceFormat::OS_RGBA;
   }
 
-  if (blendAnimation) {
-    pipeFlags |= SurfacePipeFlags::BLEND_ANIMATION;
-  }
-
-  Maybe<SurfacePipe> pipe;
-  if (mGIFStruct.images_decoded == 0 || blendAnimation) {
-    // The first frame is always decoded into an RGB surface.
-    pipe = SurfacePipeFactory::CreateSurfacePipe(this, Size(), OutputSize(),
-                                                 aFrameRect, format,
-                                                 Some(animParams), pipeFlags);
-  } else {
-    // This is an animation frame (and not the first). To minimize the memory
-    // usage of animations, the image data is stored in paletted form.
-    //
-    // We should never use paletted surfaces with a draw target directly, so
-    // the only practical difference between B8G8R8A8 and B8G8R8X8 is the
-    // cleared pixel value if we get truncated. We want 0 in that case to
-    // ensure it is an acceptable value for the color map as was the case
-    // historically.
-    MOZ_ASSERT(Size() == OutputSize());
-    pipe = SurfacePipeFactory::CreatePalettedSurfacePipe(
-        this, Size(), aFrameRect, format, aDepth, Some(animParams), pipeFlags);
-  }
-
+  Maybe<SurfacePipe> pipe = SurfacePipeFactory::CreateSurfacePipe(
+      this, Size(), OutputSize(), aFrameRect, format, format, animParams,
+      mTransform, pipeFlags);
   mCurrentFrameIndex = mGIFStruct.images_decoded;
 
   if (!pipe) {
@@ -246,6 +237,10 @@ void nsGIFDecoder2::EndImageFrame() {
   // even if some of them weren't decoded properly and thus are blank.
   mGIFStruct.images_decoded++;
 
+  // Reset graphic control extension parameters that we shouldn't reuse
+  // between frames.
+  mGIFStruct.delay_time = 0;
+
   // Tell the superclass we finished a frame
   PostFrameStop(opacity);
 
@@ -255,6 +250,8 @@ void nsGIFDecoder2::EndImageFrame() {
     mOldColor = 0;
   }
 
+  mColormap = nullptr;
+  mColormapSize = 0;
   mCurrentFrameIndex = -1;
 }
 
@@ -407,49 +404,23 @@ Tuple<int32_t, Maybe<WriteState>> nsGIFDecoder2::YieldPixels(
 
 /// Expand the colormap from RGB to Packed ARGB as needed by Cairo.
 /// And apply any LCMS transformation.
-static void ConvertColormap(uint32_t* aColormap, uint32_t aColors) {
+void nsGIFDecoder2::ConvertColormap(uint32_t* aColormap, uint32_t aColors) {
+  if (!aColors) {
+    return;
+  }
+
   // Apply CMS transformation if enabled and available
-  if (gfxPlatform::GetCMSMode() == eCMSMode_All) {
-    qcms_transform* transform = gfxPlatform::GetCMSRGBTransform();
+  if (mCMSMode == eCMSMode_All) {
+    qcms_transform* transform = GetCMSsRGBTransform(SurfaceFormat::R8G8B8);
     if (transform) {
       qcms_transform_data(transform, aColormap, aColormap, aColors);
     }
   }
 
-  // Convert from the GIF's RGB format to the Cairo format.
-  // Work from end to begin, because of the in-place expansion
-  uint8_t* from = ((uint8_t*)aColormap) + 3 * aColors;
-  uint32_t* to = aColormap + aColors;
-
-  // Convert color entries to Cairo format
-
-  // set up for loops below
-  if (!aColors) {
-    return;
-  }
-  uint32_t c = aColors;
-
-  // copy as bytes until source pointer is 32-bit-aligned
-  // NB: can't use 32-bit reads, they might read off the end of the buffer
-  for (; (NS_PTR_TO_UINT32(from) & 0x3) && c; --c) {
-    from -= 3;
-    *--to = gfxPackedPixel(0xFF, from[0], from[1], from[2]);
-  }
-
-  // bulk copy of pixels.
-  while (c >= 4) {
-    from -= 12;
-    to -= 4;
-    c -= 4;
-    GFX_BLOCK_RGB_TO_FRGB(from, to);
-  }
-
-  // copy remaining pixel(s)
-  // NB: can't use 32-bit reads, they might read off the end of the buffer
-  while (c--) {
-    from -= 3;
-    *--to = gfxPackedPixel(0xFF, from[0], from[1], from[2]);
-  }
+  // Expand color table from RGB to BGRA.
+  MOZ_ASSERT(mSwizzleFn);
+  uint8_t* data = reinterpret_cast<uint8_t*>(aColormap);
+  mSwizzleFn(data, data, aColors);
 }
 
 LexerResult nsGIFDecoder2::DoDecode(SourceBufferIterator& aIterator,
@@ -686,7 +657,7 @@ nsGIFDecoder2::ReadGraphicControlExtension(const char* aData) {
   }
 
   mGIFStruct.delay_time = LittleEndian::readUint16(aData + 1) * 10;
-  if (mGIFStruct.delay_time > 0) {
+  if (!HasAnimation() && mGIFStruct.delay_time > 0) {
     PostIsAnimated(FrameTimeout::FromRawMilliseconds(mGIFStruct.delay_time));
   }
 
@@ -846,7 +817,7 @@ LexerTransition<nsGIFDecoder2::State> nsGIFDecoder2::FinishImageDescriptor(
   // If the transparent color index is greater than the number of colors in the
   // color table, we may need a higher color depth than |depth| would specify.
   // Our internal representation of the image will instead use |realDepth|,
-  // which is the smallest color depth that can accomodate the existing palette
+  // which is the smallest color depth that can accommodate the existing palette
   // *and* the transparent color index.
   uint16_t realDepth = depth;
   while (mGIFStruct.tpixel >= (1 << realDepth) && realDepth < 8) {
@@ -874,11 +845,6 @@ LexerTransition<nsGIFDecoder2::State> nsGIFDecoder2::FinishImageDescriptor(
     mGIFStruct.local_colormap_size = 1 << depth;
 
     if (!mColormap) {
-      // Allocate a buffer to store the local color tables. This could be if the
-      // first frame has a local color table, or for subsequent frames when
-      // blending the animation during decoding.
-      MOZ_ASSERT(mGIFStruct.images_decoded == 0 || ShouldBlendAnimation());
-
       // Ensure our current colormap buffer is large enough to hold the new one.
       mColormapSize = sizeof(uint32_t) << realDepth;
       if (mGIFStruct.local_colormap_buffer_size < mColormapSize) {
@@ -1019,18 +985,11 @@ LexerTransition<nsGIFDecoder2::State> nsGIFDecoder2::ReadLZWData(
          (length > 0 || mGIFStruct.bits >= mGIFStruct.codesize)) {
     size_t bytesRead = 0;
 
-    auto result =
-        mGIFStruct.images_decoded == 0 || ShouldBlendAnimation()
-            ? mPipe.WritePixelBlocks<uint32_t>(
-                  [&](uint32_t* aPixelBlock, int32_t aBlockSize) {
-                    return YieldPixels<uint32_t>(data, length, &bytesRead,
-                                                 aPixelBlock, aBlockSize);
-                  })
-            : mPipe.WritePixelBlocks<uint8_t>(
-                  [&](uint8_t* aPixelBlock, int32_t aBlockSize) {
-                    return YieldPixels<uint8_t>(data, length, &bytesRead,
-                                                aPixelBlock, aBlockSize);
-                  });
+    auto result = mPipe.WritePixelBlocks<uint32_t>(
+        [&](uint32_t* aPixelBlock, int32_t aBlockSize) {
+          return YieldPixels<uint32_t>(data, length, &bytesRead, aPixelBlock,
+                                       aBlockSize);
+        });
 
     if (MOZ_UNLIKELY(bytesRead > length)) {
       MOZ_ASSERT_UNREACHABLE("Overread?");

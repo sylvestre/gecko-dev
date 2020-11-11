@@ -5,29 +5,45 @@
 "use strict";
 
 const {
+  ADD_REQUEST,
   ADD_TIMING_MARKER,
   CLEAR_TIMING_MARKERS,
   CLEAR_REQUESTS,
-} = require("../constants");
+} = require("devtools/client/netmonitor/src/constants");
 
 function TimingMarkers() {
   return {
     firstDocumentDOMContentLoadedTimestamp: -1,
     firstDocumentLoadTimestamp: -1,
+    firstDocumentRequestStartTimestamp: +Infinity,
   };
+}
+
+function addRequest(state, action) {
+  const nextState = { ...state };
+  const { startedMs } = action.data;
+  if (startedMs < state.firstDocumentRequestStartTimestamp) {
+    nextState.firstDocumentRequestStartTimestamp = startedMs;
+  }
+
+  return nextState;
 }
 
 function addTimingMarker(state, action) {
   state = { ...state };
 
-  if (action.marker.name === "dom-interactive" &&
-      state.firstDocumentDOMContentLoadedTimestamp === -1) {
+  if (
+    action.marker.name === "dom-interactive" &&
+    state.firstDocumentDOMContentLoadedTimestamp === -1
+  ) {
     state.firstDocumentDOMContentLoadedTimestamp = action.marker.time;
     return state;
   }
 
-  if (action.marker.name === "dom-complete" &&
-      state.firstDocumentLoadTimestamp === -1) {
+  if (
+    action.marker.name === "dom-complete" &&
+    state.firstDocumentLoadTimestamp === -1
+  ) {
     state.firstDocumentLoadTimestamp = action.marker.time;
     return state;
   }
@@ -41,6 +57,9 @@ function clearTimingMarkers(state) {
 
 function timingMarkers(state = new TimingMarkers(), action) {
   switch (action.type) {
+    case ADD_REQUEST:
+      return addRequest(state, action);
+
     case ADD_TIMING_MARKER:
       return addTimingMarker(state, action);
 

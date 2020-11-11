@@ -5,9 +5,9 @@
  * found in the LICENSE file.
  */
 
-#include "SkSLCPPUniformCTypes.h"
-#include "SkSLHCodeGenerator.h"
-#include "SkSLStringStream.h"
+#include "src/sksl/SkSLCPPUniformCTypes.h"
+#include "src/sksl/SkSLHCodeGenerator.h"
+#include "src/sksl/SkSLStringStream.h"
 
 #include <vector>
 
@@ -157,13 +157,14 @@ static const std::vector<UniformCTypeMapper>& get_mappers() {
         "SkIRect::MakeEmpty()",                                                    // default value
         "${oldVar}.isEmpty() || ${oldVar} != ${newVar}"),                          // dirty check
 
-    REGISTER(Layout::CType::kGrColor4f, { "half4", "float4", "double4" },
-        "${pdman}.set4fv(${uniform}, 1, ${var}.fRGBA)",                            // to gpu
-        "GrColor4f::kIllegalConstructor"),                                         // default value
-
     REGISTER(Layout::CType::kSkPMColor4f, { "half4", "float4", "double4" },
         "${pdman}.set4fv(${uniform}, 1, ${var}.vec())",                            // to gpu
         "{SK_FloatNaN, SK_FloatNaN, SK_FloatNaN, SK_FloatNaN}"),                   // default value
+
+    REGISTER(Layout::CType::kSkVector4, { "half4", "float4", "double4" },
+        "${pdman}.set4fv(${uniform}, 1, ${var}.fData)",                            // to gpu
+        "SkVector4(SK_MScalarNaN, SK_MScalarNaN, SK_MScalarNaN, SK_MScalarNaN)",   // default value
+        "${oldVar} != (${newVar})"),                                               // dirty check
 
     REGISTER(Layout::CType::kSkPoint, { "half2", "float2", "double2" } ,
         "${pdman}.set2f(${uniform}, ${var}.fX, ${var}.fY)",                        // to gpu
@@ -180,8 +181,8 @@ static const std::vector<UniformCTypeMapper>& get_mappers() {
 
     REGISTER(Layout::CType::kSkMatrix44,  { "half4x4", "float4x4", "double4x4" },
         "${pdman}.setSkMatrix44(${uniform}, ${var})",                              // to gpu
-        "SkMatrix::MakeScale(SK_FloatNaN)",                                        // default value
-        "!${oldVar}.cheapEqualTo(${newVar})"),                                     // dirty check
+        "SkMatrix44(SkMatrix44::kNaN_Constructor)",                                // default value
+        "${oldVar} != (${newVar})"),                                               // dirty check
 
     REGISTER(Layout::CType::kFloat,  { "half", "float", "double" },
         "${pdman}.set1f(${uniform}, ${var})",                                      // to gpu

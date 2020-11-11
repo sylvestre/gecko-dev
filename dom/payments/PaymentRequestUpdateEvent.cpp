@@ -5,9 +5,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "mozilla/dom/PaymentRequestUpdateEvent.h"
+#include "mozilla/dom/PaymentRequest.h"
+#include "mozilla/dom/RootedDictionary.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_IMPL_CYCLE_COLLECTION_INHERITED(PaymentRequestUpdateEvent, Event, mRequest)
 
@@ -35,7 +36,7 @@ PaymentRequestUpdateEvent::Constructor(
 already_AddRefed<PaymentRequestUpdateEvent>
 PaymentRequestUpdateEvent::Constructor(
     const GlobalObject& aGlobal, const nsAString& aType,
-    const PaymentRequestUpdateEventInit& aEventInitDict, ErrorResult& aRv) {
+    const PaymentRequestUpdateEventInit& aEventInitDict) {
   nsCOMPtr<mozilla::dom::EventTarget> owner =
       do_QueryInterface(aGlobal.GetAsSupports());
   return Constructor(owner, aType, aEventInitDict);
@@ -60,11 +61,12 @@ void PaymentRequestUpdateEvent::ResolvedCallback(JSContext* aCx,
     return;
   }
 
+  ErrorResult rv;
   // Converting value to a PaymentDetailsUpdate dictionary
-  PaymentDetailsUpdate details;
+  RootedDictionary<PaymentDetailsUpdate> details(aCx);
   if (!details.Init(aCx, aValue)) {
-    mRequest->AbortUpdate(NS_ERROR_TYPE_ERR);
-    JS_ClearPendingException(aCx);
+    rv.StealExceptionFromJSContext(aCx);
+    mRequest->AbortUpdate(rv);
     return;
   }
 
@@ -73,18 +75,19 @@ void PaymentRequestUpdateEvent::ResolvedCallback(JSContext* aCx,
   // dispatched when shippingAddress/shippingOption is changed, and it also
   // means Options.RequestShipping must be true while creating the corresponding
   // PaymentRequest.
-  nsresult rv =
-      mRequest->IsValidDetailsUpdate(details, true /*aRequestShipping*/);
-  if (NS_FAILED(rv)) {
+  mRequest->IsValidDetailsUpdate(details, true /*aRequestShipping*/, rv);
+  if (rv.Failed()) {
     mRequest->AbortUpdate(rv);
     return;
   }
 
   // Update the PaymentRequest with the new details
-  if (NS_FAILED(mRequest->UpdatePayment(aCx, details))) {
-    mRequest->AbortUpdate(NS_ERROR_DOM_ABORT_ERR);
+  mRequest->UpdatePayment(aCx, details, rv);
+  if (rv.Failed()) {
+    mRequest->AbortUpdate(rv);
     return;
   }
+
   mWaitForUpdate = false;
   mRequest->SetUpdating(false);
 }
@@ -96,7 +99,11 @@ void PaymentRequestUpdateEvent::RejectedCallback(JSContext* aCx,
     return;
   }
 
-  mRequest->AbortUpdate(NS_ERROR_DOM_ABORT_ERR);
+  ErrorResult rejectReason;
+  rejectReason.ThrowAbortError(
+      "Details promise for PaymentRequestUpdateEvent.updateWith() is rejected "
+      "by merchant");
+  mRequest->AbortUpdate(rejectReason);
   mWaitForUpdate = false;
   mRequest->SetUpdating(false);
 }
@@ -104,7 +111,7 @@ void PaymentRequestUpdateEvent::RejectedCallback(JSContext* aCx,
 void PaymentRequestUpdateEvent::UpdateWith(Promise& aPromise,
                                            ErrorResult& aRv) {
   if (!IsTrusted()) {
-    aRv.Throw(NS_ERROR_DOM_INVALID_STATE_ERR);
+    aRv.ThrowInvalidStateError("Called on an untrusted event");
     return;
   }
 
@@ -114,7 +121,15 @@ void PaymentRequestUpdateEvent::UpdateWith(Promise& aPromise,
   }
 
   if (mWaitForUpdate || !mRequest->ReadyForUpdate()) {
-    aRv.Throw(NS_ERROR_DOM_INVALID_STATE_ERR);
+    aRv.ThrowInvalidStateError(
+        "The PaymentRequestUpdateEvent is waiting for update");
+    return;
+  }
+
+  if (!mRequest->ReadyForUpdate()) {
+    aRv.ThrowInvalidStateError(
+        "The PaymentRequest state is not eInteractive or is the PaymentRequest "
+        "is updating");
     return;
   }
 
@@ -134,12 +149,11 @@ void PaymentRequestUpdateEvent::SetRequest(PaymentRequest* aRequest) {
   mRequest = aRequest;
 }
 
-PaymentRequestUpdateEvent::~PaymentRequestUpdateEvent() {}
+PaymentRequestUpdateEvent::~PaymentRequestUpdateEvent() = default;
 
 JSObject* PaymentRequestUpdateEvent::WrapObjectInternal(
     JSContext* aCx, JS::Handle<JSObject*> aGivenProto) {
   return PaymentRequestUpdateEvent_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

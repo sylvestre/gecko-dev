@@ -1,4 +1,3 @@
-/* vim: set ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -9,7 +8,9 @@
 // picking one does not break the markup view. The markup and sequence used here is a bit
 // eccentric but the issue from Bug 1465873 is tricky to reproduce.
 
-const TEST_URL = `data:text/html;charset=utf-8,` + encodeURIComponent(`
+const TEST_URL =
+  `data:text/html;charset=utf-8,` +
+  encodeURIComponent(`
   <test-component id="component1" background>
     <div slot="slot1" data-index="1">slot1-1</div>
   </test-component>
@@ -36,23 +37,25 @@ const TEST_URL = `data:text/html;charset=utf-8,` + encodeURIComponent(`
   </script>`);
 
 add_task(async function() {
-  const { inspector, toolbox, testActor } = await openInspectorForURL(TEST_URL);
+  const { inspector, toolbox } = await openInspectorForURL(TEST_URL);
 
   info("Waiting for element picker to become active.");
   await startPicker(toolbox);
 
   info("Move mouse over the padding of the test-component");
-  await hoverElement(inspector, testActor, "test-component", 10, 10);
+  await hoverElement(inspector, "test-component", 10, 10);
 
   info("Move mouse over the pick-target");
   // Note we can't reach pick-target with a selector because this element lives in the
   // shadow-dom of test-component. We aim for PADDING + 5 pixels
-  await hoverElement(inspector, testActor, "test-component", 10, 25);
+  await hoverElement(inspector, "test-component", 10, 25);
 
   info("Click and pick the pick-target");
-  await pickElement(inspector, testActor, "test-component", 10, 25);
+  await pickElement(inspector, "test-component", 10, 25);
 
-  info("Check that the markup view has the expected content after using the picker");
+  info(
+    "Check that the markup view has the expected content after using the picker"
+  );
   const tree = `
     test-component
       #shadow-root
@@ -68,5 +71,8 @@ add_task(async function() {
   const hostFront = await getNodeFront("test-component", inspector);
   const hostContainer = inspector.markup.getContainer(hostFront);
   const moreNodesLink = hostContainer.elt.querySelector(".more-nodes");
-  ok(!moreNodesLink, "There is no 'more nodes' button displayed in the host container");
+  ok(
+    !moreNodesLink,
+    "There is no 'more nodes' button displayed in the host container"
+  );
 });

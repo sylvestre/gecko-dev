@@ -1,11 +1,11 @@
-/* vim: set ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
    http://creativecommons.org/publicdomain/zero/1.0/ */
 "use strict";
 
-const TEST_URI = "data:text/html;charset=UTF-8," +
+const TEST_URI =
+  "data:text/html;charset=UTF-8," +
   "<h1>browser_inspector_sidebarstate.js</h1>";
-const OPTOUT = Ci.nsITelemetry.DATASET_RELEASE_CHANNEL_OPTOUT;
+const ALL_CHANNELS = Ci.nsITelemetry.DATASET_ALL_CHANNELS;
 
 const TELEMETRY_DATA = [
   {
@@ -32,6 +32,16 @@ const TELEMETRY_DATA = [
     timestamp: null,
     category: "devtools.main",
     method: "tool_timer",
+    object: "compatibilityview",
+    value: null,
+    extra: {
+      time_open: "",
+    },
+  },
+  {
+    timestamp: null,
+    category: "devtools.main",
+    method: "tool_timer",
     object: "computedview",
     value: null,
     extra: {
@@ -45,22 +55,44 @@ add_task(async function() {
   Services.telemetry.clearEvents();
 
   // Ensure no events have been logged
-  const snapshot = Services.telemetry.snapshotEvents(OPTOUT, true);
+  const snapshot = Services.telemetry.snapshotEvents(ALL_CHANNELS, true);
   ok(!snapshot.parent, "No events have been logged for the main process");
+
+  // Enable the compatibility view explictly as this pref is enabled for only Nightly and DevEdition.
+  await pushPref("devtools.inspector.compatibility.enabled", true);
 
   let { inspector, toolbox } = await openInspectorForURL(TEST_URI);
 
   info("Selecting font inspector.");
   inspector.sidebar.select("fontinspector");
 
-  is(inspector.sidebar.getCurrentTabID(), "fontinspector",
-    "Font Inspector is selected");
+  is(
+    inspector.sidebar.getCurrentTabID(),
+    "fontinspector",
+    "Font Inspector is selected"
+  );
+
+  info("Selecting compatibility view.");
+  const onCompatibilityViewInitialized = inspector.once(
+    "compatibilityview-initialized"
+  );
+  inspector.sidebar.select("compatibilityview");
+  await onCompatibilityViewInitialized;
+
+  is(
+    inspector.sidebar.getCurrentTabID(),
+    "compatibilityview",
+    "Compatibility View is selected"
+  );
 
   info("Selecting computed view.");
   inspector.sidebar.select("computedview");
 
-  is(inspector.sidebar.getCurrentTabID(), "computedview",
-    "Computed View is selected");
+  is(
+    inspector.sidebar.getCurrentTabID(),
+    "computedview",
+    "Computed View is selected"
+  );
 
   info("Closing inspector.");
   await toolbox.destroy();
@@ -73,20 +105,23 @@ add_task(async function() {
     await inspector.sidebar.once("select");
   }
 
-  is(inspector.sidebar.getCurrentTabID(), "computedview",
-     "Computed view is selected by default.");
+  is(
+    inspector.sidebar.getCurrentTabID(),
+    "computedview",
+    "Computed view is selected by default."
+  );
 
   checkTelemetryResults();
 });
 
 function checkTelemetryResults() {
-  const snapshot = Services.telemetry.snapshotEvents(OPTOUT, true);
-  const events = snapshot.parent.filter(event => event[1] === "devtools.main" &&
-                                                 event[2] === "tool_timer"
+  const snapshot = Services.telemetry.snapshotEvents(ALL_CHANNELS, true);
+  const events = snapshot.parent.filter(
+    event => event[1] === "devtools.main" && event[2] === "tool_timer"
   );
 
   for (const i in TELEMETRY_DATA) {
-    const [ timestamp, category, method, object, value, extra ] = events[i];
+    const [timestamp, category, method, object, value, extra] = events[i];
     const expected = TELEMETRY_DATA[i];
 
     // ignore timestamp

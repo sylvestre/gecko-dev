@@ -25,8 +25,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __DAV1D_COMMON_INTOPS_H__
-#define __DAV1D_COMMON_INTOPS_H__
+#ifndef DAV1D_COMMON_INTOPS_H
+#define DAV1D_COMMON_INTOPS_H
 
 #include <stdint.h>
 
@@ -37,6 +37,14 @@ static inline int imax(const int a, const int b) {
 }
 
 static inline int imin(const int a, const int b) {
+    return a < b ? a : b;
+}
+
+static inline unsigned umax(const unsigned a, const unsigned b) {
+    return a > b ? a : b;
+}
+
+static inline unsigned umin(const unsigned a, const unsigned b) {
     return a < b ? a : b;
 }
 
@@ -73,4 +81,4 @@ static inline unsigned inv_recenter(const unsigned r, const unsigned v) {
         return r - ((v + 1) >> 1);
 }
 
-#endif /* __DAV1D_COMMON_INTOPS_H__ */
+#endif /* DAV1D_COMMON_INTOPS_H */

@@ -5,26 +5,26 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "mozilla/EventStates.h"
+#include "mozilla/dom/BindContext.h"
 #include "mozilla/dom/HTMLEmbedElement.h"
 #include "mozilla/dom/HTMLEmbedElementBinding.h"
 #include "mozilla/dom/ElementInlines.h"
 
-#include "nsIDocument.h"
+#include "mozilla/dom/Document.h"
 #include "nsIPluginDocument.h"
 #include "nsThreadUtils.h"
-#include "nsIScriptError.h"
 #include "nsIWidget.h"
 #include "nsContentUtils.h"
+#include "nsFrameLoader.h"
 #ifdef XP_MACOSX
-#include "mozilla/EventDispatcher.h"
-#include "mozilla/dom/Event.h"
+#  include "mozilla/EventDispatcher.h"
+#  include "mozilla/dom/Event.h"
 #endif
 #include "mozilla/dom/HTMLObjectElement.h"
 
 NS_IMPL_NS_NEW_HTML_ELEMENT_CHECK_PARSER(Embed)
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 HTMLEmbedElement::HTMLEmbedElement(
     already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo,
@@ -42,7 +42,7 @@ HTMLEmbedElement::~HTMLEmbedElement() {
   HTMLObjectElement::OnFocusBlurPlugin(this, false);
 #endif
   UnregisterActivityObserver();
-  DestroyImageLoadingContent();
+  nsImageLoadingContent::Destroy();
 }
 
 NS_IMPL_CYCLE_COLLECTION_CLASS(HTMLEmbedElement)
@@ -54,7 +54,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_ISUPPORTS_CYCLE_COLLECTION_INHERITED(
     HTMLEmbedElement, nsGenericHTMLElement, nsIRequestObserver,
-    nsIStreamListener, nsIFrameLoaderOwner, nsIObjectLoadingContent,
+    nsIStreamListener, nsFrameLoaderOwner, nsIObjectLoadingContent,
     imgINotificationObserver, nsIImageLoadingContent, nsIChannelEventSink)
 
 NS_IMPL_ELEMENT_CLONE(HTMLEmbedElement)
@@ -73,41 +73,40 @@ void HTMLEmbedElement::AsyncEventRunning(AsyncEventDispatcher* aEvent) {
   nsImageLoadingContent::AsyncEventRunning(aEvent);
 }
 
-nsresult HTMLEmbedElement::BindToTree(nsIDocument* aDocument,
-                                      nsIContent* aParent,
-                                      nsIContent* aBindingParent) {
-  nsresult rv =
-      nsGenericHTMLElement::BindToTree(aDocument, aParent, aBindingParent);
+nsresult HTMLEmbedElement::BindToTree(BindContext& aContext, nsINode& aParent) {
+  nsresult rv = nsGenericHTMLElement::BindToTree(aContext, aParent);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  rv = nsObjectLoadingContent::BindToTree(aDocument, aParent, aBindingParent);
+  rv = nsObjectLoadingContent::BindToTree(aContext, aParent);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  // Don't kick off load from being bound to a plugin document - the plugin
-  // document will call nsObjectLoadingContent::InitializeFromChannel() for the
-  // initial load.
-  nsCOMPtr<nsIPluginDocument> pluginDoc = do_QueryInterface(aDocument);
-
-  if (!pluginDoc) {
-    void (HTMLEmbedElement::*start)() = &HTMLEmbedElement::StartObjectLoad;
-    nsContentUtils::AddScriptRunner(
-        NewRunnableMethod("dom::HTMLEmbedElement::BindToTree", this, start));
+  if (IsInComposedDoc()) {
+    // Don't kick off load from being bound to a plugin document - the plugin
+    // document will call nsObjectLoadingContent::InitializeFromChannel() for
+    // the initial load.
+    nsCOMPtr<nsIPluginDocument> pluginDoc =
+        do_QueryInterface(&aContext.OwnerDoc());
+    if (!pluginDoc) {
+      void (HTMLEmbedElement::*start)() = &HTMLEmbedElement::StartObjectLoad;
+      nsContentUtils::AddScriptRunner(
+          NewRunnableMethod("dom::HTMLEmbedElement::BindToTree", this, start));
+    }
   }
 
   return NS_OK;
 }
 
-void HTMLEmbedElement::UnbindFromTree(bool aDeep, bool aNullParent) {
+void HTMLEmbedElement::UnbindFromTree(bool aNullParent) {
 #ifdef XP_MACOSX
-  // When a page is reloaded (when an nsIDocument's content is removed), the
+  // When a page is reloaded (when an Document's content is removed), the
   // focused element isn't necessarily sent an eBlur event. See
   // nsFocusManager::ContentRemoved(). This means that a widget may think it
   // still contains a focused plugin when it doesn't -- which in turn can
   // disable text input in the browser window. See bug 1137229.
   HTMLObjectElement::OnFocusBlurPlugin(this, false);
 #endif
-  nsObjectLoadingContent::UnbindFromTree(aDeep, aNullParent);
-  nsGenericHTMLElement::UnbindFromTree(aDeep, aNullParent);
+  nsObjectLoadingContent::UnbindFromTree(aNullParent);
+  nsGenericHTMLElement::UnbindFromTree(aNullParent);
 }
 
 nsresult HTMLEmbedElement::AfterSetAttr(int32_t aNamespaceID, nsAtom* aName,
@@ -118,6 +117,13 @@ nsresult HTMLEmbedElement::AfterSetAttr(int32_t aNamespaceID, nsAtom* aName,
   if (aValue) {
     nsresult rv = AfterMaybeChangeAttr(aNamespaceID, aName, aNotify);
     NS_ENSURE_SUCCESS(rv, rv);
+  }
+
+  if (aNamespaceID == kNameSpaceID_None &&
+      aName == nsGkAtoms::allowfullscreen && mFrameLoader) {
+    if (auto* bc = mFrameLoader->GetExtantBrowsingContext()) {
+      MOZ_ALWAYS_SUCCEEDS(bc->SetFullscreenAllowedByOwner(AllowFullscreen()));
+    }
   }
 
   return nsGenericHTMLElement::AfterSetAttr(
@@ -177,8 +183,6 @@ nsIContent::IMEState HTMLEmbedElement::GetDesiredIMEState() {
   return nsGenericHTMLElement::GetDesiredIMEState();
 }
 
-int32_t HTMLEmbedElement::TabIndexDefault() { return -1; }
-
 bool HTMLEmbedElement::ParseAttribute(int32_t aNamespaceID, nsAtom* aAttribute,
                                       const nsAString& aValue,
                                       nsIPrincipal* aMaybeScriptedPrincipal,
@@ -187,8 +191,9 @@ bool HTMLEmbedElement::ParseAttribute(int32_t aNamespaceID, nsAtom* aAttribute,
     if (aAttribute == nsGkAtoms::align) {
       return ParseAlignValue(aValue, aResult);
     }
-    if (ParseImageAttribute(aAttribute, aValue, aResult)) {
-      return true;
+    if (aAttribute == nsGkAtoms::width || aAttribute == nsGkAtoms::height ||
+        aAttribute == nsGkAtoms::hspace || aAttribute == nsGkAtoms::vspace) {
+      return aResult.ParseHTMLDimension(aValue);
     }
   }
 
@@ -198,7 +203,6 @@ bool HTMLEmbedElement::ParseAttribute(int32_t aNamespaceID, nsAtom* aAttribute,
 
 static void MapAttributesIntoRuleBase(const nsMappedAttributes* aAttributes,
                                       MappedDeclarations& aDecls) {
-  nsGenericHTMLElement::MapImageBorderAttributeInto(aAttributes, aDecls);
   nsGenericHTMLElement::MapImageMarginAttributeInto(aAttributes, aDecls);
   nsGenericHTMLElement::MapImageSizeAttributesInto(aAttributes, aDecls);
   nsGenericHTMLElement::MapImageAlignAttributeInto(aAttributes, aDecls);
@@ -256,7 +260,7 @@ uint32_t HTMLEmbedElement::GetCapabilities() const {
 }
 
 void HTMLEmbedElement::DestroyContent() {
-  nsObjectLoadingContent::DestroyContent();
+  nsObjectLoadingContent::Destroy();
   nsGenericHTMLElement::DestroyContent();
 }
 
@@ -288,5 +292,4 @@ nsContentPolicyType HTMLEmbedElement::GetContentPolicyType() const {
   return nsIContentPolicy::TYPE_INTERNAL_EMBED;
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

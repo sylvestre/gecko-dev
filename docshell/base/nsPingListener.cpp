@@ -6,17 +6,17 @@
 
 #include "nsPingListener.h"
 
+#include "mozilla/Encoding.h"
 #include "mozilla/Preferences.h"
 
 #include "mozilla/dom/DocGroup.h"
+#include "mozilla/dom/Document.h"
 
-#include "nsIDocument.h"
 #include "nsIHttpChannelInternal.h"
 #include "nsIInputStream.h"
 #include "nsIProtocolHandler.h"
 #include "nsIUploadChannel2.h"
 
-#include "nsDocument.h"
 #include "nsNetUtil.h"
 #include "nsStreamUtils.h"
 #include "nsStringStream.h"
@@ -80,9 +80,8 @@ struct MOZ_STACK_CLASS SendPingInfo {
   int32_t maxPings;
   bool requireSameHost;
   nsIURI* target;
-  nsIURI* referrer;
+  nsIReferrerInfo* referrerInfo;
   nsIDocShell* docShell;
-  uint32_t referrerPolicy;
 };
 
 static void SendPing(void* aClosure, nsIContent* aContent, nsIURI* aURI,
@@ -92,13 +91,13 @@ static void SendPing(void* aClosure, nsIContent* aContent, nsIURI* aURI,
     return;
   }
 
-  nsIDocument* doc = aContent->OwnerDoc();
+  Document* doc = aContent->OwnerDoc();
 
   nsCOMPtr<nsIChannel> chan;
   NS_NewChannel(getter_AddRefs(chan), aURI, doc,
                 info->requireSameHost
                     ? nsILoadInfo::SEC_REQUIRE_SAME_ORIGIN_DATA_IS_BLOCKED
-                    : nsILoadInfo::SEC_ALLOW_CROSS_ORIGIN_DATA_IS_NULL,
+                    : nsILoadInfo::SEC_ALLOW_CROSS_ORIGIN_SEC_CONTEXT_IS_NULL,
                 nsIContentPolicy::TYPE_PING,
                 nullptr,                  // PerformanceStorage
                 nullptr,                  // aLoadGroup
@@ -112,8 +111,7 @@ static void SendPing(void* aClosure, nsIContent* aContent, nsIURI* aURI,
 
   // Don't bother caching the result of this URI load, but do not exempt
   // it from Safe Browsing.
-  chan->SetLoadFlags(nsIRequest::INHIBIT_CACHING |
-                     nsIChannel::LOAD_CLASSIFY_URI);
+  chan->SetLoadFlags(nsIRequest::INHIBIT_CACHING);
 
   nsCOMPtr<nsIHttpChannel> httpChan = do_QueryInterface(chan);
   if (!httpChan) {
@@ -128,35 +126,34 @@ static void SendPing(void* aClosure, nsIContent* aContent, nsIURI* aURI,
     MOZ_ASSERT(NS_SUCCEEDED(rv));
   }
 
-  rv = httpChan->SetRequestMethod(NS_LITERAL_CSTRING("POST"));
+  rv = httpChan->SetRequestMethod("POST"_ns);
   MOZ_ASSERT(NS_SUCCEEDED(rv));
 
   // Remove extraneous request headers (to reduce request size)
-  rv = httpChan->SetRequestHeader(NS_LITERAL_CSTRING("accept"), EmptyCString(),
-                                  false);
+  rv = httpChan->SetRequestHeader("accept"_ns, ""_ns, false);
   MOZ_ASSERT(NS_SUCCEEDED(rv));
-  rv = httpChan->SetRequestHeader(NS_LITERAL_CSTRING("accept-language"),
-                                  EmptyCString(), false);
+  rv = httpChan->SetRequestHeader("accept-language"_ns, ""_ns, false);
   MOZ_ASSERT(NS_SUCCEEDED(rv));
-  rv = httpChan->SetRequestHeader(NS_LITERAL_CSTRING("accept-encoding"),
-                                  EmptyCString(), false);
+  rv = httpChan->SetRequestHeader("accept-encoding"_ns, ""_ns, false);
   MOZ_ASSERT(NS_SUCCEEDED(rv));
 
   // Always send a Ping-To header.
   nsAutoCString pingTo;
   if (NS_SUCCEEDED(info->target->GetSpec(pingTo))) {
-    rv = httpChan->SetRequestHeader(NS_LITERAL_CSTRING("Ping-To"), pingTo,
-                                    false);
+    rv = httpChan->SetRequestHeader("Ping-To"_ns, pingTo, false);
     MOZ_ASSERT(NS_SUCCEEDED(rv));
   }
 
   nsCOMPtr<nsIScriptSecurityManager> sm =
       do_GetService(NS_SCRIPTSECURITYMANAGER_CONTRACTID);
 
-  if (sm && info->referrer) {
-    bool referrerIsSecure;
+  if (sm && info->referrerInfo) {
+    nsCOMPtr<nsIURI> referrer = info->referrerInfo->GetOriginalReferrer();
+    bool referrerIsSecure = false;
     uint32_t flags = nsIProtocolHandler::URI_IS_POTENTIALLY_TRUSTWORTHY;
-    rv = NS_URIChainHasFlags(info->referrer, flags, &referrerIsSecure);
+    if (referrer) {
+      rv = NS_URIChainHasFlags(referrer, flags, &referrerIsSecure);
+    }
 
     // Default to sending less data if NS_URIChainHasFlags() fails.
     referrerIsSecure = NS_FAILED(rv) || referrerIsSecure;
@@ -168,7 +165,7 @@ static void SendPing(void* aClosure, nsIContent* aContent, nsIURI* aURI,
     }
 
     bool sameOrigin = NS_SUCCEEDED(
-        sm->CheckSameOriginURI(info->referrer, aURI, false, isPrivateWin));
+        sm->CheckSameOriginURI(referrer, aURI, false, isPrivateWin));
 
     // If both the address of the document containing the hyperlink being
     // audited and "ping URL" have the same origin or the document containing
@@ -176,9 +173,8 @@ static void SendPing(void* aClosure, nsIContent* aContent, nsIURI* aURI,
     // connection, send a Ping-From header.
     if (sameOrigin || !referrerIsSecure) {
       nsAutoCString pingFrom;
-      if (NS_SUCCEEDED(info->referrer->GetSpec(pingFrom))) {
-        rv = httpChan->SetRequestHeader(NS_LITERAL_CSTRING("Ping-From"),
-                                        pingFrom, false);
+      if (NS_SUCCEEDED(referrer->GetSpec(pingFrom))) {
+        rv = httpChan->SetRequestHeader("Ping-From"_ns, pingFrom, false);
         MOZ_ASSERT(NS_SUCCEEDED(rv));
       }
     }
@@ -186,9 +182,8 @@ static void SendPing(void* aClosure, nsIContent* aContent, nsIURI* aURI,
     // If the document containing the hyperlink being audited was not retrieved
     // over an encrypted connection and its address does not have the same
     // origin as "ping URL", send a referrer.
-    if (!sameOrigin && !referrerIsSecure) {
-      rv =
-          httpChan->SetReferrerWithPolicy(info->referrer, info->referrerPolicy);
+    if (!sameOrigin && !referrerIsSecure && info->referrerInfo) {
+      rv = httpChan->SetReferrerInfo(info->referrerInfo);
       MOZ_ASSERT(NS_SUCCEEDED(rv));
     }
   }
@@ -198,7 +193,7 @@ static void SendPing(void* aClosure, nsIContent* aContent, nsIURI* aURI,
     return;
   }
 
-  NS_NAMED_LITERAL_CSTRING(uploadData, "PING");
+  constexpr auto uploadData = "PING"_ns;
 
   nsCOMPtr<nsIInputStream> uploadStream;
   rv = NS_NewCStringInputStream(getter_AddRefs(uploadStream), uploadData);
@@ -206,9 +201,8 @@ static void SendPing(void* aClosure, nsIContent* aContent, nsIURI* aURI,
     return;
   }
 
-  uploadChan->ExplicitSetUploadStream(
-      uploadStream, NS_LITERAL_CSTRING("text/ping"), uploadData.Length(),
-      NS_LITERAL_CSTRING("POST"), false);
+  uploadChan->ExplicitSetUploadStream(uploadStream, "text/ping"_ns,
+                                      uploadData.Length(), "POST"_ns, false);
 
   // The channel needs to have a loadgroup associated with it, so that we can
   // cancel the channel and any redirected channels it may create.
@@ -221,7 +215,7 @@ static void SendPing(void* aClosure, nsIContent* aContent, nsIURI* aURI,
   chan->SetLoadGroup(loadGroup);
 
   RefPtr<nsPingListener> pingListener = new nsPingListener();
-  chan->AsyncOpen2(pingListener);
+  chan->AsyncOpen(pingListener);
 
   // Even if AsyncOpen failed, we still count this as a successful ping.  It's
   // possible that AsyncOpen may have failed after triggering some background
@@ -267,25 +261,22 @@ static void ForEachPing(nsIContent* aContent, ForEachPingCallback aCallback,
     return;
   }
 
-  nsIDocument* doc = aContent->OwnerDoc();
+  Document* doc = aContent->OwnerDoc();
   nsAutoCString charset;
   doc->GetDocumentCharacterSet()->Name(charset);
 
   nsWhitespaceTokenizer tokenizer(value);
 
   while (tokenizer.hasMoreTokens()) {
-    nsCOMPtr<nsIURI> uri, baseURI = aContent->GetBaseURI();
-    ios->NewURI(NS_ConvertUTF16toUTF8(tokenizer.nextToken()), charset.get(),
-                baseURI, getter_AddRefs(uri));
+    nsCOMPtr<nsIURI> uri;
+    NS_NewURI(getter_AddRefs(uri), tokenizer.nextToken(), charset.get(),
+              aContent->GetBaseURI());
     // if we can't generate a valid URI, then there is nothing to do
     if (!uri) {
       continue;
     }
     // Explicitly not allow loading data: URIs
-    bool isDataScheme =
-        (NS_SUCCEEDED(uri->SchemeIs("data", &isDataScheme)) && isDataScheme);
-
-    if (!isDataScheme) {
+    if (!net::SchemeIsData(uri)) {
       aCallback(aClosure, aContent, uri, ios);
     }
   }
@@ -295,8 +286,7 @@ static void ForEachPing(nsIContent* aContent, ForEachPingCallback aCallback,
 /*static*/ void nsPingListener::DispatchPings(nsIDocShell* aDocShell,
                                               nsIContent* aContent,
                                               nsIURI* aTarget,
-                                              nsIURI* aReferrer,
-                                              uint32_t aReferrerPolicy) {
+                                              nsIReferrerInfo* aReferrerInfo) {
   SendPingInfo info;
 
   if (!PingsEnabled(&info.maxPings, &info.requireSameHost)) {
@@ -308,8 +298,7 @@ static void ForEachPing(nsIContent* aContent, ForEachPingCallback aCallback,
 
   info.numPings = 0;
   info.target = aTarget;
-  info.referrer = aReferrer;
-  info.referrerPolicy = aReferrerPolicy;
+  info.referrerInfo = aReferrerInfo;
   info.docShell = aDocShell;
 
   ForEachPing(aContent, SendPing, &info);
@@ -332,21 +321,17 @@ nsresult nsPingListener::StartTimeout(DocGroup* aDocGroup) {
 }
 
 NS_IMETHODIMP
-nsPingListener::OnStartRequest(nsIRequest* aRequest, nsISupports* aContext) {
-  return NS_OK;
-}
+nsPingListener::OnStartRequest(nsIRequest* aRequest) { return NS_OK; }
 
 NS_IMETHODIMP
-nsPingListener::OnDataAvailable(nsIRequest* aRequest, nsISupports* aContext,
-                                nsIInputStream* aStream, uint64_t aOffset,
-                                uint32_t aCount) {
+nsPingListener::OnDataAvailable(nsIRequest* aRequest, nsIInputStream* aStream,
+                                uint64_t aOffset, uint32_t aCount) {
   uint32_t result;
   return aStream->ReadSegments(NS_DiscardSegment, nullptr, aCount, &result);
 }
 
 NS_IMETHODIMP
-nsPingListener::OnStopRequest(nsIRequest* aRequest, nsISupports* aContext,
-                              nsresult aStatus) {
+nsPingListener::OnStopRequest(nsIRequest* aRequest, nsresult aStatus) {
   mLoadGroup = nullptr;
 
   if (mTimer) {

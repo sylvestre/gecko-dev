@@ -12,24 +12,35 @@
 #include "openvr.h"
 #include "mozilla/TimeStamp.h"
 #include "moz_external_vr.h"
+#include "OpenVRControllerMapper.h"
 
 #if defined(XP_WIN)
-#include <d3d11_1.h>
+#  include <d3d11_1.h>
 #endif
 class nsITimer;
 
 namespace mozilla {
 namespace gfx {
 class VRThread;
+class OpenVRControllerMapper;
 
 static const int kNumOpenVRHaptics = 1;
+
+enum OpenVRHand : int8_t {
+  Left = 0,
+  Right = 1,
+  Total = 2,
+
+  None = -1
+};
 
 class OpenVRSession : public VRSession {
  public:
   OpenVRSession();
   virtual ~OpenVRSession();
 
-  bool Initialize(mozilla::gfx::VRSystemState& aSystemState) override;
+  bool Initialize(mozilla::gfx::VRSystemState& aSystemState,
+                  bool aDetectRuntimesOnly) override;
   void Shutdown() override;
   void ProcessEvents(mozilla::gfx::VRSystemState& aSystemState) override;
   void StartFrame(mozilla::gfx::VRSystemState& aSystemState) override;
@@ -54,12 +65,15 @@ class OpenVRSession : public VRSession {
   ::vr::IVRSystem* mVRSystem = nullptr;
   ::vr::IVRChaperone* mVRChaperone = nullptr;
   ::vr::IVRCompositor* mVRCompositor = nullptr;
-  ::vr::TrackedDeviceIndex_t mControllerDeviceIndex[kVRControllerMaxCount];
+  ::vr::VRActionSetHandle_t mActionsetFirefox = vr::k_ulInvalidActionSetHandle;
+  OpenVRHand mControllerDeviceIndex[kVRControllerMaxCount];
+  ControllerInfo mControllerHand[OpenVRHand::Total];
   float mHapticPulseRemaining[kVRControllerMaxCount][kNumOpenVRHaptics];
   float mHapticPulseIntensity[kVRControllerMaxCount][kNumOpenVRHaptics];
   bool mIsWindowsMR;
   TimeStamp mLastHapticUpdate;
 
+  static void HapticTimerCallback(nsITimer* aTimer, void* aClosure);
   bool InitState(mozilla::gfx::VRSystemState& aSystemState);
   void UpdateStageParameters(mozilla::gfx::VRDisplayState& aState);
   void UpdateEyeParameters(mozilla::gfx::VRSystemState& aState);
@@ -68,6 +82,7 @@ class OpenVRSession : public VRSession {
   void UpdateControllerPoses(VRSystemState& aState);
   void UpdateControllerButtons(VRSystemState& aState);
   void UpdateTelemetry(VRSystemState& aSystemState);
+  bool SetupContollerActions();
 
   bool SubmitFrame(const VRLayerTextureHandle& aTextureHandle,
                    ::vr::ETextureType aTextureType,
@@ -78,16 +93,17 @@ class OpenVRSession : public VRSession {
 #endif
   void GetControllerDeviceId(::vr::ETrackedDeviceClass aDeviceType,
                              ::vr::TrackedDeviceIndex_t aDeviceIndex,
-                             nsCString& aId);
+                             nsCString& aId,
+                             mozilla::gfx::VRControllerType& aControllerType);
   void UpdateHaptics();
   void StartHapticThread();
   void StopHapticThread();
   void StartHapticTimer();
   void StopHapticTimer();
-  static void HapticTimerCallback(nsITimer* aTimer, void* aClosure);
   RefPtr<nsITimer> mHapticTimer;
   RefPtr<VRThread> mHapticThread;
   mozilla::Mutex mControllerHapticStateMutex;
+  UniquePtr<OpenVRControllerMapper> mControllerMapper;
 };
 
 }  // namespace gfx

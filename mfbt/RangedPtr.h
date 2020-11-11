@@ -17,6 +17,7 @@
 #include "mozilla/Attributes.h"
 
 #include <stdint.h>
+#include <cstddef>
 
 namespace mozilla {
 
@@ -41,6 +42,9 @@ namespace mozilla {
  */
 template <typename T>
 class RangedPtr {
+  template <typename U>
+  friend class RangedPtr;
+
   T* mPtr;
 
 #ifdef DEBUG
@@ -113,6 +117,29 @@ class RangedPtr {
         ,
         mRangeStart(aArr),
         mRangeEnd(aArr + N)
+#endif
+  {
+    checkSanity();
+  }
+
+  RangedPtr(const RangedPtr& aOther)
+      : mPtr(aOther.mPtr)
+#ifdef DEBUG
+        ,
+        mRangeStart(aOther.mRangeStart),
+        mRangeEnd(aOther.mRangeEnd)
+#endif
+  {
+    checkSanity();
+  }
+
+  template <typename U>
+  MOZ_IMPLICIT RangedPtr(const RangedPtr<U>& aOther)
+      : mPtr(aOther.mPtr)
+#ifdef DEBUG
+        ,
+        mRangeStart(aOther.mRangeStart),
+        mRangeEnd(aOther.mRangeEnd)
 #endif
   {
     checkSanity();
@@ -211,7 +238,7 @@ class RangedPtr {
     return *this;
   }
 
-  T& operator[](int aIndex) const {
+  T& operator[](ptrdiff_t aIndex) const {
     MOZ_ASSERT(size_t(aIndex > 0 ? aIndex : -aIndex) <= size_t(-1) / sizeof(T));
     return *create(mPtr + aIndex);
   }
@@ -245,6 +272,9 @@ class RangedPtr {
   bool operator!=(const U* u) const {
     return !(*this == u);
   }
+
+  bool operator==(std::nullptr_t) const { return mPtr == nullptr; }
+  bool operator!=(std::nullptr_t) const { return mPtr != nullptr; }
 
   template <typename U>
   bool operator<(const RangedPtr<U>& aOther) const {

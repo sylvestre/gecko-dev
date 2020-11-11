@@ -1,5 +1,3 @@
-#![cfg_attr(feature="nightly", feature(const_fn))]
-
 #[macro_use]
 extern crate lazy_static;
 use std::collections::HashMap;
@@ -135,9 +133,11 @@ fn item_name_shadowing() {
 }
 
 use std::sync::atomic::AtomicBool;
+#[allow(deprecated)]
 use std::sync::atomic::ATOMIC_BOOL_INIT;
 use std::sync::atomic::Ordering::SeqCst;
 
+#[allow(deprecated)]
 static PRE_INIT_FLAG: AtomicBool = ATOMIC_BOOL_INIT;
 
 lazy_static! {

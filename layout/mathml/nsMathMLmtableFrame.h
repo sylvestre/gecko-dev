@@ -15,6 +15,10 @@
 #include "nsTableRowFrame.h"
 #include "nsTableCellFrame.h"
 
+namespace mozilla {
+class PresShell;
+}  // namespace mozilla
+
 //
 // <mtable> -- table or matrix
 //
@@ -23,7 +27,7 @@ class nsMathMLmtableWrapperFrame final : public nsTableWrapperFrame,
                                          public nsMathMLFrame {
  public:
   friend nsContainerFrame* NS_NewMathMLmtableOuterFrame(
-      nsIPresShell* aPresShell, ComputedStyle* aStyle);
+      mozilla::PresShell* aPresShell, ComputedStyle* aStyle);
 
   NS_DECL_QUERYFRAME
   NS_DECL_FRAMEARENA_HELPERS(nsMathMLmtableWrapperFrame)
@@ -42,8 +46,9 @@ class nsMathMLmtableWrapperFrame final : public nsTableWrapperFrame,
   }
 
  protected:
-  explicit nsMathMLmtableWrapperFrame(ComputedStyle* aStyle)
-      : nsTableWrapperFrame(aStyle, kClassID) {}
+  explicit nsMathMLmtableWrapperFrame(ComputedStyle* aStyle,
+                                      nsPresContext* aPresContext)
+      : nsTableWrapperFrame(aStyle, aPresContext, kClassID) {}
 
   virtual ~nsMathMLmtableWrapperFrame();
 
@@ -60,8 +65,8 @@ class nsMathMLmtableFrame final : public nsTableFrame {
   NS_DECL_QUERYFRAME
   NS_DECL_FRAMEARENA_HELPERS(nsMathMLmtableFrame)
 
-  friend nsContainerFrame* NS_NewMathMLmtableFrame(nsIPresShell* aPresShell,
-                                                   ComputedStyle* aStyle);
+  friend nsContainerFrame* NS_NewMathMLmtableFrame(
+      mozilla::PresShell* aPresShell, ComputedStyle* aStyle);
 
   // Overloaded nsTableFrame methods
 
@@ -75,8 +80,9 @@ class nsMathMLmtableFrame final : public nsTableFrame {
   }
 
   virtual void InsertFrames(ChildListID aListID, nsIFrame* aPrevFrame,
+                            const nsLineList::iterator* aPrevFrameLine,
                             nsFrameList& aFrameList) override {
-    nsTableFrame::InsertFrames(aListID, aPrevFrame, aFrameList);
+    nsTableFrame::InsertFrames(aListID, aPrevFrame, aPrevFrameLine, aFrameList);
     RestyleTable();
   }
 
@@ -111,11 +117,11 @@ class nsMathMLmtableFrame final : public nsTableFrame {
   nscoord GetRowSpacing(int32_t aStartRowIndex, int32_t aEndRowIndex) override;
 
   void SetColSpacingArray(const nsTArray<nscoord>& aColSpacing) {
-    mColSpacing = aColSpacing;
+    mColSpacing = aColSpacing.Clone();
   }
 
   void SetRowSpacingArray(const nsTArray<nscoord>& aRowSpacing) {
-    mRowSpacing = aRowSpacing;
+    mRowSpacing = aRowSpacing.Clone();
   }
 
   void SetFrameSpacing(nscoord aSpacingX, nscoord aSpacingY) {
@@ -132,8 +138,9 @@ class nsMathMLmtableFrame final : public nsTableFrame {
   bool GetUseCSSSpacing() { return mUseCSSSpacing; }
 
  protected:
-  explicit nsMathMLmtableFrame(ComputedStyle* aStyle)
-      : nsTableFrame(aStyle, kClassID),
+  explicit nsMathMLmtableFrame(ComputedStyle* aStyle,
+                               nsPresContext* aPresContext)
+      : nsTableFrame(aStyle, aPresContext, kClassID),
         mFrameSpacingX(0),
         mFrameSpacingY(0),
         mUseCSSSpacing(false) {}
@@ -154,7 +161,7 @@ class nsMathMLmtrFrame final : public nsTableRowFrame {
  public:
   NS_DECL_FRAMEARENA_HELPERS(nsMathMLmtrFrame)
 
-  friend nsContainerFrame* NS_NewMathMLmtrFrame(nsIPresShell* aPresShell,
+  friend nsContainerFrame* NS_NewMathMLmtrFrame(mozilla::PresShell* aPresShell,
                                                 ComputedStyle* aStyle);
 
   // overloaded nsTableRowFrame methods
@@ -169,8 +176,10 @@ class nsMathMLmtrFrame final : public nsTableRowFrame {
   }
 
   virtual void InsertFrames(ChildListID aListID, nsIFrame* aPrevFrame,
+                            const nsLineList::iterator* aPrevFrameLine,
                             nsFrameList& aFrameList) override {
-    nsTableRowFrame::InsertFrames(aListID, aPrevFrame, aFrameList);
+    nsTableRowFrame::InsertFrames(aListID, aPrevFrame, aPrevFrameLine,
+                                  aFrameList);
     RestyleTable();
   }
 
@@ -193,8 +202,8 @@ class nsMathMLmtrFrame final : public nsTableRowFrame {
   }
 
  protected:
-  explicit nsMathMLmtrFrame(ComputedStyle* aStyle)
-      : nsTableRowFrame(aStyle, kClassID) {}
+  explicit nsMathMLmtrFrame(ComputedStyle* aStyle, nsPresContext* aPresContext)
+      : nsTableRowFrame(aStyle, aPresContext, kClassID) {}
 
   virtual ~nsMathMLmtrFrame();
 };  // class nsMathMLmtrFrame
@@ -205,7 +214,7 @@ class nsMathMLmtdFrame final : public nsTableCellFrame {
  public:
   NS_DECL_FRAMEARENA_HELPERS(nsMathMLmtdFrame)
 
-  friend nsContainerFrame* NS_NewMathMLmtdFrame(nsIPresShell* aPresShell,
+  friend nsContainerFrame* NS_NewMathMLmtdFrame(mozilla::PresShell* aPresShell,
                                                 ComputedStyle* aStyle,
                                                 nsTableFrame* aTableFrame);
 
@@ -217,7 +226,7 @@ class nsMathMLmtdFrame final : public nsTableCellFrame {
   virtual nsresult AttributeChanged(int32_t aNameSpaceID, nsAtom* aAttribute,
                                     int32_t aModType) override;
 
-  virtual uint8_t GetVerticalAlign() const override;
+  virtual mozilla::StyleVerticalAlignKeyword GetVerticalAlign() const override;
   virtual nsresult ProcessBorders(nsTableFrame* aFrame,
                                   nsDisplayListBuilder* aBuilder,
                                   const nsDisplayListSet& aLists) override;
@@ -241,8 +250,8 @@ class nsMathMLmtdFrame final : public nsTableCellFrame {
 
 class nsMathMLmtdInnerFrame final : public nsBlockFrame, public nsMathMLFrame {
  public:
-  friend nsContainerFrame* NS_NewMathMLmtdInnerFrame(nsIPresShell* aPresShell,
-                                                     ComputedStyle* aStyle);
+  friend nsContainerFrame* NS_NewMathMLmtdInnerFrame(
+      mozilla::PresShell* aPresShell, ComputedStyle* aStyle);
 
   NS_DECL_QUERYFRAME
   NS_DECL_FRAMEARENA_HELPERS(nsMathMLmtdInnerFrame)
@@ -263,8 +272,7 @@ class nsMathMLmtdInnerFrame final : public nsBlockFrame, public nsMathMLFrame {
                       nsReflowStatus& aStatus) override;
 
   virtual bool IsFrameOfType(uint32_t aFlags) const override {
-    return nsBlockFrame::IsFrameOfType(
-        aFlags & ~(nsIFrame::eMathML | nsIFrame::eExcludesIgnorableWhitespace));
+    return nsBlockFrame::IsFrameOfType(aFlags & ~nsIFrame::eMathML);
   }
 
   virtual const nsStyleText* StyleTextForLineLayout() override;
@@ -275,8 +283,9 @@ class nsMathMLmtdInnerFrame final : public nsBlockFrame, public nsMathMLFrame {
   }
 
  protected:
-  explicit nsMathMLmtdInnerFrame(ComputedStyle* aStyle);
-  virtual ~nsMathMLmtdInnerFrame() {}
+  explicit nsMathMLmtdInnerFrame(ComputedStyle* aStyle,
+                                 nsPresContext* aPresContext);
+  virtual ~nsMathMLmtdInnerFrame() = default;
 
   mozilla::UniquePtr<nsStyleText> mUniqueStyleText;
 

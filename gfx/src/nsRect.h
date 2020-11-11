@@ -22,11 +22,11 @@
 #include "nscore.h"           // for NS_BUILD_REFCNT_LOGGING
 #if !defined(ANDROID) && (defined(__SSE2__) || defined(_M_X64) || \
                           (defined(_M_IX86_FP) && _M_IX86_FP >= 2))
-#if defined(_MSC_VER) && !defined(__clang__)
-#include "smmintrin.h"
-#else
-#include "emmintrin.h"
-#endif
+#  if defined(_MSC_VER) && !defined(__clang__)
+#    include "smmintrin.h"
+#  else
+#    include "emmintrin.h"
+#  endif
 #endif
 
 typedef mozilla::gfx::IntRect nsIntRect;
@@ -48,16 +48,15 @@ struct nsRect : public mozilla::gfx::BaseRect<nscoord, nsRect, nsPoint, nsSize,
       : Super(aX, aY, aWidth, aHeight) {
     MOZ_COUNT_CTOR(nsRect);
   }
+  nsRect& operator=(const nsRect&) = default;
 
-#ifdef NS_BUILD_REFCNT_LOGGING
-  ~nsRect() { MOZ_COUNT_DTOR(nsRect); }
-#endif
+  MOZ_COUNTED_DTOR(nsRect)
 
   // We have saturating versions of all the Union methods. These avoid
   // overflowing nscoord values in the 'width' and 'height' fields by
   // clamping the width and height values to nscoord_MAX if necessary.
 
-  MOZ_MUST_USE nsRect SaturatingUnion(const nsRect& aRect) const {
+  [[nodiscard]] nsRect SaturatingUnion(const nsRect& aRect) const {
     if (IsEmpty()) {
       return aRect;
     } else if (aRect.IsEmpty()) {
@@ -67,7 +66,7 @@ struct nsRect : public mozilla::gfx::BaseRect<nscoord, nsRect, nsPoint, nsSize,
     }
   }
 
-  MOZ_MUST_USE nsRect SaturatingUnionEdges(const nsRect& aRect) const {
+  [[nodiscard]] nsRect SaturatingUnionEdges(const nsRect& aRect) const {
 #ifdef NS_COORD_IS_FLOAT
     return UnionEdges(aRect);
 #else
@@ -104,26 +103,26 @@ struct nsRect : public mozilla::gfx::BaseRect<nscoord, nsRect, nsPoint, nsSize,
 
 #ifndef NS_COORD_IS_FLOAT
   // Make all nsRect Union methods be saturating.
-  MOZ_MUST_USE nsRect UnionEdges(const nsRect& aRect) const {
+  [[nodiscard]] nsRect UnionEdges(const nsRect& aRect) const {
     return SaturatingUnionEdges(aRect);
   }
   void UnionRectEdges(const nsRect& aRect1, const nsRect& aRect2) {
     *this = aRect1.UnionEdges(aRect2);
   }
-  MOZ_MUST_USE nsRect Union(const nsRect& aRect) const {
+  [[nodiscard]] nsRect Union(const nsRect& aRect) const {
     return SaturatingUnion(aRect);
   }
-  MOZ_MUST_USE nsRect UnsafeUnion(const nsRect& aRect) const {
+  [[nodiscard]] nsRect UnsafeUnion(const nsRect& aRect) const {
     return Super::Union(aRect);
   }
   void UnionRect(const nsRect& aRect1, const nsRect& aRect2) {
     *this = aRect1.Union(aRect2);
   }
 
-#if defined(_MSC_VER) && !defined(__clang__) && \
-    (defined(_M_X64) || defined(_M_IX86))
+#  if defined(_MSC_VER) && !defined(__clang__) && \
+      (defined(_M_X64) || defined(_M_IX86))
   // Only MSVC supports inlining intrinsics for archs you're not compiling for.
-  MOZ_MUST_USE nsRect Intersect(const nsRect& aRect) const {
+  [[nodiscard]] nsRect Intersect(const nsRect& aRect) const {
     nsRect result;
     if (mozilla::gfx::Factory::HasSSE4()) {
       __m128i rect1 = _mm_loadu_si128((__m128i*)&aRect);  // x1, y1, w1, h1
@@ -221,7 +220,7 @@ struct nsRect : public mozilla::gfx::BaseRect<nscoord, nsRect, nsPoint, nsSize,
     }
     return true;
   }
-#endif
+#  endif
 #endif
 
   void SaturatingUnionRect(const nsRect& aRect1, const nsRect& aRect2) {
@@ -243,35 +242,35 @@ struct nsRect : public mozilla::gfx::BaseRect<nscoord, nsRect, nsPoint, nsSize,
    * @param aToAPP the APP to scale to
    * @note this can turn an empty rectangle into a non-empty rectangle
    */
-  MOZ_MUST_USE inline nsRect ScaleToOtherAppUnitsRoundOut(int32_t aFromAPP,
+  [[nodiscard]] inline nsRect ScaleToOtherAppUnitsRoundOut(
+      int32_t aFromAPP, int32_t aToAPP) const;
+  [[nodiscard]] inline nsRect ScaleToOtherAppUnitsRoundIn(int32_t aFromAPP,
                                                           int32_t aToAPP) const;
-  MOZ_MUST_USE inline nsRect ScaleToOtherAppUnitsRoundIn(int32_t aFromAPP,
-                                                         int32_t aToAPP) const;
 
-  MOZ_MUST_USE inline mozilla::gfx::IntRect ScaleToNearestPixels(
+  [[nodiscard]] inline mozilla::gfx::IntRect ScaleToNearestPixels(
       float aXScale, float aYScale, nscoord aAppUnitsPerPixel) const;
 
-  MOZ_MUST_USE inline mozilla::gfx::IntRect ToNearestPixels(
+  [[nodiscard]] inline mozilla::gfx::IntRect ToNearestPixels(
       nscoord aAppUnitsPerPixel) const;
 
   // Note: this can turn an empty rectangle into a non-empty rectangle
-  MOZ_MUST_USE inline mozilla::gfx::IntRect ScaleToOutsidePixels(
+  [[nodiscard]] inline mozilla::gfx::IntRect ScaleToOutsidePixels(
       float aXScale, float aYScale, nscoord aAppUnitsPerPixel) const;
 
   // Note: this can turn an empty rectangle into a non-empty rectangle
-  MOZ_MUST_USE inline mozilla::gfx::IntRect ToOutsidePixels(
+  [[nodiscard]] inline mozilla::gfx::IntRect ToOutsidePixels(
       nscoord aAppUnitsPerPixel) const;
 
-  MOZ_MUST_USE inline mozilla::gfx::IntRect ScaleToInsidePixels(
+  [[nodiscard]] inline mozilla::gfx::IntRect ScaleToInsidePixels(
       float aXScale, float aYScale, nscoord aAppUnitsPerPixel) const;
 
-  MOZ_MUST_USE inline mozilla::gfx::IntRect ToInsidePixels(
+  [[nodiscard]] inline mozilla::gfx::IntRect ToInsidePixels(
       nscoord aAppUnitsPerPixel) const;
 
   // This is here only to keep IPDL-generated code happy. DO NOT USE.
   bool operator==(const nsRect& aRect) const { return IsEqualEdges(aRect); }
 
-  MOZ_MUST_USE inline nsRect RemoveResolution(const float aResolution) const;
+  [[nodiscard]] inline nsRect RemoveResolution(const float aResolution) const;
 };
 
 /*
@@ -492,10 +491,5 @@ nsRect ToAppUnits(const mozilla::gfx::IntRectTyped<units>& aRect,
                 NSIntPixelsToAppUnits(aRect.Width(), aAppUnitsPerPixel),
                 NSIntPixelsToAppUnits(aRect.Height(), aAppUnitsPerPixel));
 }
-
-#ifdef DEBUG
-// Diagnostics
-extern FILE* operator<<(FILE* out, const nsRect& rect);
-#endif  // DEBUG
 
 #endif /* NSRECT_H */

@@ -5,11 +5,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "nsWidgetsCID.h"
-#include "nsIComponentRegistrar.h"
-#include "nsICrashReporter.h"
+#include "nsIUserIdleService.h"
 
 #ifndef TEST_NAME
-#error "Must #define TEST_NAME before including places_test_harness_tail.h"
+#  error "Must #define TEST_NAME before including places_test_harness_tail.h"
 #endif
 
 int gTestsIndex = 0;
@@ -23,7 +22,7 @@ class RunNextTest : public mozilla::Runnable {
     NS_ASSERTION(NS_IsMainThread(), "Not running on the main thread?");
     if (gTestsIndex < int(mozilla::ArrayLength(gTests))) {
       do_test_pending();
-      Test &test = gTests[gTestsIndex++];
+      Test& test = gTests[gTestsIndex++];
       (void)fprintf(stderr, TEST_INFO_STR "Running %s.\n", test.name);
       test.func();
     }
@@ -33,7 +32,13 @@ class RunNextTest : public mozilla::Runnable {
   }
 };
 
+static const bool kDebugRunNextTest = false;
+
 void run_next_test() {
+  if (kDebugRunNextTest) {
+    printf_stderr("run_next_test()\n");
+    nsTraceRefcnt::WalkTheStack(stderr);
+  }
   nsCOMPtr<nsIRunnable> event = new RunNextTest();
   do_check_success(NS_DispatchToCurrentThread(event));
 }
@@ -42,6 +47,10 @@ int gPendingTests = 0;
 
 void do_test_pending() {
   NS_ASSERTION(NS_IsMainThread(), "Not running on the main thread?");
+  if (kDebugRunNextTest) {
+    printf_stderr("do_test_pending()\n");
+    nsTraceRefcnt::WalkTheStack(stderr);
+  }
   gPendingTests++;
 }
 
@@ -53,18 +62,14 @@ void do_test_finished() {
 
 void disable_idle_service() {
   (void)fprintf(stderr, TEST_INFO_STR "Disabling Idle Service.\n");
-  static NS_DEFINE_IID(kIdleCID, NS_IDLE_SERVICE_CID);
-  nsresult rv;
-  nsCOMPtr<nsIFactory> idleFactory = do_GetClassObject(kIdleCID, &rv);
-  do_check_success(rv);
-  nsCOMPtr<nsIComponentRegistrar> registrar;
-  rv = NS_GetComponentRegistrar(getter_AddRefs(registrar));
-  do_check_success(rv);
-  rv = registrar->UnregisterFactory(kIdleCID, idleFactory);
-  do_check_success(rv);
+
+  nsCOMPtr<nsIUserIdleService> idle =
+      do_GetService("@mozilla.org/widget/useridleservice;1");
+  idle->SetDisabled(true);
 }
 
-TEST(IHistory, Test) {
+TEST(IHistory, Test)
+{
   RefPtr<WaitForConnectionClosed> spinClose = new WaitForConnectionClosed();
 
   // Tinderboxes are constantly on idle.  Since idle tasks can interact with

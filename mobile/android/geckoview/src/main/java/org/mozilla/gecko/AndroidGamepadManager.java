@@ -8,7 +8,6 @@ package org.mozilla.gecko;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Timer;
-import java.util.TimerTask;
 
 import org.mozilla.gecko.annotation.WrapForJNI;
 import org.mozilla.gecko.util.GamepadUtils;
@@ -16,7 +15,6 @@ import org.mozilla.gecko.util.ThreadUtils;
 
 import android.content.Context;
 import android.hardware.input.InputManager;
-import android.os.Build;
 import android.util.SparseArray;
 import android.view.InputDevice;
 import android.view.KeyEvent;
@@ -36,7 +34,7 @@ public class AndroidGamepadManager {
 
         public final int axis;
 
-        private Axis(int axis) {
+        private Axis(final int axis) {
             this.axis = axis;
         }
     }
@@ -49,7 +47,7 @@ public class AndroidGamepadManager {
 
         public final int button;
 
-        private Trigger(int button) {
+        private Trigger(final int button) {
             this.button = button;
         }
     }
@@ -65,7 +63,7 @@ public class AndroidGamepadManager {
         public final int negativeButton;
         public final int positiveButton;
 
-        private DpadAxis(int axis, int negativeButton, int positiveButton) {
+        private DpadAxis(final int axis, final int negativeButton, final int positiveButton) {
             this.axis = axis;
             this.negativeButton = negativeButton;
             this.positiveButton = positiveButton;
@@ -92,7 +90,7 @@ public class AndroidGamepadManager {
 
         public final int button;
 
-        private Button(int button) {
+        private Button(final int button) {
             this.button = button;
         }
     }
@@ -106,7 +104,7 @@ public class AndroidGamepadManager {
         public int triggerAxes[];
         public float triggers[];
 
-        public Gamepad(int serviceId, int deviceId) {
+        public Gamepad(final int serviceId, final int deviceId) {
             id = serviceId;
             axes = new float[Axis.values().length];
             dpad = new boolean[4];
@@ -130,11 +128,13 @@ public class AndroidGamepadManager {
     }
 
     @WrapForJNI(calledFrom = "ui")
-    private static native void onGamepadChange(int id, boolean added);
+    private static native int nativeAddGamepad();
     @WrapForJNI(calledFrom = "ui")
-    private static native void onButtonChange(int id, int button, boolean pressed, float value);
+    private static native void nativeRemoveGamepad(int aGamepadId);
     @WrapForJNI(calledFrom = "ui")
-    private static native void onAxisChange(int id, boolean[] valid, float[] values);
+    private static native void onButtonChange(int aGamepadId, int aButton, boolean aPressed, float aValue);
+    @WrapForJNI(calledFrom = "ui")
+    private static native void onAxisChange(int aGamepadId, boolean[] aValid, float[] aValues);
 
     private static boolean sStarted;
     private static final SparseArray<Gamepad> sGamepads = new SparseArray<>();
@@ -147,7 +147,7 @@ public class AndroidGamepadManager {
 
     @WrapForJNI
     private static void start(final Context context) {
-        ThreadUtils.postToUiThread(new Runnable() {
+        ThreadUtils.runOnUiThread(new Runnable() {
             @Override
             public void run() {
                 doStart(context);
@@ -166,7 +166,7 @@ public class AndroidGamepadManager {
 
     @WrapForJNI
     private static void stop(final Context context) {
-        ThreadUtils.postToUiThread(new Runnable() {
+        ThreadUtils.runOnUiThread(new Runnable() {
             @Override
             public void run() {
                 doStop(context);
@@ -184,17 +184,7 @@ public class AndroidGamepadManager {
         }
     }
 
-    @WrapForJNI
-    private static void onGamepadAdded(final int device_id, final int service_id) {
-        ThreadUtils.postToUiThread(new Runnable() {
-            @Override
-            public void run() {
-                handleGamepadAdded(device_id, service_id);
-            }
-        });
-    }
-
-    /* package */ static void handleGamepadAdded(int deviceId, int serviceId) {
+    /* package */ static void handleGamepadAdded(final int deviceId, final int serviceId) {
         ThreadUtils.assertOnUiThread();
         if (!sStarted) {
             return;
@@ -214,24 +204,24 @@ public class AndroidGamepadManager {
         }
     }
 
-    private static float deadZone(MotionEvent ev, int axis) {
+    private static float deadZone(final MotionEvent ev, final int axis) {
         if (GamepadUtils.isValueInDeadZone(ev, axis)) {
             return 0.0f;
         }
         return ev.getAxisValue(axis);
     }
 
-    private static void mapDpadAxis(Gamepad gamepad,
-                                    boolean pressed,
-                                    float value,
-                                    int which) {
+    private static void mapDpadAxis(final Gamepad gamepad,
+                                    final boolean pressed,
+                                    final float value,
+                                    final int which) {
         if (pressed != gamepad.dpad[which]) {
             gamepad.dpad[which] = pressed;
             onButtonChange(gamepad.id, FIRST_DPAD_BUTTON + which, pressed, Math.abs(value));
         }
     }
 
-    public static boolean handleMotionEvent(MotionEvent ev) {
+    public static boolean handleMotionEvent(final MotionEvent ev) {
         ThreadUtils.assertOnUiThread();
         if (!sStarted) {
             return false;
@@ -284,7 +274,7 @@ public class AndroidGamepadManager {
         return true;
     }
 
-    public static boolean handleKeyEvent(KeyEvent ev) {
+    public static boolean handleKeyEvent(final KeyEvent ev) {
         ThreadUtils.assertOnUiThread();
         if (!sStarted) {
             return false;
@@ -351,79 +341,62 @@ public class AndroidGamepadManager {
         }
     }
 
-    private static void addGamepad(InputDevice device) {
+    private static void addGamepad(final InputDevice device) {
         sPendingGamepads.put(device.getId(), new ArrayList<KeyEvent>());
-        onGamepadChange(device.getId(), true);
+        final int gamepadId = nativeAddGamepad();
+        ThreadUtils.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                handleGamepadAdded(device.getId(), gamepadId);
+            }
+        });
     }
 
-    private static void removeGamepad(int deviceId) {
+    private static void removeGamepad(final int deviceId) {
         Gamepad gamepad = sGamepads.get(deviceId);
-        onGamepadChange(gamepad.id, false);
+        nativeRemoveGamepad(gamepad.id);
         sGamepads.remove(deviceId);
     }
 
     private static void addDeviceListener(final Context context) {
-        if (Build.VERSION.SDK_INT < 16) {
-            // Poll known gamepads to see if they've disappeared.
-            sPollTimer = new Timer();
-            sPollTimer.scheduleAtFixedRate(new TimerTask() {
-                    @Override
-                    public void run() {
-                        for (int i = 0; i < sGamepads.size(); ++i) {
-                            final int deviceId = sGamepads.keyAt(i);
-                            if (InputDevice.getDevice(deviceId) == null) {
-                                removeGamepad(deviceId);
-                            }
-                        }
-                    }
-                }, POLL_TIMER_PERIOD, POLL_TIMER_PERIOD);
-        } else {
-            sListener = new InputManager.InputDeviceListener() {
-                @Override
-                public void onInputDeviceAdded(int deviceId) {
-                    InputDevice device = InputDevice.getDevice(deviceId);
-                    if (device == null) {
-                        return;
-                    }
-                    if ((device.getSources() & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD) {
-                        addGamepad(device);
-                    }
+        sListener = new InputManager.InputDeviceListener() {
+            @Override
+            public void onInputDeviceAdded(final int deviceId) {
+                InputDevice device = InputDevice.getDevice(deviceId);
+                if (device == null) {
+                    return;
                 }
+                if ((device.getSources() & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD) {
+                    addGamepad(device);
+                }
+            }
 
-                @Override
-                public void onInputDeviceRemoved(int deviceId) {
-                    if (sPendingGamepads.get(deviceId) != null) {
-                        // Got removed before Gecko's ack reached us.
-                        // gamepadAdded will deal with it.
-                        sPendingGamepads.remove(deviceId);
-                        return;
-                    }
-                    if (sGamepads.get(deviceId) != null) {
-                        removeGamepad(deviceId);
-                    }
+            @Override
+            public void onInputDeviceRemoved(final int deviceId) {
+                if (sPendingGamepads.get(deviceId) != null) {
+                    // Got removed before Gecko's ack reached us.
+                    // gamepadAdded will deal with it.
+                    sPendingGamepads.remove(deviceId);
+                    return;
                 }
+                if (sGamepads.get(deviceId) != null) {
+                    removeGamepad(deviceId);
+                }
+            }
 
-                @Override
-                public void onInputDeviceChanged(int deviceId) {
-                }
-            };
-            final InputManager im = (InputManager)
-                    context.getSystemService(Context.INPUT_SERVICE);
-            im.registerInputDeviceListener(sListener, ThreadUtils.getUiHandler());
-        }
+            @Override
+            public void onInputDeviceChanged(final int deviceId) {
+            }
+        };
+        final InputManager im = (InputManager)
+                context.getSystemService(Context.INPUT_SERVICE);
+        im.registerInputDeviceListener(sListener, ThreadUtils.getUiHandler());
     }
 
     private static void removeDeviceListener(final Context context) {
-        if (Build.VERSION.SDK_INT < 16) {
-            if (sPollTimer != null) {
-                sPollTimer.cancel();
-                sPollTimer = null;
-            }
-        } else {
-            final InputManager im = (InputManager)
-                    context.getSystemService(Context.INPUT_SERVICE);
-            im.unregisterInputDeviceListener(sListener);
-            sListener = null;
-        }
+        final InputManager im = (InputManager)
+                context.getSystemService(Context.INPUT_SERVICE);
+        im.unregisterInputDeviceListener(sListener);
+        sListener = null;
     }
 }

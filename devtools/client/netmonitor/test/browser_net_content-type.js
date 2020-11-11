@@ -8,16 +8,18 @@
  */
 
 add_task(async function() {
-  const { tab, monitor } = await initNetMonitor(CONTENT_TYPE_WITHOUT_CACHE_URL);
+  const { tab, monitor } = await initNetMonitor(
+    CONTENT_TYPE_WITHOUT_CACHE_URL,
+    { requestCount: 1 }
+  );
   info("Starting test... ");
 
   const { document, store, windowRequire } = monitor.panelWin;
   const Actions = windowRequire("devtools/client/netmonitor/src/actions/index");
   const { L10N } = windowRequire("devtools/client/netmonitor/src/utils/l10n");
-  const {
-    getDisplayedRequests,
-    getSortedRequests,
-  } = windowRequire("devtools/client/netmonitor/src/selectors/index");
+  const { getDisplayedRequests, getSortedRequests } = windowRequire(
+    "devtools/client/netmonitor/src/selectors/index"
+  );
 
   store.dispatch(Actions.batchEnable(false));
 
@@ -29,12 +31,13 @@ add_task(async function() {
     requestItem.scrollIntoView();
     EventUtils.sendMouseEvent({ type: "mouseover" }, requestsListStatus);
     await waitUntil(() => requestsListStatus.title);
+    await waitForDOMIfNeeded(requestItem, ".requests-list-timings-total");
   }
 
   verifyRequestItemTarget(
     document,
     getDisplayedRequests(store.getState()),
-    getSortedRequests(store.getState()).get(0),
+    getSortedRequests(store.getState())[0],
     "GET",
     CONTENT_TYPE_SJS + "?fmt=xml",
     {
@@ -49,7 +52,7 @@ add_task(async function() {
   verifyRequestItemTarget(
     document,
     getDisplayedRequests(store.getState()),
-    getSortedRequests(store.getState()).get(1),
+    getSortedRequests(store.getState())[1],
     "GET",
     CONTENT_TYPE_SJS + "?fmt=css",
     {
@@ -64,7 +67,7 @@ add_task(async function() {
   verifyRequestItemTarget(
     document,
     getDisplayedRequests(store.getState()),
-    getSortedRequests(store.getState()).get(2),
+    getSortedRequests(store.getState())[2],
     "GET",
     CONTENT_TYPE_SJS + "?fmt=js",
     {
@@ -79,7 +82,7 @@ add_task(async function() {
   verifyRequestItemTarget(
     document,
     getDisplayedRequests(store.getState()),
-    getSortedRequests(store.getState()).get(3),
+    getSortedRequests(store.getState())[3],
     "GET",
     CONTENT_TYPE_SJS + "?fmt=json",
     {
@@ -94,7 +97,7 @@ add_task(async function() {
   verifyRequestItemTarget(
     document,
     getDisplayedRequests(store.getState()),
-    getSortedRequests(store.getState()).get(4),
+    getSortedRequests(store.getState())[4],
     "GET",
     CONTENT_TYPE_SJS + "?fmt=bogus",
     {
@@ -109,7 +112,7 @@ add_task(async function() {
   verifyRequestItemTarget(
     document,
     getDisplayedRequests(store.getState()),
-    getSortedRequests(store.getState()).get(5),
+    getSortedRequests(store.getState())[5],
     "GET",
     TEST_IMAGE,
     {
@@ -125,7 +128,7 @@ add_task(async function() {
   verifyRequestItemTarget(
     document,
     getDisplayedRequests(store.getState()),
-    getSortedRequests(store.getState()).get(6),
+    getSortedRequests(store.getState())[6],
     "GET",
     CONTENT_TYPE_SJS + "?fmt=gzip",
     {
@@ -151,7 +154,7 @@ add_task(async function() {
   await selectIndexAndWaitForJSONView(3);
   await testResponseTab("json");
 
-  await selectIndexAndWaitForSourceEditor(monitor, 4);
+  await selectIndexAndWaitForHtmlView(4);
   await testResponseTab("html");
 
   await selectIndexAndWaitForImageView(5);
@@ -166,109 +169,168 @@ add_task(async function() {
     const tabpanel = document.querySelector("#response-panel");
 
     function checkVisibility(box) {
-      is(tabpanel.querySelector(".response-error-header") === null,
+      is(
+        tabpanel.querySelector(".response-error-header") === null,
         true,
-        "The response error header doesn't display");
-      const jsonView = tabpanel.querySelector(".tree-section .treeLabel") || {};
-      is(jsonView.textContent !== L10N.getStr("jsonScopeName"),
+        "The response error header doesn't display"
+      );
+      const jsonView =
+        tabpanel.querySelector(".accordion-item .accordion-header-label") || {};
+      is(
+        jsonView.textContent !== L10N.getStr("jsonScopeName"),
         box != "json",
-        "The response json view doesn't display");
-      is(tabpanel.querySelector(".CodeMirror-code") === null,
-        (box !== "textarea" && box !== "json"),
-        "The response editor doesn't display");
-      is(tabpanel.querySelector(".response-image-box") === null,
+        "The response json view doesn't display"
+      );
+      is(
+        tabpanel.querySelector(".CodeMirror-code") === null,
+        box !== "textarea",
+        "The response editor doesn't display"
+      );
+      is(
+        tabpanel.querySelector(".response-image-box") === null,
         box != "image",
-        "The response image view doesn't display");
+        "The response image view doesn't display"
+      );
     }
 
     switch (type) {
       case "xml": {
         checkVisibility("textarea");
 
-        const text = document.querySelector(".CodeMirror-line").textContent;
+        const text = getCodeMirrorValue(monitor);
 
-        is(text, "<label value='greeting'>Hello XML!</label>",
-          "The text shown in the source editor is incorrect for the xml request.");
+        is(
+          text,
+          "<label value='greeting'>Hello XML!</label>",
+          "The text shown in the source editor is incorrect for the xml request."
+        );
         break;
       }
       case "css": {
         checkVisibility("textarea");
 
-        const text = document.querySelector(".CodeMirror-line").textContent;
+        const text = getCodeMirrorValue(monitor);
 
-        is(text, "body:pre { content: 'Hello CSS!' }",
-          "The text shown in the source editor is incorrect for the css request.");
+        is(
+          text,
+          "body:pre { content: 'Hello CSS!' }",
+          "The text shown in the source editor is incorrect for the css request."
+        );
         break;
       }
       case "js": {
         checkVisibility("textarea");
 
-        const text = document.querySelector(".CodeMirror-line").textContent;
+        const text = getCodeMirrorValue(monitor);
 
-        is(text, "function() { return 'Hello JS!'; }",
-          "The text shown in the source editor is incorrect for the js request.");
+        is(
+          text,
+          "function() { return 'Hello JS!'; }",
+          "The text shown in the source editor is incorrect for the js request."
+        );
         break;
       }
       case "json": {
         checkVisibility("json");
 
-        is(tabpanel.querySelectorAll(".tree-section").length, 2,
-          "There should be 2 tree sections displayed in this tabpanel.");
-        is(tabpanel.querySelectorAll(".empty-notice").length, 0,
-          "The empty notice should not be displayed in this tabpanel.");
+        is(
+          tabpanel.querySelectorAll(".accordion-item").length,
+          2,
+          "There should be 2 accordion items displayed in this tabpanel."
+        );
+        is(
+          tabpanel.querySelectorAll(".empty-notice").length,
+          0,
+          "The empty notice should not be displayed in this tabpanel."
+        );
 
-        is(tabpanel.querySelector(".tree-section .treeLabel").textContent,
+        is(
+          tabpanel.querySelector(".accordion-item .accordion-header-label")
+            .textContent,
           L10N.getStr("jsonScopeName"),
-          "The json view section doesn't have the correct title.");
+          "The json view section doesn't have the correct title."
+        );
 
-        const labels = tabpanel
-          .querySelectorAll("tr:not(.tree-section) .treeLabelCell .treeLabel");
-        const values = tabpanel
-          .querySelectorAll("tr:not(.tree-section) .treeValueCell .objectBox");
+        const labels = tabpanel.querySelectorAll(
+          "tr .treeLabelCell .treeLabel"
+        );
+        const values = tabpanel.querySelectorAll(
+          "tr .treeValueCell .objectBox"
+        );
 
-        is(labels[0].textContent, "greeting",
-          "The first json property name was incorrect.");
-        is(values[0].textContent,
-          "Hello JSON!", "The first json property value was incorrect.");
+        is(
+          labels[0].textContent,
+          "greeting",
+          "The first json property name was incorrect."
+        );
+        is(
+          values[0].textContent,
+          `"Hello JSON!"`,
+          "The first json property value was incorrect."
+        );
         break;
       }
       case "html": {
-        checkVisibility("textarea");
+        checkVisibility("html");
 
-        const text = document.querySelector(".CodeMirror-line").textContent;
-
-        is(text, "<blink>Not Found</blink>",
-          "The text shown in the source editor is incorrect for the html request.");
+        const text = document.querySelector(".html-preview iframe").srcdoc;
+        is(
+          text,
+          "<blink>Not Found</blink>",
+          "The text shown in the iframe is incorrect for the html request."
+        );
         break;
       }
       case "png": {
         checkVisibility("image");
 
-        const [name, dimensions, mime] = tabpanel
-          .querySelectorAll(".response-image-box .tabpanel-summary-value");
+        const [name, dimensions, mime] = tabpanel.querySelectorAll(
+          ".response-image-box .tabpanel-summary-value"
+        );
 
-        is(name.textContent, "test-image.png",
-          "The image name info isn't correct.");
-        is(mime.textContent, "image/png",
-          "The image mime info isn't correct.");
-        is(dimensions.textContent, "16" + " \u00D7 " + "16",
-          "The image dimensions info isn't correct.");
+        is(
+          name.textContent,
+          "test-image.png",
+          "The image name info isn't correct."
+        );
+        is(mime.textContent, "image/png", "The image mime info isn't correct.");
+        is(
+          dimensions.textContent,
+          "16" + " \u00D7 " + "16",
+          "The image dimensions info isn't correct."
+        );
         break;
       }
       case "gzip": {
         checkVisibility("textarea");
 
-        const text = document.querySelector(".CodeMirror-line").textContent;
+        const text = getCodeMirrorValue(monitor);
 
-        is(text, new Array(1000).join("Hello gzip!"),
-          "The text shown in the source editor is incorrect for the gzip request.");
+        is(
+          text,
+          new Array(1000).join("Hello gzip!"),
+          "The text shown in the source editor is incorrect for the gzip request."
+        );
         break;
       }
     }
   }
 
+  async function selectIndexAndWaitForHtmlView(index) {
+    const onResponseContent = monitor.panelWin.api.once(
+      TEST_EVENTS.RECEIVED_RESPONSE_CONTENT
+    );
+    const tabpanel = document.querySelector("#response-panel");
+    const waitDOM = waitForDOM(tabpanel, ".html-preview");
+    store.dispatch(Actions.selectRequestByIndex(index));
+    await waitDOM;
+    await onResponseContent;
+  }
+
   async function selectIndexAndWaitForJSONView(index) {
-    const onResponseContent = monitor.panelWin.api.once(EVENTS.RECEIVED_RESPONSE_CONTENT);
+    const onResponseContent = monitor.panelWin.api.once(
+      TEST_EVENTS.RECEIVED_RESPONSE_CONTENT
+    );
     const tabpanel = document.querySelector("#response-panel");
     const waitDOM = waitForDOM(tabpanel, ".treeTable");
     store.dispatch(Actions.selectRequestByIndex(index));
@@ -281,7 +343,9 @@ add_task(async function() {
   }
 
   async function selectIndexAndWaitForImageView(index) {
-    const onResponseContent = monitor.panelWin.api.once(EVENTS.RECEIVED_RESPONSE_CONTENT);
+    const onResponseContent = monitor.panelWin.api.once(
+      TEST_EVENTS.RECEIVED_RESPONSE_CONTENT
+    );
     const tabpanel = document.querySelector("#response-panel");
     const waitDOM = waitForDOM(tabpanel, ".response-image");
     store.dispatch(Actions.selectRequestByIndex(index));

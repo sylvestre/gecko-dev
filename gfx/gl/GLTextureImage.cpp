@@ -220,7 +220,7 @@ TiledTextureImage::TiledTextureImage(GLContext* aGL, gfx::IntSize aSize,
   }
 }
 
-TiledTextureImage::~TiledTextureImage() {}
+TiledTextureImage::~TiledTextureImage() = default;
 
 bool TiledTextureImage::DirectUpdate(
     gfx::DataSourceSurface* aSurf, const nsIntRegion& aRegion,
@@ -407,8 +407,7 @@ void TiledTextureImage::Resize(const gfx::IntSize& aSize) {
   }
 
   // Prune any unused tiles at the end of the store.
-  unsigned int length = mImages.Length();
-  for (; i < length; i++) mImages.RemoveLastElement();
+  mImages.RemoveLastElements(mImages.Length() - i);
 
   // Reset tile-store properties.
   mRows = rows;

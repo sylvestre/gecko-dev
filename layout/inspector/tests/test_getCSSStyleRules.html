@@ -2,7 +2,7 @@
 <html>
 <head>
   <title>Test for bug 1359217</title>
-  <script type="text/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css">
 </head>
 <body>
@@ -24,7 +24,7 @@ SimpleTest.waitForExplicitFinish();
 function* getStyleRules(elem) {
   let rules = InspectorUtils.getCSSStyleRules(elem);
   for (let i = 0; i < rules.length; i++) {
-    yield SpecialPowers.unwrap(rules[i]);
+    yield rules[i];
   }
 }
 

@@ -1,4 +1,3 @@
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -14,7 +13,7 @@ const TEST_URI = `
 
 add_task(async function() {
   await addTab("data:text/html;charset=utf-8," + encodeURIComponent(TEST_URI));
-  const {inspector, view, testActor} = await openRuleView();
+  const { inspector, view, testActor } = await openRuleView();
 
   await selectNode("#id1", inspector);
   await modifyRuleViewWidth("300px", view, inspector);
@@ -39,8 +38,9 @@ function getStyleRule(ruleView) {
 
 async function modifyRuleViewWidth(value, ruleView, inspector) {
   info("Getting the property value element");
-  const valueSpan = getStyleRule(ruleView)
-    .querySelector(".ruleview-propertyvalue");
+  const valueSpan = getStyleRule(ruleView).querySelector(
+    ".ruleview-propertyvalue"
+  );
 
   info("Focusing the property value to set it to edit mode");
   const editor = await focusEditableField(ruleView, valueSpan.parentNode);
@@ -49,22 +49,30 @@ async function modifyRuleViewWidth(value, ruleView, inspector) {
   info("Setting the new value");
   editor.input.value = value;
 
-  info("Pressing return and waiting for the field to blur and for the " +
-    "markup-view to show the mutation");
+  info(
+    "Pressing return and waiting for the field to blur and for the " +
+      "markup-view to show the mutation"
+  );
   const onBlur = once(editor.input, "blur", true);
   const onStyleChanged = waitForStyleModification(inspector);
   EventUtils.sendKey("return");
   await onBlur;
   await onStyleChanged;
 
-  info("Escaping out of the new property field that has been created after " +
-    "the value was edited");
-  const onNewFieldBlur = once(ruleView.styleDocument.activeElement, "blur", true);
+  info(
+    "Escaping out of the new property field that has been created after " +
+      "the value was edited"
+  );
+  const onNewFieldBlur = once(
+    ruleView.styleDocument.activeElement,
+    "blur",
+    true
+  );
   EventUtils.sendKey("escape");
   await onNewFieldBlur;
 }
 
-async function getContainerStyleAttrValue(id, {walker, markup}) {
+async function getContainerStyleAttrValue(id, { walker, markup }) {
   const front = await walker.querySelector(walker.rootNode, "#" + id);
   const container = markup.getContainer(front);
 
@@ -79,12 +87,19 @@ async function getContainerStyleAttrValue(id, {walker, markup}) {
 }
 
 async function assertRuleAndMarkupViewWidth(id, value, ruleView, inspector) {
-  const valueSpan = getStyleRule(ruleView)
-    .querySelector(".ruleview-propertyvalue");
-  is(valueSpan.textContent, value,
-    "Rule-view style width is " + value + " as expected");
+  const valueSpan = getStyleRule(ruleView).querySelector(
+    ".ruleview-propertyvalue"
+  );
+  is(
+    valueSpan.textContent,
+    value,
+    "Rule-view style width is " + value + " as expected"
+  );
 
   const attr = await getContainerStyleAttrValue(id, inspector);
-  is(attr.textContent.replace(/\s/g, ""),
-    "width:" + value + ";", "Markup-view style attribute width is " + value);
+  is(
+    attr.textContent.replace(/\s/g, ""),
+    "width:" + value + ";",
+    "Markup-view style attribute width is " + value
+  );
 }

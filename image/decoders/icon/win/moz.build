@@ -5,7 +5,11 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 SOURCES += [
-    'nsIconChannel.cpp',
+    "nsIconChannel.cpp",
 ]
 
-FINAL_LIBRARY = 'xul'
+LOCAL_INCLUDES += [
+    "/image",
+]
+
+FINAL_LIBRARY = "xul"

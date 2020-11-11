@@ -12,19 +12,21 @@
 #include "prio.h"
 #include "prnetdb.h"
 #include "plstr.h"
+#include "nsISupportsImpl.h"
 #include "mozilla/LinkedList.h"
 #include "mozilla/MemoryReporting.h"
+#include "nsTArray.h"
 
 #if !defined(XP_WIN)
-#include <arpa/inet.h>
+#  include <arpa/inet.h>
 #endif
 
 #ifdef XP_WIN
-#include "winsock2.h"
+#  include "winsock2.h"
 #endif
 
 #ifndef AF_LOCAL
-#define AF_LOCAL 1  // used for named pipe
+#  define AF_LOCAL 1  // used for named pipe
 #endif
 
 #define IPv6ADDR_IS_LOOPBACK(a)                                      \
@@ -44,6 +46,22 @@
 
 namespace mozilla {
 namespace net {
+
+// IMPORTANT: when adding new values, always add them to the end, otherwise
+// it will mess up telemetry.
+// Stage_0: Receive the record before the http transaction is created.
+// Stage_1: Receive the record after the http transaction is created and the
+//          transaction is not dispatched.
+// Stage_2: Receive the record after the http transaction is dispatched.
+enum HTTPSSVC_RECEIVED_STAGE : uint32_t {
+  HTTPSSVC_NOT_PRESENT = 0,
+  HTTPSSVC_WITH_IPHINT_RECEIVED_STAGE_0 = 1,
+  HTTPSSVC_WITHOUT_IPHINT_RECEIVED_STAGE_0 = 2,
+  HTTPSSVC_WITH_IPHINT_RECEIVED_STAGE_1 = 3,
+  HTTPSSVC_WITHOUT_IPHINT_RECEIVED_STAGE_1 = 4,
+  HTTPSSVC_WITH_IPHINT_RECEIVED_STAGE_2 = 5,
+  HTTPSSVC_WITHOUT_IPHINT_RECEIVED_STAGE_2 = 6,
+};
 
 // Required buffer size for text form of an IP address.
 // Includes space for null termination. We make our own contants
@@ -85,7 +103,7 @@ union NetAddr {
   struct {
     uint16_t family; /* address family (0x00ff maskable) */
     char data[14];   /* raw address data */
-  } raw;
+  } raw{};
   struct {
     uint16_t family; /* address family (AF_INET) */
     uint16_t port;   /* port number */
@@ -106,75 +124,117 @@ union NetAddr {
   } local;
 #endif
   // introduced to support nsTArray<NetAddr> comparisons and sorting
-  bool operator==(const NetAddr &other) const;
-  bool operator<(const NetAddr &other) const;
-};
+  bool operator==(const NetAddr& other) const;
+  bool operator<(const NetAddr& other) const;
 
-// This class wraps a NetAddr union to provide C++ linked list
-// capabilities and other methods. It is created from a PRNetAddr,
-// which is converted to a mozilla::dns::NetAddr.
-class NetAddrElement : public LinkedListElement<NetAddrElement> {
- public:
-  explicit NetAddrElement(const PRNetAddr *prNetAddr);
-  NetAddrElement(const NetAddrElement &netAddr);
-  ~NetAddrElement();
+  inline NetAddr& operator=(const NetAddr& other) {
+    memcpy(this, &other, sizeof(NetAddr));
+    return *this;
+  }
 
-  NetAddr mAddress;
+  NetAddr() { memset(this, 0, sizeof(NetAddr)); }
+  explicit NetAddr(const PRNetAddr* prAddr);
+
+  bool IsIPAddrAny() const;
+  bool IsLoopbackAddr() const;
+  bool IsLoopBackAddressWithoutIPv6Mapping() const;
+  bool IsIPAddrV4() const;
+  bool IsIPAddrV4Mapped() const;
+  bool IsIPAddrLocal() const;
+  bool IsIPAddrShared() const;
+  nsresult GetPort(uint16_t* aResult) const;
+  bool ToStringBuffer(char* buf, uint32_t bufSize) const;
 };
 
 class AddrInfo {
+  NS_INLINE_DECL_THREADSAFE_REFCOUNTING(AddrInfo)
+
  public:
+  static const uint32_t NO_TTL_DATA = (uint32_t)-1;
+
   // Creates an AddrInfo object.
-  explicit AddrInfo(const nsACString &host, const PRAddrInfo *prAddrInfo,
+  explicit AddrInfo(const nsACString& host, const PRAddrInfo* prAddrInfo,
                     bool disableIPv4, bool filterNameCollision,
-                    const nsACString &cname);
+                    const nsACString& cname);
 
   // Creates a basic AddrInfo object (initialize only the host, cname and TRR
   // type).
-  explicit AddrInfo(const nsACString &host, const nsACString &cname,
-                    unsigned int TRRType);
+  explicit AddrInfo(const nsACString& host, const nsACString& cname,
+                    unsigned int aTRR, nsTArray<NetAddr>&& addresses);
 
   // Creates a basic AddrInfo object (initialize only the host and TRR status).
-  explicit AddrInfo(const nsACString &host, unsigned int TRRType);
-  ~AddrInfo();
+  explicit AddrInfo(const nsACString& host, unsigned int aTRR,
+                    nsTArray<NetAddr>&& addresses, uint32_t aTTL = NO_TTL_DATA);
 
-  explicit AddrInfo(const AddrInfo *src);  // copy
-
-  void AddAddress(NetAddrElement *address);
+  explicit AddrInfo(const AddrInfo* src);  // copy
 
   size_t SizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf) const;
 
-  nsCString mHostName;
-  nsCString mCanonicalName;
-  uint32_t ttl;
-  static const uint32_t NO_TTL_DATA = (uint32_t)-1;
-
-  LinkedList<NetAddrElement> mAddresses;
   unsigned int IsTRR() { return mFromTRR; }
 
+  double GetTrrFetchDuration() { return mTrrFetchDuration; }
+  double GetTrrFetchDurationNetworkOnly() {
+    return mTrrFetchDurationNetworkOnly;
+  }
+
+  const nsTArray<NetAddr>& Addresses() { return mAddresses; }
+  const nsCString& Hostname() { return mHostName; }
+  const nsCString& CanonicalHostname() { return mCanonicalName; }
+  uint32_t TTL() { return ttl; }
+
+  class MOZ_STACK_CLASS AddrInfoBuilder {
+   public:
+    explicit AddrInfoBuilder(AddrInfo* aInfo) {
+      mInfo = new AddrInfo(aInfo);  // Clone it
+    }
+
+    void SetTrrFetchDurationNetworkOnly(double aTime) {
+      mInfo->mTrrFetchDurationNetworkOnly = aTime;
+    }
+
+    void SetTrrFetchDuration(double aTime) { mInfo->mTrrFetchDuration = aTime; }
+
+    void SetTTL(uint32_t aTTL) { mInfo->ttl = aTTL; }
+
+    void SetAddresses(nsTArray<NetAddr>&& addresses) {
+      mInfo->mAddresses = std::move(addresses);
+    }
+
+    void SetCanonicalHostname(const nsACString& aCname) {
+      mInfo->mCanonicalName = aCname;
+    }
+
+    already_AddRefed<AddrInfo> Finish() { return mInfo.forget(); }
+
+   private:
+    RefPtr<AddrInfo> mInfo;
+  };
+
+  AddrInfoBuilder Build() { return AddrInfoBuilder(this); }
+
  private:
-  unsigned int mFromTRR;
+  ~AddrInfo();
+  uint32_t ttl = NO_TTL_DATA;
+
+  nsCString mHostName;
+  nsCString mCanonicalName;
+
+  unsigned int mFromTRR = 0;
+  double mTrrFetchDuration = 0;
+  double mTrrFetchDurationNetworkOnly = 0;
+
+  nsTArray<NetAddr> mAddresses;
 };
 
 // Copies the contents of a PRNetAddr to a NetAddr.
 // Does not do a ptr safety check!
-void PRNetAddrToNetAddr(const PRNetAddr *prAddr, NetAddr *addr);
+void PRNetAddrToNetAddr(const PRNetAddr* prAddr, NetAddr* addr);
 
 // Copies the contents of a NetAddr to a PRNetAddr.
 // Does not do a ptr safety check!
-void NetAddrToPRNetAddr(const NetAddr *addr, PRNetAddr *prAddr);
+void NetAddrToPRNetAddr(const NetAddr* addr, PRNetAddr* prAddr);
 
-bool NetAddrToString(const NetAddr *addr, char *buf, uint32_t bufSize);
-
-bool IsLoopBackAddress(const NetAddr *addr);
-
-bool IsIPAddrAny(const NetAddr *addr);
-
-bool IsIPAddrV4Mapped(const NetAddr *addr);
-
-bool IsIPAddrLocal(const NetAddr *addr);
-
-nsresult GetPort(const NetAddr *aAddr, uint16_t *aResult);
+bool IsLoopbackHostname(const nsACString& aAsciiHost);
 
 }  // namespace net
 }  // namespace mozilla

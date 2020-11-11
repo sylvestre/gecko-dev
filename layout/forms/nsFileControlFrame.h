@@ -25,11 +25,14 @@ class DataTransfer;
 class nsFileControlFrame final : public nsBlockFrame,
                                  public nsIFormControlFrame,
                                  public nsIAnonymousContentCreator {
+  using Element = mozilla::dom::Element;
+
  public:
   NS_DECL_QUERYFRAME
   NS_DECL_FRAMEARENA_HELPERS(nsFileControlFrame)
 
-  explicit nsFileControlFrame(ComputedStyle* aStyle);
+  explicit nsFileControlFrame(ComputedStyle* aStyle,
+                              nsPresContext* aPresContext);
 
   virtual void Init(nsIContent* aContent, nsContainerFrame* aParent,
                     nsIFrame* aPrevInFlow) override;
@@ -56,8 +59,6 @@ class nsFileControlFrame final : public nsBlockFrame,
   virtual nsresult GetFrameName(nsAString& aResult) const override;
 #endif
 
-  nsresult AttributeChanged(int32_t aNameSpaceID, nsAtom* aAttribute,
-                            int32_t aModType) override;
   virtual void ContentStatesChanged(mozilla::EventStates aStates) override;
 
   // nsIAnonymousContentCreator
@@ -84,7 +85,7 @@ class nsFileControlFrame final : public nsBlockFrame,
     void ForgetFrame() { mFrame = nullptr; }
 
    protected:
-    virtual ~MouseListener() {}
+    virtual ~MouseListener() = default;
 
     nsFileControlFrame* mFrame;
   };

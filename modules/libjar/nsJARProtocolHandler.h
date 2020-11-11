@@ -7,20 +7,17 @@
 #define nsJARProtocolHandler_h__
 
 #include "mozilla/StaticPtr.h"
-#include "nsIJARProtocolHandler.h"
 #include "nsIProtocolHandler.h"
-#include "nsIJARURI.h"
 #include "nsIZipReader.h"
 #include "nsIMIMEService.h"
 #include "nsWeakReference.h"
 #include "nsCOMPtr.h"
 
-class nsJARProtocolHandler final : public nsIJARProtocolHandler,
+class nsJARProtocolHandler final : public nsIProtocolHandler,
                                    public nsSupportsWeakReference {
  public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIPROTOCOLHANDLER
-  NS_DECL_NSIJARPROTOCOLHANDLER
 
   // nsJARProtocolHandler methods:
   nsJARProtocolHandler();
@@ -30,8 +27,8 @@ class nsJARProtocolHandler final : public nsIJARProtocolHandler,
   nsresult Init();
 
   // returns non addref'ed pointer.
-  nsIMIMEService *MimeService();
-  nsIZipReaderCache *JarCache() { return mJARCache; }
+  nsIMIMEService* MimeService();
+  nsIZipReaderCache* JarCache() const { return mJARCache; }
 
  protected:
   virtual ~nsJARProtocolHandler();

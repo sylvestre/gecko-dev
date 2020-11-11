@@ -26,13 +26,13 @@ class nsIncrementalStreamLoader final
 
   nsIncrementalStreamLoader();
 
-  static nsresult Create(nsISupports *aOuter, REFNSIID aIID, void **aResult);
+  static nsresult Create(nsISupports* aOuter, REFNSIID aIID, void** aResult);
 
  protected:
   ~nsIncrementalStreamLoader() = default;
 
-  static nsresult WriteSegmentFun(nsIInputStream *, void *, const char *,
-                                  uint32_t, uint32_t, uint32_t *);
+  static nsresult WriteSegmentFun(nsIInputStream*, void*, const char*, uint32_t,
+                                  uint32_t, uint32_t*);
 
   // Utility method to free mData, if present, and update other state to
   // reflect that no data has been allocated.
@@ -46,8 +46,9 @@ class nsIncrementalStreamLoader final
   // available.
   mozilla::Vector<uint8_t, 0> mData;
 
-  // Number of consumed bytes from the mData.
-  size_t mBytesConsumed;
+  // Number of bytes read, which may not match the number of bytes in mData at
+  // all, as we incrementally remove from there.
+  mozilla::Atomic<uint32_t, mozilla::MemoryOrdering::Relaxed> mBytesRead;
 };
 
 #endif  // nsIncrementalStreamLoader_h__

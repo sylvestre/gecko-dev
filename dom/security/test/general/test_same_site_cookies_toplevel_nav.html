@@ -2,12 +2,11 @@
 <html>
 <head>
   <title>Bug 1286861 - Test same site cookies on top-level navigations</title>
-  <script type="text/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css" />
 </head>
 <body>
 <img id="cookieImage">
-<iframe id="testframe"></iframe>
 
 <script class="testbody" type="text/javascript">
 
@@ -28,9 +27,6 @@
  * XHR request with the expecuted result (the cookie value).
  */
 
-SimpleTest.registerCleanupFunction(() => {
-  SpecialPowers.clearUserPref("network.cookie.same-site.enabled");
-});
 SimpleTest.waitForExplicitFinish();
 
 const SAME_ORIGIN = "http://mochi.test:8888/";
@@ -39,66 +35,39 @@ const PATH = "tests/dom/security/test/general/file_same_site_cookies_toplevel_na
 
 let curTest = 0;
 
+let currentWindow;
 var tests = [
   {
     description: "same origin navigation using cookie policy 'samesite=strict'",
     imgSRC: SAME_ORIGIN + PATH + "?setStrictSameSiteCookie",
     frameSRC: SAME_ORIGIN + PATH + "?loadFrame",
-    sameSiteEnabled: true,
     result: "myKey=strictSameSiteCookie",
   },
   {
     description: "cross origin navigation using cookie policy 'samesite=strict'",
     imgSRC: SAME_ORIGIN + PATH + "?setStrictSameSiteCookie",
     frameSRC: CROSS_ORIGIN + PATH + "?loadFrame",
-    sameSiteEnabled: true,
     result: "myKey=noCookie",
   },
   {
     description: "same origin navigation using cookie policy 'samesite=lax'",
     imgSRC: SAME_ORIGIN + PATH + "?setLaxSameSiteCookie",
     frameSRC: SAME_ORIGIN + PATH + "?loadFrame",
-    sameSiteEnabled: true,
     result: "myKey=laxSameSiteCookie",
   },
   {
     description: "cross origin navigation using cookie policy 'samesite=lax'",
     imgSRC: SAME_ORIGIN + PATH + "?setLaxSameSiteCookie",
     frameSRC: CROSS_ORIGIN + PATH + "?loadFrame",
-    sameSiteEnabled: true,
-    result: "myKey=laxSameSiteCookie",
-  },
-  {
-    description: "same origin navigation using cookie policy 'samesite=strict'",
-    imgSRC: SAME_ORIGIN + PATH + "?setStrictSameSiteCookie",
-    frameSRC: SAME_ORIGIN + PATH + "?loadFrame",
-    sameSiteEnabled: false,
-    result: "myKey=strictSameSiteCookie",
-  },
-  {
-    description: "cross origin navigation using cookie policy 'samesite=strict'",
-    imgSRC: SAME_ORIGIN + PATH + "?setStrictSameSiteCookie",
-    frameSRC: CROSS_ORIGIN + PATH + "?loadFrame",
-    sameSiteEnabled: false,
-    result: "myKey=strictSameSiteCookie",
-  },
-  {
-    description: "same origin navigation using cookie policy 'samesite=lax'",
-    imgSRC: SAME_ORIGIN + PATH + "?setLaxSameSiteCookie",
-    frameSRC: SAME_ORIGIN + PATH + "?loadFrame",
-    sameSiteEnabled: false,
-    result: "myKey=laxSameSiteCookie",
-  },
-  {
-    description: "cross origin navigation using cookie policy 'samesite=lax'",
-    imgSRC: SAME_ORIGIN + PATH + "?setLaxSameSiteCookie",
-    frameSRC: CROSS_ORIGIN + PATH + "?loadFrame",
-    sameSiteEnabled: false,
     result: "myKey=laxSameSiteCookie",
   },
 ];
 
 function checkResult(aCookieVal) {
+  if(currentWindow){
+    currentWindow.close();
+    currentWindow= null;
+  }
   is(aCookieVal, tests[curTest].result, tests[curTest].description);
   curTest += 1;
 
@@ -114,8 +83,8 @@ function checkResult(aCookieVal) {
 function setupQueryResultAndRunTest() {
   var myXHR = new XMLHttpRequest();
   myXHR.open("GET", "file_same_site_cookies_toplevel_nav.sjs?queryresult" + curTest);
-  myXHR.onload = function(e) {
-    checkResult(myXHR.responseText);
+  myXHR.onload = function(e) { 
+    checkResult( myXHR.responseText);
   }
   myXHR.onerror = function(e) {
     ok(false, "could not query results from server (" + e.message + ")");
@@ -124,13 +93,11 @@ function setupQueryResultAndRunTest() {
 
   // give it some time and load the test window
   SimpleTest.executeSoon(function() {
-    let testframe = document.getElementById("testframe");
-    testframe.src = tests[curTest].frameSRC + curTest;
+    currentWindow = window.open(tests[curTest].frameSRC + curTest);
   });
 }
 
 function setCookieAndInitTest() {
-  SpecialPowers.setBoolPref("network.cookie.same-site.enabled", tests[curTest].sameSiteEnabled);
   var cookieImage = document.getElementById("cookieImage");
   cookieImage.onload = function() {
     ok(true, "set cookie for test (" + tests[curTest].description + ")");

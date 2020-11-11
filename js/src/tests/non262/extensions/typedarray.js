@@ -17,6 +17,10 @@ var expect = '';
 if (typeof gczeal !== 'undefined')
     gczeal(0)
 
+if (typeof numberToDouble !== 'function') {
+    var numberToDouble = SpecialPowers.Cu.getJSTestingFunctions().numberToDouble;
+}
+
 test();
 //-----------------------------------------------------------------------------
 
@@ -493,9 +497,9 @@ function test()
     check(() => (new Int32Array(0)).BYTES_PER_ELEMENT == 4);
     check(() => Int16Array.BYTES_PER_ELEMENT == Uint16Array.BYTES_PER_ELEMENT);
 
-    // test various types of args; Math.sqrt(4) is used to ensure that the
+    // test various types of args; numberToDouble(2) is used to ensure that the
     // function gets a double, and not a demoted int
-    check(() => (new Float32Array(Math.sqrt(4))).length == 2);
+    check(() => (new Float32Array(numberToDouble(2))).length == 2);
     check(() => (new Float32Array({ length: 10 })).length == 10);
     check(() => (new Float32Array({})).length == 0);
     check(() => new Float32Array("3").length === 3);
@@ -545,7 +549,7 @@ function test()
         check(() => b[90] == 5)
 
     // Protos and proxies, oh my!
-    var alien = newGlobal();
+    var alien = newGlobal({newCompartment: true});
 
     var alien_view = alien.eval('view = new Uint8Array(7)');
     var alien_buffer = alien.eval('buffer = view.buffer');
@@ -560,12 +564,15 @@ function test()
     alien_view[3] = 77;
     check(() => view[3] == 77);
 
-    // Now check that the proxy setup is as expected
-    check(() => isProxy(alien_view));
-    check(() => isProxy(alien_buffer));
-    check(() => isProxy(view)); // the real test
+    // Now check that the proxy setup is as expected in the cross-compartment
+    // case.
+    if (isProxy(alien)) {
+        check(() => isProxy(alien_view));
+        check(() => isProxy(alien_buffer));
+        check(() => isProxy(view)); // the real test
+    }
 
-    // cross-compartment property access
+    // cross-realm property access
     check(() => alien_buffer.byteLength == 7);
     check(() => alien_view.byteLength == 7);
     check(() => view.byteLength == 7);

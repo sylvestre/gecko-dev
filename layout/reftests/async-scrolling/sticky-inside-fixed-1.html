@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html reftest-async-scroll>
-<html>
 <head>
   <title>Testcase for Bug 1501342</title>
   <style>
@@ -12,7 +11,8 @@
     }
     .scrollable {
       height:100%;
-      overflow-y:hidden;
+      overflow-y: scroll;
+      scrollbar-width: none;
     }
     .sticky {
       position:sticky;

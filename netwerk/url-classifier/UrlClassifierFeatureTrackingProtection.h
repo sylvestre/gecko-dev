@@ -17,18 +17,30 @@ namespace net {
 class UrlClassifierFeatureTrackingProtection final
     : public UrlClassifierFeatureBase {
  public:
-  static void Initialize();
+  static const char* Name();
 
-  static void Shutdown();
+  static void MaybeShutdown();
 
   static already_AddRefed<UrlClassifierFeatureTrackingProtection> MaybeCreate(
       nsIChannel* aChannel);
 
-  NS_IMETHOD ProcessChannel(nsIChannel* aChannel, const nsACString& aList,
+  static already_AddRefed<nsIUrlClassifierFeature> GetIfNameMatches(
+      const nsACString& aName);
+
+  NS_IMETHOD ProcessChannel(nsIChannel* aChannel,
+                            const nsTArray<nsCString>& aList,
+                            const nsTArray<nsCString>& aHashes,
                             bool* aShouldContinue) override;
+
+  NS_IMETHOD GetURIByListType(nsIChannel* aChannel,
+                              nsIUrlClassifierFeature::listType aListType,
+                              nsIUrlClassifierFeature::URIType* aURIType,
+                              nsIURI** aURI) override;
 
  private:
   UrlClassifierFeatureTrackingProtection();
+
+  static void MaybeInitialize();
 };
 
 }  // namespace net

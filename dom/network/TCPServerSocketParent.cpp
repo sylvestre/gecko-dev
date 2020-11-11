@@ -4,16 +4,16 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "nsIScriptSecurityManager.h"
 #include "TCPServerSocket.h"
 #include "TCPServerSocketParent.h"
 #include "nsJSUtils.h"
+#include "TCPSocket.h"
 #include "TCPSocketParent.h"
 #include "mozilla/Unused.h"
-#include "mozilla/dom/TabParent.h"
+#include "mozilla/dom/BrowserParent.h"
+#include "mozilla/dom/TCPServerSocketEvent.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_IMPL_CYCLE_COLLECTION(TCPServerSocketParent, mServerSocket)
 NS_IMPL_CYCLE_COLLECTING_ADDREF(TCPServerSocketParent)
@@ -45,15 +45,13 @@ TCPServerSocketParent::TCPServerSocketParent(PNeckoParent* neckoParent,
   mServerSocket->SetServerBridgeParent(this);
 }
 
-TCPServerSocketParent::~TCPServerSocketParent() {}
+TCPServerSocketParent::~TCPServerSocketParent() = default;
 
 void TCPServerSocketParent::Init() {
   NS_ENSURE_SUCCESS_VOID(mServerSocket->Init());
 }
 
 nsresult TCPServerSocketParent::SendCallbackAccept(TCPSocketParent* socket) {
-  socket->AddIPDLReference();
-
   nsresult rv;
 
   nsString host;
@@ -72,6 +70,10 @@ nsresult TCPServerSocketParent::SendCallbackAccept(TCPSocketParent* socket) {
 
   if (mNeckoParent) {
     if (mNeckoParent->SendPTCPSocketConstructor(socket, host, port)) {
+      // Call |AddIPDLReference| after the consructor message is sent
+      // successfully, otherwise |socket| could be leaked.
+      socket->AddIPDLReference();
+
       mozilla::Unused << PTCPServerSocketParent::SendCallbackAccept(socket);
     } else {
       NS_ERROR("Sending data from PTCPSocketParent was failed.");
@@ -112,5 +114,4 @@ void TCPServerSocketParent::OnConnect(TCPServerSocketEvent* event) {
   SendCallbackAccept(socketParent);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

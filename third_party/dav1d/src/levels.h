@@ -25,22 +25,19 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __DAV1D_SRC_LEVELS_H__
-#define __DAV1D_SRC_LEVELS_H__
+#ifndef DAV1D_SRC_LEVELS_H
+#define DAV1D_SRC_LEVELS_H
 
 #include <stdint.h>
 
 #include "dav1d/headers.h"
 
-enum ObuType {
-    OBU_SEQ_HDR   = 1,
-    OBU_TD        = 2,
-    OBU_FRAME_HDR = 3,
-    OBU_TILE_GRP  = 4,
-    OBU_METADATA  = 5,
-    OBU_FRAME     = 6,
-    OBU_REDUNDANT_FRAME_HDR = 7,
-    OBU_PADDING   = 15,
+enum ObuMetaType {
+    OBU_META_HDR_CLL     = 1,
+    OBU_META_HDR_MDCV    = 2,
+    OBU_META_SCALABILITY = 3,
+    OBU_META_ITUT_T35    = 4,
+    OBU_META_TIMECODE    = 5,
 };
 
 enum TxfmSize {
@@ -99,17 +96,6 @@ enum TxfmType {
     N_TX_TYPES,
     WHT_WHT = N_TX_TYPES,
     N_TX_TYPES_PLUS_LL,
-};
-
-enum TxfmTypeSet {
-    TXTP_SET_DCT,
-    TXTP_SET_DCT_ID,
-    TXTP_SET_DT4_ID,
-    TXTP_SET_DT4_ID_1D,
-    TXTP_SET_DT9_ID_1D,
-    TXTP_SET_ALL,
-    TXTP_SET_LOSSLESS,
-    N_TXTP_SETS
 };
 
 enum TxClass {
@@ -224,6 +210,13 @@ enum InterPredMode {
     N_INTER_PRED_MODES,
 };
 
+enum DRL_PROXIMITY {
+    NEAREST_DRL,
+    NEARER_DRL,
+    NEAR_DRL,
+    NEARISH_DRL
+};
+
 enum CompInterPredMode {
     NEARESTMV_NEARESTMV,
     NEARMV_NEARMV,
@@ -250,8 +243,11 @@ enum InterIntraType {
     INTER_INTRA_WEDGE,
 };
 
-typedef struct mv {
-    int16_t y, x;
+typedef union mv {
+    struct {
+        int16_t y, x;
+    };
+    uint32_t n;
 } mv;
 
 enum MotionMode {
@@ -271,14 +267,22 @@ typedef struct Av1Block {
             int8_t y_angle, uv_angle, cfl_alpha[2];
         }; // intra
         struct {
+            union {
+                struct {
+                    union mv mv[2];
+                    uint8_t wedge_idx, mask_sign, interintra_mode;
+                };
+                struct {
+                    union mv mv2d;
+                    int16_t matrix[4];
+                };
+            };
+            uint8_t comp_type, inter_mode, motion_mode, drl_idx;
             int8_t ref[2];
-            uint8_t comp_type, wedge_idx, mask_sign, inter_mode, drl_idx;
-            uint8_t interintra_type, interintra_mode, motion_mode;
-            uint8_t max_ytx, filter2d;
-            uint16_t tx_split[2];
-            mv mv[2];
+            uint8_t max_ytx, filter2d, interintra_type, tx_split0;
+            uint16_t tx_split1;
         }; // inter
     };
 } Av1Block;
 
-#endif /* __DAV1D_SRC_LEVELS_H__ */
+#endif /* DAV1D_SRC_LEVELS_H */

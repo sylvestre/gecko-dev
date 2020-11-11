@@ -1,4 +1,3 @@
-// |reftest| skip-if(!Symbol.hasOwnProperty('matchAll')) -- Symbol.matchAll is not enabled unconditionally
 // Copyright (C) 2018 Jordan Harband. All rights reserved.
 // This code is governed by the BSD license found in the LICENSE file.
 /*---
@@ -26,7 +25,7 @@ RegExp.prototype[Symbol.matchAll] = function() {
   return returnVal;
 };
 
-var regexp = /./;
+var regexp = /./g;
 var str = '';
 
 assert.sameValue(str.matchAll(regexp), returnVal);

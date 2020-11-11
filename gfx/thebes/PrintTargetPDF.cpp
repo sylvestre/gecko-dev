@@ -7,12 +7,15 @@
 
 #include "cairo.h"
 #include "cairo-pdf.h"
+#include "mozilla/AppShutdown.h"
 
-namespace mozilla {
-namespace gfx {
+namespace mozilla::gfx {
 
 static cairo_status_t write_func(void* closure, const unsigned char* data,
                                  unsigned int length) {
+  if (AppShutdown::IsShuttingDown()) {
+    return CAIRO_STATUS_SUCCESS;
+  }
   nsCOMPtr<nsIOutputStream> out = reinterpret_cast<nsIOutputStream*>(closure);
   do {
     uint32_t wrote = 0;
@@ -41,7 +44,8 @@ PrintTargetPDF::~PrintTargetPDF() {
   Finish();
 }
 
-/* static */ already_AddRefed<PrintTargetPDF> PrintTargetPDF::CreateOrNull(
+/* static */
+already_AddRefed<PrintTargetPDF> PrintTargetPDF::CreateOrNull(
     nsIOutputStream* aStream, const IntSize& aSizeInPoints) {
   cairo_surface_t* surface = cairo_pdf_surface_create_for_stream(
       write_func, (void*)aStream, aSizeInPoints.width, aSizeInPoints.height);
@@ -61,12 +65,14 @@ nsresult PrintTargetPDF::EndPage() {
 }
 
 void PrintTargetPDF::Finish() {
-  if (mIsFinished) {
-    return;  // We don't want to call Close() on mStream more than once
+  if (mIsFinished || AppShutdown::IsShuttingDown()) {
+    // We don't want to call Close() on mStream more than once, and we don't
+    // want to block shutdown if for some reason the user shuts down the
+    // browser mid print.
+    return;
   }
   PrintTarget::Finish();
   mStream->Close();
 }
 
-}  // namespace gfx
-}  // namespace mozilla
+}  // namespace mozilla::gfx

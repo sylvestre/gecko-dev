@@ -8,8 +8,9 @@
 #include "nsCOMPtr.h"
 #include "nsContentUtils.h"
 #include "mozilla/EventDispatcher.h"
-#include "nsXULElement.h"
 #include "mozilla/Logging.h"
+#include "mozilla/dom/DocumentInlines.h"
+#include "nsXULElement.h"
 
 struct BroadcastListener {
   nsWeakPtr mListener;
@@ -17,7 +18,7 @@ struct BroadcastListener {
 };
 
 struct BroadcasterMapEntry : public PLDHashEntryHdr {
-  Element* mBroadcaster;  // [WEAK]
+  mozilla::dom::Element* mBroadcaster;  // [WEAK]
   nsTArray<BroadcastListener*>
       mListeners;  // [OWNING] of BroadcastListener objects
 };
@@ -25,10 +26,9 @@ struct BroadcasterMapEntry : public PLDHashEntryHdr {
 struct nsAttrNameInfo {
   nsAttrNameInfo(int32_t aNamespaceID, nsAtom* aName, nsAtom* aPrefix)
       : mNamespaceID(aNamespaceID), mName(aName), mPrefix(aPrefix) {}
-  nsAttrNameInfo(const nsAttrNameInfo& aOther)
-      : mNamespaceID(aOther.mNamespaceID),
-        mName(aOther.mName),
-        mPrefix(aOther.mPrefix) {}
+  nsAttrNameInfo(const nsAttrNameInfo& aOther) = delete;
+  nsAttrNameInfo(nsAttrNameInfo&& aOther) = default;
+
   int32_t mNamespaceID;
   RefPtr<nsAtom> mName;
   RefPtr<nsAtom> mPrefix;
@@ -80,7 +80,7 @@ bool XULBroadcastManager::MayNeedListener(const Element& aElement) {
   return false;
 }
 
-XULBroadcastManager::XULBroadcastManager(nsIDocument* aDocument)
+XULBroadcastManager::XULBroadcastManager(Document* aDocument)
     : mDocument(aDocument),
       mBroadcasterMap(nullptr),
       mHandlingDelayedAttrChange(false),
@@ -94,8 +94,7 @@ void XULBroadcastManager::SynchronizeBroadcastListener(Element* aBroadcaster,
                                                        Element* aListener,
                                                        const nsAString& aAttr) {
   if (!nsContentUtils::IsSafeToRunScript()) {
-    nsDelayedBroadcastUpdate delayedUpdate(aBroadcaster, aListener, aAttr);
-    mDelayedBroadcasters.AppendElement(delayedUpdate);
+    mDelayedBroadcasters.EmplaceBack(aBroadcaster, aListener, aAttr);
     MaybeBroadcast();
     return;
   }
@@ -350,7 +349,8 @@ void XULBroadcastManager::AttributeChanged(Element* aElement,
               mDelayedAttrChangeBroadcasts.RemoveElementAt(index);
             }
 
-            mDelayedAttrChangeBroadcasts.AppendElement(delayedUpdate);
+            mDelayedAttrChangeBroadcasts.AppendElement(
+                std::move(delayedUpdate));
           }
         }
       }
@@ -397,8 +397,8 @@ void XULBroadcastManager::MaybeBroadcast() {
     if (length) {
       bool oldValue = mHandlingDelayedBroadcasters;
       mHandlingDelayedBroadcasters = true;
-      nsTArray<nsDelayedBroadcastUpdate> delayedBroadcasters;
-      mDelayedBroadcasters.SwapElements(delayedBroadcasters);
+      nsTArray<nsDelayedBroadcastUpdate> delayedBroadcasters =
+          std::move(mDelayedBroadcasters);
       for (uint32_t i = 0; i < length; ++i) {
         SynchronizeBroadcastListener(delayedBroadcasters[i].mBroadcaster,
                                      delayedBroadcasters[i].mListener,
@@ -473,7 +473,7 @@ nsresult XULBroadcastManager::FindBroadcaster(Element* aElement,
   NS_ENSURE_TRUE(*aListener, NS_ERROR_UNEXPECTED);
 
   // Try to find the broadcaster element in the document.
-  nsIDocument* doc = aElement->GetComposedDoc();
+  Document* doc = aElement->GetComposedDoc();
   if (doc) {
     *aBroadcaster = doc->GetElementById(aBroadcasterID);
   }

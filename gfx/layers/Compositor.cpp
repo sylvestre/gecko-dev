@@ -5,7 +5,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "mozilla/layers/Compositor.h"
-#include "base/message_loop.h"                      // for MessageLoop
+#include "base/message_loop.h"  // for MessageLoop
+#include "mozilla/gfx/Types.h"
 #include "mozilla/layers/CompositorBridgeParent.h"  // for CompositorBridgeParent
 #include "mozilla/layers/Diagnostics.h"
 #include "mozilla/layers/Effects.h"  // for Effect, EffectChain, etc
@@ -13,6 +14,7 @@
 #include "mozilla/layers/TextureHost.h"
 #include "mozilla/layers/CompositorThread.h"
 #include "mozilla/mozalloc.h"  // for operator delete, etc
+#include "GeckoProfiler.h"
 #include "gfx2DGlue.h"
 #include "nsAppRunner.h"
 #include "LayersHelpers.h"
@@ -20,6 +22,36 @@
 namespace mozilla {
 
 namespace layers {
+
+class CompositorRecordedFrame final : public RecordedFrame {
+ public:
+  CompositorRecordedFrame(const TimeStamp& aTimeStamp,
+                          RefPtr<AsyncReadbackBuffer>&& aBuffer)
+      : RecordedFrame(aTimeStamp), mBuffer(aBuffer) {}
+
+  virtual already_AddRefed<gfx::DataSourceSurface> GetSourceSurface() override {
+    if (mSurface) {
+      return do_AddRef(mSurface);
+    }
+
+    gfx::IntSize size = mBuffer->GetSize();
+
+    mSurface = gfx::Factory::CreateDataSourceSurface(
+        size, gfx::SurfaceFormat::B8G8R8A8,
+        /* aZero = */ false);
+
+    if (!mBuffer->MapAndCopyInto(mSurface, size)) {
+      mSurface = nullptr;
+      return nullptr;
+    }
+
+    return do_AddRef(mSurface);
+  }
+
+ private:
+  RefPtr<AsyncReadbackBuffer> mBuffer;
+  RefPtr<gfx::DataSourceSurface> mSurface;
+};
 
 Compositor::Compositor(widget::CompositorWidget* aWidget,
                        CompositorBridgeParent* aParent)
@@ -34,12 +66,12 @@ Compositor::Compositor(widget::CompositorWidget* aWidget,
       // If the default color isn't white for Fennec, there is a black
       // flash before the first page of a tab is loaded.
       ,
-      mClearColor(1.0, 1.0, 1.0, 1.0),
-      mDefaultClearColor(1.0, 1.0, 1.0, 1.0)
+      mClearColor(ToDeviceColor(sRGBColor::OpaqueWhite())),
+      mDefaultClearColor(ToDeviceColor(sRGBColor::OpaqueWhite()))
 #else
       ,
-      mClearColor(0.0, 0.0, 0.0, 0.0),
-      mDefaultClearColor(0.0, 0.0, 0.0, 0.0)
+      mClearColor(gfx::DeviceColor()),
+      mDefaultClearColor(gfx::DeviceColor())
 #endif
 {
 }
@@ -47,6 +79,8 @@ Compositor::Compositor(widget::CompositorWidget* aWidget,
 Compositor::~Compositor() { ReadUnlockTextures(); }
 
 void Compositor::Destroy() {
+  mWidget = nullptr;
+
   TextureSourceProvider::Destroy();
   mIsDestroyed = true;
 }
@@ -116,24 +150,25 @@ void Compositor::DrawDiagnosticsInternal(DiagnosticFlags aFlags,
   int lWidth = 2;
 #endif
 
-  gfx::Color color;
+  // Technically it is sRGB but it is just for debugging.
+  gfx::DeviceColor color;
   if (aFlags & DiagnosticFlags::CONTENT) {
-    color = gfx::Color(0.0f, 1.0f, 0.0f, 1.0f);  // green
+    color = gfx::DeviceColor(0.0f, 1.0f, 0.0f, 1.0f);  // green
     if (aFlags & DiagnosticFlags::COMPONENT_ALPHA) {
-      color = gfx::Color(0.0f, 1.0f, 1.0f, 1.0f);  // greenish blue
+      color = gfx::DeviceColor(0.0f, 1.0f, 1.0f, 1.0f);  // greenish blue
     }
   } else if (aFlags & DiagnosticFlags::IMAGE) {
     if (aFlags & DiagnosticFlags::NV12) {
-      color = gfx::Color(1.0f, 1.0f, 0.0f, 1.0f);  // yellow
+      color = gfx::DeviceColor(1.0f, 1.0f, 0.0f, 1.0f);  // yellow
     } else if (aFlags & DiagnosticFlags::YCBCR) {
-      color = gfx::Color(1.0f, 0.55f, 0.0f, 1.0f);  // orange
+      color = gfx::DeviceColor(1.0f, 0.55f, 0.0f, 1.0f);  // orange
     } else {
-      color = gfx::Color(1.0f, 0.0f, 0.0f, 1.0f);  // red
+      color = gfx::DeviceColor(1.0f, 0.0f, 0.0f, 1.0f);  // red
     }
   } else if (aFlags & DiagnosticFlags::COLOR) {
-    color = gfx::Color(0.0f, 0.0f, 1.0f, 1.0f);  // blue
+    color = gfx::DeviceColor(0.0f, 0.0f, 1.0f, 1.0f);  // blue
   } else if (aFlags & DiagnosticFlags::CONTAINER) {
-    color = gfx::Color(0.8f, 0.0f, 0.8f, 1.0f);  // purple
+    color = gfx::DeviceColor(0.8f, 0.0f, 0.8f, 1.0f);  // purple
   }
 
   // make tile borders a bit more transparent to keep layer borders readable.
@@ -323,7 +358,8 @@ void Compositor::DrawPolygon(const gfx::Polygon& aPolygon,
                 aTransform, aVisibleRect);
 }
 
-void Compositor::SlowDrawRect(const gfx::Rect& aRect, const gfx::Color& aColor,
+void Compositor::SlowDrawRect(const gfx::Rect& aRect,
+                              const gfx::DeviceColor& aColor,
                               const gfx::IntRect& aClipRect,
                               const gfx::Matrix4x4& aTransform,
                               int aStrokeWidth) {
@@ -351,7 +387,8 @@ void Compositor::SlowDrawRect(const gfx::Rect& aRect, const gfx::Color& aColor,
       aClipRect, effects, opacity, aTransform);
 }
 
-void Compositor::FillRect(const gfx::Rect& aRect, const gfx::Color& aColor,
+void Compositor::FillRect(const gfx::Rect& aRect,
+                          const gfx::DeviceColor& aColor,
                           const gfx::IntRect& aClipRect,
                           const gfx::Matrix4x4& aTransform) {
   float opacity = 1.0f;
@@ -503,8 +540,10 @@ gfx::IntRect Compositor::ComputeBackdropCopyRect(
     const gfx::Matrix4x4& aTransform, gfx::Matrix4x4* aOutTransform,
     gfx::Rect* aOutLayerQuad) {
   // Compute the clip.
-  gfx::IntPoint rtOffset = GetCurrentRenderTarget()->GetOrigin();
-  gfx::IntSize rtSize = GetCurrentRenderTarget()->GetSize();
+  RefPtr<CompositingRenderTarget> currentRenderTarget =
+      GetCurrentRenderTarget();
+  gfx::IntPoint rtOffset = currentRenderTarget->GetOrigin();
+  gfx::IntSize rtSize = currentRenderTarget->GetSize();
 
   return layers::ComputeBackdropCopyRect(aRect, aClipRect, aTransform,
                                          gfx::IntRect(rtOffset, rtSize),
@@ -544,6 +583,32 @@ bool Compositor::NotifyNotUsedAfterComposition(TextureHost* aTextureHost) {
 void Compositor::GetFrameStats(GPUStats* aStats) {
   aStats->mInvalidPixels = mPixelsPerFrame;
   aStats->mPixelsFilled = mPixelsFilled;
+}
+
+already_AddRefed<RecordedFrame> Compositor::RecordFrame(
+    const TimeStamp& aTimeStamp) {
+  RefPtr<CompositingRenderTarget> renderTarget = GetWindowRenderTarget();
+  if (!renderTarget) {
+    return nullptr;
+  }
+
+  RefPtr<AsyncReadbackBuffer> buffer =
+      CreateAsyncReadbackBuffer(renderTarget->GetSize());
+
+  if (!ReadbackRenderTarget(renderTarget, buffer)) {
+    return nullptr;
+  }
+
+  return MakeAndAddRef<CompositorRecordedFrame>(aTimeStamp, std::move(buffer));
+}
+
+bool Compositor::ShouldRecordFrames() const {
+#ifdef MOZ_GECKO_PROFILER
+  if (profiler_feature_active(ProfilerFeature::Screenshots)) {
+    return true;
+  }
+#endif
+  return mRecordFrames;
 }
 
 }  // namespace layers

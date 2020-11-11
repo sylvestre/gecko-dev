@@ -4,8 +4,24 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "gtest/gtest.h"
 #include "mozilla/dom/quota/OriginScope.h"
+
+#include "gtest/gtest.h"
+
+#include <cstdint>
+#include <memory>
+#include "ErrorList.h"
+#include "mozilla/Result.h"
+#include "mozilla/dom/quota/QuotaCommon.h"
+#include "mozilla/fallible.h"
+#include "nsCOMPtr.h"
+#include "nsDirectoryServiceDefs.h"
+#include "nsDirectoryServiceUtils.h"
+#include "nsIFile.h"
+#include "nsLiteralString.h"
+#include "nsString.h"
+#include "nsStringFwd.h"
+#include "nsTLiteralString.h"
 
 using namespace mozilla;
 using namespace mozilla::dom::quota;
@@ -25,15 +41,56 @@ void CheckOriginScopeMatchesOrigin(const OriginScope& aOriginScope,
   EXPECT_TRUE(result == aMatch);
 }
 
+void CheckUnknownFileEntry(nsIFile& aBase, const nsAString& aName,
+                           const bool aWarnIfFile, const bool aWarnIfDir) {
+  nsCOMPtr<nsIFile> file;
+  nsresult rv = aBase.Clone(getter_AddRefs(file));
+  ASSERT_EQ(rv, NS_OK);
+
+  rv = file->Append(aName);
+  ASSERT_EQ(rv, NS_OK);
+
+  rv = file->Create(nsIFile::NORMAL_FILE_TYPE, 0600);
+  ASSERT_EQ(rv, NS_OK);
+
+  auto okOrErr = WARN_IF_FILE_IS_UNKNOWN(*file);
+  ASSERT_TRUE(okOrErr.isOk());
+
+#ifdef DEBUG
+  EXPECT_TRUE(okOrErr.inspect() == aWarnIfFile);
+#else
+  EXPECT_TRUE(okOrErr.inspect() == false);
+#endif
+
+  rv = file->Remove(false);
+  ASSERT_EQ(rv, NS_OK);
+
+  rv = file->Create(nsIFile::DIRECTORY_TYPE, 0700);
+  ASSERT_EQ(rv, NS_OK);
+
+  okOrErr = WARN_IF_FILE_IS_UNKNOWN(*file);
+  ASSERT_TRUE(okOrErr.isOk());
+
+#ifdef DEBUG
+  EXPECT_TRUE(okOrErr.inspect() == aWarnIfDir);
+#else
+  EXPECT_TRUE(okOrErr.inspect() == false);
+#endif
+
+  rv = file->Remove(false);
+  ASSERT_EQ(rv, NS_OK);
+}
+
 }  // namespace
 
-TEST(QuotaManager, OriginScope) {
+TEST(QuotaManager, OriginScope)
+{
   OriginScope originScope;
 
   // Sanity checks.
 
   {
-    NS_NAMED_LITERAL_CSTRING(origin, "http://www.mozilla.org");
+    constexpr auto origin = "http://www.mozilla.org"_ns;
     originScope.SetFromOrigin(origin);
     EXPECT_TRUE(originScope.IsOrigin());
     EXPECT_TRUE(originScope.GetOrigin().Equals(origin));
@@ -41,17 +98,10 @@ TEST(QuotaManager, OriginScope) {
   }
 
   {
-    NS_NAMED_LITERAL_CSTRING(prefix, "http://www.mozilla.org");
+    constexpr auto prefix = "http://www.mozilla.org"_ns;
     originScope.SetFromPrefix(prefix);
     EXPECT_TRUE(originScope.IsPrefix());
     EXPECT_TRUE(originScope.GetOriginNoSuffix().Equals(prefix));
-  }
-
-  {
-    NS_NAMED_LITERAL_STRING(pattern, "{\"appId\":1007}");
-    originScope.SetFromJSONPattern(pattern);
-    EXPECT_TRUE(originScope.IsPattern());
-    EXPECT_TRUE(originScope.GetJSONPattern().Equals(pattern));
   }
 
   {
@@ -62,7 +112,7 @@ TEST(QuotaManager, OriginScope) {
   // Test each origin scope type against particular origins.
 
   {
-    originScope.SetFromOrigin(NS_LITERAL_CSTRING("http://www.mozilla.org"));
+    originScope.SetFromOrigin("http://www.mozilla.org"_ns);
 
     static const OriginTest tests[] = {
         {"http://www.mozilla.org", true},
@@ -75,26 +125,12 @@ TEST(QuotaManager, OriginScope) {
   }
 
   {
-    originScope.SetFromPrefix(NS_LITERAL_CSTRING("http://www.mozilla.org"));
+    originScope.SetFromPrefix("http://www.mozilla.org"_ns);
 
     static const OriginTest tests[] = {
         {"http://www.mozilla.org", true},
         {"http://www.mozilla.org^userContextId=1", true},
         {"http://www.example.org^userContextId=1", false},
-    };
-
-    for (const auto& test : tests) {
-      CheckOriginScopeMatchesOrigin(originScope, test.mOrigin, test.mMatch);
-    }
-  }
-
-  {
-    originScope.SetFromJSONPattern(NS_LITERAL_STRING("{\"appId\":1007}"));
-
-    static const OriginTest tests[] = {
-        {"http+++www.mozilla.org^appId=1007", true},
-        {"http+++www.example.org^appId=1007", true},
-        {"http+++www.example.org^appId=1008", false},
     };
 
     for (const auto& test : tests) {
@@ -109,13 +145,37 @@ TEST(QuotaManager, OriginScope) {
         {"http://www.mozilla.org", true},
         {"http://www.mozilla.org^userContextId=1", true},
         {"http://www.example.org^userContextId=1", true},
-        {"http+++www.mozilla.org^appId=1007", true},
-        {"http+++www.example.org^appId=1007", true},
-        {"http+++www.example.org^appId=1008", true},
     };
 
     for (const auto& test : tests) {
       CheckOriginScopeMatchesOrigin(originScope, test.mOrigin, test.mMatch);
     }
   }
+}
+
+TEST(QuotaManager, WarnIfUnknownFile)
+{
+  nsCOMPtr<nsIFile> base;
+  nsresult rv = NS_GetSpecialDirectory(NS_OS_TEMP_DIR, getter_AddRefs(base));
+  ASSERT_EQ(rv, NS_OK);
+
+  rv = base->Append(u"mozquotatests"_ns);
+  ASSERT_EQ(rv, NS_OK);
+
+  base->Remove(true);
+
+  rv = base->Create(nsIFile::DIRECTORY_TYPE, 0700);
+  ASSERT_EQ(rv, NS_OK);
+
+  CheckUnknownFileEntry(*base, u"foo.bar"_ns, true, true);
+  CheckUnknownFileEntry(*base, u".DS_Store"_ns, false, true);
+  CheckUnknownFileEntry(*base, u".desktop"_ns, false, true);
+  CheckUnknownFileEntry(*base, u"desktop.ini"_ns, false, true);
+  CheckUnknownFileEntry(*base, u"DESKTOP.INI"_ns, false, true);
+  CheckUnknownFileEntry(*base, u"thumbs.db"_ns, false, true);
+  CheckUnknownFileEntry(*base, u"THUMBS.DB"_ns, false, true);
+  CheckUnknownFileEntry(*base, u".xyz"_ns, false, true);
+
+  rv = base->Remove(true);
+  ASSERT_EQ(rv, NS_OK);
 }

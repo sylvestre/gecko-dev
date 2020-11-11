@@ -7,16 +7,18 @@
 #ifndef mozilla_BufferList_h
 #define mozilla_BufferList_h
 
+#include <string.h>
+
 #include <algorithm>
+#include <type_traits>
+#include <utility>
+
 #include "mozilla/AllocPolicy.h"
 #include "mozilla/Maybe.h"
 #include "mozilla/MemoryReporting.h"
-#include "mozilla/Move.h"
 #include "mozilla/ScopeExit.h"
 #include "mozilla/Types.h"
-#include "mozilla/TypeTraits.h"
 #include "mozilla/Vector.h"
-#include <string.h>
 
 // BufferList represents a sequence of buffers of data. A BufferList can choose
 // to own its buffers or not. The class handles writing to the buffers,
@@ -80,7 +82,7 @@ class BufferList : private AllocPolicy {
 
     if (aInitialCapacity) {
       MOZ_ASSERT((aInitialSize == 0 ||
-                  IsSame<AllocPolicy, InfallibleAllocPolicy>::value),
+                  std::is_same_v<AllocPolicy, InfallibleAllocPolicy>),
                  "BufferList may only be constructed with an initial size when "
                  "using an infallible alloc policy");
 
@@ -307,7 +309,7 @@ class BufferList : private AllocPolicy {
 
   // Copies aSize bytes from aData into the BufferList. The storage for these
   // bytes may be split across multiple buffers. Size() is increased by aSize.
-  inline bool WriteBytes(const char* aData, size_t aSize);
+  inline MOZ_MUST_USE bool WriteBytes(const char* aData, size_t aSize);
 
   // Allocates a buffer of at most |aMaxBytes| bytes and, if successful, returns
   // that buffer, and places its size in |aSize|. If unsuccessful, returns null
@@ -399,7 +401,8 @@ class BufferList : private AllocPolicy {
 };
 
 template <typename AllocPolicy>
-bool BufferList<AllocPolicy>::WriteBytes(const char* aData, size_t aSize) {
+MOZ_MUST_USE bool BufferList<AllocPolicy>::WriteBytes(const char* aData,
+                                                      size_t aSize) {
   MOZ_RELEASE_ASSERT(mOwning);
   MOZ_RELEASE_ASSERT(mStandardCapacity);
 

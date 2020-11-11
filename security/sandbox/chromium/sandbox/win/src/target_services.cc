@@ -30,7 +30,8 @@ namespace {
 // HKCU so do not use it with this function.
 bool FlushRegKey(HKEY root) {
   HKEY key;
-  if (ERROR_SUCCESS == ::RegOpenKeyExW(root, NULL, 0, MAXIMUM_ALLOWED, &key)) {
+  if (ERROR_SUCCESS ==
+      ::RegOpenKeyExW(root, nullptr, 0, MAXIMUM_ALLOWED, &key)) {
     if (ERROR_SUCCESS != ::RegCloseKey(key))
       return false;
   }
@@ -43,8 +44,7 @@ bool FlushRegKey(HKEY root) {
 // although this behavior is undocumented and there is no guarantee that in
 // fact this will happen in future versions of windows.
 bool FlushCachedRegHandles() {
-  return (FlushRegKey(HKEY_LOCAL_MACHINE) &&
-          FlushRegKey(HKEY_CLASSES_ROOT) &&
+  return (FlushRegKey(HKEY_LOCAL_MACHINE) && FlushRegKey(HKEY_CLASSES_ROOT) &&
           FlushRegKey(HKEY_USERS));
 }
 
@@ -63,6 +63,18 @@ bool CsrssDisconnectCleanup() {
   return true;
 }
 
+// Used by EnumSystemLocales for warming up.
+static BOOL CALLBACK EnumLocalesProcEx(LPWSTR lpLocaleString,
+                                       DWORD dwFlags,
+                                       LPARAM lParam) {
+  return TRUE;
+}
+
+// Additional warmup done just when CSRSS is being disconnected.
+bool CsrssDisconnectWarmup() {
+  return ::EnumSystemLocalesEx(EnumLocalesProcEx, LOCALE_WINDOWS, 0, 0);
+}
+
 // Checks if we have handle entries pending and runs the closer.
 // Updates is_csrss_connected based on which handle types are closed.
 bool CloseOpenHandles(bool* is_csrss_connected) {
@@ -70,7 +82,7 @@ bool CloseOpenHandles(bool* is_csrss_connected) {
     HandleCloserAgent handle_closer;
     handle_closer.InitializeHandlesToClose(is_csrss_connected);
     if (!*is_csrss_connected) {
-      if (!CsrssDisconnectCleanup()) {
+      if (!CsrssDisconnectWarmup() || !CsrssDisconnectCleanup()) {
         return false;
       }
     }
@@ -105,13 +117,11 @@ TargetServicesBase* g_target_services = nullptr;
 
 }  // namespace
 
-
 SANDBOX_INTERCEPT IntegrityLevel g_shared_delayed_integrity_level =
     INTEGRITY_LEVEL_LAST;
 SANDBOX_INTERCEPT MitigationFlags g_shared_delayed_mitigations = 0;
 
-TargetServicesBase::TargetServicesBase() {
-}
+TargetServicesBase::TargetServicesBase() {}
 
 ResultCode TargetServicesBase::Init() {
   process_state_.SetInitCalled();
@@ -155,19 +165,18 @@ TargetServicesBase* TargetServicesBase::GetInstance() {
   return g_target_services;
 }
 
-// The broker services a 'test' IPC service with the IPC_PING_TAG tag.
+// The broker services a 'test' IPC service with the PING tag.
 bool TargetServicesBase::TestIPCPing(int version) {
   void* memory = GetGlobalIPCMemory();
-  if (NULL == memory) {
+  if (!memory)
     return false;
-  }
   SharedMemIPCClient ipc(memory);
   CrossCallReturn answer = {0};
 
   if (1 == version) {
     uint32_t tick1 = ::GetTickCount();
     uint32_t cookie = 717115;
-    ResultCode code = CrossCall(ipc, IPC_PING1_TAG, cookie, &answer);
+    ResultCode code = CrossCall(ipc, IpcTag::PING1, cookie, &answer);
 
     if (SBOX_ALL_OK != code) {
       return false;
@@ -193,7 +202,7 @@ bool TargetServicesBase::TestIPCPing(int version) {
   } else if (2 == version) {
     uint32_t cookie = 717111;
     InOutCountedBuffer counted_buffer(&cookie, sizeof(cookie));
-    ResultCode code = CrossCall(ipc, IPC_PING2_TAG, counted_buffer, &answer);
+    ResultCode code = CrossCall(ipc, IpcTag::PING2, counted_buffer, &answer);
 
     if (SBOX_ALL_OK != code) {
       return false;
@@ -207,38 +216,29 @@ bool TargetServicesBase::TestIPCPing(int version) {
   return true;
 }
 
-ProcessState::ProcessState() : process_state_(0), csrss_connected_(true) {
-}
-
-bool ProcessState::IsKernel32Loaded() const {
-  return process_state_ != 0;
-}
+ProcessState::ProcessState()
+    : process_state_(ProcessStateInternal::NONE), csrss_connected_(true) {}
 
 bool ProcessState::InitCalled() const {
-  return process_state_ > 1;
+  return process_state_ >= ProcessStateInternal::INIT_CALLED;
 }
 
 bool ProcessState::RevertedToSelf() const {
-  return process_state_ > 2;
+  return process_state_ >= ProcessStateInternal::REVERTED_TO_SELF;
 }
 
 bool ProcessState::IsCsrssConnected() const {
   return csrss_connected_;
 }
 
-void ProcessState::SetKernel32Loaded() {
-  if (!process_state_)
-    process_state_ = 1;
-}
-
 void ProcessState::SetInitCalled() {
-  if (process_state_ < 2)
-    process_state_ = 2;
+  if (process_state_ < ProcessStateInternal::INIT_CALLED)
+    process_state_ = ProcessStateInternal::INIT_CALLED;
 }
 
 void ProcessState::SetRevertedToSelf() {
-  if (process_state_ < 3)
-    process_state_ = 3;
+  if (process_state_ < ProcessStateInternal::REVERTED_TO_SELF)
+    process_state_ = ProcessStateInternal::REVERTED_TO_SELF;
 }
 
 void ProcessState::SetCsrssConnected(bool csrss_connected) {

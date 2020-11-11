@@ -6,7 +6,9 @@
 
 #include "vm/GeckoProfiler-inl.h"
 
+#include "mozilla/ArrayUtils.h"
 #include "mozilla/DebugOnly.h"
+#include "mozilla/Sprintf.h"
 
 #include "jsnum.h"
 
@@ -15,14 +17,16 @@
 #include "jit/BaselineFrame.h"
 #include "jit/BaselineJIT.h"
 #include "jit/JitcodeMap.h"
-#include "jit/JitFrames.h"
-#include "jit/JitRealm.h"
+#include "jit/JitRuntime.h"
 #include "jit/JSJitFrameIter.h"
+#include "js/ProfilingStack.h"
 #include "js/TraceLoggerAPI.h"
 #include "util/StringBuffer.h"
+#include "vm/FrameIter.h"  // js::OnlyJSJitFrameIter
 #include "vm/JSScript.h"
 
 #include "gc/Marking-inl.h"
+#include "vm/JSScript-inl.h"
 
 using namespace js;
 
@@ -33,7 +37,7 @@ GeckoProfilerThread::GeckoProfilerThread()
 
 GeckoProfilerRuntime::GeckoProfilerRuntime(JSRuntime* rt)
     : rt(rt),
-      strings(mutexid::GeckoProfilerStrings),
+      strings_(),
       slowAssertions(false),
       enabled_(false),
       eventMarker_(nullptr) {
@@ -46,7 +50,8 @@ void GeckoProfilerThread::setProfilingStack(ProfilingStack* profilingStack,
   profilingStackIfEnabled_ = enabled ? profilingStack : nullptr;
 }
 
-void GeckoProfilerRuntime::setEventMarker(void (*fn)(const char*)) {
+void GeckoProfilerRuntime::setEventMarker(void (*fn)(const char*,
+                                                     const char*)) {
   eventMarker_ = fn;
 }
 
@@ -113,7 +118,7 @@ void GeckoProfilerRuntime::enable(bool enabled) {
    * but not jitcode for scripts with active frames on the stack.  These scripts
    * need to have their profiler state toggled so they behave properly.
    */
-  jit::ToggleBaselineProfiling(rt, enabled);
+  jit::ToggleBaselineProfiling(cx, enabled);
 
   // Update lastProfilingFrame to point to the top-most JS jit-frame currently
   // on stack.
@@ -148,18 +153,30 @@ void GeckoProfilerRuntime::enable(bool enabled) {
   for (RealmsIter r(rt); !r.done(); r.next()) {
     r->wasm.ensureProfilingLabels(enabled);
   }
+
+#ifdef JS_STRUCTURED_SPEW
+  // Enable the structured spewer if the environment variable is set.
+  if (enabled) {
+    cx->spewer().enableSpewing();
+  } else {
+    cx->spewer().disableSpewing();
+  }
+#endif
 }
 
 /* Lookup the string for the function/script, creating one if necessary */
-const char* GeckoProfilerRuntime::profileString(JSScript* script,
-                                                JSFunction* maybeFun) {
-  auto locked = strings.lock();
-
-  ProfileStringMap::AddPtr s = locked->lookupForAdd(script);
+const char* GeckoProfilerRuntime::profileString(JSContext* cx,
+                                                BaseScript* script) {
+  ProfileStringMap::AddPtr s = strings().lookupForAdd(script);
 
   if (!s) {
-    auto str = allocProfileString(script, maybeFun);
-    if (!str || !locked->add(s, script, std::move(str))) {
+    UniqueChars str = allocProfileString(cx, script);
+    if (!str) {
+      return nullptr;
+    }
+    MOZ_ASSERT(script->hasBytecode());
+    if (!strings().add(s, script, std::move(str))) {
+      ReportOutOfMemory(cx);
       return nullptr;
     }
   }
@@ -167,7 +184,7 @@ const char* GeckoProfilerRuntime::profileString(JSScript* script,
   return s->value().get();
 }
 
-void GeckoProfilerRuntime::onScriptFinalized(JSScript* script) {
+void GeckoProfilerRuntime::onScriptFinalized(BaseScript* script) {
   /*
    * This function is called whenever a script is destroyed, regardless of
    * whether profiling has been turned on, so don't invoke a function on an
@@ -175,26 +192,23 @@ void GeckoProfilerRuntime::onScriptFinalized(JSScript* script) {
    * off, we still want to remove the string, so no check of enabled() is
    * done.
    */
-  auto locked = strings.lock();
-  if (ProfileStringMap::Ptr entry = locked->lookup(script)) {
-    locked->remove(entry);
+  if (ProfileStringMap::Ptr entry = strings().lookup(script)) {
+    strings().remove(entry);
   }
 }
 
-void GeckoProfilerRuntime::markEvent(const char* event) {
+void GeckoProfilerRuntime::markEvent(const char* event, const char* details) {
   MOZ_ASSERT(enabled());
   if (eventMarker_) {
     JS::AutoSuppressGCAnalysis nogc;
-    eventMarker_(event);
+    eventMarker_(event, details);
   }
 }
 
-bool GeckoProfilerThread::enter(JSContext* cx, JSScript* script,
-                                JSFunction* maybeFun) {
+bool GeckoProfilerThread::enter(JSContext* cx, JSScript* script) {
   const char* dynamicString =
-      cx->runtime()->geckoProfiler().profileString(script, maybeFun);
+      cx->runtime()->geckoProfiler().profileString(cx, script);
   if (dynamicString == nullptr) {
-    ReportOutOfMemory(cx);
     return false;
   }
 
@@ -212,11 +226,13 @@ bool GeckoProfilerThread::enter(JSContext* cx, JSScript* script,
   }
 #endif
 
-  profilingStack_->pushJsFrame("", dynamicString, script, script->code());
+  profilingStack_->pushJsFrame(
+      "", dynamicString, script, script->code(),
+      script->realm()->creationOptions().profilerRealmID());
   return true;
 }
 
-void GeckoProfilerThread::exit(JSScript* script, JSFunction* maybeFun) {
+void GeckoProfilerThread::exit(JSContext* cx, JSScript* script) {
   profilingStack_->pop();
 
 #ifdef DEBUG
@@ -224,8 +240,7 @@ void GeckoProfilerThread::exit(JSScript* script, JSFunction* maybeFun) {
   uint32_t sp = profilingStack_->stackPointer;
   if (sp < profilingStack_->stackCapacity()) {
     JSRuntime* rt = script->runtimeFromMainThread();
-    const char* dynamicString =
-        rt->geckoProfiler().profileString(script, maybeFun);
+    const char* dynamicString = rt->geckoProfiler().profileString(cx, script);
     /* Can't fail lookup because we should already be in the set */
     MOZ_ASSERT(dynamicString);
 
@@ -259,65 +274,97 @@ void GeckoProfilerThread::exit(JSScript* script, JSFunction* maybeFun) {
  * some scripts, resize the hash table of profile strings, and invalidate the
  * AddPtr held while invoking allocProfileString.
  */
-UniqueChars GeckoProfilerRuntime::allocProfileString(JSScript* script,
-                                                     JSFunction* maybeFun) {
+/* static */
+UniqueChars GeckoProfilerRuntime::allocProfileString(JSContext* cx,
+                                                     BaseScript* script) {
   // Note: this profiler string is regexp-matched by
   // devtools/client/profiler/cleopatra/js/parserWorker.js.
 
-  // Get the function name, if any.
-  JSAtom* atom = maybeFun ? maybeFun->displayAtom() : nullptr;
-
-  // Get the script filename, if any, and its length.
-  const char* filename = script->filename();
-  if (filename == nullptr) {
-    filename = "<unknown>";
-  }
-  size_t lenFilename = strlen(filename);
-
-  // Get the line number and its length as a string.
-  uint32_t lineno = script->lineno();
-  size_t lenLineno = 1;
-  for (uint32_t i = lineno; i /= 10; lenLineno++)
-    ;
-
-  // Get the column number and its length as a string.
-  uint32_t column = script->column();
-  size_t lenColumn = 1;
-  for (uint32_t i = column; i /= 10; lenColumn++)
-    ;
-
-  // Determine the required buffer size.
-  size_t len = lenFilename + 1 + lenLineno + 1 +
-               lenColumn;  // +1 for each separator colon, ":".
-  if (atom) {
-    len += JS::GetDeflatedUTF8StringLength(atom) +
-           3;  // +3 for the " (" and ")" it adds.
-  }
-
-  // Allocate the buffer.
-  UniqueChars cstr(js_pod_malloc<char>(len + 1));
-  if (!cstr) {
-    return nullptr;
-  }
-
-  // Construct the descriptive string.
-  DebugOnly<size_t> ret;
-  if (atom) {
-    UniqueChars atomStr = StringToNewUTF8CharsZ(nullptr, *atom);
-    if (!atomStr) {
+  // If the script has a function, try calculating its name.
+  bool hasName = false;
+  size_t nameLength = 0;
+  UniqueChars nameStr;
+  JSFunction* func = script->function();
+  if (func && func->displayAtom()) {
+    nameStr = StringToNewUTF8CharsZ(cx, *func->displayAtom());
+    if (!nameStr) {
       return nullptr;
     }
 
-    ret = snprintf(cstr.get(), len + 1, "%s (%s:%" PRIu32 ":%" PRIu32 ")",
-                   atomStr.get(), filename, lineno, column);
-  } else {
-    ret = snprintf(cstr.get(), len + 1, "%s:%" PRIu32 ":%" PRIu32, filename,
-                   lineno, column);
+    nameLength = strlen(nameStr.get());
+    hasName = true;
   }
 
-  MOZ_ASSERT(ret == len, "Computed length should match actual length!");
+  // Calculate filename length. We cap this to a reasonable limit to avoid
+  // performance impact of strlen/alloc/memcpy.
+  constexpr size_t MaxFilenameLength = 200;
+  const char* filenameStr = script->filename() ? script->filename() : "(null)";
+  size_t filenameLength = js_strnlen(filenameStr, MaxFilenameLength);
 
-  return cstr;
+  // Calculate line + column length.
+  bool hasLineAndColumn = false;
+  size_t lineAndColumnLength = 0;
+  char lineAndColumnStr[30];
+  if (hasName || script->isFunction() || script->isForEval()) {
+    lineAndColumnLength = SprintfLiteral(lineAndColumnStr, "%u:%u",
+                                         script->lineno(), script->column());
+    hasLineAndColumn = true;
+  }
+
+  // Full profile string for scripts with functions is:
+  //      FuncName (FileName:Lineno:Column)
+  // Full profile string for scripts without functions is:
+  //      FileName:Lineno:Column
+  // Full profile string for scripts without functions and without lines is:
+  //      FileName
+
+  // Calculate full string length.
+  size_t fullLength = 0;
+  if (hasName) {
+    MOZ_ASSERT(hasLineAndColumn);
+    fullLength = nameLength + 2 + filenameLength + 1 + lineAndColumnLength + 1;
+  } else if (hasLineAndColumn) {
+    fullLength = filenameLength + 1 + lineAndColumnLength;
+  } else {
+    fullLength = filenameLength;
+  }
+
+  // Allocate string.
+  UniqueChars str(cx->pod_malloc<char>(fullLength + 1));
+  if (!str) {
+    return nullptr;
+  }
+
+  size_t cur = 0;
+
+  // Fill string with function name if needed.
+  if (hasName) {
+    memcpy(str.get() + cur, nameStr.get(), nameLength);
+    cur += nameLength;
+    str[cur++] = ' ';
+    str[cur++] = '(';
+  }
+
+  // Fill string with filename chars.
+  memcpy(str.get() + cur, filenameStr, filenameLength);
+  cur += filenameLength;
+
+  // Fill line + column chars.
+  if (hasLineAndColumn) {
+    str[cur++] = ':';
+    memcpy(str.get() + cur, lineAndColumnStr, lineAndColumnLength);
+    cur += lineAndColumnLength;
+  }
+
+  // Terminal ')' if necessary.
+  if (hasName) {
+    str[cur++] = ')';
+  }
+
+  MOZ_ASSERT(cur == fullLength);
+  str[cur] = 0;
+
+  return str;
 }
 
 void GeckoProfilerThread::trace(JSTracer* trc) {
@@ -330,9 +377,8 @@ void GeckoProfilerThread::trace(JSTracer* trc) {
 }
 
 void GeckoProfilerRuntime::fixupStringsMapAfterMovingGC() {
-  auto locked = strings.lock();
-  for (ProfileStringMap::Enum e(locked.get()); !e.empty(); e.popFront()) {
-    JSScript* script = e.front().key();
+  for (ProfileStringMap::Enum e(strings()); !e.empty(); e.popFront()) {
+    BaseScript* script = e.front().key();
     if (IsForwarded(script)) {
       script = Forwarded(script);
       e.rekeyFront(script);
@@ -342,11 +388,10 @@ void GeckoProfilerRuntime::fixupStringsMapAfterMovingGC() {
 
 #ifdef JSGC_HASH_TABLE_CHECKS
 void GeckoProfilerRuntime::checkStringsMapAfterMovingGC() {
-  auto locked = strings.lock();
-  for (auto r = locked->all(); !r.empty(); r.popFront()) {
-    JSScript* script = r.front().key();
+  for (auto r = strings().all(); !r.empty(); r.popFront()) {
+    BaseScript* script = r.front().key();
     CheckGCThingAfterMovingGC(script);
-    auto ptr = locked->lookup(script);
+    auto ptr = strings().lookup(script);
     MOZ_RELEASE_ASSERT(ptr.found() && &*ptr == &r.front());
   }
 }
@@ -361,10 +406,8 @@ void ProfilingStackFrame::trace(JSTracer* trc) {
 }
 
 GeckoProfilerBaselineOSRMarker::GeckoProfilerBaselineOSRMarker(
-    JSContext* cx,
-    bool hasProfilerFrame MOZ_GUARD_OBJECT_NOTIFIER_PARAM_IN_IMPL)
+    JSContext* cx, bool hasProfilerFrame)
     : profiler(&cx->geckoProfiler()) {
-  MOZ_GUARD_OBJECT_NOTIFIER_INIT;
   if (!hasProfilerFrame || !cx->runtime()->geckoProfiler().enabled()) {
     profiler = nullptr;
     return;
@@ -431,8 +474,8 @@ JS_FRIEND_API jsbytecode* ProfilingStackFrame::pc() const {
   return script ? script->offsetToPC(pcOffsetIfJS_) : nullptr;
 }
 
-/* static */ int32_t ProfilingStackFrame::pcToOffset(JSScript* aScript,
-                                                     jsbytecode* aPc) {
+/* static */
+int32_t ProfilingStackFrame::pcToOffset(JSScript* aScript, jsbytecode* aPc) {
   return aPc ? aScript->pcToOffset(aPc) : NullPCOffset;
 }
 
@@ -457,15 +500,13 @@ JS_FRIEND_API void js::EnableContextProfilingStack(JSContext* cx,
 }
 
 JS_FRIEND_API void js::RegisterContextProfilingEventMarker(
-    JSContext* cx, void (*fn)(const char*)) {
+    JSContext* cx, void (*fn)(const char*, const char*)) {
   MOZ_ASSERT(cx->runtime()->geckoProfiler().enabled());
   cx->runtime()->geckoProfiler().setEventMarker(fn);
 }
 
-AutoSuppressProfilerSampling::AutoSuppressProfilerSampling(
-    JSContext* cx MOZ_GUARD_OBJECT_NOTIFIER_PARAM_IN_IMPL)
+AutoSuppressProfilerSampling::AutoSuppressProfilerSampling(JSContext* cx)
     : cx_(cx), previouslyEnabled_(cx->isProfilerSamplingEnabled()) {
-  MOZ_GUARD_OBJECT_NOTIFIER_INIT;
   if (previouslyEnabled_) {
     cx_->disableProfilerSampling();
   }
@@ -476,3 +517,60 @@ AutoSuppressProfilerSampling::~AutoSuppressProfilerSampling() {
     cx_->enableProfilerSampling();
   }
 }
+
+namespace JS {
+
+// clang-format off
+
+// ProfilingSubcategory_X:
+// One enum for each category X, listing that category's subcategories. This
+// allows the sProfilingCategoryInfo macro construction below to look up a
+// per-category index for a subcategory.
+#define SUBCATEGORY_ENUMS_BEGIN_CATEGORY(name, labelAsString, color) \
+  enum class ProfilingSubcategory_##name : uint32_t {
+#define SUBCATEGORY_ENUMS_SUBCATEGORY(category, name, labelAsString) \
+    name,
+#define SUBCATEGORY_ENUMS_END_CATEGORY \
+  };
+MOZ_PROFILING_CATEGORY_LIST(SUBCATEGORY_ENUMS_BEGIN_CATEGORY,
+                            SUBCATEGORY_ENUMS_SUBCATEGORY,
+                            SUBCATEGORY_ENUMS_END_CATEGORY)
+#undef SUBCATEGORY_ENUMS_BEGIN_CATEGORY
+#undef SUBCATEGORY_ENUMS_SUBCATEGORY
+#undef SUBCATEGORY_ENUMS_END_CATEGORY
+
+// sProfilingCategoryPairInfo:
+// A list of ProfilingCategoryPairInfos with the same order as
+// ProfilingCategoryPair, which can be used to map a ProfilingCategoryPair to
+// its information.
+#define CATEGORY_INFO_BEGIN_CATEGORY(name, labelAsString, color)
+#define CATEGORY_INFO_SUBCATEGORY(category, name, labelAsString) \
+  {ProfilingCategory::category,                                  \
+   uint32_t(ProfilingSubcategory_##category::name), labelAsString},
+#define CATEGORY_INFO_END_CATEGORY
+const ProfilingCategoryPairInfo sProfilingCategoryPairInfo[] = {
+  MOZ_PROFILING_CATEGORY_LIST(CATEGORY_INFO_BEGIN_CATEGORY,
+                              CATEGORY_INFO_SUBCATEGORY,
+                              CATEGORY_INFO_END_CATEGORY)
+};
+#undef CATEGORY_INFO_BEGIN_CATEGORY
+#undef CATEGORY_INFO_SUBCATEGORY
+#undef CATEGORY_INFO_END_CATEGORY
+
+// clang-format on
+
+JS_FRIEND_API const ProfilingCategoryPairInfo& GetProfilingCategoryPairInfo(
+    ProfilingCategoryPair aCategoryPair) {
+  static_assert(
+      MOZ_ARRAY_LENGTH(sProfilingCategoryPairInfo) ==
+          uint32_t(ProfilingCategoryPair::COUNT),
+      "sProfilingCategoryPairInfo and ProfilingCategory need to have the "
+      "same order and the same length");
+
+  uint32_t categoryPairIndex = uint32_t(aCategoryPair);
+  MOZ_RELEASE_ASSERT(categoryPairIndex <=
+                     uint32_t(ProfilingCategoryPair::LAST));
+  return sProfilingCategoryPairInfo[categoryPairIndex];
+}
+
+}  // namespace JS

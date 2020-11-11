@@ -8,8 +8,7 @@
 #include "cairo.h"
 #include "cairo-ps.h"
 
-namespace mozilla {
-namespace gfx {
+namespace mozilla::gfx {
 
 static cairo_status_t write_func(void* closure, const unsigned char* data,
                                  unsigned int length) {
@@ -44,7 +43,8 @@ PrintTargetPS::~PrintTargetPS() {
   Finish();
 }
 
-/* static */ already_AddRefed<PrintTargetPS> PrintTargetPS::CreateOrNull(
+/* static */
+already_AddRefed<PrintTargetPS> PrintTargetPS::CreateOrNull(
     nsIOutputStream* aStream, IntSize aSizeInPoints,
     PageOrientation aOrientation) {
   // The PS output does not specify the page size so to print landscape we need
@@ -53,7 +53,7 @@ PrintTargetPS::~PrintTargetPS() {
   // print area.  Our consumers are responsible for checking
   // RotateForLandscape() and applying a rotation transform if true.
   if (aOrientation == LANDSCAPE) {
-    Swap(aSizeInPoints.width, aSizeInPoints.height);
+    std::swap(aSizeInPoints.width, aSizeInPoints.height);
   }
 
   cairo_surface_t* surface = cairo_ps_surface_create_for_stream(
@@ -93,5 +93,4 @@ void PrintTargetPS::Finish() {
   mStream->Close();
 }
 
-}  // namespace gfx
-}  // namespace mozilla
+}  // namespace mozilla::gfx

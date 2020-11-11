@@ -40,7 +40,7 @@ ContentProcessMessageManager* ContentProcessMessageManager::Get() {
 }
 
 already_AddRefed<mozilla::dom::ipc::SharedMap>
-ContentProcessMessageManager::SharedData() {
+ContentProcessMessageManager::GetSharedData() {
   if (ContentChild* child = ContentChild::GetSingleton()) {
     return do_AddRef(child->SharedData());
   }
@@ -70,6 +70,7 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(ContentProcessMessageManager)
   NS_IMPL_CYCLE_COLLECTION_UNLINK_PRESERVED_WRAPPER
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mMessageManager)
   tmp->nsMessageManagerScriptExecutor::Unlink();
+  NS_IMPL_CYCLE_COLLECTION_UNLINK_WEAK_REFERENCE
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(ContentProcessMessageManager)

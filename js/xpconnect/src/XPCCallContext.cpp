@@ -8,6 +8,7 @@
 
 #include "xpcprivate.h"
 #include "jsfriendapi.h"
+#include "js/Object.h"  // JS::GetClass, JS::GetPrivate, JS::GetReservedSlot
 #include "js/Wrapper.h"
 #include "nsContentUtils.h"
 
@@ -15,7 +16,7 @@ using namespace mozilla;
 using namespace xpc;
 using namespace JS;
 
-static inline bool IsTearoffClass(const js::Class* clazz) {
+static inline bool IsTearoffClass(const JSClass* clazz) {
   return clazz == &XPC_WN_Tearoff_JSClass;
 }
 
@@ -61,20 +62,21 @@ XPCCallContext::XPCCallContext(
 
   mTearOff = nullptr;
 
-  JSObject* unwrapped = js::CheckedUnwrap(obj, /* stopAtWindowProxy = */ false);
+  JSObject* unwrapped =
+      js::CheckedUnwrapDynamic(obj, cx, /* stopAtWindowProxy = */ false);
   if (!unwrapped) {
     JS_ReportErrorASCII(mJSContext,
                         "Permission denied to call method on |this|");
     mState = INIT_FAILED;
     return;
   }
-  const js::Class* clasp = js::GetObjectClass(unwrapped);
+  const JSClass* clasp = JS::GetClass(unwrapped);
   if (IS_WN_CLASS(clasp)) {
     mWrapper = XPCWrappedNative::Get(unwrapped);
   } else if (IsTearoffClass(clasp)) {
-    mTearOff = (XPCWrappedNativeTearOff*)js::GetObjectPrivate(unwrapped);
+    mTearOff = (XPCWrappedNativeTearOff*)JS::GetPrivate(unwrapped);
     mWrapper = XPCWrappedNative::Get(
-        &js::GetReservedSlot(unwrapped, XPC_WN_TEAROFF_FLAT_OBJECT_SLOT)
+        &JS::GetReservedSlot(unwrapped, XPC_WN_TEAROFF_FLAT_OBJECT_SLOT)
              .toObject());
   }
   if (mWrapper && !mTearOff) {
@@ -178,7 +180,7 @@ nsresult XPCCallContext::CanCallNow() {
   }
 
   if (!mTearOff) {
-    mTearOff = mWrapper->FindTearOff(mInterface, false, &rv);
+    mTearOff = mWrapper->FindTearOff(mJSContext, mInterface, false, &rv);
     if (!mTearOff || mTearOff->GetInterface() != mInterface) {
       mTearOff = nullptr;
       return NS_FAILED(rv) ? rv : NS_ERROR_UNEXPECTED;

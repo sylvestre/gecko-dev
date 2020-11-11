@@ -7,17 +7,18 @@
 #define InputData_h__
 
 #include "nsDebug.h"
-#include "nsIScrollableFrame.h"
 #include "nsPoint.h"
 #include "nsTArray.h"
 #include "Units.h"
+#include "mozilla/ScrollTypes.h"
 #include "mozilla/DefineEnum.h"
 #include "mozilla/EventForwards.h"
 #include "mozilla/TimeStamp.h"
 #include "mozilla/WheelHandlingHelper.h"  // for WheelDeltaAdjustmentStrategy
 #include "mozilla/gfx/MatrixFwd.h"
-#include "mozilla/layers/APZUtils.h"
+#include "mozilla/layers/APZPublicUtils.h"
 #include "mozilla/layers/KeyboardScrollAction.h"
+#include "mozilla/TextEvents.h"
 
 template <class E>
 struct already_AddRefed;
@@ -89,6 +90,10 @@ class InputData {
   // content, and focus can be reconfirmed for async keyboard scrolling.
   uint64_t mFocusSequenceNumber;
 
+  // The LayersId of the content process that the corresponding WidgetEvent
+  // should be dispatched to.
+  layers::LayersId mLayersId;
+
   Modifiers modifiers;
 
   INPUTDATA_AS_CHILD_TYPE(MultiTouchInput, MULTITOUCH_INPUT)
@@ -144,6 +149,28 @@ class SingleTouchData {
   // Warning, this class is serialized and sent over IPC. Any change to its
   // fields must be reflected in its ParamTraits<>, in nsGUIEventIPC.h
 
+  // Historical data of this touch, which  was coalesced into this event.
+  // Touch event coalescing can happen at the system level when the touch
+  // screen's sampling frequency is higher than the vsync rate, or when the
+  // UI thread is busy. When multiple "samples" of touch data are coalesced into
+  // one touch event, the touch event's regular position information is the
+  // information from the last sample. And the previous, "coalesced-away"
+  // samples are stored in mHistoricalData.
+
+  struct HistoricalTouchData {
+    // The timestamp at which the information in this "sample" was originally
+    // sampled.
+    TimeStamp mTimeStamp;
+
+    // The touch data of this historical sample.
+    ScreenIntPoint mScreenPoint;
+    ParentLayerPoint mLocalScreenPoint;
+    ScreenSize mRadius;
+    float mRotationAngle = 0.0f;
+    float mForce = 0.0f;
+  };
+  CopyableTArray<HistoricalTouchData> mHistoricalData;
+
   // A unique number assigned to each SingleTouchData within a MultiTouchInput
   // so that they can be easily distinguished when handling a touch
   // start/move/end.
@@ -197,17 +224,9 @@ class MultiTouchInput : public InputData {
   MultiTouchInput();
   MultiTouchInput(const MultiTouchInput& aOther);
   explicit MultiTouchInput(const WidgetTouchEvent& aTouchEvent);
-  // This conversion from WidgetMouseEvent to MultiTouchInput is needed because
-  // on the B2G emulator we can only receive mouse events, but we need to be
-  // able to pan correctly. To do this, we convert the events into a format that
-  // the panning code can handle. This code is very limited and only supports
-  // SingleTouchData. It also sends garbage for the identifier, radius, force
-  // and rotation angle.
-  explicit MultiTouchInput(const WidgetMouseEvent& aMouseEvent);
   void Translate(const ScreenPoint& aTranslation);
 
   WidgetTouchEvent ToWidgetTouchEvent(nsIWidget* aWidget) const;
-  WidgetMouseEvent ToWidgetMouseEvent(nsIWidget* aWidget) const;
 
   // Return the index into mTouches of the SingleTouchData with the given
   // identifier, or -1 if there is no such SingleTouchData.
@@ -218,7 +237,10 @@ class MultiTouchInput : public InputData {
   // Warning, this class is serialized and sent over IPC. Any change to its
   // fields must be reflected in its ParamTraits<>, in nsGUIEventIPC.h
   MultiTouchType mType;
-  nsTArray<SingleTouchData> mTouches;
+  CopyableTArray<SingleTouchData> mTouches;
+  // The screen offset of the root widget. This can be changing along with
+  // the touch interaction, so we sstore it in the event.
+  ExternalPoint mScreenOffset;
   bool mHandledByAPZ;
 };
 
@@ -246,9 +268,9 @@ class MouseInput : public InputData {
 
   MOZ_DEFINE_ENUM_AT_CLASS_SCOPE(
     ButtonType, (
-      LEFT_BUTTON,
+      PRIMARY_BUTTON,
       MIDDLE_BUTTON,
-      RIGHT_BUTTON,
+      SECONDARY_BUTTON,
       NONE
   ));
   // clang-format on
@@ -261,7 +283,7 @@ class MouseInput : public InputData {
   bool IsLeftButton() const;
 
   bool TransformToLocal(const ScreenToParentLayerMatrix4x4& aTransform);
-  WidgetMouseEvent ToWidgetMouseEvent(nsIWidget* aWidget) const;
+  WidgetMouseEvent ToWidgetEvent(nsIWidget* aWidget) const;
 
   // Warning, this class is serialized and sent over IPC. Any change to its
   // fields must be reflected in its ParamTraits<>, in nsGUIEventIPC.h
@@ -332,6 +354,17 @@ class PanGestureInput : public InputData {
       // user has stopped the animation by putting their fingers on a touchpad.
       PANGESTURE_MOMENTUMEND
   ));
+
+  MOZ_DEFINE_ENUM_AT_CLASS_SCOPE(
+    PanDeltaType, (
+      // There are three kinds of scroll delta modes in Gecko: "page", "line"
+      // and "pixel". Touchpad pan gestures only support "page" and "pixel".
+      //
+      // NOTE: PANDELTA_PAGE currently replicates Gtk behavior
+      // (see AsyncPanZoomController::OnPan).
+      PANDELTA_PAGE,
+      PANDELTA_PIXEL
+  ));
   // clang-format on
 
   PanGestureInput(PanGestureType aType, uint32_t aTime, TimeStamp aTimeStamp,
@@ -340,12 +373,14 @@ class PanGestureInput : public InputData {
 
   bool IsMomentum() const;
 
-  WidgetWheelEvent ToWidgetWheelEvent(nsIWidget* aWidget) const;
+  WidgetWheelEvent ToWidgetEvent(nsIWidget* aWidget) const;
 
   bool TransformToLocal(const ScreenToParentLayerMatrix4x4& aTransform);
 
   ScreenPoint UserMultipliedPanDisplacement() const;
   ParentLayerPoint UserMultipliedLocalPanDisplacement() const;
+
+  static gfx::IntPoint GetIntegerDeltaForEvent(bool aIsStart, float x, float y);
 
   // Warning, this class is serialized and sent over IPC. Any change to its
   // fields must be reflected in its ParamTraits<>, in nsGUIEventIPC.h
@@ -368,11 +403,13 @@ class PanGestureInput : public InputData {
   double mUserDeltaMultiplierX;
   double mUserDeltaMultiplierY;
 
-  bool mHandledByAPZ;
+  PanDeltaType mDeltaType = PANDELTA_PIXEL;
+
+  bool mHandledByAPZ : 1;
 
   // true if this is a PANGESTURE_END event that will be followed by a
   // PANGESTURE_MOMENTUMSTART event.
-  bool mFollowedByMomentum;
+  bool mFollowedByMomentum : 1;
 
   // If this is true, and this event started a new input block that couldn't
   // find a scrollable target which is scrollable in the horizontal component
@@ -380,15 +417,32 @@ class PanGestureInput : public InputData {
   // hold until a content response has arrived, even if the block has a
   // confirmed target.
   // This is used by events that can result in a swipe instead of a scroll.
-  bool mRequiresContentResponseIfCannotScrollHorizontallyInStartDirection;
+  bool mRequiresContentResponseIfCannotScrollHorizontallyInStartDirection : 1;
 
   // This is used by APZ to communicate to the macOS widget code whether
   // the overscroll-behavior of the scroll frame handling this swipe allows
   // non-local overscroll behaviors in the horizontal direction (such as
   // swipe navigation).
-  bool mOverscrollBehaviorAllowsSwipe;
+  bool mOverscrollBehaviorAllowsSwipe : 1;
 
-  // XXX: If adding any more bools, switch to using bitfields instead.
+  // true if APZ should do a fling animation after this pan ends, like
+  // it would with touchscreens. (For platforms that don't emit momentum
+  // events.)
+  bool mSimulateMomentum : 1;
+
+  void SetHandledByAPZ(bool aHandled) { mHandledByAPZ = aHandled; }
+  void SetFollowedByMomentum(bool aFollowed) {
+    mFollowedByMomentum = aFollowed;
+  }
+  void SetRequiresContentResponseIfCannotScrollHorizontallyInStartDirection(
+      bool aRequires) {
+    mRequiresContentResponseIfCannotScrollHorizontallyInStartDirection =
+        aRequires;
+  }
+  void SetOverscrollBehaviorAllowsSwipe(bool aAllows) {
+    mOverscrollBehaviorAllowsSwipe = aAllows;
+  }
+  void SetSimulateMomentum(bool aSimulate) { mSimulateMomentum = aSimulate; }
 };
 
 /**
@@ -409,71 +463,87 @@ class PinchGestureInput : public InputData {
     PinchGestureType, (
       PINCHGESTURE_START,
       PINCHGESTURE_SCALE,
+      // The FINGERLIFTED state is used when a touch-based pinch gesture is
+      // terminated by lifting one of the two fingers. The position of the
+      // finger that's still down is populated as the focus point.
+      PINCHGESTURE_FINGERLIFTED,
+      // The END state is used when the pinch gesture is completely terminated.
+      // In this state, the focus point should not be relied upon for having
+      // meaningful data.
       PINCHGESTURE_END
+  ));
+
+  MOZ_DEFINE_ENUM_AT_CLASS_SCOPE(
+    PinchGestureSource, (
+      UNKNOWN, // Default initialization value. Should never actually be used.
+      TOUCH, // From two-finger pinch gesture
+      ONE_TOUCH, // From one-finger pinch gesture
+      TRACKPAD, // From trackpad pinch gesture
+      MOUSEWHEEL // Synthesized from modifier+mousewheel
+
+      // If adding more items here, increase n_values for the
+      // APZ_ZOOM_PINCHSOURCE Telemetry metric.
   ));
   // clang-format on
 
   // Construct a pinch gesture from a Screen point.
-  // (Technically, we should take the span values in Screen pixels as well,
-  // but that would require also storing them in Screen pixels and then
-  // converting them in TransformToLocal() like the focus point. Since pinch
-  // gesture events are processed by the root content APZC, the only transform
-  // between Screen and ParentLayer pixels should be a translation, which is
-  // irrelevant to span values, so we don't bother.)
-  PinchGestureInput(PinchGestureType aType, uint32_t aTime,
-                    TimeStamp aTimeStamp, const ScreenPoint& aFocusPoint,
-                    ParentLayerCoord aCurrentSpan,
-                    ParentLayerCoord aPreviousSpan, Modifiers aModifiers);
-
-  // Construct a pinch gesture from a ParentLayer point.
-  // mFocusPoint remains (0,0) unless it's set later.
-  PinchGestureInput(PinchGestureType aType, uint32_t aTime,
-                    TimeStamp aTimeStamp,
-                    const ParentLayerPoint& aLocalFocusPoint,
-                    ParentLayerCoord aCurrentSpan,
-                    ParentLayerCoord aPreviousSpan, Modifiers aModifiers);
+  PinchGestureInput(PinchGestureType aType, PinchGestureSource aSource,
+                    uint32_t aTime, TimeStamp aTimeStamp,
+                    const ExternalPoint& aScreenOffset,
+                    const ScreenPoint& aFocusPoint, ScreenCoord aCurrentSpan,
+                    ScreenCoord aPreviousSpan, Modifiers aModifiers);
 
   bool TransformToLocal(const ScreenToParentLayerMatrix4x4& aTransform);
+
+  WidgetWheelEvent ToWidgetEvent(nsIWidget* aWidget) const;
+
+  double ComputeDeltaY(nsIWidget* aWidget) const;
+
+  static gfx::IntPoint GetIntegerDeltaForEvent(bool aIsStart, float x, float y);
 
   // Warning, this class is serialized and sent over IPC. Any change to its
   // fields must be reflected in its ParamTraits<>, in nsGUIEventIPC.h
   PinchGestureType mType;
+
+  // Some indication of the input device that generated this pinch gesture.
+  PinchGestureSource mSource;
 
   // Center point of the pinch gesture. That is, if there are two fingers on the
   // screen, it is their midpoint. In the case of more than two fingers, the
   // point is implementation-specific, but can for example be the midpoint
   // between the very first and very last touch. This is in device pixels and
   // are the coordinates on the screen of this midpoint.
-  // For PINCHGESTURE_END events, this instead will hold the coordinates of
-  // the remaining finger, if there is one. If there isn't one then it will
-  // store |BothFingersLifted()|.
+  // For PINCHGESTURE_END events, this may hold the last known focus point or
+  // just be empty; in any case for END events it should not be relied upon.
+  // For PINCHGESTURE_FINGERLIFTED events, this holds the point of the finger
+  // that is still down.
   ScreenPoint mFocusPoint;
+
+  // The screen offset of the root widget. This can be changing along with
+  // the touch interaction, so we sstore it in the event.
+  ExternalPoint mScreenOffset;
 
   // |mFocusPoint| transformed to the local coordinates of the APZC targeted
   // by the hit. This is set and used by APZ.
   ParentLayerPoint mLocalFocusPoint;
 
   // The distance between the touches responsible for the pinch gesture.
-  ParentLayerCoord mCurrentSpan;
+  ScreenCoord mCurrentSpan;
 
   // The previous |mCurrentSpan| in the PinchGestureInput preceding this one.
   // This is only really relevant during a PINCHGESTURE_SCALE because when it is
   // of this type then there must have been a history of spans.
-  ParentLayerCoord mPreviousSpan;
+  ScreenCoord mPreviousSpan;
 
-  // A special value for mFocusPoint used in PINCHGESTURE_END events to
-  // indicate that both fingers have been lifted. If only one finger has
-  // been lifted, the coordinates of the remaining finger are expected to
-  // be stored in mFocusPoint.
-  // For pinch events that were not triggered by touch gestures, the
-  // value of mFocusPoint in a PINCHGESTURE_END event is always expected
-  // to be this value.
-  // For convenience, we allow retrieving this value in any coordinate system.
-  // Since it's a special value, no conversion is needed.
-  template <typename Units = ParentLayerPixel>
-  static gfx::PointTyped<Units> BothFingersLifted() {
-    return gfx::PointTyped<Units>{-1, -1};
-  }
+  // We accumulate (via GetIntegerDeltaForEvent) the deltaY that would be
+  // computed by ToWidgetEvent, and then whenever we get a whole integer
+  // value we put it in mLineOrPageDeltaY. Since we only ever use deltaY we
+  // don't need a mLineOrPageDeltaX. This field is used to dispatch legacy mouse
+  // events which are only dispatched when the corresponding field on
+  // WidgetWheelEvent is non-zero.
+  int32_t mLineOrPageDeltaY;
+
+  bool mHandledByAPZ;
 };
 
 /**
@@ -566,10 +636,9 @@ class ScrollWheelInput : public InputData {
 
   static ScrollDeltaType DeltaTypeForDeltaMode(uint32_t aDeltaMode);
   static uint32_t DeltaModeForDeltaType(ScrollDeltaType aDeltaType);
-  static nsIScrollableFrame::ScrollUnit ScrollUnitForDeltaType(
-      ScrollDeltaType aDeltaType);
+  static mozilla::ScrollUnit ScrollUnitForDeltaType(ScrollDeltaType aDeltaType);
 
-  WidgetWheelEvent ToWidgetWheelEvent(nsIWidget* aWidget) const;
+  WidgetWheelEvent ToWidgetEvent(nsIWidget* aWidget) const;
   bool TransformToLocal(const ScreenToParentLayerMatrix4x4& aTransform);
 
   bool IsCustomizedByUserPrefs() const;
@@ -673,7 +742,7 @@ class KeyboardInput : public InputData {
   KeyboardEventType mType;
   uint32_t mKeyCode;
   uint32_t mCharCode;
-  nsTArray<ShortcutKeyCandidate> mShortcutCandidates;
+  CopyableTArray<ShortcutKeyCandidate> mShortcutCandidates;
 
   bool mHandledByAPZ;
 

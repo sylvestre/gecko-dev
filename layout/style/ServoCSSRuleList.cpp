@@ -22,7 +22,7 @@
 #include "mozilla/IntegerRange.h"
 #include "mozilla/ServoBindings.h"
 #include "mozilla/StyleSheet.h"
-#include "nsIDocument.h"
+#include "mozilla/dom/Document.h"
 
 using namespace mozilla::dom;
 
@@ -124,10 +124,15 @@ static void DropRule(already_AddRefed<css::Rule> aRule) {
 void ServoCSSRuleList::DropAllRules() {
   mStyleSheet = nullptr;
   mParentRule = nullptr;
-  EnumerateInstantiatedRules(
-      [](css::Rule* rule) { DropRule(already_AddRefed<css::Rule>(rule)); });
-  mRules.Clear();
   mRawRules = nullptr;
+  // DropRule could reenter here via the cycle collector.
+  auto rules = std::move(mRules);
+  for (uintptr_t rule : rules) {
+    if (rule > kMaxRuleType) {
+      DropRule(already_AddRefed<css::Rule>(CastToPtr(rule)));
+    }
+  }
+  MOZ_ASSERT(mRules.IsEmpty());
 }
 
 void ServoCSSRuleList::DropSheetReference() {
@@ -154,16 +159,30 @@ nsresult ServoCSSRuleList::InsertRule(const nsAString& aRule, uint32_t aIndex) {
   MOZ_ASSERT(mStyleSheet,
              "Caller must ensure that "
              "the list is not unlinked from stylesheet");
+
+  if (IsReadOnly()) {
+    return NS_OK;
+  }
+
   NS_ConvertUTF16toUTF8 rule(aRule);
   bool nested = !!mParentRule;
   css::Loader* loader = nullptr;
-  if (nsIDocument* doc = mStyleSheet->GetAssociatedDocument()) {
+  auto allowImportRules = mStyleSheet->SelfOrAncestorIsConstructed()
+                              ? StyleAllowImportRules::No
+                              : StyleAllowImportRules::Yes;
+
+  // TODO(emilio, bug 1535456): Should probably always be able to get a handle
+  // to some loader if we're parsing an @import rule, but which one?
+  //
+  // StyleSheet::ReparseSheet just mints a new loader, but that'd be wrong in
+  // this case I think, since such a load will bypass CSP checks.
+  if (Document* doc = mStyleSheet->GetAssociatedDocument()) {
     loader = doc->CSSLoader();
   }
   uint16_t type;
-  nsresult rv =
-      Servo_CssRules_InsertRule(mRawRules, mStyleSheet->RawContents(), &rule,
-                                aIndex, nested, loader, mStyleSheet, &type);
+  nsresult rv = Servo_CssRules_InsertRule(mRawRules, mStyleSheet->RawContents(),
+                                          &rule, aIndex, nested, loader,
+                                          allowImportRules, mStyleSheet, &type);
   if (NS_FAILED(rv)) {
     return rv;
   }
@@ -172,13 +191,17 @@ nsresult ServoCSSRuleList::InsertRule(const nsAString& aRule, uint32_t aIndex) {
 }
 
 nsresult ServoCSSRuleList::DeleteRule(uint32_t aIndex) {
+  if (IsReadOnly()) {
+    return NS_OK;
+  }
+
   nsresult rv = Servo_CssRules_DeleteRule(mRawRules, aIndex);
   if (!NS_FAILED(rv)) {
     uintptr_t rule = mRules[aIndex];
+    mRules.RemoveElementAt(aIndex);
     if (rule > kMaxRuleType) {
       DropRule(already_AddRefed<css::Rule>(CastToPtr(rule)));
     }
-    mRules.RemoveElementAt(aIndex);
   }
   return rv;
 }
@@ -195,6 +218,14 @@ ServoCSSRuleList::~ServoCSSRuleList() {
   MOZ_ASSERT(!mStyleSheet, "Backpointer should have been cleared");
   MOZ_ASSERT(!mParentRule, "Backpointer should have been cleared");
   DropAllRules();
+}
+
+bool ServoCSSRuleList::IsReadOnly() const {
+  MOZ_ASSERT(!mStyleSheet || !mParentRule ||
+                 mStyleSheet->IsReadOnly() == mParentRule->IsReadOnly(),
+             "a parent rule should be read only iff the owning sheet is "
+             "read only");
+  return mStyleSheet && mStyleSheet->IsReadOnly();
 }
 
 }  // namespace mozilla

@@ -1,112 +1,190 @@
-commit 790e8e6b417905eca335d06c16ec54c977188110
-Author: Olli Etuaho <oetuaho@nvidia.com>
-Date:   Thu Sep 20 13:20:50 2018 +0300
+commit 3a998d51928fb5856be5299fc189434d2da2e946
+Author: Jeff Muizelaar <jrmuizel@gmail.com>
+Date:   Mon Nov 9 17:09:12 2020 -0500
 
-    Fix using a large vertex attrib divisor on D3D11
+    Bug 1620075. Add a feature flag to allow ES3 on 10.0 devices. (#26)
     
-    A divisor >= 256 used to trigger an assert on the D3D11 backend since
-    it couldn't fit into the input layout cache. Increase the space
-    reserved for the divisor in the input layout cache to make sure that
-    the correct input layout will get used and to fix the assert.
+    This lets us run WebRender on devices that only support D3D 10.0
+
+commit cf6c1604e64084b97bc42d271a0abd9abcfc97a8
+Author: Geoff Lang <geofflang@chromium.org>
+Date:   Wed May 13 18:50:51 2020 -0400
+
+    Unset the ActiveTextureCache entry if the program does not reference it
     
-    BUG=angleproject:2832
-    TEST=angle_end2end_tests
+    When changing uniforms of a program, State::onActiveTextureChange is
+    called to update the ActiveTextureCache. If the sampler uniform type
+    changes to TextureType::InvalidEnum, the entry in ActiveTextureCache was
+    not cleared. This causes stale entries in ActiveTextureCache because the
+    cache no longer matches what textures are bound and the cache does not
+    add references to the textures in it.
     
-    Change-Id: I34eead6c4e8c4fea379bbafc8670b4e32a5b633b
-    Reviewed-on: https://chromium-review.googlesource.com/1236293
-    Reviewed-by: Jamie Madill <jmadill@chromium.org>
+    BUG=chromium:1078375
+    BUG=chromium:1072406
+    BUG=chromium:1078866
+    
+    Change-Id: If9719dcd4fc865b2301db450eb8115e7cfe46c4a
+    Reviewed-on: https://chromium-review.googlesource.com/c/angle/angle/+/2199654
+    Reviewed-by: Tim Van Patten <timvp@google.com>
+    Commit-Queue: Geoff Lang <geofflang@chromium.org>
+
+commit eabf2a79aac36223b5ab5c5b0810d5522095f0bc
+Author: Jeff Muizelaar <jrmuizel@gmail.com>
+Date:   Mon May 11 13:01:46 2020 -0400
+
+    Use deviceContext instead of deviceContext1 (#24)
+    
+    Sometimes we don't have a deviceContext1 (on Win7) and would crash. We
+    on't have any need to use it so just use deviceContext.
+
+commit 19f1bef071c32df60d9d62a7907c42270d0a3dd7
+Author: Jeff Muizelaar <jrmuizel@gmail.com>
+Date:   Fri May 8 15:08:24 2020 -0400
+
+    Handle a null blend state. (#23)
+    
+    Null is used as the default blend state so we have to check for it.
+
+commit 8df54289d717eb0624a0ee16fd681c73a9472af4
+Author: Jeff Muizelaar <jrmuizel@gmail.com>
+Date:   Wed May 6 14:04:42 2020 -0400
+
+    Don't use ClearView if we previously used dual source blending on Intel gen6. (#22)
+    
+    Doing a ClearView after a dual source blend seems to cause a TDR on
+    Intel SandyBridge. Presumeably this is because the ClearView is
+    implemented as a regular draw and the driver doesn't properly set up the
+    state.
+    
+    If we detect that this is going to happen we fall back to the manual
+    draw call path. This lets us use ClearView most of the time still.
+
+commit 3885ee272685941f6dfb6cd941d550b107f033d2
+Author: Jeff Gilbert <jgilbert@mozilla.com>
+Date:   Wed Jan 22 18:42:56 2020 -0800
+
+    Validate `context` before use in ValidateStreamConsumerGLTextureExternalAttribsNV.
+    
+    Firefox bug: https://bugzilla.mozilla.org/show_bug.cgi?id=1608235
+    
+    Bug: angleproject:4333
+    Change-Id: I957b6412f7c744e4bbaa7d8084b3c81ee58d45ca
+
+commit 5eaf76b0bfd1f149d7b03393500c6e49a393c167
+Author: Jeff Gilbert <jgilbert@mozilla.com>
+Date:   Thu Dec 26 20:58:48 2019 -0800
+
+    Lost no-error context should gracefully handle GetProgramiv.
+    
+    Includes test that a lost no-error context doesn't crash on getProgramiv.
+    Firefox bug: https://bugzilla.mozilla.org/show_bug.cgi?id=1601703
+    
+    Bug: angleproject:4244
+    Change-Id: Iaf86cabd0e70d644d5b0e9ef2f51e9edeee5d020
+
+commit 85f04c65943e0a7070a1419fffa246e5ec39d1a1
+Author: Jeff Gilbert <jgilbert@mozilla.com>
+Date:   Thu Dec 26 17:43:41 2019 -0800
+
+    clang-format
+    
+    Change-Id: Iadf327c12bc43d7daedcd80fc08683c55c182ccc
+
+commit f75ca830a4276c1b757f866aba3ab2429a27f69c
+Author: Dzmitry Malyshau <dmalyshau@mozilla.com>
+Date:   Thu Dec 5 13:02:14 2019 -0500
+
+    Restrict the slow texture upload workaround to 128bit formats. (#21)
+    
+    The workaround is slow for having a CPU-visible mirror of the texture, but that mirror is not properly recycled with regards to GPU usage, thus causing a CPU stall on update.
+    
+    Original reports were related to WebRender vertex texture updates that are RGBA32F and RGBA32U formats. Limiting the workaround to these formats would allow the affected platforms to upload regular texture data faster without stalls.
+
+commit 6bbe8f55d3e4b3b44394af323c5842296938ceab
+Author: Lee Salzman <lsalzman@mozilla.com>
+Date:   Fri Aug 2 07:11:16 2019 +1000
+
+    Use image upload workaround for Intel Ivy Bridge with D3D11 renderer.
+    
+    Firefox bug: https://bugzilla.mozilla.org/show_bug.cgi?id=1578910
+    
+    Bug: angleproject:3980
+    Change-Id: Ia14c5afd989365975bc57b303e59b4ef7669d522
+    Reviewed-on: https://chromium-review.googlesource.com/c/angle/angle/+/1845664
     Reviewed-by: Geoff Lang <geofflang@chromium.org>
-    Commit-Queue: Olli Etuaho <oetuaho@nvidia.com>
+    Commit-Queue: Geoff Lang <geofflang@chromium.org>
 
-commit 598f2502e3a41b76d90037e7858c43c18e66399d
-Merge: 8212058a6 e15a25c6f
-Author: Jeff Gilbert <jdashg@gmail.com>
-Date:   Tue Oct 9 13:54:05 2018 -0700
+commit fe53e2b60af2314d7fe7040915c1499ef3bb7274
+Author: Miko Mynttinen <mikokm@gmail.com>
+Date:   Fri Nov 1 17:23:03 2019 +0100
 
-    Merge pull request #13 from mattwoodrow/async-load-program
-    
-    Support async glProgramBInary
+    Remove static_assert for global mutex
 
-commit 8212058a6c6339ba541f9aabb076900cd31448ef
-Merge: 4fb8d7f97 895294a05
-Author: Jeff Gilbert <jdashg@gmail.com>
-Date:   Tue Oct 9 13:52:08 2018 -0700
+commit 7d5a10ac34cac9f629d0080302f1a754e902c66e
+Author: Miko Mynttinen <mikokm@gmail.com>
+Date:   Thu Sep 5 18:04:32 2019 +0200
 
-    Merge pull request #14 from mattwoodrow/provoking-vertex
-    
-    Add support for EGL_MOZ_create_context_provoking_vertex_dont_care
+    Do not override symbol visibility attribute on non-windows builds
 
-commit 895294a057c022f0db77975a19419abbec4c9226
-Author: Dan Glastonbury <dan.glastonbury@gmail.com>
-Date:   Tue Oct 9 10:02:46 2018 +1300
+commit 0f5a52939b91442075a787523fcf394bdccd4d54
+Author: Miko Mynttinen <mikokm@gmail.com>
+Date:   Tue Sep 3 18:54:54 2019 +0200
 
-    Add support for EGL_MOZ_create_context_provoking_vertex_dont_care
-    extension
+    Disable debug layers
 
-commit e15a25c6fa1d910115ce6fd7a03fa5ffece8a054
-Author: Matt Woodrow <matt.woodrow@gmail.com>
-Date:   Tue Oct 9 09:56:16 2018 +1300
+commit fea78b079b9e778e240b06a0b8deadf57fe6d75a
+Author: Miko Mynttinen <mikokm@gmail.com>
+Date:   Tue Sep 3 20:04:28 2019 +0200
 
-    Support async Program::load for ProgramD3D.
+    Fix MinGW include
 
-commit 2555cc62e340cef6a2744b7f52f3e8b94aa635e1
-Author: Matt Woodrow <matt.woodrow@gmail.com>
-Date:   Tue Oct 9 09:53:40 2018 +1300
-
-    Move task definitions to earlier in the file.
-
-commit 04adbfe1a2bfad21c549a0d30349d1da620e556c
-Author: Matt Woodrow <matt.woodrow@gmail.com>
-Date:   Tue Oct 9 09:52:42 2018 +1300
-
-    Make ProgramImpl::load() return a task and support asynchronously waiting for it to complete.
-
-commit 4fb8d7f978adda36086377ea7846951faa9f6bd3
+commit 811d7beadb57fdd4c999d0702fb48085b770c078
 Author: Jeff Gilbert <jgilbert@mozilla.com>
-Date:   Wed Sep 26 18:04:05 2018 -0700
+Date:   Wed Mar 27 13:52:04 2019 -0700
 
-    Polyfill BitCount for ARM/ARM64 on MSVC.
+    Don't clamp in glBlendColor if context supports renderable [half-]float.
     
-    Also _WIN64 implies _WIN32.
+    Add test for glBlendColor >1.0, skipped on D3D9 since it's unsupportable
+    there.
     
-    Bug: angleproject:2858
-    Change-Id: I63e2ffd2e9e304171ea6adb99836733981cc1813
+    Bug: angleproject:3323
+    Change-Id: I3fcf867dae96bdadf8a0183269d8f27b659d0baf
 
-commit 786e980807f104d35bf31a769d31699024b89c2f
-Author: Jeff Gilbert <jgilbert@mozilla.com>
-Date:   Tue Sep 25 14:18:35 2018 -0700
+commit ea4db0f4e0c1b70dbe6e204e6afe77b23b8ea256
+Author: Glenn Watson <39062770+gw3583@users.noreply.github.com>
+Date:   Fri Aug 2 07:11:16 2019 +1000
 
-    Stream support for R16*_UNORM and P010/P016.
+    Fix occasional corruption of vertex textures in HD4600 GPUs. (#19)
     
-    Bug: angleproject:2850
-    Change-Id: Ib23b3012b5244c8e3edbdfa05d9b4e4869bbfed8
-
-commit b46b71ba277b13a7b72075766676a9698a665efd
-Author: Jeff Gilbert <jgilbert@mozilla.com>
-Date:   Tue Sep 18 17:03:59 2018 -0700
-
-    Remove unused include global_state.h from validationEGL.cpp.
+    This appears to be caused by the UpdateSubResource call,
+    which is worked around by enabling the other image upload
+    path that ANGLE supports.
     
-    Bug: angleproject:2825
-    Change-Id: I34a7c520d31cf0a9321d5599046159ef9bf58be5
+    The workaround doesn't include a driver version, since the
+    bug is occurring in the most recent driver that is currently
+    available (15.40.42.5063, released 19th Mar 2019).
 
 Cherries picked
 ================================================================================
-Merge base from: origin/chromium/3538
+Merge base from: origin/chromium/3865
 
-commit 05c729f336efb544e224444c2485a412bd3a66b3
-Author: Jamie Madill <jmadill@chromium.org>
-Date:   Fri Sep 7 17:43:32 2018 -0400
+commit 08b97da894b278c10e70b6888ac65e3972a13b31
+Author: Shahbaz Youssefi <syoussefi@chromium.org>
+Date:   Tue Jul 23 12:07:13 2019 -0400
 
-    Pass unpack buffer as explicit parameter to texSubImage.
+    Vulkan: Fix staging buffer alignment for pixel sizes > 4
     
-    This allows us to override it in the incomplete texture init. Any
-    back-end that used incomplete textures was vulnerable to a bug where
-    the unpack buffer would be used to initialize the incomplete texture.
+    Previously, all non-compressed formats were satisfied with a 4-byte
+    alignment.  The introduction of float formats changes this.
     
-    Cherry-picked to the chromium/3538 branch cleanly.
+    This change calculates the necessary alignment using the same code path
+    as compressed formats.
     
-    Bug: chromium:880906
-    Change-Id: Iead2a8c57674e8962915902d6d5896f44fe8ca88
-    Reviewed-on: https://chromium-review.googlesource.com/1227033
+    Also fixes RGB9E5's pixelByte being calculated as 3 instead of 4.
+    
+    Bug: angleproject:3731
+    Change-Id: I6abfd1c294e7f863eb99d2468eaac09e5d714039
+    Reviewed-on: https://chromium-review.googlesource.com/c/angle/angle/+/1715205
+    Reviewed-by: Mohan Maiya <m.maiya@samsung.com>
     Reviewed-by: Jamie Madill <jmadill@chromium.org>
+    Commit-Queue: Shahbaz Youssefi <syoussefi@chromium.org>

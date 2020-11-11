@@ -1,24 +1,33 @@
 /* -*- Mode: indent-tabs-mode: nil; js-indent-level: 2 -*- */
 /* vim: set sts=2 sw=2 et tw=80: */
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 "use strict";
 
-ChromeUtils.defineModuleGetter(this, "AppConstants",
-                               "resource://gre/modules/AppConstants.jsm");
-ChromeUtils.defineModuleGetter(this, "Services",
-                               "resource://gre/modules/Services.jsm");
+ChromeUtils.defineModuleGetter(
+  this,
+  "AppConstants",
+  "resource://gre/modules/AppConstants.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "Services",
+  "resource://gre/modules/Services.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "AboutNewTab",
+  "resource:///modules/AboutNewTab.jsm"
+);
 
-XPCOMUtils.defineLazyServiceGetter(this, "aboutNewTabService",
-                                   "@mozilla.org/browser/aboutnewtab-service;1",
-                                   "nsIAboutNewTabService");
+var { ExtensionPreferencesManager } = ChromeUtils.import(
+  "resource://gre/modules/ExtensionPreferencesManager.jsm"
+);
 
-ChromeUtils.import("resource://gre/modules/ExtensionPreferencesManager.jsm");
-
-var {
-  ExtensionError,
-} = ExtensionUtils;
-var {
-  getSettingsAPI,
-} = ExtensionPreferencesManager;
+var { ExtensionError } = ExtensionUtils;
+var { getSettingsAPI } = ExtensionPreferencesManager;
 
 const HOMEPAGE_OVERRIDE_SETTING = "homepage_override";
 const HOMEPAGE_URL_PREF = "browser.startup.homepage";
@@ -29,9 +38,8 @@ const PERM_DENY_ACTION = Services.perms.DENY_ACTION;
 
 // Add settings objects for supported APIs to the preferences manager.
 ExtensionPreferencesManager.addSetting("allowPopupsForUserEvents", {
-  prefNames: [
-    "dom.popup_allowed_events",
-  ],
+  permission: "browserSettings",
+  prefNames: ["dom.popup_allowed_events"],
 
   setCallback(value) {
     let returnObj = {};
@@ -42,10 +50,8 @@ ExtensionPreferencesManager.addSetting("allowPopupsForUserEvents", {
 });
 
 ExtensionPreferencesManager.addSetting("cacheEnabled", {
-  prefNames: [
-    "browser.cache.disk.enable",
-    "browser.cache.memory.enable",
-  ],
+  permission: "browserSettings",
+  prefNames: ["browser.cache.disk.enable", "browser.cache.memory.enable"],
 
   setCallback(value) {
     let returnObj = {};
@@ -57,36 +63,43 @@ ExtensionPreferencesManager.addSetting("cacheEnabled", {
 });
 
 ExtensionPreferencesManager.addSetting("closeTabsByDoubleClick", {
-  prefNames: [
-    "browser.tabs.closeTabByDblclick",
-  ],
+  permission: "browserSettings",
+  prefNames: ["browser.tabs.closeTabByDblclick"],
 
   setCallback(value) {
-    return {[this.prefNames[0]]: value};
+    return { [this.prefNames[0]]: value };
   },
 });
 
 ExtensionPreferencesManager.addSetting("contextMenuShowEvent", {
-  prefNames: [
-    "ui.context_menus.after_mouseup",
-  ],
+  permission: "browserSettings",
+  prefNames: ["ui.context_menus.after_mouseup"],
 
   setCallback(value) {
-    return {[this.prefNames[0]]: value === "mouseup"};
+    return { [this.prefNames[0]]: value === "mouseup" };
+  },
+});
+
+ExtensionPreferencesManager.addSetting("ftpProtocolEnabled", {
+  permission: "browserSettings",
+  prefNames: ["network.ftp.enabled"],
+
+  setCallback(value) {
+    return { [this.prefNames[0]]: value };
   },
 });
 
 ExtensionPreferencesManager.addSetting("imageAnimationBehavior", {
-  prefNames: [
-    "image.animation_mode",
-  ],
+  permission: "browserSettings",
+  prefNames: ["image.animation_mode"],
 
   setCallback(value) {
-    return {[this.prefNames[0]]: value};
+    return { [this.prefNames[0]]: value };
   },
 });
 
 ExtensionPreferencesManager.addSetting("newTabPosition", {
+  permission: "browserSettings",
   prefNames: [
     "browser.tabs.insertRelatedAfterCurrent",
     "browser.tabs.insertAfterCurrent",
@@ -101,186 +114,293 @@ ExtensionPreferencesManager.addSetting("newTabPosition", {
 });
 
 ExtensionPreferencesManager.addSetting("openBookmarksInNewTabs", {
-  prefNames: [
-    "browser.tabs.loadBookmarksInTabs",
-  ],
+  permission: "browserSettings",
+  prefNames: ["browser.tabs.loadBookmarksInTabs"],
 
   setCallback(value) {
-    return {[this.prefNames[0]]: value};
+    return { [this.prefNames[0]]: value };
   },
 });
 
 ExtensionPreferencesManager.addSetting("openSearchResultsInNewTabs", {
-  prefNames: [
-    "browser.search.openintab",
-  ],
+  permission: "browserSettings",
+  prefNames: ["browser.search.openintab"],
 
   setCallback(value) {
-    return {[this.prefNames[0]]: value};
+    return { [this.prefNames[0]]: value };
   },
 });
 
 ExtensionPreferencesManager.addSetting("openUrlbarResultsInNewTabs", {
-  prefNames: [
-    "browser.urlbar.openintab",
-  ],
+  permission: "browserSettings",
+  prefNames: ["browser.urlbar.openintab"],
 
   setCallback(value) {
-    return {[this.prefNames[0]]: value};
+    return { [this.prefNames[0]]: value };
   },
 });
 
 ExtensionPreferencesManager.addSetting("webNotificationsDisabled", {
-  prefNames: [
-    "permissions.default.desktop-notification",
-  ],
+  permission: "browserSettings",
+  prefNames: ["permissions.default.desktop-notification"],
 
   setCallback(value) {
-    return {[this.prefNames[0]]: value ? PERM_DENY_ACTION : undefined};
+    return { [this.prefNames[0]]: value ? PERM_DENY_ACTION : undefined };
   },
 });
 
 ExtensionPreferencesManager.addSetting("overrideDocumentColors", {
-  prefNames: [
-    "browser.display.document_color_use",
-  ],
+  permission: "browserSettings",
+  prefNames: ["browser.display.document_color_use"],
 
   setCallback(value) {
-    return {[this.prefNames[0]]: value};
+    return { [this.prefNames[0]]: value };
   },
 });
 
 ExtensionPreferencesManager.addSetting("useDocumentFonts", {
-  prefNames: [
-    "browser.display.use_document_fonts",
-  ],
+  permission: "browserSettings",
+  prefNames: ["browser.display.use_document_fonts"],
 
   setCallback(value) {
-    return {[this.prefNames[0]]: value};
+    return { [this.prefNames[0]]: value };
+  },
+});
+
+ExtensionPreferencesManager.addSetting("zoomFullPage", {
+  permission: "browserSettings",
+  prefNames: ["browser.zoom.full"],
+
+  setCallback(value) {
+    return { [this.prefNames[0]]: value };
+  },
+});
+
+ExtensionPreferencesManager.addSetting("zoomSiteSpecific", {
+  permission: "browserSettings",
+  prefNames: ["browser.zoom.siteSpecific"],
+
+  setCallback(value) {
+    return { [this.prefNames[0]]: value };
   },
 });
 
 this.browserSettings = class extends ExtensionAPI {
   getAPI(context) {
-    let {extension} = context;
+    let { extension } = context;
+
     return {
       browserSettings: {
-        allowPopupsForUserEvents: getSettingsAPI(
-          extension.id, "allowPopupsForUserEvents",
-          () => {
+        allowPopupsForUserEvents: getSettingsAPI({
+          context,
+          name: "allowPopupsForUserEvents",
+          callback() {
             return Services.prefs.getCharPref("dom.popup_allowed_events") != "";
-          }),
-        cacheEnabled: getSettingsAPI(
-          extension.id, "cacheEnabled",
-          () => {
-            return Services.prefs.getBoolPref("browser.cache.disk.enable") &&
-              Services.prefs.getBoolPref("browser.cache.memory.enable");
-          }),
-        closeTabsByDoubleClick: getSettingsAPI(
-          extension.id, "closeTabsByDoubleClick",
-          () => {
-            return Services.prefs.getBoolPref("browser.tabs.closeTabByDblclick");
-          }, undefined, false, () => {
+          },
+        }),
+        cacheEnabled: getSettingsAPI({
+          context,
+          name: "cacheEnabled",
+          callback() {
+            return (
+              Services.prefs.getBoolPref("browser.cache.disk.enable") &&
+              Services.prefs.getBoolPref("browser.cache.memory.enable")
+            );
+          },
+        }),
+        closeTabsByDoubleClick: getSettingsAPI({
+          context,
+          name: "closeTabsByDoubleClick",
+          callback() {
+            return Services.prefs.getBoolPref(
+              "browser.tabs.closeTabByDblclick"
+            );
+          },
+          validate() {
             if (AppConstants.platform == "android") {
               throw new ExtensionError(
-                `android is not a supported platform for the closeTabsByDoubleClick setting.`);
+                `android is not a supported platform for the closeTabsByDoubleClick setting.`
+              );
             }
-          }),
+          },
+        }),
         contextMenuShowEvent: Object.assign(
-          getSettingsAPI(
-            extension.id, "contextMenuShowEvent",
-            () => {
+          getSettingsAPI({
+            context,
+            name: "contextMenuShowEvent",
+            callback() {
               if (AppConstants.platform === "win") {
                 return "mouseup";
               }
               let prefValue = Services.prefs.getBoolPref(
-                "ui.context_menus.after_mouseup", null);
+                "ui.context_menus.after_mouseup",
+                null
+              );
               return prefValue ? "mouseup" : "mousedown";
-            }
-          ),
+            },
+          }),
           {
             set: details => {
               if (!["mouseup", "mousedown"].includes(details.value)) {
                 throw new ExtensionError(
-                  `${details.value} is not a valid value for contextMenuShowEvent.`);
+                  `${details.value} is not a valid value for contextMenuShowEvent.`
+                );
               }
-              if (AppConstants.platform === "android" ||
-                  (AppConstants.platform === "win" &&
-                   details.value === "mousedown")) {
+              if (
+                AppConstants.platform === "android" ||
+                (AppConstants.platform === "win" &&
+                  details.value === "mousedown")
+              ) {
                 return false;
               }
               return ExtensionPreferencesManager.setSetting(
-                extension.id, "contextMenuShowEvent", details.value);
+                extension.id,
+                "contextMenuShowEvent",
+                details.value
+              );
             },
           }
         ),
-        homepageOverride: getSettingsAPI(
-          extension.id, HOMEPAGE_OVERRIDE_SETTING,
-          () => {
+        ftpProtocolEnabled: getSettingsAPI({
+          context,
+          name: "ftpProtocolEnabled",
+          callback() {
+            return Services.prefs.getBoolPref("network.ftp.enabled");
+          },
+        }),
+        homepageOverride: getSettingsAPI({
+          context,
+          name: HOMEPAGE_OVERRIDE_SETTING,
+          callback() {
             return Services.prefs.getStringPref(HOMEPAGE_URL_PREF);
-          }, undefined, true),
-        imageAnimationBehavior: getSettingsAPI(
-          extension.id, "imageAnimationBehavior",
-          () => {
+          },
+          readOnly: true,
+          onChange: new ExtensionCommon.EventManager({
+            context,
+            name: `${HOMEPAGE_URL_PREF}.onChange`,
+            register: fire => {
+              let listener = () => {
+                fire.async({
+                  levelOfControl: "not_controllable",
+                  value: Services.prefs.getStringPref(HOMEPAGE_URL_PREF),
+                });
+              };
+              Services.prefs.addObserver(HOMEPAGE_URL_PREF, listener);
+              return () => {
+                Services.prefs.removeObserver(HOMEPAGE_URL_PREF, listener);
+              };
+            },
+          }).api(),
+        }),
+        imageAnimationBehavior: getSettingsAPI({
+          context,
+          name: "imageAnimationBehavior",
+          callback() {
             return Services.prefs.getCharPref("image.animation_mode");
-          }),
-        newTabPosition: getSettingsAPI(
-          extension.id, "newTabPosition",
-          () => {
+          },
+        }),
+        newTabPosition: getSettingsAPI({
+          context,
+          name: "newTabPosition",
+          callback() {
             if (Services.prefs.getBoolPref("browser.tabs.insertAfterCurrent")) {
               return "afterCurrent";
             }
-            if (Services.prefs.getBoolPref("browser.tabs.insertRelatedAfterCurrent")) {
+            if (
+              Services.prefs.getBoolPref(
+                "browser.tabs.insertRelatedAfterCurrent"
+              )
+            ) {
               return "relatedAfterCurrent";
             }
             return "atEnd";
-          }),
-        newTabPageOverride: getSettingsAPI(
-          extension.id, NEW_TAB_OVERRIDE_SETTING,
-          () => {
-            return aboutNewTabService.newTabURL;
-          }, URL_STORE_TYPE, true),
-        openBookmarksInNewTabs: getSettingsAPI(
-          extension.id, "openBookmarksInNewTabs",
-          () => {
-            return Services.prefs.getBoolPref("browser.tabs.loadBookmarksInTabs");
-          }),
-        openSearchResultsInNewTabs: getSettingsAPI(
-          extension.id, "openSearchResultsInNewTabs",
-          () => {
+          },
+        }),
+        newTabPageOverride: getSettingsAPI({
+          context,
+          name: NEW_TAB_OVERRIDE_SETTING,
+          callback() {
+            return AboutNewTab.newTabURL;
+          },
+          storeType: URL_STORE_TYPE,
+          readOnly: true,
+          onChange: new ExtensionCommon.EventManager({
+            context,
+            name: `${NEW_TAB_OVERRIDE_SETTING}.onChange`,
+            register: fire => {
+              let listener = (text, id) => {
+                fire.async({
+                  levelOfControl: "not_controllable",
+                  value: AboutNewTab.newTabURL,
+                });
+              };
+              Services.obs.addObserver(listener, "newtab-url-changed");
+              return () => {
+                Services.obs.removeObserver(listener, "newtab-url-changed");
+              };
+            },
+          }).api(),
+        }),
+        openBookmarksInNewTabs: getSettingsAPI({
+          context,
+          name: "openBookmarksInNewTabs",
+          callback() {
+            return Services.prefs.getBoolPref(
+              "browser.tabs.loadBookmarksInTabs"
+            );
+          },
+        }),
+        openSearchResultsInNewTabs: getSettingsAPI({
+          context,
+          name: "openSearchResultsInNewTabs",
+          callback() {
             return Services.prefs.getBoolPref("browser.search.openintab");
-          }),
-        openUrlbarResultsInNewTabs: getSettingsAPI(
-          extension.id, "openUrlbarResultsInNewTabs",
-          () => {
+          },
+        }),
+        openUrlbarResultsInNewTabs: getSettingsAPI({
+          context,
+          name: "openUrlbarResultsInNewTabs",
+          callback() {
             return Services.prefs.getBoolPref("browser.urlbar.openintab");
-          }),
-        webNotificationsDisabled: getSettingsAPI(
-          extension.id, "webNotificationsDisabled",
-          () => {
-            let prefValue =
-              Services.prefs.getIntPref(
-                "permissions.default.desktop-notification", null);
+          },
+        }),
+        webNotificationsDisabled: getSettingsAPI({
+          context,
+          name: "webNotificationsDisabled",
+          callback() {
+            let prefValue = Services.prefs.getIntPref(
+              "permissions.default.desktop-notification",
+              null
+            );
             return prefValue === PERM_DENY_ACTION;
-          }),
+          },
+        }),
         overrideDocumentColors: Object.assign(
-          getSettingsAPI(
-            extension.id, "overrideDocumentColors",
-            () => {
-              let prefValue = Services.prefs.getIntPref("browser.display.document_color_use");
+          getSettingsAPI({
+            context,
+            name: "overrideDocumentColors",
+            callback() {
+              let prefValue = Services.prefs.getIntPref(
+                "browser.display.document_color_use"
+              );
               if (prefValue === 1) {
                 return "never";
               } else if (prefValue === 2) {
                 return "always";
               }
               return "high-contrast-only";
-            }
-          ),
+            },
+          }),
           {
             set: details => {
-              if (!["never", "always", "high-contrast-only"].includes(details.value)) {
+              if (
+                !["never", "always", "high-contrast-only"].includes(
+                  details.value
+                )
+              ) {
                 throw new ExtensionError(
-                  `${details.value} is not a valid value for overrideDocumentColors.`);
+                  `${details.value} is not a valid value for overrideDocumentColors.`
+                );
               }
               let prefValue = 0; // initialize to 0 - auto/high-contrast-only
               if (details.value === "never") {
@@ -289,28 +409,54 @@ this.browserSettings = class extends ExtensionAPI {
                 prefValue = 2;
               }
               return ExtensionPreferencesManager.setSetting(
-                extension.id, "overrideDocumentColors", prefValue);
+                extension.id,
+                "overrideDocumentColors",
+                prefValue
+              );
             },
           }
         ),
         useDocumentFonts: Object.assign(
-          getSettingsAPI(
-            extension.id, "useDocumentFonts",
-            () => {
-              return Services.prefs.getIntPref("browser.display.use_document_fonts") !== 0;
-            }
-          ),
+          getSettingsAPI({
+            context,
+            name: "useDocumentFonts",
+            callback() {
+              return (
+                Services.prefs.getIntPref(
+                  "browser.display.use_document_fonts"
+                ) !== 0
+              );
+            },
+          }),
           {
             set: details => {
               if (typeof details.value !== "boolean") {
                 throw new ExtensionError(
-                  `${details.value} is not a valid value for useDocumentFonts.`);
+                  `${details.value} is not a valid value for useDocumentFonts.`
+                );
               }
               return ExtensionPreferencesManager.setSetting(
-                extension.id, "useDocumentFonts", Number(details.value));
+                extension.id,
+                "useDocumentFonts",
+                Number(details.value)
+              );
             },
           }
         ),
+        zoomFullPage: getSettingsAPI({
+          context,
+          name: "zoomFullPage",
+          callback() {
+            return Services.prefs.getBoolPref("browser.zoom.full");
+          },
+        }),
+        zoomSiteSpecific: getSettingsAPI({
+          context,
+          name: "zoomSiteSpecific",
+          callback() {
+            return Services.prefs.getBoolPref("browser.zoom.siteSpecific");
+          },
+        }),
       },
     };
   }

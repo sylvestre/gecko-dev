@@ -15,7 +15,6 @@
 #include "mozilla/ArrayUtils.h"
 
 #include "nsCOMPtr.h"
-#include "nsAutoPtr.h"
 #include "nsMemory.h"
 #include "nsProcess.h"
 #include "prio.h"
@@ -30,24 +29,25 @@
 #include <stdlib.h>
 
 #if defined(PROCESSMODEL_WINAPI)
-#include "nsString.h"
-#include "nsLiteralString.h"
-#include "nsReadableUtils.h"
-#include "mozilla/UniquePtrExtensions.h"
+#  include "nsString.h"
+#  include "nsLiteralString.h"
+#  include "nsReadableUtils.h"
+#  include "mozilla/AssembleCmdLine.h"
+#  include "mozilla/UniquePtrExtensions.h"
 #else
-#ifdef XP_MACOSX
-#include <crt_externs.h>
-#include <spawn.h>
-#endif
-#ifdef XP_UNIX
-#ifndef XP_MACOSX
-#include "base/process_util.h"
-#endif
-#include <sys/wait.h>
-#include <sys/errno.h>
-#endif
-#include <sys/types.h>
-#include <signal.h>
+#  ifdef XP_MACOSX
+#    include <crt_externs.h>
+#    include <spawn.h>
+#  endif
+#  ifdef XP_UNIX
+#    ifndef XP_MACOSX
+#      include "base/process_util.h"
+#    endif
+#    include <sys/wait.h>
+#    include <sys/errno.h>
+#  endif
+#  include <sys/types.h>
+#  include <signal.h>
 #endif
 
 using namespace mozilla;
@@ -66,8 +66,6 @@ nsProcess::nsProcess()
       mStartHidden(false),
       mNoShell(false),
       mPid(-1),
-      mObserver(nullptr),
-      mWeakObserver(nullptr),
       mExitValue(-1)
 #if !defined(XP_UNIX)
       ,
@@ -77,7 +75,7 @@ nsProcess::nsProcess()
 }
 
 // Destructor
-nsProcess::~nsProcess() {}
+nsProcess::~nsProcess() = default;
 
 NS_IMETHODIMP
 nsProcess::Init(nsIFile* aExecutable) {
@@ -110,117 +108,6 @@ nsProcess::Init(nsIFile* aExecutable) {
 
   return rv;
 }
-
-#if defined(XP_WIN)
-// Out param `aWideCmdLine` must be free()d by the caller.
-static int assembleCmdLine(char* const* aArgv, wchar_t** aWideCmdLine,
-                           UINT aCodePage) {
-  char* const* arg;
-  char* p;
-  char* q;
-  char* cmdLine;
-  int cmdLineSize;
-  int numBackslashes;
-  int i;
-  int argNeedQuotes;
-
-  /*
-   * Find out how large the command line buffer should be.
-   */
-  cmdLineSize = 0;
-  for (arg = aArgv; *arg; ++arg) {
-    /*
-     * \ and " need to be escaped by a \.  In the worst case,
-     * every character is a \ or ", so the string of length
-     * may double.  If we quote an argument, that needs two ".
-     * Finally, we need a space between arguments, and
-     * a null byte at the end of command line.
-     */
-    cmdLineSize += 2 * strlen(*arg) /* \ and " need to be escaped */
-                   + 2              /* we quote every argument */
-                   + 1;             /* space in between, or final null */
-  }
-  p = cmdLine = (char*)malloc(cmdLineSize * sizeof(char));
-  if (!p) {
-    return -1;
-  }
-
-  for (arg = aArgv; *arg; ++arg) {
-    /* Add a space to separates the arguments */
-    if (arg != aArgv) {
-      *p++ = ' ';
-    }
-    q = *arg;
-    numBackslashes = 0;
-    argNeedQuotes = 0;
-
-    /* If the argument contains white space, it needs to be quoted. */
-    if (strpbrk(*arg, " \f\n\r\t\v")) {
-      argNeedQuotes = 1;
-    }
-
-    if (argNeedQuotes) {
-      *p++ = '"';
-    }
-    while (*q) {
-      if (*q == '\\') {
-        numBackslashes++;
-        q++;
-      } else if (*q == '"') {
-        if (numBackslashes) {
-          /*
-           * Double the backslashes since they are followed
-           * by a quote
-           */
-          for (i = 0; i < 2 * numBackslashes; i++) {
-            *p++ = '\\';
-          }
-          numBackslashes = 0;
-        }
-        /* To escape the quote */
-        *p++ = '\\';
-        *p++ = *q++;
-      } else {
-        if (numBackslashes) {
-          /*
-           * Backslashes are not followed by a quote, so
-           * don't need to double the backslashes.
-           */
-          for (i = 0; i < numBackslashes; i++) {
-            *p++ = '\\';
-          }
-          numBackslashes = 0;
-        }
-        *p++ = *q++;
-      }
-    }
-
-    /* Now we are at the end of this argument */
-    if (numBackslashes) {
-      /*
-       * Double the backslashes if we have a quote string
-       * delimiter at the end.
-       */
-      if (argNeedQuotes) {
-        numBackslashes *= 2;
-      }
-      for (i = 0; i < numBackslashes; i++) {
-        *p++ = '\\';
-      }
-    }
-    if (argNeedQuotes) {
-      *p++ = '"';
-    }
-  }
-
-  *p = '\0';
-  int32_t numChars = MultiByteToWideChar(aCodePage, 0, cmdLine, -1, nullptr, 0);
-  *aWideCmdLine = (wchar_t*)malloc(numChars * sizeof(wchar_t));
-  MultiByteToWideChar(aCodePage, 0, cmdLine, -1, *aWideCmdLine, numChars);
-  free(cmdLine);
-  return 0;
-}
-#endif
 
 void nsProcess::Monitor(void* aArg) {
   RefPtr<nsProcess> process = dont_AddRef(static_cast<nsProcess*>(aArg));
@@ -257,7 +144,7 @@ void nsProcess::Monitor(void* aArg) {
     }
   }
 #else
-#ifdef XP_UNIX
+#  ifdef XP_UNIX
   int exitCode = -1;
   int status = 0;
   pid_t result;
@@ -271,19 +158,19 @@ void nsProcess::Monitor(void* aArg) {
       exitCode = 256;  // match NSPR's signal exit status
     }
   }
-#else
+#  else
   int32_t exitCode = -1;
   if (PR_WaitProcess(process->mProcess, &exitCode) != PR_SUCCESS) {
     exitCode = -1;
   }
-#endif
+#  endif
 
   // Lock in case Kill or GetExitCode are called during this
   {
     MutexAutoLock lock(process->mLock);
-#if !defined(XP_UNIX)
+#  if !defined(XP_UNIX)
     process->mProcess = nullptr;
-#endif
+#  endif
     process->mExitValue = exitCode;
     if (process->mShutdown) {
       return;
@@ -312,21 +199,15 @@ void nsProcess::ProcessComplete() {
   }
 
   const char* topic;
-  if (mExitValue < 0) {
+  if (mExitValue != 0) {
     topic = "process-failed";
   } else {
     topic = "process-finished";
   }
 
   mPid = -1;
-  nsCOMPtr<nsIObserver> observer;
-  if (mWeakObserver) {
-    observer = do_QueryReferent(mWeakObserver);
-  } else if (mObserver) {
-    observer = mObserver;
-  }
+  nsCOMPtr<nsIObserver> observer = mObserver.GetValue();
   mObserver = nullptr;
-  mWeakObserver = nullptr;
 
   if (observer) {
     observer->Observe(NS_ISUPPORTS_CAST(nsIProcess*, this), topic, nullptr);
@@ -423,10 +304,9 @@ nsresult nsProcess::RunProcess(bool aBlocking, char** aMyArgv,
 
   if (aObserver) {
     if (aHoldWeak) {
-      mWeakObserver = do_GetWeakReference(aObserver);
-      if (!mWeakObserver) {
-        return NS_NOINTERFACE;
-      }
+      nsresult rv = NS_OK;
+      mObserver = do_GetWeakReference(aObserver, &rv);
+      NS_ENSURE_SUCCESS(rv, rv);
     } else {
       mObserver = aObserver;
     }
@@ -677,7 +557,6 @@ nsProcess::Observe(nsISupports* aSubject, const char* aTopic,
   }
 
   mObserver = nullptr;
-  mWeakObserver = nullptr;
 
   MutexAutoLock lock(mLock);
   mShutdown = true;

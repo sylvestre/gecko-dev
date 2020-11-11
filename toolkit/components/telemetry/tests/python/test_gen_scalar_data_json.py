@@ -11,14 +11,18 @@ import unittest
 from StringIO import StringIO
 from os import path
 
-TELEMETRY_ROOT_PATH = path.abspath(path.join(path.dirname(__file__), path.pardir, path.pardir))
+TELEMETRY_ROOT_PATH = path.abspath(
+    path.join(path.dirname(__file__), path.pardir, path.pardir)
+)
 sys.path.append(TELEMETRY_ROOT_PATH)
 # The generators live in "build_scripts", account for that.
 sys.path.append(path.join(TELEMETRY_ROOT_PATH, "build_scripts"))
-import gen_scalar_data   # noqa: E402
+import gen_scalar_data  # noqa: E402
 
 
 class TestScalarDataJson(unittest.TestCase):
+
+    maxDiff = None
 
     def test_JSON_definitions_generation(self):
         SCALARS_YAML = """
@@ -32,6 +36,8 @@ newscalar:
     notification_emails: ["telemetry-client-dev@mozilla.org"]
     record_in_processes: ["main"]
     release_channel_collection: opt-in
+    products:
+      - firefox
     keyed: false
   withoptout:
     bug_numbers:
@@ -42,6 +48,7 @@ newscalar:
     notification_emails: ["telemetry-client-dev@mozilla.org"]
     record_in_processes: ["main"]
     release_channel_collection: opt-out
+    products: ["firefox", "fennec"]
     keyed: false
         """
 
@@ -50,17 +57,23 @@ newscalar:
                 "withoptout": {
                     "kind": "nsITelemetry::SCALAR_TYPE_STRING",
                     "expired": False,
+                    "expires": "never",
                     "record_on_release": True,
                     "keyed": False,
+                    "keys": [],
                     "stores": ["main"],
+                    "products": ["firefox", "fennec"],
                 },
                 "withoptin": {
                     "kind": "nsITelemetry::SCALAR_TYPE_COUNT",
                     "expired": False,
+                    "expires": "never",
                     "record_on_release": False,
                     "keyed": False,
+                    "keys": [],
                     "stores": ["main"],
-                }
+                    "products": ["firefox"],
+                },
             }
         }
 
@@ -83,5 +96,5 @@ newscalar:
         self.assertEqual(EXPECTED_JSON, scalar_definitions)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     mozunit.main()

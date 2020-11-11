@@ -12,7 +12,7 @@ static JS::PersistentRootedString gLatestMessage;
 // An interceptor that stores the error in `gLatestMessage`.
 struct SimpleInterceptor : JSErrorInterceptor {
   virtual void interceptError(JSContext* cx, JS::HandleValue val) override {
-    js::StringBuffer buffer(cx);
+    js::JSStringBuilder buffer(cx);
     if (!ValueToStringBuffer(cx, val, buffer)) {
       MOZ_CRASH("Could not convert to string buffer");
     }
@@ -40,7 +40,6 @@ BEGIN_TEST(testErrorInterceptor) {
       "throw new ReferenceError('I am a ReferenceError')\0",
       "throw new SyntaxError('I am a SyntaxError')\0",
       "throw 5\0",
-      "undefined[0]\0",
       "foo[0]\0",
       "b[\0",
   };
@@ -51,7 +50,6 @@ BEGIN_TEST(testErrorInterceptor) {
       "ReferenceError: I am a ReferenceError\0",
       "SyntaxError: I am a SyntaxError\0",
       "5\0",
-      "TypeError: undefined has no properties\0",
       "ReferenceError: foo is not defined\0",
       "SyntaxError: expected expression, got end of script\0",
   };
@@ -103,10 +101,10 @@ BEGIN_TEST(testErrorInterceptor) {
     CHECK(JS_GetPendingException(cx, &exn));
     JS_ClearPendingException(cx);
 
-    js::StringBuffer buffer(cx);
+    js::JSStringBuilder buffer(cx);
     CHECK(ValueToStringBuffer(cx, exn, buffer));
-    JS::Rooted<JSFlatString*> flat(cx, buffer.finishString());
-    CHECK(equalStrings(cx, flat, gLatestMessage));
+    JS::Rooted<JSLinearString*> linear(cx, buffer.finishString());
+    CHECK(equalStrings(cx, linear, gLatestMessage));
 
     // Cleanup.
     gLatestMessage = nullptr;
@@ -128,10 +126,10 @@ BEGIN_TEST(testErrorInterceptor) {
     CHECK(JS_GetPendingException(cx, &exn));
     JS_ClearPendingException(cx);
 
-    js::StringBuffer buffer(cx);
+    js::JSStringBuilder buffer(cx);
     CHECK(ValueToStringBuffer(cx, exn, buffer));
-    JS::Rooted<JSFlatString*> flat(cx, buffer.finishString());
-    CHECK(js::StringEqualsAscii(flat, TO_STRING[i]));
+    JS::Rooted<JSLinearString*> linear(cx, buffer.finishString());
+    CHECK(js::StringEqualsAscii(linear, TO_STRING[i]));
 
     // Cleanup.
     gLatestMessage = nullptr;

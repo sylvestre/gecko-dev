@@ -4,14 +4,15 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#include "mozilla/dom/SVGScriptElement.h"
+
 #include "nsGkAtoms.h"
 #include "nsNetUtil.h"
 #include "nsContentUtils.h"
-#include "mozilla/dom/SVGScriptElement.h"
 #include "mozilla/dom/SVGScriptElementBinding.h"
 #include "nsIScriptError.h"
 
-NS_IMPL_NS_NEW_NAMESPACED_SVG_ELEMENT_CHECK_PARSER(Script)
+NS_IMPL_NS_NEW_SVG_ELEMENT_CHECK_PARSER(Script)
 
 namespace mozilla {
 namespace dom {
@@ -21,7 +22,7 @@ JSObject* SVGScriptElement::WrapNode(JSContext* aCx,
   return SVGScriptElement_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-nsSVGElement::StringInfo SVGScriptElement::sStringInfo[2] = {
+SVGElement::StringInfo SVGScriptElement::sStringInfo[2] = {
     {nsGkAtoms::href, kNameSpaceID_None, false},
     {nsGkAtoms::href, kNameSpaceID_XLink, false}};
 
@@ -42,8 +43,6 @@ SVGScriptElement::SVGScriptElement(
   AddMutationObserver(this);
 }
 
-SVGScriptElement::~SVGScriptElement() {}
-
 //----------------------------------------------------------------------
 // nsINode methods
 
@@ -51,8 +50,8 @@ nsresult SVGScriptElement::Clone(dom::NodeInfo* aNodeInfo,
                                  nsINode** aResult) const {
   *aResult = nullptr;
 
-  SVGScriptElement* it =
-      new SVGScriptElement(do_AddRef(aNodeInfo), NOT_FROM_PARSER);
+  SVGScriptElement* it = new (aNodeInfo->NodeInfoManager())
+      SVGScriptElement(do_AddRef(aNodeInfo), NOT_FROM_PARSER);
 
   nsCOMPtr<nsINode> kungFuDeathGrip = it;
   nsresult rv1 = it->Init();
@@ -89,7 +88,7 @@ void SVGScriptElement::SetCrossOrigin(const nsAString& aCrossOrigin,
   SetOrRemoveNullableStringAttr(nsGkAtoms::crossorigin, aCrossOrigin, aError);
 }
 
-already_AddRefed<SVGAnimatedString> SVGScriptElement::Href() {
+already_AddRefed<DOMSVGAnimatedString> SVGScriptElement::Href() {
   return mStringAttributes[HREF].IsExplicitlySet()
              ? mStringAttributes[HREF].ToDOMAnimatedString(this)
              : mStringAttributes[XLINK_HREF].ToDOMAnimatedString(this);
@@ -110,7 +109,7 @@ void SVGScriptElement::GetScriptCharset(nsAString& charset) {
   charset.Truncate();
 }
 
-void SVGScriptElement::FreezeExecutionAttrs(nsIDocument* aOwnerDoc) {
+void SVGScriptElement::FreezeExecutionAttrs(Document* aOwnerDoc) {
   if (mFrozen) {
     return;
   }
@@ -130,27 +129,24 @@ void SVGScriptElement::FreezeExecutionAttrs(nsIDocument* aOwnerDoc) {
 
     // Empty src should be treated as invalid URL.
     if (!src.IsEmpty()) {
-      nsCOMPtr<nsIURI> baseURI = GetBaseURI();
-      NS_NewURI(getter_AddRefs(mUri), src, nullptr, baseURI);
+      NS_NewURI(getter_AddRefs(mUri), src, nullptr, GetBaseURI());
 
       if (!mUri) {
-        const char16_t* params[] = {isHref ? u"href" : u"xlink:href",
-                                    src.get()};
+        AutoTArray<nsString, 2> params = {
+            isHref ? u"href"_ns : u"xlink:href"_ns, src};
 
         nsContentUtils::ReportToConsole(
-            nsIScriptError::warningFlag, NS_LITERAL_CSTRING("SVG"), OwnerDoc(),
+            nsIScriptError::warningFlag, "SVG"_ns, OwnerDoc(),
             nsContentUtils::eDOM_PROPERTIES, "ScriptSourceInvalidUri", params,
-            ArrayLength(params), nullptr, EmptyString(), GetScriptLineNumber(),
-            GetScriptColumnNumber());
+            nullptr, u""_ns, GetScriptLineNumber(), GetScriptColumnNumber());
       }
     } else {
-      const char16_t* params[] = {isHref ? u"href" : u"xlink:href"};
+      AutoTArray<nsString, 1> params = {isHref ? u"href"_ns : u"xlink:href"_ns};
 
       nsContentUtils::ReportToConsole(
-          nsIScriptError::warningFlag, NS_LITERAL_CSTRING("SVG"), OwnerDoc(),
-          nsContentUtils::eDOM_PROPERTIES, "ScriptSourceEmpty", params,
-          ArrayLength(params), nullptr, EmptyString(), GetScriptLineNumber(),
-          GetScriptColumnNumber());
+          nsIScriptError::warningFlag, "SVG"_ns, OwnerDoc(),
+          nsContentUtils::eDOM_PROPERTIES, "ScriptSourceEmpty", params, nullptr,
+          u""_ns, GetScriptLineNumber(), GetScriptColumnNumber());
     }
 
     // At this point mUri will be null for invalid URLs.
@@ -171,9 +167,9 @@ bool SVGScriptElement::HasScriptContent() {
 }
 
 //----------------------------------------------------------------------
-// nsSVGElement methods
+// SVGElement methods
 
-nsSVGElement::StringAttributesInfo SVGScriptElement::GetStringInfo() {
+SVGElement::StringAttributesInfo SVGScriptElement::GetStringInfo() {
   return StringAttributesInfo(mStringAttributes, sStringInfo,
                               ArrayLength(sStringInfo));
 }
@@ -181,14 +177,11 @@ nsSVGElement::StringAttributesInfo SVGScriptElement::GetStringInfo() {
 //----------------------------------------------------------------------
 // nsIContent methods
 
-nsresult SVGScriptElement::BindToTree(nsIDocument* aDocument,
-                                      nsIContent* aParent,
-                                      nsIContent* aBindingParent) {
-  nsresult rv =
-      SVGScriptElementBase::BindToTree(aDocument, aParent, aBindingParent);
+nsresult SVGScriptElement::BindToTree(BindContext& aContext, nsINode& aParent) {
+  nsresult rv = SVGScriptElementBase::BindToTree(aContext, aParent);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  if (aDocument) {
+  if (IsInComposedDoc()) {
     MaybeProcessScript();
   }
 

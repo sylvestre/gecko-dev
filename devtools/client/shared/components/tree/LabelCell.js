@@ -1,5 +1,3 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 2 -*- */
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -20,20 +18,18 @@ define(function(require, exports, module) {
     static get propTypes() {
       return {
         id: PropTypes.string.isRequired,
+        title: PropTypes.string,
         member: PropTypes.object.isRequired,
+        renderSuffix: PropTypes.func,
       };
     }
 
     render() {
       const id = this.props.id;
+      const title = this.props.title;
       const member = this.props.member;
       const level = member.level || 0;
-
-      // Compute indentation dynamically. The deeper the item is
-      // inside the hierarchy, the bigger is the left padding.
-      const rowStyle = {
-        "paddingInlineStart": (level * 16) + "px",
-      };
+      const renderSuffix = this.props.renderSuffix;
 
       const iconClassList = ["treeIcon"];
       if (member.hasChildren && member.loading) {
@@ -45,22 +41,32 @@ define(function(require, exports, module) {
         iconClassList.push("open");
       }
 
-      return (
-        dom.td({
+      return dom.td(
+        {
           className: "treeLabelCell",
+          title,
+          style: {
+            // Compute indentation dynamically. The deeper the item is
+            // inside the hierarchy, the bigger is the left padding.
+            "--tree-label-cell-indent": `${level * 16}px`,
+          },
           key: "default",
-          style: rowStyle,
-          role: "presentation"},
-          dom.span({
-            className: iconClassList.join(" "),
-            role: "presentation",
-          }),
-          dom.span({
+          role: "presentation",
+        },
+        dom.span({
+          className: iconClassList.join(" "),
+          role: "presentation",
+        }),
+        dom.span(
+          {
             className: "treeLabel " + member.type + "Label",
+            title,
             "aria-labelledby": id,
             "data-level": level,
-          }, member.name)
-        )
+          },
+          member.name
+        ),
+        renderSuffix && renderSuffix(member)
       );
     }
   }

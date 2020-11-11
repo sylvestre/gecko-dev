@@ -1,12 +1,14 @@
 /* Any copyright is dedicated to the Public Domain.
    http://creativecommons.org/publicdomain/zero/1.0/ */
 
-ChromeUtils.import("resource://gre/modules/osfile.jsm");
-ChromeUtils.import("resource://gre/modules/PromiseUtils.jsm");
-ChromeUtils.import("resource://services-common/observers.js");
-ChromeUtils.import("resource://services-sync/engines.js");
-ChromeUtils.import("resource://services-sync/service.js");
-ChromeUtils.import("resource://services-sync/util.js");
+const { OS } = ChromeUtils.import("resource://gre/modules/osfile.jsm");
+const { PromiseUtils } = ChromeUtils.import(
+  "resource://gre/modules/PromiseUtils.jsm"
+);
+const { Observers } = ChromeUtils.import(
+  "resource://services-common/observers.js"
+);
+const { Service } = ChromeUtils.import("resource://services-sync/service.js");
 
 function SteamStore(engine) {
   Store.call(this, "Steam", engine);
@@ -21,11 +23,10 @@ SteamStore.prototype = {
 };
 
 function SteamTracker(name, engine) {
-  Tracker.call(this, name || "Steam", engine);
+  LegacyTracker.call(this, name || "Steam", engine);
 }
 SteamTracker.prototype = {
-  __proto__: Tracker.prototype,
-  persistChangedIDs: false,
+  __proto__: LegacyTracker.prototype,
 };
 
 function SteamEngine(name, service) {
@@ -78,6 +79,7 @@ async function cleanup(engine) {
 add_task(async function test_members() {
   _("Engine object members");
   let engine = new SteamEngine("Steam", Service);
+  await engine.initialize();
   Assert.equal(engine.Name, "Steam");
   Assert.equal(engine.prefName, "steam");
   Assert.ok(engine._store instanceof SteamStore);
@@ -87,6 +89,7 @@ add_task(async function test_members() {
 add_task(async function test_score() {
   _("Engine.score corresponds to tracker.score and is readonly");
   let engine = new SteamEngine("Steam", Service);
+  await engine.initialize();
   Assert.equal(engine.score, 0);
   engine._tracker.score += 5;
   Assert.equal(engine.score, 5);
@@ -104,6 +107,7 @@ add_task(async function test_score() {
 add_task(async function test_resetClient() {
   _("Engine.resetClient calls _resetClient");
   let engine = new SteamEngine("Steam", Service);
+  await engine.initialize();
   Assert.ok(!engine.wasReset);
 
   await engine.resetClient();
@@ -117,17 +121,24 @@ add_task(async function test_resetClient() {
 add_task(async function test_invalidChangedIDs() {
   _("Test that invalid changed IDs on disk don't end up live.");
   let engine = new SteamEngine("Steam", Service);
+  await engine.initialize();
   let tracker = engine._tracker;
 
   await tracker._beforeSave();
-  await OS.File.writeAtomic(tracker._storage.path, new TextEncoder().encode("5"),
-                            { tmpPath: tracker._storage.path + ".tmp" });
+  await OS.File.writeAtomic(
+    tracker._storage.path,
+    new TextEncoder().encode("5"),
+    { tmpPath: tracker._storage.path + ".tmp" }
+  );
 
   ok(!tracker._storage.dataReady);
   const changes = await tracker.getChangedIDs();
   changes.placeholder = true;
-  deepEqual(changes, { placeholder: true },
-    "Accessing changed IDs should load changes from disk as a side effect");
+  deepEqual(
+    changes,
+    { placeholder: true },
+    "Accessing changed IDs should load changes from disk as a side effect"
+  );
   ok(tracker._storage.dataReady);
 
   Assert.ok(changes.placeholder);
@@ -137,9 +148,10 @@ add_task(async function test_invalidChangedIDs() {
 add_task(async function test_wipeClient() {
   _("Engine.wipeClient calls resetClient, wipes store, clears changed IDs");
   let engine = new SteamEngine("Steam", Service);
+  await engine.initialize();
   Assert.ok(!engine.wasReset);
   Assert.ok(!engine._store.wasWiped);
-  Assert.ok((await engine._tracker.addChangedID("a-changed-id")));
+  Assert.ok(await engine._tracker.addChangedID("a-changed-id"));
   let changes = await engine._tracker.getChangedIDs();
   Assert.ok("a-changed-id" in changes);
 
@@ -159,6 +171,7 @@ add_task(async function test_wipeClient() {
 add_task(async function test_enabled() {
   _("Engine.enabled corresponds to preference");
   let engine = new SteamEngine("Steam", Service);
+  await engine.initialize();
   try {
     Assert.ok(!engine.enabled);
     Svc.Prefs.set("engine.steam", true);
@@ -173,6 +186,7 @@ add_task(async function test_enabled() {
 
 add_task(async function test_sync() {
   let engine = new SteamEngine("Steam", Service);
+  await engine.initialize();
   try {
     _("Engine.sync doesn't call _sync if it's not enabled");
     Assert.ok(!engine.enabled);
@@ -196,6 +210,7 @@ add_task(async function test_sync() {
 add_task(async function test_disabled_no_track() {
   _("When an engine is disabled, its tracker is not tracking.");
   let engine = new SteamEngine("Steam", Service);
+  await engine.initialize();
   let tracker = engine._tracker;
   Assert.equal(engine, tracker.engine);
 

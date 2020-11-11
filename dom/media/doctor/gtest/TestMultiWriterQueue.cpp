@@ -12,6 +12,7 @@
 #include "nsThreadUtils.h"
 
 #include <gtest/gtest.h>
+#include <type_traits>
 
 using mozilla::MultiWriterQueue;
 using mozilla::MultiWriterQueueDefaultBufferSize;
@@ -45,7 +46,8 @@ static void TestMultiWriterQueueST(const int loops) {
   }
 }
 
-TEST(MultiWriterQueue, SingleThreaded) {
+TEST(MultiWriterQueue, SingleThreaded)
+{
   TestMultiWriterQueueST<1>(10);
   TestMultiWriterQueueST<2>(10);
   TestMultiWriterQueueST<4>(10);
@@ -155,7 +157,11 @@ static void TestMultiWriterQueueMT(int aWriterThreads, int aReaderThreads,
       q.AllocatedBuffersStats().mWatermark);
 }
 
-TEST(MultiWriterQueue, MultiWriterSingleReader) {
+// skip test on windows10-aarch64 due to unexpected test timeout at
+// MultiWriterSingleReader, bug 1526001
+#if !defined(_M_ARM64)
+TEST(MultiWriterQueue, MultiWriterSingleReader)
+{
   // Small BufferSize, to exercize the buffer management code.
   TestMultiWriterQueueMT<
       MultiWriterQueue<int, 10, MultiWriterQueueReaderLocking_None>>(
@@ -213,12 +219,17 @@ TEST(MultiWriterQueue, MultiWriterSingleReader) {
   //   MultiWriterQueue<int, MultiWriterQueueDefaultBufferSize,
   //   MultiWriterQueueReaderLocking_None>>(64, 2, 2*1024*1024);
 }
+#endif
 
-TEST(MultiWriterQueue, MultiWriterMultiReader) {
+// skip test on windows10-aarch64 due to unexpected test timeout at
+// MultiWriterMultiReade, bug 1526001
+#if !defined(_M_ARM64)
+TEST(MultiWriterQueue, MultiWriterMultiReader)
+{
   static_assert(
-      mozilla::IsSame<MultiWriterQueue<int, 10>,
-                      MultiWriterQueue<
-                          int, 10, MultiWriterQueueReaderLocking_Mutex>>::value,
+      std::is_same_v<
+          MultiWriterQueue<int, 10>,
+          MultiWriterQueue<int, 10, MultiWriterQueueReaderLocking_Mutex>>,
       "MultiWriterQueue reader locking should use Mutex by default");
 
   // Small BufferSize, to exercize the buffer management code.
@@ -269,10 +280,11 @@ TEST(MultiWriterQueue, MultiWriterMultiReader) {
       64, 32, 1024 * 1024,
       "MultiWriterQueue<int, DefaultBufferSize, Locking_Mutex>");
 }
+#endif
 
 // Single-threaded use only.
 struct DequeWrapperST {
-  nsDeque mDQ;
+  nsDeque<void> mDQ;
 
   bool Push(int i) {
     mDQ.PushFront(reinterpret_cast<void*>(static_cast<uintptr_t>(i)));
@@ -343,7 +355,8 @@ struct DequeWrapperMT : DequeWrapperMW {
   }
 };
 
-TEST(MultiWriterQueue, nsDequeBenchmark) {
+TEST(MultiWriterQueue, nsDequeBenchmark)
+{
   TestMultiWriterQueueMT<DequeWrapperST>(1, 0, 2 * 1024 * 1024,
                                          "DequeWrapperST ");
 

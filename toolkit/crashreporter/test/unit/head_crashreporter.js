@@ -1,10 +1,18 @@
-ChromeUtils.import("resource://gre/modules/osfile.jsm");
+var { OS, require } = ChromeUtils.import("resource://gre/modules/osfile.jsm");
 ChromeUtils.import("resource://gre/modules/Services.jsm", this);
 ChromeUtils.import("resource://testing-common/AppData.jsm", this);
-ChromeUtils.import("resource://gre/modules/AppConstants.jsm");
+var { AppConstants } = ChromeUtils.import(
+  "resource://gre/modules/AppConstants.jsm"
+);
 
 function getEventDir() {
   return OS.Path.join(do_get_tempdir().path, "crash-events");
+}
+
+function sendCommandAsync(command) {
+  return new Promise(resolve => {
+    sendCommand(command, resolve);
+  });
 }
 
 /*
@@ -35,7 +43,7 @@ function getEventDir() {
  *       exit with an error.
  *
  */
-function do_crash(setup, callback, canReturnZero) {
+async function do_crash(setup, callback, canReturnZero) {
   // get current process filename (xpcshell)
   let bin = Services.dirsvc.get("XREExeF", Ci.nsIFile);
   if (!bin.exists()) {
@@ -47,21 +55,21 @@ function do_crash(setup, callback, canReturnZero) {
   let headfile = do_get_file("crasher_subprocess_head.js");
   let tailfile = do_get_file("crasher_subprocess_tail.js");
   // run xpcshell -g GreD -f head -e "some setup code" -f tail
-  let process = Cc["@mozilla.org/process/util;1"]
-                  .createInstance(Ci.nsIProcess);
+  let process = Cc["@mozilla.org/process/util;1"].createInstance(Ci.nsIProcess);
   process.init(bin);
-  let args = ["-g", greD.path,
-              "-f", headfile.path];
+  let args = ["-g", greD.path, "-f", headfile.path];
   if (setup) {
-    if (typeof(setup) == "function")
+    if (typeof setup == "function") {
       // funky, but convenient
       setup = "(" + setup.toSource() + ")();";
+    }
     args.push("-e", setup);
   }
   args.push("-f", tailfile.path);
 
-  let env = Cc["@mozilla.org/process/environment;1"]
-              .getService(Ci.nsIEnvironment);
+  let env = Cc["@mozilla.org/process/environment;1"].getService(
+    Ci.nsIEnvironment
+  );
 
   let crashD = do_get_tempdir();
   crashD.append("crash-events");
@@ -72,7 +80,7 @@ function do_crash(setup, callback, canReturnZero) {
   env.set("CRASHES_EVENTS_DIR", crashD.path);
 
   try {
-      process.run(true, args, args.length);
+    process.run(true, args, args.length);
   } catch (ex) {
     // on Windows we exit with a -1 status when crashing.
   } finally {
@@ -84,7 +92,7 @@ function do_crash(setup, callback, canReturnZero) {
     Assert.notEqual(process.exitValue, 0);
   }
 
-  handleMinidump(callback);
+  await handleMinidump(callback);
 }
 
 function getMinidump() {
@@ -112,8 +120,7 @@ function runMinidumpAnalyzer(dumpFile, additionalArgs) {
   bin.append("minidump-analyzer.exe");
   ok(bin.exists());
 
-  let process = Cc["@mozilla.org/process/util;1"]
-                  .createInstance(Ci.nsIProcess);
+  let process = Cc["@mozilla.org/process/util;1"].createInstance(Ci.nsIProcess);
   process.init(bin);
   let args = [];
   if (additionalArgs) {
@@ -123,7 +130,7 @@ function runMinidumpAnalyzer(dumpFile, additionalArgs) {
   process.run(true /* blocking */, args, args.length);
 }
 
-function handleMinidump(callback) {
+async function handleMinidump(callback) {
   // find minidump
   let minidump = getMinidump();
 
@@ -137,35 +144,33 @@ function handleMinidump(callback) {
   let memoryfile = minidump.clone();
   memoryfile.leafName = memoryfile.leafName.slice(0, -4) + ".memory.json.gz";
 
+  let cleanup = function() {
+    [minidump, extrafile, memoryfile].forEach(file => {
+      if (file.exists()) {
+        file.remove(false);
+      }
+    });
+  };
+
   // Just in case, don't let these files linger.
-  registerCleanupFunction(function() {
-    if (minidump.exists()) {
-      minidump.remove(false);
-    }
-    if (extrafile.exists()) {
-      extrafile.remove(false);
-    }
-    if (memoryfile.exists()) {
-      memoryfile.remove(false);
-    }
-  });
+  registerCleanupFunction(cleanup);
 
   Assert.ok(extrafile.exists());
-  let extra = parseKeyValuePairsFromFile(extrafile);
+  let data = await OS.File.read(extrafile.path);
+  let decoder = new TextDecoder();
+  let extra = JSON.parse(decoder.decode(data));
 
   if (callback) {
-    callback(minidump, extra, extrafile);
+    await callback(minidump, extra, extrafile);
   }
 
-  if (minidump.exists()) {
-    minidump.remove(false);
-  }
-  if (extrafile.exists()) {
-    extrafile.remove(false);
-  }
-  if (memoryfile.exists()) {
-    memoryfile.remove(false);
-  }
+  cleanup();
+}
+
+function spinEventLoop() {
+  return new Promise(resolve => {
+    executeSoon(resolve);
+  });
 }
 
 /**
@@ -175,15 +180,14 @@ function handleMinidump(callback) {
  * to set data as needed _before_ the crash.  The tail file triggers a generic
  * crash after setup.
  */
-function do_content_crash(setup, callback) {
+async function do_content_crash(setup, callback) {
   do_load_child_test_harness();
-  do_test_pending();
 
   // Setting the minidump path won't work in the child, so we need to do
   // that here.
-  let crashReporter =
-      Cc["@mozilla.org/toolkit/crash-reporter;1"]
-        .getService(Ci.nsICrashReporter);
+  let crashReporter = Cc["@mozilla.org/toolkit/crash-reporter;1"].getService(
+    Ci.nsICrashReporter
+  );
   crashReporter.minidumpPath = do_get_tempdir();
 
   /* import-globals-from ../unit/crasher_subprocess_head.js */
@@ -192,34 +196,29 @@ function do_content_crash(setup, callback) {
   let headfile = do_get_file("../unit/crasher_subprocess_head.js");
   let tailfile = do_get_file("../unit/crasher_subprocess_tail.js");
   if (setup) {
-    if (typeof(setup) == "function") {
+    if (typeof setup == "function") {
       // funky, but convenient
       setup = "(" + setup.toSource() + ")();";
     }
   }
 
-  let handleCrash = function() {
-    let id = getMinidump().leafName.slice(0, -4);
-    Services.crashmanager.ensureCrashIsPresent(id).then(() => {
-      try {
-        handleMinidump(callback);
-      } catch (x) {
-        do_report_unexpected_exception(x);
-      }
-      do_test_finished();
-    });
-  };
-
   do_get_profile();
-  makeFakeAppDir().then(() => {
-    sendCommand("load(\"" + headfile.path.replace(/\\/g, "/") + "\");", () =>
-      sendCommand(setup, () =>
-        sendCommand("load(\"" + tailfile.path.replace(/\\/g, "/") + "\");", () =>
-          executeSoon(handleCrash)
-        )
-      )
-    );
-  });
+  await makeFakeAppDir();
+  await sendCommandAsync('load("' + headfile.path.replace(/\\/g, "/") + '");');
+  if (setup) {
+    await sendCommandAsync(setup);
+  }
+  await sendCommandAsync('load("' + tailfile.path.replace(/\\/g, "/") + '");');
+  await spinEventLoop();
+
+  let minidump = getMinidump();
+  let id = minidump.leafName.slice(0, -4);
+  await Services.crashmanager.ensureCrashIsPresent(id);
+  try {
+    await handleMinidump(callback);
+  } catch (x) {
+    do_report_unexpected_exception(x);
+  }
 }
 
 /**
@@ -228,49 +227,41 @@ function do_content_crash(setup, callback) {
  * This variant accepts a trigger function which runs in the content process
  * and does something to _trigger_ the crash.
  */
-function do_triggered_content_crash(trigger, callback) {
+async function do_triggered_content_crash(trigger, callback) {
   do_load_child_test_harness();
-  do_test_pending();
 
   // Setting the minidump path won't work in the child, so we need to do
   // that here.
-  let crashReporter =
-      Cc["@mozilla.org/toolkit/crash-reporter;1"]
-        .getService(Ci.nsICrashReporter);
+  let crashReporter = Cc["@mozilla.org/toolkit/crash-reporter;1"].getService(
+    Ci.nsICrashReporter
+  );
   crashReporter.minidumpPath = do_get_tempdir();
 
   /* import-globals-from ../unit/crasher_subprocess_head.js */
 
   let headfile = do_get_file("../unit/crasher_subprocess_head.js");
   if (trigger) {
-    if (typeof(trigger) == "function") {
+    if (typeof trigger == "function") {
       // funky, but convenient
       trigger = "(" + trigger.toSource() + ")();";
     }
   }
 
-  let handleCrash = function() {
-    let id = getMinidump().leafName.slice(0, -4);
-    Services.crashmanager.ensureCrashIsPresent(id).then(() => {
-      try {
-        handleMinidump(callback);
-      } catch (x) {
-        do_report_unexpected_exception(x);
-      }
-      do_test_finished();
-    });
-  };
-
   do_get_profile();
-  makeFakeAppDir().then(() => {
-    sendCommand("load(\"" + headfile.path.replace(/\\/g, "/") + "\");", () =>
-      sendCommand(trigger, () =>
-        executeSoon(handleCrash)
-      )
-    );
-  });
+  await makeFakeAppDir();
+  await sendCommandAsync('load("' + headfile.path.replace(/\\/g, "/") + '");');
+  await sendCommandAsync(trigger);
+  await spinEventLoop();
+  let id = getMinidump().leafName.slice(0, -4);
+  await Services.crashmanager.ensureCrashIsPresent(id);
+  try {
+    await handleMinidump(callback);
+  } catch (x) {
+    do_report_unexpected_exception(x);
+  }
 }
 
 // Import binary APIs via js-ctypes.
-ChromeUtils.import("resource://test/CrashTestUtils.jsm");
-ChromeUtils.import("resource://gre/modules/KeyValueParser.jsm");
+var { CrashTestUtils } = ChromeUtils.import(
+  "resource://test/CrashTestUtils.jsm"
+);

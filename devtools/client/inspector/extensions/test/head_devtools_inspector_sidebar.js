@@ -1,4 +1,3 @@
-/* vim: set ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -10,8 +9,14 @@
 
 "use strict";
 
-ChromeUtils.defineModuleGetter(this, "ContentTaskUtils",
-                               "resource://testing-common/ContentTaskUtils.jsm");
+ChromeUtils.defineModuleGetter(
+  this,
+  "ContentTaskUtils",
+  "resource://testing-common/ContentTaskUtils.jsm"
+);
+
+const ACCORDION_LABEL_SELECTOR = ".accordion-header-label";
+const ACCORDION_CONTENT_SELECTOR = ".accordion-content";
 
 // Retrieve the array of all the objectValueGrip actors from the
 // inspector extension sidebars state
@@ -24,8 +29,11 @@ function getExtensionSidebarActors(inspector) {
   for (const sidebarId of Object.keys(state.extensionsSidebar)) {
     const sidebarState = state.extensionsSidebar[sidebarId];
 
-    if (sidebarState.viewMode === "object-value-grip-view" &&
-        sidebarState.objectValueGrip && sidebarState.objectValueGrip.actor) {
+    if (
+      sidebarState.viewMode === "object-value-grip-view" &&
+      sidebarState.objectValueGrip &&
+      sidebarState.objectValueGrip.actor
+    ) {
       actors.push(sidebarState.objectValueGrip.actor);
     }
   }
@@ -39,8 +47,10 @@ function getExtensionSidebarActors(inspector) {
 async function expectNoSuchActorIDs(client, actors) {
   info(`Test that all the objectValueGrip actors have been released`);
   for (const actor of actors) {
-    await Assert.rejects(client.request({to: actor, type: "requestTypes"}),
-                         err => err.message == `No such actor for ID: ${actor}`);
+    await Assert.rejects(
+      client.request({ to: actor, type: "requestTypes" }),
+      err => err.message == `No such actor for ID: ${actor}`
+    );
   }
 }
 
@@ -48,53 +58,67 @@ function waitForObjectInspector(panelDoc, waitForNodeWithType = "object") {
   const selector = `.object-inspector .objectBox-${waitForNodeWithType}`;
   return ContentTaskUtils.waitForCondition(() => {
     return panelDoc.querySelectorAll(selector).length > 0;
-  });
+  }, `Wait for objectInspector's node type "${waitForNodeWithType}" to be loaded`);
 }
 
 // Helper function used inside the sidebar.setExtensionPage test case.
 async function testSetExtensionPageSidebarPanel(panelDoc, expectedURL) {
   const selector = "iframe.inspector-extension-sidebar-page";
   const iframesCount = await ContentTaskUtils.waitForCondition(() => {
-    return panelDoc.querySelectorAll(selector).length > 0;
+    return panelDoc.querySelectorAll(selector).length;
   }, "Wait for the extension page iframe");
 
-  is(iframesCount, 1, "Got the expected number of iframes in the extension panel");
+  is(
+    iframesCount,
+    1,
+    "Got the expected number of iframes in the extension panel"
+  );
 
   const iframeWindow = panelDoc.querySelector(selector).contentWindow;
   await ContentTaskUtils.waitForCondition(() => {
     return iframeWindow.document.readyState === "complete";
   }, "Wait for the extension page iframe to complete to load");
 
-  is(iframeWindow.location.href, expectedURL,
-     "Got the expected url in the extension panel iframe");
+  is(
+    iframeWindow.location.href,
+    expectedURL,
+    "Got the expected url in the extension panel iframe"
+  );
 }
 
 // Helper function used inside the sidebar.setObjectValueGrip test case.
 async function testSetExpressionSidebarPanel(panel, expected) {
-  const {
-    nodesLength,
-    propertiesNames,
-    rootTitle,
-  } = expected;
+  const { nodesLength, propertiesNames, rootTitle } = expected;
 
   await waitForObjectInspector(panel);
 
   const objectInspectors = [...panel.querySelectorAll(".tree")];
-  is(objectInspectors.length, 1, "There is the expected number of object inspectors");
+  is(
+    objectInspectors.length,
+    1,
+    "There is the expected number of object inspectors"
+  );
   const [objectInspector] = objectInspectors;
 
-  // Wait the objectInspector to have been fully rendered.
   await ContentTaskUtils.waitForCondition(() => {
     return objectInspector.querySelectorAll(".node").length >= nodesLength;
-  });
+  }, "Wait the objectInspector to have been fully rendered");
 
   const oiNodes = objectInspector.querySelectorAll(".node");
 
-  is(oiNodes.length, nodesLength, "Got the expected number of nodes in the tree");
-  const propertiesNodes = [...objectInspector.querySelectorAll(".object-label")]
-        .map(el => el.textContent);
-  is(JSON.stringify(propertiesNodes), JSON.stringify(propertiesNames),
-     "Got the expected property names");
+  is(
+    oiNodes.length,
+    nodesLength,
+    "Got the expected number of nodes in the tree"
+  );
+  const propertiesNodes = [
+    ...objectInspector.querySelectorAll(".object-label"),
+  ].map(el => el.textContent);
+  is(
+    JSON.stringify(propertiesNodes),
+    JSON.stringify(propertiesNames),
+    "Got the expected property names"
+  );
 
   if (rootTitle) {
     // Also check that the ObjectInspector is rendered inside
@@ -103,16 +127,24 @@ async function testSetExpressionSidebarPanel(panel, expected) {
 
     ok(accordion, "Got an Accordion component as expected");
 
-    is(accordion.querySelector("._content").firstChild, objectInspector,
-       "The ObjectInspector should be inside the Accordion content");
+    is(
+      accordion.querySelector(ACCORDION_CONTENT_SELECTOR).firstChild,
+      objectInspector,
+      "The ObjectInspector should be inside the Accordion content"
+    );
 
-    is(accordion.querySelector("._header").textContent.trim(), rootTitle,
-       "The Accordion has the expected label");
+    is(
+      accordion.querySelector(ACCORDION_LABEL_SELECTOR).textContent,
+      rootTitle,
+      "The Accordion has the expected label"
+    );
   } else {
     // Also check that there is no Accordion component rendered
     // inside the sidebar panel.
-    ok(!panel.querySelector(".accordion"),
-       "Got no Accordion component as expected");
+    ok(
+      !panel.querySelector(".accordion"),
+      "Got no Accordion component as expected"
+    );
   }
 }
 
@@ -124,25 +156,32 @@ function assertTreeView(panelDoc, expectedContent) {
   } = expectedContent;
 
   if (expectedTreeTables) {
-    is(panelDoc.querySelectorAll("table.treeTable").length, expectedTreeTables,
-       "The panel document contains the expected number of TreeView components");
+    is(
+      panelDoc.querySelectorAll("table.treeTable").length,
+      expectedTreeTables,
+      "The panel document contains the expected number of TreeView components"
+    );
   }
 
   if (expectedStringCells) {
-    is(panelDoc.querySelectorAll("table.treeTable .stringCell").length,
-       expectedStringCells,
-       "The panel document contains the expected number of string cells.");
+    is(
+      panelDoc.querySelectorAll("table.treeTable .stringCell").length,
+      expectedStringCells,
+      "The panel document contains the expected number of string cells."
+    );
   }
 
   if (expectedNumberCells) {
-    is(panelDoc.querySelectorAll("table.treeTable .numberCell").length,
-       expectedNumberCells,
-       "The panel document contains the expected number of number cells.");
+    is(
+      panelDoc.querySelectorAll("table.treeTable .numberCell").length,
+      expectedNumberCells,
+      "The panel document contains the expected number of number cells."
+    );
   }
 }
 
 async function assertObjectInspector(panelDoc, expectedContent) {
-  const {expectedDOMNodes, expectedOpenInspectors} = expectedContent;
+  const { expectedDOMNodes, expectedOpenInspectors } = expectedContent;
 
   // Get and verify the DOMNode and the "open inspector"" icon
   // rendered inside the ObjectInspector.
@@ -151,10 +190,16 @@ async function assertObjectInspector(panelDoc, expectedContent) {
     ".objectBox-node .open-inspector"
   );
 
-  is(nodes.length, expectedDOMNodes,
-     "Found the expected number of ObjectInspector DOMNodes");
-  is(nodeOpenInspectors.length, expectedOpenInspectors,
-     "Found the expected nuber of open-inspector icons inside the ObjectInspector");
+  is(
+    nodes.length,
+    expectedDOMNodes,
+    "Found the expected number of ObjectInspector DOMNodes"
+  );
+  is(
+    nodeOpenInspectors.length,
+    expectedOpenInspectors,
+    "Found the expected nuber of open-inspector icons inside the ObjectInspector"
+  );
 }
 
 function moveMouseOnObjectInspectorDOMNode(panelDoc, nodeIndex = 0) {
@@ -163,12 +208,19 @@ function moveMouseOnObjectInspectorDOMNode(panelDoc, nodeIndex = 0) {
 
   ok(node, "Found the ObjectInspector DOMNode");
 
-  EventUtils.synthesizeMouseAtCenter(node, {type: "mousemove"},
-                                     node.ownerDocument.defaultView);
+  EventUtils.synthesizeMouseAtCenter(
+    node,
+    { type: "mousemove" },
+    node.ownerDocument.defaultView
+  );
 }
 
 function moveMouseOnPanelCenter(panelDoc) {
-  EventUtils.synthesizeMouseAtCenter(panelDoc, {type: "mousemove"}, panelDoc.window);
+  EventUtils.synthesizeMouseAtCenter(
+    panelDoc,
+    { type: "mousemove" },
+    panelDoc.window
+  );
 }
 
 function clickOpenInspectorIcon(panelDoc, nodeIndex = 0) {

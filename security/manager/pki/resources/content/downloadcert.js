@@ -5,7 +5,7 @@
 "use strict";
 
 /**
- * @file Implements the functionality of downloadcert.xul: a dialog that allows
+ * @file Implements the functionality of downloadcert.xhtml: a dialog that allows
  *       a user to confirm whether to import a certificate, and if so what trust
  *       to give it.
  * @argument {nsISupports} window.arguments[0]
@@ -41,6 +41,9 @@ var gCert;
 function onLoad() {
   gCert = window.arguments[0].QueryInterface(Ci.nsIX509Cert);
 
+  document.addEventListener("dialogaccept", onDialogAccept);
+  document.addEventListener("dialogcancel", onDialogCancel);
+
   let bundle = document.getElementById("pippki_bundle");
   let caName = gCert.commonName;
   if (caName.length == 0) {
@@ -54,13 +57,11 @@ function onLoad() {
  * Handler for the "View Cert" button.
  */
 function viewCert() {
-  viewCertHelper(window, gCert);
+  viewCertHelper(window, gCert, "window");
 }
 
 /**
  * ondialogaccept() handler.
- *
- * @returns {Boolean} true to make the dialog close, false otherwise.
  */
 function onDialogAccept() {
   let checkSSL = document.getElementById("trustSSL");
@@ -70,16 +71,12 @@ function onDialogAccept() {
   retVals.setPropertyAsBool("importConfirmed", true);
   retVals.setPropertyAsBool("trustForSSL", checkSSL.checked);
   retVals.setPropertyAsBool("trustForEmail", checkEmail.checked);
-  return true;
 }
 
 /**
  * ondialogcancel() handler.
- *
- * @returns {Boolean} true to make the dialog close, false otherwise.
  */
 function onDialogCancel() {
   let retVals = window.arguments[1].QueryInterface(Ci.nsIWritablePropertyBag2);
   retVals.setPropertyAsBool("importConfirmed", false);
-  return true;
 }

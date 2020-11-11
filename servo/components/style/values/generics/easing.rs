@@ -10,7 +10,16 @@ use crate::values::CSSFloat;
 
 /// A generic easing function.
 #[derive(
-    Clone, Copy, Debug, MallocSizeOf, PartialEq, SpecifiedValueInfo, ToComputedValue, ToCss,
+    Clone,
+    Copy,
+    Debug,
+    MallocSizeOf,
+    PartialEq,
+    SpecifiedValueInfo,
+    ToComputedValue,
+    ToCss,
+    ToResolvedValue,
+    ToShmem,
 )]
 #[value_info(ty = "TIMING_FUNCTION")]
 #[repr(u8, C)]
@@ -46,6 +55,8 @@ pub enum TimingFunction<Integer, Number> {
     SpecifiedValueInfo,
     ToComputedValue,
     ToCss,
+    ToResolvedValue,
+    ToShmem,
 )]
 #[repr(u8)]
 pub enum TimingKeyword {
@@ -58,8 +69,7 @@ pub enum TimingKeyword {
 
 #[cfg(feature = "gecko")]
 fn step_position_jump_enabled(_context: &ParserContext) -> bool {
-    use crate::gecko_bindings::structs;
-    unsafe { structs::StaticPrefs_sVarCache_layout_css_step_position_jump_enabled }
+    static_prefs::pref!("layout.css.step-position-jump.enabled")
 }
 
 #[cfg(feature = "servo")]
@@ -69,7 +79,19 @@ fn step_position_jump_enabled(_context: &ParserContext) -> bool {
 
 #[allow(missing_docs)]
 #[cfg_attr(feature = "servo", derive(Deserialize, Serialize))]
-#[derive(Clone, Copy, Debug, Eq, MallocSizeOf, Parse, PartialEq, ToComputedValue, ToCss)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    MallocSizeOf,
+    Parse,
+    PartialEq,
+    ToComputedValue,
+    ToCss,
+    ToResolvedValue,
+    ToShmem,
+)]
 #[repr(u8)]
 pub enum StepPosition {
     #[parse(condition = "step_position_jump_enabled")]

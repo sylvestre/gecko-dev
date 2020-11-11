@@ -14,8 +14,7 @@ repository by retyping 'make translate' in this directory.
 The makefile supports the following targets:
 
 sync_htmlparser:
-  Retrieves the HTML parser and Java to C++ translator sources from Mozilla's
-  htmlparser repository.
+  Retrieves the HTML parser and Java to C++ translator sources from GitHub.
 sync_javaparser:
   Retrieves the javaparser sources from GitHub.
 sync:
@@ -35,19 +34,13 @@ translate_from_snapshot:
   stored in ../javasrc.
 named_characters:
   Generates data tables for named character tokenization.
-clean_javaparser:
-  Removes the build products of the javaparser target.
-clean_htmlparser:
-  Removes the build products of the translator target.
-clean:
-  Runs both clean_javaparser and clean_htmlparser.
 
 ## How to add an attribute
 
 # starting from the root of a mozilla-central checkout
 cd parser/html/java/
 make sync
-# now you have a clone of https://hg.mozilla.org/projects/htmlparser/ in parser/html/java/htmlparser/
+# now you have a clone of https://github.com/validator/htmlparser/tree/master in parser/html/java/htmlparser/
 cd htmlparser/src/
 $EDITOR nu/validator/htmlparser/impl/AttributeName.java
 # Search for the word "uncomment" and uncomment stuff according to the comments that talk about uncommenting
@@ -71,7 +64,7 @@ cd ../../..
 # Then, starting from the root of a mozilla-central checkout
 cd parser/html/java/
 make sync
-# now you have a clone of https://hg.mozilla.org/projects/htmlparser/ in parser/html/java/htmlparser/
+# now you have a clone of https://github.com/validator/htmlparser/tree/master in parser/html/java/htmlparser/
 cd htmlparser/src/
 $EDITOR nu/validator/htmlparser/impl/ElementName.java
 # Search for the word "uncomment" and uncomment stuff according to the comments that talk about uncommenting
@@ -90,4 +83,4 @@ cd ../../..
 ./mach clang-format
 
 Ben Newman (23 September 2009)
-Henri Sivonen (10 August 2017)
+Henri Sivonen (10 August 2017, 10 February 2020)

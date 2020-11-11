@@ -112,7 +112,8 @@ Bar::Release(void) {
   return mRefCnt;
 }
 
-TEST(COMArray, Sizing) {
+TEST(COMArray, Sizing)
+{
   nsCOMArray<IFoo> arr;
 
   for (int32_t i = 0; i < 20; ++i) {
@@ -142,7 +143,8 @@ TEST(COMArray, Sizing) {
   }
 }
 
-TEST(COMArray, ObjectFunctions) {
+TEST(COMArray, ObjectFunctions)
+{
   int32_t base;
   {
     nsCOMArray<IBar> arr2;
@@ -200,7 +202,8 @@ TEST(COMArray, ObjectFunctions) {
   }
 }
 
-TEST(COMArray, ElementFunctions) {
+TEST(COMArray, ElementFunctions)
+{
   int32_t base;
   {
     nsCOMArray<IBar> arr2;
@@ -258,7 +261,8 @@ TEST(COMArray, ElementFunctions) {
   }
 }
 
-TEST(COMArray, Destructor) {
+TEST(COMArray, Destructor)
+{
   int32_t base;
   Bar::sReleaseCalled = 0;
 
@@ -275,4 +279,17 @@ TEST(COMArray, Destructor) {
     // Let arr2 be destroyed
   }
   ASSERT_EQ(Bar::sReleaseCalled, base + 20);
+}
+
+TEST(COMArray, ConvertIteratorToConstIterator)
+{
+  nsCOMArray<IFoo> array;
+
+  for (int32_t i = 0; i < 20; ++i) {
+    nsCOMPtr<IFoo> foo = new Foo(i);
+    array.AppendObject(foo);
+  }
+
+  nsCOMArray<IFoo>::const_iterator it = array.begin();
+  ASSERT_EQ(array.cbegin(), it);
 }

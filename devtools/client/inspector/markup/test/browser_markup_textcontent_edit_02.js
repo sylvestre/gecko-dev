@@ -1,4 +1,3 @@
-/* vim: set ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -11,7 +10,7 @@ const TEST_URL = URL_ROOT + "doc_markup_edit.html";
 const SELECTOR = ".node6";
 
 add_task(async function() {
-  const {inspector, testActor} = await openInspectorForURL(TEST_URL);
+  const { inspector, testActor } = await openInspectorForURL(TEST_URL);
 
   info("Expanding all nodes");
   await inspector.markup.expandAll();
@@ -62,7 +61,7 @@ add_task(async function() {
   is(editor.input.value, expectedValue, "Value should be updated");
 
   info("Create a new line using shift+RETURN");
-  await sendKey("VK_RETURN", {shiftKey: true}, editor, inspector.panelWin);
+  await sendKey("VK_RETURN", { shiftKey: true }, editor, inspector.panelWin);
   expectedValue += "\n";
   is(editor.input.value, expectedValue, "Value should have a new line");
   checkSelectionPositions(editor, expectedValue.length, expectedValue.length);
@@ -92,10 +91,16 @@ add_task(async function() {
  * Check that the editor selection is at the expected positions.
  */
 function checkSelectionPositions(editor, expectedStart, expectedEnd) {
-  is(editor.input.selectionStart, expectedStart,
-    "Selection should start at " + expectedStart);
-  is(editor.input.selectionEnd, expectedEnd,
-    "Selection should end at " + expectedEnd);
+  is(
+    editor.input.selectionStart,
+    expectedStart,
+    "Selection should start at " + expectedStart
+  );
+  is(
+    editor.input.selectionEnd,
+    expectedEnd,
+    "Selection should end at " + expectedEnd
+  );
 }
 
 /**

@@ -8,7 +8,7 @@ const { PureComponent } = require("devtools/client/shared/vendor/react");
 const dom = require("devtools/client/shared/vendor/react-dom-factories");
 const PropTypes = require("devtools/client/shared/vendor/react-prop-types");
 
-const { getStr } = require("../utils/l10n");
+const { getStr } = require("devtools/client/inspector/animation/utils/l10n");
 
 class RewindButton extends PureComponent {
   static get propTypes() {
@@ -20,16 +20,14 @@ class RewindButton extends PureComponent {
   render() {
     const { rewindAnimationsCurrentTime } = this.props;
 
-    return dom.button(
-      {
-        className: "rewind-button devtools-button",
-        onClick: event => {
-          event.stopPropagation();
-          rewindAnimationsCurrentTime();
-        },
-        title: getStr("timeline.rewindButtonTooltip"),
-      }
-    );
+    return dom.button({
+      className: "rewind-button devtools-button",
+      onClick: event => {
+        event.stopPropagation();
+        rewindAnimationsCurrentTime();
+      },
+      title: getStr("timeline.rewindButtonTooltip"),
+    });
   }
 }
 

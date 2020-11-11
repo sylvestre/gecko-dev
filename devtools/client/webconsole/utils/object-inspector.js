@@ -4,16 +4,44 @@
 
 "use strict";
 
-const { createFactory } = require("devtools/client/shared/vendor/react");
+const {
+  createFactory,
+  createElement,
+} = require("devtools/client/shared/vendor/react");
 
-const reps = require("devtools/client/shared/components/reps/reps");
-const { REPS, MODE, objectInspector } = reps;
-const ObjectInspector = createFactory(objectInspector.ObjectInspector);
-const { Grip } = REPS;
-const SmartTrace = createFactory(require("devtools/client/shared/components/SmartTrace"));
+loader.lazyGetter(this, "REPS", function() {
+  return require("devtools/client/shared/components/reps/index").REPS;
+});
+loader.lazyGetter(this, "MODE", function() {
+  return require("devtools/client/shared/components/reps/index").MODE;
+});
+loader.lazyGetter(this, "ObjectInspector", function() {
+  const reps = require("devtools/client/shared/components/reps/index");
+  return createFactory(reps.objectInspector.ObjectInspector);
+});
+
+loader.lazyRequireGetter(
+  this,
+  "SmartTrace",
+  "devtools/client/shared/components/SmartTrace"
+);
+
+loader.lazyRequireGetter(
+  this,
+  "LongStringFront",
+  "devtools/client/fronts/string",
+  true
+);
+
+loader.lazyRequireGetter(
+  this,
+  "ObjectFront",
+  "devtools/client/fronts/object",
+  true
+);
 
 /**
- * Create and return an ObjectInspector for the given grip.
+ * Create and return an ObjectInspector for the given front.
  *
  * @param {Object} grip
  *        The object grip to create an ObjectInspector for.
@@ -25,26 +53,32 @@ const SmartTrace = createFactory(require("devtools/client/shared/components/Smar
  * @returns {ObjectInspector}
  *        An ObjectInspector for the given grip.
  */
-function getObjectInspector(grip, serviceContainer, override = {}) {
+function getObjectInspector(
+  frontOrPrimitiveGrip,
+  serviceContainer,
+  override = {}
+) {
   let onDOMNodeMouseOver;
   let onDOMNodeMouseOut;
   let onInspectIconClick;
 
   if (serviceContainer) {
     onDOMNodeMouseOver = serviceContainer.highlightDomElement
-      ? (object) => serviceContainer.highlightDomElement(object)
+      ? object => serviceContainer.highlightDomElement(object)
       : null;
-    onDOMNodeMouseOut = serviceContainer.unHighlightDomElement;
+    onDOMNodeMouseOut = serviceContainer.unHighlightDomElement
+      ? object => serviceContainer.unHighlightDomElement(object)
+      : null;
     onInspectIconClick = serviceContainer.openNodeInInspector
       ? (object, e) => {
-        // Stop the event propagation so we don't trigger ObjectInspector expand/collapse.
-        e.stopPropagation();
-        serviceContainer.openNodeInInspector(object);
-      }
+          // Stop the event propagation so we don't trigger ObjectInspector expand/collapse.
+          e.stopPropagation();
+          serviceContainer.openNodeInInspector(object);
+        }
       : null;
   }
 
-  const roots = createRootsFromGrip(grip);
+  const roots = createRoots(frontOrPrimitiveGrip, override.pathPrefix);
 
   const objectInspectorProps = {
     autoExpandDepth: 0,
@@ -53,42 +87,57 @@ function getObjectInspector(grip, serviceContainer, override = {}) {
     onViewSourceInDebugger: serviceContainer.onViewSourceInDebugger,
     recordTelemetryEvent: serviceContainer.recordTelemetryEvent,
     openLink: serviceContainer.openLink,
-    renderStacktrace: stacktrace => SmartTrace({
-      stacktrace,
-      onViewSourceInDebugger: serviceContainer
-        ? serviceContainer.onViewSourceInDebugger || serviceContainer.onViewSource
-        : null,
-      onViewSourceInScratchpad: serviceContainer
-        ? serviceContainer.onViewSourceInScratchpad || serviceContainer.onViewSource
-        : null,
-      onViewSource: serviceContainer.onViewSource,
-      sourceMapService: serviceContainer ? serviceContainer.sourceMapService : null,
-    }),
+    sourceMapURLService: serviceContainer.sourceMapURLService,
+    customFormat: override.customFormat !== false,
+    urlCropLimit: 120,
+    renderStacktrace: stacktrace =>
+      createElement(SmartTrace, {
+        key: "stacktrace",
+        stacktrace,
+        onViewSourceInDebugger: serviceContainer
+          ? serviceContainer.onViewSourceInDebugger ||
+            serviceContainer.onViewSource
+          : null,
+        onViewSource: serviceContainer.onViewSource,
+        onReady: override.maybeScrollToBottom,
+        sourceMapURLService: serviceContainer
+          ? serviceContainer.sourceMapURLService
+          : null,
+      }),
   };
 
-  if (!(typeof grip === "string" || (grip && grip.type === "longString"))) {
-    Object.assign(objectInspectorProps, {
-      onDOMNodeMouseOver,
-      onDOMNodeMouseOut,
-      onInspectIconClick,
-      defaultRep: Grip,
-    });
-  }
+  Object.assign(objectInspectorProps, {
+    onDOMNodeMouseOver,
+    onDOMNodeMouseOut,
+    onInspectIconClick,
+    defaultRep: REPS.Grip,
+  });
 
   if (override.autoFocusRoot) {
     Object.assign(objectInspectorProps, {
-      focusedItem: roots[0],
+      focusedItem: objectInspectorProps.roots[0],
     });
   }
 
-  return ObjectInspector({...objectInspectorProps, ...override});
+  return ObjectInspector({ ...objectInspectorProps, ...override });
 }
 
-function createRootsFromGrip(grip) {
-  return [{
-    path: Symbol((grip && grip.actor) || JSON.stringify(grip)),
-    contents: { value: grip },
-  }];
+function createRoots(frontOrPrimitiveGrip, pathPrefix = "") {
+  const isFront =
+    frontOrPrimitiveGrip instanceof ObjectFront ||
+    frontOrPrimitiveGrip instanceof LongStringFront;
+  const grip = isFront ? frontOrPrimitiveGrip.getGrip() : frontOrPrimitiveGrip;
+
+  return [
+    {
+      path: `${pathPrefix}${
+        frontOrPrimitiveGrip
+          ? frontOrPrimitiveGrip.actorID || frontOrPrimitiveGrip.actor
+          : null
+      }`,
+      contents: { value: grip, front: isFront ? frontOrPrimitiveGrip : null },
+    },
+  ];
 }
 
 module.exports = {

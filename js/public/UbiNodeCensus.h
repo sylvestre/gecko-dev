@@ -8,9 +8,9 @@
 #define js_UbiNodeCensus_h
 
 #include "mozilla/Attributes.h"
-#include "mozilla/Move.h"
 
 #include <algorithm>
+#include <utility>
 
 #include "jsapi.h"
 
@@ -94,8 +94,8 @@ using CountBasePtr = js::UniquePtr<CountBase, CountDeleter>;
 
 // Abstract base class for CountType nodes.
 struct CountType {
-  explicit CountType() {}
-  virtual ~CountType() {}
+  explicit CountType() = default;
+  virtual ~CountType() = default;
 
   // Destruct a count tree node that this type instance constructed.
   virtual void destructCount(CountBase& count) = 0;
@@ -130,7 +130,7 @@ class CountBase {
   CountType& type;
 
  protected:
-  ~CountBase() {}
+  ~CountBase() = default;
 
  public:
   explicit CountBase(CountType& type)
@@ -180,18 +180,7 @@ class CountBase {
   Node::Id smallestNodeIdCounted_;
 };
 
-class RootedCount : JS::CustomAutoRooter {
-  CountBasePtr count;
-
-  void trace(JSTracer* trc) override { count->trace(trc); }
-
- public:
-  RootedCount(JSContext* cx, CountBasePtr&& count)
-      : CustomAutoRooter(cx), count(std::move(count)) {}
-  CountBase* operator->() const { return count.get(); }
-  explicit operator bool() const { return count.get(); }
-  operator CountBasePtr&() { return count; }
-};
+using RootedCount = JS::Rooted<CountBasePtr>;
 
 // Common data for a census traversal, shared across all CountType nodes.
 struct Census {
@@ -208,11 +197,11 @@ struct Census {
 // categorize and count each node.
 class CensusHandler {
   Census& census;
-  CountBasePtr& rootCount;
+  JS::Handle<CountBasePtr> rootCount;
   mozilla::MallocSizeOf mallocSizeOf;
 
  public:
-  CensusHandler(Census& census, CountBasePtr& rootCount,
+  CensusHandler(Census& census, JS::Handle<CountBasePtr> rootCount,
                 mozilla::MallocSizeOf mallocSizeOf)
       : census(census), rootCount(rootCount), mallocSizeOf(mallocSizeOf) {}
 

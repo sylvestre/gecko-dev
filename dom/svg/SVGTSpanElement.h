@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef mozilla_dom_SVGTSpanElement_h
-#define mozilla_dom_SVGTSpanElement_h
+#ifndef DOM_SVG_SVGTSPANELEMENT_H_
+#define DOM_SVG_SVGTSPANELEMENT_H_
 
 #include "mozilla/dom/SVGTextPositioningElement.h"
 
@@ -15,7 +15,7 @@ nsresult NS_NewSVGTSpanElement(
 namespace mozilla {
 namespace dom {
 
-typedef SVGTextPositioningElement SVGTSpanElementBase;
+using SVGTSpanElementBase = SVGTextPositioningElement;
 
 class SVGTSpanElement final : public SVGTSpanElementBase {
  protected:
@@ -37,11 +37,13 @@ class SVGTSpanElement final : public SVGTSpanElementBase {
   virtual EnumAttributesInfo GetEnumInfo() override;
   virtual LengthAttributesInfo GetLengthInfo() override;
 
-  nsSVGEnum mEnumAttributes[1];
-  virtual nsSVGEnum* EnumAttributes() override { return mEnumAttributes; }
+  SVGAnimatedEnumeration mEnumAttributes[1];
+  virtual SVGAnimatedEnumeration* EnumAttributes() override {
+    return mEnumAttributes;
+  }
 
-  nsSVGLength2 mLengthAttributes[1];
-  virtual nsSVGLength2* LengthAttributes() override {
+  SVGAnimatedLength mLengthAttributes[1];
+  virtual SVGAnimatedLength* LengthAttributes() override {
     return mLengthAttributes;
   }
 };
@@ -49,4 +51,4 @@ class SVGTSpanElement final : public SVGTSpanElementBase {
 }  // namespace dom
 }  // namespace mozilla
 
-#endif  // mozilla_dom_SVGTSpanElement_h
+#endif  // DOM_SVG_SVGTSPANELEMENT_H_

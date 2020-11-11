@@ -13,12 +13,12 @@
 #include "nsStringFwd.h"
 
 class nsAtom;
-class nsIDocument;
 class nsIContent;
 
 namespace mozilla {
 namespace dom {
 
+class Document;
 class Element;
 
 class DocumentFragment : public FragmentOrElement {
@@ -59,13 +59,12 @@ class DocumentFragment : public FragmentOrElement {
 
   virtual bool IsNodeOfType(uint32_t aFlags) const override;
 
-  nsresult BindToTree(nsIDocument* aDocument, nsIContent* aParent,
-                      nsIContent* aBindingParent) override {
+  nsresult BindToTree(BindContext&, nsINode& aParent) override {
     NS_ASSERTION(false, "Trying to bind a fragment to a tree");
     return NS_ERROR_NOT_IMPLEMENTED;
   }
 
-  virtual void UnbindFromTree(bool aDeep, bool aNullParent) override {
+  virtual void UnbindFromTree(bool aNullParent) override {
     NS_ASSERTION(false, "Trying to unbind a fragment from a tree");
   }
 
@@ -74,6 +73,11 @@ class DocumentFragment : public FragmentOrElement {
   Element* GetHost() const { return mHost; }
 
   void SetHost(Element* aHost) { mHost = aHost; }
+
+  void GetInnerHTML(nsAString& aInnerHTML) { GetMarkup(false, aInnerHTML); }
+  void SetInnerHTML(const nsAString& aInnerHTML, ErrorResult& aError) {
+    SetInnerHTMLInternal(aInnerHTML, aError);
+  }
 
   static already_AddRefed<DocumentFragment> Constructor(
       const GlobalObject& aGlobal, ErrorResult& aRv);
@@ -85,7 +89,7 @@ class DocumentFragment : public FragmentOrElement {
 #endif
 
  protected:
-  virtual ~DocumentFragment() {}
+  virtual ~DocumentFragment() = default;
 
   nsresult Clone(dom::NodeInfo* aNodeInfo, nsINode** aResult) const override;
   RefPtr<Element> mHost;

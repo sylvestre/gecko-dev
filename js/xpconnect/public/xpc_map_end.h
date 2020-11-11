@@ -8,15 +8,15 @@
 // of the file doing the including.
 
 #ifndef XPC_MAP_CLASSNAME
-#error "Must #define XPC_MAP_CLASSNAME before #including xpc_map_end.h"
+#  error "Must #define XPC_MAP_CLASSNAME before #including xpc_map_end.h"
 #endif
 
 #ifndef XPC_MAP_QUOTED_CLASSNAME
-#error "Must #define XPC_MAP_QUOTED_CLASSNAME before #including xpc_map_end.h"
+#  error "Must #define XPC_MAP_QUOTED_CLASSNAME before #including xpc_map_end.h"
 #endif
 
 #ifndef XPC_MAP_FLAGS
-#error "Must #define XPC_MAP_FLAGS before #including xpc_map_end.h"
+#  error "Must #define XPC_MAP_FLAGS before #including xpc_map_end.h"
 #endif
 
 #include "js/Id.h"
@@ -34,15 +34,12 @@ NS_IMETHODIMP XPC_MAP_CLASSNAME::GetClassName(nsACString& aClassName) {
 uint32_t XPC_MAP_CLASSNAME::GetScriptableFlags() { return (XPC_MAP_FLAGS); }
 
 // virtual
-const js::Class* XPC_MAP_CLASSNAME::GetClass() {
-  static const js::ClassOps classOps = XPC_MAKE_CLASS_OPS(GetScriptableFlags());
-  static const js::Class klass =
+const JSClass* XPC_MAP_CLASSNAME::GetJSClass() {
+  static const JSClassOps classOps = XPC_MAKE_CLASS_OPS(GetScriptableFlags());
+  static const JSClass klass =
       XPC_MAKE_CLASS(XPC_MAP_QUOTED_CLASSNAME, GetScriptableFlags(), &classOps);
   return &klass;
 }
-
-// virtual
-const JSClass* XPC_MAP_CLASSNAME::GetJSClass() { return Jsvalify(GetClass()); }
 
 /**************************************************************/
 
@@ -58,16 +55,7 @@ NS_IMETHODIMP XPC_MAP_CLASSNAME::PreCreate(nsISupports* nativeObj,
 #if !((XPC_MAP_FLAGS)&XPC_SCRIPTABLE_WANT_NEWENUMERATE)
 NS_IMETHODIMP XPC_MAP_CLASSNAME::NewEnumerate(
     nsIXPConnectWrappedNative* wrapper, JSContext* cx, JSObject* obj,
-    JS::AutoIdVector& properties, bool enumerableOnly, bool* _retval) {
-  NS_ERROR("never called");
-  return NS_ERROR_NOT_IMPLEMENTED;
-}
-#endif
-
-#if !((XPC_MAP_FLAGS)&XPC_SCRIPTABLE_WANT_ENUMERATE)
-NS_IMETHODIMP XPC_MAP_CLASSNAME::Enumerate(nsIXPConnectWrappedNative* wrapper,
-                                           JSContext* cx, JSObject* obj,
-                                           bool* _retval) {
+    JS::MutableHandleIdVector properties, bool enumerableOnly, bool* _retval) {
   NS_ERROR("never called");
   return NS_ERROR_NOT_IMPLEMENTED;
 }

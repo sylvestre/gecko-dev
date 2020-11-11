@@ -18,6 +18,7 @@
 class nsDisplayRangeFocusRing;
 
 namespace mozilla {
+class PresShell;
 namespace dom {
 class Event;
 }  // namespace dom
@@ -25,15 +26,15 @@ class Event;
 
 class nsRangeFrame final : public nsContainerFrame,
                            public nsIAnonymousContentCreator {
-  friend nsIFrame* NS_NewRangeFrame(nsIPresShell* aPresShell,
+  friend nsIFrame* NS_NewRangeFrame(mozilla::PresShell* aPresShell,
                                     ComputedStyle* aStyle);
 
   friend class nsDisplayRangeFocusRing;
 
-  explicit nsRangeFrame(ComputedStyle* aStyle);
+  explicit nsRangeFrame(ComputedStyle* aStyle, nsPresContext* aPresContext);
   virtual ~nsRangeFrame();
 
-  typedef mozilla::CSSPseudoElementType CSSPseudoElementType;
+  typedef mozilla::PseudoStyleType PseudoStyleType;
   typedef mozilla::dom::Element Element;
 
  public:
@@ -41,9 +42,6 @@ class nsRangeFrame final : public nsContainerFrame,
   NS_DECL_FRAMEARENA_HELPERS(nsRangeFrame)
 
   // nsIFrame overrides
-  virtual void Init(nsIContent* aContent, nsContainerFrame* aParent,
-                    nsIFrame* aPrevInFlow) override;
-
   virtual void DestroyFrom(nsIFrame* aDestructRoot,
                            PostDestroyData& aPostDestroyData) override;
 
@@ -56,7 +54,7 @@ class nsRangeFrame final : public nsContainerFrame,
 
 #ifdef DEBUG_FRAME_DUMP
   virtual nsresult GetFrameName(nsAString& aResult) const override {
-    return MakeFrameName(NS_LITERAL_STRING("Range"), aResult);
+    return MakeFrameName(u"Range"_ns, aResult);
   }
 #endif
 
@@ -76,8 +74,9 @@ class nsRangeFrame final : public nsContainerFrame,
   virtual mozilla::LogicalSize ComputeAutoSize(
       gfxContext* aRenderingContext, mozilla::WritingMode aWM,
       const mozilla::LogicalSize& aCBSize, nscoord aAvailableISize,
-      const mozilla::LogicalSize& aMargin, const mozilla::LogicalSize& aBorder,
-      const mozilla::LogicalSize& aPadding, ComputeSizeFlags aFlags) override;
+      const mozilla::LogicalSize& aMargin,
+      const mozilla::LogicalSize& aBorderPadding,
+      mozilla::ComputeSizeFlags aFlags) override;
 
   virtual nscoord GetMinISize(gfxContext* aRenderingContext) override;
   virtual nscoord GetPrefISize(gfxContext* aRenderingContext) override;
@@ -86,10 +85,6 @@ class nsRangeFrame final : public nsContainerFrame,
     return nsContainerFrame::IsFrameOfType(
         aFlags & ~(nsIFrame::eReplaced | nsIFrame::eReplacedContainsBlock));
   }
-
-  ComputedStyle* GetAdditionalComputedStyle(int32_t aIndex) const override;
-  void SetAdditionalComputedStyle(int32_t aIndex,
-                                  ComputedStyle* aComputedStyle) override;
 
   /**
    * Returns true if the slider's thumb moves horizontally, or else false if it
@@ -110,8 +105,7 @@ class nsRangeFrame final : public nsContainerFrame,
    */
   bool IsRightToLeft() const {
     MOZ_ASSERT(IsHorizontal());
-    mozilla::WritingMode wm = GetWritingMode();
-    return wm.IsVertical() ? wm.IsVerticalRL() : !wm.IsBidiLTR();
+    return GetWritingMode().IsPhysicalRTL();
   }
 
   double GetMin() const;
@@ -143,7 +137,11 @@ class nsRangeFrame final : public nsContainerFrame,
   void UpdateForValueChange();
 
  private:
-  nsresult MakeAnonymousDiv(Element** aResult, CSSPseudoElementType aPseudoType,
+  // Return our preferred size in the cross-axis (the axis perpendicular
+  // to the direction of movement of the thumb).
+  nscoord AutoCrossSize(mozilla::Length aEm);
+
+  nsresult MakeAnonymousDiv(Element** aResult, PseudoStyleType aPseudoType,
                             nsTArray<ContentInfo>& aElements);
 
   // Helper function which reflows the anonymous div frames.
@@ -175,28 +173,6 @@ class nsRangeFrame final : public nsContainerFrame,
    * @see nsRangeFrame::CreateAnonymousContent
    */
   nsCOMPtr<Element> mThumbDiv;
-
-  /**
-   * Cached ComputedStyle for -moz-focus-outer CSS pseudo-element style.
-   */
-  RefPtr<ComputedStyle> mOuterFocusStyle;
-
-  class DummyTouchListener final : public nsIDOMEventListener {
-   private:
-    ~DummyTouchListener() {}
-
-   public:
-    NS_DECL_ISUPPORTS
-
-    NS_IMETHOD HandleEvent(mozilla::dom::Event* aEvent) override {
-      return NS_OK;
-    }
-  };
-
-  /**
-   * A no-op touch-listener used for APZ purposes (see nsRangeFrame::Init).
-   */
-  RefPtr<DummyTouchListener> mDummyTouchListener;
 };
 
 #endif

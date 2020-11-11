@@ -5,84 +5,108 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 EXPORTS += [
-    'external_api/moz_external_vr.h',
-    'gfxVR.h',
-    'gfxVRExternal.h',
-    'ipc/VRChild.h',
-    'ipc/VRGPUChild.h',
-    'ipc/VRGPUParent.h',
-    'ipc/VRLayerChild.h',
-    'ipc/VRManagerChild.h',
-    'ipc/VRManagerParent.h',
-    'ipc/VRMessageUtils.h',
-    'ipc/VRParent.h',
-    'ipc/VRProcessChild.h',
-    'ipc/VRProcessManager.h',
-    'ipc/VRProcessParent.h',
-    'VRDisplayClient.h',
-    'VRDisplayHost.h',
-    'VRDisplayPresentation.h',
-    'VRManager.h',
-    'VRThread.h',
+    "external_api/moz_external_vr.h",
+    "FxROutputHandler.h",
+    "FxRWindowManager.h",
+    "gfxVR.h",
+    "ipc/VRChild.h",
+    "ipc/VRGPUChild.h",
+    "ipc/VRGPUParent.h",
+    "ipc/VRLayerChild.h",
+    "ipc/VRManagerChild.h",
+    "ipc/VRManagerParent.h",
+    "ipc/VRMessageUtils.h",
+    "ipc/VRParent.h",
+    "ipc/VRProcessChild.h",
+    "ipc/VRProcessManager.h",
+    "ipc/VRProcessParent.h",
+    "service/VRService.h",
+    "VRDisplayClient.h",
+    "VRDisplayPresentation.h",
+    "VRManager.h",
+    "VRPuppetCommandBuffer.h",
+    "VRShMem.h",
+    "VRThread.h",
 ]
 
 LOCAL_INCLUDES += [
-    '/dom/base',
-    '/gfx/layers/d3d11',
-    '/gfx/thebes',
+    "/dom/base",
+    "/dom/canvas",
+    "/gfx/layers/d3d11",
+    "/gfx/thebes",
 ]
 
 UNIFIED_SOURCES += [
-    'gfxVR.cpp',
-    'ipc/VRChild.cpp',
-    'ipc/VRGPUChild.cpp',
-    'ipc/VRGPUParent.cpp',
-    'ipc/VRLayerChild.cpp',
-    'ipc/VRLayerParent.cpp',
-    'ipc/VRManagerChild.cpp',
-    'ipc/VRManagerParent.cpp',
-    'ipc/VRParent.cpp',
-    'ipc/VRProcessChild.cpp',
-    'ipc/VRProcessManager.cpp',
-    'ipc/VRProcessParent.cpp',
-    'VRDisplayClient.cpp',
-    'VRDisplayPresentation.cpp',
-    'VRManager.cpp',
-    'VRThread.cpp',
+    "gfxVR.cpp",
+    "ipc/VRChild.cpp",
+    "ipc/VRGPUChild.cpp",
+    "ipc/VRGPUParent.cpp",
+    "ipc/VRManagerChild.cpp",
+    "ipc/VRManagerParent.cpp",
+    "ipc/VRParent.cpp",
+    "ipc/VRProcessChild.cpp",
+    "ipc/VRProcessManager.cpp",
+    "ipc/VRProcessParent.cpp",
+    "VRDisplayClient.cpp",
+    "VRDisplayPresentation.cpp",
+    "VRThread.cpp",
 ]
 
-# VRDisplayHost includes MacIOSurface.h which includes Mac headers
-# which define Size and Points types in the root namespace that
-# often conflict with our own types.
 SOURCES += [
-    'gfxVRExternal.cpp',
-    'gfxVRPuppet.cpp',
-    'VRDisplayHost.cpp',
-    'VRDisplayLocal.cpp',
+    "ipc/VRLayerChild.cpp",
+    "ipc/VRLayerParent.cpp",
+    "VRManager.cpp",
+    "VRPuppetCommandBuffer.cpp",
+    "VRShMem.cpp",
 ]
 
-if CONFIG['OS_TARGET'] == 'Android':
-    LOCAL_INCLUDES += ['/widget/android']
+if CONFIG["OS_TARGET"] == "Android":
+    LOCAL_INCLUDES += ["/widget/android"]
 else:
     DIRS += [
-        'service',
+        "service",
+    ]
+    UNIFIED_SOURCES += [
+        "VRServiceHost.cpp",
     ]
 
+# Only target x64 for vrhost since WebVR is only supported on 64bit.
+# Also, only use MSVC compiler for Windows-specific linking
+if (
+    CONFIG["OS_ARCH"] == "WINNT"
+    and CONFIG["HAVE_64BIT_BUILD"]
+    and CONFIG["CC_TYPE"] not in ("clang", "gcc")
+):
+    DIRS += ["vrhost"]
+
 IPDL_SOURCES = [
-    'ipc/PVR.ipdl',
-    'ipc/PVRGPU.ipdl',
-    'ipc/PVRLayer.ipdl',
-    'ipc/PVRManager.ipdl',
+    "ipc/PVR.ipdl",
+    "ipc/PVRGPU.ipdl",
+    "ipc/PVRLayer.ipdl",
+    "ipc/PVRManager.ipdl",
 ]
 
-CXXFLAGS += CONFIG['MOZ_CAIRO_CFLAGS']
-CXXFLAGS += CONFIG['TK_CFLAGS']
-CFLAGS += CONFIG['MOZ_CAIRO_CFLAGS']
-CFLAGS += CONFIG['TK_CFLAGS']
+# For now, only enable FxR CLH for Windows Nightly builds (BUG 1565349)
+if CONFIG["OS_ARCH"] == "WINNT" and CONFIG["NIGHTLY_BUILD"]:
+    XPCOM_MANIFESTS += [
+        "components.conf",
+    ]
+    SOURCES += [
+        "nsFxrCommandLineHandler.cpp",
+    ]
 
-include('/ipc/chromium/chromium-config.mozbuild')
+if CONFIG["OS_ARCH"] == "WINNT":
+    LOCAL_INCLUDES += ["/layout/generic", "/widget", "/widget/windows"]
+    SOURCES += ["FxROutputHandler.cpp", "FxRWindowManager.cpp"]
 
-FINAL_LIBRARY = 'xul'
+CXXFLAGS += CONFIG["MOZ_CAIRO_CFLAGS"]
+CXXFLAGS += CONFIG["TK_CFLAGS"]
+CFLAGS += CONFIG["MOZ_CAIRO_CFLAGS"]
+CFLAGS += CONFIG["TK_CFLAGS"]
 
-if CONFIG['CC_TYPE'] == 'clang-cl':
-    AllowCompilerWarnings()  # workaround for bug 1090497
+include("/ipc/chromium/chromium-config.mozbuild")
+
+FINAL_LIBRARY = "xul"
+
+with Files("**"):
+    BUG_COMPONENT = ("Core", "WebVR")

@@ -5,16 +5,15 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "mozilla/dom/PaymentRequestBinding.h"
+#include "mozilla/dom/ToJSValue.h"
 #include "nsArrayUtils.h"
+#include "nsComponentManagerUtils.h"
 #include "nsIMutableArray.h"
-#include "nsISupportsPrimitives.h"
 #include "nsUnicharUtils.h"
 #include "PaymentRequestData.h"
 #include "PaymentRequestUtils.h"
 
-namespace mozilla {
-namespace dom {
-namespace payments {
+namespace mozilla::dom::payments {
 
 /* PaymentMethodData */
 
@@ -172,7 +171,7 @@ nsresult PaymentDetailsModifier::Create(
         return rv;
       }
     }
-    displayItems = items.forget();
+    displayItems = std::move(items);
   }
   nsCOMPtr<nsIPaymentDetailsModifier> modifier =
       new PaymentDetailsModifier(aIPCModifier.supportedMethods(), total,
@@ -323,7 +322,7 @@ nsresult PaymentDetails::Create(const IPCPaymentDetails& aIPCDetails,
       return rv;
     }
   }
-  displayItems = items.forget();
+  displayItems = std::move(items);
 
   nsCOMPtr<nsIArray> shippingOptions;
   nsCOMPtr<nsIMutableArray> options = do_CreateInstance(NS_ARRAY_CONTRACTID);
@@ -340,7 +339,7 @@ nsresult PaymentDetails::Create(const IPCPaymentDetails& aIPCDetails,
       return rv;
     }
   }
-  shippingOptions = options.forget();
+  shippingOptions = std::move(options);
 
   nsCOMPtr<nsIArray> modifiers;
   nsCOMPtr<nsIMutableArray> detailsModifiers =
@@ -358,7 +357,7 @@ nsresult PaymentDetails::Create(const IPCPaymentDetails& aIPCDetails,
       return rv;
     }
   }
-  modifiers = detailsModifiers.forget();
+  modifiers = std::move(detailsModifiers);
 
   nsCOMPtr<nsIPaymentDetails> details = new PaymentDetails(
       aIPCDetails.id(), total, displayItems, shippingOptions, modifiers,
@@ -805,6 +804,4 @@ PaymentAddress::GetPhone(nsAString& aPhone) {
   return NS_OK;
 }
 
-}  // namespace payments
-}  // end of namespace dom
-}  // end of namespace mozilla
+}  // namespace mozilla::dom::payments

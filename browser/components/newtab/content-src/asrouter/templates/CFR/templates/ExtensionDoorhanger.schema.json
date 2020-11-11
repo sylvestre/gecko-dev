@@ -15,11 +15,33 @@
     }
   },
   "properties": {
+    "category": {
+      "type": "string",
+      "description": "Attribute used for different groups of messages from the same provider"
+    },
+    "layout": {
+      "type": "string",
+      "description": "Attribute used for different groups of messages from the same provider",
+      "enum": ["short_message", "message_and_animation", "icon_and_message", "addon_recommendation"]
+    },
+    "anchor_id": {
+      "type": "string",
+      "description": "A DOM element ID that the pop-over will be anchored."
+    },
     "bucket_id": {
       "type": "string",
-      "description": "Bucket identifier for the addon."
+      "description": "A bucket identifier for the addon. This is used in order to anonymize telemetry for history-sensitive targeting."
+    },
+    "skip_address_bar_notifier": {
+      "type": "boolean",
+      "description": "Skip the 'Recommend' notifier and show directly."
+    },
+    "persistent_doorhanger": {
+      "type": "boolean",
+      "description": "Prevent the doorhanger from being dismissed if user interacts with the page or switches between applications."
     },
     "notification_text": {
+      "description": "The text in the small blue chicklet that appears in the URL bar. This can be a reference to a localized string in Firefox or just a plain string.",
       "oneOf": [
         {
           "type": "string",
@@ -35,11 +57,11 @@
           },
           "required": ["string_id"]
         }
-      ],
-      "description": "Id of localized string or message override."
+      ]
     },
     "info_icon": {
       "type": "object",
+      "description": "The small icon displayed in the top right corner of the pop-over. Should be 19x19px, svg or png. Defaults to a small question mark." ,
       "properties": {
         "label": {
           "oneOf": [
@@ -78,7 +100,13 @@
         }
       }
     },
+    "learn_more": {
+      "type": "string",
+      "description": "Last part of the path in the SUMO URL to the support page with the information about the doorhanger.",
+      "examples": ["extensionpromotions", "extensionrecommendations"]
+    },
     "heading_text": {
+      "description": "The larger heading text displayed in the pop-over. This can be a reference to a localized string in Firefox or just a plain string.",
       "oneOf": [
         {
           "type": "string",
@@ -94,10 +122,25 @@
           "required": ["string_id"],
           "description": "Id of localized string for extension doorhanger title"
         }
-      ],
-      "description": "Id of localized string or message override."
+      ]
+    },
+    "icon": {
+      "description": "The icon displayed in the pop-over. Should be 32x32px or 64x64px and png/svg.",
+      "allOf": [
+        {"$ref": "#/definitions/linkUrl"},
+        {"description": "Icon associated with the message"}
+      ]
+    },
+    "icon_dark_theme": {
+      "type": "string",
+      "description": "Pop-over icon, dark theme variant. Should be 32x32px or 64x64px and png/svg."
+    },
+    "icon_class": {
+      "type": "string",
+      "description": "CSS class of the pop-over icon."
     },
     "addon": {
+      "description": "Addon information including AMO URL.",
       "type": "object",
       "properties": {
         "id": {
@@ -119,6 +162,7 @@
           ]
         },
         "icon": {
+          "description": "The icon displayed in the pop-over. Should be 64x64px and png/svg.",
           "allOf": [
             {"$ref": "#/definitions/linkUrl"},
             {"description": "Addon icon"}
@@ -145,6 +189,7 @@
       "required": ["title", "author", "icon", "amo_url"]
     },
     "text": {
+      "description": "The body text displayed in the pop-over. This can be a reference to a localized string in Firefox or just a plain string.",
       "oneOf": [
         {
           "type": "string",
@@ -160,10 +205,31 @@
           },
           "required": ["string_id"]
         }
-      ],
-      "description": "Id of localized string or message override."
+      ]
+    },
+    "descriptionDetails": {
+      "description": "Additional information and steps on how to use",
+      "type": "object",
+      "properties": {
+        "steps": {
+          "description": "Array of messages or string_ids",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "string_id": {
+                "type": "string",
+                "description": "Id of string to localized addon description"
+              }
+            },
+            "required": ["string_id"]
+          }
+        }
+      },
+      "required": ["steps"]
     },
     "buttons": {
+      "description": "The label and functionality for the buttons in the pop-over.",
       "type": "object",
       "properties": {
         "primary": {
@@ -218,7 +284,7 @@
                 "data": {
                   "properties": {
                     "url": {
-                      "type": "null",
+                      "type": "string",
                       "$comment": "This is dynamically generated from the addon.id. See CFRPageActions.jsm",
                       "description": "URL used in combination with the primary action dispatched."
                     }
@@ -295,5 +361,5 @@
     }
   },
   "additionalProperties": false,
-  "required": ["bucket_id", "notification_text", "heading_text", "addon", "text", "buttons"]
+  "required": ["layout", "category", "bucket_id", "notification_text", "heading_text", "text", "buttons"]
 }

@@ -9,7 +9,6 @@
 #include "nsDebug.h"
 #include "nsIWidget.h"
 #include "gfxPlatform.h"
-#include "gfxPrefs.h"
 #include "gfxWindowsSurface.h"
 
 #include "gfxCrashReporterUtils.h"
@@ -68,6 +67,12 @@ static inline bool HasExtension(const char* aExtensions,
       reinterpret_cast<const GLubyte*>(aExtensions), aRequiredExtension);
 }
 
+SymbolLoader WGLLibrary::GetSymbolLoader() const {
+  auto ret = SymbolLoader(*mOGLLibrary);
+  ret.mPfn = SymbolLoader::GetProcAddressT(mSymbols.fGetProcAddress);
+  return ret;
+}
+
 bool WGLLibrary::EnsureInitialized() {
   if (mInitialized) return true;
 
@@ -88,24 +93,29 @@ bool WGLLibrary::EnsureInitialized() {
     }
   }
 
-#define SYMBOL(X)                                     \
-  {                                                   \
-    (PRFuncPtr*)&mSymbols.f##X, { "wgl" #X, nullptr } \
+#define SYMBOL(X)                 \
+  {                               \
+    (PRFuncPtr*)&mSymbols.f##X, { \
+      { "wgl" #X }                \
+    }                             \
   }
-#define END_OF_SYMBOLS   \
-  {                      \
-    nullptr, { nullptr } \
-  }
+#define END_OF_SYMBOLS {nullptr, {}}
 
-  const GLLibraryLoader::SymLoadStruct earlySymbols[] = {
-      SYMBOL(CreateContext), SYMBOL(MakeCurrent),       SYMBOL(GetProcAddress),
-      SYMBOL(DeleteContext), SYMBOL(GetCurrentContext), SYMBOL(GetCurrentDC),
-      END_OF_SYMBOLS};
+  {
+    const auto loader = SymbolLoader(*mOGLLibrary);
+    const SymLoadStruct earlySymbols[] = {SYMBOL(CreateContext),
+                                          SYMBOL(MakeCurrent),
+                                          SYMBOL(GetProcAddress),
+                                          SYMBOL(DeleteContext),
+                                          SYMBOL(GetCurrentContext),
+                                          SYMBOL(GetCurrentDC),
+                                          END_OF_SYMBOLS};
 
-  if (!GLLibraryLoader::LoadSymbols(mOGLLibrary, &earlySymbols[0])) {
-    NS_WARNING(
-        "Couldn't find required entry points in OpenGL DLL (early init)");
-    return false;
+    if (!loader.LoadSymbols(earlySymbols)) {
+      NS_WARNING(
+          "Couldn't find required entry points in OpenGL DLL (early init)");
+      return false;
+    }
   }
 
   mDummyWindow = CreateDummyWindow();
@@ -156,26 +166,25 @@ bool WGLLibrary::EnsureInitialized() {
   const auto resetContext =
       MakeScopeExit([&]() { mSymbols.fMakeCurrent(curDC, curCtx); });
 
-  const auto lookupFunc =
-      (GLLibraryLoader::PlatformLookupFunction)mSymbols.fGetProcAddress;
+  const auto loader = GetSymbolLoader();
 
   // Now we can grab all the other symbols that we couldn't without having
   // a context current.
   // clang-format off
-    const GLLibraryLoader::SymLoadStruct reqExtSymbols[] = {
-        { (PRFuncPtr*)&mSymbols.fCreatePbuffer, { "wglCreatePbufferARB", "wglCreatePbufferEXT", nullptr } },
-        { (PRFuncPtr*)&mSymbols.fDestroyPbuffer, { "wglDestroyPbufferARB", "wglDestroyPbufferEXT", nullptr } },
-        { (PRFuncPtr*)&mSymbols.fGetPbufferDC, { "wglGetPbufferDCARB", "wglGetPbufferDCEXT", nullptr } },
-        { (PRFuncPtr*)&mSymbols.fReleasePbufferDC, { "wglReleasePbufferDCARB", "wglReleasePbufferDCEXT", nullptr } },
-    //    { (PRFuncPtr*)&mSymbols.fBindTexImage, { "wglBindTexImageARB", "wglBindTexImageEXT", nullptr } },
-    //    { (PRFuncPtr*)&mSymbols.fReleaseTexImage, { "wglReleaseTexImageARB", "wglReleaseTexImageEXT", nullptr } },
-        { (PRFuncPtr*)&mSymbols.fChoosePixelFormat, { "wglChoosePixelFormatARB", "wglChoosePixelFormatEXT", nullptr } },
-    //    { (PRFuncPtr*)&mSymbols.fGetPixelFormatAttribiv, { "wglGetPixelFormatAttribivARB", "wglGetPixelFormatAttribivEXT", nullptr } },
+    const SymLoadStruct reqExtSymbols[] = {
+        { (PRFuncPtr*)&mSymbols.fCreatePbuffer, {{ "wglCreatePbufferARB", "wglCreatePbufferEXT" }} },
+        { (PRFuncPtr*)&mSymbols.fDestroyPbuffer, {{ "wglDestroyPbufferARB", "wglDestroyPbufferEXT" }} },
+        { (PRFuncPtr*)&mSymbols.fGetPbufferDC, {{ "wglGetPbufferDCARB", "wglGetPbufferDCEXT" }} },
+        { (PRFuncPtr*)&mSymbols.fReleasePbufferDC, {{ "wglReleasePbufferDCARB", "wglReleasePbufferDCEXT" }} },
+    //    { (PRFuncPtr*)&mSymbols.fBindTexImage, {{ "wglBindTexImageARB", "wglBindTexImageEXT" }} },
+    //    { (PRFuncPtr*)&mSymbols.fReleaseTexImage, {{ "wglReleaseTexImageARB", "wglReleaseTexImageEXT" }} },
+        { (PRFuncPtr*)&mSymbols.fChoosePixelFormat, {{ "wglChoosePixelFormatARB", "wglChoosePixelFormatEXT" }} },
+    //    { (PRFuncPtr*)&mSymbols.fGetPixelFormatAttribiv, {{ "wglGetPixelFormatAttribivARB", "wglGetPixelFormatAttribivEXT" }} },
         SYMBOL(GetExtensionsStringARB),
         END_OF_SYMBOLS
     };
   // clang-format on
-  if (!GLLibraryLoader::LoadSymbols(mOGLLibrary, reqExtSymbols, lookupFunc)) {
+  if (!loader.LoadSymbols(reqExtSymbols)) {
     NS_WARNING("reqExtSymbols missing");
     return false;
   }
@@ -189,10 +198,9 @@ bool WGLLibrary::EnsureInitialized() {
   // --
 
   if (HasExtension(extString, "WGL_ARB_create_context")) {
-    const GLLibraryLoader::SymLoadStruct createContextSymbols[] = {
+    const SymLoadStruct createContextSymbols[] = {
         SYMBOL(CreateContextAttribsARB), END_OF_SYMBOLS};
-    if (GLLibraryLoader::LoadSymbols(mOGLLibrary, createContextSymbols,
-                                     lookupFunc)) {
+    if (loader.LoadSymbols(createContextSymbols)) {
       if (HasExtension(extString, "WGL_ARB_create_context_robustness")) {
         mHasRobustness = true;
       }
@@ -206,12 +214,13 @@ bool WGLLibrary::EnsureInitialized() {
   // --
 
   bool hasDXInterop2 = HasExtension(extString, "WGL_NV_DX_interop2");
-  if (gfxVars::DXInterop2Blocked() && !gfxPrefs::IgnoreDXInterop2Blacklist()) {
+  if (gfxVars::DXInterop2Blocked() &&
+      !StaticPrefs::gl_ignore_dx_interop2_blacklist()) {
     hasDXInterop2 = false;
   }
 
   if (hasDXInterop2) {
-    const GLLibraryLoader::SymLoadStruct dxInteropSymbols[] = {
+    const SymLoadStruct dxInteropSymbols[] = {
         SYMBOL(DXSetResourceShareHandleNV),
         SYMBOL(DXOpenDeviceNV),
         SYMBOL(DXCloseDeviceNV),
@@ -221,8 +230,7 @@ bool WGLLibrary::EnsureInitialized() {
         SYMBOL(DXLockObjectsNV),
         SYMBOL(DXUnlockObjectsNV),
         END_OF_SYMBOLS};
-    if (!GLLibraryLoader::LoadSymbols(mOGLLibrary, dxInteropSymbols,
-                                      lookupFunc)) {
+    if (!loader.LoadSymbols(dxInteropSymbols)) {
       NS_ERROR(
           "WGL_NV_DX_interop2 announceed without supplying its functions.");
       ClearSymbols(dxInteropSymbols);
@@ -257,20 +265,18 @@ void WGLLibrary::Reset() {
   }
 }
 
-GLContextWGL::GLContextWGL(CreateContextFlags flags, const SurfaceCaps& caps,
-                           bool isOffscreen, HDC aDC, HGLRC aContext,
+GLContextWGL::GLContextWGL(const GLContextDesc& desc, HDC aDC, HGLRC aContext,
                            HWND aWindow)
-    : GLContext(flags, caps, nullptr, isOffscreen),
+    : GLContext(desc, nullptr, false),
       mDC(aDC),
       mContext(aContext),
       mWnd(aWindow),
       mPBuffer(nullptr),
       mPixelFormat(0) {}
 
-GLContextWGL::GLContextWGL(CreateContextFlags flags, const SurfaceCaps& caps,
-                           bool isOffscreen, HANDLE aPbuffer, HDC aDC,
+GLContextWGL::GLContextWGL(const GLContextDesc& desc, HANDLE aPbuffer, HDC aDC,
                            HGLRC aContext, int aPixelFormat)
-    : GLContext(flags, caps, nullptr, isOffscreen),
+    : GLContext(desc, nullptr, false),
       mDC(aDC),
       mContext(aContext),
       mWnd(nullptr),
@@ -292,18 +298,6 @@ GLContextWGL::~GLContextWGL() {
   }
 }
 
-bool GLContextWGL::Init() {
-  if (!mDC || !mContext) return false;
-
-  // see bug 929506 comment 29. wglGetProcAddress requires a current context.
-  if (!sWGLLib.mSymbols.fMakeCurrent(mDC, mContext)) return false;
-
-  SetupLookupFunction();
-  if (!InitWithPrefix("gl", true)) return false;
-
-  return true;
-}
-
 bool GLContextWGL::MakeCurrentImpl() const {
   const bool succeeded = sWGLLib.mSymbols.fMakeCurrent(mDC, mContext);
   NS_ASSERTION(succeeded, "Failed to make GL context current!");
@@ -322,22 +316,6 @@ bool GLContextWGL::SwapBuffers() {
 void GLContextWGL::GetWSIInfo(nsCString* const out) const {
   out->AppendLiteral("wglGetExtensionsString: ");
   out->Append(sWGLLib.mSymbols.fGetExtensionsStringARB(mDC));
-}
-
-bool GLContextWGL::SetupLookupFunction() {
-  // Make sure that we have a ref to the OGL library;
-  // when run under CodeXL, wglGetProcAddress won't return
-  // the right thing for some core functions.
-  MOZ_ASSERT(mLibrary == nullptr);
-
-  mLibrary = sWGLLib.GetOGLLibrary();
-  mLookupFunc = (PlatformLookupFunction)sWGLLib.mSymbols.fGetProcAddress;
-  return true;
-}
-
-already_AddRefed<GLContext> GLContextProviderWGL::CreateWrappingExisting(
-    void*, void*) {
-  return nullptr;
 }
 
 HGLRC
@@ -456,9 +434,7 @@ static RefPtr<GLContext> CreateForWidget(const HWND window,
   const auto context = sWGLLib.CreateContextWithFallback(dc, false);
   if (!context) return nullptr;
 
-  SurfaceCaps caps = SurfaceCaps::ForRGBA();
-  const RefPtr<GLContextWGL> gl = new GLContextWGL(
-      CreateContextFlags::NONE, SurfaceCaps::ForRGBA(), false, dc, context);
+  const RefPtr<GLContextWGL> gl = new GLContextWGL({}, dc, context);
   cleanupDc.release();
   gl->mIsDoubleBuffered = true;
   if (!gl->Init()) return nullptr;
@@ -467,23 +443,20 @@ static RefPtr<GLContext> CreateForWidget(const HWND window,
 }
 
 already_AddRefed<GLContext> GLContextProviderWGL::CreateForCompositorWidget(
-    CompositorWidget* aCompositorWidget, bool aForceAccelerated) {
-  return CreateForWidget(
-             aCompositorWidget->AsWindows()->GetHwnd(),
-             aCompositorWidget->GetCompositorOptions().UseWebRender(),
-             aForceAccelerated)
+    CompositorWidget* aCompositorWidget, bool aWebRender,
+    bool aForceAccelerated) {
+  if (!aCompositorWidget) {
+    MOZ_ASSERT(false);
+    return nullptr;
+  }
+  return CreateForWidget(aCompositorWidget->AsWindows()->GetHwnd(), aWebRender,
+                         aForceAccelerated)
       .forget();
 }
 
-already_AddRefed<GLContext> GLContextProviderWGL::CreateForWindow(
-    nsIWidget* aWidget, bool aWebRender, bool aForceAccelerated) {
-  return CreateForWidget((HWND)aWidget->GetNativeData(NS_NATIVE_WINDOW),
-                         aWebRender, aForceAccelerated)
-      .forget();
-}
-
-/*static*/ already_AddRefed<GLContext> GLContextProviderWGL::CreateHeadless(
-    const CreateContextFlags flags, nsACString* const out_failureId) {
+/*static*/
+already_AddRefed<GLContext> GLContextProviderWGL::CreateHeadless(
+    const GLContextCreateDesc& desc, nsACString* const out_failureId) {
   auto& wgl = sWGLLib;
   if (!wgl.EnsureInitialized()) return nullptr;
 
@@ -527,10 +500,9 @@ already_AddRefed<GLContext> GLContextProviderWGL::CreateForWindow(
   const auto context = wgl.CreateContextWithFallback(dc, true);
   if (!context) return nullptr;
 
-  const bool isOffscreen = true;
+  const auto fullDesc = GLContextDesc{desc, true};
   const RefPtr<GLContextWGL> gl =
-      new GLContextWGL(flags, SurfaceCaps::Any(), isOffscreen, pbuffer, dc,
-                       context, chosenFormat);
+      new GLContextWGL(fullDesc, pbuffer, dc, context, chosenFormat);
   cleanupPbuffer.release();
   cleanupDc.release();
   if (!gl->Init()) return nullptr;
@@ -538,24 +510,11 @@ already_AddRefed<GLContext> GLContextProviderWGL::CreateForWindow(
   return RefPtr<GLContext>(gl.get()).forget();
 }
 
-/*static*/ already_AddRefed<GLContext> GLContextProviderWGL::CreateOffscreen(
-    const IntSize& size, const SurfaceCaps& minCaps, CreateContextFlags flags,
-    nsACString* const out_failureId) {
-  *out_failureId = NS_LITERAL_CSTRING("FEATURE_FAILURE_WGL_INIT");
+/*static*/
+GLContext* GLContextProviderWGL::GetGlobalContext() { return nullptr; }
 
-  RefPtr<GLContext> gl = CreateHeadless(flags, out_failureId);
-  if (!gl) return nullptr;
-
-  if (!gl->InitOffscreen(size, minCaps)) return nullptr;
-
-  return gl.forget();
-}
-
-/*static*/ GLContext* GLContextProviderWGL::GetGlobalContext() {
-  return nullptr;
-}
-
-/*static*/ void GLContextProviderWGL::Shutdown() {}
+/*static*/
+void GLContextProviderWGL::Shutdown() {}
 
 } /* namespace gl */
 } /* namespace mozilla */

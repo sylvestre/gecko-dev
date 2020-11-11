@@ -4,7 +4,7 @@
 
 "use strict";
 
-/* global worker */
+/* global worker, DebuggerNotificationObserver */
 
 // A CommonJS module loader that is designed to run inside a worker debugger.
 // We can't simply use the SDK module loader, because it relies heavily on
@@ -123,79 +123,6 @@ function createModule(id) {
   });
 }
 
-function defineLazyGetter(object, prop, getter) {
-  const redefine = (obj, value) => {
-    Object.defineProperty(obj, prop, {
-      configurable: true,
-      writable: true,
-      value,
-    });
-    return value;
-  };
-
-  Object.defineProperty(object, prop, {
-    configurable: true,
-    get() {
-      return redefine(this, getter.call(this));
-    },
-    set(value) {
-      redefine(this, value);
-    },
-  });
-}
-
-/**
- * Defines lazy getters on the given object, which lazily require the
- * given module the first time they are accessed, and then resolve that
- * module's exported properties.
- *
- * @param {object} obj
- *        The target object on which to define the lazy getters.
- * @param {string} moduleId
- *        The ID of the module to require, as passed to require().
- * @param {Array<string | object>} args
- *        Any number of properties to import from the module. A string
- *        will cause the property to be defined which resolves to the
- *        same property in the module's exports. An object will define a
- *        lazy getter for every value in the object which corresponds to
- *        the given key in the module's exports, as in an ordinary
- *        destructuring assignment.
- */
-function lazyRequire(obj, moduleId, ...args) {
-  let module;
-  const getModule = () => {
-    if (!module) {
-      module = this.require(moduleId);
-    }
-    return module;
-  };
-
-  for (let props of args) {
-    if (typeof props !== "object") {
-      props = {[props]: props};
-    }
-
-    for (const [fromName, toName] of Object.entries(props)) {
-      defineLazyGetter(obj, toName, () => getModule()[fromName]);
-    }
-  }
-}
-
-/**
- * Defines a lazy getter on the given object which causes a module to be
- * lazily imported the first time it is accessed.
- *
- * @param {object} obj
- *        The target object on which to define the lazy getter.
- * @param {string} moduleId
- *        The ID of the module to require, as passed to require().
- * @param {string} [prop = moduleId]
- *        The name of the lazy getter property to define.
- */
-function lazyRequireModule(obj, moduleId, prop = moduleId) {
-  defineLazyGetter(obj, prop, () => this.require(moduleId));
-}
-
 /**
  * Create a CommonJS loader with the following options:
  * - createSandbox:
@@ -273,8 +200,9 @@ function WorkerDebuggerLoader(options) {
       loadSubScript(url, sandbox);
     } catch (error) {
       if (/^Error opening input stream/.test(String(error))) {
-        throw new Error("Can't load module '" + module.id + "' with url '" +
-                        url + "'!");
+        throw new Error(
+          "Can't load module '" + module.id + "' with url '" + url + "'!"
+        );
       }
       throw error;
     }
@@ -313,8 +241,12 @@ function WorkerDebuggerLoader(options) {
         // If the id is relative, convert it to an absolute id.
         if (id.startsWith(".")) {
           if (requirer === undefined) {
-            throw new Error("Can't require top-level module with relative id " +
-                            "'" + id + "'!");
+            throw new Error(
+              "Can't require top-level module with relative id " +
+                "'" +
+                id +
+                "'!"
+            );
           }
           id = resolve(id, requirer.id);
         }
@@ -379,8 +311,8 @@ function WorkerDebuggerLoader(options) {
   // longest path is always the first to be found.
   let paths = options.paths || Object.create(null);
   paths = Object.keys(paths)
-                .sort((a, b) => b.length - a.length)
-                .map(path => [path, paths[path]]);
+    .sort((a, b) => b.length - a.length)
+    .map(path => [path, paths[path]]);
 
   const resolve = options.resolve || resolveId;
 
@@ -422,11 +354,25 @@ var loader = {
   lazyServiceGetter: function() {
     throw new Error("Can't import XPCOM service from worker thread!");
   },
-  lazyRequireGetter: function(obj, property, module, destructure) {
-    Object.defineProperty(obj, property, {
-      get: () => destructure ? worker.require(module)[property]
-                             : worker.require(module || property),
-    });
+  lazyRequireGetter: function(obj, properties, module, destructure) {
+    if (Array.isArray(properties) && !destructure) {
+      throw new Error(
+        "Pass destructure=true to call lazyRequireGetter with an array of properties"
+      );
+    }
+
+    if (!Array.isArray(properties)) {
+      properties = [properties];
+    }
+
+    for (const property of properties) {
+      Object.defineProperty(obj, property, {
+        get: () =>
+          destructure
+            ? worker.require(module)[property]
+            : worker.require(module || property),
+      });
+    }
   },
 };
 
@@ -446,7 +392,7 @@ var {
   reportError,
   setImmediate,
   xpcInspector,
-} = (function() {
+} = function() {
   // Main thread
   if (typeof Components === "object") {
     const { Constructor: CC } = Components;
@@ -458,7 +404,7 @@ var {
     const sandbox = Cu.Sandbox(principal, {});
     Cu.evalInSandbox(
       "Components.utils.import('resource://gre/modules/jsdebugger.jsm');" +
-      "addDebuggerToGlobal(this);",
+        "addDebuggerToGlobal(this);",
       sandbox
     );
     const Debugger = sandbox.Debugger;
@@ -476,27 +422,33 @@ var {
     const rpc = undefined;
 
     // eslint-disable-next-line mozilla/use-services
-    const subScriptLoader = Cc["@mozilla.org/moz/jssubscript-loader;1"]
-                 .getService(Ci.mozIJSSubScriptLoader);
+    const subScriptLoader = Cc[
+      "@mozilla.org/moz/jssubscript-loader;1"
+    ].getService(Ci.mozIJSSubScriptLoader);
 
     const loadSubScript = function(url, sandbox) {
-      subScriptLoader.loadSubScript(url, sandbox, "UTF-8");
+      subScriptLoader.loadSubScript(url, sandbox);
     };
 
     const reportError = Cu.reportError;
 
-    const Timer = ChromeUtils.import("resource://gre/modules/Timer.jsm", {});
+    const Timer = ChromeUtils.import("resource://gre/modules/Timer.jsm");
 
     const setImmediate = function(callback) {
       Timer.setTimeout(callback, 0);
     };
 
-    const xpcInspector = Cc["@mozilla.org/jsinspector;1"]
-                       .getService(Ci.nsIJSInspector);
+    const xpcInspector = Cc["@mozilla.org/jsinspector;1"].getService(
+      Ci.nsIJSInspector
+    );
+
+    const { URL } = Cu.Sandbox(principal, {
+      wantGlobalProperties: ["URL"],
+    });
 
     return {
       Debugger,
-      URL: this.URL,
+      URL: URL,
       createSandbox,
       dump: this.dump,
       rpc,
@@ -544,7 +496,7 @@ var {
     setImmediate: this.setImmediate,
     xpcInspector: xpcInspector,
   };
-}).call(this);
+}.call(this);
 /* eslint-enable no-shadow */
 
 // Create the default instance of the worker loader, using the APIs we defined
@@ -553,31 +505,33 @@ var {
 this.worker = new WorkerDebuggerLoader({
   createSandbox: createSandbox,
   globals: {
-    "isWorker": true,
-    "dump": dump,
-    "loader": loader,
-    "reportError": reportError,
-    "rpc": rpc,
-    "URL": URL,
-    "setImmediate": setImmediate,
-    "lazyRequire": lazyRequire,
-    "lazyRequireModule": lazyRequireModule,
-    "retrieveConsoleEvents": this.retrieveConsoleEvents,
-    "setConsoleEventHandler": this.setConsoleEventHandler,
-    "console": console,
+    isWorker: true,
+    dump: dump,
+    loader: loader,
+    reportError: reportError,
+    rpc: rpc,
+    URL: URL,
+    setImmediate: setImmediate,
+    retrieveConsoleEvents: this.retrieveConsoleEvents,
+    setConsoleEventHandler: this.setConsoleEventHandler,
+    console: console,
+    btoa: this.btoa,
+    atob: this.atob,
   },
   loadSubScript: loadSubScript,
   modules: {
-    "Debugger": Debugger,
-    "Services": Object.create(null),
-    "chrome": chrome,
-    "xpcInspector": xpcInspector,
+    Debugger: Debugger,
+    Services: Object.create(null),
+    chrome: chrome,
+    xpcInspector: xpcInspector,
+    ChromeUtils: ChromeUtils,
+    DebuggerNotificationObserver: DebuggerNotificationObserver,
   },
   paths: {
     // ⚠ DISCUSSION ON DEV-DEVELOPER-TOOLS REQUIRED BEFORE MODIFYING ⚠
-    "devtools": "resource://devtools",
+    devtools: "resource://devtools",
     // ⚠ DISCUSSION ON DEV-DEVELOPER-TOOLS REQUIRED BEFORE MODIFYING ⚠
-    "promise": "resource://gre/modules/Promise-backend.js",
+    promise: "resource://gre/modules/Promise-backend.js",
     // ⚠ DISCUSSION ON DEV-DEVELOPER-TOOLS REQUIRED BEFORE MODIFYING ⚠
     "xpcshell-test": "resource://test",
     // ⚠ DISCUSSION ON DEV-DEVELOPER-TOOLS REQUIRED BEFORE MODIFYING ⚠

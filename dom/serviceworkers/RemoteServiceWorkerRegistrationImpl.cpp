@@ -7,6 +7,8 @@
 #include "RemoteServiceWorkerRegistrationImpl.h"
 
 #include "ServiceWorkerRegistrationChild.h"
+#include "mozilla/ipc/PBackgroundChild.h"
+#include "mozilla/ipc/BackgroundChild.h"
 
 namespace mozilla {
 namespace dom {
@@ -49,6 +51,7 @@ void RemoteServiceWorkerRegistrationImpl::ClearServiceWorkerRegistration(
 }
 
 void RemoteServiceWorkerRegistrationImpl::Update(
+    const nsCString& aNewestWorkerScriptUrl,
     ServiceWorkerRegistrationCallback&& aSuccessCB,
     ServiceWorkerFailureCallback&& aFailureCB) {
   if (!mActor) {
@@ -57,6 +60,7 @@ void RemoteServiceWorkerRegistrationImpl::Update(
   }
 
   mActor->SendUpdate(
+      aNewestWorkerScriptUrl,
       [successCB = std::move(aSuccessCB), aFailureCB](
           const IPCServiceWorkerRegistrationDescriptorOrCopyableErrorResult&
               aResult) {
@@ -92,7 +96,7 @@ void RemoteServiceWorkerRegistrationImpl::Unregister(
        aFailureCB](Tuple<bool, CopyableErrorResult>&& aResult) {
         if (Get<1>(aResult).Failed()) {
           // application layer error
-          aFailureCB(Get<1>(aResult));
+          aFailureCB(std::move(Get<1>(aResult)));
           return;
         }
         // success
@@ -106,30 +110,20 @@ void RemoteServiceWorkerRegistrationImpl::Unregister(
 
 RemoteServiceWorkerRegistrationImpl::RemoteServiceWorkerRegistrationImpl(
     const ServiceWorkerRegistrationDescriptor& aDescriptor)
-    : mActor(nullptr), mOuter(nullptr), mShutdown(false) {
-  PBackgroundChild* parentActor =
-      BackgroundChild::GetOrCreateForCurrentThread();
+    : mOuter(nullptr), mShutdown(false) {
+  ::mozilla::ipc::PBackgroundChild* parentActor =
+      ::mozilla::ipc::BackgroundChild::GetOrCreateForCurrentThread();
   if (NS_WARN_IF(!parentActor)) {
     Shutdown();
     return;
   }
 
-  RefPtr<WorkerHolderToken> workerHolderToken;
-  if (!NS_IsMainThread()) {
-    WorkerPrivate* workerPrivate = GetCurrentThreadWorkerPrivate();
-    MOZ_DIAGNOSTIC_ASSERT(workerPrivate);
-
-    workerHolderToken = WorkerHolderToken::Create(
-        workerPrivate, Canceling, WorkerHolderToken::AllowIdleShutdownStart);
-
-    if (NS_WARN_IF(!workerHolderToken)) {
-      Shutdown();
-      return;
-    }
+  auto actor = ServiceWorkerRegistrationChild::Create();
+  if (NS_WARN_IF(!actor)) {
+    Shutdown();
+    return;
   }
 
-  ServiceWorkerRegistrationChild* actor =
-      new ServiceWorkerRegistrationChild(workerHolderToken);
   PServiceWorkerRegistrationChild* sentActor =
       parentActor->SendPServiceWorkerRegistrationConstructor(
           actor, aDescriptor.ToIPC());
@@ -139,7 +133,7 @@ RemoteServiceWorkerRegistrationImpl::RemoteServiceWorkerRegistrationImpl(
   }
   MOZ_DIAGNOSTIC_ASSERT(sentActor == actor);
 
-  mActor = actor;
+  mActor = std::move(actor);
   mActor->SetOwner(this);
 }
 
@@ -153,14 +147,16 @@ void RemoteServiceWorkerRegistrationImpl::RevokeActor(
   mShutdown = true;
 
   if (mOuter) {
-    mOuter->RegistrationRemoved();
+    RefPtr<ServiceWorkerRegistration> outer = mOuter;
+    outer->RegistrationCleared();
   }
 }
 
 void RemoteServiceWorkerRegistrationImpl::UpdateState(
     const ServiceWorkerRegistrationDescriptor& aDescriptor) {
   if (mOuter) {
-    mOuter->UpdateState(aDescriptor);
+    RefPtr<ServiceWorkerRegistration> outer = mOuter;
+    outer->UpdateState(aDescriptor);
   }
 }
 

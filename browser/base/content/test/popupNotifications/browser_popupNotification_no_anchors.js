@@ -11,10 +11,15 @@ function test() {
   setup();
 }
 
+const FALLBACK_ANCHOR = gURLBar.searchButton
+  ? "urlbar-search-button"
+  : "identity-icon";
+
 var tests = [
-  // Test that popupnotifications are anchored to the identity icon on
+  // Test that popupnotifications are anchored to the fallback anchor on
   // about:blank, where anchor icons are hidden.
-  { id: "Test#1",
+  {
+    id: "Test#1",
     async run() {
       this.oldSelectedTab = gBrowser.selectedTab;
       await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
@@ -25,10 +30,17 @@ var tests = [
     },
     onShown(popup) {
       checkPopup(popup, this.notifyObj);
-      is(document.getElementById("geo-notification-icon").boxObject.width, 0,
-         "geo anchor shouldn't be visible");
-      is(popup.anchorNode.id, "identity-icon",
-         "notification anchored to identity icon");
+      is(
+        document.getElementById("geo-notification-icon").getBoundingClientRect()
+          .width,
+        0,
+        "geo anchor shouldn't be visible"
+      );
+      is(
+        popup.anchorNode.id,
+        FALLBACK_ANCHOR,
+        "notification anchored to fallback anchor"
+      );
       dismissNotification(popup);
     },
     onHidden(popup) {
@@ -37,12 +49,16 @@ var tests = [
       gBrowser.selectedTab = this.oldSelectedTab;
     },
   },
-  // Test that popupnotifications are anchored to the identity icon after
+  // Test that popupnotifications are anchored to the fallback anchor after
   // navigation to about:blank.
-  { id: "Test#2",
+  {
+    id: "Test#2",
     async run() {
       this.oldSelectedTab = gBrowser.selectedTab;
-      await BrowserTestUtils.openNewForegroundTab(gBrowser, "http://example.com/");
+      await BrowserTestUtils.openNewForegroundTab(
+        gBrowser,
+        "http://example.com/"
+      );
 
       this.notifyObj = new BasicNotification(this.id);
       this.notifyObj.anchorID = "geo-notification-icon";
@@ -55,10 +71,17 @@ var tests = [
       await promiseTabLoadEvent(gBrowser.selectedTab, "about:blank");
 
       checkPopup(popup, this.notifyObj);
-      is(document.getElementById("geo-notification-icon").boxObject.width, 0,
-         "geo anchor shouldn't be visible");
-      is(popup.anchorNode.id, "identity-icon",
-         "notification anchored to identity icon");
+      is(
+        document.getElementById("geo-notification-icon").getBoundingClientRect()
+          .width,
+        0,
+        "geo anchor shouldn't be visible"
+      );
+      is(
+        popup.anchorNode.id,
+        FALLBACK_ANCHOR,
+        "notification anchored to fallback anchor"
+      );
       dismissNotification(popup);
     },
     onHidden(popup) {
@@ -69,7 +92,8 @@ var tests = [
   },
   // Test that dismissed popupnotifications cannot be opened on about:blank, but
   // can be opened after navigation.
-  { id: "Test#3",
+  {
+    id: "Test#3",
     async run() {
       this.oldSelectedTab = gBrowser.selectedTab;
       await BrowserTestUtils.openNewForegroundTab(gBrowser, "about:blank");
@@ -82,15 +106,28 @@ var tests = [
       });
       this.notification = showNotification(this.notifyObj);
 
-      is(document.getElementById("geo-notification-icon").boxObject.width, 0,
-         "geo anchor shouldn't be visible");
+      is(
+        document.getElementById("geo-notification-icon").getBoundingClientRect()
+          .width,
+        0,
+        "geo anchor shouldn't be visible"
+      );
 
       await promiseTabLoadEvent(gBrowser.selectedTab, "http://example.com/");
 
-      isnot(document.getElementById("geo-notification-icon").boxObject.width, 0,
-            "geo anchor should be visible");
+      isnot(
+        document.getElementById("geo-notification-icon").getBoundingClientRect()
+          .width,
+        0,
+        "geo anchor should be visible"
+      );
 
-      EventUtils.synthesizeMouse(document.getElementById("geo-notification-icon"), 2, 2, {});
+      EventUtils.synthesizeMouse(
+        document.getElementById("geo-notification-icon"),
+        2,
+        2,
+        {}
+      );
     },
     onShown(popup) {
       checkPopup(popup, this.notifyObj);
@@ -103,9 +140,10 @@ var tests = [
     },
   },
   // Test that popupnotifications are hidden while editing the URL in the
-  // location bar, anchored to the identity icon when the focus is moved away
+  // location bar, anchored to the fallback anchor when the focus is moved away
   // from the location bar, and restored when the URL is reverted.
-  { id: "Test#4",
+  {
+    id: "Test#4",
     async run() {
       for (let persistent of [false, true]) {
         let shown = waitForNotificationPanel();
@@ -123,23 +161,31 @@ var tests = [
         EventUtils.sendString("*");
         await hidden;
 
-        is(document.getElementById("geo-notification-icon").boxObject.width, 0,
-           "geo anchor shouldn't be visible");
+        is(
+          document
+            .getElementById("geo-notification-icon")
+            .getBoundingClientRect().width,
+          0,
+          "geo anchor shouldn't be visible"
+        );
 
         // Moving focus to the next control should show the notifications again,
-        // anchored to the identity icon. We clear the URL bar before moving the
+        // anchored to the fallback anchor. We clear the URL bar before moving the
         // focus so that the awesomebar popup doesn't get in the way.
         shown = waitForNotificationPanel();
         EventUtils.synthesizeKey("KEY_Backspace");
         EventUtils.synthesizeKey("KEY_Tab");
         await shown;
 
-        is(PopupNotifications.panel.anchorNode.id, "identity-icon",
-           "notification anchored to identity icon");
+        is(
+          PopupNotifications.panel.anchorNode.id,
+          FALLBACK_ANCHOR,
+          "notification anchored to fallback anchor"
+        );
 
         // Moving focus to the location bar should hide the notification again.
         hidden = waitForNotificationPanelHidden();
-        EventUtils.synthesizeKey("KEY_Tab", {shiftKey: true});
+        EventUtils.synthesizeKey("KEY_Tab", { shiftKey: true });
         await hidden;
 
         // Reverting the URL should show the notification again.
@@ -158,16 +204,21 @@ var tests = [
   },
   // Test that popupnotifications triggered while editing the URL in the
   // location bar are only shown later when the URL is reverted.
-  { id: "Test#5",
+  {
+    id: "Test#5",
     async run() {
       for (let persistent of [false, true]) {
         // Start editing the URL, ensuring that the awesomebar popup is hidden.
         gURLBar.select();
         EventUtils.sendString("*");
         EventUtils.synthesizeKey("KEY_Backspace");
+        // autoOpen behavior will show the panel, so it must be closed.
+        gURLBar.view.close();
 
         // Trying to show a notification should display nothing.
-        let notShowing = TestUtils.topicObserved("PopupNotifications-updateNotShowing");
+        let notShowing = TestUtils.topicObserved(
+          "PopupNotifications-updateNotShowing"
+        );
         this.notifyObj = new BasicNotification(this.id);
         this.notifyObj.anchorID = "geo-notification-icon";
         this.notifyObj.addOptions({ persistent });
@@ -191,7 +242,8 @@ var tests = [
   },
   // Test that persistent panels are still open after switching to another tab
   // and back, even while editing the URL in the new tab.
-  { id: "Test#6",
+  {
+    id: "Test#6",
     async run() {
       let shown = waitForNotificationPanel();
       this.notifyObj = new BasicNotification(this.id);
@@ -205,7 +257,10 @@ var tests = [
       // Switching to a new tab should hide the notification.
       let hidden = waitForNotificationPanelHidden();
       this.oldSelectedTab = gBrowser.selectedTab;
-      await BrowserTestUtils.openNewForegroundTab(gBrowser, "http://example.com/");
+      await BrowserTestUtils.openNewForegroundTab(
+        gBrowser,
+        "http://example.com/"
+      );
       await hidden;
 
       // Start editing the URL.

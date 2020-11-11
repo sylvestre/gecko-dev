@@ -1,4 +1,3 @@
-/* vim: set ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 "use strict";
@@ -24,7 +23,7 @@ const TEST_DATA = [
   {
     node: async function(inspector) {
       const parentFront = await getNodeFront("#before", inspector);
-      const {nodes} = await inspector.walker.children(parentFront);
+      const { nodes } = await inspector.walker.children(parentFront);
       // Getting the comment node.
       return getContainerForNodeFront(nodes[1], inspector);
     },
@@ -33,7 +32,7 @@ const TEST_DATA = [
   {
     node: async function(inspector) {
       const parentFront = await getNodeFront("#test", inspector);
-      const {nodes} = await inspector.walker.children(parentFront);
+      const { nodes } = await inspector.walker.children(parentFront);
       // Getting the ::before pseudo element.
       return getContainerForNodeFront(nodes[0], inspector);
     },
@@ -42,10 +41,10 @@ const TEST_DATA = [
 ];
 
 add_task(async function() {
-  const {inspector} = await openInspectorForURL(TEST_URL);
+  const { inspector } = await openInspectorForURL(TEST_URL);
   await inspector.markup.expandAll();
 
-  for (const {node, draggable} of TEST_DATA) {
+  for (const { node, draggable } of TEST_DATA) {
     let container;
     let name;
     if (typeof node === "string") {

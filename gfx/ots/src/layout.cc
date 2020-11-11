@@ -7,9 +7,7 @@
 #include <limits>
 #include <vector>
 
-#ifdef OTS_VARIATIONS
 #include "fvar.h"
-#endif
 #include "gdef.h"
 
 // OpenType Layout Common Table Formats
@@ -30,8 +28,6 @@ const uint16_t kMaxDeltaFormatType = 3;
 // In variation fonts, Device Tables are replaced by VariationIndex tables,
 // indicated by this flag in the deltaFormat field.
 const uint16_t kVariationIndex = 0x8000;
-// The maximum number of class value.
-const uint16_t kMaxClassDefValue = 0xFFFF;
 
 struct ScriptRecord {
   uint32_t tag;
@@ -647,7 +643,7 @@ bool ParseContextFormat2(const ots::Font *font,
   }
   if (!ots::ParseClassDefTable(font, data + offset_class_def,
                                length - offset_class_def,
-                               num_glyphs, kMaxClassDefValue)) {
+                               num_glyphs, ots::kMaxClassDefValue)) {
     return OTS_FAILURE_MSG("Failed to parse class definition table in context format 2");
   }
 
@@ -1000,7 +996,7 @@ bool ParseChainContextFormat2(const ots::Font *font,
     }
     if (!ots::ParseClassDefTable(font, data + offset_backtrack_class_def,
                                  length - offset_backtrack_class_def,
-                                 num_glyphs, kMaxClassDefValue)) {
+                                 num_glyphs, ots::kMaxClassDefValue)) {
       return OTS_FAILURE_MSG("Failed to parse backtrack class defn table in chain context format 2");
     }
   }
@@ -1011,7 +1007,7 @@ bool ParseChainContextFormat2(const ots::Font *font,
   }
   if (!ots::ParseClassDefTable(font, data + offset_input_class_def,
                                length - offset_input_class_def,
-                               num_glyphs, kMaxClassDefValue)) {
+                               num_glyphs, ots::kMaxClassDefValue)) {
     return OTS_FAILURE_MSG("Failed to parse input class defn in chain context format 2");
   }
 
@@ -1022,7 +1018,7 @@ bool ParseChainContextFormat2(const ots::Font *font,
     }
     if (!ots::ParseClassDefTable(font, data + offset_lookahead_class_def,
                                  length - offset_lookahead_class_def,
-                                 num_glyphs, kMaxClassDefValue)) {
+                                 num_glyphs, ots::kMaxClassDefValue)) {
       return OTS_FAILURE_MSG("Failed to parse lookahead class defn in chain context format 2");
     }
   }
@@ -1532,11 +1528,9 @@ bool ParseConditionTable(const Font *font,
     return OTS_FAILURE_MSG("Failed to read condition table (format 1)");
   }
 
-#ifdef OTS_VARIATIONS // we can't check this if we're not parsing variation tables
   if (axis_index >= axis_count) {
     return OTS_FAILURE_MSG("Axis index out of range in condition");
   }
-#endif
 
   // Check min/max values are within range -1.0 .. 1.0 and properly ordered
   if (filter_range_min_value < -0x4000 || // -1.0 in F2DOT14 format
@@ -1631,15 +1625,11 @@ bool ParseFeatureVariationsTable(const Font *font,
     return OTS_FAILURE_MSG("Failed to read feature variations table header");
   }
 
-#ifdef OTS_VARIATIONS
   OpenTypeFVAR* fvar = static_cast<OpenTypeFVAR*>(font->GetTypedTable(OTS_TAG_FVAR));
   if (!fvar) {
     return OTS_FAILURE_MSG("Not a variation font");
   }
   const uint16_t axis_count = fvar->AxisCount();
-#else
-  const uint16_t axis_count = 0;
-#endif
 
   const size_t kEndOfFeatureVariationRecords =
     2 * sizeof(uint16_t) + sizeof(uint32_t) +

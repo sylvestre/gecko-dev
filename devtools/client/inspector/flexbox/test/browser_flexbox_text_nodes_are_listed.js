@@ -1,4 +1,3 @@
-/* vim: set ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -14,8 +13,10 @@ add_task(async function() {
   const { document: doc } = flexboxInspector;
 
   // Select the flex container in the inspector.
-  const onItemsListRendered = waitForDOM(doc,
-    ".layout-flexbox-wrapper .flex-item-list");
+  const onItemsListRendered = waitForDOM(
+    doc,
+    ".layout-flexbox-wrapper .flex-item-list"
+  );
   await selectNode(".container", inspector);
   const [flexItemList] = await onItemsListRendered;
 

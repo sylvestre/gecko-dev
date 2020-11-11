@@ -10,12 +10,13 @@
 #include "OmxPlatformLayer.h"
 
 #ifdef MOZ_OMX
-#include "PureOmxPlatformLayer.h"
+#  include "PureOmxPlatformLayer.h"
 #endif
 
 namespace mozilla {
 
-/* static */ bool OmxDecoderModule::Init() {
+/* static */
+bool OmxDecoderModule::Init() {
 #ifdef MOZ_OMX
   return PureOmxPlatformLayer::Init();
 #endif
@@ -33,15 +34,14 @@ OmxDecoderModule* OmxDecoderModule::Create() {
 
 already_AddRefed<MediaDataDecoder> OmxDecoderModule::CreateVideoDecoder(
     const CreateDecoderParams& aParams) {
-  RefPtr<OmxDataDecoder> decoder = new OmxDataDecoder(
-      aParams.mConfig, aParams.mTaskQueue, aParams.mImageContainer);
+  RefPtr<OmxDataDecoder> decoder =
+      new OmxDataDecoder(aParams.mConfig, aParams.mImageContainer);
   return decoder.forget();
 }
 
 already_AddRefed<MediaDataDecoder> OmxDecoderModule::CreateAudioDecoder(
     const CreateDecoderParams& aParams) {
-  RefPtr<OmxDataDecoder> decoder =
-      new OmxDataDecoder(aParams.mConfig, aParams.mTaskQueue, nullptr);
+  RefPtr<OmxDataDecoder> decoder = new OmxDataDecoder(aParams.mConfig, nullptr);
   return decoder.forget();
 }
 

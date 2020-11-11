@@ -13,7 +13,7 @@
 #include "mozilla/dom/ImageCaptureErrorEvent.h"
 #include "mozilla/dom/ImageCaptureErrorEventBinding.h"
 #include "mozilla/dom/VideoStreamTrack.h"
-#include "nsIDocument.h"
+#include "mozilla/dom/Document.h"
 #include "CaptureTask.h"
 #include "MediaEngineSource.h"
 
@@ -126,15 +126,15 @@ void ImageCapture::TakePhoto(ErrorResult& aResult) {
   // Try if MediaEngine supports taking photo.
   nsresult rv = TakePhotoByMediaEngine();
 
-  // It falls back to MediaStreamGraph image capture if MediaEngine doesn't
+  // It falls back to MediaTrackGraph image capture if MediaEngine doesn't
   // support TakePhoto().
   if (rv == NS_ERROR_NOT_IMPLEMENTED) {
     IC_LOG(
         "MediaEngine doesn't support TakePhoto(), it falls back to "
-        "MediaStreamGraph.");
+        "MediaTrackGraph.");
     RefPtr<CaptureTask> task = new CaptureTask(this);
 
-    // It adds itself into MediaStreamGraph, so ImageCapture doesn't need to
+    // It adds itself into MediaTrackGraph, so ImageCapture doesn't need to
     // hold the reference.
     task->AttachTrack();
   }
@@ -154,14 +154,14 @@ nsresult ImageCapture::PostBlobEvent(Blob* aBlob) {
   init.mData = aBlob;
 
   RefPtr<BlobEvent> blob_event =
-      BlobEvent::Constructor(this, NS_LITERAL_STRING("photo"), init);
+      BlobEvent::Constructor(this, u"photo"_ns, init);
 
   return DispatchTrustedEvent(blob_event);
 }
 
 nsresult ImageCapture::PostErrorEvent(uint16_t aErrorCode, nsresult aReason) {
   MOZ_ASSERT(NS_IsMainThread());
-  nsresult rv = CheckInnerWindowCorrectness();
+  nsresult rv = CheckCurrentGlobalCorrectness();
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsString errorMsg;
@@ -181,8 +181,8 @@ nsresult ImageCapture::PostErrorEvent(uint16_t aErrorCode, nsresult aReason) {
   init.mCancelable = false;
   init.mImageCaptureError = error;
 
-  RefPtr<Event> event = ImageCaptureErrorEvent::Constructor(
-      this, NS_LITERAL_STRING("error"), init);
+  RefPtr<Event> event =
+      ImageCaptureErrorEvent::Constructor(this, u"error"_ns, init);
 
   return DispatchTrustedEvent(event);
 }
@@ -195,7 +195,7 @@ bool ImageCapture::CheckPrincipal() {
   if (!GetOwner()) {
     return false;
   }
-  nsCOMPtr<nsIDocument> doc = GetOwner()->GetExtantDoc();
+  nsCOMPtr<Document> doc = GetOwner()->GetExtantDoc();
   if (!doc || !principal) {
     return false;
   }

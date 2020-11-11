@@ -1,5 +1,3 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 2 -*- */
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -9,10 +7,12 @@
 
 const URL = "data:text/html;charset=utf8,test page";
 
-var {Toolbox} = require("devtools/client/framework/toolbox");
+var { Toolbox } = require("devtools/client/framework/toolbox");
 
-const {LocalizationHelper} = require("devtools/shared/l10n");
-const L10N = new LocalizationHelper("devtools/client/locales/toolbox.properties");
+const { LocalizationHelper } = require("devtools/shared/l10n");
+const L10N = new LocalizationHelper(
+  "devtools/client/locales/toolbox.properties"
+);
 
 function getZoomValue() {
   return parseFloat(Services.prefs.getCharPref("devtools.toolbox.zoomValue"));
@@ -24,7 +24,7 @@ add_task(async function() {
   const target = await TargetFactory.forTab(tab);
   const toolbox = await gDevTools.showToolbox(target, "webconsole");
 
-  const {RIGHT, BOTTOM} = Toolbox.HostType;
+  const { RIGHT, BOTTOM } = Toolbox.HostType;
   for (const type of [RIGHT, BOTTOM, RIGHT]) {
     info("Switch to host type " + type);
     await toolbox.switchHost(type);
@@ -48,7 +48,11 @@ function zoomWithKey(toolbox, key) {
   info("Zooming with key: " + key);
   const currentZoom = getZoomValue();
   synthesizeKeyShortcut(shortcut, toolbox.win);
-  isnot(getZoomValue(), currentZoom, "The zoom level was changed in the toolbox");
+  isnot(
+    getZoomValue(),
+    currentZoom,
+    "The zoom level was changed in the toolbox"
+  );
 }
 
 function checkKeyBindings(toolbox) {

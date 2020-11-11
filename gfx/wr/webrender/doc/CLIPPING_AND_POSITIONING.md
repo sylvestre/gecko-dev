@@ -20,9 +20,9 @@ that can handle all CSS content.
 
 # Current Design
 
-All positioning and clipping is handled by the `ClipScrollTree`. The name is a
+All positioning and clipping is handled by the `SpatialTree`. The name is a
 holdover from when this tree was a tree of `Layers` which handled both
-positioning and clipping. Currently the `ClipScrollTree` holds:
+positioning and clipping. Currently the `SpatialTree` holds:
  1. A hierarchical collection of `SpatialNodes`, with the final screen
     transformation of each node depending on the relative transformation of the
     node combined with the transformations of all of its ancestors. These nodes
@@ -56,12 +56,11 @@ There are three types of `SpatialNodes`:
   3. Sticky frames are responsible for implementing position:sticky behavior.
      This is also an 2D translation.
 
-`SpatialNodes` are defined as items in the display list. After display list
-"flattening" each node is traversed hierarchically during the
-`ClipScrollTree::update()` step. Once reference frame transforms and relative
-offsets are calculated, a to screen space transformation can be calculated for
-each `SpatialNode`. This transformation is added the `TransformPalette` and
-becomes directly available to WebRender shaders.
+`SpatialNodes` are defined as items in the display list. After scene building
+each node is traversed hierarchically during the `SpatialTree::update()` step.
+Once reference frame transforms and relative offsets are calculated, a to screen
+space transformation can be calculated for each `SpatialNode`. This transformation
+is added the `TransformPalette` and becomes directly available to WebRender shaders.
 
 In addition to screen space transformation calculation, the `SpatialNode` tree
 is divided up into _compatible coordinate systems_. These are coordinate systems
@@ -80,7 +79,7 @@ screen space rectangle.  This rectangle is called the _outer rectangle_ of the
 clip. `ClipNodes` may also have an _inner rectangle_, which is an area within
 the boundaries of the _outer rectangle_ that is completely unclipped.
 
-These rectangles are calculated during the `ClipScrollTree::update()` phase. In
+These rectangles are calculated during the `SpatialTree::update()` phase. In
 addition, each `ClipNode` produces a template `ClipChainNode` used to build
 the `ClipChains` which use that node.
 
@@ -108,7 +107,7 @@ performance impacts on WebRender.
 # Clipping and Positioning in the Display List
 
 Each non-structural WebRender display list item has
- * A `ClipId` of a `SpatialNode` or `ClipNode` for positioning
+ * A `SpatialId` of a `SpatialNode` for positioning
  * A `ClipId` of a `ClipNode` or a `ClipChain` for clipping
  * An item-specific rectangular clip rectangle
 
@@ -120,48 +119,32 @@ independent of how the node is positioned and items can be clipped by any
 the item-specific clipping rectangle is applied directly to the item and should
 never result in the creation of a clip mask itself.
 
-Perhaps the most inconvenient holdover from the previous single-tree
-hierarchical design is that `SpatialNodes`, `ClipNodes`, and `ClipChains` all
-share a single `ClipId` id type. This means that the client must be a bit
-careful when using the API. For instance, when specifying the parent of
-`ClipNode` one can use the `ClipId` or another `ClipNode` or a `SpatialNode`,
-but not one for a `ClipChain`.
-
-WebRender's internal representation of clipping and positioning is not a perfect
-match to the display list representation of these concepts. This is due, again,
-to the evolutionary nature of the design. The general trend is that the display
-list gradually moves toward the internal representation. The most important of
-these incongruities is that while `ClipNodes`, sticky frames, and scroll frames
-are defined and simply return a `ClipId`, reference frames return a `ClipId` and
-also are pushed and popped like stacking contexts.
-
-## Converting `ClipId` to global `ClipScrollTree` indices
+## Converting user-exposed `ClipId`/`SpatialId` to internal indices
 
 WebRender must access `ClipNodes` and `SpatialNodes` quite a bit when building
-scenes and frames, so it tries to convert `ClipIds`, which are already
+scenes and frames, so it tries to convert `ClipId`/`SpatialId`, which are already
 per-pipeline indices, to global scene-wide indices.  Internally this is a
-conversion from `ClipId` into `SpatialNodeIndex`, `ClipNodeIndex` or
-`ClipChainIndex`. In order to make this conversion cheaper, the
+conversion from `ClipId` into `ClipNodeIndex` or `ClipChainIndex`, and from
+`SpatialId` into `SpatialNodeIndex`. In order to make this conversion cheaper, the
 `DisplayListFlattner` assigns offsets for each pipeline and node type in the
-scene-wide `ClipScrollTree`.
+scene-wide `SpatialTree`.
 
 Nodes are added to their respective arrays sequentially as the display list is
-processed during "flattening." When encountering an iframe, the
+processed during scene building. When encountering an iframe, the
 `DisplayListFlattener` must start processing the nodes for that iframe's
 pipeline, meaning that nodes are now being added out of order to the node arrays
-of the `ClipScrollTree`. In this case, the `ClipScrollTree` fills in the gaps in
+of the `SpatialTree`. In this case, the `SpatialTree` fills in the gaps in
 the node arrays with placeholder nodes.
 
 # Hit Testing
 
 Hit testing is the responsibility of the `HitTester` data structure. This
 structure copies information necessary for hit testing from the
-`ClipScrollTree`. This is done so that hit testing can still take place while a
-new `ClipScrollTree` is under construction.
+`SpatialTree`. This is done so that hit testing can still take place while a
+new `SpatialTree` is under construction.
 
 # Ideas for the Future
-1. Expose the difference between ids for `SpatialNodes`, `ClipNodes`, and
-   `ClipChains` in the API.
-2. Prevent having to duplicate the `ClipScrollTree` for hit testing.
-3. Avoid having to create placeholder nodes in the `ClipScrollTree` while
+1. Expose the difference between `ClipId` and `ClipChainId` in the API.
+2. Prevent having to duplicate the `SpatialTree` for hit testing.
+3. Avoid having to create placeholder nodes in the `SpatialTree` while
    processing iframes.

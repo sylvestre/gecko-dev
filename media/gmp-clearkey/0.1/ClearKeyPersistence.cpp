@@ -26,8 +26,12 @@
 #include <sstream>
 #include <string.h>
 
-using namespace std;
 using namespace cdm;
+
+using std::function;
+using std::string;
+using std::stringstream;
+using std::vector;
 
 void ClearKeyPersistence::ReadAllRecordsFromIndex(
     function<void()>&& aOnComplete) {
@@ -89,7 +93,9 @@ void ClearKeyPersistence::WriteIndex() {
   WriteData(mHost, filename, data, move(onIndexSuccess), move(onIndexFail));
 }
 
-ClearKeyPersistence::ClearKeyPersistence(Host_9* aHost) { this->mHost = aHost; }
+ClearKeyPersistence::ClearKeyPersistence(Host_10* aHost) {
+  this->mHost = aHost;
+}
 
 void ClearKeyPersistence::EnsureInitialized(bool aPersistentStateAllowed,
                                             function<void()>&& aOnInitialized) {

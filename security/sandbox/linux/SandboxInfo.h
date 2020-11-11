@@ -17,7 +17,7 @@ namespace mozilla {
 class SandboxInfo {
  public:
   // No need to prevent copying; this is essentially just a const int.
-  SandboxInfo(const SandboxInfo& aOther) : mFlags(aOther.mFlags) {}
+  SandboxInfo(const SandboxInfo& aOther) = default;
 
   // Flags are checked at initializer time; this returns them.
   static const SandboxInfo& Get() { return sSingleton; }
@@ -25,10 +25,11 @@ class SandboxInfo {
   enum Flags {
     // System call filtering; kernel config option CONFIG_SECCOMP_FILTER.
     kHasSeccompBPF = 1 << 0,
-    // Config flag MOZ_CONTENT_SANDBOX; runtime
-    // mozilla::IsContentSandboxEnabled().
+    // Whether to use a sandbox for content processes; env var
+    // MOZ_DISABLE_CONTENT_SANDBOX
     kEnabledForContent = 1 << 1,
-    // Config flag MOZ_GMP_SANDBOX; env var MOZ_DISABLE_GMP_SANDBOX.
+    // Whether to use a sandbox for GMP processes; env var
+    // MOZ_DISABLE_GMP_SANDBOX.
     kEnabledForMedia = 1 << 2,
     // Env var MOZ_SANDBOX_LOGGING.
     kVerbose = 1 << 3,

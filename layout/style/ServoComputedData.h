@@ -9,6 +9,8 @@
 
 class nsWindowSizes;
 
+#include "mozilla/ServoStyleConsts.h"
+
 /*
  * ServoComputedData and its related types.
  */
@@ -24,6 +26,15 @@ struct ServoRawOffsetArc {
   // This is a pointer to a T that lives inside a servo_arc::Arc<T>, and
   // which already has had its reference count incremented.
   T* mPtr;
+};
+
+// A wrapper that gets replaced by ManuallyDrop<T> by bindgen.
+//
+// NOTE(emilio): All this file is a bit gross, and most of this we make cleaner
+// using cbindgen and such.
+template <typename T>
+struct ServoManuallyDrop {
+  T mInner;
 };
 
 struct ServoWritingMode {
@@ -45,10 +56,6 @@ struct ServoVisitedStyle {
   // destructor is managed by the Rust code so we just use a regular
   // pointer
   ComputedStyle* mPtr;
-};
-
-struct ServoComputedValueFlags {
-  uint16_t mFlags;
 };
 
 #define STYLE_STRUCT(name_) struct Gecko##name_;
@@ -87,10 +94,12 @@ class ServoComputedData {
 
   void AddSizeOfExcludingThis(nsWindowSizes& aSizes) const;
 
+  mozilla::ServoWritingMode WritingMode() const { return writing_mode; }
+
  private:
   mozilla::ServoCustomPropertiesMap custom_properties;
   mozilla::ServoWritingMode writing_mode;
-  mozilla::ServoComputedValueFlags flags;
+  mozilla::StyleComputedValueFlags flags;
   /// The rule node representing the ordered list of rules matched for this
   /// node.  Can be None for default values and text nodes.  This is
   /// essentially an optimization to avoid referencing the root rule node.

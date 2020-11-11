@@ -13,15 +13,22 @@ async function testScaledBounds(browser, accDoc, scale, id, type = "object") {
   let [docX, docY] = getBounds(accDoc);
 
   // Get the unscaled bounds of the accessible
-  let [x, y, width, height] = type == "text" ?
-    getRangeExtents(acc, 0, -1, COORDTYPE_SCREEN_RELATIVE) : getBounds(acc);
+  let [x, y, width, height] =
+    type == "text"
+      ? getRangeExtents(acc, 0, -1, COORDTYPE_SCREEN_RELATIVE)
+      : getBounds(acc);
 
-  await ContentTask.spawn(browser, scale, _scale => {
-    setResolution(content.document, _scale);
+  await invokeContentTask(browser, [scale], _scale => {
+    const { Layout } = ChromeUtils.import(
+      "chrome://mochitests/content/browser/accessible/tests/browser/Layout.jsm"
+    );
+    Layout.setResolution(content.document, _scale);
   });
 
-  let [scaledX, scaledY, scaledWidth, scaledHeight] = type == "text" ?
-    getRangeExtents(acc, 0, -1, COORDTYPE_SCREEN_RELATIVE) : getBounds(acc);
+  let [scaledX, scaledY, scaledWidth, scaledHeight] =
+    type == "text"
+      ? getRangeExtents(acc, 0, -1, COORDTYPE_SCREEN_RELATIVE)
+      : getBounds(acc);
 
   let name = prettyName(acc);
   isWithin(scaledWidth, width * scale, 2, "Wrong scaled width of " + name);
@@ -29,13 +36,19 @@ async function testScaledBounds(browser, accDoc, scale, id, type = "object") {
   isWithin(scaledX - docX, (x - docX) * scale, 2, "Wrong scaled x of " + name);
   isWithin(scaledY - docY, (y - docY) * scale, 2, "Wrong scaled y of " + name);
 
-  await ContentTask.spawn(browser, {}, () => {
-    setResolution(content.document, 1.0);
+  await invokeContentTask(browser, [], () => {
+    const { Layout } = ChromeUtils.import(
+      "chrome://mochitests/content/browser/accessible/tests/browser/Layout.jsm"
+    );
+    Layout.setResolution(content.document, 1.0);
   });
 }
 
 async function runTests(browser, accDoc) {
-  loadFrameScripts(browser, { name: "layout.js", dir: MOCHITESTS_DIR });
+  // The scrollbars get in the way of container bounds calculation.
+  await SpecialPowers.pushPrefEnv({
+    set: [["ui.useOverlayScrollbars", 1]],
+  });
 
   await testScaledBounds(browser, accDoc, 2.0, "p1");
   await testScaledBounds(browser, accDoc, 0.5, "p2");
@@ -48,10 +61,12 @@ async function runTests(browser, accDoc) {
 /**
  * Test accessible boundaries when page is zoomed
  */
-addAccessibleTask(`
+addAccessibleTask(
+  `
 <p id='p1' style='font-family: monospace;'>Tilimilitryamdiya</p>
 <p id="p2">para 2</p>
 <button id="b1">Hello</button>
 `,
-  runTests
+  runTests,
+  { iframe: true, remoteIframe: true }
 );

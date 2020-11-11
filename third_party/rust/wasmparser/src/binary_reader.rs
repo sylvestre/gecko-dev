@@ -13,78 +13,68 @@
  * limitations under the License.
  */
 
-use std::boxed::Box;
-use std::vec::Vec;
+use std::convert::TryInto;
+use std::fmt;
+use std::str;
 
-use limits::{
-    MAX_WASM_FUNCTION_LOCALS, MAX_WASM_FUNCTION_PARAMS, MAX_WASM_FUNCTION_RETURNS,
-    MAX_WASM_FUNCTION_SIZE, MAX_WASM_STRING_SIZE,
-};
+use crate::limits::*;
 
-use primitives::{
+use crate::primitives::{
     BinaryReaderError, BrTable, CustomSectionKind, ExternalKind, FuncType, GlobalType, Ieee32,
     Ieee64, LinkingType, MemoryImmediate, MemoryType, NameType, Operator, RelocType,
-    ResizableLimits, Result, SectionCode, TableType, Type,
+    ResizableLimits, ResizableLimits64, Result, SIMDLaneIndex, SectionCode, TableType, Type,
+    TypeOrFuncType, V128,
 };
+use crate::{ExportType, Import, ImportSectionEntryType, InstanceType, ModuleType};
 
 const MAX_WASM_BR_TABLE_SIZE: usize = MAX_WASM_FUNCTION_SIZE;
 
-fn is_name(name: &[u8], expected: &'static str) -> bool {
-    if name.len() != expected.len() {
-        return false;
-    }
-    let expected_bytes = expected.as_bytes();
-    for i in 0..name.len() {
-        if name[i] != expected_bytes[i] {
-            return false;
-        }
-    }
-    true
+fn is_name(name: &str, expected: &'static str) -> bool {
+    name == expected
 }
 
-fn is_name_prefix(name: &[u8], prefix: &'static str) -> bool {
-    if name.len() < prefix.len() {
-        return false;
-    }
-    let expected_bytes = prefix.as_bytes();
-    for i in 0..expected_bytes.len() {
-        if name[i] != expected_bytes[i] {
-            return false;
-        }
-    }
-    true
+fn is_name_prefix(name: &str, prefix: &'static str) -> bool {
+    name.starts_with(prefix)
 }
 
-const WASM_MAGIC_NUMBER: u32 = 0x6d736100;
+const WASM_MAGIC_NUMBER: &[u8; 4] = b"\0asm";
 const WASM_EXPERIMENTAL_VERSION: u32 = 0xd;
 const WASM_SUPPORTED_VERSION: u32 = 0x1;
 
-pub struct SectionHeader<'a> {
+#[derive(Clone)]
+pub(crate) struct SectionHeader<'a> {
     pub code: SectionCode<'a>,
     pub payload_start: usize,
     pub payload_len: usize,
 }
 
 /// Bytecode range in the WebAssembly module.
-#[derive(Debug, Copy, Clone)]
+#[derive(Copy, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Range {
+    /// The start bound of the range.
     pub start: usize,
+    /// The end bound of the range.
     pub end: usize,
 }
 
 impl Range {
+    /// Constructs a new instance of `Range`.
+    ///
+    /// # Panics
+    /// If `start` is greater than `end`.
     pub fn new(start: usize, end: usize) -> Range {
         assert!(start <= end);
         Range { start, end }
     }
 
+    /// Returns a new slice between `start` and `end - 1` from `data`.
     pub fn slice<'a>(&self, data: &'a [u8]) -> &'a [u8] {
         &data[self.start..self.end]
     }
 }
 
 /// A binary reader of the WebAssembly structures and types.
-#[derive(Clone)]
+#[derive(Clone, Debug, Hash)]
 pub struct BinaryReader<'a> {
     pub(crate) buffer: &'a [u8],
     pub(crate) position: usize,
@@ -111,6 +101,7 @@ impl<'a> BinaryReader<'a> {
         }
     }
 
+    /// Constructs a `BinaryReader` with an explicit starting offset.
     pub fn new_with_offset(data: &[u8], original_offset: usize) -> BinaryReader {
         BinaryReader {
             buffer: data,
@@ -123,35 +114,42 @@ impl<'a> BinaryReader<'a> {
         self.original_offset + self.position
     }
 
+    /// Returns a range from the starting offset to the end of the buffer.
+    pub fn range(&self) -> Range {
+        Range {
+            start: self.original_offset,
+            end: self.original_offset + self.buffer.len(),
+        }
+    }
+
+    pub(crate) fn remaining_buffer(&self) -> &'a [u8] {
+        &self.buffer[self.position..]
+    }
+
     fn ensure_has_byte(&self) -> Result<()> {
         if self.position < self.buffer.len() {
             Ok(())
         } else {
-            Err(BinaryReaderError {
-                message: "Unexpected EOF",
-                offset: self.original_position(),
-            })
+            Err(BinaryReaderError::eof(self.original_position(), 1))
         }
     }
 
-    fn ensure_has_bytes(&self, len: usize) -> Result<()> {
+    pub(crate) fn ensure_has_bytes(&self, len: usize) -> Result<()> {
         if self.position + len <= self.buffer.len() {
             Ok(())
         } else {
-            Err(BinaryReaderError {
-                message: "Unexpected EOF",
-                offset: self.original_position(),
-            })
+            let hint = self.position + len - self.buffer.len();
+            Err(BinaryReaderError::eof(self.original_position(), hint))
         }
     }
 
     fn read_var_u1(&mut self) -> Result<u32> {
         let b = self.read_u8()?;
         if (b & 0xFE) != 0 {
-            return Err(BinaryReaderError {
-                message: "Invalid var_u1",
-                offset: self.original_position() - 1,
-            });
+            return Err(BinaryReaderError::new(
+                "Invalid var_u1",
+                self.original_position() - 1,
+            ));
         }
         Ok(b)
     }
@@ -159,10 +157,10 @@ impl<'a> BinaryReader<'a> {
     fn read_var_i7(&mut self) -> Result<i32> {
         let b = self.read_u8()?;
         if (b & 0x80) != 0 {
-            return Err(BinaryReaderError {
-                message: "Invalid var_i7",
-                offset: self.original_position() - 1,
-            });
+            return Err(BinaryReaderError::new(
+                "Invalid var_i7",
+                self.original_position() - 1,
+            ));
         }
         Ok((b << 25) as i32 >> 25)
     }
@@ -170,10 +168,10 @@ impl<'a> BinaryReader<'a> {
     pub(crate) fn read_var_u7(&mut self) -> Result<u32> {
         let b = self.read_u8()?;
         if (b & 0x80) != 0 {
-            return Err(BinaryReaderError {
-                message: "Invalid var_u7",
-                offset: self.original_position() - 1,
-            });
+            return Err(BinaryReaderError::new(
+                "Invalid var_u7",
+                self.original_position() - 1,
+            ));
         }
         Ok(b)
     }
@@ -185,47 +183,16 @@ impl<'a> BinaryReader<'a> {
             -0x02 => Ok(Type::I64),
             -0x03 => Ok(Type::F32),
             -0x04 => Ok(Type::F64),
-            -0x10 => Ok(Type::AnyFunc),
-            -0x11 => Ok(Type::AnyRef),
+            -0x05 => Ok(Type::V128),
+            -0x10 => Ok(Type::FuncRef),
+            -0x11 => Ok(Type::ExternRef),
             -0x20 => Ok(Type::Func),
             -0x40 => Ok(Type::EmptyBlockType),
-            _ => Err(BinaryReaderError {
-                message: "Invalid type",
-                offset: self.original_position() - 1,
-            }),
+            _ => Err(BinaryReaderError::new(
+                "Invalid type",
+                self.original_position() - 1,
+            )),
         }
-    }
-
-    /// Read a `count` indicating the number of times to call `read_local_decl`.
-    pub fn read_local_count(&mut self) -> Result<usize> {
-        let local_count = self.read_var_u32()? as usize;
-        if local_count > MAX_WASM_FUNCTION_LOCALS {
-            return Err(BinaryReaderError {
-                message: "local_count is out of bounds",
-                offset: self.original_position() - 1,
-            });
-        }
-        Ok(local_count)
-    }
-
-    /// Read a `(count, value_type)` declaration of local variables of the same type.
-    pub fn read_local_decl(&mut self, locals_total: &mut usize) -> Result<(u32, Type)> {
-        let count = self.read_var_u32()?;
-        let value_type = self.read_type()?;
-        *locals_total =
-            locals_total
-                .checked_add(count as usize)
-                .ok_or_else(|| BinaryReaderError {
-                    message: "locals_total is out of bounds",
-                    offset: self.original_position() - 1,
-                })?;
-        if *locals_total > MAX_WASM_FUNCTION_LOCALS {
-            return Err(BinaryReaderError {
-                message: "locals_total is out of bounds",
-                offset: self.original_position() - 1,
-            });
-        }
-        Ok((count, value_type))
     }
 
     pub(crate) fn read_external_kind(&mut self) -> Result<ExternalKind> {
@@ -235,21 +202,23 @@ impl<'a> BinaryReader<'a> {
             1 => Ok(ExternalKind::Table),
             2 => Ok(ExternalKind::Memory),
             3 => Ok(ExternalKind::Global),
-            _ => Err(BinaryReaderError {
-                message: "Invalid external kind",
-                offset: self.original_position() - 1,
-            }),
+            5 => Ok(ExternalKind::Module),
+            6 => Ok(ExternalKind::Instance),
+            7 => Ok(ExternalKind::Type),
+            _ => Err(BinaryReaderError::new(
+                "Invalid external kind",
+                self.original_position() - 1,
+            )),
         }
     }
 
     pub(crate) fn read_func_type(&mut self) -> Result<FuncType> {
-        let form = self.read_type()?;
         let params_len = self.read_var_u32()? as usize;
         if params_len > MAX_WASM_FUNCTION_PARAMS {
-            return Err(BinaryReaderError {
-                message: "function params size is out of bound",
-                offset: self.original_position() - 1,
-            });
+            return Err(BinaryReaderError::new(
+                "function params size is out of bound",
+                self.original_position() - 1,
+            ));
         }
         let mut params: Vec<Type> = Vec::with_capacity(params_len);
         for _ in 0..params_len {
@@ -257,19 +226,89 @@ impl<'a> BinaryReader<'a> {
         }
         let returns_len = self.read_var_u32()? as usize;
         if returns_len > MAX_WASM_FUNCTION_RETURNS {
-            return Err(BinaryReaderError {
-                message: "function params size is out of bound",
-                offset: self.original_position() - 1,
-            });
+            return Err(BinaryReaderError::new(
+                "function returns size is out of bound",
+                self.original_position() - 1,
+            ));
         }
         let mut returns: Vec<Type> = Vec::with_capacity(returns_len);
         for _ in 0..returns_len {
             returns.push(self.read_type()?);
         }
         Ok(FuncType {
-            form,
             params: params.into_boxed_slice(),
             returns: returns.into_boxed_slice(),
+        })
+    }
+
+    pub(crate) fn read_module_type(&mut self) -> Result<ModuleType<'a>> {
+        let pos = self.original_position();
+        let imports_len = self.read_var_u32()? as usize;
+        if imports_len > MAX_WASM_IMPORTS {
+            return Err(BinaryReaderError::new("imports size is out of bounds", pos));
+        }
+        Ok(ModuleType {
+            imports: (0..imports_len)
+                .map(|_| self.read_import())
+                .collect::<Result<_>>()?,
+            exports: self.read_export_types()?,
+        })
+    }
+
+    pub(crate) fn read_instance_type(&mut self) -> Result<InstanceType<'a>> {
+        Ok(InstanceType {
+            exports: self.read_export_types()?,
+        })
+    }
+
+    fn read_export_types(&mut self) -> Result<Box<[ExportType<'a>]>> {
+        let pos = self.original_position();
+        let exports_len = self.read_var_u32()? as usize;
+        if exports_len > MAX_WASM_EXPORTS {
+            return Err(BinaryReaderError::new("exports size is out of bound", pos));
+        }
+        (0..exports_len).map(|_| self.read_export_type()).collect()
+    }
+
+    pub(crate) fn read_import(&mut self) -> Result<Import<'a>> {
+        let module = self.read_string()?;
+
+        // For the `field`, figure out if we're the experimental encoding of
+        // single-level imports for the module linking proposal (a single-byte
+        // string which is 0xc0, which is invalid utf-8) or if we have a second
+        // level of import.
+        let mut clone = self.clone();
+        let field = if clone.read_var_u32()? == 1 && clone.read_u8()? == 0xc0 {
+            *self = clone;
+            None
+        } else {
+            Some(self.read_string()?)
+        };
+
+        let ty = self.read_import_desc()?;
+        Ok(Import { module, field, ty })
+    }
+
+    pub(crate) fn read_export_type(&mut self) -> Result<ExportType<'a>> {
+        let name = self.read_string()?;
+        let ty = self.read_import_desc()?;
+        Ok(ExportType { name, ty })
+    }
+
+    pub(crate) fn read_import_desc(&mut self) -> Result<ImportSectionEntryType> {
+        Ok(match self.read_external_kind()? {
+            ExternalKind::Function => ImportSectionEntryType::Function(self.read_var_u32()?),
+            ExternalKind::Table => ImportSectionEntryType::Table(self.read_table_type()?),
+            ExternalKind::Memory => ImportSectionEntryType::Memory(self.read_memory_type()?),
+            ExternalKind::Global => ImportSectionEntryType::Global(self.read_global_type()?),
+            ExternalKind::Module => ImportSectionEntryType::Module(self.read_var_u32()?),
+            ExternalKind::Instance => ImportSectionEntryType::Instance(self.read_var_u32()?),
+            ExternalKind::Type => {
+                return Err(BinaryReaderError::new(
+                    "cannot import types",
+                    self.original_position() - 1,
+                ))
+            }
         })
     }
 
@@ -283,14 +322,24 @@ impl<'a> BinaryReader<'a> {
         Ok(ResizableLimits { initial, maximum })
     }
 
+    fn read_resizable_limits64(&mut self, max_present: bool) -> Result<ResizableLimits64> {
+        let initial = self.read_var_u64()?;
+        let maximum = if max_present {
+            Some(self.read_var_u64()?)
+        } else {
+            None
+        };
+        Ok(ResizableLimits64 { initial, maximum })
+    }
+
     pub(crate) fn read_table_type(&mut self) -> Result<TableType> {
         let element_type = self.read_type()?;
         let flags = self.read_var_u32()?;
         if (flags & !0x1) != 0 {
-            return Err(BinaryReaderError {
-                message: "invalid table resizable limits flags",
-                offset: self.original_position() - 1,
-            });
+            return Err(BinaryReaderError::new(
+                "invalid table resizable limits flags",
+                self.original_position() - 1,
+            ));
         }
         let limits = self.read_resizable_limits((flags & 0x1) != 0)?;
         Ok(TableType {
@@ -300,16 +349,28 @@ impl<'a> BinaryReader<'a> {
     }
 
     pub(crate) fn read_memory_type(&mut self) -> Result<MemoryType> {
-        let flags = self.read_var_u32()?;
-        if (flags & !0x3) != 0 {
-            return Err(BinaryReaderError {
-                message: "invalid table resizable limits flags",
-                offset: self.original_position() - 1,
-            });
+        let pos = self.original_position();
+        let flags = self.read_u8()?;
+        if (flags & !0x7) != 0 {
+            return Err(BinaryReaderError::new(
+                "invalid table resizable limits flags",
+                pos,
+            ));
         }
-        let limits = self.read_resizable_limits((flags & 0x1) != 0)?;
-        let shared = (flags & 0x2) != 0;
-        Ok(MemoryType { limits, shared })
+        if flags & 0x4 == 0 {
+            let limits = self.read_resizable_limits((flags & 0x1) != 0)?;
+            let shared = (flags & 0x2) != 0;
+            Ok(MemoryType::M32 { limits, shared })
+        } else {
+            let limits = self.read_resizable_limits64((flags & 0x1) != 0)?;
+            if (flags & 0x2) != 0 {
+                return Err(BinaryReaderError::new(
+                    "64-bit memories cannot be shared",
+                    pos,
+                ));
+            }
+            Ok(MemoryType::M64 { limits })
+        }
     }
 
     pub(crate) fn read_global_type(&mut self) -> Result<GlobalType> {
@@ -319,10 +380,31 @@ impl<'a> BinaryReader<'a> {
         })
     }
 
+    fn read_first_byte_and_var_u32(&mut self) -> Result<(u8, u32)> {
+        let pos = self.position;
+        let val = self.read_var_u32()?;
+        Ok((self.buffer[pos], val))
+    }
+
     fn read_memarg(&mut self) -> Result<MemoryImmediate> {
+        let flags_pos = self.original_position();
+        let mut flags = self.read_var_u32()?;
+        let offset = self.read_var_u32()?;
+        let memory = if flags & (1 << 6) != 0 {
+            flags ^= 1 << 6;
+            self.read_var_u32()?
+        } else {
+            0
+        };
+        let align = if flags >= (1 << 6) {
+            return Err(BinaryReaderError::new("alignment too large", flags_pos));
+        } else {
+            flags as u8
+        };
         Ok(MemoryImmediate {
-            flags: self.read_var_u32()?,
-            offset: self.read_var_u32()?,
+            align,
+            offset,
+            memory,
         })
     }
 
@@ -332,6 +414,8 @@ impl<'a> BinaryReader<'a> {
                 let name = self.read_string()?;
                 let kind = if is_name(name, "name") {
                     CustomSectionKind::Name
+                } else if is_name(name, "producers") {
+                    CustomSectionKind::Producers
                 } else if is_name(name, "sourceMappingURL") {
                     CustomSectionKind::SourceMappingURL
                 } else if is_name_prefix(name, "reloc.") {
@@ -354,43 +438,55 @@ impl<'a> BinaryReader<'a> {
             9 => Ok(SectionCode::Element),
             10 => Ok(SectionCode::Code),
             11 => Ok(SectionCode::Data),
-            _ => Err(BinaryReaderError {
-                message: "Invalid section code",
-                offset,
-            }),
+            12 => Ok(SectionCode::DataCount),
+            100 => Ok(SectionCode::Module),
+            101 => Ok(SectionCode::Instance),
+            102 => Ok(SectionCode::Alias),
+            103 => Ok(SectionCode::ModuleCode),
+            _ => Err(BinaryReaderError::new("Invalid section code", offset)),
         }
     }
 
     fn read_br_table(&mut self) -> Result<BrTable<'a>> {
         let targets_len = self.read_var_u32()? as usize;
         if targets_len > MAX_WASM_BR_TABLE_SIZE {
-            return Err(BinaryReaderError {
-                message: "br_table size is out of bound",
-                offset: self.original_position() - 1,
-            });
+            return Err(BinaryReaderError::new(
+                "br_table size is out of bound",
+                self.original_position() - 1,
+            ));
         }
         let start = self.position;
         for _ in 0..targets_len {
             self.skip_var_32()?;
         }
         self.skip_var_32()?;
+        let end = self.position;
         Ok(BrTable {
-            buffer: &self.buffer[start..self.position],
+            reader: BinaryReader::new_with_offset(&self.buffer[start..end], start),
+            cnt: targets_len as usize,
         })
     }
 
+    /// Returns whether the `BinaryReader` has reached the end of the file.
     pub fn eof(&self) -> bool {
         self.position >= self.buffer.len()
     }
 
+    /// Returns the `BinaryReader`'s current position.
     pub fn current_position(&self) -> usize {
         self.position
     }
 
+    /// Returns the number of bytes remaining in the `BinaryReader`.
     pub fn bytes_remaining(&self) -> usize {
         self.buffer.len() - self.position
     }
 
+    /// Advances the `BinaryReader` `size` bytes, and returns a slice from the
+    /// current position of `size` length.
+    ///
+    /// # Errors
+    /// If `size` exceeds the remaining length in `BinaryReader`.
     pub fn read_bytes(&mut self, size: usize) -> Result<&'a [u8]> {
         self.ensure_has_bytes(size)?;
         let start = self.position;
@@ -398,22 +494,40 @@ impl<'a> BinaryReader<'a> {
         Ok(&self.buffer[start..self.position])
     }
 
+    /// Advances the `BinaryReader` four bytes and returns a `u32`.
+    /// # Errors
+    /// If `BinaryReader` has less than four bytes remaining.
     pub fn read_u32(&mut self) -> Result<u32> {
         self.ensure_has_bytes(4)?;
-        let b1 = u32::from(self.buffer[self.position]);
-        let b2 = u32::from(self.buffer[self.position + 1]);
-        let b3 = u32::from(self.buffer[self.position + 2]);
-        let b4 = u32::from(self.buffer[self.position + 3]);
+        let word = u32::from_le_bytes(
+            self.buffer[self.position..self.position + 4]
+                .try_into()
+                .unwrap(),
+        );
         self.position += 4;
-        Ok(b1 | (b2 << 8) | (b3 << 16) | (b4 << 24))
+        Ok(word)
     }
 
+    /// Advances the `BinaryReader` eight bytes and returns a `u64`.
+    /// # Errors
+    /// If `BinaryReader` has less than eight bytes remaining.
     pub fn read_u64(&mut self) -> Result<u64> {
-        let w1 = u64::from(self.read_u32()?);
-        let w2 = u64::from(self.read_u32()?);
-        Ok(w1 | (w2 << 32))
+        self.ensure_has_bytes(8)?;
+        let word = u64::from_le_bytes(
+            self.buffer[self.position..self.position + 8]
+                .try_into()
+                .unwrap(),
+        );
+        self.position += 8;
+        Ok(word)
     }
 
+    /// Advances the `BinaryReader` a single byte, and returns the data as
+    /// a `u32`.
+    ///
+    /// # Errors
+    ///
+    /// If `BinaryReader` has no bytes remaining.
     pub fn read_u8(&mut self) -> Result<u32> {
         self.ensure_has_byte()?;
         let b = u32::from(self.buffer[self.position]);
@@ -421,6 +535,37 @@ impl<'a> BinaryReader<'a> {
         Ok(b)
     }
 
+    /// Advances the `BinaryReader` up to two bytes to parse a variable
+    /// length integer as a `u8`.
+    ///
+    /// # Errors
+    ///
+    /// If `BinaryReader` has less than one or two bytes remaining, or the
+    /// integer is larger than eight bits.
+    pub fn read_var_u8(&mut self) -> Result<u32> {
+        // Optimization for single byte i32.
+        let byte = self.read_u8()?;
+        if (byte & 0x80) == 0 {
+            return Ok(byte);
+        }
+
+        let result = (self.read_u8()? << 7) | (byte & 0x7F);
+        if result >= 0x100 {
+            return Err(BinaryReaderError::new(
+                "Invalid var_u8",
+                self.original_position() - 1,
+            ));
+        }
+        Ok(result)
+    }
+
+    /// Advances the `BinaryReader` up to four bytes to parse a variable
+    /// length integer as a `u32`.
+    ///
+    /// # Errors
+    ///
+    /// If `BinaryReader` has less than one or up to four bytes remaining, or
+    /// the integer is larger than 32 bits.
     pub fn read_var_u32(&mut self) -> Result<u32> {
         // Optimization for single byte i32.
         let byte = self.read_u8()?;
@@ -435,10 +580,10 @@ impl<'a> BinaryReader<'a> {
             result |= ((byte & 0x7F) as u32) << shift;
             if shift >= 25 && (byte >> (32 - shift)) != 0 {
                 // The continuation bit or unused bits are set.
-                return Err(BinaryReaderError {
-                    message: "Invalid var_u32",
-                    offset: self.original_position() - 1,
-                });
+                return Err(BinaryReaderError::new(
+                    "Invalid var_u32",
+                    self.original_position() - 1,
+                ));
             }
             shift += 7;
             if (byte & 0x80) == 0 {
@@ -448,6 +593,45 @@ impl<'a> BinaryReader<'a> {
         Ok(result)
     }
 
+    /// Advances the `BinaryReader` up to four bytes to parse a variable
+    /// length integer as a `u64`.
+    ///
+    /// # Errors
+    ///
+    /// If `BinaryReader` has less than one or up to eight bytes remaining, or
+    /// the integer is larger than 64 bits.
+    pub fn read_var_u64(&mut self) -> Result<u64> {
+        // Optimization for single byte u64.
+        let byte = u64::from(self.read_u8()?);
+        if (byte & 0x80) == 0 {
+            return Ok(byte);
+        }
+
+        let mut result = byte & 0x7F;
+        let mut shift = 7;
+        loop {
+            let byte = u64::from(self.read_u8()?);
+            result |= (byte & 0x7F) << shift;
+            if shift >= 57 && (byte >> (64 - shift)) != 0 {
+                // The continuation bit or unused bits are set.
+                return Err(BinaryReaderError::new(
+                    "Invalid var_u64",
+                    self.original_position() - 1,
+                ));
+            }
+            shift += 7;
+            if (byte & 0x80) == 0 {
+                break;
+            }
+        }
+        Ok(result)
+    }
+
+    /// Advances the `BinaryReader` up to four bytes over a variable length 32
+    /// bit integer, discarding the result.
+    /// # Errors
+    /// If `BinaryReader` has less than one or up to four bytes remaining, or
+    /// the integer is larger than 32 bits.
     pub fn skip_var_32(&mut self) -> Result<()> {
         for _ in 0..5 {
             let byte = self.read_u8()?;
@@ -455,29 +639,39 @@ impl<'a> BinaryReader<'a> {
                 return Ok(());
             }
         }
-        Err(BinaryReaderError {
-            message: "Invalid var_32",
-            offset: self.original_position() - 1,
-        })
+        Err(BinaryReaderError::new(
+            "Invalid var_32",
+            self.original_position() - 1,
+        ))
     }
 
+    /// Alias method for `BinaryReader::skip_var_u32`.
     pub fn skip_type(&mut self) -> Result<()> {
         self.skip_var_32()
     }
 
+    /// Advances the `BinaryReader` `len` bytes, skipping the result.
+    /// # Errors
+    /// If `BinaryReader` has less than `len` bytes remaining.
     pub fn skip_bytes(&mut self, len: usize) -> Result<()> {
         self.ensure_has_bytes(len)?;
         self.position += len;
         Ok(())
     }
 
+    /// Advances the `BinaryReader` past a WebAssembly string. This method does
+    /// not perform any utf-8 validation.
+    /// # Errors
+    /// If `BinaryReader` has less than four bytes, the string's length exceeds
+    /// the remaining bytes, or the string length
+    /// exceeds `limits::MAX_WASM_STRING_SIZE`.
     pub fn skip_string(&mut self) -> Result<()> {
         let len = self.read_var_u32()? as usize;
         if len > MAX_WASM_STRING_SIZE {
-            return Err(BinaryReaderError {
-                message: "string size in out of bounds",
-                offset: self.original_position() - 1,
-            });
+            return Err(BinaryReaderError::new(
+                "string size in out of bounds",
+                self.original_position() - 1,
+            ));
         }
         self.skip_bytes(len)
     }
@@ -490,6 +684,11 @@ impl<'a> BinaryReader<'a> {
         self.position = position;
     }
 
+    /// Advances the `BinaryReader` up to four bytes to parse a variable
+    /// length integer as a `i32`.
+    /// # Errors
+    /// If `BinaryReader` has less than one or up to four bytes remaining, or
+    /// the integer is larger than 32 bits.
     pub fn read_var_i32(&mut self) -> Result<i32> {
         // Optimization for single byte i32.
         let byte = self.read_u8()?;
@@ -506,10 +705,10 @@ impl<'a> BinaryReader<'a> {
                 let continuation_bit = (byte & 0x80) != 0;
                 let sign_and_unused_bit = (byte << 1) as i8 >> (32 - shift);
                 if continuation_bit || (sign_and_unused_bit != 0 && sign_and_unused_bit != -1) {
-                    return Err(BinaryReaderError {
-                        message: "Invalid var_i32",
-                        offset: self.original_position() - 1,
-                    });
+                    return Err(BinaryReaderError::new(
+                        "Invalid var_i32",
+                        self.original_position() - 1,
+                    ));
                 }
                 return Ok(result);
             }
@@ -522,20 +721,31 @@ impl<'a> BinaryReader<'a> {
         Ok((result << ashift) >> ashift)
     }
 
-    pub fn read_var_i64(&mut self) -> Result<i64> {
-        let mut result: i64 = 0;
-        let mut shift = 0;
+    /// Advances the `BinaryReader` up to four bytes to parse a variable
+    /// length integer as a signed 33 bit integer, returned as a `i64`.
+    /// # Errors
+    /// If `BinaryReader` has less than one or up to five bytes remaining, or
+    /// the integer is larger than 33 bits.
+    pub fn read_var_s33(&mut self) -> Result<i64> {
+        // Optimization for single byte.
+        let byte = self.read_u8()?;
+        if (byte & 0x80) == 0 {
+            return Ok(((byte as i8) << 1) as i64 >> 1);
+        }
+
+        let mut result = (byte & 0x7F) as i64;
+        let mut shift = 7;
         loop {
             let byte = self.read_u8()?;
-            result |= i64::from(byte & 0x7F) << shift;
-            if shift >= 57 {
+            result |= ((byte & 0x7F) as i64) << shift;
+            if shift >= 25 {
                 let continuation_bit = (byte & 0x80) != 0;
-                let sign_and_unused_bit = ((byte << 1) as i8) >> (64 - shift);
+                let sign_and_unused_bit = (byte << 1) as i8 >> (33 - shift);
                 if continuation_bit || (sign_and_unused_bit != 0 && sign_and_unused_bit != -1) {
-                    return Err(BinaryReaderError {
-                        message: "Invalid var_i64",
-                        offset: self.original_position() - 1,
-                    });
+                    return Err(BinaryReaderError::new(
+                        "Invalid var_s33",
+                        self.original_position() - 1,
+                    ));
                 }
                 return Ok(result);
             }
@@ -548,49 +758,102 @@ impl<'a> BinaryReader<'a> {
         Ok((result << ashift) >> ashift)
     }
 
+    /// Advances the `BinaryReader` up to eight bytes to parse a variable
+    /// length integer as a 64 bit integer, returned as a `i64`.
+    /// # Errors
+    /// If `BinaryReader` has less than one or up to eight bytes remaining, or
+    /// the integer is larger than 64 bits.
+    pub fn read_var_i64(&mut self) -> Result<i64> {
+        let mut result: i64 = 0;
+        let mut shift = 0;
+        loop {
+            let byte = self.read_u8()?;
+            result |= i64::from(byte & 0x7F) << shift;
+            if shift >= 57 {
+                let continuation_bit = (byte & 0x80) != 0;
+                let sign_and_unused_bit = ((byte << 1) as i8) >> (64 - shift);
+                if continuation_bit || (sign_and_unused_bit != 0 && sign_and_unused_bit != -1) {
+                    return Err(BinaryReaderError::new(
+                        "Invalid var_i64",
+                        self.original_position() - 1,
+                    ));
+                }
+                return Ok(result);
+            }
+            shift += 7;
+            if (byte & 0x80) == 0 {
+                break;
+            }
+        }
+        let ashift = 64 - shift;
+        Ok((result << ashift) >> ashift)
+    }
+
+    /// Advances the `BinaryReader` up to four bytes to parse a variable
+    /// length integer as a 32 bit floating point integer, returned as `Ieee32`.
+    /// # Errors
+    /// If `BinaryReader` has less than one or up to four bytes remaining, or
+    /// the integer is larger than 32 bits.
     pub fn read_f32(&mut self) -> Result<Ieee32> {
         let value = self.read_u32()?;
         Ok(Ieee32(value))
     }
 
+    /// Advances the `BinaryReader` up to four bytes to parse a variable
+    /// length integer as a 32 bit floating point integer, returned as `Ieee32`.
+    /// # Errors
+    /// If `BinaryReader` has less than one or up to four bytes remaining, or
+    /// the integer is larger than 32 bits.
     pub fn read_f64(&mut self) -> Result<Ieee64> {
         let value = self.read_u64()?;
         Ok(Ieee64(value))
     }
 
-    pub fn read_string(&mut self) -> Result<&'a [u8]> {
+    /// Reads a WebAssembly string from the module.
+    /// # Errors
+    /// If `BinaryReader` has less than up to four bytes remaining, the string's
+    /// length exceeds the remaining bytes, the string's length exceeds
+    /// `limits::MAX_WASM_STRING_SIZE`, or the string contains invalid utf-8.
+    pub fn read_string(&mut self) -> Result<&'a str> {
         let len = self.read_var_u32()? as usize;
         if len > MAX_WASM_STRING_SIZE {
-            return Err(BinaryReaderError {
-                message: "string size in out of bounds",
-                offset: self.original_position() - 1,
-            });
+            return Err(BinaryReaderError::new(
+                "string size in out of bounds",
+                self.original_position() - 1,
+            ));
         }
-        self.read_bytes(len)
+        let bytes = self.read_bytes(len)?;
+        str::from_utf8(bytes).map_err(|_| {
+            BinaryReaderError::new("invalid UTF-8 encoding", self.original_position() - 1)
+        })
     }
 
-    fn read_memarg_of_align(&mut self, align: u32) -> Result<MemoryImmediate> {
+    fn read_memarg_of_align(&mut self, max_align: u8) -> Result<MemoryImmediate> {
+        let align_pos = self.original_position();
         let imm = self.read_memarg()?;
-        if align != imm.flags {
-            return Err(BinaryReaderError {
-                message: "Unexpected memarg alignment",
-                offset: self.original_position() - 1,
-            });
+        if imm.align > max_align {
+            return Err(BinaryReaderError::new(
+                "alignment must not be larger than natural",
+                align_pos,
+            ));
         }
         Ok(imm)
     }
 
     fn read_0xfe_operator(&mut self) -> Result<Operator<'a>> {
-        let code = self.read_u8()? as u8;
+        let code = self.read_var_u32()?;
         Ok(match code {
-            0x00 => Operator::Wake {
+            0x00 => Operator::MemoryAtomicNotify {
                 memarg: self.read_memarg_of_align(2)?,
             },
-            0x01 => Operator::I32Wait {
+            0x01 => Operator::MemoryAtomicWait32 {
                 memarg: self.read_memarg_of_align(2)?,
             },
-            0x02 => Operator::I64Wait {
+            0x02 => Operator::MemoryAtomicWait64 {
                 memarg: self.read_memarg_of_align(3)?,
+            },
+            0x03 => Operator::AtomicFence {
+                flags: self.read_u8()? as u8,
             },
             0x10 => Operator::I32AtomicLoad {
                 memarg: self.read_memarg_of_align(2)?,
@@ -640,19 +903,19 @@ impl<'a> BinaryReader<'a> {
             0x1f => Operator::I64AtomicRmwAdd {
                 memarg: self.read_memarg_of_align(3)?,
             },
-            0x20 => Operator::I32AtomicRmw8UAdd {
+            0x20 => Operator::I32AtomicRmw8AddU {
                 memarg: self.read_memarg_of_align(0)?,
             },
-            0x21 => Operator::I32AtomicRmw16UAdd {
+            0x21 => Operator::I32AtomicRmw16AddU {
                 memarg: self.read_memarg_of_align(1)?,
             },
-            0x22 => Operator::I64AtomicRmw8UAdd {
+            0x22 => Operator::I64AtomicRmw8AddU {
                 memarg: self.read_memarg_of_align(0)?,
             },
-            0x23 => Operator::I64AtomicRmw16UAdd {
+            0x23 => Operator::I64AtomicRmw16AddU {
                 memarg: self.read_memarg_of_align(1)?,
             },
-            0x24 => Operator::I64AtomicRmw32UAdd {
+            0x24 => Operator::I64AtomicRmw32AddU {
                 memarg: self.read_memarg_of_align(2)?,
             },
             0x25 => Operator::I32AtomicRmwSub {
@@ -661,19 +924,19 @@ impl<'a> BinaryReader<'a> {
             0x26 => Operator::I64AtomicRmwSub {
                 memarg: self.read_memarg_of_align(3)?,
             },
-            0x27 => Operator::I32AtomicRmw8USub {
+            0x27 => Operator::I32AtomicRmw8SubU {
                 memarg: self.read_memarg_of_align(0)?,
             },
-            0x28 => Operator::I32AtomicRmw16USub {
+            0x28 => Operator::I32AtomicRmw16SubU {
                 memarg: self.read_memarg_of_align(1)?,
             },
-            0x29 => Operator::I64AtomicRmw8USub {
+            0x29 => Operator::I64AtomicRmw8SubU {
                 memarg: self.read_memarg_of_align(0)?,
             },
-            0x2a => Operator::I64AtomicRmw16USub {
+            0x2a => Operator::I64AtomicRmw16SubU {
                 memarg: self.read_memarg_of_align(1)?,
             },
-            0x2b => Operator::I64AtomicRmw32USub {
+            0x2b => Operator::I64AtomicRmw32SubU {
                 memarg: self.read_memarg_of_align(2)?,
             },
             0x2c => Operator::I32AtomicRmwAnd {
@@ -682,19 +945,19 @@ impl<'a> BinaryReader<'a> {
             0x2d => Operator::I64AtomicRmwAnd {
                 memarg: self.read_memarg_of_align(3)?,
             },
-            0x2e => Operator::I32AtomicRmw8UAnd {
+            0x2e => Operator::I32AtomicRmw8AndU {
                 memarg: self.read_memarg_of_align(0)?,
             },
-            0x2f => Operator::I32AtomicRmw16UAnd {
+            0x2f => Operator::I32AtomicRmw16AndU {
                 memarg: self.read_memarg_of_align(1)?,
             },
-            0x30 => Operator::I64AtomicRmw8UAnd {
+            0x30 => Operator::I64AtomicRmw8AndU {
                 memarg: self.read_memarg_of_align(0)?,
             },
-            0x31 => Operator::I64AtomicRmw16UAnd {
+            0x31 => Operator::I64AtomicRmw16AndU {
                 memarg: self.read_memarg_of_align(1)?,
             },
-            0x32 => Operator::I64AtomicRmw32UAnd {
+            0x32 => Operator::I64AtomicRmw32AndU {
                 memarg: self.read_memarg_of_align(2)?,
             },
             0x33 => Operator::I32AtomicRmwOr {
@@ -703,19 +966,19 @@ impl<'a> BinaryReader<'a> {
             0x34 => Operator::I64AtomicRmwOr {
                 memarg: self.read_memarg_of_align(3)?,
             },
-            0x35 => Operator::I32AtomicRmw8UOr {
+            0x35 => Operator::I32AtomicRmw8OrU {
                 memarg: self.read_memarg_of_align(0)?,
             },
-            0x36 => Operator::I32AtomicRmw16UOr {
+            0x36 => Operator::I32AtomicRmw16OrU {
                 memarg: self.read_memarg_of_align(1)?,
             },
-            0x37 => Operator::I64AtomicRmw8UOr {
+            0x37 => Operator::I64AtomicRmw8OrU {
                 memarg: self.read_memarg_of_align(0)?,
             },
-            0x38 => Operator::I64AtomicRmw16UOr {
+            0x38 => Operator::I64AtomicRmw16OrU {
                 memarg: self.read_memarg_of_align(1)?,
             },
-            0x39 => Operator::I64AtomicRmw32UOr {
+            0x39 => Operator::I64AtomicRmw32OrU {
                 memarg: self.read_memarg_of_align(2)?,
             },
             0x3a => Operator::I32AtomicRmwXor {
@@ -724,19 +987,19 @@ impl<'a> BinaryReader<'a> {
             0x3b => Operator::I64AtomicRmwXor {
                 memarg: self.read_memarg_of_align(3)?,
             },
-            0x3c => Operator::I32AtomicRmw8UXor {
+            0x3c => Operator::I32AtomicRmw8XorU {
                 memarg: self.read_memarg_of_align(0)?,
             },
-            0x3d => Operator::I32AtomicRmw16UXor {
+            0x3d => Operator::I32AtomicRmw16XorU {
                 memarg: self.read_memarg_of_align(1)?,
             },
-            0x3e => Operator::I64AtomicRmw8UXor {
+            0x3e => Operator::I64AtomicRmw8XorU {
                 memarg: self.read_memarg_of_align(0)?,
             },
-            0x3f => Operator::I64AtomicRmw16UXor {
+            0x3f => Operator::I64AtomicRmw16XorU {
                 memarg: self.read_memarg_of_align(1)?,
             },
-            0x40 => Operator::I64AtomicRmw32UXor {
+            0x40 => Operator::I64AtomicRmw32XorU {
                 memarg: self.read_memarg_of_align(2)?,
             },
             0x41 => Operator::I32AtomicRmwXchg {
@@ -745,19 +1008,19 @@ impl<'a> BinaryReader<'a> {
             0x42 => Operator::I64AtomicRmwXchg {
                 memarg: self.read_memarg_of_align(3)?,
             },
-            0x43 => Operator::I32AtomicRmw8UXchg {
+            0x43 => Operator::I32AtomicRmw8XchgU {
                 memarg: self.read_memarg_of_align(0)?,
             },
-            0x44 => Operator::I32AtomicRmw16UXchg {
+            0x44 => Operator::I32AtomicRmw16XchgU {
                 memarg: self.read_memarg_of_align(1)?,
             },
-            0x45 => Operator::I64AtomicRmw8UXchg {
+            0x45 => Operator::I64AtomicRmw8XchgU {
                 memarg: self.read_memarg_of_align(0)?,
             },
-            0x46 => Operator::I64AtomicRmw16UXchg {
+            0x46 => Operator::I64AtomicRmw16XchgU {
                 memarg: self.read_memarg_of_align(1)?,
             },
-            0x47 => Operator::I64AtomicRmw32UXchg {
+            0x47 => Operator::I64AtomicRmw32XchgU {
                 memarg: self.read_memarg_of_align(2)?,
             },
             0x48 => Operator::I32AtomicRmwCmpxchg {
@@ -766,44 +1029,62 @@ impl<'a> BinaryReader<'a> {
             0x49 => Operator::I64AtomicRmwCmpxchg {
                 memarg: self.read_memarg_of_align(3)?,
             },
-            0x4a => Operator::I32AtomicRmw8UCmpxchg {
+            0x4a => Operator::I32AtomicRmw8CmpxchgU {
                 memarg: self.read_memarg_of_align(0)?,
             },
-            0x4b => Operator::I32AtomicRmw16UCmpxchg {
+            0x4b => Operator::I32AtomicRmw16CmpxchgU {
                 memarg: self.read_memarg_of_align(1)?,
             },
-            0x4c => Operator::I64AtomicRmw8UCmpxchg {
+            0x4c => Operator::I64AtomicRmw8CmpxchgU {
                 memarg: self.read_memarg_of_align(0)?,
             },
-            0x4d => Operator::I64AtomicRmw16UCmpxchg {
+            0x4d => Operator::I64AtomicRmw16CmpxchgU {
                 memarg: self.read_memarg_of_align(1)?,
             },
-            0x4e => Operator::I64AtomicRmw32UCmpxchg {
+            0x4e => Operator::I64AtomicRmw32CmpxchgU {
                 memarg: self.read_memarg_of_align(2)?,
             },
 
             _ => {
-                return Err(BinaryReaderError {
-                    message: "Unknown 0xFE opcode",
-                    offset: self.original_position() - 1,
-                })
+                return Err(BinaryReaderError::new(
+                    format!("Unknown 0xfe subopcode: 0x{:x}", code),
+                    self.original_position() - 1,
+                ));
             }
         })
     }
 
+    fn read_blocktype(&mut self) -> Result<TypeOrFuncType> {
+        let position = self.position;
+        if let Ok(ty) = self.read_type() {
+            Ok(TypeOrFuncType::Type(ty))
+        } else {
+            self.position = position;
+            let idx = self.read_var_s33()?;
+            if idx < 0 || idx > (std::u32::MAX as i64) {
+                return Err(BinaryReaderError::new("invalid function type", position));
+            }
+            Ok(TypeOrFuncType::FuncType(idx as u32))
+        }
+    }
+
+    /// Reads the next available `Operator`.
+    /// # Errors
+    /// If `BinaryReader` has less bytes remaining than required to parse
+    /// the `Operator`.
     pub fn read_operator(&mut self) -> Result<Operator<'a>> {
         let code = self.read_u8()? as u8;
         Ok(match code {
             0x00 => Operator::Unreachable,
             0x01 => Operator::Nop,
             0x02 => Operator::Block {
-                ty: self.read_type()?,
+                ty: self.read_blocktype()?,
             },
             0x03 => Operator::Loop {
-                ty: self.read_type()?,
+                ty: self.read_blocktype()?,
             },
             0x04 => Operator::If {
-                ty: self.read_type()?,
+                ty: self.read_blocktype()?,
             },
             0x05 => Operator::Else,
             0x0b => Operator::End,
@@ -822,24 +1103,49 @@ impl<'a> BinaryReader<'a> {
             },
             0x11 => Operator::CallIndirect {
                 index: self.read_var_u32()?,
-                table_index: self.read_var_u1()?,
+                table_index: self.read_var_u32()?,
+            },
+            0x12 => Operator::ReturnCall {
+                function_index: self.read_var_u32()?,
+            },
+            0x13 => Operator::ReturnCallIndirect {
+                index: self.read_var_u32()?,
+                table_index: self.read_var_u32()?,
             },
             0x1a => Operator::Drop,
             0x1b => Operator::Select,
-            0x20 => Operator::GetLocal {
+            0x1c => {
+                let results = self.read_var_u32()?;
+                if results != 1 {
+                    return Err(BinaryReaderError::new(
+                        "invalid result arity",
+                        self.position,
+                    ));
+                }
+                Operator::TypedSelect {
+                    ty: self.read_type()?,
+                }
+            }
+            0x20 => Operator::LocalGet {
                 local_index: self.read_var_u32()?,
             },
-            0x21 => Operator::SetLocal {
+            0x21 => Operator::LocalSet {
                 local_index: self.read_var_u32()?,
             },
-            0x22 => Operator::TeeLocal {
+            0x22 => Operator::LocalTee {
                 local_index: self.read_var_u32()?,
             },
-            0x23 => Operator::GetGlobal {
+            0x23 => Operator::GlobalGet {
                 global_index: self.read_var_u32()?,
             },
-            0x24 => Operator::SetGlobal {
+            0x24 => Operator::GlobalSet {
                 global_index: self.read_var_u32()?,
+            },
+            0x25 => Operator::TableGet {
+                table: self.read_var_u32()?,
+            },
+            0x26 => Operator::TableSet {
+                table: self.read_var_u32()?,
             },
             0x28 => Operator::I32Load {
                 memarg: self.read_memarg()?,
@@ -910,12 +1216,14 @@ impl<'a> BinaryReader<'a> {
             0x3e => Operator::I64Store32 {
                 memarg: self.read_memarg()?,
             },
-            0x3f => Operator::MemorySize {
-                reserved: self.read_var_u1()?,
-            },
-            0x40 => Operator::MemoryGrow {
-                reserved: self.read_var_u1()?,
-            },
+            0x3f => {
+                let (mem_byte, mem) = self.read_first_byte_and_var_u32()?;
+                Operator::MemorySize { mem_byte, mem }
+            }
+            0x40 => {
+                let (mem_byte, mem) = self.read_first_byte_and_var_u32()?;
+                Operator::MemoryGrow { mem_byte, mem }
+            }
             0x41 => Operator::I32Const {
                 value: self.read_var_i32()?,
             },
@@ -1027,25 +1335,25 @@ impl<'a> BinaryReader<'a> {
             0xa5 => Operator::F64Max,
             0xa6 => Operator::F64Copysign,
             0xa7 => Operator::I32WrapI64,
-            0xa8 => Operator::I32TruncSF32,
-            0xa9 => Operator::I32TruncUF32,
-            0xaa => Operator::I32TruncSF64,
-            0xab => Operator::I32TruncUF64,
-            0xac => Operator::I64ExtendSI32,
-            0xad => Operator::I64ExtendUI32,
-            0xae => Operator::I64TruncSF32,
-            0xaf => Operator::I64TruncUF32,
-            0xb0 => Operator::I64TruncSF64,
-            0xb1 => Operator::I64TruncUF64,
-            0xb2 => Operator::F32ConvertSI32,
-            0xb3 => Operator::F32ConvertUI32,
-            0xb4 => Operator::F32ConvertSI64,
-            0xb5 => Operator::F32ConvertUI64,
+            0xa8 => Operator::I32TruncF32S,
+            0xa9 => Operator::I32TruncF32U,
+            0xaa => Operator::I32TruncF64S,
+            0xab => Operator::I32TruncF64U,
+            0xac => Operator::I64ExtendI32S,
+            0xad => Operator::I64ExtendI32U,
+            0xae => Operator::I64TruncF32S,
+            0xaf => Operator::I64TruncF32U,
+            0xb0 => Operator::I64TruncF64S,
+            0xb1 => Operator::I64TruncF64U,
+            0xb2 => Operator::F32ConvertI32S,
+            0xb3 => Operator::F32ConvertI32U,
+            0xb4 => Operator::F32ConvertI64S,
+            0xb5 => Operator::F32ConvertI64U,
             0xb6 => Operator::F32DemoteF64,
-            0xb7 => Operator::F64ConvertSI32,
-            0xb8 => Operator::F64ConvertUI32,
-            0xb9 => Operator::F64ConvertSI64,
-            0xba => Operator::F64ConvertUI64,
+            0xb7 => Operator::F64ConvertI32S,
+            0xb8 => Operator::F64ConvertI32U,
+            0xb9 => Operator::F64ConvertI64S,
+            0xba => Operator::F64ConvertI64U,
             0xbb => Operator::F64PromoteF32,
             0xbc => Operator::I32ReinterpretF32,
             0xbd => Operator::I64ReinterpretF64,
@@ -1058,72 +1366,393 @@ impl<'a> BinaryReader<'a> {
             0xc3 => Operator::I64Extend16S,
             0xc4 => Operator::I64Extend32S,
 
-            0xd0 => Operator::RefNull,
+            0xd0 => Operator::RefNull {
+                ty: self.read_type()?,
+            },
             0xd1 => Operator::RefIsNull,
+            0xd2 => Operator::RefFunc {
+                function_index: self.read_var_u32()?,
+            },
 
             0xfc => self.read_0xfc_operator()?,
-
+            0xfd => self.read_0xfd_operator()?,
             0xfe => self.read_0xfe_operator()?,
 
             _ => {
-                return Err(BinaryReaderError {
-                    message: "Unknown opcode",
-                    offset: self.original_position() - 1,
-                })
+                return Err(BinaryReaderError::new(
+                    format!("Unknown opcode: 0x{:x}", code),
+                    self.original_position() - 1,
+                ));
             }
         })
     }
 
     fn read_0xfc_operator(&mut self) -> Result<Operator<'a>> {
-        let code = self.read_u8()? as u8;
+        let code = self.read_var_u32()?;
         Ok(match code {
-            0x00 => Operator::I32TruncSSatF32,
-            0x01 => Operator::I32TruncUSatF32,
-            0x02 => Operator::I32TruncSSatF64,
-            0x03 => Operator::I32TruncUSatF64,
-            0x04 => Operator::I64TruncSSatF32,
-            0x05 => Operator::I64TruncUSatF32,
-            0x06 => Operator::I64TruncSSatF64,
-            0x07 => Operator::I64TruncUSatF64,
+            0x00 => Operator::I32TruncSatF32S,
+            0x01 => Operator::I32TruncSatF32U,
+            0x02 => Operator::I32TruncSatF64S,
+            0x03 => Operator::I32TruncSatF64U,
+            0x04 => Operator::I64TruncSatF32S,
+            0x05 => Operator::I64TruncSatF32U,
+            0x06 => Operator::I64TruncSatF64S,
+            0x07 => Operator::I64TruncSatF64U,
+
+            0x08 => {
+                let segment = self.read_var_u32()?;
+                let mem = self.read_var_u32()?;
+                Operator::MemoryInit { segment, mem }
+            }
+            0x09 => {
+                let segment = self.read_var_u32()?;
+                Operator::DataDrop { segment }
+            }
+            0x0a => {
+                let dst = self.read_var_u32()?;
+                let src = self.read_var_u32()?;
+                Operator::MemoryCopy { src, dst }
+            }
+            0x0b => {
+                let mem = self.read_var_u32()?;
+                Operator::MemoryFill { mem }
+            }
+            0x0c => {
+                let segment = self.read_var_u32()?;
+                let table = self.read_var_u32()?;
+                Operator::TableInit { segment, table }
+            }
+            0x0d => {
+                let segment = self.read_var_u32()?;
+                Operator::ElemDrop { segment }
+            }
+            0x0e => {
+                let dst_table = self.read_var_u32()?;
+                let src_table = self.read_var_u32()?;
+                Operator::TableCopy {
+                    src_table,
+                    dst_table,
+                }
+            }
+
+            0x0f => {
+                let table = self.read_var_u32()?;
+                Operator::TableGrow { table }
+            }
+            0x10 => {
+                let table = self.read_var_u32()?;
+                Operator::TableSize { table }
+            }
+
+            0x11 => {
+                let table = self.read_var_u32()?;
+                Operator::TableFill { table }
+            }
 
             _ => {
-                return Err(BinaryReaderError {
-                    message: "Unknown 0xfc opcode",
-                    offset: self.original_position() - 1,
-                })
+                return Err(BinaryReaderError::new(
+                    format!("Unknown 0xfc subopcode: 0x{:x}", code),
+                    self.original_position() - 1,
+                ));
+            }
+        })
+    }
+
+    fn read_lane_index(&mut self, max: u32) -> Result<SIMDLaneIndex> {
+        let index = self.read_u8()?;
+        if index >= max {
+            return Err(BinaryReaderError::new(
+                "invalid lane index",
+                self.original_position() - 1,
+            ));
+        }
+        Ok(index as SIMDLaneIndex)
+    }
+
+    fn read_v128(&mut self) -> Result<V128> {
+        let mut bytes = [0; 16];
+        bytes.clone_from_slice(self.read_bytes(16)?);
+        Ok(V128(bytes))
+    }
+
+    fn read_0xfd_operator(&mut self) -> Result<Operator<'a>> {
+        let code = self.read_var_u32()?;
+        Ok(match code {
+            0x00 => Operator::V128Load {
+                memarg: self.read_memarg()?,
+            },
+            0x01 => Operator::V128Load8x8S {
+                memarg: self.read_memarg_of_align(3)?,
+            },
+            0x02 => Operator::V128Load8x8U {
+                memarg: self.read_memarg_of_align(3)?,
+            },
+            0x03 => Operator::V128Load16x4S {
+                memarg: self.read_memarg_of_align(3)?,
+            },
+            0x04 => Operator::V128Load16x4U {
+                memarg: self.read_memarg_of_align(3)?,
+            },
+            0x05 => Operator::V128Load32x2S {
+                memarg: self.read_memarg_of_align(3)?,
+            },
+            0x06 => Operator::V128Load32x2U {
+                memarg: self.read_memarg_of_align(3)?,
+            },
+            0x07 => Operator::V128Load8Splat {
+                memarg: self.read_memarg_of_align(0)?,
+            },
+            0x08 => Operator::V128Load16Splat {
+                memarg: self.read_memarg_of_align(1)?,
+            },
+            0x09 => Operator::V128Load32Splat {
+                memarg: self.read_memarg_of_align(2)?,
+            },
+            0x0a => Operator::V128Load64Splat {
+                memarg: self.read_memarg_of_align(3)?,
+            },
+            0x0b => Operator::V128Store {
+                memarg: self.read_memarg()?,
+            },
+            0x0c => Operator::V128Const {
+                value: self.read_v128()?,
+            },
+            0x0d => {
+                let mut lanes = [0 as SIMDLaneIndex; 16];
+                for lane in &mut lanes {
+                    *lane = self.read_lane_index(32)?
+                }
+                Operator::I8x16Shuffle { lanes }
+            }
+            0x0e => Operator::I8x16Swizzle,
+            0x0f => Operator::I8x16Splat,
+            0x10 => Operator::I16x8Splat,
+            0x11 => Operator::I32x4Splat,
+            0x12 => Operator::I64x2Splat,
+            0x13 => Operator::F32x4Splat,
+            0x14 => Operator::F64x2Splat,
+            0x15 => Operator::I8x16ExtractLaneS {
+                lane: self.read_lane_index(16)?,
+            },
+            0x16 => Operator::I8x16ExtractLaneU {
+                lane: self.read_lane_index(16)?,
+            },
+            0x17 => Operator::I8x16ReplaceLane {
+                lane: self.read_lane_index(16)?,
+            },
+            0x18 => Operator::I16x8ExtractLaneS {
+                lane: self.read_lane_index(8)?,
+            },
+            0x19 => Operator::I16x8ExtractLaneU {
+                lane: self.read_lane_index(8)?,
+            },
+            0x1a => Operator::I16x8ReplaceLane {
+                lane: self.read_lane_index(8)?,
+            },
+            0x1b => Operator::I32x4ExtractLane {
+                lane: self.read_lane_index(4)?,
+            },
+            0x1c => Operator::I32x4ReplaceLane {
+                lane: self.read_lane_index(4)?,
+            },
+            0x1d => Operator::I64x2ExtractLane {
+                lane: self.read_lane_index(2)?,
+            },
+            0x1e => Operator::I64x2ReplaceLane {
+                lane: self.read_lane_index(2)?,
+            },
+            0x1f => Operator::F32x4ExtractLane {
+                lane: self.read_lane_index(4)?,
+            },
+            0x20 => Operator::F32x4ReplaceLane {
+                lane: self.read_lane_index(4)?,
+            },
+            0x21 => Operator::F64x2ExtractLane {
+                lane: self.read_lane_index(2)?,
+            },
+            0x22 => Operator::F64x2ReplaceLane {
+                lane: self.read_lane_index(2)?,
+            },
+            0x23 => Operator::I8x16Eq,
+            0x24 => Operator::I8x16Ne,
+            0x25 => Operator::I8x16LtS,
+            0x26 => Operator::I8x16LtU,
+            0x27 => Operator::I8x16GtS,
+            0x28 => Operator::I8x16GtU,
+            0x29 => Operator::I8x16LeS,
+            0x2a => Operator::I8x16LeU,
+            0x2b => Operator::I8x16GeS,
+            0x2c => Operator::I8x16GeU,
+            0x2d => Operator::I16x8Eq,
+            0x2e => Operator::I16x8Ne,
+            0x2f => Operator::I16x8LtS,
+            0x30 => Operator::I16x8LtU,
+            0x31 => Operator::I16x8GtS,
+            0x32 => Operator::I16x8GtU,
+            0x33 => Operator::I16x8LeS,
+            0x34 => Operator::I16x8LeU,
+            0x35 => Operator::I16x8GeS,
+            0x36 => Operator::I16x8GeU,
+            0x37 => Operator::I32x4Eq,
+            0x38 => Operator::I32x4Ne,
+            0x39 => Operator::I32x4LtS,
+            0x3a => Operator::I32x4LtU,
+            0x3b => Operator::I32x4GtS,
+            0x3c => Operator::I32x4GtU,
+            0x3d => Operator::I32x4LeS,
+            0x3e => Operator::I32x4LeU,
+            0x3f => Operator::I32x4GeS,
+            0x40 => Operator::I32x4GeU,
+            0x41 => Operator::F32x4Eq,
+            0x42 => Operator::F32x4Ne,
+            0x43 => Operator::F32x4Lt,
+            0x44 => Operator::F32x4Gt,
+            0x45 => Operator::F32x4Le,
+            0x46 => Operator::F32x4Ge,
+            0x47 => Operator::F64x2Eq,
+            0x48 => Operator::F64x2Ne,
+            0x49 => Operator::F64x2Lt,
+            0x4a => Operator::F64x2Gt,
+            0x4b => Operator::F64x2Le,
+            0x4c => Operator::F64x2Ge,
+            0x4d => Operator::V128Not,
+            0x4e => Operator::V128And,
+            0x4f => Operator::V128AndNot,
+            0x50 => Operator::V128Or,
+            0x51 => Operator::V128Xor,
+            0x52 => Operator::V128Bitselect,
+            0x60 => Operator::I8x16Abs,
+            0x61 => Operator::I8x16Neg,
+            0x62 => Operator::I8x16AnyTrue,
+            0x63 => Operator::I8x16AllTrue,
+            0x64 => Operator::I8x16Bitmask,
+            0x65 => Operator::I8x16NarrowI16x8S,
+            0x66 => Operator::I8x16NarrowI16x8U,
+            0x6b => Operator::I8x16Shl,
+            0x6c => Operator::I8x16ShrS,
+            0x6d => Operator::I8x16ShrU,
+            0x6e => Operator::I8x16Add,
+            0x6f => Operator::I8x16AddSatS,
+            0x70 => Operator::I8x16AddSatU,
+            0x71 => Operator::I8x16Sub,
+            0x72 => Operator::I8x16SubSatS,
+            0x73 => Operator::I8x16SubSatU,
+            0x76 => Operator::I8x16MinS,
+            0x77 => Operator::I8x16MinU,
+            0x78 => Operator::I8x16MaxS,
+            0x79 => Operator::I8x16MaxU,
+            0x7b => Operator::I8x16RoundingAverageU,
+            0x80 => Operator::I16x8Abs,
+            0x81 => Operator::I16x8Neg,
+            0x82 => Operator::I16x8AnyTrue,
+            0x83 => Operator::I16x8AllTrue,
+            0x84 => Operator::I16x8Bitmask,
+            0x85 => Operator::I16x8NarrowI32x4S,
+            0x86 => Operator::I16x8NarrowI32x4U,
+            0x87 => Operator::I16x8WidenLowI8x16S,
+            0x88 => Operator::I16x8WidenHighI8x16S,
+            0x89 => Operator::I16x8WidenLowI8x16U,
+            0x8a => Operator::I16x8WidenHighI8x16U,
+            0x8b => Operator::I16x8Shl,
+            0x8c => Operator::I16x8ShrS,
+            0x8d => Operator::I16x8ShrU,
+            0x8e => Operator::I16x8Add,
+            0x8f => Operator::I16x8AddSatS,
+            0x90 => Operator::I16x8AddSatU,
+            0x91 => Operator::I16x8Sub,
+            0x92 => Operator::I16x8SubSatS,
+            0x93 => Operator::I16x8SubSatU,
+            0x95 => Operator::I16x8Mul,
+            0x96 => Operator::I16x8MinS,
+            0x97 => Operator::I16x8MinU,
+            0x98 => Operator::I16x8MaxS,
+            0x99 => Operator::I16x8MaxU,
+            0x9b => Operator::I16x8RoundingAverageU,
+            0xa0 => Operator::I32x4Abs,
+            0xa1 => Operator::I32x4Neg,
+            0xa2 => Operator::I32x4AnyTrue,
+            0xa3 => Operator::I32x4AllTrue,
+            0xa4 => Operator::I32x4Bitmask,
+            0xa7 => Operator::I32x4WidenLowI16x8S,
+            0xa8 => Operator::I32x4WidenHighI16x8S,
+            0xa9 => Operator::I32x4WidenLowI16x8U,
+            0xaa => Operator::I32x4WidenHighI16x8U,
+            0xab => Operator::I32x4Shl,
+            0xac => Operator::I32x4ShrS,
+            0xad => Operator::I32x4ShrU,
+            0xae => Operator::I32x4Add,
+            0xb1 => Operator::I32x4Sub,
+            0xb5 => Operator::I32x4Mul,
+            0xb6 => Operator::I32x4MinS,
+            0xb7 => Operator::I32x4MinU,
+            0xb8 => Operator::I32x4MaxS,
+            0xb9 => Operator::I32x4MaxU,
+            0xc1 => Operator::I64x2Neg,
+            0xcb => Operator::I64x2Shl,
+            0xcc => Operator::I64x2ShrS,
+            0xcd => Operator::I64x2ShrU,
+            0xce => Operator::I64x2Add,
+            0xd1 => Operator::I64x2Sub,
+            0xd5 => Operator::I64x2Mul,
+            0xd8 => Operator::F32x4Ceil,
+            0xd9 => Operator::F32x4Floor,
+            0xda => Operator::F32x4Trunc,
+            0xdb => Operator::F32x4Nearest,
+            0xdc => Operator::F64x2Ceil,
+            0xdd => Operator::F64x2Floor,
+            0xde => Operator::F64x2Trunc,
+            0xdf => Operator::F64x2Nearest,
+            0xe0 => Operator::F32x4Abs,
+            0xe1 => Operator::F32x4Neg,
+            0xe3 => Operator::F32x4Sqrt,
+            0xe4 => Operator::F32x4Add,
+            0xe5 => Operator::F32x4Sub,
+            0xe6 => Operator::F32x4Mul,
+            0xe7 => Operator::F32x4Div,
+            0xe8 => Operator::F32x4Min,
+            0xe9 => Operator::F32x4Max,
+            0xea => Operator::F32x4PMin,
+            0xeb => Operator::F32x4PMax,
+            0xec => Operator::F64x2Abs,
+            0xed => Operator::F64x2Neg,
+            0xef => Operator::F64x2Sqrt,
+            0xf0 => Operator::F64x2Add,
+            0xf1 => Operator::F64x2Sub,
+            0xf2 => Operator::F64x2Mul,
+            0xf3 => Operator::F64x2Div,
+            0xf4 => Operator::F64x2Min,
+            0xf5 => Operator::F64x2Max,
+            0xf6 => Operator::F64x2PMin,
+            0xf7 => Operator::F64x2PMax,
+            0xf8 => Operator::I32x4TruncSatF32x4S,
+            0xf9 => Operator::I32x4TruncSatF32x4U,
+            0xfa => Operator::F32x4ConvertI32x4S,
+            0xfb => Operator::F32x4ConvertI32x4U,
+            _ => {
+                return Err(BinaryReaderError::new(
+                    format!("Unknown 0xfd subopcode: 0x{:x}", code),
+                    self.original_position() - 1,
+                ));
             }
         })
     }
 
     pub(crate) fn read_file_header(&mut self) -> Result<u32> {
-        let magic_number = self.read_u32()?;
+        let magic_number = self.read_bytes(4)?;
         if magic_number != WASM_MAGIC_NUMBER {
-            return Err(BinaryReaderError {
-                message: "Bad magic number",
-                offset: self.original_position() - 4,
-            });
+            return Err(BinaryReaderError::new(
+                "Bad magic number",
+                self.original_position() - 4,
+            ));
         }
         let version = self.read_u32()?;
         if version != WASM_SUPPORTED_VERSION && version != WASM_EXPERIMENTAL_VERSION {
-            return Err(BinaryReaderError {
-                message: "Bad version number",
-                offset: self.original_position() - 4,
-            });
+            return Err(BinaryReaderError::new(
+                "Bad version number",
+                self.original_position() - 4,
+            ));
         }
         Ok(version)
-    }
-
-    pub(crate) fn read_section_header(&mut self) -> Result<SectionHeader<'a>> {
-        let id_position = self.position;
-        let id = self.read_var_u7()?;
-        let payload_len = self.read_var_u32()? as usize;
-        let payload_start = self.position;
-        let code = self.read_section_code(id, id_position)?;
-        Ok(SectionHeader {
-            code,
-            payload_start,
-            payload_len,
-        })
     }
 
     pub(crate) fn read_name_type(&mut self) -> Result<NameType> {
@@ -1132,10 +1761,10 @@ impl<'a> BinaryReader<'a> {
             0 => Ok(NameType::Module),
             1 => Ok(NameType::Function),
             2 => Ok(NameType::Local),
-            _ => Err(BinaryReaderError {
-                message: "Invalid name type",
-                offset: self.original_position() - 1,
-            }),
+            _ => Err(BinaryReaderError::new(
+                "Invalid name type",
+                self.original_position() - 1,
+            )),
         }
     }
 
@@ -1144,10 +1773,10 @@ impl<'a> BinaryReader<'a> {
         Ok(match ty {
             1 => LinkingType::StackPointer(self.read_var_u32()?),
             _ => {
-                return Err(BinaryReaderError {
-                    message: "Invalid linking type",
-                    offset: self.original_position() - 1,
-                });
+                return Err(BinaryReaderError::new(
+                    "Invalid linking type",
+                    self.original_position() - 1,
+                ));
             }
         })
     }
@@ -1163,10 +1792,10 @@ impl<'a> BinaryReader<'a> {
             5 => Ok(RelocType::GlobalAddrI32),
             6 => Ok(RelocType::TypeIndexLEB),
             7 => Ok(RelocType::GlobalIndexLEB),
-            _ => Err(BinaryReaderError {
-                message: "Invalid reloc type",
-                offset: self.original_position() - 1,
-            }),
+            _ => Err(BinaryReaderError::new(
+                "Invalid reloc type",
+                self.original_position() - 1,
+            )),
         }
     }
 
@@ -1181,70 +1810,68 @@ impl<'a> BinaryReader<'a> {
 }
 
 impl<'a> BrTable<'a> {
-    /// Reads br_table entries.
+    /// Returns the number of `br_table` entries, not including the default
+    /// label
+    pub fn len(&self) -> usize {
+        self.cnt
+    }
+
+    /// Returns whether `BrTable` doesn't have any labels apart from the default one.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// Returns the list of targets that this `br_table` instruction will be
+    /// jumping to.
     ///
-    /// # Examples
+    /// This method will return an iterator which parses each target of this
+    /// `br_table` as well as the default target. The returned iterator will
+    /// yield `self.len() + 1` elements.
+    ///
+    /// Each iterator item is a tuple of `(u32, bool)`, where the first item is
+    /// the relative depth of the jump and the second item is `true` if the item
+    /// is the default label. You're guaranteed that `true` will only show up
+    /// for the final element of the iterator.
+    ///
+    /// #Examples
+    ///
     /// ```rust
-    /// let buf = vec![0x0e, 0x02, 0x01, 0x02, 0x00];
+    /// let buf = [0x0e, 0x02, 0x01, 0x02, 0x00];
     /// let mut reader = wasmparser::BinaryReader::new(&buf);
     /// let op = reader.read_operator().unwrap();
-    /// if let wasmparser::Operator::BrTable { ref table } = op {
-    ///     let br_table_depths = table.read_table().unwrap();
-    ///     assert!(br_table_depths.0 == vec![1,2].into_boxed_slice() &&
-    ///             br_table_depths.1 == 0);
-    /// } else {
-    ///     unreachable!();
+    /// if let wasmparser::Operator::BrTable { table } = op {
+    ///     let targets = table.targets().collect::<Result<Vec<_>, _>>().unwrap();
+    ///     assert_eq!(targets, [(1, false), (2, false), (0, true)]);
     /// }
     /// ```
-    pub fn read_table(&self) -> Result<(Box<[u32]>, u32)> {
-        let mut reader = BinaryReader::new(self.buffer);
-        let mut table = Vec::new();
-        while !reader.eof() {
-            table.push(reader.read_var_u32()?);
-        }
-        let default_target = table.pop().ok_or_else(|| BinaryReaderError {
-            message: "br_table missing default target",
-            offset: reader.original_position(),
-        })?;
-        Ok((table.into_boxed_slice(), default_target))
+    pub fn targets<'b>(&'b self) -> impl Iterator<Item = Result<(u32, bool)>> + 'b {
+        let mut reader = self.reader.clone();
+        (0..self.cnt + 1).map(move |i| {
+            let label = reader.read_var_u32()?;
+            let ret = (label, i == self.cnt);
+            if ret.1 && !reader.eof() {
+                return Err(BinaryReaderError::new(
+                    "trailing data in br_table",
+                    reader.original_position(),
+                ));
+            }
+            Ok(ret)
+        })
     }
 }
 
-/// Iterator for `BrTable`.
-///
-/// #Examples
-/// ```rust
-/// let buf = vec![0x0e, 0x02, 0x01, 0x02, 0x00];
-/// let mut reader = wasmparser::BinaryReader::new(&buf);
-/// let op = reader.read_operator().unwrap();
-/// if let wasmparser::Operator::BrTable { ref table } = op {
-///     for depth in table {
-///         println!("BrTable depth: {}", depth);
-///     }
-/// }
-/// ```
-pub struct BrTableIterator<'a> {
-    reader: BinaryReader<'a>,
-}
-
-impl<'a> IntoIterator for &'a BrTable<'a> {
-    type Item = u32;
-    type IntoIter = BrTableIterator<'a>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        BrTableIterator {
-            reader: BinaryReader::new(self.buffer),
+impl fmt::Debug for BrTable<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut f = f.debug_struct("BrTable");
+        f.field("count", &self.cnt);
+        match self.targets().collect::<Result<Vec<_>>>() {
+            Ok(targets) => {
+                f.field("targets", &targets);
+            }
+            Err(_) => {
+                f.field("reader", &self.reader);
+            }
         }
-    }
-}
-
-impl<'a> Iterator for BrTableIterator<'a> {
-    type Item = u32;
-
-    fn next(&mut self) -> Option<u32> {
-        if self.reader.eof() {
-            return None;
-        }
-        self.reader.read_var_u32().ok()
+        f.finish()
     }
 }

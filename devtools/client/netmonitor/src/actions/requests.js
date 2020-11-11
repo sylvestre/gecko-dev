@@ -7,13 +7,22 @@
 const {
   ADD_REQUEST,
   CLEAR_REQUESTS,
+  CLONE_REQUEST,
   CLONE_SELECTED_REQUEST,
   REMOVE_SELECTED_CUSTOM_REQUEST,
+  RIGHT_CLICK_REQUEST,
   SEND_CUSTOM_REQUEST,
+  SET_EVENT_STREAM_FLAG,
   TOGGLE_RECORDING,
   UPDATE_REQUEST,
-} = require("../constants");
-const { getSelectedRequest } = require("../selectors/index");
+} = require("devtools/client/netmonitor/src/constants");
+const {
+  getSelectedRequest,
+  getRequestById,
+} = require("devtools/client/netmonitor/src/selectors/index");
+const {
+  fetchNetworkUpdatePacket,
+} = require("devtools/client/netmonitor/src/utils/request-utils");
 
 function addRequest(id, data, batch) {
   return {
@@ -33,6 +42,35 @@ function updateRequest(id, data, batch) {
   };
 }
 
+function setEventStreamFlag(id, batch) {
+  return {
+    type: SET_EVENT_STREAM_FLAG,
+    id,
+    meta: { batch },
+  };
+}
+
+/**
+ * Clone request by id. Used when cloning a request
+ * through the "Edit and Resend" option present in the context menu.
+ */
+function cloneRequest(id) {
+  return {
+    id,
+    type: CLONE_REQUEST,
+  };
+}
+
+/**
+ * Right click a request without selecting it.
+ */
+function rightClickRequest(id) {
+  return {
+    id,
+    type: RIGHT_CLICK_REQUEST,
+  };
+}
+
 /**
  * Clone the currently selected request, set the "isCustom" attribute.
  * Used by the "Edit and Resend" feature.
@@ -46,29 +84,45 @@ function cloneSelectedRequest() {
 /**
  * Send a new HTTP request using the data in the custom request form.
  */
-function sendCustomRequest(connector) {
-  return (dispatch, getState) => {
-    const selected = getSelectedRequest(getState());
+function sendCustomRequest(connector, requestId = null) {
+  return async ({ dispatch, getState }) => {
+    let request;
+    if (requestId) {
+      request = getRequestById(getState(), requestId);
+    } else {
+      request = getSelectedRequest(getState());
+    }
 
-    if (!selected) {
+    if (!request) {
       return;
     }
 
+    // Fetch request headers and post data from the backend.
+    await fetchNetworkUpdatePacket(connector.requestData, request, [
+      "requestHeaders",
+      "requestPostData",
+    ]);
+
+    // Reload the request from the store to get the headers.
+    request = getRequestById(getState(), request.id);
+
     // Send a new HTTP request using the data in the custom request form
     const data = {
-      cause: selected.cause,
-      url: selected.url,
-      method: selected.method,
-      httpVersion: selected.httpVersion,
+      cause: request.cause,
+      url: request.url,
+      method: request.method,
+      httpVersion: request.httpVersion,
     };
-    if (selected.requestHeaders) {
-      data.headers = selected.requestHeaders.headers;
-    }
-    if (selected.requestPostData) {
-      data.body = selected.requestPostData.postData.text;
+
+    if (request.requestHeaders) {
+      data.headers = request.requestHeaders.headers;
     }
 
-    connector.sendHTTPRequest(data, (response) => {
+    if (request.requestPostData) {
+      data.body = request.requestPostData.postData.text;
+    }
+
+    connector.sendHTTPRequest(data, response => {
       return dispatch({
         type: SEND_CUSTOM_REQUEST,
         id: response.eventActor.actor,
@@ -105,9 +159,12 @@ function toggleRecording() {
 module.exports = {
   addRequest,
   clearRequests,
+  cloneRequest,
   cloneSelectedRequest,
+  rightClickRequest,
   removeSelectedCustomRequest,
   sendCustomRequest,
+  setEventStreamFlag,
   toggleRecording,
   updateRequest,
 };

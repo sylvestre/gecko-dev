@@ -4,6 +4,10 @@
 
 include ProtocolTypes;
 
+include protocol PChildToParentStream;
+include protocol PParentToChildStream;
+include protocol PRemoteLazyInputStream;
+
 using struct mozilla::void_t
   from "ipc/IPCMessageUtils.h";
 
@@ -45,11 +49,36 @@ struct SlicedInputStreamParams
   bool closed;
 };
 
-struct IPCBlobInputStreamParams
+struct RemoteLazyInputStreamRef
 {
   nsID id;
   uint64_t start;
   uint64_t length;
+};
+
+union RemoteLazyInputStreamParams
+{
+  RemoteLazyInputStreamRef;
+  PRemoteLazyInputStream;
+};
+
+union IPCRemoteStreamType
+{
+  PChildToParentStream;
+  PParentToChildStream;
+};
+
+struct IPCRemoteStreamParams
+{
+  // If this is true, the stream will send data only when the first operation
+  // is done on the destination side. The benefit of this is that we do not
+  // send data if not needed. On the other hand, it could have a performance
+  // issue.
+  bool delayedStart;
+
+  IPCRemoteStreamType stream;
+
+  int64_t length;
 };
 
 union InputStreamParams
@@ -60,25 +89,28 @@ union InputStreamParams
   MIMEInputStreamParams;
   MultiplexInputStreamParams;
   SlicedInputStreamParams;
-  IPCBlobInputStreamParams;
+  RemoteLazyInputStreamParams;
   InputStreamLengthWrapperParams;
+  IPCRemoteStreamParams;
+  EncryptedFileInputStreamParams;
 };
 
-union OptionalInputStreamParams
+struct EncryptedFileInputStreamParams
 {
-  void_t;
-  InputStreamParams;
+  FileInputStreamParams fileInputStreamParams;
+  uint8_t[] key;
+  uint32_t blockSize;
 };
 
 struct BufferedInputStreamParams
 {
-  OptionalInputStreamParams optionalStream;
+  InputStreamParams? optionalStream;
   uint32_t bufferSize;
 };
 
 struct MIMEInputStreamParams
 {
-  OptionalInputStreamParams optionalStream;
+  InputStreamParams? optionalStream;
   HeaderEntry[] headers;
   bool startedReading;
 };

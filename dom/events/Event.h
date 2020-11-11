@@ -154,6 +154,7 @@ class Event : public nsISupports, public nsWrapperCache {
   static CSSIntPoint GetScreenCoords(nsPresContext* aPresContext,
                                      WidgetEvent* aEvent,
                                      LayoutDeviceIntPoint aPoint);
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY
   static CSSIntPoint GetOffsetCoords(nsPresContext* aPresContext,
                                      WidgetEvent* aEvent,
                                      LayoutDeviceIntPoint aPoint,
@@ -165,17 +166,15 @@ class Event : public nsISupports, public nsWrapperCache {
 
   static already_AddRefed<Event> Constructor(const GlobalObject& aGlobal,
                                              const nsAString& aType,
-                                             const EventInit& aParam,
-                                             ErrorResult& aRv);
+                                             const EventInit& aParam);
 
   void GetType(nsAString& aType) const;
 
   EventTarget* GetTarget() const;
   EventTarget* GetCurrentTarget() const;
 
-  // This method returns the nsIDocument which is associated with the event
-  // target.
-  already_AddRefed<nsIDocument> GetDocument() const;
+  // This method returns the document which is associated with the event target.
+  already_AddRefed<Document> GetDocument() const;
 
   void ComposedPath(nsTArray<RefPtr<EventTarget>>& aPath);
 
@@ -220,6 +219,10 @@ class Event : public nsISupports, public nsWrapperCache {
 
   bool DefaultPreventedByContent() const {
     return mEvent->mFlags.mDefaultPreventedByContent;
+  }
+
+  void PreventMultipleActions() {
+    mEvent->mFlags.mMultipleActionsPrevented = true;
   }
 
   bool MultipleActionsPrevented() const {

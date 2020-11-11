@@ -26,7 +26,7 @@ use style_traits::{CssWriter, ParseError, StyleParseErrorKind, ToCss};
 /// An [`@supports`][supports] rule.
 ///
 /// [supports]: https://drafts.csswg.org/css-conditional-3/#at-supports
-#[derive(Debug)]
+#[derive(Debug, ToShmem)]
 pub struct SupportsRule {
     /// The parsed condition
     pub condition: SupportsCondition,
@@ -76,7 +76,7 @@ impl DeepCloneWithLock for SupportsRule {
 /// An @supports condition
 ///
 /// <https://drafts.csswg.org/css-conditional-3/#at-supports>
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, ToShmem)]
 pub enum SupportsCondition {
     /// `not (condition)`
     Not(Box<SupportsCondition>),
@@ -103,7 +103,7 @@ impl SupportsCondition {
     ///
     /// <https://drafts.csswg.org/css-conditional/#supports_condition>
     pub fn parse<'i, 't>(input: &mut Parser<'i, 't>) -> Result<Self, ParseError<'i>> {
-        if input.try(|i| i.expect_ident_matching("not")).is_ok() {
+        if input.try_parse(|i| i.expect_ident_matching("not")).is_ok() {
             let inner = SupportsCondition::parse_in_parens(input)?;
             return Ok(SupportsCondition::Not(Box::new(inner)));
         }
@@ -129,7 +129,7 @@ impl SupportsCondition {
         loop {
             conditions.push(SupportsCondition::parse_in_parens(input)?);
             if input
-                .try(|input| input.expect_ident_matching(keyword))
+                .try_parse(|input| input.expect_ident_matching(keyword))
                 .is_err()
             {
                 // Did not find the expected keyword.
@@ -145,7 +145,7 @@ impl SupportsCondition {
         function: &str,
         input: &mut Parser<'i, 't>,
     ) -> Result<Self, ParseError<'i>> {
-        match_ignore_ascii_case!{ function,
+        match_ignore_ascii_case! { function,
             // Although this is an internal syntax, it is not necessary
             // to check parsing context as far as we accept any
             // unexpected token as future syntax, and evaluate it to
@@ -157,17 +157,17 @@ impl SupportsCondition {
                     CString::new(name.as_bytes())
                 }.map_err(|_| input.new_custom_error(StyleParseErrorKind::UnspecifiedError))?;
                 Ok(SupportsCondition::MozBoolPref(name))
-            }
+            },
             "selector" => {
                 let pos = input.position();
                 consume_any_value(input)?;
                 Ok(SupportsCondition::Selector(RawSelector(
                     input.slice_from(pos).to_owned()
                 )))
-            }
+            },
             _ => {
                 Err(input.new_custom_error(StyleParseErrorKind::UnspecifiedError))
-            }
+            },
         }
     }
 
@@ -175,20 +175,20 @@ impl SupportsCondition {
     fn parse_in_parens<'i, 't>(input: &mut Parser<'i, 't>) -> Result<Self, ParseError<'i>> {
         // Whitespace is normally taken care of in `Parser::next`,
         // but we want to not include it in `pos` for the SupportsCondition::FutureSyntax cases.
-        while input.try(Parser::expect_whitespace).is_ok() {}
+        while input.try_parse(Parser::expect_whitespace).is_ok() {}
         let pos = input.position();
         let location = input.current_source_location();
-        // FIXME: remove clone() when lifetimes are non-lexical
-        match input.next()?.clone() {
+        match *input.next()? {
             Token::ParenthesisBlock => {
-                let nested =
-                    input.try(|input| input.parse_nested_block(parse_condition_or_declaration));
+                let nested = input
+                    .try_parse(|input| input.parse_nested_block(parse_condition_or_declaration));
                 if nested.is_ok() {
                     return nested;
                 }
             },
-            Token::Function(ident) => {
-                let nested = input.try(|input| {
+            Token::Function(ref ident) => {
+                let ident = ident.clone();
+                let nested = input.try_parse(|input| {
                     input.parse_nested_block(|input| {
                         SupportsCondition::parse_functional(&ident, input)
                     })
@@ -197,7 +197,7 @@ impl SupportsCondition {
                     return nested;
                 }
             },
-            t => return Err(location.new_unexpected_token_error(t)),
+            ref t => return Err(location.new_unexpected_token_error(t.clone())),
         }
         input.parse_nested_block(consume_any_value)?;
         Ok(SupportsCondition::FutureSyntax(
@@ -223,8 +223,7 @@ impl SupportsCondition {
 #[cfg(feature = "gecko")]
 fn eval_moz_bool_pref(name: &CStr, cx: &ParserContext) -> bool {
     use crate::gecko_bindings::bindings;
-    use crate::stylesheets::Origin;
-    if cx.stylesheet_origin != Origin::UserAgent && !cx.chrome_rules_enabled() {
+    if !cx.in_ua_or_chrome_sheet() {
         return false;
     }
     unsafe { bindings::Gecko_GetBoolPrefValue(name.as_ptr()) }
@@ -240,7 +239,7 @@ fn eval_moz_bool_pref(_: &CStr, _: &ParserContext) -> bool {
 pub fn parse_condition_or_declaration<'i, 't>(
     input: &mut Parser<'i, 't>,
 ) -> Result<SupportsCondition, ParseError<'i>> {
-    if let Ok(condition) = input.try(SupportsCondition::parse) {
+    if let Ok(condition) = input.try_parse(SupportsCondition::parse) {
         Ok(SupportsCondition::Parenthesized(Box::new(condition)))
     } else {
         Declaration::parse(input).map(SupportsCondition::Declaration)
@@ -306,7 +305,7 @@ impl ToCss for SupportsCondition {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, ToShmem)]
 /// A possibly-invalid CSS selector.
 pub struct RawSelector(pub String);
 
@@ -324,9 +323,7 @@ impl RawSelector {
     pub fn eval(&self, context: &ParserContext, namespaces: &Namespaces) -> bool {
         #[cfg(feature = "gecko")]
         {
-            if unsafe {
-                !crate::gecko_bindings::structs::StaticPrefs_sVarCache_layout_css_supports_selector_enabled
-            } {
+            if !static_prefs::pref!("layout.css.supports-selector.enabled") {
                 return false;
             }
         }
@@ -350,9 +347,8 @@ impl RawSelector {
                     use crate::selector_parser::PseudoElement;
                     use selectors::parser::Component;
 
-                    let has_any_unknown_webkit_pseudo = selector.has_pseudo_element() && selector
-                        .iter_raw_match_order()
-                        .any(|component| {
+                    let has_any_unknown_webkit_pseudo = selector.has_pseudo_element() &&
+                        selector.iter_raw_match_order().any(|component| {
                             matches!(
                                 *component,
                                 Component::PseudoElement(PseudoElement::UnknownWebkit(..))
@@ -369,7 +365,7 @@ impl RawSelector {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, ToShmem)]
 /// A possibly-invalid property declaration
 pub struct Declaration(pub String);
 
@@ -418,7 +414,7 @@ impl Declaration {
                     PropertyDeclaration::parse_into(&mut declarations, id, &context, input)
                         .map_err(|_| input.new_custom_error(()))
                 })?;
-                let _ = input.try(parse_important);
+                let _ = input.try_parse(parse_important);
                 Ok(())
             })
             .is_ok()

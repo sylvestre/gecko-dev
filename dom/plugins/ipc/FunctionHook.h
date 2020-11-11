@@ -12,7 +12,7 @@
 #include "mozilla/Atomics.h"
 
 #if defined(XP_WIN)
-#include "nsWindowsDllInterceptor.h"
+#  include "nsWindowsDllInterceptor.h"
 #endif
 
 namespace mozilla {
@@ -30,7 +30,7 @@ class FunctionHookArray;
 
 class FunctionHook {
  public:
-  virtual ~FunctionHook() {}
+  virtual ~FunctionHook() = default;
 
   virtual FunctionHookId FunctionId() const = 0;
 

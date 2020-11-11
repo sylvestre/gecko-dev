@@ -5,8 +5,8 @@
 "use strict";
 
 const kLazyAreaId = "test-890262-lazy-area";
-const kWidget1Id  = "test-890262-widget1";
-const kWidget2Id  = "test-890262-widget2";
+const kWidget1Id = "test-890262-widget1";
+const kWidget2Id = "test-890262-widget2";
 
 setupArea();
 
@@ -24,7 +24,10 @@ add_task(function() {
     Cu.reportError(ex);
     noError = false;
   }
-  ok(noError, "Shouldn't throw an exception for a widget that was created in a not-yet-constructed area");
+  ok(
+    noError,
+    "Shouldn't throw an exception for a widget that was created in a not-yet-constructed area"
+  );
 });
 
 // Destroying a widget after moving it to a lazy area should work.
@@ -43,7 +46,10 @@ add_task(function() {
     Cu.reportError(ex);
     noError = false;
   }
-  ok(noError, "Shouldn't throw an exception for a widget that was added to a not-yet-constructed area");
+  ok(
+    noError,
+    "Shouldn't throw an exception for a widget that was added to a not-yet-constructed area"
+  );
 });
 
 add_task(async function asyncCleanup() {
@@ -58,7 +64,7 @@ add_task(async function asyncCleanup() {
 });
 
 function setupArea() {
-  let lazyArea = document.createElementNS(kNSXUL, "hbox");
+  let lazyArea = document.createXULElement("hbox");
   lazyArea.id = kLazyAreaId;
   document.getElementById("nav-bar").appendChild(lazyArea);
   CustomizableUI.registerArea(kLazyAreaId, {

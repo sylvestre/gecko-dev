@@ -12,23 +12,23 @@ var TestPromptFactory = {
   QueryInterface: ChromeUtils.generateQI(["nsIFactory", "nsIPromptFactory"]),
 
   createInstance: function tPF_ci(outer, iid) {
-    if (outer)
-      throw Cr.NS_ERROR_NO_AGGREGATION;
+    if (outer) {
+      throw Components.Exception("", Cr.NS_ERROR_NO_AGGREGATION);
+    }
     return this.QueryInterface(iid);
   },
 
   lockFactory: function tPF_lockf(lock) {
-    throw Cr.NS_ERROR_NOT_IMPLEMENTED;
+    throw Components.Exception("", Cr.NS_ERROR_NOT_IMPLEMENTED);
   },
 
   getPrompt: function tPF_getPrompt(aWindow, aIID) {
-    if (aIID.equals(Ci.nsIAuthPrompt) ||
-        aIID.equals(Ci.nsIAuthPrompt2)) {
+    if (aIID.equals(Ci.nsIAuthPrompt) || aIID.equals(Ci.nsIAuthPrompt2)) {
       authPromptRequestReceived = true;
       return {};
     }
 
-    throw Cr.NS_ERROR_NO_INTERFACE;
+    throw Components.Exception("", Cr.NS_ERROR_NO_INTERFACE);
   },
 }; // end of TestPromptFactory implementation
 
@@ -36,8 +36,12 @@ var TestPromptFactory = {
  * The tests
  */
 function run_test() {
-  Components.manager.nsIComponentRegistrar.registerFactory(tPFCID,
-    "TestPromptFactory", tPFContract, TestPromptFactory);
+  Components.manager.nsIComponentRegistrar.registerFactory(
+    tPFCID,
+    "TestPromptFactory",
+    tPFContract,
+    TestPromptFactory
+  );
 
   // Make sure that getting both nsIAuthPrompt and nsIAuthPrompt2 works
   // (these should work independently of whether the application has

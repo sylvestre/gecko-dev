@@ -4,10 +4,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef mozilla_dom_SVGFESpecularLightingElement_h
-#define mozilla_dom_SVGFESpecularLightingElement_h
+#ifndef DOM_SVG_SVGFESPECULARLIGHTINGELEMENT_H_
+#define DOM_SVG_SVGFESPECULARLIGHTINGELEMENT_H_
 
-#include "nsSVGFilters.h"
+#include "mozilla/dom/SVGFilters.h"
 
 nsresult NS_NewSVGFESpecularLightingElement(
     nsIContent** aResult, already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo);
@@ -17,7 +17,7 @@ namespace dom {
 
 //---------------------SpecularLighting------------------------
 
-typedef nsSVGFELightingElement SVGFESpecularLightingElementBase;
+using SVGFESpecularLightingElementBase = SVGFELightingElement;
 
 class SVGFESpecularLightingElement : public SVGFESpecularLightingElementBase {
   friend nsresult(::NS_NewSVGFESpecularLightingElement(
@@ -35,22 +35,22 @@ class SVGFESpecularLightingElement : public SVGFESpecularLightingElementBase {
   virtual nsresult Clone(dom::NodeInfo*, nsINode** aResult) const override;
 
   virtual FilterPrimitiveDescription GetPrimitiveDescription(
-      nsSVGFilterInstance* aInstance, const IntRect& aFilterSubregion,
+      SVGFilterInstance* aInstance, const IntRect& aFilterSubregion,
       const nsTArray<bool>& aInputsAreTainted,
       nsTArray<RefPtr<SourceSurface>>& aInputImages) override;
   virtual bool AttributeAffectsRendering(int32_t aNameSpaceID,
                                          nsAtom* aAttribute) const override;
 
   // WebIDL
-  already_AddRefed<SVGAnimatedString> In1();
-  already_AddRefed<SVGAnimatedNumber> SurfaceScale();
-  already_AddRefed<SVGAnimatedNumber> SpecularConstant();
-  already_AddRefed<SVGAnimatedNumber> SpecularExponent();
-  already_AddRefed<SVGAnimatedNumber> KernelUnitLengthX();
-  already_AddRefed<SVGAnimatedNumber> KernelUnitLengthY();
+  already_AddRefed<DOMSVGAnimatedString> In1();
+  already_AddRefed<DOMSVGAnimatedNumber> SurfaceScale();
+  already_AddRefed<DOMSVGAnimatedNumber> SpecularConstant();
+  already_AddRefed<DOMSVGAnimatedNumber> SpecularExponent();
+  already_AddRefed<DOMSVGAnimatedNumber> KernelUnitLengthX();
+  already_AddRefed<DOMSVGAnimatedNumber> KernelUnitLengthY();
 };
 
 }  // namespace dom
 }  // namespace mozilla
 
-#endif  // mozilla_dom_SVGFESpecularLightingElement_h
+#endif  // DOM_SVG_SVGFESPECULARLIGHTINGELEMENT_H_

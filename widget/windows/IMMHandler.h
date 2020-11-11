@@ -391,8 +391,8 @@ class IMMHandler final {
   nsWindow* mComposingWindow;
   RefPtr<TextEventDispatcher> mDispatcher;
   nsString mCompositionString;
-  InfallibleTArray<uint32_t> mClauseArray;
-  InfallibleTArray<uint8_t> mAttributeArray;
+  nsTArray<uint32_t> mClauseArray;
+  nsTArray<uint8_t> mAttributeArray;
 
   int32_t mCursorPosition;
   uint32_t mCompositionStart;
@@ -442,7 +442,6 @@ class IMMHandler final {
 
   bool mIsComposing;
   bool mIsComposingOnPlugin;
-  bool mNativeCaretIsCreated;
 
   static mozilla::WritingMode sWritingModeOfCompositionFont;
   static nsString sIMEName;
@@ -451,7 +450,6 @@ class IMMHandler final {
   static DWORD sIMEUIProperty;
   static bool sAssumeVerticalWritingModeNotSupported;
   static bool sHasFocus;
-  static bool sNativeCaretIsCreatedForPlugin;
 };
 
 }  // namespace widget

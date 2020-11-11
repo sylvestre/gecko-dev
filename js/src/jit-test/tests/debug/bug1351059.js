@@ -1,11 +1,11 @@
-// |jit-test| skip-if: !wasmDebuggingIsSupported()
+// |jit-test| skip-if: !wasmDebuggingEnabled()
 
 // Tests that onEnterFrame events are enabled when Debugger callbacks set
 // before Instance creation.
 
 load(libdir + "asserts.js");
 
-var g = newGlobal();
+var g = newGlobal({newCompartment: true});
 g.parent = this;
 g.onEnterFrameCalled = false;
 g.eval(`

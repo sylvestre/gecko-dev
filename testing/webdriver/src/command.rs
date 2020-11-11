@@ -6,7 +6,7 @@ use crate::capabilities::{
 use crate::common::{Date, FrameId, LocatorStrategy, WebElement, MAX_SAFE_INTEGER};
 use crate::error::{ErrorStatus, WebDriverError, WebDriverResult};
 use crate::httpapi::{Route, VoidWebDriverExtensionRoute, WebDriverExtensionRoute};
-use regex::Captures;
+use crate::Parameters;
 use serde::de::{self, Deserialize, Deserializer};
 use serde_json::{self, Value};
 
@@ -23,6 +23,7 @@ pub enum WebDriverCommand<T: WebDriverExtensionCommand> {
     GetPageSource,
     GetWindowHandle,
     GetWindowHandles,
+    NewWindow(NewWindowParameters),
     CloseWindow,
     GetWindowRect,
     SetWindowRect(WindowRectParameters),
@@ -66,15 +67,16 @@ pub enum WebDriverCommand<T: WebDriverExtensionCommand> {
     SendAlertText(SendKeysParameters),
     TakeScreenshot,
     TakeElementScreenshot(WebElement),
+    Print(PrintParameters),
     Status,
     Extension(T),
 }
 
-pub trait WebDriverExtensionCommand: Clone + Send + PartialEq {
+pub trait WebDriverExtensionCommand: Clone + Send {
     fn parameters_json(&self) -> Option<Value>;
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct VoidWebDriverExtensionCommand;
 
 impl WebDriverExtensionCommand for VoidWebDriverExtensionCommand {
@@ -101,8 +103,8 @@ impl<U: WebDriverExtensionRoute> WebDriverMessage<U> {
     }
 
     pub fn from_http(
-        match_type: &Route<U>,
-        params: &Captures,
+        match_type: Route<U>,
+        params: &Parameters,
         raw_body: &str,
         requires_body: bool,
     ) -> WebDriverResult<WebDriverMessage<U>> {
@@ -120,6 +122,7 @@ impl<U: WebDriverExtensionRoute> WebDriverMessage<U> {
             Route::GetPageSource => WebDriverCommand::GetPageSource,
             Route::GetWindowHandle => WebDriverCommand::GetWindowHandle,
             Route::GetWindowHandles => WebDriverCommand::GetWindowHandles,
+            Route::NewWindow => WebDriverCommand::NewWindow(serde_json::from_str(raw_body)?),
             Route::CloseWindow => WebDriverCommand::CloseWindow,
             Route::GetTimeouts => WebDriverCommand::GetTimeouts,
             Route::SetTimeouts => WebDriverCommand::SetTimeouts(serde_json::from_str(raw_body)?),
@@ -143,144 +146,147 @@ impl<U: WebDriverExtensionRoute> WebDriverMessage<U> {
             Route::FindElements => WebDriverCommand::FindElements(serde_json::from_str(raw_body)?),
             Route::FindElementElement => {
                 let element_id = try_opt!(
-                    params.name("elementId"),
+                    params.get("elementId"),
                     ErrorStatus::InvalidArgument,
                     "Missing elementId parameter"
                 );
-                let element = WebElement::new(element_id.as_str().into());
+                let element = WebElement(element_id.as_str().into());
                 WebDriverCommand::FindElementElement(element, serde_json::from_str(raw_body)?)
             }
             Route::FindElementElements => {
                 let element_id = try_opt!(
-                    params.name("elementId"),
+                    params.get("elementId"),
                     ErrorStatus::InvalidArgument,
                     "Missing elementId parameter"
                 );
-                let element = WebElement::new(element_id.as_str().into());
+                let element = WebElement(element_id.as_str().into());
                 WebDriverCommand::FindElementElements(element, serde_json::from_str(raw_body)?)
             }
             Route::GetActiveElement => WebDriverCommand::GetActiveElement,
             Route::IsDisplayed => {
                 let element_id = try_opt!(
-                    params.name("elementId"),
+                    params.get("elementId"),
                     ErrorStatus::InvalidArgument,
                     "Missing elementId parameter"
                 );
-                let element = WebElement::new(element_id.as_str().into());
+                let element = WebElement(element_id.as_str().into());
                 WebDriverCommand::IsDisplayed(element)
             }
             Route::IsSelected => {
                 let element_id = try_opt!(
-                    params.name("elementId"),
+                    params.get("elementId"),
                     ErrorStatus::InvalidArgument,
                     "Missing elementId parameter"
                 );
-                let element = WebElement::new(element_id.as_str().into());
+                let element = WebElement(element_id.as_str().into());
                 WebDriverCommand::IsSelected(element)
             }
             Route::GetElementAttribute => {
                 let element_id = try_opt!(
-                    params.name("elementId"),
+                    params.get("elementId"),
                     ErrorStatus::InvalidArgument,
                     "Missing elementId parameter"
                 );
-                let element = WebElement::new(element_id.as_str().into());
+                let element = WebElement(element_id.as_str().into());
                 let attr = try_opt!(
-                    params.name("name"),
+                    params.get("name"),
                     ErrorStatus::InvalidArgument,
                     "Missing name parameter"
-                ).as_str();
+                )
+                .as_str();
                 WebDriverCommand::GetElementAttribute(element, attr.into())
             }
             Route::GetElementProperty => {
                 let element_id = try_opt!(
-                    params.name("elementId"),
+                    params.get("elementId"),
                     ErrorStatus::InvalidArgument,
                     "Missing elementId parameter"
                 );
-                let element = WebElement::new(element_id.as_str().into());
+                let element = WebElement(element_id.as_str().into());
                 let property = try_opt!(
-                    params.name("name"),
+                    params.get("name"),
                     ErrorStatus::InvalidArgument,
                     "Missing name parameter"
-                ).as_str();
+                )
+                .as_str();
                 WebDriverCommand::GetElementProperty(element, property.into())
             }
             Route::GetCSSValue => {
                 let element_id = try_opt!(
-                    params.name("elementId"),
+                    params.get("elementId"),
                     ErrorStatus::InvalidArgument,
                     "Missing elementId parameter"
                 );
-                let element = WebElement::new(element_id.as_str().into());
+                let element = WebElement(element_id.as_str().into());
                 let property = try_opt!(
-                    params.name("propertyName"),
+                    params.get("propertyName"),
                     ErrorStatus::InvalidArgument,
                     "Missing propertyName parameter"
-                ).as_str();
+                )
+                .as_str();
                 WebDriverCommand::GetCSSValue(element, property.into())
             }
             Route::GetElementText => {
                 let element_id = try_opt!(
-                    params.name("elementId"),
+                    params.get("elementId"),
                     ErrorStatus::InvalidArgument,
                     "Missing elementId parameter"
                 );
-                let element = WebElement::new(element_id.as_str().into());
+                let element = WebElement(element_id.as_str().into());
                 WebDriverCommand::GetElementText(element)
             }
             Route::GetElementTagName => {
                 let element_id = try_opt!(
-                    params.name("elementId"),
+                    params.get("elementId"),
                     ErrorStatus::InvalidArgument,
                     "Missing elementId parameter"
                 );
-                let element = WebElement::new(element_id.as_str().into());
+                let element = WebElement(element_id.as_str().into());
                 WebDriverCommand::GetElementTagName(element)
             }
             Route::GetElementRect => {
                 let element_id = try_opt!(
-                    params.name("elementId"),
+                    params.get("elementId"),
                     ErrorStatus::InvalidArgument,
                     "Missing elementId parameter"
                 );
-                let element = WebElement::new(element_id.as_str().into());
+                let element = WebElement(element_id.as_str().into());
                 WebDriverCommand::GetElementRect(element)
             }
             Route::IsEnabled => {
                 let element_id = try_opt!(
-                    params.name("elementId"),
+                    params.get("elementId"),
                     ErrorStatus::InvalidArgument,
                     "Missing elementId parameter"
                 );
-                let element = WebElement::new(element_id.as_str().into());
+                let element = WebElement(element_id.as_str().into());
                 WebDriverCommand::IsEnabled(element)
             }
             Route::ElementClick => {
                 let element_id = try_opt!(
-                    params.name("elementId"),
+                    params.get("elementId"),
                     ErrorStatus::InvalidArgument,
                     "Missing elementId parameter"
                 );
-                let element = WebElement::new(element_id.as_str().into());
+                let element = WebElement(element_id.as_str().into());
                 WebDriverCommand::ElementClick(element)
             }
             Route::ElementClear => {
                 let element_id = try_opt!(
-                    params.name("elementId"),
+                    params.get("elementId"),
                     ErrorStatus::InvalidArgument,
                     "Missing elementId parameter"
                 );
-                let element = WebElement::new(element_id.as_str().into());
+                let element = WebElement(element_id.as_str().into());
                 WebDriverCommand::ElementClear(element)
             }
             Route::ElementSendKeys => {
                 let element_id = try_opt!(
-                    params.name("elementId"),
+                    params.get("elementId"),
                     ErrorStatus::InvalidArgument,
                     "Missing elementId parameter"
                 );
-                let element = WebElement::new(element_id.as_str().into());
+                let element = WebElement(element_id.as_str().into());
                 WebDriverCommand::ElementSendKeys(element, serde_json::from_str(raw_body)?)
             }
             Route::ExecuteScript => {
@@ -292,22 +298,24 @@ impl<U: WebDriverExtensionRoute> WebDriverMessage<U> {
             Route::GetCookies => WebDriverCommand::GetCookies,
             Route::GetNamedCookie => {
                 let name = try_opt!(
-                    params.name("name"),
+                    params.get("name"),
                     ErrorStatus::InvalidArgument,
                     "Missing 'name' parameter"
-                ).as_str()
-                    .into();
+                )
+                .as_str()
+                .into();
                 WebDriverCommand::GetNamedCookie(name)
             }
             Route::AddCookie => WebDriverCommand::AddCookie(serde_json::from_str(raw_body)?),
             Route::DeleteCookies => WebDriverCommand::DeleteCookies,
             Route::DeleteCookie => {
                 let name = try_opt!(
-                    params.name("name"),
+                    params.get("name"),
                     ErrorStatus::InvalidArgument,
                     "Missing name parameter"
-                ).as_str()
-                    .into();
+                )
+                .as_str()
+                .into();
                 WebDriverCommand::DeleteCookie(name)
             }
             Route::PerformActions => {
@@ -323,21 +331,22 @@ impl<U: WebDriverExtensionRoute> WebDriverMessage<U> {
             Route::TakeScreenshot => WebDriverCommand::TakeScreenshot,
             Route::TakeElementScreenshot => {
                 let element_id = try_opt!(
-                    params.name("elementId"),
+                    params.get("elementId"),
                     ErrorStatus::InvalidArgument,
                     "Missing elementId parameter"
                 );
-                let element = WebElement::new(element_id.as_str().into());
+                let element = WebElement(element_id.as_str().into());
                 WebDriverCommand::TakeElementScreenshot(element)
             }
+            Route::Print => WebDriverCommand::Print(serde_json::from_str(raw_body)?),
             Route::Status => WebDriverCommand::Status,
             Route::Extension(ref extension) => extension.command(params, &body_data)?,
         };
         Ok(WebDriverMessage::new(session_id, command))
     }
 
-    fn get_session_id(params: &Captures) -> Option<String> {
-        params.name("sessionId").map(|x| x.as_str().into())
+    fn get_session_id(params: &Parameters) -> Option<String> {
+        params.get("sessionId").cloned()
     }
 
     fn decode_body(body: &str, requires_body: bool) -> WebDriverResult<Value> {
@@ -389,6 +398,7 @@ pub struct AddCookieParameters {
     pub httpOnly: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expiry: Option<Date>,
+    pub sameSite: Option<String>,
 }
 
 impl<'de> Deserialize<'de> for AddCookieParameters {
@@ -447,6 +457,9 @@ impl<'de> Deserialize<'de> for NewSessionParameters {
     {
         let value = serde_json::Value::deserialize(deserializer)?;
         if let Some(caps) = value.get("capabilities") {
+            if !caps.is_object() {
+                return Err(de::Error::custom("capabilities must be objects"));
+            }
             let caps = SpecNewSessionParameters::deserialize(caps).map_err(de::Error::custom)?;
             return Ok(NewSessionParameters::Spec(caps));
         }
@@ -470,6 +483,116 @@ impl CapabilitiesMatching for NewSessionParameters {
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
+pub struct NewWindowParameters {
+    #[serde(rename = "type")]
+    pub type_hint: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct PrintParameters {
+    pub orientation: PrintOrientation,
+    #[serde(deserialize_with = "deserialize_to_print_scale_f64")]
+    pub scale: f64,
+    pub background: bool,
+    pub page: PrintPage,
+    pub margin: PrintMargins,
+    pub page_ranges: Vec<String>,
+    pub shrink_to_fit: bool,
+}
+
+impl Default for PrintParameters {
+    fn default() -> Self {
+        PrintParameters {
+            orientation: PrintOrientation::default(),
+            scale: 1.0,
+            background: false,
+            page: PrintPage::default(),
+            margin: PrintMargins::default(),
+            page_ranges: Vec::new(),
+            shrink_to_fit: true,
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum PrintOrientation {
+    Landscape,
+    Portrait,
+}
+
+impl Default for PrintOrientation {
+    fn default() -> Self {
+        PrintOrientation::Portrait
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct PrintPage {
+    #[serde(deserialize_with = "deserialize_to_positive_f64")]
+    pub width: f64,
+    #[serde(deserialize_with = "deserialize_to_positive_f64")]
+    pub height: f64,
+}
+
+impl Default for PrintPage {
+    fn default() -> Self {
+        PrintPage {
+            width: 21.59,
+            height: 27.94,
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct PrintMargins {
+    #[serde(deserialize_with = "deserialize_to_positive_f64")]
+    pub top: f64,
+    #[serde(deserialize_with = "deserialize_to_positive_f64")]
+    pub bottom: f64,
+    #[serde(deserialize_with = "deserialize_to_positive_f64")]
+    pub left: f64,
+    #[serde(deserialize_with = "deserialize_to_positive_f64")]
+    pub right: f64,
+}
+
+impl Default for PrintMargins {
+    fn default() -> Self {
+        PrintMargins {
+            top: 1.0,
+            bottom: 1.0,
+            left: 1.0,
+            right: 1.0,
+        }
+    }
+}
+
+fn deserialize_to_positive_f64<'de, D>(deserializer: D) -> Result<f64, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let val = f64::deserialize(deserializer)?;
+    if val < 0.0 {
+        return Err(de::Error::custom(format!("{} is negative", val)));
+    };
+    Ok(val)
+}
+
+fn deserialize_to_print_scale_f64<'de, D>(deserializer: D) -> Result<f64, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let val = f64::deserialize(deserializer)?;
+    if val < 0.1 || val > 2.0 {
+        return Err(de::Error::custom(format!("{} is outside range 0.1-2", val)));
+    };
+    Ok(val)
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct SendKeysParameters {
     pub text: String,
 }
@@ -490,10 +613,11 @@ pub struct TakeScreenshotParameters {
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct TimeoutsParameters {
     #[serde(
-        default, skip_serializing_if = "Option::is_none", deserialize_with = "deserialize_to_u64"
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_to_u64"
     )]
     pub implicit: Option<u64>,
     #[serde(
@@ -504,9 +628,40 @@ pub struct TimeoutsParameters {
     )]
     pub page_load: Option<u64>,
     #[serde(
-        default, skip_serializing_if = "Option::is_none", deserialize_with = "deserialize_to_u64"
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_to_nullable_u64"
     )]
-    pub script: Option<u64>,
+    #[allow(clippy::option_option)]
+    pub script: Option<Option<u64>>,
+}
+
+#[allow(clippy::option_option)]
+fn deserialize_to_nullable_u64<'de, D>(deserializer: D) -> Result<Option<Option<u64>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let opt = Option::deserialize(deserializer)?.map(|value: f64| value);
+    let value = match opt {
+        Some(n) => {
+            if n < 0.0 || n.fract() != 0.0 {
+                return Err(de::Error::custom(format!(
+                    "{} is not a positive Integer",
+                    n
+                )));
+            }
+            if (n as u64) > MAX_SAFE_INTEGER {
+                return Err(de::Error::custom(format!(
+                    "{} is greater than maximum safe integer",
+                    n
+                )));
+            }
+            Some(Some(n as u64))
+        }
+        None => Some(None),
+    };
+
+    Ok(value)
 }
 
 fn deserialize_to_u64<'de, D>(deserializer: D) -> Result<Option<u64>, D::Error>
@@ -581,7 +736,7 @@ where
     let opt = Option::deserialize(deserializer)?.map(|value: f64| value as i64);
     let value = match opt {
         Some(n) => {
-            if n < i32::min_value() as i64 || n > i32::max_value() as i64 {
+            if n < i64::from(i32::min_value()) || n > i64::from(i32::max_value()) {
                 return Err(de::Error::custom(format!("'{}' is larger than i32", n)));
             }
             Some(n as i32)
@@ -599,7 +754,7 @@ where
     let opt = Option::deserialize(deserializer)?.map(|value: f64| value as i64);
     let value = match opt {
         Some(n) => {
-            if n < 0 || n > i32::max_value() as i64 {
+            if n < 0 || n > i64::from(i32::max_value()) {
                 return Err(de::Error::custom(format!("'{}' is outside of i32", n)));
             }
             Some(n as i32)
@@ -614,41 +769,49 @@ where
 mod tests {
     use super::*;
     use crate::capabilities::SpecNewSessionParameters;
-    use crate::test::check_deserialize;
-    use serde_json;
+    use crate::common::ELEMENT_KEY;
+    use crate::test::assert_de;
+    use serde_json::{self, json};
 
     #[test]
     fn test_json_actions_parameters_missing_actions_field() {
-        let json = r#"{}"#;
-        assert!(serde_json::from_str::<ActionsParameters>(&json).is_err());
+        assert!(serde_json::from_value::<ActionsParameters>(json!({})).is_err());
     }
 
     #[test]
     fn test_json_actions_parameters_invalid() {
-        let json = r#"{"actions":null}"#;
-        assert!(serde_json::from_str::<ActionsParameters>(&json).is_err());
+        assert!(serde_json::from_value::<ActionsParameters>(json!({ "actions": null })).is_err());
     }
 
     #[test]
     fn test_json_action_parameters_empty_list() {
-        let json = r#"{"actions":[]}"#;
-        let data = ActionsParameters { actions: vec![] };
+        assert_de(
+            &ActionsParameters { actions: vec![] },
+            json!({"actions": []}),
+        );
+    }
 
-        check_deserialize(&json, &data);
+    #[test]
+    fn test_json_action_parameters_with_unknown_field() {
+        assert_de(
+            &ActionsParameters { actions: vec![] },
+            json!({"actions": [], "foo": "bar"}),
+        );
     }
 
     #[test]
     fn test_json_add_cookie_parameters_with_values() {
-        let json = r#"{"cookie":{
-            "name":"foo",
-            "value":"bar",
-            "path":"/",
-            "domain":"foo.bar",
-            "expiry":123,
-            "secure":true,
-            "httpOnly":false
-        }}"#;
-        let data = AddCookieParameters {
+        let json = json!({"cookie": {
+            "name": "foo",
+            "value": "bar",
+            "path": "/",
+            "domain": "foo.bar",
+            "expiry": 123,
+            "secure": true,
+            "httpOnly": false,
+            "sameSite": "Lax",
+        }});
+        let cookie = AddCookieParameters {
             name: "foo".into(),
             value: "bar".into(),
             path: Some("/".into()),
@@ -656,23 +819,25 @@ mod tests {
             expiry: Some(Date(123)),
             secure: true,
             httpOnly: false,
+            sameSite: Some("Lax".into()),
         };
 
-        check_deserialize(&json, &data);
+        assert_de(&cookie, json);
     }
 
     #[test]
     fn test_json_add_cookie_parameters_with_optional_null_fields() {
-        let json = r#"{"cookie":{
-            "name":"foo",
-            "value":"bar",
-            "path":null,
-            "domain":null,
-            "expiry":null,
-            "secure":true,
-            "httpOnly":false
-        }}"#;
-        let data = AddCookieParameters {
+        let json = json!({"cookie": {
+            "name": "foo",
+            "value": "bar",
+            "path": null,
+            "domain": null,
+            "expiry": null,
+            "secure": true,
+            "httpOnly": false,
+            "sameSite": null,
+        }});
+        let cookie = AddCookieParameters {
             name: "foo".into(),
             value: "bar".into(),
             path: None,
@@ -680,20 +845,21 @@ mod tests {
             expiry: None,
             secure: true,
             httpOnly: false,
+            sameSite: None,
         };
 
-        check_deserialize(&json, &data);
+        assert_de(&cookie, json);
     }
 
     #[test]
     fn test_json_add_cookie_parameters_without_optional_fields() {
-        let json = r#"{"cookie":{
-            "name":"foo",
-            "value":"bar",
-            "secure":true,
-            "httpOnly":false
-        }}"#;
-        let data = AddCookieParameters {
+        let json = json!({"cookie": {
+            "name": "foo",
+            "value": "bar",
+            "secure": true,
+            "httpOnly": false,
+        }});
+        let cookie = AddCookieParameters {
             name: "foo".into(),
             value: "bar".into(),
             path: None,
@@ -701,412 +867,656 @@ mod tests {
             expiry: None,
             secure: true,
             httpOnly: false,
+            sameSite: None,
         };
 
-        check_deserialize(&json, &data);
+        assert_de(&cookie, json);
     }
 
     #[test]
     fn test_json_add_cookie_parameters_with_invalid_cookie_field() {
-        let json = r#"{"name":"foo"}"#;
+        assert!(serde_json::from_value::<AddCookieParameters>(json!({"name": "foo"})).is_err());
+    }
 
-        assert!(serde_json::from_str::<AddCookieParameters>(&json).is_err());
+    #[test]
+    fn test_json_add_cookie_parameters_with_unknown_field() {
+        let json = json!({"cookie": {
+            "name": "foo",
+            "value": "bar",
+            "secure": true,
+            "httpOnly": false,
+            "foo": "bar",
+        }, "baz": "bah"});
+        let cookie = AddCookieParameters {
+            name: "foo".into(),
+            value: "bar".into(),
+            path: None,
+            domain: None,
+            expiry: None,
+            secure: true,
+            httpOnly: false,
+            sameSite: None,
+        };
+
+        assert_de(&cookie, json);
     }
 
     #[test]
     fn test_json_get_parameters_with_url() {
-        let json = r#"{"url":"foo.bar"}"#;
-        let data = GetParameters {
-            url: "foo.bar".into(),
-        };
-
-        check_deserialize(&json, &data);
+        assert_de(
+            &GetParameters {
+                url: "foo.bar".into(),
+            },
+            json!({"url": "foo.bar"}),
+        );
     }
 
     #[test]
     fn test_json_get_parameters_with_invalid_url_value() {
-        let json = r#"{"url":3}"#;
-
-        assert!(serde_json::from_str::<GetParameters>(&json).is_err());
+        assert!(serde_json::from_value::<GetParameters>(json!({"url": 3})).is_err());
     }
 
     #[test]
     fn test_json_get_parameters_with_invalid_url_field() {
-        let json = r#"{"foo":"bar"}"#;
+        assert!(serde_json::from_value::<GetParameters>(json!({"foo": "bar"})).is_err());
+    }
 
-        assert!(serde_json::from_str::<GetParameters>(&json).is_err());
+    #[test]
+    fn test_json_get_parameters_with_unknown_field() {
+        assert_de(
+            &GetParameters {
+                url: "foo.bar".into(),
+            },
+            json!({"url": "foo.bar", "foo": "bar"}),
+        );
     }
 
     #[test]
     fn test_json_get_named_cookie_parameters_with_value() {
-        let json = r#"{"name":"foo"}"#;
-        let data = GetNamedCookieParameters {
-            name: Some("foo".into()),
-        };
-
-        check_deserialize(&json, &data);
+        assert_de(
+            &GetNamedCookieParameters {
+                name: Some("foo".into()),
+            },
+            json!({"name": "foo"}),
+        );
     }
 
     #[test]
     fn test_json_get_named_cookie_parameters_with_optional_null_field() {
-        let json = r#"{"name":null}"#;
-        let data = GetNamedCookieParameters { name: None };
-
-        check_deserialize(&json, &data);
+        assert_de(
+            &GetNamedCookieParameters { name: None },
+            json!({ "name": null }),
+        );
     }
 
     #[test]
     fn test_json_get_named_cookie_parameters_without_optional_null_field() {
-        let json = r#"{}"#;
-        let data = GetNamedCookieParameters { name: None };
-
-        check_deserialize(&json, &data);
+        assert_de(&GetNamedCookieParameters { name: None }, json!({}));
     }
 
     #[test]
     fn test_json_get_named_cookie_parameters_with_invalid_name_field() {
-        let json = r#"{"name":3"#;
+        assert!(serde_json::from_value::<GetNamedCookieParameters>(json!({"name": 3})).is_err());
+    }
 
-        assert!(serde_json::from_str::<GetNamedCookieParameters>(&json).is_err());
+    #[test]
+    fn test_json_get_named_cookie_parameters_with_unknown_field() {
+        assert_de(
+            &GetNamedCookieParameters {
+                name: Some("foo".into()),
+            },
+            json!({"name": "foo", "foo": "bar"}),
+        );
     }
 
     #[test]
     fn test_json_javascript_command_parameters_with_values() {
-        let json = r#"{"script":"foo","args":["1",2]}"#;
-        let data = JavascriptCommandParameters {
+        let json = json!({
+            "script": "foo",
+            "args": ["1", 2],
+        });
+        let execute_script = JavascriptCommandParameters {
             script: "foo".into(),
             args: Some(vec!["1".into(), 2.into()]),
         };
 
-        check_deserialize(&json, &data);
+        assert_de(&execute_script, json);
     }
 
     #[test]
     fn test_json_javascript_command_parameters_with_optional_null_field() {
-        let json = r#"{"script":"foo","args":null}"#;
-        let data = JavascriptCommandParameters {
+        let json = json!({
+            "script": "foo",
+            "args": null,
+        });
+        let execute_script = JavascriptCommandParameters {
             script: "foo".into(),
             args: None,
         };
 
-        check_deserialize(&json, &data);
+        assert_de(&execute_script, json);
     }
 
     #[test]
     fn test_json_javascript_command_parameters_without_optional_null_field() {
-        let json = r#"{"script":"foo"}"#;
-        let data = JavascriptCommandParameters {
+        let execute_script = JavascriptCommandParameters {
             script: "foo".into(),
             args: None,
         };
-
-        check_deserialize(&json, &data);
+        assert_de(&execute_script, json!({"script": "foo"}));
     }
 
     #[test]
     fn test_json_javascript_command_parameters_invalid_script_field() {
-        let json = r#"{"script":null}"#;
-
-        assert!(serde_json::from_str::<JavascriptCommandParameters>(&json).is_err());
+        let json = json!({ "script": null });
+        assert!(serde_json::from_value::<JavascriptCommandParameters>(json).is_err());
     }
 
     #[test]
     fn test_json_javascript_command_parameters_invalid_args_field() {
-        let json = r#"{"script":null,"args":"1"}"#;
-
-        assert!(serde_json::from_str::<JavascriptCommandParameters>(&json).is_err());
+        let json = json!({
+            "script": null,
+            "args": "1",
+        });
+        assert!(serde_json::from_value::<JavascriptCommandParameters>(json).is_err());
     }
 
     #[test]
     fn test_json_javascript_command_parameters_missing_script_field() {
-        let json = r#"{"args":null}"#;
+        let json = json!({ "args": null });
+        assert!(serde_json::from_value::<JavascriptCommandParameters>(json).is_err());
+    }
 
-        assert!(serde_json::from_str::<JavascriptCommandParameters>(&json).is_err());
+    #[test]
+    fn test_json_javascript_command_parameters_with_unknown_field() {
+        let json = json!({
+            "script": "foo",
+            "foo": "bar",
+        });
+        let execute_script = JavascriptCommandParameters {
+            script: "foo".into(),
+            args: None,
+        };
+
+        assert_de(&execute_script, json);
     }
 
     #[test]
     fn test_json_locator_parameters_with_values() {
-        let json = r#"{"using":"xpath","value":"bar"}"#;
-        let data = LocatorParameters {
+        let json = json!({
+            "using": "xpath",
+            "value": "bar",
+        });
+        let locator = LocatorParameters {
             using: LocatorStrategy::XPath,
             value: "bar".into(),
         };
 
-        check_deserialize(&json, &data);
+        assert_de(&locator, json);
     }
 
     #[test]
     fn test_json_locator_parameters_invalid_using_field() {
-        let json = r#"{"using":"foo","value":"bar"}"#;
-
-        assert!(serde_json::from_str::<LocatorParameters>(&json).is_err());
+        let json = json!({
+            "using": "foo",
+            "value": "bar",
+        });
+        assert!(serde_json::from_value::<LocatorParameters>(json).is_err());
     }
 
     #[test]
     fn test_json_locator_parameters_invalid_value_field() {
-        let json = r#"{"using":"xpath","value":3}"#;
-
-        assert!(serde_json::from_str::<LocatorParameters>(&json).is_err());
+        let json = json!({
+            "using": "xpath",
+            "value": 3,
+        });
+        assert!(serde_json::from_value::<LocatorParameters>(json).is_err());
     }
 
     #[test]
     fn test_json_locator_parameters_missing_using_field() {
-        let json = r#"{"value":"bar"}"#;
-
-        assert!(serde_json::from_str::<LocatorParameters>(&json).is_err());
+        assert!(serde_json::from_value::<LocatorParameters>(json!({"value": "bar"})).is_err());
     }
 
     #[test]
     fn test_json_locator_parameters_missing_value_field() {
-        let json = r#"{"using":"xpath"}"#;
+        assert!(serde_json::from_value::<LocatorParameters>(json!({"using": "xpath"})).is_err());
+    }
 
-        assert!(serde_json::from_str::<LocatorParameters>(&json).is_err());
+    #[test]
+    fn test_json_locator_parameters_with_unknown_field() {
+        let json = json!({
+            "using": "xpath",
+            "value": "bar",
+            "foo": "bar",
+        });
+        let locator = LocatorParameters {
+            using: LocatorStrategy::XPath,
+            value: "bar".into(),
+        };
+
+        assert_de(&locator, json);
     }
 
     #[test]
     fn test_json_new_session_parameters_spec() {
-        let json = r#"{"capabilities":{"alwaysMatch":{},"firstMatch":[{}]}}"#;
-        let data = NewSessionParameters::Spec(SpecNewSessionParameters {
+        let json = json!({"capabilities": {
+            "alwaysMatch": {},
+            "firstMatch": [{}],
+        }});
+        let caps = NewSessionParameters::Spec(SpecNewSessionParameters {
             alwaysMatch: Capabilities::new(),
             firstMatch: vec![Capabilities::new()],
         });
 
-        check_deserialize(&json, &data);
+        assert_de(&caps, json);
     }
 
     #[test]
     fn test_json_new_session_parameters_capabilities_null() {
-        let json = r#"{"capabilities":null}"#;
-
-        assert!(serde_json::from_str::<NewSessionParameters>(&json).is_err());
+        let json = json!({ "capabilities": null });
+        assert!(serde_json::from_value::<NewSessionParameters>(json).is_err());
     }
 
     #[test]
     fn test_json_new_session_parameters_legacy() {
-        let json = r#"{"desired":{},"required":{}}"#;
-        let data = NewSessionParameters::Legacy(LegacyNewSessionParameters {
+        let json = json!({
+            "desiredCapabilities": {},
+            "requiredCapabilities": {},
+        });
+        let caps = NewSessionParameters::Legacy(LegacyNewSessionParameters {
             desired: Capabilities::new(),
             required: Capabilities::new(),
         });
 
-        check_deserialize(&json, &data);
+        assert_de(&caps, json);
     }
 
     #[test]
     fn test_json_new_session_parameters_spec_and_legacy() {
-        let json = r#"{
-            "capabilities":{
-                "alwaysMatch":{},
-                "firstMatch":[{}]
+        let json = json!({
+            "capabilities": {
+                "alwaysMatch": {},
+                "firstMatch": [{}],
             },
-            "desired":{},
-            "required":{}
-        }"#;
-        let data = NewSessionParameters::Spec(SpecNewSessionParameters {
+            "desiredCapabilities": {},
+            "requiredCapabilities": {},
+        });
+        let caps = NewSessionParameters::Spec(SpecNewSessionParameters {
             alwaysMatch: Capabilities::new(),
             firstMatch: vec![Capabilities::new()],
         });
 
-        check_deserialize(&json, &data);
+        assert_de(&caps, json);
+    }
+
+    #[test]
+    fn test_json_new_session_parameters_with_unknown_field() {
+        let json = json!({
+            "capabilities": {
+                "alwaysMatch": {},
+                "firstMatch": [{}]
+            },
+            "foo": "bar",
+        });
+        let caps = NewSessionParameters::Spec(SpecNewSessionParameters {
+            alwaysMatch: Capabilities::new(),
+            firstMatch: vec![Capabilities::new()],
+        });
+
+        assert_de(&caps, json);
+    }
+
+    #[test]
+    fn test_json_new_window_parameters_without_type() {
+        assert_de(&NewWindowParameters { type_hint: None }, json!({}));
+    }
+
+    #[test]
+    fn test_json_new_window_parameters_with_optional_null_type() {
+        assert_de(
+            &NewWindowParameters { type_hint: None },
+            json!({ "type": null }),
+        );
+    }
+
+    #[test]
+    fn test_json_new_window_parameters_with_supported_type() {
+        assert_de(
+            &NewWindowParameters {
+                type_hint: Some("tab".into()),
+            },
+            json!({"type": "tab"}),
+        );
+    }
+
+    #[test]
+    fn test_json_new_window_parameters_with_unknown_type() {
+        assert_de(
+            &NewWindowParameters {
+                type_hint: Some("foo".into()),
+            },
+            json!({"type": "foo"}),
+        );
+    }
+
+    #[test]
+    fn test_json_new_window_parameters_with_invalid_type() {
+        assert!(serde_json::from_value::<NewWindowParameters>(json!({"type": 3})).is_err());
+    }
+
+    #[test]
+    fn test_json_new_window_parameters_with_unknown_field() {
+        let json = json!({
+            "type": "tab",
+            "foo": "bar",
+        });
+        let new_window = NewWindowParameters {
+            type_hint: Some("tab".into()),
+        };
+
+        assert_de(&new_window, json);
+    }
+
+    #[test]
+    fn test_json_print_defaults() {
+        let params = PrintParameters::default();
+        assert_de(&params, json!({}));
+    }
+
+    #[test]
+    fn test_json_print() {
+        let params = PrintParameters {
+            orientation: PrintOrientation::Landscape,
+            page: PrintPage {
+                width: 10.0,
+                ..Default::default()
+            },
+            margin: PrintMargins {
+                top: 10.0,
+                ..Default::default()
+            },
+            scale: 1.5,
+            ..Default::default()
+        };
+        assert_de(
+            &params,
+            json!({"orientation": "landscape", "page": {"width": 10}, "margin": {"top": 10}, "scale": 1.5}),
+        );
+    }
+
+    #[test]
+    fn test_json_scale_invalid() {
+        assert!(serde_json::from_value::<PrintParameters>(json!({"scale": 3})).is_err());
     }
 
     #[test]
     fn test_json_send_keys_parameters_with_value() {
-        let json = r#"{"text":"foo"}"#;
-        let data = SendKeysParameters { text: "foo".into() };
-
-        check_deserialize(&json, &data);
+        assert_de(
+            &SendKeysParameters { text: "foo".into() },
+            json!({"text": "foo"}),
+        );
     }
 
     #[test]
     fn test_json_send_keys_parameters_invalid_text_field() {
-        let json = r#"{"text":3}"#;
-
-        assert!(serde_json::from_str::<SendKeysParameters>(&json).is_err());
+        assert!(serde_json::from_value::<SendKeysParameters>(json!({"text": 3})).is_err());
     }
 
     #[test]
     fn test_json_send_keys_parameters_missing_text_field() {
-        let json = r#"{}"#;
+        assert!(serde_json::from_value::<SendKeysParameters>(json!({})).is_err());
+    }
 
-        assert!(serde_json::from_str::<SendKeysParameters>(&json).is_err());
+    #[test]
+    fn test_json_send_keys_parameters_with_unknown_field() {
+        let json = json!({
+            "text": "foo",
+            "foo": "bar",
+        });
+        let send_keys = SendKeysParameters { text: "foo".into() };
+
+        assert_de(&send_keys, json);
     }
 
     #[test]
     fn test_json_switch_to_frame_parameters_with_value() {
-        let json = r#"{"id":3}"#;
-        let data = SwitchToFrameParameters {
-            id: Some(FrameId::Short(3)),
-        };
-
-        check_deserialize(&json, &data);
+        assert_de(
+            &SwitchToFrameParameters {
+                id: Some(FrameId::Short(3)),
+            },
+            json!({"id": 3}),
+        );
     }
 
     #[test]
     fn test_json_switch_to_frame_parameters_with_optional_null_field() {
-        let json = r#"{"id":null}"#;
-        let data = SwitchToFrameParameters { id: None };
-
-        check_deserialize(&json, &data);
+        assert_de(&SwitchToFrameParameters { id: None }, json!({ "id": null }));
     }
 
     #[test]
     fn test_json_switch_to_frame_parameters_without_optional_null_field() {
-        let json = r#"{}"#;
-        let data = SwitchToFrameParameters { id: None };
-
-        check_deserialize(&json, &data);
+        assert_de(&SwitchToFrameParameters { id: None }, json!({}));
     }
 
     #[test]
     fn test_json_switch_to_frame_parameters_with_invalid_id_field() {
-        let json = r#"{"id":"3""#;
+        assert!(serde_json::from_value::<SwitchToFrameParameters>(json!({"id": "3"})).is_err());
+    }
 
-        assert!(serde_json::from_str::<SwitchToFrameParameters>(&json).is_err());
+    #[test]
+    fn test_json_switch_to_frame_parameters_with_unknown_field() {
+        let json = json!({
+            "id":3,
+            "foo": "bar",
+        });
+        let switch_to_frame = SwitchToFrameParameters {
+            id: Some(FrameId::Short(3)),
+        };
+
+        assert_de(&switch_to_frame, json);
     }
 
     #[test]
     fn test_json_switch_to_window_parameters_with_value() {
-        let json = r#"{"handle":"foo"}"#;
-        let data = SwitchToWindowParameters {
-            handle: "foo".into(),
-        };
-
-        check_deserialize(&json, &data);
+        assert_de(
+            &SwitchToWindowParameters {
+                handle: "foo".into(),
+            },
+            json!({"handle": "foo"}),
+        );
     }
 
     #[test]
     fn test_json_switch_to_window_parameters_invalid_handle_field() {
-        let json = r#"{"handle":3}"#;
-
-        assert!(serde_json::from_str::<SwitchToWindowParameters>(&json).is_err());
+        assert!(serde_json::from_value::<SwitchToWindowParameters>(json!({"handle": 3})).is_err());
     }
 
     #[test]
     fn test_json_switch_to_window_parameters_missing_handle_field() {
-        let json = r#"{}"#;
+        assert!(serde_json::from_value::<SwitchToWindowParameters>(json!({})).is_err());
+    }
 
-        assert!(serde_json::from_str::<SwitchToWindowParameters>(&json).is_err());
+    #[test]
+    fn test_json_switch_to_window_parameters_with_unknown_field() {
+        let json = json!({
+            "handle": "foo",
+            "foo": "bar",
+        });
+        let switch_to_window = SwitchToWindowParameters {
+            handle: "foo".into(),
+        };
+
+        assert_de(&switch_to_window, json);
     }
 
     #[test]
     fn test_json_take_screenshot_parameters_with_element() {
-        let json = r#"{"element":{"element-6066-11e4-a52e-4f735466cecf":"elem"}}"#;
-        let data = TakeScreenshotParameters {
-            element: Some(WebElement::new("elem".into())),
-        };
-
-        check_deserialize(&json, &data);
+        assert_de(
+            &TakeScreenshotParameters {
+                element: Some(WebElement("elem".into())),
+            },
+            json!({"element": {ELEMENT_KEY: "elem"}}),
+        );
     }
 
     #[test]
     fn test_json_take_screenshot_parameters_with_optional_null_field() {
-        let json = r#"{"element":null}"#;
-        let data = TakeScreenshotParameters { element: None };
-
-        check_deserialize(&json, &data);
+        assert_de(
+            &TakeScreenshotParameters { element: None },
+            json!({ "element": null }),
+        );
     }
 
     #[test]
     fn test_json_take_screenshot_parameters_without_optional_null_field() {
-        let json = r#"{}"#;
-        let data = TakeScreenshotParameters { element: None };
-
-        check_deserialize(&json, &data);
+        assert_de(&TakeScreenshotParameters { element: None }, json!({}));
     }
 
     #[test]
     fn test_json_take_screenshot_parameters_with_invalid_element_field() {
-        let json = r#"{"element":"foo"}"#;
-        assert!(serde_json::from_str::<TakeScreenshotParameters>(&json).is_err());
+        assert!(
+            serde_json::from_value::<TakeScreenshotParameters>(json!({"element": "foo"})).is_err()
+        );
     }
 
     #[test]
-    fn test_json_timeout_parameters_with_values() {
-        let json = r#"{"implicit":0,"pageLoad":2.0,"script":9007199254740991}"#;
-        let data = TimeoutsParameters {
-            implicit: Some(0u64),
-            page_load: Some(2u64),
-            script: Some(9007199254740991u64),
+    fn test_json_take_screenshot_parameters_with_unknown_field() {
+        let json = json!({
+            "element": {ELEMENT_KEY: "elem"},
+            "foo": "bar",
+        });
+        let take_screenshot = TakeScreenshotParameters {
+            element: Some(WebElement("elem".into())),
         };
 
-        check_deserialize(&json, &data);
+        assert_de(&take_screenshot, json);
     }
 
     #[test]
-    fn test_json_timeout_parameters_with_invalid_values() {
-        let json = r#"{"implicit":-1,"pageLoad":2.5,"script":9007199254740992}"#;
-        assert!(serde_json::from_str::<TimeoutsParameters>(&json).is_err());
+    fn test_json_timeout_parameters_with_only_null_script_timeout() {
+        let timeouts = TimeoutsParameters {
+            implicit: None,
+            page_load: None,
+            script: Some(None),
+        };
+        assert_de(&timeouts, json!({ "script": null }));
     }
 
     #[test]
-    fn test_json_timeout_parameters_with_optional_null_field() {
-        let json = r#"{"implicit":null,"pageLoad":null,"script":null}"#;
+    fn test_json_timeout_parameters_with_only_null_implicit_timeout() {
+        assert!(serde_json::from_value::<TimeoutsParameters>(json!({ "implicit": null })).is_err());
+    }
 
-        assert!(serde_json::from_str::<TimeoutsParameters>(&json).is_err());
+    #[test]
+    fn test_json_timeout_parameters_with_only_null_pageload_timeout() {
+        assert!(serde_json::from_value::<TimeoutsParameters>(json!({ "pageLoad": null })).is_err());
     }
 
     #[test]
     fn test_json_timeout_parameters_without_optional_null_field() {
-        let json = r#"{}"#;
-        let data = TimeoutsParameters {
+        let timeouts = TimeoutsParameters {
             implicit: None,
             page_load: None,
             script: None,
         };
+        assert_de(&timeouts, json!({}));
+    }
 
-        check_deserialize(&json, &data);
+    #[test]
+    fn test_json_timeout_parameters_with_unknown_field() {
+        let json = json!({
+            "script": 60000,
+            "foo": "bar",
+        });
+        let timeouts = TimeoutsParameters {
+            implicit: None,
+            page_load: None,
+            script: Some(Some(60000)),
+        };
+
+        assert_de(&timeouts, json);
     }
 
     #[test]
     fn test_json_window_rect_parameters_with_values() {
-        let json = r#"{"x":0,"y":1,"width":2,"height":3}"#;
-        let data = WindowRectParameters {
+        let json = json!({
+            "x": 0,
+            "y": 1,
+            "width": 2,
+            "height": 3,
+        });
+        let rect = WindowRectParameters {
             x: Some(0i32),
             y: Some(1i32),
             width: Some(2i32),
             height: Some(3i32),
         };
 
-        check_deserialize(&json, &data);
+        assert_de(&rect, json);
     }
 
     #[test]
     fn test_json_window_rect_parameters_with_optional_null_fields() {
-        let json = r#"{"x":null,"y": null,"width":null,"height":null}"#;
-        let data = WindowRectParameters {
+        let json = json!({
+            "x": null,
+            "y": null,
+            "width": null,
+            "height": null,
+        });
+        let rect = WindowRectParameters {
             x: None,
             y: None,
             width: None,
             height: None,
         };
 
-        check_deserialize(&json, &data);
+        assert_de(&rect, json);
     }
 
     #[test]
     fn test_json_window_rect_parameters_without_optional_fields() {
-        let json = r#"{}"#;
-        let data = WindowRectParameters {
+        let rect = WindowRectParameters {
             x: None,
             y: None,
             width: None,
             height: None,
         };
-
-        check_deserialize(&json, &data);
+        assert_de(&rect, json!({}));
     }
 
     #[test]
     fn test_json_window_rect_parameters_invalid_values_float() {
-        let json = r#"{"x":1.1,"y":2.2,"width":3.3,"height":4.4}"#;
-        let data = WindowRectParameters {
+        let json = json!({
+            "x": 1.1,
+            "y": 2.2,
+            "width": 3.3,
+            "height": 4.4,
+        });
+        let rect = WindowRectParameters {
             x: Some(1),
             y: Some(2),
             width: Some(3),
             height: Some(4),
         };
 
-        check_deserialize(&json, &data);
+        assert_de(&rect, json);
+    }
+
+    #[test]
+    fn test_json_window_rect_parameters_with_unknown_field() {
+        let json = json!({
+            "x": 1.1,
+            "y": 2.2,
+            "foo": "bar",
+        });
+        let rect = WindowRectParameters {
+            x: Some(1),
+            y: Some(2),
+            width: None,
+            height: None,
+        };
+
+        assert_de(&rect, json);
     }
 }

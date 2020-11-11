@@ -76,10 +76,11 @@ namespace console {
   const boolean IS_NATIVE_CONSOLE = true;
 
   [ChromeOnly, NewObject]
-  ConsoleInstance createInstance(optional ConsoleInstanceOptions options);
+  ConsoleInstance createInstance(optional ConsoleInstanceOptions options = {});
 };
 
 // This is used to propagate console events to the observers.
+[GenerateConversionToJS]
 dictionary ConsoleEvent {
   (unsigned long long or DOMString) ID;
   (unsigned long long or DOMString) innerID;
@@ -87,6 +88,9 @@ dictionary ConsoleEvent {
   DOMString addonId = "";
   DOMString level = "";
   DOMString filename = "";
+  // Unique identifier within the process for the script source this event is
+  // associated with, or zero.
+  unsigned long sourceId = 0;
   unsigned long lineNumber = 0;
   unsigned long columnNumber = 0;
   DOMString functionName = "";
@@ -104,42 +108,54 @@ dictionary ConsoleEvent {
   any timer = null;
   any counter = null;
   DOMString prefix = "";
+  boolean chromeContext = false;
 };
 
 // Event for profile operations
+[GenerateConversionToJS]
 dictionary ConsoleProfileEvent {
   DOMString action = "";
   sequence<any> arguments;
+  boolean chromeContext = false;
 };
 
 // This dictionary is used to manage stack trace data.
+[GenerateConversionToJS]
 dictionary ConsoleStackEntry {
   DOMString filename = "";
+  // Unique identifier within the process for the script source this entry is
+  // associated with, or zero.
+  unsigned long sourceId = 0;
   unsigned long lineNumber = 0;
   unsigned long columnNumber = 0;
   DOMString functionName = "";
   DOMString? asyncCause;
 };
 
+[GenerateConversionToJS]
 dictionary ConsoleTimerStart {
   DOMString name = "";
 };
 
+[GenerateConversionToJS]
 dictionary ConsoleTimerLogOrEnd {
   DOMString name = "";
   double duration = 0;
 };
 
+[GenerateConversionToJS]
 dictionary ConsoleTimerError {
   DOMString error = "";
   DOMString name = "";
 };
 
+[GenerateConversionToJS]
 dictionary ConsoleCounter {
   DOMString label = "";
   unsigned long count = 0;
 };
 
+[GenerateConversionToJS]
 dictionary ConsoleCounterError {
   DOMString label = "";
   DOMString error = "";

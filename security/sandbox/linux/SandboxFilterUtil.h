@@ -49,6 +49,10 @@ class SandboxPolicyBase : public sandbox::bpf_dsl::Policy {
     return Nothing();
   }
 #endif
+
+  // Returns true if the running kernel supports separate syscalls for
+  // socket operations, or false if it supports only socketcall(2).
+  static bool HasSeparateSocketCalls();
 };
 
 }  // namespace mozilla
@@ -62,106 +66,152 @@ class SandboxPolicyBase : public sandbox::bpf_dsl::Policy {
 // cases; see, e.g., the handling of RT vs. non-RT signal syscalls.
 
 #ifdef __NR_mmap2
-#define CASES_FOR_mmap case __NR_mmap2
+#  define CASES_FOR_mmap case __NR_mmap2
 #else
-#define CASES_FOR_mmap case __NR_mmap
+#  define CASES_FOR_mmap case __NR_mmap
 #endif
 
 #ifdef __NR_fchown32
-#define CASES_FOR_fchown \
-  case __NR_fchown32:    \
-  case __NR_fchown
+#  define CASES_FOR_fchown \
+    case __NR_fchown32:    \
+    case __NR_fchown
 #else
-#define CASES_FOR_fchown case __NR_fchown
+#  define CASES_FOR_fchown case __NR_fchown
 #endif
 
 #ifdef __NR_getuid32
-#define CASES_FOR_getuid case __NR_getuid32
-#define CASES_FOR_getgid case __NR_getgid32
-#define CASES_FOR_geteuid case __NR_geteuid32
-#define CASES_FOR_getegid case __NR_getegid32
-#define CASES_FOR_getresuid \
-  case __NR_getresuid32:    \
-  case __NR_getresuid
-#define CASES_FOR_getresgid \
-  case __NR_getresgid32:    \
-  case __NR_getresgid
+#  define CASES_FOR_getuid case __NR_getuid32
+#  define CASES_FOR_getgid case __NR_getgid32
+#  define CASES_FOR_geteuid case __NR_geteuid32
+#  define CASES_FOR_getegid case __NR_getegid32
+#  define CASES_FOR_getresuid \
+    case __NR_getresuid32:    \
+    case __NR_getresuid
+#  define CASES_FOR_getresgid \
+    case __NR_getresgid32:    \
+    case __NR_getresgid
 // The set*id syscalls are omitted; we'll probably never need to allow them.
 #else
-#define CASES_FOR_getuid case __NR_getuid
-#define CASES_FOR_getgid case __NR_getgid
-#define CASES_FOR_geteuid case __NR_geteuid
-#define CASES_FOR_getegid case __NR_getegid
-#define CASES_FOR_getresuid case __NR_getresuid
-#define CASES_FOR_getresgid case __NR_getresgid
+#  define CASES_FOR_getuid case __NR_getuid
+#  define CASES_FOR_getgid case __NR_getgid
+#  define CASES_FOR_geteuid case __NR_geteuid
+#  define CASES_FOR_getegid case __NR_getegid
+#  define CASES_FOR_getresuid case __NR_getresuid
+#  define CASES_FOR_getresgid case __NR_getresgid
 #endif
 
 #ifdef __NR_stat64
-#define CASES_FOR_stat case __NR_stat64
-#define CASES_FOR_lstat case __NR_lstat64
-#define CASES_FOR_fstat case __NR_fstat64
-#define CASES_FOR_fstatat case __NR_fstatat64
-#define CASES_FOR_statfs \
-  case __NR_statfs64:    \
-  case __NR_statfs
-#define CASES_FOR_fstatfs \
-  case __NR_fstatfs64:    \
-  case __NR_fstatfs
-#define CASES_FOR_fcntl case __NR_fcntl64
+#  define CASES_FOR_stat case __NR_stat64
+#  define CASES_FOR_lstat case __NR_lstat64
+#  define CASES_FOR_fstat case __NR_fstat64
+#  define CASES_FOR_fstatat case __NR_fstatat64
+#  define CASES_FOR_statfs \
+    case __NR_statfs64:    \
+    case __NR_statfs
+#  define CASES_FOR_fstatfs \
+    case __NR_fstatfs64:    \
+    case __NR_fstatfs
+#  define CASES_FOR_fcntl case __NR_fcntl64
 // FIXME: we might not need the compat cases for these on non-Android:
-#define CASES_FOR_lseek \
-  case __NR_lseek:      \
-  case __NR__llseek
-#define CASES_FOR_ftruncate \
-  case __NR_ftruncate:      \
-  case __NR_ftruncate64
+#  define CASES_FOR_lseek \
+    case __NR_lseek:      \
+    case __NR__llseek
+#  define CASES_FOR_ftruncate \
+    case __NR_ftruncate:      \
+    case __NR_ftruncate64
 #else
-#define CASES_FOR_stat case __NR_stat
-#define CASES_FOR_lstat case __NR_lstat
-#define CASES_FOR_fstatat case __NR_newfstatat
-#define CASES_FOR_fstat case __NR_fstat
-#define CASES_FOR_fstatfs case __NR_fstatfs
-#define CASES_FOR_statfs case __NR_statfs
-#define CASES_FOR_fcntl case __NR_fcntl
-#define CASES_FOR_lseek case __NR_lseek
-#define CASES_FOR_ftruncate case __NR_ftruncate
+#  define CASES_FOR_stat case __NR_stat
+#  define CASES_FOR_lstat case __NR_lstat
+#  define CASES_FOR_fstatat case __NR_newfstatat
+#  define CASES_FOR_fstat case __NR_fstat
+#  define CASES_FOR_fstatfs case __NR_fstatfs
+#  define CASES_FOR_statfs case __NR_statfs
+#  define CASES_FOR_fcntl case __NR_fcntl
+#  define CASES_FOR_lseek case __NR_lseek
+#  define CASES_FOR_ftruncate case __NR_ftruncate
 #endif
 
 // getdents is not like the other FS-related syscalls with a "64" variant
 #ifdef __NR_getdents
-#define CASES_FOR_getdents \
-  case __NR_getdents64:    \
-  case __NR_getdents
+#  define CASES_FOR_getdents \
+    case __NR_getdents64:    \
+    case __NR_getdents
 #else
-#define CASES_FOR_getdents case __NR_getdents64
+#  define CASES_FOR_getdents case __NR_getdents64
 #endif
 
 #ifdef __NR_sigprocmask
-#define CASES_FOR_sigprocmask \
-  case __NR_sigprocmask:      \
-  case __NR_rt_sigprocmask
-#define CASES_FOR_sigaction \
-  case __NR_sigaction:      \
-  case __NR_rt_sigaction
-#define CASES_FOR_sigreturn \
-  case __NR_sigreturn:      \
-  case __NR_rt_sigreturn
+#  define CASES_FOR_sigprocmask \
+    case __NR_sigprocmask:      \
+    case __NR_rt_sigprocmask
+#  define CASES_FOR_sigaction \
+    case __NR_sigaction:      \
+    case __NR_rt_sigaction
+#  define CASES_FOR_sigreturn \
+    case __NR_sigreturn:      \
+    case __NR_rt_sigreturn
 #else
-#define CASES_FOR_sigprocmask case __NR_rt_sigprocmask
-#define CASES_FOR_sigaction case __NR_rt_sigaction
-#define CASES_FOR_sigreturn case __NR_rt_sigreturn
+#  define CASES_FOR_sigprocmask case __NR_rt_sigprocmask
+#  define CASES_FOR_sigaction case __NR_rt_sigaction
+#  define CASES_FOR_sigreturn case __NR_rt_sigreturn
 #endif
 
-#ifdef __NR__newselect
-#define CASES_FOR_select case __NR__newselect
+#if defined(__NR__newselect)
+#  define CASES_FOR_select \
+    case __NR__newselect:  \
+    case __NR_pselect6
+#elif defined(__NR_select)
+#  define CASES_FOR_select \
+    case __NR_select:      \
+    case __NR_pselect6
 #else
-#define CASES_FOR_select case __NR_select
+#  define CASES_FOR_select case __NR_pselect6
+#endif
+
+#ifdef __NR_poll
+#  define CASES_FOR_poll \
+    case __NR_poll:      \
+    case __NR_ppoll
+#else
+#  define CASES_FOR_poll case __NR_ppoll
+#endif
+
+#ifdef __NR_epoll_create
+#  define CASES_FOR_epoll_create \
+    case __NR_epoll_create:      \
+    case __NR_epoll_create1
+#else
+#  define CASES_FOR_epoll_create case __NR_epoll_create1
+#endif
+
+#ifdef __NR_epoll_wait
+#  define CASES_FOR_epoll_wait \
+    case __NR_epoll_wait:      \
+    case __NR_epoll_pwait
+#else
+#  define CASES_FOR_epoll_wait case __NR_epoll_pwait
+#endif
+
+#ifdef __NR_pipe
+#  define CASES_FOR_pipe \
+    case __NR_pipe:      \
+    case __NR_pipe2
+#else
+#  define CASES_FOR_pipe case __NR_pipe2
+#endif
+
+#ifdef __NR_dup2
+#  define CASES_FOR_dup2 \
+    case __NR_dup2:      \
+    case __NR_dup3
+#else
+#  define CASES_FOR_dup2 case __NR_dup3
 #endif
 
 #ifdef __NR_ugetrlimit
-#define CASES_FOR_getrlimit case __NR_ugetrlimit
+#  define CASES_FOR_getrlimit case __NR_ugetrlimit
 #else
-#define CASES_FOR_getrlimit case __NR_getrlimit
+#  define CASES_FOR_getrlimit case __NR_getrlimit
 #endif
 
 #endif  // mozilla_SandboxFilterUtil_h

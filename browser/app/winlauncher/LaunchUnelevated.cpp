@@ -4,38 +4,19 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
+#define MOZ_USE_LAUNCHER_ERROR
+
 #include "LaunchUnelevated.h"
 
 #include "mozilla/Assertions.h"
 #include "mozilla/CmdLineAndEnvUtils.h"
-#include "mozilla/mscom/COMApartmentRegion.h"
+#include "mozilla/mscom/ProcessRuntime.h"
 #include "mozilla/RefPtr.h"
+#include "mozilla/ShellHeaderOnlyUtils.h"
+#include "mozilla/WinHeaderOnlyUtils.h"
 #include "nsWindowsHelpers.h"
 
-#include "LauncherResult.h"
-
-// For _bstr_t and _variant_t
-#include <comdef.h>
-#include <comutil.h>
-
 #include <windows.h>
-#include <exdisp.h>
-#include <objbase.h>
-#include <servprov.h>
-#include <shlobj.h>
-#include <shobjidl.h>
-
-static mozilla::LauncherResult<TOKEN_ELEVATION_TYPE> GetElevationType(
-    const nsAutoHandle& aToken) {
-  DWORD retLen;
-  TOKEN_ELEVATION_TYPE elevationType;
-  if (!::GetTokenInformation(aToken.get(), TokenElevationType, &elevationType,
-                             sizeof(elevationType), &retLen)) {
-    return LAUNCHER_ERROR_FROM_LAST();
-  }
-
-  return elevationType;
-}
 
 static mozilla::LauncherResult<bool> IsHighIntegrity(
     const nsAutoHandle& aToken) {
@@ -92,6 +73,48 @@ static mozilla::LauncherResult<HANDLE> GetMediumIntegrityToken(
   return result.disown();
 }
 
+static mozilla::LauncherResult<bool> IsAdminByAppCompat(
+    HKEY aRootKey, const wchar_t* aExecutablePath) {
+  static const wchar_t kPathToLayers[] =
+      L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\"
+      L"AppCompatFlags\\Layers";
+
+  DWORD dataLength = 0;
+  LSTATUS status = ::RegGetValueW(aRootKey, kPathToLayers, aExecutablePath,
+                                  RRF_RT_REG_SZ | RRF_SUBKEY_WOW6464KEY,
+                                  nullptr, nullptr, &dataLength);
+  if (status == ERROR_FILE_NOT_FOUND) {
+    return false;
+  } else if (status != ERROR_SUCCESS) {
+    return LAUNCHER_ERROR_FROM_WIN32(status);
+  }
+
+  auto valueData = mozilla::MakeUnique<wchar_t[]>(dataLength);
+  if (!valueData) {
+    return LAUNCHER_ERROR_FROM_WIN32(ERROR_OUTOFMEMORY);
+  }
+
+  status = ::RegGetValueW(aRootKey, kPathToLayers, aExecutablePath,
+                          RRF_RT_REG_SZ | RRF_SUBKEY_WOW6464KEY, nullptr,
+                          valueData.get(), &dataLength);
+  if (status != ERROR_SUCCESS) {
+    return LAUNCHER_ERROR_FROM_WIN32(status);
+  }
+
+  const wchar_t kRunAsAdmin[] = L"RUNASADMIN";
+  const wchar_t kDelimiters[] = L" ";
+  wchar_t* tokenContext = nullptr;
+  const wchar_t* token = wcstok_s(valueData.get(), kDelimiters, &tokenContext);
+  while (token) {
+    if (!_wcsnicmp(token, kRunAsAdmin, mozilla::ArrayLength(kRunAsAdmin))) {
+      return true;
+    }
+    token = wcstok_s(nullptr, kDelimiters, &tokenContext);
+  }
+
+  return false;
+}
+
 namespace mozilla {
 
 // If we're running at an elevated integrity level, re-run ourselves at the
@@ -103,83 +126,12 @@ namespace mozilla {
 // See https://blogs.msdn.microsoft.com/oldnewthing/20131118-00/?p=2643
 
 LauncherVoidResult LaunchUnelevated(int aArgc, wchar_t* aArgv[]) {
-  // We require a single-threaded apartment to talk to Explorer.
-  mscom::STARegion sta;
-  if (!sta.IsValid()) {
-    return LAUNCHER_ERROR_FROM_HRESULT(sta.GetHResult());
+  // We need COM to talk to Explorer. Using ProcessRuntime so that
+  // process-global COM configuration is done correctly
+  mozilla::mscom::ProcessRuntime mscom(GeckoProcessType_Default);
+  if (!mscom) {
+    return LAUNCHER_ERROR_FROM_HRESULT(mscom.GetHResult());
   }
-
-  // NB: Explorer is a local server, not an inproc server
-  RefPtr<IShellWindows> shellWindows;
-  HRESULT hr =
-      ::CoCreateInstance(CLSID_ShellWindows, nullptr, CLSCTX_LOCAL_SERVER,
-                         IID_IShellWindows, getter_AddRefs(shellWindows));
-  if (FAILED(hr)) {
-    return LAUNCHER_ERROR_FROM_HRESULT(hr);
-  }
-
-  // 1. Find the shell view for the desktop.
-  _variant_t loc(CSIDL_DESKTOP);
-  _variant_t empty;
-  long hwnd;
-  RefPtr<IDispatch> dispDesktop;
-  hr = shellWindows->FindWindowSW(&loc, &empty, SWC_DESKTOP, &hwnd,
-                                  SWFO_NEEDDISPATCH,
-                                  getter_AddRefs(dispDesktop));
-  if (FAILED(hr)) {
-    return LAUNCHER_ERROR_FROM_HRESULT(hr);
-  }
-
-  RefPtr<IServiceProvider> servProv;
-  hr = dispDesktop->QueryInterface(IID_IServiceProvider,
-                                   getter_AddRefs(servProv));
-  if (FAILED(hr)) {
-    return LAUNCHER_ERROR_FROM_HRESULT(hr);
-  }
-
-  RefPtr<IShellBrowser> browser;
-  hr = servProv->QueryService(SID_STopLevelBrowser, IID_IShellBrowser,
-                              getter_AddRefs(browser));
-  if (FAILED(hr)) {
-    return LAUNCHER_ERROR_FROM_HRESULT(hr);
-  }
-
-  RefPtr<IShellView> activeShellView;
-  hr = browser->QueryActiveShellView(getter_AddRefs(activeShellView));
-  if (FAILED(hr)) {
-    return LAUNCHER_ERROR_FROM_HRESULT(hr);
-  }
-
-  // 2. Get the automation object for the desktop.
-  RefPtr<IDispatch> dispView;
-  hr = activeShellView->GetItemObject(SVGIO_BACKGROUND, IID_IDispatch,
-                                      getter_AddRefs(dispView));
-  if (FAILED(hr)) {
-    return LAUNCHER_ERROR_FROM_HRESULT(hr);
-  }
-
-  RefPtr<IShellFolderViewDual> folderView;
-  hr = dispView->QueryInterface(IID_IShellFolderViewDual,
-                                getter_AddRefs(folderView));
-  if (FAILED(hr)) {
-    return LAUNCHER_ERROR_FROM_HRESULT(hr);
-  }
-
-  // 3. Get the interface to IShellDispatch2
-  RefPtr<IDispatch> dispShell;
-  hr = folderView->get_Application(getter_AddRefs(dispShell));
-  if (FAILED(hr)) {
-    return LAUNCHER_ERROR_FROM_HRESULT(hr);
-  }
-
-  RefPtr<IShellDispatch2> shellDisp;
-  hr =
-      dispShell->QueryInterface(IID_IShellDispatch2, getter_AddRefs(shellDisp));
-  if (FAILED(hr)) {
-    return LAUNCHER_ERROR_FROM_HRESULT(hr);
-  }
-
-  // 4. Now call IShellDispatch2::ShellExecute to ask Explorer to re-launch us.
 
   // Omit argv[0] because ShellExecute doesn't need it in params
   UniquePtr<wchar_t[]> cmdLine(MakeCommandLine(aArgc - 1, aArgv + 1));
@@ -192,16 +144,12 @@ LauncherVoidResult LaunchUnelevated(int aArgc, wchar_t* aArgv[]) {
   _variant_t operation(L"open");
   _variant_t directory;
   _variant_t showCmd(SW_SHOWNORMAL);
-  hr = shellDisp->ShellExecute(exe, args, operation, directory, showCmd);
-  if (FAILED(hr)) {
-    return LAUNCHER_ERROR_FROM_HRESULT(hr);
-  }
-
-  return Ok();
+  return ShellExecuteByExplorer(exe, args, operation, directory, showCmd);
 }
 
 LauncherResult<ElevationState> GetElevationState(
-    mozilla::LauncherFlags aFlags, nsAutoHandle& aOutMediumIlToken) {
+    const wchar_t* aExecutablePath, mozilla::LauncherFlags aFlags,
+    nsAutoHandle& aOutMediumIlToken) {
   aOutMediumIlToken.reset();
 
   const DWORD tokenFlags = TOKEN_QUERY | TOKEN_DUPLICATE |
@@ -215,58 +163,81 @@ LauncherResult<ElevationState> GetElevationState(
 
   LauncherResult<TOKEN_ELEVATION_TYPE> elevationType = GetElevationType(token);
   if (elevationType.isErr()) {
-    return LAUNCHER_ERROR_FROM_RESULT(elevationType);
+    return elevationType.propagateErr();
   }
 
+  Maybe<ElevationState> elevationState;
   switch (elevationType.unwrap()) {
     case TokenElevationTypeLimited:
       return ElevationState::eNormalUser;
     case TokenElevationTypeFull:
-      // If we want to start a non-elevated browser process and wait on it,
-      // we're going to need a medium IL token.
-      if ((aFlags & (mozilla::LauncherFlags::eWaitForBrowser |
-                     mozilla::LauncherFlags::eNoDeelevate)) ==
-          mozilla::LauncherFlags::eWaitForBrowser) {
-        LauncherResult<HANDLE> tokenResult = GetMediumIntegrityToken(token);
-        if (tokenResult.isOk()) {
-          aOutMediumIlToken.own(tokenResult.unwrap());
-        } else {
-          return LAUNCHER_ERROR_FROM_RESULT(tokenResult);
-        }
+      elevationState = Some(ElevationState::eElevated);
+      break;
+    case TokenElevationTypeDefault: {
+      // In this case, UAC is disabled. We do not yet know whether or not we
+      // are running at high integrity. If we are at high integrity, we can't
+      // relaunch ourselves in a non-elevated state via Explorer, as we would
+      // just end up in an infinite loop of launcher processes re-launching
+      // themselves.
+      LauncherResult<bool> isHighIntegrity = IsHighIntegrity(token);
+      if (isHighIntegrity.isErr()) {
+        return isHighIntegrity.propagateErr();
       }
 
-      return ElevationState::eElevated;
-    case TokenElevationTypeDefault:
+      if (!isHighIntegrity.unwrap()) {
+        return ElevationState::eNormalUser;
+      }
+
+      elevationState = Some(ElevationState::eHighIntegrityNoUAC);
       break;
+    }
     default:
       MOZ_ASSERT_UNREACHABLE("Was a new value added to the enumeration?");
       return LAUNCHER_ERROR_GENERIC();
   }
 
-  // In this case, UAC is disabled. We do not yet know whether or not we are
-  // running at high integrity. If we are at high integrity, we can't relaunch
-  // ourselves in a non-elevated state via Explorer, as we would just end up in
-  // an infinite loop of launcher processes re-launching themselves.
+  MOZ_ASSERT(elevationState.isSome() &&
+                 elevationState.value() != ElevationState::eNormalUser,
+             "Should have returned earlier for the eNormalUser case.");
 
-  LauncherResult<bool> isHighIntegrity = IsHighIntegrity(token);
-  if (isHighIntegrity.isErr()) {
-    return LAUNCHER_ERROR_FROM_RESULT(isHighIntegrity);
+  LauncherResult<bool> isAdminByAppCompat =
+      IsAdminByAppCompat(HKEY_CURRENT_USER, aExecutablePath);
+  if (isAdminByAppCompat.isErr()) {
+    return isAdminByAppCompat.propagateErr();
   }
 
-  if (!isHighIntegrity.unwrap()) {
-    return ElevationState::eNormalUser;
-  }
+  if (isAdminByAppCompat.unwrap()) {
+    elevationState = Some(ElevationState::eHighIntegrityByAppCompat);
+  } else {
+    isAdminByAppCompat =
+        IsAdminByAppCompat(HKEY_LOCAL_MACHINE, aExecutablePath);
+    if (isAdminByAppCompat.isErr()) {
+      return isAdminByAppCompat.propagateErr();
+    }
 
-  if (!(aFlags & mozilla::LauncherFlags::eNoDeelevate)) {
-    LauncherResult<HANDLE> tokenResult = GetMediumIntegrityToken(token);
-    if (tokenResult.isOk()) {
-      aOutMediumIlToken.own(tokenResult.unwrap());
-    } else {
-      return LAUNCHER_ERROR_FROM_RESULT(tokenResult);
+    if (isAdminByAppCompat.unwrap()) {
+      elevationState = Some(ElevationState::eHighIntegrityByAppCompat);
     }
   }
 
-  return ElevationState::eHighIntegrityNoUAC;
+  // A medium IL token is not needed in the following cases.
+  // 1) We keep the process elevated (= LauncherFlags::eNoDeelevate)
+  // 2) The process was elevated by UAC (= ElevationState::eElevated)
+  //    AND the launcher process doesn't wait for the browser process
+  if ((aFlags & mozilla::LauncherFlags::eNoDeelevate) ||
+      (elevationState.value() == ElevationState::eElevated &&
+       !(aFlags & mozilla::LauncherFlags::eWaitForBrowser))) {
+    return elevationState.value();
+  }
+
+  LauncherResult<HANDLE> tokenResult = GetMediumIntegrityToken(token);
+  if (tokenResult.isOk()) {
+    aOutMediumIlToken.own(tokenResult.unwrap());
+  } else {
+    return tokenResult.propagateErr();
+  }
+
+  return elevationState.value();
 }
 
 }  // namespace mozilla

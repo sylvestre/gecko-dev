@@ -6,23 +6,26 @@
 
 #include "mozilla/mscom/InterceptorLog.h"
 
+#include <callobj.h>
+
+#include <utility>
+
 #include "MainThreadUtils.h"
 #include "mozilla/ClearOnShutdown.h"
 #include "mozilla/DebugOnly.h"
-#include "mozilla/Move.h"
-#include "mozilla/mscom/Registration.h"
-#include "mozilla/mscom/Utils.h"
 #include "mozilla/Mutex.h"
 #include "mozilla/Services.h"
 #include "mozilla/StaticPtr.h"
 #include "mozilla/TimeStamp.h"
 #include "mozilla/Unused.h"
+#include "mozilla/mscom/Registration.h"
+#include "mozilla/mscom/Utils.h"
 #include "nsAppDirectoryServiceDefs.h"
 #include "nsDirectoryServiceDefs.h"
 #include "nsDirectoryServiceUtils.h"
-#include "nsIFileStreams.h"
 #include "nsIObserver.h"
 #include "nsIObserverService.h"
+#include "nsIOutputStream.h"
 #include "nsNetUtil.h"
 #include "nsPrintfCString.h"
 #include "nsTArray.h"
@@ -30,8 +33,6 @@
 #include "nsXPCOMPrivate.h"
 #include "nsXULAppAPI.h"
 #include "prenv.h"
-
-#include <callobj.h>
 
 using mozilla::DebugOnly;
 using mozilla::Mutex;
@@ -106,12 +107,12 @@ Logger::Logger(const nsACString& aLeafBaseName)
     rv = NS_GetSpecialDirectory(NS_OS_TEMP_DIR, getter_AddRefs(logFileName));
   } else if (procType == GeckoProcessType_Content) {
     leafName.AppendLiteral("-Content-");
-#if defined(MOZ_CONTENT_SANDBOX)
+#if defined(MOZ_SANDBOX)
     rv = NS_GetSpecialDirectory(NS_APP_CONTENT_PROCESS_TEMP_DIR,
                                 getter_AddRefs(logFileName));
 #else
     rv = NS_GetSpecialDirectory(NS_OS_TEMP_DIR, getter_AddRefs(logFileName));
-#endif  // defined(MOZ_CONTENT_SANDBOX)
+#endif  // defined(MOZ_SANDBOX)
   } else {
     return;
   }
@@ -249,7 +250,8 @@ bool Logger::VariantToString(const VARIANT& aVariant, nsACString& aOut,
   }
 }
 
-/* static */ double Logger::GetElapsedTime() {
+/* static */
+double Logger::GetElapsedTime() {
   TimeStamp ts = TimeStamp::Now();
   TimeDuration duration = ts - TimeStamp::ProcessCreation();
   return duration.ToMicroseconds();
@@ -428,14 +430,14 @@ void Logger::Flush() {
   nsTArray<nsCString> linesToWrite;
   {  // Scope for lock
     MutexAutoLock lock(mMutex);
-    linesToWrite.SwapElements(mEntries);
+    linesToWrite = std::move(mEntries);
   }
 
   for (uint32_t i = 0, len = linesToWrite.Length(); i < len; ++i) {
     uint32_t bytesWritten;
     nsCString& line = linesToWrite[i];
     nsresult rv = mLogFile->Write(line.get(), line.Length(), &bytesWritten);
-    NS_WARN_IF(NS_FAILED(rv));
+    Unused << NS_WARN_IF(NS_FAILED(rv));
   }
 }
 
@@ -481,15 +483,17 @@ static bool MaybeCreateLog(const char* aEnvVarName) {
 namespace mozilla {
 namespace mscom {
 
-/* static */ bool InterceptorLog::Init() {
+/* static */
+bool InterceptorLog::Init() {
   static const bool isEnabled = MaybeCreateLog("MOZ_MSCOM_LOG_BASENAME");
   return isEnabled;
 }
 
-/* static */ void InterceptorLog::QI(HRESULT aResult, IUnknown* aTarget,
-                                     REFIID aIid, IUnknown* aInterface,
-                                     const TimeDuration* aOverheadDuration,
-                                     const TimeDuration* aGeckoDuration) {
+/* static */
+void InterceptorLog::QI(HRESULT aResult, IUnknown* aTarget, REFIID aIid,
+                        IUnknown* aInterface,
+                        const TimeDuration* aOverheadDuration,
+                        const TimeDuration* aGeckoDuration) {
   if (!sLogger) {
     return;
   }
@@ -497,18 +501,20 @@ namespace mscom {
                  aGeckoDuration);
 }
 
-/* static */ void InterceptorLog::CaptureFrame(ICallFrame* aCallFrame,
-                                               IUnknown* aTargetInterface,
-                                               nsACString& aCapturedFrame) {
+/* static */
+void InterceptorLog::CaptureFrame(ICallFrame* aCallFrame,
+                                  IUnknown* aTargetInterface,
+                                  nsACString& aCapturedFrame) {
   if (!sLogger) {
     return;
   }
   sLogger->CaptureFrame(aCallFrame, aTargetInterface, aCapturedFrame);
 }
 
-/* static */ void InterceptorLog::Event(const nsACString& aCapturedFrame,
-                                        const TimeDuration& aOverheadDuration,
-                                        const TimeDuration& aGeckoDuration) {
+/* static */
+void InterceptorLog::Event(const nsACString& aCapturedFrame,
+                           const TimeDuration& aOverheadDuration,
+                           const TimeDuration& aGeckoDuration) {
   if (!sLogger) {
     return;
   }

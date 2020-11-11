@@ -6,6 +6,7 @@
 
 #include "mozilla/dom/HTMLAnchorElement.h"
 
+#include "mozilla/dom/BindContext.h"
 #include "mozilla/dom/HTMLAnchorElementBinding.h"
 #include "mozilla/EventDispatcher.h"
 #include "mozilla/EventStates.h"
@@ -15,16 +16,14 @@
 #include "nsGkAtoms.h"
 #include "nsHTMLDNSPrefetch.h"
 #include "nsAttrValueOrString.h"
-#include "nsIDocument.h"
-#include "nsIPresShell.h"
+#include "mozilla/dom/Document.h"
 #include "nsPresContext.h"
 #include "nsIURI.h"
 #include "nsWindowSizes.h"
 
 NS_IMPL_NS_NEW_HTML_ELEMENT(Anchor)
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 #define ANCHOR_ELEMENT_FLAG_BIT(n_) \
   NODE_FLAG_BIT(ELEMENT_TYPE_SPECIFIC_BITS_OFFSET + (n_))
@@ -46,11 +45,11 @@ ASSERT_NODE_FLAGS_SPACE(ELEMENT_TYPE_SPECIFIC_BITS_OFFSET + 2);
 const DOMTokenListSupportedToken HTMLAnchorElement::sSupportedRelValues[] = {
     "noreferrer", "noopener", nullptr};
 
-HTMLAnchorElement::~HTMLAnchorElement() {}
+HTMLAnchorElement::~HTMLAnchorElement() = default;
 
-bool HTMLAnchorElement::IsInteractiveHTMLContent(bool aIgnoreTabindex) const {
+bool HTMLAnchorElement::IsInteractiveHTMLContent() const {
   return HasAttr(kNameSpaceID_None, nsGkAtoms::href) ||
-         nsGenericHTMLElement::IsInteractiveHTMLContent(aIgnoreTabindex);
+         nsGenericHTMLElement::IsInteractiveHTMLContent();
 }
 
 NS_IMPL_ISUPPORTS_CYCLE_COLLECTION_INHERITED(HTMLAnchorElement,
@@ -94,47 +93,34 @@ bool HTMLAnchorElement::HasDeferredDNSPrefetchRequest() {
   return HasFlag(HTML_ANCHOR_DNS_PREFETCH_DEFERRED);
 }
 
-nsresult HTMLAnchorElement::BindToTree(nsIDocument* aDocument,
-                                       nsIContent* aParent,
-                                       nsIContent* aBindingParent) {
+nsresult HTMLAnchorElement::BindToTree(BindContext& aContext,
+                                       nsINode& aParent) {
   Link::ResetLinkState(false, Link::ElementHasHref());
 
-  nsresult rv =
-      nsGenericHTMLElement::BindToTree(aDocument, aParent, aBindingParent);
+  nsresult rv = nsGenericHTMLElement::BindToTree(aContext, aParent);
   NS_ENSURE_SUCCESS(rv, rv);
 
   // Prefetch links
-  nsIDocument* doc = GetComposedDoc();
-  if (doc) {
-    doc->RegisterPendingLinkUpdate(this);
+  if (IsInComposedDoc()) {
+    aContext.OwnerDoc().RegisterPendingLinkUpdate(this);
     TryDNSPrefetch();
   }
 
   return rv;
 }
 
-void HTMLAnchorElement::UnbindFromTree(bool aDeep, bool aNullParent) {
+void HTMLAnchorElement::UnbindFromTree(bool aNullParent) {
   // Cancel any DNS prefetches
   // Note: Must come before ResetLinkState.  If called after, it will recreate
   // mCachedURI based on data that is invalid - due to a call to GetHostname.
   CancelDNSPrefetch(HTML_ANCHOR_DNS_PREFETCH_DEFERRED,
                     HTML_ANCHOR_DNS_PREFETCH_REQUESTED);
 
-  // If this link is ever reinserted into a document, it might
-  // be under a different xml:base, so forget the cached state now.
+  // Without removing the link state we risk a dangling pointer
+  // in the mStyledLinks hashtable
   Link::ResetLinkState(false, Link::ElementHasHref());
 
-  nsGenericHTMLElement::UnbindFromTree(aDeep, aNullParent);
-}
-
-static bool IsNodeInEditableRegion(nsINode* aNode) {
-  while (aNode) {
-    if (aNode->IsEditable()) {
-      return true;
-    }
-    aNode = aNode->GetParent();
-  }
-  return false;
+  nsGenericHTMLElement::UnbindFromTree(aNullParent);
 }
 
 bool HTMLAnchorElement::IsHTMLFocusable(bool aWithMouse, bool* aIsFocusable,
@@ -145,18 +131,14 @@ bool HTMLAnchorElement::IsHTMLFocusable(bool aWithMouse, bool* aIsFocusable,
   }
 
   // cannot focus links if there is no link handler
-  nsIDocument* doc = GetComposedDoc();
-  if (doc) {
-    nsPresContext* presContext = doc->GetPresContext();
-    if (presContext && !presContext->GetLinkHandler()) {
-      *aIsFocusable = false;
-      return false;
-    }
+  if (!OwnerDoc()->LinkHandlingEnabled()) {
+    *aIsFocusable = false;
+    return false;
   }
 
   // Links that are in an editable region should never be focusable, even if
   // they are in a contenteditable="false" region.
-  if (IsNodeInEditableRegion(this)) {
+  if (nsContentUtils::IsNodeInEditableRegion(this)) {
     if (aTabIndex) {
       *aTabIndex = -1;
     }
@@ -166,7 +148,7 @@ bool HTMLAnchorElement::IsHTMLFocusable(bool aWithMouse, bool* aIsFocusable,
     return true;
   }
 
-  if (!HasAttr(kNameSpaceID_None, nsGkAtoms::tabindex)) {
+  if (GetTabIndexAttrValue().isNothing()) {
     // check whether we're actually a link
     if (!Link::HasURI()) {
       // Not tabbable or focusable without href (bug 17605), unless
@@ -286,5 +268,4 @@ void HTMLAnchorElement::AddSizeOfExcludingThis(nsWindowSizes& aSizes,
   *aNodeSize += Link::SizeOfExcludingThis(aSizes.mState);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

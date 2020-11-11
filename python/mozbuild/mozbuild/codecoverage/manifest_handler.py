@@ -2,6 +2,8 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+from __future__ import absolute_import, print_function
+
 from collections import defaultdict
 
 try:
@@ -38,7 +40,7 @@ class ChromeManifestHandler(object):
                 url = urlparse.urlparse(dest)
                 if not url.scheme:
                     dest = mozpath.normpath(mozpath.join(entry.base, dest))
-                if url.scheme == 'file':
+                if url.scheme == "file":
                     dest = mozpath.normpath(url.path)
             else:
                 dest = mozpath.normpath(entry.path)

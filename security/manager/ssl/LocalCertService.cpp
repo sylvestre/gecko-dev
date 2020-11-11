@@ -15,6 +15,7 @@
 #include "nsIX509Cert.h"
 #include "nsIX509CertValidity.h"
 #include "nsLiteralString.h"
+#include "nsNSSCertificate.h"
 #include "nsProxyRelease.h"
 #include "nsServiceManagerUtils.h"
 #include "nsString.h"
@@ -29,7 +30,7 @@ namespace mozilla {
 static nsresult FindLocalCertByName(const nsACString& aName,
                                     /*out*/ UniqueCERTCertificate& aResult) {
   aResult.reset(nullptr);
-  NS_NAMED_LITERAL_CSTRING(commonNamePrefix, "CN=");
+  constexpr auto commonNamePrefix = "CN="_ns;
   nsAutoCString expectedDistinguishedName(commonNamePrefix + aName);
   UniquePK11SlotInfo slot(PK11_GetInternalKeySlot());
   if (!slot) {
@@ -135,7 +136,7 @@ class LocalCertGetTask final : public LocalCertTask {
     }
 
     // Generate a new cert
-    NS_NAMED_LITERAL_CSTRING(commonNamePrefix, "CN=");
+    constexpr auto commonNamePrefix = "CN="_ns;
     nsAutoCString subjectNameStr(commonNamePrefix + mNickname);
     UniqueCERTName subjectName(CERT_AsciiToName(subjectNameStr.get()));
     if (!subjectName) {
@@ -290,7 +291,7 @@ class LocalCertGetTask final : public LocalCertTask {
     if (!subjectName.Equals(issuerName)) {
       return NS_ERROR_FAILURE;
     }
-    NS_NAMED_LITERAL_STRING(commonNamePrefix, "CN=");
+    constexpr auto commonNamePrefix = u"CN="_ns;
     nsAutoString subjectNameFromNickname(commonNamePrefix +
                                          NS_ConvertASCIItoUTF16(mNickname));
     if (!subjectName.Equals(subjectNameFromNickname)) {
@@ -344,9 +345,9 @@ class LocalCertRemoveTask final : public LocalCertTask {
 
 NS_IMPL_ISUPPORTS(LocalCertService, nsILocalCertService)
 
-LocalCertService::LocalCertService() {}
+LocalCertService::LocalCertService() = default;
 
-LocalCertService::~LocalCertService() {}
+LocalCertService::~LocalCertService() = default;
 
 nsresult LocalCertService::LoginToKeySlot() {
   nsresult rv;
@@ -402,7 +403,7 @@ LocalCertService::GetOrCreateCert(const nsACString& aNickname,
   }
 
   RefPtr<LocalCertGetTask> task(new LocalCertGetTask(aNickname, aCallback));
-  return task->Dispatch("LocalCertGet");
+  return task->Dispatch();
 }
 
 NS_IMETHODIMP
@@ -424,7 +425,7 @@ LocalCertService::RemoveCert(const nsACString& aNickname,
 
   RefPtr<LocalCertRemoveTask> task(
       new LocalCertRemoveTask(aNickname, aCallback));
-  return task->Dispatch("LocalCertRm");
+  return task->Dispatch();
 }
 
 NS_IMETHODIMP
@@ -449,28 +450,5 @@ LocalCertService::GetLoginPromptRequired(bool* aRequired) {
       PK11_NeedLogin(slot.get()) && !PK11_IsLoggedIn(slot.get(), nullptr);
   return NS_OK;
 }
-
-#define LOCALCERTSERVICE_CID                         \
-  {                                                  \
-    0x47402be2, 0xe653, 0x45d0, {                    \
-      0x8d, 0xaa, 0x9f, 0x0d, 0xce, 0x0a, 0xc1, 0x48 \
-    }                                                \
-  }
-
-NS_GENERIC_FACTORY_CONSTRUCTOR(LocalCertService)
-
-NS_DEFINE_NAMED_CID(LOCALCERTSERVICE_CID);
-
-static const Module::CIDEntry kLocalCertServiceCIDs[] = {
-    {&kLOCALCERTSERVICE_CID, false, nullptr, LocalCertServiceConstructor},
-    {nullptr}};
-
-static const Module::ContractIDEntry kLocalCertServiceContracts[] = {
-    {LOCALCERTSERVICE_CONTRACTID, &kLOCALCERTSERVICE_CID}, {nullptr}};
-
-static const Module kLocalCertServiceModule = {
-    Module::kVersion, kLocalCertServiceCIDs, kLocalCertServiceContracts};
-
-NSMODULE_DEFN(LocalCertServiceModule) = &kLocalCertServiceModule;
 
 }  // namespace mozilla

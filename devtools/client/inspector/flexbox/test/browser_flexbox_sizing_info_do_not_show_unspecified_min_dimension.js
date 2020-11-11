@@ -1,4 +1,3 @@
-/* vim: set ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
 http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -15,8 +14,12 @@ async function checkFlexItemCSSProperty(inspector, store, doc, selector) {
   await selectNode(selector, inspector);
   await onUpdate;
 
-  info("Check that the minimum size section does not display minimum dimension text.");
-  const [sectionMinRowItem] = [...doc.querySelectorAll(".flex-item-sizing .section.min")];
+  info(
+    "Check that the minimum size section does not display minimum dimension text."
+  );
+  const [sectionMinRowItem] = [
+    ...doc.querySelectorAll(".flex-item-sizing .section.min"),
+  ];
   const minDimension = sectionMinRowItem.querySelector(".css-property-link");
 
   ok(!minDimension, "Minimum dimension property should not be displayed.");
@@ -27,8 +30,16 @@ add_task(async function() {
   const { inspector, flexboxInspector } = await openLayoutView();
   const { document: doc, store } = flexboxInspector;
 
-  await checkFlexItemCSSProperty(inspector, store, doc,
-    "#flex-item-with-unauthored-min-width");
-  await checkFlexItemCSSProperty(inspector, store, doc,
-    "#flex-item-with-unauthored-min-height");
+  await checkFlexItemCSSProperty(
+    inspector,
+    store,
+    doc,
+    "#flex-item-with-unauthored-min-width"
+  );
+  await checkFlexItemCSSProperty(
+    inspector,
+    store,
+    doc,
+    "#flex-item-with-unauthored-min-height"
+  );
 });

@@ -4,9 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "nsAutoPtr.h"
 #include "nsIDocShell.h"
-#include "nsIDocument.h"
+#include "mozilla/dom/Document.h"
 #include "nsIDocumentLoader.h"
 #include "nsIObserverService.h"
 #include "nsIXULRuntime.h"
@@ -55,12 +54,11 @@ class RequestContext final : public nsIRequestContext, public nsITimerCallback {
   // Reschedules the timer if needed
   void ScheduleUnblock();
   // Hard-reschedules the timer
-  void RescheduleUntailTimer(TimeStamp const &now);
+  void RescheduleUntailTimer(TimeStamp const& now);
 
   uint64_t mID;
   Atomic<uint32_t> mBlockingTransactionCount;
-  nsAutoPtr<SpdyPushCache> mSpdyCache;
-  nsCString mUserAgentOverride;
+  UniquePtr<SpdyPushCache> mSpdyCache;
 
   typedef nsCOMPtr<nsIRequestTailUnblockCallback> PendingTailRequest;
   // Number of known opened non-tailed requets
@@ -155,7 +153,7 @@ RequestContext::DOMContentLoaded() {
 
 NS_IMETHODIMP
 RequestContext::GetBlockingTransactionCount(
-    uint32_t *aBlockingTransactionCount) {
+    uint32_t* aBlockingTransactionCount) {
   NS_ENSURE_ARG_POINTER(aBlockingTransactionCount);
   *aBlockingTransactionCount = mBlockingTransactionCount;
   return NS_OK;
@@ -170,7 +168,7 @@ RequestContext::AddBlockingTransaction() {
 }
 
 NS_IMETHODIMP
-RequestContext::RemoveBlockingTransaction(uint32_t *outval) {
+RequestContext::RemoveBlockingTransaction(uint32_t* outval) {
   NS_ENSURE_ARG_POINTER(outval);
   mBlockingTransactionCount--;
   LOG(("RequestContext::RemoveBlockingTransaction this=%p blockers=%u", this,
@@ -179,22 +177,13 @@ RequestContext::RemoveBlockingTransaction(uint32_t *outval) {
   return NS_OK;
 }
 
-SpdyPushCache *RequestContext::GetSpdyPushCache() { return mSpdyCache; }
+SpdyPushCache* RequestContext::GetSpdyPushCache() { return mSpdyCache.get(); }
 
-void RequestContext::SetSpdyPushCache(SpdyPushCache *aSpdyPushCache) {
-  mSpdyCache = aSpdyPushCache;
+void RequestContext::SetSpdyPushCache(SpdyPushCache* aSpdyPushCache) {
+  mSpdyCache = WrapUnique(aSpdyPushCache);
 }
 
 uint64_t RequestContext::GetID() { return mID; }
-
-const nsACString &RequestContext::GetUserAgentOverride() {
-  return mUserAgentOverride;
-}
-
-void RequestContext::SetUserAgentOverride(
-    const nsACString &aUserAgentOverride) {
-  mUserAgentOverride = aUserAgentOverride;
-}
 
 NS_IMETHODIMP
 RequestContext::AddNonTailRequest() {
@@ -278,7 +267,7 @@ void RequestContext::ScheduleUnblock() {
   }
 }
 
-void RequestContext::RescheduleUntailTimer(TimeStamp const &now) {
+void RequestContext::RescheduleUntailTimer(TimeStamp const& now) {
   MOZ_ASSERT(mUntailAt >= now);
 
   if (mUntailTimer) {
@@ -311,7 +300,7 @@ void RequestContext::RescheduleUntailTimer(TimeStamp const &now) {
 }
 
 NS_IMETHODIMP
-RequestContext::Notify(nsITimer *timer) {
+RequestContext::Notify(nsITimer* timer) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(timer == mUntailTimer);
   MOZ_ASSERT(!mTimerScheduledAt.IsNull());
@@ -335,8 +324,8 @@ RequestContext::Notify(nsITimer *timer) {
 }
 
 NS_IMETHODIMP
-RequestContext::IsContextTailBlocked(nsIRequestTailUnblockCallback *aRequest,
-                                     bool *aBlocked) {
+RequestContext::IsContextTailBlocked(nsIRequestTailUnblockCallback* aRequest,
+                                     bool* aBlocked) {
   MOZ_ASSERT(NS_IsMainThread());
 
   LOG(("RequestContext::IsContextTailBlocked this=%p, request=%p, queued=%zu",
@@ -377,7 +366,7 @@ RequestContext::IsContextTailBlocked(nsIRequestTailUnblockCallback *aRequest,
 }
 
 NS_IMETHODIMP
-RequestContext::CancelTailedRequest(nsIRequestTailUnblockCallback *aRequest) {
+RequestContext::CancelTailedRequest(nsIRequestTailUnblockCallback* aRequest) {
   MOZ_ASSERT(NS_IsMainThread());
 
   bool removed = mTailQueue.RemoveElement(aRequest);
@@ -411,10 +400,9 @@ void RequestContext::ProcessTailQueue(nsresult aResult) {
   // Must drop to stop tailing requests
   mUntailAt = TimeStamp();
 
-  nsTArray<PendingTailRequest> queue;
-  queue.SwapElements(mTailQueue);
+  nsTArray<PendingTailRequest> queue = std::move(mTailQueue);
 
-  for (const auto &request : queue) {
+  for (const auto& request : queue) {
     LOG(("  untailing %p", request.get()));
     request->OnTailUnblock(aResult);
   }
@@ -430,7 +418,7 @@ RequestContext::CancelTailPendingRequests(nsresult aResult) {
 }
 
 // nsIRequestContextService
-RequestContextService *RequestContextService::sSelf = nullptr;
+RequestContextService* RequestContextService::sSelf = nullptr;
 
 NS_IMPL_ISUPPORTS(RequestContextService, nsIRequestContextService, nsIObserver)
 
@@ -482,9 +470,14 @@ void RequestContextService::Shutdown() {
   sShutdown = true;
 }
 
-/* static */ already_AddRefed<nsIRequestContextService>
+/* static */
+already_AddRefed<nsIRequestContextService>
 RequestContextService::GetOrCreate() {
   MOZ_ASSERT(NS_IsMainThread());
+
+  if (sShutdown) {
+    return nullptr;
+  }
 
   RefPtr<RequestContextService> svc;
   if (gSingleton) {
@@ -502,13 +495,17 @@ RequestContextService::GetOrCreate() {
 
 NS_IMETHODIMP
 RequestContextService::GetRequestContext(const uint64_t rcID,
-                                         nsIRequestContext **rc) {
+                                         nsIRequestContext** rc) {
   MOZ_ASSERT(NS_IsMainThread());
   NS_ENSURE_ARG_POINTER(rc);
   *rc = nullptr;
 
   if (sShutdown) {
     return NS_ERROR_ILLEGAL_DURING_SHUTDOWN;
+  }
+
+  if (!rcID) {
+    return NS_ERROR_INVALID_ARG;
   }
 
   if (!mTable.Get(rcID, rc)) {
@@ -521,8 +518,8 @@ RequestContextService::GetRequestContext(const uint64_t rcID,
 }
 
 NS_IMETHODIMP
-RequestContextService::GetRequestContextFromLoadGroup(nsILoadGroup *aLoadGroup,
-                                                      nsIRequestContext **rc) {
+RequestContextService::GetRequestContextFromLoadGroup(nsILoadGroup* aLoadGroup,
+                                                      nsIRequestContext** rc) {
   nsresult rv;
 
   uint64_t rcID;
@@ -535,7 +532,7 @@ RequestContextService::GetRequestContextFromLoadGroup(nsILoadGroup *aLoadGroup,
 }
 
 NS_IMETHODIMP
-RequestContextService::NewRequestContext(nsIRequestContext **rc) {
+RequestContextService::NewRequestContext(nsIRequestContext** rc) {
   MOZ_ASSERT(NS_IsMainThread());
   NS_ENSURE_ARG_POINTER(rc);
   *rc = nullptr;
@@ -557,18 +554,14 @@ RequestContextService::NewRequestContext(nsIRequestContext **rc) {
 
 NS_IMETHODIMP
 RequestContextService::RemoveRequestContext(const uint64_t rcID) {
-  if (IsNeckoChild() && gNeckoChild) {
-    gNeckoChild->SendRemoveRequestContext(rcID);
-  }
-
   MOZ_ASSERT(NS_IsMainThread());
   mTable.Remove(rcID);
   return NS_OK;
 }
 
 NS_IMETHODIMP
-RequestContextService::Observe(nsISupports *subject, const char *topic,
-                               const char16_t *data_unicode) {
+RequestContextService::Observe(nsISupports* subject, const char* topic,
+                               const char16_t* data_unicode) {
   MOZ_ASSERT(NS_IsMainThread());
   if (!strcmp(NS_XPCOM_SHUTDOWN_OBSERVER_ID, topic)) {
     Shutdown();
@@ -576,14 +569,14 @@ RequestContextService::Observe(nsISupports *subject, const char *topic,
   }
 
   if (!strcmp("content-document-interactive", topic)) {
-    nsCOMPtr<nsIDocument> document(do_QueryInterface(subject));
+    nsCOMPtr<dom::Document> document(do_QueryInterface(subject));
     MOZ_ASSERT(document);
     // We want this be triggered also for iframes, since those track their
     // own request context ids.
     if (!document) {
       return NS_OK;
     }
-    nsIDocShell *ds = document->GetDocShell();
+    nsIDocShell* ds = document->GetDocShell();
     // XML documents don't always have a docshell assigned
     if (!ds) {
       return NS_OK;

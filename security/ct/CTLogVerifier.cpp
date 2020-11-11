@@ -39,7 +39,7 @@ class SignatureParamsTrustDomain final : public TrustDomain {
   }
 
   Result CheckRevocation(EndEntityOrCA, const CertID&, Time, Duration,
-                         const Input*, const Input*) override {
+                         const Input*, const Input*, const Input*) override {
     return Result::FATAL_ERROR_LIBRARY_FAILURE;
   }
 

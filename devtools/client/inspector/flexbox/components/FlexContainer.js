@@ -12,31 +12,34 @@ const {
 } = require("devtools/client/shared/vendor/react");
 const dom = require("devtools/client/shared/vendor/react-dom-factories");
 const PropTypes = require("devtools/client/shared/vendor/react-prop-types");
-const { connect } = require("devtools/client/shared/vendor/react-redux");
-const { translateNodeFrontToGrip } = require("devtools/client/inspector/shared/utils");
 
-const { REPS, MODE } = require("devtools/client/shared/components/reps/reps");
-const { Rep } = REPS;
-const ElementNode = REPS.ElementNode;
+loader.lazyRequireGetter(
+  this,
+  "getNodeRep",
+  "devtools/client/inspector/shared/node-reps"
+);
 
-const Types = require("../types");
+const Types = require("devtools/client/inspector/flexbox/types");
+
+const {
+  highlightNode,
+  unhighlightNode,
+} = require("devtools/client/inspector/boxmodel/actions/box-model-highlighter");
 
 class FlexContainer extends PureComponent {
   static get propTypes() {
     return {
+      dispatch: PropTypes.func.isRequired,
       color: PropTypes.string.isRequired,
       flexContainer: PropTypes.shape(Types.flexContainer).isRequired,
       getSwatchColorPickerTooltip: PropTypes.func.isRequired,
-      onHideBoxModelHighlighter: PropTypes.func.isRequired,
       onSetFlexboxOverlayColor: PropTypes.func.isRequired,
-      onShowBoxModelHighlighterForNode: PropTypes.func.isRequired,
     };
   }
 
   constructor(props) {
     super(props);
 
-    this.colorValueEl = createRef();
     this.swatchEl = createRef();
 
     this.setFlexboxColor = this.setFlexboxColor.bind(this);
@@ -58,61 +61,47 @@ class FlexContainer extends PureComponent {
     });
   }
 
-  componentWillUnMount() {
+  componentWillUnmount() {
     const tooltip = this.props.getSwatchColorPickerTooltip();
     tooltip.removeSwatch(this.swatchEl.current);
   }
 
   setFlexboxColor() {
-    const color = this.colorValueEl.current.textContent;
+    const color = this.swatchEl.current.dataset.color;
     this.props.onSetFlexboxOverlayColor(color);
   }
 
   render() {
-    const {
-      color,
-      flexContainer,
-      onHideBoxModelHighlighter,
-      onShowBoxModelHighlighterForNode,
-    } = this.props;
-    const {
-      nodeFront,
-      properties,
-    } = flexContainer;
+    const { color, flexContainer, dispatch } = this.props;
+    const { nodeFront, properties } = flexContainer;
 
-    return createElement(Fragment, null,
-      dom.div({ className: "flex-header-container-label" },
-        Rep({
-          defaultRep: ElementNode,
-          mode: MODE.TINY,
-          object: translateNodeFrontToGrip(nodeFront),
-          onDOMNodeMouseOut: () => onHideBoxModelHighlighter(),
-          onDOMNodeMouseOver: () => onShowBoxModelHighlighterForNode(nodeFront),
+    return createElement(
+      Fragment,
+      null,
+      dom.div(
+        {
+          className: "flex-header-container-label",
+        },
+        getNodeRep(nodeFront, {
+          onDOMNodeMouseOut: () => dispatch(unhighlightNode()),
+          onDOMNodeMouseOver: () => dispatch(highlightNode(nodeFront)),
         }),
         dom.div({
           className: "layout-color-swatch",
+          "data-color": color,
           ref: this.swatchEl,
           style: {
             backgroundColor: color,
           },
           title: color,
-        }),
-        // The SwatchColorPicker relies on the nextSibling of the swatch element to
-        // apply the selected color. This is why we use a span in display: none for
-        // now. Ideally we should modify the SwatchColorPickerTooltip to bypass this
-        // requirement. See https://bugzilla.mozilla.org/show_bug.cgi?id=1341578
-        dom.span(
-          {
-            className: "layout-color-value",
-            ref: this.colorValueEl,
-          },
-          color
-        )
+        })
       ),
-      dom.div({ className: "flex-header-container-properties" },
+      dom.div(
+        { className: "flex-header-container-properties" },
         dom.div(
           {
             className: "inspector-badge",
+            role: "figure",
             title: `flex-direction: ${properties["flex-direction"]}`,
           },
           properties["flex-direction"]
@@ -120,6 +109,7 @@ class FlexContainer extends PureComponent {
         dom.div(
           {
             className: "inspector-badge",
+            role: "figure",
             title: `flex-wrap: ${properties["flex-wrap"]}`,
           },
           properties["flex-wrap"]
@@ -129,10 +119,4 @@ class FlexContainer extends PureComponent {
   }
 }
 
-const mapStateToProps = state => {
-  return {
-    color: state.flexbox.color,
-  };
-};
-
-module.exports = connect(mapStateToProps)(FlexContainer);
+module.exports = FlexContainer;

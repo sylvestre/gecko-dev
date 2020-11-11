@@ -8,8 +8,7 @@ const Services = require("Services");
 
 // Helper tracer. Should be generic sharable by other modules (bug 1171927)
 const trace = {
-  log: function(...args) {
-  },
+  log: function(...args) {},
 };
 
 /**
@@ -17,11 +16,11 @@ const trace = {
  * HTTP requests executed by the page (including inner iframes).
  */
 function HarCollector(options) {
-  this.webConsoleClient = options.webConsoleClient;
-  this.debuggerClient = options.debuggerClient;
+  this.webConsoleFront = options.webConsoleFront;
+  this.resourceWatcher = options.resourceWatcher;
 
-  this.onNetworkEvent = this.onNetworkEvent.bind(this);
-  this.onNetworkEventUpdate = this.onNetworkEventUpdate.bind(this);
+  this.onResourceAvailable = this.onResourceAvailable.bind(this);
+  this.onResourceUpdated = this.onResourceUpdated.bind(this);
   this.onRequestHeaders = this.onRequestHeaders.bind(this);
   this.onRequestCookies = this.onRequestCookies.bind(this);
   this.onRequestPostData = this.onRequestPostData.bind(this);
@@ -36,16 +35,24 @@ function HarCollector(options) {
 HarCollector.prototype = {
   // Connection
 
-  start: function() {
-    this.debuggerClient.addListener("networkEvent", this.onNetworkEvent);
-    this.debuggerClient.addListener("networkEventUpdate",
-      this.onNetworkEventUpdate);
+  start: async function() {
+    await this.resourceWatcher.watchResources(
+      [this.resourceWatcher.TYPES.NETWORK_EVENT],
+      {
+        onAvailable: this.onResourceAvailable,
+        onUpdated: this.onResourceUpdated,
+      }
+    );
   },
 
-  stop: function() {
-    this.debuggerClient.removeListener("networkEvent", this.onNetworkEvent);
-    this.debuggerClient.removeListener("networkEventUpdate",
-      this.onNetworkEventUpdate);
+  stop: async function() {
+    await this.resourceWatcher.unwatchResources(
+      [this.resourceWatcher.TYPES.NETWORK_EVENT],
+      {
+        onAvailable: this.onResourceAvailable,
+        onUpdated: this.onResourceUpdated,
+      }
+    );
   },
 
   clear: function() {
@@ -62,7 +69,7 @@ HarCollector.prototype = {
     // There should be yet another timeout e.g.:
     // 'devtools.netmonitor.har.pageLoadTimeout'
     // that should force export even if page isn't fully loaded.
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       this.waitForResponses().then(() => {
         trace.log("HarCollector.waitForHarLoad; DONE HAR loaded!");
         resolve(this);
@@ -85,14 +92,19 @@ HarCollector.prototype = {
       // If some new requests appears in the meantime the promise will
       // be rejected and we need to wait for responses all over again.
 
-      this.pageLoadDeferred = this.waitForTimeout().then(() => {
-        // Page loaded!
-      }, () => {
-        trace.log("HarCollector.waitForResponses; NEW requests " +
-          "appeared during page timeout!");
-        // New requests executed, let's wait again.
-        return this.waitForResponses();
-      });
+      this.pageLoadDeferred = this.waitForTimeout().then(
+        () => {
+          // Page loaded!
+        },
+        () => {
+          trace.log(
+            "HarCollector.waitForResponses; NEW requests " +
+              "appeared during page timeout!"
+          );
+          // New requests executed, let's wait again.
+          return this.waitForResponses();
+        }
+      );
       return this.pageLoadDeferred;
     });
   },
@@ -109,7 +121,8 @@ HarCollector.prototype = {
     // This is useful in cases where the export is done manually through
     // API exposed to the content.
     const timeout = Services.prefs.getIntPref(
-      "devtools.netmonitor.har.pageLoadedTimeout");
+      "devtools.netmonitor.har.pageLoadedTimeout"
+    );
 
     trace.log("HarCollector.waitForTimeout; " + timeout);
 
@@ -153,129 +166,156 @@ HarCollector.prototype = {
 
   // Event Handlers
 
-  onNetworkEvent: function(type, packet) {
-    // Skip events from different console actors.
-    if (packet.from != this.webConsoleClient.actor) {
-      return;
+  onResourceAvailable: function(resources) {
+    for (const resource of resources) {
+      trace.log("HarCollector.onNetworkEvent; ", resource);
+
+      const { actor, startedDateTime, method, url, isXHR } = resource;
+      const startTime = Date.parse(startedDateTime);
+
+      if (this.firstRequestStart == -1) {
+        this.firstRequestStart = startTime;
+      }
+
+      if (this.lastRequestEnd < startTime) {
+        this.lastRequestEnd = startTime;
+      }
+
+      let file = this.getFile(actor);
+      if (file) {
+        console.error(
+          "HarCollector.onNetworkEvent; ERROR " + "existing file conflict!"
+        );
+        continue;
+      }
+
+      file = {
+        id: actor,
+        startedDeltaMs: startTime - this.firstRequestStart,
+        startedMs: startTime,
+        method: method,
+        url: url,
+        isXHR: isXHR,
+      };
+
+      this.files.set(actor, file);
+
+      // Mimic the Net panel data structure
+      this.items.push(file);
     }
-
-    trace.log("HarCollector.onNetworkEvent; " + type, packet);
-
-    const { actor, startedDateTime, method, url, isXHR } = packet.eventActor;
-    const startTime = Date.parse(startedDateTime);
-
-    if (this.firstRequestStart == -1) {
-      this.firstRequestStart = startTime;
-    }
-
-    if (this.lastRequestEnd < startTime) {
-      this.lastRequestEnd = startTime;
-    }
-
-    let file = this.getFile(actor);
-    if (file) {
-      console.error("HarCollector.onNetworkEvent; ERROR " +
-                    "existing file conflict!");
-      return;
-    }
-
-    file = {
-      startedDeltaMillis: startTime - this.firstRequestStart,
-      startedMillis: startTime,
-      method: method,
-      url: url,
-      isXHR: isXHR,
-    };
-
-    this.files.set(actor, file);
-
-    // Mimic the Net panel data structure
-    this.items.push(file);
   },
 
-  onNetworkEventUpdate: function(type, packet) {
-    const actor = packet.from;
+  onResourceUpdated: function(updates) {
+    for (const { resource } of updates) {
+      // Skip events from unknown actors (not in the list).
+      // It can happen when there are zombie requests received after
+      // the target is closed or multiple tabs are attached through
+      // one connection (one DevToolsClient object).
+      const file = this.getFile(resource.actor);
+      if (!file) {
+        return;
+      }
 
-    // Skip events from unknown actors (not in the list).
-    // It can happen when there are zombie requests received after
-    // the target is closed or multiple tabs are attached through
-    // one connection (one DebuggerClient object).
-    const file = this.getFile(packet.from);
-    if (!file) {
-      return;
-    }
+      const includeResponseBodies = Services.prefs.getBoolPref(
+        "devtools.netmonitor.har.includeResponseBodies"
+      );
 
-    trace.log("HarCollector.onNetworkEventUpdate; " +
-      packet.updateType, packet);
+      [
+        {
+          type: "eventTimings",
+          method: "getEventTimings",
+          callbackName: "onEventTimings",
+        },
+        {
+          type: "requestHeaders",
+          method: "getRequestHeaders",
+          callbackName: "onRequestHeaders",
+        },
+        {
+          type: "requestPostData",
+          method: "getRequestPostData",
+          callbackName: "onRequestPostData",
+        },
+        {
+          type: "responseHeaders",
+          method: "getResponseHeaders",
+          callbackName: "onResponseHeaders",
+        },
+        { type: "responseStart" },
+        {
+          type: "responseContent",
+          method: "getResponseContent",
+          callbackName: "onResponseContent",
+        },
+        {
+          type: "requestCookies",
+          method: "getRequestCookies",
+          callbackName: "onRequestCookies",
+        },
+        {
+          type: "responseCookies",
+          method: "getResponseCookies",
+          callbackName: "onResponseCookies",
+        },
+      ].forEach(updateType => {
+        trace.log(
+          "HarCollector.onNetworkEventUpdate; " + updateType.type,
+          resource
+        );
 
-    const includeResponseBodies = Services.prefs.getBoolPref(
-      "devtools.netmonitor.har.includeResponseBodies");
-
-    let request;
-    switch (packet.updateType) {
-      case "requestHeaders":
-        request = this.getData(actor, "getRequestHeaders",
-          this.onRequestHeaders);
-        break;
-      case "requestCookies":
-        request = this.getData(actor, "getRequestCookies",
-          this.onRequestCookies);
-        break;
-      case "requestPostData":
-        request = this.getData(actor, "getRequestPostData",
-          this.onRequestPostData);
-        break;
-      case "responseHeaders":
-        request = this.getData(actor, "getResponseHeaders",
-          this.onResponseHeaders);
-        break;
-      case "responseCookies":
-        request = this.getData(actor, "getResponseCookies",
-          this.onResponseCookies);
-        break;
-      case "responseStart":
-        file.httpVersion = packet.response.httpVersion;
-        file.status = packet.response.status;
-        file.statusText = packet.response.statusText;
-        break;
-      case "responseContent":
-        file.contentSize = packet.contentSize;
-        file.mimeType = packet.mimeType;
-        file.transferredSize = packet.transferredSize;
-
-        if (includeResponseBodies) {
-          request = this.getData(actor, "getResponseContent",
-            this.onResponseContent);
+        let request;
+        if (resource[`${updateType.type}Available`]) {
+          if (updateType.type == "responseStart") {
+            file.httpVersion = resource.httpVersion;
+            file.status = resource.status;
+            file.statusText = resource.statusText;
+          } else if (updateType.type == "responseContent") {
+            file.contentSize = resource.contentSize;
+            file.mimeType = resource.mimeType;
+            file.transferredSize = resource.transferredSize;
+            if (includeResponseBodies) {
+              request = this.getData(
+                resource.actor,
+                updateType.method,
+                this[updateType.callbackName]
+              );
+            }
+          } else {
+            request = this.getData(
+              resource.actor,
+              updateType.method,
+              this[updateType.callbackName]
+            );
+          }
         }
-        break;
-      case "eventTimings":
-        request = this.getData(actor, "getEventTimings",
-          this.onEventTimings);
-        break;
-    }
 
-    if (request) {
-      this.requests.push(request);
+        if (request) {
+          this.requests.push(request);
+        }
+        this.resetPageLoadTimeout();
+      });
     }
-
-    this.resetPageLoadTimeout();
   },
 
   getData: function(actor, method, callback) {
-    return new Promise((resolve) => {
-      if (!this.webConsoleClient[method]) {
+    return new Promise(resolve => {
+      if (!this.webConsoleFront[method]) {
         console.error("HarCollector.getData: ERROR Unknown method!");
         resolve();
       }
 
       const file = this.getFile(actor);
 
-      trace.log("HarCollector.getData; REQUEST " + method +
-        ", " + file.url, file);
+      trace.log(
+        "HarCollector.getData; REQUEST " + method + ", " + file.url,
+        file
+      );
 
-      this.webConsoleClient[method](actor, response => {
-        trace.log("HarCollector.getData; RESPONSE " + method +
-          ", " + file.url, response);
+      this.webConsoleFront[method](actor, response => {
+        trace.log(
+          "HarCollector.getData; RESPONSE " + method + ", " + file.url,
+          response
+        );
         callback(response);
         resolve(response);
       });
@@ -321,7 +361,7 @@ HarCollector.prototype = {
     file.requestPostData = response;
 
     // Resolve long string
-    const text = response.postData.text;
+    const { text } = response.postData;
     if (typeof text == "object") {
       this.getString(text).then(value => {
         response.postData.text = value;
@@ -366,7 +406,7 @@ HarCollector.prototype = {
     file.responseContent = response;
 
     // Resolve long string
-    const text = response.content.text;
+    const { text } = response.content;
     if (typeof text == "object") {
       this.getString(text).then(value => {
         response.content.text = value;
@@ -414,7 +454,7 @@ HarCollector.prototype = {
    *         are available, or rejected if something goes wrong.
    */
   getString: function(stringGrip) {
-    const promise = this.webConsoleClient.getString(stringGrip);
+    const promise = this.webConsoleFront.getString(stringGrip);
     this.requests.push(promise);
     return promise;
   },

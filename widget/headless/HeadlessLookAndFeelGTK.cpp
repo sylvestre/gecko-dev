@@ -15,9 +15,9 @@ namespace widget {
 
 static const char16_t UNICODE_BULLET = 0x2022;
 
-HeadlessLookAndFeel::HeadlessLookAndFeel() {}
+HeadlessLookAndFeel::HeadlessLookAndFeel() = default;
 
-HeadlessLookAndFeel::~HeadlessLookAndFeel() {}
+HeadlessLookAndFeel::~HeadlessLookAndFeel() = default;
 
 nsresult HeadlessLookAndFeel::NativeGetColor(ColorID aID, nscolor& aColor) {
   // For headless mode, we use GetStandinForNativeColor for everything we can,
@@ -27,95 +27,95 @@ nsresult HeadlessLookAndFeel::NativeGetColor(ColorID aID, nscolor& aColor) {
 
   switch (aID) {
     // Override the solid black that GetStandinForNativeColor provides for
-    // -moz-FieldText, to match our behavior under the real GTK.
-    case eColorID__moz_fieldtext:
+    // FieldText, to match our behavior under the real GTK.
+    case ColorID::Fieldtext:
       aColor = NS_RGB(0x21, 0x21, 0x21);
       break;
 
     // The rest are not provided by GetStandinForNativeColor.
-    case eColorID_IMESelectedRawTextBackground:
-    case eColorID_IMESelectedConvertedTextBackground:
-    case eColorID_IMERawInputBackground:
-    case eColorID_IMEConvertedTextBackground:
+    case ColorID::IMESelectedRawTextBackground:
+    case ColorID::IMESelectedConvertedTextBackground:
+    case ColorID::IMERawInputBackground:
+    case ColorID::IMEConvertedTextBackground:
       aColor = NS_TRANSPARENT;
       break;
-    case eColorID_IMESelectedRawTextForeground:
-    case eColorID_IMESelectedConvertedTextForeground:
-    case eColorID_IMERawInputForeground:
-    case eColorID_IMEConvertedTextForeground:
+    case ColorID::IMESelectedRawTextForeground:
+    case ColorID::IMESelectedConvertedTextForeground:
+    case ColorID::IMERawInputForeground:
+    case ColorID::IMEConvertedTextForeground:
       aColor = NS_SAME_AS_FOREGROUND_COLOR;
       break;
-    case eColorID_IMERawInputUnderline:
-    case eColorID_IMEConvertedTextUnderline:
+    case ColorID::IMERawInputUnderline:
+    case ColorID::IMEConvertedTextUnderline:
       aColor = NS_40PERCENT_FOREGROUND_COLOR;
       break;
-    case eColorID_IMESelectedRawTextUnderline:
-    case eColorID_IMESelectedConvertedTextUnderline:
+    case ColorID::IMESelectedRawTextUnderline:
+    case ColorID::IMESelectedConvertedTextUnderline:
       aColor = NS_SAME_AS_FOREGROUND_COLOR;
       break;
-    case eColorID__moz_eventreerow:
+    case ColorID::MozEventreerow:
       aColor = NS_RGB(0xff, 0xff, 0xff);
       break;
-    case eColorID__moz_gtk_info_bar_text:
+    case ColorID::MozGtkInfoBarText:
       aColor = NS_RGB(0x00, 0x00, 0x00);
       break;
-    case eColorID__moz_mac_buttonactivetext:
-    case eColorID__moz_mac_defaultbuttontext:
+    case ColorID::MozMacButtonactivetext:
+    case ColorID::MozMacDefaultbuttontext:
       aColor = NS_RGB(0xff, 0xff, 0xff);
       break;
-    case eColorID_SpellCheckerUnderline:
+    case ColorID::SpellCheckerUnderline:
       aColor = NS_RGB(0xff, 0x00, 0x00);
       break;
-    case eColorID_TextBackground:
+    case ColorID::TextBackground:
       aColor = NS_RGB(0xff, 0xff, 0xff);
       break;
-    case eColorID_TextForeground:
+    case ColorID::TextForeground:
       aColor = NS_RGB(0x00, 0x00, 0x00);
       break;
-    case eColorID_TextHighlightBackground:
+    case ColorID::TextHighlightBackground:
       aColor = NS_RGB(0xef, 0x0f, 0xff);
       break;
-    case eColorID_TextHighlightForeground:
+    case ColorID::TextHighlightForeground:
       aColor = NS_RGB(0xff, 0xff, 0xff);
       break;
-    case eColorID_TextSelectBackground:
+    case ColorID::TextSelectBackground:
       aColor = NS_RGB(0xaa, 0xaa, 0xaa);
       break;
-    case eColorID_TextSelectBackgroundAttention:
+    case ColorID::TextSelectBackgroundAttention:
       aColor = NS_TRANSPARENT;
       break;
-    case eColorID_TextSelectBackgroundDisabled:
+    case ColorID::TextSelectBackgroundDisabled:
       aColor = NS_RGB(0xaa, 0xaa, 0xaa);
       break;
-    case eColorID_TextSelectForeground:
-      GetColor(eColorID_TextSelectBackground, aColor);
+    case ColorID::TextSelectForeground:
+      GetColor(ColorID::TextSelectBackground, aColor);
       if (aColor == 0x000000)
         aColor = NS_RGB(0xff, 0xff, 0xff);
       else
         aColor = NS_DONT_CHANGE_COLOR;
       break;
-    case eColorID_Widget3DHighlight:
+    case ColorID::Widget3DHighlight:
       aColor = NS_RGB(0xa0, 0xa0, 0xa0);
       break;
-    case eColorID_Widget3DShadow:
+    case ColorID::Widget3DShadow:
       aColor = NS_RGB(0x40, 0x40, 0x40);
       break;
-    case eColorID_WidgetBackground:
+    case ColorID::WidgetBackground:
       aColor = NS_RGB(0xdd, 0xdd, 0xdd);
       break;
-    case eColorID_WidgetForeground:
+    case ColorID::WidgetForeground:
       aColor = NS_RGB(0x00, 0x00, 0x00);
       break;
-    case eColorID_WidgetSelectBackground:
+    case ColorID::WidgetSelectBackground:
       aColor = NS_RGB(0x80, 0x80, 0x80);
       break;
-    case eColorID_WidgetSelectForeground:
+    case ColorID::WidgetSelectForeground:
       aColor = NS_RGB(0x00, 0x00, 0x80);
       break;
-    case eColorID_WindowBackground:
+    case ColorID::WindowBackground:
       aColor = NS_RGB(0xff, 0xff, 0xff);
       break;
-    case eColorID_WindowForeground:
+    case ColorID::WindowForeground:
       aColor = NS_RGB(0x00, 0x00, 0x00);
       break;
     default:
@@ -133,155 +133,171 @@ nsresult HeadlessLookAndFeel::GetIntImpl(IntID aID, int32_t& aResult) {
 
   // These values should be sane defaults for headless mode under GTK.
   switch (aID) {
-    case eIntID_CaretBlinkTime:
+    case IntID::CaretBlinkTime:
       aResult = 567;
       break;
-    case eIntID_CaretWidth:
+    case IntID::CaretWidth:
       aResult = 1;
       break;
-    case eIntID_ShowCaretDuringSelection:
+    case IntID::ShowCaretDuringSelection:
       aResult = 0;
       break;
-    case eIntID_SelectTextfieldsOnKeyFocus:
+    case IntID::SelectTextfieldsOnKeyFocus:
       aResult = 1;
       break;
-    case eIntID_SubmenuDelay:
+    case IntID::SubmenuDelay:
       aResult = 200;
       break;
-    case eIntID_MenusCanOverlapOSBar:
+    case IntID::MenusCanOverlapOSBar:
       aResult = 0;
       break;
-    case eIntID_UseOverlayScrollbars:
+    case IntID::UseOverlayScrollbars:
       aResult = 0;
       break;
-    case eIntID_AllowOverlayScrollbarsOverlap:
+    case IntID::AllowOverlayScrollbarsOverlap:
       aResult = 0;
       break;
-    case eIntID_ShowHideScrollbars:
+    case IntID::ShowHideScrollbars:
       aResult = 0;
       break;
-    case eIntID_SkipNavigatingDisabledMenuItem:
+    case IntID::SkipNavigatingDisabledMenuItem:
       aResult = 1;
       break;
-    case eIntID_DragThresholdX:
-    case eIntID_DragThresholdY:
+    case IntID::DragThresholdX:
+    case IntID::DragThresholdY:
       aResult = 4;
       break;
-    case eIntID_UseAccessibilityTheme:
+    case IntID::UseAccessibilityTheme:
       aResult = 0;
       break;
-    case eIntID_ScrollArrowStyle:
+    case IntID::ScrollArrowStyle:
       aResult = eScrollArrow_None;
       break;
-    case eIntID_ScrollSliderStyle:
+    case IntID::ScrollSliderStyle:
       aResult = eScrollThumbStyle_Proportional;
       break;
-    case eIntID_ScrollButtonLeftMouseButtonAction:
+    case IntID::ScrollButtonLeftMouseButtonAction:
       aResult = 0;
       return NS_OK;
-    case eIntID_ScrollButtonMiddleMouseButtonAction:
+    case IntID::ScrollButtonMiddleMouseButtonAction:
       aResult = 3;
       return NS_OK;
-    case eIntID_ScrollButtonRightMouseButtonAction:
+    case IntID::ScrollButtonRightMouseButtonAction:
       aResult = 3;
       return NS_OK;
-    case eIntID_TreeOpenDelay:
+    case IntID::TreeOpenDelay:
       aResult = 1000;
       break;
-    case eIntID_TreeCloseDelay:
+    case IntID::TreeCloseDelay:
       aResult = 1000;
       break;
-    case eIntID_TreeLazyScrollDelay:
+    case IntID::TreeLazyScrollDelay:
       aResult = 150;
       break;
-    case eIntID_TreeScrollDelay:
+    case IntID::TreeScrollDelay:
       aResult = 100;
       break;
-    case eIntID_TreeScrollLinesMax:
+    case IntID::TreeScrollLinesMax:
       aResult = 3;
       break;
-    case eIntID_TabFocusModel:
+    case IntID::TabFocusModel:
       aResult = nsIContent::eTabFocus_textControlsMask;
       break;
-    case eIntID_ChosenMenuItemsShouldBlink:
+    case IntID::ChosenMenuItemsShouldBlink:
       aResult = 1;
       break;
-    case eIntID_WindowsAccentColorInTitlebar:
-    case eIntID_WindowsDefaultTheme:
-    case eIntID_DWMCompositor:
+    case IntID::WindowsAccentColorInTitlebar:
+    case IntID::WindowsDefaultTheme:
+    case IntID::DWMCompositor:
       aResult = 0;
       res = NS_ERROR_NOT_IMPLEMENTED;
       break;
-    case eIntID_WindowsClassic:
-    case eIntID_WindowsGlass:
+    case IntID::WindowsClassic:
+    case IntID::WindowsGlass:
       aResult = 0;
       res = NS_ERROR_FAILURE;
       break;
-    case eIntID_TouchEnabled:
-    case eIntID_MacGraphiteTheme:
-    case eIntID_MacYosemiteTheme:
+    case IntID::TouchEnabled:
+    case IntID::MacGraphiteTheme:
+    case IntID::MacYosemiteTheme:
       aResult = 0;
       res = NS_ERROR_NOT_IMPLEMENTED;
       break;
-    case eIntID_AlertNotificationOrigin:
+    case IntID::AlertNotificationOrigin:
       aResult = NS_ALERT_TOP;
       break;
-    case eIntID_ScrollToClick:
+    case IntID::ScrollToClick:
       aResult = 0;
       break;
-    case eIntID_IMERawInputUnderlineStyle:
-    case eIntID_IMESelectedRawTextUnderlineStyle:
-    case eIntID_IMEConvertedTextUnderlineStyle:
-    case eIntID_IMESelectedConvertedTextUnderline:
+    case IntID::IMERawInputUnderlineStyle:
+    case IntID::IMESelectedRawTextUnderlineStyle:
+    case IntID::IMEConvertedTextUnderlineStyle:
+    case IntID::IMESelectedConvertedTextUnderline:
       aResult = NS_STYLE_TEXT_DECORATION_STYLE_SOLID;
       break;
-    case eIntID_SpellCheckerUnderlineStyle:
+    case IntID::SpellCheckerUnderlineStyle:
       aResult = NS_STYLE_TEXT_DECORATION_STYLE_DOTTED;
       break;
-    case eIntID_MenuBarDrag:
+    case IntID::MenuBarDrag:
       aResult = 0;
       break;
-    case eIntID_WindowsThemeIdentifier:
-    case eIntID_OperatingSystemVersionIdentifier:
+    case IntID::WindowsThemeIdentifier:
+    case IntID::OperatingSystemVersionIdentifier:
       aResult = 0;
       res = NS_ERROR_NOT_IMPLEMENTED;
       break;
-    case eIntID_ScrollbarButtonAutoRepeatBehavior:
+    case IntID::ScrollbarButtonAutoRepeatBehavior:
       aResult = 0;
       break;
-    case eIntID_TooltipDelay:
+    case IntID::TooltipDelay:
       aResult = 500;
       break;
-    case eIntID_SwipeAnimationEnabled:
+    case IntID::SwipeAnimationEnabled:
       aResult = 0;
       break;
-    case eIntID_ScrollbarDisplayOnMouseMove:
+    case IntID::ScrollbarDisplayOnMouseMove:
       aResult = 0;
       break;
-    case eIntID_ScrollbarFadeBeginDelay:
+    case IntID::ScrollbarFadeBeginDelay:
       aResult = 0;
       break;
-    case eIntID_ScrollbarFadeDuration:
+    case IntID::ScrollbarFadeDuration:
       aResult = 0;
       break;
-    case eIntID_ContextMenuOffsetVertical:
+    case IntID::ContextMenuOffsetVertical:
       aResult = -6;
       break;
-    case eIntID_ContextMenuOffsetHorizontal:
+    case IntID::ContextMenuOffsetHorizontal:
       aResult = 1;
       break;
-    case eIntID_GTKCSDAvailable:
-    case eIntID_GTKCSDTransparentBackground:
+    case IntID::GTKCSDAvailable:
+    case IntID::GTKCSDHideTitlebarByDefault:
+    case IntID::GTKCSDTransparentBackground:
       aResult = 0;
       break;
-    case eIntID_GTKCSDMinimizeButton:
+    case IntID::GTKCSDMinimizeButton:
       aResult = 0;
       break;
-    case eIntID_GTKCSDMaximizeButton:
+    case IntID::GTKCSDMaximizeButton:
       aResult = 0;
       break;
-    case eIntID_GTKCSDCloseButton:
+    case IntID::GTKCSDCloseButton:
       aResult = 1;
+      break;
+    case IntID::GTKCSDReversedPlacement:
+      aResult = 0;
+      break;
+    case IntID::SystemUsesDarkTheme:
+      aResult = 0;
+      break;
+    case IntID::PrefersReducedMotion:
+      aResult = 0;
+      break;
+    case IntID::PrimaryPointerCapabilities:
+      aResult = 0;
+      break;
+    case IntID::AllPointerCapabilities:
+      aResult = 0;
       break;
     default:
       NS_WARNING(
@@ -300,13 +316,13 @@ nsresult HeadlessLookAndFeel::GetFloatImpl(FloatID aID, float& aResult) {
 
   // Hardcoded values for GTK.
   switch (aID) {
-    case eFloatID_IMEUnderlineRelativeSize:
+    case FloatID::IMEUnderlineRelativeSize:
       aResult = 1.0f;
       break;
-    case eFloatID_SpellCheckerUnderlineRelativeSize:
+    case FloatID::SpellCheckerUnderlineRelativeSize:
       aResult = 1.0f;
       break;
-    case eFloatID_CaretAspectRatio:
+    case FloatID::CaretAspectRatio:
       // Intentionally failing to quietly indicate lack of support.
       aResult = -1.0;
       res = NS_ERROR_FAILURE;
@@ -323,13 +339,12 @@ nsresult HeadlessLookAndFeel::GetFloatImpl(FloatID aID, float& aResult) {
 }
 
 bool HeadlessLookAndFeel::GetFontImpl(FontID aID, nsString& aFontName,
-                                      gfxFontStyle& aFontStyle,
-                                      float aDevPixPerCSSPixel) {
+                                      gfxFontStyle& aFontStyle) {
   // Default to san-serif for everything.
   aFontStyle.style = FontSlantStyle::Normal();
   aFontStyle.weight = FontWeight::Normal();
   aFontStyle.stretch = FontStretch::Normal();
-  aFontStyle.size = 14 * aDevPixPerCSSPixel;
+  aFontStyle.size = 14;
   aFontStyle.systemFont = true;
 
   aFontName.AssignLiteral("sans-serif");

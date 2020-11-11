@@ -1,7 +1,14 @@
-/* vim:set ts=2 sw=2 sts=2 et: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+ .theme-dark {
+  --row-striped-background: rgba(255, 255, 255, 0.05);
+ }
+
+.theme-light {
+  --row-striped-background: rgba(247, 247, 247, 0.8);
+}
 
 #sidebar-panel-computedview {
   margin: 0;
@@ -9,6 +16,22 @@
   flex-direction: column;
   width: 100%;
   height: 100%;
+}
+
+/* Reset the global rotation of the icon done for RTL layout.
+   Computed view is always LTR */
+#sidebar-panel-computedview .theme-twisty:not(.open):dir(rtl),
+#sidebar-panel-computedview .theme-twisty:not([open]):-moz-locale-dir(rtl) {
+  transform: rotate(-90deg);
+}
+
+#computedview-panel .inspector-tabpanel {
+  min-width: 0;
+}
+
+#computedview-panel #browser-style-checkbox-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 #computed-container {
@@ -29,7 +52,7 @@
 #computed-toolbar {
   display: flex;
   align-items: center;
-  -moz-user-select: none;
+  user-select: none;
 }
 
 #browser-style-checkbox {
@@ -41,12 +64,13 @@
 }
 
 #browser-style-checkbox-label {
+  white-space: nowrap;
   padding-inline-start: 5px;
   margin-inline-end: 5px;
 }
 
 #computed-property-container {
-  -moz-user-select: text;
+  user-select: text;
   overflow-y: auto;
   overflow-x: hidden;
   flex: auto;
@@ -55,7 +79,7 @@
 }
 
 .row-striped {
-  background: var(--theme-body-background);
+  background: var(--row-striped-background);
 }
 
 .computed-property-hidden {
@@ -70,7 +94,7 @@
 }
 
 .computed-property-name-container {
-  width: 202px;
+  width: 230px;
 }
 
 .computed-property-value-container {
@@ -86,9 +110,6 @@
 }
 
 .computed-property-name {
-  overflow-x: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   outline: 0 !important;
 }
 
@@ -103,7 +124,7 @@
   background-repeat: no-repeat;
   background-size: contain;
   -moz-context-properties: fill;
-  fill: var(--theme-body-color-inactive);
+  fill: var(--theme-text-color-inactive);
 }
 
 .computed-other-property-value:dir(rtl)::before {
@@ -111,9 +132,6 @@
 }
 
 .computed-property-value {
-  overflow-x: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   padding-inline-start: 14px;
   outline: 0 !important;
 }
@@ -133,7 +151,14 @@
 }
 
 .visually-hidden {
-  opacity: 0;
+  clip: rect(1px, 1px, 1px, 1px);
+  clip-path: inset(50%);
+  height: 1px;
+  width: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
 }
 
 /* From skin */
@@ -187,12 +212,7 @@
 .computed-link {
   padding: 0 3px;
   cursor: pointer;
-  float: right;
-}
-
-/* Workaround until float: inline-end; is enabled by default */
-.computed-link:dir(rtl) {
-  float: left;
+  float: inline-end;
 }
 
 /* Take away these two :visited rules to get a core dumper     */

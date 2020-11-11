@@ -6,6 +6,7 @@
 #include "ProtocolParser.h"
 #include "LookupCache.h"
 #include "nsNetCID.h"
+#include "mozilla/Components.h"
 #include "mozilla/Logging.h"
 #include "prnetdb.h"
 #include "prprf.h"
@@ -29,7 +30,7 @@ namespace mozilla {
 namespace safebrowsing {
 
 // Updates will fail if fed chunks larger than this
-const uint32_t MAX_CHUNK_SIZE = (1024 * 1024);
+const uint32_t MAX_CHUNK_SIZE = (4 * 1024 * 1024);
 // Updates will fail if the total number of tocuhed chunks is larger than this
 const uint32_t MAX_CHUNK_RANGE = 1000000;
 
@@ -71,7 +72,7 @@ static bool ParseChunkRange(nsACString::const_iterator& aBegin,
 
 ProtocolParser::ProtocolParser() : mUpdateStatus(NS_OK), mUpdateWaitSec(0) {}
 
-ProtocolParser::~ProtocolParser() {}
+ProtocolParser::~ProtocolParser() = default;
 
 nsresult ProtocolParser::Begin(const nsACString& aTable,
                                const nsTArray<nsCString>& aUpdateTables) {
@@ -112,7 +113,7 @@ RefPtr<TableUpdate> ProtocolParser::GetTableUpdate(const nsACString& aTable) {
 ProtocolParserV2::ProtocolParserV2()
     : mState(PROTOCOL_STATE_CONTROL), mTableUpdate(nullptr) {}
 
-ProtocolParserV2::~ProtocolParserV2() {}
+ProtocolParserV2::~ProtocolParserV2() = default;
 
 void ProtocolParserV2::SetCurrentTable(const nsACString& aTable) {
   RefPtr<TableUpdate> update = GetTableUpdate(aTable);
@@ -123,7 +124,9 @@ nsresult ProtocolParserV2::AppendStream(const nsACString& aData) {
   if (NS_FAILED(mUpdateStatus)) return mUpdateStatus;
 
   nsresult rv;
-  mPending.Append(aData);
+  if (!mPending.Append(aData, mozilla::fallible)) {
+    return NS_ERROR_OUT_OF_MEMORY;
+  }
 #ifdef MOZ_SAFEBROWSING_DUMP_FAILED_UPDATES
   mRawUpdate.Append(aData);
 #endif
@@ -163,28 +166,28 @@ nsresult ProtocolParserV2::ProcessControl(bool* aDone) {
   while (NextLine(line)) {
     PARSER_LOG(("Processing %s\n", line.get()));
 
-    if (StringBeginsWith(line, NS_LITERAL_CSTRING("i:"))) {
+    if (StringBeginsWith(line, "i:"_ns)) {
       // Set the table name from the table header line.
       SetCurrentTable(Substring(line, 2));
-    } else if (StringBeginsWith(line, NS_LITERAL_CSTRING("n:"))) {
+    } else if (StringBeginsWith(line, "n:"_ns)) {
       if (PR_sscanf(line.get(), "n:%d", &mUpdateWaitSec) != 1) {
         PARSER_LOG(("Error parsing n: '%s' (%d)", line.get(), mUpdateWaitSec));
         return NS_ERROR_FAILURE;
       }
     } else if (line.EqualsLiteral("r:pleasereset")) {
       PARSER_LOG(("All tables will be reset."));
-      mTablesToReset = mRequestedTables;
-    } else if (StringBeginsWith(line, NS_LITERAL_CSTRING("u:"))) {
+      mTablesToReset = mRequestedTables.Clone();
+    } else if (StringBeginsWith(line, "u:"_ns)) {
       rv = ProcessForward(line);
       NS_ENSURE_SUCCESS(rv, rv);
-    } else if (StringBeginsWith(line, NS_LITERAL_CSTRING("a:")) ||
-               StringBeginsWith(line, NS_LITERAL_CSTRING("s:"))) {
+    } else if (StringBeginsWith(line, "a:"_ns) ||
+               StringBeginsWith(line, "s:"_ns)) {
       rv = ProcessChunkControl(line);
       NS_ENSURE_SUCCESS(rv, rv);
       *aDone = false;
       return NS_OK;
-    } else if (StringBeginsWith(line, NS_LITERAL_CSTRING("ad:")) ||
-               StringBeginsWith(line, NS_LITERAL_CSTRING("sd:"))) {
+    } else if (StringBeginsWith(line, "ad:"_ns) ||
+               StringBeginsWith(line, "sd:"_ns)) {
       rv = ProcessExpirations(line);
       NS_ENSURE_SUCCESS(rv, rv);
     }
@@ -256,14 +259,11 @@ nsresult ProtocolParserV2::ProcessChunkControl(const nsCString& aLine) {
     return NS_ERROR_FAILURE;
   }
 
-  if (StringEndsWith(mTableUpdate->TableName(),
-                     NS_LITERAL_CSTRING("-shavar")) ||
-      StringEndsWith(mTableUpdate->TableName(),
-                     NS_LITERAL_CSTRING("-simple"))) {
+  if (StringEndsWith(mTableUpdate->TableName(), "-shavar"_ns) ||
+      StringEndsWith(mTableUpdate->TableName(), "-simple"_ns)) {
     // Accommodate test tables ending in -simple for now.
     mChunkState.type = (command == 'a') ? CHUNK_ADD : CHUNK_SUB;
-  } else if (StringEndsWith(mTableUpdate->TableName(),
-                            NS_LITERAL_CSTRING("-digest256"))) {
+  } else if (StringEndsWith(mTableUpdate->TableName(), "-digest256"_ns)) {
     mChunkState.type = (command == 'a') ? CHUNK_ADD_DIGEST : CHUNK_SUB_DIGEST;
   }
   nsresult rv;
@@ -336,12 +336,10 @@ nsresult ProtocolParserV2::ProcessChunk(bool* aDone) {
   *aDone = false;
   mState = PROTOCOL_STATE_CONTROL;
 
-  if (StringEndsWith(mTableUpdate->TableName(),
-                     NS_LITERAL_CSTRING("-shavar"))) {
+  if (StringEndsWith(mTableUpdate->TableName(), "-shavar"_ns)) {
     return ProcessShaChunk(chunk);
   }
-  if (StringEndsWith(mTableUpdate->TableName(),
-                     NS_LITERAL_CSTRING("-digest256"))) {
+  if (StringEndsWith(mTableUpdate->TableName(), "-digest256"_ns)) {
     return ProcessDigestChunk(chunk);
   }
   return ProcessPlaintextChunk(chunk);
@@ -705,9 +703,9 @@ RefPtr<TableUpdate> ProtocolParserV2::CreateTableUpdate(
 ///////////////////////////////////////////////////////////////////////
 // ProtocolParserProtobuf
 
-ProtocolParserProtobuf::ProtocolParserProtobuf() {}
+ProtocolParserProtobuf::ProtocolParserProtobuf() = default;
 
-ProtocolParserProtobuf::~ProtocolParserProtobuf() {}
+ProtocolParserProtobuf::~ProtocolParserProtobuf() = default;
 
 void ProtocolParserProtobuf::SetCurrentTable(const nsACString& aTable) {
   // Should never occur.
@@ -721,7 +719,9 @@ RefPtr<TableUpdate> ProtocolParserProtobuf::CreateTableUpdate(
 
 nsresult ProtocolParserProtobuf::AppendStream(const nsACString& aData) {
   // Protobuf data cannot be parsed progressively. Just save the incoming data.
-  mPending.Append(aData);
+  if (!mPending.Append(aData, mozilla::fallible)) {
+    return NS_ERROR_OUT_OF_MEMORY;
+  }
   return NS_OK;
 }
 
@@ -771,9 +771,12 @@ nsresult ProtocolParserProtobuf::ProcessOneResponse(
     return NS_ERROR_UC_PARSER_MISSING_PARAM;
   }
 
+  nsUrlClassifierUtils* urlUtil = nsUrlClassifierUtils::GetInstance();
+  if (NS_WARN_IF(!urlUtil)) {
+    return NS_ERROR_FAILURE;
+  }
+
   // Convert threat type to list name.
-  nsCOMPtr<nsIUrlClassifierUtils> urlUtil =
-      do_GetService(NS_URLCLASSIFIERUTILS_CONTRACTID);
   nsCString possibleListNames;
   nsresult rv = urlUtil->ConvertThreatTypeToListNames(aResponse.threat_type(),
                                                       possibleListNames);
@@ -825,7 +828,7 @@ nsresult ProtocolParserProtobuf::ProcessOneResponse(
   tuV4->SetNewClientState(state);
 
   if (aResponse.has_checksum()) {
-    tuV4->NewChecksum(aResponse.checksum().sha256());
+    tuV4->SetSHA256(aResponse.checksum().sha256());
   }
 
   PARSER_LOG(

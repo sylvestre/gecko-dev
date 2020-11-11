@@ -9,22 +9,20 @@
     from itertools import groupby
 %>
 
-#[cfg(feature = "gecko")] use crate::gecko_bindings::structs::RawServoAnimationValueMap;
 #[cfg(feature = "gecko")] use crate::gecko_bindings::structs::nsCSSPropertyID;
-#[cfg(feature = "gecko")] use crate::gecko_bindings::sugar::ownership::{HasFFI, HasSimpleFFI};
 use itertools::{EitherOrBoth, Itertools};
-use crate::properties::{CSSWideKeyword, PropertyDeclaration};
+use crate::properties::{CSSWideKeyword, PropertyDeclaration, NonCustomPropertyIterator};
 use crate::properties::longhands;
 use crate::properties::longhands::visibility::computed_value::T as Visibility;
 use crate::properties::LonghandId;
 use servo_arc::Arc;
 use smallvec::SmallVec;
 use std::ptr;
-use std::mem::{self, ManuallyDrop};
+use std::mem;
 use crate::hash::FxHashMap;
 use super::ComputedValues;
 use crate::values::animated::{Animate, Procedure, ToAnimatedValue, ToAnimatedZero};
-use crate::values::animated::effects::Filter as AnimatedFilter;
+use crate::values::animated::effects::AnimatedFilter;
 #[cfg(feature = "gecko")] use crate::values::computed::TransitionProperty;
 use crate::values::computed::{ClipRect, Context};
 use crate::values::computed::ToComputedValue;
@@ -37,7 +35,7 @@ use void::{self, Void};
 #[allow(non_upper_case_globals)]
 impl From<nsCSSPropertyID> for TransitionProperty {
     fn from(property: nsCSSPropertyID) -> TransitionProperty {
-        use properties::ShorthandId;
+        use crate::properties::ShorthandId;
         match property {
             % for prop in data.longhands:
             ${prop.nscsspropertyid()} => {
@@ -59,157 +57,18 @@ impl From<nsCSSPropertyID> for TransitionProperty {
     }
 }
 
-/// An animated property interpolation between two computed values for that
-/// property.
-#[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "servo", derive(MallocSizeOf))]
-pub enum AnimatedProperty {
-    % for prop in data.longhands:
-        % if prop.animatable and not prop.logical:
-            <%
-                value_type = "longhands::{}::computed_value::T".format(prop.ident)
-                if not prop.is_animatable_with_computed_value:
-                    value_type = "<{} as ToAnimatedValue>::AnimatedValue".format(value_type)
-            %>
-            /// ${prop.name}
-            ${prop.camel_case}(${value_type}, ${value_type}),
-        % endif
-    % endfor
-}
-
-impl AnimatedProperty {
-    /// Get the id of the property we're animating.
-    pub fn id(&self) -> LonghandId {
-        match *self {
-            % for prop in data.longhands:
-            % if prop.animatable and not prop.logical:
-            AnimatedProperty::${prop.camel_case}(..) => LonghandId::${prop.camel_case},
-            % endif
-            % endfor
-        }
-    }
-
-    /// Get the name of this property.
-    pub fn name(&self) -> &'static str {
-        self.id().name()
-    }
-
-    /// Whether this interpolation does animate, that is, whether the start and
-    /// end values are different.
-    pub fn does_animate(&self) -> bool {
-        match *self {
-            % for prop in data.longhands:
-                % if prop.animatable and not prop.logical:
-                    AnimatedProperty::${prop.camel_case}(ref from, ref to) => from != to,
-                % endif
-            % endfor
-        }
-    }
-
-    /// Whether an animated property has the same end value as another.
-    pub fn has_the_same_end_value_as(&self, other: &Self) -> bool {
-        match (self, other) {
-            % for prop in data.longhands:
-                % if prop.animatable and not prop.logical:
-                    (&AnimatedProperty::${prop.camel_case}(_, ref this_end_value),
-                     &AnimatedProperty::${prop.camel_case}(_, ref other_end_value)) => {
-                        this_end_value == other_end_value
-                    }
-                % endif
-            % endfor
-            _ => false,
-        }
-    }
-
-    /// Update `style` with the proper computed style corresponding to this
-    /// animation at `progress`.
-    #[cfg_attr(feature = "gecko", allow(unused))]
-    pub fn update(&self, style: &mut ComputedValues, progress: f64) {
-        #[cfg(feature = "servo")]
-        {
-            match *self {
-                % for prop in data.longhands:
-                % if prop.animatable and not prop.logical:
-                    AnimatedProperty::${prop.camel_case}(ref from, ref to) => {
-                        // https://drafts.csswg.org/web-animations/#discrete-animation-type
-                        % if prop.animation_value_type == "discrete":
-                            let value = if progress < 0.5 { from.clone() } else { to.clone() };
-                        % else:
-                            let value = match from.animate(to, Procedure::Interpolate { progress }) {
-                                Ok(value) => value,
-                                Err(()) => return,
-                            };
-                        % endif
-                        % if not prop.is_animatable_with_computed_value:
-                            let value: longhands::${prop.ident}::computed_value::T =
-                                ToAnimatedValue::from_animated_value(value);
-                        % endif
-                        style.mutate_${prop.style_struct.name_lower}().set_${prop.ident}(value);
-                    }
-                % endif
-                % endfor
-            }
-        }
-    }
-
-    /// Get an animatable value from a transition-property, an old style, and a
-    /// new style.
-    pub fn from_longhand(
-        property: LonghandId,
-        old_style: &ComputedValues,
-        new_style: &ComputedValues,
-    ) -> Option<AnimatedProperty> {
-        // FIXME(emilio): Handle the case where old_style and new_style's
-        // writing mode differ.
-        let property = property.to_physical(new_style.writing_mode);
-        Some(match property {
-            % for prop in data.longhands:
-            % if prop.animatable and not prop.logical:
-                LonghandId::${prop.camel_case} => {
-                    let old_computed = old_style.clone_${prop.ident}();
-                    let new_computed = new_style.clone_${prop.ident}();
-                    AnimatedProperty::${prop.camel_case}(
-                    % if prop.is_animatable_with_computed_value:
-                        old_computed,
-                        new_computed,
-                    % else:
-                        old_computed.to_animated_value(),
-                        new_computed.to_animated_value(),
-                    % endif
-                    )
-                }
-            % endif
-            % endfor
-            _ => return None,
-        })
-    }
-}
-
 /// A collection of AnimationValue that were composed on an element.
 /// This HashMap stores the values that are the last AnimationValue to be
 /// composed for each TransitionProperty.
 pub type AnimationValueMap = FxHashMap<LonghandId, AnimationValue>;
 
-#[cfg(feature = "gecko")]
-unsafe impl HasFFI for AnimationValueMap {
-    type FFIType = RawServoAnimationValueMap;
-}
-#[cfg(feature = "gecko")]
-unsafe impl HasSimpleFFI for AnimationValueMap {}
-
 /// An enum to represent a single computed value belonging to an animated
 /// property in order to be interpolated with another one. When interpolating,
 /// both values need to belong to the same property.
 ///
-/// This is different to AnimatedProperty in the sense that AnimatedProperty
-/// also knows the final value to be used during the animation.
-///
-/// This is to be used in Gecko integration code.
-///
 /// FIXME: We need to add a path for custom properties, but that's trivial after
 /// this (is a similar path to that of PropertyDeclaration).
-#[cfg_attr(feature = "servo", derive(MallocSizeOf))]
-#[derive(Debug)]
+#[derive(Debug, MallocSizeOf)]
 #[repr(u16)]
 pub enum AnimationValue {
     % for prop in data.longhands:
@@ -261,12 +120,12 @@ impl Clone for AnimationValue {
             }
 
             unsafe {
-                let mut out = mem::uninitialized();
+                let mut out = mem::MaybeUninit::uninit();
                 ptr::write(
-                    &mut out as *mut _ as *mut CopyVariants,
+                    out.as_mut_ptr() as *mut CopyVariants,
                     *(self as *const _ as *const CopyVariants),
                 );
-                return out;
+                return out.assume_init();
             }
         }
 
@@ -278,15 +137,15 @@ impl Clone for AnimationValue {
                 ${props[0].camel_case}(value.clone())
                 % else:
                 unsafe {
-                    let mut out = ManuallyDrop::new(mem::uninitialized());
+                    let mut out = mem::MaybeUninit::uninit();
                     ptr::write(
-                        &mut out as *mut _ as *mut AnimationValueVariantRepr<${ty}>,
+                        out.as_mut_ptr() as *mut AnimationValueVariantRepr<${ty}>,
                         AnimationValueVariantRepr {
                             tag: *(self as *const _ as *const u16),
                             value: value.clone(),
                         },
                     );
-                    ManuallyDrop::into_inner(out)
+                    out.assume_init()
                 }
                 % endif
             }
@@ -365,15 +224,15 @@ impl AnimationValue {
                 PropertyDeclaration::${props[0].camel_case}(value)
                 % else:
                 unsafe {
-                    let mut out = mem::uninitialized();
+                    let mut out = mem::MaybeUninit::uninit();
                     ptr::write(
-                        &mut out as *mut _ as *mut PropertyDeclarationVariantRepr<${specified}>,
+                        out.as_mut_ptr() as *mut PropertyDeclarationVariantRepr<${specified}>,
                         PropertyDeclarationVariantRepr {
                             tag: *(self as *const _ as *const u16),
                             value,
                         },
                     );
-                    out
+                    out.assume_init()
                 }
                 % endif
             }
@@ -400,7 +259,7 @@ impl AnimationValue {
                 x.boxed,
                 not x.is_animatable_with_computed_value,
                 x.style_struct.inherited,
-                x.ident in SYSTEM_FONT_LONGHANDS and product == "gecko",
+                x.ident in SYSTEM_FONT_LONGHANDS and engine == "gecko",
             )
         %>
 
@@ -433,15 +292,15 @@ impl AnimationValue {
                 % endif
 
                 unsafe {
-                    let mut out = mem::uninitialized();
+                    let mut out = mem::MaybeUninit::uninit();
                     ptr::write(
-                        &mut out as *mut _ as *mut AnimationValueVariantRepr<${ty}>,
+                        out.as_mut_ptr() as *mut AnimationValueVariantRepr<${ty}>,
                         AnimationValueVariantRepr {
                             tag: longhand_id.to_physical(context.builder.writing_mode) as u16,
                             value,
                         },
                     );
-                    out
+                    out.assume_init()
                 }
             }
             % endfor
@@ -452,14 +311,23 @@ impl AnimationValue {
                     % for prop in data.longhands:
                     % if prop.animatable:
                     LonghandId::${prop.camel_case} => {
+                        // FIXME(emilio, bug 1533327): I think
+                        // CSSWideKeyword::Revert handling is not fine here, but
+                        // what to do instead?
+                        //
+                        // Seems we'd need the computed value as if it was
+                        // revert, somehow. Treating it as `unset` seems fine
+                        // for now...
                         let style_struct = match declaration.keyword {
                             % if not prop.style_struct.inherited:
+                            CSSWideKeyword::Revert |
                             CSSWideKeyword::Unset |
                             % endif
                             CSSWideKeyword::Initial => {
                                 initial.get_${prop.style_struct.name_lower}()
                             },
                             % if prop.style_struct.inherited:
+                            CSSWideKeyword::Revert |
                             CSSWideKeyword::Unset |
                             % endif
                             CSSWideKeyword::Inherit => {
@@ -507,7 +375,7 @@ impl AnimationValue {
                         declaration.id,
                         custom_properties,
                         context.quirks_mode,
-                        context.device().environment(),
+                        context.device(),
                     )
                 };
                 return AnimationValue::from_declaration(
@@ -546,6 +414,36 @@ impl AnimationValue {
             _ => return None,
         })
     }
+
+    /// Update `style` with the value of this `AnimationValue`.
+    ///
+    /// SERVO ONLY: This doesn't properly handle things like updating 'em' units
+    /// when animated font-size.
+    #[cfg(feature = "servo")]
+    pub fn set_in_style_for_servo(&self, style: &mut ComputedValues) {
+        match self {
+            % for prop in data.longhands:
+            % if prop.animatable and not prop.logical:
+            AnimationValue::${prop.camel_case}(ref value) => {
+                % if not prop.is_animatable_with_computed_value:
+                let value: longhands::${prop.ident}::computed_value::T =
+                    ToAnimatedValue::from_animated_value(value.clone());
+                    style.mutate_${prop.style_struct.name_lower}().set_${prop.ident}(value);
+                % else:
+                    style.mutate_${prop.style_struct.name_lower}().set_${prop.ident}(value.clone());
+                % endif
+            }
+            % else:
+            AnimationValue::${prop.camel_case}(..) => unreachable!(),
+            % endif
+            % endfor
+        }
+    }
+
+    /// As above, but a stub for Gecko.
+    #[cfg(feature = "gecko")]
+    pub fn set_in_style_for_servo(&self, _: &mut ComputedValues) {
+    }
 }
 
 fn animate_discrete<T: Clone>(this: &T, other: &T, procedure: Procedure) -> Result<T, ()> {
@@ -579,15 +477,15 @@ impl Animate for AnimationValue {
                     let value = this.animate(&other_repr.value, procedure)?;
                     % endif
 
-                    let mut out = mem::uninitialized();
+                    let mut out = mem::MaybeUninit::uninit();
                     ptr::write(
-                        &mut out as *mut _ as *mut AnimationValueVariantRepr<${ty}>,
+                        out.as_mut_ptr() as *mut AnimationValueVariantRepr<${ty}>,
                         AnimationValueVariantRepr {
                             tag: this_tag,
                             value,
                         },
                     );
-                    out
+                    out.assume_init()
                 }
                 % endfor
                 ${" |\n".join("{}(void)".format(prop.camel_case) for prop in unanimated)} => {
@@ -764,20 +662,26 @@ macro_rules! animated_list_impl {
     }
 }
 
+animated_list_impl!(<T> for crate::OwnedSlice<T>);
 animated_list_impl!(<T> for SmallVec<[T; 1]>);
 animated_list_impl!(<T> for Vec<T>);
 
-/// <https://drafts.csswg.org/css-transitions/#animtype-visibility>
+/// <https://drafts.csswg.org/web-animations-1/#animating-visibility>
 impl Animate for Visibility {
     #[inline]
     fn animate(&self, other: &Self, procedure: Procedure) -> Result<Self, ()> {
-        let (this_weight, other_weight) = procedure.weights();
-        match (*self, *other) {
-            (Visibility::Visible, _) => {
-                Ok(if this_weight > 0.0 { *self } else { *other })
-            },
-            (_, Visibility::Visible) => {
-                Ok(if other_weight > 0.0 { *other } else { *self })
+        match procedure {
+            Procedure::Interpolate { .. } => {
+                let (this_weight, other_weight) = procedure.weights();
+                match (*self, *other) {
+                    (Visibility::Visible, _) => {
+                        Ok(if this_weight > 0.0 { *self } else { *other })
+                    },
+                    (_, Visibility::Visible) => {
+                        Ok(if other_weight > 0.0 { *other } else { *self })
+                    },
+                    _ => Err(()),
+                }
             },
             _ => Err(()),
         }
@@ -802,27 +706,27 @@ impl ToAnimatedZero for Visibility {
 impl Animate for ClipRect {
     #[inline]
     fn animate(&self, other: &Self, procedure: Procedure) -> Result<Self, ()> {
-        use crate::values::computed::Length;
-        let animate_component = |this: &Option<Length>, other: &Option<Length>| {
-            match (this.animate(other, procedure)?, procedure) {
-                (None, Procedure::Interpolate { .. }) => Ok(None),
-                (None, _) => Err(()),
-                (result, _) => Ok(result),
+        use crate::values::computed::LengthOrAuto;
+        let animate_component = |this: &LengthOrAuto, other: &LengthOrAuto| {
+            let result = this.animate(other, procedure)?;
+            if let Procedure::Interpolate { .. } = procedure {
+                return Ok(result);
             }
+            if result.is_auto() {
+                // FIXME(emilio): Why? A couple SMIL tests fail without this,
+                // but it seems extremely fishy.
+                return Err(());
+            }
+            Ok(result)
         };
 
         Ok(ClipRect {
-            top:    animate_component(&self.top, &other.top)?,
-            right:  animate_component(&self.right, &other.right)?,
+            top: animate_component(&self.top, &other.top)?,
+            right: animate_component(&self.right, &other.right)?,
             bottom: animate_component(&self.bottom, &other.bottom)?,
-            left:   animate_component(&self.left, &other.left)?,
+            left: animate_component(&self.left, &other.left)?,
         })
     }
-}
-
-impl ToAnimatedZero for ClipRect {
-    #[inline]
-    fn to_animated_zero(&self) -> Result<Self, ()> { Err(()) }
 }
 
 <%
@@ -850,7 +754,7 @@ impl Animate for AnimatedFilter {
                 Ok(Filter::${func}(animate_multiplicative_factor(this, other, procedure)?))
             },
             % endfor
-            % if product == "gecko":
+            % if engine == "gecko":
             (&Filter::DropShadow(ref this), &Filter::DropShadow(ref other)) => {
                 Ok(Filter::DropShadow(this.animate(other, procedure)?))
             },
@@ -870,10 +774,73 @@ impl ToAnimatedZero for AnimatedFilter {
             % for func in ['Brightness', 'Contrast', 'Opacity', 'Saturate']:
             Filter::${func}(_) => Ok(Filter::${func}(1.)),
             % endfor
-            % if product == "gecko":
+            % if engine == "gecko":
             Filter::DropShadow(ref this) => Ok(Filter::DropShadow(this.to_animated_zero()?)),
             % endif
             _ => Err(()),
+        }
+    }
+}
+
+/// An iterator over all the properties that transition on a given style.
+pub struct TransitionPropertyIterator<'a> {
+    style: &'a ComputedValues,
+    index_range: core::ops::Range<usize>,
+    longhand_iterator: Option<NonCustomPropertyIterator<LonghandId>>,
+}
+
+impl<'a> TransitionPropertyIterator<'a> {
+    /// Create a `TransitionPropertyIterator` for the given style.
+    pub fn from_style(style: &'a ComputedValues) -> Self {
+        Self {
+            style,
+            index_range: 0..style.get_box().transition_property_count(),
+            longhand_iterator: None,
+        }
+    }
+}
+
+/// A single iteration of the TransitionPropertyIterator.
+pub struct TransitionPropertyIteration {
+    /// The id of the longhand for this property.
+    pub longhand_id: LonghandId,
+
+    /// The index of this property in the list of transition properties for this
+    /// iterator's style.
+    pub index: usize,
+}
+
+impl<'a> Iterator for TransitionPropertyIterator<'a> {
+    type Item = TransitionPropertyIteration;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        use crate::values::computed::TransitionProperty;
+        loop {
+            if let Some(ref mut longhand_iterator) = self.longhand_iterator {
+                if let Some(longhand_id) = longhand_iterator.next() {
+                    return Some(TransitionPropertyIteration {
+                        longhand_id,
+                        index: self.index_range.start - 1,
+                    });
+                }
+                self.longhand_iterator = None;
+            }
+
+            let index = self.index_range.next()?;
+            match self.style.get_box().transition_property_at(index) {
+                TransitionProperty::Longhand(longhand_id) => {
+                    return Some(TransitionPropertyIteration {
+                        longhand_id,
+                        index,
+                    })
+                }
+                // In the other cases, we set up our state so that we are ready to
+                // compute the next value of the iterator and then loop (equivalent
+                // to calling self.next()).
+                TransitionProperty::Shorthand(ref shorthand_id) =>
+                    self.longhand_iterator = Some(shorthand_id.longhands()),
+                TransitionProperty::Custom(..) | TransitionProperty::Unsupported(..) => {}
+            }
         }
     }
 }

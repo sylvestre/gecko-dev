@@ -19,7 +19,12 @@ struct APZTestDataToJSConverter {
                          void (*aElementConverter)(const Key&, const Value&,
                                                    KeyValuePair&)) {
     for (auto it = aFrom.begin(); it != aFrom.end(); ++it) {
-      aOutTo.AppendElement(fallible);
+      if (!aOutTo.AppendElement(fallible)) {
+        // XXX(Bug 1632090) Instead of extending the array 1-by-1 (which might
+        // involve multiple reallocations) and potentially crashing here,
+        // SetCapacity could be called outside the loop once.
+        mozalloc_handle_oom(0);
+      }
       aElementConverter(it->first, it->second, aOutTo.LastElement());
     }
   }
@@ -29,7 +34,12 @@ struct APZTestDataToJSConverter {
                           dom::Sequence<Target>& aOutTo,
                           void (*aElementConverter)(const Src&, Target&)) {
     for (auto it = aFrom.begin(); it != aFrom.end(); ++it) {
-      aOutTo.AppendElement(fallible);
+      if (!aOutTo.AppendElement(fallible)) {
+        // XXX(Bug 1632090) Instead of extending the array 1-by-1 (which might
+        // involve multiple reallocations) and potentially crashing here,
+        // SetCapacity could be called outside the loop once.
+        mozalloc_handle_oom(0);
+      }
       aElementConverter(*it, aOutTo.LastElement());
     }
   }
@@ -41,6 +51,8 @@ struct APZTestDataToJSConverter {
                ConvertBucket);
     ConvertList(aFrom.mHitResults, aOutTo.mHitResults.Construct(),
                 ConvertHitResult);
+    ConvertMap(aFrom.mAdditionalData, aOutTo.mAdditionalData.Construct(),
+               ConvertAdditionalDataEntry);
   }
 
   static void ConvertBucket(const SequenceNumber& aKey,
@@ -64,8 +76,15 @@ struct APZTestDataToJSConverter {
     ConvertString(aValue, aOutKeyValuePair.mValue.Construct());
   }
 
+  static void ConvertAdditionalDataEntry(
+      const std::string& aKey, const std::string& aValue,
+      dom::AdditionalDataEntry& aOutKeyValuePair) {
+    ConvertString(aKey, aOutKeyValuePair.mKey.Construct());
+    ConvertString(aValue, aOutKeyValuePair.mValue.Construct());
+  }
+
   static void ConvertString(const std::string& aFrom, nsString& aOutTo) {
-    aOutTo = NS_ConvertUTF8toUTF16(aFrom.c_str(), aFrom.size());
+    CopyUTF8toUTF16(aFrom, aOutTo);
   }
 
   static void ConvertHitResult(const APZTestData::HitResult& aResult,
@@ -78,6 +97,7 @@ struct APZTestDataToJSConverter {
                   "number of bits in uint16_t");
     aOutHitResult.mHitResult.Construct() =
         static_cast<uint16_t>(aResult.result.serialize());
+    aOutHitResult.mLayersId.Construct() = aResult.layersId.mId;
     aOutHitResult.mScrollId.Construct() = aResult.scrollId;
   }
 };

@@ -15,8 +15,7 @@
 #include "mozilla/dom/ServiceWorkerDescriptor.h"
 #include "mozilla/dom/ipc/StructuredCloneData.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 using mozilla::dom::ipc::StructuredCloneData;
 
@@ -42,7 +41,7 @@ void ClientHandle::StartOp(const ClientOpConstructorArgs& aArgs,
   RefPtr<ClientHandle> kungFuGrip = this;
 
   MaybeExecute(
-      [aArgs, kungFuGrip, aRejectCallback,
+      [&aArgs, kungFuGrip, aRejectCallback,
        resolve = std::move(aResolveCallback)](ClientHandleChild* aActor) {
         MOZ_DIAGNOSTIC_ASSERT(aActor);
         ClientHandleOpChild* actor = new ClientHandleOpChild(
@@ -54,7 +53,9 @@ void ClientHandle::StartOp(const ClientOpConstructorArgs& aArgs,
       },
       [aRejectCallback] {
         MOZ_DIAGNOSTIC_ASSERT(aRejectCallback);
-        aRejectCallback(NS_ERROR_DOM_INVALID_STATE_ERR);
+        CopyableErrorResult rv;
+        rv.ThrowInvalidStateError("Client has been destroyed");
+        aRejectCallback(rv);
       });
 }
 
@@ -100,49 +101,51 @@ void ClientHandle::ExecutionReady(const ClientInfo& aClientInfo) {
 
 const ClientInfo& ClientHandle::Info() const { return mClientInfo; }
 
-RefPtr<GenericPromise> ClientHandle::Control(
+RefPtr<GenericErrorResultPromise> ClientHandle::Control(
     const ServiceWorkerDescriptor& aServiceWorker) {
-  RefPtr<GenericPromise::Private> outerPromise =
-      new GenericPromise::Private(__func__);
+  RefPtr<GenericErrorResultPromise::Private> outerPromise =
+      new GenericErrorResultPromise::Private(__func__);
 
   // We should never have a cross-origin controller.  Since this would be
   // same-origin policy violation we do a full release assertion here.
   MOZ_RELEASE_ASSERT(ClientMatchPrincipalInfo(mClientInfo.PrincipalInfo(),
                                               aServiceWorker.PrincipalInfo()));
 
-  StartOp(ClientControlledArgs(aServiceWorker.ToIPC()),
-          [outerPromise](const ClientOpResult& aResult) {
-            outerPromise->Resolve(true, __func__);
-          },
-          [outerPromise](const ClientOpResult& aResult) {
-            outerPromise->Reject(aResult.get_nsresult(), __func__);
-          });
+  StartOp(
+      ClientControlledArgs(aServiceWorker.ToIPC()),
+      [outerPromise](const ClientOpResult& aResult) {
+        outerPromise->Resolve(true, __func__);
+      },
+      [outerPromise](const ClientOpResult& aResult) {
+        outerPromise->Reject(aResult.get_CopyableErrorResult(), __func__);
+      });
 
-  return outerPromise.forget();
+  return outerPromise;
 }
 
-RefPtr<ClientStatePromise> ClientHandle::Focus() {
+RefPtr<ClientStatePromise> ClientHandle::Focus(CallerType aCallerType) {
   RefPtr<ClientStatePromise::Private> outerPromise =
       new ClientStatePromise::Private(__func__);
 
-  StartOp(ClientFocusArgs(),
-          [outerPromise](const ClientOpResult& aResult) {
-            outerPromise->Resolve(
-                ClientState::FromIPC(aResult.get_IPCClientState()), __func__);
-          },
-          [outerPromise](const ClientOpResult& aResult) {
-            outerPromise->Reject(aResult.get_nsresult(), __func__);
-          });
+  StartOp(
+      ClientFocusArgs(aCallerType),
+      [outerPromise](const ClientOpResult& aResult) {
+        outerPromise->Resolve(
+            ClientState::FromIPC(aResult.get_IPCClientState()), __func__);
+      },
+      [outerPromise](const ClientOpResult& aResult) {
+        outerPromise->Reject(aResult.get_CopyableErrorResult(), __func__);
+      });
 
-  return outerPromise.forget();
+  return outerPromise;
 }
 
-RefPtr<GenericPromise> ClientHandle::PostMessage(
+RefPtr<GenericErrorResultPromise> ClientHandle::PostMessage(
     StructuredCloneData& aData, const ServiceWorkerDescriptor& aSource) {
-
   if (IsShutdown()) {
-    return GenericPromise::CreateAndReject(NS_ERROR_DOM_INVALID_STATE_ERR,
-                                           __func__);
+    CopyableErrorResult rv;
+    rv.ThrowInvalidStateError("Client has been destroyed");
+    return GenericErrorResultPromise::CreateAndReject(rv, __func__);
   }
 
   ClientPostMessageArgs args;
@@ -150,22 +153,24 @@ RefPtr<GenericPromise> ClientHandle::PostMessage(
 
   if (!aData.BuildClonedMessageDataForBackgroundChild(
           GetActor()->Manager()->Manager(), args.clonedData())) {
-    return GenericPromise::CreateAndReject(NS_ERROR_DOM_INVALID_STATE_ERR,
-                                           __func__);
+    CopyableErrorResult rv;
+    rv.ThrowInvalidStateError("Failed to clone data");
+    return GenericErrorResultPromise::CreateAndReject(rv, __func__);
   }
 
-  RefPtr<GenericPromise::Private> outerPromise =
-      new GenericPromise::Private(__func__);
+  RefPtr<GenericErrorResultPromise::Private> outerPromise =
+      new GenericErrorResultPromise::Private(__func__);
 
-  StartOp(args,
-          [outerPromise](const ClientOpResult& aResult) {
-            outerPromise->Resolve(true, __func__);
-          },
-          [outerPromise](const ClientOpResult& aResult) {
-            outerPromise->Reject(aResult.get_nsresult(), __func__);
-          });
+  StartOp(
+      std::move(args),
+      [outerPromise](const ClientOpResult& aResult) {
+        outerPromise->Resolve(true, __func__);
+      },
+      [outerPromise](const ClientOpResult& aResult) {
+        outerPromise->Reject(aResult.get_CopyableErrorResult(), __func__);
+      });
 
-  return outerPromise.forget();
+  return outerPromise;
 }
 
 RefPtr<GenericPromise> ClientHandle::OnDetach() {
@@ -181,5 +186,4 @@ RefPtr<GenericPromise> ClientHandle::OnDetach() {
   return mDetachPromise;
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

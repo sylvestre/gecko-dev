@@ -8,11 +8,13 @@
 #define js_CharacterEncoding_h
 
 #include "mozilla/Range.h"
+#include "mozilla/Span.h"
+#include "mozilla/Utf8.h"
 
 #include "js/TypeDecls.h"
 #include "js/Utility.h"
 
-class JSFlatString;
+class JSLinearString;
 
 namespace JS {
 
@@ -28,7 +30,7 @@ class Latin1Chars : public mozilla::Range<Latin1Char> {
  public:
   using CharT = Latin1Char;
 
-  Latin1Chars() : Base() {}
+  Latin1Chars() = default;
   Latin1Chars(char* aBytes, size_t aLength)
       : Base(reinterpret_cast<Latin1Char*>(aBytes), aLength) {}
   Latin1Chars(const Latin1Char* aBytes, size_t aLength)
@@ -36,6 +38,20 @@ class Latin1Chars : public mozilla::Range<Latin1Char> {
   Latin1Chars(const char* aBytes, size_t aLength)
       : Base(reinterpret_cast<Latin1Char*>(const_cast<char*>(aBytes)),
              aLength) {}
+};
+
+/*
+ * Like Latin1Chars, but the chars are const.
+ */
+class ConstLatin1Chars : public mozilla::Range<const Latin1Char> {
+  typedef mozilla::Range<const Latin1Char> Base;
+
+ public:
+  using CharT = Latin1Char;
+
+  ConstLatin1Chars() = default;
+  ConstLatin1Chars(const Latin1Char* aChars, size_t aLength)
+      : Base(aChars, aLength) {}
 };
 
 /*
@@ -47,7 +63,7 @@ class Latin1CharsZ : public mozilla::RangedPtr<Latin1Char> {
  public:
   using CharT = Latin1Char;
 
-  Latin1CharsZ() : Base(nullptr, 0) {}
+  Latin1CharsZ() : Base(nullptr, 0) {}  // NOLINT
 
   Latin1CharsZ(char* aBytes, size_t aLength)
       : Base(reinterpret_cast<Latin1Char*>(aBytes), aLength) {
@@ -69,7 +85,7 @@ class UTF8Chars : public mozilla::Range<unsigned char> {
  public:
   using CharT = unsigned char;
 
-  UTF8Chars() : Base() {}
+  UTF8Chars() = default;
   UTF8Chars(char* aBytes, size_t aLength)
       : Base(reinterpret_cast<unsigned char*>(aBytes), aLength) {}
   UTF8Chars(const char* aBytes, size_t aLength)
@@ -91,7 +107,7 @@ class WTF8Chars : public mozilla::Range<unsigned char> {
  public:
   using CharT = unsigned char;
 
-  WTF8Chars() : Base() {}
+  WTF8Chars() = default;
   WTF8Chars(char* aBytes, size_t aLength)
       : Base(reinterpret_cast<unsigned char*>(aBytes), aLength) {}
   WTF8Chars(const char* aBytes, size_t aLength)
@@ -108,7 +124,7 @@ class UTF8CharsZ : public mozilla::RangedPtr<unsigned char> {
  public:
   using CharT = unsigned char;
 
-  UTF8CharsZ() : Base(nullptr, 0) {}
+  UTF8CharsZ() : Base(nullptr, 0) {}  // NOLINT
 
   UTF8CharsZ(char* aBytes, size_t aLength)
       : Base(reinterpret_cast<unsigned char*>(aBytes), aLength) {
@@ -174,7 +190,7 @@ class TwoByteChars : public mozilla::Range<char16_t> {
  public:
   using CharT = char16_t;
 
-  TwoByteChars() : Base() {}
+  TwoByteChars() = default;
   TwoByteChars(char16_t* aChars, size_t aLength) : Base(aChars, aLength) {}
   TwoByteChars(const char16_t* aChars, size_t aLength)
       : Base(const_cast<char16_t*>(aChars), aLength) {}
@@ -189,7 +205,7 @@ class TwoByteCharsZ : public mozilla::RangedPtr<char16_t> {
  public:
   using CharT = char16_t;
 
-  TwoByteCharsZ() : Base(nullptr, 0) {}
+  TwoByteCharsZ() : Base(nullptr, 0) {}  // NOLINT
 
   TwoByteCharsZ(char16_t* chars, size_t length) : Base(chars, length) {
     MOZ_ASSERT(chars[length] == '\0');
@@ -209,7 +225,7 @@ class ConstTwoByteChars : public mozilla::Range<const char16_t> {
  public:
   using CharT = char16_t;
 
-  ConstTwoByteChars() : Base() {}
+  ConstTwoByteChars() = default;
   ConstTwoByteChars(const char16_t* aChars, size_t aLength)
       : Base(aChars, aLength) {}
 };
@@ -247,54 +263,61 @@ JS_PUBLIC_API uint32_t Utf8ToOneUcs4Char(const uint8_t* utf8Buffer,
  * - On success, returns a malloc'd TwoByteCharsZ, and updates |outlen| to hold
  *   its length;  the length value excludes the trailing null.
  */
-extern JS_PUBLIC_API TwoByteCharsZ UTF8CharsToNewTwoByteCharsZ(
-    JSContext* cx, const UTF8Chars utf8, size_t* outlen);
+extern JS_PUBLIC_API TwoByteCharsZ
+UTF8CharsToNewTwoByteCharsZ(JSContext* cx, const UTF8Chars utf8, size_t* outlen,
+                            arena_id_t destArenaId);
 
 /*
  * Like UTF8CharsToNewTwoByteCharsZ, but for WTF8Chars.
  */
-extern JS_PUBLIC_API TwoByteCharsZ WTF8CharsToNewTwoByteCharsZ(
-    JSContext* cx, const WTF8Chars wtf8, size_t* outlen);
+extern JS_PUBLIC_API TwoByteCharsZ
+WTF8CharsToNewTwoByteCharsZ(JSContext* cx, const WTF8Chars wtf8, size_t* outlen,
+                            arena_id_t destArenaId);
 
 /*
  * Like UTF8CharsToNewTwoByteCharsZ, but for ConstUTF8CharsZ.
  */
-extern JS_PUBLIC_API TwoByteCharsZ UTF8CharsToNewTwoByteCharsZ(
-    JSContext* cx, const ConstUTF8CharsZ& utf8, size_t* outlen);
+extern JS_PUBLIC_API TwoByteCharsZ
+UTF8CharsToNewTwoByteCharsZ(JSContext* cx, const ConstUTF8CharsZ& utf8,
+                            size_t* outlen, arena_id_t destArenaId);
 
 /*
  * The same as UTF8CharsToNewTwoByteCharsZ(), except that any malformed UTF-8
  * characters will be replaced by \uFFFD. No exception will be thrown for
  * malformed UTF-8 input.
  */
-extern JS_PUBLIC_API TwoByteCharsZ LossyUTF8CharsToNewTwoByteCharsZ(
-    JSContext* cx, const UTF8Chars utf8, size_t* outlen);
+extern JS_PUBLIC_API TwoByteCharsZ
+LossyUTF8CharsToNewTwoByteCharsZ(JSContext* cx, const UTF8Chars utf8,
+                                 size_t* outlen, arena_id_t destArenaId);
 
-extern JS_PUBLIC_API TwoByteCharsZ LossyUTF8CharsToNewTwoByteCharsZ(
-    JSContext* cx, const ConstUTF8CharsZ& utf8, size_t* outlen);
+extern JS_PUBLIC_API TwoByteCharsZ
+LossyUTF8CharsToNewTwoByteCharsZ(JSContext* cx, const ConstUTF8CharsZ& utf8,
+                                 size_t* outlen, arena_id_t destArenaId);
 
 /*
  * Returns the length of the char buffer required to encode |s| as UTF8.
  * Does not include the null-terminator.
  */
-JS_PUBLIC_API size_t GetDeflatedUTF8StringLength(JSFlatString* s);
+JS_PUBLIC_API size_t GetDeflatedUTF8StringLength(JSLinearString* s);
 
 /*
- * Encode |src| as UTF8. The caller must either ensure |dst| has enough space
- * to encode the entire string or pass the length of the buffer as |dstlenp|,
- * in which case the function will encode characters from the string until
- * the buffer is exhausted. Does not write the null terminator.
+ * Encode whole scalar values of |src| into |dst| as UTF-8 until |src| is
+ * exhausted or too little space is available in |dst| to fit the scalar
+ * value. Lone surrogates are converted to REPLACEMENT CHARACTER. Return
+ * the number of bytes of |dst| that were filled.
  *
- * If |dstlenp| is provided, it will be updated to hold the number of bytes
- * written to the buffer. If |numcharsp| is provided, it will be updated to hold
- * the number of Unicode characters written to the buffer (which can be less
- * than the length of the string, if the buffer is exhausted before the string
- * is fully encoded).
+ * Use |JS_EncodeStringToUTF8BufferPartial| if your string isn't already
+ * linear.
+ *
+ * Given |JSString* str = JS_FORGET_STRING_LINEARNESS(src)|,
+ * if |JS::StringHasLatin1Chars(str)|, then |src| is always fully converted
+ * if |dst.Length() >= JS_GetStringLength(str) * 2|. Otherwise |src| is
+ * always fully converted if |dst.Length() >= JS_GetStringLength(str) * 3|.
+ *
+ * The exact space required is always |GetDeflatedUTF8StringLength(str)|.
  */
-JS_PUBLIC_API void DeflateStringToUTF8Buffer(JSFlatString* src,
-                                             mozilla::RangedPtr<char> dst,
-                                             size_t* dstlenp = nullptr,
-                                             size_t* numcharsp = nullptr);
+JS_PUBLIC_API size_t DeflateStringToUTF8Buffer(JSLinearString* src,
+                                               mozilla::Span<char> dst);
 
 /*
  * The smallest character encoding capable of fully representing a particular
@@ -316,21 +339,29 @@ JS_PUBLIC_API SmallestEncoding FindSmallestEncoding(UTF8Chars utf8);
  * Latin1CharsZ() on failure.
  */
 extern JS_PUBLIC_API Latin1CharsZ
-UTF8CharsToNewLatin1CharsZ(JSContext* cx, const UTF8Chars utf8, size_t* outlen);
+UTF8CharsToNewLatin1CharsZ(JSContext* cx, const UTF8Chars utf8, size_t* outlen,
+                           arena_id_t destArenaId);
 
 /*
  * Return a null-terminated Latin-1 string copied from the input string,
  * storing its length (excluding null terminator) in |*outlen|.  Non-Latin-1
  * codepoints are replaced by '?'.  Returns Latin1CharsZ() on failure.
  */
-extern JS_PUBLIC_API Latin1CharsZ LossyUTF8CharsToNewLatin1CharsZ(
-    JSContext* cx, const UTF8Chars utf8, size_t* outlen);
+extern JS_PUBLIC_API Latin1CharsZ
+LossyUTF8CharsToNewLatin1CharsZ(JSContext* cx, const UTF8Chars utf8,
+                                size_t* outlen, arena_id_t destArenaId);
 
 /*
  * Returns true if all characters in the given null-terminated string are
  * ASCII, i.e. < 0x80, false otherwise.
  */
 extern JS_PUBLIC_API bool StringIsASCII(const char* s);
+
+/*
+ * Returns true if all characters in the given span are ASCII,
+ * i.e. < 0x80, false otherwise.
+ */
+extern JS_PUBLIC_API bool StringIsASCII(mozilla::Span<const char> s);
 
 }  // namespace JS
 

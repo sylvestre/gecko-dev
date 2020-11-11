@@ -8,7 +8,9 @@
 #define mozilla_dom_worklet_WorkletImpl_h
 
 #include "MainThreadUtils.h"
+#include "mozilla/Maybe.h"
 #include "mozilla/OriginAttributes.h"
+#include "mozilla/ipc/PBackgroundSharedTypes.h"
 
 class nsPIDOMWindowInner;
 class nsIPrincipal;
@@ -26,31 +28,15 @@ class WorkletThread;
 
 class WorkletLoadInfo {
  public:
-  WorkletLoadInfo(nsPIDOMWindowInner* aWindow, nsIPrincipal* aPrincipal);
-  ~WorkletLoadInfo();
+  explicit WorkletLoadInfo(nsPIDOMWindowInner* aWindow);
 
   uint64_t OuterWindowID() const { return mOuterWindowID; }
   uint64_t InnerWindowID() const { return mInnerWindowID; }
-
-  const OriginAttributes& OriginAttributesRef() const {
-    return mOriginAttributes;
-  }
-
-  nsIPrincipal* Principal() const {
-    MOZ_ASSERT(NS_IsMainThread());
-    return mPrincipal;
-  }
 
  private:
   // Modified only in constructor.
   uint64_t mOuterWindowID;
   const uint64_t mInnerWindowID;
-  const OriginAttributes mOriginAttributes;
-  // Accessed on only worklet parent thread.
-  nsCOMPtr<nsIPrincipal> mPrincipal;
-
-  friend class WorkletImpl;
-  friend class WorkletThread;
 };
 
 /**
@@ -69,16 +55,31 @@ class WorkletImpl {
   virtual JSObject* WrapWorklet(JSContext* aCx, dom::Worklet* aWorklet,
                                 JS::Handle<JSObject*> aGivenProto);
 
-  nsresult SendControlMessage(already_AddRefed<nsIRunnable> aRunnable);
+  virtual nsresult SendControlMessage(already_AddRefed<nsIRunnable> aRunnable);
+
+  nsIPrincipal* Principal() const {
+    MOZ_ASSERT(NS_IsMainThread());
+    return mPrincipal;
+  }
 
   void NotifyWorkletFinished();
 
+  virtual nsContentPolicyType ContentPolicyType() const = 0;
+
   // Execution thread only.
-  already_AddRefed<dom::WorkletGlobalScope> CreateGlobalScope(JSContext* aCx);
+  dom::WorkletGlobalScope* GetGlobalScope();
 
   // Any thread.
 
   const WorkletLoadInfo& LoadInfo() const { return mWorkletLoadInfo; }
+  const OriginAttributes& OriginAttributesRef() const {
+    return mPrincipalInfo.get_NullPrincipalInfo().attrs();
+  }
+  const ipc::PrincipalInfo& PrincipalInfo() const { return mPrincipalInfo; }
+
+  const Maybe<nsID>& GetAgentClusterId() const { return mAgentClusterId; }
+
+  bool IsSharedMemoryAllowed() const { return mSharedMemoryAllowed; }
 
  protected:
   WorkletImpl(nsPIDOMWindowInner* aWindow, nsIPrincipal* aPrincipal);
@@ -86,13 +87,24 @@ class WorkletImpl {
 
   virtual already_AddRefed<dom::WorkletGlobalScope> ConstructGlobalScope() = 0;
 
-  // The only WorkletLoadInfo member modified is mPrincipal which is accessed
-  // on only the parent thread.
-  WorkletLoadInfo mWorkletLoadInfo;
+  // Modified only in constructor.
+  ipc::PrincipalInfo mPrincipalInfo;
+  // Accessed on only worklet parent thread.
+  nsCOMPtr<nsIPrincipal> mPrincipal;
+
+  const WorkletLoadInfo mWorkletLoadInfo;
 
   // Parent thread only.
   RefPtr<dom::WorkletThread> mWorkletThread;
   bool mTerminated;
+
+  // Execution thread only.
+  RefPtr<dom::WorkletGlobalScope> mGlobalScope;
+  bool mFinishedOnExecutionThread;
+
+  Maybe<nsID> mAgentClusterId;
+
+  bool mSharedMemoryAllowed;
 };
 
 }  // namespace mozilla

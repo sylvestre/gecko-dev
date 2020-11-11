@@ -28,7 +28,7 @@ add_task(async function test_frametree() {
 
   // Go back in history.
   let pageShowPromise = ContentTask.spawn(browser, null, async () => {
-    return ContentTaskUtils.waitForEvent(this, "pageshow", true);
+    await ContentTaskUtils.waitForEvent(this, "pageshow", true);
   });
   browser.goBack();
   await pageShowPromise;
@@ -37,15 +37,19 @@ add_task(async function test_frametree() {
   is(await countNonDynamicFrames(browser), 0, "no child frames");
 
   // Append a dynamic frame.
-  await ContentTask.spawn(browser, URL, async ([url]) => {
+  await SpecialPowers.spawn(browser, [URL], async ([url]) => {
     let frame = content.document.createElement("iframe");
     frame.setAttribute("src", url);
     content.document.body.appendChild(frame);
-    return ContentTaskUtils.waitForEvent(frame, "load");
+    await ContentTaskUtils.waitForEvent(frame, "load");
   });
 
   // The dynamic frame should be ignored.
-  is(await countNonDynamicFrames(browser), 0, "we still have a single root frame");
+  is(
+    await countNonDynamicFrames(browser),
+    0,
+    "we still have a single root frame"
+  );
 
   // Cleanup.
   BrowserTestUtils.removeTab(tab);
@@ -65,11 +69,14 @@ add_task(async function test_frametree_dynamic() {
   is(await enumerateIndexes(browser), "0,1", "correct indexes 0 and 1");
 
   // Insert a dynamic frame.
-  await ContentTask.spawn(browser, URL, async ([url]) => {
+  await SpecialPowers.spawn(browser, [URL], async ([url]) => {
     let frame = content.document.createElement("iframe");
     frame.setAttribute("src", url);
-    content.document.body.insertBefore(frame, content.document.getElementsByTagName("iframe")[1]);
-    return ContentTaskUtils.waitForEvent(frame, "load");
+    content.document.body.insertBefore(
+      frame,
+      content.document.getElementsByTagName("iframe")[1]
+    );
+    await ContentTaskUtils.waitForEvent(frame, "load");
   });
 
   // The page still has two iframes.
@@ -77,11 +84,11 @@ add_task(async function test_frametree_dynamic() {
   is(await enumerateIndexes(browser), "0,1", "correct indexes 0 and 1");
 
   // Append a dynamic frame.
-  await ContentTask.spawn(browser, URL, async ([url]) => {
+  await SpecialPowers.spawn(browser, [URL], async ([url]) => {
     let frame = content.document.createElement("iframe");
     frame.setAttribute("src", url);
     content.document.body.appendChild(frame);
-    return ContentTaskUtils.waitForEvent(frame, "load");
+    await ContentTaskUtils.waitForEvent(frame, "load");
   });
 
   // The page still has two iframes.
@@ -89,9 +96,11 @@ add_task(async function test_frametree_dynamic() {
   is(await enumerateIndexes(browser), "0,1", "correct indexes 0 and 1");
 
   // Remopve a non-dynamic iframe.
-  await ContentTask.spawn(browser, URL, async ([url]) => {
+  await SpecialPowers.spawn(browser, [URL], async ([url]) => {
     // Remove the first iframe, which should be a non-dynamic iframe.
-    content.document.body.removeChild(content.document.getElementsByTagName("iframe")[0]);
+    content.document.body.removeChild(
+      content.document.getElementsByTagName("iframe")[0]
+    );
   });
 
   is(await countNonDynamicFrames(browser), 1, "one non-dynamic child frame");
@@ -102,23 +111,22 @@ add_task(async function test_frametree_dynamic() {
 });
 
 async function countNonDynamicFrames(browser) {
-  return ContentTask.spawn(browser, null, async () => {
-    const ssu = Cc["@mozilla.org/browser/sessionstore/utils;1"]
-                  .getService(Ci.nsISessionStoreUtils);
-
+  return SpecialPowers.spawn(browser, [], async () => {
     let count = 0;
-    ssu.forEachNonDynamicChildFrame(content, () => count++);
+    content.SessionStoreUtils.forEachNonDynamicChildFrame(
+      content,
+      () => count++
+    );
     return count;
   });
 }
 
 async function enumerateIndexes(browser) {
-  return ContentTask.spawn(browser, null, async () => {
-    const ssu = Cc["@mozilla.org/browser/sessionstore/utils;1"]
-                  .getService(Ci.nsISessionStoreUtils);
-
+  return SpecialPowers.spawn(browser, [], async () => {
     let indexes = [];
-    ssu.forEachNonDynamicChildFrame(content, (frame, i) => indexes.push(i));
+    content.SessionStoreUtils.forEachNonDynamicChildFrame(content, (frame, i) =>
+      indexes.push(i)
+    );
     return indexes.join(",");
   });
 }

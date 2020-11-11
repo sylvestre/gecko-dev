@@ -5,14 +5,28 @@
 
 #include "WebGLFormats.h"
 
-#include "gfxPrefs.h"
 #include "GLContext.h"
 #include "GLDefs.h"
 #include "mozilla/gfx/Logging.h"
 #include "mozilla/StaticMutex.h"
 
-namespace mozilla {
-namespace webgl {
+namespace mozilla::webgl {
+
+const char* ToString(const ComponentType type) {
+  switch (type) {
+    case ComponentType::Int:
+      return "Int";
+    case ComponentType::UInt:
+      return "UInt";
+    case ComponentType::NormInt:
+      return "NormInt";
+    case ComponentType::NormUInt:
+      return "NormUInt";
+    case ComponentType::Float:
+      return "Float";
+  }
+  MOZ_CRASH("pacify gcc6 warning");
+}
 
 static TextureBaseType ToBaseType(const ComponentType type) {
   switch (type) {
@@ -421,6 +435,17 @@ static void InitFormatInfo() {
     // OES_compressed_ETC1_RGB8_texture
     AddFormatInfo(FOO(ETC1_RGB8_OES), 0, 1,1,1,0, 0,0, UnsizedFormat::RGB, false, ComponentType::NormUInt);
 
+    // EXT_texture_norm16
+    AddFormatInfo(FOO(R16   ), 2, 16, 0, 0, 0, 0,0, UnsizedFormat::R   , false, ComponentType::NormUInt);
+    AddFormatInfo(FOO(RG16  ), 4, 16,16, 0, 0, 0,0, UnsizedFormat::RG  , false, ComponentType::NormUInt);
+    AddFormatInfo(FOO(RGB16 ), 6, 16,16,16, 0, 0,0, UnsizedFormat::RGB , false, ComponentType::NormUInt);
+    AddFormatInfo(FOO(RGBA16), 8, 16,16,16,16, 0,0, UnsizedFormat::RGBA, false, ComponentType::NormUInt);
+
+    AddFormatInfo(FOO(R16_SNORM   ), 2, 16, 0, 0, 0, 0,0, UnsizedFormat::R   , false, ComponentType::NormInt);
+    AddFormatInfo(FOO(RG16_SNORM  ), 4, 16,16, 0, 0, 0,0, UnsizedFormat::RG  , false, ComponentType::NormInt);
+    AddFormatInfo(FOO(RGB16_SNORM ), 6, 16,16,16, 0, 0,0, UnsizedFormat::RGB , false, ComponentType::NormInt);
+    AddFormatInfo(FOO(RGBA16_SNORM), 8, 16,16,16,16, 0,0, UnsizedFormat::RGBA, false, ComponentType::NormInt);
+
 #undef FOO
 
     // 'Virtual' effective formats have no sizedFormat.
@@ -501,6 +526,7 @@ static void InitFormatInfo() {
     SET_BY_SUFFIX(8I)
     SET_BY_SUFFIX(8UI)
 
+    SET_BY_SUFFIX(16)
     SET_BY_SUFFIX(16I)
     SET_BY_SUFFIX(16UI)
 
@@ -671,24 +697,21 @@ bool FormatUsageInfo::IsUnpackValid(
   return true;
 }
 
-void FormatUsageInfo::ResolveMaxSamples(gl::GLContext* gl) {
+void FormatUsageInfo::ResolveMaxSamples(gl::GLContext& gl) const {
+  MOZ_ASSERT(gl.IsCurrent());
   MOZ_ASSERT(!this->maxSamplesKnown);
-  MOZ_ASSERT(this->maxSamples == 0);
-  MOZ_ASSERT(gl->IsCurrent());
-
+  MOZ_ASSERT(!this->maxSamples);
   this->maxSamplesKnown = true;
 
   const GLenum internalFormat = this->format->sizedFormat;
   if (!internalFormat) return;
+  if (!gl.IsSupported(gl::GLFeature::internalformat_query)) return;
 
-  if (!gl->IsSupported(gl::GLFeature::internalformat_query))
-    return;  // Leave it at 0.
-
-  GLint maxSamplesGL = 0;
-  gl->fGetInternalformativ(LOCAL_GL_RENDERBUFFER, internalFormat,
-                           LOCAL_GL_SAMPLES, 1, &maxSamplesGL);
-
-  this->maxSamples = maxSamplesGL;
+  // GL_SAMPLES returns a list in descending order, so ask for just one elem to
+  // get the max.
+  gl.fGetInternalformativ(LOCAL_GL_RENDERBUFFER, internalFormat,
+                          LOCAL_GL_SAMPLES, 1,
+                          reinterpret_cast<GLint*>(&this->maxSamples));
 }
 
 ////////////////////////////////////////
@@ -769,8 +792,10 @@ static bool AddUnsizedFormats(FormatUsageAuthority* fua, gl::GLContext* gl) {
   // clang-format on
 }
 
-void FormatUsageInfo::SetRenderable() {
-  this->isRenderable = true;
+void FormatUsageInfo::SetRenderable(const FormatRenderableState& state) {
+  if (!renderableState.IsExplicit()) {
+    renderableState = state;
+  }
 
 #ifdef DEBUG
   const auto format = this->format;
@@ -821,11 +846,13 @@ UniquePtr<FormatUsageAuthority> FormatUsageAuthority::CreateForWebGL1(
   fnSet(EffectiveFormat::Luminance8, false, true);
   fnSet(EffectiveFormat::Alpha8, false, true);
 
-  fnSet(EffectiveFormat::DEPTH_COMPONENT16, true, false);
+  fnSet(EffectiveFormat::DEPTH_COMPONENT16, true, true);
+  fnSet(EffectiveFormat::DEPTH_COMPONENT24, true,
+        true);  // Requires WEBGL_depth_texture.
   fnSet(EffectiveFormat::STENCIL_INDEX8, true, false);
 
   // Added in WebGL 1.0 spec:
-  fnSet(EffectiveFormat::DEPTH24_STENCIL8, true, false);
+  fnSet(EffectiveFormat::DEPTH24_STENCIL8, true, true);
 
   ////////////////////////////////////
   // RB formats
@@ -1051,11 +1078,14 @@ UniquePtr<FormatUsageAuthority> FormatUsageAuthority::CreateForWebGL2(
   fnAllowES3TexFormat(FOO(RGBA32UI), true, false);
 
   // GLES 3.0.4, p133, table 3.14
-  fnAllowES3TexFormat(FOO(DEPTH_COMPONENT16), true, false);
-  fnAllowES3TexFormat(FOO(DEPTH_COMPONENT24), true, false);
-  fnAllowES3TexFormat(FOO(DEPTH_COMPONENT32F), true, false);
-  fnAllowES3TexFormat(FOO(DEPTH24_STENCIL8), true, false);
-  fnAllowES3TexFormat(FOO(DEPTH32F_STENCIL8), true, false);
+  // p151:
+  //   Depth textures and the depth components of depth/stencil textures can be
+  //   treated as `RED` textures during texture filtering and application.
+  fnAllowES3TexFormat(FOO(DEPTH_COMPONENT16), true, true);
+  fnAllowES3TexFormat(FOO(DEPTH_COMPONENT24), true, true);
+  fnAllowES3TexFormat(FOO(DEPTH_COMPONENT32F), true, true);
+  fnAllowES3TexFormat(FOO(DEPTH24_STENCIL8), true, true);
+  fnAllowES3TexFormat(FOO(DEPTH32F_STENCIL8), true, true);
 
 #undef FOO
 
@@ -1118,11 +1148,17 @@ bool FormatUsageAuthority::AreUnpackEnumsValid(GLenum unpackFormat,
 ////////////////////
 
 void FormatUsageAuthority::AllowRBFormat(GLenum sizedFormat,
-                                         const FormatUsageInfo* usage) {
+                                         const FormatUsageInfo* usage,
+                                         const bool expectRenderable) {
   MOZ_ASSERT(!usage->format->compression);
   MOZ_ASSERT(usage->format->sizedFormat);
-  MOZ_ASSERT(usage->IsRenderable());
+  MOZ_ASSERT(usage->IsRenderable() || !expectRenderable);
 
+  const auto& found = mRBFormatMap.find(sizedFormat);
+  if (found != mRBFormatMap.end()) {
+    MOZ_ASSERT(found->second == usage);
+    return;
+  }
   AlwaysInsert(mRBFormatMap, sizedFormat, usage);
 }
 
@@ -1197,5 +1233,4 @@ const FormatUsageInfo* FormatUsageAuthority::GetUsage(
 
 ////////////////////////////////////////////////////////////////////////////////
 
-}  // namespace webgl
-}  // namespace mozilla
+}  // namespace mozilla::webgl

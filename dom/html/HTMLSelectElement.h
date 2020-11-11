@@ -53,7 +53,7 @@ class MOZ_STACK_CLASS SafeOptionListMutation {
   void MutationFailed() { mNeedsRebuild = true; }
 
  private:
-  static void* operator new(size_t) CPP_THROW_NEW { return 0; }
+  static void* operator new(size_t) noexcept(true) { return 0; }
   static void operator delete(void*, size_t) {}
   /** The select element which option list is being mutated. */
   RefPtr<HTMLSelectElement> mSelect;
@@ -112,9 +112,7 @@ class HTMLSelectElement final : public nsGenericHTMLFormElementWithState,
   virtual int32_t TabIndexDefault() override;
 
   // Element
-  virtual bool IsInteractiveHTMLContent(bool aIgnoreTabindex) const override {
-    return true;
-  }
+  virtual bool IsInteractiveHTMLContent() const override { return true; }
 
   // WebIdl HTMLSelectElement
   bool Autofocus() const { return GetBoolAttr(nsGkAtoms::autofocus); }
@@ -180,9 +178,7 @@ class HTMLSelectElement final : public nsGenericHTMLFormElementWithState,
   nsIHTMLCollection* SelectedOptions();
 
   int32_t SelectedIndex() const { return mSelectedIndex; }
-  void SetSelectedIndex(int32_t aIdx, ErrorResult& aRv) {
-    aRv = SetSelectedIndexInternal(aIdx, true);
-  }
+  void SetSelectedIndex(int32_t aIdx) { SetSelectedIndexInternal(aIdx, true); }
   void GetValue(DOMString& aValue);
   void SetValue(const nsAString& aValue);
 
@@ -198,7 +194,8 @@ class HTMLSelectElement final : public nsGenericHTMLFormElementWithState,
 
   // nsIContent
   void GetEventTargetParent(EventChainPreVisitor& aVisitor) override;
-  virtual nsresult PostHandleEvent(EventChainPostVisitor& aVisitor) override;
+  MOZ_CAN_RUN_SCRIPT
+  nsresult PostHandleEvent(EventChainPostVisitor& aVisitor) override;
 
   virtual bool IsHTMLFocusable(bool aWithMouse, bool* aIsFocusable,
                                int32_t* aTabIndex) override;
@@ -269,9 +266,8 @@ class HTMLSelectElement final : public nsGenericHTMLFormElementWithState,
   /**
    * Called when an attribute is about to be changed
    */
-  virtual nsresult BindToTree(nsIDocument* aDocument, nsIContent* aParent,
-                              nsIContent* aBindingParent) override;
-  virtual void UnbindFromTree(bool aDeep, bool aNullParent) override;
+  virtual nsresult BindToTree(BindContext&, nsINode& aParent) override;
+  virtual void UnbindFromTree(bool aNullParent) override;
   virtual nsresult BeforeSetAttr(int32_t aNameSpaceID, nsAtom* aName,
                                  const nsAttrValueOrString* aValue,
                                  bool aNotify) override;
@@ -454,7 +450,7 @@ class HTMLSelectElement final : public nsGenericHTMLFormElementWithState,
   void VerifyOptionsArray();
 #endif
 
-  nsresult SetSelectedIndexInternal(int32_t aIndex, bool aNotify);
+  void SetSelectedIndexInternal(int32_t aIndex, bool aNotify);
 
   void SetSelectionChanged(bool aValue, bool aNotify);
 

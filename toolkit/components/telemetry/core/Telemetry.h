@@ -6,9 +6,9 @@
 #ifndef Telemetry_h__
 #define Telemetry_h__
 
-#include "mozilla/GuardObjects.h"
-#include "mozilla/StartupTimeline.h"
+#include "mozilla/TelemetryEventEnums.h"
 #include "mozilla/TelemetryHistogramEnums.h"
+#include "mozilla/TelemetryOriginEnums.h"
 #include "mozilla/TelemetryScalarEnums.h"
 #include "mozilla/TimeStamp.h"
 #include "nsString.h"
@@ -35,11 +35,17 @@ struct KeyedHistogramAccumulation;
 struct ScalarAction;
 struct KeyedScalarAction;
 struct ChildEventData;
+struct EventExtraEntry;
 
 /**
  * Initialize the Telemetry service on the main thread at startup.
  */
 void Init();
+
+/**
+ * Shutdown the Telemetry service.
+ */
+void ShutdownTelemetry();
 
 /**
  * Adds sample to a histogram defined in TelemetryHistogramEnums.h
@@ -236,17 +242,12 @@ const char* GetHistogramName(HistogramID id);
 class MOZ_RAII RuntimeAutoTimer {
  public:
   explicit RuntimeAutoTimer(Telemetry::HistogramID aId,
-                            TimeStamp aStart = TimeStamp::Now()
-                                MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
-      : id(aId), start(aStart) {
-    MOZ_GUARD_OBJECT_NOTIFIER_INIT;
-  }
+                            TimeStamp aStart = TimeStamp::Now())
+      : id(aId), start(aStart) {}
   explicit RuntimeAutoTimer(Telemetry::HistogramID aId, const nsCString& aKey,
-                            TimeStamp aStart = TimeStamp::Now()
-                                MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
+                            TimeStamp aStart = TimeStamp::Now())
       : id(aId), key(aKey), start(aStart) {
     MOZ_ASSERT(!aKey.IsEmpty(), "The key must not be empty.");
-    MOZ_GUARD_OBJECT_NOTIFIER_INIT;
   }
 
   ~RuntimeAutoTimer() {
@@ -261,23 +262,16 @@ class MOZ_RAII RuntimeAutoTimer {
   Telemetry::HistogramID id;
   const nsCString key;
   const TimeStamp start;
-  MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
 };
 
 template <HistogramID id>
 class MOZ_RAII AutoTimer {
  public:
-  explicit AutoTimer(TimeStamp aStart = TimeStamp::Now()
-                         MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
-      : start(aStart) {
-    MOZ_GUARD_OBJECT_NOTIFIER_INIT;
-  }
+  explicit AutoTimer(TimeStamp aStart = TimeStamp::Now()) : start(aStart) {}
 
-  explicit AutoTimer(const nsCString& aKey, TimeStamp aStart = TimeStamp::Now()
-                                                MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
+  explicit AutoTimer(const nsCString& aKey, TimeStamp aStart = TimeStamp::Now())
       : start(aStart), key(aKey) {
     MOZ_ASSERT(!aKey.IsEmpty(), "The key must not be empty.");
-    MOZ_GUARD_OBJECT_NOTIFIER_INIT;
   }
 
   ~AutoTimer() {
@@ -291,17 +285,12 @@ class MOZ_RAII AutoTimer {
  private:
   const TimeStamp start;
   const nsCString key;
-  MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
 };
 
 class MOZ_RAII RuntimeAutoCounter {
  public:
-  explicit RuntimeAutoCounter(
-      HistogramID aId,
-      uint32_t counterStart = 0 MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
-      : id(aId), counter(counterStart) {
-    MOZ_GUARD_OBJECT_NOTIFIER_INIT;
-  }
+  explicit RuntimeAutoCounter(HistogramID aId, uint32_t counterStart = 0)
+      : id(aId), counter(counterStart) {}
 
   ~RuntimeAutoCounter() { Accumulate(id, counter); }
 
@@ -332,17 +321,12 @@ class MOZ_RAII RuntimeAutoCounter {
  private:
   HistogramID id;
   uint32_t counter;
-  MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
 };
 
 template <HistogramID id>
 class MOZ_RAII AutoCounter {
  public:
-  explicit AutoCounter(
-      uint32_t counterStart = 0 MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
-      : counter(counterStart) {
-    MOZ_GUARD_OBJECT_NOTIFIER_INIT;
-  }
+  explicit AutoCounter(uint32_t counterStart = 0) : counter(counterStart) {}
 
   ~AutoCounter() { Accumulate(id, counter); }
 
@@ -372,7 +356,6 @@ class MOZ_RAII AutoCounter {
 
  private:
   uint32_t counter;
-  MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
 };
 
 /**
@@ -415,15 +398,6 @@ void RecordSlowSQLStatement(const nsACString& statement,
                             const nsACString& dbName, uint32_t delay);
 
 /**
- * Record Webrtc ICE candidate type combinations in a 17bit bitmask
- *
- * @param iceCandidateBitmask - the bitmask representing local and remote ICE
- *                              candidate types present for the connection
- * @param success - did the peer connection connected
- */
-void RecordWebrtcIceCandidates(const uint32_t iceCandidateBitmask,
-                               const bool success);
-/**
  * Initialize I/O Reporting
  * Initially this only records I/O for files in the binary directory.
  *
@@ -453,30 +427,6 @@ void EnteringShutdownStage();
  */
 const uint32_t kSlowSQLThresholdForMainThread = 50;
 const uint32_t kSlowSQLThresholdForHelperThreads = 100;
-
-class ProcessedStack;
-
-/**
- * Record the main thread's call stack after it hangs.
- *
- * @param aDuration - Approximate duration of main thread hang, in seconds
- * @param aStack - Array of PCs from the hung call stack
- * @param aSystemUptime - System uptime at the time of the hang, in minutes
- * @param aFirefoxUptime - Firefox uptime at the time of the hang, in minutes
- * @param aAnnotations - Any annotations to be added to the report
- */
-#if defined(MOZ_GECKO_PROFILER)
-/**
- * Record the current thread's call stack on demand. Note that, the stack is
- * only captured once. Subsequent calls result in incrementing the capture
- * counter.
- *
- * @param aKey - A user defined key associated with the captured stack.
- *
- * NOTE: Unwinding call stacks is an expensive operation performance-wise.
- */
-void CaptureStack(const nsCString& aKey);
-#endif
 
 /**
  * Record a failed attempt at locking the user's profile.
@@ -567,6 +517,67 @@ void ScalarSet(mozilla::Telemetry::ScalarID aId, const nsAString& aKey,
  */
 void ScalarSetMaximum(mozilla::Telemetry::ScalarID aId, const nsAString& aKey,
                       uint32_t aValue);
+
+template <ScalarID id>
+class MOZ_RAII AutoScalarTimer {
+ public:
+  explicit AutoScalarTimer(TimeStamp aStart = TimeStamp::Now())
+      : start(aStart) {}
+
+  explicit AutoScalarTimer(const nsAString& aKey,
+                           TimeStamp aStart = TimeStamp::Now())
+      : start(aStart), key(aKey) {
+    MOZ_ASSERT(!aKey.IsEmpty(), "The key must not be empty.");
+  }
+
+  ~AutoScalarTimer() {
+    TimeStamp end = TimeStamp::Now();
+    uint32_t delta = static_cast<uint32_t>((end - start).ToMilliseconds());
+    if (key.IsEmpty()) {
+      mozilla::Telemetry::ScalarSet(id, delta);
+    } else {
+      mozilla::Telemetry::ScalarSet(id, key, delta);
+    }
+  }
+
+ private:
+  const TimeStamp start;
+  const nsString key;
+};
+
+/**
+ * Records an event. See the Event documentation for more information:
+ * https://firefox-source-docs.mozilla.org/toolkit/components/telemetry/telemetry/collection/events.html
+ *
+ * @param aId The event enum id.
+ * @param aValue Optional. The event value.
+ * @param aExtra Optional. The event's extra key/value pairs.
+ */
+void RecordEvent(mozilla::Telemetry::EventID aId,
+                 const mozilla::Maybe<nsCString>& aValue,
+                 const mozilla::Maybe<CopyableTArray<EventExtraEntry>>& aExtra);
+
+/**
+ * Enables recording of events in a category.
+ * Events default to recording disabled.
+ * This toggles recording for all events in the specified category.
+ *
+ * @param aCategory The category name.
+ * @param aEnabled Whether recording should be enabled or disabled.
+ */
+void SetEventRecordingEnabled(const nsACString& aCategory, bool aEnabled);
+
+/**
+ * YOU PROBABLY SHOULDN'T USE THIS.
+ * THIS IS AN EXPERIMENTAL API NOT YET READY FOR GENERAL USE.
+ *
+ * Records that the metric is true for the stated origin.
+ *
+ * @param aId the metric.
+ * @param aOrigin the origin on which to record the metric as true.
+ */
+void RecordOrigin(mozilla::Telemetry::OriginMetricID aId,
+                  const nsACString& aOrigin);
 
 }  // namespace Telemetry
 }  // namespace mozilla

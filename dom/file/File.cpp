@@ -15,56 +15,84 @@
 #include "mozilla/dom/Promise.h"
 #include "nsXULAppAPI.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
-File::File(nsISupports* aParent, BlobImpl* aImpl) : Blob(aParent, aImpl) {
+File::File(nsIGlobalObject* aGlobal, BlobImpl* aImpl) : Blob(aGlobal, aImpl) {
   MOZ_ASSERT(aImpl->IsFile());
 }
 
-File::~File() {}
+File::~File() = default;
 
-/* static */ File* File::Create(nsISupports* aParent, BlobImpl* aImpl) {
+/* static */
+File* File::Create(nsIGlobalObject* aGlobal, BlobImpl* aImpl) {
   MOZ_ASSERT(aImpl);
   MOZ_ASSERT(aImpl->IsFile());
 
-  return new File(aParent, aImpl);
+  MOZ_ASSERT(aGlobal);
+  if (NS_WARN_IF(!aGlobal)) {
+    return nullptr;
+  }
+
+  return new File(aGlobal, aImpl);
 }
 
-/* static */ already_AddRefed<File> File::Create(nsISupports* aParent,
-                                                 const nsAString& aName,
-                                                 const nsAString& aContentType,
-                                                 uint64_t aLength,
-                                                 int64_t aLastModifiedDate) {
-  RefPtr<File> file = new File(
-      aParent, new BaseBlobImpl(NS_LITERAL_STRING("BaseBlobImpl"), aName,
-                                aContentType, aLength, aLastModifiedDate));
-  return file.forget();
-}
-
-/* static */ already_AddRefed<File> File::CreateMemoryFile(
-    nsISupports* aParent, void* aMemoryBuffer, uint64_t aLength,
+/* static */
+already_AddRefed<File> File::CreateMemoryFileWithCustomLastModified(
+    nsIGlobalObject* aGlobal, void* aMemoryBuffer, uint64_t aLength,
     const nsAString& aName, const nsAString& aContentType,
     int64_t aLastModifiedDate) {
-  RefPtr<File> file =
-      new File(aParent, new MemoryBlobImpl(aMemoryBuffer, aLength, aName,
-                                           aContentType, aLastModifiedDate));
+  RefPtr<MemoryBlobImpl> blobImpl =
+      MemoryBlobImpl::CreateWithCustomLastModified(
+          aMemoryBuffer, aLength, aName, aContentType, aLastModifiedDate);
+  MOZ_ASSERT(blobImpl);
+
+  RefPtr<File> file = File::Create(aGlobal, blobImpl);
   return file.forget();
 }
 
-/* static */ already_AddRefed<File> File::CreateFromFile(nsISupports* aParent,
-                                                         nsIFile* aFile) {
-  MOZ_DIAGNOSTIC_ASSERT(XRE_IsParentProcess());
-  RefPtr<File> file = new File(aParent, new FileBlobImpl(aFile));
+/* static */
+already_AddRefed<File> File::CreateMemoryFileWithLastModifiedNow(
+    nsIGlobalObject* aGlobal, void* aMemoryBuffer, uint64_t aLength,
+    const nsAString& aName, const nsAString& aContentType) {
+  MOZ_ASSERT(aGlobal);
+
+  RefPtr<MemoryBlobImpl> blobImpl = MemoryBlobImpl::CreateWithLastModifiedNow(
+      aMemoryBuffer, aLength, aName, aContentType,
+      aGlobal->CrossOriginIsolated());
+  MOZ_ASSERT(blobImpl);
+
+  RefPtr<File> file = File::Create(aGlobal, blobImpl);
   return file.forget();
 }
 
-/* static */ already_AddRefed<File> File::CreateFromFile(
-    nsISupports* aParent, nsIFile* aFile, const nsAString& aName,
-    const nsAString& aContentType) {
+/* static */
+already_AddRefed<File> File::CreateFromFile(nsIGlobalObject* aGlobal,
+                                            nsIFile* aFile) {
   MOZ_DIAGNOSTIC_ASSERT(XRE_IsParentProcess());
+
+  MOZ_ASSERT(aGlobal);
+  if (NS_WARN_IF(!aGlobal)) {
+    return nullptr;
+  }
+
+  RefPtr<File> file = new File(aGlobal, new FileBlobImpl(aFile));
+  return file.forget();
+}
+
+/* static */
+already_AddRefed<File> File::CreateFromFile(nsIGlobalObject* aGlobal,
+                                            nsIFile* aFile,
+                                            const nsAString& aName,
+                                            const nsAString& aContentType) {
+  MOZ_DIAGNOSTIC_ASSERT(XRE_IsParentProcess());
+
+  MOZ_ASSERT(aGlobal);
+  if (NS_WARN_IF(!aGlobal)) {
+    return nullptr;
+  }
+
   RefPtr<File> file =
-      new File(aParent, new FileBlobImpl(aFile, aName, aContentType));
+      new File(aGlobal, new FileBlobImpl(aFile, aName, aContentType));
   return file.forget();
 }
 
@@ -92,28 +120,29 @@ int64_t File::GetLastModified(ErrorResult& aRv) {
 }
 
 void File::GetMozFullPath(nsAString& aFilename,
-                          SystemCallerGuarantee aGuarantee,
-                          ErrorResult& aRv) const {
+                          SystemCallerGuarantee aGuarantee, ErrorResult& aRv) {
   mImpl->GetMozFullPath(aFilename, aGuarantee, aRv);
 }
 
-void File::GetMozFullPathInternal(nsAString& aFileName,
-                                  ErrorResult& aRv) const {
+void File::GetMozFullPathInternal(nsAString& aFileName, ErrorResult& aRv) {
   mImpl->GetMozFullPathInternal(aFileName, aRv);
 }
 
-/* static */ already_AddRefed<File> File::Constructor(
-    const GlobalObject& aGlobal, const Sequence<BlobPart>& aData,
-    const nsAString& aName, const FilePropertyBag& aBag, ErrorResult& aRv) {
-  // Normalizing the filename
-  nsString name(aName);
-  name.ReplaceChar('/', ':');
+/* static */
+already_AddRefed<File> File::Constructor(const GlobalObject& aGlobal,
+                                         const Sequence<BlobPart>& aData,
+                                         const nsAString& aName,
+                                         const FilePropertyBag& aBag,
+                                         ErrorResult& aRv) {
+  RefPtr<MultipartBlobImpl> impl = new MultipartBlobImpl(aName);
 
-  RefPtr<MultipartBlobImpl> impl = new MultipartBlobImpl(name);
+  nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(aGlobal.GetAsSupports());
+  MOZ_ASSERT(global);
 
   nsAutoString type(aBag.mType);
   MakeValidBlobType(type);
-  impl->InitializeBlob(aData, type, aBag.mEndings == EndingTypes::Native, aRv);
+  impl->InitializeBlob(aData, type, aBag.mEndings == EndingType::Native,
+                       global->CrossOriginIsolated(), aRv);
   if (aRv.Failed()) {
     return nullptr;
   }
@@ -123,22 +152,30 @@ void File::GetMozFullPathInternal(nsAString& aFileName,
     impl->SetLastModified(aBag.mLastModified.Value());
   }
 
-  RefPtr<File> file = new File(aGlobal.GetAsSupports(), impl);
+  RefPtr<File> file = new File(global, impl);
   return file.forget();
 }
 
-/* static */ already_AddRefed<Promise> File::CreateFromNsIFile(
+/* static */
+already_AddRefed<Promise> File::CreateFromNsIFile(
     const GlobalObject& aGlobal, nsIFile* aData,
     const ChromeFilePropertyBag& aBag, SystemCallerGuarantee aGuarantee,
     ErrorResult& aRv) {
   nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(aGlobal.GetAsSupports());
+
+  MOZ_ASSERT(global);
+  if (NS_WARN_IF(!global)) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return nullptr;
+  }
 
   RefPtr<Promise> promise =
       FileCreatorHelper::CreateFile(global, aData, aBag, true, aRv);
   return promise.forget();
 }
 
-/* static */ already_AddRefed<Promise> File::CreateFromFileName(
+/* static */
+already_AddRefed<Promise> File::CreateFromFileName(
     const GlobalObject& aGlobal, const nsAString& aPath,
     const ChromeFilePropertyBag& aBag, SystemCallerGuarantee aGuarantee,
     ErrorResult& aRv) {
@@ -150,10 +187,15 @@ void File::GetMozFullPathInternal(nsAString& aFileName,
 
   nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(aGlobal.GetAsSupports());
 
+  MOZ_ASSERT(global);
+  if (NS_WARN_IF(!global)) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return nullptr;
+  }
+
   RefPtr<Promise> promise =
       FileCreatorHelper::CreateFile(global, file, aBag, false, aRv);
   return promise.forget();
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

@@ -180,6 +180,25 @@ void LIRGeneratorMIPSShared::lowerForBitAndAndBranch(LBitAndAndBranch* baab,
   add(baab, mir);
 }
 
+void LIRGeneratorMIPSShared::lowerWasmBuiltinTruncateToInt32(
+    MWasmBuiltinTruncateToInt32* ins) {
+  MDefinition* opd = ins->input();
+  MOZ_ASSERT(opd->type() == MIRType::Double || opd->type() == MIRType::Float32);
+
+  if (opd->type() == MIRType::Double) {
+    define(new (alloc()) LWasmBuiltinTruncateDToInt32(
+               useRegister(opd), useFixed(ins->tls(), WasmTlsReg),
+               LDefinition::BogusTemp()),
+           ins);
+    return;
+  }
+
+  define(new (alloc()) LWasmBuiltinTruncateFToInt32(
+             useRegister(opd), useFixed(ins->tls(), WasmTlsReg),
+             LDefinition::BogusTemp()),
+         ins);
+}
+
 void LIRGeneratorMIPSShared::lowerForShift(LInstructionHelper<1, 2, 0>* ins,
                                            MDefinition* mir, MDefinition* lhs,
                                            MDefinition* rhs) {
@@ -208,7 +227,7 @@ void LIRGeneratorMIPSShared::lowerDivI(MDiv* div) {
       LDivPowTwoI* lir =
           new (alloc()) LDivPowTwoI(useRegister(div->lhs()), shift, temp());
       if (div->fallible()) {
-        assignSnapshot(lir, Bailout_DoubleOutput);
+        assignSnapshot(lir, div->bailoutKind());
       }
       define(lir, div);
       return;
@@ -218,7 +237,7 @@ void LIRGeneratorMIPSShared::lowerDivI(MDiv* div) {
   LDivI* lir = new (alloc())
       LDivI(useRegister(div->lhs()), useRegister(div->rhs()), temp());
   if (div->fallible()) {
-    assignSnapshot(lir, Bailout_DoubleOutput);
+    assignSnapshot(lir, div->bailoutKind());
   }
   define(lir, div);
 }
@@ -227,7 +246,7 @@ void LIRGeneratorMIPSShared::lowerMulI(MMul* mul, MDefinition* lhs,
                                        MDefinition* rhs) {
   LMulI* lir = new (alloc()) LMulI;
   if (mul->fallible()) {
-    assignSnapshot(lir, Bailout_DoubleOutput);
+    assignSnapshot(lir, mul->bailoutKind());
   }
 
   lowerForALU(lir, mul, lhs, rhs);
@@ -246,7 +265,7 @@ void LIRGeneratorMIPSShared::lowerModI(MMod* mod) {
       LModPowTwoI* lir =
           new (alloc()) LModPowTwoI(useRegister(mod->lhs()), shift);
       if (mod->fallible()) {
-        assignSnapshot(lir, Bailout_DoubleOutput);
+        assignSnapshot(lir, mod->bailoutKind());
       }
       define(lir, mod);
       return;
@@ -255,7 +274,7 @@ void LIRGeneratorMIPSShared::lowerModI(MMod* mod) {
           LModMaskI(useRegister(mod->lhs()), temp(LDefinition::GENERAL),
                     temp(LDefinition::GENERAL), shift + 1);
       if (mod->fallible()) {
-        assignSnapshot(lir, Bailout_DoubleOutput);
+        assignSnapshot(lir, mod->bailoutKind());
       }
       define(lir, mod);
       return;
@@ -266,7 +285,7 @@ void LIRGeneratorMIPSShared::lowerModI(MMod* mod) {
                           temp(LDefinition::GENERAL));
 
   if (mod->fallible()) {
-    assignSnapshot(lir, Bailout_DoubleOutput);
+    assignSnapshot(lir, mod->bailoutKind());
   }
   define(lir, mod);
 }
@@ -302,6 +321,15 @@ void LIRGeneratorMIPSShared::lowerUrshD(MUrsh* mir) {
   define(lir, mir);
 }
 
+void LIRGeneratorMIPSShared::lowerPowOfTwoI(MPow* mir) {
+  int32_t base = mir->input()->toConstant()->toInt32();
+  MDefinition* power = mir->power();
+
+  auto* lir = new (alloc()) LPowOfTwoI(base, useRegister(power));
+  assignSnapshot(lir, mir->bailoutKind());
+  define(lir, mir);
+}
+
 void LIRGenerator::visitWasmNeg(MWasmNeg* ins) {
   if (ins->type() == MIRType::Int32) {
     define(new (alloc()) LNegI(useRegisterAtStart(ins->input())), ins);
@@ -311,6 +339,11 @@ void LIRGenerator::visitWasmNeg(MWasmNeg* ins) {
     MOZ_ASSERT(ins->type() == MIRType::Double);
     define(new (alloc()) LNegD(useRegisterAtStart(ins->input())), ins);
   }
+}
+
+void LIRGenerator::visitWasmHeapBase(MWasmHeapBase* ins) {
+  auto* lir = new (alloc()) LWasmHeapBase(LAllocation());
+  define(lir, ins);
 }
 
 void LIRGenerator::visitWasmLoad(MWasmLoad* ins) {
@@ -435,23 +468,6 @@ void LIRGenerator::visitWasmStore(MWasmStore* ins) {
   add(lir, ins);
 }
 
-void LIRGenerator::visitWasmSelect(MWasmSelect* ins) {
-  if (ins->type() == MIRType::Int64) {
-    auto* lir = new (alloc()) LWasmSelectI64(
-        useInt64RegisterAtStart(ins->trueExpr()), useInt64(ins->falseExpr()),
-        useRegister(ins->condExpr()));
-
-    defineInt64ReuseInput(lir, ins, LWasmSelectI64::TrueExprIndex);
-    return;
-  }
-
-  auto* lir = new (alloc())
-      LWasmSelect(useRegisterAtStart(ins->trueExpr()), use(ins->falseExpr()),
-                  useRegister(ins->condExpr()));
-
-  defineReuseInput(lir, ins, LWasmSelect::TrueExprIndex);
-}
-
 void LIRGeneratorMIPSShared::lowerUDiv(MDiv* div) {
   MDefinition* lhs = div->getOperand(0);
   MDefinition* rhs = div->getOperand(1);
@@ -460,7 +476,7 @@ void LIRGeneratorMIPSShared::lowerUDiv(MDiv* div) {
   lir->setOperand(0, useRegister(lhs));
   lir->setOperand(1, useRegister(rhs));
   if (div->fallible()) {
-    assignSnapshot(lir, Bailout_DoubleOutput);
+    assignSnapshot(lir, div->bailoutKind());
   }
 
   define(lir, div);
@@ -474,7 +490,7 @@ void LIRGeneratorMIPSShared::lowerUMod(MMod* mod) {
   lir->setOperand(0, useRegister(lhs));
   lir->setOperand(1, useRegister(rhs));
   if (mod->fallible()) {
-    assignSnapshot(lir, Bailout_DoubleOutput);
+    assignSnapshot(lir, mod->bailoutKind());
   }
 
   define(lir, mod);

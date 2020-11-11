@@ -4,22 +4,21 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef MOZILLA_SVGANIMATEDLENGTHLIST_H__
-#define MOZILLA_SVGANIMATEDLENGTHLIST_H__
+#ifndef DOM_SVG_SVGANIMATEDLENGTHLIST_H_
+#define DOM_SVG_SVGANIMATEDLENGTHLIST_H_
 
 #include "mozilla/Attributes.h"
+#include "mozilla/SMILAttr.h"
 #include "mozilla/UniquePtr.h"
-#include "nsAutoPtr.h"
-#include "nsISMILAttr.h"
 #include "SVGLengthList.h"
-
-class nsSMILValue;
-class nsSVGElement;
 
 namespace mozilla {
 
+class SMILValue;
+
 namespace dom {
 class SVGAnimationElement;
+class SVGElement;
 }  // namespace dom
 
 /**
@@ -38,11 +37,11 @@ class SVGAnimationElement;
  */
 class SVGAnimatedLengthList {
   // friends so that they can get write access to mBaseVal
-  friend class DOMSVGLength;
-  friend class DOMSVGLengthList;
+  friend class dom::DOMSVGLength;
+  friend class dom::DOMSVGLengthList;
 
  public:
-  SVGAnimatedLengthList() {}
+  SVGAnimatedLengthList() = default;
 
   /**
    * Because it's so important that mBaseVal and its DOMSVGLengthList wrapper
@@ -61,16 +60,16 @@ class SVGAnimatedLengthList {
     return mAnimVal ? *mAnimVal : mBaseVal;
   }
 
-  nsresult SetAnimValue(const SVGLengthList& aValue, nsSVGElement* aElement,
-                        uint32_t aAttrEnum);
+  nsresult SetAnimValue(const SVGLengthList& aNewAnimValue,
+                        dom::SVGElement* aElement, uint32_t aAttrEnum);
 
-  void ClearAnimValue(nsSVGElement* aElement, uint32_t aAttrEnum);
+  void ClearAnimValue(dom::SVGElement* aElement, uint32_t aAttrEnum);
 
   bool IsAnimating() const { return !!mAnimVal; }
 
-  UniquePtr<nsISMILAttr> ToSMILAttr(nsSVGElement* aSVGElement,
-                                    uint8_t aAttrEnum, uint8_t aAxis,
-                                    bool aCanZeroPadList);
+  UniquePtr<SMILAttr> ToSMILAttr(dom::SVGElement* aSVGElement,
+                                 uint8_t aAttrEnum, uint8_t aAxis,
+                                 bool aCanZeroPadList);
 
  private:
   // mAnimVal is a pointer to allow us to determine if we're being animated or
@@ -79,12 +78,12 @@ class SVGAnimatedLengthList {
   // the empty string (<set to="">).
 
   SVGLengthList mBaseVal;
-  nsAutoPtr<SVGLengthList> mAnimVal;
+  UniquePtr<SVGLengthList> mAnimVal;
 
-  struct SMILAnimatedLengthList : public nsISMILAttr {
+  struct SMILAnimatedLengthList : public SMILAttr {
    public:
     SMILAnimatedLengthList(SVGAnimatedLengthList* aVal,
-                           nsSVGElement* aSVGElement, uint8_t aAttrEnum,
+                           dom::SVGElement* aSVGElement, uint8_t aAttrEnum,
                            uint8_t aAxis, bool aCanZeroPadList)
         : mVal(aVal),
           mElement(aSVGElement),
@@ -92,25 +91,25 @@ class SVGAnimatedLengthList {
           mAxis(aAxis),
           mCanZeroPadList(aCanZeroPadList) {}
 
-    // These will stay alive because a nsISMILAttr only lives as long
+    // These will stay alive because a SMILAttr only lives as long
     // as the Compositing step, and DOM elements don't get a chance to
     // die during that.
     SVGAnimatedLengthList* mVal;
-    nsSVGElement* mElement;
+    dom::SVGElement* mElement;
     uint8_t mAttrEnum;
     uint8_t mAxis;
     bool mCanZeroPadList;  // See SVGLengthListAndInfo::CanZeroPadList
 
-    // nsISMILAttr methods
+    // SMILAttr methods
     virtual nsresult ValueFromString(
         const nsAString& aStr, const dom::SVGAnimationElement* aSrcElement,
-        nsSMILValue& aValue, bool& aPreventCachingOfSandwich) const override;
-    virtual nsSMILValue GetBaseValue() const override;
+        SMILValue& aValue, bool& aPreventCachingOfSandwich) const override;
+    virtual SMILValue GetBaseValue() const override;
     virtual void ClearAnimValue() override;
-    virtual nsresult SetAnimValue(const nsSMILValue& aValue) override;
+    virtual nsresult SetAnimValue(const SMILValue& aValue) override;
   };
 };
 
 }  // namespace mozilla
 
-#endif  // MOZILLA_SVGANIMATEDLENGTHLIST_H__
+#endif  // DOM_SVG_SVGANIMATEDLENGTHLIST_H_

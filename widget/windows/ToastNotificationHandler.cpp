@@ -6,17 +6,22 @@
 
 #include "ToastNotificationHandler.h"
 
+#include "WidgetUtils.h"
+#include "WinTaskbar.h"
+#include "WinUtils.h"
+#include "imgIContainer.h"
 #include "imgIRequest.h"
-#include "mozilla/gfx/2D.h"
 #include "mozilla/WindowsVersion.h"
+#include "mozilla/gfx/2D.h"
 #include "nsDirectoryServiceDefs.h"
 #include "nsIStringBundle.h"
 #include "nsIURI.h"
 #include "nsIUUIDGenerator.h"
+#include "nsIWidget.h"
+#include "nsIWindowMediator.h"
 #include "nsNetUtil.h"
+#include "nsPIDOMWindow.h"
 #include "nsProxyRelease.h"
-#include "WinTaskbar.h"
-#include "WinUtils.h"
 
 #include "ToastNotification.h"
 
@@ -96,7 +101,7 @@ static bool AddActionNode(IXmlDocument* toastXml, IXmlNode* actionsNode,
   }
   if (NS_WARN_IF(!SetAttribute(action.Get(),
                                HStringReference(L"placement").Get(),
-                               NS_LITERAL_STRING("contextmenu")))) {
+                               u"contextmenu"_ns))) {
     return false;
   }
 
@@ -141,12 +146,21 @@ ToastNotificationHandler::~ToastNotificationHandler() {
     NS_ASSERTION(NS_SUCCEEDED(rv), "Cannot remove temporary image file");
   }
 
+  UnregisterHandler();
+}
+
+void ToastNotificationHandler::UnregisterHandler() {
   if (mNotification && mNotifier) {
     mNotification->remove_Dismissed(mDismissedToken);
     mNotification->remove_Activated(mActivatedToken);
     mNotification->remove_Failed(mFailedToken);
     mNotifier->Hide(mNotification.Get());
   }
+
+  mNotification = nullptr;
+  mNotifier = nullptr;
+
+  SendFinished();
 }
 
 ComPtr<IXmlDocument> ToastNotificationHandler::InitializeXmlForTemplate(
@@ -278,7 +292,7 @@ bool ToastNotificationHandler::ShowAlert() {
   }
 
   if (!mHostPort.IsEmpty()) {
-    const char16_t* formatStrings[] = {mHostPort.get()};
+    AutoTArray<nsString, 1> formatStrings = {mHostPort};
 
     ComPtr<IXmlNode> urlTextNodeRoot;
     hr = toastTextElements->Item(2, &urlTextNodeRoot);
@@ -287,8 +301,7 @@ bool ToastNotificationHandler::ShowAlert() {
     }
 
     nsAutoString urlReference;
-    bundle->FormatStringFromName("source.label", formatStrings,
-                                 ArrayLength(formatStrings), urlReference);
+    bundle->FormatStringFromName("source.label", formatStrings, urlReference);
 
     if (NS_WARN_IF(!SetNodeValueString(urlReference, urlTextNodeRoot.Get(),
                                        toastXml.Get()))) {
@@ -301,23 +314,22 @@ bool ToastNotificationHandler::ShowAlert() {
       if (SUCCEEDED(hr)) {
         // placement is supported on Windows 10 Anniversary Update or later
         SetAttribute(placementText.Get(), HStringReference(L"placement").Get(),
-                     NS_LITERAL_STRING("attribution"));
+                     u"attribution"_ns);
       }
     }
 
     nsAutoString disableButtonTitle;
     bundle->FormatStringFromName("webActions.disableForOrigin.label",
-                                 formatStrings, ArrayLength(formatStrings),
-                                 disableButtonTitle);
+                                 formatStrings, disableButtonTitle);
 
     AddActionNode(toastXml.Get(), actionsNode.Get(), disableButtonTitle,
-                  NS_LITERAL_STRING("snooze"));
+                  u"snooze"_ns);
   }
 
   nsAutoString settingsButtonTitle;
   bundle->GetStringFromName("webActions.settings.label", settingsButtonTitle);
   AddActionNode(toastXml.Get(), actionsNode.Get(), settingsButtonTitle,
-                NS_LITERAL_STRING("settings"));
+                u"settings"_ns);
 
   ComPtr<IXmlNode> appendedChild;
   hr = toastNodeRoot->AppendChild(actionsNode.Get(), &appendedChild);
@@ -350,8 +362,7 @@ bool ToastNotificationHandler::CreateWindowsNotificationFromXml(
       Callback<ToastActivationHandler>([self](IToastNotification* aNotification,
                                               IInspectable* aInspectable) {
         return self->OnActivate(aNotification, aInspectable);
-      })
-          .Get(),
+      }).Get(),
       &mActivatedToken);
   if (NS_WARN_IF(FAILED(hr))) {
     return false;
@@ -361,8 +372,7 @@ bool ToastNotificationHandler::CreateWindowsNotificationFromXml(
       Callback<ToastDismissedHandler>([self](IToastNotification* aNotification,
                                              IToastDismissedEventArgs* aArgs) {
         return self->OnDismiss(aNotification, aArgs);
-      })
-          .Get(),
+      }).Get(),
       &mDismissedToken);
   if (NS_WARN_IF(FAILED(hr))) {
     return false;
@@ -372,8 +382,7 @@ bool ToastNotificationHandler::CreateWindowsNotificationFromXml(
       Callback<ToastFailedHandler>([self](IToastNotification* aNotification,
                                           IToastFailedEventArgs* aArgs) {
         return self->OnFail(aNotification, aArgs);
-      })
-          .Get(),
+      }).Get(),
       &mFailedToken);
   if (NS_WARN_IF(FAILED(hr))) {
     return false;
@@ -410,6 +419,14 @@ bool ToastNotificationHandler::CreateWindowsNotificationFromXml(
   return true;
 }
 
+void ToastNotificationHandler::SendFinished() {
+  if (!mSentFinished && mAlertListener) {
+    mAlertListener->Observe(nullptr, "alertfinished", mCookie.get());
+  }
+
+  mSentFinished = true;
+}
+
 HRESULT
 ToastNotificationHandler::OnActivate(IToastNotification* notification,
                                      IInspectable* inspectable) {
@@ -437,6 +454,23 @@ ToastNotificationHandler::OnActivate(IToastNotification* notification,
     } else if (argString.EqualsLiteral("snooze")) {
       mAlertListener->Observe(nullptr, "alertdisablecallback", mCookie.get());
     } else if (mClickable) {
+      // When clicking toast, focus moves to another process, but we want to set
+      // focus on Firefox process.
+      nsCOMPtr<nsIWindowMediator> winMediator(
+          do_GetService(NS_WINDOWMEDIATOR_CONTRACTID));
+      if (winMediator) {
+        nsCOMPtr<mozIDOMWindowProxy> navWin;
+        winMediator->GetMostRecentWindow(u"navigator:browser",
+                                         getter_AddRefs(navWin));
+        if (navWin) {
+          nsCOMPtr<nsIWidget> widget =
+              WidgetUtils::DOMWindowToWidget(nsPIDOMWindowOuter::From(navWin));
+          if (widget) {
+            SetForegroundWindow(
+                static_cast<HWND>(widget->GetNativeData(NS_NATIVE_WINDOW)));
+          }
+        }
+      }
       mAlertListener->Observe(nullptr, "alertclickcallback", mCookie.get());
     }
   }
@@ -447,9 +481,7 @@ ToastNotificationHandler::OnActivate(IToastNotification* notification,
 HRESULT
 ToastNotificationHandler::OnDismiss(IToastNotification* notification,
                                     IToastDismissedEventArgs* aArgs) {
-  if (mAlertListener) {
-    mAlertListener->Observe(nullptr, "alertfinished", mCookie.get());
-  }
+  SendFinished();
   mBackend->RemoveHandler(mName, this);
   return S_OK;
 }
@@ -457,9 +489,7 @@ ToastNotificationHandler::OnDismiss(IToastNotification* notification,
 HRESULT
 ToastNotificationHandler::OnFail(IToastNotification* notification,
                                  IToastFailedEventArgs* aArgs) {
-  if (mAlertListener) {
-    mAlertListener->Observe(nullptr, "alertfinished", mCookie.get());
-  }
+  SendFinished();
   mBackend->RemoveHandler(mName, this);
   return S_OK;
 }
@@ -471,6 +501,7 @@ nsresult ToastNotificationHandler::TryShowAlert() {
   }
   return NS_OK;
 }
+
 NS_IMETHODIMP
 ToastNotificationHandler::OnImageMissing(nsISupports*) {
   return TryShowAlert();
@@ -492,7 +523,7 @@ nsresult ToastNotificationHandler::AsyncSaveImage(imgIRequest* aRequest) {
     return rv;
   }
 
-  rv = mImageFile->Append(NS_LITERAL_STRING("notificationimages"));
+  rv = mImageFile->Append(u"notificationimages"_ns);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -533,7 +564,8 @@ nsresult ToastNotificationHandler::AsyncSaveImage(imgIRequest* aRequest) {
 
   nsCOMPtr<nsIFile> imageFile(mImageFile);
   RefPtr<mozilla::gfx::SourceSurface> surface = imgContainer->GetFrame(
-      imgIContainer::FRAME_FIRST, imgIContainer::FLAG_SYNC_DECODE);
+      imgIContainer::FRAME_FIRST,
+      imgIContainer::FLAG_SYNC_DECODE | imgIContainer::FLAG_ASYNC_NOTIFY);
   nsCOMPtr<nsIRunnable> r = NS_NewRunnableFunction(
       "ToastNotificationHandler::AsyncWriteBitmap",
       [self, imageFile, surface]() -> void {

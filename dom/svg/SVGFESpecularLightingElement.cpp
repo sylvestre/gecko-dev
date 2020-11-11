@@ -6,10 +6,9 @@
 
 #include "mozilla/dom/SVGFESpecularLightingElement.h"
 #include "mozilla/dom/SVGFESpecularLightingElementBinding.h"
-#include "nsSVGUtils.h"
-#include "nsSVGFilterInstance.h"
+#include "mozilla/SVGFilterInstance.h"
 
-NS_IMPL_NS_NEW_NAMESPACED_SVG_ELEMENT(FESpecularLighting)
+NS_IMPL_NS_NEW_SVG_ELEMENT(FESpecularLighting)
 
 using namespace mozilla::gfx;
 
@@ -26,43 +25,43 @@ JSObject* SVGFESpecularLightingElement::WrapNode(
 
 NS_IMPL_ELEMENT_CLONE_WITH_INIT(SVGFESpecularLightingElement)
 
-already_AddRefed<SVGAnimatedString> SVGFESpecularLightingElement::In1() {
+already_AddRefed<DOMSVGAnimatedString> SVGFESpecularLightingElement::In1() {
   return mStringAttributes[IN1].ToDOMAnimatedString(this);
 }
 
-already_AddRefed<SVGAnimatedNumber>
+already_AddRefed<DOMSVGAnimatedNumber>
 SVGFESpecularLightingElement::SurfaceScale() {
   return mNumberAttributes[SURFACE_SCALE].ToDOMAnimatedNumber(this);
 }
 
-already_AddRefed<SVGAnimatedNumber>
+already_AddRefed<DOMSVGAnimatedNumber>
 SVGFESpecularLightingElement::SpecularConstant() {
   return mNumberAttributes[SPECULAR_CONSTANT].ToDOMAnimatedNumber(this);
 }
 
-already_AddRefed<SVGAnimatedNumber>
+already_AddRefed<DOMSVGAnimatedNumber>
 SVGFESpecularLightingElement::SpecularExponent() {
   return mNumberAttributes[SPECULAR_EXPONENT].ToDOMAnimatedNumber(this);
 }
 
-already_AddRefed<SVGAnimatedNumber>
+already_AddRefed<DOMSVGAnimatedNumber>
 SVGFESpecularLightingElement::KernelUnitLengthX() {
   return mNumberPairAttributes[KERNEL_UNIT_LENGTH].ToDOMAnimatedNumber(
-      nsSVGNumberPair::eFirst, this);
+      SVGAnimatedNumberPair::eFirst, this);
 }
 
-already_AddRefed<SVGAnimatedNumber>
+already_AddRefed<DOMSVGAnimatedNumber>
 SVGFESpecularLightingElement::KernelUnitLengthY() {
   return mNumberPairAttributes[KERNEL_UNIT_LENGTH].ToDOMAnimatedNumber(
-      nsSVGNumberPair::eSecond, this);
+      SVGAnimatedNumberPair::eSecond, this);
 }
 
 //----------------------------------------------------------------------
-// nsSVGElement methods
+// SVGElement methods
 
 FilterPrimitiveDescription
 SVGFESpecularLightingElement::GetPrimitiveDescription(
-    nsSVGFilterInstance* aInstance, const IntRect& aFilterSubregion,
+    SVGFilterInstance* aInstance, const IntRect& aFilterSubregion,
     const nsTArray<bool>& aInputsAreTainted,
     nsTArray<RefPtr<SourceSurface>>& aInputImages) {
   float specularExponent = mNumberAttributes[SPECULAR_EXPONENT].GetAnimValue();

@@ -110,7 +110,7 @@ class AttrArray {
 
   // Force this to have mapped attributes, even if those attributes are empty.
   nsresult ForceMapped(nsMappedAttributeElement* aContent,
-                       nsIDocument* aDocument);
+                       mozilla::dom::Document* aDocument);
 
   // Clear the servo declaration block on the mapped attributes, if any
   // Will assert off main thread
@@ -169,8 +169,8 @@ class AttrArray {
 #ifdef _MSC_VER
 // Disable MSVC warning 'nonstandard extension used: zero-sized array in
 // struct/union'
-#pragma warning(push)
-#pragma warning(disable : 4200)
+#  pragma warning(push)
+#  pragma warning(disable : 4200)
 #endif
   class Impl {
    public:
@@ -178,13 +178,12 @@ class AttrArray {
       return sizeof(Impl) + aAttrCount * sizeof(InternalAttr);
     }
 
-    mozilla::Span<const InternalAttr> NonMappedAttrs() const {
-      return mozilla::MakeSpan(static_cast<const InternalAttr*>(mBuffer),
-                               mAttrCount);
+    auto NonMappedAttrs() const {
+      return mozilla::Span<const InternalAttr>{mBuffer, mAttrCount};
     }
 
-    mozilla::Span<InternalAttr> NonMappedAttrs() {
-      return mozilla::MakeSpan(static_cast<InternalAttr*>(mBuffer), mAttrCount);
+    auto NonMappedAttrs() {
+      return mozilla::Span<InternalAttr>{mBuffer, mAttrCount};
     }
 
     Impl(const Impl&) = delete;
@@ -201,7 +200,7 @@ class AttrArray {
     InternalAttr mBuffer[0];
   };
 #ifdef _MSC_VER
-#pragma warning(pop)
+#  pragma warning(pop)
 #endif
 
   mozilla::Span<InternalAttr> NonMappedAttrs() {

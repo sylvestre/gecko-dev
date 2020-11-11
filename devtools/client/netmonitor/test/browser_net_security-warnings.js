@@ -16,7 +16,9 @@ const TEST_CASES = [
 ];
 
 add_task(async function() {
-  const { tab, monitor } = await initNetMonitor(CUSTOM_GET_URL);
+  const { tab, monitor } = await initNetMonitor(CUSTOM_GET_URL, {
+    requestCount: 1,
+  });
   const { document, store, windowRequire } = monitor.panelWin;
   const Actions = windowRequire("devtools/client/netmonitor/src/actions/index");
 
@@ -27,28 +29,36 @@ add_task(async function() {
 
     info("Performing request to " + test.uri);
     let wait = waitForNetworkEvents(monitor, 1);
-    await ContentTask.spawn(tab.linkedBrowser, test.uri, async function(url) {
+    await SpecialPowers.spawn(tab.linkedBrowser, [test.uri], async function(
+      url
+    ) {
       content.wrappedJSObject.performRequests(1, url);
     });
     await wait;
 
     info("Selecting the request.");
     wait = waitForDOM(document, ".tabs");
-    EventUtils.sendMouseEvent({ type: "mousedown" },
-      document.querySelectorAll(".request-list-item")[0]);
+    EventUtils.sendMouseEvent(
+      { type: "mousedown" },
+      document.querySelectorAll(".request-list-item")[0]
+    );
     await wait;
 
     if (!document.querySelector("#security-tab[aria-selected=true]")) {
       info("Selecting security tab.");
       wait = waitForDOM(document, "#security-panel .properties-view");
-      EventUtils.sendMouseEvent({ type: "click" },
-        document.querySelector("#security-tab"));
+      EventUtils.sendMouseEvent(
+        { type: "click" },
+        document.querySelector("#security-tab")
+      );
       await wait;
     }
 
-    is(document.querySelector("#security-warning-cipher"),
+    is(
+      document.querySelector("#security-warning-cipher"),
       test.warnCipher,
-      "Cipher suite warning is hidden.");
+      "Cipher suite warning is hidden."
+    );
 
     store.dispatch(Actions.clearRequests());
   }

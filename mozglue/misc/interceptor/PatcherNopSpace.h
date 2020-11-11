@@ -9,7 +9,7 @@
 
 #if defined(_M_IX86)
 
-#include "mozilla/interceptor/PatcherBase.h"
+#  include "mozilla/interceptor/PatcherBase.h"
 
 namespace mozilla {
 namespace interceptor {
@@ -23,7 +23,7 @@ class WindowsDllNopSpacePatcher final : public WindowsDllPatcherBase<VMPolicy> {
 
  public:
   template <typename... Args>
-  explicit WindowsDllNopSpacePatcher(Args... aArgs)
+  explicit WindowsDllNopSpacePatcher(Args&&... aArgs)
       : WindowsDllPatcherBase<VMPolicy>(std::forward<Args>(aArgs)...) {}
 
   ~WindowsDllNopSpacePatcher() { Clear(); }
@@ -122,9 +122,9 @@ class WindowsDllNopSpacePatcher final : public WindowsDllPatcherBase<VMPolicy> {
 
   bool AddHook(FARPROC aTargetFn, intptr_t aHookDest, void** aOrigFunc) {
     if (!IsCompatible()) {
-#if defined(MOZILLA_INTERNAL_API)
+#  if defined(MOZILLA_INTERNAL_API)
       NS_WARNING("NOP space patching is unavailable for compatibility reasons");
-#endif
+#  endif
       return false;
     }
 

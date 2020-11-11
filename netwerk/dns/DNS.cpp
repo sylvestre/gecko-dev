@@ -6,20 +6,22 @@
 
 #include "mozilla/net/DNS.h"
 
+#include "mozilla/ArrayUtils.h"
 #include "mozilla/Assertions.h"
 #include "mozilla/mozalloc.h"
-#include "mozilla/ArrayUtils.h"
+#include "mozilla/StaticPrefs_network.h"
+#include "nsContentUtils.h"
 #include "nsString.h"
 #include <string.h>
 
 #ifdef XP_WIN
-#include "ws2tcpip.h"
+#  include "ws2tcpip.h"
 #endif
 
 namespace mozilla {
 namespace net {
 
-const char *inet_ntop_internal(int af, const void *src, char *dst,
+const char* inet_ntop_internal(int af, const void* src, char* dst,
                                socklen_t size) {
 #ifdef XP_WIN
   if (af == AF_INET) {
@@ -27,7 +29,7 @@ const char *inet_ntop_internal(int af, const void *src, char *dst,
     memset(&s, 0, sizeof(s));
     s.sin_family = AF_INET;
     memcpy(&s.sin_addr, src, sizeof(struct in_addr));
-    int result = getnameinfo((struct sockaddr *)&s, sizeof(struct sockaddr_in),
+    int result = getnameinfo((struct sockaddr*)&s, sizeof(struct sockaddr_in),
                              dst, size, nullptr, 0, NI_NUMERICHOST);
     if (result == 0) {
       return dst;
@@ -37,7 +39,7 @@ const char *inet_ntop_internal(int af, const void *src, char *dst,
     memset(&s, 0, sizeof(s));
     s.sin6_family = AF_INET6;
     memcpy(&s.sin6_addr, src, sizeof(struct in_addr6));
-    int result = getnameinfo((struct sockaddr *)&s, sizeof(struct sockaddr_in6),
+    int result = getnameinfo((struct sockaddr*)&s, sizeof(struct sockaddr_in6),
                              dst, size, nullptr, 0, NI_NUMERICHOST);
     if (result == 0) {
       return dst;
@@ -51,7 +53,7 @@ const char *inet_ntop_internal(int af, const void *src, char *dst,
 
 // Copies the contents of a PRNetAddr to a NetAddr.
 // Does not do a ptr safety check!
-void PRNetAddrToNetAddr(const PRNetAddr *prAddr, NetAddr *addr) {
+void PRNetAddrToNetAddr(const PRNetAddr* prAddr, NetAddr* addr) {
   if (prAddr->raw.family == PR_AF_INET) {
     addr->inet.family = AF_INET;
     addr->inet.port = prAddr->inet.port;
@@ -73,7 +75,7 @@ void PRNetAddrToNetAddr(const PRNetAddr *prAddr, NetAddr *addr) {
 
 // Copies the contents of a NetAddr to a PRNetAddr.
 // Does not do a ptr safety check!
-void NetAddrToPRNetAddr(const NetAddr *addr, PRNetAddr *prAddr) {
+void NetAddrToPRNetAddr(const NetAddr* addr, PRNetAddr* prAddr) {
   if (addr->raw.family == AF_INET) {
     prAddr->inet.family = PR_AF_INET;
     prAddr->inet.port = addr->inet.port;
@@ -98,7 +100,8 @@ void NetAddrToPRNetAddr(const NetAddr *addr, PRNetAddr *prAddr) {
 #endif
 }
 
-bool NetAddrToString(const NetAddr *addr, char *buf, uint32_t bufSize) {
+bool NetAddr::ToStringBuffer(char* buf, uint32_t bufSize) const {
+  const NetAddr* addr = this;
   if (addr->raw.family == AF_INET) {
     if (bufSize < INET_ADDRSTRLEN) {
       return false;
@@ -116,7 +119,7 @@ bool NetAddrToString(const NetAddr *addr, char *buf, uint32_t bufSize) {
     return !!inet_ntop_internal(AF_INET6, &nativeAddr, buf, bufSize);
   }
 #if defined(XP_UNIX)
-  else if (addr->raw.family == AF_LOCAL) {
+  if (addr->raw.family == AF_LOCAL) {
     if (bufSize < sizeof(addr->local.path)) {
       // Many callers don't bother checking our return value, so
       // null-terminate just in case.
@@ -138,78 +141,128 @@ bool NetAddrToString(const NetAddr *addr, char *buf, uint32_t bufSize) {
   return false;
 }
 
-bool IsLoopBackAddress(const NetAddr *addr) {
+bool NetAddr::IsLoopbackAddr() const {
+  if (IsLoopBackAddressWithoutIPv6Mapping()) {
+    return true;
+  }
+  const NetAddr* addr = this;
+  if (addr->raw.family != AF_INET6) {
+    return false;
+  }
+
+  return IPv6ADDR_IS_V4MAPPED(&addr->inet6.ip) &&
+         IPv6ADDR_V4MAPPED_TO_IPADDR(&addr->inet6.ip) == htonl(INADDR_LOOPBACK);
+}
+
+bool NetAddr::IsLoopBackAddressWithoutIPv6Mapping() const {
+  const NetAddr* addr = this;
   if (addr->raw.family == AF_INET) {
-    return (addr->inet.ip == htonl(INADDR_LOOPBACK));
+    // Consider 127.0.0.1/8 as loopback
+    uint32_t ipv4Addr = ntohl(addr->inet.ip);
+    return (ipv4Addr >> 24) == 127;
   }
-  if (addr->raw.family == AF_INET6) {
-    if (IPv6ADDR_IS_LOOPBACK(&addr->inet6.ip)) {
+
+  return addr->raw.family == AF_INET6 && IPv6ADDR_IS_LOOPBACK(&addr->inet6.ip);
+}
+
+bool IsLoopbackHostname(const nsACString& aAsciiHost) {
+  // If the user has configured to proxy localhost addresses don't consider them
+  // to be secure
+  if (StaticPrefs::network_proxy_allow_hijacking_localhost()) {
+    return false;
+  }
+
+  nsAutoCString host;
+  nsContentUtils::ASCIIToLower(aAsciiHost, host);
+
+  return host.EqualsLiteral("localhost") ||
+         StringEndsWith(host, ".localhost"_ns);
+}
+
+bool NetAddr::IsIPAddrAny() const {
+  if (this->raw.family == AF_INET) {
+    if (this->inet.ip == htonl(INADDR_ANY)) {
       return true;
     }
-    if (IPv6ADDR_IS_V4MAPPED(&addr->inet6.ip) &&
-        IPv6ADDR_V4MAPPED_TO_IPADDR(&addr->inet6.ip) ==
-            htonl(INADDR_LOOPBACK)) {
+  } else if (this->raw.family == AF_INET6) {
+    if (IPv6ADDR_IS_UNSPECIFIED(&this->inet6.ip)) {
+      return true;
+    }
+    if (IPv6ADDR_IS_V4MAPPED(&this->inet6.ip) &&
+        IPv6ADDR_V4MAPPED_TO_IPADDR(&this->inet6.ip) == htonl(INADDR_ANY)) {
       return true;
     }
   }
   return false;
 }
 
-bool IsIPAddrAny(const NetAddr *addr) {
-  if (addr->raw.family == AF_INET) {
-    if (addr->inet.ip == htonl(INADDR_ANY)) {
-      return true;
-    }
-  } else if (addr->raw.family == AF_INET6) {
-    if (IPv6ADDR_IS_UNSPECIFIED(&addr->inet6.ip)) {
-      return true;
-    }
-    if (IPv6ADDR_IS_V4MAPPED(&addr->inet6.ip) &&
-        IPv6ADDR_V4MAPPED_TO_IPADDR(&addr->inet6.ip) == htonl(INADDR_ANY)) {
-      return true;
-    }
+NetAddr::NetAddr(const PRNetAddr* prAddr) { PRNetAddrToNetAddr(prAddr, this); }
+
+bool NetAddr::IsIPAddrV4() const { return this->raw.family == AF_INET; }
+
+bool NetAddr::IsIPAddrV4Mapped() const {
+  if (this->raw.family == AF_INET6) {
+    return IPv6ADDR_IS_V4MAPPED(&this->inet6.ip);
   }
   return false;
 }
 
-bool IsIPAddrV4Mapped(const NetAddr *addr) {
-  if (addr->raw.family == AF_INET6) {
-    return IPv6ADDR_IS_V4MAPPED(&addr->inet6.ip);
+static bool isLocalIPv4(uint32_t networkEndianIP) {
+  uint32_t addr32 = ntohl(networkEndianIP);
+  if (addr32 >> 24 == 0x0A ||    // 10/8 prefix (RFC 1918).
+      addr32 >> 20 == 0xAC1 ||   // 172.16/12 prefix (RFC 1918).
+      addr32 >> 16 == 0xC0A8 ||  // 192.168/16 prefix (RFC 1918).
+      addr32 >> 16 == 0xA9FE) {  // 169.254/16 prefix (Link Local).
+    return true;
   }
   return false;
 }
 
-bool IsIPAddrLocal(const NetAddr *addr) {
-  MOZ_ASSERT(addr);
+bool NetAddr::IsIPAddrLocal() const {
+  const NetAddr* addr = this;
 
   // IPv4 RFC1918 and Link Local Addresses.
   if (addr->raw.family == AF_INET) {
-    uint32_t addr32 = ntohl(addr->inet.ip);
-    if (addr32 >> 24 == 0x0A ||    // 10/8 prefix (RFC 1918).
-        addr32 >> 20 == 0xAC1 ||   // 172.16/12 prefix (RFC 1918).
-        addr32 >> 16 == 0xC0A8 ||  // 192.168/16 prefix (RFC 1918).
-        addr32 >> 16 == 0xA9FE) {  // 169.254/16 prefix (Link Local).
-      return true;
-    }
+    return isLocalIPv4(addr->inet.ip);
   }
   // IPv6 Unique and Link Local Addresses.
+  // or mapped IPv4 addresses
   if (addr->raw.family == AF_INET6) {
     uint16_t addr16 = ntohs(addr->inet6.ip.u16[0]);
     if (addr16 >> 9 == 0xfc >> 1 ||    // fc00::/7 Unique Local Address.
         addr16 >> 6 == 0xfe80 >> 6) {  // fe80::/10 Link Local Address.
       return true;
     }
+    if (IPv6ADDR_IS_V4MAPPED(&addr->inet6.ip)) {
+      return isLocalIPv4(IPv6ADDR_V4MAPPED_TO_IPADDR(&addr->inet6.ip));
+    }
   }
+
   // Not an IPv4/6 local address.
   return false;
 }
 
-nsresult GetPort(const NetAddr *aAddr, uint16_t *aResult) {
+bool NetAddr::IsIPAddrShared() const {
+  const NetAddr* addr = this;
+
+  // IPv4 RFC6598.
+  if (addr->raw.family == AF_INET) {
+    uint32_t addr32 = ntohl(addr->inet.ip);
+    if (addr32 >> 22 == 0x644 >> 2) {  // 100.64/10 prefix (RFC 6598).
+      return true;
+    }
+  }
+
+  // Not an IPv4 shared address.
+  return false;
+}
+
+nsresult NetAddr::GetPort(uint16_t* aResult) const {
   uint16_t port;
-  if (aAddr->raw.family == PR_AF_INET) {
-    port = aAddr->inet.port;
-  } else if (aAddr->raw.family == PR_AF_INET6) {
-    port = aAddr->inet6.port;
+  if (this->raw.family == PR_AF_INET) {
+    port = this->inet.port;
+  } else if (this->raw.family == PR_AF_INET6) {
+    port = this->inet6.port;
   } else {
     return NS_ERROR_NOT_INITIALIZED;
   }
@@ -218,7 +271,7 @@ nsresult GetPort(const NetAddr *aAddr, uint16_t *aResult) {
   return NS_OK;
 }
 
-bool NetAddr::operator==(const NetAddr &other) const {
+bool NetAddr::operator==(const NetAddr& other) const {
   if (this->raw.family != other.raw.family) {
     return false;
   }
@@ -242,7 +295,7 @@ bool NetAddr::operator==(const NetAddr &other) const {
   return false;
 }
 
-bool NetAddr::operator<(const NetAddr &other) const {
+bool NetAddr::operator<(const NetAddr& other) const {
   if (this->raw.family != other.raw.family) {
     return this->raw.family < other.raw.family;
   }
@@ -266,87 +319,62 @@ bool NetAddr::operator<(const NetAddr &other) const {
   return false;
 }
 
-NetAddrElement::NetAddrElement(const PRNetAddr *prNetAddr) {
-  this->mAddress.raw.family = 0;
-  this->mAddress.inet = {};
-  PRNetAddrToNetAddr(prNetAddr, &mAddress);
-}
-
-NetAddrElement::NetAddrElement(const NetAddrElement &netAddr) {
-  mAddress = netAddr.mAddress;
-}
-
-NetAddrElement::~NetAddrElement() = default;
-
-AddrInfo::AddrInfo(const nsACString &host, const PRAddrInfo *prAddrInfo,
+AddrInfo::AddrInfo(const nsACString& host, const PRAddrInfo* prAddrInfo,
                    bool disableIPv4, bool filterNameCollision,
-                   const nsACString &cname)
-    : mHostName(host),
-      mCanonicalName(cname),
-      ttl(NO_TTL_DATA),
-      mFromTRR(false) {
+                   const nsACString& cname)
+    : mHostName(host), mCanonicalName(cname) {
   MOZ_ASSERT(prAddrInfo,
              "Cannot construct AddrInfo with a null prAddrInfo pointer!");
   const uint32_t nameCollisionAddr = htonl(0x7f003535);  // 127.0.53.53
 
   PRNetAddr tmpAddr;
-  void *iter = nullptr;
+  void* iter = nullptr;
   do {
     iter = PR_EnumerateAddrInfo(iter, prAddrInfo, 0, &tmpAddr);
     bool addIt = iter && (!disableIPv4 || tmpAddr.raw.family != PR_AF_INET) &&
                  (!filterNameCollision || tmpAddr.raw.family != PR_AF_INET ||
                   (tmpAddr.inet.ip != nameCollisionAddr));
     if (addIt) {
-      auto *addrElement = new NetAddrElement(&tmpAddr);
-      mAddresses.insertBack(addrElement);
+      NetAddr elem(&tmpAddr);
+      mAddresses.AppendElement(elem);
     }
   } while (iter);
 }
 
-AddrInfo::AddrInfo(const nsACString &host, const nsACString &cname,
-                   unsigned int aTRR)
+AddrInfo::AddrInfo(const nsACString& host, const nsACString& cname,
+                   unsigned int aTRR, nsTArray<NetAddr>&& addresses)
     : mHostName(host),
       mCanonicalName(cname),
-      ttl(NO_TTL_DATA),
-      mFromTRR(aTRR) {}
+      mFromTRR(aTRR),
+      mAddresses(std::move(addresses)) {}
 
-AddrInfo::AddrInfo(const nsACString &host, unsigned int aTRR)
-    : mHostName(host),
-      mCanonicalName(EmptyCString()),
-      ttl(NO_TTL_DATA),
-      mFromTRR(aTRR) {}
+AddrInfo::AddrInfo(const nsACString& host, unsigned int aTRR,
+                   nsTArray<NetAddr>&& addresses, uint32_t aTTL)
+    : ttl(aTTL),
+      mHostName(host),
+      mCanonicalName(),
+      mFromTRR(aTRR),
+      mAddresses(std::move(addresses)) {}
 
 // deep copy constructor
-AddrInfo::AddrInfo(const AddrInfo *src) {
+AddrInfo::AddrInfo(const AddrInfo* src) {
   mHostName = src->mHostName;
   mCanonicalName = src->mCanonicalName;
   ttl = src->ttl;
   mFromTRR = src->mFromTRR;
+  mTrrFetchDuration = src->mTrrFetchDuration;
+  mTrrFetchDurationNetworkOnly = src->mTrrFetchDurationNetworkOnly;
 
-  for (auto element = src->mAddresses.getFirst(); element;
-       element = element->getNext()) {
-    AddAddress(new NetAddrElement(*element));
-  }
+  mAddresses = src->mAddresses.Clone();
 }
 
-AddrInfo::~AddrInfo() {
-  NetAddrElement *addrElement;
-  while ((addrElement = mAddresses.popLast())) {
-    delete addrElement;
-  }
-}
-
-void AddrInfo::AddAddress(NetAddrElement *address) {
-  MOZ_ASSERT(address, "Cannot add the address to an uninitialized list");
-
-  mAddresses.insertBack(address);
-}
+AddrInfo::~AddrInfo() = default;
 
 size_t AddrInfo::SizeOfIncludingThis(MallocSizeOf mallocSizeOf) const {
   size_t n = mallocSizeOf(this);
   n += mHostName.SizeOfExcludingThisIfUnshared(mallocSizeOf);
   n += mCanonicalName.SizeOfExcludingThisIfUnshared(mallocSizeOf);
-  n += mAddresses.sizeOfExcludingThis(mallocSizeOf);
+  n += mAddresses.ShallowSizeOfExcludingThis(mallocSizeOf);
   return n;
 }
 

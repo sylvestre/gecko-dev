@@ -17,19 +17,18 @@ enum ShadowRootMode {
 };
 
 // https://dom.spec.whatwg.org/#shadowroot
+[Exposed=Window]
 interface ShadowRoot : DocumentFragment
 {
   // Shadow DOM v1
   readonly attribute ShadowRootMode mode;
   readonly attribute Element host;
 
-  // [deprecated] Shadow DOM v0
   Element? getElementById(DOMString elementId);
-  HTMLCollection getElementsByTagName(DOMString localName);
-  HTMLCollection getElementsByTagNameNS(DOMString? namespace, DOMString localName);
-  HTMLCollection getElementsByClassName(DOMString classNames);
-  [CEReactions, SetterThrows, TreatNullAs=EmptyString]
-  attribute DOMString innerHTML;
+
+  // https://w3c.github.io/DOM-Parsing/#the-innerhtml-mixin
+  [CEReactions, SetterThrows]
+  attribute [TreatNullAs=EmptyString] DOMString innerHTML;
 
   // When JS invokes importNode or createElement, the binding code needs to
   // create a reflector, and so invoking those methods directly on the content
@@ -38,10 +37,10 @@ interface ShadowRoot : DocumentFragment
   // As such, these methods allow UA widget code to simultaneously create nodes
   // and associate them with the UA widget tree, so that the reflectors get
   // created in the right scope.
-  [CEReactions, Throws, Func="IsChromeOrXBLOrUAWidget"]
+  [CEReactions, Throws, Func="IsChromeOrUAWidget"]
   Node importNodeAndAppendChildAt(Node parentNode, Node node, optional boolean deep = false);
 
-  [CEReactions, Throws, Func="IsChromeOrXBLOrUAWidget"]
+  [CEReactions, Throws, Func="IsChromeOrUAWidget"]
   Node createElementAndAppendChildAt(Node parentNode, DOMString localName);
 
   // For triggering UA Widget scope in tests.
@@ -51,4 +50,4 @@ interface ShadowRoot : DocumentFragment
   boolean isUAWidget();
 };
 
-ShadowRoot implements DocumentOrShadowRoot;
+ShadowRoot includes DocumentOrShadowRoot;

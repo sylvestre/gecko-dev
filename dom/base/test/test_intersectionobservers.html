@@ -21,7 +21,7 @@ limitations under the License.
 <head>
   <meta charset="utf-8">
   <title>Test for Bug 1243846</title>
-  <script type="application/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css"/>
 </head>
 <body onload="onLoad()">
@@ -29,6 +29,7 @@ limitations under the License.
 <p id="display"></p>
 <pre id="test">
 <script type="application/javascript">
+  /* eslint "no-shadow": ["error", {"allow": ["done", "next"]}] */
   var tests = [];
   var curDescribeMsg = '';
   var curItMsg = '';
@@ -51,7 +52,7 @@ limitations under the License.
   function it(msg, fn) {
     tests.push({
       msg: `${msg} [${curDescribeMsg}]`,
-      fn: fn
+      fn
     });
   }
 
@@ -73,14 +74,14 @@ limitations under the License.
   function expect(val) {
     return {
       to: {
-        throwException: function (regexp) {
-          try {
-            val();
-            ok(false, `${curItMsg} - an exception should have beeen thrown`);
-          } catch (e) {
-            ok(regexp.test(e), `${curItMsg} - supplied regexp should match thrown exception`);
-          }
-        },
+        throwException (regexp) {
+        try {
+          val();
+          ok(false, `${curItMsg} - an exception should have beeen thrown`);
+        } catch (e) {
+          ok(regexp.test(e), `${curItMsg} - supplied regexp should match thrown exception`);
+        }
+      },
         get be() {
           var fn = function (expected) {
             is(val, expected, curItMsg);
@@ -96,25 +97,25 @@ limitations under the License.
           };
           return fn;
         },
-        eql: function (expected) {
-          if (Array.isArray(expected)) {
-            if (!Array.isArray(val)) {
-              ok(false, curItMsg, `${curItMsg} - should be an array,`);
-              return;
-            }
-            is(val.length, expected.length, curItMsg, `${curItMsg} - arrays should be the same length`);
-            if (expected.length != val.length) {
-              return;
-            }
-            for (var i = 0; i < expected.length; i++) {
-              is(val[i], expected[i], `${curItMsg} - array elements at position ${i} should be equal`);
-              if (expected[i] != val[i]) {
-                return;
-              }
-            }
-            ok(true);
+        eql (expected) {
+        if (Array.isArray(expected)) {
+          if (!Array.isArray(val)) {
+            ok(false, curItMsg, `${curItMsg} - should be an array,`);
+            return;
           }
-        },
+          is(val.length, expected.length, curItMsg, `${curItMsg} - arrays should be the same length`);
+          if (expected.length != val.length) {
+            return;
+          }
+          for (var i = 0; i < expected.length; i++) {
+            is(val[i], expected[i], `${curItMsg} - array elements at position ${i} should be equal`);
+            if (expected[i] != val[i]) {
+              return;
+            }
+          }
+          ok(true);
+        }
+      },
       }
     }
   }
@@ -148,22 +149,22 @@ limitations under the License.
   }
 
   var sinon = {
-    spy: function () {
-      var callbacks = [];
-      var fn = function () {
-        fn.callCount++;
-        fn.lastCall = { args: arguments };
-        if (callbacks.length) {
-          callbacks.shift()();
-        }
-      };
-      fn.callCount = 0;
-      fn.lastCall = { args: [] };
-      fn.waitForNotification = (fn) => {
-        callbacks.push(fn);
-      };
-      return fn;
-    }
+    spy () {
+    var cbs = [];
+    var fn = function () {
+      fn.callCount++;
+      fn.lastCall = { args: arguments };
+      if (cbs.length) {
+        cbs.shift()();
+      }
+    };
+    fn.callCount = 0;
+    fn.lastCall = { args: [] };
+    fn.waitForNotification = (fn1) => {
+      cbs.push(fn1);
+    };
+    return fn;
+  }
   };
 
   var ASYNC_TIMEOUT = 300;
@@ -331,20 +332,6 @@ limitations under the License.
         });
       });
 
-
-      it('does not trigger if target is not a descendant of the intersection root in the containing block chain',
-          function(done) {
-
-        var spy = sinon.spy();
-        io = new IntersectionObserver(spy, {root: parentEl});
-
-        parentEl.style.position = 'static';
-        io.observe(targetEl2);
-        callDelayed(function() {
-          expect(spy.callCount).to.be(0);
-          done();
-        });
-      });
 
       it('triggers if target or root becomes invisible',
           function(done) {
@@ -927,25 +914,6 @@ limitations under the License.
     });
 
     describe('observe subframe', function () {
-      
-      it('should not trigger if target and root are not in the same document',
-          function(done) {
-
-        var spy = sinon.spy();
-        io = new IntersectionObserver(spy, {root: rootEl});
-
-        targetEl4.onload = function () {
-          targetEl5 = targetEl4.contentDocument.getElementById('target5');
-          io.observe(targetEl5);
-          callDelayed(function() {
-            expect(spy.callCount).to.be(0);
-            done();
-          });
-        }
-
-        targetEl4.src = "intersectionobserver_iframe.html";
-      
-      });
 
       it('boundingClientRect matches target.getBoundingClientRect() for an element inside an iframe',
           function(done) {
@@ -977,7 +945,7 @@ limitations under the License.
         targetEl4.src = "http://example.org/tests/dom/base/test/intersectionobserver_cross_domain_iframe.html";
 
       });
-    
+
     });
 
     describe('takeRecords', function() {
@@ -1002,7 +970,7 @@ limitations under the License.
             done();
           });
         });
-        
+
       });
 
     });

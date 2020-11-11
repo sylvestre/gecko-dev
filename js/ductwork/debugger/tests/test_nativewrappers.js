@@ -1,7 +1,7 @@
 function run_test()
 {
-  ChromeUtils.import("resource://gre/modules/jsdebugger.jsm");
-  ChromeUtils.import("resource://gre/modules/Services.jsm");
+  const {addDebuggerToGlobal} = ChromeUtils.import("resource://gre/modules/jsdebugger.jsm");
+  const {Services} = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
   Services.prefs.setBoolPref("security.allow_eval_with_system_principal", true);
   registerCleanupFunction(() => {
@@ -34,5 +34,5 @@ function run_test()
     g.stopMe(doc.createEvent("MouseEvent"));
   } + ")()");
 
-  dbg.enabled = false;
+  dbg.removeAllDebuggees();
 }

@@ -7,21 +7,33 @@
 #ifndef mozilla_dom_quota_client_h__
 #define mozilla_dom_quota_client_h__
 
-#include "mozilla/dom/quota/QuotaCommon.h"
-
+#include <cstdint>
+#include "ErrorList.h"
+#include "mozilla/Atomics.h"
+#include "mozilla/Result.h"
 #include "mozilla/dom/LocalStorageCommon.h"
 #include "mozilla/dom/ipc/IdType.h"
-
-#include "PersistenceType.h"
+#include "mozilla/dom/quota/PersistenceType.h"
+#include "mozilla/dom/quota/QuotaCommon.h"
+#include "mozilla/dom/quota/QuotaInfo.h"
+#include "mozilla/fallible.h"
+#include "nsISupports.h"
+#include "nsStringFwd.h"
 
 class nsIFile;
-class nsIRunnable;
 
 #define IDB_DIRECTORY_NAME "idb"
-#define ASMJSCACHE_DIRECTORY_NAME "asmjs"
 #define DOMCACHE_DIRECTORY_NAME "cache"
 #define SDB_DIRECTORY_NAME "sdb"
 #define LS_DIRECTORY_NAME "ls"
+
+// Deprecated
+#define ASMJSCACHE_DIRECTORY_NAME "asmjs"
+
+namespace mozilla::dom {
+template <typename T>
+struct Nullable;
+}
 
 BEGIN_QUOTA_NAMESPACE
 
@@ -34,14 +46,11 @@ class UsageInfo;
 // to participate in centralized quota and storage handling.
 class Client {
  public:
-  typedef mozilla::Atomic<bool> AtomicBool;
-
-  NS_INLINE_DECL_PURE_VIRTUAL_REFCOUNTING
+  typedef Atomic<bool> AtomicBool;
 
   enum Type {
     IDB = 0,
     // APPCACHE,
-    ASMJS,
     DOMCACHE,
     SDB,
     LS,
@@ -55,77 +64,30 @@ class Client {
     return LS;
   }
 
+  static bool IsValidType(Type aType);
+
+  static bool TypeToText(Type aType, nsAString& aText, const fallible_t&);
+
+  static void TypeToText(Type aType, nsAString& aText);
+
+  static void TypeToText(Type aType, nsACString& aText);
+
+  static bool TypeFromText(const nsAString& aText, Type& aType,
+                           const fallible_t&);
+
+  static Type TypeFromText(const nsACString& aText);
+
+  static char TypeToPrefix(Type aType);
+
+  static bool TypeFromPrefix(char aPrefix, Type& aType, const fallible_t&);
+
+  static bool IsDeprecatedClient(const nsAString& aText) {
+    return aText.EqualsLiteral(ASMJSCACHE_DIRECTORY_NAME);
+  }
+
+  NS_INLINE_DECL_PURE_VIRTUAL_REFCOUNTING
+
   virtual Type GetType() = 0;
-
-  static nsresult TypeToText(Type aType, nsAString& aText) {
-    switch (aType) {
-      case IDB:
-        aText.AssignLiteral(IDB_DIRECTORY_NAME);
-        break;
-
-      case ASMJS:
-        aText.AssignLiteral(ASMJSCACHE_DIRECTORY_NAME);
-        break;
-
-      case DOMCACHE:
-        aText.AssignLiteral(DOMCACHE_DIRECTORY_NAME);
-        break;
-
-      case SDB:
-        aText.AssignLiteral(SDB_DIRECTORY_NAME);
-        break;
-
-      case LS:
-        if (CachedNextGenLocalStorageEnabled()) {
-          aText.AssignLiteral(LS_DIRECTORY_NAME);
-          break;
-        }
-        MOZ_FALLTHROUGH;
-
-      case TYPE_MAX:
-      default:
-        MOZ_ASSERT_UNREACHABLE("Bad id value!");
-        return NS_ERROR_UNEXPECTED;
-    }
-
-    return NS_OK;
-  }
-
-  static nsresult TypeFromText(const nsAString& aText, Type& aType) {
-    if (aText.EqualsLiteral(IDB_DIRECTORY_NAME)) {
-      aType = IDB;
-    } else if (aText.EqualsLiteral(ASMJSCACHE_DIRECTORY_NAME)) {
-      aType = ASMJS;
-    } else if (aText.EqualsLiteral(DOMCACHE_DIRECTORY_NAME)) {
-      aType = DOMCACHE;
-    } else if (aText.EqualsLiteral(SDB_DIRECTORY_NAME)) {
-      aType = SDB;
-    } else if (CachedNextGenLocalStorageEnabled() &&
-               aText.EqualsLiteral(LS_DIRECTORY_NAME)) {
-      aType = LS;
-    } else {
-      return NS_ERROR_FAILURE;
-    }
-
-    return NS_OK;
-  }
-
-  static nsresult NullableTypeFromText(const nsAString& aText,
-                                       Nullable<Type>* aType) {
-    if (aText.IsVoid()) {
-      *aType = Nullable<Type>();
-      return NS_OK;
-    }
-
-    Type type;
-    nsresult rv = TypeFromText(aText, type);
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      return rv;
-    }
-
-    *aType = Nullable<Type>(type);
-    return NS_OK;
-  }
 
   // Methods which are called on the IO thread.
   virtual nsresult UpgradeStorageFrom1_0To2_0(nsIFile* aDirectory) {
@@ -136,17 +98,21 @@ class Client {
     return NS_OK;
   }
 
-  virtual nsresult InitOrigin(PersistenceType aPersistenceType,
-                              const nsACString& aGroup,
-                              const nsACString& aOrigin,
-                              const AtomicBool& aCanceled,
-                              UsageInfo* aUsageInfo) = 0;
+  virtual nsresult UpgradeStorageFrom2_1To2_2(nsIFile* aDirectory) {
+    return NS_OK;
+  }
 
-  virtual nsresult GetUsageForOrigin(PersistenceType aPersistenceType,
-                                     const nsACString& aGroup,
-                                     const nsACString& aOrigin,
-                                     const AtomicBool& aCanceled,
-                                     UsageInfo* aUsageInfo) = 0;
+  virtual Result<UsageInfo, nsresult> InitOrigin(
+      PersistenceType aPersistenceType, const GroupAndOrigin& aGroupAndOrigin,
+      const AtomicBool& aCanceled) = 0;
+
+  virtual nsresult InitOriginWithoutTracking(
+      PersistenceType aPersistenceType, const GroupAndOrigin& aGroupAndOrigin,
+      const AtomicBool& aCanceled) = 0;
+
+  virtual Result<UsageInfo, nsresult> GetUsageForOrigin(
+      PersistenceType aPersistenceType, const GroupAndOrigin& aGroupAndOrigin,
+      const AtomicBool& aCanceled) = 0;
 
   // This method is called when origins are about to be cleared
   // (except the case when clearing is triggered by the origin eviction).
@@ -172,13 +138,8 @@ class Client {
 
   virtual void ShutdownWorkThreads() = 0;
 
-  // Methods which are called on the main thread.
-  virtual void DidInitialize(QuotaManager* aQuotaManager) {}
-
-  virtual void WillShutdown() {}
-
  protected:
-  virtual ~Client() {}
+  virtual ~Client() = default;
 };
 
 END_QUOTA_NAMESPACE

@@ -66,8 +66,12 @@ class ChannelMediaResource
   // Store information shared among resources. Main thread only.
   struct SharedInfo {
     NS_INLINE_DECL_REFCOUNTING(SharedInfo);
+
+    SharedInfo() : mHadCrossOriginRedirects(false) {}
+
     nsCOMPtr<nsIPrincipal> mPrincipal;
     nsTArray<ChannelMediaResource*> mResources;
+    bool mHadCrossOriginRedirects;
 
    private:
     ~SharedInfo() = default;
@@ -76,7 +80,8 @@ class ChannelMediaResource
 
  public:
   ChannelMediaResource(MediaResourceCallback* aDecoder, nsIChannel* aChannel,
-                       nsIURI* aURI, bool aIsPrivateBrowsing = false);
+                       nsIURI* aURI, int64_t aStreamLength,
+                       bool aIsPrivateBrowsing = false);
   ~ChannelMediaResource();
 
   // These are called on the main thread by MediaCache. These must
@@ -112,10 +117,11 @@ class ChannelMediaResource
 
   // Main thread
   nsresult Open(nsIStreamListener** aStreamListener) override;
-  nsresult Close() override;
+  RefPtr<GenericPromise> Close() override;
   void Suspend(bool aCloseImmediately) override;
   void Resume() override;
   already_AddRefed<nsIPrincipal> GetCurrentPrincipal() override;
+  bool HadCrossOriginRedirects() override;
   bool CanClone() override;
   already_AddRefed<BaseMediaResource> CloneData(
       MediaResourceCallback* aDecoder) override;
@@ -154,13 +160,13 @@ class ChannelMediaResource
     return aMallocSizeOf(this) + SizeOfExcludingThis(aMallocSizeOf);
   }
 
-  nsCString GetDebugInfo() override;
+  void GetDebugInfo(dom::MediaResourceDebugInfo& aInfo) override;
 
   class Listener final : public nsIStreamListener,
                          public nsIInterfaceRequestor,
                          public nsIChannelEventSink,
                          public nsIThreadRetargetableStreamListener {
-    ~Listener() {}
+    ~Listener() = default;
 
    public:
     Listener(ChannelMediaResource* aResource, int64_t aOffset, uint32_t aLoadID)
@@ -251,6 +257,9 @@ class ChannelMediaResource
   MediaCacheStream mCacheStream;
 
   ChannelSuspendAgent mSuspendAgent;
+
+  // The size of the stream if known at construction time (such as with blob)
+  const int64_t mKnownStreamLength;
 };
 
 }  // namespace mozilla

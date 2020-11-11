@@ -6,16 +6,35 @@
 #ifndef _mozilla_dom_ClientManagerService_h
 #define _mozilla_dom_ClientManagerService_h
 
+#include "mozilla/dom/ClientIPCTypes.h"
+#include "mozilla/dom/ipc/IdType.h"
 #include "ClientOpPromise.h"
+#include "mozilla/AlreadyAddRefed.h"
+#include "mozilla/Assertions.h"
+#include "mozilla/Maybe.h"
+#include "mozilla/RefPtr.h"
+#include "mozilla/dom/ClientIPCTypes.h"
+#include "mozilla/dom/ipc/IdType.h"
 #include "nsDataHashtable.h"
+#include "nsHashKeys.h"
+#include "nsISupports.h"
+#include "nsTArray.h"
+
+struct nsID;
 
 namespace mozilla {
+
+namespace ipc {
+
+class PrincipalInfo;
+
+}  // namespace ipc
 
 namespace dom {
 
 class ClientManagerParent;
 class ClientSourceParent;
-class ContentParent;
+class ClientHandleParent;
 
 // Define a singleton service to manage client activity throughout the
 // browser.  This service runs on the PBackground thread.  To interact
@@ -24,6 +43,10 @@ class ClientManagerService final {
   // Store the ClientSourceParent objects in a hash table.  We want to
   // optimize for insertion, removal, and lookup by UUID.
   nsDataHashtable<nsIDHashKey, ClientSourceParent*> mSourceTable;
+
+  // The set of handles waiting for their corresponding ClientSourceParent
+  // to be created.
+  nsDataHashtable<nsIDHashKey, nsTArray<ClientHandleParent*>> mPendingHandles;
 
   nsTArray<ClientManagerParent*> mManagerList;
 
@@ -47,6 +70,12 @@ class ClientManagerService final {
   ClientSourceParent* FindSource(
       const nsID& aID, const mozilla::ipc::PrincipalInfo& aPrincipalInfo);
 
+  // Called when a ClientHandle is created before the corresponding
+  // ClientSource. Will call FoundSource on the ClientHandleParent when it
+  // becomes available.
+  void WaitForSource(ClientHandleParent* aHandle, const nsID& aID);
+  void StopWaitingForSource(ClientHandleParent* aHandle, const nsID& aID);
+
   void AddManager(ClientManagerParent* aManager);
 
   void RemoveManager(ClientManagerParent* aManager);
@@ -60,9 +89,11 @@ class ClientManagerService final {
   RefPtr<ClientOpPromise> GetInfoAndState(
       const ClientGetInfoAndStateArgs& aArgs);
 
-  RefPtr<ClientOpPromise> OpenWindow(
-      const ClientOpenWindowArgs& aArgs,
-      already_AddRefed<ContentParent> aSourceProcess);
+  RefPtr<ClientOpPromise> OpenWindow(const ClientOpenWindowArgs& aArgs);
+
+  bool HasWindow(const Maybe<ContentParentId>& aContentParentId,
+                 const mozilla::ipc::PrincipalInfo& aPrincipalInfo,
+                 const nsID& aClientId);
 
   NS_INLINE_DECL_REFCOUNTING(mozilla::dom::ClientManagerService)
 };

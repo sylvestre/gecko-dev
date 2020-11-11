@@ -14,9 +14,7 @@
 #include "mozilla/jni/Utils.h"
 #include "nsTArray.h"
 #include "nsString.h"
-#include "nsIFile.h"
 #include "nsAppRunner.h"
-#include "APKOpen.h"
 #include "nsExceptionHandler.h"
 #include "mozilla/Bootstrap.h"
 
@@ -27,13 +25,6 @@ using namespace mozilla;
 extern "C" NS_EXPORT void GeckoStart(JNIEnv* env, char** argv, int argc,
                                      const StaticXREAppData& aAppData) {
   mozilla::jni::SetGeckoThreadEnv(env);
-
-  const struct mapping_info* info = getLibraryMapping();
-  while (info->name) {
-    CrashReporter::AddLibraryMapping(info->name, info->base, info->len,
-                                     info->offset);
-    info++;
-  }
 
   if (!argv) {
     LOG("Failed to get arguments for GeckoStart\n");

@@ -138,8 +138,8 @@ function RadixSort(array, len, buffer, nbytes, signed, floating, comparefn) {
         // |array| is a possibly cross-compartment wrapped typed array.
         let offset = IsTypedArray(array)
                      ? TypedArrayByteOffset(array)
-                     : callFunction(CallTypedArrayMethodIfWrapped, array, array,
-                                    "TypedArrayByteOffset");
+                     : callFunction(CallTypedArrayMethodIfWrapped, array,
+                                    "TypedArrayByteOffsetMethod");
 
         view = new Int32Array(buffer, offset, len);
 
@@ -221,45 +221,40 @@ function SwapArrayElements(array, i, j) {
 }
 
 // A helper function for MergeSort.
-function Merge(list, start, mid, end, lBuffer, rBuffer, comparefn) {
-    var i, j, k;
+//
+// Merge comparefn-sorted slices list[start..<=mid] and list[mid+1..<=end],
+// storing the merged sequence in out[start..<=end].
+function Merge(list, out, start, mid, end, comparefn) {
+    // Skip lopsided runs to avoid doing useless work.
+    // Skip calling the comparator if the sub-list is already sorted.
+    if (mid >= end || comparefn(list[mid], list[mid + 1]) <= 0) {
+        for (var i = start; i <= end; i++) {
+            _DefineDataProperty(out, i, list[i]);
+        }
+        return;
+    }
 
-    var sizeLeft = mid - start + 1;
-    var sizeRight =  end - mid;
-
-    // Copy our virtual lists into separate buffers.
-    for (i = 0; i < sizeLeft; i++)
-        lBuffer[i] = list[start + i];
-
-    for (j = 0; j < sizeRight; j++)
-        rBuffer[j] = list[mid + 1 + j];
-
-
-    i = 0;
-    j = 0;
-    k = start;
-    while (i < sizeLeft && j < sizeRight) {
-        if (comparefn(lBuffer[i], rBuffer[j]) <= 0) {
-            list[k] = lBuffer[i];
+    var i = start;
+    var j = mid + 1;
+    var k = start;
+    while (i <= mid && j <= end) {
+        var lvalue = list[i];
+        var rvalue = list[j];
+        if (comparefn(lvalue, rvalue) <= 0) {
+            _DefineDataProperty(out, k++, lvalue);
             i++;
         } else {
-            list[k] = rBuffer[j];
+            _DefineDataProperty(out, k++, rvalue);
             j++;
         }
-        k++;
     }
 
-    // Empty out any remaining elements in the buffer.
-    while (i < sizeLeft) {
-        list[k] = lBuffer[i];
-        i++;
-        k++;
+    // Empty out any remaining elements.
+    while (i <= mid) {
+        _DefineDataProperty(out, k++, list[i++]);
     }
-
-    while (j < sizeRight) {
-        list[k] = rBuffer[j];
-        j++;
-        k++;
+    while (j <= end) {
+        _DefineDataProperty(out, k++, list[j++]);
     }
 }
 
@@ -296,25 +291,124 @@ function MergeSort(array, len, comparefn) {
     }
 
     // We do all of our allocating up front
-    var lBuffer = new List();
-    var rBuffer = new List();
+    var lBuffer = denseList;
+    var rBuffer = [];
 
-    var mid, end;
-    for (var windowSize = 1; windowSize < denseLen; windowSize = 2 * windowSize) {
-        for (var start = 0; start < denseLen - 1; start += 2 * windowSize) {
-            assert(windowSize < denseLen, "The window size is larger than the array denseLength!");
+    // Use insertion sort for initial ranges.
+    var windowSize = 4;
+    for (var start = 0; start < denseLen - 1; start += windowSize) {
+        var end = std_Math_min(start + windowSize - 1, denseLen - 1);
+        InsertionSort(lBuffer, start, end, comparefn);
+    }
+
+    for (; windowSize < denseLen; windowSize = 2 * windowSize) {
+        for (var start = 0; start < denseLen; start += 2 * windowSize) {
             // The midpoint between the two subarrays.
-            mid = start + windowSize - 1;
+            var mid = start + windowSize - 1;
+
             // To keep from going over the edge.
-            end = start + 2 * windowSize - 1;
-            end = end < denseLen - 1 ? end : denseLen - 1;
-            // Skip lopsided runs to avoid doing useless work
-            if (mid > end)
-                continue;
-            Merge(denseList, start, mid, end, lBuffer, rBuffer, comparefn);
+            var end = std_Math_min(start + 2 * windowSize - 1, denseLen - 1);
+
+            Merge(lBuffer, rBuffer, start, mid, end, comparefn);
+        }
+
+        // Swap both lists.
+        var swap = lBuffer;
+        lBuffer = rBuffer;
+        rBuffer = swap;
+    }
+    MoveHoles(array, len, lBuffer, denseLen);
+    return array;
+}
+
+// A helper function for MergeSortTypedArray.
+//
+// Merge comparefn-sorted slices list[start..<=mid] and list[mid+1..<=end],
+// storing the merged sequence in out[start..<=end].
+function MergeTypedArray(list, out, start, mid, end, comparefn) {
+    // Skip lopsided runs to avoid doing useless work.
+    // Skip calling the comparator if the sub-list is already sorted.
+    if (mid >= end || comparefn(list[mid], list[mid + 1]) <= 0) {
+        for (var i = start; i <= end; i++) {
+            out[i] = list[i];
+        }
+        return;
+    }
+
+    var i = start;
+    var j = mid + 1;
+    var k = start;
+    while (i <= mid && j <= end) {
+        var lvalue = list[i];
+        var rvalue = list[j];
+        if (comparefn(lvalue, rvalue) <= 0) {
+            out[k++] = lvalue;
+            i++;
+        } else {
+            out[k++] = rvalue;
+            j++;
         }
     }
-    MoveHoles(array, len, denseList, denseLen);
+
+    // Empty out any remaining elements.
+    while (i <= mid) {
+        out[k++] = list[i++];
+    }
+    while (j <= end) {
+        out[k++] = list[j++];
+    }
+}
+
+// Iterative, bottom up, mergesort. Optimized version for TypedArrays.
+function MergeSortTypedArray(array, len, comparefn) {
+    assert(IsPossiblyWrappedTypedArray(array),
+           "MergeSortTypedArray works only with typed arrays.");
+
+    // Insertion sort for small arrays, where "small" is defined by performance
+    // testing.
+    if (len < 8) {
+        InsertionSort(array, 0, len - 1, comparefn);
+        return array;
+    }
+
+    // Use the same TypedArray kind for the buffer.
+    var C = _ConstructorForTypedArray(array);
+
+    // We do all of our allocating up front.
+    var lBuffer = array;
+    var rBuffer = new C(len);
+
+    // Use insertion sort for the initial ranges.
+    var windowSize = 4;
+    for (var start = 0; start < len - 1; start += windowSize) {
+        var end = std_Math_min(start + windowSize - 1, len - 1);
+        InsertionSort(lBuffer, start, end, comparefn);
+    }
+
+    for (; windowSize < len; windowSize = 2 * windowSize) {
+        for (var start = 0; start < len; start += 2 * windowSize) {
+            // The midpoint between the two subarrays.
+            var mid = start + windowSize - 1;
+
+            // To keep from going over the edge.
+            var end = std_Math_min(start + 2 * windowSize - 1, len - 1);
+
+            MergeTypedArray(lBuffer, rBuffer, start, mid, end, comparefn);
+        }
+
+        // Swap both lists.
+        var swap = lBuffer;
+        lBuffer = rBuffer;
+        rBuffer = swap;
+    }
+
+    // Move the sorted elements into the array.
+    if (lBuffer !== array) {
+        for (var i = 0; i < len; i++) {
+            array[i] = lBuffer[i];
+        }
+    }
+
     return array;
 }
 
@@ -385,7 +479,6 @@ function QuickSort(array, len, comparefn) {
             // Calculate the left and right sub-array lengths and save
             // stack space by directly modifying start/end so that
             // we sort the longest of the two during the next iteration.
-            // This reduces the maximum stack size to log2(len).
             leftLen = (pivotIndex - 1) - start;
             rightLen = end - (pivotIndex + 1);
 
@@ -398,7 +491,6 @@ function QuickSort(array, len, comparefn) {
                 stack[top++] = end;
                 end = pivotIndex - 1;
             }
-
         }
     }
     return array;

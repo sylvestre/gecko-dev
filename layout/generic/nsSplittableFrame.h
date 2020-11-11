@@ -13,10 +13,10 @@
 #define nsSplittableFrame_h___
 
 #include "mozilla/Attributes.h"
-#include "nsFrame.h"
+#include "nsIFrame.h"
 
 // Derived class that allows splitting
-class nsSplittableFrame : public nsFrame {
+class nsSplittableFrame : public nsIFrame {
  public:
   NS_DECL_ABSTRACT_FRAME(nsSplittableFrame)
 
@@ -27,11 +27,17 @@ class nsSplittableFrame : public nsFrame {
                    PostDestroyData& aPostDestroyData) override;
 
   /*
-   * Frame continuations can be either fluid or not:
+   * Frame continuations can be either fluid or non-fluid.
+   *
    * Fluid continuations ("in-flows") are the result of line breaking,
    * column breaking, or page breaking.
-   * Other (non-fluid) continuations can be the result of BiDi frame splitting.
+   *
+   * Non-fluid continuations can be the result of BiDi frame splitting,
+   * column-span splitting, or <col span="N"> where N > 1.
+   *
    * A "flow" is a chain of fluid continuations.
+   *
+   * For more information, see https://wiki.mozilla.org/Gecko:Continuation_Model
    */
 
   // Get the previous/next continuation, regardless of its type (fluid or
@@ -54,11 +60,8 @@ class nsSplittableFrame : public nsFrame {
 #endif
 
   // Get the previous/next continuation, only if it is fluid (an "in-flow").
-  nsIFrame* GetPrevInFlow() const;
-  nsIFrame* GetNextInFlow() const;
-
-  nsIFrame* GetPrevInFlowVirtual() const final { return GetPrevInFlow(); }
-  nsIFrame* GetNextInFlowVirtual() const final { return GetNextInFlow(); }
+  nsIFrame* GetPrevInFlow() const final;
+  nsIFrame* GetNextInFlow() const final;
 
   // Set a previous/next fluid continuation.
   void SetPrevInFlow(nsIFrame*) final;
@@ -74,16 +77,19 @@ class nsSplittableFrame : public nsFrame {
   static void RemoveFromFlow(nsIFrame* aFrame);
 
  protected:
-  nsSplittableFrame(ComputedStyle* aStyle, ClassID aID)
-      : nsFrame(aStyle, aID),
+  nsSplittableFrame(ComputedStyle* aStyle, nsPresContext* aPresContext,
+                    ClassID aID)
+      : nsIFrame(aStyle, aPresContext, aID),
         mPrevContinuation(nullptr),
         mNextContinuation(nullptr) {}
 
   /**
-   * Return the sum of the block-axis content size of our prev-in-flows.
+   * Return the sum of the block-axis content size of our previous
+   * continuations.
+   *
    * @param aWM a writing-mode to determine the block-axis
    *
-   * @note (bz) This makes laying out a splittable frame with N in-flows
+   * @note (bz) This makes laying out a splittable frame with N continuations
    *       O(N^2)! So, use this function with caution and minimize the number
    *       of calls to this method.
    */
@@ -92,10 +98,11 @@ class nsSplittableFrame : public nsFrame {
   /**
    * Retrieve the effective computed block size of this frame, which is the
    * computed block size, minus the block size consumed by any previous
-   * in-flows.
+   * continuations.
    */
-  nscoord GetEffectiveComputedBSize(const ReflowInput& aReflowInput,
-                                    nscoord aConsumed = NS_INTRINSICSIZE) const;
+  nscoord GetEffectiveComputedBSize(
+      const ReflowInput& aReflowInput,
+      nscoord aConsumed = NS_UNCONSTRAINEDSIZE) const;
 
   /**
    * @see nsIFrame::GetLogicalSkipSides()

@@ -204,7 +204,6 @@ class nsHtml5AttributeName {
   static nsHtml5AttributeName* ATTR_K4;
   static nsHtml5AttributeName* ATTR_XML_SPACE;
   static nsHtml5AttributeName* ATTR_XML_LANG;
-  static nsHtml5AttributeName* ATTR_XML_BASE;
   static nsHtml5AttributeName* ATTR_ARIA_GRAB;
   static nsHtml5AttributeName* ATTR_ARIA_VALUEMAX;
   static nsHtml5AttributeName* ATTR_ARIA_LABELLEDBY;
@@ -281,6 +280,7 @@ class nsHtml5AttributeName {
   static nsHtml5AttributeName* ATTR_GRADIENTUNITS;
   static nsHtml5AttributeName* ATTR_HIDDEN;
   static nsHtml5AttributeName* ATTR_HEADERS;
+  static nsHtml5AttributeName* ATTR_LOADING;
   static nsHtml5AttributeName* ATTR_READONLY;
   static nsHtml5AttributeName* ATTR_RENDERING_INTENT;
   static nsHtml5AttributeName* ATTR_SEED;
@@ -308,6 +308,7 @@ class nsHtml5AttributeName {
   static nsHtml5AttributeName* ATTR_DIRECTION;
   static nsHtml5AttributeName* ATTR_EDGEMODE;
   static nsHtml5AttributeName* ATTR_EDGE;
+  static nsHtml5AttributeName* ATTR_ENTERKEYHINT;
   static nsHtml5AttributeName* ATTR_FACE;
   static nsHtml5AttributeName* ATTR_INDEX;
   static nsHtml5AttributeName* ATTR_INTERCEPT;
@@ -366,6 +367,8 @@ class nsHtml5AttributeName {
   static nsHtml5AttributeName* ATTR_ALIGNMENTSCOPE;
   static nsHtml5AttributeName* ATTR_DRAGGABLE;
   static nsHtml5AttributeName* ATTR_HEIGHT;
+  static nsHtml5AttributeName* ATTR_IMAGESIZES;
+  static nsHtml5AttributeName* ATTR_IMAGESRCSET;
   static nsHtml5AttributeName* ATTR_IMAGE_RENDERING;
   static nsHtml5AttributeName* ATTR_LANGUAGE;
   static nsHtml5AttributeName* ATTR_LANG;
@@ -472,6 +475,7 @@ class nsHtml5AttributeName {
   static nsHtml5AttributeName* ATTR_POINTSATZ;
   static nsHtml5AttributeName* ATTR_SPAN;
   static nsHtml5AttributeName* ATTR_STANDBY;
+  static nsHtml5AttributeName* ATTR_TRANSFORM_ORIGIN;
   static nsHtml5AttributeName* ATTR_TRANSFORM;
   static nsHtml5AttributeName* ATTR_VLINK;
   static nsHtml5AttributeName* ATTR_WHEN;
@@ -487,6 +491,7 @@ class nsHtml5AttributeName {
   static nsHtml5AttributeName* ATTR_AUTOPLAY;
   static nsHtml5AttributeName* ATTR_AUTOCOMPLETE;
   static nsHtml5AttributeName* ATTR_AUTOFOCUS;
+  static nsHtml5AttributeName* ATTR_AUTOCAPITALIZE;
   static nsHtml5AttributeName* ATTR_BGCOLOR;
   static nsHtml5AttributeName* ATTR_COLOR_PROFILE;
   static nsHtml5AttributeName* ATTR_COLOR_RENDERING;
@@ -572,6 +577,7 @@ class nsHtml5AttributeName {
   static nsHtml5AttributeName* ATTR_ONDRAGLEAVE;
   static nsHtml5AttributeName* ATTR_STARTOFFSET;
   static nsHtml5AttributeName* ATTR_START;
+  static nsHtml5AttributeName* ATTR_AS;
   static nsHtml5AttributeName* ATTR_AXIS;
   static nsHtml5AttributeName* ATTR_BIAS;
   static nsHtml5AttributeName* ATTR_COLSPAN;

@@ -6,16 +6,18 @@
 
 #include "mozilla/DebuggerOnGCRunnable.h"
 
-#include "mozilla/dom/ScriptSettings.h"
-#include "mozilla/CycleCollectedJSContext.h"
-#include "mozilla/Move.h"
-#include "mozilla/SystemGroup.h"
+#include <utility>
+
 #include "js/Debug.h"
+#include "mozilla/CycleCollectedJSContext.h"
+#include "mozilla/dom/ScriptSettings.h"
+#include "mozilla/SchedulerGroup.h"
 
 namespace mozilla {
 
-/* static */ nsresult DebuggerOnGCRunnable::Enqueue(
-    JSContext* aCx, const JS::GCDescription& aDesc) {
+/* static */
+nsresult DebuggerOnGCRunnable::Enqueue(JSContext* aCx,
+                                       const JS::GCDescription& aDesc) {
   auto gcEvent = aDesc.toGCEvent(aCx);
   if (!gcEvent) {
     return NS_ERROR_OUT_OF_MEMORY;
@@ -24,8 +26,8 @@ namespace mozilla {
   RefPtr<DebuggerOnGCRunnable> runOnGC =
       new DebuggerOnGCRunnable(std::move(gcEvent));
   if (NS_IsMainThread()) {
-    return SystemGroup::Dispatch(TaskCategory::GarbageCollection,
-                                 runOnGC.forget());
+    return SchedulerGroup::Dispatch(TaskCategory::GarbageCollection,
+                                    runOnGC.forget());
   } else {
     return NS_DispatchToCurrentThread(runOnGC);
   }
@@ -33,7 +35,7 @@ namespace mozilla {
 
 NS_IMETHODIMP
 DebuggerOnGCRunnable::Run() {
-  AutoJSAPI jsapi;
+  dom::AutoJSAPI jsapi;
   jsapi.Init();
   if (!JS::dbg::FireOnGarbageCollectionHook(jsapi.cx(), std::move(mGCData))) {
     return NS_ERROR_OUT_OF_MEMORY;

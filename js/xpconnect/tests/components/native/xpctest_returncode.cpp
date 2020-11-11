@@ -3,14 +3,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "xpctest_private.h"
-#include "xpctest_interfaces.h"
 #include "nsComponentManagerUtils.h"
 
 NS_IMPL_ISUPPORTS(nsXPCTestReturnCodeParent, nsIXPCTestReturnCodeParent)
-
-nsXPCTestReturnCodeParent::nsXPCTestReturnCodeParent() {}
-
-nsXPCTestReturnCodeParent::~nsXPCTestReturnCodeParent() {}
 
 NS_IMETHODIMP nsXPCTestReturnCodeParent::CallChild(int32_t childBehavior,
                                                    nsresult* _retval) {

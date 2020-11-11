@@ -5,17 +5,14 @@
  * found in the LICENSE file.
  */
 
-#include "SkColorData.h"
-#include "SkColorSpacePriv.h"
-#include "SkColorSpaceXformSteps.h"
-#include "SkConvertPixels.h"
-#include "SkHalf.h"
-#include "SkImageInfoPriv.h"
-#include "SkOpts.h"
-#include "SkRasterPipeline.h"
-#include "SkUnPreMultiply.h"
-#include "SkUnPreMultiplyPriv.h"
-#include "../jumper/SkJumper.h"
+#include "include/private/SkColorData.h"
+#include "include/private/SkHalf.h"
+#include "include/private/SkImageInfoPriv.h"
+#include "src/core/SkColorSpacePriv.h"
+#include "src/core/SkColorSpaceXformSteps.h"
+#include "src/core/SkConvertPixels.h"
+#include "src/core/SkOpts.h"
+#include "src/core/SkRasterPipeline.h"
 
 static bool rect_memcpy(const SkImageInfo& dstInfo,       void* dstPixels, size_t dstRB,
                         const SkImageInfo& srcInfo, const void* srcPixels, size_t srcRB,
@@ -34,20 +31,20 @@ static bool rect_memcpy(const SkImageInfo& dstInfo,       void* dstPixels, size_
     return true;
 }
 
-static bool swizzle_and_multiply(const SkImageInfo& dstInfo,       void* dstPixels, size_t dstRB,
-                                 const SkImageInfo& srcInfo, const void* srcPixels, size_t srcRB,
-                                 const SkColorSpaceXformSteps& steps) {
+static bool swizzle_or_premul(const SkImageInfo& dstInfo,       void* dstPixels, size_t dstRB,
+                              const SkImageInfo& srcInfo, const void* srcPixels, size_t srcRB,
+                              const SkColorSpaceXformSteps& steps) {
     auto is_8888 = [](SkColorType ct) {
         return ct == kRGBA_8888_SkColorType || ct == kBGRA_8888_SkColorType;
     };
     if (!is_8888(dstInfo.colorType()) ||
         !is_8888(srcInfo.colorType()) ||
-        steps.flags.linearize || steps.flags.gamut_transform || steps.flags.encode) {
+        steps.flags.linearize         ||
+        steps.flags.gamut_transform   ||
+        steps.flags.unpremul          ||
+        steps.flags.encode) {
         return false;
     }
-
-    // It'd be kind of silly for us to both...
-    SkASSERT(!(steps.flags.premul && steps.flags.unpremul));
 
     const bool swapRB = dstInfo.colorType() != srcInfo.colorType();
 
@@ -56,9 +53,6 @@ static bool swizzle_and_multiply(const SkImageInfo& dstInfo,       void* dstPixe
     if (steps.flags.premul) {
         fn = swapRB ? SkOpts::RGBA_to_bgrA
                     : SkOpts::RGBA_to_rgbA;
-    } else if (steps.flags.unpremul) {
-        fn = swapRB ? SkUnpremultiplyRow<true>
-                    : SkUnpremultiplyRow<false>;
     } else {
         // If we're not swizzling, we ought to have used rect_memcpy().
         SkASSERT(swapRB);
@@ -90,8 +84,23 @@ static bool convert_to_alpha8(const SkImageInfo& dstInfo,       void* vdst, size
             return false;
         }
 
+        case kA16_unorm_SkColorType: {
+            auto src16 = (const uint16_t*) src;
+            for (int y = 0; y < srcInfo.height(); y++) {
+                for (int x = 0; x < srcInfo.width(); x++) {
+                    dst[x] = src16[x] >> 8;
+                }
+                dst = SkTAddOffset<uint8_t>(dst, dstRB);
+                src16 = SkTAddOffset<const uint16_t>(src16, srcRB);
+            }
+            return true;
+        }
+
         case kGray_8_SkColorType:
         case kRGB_565_SkColorType:
+        case kR8G8_unorm_SkColorType:
+        case kR16G16_unorm_SkColorType:
+        case kR16G16_float_SkColorType:
         case kRGB_888x_SkColorType:
         case kRGB_101010x_SkColorType: {
             for (int y = 0; y < srcInfo.height(); ++y) {
@@ -138,6 +147,7 @@ static bool convert_to_alpha8(const SkImageInfo& dstInfo,       void* vdst, size
             return true;
         }
 
+        case kRGBA_F16Norm_SkColorType:
         case kRGBA_F16_SkColorType: {
             auto src64 = (const uint64_t*) src;
             for (int y = 0; y < srcInfo.height(); y++) {
@@ -161,6 +171,30 @@ static bool convert_to_alpha8(const SkImageInfo& dstInfo,       void* vdst, size
             }
             return true;
         }
+
+        case kA16_float_SkColorType: {
+            auto srcF16 = (const uint16_t*) src;
+            for (int y = 0; y < srcInfo.height(); y++) {
+                for (int x = 0; x < srcInfo.width(); x++) {
+                    dst[x] = (uint8_t) (255.0f * SkHalfToFloat(srcF16[x]));
+                }
+                dst = SkTAddOffset<uint8_t>(dst, dstRB);
+                srcF16 = SkTAddOffset<const uint16_t>(srcF16, srcRB);
+            }
+            return true;
+        }
+
+        case kR16G16B16A16_unorm_SkColorType: {
+            auto src64 = (const uint64_t*) src;
+            for (int y = 0; y < srcInfo.height(); y++) {
+                for (int x = 0; x < srcInfo.width(); x++) {
+                    dst[x] = (src64[x] >> 48) >> 8;
+                }
+                dst = SkTAddOffset<uint8_t>(dst, dstRB);
+                src64 = SkTAddOffset<const uint64_t>(src64, srcRB);
+            }
+            return true;
+        }
     }
     return false;
 }
@@ -170,27 +204,14 @@ static void convert_with_pipeline(const SkImageInfo& dstInfo, void* dstRow, size
                                   const SkImageInfo& srcInfo, const void* srcRow, size_t srcRB,
                                   const SkColorSpaceXformSteps& steps) {
 
-    SkJumper_MemoryCtx src = { (void*)srcRow, (int)(srcRB / srcInfo.bytesPerPixel()) },
-                       dst = { (void*)dstRow, (int)(dstRB / dstInfo.bytesPerPixel()) };
+    SkRasterPipeline_MemoryCtx src = { (void*)srcRow, (int)(srcRB / srcInfo.bytesPerPixel()) },
+                               dst = { (void*)dstRow, (int)(dstRB / dstInfo.bytesPerPixel()) };
 
     SkRasterPipeline_<256> pipeline;
     pipeline.append_load(srcInfo.colorType(), &src);
-    steps.apply(&pipeline);
+    steps.apply(&pipeline, srcInfo.colorType());
 
     pipeline.append_gamut_clamp_if_normalized(dstInfo);
-
-    // We'll dither if we're decreasing precision below 32-bit.
-    float dither_rate = 0.0f;
-    if (srcInfo.bytesPerPixel() > dstInfo.bytesPerPixel()) {
-        switch (dstInfo.colorType()) {
-            case   kRGB_565_SkColorType: dither_rate = 1/63.0f; break;
-            case kARGB_4444_SkColorType: dither_rate = 1/15.0f; break;
-            default:                     dither_rate =    0.0f; break;
-        }
-    }
-    if (dither_rate > 0) {
-        pipeline.append(SkRasterPipeline::dither, &dither_rate);
-    }
 
     pipeline.append_store(dstInfo.colorType(), &dst);
     pipeline.run(0,0, srcInfo.width(), srcInfo.height());
@@ -204,7 +225,7 @@ void SkConvertPixels(const SkImageInfo& dstInfo,       void* dstPixels, size_t d
     SkColorSpaceXformSteps steps{srcInfo.colorSpace(), srcInfo.alphaType(),
                                  dstInfo.colorSpace(), dstInfo.alphaType()};
 
-    for (auto fn : {rect_memcpy, swizzle_and_multiply, convert_to_alpha8}) {
+    for (auto fn : {rect_memcpy, swizzle_or_premul, convert_to_alpha8}) {
         if (fn(dstInfo, dstPixels, dstRB, srcInfo, srcPixels, srcRB, steps)) {
             return;
         }

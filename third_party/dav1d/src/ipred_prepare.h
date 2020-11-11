@@ -25,8 +25,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __DAV1D_SRC_IPRED_PREPARE_H__
-#define __DAV1D_SRC_IPRED_PREPARE_H__
+#ifndef DAV1D_SRC_IPRED_PREPARE_H
+#define DAV1D_SRC_IPRED_PREPARE_H
 
 #include <stddef.h>
 #include <stdint.h>
@@ -66,7 +66,7 @@
  * range, in the following order:
  * - [0] will be the top/left edge pixel;
  * - [1..w] will be the top edge pixels (1 being left-most, w being right-most);
- * - [w+1..w*w] will be the top/right edge pixels;
+ * - [w+1..2*w] will be the top/right edge pixels;
  * - [-1..-w] will be the left edge pixels (-1 being top-most, -w being bottom-
  *   most);
  * - [-w-1..-2*w] will be the bottom/left edge pixels.
@@ -81,7 +81,8 @@ enum IntraPredMode
                                       const pixel *dst, ptrdiff_t stride,
                                       const pixel *prefilter_toplevel_sb_edge,
                                       enum IntraPredMode mode, int *angle,
-                                      int tw, int th, pixel *topleft_out);
+                                      int tw, int th, int filter_edge,
+                                      pixel *topleft_out HIGHBD_DECL_SUFFIX);
 
 // These flags are OR'd with the angle argument into intra predictors.
 // ANGLE_USE_EDGE_FILTER_FLAG signals that edges should be convolved
@@ -104,4 +105,4 @@ static inline int sm_uv_flag(const BlockContext *const b, const int idx) {
             m == SMOOTH_V_PRED) ? ANGLE_SMOOTH_EDGE_FLAG : 0;
 }
 
-#endif /* __DAV1D_SRC_IPRED_PREPARE_H__ */
+#endif /* DAV1D_SRC_IPRED_PREPARE_H */

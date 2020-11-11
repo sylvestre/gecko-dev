@@ -25,18 +25,17 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __DAV1D_INPUT_INPUT_H__
-#define __DAV1D_INPUT_INPUT_H__
+#ifndef DAV1D_INPUT_INPUT_H
+#define DAV1D_INPUT_INPUT_H
 
 #include "data.h"
 
 typedef struct DemuxerContext DemuxerContext;
 
-void init_demuxers(void);
 int input_open(DemuxerContext **const c_out,
                const char *const name, const char *const filename,
-               unsigned fps[2], unsigned *num_frames);
+               unsigned fps[2], unsigned *num_frames, unsigned timebase[2]);
 int input_read(DemuxerContext *ctx, Dav1dData *data);
 void input_close(DemuxerContext *ctx);
 
-#endif /* __DAV1D_INPUT_INPUT_H__ */
+#endif /* DAV1D_INPUT_INPUT_H */

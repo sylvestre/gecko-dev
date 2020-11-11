@@ -5,13 +5,13 @@
 include protocol PBackground;
 include protocol PChildToParentStream;
 include protocol PFileDescriptorSet;
-include protocol PIPCBlobInputStream;
 include protocol PParentToChildStream;
+include protocol PRemoteLazyInputStream;
 
 include IPCBlob;
 
 namespace mozilla {
-namespace ipc {
+namespace dom {
 
 union IPCBlobOrError
 {
@@ -39,5 +39,5 @@ parent:
   async OperationDone(nsCString aContentType, FileDescriptor aFD);
 };
 
-} // namespace dom
+} // namespace dom 
 } // namespace mozilla

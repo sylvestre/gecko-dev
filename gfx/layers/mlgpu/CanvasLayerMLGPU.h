@@ -27,7 +27,7 @@ class CanvasLayerMLGPU final : public CanvasLayer, public TexturedLayerMLGPU {
   explicit CanvasLayerMLGPU(LayerManagerMLGPU* aManager);
 
  protected:
-  ~CanvasLayerMLGPU() override;
+  virtual ~CanvasLayerMLGPU();
 
  public:
   Layer* GetLayer() override;
@@ -42,7 +42,7 @@ class CanvasLayerMLGPU final : public CanvasLayer, public TexturedLayerMLGPU {
   MOZ_LAYER_DECL_NAME("CanvasLayerMLGPU", TYPE_CANVAS)
 
  protected:
-  CanvasRenderer* CreateCanvasRendererInternal() override {
+  RefPtr<CanvasRenderer> CreateCanvasRendererInternal() override {
     MOZ_CRASH("Incompatible surface type");
     return nullptr;
   }

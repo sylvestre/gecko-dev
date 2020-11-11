@@ -1,4 +1,3 @@
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
    http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -7,8 +6,9 @@
 // Check that the AnimationsActor allows changing many players' currentTimes at once.
 
 add_task(async function() {
-  const {target, walker, animations} =
-    await initAnimationsFrontForUrl(MAIN_DOMAIN + "animation.html");
+  const { target, walker, animations } = await initAnimationsFrontForUrl(
+    MAIN_DOMAIN + "animation.html"
+  );
 
   await testSetCurrentTimes(walker, animations);
 
@@ -21,9 +21,11 @@ async function testSetCurrentTimes(walker, animations) {
 
   info("Retrieve multiple animated node and its animation players");
 
-  const nodeMulti = await walker.querySelector(walker.rootNode,
-    ".multiple-animations");
-  const players = (await animations.getAnimationPlayersForNode(nodeMulti));
+  const nodeMulti = await walker.querySelector(
+    walker.rootNode,
+    ".multiple-animations"
+  );
+  const players = await animations.getAnimationPlayersForNode(nodeMulti);
 
   ok(players.length > 1, "Node has more than 1 animation player");
 
@@ -36,7 +38,10 @@ async function testSetCurrentTimes(walker, animations) {
   for (let i = 0; i < players.length; i++) {
     const state = await players[i].getCurrentState();
     is(state.playState, "paused", `Player ${i + 1} is paused`);
-    is(parseInt(state.currentTime.toPrecision(6), 10), 500,
-       `Player ${i + 1} has the right currentTime`);
+    is(
+      parseInt(state.currentTime.toPrecision(4), 10),
+      500,
+      `Player ${i + 1} has the right currentTime`
+    );
   }
 }

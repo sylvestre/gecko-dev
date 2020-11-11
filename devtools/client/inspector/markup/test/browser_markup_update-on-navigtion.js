@@ -1,4 +1,3 @@
-/* vim: set ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 "use strict";
@@ -9,12 +8,12 @@ const URL_1 = URL_ROOT + "doc_markup_update-on-navigtion_1.html";
 const URL_2 = URL_ROOT + "doc_markup_update-on-navigtion_2.html";
 
 add_task(async function() {
-  const {inspector, testActor} = await openInspectorForURL(URL_1);
+  const { inspector, testActor } = await openInspectorForURL(URL_1);
 
   assertMarkupViewIsLoaded();
   await selectNode("#one", inspector);
 
-  const willNavigate = inspector.target.once("will-navigate");
+  const willNavigate = inspector.currentTarget.once("will-navigate");
   await testActor.eval(`window.location = "${URL_2}"`);
 
   info("Waiting for will-navigate");
@@ -37,7 +36,9 @@ add_task(async function() {
   }
 
   function assertMarkupViewIsEmpty() {
-    const markupViewFrame = inspector._markupFrame.contentDocument.getElementById("root");
+    const markupViewFrame = inspector._markupFrame.contentDocument.getElementById(
+      "root"
+    );
     is(markupViewFrame.childNodes.length, 0, "The markup-view is unloaded");
   }
 });

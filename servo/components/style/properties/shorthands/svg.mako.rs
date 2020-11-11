@@ -4,7 +4,7 @@
 
 <%namespace name="helpers" file="/helpers.mako.rs" />
 
-<%helpers:shorthand name="mask" products="gecko" extra_prefixes="webkit"
+<%helpers:shorthand name="mask" engines="gecko" extra_prefixes="webkit"
                     flags="SHORTHAND_IN_GETCS"
                     sub_properties="mask-mode mask-repeat mask-clip mask-origin mask-composite mask-position-x
                                     mask-position-y mask-size mask-image"
@@ -25,7 +25,7 @@
                     mask_clip::single_value::SpecifiedValue::PaddingBox ,
                 mask_origin::single_value::SpecifiedValue::BorderBox =>
                     mask_clip::single_value::SpecifiedValue::BorderBox,
-                % if product == "gecko":
+                % if engine == "gecko":
                 mask_origin::single_value::SpecifiedValue::FillBox =>
                     mask_clip::single_value::SpecifiedValue::FillBox ,
                 mask_origin::single_value::SpecifiedValue::StrokeBox =>
@@ -42,11 +42,11 @@
         input: &mut Parser<'i, 't>,
     ) -> Result<Longhands, ParseError<'i>> {
         % for name in "image mode position_x position_y size repeat origin clip composite".split():
-            // Vec grows from 0 to 4 by default on first push().  So allocate
-            // with capacity 1, so in the common case of only one item we don't
-            // way overallocate.  Note that we always push at least one item if
-            // parsing succeeds.
-            let mut mask_${name} = mask_${name}::SpecifiedValue(Vec::with_capacity(1));
+        // Vec grows from 0 to 4 by default on first push().  So allocate with
+        // capacity 1, so in the common case of only one item we don't way
+        // overallocate, then shrink.  Note that we always push at least one
+        // item if parsing succeeds.
+        let mut mask_${name} = Vec::with_capacity(1);
         % endfor
 
         input.parse_comma_separated(|input| {
@@ -55,18 +55,18 @@
             % endfor
             loop {
                 if image.is_none() {
-                    if let Ok(value) = input.try(|input| mask_image::single_value
+                    if let Ok(value) = input.try_parse(|input| mask_image::single_value
                                                                    ::parse(context, input)) {
                         image = Some(value);
                         continue
                     }
                 }
                 if position.is_none() {
-                    if let Ok(value) = input.try(|input| Position::parse(context, input)) {
+                    if let Ok(value) = input.try_parse(|input| Position::parse(context, input)) {
                         position = Some(value);
 
                         // Parse mask size, if applicable.
-                        size = input.try(|input| {
+                        size = input.try_parse(|input| {
                             input.expect_delim('/')?;
                             mask_size::single_value::parse(context, input)
                         }).ok();
@@ -76,7 +76,7 @@
                 }
                 % for name in "repeat origin clip composite mode".split():
                     if ${name}.is_none() {
-                        if let Ok(value) = input.try(|input| mask_${name}::single_value
+                        if let Ok(value) = input.try_parse(|input| mask_${name}::single_value
                                                                                ::parse(context, input)) {
                             ${name} = Some(value);
                             continue
@@ -96,17 +96,17 @@
             % endfor
             if any {
                 if let Some(position) = position {
-                    mask_position_x.0.push(position.horizontal);
-                    mask_position_y.0.push(position.vertical);
+                    mask_position_x.push(position.horizontal);
+                    mask_position_y.push(position.vertical);
                 } else {
-                    mask_position_x.0.push(PositionComponent::zero());
-                    mask_position_y.0.push(PositionComponent::zero());
+                    mask_position_x.push(PositionComponent::zero());
+                    mask_position_y.push(PositionComponent::zero());
                 }
                 % for name in "image mode size repeat origin clip composite".split():
                     if let Some(m_${name}) = ${name} {
-                        mask_${name}.0.push(m_${name});
+                        mask_${name}.push(m_${name});
                     } else {
-                        mask_${name}.0.push(mask_${name}::single_value
+                        mask_${name}.push(mask_${name}::single_value
                                                         ::get_initial_specified_value());
                     }
                 % endfor
@@ -118,7 +118,7 @@
 
         Ok(expanded! {
             % for name in "image mode position_x position_y size repeat origin clip composite".split():
-                mask_${name}: mask_${name},
+                mask_${name}: mask_${name}::SpecifiedValue(mask_${name}.into()),
             % endfor
          })
     }
@@ -195,7 +195,7 @@
     }
 </%helpers:shorthand>
 
-<%helpers:shorthand name="mask-position" products="gecko" extra_prefixes="webkit"
+<%helpers:shorthand name="mask-position" engines="gecko" extra_prefixes="webkit"
                     flags="SHORTHAND_IN_GETCS"
                     sub_properties="mask-position-x mask-position-y"
                     spec="https://drafts.csswg.org/css-masks-4/#the-mask-position">
@@ -209,16 +209,16 @@
     ) -> Result<Longhands, ParseError<'i>> {
         // Vec grows from 0 to 4 by default on first push().  So allocate with
         // capacity 1, so in the common case of only one item we don't way
-        // overallocate.  Note that we always push at least one item if parsing
-        // succeeds.
-        let mut position_x = mask_position_x::SpecifiedValue(Vec::with_capacity(1));
-        let mut position_y = mask_position_y::SpecifiedValue(Vec::with_capacity(1));
+        // overallocate, then shrink.  Note that we always push at least one
+        // item if parsing succeeds.
+        let mut position_x = Vec::with_capacity(1);
+        let mut position_y = Vec::with_capacity(1);
         let mut any = false;
 
         input.parse_comma_separated(|input| {
             let value = Position::parse(context, input)?;
-            position_x.0.push(value.horizontal);
-            position_y.0.push(value.vertical);
+            position_x.push(value.horizontal);
+            position_y.push(value.vertical);
             any = true;
             Ok(())
         })?;
@@ -227,9 +227,10 @@
             return Err(input.new_custom_error(StyleParseErrorKind::UnspecifiedError));
         }
 
+
         Ok(expanded! {
-            mask_position_x: position_x,
-            mask_position_y: position_y,
+            mask_position_x: mask_position_x::SpecifiedValue(position_x.into()),
+            mask_position_y: mask_position_y::SpecifiedValue(position_y.into()),
         })
     }
 

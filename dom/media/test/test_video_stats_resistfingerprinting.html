@@ -9,7 +9,7 @@ https://trac.torproject.org/projects/tor/ticket/15757
 <head>
   <meta charset="utf-8">
   <title>Test for Bug 1369309</title>
-  <script type="application/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
   <script type="application/javascript" src="manifest.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css"/>
 </head>
@@ -65,8 +65,6 @@ https://trac.torproject.org/projects/tor/ticket/15757
         "VideoPlaybackQuality.totalVideoFrames should be spoofed if fingerprinting resistance is enabled");
     is(playbackQuality.droppedVideoFrames, parseInt(currentTime * SPOOFED_FRAMES_PER_SECOND * dropRate, 10),
         "VideoPlaybackQuality.droppedVideoFrames should be spoofed if fingerprinting resistance is enabled");
-    is(playbackQuality.corruptedVideoFrames, 0,
-        "VideoPlaybackQuality.corruptedVideoFrames should be 0 if fingerprinting resistance is enabled");
   }
 
   function startTest(test, token) {

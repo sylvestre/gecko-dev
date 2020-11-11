@@ -7,66 +7,82 @@
 #ifndef mozilla_dom_quota_usageinfo_h__
 #define mozilla_dom_quota_usageinfo_h__
 
-#include "mozilla/dom/quota/QuotaCommon.h"
-
-#include "mozilla/Atomics.h"
+#include <cstdint>
+#include <utility>
 #include "mozilla/CheckedInt.h"
+#include "mozilla/Maybe.h"
+#include "mozilla/dom/quota/QuotaCommon.h"
 
 BEGIN_QUOTA_NAMESPACE
 
-class UsageInfo {
- public:
-  UsageInfo() : mDatabaseUsage(0), mFileUsage(0), mLimit(0) {}
+enum struct UsageKind { Database, File };
 
-  virtual ~UsageInfo() {}
+namespace detail {
+inline void AddCapped(Maybe<uint64_t>& aValue, const Maybe<uint64_t> aDelta) {
+  if (aDelta.isSome()) {
+    CheckedUint64 value = aValue.valueOr(0);
 
-  void Append(const UsageInfo& aUsageInfo) {
-    IncrementUsage(&mDatabaseUsage, aUsageInfo.mDatabaseUsage);
-    IncrementUsage(&mFileUsage, aUsageInfo.mFileUsage);
+    value += aDelta.value();
+
+    aValue = Some(value.isValid() ? value.value() : UINT64_MAX);
+  }
+}
+
+template <UsageKind Kind>
+struct Usage {
+  explicit Usage(Maybe<uint64_t> aValue = Nothing{}) : mValue(aValue) {}
+
+  Maybe<uint64_t> GetValue() const { return mValue; }
+
+  Usage& operator+=(const Usage aDelta) {
+    AddCapped(mValue, aDelta.mValue);
+
+    return *this;
   }
 
-  void AppendToDatabaseUsage(uint64_t aUsage) {
-    IncrementUsage(&mDatabaseUsage, aUsage);
-  }
-
-  void AppendToFileUsage(uint64_t aUsage) {
-    IncrementUsage(&mFileUsage, aUsage);
-  }
-
-  void SetLimit(uint64_t aLimit) { mLimit = aLimit; }
-
-  uint64_t DatabaseUsage() { return mDatabaseUsage; }
-
-  uint64_t FileUsage() { return mFileUsage; }
-
-  uint64_t Limit() { return mLimit; }
-
-  uint64_t TotalUsage() {
-    uint64_t totalUsage = mDatabaseUsage;
-    IncrementUsage(&totalUsage, mFileUsage);
-    return totalUsage;
-  }
-
-  void ResetUsage() {
-    mDatabaseUsage = 0;
-    mFileUsage = 0;
-  }
-
-  static void IncrementUsage(uint64_t* aUsage, uint64_t aDelta) {
-    MOZ_ASSERT(aUsage);
-    CheckedUint64 value = *aUsage;
-    value += aDelta;
-    if (value.isValid()) {
-      *aUsage = value.value();
-    } else {
-      *aUsage = UINT64_MAX;
-    }
+  Usage operator+(const Usage aDelta) const {
+    Usage res = *this;
+    res += aDelta;
+    return res;
   }
 
  private:
-  uint64_t mDatabaseUsage;
-  uint64_t mFileUsage;
-  uint64_t mLimit;
+  Maybe<uint64_t> mValue;
+};
+}  // namespace detail
+
+using DatabaseUsageType = detail::Usage<UsageKind::Database>;
+using FileUsageType = detail::Usage<UsageKind::File>;
+
+class UsageInfo final {
+ public:
+  UsageInfo& operator+=(const UsageInfo& aUsageInfo) {
+    mDatabaseUsage += aUsageInfo.mDatabaseUsage;
+    mFileUsage += aUsageInfo.mFileUsage;
+    return *this;
+  }
+
+  UsageInfo& operator+=(const DatabaseUsageType aUsage) {
+    mDatabaseUsage += aUsage;
+    return *this;
+  }
+
+  UsageInfo& operator+=(const FileUsageType aUsage) {
+    mFileUsage += aUsage;
+    return *this;
+  }
+
+  Maybe<uint64_t> FileUsage() const { return mFileUsage.GetValue(); }
+
+  Maybe<uint64_t> TotalUsage() const {
+    Maybe<uint64_t> res = mDatabaseUsage.GetValue();
+    detail::AddCapped(res, FileUsage());
+    return res;
+  }
+
+ private:
+  DatabaseUsageType mDatabaseUsage;
+  FileUsageType mFileUsage;
 };
 
 END_QUOTA_NAMESPACE

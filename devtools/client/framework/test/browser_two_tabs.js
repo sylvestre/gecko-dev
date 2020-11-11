@@ -1,5 +1,3 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 2 -*- */
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -7,130 +5,108 @@
  * Check regression when opening two tabs
  */
 
-var { DebuggerServer } = require("devtools/server/main");
-var { DebuggerClient } = require("devtools/shared/client/debugger-client");
+var { DevToolsServer } = require("devtools/server/devtools-server");
+var { DevToolsClient } = require("devtools/client/devtools-client");
 
 const TAB_URL_1 = "data:text/html;charset=utf-8,foo";
 const TAB_URL_2 = "data:text/html;charset=utf-8,bar";
 
-var gClient;
-var gTab1, gTab2;
-var gTargetActor1, gTargetActor2;
+add_task(async () => {
+  DevToolsServer.init();
+  DevToolsServer.registerAllActors();
 
-function test() {
-  waitForExplicitFinish();
+  const tab1 = await addTab(TAB_URL_1);
+  const tab2 = await addTab(TAB_URL_2);
 
-  DebuggerServer.init();
-  DebuggerServer.registerAllActors();
+  // Connect to devtools server to fetch the two target actors for each tab
+  const client = new DevToolsClient(DevToolsServer.connectPipe());
+  await client.connect();
 
-  openTabs();
+  const tabDescriptors = await client.mainRoot.listTabs();
+  const tabs = await Promise.all(tabDescriptors.map(d => d.getTarget()));
+  const targetFront1 = tabs.find(a => a.url === TAB_URL_1);
+  const targetFront2 = tabs.find(a => a.url === TAB_URL_2);
+
+  await checkGetTab(client, tab1, tab2, targetFront1, targetFront2);
+  await checkGetTabFailures(client);
+  await checkSelectedTargetActor(targetFront2);
+
+  await removeTab(tab2);
+  await checkFirstTargetActor(targetFront1);
+
+  await removeTab(tab1);
+  await client.close();
+});
+
+async function checkGetTab(client, tab1, tab2, targetFront1, targetFront2) {
+  let front = await getTabTarget(client, { tab: tab1 });
+  is(targetFront1, front, "getTab returns the same target form for first tab");
+  const filter = {};
+  // Filter either by tabId or outerWindowID,
+  // if we are running tests OOP or not.
+  if (tab1.linkedBrowser.frameLoader.remoteTab) {
+    filter.tabId = tab1.linkedBrowser.frameLoader.remoteTab.tabId;
+  } else {
+    const { docShell } = tab1.linkedBrowser.contentWindow;
+    filter.outerWindowID = docShell.outerWindowID;
+  }
+  front = await getTabTarget(client, filter);
+  is(
+    targetFront1,
+    front,
+    "getTab returns the same target form when filtering by tabId/outerWindowID"
+  );
+  front = await getTabTarget(client, { tab: tab2 });
+  is(targetFront2, front, "getTab returns the same target form for second tab");
 }
 
-function openTabs() {
-  // Open two tabs, select the second
-  addTab(TAB_URL_1).then(tab1 => {
-    gTab1 = tab1;
-    addTab(TAB_URL_2).then(tab2 => {
-      gTab2 = tab2;
+async function checkGetTabFailures(client) {
+  try {
+    await getTabTarget(client, { tabId: -999 });
+    ok(false, "getTab unexpectedly succeed with a wrong tabId");
+  } catch (error) {
+    is(
+      error.message,
+      "Protocol error (noTab): Unable to find tab with tabId '-999' from: " +
+        client.mainRoot.actorID
+    );
+  }
 
-      connect();
-    });
-  });
+  try {
+    await getTabTarget(client, { outerWindowID: -999 });
+    ok(false, "getTab unexpectedly succeed with a wrong outerWindowID");
+  } catch (error) {
+    is(
+      error.message,
+      "Protocol error (noTab): Unable to find tab with outerWindowID '-999' from: " +
+        client.mainRoot.actorID
+    );
+  }
 }
 
-function connect() {
-  // Connect to debugger server to fetch the two target actors for each tab
-  gClient = new DebuggerClient(DebuggerServer.connectPipe());
-  gClient.connect()
-    .then(() => gClient.listTabs())
-    .then(response => {
-      // Fetch the target actors for each tab
-      gTargetActor1 = response.tabs.filter(a => a.url === TAB_URL_1)[0];
-      gTargetActor2 = response.tabs.filter(a => a.url === TAB_URL_2)[0];
-
-      checkGetTab();
-    });
-}
-
-function checkGetTab() {
-  gClient.getTab({tab: gTab1})
-         .then(response => {
-           is(JSON.stringify(gTargetActor1), JSON.stringify(response.tab),
-              "getTab returns the same target form for first tab");
-         })
-         .then(() => {
-           const filter = {};
-           // Filter either by tabId or outerWindowID,
-           // if we are running tests OOP or not.
-           if (gTab1.linkedBrowser.frameLoader.tabParent) {
-             filter.tabId = gTab1.linkedBrowser.frameLoader.tabParent.tabId;
-           } else {
-             const windowUtils = gTab1.linkedBrowser.contentWindow.windowUtils;
-             filter.outerWindowID = windowUtils.outerWindowID;
-           }
-           return gClient.getTab(filter);
-         })
-         .then(response => {
-           is(JSON.stringify(gTargetActor1), JSON.stringify(response.tab),
-              "getTab returns the same target form when filtering by tabId/outerWindowID");
-         })
-         .then(() => gClient.getTab({tab: gTab2}))
-         .then(response => {
-           is(JSON.stringify(gTargetActor2), JSON.stringify(response.tab),
-              "getTab returns the same target form for second tab");
-         })
-         .then(checkGetTabFailures);
-}
-
-function checkGetTabFailures() {
-  gClient.getTab({ tabId: -999 })
-    .then(
-      response => ok(false, "getTab unexpectedly succeed with a wrong tabId"),
-      response => {
-        is(response, "Protocol error (noTab): Unable to find tab with tabId '-999'");
-      }
-    )
-    .then(() => gClient.getTab({ outerWindowID: -999 }))
-    .then(
-      response => ok(false, "getTab unexpectedly succeed with a wrong outerWindowID"),
-      response => {
-        is(response, "Protocol error (noTab): Unable to find tab with outerWindowID '-999'");
-      }
-    )
-    .then(checkSelectedTargetActor);
-}
-
-function checkSelectedTargetActor() {
+async function checkSelectedTargetActor(targetFront2) {
   // Send a naive request to the second target actor to check if it works
-  gClient.request({ to: gTargetActor2.consoleActor, type: "startListeners", listeners: [] }, aResponse => {
-    ok("startedListeners" in aResponse, "Actor from the selected tab should respond to the request.");
-
-    closeSecondTab();
-  });
+  await targetFront2.attach();
+  const consoleFront = await targetFront2.getFront("console");
+  const response = await consoleFront.startListeners([]);
+  ok(
+    "startedListeners" in response,
+    "Actor from the selected tab should respond to the request."
+  );
 }
 
-function closeSecondTab() {
-  // Close the second tab, currently selected
-  const container = gBrowser.tabContainer;
-  container.addEventListener("TabClose", function() {
-    checkFirstTargetActor();
-  }, {once: true});
-  gBrowser.removeTab(gTab2);
-}
-
-function checkFirstTargetActor() {
+async function checkFirstTargetActor(targetFront1) {
   // then send a request to the first target actor to check if it still works
-  gClient.request({ to: gTargetActor1.consoleActor, type: "startListeners", listeners: [] }, aResponse => {
-    ok("startedListeners" in aResponse, "Actor from the first tab should still respond.");
-
-    cleanup();
-  });
+  await targetFront1.attach();
+  const consoleFront = await targetFront1.getFront("console");
+  const response = await consoleFront.startListeners([]);
+  ok(
+    "startedListeners" in response,
+    "Actor from the first tab should still respond."
+  );
 }
 
-function cleanup() {
-  const container = gBrowser.tabContainer;
-  container.addEventListener("TabClose", function() {
-    gClient.close().then(finish);
-  }, {once: true});
-  gBrowser.removeTab(gTab1);
+async function getTabTarget(client, filter) {
+  const descriptor = await client.mainRoot.getTab(filter);
+  return descriptor.getTarget();
 }

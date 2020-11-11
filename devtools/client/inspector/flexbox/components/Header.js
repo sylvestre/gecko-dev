@@ -12,22 +12,26 @@ const {
 } = require("devtools/client/shared/vendor/react");
 const dom = require("devtools/client/shared/vendor/react-dom-factories");
 const PropTypes = require("devtools/client/shared/vendor/react-prop-types");
-const { connect } = require("devtools/client/shared/vendor/react-redux");
+const { getStr } = require("devtools/client/inspector/layout/utils/l10n");
 
-const FlexContainer = createFactory(require("./FlexContainer"));
-const FlexItemSelector = createFactory(require("./FlexItemSelector"));
+const FlexContainer = createFactory(
+  require("devtools/client/inspector/flexbox/components/FlexContainer")
+);
+const FlexItemSelector = createFactory(
+  require("devtools/client/inspector/flexbox/components/FlexItemSelector")
+);
 
-const Types = require("../types");
+const Types = require("devtools/client/inspector/flexbox/types");
 
 class Header extends PureComponent {
   static get propTypes() {
     return {
+      color: PropTypes.string.isRequired,
+      dispatch: PropTypes.func.isRequired,
       flexContainer: PropTypes.shape(Types.flexContainer).isRequired,
       getSwatchColorPickerTooltip: PropTypes.func.isRequired,
       highlighted: PropTypes.bool.isRequired,
-      onHideBoxModelHighlighter: PropTypes.func.isRequired,
       onSetFlexboxOverlayColor: PropTypes.func.isRequired,
-      onShowBoxModelHighlighterForNode: PropTypes.func.isRequired,
       onToggleFlexboxHighlighter: PropTypes.func.isRequired,
       setSelectedNode: PropTypes.func.isRequired,
     };
@@ -49,13 +53,16 @@ class Header extends PureComponent {
       return null;
     }
 
-    return createElement(Fragment, null,
+    return createElement(
+      Fragment,
+      null,
       dom.div({ className: "devtools-separator" }),
       dom.input({
         id: "flexbox-checkbox-toggle",
         className: "devtools-checkbox-toggle",
         checked: this.props.highlighted,
         onChange: this.onFlexboxCheckboxClick,
+        title: getStr("flexbox.togglesFlexboxHighlighter2"),
         type: "checkbox",
       })
     );
@@ -67,19 +74,19 @@ class Header extends PureComponent {
     }
 
     const {
+      color,
+      dispatch,
       flexContainer,
       getSwatchColorPickerTooltip,
-      onHideBoxModelHighlighter,
       onSetFlexboxOverlayColor,
-      onShowBoxModelHighlighterForNode,
     } = this.props;
 
     return FlexContainer({
+      color,
+      dispatch,
       flexContainer,
       getSwatchColorPickerTooltip,
-      onHideBoxModelHighlighter,
       onSetFlexboxOverlayColor,
-      onShowBoxModelHighlighterForNode,
     });
   }
 
@@ -88,15 +95,11 @@ class Header extends PureComponent {
       return null;
     }
 
-    const {
-      flexContainer,
-      setSelectedNode,
-    } = this.props;
-    const {
-      flexItems,
-      flexItemShown,
-    } = flexContainer;
-    const flexItem = flexItems.find(item => item.nodeFront.actorID === flexItemShown);
+    const { flexContainer, setSelectedNode } = this.props;
+    const { flexItems, flexItemShown } = flexContainer;
+    const flexItem = flexItems.find(
+      item => item.nodeFront.actorID === flexItemShown
+    );
 
     if (!flexItem) {
       return null;
@@ -110,45 +113,32 @@ class Header extends PureComponent {
   }
 
   render() {
-    const {
-      flexContainer,
-      setSelectedNode,
-    } = this.props;
-    const {
-      flexItemShown,
-      nodeFront,
-    } = flexContainer;
+    const { flexContainer, setSelectedNode } = this.props;
+    const { flexItemShown, nodeFront } = flexContainer;
 
-    return (
-      dom.div({ className: "flex-header devtools-monospace" },
-        flexItemShown ?
-          dom.button({
+    return dom.div(
+      { className: "flex-header devtools-monospace" },
+      flexItemShown
+        ? dom.button({
             className: "flex-header-button-prev devtools-button",
+            "aria-label": getStr("flexbox.backButtonLabel"),
             onClick: e => {
               e.stopPropagation();
               setSelectedNode(nodeFront);
             },
           })
-          :
-          null,
-        dom.div(
-          {
-            className: "flex-header-content" +
-                       (flexItemShown ? " flex-item-shown" : ""),
-          },
-          this.renderFlexContainer(),
-          this.renderFlexItemSelector()
-        ),
-        this.renderFlexboxHighlighterToggle()
-      )
+        : null,
+      dom.div(
+        {
+          className:
+            "flex-header-content" + (flexItemShown ? " flex-item-shown" : ""),
+        },
+        this.renderFlexContainer(),
+        this.renderFlexItemSelector()
+      ),
+      this.renderFlexboxHighlighterToggle()
     );
   }
 }
 
-const mapStateToProps = state => {
-  return {
-    highlighted: state.flexbox.highlighted,
-  };
-};
-
-module.exports = connect(mapStateToProps)(Header);
+module.exports = Header;

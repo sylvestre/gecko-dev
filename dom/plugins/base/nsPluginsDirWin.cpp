@@ -161,13 +161,13 @@ static bool CanLoadPlugin(char16ptr_t aBinaryPath) {
             DWORD arch =
                 (((IMAGE_NT_HEADERS*)((LPBYTE)mapView + peImageHeaderStart))
                      ->FileHeader.Machine);
-#ifdef _M_IX86
+#  ifdef _M_IX86
             canLoad = (arch == IMAGE_FILE_MACHINE_I386);
-#elif defined(_M_X64)
+#  elif defined(_M_X64)
             canLoad = (arch == IMAGE_FILE_MACHINE_AMD64);
-#elif defined(_M_IA64)
+#  elif defined(_M_IA64)
             canLoad = (arch == IMAGE_FILE_MACHINE_IA64);
-#endif
+#  endif
           }
         }
         UnmapViewOfFile(mapView);
@@ -199,11 +199,11 @@ bool nsPluginsDir::IsPluginFile(nsIFile* file) {
   }
 
   ToLowerCase(filename);
-  if (StringBeginsWith(filename, NS_LITERAL_STRING("np")) &&
-      StringEndsWith(filename, NS_LITERAL_STRING(".dll"))) {
+  if (StringBeginsWith(filename, u"np"_ns) &&
+      StringEndsWith(filename, u".dll"_ns)) {
     // don't load OJI-based Java plugins
-    if (StringBeginsWith(filename, NS_LITERAL_STRING("npoji")) ||
-        StringBeginsWith(filename, NS_LITERAL_STRING("npjava")))
+    if (StringBeginsWith(filename, u"npoji"_ns) ||
+        StringBeginsWith(filename, u"npjava"_ns))
       return false;
     return true;
   }

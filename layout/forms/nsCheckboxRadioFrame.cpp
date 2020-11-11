@@ -11,24 +11,28 @@
 #include "mozilla/dom/HTMLInputElement.h"
 #include "mozilla/EventStateManager.h"
 #include "mozilla/LookAndFeel.h"
+#include "mozilla/PresShell.h"
 #include "nsDeviceContext.h"
 #include "nsIContent.h"
 #include "nsStyleConsts.h"
 
 using namespace mozilla;
+using mozilla::dom::Element;
 using mozilla::dom::HTMLInputElement;
 
 //#define FCF_NOISY
 
-nsCheckboxRadioFrame* NS_NewCheckboxRadioFrame(nsIPresShell* aPresShell,
+nsCheckboxRadioFrame* NS_NewCheckboxRadioFrame(PresShell* aPresShell,
                                                ComputedStyle* aStyle) {
-  return new (aPresShell) nsCheckboxRadioFrame(aStyle);
+  return new (aPresShell)
+      nsCheckboxRadioFrame(aStyle, aPresShell->GetPresContext());
 }
 
-nsCheckboxRadioFrame::nsCheckboxRadioFrame(ComputedStyle* aStyle)
-    : nsAtomicContainerFrame(aStyle, kClassID) {}
+nsCheckboxRadioFrame::nsCheckboxRadioFrame(ComputedStyle* aStyle,
+                                           nsPresContext* aPresContext)
+    : nsAtomicContainerFrame(aStyle, aPresContext, kClassID) {}
 
-nsCheckboxRadioFrame::~nsCheckboxRadioFrame() {}
+nsCheckboxRadioFrame::~nsCheckboxRadioFrame() = default;
 
 void nsCheckboxRadioFrame::DestroyFrom(nsIFrame* aDestructRoot,
                                        PostDestroyData& aPostDestroyData) {
@@ -43,16 +47,16 @@ NS_QUERYFRAME_HEAD(nsCheckboxRadioFrame)
   NS_QUERYFRAME_ENTRY(nsIFormControlFrame)
 NS_QUERYFRAME_TAIL_INHERITING(nsAtomicContainerFrame)
 
-/* virtual */ nscoord nsCheckboxRadioFrame::GetMinISize(
-    gfxContext* aRenderingContext) {
+/* virtual */
+nscoord nsCheckboxRadioFrame::GetMinISize(gfxContext* aRenderingContext) {
   nscoord result;
   DISPLAY_MIN_INLINE_SIZE(this, result);
   result = StyleDisplay()->HasAppearance() ? DefaultSize() : 0;
   return result;
 }
 
-/* virtual */ nscoord nsCheckboxRadioFrame::GetPrefISize(
-    gfxContext* aRenderingContext) {
+/* virtual */
+nscoord nsCheckboxRadioFrame::GetPrefISize(gfxContext* aRenderingContext) {
   nscoord result;
   DISPLAY_PREF_INLINE_SIZE(this, result);
   result = StyleDisplay()->HasAppearance() ? DefaultSize() : 0;
@@ -63,8 +67,7 @@ NS_QUERYFRAME_TAIL_INHERITING(nsAtomicContainerFrame)
 LogicalSize nsCheckboxRadioFrame::ComputeAutoSize(
     gfxContext* aRC, WritingMode aWM, const LogicalSize& aCBSize,
     nscoord aAvailableISize, const LogicalSize& aMargin,
-    const LogicalSize& aBorder, const LogicalSize& aPadding,
-    ComputeSizeFlags aFlags) {
+    const LogicalSize& aBorderPadding, ComputeSizeFlags aFlags) {
   LogicalSize size(aWM, 0, 0);
   if (!StyleDisplay()->HasAppearance()) {
     return size;
@@ -72,14 +75,14 @@ LogicalSize nsCheckboxRadioFrame::ComputeAutoSize(
 
   // Note: this call always set the BSize to NS_UNCONSTRAINEDSIZE.
   size = nsAtomicContainerFrame::ComputeAutoSize(
-      aRC, aWM, aCBSize, aAvailableISize, aMargin, aBorder, aPadding, aFlags);
+      aRC, aWM, aCBSize, aAvailableISize, aMargin, aBorderPadding, aFlags);
   size.BSize(aWM) = DefaultSize();
   return size;
 }
 
 nscoord nsCheckboxRadioFrame::GetLogicalBaseline(
     WritingMode aWritingMode) const {
-  NS_ASSERTION(!NS_SUBTREE_DIRTY(this), "frame must not be dirty");
+  NS_ASSERTION(!IsSubtreeDirty(), "frame must not be dirty");
 
   // For appearance:none we use a standard CSS baseline, i.e. synthesized from
   // our margin-box.
@@ -117,8 +120,8 @@ void nsCheckboxRadioFrame::Reflow(nsPresContext* aPresContext,
     RegUnRegAccessKey(static_cast<nsIFrame*>(this), true);
   }
 
-  aDesiredSize.SetSize(aReflowInput.GetWritingMode(),
-                       aReflowInput.ComputedSizeWithBorderPadding());
+  const auto wm = aReflowInput.GetWritingMode();
+  aDesiredSize.SetSize(wm, aReflowInput.ComputedSizeWithBorderPadding(wm));
 
   if (nsLayoutUtils::FontSizeInflationEnabled(aPresContext)) {
     float inflation = nsLayoutUtils::FontSizeInflationFor(this);
@@ -166,7 +169,7 @@ nsresult nsCheckboxRadioFrame::HandleEvent(nsPresContext* aPresContext,
                                            nsEventStatus* aEventStatus) {
   // Check for disabled content so that selection works properly (?).
   if (IsContentDisabled()) {
-    return nsFrame::HandleEvent(aPresContext, aEvent, aEventStatus);
+    return nsIFrame::HandleEvent(aPresContext, aEvent, aEventStatus);
   }
   return NS_OK;
 }
@@ -189,7 +192,7 @@ nsRect nsCheckboxRadioFrame::GetUsableScreenRect(nsPresContext* aPresContext) {
 
   nsDeviceContext* context = aPresContext->DeviceContext();
   int32_t dropdownCanOverlapOSBar =
-      LookAndFeel::GetInt(LookAndFeel::eIntID_MenusCanOverlapOSBar, 0);
+      LookAndFeel::GetInt(LookAndFeel::IntID::MenusCanOverlapOSBar, 0);
   if (dropdownCanOverlapOSBar)
     context->GetRect(screen);
   else

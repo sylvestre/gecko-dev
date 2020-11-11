@@ -33,7 +33,7 @@
 #include "secport.h"
 
 #ifndef MOZ_NO_MOZALLOC
-#include "mozilla/mozalloc_oom.h"
+#  include "mozilla/mozalloc_oom.h"
 #endif
 
 namespace mozilla {
@@ -59,6 +59,11 @@ namespace internal {
 
 inline void PK11_DestroyContext_true(PK11Context* ctx) {
   PK11_DestroyContext(ctx, true);
+}
+
+inline void SECKEYEncryptedPrivateKeyInfo_true(
+    SECKEYEncryptedPrivateKeyInfo* epki) {
+  SECKEY_DestroyEncryptedPrivateKeyInfo(epki, true);
 }
 
 }  // namespace internal
@@ -135,10 +140,10 @@ class Digest {
  private:
   nsresult SetLength(SECOidTag hashType) {
 #ifdef _MSC_VER
-#pragma warning(push)
+#  pragma warning(push)
     // C4061: enumerator 'symbol' in switch of enum 'symbol' is not
     // explicitly handled.
-#pragma warning(disable : 4061)
+#  pragma warning(disable : 4061)
 #endif
     switch (hashType) {
       case SEC_OID_SHA1:
@@ -157,7 +162,7 @@ class Digest {
         return NS_ERROR_INVALID_ARG;
     }
 #ifdef _MSC_VER
-#pragma warning(pop)
+#  pragma warning(pop)
 #endif
 
     return NS_OK;
@@ -229,13 +234,20 @@ inline void SECOID_DestroyAlgorithmID_true(SECAlgorithmID* a) {
   return SECOID_DestroyAlgorithmID(a, true);
 }
 
-inline void SECKEYEncryptedPrivateKeyInfo_true(
-    SECKEYEncryptedPrivateKeyInfo* epki) {
-  return SECKEY_DestroyEncryptedPrivateKeyInfo(epki, PR_TRUE);
-}
-
 inline void VFY_DestroyContext_true(VFYContext* ctx) {
   VFY_DestroyContext(ctx, true);
+}
+
+// If this was created via PK11_ListFixedKeysInSlot, we may have a list of keys,
+// in which case we have to free them all (and if not, this will still free the
+// one key).
+inline void FreeOneOrMoreSymKeys(PK11SymKey* keys) {
+  PK11SymKey* next;
+  while (keys) {
+    next = PK11_GetNextSymKey(keys);
+    PK11_FreeSymKey(keys);
+    keys = next;
+  }
 }
 
 }  // namespace internal
@@ -281,7 +293,7 @@ MOZ_TYPE_SPECIFIC_UNIQUE_PTR_TEMPLATE(UniquePK11SlotInfo, PK11SlotInfo,
 MOZ_TYPE_SPECIFIC_UNIQUE_PTR_TEMPLATE(UniquePK11SlotList, PK11SlotList,
                                       PK11_FreeSlotList)
 MOZ_TYPE_SPECIFIC_UNIQUE_PTR_TEMPLATE(UniquePK11SymKey, PK11SymKey,
-                                      PK11_FreeSymKey)
+                                      internal::FreeOneOrMoreSymKeys)
 
 MOZ_TYPE_SPECIFIC_UNIQUE_PTR_TEMPLATE(UniquePLArenaPool, PLArenaPool,
                                       internal::PORT_FreeArena_false)
@@ -295,6 +307,9 @@ MOZ_TYPE_SPECIFIC_UNIQUE_PTR_TEMPLATE(UniqueSECItem, SECItem,
                                       internal::SECITEM_FreeItem_true)
 MOZ_TYPE_SPECIFIC_UNIQUE_PTR_TEMPLATE(UniqueSECKEYPrivateKey, SECKEYPrivateKey,
                                       SECKEY_DestroyPrivateKey)
+MOZ_TYPE_SPECIFIC_UNIQUE_PTR_TEMPLATE(UniqueSECKEYPrivateKeyList,
+                                      SECKEYPrivateKeyList,
+                                      SECKEY_DestroyPrivateKeyList)
 MOZ_TYPE_SPECIFIC_UNIQUE_PTR_TEMPLATE(UniqueSECKEYPublicKey, SECKEYPublicKey,
                                       SECKEY_DestroyPublicKey)
 MOZ_TYPE_SPECIFIC_UNIQUE_PTR_TEMPLATE(UniqueSECMODModule, SECMODModule,
@@ -312,6 +327,9 @@ MOZ_TYPE_SPECIFIC_UNIQUE_PTR_TEMPLATE(UniqueSEC_PKCS12DecoderContext,
 MOZ_TYPE_SPECIFIC_UNIQUE_PTR_TEMPLATE(UniqueSEC_PKCS12ExportContext,
                                       SEC_PKCS12ExportContext,
                                       SEC_PKCS12DestroyExportContext)
+MOZ_TYPE_SPECIFIC_UNIQUE_PTR_TEMPLATE(
+    UniqueSECKEYEncryptedPrivateKeyInfo, SECKEYEncryptedPrivateKeyInfo,
+    internal::SECKEYEncryptedPrivateKeyInfo_true)
 }  // namespace mozilla
 
 #endif  // ScopedNSSTypes_h

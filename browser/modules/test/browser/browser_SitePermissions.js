@@ -9,59 +9,63 @@ ChromeUtils.import("resource:///modules/SitePermissions.jsm", this);
 // This asserts that SitePermissions.set can not save ALLOW permissions
 // temporarily on a tab.
 add_task(async function testTempAllowThrows() {
-  let uri = Services.io.newURI("https://example.com");
+  let principal = Services.scriptSecurityManager.createContentPrincipalFromOrigin(
+    "https://example.com"
+  );
   let id = "notifications";
 
-  await BrowserTestUtils.withNewTab(uri.spec, function(browser) {
+  await BrowserTestUtils.withNewTab(principal.spec, function(browser) {
     Assert.throws(function() {
-      SitePermissions.set(uri, id, SitePermissions.ALLOW, SitePermissions.SCOPE_TEMPORARY, browser);
+      SitePermissions.setForPrincipal(
+        principal,
+        id,
+        SitePermissions.ALLOW,
+        SitePermissions.SCOPE_TEMPORARY,
+        browser
+      );
     }, /'Block' is the only permission we can save temporarily on a browser/);
   });
 });
 
-// Tests that we can set TEMPORARY ALLOW permissions for autoplay-media
-add_task(async function testTempAutoplayAllowed() {
-  Services.prefs.setIntPref("media.autoplay.default", 2);
-
-  let uri = Services.io.newURI("https://example.com");
-  let permId = "autoplay-media";
-
-  let tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, uri.spec);
-
-  SitePermissions.set(uri, permId, SitePermissions.ALLOW,
-                      SitePermissions.SCOPE_TEMPORARY, tab.linkedBrowser);
-
-  let permissions = SitePermissions.getAllPermissionDetailsForBrowser(tab.linkedBrowser);
-
-  let autoplay = permissions.find(({id}) => id === "autoplay-media");
-  Assert.deepEqual(autoplay, {
-    id: "autoplay-media",
-    label: "Automatically Play Media with Sound",
-    state: SitePermissions.ALLOW,
-    scope: SitePermissions.SCOPE_TEMPORARY,
-  });
-
-  Services.prefs.clearUserPref("media.autoplay.default");
-  BrowserTestUtils.removeTab(gBrowser.selectedTab);
-});
-
 // This tests the SitePermissions.getAllPermissionDetailsForBrowser function.
 add_task(async function testGetAllPermissionDetailsForBrowser() {
-  let uri = Services.io.newURI("https://example.com");
+  let principal = Services.scriptSecurityManager.createContentPrincipalFromOrigin(
+    "https://example.com"
+  );
 
-  let tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, uri.spec);
+  let tab = await BrowserTestUtils.openNewForegroundTab(
+    gBrowser,
+    principal.spec
+  );
 
   Services.prefs.setIntPref("permissions.default.shortcuts", 2);
 
-  SitePermissions.set(uri, "camera", SitePermissions.ALLOW);
-  SitePermissions.set(uri, "cookie", SitePermissions.ALLOW_COOKIES_FOR_SESSION);
-  SitePermissions.set(uri, "popup", SitePermissions.BLOCK);
-  SitePermissions.set(uri, "geo", SitePermissions.ALLOW, SitePermissions.SCOPE_SESSION);
-  SitePermissions.set(uri, "shortcuts", SitePermissions.ALLOW);
+  SitePermissions.setForPrincipal(principal, "camera", SitePermissions.ALLOW);
+  SitePermissions.setForPrincipal(
+    principal,
+    "cookie",
+    SitePermissions.ALLOW_COOKIES_FOR_SESSION
+  );
+  SitePermissions.setForPrincipal(principal, "popup", SitePermissions.BLOCK);
+  SitePermissions.setForPrincipal(
+    principal,
+    "geo",
+    SitePermissions.ALLOW,
+    SitePermissions.SCOPE_SESSION
+  );
+  SitePermissions.setForPrincipal(
+    principal,
+    "shortcuts",
+    SitePermissions.ALLOW
+  );
 
-  let permissions = SitePermissions.getAllPermissionDetailsForBrowser(tab.linkedBrowser);
+  SitePermissions.setForPrincipal(principal, "xr", SitePermissions.ALLOW);
 
-  let camera = permissions.find(({id}) => id === "camera");
+  let permissions = SitePermissions.getAllPermissionDetailsForBrowser(
+    tab.linkedBrowser
+  );
+
+  let camera = permissions.find(({ id }) => id === "camera");
   Assert.deepEqual(camera, {
     id: "camera",
     label: "Use the Camera",
@@ -70,13 +74,15 @@ add_task(async function testGetAllPermissionDetailsForBrowser() {
   });
 
   // Check that removed permissions (State.UNKNOWN) are skipped.
-  SitePermissions.remove(uri, "camera");
-  permissions = SitePermissions.getAllPermissionDetailsForBrowser(tab.linkedBrowser);
+  SitePermissions.removeFromPrincipal(principal, "camera");
+  permissions = SitePermissions.getAllPermissionDetailsForBrowser(
+    tab.linkedBrowser
+  );
 
-  camera = permissions.find(({id}) => id === "camera");
+  camera = permissions.find(({ id }) => id === "camera");
   Assert.equal(camera, undefined);
 
-  let cookie = permissions.find(({id}) => id === "cookie");
+  let cookie = permissions.find(({ id }) => id === "cookie");
   Assert.deepEqual(cookie, {
     id: "cookie",
     label: "Set Cookies",
@@ -84,7 +90,7 @@ add_task(async function testGetAllPermissionDetailsForBrowser() {
     scope: SitePermissions.SCOPE_PERSISTENT,
   });
 
-  let popup = permissions.find(({id}) => id === "popup");
+  let popup = permissions.find(({ id }) => id === "popup");
   Assert.deepEqual(popup, {
     id: "popup",
     label: "Open Pop-up Windows",
@@ -92,7 +98,7 @@ add_task(async function testGetAllPermissionDetailsForBrowser() {
     scope: SitePermissions.SCOPE_PERSISTENT,
   });
 
-  let geo = permissions.find(({id}) => id === "geo");
+  let geo = permissions.find(({ id }) => id === "geo");
   Assert.deepEqual(geo, {
     id: "geo",
     label: "Access Your Location",
@@ -100,7 +106,7 @@ add_task(async function testGetAllPermissionDetailsForBrowser() {
     scope: SitePermissions.SCOPE_SESSION,
   });
 
-  let shortcuts = permissions.find(({id}) => id === "shortcuts");
+  let shortcuts = permissions.find(({ id }) => id === "shortcuts");
   Assert.deepEqual(shortcuts, {
     id: "shortcuts",
     label: "Override Keyboard Shortcuts",
@@ -108,12 +114,92 @@ add_task(async function testGetAllPermissionDetailsForBrowser() {
     scope: SitePermissions.SCOPE_PERSISTENT,
   });
 
-  SitePermissions.remove(uri, "cookie");
-  SitePermissions.remove(uri, "popup");
-  SitePermissions.remove(uri, "geo");
-  SitePermissions.remove(uri, "shortcuts");
+  let xr = permissions.find(({ id }) => id === "xr");
+  Assert.deepEqual(xr, {
+    id: "xr",
+    label: "Access Virtual Reality Devices",
+    state: SitePermissions.ALLOW,
+    scope: SitePermissions.SCOPE_PERSISTENT,
+  });
+
+  SitePermissions.removeFromPrincipal(principal, "cookie");
+  SitePermissions.removeFromPrincipal(principal, "popup");
+  SitePermissions.removeFromPrincipal(principal, "geo");
+  SitePermissions.removeFromPrincipal(principal, "shortcuts");
+
+  SitePermissions.removeFromPrincipal(principal, "xr");
 
   Services.prefs.clearUserPref("permissions.default.shortcuts");
 
   BrowserTestUtils.removeTab(gBrowser.selectedTab);
+});
+
+add_task(async function testInvalidPrincipal() {
+  // Check that an error is thrown when an invalid principal argument is passed.
+  try {
+    SitePermissions.isSupportedPrincipal("file:///example.js");
+  } catch (e) {
+    Assert.equal(
+      e.message,
+      "Argument passed as principal is not an instance of Ci.nsIPrincipal"
+    );
+  }
+  try {
+    SitePermissions.removeFromPrincipal(null, "canvas");
+  } catch (e) {
+    Assert.equal(
+      e.message,
+      "Atleast one of the arguments, either principal or browser should not be null."
+    );
+  }
+  try {
+    SitePermissions.setForPrincipal(
+      "blah",
+      "camera",
+      SitePermissions.ALLOW,
+      SitePermissions.SCOPE_PERSISTENT,
+      gBrowser.selectedBrowser
+    );
+  } catch (e) {
+    Assert.equal(
+      e.message,
+      "Argument passed as principal is not an instance of Ci.nsIPrincipal"
+    );
+  }
+  try {
+    SitePermissions.getAllByPrincipal("blah");
+  } catch (e) {
+    Assert.equal(
+      e.message,
+      "Argument passed as principal is not an instance of Ci.nsIPrincipal"
+    );
+  }
+  try {
+    SitePermissions.getAllByPrincipal(null);
+  } catch (e) {
+    Assert.equal(e.message, "principal argument cannot be null.");
+  }
+  try {
+    SitePermissions.getForPrincipal(5, "camera");
+  } catch (e) {
+    Assert.equal(
+      e.message,
+      "Argument passed as principal is not an instance of Ci.nsIPrincipal"
+    );
+  }
+  // Check that no error is thrown when passing valid principal and browser arguments.
+  Assert.deepEqual(
+    SitePermissions.getForPrincipal(gBrowser.contentPrincipal, "camera"),
+    {
+      state: SitePermissions.UNKNOWN,
+      scope: SitePermissions.SCOPE_PERSISTENT,
+    }
+  );
+  Assert.deepEqual(
+    SitePermissions.getForPrincipal(null, "camera", gBrowser.selectedBrowser),
+    {
+      state: SitePermissions.UNKNOWN,
+      scope: SitePermissions.SCOPE_PERSISTENT,
+    }
+  );
 });

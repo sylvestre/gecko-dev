@@ -4,7 +4,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "AnimationFrameBuffer.h"
-#include "mozilla/Move.h"  // for Move
+
+#include <utility>  // for Move
 
 namespace mozilla {
 namespace image {
@@ -131,7 +132,7 @@ void AnimationFrameRetainedBuffer::AddSizeOfExcludingThis(
     ++i;
     frame->AddSizeOfExcludingThis(aMallocSizeOf,
                                   [&](AddSizeOfCbData& aMetadata) {
-                                    aMetadata.index = i;
+                                    aMetadata.mIndex = i;
                                     aCallback(aMetadata);
                                   });
   }
@@ -275,7 +276,7 @@ void AnimationFrameDiscardingQueue::AddSizeOfExcludingThis(
     MallocSizeOf aMallocSizeOf, const AddSizeOfCb& aCallback) {
   mFirstFrame->AddSizeOfExcludingThis(aMallocSizeOf,
                                       [&](AddSizeOfCbData& aMetadata) {
-                                        aMetadata.index = 1;
+                                        aMetadata.mIndex = 1;
                                         aCallback(aMetadata);
                                       });
 
@@ -294,7 +295,7 @@ void AnimationFrameDiscardingQueue::AddSizeOfExcludingThis(
 
     frame->AddSizeOfExcludingThis(aMallocSizeOf,
                                   [&](AddSizeOfCbData& aMetadata) {
-                                    aMetadata.index = i;
+                                    aMetadata.mIndex = i;
                                     aCallback(aMetadata);
                                   });
   }
@@ -323,7 +324,7 @@ void AnimationFrameRecyclingQueue::AddSizeOfExcludingThis(
     if (entry.mFrame) {
       entry.mFrame->AddSizeOfExcludingThis(
           aMallocSizeOf, [&](AddSizeOfCbData& aMetadata) {
-            aMetadata.index = 0;  // Frame is not applicable
+            aMetadata.mIndex = 0;  // Frame is not applicable
             aCallback(aMetadata);
           });
     }
@@ -352,9 +353,7 @@ void AnimationFrameRecyclingQueue::AdvanceInternal() {
 
   // If we are allowed to recycle the frame, then we should save it before the
   // base class's AdvanceInternal discards it.
-  if (front->ShouldRecycle()) {
-    newEntry.mFrame = std::move(front);
-  }
+  newEntry.mFrame = std::move(front);
 
   // Even if the frame itself isn't saved, we want the dirty rect to calculate
   // the recycle rect for future recycled frames.
@@ -393,11 +392,9 @@ bool AnimationFrameRecyclingQueue::ResetInternal() {
   // existing mRecycle entries, because that will happen in RecycleFrame when
   // we try to pull out a frame to redecode the first frame.
   for (RefPtr<imgFrame>& frame : mDisplay) {
-    if (frame->ShouldRecycle()) {
-      RecycleEntry newEntry(mFirstFrameRefreshArea);
-      newEntry.mFrame = std::move(frame);
-      mRecycle.push_back(std::move(newEntry));
-    }
+    RecycleEntry newEntry(mFirstFrameRefreshArea);
+    newEntry.mFrame = std::move(frame);
+    mRecycle.push_back(std::move(newEntry));
   }
 
   return AnimationFrameDiscardingQueue::ResetInternal();

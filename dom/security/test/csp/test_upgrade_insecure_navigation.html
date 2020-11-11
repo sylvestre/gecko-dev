@@ -3,7 +3,7 @@
 <head>
   <title>Bug 1271173 - Missing spec on Upgrade Insecure Requests(Navigational Upgrades) </title>
   <!-- Including SimpleTest.js so we can use waitForExplicitFinish !-->
-  <script type="text/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css" />
 </head>
 <body>
@@ -54,13 +54,13 @@ var tests = [
 var counter = -1;
 
 function finishTest() {
-  window.removeEventListener("message", receiveMessage, false);
+  window.removeEventListener("message", receiveMessage);
   SimpleTest.finish();
 }
 
 var subtests = 0;
 
-window.addEventListener("message", receiveMessage, false);
+window.addEventListener("message", receiveMessage);
 function receiveMessage(event) {
   var result = event.data.result;
   // query the scheme from the URL before comparing the result

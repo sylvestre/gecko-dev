@@ -9,18 +9,16 @@
 #include "TestScaling.h"
 #include "TestBugs.h"
 #ifdef WIN32
-#include "TestDrawTargetD2D.h"
+#  include "TestDrawTargetD2D.h"
 #endif
 
 #include <string>
 #include <sstream>
 
 struct TestObject {
-  TestBase *test;
+  TestBase* test;
   std::string name;
 };
-
-using namespace std;
 
 int main() {
   TestObject tests[] = {
@@ -33,7 +31,7 @@ int main() {
 
   int totalFailures = 0;
   int totalTests = 0;
-  stringstream message;
+  std::stringstream message;
   printf("------ STARTING RUNNING TESTS ------\n");
   for (int i = 0; i < sizeof(tests) / sizeof(TestObject); i++) {
     message << "--- RUNNING TESTS: " << tests[i].name << " ---\n";

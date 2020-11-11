@@ -1,178 +1,261 @@
-const gHttpTestRoot = "http://127.0.0.1:8888/" + RELATIVE_DIR + "/";
+/* Any copyright is dedicated to the Public Domain.
+ * http://creativecommons.org/publicdomain/zero/1.0/
+ */
 
-function updateBlocklist(aCallback) {
-  var blocklistNotifier = Cc["@mozilla.org/extensions/blocklist;1"]
-                          .getService(Ci.nsITimerCallback);
+// Test plugin blocking.
+
+const gHttpTestRoot = "http://127.0.0.1:8888/" + RELATIVE_DIR + "/";
+const { AddonTestUtils } = ChromeUtils.import(
+  "resource://testing-common/AddonTestUtils.jsm"
+);
+
+function updateBlocklist(aURL, aCallback) {
   var observer = function() {
-    Services.obs.removeObserver(observer, "blocklist-updated");
+    Services.obs.removeObserver(observer, "plugin-blocklist-updated");
     SimpleTest.executeSoon(aCallback);
   };
-  Services.obs.addObserver(observer, "blocklist-updated");
-  blocklistNotifier.notify(null);
-}
-
-var _originalBlocklistURL = null;
-function setAndUpdateBlocklist(aURL, aCallback) {
-  if (!_originalBlocklistURL) {
-    _originalBlocklistURL = Services.prefs.getCharPref("extensions.blocklist.url");
-  }
-  Services.prefs.setCharPref("extensions.blocklist.url", aURL);
-  updateBlocklist(aCallback);
-}
-
-function resetBlocklist(aCallback) {
-  Services.prefs.setCharPref("extensions.blocklist.url", _originalBlocklistURL);
-}
-
-function getPluginUI(plugin, anonid) {
-  if (plugin.openOrClosedShadowRoot &&
-      plugin.openOrClosedShadowRoot.isUAWidget()) {
-    return plugin.openOrClosedShadowRoot.getElementById(anonid);
-  }
-  return plugin.ownerDocument.
-    getAnonymousElementByAttribute(plugin, "anonid", anonid);
-}
-
-add_task(async function() {
-  SpecialPowers.pushPrefEnv({"set": [
-    ["plugins.click_to_play", true],
-    ["extensions.blocklist.suppressUI", true],
-  ]});
-  registerCleanupFunction(async function() {
-    let pluginTag = getTestPluginTag();
-    pluginTag.enabledState = Ci.nsIPluginTag.STATE_ENABLED;
-    await new Promise(resolve => {
-      setAndUpdateBlocklist(gHttpTestRoot + "blockNoPlugins.xml", resolve);
+  Services.obs.addObserver(observer, "plugin-blocklist-updated");
+  info("Loading plugin data " + aURL);
+  if (aURL.endsWith("blockNoPlugins")) {
+    AddonTestUtils.loadBlocklistRawData({ plugins: [] });
+  } else if (aURL.endsWith("blockPluginHard")) {
+    AddonTestUtils.loadBlocklistRawData({
+      plugins: [
+        {
+          matchFilename: "libnptest\\.so|nptest\\.dll|Test\\.plugin",
+          versionRange: [{ severity: "2" }],
+          blockID: "p9999",
+        },
+      ],
     });
-    resetBlocklist();
-  });
+  } else {
+    ok(false, "Should never be asked to update to unknown blocklist data.");
+  }
+}
 
+function setPluginActivateState({ managerWindow, pluginId, activateState }) {
+  let pluginEl = get_addon_element(managerWindow, pluginId);
+  ok(pluginEl, `Got the about:addon entry for "${pluginId}"`);
+
+  // Activate plugin on the HTML about:addons views.
+  let activateAction = pluginEl.querySelector(`[action="${activateState}"]`);
+  ok(activateAction, `Got element for ${activateState} plugin action`);
+  activateAction.click();
+}
+
+async function getTestPluginAddon() {
+  const plugins = await AddonManager.getAddonsByTypes(["plugin"]);
+
+  for (const plugin of plugins) {
+    if (plugin.name == "Test Plug-in") {
+      return plugin;
+    }
+  }
+
+  return undefined;
+}
+
+add_task(async function test_CTP_plugins() {
   let pluginTag = getTestPluginTag();
   pluginTag.enabledState = Ci.nsIPluginTag.STATE_CLICKTOPLAY;
   let managerWindow = await open_manager("addons://list/plugin");
 
-  let plugins = await AddonManager.getAddonsByTypes(["plugin"]);
+  let testPluginAddon = await getTestPluginAddon();
+  isnot(testPluginAddon, null, "part2: Test Plug-in should exist");
 
-  let testPluginId;
-  for (let plugin of plugins) {
-    if (plugin.name == "Test Plug-in") {
-      testPluginId = plugin.id;
-      break;
-    }
-  }
-  ok(testPluginId, "part2: Test Plug-in should exist");
-
-  let testPlugin = await AddonManager.getAddonByID(testPluginId);
-  isnot(testPlugin, null, "part2.1: Test Plug-in should exist");
+  let testPluginId = testPluginAddon.id;
 
   let pluginEl = get_addon_element(managerWindow, testPluginId);
-  pluginEl.parentNode.ensureElementIsVisible(pluginEl);
-  let enableButton = getPluginUI(pluginEl, "enable-btn");
-  is_element_hidden(enableButton, "part3: enable button should not be visible");
-  let disableButton = getPluginUI(pluginEl, "disable-btn");
-  is_element_hidden(disableButton, "part3: disable button should not be visible");
-  let menu = getPluginUI(pluginEl, "state-menulist");
-  is_element_visible(menu, "part3: state menu should be visible");
-  let askToActivateItem = getPluginUI(pluginEl, "ask-to-activate-menuitem");
-  is(menu.selectedItem, askToActivateItem, "part3: state menu should have 'Ask To Activate' selected");
+  ok(pluginEl, `Got the about:addon entry for "${testPluginId}"`);
 
-  let pluginTab = await BrowserTestUtils.openNewForegroundTab(gBrowser, gHttpTestRoot + "plugin_test.html");
+  info("part3: test plugin add-on actions status");
+
+  let pluginOptions = pluginEl.querySelector("plugin-options");
+  let pluginCheckedItem = pluginOptions.querySelector("panel-item[checked]");
+  is(
+    pluginCheckedItem.getAttribute("action"),
+    "ask-to-activate",
+    "plugin should have ask-to-activate state selected"
+  );
+
+  let pluginTab = await BrowserTestUtils.openNewForegroundTab(
+    gBrowser,
+    gHttpTestRoot + "plugin_test.html"
+  );
   let pluginBrowser = pluginTab.linkedBrowser;
 
-  let condition = () => PopupNotifications.getNotification("click-to-play-plugins", pluginBrowser);
-  await BrowserTestUtils.waitForCondition(condition, "part4: should have a click-to-play notification");
+  let condition = () =>
+    PopupNotifications.getNotification("click-to-play-plugins", pluginBrowser);
+  await BrowserTestUtils.waitForCondition(
+    condition,
+    "part4: should have a click-to-play notification"
+  );
 
   BrowserTestUtils.removeTab(pluginTab);
 
-  let alwaysActivateItem = getPluginUI(pluginEl, "always-activate-menuitem");
-  menu.selectedItem = alwaysActivateItem;
-  alwaysActivateItem.doCommand();
+  setPluginActivateState({
+    managerWindow,
+    pluginId: testPluginId,
+    activateState: "always-activate",
+  });
 
-  pluginTab = await BrowserTestUtils.openNewForegroundTab(gBrowser, gHttpTestRoot + "plugin_test.html");
+  pluginTab = await BrowserTestUtils.openNewForegroundTab(
+    gBrowser,
+    gHttpTestRoot + "plugin_test.html"
+  );
 
-  await ContentTask.spawn(pluginTab.linkedBrowser, null, async function() {
+  await SpecialPowers.spawn(pluginTab.linkedBrowser, [], async function() {
     let testPlugin = content.document.getElementById("test");
     ok(testPlugin, "part5: should have a plugin element in the page");
-    let objLoadingContent = testPlugin.QueryInterface(Ci.nsIObjectLoadingContent);
-    let condition = () => objLoadingContent.activated;
-    await ContentTaskUtils.waitForCondition(condition, "part5: waited too long for plugin to activate");
-    ok(objLoadingContent.activated, "part6: plugin should be activated");
+    let condition = () => testPlugin.activated;
+    await ContentTaskUtils.waitForCondition(
+      condition,
+      "part5: waited too long for plugin to activate"
+    );
+    ok(testPlugin.activated, "part6: plugin should be activated");
   });
 
   BrowserTestUtils.removeTab(pluginTab);
 
-  let neverActivateItem = getPluginUI(pluginEl, "never-activate-menuitem");
-  menu.selectedItem = neverActivateItem;
-  neverActivateItem.doCommand();
+  setPluginActivateState({
+    managerWindow,
+    pluginId: testPluginId,
+    activateState: "never-activate",
+  });
 
-  pluginTab = await BrowserTestUtils.openNewForegroundTab(gBrowser, gHttpTestRoot + "plugin_test.html");
+  pluginTab = await BrowserTestUtils.openNewForegroundTab(
+    gBrowser,
+    gHttpTestRoot + "plugin_test.html"
+  );
   pluginBrowser = pluginTab.linkedBrowser;
 
-  await ContentTask.spawn(pluginTab.linkedBrowser, null, async function() {
+  await SpecialPowers.spawn(pluginTab.linkedBrowser, [], async function() {
     let testPlugin = content.document.getElementById("test");
     ok(testPlugin, "part7: should have a plugin element in the page");
-    let objLoadingContent = testPlugin.QueryInterface(Ci.nsIObjectLoadingContent);
-    ok(!objLoadingContent.activated, "part7: plugin should not be activated");
+    ok(!testPlugin.activated, "part7: plugin should not be activated");
   });
 
   BrowserTestUtils.removeTab(pluginTab);
 
-  EventUtils.synthesizeMouseAtCenter(pluginEl, {}, managerWindow);
-  await BrowserTestUtils.waitForEvent(managerWindow.document, "ViewChanged");
+  info("part8: test plugin state is never-activate");
+  pluginEl = get_addon_element(managerWindow, testPluginId);
 
-  is_element_hidden(enableButton, "part8: detail enable button should be hidden");
-  is_element_hidden(disableButton, "part8: detail disable button should be hidden");
-  is_element_visible(menu, "part8: detail state menu should be visible");
-  is(menu.selectedItem, neverActivateItem, "part8: state menu should have 'Never Activate' selected");
+  pluginOptions = pluginEl.querySelector("plugin-options");
+  const pluginCheckItem = pluginOptions.querySelector("panel-item[checked]");
+  is(
+    pluginCheckItem.getAttribute("action"),
+    "never-activate",
+    "plugin should have never-activate state selected"
+  );
 
-  menu.selectedItem = alwaysActivateItem;
-  alwaysActivateItem.doCommand();
+  info("part9: set plugin state to always-activate");
+  setPluginActivateState({
+    managerWindow,
+    pluginId: testPluginId,
+    activateState: "always-activate",
+  });
 
-  pluginTab = await BrowserTestUtils.openNewForegroundTab(gBrowser, gHttpTestRoot + "plugin_test.html");
+  pluginTab = await BrowserTestUtils.openNewForegroundTab(
+    gBrowser,
+    gHttpTestRoot + "plugin_test.html"
+  );
   pluginBrowser = pluginTab.linkedBrowser;
 
-  await ContentTask.spawn(pluginTab.linkedBrowser, null, async function() {
+  await SpecialPowers.spawn(pluginTab.linkedBrowser, [], async function() {
     let testPlugin = content.document.getElementById("test");
     ok(testPlugin, "part9: should have a plugin element in the page");
-    let objLoadingContent = testPlugin.QueryInterface(Ci.nsIObjectLoadingContent);
-    let condition = () => objLoadingContent.activated;
-    await ContentTaskUtils.waitForCondition(condition, "part9: waited too long for plugin to activate");
-    ok(objLoadingContent.activated, "part10: plugin should be activated");
+    let condition = () => testPlugin.activated;
+    await ContentTaskUtils.waitForCondition(
+      condition,
+      "part9: waited too long for plugin to activate"
+    );
+    ok(testPlugin.activated, "part10: plugin should be activated");
   });
 
   BrowserTestUtils.removeTab(pluginTab);
 
-  menu.selectedItem = askToActivateItem;
-  askToActivateItem.doCommand();
+  setPluginActivateState({
+    managerWindow,
+    pluginId: testPluginId,
+    activateState: "ask-to-activate",
+  });
 
-  pluginTab = await BrowserTestUtils.openNewForegroundTab(gBrowser, gHttpTestRoot + "plugin_test.html");
+  pluginTab = await BrowserTestUtils.openNewForegroundTab(
+    gBrowser,
+    gHttpTestRoot + "plugin_test.html"
+  );
   pluginBrowser = pluginTab.linkedBrowser;
 
-  condition = () => PopupNotifications.getNotification("click-to-play-plugins", pluginBrowser);
-  await BrowserTestUtils.waitForCondition(condition, "part11: should have a click-to-play notification");
+  condition = () =>
+    PopupNotifications.getNotification("click-to-play-plugins", pluginBrowser);
+  await BrowserTestUtils.waitForCondition(
+    condition,
+    "part11: should have a click-to-play notification"
+  );
 
   BrowserTestUtils.removeTab(pluginTab);
+  await close_manager(managerWindow);
+});
 
-  // causes appDisabled to be set
-  managerWindow = await new Promise(resolve => {
-    setAndUpdateBlocklist(gHttpTestRoot + "blockPluginHard.xml",
-      async () => {
-        await close_manager(managerWindow);
-        open_manager("addons://list/plugin", resolve);
-      }
-    );
+add_task(async function test_blocklisted_plugin_disabled() {
+  async function ensurePluginEnabled() {
+    let pluginTag = getTestPluginTag();
+    pluginTag.enabledState = Ci.nsIPluginTag.STATE_ENABLED;
+    await new Promise(resolve => {
+      updateBlocklist(gHttpTestRoot + "blockNoPlugins", resolve);
+    });
+  }
+
+  await SpecialPowers.pushPrefEnv({
+    set: [["extensions.blocklist.suppressUI", true]],
   });
 
-  pluginEl = get_addon_element(managerWindow, testPluginId);
-  pluginEl.parentNode.ensureElementIsVisible(pluginEl);
-  menu = getPluginUI(pluginEl, "state-menulist");
-  is(menu.disabled, true, "part12: state menu should be disabled");
+  // Causes appDisabled to be set.
+  await new Promise(resolve => {
+    // Ensure to reset the blocklist if this test exits earlier because
+    // of a failure.
+    registerCleanupFunction(ensurePluginEnabled);
+    updateBlocklist(gHttpTestRoot + "blockPluginHard", resolve);
+  });
 
-  EventUtils.synthesizeMouseAtCenter(pluginEl, {}, managerWindow);
-  await BrowserTestUtils.waitForEvent(managerWindow.document, "ViewChanged");
+  await checkPlugins();
 
-  menu = managerWindow.document.getElementById("detail-state-menulist");
-  is(menu.disabled, true, "part13: detail state menu should be disabled");
-
-  managerWindow.close();
+  // Using flushPrefEnv instead of 2x popPrefEnv to work around bug 1557397.
+  await SpecialPowers.flushPrefEnv();
 });
+
+async function checkPlugins() {
+  let testPluginAddon = await getTestPluginAddon();
+  isnot(testPluginAddon, null, "Test Plug-in should exist");
+  let testPluginId = testPluginAddon.id;
+
+  let managerWindow = await open_manager("addons://list/plugin");
+
+  let pluginEl = get_addon_element(managerWindow, testPluginId);
+  ok(pluginEl, `Got about:addons entry for ${testPluginId}`);
+
+  // Open the options menu (needed to check the disabled buttons).
+  const pluginOptions = pluginEl.querySelector("plugin-options");
+  pluginOptions.querySelector("panel-list").open = true;
+
+  // tests all buttons disabled (besides the checked one and the expand action)
+  // are expected to be disabled if locked is true.
+  for (const item of pluginOptions.querySelectorAll(
+    "panel-item:not([hidden])"
+  )) {
+    const actionName = item.getAttribute("action");
+    if (
+      !item.hasAttribute("checked") &&
+      actionName !== "expand" &&
+      actionName !== "preferences"
+    ) {
+      ok(
+        item.shadowRoot.querySelector("button").disabled,
+        `Plugin action "${actionName}" should be disabled`
+      );
+    }
+  }
+  pluginOptions.querySelector("panel-list").open = false;
+
+  await close_manager(managerWindow);
+}

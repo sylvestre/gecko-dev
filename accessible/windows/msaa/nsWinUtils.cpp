@@ -15,10 +15,8 @@
 #include "mozilla/a11y/DocAccessibleParent.h"
 #include "mozilla/Preferences.h"
 #include "nsArrayUtils.h"
-#include "nsIArray.h"
 #include "nsICSSDeclaration.h"
-#include "nsIDocument.h"
-#include "nsIDocShellTreeItem.h"
+#include "mozilla/dom/Document.h"
 #include "mozilla/dom/Element.h"
 #include "nsXULAppAPI.h"
 #include "ProxyWrappers.h"
@@ -51,7 +49,7 @@ already_AddRefed<nsICSSDeclaration> nsWinUtils::GetComputedStyleDeclaration(
   ErrorResult dummy;
   nsCOMPtr<Element> domElement(do_QueryInterface(elm));
   nsCOMPtr<nsICSSDeclaration> cssDecl =
-      window->GetComputedStyle(*domElement, EmptyString(), dummy);
+      window->GetComputedStyle(*domElement, u""_ns, dummy);
   dummy.SuppressException();
   return cssDecl.forget();
 }
@@ -62,7 +60,7 @@ bool nsWinUtils::MaybeStartWindowEmulation() {
   if (IPCAccessibilityActive()) return false;
 
   if (Compatibility::IsJAWS() || Compatibility::IsWE() ||
-      Compatibility::IsDolphin() || XRE_IsContentProcess()) {
+      Compatibility::IsDolphin() || Compatibility::IsVisperoShared()) {
     RegisterNativeWindow(kClassNameTabContent);
     sWindowEmulationStarted = true;
     return true;

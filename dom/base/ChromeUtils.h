@@ -10,7 +10,11 @@
 #include "mozilla/AlreadyAddRefed.h"
 #include "mozilla/dom/BindingDeclarations.h"
 #include "mozilla/dom/ChromeUtilsBinding.h"
+#include "mozilla/dom/Exceptions.h"
 #include "mozilla/ErrorResult.h"
+#include "nsDOMNavigationTiming.h"  // for DOMHighResTimeStamp
+#include "nsIDOMProcessChild.h"
+#include "nsIDOMProcessParent.h"
 
 namespace mozilla {
 
@@ -24,9 +28,12 @@ class ArrayBufferViewOrArrayBuffer;
 class BrowsingContext;
 class IdleRequestCallback;
 struct IdleRequestOptions;
+struct MediaMetadataInit;
 class MozQueryInterface;
 class PrecompiledScript;
 class Promise;
+struct ProcessActorOptions;
+struct WindowActorOptions;
 
 class ChromeUtils {
  private:
@@ -37,6 +44,9 @@ class ChromeUtils {
                                      ErrorResult& rv);
 
  public:
+  // Implemented in devtools/shared/heapsnapshot/HeapSnapshot.cpp
+  static uint64_t GetObjectNodeId(GlobalObject& global, JS::HandleObject aVal);
+
   // Implemented in devtools/shared/heapsnapshot/HeapSnapshot.cpp
   static void SaveHeapSnapshot(GlobalObject& global,
                                const HeapSnapshotBoundaries& boundaries,
@@ -69,6 +79,13 @@ class ChromeUtils {
                               JS::MutableHandle<JSObject*> aRetval,
                               ErrorResult& aRv);
 
+  static void ReleaseAssert(GlobalObject& aGlobal, bool aCondition,
+                            const nsAString& aMessage);
+
+  static void AddProfilerMarker(GlobalObject& aGlobal, const nsACString& aName,
+                                const Optional<DOMHighResTimeStamp>& aStartTime,
+                                const Optional<nsACString>& text);
+
   static void OriginAttributesToSuffix(
       GlobalObject& aGlobal, const dom::OriginAttributesDictionary& aAttrs,
       nsCString& aSuffix);
@@ -96,8 +113,7 @@ class ChromeUtils {
   static bool IsOriginAttributesEqualIgnoringFPD(
       const dom::OriginAttributesDictionary& aA,
       const dom::OriginAttributesDictionary& aB) {
-    return aA.mAppId == aB.mAppId &&
-           aA.mInIsolatedMozBrowser == aB.mInIsolatedMozBrowser &&
+    return aA.mInIsolatedMozBrowser == aB.mInIsolatedMozBrowser &&
            aA.mUserContextId == aB.mUserContextId &&
            aA.mPrivateBrowsingId == aB.mPrivateBrowsingId;
   }
@@ -134,8 +150,18 @@ class ChromeUtils {
 
   static void ClearRecentJSDevError(GlobalObject& aGlobal);
 
+  static void ClearStyleSheetCache(GlobalObject&, nsIPrincipal* aForPrincipal);
+
   static already_AddRefed<Promise> RequestPerformanceMetrics(
       GlobalObject& aGlobal, ErrorResult& aRv);
+
+  static void SetPerfStatsCollectionMask(GlobalObject& aGlobal, uint64_t aMask);
+
+  static already_AddRefed<Promise> CollectPerfStats(GlobalObject& aGlobal,
+                                                    ErrorResult& aRv);
+
+  static already_AddRefed<Promise> RequestProcInfo(GlobalObject& aGlobal,
+                                                   ErrorResult& aRv);
 
   static void Import(const GlobalObject& aGlobal, const nsAString& aResourceURI,
                      const Optional<JS::Handle<JSObject*>>& aTargetObj,
@@ -159,16 +185,45 @@ class ChromeUtils {
   static already_AddRefed<Promise> RequestIOActivity(GlobalObject& aGlobal,
                                                      ErrorResult& aRv);
 
-  static already_AddRefed<BrowsingContext> GetBrowsingContext(
-      GlobalObject& aGlobal, uint64_t id);
-
-  static void GetRootBrowsingContexts(
-      GlobalObject& aGlobal,
-      nsTArray<RefPtr<BrowsingContext>>& aBrowsingContexts);
-
   static bool HasReportingHeaderForOrigin(GlobalObject& global,
                                           const nsAString& aOrigin,
                                           ErrorResult& aRv);
+
+  static PopupBlockerState GetPopupControlState(GlobalObject& aGlobal);
+
+  static bool IsPopupTokenUnused(GlobalObject& aGlobal);
+
+  static double LastExternalProtocolIframeAllowed(GlobalObject& aGlobal);
+
+  static void ResetLastExternalProtocolIframeAllowed(GlobalObject& aGlobal);
+
+  static void RegisterWindowActor(const GlobalObject& aGlobal,
+                                  const nsACString& aName,
+                                  const WindowActorOptions& aOptions,
+                                  ErrorResult& aRv);
+
+  static void UnregisterWindowActor(const GlobalObject& aGlobal,
+                                    const nsACString& aName);
+
+  static void RegisterProcessActor(const GlobalObject& aGlobal,
+                                   const nsACString& aName,
+                                   const ProcessActorOptions& aOptions,
+                                   ErrorResult& aRv);
+
+  static void UnregisterProcessActor(const GlobalObject& aGlobal,
+                                     const nsACString& aName);
+
+  static bool IsClassifierBlockingErrorCode(GlobalObject& aGlobal,
+                                            uint32_t aError);
+
+  static void PrivateNoteIntentionalCrash(const GlobalObject& aGlobal,
+                                          ErrorResult& aError);
+
+  static nsIDOMProcessChild* GetDomProcessChild(const GlobalObject&);
+
+  static void GetAllDOMProcesses(
+      GlobalObject& aGlobal, nsTArray<RefPtr<nsIDOMProcessParent>>& aParents,
+      ErrorResult& aRv);
 };
 
 }  // namespace dom

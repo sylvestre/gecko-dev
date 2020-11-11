@@ -4,34 +4,35 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "mozilla/dom/ContentParent.h"
-#include "mozilla/dom/HTMLIFrameElementBinding.h"
-#include "mozilla/dom/TabParent.h"
+#include "PresentationSessionInfo.h"
+
+#include <utility>
+
+#include "PresentationLog.h"
+#include "PresentationService.h"
 #include "mozilla/Logging.h"
-#include "mozilla/Move.h"
 #include "mozilla/Preferences.h"
+#include "mozilla/dom/BrowserParent.h"
+#include "mozilla/dom/ContentParent.h"
+#include "mozilla/dom/ElementBinding.h"
+#include "mozilla/dom/HTMLIFrameElementBinding.h"
 #include "nsContentUtils.h"
+#include "nsFrameLoader.h"
+#include "nsFrameLoaderOwner.h"
 #include "nsGlobalWindow.h"
 #include "nsIDocShell.h"
-#include "nsFrameLoader.h"
 #include "nsIMutableArray.h"
 #include "nsINetAddr.h"
 #include "nsISocketTransport.h"
 #include "nsISupportsPrimitives.h"
 #include "nsNetCID.h"
+#include "nsQueryObject.h"
 #include "nsServiceManagerUtils.h"
 #include "nsThreadUtils.h"
-#include "PresentationLog.h"
-#include "PresentationService.h"
-#include "PresentationSessionInfo.h"
 
 #ifdef MOZ_WIDGET_ANDROID
-#include "nsIPresentationNetworkHelper.h"
+#  include "nsIPresentationNetworkHelper.h"
 #endif  // MOZ_WIDGET_ANDROID
-
-using namespace mozilla;
-using namespace mozilla::dom;
-using namespace mozilla::services;
 
 /*
  * Implementation of PresentationChannelDescription
@@ -118,14 +119,11 @@ class TCPPresentationChannelDescription final
       : mAddress(aAddress), mPort(aPort) {}
 
  private:
-  ~TCPPresentationChannelDescription() {}
+  ~TCPPresentationChannelDescription() = default;
 
   nsCString mAddress;
   uint16_t mPort;
 };
-
-}  // namespace dom
-}  // namespace mozilla
 
 NS_IMPL_ISUPPORTS(TCPPresentationChannelDescription,
                   nsIPresentationChannelDescription)
@@ -193,13 +191,15 @@ NS_IMPL_ISUPPORTS(PresentationSessionInfo,
                   nsIPresentationControlChannelListener,
                   nsIPresentationSessionTransportBuilderListener);
 
-/* virtual */ nsresult PresentationSessionInfo::Init(
+/* virtual */
+nsresult PresentationSessionInfo::Init(
     nsIPresentationControlChannel* aControlChannel) {
   SetControlChannel(aControlChannel);
   return NS_OK;
 }
 
-/* virtual */ void PresentationSessionInfo::Shutdown(nsresult aReason) {
+/* virtual */
+void PresentationSessionInfo::Shutdown(nsresult aReason) {
   PRES_DEBUG("%s:id[%s], reason[%" PRIx32 "], role[%d]\n", __func__,
              NS_ConvertUTF16toUTF8(mSessionId).get(),
              static_cast<uint32_t>(aReason), mRole);
@@ -315,13 +315,11 @@ nsresult PresentationSessionInfo::Close(nsresult aReason, uint32_t aState) {
   return NS_OK;
 }
 
-nsresult PresentationSessionInfo::OnTerminate(
+void PresentationSessionInfo::OnTerminate(
     nsIPresentationControlChannel* aControlChannel) {
   mIsOnTerminating = true;  // Mark for terminating transport channel
   SetStateWithReason(nsIPresentationSessionListener::STATE_TERMINATED, NS_OK);
   SetControlChannel(aControlChannel);
-
-  return NS_OK;
 }
 
 nsresult PresentationSessionInfo::ReplySuccess() {
@@ -336,7 +334,8 @@ nsresult PresentationSessionInfo::ReplyError(nsresult aError) {
   return UntrackFromService();
 }
 
-/* virtual */ nsresult PresentationSessionInfo::UntrackFromService() {
+/* virtual */
+nsresult PresentationSessionInfo::UntrackFromService() {
   nsCOMPtr<nsIPresentationService> service =
       do_GetService(PRESENTATION_SERVICE_CONTRACTID);
   if (NS_WARN_IF(!service)) {
@@ -360,16 +359,11 @@ nsPIDOMWindowInner* PresentationSessionInfo::GetWindow() {
     return nullptr;
   }
 
-  auto window = nsGlobalWindowInner::GetInnerWindowWithId(windowId);
-  if (!window) {
-    return nullptr;
-  }
-
-  return window->AsInner();
+  return nsGlobalWindowInner::GetInnerWindowWithId(windowId);
 }
 
-/* virtual */ bool PresentationSessionInfo::IsAccessible(
-    base::ProcessId aProcessId) {
+/* virtual */
+bool PresentationSessionInfo::IsAccessible(base::ProcessId aProcessId) {
   // No restriction by default.
   return true;
 }
@@ -989,24 +983,20 @@ nsresult PresentationControllingInfo::ContinueReconnect() {
 // nsIListNetworkAddressesListener
 NS_IMETHODIMP
 PresentationControllingInfo::OnListedNetworkAddresses(
-    const char** aAddressArray, uint32_t aAddressArraySize) {
-  if (!aAddressArraySize) {
+    const nsTArray<nsCString>& aAddressArray) {
+  if (aAddressArray.IsEmpty()) {
     return OnListNetworkAddressesFailed();
   }
 
   // TODO bug 1228504 Take all IP addresses in PresentationChannelDescription
-  // into account. And at the first stage Presentation API is only exposed on
-  // Firefox OS where the first IP appears enough for most scenarios.
-
-  nsAutoCString ip;
-  ip.Assign(aAddressArray[0]);
+  // into account.
 
   // On Firefox desktop, the IP address is retrieved from a callback function.
   // To make consistent code sequence, following function call is dispatched
   // into main thread instead of calling it directly.
   NS_DispatchToMainThread(NewRunnableMethod<nsCString>(
       "dom::PresentationControllingInfo::OnGetAddress", this,
-      &PresentationControllingInfo::OnGetAddress, ip));
+      &PresentationControllingInfo::OnGetAddress, aAddressArray[0]));
 
   return NS_OK;
 }
@@ -1032,7 +1022,7 @@ nsresult PresentationControllingInfo::NotifyReconnectResult(nsresult aStatus) {
 
   mIsReconnecting = false;
   nsCOMPtr<nsIPresentationServiceCallback> callback =
-      mReconnectCallback.forget();
+      std::move(mReconnectCallback);
   if (NS_FAILED(aStatus)) {
     return callback->NotifyError(aStatus);
   }
@@ -1489,7 +1479,7 @@ void PresentationPresentingInfo::ResolvedCallback(
     return;
   }
 
-  nsCOMPtr<nsIFrameLoaderOwner> owner = do_QueryInterface(frame);
+  RefPtr<nsFrameLoaderOwner> owner = do_QueryObject(frame);
   if (NS_WARN_IF(!owner)) {
     ReplyError(NS_ERROR_DOM_OPERATION_ERR);
     return;
@@ -1501,15 +1491,15 @@ void PresentationPresentingInfo::ResolvedCallback(
     return;
   }
 
-  RefPtr<TabParent> tabParent = TabParent::GetFrom(frameLoader);
-  if (tabParent) {
+  RefPtr<BrowserParent> browserParent = BrowserParent::GetFrom(frameLoader);
+  if (browserParent) {
     // OOP frame
     // Notify the content process that a receiver page has launched, so it can
     // start monitoring the loading progress.
-    mContentParent = tabParent->Manager();
-    Unused << NS_WARN_IF(
-        !static_cast<ContentParent*>(mContentParent.get())
-             ->SendNotifyPresentationReceiverLaunched(tabParent, mSessionId));
+    mContentParent = browserParent->Manager();
+    Unused << NS_WARN_IF(!static_cast<ContentParent*>(mContentParent.get())
+                              ->SendNotifyPresentationReceiverLaunched(
+                                  browserParent, mSessionId));
   } else {
     // In-process frame
     IgnoredErrorResult error;
@@ -1541,3 +1531,6 @@ void PresentationPresentingInfo::RejectedCallback(
 
   ReplyError(NS_ERROR_DOM_OPERATION_ERR);
 }
+
+}  // namespace dom
+}  // namespace mozilla

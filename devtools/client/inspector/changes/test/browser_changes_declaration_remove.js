@@ -1,4 +1,3 @@
-/* vim: set ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -21,8 +20,7 @@ add_task(async function() {
   const { document: doc, store } = selectChangesView(inspector);
 
   await selectNode("div", inspector);
-  const rule = getRuleViewRuleEditor(ruleView, 1).rule;
-  const prop = rule.textProps[0];
+  const prop = getTextProperty(ruleView, 1, { color: "red" });
 
   const onTrackChange = waitUntilAction(store, "TRACK_CHANGE");
   info("Remove the first declaration");
@@ -32,6 +30,14 @@ add_task(async function() {
 
   const removeDecl = getRemovedDeclarations(doc);
   is(removeDecl.length, 1, "One declaration was tracked as removed");
-  is(removeDecl[0].property, "color", "Correct declaration name was tracked as removed");
-  is(removeDecl[0].value, "red", "Correct declaration value was tracked as removed");
+  is(
+    removeDecl[0].property,
+    "color",
+    "Correct declaration name was tracked as removed"
+  );
+  is(
+    removeDecl[0].value,
+    "red",
+    "Correct declaration value was tracked as removed"
+  );
 });

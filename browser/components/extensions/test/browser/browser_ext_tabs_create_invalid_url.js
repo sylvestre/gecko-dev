@@ -2,19 +2,29 @@
 /* vim: set sts=2 sw=2 et tw=80: */
 "use strict";
 
+const FILE_URL = Services.io.newFileURI(
+  new FileUtils.File(getTestFilePath("file_dummy.html"))
+).spec;
+
 async function testTabsCreateInvalidURL(tabsCreateURL) {
   let extension = ExtensionTestUtils.loadExtension({
     manifest: {
-      "permissions": ["tabs"],
+      permissions: ["tabs"],
     },
 
     background: function() {
       browser.test.sendMessage("ready");
       browser.test.onMessage.addListener((msg, tabsCreateURL) => {
-        browser.tabs.create({url: tabsCreateURL}, (tab) => {
-          browser.test.assertEq(undefined, tab, "on error tab should be undefined");
-          browser.test.assertTrue(/Illegal URL/.test(browser.runtime.lastError.message),
-                                  "runtime.lastError should report the expected error message");
+        browser.tabs.create({ url: tabsCreateURL }, tab => {
+          browser.test.assertEq(
+            undefined,
+            tab,
+            "on error tab should be undefined"
+          );
+          browser.test.assertTrue(
+            /Illegal URL/.test(browser.runtime.lastError.message),
+            "runtime.lastError should report the expected error message"
+          );
 
           // Remove the opened tab is any.
           if (tab) {
@@ -53,12 +63,15 @@ add_task(async function() {
     </html>`;
 
   let testCases = [
-    {tabsCreateURL: "about:addons"},
-    {tabsCreateURL: "javascript:console.log('tabs.update execute javascript')"},
-    {tabsCreateURL: dataURLPage},
+    { tabsCreateURL: "about:addons" },
+    {
+      tabsCreateURL: "javascript:console.log('tabs.update execute javascript')",
+    },
+    { tabsCreateURL: dataURLPage },
+    { tabsCreateURL: FILE_URL },
   ];
 
-  for (let {tabsCreateURL} of testCases) {
+  for (let { tabsCreateURL } of testCases) {
     await testTabsCreateInvalidURL(tabsCreateURL);
   }
 

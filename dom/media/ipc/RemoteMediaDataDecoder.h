@@ -13,7 +13,7 @@ namespace mozilla {
 
 class GpuDecoderModule;
 class IRemoteDecoderChild;
-class RemoteDecoderModule;
+class RemoteDecoderManagerChild;
 class RemoteMediaDataDecoder;
 
 DDLoggedTypeCustomNameAndBase(RemoteMediaDataDecoder, RemoteMediaDataDecoder,
@@ -28,11 +28,14 @@ class RemoteMediaDataDecoder
       public DecoderDoctorLifeLogger<RemoteMediaDataDecoder> {
  public:
   friend class GpuDecoderModule;
-  friend class RemoteDecoderModule;
+  friend class RemoteDecoderManagerChild;
 
   // MediaDataDecoder
   RefPtr<InitPromise> Init() override;
   RefPtr<DecodePromise> Decode(MediaRawData* aSample) override;
+  bool CanDecodeBatch() const override { return true; }
+  RefPtr<DecodePromise> DecodeBatch(
+      nsTArray<RefPtr<MediaRawData>>&& aSamples) override;
   RefPtr<DecodePromise> Drain() override;
   RefPtr<FlushPromise> Flush() override;
   RefPtr<ShutdownPromise> Shutdown() override;
@@ -42,19 +45,16 @@ class RemoteMediaDataDecoder
   ConversionRequired NeedsConversion() const override;
 
  private:
-  RemoteMediaDataDecoder(IRemoteDecoderChild* aChild, nsIThread* aManagerThread,
-                         AbstractThread* aAbstractManagerThread);
+  explicit RemoteMediaDataDecoder(IRemoteDecoderChild* aChild);
   ~RemoteMediaDataDecoder();
 
   // Only ever written to from the reader task queue (during the constructor and
   // destructor when we can guarantee no other threads are accessing it). Only
   // read from the manager thread.
   RefPtr<IRemoteDecoderChild> mChild;
-  nsIThread* mManagerThread;
-  AbstractThread* mAbstractManagerThread;
   // Only ever written/modified during decoder initialisation.
   // As such can be accessed from any threads after that.
-  nsCString mDescription = NS_LITERAL_CSTRING("RemoteMediaDataDecoder");
+  nsCString mDescription = "RemoteMediaDataDecoder"_ns;
   bool mIsHardwareAccelerated = false;
   nsCString mHardwareAcceleratedReason;
   ConversionRequired mConversion = ConversionRequired::kNeedNone;

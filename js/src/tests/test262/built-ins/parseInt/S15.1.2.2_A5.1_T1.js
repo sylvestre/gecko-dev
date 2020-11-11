@@ -7,14 +7,10 @@ info: |
     octal.  "If radix is undefined or 0, it is assumed to be 10 except
     when the number begins with the character pairs 0x or 0X, in which
     case a radix of 16 is assumed."
-es5id: 15.1.2.2_A5.1_T1
-es6id: 18.2.5
 esid: sec-parseint-string-radix
 description: Check if parseInt still accepts octal
 ---*/
 
-if (parseInt('010') !== 10) {
-  $ERROR("parseInt should no longer accept octal");
-}
+assert.sameValue(parseInt('010'), 10, 'parseInt(\'010\') must return 10');
 
 reportCompare(0, 0);

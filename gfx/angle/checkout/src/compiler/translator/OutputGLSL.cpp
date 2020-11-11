@@ -29,8 +29,7 @@ TOutputGLSL::TOutputGLSL(TInfoSinkBase &objSink,
                       shaderVersion,
                       output,
                       compileOptions)
-{
-}
+{}
 
 bool TOutputGLSL::writeVariablePrecision(TPrecision)
 {
@@ -78,7 +77,7 @@ void TOutputGLSL::visitSymbol(TIntermSymbol *node)
 
 ImmutableString TOutputGLSL::translateTextureFunction(const ImmutableString &name)
 {
-    static const char *simpleRename[] = {"texture2DLodEXT",
+    static const char *simpleRename[]       = {"texture2DLodEXT",
                                          "texture2DLod",
                                          "texture2DProjLodEXT",
                                          "texture2DProjLod",
@@ -99,8 +98,9 @@ ImmutableString TOutputGLSL::translateTextureFunction(const ImmutableString &nam
         // Extensions
         "texture2DLodEXT", "textureLod", "texture2DProjLodEXT", "textureProjLod",
         "textureCubeLodEXT", "textureLod", "texture2DGradEXT", "textureGrad",
-        "texture2DProjGradEXT", "textureProjGrad", "textureCubeGradEXT", "textureGrad", nullptr,
-        nullptr};
+        "texture2DProjGradEXT", "textureProjGrad", "textureCubeGradEXT", "textureGrad", "texture3D",
+        "texture", "texture3DProj", "textureProj", "texture3DLod", "textureLod", "texture3DProjLod",
+        "textureProjLod", nullptr, nullptr};
     const char **mapping =
         (sh::IsGLSL130OrNewer(getShaderOutput())) ? legacyToCoreRename : simpleRename;
 

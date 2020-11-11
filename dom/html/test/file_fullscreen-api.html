@@ -8,8 +8,8 @@ Test DOM full-screen API.
 -->
 <head>
   <title>Test for Bug 545812</title>
-  <script type="application/javascript" src="/tests/SimpleTest/EventUtils.js"></script>
-  <script type="application/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/EventUtils.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
   <script type="application/javascript" src="file_fullscreen-utils.js"></script>
   <style>
   body {
@@ -314,8 +314,11 @@ function testNamespaces(followupTestFn) {
         ok(document.fullscreen, "Document should be in fullscreen");
         is(document.fullscreenElement, elem,
            `Element named '${test.name}' in this namespace should be allowed: ${test.ns}`);
-        addFullscreenChangeContinuation("exit", runNextNamespaceTest);
-        document.body.removeChild(elem);
+        addFullscreenChangeContinuation("exit", () => {
+          document.body.removeChild(elem);
+          runNextNamespaceTest();
+        });
+        document.exitFullscreen();
       });
     } else {
       addFullscreenErrorContinuation(() => {

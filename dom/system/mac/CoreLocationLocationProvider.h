@@ -6,6 +6,7 @@
 
 #include "nsCOMPtr.h"
 #include "nsIGeolocationProvider.h"
+#include "mozilla/Attributes.h"
 
 /*
  * The CoreLocationObjects class contains the CoreLocation objects
@@ -19,7 +20,7 @@
  * The solution then is to forward-declare CoreLocationObjects here and
  * hold a pointer to it in CoreLocationLocationProvider, and only actually
  * define it in CoreLocationLocationProvider.mm, thus making it safe
- * for nsGeolocation.cpp, which is C++-only, to include this header.
+ * for Geolocation.cpp, which is C++-only, to include this header.
  */
 class CoreLocationObjects;
 class MLSFallback;
@@ -30,6 +31,10 @@ class CoreLocationLocationProvider : public nsIGeolocationProvider {
   NS_DECL_NSIGEOLOCATIONPROVIDER
 
   CoreLocationLocationProvider();
+  // MOZ_CAN_RUN_SCRIPT_BOUNDARY because we can't mark Objective-C methods as
+  // MOZ_CAN_RUN_SCRIPT as far as I can tell, and this method is called from
+  // Objective-C.
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY
   void NotifyError(uint16_t aErrorCode);
   void Update(nsIDOMGeoPosition* aSomewhere);
   void CreateMLSFallbackProvider();

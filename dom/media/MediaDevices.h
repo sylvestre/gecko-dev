@@ -5,18 +5,23 @@
 #ifndef mozilla_dom_MediaDevices_h
 #define mozilla_dom_MediaDevices_h
 
-#include "mozilla/ErrorResult.h"
-#include "nsISupportsImpl.h"
+#include "MediaEventSource.h"
+#include "js/RootingAPI.h"
+#include "mozilla/AlreadyAddRefed.h"
 #include "mozilla/DOMEventTargetHelper.h"
-#include "mozilla/dom/BindingUtils.h"
-#include "nsPIDOMWindow.h"
-#include "mozilla/media/DeviceChangeCallback.h"
+#include "mozilla/UseCounter.h"
+#include "mozilla/dom/BindingDeclarations.h"
+#include "nsCOMPtr.h"
+#include "nsID.h"
+#include "nsISupports.h"
+#include "nsITimer.h"
 
 namespace mozilla {
 namespace dom {
 
 class Promise;
 struct MediaStreamConstraints;
+struct DisplayMediaStreamConstraints;
 struct MediaTrackSupportedConstraints;
 
 #define MOZILLA_DOM_MEDIADEVICES_IMPLEMENTATION_IID  \
@@ -26,8 +31,7 @@ struct MediaTrackSupportedConstraints;
     }                                                \
   }
 
-class MediaDevices final : public DOMEventTargetHelper,
-                           public DeviceChangeCallback {
+class MediaDevices final : public DOMEventTargetHelper {
  public:
   explicit MediaDevices(nsPIDOMWindowInner* aWindow)
       : DOMEventTargetHelper(aWindow) {}
@@ -48,10 +52,16 @@ class MediaDevices final : public DOMEventTargetHelper,
   already_AddRefed<Promise> EnumerateDevices(CallerType aCallerType,
                                              ErrorResult& aRv);
 
-  virtual void OnDeviceChange() override;
+  already_AddRefed<Promise> GetDisplayMedia(
+      const DisplayMediaStreamConstraints& aConstraints, CallerType aCallerType,
+      ErrorResult& aRv);
+
+  // Called when MediaManager encountered a change in its device lists.
+  void OnDeviceChange();
+
+  void SetupDeviceChangeListener();
 
   mozilla::dom::EventHandlerNonNull* GetOndevicechange();
-
   void SetOndevicechange(mozilla::dom::EventHandlerNonNull* aCallback);
 
   void EventListenerAdded(nsAtom* aType) override;
@@ -64,6 +74,12 @@ class MediaDevices final : public DOMEventTargetHelper,
 
   virtual ~MediaDevices();
   nsCOMPtr<nsITimer> mFuzzTimer;
+
+  // Connect/Disconnect on main thread only
+  MediaEventListener mDeviceChangeListener;
+  bool mIsDeviceChangeListenerSetUp = false;
+
+  void RecordAccessTelemetry(const UseCounter counter) const;
 };
 
 NS_DEFINE_STATIC_IID_ACCESSOR(MediaDevices,

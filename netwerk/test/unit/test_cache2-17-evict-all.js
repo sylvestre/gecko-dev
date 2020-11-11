@@ -1,5 +1,6 @@
-function run_test()
-{
+"use strict";
+
+function run_test() {
   do_get_profile();
 
   var svc = get_cache_service();

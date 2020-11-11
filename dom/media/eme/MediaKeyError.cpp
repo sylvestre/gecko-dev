@@ -8,15 +8,14 @@
 #include "mozilla/dom/MediaKeyErrorBinding.h"
 #include "nsContentUtils.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 MediaKeyError::MediaKeyError(EventTarget* aOwner, uint32_t aSystemCode)
     : Event(aOwner, nullptr, nullptr), mSystemCode(aSystemCode) {
-  InitEvent(NS_LITERAL_STRING("error"), CanBubble::eNo, Cancelable::eNo);
+  InitEvent(u"error"_ns, CanBubble::eNo, Cancelable::eNo);
 }
 
-MediaKeyError::~MediaKeyError() {}
+MediaKeyError::~MediaKeyError() = default;
 
 uint32_t MediaKeyError::SystemCode() const { return mSystemCode; }
 
@@ -25,5 +24,4 @@ JSObject* MediaKeyError::WrapObjectInternal(JSContext* aCx,
   return MediaKeyError_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

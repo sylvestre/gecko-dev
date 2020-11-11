@@ -11,7 +11,9 @@
 #include "jsfriendapi.h"
 
 #include "js/CharacterEncoding.h"
-#include "js/CompilationAndEvaluation.h"
+#include "js/CompilationAndEvaluation.h"  // JS::Compile
+#include "js/Exception.h"
+#include "js/friend/ErrorMessages.h"  // JSMSG_*
 #include "js/SourceText.h"
 #include "jsapi-tests/tests.h"
 #include "vm/ErrorReporting.h"
@@ -85,36 +87,35 @@ static bool equals(const char* str, const char* expected) {
   return std::strcmp(str, expected) == 0;
 }
 
-bool compile(const char16_t* chars, size_t len,
-             JS::MutableHandle<JSScript*> script) {
+JSScript* compile(const char16_t* chars, size_t len) {
   JS::SourceText<char16_t> source;
-  CHECK(source.init(cx, chars, len, JS::SourceOwnership::Borrowed));
+  MOZ_RELEASE_ASSERT(
+      source.init(cx, chars, len, JS::SourceOwnership::Borrowed));
 
   JS::CompileOptions options(cx);
-  return JS::Compile(cx, options, source, script);
+  return JS::Compile(cx, options, source);
 }
 
-bool compile(const char* chars, size_t len,
-             JS::MutableHandle<JSScript*> script) {
+JSScript* compile(const char* chars, size_t len) {
   JS::SourceText<Utf8Unit> source;
-  CHECK(source.init(cx, chars, len, JS::SourceOwnership::Borrowed));
+  MOZ_RELEASE_ASSERT(
+      source.init(cx, chars, len, JS::SourceOwnership::Borrowed));
 
   JS::CompileOptions options(cx);
-  return JS::CompileDontInflate(cx, options, source, script);
+  return JS::Compile(cx, options, source);
 }
 
 template <typename CharT, size_t N>
 bool testOmittedWindow(const CharT (&chars)[N], unsigned expectedErrorNumber,
                        const char* badCodeUnits = nullptr) {
-  JS::Rooted<JSScript*> script(cx);
-  CHECK(!compile(chars, N - 1, &script));
+  JS::Rooted<JSScript*> script(cx, compile(chars, N - 1));
+  CHECK(!script);
 
-  JS::RootedValue exn(cx);
-  CHECK(JS_GetPendingException(cx, &exn));
-  JS_ClearPendingException(cx);
+  JS::ExceptionStack exnStack(cx);
+  CHECK(JS::StealPendingExceptionStack(cx, &exnStack));
 
-  js::ErrorReport report(cx);
-  CHECK(report.init(cx, exn, js::ErrorReport::WithSideEffects));
+  JS::ErrorReportBuilder report(cx);
+  CHECK(report.init(cx, exnStack, JS::ErrorReportBuilder::WithSideEffects));
 
   const auto* errorReport = report.report();
 

@@ -1,5 +1,3 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 2 -*- */
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -8,15 +6,22 @@
 "use strict";
 
 // React & Redux
-const { Component, createFactory } = require("devtools/client/shared/vendor/react");
+const {
+  Component,
+  createFactory,
+} = require("devtools/client/shared/vendor/react");
 const dom = require("devtools/client/shared/vendor/react-dom-factories");
 const PropTypes = require("devtools/client/shared/vendor/react-prop-types");
 
 const { connect } = require("devtools/client/shared/vendor/react-redux");
 // DOM Panel
-const DomTree = createFactory(require("./DomTree"));
+const DomTree = createFactory(
+  require("devtools/client/dom/content/components/DomTree")
+);
 
-const MainToolbar = createFactory(require("./MainToolbar"));
+const MainToolbar = createFactory(
+  require("devtools/client/dom/content/components/MainToolbar")
+);
 // Shortcuts
 const { div } = dom;
 
@@ -37,24 +42,21 @@ class MainFrame extends Component {
    * Render DOM panel content
    */
   render() {
-    const {
-      filter,
-      object,
-    } = this.props;
+    const { filter, object } = this.props;
 
-    return (
-      div({className: "mainFrame"},
-        MainToolbar({
-          dispatch: this.props.dispatch,
-          object: this.props.object,
-        }),
-        div({className: "treeTableBox"},
-          DomTree({
-            filter,
-            object,
-            openLink: url => DomProvider.openLink(url),
-          })
-        )
+    return div(
+      { className: "mainFrame" },
+      MainToolbar({
+        dispatch: this.props.dispatch,
+        object: this.props.object,
+      }),
+      div(
+        { className: "treeTableBox devtools-monospace" },
+        DomTree({
+          filter,
+          object,
+          openLink: url => DomProvider.openLink(url),
+        })
       )
     );
   }
@@ -62,7 +64,7 @@ class MainFrame extends Component {
 
 // Transform state into props
 // Note: use https://github.com/faassen/reselect for better performance.
-const mapStateToProps = (state) => {
+const mapStateToProps = state => {
   return {
     filter: state.filter,
   };

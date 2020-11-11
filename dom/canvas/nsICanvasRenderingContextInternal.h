@@ -6,13 +6,15 @@
 #ifndef nsICanvasRenderingContextInternal_h___
 #define nsICanvasRenderingContextInternal_h___
 
+#include <memory>
+
 #include "mozilla/gfx/2D.h"
 #include "nsISupports.h"
 #include "nsIInputStream.h"
 #include "nsIDocShell.h"
-#include "nsRefreshDriver.h"
 #include "mozilla/dom/HTMLCanvasElement.h"
 #include "mozilla/dom/OffscreenCanvas.h"
+#include "mozilla/PresShell.h"
 #include "mozilla/RefPtr.h"
 #include "mozilla/UniquePtr.h"
 #include "mozilla/NotNull.h"
@@ -25,13 +27,20 @@
   }
 
 class nsDisplayListBuilder;
+class nsIDocShell;
+class nsRefreshDriver;
 
 namespace mozilla {
+class ClientWebGLContext;
+class PresShell;
 namespace layers {
 class CanvasLayer;
 class CanvasRenderer;
+class CompositableHandle;
 class Layer;
 class LayerManager;
+class LayerTransactionChild;
+class PersistentBufferProvider;
 class WebRenderCanvasData;
 }  // namespace layers
 namespace gfx {
@@ -47,8 +56,14 @@ class nsICanvasRenderingContextInternal : public nsISupports,
   typedef mozilla::layers::Layer Layer;
   typedef mozilla::layers::LayerManager LayerManager;
   typedef mozilla::layers::WebRenderCanvasData WebRenderCanvasData;
+  typedef mozilla::layers::CompositableHandle CompositableHandle;
+  typedef mozilla::layers::LayerTransactionChild LayerTransactionChild;
 
   NS_DECLARE_STATIC_IID_ACCESSOR(NS_ICANVASRENDERINGCONTEXTINTERNAL_IID)
+
+  nsICanvasRenderingContextInternal();
+
+  ~nsICanvasRenderingContextInternal();
 
   void SetCanvasElement(mozilla::dom::HTMLCanvasElement* parentCanvas) {
     RemovePostRefreshObserver();
@@ -56,28 +71,16 @@ class nsICanvasRenderingContextInternal : public nsISupports,
     AddPostRefreshObserverIfNecessary();
   }
 
-  virtual nsIPresShell* GetPresShell() {
+  virtual mozilla::PresShell* GetPresShell() {
     if (mCanvasElement) {
-      return mCanvasElement->OwnerDoc()->GetShell();
+      return mCanvasElement->OwnerDoc()->GetPresShell();
     }
     return nullptr;
   }
 
-  void RemovePostRefreshObserver() {
-    if (mRefreshDriver) {
-      mRefreshDriver->RemovePostRefreshObserver(this);
-      mRefreshDriver = nullptr;
-    }
-  }
+  void RemovePostRefreshObserver();
 
-  void AddPostRefreshObserverIfNecessary() {
-    if (!GetPresShell() || !GetPresShell()->GetPresContext() ||
-        !GetPresShell()->GetPresContext()->RefreshDriver()) {
-      return;
-    }
-    mRefreshDriver = GetPresShell()->GetPresContext()->RefreshDriver();
-    mRefreshDriver->AddPostRefreshObserver(this);
-  }
+  void AddPostRefreshObserverIfNecessary();
 
   mozilla::dom::HTMLCanvasElement* GetParentObject() const {
     return mCanvasElement;
@@ -111,7 +114,7 @@ class nsICanvasRenderingContextInternal : public nsISupports,
   // is false, alpha will be discarded and the result will be the image
   // composited on black.
   NS_IMETHOD GetInputStream(const char* mimeType,
-                            const char16_t* encoderOptions,
+                            const nsAString& encoderOptions,
                             nsIInputStream** stream) = 0;
 
   // This gets an Azure SourceSurface for the canvas, this will be a snapshot
@@ -121,6 +124,10 @@ class nsICanvasRenderingContextInternal : public nsISupports,
   // if one is returned.
   virtual already_AddRefed<mozilla::gfx::SourceSurface> GetSurfaceSnapshot(
       gfxAlphaType* out_alphaType = nullptr) = 0;
+
+  virtual RefPtr<mozilla::gfx::SourceSurface> GetFrontBufferSnapshot(bool) {
+    return GetSurfaceSnapshot();
+  }
 
   // If this is called with true, the backing store of the canvas should
   // be created as opaque; all compositing operators should assume the
@@ -190,6 +197,13 @@ class nsICanvasRenderingContextInternal : public nsISupports,
 
   virtual void OnMemoryPressure() {}
 
+  virtual void OnBeforePaintTransaction() {}
+  virtual void OnDidPaintTransaction() {}
+  virtual mozilla::layers::PersistentBufferProvider* GetBufferProvider() {
+    return nullptr;
+  }
+  virtual mozilla::ClientWebGLContext* AsWebgl() { return nullptr; }
+
   //
   // shmem support
   //
@@ -204,6 +218,9 @@ class nsICanvasRenderingContextInternal : public nsISupports,
   RefPtr<mozilla::dom::HTMLCanvasElement> mCanvasElement;
   RefPtr<mozilla::dom::OffscreenCanvas> mOffscreenCanvas;
   RefPtr<nsRefreshDriver> mRefreshDriver;
+
+ public:
+  const std::shared_ptr<nsICanvasRenderingContextInternal* const> mSharedPtrPtr;
 };
 
 NS_DEFINE_STATIC_IID_ACCESSOR(nsICanvasRenderingContextInternal,

@@ -7,6 +7,7 @@
 #include "ServiceWorkerManagerParent.h"
 #include "ServiceWorkerManagerService.h"
 #include "ServiceWorkerUpdaterParent.h"
+#include "ServiceWorkerUtils.h"
 #include "mozilla/dom/ContentParent.h"
 #include "mozilla/dom/ServiceWorkerRegistrar.h"
 #include "mozilla/ipc/BackgroundParent.h"
@@ -94,6 +95,19 @@ class UnregisterServiceWorkerCallback final : public Runnable {
     service->UnregisterServiceWorker(mPrincipalInfo,
                                      NS_ConvertUTF16toUTF8(mScope));
 
+    // We do not propagate the unregister in parent-intercept mode because the
+    // only point of PropagateUnregister historically is:
+    // 1. Tell other ServiceWorkerManagers about the removal.  There is only 1
+    //    ServiceWorkerManager in parent-intercept mode.
+    // 2. To remove the registration as an awkward API for privacy and devtools
+    //    purposes.  Although the unregister method is idempotent, it's
+    //    preferable to only call the method once if possible.  And we're now
+    //    re-enabling the removal in PropagateUnregister due to a privacy
+    //    regression in bug 1589708, so it makes sense to bail now.
+    if (ServiceWorkerParentInterceptEnabled()) {
+      return NS_OK;
+    }
+
     RefPtr<ServiceWorkerManagerService> managerService =
         ServiceWorkerManagerService::Get();
     if (managerService) {
@@ -118,7 +132,7 @@ class CheckPrincipalWithCallbackRunnable final : public Runnable {
         mContentParent(aParent),
         mPrincipalInfo(aPrincipalInfo),
         mCallback(aCallback),
-        mBackgroundEventTarget(GetCurrentThreadEventTarget()) {
+        mBackgroundEventTarget(GetCurrentEventTarget()) {
     AssertIsInMainProcess();
     AssertIsOnBackgroundThread();
 

@@ -7,10 +7,10 @@
 #ifndef jit_mips64_MacroAssembler_mips64_h
 #define jit_mips64_MacroAssembler_mips64_h
 
-#include "jit/JitFrames.h"
 #include "jit/mips-shared/MacroAssembler-mips-shared.h"
 #include "jit/MoveResolver.h"
 #include "vm/BytecodeUtil.h"
+#include "wasm/WasmTypes.h"
 
 namespace js {
 namespace jit {
@@ -93,6 +93,10 @@ class MacroAssemblerMIPS64 : public MacroAssemblerMIPSShared {
 
   void ma_dins(Register rt, Register rs, Imm32 pos, Imm32 size);
   void ma_dext(Register rt, Register rs, Imm32 pos, Imm32 size);
+
+  // doubleword swap bytes
+  void ma_dsbh(Register rd, Register rt);
+  void ma_dshd(Register rd, Register rt);
 
   void ma_dctz(Register rd, Register rs);
 
@@ -207,7 +211,7 @@ class MacroAssemblerMIPS64Compat : public MacroAssemblerMIPS64 {
     ma_daddu(dest, address.base, Imm32(address.offset));
   }
 
-  inline void computeEffectiveAddress(const BaseIndex& address, Register dest);
+  void computeEffectiveAddress(const BaseIndex& address, Register dest);
 
   void j(Label* dest) { ma_b(dest); }
 
@@ -221,6 +225,8 @@ class MacroAssemblerMIPS64Compat : public MacroAssemblerMIPS64 {
   void mov(Address src, Register dest) { MOZ_CRASH("NYI-IC"); }
 
   void writeDataRelocation(const Value& val) {
+    // Raw GC pointer relocations and Value relocations both end up in
+    // TraceOneDataRelocation.
     if (val.isGCThing()) {
       gc::Cell* cell = val.toGCThing();
       if (cell && gc::IsInsideNursery(cell)) {
@@ -321,12 +327,13 @@ class MacroAssemblerMIPS64Compat : public MacroAssemblerMIPS64 {
 
   void jump(JitCode* code) { branch(code); }
 
-  void jump(TrampolinePtr code) {
-    auto target = ImmPtr(code.value);
+  void jump(ImmPtr ptr) {
     BufferOffset bo = m_buffer.nextOffset();
-    addPendingJump(bo, target, RelocationKind::HARDCODED);
-    ma_jump(target);
+    addPendingJump(bo, ptr, RelocationKind::HARDCODED);
+    ma_jump(ptr);
   }
+
+  void jump(TrampolinePtr code) { jump(ImmPtr(code.value)); }
 
   void splitTag(Register src, Register dest) {
     ma_dsrl(dest, src, Imm32(JSVAL_TAG_SHIFT));
@@ -371,14 +378,17 @@ class MacroAssemblerMIPS64Compat : public MacroAssemblerMIPS64 {
   template <typename T>
   void unboxObjectOrNull(const T& src, Register dest) {
     unboxNonDouble(src, dest, JSVAL_TYPE_OBJECT);
-    JS_STATIC_ASSERT(JSVAL_OBJECT_OR_NULL_BIT ==
-                     (uint64_t(0x8) << JSVAL_TAG_SHIFT));
+    static_assert(JS::detail::ValueObjectOrNullBit ==
+                  (uint64_t(0x8) << JSVAL_TAG_SHIFT));
     ma_dins(dest, zero, Imm32(JSVAL_TAG_SHIFT + 3), Imm32(1));
   }
 
-  void unboxGCThingForPreBarrierTrampoline(const Address& src, Register dest) {
+  void unboxGCThingForGCBarrier(const Address& src, Register dest) {
     loadPtr(src, dest);
     ma_dext(dest, dest, Imm32(0), Imm32(JSVAL_TAG_SHIFT));
+  }
+  void unboxGCThingForGCBarrier(const ValueOperand& src, Register dest) {
+    ma_dext(dest, src.valueReg(), Imm32(0), Imm32(JSVAL_TAG_SHIFT));
   }
 
   void unboxInt32(const ValueOperand& operand, Register dest);
@@ -392,12 +402,16 @@ class MacroAssemblerMIPS64Compat : public MacroAssemblerMIPS64 {
   void unboxDouble(const ValueOperand& operand, FloatRegister dest);
   void unboxDouble(Register src, Register dest);
   void unboxDouble(const Address& src, FloatRegister dest);
+  void unboxDouble(const BaseIndex& src, FloatRegister dest);
   void unboxString(const ValueOperand& operand, Register dest);
   void unboxString(Register src, Register dest);
   void unboxString(const Address& src, Register dest);
   void unboxSymbol(const ValueOperand& src, Register dest);
   void unboxSymbol(Register src, Register dest);
   void unboxSymbol(const Address& src, Register dest);
+  void unboxBigInt(const ValueOperand& operand, Register dest);
+  void unboxBigInt(Register src, Register dest);
+  void unboxBigInt(const Address& src, Register dest);
   void unboxObject(const ValueOperand& src, Register dest);
   void unboxObject(Register src, Register dest);
   void unboxObject(const Address& src, Register dest);
@@ -405,7 +419,6 @@ class MacroAssemblerMIPS64Compat : public MacroAssemblerMIPS64 {
     unboxNonDouble(src, dest, JSVAL_TYPE_OBJECT);
   }
   void unboxValue(const ValueOperand& src, AnyRegister dest, JSValueType type);
-  void unboxPrivate(const ValueOperand& src, Register dest);
 
   void notBoolean(const ValueOperand& val) {
     as_xori(val.valueReg(), val.valueReg(), 1);
@@ -472,8 +485,6 @@ class MacroAssemblerMIPS64Compat : public MacroAssemblerMIPS64 {
 
   // higher level tag testing code
   Address ToPayload(Address value) { return value; }
-
-  CodeOffsetJump jumpWithPatch(RepatchLabel* label);
 
   template <typename T>
   void loadUnboxedValue(const T& address, MIRType type, AnyRegister dest) {
@@ -557,6 +568,11 @@ class MacroAssemblerMIPS64Compat : public MacroAssemblerMIPS64 {
     loadValue(dest.toAddress(), val);
   }
   void loadValue(const BaseIndex& addr, ValueOperand val);
+
+  void loadUnalignedValue(const Address& src, ValueOperand dest) {
+    loadValue(src, dest);
+  }
+
   void tagValue(JSValueType type, Register payload, ValueOperand dest);
 
   void pushValue(ValueOperand val);
@@ -576,7 +592,7 @@ class MacroAssemblerMIPS64Compat : public MacroAssemblerMIPS64 {
   }
   void pushValue(const Address& addr);
 
-  void handleFailureWithHandlerTail(void* handler, Label* profilerExitTail);
+  void handleFailureWithHandlerTail(Label* profilerExitTail);
 
   /////////////////////////////////////////////////////////////////
   // Common interface.
@@ -604,15 +620,39 @@ class MacroAssemblerMIPS64Compat : public MacroAssemblerMIPS64 {
   void load16SignExtend(const Address& address, Register dest);
   void load16SignExtend(const BaseIndex& src, Register dest);
 
+  template <typename S>
+  void load16UnalignedSignExtend(const S& src, Register dest) {
+    ma_load_unaligned(dest, src, SizeHalfWord, SignExtend);
+  }
+
   void load16ZeroExtend(const Address& address, Register dest);
   void load16ZeroExtend(const BaseIndex& src, Register dest);
+
+  template <typename S>
+  void load16UnalignedZeroExtend(const S& src, Register dest) {
+    ma_load_unaligned(dest, src, SizeHalfWord, ZeroExtend);
+  }
 
   void load32(const Address& address, Register dest);
   void load32(const BaseIndex& address, Register dest);
   void load32(AbsoluteAddress address, Register dest);
   void load32(wasm::SymbolicAddress address, Register dest);
+
+  template <typename S>
+  void load32Unaligned(const S& src, Register dest) {
+    ma_load_unaligned(dest, src, SizeWord, SignExtend);
+  }
+
   void load64(const Address& address, Register64 dest) {
     loadPtr(address, dest.reg);
+  }
+  void load64(const BaseIndex& address, Register64 dest) {
+    loadPtr(address, dest.reg);
+  }
+
+  template <typename S>
+  void load64Unaligned(const S& src, Register64 dest) {
+    ma_load_unaligned(dest.reg, src, SizeDouble, ZeroExtend);
   }
 
   void loadPtr(const Address& address, Register dest);
@@ -639,6 +679,11 @@ class MacroAssemblerMIPS64Compat : public MacroAssemblerMIPS64 {
   void store16(Register src, const BaseIndex& address);
   void store16(Imm32 imm, const BaseIndex& address);
 
+  template <typename T>
+  void store16Unaligned(Register src, const T& dest) {
+    ma_store_unaligned(src, dest, SizeHalfWord);
+  }
+
   void store32(Register src, AbsoluteAddress address);
   void store32(Register src, const Address& address);
   void store32(Register src, const BaseIndex& address);
@@ -651,11 +696,27 @@ class MacroAssemblerMIPS64Compat : public MacroAssemblerMIPS64 {
     store32(src, address);
   }
 
+  template <typename T>
+  void store32Unaligned(Register src, const T& dest) {
+    ma_store_unaligned(src, dest, SizeWord);
+  }
+
   void store64(Imm64 imm, Address address) {
+    storePtr(ImmWord(imm.value), address);
+  }
+  void store64(Imm64 imm, const BaseIndex& address) {
     storePtr(ImmWord(imm.value), address);
   }
 
   void store64(Register64 src, Address address) { storePtr(src.reg, address); }
+  void store64(Register64 src, const BaseIndex& address) {
+    storePtr(src.reg, address);
+  }
+
+  template <typename T>
+  void store64Unaligned(Register64 src, const T& dest) {
+    ma_store_unaligned(src.reg, dest, SizeDouble);
+  }
 
   template <typename T>
   void storePtr(ImmWord imm, T address);
@@ -695,6 +756,8 @@ class MacroAssemblerMIPS64Compat : public MacroAssemblerMIPS64 {
                  Register dest);
   void cmpPtrSet(Assembler::Condition cond, Register lhs, Address rhs,
                  Register dest);
+  void cmpPtrSet(Assembler::Condition cond, Address lhs, Register rhs,
+                 Register dest);
 
   void cmp32Set(Assembler::Condition cond, Register lhs, Address rhs,
                 Register dest);
@@ -715,8 +778,6 @@ class MacroAssemblerMIPS64Compat : public MacroAssemblerMIPS64 {
                         Register tmp);
 
  public:
-  CodeOffset labelForPatch() { return CodeOffset(nextOffset().getOffset()); }
-
   void lea(Operand addr, Register dest) {
     ma_daddu(dest, addr.baseReg(), Imm32(addr.disp()));
   }

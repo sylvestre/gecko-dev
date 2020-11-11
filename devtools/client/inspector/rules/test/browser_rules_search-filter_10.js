@@ -1,4 +1,3 @@
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -20,15 +19,17 @@ const TEST_URI = `
 
 const TEST_DATA = [
   {
-    desc: "Tests that the search filter works properly for a single rule " +
-          "selector",
+    desc:
+      "Tests that the search filter works properly for a single rule " +
+      "selector",
     search: "#test",
     selectorText: "#testid",
     index: 0,
   },
   {
-    desc: "Tests that the search filter works properly for multiple rule " +
-          "selectors",
+    desc:
+      "Tests that the search filter works properly for multiple rule " +
+      "selectors",
     search: "body",
     selectorText: "html, body, div",
     index: 2,
@@ -37,7 +38,7 @@ const TEST_DATA = [
 
 add_task(async function() {
   await addTab("data:text/html;charset=utf-8," + encodeURIComponent(TEST_URI));
-  const {inspector, view} = await openRuleView();
+  const { inspector, view } = await openRuleView();
   await selectNode("#testid", inspector);
   await testAddTextInFilter(inspector, view);
 });
@@ -54,16 +55,25 @@ async function testAddTextInFilter(inspector, view) {
 function checkRules(view, data) {
   info("Check that the correct rules are visible");
   is(view.element.children.length, 2, "Should have 2 rules.");
-  is(getRuleViewRuleEditor(view, 0).rule.selectorText, "element",
-    "First rule is inline element.");
+  is(
+    getRuleViewRuleEditor(view, 0).rule.selectorText,
+    "element",
+    "First rule is inline element."
+  );
 
   const ruleEditor = getRuleViewRuleEditor(view, 1);
 
-  is(ruleEditor.rule.selectorText, data.selectorText,
-    "Second rule is " + data.selectorText + ".");
-  ok(ruleEditor.selectorText.children[data.index].classList
-    .contains("ruleview-highlight"),
-    data.selectorText + " selector is highlighted.");
+  is(
+    ruleEditor.rule.selectorText,
+    data.selectorText,
+    "Second rule is " + data.selectorText + "."
+  );
+  ok(
+    ruleEditor.selectorText.children[data.index].classList.contains(
+      "ruleview-highlight"
+    ),
+    data.selectorText + " selector is highlighted."
+  );
 }
 
 async function clearSearchAndCheckRules(view) {
@@ -79,6 +89,8 @@ async function clearSearchAndCheckRules(view) {
   info("Check the search filter is cleared and no rules are highlighted");
   is(view.element.children.length, 3, "Should have 3 rules.");
   ok(!searchField.value, "Search filter is cleared.");
-  ok(!doc.querySelectorAll(".ruleview-highlight").length,
-    "No rules are higlighted.");
+  ok(
+    !doc.querySelectorAll(".ruleview-highlight").length,
+    "No rules are higlighted."
+  );
 }

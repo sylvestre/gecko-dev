@@ -11,9 +11,7 @@
 #include "nsContentUtils.h"
 #include "nsPrintfCString.h"
 
-namespace mozilla {
-namespace dom {
-namespace indexedDB {
+namespace mozilla::dom::indexedDB {
 
 void ReportInternalError(const char* aFile, uint32_t aLine, const char* aStr) {
   // Get leaf of file path
@@ -26,9 +24,8 @@ void ReportInternalError(const char* aFile, uint32_t aLine, const char* aStr) {
   nsContentUtils::LogSimpleConsoleError(
       NS_ConvertUTF8toUTF16(
           nsPrintfCString("IndexedDB %s: %s:%" PRIu32, aStr, aFile, aLine)),
-      "indexedDB", false /* no IDB in private window */);
+      "indexedDB", false /* no IDB in private window */,
+      true /* Internal errors are chrome context only */);
 }
 
-}  // namespace indexedDB
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom::indexedDB

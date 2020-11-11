@@ -6,17 +6,20 @@
 
 var EXPORTED_SYMBOLS = ["UnselectedTabHoverChild"];
 
-ChromeUtils.import("resource://gre/modules/ActorChild.jsm");
-ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
-class UnselectedTabHoverChild extends ActorChild {
+class UnselectedTabHoverChild extends JSWindowActorChild {
   receiveMessage(message) {
-    Services.obs.notifyObservers(this.content, "unselected-tab-hover",
-                                 message.data.hovered);
+    Services.obs.notifyObservers(
+      this.contentWindow,
+      "unselected-tab-hover",
+      message.data.hovered
+    );
   }
 
   handleEvent(event) {
-    this.mm.sendAsyncMessage("UnselectedTabHover:Toggle",
-                             { enable: event.type == "UnselectedTabHover:Enable" });
+    this.sendAsyncMessage("UnselectedTabHover:Toggle", {
+      enable: event.type == "UnselectedTabHover:Enable",
+    });
   }
 }

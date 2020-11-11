@@ -10,16 +10,19 @@
 #include "gfxFeature.h"
 #include "gfxFallback.h"
 #include "mozilla/Assertions.h"
+#include "mozilla/EnumSet.h"
+#include "mozilla/Maybe.h"
 
 namespace mozilla {
 namespace gfx {
 
 // Defined in GraphicsMessages.ipdlh.
-class FeatureChange;
+class DevicePrefs;
+class FeatureFailure;
 
 // Manages the history and state of a graphics feature. The flow of a feature
 // is:
-//   - A default value, set by all.js, gfxPrefs, or gfxPlatform.
+//   - A default value, set by all.js, or gfxPlatform.
 //   - A user value, set by an external value or user pref.
 //   - An environment value, determined by system/hardware factors or
 //   nsIGfxInfo.
@@ -71,11 +74,15 @@ class gfxConfig {
                          const char* aDisableMessage);
   static void DisableByDefault(Feature aFeature, FeatureStatus aDisableStatus,
                                const char* aDisableMessage,
-                               const nsACString& aFailureId = EmptyCString());
+                               const nsACString& aFailureId = ""_ns);
   static void EnableByDefault(Feature aFeature);
 
   // Inherit a computed value from another process.
   static void Inherit(Feature aFeature, FeatureStatus aStatus);
+
+  // Inherit a set of computed values from another process.
+  static void Inherit(EnumSet<Feature> aFeatures,
+                      const DevicePrefs& aDevicePrefs);
 
   // Set a environment status that overrides both the default and user
   // statuses; this should be used to disable features based on system
@@ -84,7 +91,7 @@ class gfxConfig {
   // the feature.
   static void Disable(Feature aFeature, FeatureStatus aStatus,
                       const char* aMessage,
-                      const nsACString& aFailureId = EmptyCString());
+                      const nsACString& aFailureId = ""_ns);
 
   // Given a preference name, infer the default value and whether or not the
   // user has changed it. |aIsEnablePref| specifies whether or not the pref
@@ -97,13 +104,13 @@ class gfxConfig {
   // decisions.
   static void SetFailed(Feature aFeature, FeatureStatus aStatus,
                         const char* aMessage,
-                        const nsACString& aFailureId = EmptyCString());
+                        const nsACString& aFailureId = ""_ns);
 
   // Force a feature to be disabled permanently. This is the same as
   // SetFailed(), but the name may be clearer depending on the context.
   static void ForceDisable(Feature aFeature, FeatureStatus aStatus,
                            const char* aMessage,
-                           const nsACString& aFailureId = EmptyCString()) {
+                           const nsACString& aFailureId = ""_ns) {
     SetFailed(aFeature, aStatus, aMessage, aFailureId);
   }
 
@@ -111,7 +118,7 @@ class gfxConfig {
   static bool MaybeSetFailed(Feature aFeature, bool aEnable,
                              FeatureStatus aDisableStatus,
                              const char* aDisableMessage,
-                             const nsACString& aFailureId = EmptyCString()) {
+                             const nsACString& aFailureId = ""_ns) {
     if (!aEnable) {
       SetFailed(aFeature, aDisableStatus, aDisableMessage, aFailureId);
       return false;
@@ -122,7 +129,7 @@ class gfxConfig {
   // Convenience helper for SetFailed().
   static bool MaybeSetFailed(Feature aFeature, FeatureStatus aStatus,
                              const char* aDisableMessage,
-                             const nsACString& aFailureId = EmptyCString()) {
+                             const nsACString& aFailureId = ""_ns) {
     return MaybeSetFailed(aFeature,
                           (aStatus != FeatureStatus::Available &&
                            aStatus != FeatureStatus::ForceEnabled),
@@ -148,7 +155,7 @@ class gfxConfig {
   static void UserEnable(Feature aFeature, const char* aMessage);
   static void UserForceEnable(Feature aFeature, const char* aMessage);
   static void UserDisable(Feature aFeature, const char* aMessage,
-                          const nsACString& aFailureId = EmptyCString());
+                          const nsACString& aFailureId = ""_ns);
 
   // Query whether a fallback has been toggled.
   static bool UseFallback(Fallback aFallback);
@@ -171,7 +178,8 @@ class gfxConfig {
   // Get the most descriptive failure id message for this feature.
   static const nsCString& GetFailureId(Feature aFeature);
 
-  static void ImportChange(Feature aFeature, const FeatureChange& aChange);
+  static void ImportChange(Feature aFeature,
+                           const Maybe<FeatureFailure>& aChange);
 
   static void Init();
   static void Shutdown();

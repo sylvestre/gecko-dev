@@ -50,7 +50,7 @@ class SharedMemory {
   virtual void* memory() const = 0;
 
   virtual bool Create(size_t size) = 0;
-  virtual bool Map(size_t nBytes) = 0;
+  virtual bool Map(size_t nBytes, void* fixed_address = nullptr) = 0;
 
   virtual void CloseHandle() = 0;
 
@@ -83,6 +83,8 @@ class SharedMemory {
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(SharedMemory)
 
   static void SystemProtect(char* aAddr, size_t aSize, int aRights);
+  [[nodiscard]] static bool SystemProtectFallible(char* aAddr, size_t aSize,
+                                                  int aRights);
   static size_t SystemPageSize();
   static size_t PageAlignedSize(size_t aSize);
 

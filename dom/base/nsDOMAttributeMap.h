@@ -12,7 +12,6 @@
 #define nsDOMAttributeMap_h
 
 #include "mozilla/MemoryReporting.h"
-#include "mozilla/dom/Attr.h"
 #include "mozilla/ErrorResult.h"
 #include "nsCycleCollectionParticipant.h"
 #include "nsRefPtrHashtable.h"
@@ -20,10 +19,15 @@
 #include "nsWrapperCache.h"
 
 class nsAtom;
-class nsIDocument;
+class nsINode;
+
 namespace mozilla {
 namespace dom {
+class Attr;
 class DocGroup;
+class Document;
+class Element;
+class NodeInfo;
 }  // namespace dom
 }  // namespace mozilla
 
@@ -47,8 +51,7 @@ class nsAttrKey {
   nsAttrKey(int32_t aNs, nsAtom* aName)
       : mNamespaceID(aNs), mLocalName(aName) {}
 
-  nsAttrKey(const nsAttrKey& aAttr)
-      : mNamespaceID(aAttr.mNamespaceID), mLocalName(aAttr.mLocalName) {}
+  nsAttrKey(const nsAttrKey& aAttr) = default;
 };
 
 /**
@@ -60,8 +63,9 @@ class nsAttrHashKey : public PLDHashEntryHdr {
   typedef const nsAttrKey* KeyTypePointer;
 
   explicit nsAttrHashKey(KeyTypePointer aKey) : mKey(*aKey) {}
-  nsAttrHashKey(const nsAttrHashKey& aCopy) : mKey(aCopy.mKey) {}
-  ~nsAttrHashKey() {}
+  nsAttrHashKey(const nsAttrHashKey& aCopy)
+      : PLDHashEntryHdr{}, mKey(aCopy.mKey) {}
+  ~nsAttrHashKey() = default;
 
   KeyType GetKey() const { return mKey; }
   bool KeyEquals(KeyTypePointer aKey) const {
@@ -85,6 +89,7 @@ class nsDOMAttributeMap final : public nsISupports, public nsWrapperCache {
  public:
   typedef mozilla::dom::Attr Attr;
   typedef mozilla::dom::DocGroup DocGroup;
+  typedef mozilla::dom::Document Document;
   typedef mozilla::dom::Element Element;
   typedef mozilla::ErrorResult ErrorResult;
 
@@ -101,7 +106,7 @@ class nsDOMAttributeMap final : public nsISupports, public nsWrapperCache {
    * Called when mContent is moved into a new document.
    * Updates the nodeinfos of all owned nodes.
    */
-  nsresult SetOwnerDocument(nsIDocument* aDocument);
+  nsresult SetOwnerDocument(Document* aDocument);
 
   /**
    * Drop an attribute from the map's cache (does not remove the attribute

@@ -13,9 +13,10 @@
 #include "mozilla/Atomics.h"
 #include "mozilla/Monitor.h"
 #include "mozilla/BasePrincipal.h"
+#include "mozilla/OriginAttributes.h"
 #include "mozilla/storage/StatementCache.h"
 #include "mozilla/TimeStamp.h"
-#include "nsAutoPtr.h"
+#include "mozilla/UniquePtr.h"
 #include "nsString.h"
 #include "nsCOMPtr.h"
 #include "nsClassHashtable.h"
@@ -156,8 +157,8 @@ class StorageDBThread final {
 
     explicit DBOperation(const OperationType aType,
                          LocalStorageCacheBridge* aCache = nullptr,
-                         const nsAString& aKey = EmptyString(),
-                         const nsAString& aValue = EmptyString());
+                         const nsAString& aKey = u""_ns,
+                         const nsAString& aValue = u""_ns);
     DBOperation(const OperationType aType, StorageUsageBridge* aUsage);
     DBOperation(const OperationType aType, const nsACString& aOriginNoSuffix);
     DBOperation(const OperationType aType,
@@ -256,7 +257,7 @@ class StorageDBThread final {
     nsClassHashtable<nsCStringHashKey, DBOperation> mUpdates;
 
     // Collection of all tasks, valid only between Prepare() and Execute()
-    nsTArray<nsAutoPtr<DBOperation> > mExecList;
+    nsTArray<UniquePtr<DBOperation> > mExecList;
 
     // Number of failing flush attempts
     uint32_t mFlushFailureCount;
@@ -280,7 +281,7 @@ class StorageDBThread final {
     Monitor& GetMonitor() { return mMonitor; }
 
    private:
-    virtual ~ThreadObserver() {}
+    virtual ~ThreadObserver() = default;
     bool mHasPendingEvents;
     // The monitor we drive the thread with
     Monitor mMonitor;
@@ -291,28 +292,33 @@ class StorageDBThread final {
   class NoteBackgroundThreadRunnable;
 
   class ShutdownRunnable : public Runnable {
+    // Expected to be only 0 or 1.
+    const uint32_t mPrivateBrowsingId;
     // Only touched on the main thread.
     bool& mDone;
 
    public:
-    explicit ShutdownRunnable(bool& aDone)
-        : Runnable("dom::StorageDBThread::ShutdownRunnable"), mDone(aDone) {
+    explicit ShutdownRunnable(const uint32_t aPrivateBrowsingId, bool& aDone)
+        : Runnable("dom::StorageDBThread::ShutdownRunnable"),
+          mPrivateBrowsingId(aPrivateBrowsingId),
+          mDone(aDone) {
       MOZ_ASSERT(NS_IsMainThread());
     }
 
    private:
-    ~ShutdownRunnable() {}
+    ~ShutdownRunnable() = default;
 
     NS_DECL_NSIRUNNABLE
   };
 
  public:
-  StorageDBThread();
-  virtual ~StorageDBThread() {}
+  explicit StorageDBThread(uint32_t aPrivateBrowsingId);
+  virtual ~StorageDBThread() = default;
 
-  static StorageDBThread* Get();
+  static StorageDBThread* Get(uint32_t aPrivateBrowsingId);
 
-  static StorageDBThread* GetOrCreate(const nsString& aProfilePath);
+  static StorageDBThread* GetOrCreate(const nsString& aProfilePath,
+                                      uint32_t aPrivateBrowsingId);
 
   static nsresult GetProfilePath(nsString& aProfilePath);
 
@@ -378,7 +384,7 @@ class StorageDBThread final {
   virtual bool ShouldPreloadOrigin(const nsACString& aOrigin);
 
   // Get the complete list of scopes having data.
-  void GetOriginsHavingData(InfallibleTArray<nsCString>* aOrigins);
+  void GetOriginsHavingData(nsTArray<nsCString>* aOrigins);
 
  private:
   nsCOMPtr<nsIFile> mDatabaseFile;
@@ -427,6 +433,9 @@ class StorageDBThread final {
 
   // Collector of pending update operations
   PendingOperations mPendingTasks;
+
+  // Expected to be only 0 or 1.
+  const uint32_t mPrivateBrowsingId;
 
   // Counter of calls for thread priority rising.
   int32_t mPriorityCounter;

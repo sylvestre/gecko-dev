@@ -48,9 +48,15 @@ class SummaryHandler(LogHandler):
                   'unexpected': {
                     '<status>': int,
                   },
+                  'known_intermittent': {
+                    '<status>': int,
+                  },
                 },
               },
               'unexpected_logs': {
+                '<test>': [<data>]
+              },
+              'intermittent_logs': {
                 '<test>': [<data>]
               }
             }
@@ -60,6 +66,11 @@ class SummaryHandler(LogHandler):
         <test> key is the id as logged by `test_start`. Finally the <data>
         field is the log data from any `test_end` or `test_status` log messages
         that have an unexpected result.
+
+        Mozlog's structuredlog has a `known_intermittent` field indicating if a
+        `test` and `subtest` <status> are expected to arise intermittently.
+        Known intermittent results are logged as both as `expected` and
+        `known_intermittent`.
         """
         return self.summary[suite]
 
@@ -75,81 +86,112 @@ class SummaryHandler(LogHandler):
     @classmethod
     def aggregate(cls, key, counts, include_skip=True):
         """Helper method for aggregating count data by 'key' instead of by 'check'."""
-        assert key in ('count', 'expected', 'unexpected')
+        assert key in ("count", "expected", "unexpected", "known_intermittent")
 
         res = defaultdict(int)
         for check, val in counts.items():
-            if key == 'count':
+            if key == "count":
                 res[check] += val[key]
                 continue
 
             for status, num in val[key].items():
-                if not include_skip and status == 'skip':
+                if not include_skip and status == "skip":
                     continue
                 res[check] += num
         return res
 
     def suite_start(self, data):
-        self.current_suite = data.get('name', 'suite {}'.format(len(self.summary) + 1))
+        self.current_suite = data.get("name", "suite {}".format(len(self.summary) + 1))
         if self.current_suite not in self.summary:
             self.summary[self.current_suite] = {
-                'counts': {
-                    'test': {
-                        'count': 0,
-                        'expected': defaultdict(int),
-                        'unexpected': defaultdict(int),
+                "counts": {
+                    "test": {
+                        "count": 0,
+                        "expected": defaultdict(int),
+                        "unexpected": defaultdict(int),
+                        "known_intermittent": defaultdict(int),
                     },
-                    'subtest': {
-                        'count': 0,
-                        'expected': defaultdict(int),
-                        'unexpected': defaultdict(int),
+                    "subtest": {
+                        "count": 0,
+                        "expected": defaultdict(int),
+                        "unexpected": defaultdict(int),
+                        "known_intermittent": defaultdict(int),
                     },
-                    'assert': {
-                        'count': 0,
-                        'expected': defaultdict(int),
-                        'unexpected': defaultdict(int),
-                    }
+                    "assert": {
+                        "count": 0,
+                        "expected": defaultdict(int),
+                        "unexpected": defaultdict(int),
+                        "known_intermittent": defaultdict(int),
+                    },
                 },
-                'unexpected_logs': OrderedDict(),
+                "unexpected_logs": OrderedDict(),
+                "intermittent_logs": OrderedDict(),
+                "harness_errors": [],
             }
 
     def test_start(self, data):
-        self.current['counts']['test']['count'] += 1
+        self.current["counts"]["test"]["count"] += 1
 
     def test_status(self, data):
-        logs = self.current['unexpected_logs']
-        count = self.current['counts']
-        count['subtest']['count'] += 1
+        logs = self.current["unexpected_logs"]
+        intermittent_logs = self.current["intermittent_logs"]
+        count = self.current["counts"]
+        count["subtest"]["count"] += 1
 
-        if 'expected' in data:
-            count['subtest']['unexpected'][data['status'].lower()] += 1
-            if data['test'] not in logs:
-                logs[data['test']] = []
-            logs[data['test']].append(data)
+        if "expected" in data:
+            if data["status"] not in data.get("known_intermittent", []):
+                count["subtest"]["unexpected"][data["status"].lower()] += 1
+                if data["test"] not in logs:
+                    logs[data["test"]] = []
+                logs[data["test"]].append(data)
+            else:
+                count["subtest"]["expected"][data["status"].lower()] += 1
+                count["subtest"]["known_intermittent"][data["status"].lower()] += 1
+                if data["test"] not in intermittent_logs:
+                    intermittent_logs[data["test"]] = []
+                intermittent_logs[data["test"]].append(data)
         else:
-            count['subtest']['expected'][data['status'].lower()] += 1
+            count["subtest"]["expected"][data["status"].lower()] += 1
 
     def test_end(self, data):
-        logs = self.current['unexpected_logs']
-        count = self.current['counts']
-        if 'expected' in data:
-            count['test']['unexpected'][data['status'].lower()] += 1
-            if data['test'] not in logs:
-                logs[data['test']] = []
-            logs[data['test']].append(data)
+        logs = self.current["unexpected_logs"]
+        intermittent_logs = self.current["intermittent_logs"]
+        count = self.current["counts"]
+        if "expected" in data:
+            if data["status"] not in data.get("known_intermittent", []):
+                count["test"]["unexpected"][data["status"].lower()] += 1
+                if data["test"] not in logs:
+                    logs[data["test"]] = []
+                logs[data["test"]].append(data)
+            else:
+                count["test"]["expected"][data["status"].lower()] += 1
+                count["test"]["known_intermittent"][data["status"].lower()] += 1
+                if data["test"] not in intermittent_logs:
+                    intermittent_logs[data["test"]] = []
+                intermittent_logs[data["test"]].append(data)
         else:
-            count['test']['expected'][data['status'].lower()] += 1
+            count["test"]["expected"][data["status"].lower()] += 1
 
     def assertion_count(self, data):
-        count = self.current['counts']
-        count['assert']['count'] += 1
+        count = self.current["counts"]
+        count["assert"]["count"] += 1
 
-        if data['min_expected'] <= data['count'] <= data['max_expected']:
-            if data['count'] > 0:
-                count['assert']['expected']['fail'] += 1
+        if data["min_expected"] <= data["count"] <= data["max_expected"]:
+            if data["count"] > 0:
+                count["assert"]["expected"]["fail"] += 1
             else:
-                count['assert']['expected']['pass'] += 1
-        elif data['max_expected'] < data['count']:
-            count['assert']['unexpected']['fail'] += 1
+                count["assert"]["expected"]["pass"] += 1
+        elif data["max_expected"] < data["count"]:
+            count["assert"]["unexpected"]["fail"] += 1
         else:
-            count['assert']['unexpected']['pass'] += 1
+            count["assert"]["unexpected"]["pass"] += 1
+
+    def log(self, data):
+        if not self.current_suite:
+            return
+
+        logs = self.current["harness_errors"]
+        level = data.get("level").upper()
+
+        if level in ("CRITICAL", "ERROR"):
+            logs.append(data)

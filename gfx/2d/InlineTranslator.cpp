@@ -15,31 +15,33 @@
 
 using namespace mozilla::gfx;
 
-namespace mozilla {
-namespace gfx {
+namespace mozilla::gfx {
 
-InlineTranslator::InlineTranslator(DrawTarget *aDT, void *aFontContext)
+InlineTranslator::InlineTranslator() : mFontContext(nullptr) {}
+
+InlineTranslator::InlineTranslator(DrawTarget* aDT, void* aFontContext)
     : mBaseDT(aDT), mFontContext(aFontContext) {}
 
-bool InlineTranslator::TranslateRecording(char *aData, size_t aLen) {
+bool InlineTranslator::TranslateRecording(char* aData, size_t aLen) {
   // an istream like class for reading from memory
   struct MemReader {
-    MemReader(char *aData, size_t aLen) : mData(aData), mEnd(aData + aLen) {}
-    void read(char *s, std::streamsize n) {
+    MemReader(char* aData, size_t aLen) : mData(aData), mEnd(aData + aLen) {}
+    void read(char* s, std::streamsize n) {
       if (n <= (mEnd - mData)) {
         memcpy(s, mData, n);
         mData += n;
       } else {
         // We've requested more data than is available
         // set the Reader into an eof state
-        mData = mEnd + 1;
+        SetIsBad();
       }
     }
     bool eof() { return mData > mEnd; }
     bool good() { return !eof(); }
+    void SetIsBad() { mData = mEnd + 1; }
 
-    char *mData;
-    char *mEnd;
+    char* mData;
+    char* mEnd;
   };
   MemReader reader(aData, aLen);
 
@@ -69,7 +71,7 @@ bool InlineTranslator::TranslateRecording(char *aData, size_t aLen) {
   while (reader.good()) {
     bool success = RecordedEvent::DoWithEvent(
         reader, static_cast<RecordedEvent::EventType>(eventType),
-        [&](RecordedEvent *recordedEvent) {
+        [&](RecordedEvent* recordedEvent) -> bool {
           // Make sure that the whole event was read from the stream
           // successfully.
           if (!reader.good()) {
@@ -98,12 +100,46 @@ bool InlineTranslator::TranslateRecording(char *aData, size_t aLen) {
 }
 
 already_AddRefed<DrawTarget> InlineTranslator::CreateDrawTarget(
-    ReferencePtr aRefPtr, const gfx::IntSize &aSize,
+    ReferencePtr aRefPtr, const gfx::IntSize& aSize,
     gfx::SurfaceFormat aFormat) {
+  MOZ_ASSERT(mBaseDT, "mBaseDT has not been initialized.");
+
   RefPtr<DrawTarget> drawTarget = mBaseDT;
   AddDrawTarget(aRefPtr, drawTarget);
   return drawTarget.forget();
 }
 
-}  // namespace gfx
-}  // namespace mozilla
+already_AddRefed<SourceSurface> InlineTranslator::LookupExternalSurface(
+    uint64_t aKey) {
+  if (mExternalSurfaces) {
+    RefPtr<SourceSurface> surface = mExternalSurfaces->Get(aKey);
+    if (surface) {
+      return surface.forget();
+    }
+  }
+
+  if (!mDependentSurfaces) {
+    return nullptr;
+  }
+
+  RefPtr<RecordedDependentSurface> recordedSurface =
+      mDependentSurfaces->Get(aKey);
+  if (!recordedSurface) {
+    return nullptr;
+  }
+
+  RefPtr<DrawTarget> newDT = GetReferenceDrawTarget()->CreateSimilarDrawTarget(
+      recordedSurface->mSize, SurfaceFormat::B8G8R8A8);
+
+  InlineTranslator translator(newDT, nullptr);
+  translator.SetDependentSurfaces(mDependentSurfaces);
+  if (!translator.TranslateRecording((char*)recordedSurface->mRecording.mData,
+                                     recordedSurface->mRecording.mLen)) {
+    return nullptr;
+  }
+
+  RefPtr<SourceSurface> snapshot = newDT->Snapshot();
+  return snapshot.forget();
+}
+
+}  // namespace mozilla::gfx

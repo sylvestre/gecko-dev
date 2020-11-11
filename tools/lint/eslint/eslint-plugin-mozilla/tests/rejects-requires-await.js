@@ -8,7 +8,7 @@
 // ------------------------------------------------------------------------------
 
 var rule = require("../lib/rules/rejects-requires-await");
-var RuleTester = require("eslint/lib/testers/rule-tester");
+var RuleTester = require("eslint").RuleTester;
 
 const ruleTester = new RuleTester({ parserOptions: { ecmaVersion: 8 } });
 
@@ -17,7 +17,7 @@ const ruleTester = new RuleTester({ parserOptions: { ecmaVersion: 8 } });
 // ------------------------------------------------------------------------------
 
 function invalidCode(code, messageId) {
-  return {code, errors: [{messageId: "rejectRequiresAwait"}]};
+  return { code, errors: [{ messageId: "rejectRequiresAwait" }] };
 }
 
 ruleTester.run("reject-requires-await", rule, {

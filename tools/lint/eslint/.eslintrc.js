@@ -1,32 +1,27 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 "use strict";
 
-/**
- * Based on npm coding standards at https://docs.npmjs.com/misc/coding-style.
- *
- * The places we differ from the npm coding style:
- *   - Commas should be at the end of a line.
- *   - Always use semicolons.
- *   - Functions should not have whitespace before params.
- */
-
 module.exports = {
-  "env": {
-    "node": true
+  // eslint-plugin-mozilla runs under node, so we need a more restrictive
+  // environment / parser setup here than the rest of mozilla-central.
+  env: {
+    browser: false,
+    node: true,
+  },
+  parser: "espree",
+  parserOptions: {
+    ecmaVersion: 10,
   },
 
-  "rules": {
-    "camelcase": "error",
-    "curly": ["error", "multi-line"],
+  rules: {
+    camelcase: ["error", { properties: "never" }],
     "handle-callback-err": ["error", "er"],
-    "indent-legacy": ["error", 2, {"SwitchCase": 1}],
-    // Longer max-len due to AST selectors
-    "max-len": ["error", 150, 2],
-    "no-multiple-empty-lines": ["error", {"max": 1}],
     "no-shadow": "error",
     "no-undef-init": "error",
-    "object-curly-spacing": "off",
     "one-var": ["error", "never"],
-    "operator-linebreak": ["error", "after"],
-    "strict": ["error", "global"],
+    strict: ["error", "global"],
   },
 };

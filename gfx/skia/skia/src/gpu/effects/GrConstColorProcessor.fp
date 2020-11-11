@@ -49,16 +49,15 @@ void main() {
     }
 
     SkPMColor4f constantOutputForConstantInput(const SkPMColor4f& input) const override {
-        switch (fMode) {
+        switch (mode) {
             case InputMode::kIgnore:
-                return fColor;
+                return color;
             case InputMode::kModulateA:
-                return fColor * input.fA;
+                return color * input.fA;
             case InputMode::kModulateRGBA:
-                return fColor * input;
+                return color * input;
         }
         SK_ABORT("Unexpected mode");
-        return SK_PMColor4fTRANSPARENT;
     }
 }
 
@@ -71,7 +70,7 @@ void main() {
             uint32_t r = d->fRandom->nextULessThan(a+1);
             uint32_t g = d->fRandom->nextULessThan(a+1);
             uint32_t b = d->fRandom->nextULessThan(a+1);
-            color = GrColorToPMColor4f(GrColorPackRGBA(r, g, b, a));
+            color = SkPMColor4f::FromBytes_RGBA(GrColorPackRGBA(r, g, b, a));
             break;
         }
         case 1:
@@ -79,7 +78,7 @@ void main() {
             break;
         case 2:
             uint32_t c = d->fRandom->nextULessThan(0x100);
-            color = GrColorToPMColor4f(c | (c << 8) | (c << 16) | (c << 24));
+            color = SkPMColor4f::FromBytes_RGBA(c | (c << 8) | (c << 16) | (c << 24));
             break;
     }
     InputMode mode = static_cast<InputMode>(d->fRandom->nextULessThan(kInputModeCnt));

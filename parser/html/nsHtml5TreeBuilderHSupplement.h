@@ -14,6 +14,7 @@ nsHtml5OplessBuilder* mBuilder;
 // the fields below aren't in use, either.
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 nsHtml5Highlighter* mViewSource;
+mozilla::ImportScanner mImportScanner;
 nsTArray<nsHtml5TreeOperation> mOpQueue;
 nsTArray<nsHtml5SpeculativeLoad> mSpeculativeLoadQueue;
 nsAHtml5TreeOpSink* mOpSink;
@@ -138,6 +139,8 @@ bool EnsureBufferSpace(int32_t aLength);
 
 void EnableViewSource(nsHtml5Highlighter* aHighlighter);
 
+void errDeepTree();
+
 void errStrayStartTag(nsAtom* aName);
 
 void errStrayEndTag(nsAtom* aName);
@@ -176,7 +179,7 @@ void errStartSelectWhereEndSelectExpected();
 
 void errStartTagWithSelectOpen(nsAtom* aName);
 
-void errBadStartTagInHead(nsAtom* aName);
+void errBadStartTagInNoscriptInHead(nsAtom* aName);
 
 void errImage();
 
@@ -211,8 +214,6 @@ void errEndTagBr();
 void errNoElementToCloseButEndTagSeen(nsAtom* aName);
 
 void errHtmlStartTagInForeignContext(nsAtom* aName);
-
-void errTableClosedWhileCaptionOpen();
 
 void errNoTableRowToClose();
 

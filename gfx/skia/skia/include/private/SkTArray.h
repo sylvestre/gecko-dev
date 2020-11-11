@@ -8,11 +8,15 @@
 #ifndef SkTArray_DEFINED
 #define SkTArray_DEFINED
 
-#include "../private/SkSafe32.h"
-#include "../private/SkTLogic.h"
-#include "../private/SkTemplates.h"
-#include "SkTypes.h"
+#include "include/core/SkMath.h"
+#include "include/core/SkTypes.h"
+#include "include/private/SkMalloc.h"
+#include "include/private/SkSafe32.h"
+#include "include/private/SkTLogic.h"
+#include "include/private/SkTemplates.h"
 
+#include <string.h>
+#include <memory>
 #include <new>
 #include <utility>
 
@@ -37,7 +41,7 @@ public:
     /**
      * Copies one array to another. The new array will be heap allocated.
      */
-    explicit SkTArray(const SkTArray& that) {
+    SkTArray(const SkTArray& that) {
         this->init(that.fCount);
         this->copy(that.fItemArray);
     }
@@ -327,6 +331,10 @@ public:
     const T* end() const {
         return fItemArray ? fItemArray + fCount : nullptr;
     }
+    T* data() { return fItemArray; }
+    const T* data() const { return fItemArray; }
+    size_t size() const { return (size_t)fCount; }
+    void resize(size_t count) { this->resize_back((int)count); }
 
    /**
      * Get the i^th element.
@@ -594,7 +602,7 @@ public:
         : INHERITED(array, &fStorage) {
     }
 
-    explicit SkSTArray(INHERITED&& array)
+    SkSTArray(INHERITED&& array)
         : INHERITED(std::move(array), &fStorage) {
     }
 

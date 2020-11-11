@@ -7,34 +7,53 @@
 #ifndef MOZILLA_GFX_RENDERTEXTUREHOSTWRAPPER_H
 #define MOZILLA_GFX_RENDERTEXTUREHOSTWRAPPER_H
 
-#include "RenderTextureHost.h"
+#include "RenderTextureHostSWGL.h"
 
 namespace mozilla {
 
 namespace wr {
 
-class RenderTextureHostWrapper final : public RenderTextureHost {
+/**
+ * RenderTextureHost of GPUVideoTextureHost.
+ *
+ * GPUVideoTextureHost wraps TextureHost. This class wraps RenderTextureHost of
+ * the wrapped TextureHost. Lifetime of the wrapped TextureHost is usually
+ * longer than GPUVideoTextureHost and the wrapped TextureHost is used by
+ * multiple GPUVideoTextureHosts. This class is used to reduce recreations of
+ * the wrappded RenderTextureHost. Initializations of some
+ * RenderTextureHosts(RenderDXGITextureHost and
+ * RenderDXGIYCbCrTextureHost) have overhead.
+ */
+class RenderTextureHostWrapper final : public RenderTextureHostSWGL {
  public:
-  explicit RenderTextureHostWrapper();
+  explicit RenderTextureHostWrapper(ExternalImageId aExternalImageId);
 
+  // RenderTextureHost
   wr::WrExternalImage Lock(uint8_t aChannelIndex, gl::GLContext* aGL,
                            wr::ImageRendering aRendering) override;
   void Unlock() override;
   void ClearCachedResources() override;
+  RenderMacIOSurfaceTextureHost* AsRenderMacIOSurfaceTextureHost() override;
+  RenderDXGITextureHost* AsRenderDXGITextureHost() override;
+  RenderDXGIYCbCrTextureHost* AsRenderDXGIYCbCrTextureHost() override;
 
-  RenderTextureHostWrapper* AsRenderTextureHostWrapper() override {
-    return this;
-  }
-
-  void UpdateRenderTextureHost(RenderTextureHost* aTextureHost);
-  bool IsInited() { return mInited; }
+  // RenderTextureHostSWGL
+  size_t GetPlaneCount() const override;
+  gfx::SurfaceFormat GetFormat() const override;
+  gfx::ColorDepth GetColorDepth() const override;
+  gfx::YUVColorSpace GetYUVColorSpace() const override;
+  bool MapPlane(RenderCompositor* aCompositor, uint8_t aChannelIndex,
+                PlaneInfo& aPlaneInfo) override;
+  void UnmapPlanes() override;
 
  private:
   ~RenderTextureHostWrapper() override;
 
-  bool mInited;
-  bool mLocked;
-  RefPtr<RenderTextureHost> mTextureHost;
+  void EnsureTextureHost() const;
+  RenderTextureHostSWGL* EnsureRenderTextureHostSWGL() const;
+
+  const ExternalImageId mExternalImageId;
+  mutable RefPtr<RenderTextureHost> mTextureHost;
 };
 
 }  // namespace wr

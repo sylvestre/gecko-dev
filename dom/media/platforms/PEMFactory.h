@@ -5,9 +5,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #if !defined(PEMFactory_h_)
-#define PEMFactory_h_
+#  define PEMFactory_h_
 
-#include "PlatformEncoderModule.h"
+#  include "PlatformEncoderModule.h"
 
 namespace mozilla {
 
@@ -27,7 +27,7 @@ class PEMFactory final {
   bool SupportsMimeType(const nsACString& aMimeType) const;
 
  private:
-  virtual ~PEMFactory() {}
+  virtual ~PEMFactory() = default;
   // Returns the first PEM in our list supporting the mimetype.
   already_AddRefed<PlatformEncoderModule> FindPEM(
       const TrackInfo& aTrackInfo) const;

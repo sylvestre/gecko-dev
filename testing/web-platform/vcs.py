@@ -1,6 +1,7 @@
 import os
 import subprocess
 
+
 class Mercurial(object):
     def __init__(self, repo_root):
         self.root = os.path.abspath(repo_root)
@@ -12,15 +13,19 @@ class Mercurial(object):
             full_cmd = ["hg", cmd] + list(args)
             return subprocess.check_output(full_cmd, cwd=repo_root)
             # TODO: Test on Windows.
+
         return hg
 
     @staticmethod
     def is_hg_repo(repo_root):
         try:
-            with open(os.devnull, 'w') as devnull:
-                subprocess.check_call(["hg", "root"], cwd=repo_root, stdout=devnull,
-                                        stderr=devnull)
+            with open(os.devnull, "w") as devnull:
+                subprocess.check_call(
+                    ["hg", "root"], cwd=repo_root, stdout=devnull, stderr=devnull
+                )
         except subprocess.CalledProcessError:
+            return False
+        except OSError:
             return False
         # TODO: Test on windows
         return True
@@ -37,15 +42,22 @@ class Git(object):
             full_cmd = ["git", cmd] + list(args)
             return subprocess.check_output(full_cmd, cwd=repo_root)
             # TODO: Test on Windows.
+
         return git
 
     @staticmethod
     def is_git_repo(repo_root):
         try:
-            with open(os.devnull, 'w') as devnull:
-                subprocess.check_call(["git", "rev-parse", "--show-cdup"], cwd=repo_root,
-                                        stdout=devnull, stderr=devnull)
+            with open(os.devnull, "w") as devnull:
+                subprocess.check_call(
+                    ["git", "rev-parse", "--show-cdup"],
+                    cwd=repo_root,
+                    stdout=devnull,
+                    stderr=devnull,
+                )
         except subprocess.CalledProcessError:
+            return False
+        except OSError:
             return False
         # TODO: Test on windows
         return True

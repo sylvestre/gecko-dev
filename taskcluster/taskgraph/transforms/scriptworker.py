@@ -11,18 +11,15 @@ from __future__ import absolute_import, print_function, unicode_literals
 from taskgraph.util.scriptworker import (
     get_balrog_action_scope,
     get_balrog_server_scope,
-    get_worker_type_for_scope,
 )
 
 
 def add_balrog_scopes(config, jobs):
     for job in jobs:
-        worker = job['worker']
+        worker = job["worker"]
 
         server_scope = get_balrog_server_scope(config)
-        action_scope = get_balrog_action_scope(config, action=worker['balrog-action'])
-        job['scopes'] = [server_scope, action_scope]
-
-        job['worker-type'] = get_worker_type_for_scope(config, server_scope)
+        action_scope = get_balrog_action_scope(config, action=worker["balrog-action"])
+        job["scopes"] = [server_scope, action_scope]
 
         yield job

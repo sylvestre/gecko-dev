@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 /* globals main, auth, browser, catcher, deviceInfo, communication, log */
 
 "use strict";
@@ -5,8 +9,17 @@
 this.analytics = (function() {
   const exports = {};
 
+  const GA_PORTION = 0.1; // 10% of users will send to the server/GA
+  // This is set from storage, or randomly; if it is less that GA_PORTION then we send analytics:
+  let myGaSegment = 1;
   let telemetryPrefKnown = false;
   let telemetryEnabled;
+  // If we ever get a 410 Gone response (or 404) from the server, we'll stop trying to send events for the rest
+  // of the session
+  let hasReturnedGone = false;
+  // If there's this many entirely failed responses (e.g., server can't be contacted), then stop sending events
+  // for the rest of the session:
+  let serverFailedResponses = 3;
 
   const EVENT_BATCH_DURATION = 1000; // ms for setTimeout
   let pendingEvents = [];
@@ -18,6 +31,10 @@ this.analytics = (function() {
     headers: { "content-type": "application/json" },
     credentials: "include",
   };
+
+  function shouldSendEvents() {
+    return !hasReturnedGone && serverFailedResponses > 0 && myGaSegment < GA_PORTION;
+  }
 
   function flushEvents() {
     if (pendingEvents.length === 0) {
@@ -58,6 +75,9 @@ this.analytics = (function() {
   function sendTiming(timingLabel, timingVar, timingValue) {
     // sendTiming is only called in response to sendEvent, so no need to check
     // the telemetry pref again here.
+    if (!shouldSendEvents()) {
+      return;
+    }
     const timingCategory = "addon";
     pendingTimings.push({
       timingCategory,
@@ -109,6 +129,10 @@ this.analytics = (function() {
     const abTests = auth.getAbTests();
     for (const [gaField, value] of Object.entries(abTests)) {
       options[gaField] = value;
+    }
+    if (!shouldSendEvents()) {
+      // We don't want to save or send the events anymore
+      return Promise.resolve();
     }
     pendingEvents.push({
       eventTime: Date.now(),
@@ -307,16 +331,37 @@ this.analytics = (function() {
   }
 
   function fetchWatcher(request) {
-    catcher.watchPromise(
-      request.then(response => {
-        if (!response.ok) {
-          throw new Error(`Bad response from ${request.url}: ${response.status} ${response.statusText}`);
-        }
-        return response;
-      }),
-      true
-    );
+    request.then(response => {
+      if (response.status === 410 || response.status === 404) { // Gone
+        hasReturnedGone = true;
+        pendingEvents = [];
+        pendingTimings = [];
+      }
+      if (!response.ok) {
+        log.debug(`Error code in event response: ${response.status} ${response.statusText}`);
+      }
+    }).catch(error => {
+      serverFailedResponses--;
+      if (serverFailedResponses <= 0) {
+        log.info(`Server is not responding, no more events will be sent`);
+        pendingEvents = [];
+        pendingTimings = [];
+      }
+      log.debug(`Error event in response: ${error}`);
+    });
   }
+
+  async function init() {
+    const result = await browser.storage.local.get(["myGaSegment"]);
+    if (!result.myGaSegment) {
+      myGaSegment = Math.random();
+      await browser.storage.local.set({myGaSegment});
+    } else {
+      myGaSegment = result.myGaSegment;
+    }
+  }
+
+  init();
 
   return exports;
 })();

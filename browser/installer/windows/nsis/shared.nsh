@@ -60,10 +60,6 @@
     ${EndIf}
   ${EndIf}
 
-  ; Migrate the application's Start Menu directory to a single shortcut in the
-  ; root of the Start Menu Programs directory.
-  ${MigrateStartMenuShortcut}
-
   ; Adds a pinned Task Bar shortcut (see MigrateTaskBarShortcut for details).
   ${MigrateTaskBarShortcut}
 
@@ -128,11 +124,13 @@
     ; Since the Maintenance service can be installed either x86 or x64,
     ; always use the 64-bit registry for checking if an attempt was made.
     ${If} ${RunningX64}
+    ${OrIf} ${IsNativeARM64}
       SetRegView 64
     ${EndIf}
     ReadRegDWORD $5 HKLM "Software\Mozilla\MaintenanceService" "Attempted"
     ClearErrors
     ${If} ${RunningX64}
+    ${OrIf} ${IsNativeARM64}
       SetRegView lastused
     ${EndIf}
 
@@ -160,12 +158,55 @@
     ${EndIf}
   ${EndIf}
 !endif
+
+!ifdef MOZ_UPDATE_AGENT
+  ; This macro runs the update agent with the update-task-local-service
+  ; command, if it detects the needed admin privileges. Otherwise it
+  ; runs with update-task.
+  ; Both commands attempt to remove the scheduled task, then register
+  ; a new one. If the task was registered by an elevated user, it won't
+  ; be removable when not elevated, so the unelevated attempt will fail
+  ; harmlessly.
+  ; Therefore it is safe to run this in both elevated and nonelevated
+  ; PostUpdate: The highest privileged run will win out, so the task can
+  ; run as Local Service if it was ever possible to register it that way.
+  ${PushRegisterUpdateAgentTaskCommand} "update"
+  Pop $0
+  ${If} "$0" != ""
+    nsExec::Exec $0
+    Pop $0
+  ${EndIf}
+!endif
+
+!ifdef MOZ_LAUNCHER_PROCESS
+  ${ResetLauncherProcessDefaults}
+!endif
+
+; Make sure the scheduled task registration for the default browser agent gets
+; updated, but only if we're not the instance of PostUpdate that was started
+; by the service, because this needs to run as the actual user. Also, don't do
+; that if the installer was told not to register the agent task at all.
+!ifdef MOZ_DEFAULT_BROWSER_AGENT
+${If} $TmpVal == "HKCU"
+  ClearErrors
+  ReadRegDWORD $0 HKCU "Software\Mozilla\${AppName}\Installer\$AppUserModelID" \
+                    "DidRegisterDefaultBrowserAgent"
+  ${If} $0 != 0
+  ${OrIf} ${Errors}
+    ExecWait '"$INSTDIR\default-browser-agent.exe" register-task $AppUserModelID'
+  ${EndIf}
+${ElseIf} $TmpVal == "HKLM"
+  ; If we're the privileged PostUpdate, make sure that the unprivileged one
+  ; will have permission to create a task by clearing out the old one first.
+  ExecWait '"$INSTDIR\default-browser-agent.exe" unregister-task $AppUserModelID'
+${EndIf}
+!endif
+
 !macroend
 !define PostUpdate "!insertmacro PostUpdate"
 
 ; Update the last modified time on the Start Menu shortcut, so that its icon
-; gets refreshed. Should be called on Win8+ after MigrateStartMenuShortcut
-; and UpdateShortcutBranding.
+; gets refreshed. Should be called on Win8+ after UpdateShortcutBranding.
 !macro TouchStartMenuShortcut
   ${If} ${FileExists} "$SMPROGRAMS\${BrandShortName}.lnk"
     FileOpen $0 "$SMPROGRAMS\${BrandShortName}.lnk" a
@@ -344,8 +385,7 @@
 ; to BrandShortName (which is what we now name shortcuts). We only rename
 ; desktop and start menu shortcuts, because touching taskbar pins often
 ; (but inconsistently) triggers various broken behaviors in the shell.
-; This should only be called sometime after MigrateStartMenuShortcut,
-; and it assumes SHCTX is set correctly.
+; This assumes SHCTX is set correctly.
 !macro UpdateShortcutsBranding
   ${UpdateOneShortcutBranding} "STARTMENU" "$SMPROGRAMS"
   ${UpdateOneShortcutBranding} "DESKTOP" "$DESKTOP"
@@ -443,12 +483,15 @@
     WriteRegStr SHCTX "$0\.xhtml" "" "FirefoxHTML$5"
   ${EndIf}
 
+
   ${AddAssociationIfNoneExist} ".pdf" "FirefoxHTML$5"
   ${AddAssociationIfNoneExist} ".oga" "FirefoxHTML$5"
   ${AddAssociationIfNoneExist} ".ogg" "FirefoxHTML$5"
   ${AddAssociationIfNoneExist} ".ogv" "FirefoxHTML$5"
   ${AddAssociationIfNoneExist} ".pdf" "FirefoxHTML$5"
   ${AddAssociationIfNoneExist} ".webm" "FirefoxHTML$5"
+  ${AddAssociationIfNoneExist} ".svg" "FirefoxHTML$5"
+  ${AddAssociationIfNoneExist} ".webp"  "FirefoxHTML$5"
 
   ; An empty string is used for the 5th param because FirefoxHTML is not a
   ; protocol handler
@@ -460,11 +503,21 @@
   ; An empty string is used for the 4th & 5th params because the following
   ; protocol handlers already have a display name and the additional keys
   ; required for a protocol handler.
+!ifndef NIGHTLY_BUILD
+  ; Keep the compile-time conditional synchronized with the
+  ; "network.ftp.enabled" compile-time conditional.
   ${AddDisabledDDEHandlerValues} "ftp" "$2" "$8,1" "" ""
+!endif ; !NIGHTLY_BUILD
   ${AddDisabledDDEHandlerValues} "http" "$2" "$8,1" "" ""
   ${AddDisabledDDEHandlerValues} "https" "$2" "$8,1" "" ""
+  ${AddDisabledDDEHandlerValues} "mailto" "$2" "$8,1" "" ""
 !macroend
 !define SetHandlers "!insertmacro SetHandlers"
+
+!macro WriteApplicationsSupportedType RegKey Type
+  WriteRegStr ${RegKey} "Software\Classes\Applications\${FileMainEXE}\SupportedTypes" "${Type}" ""
+!macroend
+!define WriteApplicationsSupportedType "!insertmacro WriteApplicationsSupportedType"
 
 ; Adds the HKLM\Software\Clients\StartMenuInternet\Firefox-[pathhash] registry
 ; entries (does not use SHCTX).
@@ -529,18 +582,91 @@
 
   WriteRegStr ${RegKey} "$0\Capabilities\FileAssociations" ".htm"   "FirefoxHTML$2"
   WriteRegStr ${RegKey} "$0\Capabilities\FileAssociations" ".html"  "FirefoxHTML$2"
+  WriteRegStr ${RegKey} "$0\Capabilities\FileAssociations" ".pdf"   "FirefoxHTML$2"
   WriteRegStr ${RegKey} "$0\Capabilities\FileAssociations" ".shtml" "FirefoxHTML$2"
   WriteRegStr ${RegKey} "$0\Capabilities\FileAssociations" ".xht"   "FirefoxHTML$2"
   WriteRegStr ${RegKey} "$0\Capabilities\FileAssociations" ".xhtml" "FirefoxHTML$2"
+  WriteRegStr ${RegKey} "$0\Capabilities\FileAssociations" ".svg"   "FirefoxHTML$2"
+  WriteRegStr ${RegKey} "$0\Capabilities\FileAssociations" ".webp"  "FirefoxHTML$2"
 
   WriteRegStr ${RegKey} "$0\Capabilities\StartMenu" "StartMenuInternet" "$1"
 
+!ifndef NIGHTLY_BUILD
+  ; Keep the compile-time conditional synchronized with the
+  ; "network.ftp.enabled" compile-time conditional.
   WriteRegStr ${RegKey} "$0\Capabilities\URLAssociations" "ftp"    "FirefoxURL$2"
+!else
+  ; We don't delete and re-create the entire key, so we need to remove
+  ; any existing registration.
+  DeleteRegValue ${RegKey} "$0\Capabilities\URLAssociations" "ftp"
+!endif ; !NIGHTLY_BUILD
+
   WriteRegStr ${RegKey} "$0\Capabilities\URLAssociations" "http"   "FirefoxURL$2"
   WriteRegStr ${RegKey} "$0\Capabilities\URLAssociations" "https"  "FirefoxURL$2"
+  WriteRegStr ${RegKey} "$0\Capabilities\URLAssociations" "mailto" "FirefoxURL$2"
 
-  ; Registered Application
   WriteRegStr ${RegKey} "Software\RegisteredApplications" "$1" "$0\Capabilities"
+
+  ; This key would be created by the Open With dialog when a user creates an
+  ; association for us with a file type that we haven't registered as a handler
+  ; for. We need to preemptively create it ourselves so that we can control the
+  ; command line that's used to launch us in that situation. If it's too late
+  ; and one already exists, then we need to edit its command line to make sure
+  ; it contains the -osint flag.
+  ReadRegStr $6 ${RegKey} "Software\Classes\Applications\${FileMainEXE}\shell\open\command" ""
+  ${If} $6 != ""
+    ${GetPathFromString} "$6" $6
+    WriteRegStr ${RegKey} "Software\Classes\Applications\${FileMainEXE}\shell\open\command" \
+                "" "$\"$6$\" -osint -url $\"%1$\""
+  ${Else}
+    WriteRegStr ${RegKey} "Software\Classes\Applications\${FileMainEXE}\shell\open\command" \
+                "" "$\"$8$\" -osint -url $\"%1$\""
+    ; Make sure files associated this way use the document icon instead of the
+    ; application icon.
+    WriteRegStr ${RegKey} "Software\Classes\Applications\${FileMainEXE}\DefaultIcon" \
+                "" "$8,1"
+    ; If we're going to create this key at all, we also need to list our supported
+    ; file types in it, because otherwise we'll be shown as a suggestion for every
+    ; single file type, whether we support it in any way or not.
+    ; We take a more expansive approach to the set of file types registered
+    ; here compared to elsewhere because this key is interpreted by the OS as
+    ; containing every file type that we can possibly open, so if something
+    ; isn't listed it assumes we can't open it and hides us from e.g. the Open
+    ; With context menu, even if the user has tried to add us there manually.
+    ; The list here was derived from the file /layout/build/components.conf,
+    ; filtered down to only those types which make sense to open on their own
+    ; in Firefox, basically meaning that plain text file types were left out,
+    ; but not JSON or XML types because we have specific viewers for those.
+    ${WriteApplicationsSupportedType} ${RegKey} ".apng"
+    ${WriteApplicationsSupportedType} ${RegKey} ".bmp"
+    ${WriteApplicationsSupportedType} ${RegKey} ".flac"
+    ${WriteApplicationsSupportedType} ${RegKey} ".gif"
+    ${WriteApplicationsSupportedType} ${RegKey} ".htm"
+    ${WriteApplicationsSupportedType} ${RegKey} ".html"
+    ${WriteApplicationsSupportedType} ${RegKey} ".ico"
+    ${WriteApplicationsSupportedType} ${RegKey} ".jfif"
+    ${WriteApplicationsSupportedType} ${RegKey} ".jpeg"
+    ${WriteApplicationsSupportedType} ${RegKey} ".jpg"
+    ${WriteApplicationsSupportedType} ${RegKey} ".json"
+    ${WriteApplicationsSupportedType} ${RegKey} ".m4a"
+    ${WriteApplicationsSupportedType} ${RegKey} ".mp3"
+    ${WriteApplicationsSupportedType} ${RegKey} ".oga"
+    ${WriteApplicationsSupportedType} ${RegKey} ".ogg"
+    ${WriteApplicationsSupportedType} ${RegKey} ".ogv"
+    ${WriteApplicationsSupportedType} ${RegKey} ".opus"
+    ${WriteApplicationsSupportedType} ${RegKey} ".pdf"
+    ${WriteApplicationsSupportedType} ${RegKey} ".pjpeg"
+    ${WriteApplicationsSupportedType} ${RegKey} ".pjp"
+    ${WriteApplicationsSupportedType} ${RegKey} ".png"
+    ${WriteApplicationsSupportedType} ${RegKey} ".rdf"
+    ${WriteApplicationsSupportedType} ${RegKey} ".shtml"
+    ${WriteApplicationsSupportedType} ${RegKey} ".svg"
+    ${WriteApplicationsSupportedType} ${RegKey} ".webm"
+    ${WriteApplicationsSupportedType} ${RegKey} ".webp"
+    ${WriteApplicationsSupportedType} ${RegKey} ".xht"
+    ${WriteApplicationsSupportedType} ${RegKey} ".xhtml"
+    ${WriteApplicationsSupportedType} ${RegKey} ".xml"
+  ${EndIf}
 !macroend
 !define SetStartMenuInternet "!insertmacro SetStartMenuInternet"
 
@@ -590,6 +716,7 @@
 
   ; Running Firefox 32 bit
   ${If} ${RunningX64}
+  ${OrIf} ${IsNativeARM64}
     ; Running Firefox 32 bit on a Windows 64 bit system
     ClearErrors
     ReadRegDWORD $2 HKLM "Software\Mozilla\${AppName}\32to64DidMigrate" "$1"
@@ -870,9 +997,16 @@
   ; An empty string is used for the 4th & 5th params because the following
   ; protocol handlers already have a display name and the additional keys
   ; required for a protocol handler.
+
   ${IsHandlerForInstallDir} "ftp" $R9
   ${If} "$R9" == "true"
+!ifndef NIGHTLY_BUILD
+    ; Keep the compile-time conditional synchronized with the
+    ; "network.ftp.enabled" compile-time conditional.
     ${AddDisabledDDEHandlerValues} "ftp" "$2" "$8,1" "" ""
+!else
+    ${AddDisabledDDEHandlerValues} "ftp" "$2" "$8,1" "" "delete"
+!endif ; !NIGHTLY_BUILD
   ${EndIf}
 
   ${IsHandlerForInstallDir} "http" $R9
@@ -883,6 +1017,11 @@
   ${IsHandlerForInstallDir} "https" $R9
   ${If} "$R9" == "true"
     ${AddDisabledDDEHandlerValues} "https" "$2" "$8,1" "" ""
+  ${EndIf}
+
+  ${IsHandlerForInstallDir} "mailto" $R9
+  ${If} "$R9" == "true"
+    ${AddDisabledDDEHandlerValues} "mailto" "$2" "$8,1" "" ""
   ${EndIf}
 !macroend
 !define UpdateProtocolHandlers "!insertmacro UpdateProtocolHandlers"
@@ -903,6 +1042,7 @@
     ; if the binary is replaced with a different certificate.
     ; We always use the 64bit registry for certs.
     ${If} ${RunningX64}
+    ${OrIf} ${IsNativeARM64}
       SetRegView 64
     ${EndIf}
 
@@ -925,6 +1065,7 @@
     WriteRegStr HKLM "$R0\1" "name" "${CERTIFICATE_NAME_PREVIOUS}"
     WriteRegStr HKLM "$R0\1" "issuer" "${CERTIFICATE_ISSUER_PREVIOUS}"
     ${If} ${RunningX64}
+    ${OrIf} ${IsNativeARM64}
       SetRegView lastused
     ${EndIf}
     ClearErrors
@@ -960,6 +1101,11 @@
 
 ; Removes various directories and files for reasons noted below.
 !macro RemoveDeprecatedFiles
+  ; Remove the toplevel chrome.manifest added by bug 1295542.
+  ${If} ${FileExists} "$INSTDIR\chrome.manifest"
+    Delete "$INSTDIR\chrome.manifest"
+  ${EndIf}
+
   ; Remove talkback if it is present (remove after bug 386760 is fixed)
   ${If} ${FileExists} "$INSTDIR\extensions\talkback@mozilla.org"
     RmDir /r /REBOOTOK "$INSTDIR\extensions\talkback@mozilla.org"
@@ -1093,6 +1239,9 @@
     ${If} ${Errors}
       ClearErrors
       WriteIniStr "$0" "TASKBAR" "Migrated" "true"
+      WriteRegDWORD HKCU \
+        "Software\Mozilla\${AppName}\Installer\$AppUserModelID" \
+        "WasPinnedToTaskbar" 1
       ${If} ${AtLeastWin7}
         ; If we didn't run the stub installer, AddTaskbarSC will be empty.
         ; We determine whether to pin based on whether we're the default
@@ -1113,6 +1262,28 @@
           ${EndIf}
         ${ElseIf} $AddTaskbarSC == "1"
           ${PinToTaskBar}
+        ${EndIf}
+      ${EndIf}
+    ${ElseIf} ${AtLeastWin10}
+      ${GetInstallerRegistryPref} "Software\Mozilla\${AppName}" \
+        "installer.taskbarpin.win10.enabled" $2
+      ${If} $2 == "true"
+        ; On Windows 10, we may have previously tried to make a taskbar pin
+        ; and failed because the API we tried to use was blocked by the OS.
+        ; We have an option that works in more cases now, so we're going to try
+        ; again, but also record that we've done so by writing a particular
+        ; registry value, so that we don't continue to do this repeatedly.
+        ClearErrors
+        ReadRegDWORD $2 HKCU \
+            "Software\Mozilla\${AppName}\Installer\$AppUserModelID" \
+            "WasPinnedToTaskbar"
+        ${If} ${Errors}
+          WriteRegDWORD HKCU \
+            "Software\Mozilla\${AppName}\Installer\$AppUserModelID" \
+            "WasPinnedToTaskbar" 1
+          ${If} $AddTaskbarSC != "0"
+            ${PinToTaskBar}
+          ${EndIf}
         ${EndIf}
       ${EndIf}
     ${EndIf}
@@ -1177,9 +1348,22 @@
               InvokeShellVerb::DoIt "$SMPROGRAMS" "$1" "5381"
             ${EndUnless}
 
-            ; Pin the shortcut to the TaskBar. 5386 is the shell32.dll resource
-            ; id for the "Pin to Taskbar" string.
-            InvokeShellVerb::DoIt "$SMPROGRAMS" "$1" "5386"
+            ${If} ${AtMostWin2012R2}
+              ; Pin the shortcut to the TaskBar. 5386 is the shell32.dll
+              ; resource id for the "Pin to Taskbar" string.
+              InvokeShellVerb::DoIt "$SMPROGRAMS" "$1" "5386"
+            ${Else}
+              ; In Windows 10 the "Pin to Taskbar" resource was removed, so we
+              ; can't access the verb that way anymore. We have a create a
+              ; command key using the GUID that's assigned to this action and
+              ; then invoke that as a verb.
+              ReadRegStr $R9 HKLM \
+                "Software\Microsoft\Windows\CurrentVersion\Explorer\CommandStore\shell\Windows.taskbarpin" \
+                "ExplorerCommandHandler"
+              WriteRegStr HKCU "Software\Classes\*\shell\${AppRegName}-$AppUserModelID" "ExplorerCommandHandler" $R9
+              InvokeShellVerb::DoIt "$SMPROGRAMS" "$1" "${AppRegName}-$AppUserModelID"
+              DeleteRegKey HKCU "Software\Classes\*\shell\${AppRegName}-$AppUserModelID"
+            ${EndIf}
 
             ; Delete the shortcut if it was created
             ${If} "$8" == "true"
@@ -1198,56 +1382,6 @@
   ${EndIf}
 !macroend
 !define PinToTaskBar "!insertmacro PinToTaskBar"
-
-; Adds a shortcut to the root of the Start Menu Programs directory if the
-; application's Start Menu Programs directory exists with a shortcut pointing to
-; this installation directory. This will also remove the old shortcuts and the
-; application's Start Menu Programs directory by calling the RemoveStartMenuDir
-; macro.
-!macro MigrateStartMenuShortcut
-  ${GetShortcutsLogPath} $0
-  ${If} ${FileExists} "$0"
-    ClearErrors
-    ReadINIStr $5 "$0" "SMPROGRAMS" "RelativePathToDir"
-    ${Unless} ${Errors}
-      ClearErrors
-      ReadINIStr $1 "$0" "STARTMENU" "Shortcut0"
-      ${If} ${Errors}
-        ; The STARTMENU ini section doesn't exist.
-        ${LogStartMenuShortcut} "${BrandShortName}.lnk"
-        ${GetLongPath} "$SMPROGRAMS" $2
-        ${GetLongPath} "$2\$5" $1
-        ${If} "$1" != ""
-          ClearErrors
-          ReadINIStr $3 "$0" "SMPROGRAMS" "Shortcut0"
-          ${Unless} ${Errors}
-            ${If} ${FileExists} "$1\$3"
-              ShellLink::GetShortCutTarget "$1\$3"
-              Pop $4
-              ${If} "$INSTDIR\${FileMainEXE}" == "$4"
-                CreateShortCut "$SMPROGRAMS\${BrandShortName}.lnk" \
-                               "$INSTDIR\${FileMainEXE}"
-                ${If} ${FileExists} "$SMPROGRAMS\${BrandShortName}.lnk"
-                  ShellLink::SetShortCutWorkingDirectory "$SMPROGRAMS\${BrandShortName}.lnk" \
-                                                         "$INSTDIR"
-                  ${If} ${AtLeastWin7}
-                  ${AndIf} "$AppUserModelID" != ""
-                    ApplicationID::Set "$SMPROGRAMS\${BrandShortName}.lnk" \
-                                       "$AppUserModelID" "true"
-                  ${EndIf}
-                ${EndIf}
-              ${EndIf}
-            ${EndIf}
-          ${EndUnless}
-        ${EndIf}
-      ${EndIf}
-      ; Remove the application's Start Menu Programs directory, shortcuts, and
-      ; ini section.
-      ${RemoveStartMenuDir}
-    ${EndUnless}
-  ${EndIf}
-!macroend
-!define MigrateStartMenuShortcut "!insertmacro MigrateStartMenuShortcut"
 
 ; Removes the application's start menu directory along with its shortcuts if
 ; they exist and if they exist creates a start menu shortcut in the root of the
@@ -1336,9 +1470,11 @@
   Push "mozsqlite3.dll"
   Push "xpcom.dll"
   Push "crashreporter.exe"
+  Push "default-browser-agent.exe"
   Push "minidump-analyzer.exe"
   Push "pingsender.exe"
   Push "updater.exe"
+  Push "updateagent.exe"
   Push "${FileMainEXE}"
 !macroend
 !define PushFilesToCheck "!insertmacro PushFilesToCheck"
@@ -1366,19 +1502,8 @@
     System::Call 'advapi32::OpenServiceW(i R6, t "MpsSvc", i ${SERVICE_QUERY_CONFIG}) i.R7'
     ${If} $R7 != 0
       System::Call 'advapi32::CloseServiceHandle(i R7) n'
-      ; Open the service with SERVICE_QUERY_CONFIG so its status can be queried.
+      ; Open the service with SERVICE_QUERY_STATUS so its status can be queried.
       System::Call 'advapi32::OpenServiceW(i R6, t "MpsSvc", i ${SERVICE_QUERY_STATUS}) i.R7'
-    ${Else}
-      ; SharedAccess is the Firewall service on Windows XP.
-      ; When opening the service with SERVICE_QUERY_CONFIG the return value will
-      ; be 0 if the service is not installed.
-      System::Call 'advapi32::OpenServiceW(i R6, t "SharedAccess", i ${SERVICE_QUERY_CONFIG}) i.R7'
-      ${If} $R7 != 0
-        System::Call 'advapi32::CloseServiceHandle(i R7) n'
-        ; Open the service with SERVICE_QUERY_CONFIG so its status can be
-        ; queried.
-        System::Call 'advapi32::OpenServiceW(i R6, t "SharedAccess", i ${SERVICE_QUERY_STATUS}) i.R7'
-      ${EndIf}
     ${EndIf}
     ; Did the calls to OpenServiceW succeed?
     ${If} $R7 != 0
@@ -1602,3 +1727,56 @@ FunctionEnd
 !define SetAsDefaultAppUser "Call SetAsDefaultAppUser"
 
 !endif ; NO_LOG
+
+!ifdef MOZ_LAUNCHER_PROCESS
+!macro ResetLauncherProcessDefaults
+  # By deleting these values, we remove remnants of any force-disable settings
+  # that may have been set during the SHIELD study in 67. Note that this setting
+  # was only intended to distinguish between test and control groups for the
+  # purposes of the study, not as a user preference.
+  DeleteRegValue HKCU ${MOZ_LAUNCHER_SUBKEY} "$INSTDIR\${FileMainEXE}|Launcher"
+  DeleteRegValue HKCU ${MOZ_LAUNCHER_SUBKEY} "$INSTDIR\${FileMainEXE}|Browser"
+!macroend
+!define ResetLauncherProcessDefaults "!insertmacro ResetLauncherProcessDefaults"
+!endif
+
+!ifdef MOZ_UPDATE_AGENT
+; Push, onto the stack, the command line used to register (or update) the
+; update agent scheduled task.
+;
+; InitHashAppModelId must have already been called to set $AppUserModelID,
+; if that is empty then an empty string will be pushed instead.
+;
+; COMMAND_BASE must be "register" or "update". Both will remove any
+; pre-existing task and register a new one, but "update" will first attempt
+; to copy some settings.
+!macro PushRegisterUpdateAgentTaskCommand COMMAND_BASE
+  Push $0
+  Push $1
+
+  Call IsUserAdmin
+  Pop $0
+  ; Register the update agent to run as Local Service if the user is an admin...
+  ${If} $0 == "true"
+  ; ...and if we have HKLM write access
+  ${AndIf} $TmpVal == "HKLM"
+    StrCpy $1 "${COMMAND_BASE}-task-local-service"
+  ${Else}
+    ; Otherwise attempt to register the task for the current user.
+    ; If we had previously registered the task while elevated, then we shouldn't
+    ; be able to replace it now with another task of the same name, so this
+    ; will fail harmlessly.
+    StrCpy $1 "${COMMAND_BASE}-task"
+  ${EndIf}
+
+  ${If} "$AppUserModelID" != ""
+    StrCpy $0 '"$INSTDIR\updateagent.exe" $1 "${UpdateAgentFullName} $AppUserModelID" "$AppUserModelID" "$INSTDIR"'
+  ${Else}
+    StrCpy $0 ''
+  ${EndIf}
+
+  Pop $1
+  Exch $0
+!macroend
+!define PushRegisterUpdateAgentTaskCommand "!insertmacro PushRegisterUpdateAgentTaskCommand"
+!endif

@@ -32,22 +32,30 @@ mozilla::ipc::IPCResult RemoteSpellcheckEngineParent::RecvSetDictionaryFromList(
       return IPC_OK();
     }
   }
-  aResolve(Tuple<const bool&, const nsString&>(false, EmptyString()));
+  aResolve(Tuple<const bool&, const nsString&>(false, u""_ns));
   return IPC_OK();
 }
 
-mozilla::ipc::IPCResult RemoteSpellcheckEngineParent::RecvCheck(
-    const nsString& aWord, bool* aIsMisspelled) {
-  nsresult rv = mSpellChecker->CheckWord(aWord, aIsMisspelled, nullptr);
-
-  // If CheckWord failed, we can't tell whether the word is correctly spelled.
-  if (NS_FAILED(rv)) *aIsMisspelled = false;
+mozilla::ipc::IPCResult RemoteSpellcheckEngineParent::RecvCheckAsync(
+    nsTArray<nsString>&& aWords, CheckAsyncResolver&& aResolve) {
+  nsTArray<bool> misspells;
+  misspells.SetCapacity(aWords.Length());
+  for (auto& word : aWords) {
+    bool misspelled;
+    nsresult rv = mSpellChecker->CheckWord(word, &misspelled, nullptr);
+    // If CheckWord failed, we can't tell whether the word is correctly spelled
+    if (NS_FAILED(rv)) {
+      misspelled = false;
+    }
+    misspells.AppendElement(misspelled);
+  }
+  aResolve(std::move(misspells));
   return IPC_OK();
 }
 
 mozilla::ipc::IPCResult RemoteSpellcheckEngineParent::RecvCheckAndSuggest(
     const nsString& aWord, bool* aIsMisspelled,
-    InfallibleTArray<nsString>* aSuggestions) {
+    nsTArray<nsString>* aSuggestions) {
   nsresult rv = mSpellChecker->CheckWord(aWord, aIsMisspelled, aSuggestions);
   if (NS_FAILED(rv)) {
     aSuggestions->Clear();

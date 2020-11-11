@@ -8,7 +8,8 @@ const {
   MESSAGES_ADD,
   MESSAGES_CLEAR,
   PRIVATE_MESSAGES_CLEAR,
-  REMOVED_ACTORS_CLEAR,
+  MESSAGES_CLEAR_LOGPOINT,
+  FRONTS_TO_RELEASE_CLEAR,
 } = require("devtools/client/webconsole/constants");
 
 /**
@@ -16,22 +17,44 @@ const {
  * When messages with arguments are removed from the store we should also
  * clean up the backend.
  */
-function enableActorReleaser(hud) {
+function enableActorReleaser(webConsoleUI) {
   return next => (reducer, initialState, enhancer) => {
     function releaseActorsEnhancer(state, action) {
       state = reducer(state, action);
 
-      const type = action.type;
-      const proxy = hud ? hud.proxy : null;
+      const { type } = action;
       if (
-        proxy &&
-        ([MESSAGES_ADD, MESSAGES_CLEAR, PRIVATE_MESSAGES_CLEAR].includes(type))
+        webConsoleUI &&
+        [
+          MESSAGES_ADD,
+          MESSAGES_CLEAR,
+          PRIVATE_MESSAGES_CLEAR,
+          MESSAGES_CLEAR_LOGPOINT,
+        ].includes(type)
       ) {
-        releaseActors(state.messages.removedActors, proxy);
+        const promises = [];
+        state.messages.frontsToRelease.forEach(front => {
+          // We only release the front if it actually has a release method, if it isn't
+          // already destroyed, and if it's not in the sidebar (where we might still need it).
+          if (
+            front &&
+            typeof front.release === "function" &&
+            !front.isDestroyed() &&
+            (!state.ui.frontInSidebar ||
+              state.ui.frontInSidebar.actorID !== front.actorID)
+          ) {
+            promises.push(front.release());
+          }
+        });
 
-        // Reset `removedActors` in message reducer.
+        // Emit an event we can listen to to make sure all the fronts were released.
+        Promise.all(promises).then(() =>
+          webConsoleUI.emitForTests("fronts-released")
+        );
+
+        // Reset `frontsToRelease` in message reducer.
         state = reducer(state, {
-          type: REMOVED_ACTORS_CLEAR,
+          type: FRONTS_TO_RELEASE_CLEAR,
         });
       }
 
@@ -40,17 +63,6 @@ function enableActorReleaser(hud) {
 
     return next(releaseActorsEnhancer, initialState, enhancer);
   };
-}
-
-/**
- * Helper function for releasing backend actors.
- */
-function releaseActors(removedActors, proxy) {
-  if (!proxy) {
-    return;
-  }
-
-  removedActors.forEach(actor => proxy.releaseActor(actor));
 }
 
 module.exports = enableActorReleaser;

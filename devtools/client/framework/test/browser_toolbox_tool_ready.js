@@ -1,5 +1,3 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 2 -*- */
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -9,9 +7,10 @@ requestLongerTimeout(5);
 
 function performChecks(target) {
   return (async function() {
-    const toolIds = gDevTools.getToolDefinitionArray()
-                           .filter(def => def.isTargetSupported(target))
-                           .map(def => def.id);
+    const toolIds = gDevTools
+      .getToolDefinitionArray()
+      .filter(def => def.isTargetSupported(target))
+      .map(def => def.id);
 
     let toolbox;
     for (let index = 0; index < toolIds.length; index++) {

@@ -5,13 +5,13 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #if !defined(InputEventStatistics_h_)
-#define InputEventStatistics_h_
+#  define InputEventStatistics_h_
 
-#include "mozilla/ClearOnShutdown.h"
-#include "mozilla/Maybe.h"
-#include "mozilla/Preferences.h"
-#include "mozilla/TimeStamp.h"
-#include "nsTArray.h"
+#  include "mozilla/ClearOnShutdown.h"
+#  include "mozilla/Maybe.h"
+#  include "mozilla/Preferences.h"
+#  include "mozilla/TimeStamp.h"
+#  include "nsTArray.h"
 
 namespace mozilla {
 
@@ -70,7 +70,7 @@ class InputEventStatistics {
 
  public:
   explicit InputEventStatistics(ConstructorCookie&&);
-  ~InputEventStatistics() {}
+  ~InputEventStatistics() = default;
 
   static InputEventStatistics& Get();
 

@@ -29,8 +29,7 @@ class ServiceWorkerUpdateJob : public ServiceWorkerJob {
  public:
   // Construct an update job to be used only for updates.
   ServiceWorkerUpdateJob(nsIPrincipal* aPrincipal, const nsACString& aScope,
-                         const nsACString& aScriptSpec,
-                         nsILoadGroup* aLoadGroup,
+                         nsCString aScriptSpec,
                          ServiceWorkerUpdateViaCache aUpdateViaCache);
 
   already_AddRefed<ServiceWorkerRegistrationInfo> GetRegistration() const;
@@ -38,9 +37,7 @@ class ServiceWorkerUpdateJob : public ServiceWorkerJob {
  protected:
   // Construct an update job that is overriden as another job type.
   ServiceWorkerUpdateJob(Type aType, nsIPrincipal* aPrincipal,
-                         const nsACString& aScope,
-                         const nsACString& aScriptSpec,
-                         nsILoadGroup* aLoadGroup,
+                         const nsACString& aScope, nsCString aScriptSpec,
                          ServiceWorkerUpdateViaCache aUpdateViaCache);
 
   virtual ~ServiceWorkerUpdateJob();
@@ -90,7 +87,6 @@ class ServiceWorkerUpdateJob : public ServiceWorkerJob {
   void ContinueAfterInstallEvent(bool aInstallEventSuccess);
 
   RefPtr<ServiceWorkerRegistrationInfo> mRegistration;
-  nsCOMPtr<nsILoadGroup> mLoadGroup;
   ServiceWorkerUpdateViaCache mUpdateViaCache;
   serviceWorkerScriptCache::OnFailure mOnFailure;
 };

@@ -2,31 +2,30 @@
 
 [ -n "$WORKSPACE" ]
 [ -n "$MOZ_OBJDIR" ]
-[ -n "$GECKO_DIR" ]
+[ -n "$GECKO_PATH" ]
 
 HAZARD_SHELL_OBJDIR=$WORKSPACE/obj-haz-shell
 JSBIN="$HAZARD_SHELL_OBJDIR/dist/bin/js"
-JS_SRCDIR=$GECKO_DIR/js/src
+JS_SRCDIR=$GECKO_PATH/js/src
 ANALYSIS_SRCDIR=$JS_SRCDIR/devtools/rootAnalysis
-GCCDIR="$TOOLTOOL_DIR/gcc"
+GCCDIR="$MOZ_FETCHES_DIR/gcc"
 
 export CC="$GCCDIR/bin/gcc"
 export CXX="$GCCDIR/bin/g++"
-export PATH="$GCCDIR/bin:$PATH"
+export PATH="$GCCDIR/bin:$MOZ_FETCHES_DIR/clang/bin:$PATH"
 export LD_LIBRARY_PATH="$GCCDIR/lib64"
-export RUSTC="$TOOLTOOL_DIR/rustc/bin/rustc"
-export CARGO="$TOOLTOOL_DIR/rustc/bin/cargo"
-export LLVM_CONFIG="$TOOLTOOL_DIR/clang/bin/llvm-config"
+export RUSTC="$MOZ_FETCHES_DIR/rustc/bin/rustc"
+export CARGO="$MOZ_FETCHES_DIR/rustc/bin/cargo"
 
-PYTHON=python2.7
-if ! which $PYTHON; then
-    PYTHON=python
-fi
+export CFLAGS="$CFLAGS -Wno-attributes -Wno-ignored-attributes"
+export CPPFLAGS="$CPPFLAGS -Wno-attributes -Wno-ignored-attributes"
+
+PYTHON=python3
 
 function check_commit_msg () {
     ( set +e;
     if [[ -n "$AUTOMATION" ]]; then
-        hg --cwd "$GECKO_DIR" log -r. --template '{desc}\n' | grep -F -q -- "$1"
+        hg --cwd "$GECKO_PATH" log -r. --template '{desc}\n' | grep -F -q -- "$1"
     else
         echo -- "$SCRIPT_FLAGS" | grep -F -q -- "$1"
     fi
@@ -72,13 +71,13 @@ function configure_analysis () {
 js = "$JSBIN"
 analysis_scriptdir = "$ANALYSIS_SRCDIR"
 objdir = "$MOZ_OBJDIR"
-source = "$GECKO_DIR"
-sixgill = "$TOOLTOOL_DIR/sixgill/usr/libexec/sixgill"
-sixgill_bin = "$TOOLTOOL_DIR/sixgill/usr/bin"
+source = "$GECKO_PATH"
+sixgill = "$MOZ_FETCHES_DIR/sixgill/usr/libexec/sixgill"
+sixgill_bin = "$MOZ_FETCHES_DIR/sixgill/usr/bin"
 EOF
 
         local rev
-        rev=$(cd $GECKO_DIR && hg log -r . -T '{node|short}')
+        rev=$(cd $GECKO_PATH && hg log -r . -T '{node|short}')
         cat > run-analysis.sh <<EOF
 #!/bin/sh
 if [ \$# -eq 0 ]; then
@@ -104,12 +103,12 @@ function run_analysis () {
 
     (
         cd "$analysis_dir"
-        $PYTHON "$ANALYSIS_SRCDIR/analyze.py" -v --buildcommand="$GECKO_DIR/taskcluster/scripts/builder/hazard-${build_type}.sh"
+        $PYTHON "$ANALYSIS_SRCDIR/analyze.py" -v --buildcommand="$GECKO_PATH/taskcluster/scripts/builder/hazard-${build_type}.sh"
     )
 }
 
 function analysis_self_test () {
-    LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$(dirname "$JSBIN")" $PYTHON "$ANALYSIS_SRCDIR/run-test.py" -v --js "$JSBIN" --sixgill "$TOOLTOOL_DIR/sixgill" --gccdir "$GCCDIR"
+    LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$(dirname "$JSBIN")" $PYTHON "$ANALYSIS_SRCDIR/run-test.py" -v --js "$JSBIN" --sixgill "$MOZ_FETCHES_DIR/sixgill" --gccdir "$GCCDIR"
 }
 
 function grab_artifacts () {
@@ -130,7 +129,7 @@ function grab_artifacts () {
 
         # Bundle up the less important but still useful intermediate outputs,
         # just to cut down on the clutter in treeherder's Job Details pane.
-        tar -acvf "${artifacts}/hazardIntermediates.tar.xz" --exclude-from <(for f in "${important[@]}"; do echo $f; done) *.txt *.lst build_xgill.log
+        tar -acvf "${artifacts}/hazardIntermediates.tar.xz" --exclude-from <(IFS=$'\n'; echo "${important[*]}") *.txt *.lst build_xgill.log
 
         # Upload the important outputs individually, so that they will be
         # visible in Job Details and accessible to automated jobs.
@@ -159,21 +158,28 @@ function check_hazards () {
     NUM_UNNECESSARY=$(grep -c '^Function.* has unnecessary root' "$1"/unnecessary.txt)
     NUM_DROPPED=$(grep -c '^Dropped CFG' "$1"/build_xgill.log)
     NUM_WRITE_HAZARDS=$(perl -lne 'print $1 if m!found (\d+)/\d+ allowed errors!' "$1"/heapWriteHazards.txt)
+    NUM_MISSING=$(grep -c '^Function.*expected hazard.*but none were found' "$1"/rootingHazards.txt)
 
     set +x
     echo "TinderboxPrint: rooting hazards<br/>$NUM_HAZARDS"
     echo "TinderboxPrint: (unsafe references to unrooted GC pointers)<br/>$NUM_UNSAFE"
     echo "TinderboxPrint: (unnecessary roots)<br/>$NUM_UNNECESSARY"
+    echo "TinderboxPrint: missing expected hazards<br/>$NUM_MISSING"
     echo "TinderboxPrint: heap write hazards<br/>$NUM_WRITE_HAZARDS"
 
     # Display errors in a way that will get picked up by the taskcluster scraper.
-    perl -le 'print "TEST-UNEXPECTED-FAIL | hazards | $ENV{NUM_HAZARDS} rooting hazards" if $ENV{NUM_HAZARDS}'
     perl -lne 'print "TEST-UNEXPECTED-FAIL | hazards | $1 $2" if /^Function.* has (unrooted .*live across GC call).* (at .*)$/' "$1"/hazards.txt
 
     exit_status=0
 
     if [ $NUM_HAZARDS -gt 0 ]; then
         echo "TEST-UNEXPECTED-FAIL | hazards | $NUM_HAZARDS rooting hazards detected" >&2
+        echo "TinderboxPrint: documentation<br/><a href='https://wiki.mozilla.org/Javascript:Hazard_Builds#Diagnosing_a_rooting_hazards_failure'>static rooting hazard analysis failures</a>, visit \"Inspect Task\" link for hazard details"
+        exit_status=1
+    fi
+
+    if [ $NUM_MISSING -gt 0 ]; then
+        echo "TEST-UNEXPECTED-FAIL | hazards | $NUM_MISSING expected hazards went undetected" >&2
         echo "TinderboxPrint: documentation<br/><a href='https://wiki.mozilla.org/Javascript:Hazard_Builds#Diagnosing_a_rooting_hazards_failure'>static rooting hazard analysis failures</a>, visit \"Inspect Task\" link for hazard details"
         exit_status=1
     fi

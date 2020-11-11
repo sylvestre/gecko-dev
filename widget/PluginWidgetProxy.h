@@ -6,11 +6,11 @@
 #define mozilla_widget_RemotePlugin_h__
 
 #ifndef XP_WIN
-#error "Plugin widgets are Windows-only."
+#  error "Plugin widgets are Windows-only."
 #endif
 
 #include "PuppetWidget.h"
-#include "mozilla/dom/TabChild.h"
+#include "mozilla/dom/BrowserChild.h"
 
 /*
  * PluginWidgetProxy is a nsIWidget wrapper we hand around in plugin and layout
@@ -27,7 +27,7 @@ namespace widget {
 
 class PluginWidgetProxy final : public PuppetWidget {
  public:
-  explicit PluginWidgetProxy(dom::TabChild* aTabChild,
+  explicit PluginWidgetProxy(dom::BrowserChild* aBrowserChild,
                              mozilla::plugins::PluginWidgetChild* aChannel);
 
  protected:
@@ -38,12 +38,12 @@ class PluginWidgetProxy final : public PuppetWidget {
 
   // nsIWidget
   using PuppetWidget::Create;  // for Create signature not overridden here
-  virtual MOZ_MUST_USE nsresult
-  Create(nsIWidget* aParent, nsNativeWidget aNativeParent,
-         const LayoutDeviceIntRect& aRect,
-         nsWidgetInitData* aInitData = nullptr) override;
+  [[nodiscard]] virtual nsresult Create(
+      nsIWidget* aParent, nsNativeWidget aNativeParent,
+      const LayoutDeviceIntRect& aRect,
+      nsWidgetInitData* aInitData = nullptr) override;
   virtual void Destroy() override;
-  virtual nsresult SetFocus(bool aRaise = false) override;
+  virtual void SetFocus(Raise, mozilla::dom::CallerType aCallerType) override;
   virtual void SetParent(nsIWidget* aNewParent) override;
 
   virtual nsIWidget* GetParent(void) override;

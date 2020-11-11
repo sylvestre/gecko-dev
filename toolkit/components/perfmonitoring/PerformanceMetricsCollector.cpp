@@ -4,12 +4,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#include "nsContentUtils.h"
 #include "nsThreadUtils.h"
 #include "mozilla/AbstractThread.h"
 #include "mozilla/Logging.h"
 #include "mozilla/PerformanceUtils.h"
 #include "mozilla/PerformanceMetricsCollector.h"
-#include "mozilla/StaticPrefs.h"
+#include "mozilla/StaticPrefs_dom.h"
 #include "mozilla/TaskQueue.h"
 #include "mozilla/dom/ContentParent.h"
 #include "mozilla/dom/Promise.h"
@@ -21,7 +22,7 @@ using namespace mozilla::dom;
 
 static mozilla::LazyLogModule sPerfLog("PerformanceMetricsCollector");
 #ifdef LOG
-#undef LOG
+#  undef LOG
 #endif
 #define LOG(args) MOZ_LOG(sPerfLog, mozilla::LogLevel::Debug, args)
 
@@ -95,7 +96,7 @@ void AggregatedResults::Abort(nsresult aReason) {
 void AggregatedResults::ResolveNow() {
   MOZ_ASSERT(!mHolder.IsEmpty());
   LOG(("[%s] Early resolve", nsIDToCString(mUUID).get()));
-  mHolder.Resolve(mData, __func__);
+  mHolder.Resolve(CopyableTArray(mData), __func__);
   mIPCTimeout = nullptr;
   mCollector->ForgetAggregatedResults(mUUID);
 }
@@ -160,7 +161,9 @@ void AggregatedResults::AppendResult(
     mIPCTimeout->Cancel();
     mIPCTimeout = nullptr;
   }
-  mHolder.Resolve(mData, __func__);
+  nsTArray<dom::PerformanceInfoDictionary> data;
+  data.Assign(mData);
+  mHolder.Resolve(std::move(data), __func__);
   mCollector->ForgetAggregatedResults(mUUID);
 }
 
@@ -259,13 +262,14 @@ PerformanceMetricsCollector::RequestMetricsInternal() {
 
   // collecting the current process PerformanceInfo
   PerformanceInfoPromise::All(NS_GetCurrentThread(), localPromises)
-      ->Then(NS_GetCurrentThread(), __func__,
-             [uuid](const nsTArray<mozilla::dom::PerformanceInfo> aResult) {
-               LOG(("[%s] Local CollectPerformanceInfo promise resolved",
-                    nsIDToCString(uuid).get()));
-               DataReceived(uuid, aResult);
-             },
-             [](const nsresult aResult) {});
+      ->Then(
+          NS_GetCurrentThread(), __func__,
+          [uuid](const nsTArray<mozilla::dom::PerformanceInfo> aResult) {
+            LOG(("[%s] Local CollectPerformanceInfo promise resolved",
+                 nsIDToCString(uuid).get()));
+            DataReceived(uuid, aResult);
+          },
+          [](const nsresult aResult) {});
 
   return promise;
 }

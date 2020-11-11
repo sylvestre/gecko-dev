@@ -8,7 +8,7 @@
 #include "nsBaseWidget.h"
 
 #if defined(MOZ_WIDGET_ANDROID) && !defined(MOZ_WIDGET_SUPPORTS_OOP_COMPOSITING)
-#include "mozilla/widget/AndroidCompositorWidget.h"
+#  include "mozilla/widget/AndroidCompositorWidget.h"
 #endif
 
 namespace mozilla {
@@ -17,17 +17,18 @@ namespace widget {
 // Platforms with no OOP compositor process support use
 // InProcessCompositorWidget by default.
 #if !defined(MOZ_WIDGET_SUPPORTS_OOP_COMPOSITING)
-/* static */ RefPtr<CompositorWidget> CompositorWidget::CreateLocal(
+/* static */
+RefPtr<CompositorWidget> CompositorWidget::CreateLocal(
     const CompositorWidgetInitData& aInitData,
     const layers::CompositorOptions& aOptions, nsIWidget* aWidget) {
   MOZ_ASSERT(aWidget);
-#ifdef MOZ_WIDGET_ANDROID
+#  ifdef MOZ_WIDGET_ANDROID
   return new AndroidCompositorWidget(aOptions,
                                      static_cast<nsBaseWidget*>(aWidget));
-#else
+#  else
   return new InProcessCompositorWidget(aOptions,
                                        static_cast<nsBaseWidget*>(aWidget));
-#endif
+#  endif
 }
 #endif
 
@@ -43,14 +44,9 @@ void InProcessCompositorWidget::PostRender(WidgetRenderingContext* aContext) {
   mWidget->PostRender(aContext);
 }
 
-void InProcessCompositorWidget::DrawWindowUnderlay(
-    WidgetRenderingContext* aContext, LayoutDeviceIntRect aRect) {
-  mWidget->DrawWindowUnderlay(aContext, aRect);
-}
-
-void InProcessCompositorWidget::DrawWindowOverlay(
-    WidgetRenderingContext* aContext, LayoutDeviceIntRect aRect) {
-  mWidget->DrawWindowOverlay(aContext, aRect);
+RefPtr<layers::NativeLayerRoot>
+InProcessCompositorWidget::GetNativeLayerRoot() {
+  return mWidget->GetNativeLayerRoot();
 }
 
 already_AddRefed<gfx::DrawTarget>
@@ -69,7 +65,7 @@ void InProcessCompositorWidget::EndRemoteDrawing() {
 }
 
 void InProcessCompositorWidget::EndRemoteDrawingInRegion(
-    gfx::DrawTarget* aDrawTarget, LayoutDeviceIntRegion& aInvalidRegion) {
+    gfx::DrawTarget* aDrawTarget, const LayoutDeviceIntRegion& aInvalidRegion) {
   mWidget->EndRemoteDrawingInRegion(aDrawTarget, aInvalidRegion);
 }
 

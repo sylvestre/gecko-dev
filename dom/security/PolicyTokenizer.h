@@ -30,7 +30,7 @@
  *  ]
  */
 
-typedef nsTArray<nsTArray<nsString> > policyTokens;
+typedef nsTArray<CopyableTArray<nsString> > policyTokens;
 
 class PolicyTokenizer {
  public:
@@ -45,7 +45,7 @@ class PolicyTokenizer {
 
   inline void skipWhiteSpace() {
     while (mCurChar < mEndChar && nsContentUtils::IsHTMLWhitespace(*mCurChar)) {
-      mCurToken.Append(*mCurChar++);
+      mCurChar++;
     }
     mCurToken.Truncate();
   }
@@ -53,7 +53,7 @@ class PolicyTokenizer {
   inline void skipWhiteSpaceAndSemicolon() {
     while (mCurChar < mEndChar &&
            (*mCurChar == ';' || nsContentUtils::IsHTMLWhitespace(*mCurChar))) {
-      mCurToken.Append(*mCurChar++);
+      mCurChar++;
     }
     mCurToken.Truncate();
   }

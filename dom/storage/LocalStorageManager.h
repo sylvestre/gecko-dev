@@ -45,7 +45,7 @@ class LocalStorageManager final : public nsIDOMStorageManager,
 
   // Returns object keeping usage cache for the scope.
   already_AddRefed<StorageUsage> GetOriginUsage(
-      const nsACString& aOriginNoSuffix);
+      const nsACString& aOriginNoSuffix, uint32_t aPrivateBrowsingId);
 
   static nsAutoCString CreateOrigin(const nsACString& aOriginSuffix,
                                     const nsACString& aOriginNoSuffix);
@@ -101,6 +101,7 @@ class LocalStorageManager final : public nsIDOMStorageManager,
   // Helper for creation of DOM storage objects
   nsresult GetStorageInternal(CreateMode aCreate, mozIDOMWindow* aWindow,
                               nsIPrincipal* aPrincipal,
+                              nsIPrincipal* aStoragePrincipal,
                               const nsAString& aDocumentURI, bool aPrivate,
                               Storage** aRetval);
 

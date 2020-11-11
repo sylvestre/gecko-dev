@@ -13,13 +13,17 @@
 #include <memory>
 #include <string>
 
+#ifdef _WIN32
+#  include <windows.h>
+#endif
+
 using namespace mozilla;
 
 /* Generate a monotonically increasing sequence of numbers. */
 template <typename T>
 class SequenceGenerator {
  public:
-  SequenceGenerator() {}
+  SequenceGenerator() = default;
   void Get(T* aElements, size_t aCount) {
     for (size_t i = 0; i < aCount; i++) {
       aElements[i] = static_cast<T>(mIndex);
@@ -36,7 +40,7 @@ class SequenceGenerator {
 template <typename T>
 class SequenceVerifier {
  public:
-  SequenceVerifier() {}
+  SequenceVerifier() = default;
   void Check(T* aElements, size_t aCount) {
     for (size_t i = 0; i < aCount; i++) {
       if (aElements[i] != static_cast<T>(mIndex)) {
@@ -75,6 +79,19 @@ void TestRing(int capacity) {
   }
 }
 
+void Delay() {
+  // On Windows and x86 Android, the timer resolution is so bad that, even if
+  // we used `timeBeginPeriod(1)`, any nonzero sleep from the test's inner loops
+  // would make this program take far too long.
+#ifdef _WIN32
+  Sleep(0);
+#elif defined(ANDROID)
+  std::this_thread::sleep_for(std::chrono::microseconds(0));
+#else
+  std::this_thread::sleep_for(std::chrono::microseconds(10));
+#endif
+}
+
 template <typename T>
 void TestRingMultiThread(int capacity) {
   SPSCQueue<T> buf(capacity);
@@ -87,7 +104,7 @@ void TestRingMultiThread(int capacity) {
     SequenceGenerator<T> gen;
 
     while (iterations--) {
-      std::this_thread::sleep_for(std::chrono::microseconds(10));
+      Delay();
       gen.Get(inBuffer.get(), BLOCK_SIZE);
       int rv = buf.Enqueue(inBuffer.get(), BLOCK_SIZE);
       MOZ_RELEASE_ASSERT(rv <= BLOCK_SIZE);
@@ -100,7 +117,7 @@ void TestRingMultiThread(int capacity) {
   int remaining = 1002;
 
   while (remaining--) {
-    std::this_thread::sleep_for(std::chrono::microseconds(10));
+    Delay();
     int rv = buf.Dequeue(outBuffer.get(), BLOCK_SIZE);
     MOZ_RELEASE_ASSERT(rv <= BLOCK_SIZE);
     checker.Check(outBuffer.get(), rv);

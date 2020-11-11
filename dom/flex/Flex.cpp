@@ -7,11 +7,11 @@
 #include "Flex.h"
 
 #include "FlexLineValues.h"
+#include "mozilla/dom/Element.h"
 #include "mozilla/dom/FlexBinding.h"
 #include "nsFlexContainerFrame.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(Flex, mParent, mLines)
 NS_IMPL_CYCLE_COLLECTING_ADDREF(Flex)
@@ -29,8 +29,13 @@ Flex::Flex(Element* aParent, nsFlexContainerFrame* aFrame) : mParent(aParent) {
   // going to keep it around.
   const ComputedFlexContainerInfo* containerInfo =
       aFrame->GetFlexContainerInfo();
-  MOZ_ASSERT(containerInfo, "Should only be passed a frame with info.");
-
+  if (!containerInfo) {
+    // It's weird but possible to fail to get a ComputedFlexContainerInfo
+    // structure. Assign sensible default values.
+    mMainAxisDirection = FlexPhysicalDirection::Horizontal_lr;
+    mCrossAxisDirection = FlexPhysicalDirection::Vertical_tb;
+    return;
+  }
   mLines.SetLength(containerInfo->mLines.Length());
   uint32_t index = 0;
   for (auto&& l : containerInfo->mLines) {
@@ -59,5 +64,4 @@ FlexPhysicalDirection Flex::CrossAxisDirection() const {
   return mCrossAxisDirection;
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

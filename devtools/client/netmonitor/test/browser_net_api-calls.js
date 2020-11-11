@@ -9,15 +9,16 @@
  */
 
 add_task(async function() {
-  const { tab, monitor } = await initNetMonitor(API_CALLS_URL);
+  const { tab, monitor } = await initNetMonitor(API_CALLS_URL, {
+    requestCount: 1,
+  });
   info("Starting test... ");
 
   const { document, store, windowRequire } = monitor.panelWin;
   const Actions = windowRequire("devtools/client/netmonitor/src/actions/index");
-  const {
-    getDisplayedRequests,
-    getSortedRequests,
-  } = windowRequire("devtools/client/netmonitor/src/selectors/index");
+  const { getDisplayedRequests, getSortedRequests } = windowRequire(
+    "devtools/client/netmonitor/src/selectors/index"
+  );
 
   store.dispatch(Actions.batchEnable(false));
 
@@ -36,10 +37,10 @@ add_task(async function() {
     verifyRequestItemTarget(
       document,
       getDisplayedRequests(store.getState()),
-      getSortedRequests(store.getState()).get(index),
+      getSortedRequests(store.getState())[index],
       "GET",
       uri
-     );
+    );
   });
 
   await teardown(monitor);

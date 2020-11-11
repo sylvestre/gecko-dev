@@ -142,8 +142,11 @@ void HttpBackgroundChannelParent::OnChannelClosed() {
   Unused << NS_WARN_IF(NS_FAILED(rv));
 }
 
-bool HttpBackgroundChannelParent::OnStartRequestSent() {
-  LOG(("HttpBackgroundChannelParent::OnStartRequestSent [this=%p]\n", this));
+bool HttpBackgroundChannelParent::OnStartRequest(
+    const nsHttpResponseHead& aResponseHead, const bool& aUseResponseHead,
+    const nsHttpHeaderArray& aRequestHeaders,
+    const HttpChannelOnStartRequestArgs& aArgs) {
+  LOG(("HttpBackgroundChannelParent::OnStartRequest [this=%p]\n", this));
   AssertIsInMainProcess();
 
   if (NS_WARN_IF(!mIPCOpened)) {
@@ -153,9 +156,12 @@ bool HttpBackgroundChannelParent::OnStartRequestSent() {
   if (!IsOnBackgroundThread()) {
     MutexAutoLock lock(mBgThreadMutex);
     nsresult rv = mBackgroundThread->Dispatch(
-        NewRunnableMethod(
-            "net::HttpBackgroundChannelParent::OnStartRequestSent", this,
-            &HttpBackgroundChannelParent::OnStartRequestSent),
+        NewRunnableMethod<const nsHttpResponseHead, const bool,
+                          const nsHttpHeaderArray,
+                          const HttpChannelOnStartRequestArgs>(
+            "net::HttpBackgroundChannelParent::OnStartRequest", this,
+            &HttpBackgroundChannelParent::OnStartRequest, aResponseHead,
+            aUseResponseHead, aRequestHeaders, aArgs),
         NS_DISPATCH_NORMAL);
 
     MOZ_DIAGNOSTIC_ASSERT(NS_SUCCEEDED(rv));
@@ -163,7 +169,8 @@ bool HttpBackgroundChannelParent::OnStartRequestSent() {
     return NS_SUCCEEDED(rv);
   }
 
-  return SendOnStartRequestSent();
+  return SendOnStartRequest(aResponseHead, aUseResponseHead, aRequestHeaders,
+                            aArgs);
 }
 
 bool HttpBackgroundChannelParent::OnTransportAndData(
@@ -191,13 +198,21 @@ bool HttpBackgroundChannelParent::OnTransportAndData(
     return NS_SUCCEEDED(rv);
   }
 
-  return SendOnTransportAndData(aChannelStatus, aTransportStatus, aOffset,
-                                aCount, aData);
+  nsHttp::SendFunc<nsDependentCSubstring> sendFunc =
+      [self = UnsafePtr<HttpBackgroundChannelParent>(this), aChannelStatus,
+       aTransportStatus](const nsDependentCSubstring& aData, uint64_t aOffset,
+                         uint32_t aCount) {
+        return self->SendOnTransportAndData(aChannelStatus, aTransportStatus,
+                                            aOffset, aCount, aData, false);
+      };
+
+  return nsHttp::SendDataInChunks(aData, aOffset, aCount, sendFunc);
 }
 
 bool HttpBackgroundChannelParent::OnStopRequest(
-    const nsresult& aChannelStatus, const ResourceTimingStruct& aTiming,
-    const nsHttpHeaderArray& aResponseTrailers) {
+    const nsresult& aChannelStatus, const ResourceTimingStructArgs& aTiming,
+    const nsHttpHeaderArray& aResponseTrailers,
+    const nsTArray<ConsoleReportCollected>& aConsoleReports) {
   LOG(
       ("HttpBackgroundChannelParent::OnStopRequest [this=%p "
        "status=%" PRIx32 "]\n",
@@ -211,11 +226,12 @@ bool HttpBackgroundChannelParent::OnStopRequest(
   if (!IsOnBackgroundThread()) {
     MutexAutoLock lock(mBgThreadMutex);
     nsresult rv = mBackgroundThread->Dispatch(
-        NewRunnableMethod<const nsresult, const ResourceTimingStruct,
-                          const nsHttpHeaderArray>(
+        NewRunnableMethod<const nsresult, const ResourceTimingStructArgs,
+                          const nsHttpHeaderArray,
+                          const CopyableTArray<ConsoleReportCollected>>(
             "net::HttpBackgroundChannelParent::OnStopRequest", this,
             &HttpBackgroundChannelParent::OnStopRequest, aChannelStatus,
-            aTiming, aResponseTrailers),
+            aTiming, aResponseTrailers, aConsoleReports),
         NS_DISPATCH_NORMAL);
 
     MOZ_DIAGNOSTIC_ASSERT(NS_SUCCEEDED(rv));
@@ -227,14 +243,61 @@ bool HttpBackgroundChannelParent::OnStopRequest(
   TimeStamp lastActTabOpt = nsHttp::GetLastActiveTabLoadOptimizationHit();
 
   return SendOnStopRequest(aChannelStatus, aTiming, lastActTabOpt,
-                           aResponseTrailers);
+                           aResponseTrailers, aConsoleReports, false);
 }
 
-bool HttpBackgroundChannelParent::OnProgress(const int64_t& aProgress,
-                                             const int64_t& aProgressMax) {
-  LOG(("HttpBackgroundChannelParent::OnProgress [this=%p progress=%" PRId64
-       " max=%" PRId64 "]\n",
-       this, aProgress, aProgressMax));
+bool HttpBackgroundChannelParent::OnConsoleReport(
+    const nsTArray<ConsoleReportCollected>& aConsoleReports) {
+  LOG(("HttpBackgroundChannelParent::OnConsoleReport [this=%p]", this));
+  AssertIsInMainProcess();
+
+  if (NS_WARN_IF(!mIPCOpened)) {
+    return false;
+  }
+
+  if (!IsOnBackgroundThread()) {
+    MutexAutoLock lock(mBgThreadMutex);
+    nsresult rv = mBackgroundThread->Dispatch(
+        NewRunnableMethod<const CopyableTArray<ConsoleReportCollected>>(
+            "net::HttpBackgroundChannelParent::OnConsoleReport", this,
+            &HttpBackgroundChannelParent::OnConsoleReport, aConsoleReports),
+        NS_DISPATCH_NORMAL);
+
+    MOZ_DIAGNOSTIC_ASSERT(NS_SUCCEEDED(rv));
+
+    return NS_SUCCEEDED(rv);
+  }
+
+  return SendOnConsoleReport(aConsoleReports);
+}
+
+bool HttpBackgroundChannelParent::OnAfterLastPart(const nsresult aStatus) {
+  LOG(("HttpBackgroundChannelParent::OnAfterLastPart [this=%p]\n", this));
+  AssertIsInMainProcess();
+
+  if (NS_WARN_IF(!mIPCOpened)) {
+    return false;
+  }
+
+  if (!IsOnBackgroundThread()) {
+    MutexAutoLock lock(mBgThreadMutex);
+    nsresult rv = mBackgroundThread->Dispatch(
+        NewRunnableMethod<const nsresult>(
+            "net::HttpBackgroundChannelParent::OnAfterLastPart", this,
+            &HttpBackgroundChannelParent::OnAfterLastPart, aStatus),
+        NS_DISPATCH_NORMAL);
+
+    MOZ_DIAGNOSTIC_ASSERT(NS_SUCCEEDED(rv));
+
+    return NS_SUCCEEDED(rv);
+  }
+
+  return SendOnAfterLastPart(aStatus);
+}
+
+bool HttpBackgroundChannelParent::OnProgress(const int64_t aProgress,
+                                             const int64_t aProgressMax) {
+  LOG(("HttpBackgroundChannelParent::OnProgress [this=%p]\n", this));
   AssertIsInMainProcess();
 
   if (NS_WARN_IF(!mIPCOpened)) {
@@ -257,9 +320,8 @@ bool HttpBackgroundChannelParent::OnProgress(const int64_t& aProgress,
   return SendOnProgress(aProgress, aProgressMax);
 }
 
-bool HttpBackgroundChannelParent::OnStatus(const nsresult& aStatus) {
-  LOG(("HttpBackgroundChannelParent::OnStatus [this=%p stauts=%" PRIx32 "]\n",
-       this, static_cast<uint32_t>(aStatus)));
+bool HttpBackgroundChannelParent::OnStatus(const nsresult aStatus) {
+  LOG(("HttpBackgroundChannelParent::OnStatus [this=%p]\n", this));
   AssertIsInMainProcess();
 
   if (NS_WARN_IF(!mIPCOpened)) {
@@ -282,8 +344,12 @@ bool HttpBackgroundChannelParent::OnStatus(const nsresult& aStatus) {
   return SendOnStatus(aStatus);
 }
 
-bool HttpBackgroundChannelParent::OnDiversion() {
-  LOG(("HttpBackgroundChannelParent::OnDiversion [this=%p]\n", this));
+bool HttpBackgroundChannelParent::OnNotifyClassificationFlags(
+    uint32_t aClassificationFlags, bool aIsThirdParty) {
+  LOG(
+      ("HttpBackgroundChannelParent::OnNotifyClassificationFlags "
+       "classificationFlags=%" PRIu32 ", thirdparty=%d [this=%p]\n",
+       aClassificationFlags, static_cast<int>(aIsThirdParty), this));
   AssertIsInMainProcess();
 
   if (NS_WARN_IF(!mIPCOpened)) {
@@ -293,8 +359,10 @@ bool HttpBackgroundChannelParent::OnDiversion() {
   if (!IsOnBackgroundThread()) {
     MutexAutoLock lock(mBgThreadMutex);
     nsresult rv = mBackgroundThread->Dispatch(
-        NewRunnableMethod("net::HttpBackgroundChannelParent::OnDiversion", this,
-                          &HttpBackgroundChannelParent::OnDiversion),
+        NewRunnableMethod<uint32_t, bool>(
+            "net::HttpBackgroundChannelParent::OnNotifyClassificationFlags",
+            this, &HttpBackgroundChannelParent::OnNotifyClassificationFlags,
+            aClassificationFlags, aIsThirdParty),
         NS_DISPATCH_NORMAL);
 
     MOZ_DIAGNOSTIC_ASSERT(NS_SUCCEEDED(rv));
@@ -302,22 +370,13 @@ bool HttpBackgroundChannelParent::OnDiversion() {
     return NS_SUCCEEDED(rv);
   }
 
-  if (!SendFlushedForDiversion()) {
-    return false;
-  }
-
-  // The listener chain should now be setup; tell HttpChannelChild to divert
-  // the OnDataAvailables and OnStopRequest to associated HttpChannelParent.
-  if (!SendDivertMessages()) {
-    return false;
-  }
-
-  return true;
+  return SendNotifyClassificationFlags(aClassificationFlags, aIsThirdParty);
 }
 
-bool HttpBackgroundChannelParent::OnNotifyTrackingProtectionDisabled() {
+bool HttpBackgroundChannelParent::OnNotifyFlashPluginStateChanged(
+    nsIHttpChannel::FlashPluginState aState) {
   LOG(
-      ("HttpBackgroundChannelParent::OnNotifyTrackingProtectionDisabled "
+      ("HttpBackgroundChannelParent::OnNotifyFlashPluginStateChanged "
        "[this=%p]\n",
        this));
   AssertIsInMainProcess();
@@ -328,65 +387,12 @@ bool HttpBackgroundChannelParent::OnNotifyTrackingProtectionDisabled() {
 
   if (!IsOnBackgroundThread()) {
     MutexAutoLock lock(mBgThreadMutex);
-    nsresult rv = mBackgroundThread->Dispatch(
-        NewRunnableMethod(
-            "net::HttpBackgroundChannelParent::"
-            "OnNotifyTrackingProtectionDisabled",
-            this,
-            &HttpBackgroundChannelParent::OnNotifyTrackingProtectionDisabled),
-        NS_DISPATCH_NORMAL);
-
-    MOZ_DIAGNOSTIC_ASSERT(NS_SUCCEEDED(rv));
-
-    return NS_SUCCEEDED(rv);
-  }
-
-  return SendNotifyTrackingProtectionDisabled();
-}
-
-bool HttpBackgroundChannelParent::OnNotifyCookieAllowed() {
-  LOG(("HttpBackgroundChannelParent::OnNotifyCookieAllowed [this=%p]\n", this));
-  AssertIsInMainProcess();
-
-  if (NS_WARN_IF(!mIPCOpened)) {
-    return false;
-  }
-
-  if (!IsOnBackgroundThread()) {
-    MutexAutoLock lock(mBgThreadMutex);
     RefPtr<HttpBackgroundChannelParent> self = this;
     nsresult rv = mBackgroundThread->Dispatch(
         NS_NewRunnableFunction(
-            "net::HttpBackgroundChannelParent::OnNotifyCookieAllowed",
-            [self]() { self->OnNotifyCookieAllowed(); }),
-        NS_DISPATCH_NORMAL);
-
-    MOZ_DIAGNOSTIC_ASSERT(NS_SUCCEEDED(rv));
-
-    return NS_SUCCEEDED(rv);
-  }
-
-  return SendNotifyCookieAllowed();
-}
-
-bool HttpBackgroundChannelParent::OnNotifyTrackingCookieBlocked(
-    uint32_t aRejectedReason) {
-  LOG(("HttpBackgroundChannelParent::OnNotifyTrackingCookieBlocked [this=%p]\n",
-       this));
-  AssertIsInMainProcess();
-
-  if (NS_WARN_IF(!mIPCOpened)) {
-    return false;
-  }
-
-  if (!IsOnBackgroundThread()) {
-    MutexAutoLock lock(mBgThreadMutex);
-    RefPtr<HttpBackgroundChannelParent> self = this;
-    nsresult rv = mBackgroundThread->Dispatch(
-        NS_NewRunnableFunction(
-            "net::HttpBackgroundChannelParent::OnNotifyTrackingCookieBlocked",
-            [self, aRejectedReason]() {
-              self->OnNotifyTrackingCookieBlocked(aRejectedReason);
+            "net::HttpBackgroundChannelParent::OnNotifyFlashPluginStateChanged",
+            [self, aState]() {
+              self->OnNotifyFlashPluginStateChanged(aState);
             }),
         NS_DISPATCH_NORMAL);
 
@@ -395,35 +401,7 @@ bool HttpBackgroundChannelParent::OnNotifyTrackingCookieBlocked(
     return NS_SUCCEEDED(rv);
   }
 
-  return SendNotifyTrackingCookieBlocked(aRejectedReason);
-}
-
-bool HttpBackgroundChannelParent::OnNotifyTrackingResource(bool aIsThirdParty) {
-  LOG(
-      ("HttpBackgroundChannelParent::OnNotifyTrackingResource thirdparty=%d "
-       "[this=%p]\n",
-       static_cast<int>(aIsThirdParty), this));
-  AssertIsInMainProcess();
-
-  if (NS_WARN_IF(!mIPCOpened)) {
-    return false;
-  }
-
-  if (!IsOnBackgroundThread()) {
-    MutexAutoLock lock(mBgThreadMutex);
-    nsresult rv = mBackgroundThread->Dispatch(
-        NewRunnableMethod<bool>(
-            "net::HttpBackgroundChannelParent::OnNotifyTrackingResource", this,
-            &HttpBackgroundChannelParent::OnNotifyTrackingResource,
-            aIsThirdParty),
-        NS_DISPATCH_NORMAL);
-
-    MOZ_DIAGNOSTIC_ASSERT(NS_SUCCEEDED(rv));
-
-    return NS_SUCCEEDED(rv);
-  }
-
-  return SendNotifyTrackingResource(aIsThirdParty);
+  return SendNotifyFlashPluginStateChanged(aState);
 }
 
 bool HttpBackgroundChannelParent::OnSetClassifierMatchedInfo(
@@ -459,6 +437,62 @@ bool HttpBackgroundChannelParent::OnSetClassifierMatchedInfo(
   return SendSetClassifierMatchedInfo(info);
 }
 
+bool HttpBackgroundChannelParent::OnSetClassifierMatchedTrackingInfo(
+    const nsACString& aLists, const nsACString& aFullHashes) {
+  LOG(
+      ("HttpBackgroundChannelParent::OnSetClassifierMatchedTrackingInfo "
+       "[this=%p]\n",
+       this));
+  AssertIsInMainProcess();
+
+  if (NS_WARN_IF(!mIPCOpened)) {
+    return false;
+  }
+
+  if (!IsOnBackgroundThread()) {
+    MutexAutoLock lock(mBgThreadMutex);
+    nsresult rv = mBackgroundThread->Dispatch(
+        NewRunnableMethod<const nsCString, const nsCString>(
+            "net::HttpBackgroundChannelParent::"
+            "OnSetClassifierMatchedTrackingInfo",
+            this,
+            &HttpBackgroundChannelParent::OnSetClassifierMatchedTrackingInfo,
+            aLists, aFullHashes),
+        NS_DISPATCH_NORMAL);
+
+    MOZ_DIAGNOSTIC_ASSERT(NS_SUCCEEDED(rv));
+
+    return NS_SUCCEEDED(rv);
+  }
+
+  ClassifierInfo info;
+  info.list() = aLists;
+  info.fullhash() = aFullHashes;
+
+  return SendSetClassifierMatchedTrackingInfo(info);
+}
+
+nsISerialEventTarget* HttpBackgroundChannelParent::GetBackgroundTarget() {
+  MOZ_ASSERT(mBackgroundThread);
+  return mBackgroundThread.get();
+}
+
+auto HttpBackgroundChannelParent::AttachStreamFilter(
+    Endpoint<extensions::PStreamFilterParent>&& aParentEndpoint,
+    Endpoint<extensions::PStreamFilterChild>&& aChildEndpoint)
+    -> RefPtr<ChildEndpointPromise> {
+  LOG(("HttpBackgroundChannelParent::AttachStreamFilter [this=%p]\n", this));
+  MOZ_ASSERT(IsOnBackgroundThread());
+
+  if (NS_WARN_IF(!mIPCOpened) ||
+      !SendAttachStreamFilter(std::move(aParentEndpoint))) {
+    return ChildEndpointPromise::CreateAndReject(false, __func__);
+  }
+
+  return ChildEndpointPromise::CreateAndResolve(std::move(aChildEndpoint),
+                                                __func__);
+}
+
 void HttpBackgroundChannelParent::ActorDestroy(ActorDestroyReason aWhy) {
   LOG(("HttpBackgroundChannelParent::ActorDestroy [this=%p]\n", this));
   AssertIsInMainProcess();
@@ -471,7 +505,8 @@ void HttpBackgroundChannelParent::ActorDestroy(ActorDestroyReason aWhy) {
       "net::HttpBackgroundChannelParent::ActorDestroy", [self]() {
         MOZ_ASSERT(NS_IsMainThread());
 
-        RefPtr<HttpChannelParent> channelParent = self->mChannelParent.forget();
+        RefPtr<HttpChannelParent> channelParent =
+            std::move(self->mChannelParent);
 
         if (channelParent) {
           channelParent->OnBackgroundParentDestroyed();

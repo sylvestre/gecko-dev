@@ -10,7 +10,10 @@
 add_task(async function() {
   requestLongerTimeout(4);
 
-  const { tab, monitor } = await initNetMonitor(INFINITE_GET_URL, true);
+  const { tab, monitor } = await initNetMonitor(INFINITE_GET_URL, {
+    enableCache: true,
+    requestCount: 1,
+  });
   const { document, windowRequire, store } = monitor.panelWin;
   const Actions = windowRequire("devtools/client/netmonitor/src/actions/index");
 
@@ -19,17 +22,20 @@ add_task(async function() {
   // Wait until the first request makes the empty notice disappear
   await waitForRequestListToAppear();
 
-  const requestsContainer = document.querySelector(".requests-list-contents");
-  ok(requestsContainer, "Container element exists as expected.");
+  const requestsContainerScroll = document.querySelector(
+    ".requests-list-scroll"
+  );
+  ok(requestsContainerScroll, "Container element exists as expected.");
+  const requestsContainer = document.querySelector(".requests-list-row-group");
   const headers = document.querySelector(".requests-list-headers");
   ok(headers, "Headers element exists as expected.");
 
-  await waitForRequestsToOverflowContainer(monitor, requestsContainer);
+  await waitForRequestsToOverflowContainer(monitor, requestsContainerScroll);
 
   testColumnsAlignment(headers, requestsContainer);
 
   // Stop doing requests.
-  await ContentTask.spawn(tab.linkedBrowser, {}, async function() {
+  await SpecialPowers.spawn(tab.linkedBrowser, [], async function() {
     content.wrappedJSObject.stopRequests();
   });
 
@@ -37,8 +43,12 @@ add_task(async function() {
   return teardown(monitor);
 
   function waitForRequestListToAppear() {
-    info("Waiting until the empty notice disappears and is replaced with the list");
-    return waitUntil(() => !!document.querySelector(".requests-list-contents"));
+    info(
+      "Waiting until the empty notice disappears and is replaced with the list"
+    );
+    return waitUntil(
+      () => !!document.querySelector(".requests-list-row-group")
+    );
   }
 });
 
@@ -47,7 +57,7 @@ async function waitForRequestsToOverflowContainer(monitor, requestList) {
   while (true) {
     info("Waiting for one network request");
     await waitForNetworkEvents(monitor, 1);
-    if (requestList.scrollHeight > requestList.clientHeight) {
+    if (requestList.scrollHeight > requestList.clientHeight + 50) {
       info("The list is long enough, returning");
       return;
     }

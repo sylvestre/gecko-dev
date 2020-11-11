@@ -12,8 +12,7 @@ div {
 }
 
 button {
-  padding-right: 10px;
-  padding-left: 10px;
+  padding-inline: 10px;
 }
 
 fieldset {
@@ -30,11 +29,11 @@ fieldset > legend {
   background-color: var(--in-content-box-background-hover);
   border: 1px solid var(--in-content-box-border-color);
   border-radius: 2px 2px 0 0;
-  -moz-user-select: none;
+  user-select: none;
 }
 
 option:nth-child(even) {
-  background-color: -moz-oddtreerow;
+  background-color: var(--in-content-box-background-odd);
 }
 
 #addresses,
@@ -61,8 +60,7 @@ option:nth-child(even) {
 }
 
 #remove {
-  margin-inline-start: 0;
-  margin-inline-end: auto;
+  margin-inline: 0 auto;
 }
 
 #edit {
@@ -73,7 +71,7 @@ option:nth-child(even) {
   content: "";
   background: url("icon-credit-card-generic.svg") no-repeat;
   background-size: contain;
-  float: left;
+  float: inline-start;
   width: 16px;
   height: 16px;
   padding-inline-end: 10px;

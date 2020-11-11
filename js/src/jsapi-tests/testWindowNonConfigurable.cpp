@@ -19,14 +19,23 @@ static bool windowProxy_defineProperty(JSContext* cx, JS::HandleObject obj,
   return NativeDefineProperty(cx, obj.as<js::NativeObject>(), id, desc, result);
 }
 
-static const js::ObjectOps windowProxy_objectOps = {nullptr,
-                                                    windowProxy_defineProperty};
+static const js::ObjectOps windowProxy_objectOps = {
+    nullptr,                     // lookupProperty
+    windowProxy_defineProperty,  // defineProperty
+    nullptr,                     // hasProperty
+    nullptr,                     // getProperty
+    nullptr,                     // setProperty
+    nullptr,                     // getOwnPropertyDescriptor
+    nullptr,                     // deleteProperty
+    nullptr,                     // getElements
+    nullptr,                     // funToString
+};
 
-static const js::Class windowProxy_class = {
+static const JSClass windowProxy_class = {
     "WindowProxy", 0, nullptr, nullptr, nullptr, &windowProxy_objectOps};
 
 BEGIN_TEST(testWindowNonConfigurable) {
-  JS::RootedObject obj(cx, JS_NewObject(cx, Jsvalify(&windowProxy_class)));
+  JS::RootedObject obj(cx, JS_NewObject(cx, &windowProxy_class));
   CHECK(obj);
   CHECK(JS_DefineProperty(cx, global, "windowProxy", obj, 0));
   JS::RootedValue v(cx);
@@ -34,7 +43,7 @@ BEGIN_TEST(testWindowNonConfigurable) {
       "Object.defineProperty(windowProxy, 'bar', {value: 1, configurable: "
       "false})",
       &v);
-  CHECK(v.isFalse());  // This is the important bit!
+  CHECK(v.isNull());  // This is the important bit!
   EVAL(
       "Object.defineProperty(windowProxy, 'bar', {value: 1, configurable: "
       "true})",

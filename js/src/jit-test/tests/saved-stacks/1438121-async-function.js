@@ -1,5 +1,5 @@
 const mainGlobal = this;
-const debuggerGlobal = newGlobal();
+const debuggerGlobal = newGlobal({newCompartment: true});
 
 function Memory({global}) {
   this.dbg = new (debuggerGlobal.Debugger);
@@ -24,7 +24,7 @@ Memory.prototype = {
 };
 
 function ok(cond, msg) {
-  assertEq(!!cond, true, `ok(${uneval(cond)}, ${uneval(msg)})`);
+  assertEq(!!cond, true, `ok(${JSON.stringify(cond)}, ${JSON.stringify(msg)})`);
 }
 
 const is = assertEq;

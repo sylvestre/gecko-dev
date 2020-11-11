@@ -6,7 +6,9 @@
 
 const { CC } = require("chrome");
 const DevToolsUtils = require("devtools/shared/DevToolsUtils");
-const { once, observeOnce } = require("devtools/client/performance/test/helpers/event-utils");
+const {
+  once,
+} = require("devtools/client/performance/test/helpers/event-utils");
 
 /**
  * Blocks the main thread for the specified amount of time.
@@ -49,12 +51,4 @@ exports.waitUntil = async function(predicate, interval = 100, tries = 100) {
  */
 exports.waitForMozAfterPaint = function(window) {
   return once(window, "MozAfterPaint");
-};
-
-/**
- * Waits for the `browser-delayed-startup-finished` observer notification
- * to be fired on the specified window.
- */
-exports.waitForDelayedStartupFinished = function(window) {
-  return observeOnce("browser-delayed-startup-finished", { expectedSubject: window });
 };

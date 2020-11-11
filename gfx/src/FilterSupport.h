@@ -7,17 +7,27 @@
 #ifndef __FilterSupport_h
 #define __FilterSupport_h
 
-#include "mozilla/Attributes.h"
-#include "mozilla/RefPtr.h"
-#include "mozilla/gfx/Rect.h"
 #include "mozilla/gfx/Matrix.h"
-#include "mozilla/gfx/2D.h"
-#include "nsClassHashtable.h"
-#include "nsTArray.h"
+#include "mozilla/gfx/Rect.h"
 #include "nsRegion.h"
+#include "nsTArray.h"
 
 namespace mozilla {
 namespace gfx {
+class FilterPrimitiveDescription;
+struct FilterDescription;
+}  // namespace gfx
+}  // namespace mozilla
+
+extern const float gsRGBToLinearRGBMap[256];
+
+namespace mozilla {
+namespace gfx {
+namespace FilterWrappers {
+extern already_AddRefed<FilterNode> Clear(DrawTarget* aDT);
+extern already_AddRefed<FilterNode> ForSurface(
+    DrawTarget* aDT, SourceSurface* aSurface, const IntPoint& aSurfacePosition);
+}  // namespace FilterWrappers
 
 // Morphology Operators
 const unsigned short SVG_OPERATOR_UNKNOWN = 0;
@@ -40,6 +50,7 @@ const unsigned short SVG_FECOMPONENTTRANSFER_TYPE_TABLE = 2;
 const unsigned short SVG_FECOMPONENTTRANSFER_TYPE_DISCRETE = 3;
 const unsigned short SVG_FECOMPONENTTRANSFER_TYPE_LINEAR = 4;
 const unsigned short SVG_FECOMPONENTTRANSFER_TYPE_GAMMA = 5;
+const unsigned short SVG_FECOMPONENTTRANSFER_SAME_AS_R = 6;
 
 // Blend Mode Values
 const unsigned short SVG_FEBLEND_MODE_UNKNOWN = 0;
@@ -118,7 +129,7 @@ struct MorphologyAttributes {
 };
 
 struct FloodAttributes {
-  Color mColor;
+  sRGBColor mColor;
 
   bool operator==(const FloodAttributes& aOther) const {
     return mColor == aOther.mColor;
@@ -197,8 +208,8 @@ struct GaussianBlurAttributes {
 
 struct DropShadowAttributes {
   Size mStdDeviation;
-  IntPoint mOffset;
-  Color mColor;
+  Point mOffset;
+  sRGBColor mColor;
 
   bool operator==(const DropShadowAttributes& aOther) const {
     return mStdDeviation == aOther.mStdDeviation && mOffset == aOther.mOffset &&
@@ -212,27 +223,20 @@ struct ToAlphaAttributes {
 
 // Complex PrimitiveAttributes:
 
-class ImplicitlyCopyableFloatArray : public nsTArray<float> {
+class ImplicitlyCopyableFloatArray : public CopyableTArray<float> {
  public:
-  ImplicitlyCopyableFloatArray() : nsTArray<float>() {}
+  ImplicitlyCopyableFloatArray() = default;
 
-  ImplicitlyCopyableFloatArray(ImplicitlyCopyableFloatArray&& aOther)
-      : nsTArray<float>(std::move(aOther)) {}
+  ImplicitlyCopyableFloatArray(ImplicitlyCopyableFloatArray&& aOther) = default;
 
   ImplicitlyCopyableFloatArray& operator=(
-      ImplicitlyCopyableFloatArray&& aOther) {
-    nsTArray<float>::operator=(std::move(aOther));
-    return *this;
-  }
+      ImplicitlyCopyableFloatArray&& aOther) = default;
 
   ImplicitlyCopyableFloatArray(const ImplicitlyCopyableFloatArray& aOther) =
       default;
 
   ImplicitlyCopyableFloatArray& operator=(
-      const ImplicitlyCopyableFloatArray& aOther) {
-    nsTArray<float>::operator=(aOther);
-    return *this;
-  }
+      const ImplicitlyCopyableFloatArray& aOther) = default;
 };
 
 struct ColorMatrixAttributes {
@@ -244,8 +248,8 @@ struct ColorMatrixAttributes {
   }
 };
 
-// If the types for G and B are SVG_FECOMPONENTTRANSFER_TYPE_UNKNOWN,
-// assume the R values are RGB - this lets us avoid copies.
+// If the types for G and B are SVG_FECOMPONENTTRANSFER_SAME_AS_R,
+// use the R channel values - this lets us avoid copies.
 const uint32_t kChannelROrRGB = 0;
 const uint32_t kChannelG = 1;
 const uint32_t kChannelB = 2;
@@ -332,7 +336,7 @@ struct DiffuseLightingAttributes {
   ImplicitlyCopyableFloatArray mLightValues;
   float mSurfaceScale;
   Size mKernelUnitLength;
-  Color mColor;
+  sRGBColor mColor;
   float mLightingConstant;
   float mSpecularExponent;
 
@@ -346,16 +350,6 @@ struct DiffuseLightingAttributes {
 };
 
 struct SpecularLightingAttributes : public DiffuseLightingAttributes {};
-
-typedef Variant<
-    EmptyAttributes, BlendAttributes, MorphologyAttributes,
-    ColorMatrixAttributes, FloodAttributes, TileAttributes,
-    ComponentTransferAttributes, OpacityAttributes, ConvolveMatrixAttributes,
-    OffsetAttributes, DisplacementMapAttributes, TurbulenceAttributes,
-    CompositeAttributes, MergeAttributes, ImageAttributes,
-    GaussianBlurAttributes, DropShadowAttributes, DiffuseLightingAttributes,
-    SpecularLightingAttributes, ToAlphaAttributes>
-    PrimitiveAttributes;
 
 enum class ColorSpace { SRGB, LinearRGB, Max };
 
@@ -378,116 +372,20 @@ class ColorModel {
 
   // Used to index FilterCachedColorModels::mFilterForColorModel.
   uint8_t ToIndex() const {
-    return (uint8_t(mColorSpace) << 1) + uint8_t(mAlphaModel);
+    return static_cast<uint8_t>(static_cast<uint8_t>(mColorSpace) << 1) |
+           static_cast<uint8_t>(mAlphaModel);
   }
 
   ColorSpace mColorSpace;
   AlphaModel mAlphaModel;
 };
 
-/**
- * A data structure to carry attributes for a given primitive that's part of a
- * filter. Will be serializable via IPDL, so it must not contain complex
- * functionality.
- * Used as part of a FilterDescription.
- */
-class FilterPrimitiveDescription final {
- public:
-  enum {
-    kPrimitiveIndexSourceGraphic = -1,
-    kPrimitiveIndexSourceAlpha = -2,
-    kPrimitiveIndexFillPaint = -3,
-    kPrimitiveIndexStrokePaint = -4
-  };
-
-  FilterPrimitiveDescription();
-  explicit FilterPrimitiveDescription(PrimitiveAttributes&& aAttributes);
-  FilterPrimitiveDescription(FilterPrimitiveDescription&& aOther);
-  FilterPrimitiveDescription& operator=(FilterPrimitiveDescription&& aOther);
-  FilterPrimitiveDescription(const FilterPrimitiveDescription& aOther);
-  FilterPrimitiveDescription& operator=(
-      const FilterPrimitiveDescription& aOther);
-
-  const PrimitiveAttributes& Attributes() const { return mAttributes; }
-  PrimitiveAttributes& Attributes() { return mAttributes; }
-
-  IntRect PrimitiveSubregion() const { return mFilterPrimitiveSubregion; }
-  IntRect FilterSpaceBounds() const { return mFilterSpaceBounds; }
-  bool IsTainted() const { return mIsTainted; }
-
-  size_t NumberOfInputs() const { return mInputPrimitives.Length(); }
-  int32_t InputPrimitiveIndex(size_t aInputIndex) const {
-    return aInputIndex < mInputPrimitives.Length()
-               ? mInputPrimitives[aInputIndex]
-               : 0;
-  }
-
-  ColorSpace InputColorSpace(size_t aInputIndex) const {
-    return aInputIndex < mInputColorSpaces.Length()
-               ? mInputColorSpaces[aInputIndex]
-               : ColorSpace();
-  }
-
-  ColorSpace OutputColorSpace() const { return mOutputColorSpace; }
-
-  void SetPrimitiveSubregion(const IntRect& aRect) {
-    mFilterPrimitiveSubregion = aRect;
-  }
-
-  void SetFilterSpaceBounds(const IntRect& aRect) {
-    mFilterSpaceBounds = aRect;
-  }
-
-  void SetIsTainted(bool aIsTainted) { mIsTainted = aIsTainted; }
-
-  void SetInputPrimitive(size_t aInputIndex, int32_t aInputPrimitiveIndex) {
-    mInputPrimitives.EnsureLengthAtLeast(aInputIndex + 1);
-    mInputPrimitives[aInputIndex] = aInputPrimitiveIndex;
-  }
-
-  void SetInputColorSpace(size_t aInputIndex, ColorSpace aColorSpace) {
-    mInputColorSpaces.EnsureLengthAtLeast(aInputIndex + 1);
-    mInputColorSpaces[aInputIndex] = aColorSpace;
-  }
-
-  void SetOutputColorSpace(const ColorSpace& aColorSpace) {
-    mOutputColorSpace = aColorSpace;
-  }
-
-  bool operator==(const FilterPrimitiveDescription& aOther) const;
-  bool operator!=(const FilterPrimitiveDescription& aOther) const {
-    return !(*this == aOther);
-  }
-
- private:
-  PrimitiveAttributes mAttributes;
-  nsTArray<int32_t> mInputPrimitives;
-  IntRect mFilterPrimitiveSubregion;
-  IntRect mFilterSpaceBounds;
-  nsTArray<ColorSpace> mInputColorSpaces;
-  ColorSpace mOutputColorSpace;
-  bool mIsTainted;
-};
-
-/**
- * A data structure that contains one or more FilterPrimitiveDescriptions.
- * Designed to be serializable via IPDL, so it must not contain complex
- * functionality.
- */
-struct FilterDescription final {
-  FilterDescription() {}
-  explicit FilterDescription(
-      nsTArray<FilterPrimitiveDescription>&& aPrimitives) {
-    mPrimitives.SwapElements(aPrimitives);
-  }
-
-  bool operator==(const FilterDescription& aOther) const;
-  bool operator!=(const FilterDescription& aOther) const {
-    return !(*this == aOther);
-  }
-
-  nsTArray<FilterPrimitiveDescription> mPrimitives;
-};
+already_AddRefed<FilterNode> FilterNodeGraphFromDescription(
+    DrawTarget* aDT, const FilterDescription& aFilter,
+    const Rect& aResultNeededRect, FilterNode* aSourceGraphic,
+    const IntRect& aSourceGraphicRect, FilterNode* aFillPaint,
+    FilterNode* aStrokePaint,
+    nsTArray<RefPtr<SourceSurface>>& aAdditionalImages);
 
 /**
  * The methods of this class are not on FilterDescription because

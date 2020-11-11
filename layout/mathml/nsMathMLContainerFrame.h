@@ -15,6 +15,10 @@
 #include "nsMathMLFrame.h"
 #include "mozilla/Likely.h"
 
+namespace mozilla {
+class PresShell;
+}  // namespace mozilla
+
 /*
  * Base class for MathML container frames. It acts like an inferred
  * mrow. By default, this frame uses its Reflow() method to lay its
@@ -30,12 +34,11 @@
   0x00000002  // size calculations include embellishments
 
 class nsMathMLContainerFrame : public nsContainerFrame, public nsMathMLFrame {
-  friend class nsMathMLmfencedFrame;
-
  public:
-  nsMathMLContainerFrame(ComputedStyle* aStyle, ClassID aID)
-      : nsContainerFrame(aStyle, aID),
-        mIntrinsicWidth(NS_INTRINSIC_WIDTH_UNKNOWN),
+  nsMathMLContainerFrame(ComputedStyle* aStyle, nsPresContext* aPresContext,
+                         ClassID aID)
+      : nsContainerFrame(aStyle, aPresContext, aID),
+        mIntrinsicWidth(NS_INTRINSIC_ISIZE_UNKNOWN),
         mBlockStartAscent(0) {}
 
   NS_DECL_QUERYFRAME_TARGET(nsMathMLContainerFrame)
@@ -66,14 +69,14 @@ class nsMathMLContainerFrame : public nsContainerFrame, public nsMathMLFrame {
     if (aFlags & (eLineParticipant | eSupportsContainLayoutAndPaint)) {
       return false;
     }
-    return nsContainerFrame::IsFrameOfType(
-        aFlags & ~(eMathML | eExcludesIgnorableWhitespace));
+    return nsContainerFrame::IsFrameOfType(aFlags & ~eMathML);
   }
 
   virtual void AppendFrames(ChildListID aListID,
                             nsFrameList& aFrameList) override;
 
   virtual void InsertFrames(ChildListID aListID, nsIFrame* aPrevFrame,
+                            const nsLineList::iterator* aPrevFrameLine,
                             nsFrameList& aFrameList) override;
 
   virtual void RemoveFrame(ChildListID aListID, nsIFrame* aOldFrame) override;
@@ -134,9 +137,9 @@ class nsMathMLContainerFrame : public nsContainerFrame, public nsMathMLFrame {
   // helper function to apply mirroring to a horizontal coordinate, if needed.
   nscoord MirrorIfRTL(nscoord aParentWidth, nscoord aChildWidth,
                       nscoord aChildLeading) {
-    return (StyleVisibility()->mDirection
-                ? aParentWidth - aChildWidth - aChildLeading
-                : aChildLeading);
+    return StyleVisibility()->mDirection == mozilla::StyleDirection::Rtl
+               ? aParentWidth - aChildWidth - aChildLeading
+               : aChildLeading;
   }
 
   // --------------------------------------------------------------------------
@@ -230,9 +233,9 @@ class nsMathMLContainerFrame : public nsContainerFrame, public nsMathMLFrame {
    * Helper to call ReportToConsole when an error occurs.
    * @param aParams see nsContentUtils::ReportToConsole
    */
-  nsresult ReportErrorToConsole(const char* aErrorMsgId,
-                                const char16_t** aParams = nullptr,
-                                uint32_t aParamCount = 0);
+  nsresult ReportErrorToConsole(
+      const char* aErrorMsgId,
+      const nsTArray<nsString>& aParams = nsTArray<nsString>());
 
   // helper method to reflow a child frame. We are inline frames, and we don't
   // know our positions until reflow is finished. That's why we ask the
@@ -360,15 +363,16 @@ class nsMathMLContainerFrame : public nsContainerFrame, public nsMathMLFrame {
 // 1) line-breaking
 // 2) proper inter-frame spacing
 // 3) firing of Stretch() (in which case FinalizeReflow() would have to be
-// cleaned) Issues: If/when mathml becomes a pluggable component, the separation
-// will be needed.
+//    cleaned)
+// Issues: If/when mathml becomes a pluggable component, the separation will be
+// needed.
 class nsMathMLmathBlockFrame final : public nsBlockFrame {
  public:
   NS_DECL_QUERYFRAME
   NS_DECL_FRAMEARENA_HELPERS(nsMathMLmathBlockFrame)
 
-  friend nsContainerFrame* NS_NewMathMLmathBlockFrame(nsIPresShell* aPresShell,
-                                                      ComputedStyle* aStyle);
+  friend nsContainerFrame* NS_NewMathMLmathBlockFrame(
+      mozilla::PresShell* aPresShell, ComputedStyle* aStyle);
 
   // beware, mFrames is not set by nsBlockFrame
   // cannot use mFrames{.FirstChild()|.etc} since the block code doesn't set
@@ -394,10 +398,11 @@ class nsMathMLmathBlockFrame final : public nsBlockFrame {
   }
 
   virtual void InsertFrames(ChildListID aListID, nsIFrame* aPrevFrame,
+                            const nsLineList::iterator* aPrevFrameLine,
                             nsFrameList& aFrameList) override {
     NS_ASSERTION(aListID == kPrincipalList || aListID == kNoReflowPrincipalList,
                  "unexpected frame list");
-    nsBlockFrame::InsertFrames(aListID, aPrevFrame, aFrameList);
+    nsBlockFrame::InsertFrames(aListID, aPrevFrame, aPrevFrameLine, aFrameList);
     if (MOZ_LIKELY(aListID == kPrincipalList))
       nsMathMLContainerFrame::ReLayoutChildren(this);
   }
@@ -411,8 +416,7 @@ class nsMathMLmathBlockFrame final : public nsBlockFrame {
   }
 
   virtual bool IsFrameOfType(uint32_t aFlags) const override {
-    return nsBlockFrame::IsFrameOfType(
-        aFlags & ~(nsIFrame::eMathML | nsIFrame::eExcludesIgnorableWhitespace));
+    return nsBlockFrame::IsFrameOfType(aFlags & ~nsIFrame::eMathML);
   }
 
   // See nsIMathMLFrame.h
@@ -421,14 +425,15 @@ class nsMathMLmathBlockFrame final : public nsBlockFrame {
   }
 
  protected:
-  explicit nsMathMLmathBlockFrame(ComputedStyle* aStyle)
-      : nsBlockFrame(aStyle, kClassID) {
+  explicit nsMathMLmathBlockFrame(ComputedStyle* aStyle,
+                                  nsPresContext* aPresContext)
+      : nsBlockFrame(aStyle, aPresContext, kClassID) {
     // We should always have a float manager.  Not that things can really try
     // to float out of us anyway, but we need one for line layout.
     // Bug 1301881: Do we still need to set NS_BLOCK_FLOAT_MGR?
     // AddStateBits(NS_BLOCK_FLOAT_MGR);
   }
-  virtual ~nsMathMLmathBlockFrame() {}
+  virtual ~nsMathMLmathBlockFrame() = default;
 };
 
 // --------------
@@ -439,8 +444,8 @@ class nsMathMLmathInlineFrame final : public nsInlineFrame,
   NS_DECL_QUERYFRAME
   NS_DECL_FRAMEARENA_HELPERS(nsMathMLmathInlineFrame)
 
-  friend nsContainerFrame* NS_NewMathMLmathInlineFrame(nsIPresShell* aPresShell,
-                                                       ComputedStyle* aStyle);
+  friend nsContainerFrame* NS_NewMathMLmathInlineFrame(
+      mozilla::PresShell* aPresShell, ComputedStyle* aStyle);
 
   virtual void SetInitialChildList(ChildListID aListID,
                                    nsFrameList& aChildList) override {
@@ -460,10 +465,12 @@ class nsMathMLmathInlineFrame final : public nsInlineFrame,
   }
 
   virtual void InsertFrames(ChildListID aListID, nsIFrame* aPrevFrame,
+                            const nsLineList::iterator* aPrevFrameLine,
                             nsFrameList& aFrameList) override {
     NS_ASSERTION(aListID == kPrincipalList || aListID == kNoReflowPrincipalList,
                  "unexpected frame list");
-    nsInlineFrame::InsertFrames(aListID, aPrevFrame, aFrameList);
+    nsInlineFrame::InsertFrames(aListID, aPrevFrame, aPrevFrameLine,
+                                aFrameList);
     if (MOZ_LIKELY(aListID == kPrincipalList))
       nsMathMLContainerFrame::ReLayoutChildren(this);
   }
@@ -477,8 +484,7 @@ class nsMathMLmathInlineFrame final : public nsInlineFrame,
   }
 
   virtual bool IsFrameOfType(uint32_t aFlags) const override {
-    return nsInlineFrame::IsFrameOfType(
-        aFlags & ~(nsIFrame::eMathML | nsIFrame::eExcludesIgnorableWhitespace));
+    return nsInlineFrame::IsFrameOfType(aFlags & ~nsIFrame::eMathML);
   }
 
   bool IsMrowLike() override {
@@ -486,10 +492,11 @@ class nsMathMLmathInlineFrame final : public nsInlineFrame,
   }
 
  protected:
-  explicit nsMathMLmathInlineFrame(ComputedStyle* aStyle)
-      : nsInlineFrame(aStyle, kClassID) {}
+  explicit nsMathMLmathInlineFrame(ComputedStyle* aStyle,
+                                   nsPresContext* aPresContext)
+      : nsInlineFrame(aStyle, aPresContext, kClassID) {}
 
-  virtual ~nsMathMLmathInlineFrame() {}
+  virtual ~nsMathMLmathInlineFrame() = default;
 };
 
 #endif /* nsMathMLContainerFrame_h___ */

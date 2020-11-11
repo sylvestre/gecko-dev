@@ -25,8 +25,9 @@
 #include "nsCycleCollectionParticipant.h"
 #include "nsIChannel.h"
 #include "nsIHttpChannel.h"
+#include "nsIMultiPartChannel.h"
 #include "nsIStreamListener.h"
-#include "nsITabParent.h"
+#include "nsIRemoteTab.h"
 #include "nsIThreadRetargetableStreamListener.h"
 #include "nsPointerHashKeys.h"
 #include "nsInterfaceHashtable.h"
@@ -45,7 +46,7 @@ class nsITraceableChannel;
 
 namespace mozilla {
 namespace dom {
-class nsIContentParent;
+class ContentParent;
 class Element;
 }  // namespace dom
 namespace extensions {
@@ -110,11 +111,10 @@ struct ChannelHolder {
 class WebRequestChannelEntry;
 
 class ChannelWrapper final : public DOMEventTargetHelper,
-                             public SupportsWeakPtr<ChannelWrapper>,
+                             public SupportsWeakPtr,
                              public LinkedListElement<ChannelWrapper>,
                              private detail::ChannelHolder {
  public:
-  MOZ_DECLARE_WEAKREFERENCE_TYPENAME(ChannelWrapper)
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS_INHERITED(ChannelWrapper,
                                                          DOMEventTargetHelper)
@@ -127,7 +127,7 @@ class ChannelWrapper final : public DOMEventTargetHelper,
       const dom::GlobalObject& global, nsIChannel* channel);
   static already_AddRefed<extensions::ChannelWrapper> GetRegisteredChannel(
       const dom::GlobalObject& global, uint64_t aChannelId,
-      const WebExtensionPolicy& aAddon, nsITabParent* aTabParent);
+      const WebExtensionPolicy& aAddon, nsIRemoteTab* aBrowserParent);
 
   uint64_t Id() const { return mId; }
 
@@ -135,29 +135,33 @@ class ChannelWrapper final : public DOMEventTargetHelper,
 
   void SetChannel(nsIChannel* aChannel);
 
-  void Cancel(uint32_t result, ErrorResult& aRv);
+  void Cancel(uint32_t result, uint32_t reason, ErrorResult& aRv);
 
   void RedirectTo(nsIURI* uri, ErrorResult& aRv);
   void UpgradeToSecure(ErrorResult& aRv);
 
   bool Suspended() const { return mSuspended; }
-
-  void SetSuspended(bool aSuspended, ErrorResult& aRv);
+  void Suspend(ErrorResult& aRv);
+  void Resume(const nsCString& aText, ErrorResult& aRv);
 
   void GetContentType(nsCString& aContentType) const;
   void SetContentType(const nsACString& aContentType);
 
   void RegisterTraceableChannel(const WebExtensionPolicy& aAddon,
-                                nsITabParent* aTabParent);
+                                nsIRemoteTab* aBrowserParent);
 
   already_AddRefed<nsITraceableChannel> GetTraceableChannel(
-      nsAtom* aAddonId, dom::nsIContentParent* aContentParent) const;
+      nsAtom* aAddonId, dom::ContentParent* aContentParent) const;
 
   void GetMethod(nsCString& aRetVal) const;
 
   dom::MozContentPolicyType Type() const;
 
   uint32_t StatusCode() const;
+
+  uint64_t ResponseSize() const;
+
+  uint64_t RequestSize() const;
 
   void GetStatusLine(nsCString& aRetVal) const;
 
@@ -180,14 +184,14 @@ class ChannelWrapper final : public DOMEventTargetHelper,
   already_AddRefed<nsILoadInfo> GetLoadInfo() const {
     nsCOMPtr<nsIChannel> chan = MaybeChannel();
     if (chan) {
-      return chan->GetLoadInfo();
+      return chan->LoadInfo();
     }
     return nullptr;
   }
 
-  int64_t WindowId() const;
+  int64_t FrameId() const;
 
-  int64_t ParentWindowId() const;
+  int64_t ParentFrameId() const;
 
   void GetFrameAncestors(
       dom::Nullable<nsTArray<dom::MozFrameAncestorInfo>>& aFrameAncestors,
@@ -217,6 +221,8 @@ class ChannelWrapper final : public DOMEventTargetHelper,
 
   void GetRequestHeaders(nsTArray<dom::MozHTTPHeader>& aRetVal,
                          ErrorResult& aRv) const;
+  void GetRequestHeader(const nsCString& aHeader, nsCString& aResult,
+                        ErrorResult& aRv) const;
 
   void GetResponseHeaders(nsTArray<dom::MozHTTPHeader>& aRetVal,
                           ErrorResult& aRv) const;
@@ -226,6 +232,11 @@ class ChannelWrapper final : public DOMEventTargetHelper,
 
   void SetResponseHeader(const nsCString& header, const nsCString& value,
                          bool merge, ErrorResult& aRv);
+
+  void GetUrlClassification(dom::Nullable<dom::MozUrlClassification>& aRetVal,
+                            ErrorResult& aRv) const;
+
+  bool ThirdParty() const;
 
   using EventTarget::EventListenerAdded;
   using EventTarget::EventListenerRemoved;
@@ -257,7 +268,7 @@ class ChannelWrapper final : public DOMEventTargetHelper,
   const URLInfo& FinalURLInfo() const;
   const URLInfo* DocumentURLInfo() const;
 
-  uint64_t WindowId(nsILoadInfo* aLoadInfo) const;
+  uint64_t BrowsingContextId(nsILoadInfo* aLoadInfo) const;
 
   nsresult GetFrameAncestors(
       nsILoadInfo* aLoadInfo,
@@ -305,14 +316,18 @@ class ChannelWrapper final : public DOMEventTargetHelper,
   bool mSuspended = false;
   bool mResponseStarted = false;
 
-  nsInterfaceHashtable<nsPtrHashKey<const nsAtom>, nsITabParent> mAddonEntries;
+  nsInterfaceHashtable<nsPtrHashKey<const nsAtom>, nsIRemoteTab> mAddonEntries;
+
+  mozilla::TimeStamp mSuspendTime;
 
   class RequestListener final : public nsIStreamListener,
+                                public nsIMultiPartChannelListener,
                                 public nsIThreadRetargetableStreamListener {
    public:
     NS_DECL_THREADSAFE_ISUPPORTS
     NS_DECL_NSIREQUESTOBSERVER
     NS_DECL_NSISTREAMLISTENER
+    NS_DECL_NSIMULTIPARTCHANNELLISTENER
     NS_DECL_NSITHREADRETARGETABLESTREAMLISTENER
 
     explicit RequestListener(ChannelWrapper* aWrapper)

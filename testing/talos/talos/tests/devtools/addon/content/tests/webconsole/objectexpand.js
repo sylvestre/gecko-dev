@@ -4,8 +4,15 @@
 
 "use strict";
 
-const { openToolbox, closeToolboxAndLog, getBrowserWindow, runTest, testSetup,
-        testTeardown, SIMPLE_URL } = require("../head");
+const {
+  openToolbox,
+  closeToolboxAndLog,
+  getBrowserWindow,
+  runTest,
+  testSetup,
+  testTeardown,
+  SIMPLE_URL,
+} = require("../head");
 
 module.exports = async function() {
   let tab = await testSetup(SIMPLE_URL);
@@ -26,8 +33,10 @@ module.exports = async function() {
 
   // Load a frame script using a data URI so we can do logs
   // from the page.
-  messageManager.loadFrameScript("data:,(" + encodeURIComponent(
-    `function () {
+  messageManager.loadFrameScript(
+    "data:,(" +
+      encodeURIComponent(
+        `function () {
       addMessageListener("do-dir", function () {
         content.console.dir(Array.from({length:333}).reduce((res, _, i)=> {
           res["item_" + i] = "alphanum-indexed-" + i;
@@ -37,7 +46,10 @@ module.exports = async function() {
         }, {}));
       });
     }`
-  ) + ")()", true);
+      ) +
+      ")()",
+    true
+  );
 
   let test = runTest("console.objectexpand");
   // Kick off the logging
@@ -66,5 +78,3 @@ module.exports = async function() {
 
   await testTeardown();
 };
-
-

@@ -9,29 +9,31 @@
 #include "nsStyleConsts.h"
 #include "nsUXThemeData.h"
 #include "nsUXThemeConstants.h"
+#include "nsWindowsHelpers.h"
 #include "WinUtils.h"
 #include "mozilla/FontPropertyTypes.h"
 #include "mozilla/Telemetry.h"
 #include "mozilla/WindowsVersion.h"
 #include "gfxFontConstants.h"
+#include "gfxWindowsPlatform.h"
 
 using namespace mozilla;
 using namespace mozilla::widget;
 
 // static
 LookAndFeel::OperatingSystemVersion nsLookAndFeel::GetOperatingSystemVersion() {
-  static OperatingSystemVersion version = eOperatingSystemVersion_Unknown;
+  static OperatingSystemVersion version = OperatingSystemVersion::Unknown;
 
-  if (version != eOperatingSystemVersion_Unknown) {
+  if (version != OperatingSystemVersion::Unknown) {
     return version;
   }
 
   if (IsWin10OrLater()) {
-    version = eOperatingSystemVersion_Windows10;
+    version = OperatingSystemVersion::Windows10;
   } else if (IsWin8OrLater()) {
-    version = eOperatingSystemVersion_Windows8;
+    version = OperatingSystemVersion::Windows8;
   } else {
-    version = eOperatingSystemVersion_Windows7;
+    version = OperatingSystemVersion::Windows7;
   }
 
   return version;
@@ -39,7 +41,7 @@ LookAndFeel::OperatingSystemVersion nsLookAndFeel::GetOperatingSystemVersion() {
 
 static nsresult GetColorFromTheme(nsUXThemeClass cls, int32_t aPart,
                                   int32_t aState, int32_t aPropId,
-                                  nscolor &aColor) {
+                                  nscolor& aColor) {
   COLORREF color;
   HRESULT hr = GetThemeColor(nsUXThemeData::GetTheme(cls), aPart, aState,
                              aPropId, &color);
@@ -55,7 +57,7 @@ static int32_t GetSystemParam(long flag, int32_t def) {
   return ::SystemParametersInfo(flag, 0, &value, 0) ? value : def;
 }
 
-static nsresult SystemWantsDarkTheme(int32_t &darkThemeEnabled) {
+static nsresult SystemWantsDarkTheme(int32_t& darkThemeEnabled) {
   if (!IsWin10OrLater()) {
     darkThemeEnabled = 0;
     return NS_OK;
@@ -70,16 +72,16 @@ static nsresult SystemWantsDarkTheme(int32_t &darkThemeEnabled) {
 
   rv = personalizeKey->Open(
       nsIWindowsRegKey::ROOT_KEY_CURRENT_USER,
-      NS_LITERAL_STRING(
-          "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize"),
+      nsLiteralString(
+          u"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize"),
       nsIWindowsRegKey::ACCESS_QUERY_VALUE);
   if (NS_FAILED(rv)) {
     return rv;
   }
 
   uint32_t lightThemeEnabled;
-  rv = personalizeKey->ReadIntValue(NS_LITERAL_STRING("AppsUseLightTheme"),
-                                    &lightThemeEnabled);
+  rv =
+      personalizeKey->ReadIntValue(u"AppsUseLightTheme"_ns, &lightThemeEnabled);
   if (NS_SUCCEEDED(rv)) {
     darkThemeEnabled = !lightThemeEnabled;
   }
@@ -107,7 +109,8 @@ nsLookAndFeel::~nsLookAndFeel() {}
 
 void nsLookAndFeel::NativeInit() { EnsureInit(); }
 
-/* virtual */ void nsLookAndFeel::RefreshImpl() {
+/* virtual */
+void nsLookAndFeel::RefreshImpl() {
   nsXPLookAndFeel::RefreshImpl();
 
   for (auto e = mSystemFontCache.begin(), end = mSystemFontCache.end();
@@ -119,191 +122,192 @@ void nsLookAndFeel::NativeInit() { EnsureInit(); }
   mInitialized = false;
 }
 
-nsresult nsLookAndFeel::NativeGetColor(ColorID aID, nscolor &aColor) {
+nsresult nsLookAndFeel::NativeGetColor(ColorID aID, nscolor& aColor) {
   EnsureInit();
 
   nsresult res = NS_OK;
 
   int idx;
   switch (aID) {
-    case eColorID_WindowBackground:
+    case ColorID::WindowBackground:
       idx = COLOR_WINDOW;
       break;
-    case eColorID_WindowForeground:
+    case ColorID::WindowForeground:
       idx = COLOR_WINDOWTEXT;
       break;
-    case eColorID_WidgetBackground:
+    case ColorID::WidgetBackground:
       idx = COLOR_BTNFACE;
       break;
-    case eColorID_WidgetForeground:
+    case ColorID::WidgetForeground:
       idx = COLOR_BTNTEXT;
       break;
-    case eColorID_WidgetSelectBackground:
+    case ColorID::WidgetSelectBackground:
       idx = COLOR_HIGHLIGHT;
       break;
-    case eColorID_WidgetSelectForeground:
+    case ColorID::WidgetSelectForeground:
       idx = COLOR_HIGHLIGHTTEXT;
       break;
-    case eColorID_Widget3DHighlight:
+    case ColorID::Widget3DHighlight:
       idx = COLOR_BTNHIGHLIGHT;
       break;
-    case eColorID_Widget3DShadow:
+    case ColorID::Widget3DShadow:
       idx = COLOR_BTNSHADOW;
       break;
-    case eColorID_TextBackground:
+    case ColorID::TextBackground:
       idx = COLOR_WINDOW;
       break;
-    case eColorID_TextForeground:
+    case ColorID::TextForeground:
       idx = COLOR_WINDOWTEXT;
       break;
-    case eColorID_TextSelectBackground:
-    case eColorID_IMESelectedRawTextBackground:
-    case eColorID_IMESelectedConvertedTextBackground:
+    case ColorID::TextSelectBackground:
+    case ColorID::IMESelectedRawTextBackground:
+    case ColorID::IMESelectedConvertedTextBackground:
       idx = COLOR_HIGHLIGHT;
       break;
-    case eColorID_TextSelectForeground:
-    case eColorID_IMESelectedRawTextForeground:
-    case eColorID_IMESelectedConvertedTextForeground:
+    case ColorID::TextSelectForeground:
+    case ColorID::IMESelectedRawTextForeground:
+    case ColorID::IMESelectedConvertedTextForeground:
       idx = COLOR_HIGHLIGHTTEXT;
       break;
-    case eColorID_IMERawInputBackground:
-    case eColorID_IMEConvertedTextBackground:
+    case ColorID::IMERawInputBackground:
+    case ColorID::IMEConvertedTextBackground:
       aColor = NS_TRANSPARENT;
       return NS_OK;
-    case eColorID_IMERawInputForeground:
-    case eColorID_IMEConvertedTextForeground:
+    case ColorID::IMERawInputForeground:
+    case ColorID::IMEConvertedTextForeground:
       aColor = NS_SAME_AS_FOREGROUND_COLOR;
       return NS_OK;
-    case eColorID_IMERawInputUnderline:
-    case eColorID_IMEConvertedTextUnderline:
+    case ColorID::IMERawInputUnderline:
+    case ColorID::IMEConvertedTextUnderline:
       aColor = NS_SAME_AS_FOREGROUND_COLOR;
       return NS_OK;
-    case eColorID_IMESelectedRawTextUnderline:
-    case eColorID_IMESelectedConvertedTextUnderline:
+    case ColorID::IMESelectedRawTextUnderline:
+    case ColorID::IMESelectedConvertedTextUnderline:
       aColor = NS_TRANSPARENT;
       return NS_OK;
-    case eColorID_SpellCheckerUnderline:
+    case ColorID::SpellCheckerUnderline:
       aColor = NS_RGB(0xff, 0, 0);
       return NS_OK;
 
     // New CSS 2 Color definitions
-    case eColorID_activeborder:
+    case ColorID::Activeborder:
       idx = COLOR_ACTIVEBORDER;
       break;
-    case eColorID_activecaption:
+    case ColorID::Activecaption:
       idx = COLOR_ACTIVECAPTION;
       break;
-    case eColorID_appworkspace:
+    case ColorID::Appworkspace:
       idx = COLOR_APPWORKSPACE;
       break;
-    case eColorID_background:
+    case ColorID::Background:
       idx = COLOR_BACKGROUND;
       break;
-    case eColorID_buttonface:
-    case eColorID__moz_buttonhoverface:
+    case ColorID::Buttonface:
+    case ColorID::MozButtonhoverface:
       idx = COLOR_BTNFACE;
       break;
-    case eColorID_buttonhighlight:
+    case ColorID::Buttonhighlight:
       idx = COLOR_BTNHIGHLIGHT;
       break;
-    case eColorID_buttonshadow:
+    case ColorID::Buttonshadow:
       idx = COLOR_BTNSHADOW;
       break;
-    case eColorID_buttontext:
-    case eColorID__moz_buttonhovertext:
+    case ColorID::Buttontext:
+    case ColorID::MozButtonhovertext:
       idx = COLOR_BTNTEXT;
       break;
-    case eColorID_captiontext:
+    case ColorID::Captiontext:
       idx = COLOR_CAPTIONTEXT;
       break;
-    case eColorID_graytext:
+    case ColorID::Graytext:
       idx = COLOR_GRAYTEXT;
       break;
-    case eColorID_highlight:
-    case eColorID__moz_html_cellhighlight:
-    case eColorID__moz_menuhover:
+    case ColorID::Highlight:
+    case ColorID::MozHtmlCellhighlight:
+    case ColorID::MozMenuhover:
       idx = COLOR_HIGHLIGHT;
       break;
-    case eColorID__moz_menubarhovertext:
-      if (!IsAppThemed()) {
-        idx = nsUXThemeData::sFlatMenus ? COLOR_HIGHLIGHTTEXT : COLOR_MENUTEXT;
+    case ColorID::MozMenubarhovertext:
+      if (!nsUXThemeData::IsAppThemed()) {
+        idx = nsUXThemeData::AreFlatMenusEnabled() ? COLOR_HIGHLIGHTTEXT
+                                                   : COLOR_MENUTEXT;
         break;
       }
       // Fall through
-    case eColorID__moz_menuhovertext:
+    case ColorID::MozMenuhovertext:
       if (mHasColorMenuHoverText) {
         aColor = mColorMenuHoverText;
         return NS_OK;
       }
       // Fall through
-    case eColorID_highlighttext:
-    case eColorID__moz_html_cellhighlighttext:
+    case ColorID::Highlighttext:
+    case ColorID::MozHtmlCellhighlighttext:
       idx = COLOR_HIGHLIGHTTEXT;
       break;
-    case eColorID_inactiveborder:
+    case ColorID::Inactiveborder:
       idx = COLOR_INACTIVEBORDER;
       break;
-    case eColorID_inactivecaption:
+    case ColorID::Inactivecaption:
       idx = COLOR_INACTIVECAPTION;
       break;
-    case eColorID_inactivecaptiontext:
+    case ColorID::Inactivecaptiontext:
       idx = COLOR_INACTIVECAPTIONTEXT;
       break;
-    case eColorID_infobackground:
+    case ColorID::Infobackground:
       idx = COLOR_INFOBK;
       break;
-    case eColorID_infotext:
+    case ColorID::Infotext:
       idx = COLOR_INFOTEXT;
       break;
-    case eColorID_menu:
+    case ColorID::Menu:
       idx = COLOR_MENU;
       break;
-    case eColorID_menutext:
-    case eColorID__moz_menubartext:
+    case ColorID::Menutext:
+    case ColorID::MozMenubartext:
       idx = COLOR_MENUTEXT;
       break;
-    case eColorID_scrollbar:
+    case ColorID::Scrollbar:
       idx = COLOR_SCROLLBAR;
       break;
-    case eColorID_threeddarkshadow:
+    case ColorID::Threeddarkshadow:
       idx = COLOR_3DDKSHADOW;
       break;
-    case eColorID_threedface:
+    case ColorID::Threedface:
       idx = COLOR_3DFACE;
       break;
-    case eColorID_threedhighlight:
+    case ColorID::Threedhighlight:
       idx = COLOR_3DHIGHLIGHT;
       break;
-    case eColorID_threedlightshadow:
+    case ColorID::Threedlightshadow:
       idx = COLOR_3DLIGHT;
       break;
-    case eColorID_threedshadow:
+    case ColorID::Threedshadow:
       idx = COLOR_3DSHADOW;
       break;
-    case eColorID_window:
+    case ColorID::Window:
       idx = COLOR_WINDOW;
       break;
-    case eColorID_windowframe:
+    case ColorID::Windowframe:
       idx = COLOR_WINDOWFRAME;
       break;
-    case eColorID_windowtext:
+    case ColorID::Windowtext:
       idx = COLOR_WINDOWTEXT;
       break;
-    case eColorID__moz_eventreerow:
-    case eColorID__moz_oddtreerow:
-    case eColorID__moz_field:
-    case eColorID__moz_combobox:
+    case ColorID::MozEventreerow:
+    case ColorID::MozOddtreerow:
+    case ColorID::Field:
+    case ColorID::MozCombobox:
       idx = COLOR_WINDOW;
       break;
-    case eColorID__moz_fieldtext:
-    case eColorID__moz_comboboxtext:
+    case ColorID::Fieldtext:
+    case ColorID::MozComboboxtext:
       idx = COLOR_WINDOWTEXT;
       break;
-    case eColorID__moz_dialog:
-    case eColorID__moz_cellhighlight:
+    case ColorID::MozDialog:
+    case ColorID::MozCellhighlight:
       idx = COLOR_3DFACE;
       break;
-    case eColorID__moz_win_accentcolor:
+    case ColorID::MozWinAccentcolor:
       if (mHasColorAccent) {
         aColor = mColorAccent;
       } else {
@@ -311,14 +315,14 @@ nsresult nsLookAndFeel::NativeGetColor(ColorID aID, nscolor &aColor) {
         aColor = NS_RGB(158, 158, 158);
       }
       return NS_OK;
-    case eColorID__moz_win_accentcolortext:
+    case ColorID::MozWinAccentcolortext:
       if (mHasColorAccentText) {
         aColor = mColorAccentText;
       } else {
         aColor = NS_RGB(0, 0, 0);
       }
       return NS_OK;
-    case eColorID__moz_win_mediatext:
+    case ColorID::MozWinMediatext:
       if (mHasColorMediaText) {
         aColor = mColorMediaText;
         return NS_OK;
@@ -326,7 +330,7 @@ nsresult nsLookAndFeel::NativeGetColor(ColorID aID, nscolor &aColor) {
       // if we've gotten here just return -moz-dialogtext instead
       idx = COLOR_WINDOWTEXT;
       break;
-    case eColorID__moz_win_communicationstext:
+    case ColorID::MozWinCommunicationstext:
       if (mHasColorCommunicationsText) {
         aColor = mColorCommunicationsText;
         return NS_OK;
@@ -334,17 +338,19 @@ nsresult nsLookAndFeel::NativeGetColor(ColorID aID, nscolor &aColor) {
       // if we've gotten here just return -moz-dialogtext instead
       idx = COLOR_WINDOWTEXT;
       break;
-    case eColorID__moz_dialogtext:
-    case eColorID__moz_cellhighlighttext:
+    case ColorID::MozDialogtext:
+    case ColorID::MozCellhighlighttext:
+    case ColorID::MozColheadertext:
+    case ColorID::MozColheaderhovertext:
       idx = COLOR_WINDOWTEXT;
       break;
-    case eColorID__moz_dragtargetzone:
+    case ColorID::MozDragtargetzone:
       idx = COLOR_HIGHLIGHTTEXT;
       break;
-    case eColorID__moz_buttondefault:
+    case ColorID::MozButtondefault:
       idx = COLOR_3DDKSHADOW;
       break;
-    case eColorID__moz_nativehyperlinktext:
+    case ColorID::MozNativehyperlinktext:
       idx = COLOR_HOTLIGHT;
       break;
     default:
@@ -359,54 +365,54 @@ nsresult nsLookAndFeel::NativeGetColor(ColorID aID, nscolor &aColor) {
   return res;
 }
 
-nsresult nsLookAndFeel::GetIntImpl(IntID aID, int32_t &aResult) {
+nsresult nsLookAndFeel::GetIntImpl(IntID aID, int32_t& aResult) {
   nsresult res = nsXPLookAndFeel::GetIntImpl(aID, aResult);
   if (NS_SUCCEEDED(res)) return res;
   res = NS_OK;
 
   switch (aID) {
-    case eIntID_CaretBlinkTime:
-      // eIntID_CaretBlinkTime is often called by updating editable text
+    case IntID::CaretBlinkTime:
+      // IntID::CaretBlinkTime is often called by updating editable text
       // that has focus. So it should be cached to improve performance.
       if (mCaretBlinkTime < 0) {
         mCaretBlinkTime = static_cast<int32_t>(::GetCaretBlinkTime());
       }
       aResult = mCaretBlinkTime;
       break;
-    case eIntID_CaretWidth:
+    case IntID::CaretWidth:
       aResult = 1;
       break;
-    case eIntID_ShowCaretDuringSelection:
+    case IntID::ShowCaretDuringSelection:
       aResult = 0;
       break;
-    case eIntID_SelectTextfieldsOnKeyFocus:
+    case IntID::SelectTextfieldsOnKeyFocus:
       // Select textfield content when focused by kbd
       // used by EventStateManager::sTextfieldSelectModel
       aResult = 1;
       break;
-    case eIntID_SubmenuDelay:
+    case IntID::SubmenuDelay:
       // This will default to the Windows' default
       // (400ms) on error.
       aResult = GetSystemParam(SPI_GETMENUSHOWDELAY, 400);
       break;
-    case eIntID_TooltipDelay:
+    case IntID::TooltipDelay:
       aResult = 500;
       break;
-    case eIntID_MenusCanOverlapOSBar:
+    case IntID::MenusCanOverlapOSBar:
       // we want XUL popups to be able to overlap the task bar.
       aResult = 1;
       break;
-    case eIntID_DragThresholdX:
+    case IntID::DragThresholdX:
       // The system metric is the number of pixels at which a drag should
       // start.  Our look and feel metric is the number of pixels you can
       // move before starting a drag, so subtract 1.
 
       aResult = ::GetSystemMetrics(SM_CXDRAG) - 1;
       break;
-    case eIntID_DragThresholdY:
+    case IntID::DragThresholdY:
       aResult = ::GetSystemMetrics(SM_CYDRAG) - 1;
       break;
-    case eIntID_UseAccessibilityTheme:
+    case IntID::UseAccessibilityTheme:
       // High contrast is a misnomer under Win32 -- any theme can be used with
       // it, e.g. normal contrast with large fonts, low contrast, etc. The high
       // contrast flag really means -- use this theme and don't override it.
@@ -421,41 +427,41 @@ nsresult nsLookAndFeel::GetIntImpl(IntID aID, int32_t &aResult) {
         aResult = nsUXThemeData::IsHighContrastOn();
       }
       break;
-    case eIntID_ScrollArrowStyle:
+    case IntID::ScrollArrowStyle:
       aResult = eScrollArrowStyle_Single;
       break;
-    case eIntID_ScrollSliderStyle:
+    case IntID::ScrollSliderStyle:
       aResult = eScrollThumbStyle_Proportional;
       break;
-    case eIntID_TreeOpenDelay:
+    case IntID::TreeOpenDelay:
       aResult = 1000;
       break;
-    case eIntID_TreeCloseDelay:
+    case IntID::TreeCloseDelay:
       aResult = 0;
       break;
-    case eIntID_TreeLazyScrollDelay:
+    case IntID::TreeLazyScrollDelay:
       aResult = 150;
       break;
-    case eIntID_TreeScrollDelay:
+    case IntID::TreeScrollDelay:
       aResult = 100;
       break;
-    case eIntID_TreeScrollLinesMax:
+    case IntID::TreeScrollLinesMax:
       aResult = 3;
       break;
-    case eIntID_WindowsClassic:
-      aResult = !IsAppThemed();
+    case IntID::WindowsClassic:
+      aResult = !nsUXThemeData::IsAppThemed();
       break;
-    case eIntID_TouchEnabled:
+    case IntID::TouchEnabled:
       aResult = WinUtils::IsTouchDeviceSupportPresent();
       break;
-    case eIntID_WindowsDefaultTheme:
+    case IntID::WindowsDefaultTheme:
       if (XRE_IsContentProcess()) {
         aResult = mUseDefaultTheme;
       } else {
         aResult = nsUXThemeData::IsDefaultWindowTheme();
       }
       break;
-    case eIntID_WindowsThemeIdentifier:
+    case IntID::WindowsThemeIdentifier:
       if (XRE_IsContentProcess()) {
         aResult = mNativeThemeId;
       } else {
@@ -463,19 +469,19 @@ nsresult nsLookAndFeel::GetIntImpl(IntID aID, int32_t &aResult) {
       }
       break;
 
-    case eIntID_OperatingSystemVersionIdentifier: {
-      aResult = GetOperatingSystemVersion();
+    case IntID::OperatingSystemVersionIdentifier: {
+      aResult = int32_t(GetOperatingSystemVersion());
       break;
     }
 
-    case eIntID_MacGraphiteTheme:
+    case IntID::MacGraphiteTheme:
       aResult = 0;
       res = NS_ERROR_NOT_IMPLEMENTED;
       break;
-    case eIntID_DWMCompositor:
-      aResult = nsUXThemeData::CheckForCompositor();
+    case IntID::DWMCompositor:
+      aResult = gfxWindowsPlatform::GetPlatform()->DwmCompositionEnabled();
       break;
-    case eIntID_WindowsAccentColorInTitlebar: {
+    case IntID::WindowsAccentColorInTitlebar: {
       nscolor unused;
       if (NS_WARN_IF(NS_FAILED(GetAccentColor(unused)))) {
         aResult = 0;
@@ -483,10 +489,9 @@ nsresult nsLookAndFeel::GetIntImpl(IntID aID, int32_t &aResult) {
       }
 
       uint32_t colorPrevalence;
-      nsresult rv =
-          mDwmKey->Open(nsIWindowsRegKey::ROOT_KEY_CURRENT_USER,
-                        NS_LITERAL_STRING("SOFTWARE\\Microsoft\\Windows\\DWM"),
-                        nsIWindowsRegKey::ACCESS_QUERY_VALUE);
+      nsresult rv = mDwmKey->Open(nsIWindowsRegKey::ROOT_KEY_CURRENT_USER,
+                                  u"SOFTWARE\\Microsoft\\Windows\\DWM"_ns,
+                                  nsIWindowsRegKey::ACCESS_QUERY_VALUE);
       if (NS_WARN_IF(NS_FAILED(rv))) {
         return rv;
       }
@@ -494,19 +499,20 @@ nsresult nsLookAndFeel::GetIntImpl(IntID aID, int32_t &aResult) {
       // The ColorPrevalence value is set to 1 when the "Show color on title
       // bar" setting in the Color section of Window's Personalization settings
       // is turned on.
-      aResult = (NS_SUCCEEDED(mDwmKey->ReadIntValue(
-                     NS_LITERAL_STRING("ColorPrevalence"), &colorPrevalence)) &&
+      aResult = (NS_SUCCEEDED(mDwmKey->ReadIntValue(u"ColorPrevalence"_ns,
+                                                    &colorPrevalence)) &&
                  colorPrevalence == 1)
                     ? 1
                     : 0;
 
       mDwmKey->Close();
     } break;
-    case eIntID_WindowsGlass:
+    case IntID::WindowsGlass:
       // Aero Glass is only available prior to Windows 8 when DWM is used.
-      aResult = (nsUXThemeData::CheckForCompositor() && !IsWin8OrLater());
+      aResult = (gfxWindowsPlatform::GetPlatform()->DwmCompositionEnabled() &&
+                 !IsWin8OrLater());
       break;
-    case eIntID_AlertNotificationOrigin:
+    case IntID::AlertNotificationOrigin:
       aResult = 0;
       {
         // Get task bar window handle
@@ -541,59 +547,59 @@ nsresult nsLookAndFeel::GetIntImpl(IntID aID, int32_t &aResult) {
         }
       }
       break;
-    case eIntID_IMERawInputUnderlineStyle:
-    case eIntID_IMEConvertedTextUnderlineStyle:
+    case IntID::IMERawInputUnderlineStyle:
+    case IntID::IMEConvertedTextUnderlineStyle:
       aResult = NS_STYLE_TEXT_DECORATION_STYLE_DASHED;
       break;
-    case eIntID_IMESelectedRawTextUnderlineStyle:
-    case eIntID_IMESelectedConvertedTextUnderline:
+    case IntID::IMESelectedRawTextUnderlineStyle:
+    case IntID::IMESelectedConvertedTextUnderline:
       aResult = NS_STYLE_TEXT_DECORATION_STYLE_NONE;
       break;
-    case eIntID_SpellCheckerUnderlineStyle:
+    case IntID::SpellCheckerUnderlineStyle:
       aResult = NS_STYLE_TEXT_DECORATION_STYLE_WAVY;
       break;
-    case eIntID_ScrollbarButtonAutoRepeatBehavior:
+    case IntID::ScrollbarButtonAutoRepeatBehavior:
       aResult = 0;
       break;
-    case eIntID_SwipeAnimationEnabled:
+    case IntID::SwipeAnimationEnabled:
       aResult = 0;
       break;
-    case eIntID_UseOverlayScrollbars:
+    case IntID::UseOverlayScrollbars:
       aResult = false;
       break;
-    case eIntID_AllowOverlayScrollbarsOverlap:
+    case IntID::AllowOverlayScrollbarsOverlap:
       aResult = 0;
       break;
-    case eIntID_ScrollbarDisplayOnMouseMove:
+    case IntID::ScrollbarDisplayOnMouseMove:
       aResult = 1;
       break;
-    case eIntID_ScrollbarFadeBeginDelay:
+    case IntID::ScrollbarFadeBeginDelay:
       aResult = 2500;
       break;
-    case eIntID_ScrollbarFadeDuration:
+    case IntID::ScrollbarFadeDuration:
       aResult = 350;
       break;
-    case eIntID_ContextMenuOffsetVertical:
-    case eIntID_ContextMenuOffsetHorizontal:
+    case IntID::ContextMenuOffsetVertical:
+    case IntID::ContextMenuOffsetHorizontal:
       aResult = 2;
       break;
-    case eIntID_SystemUsesDarkTheme:
+    case IntID::SystemUsesDarkTheme:
       res = SystemWantsDarkTheme(aResult);
       break;
-    case eIntID_PrefersReducedMotion: {
+    case IntID::PrefersReducedMotion: {
       BOOL enableAnimation = TRUE;
       ::SystemParametersInfoW(SPI_GETCLIENTAREAANIMATION, 0, &enableAnimation,
                               0);
       aResult = enableAnimation ? 0 : 1;
       break;
     }
-    case eIntID_PrimaryPointerCapabilities: {
+    case IntID::PrimaryPointerCapabilities: {
       PointerCapabilities caps =
           widget::WinUtils::GetPrimaryPointerCapabilities();
       aResult = static_cast<int32_t>(caps);
       break;
     }
-    case eIntID_AllPointerCapabilities: {
+    case IntID::AllPointerCapabilities: {
       PointerCapabilities caps = widget::WinUtils::GetAllPointerCapabilities();
       aResult = static_cast<int32_t>(caps);
       break;
@@ -605,16 +611,16 @@ nsresult nsLookAndFeel::GetIntImpl(IntID aID, int32_t &aResult) {
   return res;
 }
 
-nsresult nsLookAndFeel::GetFloatImpl(FloatID aID, float &aResult) {
+nsresult nsLookAndFeel::GetFloatImpl(FloatID aID, float& aResult) {
   nsresult res = nsXPLookAndFeel::GetFloatImpl(aID, aResult);
   if (NS_SUCCEEDED(res)) return res;
   res = NS_OK;
 
   switch (aID) {
-    case eFloatID_IMEUnderlineRelativeSize:
+    case FloatID::IMEUnderlineRelativeSize:
       aResult = 1.0f;
       break;
-    case eFloatID_SpellCheckerUnderlineRelativeSize:
+    case FloatID::SpellCheckerUnderlineRelativeSize:
       aResult = 1.0f;
       break;
     default:
@@ -624,65 +630,11 @@ nsresult nsLookAndFeel::GetFloatImpl(FloatID aID, float &aResult) {
   return res;
 }
 
-static bool GetSysFontInfo(HDC aHDC, LookAndFeel::FontID anID,
-                           nsString &aFontName, gfxFontStyle &aFontStyle) {
-  const LOGFONTW *ptrLogFont = nullptr;
-  LOGFONTW logFont;
-  NONCLIENTMETRICSW ncm;
-  char16_t name[LF_FACESIZE];
-  bool useShellDlg = false;
+LookAndFeelFont nsLookAndFeel::GetLookAndFeelFontInternal(
+    const LOGFONTW& aLogFont, bool aUseShellDlg) {
+  LookAndFeelFont result{};
 
-  // Depending on which stock font we want, there are a couple of
-  // places we might have to look it up.
-  switch (anID) {
-    case LookAndFeel::eFont_Icon:
-      if (!::SystemParametersInfoW(SPI_GETICONTITLELOGFONT, sizeof(logFont),
-                                   (PVOID)&logFont, 0))
-        return false;
-
-      ptrLogFont = &logFont;
-      break;
-
-    default:
-      ncm.cbSize = sizeof(NONCLIENTMETRICSW);
-      if (!::SystemParametersInfoW(SPI_GETNONCLIENTMETRICS, sizeof(ncm),
-                                   (PVOID)&ncm, 0))
-        return false;
-
-      switch (anID) {
-        case LookAndFeel::eFont_Menu:
-        case LookAndFeel::eFont_PullDownMenu:
-          ptrLogFont = &ncm.lfMenuFont;
-          break;
-        case LookAndFeel::eFont_Caption:
-          ptrLogFont = &ncm.lfCaptionFont;
-          break;
-        case LookAndFeel::eFont_SmallCaption:
-          ptrLogFont = &ncm.lfSmCaptionFont;
-          break;
-        case LookAndFeel::eFont_StatusBar:
-        case LookAndFeel::eFont_Tooltips:
-          ptrLogFont = &ncm.lfStatusFont;
-          break;
-        case LookAndFeel::eFont_Widget:
-        case LookAndFeel::eFont_Dialog:
-        case LookAndFeel::eFont_Button:
-        case LookAndFeel::eFont_Field:
-        case LookAndFeel::eFont_List:
-          // XXX It's not clear to me whether this is exactly the right
-          // set of LookAndFeel values to map to the dialog font; we may
-          // want to add or remove cases here after reviewing the visual
-          // results under various Windows versions.
-          useShellDlg = true;
-          // Fall through so that we can get size from lfMessageFont;
-          // but later we'll use the (virtual) "MS Shell Dlg 2" font name
-          // instead of the LOGFONT's.
-        default:
-          ptrLogFont = &ncm.lfMessageFont;
-          break;
-      }
-      break;
-  }
+  result.haveFont = false;
 
   // Get scaling factor from physical to logical pixels
   double pixelScale = 1.0 / WinUtils::SystemScaleFactor();
@@ -697,54 +649,137 @@ static bool GetSysFontInfo(HDC aHDC, LookAndFeel::FontID anID,
   // scale factor is 125% or 150% or even more), and could be
   // any value when going to a printer, for example pixelScale is
   // 6.25 when going to a 600dpi printer.
-  float pixelHeight = -ptrLogFont->lfHeight;
+  float pixelHeight = -aLogFont.lfHeight;
   if (pixelHeight < 0) {
-    HFONT hFont = ::CreateFontIndirectW(ptrLogFont);
-    if (!hFont) return false;
-    HGDIOBJ hObject = ::SelectObject(aHDC, hFont);
+    nsAutoFont hFont(::CreateFontIndirectW(&aLogFont));
+    if (!hFont) {
+      return result;
+    }
+
+    nsAutoHDC dc(::GetDC(nullptr));
+    HGDIOBJ hObject = ::SelectObject(dc, hFont);
     TEXTMETRIC tm;
-    ::GetTextMetrics(aHDC, &tm);
-    ::SelectObject(aHDC, hObject);
-    ::DeleteObject(hFont);
+    ::GetTextMetrics(dc, &tm);
+    ::SelectObject(dc, hObject);
+
     pixelHeight = tm.tmAscent;
   }
+
   pixelHeight *= pixelScale;
 
   // we have problem on Simplified Chinese system because the system
   // report the default font size is 8 points. but if we use 8, the text
   // display very ugly. force it to be at 9 points (12 pixels) on that
   // system (cp936), but leave other sizes alone.
-  if (pixelHeight < 12 && ::GetACP() == 936) pixelHeight = 12;
+  if (pixelHeight < 12 && ::GetACP() == 936) {
+    pixelHeight = 12;
+  }
 
-  aFontStyle.size = pixelHeight;
+  result.haveFont = true;
+
+  if (aUseShellDlg) {
+    result.fontName = u"MS Shell Dlg 2"_ns;
+  } else {
+    result.fontName = aLogFont.lfFaceName;
+  }
+
+  result.pixelHeight = pixelHeight;
+  result.italic = !!aLogFont.lfItalic;
+  result.bold = (aLogFont.lfWeight == FW_BOLD);
+
+  return result;
+}
+
+LookAndFeelFont nsLookAndFeel::GetLookAndFeelFont(LookAndFeel::FontID anID) {
+  if (XRE_IsContentProcess()) {
+    return mFontCache[size_t(anID)];
+  }
+
+  LookAndFeelFont result{};
+
+  result.haveFont = false;
+
+  // FontID::Icon is handled differently than the others
+  if (anID == LookAndFeel::FontID::Icon) {
+    LOGFONTW logFont;
+    if (::SystemParametersInfoW(SPI_GETICONTITLELOGFONT, sizeof(logFont),
+                                (PVOID)&logFont, 0)) {
+      result = GetLookAndFeelFontInternal(logFont, false);
+    }
+    return result;
+  }
+
+  NONCLIENTMETRICSW ncm;
+  ncm.cbSize = sizeof(NONCLIENTMETRICSW);
+  if (!::SystemParametersInfoW(SPI_GETNONCLIENTMETRICS, sizeof(ncm),
+                               (PVOID)&ncm, 0)) {
+    return result;
+  }
+
+  switch (anID) {
+    case LookAndFeel::FontID::Menu:
+    case LookAndFeel::FontID::PullDownMenu:
+      result = GetLookAndFeelFontInternal(ncm.lfMenuFont, false);
+      break;
+    case LookAndFeel::FontID::Caption:
+      result = GetLookAndFeelFontInternal(ncm.lfCaptionFont, false);
+      break;
+    case LookAndFeel::FontID::SmallCaption:
+      result = GetLookAndFeelFontInternal(ncm.lfSmCaptionFont, false);
+      break;
+    case LookAndFeel::FontID::StatusBar:
+    case LookAndFeel::FontID::Tooltips:
+      result = GetLookAndFeelFontInternal(ncm.lfStatusFont, false);
+      break;
+    case LookAndFeel::FontID::Widget:
+    case LookAndFeel::FontID::Dialog:
+    case LookAndFeel::FontID::Button:
+    case LookAndFeel::FontID::Field:
+    case LookAndFeel::FontID::List:
+      // XXX It's not clear to me whether this is exactly the right
+      // set of LookAndFeel values to map to the dialog font; we may
+      // want to add or remove cases here after reviewing the visual
+      // results under various Windows versions.
+      result = GetLookAndFeelFontInternal(ncm.lfMessageFont, true);
+      break;
+    default:
+      result = GetLookAndFeelFontInternal(ncm.lfMessageFont, false);
+      break;
+  }
+
+  return result;
+}
+
+bool nsLookAndFeel::GetSysFont(LookAndFeel::FontID anID, nsString& aFontName,
+                               gfxFontStyle& aFontStyle) {
+  LookAndFeelFont font = GetLookAndFeelFont(anID);
+
+  if (!font.haveFont) {
+    return false;
+  }
+
+  aFontName = std::move(font.fontName);
+
+  aFontStyle.size = font.pixelHeight;
 
   // FIXME: What about oblique?
-  aFontStyle.style = (ptrLogFont->lfItalic) ? FontSlantStyle::Italic()
-                                            : FontSlantStyle::Normal();
+  aFontStyle.style =
+      font.italic ? FontSlantStyle::Italic() : FontSlantStyle::Normal();
 
   // FIXME: Other weights?
-  aFontStyle.weight = (ptrLogFont->lfWeight == FW_BOLD ? FontWeight::Bold()
-                                                       : FontWeight::Normal());
+  aFontStyle.weight = font.bold ? FontWeight::Bold() : FontWeight::Normal();
 
   // FIXME: Set aFontStyle->stretch correctly!
   aFontStyle.stretch = FontStretch::Normal();
 
   aFontStyle.systemFont = true;
 
-  if (useShellDlg) {
-    aFontName = NS_LITERAL_STRING("MS Shell Dlg 2");
-  } else {
-    memcpy(name, ptrLogFont->lfFaceName, LF_FACESIZE * sizeof(char16_t));
-    aFontName = name;
-  }
-
   return true;
 }
 
-bool nsLookAndFeel::GetFontImpl(FontID anID, nsString &aFontName,
-                                gfxFontStyle &aFontStyle,
-                                float aDevPixPerCSSPixel) {
-  CachedSystemFont &cacheSlot = mSystemFontCache[anID];
+bool nsLookAndFeel::GetFontImpl(FontID anID, nsString& aFontName,
+                                gfxFontStyle& aFontStyle) {
+  CachedSystemFont& cacheSlot = mSystemFontCache[size_t(anID)];
 
   bool status;
   if (cacheSlot.mCacheValid) {
@@ -754,9 +789,7 @@ bool nsLookAndFeel::GetFontImpl(FontID anID, nsString &aFontName,
       aFontStyle = cacheSlot.mFontStyle;
     }
   } else {
-    HDC tdc = GetDC(nullptr);
-    status = GetSysFontInfo(tdc, anID, aFontName, aFontStyle);
-    ReleaseDC(nullptr, tdc);
+    status = GetSysFont(anID, aFontName, aFontStyle);
 
     cacheSlot.mCacheValid = true;
     cacheSlot.mHaveFont = status;
@@ -765,9 +798,6 @@ bool nsLookAndFeel::GetFontImpl(FontID anID, nsString &aFontName,
       cacheSlot.mFontStyle = aFontStyle;
     }
   }
-  // now convert the logical font size from GetSysFontInfo into device pixels
-  // for layout
-  aFontStyle.size *= aDevPixPerCSSPixel;
   return status;
 }
 
@@ -777,44 +807,62 @@ char16_t nsLookAndFeel::GetPasswordCharacterImpl() {
   return UNICODE_BLACK_CIRCLE_CHAR;
 }
 
-nsTArray<LookAndFeelInt> nsLookAndFeel::GetIntCacheImpl() {
-  nsTArray<LookAndFeelInt> lookAndFeelIntCache =
-      nsXPLookAndFeel::GetIntCacheImpl();
+LookAndFeelCache nsLookAndFeel::GetCacheImpl() {
+  MOZ_ASSERT(XRE_IsParentProcess());
+
+  LookAndFeelCache cache = nsXPLookAndFeel::GetCacheImpl();
 
   LookAndFeelInt lafInt;
-  lafInt.id = eIntID_UseAccessibilityTheme;
-  lafInt.value = GetInt(eIntID_UseAccessibilityTheme);
-  lookAndFeelIntCache.AppendElement(lafInt);
+  lafInt.id = IntID::UseAccessibilityTheme;
+  lafInt.value = GetInt(IntID::UseAccessibilityTheme);
+  cache.mInts.AppendElement(lafInt);
 
-  lafInt.id = eIntID_WindowsDefaultTheme;
-  lafInt.value = GetInt(eIntID_WindowsDefaultTheme);
-  lookAndFeelIntCache.AppendElement(lafInt);
+  lafInt.id = IntID::WindowsDefaultTheme;
+  lafInt.value = GetInt(IntID::WindowsDefaultTheme);
+  cache.mInts.AppendElement(lafInt);
 
-  lafInt.id = eIntID_WindowsThemeIdentifier;
-  lafInt.value = GetInt(eIntID_WindowsThemeIdentifier);
-  lookAndFeelIntCache.AppendElement(lafInt);
+  lafInt.id = IntID::WindowsThemeIdentifier;
+  lafInt.value = GetInt(IntID::WindowsThemeIdentifier);
+  cache.mInts.AppendElement(lafInt);
 
-  return lookAndFeelIntCache;
+  for (size_t i = size_t(LookAndFeel::FontID::MINIMUM);
+       i <= size_t(LookAndFeel::FontID::MAXIMUM); ++i) {
+    cache.mFonts.AppendElement(GetLookAndFeelFont(LookAndFeel::FontID(i)));
+  }
+
+  return cache;
 }
 
-void nsLookAndFeel::SetIntCacheImpl(
-    const nsTArray<LookAndFeelInt> &aLookAndFeelIntCache) {
-  for (auto entry : aLookAndFeelIntCache) {
+void nsLookAndFeel::SetCacheImpl(const LookAndFeelCache& aCache) {
+  MOZ_ASSERT(XRE_IsContentProcess());
+  MOZ_RELEASE_ASSERT(aCache.mFonts.Length() == mFontCache.length());
+
+  for (auto entry : aCache.mInts) {
     switch (entry.id) {
-      case eIntID_UseAccessibilityTheme:
+      case IntID::UseAccessibilityTheme:
         mUseAccessibilityTheme = entry.value;
         break;
-      case eIntID_WindowsDefaultTheme:
+      case IntID::WindowsDefaultTheme:
         mUseDefaultTheme = entry.value;
         break;
-      case eIntID_WindowsThemeIdentifier:
+      case IntID::WindowsThemeIdentifier:
         mNativeThemeId = entry.value;
+        break;
+      default:
+        MOZ_ASSERT_UNREACHABLE("Bogus Int ID in cache");
         break;
     }
   }
+
+  size_t i = mFontCache.minIndex();
+  for (const auto& font : aCache.mFonts) {
+    mFontCache[i] = font;
+    ++i;
+  }
 }
 
-/* static */ nsresult nsLookAndFeel::GetAccentColor(nscolor &aColor) {
+/* static */
+nsresult nsLookAndFeel::GetAccentColor(nscolor& aColor) {
   nsresult rv;
 
   if (!mDwmKey) {
@@ -825,15 +873,14 @@ void nsLookAndFeel::SetIntCacheImpl(
   }
 
   rv = mDwmKey->Open(nsIWindowsRegKey::ROOT_KEY_CURRENT_USER,
-                     NS_LITERAL_STRING("SOFTWARE\\Microsoft\\Windows\\DWM"),
+                     u"SOFTWARE\\Microsoft\\Windows\\DWM"_ns,
                      nsIWindowsRegKey::ACCESS_QUERY_VALUE);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
 
   uint32_t accentColor;
-  if (NS_SUCCEEDED(mDwmKey->ReadIntValue(NS_LITERAL_STRING("AccentColor"),
-                                         &accentColor))) {
+  if (NS_SUCCEEDED(mDwmKey->ReadIntValue(u"AccentColor"_ns, &accentColor))) {
     // The order of the color components in the DWORD stored in the registry
     // happens to be the same order as we store the components in nscolor
     // so we can just assign directly here.
@@ -848,7 +895,8 @@ void nsLookAndFeel::SetIntCacheImpl(
   return rv;
 }
 
-/* static */ nsresult nsLookAndFeel::GetAccentColorText(nscolor &aColor) {
+/* static */
+nsresult nsLookAndFeel::GetAccentColorText(nscolor& aColor) {
   nscolor accentColor;
   nsresult rv = GetAccentColor(accentColor);
   if (NS_WARN_IF(NS_FAILED(rv))) {
@@ -892,7 +940,7 @@ void nsLookAndFeel::EnsureInit() {
   res = GetAccentColorText(mColorAccentText);
   mHasColorAccentText = NS_SUCCEEDED(res);
 
-  if (IsAppThemed()) {
+  if (nsUXThemeData::IsAppThemed()) {
     res = ::GetColorFromTheme(eUXMenu, MENU_POPUPITEM, MPI_HOT, TMT_TEXTCOLOR,
                               mColorMenuHoverText);
     mHasColorMenuHoverText = NS_SUCCEEDED(res);
@@ -911,4 +959,6 @@ void nsLookAndFeel::EnsureInit() {
     DWORD color = ::GetSysColor(i);
     mSysColorTable[i - SYS_COLOR_MIN] = COLOREF_2_NSRGB(color);
   }
+
+  RecordTelemetry();
 }

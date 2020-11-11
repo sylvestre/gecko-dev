@@ -8,29 +8,38 @@
 
 #include "mozilla/dom/AudioWorkletNodeBinding.h"
 #include "mozilla/dom/AudioWorkletProcessorBinding.h"
+#include "mozilla/dom/AudioWorkletGlobalScope.h"
 #include "mozilla/dom/MessagePort.h"
+#include "mozilla/dom/WorkletGlobalScope.h"
 #include "nsIGlobalObject.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
-NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(AudioWorkletProcessor, mParent)
+NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(AudioWorkletProcessor, mParent, mPort)
 
 NS_IMPL_CYCLE_COLLECTION_ROOT_NATIVE(AudioWorkletProcessor, AddRef)
 NS_IMPL_CYCLE_COLLECTION_UNROOT_NATIVE(AudioWorkletProcessor, Release)
 
-AudioWorkletProcessor::AudioWorkletProcessor(nsIGlobalObject* aParent)
-    : mParent(aParent) {}
+AudioWorkletProcessor::AudioWorkletProcessor(nsIGlobalObject* aParent,
+                                             MessagePort* aPort)
+    : mParent(aParent), mPort(aPort) {}
 
-/* static */ already_AddRefed<AudioWorkletProcessor>
-AudioWorkletProcessor::Constructor(const GlobalObject& aGlobal,
-                                   const AudioWorkletNodeOptions& aOptions,
-                                   ErrorResult& aRv) {
-  nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(aGlobal.GetAsSupports());
+AudioWorkletProcessor::~AudioWorkletProcessor() = default;
+
+/* static */
+already_AddRefed<AudioWorkletProcessor> AudioWorkletProcessor::Constructor(
+    const GlobalObject& aGlobal, ErrorResult& aRv) {
+  nsCOMPtr<WorkletGlobalScope> global =
+      do_QueryInterface(aGlobal.GetAsSupports());
   MOZ_ASSERT(global);
-
+  RefPtr<MessagePort> port = static_cast<AudioWorkletGlobalScope*>(global.get())
+                                 ->TakePortForProcessorCtor();
+  if (!port) {
+    aRv.ThrowTypeError<MSG_ILLEGAL_CONSTRUCTOR>();
+    return nullptr;
+  }
   RefPtr<AudioWorkletProcessor> audioWorkletProcessor =
-      new AudioWorkletProcessor(global);
+      new AudioWorkletProcessor(global, port);
 
   return audioWorkletProcessor.forget();
 }
@@ -40,10 +49,4 @@ JSObject* AudioWorkletProcessor::WrapObject(JSContext* aCx,
   return AudioWorkletProcessor_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-MessagePort* AudioWorkletProcessor::GetPort(ErrorResult& aRv) const {
-  aRv.Throw(NS_ERROR_NOT_IMPLEMENTED);
-  return nullptr;
-}
-
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

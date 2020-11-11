@@ -51,7 +51,7 @@ pub struct ParserContext<'a> {
     /// The quirks mode of this stylesheet.
     pub quirks_mode: QuirksMode,
     /// The active error reporter, or none if error reporting is disabled.
-    error_reporter: Option<&'a ParseErrorReporter>,
+    error_reporter: Option<&'a dyn ParseErrorReporter>,
     /// The currently active namespaces.
     pub namespaces: Option<&'a Namespaces>,
     /// The use counters we want to record while parsing style rules, if any.
@@ -67,7 +67,7 @@ impl<'a> ParserContext<'a> {
         rule_type: Option<CssRuleType>,
         parsing_mode: ParsingMode,
         quirks_mode: QuirksMode,
-        error_reporter: Option<&'a ParseErrorReporter>,
+        error_reporter: Option<&'a dyn ParseErrorReporter>,
         use_counters: Option<&'a UseCounters>,
     ) -> Self {
         Self {
@@ -80,27 +80,6 @@ impl<'a> ParserContext<'a> {
             namespaces: None,
             use_counters,
         }
-    }
-
-    /// Create a parser context for on-the-fly parsing in CSSOM
-    #[inline]
-    pub fn new_for_cssom(
-        url_data: &'a UrlExtraData,
-        rule_type: Option<CssRuleType>,
-        parsing_mode: ParsingMode,
-        quirks_mode: QuirksMode,
-        error_reporter: Option<&'a ParseErrorReporter>,
-        use_counters: Option<&'a UseCounters>,
-    ) -> Self {
-        Self::new(
-            Origin::Author,
-            url_data,
-            rule_type,
-            parsing_mode,
-            quirks_mode,
-            error_reporter,
-            use_counters,
-        )
     }
 
     /// Create a parser context based on a previous context, but with a modified
@@ -136,6 +115,12 @@ impl<'a> ParserContext<'a> {
             .expect("Rule type expected, but none was found.")
     }
 
+    /// Returns whether CSS error reporting is enabled.
+    #[inline]
+    pub fn error_reporting_enabled(&self) -> bool {
+        self.error_reporter.is_some()
+    }
+
     /// Record a CSS parse error with this context’s error reporting.
     pub fn log_css_error(&self, location: SourceLocation, error: ContextualParseError) {
         let error_reporter = match self.error_reporter {
@@ -146,9 +131,22 @@ impl<'a> ParserContext<'a> {
         error_reporter.report_error(self.url_data, location, error)
     }
 
+    /// Whether we're in a user-agent stylesheet.
+    #[inline]
+    pub fn in_ua_sheet(&self) -> bool {
+        self.stylesheet_origin == Origin::UserAgent
+    }
+
     /// Returns whether chrome-only rules should be parsed.
+    #[inline]
     pub fn chrome_rules_enabled(&self) -> bool {
         self.url_data.is_chrome() || self.stylesheet_origin == Origin::User
+    }
+
+    /// Whether we're in a user-agent stylesheet or chrome rules are enabled.
+    #[inline]
+    pub fn in_ua_or_chrome_sheet(&self) -> bool {
+        self.in_ua_sheet() || self.chrome_rules_enabled()
     }
 }
 
@@ -188,11 +186,32 @@ where
     }
 }
 
-impl Parse for UnicodeRange {
+impl<T> Parse for Box<T>
+where
+    T: Parse
+{
     fn parse<'i, 't>(
-        _context: &ParserContext,
+        context: &ParserContext,
         input: &mut Parser<'i, 't>,
     ) -> Result<Self, ParseError<'i>> {
-        UnicodeRange::parse(input).map_err(|e| e.into())
+        T::parse(context, input).map(Box::new)
+    }
+}
+
+impl Parse for crate::OwnedStr {
+    fn parse<'i, 't>(
+        _: &ParserContext,
+        input: &mut Parser<'i, 't>,
+    ) -> Result<Self, ParseError<'i>> {
+        Ok(input.expect_string()?.as_ref().to_owned().into())
+    }
+}
+
+impl Parse for UnicodeRange {
+    fn parse<'i, 't>(
+        _: &ParserContext,
+        input: &mut Parser<'i, 't>,
+    ) -> Result<Self, ParseError<'i>> {
+        Ok(UnicodeRange::parse(input)?)
     }
 }

@@ -17,7 +17,6 @@
 #include "nsPopupSetFrame.h"
 #include "nsGkAtoms.h"
 #include "nsIFrameInlines.h"
-#include "nsIPresShell.h"
 #include "nsDisplayList.h"
 #include "nsCSSFrameConstructor.h"
 #include "nsFrameManager.h"
@@ -25,14 +24,15 @@
 #include "nsPrintfCString.h"
 #include "mozilla/AccessibleCaretEventHub.h"
 #include "mozilla/ComputedStyle.h"
+#include "mozilla/StaticPrefs_browser.h"
 #include "mozilla/dom/AnonymousContent.h"
 #include "mozilla/layers/StackingContextHelper.h"
-#include "mozilla/layers/WebRenderLayerManager.h"
+#include "mozilla/layers/RenderRootStateManager.h"
 #include "mozilla/PresShell.h"
 // for focus
 #include "nsIScrollableFrame.h"
 #ifdef DEBUG_CANVAS_FOCUS
-#include "nsIDocShell.h"
+#  include "nsIDocShell.h"
 #endif
 
 //#define DEBUG_CANVAS_FOCUS
@@ -43,9 +43,8 @@ using namespace mozilla::layout;
 using namespace mozilla::gfx;
 using namespace mozilla::layers;
 
-nsCanvasFrame* NS_NewCanvasFrame(nsIPresShell* aPresShell,
-                                 ComputedStyle* aStyle) {
-  return new (aPresShell) nsCanvasFrame(aStyle);
+nsCanvasFrame* NS_NewCanvasFrame(PresShell* aPresShell, ComputedStyle* aStyle) {
+  return new (aPresShell) nsCanvasFrame(aStyle, aPresShell->GetPresContext());
 }
 
 NS_IMPL_FRAMEARENA_HELPERS(nsCanvasFrame)
@@ -66,7 +65,7 @@ void nsCanvasFrame::ShowCustomContentContainer() {
 void nsCanvasFrame::HideCustomContentContainer() {
   if (mCustomContentContainer) {
     mCustomContentContainer->SetAttr(kNameSpaceID_None, nsGkAtoms::hidden,
-                                     NS_LITERAL_STRING("true"), true);
+                                     u"true"_ns, true);
   }
 }
 
@@ -78,7 +77,7 @@ nsresult nsCanvasFrame::CreateAnonymousContent(
     return NS_OK;
   }
 
-  nsCOMPtr<nsIDocument> doc = mContent->OwnerDoc();
+  nsCOMPtr<Document> doc = mContent->OwnerDoc();
 
   RefPtr<AccessibleCaretEventHub> eventHub =
       PresShell()->GetAccessibleCaretEventHub();
@@ -117,11 +116,10 @@ nsresult nsCanvasFrame::CreateAnonymousContent(
 
   // Do not create an accessible object for the container.
   mCustomContentContainer->SetAttr(kNameSpaceID_None, nsGkAtoms::role,
-                                   NS_LITERAL_STRING("presentation"), false);
+                                   u"presentation"_ns, false);
 
-  mCustomContentContainer->SetAttr(
-      kNameSpaceID_None, nsGkAtoms::_class,
-      NS_LITERAL_STRING("moz-custom-content-container"), false);
+  mCustomContentContainer->SetAttr(kNameSpaceID_None, nsGkAtoms::_class,
+                                   u"moz-custom-content-container"_ns, false);
 
   // Only create a frame for mCustomContentContainer if it has some children.
   if (doc->GetAnonymousContents().IsEmpty()) {
@@ -148,10 +146,9 @@ nsresult nsCanvasFrame::CreateAnonymousContent(
     mCustomContentContainer->AppendChildTo(&anonContent->ContentNode(), false);
   }
 
-  // Create a popupgroup element for chrome privileged top level non-XUL
-  // documents to support context menus and tooltips.
-  if (PresContext()->IsChrome() && PresContext()->IsRoot() &&
-      doc->AllowXULXBL() && !doc->IsXULDocument()) {
+  // Create a popupgroup element for system privileged non-XUL documents to
+  // support context menus and tooltips.
+  if (XRE_IsParentProcess() && doc->NodePrincipal()->IsSystemPrincipal()) {
     nsNodeInfoManager* nodeInfoManager = doc->NodeInfoManager();
     RefPtr<NodeInfo> nodeInfo =
         nodeInfoManager->GetNodeInfo(nsGkAtoms::popupgroup, nullptr,
@@ -160,6 +157,9 @@ nsresult nsCanvasFrame::CreateAnonymousContent(
     nsresult rv = NS_NewXULElement(getter_AddRefs(mPopupgroupContent),
                                    nodeInfo.forget(), dom::NOT_FROM_PARSER);
     NS_ENSURE_SUCCESS(rv, rv);
+
+    mPopupgroupContent->SetProperty(nsGkAtoms::docLevelNativeAnonymousContent,
+                                    reinterpret_cast<void*>(true));
 
     aElements.AppendElement(mPopupgroupContent);
 
@@ -170,16 +170,28 @@ nsresult nsCanvasFrame::CreateAnonymousContent(
                           dom::NOT_FROM_PARSER);
     NS_ENSURE_SUCCESS(rv, rv);
 
-    mTooltipContent->SetAttr(kNameSpaceID_None, nsGkAtoms::_default,
-                             NS_LITERAL_STRING("true"), false);
-    // Set the page attribute so the XBL binding will find the text for the
-    // tooltip from the currently hovered element.
-    mTooltipContent->SetAttr(kNameSpaceID_None, nsGkAtoms::page,
-                             NS_LITERAL_STRING("true"), false);
+    mTooltipContent->SetAttr(kNameSpaceID_None, nsGkAtoms::_default, u"true"_ns,
+                             false);
+    // Set the page attribute so XULTooltipElement::PostHandleEvent will find
+    // the text for the tooltip from the currently hovered element.
+    mTooltipContent->SetAttr(kNameSpaceID_None, nsGkAtoms::page, u"true"_ns,
+                             false);
+
+    mTooltipContent->SetProperty(nsGkAtoms::docLevelNativeAnonymousContent,
+                                 reinterpret_cast<void*>(true));
 
     aElements.AppendElement(mTooltipContent);
   }
 
+#ifdef DEBUG
+  for (auto& element : aElements) {
+    MOZ_ASSERT(element.mContent->GetProperty(
+                   nsGkAtoms::docLevelNativeAnonymousContent),
+               "NAC from the canvas frame needs to be document-level, otherwise"
+               " it (1) inherits from the document which is unexpected, and (2)"
+               " StyleChildrenIterator won't be able to find it properly");
+  }
+#endif
   return NS_OK;
 }
 
@@ -249,7 +261,6 @@ void nsCanvasFrame::SetInitialChildList(ChildListID aListID,
                    aChildList.OnlyChild(),
                "Primary child list can have at most one frame in it");
   nsContainerFrame::SetInitialChildList(aListID, aChildList);
-  MaybePropagateRootElementWritingMode();
 }
 
 void nsCanvasFrame::AppendFrames(ChildListID aListID, nsFrameList& aFrameList) {
@@ -263,19 +274,18 @@ void nsCanvasFrame::AppendFrames(ChildListID aListID, nsFrameList& aFrameList) {
                  "invalid child list");
     }
   }
-  nsFrame::VerifyDirtyBitSet(aFrameList);
+  nsIFrame::VerifyDirtyBitSet(aFrameList);
 #endif
   nsContainerFrame::AppendFrames(aListID, aFrameList);
-  MaybePropagateRootElementWritingMode();
 }
 
 void nsCanvasFrame::InsertFrames(ChildListID aListID, nsIFrame* aPrevFrame,
+                                 const nsLineList::iterator* aPrevFrameLine,
                                  nsFrameList& aFrameList) {
   // Because we only support a single child frame inserting is the same
   // as appending
   MOZ_ASSERT(!aPrevFrame, "unexpected previous sibling frame");
   AppendFrames(aListID, aFrameList);
-  MaybePropagateRootElementWritingMode();
 }
 
 #ifdef DEBUG
@@ -288,7 +298,7 @@ void nsCanvasFrame::RemoveFrame(ChildListID aListID, nsIFrame* aOldFrame) {
 nsRect nsCanvasFrame::CanvasArea() const {
   // Not clear which overflow rect we want here, but it probably doesn't
   // matter.
-  nsRect result(GetVisualOverflowRect());
+  nsRect result(InkOverflowRect());
 
   nsIScrollableFrame* scrollableFrame = do_QueryFrame(GetParent());
   if (scrollableFrame) {
@@ -361,7 +371,7 @@ already_AddRefed<Layer> nsDisplayCanvasBackgroundColor::BuildLayer(
 bool nsDisplayCanvasBackgroundColor::CreateWebRenderCommands(
     mozilla::wr::DisplayListBuilder& aBuilder,
     mozilla::wr::IpcResourceUpdateQueue& aResources,
-    const StackingContextHelper& aSc, WebRenderLayerManager* aManager,
+    const StackingContextHelper& aSc, RenderRootStateManager* aManager,
     nsDisplayListBuilder* aDisplayListBuilder) {
   ContainerLayerParameters parameter;
 
@@ -373,20 +383,18 @@ bool nsDisplayCanvasBackgroundColor::CreateWebRenderCommands(
   LayoutDeviceRect rect =
       LayoutDeviceRect::FromAppUnits(bgClipRect, appUnitsPerDevPixel);
 
-  wr::LayoutRect roundedRect = wr::ToRoundedLayoutRect(rect);
-  aBuilder.PushRect(roundedRect, roundedRect, !BackfaceIsHidden(),
+  wr::LayoutRect r = wr::ToLayoutRect(rect);
+  aBuilder.PushRect(r, r, !BackfaceIsHidden(),
                     wr::ToColorF(ToDeviceColor(mColor)));
   return true;
 }
 
-#ifdef MOZ_DUMP_PAINTING
 void nsDisplayCanvasBackgroundColor::WriteDebugInfo(
     std::stringstream& aStream) {
   aStream << " (rgba " << (int)NS_GET_R(mColor) << "," << (int)NS_GET_G(mColor)
           << "," << (int)NS_GET_B(mColor) << "," << (int)NS_GET_A(mColor)
           << ")";
 }
-#endif
 
 void nsDisplayCanvasBackgroundImage::Paint(nsDisplayListBuilder* aBuilder,
                                            gfxContext* aCtx) {
@@ -440,13 +448,13 @@ void nsDisplayCanvasThemedBackground::Paint(nsDisplayListBuilder* aBuilder,
  *
  * The only reason this can't use nsDisplayGeneric is overriding GetBounds.
  */
-class nsDisplayCanvasFocus : public nsDisplayItem {
+class nsDisplayCanvasFocus : public nsPaintedDisplayItem {
  public:
   nsDisplayCanvasFocus(nsDisplayListBuilder* aBuilder, nsCanvasFrame* aFrame)
-      : nsDisplayItem(aBuilder, aFrame) {
+      : nsPaintedDisplayItem(aBuilder, aFrame) {
     MOZ_COUNT_CTOR(nsDisplayCanvasFocus);
   }
-  virtual ~nsDisplayCanvasFocus() { MOZ_COUNT_DTOR(nsDisplayCanvasFocus); }
+  MOZ_COUNTED_DTOR_OVERRIDE(nsDisplayCanvasFocus)
 
   virtual nsRect GetBounds(nsDisplayListBuilder* aBuilder,
                            bool* aSnap) const override {
@@ -473,7 +481,7 @@ void nsCanvasFrame::BuildDisplayList(nsDisplayListBuilder* aBuilder,
 
   // Force a background to be shown. We may have a background propagated to us,
   // in which case StyleBackground wouldn't have the right background
-  // and the code in nsFrame::DisplayBorderBackgroundOutline might not give us
+  // and the code in nsIFrame::DisplayBorderBackgroundOutline might not give us
   // a background.
   // We don't have any border or outline, and our background draws over
   // the overflow area, so just add nsDisplayCanvasBackground instead of
@@ -489,12 +497,12 @@ void nsCanvasFrame::BuildDisplayList(nsDisplayListBuilder* aBuilder,
         dependentFrame = nullptr;
       }
     }
-    aLists.BorderBackground()->AppendToTop(
-        MakeDisplayItem<nsDisplayCanvasBackgroundColor>(aBuilder, this));
+    aLists.BorderBackground()->AppendNewToTop<nsDisplayCanvasBackgroundColor>(
+        aBuilder, this);
 
     if (isThemed) {
-      aLists.BorderBackground()->AppendToTop(
-          MakeDisplayItem<nsDisplayCanvasThemedBackground>(aBuilder, this));
+      aLists.BorderBackground()
+          ->AppendNewToTop<nsDisplayCanvasThemedBackground>(aBuilder, this);
       return;
     }
 
@@ -507,13 +515,31 @@ void nsCanvasFrame::BuildDisplayList(nsDisplayListBuilder* aBuilder,
     bool needBlendContainer = false;
     nsDisplayListBuilder::AutoContainerASRTracker contASRTracker(aBuilder);
 
+    const bool suppressBackgroundImage = [&] {
+      // Handle print settings.
+      if (!ComputeShouldPaintBackground().mImage) {
+        return true;
+      }
+      // In high-contrast-mode, we suppress background-image on the canvas frame
+      // (even when backplating), because users expect site backgrounds to
+      // conform to their HCM background color when a solid color is rendered,
+      // and some websites use solid-color images instead of an overwritable
+      // background color.
+      if (!PresContext()->PrefSheetPrefs().mUseDocumentColors &&
+          StaticPrefs::
+              browser_display_suppress_canvas_background_image_on_forced_colors()) {
+        return true;
+      }
+      return false;
+    }();
+
     // Create separate items for each background layer.
     const nsStyleImageLayers& layers = bg->StyleBackground()->mImage;
     NS_FOR_VISIBLE_IMAGE_LAYERS_BACK_TO_FRONT(i, layers) {
-      if (layers.mLayers[i].mImage.IsEmpty()) {
+      if (layers.mLayers[i].mImage.IsNone() || suppressBackgroundImage) {
         continue;
       }
-      if (layers.mLayers[i].mBlendMode != NS_STYLE_BLEND_NORMAL) {
+      if (layers.mLayers[i].mBlendMode != StyleBlend::Normal) {
         needBlendContainer = true;
       }
 
@@ -529,7 +555,7 @@ void nsCanvasFrame::BuildDisplayList(nsDisplayListBuilder* aBuilder,
         auto* displayData = aBuilder->GetCurrentFixedBackgroundDisplayData();
         nsDisplayListBuilder::AutoBuildingDisplayList buildingDisplayList(
             aBuilder, this, aBuilder->GetVisibleRect(),
-            aBuilder->GetDirtyRect(), false);
+            aBuilder->GetDirtyRect());
 
         DisplayListClipState::AutoSaveRestore clipState(aBuilder);
         nsDisplayListBuilder::AutoCurrentActiveScrolledRootSetter asrSetter(
@@ -550,26 +576,33 @@ void nsCanvasFrame::BuildDisplayList(nsDisplayListBuilder* aBuilder,
         {
           DisplayListClipState::AutoSaveRestore bgImageClip(aBuilder);
           bgImageClip.Clear();
-          bgItem =
-              MakeDisplayItem<nsDisplayCanvasBackgroundImage>(aBuilder, bgData);
-          bgItem->SetDependentFrame(aBuilder, dependentFrame);
+          bgItem = MakeDisplayItemWithIndex<nsDisplayCanvasBackgroundImage>(
+              aBuilder, this, /* aIndex = */ i, bgData);
+          if (bgItem) {
+            bgItem->SetDependentFrame(aBuilder, dependentFrame);
+          }
         }
-        thisItemList.AppendToTop(
-            nsDisplayFixedPosition::CreateForFixedBackground(aBuilder, this,
-                                                             bgItem, i));
+        if (bgItem) {
+          thisItemList.AppendToTop(
+              nsDisplayFixedPosition::CreateForFixedBackground(
+                  aBuilder, this, nullptr, bgItem, i));
+        }
 
       } else {
         nsDisplayCanvasBackgroundImage* bgItem =
-            MakeDisplayItem<nsDisplayCanvasBackgroundImage>(aBuilder, bgData);
-        bgItem->SetDependentFrame(aBuilder, dependentFrame);
-        thisItemList.AppendToTop(bgItem);
+            MakeDisplayItemWithIndex<nsDisplayCanvasBackgroundImage>(
+                aBuilder, this, /* aIndex = */ i, bgData);
+        if (bgItem) {
+          bgItem->SetDependentFrame(aBuilder, dependentFrame);
+          thisItemList.AppendToTop(bgItem);
+        }
       }
 
-      if (layers.mLayers[i].mBlendMode != NS_STYLE_BLEND_NORMAL) {
+      if (layers.mLayers[i].mBlendMode != StyleBlend::Normal) {
         DisplayListClipState::AutoSaveRestore blendClip(aBuilder);
-        thisItemList.AppendToTop(MakeDisplayItem<nsDisplayBlendMode>(
-            aBuilder, this, &thisItemList, layers.mLayers[i].mBlendMode,
-            thisItemASR, i + 1));
+        thisItemList.AppendNewToTopWithIndex<nsDisplayBlendMode>(
+            aBuilder, this, i + 1, &thisItemList, layers.mLayers[i].mBlendMode,
+            thisItemASR, true);
       }
       aLists.BorderBackground()->AppendToTop(&thisItemList);
     }
@@ -579,7 +612,8 @@ void nsCanvasFrame::BuildDisplayList(nsDisplayListBuilder* aBuilder,
       DisplayListClipState::AutoSaveRestore blendContainerClip(aBuilder);
       aLists.BorderBackground()->AppendToTop(
           nsDisplayBlendContainer::CreateForBackgroundBlendMode(
-              aBuilder, this, aLists.BorderBackground(), containerASR));
+              aBuilder, this, nullptr, aLists.BorderBackground(),
+              containerASR));
     }
   }
 
@@ -612,8 +646,7 @@ void nsCanvasFrame::BuildDisplayList(nsDisplayListBuilder* aBuilder,
   // Only paint the focus if we're visible
   if (!StyleVisibility()->IsVisible()) return;
 
-  aLists.Outlines()->AppendToTop(
-      MakeDisplayItem<nsDisplayCanvasFocus>(aBuilder, this));
+  aLists.Outlines()->AppendNewToTop<nsDisplayCanvasFocus>(aBuilder, this);
 }
 
 void nsCanvasFrame::PaintFocus(DrawTarget* aDrawTarget, nsPoint aPt) {
@@ -630,18 +663,13 @@ void nsCanvasFrame::PaintFocus(DrawTarget* aDrawTarget, nsPoint aPt) {
   // XXX use the root frame foreground color, but should we find BODY frame
   // for HTML documents?
   nsIFrame* root = mFrames.FirstChild();
-  const nsStyleColor* color = root ? root->StyleColor() : StyleColor();
-  if (!color) {
-    NS_ERROR("current color cannot be found");
-    return;
-  }
-
+  const auto* text = root ? root->StyleText() : StyleText();
   nsCSSRendering::PaintFocus(PresContext(), aDrawTarget, focusRect,
-                             color->mColor);
+                             text->mColor.ToColor());
 }
 
-/* virtual */ nscoord nsCanvasFrame::GetMinISize(
-    gfxContext* aRenderingContext) {
+/* virtual */
+nscoord nsCanvasFrame::GetMinISize(gfxContext* aRenderingContext) {
   nscoord result;
   DISPLAY_MIN_INLINE_SIZE(this, result);
   if (mFrames.IsEmpty())
@@ -651,8 +679,8 @@ void nsCanvasFrame::PaintFocus(DrawTarget* aDrawTarget, nsPoint aPt) {
   return result;
 }
 
-/* virtual */ nscoord nsCanvasFrame::GetPrefISize(
-    gfxContext* aRenderingContext) {
+/* virtual */
+nscoord nsCanvasFrame::GetPrefISize(gfxContext* aRenderingContext) {
   nscoord result;
   DISPLAY_PREF_INLINE_SIZE(this, result);
   if (mFrames.IsEmpty())
@@ -705,14 +733,14 @@ void nsCanvasFrame::Reflow(nsPresContext* aPresContext,
     aDesiredSize.Width() = aDesiredSize.Height() = 0;
   } else if (mFrames.FirstChild() != mPopupSetFrame) {
     nsIFrame* kidFrame = mFrames.FirstChild();
-    bool kidDirty = (kidFrame->GetStateBits() & NS_FRAME_IS_DIRTY) != 0;
+    bool kidDirty = kidFrame->HasAnyStateBits(NS_FRAME_IS_DIRTY);
 
     ReflowInput kidReflowInput(
         aPresContext, aReflowInput, kidFrame,
         aReflowInput.AvailableSize(kidFrame->GetWritingMode()));
 
     if (aReflowInput.IsBResizeForWM(kidReflowInput.GetWritingMode()) &&
-        (kidFrame->GetStateBits() & NS_FRAME_CONTAINS_RELATIVE_BSIZE)) {
+        kidFrame->HasAnyStateBits(NS_FRAME_CONTAINS_RELATIVE_BSIZE)) {
       // Tell our kid it's being block-dir resized too.  Bit of a
       // hack for framesets.
       kidReflowInput.SetBResize(true);
@@ -722,18 +750,17 @@ void nsCanvasFrame::Reflow(nsPresContext* aPresContext,
     WritingMode kidWM = kidReflowInput.GetWritingMode();
     nsSize containerSize = aReflowInput.ComputedPhysicalSize();
 
-    LogicalMargin margin = kidReflowInput.ComputedLogicalMargin();
+    LogicalMargin margin = kidReflowInput.ComputedLogicalMargin(kidWM);
     LogicalPoint kidPt(kidWM, margin.IStart(kidWM), margin.BStart(kidWM));
-
-    kidReflowInput.ApplyRelativePositioning(&kidPt, containerSize);
 
     // Reflow the frame
     ReflowChild(kidFrame, aPresContext, kidDesiredSize, kidReflowInput, kidWM,
-                kidPt, containerSize, 0, aStatus);
+                kidPt, containerSize, ReflowChildFlags::Default, aStatus);
 
     // Complete the reflow and position and size the child frame
     FinishReflowChild(kidFrame, aPresContext, kidDesiredSize, &kidReflowInput,
-                      kidWM, kidPt, containerSize, 0);
+                      kidWM, kidPt, containerSize,
+                      ReflowChildFlags::ApplyRelativePositioning);
 
     if (!aStatus.IsFullyComplete()) {
       nsIFrame* nextFrame = kidFrame->GetNextInFlow();
@@ -743,7 +770,7 @@ void nsCanvasFrame::Reflow(nsPresContext* aPresContext,
       if (!nextFrame) {
         nextFrame = aPresContext->PresShell()
                         ->FrameConstructor()
-                        ->CreateContinuingFrame(aPresContext, kidFrame, this);
+                        ->CreateContinuingFrame(kidFrame, this);
         SetOverflowFrames(nsFrameList(nextFrame, nextFrame));
         // Root overflow containers will be normal children of
         // the canvas frame, but that's ok because there
@@ -778,7 +805,7 @@ void nsCanvasFrame::Reflow(nsPresContext* aPresContext,
     if (aReflowInput.ComputedBSize() == NS_UNCONSTRAINEDSIZE) {
       finalSize.BSize(wm) =
           kidFrame->GetLogicalSize(wm).BSize(wm) +
-          kidReflowInput.ComputedLogicalMargin().BStartEnd(wm);
+          kidReflowInput.ComputedLogicalMargin(wm).BStartEnd(wm);
     } else {
       finalSize.BSize(wm) = aReflowInput.ComputedBSize();
     }
@@ -791,7 +818,8 @@ void nsCanvasFrame::Reflow(nsPresContext* aPresContext,
 
   if (prevCanvasFrame) {
     ReflowOverflowContainerChildren(aPresContext, aReflowInput,
-                                    aDesiredSize.mOverflowAreas, 0, aStatus);
+                                    aDesiredSize.mOverflowAreas,
+                                    ReflowChildFlags::Default, aStatus);
   }
 
   if (mPopupSetFrame) {
@@ -805,9 +833,10 @@ void nsCanvasFrame::Reflow(nsPresContext* aPresContext,
     ReflowInput popupReflowInput(aPresContext, aReflowInput, mPopupSetFrame,
                                  availSize);
     ReflowChild(mPopupSetFrame, aPresContext, popupDesiredSize,
-                popupReflowInput, 0, 0, NS_FRAME_NO_MOVE_FRAME, popupStatus);
+                popupReflowInput, 0, 0, ReflowChildFlags::NoMoveFrame,
+                popupStatus);
     FinishReflowChild(mPopupSetFrame, aPresContext, popupDesiredSize,
-                      &popupReflowInput, 0, 0, NS_FRAME_NO_MOVE_FRAME);
+                      &popupReflowInput, 0, 0, ReflowChildFlags::NoMoveFrame);
   }
 
   FinishReflowWithAbsoluteFrames(aPresContext, aDesiredSize, aReflowInput,
@@ -820,7 +849,7 @@ void nsCanvasFrame::Reflow(nsPresContext* aPresContext,
 nsresult nsCanvasFrame::GetContentForEvent(WidgetEvent* aEvent,
                                            nsIContent** aContent) {
   NS_ENSURE_ARG_POINTER(aContent);
-  nsresult rv = nsFrame::GetContentForEvent(aEvent, aContent);
+  nsresult rv = nsIFrame::GetContentForEvent(aEvent, aContent);
   if (NS_FAILED(rv) || !*aContent) {
     nsIFrame* kid = mFrames.FirstChild();
     if (kid) {
@@ -831,17 +860,8 @@ nsresult nsCanvasFrame::GetContentForEvent(WidgetEvent* aEvent,
   return rv;
 }
 
-void nsCanvasFrame::MaybePropagateRootElementWritingMode() {
-  nsIFrame* child = PrincipalChildList().FirstChild();
-  if (child && child->GetContent() &&
-      child->GetContent() == PresContext()->Document()->GetRootElement()) {
-    nsIFrame* childPrimary = child->GetContent()->GetPrimaryFrame();
-    PropagateRootElementWritingMode(childPrimary->GetWritingMode());
-  }
-}
-
 #ifdef DEBUG_FRAME_DUMP
 nsresult nsCanvasFrame::GetFrameName(nsAString& aResult) const {
-  return MakeFrameName(NS_LITERAL_STRING("Canvas"), aResult);
+  return MakeFrameName(u"Canvas"_ns, aResult);
 }
 #endif

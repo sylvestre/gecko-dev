@@ -18,12 +18,10 @@
 
 "use strict";
 
-var EXPORTED_SYMBOLS = [
-  "TestUtils",
-];
+var EXPORTED_SYMBOLS = ["TestUtils"];
 
-ChromeUtils.import("resource://gre/modules/Services.jsm");
-ChromeUtils.import("resource://gre/modules/Timer.jsm");
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { setTimeout } = ChromeUtils.import("resource://gre/modules/Timer.jsm");
 
 var TestUtils = {
   executeSoon(callbackFn) {
@@ -70,6 +68,57 @@ var TestUtils = {
   },
 
   /**
+   * Waits for the specified preference to be change.
+   *
+   * @param {string} prefName
+   *        The pref to observe.
+   * @param {function} checkFn [optional]
+   *        Called with the new preference value as argument, should return true if the
+   *        notification is the expected one, or false if it should be ignored
+   *        and listening should continue. If not specified, the first
+   *        notification for the specified topic resolves the returned promise.
+   *
+   * @note Because this function is intended for testing, any error in checkFn
+   *       will cause the returned promise to be rejected instead of waiting for
+   *       the next notification, since this is probably a bug in the test.
+   *
+   * @return {Promise}
+   * @resolves The value of the preference.
+   */
+  waitForPrefChange(prefName, checkFn) {
+    return new Promise((resolve, reject) => {
+      Services.prefs.addObserver(prefName, function observer(
+        subject,
+        topic,
+        data
+      ) {
+        try {
+          let prefValue = null;
+          switch (Services.prefs.getPrefType(prefName)) {
+            case Services.prefs.PREF_STRING:
+              prefValue = Services.prefs.getStringPref(prefName);
+              break;
+            case Services.prefs.PREF_INT:
+              prefValue = Services.prefs.getIntPref(prefName);
+              break;
+            case Services.prefs.PREF_BOOL:
+              prefValue = Services.prefs.getBoolPref(prefName);
+              break;
+          }
+          if (checkFn && !checkFn(prefValue)) {
+            return;
+          }
+          Services.prefs.removeObserver(prefName, observer);
+          resolve(prefValue);
+        } catch (ex) {
+          Services.prefs.removeObserver(prefName, observer);
+          reject(ex);
+        }
+      });
+    });
+  },
+
+  /**
    * Takes a screenshot of an area and returns it as a data URL.
    *
    * @param eltOrRect
@@ -82,7 +131,10 @@ var TestUtils = {
       eltOrRect = eltOrRect.getBoundingClientRect();
     }
     let { left, top, width, height } = eltOrRect;
-    let canvas = win.document.createElementNS("http://www.w3.org/1999/xhtml", "canvas");
+    let canvas = win.document.createElementNS(
+      "http://www.w3.org/1999/xhtml",
+      "canvas"
+    );
     let ctx = canvas.getContext("2d");
     let ratio = win.devicePixelRatio;
     canvas.width = width * ratio;
@@ -92,13 +144,13 @@ var TestUtils = {
     return canvas.toDataURL();
   },
 
-    /**
+  /**
    * Will poll a condition function until it returns true.
    *
    * @param condition
    *        A condition function that must return true or false. If the
    *        condition ever throws, this is also treated as a false. The
-   *        function can be a generator.
+   *        function can be an async function.
    * @param interval
    *        The time interval to poll the condition function. Defaults
    *        to 100ms.
@@ -109,13 +161,15 @@ var TestUtils = {
    * @return Promise
    *        Resolves with the return value of the condition function.
    *        Rejects if timeout is exceeded or condition ever throws.
+   *
+   * NOTE: This is intentionally not using setInterval, using setTimeout
+   * instead. setInterval is not promise-safe.
    */
   waitForCondition(condition, msg, interval = 100, maxTries = 50) {
     return new Promise((resolve, reject) => {
       let tries = 0;
-      let intervalID = setInterval(async function() {
+      async function tryOnce() {
         if (tries >= maxTries) {
-          clearInterval(intervalID);
           msg += ` - timed out after ${maxTries} tries.`;
           reject(msg);
           return;
@@ -126,17 +180,20 @@ var TestUtils = {
           conditionPassed = await condition();
         } catch (e) {
           msg += ` - threw exception: ${e}`;
-          clearInterval(intervalID);
           reject(msg);
           return;
         }
 
         if (conditionPassed) {
-          clearInterval(intervalID);
           resolve(conditionPassed);
+          return;
         }
         tries++;
-      }, interval);
+        setTimeout(tryOnce, interval);
+      }
+
+      // FIXME(bug 1596165): This could be a direct call, ideally.
+      setTimeout(tryOnce, interval);
     });
   },
 

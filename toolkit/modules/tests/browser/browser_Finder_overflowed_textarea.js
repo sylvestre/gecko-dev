@@ -3,7 +3,6 @@
 "use strict";
 
 add_task(async function test_offscreen_text() {
-
   // Generate URI of a big DOM that contains the target text
   // within a textarea at several line positions (to force
   // some targets to be overflowed).
@@ -24,7 +23,11 @@ add_task(async function test_offscreen_text() {
   }
   URI += "</textarea></body>";
 
-  await BrowserTestUtils.withNewTab({ gBrowser, url: "data:text/html;charset=utf-8," + encodeURIComponent(URI) },
+  await BrowserTestUtils.withNewTab(
+    {
+      gBrowser,
+      url: "data:text/html;charset=utf-8," + encodeURIComponent(URI),
+    },
     async function(browser) {
       let finder = browser.finder;
       let listener = {
@@ -46,18 +49,27 @@ add_task(async function test_offscreen_text() {
         if (t == 0) {
           finder.fastFind(TARGET_TEXT, false, false);
         } else {
-          finder.findAgain(false, false, false);
+          finder.findAgain(TARGET_TEXT, false, false, false);
         }
         let findResult = await promiseFind;
-        is(findResult.result, Ci.nsITypeAheadFind.FIND_FOUND, "Found target " + t);
+        is(
+          findResult.result,
+          Ci.nsITypeAheadFind.FIND_FOUND,
+          "Found target " + t
+        );
       }
 
       // Find one more time and make sure we wrap.
       let promiseFind = waitForFind();
-      finder.findAgain(false, false, false);
+      finder.findAgain(TARGET_TEXT, false, false, false);
       let findResult = await promiseFind;
-      is(findResult.result, Ci.nsITypeAheadFind.FIND_WRAPPED, "Wrapped to first target");
+      is(
+        findResult.result,
+        Ci.nsITypeAheadFind.FIND_WRAPPED,
+        "Wrapped to first target"
+      );
 
       finder.removeResultListener(listener);
-    });
+    }
+  );
 });

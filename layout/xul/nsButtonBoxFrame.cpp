@@ -10,7 +10,6 @@
 #include "nsGkAtoms.h"
 #include "nsNameSpaceManager.h"
 #include "nsPresContext.h"
-#include "nsIPresShell.h"
 #include "nsDisplayList.h"
 #include "nsContentUtils.h"
 #include "mozilla/dom/Element.h"
@@ -19,6 +18,7 @@
 #include "mozilla/EventStateManager.h"
 #include "mozilla/EventStates.h"
 #include "mozilla/MouseEvents.h"
+#include "mozilla/PresShell.h"
 #include "mozilla/TextEvents.h"
 
 using namespace mozilla;
@@ -49,19 +49,18 @@ nsresult nsButtonBoxFrame::nsButtonBoxListener::HandleEvent(
 //
 // Creates a new Button frame and returns it
 //
-nsIFrame* NS_NewButtonBoxFrame(nsIPresShell* aPresShell,
-                               ComputedStyle* aStyle) {
-  return new (aPresShell) nsButtonBoxFrame(aStyle);
+nsIFrame* NS_NewButtonBoxFrame(PresShell* aPresShell, ComputedStyle* aStyle) {
+  return new (aPresShell)
+      nsButtonBoxFrame(aStyle, aPresShell->GetPresContext());
 }
 
 NS_IMPL_FRAMEARENA_HELPERS(nsButtonBoxFrame)
 
-nsButtonBoxFrame::nsButtonBoxFrame(ComputedStyle* aStyle, ClassID aID)
-    : nsBoxFrame(aStyle, aID, false),
+nsButtonBoxFrame::nsButtonBoxFrame(ComputedStyle* aStyle,
+                                   nsPresContext* aPresContext, ClassID aID)
+    : nsBoxFrame(aStyle, aPresContext, aID, false),
       mButtonBoxListener(nullptr),
-      mIsHandlingKeyEvent(false) {
-  UpdateMouseThrough();
-}
+      mIsHandlingKeyEvent(false) {}
 
 void nsButtonBoxFrame::Init(nsIContent* aContent, nsContainerFrame* aParent,
                             nsIFrame* aPrevInFlow) {
@@ -69,14 +68,12 @@ void nsButtonBoxFrame::Init(nsIContent* aContent, nsContainerFrame* aParent,
 
   mButtonBoxListener = new nsButtonBoxListener(this);
 
-  mContent->AddSystemEventListener(NS_LITERAL_STRING("blur"),
-                                   mButtonBoxListener, false);
+  mContent->AddSystemEventListener(u"blur"_ns, mButtonBoxListener, false);
 }
 
 void nsButtonBoxFrame::DestroyFrom(nsIFrame* aDestructRoot,
                                    PostDestroyData& aPostDestroyData) {
-  mContent->RemoveSystemEventListener(NS_LITERAL_STRING("blur"),
-                                      mButtonBoxListener, false);
+  mContent->RemoveSystemEventListener(u"blur"_ns, mButtonBoxListener, false);
 
   mButtonBoxListener->mButtonBoxFrame = nullptr;
   mButtonBoxListener = nullptr;
@@ -158,7 +155,15 @@ nsresult nsButtonBoxFrame::HandleEvent(nsPresContext* aPresContext,
 
     case eMouseClick: {
       WidgetMouseEvent* mouseEvent = aEvent->AsMouseEvent();
-      if (mouseEvent->IsLeftClickEvent()) {
+
+      if (mouseEvent->IsLeftClickEvent()
+#ifdef XP_MACOSX
+          // On Mac, ctrl-click will send a context menu event from the widget,
+          // so we don't want to dispatch widget command if it is redispatched
+          // from the mouse event with ctrl key is pressed.
+          && !mouseEvent->IsControl()
+#endif
+      ) {
         MouseClicked(mouseEvent);
       }
       break;
@@ -192,15 +197,18 @@ void nsButtonBoxFrame::MouseClicked(WidgetGUIEvent* aEvent) {
 
   // Have the content handle the event, propagating it according to normal DOM
   // rules.
-  nsCOMPtr<nsIPresShell> shell = PresContext()->GetPresShell();
-  if (!shell) return;
+  RefPtr<mozilla::PresShell> presShell = PresContext()->GetPresShell();
+  if (!presShell) {
+    return;
+  }
 
   // Execute the oncommand event handler.
+  nsCOMPtr<nsIContent> content = mContent;
   WidgetInputEvent* inputEvent = aEvent->AsInputEvent();
   WidgetMouseEventBase* mouseEvent = aEvent->AsMouseEventBase();
   nsContentUtils::DispatchXULCommand(
-      mContent, aEvent->IsTrusted(), nullptr, shell, inputEvent->IsControl(),
+      content, aEvent->IsTrusted(), nullptr, presShell, inputEvent->IsControl(),
       inputEvent->IsAlt(), inputEvent->IsShift(), inputEvent->IsMeta(),
-      mouseEvent ? mouseEvent->inputSource
+      mouseEvent ? mouseEvent->mInputSource
                  : MouseEvent_Binding::MOZ_SOURCE_UNKNOWN);
 }

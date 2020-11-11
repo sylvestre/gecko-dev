@@ -21,51 +21,31 @@ StyleInfo::StyleInfo(dom::Element* aElement) : mElement(aElement) {
 
 void StyleInfo::Display(nsAString& aValue) {
   aValue.Truncate();
-  AppendASCIItoUTF16(
-      nsCSSProps::ValueToKeyword(mComputedStyle->StyleDisplay()->mDisplay,
-                                 nsCSSProps::kDisplayKTable),
-      aValue);
+  mComputedStyle->GetComputedPropertyValue(eCSSProperty_display, aValue);
 }
 
 void StyleInfo::TextAlign(nsAString& aValue) {
   aValue.Truncate();
-  AppendASCIItoUTF16(
-      nsCSSProps::ValueToKeyword(mComputedStyle->StyleText()->mTextAlign,
-                                 nsCSSProps::kTextAlignKTable),
-      aValue);
+  mComputedStyle->GetComputedPropertyValue(eCSSProperty_text_align, aValue);
 }
 
 void StyleInfo::TextIndent(nsAString& aValue) {
   aValue.Truncate();
 
-  const nsStyleCoord& styleCoord = mComputedStyle->StyleText()->mTextIndent;
-
-  nscoord coordVal = 0;
-  switch (styleCoord.GetUnit()) {
-    case eStyleUnit_Coord:
-      coordVal = styleCoord.GetCoordValue();
-      aValue.AppendFloat(nsPresContext::AppUnitsToFloatCSSPixels(coordVal));
-      aValue.AppendLiteral("px");
-      break;
-
-    case eStyleUnit_Percent:
-      aValue.AppendFloat(styleCoord.GetPercentValue() * 100);
-      aValue.AppendLiteral("%");
-      break;
-
-    case eStyleUnit_Null:
-    case eStyleUnit_Normal:
-    case eStyleUnit_Auto:
-    case eStyleUnit_None:
-    case eStyleUnit_Factor:
-    case eStyleUnit_Degree:
-    case eStyleUnit_FlexFraction:
-    case eStyleUnit_Integer:
-    case eStyleUnit_Enumerated:
-    case eStyleUnit_Calc:
-      aValue.AppendLiteral("0px");
-      break;
+  const auto& textIndent = mComputedStyle->StyleText()->mTextIndent;
+  if (textIndent.ConvertsToLength()) {
+    aValue.AppendFloat(textIndent.ToLengthInCSSPixels());
+    aValue.AppendLiteral("px");
+    return;
   }
+  if (textIndent.ConvertsToPercentage()) {
+    aValue.AppendFloat(textIndent.ToPercentage() * 100);
+    aValue.AppendLiteral("%");
+    return;
+  }
+  // FIXME: This doesn't handle calc in any meaningful way? Probably should just
+  // use the Servo serialization code...
+  aValue.AppendLiteral("0px");
 }
 
 void StyleInfo::Margin(Side aSide, nsAString& aValue) {
@@ -73,8 +53,18 @@ void StyleInfo::Margin(Side aSide, nsAString& aValue) {
              " mElement->GetPrimaryFrame() needs to be valid pointer");
   aValue.Truncate();
 
-  nscoord coordVal = mElement->GetPrimaryFrame()->GetUsedMargin().Side(aSide);
-  aValue.AppendFloat(nsPresContext::AppUnitsToFloatCSSPixels(coordVal));
+  nsIFrame* frame = mElement->GetPrimaryFrame();
+
+  // This is here only to guarantee that we do the same as getComputedStyle
+  // does, so that we don't hit precision errors in tests.
+  auto& margin = frame->StyleMargin()->mMargin.Get(aSide);
+  if (margin.ConvertsToLength()) {
+    aValue.AppendFloat(margin.AsLengthPercentage().ToLengthInCSSPixels());
+  } else {
+    nscoord coordVal = frame->GetUsedMargin().Side(aSide);
+    aValue.AppendFloat(CSSPixel::FromAppUnits(coordVal));
+  }
+
   aValue.AppendLiteral("px");
 }
 
@@ -91,7 +81,23 @@ void StyleInfo::FormatColor(const nscolor& aValue, nsString& aFormattedValue) {
 
 void StyleInfo::FormatTextDecorationStyle(uint8_t aValue,
                                           nsAString& aFormattedValue) {
-  nsCSSKeyword keyword = nsCSSProps::ValueToKeywordEnum(
-      aValue, nsCSSProps::kTextDecorationStyleKTable);
-  AppendUTF8toUTF16(nsCSSKeywords::GetStringValue(keyword), aFormattedValue);
+  // TODO: When these are enum classes that rust also understands we should just
+  // make an FFI call here.
+  switch (aValue) {
+    case NS_STYLE_TEXT_DECORATION_STYLE_NONE:
+      return aFormattedValue.AssignASCII("-moz-none");
+    case NS_STYLE_TEXT_DECORATION_STYLE_SOLID:
+      return aFormattedValue.AssignASCII("solid");
+    case NS_STYLE_TEXT_DECORATION_STYLE_DOUBLE:
+      return aFormattedValue.AssignASCII("double");
+    case NS_STYLE_TEXT_DECORATION_STYLE_DOTTED:
+      return aFormattedValue.AssignASCII("dotted");
+    case NS_STYLE_TEXT_DECORATION_STYLE_DASHED:
+      return aFormattedValue.AssignASCII("dashed");
+    case NS_STYLE_TEXT_DECORATION_STYLE_WAVY:
+      return aFormattedValue.AssignASCII("wavy");
+    default:
+      MOZ_ASSERT_UNREACHABLE("Unknown decoration style");
+      break;
+  }
 }

@@ -1,13 +1,16 @@
 "use strict";
 
-PromiseTestUtils.whitelistRejectionsGlobally(/Message manager disconnected/);
-
-const server = createHttpServer({hosts: ["example.com"]});
+const server = createHttpServer({ hosts: ["example.com"] });
 server.registerDirectory("/data/", do_get_file("data"));
 
 AddonTestUtils.init(this);
 AddonTestUtils.overrideCertDB();
-AddonTestUtils.createAppInfo("xpcshell@tests.mozilla.org", "XPCShell", "1", "43");
+AddonTestUtils.createAppInfo(
+  "xpcshell@tests.mozilla.org",
+  "XPCShell",
+  "1",
+  "43"
+);
 
 let {
   promiseRestartManager,
@@ -15,7 +18,10 @@ let {
   promiseStartupManager,
 } = AddonTestUtils;
 
-Services.prefs.setBoolPref("extensions.webextensions.background-delayed-startup", true);
+Services.prefs.setBoolPref(
+  "extensions.webextensions.background-delayed-startup",
+  true
+);
 
 const PAGE_HTML = `<!DOCTYPE html><meta charset="utf-8"><script src="script.js"></script>`;
 
@@ -60,7 +66,9 @@ async function test(what, background, script) {
   await extension.awaitStartup();
 
   function awaitBgEvent() {
-    return new Promise(resolve => extension.extension.once("background-page-event", resolve));
+    return new Promise(resolve =>
+      extension.extension.once("background-page-event", resolve)
+    );
   }
 
   let events = trackEvents(extension);
@@ -69,13 +77,19 @@ async function test(what, background, script) {
 
   let [, page] = await Promise.all([
     awaitBgEvent(),
-    ExtensionTestUtils.loadContentPage(url, {extension}),
+    ExtensionTestUtils.loadContentPage(url, { extension }),
   ]);
 
-  equal(events.get("background-page-event"), true,
-        "Should have gotten a background page event");
-  equal(events.get("start-background-page"), false,
-        "Background page should not be started");
+  equal(
+    events.get("background-page-event"),
+    true,
+    "Should have gotten a background page event"
+  );
+  equal(
+    events.get("start-background-page"),
+    false,
+    "Background page should not be started"
+  );
 
   equal(extension.messageQueue.size, 0, "Have not yet received bg-ran message");
 
@@ -83,8 +97,11 @@ async function test(what, background, script) {
   Services.obs.notifyObservers(null, "browser-delayed-startup-finished");
   await promise;
 
-  equal(events.get("start-background-page"), true,
-        "Should have gotten start-background-page event");
+  equal(
+    events.get("start-background-page"),
+    true,
+    "Should have gotten start-background-page event"
+  );
 
   await extension.awaitFinish("messaging-test");
   ok(true, "Background page loaded and received message from extension page");
@@ -100,13 +117,21 @@ async function test(what, background, script) {
 
   [, page] = await Promise.all([
     awaitBgEvent(),
-    ExtensionTestUtils.loadContentPage("http://example.com/data/file_sample.html"),
+    ExtensionTestUtils.loadContentPage(
+      "http://example.com/data/file_sample.html"
+    ),
   ]);
 
-  equal(events.get("background-page-event"), true,
-        "Should have gotten a background page event");
-  equal(events.get("start-background-page"), false,
-        "Background page should not be started");
+  equal(
+    events.get("background-page-event"),
+    true,
+    "Should have gotten a background page event"
+  );
+  equal(
+    events.get("start-background-page"),
+    false,
+    "Background page should not be started"
+  );
 
   equal(extension.messageQueue.size, 0, "Have not yet received bg-ran message");
 
@@ -114,8 +139,11 @@ async function test(what, background, script) {
   Services.obs.notifyObservers(null, "browser-delayed-startup-finished");
   await promise;
 
-  equal(events.get("start-background-page"), true,
-        "Should have gotten start-background-page event");
+  equal(
+    events.get("start-background-page"),
+    true,
+    "Should have gotten start-background-page event"
+  );
 
   await extension.awaitFinish("messaging-test");
   ok(true, "Background page loaded and received message from content script");
@@ -130,14 +158,22 @@ async function test(what, background, script) {
 add_task(function test_onMessage() {
   function script() {
     browser.runtime.sendMessage("ping").then(reply => {
-      browser.test.assertEq(reply, "pong", "Extension page received pong reply");
+      browser.test.assertEq(
+        reply,
+        "pong",
+        "Extension page received pong reply"
+      );
       browser.test.notifyPass("messaging-test");
     });
   }
 
   async function background() {
     browser.runtime.onMessage.addListener((msg, sender) => {
-      browser.test.assertEq(msg, "ping", "Background page received ping message");
+      browser.test.assertEq(
+        msg,
+        "ping",
+        "Background page received ping message"
+      );
       return Promise.resolve("pong");
     });
 
@@ -163,7 +199,11 @@ add_task(function test_onConnect() {
   async function background() {
     browser.runtime.onConnect.addListener(port => {
       port.onMessage.addListener(msg => {
-        browser.test.assertEq(msg, "ping", "Background page received ping message");
+        browser.test.assertEq(
+          msg,
+          "ping",
+          "Background page received ping message"
+        );
         port.postMessage("pong");
       });
     });
@@ -218,7 +258,7 @@ add_task(async function test_other_startup() {
   // Now that the background page is fully started, load a new page that
   // sends a message to the background page.
   let url = extension.extension.baseURI.resolve("page.html");
-  let page = await ExtensionTestUtils.loadContentPage(url, {extension});
+  let page = await ExtensionTestUtils.loadContentPage(url, { extension });
 
   await extension.awaitFinish("startup");
 

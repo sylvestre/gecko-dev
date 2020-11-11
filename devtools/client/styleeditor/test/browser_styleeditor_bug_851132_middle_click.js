@@ -2,7 +2,7 @@
    http://creativecommons.org/publicdomain/zero/1.0/ */
 "use strict";
 
-// Test that middle click on style sheet doesn't open index.xul in a new
+// Test that middle click on style sheet doesn't open index.xhtml in a new
 // tab (bug 851132).
 
 const TESTCASE_URI = TEST_BASE_HTTP + "four.html";
@@ -20,8 +20,10 @@ add_task(async function() {
   info("Waiting for the second editor to be selected.");
   const editor = await ui.once("editor-selected");
 
-  ok(editor.sourceEditor.hasFocus(),
-     "Left mouse click gave second editor focus.");
+  ok(
+    editor.sourceEditor.hasFocus(),
+    "Left mouse click gave second editor focus."
+  );
 
   // middle mouse click should not open a new tab
   info("Middle clicking on the third editor link.");

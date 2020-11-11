@@ -9,6 +9,7 @@
 #include "nsICSSDeclaration.h"
 
 #include "nsINode.h"
+#include "mozilla/css/Rule.h"
 
 using mozilla::dom::DocGroup;
 
@@ -19,4 +20,9 @@ DocGroup* nsICSSDeclaration::GetDocGroup() {
   }
 
   return parentNode->GetDocGroup();
+}
+
+bool nsICSSDeclaration::IsReadOnly() {
+  mozilla::css::Rule* rule = GetParentRule();
+  return rule && rule->IsReadOnly();
 }

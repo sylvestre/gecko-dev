@@ -10,6 +10,7 @@
  * liability, trademark and document use rules apply.
  */
 
+[Exposed=Window]
 interface SVGPoint {
 
   [SetterThrows]
@@ -17,7 +18,7 @@ interface SVGPoint {
   [SetterThrows]
   attribute float y;
 
-  [NewObject]
-  SVGPoint matrixTransform(SVGMatrix matrix);
+  [NewObject, Throws]
+  SVGPoint matrixTransform(optional DOMMatrix2DInit matrix = {});
 };
 

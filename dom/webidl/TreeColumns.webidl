@@ -2,12 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-[Func="IsChromeOrXBL"]
+[ChromeOnly,
+ Exposed=Window]
 interface TreeColumns {
   /**
    * The tree widget for these columns.
    */
-  readonly attribute TreeBoxObject? tree;
+  readonly attribute XULTreeElement? tree;
 
   /**
    * The number of columns.
@@ -49,6 +50,4 @@ interface TreeColumns {
    * the column cache needs to be rebuilt.
    */
   void invalidateColumns();
-
-  void restoreNaturalOrder();
 };

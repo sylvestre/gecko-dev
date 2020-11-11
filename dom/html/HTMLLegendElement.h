@@ -23,16 +23,16 @@ class HTMLLegendElement final : public nsGenericHTMLElement {
   NS_IMPL_FROMNODE_HTML_WITH_TAG(HTMLLegendElement, legend)
 
   using nsGenericHTMLElement::Focus;
-  virtual void Focus(ErrorResult& aError) override;
+  virtual void Focus(const FocusOptions& aOptions,
+                     const mozilla::dom::CallerType aCallerType,
+                     ErrorResult& aError) override;
 
   virtual bool PerformAccesskey(bool aKeyCausesActivation,
                                 bool aIsTrustedEvent) override;
 
   // nsIContent
-  virtual nsresult BindToTree(nsIDocument* aDocument, nsIContent* aParent,
-                              nsIContent* aBindingParent) override;
-  virtual void UnbindFromTree(bool aDeep = true,
-                              bool aNullParent = true) override;
+  virtual nsresult BindToTree(BindContext&, nsINode& aParent) override;
+  virtual void UnbindFromTree(bool aNullParent = true) override;
   virtual bool ParseAttribute(int32_t aNamespaceID, nsAtom* aAttribute,
                               const nsAString& aValue,
                               nsIPrincipal* aMaybeScriptedPrincipal,
@@ -42,12 +42,21 @@ class HTMLLegendElement final : public nsGenericHTMLElement {
 
   virtual nsresult Clone(dom::NodeInfo*, nsINode** aResult) const override;
 
-  Element* GetFormElement() const {
+  HTMLFormElement* GetFormElement() const {
     nsCOMPtr<nsIFormControl> fieldsetControl = do_QueryInterface(GetFieldSet());
 
     return fieldsetControl ? fieldsetControl->GetFormElement() : nullptr;
   }
 
+  enum class LegendAlignValue : uint8_t {
+    Left,
+    Right,
+    Center,
+    Bottom,
+    Top,
+    InlineStart,
+    InlineEnd,
+  };
   /**
    * WebIDL Interface
    */

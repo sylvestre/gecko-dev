@@ -5,8 +5,7 @@
   <link rel="stylesheet" type="text/css"
         href="chrome://mochikit/content/tests/SimpleTest/test.css" />
 
-  <script type="application/javascript"
-          src="chrome://mochikit/content/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="chrome://mochikit/content/tests/SimpleTest/SimpleTest.js"></script>
 
   <script type="application/javascript"
           src="../common.js"></script>
@@ -25,6 +24,8 @@
                         hyperText.textContent.length / 2);
 
       zoomDocument(document, 2.0);
+
+      document.body.offsetTop; // getBounds doesn't flush layout on its own, looks like.
 
       [x, y, width, height] = getBounds(textNode);
       testOffsetAtPoint(hyperText, x + width / 2, y + height / 2,

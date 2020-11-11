@@ -7,6 +7,8 @@
 #ifndef GFX_IMAGETYPES_H
 #define GFX_IMAGETYPES_H
 
+#include <stdint.h>  // for uint32_t
+
 namespace mozilla {
 
 enum class ImageFormat {
@@ -87,7 +89,13 @@ enum class ImageFormat {
    * An opaque handle that refers to an Image stored in the GPU
    * process.
    */
-  GPU_VIDEO
+  GPU_VIDEO,
+
+  /**
+   * The DMABUF format creates a SharedDMABUFImage, which stores YUV
+   * data in DMABUF memory. Used by VAAPI decoder on Linux.
+   */
+  DMABUF,
 };
 
 enum class StereoMode {
@@ -99,12 +107,15 @@ enum class StereoMode {
   MAX,
 };
 
-enum class YUVColorSpace {
-  BT601,
-  BT709,
-  // This represents the unknown format.
-  UNKNOWN,
-};
+namespace layers {
+
+typedef uint32_t ContainerFrameID;
+constexpr ContainerFrameID kContainerFrameID_Invalid = 0;
+
+typedef uint32_t ContainerProducerID;
+constexpr ContainerProducerID kContainerProducerID_Invalid = 0;
+
+}  // namespace layers
 
 }  // namespace mozilla
 

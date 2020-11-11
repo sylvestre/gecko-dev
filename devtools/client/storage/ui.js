@@ -1,4 +1,3 @@
-/* vim:set ts=2 sw=2 sts=2 et: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -6,11 +5,12 @@
 "use strict";
 
 const EventEmitter = require("devtools/shared/event-emitter");
-const {LocalizationHelper, ELLIPSIS} = require("devtools/shared/l10n");
+const { LocalizationHelper, ELLIPSIS } = require("devtools/shared/l10n");
 const KeyShortcuts = require("devtools/client/shared/key-shortcuts");
-const JSOL = require("devtools/client/shared/vendor/jsol");
-const {KeyCodes} = require("devtools/client/shared/keycodes");
+const { parseItemValue } = require("devtools/shared/storage/utils");
+const { KeyCodes } = require("devtools/client/shared/keycodes");
 const { getUnicodeHostname } = require("devtools/client/shared/unicode-url");
+const getStorageTypeURL = require("devtools/client/storage/utils/mdn-utils");
 
 // GUID to be used as a separator in compound keys. This must match the same
 // constant in devtools/server/actors/storage.js,
@@ -18,24 +18,36 @@ const { getUnicodeHostname } = require("devtools/client/shared/unicode-url");
 // devtools/server/tests/browser/head.js
 const SEPARATOR_GUID = "{9d414cc5-8319-0a04-0586-c0a6ae01670a}";
 
-loader.lazyRequireGetter(this, "TreeWidget",
-                         "devtools/client/shared/widgets/TreeWidget", true);
-loader.lazyRequireGetter(this, "TableWidget",
-                         "devtools/client/shared/widgets/TableWidget", true);
-loader.lazyImporter(this, "VariablesView",
-  "resource://devtools/client/shared/widgets/VariablesView.jsm");
+loader.lazyRequireGetter(
+  this,
+  "TreeWidget",
+  "devtools/client/shared/widgets/TreeWidget",
+  true
+);
+loader.lazyRequireGetter(
+  this,
+  "TableWidget",
+  "devtools/client/shared/widgets/TableWidget",
+  true
+);
+loader.lazyImporter(
+  this,
+  "VariablesView",
+  "resource://devtools/client/storage/VariablesView.jsm"
+);
 
 /**
  * Localization convenience methods.
  */
 const STORAGE_STRINGS = "devtools/client/locales/storage.properties";
-const L10N = new LocalizationHelper(STORAGE_STRINGS);
+const L10N = new LocalizationHelper(STORAGE_STRINGS, true);
 
 const GENERIC_VARIABLES_VIEW_SETTINGS = {
   lazyEmpty: true,
-   // ms
+  // ms
   lazyEmptyDelay: 10,
   searchEnabled: true,
+  contextMenuId: "variable-view-popup",
   searchPlaceholder: L10N.getStr("storage.search.placeholder"),
   preventDescriptorModifiers: true,
 };
@@ -47,42 +59,63 @@ const REASON = {
   UPDATE: "update",
 };
 
-const COOKIE_KEY_MAP = {
-  path: "Path",
-  host: "Domain",
-  expires: "Expires",
-  hostOnly: "HostOnly",
-  isSecure: "Secure",
-  isHttpOnly: "HttpOnly",
-  creationTime: "CreationTime",
-  lastAccessed: "LastAccessed",
-};
-
-const SAFE_HOSTS_PREFIXES_REGEX = /^(about:|https?:|file:|moz-extension:)/;
-
 // Maximum length of item name to show in context menu label - will be
 // trimmed with ellipsis if it's longer.
 const ITEM_NAME_MAX_LENGTH = 32;
 
+// We only localize certain table headers. The headers that we do not localize
+// along with their English translation are stored in this Map for easy
+// reference.
+const NON_L10N_STRINGS = new Map([
+  ["Cache.url", "URL"],
+  ["cookies.host", "Domain"],
+  ["cookies.hostOnly", "HostOnly"],
+  ["cookies.isHttpOnly", "HttpOnly"],
+  ["cookies.isSecure", "Secure"],
+  ["cookies.path", "Path"],
+  ["cookies.sameSite", "SameSite"],
+  ["cookies.uniqueKey", "Unique key"],
+  ["extensionStorage.name", "Key"],
+  ["extensionStorage.value", "Value"],
+  ["indexedDB.autoIncrement", "Auto Increment"],
+  ["indexedDB.db", "Database Name"],
+  ["indexedDB.indexes", "Indexes"],
+  ["indexedDB.keyPath", "Key Path"],
+  ["indexedDB.name", "Key"],
+  ["indexedDB.objectStore", "Object Store Name"],
+  ["indexedDB.objectStores", "Object Stores"],
+  ["indexedDB.origin", "Origin"],
+  ["indexedDB.storage", "Storage"],
+  ["indexedDB.uniqueKey", "Unique key"],
+  ["indexedDB.value", "Value"],
+  ["indexedDB.version", "Version"],
+  ["localStorage.name", "Key"],
+  ["localStorage.value", "Value"],
+  ["sessionStorage.name", "Key"],
+  ["sessionStorage.value", "Value"],
+]);
+
+// If a l10n ID has been changed since it was created we store it in this map
+// along with it's new value for easy reference.
+const NON_ORIGINAL_L10N_IDS = new Map([
+  ["cookies.expires", "cookies.expires2"],
+  ["cookies.lastAccessed", "cookies.lastAccessed2"],
+  ["cookies.creationTime", "cookies.creationTime2"],
+  ["indexedDB.keyPath", "indexedDB.keyPath2"],
+]);
+
 /**
  * StorageUI is controls and builds the UI of the Storage Inspector.
  *
- * @param {Front} front
- *        Front for the storage actor
- * @param {Target} target
- *        Interface for the page we're debugging
  * @param {Window} panelWin
  *        Window of the toolbox panel to populate UI in.
  */
 class StorageUI {
-  constructor(front, target, panelWin, toolbox) {
+  constructor(panelWin, toolbox) {
     EventEmitter.decorate(this);
-
-    this._target = target;
     this._window = panelWin;
     this._panelDoc = panelWin.document;
     this._toolbox = toolbox;
-    this.front = front;
     this.storageTypes = null;
     this.sidebarToggledOpen = null;
     this.shouldLoadMoreItems = true;
@@ -97,9 +130,10 @@ class StorageUI {
 
     const tableNode = this._panelDoc.getElementById("storage-table");
     this.table = new TableWidget(tableNode, {
-      emptyText: L10N.getStr("table.emptyText"),
+      emptyText: "storage-table-empty-text",
       highlightUpdated: true,
       cellContextMenuId: "storage-table-popup",
+      l10n: this._panelDoc.l10n,
     });
 
     this.updateObjectSidebar = this.updateObjectSidebar.bind(this);
@@ -113,8 +147,10 @@ class StorageUI {
 
     this.sidebar = this._panelDoc.getElementById("storage-sidebar");
     this.sidebar.setAttribute("width", "300");
-    this.view = new VariablesView(this.sidebar.firstChild,
-                                  GENERIC_VARIABLES_VIEW_SETTINGS);
+    this.view = new VariablesView(
+      this.sidebar.firstChild,
+      GENERIC_VARIABLES_VIEW_SETTINGS
+    );
 
     this.filterItems = this.filterItems.bind(this);
     this.onPaneToggleButtonClicked = this.onPaneToggleButtonClicked.bind(this);
@@ -129,44 +165,6 @@ class StorageUI {
       this.searchBox.focus();
     });
 
-    this.front.listStores().then(storageTypes => {
-      // When we are in the browser console we list indexedDBs internal to
-      // Firefox e.g. defined inside a .jsm. Because there is no way before this
-      // point to know whether or not we are inside the browser toolbox we have
-      // already fetched the hostnames of these databases.
-      //
-      // If we are not inside the browser toolbox we need to delete these
-      // hostnames.
-      if (!this._target.chrome && storageTypes.indexedDB) {
-        const hosts = storageTypes.indexedDB.hosts;
-        const newHosts = {};
-
-        for (const [host, dbs] of Object.entries(hosts)) {
-          if (SAFE_HOSTS_PREFIXES_REGEX.test(host)) {
-            newHosts[host] = dbs;
-          }
-        }
-
-        storageTypes.indexedDB.hosts = newHosts;
-      }
-
-      this.populateStorageTree(storageTypes);
-    }).catch(e => {
-      if (!this._toolbox || this._toolbox._destroyer) {
-        // The toolbox is in the process of being destroyed... in this case throwing here
-        // is expected and normal so let's ignore the error.
-        return;
-      }
-
-      // The toolbox is open so the error is unexpected and real so let's log it.
-      console.error(e);
-    });
-
-    this.onEdit = this.onEdit.bind(this);
-    this.front.on("stores-update", this.onEdit);
-    this.onCleared = this.onCleared.bind(this);
-    this.front.on("stores-cleared", this.onCleared);
-
     this.handleKeypress = this.handleKeypress.bind(this);
     this._panelDoc.addEventListener("keypress", this.handleKeypress);
 
@@ -178,8 +176,20 @@ class StorageUI {
     this._tablePopup = this._panelDoc.getElementById("storage-table-popup");
     this._tablePopup.addEventListener("popupshowing", this.onTablePopupShowing);
 
+    this.onVariableViewPopupShowing = this.onVariableViewPopupShowing.bind(
+      this
+    );
+    this._variableViewPopup = this._panelDoc.getElementById(
+      "variable-view-popup"
+    );
+    this._variableViewPopup.addEventListener(
+      "popupshowing",
+      this.onVariableViewPopupShowing
+    );
+
     this.onRefreshTable = this.onRefreshTable.bind(this);
     this.onAddItem = this.onAddItem.bind(this);
+    this.onCopyItem = this.onCopyItem.bind(this);
     this.onRemoveItem = this.onRemoveItem.bind(this);
     this.onRemoveAllFrom = this.onRemoveAllFrom.bind(this);
     this.onRemoveAll = this.onRemoveAll.bind(this);
@@ -187,44 +197,160 @@ class StorageUI {
     this.onRemoveTreeItem = this.onRemoveTreeItem.bind(this);
 
     this._refreshButton = this._panelDoc.getElementById("refresh-button");
-    this._refreshButton.addEventListener("command", this.onRefreshTable);
+    this._refreshButton.addEventListener("click", this.onRefreshTable);
+    this._refreshButton.setAttribute(
+      "title",
+      L10N.getFormatStr("storage.popupMenu.refreshItemLabel")
+    );
 
     this._addButton = this._panelDoc.getElementById("add-button");
-    this._addButton.addEventListener("command", this.onAddItem);
+    this._addButton.addEventListener("click", this.onAddItem);
+
+    this._variableViewPopupCopy = this._panelDoc.getElementById(
+      "variable-view-popup-copy"
+    );
+    this._variableViewPopupCopy.addEventListener("command", this.onCopyItem);
 
     this._tablePopupAddItem = this._panelDoc.getElementById(
-      "storage-table-popup-add");
+      "storage-table-popup-add"
+    );
     this._tablePopupAddItem.addEventListener("command", this.onAddItem);
 
     this._tablePopupDelete = this._panelDoc.getElementById(
-      "storage-table-popup-delete");
+      "storage-table-popup-delete"
+    );
     this._tablePopupDelete.addEventListener("command", this.onRemoveItem);
 
     this._tablePopupDeleteAllFrom = this._panelDoc.getElementById(
-      "storage-table-popup-delete-all-from");
-    this._tablePopupDeleteAllFrom.addEventListener("command",
-      this.onRemoveAllFrom);
+      "storage-table-popup-delete-all-from"
+    );
+    this._tablePopupDeleteAllFrom.addEventListener(
+      "command",
+      this.onRemoveAllFrom
+    );
 
     this._tablePopupDeleteAll = this._panelDoc.getElementById(
-      "storage-table-popup-delete-all");
+      "storage-table-popup-delete-all"
+    );
     this._tablePopupDeleteAll.addEventListener("command", this.onRemoveAll);
 
     this._tablePopupDeleteAllSessionCookies = this._panelDoc.getElementById(
-      "storage-table-popup-delete-all-session-cookies");
-    this._tablePopupDeleteAllSessionCookies.addEventListener("command",
-      this.onRemoveAllSessionCookies);
+      "storage-table-popup-delete-all-session-cookies"
+    );
+    this._tablePopupDeleteAllSessionCookies.addEventListener(
+      "command",
+      this.onRemoveAllSessionCookies
+    );
 
     this._treePopupDeleteAll = this._panelDoc.getElementById(
-      "storage-tree-popup-delete-all");
+      "storage-tree-popup-delete-all"
+    );
     this._treePopupDeleteAll.addEventListener("command", this.onRemoveAll);
 
     this._treePopupDeleteAllSessionCookies = this._panelDoc.getElementById(
-      "storage-tree-popup-delete-all-session-cookies");
-    this._treePopupDeleteAllSessionCookies.addEventListener("command",
-      this.onRemoveAllSessionCookies);
+      "storage-tree-popup-delete-all-session-cookies"
+    );
+    this._treePopupDeleteAllSessionCookies.addEventListener(
+      "command",
+      this.onRemoveAllSessionCookies
+    );
 
-    this._treePopupDelete = this._panelDoc.getElementById("storage-tree-popup-delete");
+    this._treePopupDelete = this._panelDoc.getElementById(
+      "storage-tree-popup-delete"
+    );
     this._treePopupDelete.addEventListener("command", this.onRemoveTreeItem);
+  }
+
+  get currentTarget() {
+    return this._toolbox.targetList.targetFront;
+  }
+
+  async init() {
+    const { targetList } = this._toolbox;
+    this._onTargetAvailable = this._onTargetAvailable.bind(this);
+    this._onTargetDestroyed = this._onTargetDestroyed.bind(this);
+    await targetList.watchTargets(
+      [targetList.TYPES.FRAME],
+      this._onTargetAvailable,
+      this._onTargetDestroyed
+    );
+
+    this.storageTypes = {};
+
+    this._onResourceListAvailable = this._onResourceListAvailable.bind(this);
+    this._onResourceUpdated = this._onResourceUpdated.bind(this);
+    this._onResourceListUpdated = this._onResourceListUpdated.bind(this);
+    this._onResourceDestroyed = this._onResourceDestroyed.bind(this);
+    this._onResourceListDestroyed = this._onResourceListDestroyed.bind(this);
+
+    const { resourceWatcher } = this._toolbox;
+
+    await this._toolbox.resourceWatcher.watchResources(
+      [
+        // The first item in this list will be the first selected storage item
+        // Tests assume Cookie -- moving cookie will break tests
+        resourceWatcher.TYPES.COOKIE,
+        resourceWatcher.TYPES.CACHE_STORAGE,
+        resourceWatcher.TYPES.EXTENSION_STORAGE,
+        resourceWatcher.TYPES.INDEXED_DB,
+        resourceWatcher.TYPES.LOCAL_STORAGE,
+        resourceWatcher.TYPES.SESSION_STORAGE,
+      ],
+      {
+        onAvailable: this._onResourceListAvailable,
+        onUpdated: this._onResourceListUpdated,
+        onDestroyed: this._onResourceListDestroyed,
+      }
+    );
+  }
+
+  async _onTargetAvailable({ targetFront }) {
+    // Only support top level target and navigation to new processes.
+    // i.e. ignore additional targets created for remote <iframes>
+    if (!targetFront.isTopLevel) {
+      return;
+    }
+
+    this.front = await targetFront.getFront("storage");
+  }
+
+  async _onResourceListAvailable(resources) {
+    const storages = {};
+
+    for (const resource of resources) {
+      const { resourceKey } = resource;
+      // NOTE: We might be getting more than 1 resource per storage type when
+      //       we have remote frames, so we need an array to store these.
+      if (!storages[resourceKey]) {
+        storages[resourceKey] = [];
+      }
+      storages[resourceKey].push(resource);
+    }
+
+    try {
+      await this.populateStorageTree(storages);
+    } catch (e) {
+      if (!this._toolbox || this._toolbox._destroyer) {
+        // The toolbox is in the process of being destroyed... in this case throwing here
+        // is expected and normal so let's ignore the error.
+        return;
+      }
+
+      // The toolbox is open so the error is unexpected and real so let's log it.
+      console.error(e);
+    }
+  }
+
+  _onTargetDestroyed({ targetFront }) {
+    // Only support top level target and navigation to new processes.
+    // i.e. ignore additional targets created for remote <iframes>
+    if (!targetFront.isTopLevel) {
+      return;
+    }
+
+    this.table.clear();
+    this.hideSidebar();
+    this.tree.clear();
   }
 
   set animationsEnabled(value) {
@@ -232,46 +358,80 @@ class StorageUI {
   }
 
   destroy() {
+    const { resourceWatcher } = this._toolbox;
+    resourceWatcher.unwatchResources(
+      [
+        resourceWatcher.TYPES.COOKIE,
+        resourceWatcher.TYPES.CACHE_STORAGE,
+        resourceWatcher.TYPES.EXTENSION_STORAGE,
+        resourceWatcher.TYPES.INDEXED_DB,
+        resourceWatcher.TYPES.LOCAL_STORAGE,
+        resourceWatcher.TYPES.SESSION_STORAGE,
+      ],
+      {
+        onAvailable: this._onResourceListAvailable,
+        onUpdated: this._onResourceListUpdated,
+        onDestroyed: this._onResourceListDestroyed,
+      }
+    );
+
     this.table.off(TableWidget.EVENTS.ROW_SELECTED, this.updateObjectSidebar);
     this.table.off(TableWidget.EVENTS.SCROLL_END, this.handleScrollEnd);
     this.table.off(TableWidget.EVENTS.CELL_EDIT, this.editItem);
     this.table.destroy();
 
-    this.front.off("stores-update", this.onEdit);
-    this.front.off("stores-cleared", this.onCleared);
     this._panelDoc.removeEventListener("keypress", this.handleKeypress);
     this.searchBox.removeEventListener("input", this.filterItems);
     this.searchBox = null;
 
-    this.sidebarToggleBtn.removeEventListener("click", this.onPaneToggleButtonClicked);
+    this.sidebarToggleBtn.removeEventListener(
+      "click",
+      this.onPaneToggleButtonClicked
+    );
     this.sidebarToggleBtn = null;
 
-    this._treePopup.removeEventListener("popupshowing", this.onTreePopupShowing);
-    this._refreshButton.removeEventListener("command", this.onRefreshTable);
-    this._addButton.removeEventListener("command", this.onAddItem);
+    this._treePopup.removeEventListener(
+      "popupshowing",
+      this.onTreePopupShowing
+    );
+    this._refreshButton.removeEventListener("click", this.onRefreshTable);
+    this._addButton.removeEventListener("click", this.onAddItem);
     this._tablePopupAddItem.removeEventListener("command", this.onAddItem);
     this._treePopupDeleteAll.removeEventListener("command", this.onRemoveAll);
-    this._treePopupDeleteAllSessionCookies.removeEventListener("command",
-      this.onRemoveAllSessionCookies);
+    this._treePopupDeleteAllSessionCookies.removeEventListener(
+      "command",
+      this.onRemoveAllSessionCookies
+    );
     this._treePopupDelete.removeEventListener("command", this.onRemoveTreeItem);
 
-    this._tablePopup.removeEventListener("popupshowing", this.onTablePopupShowing);
+    this._tablePopup.removeEventListener(
+      "popupshowing",
+      this.onTablePopupShowing
+    );
     this._tablePopupDelete.removeEventListener("command", this.onRemoveItem);
-    this._tablePopupDeleteAllFrom.removeEventListener("command", this.onRemoveAllFrom);
+    this._tablePopupDeleteAllFrom.removeEventListener(
+      "command",
+      this.onRemoveAllFrom
+    );
     this._tablePopupDeleteAll.removeEventListener("command", this.onRemoveAll);
-    this._tablePopupDeleteAllSessionCookies.removeEventListener("command",
-      this.onRemoveAllSessionCookies);
+    this._tablePopupDeleteAllSessionCookies.removeEventListener(
+      "command",
+      this.onRemoveAllSessionCookies
+    );
   }
 
   setupToolbar() {
     this.searchBox = this._panelDoc.getElementById("storage-searchbox");
-    this.searchBox.addEventListener("command", this.filterItems);
+    this.searchBox.addEventListener("input", this.filterItems);
 
     // Setup the sidebar toggle button.
     this.sidebarToggleBtn = this._panelDoc.querySelector(".sidebar-toggle");
     this.updateSidebarToggleButton();
 
-    this.sidebarToggleBtn.addEventListener("click", this.onPaneToggleButtonClicked);
+    this.sidebarToggleBtn.addEventListener(
+      "click",
+      this.onPaneToggleButtonClicked
+    );
   }
 
   onPaneToggleButtonClicked() {
@@ -297,7 +457,7 @@ class StorageUI {
       title = L10N.getStr("storage.collapsePane");
     }
 
-    this.sidebarToggleBtn.setAttribute("tooltiptext", title);
+    this.sidebarToggleBtn.setAttribute("title", title);
   }
 
   /**
@@ -309,9 +469,13 @@ class StorageUI {
   }
 
   getCurrentFront() {
-    const type = this.table.datatype;
+    const { datatype, host } = this.table;
+    return this._getStorage(datatype, host);
+  }
 
-    return this.storageTypes[type];
+  _getStorage(type, host) {
+    const storageType = this.storageTypes[type];
+    return storageType.find(x => host in x.hosts);
   }
 
   /**
@@ -352,35 +516,40 @@ class StorageUI {
     await this.updateObjectSidebar();
   }
 
+  async _onResourceListDestroyed(clearedList) {
+    for (const cleared of clearedList) {
+      await this._onResourceDestroyed(cleared);
+    }
+  }
+
   /**
    * Event handler for "stores-cleared" event coming from the storage actor.
    *
-   * @param {object} response
-   *        An object containing which storage types were cleared
+   * @param {object}
+   *        An object containing which hosts/paths are cleared from a
+   *        storage
    */
-  onCleared(response) {
+  _onResourceDestroyed({ resourceKey, clearedHostsOrPaths }) {
     function* enumPaths() {
-      for (const type in response) {
-        if (Array.isArray(response[type])) {
-          // Handle the legacy response with array of hosts
-          for (const host of response[type]) {
-            yield [type, host];
-          }
-        } else {
-          // Handle the new format that supports clearing sub-stores in a host
-          for (const host in response[type]) {
-            const paths = response[type][host];
+      if (Array.isArray(clearedHostsOrPaths)) {
+        // Handle the legacy response with array of hosts
+        for (const host of clearedHostsOrPaths) {
+          yield [host];
+        }
+      } else {
+        // Handle the new format that supports clearing sub-stores in a host
+        for (const host in clearedHostsOrPaths) {
+          const paths = clearedHostsOrPaths[host];
 
-            if (!paths.length) {
-              yield [type, host];
-            } else {
-              for (let path of paths) {
-                try {
-                  path = JSON.parse(path);
-                  yield [type, host, ...path];
-                } catch (ex) {
-                  // ignore
-                }
+          if (!paths.length) {
+            yield [host];
+          } else {
+            for (let path of paths) {
+              try {
+                path = JSON.parse(path);
+                yield [host, ...path];
+              } catch (ex) {
+                // ignore
               }
             }
           }
@@ -390,12 +559,23 @@ class StorageUI {
 
     for (const path of enumPaths()) {
       // Find if the path is selected (there is max one) and clear it
-      if (this.tree.isSelected(path)) {
+      if (this.tree.isSelected([resourceKey, ...path])) {
         this.table.clear();
         this.hideSidebar();
+
+        // Reset itemOffset to 0 so that items added after local storate is
+        // cleared will be shown
+        this.itemOffset = 0;
+
         this.emit("store-objects-cleared");
         break;
       }
+    }
+  }
+
+  async _onResourceListUpdated(updates) {
+    for (const update of updates) {
+      await this._onResourceUpdated(update.update);
     }
   }
 
@@ -422,7 +602,7 @@ class StorageUI {
    *        of the changed store objects. This array is empty for deleted object
    *        if the host was completely removed.
    */
-  async onEdit({ changed, added, deleted }) {
+  async _onResourceUpdated({ changed, added, deleted }) {
     if (added) {
       await this.handleAddedItems(added);
     }
@@ -455,7 +635,7 @@ class StorageUI {
     for (const type in added) {
       for (const host in added[type]) {
         const label = this.getReadableLabelFromHostname(host);
-        this.tree.add([type, {id: host, label: label, type: "url"}]);
+        this.tree.add([type, { id: host, label: label, type: "url" }]);
         for (let name of added[type][host]) {
           try {
             name = JSON.parse(name);
@@ -465,8 +645,12 @@ class StorageUI {
             this.tree.add([type, host, ...name]);
             if (!this.tree.selectedItem) {
               this.tree.selectedItem = [type, host, name[0], name[1]];
-              await this.fetchStorageObjects(type, host, [JSON.stringify(name)],
-                                              REASON.NEW_ROW);
+              await this.fetchStorageObjects(
+                type,
+                host,
+                [JSON.stringify(name)],
+                REASON.NEW_ROW
+              );
             }
           } catch (ex) {
             // Do nothing
@@ -474,8 +658,12 @@ class StorageUI {
         }
 
         if (this.tree.isSelected([type, host])) {
-          await this.fetchStorageObjects(type, host, added[type][host],
-                                          REASON.NEW_ROW);
+          await this.fetchStorageObjects(
+            type,
+            host,
+            added[type][host],
+            REASON.NEW_ROW
+          );
         }
       }
     }
@@ -502,25 +690,33 @@ class StorageUI {
         } else {
           for (const name of deleted[type][host]) {
             try {
-              // trying to parse names in case of indexedDB or cache
-              const names = JSON.parse(name);
-              // Is a whole cache, database or objectstore deleted?
-              // Then remove it from the tree.
-              if (names.length < 3) {
-                if (this.tree.isSelected([type, host, ...names])) {
-                  this.table.clear();
-                  this.hideSidebar();
-                  this.tree.selectPreviousItem();
+              if (["indexedDB", "Cache"].includes(type)) {
+                // For indexedDB and Cache, the key is being parsed because
+                // these storages are represented as a tree and the key
+                // used to notify their changes is not a simple string.
+                const names = JSON.parse(name);
+                // Is a whole cache, database or objectstore deleted?
+                // Then remove it from the tree.
+                if (names.length < 3) {
+                  if (this.tree.isSelected([type, host, ...names])) {
+                    this.table.clear();
+                    this.hideSidebar();
+                    this.tree.selectPreviousItem();
+                  }
+                  this.tree.remove([type, host, ...names]);
                 }
-                this.tree.remove([type, host, ...names]);
-              }
 
-              // Remove the item from table if currently displayed.
-              if (names.length > 0) {
-                const tableItemName = names.pop();
-                if (this.tree.isSelected([type, host, ...names])) {
-                  await this.removeItemFromTable(tableItemName);
+                // Remove the item from table if currently displayed.
+                if (names.length > 0) {
+                  const tableItemName = names.pop();
+                  if (this.tree.isSelected([type, host, ...names])) {
+                    await this.removeItemFromTable(tableItemName);
+                  }
                 }
+              } else if (this.tree.isSelected([type, host])) {
+                // For all the other storage types with a simple string key,
+                // remove the item from the table by name without any parsing.
+                await this.removeItemFromTable(name);
               }
             } catch (ex) {
               if (this.tree.isSelected([type, host])) {
@@ -545,21 +741,38 @@ class StorageUI {
     }
 
     const [type, host, db, objectStore] = selectedItem;
-    if (!changed[type] || !changed[type][host] ||
-        changed[type][host].length == 0) {
+    if (
+      !changed[type] ||
+      !changed[type][host] ||
+      changed[type][host].length == 0
+    ) {
       return;
     }
     try {
       const toUpdate = [];
       for (const name of changed[type][host]) {
-        const names = JSON.parse(name);
-        if (names[0] == db && names[1] == objectStore && names[2]) {
+        if (["indexedDB", "Cache"].includes(type)) {
+          // For indexedDB and Cache, the key is being parsed because
+          // these storage are represented as a tree and the key
+          // used to notify their changes is not a simple string.
+          const names = JSON.parse(name);
+          if (names[0] == db && names[1] == objectStore && names[2]) {
+            toUpdate.push(name);
+          }
+        } else {
+          // For all the other storage types with a simple string key,
+          // update the item from the table by name without any parsing.
           toUpdate.push(name);
         }
       }
       await this.fetchStorageObjects(type, host, toUpdate, REASON.UPDATE);
     } catch (ex) {
-      await this.fetchStorageObjects(type, host, changed[type][host], REASON.UPDATE);
+      await this.fetchStorageObjects(
+        type,
+        host,
+        changed[type][host],
+        REASON.UPDATE
+      );
     }
   }
 
@@ -577,27 +790,31 @@ class StorageUI {
    *        See REASON constant at top of file.
    */
   async fetchStorageObjects(type, host, names, reason) {
-    const fetchOpts = reason === REASON.NEXT_50_ITEMS ? {offset: this.itemOffset}
-                                                    : {};
-    const storageType = this.storageTypes[type];
-
+    const fetchOpts =
+      reason === REASON.NEXT_50_ITEMS ? { offset: this.itemOffset } : {};
+    const storage = this._getStorage(type, host);
     this.sidebarToggledOpen = null;
 
-    if (reason !== REASON.NEXT_50_ITEMS &&
-        reason !== REASON.UPDATE &&
-        reason !== REASON.NEW_ROW &&
-        reason !== REASON.POPULATE) {
+    if (
+      reason !== REASON.NEXT_50_ITEMS &&
+      reason !== REASON.UPDATE &&
+      reason !== REASON.NEW_ROW &&
+      reason !== REASON.POPULATE
+    ) {
       throw new Error("Invalid reason specified");
     }
 
     try {
-      if (reason === REASON.POPULATE) {
+      if (
+        reason === REASON.POPULATE ||
+        (reason === REASON.NEW_ROW && this.table.items.size === 0)
+      ) {
         let subType = null;
         // The indexedDB type could have sub-type data to fetch.
         // If having names specified, then it means
         // we are fetching details of specific database or of object store.
         if (type === "indexedDB" && names) {
-          const [ dbName, objectStoreName ] = JSON.parse(names[0]);
+          const [dbName, objectStoreName] = JSON.parse(names[0]);
           if (dbName) {
             subType = "database";
           }
@@ -606,20 +823,14 @@ class StorageUI {
           }
         }
 
-        this.actorSupportsAddItem = await this._target.actorHasMethod(type, "addItem");
-        this.actorSupportsRemoveItem =
-          await this._target.actorHasMethod(type, "removeItem");
-        this.actorSupportsRemoveAll =
-          await this._target.actorHasMethod(type, "removeAll");
-        this.actorSupportsRemoveAllSessionCookies =
-          await this._target.actorHasMethod(type, "removeAllSessionCookies");
-
         await this.resetColumns(type, host, subType);
       }
 
-      const {data} = await storageType.getStoreObjects(host, names, fetchOpts);
+      const { data } = await storage.getStoreObjects(host, names, fetchOpts);
       if (data.length) {
         await this.populateTable(data, reason);
+      } else if (reason === REASON.POPULATE) {
+        await this.clearHeaders();
       }
       this.updateToolbar();
       this.emit("store-objects-updated");
@@ -628,24 +839,49 @@ class StorageUI {
     }
   }
 
+  supportsAddItem(type, host) {
+    const storage = this._getStorage(type, host);
+    return storage?.traits.supportsAddItem || false;
+  }
+
+  supportsRemoveItem(type, host) {
+    const storage = this._getStorage(type, host);
+    return storage?.traits.supportsRemoveItem || false;
+  }
+
+  supportsRemoveAll(type, host) {
+    const storage = this._getStorage(type, host);
+    return storage?.traits.supportsRemoveAll || false;
+  }
+
+  supportsRemoveAllSessionCookies(type, host) {
+    const storage = this._getStorage(type, host);
+    return storage?.traits.supportsRemoveAllSessionCookies || false;
+  }
+
   /**
    * Updates the toolbar hiding and showing buttons as appropriate.
    */
   updateToolbar() {
     const item = this.tree.selectedItem;
-    const howManyNodesIn = item ? item.length : 0;
+    if (!item) {
+      return;
+    }
 
-    // The first node is just a title e.g. "Cookies" so we need to be at least
-    // 2 nodes in to show the add button.
-    const canAdd = this.actorSupportsAddItem && howManyNodesIn > 1;
+    const [type, host] = item;
+
+    // Add is only supported if the selected item has a host.
+    const canAdd = this.supportsAddItem(type, host) && host;
 
     if (canAdd) {
       this._addButton.hidden = false;
-      this._addButton.setAttribute("tooltiptext",
-        L10N.getFormatStr("storage.popupMenu.addItemLabel"));
+      this._addButton.setAttribute(
+        "title",
+        L10N.getFormatStr("storage.popupMenu.addItemLabel")
+      );
     } else {
       this._addButton.hidden = true;
-      this._addButton.removeAttribute("tooltiptext");
+      this._addButton.removeAttribute("title");
     }
   }
 
@@ -657,29 +893,12 @@ class StorageUI {
    *        List of storages and their corresponding hosts returned by the
    *        StorageFront.listStores call.
    */
-  populateStorageTree(storageTypes) {
-    this.storageTypes = {};
-    for (const type in storageTypes) {
-      // Ignore `from` field, which is just a protocol.js implementation
-      // artifact.
-      if (type === "from") {
-        continue;
-      }
-      let typeLabel = type;
-      try {
-        typeLabel = L10N.getStr("tree.labels." + type);
-      } catch (e) {
-        console.error("Unable to localize tree label type:" + type);
-      }
-      this.tree.add([{id: type, label: typeLabel, type: "store"}]);
-      if (!storageTypes[type].hosts) {
-        continue;
-      }
-      this.storageTypes[type] = storageTypes[type];
-      for (const host in storageTypes[type].hosts) {
+  async populateStorageTree(storageTypes) {
+    const populateTreeFromResource = (type, resource) => {
+      for (const host in resource.hosts) {
         const label = this.getReadableLabelFromHostname(host);
-        this.tree.add([type, {id: host, label: label, type: "url"}]);
-        for (const name of storageTypes[type].hosts[host]) {
+        this.tree.add([type, { id: host, label: label, type: "url" }]);
+        for (const name of resource.hosts[host]) {
           try {
             const names = JSON.parse(name);
             this.tree.add([type, host, ...names]);
@@ -694,6 +913,49 @@ class StorageUI {
           this.tree.selectedItem = [type, host];
         }
       }
+    };
+
+    // When can we expect the "store-objects-updated" event?
+    //   -> TreeWidget setter `selectedItem` emits a "select" event
+    //   -> on tree "select" event, this module calls `onHostSelect`
+    //   -> finally `onHostSelect` calls `fetchStorageObjects`, which will emit
+    //      "store-objects-updated" at the end of the method.
+    // So if the selection changed, we can wait for "store-objects-updated",
+    // which is emitted at the end of `fetchStorageObjects`.
+    const onStoresObjectsUpdated = this.once("store-objects-updated");
+
+    // Save the initially selected item to check if tree.selected was updated,
+    // see comment above.
+    const initialSelectedItem = this.tree.selectedItem;
+
+    for (const type in storageTypes) {
+      // Ignore `from` field, which is just a protocol.js implementation
+      // artifact.
+      if (type === "from") {
+        continue;
+      }
+      let typeLabel = type;
+      try {
+        typeLabel = L10N.getStr("tree.labels." + type);
+      } catch (e) {
+        console.error("Unable to localize tree label type:" + type);
+      }
+
+      this.tree.add([{ id: type, label: typeLabel, type: "store" }]);
+
+      const resourcesWithHosts = storageTypes[type].filter(x => x.hosts);
+      for (const resource of resourcesWithHosts) {
+        if (!this.storageTypes[type]) {
+          this.storageTypes[type] = [];
+        }
+        this.storageTypes[type].push(resource);
+
+        populateTreeFromResource(type, resource);
+      }
+    }
+
+    if (initialSelectedItem !== this.tree.selectedItem) {
+      await onStoresObjectsUpdated;
     }
   }
 
@@ -701,21 +963,24 @@ class StorageUI {
    * Populates the selected entry from the table in the sidebar for a more
    * detailed view.
    */
+  /* eslint-disable-next-line */
   async updateObjectSidebar() {
     const item = this.table.selectedRow;
     let value;
 
     // Get the string value (async action) and the update the UI synchronously.
-    if (item && item.name && item.valueActor) {
+    if (item?.name && item?.valueActor) {
       value = await item.valueActor.string();
     }
 
     // Bail if the selectedRow is no longer selected, the item doesn't exist or the state
     // changed in another way during the above yield.
-    if (this.table.items.size === 0 ||
-        !item ||
-        !this.table.selectedRow ||
-        item.uniqueKey !== this.table.selectedRow.uniqueKey) {
+    if (
+      this.table.items.size === 0 ||
+      !item ||
+      !this.table.selectedRow ||
+      item.uniqueKey !== this.table.selectedRow.uniqueKey
+    ) {
       this.hideSidebar();
       return;
     }
@@ -731,13 +996,16 @@ class StorageUI {
     mainScope.expanded = true;
 
     if (value) {
-      const itemVar = mainScope.addItem(item.name + "", {}, {relaxed: true});
+      const itemVar = mainScope.addItem(item.name + "", {}, { relaxed: true });
 
       // The main area where the value will be displayed
       itemVar.setGrip(value);
 
       // May be the item value is a json or a key value pair itself
-      this.parseItemValue(item.name, value);
+      const obj = parseItemValue(value);
+      if (typeof obj === "object") {
+        this.populateSidebar(item.name, obj);
+      }
 
       // By default the item name and value are shown. If this is the only
       // information available, then nothing else is to be displayed.
@@ -747,17 +1015,18 @@ class StorageUI {
         // which may be available.
         const rawObject = Object.create(null);
         const otherProps = itemProps.filter(
-          e => !["name", "value", "valueActor"].includes(e));
+          e => !["name", "value", "valueActor"].includes(e)
+        );
         for (const prop of otherProps) {
           const column = this.table.columns.get(prop);
-          if (column && column.private) {
+          if (column?.private) {
             continue;
           }
 
-          const cookieProp = COOKIE_KEY_MAP[prop] || prop;
-          rawObject[cookieProp] = item[prop];
+          const fieldName = getColumnName(this.table.datatype, prop);
+          rawObject[fieldName] = item[prop];
         }
-        itemVar.populate(rawObject, {sorted: true});
+        itemVar.populate(rawObject, { sorted: true });
         itemVar.twisty = true;
         itemVar.expanded = true;
       }
@@ -765,12 +1034,15 @@ class StorageUI {
       // Case when displaying IndexedDB db/object store properties.
       for (const key in item) {
         const column = this.table.columns.get(key);
-        if (column && column.private) {
+        if (column?.private) {
           continue;
         }
 
         mainScope.addItem(key, {}, true).setGrip(item[key]);
-        this.parseItemValue(key, item[key]);
+        const obj = parseItemValue(item[key]);
+        if (typeof obj === "object") {
+          this.populateSidebar(item.name, obj);
+        }
       }
     }
 
@@ -807,108 +1079,25 @@ class StorageUI {
   }
 
   /**
-   * Tries to parse a string value into either a json or a key-value separated
-   * object and populates the sidebar with the parsed value. The value can also
-   * be a key separated array.
+   * Populates the sidebar with a parsed object.
    *
-   * @param {string} name
-   *        The key corresponding to the `value` string in the object
-   * @param {string} originalValue
-   *        The string to be parsed into an object
+   * @param {object} obj - Either a json or a key-value separated object or a
+   * key separated array
    */
-  parseItemValue(name, originalValue) {
-    // Find if value is URLEncoded ie
-    let decodedValue = "";
-    try {
-      decodedValue = decodeURIComponent(originalValue);
-    } catch (e) {
-      // Unable to decode, nothing to do
-    }
-    const value = (decodedValue && decodedValue !== originalValue)
-      ? decodedValue : originalValue;
-
-    let json = null;
-    try {
-      json = JSOL.parse(value);
-    } catch (ex) {
-      json = null;
-    }
-
-    if (!json && value) {
-      json = this._extractKeyValPairs(value);
-    }
-
-    // return if json is null, or same as value, or just a string.
-    if (!json || json == value || typeof json == "string") {
-      return;
-    }
-
-    // One special case is a url which gets separated as key value pair on :
-    if ((json.length == 2 || Object.keys(json).length == 1) &&
-        ((json[0] || Object.keys(json)[0]) + "").match(/^(http|file|ftp)/)) {
-      return;
-    }
-
+  populateSidebar(name, obj) {
     const jsonObject = Object.create(null);
     const view = this.view;
-    jsonObject[name] = json;
-    const valueScope = view.getScopeAtIndex(1) ||
-                      view.addScope(L10N.getStr("storage.parsedValue.label"));
+    jsonObject[name] = obj;
+    const valueScope =
+      view.getScopeAtIndex(1) ||
+      view.addScope(L10N.getStr("storage.parsedValue.label"));
     valueScope.expanded = true;
-    const jsonVar = valueScope.addItem("", Object.create(null), {relaxed: true});
+    const jsonVar = valueScope.addItem("", Object.create(null), {
+      relaxed: true,
+    });
     jsonVar.expanded = true;
     jsonVar.twisty = true;
-    jsonVar.populate(jsonObject, {expanded: true});
-  }
-
-  /**
-   * Tries to parse a string into an object on the basis of key-value pairs,
-   * separated by various separators. If failed, tries to parse for single
-   * separator separated values to form an array.
-   *
-   * @param {string} value
-   *        The string to be parsed into an object or array
-   */
-  _extractKeyValPairs(value) {
-    const makeObject = (keySep, pairSep) => {
-      const object = {};
-      for (const pair of value.split(pairSep)) {
-        const [key, val] = pair.split(keySep);
-        object[key] = val;
-      }
-      return object;
-    };
-
-    // Possible separators.
-    const separators = ["=", ":", "~", "#", "&", "\\*", ",", "\\."];
-    // Testing for object
-    for (let i = 0; i < separators.length; i++) {
-      const kv = separators[i];
-      for (let j = 0; j < separators.length; j++) {
-        if (i == j) {
-          continue;
-        }
-        const p = separators[j];
-        const word = `[^${kv}${p}]*`;
-        const keyValue = `${word}${kv}${word}`;
-        const keyValueList = `${keyValue}(${p}${keyValue})*`;
-        const regex = new RegExp(`^${keyValueList}$`);
-        if (value.match && value.match(regex) && value.includes(kv) &&
-            (value.includes(p) || value.split(kv).length == 2)) {
-          return makeObject(kv, p);
-        }
-      }
-    }
-    // Testing for array
-    for (const p of separators) {
-      const word = `[^${p}]*`;
-      const wordList = `(${word}${p})+${word}`;
-      const regex = new RegExp(`^${wordList}$`);
-      if (value.match && value.match(regex)) {
-        return value.split(p.replace(/\\*/g, ""));
-      }
-    }
-    return null;
+    jsonVar.populate(jsonObject, { expanded: true });
   }
 
   /**
@@ -936,6 +1125,35 @@ class StorageUI {
 
     let names = null;
     if (!host) {
+      let storageTypeHintL10nId = "";
+      switch (type) {
+        case "Cache":
+          storageTypeHintL10nId = "storage-table-type-cache-hint";
+          break;
+        case "cookies":
+          storageTypeHintL10nId = "storage-table-type-cookies-hint";
+          break;
+        case "extensionStorage":
+          storageTypeHintL10nId = "storage-table-type-extensionstorage-hint";
+          break;
+        case "localStorage":
+          storageTypeHintL10nId = "storage-table-type-localstorage-hint";
+          break;
+        case "indexedDB":
+          storageTypeHintL10nId = "storage-table-type-indexeddb-hint";
+          break;
+        case "sessionStorage":
+          storageTypeHintL10nId = "storage-table-type-sessionstorage-hint";
+          break;
+      }
+      this.table.setPlaceholder(
+        storageTypeHintL10nId,
+        getStorageTypeURL(this.table.datatype) +
+          "?utm_source=devtools&utm_medium=storage-inspector"
+      );
+
+      // If selected item has no host then reset table headers
+      await this.clearHeaders();
       return;
     }
     if (item.length > 2) {
@@ -943,6 +1161,13 @@ class StorageUI {
     }
     await this.fetchStorageObjects(type, host, names, REASON.POPULATE);
     this.itemOffset = 0;
+  }
+
+  /**
+   * Clear the column headers in the storage table
+   */
+  async clearHeaders() {
+    this.table.setColumns({}, null, {}, {});
   }
 
   /**
@@ -985,21 +1210,16 @@ class StorageUI {
         privateFields.push(f.name);
       }
 
-      columns[f.name] = f.name;
-      let columnName;
-      try {
-        // Path key names for l10n in the case of a string change.
-        const name = f.name === "keyPath" ? "keyPath2" : f.name;
-
-        columnName = L10N.getStr("table.headers." + type + "." + name);
-      } catch (e) {
-        columnName = COOKIE_KEY_MAP[f.name];
-      }
-
-      if (!columnName) {
-        console.error("Unable to localize table header type:" + type + " key:" + f.name);
-      } else {
+      const columnName = getColumnName(type, f.name);
+      if (columnName) {
         columns[f.name] = columnName;
+      } else if (!f.private) {
+        // Private fields are only displayed when running tests so there is no
+        // need to log an error if they are not localized.
+        columns[f.name] = f.name;
+        console.error(
+          `No string defined in NON_L10N_STRINGS for '${type}.${f.name}'`
+        );
       }
     });
 
@@ -1064,12 +1284,23 @@ class StorageUI {
    *        The event passed by the keypress event.
    */
   handleKeypress(event) {
-    if (event.keyCode == KeyCodes.DOM_VK_ESCAPE && !this.sidebar.hidden) {
-      // Stop Propagation to prevent opening up of split console
-      this.hideSidebar();
-      this.sidebarToggledOpen = false;
-      event.stopPropagation();
-      event.preventDefault();
+    if (event.keyCode == KeyCodes.DOM_VK_ESCAPE) {
+      if (!this.sidebar.hidden) {
+        this.hideSidebar();
+        this.sidebarToggledOpen = false;
+        // Stop Propagation to prevent opening up of split console
+        event.stopPropagation();
+        event.preventDefault();
+      }
+    } else if (
+      event.keyCode == KeyCodes.DOM_VK_BACK_SPACE ||
+      event.keyCode == KeyCodes.DOM_VK_DELETE
+    ) {
+      if (this.table.selectedRow && event.target.localName != "input") {
+        this.onRemoveItem(event);
+        event.stopPropagation();
+        event.preventDefault();
+      }
     }
   }
 
@@ -1108,12 +1339,14 @@ class StorageUI {
    */
   onTablePopupShowing(event) {
     const selectedItem = this.tree.selectedItem;
-    const type = selectedItem[0];
+    const [type, host] = selectedItem;
 
     // IndexedDB only supports removing items from object stores (level 4 of the tree)
-    if ((!this.actorSupportsAddItem && !this.actorSupportsRemoveItem &&
-          type !== "cookies") ||
-        (type === "indexedDB" && selectedItem.length !== 4)) {
+    if (
+      (!this.supportsAddItem(type, host) &&
+        !this.supportsRemoveItem(type, host)) ||
+      (type === "indexedDB" && selectedItem.length !== 4)
+    ) {
       event.preventDefault();
       return;
     }
@@ -1121,29 +1354,33 @@ class StorageUI {
     const rowId = this.table.contextMenuRowId;
     const data = this.table.items.get(rowId);
 
-    if (this.actorSupportsRemoveItem) {
+    if (this.supportsRemoveItem(type, host)) {
       const name = data[this.table.uniqueId];
       const separatorRegex = new RegExp(SEPARATOR_GUID, "g");
       const label = addEllipsis((name + "").replace(separatorRegex, "-"));
 
       this._tablePopupDelete.hidden = false;
-      this._tablePopupDelete.setAttribute("label",
-        L10N.getFormatStr("storage.popupMenu.deleteLabel", label));
+      this._tablePopupDelete.setAttribute(
+        "label",
+        L10N.getFormatStr("storage.popupMenu.deleteLabel", label)
+      );
     } else {
       this._tablePopupDelete.hidden = true;
     }
 
-    if (this.actorSupportsAddItem) {
+    if (this.supportsAddItem(type, host)) {
       this._tablePopupAddItem.hidden = false;
-      this._tablePopupAddItem.setAttribute("label",
-        L10N.getFormatStr("storage.popupMenu.addItemLabel"));
+      this._tablePopupAddItem.setAttribute(
+        "label",
+        L10N.getFormatStr("storage.popupMenu.addItemLabel")
+      );
     } else {
       this._tablePopupAddItem.hidden = true;
     }
 
     let showDeleteAllSessionCookies = false;
-    if (this.actorSupportsRemoveAllSessionCookies) {
-      if (type === "cookies" && selectedItem.length === 2) {
+    if (this.supportsRemoveAllSessionCookies(type, host)) {
+      if (selectedItem.length === 2) {
         showDeleteAllSessionCookies = true;
       }
     }
@@ -1151,11 +1388,13 @@ class StorageUI {
     this._tablePopupDeleteAllSessionCookies.hidden = !showDeleteAllSessionCookies;
 
     if (type === "cookies") {
-      const host = addEllipsis(data.host);
+      const hostString = addEllipsis(data.host);
 
       this._tablePopupDeleteAllFrom.hidden = false;
-      this._tablePopupDeleteAllFrom.setAttribute("label",
-        L10N.getFormatStr("storage.popupMenu.deleteAllFromLabel", host));
+      this._tablePopupDeleteAllFrom.setAttribute(
+        "label",
+        L10N.getFormatStr("storage.popupMenu.deleteAllFromLabel", hostString)
+      );
     } else {
       this._tablePopupDeleteAllFrom.hidden = true;
     }
@@ -1166,13 +1405,13 @@ class StorageUI {
     const selectedItem = this.tree.selectedItem;
 
     if (selectedItem) {
-      const type = selectedItem[0];
+      const [type, host] = selectedItem;
 
       // The delete all (aka clear) action is displayed for IndexedDB object stores
       // (level 4 of tree), for Cache objects (level 3) and for the whole host (level 2)
       // for other storage types (cookies, localStorage, ...).
       let showDeleteAll = false;
-      if (this.actorSupportsRemoveAll) {
+      if (this.supportsRemoveAll(type, host)) {
         let level;
         if (type == "indexedDB") {
           level = 4;
@@ -1192,7 +1431,7 @@ class StorageUI {
       // The delete all session cookies action is displayed for cookie object stores
       // (level 2 of tree)
       let showDeleteAllSessionCookies = false;
-      if (this.actorSupportsRemoveAllSessionCookies) {
+      if (this.supportsRemoveAllSessionCookies(type, host)) {
         if (type === "cookies" && selectedItem.length === 2) {
           showDeleteAllSessionCookies = true;
         }
@@ -1203,13 +1442,15 @@ class StorageUI {
       // The delete action is displayed for:
       // - IndexedDB databases (level 3 of the tree)
       // - Cache objects (level 3 of the tree)
-      const showDelete = (type == "indexedDB" || type == "Cache") &&
-                        selectedItem.length == 3;
+      const showDelete =
+        (type == "indexedDB" || type == "Cache") && selectedItem.length == 3;
       this._treePopupDelete.hidden = !showDelete;
       if (showDelete) {
         const itemName = addEllipsis(selectedItem[selectedItem.length - 1]);
-        this._treePopupDelete.setAttribute("label",
-          L10N.getFormatStr("storage.popupMenu.deleteLabel", itemName));
+        this._treePopupDelete.setAttribute(
+          "label",
+          L10N.getFormatStr("storage.popupMenu.deleteLabel", itemName)
+        );
       }
 
       showMenu = showDeleteAll || showDelete;
@@ -1218,6 +1459,11 @@ class StorageUI {
     if (!showMenu) {
       event.preventDefault();
     }
+  }
+
+  onVariableViewPopupShowing(event) {
+    const item = this.view.getFocusedItem();
+    this._variableViewPopupCopy.setAttribute("disabled", !item);
   }
 
   /**
@@ -1246,18 +1492,35 @@ class StorageUI {
   }
 
   /**
-   * Handles removing an item from the storage
+   * Handles copy an item from the storage
    */
-  onRemoveItem() {
+  onCopyItem() {
+    this.view._copyItem();
+  }
+
+  /**
+   * Handles removing an item from the storage
+   *
+   * @param {DOMEvent} event
+   *        The event passed by the command or keypress event.
+   */
+  onRemoveItem(event) {
     const [, host, ...path] = this.tree.selectedItem;
     const front = this.getCurrentFront();
-    const rowId = this.table.contextMenuRowId;
+    const uniqueId = this.table.uniqueId;
+    const rowId =
+      event.type == "command"
+        ? this.table.contextMenuRowId
+        : this.table.selectedRow[uniqueId];
     const data = this.table.items.get(rowId);
-    let name = data[this.table.uniqueId];
+
+    let name = data[uniqueId];
     if (path.length > 0) {
       name = JSON.stringify([...path, name]);
     }
     front.removeItem(host, name);
+
+    return false;
   }
 
   /**
@@ -1312,29 +1575,34 @@ class StorageUI {
   removeDatabase(host, dbName) {
     const front = this.getCurrentFront();
 
-    front.removeDatabase(host, dbName).then(result => {
-      if (result.blocked) {
+    front
+      .removeDatabase(host, dbName)
+      .then(result => {
+        if (result.blocked) {
+          const notificationBox = this._toolbox.getNotificationBox();
+          notificationBox.appendNotification(
+            L10N.getFormatStr("storage.idb.deleteBlocked", dbName),
+            "storage-idb-delete-blocked",
+            null,
+            notificationBox.PRIORITY_WARNING_LOW
+          );
+        }
+      })
+      .catch(error => {
         const notificationBox = this._toolbox.getNotificationBox();
         notificationBox.appendNotification(
-          L10N.getFormatStr("storage.idb.deleteBlocked", dbName),
-          "storage-idb-delete-blocked",
+          L10N.getFormatStr("storage.idb.deleteError", dbName),
+          "storage-idb-delete-error",
           null,
-          notificationBox.PRIORITY_WARNING_LOW);
-      }
-    }).catch(error => {
-      const notificationBox = this._toolbox.getNotificationBox();
-      notificationBox.appendNotification(
-        L10N.getFormatStr("storage.idb.deleteError", dbName),
-        "storage-idb-delete-error",
-        null,
-        notificationBox.PRIORITY_CRITICAL_LOW);
-    });
+          notificationBox.PRIORITY_CRITICAL_LOW
+        );
+      });
   }
 
   removeCache(host, cacheName) {
     const front = this.getCurrentFront();
 
-    front.removeItem(host, JSON.stringify([ cacheName ]));
+    front.removeItem(host, JSON.stringify([cacheName]));
   }
 }
 
@@ -1344,8 +1612,8 @@ exports.StorageUI = StorageUI;
 
 function createGUID() {
   return "{cccccccc-cccc-4ccc-yccc-cccccccccccc}".replace(/[cy]/g, c => {
-    const r = Math.random() * 16 | 0;
-    const v = c == "c" ? r : (r & 0x3 | 0x8);
+    const r = (Math.random() * 16) | 0;
+    const v = c == "c" ? r : (r & 0x3) | 0x8;
     return v.toString(16);
   });
 }
@@ -1363,4 +1631,34 @@ function addEllipsis(name) {
   }
 
   return name;
+}
+
+/**
+ * Get a string for a column name automatically choosing whether or not the
+ * string should be localized.
+ *
+ * @param {String} type
+ *        The storage type.
+ * @param {String} name
+ *        The field name that may need to be localized.
+ */
+function getColumnName(type, name) {
+  // Check if a l10n ID has been changed since it was created and map it to
+  // its new value if it has.
+  let id = `${type}.${name}`;
+  id = NON_ORIGINAL_L10N_IDS.get(id) || id;
+
+  // If the ID exists in NON_L10N_STRINGS then we do not translate it
+  // otherwise we get it from the L10N database. If it doesn't exist in the
+  // database we will just use the field name.
+  let columnName = NON_L10N_STRINGS.get(id);
+  if (!columnName) {
+    try {
+      columnName = L10N.getStr(`table.headers.${id}`);
+    } catch (e) {
+      columnName = name;
+    }
+  }
+
+  return columnName;
 }

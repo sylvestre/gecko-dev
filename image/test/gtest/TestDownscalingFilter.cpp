@@ -21,122 +21,136 @@ using namespace mozilla::image;
 template <typename Func>
 void WithDownscalingFilter(const IntSize& aInputSize,
                            const IntSize& aOutputSize, Func aFunc) {
-  RefPtr<Decoder> decoder = CreateTrivialDecoder();
+  RefPtr<image::Decoder> decoder = CreateTrivialDecoder();
   ASSERT_TRUE(decoder != nullptr);
 
   WithFilterPipeline(
       decoder, std::forward<Func>(aFunc),
-      DownscalingConfig{aInputSize, SurfaceFormat::B8G8R8A8},
-      SurfaceConfig{decoder, aOutputSize, SurfaceFormat::B8G8R8A8, false});
+      DownscalingConfig{aInputSize, SurfaceFormat::OS_RGBA},
+      SurfaceConfig{decoder, aOutputSize, SurfaceFormat::OS_RGBA, false});
 }
 
 void AssertConfiguringDownscalingFilterFails(const IntSize& aInputSize,
                                              const IntSize& aOutputSize) {
-  RefPtr<Decoder> decoder = CreateTrivialDecoder();
+  RefPtr<image::Decoder> decoder = CreateTrivialDecoder();
   ASSERT_TRUE(decoder != nullptr);
 
   AssertConfiguringPipelineFails(
-      decoder, DownscalingConfig{aInputSize, SurfaceFormat::B8G8R8A8},
-      SurfaceConfig{decoder, aOutputSize, SurfaceFormat::B8G8R8A8, false});
+      decoder, DownscalingConfig{aInputSize, SurfaceFormat::OS_RGBA},
+      SurfaceConfig{decoder, aOutputSize, SurfaceFormat::OS_RGBA, false});
 }
 
-TEST(ImageDownscalingFilter, WritePixels100_100to99_99) {
+TEST(ImageDownscalingFilter, WritePixels100_100to99_99)
+{
   WithDownscalingFilter(IntSize(100, 100), IntSize(99, 99),
-                        [](Decoder* aDecoder, SurfaceFilter* aFilter) {
+                        [](image::Decoder* aDecoder, SurfaceFilter* aFilter) {
                           CheckWritePixels(
                               aDecoder, aFilter,
                               /* aOutputRect = */ Some(IntRect(0, 0, 99, 99)));
                         });
 }
 
-TEST(ImageDownscalingFilter, WritePixels100_100to33_33) {
+TEST(ImageDownscalingFilter, WritePixels100_100to33_33)
+{
   WithDownscalingFilter(IntSize(100, 100), IntSize(33, 33),
-                        [](Decoder* aDecoder, SurfaceFilter* aFilter) {
+                        [](image::Decoder* aDecoder, SurfaceFilter* aFilter) {
                           CheckWritePixels(
                               aDecoder, aFilter,
                               /* aOutputRect = */ Some(IntRect(0, 0, 33, 33)));
                         });
 }
 
-TEST(ImageDownscalingFilter, WritePixels100_100to1_1) {
+TEST(ImageDownscalingFilter, WritePixels100_100to1_1)
+{
   WithDownscalingFilter(IntSize(100, 100), IntSize(1, 1),
-                        [](Decoder* aDecoder, SurfaceFilter* aFilter) {
+                        [](image::Decoder* aDecoder, SurfaceFilter* aFilter) {
                           CheckWritePixels(
                               aDecoder, aFilter,
                               /* aOutputRect = */ Some(IntRect(0, 0, 1, 1)));
                         });
 }
 
-TEST(ImageDownscalingFilter, WritePixels100_100to33_99) {
+TEST(ImageDownscalingFilter, WritePixels100_100to33_99)
+{
   WithDownscalingFilter(IntSize(100, 100), IntSize(33, 99),
-                        [](Decoder* aDecoder, SurfaceFilter* aFilter) {
+                        [](image::Decoder* aDecoder, SurfaceFilter* aFilter) {
                           CheckWritePixels(
                               aDecoder, aFilter,
                               /* aOutputRect = */ Some(IntRect(0, 0, 33, 99)));
                         });
 }
 
-TEST(ImageDownscalingFilter, WritePixels100_100to99_33) {
+TEST(ImageDownscalingFilter, WritePixels100_100to99_33)
+{
   WithDownscalingFilter(IntSize(100, 100), IntSize(99, 33),
-                        [](Decoder* aDecoder, SurfaceFilter* aFilter) {
+                        [](image::Decoder* aDecoder, SurfaceFilter* aFilter) {
                           CheckWritePixels(
                               aDecoder, aFilter,
                               /* aOutputRect = */ Some(IntRect(0, 0, 99, 33)));
                         });
 }
 
-TEST(ImageDownscalingFilter, WritePixels100_100to99_1) {
+TEST(ImageDownscalingFilter, WritePixels100_100to99_1)
+{
   WithDownscalingFilter(IntSize(100, 100), IntSize(99, 1),
-                        [](Decoder* aDecoder, SurfaceFilter* aFilter) {
+                        [](image::Decoder* aDecoder, SurfaceFilter* aFilter) {
                           CheckWritePixels(
                               aDecoder, aFilter,
                               /* aOutputRect = */ Some(IntRect(0, 0, 99, 1)));
                         });
 }
 
-TEST(ImageDownscalingFilter, WritePixels100_100to1_99) {
+TEST(ImageDownscalingFilter, WritePixels100_100to1_99)
+{
   WithDownscalingFilter(IntSize(100, 100), IntSize(1, 99),
-                        [](Decoder* aDecoder, SurfaceFilter* aFilter) {
+                        [](image::Decoder* aDecoder, SurfaceFilter* aFilter) {
                           CheckWritePixels(
                               aDecoder, aFilter,
                               /* aOutputRect = */ Some(IntRect(0, 0, 1, 99)));
                         });
 }
 
-TEST(ImageDownscalingFilter, DownscalingFailsFor100_100to101_101) {
+TEST(ImageDownscalingFilter, DownscalingFailsFor100_100to101_101)
+{
   // Upscaling is disallowed.
   AssertConfiguringDownscalingFilterFails(IntSize(100, 100), IntSize(101, 101));
 }
 
-TEST(ImageDownscalingFilter, DownscalingFailsFor100_100to100_100) {
+TEST(ImageDownscalingFilter, DownscalingFailsFor100_100to100_100)
+{
   // "Scaling" to the same size is disallowed.
   AssertConfiguringDownscalingFilterFails(IntSize(100, 100), IntSize(100, 100));
 }
 
-TEST(ImageDownscalingFilter, DownscalingFailsFor0_0toMinus1_Minus1) {
+TEST(ImageDownscalingFilter, DownscalingFailsFor0_0toMinus1_Minus1)
+{
   // A 0x0 input size is disallowed.
   AssertConfiguringDownscalingFilterFails(IntSize(0, 0), IntSize(-1, -1));
 }
 
-TEST(ImageDownscalingFilter, DownscalingFailsForMinus1_Minus1toMinus2_Minus2) {
+TEST(ImageDownscalingFilter, DownscalingFailsForMinus1_Minus1toMinus2_Minus2)
+{
   // A negative input size is disallowed.
   AssertConfiguringDownscalingFilterFails(IntSize(-1, -1), IntSize(-2, -2));
 }
 
-TEST(ImageDownscalingFilter, DownscalingFailsFor100_100to0_0) {
+TEST(ImageDownscalingFilter, DownscalingFailsFor100_100to0_0)
+{
   // A 0x0 output size is disallowed.
   AssertConfiguringDownscalingFilterFails(IntSize(100, 100), IntSize(0, 0));
 }
 
-TEST(ImageDownscalingFilter, DownscalingFailsFor100_100toMinus1_Minus1) {
+TEST(ImageDownscalingFilter, DownscalingFailsFor100_100toMinus1_Minus1)
+{
   // A negative output size is disallowed.
   AssertConfiguringDownscalingFilterFails(IntSize(100, 100), IntSize(-1, -1));
 }
 
-TEST(ImageDownscalingFilter, WritePixelsOutput100_100to20_20) {
+TEST(ImageDownscalingFilter, WritePixelsOutput100_100to20_20)
+{
   WithDownscalingFilter(
       IntSize(100, 100), IntSize(20, 20),
-      [](Decoder* aDecoder, SurfaceFilter* aFilter) {
+      [](image::Decoder* aDecoder, SurfaceFilter* aFilter) {
         // Fill the image. It consists of 25 lines of green, followed by 25
         // lines of red, followed by 25 lines of green, followed by 25 more
         // lines of red.
@@ -174,10 +188,11 @@ TEST(ImageDownscalingFilter, WritePixelsOutput100_100to20_20) {
       });
 }
 
-TEST(ImageDownscalingFilter, WritePixelsOutput100_100to10_20) {
+TEST(ImageDownscalingFilter, WritePixelsOutput100_100to10_20)
+{
   WithDownscalingFilter(
       IntSize(100, 100), IntSize(10, 20),
-      [](Decoder* aDecoder, SurfaceFilter* aFilter) {
+      [](image::Decoder* aDecoder, SurfaceFilter* aFilter) {
         // Fill the image. It consists of 25 lines of green, followed by 25
         // lines of red, followed by 25 lines of green, followed by 25 more
         // lines of red.
@@ -213,16 +228,4 @@ TEST(ImageDownscalingFilter, WritePixelsOutput100_100to10_20) {
         EXPECT_TRUE(RowsAreSolidColor(surface, 16, 4, BGRAColor::Red(),
                                       /* aFuzz = */ 3));
       });
-}
-
-TEST(ImageDownscalingFilter, ConfiguringPalettedDownscaleFails) {
-  RefPtr<Decoder> decoder = CreateTrivialDecoder();
-  ASSERT_TRUE(decoder != nullptr);
-
-  // DownscalingFilter does not support paletted images, so configuration should
-  // fail.
-  AssertConfiguringPipelineFails(
-      decoder, DownscalingConfig{IntSize(100, 100), SurfaceFormat::B8G8R8A8},
-      PalettedSurfaceConfig{decoder, IntSize(20, 20), IntRect(0, 0, 20, 20),
-                            SurfaceFormat::B8G8R8A8, 8, false});
 }

@@ -1,6 +1,6 @@
 // Test that prevUpToDate on frames are cleared.
 
-var g = newGlobal();
+var g = newGlobal({newCompartment: true});
 var dbg = new Debugger(g);
 
 g.eval(`
@@ -9,7 +9,7 @@ function outer(unaliasedArg) {
   var aliasedVar = unaliasedArg;
 
   inner();
-  return;
+  return unaliasedVar; // To prevent the JIT from optimizing out unaliasedVar.
 
   function inner() {
     aliasedVar++;

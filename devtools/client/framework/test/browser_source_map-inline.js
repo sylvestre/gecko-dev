@@ -7,9 +7,11 @@
 
 // There are shutdown issues for which multiple rejections are left uncaught.
 // See bug 1018184 for resolving these issues.
-const { PromiseTestUtils } = scopedCuImport("resource://testing-common/PromiseTestUtils.jsm");
-PromiseTestUtils.whitelistRejectionsGlobally(/this\.worker is null/);
-PromiseTestUtils.whitelistRejectionsGlobally(/Component not initialized/);
+const { PromiseTestUtils } = ChromeUtils.import(
+  "resource://testing-common/PromiseTestUtils.jsm"
+);
+PromiseTestUtils.allowMatchingRejectionsGlobally(/this\.worker is null/);
+PromiseTestUtils.allowMatchingRejectionsGlobally(/Component not initialized/);
 
 const TEST_ROOT = "http://example.com/browser/devtools/client/framework/test/";
 // Empty page
@@ -27,9 +29,11 @@ add_task(async function() {
   await sourceSeen;
 
   info(`checking original location for ${JS_URL}:84`);
-  const newLoc = await service.originalPositionFor(JS_URL, 84);
+  const newLoc = await new Promise(r =>
+    service.subscribeByURL(JS_URL, 84, undefined, r)
+  );
 
-  is(newLoc.sourceUrl, ORIGINAL_URL, "check mapped URL");
+  is(newLoc.url, ORIGINAL_URL, "check mapped URL");
   is(newLoc.line, 11, "check mapped line number");
 
   await toolbox.destroy();

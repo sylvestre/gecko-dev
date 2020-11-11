@@ -11,6 +11,8 @@ if CONFIG['FFVPX_ASFLAGS']:
         DIRS += ['x86']
     elif CONFIG['CPU_ARCH'] == 'arm':
         DIRS += ['arm']
+    elif CONFIG['CPU_ARCH'] == 'aarch64':
+        DIRS += ['aarch64']
 
 SharedLibrary('mozavutil')
 SOURCES += [
@@ -21,7 +23,6 @@ SOURCES += [
     'cpu.c',
     'crc.c',
     'dict.c',
-    'dummy_funcs.c',
     'error.c',
     'eval.c',
     'fifo.c',
@@ -45,7 +46,7 @@ SOURCES += [
     'utils.c'
 ]
 
-if not CONFIG['MOZ_FFVPX_FLACONLY']:
+if not CONFIG['MOZ_FFVPX_AUDIOONLY']:
     SOURCES += [
         'adler32.c',
         'base64.c',
@@ -64,5 +65,8 @@ NoVisibilityFlags()
 OS_LIBS += CONFIG['REALTIME_LIBS']
 if CONFIG['OS_TARGET'] != 'WINNT':
     OS_LIBS += ['m']
+
+if CONFIG['MOZ_NEEDS_LIBATOMIC']:
+    OS_LIBS += ['atomic']
 
 include("../ffvpxcommon.mozbuild")

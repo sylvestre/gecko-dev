@@ -10,8 +10,7 @@
 
     <popupnotification id="webRTC-shareDevices-notification" hidden="true">
       <popupnotificationcontent id="webRTC-selectCamera" orient="vertical">
-        <label value="&getUserMedia.selectCamera.label;"
-               accesskey="&getUserMedia.selectCamera.accesskey;"
+        <label data-l10n-id="popup-select-camera"
                control="webRTC-selectCamera-menulist"/>
         <menulist id="webRTC-selectCamera-menulist">
           <menupopup id="webRTC-selectCamera-menupopup"/>
@@ -25,11 +24,11 @@
                   oncommand="webrtcUI.updateWarningLabel(this);">
           <menupopup id="webRTC-selectWindow-menupopup"/>
         </menulist>
-        <description id="webRTC-all-windows-shared" hidden="true">&getUserMedia.allWindowsShared.message;</description>
+        <description id="webRTC-all-windows-shared" hidden="true" data-l10n-id="popup-all-windows-shared"></description>
       </popupnotificationcontent>
 
       <popupnotificationcontent id="webRTC-preview" hidden="true">
-        <html:video id="webRTC-previewVideo"/>
+        <html:video id="webRTC-previewVideo" tabindex="-1"/>
         <vbox id="webRTC-previewWarningBox">
           <spacer flex="1"/>
           <description id="webRTC-previewWarning"/>
@@ -37,8 +36,7 @@
       </popupnotificationcontent>
 
       <popupnotificationcontent id="webRTC-selectMicrophone" orient="vertical">
-        <label value="&getUserMedia.selectMicrophone.label;"
-               accesskey="&getUserMedia.selectMicrophone.accesskey;"
+        <label data-l10n-id="popup-select-microphone"
                control="webRTC-selectMicrophone-menulist"/>
         <menulist id="webRTC-selectMicrophone-menulist">
           <menupopup id="webRTC-selectMicrophone-menupopup"/>
@@ -54,14 +52,28 @@
 
     <popupnotification id="password-notification" hidden="true">
       <popupnotificationcontent orient="vertical">
-        <textbox id="password-notification-username"/>
-        <textbox id="password-notification-password" type="password" show-content=""/>
+        <stack>
+          <html:input id="password-notification-username" 
+                      class="ac-has-end-icon"
+                      autocompletesearch="login-doorhanger-username"
+                      autocompletepopup="PopupAutoComplete"
+                      is="autocomplete-input"
+                      maxrows="10"
+                      maxdropmarkerrows="10"/>
+          <dropmarker id="password-notification-username-dropmarker"
+                      class="ac-dropmarker"/>
+        </stack>
+        <stack>
+          <html:input id="password-notification-password" type="password"/>
+          <dropmarker id="password-notification-password-dropmarker"
+                      class="ac-dropmarker"
+                      hidden="true"/>
+        </stack>
         <checkbox id="password-notification-visibilityToggle" hidden="true"/>
       </popupnotificationcontent>
     </popupnotification>
 
-
-    <popupnotification id="addon-progress-notification" hidden="true">
+    <popupnotification id="addon-progress-notification" is="addon-progress-notification" hidden="true">
       <popupnotificationcontent orient="vertical">
         <html:progress id="addon-progress-notification-progressmeter" max="100"/>
         <label id="addon-progress-notification-progresstext" crop="end"/>
@@ -77,6 +89,18 @@
         <description id="addon-webext-perm-text" class="addon-webext-perm-text"/>
         <label id="addon-webext-perm-intro" class="addon-webext-perm-text"/>
         <html:ul id="addon-webext-perm-list" class="addon-webext-perm-list"/>
+        <hbox>
+          <label id="addon-webext-perm-info" is="text-link" class="popup-notification-learnmore-link"/>
+        </hbox>
+      </popupnotificationcontent>
+    </popupnotification>
+
+    <popupnotification id="addon-install-blocked-notification" hidden="true">
+      <popupnotificationcontent id="addon-install-blocked-content" orient="vertical">
+        <description id="addon-install-blocked-message" class="popup-notification-description"></description>
+        <hbox>
+          <label id="addon-install-blocked-info" class="popup-notification-learnmore-link" is="text-link"/>
+        </hbox>
       </popupnotificationcontent>
     </popupnotification>
 
@@ -84,7 +108,7 @@
       <popupnotificationheader id="cfr-notification-header">
         <stack id="cfr-notification-header-stack">
           <description id="cfr-notification-header-label"></description>
-          <label id="cfr-notification-header-link" class="text-link">
+          <label id="cfr-notification-header-link" is="text-link">
             <xul:image id="cfr-notification-header-image"/>
           </label>
         </stack>
@@ -93,28 +117,15 @@
         <description id="cfr-notification-author"></description>
       </popupnotificationcontent>
       <popupnotificationfooter id="cfr-notification-footer" orient="vertical">
-        <description id="cfr-notification-footer-text"/>
-        <hbox id="cfr-notification-footer-addon-info">
-          <hbox id="cfr-notification-footer-filled-stars"/>
-          <hbox id="cfr-notification-footer-empty-stars"/>
-          <label id="cfr-notification-footer-users"/>
-          <spacer id="cfr-notification-footer-spacer" hidden="true"/>
-          <label id="cfr-notification-footer-learn-more-link" class="text-link"/>
-        </hbox>
+        <vbox id="cfr-notification-footer-text-and-addon-info">
+          <description id="cfr-notification-footer-text"/>
+          <hbox id="cfr-notification-footer-addon-info">
+            <hbox id="cfr-notification-footer-filled-stars"/>
+            <hbox id="cfr-notification-footer-empty-stars"/>
+            <label id="cfr-notification-footer-users"/>
+            <spacer id="cfr-notification-footer-spacer" hidden="true"/>
+            <label id="cfr-notification-footer-learn-more-link" is="text-link"/>
+          </hbox>
+        </vbox>
       </popupnotificationfooter>
-    </popupnotification>
-
-    <popupnotification id="storage-access-notification" hidden="true">
-      <popupnotificationcontent class="storage-access-notification-content">
-        <xul:vbox flex="1">
-          <!-- These need to be on the same line to avoid creating
-               whitespace between them (whitespace is added in the
-               localization file, if necessary). -->
-          <xul:description class="storage-access-perm-text"><html:span
-            id="storage-access-perm-label"/><html:a id="storage-access-perm-learnmore"
-            onclick="openTrustedLinkIn(this.href, 'tab'); return false;"
-            class="text-link popup-notification-learnmore-link"/><html:span
-            id="storage-access-perm-endlabel"/></xul:description>
-        </xul:vbox>
-      </popupnotificationcontent>
     </popupnotification>

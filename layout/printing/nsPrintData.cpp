@@ -6,11 +6,10 @@
 
 #include "nsPrintData.h"
 
+#include "nsIPrintProgressParams.h"
 #include "nsIStringBundle.h"
-#include "nsIServiceManager.h"
 #include "nsIWidget.h"
 #include "nsPrintObject.h"
-#include "nsPrintPreviewListener.h"
 #include "nsIWebProgressListener.h"
 #include "mozilla/Services.h"
 
@@ -18,7 +17,7 @@
 // PR LOGGING
 #include "mozilla/Logging.h"
 
-static mozilla::LazyLogModule gPrintingLog("printing");
+extern mozilla::LazyLogModule gPrintingLog;
 
 #define PR_PL(_p1) MOZ_LOG(gPrintingLog, mozilla::LogLevel::Debug, _p1);
 
@@ -28,41 +27,15 @@ static mozilla::LazyLogModule gPrintingLog("printing");
 nsPrintData::nsPrintData(ePrintDataType aType)
     : mType(aType),
       mPrintDocList(0),
-      mIsIFrameSelected(false),
       mIsParentAFrameSet(false),
       mOnStartSent(false),
       mIsAborted(false),
       mPreparingForPrint(false),
-      mDocWasToBeDestroyed(false),
       mShrinkToFit(false),
-      mPrintFrameType(nsIPrintSettings::kFramesAsIs),
       mNumPrintablePages(0),
-      mNumPagesPrinted(0),
-      mShrinkRatio(1.0),
-      mPPEventListeners(nullptr) {
-  nsCOMPtr<nsIStringBundle> brandBundle;
-  nsCOMPtr<nsIStringBundleService> svc =
-      mozilla::services::GetStringBundleService();
-  if (svc) {
-    svc->CreateBundle("chrome://branding/locale/brand.properties",
-                      getter_AddRefs(brandBundle));
-    if (brandBundle) {
-      brandBundle->GetStringFromName("brandShortName", mBrandName);
-    }
-  }
-
-  if (mBrandName.IsEmpty()) {
-    mBrandName.AssignLiteral(u"Mozilla Document");
-  }
-}
+      mShrinkRatio(1.0) {}
 
 nsPrintData::~nsPrintData() {
-  // remove the event listeners
-  if (mPPEventListeners) {
-    mPPEventListeners->RemoveListeners();
-    NS_RELEASE(mPPEventListeners);
-  }
-
   // Only Send an OnEndPrinting if we have started printing
   if (mOnStartSent && mType != eIsPrintPreview) {
     OnEndPrinting();

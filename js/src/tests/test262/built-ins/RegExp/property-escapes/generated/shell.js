@@ -1,9 +1,11 @@
+// GENERATED, DO NOT EDIT
 // file: regExpUtils.js
 // Copyright (C) 2017 Mathias Bynens.  All rights reserved.
 // This code is governed by the BSD license found in the LICENSE file.
 /*---
 description: |
     Collection of functions used to assert the correctness of RegExp objects.
+defines: [buildString, testPropertyEscapes, matchValidator]
 ---*/
 
 function buildString({ loneCodePoints, ranges }) {

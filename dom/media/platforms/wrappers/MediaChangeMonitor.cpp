@@ -14,8 +14,17 @@
 #include "MediaInfo.h"
 #include "PDMFactory.h"
 #include "VPXDecoder.h"
-#include "mozilla/StaticPrefs.h"
+#include "mozilla/StaticPrefs_media.h"
 #include "mozilla/TaskQueue.h"
+
+#ifdef MOZ_GECKO_PROFILER
+#  include "ProfilerMarkerPayload.h"
+#  define MEDIA_CHANGE_MONITOR_STATUS_MARKER(tag, text, markerTime)          \
+    PROFILER_ADD_MARKER_WITH_PAYLOAD(tag, MEDIA_PLAYBACK, TextMarkerPayload, \
+                                     (text, markerTime))
+#else
+#  define MEDIA_CHANGE_MONITOR_STATUS_MARKER(tag, text, markerTime)
+#endif
 
 namespace mozilla {
 
@@ -27,7 +36,8 @@ namespace mozilla {
 
 class H264ChangeMonitor : public MediaChangeMonitor::CodecChangeMonitor {
  public:
-  explicit H264ChangeMonitor(const VideoInfo& aInfo) : mCurrentConfig(aInfo) {
+  explicit H264ChangeMonitor(const VideoInfo& aInfo, bool aFullParsing)
+      : mCurrentConfig(aInfo), mFullParsing(aFullParsing) {
     if (CanBeInstantiated()) {
       UpdateConfigFromExtraData(aInfo.mExtraData);
     }
@@ -52,13 +62,17 @@ class H264ChangeMonitor : public MediaChangeMonitor::CodecChangeMonitor {
     }
 
     RefPtr<MediaByteBuffer> extra_data =
-        aSample->mKeyframe ? H264::ExtractExtraData(aSample) : nullptr;
+        aSample->mKeyframe || !mGotSPS || mFullParsing
+            ? H264::ExtractExtraData(aSample)
+            : nullptr;
 
     if (!H264::HasSPS(extra_data) && !H264::HasSPS(mCurrentConfig.mExtraData)) {
       // We don't have inband data and the original config didn't contain a SPS.
       // We can't decode this content.
       return NS_ERROR_NOT_INITIALIZED;
     }
+
+    mGotSPS = true;
 
     if (!H264::HasSPS(extra_data)) {
       // This sample doesn't contain inband SPS/PPS
@@ -85,6 +99,11 @@ class H264ChangeMonitor : public MediaChangeMonitor::CodecChangeMonitor {
     mPreviousExtraData = aSample->mExtraData;
     UpdateConfigFromExtraData(extra_data);
 
+    MEDIA_CHANGE_MONITOR_STATUS_MARKER(
+        "H264 Stream Change",
+        "H264ChangeMonitor::CheckForChange has detected a change in the "
+        "stream and will request a new decoder"_ns,
+        TimeStamp::NowUnfuzzed());
     return NS_ERROR_DOM_MEDIA_NEED_NEW_DECODER;
   }
 
@@ -122,6 +141,13 @@ class H264ChangeMonitor : public MediaChangeMonitor::CodecChangeMonitor {
       mCurrentConfig.mImage.height = spsdata.pic_height;
       mCurrentConfig.mDisplay.width = spsdata.display_width;
       mCurrentConfig.mDisplay.height = spsdata.display_height;
+      mCurrentConfig.SetImageRect(
+          gfx::IntRect(0, 0, spsdata.pic_width, spsdata.pic_height));
+      mCurrentConfig.mColorDepth = spsdata.ColorDepth();
+      mCurrentConfig.mColorSpace = spsdata.ColorSpace();
+      mCurrentConfig.mColorRange = spsdata.video_full_range_flag
+                                       ? gfx::ColorRange::FULL
+                                       : gfx::ColorRange::LIMITED;
     }
     mCurrentConfig.mExtraData = aExtraData;
     mTrackInfo = new TrackInfoSharedPtr(mCurrentConfig, mStreamID++);
@@ -129,6 +155,8 @@ class H264ChangeMonitor : public MediaChangeMonitor::CodecChangeMonitor {
 
   VideoInfo mCurrentConfig;
   uint32_t mStreamID = 0;
+  const bool mFullParsing;
+  bool mGotSPS = false;
   RefPtr<TrackInfoSharedPtr> mTrackInfo;
   RefPtr<MediaByteBuffer> mPreviousExtraData;
 };
@@ -142,11 +170,16 @@ class VPXChangeMonitor : public MediaChangeMonitor::CodecChangeMonitor {
     mTrackInfo = new TrackInfoSharedPtr(mCurrentConfig, mStreamID++);
   }
 
-  bool CanBeInstantiated() const override { return true; }
+  bool CanBeInstantiated() const override {
+    // We want to see at least one sample before we create a decoder so that we
+    // can create the vpcC content on mCurrentConfig.mExtraData.
+    return mCodec == VPXDecoder::Codec::VP8 || mInfo ||
+           mCurrentConfig.mCrypto.IsEncrypted();
+  }
 
   MediaResult CheckForChange(MediaRawData* aSample) override {
     // Don't look at encrypted content.
-    if (aSample->mCrypto.mValid) {
+    if (aSample->mCrypto.IsEncrypted()) {
       return NS_OK;
     }
     // For both VP8 and VP9, we only look for resolution changes
@@ -155,28 +188,43 @@ class VPXChangeMonitor : public MediaChangeMonitor::CodecChangeMonitor {
       return NS_OK;
     }
 
-    auto dataSpan = MakeSpan<const uint8_t>(aSample->Data(), aSample->Size());
+    auto dataSpan = Span<const uint8_t>(aSample->Data(), aSample->Size());
 
     VPXDecoder::VPXStreamInfo info;
     if (!VPXDecoder::GetStreamInfo(dataSpan, info, mCodec)) {
       return NS_ERROR_DOM_MEDIA_DECODE_ERR;
     }
 
-    if (!mInfo) {
-      mInfo = Some(info);
-      return NS_OK;
-    }
-    if (mInfo.ref().IsCompatible(info)) {
-      return NS_OK;
+    nsresult rv = NS_OK;
+    if (mInfo) {
+      if (mInfo.ref().IsCompatible(info)) {
+        return rv;
+      }
+      mCurrentConfig.mImage = info.mImage;
+      mCurrentConfig.mDisplay = info.mDisplay;
+      mCurrentConfig.SetImageRect(
+          gfx::IntRect(0, 0, info.mImage.width, info.mImage.height));
+
+      MEDIA_CHANGE_MONITOR_STATUS_MARKER(
+          "VPX Stream Change",
+          "VPXChangeMonitor::CheckForChange has detected a change in the "
+          "stream and will request a new decoder"_ns,
+          TimeStamp::NowUnfuzzed());
+      rv = NS_ERROR_DOM_MEDIA_NEED_NEW_DECODER;
     }
     mInfo = Some(info);
-    mCurrentConfig.mImage = info.mImage;
-    mCurrentConfig.mDisplay = info.mDisplay;
-    mCurrentConfig.SetImageRect(
-        gfx::IntRect(0, 0, info.mImage.width, info.mImage.height));
+    // For the first frame, we leave the mDisplay/mImage untouched as they
+    // contain aspect ratio (AR) information set by the demuxer.
+    // The AR data isn't found in the VP8/VP9 bytestream.
+    mCurrentConfig.mColorDepth = gfx::ColorDepthForBitDepth(info.mBitDepth);
+    mCurrentConfig.mColorSpace = info.ColorSpace();
+    mCurrentConfig.mColorRange = info.ColorRange();
+    if (mCodec == VPXDecoder::Codec::VP9) {
+      VPXDecoder::GetVPCCBox(mCurrentConfig.mExtraData, info);
+    }
     mTrackInfo = new TrackInfoSharedPtr(mCurrentConfig, mStreamID++);
 
-    return NS_ERROR_DOM_MEDIA_NEED_NEW_DECODER;
+    return rv;
   }
 
   const TrackInfo& Config() const override { return mCurrentConfig; }
@@ -203,10 +251,11 @@ MediaChangeMonitor::MediaChangeMonitor(PlatformDecoderModule* aPDM,
       mCurrentConfig(aParams.VideoConfig()),
       mKnowsCompositor(aParams.mKnowsCompositor),
       mImageContainer(aParams.mImageContainer),
-      mTaskQueue(aParams.mTaskQueue),
       mDecoder(nullptr),
       mGMPCrashHelper(aParams.mCrashHelper),
       mLastError(NS_OK),
+      mErrorIfNoInitializationData(aParams.mOptions.contains(
+          CreateDecoderParams::Option::ErrorIfNoInitializationData)),
       mType(aParams.mType),
       mOnWaitingForKeyEvent(aParams.mOnWaitingForKeyEvent),
       mDecoderOptions(aParams.mOptions),
@@ -216,180 +265,171 @@ MediaChangeMonitor::MediaChangeMonitor(PlatformDecoderModule* aPDM,
     mChangeMonitor = MakeUnique<VPXChangeMonitor>(mCurrentConfig);
   } else {
     MOZ_ASSERT(MP4Decoder::IsH264(mCurrentConfig.mMimeType));
-    mChangeMonitor = MakeUnique<H264ChangeMonitor>(mCurrentConfig);
+    mChangeMonitor = MakeUnique<H264ChangeMonitor>(
+        mCurrentConfig,
+        mDecoderOptions.contains(CreateDecoderParams::Option::FullH264Parsing));
   }
   mLastError = CreateDecoder(aParams.mDiagnostics);
   mInConstructor = false;
 }
 
-MediaChangeMonitor::~MediaChangeMonitor() {}
+MediaChangeMonitor::~MediaChangeMonitor() = default;
 
 RefPtr<MediaDataDecoder::InitPromise> MediaChangeMonitor::Init() {
-  RefPtr<MediaChangeMonitor> self = this;
-  return InvokeAsync(
-      mTaskQueue, __func__, [self, this]() -> RefPtr<InitPromise> {
-        if (mDecoder) {
-          RefPtr<InitPromise> p = mInitPromise.Ensure(__func__);
-          mDecoder->Init()
-              ->Then(mTaskQueue, __func__,
-                     [self, this](InitPromise::ResolveOrRejectValue&& aValue) {
-                       mInitPromiseRequest.Complete();
-                       if (aValue.IsResolve()) {
-                         mConversionRequired =
-                             Some(mDecoder->NeedsConversion());
-                         mCanRecycleDecoder = Some(CanRecycleDecoder());
-                       }
-                       return mInitPromise.ResolveOrRejectIfExists(
-                           std::move(aValue), __func__);
-                     })
-              ->Track(mInitPromiseRequest);
-          return p;
-        }
+  mThread = GetCurrentSerialEventTarget();
+  if (mDecoder) {
+    RefPtr<InitPromise> p = mInitPromise.Ensure(__func__);
+    RefPtr<MediaChangeMonitor> self = this;
+    mDecoder->Init()
+        ->Then(GetCurrentSerialEventTarget(), __func__,
+               [self, this](InitPromise::ResolveOrRejectValue&& aValue) {
+                 mInitPromiseRequest.Complete();
+                 if (aValue.IsResolve()) {
+                   mDecoderInitialized = true;
+                   mConversionRequired = Some(mDecoder->NeedsConversion());
+                   mCanRecycleDecoder = Some(CanRecycleDecoder());
+                 }
+                 return mInitPromise.ResolveOrRejectIfExists(std::move(aValue),
+                                                             __func__);
+               })
+        ->Track(mInitPromiseRequest);
+    return p;
+  }
 
-        // We haven't been able to initialize a decoder due to missing
-        // extradata.
-        return MediaDataDecoder::InitPromise::CreateAndResolve(
-            TrackType::kVideoTrack, __func__);
-      });
+  // We haven't been able to initialize a decoder due to missing
+  // extradata.
+  return MediaDataDecoder::InitPromise::CreateAndResolve(TrackType::kVideoTrack,
+                                                         __func__);
 }
 
 RefPtr<MediaDataDecoder::DecodePromise> MediaChangeMonitor::Decode(
     MediaRawData* aSample) {
-  RefPtr<MediaChangeMonitor> self = this;
-  RefPtr<MediaRawData> sample = aSample;
-  return InvokeAsync(mTaskQueue, __func__, [self, this, sample]() {
-    MOZ_RELEASE_ASSERT(mFlushPromise.IsEmpty(),
-                       "Flush operatin didn't complete");
+  AssertOnThread();
+  MOZ_RELEASE_ASSERT(mFlushPromise.IsEmpty(), "Flush operatin didn't complete");
 
-    MOZ_RELEASE_ASSERT(
-        !mDecodePromiseRequest.Exists() && !mInitPromiseRequest.Exists(),
-        "Can't request a new decode until previous one completed");
+  MOZ_RELEASE_ASSERT(
+      !mDecodePromiseRequest.Exists() && !mInitPromiseRequest.Exists(),
+      "Can't request a new decode until previous one completed");
 
-    MediaResult rv = CheckForChange(sample);
+  MediaResult rv = CheckForChange(aSample);
 
-    if (rv == NS_ERROR_NOT_INITIALIZED) {
-      // We are missing the required init data to create the decoder.
-      // Ignore for the time being, the MediaRawData will be dropped.
-      return DecodePromise::CreateAndResolve(DecodedData(), __func__);
-    }
-    if (rv == NS_ERROR_DOM_MEDIA_INITIALIZING_DECODER) {
-      // The decoder is pending initialization.
-      RefPtr<DecodePromise> p = mDecodePromise.Ensure(__func__);
-      return p;
-    }
-
-    if (NS_FAILED(rv)) {
+  if (rv == NS_ERROR_NOT_INITIALIZED) {
+    // We are missing the required init data to create the decoder.
+    if (mErrorIfNoInitializationData) {
+      // This frame can't be decoded and should be treated as an error.
       return DecodePromise::CreateAndReject(rv, __func__);
     }
+    // Swallow the frame, and await delivery of init data.
+    return DecodePromise::CreateAndResolve(DecodedData(), __func__);
+  }
+  if (rv == NS_ERROR_DOM_MEDIA_INITIALIZING_DECODER) {
+    // The decoder is pending initialization.
+    RefPtr<DecodePromise> p = mDecodePromise.Ensure(__func__);
+    return p;
+  }
 
-    if (mNeedKeyframe && !sample->mKeyframe) {
-      return DecodePromise::CreateAndResolve(DecodedData(), __func__);
-    }
+  if (NS_FAILED(rv)) {
+    return DecodePromise::CreateAndReject(rv, __func__);
+  }
 
-    rv = mChangeMonitor->PrepareSample(*mConversionRequired, sample,
-                                       mNeedKeyframe);
-    if (NS_FAILED(rv)) {
-      return DecodePromise::CreateAndReject(rv, __func__);
-    }
+  if (mNeedKeyframe && !aSample->mKeyframe) {
+    return DecodePromise::CreateAndResolve(DecodedData(), __func__);
+  }
 
-    mNeedKeyframe = false;
+  rv = mChangeMonitor->PrepareSample(*mConversionRequired, aSample,
+                                     mNeedKeyframe);
+  if (NS_FAILED(rv)) {
+    return DecodePromise::CreateAndReject(rv, __func__);
+  }
 
-    return mDecoder->Decode(sample);
-  });
+  mNeedKeyframe = false;
+
+  return mDecoder->Decode(aSample);
 }
 
 RefPtr<MediaDataDecoder::FlushPromise> MediaChangeMonitor::Flush() {
-  RefPtr<MediaChangeMonitor> self = this;
-  return InvokeAsync(mTaskQueue, __func__, [self, this]() {
-    mDecodePromiseRequest.DisconnectIfExists();
-    mDecodePromise.RejectIfExists(NS_ERROR_DOM_MEDIA_CANCELED, __func__);
-    mNeedKeyframe = true;
-    mPendingFrames.Clear();
+  AssertOnThread();
+  mDecodePromiseRequest.DisconnectIfExists();
+  mDecodePromise.RejectIfExists(NS_ERROR_DOM_MEDIA_CANCELED, __func__);
+  mNeedKeyframe = true;
+  mPendingFrames.Clear();
 
-    MOZ_RELEASE_ASSERT(mFlushPromise.IsEmpty(),
-                       "Previous flush didn't complete");
+  MOZ_RELEASE_ASSERT(mFlushPromise.IsEmpty(), "Previous flush didn't complete");
 
-    /*
-      When we detect a change of content in the byte stream, we first drain the
-      current decoder (1), flush (2), shut it down (3) create a new decoder and
-      initialize it (4). It is possible for MediaChangeMonitor::Flush to be
-      called during any of those times. If during (1):
-        - mDrainRequest will not be empty.
-        - The old decoder can still be used, with the current extradata as
-      stored in mCurrentConfig.mExtraData.
+  /*
+    When we detect a change of content in the byte stream, we first drain the
+    current decoder (1), flush (2), shut it down (3) create a new decoder and
+    initialize it (4). It is possible for MediaChangeMonitor::Flush to be
+    called during any of those times. If during (1):
+      - mDrainRequest will not be empty.
+      - The old decoder can still be used, with the current extradata as
+    stored in mCurrentConfig.mExtraData.
 
-      If during (2):
-        - mFlushRequest will not be empty.
-        - The old decoder can still be used, with the current extradata as
-      stored in mCurrentConfig.mExtraData.
+    If during (2):
+      - mFlushRequest will not be empty.
+      - The old decoder can still be used, with the current extradata as
+    stored in mCurrentConfig.mExtraData.
 
-      If during (3):
-        - mShutdownRequest won't be empty.
-        - mDecoder is empty.
-        - The old decoder is no longer referenced by the MediaChangeMonitor.
+    If during (3):
+      - mShutdownRequest won't be empty.
+      - mDecoder is empty.
+      - The old decoder is no longer referenced by the MediaChangeMonitor.
 
-      If during (4):
-        - mInitPromiseRequest won't be empty.
-        - mDecoder is set but not usable yet.
-    */
+    If during (4):
+      - mInitPromiseRequest won't be empty.
+      - mDecoder is set but not usable yet.
+  */
 
-    if (mDrainRequest.Exists() || mFlushRequest.Exists() ||
-        mShutdownRequest.Exists() || mInitPromiseRequest.Exists()) {
-      // We let the current decoder complete and will resume after.
-      RefPtr<FlushPromise> p = mFlushPromise.Ensure(__func__);
-      return p;
-    }
-    if (mDecoder) {
-      return mDecoder->Flush();
-    }
-    return FlushPromise::CreateAndResolve(true, __func__);
-  });
+  if (mDrainRequest.Exists() || mFlushRequest.Exists() ||
+      mShutdownRequest.Exists() || mInitPromiseRequest.Exists()) {
+    // We let the current decoder complete and will resume after.
+    RefPtr<FlushPromise> p = mFlushPromise.Ensure(__func__);
+    return p;
+  }
+  if (mDecoder && mDecoderInitialized) {
+    return mDecoder->Flush();
+  }
+  return FlushPromise::CreateAndResolve(true, __func__);
 }
 
 RefPtr<MediaDataDecoder::DecodePromise> MediaChangeMonitor::Drain() {
-  RefPtr<MediaChangeMonitor> self = this;
-  return InvokeAsync(mTaskQueue, __func__, [self, this]() {
-    MOZ_RELEASE_ASSERT(!mDrainRequest.Exists());
-    mNeedKeyframe = true;
-    if (mDecoder) {
-      return mDecoder->Drain();
-    }
-    return DecodePromise::CreateAndResolve(DecodedData(), __func__);
-  });
+  AssertOnThread();
+  MOZ_RELEASE_ASSERT(!mDrainRequest.Exists());
+  mNeedKeyframe = true;
+  if (mDecoder) {
+    return mDecoder->Drain();
+  }
+  return DecodePromise::CreateAndResolve(DecodedData(), __func__);
 }
 
 RefPtr<ShutdownPromise> MediaChangeMonitor::Shutdown() {
-  RefPtr<MediaChangeMonitor> self = this;
-  return InvokeAsync(mTaskQueue, __func__, [self, this]() {
-    mInitPromiseRequest.DisconnectIfExists();
-    mInitPromise.RejectIfExists(NS_ERROR_DOM_MEDIA_CANCELED, __func__);
-    mDecodePromiseRequest.DisconnectIfExists();
-    mDecodePromise.RejectIfExists(NS_ERROR_DOM_MEDIA_CANCELED, __func__);
-    mDrainRequest.DisconnectIfExists();
-    mFlushRequest.DisconnectIfExists();
-    mFlushPromise.RejectIfExists(NS_ERROR_DOM_MEDIA_CANCELED, __func__);
-    mShutdownRequest.DisconnectIfExists();
+  AssertOnThread();
+  mInitPromiseRequest.DisconnectIfExists();
+  mInitPromise.RejectIfExists(NS_ERROR_DOM_MEDIA_CANCELED, __func__);
+  mDecodePromiseRequest.DisconnectIfExists();
+  mDecodePromise.RejectIfExists(NS_ERROR_DOM_MEDIA_CANCELED, __func__);
+  mDrainRequest.DisconnectIfExists();
+  mFlushRequest.DisconnectIfExists();
+  mFlushPromise.RejectIfExists(NS_ERROR_DOM_MEDIA_CANCELED, __func__);
+  mShutdownRequest.DisconnectIfExists();
 
-    if (mShutdownPromise) {
-      // We have a shutdown in progress, return that promise instead as we can't
-      // shutdown a decoder twice.
-      RefPtr<ShutdownPromise> p = mShutdownPromise.forget();
-      return p;
-    }
-    return ShutdownDecoder();
-  });
+  if (mShutdownPromise) {
+    // We have a shutdown in progress, return that promise instead as we can't
+    // shutdown a decoder twice.
+    RefPtr<ShutdownPromise> p = std::move(mShutdownPromise);
+    return p;
+  }
+  return ShutdownDecoder();
 }
 
 RefPtr<ShutdownPromise> MediaChangeMonitor::ShutdownDecoder() {
-  RefPtr<MediaChangeMonitor> self = this;
-  return InvokeAsync(mTaskQueue, __func__, [self, this]() {
-    mConversionRequired.reset();
-    if (mDecoder) {
-      RefPtr<MediaDataDecoder> decoder = mDecoder.forget();
-      return decoder->Shutdown();
-    }
-    return ShutdownPromise::CreateAndResolve(true, __func__);
-  });
+  AssertOnThread();
+  mConversionRequired.reset();
+  if (mDecoder) {
+    RefPtr<MediaDataDecoder> decoder = std::move(mDecoder);
+    return decoder->Shutdown();
+  }
+  return ShutdownPromise::CreateAndResolve(true, __func__);
 }
 
 bool MediaChangeMonitor::IsHardwareAccelerated(
@@ -417,9 +457,9 @@ void MediaChangeMonitor::SetSeekThreshold(const media::TimeUnit& aTime) {
 
 MediaResult MediaChangeMonitor::CreateDecoder(
     DecoderDoctorDiagnostics* aDiagnostics) {
-  // This is the only one of two methods to run outside the TaskQueue when
+  // This is the only one of two methods to run outside the init thread when
   // called from the constructor.
-  MOZ_ASSERT(mInConstructor || mTaskQueue->IsCurrentThreadIn());
+  MOZ_ASSERT(mInConstructor || (mThread && mThread->IsOnCurrentThread()));
 
   if (!mChangeMonitor->CanBeInstantiated()) {
     // nothing found yet, will try again later
@@ -429,15 +469,24 @@ MediaResult MediaChangeMonitor::CreateDecoder(
 
   MediaResult error = NS_OK;
   mDecoder = mPDM->CreateVideoDecoder(
-      {mCurrentConfig, mTaskQueue, aDiagnostics, mImageContainer,
-       mKnowsCompositor, mGMPCrashHelper, mType, mOnWaitingForKeyEvent,
-       mDecoderOptions, mRate, &error});
+      {mCurrentConfig, aDiagnostics, mImageContainer, mKnowsCompositor,
+       mGMPCrashHelper, mType, mOnWaitingForKeyEvent, mDecoderOptions, mRate,
+       &error});
 
   if (!mDecoder) {
-    if (NS_FAILED(error)) {
-      // The decoder supports CreateDecoderParam::mError, returns the value.
-      return error;
-    } else {
+    // We failed to create a decoder with the existing PDM; attempt once again
+    // with a PDMFactory.
+    RefPtr<PDMFactory> factory = new PDMFactory();
+    mDecoder = factory->CreateDecoder(
+        {mCurrentConfig, aDiagnostics, mImageContainer, mKnowsCompositor,
+         mGMPCrashHelper, mType, mOnWaitingForKeyEvent, mDecoderOptions, mRate,
+         &error, CreateDecoderParams::NoWrapper(true)});
+
+    if (!mDecoder) {
+      if (NS_FAILED(error)) {
+        // The decoder supports CreateDecoderParam::mError, returns the value.
+        return error;
+      }
       return MediaResult(NS_ERROR_DOM_MEDIA_FATAL_ERR,
                          RESULT_DETAIL("Unable to create decoder"));
     }
@@ -445,14 +494,13 @@ MediaResult MediaChangeMonitor::CreateDecoder(
 
   DDLINKCHILD("decoder", mDecoder.get());
 
+  mDecoderInitialized = false;
   mNeedKeyframe = true;
 
   return NS_OK;
 }
 
 MediaResult MediaChangeMonitor::CreateDecoderAndInit(MediaRawData* aSample) {
-  AssertOnTaskQueue();
-
   MediaResult rv = mChangeMonitor->CheckForChange(aSample);
   if (!NS_SUCCEEDED(rv) && rv != NS_ERROR_DOM_MEDIA_NEED_NEW_DECODER) {
     return rv;
@@ -464,35 +512,37 @@ MediaResult MediaChangeMonitor::CreateDecoderAndInit(MediaRawData* aSample) {
     RefPtr<MediaChangeMonitor> self = this;
     RefPtr<MediaRawData> sample = aSample;
     mDecoder->Init()
-        ->Then(mTaskQueue, __func__,
-               [self, sample, this](const TrackType aTrackType) {
-                 mInitPromiseRequest.Complete();
-                 mConversionRequired = Some(mDecoder->NeedsConversion());
-                 mCanRecycleDecoder = Some(CanRecycleDecoder());
+        ->Then(
+            GetCurrentSerialEventTarget(), __func__,
+            [self, sample, this](const TrackType aTrackType) {
+              mInitPromiseRequest.Complete();
+              mDecoderInitialized = true;
+              mConversionRequired = Some(mDecoder->NeedsConversion());
+              mCanRecycleDecoder = Some(CanRecycleDecoder());
 
-                 if (!mFlushPromise.IsEmpty()) {
-                   // A Flush is pending, abort the current operation.
-                   mFlushPromise.Resolve(true, __func__);
-                   return;
-                 }
+              if (!mFlushPromise.IsEmpty()) {
+                // A Flush is pending, abort the current operation.
+                mFlushPromise.Resolve(true, __func__);
+                return;
+              }
 
-                 DecodeFirstSample(sample);
-               },
-               [self, this](const MediaResult& aError) {
-                 mInitPromiseRequest.Complete();
+              DecodeFirstSample(sample);
+            },
+            [self, this](const MediaResult& aError) {
+              mInitPromiseRequest.Complete();
 
-                 if (!mFlushPromise.IsEmpty()) {
-                   // A Flush is pending, abort the current operation.
-                   mFlushPromise.Reject(aError, __func__);
-                   return;
-                 }
+              if (!mFlushPromise.IsEmpty()) {
+                // A Flush is pending, abort the current operation.
+                mFlushPromise.Reject(aError, __func__);
+                return;
+              }
 
-                 mDecodePromise.Reject(
-                     MediaResult(
-                         NS_ERROR_DOM_MEDIA_FATAL_ERR,
-                         RESULT_DETAIL("Unable to initialize H264 decoder")),
-                     __func__);
-               })
+              mDecodePromise.Reject(
+                  MediaResult(
+                      NS_ERROR_DOM_MEDIA_FATAL_ERR,
+                      RESULT_DETAIL("Unable to initialize H264 decoder")),
+                  __func__);
+            })
         ->Track(mInitPromiseRequest);
     return NS_ERROR_DOM_MEDIA_INITIALIZING_DECODER;
   }
@@ -500,17 +550,16 @@ MediaResult MediaChangeMonitor::CreateDecoderAndInit(MediaRawData* aSample) {
 }
 
 bool MediaChangeMonitor::CanRecycleDecoder() const {
-  AssertOnTaskQueue();
-
   MOZ_ASSERT(mDecoder);
-  return StaticPrefs::MediaDecoderRecycleEnabled() &&
+  return StaticPrefs::media_decoder_recycle_enabled() &&
          mDecoder->SupportDecoderRecycling();
 }
 
 void MediaChangeMonitor::DecodeFirstSample(MediaRawData* aSample) {
-  AssertOnTaskQueue();
-
-  if (mNeedKeyframe && !aSample->mKeyframe) {
+  // We feed all the data to AnnexB decoder as a non-keyframe could contain
+  // the SPS/PPS when used with WebRTC and this data is needed by the decoder.
+  if (mNeedKeyframe && !aSample->mKeyframe &&
+      *mConversionRequired != ConversionRequired::kNeedAnnexB) {
     mDecodePromise.Resolve(std::move(mPendingFrames), __func__);
     mPendingFrames = DecodedData();
     return;
@@ -524,27 +573,28 @@ void MediaChangeMonitor::DecodeFirstSample(MediaRawData* aSample) {
     return;
   }
 
-  mNeedKeyframe = false;
+  if (aSample->mKeyframe) {
+    mNeedKeyframe = false;
+  }
 
   RefPtr<MediaChangeMonitor> self = this;
   mDecoder->Decode(aSample)
-      ->Then(mTaskQueue, __func__,
-             [self, this](MediaDataDecoder::DecodedData&& aResults) {
-               mDecodePromiseRequest.Complete();
-               mPendingFrames.AppendElements(std::move(aResults));
-               mDecodePromise.Resolve(std::move(mPendingFrames), __func__);
-               mPendingFrames = DecodedData();
-             },
-             [self, this](const MediaResult& aError) {
-               mDecodePromiseRequest.Complete();
-               mDecodePromise.Reject(aError, __func__);
-             })
+      ->Then(
+          GetCurrentSerialEventTarget(), __func__,
+          [self, this](MediaDataDecoder::DecodedData&& aResults) {
+            mDecodePromiseRequest.Complete();
+            mPendingFrames.AppendElements(std::move(aResults));
+            mDecodePromise.Resolve(std::move(mPendingFrames), __func__);
+            mPendingFrames = DecodedData();
+          },
+          [self, this](const MediaResult& aError) {
+            mDecodePromiseRequest.Complete();
+            mDecodePromise.Reject(aError, __func__);
+          })
       ->Track(mDecodePromiseRequest);
 }
 
 MediaResult MediaChangeMonitor::CheckForChange(MediaRawData* aSample) {
-  AssertOnTaskQueue();
-
   if (!mDecoder) {
     return CreateDecoderAndInit(aSample);
   }
@@ -568,93 +618,98 @@ MediaResult MediaChangeMonitor::CheckForChange(MediaRawData* aSample) {
 }
 
 void MediaChangeMonitor::DrainThenFlushDecoder(MediaRawData* aPendingSample) {
-  AssertOnTaskQueue();
-
+  AssertOnThread();
+  MOZ_ASSERT(mDecoderInitialized);
   RefPtr<MediaRawData> sample = aPendingSample;
   RefPtr<MediaChangeMonitor> self = this;
   mDecoder->Drain()
-      ->Then(mTaskQueue, __func__,
-             [self, sample, this](MediaDataDecoder::DecodedData&& aResults) {
-               mDrainRequest.Complete();
-               if (!mFlushPromise.IsEmpty()) {
-                 // A Flush is pending, abort the current operation.
-                 mFlushPromise.Resolve(true, __func__);
-                 return;
-               }
-               if (aResults.Length() > 0) {
-                 mPendingFrames.AppendElements(std::move(aResults));
-                 DrainThenFlushDecoder(sample);
-                 return;
-               }
-               // We've completed the draining operation, we can now flush the
-               // decoder.
-               FlushThenShutdownDecoder(sample);
-             },
-             [self, this](const MediaResult& aError) {
-               mDrainRequest.Complete();
-               if (!mFlushPromise.IsEmpty()) {
-                 // A Flush is pending, abort the current operation.
-                 mFlushPromise.Reject(aError, __func__);
-                 return;
-               }
-               mDecodePromise.Reject(aError, __func__);
-             })
+      ->Then(
+          GetCurrentSerialEventTarget(), __func__,
+          [self, sample, this](MediaDataDecoder::DecodedData&& aResults) {
+            mDrainRequest.Complete();
+            if (!mFlushPromise.IsEmpty()) {
+              // A Flush is pending, abort the current operation.
+              mFlushPromise.Resolve(true, __func__);
+              return;
+            }
+            if (aResults.Length() > 0) {
+              mPendingFrames.AppendElements(std::move(aResults));
+              DrainThenFlushDecoder(sample);
+              return;
+            }
+            // We've completed the draining operation, we can now flush the
+            // decoder.
+            FlushThenShutdownDecoder(sample);
+          },
+          [self, this](const MediaResult& aError) {
+            mDrainRequest.Complete();
+            if (!mFlushPromise.IsEmpty()) {
+              // A Flush is pending, abort the current operation.
+              mFlushPromise.Reject(aError, __func__);
+              return;
+            }
+            mDecodePromise.Reject(aError, __func__);
+          })
       ->Track(mDrainRequest);
 }
 
 void MediaChangeMonitor::FlushThenShutdownDecoder(
     MediaRawData* aPendingSample) {
-  AssertOnTaskQueue();
-
+  AssertOnThread();
+  MOZ_ASSERT(mDecoderInitialized);
   RefPtr<MediaRawData> sample = aPendingSample;
   RefPtr<MediaChangeMonitor> self = this;
   mDecoder->Flush()
-      ->Then(mTaskQueue, __func__,
-             [self, sample, this]() {
-               mFlushRequest.Complete();
+      ->Then(
+          GetCurrentSerialEventTarget(), __func__,
+          [self, sample, this]() {
+            mFlushRequest.Complete();
 
-               if (!mFlushPromise.IsEmpty()) {
-                 // A Flush is pending, abort the current operation.
-                 mFlushPromise.Resolve(true, __func__);
-                 return;
-               }
+            if (!mFlushPromise.IsEmpty()) {
+              // A Flush is pending, abort the current operation.
+              mFlushPromise.Resolve(true, __func__);
+              return;
+            }
 
-               mShutdownPromise = ShutdownDecoder();
-               mShutdownPromise
-                   ->Then(mTaskQueue, __func__,
-                          [self, sample, this]() {
-                            mShutdownRequest.Complete();
-                            mShutdownPromise = nullptr;
+            mShutdownPromise = ShutdownDecoder();
+            mShutdownPromise
+                ->Then(
+                    GetCurrentSerialEventTarget(), __func__,
+                    [self, sample, this]() {
+                      mShutdownRequest.Complete();
+                      mShutdownPromise = nullptr;
 
-                            if (!mFlushPromise.IsEmpty()) {
-                              // A Flush is pending, abort the current
-                              // operation.
-                              mFlushPromise.Resolve(true, __func__);
-                              return;
-                            }
+                      if (!mFlushPromise.IsEmpty()) {
+                        // A Flush is pending, abort the current
+                        // operation.
+                        mFlushPromise.Resolve(true, __func__);
+                        return;
+                      }
 
-                            MediaResult rv = CreateDecoderAndInit(sample);
-                            if (rv == NS_ERROR_DOM_MEDIA_INITIALIZING_DECODER) {
-                              // All good so far, will continue later.
-                              return;
-                            }
-                            MOZ_ASSERT(NS_FAILED(rv));
-                            mDecodePromise.Reject(rv, __func__);
-                            return;
-                          },
-                          [] { MOZ_CRASH("Can't reach here'"); })
-                   ->Track(mShutdownRequest);
-             },
-             [self, this](const MediaResult& aError) {
-               mFlushRequest.Complete();
-               if (!mFlushPromise.IsEmpty()) {
-                 // A Flush is pending, abort the current operation.
-                 mFlushPromise.Reject(aError, __func__);
-                 return;
-               }
-               mDecodePromise.Reject(aError, __func__);
-             })
+                      MediaResult rv = CreateDecoderAndInit(sample);
+                      if (rv == NS_ERROR_DOM_MEDIA_INITIALIZING_DECODER) {
+                        // All good so far, will continue later.
+                        return;
+                      }
+                      MOZ_ASSERT(NS_FAILED(rv));
+                      mDecodePromise.Reject(rv, __func__);
+                      return;
+                    },
+                    [] { MOZ_CRASH("Can't reach here'"); })
+                ->Track(mShutdownRequest);
+          },
+          [self, this](const MediaResult& aError) {
+            mFlushRequest.Complete();
+            if (!mFlushPromise.IsEmpty()) {
+              // A Flush is pending, abort the current operation.
+              mFlushPromise.Reject(aError, __func__);
+              return;
+            }
+            mDecodePromise.Reject(aError, __func__);
+          })
       ->Track(mFlushRequest);
 }
 
 }  // namespace mozilla
+
+#undef MEDIA_CHANGE_MONITOR_STATUS_MARKER

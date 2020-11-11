@@ -29,8 +29,7 @@ class Touch final : public nsISupports,
   static bool PrefEnabled(JSContext* aCx, JSObject* aGlobal);
 
   static already_AddRefed<Touch> Constructor(const GlobalObject& aGlobal,
-                                             const TouchInit& aParam,
-                                             ErrorResult& aRv);
+                                             const TouchInit& aParam);
 
   Touch(EventTarget* aTarget, int32_t aIdentifier, int32_t aPageX,
         int32_t aPageY, int32_t aScreenX, int32_t aScreenY, int32_t aClientX,
@@ -48,7 +47,7 @@ class Touch final : public nsISupports,
   // Note, this sets both mOriginalTarget and mTarget.
   void SetTouchTarget(EventTarget* aTarget);
 
-  bool Equals(Touch* aTouch);
+  bool Equals(Touch* aTouch) const;
 
   virtual JSObject* WrapObject(JSContext* aCx,
                                JS::Handle<JSObject*> aGivenProto) override;

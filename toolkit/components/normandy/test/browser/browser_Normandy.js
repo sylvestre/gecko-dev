@@ -1,12 +1,30 @@
 "use strict";
 
-ChromeUtils.import("resource://normandy/Normandy.jsm", this);
-ChromeUtils.import("resource://normandy/lib/AddonStudies.jsm", this);
-ChromeUtils.import("resource://normandy/lib/PreferenceExperiments.jsm", this);
-ChromeUtils.import("resource://normandy/lib/PreferenceRollouts.jsm", this);
-ChromeUtils.import("resource://normandy/lib/RecipeRunner.jsm", this);
-ChromeUtils.import("resource://normandy/lib/TelemetryEvents.jsm", this);
-ChromeUtils.import("resource://normandy-content/AboutPages.jsm", this);
+const { TelemetryUtils } = ChromeUtils.import(
+  "resource://gre/modules/TelemetryUtils.jsm"
+);
+const { Normandy } = ChromeUtils.import("resource://normandy/Normandy.jsm");
+const { AddonRollouts } = ChromeUtils.import(
+  "resource://normandy/lib/AddonRollouts.jsm"
+);
+const { AddonStudies } = ChromeUtils.import(
+  "resource://normandy/lib/AddonStudies.jsm"
+);
+const { PreferenceExperiments } = ChromeUtils.import(
+  "resource://normandy/lib/PreferenceExperiments.jsm"
+);
+const { PreferenceRollouts } = ChromeUtils.import(
+  "resource://normandy/lib/PreferenceRollouts.jsm"
+);
+const { RecipeRunner } = ChromeUtils.import(
+  "resource://normandy/lib/RecipeRunner.jsm"
+);
+const { TelemetryEvents } = ChromeUtils.import(
+  "resource://normandy/lib/TelemetryEvents.jsm"
+);
+const {
+  NormandyTestUtils: { factories },
+} = ChromeUtils.import("resource://testing-common/NormandyTestUtils.jsm");
 
 const experimentPref1 = "test.initExperimentPrefs1";
 const experimentPref2 = "test.initExperimentPrefs2";
@@ -15,13 +33,13 @@ const experimentPref4 = "test.initExperimentPrefs4";
 
 function withStubInits(testFunction) {
   return decorate(
-    withStub(AboutPages, "init"),
+    withStub(AddonRollouts, "init"),
     withStub(AddonStudies, "init"),
     withStub(PreferenceRollouts, "init"),
     withStub(PreferenceExperiments, "init"),
     withStub(RecipeRunner, "init"),
     withStub(TelemetryEvents, "init"),
-    () => testFunction(),
+    () => testFunction()
   );
 }
 
@@ -39,42 +57,48 @@ decorate_task(
       is(
         defaultBranch.getPrefType(pref),
         defaultBranch.PREF_INVALID,
-        `Pref ${pref} don't exist before being initialized.`,
+        `Pref ${pref} don't exist before being initialized.`
       );
     }
 
-    let oldValues = Normandy.applyStartupPrefs("app.normandy.startupExperimentPrefs.");
+    let oldValues = Normandy.applyStartupPrefs(
+      "app.normandy.startupExperimentPrefs."
+    );
 
-    Assert.deepEqual(oldValues, {
-      [experimentPref1]: null,
-      [experimentPref2]: null,
-      [experimentPref3]: null,
-    }, "the correct set of old values should be reported");
+    Assert.deepEqual(
+      oldValues,
+      {
+        [experimentPref1]: null,
+        [experimentPref2]: null,
+        [experimentPref3]: null,
+      },
+      "the correct set of old values should be reported"
+    );
 
     ok(
       defaultBranch.getBoolPref(experimentPref1),
-      `Pref ${experimentPref1} has a default value after being initialized.`,
+      `Pref ${experimentPref1} has a default value after being initialized.`
     );
     is(
       defaultBranch.getIntPref(experimentPref2),
       2,
-      `Pref ${experimentPref2} has a default value after being initialized.`,
+      `Pref ${experimentPref2} has a default value after being initialized.`
     );
     is(
       defaultBranch.getCharPref(experimentPref3),
       "string",
-      `Pref ${experimentPref3} has a default value after being initialized.`,
+      `Pref ${experimentPref3} has a default value after being initialized.`
     );
 
     for (const pref of [experimentPref1, experimentPref2, experimentPref3]) {
       ok(
         !defaultBranch.prefHasUserValue(pref),
-        `Pref ${pref} doesn't have a user value after being initialized.`,
+        `Pref ${pref} doesn't have a user value after being initialized.`
       );
       Services.prefs.clearUserPref(pref);
       defaultBranch.deleteBranch(pref);
     }
-  },
+  }
 );
 
 decorate_task(
@@ -90,9 +114,9 @@ decorate_task(
     is(
       defaultBranch.getCharPref("test.existingPref"),
       "experiment",
-      "applyStartupPrefs overwrites the default values of existing preferences.",
+      "applyStartupPrefs overwrites the default values of existing preferences."
     );
-  },
+  }
 );
 
 decorate_task(
@@ -108,26 +132,26 @@ decorate_task(
     is(
       defaultBranch.getPrefType("test.mismatchPref"),
       Services.prefs.PREF_INT,
-      "applyStartupPrefs skips prefs that don't match the existing default value's type.",
+      "applyStartupPrefs skips prefs that don't match the existing default value's type."
     );
-  },
+  }
 );
 
 decorate_task(
   withStub(Normandy, "finishInit"),
   async function testStartupDelayed(finishInitStub) {
-    Normandy.init();
+    await Normandy.init();
     ok(
       !finishInitStub.called,
-      "When initialized, do not call finishInit immediately.",
+      "When initialized, do not call finishInit immediately."
     );
 
     Normandy.observe(null, "sessionstore-windows-restored");
     ok(
       finishInitStub.called,
-      "Once the sessionstore-windows-restored event is observed, finishInit should be called.",
+      "Once the sessionstore-windows-restored event is observed, finishInit should be called."
     );
-  },
+  }
 );
 
 // During startup, preferences that are changed for experiments should
@@ -135,7 +159,10 @@ decorate_task(
 decorate_task(
   withStub(PreferenceExperiments, "recordOriginalValues"),
   withStub(PreferenceRollouts, "recordOriginalValues"),
-  async function testApplyStartupPrefs(experimentsRecordOriginalValuesStub, rolloutsRecordOriginalValueStub) {
+  async function testApplyStartupPrefs(
+    experimentsRecordOriginalValuesStub,
+    rolloutsRecordOriginalValueStub
+  ) {
     const defaultBranch = Services.prefs.getDefaultBranch("");
 
     defaultBranch.setBoolPref(experimentPref1, false);
@@ -144,26 +171,26 @@ decorate_task(
     // experimentPref4 is left unset
 
     Normandy.applyStartupPrefs("app.normandy.startupExperimentPrefs.");
-    Normandy.studyPrefsChanged = {"test.study-pref": 1};
-    Normandy.rolloutPrefsChanged = {"test.rollout-pref": 1};
+    Normandy.studyPrefsChanged = { "test.study-pref": 1 };
+    Normandy.rolloutPrefsChanged = { "test.rollout-pref": 1 };
     await Normandy.finishInit();
 
     Assert.deepEqual(
       experimentsRecordOriginalValuesStub.args,
-      [[{"test.study-pref": 1}]],
-      "finishInit should record original values of the study prefs",
+      [[{ "test.study-pref": 1 }]],
+      "finishInit should record original values of the study prefs"
     );
     Assert.deepEqual(
       rolloutsRecordOriginalValueStub.args,
-      [[{"test.rollout-pref": 1}]],
-      "finishInit should record original values of the study prefs",
+      [[{ "test.rollout-pref": 1 }]],
+      "finishInit should record original values of the study prefs"
     );
 
     // cleanup
     defaultBranch.deleteBranch(experimentPref1);
     defaultBranch.deleteBranch(experimentPref2);
     defaultBranch.deleteBranch(experimentPref3);
-  },
+  }
 );
 
 // Test that startup prefs are handled correctly when there is a value on the user branch but not the default branch.
@@ -177,67 +204,54 @@ decorate_task(
   withStub(PreferenceExperiments, "recordOriginalValues"),
   async function testApplyStartupPrefsNoDefaultValue() {
     Normandy.applyStartupPrefs("app.normandy.startupExperimentPrefs");
-    ok(true, "initExperimentPrefs should not throw for prefs that doesn't exist on the default branch");
-  },
-);
-
-decorate_task(
-  withStubInits,
-  async function testStartup() {
-    const initObserved = TestUtils.topicObserved("shield-init-complete");
-    await Normandy.finishInit();
-    ok(AboutPages.init.called, "startup calls AboutPages.init");
-    ok(AddonStudies.init.called, "startup calls AddonStudies.init");
-    ok(PreferenceExperiments.init.called, "startup calls PreferenceExperiments.init");
-    ok(RecipeRunner.init.called, "startup calls RecipeRunner.init");
-    await initObserved;
+    ok(
+      true,
+      "initExperimentPrefs should not throw for prefs that doesn't exist on the default branch"
+    );
   }
 );
 
-decorate_task(
-  withStubInits,
-  async function testStartupPrefInitFail() {
-    PreferenceExperiments.init.rejects();
+decorate_task(withStubInits, async function testStartup() {
+  const initObserved = TestUtils.topicObserved("shield-init-complete");
+  await Normandy.finishInit();
+  ok(AddonStudies.init.called, "startup calls AddonStudies.init");
+  ok(
+    PreferenceExperiments.init.called,
+    "startup calls PreferenceExperiments.init"
+  );
+  ok(RecipeRunner.init.called, "startup calls RecipeRunner.init");
+  await initObserved;
+});
 
-    await Normandy.finishInit();
-    ok(AboutPages.init.called, "startup calls AboutPages.init");
-    ok(AddonStudies.init.called, "startup calls AddonStudies.init");
-    ok(PreferenceExperiments.init.called, "startup calls PreferenceExperiments.init");
-    ok(RecipeRunner.init.called, "startup calls RecipeRunner.init");
-    ok(TelemetryEvents.init.called, "startup calls TelemetryEvents.init");
-    ok(PreferenceRollouts.init.called, "startup calls PreferenceRollouts.init");
-  }
-);
+decorate_task(withStubInits, async function testStartupPrefInitFail() {
+  PreferenceExperiments.init.rejects();
 
-decorate_task(
-  withStubInits,
-  async function testStartupAboutPagesInitFail() {
-    AboutPages.init.rejects();
+  await Normandy.finishInit();
+  ok(AddonStudies.init.called, "startup calls AddonStudies.init");
+  ok(AddonRollouts.init.called, "startup calls AddonRollouts.init");
+  ok(
+    PreferenceExperiments.init.called,
+    "startup calls PreferenceExperiments.init"
+  );
+  ok(RecipeRunner.init.called, "startup calls RecipeRunner.init");
+  ok(TelemetryEvents.init.called, "startup calls TelemetryEvents.init");
+  ok(PreferenceRollouts.init.called, "startup calls PreferenceRollouts.init");
+});
 
-    await Normandy.finishInit();
-    ok(AboutPages.init.called, "startup calls AboutPages.init");
-    ok(AddonStudies.init.called, "startup calls AddonStudies.init");
-    ok(PreferenceExperiments.init.called, "startup calls PreferenceExperiments.init");
-    ok(RecipeRunner.init.called, "startup calls RecipeRunner.init");
-    ok(TelemetryEvents.init.called, "startup calls TelemetryEvents.init");
-    ok(PreferenceRollouts.init.called, "startup calls PreferenceRollouts.init");
-  }
-);
+decorate_task(withStubInits, async function testStartupAddonStudiesInitFail() {
+  AddonStudies.init.rejects();
 
-decorate_task(
-  withStubInits,
-  async function testStartupAddonStudiesInitFail() {
-    AddonStudies.init.rejects();
-
-    await Normandy.finishInit();
-    ok(AboutPages.init.called, "startup calls AboutPages.init");
-    ok(AddonStudies.init.called, "startup calls AddonStudies.init");
-    ok(PreferenceExperiments.init.called, "startup calls PreferenceExperiments.init");
-    ok(RecipeRunner.init.called, "startup calls RecipeRunner.init");
-    ok(TelemetryEvents.init.called, "startup calls TelemetryEvents.init");
-    ok(PreferenceRollouts.init.called, "startup calls PreferenceRollouts.init");
-  }
-);
+  await Normandy.finishInit();
+  ok(AddonStudies.init.called, "startup calls AddonStudies.init");
+  ok(AddonRollouts.init.called, "startup calls AddonRollouts.init");
+  ok(
+    PreferenceExperiments.init.called,
+    "startup calls PreferenceExperiments.init"
+  );
+  ok(RecipeRunner.init.called, "startup calls RecipeRunner.init");
+  ok(TelemetryEvents.init.called, "startup calls TelemetryEvents.init");
+  ok(PreferenceRollouts.init.called, "startup calls PreferenceRollouts.init");
+});
 
 decorate_task(
   withStubInits,
@@ -245,9 +259,12 @@ decorate_task(
     TelemetryEvents.init.throws();
 
     await Normandy.finishInit();
-    ok(AboutPages.init.called, "startup calls AboutPages.init");
     ok(AddonStudies.init.called, "startup calls AddonStudies.init");
-    ok(PreferenceExperiments.init.called, "startup calls PreferenceExperiments.init");
+    ok(AddonRollouts.init.called, "startup calls AddonRollouts.init");
+    ok(
+      PreferenceExperiments.init.called,
+      "startup calls PreferenceExperiments.init"
+    );
     ok(RecipeRunner.init.called, "startup calls RecipeRunner.init");
     ok(TelemetryEvents.init.called, "startup calls TelemetryEvents.init");
     ok(PreferenceRollouts.init.called, "startup calls PreferenceRollouts.init");
@@ -260,43 +277,94 @@ decorate_task(
     PreferenceRollouts.init.throws();
 
     await Normandy.finishInit();
-    ok(AboutPages.init.called, "startup calls AboutPages.init");
     ok(AddonStudies.init.called, "startup calls AddonStudies.init");
-    ok(PreferenceExperiments.init.called, "startup calls PreferenceExperiments.init");
+    ok(AddonRollouts.init.called, "startup calls AddonRollouts.init");
+    ok(
+      PreferenceExperiments.init.called,
+      "startup calls PreferenceExperiments.init"
+    );
     ok(RecipeRunner.init.called, "startup calls RecipeRunner.init");
     ok(TelemetryEvents.init.called, "startup calls TelemetryEvents.init");
     ok(PreferenceRollouts.init.called, "startup calls PreferenceRollouts.init");
   }
 );
 
+// Test that disabling telemetry removes all stored enrollment IDs
 decorate_task(
-  withMockPreferences,
-  async function testPrefMigration(mockPreferences) {
-    const legacyPref = "extensions.shield-recipe-client.test";
-    const migratedPref = "app.normandy.test";
-    mockPreferences.set(legacyPref, 1);
+  PreferenceExperiments.withMockExperiments([
+    factories.preferenceStudyFactory({
+      enrollmentId: "test-enrollment-id",
+    }),
+  ]),
+  AddonStudies.withStudies([
+    factories.addonStudyFactory({ slug: "test-study" }),
+  ]),
+  PreferenceRollouts.withTestMock,
+  AddonRollouts.withTestMock,
+  async function disablingTelemetryClearsEnrollmentIds(
+    [prefExperiment],
+    [addonStudy]
+  ) {
+    const prefRollout = {
+      slug: "test-rollout",
+      state: PreferenceRollouts.STATE_ACTIVE,
+      preferences: [],
+      enrollmentId: "test-enrollment-id",
+    };
+    await PreferenceRollouts.add(prefRollout);
+    const addonRollout = {
+      slug: "test-rollout",
+      state: AddonRollouts.STATE_ACTIVE,
+      extension: {},
+      enrollmentId: "test-enrollment-id",
+    };
+    await AddonRollouts.add(addonRollout);
 
+    // pre-check
     ok(
-      Services.prefs.prefHasUserValue(legacyPref),
-      "Legacy pref should have a user value before running migration",
+      (await PreferenceExperiments.get(prefExperiment.slug)).enrollmentId,
+      "pref experiment should have an enrollment id"
     );
     ok(
-      !Services.prefs.prefHasUserValue(migratedPref),
-      "Migrated pref should not have a user value before running migration",
-    );
-
-    Normandy.migrateShieldPrefs();
-
-    ok(
-      !Services.prefs.prefHasUserValue(legacyPref),
-      "Legacy pref should not have a user value after running migration",
+      (await AddonStudies.get(addonStudy.recipeId)).enrollmentId,
+      "addon study should have an enrollment id"
     );
     ok(
-      Services.prefs.prefHasUserValue(migratedPref),
-      "Migrated pref should have a user value after running migration",
+      (await PreferenceRollouts.get(prefRollout.slug)).enrollmentId,
+      "pref rollout should have an enrollment id"
     );
-    is(Services.prefs.getIntPref(migratedPref), 1, "Value should have been migrated");
+    ok(
+      (await AddonRollouts.get(addonRollout.slug)).enrollmentId,
+      "addon rollout should have an enrollment id"
+    );
 
-    Services.prefs.clearUserPref(migratedPref);
-  },
+    // trigger telemetry being disabled
+    await Normandy.observe(
+      null,
+      TelemetryUtils.TELEMETRY_UPLOAD_DISABLED_TOPIC,
+      null
+    );
+
+    // no enrollment IDs anymore
+    is(
+      (await PreferenceExperiments.get(prefExperiment.slug)).enrollmentId,
+      TelemetryEvents.NO_ENROLLMENT_ID_MARKER,
+      "pref experiment should not have an enrollment id"
+    );
+    is(
+      (await AddonStudies.get(addonStudy.recipeId)).enrollmentId,
+      TelemetryEvents.NO_ENROLLMENT_ID_MARKER,
+      "addon study should not have an enrollment id"
+    );
+    is(
+      (await PreferenceRollouts.get(prefRollout.slug)).enrollmentId,
+      TelemetryEvents.NO_ENROLLMENT_ID_MARKER,
+      "pref rollout should not have an enrollment id"
+    );
+    is(
+      (await AddonRollouts.get(addonRollout.slug)).enrollmentId,
+      TelemetryEvents.NO_ENROLLMENT_ID_MARKER,
+      "addon rollout should not have an enrollment id"
+    );
+  }
 );

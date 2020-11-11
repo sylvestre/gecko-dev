@@ -5,11 +5,13 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "WheelScrollAnimation.h"
-#include "ScrollAnimationBezierPhysics.h"
 
+#include <tuple>
 #include "AsyncPanZoomController.h"
-#include "gfxPrefs.h"
+#include "mozilla/StaticPrefs_general.h"
+#include "mozilla/layers/APZPublicUtils.h"
 #include "nsPoint.h"
+#include "ScrollAnimationBezierPhysics.h"
 
 namespace mozilla {
 namespace layers {
@@ -21,22 +23,28 @@ static ScrollAnimationBezierPhysicsSettings SettingsForDeltaType(
 
   switch (aDeltaType) {
     case ScrollWheelInput::SCROLLDELTA_PAGE:
-      maxMS = clamped(gfxPrefs::PageSmoothScrollMaxDurationMs(), 0, 10000);
-      minMS = clamped(gfxPrefs::PageSmoothScrollMinDurationMs(), 0, maxMS);
+      maxMS = clamped(StaticPrefs::general_smoothScroll_pages_durationMaxMS(),
+                      0, 10000);
+      minMS = clamped(StaticPrefs::general_smoothScroll_pages_durationMinMS(),
+                      0, maxMS);
       break;
     case ScrollWheelInput::SCROLLDELTA_PIXEL:
-      maxMS = clamped(gfxPrefs::PixelSmoothScrollMaxDurationMs(), 0, 10000);
-      minMS = clamped(gfxPrefs::PixelSmoothScrollMinDurationMs(), 0, maxMS);
+      maxMS = clamped(StaticPrefs::general_smoothScroll_pixels_durationMaxMS(),
+                      0, 10000);
+      minMS = clamped(StaticPrefs::general_smoothScroll_pixels_durationMinMS(),
+                      0, maxMS);
       break;
     case ScrollWheelInput::SCROLLDELTA_LINE:
-      maxMS = clamped(gfxPrefs::WheelSmoothScrollMaxDurationMs(), 0, 10000);
-      minMS = clamped(gfxPrefs::WheelSmoothScrollMinDurationMs(), 0, maxMS);
+      std::tie(minMS, maxMS) = apz::GetMouseWheelAnimationDurations();
+      maxMS = clamped(maxMS, 0, 10000);
+      minMS = clamped(minMS, 0, maxMS);
       break;
   }
 
   // The pref is 100-based int percentage, while mIntervalRatio is 1-based ratio
   double intervalRatio =
-      ((double)gfxPrefs::SmoothScrollDurationToIntervalRatio()) / 100.0;
+      ((double)StaticPrefs::general_smoothScroll_durationToIntervalRatio()) /
+      100.0;
   intervalRatio = std::max(1.0, intervalRatio);
   return ScrollAnimationBezierPhysicsSettings{minMS, maxMS, intervalRatio};
 }

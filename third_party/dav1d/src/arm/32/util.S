@@ -26,25 +26,101 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
-#ifndef __DAVID_SRC_ARM_32_UTIL_S__
-#define __DAVID_SRC_ARM_32_UTIL_S__
+#ifndef DAV1D_SRC_ARM_32_UTIL_S
+#define DAV1D_SRC_ARM_32_UTIL_S
 
 #include "config.h"
 #include "src/arm/asm.S"
 
-.macro movrel rd, val
+.macro movrel_local rd, val, offset=0
 #if defined(PIC)
-    ldr         \rd,  1f
-    b           2f
-1:
-@ FIXME: thumb
-    .word       \val - (2f + 8)
-2:
-    add         \rd,  \rd,  pc
+        ldr             \rd,  90001f
+        b               90002f
+90001:
+        .word           \val + \offset - (90002f + 8 - 4 * CONFIG_THUMB)
+90002:
+        add             \rd,  \rd,  pc
 #else
-    movw        \rd, #:lower16:\val
-    movt        \rd, #:upper16:\val
+        movw            \rd, #:lower16:\val+\offset
+        movt            \rd, #:upper16:\val+\offset
 #endif
 .endm
 
-#endif /* __DAVID_SRC_ARM_32_UTIL_S__ */
+.macro movrel rd, val, offset=0
+#if defined(PIC) && defined(__APPLE__)
+        ldr             \rd,  1f
+        b               2f
+1:
+        .word           3f - (2f + 8 - 4 * CONFIG_THUMB)
+2:
+        ldr             \rd,  [pc, \rd]
+.if \offset < 0
+        sub             \rd,  \rd,  #-(\offset)
+.elseif \offset > 0
+        add             \rd,  \rd,  #\offset
+.endif
+        .non_lazy_symbol_pointer
+3:
+        .indirect_symbol \val
+        .word       0
+        .text
+#else
+        movrel_local    \rd, \val, \offset
+#endif
+.endm
+
+.macro transpose_8x8b q0, q1, q2, q3, r0, r1, r2, r3, r4, r5, r6, r7
+        vtrn.32         \q0,  \q2
+        vtrn.32         \q1,  \q3
+
+        vtrn.16         \r0,  \r2
+        vtrn.16         \r1,  \r3
+        vtrn.16         \r4,  \r6
+        vtrn.16         \r5,  \r7
+
+        vtrn.8          \r0,  \r1
+        vtrn.8          \r2,  \r3
+        vtrn.8          \r4,  \r5
+        vtrn.8          \r6,  \r7
+.endm
+
+.macro transpose_8x8h r0, r1, r2, r3, r4, r5, r6, r7, d0, d1, d2, d3, d4, d5, d6, d7
+        vswp            \d0,  \d4
+        vswp            \d1,  \d5
+        vswp            \d2,  \d6
+        vswp            \d3,  \d7
+
+        vtrn.32         \r0,  \r2
+        vtrn.32         \r1,  \r3
+        vtrn.32         \r4,  \r6
+        vtrn.32         \r5,  \r7
+
+        vtrn.16         \r0,  \r1
+        vtrn.16         \r2,  \r3
+        vtrn.16         \r4,  \r5
+        vtrn.16         \r6,  \r7
+.endm
+
+.macro transpose_4x8b q0, q1, r0, r1, r2, r3
+        vtrn.16         \q0,  \q1
+
+        vtrn.8          \r0,  \r1
+        vtrn.8          \r2,  \r3
+.endm
+
+.macro transpose_4x4h q0, q1, r0, r1, r2, r3
+        vtrn.32         \q0,  \q1
+
+        vtrn.16         \r0,  \r1
+        vtrn.16         \r2,  \r3
+.endm
+
+.macro transpose_4x8h r0, r1, r2, r3
+        vtrn.32         \r0,  \r2
+        vtrn.32         \r1,  \r3
+
+        vtrn.16         \r0,  \r1
+        vtrn.16         \r2,  \r3
+.endm
+
+#endif /* DAV1D_SRC_ARM_32_UTIL_S */

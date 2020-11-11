@@ -4,13 +4,19 @@
 "use strict";
 
 const EventEmitter = require("devtools/shared/event-emitter");
-loader.lazyRequireGetter(this, "setNamedTimeout",
-  "devtools/client/shared/widgets/view-helpers", true);
-loader.lazyRequireGetter(this, "clearNamedTimeout",
-  "devtools/client/shared/widgets/view-helpers", true);
-loader.lazyRequireGetter(this, "naturalSortCaseInsensitive",
-  "devtools/client/shared/natural-sort", true);
-const {KeyCodes} = require("devtools/client/shared/keycodes");
+loader.lazyRequireGetter(
+  this,
+  ["clearNamedTimeout", "setNamedTimeout"],
+  "devtools/client/shared/widgets/view-helpers",
+  true
+);
+loader.lazyRequireGetter(
+  this,
+  "naturalSortCaseInsensitive",
+  "devtools/shared/natural-sort",
+  true
+);
+const { KeyCodes } = require("devtools/client/shared/keycodes");
 
 const HTML_NS = "http://www.w3.org/1999/xhtml";
 const AFTER_SCROLL_DELAY = 100;
@@ -51,7 +57,8 @@ Object.defineProperty(this, "EVENTS", {
  *                    entry in the table. Default: name.
  *        - wrapTextInElements: Don't ever use 'value' attribute on labels.
  *                              Default: false.
- *        - emptyText: text to display when no entries in the table to display.
+ *        - emptyText: Localization ID for the text to display when there are
+ *                     no entries in the table to display.
  *        - highlightUpdated: true to highlight the changed/added row.
  *        - removableColumns: Whether columns are removeable. If set to false,
  *                            the context menu in the headers will not appear.
@@ -66,8 +73,17 @@ function TableWidget(node, options = {}) {
   this.window = this.document.defaultView;
   this._parent = node;
 
-  const {initialColumns, emptyText, uniqueId, highlightUpdated, removableColumns,
-       firstColumn, wrapTextInElements, cellContextMenuId} = options;
+  const {
+    initialColumns,
+    emptyText,
+    uniqueId,
+    highlightUpdated,
+    removableColumns,
+    firstColumn,
+    wrapTextInElements,
+    cellContextMenuId,
+    l10n,
+  } = options;
   this.emptyText = emptyText || "";
   this.uniqueId = uniqueId || "name";
   this.wrapTextInElements = wrapTextInElements || false;
@@ -75,6 +91,7 @@ function TableWidget(node, options = {}) {
   this.highlightUpdated = highlightUpdated || false;
   this.removableColumns = removableColumns !== false;
   this.cellContextMenuId = cellContextMenuId;
+  this.l10n = l10n;
 
   this.tbody = this.document.createXULElement("hbox");
   this.tbody.className = "table-widget-body theme-body";
@@ -84,10 +101,11 @@ function TableWidget(node, options = {}) {
   this.afterScroll = this.afterScroll.bind(this);
   this.tbody.addEventListener("scroll", this.onScroll.bind(this));
 
-  this.placeholder = this.document.createXULElement("label");
+  // Prepare placeholder
+  this.placeholder = this.document.createElement("div");
   this.placeholder.className = "plain table-widget-empty-text";
-  this.placeholder.setAttribute("flex", "1");
   this._parent.appendChild(this.placeholder);
+  this.setPlaceholder(this.emptyText);
 
   this.items = new Map();
   this.columns = new Map();
@@ -101,8 +119,6 @@ function TableWidget(node, options = {}) {
 
   if (initialColumns) {
     this.setColumns(initialColumns, uniqueId);
-  } else if (this.emptyText) {
-    this.setPlaceholderText(this.emptyText);
   }
 
   this.bindSelectedRow = id => {
@@ -122,7 +138,6 @@ function TableWidget(node, options = {}) {
 }
 
 TableWidget.prototype = {
-
   items: null,
   editBookmark: null,
   scrollIntoViewOnUpdate: null,
@@ -151,15 +166,17 @@ TableWidget.prototype = {
     }
   },
 
-/**
- * Is a row currently selected?
- *
- * @return {Boolean}
- *         true or false.
- */
+  /**
+   * Is a row currently selected?
+   *
+   * @return {Boolean}
+   *         true or false.
+   */
   get hasSelectedRow() {
-    return this.columns.get(this.uniqueId) &&
-           this.columns.get(this.uniqueId).selectedRow;
+    return (
+      this.columns.get(this.uniqueId) &&
+      this.columns.get(this.uniqueId).selectedRow
+    );
   },
 
   /**
@@ -273,8 +290,8 @@ TableWidget.prototype = {
     // A rows position in the table can change as the result of an edit. In
     // order to ensure that the correct row is highlighted after an edit we
     // save the uniqueId in editBookmark.
-    this.editBookmark = colName === uniqueId ? change.newValue
-                                             : items[uniqueId];
+    this.editBookmark =
+      colName === uniqueId ? change.newValue : items[uniqueId];
     this.emit(EVENTS.CELL_EDIT, change);
   },
 
@@ -377,6 +394,9 @@ TableWidget.prototype = {
     // the case that the previous edit will cause the row to move.
     const cell = this.getEditedCellOnTab(event, column);
     editor.edit(cell);
+
+    // Prevent default input tabbing behaviour
+    event.preventDefault();
   },
 
   /**
@@ -493,8 +513,9 @@ TableWidget.prototype = {
     // e.g. because they contain a unique compound key for cookies that is never
     // displayed in the UI. To do this we get all selected cells and filter out
     // any that are hidden.
-    const selectedCells = [...this.tbody.querySelectorAll(".theme-selected")]
-                                        .filter(cell => cell.clientWidth > 0);
+    const selectedCells = [
+      ...this.tbody.querySelectorAll(".theme-selected"),
+    ].filter(cell => cell.clientWidth > 0);
     // Select the first visible selected cell.
     const selectedCell = selectedCells[0];
     if (!selectedCell) {
@@ -553,10 +574,10 @@ TableWidget.prototype = {
    * rows. This method clears any inline editors if an area outside a textbox or
    * label is clicked.
    */
-  onMousedown: function({target}) {
-    const nodeName = target.nodeName;
+  onMousedown: function({ target }) {
+    const localName = target.localName;
 
-    if (nodeName === "textbox" || !this._editableFieldsEngine) {
+    if (localName === "input" || !this._editableFieldsEngine) {
       return;
     }
 
@@ -589,12 +610,14 @@ TableWidget.prototype = {
 
     if (this._editableFieldsEngine) {
       this._editableFieldsEngine.selectors = selectors;
+      this._editableFieldsEngine.items = this.items;
     } else {
       this._editableFieldsEngine = new EditableFieldsEngine({
         root: this.tbody,
         onTab: this.onEditorTab,
         onTriggerEvent: "dblclick",
         selectors: selectors,
+        items: this.items,
       });
 
       this._editableFieldsEngine.on("change", this.onChange);
@@ -629,10 +652,30 @@ TableWidget.prototype = {
   },
 
   /**
-   * Sets the text to be shown when the table is empty.
+   * Sets the localization ID of the description to be shown when the table is empty.
+   *
+   * @param {String} l10nID
+   *        The ID of the localization string.
+   * @param {String} learnMoreURL
+   *        A URL referring to a website with further information related to
+   *        the data shown in the table widget.
    */
-  setPlaceholderText: function(text) {
-    this.placeholder.setAttribute("value", text);
+  setPlaceholder: function(l10nID, learnMoreURL) {
+    if (learnMoreURL) {
+      let placeholderLink = this.placeholder.firstElementChild;
+      if (!placeholderLink) {
+        placeholderLink = this.document.createElement("a");
+        placeholderLink.setAttribute("target", "_blank");
+        placeholderLink.setAttribute("data-l10n-name", "learn-more-link");
+        this.placeholder.appendChild(placeholderLink);
+      }
+      placeholderLink.setAttribute("href", learnMoreURL);
+    } else {
+      // Remove link element if no learn more URL is given
+      this.placeholder.firstElementChild?.remove();
+    }
+
+    this.l10n.setAttributes(this.placeholder, l10nID);
   },
 
   /**
@@ -727,8 +770,12 @@ TableWidget.prototype = {
    *        allows us to e.g. have an invisible compound primary key for a
    *        table's rows.
    */
-  setColumns: function(columns, sortOn = this.sortedOn, hiddenColumns = [],
-                        privateColumns = []) {
+  setColumns: function(
+    columns,
+    sortOn = this.sortedOn,
+    hiddenColumns = [],
+    privateColumns = []
+  ) {
     for (const column of this.columns.values()) {
       column.destroy();
     }
@@ -744,8 +791,10 @@ TableWidget.prototype = {
     }
 
     if (this.firstColumn) {
-      this.columns.set(this.firstColumn,
-        new Column(this, this.firstColumn, columns[this.firstColumn]));
+      this.columns.set(
+        this.firstColumn,
+        new Column(this, this.firstColumn, columns[this.firstColumn])
+      );
     }
 
     for (const id in columns) {
@@ -922,7 +971,7 @@ TableWidget.prototype = {
       column.clear();
     }
     this.tbody.setAttribute("empty", "empty");
-    this.setPlaceholderText(this.emptyText);
+    this.setPlaceholder(this.emptyText);
 
     this.selectedRow = null;
 
@@ -1085,7 +1134,6 @@ function Column(table, id, header) {
 }
 
 Column.prototype = {
-
   // items is a cell-id to cell-index map. It is basically a reverse map of the
   // this.cells object and is used to quickly reverse lookup a cell by its id
   // instead of looping through the cells array. This reverse map is not kept
@@ -1143,8 +1191,10 @@ Column.prototype = {
     if (!value) {
       this.header.removeAttribute("sorted");
     } else {
-      this.header.setAttribute("sorted",
-        value == 1 ? "ascending" : "descending");
+      this.header.setAttribute(
+        "sorted",
+        value == 1 ? "ascending" : "descending"
+      );
     }
     this._sortState = value;
   },
@@ -1275,7 +1325,9 @@ Column.prototype = {
    */
   selectRowAt: function(index) {
     if (this.selectedRow != null) {
-      this.cells[this.items[this.selectedRow]].classList.remove("theme-selected");
+      this.cells[this.items[this.selectedRow]].classList.remove(
+        "theme-selected"
+      );
     }
 
     const cell = this.cells[index];
@@ -1390,13 +1442,16 @@ Column.prototype = {
     }
     if (checked) {
       this.wrapper.removeAttribute("hidden");
+      this.tbody.insertBefore(this.splitter, this.wrapper.nextSibling);
     } else {
       this.wrapper.setAttribute("hidden", "true");
+      this.splitter.remove();
     }
   },
 
   /**
-   * Removes the corresponding item from the column.
+   * Removes the corresponding item from the column and hide the last visible
+   * splitter with CSS, so we do not add splitter elements for hidden columns.
    */
   remove: function(item) {
     this._updateItems();
@@ -1461,24 +1516,26 @@ Column.prototype = {
     // Only sort the array if we are sorting based on this column
     if (this.sorted == 1) {
       items.sort((a, b) => {
-        const val1 = (a[this.id] instanceof Node) ?
-            a[this.id].textContent : a[this.id];
-        const val2 = (b[this.id] instanceof Node) ?
-            b[this.id].textContent : b[this.id];
+        const val1 =
+          a[this.id] instanceof Node ? a[this.id].textContent : a[this.id];
+        const val2 =
+          b[this.id] instanceof Node ? b[this.id].textContent : b[this.id];
         return naturalSortCaseInsensitive(val1, val2);
       });
     } else if (this.sorted > 1) {
       items.sort((a, b) => {
-        const val1 = (a[this.id] instanceof Node) ?
-            a[this.id].textContent : a[this.id];
-        const val2 = (b[this.id] instanceof Node) ?
-            b[this.id].textContent : b[this.id];
+        const val1 =
+          a[this.id] instanceof Node ? a[this.id].textContent : a[this.id];
+        const val2 =
+          b[this.id] instanceof Node ? b[this.id].textContent : b[this.id];
         return naturalSortCaseInsensitive(val2, val1);
       });
     }
 
     if (this.selectedRow) {
-      this.cells[this.items[this.selectedRow]].classList.remove("theme-selected");
+      this.cells[this.items[this.selectedRow]].classList.remove(
+        "theme-selected"
+      );
     }
     this.items = {};
     // Otherwise, just use the sorted array passed to update the cells value.
@@ -1530,9 +1587,11 @@ Column.prototype = {
   onMousedown: function(event) {
     const target = event.originalTarget;
 
-    if (target.nodeType !== target.ELEMENT_NODE ||
-        target == this.column ||
-        target == this.header) {
+    if (
+      target.nodeType !== target.ELEMENT_NODE ||
+      target == this.column ||
+      target == this.header
+    ) {
       return;
     }
     if (event.button == 0) {
@@ -1576,7 +1635,7 @@ function Cell(column, item, nextCell) {
 
   if (column.table.cellContextMenuId) {
     this.label.setAttribute("context", column.table.cellContextMenuId);
-    this.label.addEventListener("contextmenu", (event) => {
+    this.label.addEventListener("contextmenu", event => {
       // Make the ID of the clicked cell available as a property on the table.
       // It's then available for the popupshowing or command handler.
       column.table.contextMenuRowId = this.id;
@@ -1588,7 +1647,6 @@ function Cell(column, item, nextCell) {
 }
 
 Cell.prototype = {
-
   set id(value) {
     this._id = value;
     this.label.setAttribute("data-id", value);
@@ -1713,6 +1771,7 @@ function EditableFieldsEngine(options) {
   this.selectors = options.selectors;
   this.onTab = options.onTab;
   this.onTriggerEvent = options.onTriggerEvent || "dblclick";
+  this.items = options.items;
 
   this.edit = this.edit.bind(this);
   this.cancelEdit = this.cancelEdit.bind(this);
@@ -1726,7 +1785,7 @@ EditableFieldsEngine.prototype = {
   INPUT_ID: "inlineEditor",
 
   get changePending() {
-    return this.isEditing && (this.textbox.value !== this.currentValue);
+    return this.isEditing && this.textbox.value !== this.currentValue;
   },
 
   get isEditing() {
@@ -1736,10 +1795,8 @@ EditableFieldsEngine.prototype = {
   get textbox() {
     if (!this._textbox) {
       const doc = this.root.ownerDocument;
-      this._textbox = doc.createXULElement("textbox");
+      this._textbox = doc.createElementNS(HTML_NS, "input");
       this._textbox.id = this.INPUT_ID;
-
-      this._textbox.setAttribute("flex", "1");
 
       this.onKeydown = this.onKeydown.bind(this);
       this._textbox.addEventListener("keydown", this.onKeydown);
@@ -1757,7 +1814,7 @@ EditableFieldsEngine.prototype = {
    * @param  {EventTarget} target
    *         Calling event's target.
    */
-  onTrigger: function({target}) {
+  onTrigger: function({ target }) {
     this.edit(target);
   },
 
@@ -1800,6 +1857,14 @@ EditableFieldsEngine.prototype = {
    */
   edit: function(target) {
     if (!target) {
+      return;
+    }
+
+    // Some item names and values are not parsable by the client or server so should not be
+    // editable.
+    const name = target.getAttribute("data-id");
+    const item = this.items.get(name);
+    if ("isValueEditable" in item && !item.isValueEditable) {
       return;
     }
 

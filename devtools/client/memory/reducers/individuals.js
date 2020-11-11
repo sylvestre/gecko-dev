@@ -4,7 +4,11 @@
 "use strict";
 
 const { assert, immutableUpdate } = require("devtools/shared/DevToolsUtils");
-const { actions, individualsState, viewState } = require("../constants");
+const {
+  actions,
+  individualsState,
+  viewState,
+} = require("devtools/client/memory/constants");
 
 const handlers = Object.create(null);
 
@@ -14,8 +18,10 @@ handlers[actions.POP_VIEW] = function(_state, _action) {
 
 handlers[actions.CHANGE_VIEW] = function(individuals, { newViewState }) {
   if (newViewState === viewState.INDIVIDUALS) {
-    assert(!individuals,
-           "Should not switch to individuals view when already in individuals view");
+    assert(
+      !individuals,
+      "Should not switch to individuals view when already in individuals view"
+    );
     return Object.freeze({
       state: individualsState.COMPUTING_DOMINATOR_TREE,
     });
@@ -40,8 +46,10 @@ handlers[actions.FETCH_INDIVIDUALS_START] = function(individuals, action) {
 handlers[actions.FETCH_INDIVIDUALS_END] = function(individuals, action) {
   assert(individuals, "Should have individuals");
   assert(!individuals.nodes, "Should not have nodes");
-  assert(individuals.state === individualsState.FETCHING,
-         "Should only end fetching individuals after starting.");
+  assert(
+    individuals.state === individualsState.FETCHING,
+    "Should only end fetching individuals after starting."
+  );
 
   const focused = individuals.focused
     ? action.nodes.find(n => n.nodeId === individuals.focused.nodeId)

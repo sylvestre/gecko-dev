@@ -8,10 +8,9 @@ const {
   UPDATE_GEOMETRY_EDITOR_ENABLED,
   UPDATE_LAYOUT,
   UPDATE_OFFSET_PARENT,
-} = require("./index");
+} = require("devtools/client/inspector/boxmodel/actions/index");
 
 module.exports = {
-
   /**
    * Updates the geometry editor's enabled state.
    *
@@ -44,5 +43,4 @@ module.exports = {
       offsetParent,
     };
   },
-
 };

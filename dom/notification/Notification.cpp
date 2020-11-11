@@ -6,60 +6,60 @@
 
 #include "mozilla/dom/Notification.h"
 
+#include <utility>
+
+#include "mozilla/BasePrincipal.h"
+#include "mozilla/Components.h"
 #include "mozilla/Encoding.h"
 #include "mozilla/EventStateManager.h"
 #include "mozilla/JSONWriter.h"
-#include "mozilla/Move.h"
 #include "mozilla/OwningNonNull.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/Services.h"
-#include "mozilla/StaticPrefs.h"
+#include "mozilla/StaticPrefs_dom.h"
 #include "mozilla/Telemetry.h"
 #include "mozilla/Unused.h"
-
 #include "mozilla/dom/AppNotificationServiceOptionsBinding.h"
 #include "mozilla/dom/BindingUtils.h"
 #include "mozilla/dom/ContentChild.h"
+#include "mozilla/dom/Document.h"
 #include "mozilla/dom/NotificationEvent.h"
 #include "mozilla/dom/PermissionMessageUtils.h"
 #include "mozilla/dom/Promise.h"
 #include "mozilla/dom/PromiseWorkerProxy.h"
 #include "mozilla/dom/ServiceWorkerGlobalScopeBinding.h"
 #include "mozilla/dom/ServiceWorkerManager.h"
+#include "mozilla/dom/ServiceWorkerUtils.h"
 #include "mozilla/dom/WorkerPrivate.h"
 #include "mozilla/dom/WorkerRunnable.h"
 #include "mozilla/dom/WorkerScope.h"
-
 #include "nsAlertsUtils.h"
+#include "nsCRTGlue.h"
 #include "nsComponentManagerUtils.h"
 #include "nsContentPermissionHelper.h"
 #include "nsContentUtils.h"
-#include "nsCRTGlue.h"
 #include "nsDOMJSUtils.h"
+#include "nsFocusManager.h"
 #include "nsGlobalWindow.h"
 #include "nsIAlertsService.h"
 #include "nsIContentPermissionPrompt.h"
-#include "nsIDocument.h"
 #include "nsILoadContext.h"
 #include "nsINotificationStorage.h"
-#include "nsIPermissionManager.h"
 #include "nsIPermission.h"
+#include "nsIPermissionManager.h"
 #include "nsIPushService.h"
-#include "nsIScriptSecurityManager.h"
+#include "nsIScriptError.h"
 #include "nsIServiceWorkerManager.h"
 #include "nsISimpleEnumerator.h"
 #include "nsIUUIDGenerator.h"
-#include "nsIXPConnect.h"
 #include "nsNetUtil.h"
 #include "nsProxyRelease.h"
 #include "nsServiceManagerUtils.h"
 #include "nsStructuredCloneContainer.h"
 #include "nsThreadUtils.h"
-#include "nsToolkitCompsCID.h"
 #include "nsXULAppAPI.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 struct NotificationStrings {
   const nsString mID;
@@ -109,7 +109,7 @@ class ScopeCheckingGetCallback : public nsINotificationStorageCallback {
   NS_IMETHOD Done() override = 0;
 
  protected:
-  virtual ~ScopeCheckingGetCallback() {}
+  virtual ~ScopeCheckingGetCallback() = default;
 
   nsTArray<NotificationStrings> mStrings;
 };
@@ -152,7 +152,7 @@ class NotificationStorageCallback final : public ScopeCheckingGetCallback {
   }
 
  private:
-  virtual ~NotificationStorageCallback() {}
+  virtual ~NotificationStorageCallback() = default;
 
   nsCOMPtr<nsIGlobalObject> mWindow;
   RefPtr<Promise> mPromise;
@@ -211,13 +211,10 @@ class NotificationPermissionRequest : public ContentPermissionRequestBase,
   NS_IMETHOD Allow(JS::HandleValue choices) override;
 
   NotificationPermissionRequest(nsIPrincipal* aPrincipal,
-                                bool aIsHandlingUserInput,
                                 nsPIDOMWindowInner* aWindow, Promise* aPromise,
                                 NotificationPermissionCallback* aCallback)
-      : ContentPermissionRequestBase(
-            aPrincipal, aIsHandlingUserInput, aWindow,
-            NS_LITERAL_CSTRING("notification"),
-            NS_LITERAL_CSTRING("desktop-notification")),
+      : ContentPermissionRequestBase(aPrincipal, aWindow, "notification"_ns,
+                                     "desktop-notification"_ns),
         mPermission(NotificationPermission::Default),
         mPromise(aPromise),
         mCallback(aCallback) {
@@ -232,7 +229,7 @@ class NotificationPermissionRequest : public ContentPermissionRequestBase,
  protected:
   ~NotificationPermissionRequest() = default;
 
-  nsresult ResolvePromise();
+  MOZ_CAN_RUN_SCRIPT nsresult ResolvePromise();
   nsresult DispatchResolvePromise();
   NotificationPermission mPermission;
   RefPtr<Promise> mPromise;
@@ -260,8 +257,7 @@ class GetPermissionRunnable final : public WorkerMainThreadRunnable {
 
  public:
   explicit GetPermissionRunnable(WorkerPrivate* aWorker)
-      : WorkerMainThreadRunnable(
-            aWorker, NS_LITERAL_CSTRING("Notification :: Get Permission")),
+      : WorkerMainThreadRunnable(aWorker, "Notification :: Get Permission"_ns),
         mPermission(NotificationPermission::Denied) {}
 
   bool MainThreadRun() override {
@@ -290,26 +286,25 @@ class FocusWindowRunnable final : public Runnable {
       return NS_OK;
     }
 
-    // Browser UI may use DOMWindowFocus to focus the tab
-    // from which the event was dispatched.
-    nsContentUtils::DispatchFocusChromeEvent(mWindow->GetOuterWindow());
-
+    nsFocusManager::FocusWindow(mWindow->GetOuterWindow(), CallerType::System);
     return NS_OK;
   }
 };
 
-nsresult CheckScope(nsIPrincipal* aPrincipal, const nsACString& aScope) {
+nsresult CheckScope(nsIPrincipal* aPrincipal, const nsACString& aScope,
+                    uint64_t aWindowID) {
   AssertIsOnMainThread();
   MOZ_ASSERT(aPrincipal);
 
   nsCOMPtr<nsIURI> scopeURI;
-  nsresult rv = NS_NewURI(getter_AddRefs(scopeURI), aScope, nullptr, nullptr);
+  nsresult rv = NS_NewURI(getter_AddRefs(scopeURI), aScope);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
 
-  return aPrincipal->CheckMayLoad(scopeURI, /* report = */ true,
-                                  /* allowIfInheritsPrincipal = */ false);
+  return aPrincipal->CheckMayLoadWithReporting(
+      scopeURI,
+      /* allowIfInheritsPrincipal = */ false, aWindowID);
 }
 }  // anonymous namespace
 
@@ -368,7 +363,7 @@ class ReleaseNotificationRunnable final : public NotificationWorkerRunnable {
 
   nsresult Cancel() override {
     mNotification->ReleaseObject();
-    return NS_OK;
+    return NotificationWorkerRunnable::Cancel();
   }
 };
 
@@ -452,7 +447,7 @@ class NotificationTask : public Runnable {
   Run() override;
 
  protected:
-  virtual ~NotificationTask() {}
+  virtual ~NotificationTask() = default;
 
   UniquePtr<NotificationRef> mNotificationRef;
   NotificationAction mAction;
@@ -473,18 +468,25 @@ NS_IMPL_QUERY_INTERFACE_CYCLE_COLLECTION_INHERITED(
 
 NS_IMETHODIMP
 NotificationPermissionRequest::Run() {
-  if (nsContentUtils::IsSystemPrincipal(mPrincipal)) {
+  bool isSystem = mPrincipal->IsSystemPrincipal();
+  bool blocked = false;
+  if (isSystem) {
     mPermission = NotificationPermission::Granted;
   } else {
     // File are automatically granted permission.
-    nsCOMPtr<nsIURI> uri;
-    mPrincipal->GetURI(getter_AddRefs(uri));
 
-    if (uri) {
-      bool isFile;
-      uri->SchemeIs("file", &isFile);
-      if (isFile) {
-        mPermission = NotificationPermission::Granted;
+    if (mPrincipal->SchemeIs("file")) {
+      mPermission = NotificationPermission::Granted;
+    } else if (!StaticPrefs::dom_webnotifications_allowinsecure() &&
+               !mWindow->IsSecureContext()) {
+      mPermission = NotificationPermission::Denied;
+      blocked = true;
+      nsCOMPtr<Document> doc = mWindow->GetExtantDoc();
+      if (doc) {
+        nsContentUtils::ReportToConsole(
+            nsIScriptError::errorFlag, "DOM"_ns, doc,
+            nsContentUtils::eDOM_PROPERTIES,
+            "NotificationsInsecureRequestIsForbidden");
       }
     }
   }
@@ -504,6 +506,30 @@ NotificationPermissionRequest::Run() {
     default:
       // ignore
       break;
+  }
+
+  if (!mIsHandlingUserInput &&
+      !StaticPrefs::dom_webnotifications_requireuserinteraction()) {
+    nsCOMPtr<Document> doc = mWindow->GetExtantDoc();
+    if (doc) {
+      doc->WarnOnceAbout(Document::eNotificationsRequireUserGestureDeprecation);
+    }
+  }
+
+  // Check this after checking the prompt prefs to make sure this pref overrides
+  // those.  We rely on this for testing purposes.
+  if (!isSystem && !blocked &&
+      !StaticPrefs::dom_webnotifications_allowcrossoriginiframe() &&
+      !mPrincipal->Subsumes(mTopLevelPrincipal)) {
+    mPermission = NotificationPermission::Denied;
+    blocked = true;
+    nsCOMPtr<Document> doc = mWindow->GetExtantDoc();
+    if (doc) {
+      nsContentUtils::ReportToConsole(
+          nsIScriptError::errorFlag, "DOM"_ns, doc,
+          nsContentUtils::eDOM_PROPERTIES,
+          "NotificationsCrossOriginIframeRequestIsForbidden");
+    }
   }
 
   if (mPermission != NotificationPermission::Default) {
@@ -543,142 +569,33 @@ inline nsresult NotificationPermissionRequest::DispatchResolvePromise() {
 
 nsresult NotificationPermissionRequest::ResolvePromise() {
   nsresult rv = NS_OK;
+  // This will still be "default" if the user dismissed the doorhanger,
+  // or "denied" otherwise.
   if (mPermission == NotificationPermission::Default) {
-    // This will still be "default" if the user dismissed the doorhanger,
-    // or "denied" otherwise.
+    // When the front-end has decided to deny the permission request
+    // automatically and we are not handling user input, then log a
+    // warning in the current document that this happened because
+    // Notifications require a user gesture.
+    if (!mIsHandlingUserInput &&
+        StaticPrefs::dom_webnotifications_requireuserinteraction()) {
+      nsCOMPtr<Document> doc = mWindow->GetExtantDoc();
+      if (doc) {
+        nsContentUtils::ReportToConsole(nsIScriptError::errorFlag, "DOM"_ns,
+                                        doc, nsContentUtils::eDOM_PROPERTIES,
+                                        "NotificationsRequireUserGesture");
+      }
+    }
+
     mPermission = Notification::TestPermission(mPrincipal);
   }
   if (mCallback) {
     ErrorResult error;
-    mCallback->Call(mPermission, error);
+    RefPtr<NotificationPermissionCallback> callback(mCallback);
+    callback->Call(mPermission, error);
     rv = error.StealNSResult();
   }
   mPromise->MaybeResolve(mPermission);
   return rv;
-}
-
-NS_IMPL_ISUPPORTS(NotificationTelemetryService, nsIObserver)
-
-NotificationTelemetryService::NotificationTelemetryService()
-    : mDNDRecorded(false) {}
-
-NotificationTelemetryService::~NotificationTelemetryService() {}
-
-/* static */ already_AddRefed<NotificationTelemetryService>
-NotificationTelemetryService::GetInstance() {
-  nsCOMPtr<nsISupports> telemetrySupports =
-      do_GetService(NOTIFICATIONTELEMETRYSERVICE_CONTRACTID);
-  if (!telemetrySupports) {
-    return nullptr;
-  }
-  RefPtr<NotificationTelemetryService> telemetry =
-      static_cast<NotificationTelemetryService*>(telemetrySupports.get());
-  return telemetry.forget();
-}
-
-nsresult NotificationTelemetryService::Init() {
-  // Only perform permissions telemetry collection in the parent process.
-  if (!XRE_IsParentProcess()) {
-    return NS_OK;
-  }
-
-  RecordPermissions();
-
-  return NS_OK;
-}
-
-void NotificationTelemetryService::RecordPermissions() {
-  MOZ_ASSERT(XRE_IsParentProcess(),
-             "RecordPermissions may only be called in the parent process");
-
-  if (!Telemetry::CanRecordBase() || !Telemetry::CanRecordExtended()) {
-    return;
-  }
-
-  nsCOMPtr<nsIPermissionManager> permissionManager =
-      services::GetPermissionManager();
-  if (!permissionManager) {
-    return;
-  }
-
-  nsCOMPtr<nsISimpleEnumerator> enumerator;
-  nsresult rv = permissionManager->GetEnumerator(getter_AddRefs(enumerator));
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return;
-  }
-
-  for (;;) {
-    bool hasMoreElements;
-    nsresult rv = enumerator->HasMoreElements(&hasMoreElements);
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      return;
-    }
-    if (!hasMoreElements) {
-      break;
-    }
-    nsCOMPtr<nsISupports> supportsPermission;
-    rv = enumerator->GetNext(getter_AddRefs(supportsPermission));
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      return;
-    }
-    uint32_t capability;
-    if (!GetNotificationPermission(supportsPermission, &capability)) {
-      continue;
-    }
-    if (capability == nsIPermissionManager::DENY_ACTION) {
-      Telemetry::Accumulate(Telemetry::WEB_NOTIFICATION_PERMISSIONS, 0);
-    } else if (capability == nsIPermissionManager::ALLOW_ACTION) {
-      Telemetry::Accumulate(Telemetry::WEB_NOTIFICATION_PERMISSIONS, 1);
-    }
-  }
-}
-
-bool NotificationTelemetryService::GetNotificationPermission(
-    nsISupports* aSupports, uint32_t* aCapability) {
-  nsCOMPtr<nsIPermission> permission = do_QueryInterface(aSupports);
-  if (!permission) {
-    return false;
-  }
-  nsAutoCString type;
-  permission->GetType(type);
-  if (!type.EqualsLiteral("desktop-notification")) {
-    return false;
-  }
-  permission->GetCapability(aCapability);
-  return true;
-}
-
-void NotificationTelemetryService::RecordDNDSupported() {
-  if (mDNDRecorded) {
-    return;
-  }
-
-  nsCOMPtr<nsIAlertsService> alertService =
-      do_GetService(NS_ALERTSERVICE_CONTRACTID);
-  if (!alertService) {
-    return;
-  }
-
-  nsCOMPtr<nsIAlertsDoNotDisturb> alertServiceDND =
-      do_QueryInterface(alertService);
-  if (!alertServiceDND) {
-    return;
-  }
-
-  mDNDRecorded = true;
-  bool isEnabled;
-  nsresult rv = alertServiceDND->GetManualDoNotDisturb(&isEnabled);
-  if (NS_FAILED(rv)) {
-    return;
-  }
-
-  Telemetry::Accumulate(Telemetry::ALERTS_SERVICE_DND_SUPPORTED_FLAG, true);
-}
-
-NS_IMETHODIMP
-NotificationTelemetryService::Observe(nsISupports* aSubject, const char* aTopic,
-                                      const char16_t* aData) {
-  return NS_OK;
 }
 
 // Observer that the alert service calls to do common tasks and/or dispatch to
@@ -847,13 +764,15 @@ already_AddRefed<Notification> Notification::Constructor(
   RefPtr<ServiceWorkerGlobalScope> scope;
   UNWRAP_OBJECT(ServiceWorkerGlobalScope, aGlobal.Get(), scope);
   if (scope) {
-    aRv.ThrowTypeError<MSG_NOTIFICATION_NO_CONSTRUCTOR_IN_SERVICEWORKER>();
+    aRv.ThrowTypeError(
+        "Notification constructor cannot be used in ServiceWorkerGlobalScope. "
+        "Use registration.showNotification() instead.");
     return nullptr;
   }
 
   nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(aGlobal.GetAsSupports());
-  RefPtr<Notification> notification = CreateAndShow(
-      aGlobal.Context(), global, aTitle, aOptions, EmptyString(), aRv);
+  RefPtr<Notification> notification =
+      CreateAndShow(aGlobal.Context(), global, aTitle, aOptions, u""_ns, aRv);
   if (NS_WARN_IF(aRv.Failed())) {
     return nullptr;
   }
@@ -978,7 +897,7 @@ Notification::~Notification() {
   mData.setUndefined();
   mozilla::DropJSObjects(this);
   AssertIsOnTargetThread();
-  MOZ_ASSERT(!mWorkerHolder);
+  MOZ_ASSERT(!mWorkerRef);
   MOZ_ASSERT(!mTempRef);
 }
 
@@ -986,6 +905,7 @@ NS_IMPL_CYCLE_COLLECTION_CLASS(Notification)
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(Notification,
                                                 DOMEventTargetHelper)
   tmp->mData.setUndefined();
+  NS_IMPL_CYCLE_COLLECTION_UNLINK_WEAK_REFERENCE
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(Notification,
@@ -1071,7 +991,7 @@ class ServiceWorkerNotificationObserver final : public nsIObserver {
   }
 
  private:
-  ~ServiceWorkerNotificationObserver() {}
+  ~ServiceWorkerNotificationObserver() = default;
 
   const nsString mScope;
   const nsString mID;
@@ -1091,7 +1011,7 @@ NS_IMPL_ISUPPORTS(ServiceWorkerNotificationObserver, nsIObserver)
 bool Notification::DispatchClickEvent() {
   AssertIsOnTargetThread();
   RefPtr<Event> event = NS_NewDOMEvent(this, nullptr, nullptr);
-  event->InitEvent(NS_LITERAL_STRING("click"), false, true);
+  event->InitEvent(u"click"_ns, false, true);
   event->SetTrusted(true);
   WantsPopupControlCheck popupControlCheck(event);
   return DispatchEvent(*event, CallerType::System, IgnoreErrors());
@@ -1132,7 +1052,6 @@ NotificationObserver::Observe(nsISupports* aSubject, const char* aTopic,
   AssertIsOnMainThread();
 
   if (!strcmp("alertdisablecallback", aTopic)) {
-    Telemetry::Accumulate(Telemetry::WEB_NOTIFICATION_MENU, 1);
     if (XRE_IsParentProcess()) {
       return Notification::RemovePermission(mPrincipal);
     }
@@ -1142,10 +1061,7 @@ NotificationObserver::Observe(nsISupports* aSubject, const char* aTopic,
     ContentChild::GetSingleton()->SendDisableNotifications(
         IPC::Principal(mPrincipal));
     return NS_OK;
-  } else if (!strcmp("alertclickcallback", aTopic)) {
-    Telemetry::Accumulate(Telemetry::WEB_NOTIFICATION_CLICKED, 1);
   } else if (!strcmp("alertsettingscallback", aTopic)) {
-    Telemetry::Accumulate(Telemetry::WEB_NOTIFICATION_MENU, 2);
     if (XRE_IsParentProcess()) {
       return Notification::OpenSettings(mPrincipal);
     }
@@ -1155,19 +1071,7 @@ NotificationObserver::Observe(nsISupports* aSubject, const char* aTopic,
         IPC::Principal(mPrincipal));
     return NS_OK;
   } else if (!strcmp("alertshow", aTopic) || !strcmp("alertfinished", aTopic)) {
-    RefPtr<NotificationTelemetryService> telemetry =
-        NotificationTelemetryService::GetInstance();
-    if (telemetry) {
-      // Record whether "do not disturb" is supported after the first
-      // notification, to account for falling back to XUL alerts.
-      telemetry->RecordDNDSupported();
-    }
     Unused << NS_WARN_IF(NS_FAILED(AdjustPushQuota(aTopic)));
-
-    if (!strcmp("alertshow", aTopic)) {
-      // Record notifications actually shown (e.g. don't count if DND is on).
-      Telemetry::Accumulate(Telemetry::WEB_NOTIFICATION_SHOWN, 1);
-    }
   }
 
   return mObserver->Observe(aSubject, aTopic, aData);
@@ -1209,16 +1113,14 @@ MainThreadNotificationObserver::Observe(nsISupports* aSubject,
 
     bool doDefaultAction = notification->DispatchClickEvent();
     if (doDefaultAction) {
-      // Browser UI may use DOMWindowFocus to focus the tab
-      // from which the event was dispatched.
-      nsContentUtils::DispatchFocusChromeEvent(window->GetOuterWindow());
+      nsFocusManager::FocusWindow(window->GetOuterWindow(), CallerType::System);
     }
   } else if (!strcmp("alertfinished", aTopic)) {
     notification->UnpersistNotification();
     notification->mIsClosed = true;
-    notification->DispatchTrustedEvent(NS_LITERAL_STRING("close"));
+    notification->DispatchTrustedEvent(u"close"_ns);
   } else if (!strcmp("alertshow", aTopic)) {
-    notification->DispatchTrustedEvent(NS_LITERAL_STRING("show"));
+    notification->DispatchTrustedEvent(u"show"_ns);
   }
   return NS_OK;
 }
@@ -1264,11 +1166,9 @@ WorkerNotificationObserver::Observe(nsISupports* aSubject, const char* aTopic,
   } else if (!strcmp("alertfinished", aTopic)) {
     notification->UnpersistNotification();
     notification->mIsClosed = true;
-    r = new NotificationEventWorkerRunnable(notification,
-                                            NS_LITERAL_STRING("close"));
+    r = new NotificationEventWorkerRunnable(notification, u"close"_ns);
   } else if (!strcmp("alertshow", aTopic)) {
-    r = new NotificationEventWorkerRunnable(notification,
-                                            NS_LITERAL_STRING("show"));
+    r = new NotificationEventWorkerRunnable(notification, u"show"_ns);
   }
 
   MOZ_ASSERT(r);
@@ -1290,17 +1190,25 @@ ServiceWorkerNotificationObserver::Observe(nsISupports* aSubject,
     return rv;
   }
 
-  nsCOMPtr<nsIServiceWorkerManager> swm =
-      mozilla::services::GetServiceWorkerManager();
-  if (NS_WARN_IF(!swm)) {
-    return NS_ERROR_FAILURE;
-  }
-
   if (!strcmp("alertclickcallback", aTopic)) {
-    rv = swm->SendNotificationClickEvent(
-        originSuffix, NS_ConvertUTF16toUTF8(mScope), mID, mTitle, mDir, mLang,
-        mBody, mTag, mIcon, mData, mBehavior);
-    Unused << NS_WARN_IF(NS_FAILED(rv));
+    if (XRE_IsParentProcess() || !ServiceWorkerParentInterceptEnabled()) {
+      nsCOMPtr<nsIServiceWorkerManager> swm =
+          mozilla::services::GetServiceWorkerManager();
+      if (NS_WARN_IF(!swm)) {
+        return NS_ERROR_FAILURE;
+      }
+
+      rv = swm->SendNotificationClickEvent(
+          originSuffix, NS_ConvertUTF16toUTF8(mScope), mID, mTitle, mDir, mLang,
+          mBody, mTag, mIcon, mData, mBehavior);
+      Unused << NS_WARN_IF(NS_FAILED(rv));
+    } else {
+      auto* cc = ContentChild::GetSingleton();
+      NotificationEventData data(originSuffix, NS_ConvertUTF16toUTF8(mScope),
+                                 mID, mTitle, mDir, mLang, mBody, mTag, mIcon,
+                                 mData, mBehavior);
+      Unused << cc->SendNotificationEvent(u"click"_ns, data);
+    }
     return NS_OK;
   }
 
@@ -1318,10 +1226,24 @@ ServiceWorkerNotificationObserver::Observe(nsISupports* aSubject,
       notificationStorage->Delete(origin, mID);
     }
 
-    rv = swm->SendNotificationCloseEvent(
-        originSuffix, NS_ConvertUTF16toUTF8(mScope), mID, mTitle, mDir, mLang,
-        mBody, mTag, mIcon, mData, mBehavior);
-    Unused << NS_WARN_IF(NS_FAILED(rv));
+    if (XRE_IsParentProcess() || !ServiceWorkerParentInterceptEnabled()) {
+      nsCOMPtr<nsIServiceWorkerManager> swm =
+          mozilla::services::GetServiceWorkerManager();
+      if (NS_WARN_IF(!swm)) {
+        return NS_ERROR_FAILURE;
+      }
+
+      rv = swm->SendNotificationCloseEvent(
+          originSuffix, NS_ConvertUTF16toUTF8(mScope), mID, mTitle, mDir, mLang,
+          mBody, mTag, mIcon, mData, mBehavior);
+      Unused << NS_WARN_IF(NS_FAILED(rv));
+    } else {
+      auto* cc = ContentChild::GetSingleton();
+      NotificationEventData data(originSuffix, NS_ConvertUTF16toUTF8(mScope),
+                                 mID, mTitle, mDir, mLang, mBody, mTag, mIcon,
+                                 mData, mBehavior);
+      Unused << cc->SendNotificationEvent(u"close"_ns, data);
+    }
     return NS_OK;
   }
 
@@ -1331,7 +1253,7 @@ ServiceWorkerNotificationObserver::Observe(nsISupports* aSubject,
 bool Notification::IsInPrivateBrowsing() {
   AssertIsOnMainThread();
 
-  nsIDocument* doc = nullptr;
+  Document* doc = nullptr;
 
   if (mWorkerPrivate) {
     doc = mWorkerPrivate->GetDocument();
@@ -1364,8 +1286,8 @@ struct StringWriteFunc : public JSONWriteFunc {
   nsAString& mBuffer;  // This struct must not outlive this buffer
   explicit StringWriteFunc(nsAString& buffer) : mBuffer(buffer) {}
 
-  void Write(const char* aStr) override {
-    mBuffer.Append(NS_ConvertUTF8toUTF16(aStr));
+  void Write(const Span<const char>& aStr) override {
+    mBuffer.Append(NS_ConvertUTF8toUTF16(aStr.data(), aStr.size()));
   }
 };
 }  // namespace
@@ -1381,7 +1303,7 @@ void Notification::ShowInternal() {
   // Transfer ownership to local scope so we can either release it at the end
   // of this function or transfer it to the observer.
   UniquePtr<NotificationRef> ownership;
-  mozilla::Swap(ownership, mTempRef);
+  std::swap(ownership, mTempRef);
   MOZ_ASSERT(ownership->GetNotification() == this);
 
   nsresult rv = PersistNotification();
@@ -1389,8 +1311,7 @@ void Notification::ShowInternal() {
     NS_WARNING("Could not persist Notification");
   }
 
-  nsCOMPtr<nsIAlertsService> alertService =
-      do_GetService(NS_ALERTSERVICE_CONTRACTID);
+  nsCOMPtr<nsIAlertsService> alertService = components::Alerts::Service();
 
   ErrorResult result;
   NotificationPermission permission = NotificationPermission::Denied;
@@ -1405,12 +1326,12 @@ void Notification::ShowInternal() {
   if (permission != NotificationPermission::Granted || !alertService) {
     if (mWorkerPrivate) {
       RefPtr<NotificationEventWorkerRunnable> r =
-          new NotificationEventWorkerRunnable(this, NS_LITERAL_STRING("error"));
+          new NotificationEventWorkerRunnable(this, u"error"_ns);
       if (!r->Dispatch()) {
         NS_WARNING("Could not dispatch event to worker notification");
       }
     } else {
-      DispatchTrustedEvent(NS_LITERAL_STRING("error"));
+      DispatchTrustedEvent(u"error"_ns);
     }
     return;
   }
@@ -1454,7 +1375,7 @@ void Notification::ShowInternal() {
 
   // In the case of IPC, the parent process uses the cookie to map to
   // nsIObserver. Thus the cookie must be unique to differentiate observers.
-  nsString uniqueCookie = NS_LITERAL_STRING("notification:");
+  nsString uniqueCookie = u"notification:"_ns;
   uniqueCookie.AppendInt(sCount++);
   bool inPrivateBrowsing = IsInPrivateBrowsing();
 
@@ -1482,13 +1403,13 @@ void Notification::ShowInternal() {
 
     nsAutoString origin;
     Notification::GetOrigin(principal, origin);
-    w.StringProperty("origin", NS_ConvertUTF16toUTF8(origin).get());
+    w.StringProperty("origin", NS_ConvertUTF16toUTF8(origin));
 
-    w.StringProperty("id", NS_ConvertUTF16toUTF8(mID).get());
+    w.StringProperty("id", NS_ConvertUTF16toUTF8(mID));
 
     nsAutoCString originSuffix;
     principal->GetOriginSuffix(originSuffix);
-    w.StringProperty("originSuffix", originSuffix.get());
+    w.StringProperty("originSuffix", originSuffix);
 
     w.End();
 
@@ -1499,8 +1420,9 @@ void Notification::ShowInternal() {
   }
 }
 
-/* static */ bool Notification::RequestPermissionEnabledForScope(
-    JSContext* aCx, JSObject* /* unused */) {
+/* static */
+bool Notification::RequestPermissionEnabledForScope(JSContext* aCx,
+                                                    JSObject* /* unused */) {
   // requestPermission() is not allowed on workers. The calling page should ask
   // for permission on the worker's behalf. This is to prevent 'which window
   // should show the browser pop-up'. See discussion:
@@ -1520,7 +1442,7 @@ already_AddRefed<Promise> Notification::RequestPermission(
       do_QueryInterface(aGlobal.GetAsSupports());
   nsCOMPtr<nsIScriptObjectPrincipal> sop =
       do_QueryInterface(aGlobal.GetAsSupports());
-  if (!sop) {
+  if (!sop || !window) {
     aRv.Throw(NS_ERROR_UNEXPECTED);
     return nullptr;
   }
@@ -1534,9 +1456,8 @@ already_AddRefed<Promise> Notification::RequestPermission(
   if (aCallback.WasPassed()) {
     permissionCallback = &aCallback.Value();
   }
-  bool isHandlingUserInput = EventStateManager::IsHandlingUserInput();
   nsCOMPtr<nsIRunnable> request = new NotificationPermissionRequest(
-      principal, isHandlingUserInput, window, promise, permissionCallback);
+      principal, window, promise, permissionCallback);
 
   window->AsGlobal()->Dispatch(TaskCategory::Other, request.forget());
 
@@ -1568,8 +1489,9 @@ NotificationPermission Notification::GetPermission(nsIGlobalObject* aGlobal,
   }
 }
 
-/* static */ NotificationPermission Notification::GetPermissionInternal(
-    nsISupports* aGlobal, ErrorResult& aRv) {
+/* static */
+NotificationPermission Notification::GetPermissionInternal(nsISupports* aGlobal,
+                                                           ErrorResult& aRv) {
   // Get principal from global to check permission for notifications.
   nsCOMPtr<nsIScriptObjectPrincipal> sop = do_QueryInterface(aGlobal);
   if (!sop) {
@@ -1581,23 +1503,18 @@ NotificationPermission Notification::GetPermission(nsIGlobalObject* aGlobal,
   return GetPermissionInternal(principal, aRv);
 }
 
-/* static */ NotificationPermission Notification::GetPermissionInternal(
+/* static */
+NotificationPermission Notification::GetPermissionInternal(
     nsIPrincipal* aPrincipal, ErrorResult& aRv) {
   AssertIsOnMainThread();
   MOZ_ASSERT(aPrincipal);
 
-  if (nsContentUtils::IsSystemPrincipal(aPrincipal)) {
+  if (aPrincipal->IsSystemPrincipal()) {
     return NotificationPermission::Granted;
   } else {
     // Allow files to show notifications by default.
-    nsCOMPtr<nsIURI> uri;
-    aPrincipal->GetURI(getter_AddRefs(uri));
-    if (uri) {
-      bool isFile;
-      uri->SchemeIs("file", &isFile);
-      if (isFile) {
-        return NotificationPermission::Granted;
-      }
+    if (aPrincipal->SchemeIs("file")) {
+      return NotificationPermission::Granted;
     }
   }
 
@@ -1613,8 +1530,8 @@ NotificationPermission Notification::GetPermission(nsIGlobalObject* aGlobal,
   return TestPermission(aPrincipal);
 }
 
-/* static */ NotificationPermission Notification::TestPermission(
-    nsIPrincipal* aPrincipal) {
+/* static */
+NotificationPermission Notification::TestPermission(nsIPrincipal* aPrincipal) {
   AssertIsOnMainThread();
 
   uint32_t permission = nsIPermissionManager::UNKNOWN_ACTION;
@@ -1626,7 +1543,7 @@ NotificationPermission Notification::GetPermission(nsIGlobalObject* aGlobal,
   }
 
   permissionManager->TestExactPermissionFromPrincipal(
-      aPrincipal, "desktop-notification", &permission);
+      aPrincipal, "desktop-notification"_ns, &permission);
 
   // Convert the result to one of the enum types.
   switch (permission) {
@@ -1644,7 +1561,7 @@ nsresult Notification::ResolveIconAndSoundURL(nsString& iconUrl,
   AssertIsOnMainThread();
   nsresult rv = NS_OK;
 
-  nsCOMPtr<nsIURI> baseUri;
+  nsIURI* baseUri = nullptr;
 
   // XXXnsm If I understand correctly, the character encoding for resolving
   // URIs in new specs is dictated by the URL spec, which states that unless
@@ -1659,7 +1576,7 @@ nsresult Notification::ResolveIconAndSoundURL(nsString& iconUrl,
   if (mWorkerPrivate) {
     baseUri = mWorkerPrivate->GetBaseURI();
   } else {
-    nsIDocument* doc = GetOwner() ? GetOwner()->GetExtantDoc() : nullptr;
+    Document* doc = GetOwner() ? GetOwner()->GetExtantDoc() : nullptr;
     if (doc) {
       baseUri = doc->GetBaseURI();
       encoding = doc->GetDocumentCharacterSet();
@@ -1676,7 +1593,7 @@ nsresult Notification::ResolveIconAndSoundURL(nsString& iconUrl,
       if (NS_SUCCEEDED(rv)) {
         nsAutoCString src;
         srcUri->GetSpec(src);
-        iconUrl = NS_ConvertUTF8toUTF16(src);
+        CopyUTF8toUTF16(src, iconUrl);
       }
     }
     if (mBehavior.mSoundFile.Length() > 0) {
@@ -1686,7 +1603,7 @@ nsresult Notification::ResolveIconAndSoundURL(nsString& iconUrl,
       if (NS_SUCCEEDED(rv)) {
         nsAutoCString src;
         srcUri->GetSpec(src);
-        soundUrl = NS_ConvertUTF8toUTF16(src);
+        CopyUTF8toUTF16(src, soundUrl);
       }
     }
   }
@@ -1700,7 +1617,7 @@ already_AddRefed<Promise> Notification::Get(
   AssertIsOnMainThread();
   MOZ_ASSERT(aWindow);
 
-  nsCOMPtr<nsIDocument> doc = aWindow->GetExtantDoc();
+  nsCOMPtr<Document> doc = aWindow->GetExtantDoc();
   if (!doc) {
     aRv.Throw(NS_ERROR_UNEXPECTED);
     return nullptr;
@@ -1739,7 +1656,7 @@ already_AddRefed<Promise> Notification::Get(
   MOZ_ASSERT(global);
   nsCOMPtr<nsPIDOMWindowInner> window = do_QueryInterface(global);
 
-  return Get(window, aFilter, EmptyString(), aRv);
+  return Get(window, aFilter, u""_ns, aRv);
 }
 
 class WorkerGetResultRunnable final : public NotificationWorkerRunnable {
@@ -1749,7 +1666,7 @@ class WorkerGetResultRunnable final : public NotificationWorkerRunnable {
  public:
   WorkerGetResultRunnable(WorkerPrivate* aWorkerPrivate,
                           PromiseWorkerProxy* aPromiseProxy,
-                          const nsTArray<NotificationStrings>&& aStrings)
+                          nsTArray<NotificationStrings>&& aStrings)
       : NotificationWorkerRunnable(aWorkerPrivate),
         mPromiseProxy(aPromiseProxy),
         mStrings(std::move(aStrings)) {}
@@ -1796,7 +1713,7 @@ class WorkerGetCallback final : public ScopeCheckingGetCallback {
     AssertIsOnMainThread();
     MOZ_ASSERT(mPromiseProxy, "Was Done() called twice?");
 
-    RefPtr<PromiseWorkerProxy> proxy = mPromiseProxy.forget();
+    RefPtr<PromiseWorkerProxy> proxy = std::move(mPromiseProxy);
     MutexAutoLock lock(proxy->Lock());
     if (proxy->CleanedUp()) {
       return NS_OK;
@@ -1810,7 +1727,7 @@ class WorkerGetCallback final : public ScopeCheckingGetCallback {
   }
 
  private:
-  ~WorkerGetCallback() {}
+  ~WorkerGetCallback() = default;
 };
 
 NS_IMPL_ISUPPORTS(WorkerGetCallback, nsINotificationStorageCallback)
@@ -1867,7 +1784,7 @@ class WorkerGetRunnable final : public Runnable {
   }
 
  private:
-  ~WorkerGetRunnable() {}
+  ~WorkerGetRunnable() = default;
 };
 
 // static
@@ -1913,7 +1830,7 @@ void Notification::Close() {
   nsresult rv = DispatchToMainThread(closeNotificationTask.forget());
 
   if (NS_FAILED(rv)) {
-    DispatchTrustedEvent(NS_LITERAL_STRING("error"));
+    DispatchTrustedEvent(u"error"_ns);
     // If dispatch fails, NotificationTask will release the ref when it goes
     // out of scope at the end of this function.
   }
@@ -1925,13 +1842,12 @@ void Notification::CloseInternal() {
   // of this function. This is relevant when the call is from
   // NotificationTask::Run().
   UniquePtr<NotificationRef> ownership;
-  mozilla::Swap(ownership, mTempRef);
+  std::swap(ownership, mTempRef);
 
   SetAlertName();
   UnpersistNotification();
   if (!mIsClosed) {
-    nsCOMPtr<nsIAlertsService> alertService =
-        do_GetService(NS_ALERTSERVICE_CONTRACTID);
+    nsCOMPtr<nsIAlertsService> alertService = components::Alerts::Service();
     if (alertService) {
       nsAutoString alertName;
       GetAlertName(alertName);
@@ -2024,10 +1940,10 @@ void Notification::InitFromBase64(const nsAString& aData, ErrorResult& aRv) {
 
 bool Notification::AddRefObject() {
   AssertIsOnTargetThread();
-  MOZ_ASSERT_IF(mWorkerPrivate && !mWorkerHolder, mTaskCount == 0);
-  MOZ_ASSERT_IF(mWorkerPrivate && mWorkerHolder, mTaskCount > 0);
-  if (mWorkerPrivate && !mWorkerHolder) {
-    if (!RegisterWorkerHolder()) {
+  MOZ_ASSERT_IF(mWorkerPrivate && !mWorkerRef, mTaskCount == 0);
+  MOZ_ASSERT_IF(mWorkerPrivate && mWorkerRef, mTaskCount > 0);
+  if (mWorkerPrivate && !mWorkerRef) {
+    if (!CreateWorkerRef()) {
       return false;
     }
   }
@@ -2039,19 +1955,14 @@ bool Notification::AddRefObject() {
 void Notification::ReleaseObject() {
   AssertIsOnTargetThread();
   MOZ_ASSERT(mTaskCount > 0);
-  MOZ_ASSERT_IF(mWorkerPrivate, mWorkerHolder);
+  MOZ_ASSERT_IF(mWorkerPrivate, mWorkerRef);
 
   --mTaskCount;
   if (mWorkerPrivate && mTaskCount == 0) {
-    UnregisterWorkerHolder();
+    MOZ_ASSERT(mWorkerRef);
+    mWorkerRef = nullptr;
   }
   Release();
-}
-
-NotificationWorkerHolder::NotificationWorkerHolder(Notification* aNotification)
-    : WorkerHolder("NotificationWorkerHolder"), mNotification(aNotification) {
-  MOZ_ASSERT(mNotification->mWorkerPrivate);
-  mNotification->mWorkerPrivate->AssertIsOnWorkerThread();
 }
 
 /*
@@ -2066,9 +1977,8 @@ class CloseNotificationRunnable final : public WorkerMainThreadRunnable {
 
  public:
   explicit CloseNotificationRunnable(Notification* aNotification)
-      : WorkerMainThreadRunnable(
-            aNotification->mWorkerPrivate,
-            NS_LITERAL_CSTRING("Notification :: Close Notification")),
+      : WorkerMainThreadRunnable(aNotification->mWorkerPrivate,
+                                 "Notification :: Close Notification"_ns),
         mNotification(aNotification),
         mHadObserver(false) {}
 
@@ -2086,64 +1996,55 @@ class CloseNotificationRunnable final : public WorkerMainThreadRunnable {
   bool HadObserver() { return mHadObserver; }
 };
 
-bool NotificationWorkerHolder::Notify(WorkerStatus aStatus) {
-  if (aStatus >= Canceling) {
-    // CloseNotificationRunnable blocks the worker by pushing a sync event loop
-    // on the stack. Meanwhile, WorkerControlRunnables dispatched to the worker
-    // can still continue running. One of these is
-    // ReleaseNotificationControlRunnable that releases the notification,
-    // invalidating the notification and this feature. We hold this reference to
-    // keep the notification valid until we are done with it.
-    //
-    // An example of when the control runnable could get dispatched to the
-    // worker is if a Notification is created and the worker is immediately
-    // closed, but there is no permission to show it so that the main thread
-    // immediately drops the NotificationRef. In this case, this function blocks
-    // on the main thread, but the main thread dispatches the control runnable,
-    // invalidating mNotification.
-    RefPtr<Notification> kungFuDeathGrip = mNotification;
-
-    // Dispatched to main thread, blocks on closing the Notification.
-    RefPtr<CloseNotificationRunnable> r =
-        new CloseNotificationRunnable(kungFuDeathGrip);
-    ErrorResult rv;
-    r->Dispatch(Killing, rv);
-    // XXXbz I'm told throwing and returning false from here is pointless (and
-    // also that doing sync stuff from here is really weird), so I guess we just
-    // suppress the exception on rv, if any.
-    rv.SuppressException();
-
-    // Only call ReleaseObject() to match the observer's NotificationRef
-    // ownership (since CloseNotificationRunnable asked the observer to drop the
-    // reference to the notification).
-    if (r->HadObserver()) {
-      kungFuDeathGrip->ReleaseObject();
-    }
-
-    // From this point we cannot touch properties of this feature because
-    // ReleaseObject() may have led to the notification going away and the
-    // notification owns this feature!
-  }
-  return true;
-}
-
-bool Notification::RegisterWorkerHolder() {
+bool Notification::CreateWorkerRef() {
   MOZ_ASSERT(mWorkerPrivate);
   mWorkerPrivate->AssertIsOnWorkerThread();
-  MOZ_ASSERT(!mWorkerHolder);
-  mWorkerHolder = MakeUnique<NotificationWorkerHolder>(this);
-  if (NS_WARN_IF(!mWorkerHolder->HoldWorker(mWorkerPrivate, Canceling))) {
+  MOZ_ASSERT(!mWorkerRef);
+
+  RefPtr<Notification> self = this;
+  mWorkerRef =
+      StrongWorkerRef::Create(mWorkerPrivate, "Notification", [self]() {
+        // CloseNotificationRunnable blocks the worker by pushing a sync event
+        // loop on the stack. Meanwhile, WorkerControlRunnables dispatched to
+        // the worker can still continue running. One of these is
+        // ReleaseNotificationControlRunnable that releases the notification,
+        // invalidating the notification and this feature. We hold this
+        // reference to keep the notification valid until we are done with it.
+        //
+        // An example of when the control runnable could get dispatched to the
+        // worker is if a Notification is created and the worker is immediately
+        // closed, but there is no permission to show it so that the main thread
+        // immediately drops the NotificationRef. In this case, this function
+        // blocks on the main thread, but the main thread dispatches the control
+        // runnable, invalidating mNotification.
+
+        // Dispatched to main thread, blocks on closing the Notification.
+        RefPtr<CloseNotificationRunnable> r =
+            new CloseNotificationRunnable(self);
+        ErrorResult rv;
+        r->Dispatch(Killing, rv);
+        // XXXbz I'm told throwing and returning false from here is pointless
+        // (and also that doing sync stuff from here is really weird), so I
+        // guess we just suppress the exception on rv, if any.
+        rv.SuppressException();
+
+        // Only call ReleaseObject() to match the observer's NotificationRef
+        // ownership (since CloseNotificationRunnable asked the observer to drop
+        // the reference to the notification).
+        if (r->HadObserver()) {
+          self->ReleaseObject();
+        }
+
+        // From this point we cannot touch properties of this feature because
+        // ReleaseObject() may have led to the notification going away and the
+        // notification owns this feature!
+      });
+
+  if (NS_WARN_IF(!mWorkerRef)) {
     return false;
   }
 
   return true;
-}
-
-void Notification::UnregisterWorkerHolder() {
-  MOZ_ASSERT(mWorkerPrivate);
-  mWorkerPrivate->AssertIsOnWorkerThread();
-  MOZ_ASSERT(mWorkerHolder);
-  mWorkerHolder = nullptr;
 }
 
 /*
@@ -2156,37 +2057,29 @@ void Notification::UnregisterWorkerHolder() {
 class CheckLoadRunnable final : public WorkerMainThreadRunnable {
   nsresult mRv;
   nsCString mScope;
+  ServiceWorkerRegistrationDescriptor mDescriptor;
 
  public:
-  explicit CheckLoadRunnable(WorkerPrivate* aWorker, const nsACString& aScope)
-      : WorkerMainThreadRunnable(
-            aWorker, NS_LITERAL_CSTRING("Notification :: Check Load")),
+  explicit CheckLoadRunnable(
+      WorkerPrivate* aWorker, const nsACString& aScope,
+      const ServiceWorkerRegistrationDescriptor& aDescriptor)
+      : WorkerMainThreadRunnable(aWorker, "Notification :: Check Load"_ns),
         mRv(NS_ERROR_DOM_SECURITY_ERR),
-        mScope(aScope) {}
+        mScope(aScope),
+        mDescriptor(aDescriptor) {}
 
   bool MainThreadRun() override {
     nsIPrincipal* principal = mWorkerPrivate->GetPrincipal();
-    mRv = CheckScope(principal, mScope);
+    mRv = CheckScope(principal, mScope, mWorkerPrivate->WindowID());
 
     if (NS_FAILED(mRv)) {
       return true;
     }
 
-    RefPtr<ServiceWorkerManager> swm = ServiceWorkerManager::GetInstance();
-    if (!swm) {
-      // browser shutdown began
-      mRv = NS_ERROR_FAILURE;
-      return true;
-    }
+    auto activeWorker = mDescriptor.GetActive();
 
-    RefPtr<ServiceWorkerRegistrationInfo> registration =
-        swm->GetRegistration(principal, mScope);
-
-    // This is coming from a ServiceWorkerRegistration.
-    MOZ_ASSERT(registration);
-
-    if (!registration->GetActive() ||
-        registration->GetActive()->ID() != mWorkerPrivate->ServiceWorkerID()) {
+    if (!activeWorker ||
+        activeWorker.ref().Id() != mWorkerPrivate->ServiceWorkerID()) {
       mRv = NS_ERROR_NOT_AVAILABLE;
     }
 
@@ -2200,7 +2093,7 @@ class CheckLoadRunnable final : public WorkerMainThreadRunnable {
 already_AddRefed<Promise> Notification::ShowPersistentNotification(
     JSContext* aCx, nsIGlobalObject* aGlobal, const nsAString& aScope,
     const nsAString& aTitle, const NotificationOptions& aOptions,
-    ErrorResult& aRv) {
+    const ServiceWorkerRegistrationDescriptor& aDescriptor, ErrorResult& aRv) {
   MOZ_ASSERT(aGlobal);
 
   // Validate scope.
@@ -2222,7 +2115,13 @@ already_AddRefed<Promise> Notification::ShowPersistentNotification(
       return nullptr;
     }
 
-    aRv = CheckScope(principal, NS_ConvertUTF16toUTF8(aScope));
+    uint64_t windowID = 0;
+    nsCOMPtr<nsPIDOMWindowInner> win = do_QueryInterface(aGlobal);
+    if (win) {
+      windowID = win->WindowID();
+    }
+
+    aRv = CheckScope(principal, NS_ConvertUTF16toUTF8(aScope), windowID);
     if (NS_WARN_IF(aRv.Failed())) {
       aRv.Throw(NS_ERROR_DOM_SECURITY_ERR);
       return nullptr;
@@ -2231,8 +2130,9 @@ already_AddRefed<Promise> Notification::ShowPersistentNotification(
     WorkerPrivate* worker = GetCurrentThreadWorkerPrivate();
     MOZ_ASSERT(worker);
     worker->AssertIsOnWorkerThread();
-    RefPtr<CheckLoadRunnable> loadChecker =
-        new CheckLoadRunnable(worker, NS_ConvertUTF16toUTF8(aScope));
+
+    RefPtr<CheckLoadRunnable> loadChecker = new CheckLoadRunnable(
+        worker, NS_ConvertUTF16toUTF8(aScope), aDescriptor);
     loadChecker->Dispatch(Canceling, aRv);
     if (aRv.Failed()) {
       return nullptr;
@@ -2240,7 +2140,7 @@ already_AddRefed<Promise> Notification::ShowPersistentNotification(
 
     if (NS_WARN_IF(NS_FAILED(loadChecker->Result()))) {
       if (loadChecker->Result() == NS_ERROR_NOT_AVAILABLE) {
-        aRv.ThrowTypeError<MSG_NO_ACTIVE_WORKER>(aScope);
+        aRv.ThrowTypeError<MSG_NO_ACTIVE_WORKER>(NS_ConvertUTF16toUTF8(aScope));
       } else {
         aRv.Throw(NS_ERROR_DOM_SECURITY_ERR);
       }
@@ -2261,9 +2161,7 @@ already_AddRefed<Promise> Notification::ShowPersistentNotification(
   // with a TypeError exception, and terminate these substeps."
   if (NS_WARN_IF(aRv.Failed()) ||
       permission == NotificationPermission::Denied) {
-    ErrorResult result;
-    result.ThrowTypeError<MSG_NOTIFICATION_PERMISSION_DENIED>();
-    p->MaybeReject(result);
+    p->MaybeRejectWithTypeError("Permission to show Notification denied.");
     return p.forget();
   }
 
@@ -2281,14 +2179,15 @@ already_AddRefed<Promise> Notification::ShowPersistentNotification(
   return p.forget();
 }
 
-/* static */ already_AddRefed<Notification> Notification::CreateAndShow(
+/* static */
+already_AddRefed<Notification> Notification::CreateAndShow(
     JSContext* aCx, nsIGlobalObject* aGlobal, const nsAString& aTitle,
     const NotificationOptions& aOptions, const nsAString& aScope,
     ErrorResult& aRv) {
   MOZ_ASSERT(aGlobal);
 
   RefPtr<Notification> notification =
-      CreateInternal(aGlobal, EmptyString(), aTitle, aOptions);
+      CreateInternal(aGlobal, u""_ns, aTitle, aOptions);
 
   // Make a structured clone of the aOptions.mData object
   JS::Rooted<JS::Value> data(aCx, aOptions.mData);
@@ -2313,24 +2212,26 @@ already_AddRefed<Promise> Notification::ShowPersistentNotification(
       notification->DispatchToMainThread(showNotificationTask.forget());
 
   if (NS_WARN_IF(NS_FAILED(rv))) {
-    notification->DispatchTrustedEvent(NS_LITERAL_STRING("error"));
+    notification->DispatchTrustedEvent(u"error"_ns);
   }
 
   return notification.forget();
 }
 
-/* static */ nsresult Notification::RemovePermission(nsIPrincipal* aPrincipal) {
+/* static */
+nsresult Notification::RemovePermission(nsIPrincipal* aPrincipal) {
   MOZ_ASSERT(XRE_IsParentProcess());
   nsCOMPtr<nsIPermissionManager> permissionManager =
       mozilla::services::GetPermissionManager();
   if (!permissionManager) {
     return NS_ERROR_FAILURE;
   }
-  permissionManager->RemoveFromPrincipal(aPrincipal, "desktop-notification");
+  permissionManager->RemoveFromPrincipal(aPrincipal, "desktop-notification"_ns);
   return NS_OK;
 }
 
-/* static */ nsresult Notification::OpenSettings(nsIPrincipal* aPrincipal) {
+/* static */
+nsresult Notification::OpenSettings(nsIPrincipal* aPrincipal) {
   MOZ_ASSERT(XRE_IsParentProcess());
   nsCOMPtr<nsIObserverService> obs = mozilla::services::GetObserverService();
   if (!obs) {
@@ -2382,5 +2283,4 @@ nsresult Notification::DispatchToMainThread(
                               nsIEventTarget::DISPATCH_NORMAL);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

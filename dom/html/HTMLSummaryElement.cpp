@@ -17,10 +17,9 @@
 
 NS_IMPL_NS_NEW_HTML_ELEMENT(Summary)
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
-HTMLSummaryElement::~HTMLSummaryElement() {}
+HTMLSummaryElement::~HTMLSummaryElement() = default;
 
 NS_IMPL_ELEMENT_CLONE(HTMLSummaryElement)
 
@@ -39,6 +38,11 @@ nsresult HTMLSummaryElement::PostHandleEvent(EventChainPostVisitor& aVisitor) {
   }
 
   WidgetEvent* const event = aVisitor.mEvent;
+  nsCOMPtr<Element> target =
+      do_QueryInterface(event->GetOriginalDOMEventTarget());
+  if (nsContentUtils::IsInInteractiveHTMLContent(target, this)) {
+    return NS_OK;
+  }
 
   if (event->HasMouseEventMessage()) {
     WidgetMouseEvent* mouseEvent = event->AsMouseEvent();
@@ -101,15 +105,8 @@ bool HTMLSummaryElement::IsHTMLFocusable(bool aWithMouse, bool* aIsFocusable,
     return disallowOverridingFocusability;
   }
 
-#ifdef XP_MACOSX
-  // The parent does not have strong opinion about the focusability of this main
-  // summary element, but we'd like to override it when mouse clicking on Mac OS
-  // like other form elements.
-  *aIsFocusable = !aWithMouse || nsFocusManager::sMouseFocusesFormControl;
-#else
-  // The main summary element is focusable on other platforms.
+  // The main summary element is focusable.
   *aIsFocusable = true;
-#endif
 
   // Give a chance to allow the subclass to override aIsFocusable.
   return false;
@@ -139,5 +136,4 @@ JSObject* HTMLSummaryElement::WrapNode(JSContext* aCx,
   return HTMLElement_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

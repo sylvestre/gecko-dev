@@ -8,15 +8,17 @@ pub mod settings;
 
 use super::super::settings as shared_settings;
 #[cfg(feature = "testing_hooks")]
-use binemit::CodeSink;
-use binemit::{emit_function, MemoryCodeSink};
-use ir;
-use isa::enc_tables::{self as shared_enc_tables, lookup_enclist, Encodings};
-use isa::Builder as IsaBuilder;
-use isa::{EncInfo, RegClass, RegInfo, TargetIsa};
-use regalloc;
-use std::boxed::Box;
-use std::fmt;
+use crate::binemit::CodeSink;
+use crate::binemit::{emit_function, MemoryCodeSink};
+use crate::ir;
+use crate::isa::enc_tables::{self as shared_enc_tables, lookup_enclist, Encodings};
+use crate::isa::Builder as IsaBuilder;
+use crate::isa::{EncInfo, RegClass, RegInfo, TargetIsa};
+use crate::regalloc;
+use alloc::borrow::Cow;
+use alloc::boxed::Box;
+use core::any::Any;
+use core::fmt;
 use target_lexicon::{PointerWidth, Triple};
 
 #[allow(dead_code)]
@@ -40,7 +42,7 @@ fn isa_constructor(
     triple: Triple,
     shared_flags: shared_settings::Flags,
     builder: shared_settings::Builder,
-) -> Box<TargetIsa> {
+) -> Box<dyn TargetIsa> {
     let level1 = match triple.pointer_width().unwrap() {
         PointerWidth::U16 => panic!("16-bit RISC-V unrecognized"),
         PointerWidth::U32 => &enc_tables::LEVEL1_RV32[..],
@@ -95,7 +97,7 @@ impl TargetIsa for Isa {
         )
     }
 
-    fn legalize_signature(&self, sig: &mut ir::Signature, current: bool) {
+    fn legalize_signature(&self, sig: &mut Cow<ir::Signature>, current: bool) {
         abi::legalize_signature(sig, &self.triple, &self.isa_flags, current)
     }
 
@@ -113,27 +115,39 @@ impl TargetIsa for Isa {
         func: &ir::Function,
         inst: ir::Inst,
         divert: &mut regalloc::RegDiversions,
-        sink: &mut CodeSink,
+        sink: &mut dyn CodeSink,
     ) {
-        binemit::emit_inst(func, inst, divert, sink)
+        binemit::emit_inst(func, inst, divert, sink, self)
     }
 
     fn emit_function_to_memory(&self, func: &ir::Function, sink: &mut MemoryCodeSink) {
-        emit_function(func, binemit::emit_inst, sink)
+        emit_function(func, binemit::emit_inst, sink, self)
+    }
+
+    fn unsigned_add_overflow_condition(&self) -> ir::condcodes::IntCC {
+        unimplemented!()
+    }
+
+    fn unsigned_sub_overflow_condition(&self) -> ir::condcodes::IntCC {
+        unimplemented!()
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self as &dyn Any
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use ir::{immediates, types};
-    use ir::{Function, InstructionData, Opcode};
-    use isa;
-    use settings::{self, Configurable};
-    use std::str::FromStr;
-    use std::string::{String, ToString};
-    use target_lexicon;
+    use crate::ir::{immediates, types};
+    use crate::ir::{Function, InstructionData, Opcode};
+    use crate::isa;
+    use crate::settings::{self, Configurable};
+    use alloc::string::{String, ToString};
+    use core::str::FromStr;
+    use target_lexicon::triple;
 
-    fn encstr(isa: &isa::TargetIsa, enc: Result<isa::Encoding, isa::Legalize>) -> String {
+    fn encstr(isa: &dyn isa::TargetIsa, enc: Result<isa::Encoding, isa::Legalize>) -> String {
         match enc {
             Ok(e) => isa.encoding_info().display(e).to_string(),
             Err(_) => "no encoding".to_string(),
@@ -149,12 +163,12 @@ mod tests {
             .finish(shared_flags);
 
         let mut func = Function::new();
-        let ebb = func.dfg.make_ebb();
-        let arg64 = func.dfg.append_ebb_param(ebb, types::I64);
-        let arg32 = func.dfg.append_ebb_param(ebb, types::I32);
+        let block = func.dfg.make_block();
+        let arg64 = func.dfg.append_block_param(block, types::I64);
+        let arg32 = func.dfg.append_block_param(block, types::I32);
 
         // Try to encode iadd_imm.i64 v1, -10.
-        let inst64 = InstructionData::BinaryImm {
+        let inst64 = InstructionData::BinaryImm64 {
             opcode: Opcode::IaddImm,
             arg: arg64,
             imm: immediates::Imm64::new(-10),
@@ -167,7 +181,7 @@ mod tests {
         );
 
         // Try to encode iadd_imm.i64 v1, -10000.
-        let inst64_large = InstructionData::BinaryImm {
+        let inst64_large = InstructionData::BinaryImm64 {
             opcode: Opcode::IaddImm,
             arg: arg64,
             imm: immediates::Imm64::new(-10000),
@@ -177,7 +191,7 @@ mod tests {
         assert!(isa.encode(&func, &inst64_large, types::I64).is_err());
 
         // Create an iadd_imm.i32 which is encodable in RV64.
-        let inst32 = InstructionData::BinaryImm {
+        let inst32 = InstructionData::BinaryImm64 {
             opcode: Opcode::IaddImm,
             arg: arg32,
             imm: immediates::Imm64::new(10),
@@ -200,12 +214,12 @@ mod tests {
             .finish(shared_flags);
 
         let mut func = Function::new();
-        let ebb = func.dfg.make_ebb();
-        let arg64 = func.dfg.append_ebb_param(ebb, types::I64);
-        let arg32 = func.dfg.append_ebb_param(ebb, types::I32);
+        let block = func.dfg.make_block();
+        let arg64 = func.dfg.append_block_param(block, types::I64);
+        let arg32 = func.dfg.append_block_param(block, types::I32);
 
         // Try to encode iadd_imm.i64 v1, -10.
-        let inst64 = InstructionData::BinaryImm {
+        let inst64 = InstructionData::BinaryImm64 {
             opcode: Opcode::IaddImm,
             arg: arg64,
             imm: immediates::Imm64::new(-10),
@@ -215,7 +229,7 @@ mod tests {
         assert!(isa.encode(&func, &inst64, types::I64).is_err());
 
         // Try to encode iadd_imm.i64 v1, -10000.
-        let inst64_large = InstructionData::BinaryImm {
+        let inst64_large = InstructionData::BinaryImm64 {
             opcode: Opcode::IaddImm,
             arg: arg64,
             imm: immediates::Imm64::new(-10000),
@@ -225,7 +239,7 @@ mod tests {
         assert!(isa.encode(&func, &inst64_large, types::I64).is_err());
 
         // Create an iadd_imm.i32 which is encodable in RV32.
-        let inst32 = InstructionData::BinaryImm {
+        let inst32 = InstructionData::BinaryImm64 {
             opcode: Opcode::IaddImm,
             arg: arg32,
             imm: immediates::Imm64::new(10),
@@ -259,8 +273,8 @@ mod tests {
         let isa = isa_builder.finish(shared_flags);
 
         let mut func = Function::new();
-        let ebb = func.dfg.make_ebb();
-        let arg32 = func.dfg.append_ebb_param(ebb, types::I32);
+        let block = func.dfg.make_block();
+        let arg32 = func.dfg.append_block_param(block, types::I32);
 
         // Create an imul.i32 which is encodable in RV32M.
         let mul32 = InstructionData::Binary {

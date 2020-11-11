@@ -13,128 +13,148 @@ with Files("*CompositorWidget*"):
 with Files("*WindowSurface*"):
     BUG_COMPONENT = ("Core", "Graphics")
 
-if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gtk3':
-    DIRS += ['mozgtk']
+with Files("*IMContextWrapper*"):
+    BUG_COMPONENT = ("Core", "DOM: UI Events & Focus Handling")
 
-if CONFIG['MOZ_WAYLAND']:
-    DIRS += ['wayland', 'mozwayland']
+with Files("*nsGtkKeyUtils*"):
+    BUG_COMPONENT = ("Core", "DOM: UI Events & Focus Handling")
+
+if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gtk":
+    DIRS += ["mozgtk"]
+
+if CONFIG["MOZ_WAYLAND"]:
+    DIRS += ["wayland", "mozwayland"]
 
 EXPORTS += [
-    'mozcontainer.h',
-    'nsGTKToolkit.h',
-    'nsIImageToPixbuf.h',
+    "MozContainer.h",
+    "nsGTKToolkit.h",
+    "nsIImageToPixbuf.h",
 ]
 
-EXPORTS.mozilla += [
-    'WidgetUtilsGtk.h'
-]
+EXPORTS.mozilla += ["WidgetUtilsGtk.h"]
 
 UNIFIED_SOURCES += [
-    'IMContextWrapper.cpp',
-    'mozcontainer.cpp',
-    'NativeKeyBindings.cpp',
-    'nsAppShell.cpp',
-    'nsBidiKeyboard.cpp',
-    'nsColorPicker.cpp',
-    'nsFilePicker.cpp',
-    'nsGtkKeyUtils.cpp',
-    'nsImageToPixbuf.cpp',
-    'nsLookAndFeel.cpp',
-    'nsNativeThemeGTK.cpp',
-    'nsSound.cpp',
-    'nsToolkit.cpp',
-    'nsWidgetFactory.cpp',
-    'ScreenHelperGTK.cpp',
-    'TaskbarProgress.cpp',
-    'WakeLockListener.cpp',
-    'WidgetTraceEvent.cpp',
-    'WidgetUtilsGtk.cpp',
+    "IMContextWrapper.cpp",
+    "MozContainer.cpp",
+    "MPRISServiceHandler.cpp",
+    "NativeKeyBindings.cpp",
+    "nsAppShell.cpp",
+    "nsBidiKeyboard.cpp",
+    "nsColorPicker.cpp",
+    "nsFilePicker.cpp",
+    "nsGtkKeyUtils.cpp",
+    "nsImageToPixbuf.cpp",
+    "nsLookAndFeel.cpp",
+    "nsNativeBasicThemeGTK.cpp",
+    "nsNativeThemeGTK.cpp",
+    "nsSound.cpp",
+    "nsToolkit.cpp",
+    "nsWidgetFactory.cpp",
+    "ProcInfo.cpp",
+    "ScreenHelperGTK.cpp",
+    "TaskbarProgress.cpp",
+    "WakeLockListener.cpp",
+    "WidgetTraceEvent.cpp",
+    "WidgetUtilsGtk.cpp",
 ]
 
 SOURCES += [
-    'nsWindow.cpp', # conflicts with X11 headers
+    "MediaKeysEventSourceFactory.cpp",
+    "nsWindow.cpp",  # conflicts with X11 headers
+    "WaylandVsyncSource.cpp",  # conflicts with X11 headers
 ]
 
-if CONFIG['MOZ_X11']:
+if CONFIG["MOZ_X11"]:
     UNIFIED_SOURCES += [
-        'CompositorWidgetChild.cpp',
-        'CompositorWidgetParent.cpp',
-        'GtkCompositorWidget.cpp',
-        'InProcessGtkCompositorWidget.cpp',
-        'nsIdleServiceGTK.cpp',
+        "CompositorWidgetChild.cpp",
+        "CompositorWidgetParent.cpp",
+        "GtkCompositorWidget.cpp",
+        "InProcessGtkCompositorWidget.cpp",
+        "nsUserIdleServiceGTK.cpp",
     ]
     EXPORTS.mozilla.widget += [
-        'CompositorWidgetChild.h',
-        'CompositorWidgetParent.h',
-        'GtkCompositorWidget.h',
-        'InProcessGtkCompositorWidget.h',
+        "CompositorWidgetChild.h",
+        "CompositorWidgetParent.h",
+        "GtkCompositorWidget.h",
+        "InProcessGtkCompositorWidget.h",
     ]
 
-if CONFIG['NS_PRINTING']:
+if CONFIG["NS_PRINTING"]:
     UNIFIED_SOURCES += [
-        'nsCUPSShim.cpp',
-        'nsDeviceContextSpecG.cpp',
-        'nsPrintDialogGTK.cpp',
-        'nsPrintSettingsGTK.cpp',
-        'nsPrintSettingsServiceGTK.cpp',
-        'nsPSPrinters.cpp',
+        "nsDeviceContextSpecG.cpp",
+        "nsPrintDialogGTK.cpp",
+        "nsPrintSettingsGTK.cpp",
+        "nsPrintSettingsServiceGTK.cpp",
     ]
 
-if CONFIG['MOZ_X11']:
+if CONFIG["MOZ_X11"]:
     UNIFIED_SOURCES += [
-        'nsClipboard.cpp',
-        'nsClipboardX11.cpp',
-        'nsDragService.cpp',
-        'WindowSurfaceProvider.cpp',
-        'WindowSurfaceX11.cpp',
-        'WindowSurfaceX11Image.cpp',
-        'WindowSurfaceXRender.cpp',
+        "nsClipboard.cpp",
+        "nsClipboardX11.cpp",
+        "nsDragService.cpp",
+        "WindowSurfaceProvider.cpp",
+        "WindowSurfaceX11.cpp",
+        "WindowSurfaceX11Image.cpp",
+        "WindowSurfaceXRender.cpp",
     ]
     EXPORTS.mozilla.widget += [
-        'WindowSurfaceProvider.h',
+        "WindowSurfaceProvider.h",
     ]
 
-if CONFIG['MOZ_WAYLAND']:
+if CONFIG["MOZ_WAYLAND"]:
     UNIFIED_SOURCES += [
-        'nsClipboardWayland.cpp',
-        'nsWaylandDisplay.cpp',
-        'WindowSurfaceWayland.cpp',
+        "DMABufLibWrapper.cpp",
+        "DMABufSurface.cpp",
+        "MozContainerWayland.cpp",
+        "nsClipboardWayland.cpp",
+        "nsWaylandDisplay.cpp",
+        "WindowSurfaceWayland.cpp",
+    ]
+    EXPORTS.mozilla.widget += [
+        "DMABufLibWrapper.h",
+        "DMABufSurface.h",
+        "MozContainerWayland.h",
+        "nsWaylandDisplay.h",
     ]
 
-if CONFIG['ACCESSIBILITY']:
+if CONFIG["ACCESSIBILITY"]:
     UNIFIED_SOURCES += [
-        'maiRedundantObjectFactory.c',
+        "maiRedundantObjectFactory.c",
     ]
 
 UNIFIED_SOURCES += [
-    'gtk3drawing.cpp',
-    'nsApplicationChooser.cpp',
-    'WidgetStyleCache.cpp',
+    "gtk3drawing.cpp",
+    "nsApplicationChooser.cpp",
+    "WidgetStyleCache.cpp",
 ]
 
-include('/ipc/chromium/chromium-config.mozbuild')
+XPCOM_MANIFESTS += [
+    "components.conf",
+]
 
-FINAL_LIBRARY = 'xul'
+include("/ipc/chromium/chromium-config.mozbuild")
+
+FINAL_LIBRARY = "xul"
 
 LOCAL_INCLUDES += [
-    '/layout/base',
-    '/layout/generic',
-    '/layout/xul',
-    '/other-licenses/atk-1.0',
-    '/widget',
-    '/widget/headless',
+    "/layout/base",
+    "/layout/forms",
+    "/layout/generic",
+    "/layout/xul",
+    "/other-licenses/atk-1.0",
+    "/third_party/cups/include",
+    "/widget",
+    "/widget/headless",
 ]
 
-if CONFIG['MOZ_X11']:
+if CONFIG["MOZ_X11"]:
     LOCAL_INCLUDES += [
-        '/widget/x11',
+        "/widget/x11",
     ]
 
-DEFINES['CAIRO_GFX'] = True
+DEFINES["CAIRO_GFX"] = True
 
-DEFINES['MOZ_APP_NAME'] = '"%s"' % CONFIG['MOZ_APP_NAME']
-
-CFLAGS += CONFIG['MOZ_STARTUP_NOTIFICATION_CFLAGS']
+DEFINES["MOZ_APP_NAME"] = '"%s"' % CONFIG["MOZ_APP_NAME"]
 
 # When building with GTK3, the widget code always needs to use
 # system Cairo headers, regardless of whether we are also linked
@@ -143,15 +163,17 @@ CFLAGS += CONFIG['MOZ_STARTUP_NOTIFICATION_CFLAGS']
 # use only system Cairo symbols that GTK3 uses. This allows that
 # any Cairo objects created can be freely passed back and forth
 # between the widget code and GTK3.
-if not (CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gtk3' and CONFIG['MOZ_TREE_CAIRO']):
-    CXXFLAGS += CONFIG['MOZ_CAIRO_CFLAGS']
+if not (CONFIG["MOZ_WIDGET_TOOLKIT"] == "gtk" and CONFIG["MOZ_TREE_CAIRO"]):
+    CXXFLAGS += CONFIG["MOZ_CAIRO_CFLAGS"]
 
-CXXFLAGS += CONFIG['MOZ_STARTUP_NOTIFICATION_CFLAGS']
+CFLAGS += CONFIG["TK_CFLAGS"]
+CXXFLAGS += CONFIG["TK_CFLAGS"]
 
-CFLAGS += CONFIG['TK_CFLAGS']
-CXXFLAGS += CONFIG['TK_CFLAGS']
+if CONFIG["MOZ_WAYLAND"]:
+    CFLAGS += CONFIG["MOZ_WAYLAND_CFLAGS"]
+    CXXFLAGS += CONFIG["MOZ_WAYLAND_CFLAGS"]
 
-if CONFIG['MOZ_ENABLE_DBUS']:
-    CXXFLAGS += CONFIG['MOZ_DBUS_GLIB_CFLAGS']
+if CONFIG["MOZ_ENABLE_DBUS"]:
+    CXXFLAGS += CONFIG["MOZ_DBUS_GLIB_CFLAGS"]
 
-CXXFLAGS += ['-Wno-error=shadow']
+CXXFLAGS += ["-Wno-error=shadow"]

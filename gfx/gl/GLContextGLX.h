@@ -20,9 +20,8 @@ class GLContextGLX : public GLContext {
  public:
   MOZ_DECLARE_REFCOUNTED_VIRTUAL_TYPENAME(GLContextGLX, override)
   static already_AddRefed<GLContextGLX> CreateGLContext(
-      CreateContextFlags flags, const SurfaceCaps& caps, bool isOffscreen,
-      Display* display, GLXDrawable drawable, GLXFBConfig cfg,
-      bool deleteDrawable, gfxXlibSurface* pixmap);
+      const GLContextDesc&, Display* display, GLXDrawable drawable,
+      GLXFBConfig cfg, bool deleteDrawable, gfxXlibSurface* pixmap);
 
   static bool FindVisual(Display* display, int screen, bool useWebRender,
                          bool useAlpha, int* const out_visualId);
@@ -33,11 +32,9 @@ class GLContextGLX : public GLContext {
       ScopedXFree<GLXFBConfig>* const out_scopedConfigArr,
       GLXFBConfig* const out_config, int* const out_visid, bool aWebRender);
 
-  ~GLContextGLX() override;
+  virtual ~GLContextGLX();
 
-  virtual GLContextType GetContextType() const override {
-    return GLContextType::GLX;
-  }
+  GLContextType GetContextType() const override { return GLContextType::GLX; }
 
   static GLContextGLX* Cast(GLContext* gl) {
     MOZ_ASSERT(gl->GetContextType() == GLContextType::GLX);
@@ -46,17 +43,17 @@ class GLContextGLX : public GLContext {
 
   bool Init() override;
 
-  virtual bool MakeCurrentImpl() const override;
+  bool MakeCurrentImpl() const override;
 
-  virtual bool IsCurrentImpl() const override;
+  bool IsCurrentImpl() const override;
 
-  virtual bool SetupLookupFunction() override;
+  Maybe<SymbolLoader> GetSymbolLoader() const override;
 
-  virtual bool IsDoubleBuffered() const override;
+  bool IsDoubleBuffered() const override;
 
-  virtual bool SwapBuffers() override;
+  bool SwapBuffers() override;
 
-  virtual void GetWSIInfo(nsCString* const out) const override;
+  void GetWSIInfo(nsCString* const out) const override;
 
   // Overrides the current GLXDrawable backing the context and makes the
   // context current.
@@ -68,8 +65,7 @@ class GLContextGLX : public GLContext {
  private:
   friend class GLContextProviderGLX;
 
-  GLContextGLX(CreateContextFlags flags, const SurfaceCaps& caps,
-               bool isOffscreen, Display* aDisplay, GLXDrawable aDrawable,
+  GLContextGLX(const GLContextDesc&, Display* aDisplay, GLXDrawable aDrawable,
                GLXContext aContext, bool aDeleteDrawable, bool aDoubleBuffered,
                gfxXlibSurface* aPixmap);
 

@@ -4,13 +4,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef mozilla_dom_SVGFEMorphologyElement_h
-#define mozilla_dom_SVGFEMorphologyElement_h
+#ifndef DOM_SVG_SVGFEMORPHOLOGYELEMENT_H_
+#define DOM_SVG_SVGFEMORPHOLOGYELEMENT_H_
 
-#include "nsSVGEnum.h"
-#include "nsSVGFilters.h"
-#include "nsSVGNumberPair.h"
-#include "nsSVGString.h"
+#include "SVGAnimatedEnumeration.h"
+#include "SVGAnimatedNumberPair.h"
+#include "SVGAnimatedString.h"
+#include "mozilla/dom/SVGFilters.h"
 
 nsresult NS_NewSVGFEMorphologyElement(
     nsIContent** aResult, already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo);
@@ -18,7 +18,7 @@ nsresult NS_NewSVGFEMorphologyElement(
 namespace mozilla {
 namespace dom {
 
-typedef nsSVGFE SVGFEMorphologyElementBase;
+using SVGFEMorphologyElementBase = SVGFE;
 
 class SVGFEMorphologyElement : public SVGFEMorphologyElementBase {
   friend nsresult(::NS_NewSVGFEMorphologyElement(
@@ -34,48 +34,47 @@ class SVGFEMorphologyElement : public SVGFEMorphologyElementBase {
 
  public:
   virtual FilterPrimitiveDescription GetPrimitiveDescription(
-      nsSVGFilterInstance* aInstance, const IntRect& aFilterSubregion,
+      SVGFilterInstance* aInstance, const IntRect& aFilterSubregion,
       const nsTArray<bool>& aInputsAreTainted,
       nsTArray<RefPtr<SourceSurface>>& aInputImages) override;
   virtual bool AttributeAffectsRendering(int32_t aNameSpaceID,
                                          nsAtom* aAttribute) const override;
-  virtual nsSVGString& GetResultImageName() override {
+  virtual SVGAnimatedString& GetResultImageName() override {
     return mStringAttributes[RESULT];
   }
-  virtual void GetSourceImageNames(
-      nsTArray<nsSVGStringInfo>& aSources) override;
+  virtual void GetSourceImageNames(nsTArray<SVGStringInfo>& aSources) override;
 
   virtual nsresult Clone(dom::NodeInfo*, nsINode** aResult) const override;
 
   // WebIDL
-  already_AddRefed<SVGAnimatedString> In1();
-  already_AddRefed<SVGAnimatedEnumeration> Operator();
-  already_AddRefed<SVGAnimatedNumber> RadiusX();
-  already_AddRefed<SVGAnimatedNumber> RadiusY();
+  already_AddRefed<DOMSVGAnimatedString> In1();
+  already_AddRefed<DOMSVGAnimatedEnumeration> Operator();
+  already_AddRefed<DOMSVGAnimatedNumber> RadiusX();
+  already_AddRefed<DOMSVGAnimatedNumber> RadiusY();
   void SetRadius(float rx, float ry);
 
  protected:
-  void GetRXY(int32_t* aRX, int32_t* aRY, const nsSVGFilterInstance& aInstance);
+  void GetRXY(int32_t* aRX, int32_t* aRY, const SVGFilterInstance& aInstance);
 
   virtual NumberPairAttributesInfo GetNumberPairInfo() override;
   virtual EnumAttributesInfo GetEnumInfo() override;
   virtual StringAttributesInfo GetStringInfo() override;
 
   enum { RADIUS };
-  nsSVGNumberPair mNumberPairAttributes[1];
+  SVGAnimatedNumberPair mNumberPairAttributes[1];
   static NumberPairInfo sNumberPairInfo[1];
 
   enum { OPERATOR };
-  nsSVGEnum mEnumAttributes[1];
-  static nsSVGEnumMapping sOperatorMap[];
+  SVGAnimatedEnumeration mEnumAttributes[1];
+  static SVGEnumMapping sOperatorMap[];
   static EnumInfo sEnumInfo[1];
 
   enum { RESULT, IN1 };
-  nsSVGString mStringAttributes[2];
+  SVGAnimatedString mStringAttributes[2];
   static StringInfo sStringInfo[2];
 };
 
 }  // namespace dom
 }  // namespace mozilla
 
-#endif  // mozilla_dom_SVGFEMorphologyElement_h
+#endif  // DOM_SVG_SVGFEMORPHOLOGYELEMENT_H_

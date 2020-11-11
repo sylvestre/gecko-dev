@@ -16,6 +16,7 @@
 
 class nsTableRowFrame;
 namespace mozilla {
+class PresShell;
 struct TableRowGroupReflowInput;
 }  // namespace mozilla
 
@@ -44,7 +45,7 @@ class nsTableRowGroupFrame final : public nsContainerFrame,
    * @return           the frame that was created
    */
   friend nsTableRowGroupFrame* NS_NewTableRowGroupFrame(
-      nsIPresShell* aPresShell, ComputedStyle* aStyle);
+      mozilla::PresShell* aPresShell, ComputedStyle* aStyle);
   virtual ~nsTableRowGroupFrame();
 
   // nsIFrame overrides
@@ -65,6 +66,7 @@ class nsTableRowGroupFrame final : public nsContainerFrame,
   virtual void AppendFrames(ChildListID aListID,
                             nsFrameList& aFrameList) override;
   virtual void InsertFrames(ChildListID aListID, nsIFrame* aPrevFrame,
+                            const nsLineList::iterator* aPrevFrameLine,
                             nsFrameList& aFrameList) override;
   virtual void RemoveFrame(ChildListID aListID, nsIFrame* aOldFrame) override;
 
@@ -108,12 +110,12 @@ class nsTableRowGroupFrame final : public nsContainerFrame,
 
   /** return the number of child rows (not necessarily == number of child
    * frames) */
-  int32_t GetRowCount();
+  int32_t GetRowCount() const;
 
   /** return the table-relative row index of the first row in this rowgroup.
    * if there are no rows, -1 is returned.
    */
-  int32_t GetStartRowIndex();
+  int32_t GetStartRowIndex() const;
 
   /** Adjust the row indices of all rows  whose index is >= aRowIndex.
    * @param aRowIndex   - start adjusting with this index
@@ -193,26 +195,15 @@ class nsTableRowGroupFrame final : public nsContainerFrame,
   /** Get the number of rows in a row group
    * @return the number of lines in a row group
    */
-  virtual int32_t GetNumLines() override;
+  virtual int32_t GetNumLines() const override;
 
   /** @see nsILineIterator.h GetDirection
    * @return true if the table is rtl
    */
   virtual bool GetDirection() override;
 
-  /** Return structural information about a line.
-   * @param aLineNumber       - the index of the row relative to the row group
-   *                            If the line-number is invalid then
-   *                            aFirstFrameOnLine will be nullptr and
-   *                            aNumFramesOnLine will be zero.
-   * @param aFirstFrameOnLine - the first cell frame that originates in row
-   *                            with a rowindex that matches a line number
-   * @param aNumFramesOnLine  - return the numbers of cells originating in
-   *                            this row
-   * @param aLineBounds       - rect of the row
-   */
-  NS_IMETHOD GetLine(int32_t aLineNumber, nsIFrame** aFirstFrameOnLine,
-                     int32_t* aNumFramesOnLine, nsRect& aLineBounds) override;
+  /** Return structural information about a line. */
+  Result<LineInfo, nsresult> GetLine(int32_t aLineNumber) const override;
 
   /** Given a frame that's a child of the rowgroup, find which line its on.
    * @param aFrame       - frame, should be a row
@@ -237,7 +228,7 @@ class nsTableRowGroupFrame final : public nsContainerFrame,
    */
   NS_IMETHOD FindFrameAt(int32_t aLineNumber, nsPoint aPos,
                          nsIFrame** aFrameFound, bool* aPosIsBeforeFirstFrame,
-                         bool* aPosIsAfterLastFrame) override;
+                         bool* aPosIsAfterLastFrame) const override;
 
   /** Check whether visual and logical order of cell frames within a line are
    * identical. As the layout will reorder them this is always the case
@@ -257,7 +248,7 @@ class nsTableRowGroupFrame final : public nsContainerFrame,
    * @param aLineNumber - the index of the row relative to the table
    */
   NS_IMETHOD GetNextSiblingOnLine(nsIFrame*& aFrame,
-                                  int32_t aLineNumber) override;
+                                  int32_t aLineNumber) const override;
 
   // row cursor methods to speed up searching for the row(s)
   // containing a point. The basic idea is that we set the cursor
@@ -291,8 +282,9 @@ class nsTableRowGroupFrame final : public nsContainerFrame,
 
   /**
    * Get the first row that might contain y-coord 'aY', or nullptr if you must
-   * search all rows. The actual row returned might not contain 'aY', but if
-   * not, it is guaranteed to be before any row which does contain 'aY'.
+   * search all rows.
+   * The actual row returned might not contain 'aY', but if not, it is
+   * guaranteed to be before any row which does contain 'aY'.
    * aOverflowAbove is the maximum over all rows of -row.GetOverflowRect().y.
    * To find all rows that intersect the vertical interval aY/aYMost, call
    * GetFirstRowContaining(aY, &overflowAbove), and then iterate through all
@@ -330,7 +322,8 @@ class nsTableRowGroupFrame final : public nsContainerFrame,
   }
 
  protected:
-  explicit nsTableRowGroupFrame(ComputedStyle* aStyle);
+  explicit nsTableRowGroupFrame(ComputedStyle* aStyle,
+                                nsPresContext* aPresContext);
 
   void InitChildReflowInput(nsPresContext& aPresContext, bool aBorderCollapse,
                             ReflowInput& aReflowInput);
@@ -340,11 +333,11 @@ class nsTableRowGroupFrame final : public nsContainerFrame,
 
   void PlaceChild(nsPresContext* aPresContext,
                   TableRowGroupReflowInput& aReflowInput, nsIFrame* aKidFrame,
-                  mozilla::WritingMode aWM,
+                  const ReflowInput& aKidReflowInput, mozilla::WritingMode aWM,
                   const mozilla::LogicalPoint& aKidPosition,
                   const nsSize& aContainerSize, ReflowOutput& aDesiredSize,
                   const nsRect& aOriginalKidRect,
-                  const nsRect& aOriginalKidVisualOverflow);
+                  const nsRect& aOriginalKidInkOverflow);
 
   void CalculateRowBSizes(nsPresContext* aPresContext,
                           ReflowOutput& aDesiredSize,
@@ -380,8 +373,7 @@ class nsTableRowGroupFrame final : public nsContainerFrame,
                           nsTableRowFrame*& aFirstTruncatedRow,
                           nscoord& aDesiredHeight);
 
-  void CreateContinuingRowFrame(nsPresContext& aPresContext,
-                                nsIFrame& aRowFrame, nsIFrame** aContRowFrame);
+  void CreateContinuingRowFrame(nsIFrame& aRowFrame, nsIFrame** aContRowFrame);
 
   bool IsSimpleRowFrame(nsTableFrame* aTableFrame, nsTableRowFrame* aRowFrame);
 

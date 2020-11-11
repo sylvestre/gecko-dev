@@ -26,7 +26,7 @@ RenderBufferTextureHost::RenderBufferTextureHost(
   switch (mDescriptor.type()) {
     case layers::BufferDescriptor::TYCbCrDescriptor: {
       const layers::YCbCrDescriptor& ycbcr = mDescriptor.get_YCbCrDescriptor();
-      mSize = ycbcr.ySize();
+      mSize = ycbcr.display().Size();
       mFormat = gfx::SurfaceFormat::YUV;
       break;
     }
@@ -52,6 +52,7 @@ wr::WrExternalImage RenderBufferTextureHost::Lock(
   if (!mLocked) {
     if (!GetBuffer()) {
       // We hit some problems to get the shmem.
+      gfxCriticalNote << "GetBuffer Failed";
       return InvalidToWrExternalImage();
     }
     if (mFormat != gfx::SurfaceFormat::YUV) {
@@ -61,11 +62,13 @@ wr::WrExternalImage RenderBufferTextureHost::Lock(
               mDescriptor.get_RGBDescriptor()),
           mSize, mFormat);
       if (NS_WARN_IF(!mSurface)) {
+        gfxCriticalNote << "DataSourceSurface is null";
         return InvalidToWrExternalImage();
       }
       if (NS_WARN_IF(!mSurface->Map(gfx::DataSourceSurface::MapType::READ_WRITE,
                                     &mMap))) {
         mSurface = nullptr;
+        gfxCriticalNote << "Failed to map Surface";
         return InvalidToWrExternalImage();
       }
     } else {
@@ -82,6 +85,7 @@ wr::WrExternalImage RenderBufferTextureHost::Lock(
           desc.cbCrStride(), desc.cbCrSize(), gfx::SurfaceFormat::A8);
       if (NS_WARN_IF(!mYSurface || !mCbSurface || !mCrSurface)) {
         mYSurface = mCbSurface = mCrSurface = nullptr;
+        gfxCriticalNote << "YCbCr Surface is null";
         return InvalidToWrExternalImage();
       }
       if (NS_WARN_IF(
@@ -92,6 +96,7 @@ wr::WrExternalImage RenderBufferTextureHost::Lock(
               !mCrSurface->Map(gfx::DataSourceSurface::MapType::READ_WRITE,
                                &mCrMap))) {
         mYSurface = mCbSurface = mCrSurface = nullptr;
+        gfxCriticalNote << "Failed to map YCbCr Surface";
         return InvalidToWrExternalImage();
       }
     }

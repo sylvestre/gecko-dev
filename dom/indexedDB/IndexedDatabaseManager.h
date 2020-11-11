@@ -12,12 +12,8 @@
 #include "mozilla/dom/quota/PersistenceType.h"
 #include "mozilla/Mutex.h"
 #include "nsClassHashtable.h"
-#include "nsCOMPtr.h"
 #include "nsHashKeys.h"
-#include "nsINamed.h"
-#include "nsITimer.h"
-
-class nsIEventTarget;
+#include "SafeRefPtr.h"
 
 namespace mozilla {
 
@@ -27,12 +23,6 @@ namespace dom {
 
 class IDBFactory;
 
-namespace quota {
-
-class QuotaManager;
-
-}  // namespace quota
-
 namespace indexedDB {
 
 class BackgroundUtilsChild;
@@ -41,9 +31,8 @@ class FileManagerInfo;
 
 }  // namespace indexedDB
 
-class IndexedDatabaseManager final : public nsITimerCallback, public nsINamed {
+class IndexedDatabaseManager final {
   typedef mozilla::dom::quota::PersistenceType PersistenceType;
-  typedef mozilla::dom::quota::QuotaManager QuotaManager;
   typedef mozilla::dom::indexedDB::FileManager FileManager;
   typedef mozilla::dom::indexedDB::FileManagerInfo FileManagerInfo;
 
@@ -56,9 +45,7 @@ class IndexedDatabaseManager final : public nsITimerCallback, public nsINamed {
     Logging_DetailedProfilerMarks
   };
 
-  NS_DECL_ISUPPORTS
-  NS_DECL_NSITIMERCALLBACK
-  NS_DECL_NSINAMED
+  NS_INLINE_DECL_REFCOUNTING_WITH_DESTROY(IndexedDatabaseManager, Destroy())
 
   // Returns a non-owning reference.
   static IndexedDatabaseManager* GetOrCreate();
@@ -109,17 +96,19 @@ class IndexedDatabaseManager final : public nsITimerCallback, public nsINamed {
 
   static uint32_t MaxSerializedMsgSize();
 
+  static bool PreprocessingEnabled();
+
+  // The maximum number of extra entries to preload in an Cursor::OpenOp or
+  // Cursor::ContinueOp.
+  static int32_t MaxPreloadExtraRecords();
+
   void ClearBackgroundActor();
 
-  void NoteLiveQuotaManager(QuotaManager* aQuotaManager);
+  [[nodiscard]] SafeRefPtr<FileManager> GetFileManager(
+      PersistenceType aPersistenceType, const nsACString& aOrigin,
+      const nsAString& aDatabaseName);
 
-  void NoteShuttingDownQuotaManager();
-
-  already_AddRefed<FileManager> GetFileManager(PersistenceType aPersistenceType,
-                                               const nsACString& aOrigin,
-                                               const nsAString& aDatabaseName);
-
-  void AddFileManager(FileManager* aFileManager);
+  void AddFileManager(SafeRefPtr<FileManager> aFileManager);
 
   void InvalidateAllFileManagers();
 
@@ -130,8 +119,6 @@ class IndexedDatabaseManager final : public nsITimerCallback, public nsINamed {
                              const nsACString& aOrigin,
                              const nsAString& aDatabaseName);
 
-  nsresult AsyncDeleteFile(FileManager* aFileManager, int64_t aFileId);
-
   // Don't call this method in real code, it blocks the main thread!
   // It is intended to be used by mochitests to test correctness of the special
   // reference counting of stored blobs/files.
@@ -139,22 +126,14 @@ class IndexedDatabaseManager final : public nsITimerCallback, public nsINamed {
                                      const nsACString& aOrigin,
                                      const nsAString& aDatabaseName,
                                      int64_t aFileId, int32_t* aRefCnt,
-                                     int32_t* aDBRefCnt, int32_t* aSliceRefCnt,
-                                     bool* aResult);
+                                     int32_t* aDBRefCnt, bool* aResult);
 
   nsresult FlushPendingFileDeletions();
 
   static const nsCString& GetLocale();
 
-  static mozilla::Mutex& FileMutex() {
-    IndexedDatabaseManager* mgr = Get();
-    NS_ASSERTION(mgr, "Must have a manager here!");
-
-    return mgr->mFileMutex;
-  }
-
   static nsresult CommonPostHandleEvent(EventChainPostVisitor& aVisitor,
-                                        IDBFactory* aFactory);
+                                        const IDBFactory& aFactory);
 
   static bool ResolveSandboxBinding(JSContext* aCx);
 
@@ -171,21 +150,12 @@ class IndexedDatabaseManager final : public nsITimerCallback, public nsINamed {
   static void LoggingModePrefChangedCallback(const char* aPrefName,
                                              void* aClosure);
 
-  nsCOMPtr<nsIEventTarget> mBackgroundThread;
-
-  nsCOMPtr<nsITimer> mDeleteTimer;
-
   // Maintains a list of all file managers per origin. This list isn't
   // protected by any mutex but it is only ever touched on the IO thread.
   nsClassHashtable<nsCStringHashKey, FileManagerInfo> mFileManagerInfos;
 
   nsClassHashtable<nsRefPtrHashKey<FileManager>, nsTArray<int64_t>>
       mPendingDeleteInfos;
-
-  // Lock protecting FileManager.mFileInfos.
-  // It's s also used to atomically update FileInfo.mRefCnt, FileInfo.mDBRefCnt
-  // and FileInfo.mSliceRefCnt
-  mozilla::Mutex mFileMutex;
 
   nsCString mLocale;
 

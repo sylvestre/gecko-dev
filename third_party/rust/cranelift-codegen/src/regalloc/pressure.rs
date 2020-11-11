@@ -36,31 +36,32 @@
 // Remove once we're using the pressure tracker.
 #![allow(dead_code)]
 
-use isa::registers::{RegClass, RegClassMask, RegInfo, MAX_TRACKED_TOPRCS};
-use regalloc::RegisterSet;
-use std::cmp::min;
-use std::fmt;
-use std::iter::ExactSizeIterator;
+use crate::isa::registers::{RegClass, RegClassMask, RegInfo};
+use crate::regalloc::RegisterSet;
+use core::cmp::min;
+use core::fmt;
+use core::iter::ExactSizeIterator;
+use cranelift_codegen_shared::constants::MAX_TRACKED_TOP_RCS;
 
 /// Information per top-level register class.
 ///
 /// Everything but the counts is static information computed from the constructor arguments.
 #[derive(Default)]
 struct TopRC {
-    // Number of registers currently used from this register class.
+    /// Number of registers currently used from this register class.
     base_count: u32,
     transient_count: u32,
 
-    // Max number of registers that can be allocated.
+    /// Max number of registers that can be allocated.
     limit: u32,
 
-    // Register units per register.
+    /// Register units per register.
     width: u8,
 
-    // The first aliasing top-level RC.
+    /// The first aliasing top-level RC.
     first_toprc: u8,
 
-    // The number of aliasing top-level RCs.
+    /// The number of aliasing top-level RCs.
     num_toprcs: u8,
 }
 
@@ -71,12 +72,12 @@ impl TopRC {
 }
 
 pub struct Pressure {
-    // Bit mask of top-level register classes that are aliased by other top-level register classes.
-    // Unaliased register classes can use a simpler interference algorithm.
+    /// Bit mask of top-level register classes that are aliased by other top-level register classes.
+    /// Unaliased register classes can use a simpler interference algorithm.
     aliased: RegClassMask,
 
-    // Current register counts per top-level register class.
-    toprc: [TopRC; MAX_TRACKED_TOPRCS],
+    /// Current register counts per top-level register class.
+    toprc: [TopRC; MAX_TRACKED_TOP_RCS],
 }
 
 impl Pressure {
@@ -105,7 +106,7 @@ impl Pressure {
             } else {
                 // This bank has no pressure tracking, so its top-level register classes may exceed
                 // `MAX_TRACKED_TOPRCS`. Fill in dummy entries.
-                for rc in &mut p.toprc[first..min(first + num, MAX_TRACKED_TOPRCS)] {
+                for rc in &mut p.toprc[first..min(first + num, MAX_TRACKED_TOP_RCS)] {
                     // These aren't used if we don't set the `aliased` bit.
                     rc.first_toprc = !0;
                     rc.limit = !0;
@@ -270,32 +271,21 @@ impl fmt::Display for Pressure {
 }
 
 #[cfg(test)]
-#[cfg(build_arm32)]
+#[cfg(feature = "arm32")]
 mod tests {
     use super::Pressure;
-    use isa::{RegClass, TargetIsa};
-    use regalloc::RegisterSet;
-    use std::borrow::Borrow;
-    use std::boxed::Box;
-    use std::str::FromStr;
-    use target_lexicon;
+    use crate::isa::registers::{RegBank, RegClassData};
+    use crate::isa::{RegClass, RegInfo, RegUnit};
+    use crate::regalloc::RegisterSet;
+    use core::borrow::Borrow;
 
-    // Make an arm32 `TargetIsa`, if possible.
-    fn arm32() -> Option<Box<TargetIsa>> {
-        use isa;
-        use settings;
-
-        let shared_builder = settings::builder();
-        let shared_flags = settings::Flags::new(shared_builder);
-
-        isa::lookup(triple!("arm"))
-            .ok()
-            .map(|b| b.finish(shared_flags))
-    }
+    // Arm32 `TargetIsa` is now `TargetIsaAdapter`, which does not hold any info
+    // about registers, so we directly access `INFO` from registers-arm32.rs.
+    include!(concat!(env!("OUT_DIR"), "/registers-arm32.rs"));
 
     // Get a register class by name.
-    fn rc_by_name(isa: &TargetIsa, name: &str) -> RegClass {
-        isa.register_info()
+    fn rc_by_name(reginfo: &RegInfo, name: &str) -> RegClass {
+        reginfo
             .classes
             .iter()
             .find(|rc| rc.name == name)
@@ -304,11 +294,10 @@ mod tests {
 
     #[test]
     fn basic_counting() {
-        let isa = arm32().expect("This test requires arm32 support");
-        let isa = isa.borrow();
-        let gpr = rc_by_name(isa, "GPR");
-        let s = rc_by_name(isa, "S");
-        let reginfo = isa.register_info();
+        let reginfo = INFO.borrow();
+        let gpr = rc_by_name(&reginfo, "GPR");
+        let s = rc_by_name(&reginfo, "S");
+
         let regs = RegisterSet::new();
 
         let mut pressure = Pressure::new(&reginfo, &regs);
@@ -332,12 +321,10 @@ mod tests {
 
     #[test]
     fn arm_float_bank() {
-        let isa = arm32().expect("This test requires arm32 support");
-        let isa = isa.borrow();
-        let s = rc_by_name(isa, "S");
-        let d = rc_by_name(isa, "D");
-        let q = rc_by_name(isa, "Q");
-        let reginfo = isa.register_info();
+        let reginfo = INFO.borrow();
+        let s = rc_by_name(&reginfo, "S");
+        let d = rc_by_name(&reginfo, "D");
+        let q = rc_by_name(&reginfo, "Q");
         let regs = RegisterSet::new();
 
         let mut pressure = Pressure::new(&reginfo, &regs);

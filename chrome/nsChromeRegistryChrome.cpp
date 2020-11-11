@@ -11,9 +11,9 @@
 #include "nsChromeRegistryChrome.h"
 
 #if defined(XP_WIN)
-#include <windows.h>
+#  include <windows.h>
 #elif defined(XP_MACOSX)
-#include <CoreServices/CoreServices.h>
+#  include <CoreServices/CoreServices.h>
 #endif
 
 #include "nsArrayEnumerator.h"
@@ -26,18 +26,16 @@
 
 #include "mozilla/LookAndFeel.h"
 #include "mozilla/Unused.h"
-#include "mozilla/intl/LocaleService.h"
 
+#include "nsIAppStartup.h"
 #include "nsIObserverService.h"
-#include "nsIPrefBranch.h"
-#include "nsIPrefService.h"
 #include "mozilla/Preferences.h"
 #include "nsIResProtocolHandler.h"
 #include "nsIScriptError.h"
 #include "nsIXULRuntime.h"
 
-#define SELECTED_SKIN_PREF "general.skins.selectedSkin"
 #define PACKAGE_OVERRIDE_BRANCH "chrome.override_package."
+#define SKIN "classic/1.0"_ns
 
 using namespace mozilla;
 using mozilla::dom::ContentParent;
@@ -93,59 +91,15 @@ nsresult nsChromeRegistryChrome::Init() {
   nsresult rv = nsChromeRegistry::Init();
   if (NS_FAILED(rv)) return rv;
 
-  mSelectedSkin = NS_LITERAL_CSTRING("classic/1.0");
-
   bool safeMode = false;
   nsCOMPtr<nsIXULRuntime> xulrun(do_GetService(XULAPPINFO_SERVICE_CONTRACTID));
   if (xulrun) xulrun->GetInSafeMode(&safeMode);
-
-  nsCOMPtr<nsIPrefService> prefserv(do_GetService(NS_PREFSERVICE_CONTRACTID));
-  nsCOMPtr<nsIPrefBranch> prefs;
-
-  if (prefserv) {
-    if (safeMode) {
-      prefserv->GetDefaultBranch(nullptr, getter_AddRefs(prefs));
-    } else {
-      prefs = do_QueryInterface(prefserv);
-    }
-  }
-
-  if (!prefs) {
-    NS_WARNING("Could not get pref service!");
-  } else {
-    nsAutoCString provider;
-    rv = prefs->GetCharPref(SELECTED_SKIN_PREF, provider);
-    if (NS_SUCCEEDED(rv)) mSelectedSkin = provider;
-
-    rv = prefs->AddObserver(SELECTED_SKIN_PREF, this, true);
-  }
 
   nsCOMPtr<nsIObserverService> obsService =
       mozilla::services::GetObserverService();
   if (obsService) {
     obsService->AddObserver(this, "profile-initial-state", true);
     obsService->AddObserver(this, "intl:app-locales-changed", true);
-  }
-
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-nsChromeRegistryChrome::CheckForOSAccessibility() {
-  int32_t useAccessibilityTheme =
-      LookAndFeel::GetInt(LookAndFeel::eIntID_UseAccessibilityTheme, 0);
-
-  if (useAccessibilityTheme) {
-    /* Set the skin to classic and remove pref observers */
-    if (!mSelectedSkin.EqualsLiteral("classic/1.0")) {
-      mSelectedSkin.AssignLiteral("classic/1.0");
-      RefreshSkins();
-    }
-
-    nsCOMPtr<nsIPrefBranch> prefs(do_GetService(NS_PREFSERVICE_CONTRACTID));
-    if (prefs) {
-      prefs->RemoveObserver(SELECTED_SKIN_PREF, this);
-    }
   }
 
   return NS_OK;
@@ -177,10 +131,10 @@ nsChromeRegistryChrome::IsLocaleRTL(const nsACString& package, bool* aResult) {
   *aResult = false;
 
   nsAutoCString locale;
-  GetSelectedLocale(package, false, locale);
+  GetSelectedLocale(package, locale);
   if (locale.Length() < 2) return NS_OK;
 
-  *aResult = GetDirectionForLocale(locale);
+  *aResult = LocaleService::IsLocaleRTL(locale);
   return NS_OK;
 }
 
@@ -189,14 +143,13 @@ nsChromeRegistryChrome::IsLocaleRTL(const nsACString& package, bool* aResult) {
  * chrome packages.
  *
  * If you want to get the current application's UI locale, please use
- * LocaleService::GetAppLocaleAsLangTag.
+ * LocaleService::GetAppLocaleAsBCP47.
  */
 nsresult nsChromeRegistryChrome::GetSelectedLocale(const nsACString& aPackage,
-                                                   bool aAsBCP47,
                                                    nsACString& aLocale) {
   nsAutoCString reqLocale;
   if (aPackage.EqualsLiteral("global")) {
-    LocaleService::GetInstance()->GetAppLocaleAsLangTag(reqLocale);
+    LocaleService::GetInstance()->GetAppLocaleAsBCP47(reqLocale);
   } else {
     AutoTArray<nsCString, 10> requestedLocales;
     LocaleService::GetInstance()->GetRequestedLocales(requestedLocales);
@@ -212,17 +165,12 @@ nsresult nsChromeRegistryChrome::GetSelectedLocale(const nsACString& aPackage,
   aLocale = entry->locales.GetSelected(reqLocale, nsProviderArray::LOCALE);
   if (aLocale.IsEmpty()) return NS_ERROR_FAILURE;
 
-  if (aAsBCP47) {
-    SanitizeForBCP47(aLocale);
-  }
-
   return NS_OK;
 }
 
 nsresult nsChromeRegistryChrome::OverrideLocalePackage(
     const nsACString& aPackage, nsACString& aOverride) {
-  const nsACString& pref =
-      NS_LITERAL_CSTRING(PACKAGE_OVERRIDE_BRANCH) + aPackage;
+  const nsACString& pref = nsLiteralCString(PACKAGE_OVERRIDE_BRANCH) + aPackage;
   nsAutoCString override;
   nsresult rv = mozilla::Preferences::GetCString(PromiseFlatCString(pref).get(),
                                                  override);
@@ -239,26 +187,7 @@ nsChromeRegistryChrome::Observe(nsISupports* aSubject, const char* aTopic,
                                 const char16_t* someData) {
   nsresult rv = NS_OK;
 
-  if (!strcmp(NS_PREFBRANCH_PREFCHANGE_TOPIC_ID, aTopic)) {
-    nsCOMPtr<nsIPrefBranch> prefs(do_QueryInterface(aSubject));
-    NS_ASSERTION(prefs, "Bad observer call!");
-
-    NS_ConvertUTF16toUTF8 pref(someData);
-
-    if (pref.EqualsLiteral(SELECTED_SKIN_PREF)) {
-      nsAutoCString provider;
-      rv = prefs->GetCharPref(pref.get(), provider);
-      if (NS_FAILED(rv)) {
-        NS_ERROR("Couldn't get new skin pref!");
-        return rv;
-      }
-
-      mSelectedSkin = provider;
-      RefreshSkins();
-    } else {
-      NS_ERROR("Unexpected pref!");
-    }
-  } else if (!strcmp("profile-initial-state", aTopic)) {
+  if (!strcmp("profile-initial-state", aTopic)) {
     mProfileLoaded = true;
   } else if (!strcmp("intl:app-locales-changed", aTopic)) {
     if (mProfileLoaded) {
@@ -273,6 +202,12 @@ nsChromeRegistryChrome::Observe(nsISupports* aSubject, const char* aTopic,
 
 NS_IMETHODIMP
 nsChromeRegistryChrome::CheckForNewChrome() {
+  nsCOMPtr<nsIAppStartup> appStartup = components::AppStartup::Service();
+  if (appStartup->GetShuttingDown()) {
+    MOZ_ASSERT(false, "checking for new chrome during shutdown");
+    return NS_ERROR_UNEXPECTED;
+  }
+
   mPackagesHash.Clear();
   mOverrideTable.Clear();
 
@@ -294,14 +229,14 @@ static void SerializeURI(nsIURI* aURI, SerializedURI& aSerializedURI) {
 
 void nsChromeRegistryChrome::SendRegisteredChrome(
     mozilla::dom::PContentParent* aParent) {
-  InfallibleTArray<ChromePackage> packages;
-  InfallibleTArray<SubstitutionMapping> resources;
-  InfallibleTArray<OverrideMapping> overrides;
+  nsTArray<ChromePackage> packages;
+  nsTArray<SubstitutionMapping> resources;
+  nsTArray<OverrideMapping> overrides;
 
   for (auto iter = mPackagesHash.Iter(); !iter.Done(); iter.Next()) {
     ChromePackage chromePackage;
     ChromePackageFromPackageEntry(iter.Key(), iter.UserData(), &chromePackage,
-                                  mSelectedSkin);
+                                  SKIN);
     packages.AppendElement(chromePackage);
   }
 
@@ -333,7 +268,7 @@ void nsChromeRegistryChrome::SendRegisteredChrome(
   }
 
   nsAutoCString appLocale;
-  LocaleService::GetInstance()->GetAppLocaleAsLangTag(appLocale);
+  LocaleService::GetInstance()->GetAppLocaleAsBCP47(appLocale);
 
   if (aParent) {
     bool success = aParent->SendRegisterChrome(packages, resources, overrides,
@@ -353,11 +288,12 @@ void nsChromeRegistryChrome::SendRegisteredChrome(
   }
 }
 
-/* static */ void nsChromeRegistryChrome::ChromePackageFromPackageEntry(
+/* static */
+void nsChromeRegistryChrome::ChromePackageFromPackageEntry(
     const nsACString& aPackageName, PackageEntry* aPackage,
     ChromePackage* aChromePackage, const nsCString& aSelectedSkin) {
   nsAutoCString appLocale;
-  LocaleService::GetInstance()->GetAppLocaleAsLangTag(appLocale);
+  LocaleService::GetInstance()->GetAppLocaleAsBCP47(appLocale);
 
   SerializeURI(aPackage->baseURI, aChromePackage->contentBaseURI);
   SerializeURI(aPackage->locales.GetBase(appLocale, nsProviderArray::LOCALE),
@@ -394,7 +330,7 @@ nsIURI* nsChromeRegistryChrome::GetBaseURIFromPackage(
     LocaleService::GetInstance()->GetAppLocaleAsLangTag(appLocale);
     return entry->locales.GetBase(appLocale, nsProviderArray::LOCALE);
   } else if (aProvider.EqualsLiteral("skin")) {
-    return entry->skins.GetBase(mSelectedSkin, nsProviderArray::ANY);
+    return entry->skins.GetBase(SKIN, nsProviderArray::ANY);
   } else if (aProvider.EqualsLiteral("content")) {
     return entry->baseURI;
   }
@@ -546,8 +482,7 @@ void nsChromeRegistryChrome::ManifestContent(ManifestProcessingContext& cx,
 
   if (mDynamicRegistration) {
     ChromePackage chromePackage;
-    ChromePackageFromPackageEntry(packageName, entry, &chromePackage,
-                                  mSelectedSkin);
+    ChromePackageFromPackageEntry(packageName, entry, &chromePackage, SKIN);
     SendManifestEntry(chromePackage);
   }
 }
@@ -583,8 +518,7 @@ void nsChromeRegistryChrome::ManifestLocale(ManifestProcessingContext& cx,
 
   if (mDynamicRegistration) {
     ChromePackage chromePackage;
-    ChromePackageFromPackageEntry(packageName, entry, &chromePackage,
-                                  mSelectedSkin);
+    ChromePackageFromPackageEntry(packageName, entry, &chromePackage, SKIN);
     SendManifestEntry(chromePackage);
   }
 
@@ -592,8 +526,7 @@ void nsChromeRegistryChrome::ManifestLocale(ManifestProcessingContext& cx,
   // registered. For most cases it will be "global", but for Fennec it will be
   // "browser".
   nsAutoCString mainPackage;
-  nsresult rv =
-      OverrideLocalePackage(NS_LITERAL_CSTRING("global"), mainPackage);
+  nsresult rv = OverrideLocalePackage("global"_ns, mainPackage);
   if (NS_FAILED(rv)) {
     return;
   }
@@ -630,8 +563,7 @@ void nsChromeRegistryChrome::ManifestSkin(ManifestProcessingContext& cx,
 
   if (mDynamicRegistration) {
     ChromePackage chromePackage;
-    ChromePackageFromPackageEntry(packageName, entry, &chromePackage,
-                                  mSelectedSkin);
+    ChromePackageFromPackageEntry(packageName, entry, &chromePackage, SKIN);
     SendManifestEntry(chromePackage);
   }
 }
@@ -652,20 +584,14 @@ void nsChromeRegistryChrome::ManifestOverride(ManifestProcessingContext& cx,
   }
 
   if (cx.mType == NS_SKIN_LOCATION) {
-    bool chromeSkinOnly = false;
-    nsresult rv = chromeuri->SchemeIs("chrome", &chromeSkinOnly);
-    chromeSkinOnly = chromeSkinOnly && NS_SUCCEEDED(rv);
-    if (chromeSkinOnly) {
-      rv = resolveduri->SchemeIs("chrome", &chromeSkinOnly);
-      chromeSkinOnly = chromeSkinOnly && NS_SUCCEEDED(rv);
-    }
+    bool chromeSkinOnly =
+        chromeuri->SchemeIs("chrome") && resolveduri->SchemeIs("chrome");
     if (chromeSkinOnly) {
       nsAutoCString chromePath, resolvedPath;
       chromeuri->GetPathQueryRef(chromePath);
       resolveduri->GetPathQueryRef(resolvedPath);
-      chromeSkinOnly =
-          StringBeginsWith(chromePath, NS_LITERAL_CSTRING("/skin/")) &&
-          StringBeginsWith(resolvedPath, NS_LITERAL_CSTRING("/skin/"));
+      chromeSkinOnly = StringBeginsWith(chromePath, "/skin/"_ns) &&
+                       StringBeginsWith(resolvedPath, "/skin/"_ns);
     }
     if (!chromeSkinOnly) {
       LogMessageWithContext(

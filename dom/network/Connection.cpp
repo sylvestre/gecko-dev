@@ -15,12 +15,9 @@
  * We have to use macros here because our leak analysis tool things we are
  * leaking strings when we have |static const nsString|. Sad :(
  */
-#define CHANGE_EVENT_NAME NS_LITERAL_STRING("typechange")
+#define CHANGE_EVENT_NAME u"typechange"_ns
 
-namespace mozilla {
-namespace dom {
-
-namespace network {
+namespace mozilla::dom::network {
 
 // Don't use |Connection| alone, since that confuses nsTraceRefcnt since
 // we're not the only class with that name.
@@ -72,19 +69,18 @@ void Connection::Update(ConnectionType aType, bool aIsWifi,
   }
 }
 
-/* static */ Connection* Connection::CreateForWindow(
-    nsPIDOMWindowInner* aWindow) {
+/* static */
+Connection* Connection::CreateForWindow(nsPIDOMWindowInner* aWindow) {
   MOZ_ASSERT(aWindow);
   return new ConnectionMainThread(aWindow);
 }
 
-/* static */ already_AddRefed<Connection> Connection::CreateForWorker(
+/* static */
+already_AddRefed<Connection> Connection::CreateForWorker(
     WorkerPrivate* aWorkerPrivate, ErrorResult& aRv) {
   MOZ_ASSERT(aWorkerPrivate);
   aWorkerPrivate->AssertIsOnWorkerThread();
   return ConnectionWorker::Create(aWorkerPrivate, aRv);
 }
 
-}  // namespace network
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom::network

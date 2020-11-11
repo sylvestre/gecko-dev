@@ -10,27 +10,26 @@
 #include "mozilla/Assertions.h"  // MOZ_ASSERT
 #include "mozilla/Attributes.h"  // MOZ_STACK_CLASS
 
-#include "builtin/ModuleObject.h"    // js::Module{Builder,Object}
+#include "builtin/ModuleObject.h"    // js::ModuleObject
 #include "frontend/SharedContext.h"  // js::frontend::SharedContext
 #include "js/RootingAPI.h"           // JS::Handle, JS::Rooted
 #include "vm/Scope.h"                // js::{Module,}Scope
 
 namespace js {
+
+class ModuleBuilder;
+
 namespace frontend {
 
-class MOZ_STACK_CLASS ModuleSharedContext : public SharedContext {
-  JS::Rooted<ModuleObject*> module_;
-  JS::Rooted<Scope*> enclosingScope_;
+struct CompilationInfo;
 
+class MOZ_STACK_CLASS ModuleSharedContext : public SharedContext {
  public:
-  JS::Rooted<ModuleScope::Data*> bindings;
+  ParserModuleScopeData* bindings;
   ModuleBuilder& builder;
 
-  ModuleSharedContext(JSContext* cx, ModuleObject* module,
-                      Scope* enclosingScope, ModuleBuilder& builder);
-
-  JS::Handle<ModuleObject*> module() const { return module_; }
-  Scope* compilationEnclosingScope() const override { return enclosingScope_; }
+  ModuleSharedContext(JSContext* cx, CompilationInfo& compilationInfo,
+                      ModuleBuilder& builder, SourceExtent extent);
 };
 
 inline ModuleSharedContext* SharedContext::asModuleContext() {

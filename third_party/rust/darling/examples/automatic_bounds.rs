@@ -19,7 +19,7 @@ enum Volume {
 #[allow(dead_code)]
 enum Emphasis<T> {
     Constant(Volume),
-    Variable(darling::util::IdentList),
+    Variable(darling::util::PathList),
     #[darling(skip)]
     PerPhoneme(Option<T>),
     Strided {
@@ -68,7 +68,8 @@ fn main() {
             Div(String)
         }
     "#,
-    ).unwrap();
+    )
+    .unwrap();
 
     let parsed: SpeakingOptions<Phoneme, Volume> =
         FromDeriveInput::from_derive_input(&derive_input).unwrap();

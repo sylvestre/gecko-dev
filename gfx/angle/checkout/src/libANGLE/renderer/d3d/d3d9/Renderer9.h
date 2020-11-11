@@ -98,22 +98,23 @@ class Renderer9 : public RendererD3D
                                  IUnknown *d3dTexture,
                                  EGLint *width,
                                  EGLint *height,
+                                 EGLint *samples,
                                  const angle::Format **angleFormat) const override;
     egl::Error validateShareHandle(const egl::Config *config,
                                    HANDLE shareHandle,
                                    const egl::AttributeMap &attribs) const override;
 
-    ContextImpl *createContext(const gl::ContextState &state) override;
+    ContextImpl *createContext(const gl::State &state, gl::ErrorSet *errorSet) override;
 
     angle::Result allocateEventQuery(const gl::Context *context, IDirect3DQuery9 **outQuery);
     void freeEventQuery(IDirect3DQuery9 *query);
 
     // resource creation
-    angle::Result createVertexShader(Context9 *context9,
+    angle::Result createVertexShader(d3d::Context *context,
                                      const DWORD *function,
                                      size_t length,
                                      IDirect3DVertexShader9 **outShader);
-    angle::Result createPixelShader(Context9 *context9,
+    angle::Result createPixelShader(d3d::Context *context,
                                     const DWORD *function,
                                     size_t length,
                                     IDirect3DPixelShader9 **outShader);
@@ -159,7 +160,7 @@ class Renderer9 : public RendererD3D
                                    const void *indices,
                                    GLsizei count,
                                    gl::PrimitiveMode mode,
-                                   GLenum type,
+                                   gl::DrawElementsType type,
                                    TranslatedIndexData *indexInfo);
 
     void clear(const ClearParameters &clearParams,
@@ -224,7 +225,8 @@ class Renderer9 : public RendererD3D
     angle::Result copyTexture(const gl::Context *context,
                               const gl::Texture *source,
                               GLint sourceLevel,
-                              const gl::Rectangle &sourceRect,
+                              gl::TextureTarget srcTarget,
+                              const gl::Box &sourceBox,
                               GLenum destFormat,
                               GLenum destType,
                               const gl::Offset &destOffset,
@@ -252,14 +254,14 @@ class Renderer9 : public RendererD3D
                                          RenderTargetD3D **outRT) override;
 
     // Shader operations
-    angle::Result loadExecutable(const gl::Context *context,
+    angle::Result loadExecutable(d3d::Context *context,
                                  const uint8_t *function,
                                  size_t length,
                                  gl::ShaderType type,
                                  const std::vector<D3DVarying> &streamOutVaryings,
                                  bool separatedOutputBuffers,
                                  ShaderExecutableD3D **outExecutable) override;
-    angle::Result compileToExecutable(const gl::Context *context,
+    angle::Result compileToExecutable(d3d::Context *context,
                                       gl::InfoLog &infoLog,
                                       const std::string &shaderHLSL,
                                       gl::ShaderType type,
@@ -267,12 +269,16 @@ class Renderer9 : public RendererD3D
                                       bool separatedOutputBuffers,
                                       const angle::CompilerWorkaroundsD3D &workarounds,
                                       ShaderExecutableD3D **outExectuable) override;
-    angle::Result ensureHLSLCompilerInitialized(const gl::Context *context) override;
+    angle::Result ensureHLSLCompilerInitialized(d3d::Context *context) override;
 
     UniformStorageD3D *createUniformStorage(size_t storageSize) override;
 
     // Image operations
     ImageD3D *createImage() override;
+    ExternalImageSiblingImpl *createExternalImageSibling(const gl::Context *context,
+                                                         EGLenum target,
+                                                         EGLClientBuffer buffer,
+                                                         const egl::AttributeMap &attribs) override;
     angle::Result generateMipmap(const gl::Context *context,
                                  ImageD3D *dest,
                                  ImageD3D *source) override;
@@ -282,7 +288,7 @@ class Renderer9 : public RendererD3D
     angle::Result copyImage(const gl::Context *context,
                             ImageD3D *dest,
                             ImageD3D *source,
-                            const gl::Rectangle &sourceRect,
+                            const gl::Box &sourceBox,
                             const gl::Offset &destOffset,
                             bool unpackFlipY,
                             bool unpackPremultiplyAlpha,
@@ -323,6 +329,13 @@ class Renderer9 : public RendererD3D
                                                       int levels,
                                                       int samples,
                                                       bool fixedSampleLocations) override;
+    TextureStorage *createTextureStorage2DMultisampleArray(GLenum internalformat,
+                                                           GLsizei width,
+                                                           GLsizei height,
+                                                           GLsizei depth,
+                                                           int levels,
+                                                           int samples,
+                                                           bool fixedSampleLocations) override;
 
     // Buffer creation
     VertexBuffer *createVertexBuffer() override;
@@ -348,9 +361,8 @@ class Renderer9 : public RendererD3D
     D3DPOOL getTexturePool(DWORD usage) const;
 
     bool getLUID(LUID *adapterLuid) const override;
-    VertexConversionType getVertexConversionType(
-        gl::VertexFormatType vertexFormatType) const override;
-    GLenum getVertexComponentType(gl::VertexFormatType vertexFormatType) const override;
+    VertexConversionType getVertexConversionType(angle::FormatID vertexFormatID) const override;
+    GLenum getVertexComponentType(angle::FormatID vertexFormatID) const override;
 
     // Warning: you should ensure binding really matches attrib.bindingIndex before using this
     // function.
@@ -383,7 +395,7 @@ class Renderer9 : public RendererD3D
     angle::Result genericDrawElements(const gl::Context *context,
                                       gl::PrimitiveMode mode,
                                       GLsizei count,
-                                      GLenum type,
+                                      gl::DrawElementsType type,
                                       const void *indices,
                                       GLsizei instances);
 
@@ -393,6 +405,7 @@ class Renderer9 : public RendererD3D
     DebugAnnotator9 *getAnnotator() { return &mAnnotator; }
 
     gl::Version getMaxSupportedESVersion() const override;
+    gl::Version getMaxConformantESVersion() const override;
 
     angle::Result clearRenderTarget(const gl::Context *context,
                                     RenderTargetD3D *renderTarget,
@@ -417,7 +430,7 @@ class Renderer9 : public RendererD3D
     angle::Result drawElementsImpl(const gl::Context *context,
                                    gl::PrimitiveMode mode,
                                    GLsizei count,
-                                   GLenum type,
+                                   gl::DrawElementsType type,
                                    const void *indices,
                                    GLsizei instances);
 
@@ -431,7 +444,7 @@ class Renderer9 : public RendererD3D
                       gl::Extensions *outExtensions,
                       gl::Limitations *outLimitations) const override;
 
-    angle::WorkaroundsD3D generateWorkarounds() const override;
+    void initializeFeatures(angle::FeaturesD3D *features) const override;
 
     angle::Result setBlendDepthRasterStates(const gl::Context *context, gl::PrimitiveMode drawMode);
 
@@ -443,13 +456,13 @@ class Renderer9 : public RendererD3D
 
     angle::Result drawLineLoop(const gl::Context *context,
                                GLsizei count,
-                               GLenum type,
+                               gl::DrawElementsType type,
                                const void *indices,
                                int minIndex,
                                gl::Buffer *elementArrayBuffer);
     angle::Result drawIndexedPoints(const gl::Context *context,
                                     GLsizei count,
-                                    GLenum type,
+                                    gl::DrawElementsType type,
                                     const void *indices,
                                     int minIndex,
                                     gl::Buffer *elementArrayBuffer);

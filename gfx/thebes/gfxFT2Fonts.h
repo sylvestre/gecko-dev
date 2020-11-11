@@ -7,7 +7,6 @@
 #define GFX_FT2FONTS_H
 
 #include "mozilla/MemoryReporting.h"
-#include "cairo.h"
 #include "gfxTypes.h"
 #include "gfxFont.h"
 #include "gfxFT2FontBase.h"
@@ -19,20 +18,23 @@ class FT2FontEntry;
 
 class gfxFT2Font : public gfxFT2FontBase {
  public:  // new functions
-  gfxFT2Font(const RefPtr<mozilla::gfx::UnscaledFontFreeType> &aUnscaledFont,
-             cairo_scaled_font_t *aCairoFont, FT_Face aFTFace,
-             FT2FontEntry *aFontEntry, const gfxFontStyle *aFontStyle);
+  gfxFT2Font(const RefPtr<mozilla::gfx::UnscaledFontFreeType>& aUnscaledFont,
+             RefPtr<mozilla::gfx::SharedFTFace>&& aFTFace,
+             FT2FontEntry* aFontEntry, const gfxFontStyle* aFontStyle,
+             int aLoadFlags);
   virtual ~gfxFT2Font();
 
-  FT2FontEntry *GetFontEntry();
+  FT2FontEntry* GetFontEntry();
 
-  virtual already_AddRefed<mozilla::gfx::ScaledFont> GetScaledFont(
-      DrawTarget *aTarget) override;
+  already_AddRefed<mozilla::gfx::ScaledFont> GetScaledFont(
+      DrawTarget* aTarget) override;
 
-  virtual void AddSizeOfExcludingThis(mozilla::MallocSizeOf aMallocSizeOf,
-                                      FontCacheSizes *aSizes) const override;
-  virtual void AddSizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf,
-                                      FontCacheSizes *aSizes) const override;
+  bool ShouldHintMetrics() const override;
+
+  void AddSizeOfExcludingThis(mozilla::MallocSizeOf aMallocSizeOf,
+                              FontCacheSizes* aSizes) const override;
+  void AddSizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf,
+                              FontCacheSizes* aSizes) const override;
 
  protected:
   struct CachedGlyphData {
@@ -46,34 +48,33 @@ class gfxFT2Font : public gfxFT2FontBase {
     int32_t xAdvance;
   };
 
-  const CachedGlyphData *GetGlyphDataForChar(FT_Face aFace, uint32_t ch) {
-    CharGlyphMapEntryType *entry = mCharGlyphCache.PutEntry(ch);
+  const CachedGlyphData* GetGlyphDataForChar(FT_Face aFace, uint32_t ch) {
+    CharGlyphMapEntryType* entry = mCharGlyphCache.PutEntry(ch);
 
     if (!entry) return nullptr;
 
-    if (entry->mData.glyphIndex == 0xffffffffU) {
+    if (entry->GetData().glyphIndex == 0xffffffffU) {
       // this is a new entry, fill it
-      FillGlyphDataForChar(aFace, ch, &entry->mData);
+      FillGlyphDataForChar(aFace, ch, entry->GetModifiableData());
     }
 
-    return &entry->mData;
+    return &entry->GetData();
   }
 
-  bool ShapeText(DrawTarget *aDrawTarget, const char16_t *aText,
+  bool ShapeText(DrawTarget* aDrawTarget, const char16_t* aText,
                  uint32_t aOffset, uint32_t aLength, Script aScript,
                  bool aVertical, RoundingFlags aRounding,
-                 gfxShapedText *aShapedText) override;
+                 gfxShapedText* aShapedText) override;
 
-  void FillGlyphDataForChar(FT_Face face, uint32_t ch, CachedGlyphData *gd);
+  void FillGlyphDataForChar(FT_Face face, uint32_t ch, CachedGlyphData* gd);
 
-  void AddRange(const char16_t *aText, uint32_t aOffset, uint32_t aLength,
-                gfxShapedText *aShapedText);
+  void AddRange(const char16_t* aText, uint32_t aOffset, uint32_t aLength,
+                gfxShapedText* aShapedText);
 
   typedef nsBaseHashtableET<nsUint32HashKey, CachedGlyphData>
       CharGlyphMapEntryType;
   typedef nsTHashtable<CharGlyphMapEntryType> CharGlyphMap;
   CharGlyphMap mCharGlyphCache;
-  FT_Face mFTFace;
 };
 
 #endif /* GFX_FT2FONTS_H */

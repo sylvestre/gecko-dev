@@ -8,24 +8,24 @@
 
 #include "BufferMediaResource.h"
 #include "MediaData.h"
+#include "MediaDataDecoderProxy.h"
 #include "PDMFactory.h"
 #include "VideoUtils.h"
 #include "WebMDemuxer.h"
-#include "gfxPrefs.h"
 #include "mozilla/AbstractThread.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/SharedThreadPool.h"
 #include "mozilla/StaticMutex.h"
-#include "mozilla/StaticPrefs.h"
-#include "mozilla/SystemGroup.h"
+#include "mozilla/StaticPrefs_media.h"
 #include "mozilla/TaskQueue.h"
 #include "mozilla/Telemetry.h"
 #include "mozilla/dom/ContentChild.h"
 #include "mozilla/gfx/gfxVars.h"
+#include "nsGkAtoms.h"
 #include "nsIGfxInfo.h"
 
 #ifndef MOZ_WIDGET_ANDROID
-#include "WebMSample.h"
+#  include "WebMSample.h"
 #endif
 
 using namespace mozilla::gfx;
@@ -47,7 +47,7 @@ bool VP9Benchmark::ShouldRun() {
   // Assume that the VP9 software decoder will always be too slow.
   return false;
 #else
-#if defined(MOZ_APPLEMEDIA)
+#  if defined(MOZ_APPLEMEDIA)
   const nsCOMPtr<nsIGfxInfo> gfxInfo = services::GetGfxInfo();
   nsString vendorID, deviceID;
   gfxInfo->GetAdapterVendorID(vendorID);
@@ -57,7 +57,7 @@ bool VP9Benchmark::ShouldRun() {
     return false;
   }
   // Fall Through
-#endif
+#  endif
   return true;
 #endif
 }
@@ -67,7 +67,7 @@ uint32_t VP9Benchmark::MediaBenchmarkVp9Fps() {
   if (!ShouldRun()) {
     return 0;
   }
-  return StaticPrefs::MediaBenchmarkVp9Threshold();
+  return StaticPrefs::media_benchmark_vp9_fps();
 }
 
 // static
@@ -79,8 +79,8 @@ bool VP9Benchmark::IsVP9DecodeFast(bool aDefault) {
     return false;
   }
   static StaticMutex sMutex;
-  uint32_t decodeFps = StaticPrefs::MediaBenchmarkVp9Fps();
-  uint32_t hadRecentUpdate = StaticPrefs::MediaBenchmarkVp9Versioncheck();
+  uint32_t decodeFps = StaticPrefs::media_benchmark_vp9_fps();
+  uint32_t hadRecentUpdate = StaticPrefs::media_benchmark_vp9_versioncheck();
   bool needBenchmark;
   {
     StaticMutexAutoLock lock(sMutex);
@@ -94,18 +94,18 @@ bool VP9Benchmark::IsVP9DecodeFast(bool aDefault) {
         new BufferMediaResource(sWebMSample, sizeof(sWebMSample)));
     RefPtr<Benchmark> estimiser = new Benchmark(
         demuxer,
-        {StaticPrefs::MediaBenchmarkFrames(),  // frames to measure
+        {StaticPrefs::media_benchmark_frames(),  // frames to measure
          1,  // start benchmarking after decoding this frame.
          8,  // loop after decoding that many frames.
-         TimeDuration::FromMilliseconds(StaticPrefs::MediaBenchmarkTimeout())});
+         TimeDuration::FromMilliseconds(
+             StaticPrefs::media_benchmark_timeout())});
     estimiser->Run()->Then(
         AbstractThread::MainThread(), __func__,
         [](uint32_t aDecodeFps) {
           if (XRE_IsContentProcess()) {
             dom::ContentChild* contentChild = dom::ContentChild::GetSingleton();
             if (contentChild) {
-              contentChild->SendNotifyBenchmarkResult(NS_LITERAL_STRING("VP9"),
-                                                      aDecodeFps);
+              contentChild->SendNotifyBenchmarkResult(u"VP9"_ns, aDecodeFps);
             }
           } else {
             Preferences::SetUint(sBenchmarkFpsPref, aDecodeFps);
@@ -122,12 +122,12 @@ bool VP9Benchmark::IsVP9DecodeFast(bool aDefault) {
     return aDefault;
   }
 
-  return decodeFps >= StaticPrefs::MediaBenchmarkVp9Threshold();
+  return decodeFps >= StaticPrefs::media_benchmark_vp9_threshold();
 #endif
 }
 
 Benchmark::Benchmark(MediaDataDemuxer* aDemuxer, const Parameters& aParameters)
-    : QueueObject(new TaskQueue(GetMediaThreadPool(MediaThreadType::PLAYBACK),
+    : QueueObject(new TaskQueue(GetMediaThreadPool(MediaThreadType::SUPERVISOR),
                                 "Benchmark::QueueObject")),
       mParameters(aParameters),
       mKeepAliveUntilComplete(this),
@@ -168,12 +168,11 @@ void Benchmark::Dispose() {
 void Benchmark::Init() {
   MOZ_ASSERT(NS_IsMainThread());
   gfxVars::Initialize();
-  gfxPrefs::GetSingleton();
 }
 
 BenchmarkPlayback::BenchmarkPlayback(Benchmark* aGlobalState,
                                      MediaDataDemuxer* aDemuxer)
-    : QueueObject(new TaskQueue(GetMediaThreadPool(MediaThreadType::PLAYBACK),
+    : QueueObject(new TaskQueue(GetMediaThreadPool(MediaThreadType::SUPERVISOR),
                                 "BenchmarkPlayback::QueueObject")),
       mGlobalState(aGlobalState),
       mDecoderTaskQueue(
@@ -216,10 +215,10 @@ void BenchmarkPlayback::DemuxNextSample() {
   promise->Then(
       Thread(), __func__,
       [this, ref](RefPtr<MediaTrackDemuxer::SamplesHolder> aHolder) {
-        mSamples.AppendElements(std::move(aHolder->mSamples));
+        mSamples.AppendElements(std::move(aHolder->GetMovableSamples()));
         if (ref->mParameters.mStopAtFrame &&
             mSamples.Length() == ref->mParameters.mStopAtFrame.ref()) {
-          InitDecoder(std::move(*mTrackDemuxer->GetInfo()));
+          InitDecoder(mTrackDemuxer->GetInfo());
         } else {
           Dispatch(
               NS_NewRunnableFunction("BenchmarkPlayback::DemuxNextSample",
@@ -229,7 +228,7 @@ void BenchmarkPlayback::DemuxNextSample() {
       [this, ref](const MediaResult& aError) {
         switch (aError.Code()) {
           case NS_ERROR_DOM_MEDIA_END_OF_STREAM:
-            InitDecoder(std::move(*mTrackDemuxer->GetInfo()));
+            InitDecoder(mTrackDemuxer->GetInfo());
             break;
           default:
             Error(aError);
@@ -238,15 +237,25 @@ void BenchmarkPlayback::DemuxNextSample() {
       });
 }
 
-void BenchmarkPlayback::InitDecoder(TrackInfo&& aInfo) {
+void BenchmarkPlayback::InitDecoder(UniquePtr<TrackInfo>&& aInfo) {
   MOZ_ASSERT(OnThread());
 
+  if (!aInfo) {
+    Error(MediaResult(NS_ERROR_FAILURE, "Invalid TrackInfo"));
+    return;
+  }
+
   RefPtr<PDMFactory> platform = new PDMFactory();
-  mDecoder = platform->CreateDecoder({aInfo, mDecoderTaskQueue});
-  if (!mDecoder) {
+  mInfo = std::move(aInfo);
+  RefPtr<MediaDataDecoder> decoder =
+      platform->CreateDecoder(CreateDecoderParams{*mInfo});
+
+  if (!decoder) {
     Error(MediaResult(NS_ERROR_FAILURE, "Failed to create decoder"));
     return;
   }
+  mDecoder = new MediaDataDecoderProxy(decoder.forget(),
+                                       do_AddRef(mDecoderTaskQueue.get()));
   RefPtr<Benchmark> ref(mGlobalState);
   mDecoder->Init()->Then(
       Thread(), __func__,
@@ -257,16 +266,11 @@ void BenchmarkPlayback::InitDecoder(TrackInfo&& aInfo) {
 void BenchmarkPlayback::FinalizeShutdown() {
   MOZ_ASSERT(OnThread());
 
+  MOZ_ASSERT(mFinished, "GlobalShutdown must have been run");
   MOZ_ASSERT(!mDecoder, "mDecoder must have been shutdown already");
+  MOZ_ASSERT(!mDemuxer, "mDemuxer must have been shutdown already");
   MOZ_DIAGNOSTIC_ASSERT(mDecoderTaskQueue->IsEmpty());
   mDecoderTaskQueue = nullptr;
-
-  if (mTrackDemuxer) {
-    mTrackDemuxer->Reset();
-    mTrackDemuxer->BreakCycles();
-    mTrackDemuxer = nullptr;
-  }
-  mDemuxer = nullptr;
 
   RefPtr<Benchmark> ref(mGlobalState);
   ref->Thread()->Dispatch(NS_NewRunnableFunction(
@@ -280,17 +284,25 @@ void BenchmarkPlayback::GlobalShutdown() {
 
   mFinished = true;
 
+  if (mTrackDemuxer) {
+    mTrackDemuxer->Reset();
+    mTrackDemuxer->BreakCycles();
+    mTrackDemuxer = nullptr;
+  }
+  mDemuxer = nullptr;
+
   if (mDecoder) {
     RefPtr<Benchmark> ref(mGlobalState);
-    mDecoder->Flush()->Then(Thread(), __func__,
-                            [ref, this]() {
-                              mDecoder->Shutdown()->Then(
-                                  Thread(), __func__,
-                                  [ref, this]() { FinalizeShutdown(); },
-                                  []() { MOZ_CRASH("not reached"); });
-                              mDecoder = nullptr;
-                            },
-                            []() { MOZ_CRASH("not reached"); });
+    mDecoder->Flush()->Then(
+        Thread(), __func__,
+        [ref, this]() {
+          mDecoder->Shutdown()->Then(
+              Thread(), __func__, [ref, this]() { FinalizeShutdown(); },
+              []() { MOZ_CRASH("not reached"); });
+          mDecoder = nullptr;
+          mInfo = nullptr;
+        },
+        []() { MOZ_CRASH("not reached"); });
   } else {
     FinalizeShutdown();
   }
@@ -345,34 +357,36 @@ void BenchmarkPlayback::InputExhausted() {
   mSampleIndex++;
   if (mSampleIndex == mSamples.Length() && !ref->mParameters.mStopAtFrame) {
     // Complete current frame decode then drain if still necessary.
-    p->Then(Thread(), __func__,
-            [ref, this](MediaDataDecoder::DecodedData&& aResults) {
-              Output(std::move(aResults));
-              if (!mFinished) {
-                mDecoder->Drain()->Then(
-                    Thread(), __func__,
-                    [ref, this](MediaDataDecoder::DecodedData&& aResults) {
-                      mDrained = true;
-                      Output(std::move(aResults));
-                      MOZ_ASSERT(mFinished, "We must be done now");
-                    },
-                    [ref, this](const MediaResult& aError) { Error(aError); });
-              }
-            },
-            [ref, this](const MediaResult& aError) { Error(aError); });
+    p->Then(
+        Thread(), __func__,
+        [ref, this](MediaDataDecoder::DecodedData&& aResults) {
+          Output(std::move(aResults));
+          if (!mFinished) {
+            mDecoder->Drain()->Then(
+                Thread(), __func__,
+                [ref, this](MediaDataDecoder::DecodedData&& aResults) {
+                  mDrained = true;
+                  Output(std::move(aResults));
+                  MOZ_ASSERT(mFinished, "We must be done now");
+                },
+                [ref, this](const MediaResult& aError) { Error(aError); });
+          }
+        },
+        [ref, this](const MediaResult& aError) { Error(aError); });
   } else {
     if (mSampleIndex == mSamples.Length() && ref->mParameters.mStopAtFrame) {
       mSampleIndex = 0;
     }
     // Continue decoding
-    p->Then(Thread(), __func__,
-            [ref, this](MediaDataDecoder::DecodedData&& aResults) {
-              Output(std::move(aResults));
-              if (!mFinished) {
-                InputExhausted();
-              }
-            },
-            [ref, this](const MediaResult& aError) { Error(aError); });
+    p->Then(
+        Thread(), __func__,
+        [ref, this](MediaDataDecoder::DecodedData&& aResults) {
+          Output(std::move(aResults));
+          if (!mFinished) {
+            InputExhausted();
+          }
+        },
+        [ref, this](const MediaResult& aError) { Error(aError); });
   }
 }
 

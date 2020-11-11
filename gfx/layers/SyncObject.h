@@ -23,14 +23,12 @@ typedef uintptr_t SyncHandle;
 class SyncObjectHost : public RefCounted<SyncObjectHost> {
  public:
   MOZ_DECLARE_REFCOUNTED_VIRTUAL_TYPENAME(SyncObjectHost)
-  virtual ~SyncObjectHost() {}
+  virtual ~SyncObjectHost() = default;
 
-  static already_AddRefed<SyncObjectHost> CreateSyncObjectHost(
 #ifdef XP_WIN
-      ID3D11Device* aDevice = nullptr
+  static already_AddRefed<SyncObjectHost> CreateSyncObjectHost(
+      ID3D11Device* aDevice);
 #endif
-  );
-
   virtual bool Init() = 0;
 
   virtual SyncHandle GetSyncHandle() = 0;
@@ -39,21 +37,20 @@ class SyncObjectHost : public RefCounted<SyncObjectHost> {
   virtual bool Synchronize(bool aFallible = false) = 0;
 
  protected:
-  SyncObjectHost() {}
+  SyncObjectHost() = default;
 };
 
 class SyncObjectClient : public external::AtomicRefCounted<SyncObjectClient> {
  public:
   MOZ_DECLARE_REFCOUNTED_VIRTUAL_TYPENAME(SyncObjectClient)
-  virtual ~SyncObjectClient() {}
+  virtual ~SyncObjectClient() = default;
 
-  static already_AddRefed<SyncObjectClient> CreateSyncObjectClient(
-      SyncHandle aHandle
 #ifdef XP_WIN
-      ,
-      ID3D11Device* aDevice = nullptr
+  static already_AddRefed<SyncObjectClient> CreateSyncObjectClient(
+      SyncHandle aHandle, ID3D11Device* aDevice);
 #endif
-  );
+  static already_AddRefed<SyncObjectClient>
+  CreateSyncObjectClientForContentDevice(SyncHandle aHandle);
 
   enum class SyncType {
     D3D11,
@@ -67,7 +64,7 @@ class SyncObjectClient : public external::AtomicRefCounted<SyncObjectClient> {
   virtual bool IsSyncObjectValid() = 0;
 
  protected:
-  SyncObjectClient() {}
+  SyncObjectClient() = default;
 };
 
 }  // namespace layers

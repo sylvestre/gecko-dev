@@ -14,16 +14,29 @@
     %>
     ${helpers.predefined_type(
         "margin-%s" % side[0],
-        "LengthOrPercentageOrAuto",
-        "computed::LengthOrPercentageOrAuto::Length(computed::Length::new(0.))",
-        alias=maybe_moz_logical_alias(product, side, "-moz-margin-%s"),
-        allow_quirks=not side[1],
+        "LengthPercentageOrAuto",
+        "computed::LengthPercentageOrAuto::zero()",
+        engines="gecko servo-2013 servo-2020",
+        alias=maybe_moz_logical_alias(engine, side, "-moz-margin-%s"),
+        allow_quirks="No" if side[1] else "Yes",
         animation_value_type="ComputedValue",
         logical=side[1],
         logical_group="margin",
         spec=spec,
-        flags="APPLIES_TO_FIRST_LETTER GETCS_NEEDS_LAYOUT_FLUSH",
         allowed_in_page_rule=True,
         servo_restyle_damage="reflow"
+    )}
+% endfor
+
+% for side in ALL_SIDES:
+    ${helpers.predefined_type(
+        "scroll-margin-%s" % side[0],
+        "Length",
+        "computed::Length::zero()",
+        engines="gecko",
+        logical=side[1],
+        logical_group="scroll-margin",
+        spec="https://drafts.csswg.org/css-scroll-snap-1/#propdef-scroll-margin-%s" % side[0],
+        animation_value_type="ComputedValue",
     )}
 % endfor

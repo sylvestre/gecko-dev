@@ -1,19 +1,30 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
-/* import-globals-from ../performance-controller.js */
-/* import-globals-from ../performance-view.js */
-/* globals DetailsSubview */
+/* globals $, PerformanceController */
 "use strict";
+
+const { extend } = require("devtools/shared/extend");
+
+const EVENTS = require("devtools/client/performance/events");
+const {
+  ThreadNode,
+} = require("devtools/client/performance/modules/logic/tree-model");
+const {
+  CallView,
+} = require("devtools/client/performance/modules/widgets/tree-view");
+const {
+  DetailsSubview,
+} = require("devtools/client/performance/views/details-abstract-subview");
+
+const RecordingUtils = require("devtools/shared/performance/recording-utils");
+const EventEmitter = require("devtools/shared/event-emitter");
 
 /**
  * CallTree view containing memory allocation sites, controlled by DetailsView.
  */
-var MemoryCallTreeView = extend(DetailsSubview, {
-
-  rerenderPrefs: [
-    "invert-call-tree",
-  ],
+const MemoryCallTreeView = extend(DetailsSubview, {
+  rerenderPrefs: ["invert-call-tree"],
 
   // Units are in milliseconds.
   rangeChangeDebounceTime: 100,
@@ -57,14 +68,16 @@ var MemoryCallTreeView = extend(DetailsSubview, {
    * Fired on the "link" event for the call tree in this container.
    */
   _onLink: function(treeItem) {
-    const { url, line } = treeItem.frame.getInfo();
-    gToolbox.viewSourceInDebugger(url, line).then(success => {
-      if (success) {
-        this.emit(EVENTS.SOURCE_SHOWN_IN_JS_DEBUGGER);
-      } else {
-        this.emit(EVENTS.SOURCE_NOT_FOUND_IN_JS_DEBUGGER);
+    const { url, line, column } = treeItem.frame.getInfo();
+    PerformanceController.viewSourceInDebugger(url, line, column).then(
+      success => {
+        if (success) {
+          this.emit(EVENTS.SOURCE_SHOWN_IN_JS_DEBUGGER);
+        } else {
+          this.emit(EVENTS.SOURCE_NOT_FOUND_IN_JS_DEBUGGER);
+        }
       }
-    });
+    );
   },
 
   /**
@@ -128,3 +141,5 @@ var MemoryCallTreeView = extend(DetailsSubview, {
 });
 
 EventEmitter.decorate(MemoryCallTreeView);
+
+exports.MemoryCallTreeView = MemoryCallTreeView;

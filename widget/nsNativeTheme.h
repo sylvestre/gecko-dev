@@ -22,7 +22,6 @@
 #include "nsIContent.h"
 
 class nsIFrame;
-class nsIPresShell;
 class nsPresContext;
 
 namespace mozilla {
@@ -33,12 +32,15 @@ class EventStates;
 
 class nsNativeTheme : public nsITimerCallback, public nsINamed {
  protected:
-  virtual ~nsNativeTheme() {}
+  virtual ~nsNativeTheme() = default;
 
   NS_DECL_ISUPPORTS
   NS_DECL_NSITIMERCALLBACK
   NS_DECL_NSINAMED
 
+  nsNativeTheme();
+
+ public:
   enum ScrollbarButtonType {
     eScrollbarButton_UpTop = 0,
     eScrollbarButton_Down = 1 << 0,
@@ -50,12 +52,9 @@ class nsNativeTheme : public nsITimerCallback, public nsINamed {
     eTreeSortDirection_Natural,
     eTreeSortDirection_Ascending
   };
-
-  nsNativeTheme();
-
   // Returns the content state (hover, focus, etc), see EventStateManager.h
-  mozilla::EventStates GetContentState(nsIFrame* aFrame,
-                                       mozilla::StyleAppearance aAppearance);
+  static mozilla::EventStates GetContentState(
+      nsIFrame* aFrame, mozilla::StyleAppearance aAppearance);
 
   // Returns whether the widget is already styled by content
   // Normally called from ThemeSupportsWidget to turn off native theming
@@ -70,7 +69,7 @@ class nsNativeTheme : public nsITimerCallback, public nsINamed {
   // RTL chrome direction
   static bool IsFrameRTL(nsIFrame* aFrame);
 
-  bool IsHTMLContent(nsIFrame* aFrame);
+  static bool IsHTMLContent(nsIFrame* aFrame);
 
   // button:
   bool IsDefaultButton(nsIFrame* aFrame) {
@@ -89,7 +88,7 @@ class nsNativeTheme : public nsITimerCallback, public nsINamed {
     return GetCheckedOrSelected(aFrame, true);
   }
 
-  bool IsFocused(nsIFrame* aFrame) {
+  static bool IsFocused(nsIFrame* aFrame) {
     return CheckBooleanAttr(aFrame, nsGkAtoms::focused);
   }
 
@@ -166,7 +165,6 @@ class nsNativeTheme : public nsITimerCallback, public nsINamed {
   // True if it's not a menubar item or menulist item
   bool IsRegularMenuItem(nsIFrame* aFrame);
 
-  nsIPresShell* GetPresShell(nsIFrame* aFrame);
   static bool CheckBooleanAttr(nsIFrame* aFrame, nsAtom* aAtom);
   static int32_t CheckIntAttr(nsIFrame* aFrame, nsAtom* aAtom,
                               int32_t defaultValue);
@@ -187,7 +185,7 @@ class nsNativeTheme : public nsITimerCallback, public nsINamed {
   bool IsRangeHorizontal(nsIFrame* aFrame);
 
   // scrollbar
-  bool IsDarkBackground(nsIFrame* aFrame);
+  static bool IsDarkBackground(nsIFrame* aFrame);
   // custom scrollbar
   typedef nscolor (*AutoColorGetter)(mozilla::ComputedStyle*);
   bool IsWidgetScrollbarPart(mozilla::StyleAppearance aAppearance);

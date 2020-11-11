@@ -11,9 +11,15 @@ var EXPORTED_SYMBOLS = [
   "RotaryTracker",
 ];
 
-ChromeUtils.import("resource://services-sync/engines.js");
-ChromeUtils.import("resource://services-sync/record.js");
-ChromeUtils.import("resource://services-sync/util.js");
+const { Store, SyncEngine, LegacyTracker } = ChromeUtils.import(
+  "resource://services-sync/engines.js"
+);
+const { CryptoWrapper } = ChromeUtils.import(
+  "resource://services-sync/record.js"
+);
+const { SerializableSet, Utils } = ChromeUtils.import(
+  "resource://services-sync/util.js"
+);
 
 /*
  * A fake engine implementation.
@@ -50,7 +56,7 @@ RotaryStore.prototype = {
   },
 
   async itemExists(id) {
-    return (id in this.items);
+    return id in this.items;
   },
 
   async createRecord(id, collection) {
@@ -87,18 +93,16 @@ RotaryStore.prototype = {
 };
 
 function RotaryTracker(name, engine) {
-  Tracker.call(this, name, engine);
+  LegacyTracker.call(this, name, engine);
 }
 RotaryTracker.prototype = {
-  __proto__: Tracker.prototype,
-  persistChangedIDs: false,
+  __proto__: LegacyTracker.prototype,
 };
-
 
 function RotaryEngine(service) {
   SyncEngine.call(this, "Rotary", service);
   // Ensure that the engine starts with a clean slate.
-  this.toFetch        = new SerializableSet();
+  this.toFetch = new SerializableSet();
   this.previousFailed = new SerializableSet();
 }
 RotaryEngine.prototype = {

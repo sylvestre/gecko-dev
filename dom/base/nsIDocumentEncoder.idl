@@ -14,10 +14,9 @@ webidl Selection;
 
 %{ C++
 class nsINode;
-class nsIDocument;
+
 %}
 [ptr] native nsINodePtr(nsINode);
-[ptr] native nsIDocumentPtr(nsIDocument);
 
 [scriptable, uuid(3d9371d8-a2ad-403e-8b0e-8885ad3562e3)]
 interface nsIDocumentEncoderNodeFixup : nsISupports
@@ -49,6 +48,7 @@ interface nsIDocumentEncoder : nsISupports
   const unsigned long OutputSelectionOnly = (1 << 0);
 
   /** Plaintext output: Convert html to plaintext that looks like the html.
+    * Can't be used in conjunction with `OutputPreformatted`.
     * Implies wrap (except inside <pre>), since html wraps.
     * HTML, XHTML and XML output: do prettyprinting, ignoring existing formatting.
     * XML output : it doesn't implicitly wrap
@@ -74,8 +74,8 @@ interface nsIDocumentEncoder : nsISupports
    * Output as though the content is preformatted
    * (e.g. maybe it's wrapped in a PRE or PRE_WRAP style tag)
    * Plaintext output only.
-   * XXXbz How does this interact with
-   * OutputFormatted/OutputRaw/OutputPreformatted/OutputFormatFlowed?
+   * Can't be used together with `OutputFormatted`/`OutputFormatFlowed`.
+   * XXXbz How does this interact with OutputRaw?
    */
   const unsigned long OutputPreformatted  = (1 << 4);
 
@@ -96,8 +96,8 @@ interface nsIDocumentEncoder : nsISupports
    * but in an important way from normal formatted, and that is that
    * lines are space stuffed. This can't (correctly) be done later.
    * PlainText output only.
-   * XXXbz How does this interact with
-   * OutputFormatted/OutputRaw/OutputPreformatted/OutputWrap?
+   * If this flag is set, `OutputFormat` has to be set too.
+   * XXXbz How does this interact with OutputRaw/OutputWrap?
    */
   const unsigned long OutputFormatFlowed  = (1 << 6);
 
@@ -193,17 +193,6 @@ interface nsIDocumentEncoder : nsISupports
   const unsigned long OutputIgnoreMozDirty = (1 << 22);
 
   /**
-   * Output the content of non-text elements as the placehodler character
-   * U+FFFC (OBJECT REPLACEMENT CHARACTER, only for serializing to plaintext).
-   */
-  const unsigned long OutputNonTextContentAsPlaceholder = (1 << 23);
-
-  /**
-   * Don't Strip ending spaces from a line (only for serializing to plaintext).
-   */
-  const unsigned long OutputDontRemoveLineEndingSpaces = (1 << 24);
-
-  /**
    * Serialize in a way that is suitable for copying a plaintext version of the
    * document to the clipboard.  This can for example cause line endings to be
    * injected at preformatted block element boundaries.
@@ -224,14 +213,15 @@ interface nsIDocumentEncoder : nsISupports
   const unsigned long OutputDisallowLineBreaking = (1 << 27);
 
   /**
-   * Release reference of nsIDocument after using encodeTo* method to recycle
-   * this encoder without holding nsIDocument. To use this encoder again,
+   * Release reference of Document after using encodeTo* method to recycle
+   * this encoder without holding Document. To use this encoder again,
    * we have to call init again.
    */
   const unsigned long RequiresReinitAfterOutput = (1 << 28);
 
   /**
    * Initialize with a pointer to the document and the mime type.
+   * Resets wrap column to 72 and resets node fixup.
    * @param aDocument Document to encode.
    * @param aMimeType MimeType to use. May also be set by SetMimeType.
    * @param aFlags Flags to use while encoding. May also be set by SetFlags.
@@ -239,7 +229,7 @@ interface nsIDocumentEncoder : nsISupports
   void init(in Document aDocument,
             in AString aMimeType,
             in unsigned long aFlags);
-  [noscript] void nativeInit(in nsIDocumentPtr aDocument,
+  [noscript] void nativeInit(in Document aDocument,
                              in AString aMimeType,
                              in unsigned long aFlags);
 
@@ -289,7 +279,7 @@ interface nsIDocumentEncoder : nsISupports
 
   /**
    *  Set a wrap column.  This may have no effect in some types of encoders.
-   * @param aWrapColumn Column to which to wrap.
+   * @param aWrapColumn Column to which to wrap. If 0, wrapping is disabled.
    */
   void setWrapColumn(in unsigned long aWrapColumn);
 

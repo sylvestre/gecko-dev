@@ -11,6 +11,8 @@
 
 class nsMathMLSelectedFrame : public nsMathMLContainerFrame {
  public:
+  NS_DECL_ABSTRACT_FRAME(nsMathMLSelectedFrame)
+
   NS_IMETHOD
   TransmitAutomaticData() override;
 
@@ -25,21 +27,22 @@ class nsMathMLSelectedFrame : public nsMathMLContainerFrame {
   virtual nsresult Place(DrawTarget* aDrawTarget, bool aPlaceOrigin,
                          ReflowOutput& aDesiredSize) override;
 
-  virtual mozilla::LogicalSize ComputeSize(
-      gfxContext* aRenderingContext, mozilla::WritingMode aWritingMode,
-      const mozilla::LogicalSize& aCBSize, nscoord aAvailableISize,
-      const mozilla::LogicalSize& aMargin, const mozilla::LogicalSize& aBorder,
-      const mozilla::LogicalSize& aPadding, ComputeSizeFlags aFlags) override;
+  SizeComputationResult ComputeSize(gfxContext* aRenderingContext,
+                                    mozilla::WritingMode aWM,
+                                    const mozilla::LogicalSize& aCBSize,
+                                    nscoord aAvailableISize,
+                                    const mozilla::LogicalSize& aMargin,
+                                    const mozilla::LogicalSize& aBorderPadding,
+                                    mozilla::ComputeSizeFlags aFlags) override;
 
   virtual void Reflow(nsPresContext* aPresContext, ReflowOutput& aDesiredSize,
                       const ReflowInput& aReflowInput,
                       nsReflowStatus& aStatus) override;
 
-  virtual nsQueryFrame::FrameIID GetFrameId() override = 0;
-
  protected:
-  nsMathMLSelectedFrame(ComputedStyle* aStyle, ClassID aID)
-      : nsMathMLContainerFrame(aStyle, aID),
+  nsMathMLSelectedFrame(ComputedStyle* aStyle, nsPresContext* aPresContext,
+                        ClassID aID)
+      : nsMathMLContainerFrame(aStyle, aPresContext, aID),
         mSelectedFrame(nullptr),
         mInvalidMarkup(false) {}
   virtual ~nsMathMLSelectedFrame();
@@ -48,9 +51,6 @@ class nsMathMLSelectedFrame : public nsMathMLContainerFrame {
   nsIFrame* mSelectedFrame;
 
   bool mInvalidMarkup;
-
- private:
-  void* operator new(size_t, nsIPresShell*) MOZ_MUST_OVERRIDE = delete;
 };
 
 #endif /* nsMathMLSelectedFrame_h___ */

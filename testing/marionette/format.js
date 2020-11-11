@@ -4,14 +4,18 @@
 
 "use strict";
 
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
+const EXPORTED_SYMBOLS = ["pprint", "truncate"];
 
-const {Log} = ChromeUtils.import("chrome://marionette/content/log.js", {});
-const {MarionettePrefs} = ChromeUtils.import("chrome://marionette/content/prefs.js", {});
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
 
-XPCOMUtils.defineLazyGetter(this, "log", Log.get);
+XPCOMUtils.defineLazyModuleGetters(this, {
+  Log: "chrome://marionette/content/log.js",
+  MarionettePrefs: "chrome://marionette/content/prefs.js",
+});
 
-this.EXPORTED_SYMBOLS = ["pprint", "truncate"];
+XPCOMUtils.defineLazyGetter(this, "logger", () => Log.get());
 
 const ELEMENT_NODE = 1;
 const MAX_STRING_LENGTH = 250;
@@ -21,7 +25,10 @@ const MAX_STRING_LENGTH = 250;
  *
  * Usage::
  *
- *     const {pprint} = Cu.import("chrome://marionette/content/error.js", {});
+ *     const { pprint } = Cu.import(
+ *       "chrome://marionette/content/format.js", {}
+ *     );
+ *
  *     let bool = {value: true};
  *     pprint`Expected boolean, got ${bool}`;
  *     => 'Expected boolean, got [object Object] {"value": true}'
@@ -36,8 +43,12 @@ const MAX_STRING_LENGTH = 250;
 function pprint(ss, ...values) {
   function pretty(val) {
     let proto = Object.prototype.toString.call(val);
-    if (typeof val == "object" && val !== null &&
-        "nodeType" in val && val.nodeType === ELEMENT_NODE) {
+    if (
+      typeof val == "object" &&
+      val !== null &&
+      "nodeType" in val &&
+      val.nodeType === ELEMENT_NODE
+    ) {
       return prettyElement(val);
     } else if (["[object Window]", "[object ChromeWindow]"].includes(proto)) {
       return prettyWindowGlobal(val);
@@ -92,7 +103,7 @@ function pprint(ss, ...values) {
       try {
         s = pretty(values[i]);
       } catch (e) {
-        log.warn("Problem pretty printing:", e);
+        logger.warn("Problem pretty printing:", e);
         s = typeof values[i];
       }
       res.push(s);
@@ -138,8 +149,8 @@ function truncate(strings, ...values) {
       case "[object String]":
         if (MarionettePrefs.truncateLog) {
           if (obj.length > MAX_STRING_LENGTH) {
-            let s1 = obj.substring(0, (MAX_STRING_LENGTH / 2));
-            let s2 = obj.substring(obj.length - (MAX_STRING_LENGTH / 2));
+            let s1 = obj.substring(0, MAX_STRING_LENGTH / 2);
+            let s2 = obj.substring(obj.length - MAX_STRING_LENGTH / 2);
             return `${s1} ... ${s2}`;
           }
         }
@@ -150,8 +161,10 @@ function truncate(strings, ...values) {
 
       // arbitrary object
       default:
-        if (Object.getOwnPropertyNames(obj).includes("toString") &&
-          typeof obj.toString == "function") {
+        if (
+          Object.getOwnPropertyNames(obj).includes("toString") &&
+          typeof obj.toString == "function"
+        ) {
           return walk(obj.toString());
         }
 

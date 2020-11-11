@@ -19,9 +19,12 @@ extern crate winit;
 #[path = "common/boilerplate.rs"]
 mod boilerplate;
 
-use boilerplate::{Example, HandyDandyRectBuilder};
+use crate::boilerplate::{Example, HandyDandyRectBuilder};
 use euclid::Angle;
 use webrender::api::*;
+use webrender::render_api::*;
+use webrender::api::units::*;
+
 
 struct App {
     property_key0: PropertyBindingKey<LayoutTransform>,
@@ -40,81 +43,100 @@ impl App {
         bounds: LayoutRect,
         color: ColorF,
         builder: &mut DisplayListBuilder,
+        pipeline_id: PipelineId,
         property_key: PropertyBindingKey<LayoutTransform>,
+        opacity_key: Option<PropertyBindingKey<f32>>,
     ) {
-        let filters = [
-            FilterOp::Opacity(PropertyBinding::Binding(self.opacity_key, self.opacity), self.opacity),
-        ];
+        let filters = match opacity_key {
+            Some(opacity_key) => {
+                vec![
+                    FilterOp::Opacity(PropertyBinding::Binding(opacity_key, self.opacity), self.opacity),
+                ]
+            }
+            None => {
+                vec![]
+            }
+        };
 
-        let reference_frame_id = builder.push_reference_frame(
-            &LayoutPrimitiveInfo::new(LayoutRect::new(bounds.origin, LayoutSize::zero())),
+        let spatial_id = builder.push_reference_frame(
+            bounds.origin,
+            SpatialId::root_scroll_node(pipeline_id),
             TransformStyle::Flat,
-            Some(PropertyBinding::Binding(property_key, LayoutTransform::identity())),
-            None,
+            PropertyBinding::Binding(property_key, LayoutTransform::identity()),
+            ReferenceFrameKind::Transform,
         );
 
-        builder.push_clip_id(reference_frame_id);
-
-        builder.push_stacking_context(
-            &LayoutPrimitiveInfo::new(LayoutRect::zero()),
-            None,
-            TransformStyle::Flat,
-            MixBlendMode::Normal,
+        builder.push_simple_stacking_context_with_filters(
+            LayoutPoint::zero(),
+            spatial_id,
+            PrimitiveFlags::IS_BACKFACE_VISIBLE,
             &filters,
-            RasterSpace::Screen,
+            &[],
+            &[]
         );
 
+        let space_and_clip = SpaceAndClipInfo {
+            spatial_id,
+            clip_id: ClipId::root(pipeline_id),
+        };
         let clip_bounds = LayoutRect::new(LayoutPoint::zero(), bounds.size);
         let complex_clip = ComplexClipRegion {
             rect: clip_bounds,
             radii: BorderRadius::uniform(30.0),
             mode: ClipMode::Clip,
         };
-        let clip_id = builder.define_clip(clip_bounds, vec![complex_clip], None);
-        builder.push_clip_id(clip_id);
+        let clip_id = builder.define_clip_rounded_rect(
+            &space_and_clip,
+            complex_clip,
+        );
 
         // Fill it with a white rect
         builder.push_rect(
-            &LayoutPrimitiveInfo::new(LayoutRect::new(LayoutPoint::zero(), bounds.size)),
+            &CommonItemProperties::new(
+                LayoutRect::new(LayoutPoint::zero(), bounds.size),
+                SpaceAndClipInfo {
+                    spatial_id,
+                    clip_id,
+                }
+            ),
+            LayoutRect::new(LayoutPoint::zero(), bounds.size),
             color,
         );
 
-        builder.pop_clip_id();
-
         builder.pop_stacking_context();
-
-        builder.pop_clip_id();
         builder.pop_reference_frame();
     }
 }
 
 impl Example for App {
-    const WIDTH: u32 = 1024;
-    const HEIGHT: u32 = 1024;
+    const WIDTH: u32 = 2048;
+    const HEIGHT: u32 = 1536;
 
     fn render(
         &mut self,
-        _api: &RenderApi,
+        _api: &mut RenderApi,
         builder: &mut DisplayListBuilder,
         _txn: &mut Transaction,
-        _framebuffer_size: DeviceIntSize,
-        _pipeline_id: PipelineId,
+        _device_size: DeviceIntSize,
+        pipeline_id: PipelineId,
         _document_id: DocumentId,
     ) {
+        let opacity_key = self.opacity_key;
+
         let bounds = (150, 150).to(250, 250);
         let key0 = self.property_key0;
-        self.add_rounded_rect(bounds, ColorF::new(1.0, 0.0, 0.0, 0.5), builder, key0);
+        self.add_rounded_rect(bounds, ColorF::new(1.0, 0.0, 0.0, 0.5), builder, pipeline_id, key0, Some(opacity_key));
 
         let bounds = (400, 400).to(600, 600);
         let key1 = self.property_key1;
-        self.add_rounded_rect(bounds, ColorF::new(0.0, 1.0, 0.0, 0.5), builder, key1);
+        self.add_rounded_rect(bounds, ColorF::new(0.0, 1.0, 0.0, 0.5), builder, pipeline_id, key1, None);
 
         let bounds = (200, 500).to(350, 580);
         let key2 = self.property_key2;
-        self.add_rounded_rect(bounds, ColorF::new(0.0, 0.0, 1.0, 0.5), builder, key2);
+        self.add_rounded_rect(bounds, ColorF::new(0.0, 0.0, 1.0, 0.5), builder, pipeline_id, key2, None);
     }
 
-    fn on_event(&mut self, win_event: winit::WindowEvent, api: &RenderApi, document_id: DocumentId) -> bool {
+    fn on_event(&mut self, win_event: winit::WindowEvent, api: &mut RenderApi, document_id: DocumentId) -> bool {
         let mut rebuild_display_list = false;
 
         match win_event {
@@ -144,9 +166,9 @@ impl Example for App {
                 self.angle0 += delta_angle * 0.1;
                 self.angle1 += delta_angle * 0.2;
                 self.angle2 -= delta_angle * 0.15;
-                let xf0 = LayoutTransform::create_rotation(0.0, 0.0, 1.0, Angle::radians(self.angle0));
-                let xf1 = LayoutTransform::create_rotation(0.0, 0.0, 1.0, Angle::radians(self.angle1));
-                let xf2 = LayoutTransform::create_rotation(0.0, 0.0, 1.0, Angle::radians(self.angle2));
+                let xf0 = LayoutTransform::rotation(0.0, 0.0, 1.0, Angle::radians(self.angle0));
+                let xf1 = LayoutTransform::rotation(0.0, 0.0, 1.0, Angle::radians(self.angle1));
+                let xf2 = LayoutTransform::rotation(0.0, 0.0, 1.0, Angle::radians(self.angle2));
                 let mut txn = Transaction::new();
                 txn.update_dynamic_properties(
                     DynamicProperties {
@@ -170,6 +192,7 @@ impl Example for App {
                                 value: self.opacity,
                             }
                         ],
+                        colors: vec![],
                     },
                 );
                 txn.generate_frame();

@@ -1,12 +1,12 @@
 load(libdir + 'array-compare.js');
 
-var g = newGlobal();
+var g = newGlobal({newCompartment: true});
 var dbg = new Debugger;
 var gDO = dbg.addDebuggee(g);
 var hits = 0;
 
 function check(expr, expected) {
-  print("checking " + uneval(expr));
+  print("checking " + JSON.stringify(expr));
 
   let completion = gDO.executeInGlobal(expr);
   if (completion.throw)

@@ -14,10 +14,8 @@ extern "C" nsresult ATTRIBUTE_USED
 PrepareAndDispatch(nsXPTCStubBase* self, uint64_t methodIndex, uint64_t* args)
 {
 
-#define PARAM_BUFFER_COUNT     16
 
     nsXPTCMiniVariant paramBuffer[PARAM_BUFFER_COUNT];
-    nsXPTCMiniVariant* dispatchParams = nullptr;
     const nsXPTMethodInfo* info;
     uint8_t paramCount;
     uint8_t i;
@@ -29,16 +27,6 @@ PrepareAndDispatch(nsXPTCStubBase* self, uint64_t methodIndex, uint64_t* args)
 
     paramCount = info->GetParamCount();
 
-    // setup variant array pointer
-    if(paramCount > PARAM_BUFFER_COUNT)
-        dispatchParams = new nsXPTCMiniVariant[paramCount];
-    else
-        dispatchParams = paramBuffer;
-
-    NS_ASSERTION(dispatchParams,"no place for params");
-    if (!dispatchParams)
-        return NS_ERROR_OUT_OF_MEMORY;
-
     const uint8_t indexOfJSContext = info->IndexOfJSContext();
 
     uint64_t* ap = args;
@@ -46,7 +34,7 @@ PrepareAndDispatch(nsXPTCStubBase* self, uint64_t methodIndex, uint64_t* args)
     {
         const nsXPTParamInfo& param = info->GetParam(i);
         const nsXPTType& type = param.GetType();
-        nsXPTCMiniVariant* dp = &dispatchParams[i];
+        nsXPTCMiniVariant* dp = &paramBuffer[i];
 
         if (i == indexOfJSContext)
             ap++;
@@ -79,18 +67,23 @@ PrepareAndDispatch(nsXPTCStubBase* self, uint64_t methodIndex, uint64_t* args)
     }
 
     nsresult result = self->mOuter->CallMethod((uint16_t)methodIndex, info,
-                                               dispatchParams);
-
-    if(dispatchParams != paramBuffer)
-        delete [] dispatchParams;
+                                               paramBuffer);
 
     return result;
 }
 
 extern "C" nsresult SharedStub(int, int*);
 
+/*
+ * Avoid GCC stack protector to wipe out input registers since the compiler
+ * thinks the function takes no arguments.
+ */
+#ifndef nostackprotector
+#define nostackprotector __attribute__((__optimize__("no-stack-protector")))
+#endif
+
 #define STUB_ENTRY(n) \
-nsresult nsXPTCStubBase::Stub##n() \
+nsresult nostackprotector nsXPTCStubBase::Stub##n() \
 { \
 	int dummy; /* defeat tail-call optimization */ \
 	return SharedStub(n, &dummy); \

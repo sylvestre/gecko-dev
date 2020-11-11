@@ -1,4 +1,3 @@
-/* vim: set ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -19,7 +18,9 @@ add_task(async function() {
   await selectNode(".item", inspector);
   await onUpdate;
 
-  const [basisFinalPoint] = [...doc.querySelectorAll(".flex-outline-point.basisfinal")];
+  const [basisFinalPoint] = [
+    ...doc.querySelectorAll(".flex-outline-point.basisfinal"),
+  ];
 
   ok(basisFinalPoint, "The basis/final point exists");
 
@@ -28,8 +29,11 @@ add_task(async function() {
   await selectNode(".shrinking .item", inspector);
   await onUpdate;
 
-  const [basis, final] = [...doc.querySelectorAll(
-    ".flex-outline-point.basis, .flex-outline-point.final")];
+  const [basis, final] = [
+    ...doc.querySelectorAll(
+      ".flex-outline-point.basis, .flex-outline-point.final"
+    ),
+  ];
 
   ok(basis, "The basis point exists");
   ok(final, "The final point exists");

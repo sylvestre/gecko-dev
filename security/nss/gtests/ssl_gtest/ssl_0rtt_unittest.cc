@@ -15,6 +15,7 @@ extern "C" {
 #include "libssl_internals.h"
 }
 
+#include "cpputil.h"
 #include "gtest_utils.h"
 #include "nss_scoped_ptrs.h"
 #include "tls_connect.h"
@@ -45,11 +46,40 @@ TEST_P(TlsConnectTls13, ZeroRttServerRejectByOption) {
   SendReceive();
 }
 
+TEST_P(TlsConnectTls13, ZeroRttApplicationReject) {
+  SetupForZeroRtt();
+  client_->Set0RttEnabled(true);
+  server_->Set0RttEnabled(true);
+  ExpectResumption(RESUME_TICKET);
+
+  auto reject_0rtt = [](PRBool firstHello, const PRUint8* clientToken,
+                        unsigned int clientTokenLen, PRUint8* appToken,
+                        unsigned int* appTokenLen, unsigned int appTokenMax,
+                        void* arg) {
+    auto* called = reinterpret_cast<bool*>(arg);
+    *called = true;
+
+    EXPECT_TRUE(firstHello);
+    EXPECT_EQ(0U, clientTokenLen);
+    return ssl_hello_retry_reject_0rtt;
+  };
+
+  bool cb_run = false;
+  EXPECT_EQ(SECSuccess, SSL_HelloRetryRequestCallback(server_->ssl_fd(),
+                                                      reject_0rtt, &cb_run));
+  ZeroRttSendReceive(true, false);
+  Handshake();
+  EXPECT_TRUE(cb_run);
+  CheckConnected();
+  SendReceive();
+}
+
 TEST_P(TlsConnectTls13, ZeroRttApparentReplayAfterRestart) {
-  // The test fixtures call SSL_SetupAntiReplay() in SetUp().  This results in
-  // 0-RTT being rejected until at least one window passes.  SetupFor0Rtt()
-  // forces a rollover of the anti-replay filters, which clears this state.
-  // Here, we do the setup manually here without that forced rollover.
+  // The test fixtures enable anti-replay in SetUp().  This results in 0-RTT
+  // being rejected until at least one window passes.  SetupFor0Rtt() forces a
+  // rollover of the anti-replay filters, which clears that state and allows
+  // 0-RTT to work.  Make the first connection manually to avoid that rollover
+  // and cause 0-RTT to be rejected.
 
   ConfigureSessionCache(RESUME_BOTH, RESUME_TICKET);
   ConfigureVersion(SSL_LIBRARY_VERSION_TLS_1_3);
@@ -88,16 +118,12 @@ class TlsZeroRttReplayTest : public TlsConnectTls13 {
   };
 
  protected:
-  void RunTest(bool rollover) {
-    // Run the initial handshake
-    SetupForZeroRtt();
-
+  void RunTest(bool rollover, const ScopedPK11SymKey& epsk) {
     // Now run a true 0-RTT handshake, but capture the first packet.
     auto first_packet = std::make_shared<SaveFirstPacket>();
     client_->SetFilter(first_packet);
     client_->Set0RttEnabled(true);
     server_->Set0RttEnabled(true);
-    ExpectResumption(RESUME_TICKET);
     ZeroRttSendReceive(true, true);
     Handshake();
     EXPECT_LT(0U, first_packet->packet().len());
@@ -106,13 +132,18 @@ class TlsZeroRttReplayTest : public TlsConnectTls13 {
     SendReceive();
 
     if (rollover) {
-      SSLInt_RolloverAntiReplay();
+      RolloverAntiReplay();
     }
 
     // Now replay that packet against the server.
     Reset();
     server_->StartConnect();
     server_->Set0RttEnabled(true);
+    server_->SetAntiReplayContext(anti_replay_);
+    if (epsk) {
+      AddPsk(epsk, std::string("foo"), ssl_hash_sha256,
+             TLS_CHACHA20_POLY1305_SHA256);
+    }
 
     // Capture the early_data extension, which should not appear.
     auto early_data_ext =
@@ -125,11 +156,41 @@ class TlsZeroRttReplayTest : public TlsConnectTls13 {
     server_->Handshake();
     EXPECT_FALSE(early_data_ext->captured());
   }
+
+  void RunResPskTest(bool rollover) {
+    // Run the initial handshake
+    SetupForZeroRtt();
+    ExpectResumption(RESUME_TICKET);
+    RunTest(rollover, ScopedPK11SymKey(nullptr));
+  }
+
+  void RunExtPskTest(bool rollover) {
+    ScopedPK11SlotInfo slot(PK11_GetInternalSlot());
+    ASSERT_NE(nullptr, slot);
+
+    const std::vector<uint8_t> kPskDummyVal(16, 0xFF);
+    SECItem psk_item = {siBuffer, toUcharPtr(kPskDummyVal.data()),
+                        static_cast<unsigned int>(kPskDummyVal.size())};
+    PK11SymKey* key =
+        PK11_ImportSymKey(slot.get(), CKM_HKDF_KEY_GEN, PK11_OriginUnwrap,
+                          CKA_DERIVE, &psk_item, NULL);
+    ASSERT_NE(nullptr, key);
+    ScopedPK11SymKey scoped_psk(key);
+    RolloverAntiReplay();
+    AddPsk(scoped_psk, std::string("foo"), ssl_hash_sha256,
+           TLS_CHACHA20_POLY1305_SHA256);
+    StartConnect();
+    RunTest(rollover, scoped_psk);
+  }
 };
 
-TEST_P(TlsZeroRttReplayTest, ZeroRttReplay) { RunTest(false); }
+TEST_P(TlsZeroRttReplayTest, ResPskZeroRttReplay) { RunResPskTest(false); }
 
-TEST_P(TlsZeroRttReplayTest, ZeroRttReplayAfterRollover) { RunTest(true); }
+TEST_P(TlsZeroRttReplayTest, ExtPskZeroRttReplay) { RunExtPskTest(false); }
+
+TEST_P(TlsZeroRttReplayTest, ZeroRttReplayAfterRollover) {
+  RunResPskTest(true);
+}
 
 // Test that we don't try to send 0-RTT data when the server sent
 // us a ticket without the 0-RTT flags.
@@ -146,6 +207,106 @@ TEST_P(TlsConnectTls13, ZeroRttOptionsSetLate) {
   ExpectResumption(RESUME_TICKET);
   ZeroRttSendReceive(false, false);
   Handshake();
+  CheckConnected();
+  SendReceive();
+}
+
+// Make sure that a session ticket sent well after the original handshake
+// can be used for 0-RTT.
+// Stream because DTLS doesn't support SSL_SendSessionTicket.
+TEST_F(TlsConnectStreamTls13, ZeroRttUsingLateTicket) {
+  // Use a small-ish anti-replay window.
+  ResetAntiReplay(100 * PR_USEC_PER_MSEC);
+  RolloverAntiReplay();
+
+  ConfigureSessionCache(RESUME_BOTH, RESUME_TICKET);
+  server_->Set0RttEnabled(true);
+  Connect();
+  CheckKeys();
+
+  // Now move time forward 30s and send a ticket.
+  AdvanceTime(30 * PR_USEC_PER_SEC);
+  EXPECT_EQ(SECSuccess, SSL_SendSessionTicket(server_->ssl_fd(), NULL, 0));
+  SendReceive();
+  Reset();
+  StartConnect();
+
+  client_->Set0RttEnabled(true);
+  server_->Set0RttEnabled(true);
+  ExpectResumption(RESUME_TICKET);
+  ZeroRttSendReceive(true, true);
+  Handshake();
+  ExpectEarlyDataAccepted(true);
+  CheckConnected();
+  SendReceive();
+}
+
+// Check that post-handshake authentication with a long RTT doesn't
+// make things worse.
+TEST_F(TlsConnectStreamTls13, ZeroRttUsingLateTicketPha) {
+  // Use a small-ish anti-replay window.
+  ResetAntiReplay(100 * PR_USEC_PER_MSEC);
+  RolloverAntiReplay();
+
+  ConfigureSessionCache(RESUME_BOTH, RESUME_TICKET);
+  server_->Set0RttEnabled(true);
+  client_->SetupClientAuth();
+  client_->SetOption(SSL_ENABLE_POST_HANDSHAKE_AUTH, PR_TRUE);
+  Connect();
+  CheckKeys();
+
+  // Add post-handshake authentication, with some added delays.
+  AdvanceTime(10 * PR_USEC_PER_SEC);
+  EXPECT_EQ(SECSuccess, SSL_SendCertificateRequest(server_->ssl_fd()));
+  AdvanceTime(10 * PR_USEC_PER_SEC);
+  server_->SendData(50);
+  client_->ReadBytes(50);
+  client_->SendData(50);
+  server_->ReadBytes(50);
+
+  AdvanceTime(10 * PR_USEC_PER_SEC);
+  EXPECT_EQ(SECSuccess, SSL_SendSessionTicket(server_->ssl_fd(), NULL, 0));
+  server_->SendData(100);
+  client_->ReadBytes(100);
+  Reset();
+  StartConnect();
+
+  client_->Set0RttEnabled(true);
+  server_->Set0RttEnabled(true);
+  ExpectResumption(RESUME_TICKET);
+  ZeroRttSendReceive(true, true);
+  Handshake();
+  ExpectEarlyDataAccepted(true);
+  CheckConnected();
+  SendReceive();
+}
+
+// Same, but with client authentication on the first connection.
+TEST_F(TlsConnectStreamTls13, ZeroRttUsingLateTicketClientAuth) {
+  // Use a small-ish anti-replay window.
+  ResetAntiReplay(100 * PR_USEC_PER_MSEC);
+  RolloverAntiReplay();
+
+  ConfigureSessionCache(RESUME_BOTH, RESUME_TICKET);
+  client_->SetupClientAuth();
+  server_->RequestClientAuth(true);
+  server_->Set0RttEnabled(true);
+  Connect();
+  CheckKeys();
+
+  // Now move time forward 30s and send a ticket.
+  AdvanceTime(30 * PR_USEC_PER_SEC);
+  EXPECT_EQ(SECSuccess, SSL_SendSessionTicket(server_->ssl_fd(), NULL, 0));
+  SendReceive();
+  Reset();
+  StartConnect();
+
+  client_->Set0RttEnabled(true);
+  server_->Set0RttEnabled(true);
+  ExpectResumption(RESUME_TICKET);
+  ZeroRttSendReceive(true, true);
+  Handshake();
+  ExpectEarlyDataAccepted(true);
   CheckConnected();
   SendReceive();
 }
@@ -184,20 +345,21 @@ TEST_P(TlsConnectTls13, ZeroRttServerOnly) {
   CheckKeys();
 }
 
-// A small sleep after sending the ClientHello means that the ticket age that
-// arrives at the server is too low.  With a small tolerance for variation in
-// ticket age (which is determined by the |window| parameter that is passed to
-// SSL_SetupAntiReplay()), the server then rejects early data.
+// Advancing time after sending the ClientHello means that the ticket age that
+// arrives at the server is too low.  The server then rejects early data if this
+// delay exceeds half the anti-replay window.
 TEST_P(TlsConnectTls13, ZeroRttRejectOldTicket) {
+  static const PRTime kWindow = 10 * PR_USEC_PER_SEC;
+  ResetAntiReplay(kWindow);
   SetupForZeroRtt();
+
+  Reset();
+  StartConnect();
   client_->Set0RttEnabled(true);
   server_->Set0RttEnabled(true);
-  EXPECT_EQ(SECSuccess, SSL_SetupAntiReplay(1, 1, 3));
-  SSLInt_RolloverAntiReplay();  // Make sure to flush replay state.
-  SSLInt_RolloverAntiReplay();
   ExpectResumption(RESUME_TICKET);
-  ZeroRttSendReceive(true, false, []() {
-    PR_Sleep(PR_MillisecondsToInterval(10));
+  ZeroRttSendReceive(true, false, [this]() {
+    AdvanceTime(1 + kWindow / 2);
     return true;
   });
   Handshake();
@@ -212,13 +374,15 @@ TEST_P(TlsConnectTls13, ZeroRttRejectOldTicket) {
 // small tolerance for variation in ticket age and the ticket will appear to
 // arrive prematurely, causing the server to reject early data.
 TEST_P(TlsConnectTls13, ZeroRttRejectPrematureTicket) {
+  static const PRTime kWindow = 10 * PR_USEC_PER_SEC;
+  ResetAntiReplay(kWindow);
   ConfigureSessionCache(RESUME_BOTH, RESUME_TICKET);
   ConfigureVersion(SSL_LIBRARY_VERSION_TLS_1_3);
   server_->Set0RttEnabled(true);
   StartConnect();
   client_->Handshake();  // ClientHello
   server_->Handshake();  // ServerHello
-  PR_Sleep(PR_MillisecondsToInterval(10));
+  AdvanceTime(1 + kWindow / 2);
   Handshake();  // Remainder of handshake
   CheckConnected();
   SendReceive();
@@ -227,9 +391,6 @@ TEST_P(TlsConnectTls13, ZeroRttRejectPrematureTicket) {
   Reset();
   client_->Set0RttEnabled(true);
   server_->Set0RttEnabled(true);
-  EXPECT_EQ(SECSuccess, SSL_SetupAntiReplay(1, 1, 3));
-  SSLInt_RolloverAntiReplay();  // Make sure to flush replay state.
-  SSLInt_RolloverAntiReplay();
   ExpectResumption(RESUME_TICKET);
   ExpectEarlyDataAccepted(false);
   StartConnect();
@@ -448,15 +609,6 @@ TEST_P(TlsConnectTls13, TestTls13ZeroRttDowngradeEarlyData) {
   client_->CheckErrorCode(SSL_ERROR_DOWNGRADE_WITH_EARLY_DATA);
 }
 
-static void CheckEarlyDataLimit(const std::shared_ptr<TlsAgent>& agent,
-                                size_t expected_size) {
-  SSLPreliminaryChannelInfo preinfo;
-  SECStatus rv =
-      SSL_GetPreliminaryChannelInfo(agent->ssl_fd(), &preinfo, sizeof(preinfo));
-  EXPECT_EQ(SECSuccess, rv);
-  EXPECT_EQ(expected_size, static_cast<size_t>(preinfo.maxEarlyDataSize));
-}
-
 TEST_P(TlsConnectTls13, SendTooMuchEarlyData) {
   EnsureTlsSetup();
   const char* big_message = "0123456789abcdef";
@@ -647,6 +799,380 @@ TEST_P(TlsConnectTls13, ZeroRttOrdering) {
   buf.resize(read);
   EXPECT_EQ(late_data, buf);
   EXPECT_EQ(2U, step);
+}
+
+// Early data remains available after the handshake completes for TLS.
+TEST_F(TlsConnectStreamTls13, ZeroRttLateReadTls) {
+  SetupForZeroRtt();
+  client_->Set0RttEnabled(true);
+  server_->Set0RttEnabled(true);
+  ExpectResumption(RESUME_TICKET);
+  client_->Handshake();  // ClientHello
+
+  // Write some early data.
+  const uint8_t data[] = {1, 2, 3, 4, 5, 6, 7, 8};
+  PRInt32 rv = PR_Write(client_->ssl_fd(), data, sizeof(data));
+  EXPECT_EQ(static_cast<PRInt32>(sizeof(data)), rv);
+
+  // Consume the ClientHello and generate ServerHello..Finished.
+  server_->Handshake();
+
+  // Read some of the data.
+  std::vector<uint8_t> small_buffer(1 + sizeof(data) / 2);
+  rv = PR_Read(server_->ssl_fd(), small_buffer.data(), small_buffer.size());
+  EXPECT_EQ(static_cast<PRInt32>(small_buffer.size()), rv);
+  EXPECT_EQ(0, memcmp(data, small_buffer.data(), small_buffer.size()));
+
+  Handshake();  // Complete the handshake.
+  ExpectEarlyDataAccepted(true);
+  CheckConnected();
+
+  // After the handshake, it should be possible to read the remainder.
+  uint8_t big_buf[100];
+  rv = PR_Read(server_->ssl_fd(), big_buf, sizeof(big_buf));
+  EXPECT_EQ(static_cast<PRInt32>(sizeof(data) - small_buffer.size()), rv);
+  EXPECT_EQ(0, memcmp(&data[small_buffer.size()], big_buf,
+                      sizeof(data) - small_buffer.size()));
+
+  // And that's all there is to read.
+  rv = PR_Read(server_->ssl_fd(), big_buf, sizeof(big_buf));
+  EXPECT_GT(0, rv);
+  EXPECT_EQ(PR_WOULD_BLOCK_ERROR, PORT_GetError());
+}
+
+// Early data that arrives before the handshake can be read after the handshake
+// is complete.
+TEST_F(TlsConnectDatagram13, ZeroRttLateReadDtls) {
+  SetupForZeroRtt();
+  client_->Set0RttEnabled(true);
+  server_->Set0RttEnabled(true);
+  ExpectResumption(RESUME_TICKET);
+  client_->Handshake();  // ClientHello
+
+  // Write some early data.
+  const uint8_t data[] = {1, 2, 3};
+  PRInt32 written = PR_Write(client_->ssl_fd(), data, sizeof(data));
+  EXPECT_EQ(static_cast<PRInt32>(sizeof(data)), written);
+
+  Handshake();  // Complete the handshake.
+  ExpectEarlyDataAccepted(true);
+  CheckConnected();
+
+  // Reading at the server should return the early data, which was buffered.
+  uint8_t buf[sizeof(data) + 1] = {0};
+  PRInt32 read = PR_Read(server_->ssl_fd(), buf, sizeof(buf));
+  EXPECT_EQ(static_cast<PRInt32>(sizeof(data)), read);
+  EXPECT_EQ(0, memcmp(data, buf, sizeof(data)));
+}
+
+class PacketHolder : public PacketFilter {
+ public:
+  PacketHolder() = default;
+
+  virtual Action Filter(const DataBuffer& input, DataBuffer* output) {
+    packet_ = input;
+    Disable();
+    return DROP;
+  }
+
+  const DataBuffer& packet() const { return packet_; }
+
+ private:
+  DataBuffer packet_;
+};
+
+// Early data that arrives late is discarded for DTLS.
+TEST_F(TlsConnectDatagram13, ZeroRttLateArrivalDtls) {
+  SetupForZeroRtt();
+  client_->Set0RttEnabled(true);
+  server_->Set0RttEnabled(true);
+  ExpectResumption(RESUME_TICKET);
+  client_->Handshake();  // ClientHello
+
+  // Write some early data.  Twice, so that we can read bits of it.
+  const uint8_t data[] = {1, 2, 3};
+  PRInt32 written = PR_Write(client_->ssl_fd(), data, sizeof(data));
+  EXPECT_EQ(static_cast<PRInt32>(sizeof(data)), written);
+
+  // Block and capture the next packet.
+  auto holder = std::make_shared<PacketHolder>();
+  client_->SetFilter(holder);
+  written = PR_Write(client_->ssl_fd(), data, sizeof(data));
+  EXPECT_EQ(static_cast<PRInt32>(sizeof(data)), written);
+  EXPECT_FALSE(holder->enabled()) << "the filter should disable itself";
+
+  // Consume the ClientHello and generate ServerHello..Finished.
+  server_->Handshake();
+
+  // Read some of the data.
+  std::vector<uint8_t> small_buffer(sizeof(data));
+  PRInt32 read =
+      PR_Read(server_->ssl_fd(), small_buffer.data(), small_buffer.size());
+
+  EXPECT_EQ(static_cast<PRInt32>(small_buffer.size()), read);
+  EXPECT_EQ(0, memcmp(data, small_buffer.data(), small_buffer.size()));
+
+  Handshake();  // Complete the handshake.
+  ExpectEarlyDataAccepted(true);
+  CheckConnected();
+
+  server_->SendDirect(holder->packet());
+
+  // Reading now should return nothing, even though a valid packet was
+  // delivered.
+  read = PR_Read(server_->ssl_fd(), small_buffer.data(), small_buffer.size());
+  EXPECT_GT(0, read);
+  EXPECT_EQ(PR_WOULD_BLOCK_ERROR, PORT_GetError());
+}
+
+// Early data reads in TLS should be coalesced.
+TEST_F(TlsConnectStreamTls13, ZeroRttCoalesceReadTls) {
+  SetupForZeroRtt();
+  client_->Set0RttEnabled(true);
+  server_->Set0RttEnabled(true);
+  ExpectResumption(RESUME_TICKET);
+  client_->Handshake();  // ClientHello
+
+  // Write some early data.  In two writes.
+  const uint8_t data[] = {1, 2, 3, 4, 5, 6};
+  PRInt32 written = PR_Write(client_->ssl_fd(), data, 1);
+  EXPECT_EQ(1, written);
+
+  written = PR_Write(client_->ssl_fd(), data + 1, sizeof(data) - 1);
+  EXPECT_EQ(static_cast<PRInt32>(sizeof(data) - 1), written);
+
+  // Consume the ClientHello and generate ServerHello..Finished.
+  server_->Handshake();
+
+  // Read all of the data.
+  std::vector<uint8_t> buffer(sizeof(data));
+  PRInt32 read = PR_Read(server_->ssl_fd(), buffer.data(), buffer.size());
+  EXPECT_EQ(static_cast<PRInt32>(sizeof(data)), read);
+  EXPECT_EQ(0, memcmp(data, buffer.data(), sizeof(data)));
+
+  Handshake();  // Complete the handshake.
+  ExpectEarlyDataAccepted(true);
+  CheckConnected();
+}
+
+// Early data reads in DTLS should not be coalesced.
+TEST_F(TlsConnectDatagram13, ZeroRttNoCoalesceReadDtls) {
+  SetupForZeroRtt();
+  client_->Set0RttEnabled(true);
+  server_->Set0RttEnabled(true);
+  ExpectResumption(RESUME_TICKET);
+  client_->Handshake();  // ClientHello
+
+  // Write some early data.  In two writes.
+  const uint8_t data[] = {1, 2, 3, 4, 5, 6};
+  PRInt32 written = PR_Write(client_->ssl_fd(), data, 1);
+  EXPECT_EQ(1, written);
+
+  written = PR_Write(client_->ssl_fd(), data + 1, sizeof(data) - 1);
+  EXPECT_EQ(static_cast<PRInt32>(sizeof(data) - 1), written);
+
+  // Consume the ClientHello and generate ServerHello..Finished.
+  server_->Handshake();
+
+  // Try to read all of the data.
+  std::vector<uint8_t> buffer(sizeof(data));
+  PRInt32 read = PR_Read(server_->ssl_fd(), buffer.data(), buffer.size());
+  EXPECT_EQ(1, read);
+  EXPECT_EQ(0, memcmp(data, buffer.data(), 1));
+
+  // Read the remainder.
+  read = PR_Read(server_->ssl_fd(), buffer.data(), buffer.size());
+  EXPECT_EQ(static_cast<PRInt32>(sizeof(data) - 1), read);
+  EXPECT_EQ(0, memcmp(data + 1, buffer.data(), sizeof(data) - 1));
+
+  Handshake();  // Complete the handshake.
+  ExpectEarlyDataAccepted(true);
+  CheckConnected();
+}
+
+// Early data reads in DTLS should fail if the buffer is too small.
+TEST_F(TlsConnectDatagram13, ZeroRttShortReadDtls) {
+  SetupForZeroRtt();
+  client_->Set0RttEnabled(true);
+  server_->Set0RttEnabled(true);
+  ExpectResumption(RESUME_TICKET);
+  client_->Handshake();  // ClientHello
+
+  // Write some early data.  In two writes.
+  const uint8_t data[] = {1, 2, 3, 4, 5, 6};
+  PRInt32 written = PR_Write(client_->ssl_fd(), data, sizeof(data));
+  EXPECT_EQ(static_cast<PRInt32>(sizeof(data)), written);
+
+  // Consume the ClientHello and generate ServerHello..Finished.
+  server_->Handshake();
+
+  // Try to read all of the data into a small buffer.
+  std::vector<uint8_t> buffer(sizeof(data));
+  PRInt32 read = PR_Read(server_->ssl_fd(), buffer.data(), 1);
+  EXPECT_GT(0, read);
+  EXPECT_EQ(SSL_ERROR_RX_SHORT_DTLS_READ, PORT_GetError());
+
+  // Read again with more space.
+  read = PR_Read(server_->ssl_fd(), buffer.data(), buffer.size());
+  EXPECT_EQ(static_cast<PRInt32>(sizeof(data)), read);
+  EXPECT_EQ(0, memcmp(data, buffer.data(), sizeof(data)));
+
+  Handshake();  // Complete the handshake.
+  ExpectEarlyDataAccepted(true);
+  CheckConnected();
+}
+
+// There are few ways in which TLS uses the clock and most of those operate on
+// timescales that would be ridiculous to wait for in a test.  This is the one
+// test we have that uses the real clock.  It tests that time passes by checking
+// that a small sleep results in rejection of early data. 0-RTT has a
+// configurable timer, which makes it ideal for this.
+TEST_F(TlsConnectStreamTls13, TimePassesByDefault) {
+  // Calling EnsureTlsSetup() replaces the time function on client and server,
+  // and sets up anti-replay, which we don't want, so initialize each directly.
+  client_->EnsureTlsSetup();
+  server_->EnsureTlsSetup();
+  // StartConnect() calls EnsureTlsSetup(), so avoid that too.
+  client_->StartConnect();
+  server_->StartConnect();
+
+  // Set a tiny anti-replay window.  This has to be at least 2 milliseconds to
+  // have any chance of being relevant as that is the smallest window that we
+  // can detect.  Anything smaller rounds to zero.
+  static const unsigned int kTinyWindowMs = 5;
+  ResetAntiReplay(static_cast<PRTime>(kTinyWindowMs * PR_USEC_PER_MSEC));
+  server_->SetAntiReplayContext(anti_replay_);
+
+  ConfigureSessionCache(RESUME_BOTH, RESUME_TICKET);
+  ConfigureVersion(SSL_LIBRARY_VERSION_TLS_1_3);
+  server_->Set0RttEnabled(true);
+  Handshake();
+  CheckConnected();
+  SendReceive();  // Absorb a session ticket.
+  CheckKeys();
+
+  // Clear the first window.
+  PR_Sleep(PR_MillisecondsToInterval(kTinyWindowMs));
+
+  Reset();
+  client_->EnsureTlsSetup();
+  server_->EnsureTlsSetup();
+  client_->StartConnect();
+  server_->StartConnect();
+
+  // Early data is rejected by the server only if time passes for it as well.
+  client_->Set0RttEnabled(true);
+  server_->Set0RttEnabled(true);
+  ExpectResumption(RESUME_TICKET);
+  ZeroRttSendReceive(true, false, []() {
+    // Sleep long enough that we minimize the risk of our RTT estimation being
+    // duped by stutters in test execution.  This is very long to allow for
+    // flaky and low-end hardware, especially what our CI runs on.
+    PR_Sleep(PR_MillisecondsToInterval(1000));
+    return true;
+  });
+  Handshake();
+  ExpectEarlyDataAccepted(false);
+  CheckConnected();
+}
+
+// Test that SSL_CreateAntiReplayContext doesn't pass bad inputs.
+TEST_F(TlsConnectStreamTls13, BadAntiReplayArgs) {
+  SSLAntiReplayContext* p;
+  // Zero or negative window.
+  EXPECT_EQ(SECFailure, SSL_CreateAntiReplayContext(0, -1, 1, 1, &p));
+  EXPECT_EQ(SEC_ERROR_INVALID_ARGS, PORT_GetError());
+  EXPECT_EQ(SECFailure, SSL_CreateAntiReplayContext(0, 0, 1, 1, &p));
+  EXPECT_EQ(SEC_ERROR_INVALID_ARGS, PORT_GetError());
+  // Zero k.
+  EXPECT_EQ(SECFailure, SSL_CreateAntiReplayContext(0, 1, 0, 1, &p));
+  EXPECT_EQ(SEC_ERROR_INVALID_ARGS, PORT_GetError());
+  // Zero bits.
+  EXPECT_EQ(SECFailure, SSL_CreateAntiReplayContext(0, 1, 1, 0, &p));
+  EXPECT_EQ(SEC_ERROR_INVALID_ARGS, PORT_GetError());
+  EXPECT_EQ(SECFailure, SSL_CreateAntiReplayContext(0, 1, 1, 1, nullptr));
+  EXPECT_EQ(SEC_ERROR_INVALID_ARGS, PORT_GetError());
+
+  // Prove that these parameters do work, even if they are useless..
+  EXPECT_EQ(SECSuccess, SSL_CreateAntiReplayContext(0, 1, 1, 1, &p));
+  ASSERT_NE(nullptr, p);
+  ScopedSSLAntiReplayContext ctx(p);
+
+  // The socket isn't a client or server until later, so configuring a client
+  // should work OK.
+  client_->EnsureTlsSetup();
+  EXPECT_EQ(SECSuccess, SSL_SetAntiReplayContext(client_->ssl_fd(), ctx.get()));
+  EXPECT_EQ(SECSuccess, SSL_SetAntiReplayContext(client_->ssl_fd(), nullptr));
+}
+
+// See also TlsConnectGenericResumption.ResumeServerIncompatibleCipher
+TEST_P(TlsConnectTls13, ZeroRttDifferentCompatibleCipher) {
+  EnsureTlsSetup();
+  server_->EnableSingleCipher(TLS_AES_128_GCM_SHA256);
+  SetupForZeroRtt();
+  client_->Set0RttEnabled(true);
+  server_->Set0RttEnabled(true);
+  // Change the ciphersuite.  Resumption is OK because the hash is the same, but
+  // early data will be rejected.
+  server_->EnableSingleCipher(TLS_CHACHA20_POLY1305_SHA256);
+  ExpectResumption(RESUME_TICKET);
+
+  StartConnect();
+  ZeroRttSendReceive(true, false);
+
+  Handshake();
+  ExpectEarlyDataAccepted(false);
+  CheckConnected();
+  SendReceive();
+}
+
+// See also TlsConnectGenericResumption.ResumeServerIncompatibleCipher
+TEST_P(TlsConnectTls13, ZeroRttDifferentIncompatibleCipher) {
+  EnsureTlsSetup();
+  server_->EnableSingleCipher(TLS_AES_256_GCM_SHA384);
+  SetupForZeroRtt();
+  client_->Set0RttEnabled(true);
+  server_->Set0RttEnabled(true);
+  // Resumption is rejected because the hash is different.
+  server_->EnableSingleCipher(TLS_CHACHA20_POLY1305_SHA256);
+  ExpectResumption(RESUME_NONE);
+
+  StartConnect();
+  ZeroRttSendReceive(true, false);
+
+  Handshake();
+  ExpectEarlyDataAccepted(false);
+  CheckConnected();
+  SendReceive();
+}
+
+// The client failing to provide EndOfEarlyData results in failure.
+// After 0-RTT working perfectly, things fall apart later.
+// The server is unable to detect the change in keys, so it fails decryption.
+// The client thinks everything has worked until it gets the alert.
+TEST_F(TlsConnectStreamTls13, SuppressEndOfEarlyDataClientOnly) {
+  SetupForZeroRtt();
+  client_->Set0RttEnabled(true);
+  server_->Set0RttEnabled(true);
+  client_->SetOption(SSL_SUPPRESS_END_OF_EARLY_DATA, true);
+  ExpectResumption(RESUME_TICKET);
+  ZeroRttSendReceive(true, true);
+  ExpectAlert(server_, kTlsAlertBadRecordMac);
+  Handshake();
+  EXPECT_EQ(TlsAgent::STATE_CONNECTED, client_->state());
+  EXPECT_EQ(TlsAgent::STATE_ERROR, server_->state());
+  server_->CheckErrorCode(SSL_ERROR_BAD_MAC_READ);
+  client_->Handshake();
+  EXPECT_EQ(TlsAgent::STATE_ERROR, client_->state());
+  client_->CheckErrorCode(SSL_ERROR_BAD_MAC_ALERT);
+}
+
+TEST_P(TlsConnectGeneric, SuppressEndOfEarlyDataNoZeroRtt) {
+  EnsureTlsSetup();
+  client_->SetOption(SSL_SUPPRESS_END_OF_EARLY_DATA, true);
+  server_->SetOption(SSL_SUPPRESS_END_OF_EARLY_DATA, true);
+  Connect();
+  SendReceive();
 }
 
 #ifndef NSS_DISABLE_TLS_1_3

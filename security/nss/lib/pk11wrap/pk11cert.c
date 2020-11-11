@@ -5,6 +5,8 @@
  * This file manages PKCS #11 instances of certificates.
  */
 
+#include <stddef.h>
+
 #include "secport.h"
 #include "seccomon.h"
 #include "secmod.h"
@@ -184,7 +186,9 @@ PK11_IsUserCert(PK11SlotInfo *slot, CERTCertificate *cert,
             SECKEY_DestroyPublicKey(pubKey);
             return PR_FALSE;
         }
-        pk11_SignedToUnsigned(&theTemplate);
+        if (pubKey->keyType != ecKey) {
+            pk11_SignedToUnsigned(&theTemplate);
+        }
         if (pk11_FindObjectByTemplate(slot, &theTemplate, 1) != CK_INVALID_HANDLE) {
             SECKEY_DestroyPublicKey(pubKey);
             return PR_TRUE;
@@ -243,7 +247,7 @@ pk11_fastCert(PK11SlotInfo *slot, CK_OBJECT_HANDLE certID,
 
     /* Get the cryptoki object from the handle */
     token = PK11Slot_GetNSSToken(slot);
-    if (token->defaultSession) {
+    if (token && token->defaultSession) {
         co = nssCryptokiObject_Create(token, token->defaultSession, certID);
     } else {
         PORT_SetError(SEC_ERROR_NO_TOKEN);
@@ -305,9 +309,15 @@ PK11_MakeCertFromHandle(PK11SlotInfo *slot, CK_OBJECT_HANDLE certID,
     CERTCertificate *cert = NULL;
     CERTCertTrust *trust;
 
+    if (slot == NULL || certID == CK_INVALID_HANDLE) {
+        PORT_SetError(SEC_ERROR_INVALID_ARGS);
+        return NULL;
+    }
+
     cert = pk11_fastCert(slot, certID, privateLabel, &nickname);
-    if (cert == NULL)
+    if (cert == NULL) {
         goto loser;
+    }
 
     if (nickname) {
         if (cert->nickname != NULL) {
@@ -402,6 +412,93 @@ PK11_GetCertFromPrivateKey(SECKEYPrivateKey *privKey)
     }
     cert = PK11_MakeCertFromHandle(slot, certID, NULL);
     return (cert);
+}
+
+CK_OBJECT_HANDLE *
+PK11_FindCertHandlesForKeyHandle(PK11SlotInfo *slot, CK_OBJECT_HANDLE keyHandle,
+                                 int *certHandleCountOut)
+{
+    if (!slot || !certHandleCountOut || keyHandle == CK_INVALID_HANDLE) {
+        PORT_SetError(SEC_ERROR_INVALID_ARGS);
+        return NULL;
+    }
+
+    PORTCheapArenaPool arena;
+    PORT_InitCheapArena(&arena, DER_DEFAULT_CHUNKSIZE);
+    CK_ATTRIBUTE idTemplate[] = {
+        { CKA_ID, NULL, 0 },
+    };
+    const int idAttrCount = sizeof(idTemplate) / sizeof(idTemplate[0]);
+    CK_RV crv = PK11_GetAttributes(&arena.arena, slot, keyHandle, idTemplate, idAttrCount);
+    if (crv != CKR_OK) {
+        PORT_DestroyCheapArena(&arena);
+        PORT_SetError(PK11_MapError(crv));
+        return NULL;
+    }
+
+    if ((idTemplate[0].ulValueLen == 0) || (idTemplate[0].ulValueLen == -1)) {
+        PORT_DestroyCheapArena(&arena);
+        PORT_SetError(SEC_ERROR_BAD_KEY);
+        return NULL;
+    }
+
+    CK_OBJECT_CLASS searchClass = CKO_CERTIFICATE;
+    CK_ATTRIBUTE searchTemplate[] = {
+        idTemplate[0],
+        { CKA_CLASS, &searchClass, sizeof(searchClass) }
+    };
+    const size_t searchAttrCount = sizeof(searchTemplate) / sizeof(searchTemplate[0]);
+    CK_OBJECT_HANDLE *ids = pk11_FindObjectsByTemplate(slot, searchTemplate, searchAttrCount, certHandleCountOut);
+
+    PORT_DestroyCheapArena(&arena);
+    return ids;
+}
+
+CERTCertList *
+PK11_GetCertsMatchingPrivateKey(SECKEYPrivateKey *privKey)
+{
+    if (!privKey) {
+        PORT_SetError(SEC_ERROR_INVALID_ARGS);
+        return NULL;
+    }
+    CERTCertList *certs = CERT_NewCertList();
+    if (!certs) {
+        PORT_SetError(SEC_ERROR_NO_MEMORY);
+        return NULL;
+    }
+    PK11SlotInfo *slot = privKey->pkcs11Slot;
+    CK_OBJECT_HANDLE handle = privKey->pkcs11ID;
+    CK_OBJECT_HANDLE certID = PK11_MatchItem(slot, handle, CKO_CERTIFICATE);
+    /* If we can't get a matching certID, there are no matching certificates,
+     * which is not an error. */
+    if (certID == CK_INVALID_HANDLE) {
+        return certs;
+    }
+    int certHandleCount = 0;
+    CK_OBJECT_HANDLE *certHandles = PK11_FindCertHandlesForKeyHandle(slot, handle, &certHandleCount);
+    if (!certHandles) {
+        /* If certHandleCount is 0, there are no matching certificates, which is
+         * not an error. */
+        if (certHandleCount == 0) {
+            return certs;
+        }
+        CERT_DestroyCertList(certs);
+        return NULL;
+    }
+    int i;
+    for (i = 0; i < certHandleCount; i++) {
+        CERTCertificate *cert = PK11_MakeCertFromHandle(slot, certHandles[i], NULL);
+        /* If PK11_MakeCertFromHandle fails for one handle, optimistically
+           assume other handles may succeed (i.e. this is best-effort). */
+        if (!cert) {
+            continue;
+        }
+        if (CERT_AddCertToListTail(certs, cert) != SECSuccess) {
+            CERT_DestroyCertificate(cert);
+        }
+    }
+    PORT_Free(certHandles);
+    return certs;
 }
 
 /*
@@ -1051,8 +1148,11 @@ PK11_ImportCert(PK11SlotInfo *slot, CERTCertificate *cert,
     }
 
     /* need to get the cert as a stan cert */
-    if (cert->nssCertificate) {
-        c = cert->nssCertificate;
+    CERT_LockCertTempPerm(cert);
+    NSSCertificate *nssCert = cert->nssCertificate;
+    CERT_UnlockCertTempPerm(cert);
+    if (nssCert) {
+        c = nssCert;
     } else {
         c = STAN_GetNSSCertificate(cert);
         if (c == NULL) {
@@ -1158,29 +1258,6 @@ PK11_ImportDERCert(PK11SlotInfo *slot, SECItem *derCert,
 }
 
 /*
- * get a certificate handle, look at the cached handle first..
- */
-CK_OBJECT_HANDLE
-pk11_getcerthandle(PK11SlotInfo *slot, CERTCertificate *cert,
-                   CK_ATTRIBUTE *theTemplate, int tsize)
-{
-    CK_OBJECT_HANDLE certh;
-
-    if (cert->slot == slot) {
-        certh = cert->pkcs11ID;
-        if ((certh == CK_INVALID_HANDLE) ||
-            (cert->series != slot->series)) {
-            certh = pk11_FindObjectByTemplate(slot, theTemplate, tsize);
-            cert->pkcs11ID = certh;
-            cert->series = slot->series;
-        }
-    } else {
-        certh = pk11_FindObjectByTemplate(slot, theTemplate, tsize);
-    }
-    return certh;
-}
-
-/*
  * return the private key From a given Cert
  */
 SECKEYPrivateKey *
@@ -1188,33 +1265,12 @@ PK11_FindPrivateKeyFromCert(PK11SlotInfo *slot, CERTCertificate *cert,
                             void *wincx)
 {
     int err;
-    CK_OBJECT_CLASS certClass = CKO_CERTIFICATE;
-    CK_ATTRIBUTE theTemplate[] = {
-        { CKA_VALUE, NULL, 0 },
-        { CKA_CLASS, NULL, 0 }
-    };
-    /* if you change the array, change the variable below as well */
-    int tsize = sizeof(theTemplate) / sizeof(theTemplate[0]);
     CK_OBJECT_HANDLE certh;
     CK_OBJECT_HANDLE keyh;
-    CK_ATTRIBUTE *attrs = theTemplate;
     PRBool needLogin;
     SECStatus rv;
 
-    PK11_SETATTRS(attrs, CKA_VALUE, cert->derCert.data,
-                  cert->derCert.len);
-    attrs++;
-    PK11_SETATTRS(attrs, CKA_CLASS, &certClass, sizeof(certClass));
-
-    /*
-     * issue the find
-     */
-    rv = pk11_AuthenticateUnfriendly(slot, PR_TRUE, wincx);
-    if (rv != SECSuccess) {
-        return NULL;
-    }
-
-    certh = pk11_getcerthandle(slot, cert, theTemplate, tsize);
+    certh = PK11_FindCertInSlot(slot, cert, wincx);
     if (certh == CK_INVALID_HANDLE) {
         return NULL;
     }
@@ -1364,7 +1420,7 @@ PK11_ImportDERCertForKey(SECItem *derCert, char *nickname, void *wincx)
 
 static CK_OBJECT_HANDLE
 pk11_FindCertObjectByTemplate(PK11SlotInfo **slotPtr,
-                              CK_ATTRIBUTE *searchTemplate, int count, void *wincx)
+                              CK_ATTRIBUTE *searchTemplate, size_t count, void *wincx)
 {
     PK11SlotList *list;
     PK11SlotListElement *le;
@@ -1946,7 +2002,7 @@ PK11_FindObjectForCert(CERTCertificate *cert, void *wincx, PK11SlotInfo **pSlot)
         { CKA_CLASS, NULL, 0 },
         { CKA_VALUE, NULL, 0 },
     };
-    int templateSize = sizeof(searchTemplate) / sizeof(searchTemplate[0]);
+    const size_t templateSize = sizeof(searchTemplate) / sizeof(searchTemplate[0]);
 
     attr = searchTemplate;
     PK11_SETATTRS(attr, CKA_CLASS, &certClass, sizeof(certClass));
@@ -1954,8 +2010,7 @@ PK11_FindObjectForCert(CERTCertificate *cert, void *wincx, PK11SlotInfo **pSlot)
     PK11_SETATTRS(attr, CKA_VALUE, cert->derCert.data, cert->derCert.len);
 
     if (cert->slot) {
-        certHandle = pk11_getcerthandle(cert->slot, cert, searchTemplate,
-                                        templateSize);
+        certHandle = PK11_FindCertInSlot(cert->slot, cert, wincx);
         if (certHandle != CK_INVALID_HANDLE) {
             *pSlot = PK11_ReferenceSlot(cert->slot);
             return certHandle;
@@ -2495,7 +2550,7 @@ PK11_FindBestKEAMatch(CERTCertificate *server, void *wincx)
         rv = PK11_Authenticate(le->slot, PR_TRUE, wincx);
         if (rv != SECSuccess)
             continue;
-        if (le->slot->session == CK_INVALID_SESSION) {
+        if (le->slot->session == CK_INVALID_HANDLE) {
             continue;
         }
         returnedCert = pk11_GetKEAMate(le->slot, server);
@@ -2533,36 +2588,51 @@ PK11_GetKEAMatchedCerts(PK11SlotInfo *slot1, PK11SlotInfo *slot2,
     return SECFailure;
 }
 
-/*
- * return the private key From a given Cert
- */
 CK_OBJECT_HANDLE
-PK11_FindCertInSlot(PK11SlotInfo *slot, CERTCertificate *cert, void *wincx)
+PK11_FindEncodedCertInSlot(PK11SlotInfo *slot, SECItem *derCert, void *wincx)
 {
+    if (!slot || !derCert) {
+        PORT_SetError(SEC_ERROR_INVALID_ARGS);
+        return SECFailure;
+    }
+
     CK_OBJECT_CLASS certClass = CKO_CERTIFICATE;
     CK_ATTRIBUTE theTemplate[] = {
         { CKA_VALUE, NULL, 0 },
         { CKA_CLASS, NULL, 0 }
     };
-    /* if you change the array, change the variable below as well */
-    int tsize = sizeof(theTemplate) / sizeof(theTemplate[0]);
+    const size_t tsize = sizeof(theTemplate) / sizeof(theTemplate[0]);
     CK_ATTRIBUTE *attrs = theTemplate;
-    SECStatus rv;
 
-    PK11_SETATTRS(attrs, CKA_VALUE, cert->derCert.data,
-                  cert->derCert.len);
+    PK11_SETATTRS(attrs, CKA_VALUE, derCert->data, derCert->len);
     attrs++;
     PK11_SETATTRS(attrs, CKA_CLASS, &certClass, sizeof(certClass));
 
-    /*
-     * issue the find
-     */
-    rv = pk11_AuthenticateUnfriendly(slot, PR_TRUE, wincx);
+    SECStatus rv = pk11_AuthenticateUnfriendly(slot, PR_TRUE, wincx);
     if (rv != SECSuccess) {
         return CK_INVALID_HANDLE;
     }
 
-    return pk11_getcerthandle(slot, cert, theTemplate, tsize);
+    return pk11_FindObjectByTemplate(slot, theTemplate, tsize);
+}
+
+CK_OBJECT_HANDLE
+PK11_FindCertInSlot(PK11SlotInfo *slot, CERTCertificate *cert, void *wincx)
+{
+    CK_OBJECT_HANDLE certh;
+
+    if (cert->slot == slot) {
+        certh = cert->pkcs11ID;
+        if ((certh == CK_INVALID_HANDLE) ||
+            (cert->series != slot->series)) {
+            certh = PK11_FindEncodedCertInSlot(slot, &cert->derCert, wincx);
+            cert->pkcs11ID = certh;
+            cert->series = slot->series;
+        }
+    } else {
+        certh = PK11_FindEncodedCertInSlot(slot, &cert->derCert, wincx);
+    }
+    return certh;
 }
 
 /* Looking for PK11_GetKeyIDFromCert?
@@ -2690,30 +2760,12 @@ SECItem *
 PK11_GetLowLevelKeyIDForCert(PK11SlotInfo *slot,
                              CERTCertificate *cert, void *wincx)
 {
-    CK_OBJECT_CLASS certClass = CKO_CERTIFICATE;
-    CK_ATTRIBUTE theTemplate[] = {
-        { CKA_VALUE, NULL, 0 },
-        { CKA_CLASS, NULL, 0 }
-    };
-    /* if you change the array, change the variable below as well */
-    int tsize = sizeof(theTemplate) / sizeof(theTemplate[0]);
     CK_OBJECT_HANDLE certHandle;
-    CK_ATTRIBUTE *attrs = theTemplate;
     PK11SlotInfo *slotRef = NULL;
     SECItem *item;
-    SECStatus rv;
 
     if (slot) {
-        PK11_SETATTRS(attrs, CKA_VALUE, cert->derCert.data,
-                      cert->derCert.len);
-        attrs++;
-        PK11_SETATTRS(attrs, CKA_CLASS, &certClass, sizeof(certClass));
-
-        rv = pk11_AuthenticateUnfriendly(slot, PR_TRUE, wincx);
-        if (rv != SECSuccess) {
-            return NULL;
-        }
-        certHandle = pk11_getcerthandle(slot, cert, theTemplate, tsize);
+        certHandle = PK11_FindCertInSlot(slot, cert, wincx);
     } else {
         certHandle = PK11_FindObjectForCert(cert, wincx, &slotRef);
         if (certHandle == CK_INVALID_HANDLE) {

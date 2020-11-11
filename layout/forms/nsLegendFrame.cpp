@@ -6,6 +6,8 @@
 
 #include "nsLegendFrame.h"
 
+#include "mozilla/dom/HTMLLegendElement.h"
+#include "mozilla/PresShell.h"
 #include "ComputedStyle.h"
 #include "nsIContent.h"
 #include "nsGenericHTMLElement.h"
@@ -18,14 +20,15 @@
 
 using namespace mozilla;
 
-nsIFrame* NS_NewLegendFrame(nsIPresShell* aPresShell, ComputedStyle* aStyle) {
+nsIFrame* NS_NewLegendFrame(PresShell* aPresShell, ComputedStyle* aStyle) {
 #ifdef DEBUG
   const nsStyleDisplay* disp = aStyle->StyleDisplay();
   NS_ASSERTION(!disp->IsAbsolutelyPositionedStyle() && !disp->IsFloatingStyle(),
                "Legends should not be positioned and should not float");
 #endif
 
-  nsIFrame* f = new (aPresShell) nsLegendFrame(aStyle);
+  nsIFrame* f =
+      new (aPresShell) nsLegendFrame(aStyle, aPresShell->GetPresContext());
   f->AddStateBits(NS_BLOCK_FORMATTING_CONTEXT_STATE_BITS);
   return f;
 }
@@ -56,30 +59,35 @@ void nsLegendFrame::Reflow(nsPresContext* aPresContext,
                               aStatus);
 }
 
-int32_t nsLegendFrame::GetLogicalAlign(WritingMode aCBWM) {
-  int32_t intValue = NS_STYLE_TEXT_ALIGN_START;
-  nsGenericHTMLElement* content = nsGenericHTMLElement::FromNode(mContent);
-  if (content) {
-    const nsAttrValue* attr = content->GetParsedAttr(nsGkAtoms::align);
-    if (attr && attr->Type() == nsAttrValue::eEnum) {
-      intValue = attr->GetEnumValue();
-      switch (intValue) {
-        case NS_STYLE_TEXT_ALIGN_LEFT:
-          intValue = aCBWM.IsBidiLTR() ? NS_STYLE_TEXT_ALIGN_START
-                                       : NS_STYLE_TEXT_ALIGN_END;
-          break;
-        case NS_STYLE_TEXT_ALIGN_RIGHT:
-          intValue = aCBWM.IsBidiLTR() ? NS_STYLE_TEXT_ALIGN_END
-                                       : NS_STYLE_TEXT_ALIGN_START;
-          break;
-      }
-    }
+dom::HTMLLegendElement::LegendAlignValue nsLegendFrame::GetLogicalAlign(
+    WritingMode aCBWM) {
+  using LegendAlignValue = dom::HTMLLegendElement::LegendAlignValue;
+
+  auto* element = nsGenericHTMLElement::FromNode(mContent);
+  if (!element) {
+    return LegendAlignValue::InlineStart;
   }
-  return intValue;
+
+  const nsAttrValue* attr = element->GetParsedAttr(nsGkAtoms::align);
+  if (!attr || attr->Type() != nsAttrValue::eEnum) {
+    return LegendAlignValue::InlineStart;
+  }
+
+  auto value = static_cast<LegendAlignValue>(attr->GetEnumValue());
+  switch (value) {
+    case LegendAlignValue::Left:
+      return aCBWM.IsBidiLTR() ? LegendAlignValue::InlineStart
+                               : LegendAlignValue::InlineEnd;
+    case LegendAlignValue::Right:
+      return aCBWM.IsBidiLTR() ? LegendAlignValue::InlineEnd
+                               : LegendAlignValue::InlineStart;
+    default:
+      return value;
+  }
 }
 
 #ifdef DEBUG_FRAME_DUMP
 nsresult nsLegendFrame::GetFrameName(nsAString& aResult) const {
-  return MakeFrameName(NS_LITERAL_STRING("Legend"), aResult);
+  return MakeFrameName(u"Legend"_ns, aResult);
 }
 #endif

@@ -6,22 +6,19 @@
 #include "ClippedImage.h"
 
 #include <algorithm>
-#include <new>  // Workaround for bug in VS10; see bug 981264.
 #include <cmath>
+#include <new>  // Workaround for bug in VS10; see bug 981264.
 #include <utility>
-
-#include "gfxDrawable.h"
-#include "gfxPlatform.h"
-#include "gfxUtils.h"
-#include "mozilla/gfx/2D.h"
-#include "mozilla/Move.h"
-#include "mozilla/RefPtr.h"
-#include "mozilla/Pair.h"
-#include "mozilla/Tuple.h"
 
 #include "ImageRegion.h"
 #include "Orientation.h"
-#include "SVGImageContext.h"
+#include "gfxDrawable.h"
+#include "gfxPlatform.h"
+#include "gfxUtils.h"
+#include "mozilla/RefPtr.h"
+#include "mozilla/SVGImageContext.h"
+#include "mozilla/Tuple.h"
+#include "mozilla/gfx/2D.h"
 
 namespace mozilla {
 
@@ -214,14 +211,12 @@ ClippedImage::GetIntrinsicSize(nsSize* aSize) {
   return NS_OK;
 }
 
-NS_IMETHODIMP
-ClippedImage::GetIntrinsicRatio(nsSize* aRatio) {
+Maybe<AspectRatio> ClippedImage::GetIntrinsicRatio() {
   if (!ShouldClip()) {
-    return InnerImage()->GetIntrinsicRatio(aRatio);
+    return InnerImage()->GetIntrinsicRatio();
   }
 
-  *aRatio = nsSize(mClip.Width(), mClip.Height());
-  return NS_OK;
+  return Some(AspectRatio::FromSize(mClip.Width(), mClip.Height()));
 }
 
 NS_IMETHODIMP_(already_AddRefed<SourceSurface>)
@@ -241,13 +236,14 @@ ClippedImage::GetFrameAtSize(const IntSize& aSize, uint32_t aWhichFrame,
   return GetFrame(aWhichFrame, aFlags);
 }
 
-Pair<ImgDrawResult, RefPtr<SourceSurface>> ClippedImage::GetFrameInternal(
+std::pair<ImgDrawResult, RefPtr<SourceSurface>> ClippedImage::GetFrameInternal(
     const nsIntSize& aSize, const Maybe<SVGImageContext>& aSVGContext,
     uint32_t aWhichFrame, uint32_t aFlags, float aOpacity) {
   if (!ShouldClip()) {
     RefPtr<SourceSurface> surface = InnerImage()->GetFrame(aWhichFrame, aFlags);
-    return MakePair(surface ? ImgDrawResult::SUCCESS : ImgDrawResult::NOT_READY,
-                    std::move(surface));
+    return std::make_pair(
+        surface ? ImgDrawResult::SUCCESS : ImgDrawResult::NOT_READY,
+        std::move(surface));
   }
 
   float frameToDraw = InnerImage()->GetFrameIndex(aWhichFrame);
@@ -257,10 +253,11 @@ Pair<ImgDrawResult, RefPtr<SourceSurface>> ClippedImage::GetFrameInternal(
     // Create a surface to draw into.
     RefPtr<DrawTarget> target =
         gfxPlatform::GetPlatform()->CreateOffscreenContentDrawTarget(
-            IntSize(aSize.width, aSize.height), SurfaceFormat::B8G8R8A8);
+            IntSize(aSize.width, aSize.height), SurfaceFormat::OS_RGBA);
     if (!target || !target->IsValid()) {
       NS_ERROR("Could not create a DrawTarget");
-      return MakePair(ImgDrawResult::TEMPORARY_ERROR, RefPtr<SourceSurface>());
+      return std::make_pair(ImgDrawResult::TEMPORARY_ERROR,
+                            RefPtr<SourceSurface>());
     }
 
     RefPtr<gfxContext> ctx = gfxContext::CreateOrNull(target);
@@ -276,7 +273,7 @@ Pair<ImgDrawResult, RefPtr<SourceSurface>> ClippedImage::GetFrameInternal(
     // Actually draw. The callback will end up invoking DrawSingleTile.
     gfxUtils::DrawPixelSnapped(ctx, drawable, SizeDouble(aSize),
                                ImageRegion::Create(aSize),
-                               SurfaceFormat::B8G8R8A8, SamplingFilter::LINEAR,
+                               SurfaceFormat::OS_RGBA, SamplingFilter::LINEAR,
                                imgIContainer::FLAG_CLAMP);
 
     // Cache the resulting surface.
@@ -287,7 +284,7 @@ Pair<ImgDrawResult, RefPtr<SourceSurface>> ClippedImage::GetFrameInternal(
 
   MOZ_ASSERT(mCachedSurface, "Should have a cached surface now");
   RefPtr<SourceSurface> surface = mCachedSurface->Surface();
-  return MakePair(mCachedSurface->GetDrawResult(), std::move(surface));
+  return std::make_pair(mCachedSurface->GetDrawResult(), std::move(surface));
 }
 
 NS_IMETHODIMP_(bool)
@@ -387,7 +384,7 @@ ClippedImage::Draw(gfxContext* aContext, const nsIntSize& aSize,
 
     // Draw.
     gfxUtils::DrawPixelSnapped(aContext, drawable, SizeDouble(aSize), aRegion,
-                               SurfaceFormat::B8G8R8A8, aSamplingFilter,
+                               SurfaceFormat::OS_RGBA, aSamplingFilter,
                                aOpacity);
 
     return result;
@@ -514,7 +511,8 @@ nsIntSize ClippedImage::OptimalImageSizeForDest(const gfxSize& aDest,
 
     // Determine the size we'd prefer to render the inner image at, and ask the
     // inner image what size we should actually use.
-    gfxSize desiredSize(imgWidth * scale.width, imgHeight * scale.height);
+    gfxSize desiredSize(double(imgWidth) * scale.width,
+                        double(imgHeight) * scale.height);
     nsIntSize innerDesiredSize = InnerImage()->OptimalImageSizeForDest(
         desiredSize, aWhichFrame, aSamplingFilter, aFlags);
 

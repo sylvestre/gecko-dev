@@ -5,6 +5,7 @@
 from __future__ import absolute_import, print_function, unicode_literals
 
 import attr
+from six import text_type
 
 from ..config import GraphConfig
 from ..parameters import Parameters
@@ -22,7 +23,7 @@ class TransformConfig(object):
     kind = attr.ib()
 
     # the path to the kind configuration directory
-    path = attr.ib(type=basestring)
+    path = attr.ib(type=text_type)
 
     # the parsed contents of kind.yml
     config = attr.ib(type=dict)
@@ -36,6 +37,9 @@ class TransformConfig(object):
 
     # Global configuration of the taskgraph
     graph_config = attr.ib(type=GraphConfig)
+
+    # whether to write out artifacts for the decision task
+    write_artifacts = attr.ib(type=bool)
 
 
 @attr.s()
@@ -73,14 +77,16 @@ class ValidateSchema(object):
 
     def __call__(self, config, tasks):
         for task in tasks:
-            if 'name' in task:
+            if "name" in task:
                 error = "In {kind} kind task {name!r}:".format(
-                    kind=config.kind, name=task['name'])
-            elif 'label' in task:
-                error = "In job {label!r}:".format(label=task['label'])
-            elif 'primary-dependency' in task:
+                    kind=config.kind, name=task["name"]
+                )
+            elif "label" in task:
+                error = "In job {label!r}:".format(label=task["label"])
+            elif "primary-dependency" in task:
                 error = "In {kind} kind task for {dependency!r}:".format(
-                    kind=config.kind, dependency=task['primary-dependency'].label)
+                    kind=config.kind, dependency=task["primary-dependency"].label
+                )
             else:
                 error = "In unknown task:"
             validate_schema(self.schema, task, error)

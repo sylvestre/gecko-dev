@@ -10,10 +10,15 @@
  * liability, trademark and document use rules apply.
  */
 
+[Exposed=Window]
 interface Selection {
+  [NeedsCallerType]
   readonly attribute Node?         anchorNode;
+  [NeedsCallerType]
   readonly attribute unsigned long anchorOffset;
+  [NeedsCallerType]
   readonly attribute Node?         focusNode;
+  [NeedsCallerType]
   readonly attribute unsigned long focusOffset;
   readonly attribute boolean       isCollapsed;
   /**
@@ -35,7 +40,7 @@ interface Selection {
   /**
    * Removes a range from the current selection.
    */
-  [Throws]
+  [Throws, BinaryName="removeRangeAndUnselectFramesAndNotifyListeners"]
   void      removeRange(Range range);
   /**
    * Removes all ranges from the current selection.
@@ -101,7 +106,7 @@ partial interface Selection {
 
   /**
    * Return array of ranges intersecting with the given DOM interval.
-   */  
+   */
   [ChromeOnly,Throws,Pref="dom.testing.selection.GetRangesForInterval"]
   sequence<Range> GetRangesForInterval(Node beginNode, long beginOffset, Node endNode, long endOffset,
                                        boolean allowAdjacent);

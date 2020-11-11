@@ -12,11 +12,6 @@
   font-size: 1.0909rem;
 }
 
-.sidebar-panel:not([lwt-sidebar]) .sidebar-placesTree {
-  -moz-appearance: -moz-mac-source-list;
-  -moz-font-smoothing-background-color: -moz-mac-source-list;
-}
-
 :root[uidensity=touch] .sidebar-placesTreechildren::-moz-tree-row {
   min-height: 32px;
 }
@@ -27,30 +22,19 @@
 }
 
 .sidebar-panel:not([lwt-sidebar]) .sidebar-placesTreechildren::-moz-tree-row(selected,blur) {
-  -moz-appearance: -moz-mac-source-list-selection;
+  appearance: auto;
+  -moz-default-appearance: -moz-mac-source-list-selection;
   -moz-font-smoothing-background-color: -moz-mac-source-list-selection;
 }
 
 .sidebar-panel:not([lwt-sidebar-highlight]) .sidebar-placesTreechildren::-moz-tree-row(selected,focus) {
-  -moz-appearance: -moz-mac-active-source-list-selection;
+  appearance: auto;
+  -moz-default-appearance: -moz-mac-active-source-list-selection;
   -moz-font-smoothing-background-color: -moz-mac-active-source-list-selection;
 }
 
 .sidebar-placesTreechildren::-moz-tree-cell-text {
   margin-inline-end: 6px;
-}
-
-/* Match selected item styling for -moz-appearance values on OSX 10.9 */
-@media (-moz-mac-yosemite-theme: 0) {
-  .sidebar-placesTreechildren::-moz-tree-image(selected),
-  .sidebar-placesTreechildren::-moz-tree-twisty(selected),
-  .sidebar-placesTreechildren::-moz-tree-cell-text(selected) {
-    color: #fff;
-  }
-
-  .sidebar-placesTreechildren::-moz-tree-cell-text(selected) {
-    font-weight: bold;
-  }
 }
 
 #sidebar-search-container {

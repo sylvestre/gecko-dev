@@ -26,9 +26,10 @@ class TaskbarWindowPreview : public TaskbarPreview,
   virtual ~TaskbarWindowPreview();
 
  public:
-  TaskbarWindowPreview(ITaskbarList4 *aTaskbar,
-                       nsITaskbarPreviewController *aController, HWND aHWND,
-                       nsIDocShell *aShell);
+  TaskbarWindowPreview(ITaskbarList4* aTaskbar,
+                       nsITaskbarPreviewController* aController, HWND aHWND,
+                       nsIDocShell* aShell);
+  virtual nsresult Init() override;
 
   NS_DECL_ISUPPORTS
   NS_DECL_NSITASKBARWINDOWPREVIEW
@@ -40,7 +41,7 @@ class TaskbarWindowPreview : public TaskbarPreview,
 
  private:
   virtual nsresult ShowActive(bool active) override;
-  virtual HWND &PreviewWindow() override;
+  virtual HWND& PreviewWindow() override;
 
   virtual nsresult UpdateTaskbarProperties() override;
   virtual nsresult Enable() override;
@@ -72,8 +73,8 @@ class TaskbarWindowPreview : public TaskbarPreview,
   nsString mIconDescription;
 
   // WindowHook procedure for hooking mWnd for taskbar progress and icon stuff
-  static bool TaskbarWindowHook(void *aContext, HWND hWnd, UINT nMsg,
-                                WPARAM wParam, LPARAM lParam, LRESULT *aResult);
+  static bool TaskbarWindowHook(void* aContext, HWND hWnd, UINT nMsg,
+                                WPARAM wParam, LPARAM lParam, LRESULT* aResult);
 
   friend class TaskbarPreviewButton;
 };

@@ -1,3 +1,4 @@
+// |reftest| async
 // Copyright (C) 2018 Jordan Harband. All rights reserved.
 // This code is governed by the BSD license found in the LICENSE file.
 /*---
@@ -16,7 +17,8 @@ class FooPromise extends Promise {
   }
 }
 
-FooPromise.reject().finally(() => {}).then($ERROR).catch(() => {
-  assert.sameValue(7, count);
-  $DONE();
-});
+FooPromise.reject().finally(() => {}).then(value => {
+  throw new Test262Error("Expected Promise to be rejected, got: resolved with " + value);
+}, () => {
+  assert.sameValue(count, 7);
+}).then($DONE, $DONE);

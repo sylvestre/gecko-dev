@@ -5,8 +5,12 @@
 
 var EXPORTED_SYMBOLS = ["PlacesUtils"];
 
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
-ChromeUtils.import("resource://gre/modules/AppConstants.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+const { AppConstants } = ChromeUtils.import(
+  "resource://gre/modules/AppConstants.jsm"
+);
 
 XPCOMUtils.defineLazyGlobalGetters(this, ["URL"]);
 
@@ -17,6 +21,7 @@ XPCOMUtils.defineLazyModuleGetters(this, {
   Bookmarks: "resource://gre/modules/Bookmarks.jsm",
   History: "resource://gre/modules/History.jsm",
   PlacesSyncUtils: "resource://gre/modules/PlacesSyncUtils.jsm",
+  PromiseUtils: "resource://gre/modules/PromiseUtils.jsm",
 });
 
 XPCOMUtils.defineLazyGetter(this, "MOZ_ACTION_REGEX", () => {
@@ -75,50 +80,29 @@ async function notifyKeywordChange(url, keyword, source) {
   let bookmarks = [];
   await PlacesUtils.bookmarks.fetch({ url }, b => bookmarks.push(b));
   for (let bookmark of bookmarks) {
-    let ids = await PlacesUtils.promiseManyItemIds([bookmark.guid,
-                                                    bookmark.parentGuid]);
+    let ids = await PlacesUtils.promiseManyItemIds([
+      bookmark.guid,
+      bookmark.parentGuid,
+    ]);
     bookmark.id = ids.get(bookmark.guid);
     bookmark.parentId = ids.get(bookmark.parentGuid);
   }
   let observers = PlacesUtils.bookmarks.getObservers();
   for (let bookmark of bookmarks) {
-    notify(observers, "onItemChanged", [ bookmark.id, "keyword", false,
-                                         keyword,
-                                         bookmark.lastModified * 1000,
-                                         bookmark.type,
-                                         bookmark.parentId,
-                                         bookmark.guid, bookmark.parentGuid,
-                                         "", source,
-                                       ]);
+    notify(observers, "onItemChanged", [
+      bookmark.id,
+      "keyword",
+      false,
+      keyword,
+      bookmark.lastModified * 1000,
+      bookmark.type,
+      bookmark.parentId,
+      bookmark.guid,
+      bookmark.parentGuid,
+      "",
+      source,
+    ]);
   }
-}
-
-/**
- * Synchonously fetches all annotations for an item, including all properties of
- * each annotation which would be required to recreate it.
- * @note The async version (PlacesUtils.promiseAnnotationsForItem) should be
- *       used, unless there's absolutely no way to make the caller async.
- * @param aItemId
- *        The identifier of the itme for which annotations are to be
- *        retrieved.
- * @return Array of objects, each containing the following properties:
- *         name, flags, expires, mimeType, type, value
- */
-function getAnnotationsForItem(aItemId) {
-  var annos = [];
-  var annoNames = PlacesUtils.annotations.getItemAnnotationNames(aItemId);
-  for (let name of annoNames) {
-    let value = {}, flags = {}, exp = {}, storageType = {};
-    PlacesUtils.annotations.getItemAnnotationInfo(aItemId, name, value,
-                                                  flags, exp, storageType);
-    annos.push({
-      name,
-      flags: flags.value,
-      expires: exp.value,
-      value: value.value,
-    });
-  }
-  return annos;
 }
 
 /**
@@ -144,8 +128,11 @@ function serializeNode(aNode) {
 
   // Some nodes, e.g. the unfiled/menu/toolbar ones can have a virtual guid, so
   // we ignore any that are a folder shortcut. These will be handled below.
-  if (guid && !PlacesUtils.bookmarks.isVirtualRootItem(guid) &&
-      !PlacesUtils.isVirtualLeftPaneItem(guid)) {
+  if (
+    guid &&
+    !PlacesUtils.bookmarks.isVirtualRootItem(guid) &&
+    !PlacesUtils.isVirtualLeftPaneItem(guid)
+  ) {
     if (aNode.parent) {
       data.parent = aNode.parent.itemId;
       data.parentGuid = aNode.parent.bookmarkGuid;
@@ -153,10 +140,6 @@ function serializeNode(aNode) {
 
     data.dateAdded = aNode.dateAdded;
     data.lastModified = aNode.lastModified;
-
-    let annos = getAnnotationsForItem(data.id);
-    if (annos.length > 0)
-      data.annos = annos;
   }
 
   if (PlacesUtils.nodeIsURI(aNode)) {
@@ -164,8 +147,9 @@ function serializeNode(aNode) {
     new URL(aNode.uri);
     data.type = PlacesUtils.TYPE_X_MOZ_PLACE;
     data.uri = aNode.uri;
-    if (aNode.tags)
+    if (aNode.tags) {
       data.tags = aNode.tags;
+    }
   } else if (PlacesUtils.nodeIsFolder(aNode)) {
     if (aNode.type == Ci.nsINavHistoryResultNode.RESULT_TYPE_FOLDER_SHORTCUT) {
       data.type = PlacesUtils.TYPE_X_MOZ_PLACE;
@@ -200,8 +184,9 @@ const DB_DESCRIPTION_LENGTH_MAX = 256;
  */
 function simpleValidateFunc(boolValidateFn) {
   return (v, input) => {
-    if (!boolValidateFn(v, input))
+    if (!boolValidateFn(v, input)) {
       throw new Error("Invalid value");
+    }
     return v;
   };
 }
@@ -215,56 +200,83 @@ const BOOKMARK_VALIDATORS = Object.freeze({
   guid: simpleValidateFunc(v => PlacesUtils.isValidGuid(v)),
   parentGuid: simpleValidateFunc(v => PlacesUtils.isValidGuid(v)),
   guidPrefix: simpleValidateFunc(v => PlacesUtils.isValidGuidPrefix(v)),
-  index: simpleValidateFunc(v => Number.isInteger(v) &&
-                                 v >= PlacesUtils.bookmarks.DEFAULT_INDEX),
+  index: simpleValidateFunc(
+    v => Number.isInteger(v) && v >= PlacesUtils.bookmarks.DEFAULT_INDEX
+  ),
   dateAdded: simpleValidateFunc(v => v.constructor.name == "Date"),
   lastModified: simpleValidateFunc(v => v.constructor.name == "Date"),
-  type: simpleValidateFunc(v => Number.isInteger(v) &&
-                                [ PlacesUtils.bookmarks.TYPE_BOOKMARK,
-                                  PlacesUtils.bookmarks.TYPE_FOLDER,
-                                  PlacesUtils.bookmarks.TYPE_SEPARATOR ].includes(v)),
+  type: simpleValidateFunc(
+    v =>
+      Number.isInteger(v) &&
+      [
+        PlacesUtils.bookmarks.TYPE_BOOKMARK,
+        PlacesUtils.bookmarks.TYPE_FOLDER,
+        PlacesUtils.bookmarks.TYPE_SEPARATOR,
+      ].includes(v)
+  ),
   title: v => {
     if (v === null) {
       return "";
     }
-    if (typeof(v) == "string") {
+    if (typeof v == "string") {
       return v.slice(0, DB_TITLE_LENGTH_MAX);
     }
     throw new Error("Invalid title");
   },
   url: v => {
-    simpleValidateFunc(val => (typeof(val) == "string" && val.length <= DB_URL_LENGTH_MAX) ||
-                              (val instanceof Ci.nsIURI && val.spec.length <= DB_URL_LENGTH_MAX) ||
-                              (val instanceof URL && val.href.length <= DB_URL_LENGTH_MAX)
-                      ).call(this, v);
-    if (typeof(v) === "string")
+    simpleValidateFunc(
+      val =>
+        (typeof val == "string" && val.length <= DB_URL_LENGTH_MAX) ||
+        (val instanceof Ci.nsIURI && val.spec.length <= DB_URL_LENGTH_MAX) ||
+        (val instanceof URL && val.href.length <= DB_URL_LENGTH_MAX)
+    ).call(this, v);
+    if (typeof v === "string") {
       return new URL(v);
-    if (v instanceof Ci.nsIURI)
+    }
+    if (v instanceof Ci.nsIURI) {
       return new URL(v.spec);
+    }
     return v;
   },
-  source: simpleValidateFunc(v => Number.isInteger(v) &&
-                                  Object.values(PlacesUtils.bookmarks.SOURCES).includes(v)),
-  annos: simpleValidateFunc(v => Array.isArray(v) && v.length),
-  keyword: simpleValidateFunc(v => (typeof(v) == "string") && v.length),
-  charset: simpleValidateFunc(v => (typeof(v) == "string") && v.length),
-  postData: simpleValidateFunc(v => (typeof(v) == "string") && v.length),
-  tags: simpleValidateFunc(v => Array.isArray(v) && v.length &&
-                                v.every(item => item && typeof item == "string")),
+  source: simpleValidateFunc(
+    v =>
+      Number.isInteger(v) &&
+      Object.values(PlacesUtils.bookmarks.SOURCES).includes(v)
+  ),
+  keyword: simpleValidateFunc(v => typeof v == "string" && v.length),
+  charset: simpleValidateFunc(v => typeof v == "string" && v.length),
+  postData: simpleValidateFunc(v => typeof v == "string" && v.length),
+  tags: simpleValidateFunc(
+    v =>
+      Array.isArray(v) &&
+      v.length &&
+      v.every(item => item && typeof item == "string")
+  ),
 });
 
 // Sync bookmark records can contain additional properties.
 const SYNC_BOOKMARK_VALIDATORS = Object.freeze({
   // Sync uses Places GUIDs for all records except roots.
-  recordId: simpleValidateFunc(v => typeof v == "string" && (
-                                (PlacesSyncUtils.bookmarks.ROOTS.includes(v) || PlacesUtils.isValidGuid(v)))),
+  recordId: simpleValidateFunc(
+    v =>
+      typeof v == "string" &&
+      (PlacesSyncUtils.bookmarks.ROOTS.includes(v) ||
+        PlacesUtils.isValidGuid(v))
+  ),
   parentRecordId: v => SYNC_BOOKMARK_VALIDATORS.recordId(v),
   // Sync uses kinds instead of types.
-  kind: simpleValidateFunc(v => typeof v == "string" &&
-                                Object.values(PlacesSyncUtils.bookmarks.KINDS).includes(v)),
+  kind: simpleValidateFunc(
+    v =>
+      typeof v == "string" &&
+      Object.values(PlacesSyncUtils.bookmarks.KINDS).includes(v)
+  ),
   query: simpleValidateFunc(v => v === null || (typeof v == "string" && v)),
-  folder: simpleValidateFunc(v => typeof v == "string" && v &&
-                                  v.length <= PlacesUtils.bookmarks.MAX_TAG_LENGTH),
+  folder: simpleValidateFunc(
+    v =>
+      typeof v == "string" &&
+      v &&
+      v.length <= PlacesUtils.bookmarks.MAX_TAG_LENGTH
+  ),
   tags: v => {
     if (v === null) {
       return [];
@@ -273,18 +285,24 @@ const SYNC_BOOKMARK_VALIDATORS = Object.freeze({
       throw new Error("Invalid tag array");
     }
     for (let tag of v) {
-      if (typeof tag != "string" || !tag ||
-          tag.length > PlacesUtils.bookmarks.MAX_TAG_LENGTH) {
+      if (
+        typeof tag != "string" ||
+        !tag ||
+        tag.length > PlacesUtils.bookmarks.MAX_TAG_LENGTH
+      ) {
         throw new Error(`Invalid tag: ${tag}`);
       }
     }
     return v;
   },
   keyword: simpleValidateFunc(v => v === null || typeof v == "string"),
-  dateAdded: simpleValidateFunc(v => typeof v === "number"
-    && v > PlacesSyncUtils.bookmarks.EARLIEST_BOOKMARK_TIMESTAMP),
-  feed: v => v === null ? v : BOOKMARK_VALIDATORS.url(v),
-  site: v => v === null ? v : BOOKMARK_VALIDATORS.url(v),
+  dateAdded: simpleValidateFunc(
+    v =>
+      typeof v === "number" &&
+      v > PlacesSyncUtils.bookmarks.EARLIEST_BOOKMARK_TIMESTAMP
+  ),
+  feed: v => (v === null ? v : BOOKMARK_VALIDATORS.url(v)),
+  site: v => (v === null ? v : BOOKMARK_VALIDATORS.url(v)),
   title: BOOKMARK_VALIDATORS.title,
   url: BOOKMARK_VALIDATORS.url,
 });
@@ -295,8 +313,11 @@ const SYNC_BOOKMARK_VALIDATORS = Object.freeze({
 const SYNC_CHANGE_RECORD_VALIDATORS = Object.freeze({
   modified: simpleValidateFunc(v => typeof v == "number" && v >= 0),
   counter: simpleValidateFunc(v => typeof v == "number" && v >= 0),
-  status: simpleValidateFunc(v => typeof v == "number" &&
-                                  Object.values(PlacesUtils.bookmarks.SYNC_STATUS).includes(v)),
+  status: simpleValidateFunc(
+    v =>
+      typeof v == "number" &&
+      Object.values(PlacesUtils.bookmarks.SYNC_STATUS).includes(v)
+  ),
   tombstone: simpleValidateFunc(v => v === true || v === false),
   synced: simpleValidateFunc(v => v === true || v === false),
 });
@@ -312,7 +333,9 @@ const PAGEINFO_VALIDATORS = Object.freeze({
     } else if (typeof v === "string") {
       return v;
     }
-    throw new TypeError(`title property of PageInfo object: ${v} must be a string if provided`);
+    throw new TypeError(
+      `title property of PageInfo object: ${v} must be a string if provided`
+    );
   },
   previewImageURL: v => {
     if (!v) {
@@ -324,31 +347,36 @@ const PAGEINFO_VALIDATORS = Object.freeze({
     if (typeof v === "string" || v === null) {
       return v ? v.slice(0, DB_DESCRIPTION_LENGTH_MAX) : null;
     }
-    throw new TypeError(`description property of pageInfo object: ${v} must be either a string or null if provided`);
+    throw new TypeError(
+      `description property of pageInfo object: ${v} must be either a string or null if provided`
+    );
   },
   annotations: v => {
-    if (typeof v != "object" ||
-        v.constructor.name != "Map") {
-        throw new TypeError("annotations must be a Map");
-      }
+    if (typeof v != "object" || v.constructor.name != "Map") {
+      throw new TypeError("annotations must be a Map");
+    }
 
-      if (v.size == 0) {
-        throw new TypeError("there must be at least one annotation");
-      }
+    if (v.size == 0) {
+      throw new TypeError("there must be at least one annotation");
+    }
 
-      for (let [key, value] of v.entries()) {
-        if (typeof key != "string") {
-          throw new TypeError("all annotation keys must be strings");
-        }
-        if (typeof value != "string" &&
-            typeof value != "number" &&
-            typeof value != "boolean" &&
-            value !== null &&
-            value !== undefined) {
-          throw new TypeError("all annotation values must be Boolean, Numbers or Strings");
-        }
+    for (let [key, value] of v.entries()) {
+      if (typeof key != "string") {
+        throw new TypeError("all annotation keys must be strings");
       }
-      return v;
+      if (
+        typeof value != "string" &&
+        typeof value != "number" &&
+        typeof value != "boolean" &&
+        value !== null &&
+        value !== undefined
+      ) {
+        throw new TypeError(
+          "all annotation values must be Boolean, Numbers or Strings"
+        );
+      }
+    }
+    return v;
   },
   visits: v => {
     if (!Array.isArray(v) || !v.length) {
@@ -362,12 +390,14 @@ const PAGEINFO_VALIDATORS = Object.freeze({
       };
 
       if (!PlacesUtils.history.isValidTransition(visit.transition)) {
-        throw new TypeError(`transition: ${visit.transition} is not a valid transition type`);
+        throw new TypeError(
+          `transition: ${visit.transition} is not a valid transition type`
+        );
       }
 
       if (inVisit.date) {
         PlacesUtils.history.ensureDate(inVisit.date);
-        if (inVisit.date > (Date.now() + TIMERS_RESOLUTION_SKEW_MS)) {
+        if (inVisit.date > Date.now() + TIMERS_RESOLUTION_SKEW_MS) {
           throw new TypeError(`date: ${inVisit.date} cannot be a future date`);
         }
         visit.date = inVisit.date;
@@ -381,7 +411,6 @@ const PAGEINFO_VALIDATORS = Object.freeze({
     return visits;
   },
 });
-
 
 var PlacesUtils = {
   // Place entries that are containers, e.g. bookmark folders or queries.
@@ -410,20 +439,18 @@ var PlacesUtils = {
   TOPIC_INIT_COMPLETE: "places-init-complete",
   TOPIC_DATABASE_LOCKED: "places-database-locked",
   TOPIC_EXPIRATION_FINISHED: "places-expiration-finished",
-  TOPIC_FEEDBACK_UPDATED: "places-autocomplete-feedback-updated",
   TOPIC_FAVICONS_EXPIRED: "places-favicons-expired",
   TOPIC_VACUUM_STARTING: "places-vacuum-starting",
   TOPIC_BOOKMARKS_RESTORE_BEGIN: "bookmarks-restore-begin",
   TOPIC_BOOKMARKS_RESTORE_SUCCESS: "bookmarks-restore-success",
   TOPIC_BOOKMARKS_RESTORE_FAILED: "bookmarks-restore-failed",
 
-  ACTION_SCHEME: "moz-action:",
   observers: PlacesObservers,
 
   /**
-    * GUIDs associated with virtual queries that are used for displaying the
-    * top-level folders in the left pane.
-    */
+   * GUIDs associated with virtual queries that are used for displaying the
+   * top-level folders in the left pane.
+   */
   virtualAllBookmarksGuid: "allbms_____v",
   virtualHistoryGuid: "history____v",
   virtualDownloadsGuid: "downloads__v",
@@ -436,12 +463,13 @@ var PlacesUtils = {
    * @returns {Boolean} true if guid is a virtual root, false otherwise.
    */
   isVirtualLeftPaneItem(guid) {
-    return guid == PlacesUtils.virtualAllBookmarksGuid ||
-           guid == PlacesUtils.virtualHistoryGuid ||
-           guid == PlacesUtils.virtualDownloadsGuid ||
-           guid == PlacesUtils.virtualTagsGuid;
+    return (
+      guid == PlacesUtils.virtualAllBookmarksGuid ||
+      guid == PlacesUtils.virtualHistoryGuid ||
+      guid == PlacesUtils.virtualDownloadsGuid ||
+      guid == PlacesUtils.virtualTagsGuid
+    );
   },
-
 
   asContainer: aNode => asContainer(aNode),
   asQuery: aNode => asQuery(aNode),
@@ -455,8 +483,7 @@ var PlacesUtils = {
    * @return (Boolean)
    */
   isValidGuid(guid) {
-    return typeof guid == "string" && guid &&
-           (/^[a-zA-Z0-9\-_]{12}$/.test(guid));
+    return typeof guid == "string" && guid && /^[a-zA-Z0-9\-_]{12}$/.test(guid);
   },
 
   /**
@@ -465,10 +492,25 @@ var PlacesUtils = {
    * @param guidPrefix: (String)
    * @return (Boolean)
    */
-   isValidGuidPrefix(guidPrefix) {
-     return typeof guidPrefix == "string" && guidPrefix &&
-            (/^[a-zA-Z0-9\-_]{1,11}$/.test(guidPrefix));
-   },
+  isValidGuidPrefix(guidPrefix) {
+    return (
+      typeof guidPrefix == "string" &&
+      guidPrefix &&
+      /^[a-zA-Z0-9\-_]{1,11}$/.test(guidPrefix)
+    );
+  },
+
+  /**
+   * Generates a random GUID and replace its beginning with the given
+   * prefix. We do this instead of just prepending the prefix to keep
+   * the correct character length.
+   *
+   * @param prefix: (String)
+   * @return (String)
+   */
+  generateGuidWithPrefix(prefix) {
+    return prefix + this.history.makeGuid().substring(prefix.length);
+  },
 
   /**
    * Converts a string or n URL object to an nsIURI.
@@ -478,7 +520,7 @@ var PlacesUtils = {
    * @return nsIURI for the given URL.
    */
   toURI(url) {
-    url = (url instanceof URL) ? url.href : url;
+    url = url instanceof URL ? url.href : url;
 
     return NetUtil.newURI(url);
   },
@@ -491,8 +533,9 @@ var PlacesUtils = {
    * @return microseconds from the epoch.
    */
   toPRTime(date) {
-    if (typeof date != "number" && date.constructor.name != "Date")
+    if (typeof date != "number" && date.constructor.name != "Date") {
       throw new Error("Invalid value passed to toPRTime");
+    }
     return date * 1000;
   },
 
@@ -504,8 +547,9 @@ var PlacesUtils = {
    * @return a Date object.
    */
   toDate(time) {
-    if (typeof time != "number")
+    if (typeof time != "number") {
       throw new Error("Invalid value passed to toDate");
+    }
     return new Date(parseInt(time / 1000));
   },
 
@@ -516,40 +560,19 @@ var PlacesUtils = {
    * @returns A nsISupportsString object containing a string.
    */
   toISupportsString: function PU_toISupportsString(aString) {
-    let s = Cc["@mozilla.org/supports-string;1"].
-            createInstance(Ci.nsISupportsString);
+    let s = Cc["@mozilla.org/supports-string;1"].createInstance(
+      Ci.nsISupportsString
+    );
     s.data = aString;
     return s;
   },
 
   getFormattedString: function PU_getFormattedString(key, params) {
-    return bundle.formatStringFromName(key, params, params.length);
+    return bundle.formatStringFromName(key, params);
   },
 
   getString: function PU_getString(key) {
     return bundle.GetStringFromName(key);
-  },
-
-  /**
-   * Makes a moz-action URI for the given action and set of parameters.
-   *
-   * @param   type
-   *          The action type.
-   * @param   params
-   *          A JS object of action params.
-   * @returns A moz-action URI as a string.
-   */
-  mozActionURI(type, params) {
-    let encodedParams = {};
-    for (let key in params) {
-      // Strip null or undefined.
-      // Regardless, don't encode them or they would be converted to a string.
-      if (params[key] === null || params[key] === undefined) {
-        continue;
-      }
-      encodedParams[key] = encodeURIComponent(params[key]);
-    }
-    return this.ACTION_SCHEME + type + "," + JSON.stringify(encodedParams);
   },
 
   /**
@@ -559,13 +582,15 @@ var PlacesUtils = {
    * @note URL is in the format moz-action:ACTION,JSON_ENCODED_PARAMS
    */
   parseActionUrl(url) {
-    if (url instanceof Ci.nsIURI)
+    if (url instanceof Ci.nsIURI) {
       url = url.spec;
-    else if (url instanceof URL)
+    } else if (url instanceof URL) {
       url = url.href;
+    }
     // Faster bailout.
-    if (!url.startsWith(this.ACTION_SCHEME))
+    if (!url.startsWith("moz-action:")) {
       return null;
+    }
 
     try {
       let [, type, params] = url.match(MOZ_ACTION_REGEX);
@@ -597,11 +622,10 @@ var PlacesUtils = {
    *          ]
    */
   convertMatchBucketsStringToArray(str) {
-    return str.split(",")
-              .map(v => {
-                let bucket = v.split(":");
-                return [ bucket[0].trim().toLowerCase(), Number(bucket[1]) ];
-              });
+    return str.split(",").map(v => {
+      let bucket = v.split(":");
+      return [bucket[0].trim().toLowerCase(), Number(bucket[1])];
+    });
   },
 
   /**
@@ -623,8 +647,10 @@ var PlacesUtils = {
    * @returns true if the node is a Bookmark folder, false otherwise
    */
   nodeIsFolder: function PU_nodeIsFolder(aNode) {
-    return (aNode.type == Ci.nsINavHistoryResultNode.RESULT_TYPE_FOLDER ||
-            aNode.type == Ci.nsINavHistoryResultNode.RESULT_TYPE_FOLDER_SHORTCUT);
+    return (
+      aNode.type == Ci.nsINavHistoryResultNode.RESULT_TYPE_FOLDER ||
+      aNode.type == Ci.nsINavHistoryResultNode.RESULT_TYPE_FOLDER_SHORTCUT
+    );
   },
 
   /**
@@ -634,8 +660,10 @@ var PlacesUtils = {
    * @returns true if the node represents a bookmarked URI, false otherwise
    */
   nodeIsBookmark: function PU_nodeIsBookmark(aNode) {
-    return aNode.type == Ci.nsINavHistoryResultNode.RESULT_TYPE_URI &&
-           aNode.itemId != -1;
+    return (
+      aNode.type == Ci.nsINavHistoryResultNode.RESULT_TYPE_URI &&
+      aNode.itemId != -1
+    );
   },
 
   /**
@@ -712,29 +740,46 @@ var PlacesUtils = {
    * @note any unknown properties are pass-through.
    */
   validateItemProperties(name, validators, props, behavior = {}) {
-    if (typeof props != "object" || !props)
+    if (typeof props != "object" || !props) {
       throw new Error(`${name}: Input should be a valid object`);
+    }
     // Make a shallow copy of `props` to avoid mutating the original object
     // when filling in defaults.
     let input = Object.assign({}, props);
     let normalizedInput = {};
     let required = new Set();
     for (let prop in behavior) {
-      if (behavior[prop].hasOwnProperty("required") && behavior[prop].required) {
+      if (
+        behavior[prop].hasOwnProperty("required") &&
+        behavior[prop].required
+      ) {
         required.add(prop);
       }
-      if (behavior[prop].hasOwnProperty("requiredIf") && behavior[prop].requiredIf(input)) {
+      if (
+        behavior[prop].hasOwnProperty("requiredIf") &&
+        behavior[prop].requiredIf(input)
+      ) {
         required.add(prop);
       }
-      if (behavior[prop].hasOwnProperty("validIf") && input[prop] !== undefined &&
-          !behavior[prop].validIf(input)) {
+      if (
+        behavior[prop].hasOwnProperty("validIf") &&
+        input[prop] !== undefined &&
+        !behavior[prop].validIf(input)
+      ) {
         if (behavior[prop].hasOwnProperty("fixup")) {
           behavior[prop].fixup(input);
         } else {
-          throw new Error(`${name}: Invalid value for property '${prop}': ${JSON.stringify(input[prop])}`);
+          throw new Error(
+            `${name}: Invalid value for property '${prop}': ${JSON.stringify(
+              input[prop]
+            )}`
+          );
         }
       }
-      if (behavior[prop].hasOwnProperty("defaultValue") && input[prop] === undefined) {
+      if (
+        behavior[prop].hasOwnProperty("defaultValue") &&
+        input[prop] === undefined
+      ) {
         input[prop] = behavior[prop].defaultValue;
       }
       if (behavior[prop].hasOwnProperty("replaceWith")) {
@@ -753,17 +798,29 @@ var PlacesUtils = {
         try {
           normalizedInput[prop] = validators[prop](input[prop], input);
         } catch (ex) {
-          if (behavior.hasOwnProperty(prop) && behavior[prop].hasOwnProperty("fixup")) {
+          if (
+            behavior.hasOwnProperty(prop) &&
+            behavior[prop].hasOwnProperty("fixup")
+          ) {
             behavior[prop].fixup(input);
             normalizedInput[prop] = input[prop];
           } else {
-            throw new Error(`${name}: Invalid value for property '${prop}': ${JSON.stringify(input[prop])}`);
+            throw new Error(
+              `${name}: Invalid value for property '${prop}': ${JSON.stringify(
+                input[prop]
+              )}`
+            );
           }
         }
       }
     }
-    if (required.size > 0)
-      throw new Error(`${name}: The following properties were expected: ${[...required].join(", ")}`);
+    if (required.size > 0) {
+      throw new Error(
+        `${name}: The following properties were expected: ${[...required].join(
+          ", "
+        )}`
+      );
+    }
     return normalizedInput;
   },
 
@@ -771,12 +828,12 @@ var PlacesUtils = {
   SYNC_BOOKMARK_VALIDATORS,
   SYNC_CHANGE_RECORD_VALIDATORS,
 
-  QueryInterface: ChromeUtils.generateQI([Ci.nsIObserver]),
+  QueryInterface: ChromeUtils.generateQI(["nsIObserver"]),
 
   _shutdownFunctions: [],
   registerShutdownFunction: function PU_registerShutdownFunction(aFunc) {
     // If this is the first registered function, add the shutdown observer.
-    if (this._shutdownFunctions.length == 0) {
+    if (!this._shutdownFunctions.length) {
       Services.obs.addObserver(this, this.TOPIC_SHUTDOWN);
     }
     this._shutdownFunctions.push(aFunc);
@@ -787,7 +844,7 @@ var PlacesUtils = {
     switch (aTopic) {
       case this.TOPIC_SHUTDOWN:
         Services.obs.removeObserver(this, this.TOPIC_SHUTDOWN);
-        while (this._shutdownFunctions.length > 0) {
+        while (this._shutdownFunctions.length) {
           this._shutdownFunctions.shift().apply(this);
         }
         break;
@@ -801,10 +858,12 @@ var PlacesUtils = {
    * @returns true if the node is a host container, false otherwise
    */
   nodeIsHost: function PU_nodeIsHost(aNode) {
-    return aNode.type == Ci.nsINavHistoryResultNode.RESULT_TYPE_QUERY &&
-           aNode.parent &&
-           asQuery(aNode.parent).queryOptions.resultType ==
-             Ci.nsINavHistoryQueryOptions.RESULTS_AS_SITE_QUERY;
+    return (
+      aNode.type == Ci.nsINavHistoryResultNode.RESULT_TYPE_QUERY &&
+      aNode.parent &&
+      asQuery(aNode.parent).queryOptions.resultType ==
+        Ci.nsINavHistoryQueryOptions.RESULTS_AS_SITE_QUERY
+    );
   },
 
   /**
@@ -815,11 +874,13 @@ var PlacesUtils = {
    */
   nodeIsDay: function PU_nodeIsDay(aNode) {
     var resultType;
-    return aNode.type == Ci.nsINavHistoryResultNode.RESULT_TYPE_QUERY &&
-           aNode.parent &&
-           ((resultType = asQuery(aNode.parent).queryOptions.resultType) ==
-               Ci.nsINavHistoryQueryOptions.RESULTS_AS_DATE_QUERY ||
-             resultType == Ci.nsINavHistoryQueryOptions.RESULTS_AS_DATE_SITE_QUERY);
+    return (
+      aNode.type == Ci.nsINavHistoryResultNode.RESULT_TYPE_QUERY &&
+      aNode.parent &&
+      ((resultType = asQuery(aNode.parent).queryOptions.resultType) ==
+        Ci.nsINavHistoryQueryOptions.RESULTS_AS_DATE_QUERY ||
+        resultType == Ci.nsINavHistoryQueryOptions.RESULTS_AS_DATE_SITE_QUERY)
+    );
   },
 
   /**
@@ -829,19 +890,28 @@ var PlacesUtils = {
    * @returns true if the node is a tag container, false otherwise
    */
   nodeIsTagQuery: function PU_nodeIsTagQuery(aNode) {
-    if (aNode.type != Ci.nsINavHistoryResultNode.RESULT_TYPE_QUERY)
+    if (aNode.type != Ci.nsINavHistoryResultNode.RESULT_TYPE_QUERY) {
       return false;
+    }
     // Direct child of RESULTS_AS_TAGS_ROOT.
     let parent = aNode.parent;
-    if (parent && PlacesUtils.asQuery(parent).queryOptions.resultType ==
-                    Ci.nsINavHistoryQueryOptions.RESULTS_AS_TAGS_ROOT)
+    if (
+      parent &&
+      PlacesUtils.asQuery(parent).queryOptions.resultType ==
+        Ci.nsINavHistoryQueryOptions.RESULTS_AS_TAGS_ROOT
+    ) {
       return true;
+    }
     // We must also support the right pane of the Library, when the tag query
     // is the root node. Unfortunately this is also valid for any tag query
     // selected in the left pane that is not a direct child of RESULTS_AS_TAGS_ROOT.
-    if (!parent && aNode == aNode.parentResult.root &&
-        PlacesUtils.asQuery(aNode).query.tags.length == 1)
+    if (
+      !parent &&
+      aNode == aNode.parentResult.root &&
+      PlacesUtils.asQuery(aNode).query.tags.length == 1
+    ) {
       return true;
+    }
     return false;
   },
 
@@ -851,9 +921,11 @@ var PlacesUtils = {
    *          A result node
    * @returns true if the node is a container item, false otherwise
    */
-  containerTypes: [Ci.nsINavHistoryResultNode.RESULT_TYPE_FOLDER,
-                   Ci.nsINavHistoryResultNode.RESULT_TYPE_FOLDER_SHORTCUT,
-                   Ci.nsINavHistoryResultNode.RESULT_TYPE_QUERY],
+  containerTypes: [
+    Ci.nsINavHistoryResultNode.RESULT_TYPE_FOLDER,
+    Ci.nsINavHistoryResultNode.RESULT_TYPE_FOLDER_SHORTCUT,
+    Ci.nsINavHistoryResultNode.RESULT_TYPE_QUERY,
+  ],
   nodeIsContainer: function PU_nodeIsContainer(aNode) {
     return this.containerTypes.includes(aNode.type);
   },
@@ -866,13 +938,15 @@ var PlacesUtils = {
    */
   nodeIsHistoryContainer: function PU_nodeIsHistoryContainer(aNode) {
     var resultType;
-    return this.nodeIsQuery(aNode) &&
-           ((resultType = asQuery(aNode).queryOptions.resultType) ==
-              Ci.nsINavHistoryQueryOptions.RESULTS_AS_DATE_SITE_QUERY ||
-            resultType == Ci.nsINavHistoryQueryOptions.RESULTS_AS_DATE_QUERY ||
-            resultType == Ci.nsINavHistoryQueryOptions.RESULTS_AS_SITE_QUERY ||
-            this.nodeIsDay(aNode) ||
-            this.nodeIsHost(aNode));
+    return (
+      this.nodeIsQuery(aNode) &&
+      ((resultType = asQuery(aNode).queryOptions.resultType) ==
+        Ci.nsINavHistoryQueryOptions.RESULTS_AS_DATE_SITE_QUERY ||
+        resultType == Ci.nsINavHistoryQueryOptions.RESULTS_AS_DATE_QUERY ||
+        resultType == Ci.nsINavHistoryQueryOptions.RESULTS_AS_SITE_QUERY ||
+        this.nodeIsDay(aNode) ||
+        this.nodeIsHost(aNode))
+    );
   },
 
   /**
@@ -880,8 +954,9 @@ var PlacesUtils = {
    * node.itemId, but for folder-shortcuts that's node.folderItemId.
    */
   getConcreteItemId: function PU_getConcreteItemId(aNode) {
-    return aNode.type == Ci.nsINavHistoryResultNode.RESULT_TYPE_FOLDER_SHORTCUT ?
-             asQuery(aNode).folderItemId : aNode.itemId;
+    return aNode.type == Ci.nsINavHistoryResultNode.RESULT_TYPE_FOLDER_SHORTCUT
+      ? asQuery(aNode).folderItemId
+      : aNode.itemId;
   },
 
   /**
@@ -894,8 +969,9 @@ var PlacesUtils = {
    * @return the concrete item-guid for aNode.
    */
   getConcreteItemGuid(aNode) {
-    if (aNode.type == Ci.nsINavHistoryResultNode.RESULT_TYPE_FOLDER_SHORTCUT)
+    if (aNode.type == Ci.nsINavHistoryResultNode.RESULT_TYPE_FOLDER_SHORTCUT) {
       return asQuery(aNode).targetFolderGuid;
+    }
     return aNode.bookmarkGuid;
   },
 
@@ -909,7 +985,12 @@ var PlacesUtils = {
    * @return the reversed host string.
    */
   getReversedHost(url) {
-    return url.host.split("").reverse().join("") + ".";
+    return (
+      url.host
+        .split("")
+        .reverse()
+        .join("") + "."
+    );
   },
 
   /**
@@ -929,10 +1010,16 @@ var PlacesUtils = {
     // organizer.
     // @return [node, shouldClose]
     function gatherDataFromNode(node, gatherDataFunc) {
-      if (PlacesUtils.nodeIsFolder(node) &&
-          node.type != Ci.nsINavHistoryResultNode.RESULT_TYPE_FOLDER_SHORTCUT &&
-          asQuery(node).queryOptions.excludeItems) {
-        let folderRoot = PlacesUtils.getFolderContents(node.bookmarkGuid, false, true).root;
+      if (
+        PlacesUtils.nodeIsFolder(node) &&
+        node.type != Ci.nsINavHistoryResultNode.RESULT_TYPE_FOLDER_SHORTCUT &&
+        asQuery(node).queryOptions.excludeItems
+      ) {
+        let folderRoot = PlacesUtils.getFolderContents(
+          node.bookmarkGuid,
+          false,
+          true
+        ).root;
         try {
           return gatherDataFunc(folderRoot);
         } finally {
@@ -944,11 +1031,13 @@ var PlacesUtils = {
     }
 
     function gatherDataHtml(node) {
-      let htmlEscape = s => s.replace(/&/g, "&amp;")
-                             .replace(/>/g, "&gt;")
-                             .replace(/</g, "&lt;")
-                             .replace(/"/g, "&quot;")
-                             .replace(/'/g, "&apos;");
+      let htmlEscape = s =>
+        s
+          .replace(/&/g, "&amp;")
+          .replace(/>/g, "&gt;")
+          .replace(/</g, "&lt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&apos;");
 
       // escape out potential HTML in the title
       let escapedTitle = node.title ? htmlEscape(node.title) : "";
@@ -956,25 +1045,29 @@ var PlacesUtils = {
       if (PlacesUtils.nodeIsContainer(node)) {
         asContainer(node);
         let wasOpen = node.containerOpen;
-        if (!wasOpen)
+        if (!wasOpen) {
           node.containerOpen = true;
+        }
 
         let childString = "<DL><DT>" + escapedTitle + "</DT>" + NEWLINE;
         let cc = node.childCount;
         for (let i = 0; i < cc; ++i) {
-          childString += "<DD>"
-                         + NEWLINE
-                         + gatherDataHtml(node.getChild(i))
-                         + "</DD>"
-                         + NEWLINE;
+          childString +=
+            "<DD>" +
+            NEWLINE +
+            gatherDataHtml(node.getChild(i)) +
+            "</DD>" +
+            NEWLINE;
         }
         node.containerOpen = wasOpen;
         return childString + "</DL>" + NEWLINE;
       }
-      if (PlacesUtils.nodeIsURI(node))
+      if (PlacesUtils.nodeIsURI(node)) {
         return `<A HREF="${node.uri}">${escapedTitle}</A>${NEWLINE}`;
-      if (PlacesUtils.nodeIsSeparator(node))
+      }
+      if (PlacesUtils.nodeIsSeparator(node)) {
         return "<HR>" + NEWLINE;
+      }
       return "";
     }
 
@@ -982,23 +1075,26 @@ var PlacesUtils = {
       if (PlacesUtils.nodeIsContainer(node)) {
         asContainer(node);
         let wasOpen = node.containerOpen;
-        if (!wasOpen)
+        if (!wasOpen) {
           node.containerOpen = true;
+        }
 
         let childString = node.title + NEWLINE;
         let cc = node.childCount;
         for (let i = 0; i < cc; ++i) {
           let child = node.getChild(i);
-          let suffix = i < (cc - 1) ? NEWLINE : "";
+          let suffix = i < cc - 1 ? NEWLINE : "";
           childString += gatherDataText(child) + suffix;
         }
         node.containerOpen = wasOpen;
         return childString;
       }
-      if (PlacesUtils.nodeIsURI(node))
+      if (PlacesUtils.nodeIsURI(node)) {
         return node.uri;
-      if (PlacesUtils.nodeIsSeparator(node))
+      }
+      if (PlacesUtils.nodeIsSeparator(node)) {
         return "--------------------";
+      }
       return "";
     }
 
@@ -1037,6 +1133,7 @@ var PlacesUtils = {
    * @param   type
    *          The content type of the blob.
    * @returns An array of objects representing each item contained by the source.
+   * @throws if the blob contains invalid data.
    */
   unwrapNodes: function PU_unwrapNodes(blob, type) {
     // We split on "\n"  because the transferable system converts "\r\n" to "\n"
@@ -1052,25 +1149,30 @@ var PlacesUtils = {
         // data in this type has 2 parts per entry, so if there are fewer
         // than 2 parts left, the blob is malformed and we should stop
         // but drag and drop of files from the shell has parts.length = 1
-        if (parts.length != 1 && parts.length % 2)
+        if (parts.length != 1 && parts.length % 2) {
           break;
+        }
         for (let i = 0; i < parts.length; i = i + 2) {
           let uriString = parts[i];
           let titleString = "";
-          if (parts.length > i + 1)
+          if (parts.length > i + 1) {
             titleString = parts[i + 1];
-          else {
+          } else {
             // for drag and drop of files, try to use the leafName as title
             try {
-              titleString = Services.io.newURI(uriString).QueryInterface(Ci.nsIURL)
-                                .fileName;
+              titleString = Services.io
+                .newURI(uriString)
+                .QueryInterface(Ci.nsIURL).fileName;
             } catch (ex) {}
           }
           // note:  Services.io.newURI() will throw if uriString is not a valid URI
-          if (Services.io.newURI(uriString)) {
-            nodes.push({ uri: uriString,
-                         title: titleString ? titleString : uriString,
-                         type: this.TYPE_X_MOZ_URL });
+          let uri = Services.io.newURI(uriString);
+          if (Services.io.newURI(uriString) && uri.scheme != "place") {
+            nodes.push({
+              uri: uriString,
+              title: titleString ? titleString : uriString,
+              type: this.TYPE_X_MOZ_URL,
+            });
           }
         }
         break;
@@ -1080,19 +1182,25 @@ var PlacesUtils = {
         for (let i = 0; i < parts.length; i++) {
           let uriString = parts[i];
           // text/uri-list is converted to TYPE_UNICODE but it could contain
-          // comments line prepended by #, we should skip them
-          if (uriString.substr(0, 1) == "\x23")
+          // comments line prepended by #, we should skip them, as well as
+          // empty uris.
+          if (uriString.substr(0, 1) == "\x23" || uriString == "") {
             continue;
+          }
           // note: Services.io.newURI) will throw if uriString is not a valid URI
-          if (uriString != "" && Services.io.newURI(uriString))
-            nodes.push({ uri: uriString,
-                         title: uriString,
-                         type: this.TYPE_X_MOZ_URL });
+          let uri = Services.io.newURI(uriString);
+          if (uri.scheme != "place") {
+            nodes.push({
+              uri: uriString,
+              title: uriString,
+              type: this.TYPE_X_MOZ_URL,
+            });
+          }
         }
         break;
       }
       default:
-        throw Cr.NS_ERROR_INVALID_ARG;
+        throw Components.Exception("", Cr.NS_ERROR_INVALID_ARG);
     }
     return nodes;
   },
@@ -1104,11 +1212,16 @@ var PlacesUtils = {
    * @return (PageInfo)
    */
   validatePageInfo(pageInfo, validateVisits = true) {
-    return this.validateItemProperties("PageInfo", PAGEINFO_VALIDATORS, pageInfo,
-      { url: { requiredIf: b => !b.guid },
+    return this.validateItemProperties(
+      "PageInfo",
+      PAGEINFO_VALIDATORS,
+      pageInfo,
+      {
+        url: { requiredIf: b => !b.guid },
         guid: { requiredIf: b => !b.url },
-        visits: { requiredIf: b => validateVisits  },
-      });
+        visits: { requiredIf: b => validateVisits },
+      }
+    );
   },
   /**
    * Normalize a key to either a string (if it is a valid GUID) or an
@@ -1154,7 +1267,7 @@ var PlacesUtils = {
       throw new Error("aFolderGuid should be a valid GUID.");
     }
     var query = this.history.getNewQuery();
-    query.setParents([aFolderGuid], 1);
+    query.setParents([aFolderGuid]);
     var options = this.history.getNewQueryOptions();
     options.excludeItems = aExcludeItems;
     options.expandQueries = aExpandQueries;
@@ -1164,84 +1277,27 @@ var PlacesUtils = {
     return result;
   },
 
-  /**
-   * Fetch all annotations for an item, including all properties of each
-   * annotation which would be required to recreate it.
-   * @param itemId
-   *        The identifier of the itme for which annotations are to be
-   *        retrieved.
-   * @return Array of objects, each containing the following properties:
-   *         name, flags, expires, mimeType, type, value
-   */
-  async promiseAnnotationsForItem(itemId) {
-    let db =  await PlacesUtils.promiseDBConnection();
-    let rows = await db.executeCached(
-      `SELECT n.name, a.content, a.expiration, a.flags
-       FROM moz_items_annos a
-       JOIN moz_anno_attributes n ON a.anno_attribute_id = n.id
-       WHERE a.item_id = :itemId
-      `, { itemId });
-
-    let result = [];
-    for (let row of rows) {
-      let anno = {
-        name: row.getResultByName("name"),
-        value: row.getResultByName("content"),
-        expires: row.getResultByName("expiration"),
-        flags: row.getResultByName("flags"),
-      };
-      result.push(anno);
-    }
-
-    return result;
-  },
-
-  /**
-   * Annotate an item with a batch of annotations.
-   * @param aItemId
-   *        The identifier of the item for which annotations are to be set
-   * @param aAnnotations
-   *        Array of objects, each containing the following properties:
-   *        name, flags, expires.
-   *        If the value for an annotation is not set it will be removed.
-   */
-  setAnnotationsForItem: function PU_setAnnotationsForItem(aItemId, aAnnos, aSource, aDontUpdateLastModified) {
-    var annosvc = this.annotations;
-
-    aAnnos.forEach(function(anno) {
-      if (anno.value === undefined || anno.value === null) {
-        annosvc.removeItemAnnotation(aItemId, anno.name, aSource);
-      } else {
-        let flags = ("flags" in anno) ? anno.flags : 0;
-        let expires = ("expires" in anno) ?
-          anno.expires : Ci.nsIAnnotationService.EXPIRE_NEVER;
-        annosvc.setItemAnnotation(aItemId, anno.name, anno.value, flags,
-                                  expires, aSource, aDontUpdateLastModified);
-      }
-    });
-  },
-
   // Identifier getters for special folders.
   // You should use these everywhere PlacesUtils is available to avoid XPCOM
   // traversal just to get roots' ids.
   get placesRootId() {
     delete this.placesRootId;
-    return this.placesRootId = this.bookmarks.placesRoot;
+    return (this.placesRootId = this.bookmarks.placesRoot);
   },
 
   get bookmarksMenuFolderId() {
     delete this.bookmarksMenuFolderId;
-    return this.bookmarksMenuFolderId = this.bookmarks.bookmarksMenuFolder;
+    return (this.bookmarksMenuFolderId = this.bookmarks.bookmarksMenuFolder);
   },
 
   get toolbarFolderId() {
     delete this.toolbarFolderId;
-    return this.toolbarFolderId = this.bookmarks.toolbarFolder;
+    return (this.toolbarFolderId = this.bookmarks.toolbarFolder);
   },
 
   get tagsFolderId() {
     delete this.tagsFolderId;
-    return this.tagsFolderId = this.bookmarks.tagsFolder;
+    return (this.tagsFolderId = this.bookmarks.tagsFolder);
   },
 
   /**
@@ -1251,12 +1307,14 @@ var PlacesUtils = {
    * @returns {Boolean} true if guid is a root, false otherwise.
    */
   isRootItem(guid) {
-    return guid == PlacesUtils.bookmarks.menuGuid ||
-           guid == PlacesUtils.bookmarks.toolbarGuid ||
-           guid == PlacesUtils.bookmarks.unfiledGuid ||
-           guid == PlacesUtils.bookmarks.tagsGuid ||
-           guid == PlacesUtils.bookmarks.rootGuid ||
-           guid == PlacesUtils.bookmarks.mobileGuid;
+    return (
+      guid == PlacesUtils.bookmarks.menuGuid ||
+      guid == PlacesUtils.bookmarks.toolbarGuid ||
+      guid == PlacesUtils.bookmarks.unfiledGuid ||
+      guid == PlacesUtils.bookmarks.tagsGuid ||
+      guid == PlacesUtils.bookmarks.rootGuid ||
+      guid == PlacesUtils.bookmarks.mobileGuid
+    );
   },
 
   /**
@@ -1276,24 +1334,32 @@ var PlacesUtils = {
    * @note    The returned container node could be open or closed, we don't
    *          guarantee its status.
    */
-  getContainerNodeWithOptions:
-  function PU_getContainerNodeWithOptions(aNode, aExcludeItems, aExpandQueries) {
-    if (!this.nodeIsContainer(aNode))
-      throw Cr.NS_ERROR_INVALID_ARG;
+  getContainerNodeWithOptions: function PU_getContainerNodeWithOptions(
+    aNode,
+    aExcludeItems,
+    aExpandQueries
+  ) {
+    if (!this.nodeIsContainer(aNode)) {
+      throw Components.Exception("", Cr.NS_ERROR_INVALID_ARG);
+    }
 
     // excludeItems is inherited by child containers in an excludeItems view.
-    var excludeItems = asQuery(aNode).queryOptions.excludeItems ||
-                       asQuery(aNode.parentResult.root).queryOptions.excludeItems;
+    var excludeItems =
+      asQuery(aNode).queryOptions.excludeItems ||
+      asQuery(aNode.parentResult.root).queryOptions.excludeItems;
     // expandQueries is inherited by child containers in an expandQueries view.
-    var expandQueries = asQuery(aNode).queryOptions.expandQueries &&
-                        asQuery(aNode.parentResult.root).queryOptions.expandQueries;
+    var expandQueries =
+      asQuery(aNode).queryOptions.expandQueries &&
+      asQuery(aNode.parentResult.root).queryOptions.expandQueries;
 
     // If our options are exactly what we expect, directly return the node.
-    if (excludeItems == aExcludeItems && expandQueries == aExpandQueries)
+    if (excludeItems == aExcludeItems && expandQueries == aExpandQueries) {
       return aNode;
+    }
 
     // Otherwise, get contents manually.
-    var query = {}, options = {};
+    var query = {},
+      options = {};
     this.history.queryStringToQuery(aNode.uri, query, options);
     options.value.excludeItems = aExcludeItems;
     options.value.expandQueries = aExpandQueries;
@@ -1308,8 +1374,9 @@ var PlacesUtils = {
    * @returns true if the node contains uri nodes, false otherwise.
    */
   hasChildURIs: function PU_hasChildURIs(aNode) {
-    if (!this.nodeIsContainer(aNode))
+    if (!this.nodeIsContainer(aNode)) {
       return false;
+    }
 
     let root = this.getContainerNodeWithOptions(aNode, false, true);
     let result = root.parentResult;
@@ -1317,8 +1384,9 @@ var PlacesUtils = {
     let wasOpen = root.containerOpen;
     if (!wasOpen) {
       didSuppressNotifications = result.suppressNotifications;
-      if (!didSuppressNotifications)
+      if (!didSuppressNotifications) {
         result.suppressNotifications = true;
+      }
 
       root.containerOpen = true;
     }
@@ -1326,16 +1394,25 @@ var PlacesUtils = {
     let found = false;
     for (let i = 0; i < root.childCount && !found; i++) {
       let child = root.getChild(i);
-      if (this.nodeIsURI(child))
+      if (this.nodeIsURI(child)) {
         found = true;
+      }
     }
 
     if (!wasOpen) {
       root.containerOpen = false;
-      if (!didSuppressNotifications)
+      if (!didSuppressNotifications) {
         result.suppressNotifications = false;
+      }
     }
     return found;
+  },
+
+  getChildCountForFolder(guid) {
+    let folder = PlacesUtils.getFolderContents(guid).root;
+    let childCount = folder.childCount;
+    folder.containerOpen = false;
+    return childCount;
   },
 
   /**
@@ -1348,8 +1425,9 @@ var PlacesUtils = {
    */
   getURLsForContainerNode: function PU_getURLsForContainerNode(aNode) {
     let urls = [];
-    if (!this.nodeIsContainer(aNode))
+    if (!this.nodeIsContainer(aNode)) {
       return urls;
+    }
 
     let root = this.getContainerNodeWithOptions(aNode, false, true);
     let result = root.parentResult;
@@ -1357,26 +1435,29 @@ var PlacesUtils = {
     let didSuppressNotifications = false;
     if (!wasOpen) {
       didSuppressNotifications = result.suppressNotifications;
-      if (!didSuppressNotifications)
+      if (!didSuppressNotifications) {
         result.suppressNotifications = true;
+      }
 
       root.containerOpen = true;
     }
 
     for (let i = 0; i < root.childCount; ++i) {
       let child = root.getChild(i);
-      if (this.nodeIsURI(child))
+      if (this.nodeIsURI(child)) {
         urls.push({
           uri: child.uri,
           isBookmark: this.nodeIsBookmark(child),
           title: child.title,
         });
+      }
     }
 
     if (!wasOpen) {
       root.containerOpen = false;
-      if (!didSuppressNotifications)
+      if (!didSuppressNotifications) {
         result.suppressNotifications = false;
+      }
     }
     return urls;
   },
@@ -1403,6 +1484,16 @@ var PlacesUtils = {
    * @see promiseDBConnection
    */
   promiseLargeCacheDBConnection: () => gAsyncDBLargeCacheConnPromised,
+  get largeCacheDBConnDeferred() {
+    return gAsyncDBLargeCacheConnDeferred;
+  },
+
+  /**
+   * Returns a Sqlite.jsm wrapper for the main Places connection. Most callers
+   * should prefer `withConnectionWrapper`, which ensures that all database
+   * operations finish before the connection is closed.
+   */
+  promiseUnsafeWritableDBConnection: () => gAsyncDBWrapperPromised,
 
   /**
    * Performs a read/write operation on the Places database through a Sqlite.jsm
@@ -1442,25 +1533,35 @@ var PlacesUtils = {
   /**
    * Gets favicon data for a given page url.
    *
-   * @param aPageUrl url of the page to look favicon for.
+   * @param {string | URL | nsIURI} aPageUrl
+   *   url of the page to look favicon for.
+   * @param {number} preferredWidth
+   *   The preferred width of the favicon in pixels. The default value of 0
+   *   returns the largest icon available.
    * @resolves to an object representing a favicon entry, having the following
    *           properties: { uri, dataLen, data, mimeType }
    * @rejects JavaScript exception if the given url has no associated favicon.
    */
-  promiseFaviconData(aPageUrl) {
+  promiseFaviconData(aPageUrl, preferredWidth = 0) {
     return new Promise((resolve, reject) => {
-      PlacesUtils.favicons.getFaviconDataForPage(NetUtil.newURI(aPageUrl),
-        function(uri, dataLen, data, mimeType) {
+      if (!(aPageUrl instanceof Ci.nsIURI)) {
+        aPageUrl = PlacesUtils.toURI(aPageUrl);
+      }
+      PlacesUtils.favicons.getFaviconDataForPage(
+        aPageUrl,
+        function(uri, dataLen, data, mimeType, size) {
           if (uri) {
-            resolve({ uri, dataLen, data, mimeType });
+            resolve({ uri, dataLen, data, mimeType, size });
           } else {
             reject();
           }
-        });
+        },
+        preferredWidth
+      );
     });
   },
 
-   /**
+  /**
    * Returns the passed URL with a #size ref for the specified size and
    * devicePixelRatio.
    *
@@ -1473,8 +1574,12 @@ var PlacesUtils = {
    * @return The URL with the fragment at the end, in the same formar as input.
    */
   urlWithSizeRef(window, href, size) {
-    return href + (href.includes("#") ? "&" : "#") +
-           "size=" + (Math.round(size) * window.devicePixelRatio);
+    return (
+      href +
+      (href.includes("#") ? "&" : "#") +
+      "size=" +
+      Math.round(size) * window.devicePixelRatio
+    );
   },
 
   /**
@@ -1529,6 +1634,13 @@ var PlacesUtils = {
   },
 
   /**
+   * Invalidates the entire GUID cache.
+   */
+  invalidateCachedGuids() {
+    GuidHelper.invalidateCache();
+  },
+
+  /**
    * Asynchronously retrieve a JS-object representation of a places bookmarks
    * item (a bookmark, a folder, or a separator) along with all of its
    * descendants.
@@ -1569,8 +1681,6 @@ var PlacesUtils = {
    *    the item.
    *  - lastModified (number, microseconds from the epoch): the last-modified
    *    value of the item.
-   *  - annos (see getAnnotationsForItem): the item's annotations.  This is not
-   *    set if there are no annotations set for the item).
    *  - index: the item's index under it's parent.
    *
    * The root object (i.e. the one for aItemGuid) also has the following
@@ -1605,40 +1715,41 @@ var PlacesUtils = {
       let copyProps = (...props) => {
         for (let prop of props) {
           let val = aRow.getResultByName(prop);
-          if (val !== null)
+          if (val !== null) {
             item[prop] = val;
+          }
         }
       };
       copyProps("guid", "title", "index", "dateAdded", "lastModified");
-      if (aIncludeParentGuid)
+      if (aIncludeParentGuid) {
         copyProps("parentGuid");
+      }
 
       let itemId = aRow.getResultByName("id");
-      if (aOptions.includeItemIds)
+      if (aOptions.includeItemIds) {
         item.id = itemId;
+      }
 
       // Cache it for promiseItemId consumers regardless.
       GuidHelper.updateCache(itemId, item.guid);
 
       let type = aRow.getResultByName("type");
       item.typeCode = type;
-      if (type == Ci.nsINavBookmarksService.TYPE_BOOKMARK)
+      if (type == Ci.nsINavBookmarksService.TYPE_BOOKMARK) {
         copyProps("charset", "tags", "iconuri");
-
-      // Add annotations.
-      if (aRow.getResultByName("has_annos")) {
-        try {
-          item.annos = await PlacesUtils.promiseAnnotationsForItem(itemId);
-        } catch (ex) {
-          Cu.reportError("Unexpected error while reading annotations " + ex);
-        }
       }
 
       switch (type) {
         case PlacesUtils.bookmarks.TYPE_BOOKMARK:
           item.type = PlacesUtils.TYPE_X_MOZ_PLACE;
           // If this throws due to an invalid url, the item will be skipped.
-          item.uri = NetUtil.newURI(aRow.getResultByName("url")).spec;
+          try {
+            item.uri = NetUtil.newURI(aRow.getResultByName("url")).spec;
+          } catch (ex) {
+            let error = new Error("Invalid bookmark URL");
+            error.becauseInvalidURL = true;
+            throw error;
+          }
           // Keywords are cached, so this should be decently fast.
           let entry = await PlacesUtils.keywords.fetch({ url: item.uri });
           if (entry) {
@@ -1649,16 +1760,17 @@ var PlacesUtils = {
         case PlacesUtils.bookmarks.TYPE_FOLDER:
           item.type = PlacesUtils.TYPE_X_MOZ_PLACE_CONTAINER;
           // Mark root folders.
-          if (item.guid == PlacesUtils.bookmarks.rootGuid)
+          if (item.guid == PlacesUtils.bookmarks.rootGuid) {
             item.root = "placesRoot";
-          else if (item.guid == PlacesUtils.bookmarks.menuGuid)
+          } else if (item.guid == PlacesUtils.bookmarks.menuGuid) {
             item.root = "bookmarksMenuFolder";
-          else if (item.guid == PlacesUtils.bookmarks.unfiledGuid)
+          } else if (item.guid == PlacesUtils.bookmarks.unfiledGuid) {
             item.root = "unfiledBookmarksFolder";
-          else if (item.guid == PlacesUtils.bookmarks.toolbarGuid)
+          } else if (item.guid == PlacesUtils.bookmarks.toolbarGuid) {
             item.root = "toolbarFolder";
-          else if (item.guid == PlacesUtils.bookmarks.mobileGuid)
+          } else if (item.guid == PlacesUtils.bookmarks.mobileGuid) {
             item.root = "mobileFolder";
+          }
           break;
         case PlacesUtils.bookmarks.TYPE_SEPARATOR:
           item.type = PlacesUtils.TYPE_X_MOZ_PLACE_SEPARATOR;
@@ -1670,8 +1782,7 @@ var PlacesUtils = {
       return item;
     };
 
-    const QUERY_STR =
-      `/* do not warn (bug no): cannot use an index */
+    const QUERY_STR = `/* do not warn (bug no): cannot use an index */
        WITH RECURSIVE
        descendants(fk, level, type, id, guid, parent, parentGuid, position,
                    title, dateAdded, lastModified) AS (
@@ -1686,7 +1797,7 @@ var PlacesUtils = {
          FROM moz_bookmarks b2
          JOIN descendants ON b2.parent = descendants.id AND b2.id <> :tags_folder)
        SELECT d.level, d.id, d.guid, d.parent, d.parentGuid, d.type,
-              d.position AS [index], IFNULL(d.title, "") AS title, d.dateAdded,
+              d.position AS [index], IFNULL(d.title, '') AS title, d.dateAdded,
               d.lastModified, h.url, (SELECT icon_url FROM moz_icons i
                       JOIN moz_icons_to_pages ON icon_id = i.id
                       JOIN moz_pages_w_icons pi ON page_id = pi.id
@@ -1697,8 +1808,6 @@ var PlacesUtils = {
                JOIN moz_bookmarks t ON t.id = +b2.parent AND t.parent = :tags_folder
                WHERE b2.fk = h.id
               ) AS tags,
-              EXISTS (SELECT 1 FROM moz_items_annos
-                      WHERE item_id = d.id LIMIT 1) AS has_annos,
               (SELECT a.content FROM moz_annos a
                JOIN moz_anno_attributes n ON a.anno_attribute_id = n.id
                WHERE place_id = h.id AND n.name = :charset_anno
@@ -1708,18 +1817,22 @@ var PlacesUtils = {
        LEFT JOIN moz_places h ON h.id = d.fk
        ORDER BY d.level, d.parent, d.position`;
 
-    if (!aItemGuid)
+    if (!aItemGuid) {
       aItemGuid = this.bookmarks.rootGuid;
+    }
 
-    let hasExcludeItemsCallback =
-      aOptions.hasOwnProperty("excludeItemsCallback");
+    let hasExcludeItemsCallback = aOptions.hasOwnProperty(
+      "excludeItemsCallback"
+    );
     let excludedParents = new Set();
     let shouldExcludeItem = (aItem, aParentGuid) => {
-      let exclude = excludedParents.has(aParentGuid) ||
-                    aOptions.excludeItemsCallback(aItem);
+      let exclude =
+        excludedParents.has(aParentGuid) ||
+        aOptions.excludeItemsCallback(aItem);
       if (exclude) {
-        if (aItem.type == this.TYPE_X_MOZ_PLACE_CONTAINER)
+        if (aItem.type == this.TYPE_X_MOZ_PLACE_CONTAINER) {
           excludedParents.add(aItem.guid);
+        }
       }
       return exclude;
     };
@@ -1727,10 +1840,11 @@ var PlacesUtils = {
     let rootItem = null;
     let parentsMap = new Map();
     let conn = await this.promiseDBConnection();
-    let rows = await conn.executeCached(QUERY_STR,
-        { tags_folder: PlacesUtils.tagsFolderId,
-          charset_anno: PlacesUtils.CHARSET_ANNO,
-          item_guid: aItemGuid });
+    let rows = await conn.executeCached(QUERY_STR, {
+      tags_folder: PlacesUtils.tagsFolderId,
+      charset_anno: PlacesUtils.CHARSET_ANNO,
+      item_guid: aItemGuid,
+    });
     let yieldCounter = 0;
     for (let row of rows) {
       let item;
@@ -1738,12 +1852,15 @@ var PlacesUtils = {
         try {
           // This is the first row.
           rootItem = item = await createItemInfoObject(row, true);
-          Object.defineProperty(rootItem, "itemsCount", { value: 1,
-                                                          writable: true,
-                                                          enumerable: false,
-                                                          configurable: false });
+          Object.defineProperty(rootItem, "itemsCount", {
+            value: 1,
+            writable: true,
+            enumerable: false,
+            configurable: false,
+          });
         } catch (ex) {
-          throw new Error("Failed to fetch the data for the root item " + ex);
+          Cu.reportError("Failed to fetch the data for the root item");
+          throw ex;
         }
       } else {
         try {
@@ -1751,14 +1868,16 @@ var PlacesUtils = {
           // children.
           item = await createItemInfoObject(row, false);
           let parentGuid = row.getResultByName("parentGuid");
-          if (hasExcludeItemsCallback && shouldExcludeItem(item, parentGuid))
+          if (hasExcludeItemsCallback && shouldExcludeItem(item, parentGuid)) {
             continue;
+          }
 
           let parentItem = parentsMap.get(parentGuid);
-          if ("children" in parentItem)
+          if ("children" in parentItem) {
             parentItem.children.push(item);
-          else
+          } else {
             parentItem.children = [item];
+          }
 
           rootItem.itemsCount++;
         } catch (ex) {
@@ -1768,8 +1887,9 @@ var PlacesUtils = {
         }
       }
 
-      if (item.type == this.TYPE_X_MOZ_PLACE_CONTAINER)
+      if (item.type == this.TYPE_X_MOZ_PLACE_CONTAINER) {
         parentsMap.set(item.guid, item);
+      }
 
       // With many bookmarks we end up stealing the CPU - even with yielding!
       // So we let everyone else have a go every few items (bug 1186714).
@@ -1782,50 +1902,86 @@ var PlacesUtils = {
 
     return rootItem;
   },
+
+  /**
+   * Returns a generator that iterates over `array` and yields slices of no
+   * more than `chunkLength` elements at a time.
+   *
+   * @param  {Array} array An array containing zero or more elements.
+   * @param  {number} chunkLength The maximum number of elements in each chunk.
+   * @yields {Array} A chunk of the array.
+   * @throws if `chunkLength` is negative or not an integer.
+   */
+  *chunkArray(array, chunkLength) {
+    if (chunkLength <= 0 || !Number.isInteger(chunkLength)) {
+      throw new TypeError("Chunk length must be a positive integer");
+    }
+    if (!array.length) {
+      return;
+    }
+    if (array.length <= chunkLength) {
+      yield array;
+      return;
+    }
+    let startIndex = 0;
+    while (startIndex < array.length) {
+      yield array.slice(startIndex, (startIndex += chunkLength));
+    }
+  },
 };
 
 XPCOMUtils.defineLazyGetter(PlacesUtils, "history", function() {
-  let hs = Cc["@mozilla.org/browser/nav-history-service;1"]
-             .getService(Ci.nsINavHistoryService);
-  return Object.freeze(new Proxy(hs, {
-    get(target, name) {
-      let property, object;
-      if (name in target) {
-        property = target[name];
-        object = target;
-      } else {
-        property = History[name];
-        object = History;
-      }
-      if (typeof property == "function") {
-        return property.bind(object);
-      }
-      return property;
-    },
-  }));
+  let hs = Cc["@mozilla.org/browser/nav-history-service;1"].getService(
+    Ci.nsINavHistoryService
+  );
+  return Object.freeze(
+    new Proxy(hs, {
+      get(target, name) {
+        let property, object;
+        if (name in target) {
+          property = target[name];
+          object = target;
+        } else {
+          property = History[name];
+          object = History;
+        }
+        if (typeof property == "function") {
+          return property.bind(object);
+        }
+        return property;
+      },
+    })
+  );
 });
 
-XPCOMUtils.defineLazyServiceGetter(PlacesUtils, "favicons",
-                                   "@mozilla.org/browser/favicon-service;1",
-                                   "nsIFaviconService");
+XPCOMUtils.defineLazyServiceGetter(
+  PlacesUtils,
+  "favicons",
+  "@mozilla.org/browser/favicon-service;1",
+  "nsIFaviconService"
+);
 
-XPCOMUtils.defineLazyServiceGetter(this, "bmsvc",
-                                   "@mozilla.org/browser/nav-bookmarks-service;1",
-                                   "nsINavBookmarksService");
+XPCOMUtils.defineLazyServiceGetter(
+  this,
+  "bmsvc",
+  "@mozilla.org/browser/nav-bookmarks-service;1",
+  "nsINavBookmarksService"
+);
 XPCOMUtils.defineLazyGetter(PlacesUtils, "bookmarks", () => {
-  return Object.freeze(new Proxy(Bookmarks, {
-    get: (target, name) => Bookmarks.hasOwnProperty(name) ? Bookmarks[name]
-                                                          : bmsvc[name],
-  }));
+  return Object.freeze(
+    new Proxy(Bookmarks, {
+      get: (target, name) =>
+        Bookmarks.hasOwnProperty(name) ? Bookmarks[name] : bmsvc[name],
+    })
+  );
 });
 
-XPCOMUtils.defineLazyServiceGetter(PlacesUtils, "annotations",
-                                   "@mozilla.org/browser/annotation-service;1",
-                                   "nsIAnnotationService");
-
-XPCOMUtils.defineLazyServiceGetter(PlacesUtils, "tagging",
-                                   "@mozilla.org/browser/tagging-service;1",
-                                   "nsITaggingService");
+XPCOMUtils.defineLazyServiceGetter(
+  PlacesUtils,
+  "tagging",
+  "@mozilla.org/browser/tagging-service;1",
+  "nsITaggingService"
+);
 
 XPCOMUtils.defineLazyGetter(this, "bundle", function() {
   const PLACES_STRING_BUNDLE_URI = "chrome://places/locale/places.properties";
@@ -1862,10 +2018,14 @@ function setupDbForShutdown(conn, name) {
 
             // At this stage, all external clients have finished using the
             // database. We just need to close the high-level connection.
-            await conn.close();
-            state = "2. Closed Sqlite.jsm connection.";
-
-            resolve();
+            try {
+              await conn.close();
+              state = "2. Closed Sqlite.jsm connection.";
+              resolve();
+            } catch (ex) {
+              state = "2. Failed to closed Sqlite.jsm connection: " + ex;
+              reject(ex);
+            }
           },
           () => state
         );
@@ -1874,12 +2034,13 @@ function setupDbForShutdown(conn, name) {
         conn.close();
         reject(ex);
       }
-    });
+    }).catch(Cu.reportError);
 
     // Make sure that Sqlite.jsm doesn't close until we are done
     // with the high-level connection.
-    Sqlite.shutdown.addBlocker(`${name} must be closed before Sqlite.jsm`,
-      () => promiseClosed.catch(Cu.reportError),
+    Sqlite.shutdown.addBlocker(
+      `${name} must be closed before Sqlite.jsm`,
+      () => promiseClosed,
       () => state
     );
   } catch (ex) {
@@ -1889,30 +2050,36 @@ function setupDbForShutdown(conn, name) {
   }
 }
 
-XPCOMUtils.defineLazyGetter(this, "gAsyncDBConnPromised",
-  () => Sqlite.cloneStorageConnection({
+XPCOMUtils.defineLazyGetter(this, "gAsyncDBConnPromised", () =>
+  Sqlite.cloneStorageConnection({
     connection: PlacesUtils.history.DBConnection,
-    readOnly:   true,
-  }).then(conn => {
+    readOnly: true,
+  })
+    .then(conn => {
       setupDbForShutdown(conn, "PlacesUtils read-only connection");
       return conn;
-  }).catch(Cu.reportError)
+    })
+    .catch(Cu.reportError)
 );
 
-XPCOMUtils.defineLazyGetter(this, "gAsyncDBWrapperPromised",
-  () => Sqlite.wrapStorageConnection({
-      connection: PlacesUtils.history.DBConnection,
-  }).then(conn => {
-    setupDbForShutdown(conn, "PlacesUtils wrapped connection");
-    return conn;
-  }).catch(Cu.reportError)
-);
-
-XPCOMUtils.defineLazyGetter(this, "gAsyncDBLargeCacheConnPromised",
-  () => Sqlite.cloneStorageConnection({
+XPCOMUtils.defineLazyGetter(this, "gAsyncDBWrapperPromised", () =>
+  Sqlite.wrapStorageConnection({
     connection: PlacesUtils.history.DBConnection,
-    readOnly:   true,
-  }).then(async conn => {
+  })
+    .then(conn => {
+      setupDbForShutdown(conn, "PlacesUtils wrapped connection");
+      return conn;
+    })
+    .catch(Cu.reportError)
+);
+
+var gAsyncDBLargeCacheConnDeferred = PromiseUtils.defer();
+XPCOMUtils.defineLazyGetter(this, "gAsyncDBLargeCacheConnPromised", () =>
+  Sqlite.cloneStorageConnection({
+    connection: PlacesUtils.history.DBConnection,
+    readOnly: true,
+  })
+    .then(async conn => {
       setupDbForShutdown(conn, "PlacesUtils large cache read-only connection");
       // Components like the urlbar often fallback to a table scan due to lack
       // of full text indices.  A larger cache helps reducing IO and improves
@@ -1920,8 +2087,27 @@ XPCOMUtils.defineLazyGetter(this, "gAsyncDBLargeCacheConnPromised",
       // mozStorage value defined as MAX_CACHE_SIZE_BYTES in
       // storage/mozStorageConnection.cpp.
       await conn.execute("PRAGMA cache_size = -6144"); // 6MiB
+      // These should be kept in sync with nsPlacesTables.h.
+      await conn.execute(`
+        CREATE TEMP TABLE IF NOT EXISTS moz_openpages_temp (
+          url TEXT,
+          userContextId INTEGER,
+          open_count INTEGER,
+          PRIMARY KEY (url, userContextId)
+        )`);
+      await conn.execute(`
+        CREATE TEMP TRIGGER IF NOT EXISTS moz_openpages_temp_afterupdate_trigger
+        AFTER UPDATE OF open_count ON moz_openpages_temp FOR EACH ROW
+        WHEN NEW.open_count = 0
+        BEGIN
+          DELETE FROM moz_openpages_temp
+          WHERE url = NEW.url
+            AND userContextId = NEW.userContextId;
+        END`);
+      gAsyncDBLargeCacheConnDeferred.resolve(conn);
       return conn;
-  }).catch(Cu.reportError)
+    })
+    .catch(Cu.reportError)
 );
 
 /**
@@ -1953,8 +2139,9 @@ PlacesUtils.metadata = {
    *         and there is no defaultValue.
    */
   get(key, defaultValue) {
-    return PlacesUtils.withConnectionWrapper("PlacesUtils.metadata.get",
-      db => this.getWithConnection(db, key, defaultValue));
+    return PlacesUtils.withConnectionWrapper("PlacesUtils.metadata.get", db =>
+      this.getWithConnection(db, key, defaultValue)
+    );
   },
 
   /**
@@ -1966,8 +2153,9 @@ PlacesUtils.metadata = {
    *        The value to associate with the key.
    */
   set(key, value) {
-    return PlacesUtils.withConnectionWrapper("PlacesUtils.metadata.set",
-      db => this.setWithConnection(db, key, value));
+    return PlacesUtils.withConnectionWrapper("PlacesUtils.metadata.set", db =>
+      this.setWithConnection(db, key, value)
+    );
   },
 
   /**
@@ -1977,8 +2165,10 @@ PlacesUtils.metadata = {
    *        One or more metadata keys to remove.
    */
   delete(...keys) {
-    return PlacesUtils.withConnectionWrapper("PlacesUtils.metadata.delete",
-      db => this.deleteWithConnection(db, ...keys));
+    return PlacesUtils.withConnectionWrapper(
+      "PlacesUtils.metadata.delete",
+      db => this.deleteWithConnection(db, ...keys)
+    );
   },
 
   async getWithConnection(db, key, defaultValue) {
@@ -1986,9 +2176,11 @@ PlacesUtils.metadata = {
     if (this.cache.has(key)) {
       return this.cache.get(key);
     }
-    let rows = await db.executeCached(`
+    let rows = await db.executeCached(
+      `
       SELECT value FROM moz_meta WHERE key = :key`,
-      { key });
+      { key }
+    );
     let value = null;
     if (rows.length) {
       let row = rows[0];
@@ -1996,10 +2188,14 @@ PlacesUtils.metadata = {
       // Convert blobs back to `Uint8Array`s.
       if (row.getTypeOfIndex(0) == row.VALUE_TYPE_BLOB) {
         value = new Uint8Array(rawValue);
-      } else if (typeof rawValue == "string" &&
-                 rawValue.startsWith(this.jsonPrefix)) {
+      } else if (
+        typeof rawValue == "string" &&
+        rawValue.startsWith(this.jsonPrefix)
+      ) {
         try {
-          value = JSON.parse(this._base64Decode(rawValue.substr(this.jsonPrefix.length)));
+          value = JSON.parse(
+            this._base64Decode(rawValue.substr(this.jsonPrefix.length))
+          );
         } catch (ex) {
           if (defaultValue !== undefined) {
             // We must create a new array in the local scope to avoid a memory
@@ -2030,15 +2226,20 @@ PlacesUtils.metadata = {
     }
 
     let cacheValue = value;
-    if (typeof value == "object" && ChromeUtils.getClassName(value) != "Uint8Array") {
+    if (
+      typeof value == "object" &&
+      ChromeUtils.getClassName(value) != "Uint8Array"
+    ) {
       value = this.jsonPrefix + this._base64Encode(JSON.stringify(value));
     }
 
     key = this.canonicalizeKey(key);
-    await db.executeCached(`
+    await db.executeCached(
+      `
       REPLACE INTO moz_meta (key, value)
       VALUES (:key, :value)`,
-      { key, value });
+      { key, value }
+    );
     this.cache.set(key, cacheValue);
   },
 
@@ -2047,10 +2248,12 @@ PlacesUtils.metadata = {
     if (!keys.length) {
       return;
     }
-    await db.execute(`
+    await db.execute(
+      `
       DELETE FROM moz_meta
       WHERE key IN (${new Array(keys.length).fill("?").join(",")})`,
-      keys);
+      keys
+    );
     for (let key of keys) {
       this.cache.delete(key);
     }
@@ -2064,14 +2267,15 @@ PlacesUtils.metadata = {
   },
 
   _base64Encode(str) {
-    return ChromeUtils.base64URLEncode(
-      new TextEncoder("utf-8").encode(str),
-      {pad: true});
+    return ChromeUtils.base64URLEncode(new TextEncoder("utf-8").encode(str), {
+      pad: true,
+    });
   },
 
   _base64Decode(str) {
     return new TextDecoder("utf-8").decode(
-      ChromeUtils.base64URLDecode(str, {padding: "require"}));
+      ChromeUtils.base64URLDecode(str, { padding: "require" })
+    );
   },
 };
 
@@ -2099,20 +2303,27 @@ PlacesUtils.keywords = {
    *           or null if a keyword entry was not found.
    */
   fetch(keywordOrEntry, onResult = null) {
-    if (typeof(keywordOrEntry) == "string")
+    if (typeof keywordOrEntry == "string") {
       keywordOrEntry = { keyword: keywordOrEntry };
+    }
 
-    if (keywordOrEntry === null || typeof(keywordOrEntry) != "object" ||
-        (("keyword" in keywordOrEntry) && typeof(keywordOrEntry.keyword) != "string"))
+    if (
+      keywordOrEntry === null ||
+      typeof keywordOrEntry != "object" ||
+      ("keyword" in keywordOrEntry && typeof keywordOrEntry.keyword != "string")
+    ) {
       throw new Error("Invalid keyword");
+    }
 
     let hasKeyword = "keyword" in keywordOrEntry;
     let hasUrl = "url" in keywordOrEntry;
 
-    if (!hasKeyword && !hasUrl)
+    if (!hasKeyword && !hasUrl) {
       throw new Error("At least keyword or url must be provided");
-    if (onResult && typeof onResult != "function")
+    }
+    if (onResult && typeof onResult != "function") {
       throw new Error("onResult callback must be a valid function");
+    }
 
     if (hasUrl) {
       try {
@@ -2121,8 +2332,9 @@ PlacesUtils.keywords = {
         throw new Error(keywordOrEntry.url + " is not a valid URL");
       }
     }
-    if (hasKeyword)
+    if (hasKeyword) {
       keywordOrEntry.keyword = keywordOrEntry.keyword.trim().toLowerCase();
+    }
 
     let safeOnResult = entry => {
       if (onResult) {
@@ -2138,19 +2350,23 @@ PlacesUtils.keywords = {
       let entries = [];
       if (hasKeyword) {
         let entry = cache.get(keywordOrEntry.keyword);
-        if (entry)
+        if (entry) {
           entries.push(entry);
+        }
       }
       if (hasUrl) {
         for (let entry of cache.values()) {
-          if (entry.url.href == keywordOrEntry.url.href)
+          if (entry.url.href == keywordOrEntry.url.href) {
             entries.push(entry);
+          }
         }
       }
 
       entries = entries.filter(e => {
-        return (!hasUrl || e.url.href == keywordOrEntry.url.href) &&
-               (!hasKeyword || e.keyword == keywordOrEntry.keyword);
+        return (
+          (!hasUrl || e.url.href == keywordOrEntry.url.href) &&
+          (!hasKeyword || e.keyword == keywordOrEntry.keyword)
+        );
       });
 
       entries.forEach(safeOnResult);
@@ -2175,17 +2391,27 @@ PlacesUtils.keywords = {
    * @resolves when the addition is complete.
    */
   insert(keywordEntry) {
-    if (!keywordEntry || typeof keywordEntry != "object")
+    if (!keywordEntry || typeof keywordEntry != "object") {
       throw new Error("Input should be a valid object");
+    }
 
-    if (!("keyword" in keywordEntry) || !keywordEntry.keyword ||
-        typeof(keywordEntry.keyword) != "string")
+    if (
+      !("keyword" in keywordEntry) ||
+      !keywordEntry.keyword ||
+      typeof keywordEntry.keyword != "string"
+    ) {
       throw new Error("Invalid keyword");
-    if (("postData" in keywordEntry) && keywordEntry.postData &&
-        typeof(keywordEntry.postData) != "string")
+    }
+    if (
+      "postData" in keywordEntry &&
+      keywordEntry.postData &&
+      typeof keywordEntry.postData != "string"
+    ) {
       throw new Error("Invalid POST data");
-    if (!("url" in keywordEntry))
+    }
+    if (!("url" in keywordEntry)) {
       throw new Error("undefined is not a valid URL");
+    }
 
     if (!("source" in keywordEntry)) {
       keywordEntry.source = PlacesUtils.bookmarks.SOURCES.DEFAULT;
@@ -2200,13 +2426,18 @@ PlacesUtils.keywords = {
       throw new Error(url + " is not a valid URL");
     }
 
-    return PlacesUtils.withConnectionWrapper("PlacesUtils.keywords.insert", async db => {
+    return PlacesUtils.withConnectionWrapper(
+      "PlacesUtils.keywords.insert",
+      async db => {
         let cache = await promiseKeywordsCache();
 
         // Trying to set the same keyword is a no-op.
         let oldEntry = cache.get(keyword);
-        if (oldEntry && oldEntry.url.href == url.href &&
-            (oldEntry.postData || "") == postData) {
+        if (
+          oldEntry &&
+          oldEntry.url.href == url.href &&
+          (oldEntry.postData || "") == postData
+        ) {
           return;
         }
 
@@ -2221,7 +2452,9 @@ PlacesUtils.keywords = {
              SET place_id = (SELECT id FROM moz_places WHERE url_hash = hash(:url) AND url = :url),
                  post_data = :post_data
              WHERE keyword = :keyword
-            `, { url: url.href, keyword, post_data: postData });
+            `,
+            { url: url.href, keyword, post_data: postData }
+          );
           await notifyKeywordChange(oldEntry.url.href, "", source);
         } else {
           // An entry for the given page could be missing, in such a case we need to
@@ -2232,22 +2465,32 @@ PlacesUtils.keywords = {
                VALUES (:url, hash(:url), :rev_host, 0, :frecency,
                        IFNULL((SELECT guid FROM moz_places WHERE url_hash = hash(:url) AND url = :url),
                               GENERATE_GUID()))
-              `, { url: url.href, rev_host: PlacesUtils.getReversedHost(url),
-                   frecency: url.protocol == "place:" ? 0 : -1 });
+              `,
+              {
+                url: url.href,
+                rev_host: PlacesUtils.getReversedHost(url),
+                frecency: url.protocol == "place:" ? 0 : -1,
+              }
+            );
             await db.executeCached("DELETE FROM moz_updateoriginsinsert_temp");
 
             // A new keyword could be assigned to an url that already has one,
             // then we must replace the old keyword with the new one.
             let oldKeywords = [];
             for (let entry of cache.values()) {
-              if (entry.url.href == url.href && (entry.postData || "") == postData)
+              if (
+                entry.url.href == url.href &&
+                (entry.postData || "") == postData
+              ) {
                 oldKeywords.push(entry.keyword);
+              }
             }
             if (oldKeywords.length) {
               for (let oldKeyword of oldKeywords) {
                 await db.executeCached(
                   `DELETE FROM moz_keywords WHERE keyword = :oldKeyword`,
-                  { oldKeyword });
+                  { oldKeyword }
+                );
                 cache.delete(oldKeyword);
               }
             }
@@ -2255,10 +2498,15 @@ PlacesUtils.keywords = {
             await db.executeCached(
               `INSERT INTO moz_keywords (keyword, place_id, post_data)
                VALUES (:keyword, (SELECT id FROM moz_places WHERE url_hash = hash(:url) AND url = :url), :post_data)
-              `, { url: url.href, keyword, post_data: postData });
+              `,
+              { url: url.href, keyword, post_data: postData }
+            );
 
             await PlacesSyncUtils.bookmarks.addSyncChangesForBookmarksWithURL(
-              db, url, PlacesSyncUtils.bookmarks.determineSyncChangeDelta(source));
+              db,
+              url,
+              PlacesSyncUtils.bookmarks.determineSyncChangeDelta(source)
+            );
           });
         }
 
@@ -2279,38 +2527,54 @@ PlacesUtils.keywords = {
    * @resolves when the removal is complete.
    */
   remove(keywordOrEntry) {
-    if (typeof(keywordOrEntry) == "string") {
+    if (typeof keywordOrEntry == "string") {
       keywordOrEntry = {
         keyword: keywordOrEntry,
         source: Ci.nsINavBookmarksService.SOURCE_DEFAULT,
       };
     }
 
-    if (keywordOrEntry === null || typeof(keywordOrEntry) != "object" ||
-        !keywordOrEntry.keyword || typeof keywordOrEntry.keyword != "string")
+    if (
+      keywordOrEntry === null ||
+      typeof keywordOrEntry != "object" ||
+      !keywordOrEntry.keyword ||
+      typeof keywordOrEntry.keyword != "string"
+    ) {
       throw new Error("Invalid keyword");
+    }
 
-    let { keyword,
-          source = Ci.nsINavBookmarksService.SOURCE_DEFAULT } = keywordOrEntry;
+    let {
+      keyword,
+      source = Ci.nsINavBookmarksService.SOURCE_DEFAULT,
+    } = keywordOrEntry;
     keyword = keywordOrEntry.keyword.trim().toLowerCase();
-    return PlacesUtils.withConnectionWrapper("PlacesUtils.keywords.remove", async db => {
-      let cache = await promiseKeywordsCache();
-      if (!cache.has(keyword))
-        return;
-      let { url } = cache.get(keyword);
-      cache.delete(keyword);
+    return PlacesUtils.withConnectionWrapper(
+      "PlacesUtils.keywords.remove",
+      async db => {
+        let cache = await promiseKeywordsCache();
+        if (!cache.has(keyword)) {
+          return;
+        }
+        let { url } = cache.get(keyword);
+        cache.delete(keyword);
 
-      await db.executeTransaction(async function() {
-        await db.execute(`DELETE FROM moz_keywords WHERE keyword = :keyword`,
-                         { keyword });
+        await db.executeTransaction(async function() {
+          await db.execute(
+            `DELETE FROM moz_keywords WHERE keyword = :keyword`,
+            { keyword }
+          );
 
-        await PlacesSyncUtils.bookmarks.addSyncChangesForBookmarksWithURL(
-          db, url, PlacesSyncUtils.bookmarks.determineSyncChangeDelta(source));
-      });
+          await PlacesSyncUtils.bookmarks.addSyncChangesForBookmarksWithURL(
+            db,
+            url,
+            PlacesSyncUtils.bookmarks.determineSyncChangeDelta(source)
+          );
+        });
 
-      // Notify bookmarks about the removal.
-      await notifyKeywordChange(url.href, "", source);
-    });
+        // Notify bookmarks about the removal.
+        await notifyKeywordChange(url.href, "", source);
+      }
+    );
   },
 
   /**
@@ -2339,31 +2603,34 @@ PlacesUtils.keywords = {
     } catch (ex) {
       throw new Error(oldURL + " is not a valid destination URL");
     }
-    return PlacesUtils.withConnectionWrapper("PlacesUtils.keywords.reassign",
-                                             async function(db) {
-      let keywordsToReassign = [];
-      let keywordsToRemove = [];
-      let cache = await promiseKeywordsCache();
-      for (let [keyword, entry] of cache) {
-        if (entry.url.href == oldURL.href) {
-          keywordsToReassign.push(keyword);
+    return PlacesUtils.withConnectionWrapper(
+      "PlacesUtils.keywords.reassign",
+      async function(db) {
+        let keywordsToReassign = [];
+        let keywordsToRemove = [];
+        let cache = await promiseKeywordsCache();
+        for (let [keyword, entry] of cache) {
+          if (entry.url.href == oldURL.href) {
+            keywordsToReassign.push(keyword);
+          }
+          if (entry.url.href == newURL.href) {
+            keywordsToRemove.push(keyword);
+          }
         }
-        if (entry.url.href == newURL.href) {
-          keywordsToRemove.push(keyword);
+        if (!keywordsToReassign.length) {
+          return;
         }
-      }
-      if (!keywordsToReassign.length) {
-        return;
-      }
 
-      await db.executeTransaction(async function() {
-        // Remove existing keywords from the new URL.
-        await db.executeCached(
-          `DELETE FROM moz_keywords WHERE keyword = :keyword`,
-          keywordsToRemove.map(keyword => ({ keyword })));
+        await db.executeTransaction(async function() {
+          // Remove existing keywords from the new URL.
+          await db.executeCached(
+            `DELETE FROM moz_keywords WHERE keyword = :keyword`,
+            keywordsToRemove.map(keyword => ({ keyword }))
+          );
 
-        // Move keywords from the old URL to the new URL.
-        await db.executeCached(`
+          // Move keywords from the old URL to the new URL.
+          await db.executeCached(
+            `
           UPDATE moz_keywords SET
             place_id = (SELECT id FROM moz_places
                         WHERE url_hash = hash(:newURL) AND
@@ -2371,30 +2638,32 @@ PlacesUtils.keywords = {
           WHERE place_id = (SELECT id FROM moz_places
                             WHERE url_hash = hash(:oldURL) AND
                                   url = :oldURL)`,
-          { newURL: newURL.href, oldURL: oldURL.href });
-      });
-      for (let keyword of keywordsToReassign) {
-        let entry = cache.get(keyword);
-        entry.url = newURL;
-      }
-      for (let keyword of keywordsToRemove) {
-        cache.delete(keyword);
-      }
-
-      if (keywordsToReassign.length) {
-        // If we moved any keywords, notify that we removed all keywords from
-        // the old and new URLs, then notify for each moved keyword.
-        await notifyKeywordChange(oldURL, "", source);
-        await notifyKeywordChange(newURL, "", source);
+            { newURL: newURL.href, oldURL: oldURL.href }
+          );
+        });
         for (let keyword of keywordsToReassign) {
-          await notifyKeywordChange(newURL, keyword, source);
+          let entry = cache.get(keyword);
+          entry.url = newURL;
         }
-      } else if (keywordsToRemove.length) {
-        // If the old URL didn't have any keywords, but the new URL did, just
-        // notify that we removed all keywords from the new URL.
-        await notifyKeywordChange(oldURL, "", source);
+        for (let keyword of keywordsToRemove) {
+          cache.delete(keyword);
+        }
+
+        if (keywordsToReassign.length) {
+          // If we moved any keywords, notify that we removed all keywords from
+          // the old and new URLs, then notify for each moved keyword.
+          await notifyKeywordChange(oldURL, "", source);
+          await notifyKeywordChange(newURL, "", source);
+          for (let keyword of keywordsToReassign) {
+            await notifyKeywordChange(newURL, keyword, source);
+          }
+        } else if (keywordsToRemove.length) {
+          // If the old URL didn't have any keywords, but the new URL did, just
+          // notify that we removed all keywords from the new URL.
+          await notifyKeywordChange(oldURL, "", source);
+        }
       }
-    });
+    );
   },
 
   /**
@@ -2440,7 +2709,8 @@ PlacesUtils.keywords = {
         }
 
         let placeInfosToRemove = [];
-        let rows = await db.execute(`
+        let rows = await db.execute(
+          `
           SELECT h.id, h.url
           FROM moz_places h
           JOIN moz_keywords k ON k.place_id = h.id
@@ -2450,7 +2720,9 @@ PlacesUtils.keywords = {
              FROM moz_bookmarks b
              JOIN moz_bookmarks p ON b.parent = p.id
              WHERE p.parent = :tags_root AND b.fk = h.id)
-          `, { tags_root: PlacesUtils.tagsFolderId });
+          `,
+          { tags_root: PlacesUtils.tagsFolderId }
+        );
         for (let row of rows) {
           placeInfosToRemove.push({
             placeId: row.getResultByName("id"),
@@ -2461,15 +2733,19 @@ PlacesUtils.keywords = {
           return;
         }
 
-        await db.execute(`DELETE FROM moz_keywords WHERE place_id IN (${
-          Array.from(placeInfosToRemove.map(info => info.placeId)).join()})`);
+        await db.execute(
+          `DELETE FROM moz_keywords WHERE place_id IN (${Array.from(
+            placeInfosToRemove.map(info => info.placeId)
+          ).join()})`
+        );
         for (let { href } of placeInfosToRemove) {
           let keywords = keywordsByHref.get(href);
           for (let keyword of keywords) {
             cache.delete(keyword);
           }
         }
-    });
+      }
+    );
   },
 
   /**
@@ -2520,14 +2796,17 @@ function promiseKeywordsCache() {
           `SELECT keyword, url, post_data
            FROM moz_keywords k
            JOIN moz_places h ON h.id = k.place_id
-          `);
+          `
+        );
         let brokenKeywords = [];
         for (let row of rows) {
           let keyword = row.getResultByName("keyword");
           try {
-            let entry = { keyword,
-                          url: new URL(row.getResultByName("url")),
-                          postData: row.getResultByName("post_data") || null };
+            let entry = {
+              keyword,
+              url: new URL(row.getResultByName("url")),
+              postData: row.getResultByName("post_data") || null,
+            };
             cache.set(keyword, entry);
           } catch (ex) {
             // The url is invalid, don't load the keyword and remove it, or it
@@ -2539,7 +2818,8 @@ function promiseKeywordsCache() {
           await db.execute(
             `DELETE FROM moz_keywords
              WHERE keyword IN (${brokenKeywords.map(JSON.stringify).join(",")})
-            `);
+            `
+          );
         }
         return cache;
       }
@@ -2570,19 +2850,24 @@ var GuidHelper = {
 
   async getItemId(aGuid) {
     let cached = this.idsForGuids.get(aGuid);
-    if (cached !== undefined)
+    if (cached !== undefined) {
       return cached;
+    }
 
-    let itemId = await PlacesUtils.withConnectionWrapper("GuidHelper.getItemId",
-                                                         async function(db) {
-      let rows = await db.executeCached(
-        "SELECT b.id, b.guid from moz_bookmarks b WHERE b.guid = :guid LIMIT 1",
-        { guid: aGuid });
-      if (rows.length == 0)
-        throw new Error("no item found for the given GUID");
+    let itemId = await PlacesUtils.withConnectionWrapper(
+      "GuidHelper.getItemId",
+      async function(db) {
+        let rows = await db.executeCached(
+          "SELECT b.id, b.guid from moz_bookmarks b WHERE b.guid = :guid LIMIT 1",
+          { guid: aGuid }
+        );
+        if (!rows.length) {
+          throw new Error("no item found for the given GUID");
+        }
 
-      return rows[0].getResultByName("id");
-    });
+        return rows[0].getResultByName("id");
+      }
+    );
 
     this.updateCache(itemId, aGuid);
     return itemId;
@@ -2591,41 +2876,53 @@ var GuidHelper = {
   async getManyItemIds(aGuids) {
     let uncachedGuids = aGuids.filter(guid => !this.idsForGuids.has(guid));
     if (uncachedGuids.length) {
-      await PlacesUtils.withConnectionWrapper("GuidHelper.getItemId",
-                                              async db => {
-        while (uncachedGuids.length) {
-          let chunk = uncachedGuids.splice(0, 100);
-          let rows = await db.executeCached(
-            `SELECT b.id, b.guid from moz_bookmarks b WHERE
+      await PlacesUtils.withConnectionWrapper(
+        "GuidHelper.getItemId",
+        async db => {
+          while (uncachedGuids.length) {
+            let chunk = uncachedGuids.splice(0, 100);
+            let rows = await db.executeCached(
+              `SELECT b.id, b.guid from moz_bookmarks b WHERE
              b.guid IN (${"?,".repeat(chunk.length - 1) + "?"})
-             LIMIT ${chunk.length}`, chunk);
-          if (rows.length < chunk.length)
-            throw new Error("Not all items were found!");
-          for (let row of rows) {
-            this.updateCache(row.getResultByIndex(0), row.getResultByIndex(1));
+             LIMIT ${chunk.length}`,
+              chunk
+            );
+            if (rows.length < chunk.length) {
+              throw new Error("Not all items were found!");
+            }
+            for (let row of rows) {
+              this.updateCache(
+                row.getResultByIndex(0),
+                row.getResultByIndex(1)
+              );
+            }
           }
         }
-      });
+      );
     }
     return new Map(aGuids.map(guid => [guid, this.idsForGuids.get(guid)]));
   },
 
   async getItemGuid(aItemId) {
     let cached = this.guidsForIds.get(aItemId);
-    if (cached !== undefined)
+    if (cached !== undefined) {
       return cached;
+    }
 
-    let guid = await PlacesUtils.withConnectionWrapper("GuidHelper.getItemGuid",
-                                                       async function(db) {
+    let guid = await PlacesUtils.withConnectionWrapper(
+      "GuidHelper.getItemGuid",
+      async function(db) {
+        let rows = await db.executeCached(
+          "SELECT b.id, b.guid from moz_bookmarks b WHERE b.id = :id LIMIT 1",
+          { id: aItemId }
+        );
+        if (!rows.length) {
+          throw new Error("no item found for the given itemId");
+        }
 
-      let rows = await db.executeCached(
-        "SELECT b.id, b.guid from moz_bookmarks b WHERE b.id = :id LIMIT 1",
-        { id: aItemId });
-      if (rows.length == 0)
-        throw new Error("no item found for the given itemId");
-
-      return rows[0].getResultByName("guid");
-    });
+        return rows[0].getResultByName("guid");
+      }
+    );
 
     this.updateCache(aItemId, guid);
     return guid;
@@ -2638,10 +2935,14 @@ var GuidHelper = {
    *       invalidation relies on both Maps being populated at the same time.
    */
   updateCache(aItemId, aGuid) {
-    if (typeof(aItemId) != "number" || aItemId <= 0)
-      throw new Error("Trying to update the GUIDs cache with an invalid itemId");
-    if (!PlacesUtils.isValidGuid(aGuid))
+    if (typeof aItemId != "number" || aItemId <= 0) {
+      throw new Error(
+        "Trying to update the GUIDs cache with an invalid itemId"
+      );
+    }
+    if (!PlacesUtils.isValidGuid(aGuid)) {
       throw new Error("Trying to update the GUIDs cache with an invalid GUID");
+    }
     this.ensureObservingRemovedItems();
     this.guidsForIds.set(aItemId, aGuid);
     this.idsForGuids.set(aGuid, aItemId);
@@ -2653,43 +2954,48 @@ var GuidHelper = {
     this.idsForGuids.delete(guid);
   },
 
+  invalidateCache() {
+    this.guidsForIds.clear();
+    this.idsForGuids.clear();
+  },
+
   ensureObservingRemovedItems() {
-    if (!("observer" in this)) {
-      /**
-       * This observers serves two purposes:
-       * (1) Invalidate cached id<->GUID paris on when items are removed.
-       * (2) Cache GUIDs given us free of charge by onItemAdded/onItemRemoved.
-      *      So, for exmaple, when the NewBookmark needs the new GUID, we already
-      *      have it cached.
-      */
-      let listener = events => {
-        for (let event of events) {
-          this.updateCache(event.id, event.guid);
-          this.updateCache(event.parentId, event.parentGuid);
-        }
-      };
-      this.observer = {
-        onItemRemoved:
-        (aItemId, aParentId, aIndex, aItemTyep, aURI, aGuid, aParentGuid) => {
-          this.guidsForIds.delete(aItemId);
-          this.idsForGuids.delete(aGuid);
-          this.updateCache(aParentId, aParentGuid);
-        },
-
-        QueryInterface: ChromeUtils.generateQI([Ci.nsINavBookmarkObserver]),
-
-        onBeginUpdateBatch() {},
-        onEndUpdateBatch() {},
-        onItemChanged() {},
-        onItemVisited() {},
-        onItemMoved() {},
-      };
-      PlacesUtils.bookmarks.addObserver(this.observer);
-      PlacesUtils.observers.addListener(["bookmark-added"], listener);
-      PlacesUtils.registerShutdownFunction(() => {
-        PlacesUtils.bookmarks.removeObserver(this.observer);
-        PlacesUtils.observers.removeListener(["bookmark-added"], listener);
-      });
+    if (this.addListeners) {
+      return;
     }
+    /**
+     * This observers serves two purposes:
+     * (1) Invalidate cached id<->GUID paris on when items are removed.
+     * (2) Cache GUIDs given us free of charge by onItemAdded/onItemRemoved.
+     *      So, for exmaple, when the NewBookmark needs the new GUID, we already
+     *      have it cached.
+     */
+    let listener = events => {
+      for (let event of events) {
+        switch (event.type) {
+          case "bookmark-added":
+            this.updateCache(event.id, event.guid);
+            this.updateCache(event.parentId, event.parentGuid);
+            break;
+          case "bookmark-removed":
+            this.guidsForIds.delete(event.id);
+            this.idsForGuids.delete(event.guid);
+            this.updateCache(event.parentId, event.parentGuid);
+            break;
+        }
+      }
+    };
+
+    this.addListeners = true;
+    PlacesUtils.observers.addListener(
+      ["bookmark-added", "bookmark-removed"],
+      listener
+    );
+    PlacesUtils.registerShutdownFunction(() => {
+      PlacesUtils.observers.removeListener(
+        ["bookmark-added", "bookmark-removed"],
+        listener
+      );
+    });
   },
 };

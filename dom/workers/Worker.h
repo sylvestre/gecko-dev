@@ -8,12 +8,13 @@
 #define mozilla_dom_Worker_h
 
 #include "mozilla/Attributes.h"
+#include "mozilla/dom/DebuggerNotificationBinding.h"
 #include "mozilla/DOMEventTargetHelper.h"
 #include "mozilla/RefPtr.h"
 #include "mozilla/WeakPtr.h"
 
 #ifdef XP_WIN
-#undef PostMessage
+#  undef PostMessage
 #endif
 
 namespace mozilla {
@@ -23,13 +24,11 @@ struct PostMessageOptions;
 struct WorkerOptions;
 class WorkerPrivate;
 
-class Worker : public DOMEventTargetHelper, public SupportsWeakPtr<Worker> {
+class Worker : public DOMEventTargetHelper, public SupportsWeakPtr {
  public:
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS_INHERITED(Worker,
                                                          DOMEventTargetHelper)
-  MOZ_DECLARE_WEAKREFERENCE_TYPENAME(Worker)
-
   static already_AddRefed<Worker> Constructor(const GlobalObject& aGlobal,
                                               const nsAString& aScriptURL,
                                               const WorkerOptions& aOptions,
@@ -37,6 +36,11 @@ class Worker : public DOMEventTargetHelper, public SupportsWeakPtr<Worker> {
 
   JSObject* WrapObject(JSContext* aCx,
                        JS::Handle<JSObject*> aGivenProto) override;
+
+  Maybe<EventCallbackDebuggerNotificationType> GetDebuggerNotificationType()
+      const override {
+    return Some(EventCallbackDebuggerNotificationType::Worker);
+  }
 
   void PostMessage(JSContext* aCx, JS::Handle<JS::Value> aMessage,
                    const Sequence<JSObject*>& aTransferable, ErrorResult& aRv);

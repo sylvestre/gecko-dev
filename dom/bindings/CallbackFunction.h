@@ -37,16 +37,9 @@ class CallbackFunction : public CallbackObject {
       : CallbackObject(aCallable, aCallableGlobal, aAsyncStack,
                        aIncumbentGlobal) {}
 
-  JS::Handle<JSObject*> CallableOrNull() const { return CallbackOrNull(); }
+  JSObject* CallableOrNull() const { return CallbackOrNull(); }
 
-  JS::Handle<JSObject*> CallablePreserveColor() const {
-    return CallbackPreserveColor();
-  }
-
-  bool HasGrayCallable() const {
-    // Play it safe in case this gets called after unlink.
-    return mCallback && JS::ObjectIsMarkedGray(mCallback);
-  }
+  JSObject* CallablePreserveColor() const { return CallbackPreserveColor(); }
 
  protected:
   explicit CallbackFunction(CallbackFunction* aCallbackFunction)

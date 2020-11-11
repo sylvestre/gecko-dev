@@ -14,6 +14,7 @@
 namespace mozilla {
 
 struct ReflowInput;
+struct StyleAlignFlags;
 
 class CSSAlignUtils {
  public:
@@ -21,16 +22,16 @@ class CSSAlignUtils {
    * Flags to customize the behavior of AlignJustifySelf:
    */
   enum class AlignJustifyFlags {
-    eNoFlags = 0,
+    NoFlags = 0,
     // Indicates that we have <overflow-position> = safe.
-    eOverflowSafe = 1 << 0,
+    OverflowSafe = 1 << 0,
     // Indicates that the container's start side in aAxis is the same
     // as the child's start side in the child's parallel axis.
-    eSameSide = 1 << 1,
+    SameSide = 1 << 1,
     // Indicates that AlignJustifySelf() shouldn't expand "auto" margins.
     // (By default, AlignJustifySelf() *will* expand such margins, to fill the
     // available space before any alignment is done.)
-    eIgnoreAutoMargins = 1 << 2,
+    IgnoreAutoMargins = 1 << 2,
   };
 
   /**
@@ -41,7 +42,7 @@ class CSSAlignUtils {
    *
    * @param aAlignment An enumerated value representing a keyword for
    *                   "align-self" or "justify-self". The values
-   *                   NS_STYLE_ALIGN_{AUTO,LEFT,RIGHT} must *not* be
+   *                   StyleAlignFlags::{AUTO,LEFT,RIGHT} must *not* be
    *                   passed here; this method expects the caller to have
    *                   already resolved those to 'start', 'end', or 'stretch'.
    * @param aAxis The container's axis in which we're doing alignment.
@@ -50,8 +51,8 @@ class CSSAlignUtils {
    * @param aRI A ReflowInput for the child.
    * @param aChildSize The child's LogicalSize (in its own writing mode).
    */
-  static nscoord AlignJustifySelf(uint8_t aAlignment, LogicalAxis aAxis,
-                                  AlignJustifyFlags aFlags,
+  static nscoord AlignJustifySelf(const StyleAlignFlags& aAlignment,
+                                  LogicalAxis aAxis, AlignJustifyFlags aFlags,
                                   nscoord aBaselineAdjust, nscoord aCBSize,
                                   const ReflowInput& aRI,
                                   const LogicalSize& aChildSize);

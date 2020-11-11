@@ -6,6 +6,7 @@
 
 #include "mozilla/dom/MIDIPermissionRequest.h"
 #include "mozilla/dom/MIDIAccessManager.h"
+#include "mozilla/dom/MIDIOptionsBinding.h"
 #include "nsIGlobalObject.h"
 #include "mozilla/Preferences.h"
 #include "nsContentUtils.h"
@@ -13,6 +14,8 @@
 //-------------------------------------------------
 // MIDI Permission Requests
 //-------------------------------------------------
+
+using namespace mozilla::dom;
 
 NS_IMPL_CYCLE_COLLECTION_INHERITED(MIDIPermissionRequest,
                                    ContentPermissionRequestBase, mPromise)
@@ -28,9 +31,9 @@ MIDIPermissionRequest::MIDIPermissionRequest(nsPIDOMWindowInner* aWindow,
                                              Promise* aPromise,
                                              const MIDIOptions& aOptions)
     : ContentPermissionRequestBase(
-          aWindow->GetDoc()->NodePrincipal(), true, aWindow,
-          NS_LITERAL_CSTRING(""),  // We check prefs in a custom way here
-          NS_LITERAL_CSTRING("midi")),
+          aWindow->GetDoc()->NodePrincipal(), aWindow,
+          ""_ns,  // We check prefs in a custom way here
+          "midi"_ns),
       mPromise(aPromise),
       mNeedsSysex(aOptions.mSysex) {
   MOZ_ASSERT(aWindow);
@@ -45,7 +48,7 @@ MIDIPermissionRequest::GetTypes(nsIArray** aTypes) {
   NS_ENSURE_ARG_POINTER(aTypes);
   nsTArray<nsString> options;
   if (mNeedsSysex) {
-    options.AppendElement(NS_LITERAL_STRING("sysex"));
+    options.AppendElement(u"sysex"_ns);
   }
   return nsContentPermissionUtils::CreatePermissionArray(mType, options,
                                                          aTypes);
@@ -80,7 +83,7 @@ MIDIPermissionRequest::Run() {
   }
 
   // If we already have sysex perms, allow.
-  if (nsContentUtils::IsExactSitePermAllow(mPrincipal, "midi-sysex")) {
+  if (nsContentUtils::IsExactSitePermAllow(mPrincipal, "midi-sysex"_ns)) {
     Allow(JS::UndefinedHandleValue);
     return NS_OK;
   }

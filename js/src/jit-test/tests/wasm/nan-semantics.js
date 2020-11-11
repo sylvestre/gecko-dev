@@ -11,7 +11,12 @@ function assertSameBitPattern(from, to, offset) {
 f32[0] = NaN;
 f32[0] = f32[0]; // Force canonicalization.
 
-f32[1] = wasmEvalText('(module (func (result f32) (f32.const nan:0x123456)) (export "" 0))').exports[""]();
+f32[1] = wasmEvalText(`
+(module
+  (func (result f32)
+    (f32.const nan:0x123456))
+  (export "" (func 0)))
+`).exports[""]();
 assertSameBitPattern(0, 4, 4);
 
 var checkBitPatterns = {
@@ -27,14 +32,31 @@ var checkBitPatterns = {
     }
 }
 
-wasmEvalText('(module (import "" "float32" (param f32)) (func (call 0 (f32.const nan:0x123456))) (export "" 0))', checkBitPatterns).exports[""]();
+wasmEvalText(`
+(module
+  (import "" "float32" (func (param f32)))
+  (func
+    (call 0 (f32.const nan:0x123456)))
+  (export "" (func 0)))
+`, checkBitPatterns).exports[""]();
 
 f64[0] = NaN;
 f64[0] = f64[0]; // Force canonicalization.
-f64[1] = wasmEvalText('(module (func (result f64) (f64.const nan:0x123456)) (export "" 0))').exports[""]();
+f64[1] = wasmEvalText(`
+(module
+  (func (result f64)
+    (f64.const nan:0x123456))
+  (export "" (func 0)))
+`).exports[""]();
 assertSameBitPattern(0, 8, 8);
 
-wasmEvalText('(module (import "" "float64" (param f64)) (func (call 0 (f64.const nan:0x123456))) (export "" 0))', checkBitPatterns).exports[""]();
+wasmEvalText(`
+(module
+  (import "" "float64" (func (param f64)))
+  (func
+    (call 0 (f64.const nan:0x123456)))
+  (export "" (func 0)))
+`, checkBitPatterns).exports[""]();
 
 // SANITY CHECKS
 
@@ -75,6 +97,10 @@ wasmAssert(`(module
 
 // Actual tests.
 
+// Wasm spec v1.1 section 4.3.3, sections "fadd" et seq and "NaN propagation":
+// If the input NaN is not canonical then the output may be any arithmetic NaN,
+// ie a quiet NaN with arbitrary payload.
+
 wasmAssert(`(module
     (global (mut f32) (f32.const 0))
     (global (mut f64) (f64.const 0))
@@ -84,22 +110,22 @@ wasmAssert(`(module
     (func $add (result f32) (f32.add ${f32_snan_code} (f32.const 0)))
 
     ;; Shouldn't affect NaNess.
-    (func $set_get_global_f32 (result f32)
+    (func $global.set.get_f32 (result f32)
         ${f32_snan_code}
-        set_global 0
-        get_global 0
+        global.set 0
+        global.get 0
     )
 
     ;; Shouldn't affect NaNess.
-    (func $set_get_global_f64 (result f64)
+    (func $global.set.get_f64 (result f64)
         ${f64_snan_code}
-        set_global 1
-        get_global 1
+        global.set 1
+        global.get 1
     )
 )`, [
-    { type: 'f32', func: '$add', expected: f32_qnan },
-    { type: 'f32', func: '$set_get_global_f32', expected: f32_snan },
-    { type: 'f64', func: '$set_get_global_f64', expected: f64_snan },
+    { type: 'f32', func: '$add', expected: 'nan:arithmetic' },
+    { type: 'f32', func: '$global.set.get_f32', expected: f32_snan },
+    { type: 'f64', func: '$global.set.get_f64', expected: f64_snan },
 ]);
 
 // NaN propagation behavior.
@@ -116,14 +142,14 @@ function test(type, opcode, lhs_code, rhs_code) {
     // - (variable, variable)
     wasmAssert(`(module
         (func $1 (result ${t}) (${t}.${op} ${lhs_code} ${rhs_code}))
-        (func $2 (param ${t}) (result ${t}) (${t}.${op} (get_local 0) ${rhs_code}))
-        (func $3 (param ${t}) (result ${t}) (${t}.${op} ${lhs_code} (get_local 0)))
-        (func $4 (param ${t}) (param ${t}) (result ${t}) (${t}.${op} (get_local 0) (get_local 1)))
+        (func $2 (param ${t}) (result ${t}) (${t}.${op} (local.get 0) ${rhs_code}))
+        (func $3 (param ${t}) (result ${t}) (${t}.${op} ${lhs_code} (local.get 0)))
+        (func $4 (param ${t}) (param ${t}) (result ${t}) (${t}.${op} (local.get 0) (local.get 1)))
     )`, [
-        { type, func: '$1', expected: qnan_code },
-        { type, func: '$2', args: [lhs_code], expected: qnan_code },
-        { type, func: '$3', args: [rhs_code], expected: qnan_code },
-        { type, func: '$4', args: [lhs_code, rhs_code], expected: qnan_code },
+        { type, func: '$1', expected: 'nan:arithmetic' },
+        { type, func: '$2', args: [lhs_code], expected: 'nan:arithmetic' },
+        { type, func: '$3', args: [rhs_code], expected: 'nan:arithmetic' },
+        { type, func: '$4', args: [lhs_code, rhs_code], expected: 'nan:arithmetic' },
     ]);
 }
 

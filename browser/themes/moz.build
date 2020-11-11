@@ -7,20 +7,24 @@
 with Files("**"):
     BUG_COMPONENT = ("Firefox", "Theme")
 
-toolkit = CONFIG['MOZ_WIDGET_TOOLKIT']
+toolkit = CONFIG["MOZ_WIDGET_TOOLKIT"]
 
-if toolkit == 'cocoa':
-    DIRS += ['osx']
-elif toolkit == 'gtk3':
-    DIRS += ['linux']
+if toolkit == "cocoa":
+    DIRS += ["osx"]
+elif toolkit == "gtk":
+    DIRS += ["linux"]
 else:
-    DIRS += ['windows']
+    DIRS += ["windows"]
 
-with Files('osx/**'):
-    SCHEDULES.exclusive = ['macosx']
+DIRS += [
+    "addons",
+]
 
-with Files('linux/**'):
-    SCHEDULES.exclusive = ['linux']
+with Files("osx/**"):
+    SCHEDULES.exclusive = ["macosx"]
 
-with Files('windows/**'):
-    SCHEDULES.exclusive = ['windows']
+with Files("linux/**"):
+    SCHEDULES.exclusive = ["linux"]
+
+with Files("windows/**"):
+    SCHEDULES.exclusive = ["windows"]

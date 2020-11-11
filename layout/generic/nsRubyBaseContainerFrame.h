@@ -12,11 +12,15 @@
 #include "nsContainerFrame.h"
 #include "RubyUtils.h"
 
+namespace mozilla {
+class PresShell;
+}  // namespace mozilla
+
 /**
  * Factory function.
  * @return a newly allocated nsRubyBaseContainerFrame (infallible)
  */
-nsContainerFrame* NS_NewRubyBaseContainerFrame(nsIPresShell* aPresShell,
+nsContainerFrame* NS_NewRubyBaseContainerFrame(mozilla::PresShell* aPresShell,
                                                mozilla::ComputedStyle* aStyle);
 
 class nsRubyBaseContainerFrame final : public nsContainerFrame {
@@ -31,11 +35,13 @@ class nsRubyBaseContainerFrame final : public nsContainerFrame {
                                  InlineMinISizeData* aData) override;
   virtual void AddInlinePrefISize(gfxContext* aRenderingContext,
                                   InlinePrefISizeData* aData) override;
-  virtual mozilla::LogicalSize ComputeSize(
-      gfxContext* aRenderingContext, mozilla::WritingMode aWritingMode,
-      const mozilla::LogicalSize& aCBSize, nscoord aAvailableISize,
-      const mozilla::LogicalSize& aMargin, const mozilla::LogicalSize& aBorder,
-      const mozilla::LogicalSize& aPadding, ComputeSizeFlags aFlags) override;
+  SizeComputationResult ComputeSize(gfxContext* aRenderingContext,
+                                    mozilla::WritingMode aWM,
+                                    const mozilla::LogicalSize& aCBSize,
+                                    nscoord aAvailableISize,
+                                    const mozilla::LogicalSize& aMargin,
+                                    const mozilla::LogicalSize& aBorderPadding,
+                                    mozilla::ComputeSizeFlags aFlags) override;
   virtual void Reflow(nsPresContext* aPresContext, ReflowOutput& aDesiredSize,
                       const ReflowInput& aReflowInput,
                       nsReflowStatus& aStatus) override;
@@ -56,18 +62,19 @@ class nsRubyBaseContainerFrame final : public nsContainerFrame {
 
  protected:
   friend nsContainerFrame* NS_NewRubyBaseContainerFrame(
-      nsIPresShell* aPresShell, ComputedStyle* aStyle);
+      mozilla::PresShell* aPresShell, ComputedStyle* aStyle);
 
-  explicit nsRubyBaseContainerFrame(ComputedStyle* aStyle)
-      : nsContainerFrame(aStyle, kClassID) {}
+  explicit nsRubyBaseContainerFrame(ComputedStyle* aStyle,
+                                    nsPresContext* aPresContext)
+      : nsContainerFrame(aStyle, aPresContext, kClassID) {}
 
   struct RubyReflowInput;
   nscoord ReflowColumns(const RubyReflowInput& aReflowInput,
-                        nsReflowStatus& aStatus);
+                        ReflowOutput& aDesiredSize, nsReflowStatus& aStatus);
   nscoord ReflowOneColumn(const RubyReflowInput& aReflowInput,
                           uint32_t aColumnIndex,
                           const mozilla::RubyColumn& aColumn,
-                          nsReflowStatus& aStatus);
+                          ReflowOutput& aDesiredSize, nsReflowStatus& aStatus);
   nscoord ReflowSpans(const RubyReflowInput& aReflowInput);
 
   struct PullFrameState;

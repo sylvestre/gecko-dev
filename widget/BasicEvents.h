@@ -7,10 +7,12 @@
 #define mozilla_BasicEvents_h__
 
 #include <stdint.h>
+#include <type_traits>
 
-#include "mozilla/dom/EventTarget.h"
 #include "mozilla/EventForwards.h"
 #include "mozilla/TimeStamp.h"
+#include "mozilla/dom/EventTarget.h"
+#include "mozilla/layers/LayersTypes.h"
 #include "nsCOMPtr.h"
 #include "nsAtom.h"
 #include "nsISupportsImpl.h"
@@ -19,7 +21,7 @@
 #include "Units.h"
 
 #ifdef DEBUG
-#include "nsXULAppAPI.h"
+#  include "nsXULAppAPI.h"
 #endif  // #ifdef DEBUG
 
 namespace IPC {
@@ -99,7 +101,9 @@ struct BaseEventFlags {
   // dispatching into the DOM tree and not completed.
   bool mIsBeingDispatched : 1;
   // If mDispatchedAtLeastOnce is true, the event has been dispatched
-  // as a DOM event and the dispatch has been completed.
+  // as a DOM event and the dispatch has been completed in the process.
+  // So, this is false even if the event has already been dispatched
+  // in another process.
   bool mDispatchedAtLeastOnce : 1;
   // If mIsSynthesizedForTests is true, the event has been synthesized for
   // automated tests or something hacky approach of an add-on.
@@ -131,6 +135,9 @@ struct BaseEventFlags {
   // listener is added to chrome node, so, don't set this to true for the
   // events which are fired a lot of times like eMouseMove.
   bool mOnlySystemGroupDispatchInContent : 1;
+  // If mOnlySystemGroupDispatch is true, the event will be dispatched only to
+  // event listeners added in the system group.
+  bool mOnlySystemGroupDispatch : 1;
   // The event's action will be handled by APZ. The main thread should not
   // perform its associated action.
   bool mHandledByAPZ : 1;
@@ -170,6 +177,12 @@ struct BaseEventFlags {
   // remote process (but it's not handled yet if it's not a duplicated event
   // instance).
   bool mPostedToRemoteProcess : 1;
+  // If mCameFromAnotherProcess is true, the event came from another process.
+  bool mCameFromAnotherProcess : 1;
+
+  // At lease one of the event in the event path had non privileged click
+  // listener.
+  bool mHadNonPrivilegedClickListeners : 1;
 
   // If the event is being handled in target phase, returns true.
   inline bool InTargetPhase() const {
@@ -313,6 +326,8 @@ struct BaseEventFlags {
     if (IsWaitingReplyFromRemoteProcess()) {
       mPropagationStopped = mImmediatePropagationStopped = false;
     }
+    // mDispatchedAtLeastOnce indicates the state in current process.
+    mDispatchedAtLeastOnce = false;
   }
   /**
    * Return true if the event has been posted to a remote process.
@@ -320,10 +335,20 @@ struct BaseEventFlags {
    * ParamTraits<mozilla::WidgetEvent>.  Therefore, it *might* be possible
    * that posting the event failed even if this returns true.  But that must
    * really rare.  If that'd be problem for you, you should unmark this in
-   * TabParent or somewhere.
+   * BrowserParent or somewhere.
    */
   inline bool HasBeenPostedToRemoteProcess() const {
     return mPostedToRemoteProcess;
+  }
+  /**
+   * Return true if the event came from another process.
+   */
+  inline bool CameFromAnotherProcess() const { return mCameFromAnotherProcess; }
+  /**
+   * Mark the event as coming from another process.
+   */
+  inline void MarkAsComingFromAnotherProcess() {
+    mCameFromAnotherProcess = true;
   }
   /**
    * Mark the event is reserved by chrome.  I.e., shouldn't be dispatched to
@@ -361,7 +386,7 @@ struct BaseEventFlags {
   }
 
  private:
-  typedef uint32_t RawFlags;
+  typedef uint64_t RawFlags;
 
   inline void SetRawFlags(RawFlags aRawFlags) {
     static_assert(sizeof(BaseEventFlags) <= sizeof(RawFlags),
@@ -454,7 +479,8 @@ class WidgetEvent : public WidgetEventTime {
         mFlags.mBubbles = true;
         break;
       default:
-        if (mMessage == eResize || mMessage == eEditorInput) {
+        if (mMessage == eResize || mMessage == eMozVisualResize ||
+            mMessage == eMozVisualScroll || mMessage == eEditorInput) {
           mFlags.mCancelable = false;
         } else {
           mFlags.mCancelable = true;
@@ -474,7 +500,8 @@ class WidgetEvent : public WidgetEventTime {
         mLastRefPoint(0, 0),
         mFocusSequenceNumber(0),
         mSpecifiedEventType(nullptr),
-        mPath(nullptr) {
+        mPath(nullptr),
+        mLayersId(layers::LayersId{0}) {
     MOZ_COUNT_CTOR(WidgetEvent);
     mFlags.Clear();
     mFlags.mIsTrusted = aIsTrusted;
@@ -491,7 +518,7 @@ class WidgetEvent : public WidgetEventTime {
   WidgetEvent(bool aIsTrusted, EventMessage aMessage)
       : WidgetEvent(aIsTrusted, aMessage, eBasicEventClass) {}
 
-  virtual ~WidgetEvent() { MOZ_COUNT_DTOR(WidgetEvent); }
+  MOZ_COUNTED_DTOR_VIRTUAL(WidgetEvent)
 
   WidgetEvent(const WidgetEvent& aOther) : WidgetEventTime() {
     MOZ_COUNT_CTOR(WidgetEvent);
@@ -532,6 +559,9 @@ class WidgetEvent : public WidgetEventTime {
   EventMessage mMessage;
   // Relative to the widget of the event, or if there is no widget then it is
   // in screen coordinates. Not modified by layout code.
+  // This is in visual coordinates, i.e. the correct RelativeTo value that
+  // expresses what this is relative to is `{viewportFrame, Visual}`, where
+  // `viewportFrame` is the viewport frame of the widget's root document.
   LayoutDeviceIntPoint mRefPoint;
   // The previous mRefPoint, if known, used to calculate mouse movement deltas.
   LayoutDeviceIntPoint mLastRefPoint;
@@ -566,6 +596,11 @@ class WidgetEvent : public WidgetEventTime {
 
   nsTArray<EventTargetChainItem>* mPath;
 
+  // The LayersId of the content process that this event should be
+  // dispatched to. This field is only used in the chrome process
+  // and doesn't get remoted to child processes.
+  layers::LayersId mLayersId;
+
   dom::EventTarget* GetDOMEventTarget() const;
   dom::EventTarget* GetCurrentDOMEventTarget() const;
   dom::EventTarget* GetOriginalDOMEventTarget() const;
@@ -576,6 +611,7 @@ class WidgetEvent : public WidgetEventTime {
     mRefPoint = aEvent.mRefPoint;
     // mLastRefPoint doesn't need to be copied.
     mFocusSequenceNumber = aEvent.mFocusSequenceNumber;
+    // mLayersId intentionally not copied, since it's not used within content
     AssignEventTime(aEvent);
     // mFlags should be copied manually if it's necessary.
     mSpecifiedEventType = aEvent.mSpecifiedEventType;
@@ -679,6 +715,18 @@ class WidgetEvent : public WidgetEventTime {
    */
   inline bool HasBeenPostedToRemoteProcess() const {
     return mFlags.HasBeenPostedToRemoteProcess();
+  }
+  /**
+   * Return true if the event came from another process.
+   */
+  inline bool CameFromAnotherProcess() const {
+    return mFlags.CameFromAnotherProcess();
+  }
+  /**
+   * Mark the event as coming from another process.
+   */
+  inline void MarkAsComingFromAnotherProcess() {
+    mFlags.MarkAsComingFromAnotherProcess();
   }
   /**
    * Mark the event is reserved by chrome.  I.e., shouldn't be dispatched to
@@ -823,9 +871,9 @@ class WidgetEvent : public WidgetEventTime {
   void SetDefaultComposed() {
     switch (mClass) {
       case eCompositionEventClass:
-        mFlags.mComposed = mMessage == eCompositionStart ||
-                           mMessage == eCompositionUpdate ||
-                           mMessage == eCompositionEnd;
+        mFlags.mComposed =
+            mMessage == eCompositionStart || mMessage == eCompositionUpdate ||
+            mMessage == eCompositionChange || mMessage == eCompositionEnd;
         break;
       case eDragEventClass:
         // All drag & drop events are composed
@@ -835,7 +883,8 @@ class WidgetEvent : public WidgetEventTime {
                            mMessage == eDragStart || mMessage == eDrop;
         break;
       case eEditorInputEventClass:
-        mFlags.mComposed = mMessage == eEditorInput;
+        mFlags.mComposed =
+            mMessage == eEditorInput || mMessage == eEditorBeforeInput;
         break;
       case eFocusEventClass:
         mFlags.mComposed = mMessage == eBlur || mMessage == eFocus ||
@@ -846,12 +895,14 @@ class WidgetEvent : public WidgetEventTime {
             mMessage == eKeyDown || mMessage == eKeyUp || mMessage == eKeyPress;
         break;
       case eMouseEventClass:
-        mFlags.mComposed = mMessage == eMouseClick ||
-                           mMessage == eMouseDoubleClick ||
-                           mMessage == eMouseAuxClick ||
-                           mMessage == eMouseDown || mMessage == eMouseUp ||
-                           mMessage == eMouseOver || mMessage == eMouseOut ||
-                           mMessage == eMouseMove || mMessage == eContextMenu;
+        mFlags.mComposed =
+            mMessage == eMouseClick || mMessage == eMouseDoubleClick ||
+            mMessage == eMouseAuxClick || mMessage == eMouseDown ||
+            mMessage == eMouseUp || mMessage == eMouseOver ||
+            mMessage == eMouseOut || mMessage == eMouseMove ||
+            mMessage == eContextMenu || mMessage == eXULPopupShowing ||
+            mMessage == eXULPopupHiding || mMessage == eXULPopupShown ||
+            mMessage == eXULPopupHidden;
         break;
       case ePointerEventClass:
         // All pointer events are composed
@@ -875,6 +926,12 @@ class WidgetEvent : public WidgetEventTime {
         // All wheel events are composed
         mFlags.mComposed = mMessage == eWheel;
         break;
+      case eMouseScrollEventClass:
+        // Legacy mouse scroll events are composed too, for consistency with
+        // wheel.
+        mFlags.mComposed = mMessage == eLegacyMouseLineOrPageScroll ||
+                           mMessage == eLegacyMousePixelScroll;
+        break;
       default:
         mFlags.mComposed = false;
         break;
@@ -886,6 +943,7 @@ class WidgetEvent : public WidgetEventTime {
         aEventTypeArg.EqualsLiteral("compositionstart") ||
         aEventTypeArg.EqualsLiteral("compositionupdate") ||
         aEventTypeArg.EqualsLiteral("compositionend") ||
+        aEventTypeArg.EqualsLiteral("text") ||
         // drag and drop events
         aEventTypeArg.EqualsLiteral("dragstart") ||
         aEventTypeArg.EqualsLiteral("drag") ||
@@ -980,7 +1038,7 @@ class WidgetEvent : public WidgetEventTime {
  ******************************************************************************/
 
 class NativeEventData final {
-  nsTArray<uint8_t> mBuffer;
+  CopyableTArray<uint8_t> mBuffer;
 
   friend struct IPC::ParamTraits<mozilla::NativeEventData>;
 
@@ -995,7 +1053,7 @@ class NativeEventData final {
 
   template <typename T>
   void Copy(const T& other) {
-    static_assert(!mozilla::IsPointer<T>::value, "Don't want a pointer!");
+    static_assert(!std::is_pointer_v<T>, "Don't want a pointer!");
     mBuffer.SetLength(sizeof(T));
     memcpy(mBuffer.Elements(), &other, mBuffer.Length());
   }
@@ -1013,7 +1071,7 @@ class WidgetGUIEvent : public WidgetEvent {
                  EventClassID aEventClassID)
       : WidgetEvent(aIsTrusted, aMessage, aEventClassID), mWidget(aWidget) {}
 
-  WidgetGUIEvent() {}
+  WidgetGUIEvent() = default;
 
  public:
   virtual WidgetGUIEvent* AsGUIEvent() override { return this; }

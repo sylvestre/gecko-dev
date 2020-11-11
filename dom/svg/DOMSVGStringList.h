@@ -4,18 +4,20 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef MOZILLA_DOMSVGSTRINGLIST_H__
-#define MOZILLA_DOMSVGSTRINGLIST_H__
+#ifndef DOM_SVG_DOMSVGSTRINGLIST_H_
+#define DOM_SVG_DOMSVGSTRINGLIST_H_
 
-#include "nsCOMPtr.h"
 #include "nsCycleCollectionParticipant.h"
-#include "nsSVGElement.h"
+#include "SVGElement.h"
 #include "mozilla/Attributes.h"
+#include "mozilla/RefPtr.h"
 
 namespace mozilla {
 
 class ErrorResult;
 class SVGStringList;
+
+namespace dom {
 
 /**
  * Class DOMSVGStringList
@@ -50,7 +52,7 @@ class DOMSVGStringList final : public nsISupports, public nsWrapperCache {
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(DOMSVGStringList)
 
-  nsSVGElement* GetParentObject() const { return mElement; }
+  dom::SVGElement* GetParentObject() const { return mElement; }
   virtual JSObject* WrapObject(JSContext* aCx,
                                JS::Handle<JSObject*> aGivenProto) override;
 
@@ -80,7 +82,7 @@ class DOMSVGStringList final : public nsISupports, public nsWrapperCache {
    * result in a new DOMSVGStringList being returned.
    */
   static already_AddRefed<DOMSVGStringList> GetDOMWrapper(
-      SVGStringList* aList, nsSVGElement* aElement,
+      SVGStringList* aList, dom::SVGElement* aElement,
       bool aIsConditionalProcessingAttribute, uint8_t aAttrEnum);
 
  private:
@@ -88,7 +90,7 @@ class DOMSVGStringList final : public nsISupports, public nsWrapperCache {
    * Only our static GetDOMWrapper() factory method may create objects of our
    * type.
    */
-  DOMSVGStringList(nsSVGElement* aElement,
+  DOMSVGStringList(dom::SVGElement* aElement,
                    bool aIsConditionalProcessingAttribute, uint8_t aAttrEnum)
       : mElement(aElement),
         mAttrEnum(aAttrEnum),
@@ -98,14 +100,17 @@ class DOMSVGStringList final : public nsISupports, public nsWrapperCache {
 
   SVGStringList& InternalList() const;
 
+  void RemoveFromTearoffTable();
+
   // Strong ref to our element to keep it alive.
-  RefPtr<nsSVGElement> mElement;
+  RefPtr<dom::SVGElement> mElement;
 
   uint8_t mAttrEnum;
 
   bool mIsConditionalProcessingAttribute;
 };
 
+}  // namespace dom
 }  // namespace mozilla
 
-#endif  // MOZILLA_DOMSVGSTRINGLIST_H__
+#endif  // DOM_SVG_DOMSVGSTRINGLIST_H_

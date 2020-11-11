@@ -7,13 +7,16 @@
 #ifndef GFX_GLIMAGES_H
 #define GFX_GLIMAGES_H
 
-#include "AndroidSurfaceTexture.h"
 #include "GLContextTypes.h"
 #include "GLTypes.h"
 #include "ImageContainer.h"     // for Image
 #include "ImageTypes.h"         // for ImageFormat::SHARED_GLTEXTURE
 #include "nsCOMPtr.h"           // for already_AddRefed
 #include "mozilla/gfx/Point.h"  // for IntSize
+
+#ifdef MOZ_WIDGET_ANDROID
+#  include "AndroidSurfaceTexture.h"
+#endif
 
 namespace mozilla {
 namespace layers {
@@ -31,14 +34,21 @@ class GLImage : public Image {
 
 class SurfaceTextureImage : public GLImage {
  public:
+  class SetCurrentCallback {
+   public:
+    virtual void operator()(void) = 0;
+    virtual ~SetCurrentCallback() {}
+  };
+
   SurfaceTextureImage(AndroidSurfaceTextureHandle aHandle,
                       const gfx::IntSize& aSize, bool aContinuous,
-                      gl::OriginPos aOriginPos);
+                      gl::OriginPos aOriginPos, bool aHasAlpha = true);
 
   gfx::IntSize GetSize() const override { return mSize; }
   AndroidSurfaceTextureHandle GetHandle() const { return mHandle; }
   bool GetContinuous() const { return mContinuous; }
   gl::OriginPos GetOriginPos() const { return mOriginPos; }
+  bool GetHasAlpha() const { return mHasAlpha; }
 
   already_AddRefed<gfx::SourceSurface> GetAsSourceSurface() override {
     // We can implement this, but currently don't want to because it will cause
@@ -49,11 +59,24 @@ class SurfaceTextureImage : public GLImage {
 
   SurfaceTextureImage* AsSurfaceTextureImage() override { return this; }
 
+  void RegisterSetCurrentCallback(UniquePtr<SetCurrentCallback> aCallback) {
+    mSetCurrentCallback = std::move(aCallback);
+  }
+
+  void OnSetCurrent() {
+    if (mSetCurrentCallback) {
+      (*mSetCurrentCallback)();
+      mSetCurrentCallback.reset();
+    }
+  }
+
  private:
   AndroidSurfaceTextureHandle mHandle;
   gfx::IntSize mSize;
   bool mContinuous;
   gl::OriginPos mOriginPos;
+  const bool mHasAlpha;
+  UniquePtr<SetCurrentCallback> mSetCurrentCallback;
 };
 
 #endif  // MOZ_WIDGET_ANDROID

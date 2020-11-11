@@ -1,7 +1,9 @@
-ChromeUtils.import("resource://gre/modules/FileUtils.jsm");
+var { FileUtils } = ChromeUtils.import("resource://gre/modules/FileUtils.jsm");
 
 var gMimeSvc = Cc["@mozilla.org/mime;1"].getService(Ci.nsIMIMEService);
-var gHandlerSvc = Cc["@mozilla.org/uriloader/handler-service;1"].getService(Ci.nsIHandlerService);
+var gHandlerSvc = Cc["@mozilla.org/uriloader/handler-service;1"].getService(
+  Ci.nsIHandlerService
+);
 
 function createMockedHandlerApp() {
   // Mock the executable
@@ -11,8 +13,9 @@ function createMockedHandlerApp() {
   }
 
   // Mock the handler app
-  let mockedHandlerApp = Cc["@mozilla.org/uriloader/local-handler-app;1"]
-                         .createInstance(Ci.nsILocalHandlerApp);
+  let mockedHandlerApp = Cc[
+    "@mozilla.org/uriloader/local-handler-app;1"
+  ].createInstance(Ci.nsILocalHandlerApp);
   mockedHandlerApp.executable = mockedExecutable;
   mockedHandlerApp.detailedDescription = "Mocked handler app";
 
@@ -28,27 +31,32 @@ function createMockedHandlerApp() {
 
 function createMockedObjects(createHandlerApp) {
   // Mock the mime info
-  let internalMockedMIME = gMimeSvc.getFromTypeAndExtension("text/x-test-handler", null);
+  let internalMockedMIME = gMimeSvc.getFromTypeAndExtension(
+    "text/x-test-handler",
+    null
+  );
   internalMockedMIME.alwaysAskBeforeHandling = true;
   internalMockedMIME.preferredAction = Ci.nsIHandlerInfo.useHelperApp;
   internalMockedMIME.appendExtension("abc");
   if (createHandlerApp) {
     let mockedHandlerApp = createMockedHandlerApp();
     internalMockedMIME.description = mockedHandlerApp.detailedDescription;
-    internalMockedMIME.possibleApplicationHandlers.appendElement(mockedHandlerApp);
+    internalMockedMIME.possibleApplicationHandlers.appendElement(
+      mockedHandlerApp
+    );
     internalMockedMIME.preferredApplicationHandler = mockedHandlerApp;
   }
 
   // Proxy for the mocked MIME info for faking the read-only attributes
   let mockedMIME = new Proxy(internalMockedMIME, {
-    get: function (target, property) {
+    get(target, property) {
       switch (property) {
-      case "hasDefaultHandler":
-        return true;
-      case "defaultDescription":
-        return "Default description";
-      default:
-        return target[property];
+        case "hasDefaultHandler":
+          return true;
+        case "defaultDescription":
+          return "Default description";
+        default:
+          return target[property];
       }
     },
   });
@@ -68,12 +76,18 @@ function createMockedObjects(createHandlerApp) {
     targetFile: null, // never read
     // PRTime is microseconds since epoch, Date.now() returns milliseconds:
     timeDownloadStarted: Date.now() * 1000,
-    QueryInterface: ChromeUtils.generateQI([Ci.nsICancelable, Ci.nsIHelperAppLauncher])
+    QueryInterface: ChromeUtils.generateQI([
+      "nsICancelable",
+      "nsIHelperAppLauncher",
+    ]),
   };
 
   registerCleanupFunction(function() {
     // remove the mocked mime info from database.
-    let mockHandlerInfo = gMimeSvc.getFromTypeAndExtension("text/x-test-handler", null);
+    let mockHandlerInfo = gMimeSvc.getFromTypeAndExtension(
+      "text/x-test-handler",
+      null
+    );
     if (gHandlerSvc.exists(mockHandlerInfo)) {
       gHandlerSvc.remove(mockHandlerInfo);
     }
@@ -83,22 +97,101 @@ function createMockedObjects(createHandlerApp) {
 }
 
 async function openHelperAppDialog(launcher) {
-  let helperAppDialog = Cc["@mozilla.org/helperapplauncherdialog;1"].
-                        createInstance(Ci.nsIHelperAppLauncherDialog);
+  let helperAppDialog = Cc[
+    "@mozilla.org/helperapplauncherdialog;1"
+  ].createInstance(Ci.nsIHelperAppLauncherDialog);
 
-  let helperAppDialogShownPromise = BrowserTestUtils.domWindowOpened();
+  let helperAppDialogShownPromise = BrowserTestUtils.domWindowOpenedAndLoaded();
   try {
     helperAppDialog.show(launcher, window, "foopy");
   } catch (ex) {
-    ok(false, "Trying to show unknownContentType.xul failed with exception: " + ex);
+    ok(
+      false,
+      "Trying to show unknownContentType.xhtml failed with exception: " + ex
+    );
     Cu.reportError(ex);
   }
   let dlg = await helperAppDialogShownPromise;
 
-  await BrowserTestUtils.waitForEvent(dlg, "load", false);
-
-  is(dlg.location.href, "chrome://mozapps/content/downloads/unknownContentType.xul",
-     "Got correct dialog");
+  is(
+    dlg.location.href,
+    "chrome://mozapps/content/downloads/unknownContentType.xhtml",
+    "Got correct dialog"
+  );
 
   return dlg;
+}
+
+async function waitForSubDialog(browser, url, state) {
+  let eventStr = state ? "dialogopen" : "dialogclose";
+
+  let tabDialogBox = gBrowser.getTabDialogBox(browser);
+  let dialogStack = tabDialogBox._dialogManager._dialogStack;
+
+  let checkFn;
+
+  if (state) {
+    checkFn = dialogEvent => dialogEvent.detail.dialog?._openedURL == url;
+  }
+
+  let event = await BrowserTestUtils.waitForEvent(
+    dialogStack,
+    eventStr,
+    true,
+    checkFn
+  );
+
+  let { dialog } = event.detail;
+
+  // If the dialog is closing wait for it to be fully closed before resolving
+  if (!state) {
+    await dialog._closingPromise;
+  }
+
+  return event.detail.dialog;
+}
+
+/**
+ * Wait for protocol permission dialog open/close.
+ * @param {MozBrowser} browser - Browser element the dialog belongs to.
+ * @param {boolean} state - true: dialog open, false: dialog close
+ * @returns {Promise<SubDialog>} - Returns a promise which resolves with the
+ * SubDialog object of the dialog which closed or opened.
+ */
+async function waitForProtocolPermissionDialog(browser, state) {
+  return waitForSubDialog(
+    browser,
+    "chrome://mozapps/content/handling/permissionDialog.xhtml",
+    state
+  );
+}
+
+/**
+ * Wait for protocol app chooser dialog open/close.
+ * @param {MozBrowser} browser - Browser element the dialog belongs to.
+ * @param {boolean} state - true: dialog open, false: dialog close
+ * @returns {Promise<SubDialog>} - Returns a promise which resolves with the
+ * SubDialog object of the dialog which closed or opened.
+ */
+async function waitForProtocolAppChooserDialog(browser, state) {
+  return waitForSubDialog(
+    browser,
+    "chrome://mozapps/content/handling/appChooser.xhtml",
+    state
+  );
+}
+
+async function promiseDownloadFinished(list) {
+  return new Promise(resolve => {
+    list.addView({
+      onDownloadChanged(download) {
+        info("Download changed!");
+        if (download.succeeded || download.error) {
+          info("Download succeeded or errored");
+          list.removeView(this);
+          resolve(download);
+        }
+      },
+    });
+  });
 }

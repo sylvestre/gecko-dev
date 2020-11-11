@@ -5,7 +5,7 @@ https://bugzilla.mozilla.org/show_bug.cgi?id=675884
 -->
 <head>
   <title>Test for Bug 675884</title>
-  <script type="application/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css"/>
 </head>
 <body>
@@ -199,7 +199,16 @@ try {
 ok(ex, "First parameter is required!");
 ex = false;
 
-e = new BlobEvent("hello");
+try {
+  e = new BlobEvent("hello");
+} catch(exp) {
+  ex = true;
+}
+ok(ex, "data attribute is required in init dict");
+ex = false;
+
+var blob = new Blob();
+e = new BlobEvent("hello", {data: blob});
 is(e.type, "hello", "Wrong event type!");
 ok(!e.isTrusted, "Event shouldn't be trusted!");
 try {
@@ -216,7 +225,6 @@ ok(!e.cancelable, "Event shouldn't be cancelable!");
 document.dispatchEvent(e);
 is(receivedEvent, e, "Wrong event!");
 
-var blob = new Blob();
 e = new BlobEvent("hello", { bubbles: true, cancelable: true, data: blob });
 is(e.type, "hello", "Wrong event type!");
 ok(!e.isTrusted, "Event shouldn't be trusted!");
@@ -226,7 +234,6 @@ is(e.data, blob , "Wrong event.data!");
 document.dispatchEvent(e);
 is(receivedEvent, e, "Wrong event!");
 
-
 e = new BlobEvent("hello", {data: blob});
 is(e.type, "hello", "Wrong event type!");
 ok(!e.isTrusted, "Event shouldn't be trusted!");
@@ -234,11 +241,15 @@ ok(!e.bubbles, "Event shouldn't bubble!");
 ok(!e.cancelable, "Event should be cancelable1!");
 is(e.data, blob , "Wrong event.data!");
 
-e = new BlobEvent("hello", { data: null });
-is(e.data, null, "Wrong event.data!");
-ok(!e.bubbles, "Event shouldn't bubble!");
-ok(!e.cancelable, "Event shouldn't be cancelable!");
+try {
+  e = new BlobEvent("hello", { data: null });
+} catch(exp) {
+  ex = true;
+}
+ok(ex, "data attribute cannot be null");
+ex = false;
 blob = null;
+
 // CloseEvent
 
 try {
@@ -884,6 +895,40 @@ is(e.cancelable, false, "Lack of cancelable property in AnimationEventInit");
 is(e.type, "hello", "Wrong event type!");
 is(e.isTrusted, false, "Event shouldn't be trusted!");
 is(e.eventPhase, Event.NONE, "Wrong event phase");
+
+// InputEvent
+let dataTransfer = new DataTransfer();
+dataTransfer.setData("text/plain", "foo");
+e = new InputEvent("hello", {data: "something data", dataTransfer, inputType: "invalid input type", isComposing: true});
+is(e.type, "hello", "InputEvent should set type attribute");
+is(e.data, "something data", "InputEvent should have data attribute");
+is(e.dataTransfer, dataTransfer, "InputEvent should have the dataTransfer");
+is(e.dataTransfer.getData("text/plain"), "foo", "InputEvent.dataTransfer should keep handling its data");
+try {
+  e.dataTransfer.setData("text/plain", "bar");
+} catch (exp) {
+  ok(false, `InputEvent.dataTransfer.setData("text/plain", "bar") shouldn't fail (${exp})`);
+}
+is(e.dataTransfer.getData("text/plain"), "bar", "InputEvent.dataTransfer should be modified by a call of its setData()");
+is(e.inputType, "invalid input type", "InputEvent should have inputType attribute");
+is(e.isComposing, true, "InputEvent should have isComposing attribute");
+
+dataTransfer = new DataTransfer();
+e = new InputEvent("hello", {data: "", dataTransfer, inputType: "insertText"});
+is(e.data, "", "InputEvent.data should be empty string when empty string is specified explicitly");
+is(e.dataTransfer, dataTransfer, "InputEvent.dataTransfer should have the empty dataTransfer");
+is(e.inputType, "insertText", "InputEvent.inputType should return valid inputType from EditorInputType enum");
+e = new InputEvent("hello", {data: "foo", inputType: "deleteWordBackward"});
+is(e.data, "foo", "InputEvent.data should be the specified string");
+is(e.inputType, "deleteWordBackward", "InputEvent.inputType should return valid inputType from EditorInputType enum");
+e = new InputEvent("hello", {inputType: "formatFontName"});
+is(e.inputType, "formatFontName", "InputEvent.inputType should return valid inputType from EditorInputType enum");
+
+e = new InputEvent("input", {});
+is(e.data, null, "InputEvent.data should be null in default");
+is(e.dataTransfer, null, "InputEvent.dataTransfer should be null in default");
+is(e.inputType, "", "InputEvent.inputType should be empty string in default");
+is(e.isComposing, false, "InputEvent.isComposing should be false in default");
 
 </script>
 </pre>

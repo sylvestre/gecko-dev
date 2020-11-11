@@ -10,7 +10,7 @@
  *
  * The |Animations| actor is the main entry point. It is used to discover
  * animation players on given nodes.
- * There should only be one instance per debugger server.
+ * There should only be one instance per devtools server.
  *
  * The |AnimationPlayer| actor provides attributes and methods to inspect an
  * animation as well as pause/resume/seek it.
@@ -25,11 +25,16 @@
  *   /dom/webidl/Animation*.webidl
  */
 
-const {Cu} = require("chrome");
+const { Cu } = require("chrome");
 const protocol = require("devtools/shared/protocol");
-const {Actor} = protocol;
-const {animationPlayerSpec, animationsSpec} = require("devtools/shared/specs/animation");
-const {ANIMATION_TYPE_FOR_LONGHANDS} = require("./animation-type-longhand");
+const { Actor } = protocol;
+const {
+  animationPlayerSpec,
+  animationsSpec,
+} = require("devtools/shared/specs/animation");
+const {
+  ANIMATION_TYPE_FOR_LONGHANDS,
+} = require("devtools/server/actors/animation-type-longhand");
 
 // Types of animations.
 const ANIMATION_TYPES = {
@@ -81,10 +86,12 @@ var AnimationPlayerActor = protocol.ActorClassWithSpec(animationPlayerSpec, {
     // current animation).
     this.observer = new this.window.MutationObserver(this.onAnimationMutation);
     if (this.isPseudoElement) {
-      this.observer.observe(this.node.parentElement,
-                            {animations: true, subtree: true});
+      this.observer.observe(this.node.parentElement, {
+        animations: true,
+        subtree: true,
+      });
     } else {
-      this.observer.observe(this.node, {animations: true});
+      this.observer.observe(this.node, { animations: true });
     }
 
     this.createdTime = createdTime;
@@ -103,7 +110,18 @@ var AnimationPlayerActor = protocol.ActorClassWithSpec(animationPlayerSpec, {
   },
 
   get isPseudoElement() {
-    return !this.player.effect.target.ownerDocument;
+    return !!this.player.effect.pseudoElement;
+  },
+
+  get pseudoElemenName() {
+    if (!this.isPseudoElement) {
+      return null;
+    }
+
+    return `_moz_generated_content_${this.player.effect.pseudoElement.replace(
+      /^::/,
+      ""
+    )}`;
   },
 
   get node() {
@@ -111,9 +129,26 @@ var AnimationPlayerActor = protocol.ActorClassWithSpec(animationPlayerSpec, {
       return this.player.effect.target;
     }
 
-    const pseudo = this.player.effect.target;
-    const treeWalker = this.walker.getDocumentWalker(pseudo.parentElement);
-    return pseudo.type === "::before" ? treeWalker.firstChild() : treeWalker.lastChild();
+    const pseudoElementName = this.pseudoElemenName;
+    const originatingElem = this.player.effect.target;
+    const treeWalker = this.walker.getDocumentWalker(originatingElem);
+
+    // When the animated node is a pseudo-element, we need to walk the children
+    // of the target node and look for it.
+    for (
+      let next = treeWalker.firstChild();
+      next;
+      next = treeWalker.nextSibling()
+    ) {
+      if (next.nodeName === pseudoElementName) {
+        return next;
+      }
+    }
+
+    console.warn(
+      `Pseudo element ${this.player.effect.pseudoElement} is not found`
+    );
+    return originatingElem;
   },
 
   get document() {
@@ -131,10 +166,6 @@ var AnimationPlayerActor = protocol.ActorClassWithSpec(animationPlayerSpec, {
   release: function() {},
 
   form: function(detail) {
-    if (detail === "actorid") {
-      return this.actorID;
-    }
-
     const data = this.getCurrentState();
     data.actor = this.actorID;
 
@@ -156,9 +187,12 @@ var AnimationPlayerActor = protocol.ActorClassWithSpec(animationPlayerSpec, {
   },
 
   isScriptAnimation: function(player = this.player) {
-    return player instanceof this.window.Animation && !(
-      player instanceof this.window.CSSAnimation ||
-      player instanceof this.window.CSSTransition
+    return (
+      player instanceof this.window.Animation &&
+      !(
+        player instanceof this.window.CSSAnimation ||
+        player instanceof this.window.CSSTransition
+      )
     );
   },
 
@@ -274,7 +308,7 @@ var AnimationPlayerActor = protocol.ActorClassWithSpec(animationPlayerSpec, {
     if (target.type) {
       // Animated element is a pseudo element.
       pseudo = target.type;
-      target = target.parentElement;
+      target = target.element;
     }
     return this.window.getComputedStyle(target, pseudo).animationTimingFunction;
   },
@@ -317,9 +351,9 @@ var AnimationPlayerActor = protocol.ActorClassWithSpec(animationPlayerSpec, {
       animationTimingFunction: this.getAnimationTimingFunction(),
       // animation is hitting the fast path or not. Returns false whenever the
       // animation is paused as it is taken off the compositor then.
-      isRunningOnCompositor:
-        this.getPropertiesCompositorStatus()
-            .some(propState => propState.runningOnCompositor),
+      isRunningOnCompositor: this.getPropertiesCompositorStatus().some(
+        propState => propState.runningOnCompositor
+      ),
       propertyState: this.getPropertiesCompositorStatus(),
       // The document timeline's currentTime is being sent along too. This is
       // not strictly related to the node's animationPlayer, but is useful to
@@ -351,8 +385,10 @@ var AnimationPlayerActor = protocol.ActorClassWithSpec(animationPlayerSpec, {
     let sentState = {};
     if (this.currentState) {
       for (const key in newState) {
-        if (typeof this.currentState[key] === "undefined" ||
-            this.currentState[key] !== newState[key]) {
+        if (
+          typeof this.currentState[key] === "undefined" ||
+          this.currentState[key] !== newState[key]
+        ) {
           sentState[key] = newState[key];
         }
       }
@@ -370,10 +406,11 @@ var AnimationPlayerActor = protocol.ActorClassWithSpec(animationPlayerSpec, {
    */
   onAnimationMutation: function(mutations) {
     const isCurrentAnimation = animation => animation === this.player;
-    const hasCurrentAnimation = animations => animations.some(isCurrentAnimation);
+    const hasCurrentAnimation = animations =>
+      animations.some(isCurrentAnimation);
     let hasChanged = false;
 
-    for (const {removedAnimations, changedAnimations} of mutations) {
+    for (const { removedAnimations, changedAnimations } of mutations) {
       if (hasCurrentAnimation(removedAnimations)) {
         // Reset the local copy of the state on removal, since the animation can
         // be kept on the client and re-added, its state needs to be sent in
@@ -386,17 +423,18 @@ var AnimationPlayerActor = protocol.ActorClassWithSpec(animationPlayerSpec, {
         // animationTimingFunction or playbackRate has changed.
         const newState = this.getState();
         const oldState = this.currentState;
-        hasChanged = newState.delay !== oldState.delay ||
-                     newState.iterationCount !== oldState.iterationCount ||
-                     newState.iterationStart !== oldState.iterationStart ||
-                     newState.duration !== oldState.duration ||
-                     newState.endDelay !== oldState.endDelay ||
-                     newState.direction !== oldState.direction ||
-                     newState.easing !== oldState.easing ||
-                     newState.fill !== oldState.fill ||
-                     newState.animationTimingFunction !==
-                       oldState.animationTimingFunction ||
-                     newState.playbackRate !== oldState.playbackRate;
+        hasChanged =
+          newState.delay !== oldState.delay ||
+          newState.iterationCount !== oldState.iterationCount ||
+          newState.iterationStart !== oldState.iterationStart ||
+          newState.duration !== oldState.duration ||
+          newState.endDelay !== oldState.endDelay ||
+          newState.direction !== oldState.direction ||
+          newState.easing !== oldState.easing ||
+          newState.fill !== oldState.fill ||
+          newState.animationTimingFunction !==
+            oldState.animationTimingFunction ||
+          newState.playbackRate !== oldState.playbackRate;
         break;
       }
     }
@@ -413,7 +451,7 @@ var AnimationPlayerActor = protocol.ActorClassWithSpec(animationPlayerSpec, {
    */
   getProperties: function() {
     const properties = this.player.effect.getProperties().map(property => {
-      return {name: property.property, values: property.values};
+      return { name: property.property, values: property.values };
     });
 
     const DOMWindowUtils = this.window.windowUtils;
@@ -433,15 +471,17 @@ var AnimationPlayerActor = protocol.ActorClassWithSpec(animationPlayerSpec, {
           if (target.type) {
             // This target is a pseudo element.
             pseudo = target.type;
-            target = target.parentElement;
+            target = target.element;
           }
-          const value =
-            DOMWindowUtils.getUnanimatedComputedStyle(target,
-                                                      pseudo,
-                                                      property.name,
-                                                      DOMWindowUtils.FLUSH_NONE);
+          const value = DOMWindowUtils.getUnanimatedComputedStyle(
+            target,
+            pseudo,
+            property.name,
+            DOMWindowUtils.FLUSH_NONE
+          );
           const animationType = getAnimationTypeForLonghand(property.name);
-          underlyingValue = animationType === "float" ? parseFloat(value, 10) : value;
+          underlyingValue =
+            animationType === "float" ? parseFloat(value, 10) : value;
         }
         values.value = underlyingValue;
       });
@@ -455,8 +495,13 @@ var AnimationPlayerActor = protocol.ActorClassWithSpec(animationPlayerSpec, {
         const value1 = property.values[i].value;
         for (let j = i + 1; j < property.values.length; j++) {
           const value2 = property.values[j].value;
-          const distance =
-            this.getDistance(this.node, propertyName, value1, value2, DOMWindowUtils);
+          const distance = this.getDistance(
+            this.node,
+            propertyName,
+            value1,
+            value2,
+            DOMWindowUtils
+          );
           if (maxObject.distance >= distance) {
             continue;
           }
@@ -471,17 +516,26 @@ var AnimationPlayerActor = protocol.ActorClassWithSpec(animationPlayerSpec, {
         property.values.reduce((previous, current) => {
           // If the current value is same as previous value, use previous distance.
           current.distance =
-            current.value === previous.value ? previous.distance : current.offset;
+            current.value === previous.value
+              ? previous.distance
+              : current.offset;
           return current;
         }, property.values[0]);
         continue;
       }
       const baseValue =
-        maxObject.value1 < maxObject.value2 ? maxObject.value1 : maxObject.value2;
+        maxObject.value1 < maxObject.value2
+          ? maxObject.value1
+          : maxObject.value2;
       for (const values of property.values) {
         const value = values.value;
-        const distance =
-          this.getDistance(this.node, propertyName, baseValue, value, DOMWindowUtils);
+        const distance = this.getDistance(
+          this.node,
+          propertyName,
+          baseValue,
+          value,
+          DOMWindowUtils
+        );
         values.distance = distance / maxObject.distance;
       }
     }
@@ -515,8 +569,12 @@ var AnimationPlayerActor = protocol.ActorClassWithSpec(animationPlayerSpec, {
       return 0;
     }
     try {
-      const distance =
-        DOMWindowUtils.computeAnimationDistance(target, propertyName, value1, value2);
+      const distance = DOMWindowUtils.computeAnimationDistance(
+        target,
+        propertyName,
+        value1,
+        value2
+      );
       return distance;
     } catch (e) {
       // We can't compute the distance such the 'discrete' animation,
@@ -577,7 +635,7 @@ exports.AnimationsActor = protocol.ActorClassWithSpec(animationsSpec, {
    * /devtools/server/actors/inspector
    */
   getAnimationPlayersForNode: function(nodeActor) {
-    const animations = nodeActor.rawNode.getAnimations({subtree: true});
+    const animations = nodeActor.rawNode.getAnimations({ subtree: true });
 
     // Destroy previously stored actors
     if (this.actors) {
@@ -615,7 +673,7 @@ exports.AnimationsActor = protocol.ActorClassWithSpec(animationsSpec, {
     const eventData = [];
     const readyPromises = [];
 
-    for (const {addedAnimations, removedAnimations} of mutations) {
+    for (const { addedAnimations, removedAnimations } of mutations) {
       for (const player of removedAnimations) {
         // Note that animations are reported as removed either when they are
         // actually removed from the node (e.g. css class removed) or when they
@@ -649,10 +707,11 @@ exports.AnimationsActor = protocol.ActorClassWithSpec(animationsSpec, {
         // a "removed" event for the one we already have.
         const index = this.actors.findIndex(a => {
           const isSameType = a.player.constructor === player.constructor;
-          const isSameName = (a.isCssAnimation() &&
-                            a.player.animationName === player.animationName) ||
-                           (a.isCssTransition() &&
-                            a.player.transitionProperty === player.transitionProperty);
+          const isSameName =
+            (a.isCssAnimation() &&
+              a.player.animationName === player.animationName) ||
+            (a.isCssTransition() &&
+              a.player.transitionProperty === player.transitionProperty);
           const isSameNode = a.player.effect.target === player.effect.target;
 
           return isSameType && isSameNode && isSameName;
@@ -696,34 +755,13 @@ exports.AnimationsActor = protocol.ActorClassWithSpec(animationsSpec, {
     }
   },
 
-  /**
-   * Iterates through all nodes below a given rootNode (optionally also in
-   * nested frames) and finds all existing animation players.
-   * @param {DOMNode} rootNode The root node to start iterating at. Animation
-   * players will *not* be reported for this node.
-   * @param {Boolean} traverseFrames Whether we should iterate through nested
-   * frames too.
-   * @return {Array} An array of AnimationPlayer objects.
-   */
-  getAllAnimations: function(rootNode, traverseFrames) {
-    if (!traverseFrames) {
-      return rootNode.getAnimations({subtree: true});
-    }
-
-    let animations = [];
-    for (const {document} of this.targetActor.windows) {
-      animations = [...animations, ...document.getAnimations({subtree: true})];
-    }
-    return animations;
-  },
-
-  onWillNavigate: function({isTopLevel}) {
+  onWillNavigate: function({ isTopLevel }) {
     if (isTopLevel) {
       this.stopAnimationPlayerUpdates();
     }
   },
 
-  onNavigate: function({isTopLevel}) {
+  onNavigate: function({ isTopLevel }) {
     if (isTopLevel) {
       this.allAnimationsPaused = false;
     }
@@ -770,7 +808,9 @@ exports.AnimationsActor = protocol.ActorClassWithSpec(animationsSpec, {
       }
 
       const currentTime =
-        player.playbackRate > 0 ? time - actor.createdTime : actor.createdTime - time;
+        player.playbackRate > 0
+          ? time - actor.createdTime
+          : actor.createdTime - time;
       player.currentTime = currentTime * Math.abs(player.playbackRate);
     }
 
@@ -783,10 +823,12 @@ exports.AnimationsActor = protocol.ActorClassWithSpec(animationsSpec, {
    * @param {Number} rate The new rate.
    */
   setPlaybackRates: function(players, rate) {
-    return Promise.all(players.map(({ player }) => {
-      player.updatePlaybackRate(rate);
-      return player.ready;
-    }));
+    return Promise.all(
+      players.map(({ player }) => {
+        player.updatePlaybackRate(rate);
+        return player.ready;
+      })
+    );
   },
 
   /**
@@ -811,7 +853,8 @@ exports.AnimationsActor = protocol.ActorClassWithSpec(animationsSpec, {
 
     // Play animation in a synchronous fashion by setting the start time directly.
     const currentTime = player.currentTime || 0;
-    player.startTime = player.timeline.currentTime - currentTime / player.playbackRate;
+    player.startTime =
+      player.timeline.currentTime - currentTime / player.playbackRate;
   },
 
   /**
@@ -820,8 +863,11 @@ exports.AnimationsActor = protocol.ActorClassWithSpec(animationsSpec, {
    * @param {Object} animation
    */
   getCreatedTime(animation) {
-    return animation.startTime ||
-          animation.timeline.currentTime - animation.currentTime / animation.playbackRate;
+    return (
+      animation.startTime ||
+      animation.timeline.currentTime -
+        animation.currentTime / animation.playbackRate
+    );
   },
 
   /**

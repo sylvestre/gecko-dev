@@ -3,26 +3,28 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "mozilla/Types.h"
+#include <dlfcn.h>
+#include <gtk/gtk.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include <gtk/gtk.h>
-
+#include "mozilla/Types.h"
 #include "nsGtkUtils.h"
 #include "nsIFileURL.h"
+#include "nsIGIOService.h"
 #include "nsIURI.h"
 #include "nsIWidget.h"
 #include "nsIFile.h"
-#include "nsIStringBundle.h"
+#include "mozilla/Preferences.h"
 
 #include "nsArrayEnumerator.h"
 #include "nsMemory.h"
 #include "nsEnumeratorUtils.h"
 #include "nsNetUtil.h"
 #include "nsReadableUtils.h"
-#include "mozcontainer.h"
+#include "MozContainer.h"
+#include "gfxPlatformGtk.h"
 
 #include "nsFilePicker.h"
 
@@ -32,7 +34,7 @@ using namespace mozilla;
 // bug 1184009
 #define MAX_PREVIEW_SOURCE_SIZE 4096
 
-nsIFile *nsFilePicker::mPrevDisplayDirectory = nullptr;
+nsIFile* nsFilePicker::mPrevDisplayDirectory = nullptr;
 
 void nsFilePicker::Shutdown() { NS_IF_RELEASE(mPrevDisplayDirectory); }
 
@@ -62,10 +64,10 @@ static GtkFileChooserAction GetGtkFileChooserAction(int16_t aMode) {
   return action;
 }
 
-static void UpdateFilePreviewWidget(GtkFileChooser *file_chooser,
+static void UpdateFilePreviewWidget(GtkFileChooser* file_chooser,
                                     gpointer preview_widget_voidptr) {
-  GtkImage *preview_widget = GTK_IMAGE(preview_widget_voidptr);
-  char *image_filename = gtk_file_chooser_get_preview_filename(file_chooser);
+  GtkImage* preview_widget = GTK_IMAGE(preview_widget_voidptr);
+  char* image_filename = gtk_file_chooser_get_preview_filename(file_chooser);
   struct stat st_buf;
 
   if (!image_filename) {
@@ -85,7 +87,7 @@ static void UpdateFilePreviewWidget(GtkFileChooser *file_chooser,
     return; /* stat failed or file is not regular */
   }
 
-  GdkPixbufFormat *preview_format =
+  GdkPixbufFormat* preview_format =
       gdk_pixbuf_get_file_info(image_filename, &preview_width, &preview_height);
   if (!preview_format || preview_width <= 0 || preview_height <= 0 ||
       preview_width > MAX_PREVIEW_SOURCE_SIZE ||
@@ -95,7 +97,7 @@ static void UpdateFilePreviewWidget(GtkFileChooser *file_chooser,
     return;
   }
 
-  GdkPixbuf *preview_pixbuf = nullptr;
+  GdkPixbuf* preview_pixbuf = nullptr;
   // Only scale down images that are too big
   if (preview_width > MAX_PREVIEW_SIZE || preview_height > MAX_PREVIEW_SIZE) {
     preview_pixbuf = gdk_pixbuf_new_from_file_at_size(
@@ -111,7 +113,7 @@ static void UpdateFilePreviewWidget(GtkFileChooser *file_chooser,
     return;
   }
 
-  GdkPixbuf *preview_pixbuf_temp = preview_pixbuf;
+  GdkPixbuf* preview_pixbuf_temp = preview_pixbuf;
   preview_pixbuf = gdk_pixbuf_apply_embedded_orientation(preview_pixbuf_temp);
   g_object_unref(preview_pixbuf_temp);
 
@@ -127,7 +129,7 @@ static void UpdateFilePreviewWidget(GtkFileChooser *file_chooser,
   gtk_file_chooser_set_preview_widget_active(file_chooser, TRUE);
 }
 
-static nsAutoCString MakeCaseInsensitiveShellGlob(const char *aPattern) {
+static nsAutoCString MakeCaseInsensitiveShellGlob(const char* aPattern) {
   // aPattern is UTF8
   nsAutoCString result;
   unsigned int len = strlen(aPattern);
@@ -156,48 +158,52 @@ NS_IMPL_ISUPPORTS(nsFilePicker, nsIFilePicker)
 nsFilePicker::nsFilePicker()
     : mSelectedType(0),
       mRunning(false),
-      mAllowURLs(false)
-#ifdef MOZ_WIDGET_GTK
-      ,
-      mFileChooserDelegate(nullptr)
-#endif
-{
+      mAllowURLs(false),
+      mFileChooserDelegate(nullptr) {
+  nsCOMPtr<nsIGIOService> giovfs = do_GetService(NS_GIOSERVICE_CONTRACTID);
+  // Due to Bug 1635718 always use portal for file dialog on Wayland.
+  if (gfxPlatformGtk::GetPlatform()->IsWaylandDisplay()) {
+    mUseNativeFileChooser =
+        Preferences::GetBool("widget.use-xdg-desktop-portal", true);
+  } else {
+    giovfs->ShouldUseFlatpakPortal(&mUseNativeFileChooser);
+  }
 }
 
-nsFilePicker::~nsFilePicker() {}
+nsFilePicker::~nsFilePicker() = default;
 
 void ReadMultipleFiles(gpointer filename, gpointer array) {
   nsCOMPtr<nsIFile> localfile;
   nsresult rv =
-      NS_NewNativeLocalFile(nsDependentCString(static_cast<char *>(filename)),
+      NS_NewNativeLocalFile(nsDependentCString(static_cast<char*>(filename)),
                             false, getter_AddRefs(localfile));
   if (NS_SUCCEEDED(rv)) {
-    nsCOMArray<nsIFile> &files = *static_cast<nsCOMArray<nsIFile> *>(array);
+    nsCOMArray<nsIFile>& files = *static_cast<nsCOMArray<nsIFile>*>(array);
     files.AppendObject(localfile);
   }
 
   g_free(filename);
 }
 
-void nsFilePicker::ReadValuesFromFileChooser(void *file_chooser) {
+void nsFilePicker::ReadValuesFromFileChooser(void* file_chooser) {
   mFiles.Clear();
 
   if (mMode == nsIFilePicker::modeOpenMultiple) {
     mFileURL.Truncate();
 
-    GSList *list =
+    GSList* list =
         gtk_file_chooser_get_filenames(GTK_FILE_CHOOSER(file_chooser));
     g_slist_foreach(list, ReadMultipleFiles, static_cast<gpointer>(&mFiles));
     g_slist_free(list);
   } else {
-    gchar *filename = gtk_file_chooser_get_uri(GTK_FILE_CHOOSER(file_chooser));
+    gchar* filename = gtk_file_chooser_get_uri(GTK_FILE_CHOOSER(file_chooser));
     mFileURL.Assign(filename);
     g_free(filename);
   }
 
-  GtkFileFilter *filter =
+  GtkFileFilter* filter =
       gtk_file_chooser_get_filter(GTK_FILE_CHOOSER(file_chooser));
-  GSList *filter_list =
+  GSList* filter_list =
       gtk_file_chooser_list_filters(GTK_FILE_CHOOSER(file_chooser));
 
   mSelectedType = static_cast<int16_t>(g_slist_index(filter_list, filter));
@@ -215,7 +221,7 @@ void nsFilePicker::ReadValuesFromFileChooser(void *file_chooser) {
   }
 }
 
-void nsFilePicker::InitNative(nsIWidget *aParent, const nsAString &aTitle) {
+void nsFilePicker::InitNative(nsIWidget* aParent, const nsAString& aTitle) {
   mParentWidget = aParent;
   mTitle.Assign(aTitle);
 }
@@ -227,7 +233,7 @@ nsFilePicker::AppendFilters(int32_t aFilterMask) {
 }
 
 NS_IMETHODIMP
-nsFilePicker::AppendFilter(const nsAString &aTitle, const nsAString &aFilter) {
+nsFilePicker::AppendFilter(const nsAString& aTitle, const nsAString& aFilter) {
   if (aFilter.EqualsLiteral("..apps")) {
     // No platform specific thing we can do here, really....
     return NS_OK;
@@ -244,34 +250,34 @@ nsFilePicker::AppendFilter(const nsAString &aTitle, const nsAString &aFilter) {
 }
 
 NS_IMETHODIMP
-nsFilePicker::SetDefaultString(const nsAString &aString) {
+nsFilePicker::SetDefaultString(const nsAString& aString) {
   mDefault = aString;
 
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsFilePicker::GetDefaultString(nsAString &aString) {
+nsFilePicker::GetDefaultString(nsAString& aString) {
   // Per API...
   return NS_ERROR_FAILURE;
 }
 
 NS_IMETHODIMP
-nsFilePicker::SetDefaultExtension(const nsAString &aExtension) {
+nsFilePicker::SetDefaultExtension(const nsAString& aExtension) {
   mDefaultExtension = aExtension;
 
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsFilePicker::GetDefaultExtension(nsAString &aExtension) {
+nsFilePicker::GetDefaultExtension(nsAString& aExtension) {
   aExtension = mDefaultExtension;
 
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsFilePicker::GetFilterIndex(int32_t *aFilterIndex) {
+nsFilePicker::GetFilterIndex(int32_t* aFilterIndex) {
   *aFilterIndex = mSelectedType;
 
   return NS_OK;
@@ -285,7 +291,7 @@ nsFilePicker::SetFilterIndex(int32_t aFilterIndex) {
 }
 
 NS_IMETHODIMP
-nsFilePicker::GetFile(nsIFile **aFile) {
+nsFilePicker::GetFile(nsIFile** aFile) {
   NS_ENSURE_ARG_POINTER(aFile);
 
   *aFile = nullptr;
@@ -305,13 +311,13 @@ nsFilePicker::GetFile(nsIFile **aFile) {
 }
 
 NS_IMETHODIMP
-nsFilePicker::GetFileURL(nsIURI **aFileURL) {
+nsFilePicker::GetFileURL(nsIURI** aFileURL) {
   *aFileURL = nullptr;
   return NS_NewURI(aFileURL, mFileURL);
 }
 
 NS_IMETHODIMP
-nsFilePicker::GetFiles(nsISimpleEnumerator **aFiles) {
+nsFilePicker::GetFiles(nsISimpleEnumerator** aFiles) {
   NS_ENSURE_ARG_POINTER(aFiles);
 
   if (mMode == nsIFilePicker::modeOpenMultiple) {
@@ -321,7 +327,7 @@ nsFilePicker::GetFiles(nsISimpleEnumerator **aFiles) {
   return NS_ERROR_FAILURE;
 }
 
-nsresult nsFilePicker::Show(int16_t *aReturn) {
+nsresult nsFilePicker::Show(int16_t* aReturn) {
   NS_ENSURE_ARG_POINTER(aReturn);
 
   nsresult rv = Open(nullptr);
@@ -336,19 +342,18 @@ nsresult nsFilePicker::Show(int16_t *aReturn) {
 }
 
 NS_IMETHODIMP
-nsFilePicker::Open(nsIFilePickerShownCallback *aCallback) {
+nsFilePicker::Open(nsIFilePickerShownCallback* aCallback) {
   // Can't show two dialogs concurrently with the same filepicker
   if (mRunning) return NS_ERROR_NOT_AVAILABLE;
 
-  nsCString title;
-  title.Adopt(ToNewUTF8String(mTitle));
+  NS_ConvertUTF16toUTF8 title(mTitle);
 
-  GtkWindow *parent_widget =
+  GtkWindow* parent_widget =
       GTK_WINDOW(mParentWidget->GetNativeData(NS_NATIVE_SHELLWIDGET));
 
   GtkFileChooserAction action = GetGtkFileChooserAction(mMode);
 
-  const gchar *accept_button;
+  const gchar* accept_button;
   NS_ConvertUTF16toUTF8 buttonLabel(mOkButtonLabel);
   if (!mOkButtonLabel.IsEmpty()) {
     accept_button = buttonLabel.get();
@@ -356,7 +361,7 @@ nsFilePicker::Open(nsIFilePickerShownCallback *aCallback) {
     accept_button = nullptr;
   }
 
-  void *file_chooser =
+  void* file_chooser =
       GtkFileChooserNew(title.get(), parent_widget, action, accept_button);
 
   // If we have --enable-proxy-bypass-protection, then don't allow
@@ -369,7 +374,7 @@ nsFilePicker::Open(nsIFilePickerShownCallback *aCallback) {
 
   if (action == GTK_FILE_CHOOSER_ACTION_OPEN ||
       action == GTK_FILE_CHOOSER_ACTION_SAVE) {
-    GtkWidget *img_preview = gtk_image_new();
+    GtkWidget* img_preview = gtk_image_new();
     gtk_file_chooser_set_preview_widget(GTK_FILE_CHOOSER(file_chooser),
                                         img_preview);
     g_signal_connect(file_chooser, "update-preview",
@@ -409,31 +414,28 @@ nsFilePicker::Open(nsIFilePickerShownCallback *aCallback) {
       nsAutoCString directory;
       defaultPath->GetNativePath(directory);
 
-#ifdef MOZ_WIDGET_GTK
       // Workaround for problematic refcounting in GTK3 before 3.16.
       // We need to keep a reference to the dialog's internal delegate.
       // Otherwise, if our dialog gets destroyed, we'll lose the dialog's
       // delegate by the time this gets processed in the event loop.
       // See: https://bugzilla.mozilla.org/show_bug.cgi?id=1166741
       if (GTK_IS_DIALOG(file_chooser)) {
-        GtkDialog *dialog = GTK_DIALOG(file_chooser);
-        GtkContainer *area = GTK_CONTAINER(gtk_dialog_get_content_area(dialog));
-        gtk_container_forall(area,
-                             [](GtkWidget *widget, gpointer data) {
-                               if (GTK_IS_FILE_CHOOSER_WIDGET(widget)) {
-                                 auto result =
-                                     static_cast<GtkFileChooserWidget **>(data);
-                                 *result = GTK_FILE_CHOOSER_WIDGET(widget);
-                               }
-                             },
-                             &mFileChooserDelegate);
+        GtkDialog* dialog = GTK_DIALOG(file_chooser);
+        GtkContainer* area = GTK_CONTAINER(gtk_dialog_get_content_area(dialog));
+        gtk_container_forall(
+            area,
+            [](GtkWidget* widget, gpointer data) {
+              if (GTK_IS_FILE_CHOOSER_WIDGET(widget)) {
+                auto result = static_cast<GtkFileChooserWidget**>(data);
+                *result = GTK_FILE_CHOOSER_WIDGET(widget);
+              }
+            },
+            &mFileChooserDelegate);
 
         if (mFileChooserDelegate != nullptr) {
           g_object_ref(mFileChooserDelegate);
         }
       }
-#endif
-
       gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(file_chooser),
                                           directory.get());
     }
@@ -449,12 +451,12 @@ nsFilePicker::Open(nsIFilePickerShownCallback *aCallback) {
     // This is fun... the GTK file picker does not accept a list of filters
     // so we need to split out each string, and add it manually.
 
-    char **patterns = g_strsplit(mFilters[i].get(), ";", -1);
+    char** patterns = g_strsplit(mFilters[i].get(), ";", -1);
     if (!patterns) {
       return NS_ERROR_OUT_OF_MEMORY;
     }
 
-    GtkFileFilter *filter = gtk_file_filter_new();
+    GtkFileFilter* filter = gtk_file_filter_new();
     for (int j = 0; patterns[j] != nullptr; ++j) {
       nsAutoCString caseInsensitiveFilter =
           MakeCaseInsensitiveShellGlob(g_strstrip(patterns[j]));
@@ -465,11 +467,11 @@ nsFilePicker::Open(nsIFilePickerShownCallback *aCallback) {
 
     if (!mFilterNames[i].IsEmpty()) {
       // If we have a name for our filter, let's use that.
-      const char *filter_name = mFilterNames[i].get();
+      const char* filter_name = mFilterNames[i].get();
       gtk_file_filter_set_name(filter, filter_name);
     } else {
       // If we don't have a name, let's just use the filter pattern.
-      const char *filter_pattern = mFilters[i].get();
+      const char* filter_pattern = mFilters[i].get();
       gtk_file_filter_set_name(filter, filter_pattern);
     }
 
@@ -493,18 +495,19 @@ nsFilePicker::Open(nsIFilePickerShownCallback *aCallback) {
   return NS_OK;
 }
 
-/* static */ void nsFilePicker::OnResponse(void *file_chooser, gint response_id,
-                                           gpointer user_data) {
-  static_cast<nsFilePicker *>(user_data)->Done(file_chooser, response_id);
+/* static */
+void nsFilePicker::OnResponse(void* file_chooser, gint response_id,
+                              gpointer user_data) {
+  static_cast<nsFilePicker*>(user_data)->Done(file_chooser, response_id);
 }
 
-/* static */ void nsFilePicker::OnDestroy(GtkWidget *file_chooser,
-                                          gpointer user_data) {
-  static_cast<nsFilePicker *>(user_data)->Done(file_chooser,
-                                               GTK_RESPONSE_CANCEL);
+/* static */
+void nsFilePicker::OnDestroy(GtkWidget* file_chooser, gpointer user_data) {
+  static_cast<nsFilePicker*>(user_data)->Done(file_chooser,
+                                              GTK_RESPONSE_CANCEL);
 }
 
-void nsFilePicker::Done(void *file_chooser, gint response) {
+void nsFilePicker::Done(void* file_chooser, gint response) {
   mRunning = false;
 
   int16_t result;
@@ -548,7 +551,6 @@ void nsFilePicker::Done(void *file_chooser, gint response) {
   // been released.
   GtkFileChooserDestroy(file_chooser);
 
-#ifdef MOZ_WIDGET_GTK
   if (mFileChooserDelegate) {
     // Properly deref our acquired reference. We call this after
     // gtk_widget_destroy() to try and ensure that pending file info
@@ -563,7 +565,6 @@ void nsFilePicker::Done(void *file_chooser, gint response) {
         mFileChooserDelegate);
     mFileChooserDelegate = nullptr;
   }
-#endif
 
   if (mCallback) {
     mCallback->Done(result);
@@ -575,16 +576,14 @@ void nsFilePicker::Done(void *file_chooser, gint response) {
 }
 
 // All below functions available as of GTK 3.20+
-
-void *nsFilePicker::GtkFileChooserNew(const gchar *title, GtkWindow *parent,
+void* nsFilePicker::GtkFileChooserNew(const gchar* title, GtkWindow* parent,
                                       GtkFileChooserAction action,
-                                      const gchar *accept_label) {
+                                      const gchar* accept_label) {
   static auto sGtkFileChooserNativeNewPtr =
-      (void *(*)(const gchar *, GtkWindow *, GtkFileChooserAction,
-                 const gchar *,
-                 const gchar *))dlsym(RTLD_DEFAULT,
-                                      "gtk_file_chooser_native_new");
-  if (sGtkFileChooserNativeNewPtr != nullptr) {
+      (void* (*)(const gchar*, GtkWindow*, GtkFileChooserAction, const gchar*,
+                 const gchar*))dlsym(RTLD_DEFAULT,
+                                     "gtk_file_chooser_native_new");
+  if (mUseNativeFileChooser && sGtkFileChooserNativeNewPtr != nullptr) {
     return (*sGtkFileChooserNativeNewPtr)(title, parent, action, accept_label,
                                           nullptr);
   }
@@ -592,7 +591,7 @@ void *nsFilePicker::GtkFileChooserNew(const gchar *title, GtkWindow *parent,
     accept_label = (action == GTK_FILE_CHOOSER_ACTION_SAVE) ? GTK_STOCK_SAVE
                                                             : GTK_STOCK_OPEN;
   }
-  GtkWidget *file_chooser = gtk_file_chooser_dialog_new(
+  GtkWidget* file_chooser = gtk_file_chooser_dialog_new(
       title, parent, action, GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
       accept_label, GTK_RESPONSE_ACCEPT, nullptr);
   gtk_dialog_set_alternative_button_order(
@@ -600,36 +599,45 @@ void *nsFilePicker::GtkFileChooserNew(const gchar *title, GtkWindow *parent,
   return file_chooser;
 }
 
-void nsFilePicker::GtkFileChooserShow(void *file_chooser) {
+void nsFilePicker::GtkFileChooserShow(void* file_chooser) {
   static auto sGtkNativeDialogShowPtr =
-      (void (*)(void *))dlsym(RTLD_DEFAULT, "gtk_native_dialog_show");
-  if (sGtkNativeDialogShowPtr != nullptr) {
+      (void (*)(void*))dlsym(RTLD_DEFAULT, "gtk_native_dialog_show");
+  if (mUseNativeFileChooser && sGtkNativeDialogShowPtr != nullptr) {
+    const char* portalEnvString = g_getenv("GTK_USE_PORTAL");
+    bool setPortalEnv =
+        (portalEnvString && atoi(portalEnvString) == 0) || !portalEnvString;
+    if (setPortalEnv) {
+      setenv("GTK_USE_PORTAL", "1", true);
+    }
     (*sGtkNativeDialogShowPtr)(file_chooser);
+    if (setPortalEnv) {
+      unsetenv("GTK_USE_PORTAL");
+    }
   } else {
     g_signal_connect(file_chooser, "destroy", G_CALLBACK(OnDestroy), this);
     gtk_widget_show(GTK_WIDGET(file_chooser));
   }
 }
 
-void nsFilePicker::GtkFileChooserDestroy(void *file_chooser) {
+void nsFilePicker::GtkFileChooserDestroy(void* file_chooser) {
   static auto sGtkNativeDialogDestroyPtr =
-      (void (*)(void *))dlsym(RTLD_DEFAULT, "gtk_native_dialog_destroy");
-  if (sGtkNativeDialogDestroyPtr != nullptr) {
+      (void (*)(void*))dlsym(RTLD_DEFAULT, "gtk_native_dialog_destroy");
+  if (mUseNativeFileChooser && sGtkNativeDialogDestroyPtr != nullptr) {
     (*sGtkNativeDialogDestroyPtr)(file_chooser);
   } else {
     gtk_widget_destroy(GTK_WIDGET(file_chooser));
   }
 }
 
-void nsFilePicker::GtkFileChooserSetModal(void *file_chooser,
-                                          GtkWindow *parent_widget,
+void nsFilePicker::GtkFileChooserSetModal(void* file_chooser,
+                                          GtkWindow* parent_widget,
                                           gboolean modal) {
-  static auto sGtkNativeDialogSetModalPtr = (void (*)(void *, gboolean))dlsym(
+  static auto sGtkNativeDialogSetModalPtr = (void (*)(void*, gboolean))dlsym(
       RTLD_DEFAULT, "gtk_native_dialog_set_modal");
-  if (sGtkNativeDialogSetModalPtr != nullptr) {
+  if (mUseNativeFileChooser && sGtkNativeDialogSetModalPtr != nullptr) {
     (*sGtkNativeDialogSetModalPtr)(file_chooser, modal);
   } else {
-    GtkWindow *window = GTK_WINDOW(file_chooser);
+    GtkWindow* window = GTK_WINDOW(file_chooser);
     gtk_window_set_modal(window, modal);
     if (parent_widget != nullptr) {
       gtk_window_set_destroy_with_parent(window, modal);

@@ -1,5 +1,3 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 2 -*- */
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -8,6 +6,7 @@
 const {
   APPEND_TO_HISTORY,
   CLEAR_HISTORY,
+  EVALUATE_EXPRESSION,
   HISTORY_LOADED,
   UPDATE_HISTORY_POSITION,
   HISTORY_BACK,
@@ -16,6 +15,8 @@ const {
   REVERSE_SEARCH_INPUT_CHANGE,
   REVERSE_SEARCH_BACK,
   REVERSE_SEARCH_NEXT,
+  SET_TERMINAL_INPUT,
+  SET_TERMINAL_EAGER_RESULT,
 } = require("devtools/client/webconsole/constants");
 
 /**
@@ -40,12 +41,16 @@ function getInitialState() {
     reverseSearchEnabled: false,
     currentReverseSearchResults: null,
     currentReverseSearchResultsPosition: null,
+
+    terminalInput: null,
+    terminalEagerResult: null,
   };
 }
 
 function history(state = getInitialState(), action, prefsState) {
   switch (action.type) {
     case APPEND_TO_HISTORY:
+    case EVALUATE_EXPRESSION:
       return appendToHistory(state, prefsState, action.expression);
     case CLEAR_HISTORY:
       return clearHistory(state);
@@ -54,20 +59,24 @@ function history(state = getInitialState(), action, prefsState) {
     case UPDATE_HISTORY_POSITION:
       return updateHistoryPosition(state, action.direction, action.expression);
     case REVERSE_SEARCH_INPUT_TOGGLE:
-      return reverseSearchInputToggle(state);
+      return reverseSearchInputToggle(state, action);
     case REVERSE_SEARCH_INPUT_CHANGE:
       return reverseSearchInputChange(state, action.value);
     case REVERSE_SEARCH_BACK:
       return reverseSearchBack(state);
     case REVERSE_SEARCH_NEXT:
       return reverseSearchNext(state);
+    case SET_TERMINAL_INPUT:
+      return setTerminalInput(state, action.expression);
+    case SET_TERMINAL_EAGER_RESULT:
+      return setTerminalEagerResult(state, action.result);
   }
   return state;
 }
 
 function appendToHistory(state, prefsState, expression) {
   // Clone state
-  state = {...state};
+  state = { ...state };
   state.entries = [...state.entries];
 
   // Append new expression only if it isn't the same as
@@ -120,7 +129,7 @@ function updateHistoryPosition(state, direction, expression) {
     }
 
     // Clone state
-    state = {...state};
+    state = { ...state };
 
     // Store the current input value when the user starts
     // browsing through the history.
@@ -143,14 +152,23 @@ function updateHistoryPosition(state, direction, expression) {
   return state;
 }
 
-function reverseSearchInputToggle(state) {
-  return {
-    ...state,
-    reverseSearchEnabled: !state.reverseSearchEnabled,
-    position: state.reverseSearchEnabled === true ? state.entries.length : undefined,
-    currentReverseSearchResults: null,
-    currentReverseSearchResultsPosition: null,
-  };
+function reverseSearchInputToggle(state, action) {
+  const { initialValue = "" } = action;
+
+  // We're going to close the reverse search, let's clean the state
+  if (state.reverseSearchEnabled) {
+    return {
+      ...state,
+      reverseSearchEnabled: false,
+      position: undefined,
+      currentReverseSearchResults: null,
+      currentReverseSearchResultsPosition: null,
+    };
+  }
+
+  // If we're enabling the reverse search, we treat it as a reverse search input change,
+  // since we can have an initial value.
+  return reverseSearchInputChange(state, initialValue);
 }
 
 function reverseSearchInputChange(state, searchString) {
@@ -165,13 +183,16 @@ function reverseSearchInputChange(state, searchString) {
 
   searchString = searchString.toLocaleLowerCase();
   const matchingEntries = state.entries.filter(entry =>
-    entry.toLocaleLowerCase().includes(searchString));
+    entry.toLocaleLowerCase().includes(searchString)
+  );
   // We only return unique entries, but we want to keep the latest entry in the array if
   // it's duplicated (e.g. if we have [1,2,1], we want to get [2,1], not [1,2]).
   // To do that, we need to reverse the matching entries array, provide it to a Set,
   // transform it back to an array and reverse it again.
   const uniqueEntries = new Set(matchingEntries.reverse());
-  const currentReverseSearchResults = Array.from(new Set(uniqueEntries)).reverse();
+  const currentReverseSearchResults = Array.from(
+    new Set(uniqueEntries)
+  ).reverse();
 
   return {
     ...state,
@@ -202,6 +223,21 @@ function reverseSearchNext(state) {
   return {
     ...state,
     currentReverseSearchResultsPosition: previousPosition,
+  };
+}
+
+function setTerminalInput(state, expression) {
+  return {
+    ...state,
+    terminalInput: expression,
+    terminalEagerResult: !expression ? null : state.terminalEagerResult,
+  };
+}
+
+function setTerminalEagerResult(state, result) {
+  return {
+    ...state,
+    terminalEagerResult: result,
   };
 }
 

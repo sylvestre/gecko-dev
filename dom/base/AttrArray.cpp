@@ -23,6 +23,7 @@
 #include "nsContentUtils.h"  // nsAutoScriptBlocker
 
 using mozilla::CheckedUint32;
+using mozilla::dom::Document;
 
 AttrArray::Impl::~Impl() {
   for (InternalAttr& attr : NonMappedAttrs()) {
@@ -311,6 +312,7 @@ nsresult AttrArray::DoSetMappedAttrStyleSheet(nsHTMLStyleSheet* aSheet) {
   RefPtr<nsMappedAttributes> mapped =
       GetModifiableMapped(nullptr, nullptr, false);
 
+  mapped->DropStyleSheetReference();
   mapped->SetStyleSheet(aSheet);
 
   return MakeMappedUnique(mapped);
@@ -358,7 +360,7 @@ uint32_t AttrArray::DoGetMappedAttrCount() const {
 }
 
 nsresult AttrArray::ForceMapped(nsMappedAttributeElement* aContent,
-                                nsIDocument* aDocument) {
+                                Document* aDocument) {
   nsHTMLStyleSheet* sheet = aDocument->GetAttributeStyleSheet();
   RefPtr<nsMappedAttributes> mapped =
       GetModifiableMapped(aContent, sheet, false, 0);

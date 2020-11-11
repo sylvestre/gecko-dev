@@ -32,7 +32,7 @@ class Image;
  * Image progress bitflags.
  *
  * See CheckProgressConsistency() for the invariants we enforce about the
- * ordering dependencies betweeen these flags.
+ * ordering dependencies between these flags.
  */
 enum {
   FLAG_SIZE_AVAILABLE = 1u << 0,    // STATUS_SIZE_AVAILABLE
@@ -99,11 +99,10 @@ class ObserverTable : public nsDataHashtable<nsPtrHashKey<IProgressObserver>,
  * argument, and the notifications will be replayed to the observer
  * asynchronously.
  */
-class ProgressTracker : public mozilla::SupportsWeakPtr<ProgressTracker> {
+class ProgressTracker : public mozilla::SupportsWeakPtr {
   virtual ~ProgressTracker() {}
 
  public:
-  MOZ_DECLARE_WEAKREFERENCE_TYPENAME(ProgressTracker)
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(ProgressTracker)
 
   ProgressTracker();
@@ -208,8 +207,22 @@ class ProgressTracker : public mozilla::SupportsWeakPtr<ProgressTracker> {
   // Main thread only because it deals with the observer service.
   void FireFailureNotification();
 
+  // Wrapper for AsyncNotifyRunnable to make it have medium high priority like
+  // other imagelib runnables.
+  class MediumHighRunnable final : public PrioritizableRunnable {
+    explicit MediumHighRunnable(already_AddRefed<AsyncNotifyRunnable>&& aEvent);
+    virtual ~MediumHighRunnable() = default;
+
+   public:
+    void AddObserver(IProgressObserver* aObserver);
+    void RemoveObserver(IProgressObserver* aObserver);
+
+    static already_AddRefed<MediumHighRunnable> Create(
+        already_AddRefed<AsyncNotifyRunnable>&& aEvent);
+  };
+
   // The runnable, if any, that we've scheduled to deliver async notifications.
-  nsCOMPtr<nsIRunnable> mRunnable;
+  RefPtr<MediumHighRunnable> mRunnable;
 
   // mMutex protects access to mImage and mEventTarget.
   mutable Mutex mMutex;

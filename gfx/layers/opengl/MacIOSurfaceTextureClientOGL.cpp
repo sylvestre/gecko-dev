@@ -52,8 +52,15 @@ MacIOSurfaceTextureData* MacIOSurfaceTextureData::Create(const IntSize& aSize,
 bool MacIOSurfaceTextureData::Serialize(SurfaceDescriptor& aOutDescriptor) {
   aOutDescriptor = SurfaceDescriptorMacIOSurface(
       mSurface->GetIOSurfaceID(), mSurface->GetContentsScaleFactor(),
-      !mSurface->HasAlpha());
+      !mSurface->HasAlpha(), mSurface->GetYUVColorSpace());
   return true;
+}
+
+void MacIOSurfaceTextureData::GetSubDescriptor(
+    RemoteDecoderVideoSubDescriptor* const aOutDesc) {
+  *aOutDesc = SurfaceDescriptorMacIOSurface(
+      mSurface->GetIOSurfaceID(), mSurface->GetContentsScaleFactor(),
+      !mSurface->HasAlpha(), mSurface->GetYUVColorSpace());
 }
 
 void MacIOSurfaceTextureData::FillInfo(TextureData::Info& aInfo) const {

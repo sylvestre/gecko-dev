@@ -4,15 +4,22 @@
 
 "use strict";
 
-const { createFactory, PureComponent } = require("devtools/client/shared/vendor/react");
+const {
+  createFactory,
+  PureComponent,
+} = require("devtools/client/shared/vendor/react");
 const dom = require("devtools/client/shared/vendor/react-dom-factories");
 const PropTypes = require("devtools/client/shared/vendor/react-prop-types");
 
-const Accordion = createFactory(require("devtools/client/inspector/layout/components/Accordion"));
-const FontList = createFactory(require("./FontList"));
+const Accordion = createFactory(
+  require("devtools/client/shared/components/Accordion")
+);
+const FontList = createFactory(
+  require("devtools/client/inspector/fonts/components/FontList")
+);
 
-const { getStr } = require("../utils/l10n");
-const Types = require("../types");
+const { getStr } = require("devtools/client/inspector/fonts/utils/l10n");
+const Types = require("devtools/client/inspector/fonts/types");
 
 class FontOverview extends PureComponent {
   static get propTypes() {
@@ -32,11 +39,7 @@ class FontOverview extends PureComponent {
   }
 
   renderFonts() {
-    const {
-      fontData,
-      fontOptions,
-      onPreviewTextChange,
-    } = this.props;
+    const { fontData, fontOptions, onPreviewTextChange } = this.props;
 
     const fonts = fontData.allFonts;
 
@@ -48,6 +51,7 @@ class FontOverview extends PureComponent {
       items: [
         {
           header: getStr("fontinspector.allFontsOnPageHeader"),
+          id: "font-list-details",
           component: FontList,
           componentProps: {
             fontOptions,

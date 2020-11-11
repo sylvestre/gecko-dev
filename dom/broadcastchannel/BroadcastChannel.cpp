@@ -9,23 +9,28 @@
 #include "mozilla/dom/BroadcastChannelBinding.h"
 #include "mozilla/dom/Navigator.h"
 #include "mozilla/dom/File.h"
+#include "mozilla/dom/MessageEvent.h"
+#include "mozilla/dom/MessageEventBinding.h"
 #include "mozilla/dom/StructuredCloneHolder.h"
 #include "mozilla/dom/ipc/StructuredCloneData.h"
+#include "mozilla/dom/RefMessageBodyService.h"
+#include "mozilla/dom/SharedMessageBody.h"
 #include "mozilla/dom/WorkerPrivate.h"
+#include "mozilla/dom/WorkerScope.h"
 #include "mozilla/dom/WorkerRef.h"
 #include "mozilla/dom/WorkerRunnable.h"
 #include "mozilla/ipc/BackgroundChild.h"
 #include "mozilla/ipc/BackgroundUtils.h"
 #include "mozilla/ipc/PBackgroundChild.h"
+#include "mozilla/StorageAccess.h"
 #include "nsContentUtils.h"
 
 #include "nsIBFCacheEntry.h"
-#include "nsICookieService.h"
-#include "nsIDocument.h"
-#include "nsISupportsPrimitives.h"
+#include "nsICookieJarSettings.h"
+#include "mozilla/dom/Document.h"
 
 #ifdef XP_WIN
-#undef PostMessage
+#  undef PostMessage
 #endif
 
 namespace mozilla {
@@ -36,94 +41,7 @@ namespace dom {
 
 using namespace ipc;
 
-class BroadcastChannelMessage final : public StructuredCloneDataNoTransfers {
- public:
-  NS_INLINE_DECL_REFCOUNTING(BroadcastChannelMessage)
-
-  BroadcastChannelMessage() : StructuredCloneDataNoTransfers() {}
-
- private:
-  ~BroadcastChannelMessage() {}
-};
-
 namespace {
-
-nsIPrincipal* GetPrincipalFromThreadSafeWorkerRef(
-    ThreadSafeWorkerRef* aWorkerRef) {
-  nsIPrincipal* principal = aWorkerRef->Private()->GetPrincipal();
-  if (principal) {
-    return principal;
-  }
-
-  // Walk up to our containing page
-  WorkerPrivate* wp = aWorkerRef->Private();
-  while (wp->GetParent()) {
-    wp = wp->GetParent();
-  }
-
-  return wp->GetPrincipal();
-}
-
-class InitializeRunnable final : public WorkerMainThreadRunnable {
- public:
-  InitializeRunnable(ThreadSafeWorkerRef* aWorkerRef, nsACString& aOrigin,
-                     PrincipalInfo& aPrincipalInfo, bool* aThirdPartyWindow,
-                     ErrorResult& aRv)
-      : WorkerMainThreadRunnable(
-            aWorkerRef->Private(),
-            NS_LITERAL_CSTRING("BroadcastChannel :: Initialize")),
-        mWorkerRef(aWorkerRef),
-        mOrigin(aOrigin),
-        mPrincipalInfo(aPrincipalInfo),
-        mThirdPartyWindow(aThirdPartyWindow),
-        mRv(aRv) {
-    MOZ_ASSERT(mWorkerRef);
-  }
-
-  bool MainThreadRun() override {
-    MOZ_ASSERT(NS_IsMainThread());
-
-    nsIPrincipal* principal = GetPrincipalFromThreadSafeWorkerRef(mWorkerRef);
-    if (!principal) {
-      mRv.Throw(NS_ERROR_FAILURE);
-      return true;
-    }
-
-    mRv = PrincipalToPrincipalInfo(principal, &mPrincipalInfo);
-    if (NS_WARN_IF(mRv.Failed())) {
-      return true;
-    }
-
-    mRv = principal->GetOrigin(mOrigin);
-    if (NS_WARN_IF(mRv.Failed())) {
-      return true;
-    }
-
-    // Walk up to our containing page
-    WorkerPrivate* wp = mWorkerRef->Private();
-    while (wp->GetParent()) {
-      wp = wp->GetParent();
-    }
-
-    // Window doesn't exist for some kind of workers (eg: SharedWorkers)
-    nsPIDOMWindowInner* window = wp->GetWindow();
-    if (!window) {
-      return true;
-    }
-
-    *mThirdPartyWindow =
-        nsContentUtils::IsThirdPartyWindowOrChannel(window, nullptr, nullptr);
-
-    return true;
-  }
-
- private:
-  RefPtr<ThreadSafeWorkerRef> mWorkerRef;
-  nsACString& mOrigin;
-  PrincipalInfo& mPrincipalInfo;
-  bool* mThirdPartyWindow;
-  ErrorResult& mRv;
-};
 
 class CloseRunnable final : public nsIRunnable, public nsICancelableRunnable {
  public:
@@ -139,7 +57,7 @@ class CloseRunnable final : public nsIRunnable, public nsICancelableRunnable {
   nsresult Cancel() override { return NS_OK; }
 
  private:
-  ~CloseRunnable() {}
+  ~CloseRunnable() = default;
 
   RefPtr<BroadcastChannel> mBC;
 };
@@ -204,12 +122,16 @@ class TeardownRunnableOnWorker final : public WorkerControlRunnable,
 
 }  // namespace
 
-BroadcastChannel::BroadcastChannel(nsPIDOMWindowInner* aWindow,
-                                   const nsAString& aChannel)
-    : DOMEventTargetHelper(aWindow), mChannel(aChannel), mState(StateActive) {
-  // Window can be null in workers
-
-  KeepAliveIfHasListenersFor(NS_LITERAL_STRING("message"));
+BroadcastChannel::BroadcastChannel(nsIGlobalObject* aGlobal,
+                                   const nsAString& aChannel,
+                                   const nsID& aPortUUID)
+    : DOMEventTargetHelper(aGlobal),
+      mRefMessageBodyService(RefMessageBodyService::GetOrCreate()),
+      mChannel(aChannel),
+      mState(StateActive),
+      mPortUUID(aPortUUID) {
+  MOZ_ASSERT(aGlobal);
+  KeepAliveIfHasListenersFor(u"message"_ns);
 }
 
 BroadcastChannel::~BroadcastChannel() {
@@ -222,18 +144,38 @@ JSObject* BroadcastChannel::WrapObject(JSContext* aCx,
   return BroadcastChannel_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-/* static */ already_AddRefed<BroadcastChannel> BroadcastChannel::Constructor(
+/* static */
+already_AddRefed<BroadcastChannel> BroadcastChannel::Constructor(
     const GlobalObject& aGlobal, const nsAString& aChannel, ErrorResult& aRv) {
-  nsCOMPtr<nsPIDOMWindowInner> window =
-      do_QueryInterface(aGlobal.GetAsSupports());
-  // Window is null in workers.
+  nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(aGlobal.GetAsSupports());
+  if (NS_WARN_IF(!global)) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return nullptr;
+  }
 
-  RefPtr<BroadcastChannel> bc = new BroadcastChannel(window, aChannel);
+  nsID portUUID = {};
+  aRv = nsContentUtils::GenerateUUIDInPlace(portUUID);
+  if (aRv.Failed()) {
+    return nullptr;
+  }
+
+  RefPtr<BroadcastChannel> bc =
+      new BroadcastChannel(global, aChannel, portUUID);
 
   nsAutoCString origin;
-  PrincipalInfo principalInfo;
+  nsAutoString originNoSuffix;
+  PrincipalInfo storagePrincipalInfo;
 
+  StorageAccess storageAccess;
+
+  nsCOMPtr<nsICookieJarSettings> cjs;
   if (NS_IsMainThread()) {
+    nsCOMPtr<nsPIDOMWindowInner> window = do_QueryInterface(global);
+    if (NS_WARN_IF(!window)) {
+      aRv.Throw(NS_ERROR_FAILURE);
+      return nullptr;
+    }
+
     nsCOMPtr<nsIGlobalObject> incumbent = mozilla::dom::GetIncumbentGlobal();
 
     if (!incumbent) {
@@ -241,27 +183,40 @@ JSObject* BroadcastChannel::WrapObject(JSContext* aCx,
       return nullptr;
     }
 
-    nsIPrincipal* principal = incumbent->PrincipalOrNull();
-    if (!principal) {
+    nsCOMPtr<nsIScriptObjectPrincipal> sop = do_QueryInterface(incumbent);
+    if (NS_WARN_IF(!sop)) {
+      aRv.Throw(NS_ERROR_FAILURE);
+      return nullptr;
+    }
+
+    nsIPrincipal* storagePrincipal = sop->GetEffectiveStoragePrincipal();
+    if (!storagePrincipal) {
       aRv.Throw(NS_ERROR_UNEXPECTED);
       return nullptr;
     }
 
-    aRv = principal->GetOrigin(origin);
+    aRv = storagePrincipal->GetOrigin(origin);
     if (NS_WARN_IF(aRv.Failed())) {
       return nullptr;
     }
 
-    aRv = PrincipalToPrincipalInfo(principal, &principalInfo);
+    nsAutoCString originNoSuffix8;
+    aRv = storagePrincipal->GetOriginNoSuffix(originNoSuffix8);
+    if (NS_WARN_IF(aRv.Failed())) {
+      return nullptr;
+    }
+    CopyUTF8toUTF16(originNoSuffix8, originNoSuffix);
+
+    aRv = PrincipalToPrincipalInfo(storagePrincipal, &storagePrincipalInfo);
     if (NS_WARN_IF(aRv.Failed())) {
       return nullptr;
     }
 
-    if (nsContentUtils::IsThirdPartyWindowOrChannel(window, nullptr, nullptr) &&
-        nsContentUtils::StorageAllowedForWindow(window) !=
-            nsContentUtils::StorageAccess::eAllow) {
-      aRv.Throw(NS_ERROR_DOM_SECURITY_ERR);
-      return nullptr;
+    storageAccess = StorageAllowedForWindow(window);
+
+    Document* doc = window->GetExtantDoc();
+    if (doc) {
+      cjs = doc->CookieJarSettings();
     }
   } else {
     JSContext* cx = aGlobal.Context();
@@ -278,23 +233,24 @@ JSObject* BroadcastChannel::WrapObject(JSContext* aCx,
       return nullptr;
     }
 
-    RefPtr<ThreadSafeWorkerRef> tsr = new ThreadSafeWorkerRef(workerRef);
+    storageAccess = workerPrivate->StorageAccess();
+    storagePrincipalInfo = workerPrivate->GetEffectiveStoragePrincipalInfo();
+    origin = workerPrivate->EffectiveStoragePrincipalOrigin();
 
-    bool thirdPartyWindow = false;
+    originNoSuffix = workerPrivate->GetLocationInfo().mOrigin;
 
-    RefPtr<InitializeRunnable> runnable = new InitializeRunnable(
-        tsr, origin, principalInfo, &thirdPartyWindow, aRv);
-    runnable->Dispatch(Canceling, aRv);
-    if (aRv.Failed()) {
-      return nullptr;
-    }
+    bc->mWorkerRef = workerRef;
 
-    if (thirdPartyWindow && !workerPrivate->IsStorageAllowed()) {
-      aRv.Throw(NS_ERROR_DOM_SECURITY_ERR);
-      return nullptr;
-    }
+    cjs = workerPrivate->CookieJarSettings();
+  }
 
-    bc->mWorkerRef = std::move(workerRef);
+  // We want to allow opaque origins.
+  if (storagePrincipalInfo.type() != PrincipalInfo::TNullPrincipalInfo &&
+      (storageAccess == StorageAccess::eDeny ||
+       (ShouldPartitionStorage(storageAccess) &&
+        !StoragePartitioningEnabled(storageAccess, cjs)))) {
+    aRv.Throw(NS_ERROR_DOM_SECURITY_ERR);
+    return nullptr;
   }
 
   // Register this component to PBackground.
@@ -306,12 +262,13 @@ JSObject* BroadcastChannel::WrapObject(JSContext* aCx,
   }
 
   PBroadcastChannelChild* actor = actorChild->SendPBroadcastChannelConstructor(
-      principalInfo, origin, nsString(aChannel));
+      storagePrincipalInfo, origin, nsString(aChannel));
 
   bc->mActor = static_cast<BroadcastChannelChild*>(actor);
   MOZ_ASSERT(bc->mActor);
 
   bc->mActor->SetParent(bc);
+  bc->mOriginNoSuffix = originNoSuffix;
 
   return bc.forget();
 }
@@ -324,17 +281,26 @@ void BroadcastChannel::PostMessage(JSContext* aCx,
     return;
   }
 
-  RefPtr<BroadcastChannelMessage> data = new BroadcastChannelMessage();
+  Maybe<nsID> agentClusterId;
+  nsCOMPtr<nsIGlobalObject> global = GetOwnerGlobal();
+  MOZ_ASSERT(global);
+  if (global) {
+    agentClusterId = global->GetAgentClusterId();
+  }
 
-  data->Write(aCx, aMessage, aRv);
+  RefPtr<SharedMessageBody> data = new SharedMessageBody(
+      StructuredCloneHolder::TransferringNotSupported, agentClusterId);
+
+  data->Write(aCx, aMessage, JS::UndefinedHandleValue, mPortUUID,
+              mRefMessageBodyService, aRv);
   if (NS_WARN_IF(aRv.Failed())) {
     return;
   }
 
   RemoveDocFromBFCache();
 
-  ClonedMessageData message;
-  data->BuildClonedMessageDataForBackgroundChild(mActor->Manager(), message);
+  MessageData message;
+  SharedMessageBody::FromSharedToMessageChild(mActor->Manager(), data, message);
   mActor->SendPostMessage(message);
 }
 
@@ -380,7 +346,7 @@ void BroadcastChannel::Shutdown() {
     mActor = nullptr;
   }
 
-  IgnoreKeepAliveIfHasListenersFor(NS_LITERAL_STRING("message"));
+  IgnoreKeepAliveIfHasListenersFor(u"message"_ns);
 }
 
 void BroadcastChannel::RemoveDocFromBFCache() {
@@ -388,27 +354,94 @@ void BroadcastChannel::RemoveDocFromBFCache() {
     return;
   }
 
-  nsPIDOMWindowInner* window = GetOwner();
-  if (!window) {
-    return;
+  if (nsPIDOMWindowInner* window = GetOwner()) {
+    window->RemoveFromBFCacheSync();
   }
-
-  nsIDocument* doc = window->GetExtantDoc();
-  if (!doc) {
-    return;
-  }
-
-  nsCOMPtr<nsIBFCacheEntry> bfCacheEntry = doc->GetBFCacheEntry();
-  if (!bfCacheEntry) {
-    return;
-  }
-
-  bfCacheEntry->RemoveFromBFCacheSync();
 }
 
 void BroadcastChannel::DisconnectFromOwner() {
   Shutdown();
   DOMEventTargetHelper::DisconnectFromOwner();
+}
+
+void BroadcastChannel::MessageReceived(const MessageData& aData) {
+  if (NS_FAILED(CheckCurrentGlobalCorrectness())) {
+    return;
+  }
+
+  // Let's ignore messages after a close/shutdown.
+  if (mState != StateActive) {
+    return;
+  }
+
+  nsCOMPtr<nsIGlobalObject> globalObject;
+
+  if (NS_IsMainThread()) {
+    globalObject = GetParentObject();
+  } else {
+    WorkerPrivate* workerPrivate = GetCurrentThreadWorkerPrivate();
+    MOZ_ASSERT(workerPrivate);
+    globalObject = workerPrivate->GlobalScope();
+  }
+
+  AutoJSAPI jsapi;
+  if (!globalObject || !jsapi.Init(globalObject)) {
+    NS_WARNING("Failed to initialize AutoJSAPI object.");
+    return;
+  }
+
+  JSContext* cx = jsapi.cx();
+
+  RefPtr<SharedMessageBody> data = SharedMessageBody::FromMessageToSharedChild(
+      aData, StructuredCloneHolder::TransferringNotSupported);
+  if (NS_WARN_IF(!data)) {
+    DispatchError(cx);
+    return;
+  }
+
+  IgnoredErrorResult rv;
+  JS::Rooted<JS::Value> value(cx);
+
+  data->Read(cx, &value, mRefMessageBodyService,
+             SharedMessageBody::ReadMethod::KeepRefMessageBody, rv);
+  if (NS_WARN_IF(rv.Failed())) {
+    JS_ClearPendingException(cx);
+    DispatchError(cx);
+    return;
+  }
+
+  RemoveDocFromBFCache();
+
+  RootedDictionary<MessageEventInit> init(cx);
+  init.mBubbles = false;
+  init.mCancelable = false;
+  init.mOrigin = mOriginNoSuffix;
+  init.mData = value;
+
+  RefPtr<MessageEvent> event =
+      MessageEvent::Constructor(this, u"message"_ns, init);
+
+  event->SetTrusted(true);
+
+  DispatchEvent(*event);
+}
+
+void BroadcastChannel::MessageDelivered(const nsID& aMessageID,
+                                        uint32_t aOtherBCs) {
+  mRefMessageBodyService->SetMaxCount(aMessageID, aOtherBCs);
+}
+
+void BroadcastChannel::DispatchError(JSContext* aCx) {
+  RootedDictionary<MessageEventInit> init(aCx);
+  init.mBubbles = false;
+  init.mCancelable = false;
+  init.mOrigin = mOriginNoSuffix;
+
+  RefPtr<Event> event =
+      MessageEvent::Constructor(this, u"messageerror"_ns, init);
+  event->SetTrusted(true);
+
+  DispatchEvent(*event);
 }
 
 NS_IMPL_CYCLE_COLLECTION_CLASS(BroadcastChannel)

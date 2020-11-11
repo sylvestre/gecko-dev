@@ -4,9 +4,12 @@
 
 %include ../../../shared/in-content/common.inc.css
 
-xul|*.menulist-dropmarker {
-  margin-top: 1px;
-  margin-bottom: 1px;
+:root {
+  --panel-border-radius: 0;
+}
+
+xul|menulist::part(dropmarker) {
+  margin-block: 1px;
 }
 
 xul|checkbox,
@@ -15,19 +18,22 @@ xul|radio {
 }
 
 @media (-moz-windows-default-theme: 0) {
-  xul|*.checkbox-check[checked],
+  xul|checkbox[checked] > xul|*.checkbox-check,
   xul|*.radio-check[selected] {
-    fill: -moz-fieldText;
-    background-color: -moz-field;
+    fill: FieldText;
+    background-color: Field;
   }
 }
 
-/* Never draw a border for the focusring, use outline instead */
-xul|*.menulist-label-box {
-  border-style: none;
+/* Override menulist.css */
+xul|menulist[disabled="true"] {
+  background-color: var(--in-content-button-background);
 }
 
-xul|menulist:-moz-focusring > xul|*.menulist-label-box,
+xul|menulist:-moz-focusring > xul|*.menulist-label-box {
+  outline: none !important;
+}
+
 html|input[type="checkbox"]:-moz-focusring + html|label:before {
   outline: 1px dotted;
 }
@@ -46,6 +52,5 @@ html|button {
 }
 
 xul|button > xul|*.button-box {
-  padding-right: 0;
-  padding-left: 0;
+  padding-inline: 0;
 }

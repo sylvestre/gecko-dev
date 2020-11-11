@@ -1,15 +1,48 @@
 //! Immediate operands for Cranelift instructions
 //!
 //! This module defines the types of immediate operands that can appear on Cranelift instructions.
-//! Each type here should have a corresponding definition in the `cranelift.immediates` Python
-//! module in the meta language.
+//! Each type here should have a corresponding definition in the
+//! `cranelift-codegen/meta/src/shared/immediates` crate in the meta language.
 
-use std::fmt::{self, Display, Formatter};
-use std::mem;
-use std::str::FromStr;
-use std::{i32, u32};
+use alloc::vec::Vec;
+use core::fmt::{self, Display, Formatter};
+use core::str::FromStr;
+use core::{i32, u32};
+#[cfg(feature = "enable-serde")]
+use serde::{Deserialize, Serialize};
 
-/// 64-bit immediate integer operand.
+/// Convert a type into a vector of bytes; all implementors in this file must use little-endian
+/// orderings of bytes to match WebAssembly's little-endianness.
+pub trait IntoBytes {
+    /// Return the little-endian byte representation of the implementing type.
+    fn into_bytes(self) -> Vec<u8>;
+}
+
+impl IntoBytes for u8 {
+    fn into_bytes(self) -> Vec<u8> {
+        vec![self]
+    }
+}
+
+impl IntoBytes for i16 {
+    fn into_bytes(self) -> Vec<u8> {
+        self.to_le_bytes().to_vec()
+    }
+}
+
+impl IntoBytes for i32 {
+    fn into_bytes(self) -> Vec<u8> {
+        self.to_le_bytes().to_vec()
+    }
+}
+
+impl IntoBytes for Vec<u8> {
+    fn into_bytes(self) -> Vec<u8> {
+        self
+    }
+}
+
+/// 64-bit immediate signed integer operand.
 ///
 /// An `Imm64` operand can also be used to represent immediate values of smaller integer types by
 /// sign-extending to `i64`.
@@ -19,12 +52,32 @@ pub struct Imm64(i64);
 impl Imm64 {
     /// Create a new `Imm64` representing the signed number `x`.
     pub fn new(x: i64) -> Self {
-        Imm64(x)
+        Self(x)
     }
 
     /// Return self negated.
     pub fn wrapping_neg(self) -> Self {
-        Imm64(self.0.wrapping_neg())
+        Self(self.0.wrapping_neg())
+    }
+
+    /// Return bits of this immediate.
+    pub fn bits(&self) -> i64 {
+        self.0
+    }
+
+    /// Sign extend this immediate as if it were a signed integer of the given
+    /// power-of-two width.
+    pub fn sign_extend_from_width(&mut self, bit_width: u16) {
+        debug_assert!(bit_width.is_power_of_two());
+
+        if bit_width >= 64 {
+            return;
+        }
+
+        let bit_width = bit_width as i64;
+        let delta = 64 - bit_width;
+        let sign_extended = (self.0 << delta) >> delta;
+        *self = Imm64(sign_extended);
     }
 }
 
@@ -34,26 +87,16 @@ impl Into<i64> for Imm64 {
     }
 }
 
-impl From<i64> for Imm64 {
-    fn from(x: i64) -> Self {
-        Imm64(x)
+impl IntoBytes for Imm64 {
+    fn into_bytes(self) -> Vec<u8> {
+        self.0.to_le_bytes().to_vec()
     }
 }
 
-/// Hexadecimal with a multiple of 4 digits and group separators:
-///
-///   0xfff0
-///   0x0001_ffff
-///   0xffff_ffff_fff8_4400
-///
-fn write_hex(x: i64, f: &mut Formatter) -> fmt::Result {
-    let mut pos = (64 - x.leading_zeros() - 1) & 0xf0;
-    write!(f, "0x{:04x}", (x >> pos) & 0xffff)?;
-    while pos > 0 {
-        pos -= 16;
-        write!(f, "_{:04x}", (x >> pos) & 0xffff)?;
+impl From<i64> for Imm64 {
+    fn from(x: i64) -> Self {
+        Self(x)
     }
-    Ok(())
 }
 
 impl Display for Imm64 {
@@ -63,15 +106,13 @@ impl Display for Imm64 {
             // Use decimal for small numbers.
             write!(f, "{}", x)
         } else {
-            write_hex(x, f)
+            write_hex(x as u64, f)
         }
     }
 }
 
-/// Parse a 64-bit number.
+/// Parse a 64-bit signed number.
 fn parse_i64(s: &str) -> Result<i64, &'static str> {
-    let mut value: u64 = 0;
-    let mut digits = 0;
     let negative = s.starts_with('-');
     let s2 = if negative || s.starts_with('+') {
         &s[1..]
@@ -79,9 +120,97 @@ fn parse_i64(s: &str) -> Result<i64, &'static str> {
         s
     };
 
-    if s2.starts_with("0x") {
+    let mut value = parse_u64(s2)?;
+
+    // We support the range-and-a-half from -2^63 .. 2^64-1.
+    if negative {
+        value = value.wrapping_neg();
+        // Don't allow large negative values to wrap around and become positive.
+        if value as i64 > 0 {
+            return Err("Negative number too small");
+        }
+    }
+    Ok(value as i64)
+}
+
+impl FromStr for Imm64 {
+    type Err = &'static str;
+
+    // Parse a decimal or hexadecimal `Imm64`, formatted as above.
+    fn from_str(s: &str) -> Result<Self, &'static str> {
+        parse_i64(s).map(Self::new)
+    }
+}
+
+/// 64-bit immediate unsigned integer operand.
+///
+/// A `Uimm64` operand can also be used to represent immediate values of smaller integer types by
+/// zero-extending to `i64`.
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
+pub struct Uimm64(u64);
+
+impl Uimm64 {
+    /// Create a new `Uimm64` representing the unsigned number `x`.
+    pub fn new(x: u64) -> Self {
+        Self(x)
+    }
+
+    /// Return self negated.
+    pub fn wrapping_neg(self) -> Self {
+        Self(self.0.wrapping_neg())
+    }
+}
+
+impl Into<u64> for Uimm64 {
+    fn into(self) -> u64 {
+        self.0
+    }
+}
+
+impl From<u64> for Uimm64 {
+    fn from(x: u64) -> Self {
+        Self(x)
+    }
+}
+
+/// Hexadecimal with a multiple of 4 digits and group separators:
+///
+///   0xfff0
+///   0x0001_ffff
+///   0xffff_ffff_fff8_4400
+///
+fn write_hex(x: u64, f: &mut Formatter) -> fmt::Result {
+    let mut pos = (64 - x.leading_zeros() - 1) & 0xf0;
+    write!(f, "0x{:04x}", (x >> pos) & 0xffff)?;
+    while pos > 0 {
+        pos -= 16;
+        write!(f, "_{:04x}", (x >> pos) & 0xffff)?;
+    }
+    Ok(())
+}
+
+impl Display for Uimm64 {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let x = self.0;
+        if x < 10_000 {
+            // Use decimal for small numbers.
+            write!(f, "{}", x)
+        } else {
+            write_hex(x, f)
+        }
+    }
+}
+
+/// Parse a 64-bit unsigned number.
+fn parse_u64(s: &str) -> Result<u64, &'static str> {
+    let mut value: u64 = 0;
+    let mut digits = 0;
+
+    if s.starts_with("-0x") {
+        return Err("Invalid character in hexadecimal number");
+    } else if s.starts_with("0x") {
         // Hexadecimal.
-        for ch in s2[2..].chars() {
+        for ch in s[2..].chars() {
             match ch.to_digit(16) {
                 Some(digit) => {
                     digits += 1;
@@ -101,7 +230,7 @@ fn parse_i64(s: &str) -> Result<i64, &'static str> {
         }
     } else {
         // Decimal number, possibly negative.
-        for ch in s2.chars() {
+        for ch in s.chars() {
             match ch.to_digit(16) {
                 Some(digit) => {
                     digits += 1;
@@ -128,23 +257,15 @@ fn parse_i64(s: &str) -> Result<i64, &'static str> {
         return Err("No digits in number");
     }
 
-    // We support the range-and-a-half from -2^63 .. 2^64-1.
-    if negative {
-        value = value.wrapping_neg();
-        // Don't allow large negative values to wrap around and become positive.
-        if value as i64 > 0 {
-            return Err("Negative number too small");
-        }
-    }
-    Ok(value as i64)
+    Ok(value)
 }
 
-impl FromStr for Imm64 {
+impl FromStr for Uimm64 {
     type Err = &'static str;
 
-    // Parse a decimal or hexadecimal `Imm64`, formatted as above.
+    // Parse a decimal or hexadecimal `Uimm64`, formatted as above.
     fn from_str(s: &str) -> Result<Self, &'static str> {
-        parse_i64(s).map(Self::new)
+        parse_u64(s).map(Self::new)
     }
 }
 
@@ -173,7 +294,7 @@ impl Into<i64> for Uimm32 {
 
 impl From<u32> for Uimm32 {
     fn from(x: u32) -> Self {
-        Uimm32(x)
+        Self(x)
     }
 }
 
@@ -182,7 +303,7 @@ impl Display for Uimm32 {
         if self.0 < 10_000 {
             write!(f, "{}", self.0)
         } else {
-            write_hex(i64::from(self.0), f)
+            write_hex(u64::from(self.0), f)
         }
     }
 }
@@ -194,11 +315,44 @@ impl FromStr for Uimm32 {
     fn from_str(s: &str) -> Result<Self, &'static str> {
         parse_i64(s).and_then(|x| {
             if 0 <= x && x <= i64::from(u32::MAX) {
-                Ok(Uimm32(x as u32))
+                Ok(Self(x as u32))
             } else {
                 Err("Uimm32 out of range")
             }
         })
+    }
+}
+
+/// A 128-bit immediate operand.
+///
+/// This is used as an immediate value in SIMD instructions.
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+pub struct V128Imm(pub [u8; 16]);
+
+impl V128Imm {
+    /// Iterate over the bytes in the constant.
+    pub fn bytes(&self) -> impl Iterator<Item = &u8> {
+        self.0.iter()
+    }
+
+    /// Convert the immediate into a vector.
+    pub fn to_vec(self) -> Vec<u8> {
+        self.0.to_vec()
+    }
+
+    /// Convert the immediate into a slice.
+    pub fn as_slice(&self) -> &[u8] {
+        &self.0[..]
+    }
+}
+
+impl From<&[u8]> for V128Imm {
+    fn from(slice: &[u8]) -> Self {
+        assert_eq!(slice.len(), 16);
+        let mut buffer = [0; 16];
+        buffer.copy_from_slice(slice);
+        Self(buffer)
     }
 }
 
@@ -212,7 +366,7 @@ pub struct Offset32(i32);
 impl Offset32 {
     /// Create a new `Offset32` representing the signed number `x`.
     pub fn new(x: i32) -> Self {
-        Offset32(x)
+        Self(x)
     }
 
     /// Create a new `Offset32` representing the signed number `x` if possible.
@@ -250,7 +404,7 @@ impl Into<i64> for Offset32 {
 
 impl From<i32> for Offset32 {
     fn from(x: i32) -> Self {
-        Offset32(x)
+        Self(x)
     }
 }
 
@@ -268,7 +422,7 @@ impl Display for Offset32 {
         if val < 10_000 {
             write!(f, "{}", val)
         } else {
-            write_hex(val, f)
+            write_hex(val as u64, f)
         }
     }
 }
@@ -545,7 +699,7 @@ fn parse_float(s: &str, w: u8, t: u8) -> Result<u64, &'static str> {
 impl Ieee32 {
     /// Create a new `Ieee32` containing the bits of `x`.
     pub fn with_bits(x: u32) -> Self {
-        Ieee32(x)
+        Self(x)
     }
 
     /// Create an `Ieee32` number representing `2.0^n`.
@@ -557,7 +711,7 @@ impl Ieee32 {
         let exponent = (n + bias) as u32;
         assert!(exponent > 0, "Underflow n={}", n);
         assert!(exponent < (1 << w) + 1, "Overflow n={}", n);
-        Ieee32(exponent << t)
+        Self(exponent << t)
     }
 
     /// Create an `Ieee32` number representing the greatest negative value
@@ -571,12 +725,12 @@ impl Ieee32 {
 
     /// Return self negated.
     pub fn neg(self) -> Self {
-        Ieee32(self.0 ^ (1 << 31))
+        Self(self.0 ^ (1 << 31))
     }
 
     /// Create a new `Ieee32` representing the number `x`.
     pub fn with_float(x: f32) -> Self {
-        Ieee32(unsafe { mem::transmute(x) })
+        Self(x.to_bits())
     }
 
     /// Get the bitwise representation.
@@ -597,16 +751,28 @@ impl FromStr for Ieee32 {
 
     fn from_str(s: &str) -> Result<Self, &'static str> {
         match parse_float(s, 8, 23) {
-            Ok(b) => Ok(Ieee32(b as u32)),
+            Ok(b) => Ok(Self(b as u32)),
             Err(s) => Err(s),
         }
+    }
+}
+
+impl From<f32> for Ieee32 {
+    fn from(x: f32) -> Self {
+        Self::with_float(x)
+    }
+}
+
+impl IntoBytes for Ieee32 {
+    fn into_bytes(self) -> Vec<u8> {
+        self.0.to_le_bytes().to_vec()
     }
 }
 
 impl Ieee64 {
     /// Create a new `Ieee64` containing the bits of `x`.
     pub fn with_bits(x: u64) -> Self {
-        Ieee64(x)
+        Self(x)
     }
 
     /// Create an `Ieee64` number representing `2.0^n`.
@@ -618,7 +784,7 @@ impl Ieee64 {
         let exponent = (n + bias) as u64;
         assert!(exponent > 0, "Underflow n={}", n);
         assert!(exponent < (1 << w) + 1, "Overflow n={}", n);
-        Ieee64(exponent << t)
+        Self(exponent << t)
     }
 
     /// Create an `Ieee64` number representing the greatest negative value
@@ -632,12 +798,12 @@ impl Ieee64 {
 
     /// Return self negated.
     pub fn neg(self) -> Self {
-        Ieee64(self.0 ^ (1 << 63))
+        Self(self.0 ^ (1 << 63))
     }
 
     /// Create a new `Ieee64` representing the number `x`.
     pub fn with_float(x: f64) -> Self {
-        Ieee64(unsafe { mem::transmute(x) })
+        Self(x.to_bits())
     }
 
     /// Get the bitwise representation.
@@ -658,19 +824,38 @@ impl FromStr for Ieee64 {
 
     fn from_str(s: &str) -> Result<Self, &'static str> {
         match parse_float(s, 11, 52) {
-            Ok(b) => Ok(Ieee64(b)),
+            Ok(b) => Ok(Self(b)),
             Err(s) => Err(s),
         }
+    }
+}
+
+impl From<f64> for Ieee64 {
+    fn from(x: f64) -> Self {
+        Self::with_float(x)
+    }
+}
+
+impl From<u64> for Ieee64 {
+    fn from(x: u64) -> Self {
+        Self::with_float(f64::from_bits(x))
+    }
+}
+
+impl IntoBytes for Ieee64 {
+    fn into_bytes(self) -> Vec<u8> {
+        self.0.to_le_bytes().to_vec()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fmt::Display;
-    use std::str::FromStr;
-    use std::string::ToString;
-    use std::{f32, f64};
+    use alloc::string::ToString;
+    use core::fmt::Display;
+    use core::mem;
+    use core::str::FromStr;
+    use core::{f32, f64};
 
     #[test]
     fn format_imm64() {
@@ -681,6 +866,20 @@ mod tests {
         assert_eq!(Imm64(-10000).to_string(), "0xffff_ffff_ffff_d8f0");
         assert_eq!(Imm64(0xffff).to_string(), "0xffff");
         assert_eq!(Imm64(0x10000).to_string(), "0x0001_0000");
+    }
+
+    #[test]
+    fn format_uimm64() {
+        assert_eq!(Uimm64(0).to_string(), "0");
+        assert_eq!(Uimm64(9999).to_string(), "9999");
+        assert_eq!(Uimm64(10000).to_string(), "0x2710");
+        assert_eq!(Uimm64(-9999i64 as u64).to_string(), "0xffff_ffff_ffff_d8f1");
+        assert_eq!(
+            Uimm64(-10000i64 as u64).to_string(),
+            "0xffff_ffff_ffff_d8f0"
+        );
+        assert_eq!(Uimm64(0xffff).to_string(), "0xffff");
+        assert_eq!(Uimm64(0x10000).to_string(), "0x0001_0000");
     }
 
     // Verify that `text` can be parsed as a `T` into a value that displays as `want`.
@@ -748,6 +947,46 @@ mod tests {
 
         // Hex count overflow.
         parse_err::<Imm64>("0x0_0000_0000_0000_0000", "Too many hexadecimal digits");
+    }
+
+    #[test]
+    fn parse_uimm64() {
+        parse_ok::<Uimm64>("0", "0");
+        parse_ok::<Uimm64>("1", "1");
+        parse_ok::<Uimm64>("0x0", "0");
+        parse_ok::<Uimm64>("0xf", "15");
+        parse_ok::<Uimm64>("0xffffffff_fffffff7", "0xffff_ffff_ffff_fff7");
+
+        // Probe limits.
+        parse_ok::<Uimm64>("0xffffffff_ffffffff", "0xffff_ffff_ffff_ffff");
+        parse_ok::<Uimm64>("0x80000000_00000000", "0x8000_0000_0000_0000");
+        parse_ok::<Uimm64>("18446744073709551615", "0xffff_ffff_ffff_ffff");
+        // Overflow both the `checked_add` and `checked_mul`.
+        parse_err::<Uimm64>("18446744073709551616", "Too large decimal number");
+        parse_err::<Uimm64>("184467440737095516100", "Too large decimal number");
+
+        // Underscores are allowed where digits go.
+        parse_ok::<Uimm64>("0_0", "0");
+        parse_ok::<Uimm64>("_10_", "10");
+        parse_ok::<Uimm64>("0x97_88_bb", "0x0097_88bb");
+        parse_ok::<Uimm64>("0x_97_", "151");
+
+        parse_err::<Uimm64>("", "No digits in number");
+        parse_err::<Uimm64>("_", "No digits in number");
+        parse_err::<Uimm64>("0x", "No digits in number");
+        parse_err::<Uimm64>("0x_", "No digits in number");
+        parse_err::<Uimm64>("-", "Invalid character in decimal number");
+        parse_err::<Uimm64>("-0x", "Invalid character in hexadecimal number");
+        parse_err::<Uimm64>(" ", "Invalid character in decimal number");
+        parse_err::<Uimm64>("0 ", "Invalid character in decimal number");
+        parse_err::<Uimm64>(" 0", "Invalid character in decimal number");
+        parse_err::<Uimm64>("--", "Invalid character in decimal number");
+        parse_err::<Uimm64>("-0x-", "Invalid character in hexadecimal number");
+        parse_err::<Uimm64>("-0", "Invalid character in decimal number");
+        parse_err::<Uimm64>("-1", "Invalid character in decimal number");
+
+        // Hex count overflow.
+        parse_err::<Uimm64>("0x0_0000_0000_0000_0000", "Too many hexadecimal digits");
     }
 
     #[test]

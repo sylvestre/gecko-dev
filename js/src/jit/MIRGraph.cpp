@@ -6,7 +6,8 @@
 
 #include "jit/MIRGraph.h"
 
-#include "jit/BytecodeAnalysis.h"
+#include "jit/CompileInfo.h"
+#include "jit/InlineScriptTree.h"
 #include "jit/Ion.h"
 #include "jit/JitSpewer.h"
 #include "jit/MIR.h"
@@ -15,7 +16,6 @@
 
 using namespace js;
 using namespace js::jit;
-using mozilla::Swap;
 
 MIRGenerator::MIRGenerator(CompileRealm* realm,
                            const JitCompileOptions& options,
@@ -24,21 +24,21 @@ MIRGenerator::MIRGenerator(CompileRealm* realm,
                            const OptimizationInfo* optimizationInfo)
     : realm(realm),
       runtime(realm ? realm->runtime() : nullptr),
-      info_(info),
+      outerInfo_(info),
       optimizationInfo_(optimizationInfo),
       alloc_(alloc),
       graph_(graph),
       offThreadStatus_(Ok()),
-      abortedPreliminaryGroups_(*alloc_),
       cancelBuild_(false),
       wasmMaxStackArgBytes_(0),
       needsOverrecursedCheck_(false),
       needsStaticStackAlignment_(false),
-      modifiesFrameArguments_(false),
       instrumentedProfiling_(false),
       instrumentedProfilingIsCached_(false),
       safeForMinorGC_(true),
       stringsCanBeInNursery_(realm ? realm->zone()->canNurseryAllocateStrings()
+                                   : false),
+      bigIntsCanBeInNursery_(realm ? realm->zone()->canNurseryAllocateBigInts()
                                    : false),
       minWasmHeapLength_(0),
       options(options),
@@ -85,18 +85,6 @@ mozilla::GenericErrorResult<AbortReason> MIRGenerator::abort(
   return forward;
 }
 
-void MIRGenerator::addAbortedPreliminaryGroup(ObjectGroup* group) {
-  for (size_t i = 0; i < abortedPreliminaryGroups_.length(); i++) {
-    if (group == abortedPreliminaryGroups_[i]) {
-      return;
-    }
-  }
-  AutoEnterOOMUnsafeRegion oomUnsafe;
-  if (!abortedPreliminaryGroups_.append(group)) {
-    oomUnsafe.crash("addAbortedPreliminaryGroup");
-  }
-}
-
 void MIRGraph::addBlock(MBasicBlock* block) {
   MOZ_ASSERT(block);
   block->setId(blockIdGen_++);
@@ -116,16 +104,6 @@ void MIRGraph::insertBlockBefore(MBasicBlock* at, MBasicBlock* block) {
   numBlocks_++;
 }
 
-void MIRGraph::renumberBlocksAfter(MBasicBlock* at) {
-  MBasicBlockIterator iter = begin(at);
-  iter++;
-
-  uint32_t id = at->id();
-  for (; iter != end(); iter++) {
-    iter->setId(++id);
-  }
-}
-
 bool MIRGraph::removeSuccessorBlocks(MBasicBlock* start) {
   if (!start->hasLastIns()) {
     return true;
@@ -136,6 +114,9 @@ bool MIRGraph::removeSuccessorBlocks(MBasicBlock* start) {
   // Mark all successors.
   Vector<MBasicBlock*, 4, SystemAllocPolicy> blocks;
   for (size_t i = 0; i < start->numSuccessors(); i++) {
+    if (!start->getSuccessor(i)) {
+      continue;
+    }
     if (start->getSuccessor(i)->isMarked()) {
       continue;
     }
@@ -151,6 +132,9 @@ bool MIRGraph::removeSuccessorBlocks(MBasicBlock* start) {
     }
 
     for (size_t j = 0; j < block->numSuccessors(); j++) {
+      if (!block->getSuccessor(j)) {
+        continue;
+      }
       if (block->getSuccessor(j)->isMarked()) {
         continue;
       }
@@ -309,8 +293,7 @@ MBasicBlock* MBasicBlock::NewWithResumePoint(MIRGraph& graph,
 MBasicBlock* MBasicBlock::NewPendingLoopHeader(MIRGraph& graph,
                                                const CompileInfo& info,
                                                MBasicBlock* pred,
-                                               BytecodeSite* site,
-                                               unsigned stackPhiCount) {
+                                               BytecodeSite* site) {
   MOZ_ASSERT(site->pc() != nullptr);
 
   MBasicBlock* block =
@@ -319,8 +302,7 @@ MBasicBlock* MBasicBlock::NewPendingLoopHeader(MIRGraph& graph,
     return nullptr;
   }
 
-  if (!block->inherit(graph.alloc(), pred->stackDepth(), pred, 0,
-                      stackPhiCount)) {
+  if (!block->inherit(graph.alloc(), pred->stackDepth(), pred, 0)) {
     return nullptr;
   }
 
@@ -452,6 +434,9 @@ MBasicBlock* MBasicBlock::New(MIRGraph& graph, const CompileInfo& info,
         block->setSlot(i, phi);
       }
     } else {
+      if (!block->ensureHasSlots(0)) {
+        return nullptr;
+      }
       block->copySlots(pred);
     }
 
@@ -489,7 +474,7 @@ MBasicBlock::MBasicBlock(MIRGraph& graph, const CompileInfo& info,
       trackedSite_(site),
       hitCount_(0),
       hitState_(HitState::NotDefined)
-#if defined(JS_ION_PERF)
+#if defined(JS_ION_PERF) || defined(DEBUG)
       ,
       lineno_(0u),
       columnIndex_(0u)
@@ -515,6 +500,7 @@ bool MBasicBlock::ensureHasSlots(size_t num) {
 
 void MBasicBlock::copySlots(MBasicBlock* from) {
   MOZ_ASSERT(stackPosition_ <= from->stackPosition_);
+  MOZ_ASSERT(stackPosition_ <= nslots());
 
   MDefinition** thisSlots = slots_.begin();
   MDefinition** fromSlots = from->slots_.begin();
@@ -524,8 +510,7 @@ void MBasicBlock::copySlots(MBasicBlock* from) {
 }
 
 bool MBasicBlock::inherit(TempAllocator& alloc, size_t stackDepth,
-                          MBasicBlock* maybePred, uint32_t popped,
-                          unsigned stackPhiCount) {
+                          MBasicBlock* maybePred, uint32_t popped) {
   MOZ_ASSERT_IF(maybePred, maybePred->stackDepth() == stackDepth);
 
   MOZ_ASSERT(stackDepth >= popped);
@@ -555,31 +540,7 @@ bool MBasicBlock::inherit(TempAllocator& alloc, size_t stackDepth,
     }
 
     if (kind_ == PENDING_LOOP_HEADER) {
-      size_t i = 0;
-      for (i = 0; i < info().firstStackSlot(); i++) {
-        MPhi* phi = MPhi::New(alloc.fallible());
-        if (!phi) {
-          return false;
-        }
-        phi->addInlineInput(maybePred->getSlot(i));
-        addPhi(phi);
-        setSlot(i, phi);
-        entryResumePoint()->initOperand(i, phi);
-      }
-
-      MOZ_ASSERT(stackPhiCount <= stackDepth);
-      MOZ_ASSERT(info().firstStackSlot() <= stackDepth - stackPhiCount);
-
-      // Avoid creating new phis for stack values that aren't part of the
-      // loop.  Note that for loop headers that can OSR, all values on the
-      // stack are part of the loop.
-      for (; i < stackDepth - stackPhiCount; i++) {
-        MDefinition* val = maybePred->getSlot(i);
-        setSlot(i, val);
-        entryResumePoint()->initOperand(i, val);
-      }
-
-      for (; i < stackDepth; i++) {
+      for (size_t i = 0; i < stackDepth; i++) {
         MPhi* phi = MPhi::New(alloc.fallible());
         if (!phi) {
           return false;
@@ -734,7 +695,7 @@ void MBasicBlock::setArgumentsObject(MDefinition* argsObj) {
 }
 
 void MBasicBlock::pick(int32_t depth) {
-  // pick take an element and move it to the top.
+  // pick takes a value and moves it to the top.
   // pick(-2):
   //   A B C D E
   //   A B D C E [ swapAt(-2) ]
@@ -745,7 +706,7 @@ void MBasicBlock::pick(int32_t depth) {
 }
 
 void MBasicBlock::unpick(int32_t depth) {
-  // unpick take the top of the stack element and move it under the depth-th
+  // unpick takes the value on top of the stack and moves it under the depth-th
   // element;
   // unpick(-2):
   //   A B C D E
@@ -1045,22 +1006,25 @@ bool MBasicBlock::addPredecessorPopN(TempAllocator& alloc, MBasicBlock* pred,
     MDefinition* other = pred->getSlot(i);
 
     if (mine != other) {
+      MIRType phiType = mine->type();
+      if (phiType != other->type()) {
+        phiType = MIRType::Value;
+      }
+
       // If the current instruction is a phi, and it was created in this
       // basic block, then we have already placed this phi and should
       // instead append to its operands.
       if (mine->isPhi() && mine->block() == this) {
         MOZ_ASSERT(predecessors_.length());
+        MOZ_ASSERT(!mine->hasDefUses(),
+                   "should only change type of newly created phis");
+        mine->setResultType(phiType);
         if (!mine->toPhi()->addInputSlow(other)) {
           return false;
         }
       } else {
         // Otherwise, create a new phi node.
-        MPhi* phi;
-        if (mine->type() == other->type()) {
-          phi = MPhi::New(alloc.fallible(), mine->type());
-        } else {
-          phi = MPhi::New(alloc.fallible());
-        }
+        MPhi* phi = MPhi::New(alloc.fallible(), phiType);
         if (!phi) {
           return false;
         }
@@ -1162,9 +1126,6 @@ AbortReason MBasicBlock::setBackedge(TempAllocator& alloc, MBasicBlock* pred) {
   }
 
   if (hadTypeChange) {
-    for (MPhiIterator phi = phisBegin(); phi != phisEnd(); phi++) {
-      phi->removeOperand(phi->numOperands() - 1);
-    }
     return AbortReason::Disable;
   }
 
@@ -1178,11 +1139,11 @@ AbortReason MBasicBlock::setBackedge(TempAllocator& alloc, MBasicBlock* pred) {
   return AbortReason::NoAbort;
 }
 
-bool MBasicBlock::setBackedgeWasm(MBasicBlock* pred) {
+bool MBasicBlock::setBackedgeWasm(MBasicBlock* pred, size_t paramCount) {
   // Predecessors must be finished, and at the correct stack depth.
   MOZ_ASSERT(hasLastIns());
   MOZ_ASSERT(pred->hasLastIns());
-  MOZ_ASSERT(stackDepth() == pred->stackDepth());
+  MOZ_ASSERT(stackDepth() + paramCount == pred->stackDepth());
 
   // We must be a pending loop header
   MOZ_ASSERT(kind_ == PENDING_LOOP_HEADER);
@@ -1217,8 +1178,11 @@ bool MBasicBlock::setBackedgeWasm(MBasicBlock* pred) {
     MOZ_ASSERT(phi->numOperands() == 1);
     entryDef->addInlineInput(exitDef);
 
-    MOZ_ASSERT(slot < pred->stackDepth());
-    setSlot(slot, entryDef);
+    // Two cases here: phis that correspond to locals, and phis that correspond
+    // to loop parameters.  Only phis for locals go in slots.
+    if (slot < stackDepth()) {
+      setSlot(slot, entryDef);
+    }
   }
 
   // We are now a loop header proper
@@ -1250,7 +1214,7 @@ void MBasicBlock::setLoopHeader(MBasicBlock* newBackedge) {
   }
 
   // Set the loop backedge to be the last element in predecessors_.
-  Swap(predecessors_[oldIndex], predecessors_[lastIndex]);
+  std::swap(predecessors_[oldIndex], predecessors_[lastIndex]);
 
   // If we have phis, reorder their operands accordingly.
   if (!phisEmpty()) {
@@ -1435,7 +1399,6 @@ bool MBasicBlock::inheritPhisFromBackedge(TempAllocator& alloc,
       return false;
     }
     *hadTypeChange |= typeChange;
-    setSlot(slot, entryDef);
   }
 
   return true;
@@ -1578,7 +1541,7 @@ void MBasicBlock::dumpStack(GenericPrinter& out) {
   out.printf(" %-3s %-16s %-6s %-10s\n", "#", "name", "copyOf", "first/next");
   out.printf("-------------------------------------------\n");
   for (uint32_t i = 0; i < stackPosition_; i++) {
-    out.printf(" %-3d", i);
+    out.printf(" %-3u", i);
     out.printf(" %-16p\n", (void*)slots_[i]);
   }
 #endif
@@ -1591,7 +1554,7 @@ void MBasicBlock::dumpStack() {
 }
 
 void MIRGraph::dump(GenericPrinter& out) {
-#ifdef DEBUG
+#ifdef JS_JITSPEW
   for (MBasicBlockIterator iter(begin()); iter != end(); iter++) {
     iter->dump(out);
     out.printf("\n");
@@ -1606,7 +1569,7 @@ void MIRGraph::dump() {
 }
 
 void MBasicBlock::dump(GenericPrinter& out) {
-#ifdef DEBUG
+#ifdef JS_JITSPEW
   out.printf("block%u:%s%s%s\n", id(), isLoopHeader() ? " (loop header)" : "",
              unreachable() ? " (unreachable)" : "",
              isMarked() ? " (marked)" : "");

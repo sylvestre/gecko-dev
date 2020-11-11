@@ -16,7 +16,6 @@
 #include "mozilla/mozalloc.h"  // for operator delete[], etc
 #include "mozilla/RefPtr.h"
 #include "mozilla/UniquePtr.h"
-#include "nsAutoRef.h"          // for nsCountedRef
 #include "nsCOMPtr.h"           // for already_AddRefed
 #include "nsDebug.h"            // for NS_ERROR, NS_ASSERTION
 #include "nsISupportsImpl.h"    // for Image::Release, etc
@@ -78,7 +77,7 @@ class BasicPlanarYCbCrImage : public RecyclingPlanarYCbCrImage {
 
 class BasicImageFactory : public ImageFactory {
  public:
-  BasicImageFactory() {}
+  BasicImageFactory() = default;
 
   virtual RefPtr<PlanarYCbCrImage> CreatePlanarYCbCrImage(
       const gfx::IntSize& aScaleHint, BufferRecycleBin* aRecycleBin) override {

@@ -4,8 +4,8 @@
 
 "use strict";
 
-ChromeUtils.import("resource://gre/modules/Services.jsm");
-ChromeUtils.import("resource://gre/modules/NetUtil.jsm");
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { NetUtil } = ChromeUtils.import("resource://gre/modules/NetUtil.jsm");
 
 /** This little class ensures that redirects maintain an https:// origin */
 function RedirectHttpsOnly() {}
@@ -22,7 +22,7 @@ RedirectHttpsOnly.prototype = {
   getInterface(iid) {
     return this.QueryInterface(iid);
   },
-  QueryInterface: ChromeUtils.generateQI([Ci.nsIChannelEventSink]),
+  QueryInterface: ChromeUtils.generateQI(["nsIChannelEventSink"]),
 };
 
 /** This class loads a resource into a single string. ResourceLoader.load() is
@@ -40,27 +40,28 @@ ResourceLoader.load = function(uri, doc) {
     let ioChannel = NetUtil.newChannel({
       uri,
       loadingNode: doc,
-      securityFlags: Ci.nsILoadInfo.SEC_ALLOW_CROSS_ORIGIN_DATA_IS_NULL,
+      securityFlags: Ci.nsILoadInfo.SEC_ALLOW_CROSS_ORIGIN_SEC_CONTEXT_IS_NULL,
       contentPolicyType: Ci.nsIContentPolicy.TYPE_INTERNAL_SCRIPT,
     });
 
     ioChannel.loadGroup = doc.documentLoadGroup.QueryInterface(Ci.nsILoadGroup);
     ioChannel.notificationCallbacks = new RedirectHttpsOnly();
-    ioChannel.asyncOpen2(listener);
+    ioChannel.asyncOpen(listener);
   });
 };
 
 ResourceLoader.prototype = {
-  onDataAvailable(request, context, input, offset, count) {
-    let stream = Cc["@mozilla.org/scriptableinputstream;1"]
-      .createInstance(Ci.nsIScriptableInputStream);
+  onDataAvailable(request, input, offset, count) {
+    let stream = Cc["@mozilla.org/scriptableinputstream;1"].createInstance(
+      Ci.nsIScriptableInputStream
+    );
     stream.init(input);
     this.data += stream.read(count);
   },
 
-  onStartRequest(request, context) {},
+  onStartRequest(request) {},
 
-  onStopRequest(request, context, status) {
+  onStopRequest(request, status) {
     if (Components.isSuccessCode(status)) {
       var statusCode = request.QueryInterface(Ci.nsIHttpChannel).responseStatus;
       if (statusCode === 200) {
@@ -76,7 +77,7 @@ ResourceLoader.prototype = {
   getInterface(iid) {
     return this.QueryInterface(iid);
   },
-  QueryInterface: ChromeUtils.generateQI([Ci.nsIStreamListener]),
+  QueryInterface: ChromeUtils.generateQI(["nsIStreamListener"]),
 };
 
 /**
@@ -86,13 +87,12 @@ function createLocationFromURI(uri) {
   return {
     href: uri.spec,
     protocol: uri.scheme + ":",
-    host: uri.host + ((uri.port >= 0) ?
-                      (":" + uri.port) : ""),
+    host: uri.host + (uri.port >= 0 ? ":" + uri.port : ""),
     port: uri.port,
     hostname: uri.host,
     pathname: uri.pathQueryRef.replace(/[#\?].*/, ""),
     search: uri.pathQueryRef.replace(/^[^\?]*/, "").replace(/#.*/, ""),
-    hash: uri.hasRef ? ("#" + uri.ref) : "",
+    hash: uri.hasRef ? "#" + uri.ref : "",
     origin: uri.prePath,
     toString() {
       return uri.spec;
@@ -117,8 +117,10 @@ function IdpSandbox(domain, protocol, win) {
 
 IdpSandbox.checkDomain = function(domain) {
   if (!domain || typeof domain !== "string") {
-    throw new Error("Invalid domain for identity provider: " +
-                    "must be a non-zero length string");
+    throw new Error(
+      "Invalid domain for identity provider: " +
+        "must be a non-zero length string"
+    );
   }
 };
 
@@ -159,8 +161,10 @@ IdpSandbox.createIdpUri = function(domain, protocol) {
 
     return uri;
   } catch (e) {
-    if (typeof e.result !== "undefined" &&
-                   e.result === Cr.NS_ERROR_MALFORMED_URI) {
+    if (
+      typeof e.result !== "undefined" &&
+      e.result === Cr.NS_ERROR_MALFORMED_URI
+    ) {
       throw new Error(message + "must produce a valid URI");
     }
     throw e;
@@ -174,8 +178,10 @@ IdpSandbox.prototype = {
 
   start() {
     if (!this.active) {
-      this.active = ResourceLoader.load(this.source, this.window.document)
-        .then(result => this._createSandbox(result));
+      this.active = ResourceLoader.load(
+        this.source,
+        this.window.document
+      ).then(result => this._createSandbox(result));
     }
     return this.active;
   },
@@ -184,23 +190,35 @@ IdpSandbox.prototype = {
   // a minimal set; it is far easier to add more as the need arises, than to
   // take them back if we discover a mistake.
   _populateSandbox(uri) {
-    this.sandbox.location = Cu.cloneInto(createLocationFromURI(uri),
-                                         this.sandbox,
-                                         { cloneFunctions: true });
+    this.sandbox.location = Cu.cloneInto(
+      createLocationFromURI(uri),
+      this.sandbox,
+      { cloneFunctions: true }
+    );
   },
 
   _createSandbox(result) {
-    let principal = Services.scriptSecurityManager
-      .getChannelResultPrincipal(result.request);
+    let principal = Services.scriptSecurityManager.getChannelResultPrincipal(
+      result.request
+    );
 
     this.sandbox = Cu.Sandbox(principal, {
       sandboxName: "IdP-" + this.source.host,
       wantComponents: false,
       wantExportHelpers: false,
       wantGlobalProperties: [
-        "indexedDB", "XMLHttpRequest", "TextEncoder", "TextDecoder",
-        "URL", "URLSearchParams", "atob", "btoa", "Blob", "crypto",
-        "rtcIdentityProvider", "fetch",
+        "indexedDB",
+        "XMLHttpRequest",
+        "TextEncoder",
+        "TextDecoder",
+        "URL",
+        "URLSearchParams",
+        "atob",
+        "btoa",
+        "Blob",
+        "crypto",
+        "rtcIdentityProvider",
+        "fetch",
       ],
     });
     let registrar = this.sandbox.rtcIdentityProvider;
@@ -212,8 +230,13 @@ IdpSandbox.prototype = {
     // that origin stealing from the one that redirected to it
     this._populateSandbox(result.request.URI);
     try {
-      Cu.evalInSandbox(result.data, this.sandbox,
-                       "latest", result.request.URI.spec, 1);
+      Cu.evalInSandbox(
+        result.data,
+        this.sandbox,
+        "latest",
+        result.request.URI.spec,
+        1
+      );
     } catch (e) {
       // These can be passed straight on, because they are explicitly labelled
       // as being IdP errors by the IdP and we drop line numbers as a result.
@@ -234,13 +257,20 @@ IdpSandbox.prototype = {
   // can't rethrow anything else because that could leak information about the
   // internal workings of the IdP across origins.
   _logError(e) {
-    let winID = this.window.windowUtils.currentInnerWindowID;
-    let scriptError = Cc["@mozilla.org/scripterror;1"]
-        .createInstance(Ci.nsIScriptError);
-    scriptError.initWithWindowID(e.message, e.fileName, null,
-                                 e.lineNumber, e.columnNumber,
-                                 Ci.nsIScriptError.errorFlag,
-                                 "content javascript", winID);
+    let winID = this.window.windowGlobalChild.innerWindowId;
+    let scriptError = Cc["@mozilla.org/scripterror;1"].createInstance(
+      Ci.nsIScriptError
+    );
+    scriptError.initWithWindowID(
+      e.message,
+      e.fileName,
+      null,
+      e.lineNumber,
+      e.columnNumber,
+      Ci.nsIScriptError.errorFlag,
+      "content javascript",
+      winID
+    );
     Services.console.logMessage(scriptError);
   },
 

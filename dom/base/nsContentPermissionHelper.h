@@ -12,7 +12,7 @@
 #include "nsIMutableArray.h"
 #include "mozilla/dom/PContentPermissionRequestChild.h"
 #include "mozilla/dom/ipc/IdType.h"
-#include "nsIDOMEventListener.h"
+#include "mozilla/PermissionDelegateHandler.h"
 
 // Microsoft's API Name hackery sucks
 // XXXbz Doing this in a header is a gigantic footgun. See
@@ -70,9 +70,9 @@ class nsContentPermissionUtils {
 
   static PContentPermissionRequestParent* CreateContentPermissionRequestParent(
       const nsTArray<PermissionRequest>& aRequests, Element* aElement,
-      const IPC::Principal& aPrincipal,
-      const IPC::Principal& aTopLevelPrincipal, const bool aIsHandlingUserInput,
-      const TabId& aTabId);
+      nsIPrincipal* aPrincipal, nsIPrincipal* aTopLevelPrincipal,
+      const bool aIsHandlingUserInput,
+      const bool aMaybeUnsafePermissionDelegate, const TabId& aTabId);
 
   static nsresult AskPermission(nsIContentPermissionRequest* aRequest,
                                 nsPIDOMWindowInner* aWindow);
@@ -117,10 +117,14 @@ class ContentPermissionRequestBase : public nsIContentPermissionRequest {
 
   NS_IMETHOD GetTypes(nsIArray** aTypes) override;
   NS_IMETHOD GetPrincipal(nsIPrincipal** aPrincipal) override;
+  NS_IMETHOD GetDelegatePrincipal(const nsACString& aType,
+                                  nsIPrincipal** aPrincipal) override;
   NS_IMETHOD GetTopLevelPrincipal(nsIPrincipal** aTopLevelPrincipal) override;
   NS_IMETHOD GetWindow(mozIDOMWindow** aWindow) override;
   NS_IMETHOD GetElement(mozilla::dom::Element** aElement) override;
   NS_IMETHOD GetIsHandlingUserInput(bool* aIsHandlingUserInput) override;
+  NS_IMETHOD GetMaybeUnsafePermissionDelegate(
+      bool* aMaybeUnsafePermissionDelegate) override;
   NS_IMETHOD GetRequester(nsIContentPermissionRequester** aRequester) override;
   // Overrides for Allow() and Cancel() aren't provided by this class.
   // That is the responsibility of the subclasses.
@@ -134,6 +138,9 @@ class ContentPermissionRequestBase : public nsIContentPermissionRequest {
 
   PromptResult CheckPromptPrefs();
 
+  // Check if the permission has an opportunity to request.
+  bool CheckPermissionDelegate();
+
   enum class DelayedTaskType {
     Allow,
     Deny,
@@ -143,7 +150,6 @@ class ContentPermissionRequestBase : public nsIContentPermissionRequest {
 
  protected:
   ContentPermissionRequestBase(nsIPrincipal* aPrincipal,
-                               bool aIsHandlingUserInput,
                                nsPIDOMWindowInner* aWindow,
                                const nsACString& aPrefName,
                                const nsACString& aType);
@@ -153,9 +159,11 @@ class ContentPermissionRequestBase : public nsIContentPermissionRequest {
   nsCOMPtr<nsIPrincipal> mTopLevelPrincipal;
   nsCOMPtr<nsPIDOMWindowInner> mWindow;
   nsCOMPtr<nsIContentPermissionRequester> mRequester;
+  RefPtr<PermissionDelegateHandler> mPermissionHandler;
   nsCString mPrefName;
   nsCString mType;
   bool mIsHandlingUserInput;
+  bool mMaybeUnsafePermissionDelegate;
 };
 
 }  // namespace dom
@@ -191,7 +199,7 @@ class nsContentPermissionRequestProxy : public nsIContentPermissionRequest {
     void NotifyVisibilityResult(const bool& aIsVisible);
 
    private:
-    virtual ~nsContentPermissionRequesterProxy() {}
+    virtual ~nsContentPermissionRequesterProxy() = default;
 
     ContentPermissionRequestParent* mParent;
     bool mWaitGettingResult;
@@ -221,12 +229,13 @@ class RemotePermissionRequest final
   RemotePermissionRequest(nsIContentPermissionRequest* aRequest,
                           nsPIDOMWindowInner* aWindow);
 
-  // It will be called when prompt dismissed.
-  virtual mozilla::ipc::IPCResult RecvNotifyResult(
-      const bool& aAllow,
-      InfallibleTArray<PermissionChoice>&& aChoices) override;
+  // It will be called when prompt dismissed.  MOZ_CAN_RUN_SCRIPT_BOUNDARY
+  // because we don't have MOZ_CAN_RUN_SCRIPT bits in IPC code yet.
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY
+  mozilla::ipc::IPCResult RecvNotifyResult(
+      const bool& aAllow, nsTArray<PermissionChoice>&& aChoices);
 
-  virtual mozilla::ipc::IPCResult RecvGetVisibility() override;
+  mozilla::ipc::IPCResult RecvGetVisibility();
 
   void IPDLAddRef() {
     mIPCOpen = true;
@@ -245,7 +254,9 @@ class RemotePermissionRequest final
  private:
   virtual ~RemotePermissionRequest();
 
+  MOZ_CAN_RUN_SCRIPT
   void DoAllow(JS::HandleValue aChoices);
+  MOZ_CAN_RUN_SCRIPT
   void DoCancel();
 
   nsCOMPtr<nsIContentPermissionRequest> mRequest;

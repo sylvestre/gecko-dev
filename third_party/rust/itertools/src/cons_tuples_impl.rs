@@ -42,6 +42,7 @@ impl_cons_iter!(A, B, C, D, E, F, G, H,);
 ///
 /// Used by the `iproduct!()` macro.
 #[must_use = "iterator adaptors are lazy and do nothing unless consumed"]
+#[derive(Debug)]
 pub struct ConsTuples<I, J>
     where I: Iterator<Item=J>,
 {
@@ -51,11 +52,7 @@ pub struct ConsTuples<I, J>
 impl<I, J> Clone for ConsTuples<I, J>
     where I: Clone + Iterator<Item=J>,
 {
-    fn clone(&self) -> Self {
-        ConsTuples {
-            iter: self.iter.clone(),
-        }
-    }
+    clone_fields!(iter);
 }
 
 /// Create an iterator that maps for example iterators of

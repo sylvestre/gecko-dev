@@ -43,6 +43,8 @@ class ABIArgGenerator {
 
     return usedArgSlots_ * sizeof(intptr_t);
   }
+
+  void increaseStackOffset(uint32_t bytes) { MOZ_CRASH("NYI"); }
 };
 
 // These registers may be volatile or nonvolatile.
@@ -78,6 +80,13 @@ static constexpr Register WasmTableCallScratchReg0 = ABINonArgReg0;
 static constexpr Register WasmTableCallScratchReg1 = ABINonArgReg1;
 static constexpr Register WasmTableCallSigReg = ABINonArgReg2;
 static constexpr Register WasmTableCallIndexReg = ABINonArgReg3;
+
+// Register used as a scratch along the return path in the fast js -> wasm stub
+// code. This must not overlap ReturnReg, JSReturnOperand, or WasmTlsReg. It
+// must be a volatile register.
+static constexpr Register WasmJitEntryReturnScratch = t1;
+
+static constexpr Register InterpreterPCReg = t5;
 
 static constexpr Register JSReturnReg_Type = a3;
 static constexpr Register JSReturnReg_Data = a2;
@@ -147,14 +156,10 @@ static constexpr uint32_t SimdMemoryAlignment = 8;
 static constexpr uint32_t WasmStackAlignment = SimdMemoryAlignment;
 static const uint32_t WasmTrapInstructionLength = 4;
 
-// Does this architecture support SIMD conversions between Uint32x4 and
-// Float32x4?
-static constexpr bool SupportsUint32x4FloatConversions = false;
-
-// Does this architecture support comparisons of unsigned integer vectors?
-static constexpr bool SupportsUint8x16Compares = false;
-static constexpr bool SupportsUint16x8Compares = false;
-static constexpr bool SupportsUint32x4Compares = false;
+// The offsets are dynamically asserted during
+// code generation in the prologue/epilogue.
+static constexpr uint32_t WasmCheckedCallEntryOffset = 0u;
+static constexpr uint32_t WasmCheckedTailEntryOffset = 16u;
 
 static constexpr Scale ScalePointer = TimesFour;
 
@@ -180,7 +185,6 @@ class Assembler : public AssemblerMIPSShared {
  public:
   using AssemblerMIPSShared::bind;
 
-  void bind(RepatchLabel* label);
   static void Bind(uint8_t* rawCode, const CodeLabel& label);
 
   void processCodeLabels(uint8_t* rawCode);
@@ -194,7 +198,7 @@ class Assembler : public AssemblerMIPSShared {
 
   // Copy the assembly code to the given buffer, and perform any pending
   // relocations relying on the target address.
-  void executableCopy(uint8_t* buffer, bool flushICache = true);
+  void executableCopy(uint8_t* buffer);
 
   static uint32_t PatchWrite_NearCallSize();
 

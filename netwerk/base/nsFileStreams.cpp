@@ -6,10 +6,10 @@
 #include "ipc/IPCMessageUtils.h"
 
 #if defined(XP_UNIX) || defined(XP_BEOS)
-#include <unistd.h>
+#  include <unistd.h>
 #elif defined(XP_WIN)
-#include <windows.h>
-#include "nsILocalFileWin.h"
+#  include <windows.h>
+#  include "nsILocalFileWin.h"
 #else
 // XXX add necessary include file for ftruncate (or equivalent)
 #endif
@@ -73,6 +73,11 @@ nsFileStreamBase::Seek(int32_t whence, int64_t offset) {
 
 NS_IMETHODIMP
 nsFileStreamBase::Tell(int64_t* result) {
+  if (mState == eDeferredOpen && !(mOpenParams.ioFlags & PR_APPEND)) {
+    *result = 0;
+    return NS_OK;
+  }
+
   nsresult rv = DoPendingOpen();
   NS_ENSURE_SUCCESS(rv, rv);
 
@@ -276,7 +281,7 @@ nsresult nsFileStreamBase::MaybeOpen(nsIFile* aFile, int32_t aIoFlags,
     nsresult rv = aFile->Clone(getter_AddRefs(file));
     NS_ENSURE_SUCCESS(rv, rv);
 
-    mOpenParams.localFile = file.forget();
+    mOpenParams.localFile = std::move(file);
     NS_ENSURE_TRUE(mOpenParams.localFile, NS_ERROR_UNEXPECTED);
 
     mState = eDeferredOpen;
@@ -484,7 +489,7 @@ nsFileInputStream::Read(char* aBuf, uint32_t aCount, uint32_t* _retval) {
 NS_IMETHODIMP
 nsFileInputStream::ReadLine(nsACString& aLine, bool* aResult) {
   if (!mLineBuffer) {
-    mLineBuffer = new nsLineBuffer<char>;
+    mLineBuffer = MakeUnique<nsLineBuffer<char>>();
   }
   return NS_ReadLine(this, mLineBuffer.get(), aLine, aResult);
 }
@@ -517,6 +522,12 @@ nsresult nsFileInputStream::SeekInternal(int32_t aWhence, int64_t aOffset,
         aWhence = NS_SEEK_SET;
         aOffset += mCachedPosition;
       }
+      // If we're trying to seek to the start then we're done, so
+      // return early to avoid Seek from calling DoPendingOpen and
+      // opening the underlying file earlier than necessary.
+      if (aWhence == NS_SEEK_SET && aOffset == 0) {
+        return NS_OK;
+      }
     } else {
       return NS_BASE_STREAM_CLOSED;
     }
@@ -536,7 +547,29 @@ nsFileInputStream::Available(uint64_t* aResult) {
 }
 
 void nsFileInputStream::Serialize(InputStreamParams& aParams,
-                                  FileDescriptorArray& aFileDescriptors) {
+                                  FileDescriptorArray& aFileDescriptors,
+                                  bool aDelayedStart, uint32_t aMaxSize,
+                                  uint32_t* aSizeUsed,
+                                  ParentToChildStreamActorManager* aManager) {
+  MOZ_ASSERT(aSizeUsed);
+  *aSizeUsed = 0;
+
+  SerializeInternal(aParams, aFileDescriptors);
+}
+
+void nsFileInputStream::Serialize(InputStreamParams& aParams,
+                                  FileDescriptorArray& aFileDescriptors,
+                                  bool aDelayedStart, uint32_t aMaxSize,
+                                  uint32_t* aSizeUsed,
+                                  ChildToParentStreamActorManager* aManager) {
+  MOZ_ASSERT(aSizeUsed);
+  *aSizeUsed = 0;
+
+  SerializeInternal(aParams, aFileDescriptors);
+}
+
+void nsFileInputStream::SerializeInternal(
+    InputStreamParams& aParams, FileDescriptorArray& aFileDescriptors) {
   FileInputStreamParams params;
 
   if (NS_SUCCEEDED(DoPendingOpen())) {
@@ -544,7 +577,7 @@ void nsFileInputStream::Serialize(InputStreamParams& aParams,
     FileHandleType fd = FileHandleType(PR_FileDesc2NativeHandle(mFD));
     NS_ASSERTION(fd, "This should never be null!");
 
-    DebugOnly<FileDescriptor*> dbgFD = aFileDescriptors.AppendElement(fd);
+    DebugOnly dbgFD = aFileDescriptors.AppendElement(fd);
     NS_ASSERTION(dbgFD->IsValid(), "Sending an invalid file descriptor!");
 
     params.fileDescriptorIndex() = aFileDescriptors.Length() - 1;
@@ -626,10 +659,6 @@ bool nsFileInputStream::Deserialize(
   return true;
 }
 
-Maybe<uint64_t> nsFileInputStream::ExpectedSerializedLength() {
-  return Nothing();
-}
-
 bool nsFileInputStream::IsCloneable() const {
   // This inputStream is cloneable only if has been created using Init() and
   // it owns a nsIFile. This is not true when it is deserialized from IPC.
@@ -678,6 +707,29 @@ nsFileOutputStream::Init(nsIFile* file, int32_t ioFlags, int32_t perm,
 
   return MaybeOpen(file, ioFlags, perm,
                    mBehaviorFlags & nsIFileOutputStream::DEFER_OPEN);
+}
+
+nsresult nsFileOutputStream::InitWithFileDescriptor(
+    const mozilla::ipc::FileDescriptor& aFd) {
+  NS_ENSURE_TRUE(mFD == nullptr, NS_ERROR_ALREADY_INITIALIZED);
+  NS_ENSURE_TRUE(mState == eUnitialized || mState == eClosed,
+                 NS_ERROR_ALREADY_INITIALIZED);
+
+  if (aFd.IsValid()) {
+    auto rawFD = aFd.ClonePlatformHandle();
+    PRFileDesc* fileDesc = PR_ImportFile(PROsfd(rawFD.release()));
+    if (!fileDesc) {
+      NS_WARNING("Failed to import file handle!");
+      return NS_ERROR_FAILURE;
+    }
+    mFD = fileDesc;
+    mState = eOpened;
+  } else {
+    mState = eError;
+    mErrorValue = NS_ERROR_FILE_NOT_FOUND;
+  }
+
+  return NS_OK;
 }
 
 NS_IMETHODIMP
@@ -737,13 +789,8 @@ nsresult nsAtomicFileOutputStream::DoOpen() {
   //    filesystems).
   nsCOMPtr<nsIFile> tempResult;
   rv = file->Clone(getter_AddRefs(tempResult));
-  if (NS_SUCCEEDED(rv)) {
-    tempResult->SetFollowLinks(true);
-
-    // XP_UNIX ignores SetFollowLinks(), so we have to normalize.
-    if (mTargetFileExists) {
-      tempResult->Normalize();
-    }
+  if (NS_SUCCEEDED(rv) && mTargetFileExists) {
+    tempResult->Normalize();
   }
 
   if (NS_SUCCEEDED(rv) && mTargetFileExists) {

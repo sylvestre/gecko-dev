@@ -12,14 +12,11 @@
 
 #include "nsISupportsUtils.h"
 #include "nsIWeakReference.h"
-#include "nsIComponentManager.h"
-#include "nsIServiceManager.h"
 #include "nsWeakReference.h"
 #include "nsIInterfaceRequestor.h"
 #include "nsIInterfaceRequestorUtils.h"
 #include "nsComponentManagerUtils.h"
 #include "nsServiceManagerUtils.h"
-#include "nsAutoPtr.h"
 #include "mozilla/Attributes.h"
 
 #define NS_ITESTSERVICE_IID                          \
@@ -52,7 +49,7 @@ NS_DEFINE_STATIC_IID_ACCESSOR(nsITestService2, NS_ITESTSERVICE2_IID)
 
 class nsTestService final : public nsITestService,
                             public nsSupportsWeakReference {
-  ~nsTestService() {}
+  ~nsTestService() = default;
 
  public:
   NS_DECL_ISUPPORTS
@@ -69,7 +66,7 @@ NS_IMPL_ISUPPORTS(nsTestService, nsITestService, nsISupportsWeakReference)
   }
 static NS_DEFINE_CID(kTestServiceCID, NS_TEST_SERVICE_CID);
 
-void JustTestingCompilation() {
+inline void JustTestingCompilation() {
   /*
    * NOTE:  This does NOT demonstrate how these functions are
    * intended to be used.  They are intended for filling in out
@@ -82,14 +79,14 @@ void JustTestingCompilation() {
 
   /* Test CallQueryInterface */
 
-  nsISupports *mySupportsPtr = reinterpret_cast<nsISupports *>(0x1000);
+  nsISupports* mySupportsPtr = reinterpret_cast<nsISupports*>(0x1000);
 
-  nsITestService *myITestService = nullptr;
+  nsITestService* myITestService = nullptr;
   CallQueryInterface(mySupportsPtr, &myITestService);
 
-  nsTestService *myTestService =
-      reinterpret_cast<nsTestService *>(mySupportsPtr);
-  nsITestService2 *myTestService2;
+  nsTestService* myTestService =
+      reinterpret_cast<nsTestService*>(mySupportsPtr);
+  nsITestService2* myTestService2;
   CallQueryInterface(myTestService, &myTestService2);
 
   nsCOMPtr<nsISupports> mySupportsCOMPtr = mySupportsPtr;
@@ -100,7 +97,7 @@ void JustTestingCompilation() {
 
   /* Test CallQueryReferent */
 
-  nsIWeakReference *myWeakRef = static_cast<nsIWeakReference *>(mySupportsPtr);
+  nsIWeakReference* myWeakRef = static_cast<nsIWeakReference*>(mySupportsPtr);
   CallQueryReferent(myWeakRef, &myITestService);
 
   /* Test CallCreateInstance */
@@ -116,7 +113,7 @@ void JustTestingCompilation() {
   CallGetService(NS_TEST_SERVICE_CONTRACTID, &myITestService);
 
   /* Test CallGetInterface */
-  nsIInterfaceRequestor *myInterfaceRequestor =
-      static_cast<nsIInterfaceRequestor *>(mySupportsPtr);
+  nsIInterfaceRequestor* myInterfaceRequestor =
+      static_cast<nsIInterfaceRequestor*>(mySupportsPtr);
   CallGetInterface(myInterfaceRequestor, &myITestService);
 }

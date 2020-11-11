@@ -23,102 +23,20 @@
 //! this is not the right library for you. You could however, build such
 //! a data-structure using this library.
 
-#![cfg_attr(not(feature = "std"), no_std)]
-#![cfg_attr(not(feature = "std"), feature(alloc))]
+pub use crate::binary_reader::BinaryReader;
+pub use crate::binary_reader::Range;
 
-#[cfg(not(feature = "std"))]
-extern crate hashmap_core;
-
-#[cfg(not(feature = "std"))]
-#[macro_use]
-extern crate alloc;
-
-pub use binary_reader::BinaryReader;
-pub use binary_reader::Range;
-use binary_reader::SectionHeader;
-
-pub use parser::LocalName;
-pub use parser::NameEntry;
-pub use parser::Parser;
-pub use parser::ParserInput;
-pub use parser::ParserState;
-pub use parser::RelocEntry;
-pub use parser::WasmDecoder;
-
-pub use primitives::BinaryReaderError;
-pub use primitives::BrTable;
-pub use primitives::CustomSectionKind;
-pub use primitives::ExternalKind;
-pub use primitives::FuncType;
-pub use primitives::GlobalType;
-pub use primitives::Ieee32;
-pub use primitives::Ieee64;
-pub use primitives::ImportSectionEntryType;
-pub use primitives::LinkingType;
-pub use primitives::MemoryImmediate;
-pub use primitives::MemoryType;
-pub use primitives::NameType;
-pub use primitives::Naming;
-pub use primitives::Operator;
-pub use primitives::RelocType;
-pub use primitives::ResizableLimits;
-pub use primitives::Result;
-pub use primitives::SectionCode;
-pub use primitives::TableType;
-pub use primitives::Type;
-
-pub use validator::validate;
-pub use validator::ValidatingOperatorParser;
-pub use validator::ValidatingParser;
-pub use validator::WasmModuleResources;
-
-pub use readers::CodeSectionReader;
-pub use readers::Data;
-pub use readers::DataSectionReader;
-pub use readers::Element;
-pub use readers::ElementItems;
-pub use readers::ElementItemsReader;
-pub use readers::ElementSectionReader;
-pub use readers::Export;
-pub use readers::ExportSectionReader;
-pub use readers::FunctionBody;
-pub use readers::FunctionSectionReader;
-pub use readers::Global;
-pub use readers::GlobalSectionReader;
-pub use readers::Import;
-pub use readers::ImportSectionReader;
-pub use readers::InitExpr;
-pub use readers::LinkingSectionReader;
-pub use readers::LocalsReader;
-pub use readers::MemorySectionReader;
-pub use readers::ModuleReader;
-pub use readers::Name;
-pub use readers::NameSectionReader;
-pub use readers::NamingReader;
-pub use readers::OperatorsReader;
-pub use readers::Reloc;
-pub use readers::RelocSectionReader;
-pub use readers::Section;
-pub use readers::SectionIterator;
-pub use readers::SectionIteratorLimited;
-pub use readers::SectionReader;
-pub use readers::SectionWithLimitedItems;
-pub use readers::TableSectionReader;
-pub use readers::TypeSectionReader;
+pub use crate::module_resources::*;
+pub use crate::parser::*;
+pub use crate::primitives::*;
+pub use crate::readers::*;
+pub use crate::validator::*;
 
 mod binary_reader;
 mod limits;
+mod module_resources;
+mod operators_validator;
 mod parser;
 mod primitives;
 mod readers;
-mod tests;
 mod validator;
-
-#[cfg(not(feature = "std"))]
-mod std {
-    pub use alloc::{boxed, vec};
-    pub use core::*;
-    pub mod collections {
-        pub use hashmap_core::HashSet;
-    }
-}

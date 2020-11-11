@@ -13,7 +13,7 @@ var tests = [
   function test_no_params(done) {
     function listener(event, params) {
       is(event, "test-event-1", "Correct event name");
-      is(params, null, "No param object");
+      ok(!params, "No param object");
       gContentAPI.observe(null);
       done();
     }
@@ -37,19 +37,23 @@ var tests = [
   function test_param_object(done) {
     function listener(event, params) {
       is(event, "test-event-3", "Correct event name");
-      is(JSON.stringify(params), JSON.stringify({key: "something"}), "Correct param object");
+      is(
+        JSON.stringify(params),
+        JSON.stringify({ key: "something" }),
+        "Correct param object"
+      );
       gContentAPI.observe(null);
       done();
     }
 
     gContentAPI.observe(listener, () => {
-      UITour.notify("test-event-3", {key: "something"});
+      UITour.notify("test-event-3", { key: "something" });
     });
   },
   function test_background_tab(done) {
     function listener(event, params) {
       is(event, "test-event-background-1", "Correct event name");
-      is(params, null, "No param object");
+      ok(!params, "No param object");
       gContentAPI.observe(null);
       gBrowser.removeCurrentTab();
       done();
@@ -57,7 +61,11 @@ var tests = [
 
     gContentAPI.observe(listener, () => {
       gBrowser.selectedTab = BrowserTestUtils.addTab(gBrowser, "about:blank");
-      isnot(gBrowser.selectedTab, gTestTab, "Make sure the selected tab changed");
+      isnot(
+        gBrowser.selectedTab,
+        gTestTab,
+        "Make sure the selected tab changed"
+      );
 
       UITour.notify("test-event-background-1");
     });
@@ -67,15 +75,22 @@ var tests = [
     let blankTab = null;
     function listener(event, params) {
       is(event, "test-event-4", "Correct event name");
-      is(params, null, "No param object");
+      ok(!params, "No param object");
       gContentAPI.observe(null);
       gBrowser.removeTab(blankTab);
       done();
     }
 
     gContentAPI.observe(listener, () => {
-      blankTab = gBrowser.selectedTab = BrowserTestUtils.addTab(gBrowser, "about:blank");
-      isnot(gBrowser.selectedTab, gTestTab, "Make sure the selected tab changed");
+      blankTab = gBrowser.selectedTab = BrowserTestUtils.addTab(
+        gBrowser,
+        "about:blank"
+      );
+      isnot(
+        gBrowser.selectedTab,
+        gTestTab,
+        "Make sure the selected tab changed"
+      );
       gBrowser.selectedTab = gTestTab;
       is(gBrowser.selectedTab, gTestTab, "Switch back to the test tab");
 

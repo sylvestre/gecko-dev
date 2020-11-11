@@ -6,8 +6,9 @@
 
 #include "ClientPrincipalUtils.h"
 
-namespace mozilla {
-namespace dom {
+#include "mozilla/ipc/PBackgroundSharedTypes.h"
+
+namespace mozilla::dom {
 
 using mozilla::ipc::ContentPrincipalInfo;
 using mozilla::ipc::PrincipalInfo;
@@ -35,12 +36,13 @@ bool ClientMatchPrincipalInfo(const PrincipalInfo& aLeft,
       // null principal never matches
       return false;
     }
-    default: { break; }
+    default: {
+      break;
+    }
   }
 
   // Clients (windows/workers) should never have an expanded principal type.
   MOZ_CRASH("unexpected principal type!");
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

@@ -1,4 +1,3 @@
-/* vim:set ts=2 sw=2 sts=2 et: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -14,7 +13,8 @@
 }
 
 .theme-dark {
-  --frame-link-source: #6B89FF;
+  --frame-link-line-color: hsl(210, 40%, 60%);
+  --frame-link-source: var(--blue-40);
 }
 
 .stack-trace {

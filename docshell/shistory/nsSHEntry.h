@@ -17,22 +17,25 @@
 class nsSHEntryShared;
 class nsIInputStream;
 class nsIURI;
+class nsIReferrerInfo;
 
-class nsSHEntry final : public nsISHEntry {
+class nsSHEntry : public nsISHEntry {
  public:
   nsSHEntry();
-  nsSHEntry(const nsSHEntry& aOther);
 
   NS_DECL_ISUPPORTS
   NS_DECL_NSISHENTRY
 
-  void DropPresentationState();
+  virtual void EvictContentViewer();
 
   static nsresult Startup();
   static void Shutdown();
 
- private:
-  ~nsSHEntry();
+ protected:
+  explicit nsSHEntry(const nsSHEntry& aOther);
+  virtual ~nsSHEntry();
+
+  nsSHEntryShared* GetState() { return mShared; }
 
   // We share the state in here with other SHEntries which correspond to the
   // same document.
@@ -42,9 +45,9 @@ class nsSHEntry final : public nsISHEntry {
   nsCOMPtr<nsIURI> mURI;
   nsCOMPtr<nsIURI> mOriginalURI;
   nsCOMPtr<nsIURI> mResultPrincipalURI;
-  nsCOMPtr<nsIURI> mReferrerURI;
-  uint32_t mReferrerPolicy;
+  nsCOMPtr<nsIReferrerInfo> mReferrerInfo;
   nsString mTitle;
+  nsString mName;
   nsCOMPtr<nsIInputStream> mPostData;
   uint32_t mLoadType;
   uint32_t mID;
@@ -61,6 +64,7 @@ class nsSHEntry final : public nsISHEntry {
   bool mScrollRestorationIsManual;
   bool mLoadedInThisProcess;
   bool mPersist;
+  bool mHasUserInteraction;
 };
 
 #endif /* nsSHEntry_h */

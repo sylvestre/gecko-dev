@@ -23,10 +23,9 @@
 #include "nsError.h"
 #include "nsGkAtoms.h"
 #include "nsComboboxControlFrame.h"
-#include "nsIDocument.h"
+#include "mozilla/dom/Document.h"
 #include "nsIFormControlFrame.h"
 #include "nsIForm.h"
-#include "nsIFormProcessor.h"
 #include "nsIFrame.h"
 #include "nsListControlFrame.h"
 #include "nsISelectControlFrame.h"
@@ -39,8 +38,7 @@
 
 NS_IMPL_NS_NEW_HTML_ELEMENT_CHECK_PARSER(Select)
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 //----------------------------------------------------------------------
 //
@@ -112,7 +110,8 @@ SafeOptionListMutation::~SafeOptionListMutation() {
 HTMLSelectElement::HTMLSelectElement(
     already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo,
     FromParser aFromParser)
-    : nsGenericHTMLFormElementWithState(std::move(aNodeInfo), NS_FORM_SELECT),
+    : nsGenericHTMLFormElementWithState(std::move(aNodeInfo), aFromParser,
+                                        NS_FORM_SELECT),
       mOptions(new HTMLOptionsCollection(this)),
       mAutocompleteAttrState(nsContentUtils::eAutocompleteAttrState_Unknown),
       mAutocompleteInfoState(nsContentUtils::eAutocompleteAttrState_Unknown),
@@ -533,7 +532,7 @@ void HTMLSelectElement::Add(nsGenericHTMLElement& aElement,
   // Just in case we're not the parent, get the parent of the reference
   // element
   nsCOMPtr<nsINode> parent = aBefore->Element::GetParentNode();
-  if (!parent || !nsContentUtils::ContentIsDescendantOf(parent, this)) {
+  if (!parent || !parent->IsInclusiveDescendantOf(this)) {
     // NOT_FOUND_ERR: Raised if before is not a descendant of the SELECT
     // element.
     aError.Throw(NS_ERROR_DOM_NOT_FOUND_ERR);
@@ -622,8 +621,7 @@ nsIHTMLCollection* HTMLSelectElement::SelectedOptions() {
   return mSelectedOptions;
 }
 
-nsresult HTMLSelectElement::SetSelectedIndexInternal(int32_t aIndex,
-                                                     bool aNotify) {
+void HTMLSelectElement::SetSelectedIndexInternal(int32_t aIndex, bool aNotify) {
   int32_t oldSelectedIndex = mSelectedIndex;
   uint32_t mask = IS_SELECTED | CLEAR_ALL | SET_DISABLED;
   if (aNotify) {
@@ -632,15 +630,12 @@ nsresult HTMLSelectElement::SetSelectedIndexInternal(int32_t aIndex,
 
   SetOptionsSelectedByIndex(aIndex, aIndex, mask);
 
-  nsresult rv = NS_OK;
   nsISelectControlFrame* selectFrame = GetSelectFrame();
   if (selectFrame) {
-    rv = selectFrame->OnSetSelectedIndex(oldSelectedIndex, mSelectedIndex);
+    selectFrame->OnSetSelectedIndex(oldSelectedIndex, mSelectedIndex);
   }
 
   SetSelectionChanged(true, aNotify);
-
-  return rv;
 }
 
 bool HTMLSelectElement::IsOptionSelectedByIndex(int32_t aIndex) {
@@ -995,8 +990,7 @@ bool HTMLSelectElement::SelectSomething(bool aNotify) {
     nsresult rv = IsOptionDisabled(i, &disabled);
 
     if (NS_FAILED(rv) || !disabled) {
-      rv = SetSelectedIndexInternal(i, aNotify);
-      NS_ENSURE_SUCCESS(rv, false);
+      SetSelectedIndexInternal(i, aNotify);
 
       UpdateValueMissingValidityState();
       UpdateState(aNotify);
@@ -1008,11 +1002,10 @@ bool HTMLSelectElement::SelectSomething(bool aNotify) {
   return false;
 }
 
-nsresult HTMLSelectElement::BindToTree(nsIDocument* aDocument,
-                                       nsIContent* aParent,
-                                       nsIContent* aBindingParent) {
-  nsresult rv = nsGenericHTMLFormElementWithState::BindToTree(
-      aDocument, aParent, aBindingParent);
+nsresult HTMLSelectElement::BindToTree(BindContext& aContext,
+                                       nsINode& aParent) {
+  nsresult rv =
+      nsGenericHTMLFormElementWithState::BindToTree(aContext, aParent);
   NS_ENSURE_SUCCESS(rv, rv);
 
   // If there is a disabled fieldset in the parent chain, the element is now
@@ -1027,8 +1020,8 @@ nsresult HTMLSelectElement::BindToTree(nsIDocument* aDocument,
   return rv;
 }
 
-void HTMLSelectElement::UnbindFromTree(bool aDeep, bool aNullParent) {
-  nsGenericHTMLFormElementWithState::UnbindFromTree(aDeep, aNullParent);
+void HTMLSelectElement::UnbindFromTree(bool aNullParent) {
+  nsGenericHTMLFormElementWithState::UnbindFromTree(aNullParent);
 
   // We might be no longer disabled because our parent chain changed.
   // XXXbz is this still needed now that fieldset changes always call
@@ -1120,10 +1113,8 @@ void HTMLSelectElement::DoneAddingChildren(bool aHaveNotified) {
   }
 
   if (!mInhibitStateRestoration) {
-    nsresult rv = GenerateStateKey();
-    if (NS_SUCCEEDED(rv)) {
-      RestoreFormControlState();
-    }
+    GenerateStateKey();
+    RestoreFormControlState();
   }
 
   // Now that we're done, select something (if it's a single select something
@@ -1402,8 +1393,6 @@ HTMLSelectElement::Reset() {
   return NS_OK;
 }
 
-static NS_DEFINE_CID(kFormProcessorCID, NS_FORMPROCESSOR_CID);
-
 NS_IMETHODIMP
 HTMLSelectElement::SubmitNamesValues(HTMLFormSubmission* aFormSubmission) {
   // Disabled elements don't submit
@@ -1425,13 +1414,6 @@ HTMLSelectElement::SubmitNamesValues(HTMLFormSubmission* aFormSubmission) {
   //
   uint32_t len = Length();
 
-  nsAutoString mozType;
-  nsCOMPtr<nsIFormProcessor> keyGenProcessor;
-  if (GetAttr(kNameSpaceID_None, nsGkAtoms::moztype, mozType) &&
-      mozType.EqualsLiteral("-mozilla-keygen")) {
-    keyGenProcessor = do_GetService(kFormProcessorCID);
-  }
-
   for (uint32_t optIndex = 0; optIndex < len; optIndex++) {
     HTMLOptionElement* option = Item(optIndex);
 
@@ -1446,13 +1428,6 @@ HTMLSelectElement::SubmitNamesValues(HTMLFormSubmission* aFormSubmission) {
 
     nsString value;
     option->GetValue(value);
-
-    if (keyGenProcessor) {
-      nsString tmp(value);
-      if (NS_SUCCEEDED(keyGenProcessor->ProcessValue(this, name, tmp))) {
-        value = tmp;
-      }
-    }
 
     aFormSubmission->AddNameValuePair(name, value);
   }
@@ -1544,9 +1519,9 @@ nsresult HTMLSelectElement::GetValidationMessage(nsAString& aValidationMessage,
   switch (aType) {
     case VALIDITY_STATE_VALUE_MISSING: {
       nsAutoString message;
-      nsresult rv = nsContentUtils::GetLocalizedString(
+      nsresult rv = nsContentUtils::GetMaybeLocalizedString(
           nsContentUtils::eDOM_PROPERTIES, "FormValidationSelectMissing",
-          message);
+          OwnerDoc(), message);
       aValidationMessage = message;
       return rv;
     }
@@ -1651,5 +1626,4 @@ JSObject* HTMLSelectElement::WrapNode(JSContext* aCx,
   return HTMLSelectElement_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

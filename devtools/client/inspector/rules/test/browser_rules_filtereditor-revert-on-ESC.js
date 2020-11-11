@@ -10,28 +10,38 @@ const TEST_URL = URL_ROOT + "doc_filter.html";
 
 add_task(async function() {
   await addTab(TEST_URL);
-  const {view} = await openRuleView();
+  const { view } = await openRuleView();
   await testPressingEscapeRevertsChanges(view);
 });
 
 async function testPressingEscapeRevertsChanges(view) {
-  const ruleEditor = getRuleViewRuleEditor(view, 1);
-  const propEditor = ruleEditor.rule.textProps[0].editor;
+  const prop = getTextProperty(view, 1, { filter: "blur(2px) contrast(2)" });
+  const propEditor = prop.editor;
   const swatch = propEditor.valueSpan.querySelector(".ruleview-filterswatch");
 
   await clickOnFilterSwatch(swatch, view);
   await setValueInFilterWidget("blur(2px)", view);
 
   await waitForComputedStyleProperty("body", null, "filter", "blur(2px)");
-  is(propEditor.valueSpan.textContent, "blur(2px)",
-    "Got expected property value.");
+  is(
+    propEditor.valueSpan.textContent,
+    "blur(2px)",
+    "Got expected property value."
+  );
 
   await pressEscapeToCloseTooltip(view);
 
-  await waitForComputedStyleProperty("body", null, "filter",
-    "blur(2px) contrast(2)");
-  is(propEditor.valueSpan.textContent, "blur(2px) contrast(2)",
-    "Got expected property value.");
+  await waitForComputedStyleProperty(
+    "body",
+    null,
+    "filter",
+    "blur(2px) contrast(2)"
+  );
+  is(
+    propEditor.valueSpan.textContent,
+    "blur(2px) contrast(2)",
+    "Got expected property value."
+  );
 }
 
 async function clickOnFilterSwatch(swatch, view) {

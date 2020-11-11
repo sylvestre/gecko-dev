@@ -9,7 +9,7 @@
 namespace mozilla {
 namespace net {
 
-CacheControlParser::CacheControlParser(nsACString const &aHeader)
+CacheControlParser::CacheControlParser(nsACString const& aHeader)
     : Tokenizer(aHeader, nullptr, "-_"),
       mMaxAgeSet(false),
       mMaxAge(0),
@@ -17,8 +17,13 @@ CacheControlParser::CacheControlParser(nsACString const &aHeader)
       mMaxStale(0),
       mMinFreshSet(false),
       mMinFresh(0),
+      mStaleWhileRevalidateSet(false),
+      mStaleWhileRevalidate(0),
       mNoCache(false),
-      mNoStore(false) {
+      mNoStore(false),
+      mPublic(false),
+      mPrivate(false),
+      mImmutable(false) {
   SkipWhites();
   if (!CheckEOF()) {
     Directive();
@@ -37,6 +42,14 @@ void CacheControlParser::Directive() {
     mMaxStaleSet = SecondsValue(&mMaxStale, PR_UINT32_MAX);
   } else if (CheckWord("min-fresh")) {
     mMinFreshSet = SecondsValue(&mMinFresh);
+  } else if (CheckWord("stale-while-revalidate")) {
+    mStaleWhileRevalidateSet = SecondsValue(&mStaleWhileRevalidate);
+  } else if (CheckWord("public")) {
+    mPublic = true;
+  } else if (CheckWord("private")) {
+    mPrivate = true;
+  } else if (CheckWord("immutable")) {
+    mImmutable = true;
   } else {
     IgnoreDirective();
   }
@@ -54,7 +67,7 @@ void CacheControlParser::Directive() {
   NS_WARNING("Unexpected input in Cache-control header value");
 }
 
-bool CacheControlParser::SecondsValue(uint32_t *seconds, uint32_t defaultVal) {
+bool CacheControlParser::SecondsValue(uint32_t* seconds, uint32_t defaultVal) {
   SkipWhites();
   if (!CheckChar('=')) {
     *seconds = defaultVal;
@@ -88,24 +101,35 @@ void CacheControlParser::IgnoreDirective() {
   }
 }
 
-bool CacheControlParser::MaxAge(uint32_t *seconds) {
+bool CacheControlParser::MaxAge(uint32_t* seconds) {
   *seconds = mMaxAge;
   return mMaxAgeSet;
 }
 
-bool CacheControlParser::MaxStale(uint32_t *seconds) {
+bool CacheControlParser::MaxStale(uint32_t* seconds) {
   *seconds = mMaxStale;
   return mMaxStaleSet;
 }
 
-bool CacheControlParser::MinFresh(uint32_t *seconds) {
+bool CacheControlParser::MinFresh(uint32_t* seconds) {
   *seconds = mMinFresh;
   return mMinFreshSet;
+}
+
+bool CacheControlParser::StaleWhileRevalidate(uint32_t* seconds) {
+  *seconds = mStaleWhileRevalidate;
+  return mStaleWhileRevalidateSet;
 }
 
 bool CacheControlParser::NoCache() { return mNoCache; }
 
 bool CacheControlParser::NoStore() { return mNoStore; }
+
+bool CacheControlParser::Public() { return mPublic; }
+
+bool CacheControlParser::Private() { return mPrivate; }
+
+bool CacheControlParser::Immutable() { return mImmutable; }
 
 }  // namespace net
 }  // namespace mozilla

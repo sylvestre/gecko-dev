@@ -30,6 +30,8 @@ class CSSCounterStyleRule final : public css::Rule {
  public:
   bool IsCCLeaf() const final;
 
+  const RawServoCounterStyleRule* Raw() const { return mRawRule.get(); }
+
 #ifdef DEBUG
   void List(FILE* out = stdout, int32_t aIndent = 0) const final;
 #endif
@@ -45,7 +47,7 @@ class CSSCounterStyleRule final : public css::Rule {
 #include "nsCSSCounterDescList.h"
 #undef CSS_COUNTER_DESC
 
-  size_t SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf) const final;
+  size_t SizeOfIncludingThis(MallocSizeOf) const final;
 
   JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) final;
 

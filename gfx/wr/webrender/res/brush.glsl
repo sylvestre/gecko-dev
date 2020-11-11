@@ -2,6 +2,50 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+/// # Brush vertex shaders memory layout
+///
+/// The overall memory layout is the same for all brush shaders.
+///
+/// The vertex shader receives a minimal amount of data from vertex attributes (packed into a single
+/// ivec4 per instance) and the rest is fetched from various uniform samplers using offsets decoded
+/// from the vertex attributes.
+///
+/// The diagram below shows the the various pieces of data fectched in the vertex shader:
+///
+///```ascii
+///                                                                         (sPrimitiveHeadersI)
+///                          (VBO)                                     +-----------------------+
+/// +----------------------------+      +----------------------------> | Int header            |
+/// | Instance vertex attributes |      |        (sPrimitiveHeadersF)  |                       |
+/// |                            |      |     +---------------------+  |   z                   |
+/// | x: prim_header_address    +-------+---> | Float header        |  |   specific_address  +-----+
+/// | y: picture_task_address   +---------+   |                     |  |   transform_address +---+ |
+/// |    clip_address           +-----+   |   |    local_rect       |  |   user_data           | | |
+/// | z: flags                   |    |   |   |    local_clip_rect  |  +-----------------------+ | |
+/// |    segment_index           |    |   |   +---------------------+                            | |
+/// | w: resource_address       +--+  |   |                                                      | |
+/// +----------------------------+ |  |   |                                 (sGpuCache)          | |
+///                                |  |   |         (sGpuCache)          +------------+          | |
+///                                |  |   |   +---------------+          | Transform  | <--------+ |
+///                (sGpuCache)     |  |   +-> | Picture task  |          +------------+            |
+///            +-------------+     |  |       |               |                                    |
+///            |  Resource   | <---+  |       |         ...   |                                    |
+///            |             |        |       +---------------+   +--------------------------------+
+///            |             |        |                           |
+///            +-------------+        |             (sGpuCache)   v                        (sGpuCache)
+///                                   |       +---------------+  +--------------+---------------+-+-+
+///                                   +-----> | Clip area     |  | Brush data   |  Segment data | | |
+///                                           |               |  |              |               | | |
+///                                           |         ...   |  |         ...  |          ...  | | | ...
+///                                           +---------------+  +--------------+---------------+-+-+
+///```
+///
+/// - Segment data address is obtained by combining the address stored in the int header and the
+///   segment index decoded from the vertex attributes.
+/// - Resource data is optional, some brush types (such as images) store some extra data there while
+///   other brush types don't use it.
+///
+
 #ifdef WR_VERTEX_SHADER
 
 void brush_vs(
@@ -9,11 +53,22 @@ void brush_vs(
     int prim_address,
     RectWithSize local_rect,
     RectWithSize segment_rect,
-    ivec4 user_data,
+    ivec4 prim_user_data,
+    int specific_resource_address,
     mat4 transform,
     PictureTask pic_task,
     int brush_flags,
     vec4 segment_data
+);
+
+// Forward-declare the text vertex shader entry point which is currently
+// different from other brushes.
+void text_shader_main(
+    Instance instance,
+    PrimitiveHeader ph,
+    Transform transform,
+    PictureTask task,
+    ClipArea clip_area
 );
 
 #define VECS_PER_SEGMENT                    2
@@ -22,30 +77,33 @@ void brush_vs(
 #define BRUSH_FLAG_SEGMENT_RELATIVE             2
 #define BRUSH_FLAG_SEGMENT_REPEAT_X             4
 #define BRUSH_FLAG_SEGMENT_REPEAT_Y             8
-#define BRUSH_FLAG_TEXEL_RECT                  16
+#define BRUSH_FLAG_SEGMENT_REPEAT_X_ROUND      16
+#define BRUSH_FLAG_SEGMENT_REPEAT_Y_ROUND      32
+#define BRUSH_FLAG_SEGMENT_NINEPATCH_MIDDLE    64
+#define BRUSH_FLAG_TEXEL_RECT                 128
 
 #define INVALID_SEGMENT_INDEX                   0xffff
 
-void main(void) {
-    // Load the brush instance from vertex attributes.
-    int prim_header_address = aData.x;
-    int clip_address = aData.y;
-    int segment_index = aData.z & 0xffff;
-    int edge_flags = (aData.z >> 16) & 0xff;
-    int brush_flags = (aData.z >> 24) & 0xff;
-    int segment_user_data = aData.w;
-    PrimitiveHeader ph = fetch_prim_header(prim_header_address);
+void brush_shader_main_vs(
+    Instance instance,
+    PrimitiveHeader ph,
+    Transform transform,
+    PictureTask pic_task,
+    ClipArea clip_area
+) {
+    int edge_flags = instance.flags & 0xff;
+    int brush_flags = (instance.flags >> 8) & 0xff;
 
     // Fetch the segment of this brush primitive we are drawing.
     vec4 segment_data;
     RectWithSize segment_rect;
-    if (segment_index == INVALID_SEGMENT_INDEX) {
+    if (instance.segment_index == INVALID_SEGMENT_INDEX) {
         segment_rect = ph.local_rect;
         segment_data = vec4(0.0);
     } else {
         int segment_address = ph.specific_prim_address +
                               VECS_PER_SPECIFIC_BRUSH +
-                              segment_index * VECS_PER_SEGMENT;
+                              instance.segment_index * VECS_PER_SEGMENT;
 
         vec4[2] segment_info = fetch_from_gpu_cache_2(segment_address);
         segment_rect = RectWithSize(segment_info[0].xy, segment_info[0].zw);
@@ -55,21 +113,18 @@ void main(void) {
 
     VertexInfo vi;
 
-    // Fetch the dynamic picture that we are drawing on.
-    PictureTask pic_task = fetch_picture_task(ph.render_task_index);
-    ClipArea clip_area = fetch_clip_area(clip_address);
-
-    Transform transform = fetch_transform(ph.transform_id);
-
     // Write the normal vertex information out.
     if (transform.is_axis_aligned) {
+
+        // Select the corner of the local rect that we are processing.
+        vec2 local_pos = segment_rect.p0 + segment_rect.size * aPosition.xy;
+
         vi = write_vertex(
-            segment_rect,
+            local_pos,
             ph.local_clip_rect,
             ph.z,
             transform,
-            pic_task,
-            ph.local_rect
+            pic_task
         );
 
         // TODO(gw): transform bounds may be referenced by
@@ -104,7 +159,6 @@ void main(void) {
 #ifdef WR_FEATURE_ALPHA_PASS
     write_clip(
         vi.world_pos,
-        vi.snap_offset,
         clip_area
     );
 #endif
@@ -115,23 +169,35 @@ void main(void) {
         ph.specific_prim_address,
         ph.local_rect,
         segment_rect,
-        ivec4(ph.user_data, segment_user_data),
+        ph.user_data,
+        instance.resource_address,
         transform.m,
         pic_task,
         brush_flags,
         segment_data
     );
 }
+
+#ifndef WR_VERTEX_SHADER_MAIN_FUNCTION
+// If the entry-point was not overridden before including the brush shader,
+// use the default one.
+#define WR_VERTEX_SHADER_MAIN_FUNCTION brush_shader_main_vs
 #endif
+
+void main(void) {
+
+    Instance instance = decode_instance_attributes();
+    PrimitiveHeader ph = fetch_prim_header(instance.prim_header_address);
+    Transform transform = fetch_transform(ph.transform_id);
+    PictureTask task = fetch_picture_task(instance.picture_task_address);
+    ClipArea clip_area = fetch_clip_area(instance.clip_address);
+
+    WR_VERTEX_SHADER_MAIN_FUNCTION(instance, ph, transform, task, clip_area);
+}
+
+#endif // WR_VERTEX_SHADER
 
 #ifdef WR_FRAGMENT_SHADER
-
-struct Fragment {
-    vec4 color;
-#ifdef WR_FEATURE_DUAL_SOURCE_BLENDING
-    vec4 blend;
-#endif
-};
 
 Fragment brush_fs();
 
@@ -139,7 +205,7 @@ void main(void) {
 #ifdef WR_FEATURE_DEBUG_OVERDRAW
     oFragColor = WR_DEBUG_OVERDRAW_COLOR;
 #else
-    // Run the specific brush FS code to output the color.
+
     Fragment frag = brush_fs();
 
 #ifdef WR_FEATURE_ALPHA_PASS
@@ -153,8 +219,7 @@ void main(void) {
     #endif
 #endif
 
-    // TODO(gw): Handle pre-multiply common code here as required.
-    oFragColor = frag.color;
+    write_output(frag.color);
 #endif
 }
 #endif

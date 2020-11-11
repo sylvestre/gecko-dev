@@ -1,12 +1,12 @@
 //! Forest of sets.
 
 use super::{Comparator, Forest, Node, NodeData, NodePool, Path, SetValue, INNER_SIZE};
-use packed_option::PackedOption;
+use crate::packed_option::PackedOption;
 #[cfg(test)]
-use std::fmt;
-use std::marker::PhantomData;
+use alloc::string::String;
 #[cfg(test)]
-use std::string::String;
+use core::fmt;
+use core::marker::PhantomData;
 
 /// Tag type defining forest types for a set.
 struct SetTypes<K>(PhantomData<K>);
@@ -225,7 +225,7 @@ where
     ///
     /// If the cursor reaches the end, return `None` and leave the cursor at the off-the-end
     /// position.
-    #[cfg_attr(feature = "cargo-clippy", allow(should_implement_trait))]
+    #[cfg_attr(feature = "cargo-clippy", allow(clippy::should_implement_trait))]
     pub fn next(&mut self) -> Option<K> {
         self.path.next(self.pool).map(|(k, _)| k)
     }
@@ -321,7 +321,7 @@ where
 
     /// Get a text version of the path to the current position.
     fn tpath(&self) -> String {
-        use std::string::ToString;
+        use alloc::string::ToString;
         self.path.to_string()
     }
 }
@@ -357,8 +357,8 @@ where
 mod tests {
     use super::super::NodeData;
     use super::*;
-    use std::mem;
-    use std::vec::Vec;
+    use alloc::vec::Vec;
+    use core::mem;
 
     #[test]
     fn node_size() {

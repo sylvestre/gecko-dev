@@ -3,7 +3,7 @@
   <meta charset=utf-8>
 <head>
   <title>Bug 1308434 - Test DecodeAudioData on detached buffer</title>
-  <script type="text/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css" />
 </head>
 <body>
@@ -24,7 +24,7 @@ var testDecodeAudioDataOnDetachedBuffer = function(buffer) {
     SimpleTest.finish();
   }, function(r) {
     SimpleTest.isa(r, TypeError);
-    is(r.message, "Argument of AudioContext.decodeAudioData can't be a detached buffer", "Incorrect message");
+    is(r.message, "BaseAudioContext.decodeAudioData: Buffer argument can't be a detached buffer", "Incorrect message");
     SimpleTest.finish();
   });
 };

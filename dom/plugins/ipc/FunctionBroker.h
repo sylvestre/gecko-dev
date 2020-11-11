@@ -13,20 +13,20 @@
 #include "base/task.h"
 #include "mozilla/ipc/ProcessChild.h"
 #include "FunctionBrokerChild.h"
-#include "mtransport/runnable_utils.h"
+#include "transport/runnable_utils.h"
 #include "PluginMessageUtils.h"
 #include "mozilla/Logging.h"
 #include "FunctionHook.h"
 #include "FunctionBrokerIPCUtils.h"
 
 #if defined(XP_WIN)
-#define SECURITY_WIN32
-#include <security.h>
-#include <wininet.h>
-#include <schnlsp.h>
-#if defined(MOZ_SANDBOX)
-#include "sandboxPermissions.h"
-#endif
+#  define SECURITY_WIN32
+#  include <security.h>
+#  include <wininet.h>
+#  include <schnlsp.h>
+#  if defined(MOZ_SANDBOX)
+#    include "sandboxPermissions.h"
+#  endif
 #endif  // defined(XP_WIN)
 
 /**
@@ -153,13 +153,26 @@
  *
  */
 
+#if defined(XP_WIN) && defined(__clang__)
+#  if __has_declspec_attribute(guard)
+// Workaround for https://bugs.llvm.org/show_bug.cgi?id=47617
+// Some of the brokered function thunks don't get properly marked as call
+// targets, so we have to disable CFG when returning to the original function.
+#    define BROKER_DISABLE_CFGUARD __declspec(guard(nocf))
+#  else
+#    define BROKER_DISABLE_CFGUARD /* nothing */
+#  endif
+#else
+#  define BROKER_DISABLE_CFGUARD /* nothing */
+#endif
+
 namespace mozilla {
 namespace plugins {
 
 #if defined(XP_WIN)
 
 // Currently, all methods we hook use the WINAPI calling convention.
-#define HOOK_CALL WINAPI
+#  define HOOK_CALL WINAPI
 
 typedef std::pair<ULONG_PTR, ULONG_PTR> UlongPair;
 typedef std::map<UlongPair, uint64_t> UlongPairToIdMap;
@@ -174,7 +187,7 @@ extern IdToPtrMap sIdToPtrMap;
 #else  // defined(XP_WIN)
 
 // Any methods we hook use the default calling convention.
-#define HOOK_CALL
+#  define HOOK_CALL
 
 #endif  // defined(XP_WIN)
 
@@ -244,18 +257,18 @@ inline void LogParameterValue(int aIndex, const char* const& aParam) {
 #if defined(XP_WIN)
 template <>
 inline void LogParameterValue(int aIndex, const SEC_GET_KEY_FN& aParam) {
-#ifdef DEBUG
+#  ifdef DEBUG
   MOZ_ASSERT(aParam == nullptr);
   HOOK_LOG(LogLevel::Verbose, ("Parameter %d: null function.", aIndex));
-#endif
+#  endif
 }
 
 template <>
 inline void LogParameterValue(int aIndex, LPVOID* const& aParam) {
-#ifdef DEBUG
+#  ifdef DEBUG
   MOZ_ASSERT(aParam == nullptr);
   HOOK_LOG(LogLevel::Verbose, ("Parameter %d: null void pointer.", aIndex));
-#endif
+#  endif
 }
 #endif  // defined(XP_WIN)
 
@@ -1130,7 +1143,7 @@ class FDMonitor : public Monitor {
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(FDMonitor)
 
  private:
-  ~FDMonitor() {}
+  ~FDMonitor() = default;
 };
 
 /**
@@ -1236,8 +1249,9 @@ class FunctionBroker<functionId, ResultType HOOK_CALL(ParamTypes...),
   };
 
   template <typename... VarParams>
-  ResultType RunFunction(FunctionType* aFunction, base::ProcessId aClientId,
-                         VarParams&... aParams) const {
+  BROKER_DISABLE_CFGUARD ResultType RunFunction(FunctionType* aFunction,
+                                                base::ProcessId aClientId,
+                                                VarParams&... aParams) const {
     return aFunction(aParams...);
   };
 

@@ -10,27 +10,39 @@
 
 #include "mozilla/NullPrincipalURI.h"
 #include "nsProxyRelease.h"
-#include "mozilla/net/ReferrerPolicy.h"
+#include "ReferrerInfo.h"
 
 namespace mozilla {
 
 StaticRefPtr<URLExtraData> URLExtraData::sDummy;
+StaticRefPtr<URLExtraData> URLExtraData::sDummyChrome;
 
-/* static */ void URLExtraData::InitDummy() {
-  RefPtr<nsIURI> baseURI = NullPrincipalURI::Create();
-  RefPtr<nsIURI> referrer = baseURI;
-  sDummy = new URLExtraData(baseURI.forget(), referrer.forget(),
-                            NullPrincipal::CreateWithoutOriginAttributes(),
-                            net::RP_Unset);
+/* static */
+void URLExtraData::Init() {
+  RefPtr<nsIURI> baseURI = new NullPrincipalURI();
+  nsCOMPtr<nsIReferrerInfo> referrerInfo = new dom::ReferrerInfo(nullptr);
+  sDummy = new URLExtraData(do_AddRef(baseURI), do_AddRef(referrerInfo),
+                            NullPrincipal::CreateWithoutOriginAttributes());
+
+  sDummyChrome =
+      new URLExtraData(baseURI.forget(), referrerInfo.forget(),
+                       NullPrincipal::CreateWithoutOriginAttributes());
+  sDummyChrome->mIsChrome = true;
 }
 
-/* static */ void URLExtraData::ReleaseDummy() { sDummy = nullptr; }
+/* static */
+void URLExtraData::Shutdown() {
+  sDummy = nullptr;
+  sDummyChrome = nullptr;
+}
 
 URLExtraData::~URLExtraData() {
   if (!NS_IsMainThread()) {
-    NS_ReleaseOnMainThreadSystemGroup("URLExtraData::mPrincipal",
-                                      mPrincipal.forget());
+    NS_ReleaseOnMainThread("URLExtraData::mPrincipal", mPrincipal.forget());
   }
 }
+
+StaticRefPtr<URLExtraData>
+    URLExtraData::sShared[size_t(UserAgentStyleSheetID::Count)];
 
 }  // namespace mozilla

@@ -14,7 +14,7 @@
 #include "mozilla/ipc/SharedMemory.h"  // for SharedMemory, etc
 #include "mozilla/layers/PLayerTransactionParent.h"
 #include "nsRefPtrHashtable.h"
-#include "nsTArrayForwardDeclare.h"  // for InfallibleTArray
+#include "nsTArrayForwardDeclare.h"  // for nsTArray
 
 namespace mozilla {
 
@@ -33,10 +33,12 @@ class CompositorBridgeParentBase;
 
 class LayerTransactionParent final : public PLayerTransactionParent,
                                      public CompositableParentManager,
-                                     public ShmemAllocator {
-  typedef InfallibleTArray<Edit> EditArray;
-  typedef InfallibleTArray<OpDestroy> OpDestroyArray;
-  typedef InfallibleTArray<PluginWindowData> PluginsArray;
+                                     public mozilla::ipc::IShmemAllocator {
+  typedef nsTArray<Edit> EditArray;
+  typedef nsTArray<OpDestroy> OpDestroyArray;
+  typedef nsTArray<PluginWindowData> PluginsArray;
+
+  friend class PLayerTransactionParent;
 
  public:
   LayerTransactionParent(HostLayerManager* aManager,
@@ -45,7 +47,7 @@ class LayerTransactionParent final : public PLayerTransactionParent,
                          TimeDuration aVsyncRate);
 
  protected:
-  ~LayerTransactionParent();
+  virtual ~LayerTransactionParent();
 
  public:
   void Destroy();
@@ -59,7 +61,7 @@ class LayerTransactionParent final : public PLayerTransactionParent,
   LayersObserverEpoch GetChildEpoch() const { return mChildEpoch; }
   bool ShouldParentObserveEpoch();
 
-  ShmemAllocator* AsShmemAllocator() override { return this; }
+  IShmemAllocator* AsShmemAllocator() override { return this; }
 
   bool AllocShmem(size_t aSize, ipc::SharedMemory::SharedMemoryType aType,
                   ipc::Shmem* aShmem) override;
@@ -67,29 +69,23 @@ class LayerTransactionParent final : public PLayerTransactionParent,
   bool AllocUnsafeShmem(size_t aSize, ipc::SharedMemory::SharedMemoryType aType,
                         ipc::Shmem* aShmem) override;
 
-  void DeallocShmem(ipc::Shmem& aShmem) override;
+  bool DeallocShmem(ipc::Shmem& aShmem) override;
 
   bool IsSameProcess() const override;
 
-  const TransactionId& GetPendingTransactionId() { return mPendingTransaction; }
   void SetPendingTransactionId(TransactionId aId, const VsyncId& aVsyncId,
+                               const TimeStamp& aVsyncStartTime,
                                const TimeStamp& aRefreshStartTime,
                                const TimeStamp& aTxnStartTime,
+                               const TimeStamp& aTxnEndTime, bool aContainsSVG,
                                const nsCString& aURL,
-                               const TimeStamp& aFwdTime) {
-    mPendingTransaction = aId;
-    mTxnVsyncId = aVsyncId;
-    mRefreshStartTime = aRefreshStartTime;
-    mTxnStartTime = aTxnStartTime;
-    mTxnURL = aURL;
-    mFwdTime = aFwdTime;
-  }
+                               const TimeStamp& aFwdTime);
   TransactionId FlushTransactionId(const VsyncId& aId,
                                    TimeStamp& aCompositeEnd);
 
   // CompositableParentManager
   void SendAsyncMessage(
-      const InfallibleTArray<AsyncParentMessageData>& aMessage) override;
+      const nsTArray<AsyncParentMessageData>& aMessage) override;
 
   void SendPendingAsyncMessages() override;
 
@@ -101,48 +97,44 @@ class LayerTransactionParent final : public PLayerTransactionParent,
   base::ProcessId GetChildProcessId() override { return OtherPid(); }
 
  protected:
-  mozilla::ipc::IPCResult RecvShutdown() override;
-  mozilla::ipc::IPCResult RecvShutdownSync() override;
+  mozilla::ipc::IPCResult RecvShutdown();
+  mozilla::ipc::IPCResult RecvShutdownSync();
 
-  mozilla::ipc::IPCResult RecvPaintTime(
-      const TransactionId& aTransactionId,
-      const TimeDuration& aPaintTime) override;
+  mozilla::ipc::IPCResult RecvPaintTime(const TransactionId& aTransactionId,
+                                        const TimeDuration& aPaintTime);
 
-  mozilla::ipc::IPCResult RecvUpdate(const TransactionInfo& aInfo) override;
+  mozilla::ipc::IPCResult RecvUpdate(const TransactionInfo& aInfo);
 
   mozilla::ipc::IPCResult RecvSetLayersObserverEpoch(
-      const LayersObserverEpoch& aChildEpoch) override;
-  mozilla::ipc::IPCResult RecvNewCompositable(
-      const CompositableHandle& aHandle, const TextureInfo& aInfo) override;
-  mozilla::ipc::IPCResult RecvReleaseLayer(const LayerHandle& aHandle) override;
+      const LayersObserverEpoch& aChildEpoch);
+  mozilla::ipc::IPCResult RecvNewCompositable(const CompositableHandle& aHandle,
+                                              const TextureInfo& aInfo);
+  mozilla::ipc::IPCResult RecvReleaseLayer(const LayerHandle& aHandle);
   mozilla::ipc::IPCResult RecvReleaseCompositable(
-      const CompositableHandle& aHandle) override;
+      const CompositableHandle& aHandle);
 
-  mozilla::ipc::IPCResult RecvClearCachedResources() override;
-  mozilla::ipc::IPCResult RecvScheduleComposite() override;
-  mozilla::ipc::IPCResult RecvSetTestSampleTime(
-      const TimeStamp& aTime) override;
-  mozilla::ipc::IPCResult RecvLeaveTestMode() override;
+  mozilla::ipc::IPCResult RecvClearCachedResources();
+  mozilla::ipc::IPCResult RecvScheduleComposite();
+  mozilla::ipc::IPCResult RecvSetTestSampleTime(const TimeStamp& aTime);
+  mozilla::ipc::IPCResult RecvLeaveTestMode();
   mozilla::ipc::IPCResult RecvGetAnimationValue(
-      const uint64_t& aCompositorAnimationsId, OMTAValue* aValue) override;
+      const uint64_t& aCompositorAnimationsId, OMTAValue* aValue);
   mozilla::ipc::IPCResult RecvGetTransform(const LayerHandle& aHandle,
-                                           MaybeTransform* aTransform) override;
+                                           Maybe<Matrix4x4>* aTransform);
   mozilla::ipc::IPCResult RecvSetAsyncScrollOffset(
-      const ScrollableLayerGuid::ViewID& aId, const float& aX,
-      const float& aY) override;
+      const ScrollableLayerGuid::ViewID& aId, const float& aX, const float& aY);
   mozilla::ipc::IPCResult RecvSetAsyncZoom(
-      const ScrollableLayerGuid::ViewID& aId, const float& aValue) override;
-  mozilla::ipc::IPCResult RecvFlushApzRepaints() override;
-  mozilla::ipc::IPCResult RecvGetAPZTestData(APZTestData* aOutData) override;
+      const ScrollableLayerGuid::ViewID& aId, const float& aValue);
+  mozilla::ipc::IPCResult RecvFlushApzRepaints();
+  mozilla::ipc::IPCResult RecvGetAPZTestData(APZTestData* aOutData);
+  mozilla::ipc::IPCResult RecvGetFrameUniformity(FrameUniformityData* aOutData);
   mozilla::ipc::IPCResult RecvRequestProperty(const nsString& aProperty,
-                                              float* aValue) override;
+                                              float* aValue);
   mozilla::ipc::IPCResult RecvSetConfirmedTargetAPZC(
-      const uint64_t& aBlockId,
-      nsTArray<ScrollableLayerGuid>&& aTargets) override;
-  mozilla::ipc::IPCResult RecvRecordPaintTimes(
-      const PaintTiming& aTiming) override;
+      const uint64_t& aBlockId, nsTArray<ScrollableLayerGuid>&& aTargets);
+  mozilla::ipc::IPCResult RecvRecordPaintTimes(const PaintTiming& aTiming);
   mozilla::ipc::IPCResult RecvGetTextureFactoryIdentifier(
-      TextureFactoryIdentifier* aIdentifier) override;
+      TextureFactoryIdentifier* aIdentifier);
 
   bool SetLayerAttributes(const OpSetLayerAttributes& aOp);
 
@@ -171,7 +163,7 @@ class LayerTransactionParent final : public PLayerTransactionParent,
     Release();
   }
   friend class CompositorBridgeParent;
-  friend class CrossProcessCompositorBridgeParent;
+  friend class ContentCompositorBridgeParent;
 
  private:
   // This is a function so we can log or breakpoint on why hit
@@ -196,19 +188,25 @@ class LayerTransactionParent final : public PLayerTransactionParent,
 
   // These fields keep track of the latest epoch values in the child and the
   // parent. mChildEpoch is the latest epoch value received from the child.
-  // mParentEpoch is the latest epoch value that we have told TabParent about
-  // (via ObserveLayerUpdate).
+  // mParentEpoch is the latest epoch value that we have told BrowserParent
+  // about (via ObserveLayerUpdate).
   LayersObserverEpoch mChildEpoch;
   LayersObserverEpoch mParentEpoch;
 
   TimeDuration mVsyncRate;
 
-  TransactionId mPendingTransaction;
-  VsyncId mTxnVsyncId;
-  TimeStamp mRefreshStartTime;
-  TimeStamp mTxnStartTime;
-  TimeStamp mFwdTime;
-  nsCString mTxnURL;
+  struct PendingTransaction {
+    TransactionId mId;
+    VsyncId mTxnVsyncId;
+    TimeStamp mVsyncStartTime;
+    TimeStamp mRefreshStartTime;
+    TimeStamp mTxnStartTime;
+    TimeStamp mTxnEndTime;
+    TimeStamp mFwdTime;
+    nsCString mTxnURL;
+    bool mContainsSVG;
+  };
+  AutoTArray<PendingTransaction, 2> mPendingTransactions;
 
   // When the widget/frame/browser stuff in this process begins its
   // destruction process, we need to Disconnect() all the currently

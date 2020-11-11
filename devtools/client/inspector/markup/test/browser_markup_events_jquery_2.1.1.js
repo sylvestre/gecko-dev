@@ -1,4 +1,3 @@
-/* vim: set ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 /* import-globals-from helper_events_test_runner.js */
@@ -21,64 +20,65 @@ const TEST_DATA = [
     expected: [
       {
         type: "load",
-        filename: TEST_URL + ":27",
+        filename: TEST_URL + ":29:38",
         attributes: [
           "Bubbling",
           "DOM2"
         ],
-        handler: "() => {\n" +
-                 "  var handler1 = function liveDivDblClick() {\n" +
-                 "    alert(1);\n" +
-                 "  };\n" +
-                 "  var handler2 = function liveDivDragStart() {\n" +
-                 "    alert(2);\n" +
-                 "  };\n" +
-                 "  var handler3 = function liveDivDragLeave() {\n" +
-                 "    alert(3);\n" +
-                 "  };\n" +
-                 "  var handler4 = function liveDivDragEnd() {\n" +
-                 "    alert(4);\n" +
-                 "  };\n" +
-                 "  var handler5 = function liveDivDrop() {\n" +
-                 "    alert(5);\n" +
-                 "  };\n" +
-                 "  var handler6 = function liveDivDragOver() {\n" +
-                 "    alert(6);\n" +
-                 "  };\n" +
-                 "  var handler7 = function divClick1() {\n" +
-                 "    alert(7);\n" +
-                 "  };\n" +
-                 "  var handler8 = function divClick2() {\n" +
-                 "    alert(8);\n" +
-                 "  };\n" +
-                 "  var handler9 = function divKeyDown() {\n" +
-                 "    alert(9);\n" +
-                 "  };\n" +
-                 "  var handler10 = function divDragOut() {\n" +
-                 "    alert(10);\n" +
-                 "  };\n" +
-                 "\n" +
-                 "  if ($(\"#livediv\").live) {\n" +
-                 "    $(\"#livediv\").live(\"dblclick\", handler1);\n" +
-                 "    $(\"#livediv\").live(\"dragstart\", handler2);\n" +
-                 "  }\n" +
-                 "\n" +
-                 "  if ($(\"#livediv\").delegate) {\n" +
-                 "    $(document).delegate(\"#livediv\", \"dragleave\", handler3);\n" +
-                 "    $(document).delegate(\"#livediv\", \"dragend\", handler4);\n" +
-                 "  }\n" +
-                 "\n" +
-                 "  if ($(\"#livediv\").on) {\n" +
-                 "    $(document).on(\"drop\", \"#livediv\", handler5);\n" +
-                 "    $(document).on(\"dragover\", \"#livediv\", handler6);\n" +
-                 "    $(document).on(\"dragout\", \"#livediv:xxxxx\", handler10);\n" +
-                 "  }\n" +
-                 "\n" +
-                 "  var div = $(\"div\")[0];\n" +
-                 "  $(div).click(handler7);\n" +
-                 "  $(div).click(handler8);\n" +
-                 "  $(div).keydown(handler9);\n" +
-                 "}"
+        handler: `
+          () => {
+            const handler1 = function liveDivDblClick() {
+              alert(1);
+            };
+            const handler2 = function liveDivDragStart() {
+              alert(2);
+            };
+            const handler3 = function liveDivDragLeave() {
+              alert(3);
+            };
+            const handler4 = function liveDivDragEnd() {
+              alert(4);
+            };
+            const handler5 = function liveDivDrop() {
+              alert(5);
+            };
+            const handler6 = function liveDivDragOver() {
+              alert(6);
+            };
+            const handler7 = function divClick1() {
+              alert(7);
+            };
+            const handler8 = function divClick2() {
+              alert(8);
+            };
+            const handler9 = function divKeyDown() {
+              alert(9);
+            };
+            const handler10 = function divDragOut() {
+              alert(10);
+            };
+
+            if ($("#livediv").live) {
+              $("#livediv").live("dblclick", handler1);
+              $("#livediv").live("dragstart", handler2);
+            }
+
+            if ($("#livediv").delegate) {
+              $(document).delegate("#livediv", "dragleave", handler3);
+              $(document).delegate("#livediv", "dragend", handler4);
+            }
+
+            if ($("#livediv").on) {
+              $(document).on("drop", "#livediv", handler5);
+              $(document).on("dragover", "#livediv", handler6);
+              $(document).on("dragout", "#livediv:xxxxx", handler10);
+            }
+
+            const div = $("div")[0];
+            $(div).click(handler7);
+            $(div).click(handler8);
+            $(div).keydown(handler9);
+          }`
       }
     ]
   },
@@ -87,33 +87,36 @@ const TEST_DATA = [
     expected: [
       {
         type: "click",
-        filename: TEST_URL + ":34",
+        filename: TEST_URL + ":36:43",
         attributes: [
           "jQuery"
         ],
-        handler: "function divClick1() {\n" +
-                 "  alert(7);\n" +
-                 "}"
+        handler: `
+          function divClick1() {
+            alert(7);
+          }`
       },
       {
         type: "click",
-        filename: TEST_URL + ":35",
+        filename: TEST_URL + ":37:43",
         attributes: [
           "jQuery"
         ],
-        handler: "function divClick2() {\n" +
-                 "  alert(8);\n" +
-                 "}"
+        handler: `
+          function divClick2() {
+            alert(8);
+          }`
       },
       {
         type: "keydown",
-        filename: TEST_URL + ":36",
+        filename: TEST_URL + ":38:44",
         attributes: [
           "jQuery"
         ],
-        handler: "function divKeyDown() {\n" +
-                 "  alert(9);\n" +
-                 "}"
+        handler: `
+          function divKeyDown() {
+            alert(9);
+          }`
       }
     ]
   },
@@ -122,47 +125,51 @@ const TEST_DATA = [
     expected: [
       {
         type: "dragend",
-        filename: TEST_URL + ":31",
+        filename: TEST_URL + ":33:48",
         attributes: [
           "jQuery",
           "Live"
         ],
-        handler: "function liveDivDragEnd() {\n" +
-                 "  alert(4);\n" +
-                 "}"
+        handler: `
+          function liveDivDragEnd() {
+            alert(4);
+          }`
       },
       {
         type: "dragleave",
-        filename: TEST_URL + ":30",
+        filename: TEST_URL + ":32:50",
         attributes: [
           "jQuery",
           "Live"
         ],
-        handler: "function liveDivDragLeave() {\n" +
-                 "  alert(3);\n" +
-                 "}"
+        handler: `
+          function liveDivDragLeave() {
+            alert(3);
+          }`
       },
       {
         type: "dragover",
-        filename: TEST_URL + ":33",
+        filename: TEST_URL + ":35:49",
         attributes: [
           "jQuery",
           "Live"
         ],
-        handler: "function liveDivDragOver() {\n" +
-                 "  alert(6);\n" +
-                 "}"
+        handler: `
+          function liveDivDragOver() {
+            alert(6);
+          }`
       },
       {
         type: "drop",
-        filename: TEST_URL + ":32",
+        filename: TEST_URL + ":34:45",
         attributes: [
           "jQuery",
           "Live"
         ],
-        handler: "function liveDivDrop() {\n" +
-                 "  alert(5);\n" +
-                 "}"
+        handler: `
+          function liveDivDrop() {
+            alert(5);
+          }`
       }
     ]
   },

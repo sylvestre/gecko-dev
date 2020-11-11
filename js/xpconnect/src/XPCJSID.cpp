@@ -9,9 +9,11 @@
 #include "xpcprivate.h"
 #include "mozilla/dom/BindingUtils.h"
 #include "mozilla/Attributes.h"
-#include "mozilla/jsipc/CrossProcessObjectWrappers.h"
+#include "js/Object.h"  // JS::GetClass, JS::GetReservedSlot
 #include "js/Symbol.h"
+#include "nsContentUtils.h"
 
+using namespace mozilla;
 using namespace mozilla::dom;
 using namespace JS;
 
@@ -35,7 +37,7 @@ static bool ID_GetNumber(JSContext* aCx, unsigned aArgc, Value* aVp);
 // 1/4 of the representation of the nsID value. This allows us to avoid an extra
 // allocation for the nsID object, and eliminates the need for a finalizer.
 enum { kID_Slot0, kID_Slot1, kID_Slot2, kID_Slot3, kID_SlotCount };
-static const js::Class sID_Class = {
+static const JSClass sID_Class = {
     "nsJSID", JSCLASS_HAS_RESERVED_SLOTS(kID_SlotCount), JS_NULL_CLASS_OPS};
 
 /******************************************************************************
@@ -48,11 +50,33 @@ static const js::Class sID_Class = {
 static bool IID_HasInstance(JSContext* aCx, unsigned aArgc, Value* aVp);
 static bool IID_GetName(JSContext* aCx, unsigned aArgc, Value* aVp);
 
+static bool IID_NewEnumerate(JSContext* cx, HandleObject obj,
+                             MutableHandleIdVector properties,
+                             bool enumerableOnly);
+static bool IID_Resolve(JSContext* cx, HandleObject obj, HandleId id,
+                        bool* resolvedp);
+static bool IID_MayResolve(const JSAtomState& names, jsid id,
+                           JSObject* maybeObj);
+
+static const JSClassOps sIID_ClassOps = {
+    nullptr,           // addProperty
+    nullptr,           // delProperty
+    nullptr,           // enumerate
+    IID_NewEnumerate,  // newEnumerate
+    IID_Resolve,       // resolve
+    IID_MayResolve,    // mayResolve
+    nullptr,           // finalize
+    nullptr,           // call
+    nullptr,           // hasInstance
+    nullptr,           // construct
+    nullptr,           // trace
+};
+
 // Interface ID objects use a single reserved slot containing a pointer to the
 // nsXPTInterfaceInfo object for the interface in question.
 enum { kIID_InfoSlot, kIID_SlotCount };
-static const js::Class sIID_Class = {
-    "nsJSIID", JSCLASS_HAS_RESERVED_SLOTS(kIID_SlotCount), JS_NULL_CLASS_OPS};
+static const JSClass sIID_Class = {
+    "nsJSIID", JSCLASS_HAS_RESERVED_SLOTS(kIID_SlotCount), &sIID_ClassOps};
 
 /******************************************************************************
  * # Contract IDs #
@@ -68,14 +92,14 @@ static bool CID_GetName(JSContext* aCx, unsigned aArgc, Value* aVp);
 // ContractID objects use a single reserved slot, containing the ContractID. The
 // nsCID value for this object is looked up when the object is being unwrapped.
 enum { kCID_ContractSlot, kCID_SlotCount };
-static const js::Class sCID_Class = {
+static const JSClass sCID_Class = {
     "nsJSCID", JSCLASS_HAS_RESERVED_SLOTS(kCID_SlotCount), JS_NULL_CLASS_OPS};
 
 /**
  * Ensure that the nsID prototype objects have been created for the current
  * global, and extract the prototype values.
  */
-static JSObject* GetIDPrototype(JSContext* aCx, const js::Class* aClass) {
+static JSObject* GetIDPrototype(JSContext* aCx, const JSClass* aClass) {
   XPCWrappedNativeScope* scope = ObjectScope(CurrentGlobalOrNull(aCx));
   if (NS_WARN_IF(!scope)) {
     return nullptr;
@@ -145,14 +169,21 @@ static JSObject* GetIDPrototype(JSContext* aCx, const js::Class* aClass) {
 }
 
 // Unwrap the given value to an object with the correct class, or nullptr.
-static JSObject* GetIDObject(HandleValue aVal, const Class* aClass) {
+static JSObject* GetIDObject(HandleValue aVal, const JSClass* aClass) {
   if (aVal.isObject()) {
-    JSObject* obj = js::CheckedUnwrap(&aVal.toObject());
-    if (obj && js::GetObjectClass(obj) == aClass) {
+    // We care only about IID/CID objects here, so CheckedUnwrapStatic is fine.
+    JSObject* obj = js::CheckedUnwrapStatic(&aVal.toObject());
+    if (obj && JS::GetClass(obj) == aClass) {
       return obj;
     }
   }
   return nullptr;
+}
+
+static const nsXPTInterfaceInfo* GetInterfaceInfo(JSObject* obj) {
+  MOZ_ASSERT(JS::GetClass(obj) == &sIID_Class);
+  return static_cast<const nsXPTInterfaceInfo*>(
+      JS::GetReservedSlot(obj, kIID_InfoSlot).toPrivate());
 }
 
 /**
@@ -168,27 +199,31 @@ Maybe<nsID> JSValue2ID(JSContext* aCx, HandleValue aVal) {
     return Nothing();
   }
 
+  // We only care about ID objects here, so CheckedUnwrapStatic is fine.
+  RootedObject obj(aCx, js::CheckedUnwrapStatic(&aVal.toObject()));
+  if (!obj) {
+    return Nothing();
+  }
+
   mozilla::Maybe<nsID> id;
-  RootedObject obj(aCx, js::CheckedUnwrap(&aVal.toObject()));
-  if (js::GetObjectClass(obj) == &sID_Class) {
+  if (JS::GetClass(obj) == &sID_Class) {
     // Extract the raw bytes of the nsID from reserved slots.
-    uint32_t rawid[] = {js::GetReservedSlot(obj, kID_Slot0).toPrivateUint32(),
-                        js::GetReservedSlot(obj, kID_Slot1).toPrivateUint32(),
-                        js::GetReservedSlot(obj, kID_Slot2).toPrivateUint32(),
-                        js::GetReservedSlot(obj, kID_Slot3).toPrivateUint32()};
+    uint32_t rawid[] = {JS::GetReservedSlot(obj, kID_Slot0).toPrivateUint32(),
+                        JS::GetReservedSlot(obj, kID_Slot1).toPrivateUint32(),
+                        JS::GetReservedSlot(obj, kID_Slot2).toPrivateUint32(),
+                        JS::GetReservedSlot(obj, kID_Slot3).toPrivateUint32()};
 
     // Construct a nsID inside the Maybe, and copy the rawid into it.
     id.emplace();
     memcpy(id.ptr(), &rawid, sizeof(nsID));
-  } else if (js::GetObjectClass(obj) == &sIID_Class) {
+  } else if (JS::GetClass(obj) == &sIID_Class) {
     // IfaceID objects store a nsXPTInterfaceInfo* pointer.
-    auto* info = static_cast<const nsXPTInterfaceInfo*>(
-        js::GetReservedSlot(obj, kIID_InfoSlot).toPrivate());
+    const nsXPTInterfaceInfo* info = GetInterfaceInfo(obj);
     id.emplace(info->IID());
-  } else if (js::GetObjectClass(obj) == &sCID_Class) {
+  } else if (JS::GetClass(obj) == &sCID_Class) {
     // ContractID objects store a ContractID string.
     JS::UniqueChars contractId = JS_EncodeStringToLatin1(
-        aCx, js::GetReservedSlot(obj, kCID_ContractSlot).toString());
+        aCx, JS::GetReservedSlot(obj, kCID_ContractSlot).toString());
 
     // NOTE(nika): If we directly access the nsComponentManager, we can do
     // this with a more-basic pointer lookup:
@@ -214,10 +249,10 @@ Maybe<nsID> JSValue2ID(JSContext* aCx, HandleValue aVal) {
 /**
  * Public ID Object Constructor Methods
  */
-static JSObject* NewIDObjectHelper(JSContext* aCx, const js::Class* aClass) {
+static JSObject* NewIDObjectHelper(JSContext* aCx, const JSClass* aClass) {
   RootedObject proto(aCx, GetIDPrototype(aCx, aClass));
   if (proto) {
-    return JS_NewObjectWithGivenProto(aCx, Jsvalify(aClass), proto);
+    return JS_NewObjectWithGivenProto(aCx, aClass, proto);
   }
   return nullptr;
 }
@@ -232,10 +267,10 @@ bool ID2JSValue(JSContext* aCx, const nsID& aId, MutableHandleValue aVal) {
   uint32_t rawid[4];
   memcpy(&rawid, &aId, sizeof(nsID));
   static_assert(sizeof(nsID) == sizeof(rawid), "Wrong size of nsID");
-  js::SetReservedSlot(obj, kID_Slot0, PrivateUint32Value(rawid[0]));
-  js::SetReservedSlot(obj, kID_Slot1, PrivateUint32Value(rawid[1]));
-  js::SetReservedSlot(obj, kID_Slot2, PrivateUint32Value(rawid[2]));
-  js::SetReservedSlot(obj, kID_Slot3, PrivateUint32Value(rawid[3]));
+  JS::SetReservedSlot(obj, kID_Slot0, PrivateUint32Value(rawid[0]));
+  JS::SetReservedSlot(obj, kID_Slot1, PrivateUint32Value(rawid[1]));
+  JS::SetReservedSlot(obj, kID_Slot2, PrivateUint32Value(rawid[2]));
+  JS::SetReservedSlot(obj, kID_Slot3, PrivateUint32Value(rawid[3]));
 
   aVal.setObject(*obj);
   return true;
@@ -248,24 +283,8 @@ bool IfaceID2JSValue(JSContext* aCx, const nsXPTInterfaceInfo& aInfo,
     return false;
   }
 
-  // Define any constants defined on the interface on the ID object.
-  //
-  // NOTE: When InterfaceIDs were implemented using nsIXPCScriptable and
-  // XPConnect, this was implemented using a 'resolve' hook. It has been
-  // changed to happen at creation-time as most interfaces shouldn't have many
-  // constants, and this is likely to turn out cheaper.
-  RootedValue constant(aCx);
-  for (uint16_t i = 0; i < aInfo.ConstantCount(); ++i) {
-    constant.set(aInfo.Constant(i).JSValue());
-    if (!JS_DefineProperty(
-            aCx, obj, aInfo.Constant(i).Name(), constant,
-            JSPROP_READONLY | JSPROP_ENUMERATE | JSPROP_PERMANENT)) {
-      return false;
-    }
-  }
-
   // The InterfaceInfo is stored in a reserved slot.
-  js::SetReservedSlot(obj, kIID_InfoSlot, PrivateValue((void*)&aInfo));
+  JS::SetReservedSlot(obj, kIID_InfoSlot, PrivateValue((void*)&aInfo));
   aVal.setObject(*obj);
   return true;
 }
@@ -297,7 +316,7 @@ bool ContractID2JSValue(JSContext* aCx, JSString* aContract,
   }
 
   // The Contract is stored in a reserved slot.
-  js::SetReservedSlot(obj, kCID_ContractSlot, StringValue(jsContract));
+  JS::SetReservedSlot(obj, kCID_ContractSlot, StringValue(jsContract));
   aVal.setObject(*obj);
   return true;
 }
@@ -364,12 +383,14 @@ static bool ID_Equals(JSContext* aCx, unsigned aArgc, Value* aVp) {
  */
 static nsresult FindObjectForHasInstance(JSContext* cx, HandleObject objArg,
                                          MutableHandleObject target) {
-  using namespace mozilla::jsipc;
   RootedObject obj(cx, objArg), proto(cx);
   while (true) {
-    // Try the object, or the wrappee if allowed.
-    JSObject* o = js::IsWrapper(obj) ? js::CheckedUnwrap(obj, false) : obj;
-    if (o && (IS_WN_REFLECTOR(o) || IsDOMObject(o) || IsCPOW(o))) {
+    // Try the object, or the wrappee if allowed.  We want CheckedUnwrapDynamic
+    // here, because we might in fact be looking for a Window.  "cx" represents
+    // our current global.
+    JSObject* o =
+        js::IsWrapper(obj) ? js::CheckedUnwrapDynamic(obj, cx, false) : obj;
+    if (o && (IS_WN_REFLECTOR(o) || IsDOMObject(o))) {
       target.set(o);
       return NS_OK;
     }
@@ -401,11 +422,8 @@ nsresult HasInstance(JSContext* cx, HandleObject objArg, const nsID* iid,
     return NS_OK;
   }
 
-  if (mozilla::jsipc::IsCPOW(obj)) {
-    return mozilla::jsipc::InstanceOf(obj, iid, bp);
-  }
-
-  nsCOMPtr<nsISupports> identity = UnwrapReflectorToISupports(obj);
+  // Need to unwrap Window correctly here, so use ReflectorToISupportsDynamic.
+  nsCOMPtr<nsISupports> identity = ReflectorToISupportsDynamic(obj, cx);
   if (!identity) {
     return NS_OK;
   }
@@ -420,7 +438,7 @@ nsresult HasInstance(JSContext* cx, HandleObject objArg, const nsID* iid,
   // preserve that behavior. This is just a compatibility hack, so we don't
   // really care if it fails.
   if (IS_WN_REFLECTOR(obj)) {
-    (void)XPCWrappedNative::Get(obj)->FindTearOff(*iid);
+    (void)XPCWrappedNative::Get(obj)->FindTearOff(cx, *iid);
   }
 
   return NS_OK;
@@ -459,9 +477,7 @@ static bool IID_GetName(JSContext* aCx, unsigned aArgc, Value* aVp) {
     return Throw(aCx, NS_ERROR_XPC_BAD_CONVERT_JS);
   }
 
-  auto* info =
-      (const nsXPTInterfaceInfo*)js::GetReservedSlot(obj, kIID_InfoSlot)
-          .toPrivate();
+  const nsXPTInterfaceInfo* info = GetInterfaceInfo(obj);
 
   // Name property is the name of the interface this nsIID was created from.
   JSString* name = JS_NewStringCopyZ(aCx, info->Name());
@@ -471,6 +487,73 @@ static bool IID_GetName(JSContext* aCx, unsigned aArgc, Value* aVp) {
 
   args.rval().setString(name);
   return true;
+}
+
+static bool IID_NewEnumerate(JSContext* cx, HandleObject obj,
+                             MutableHandleIdVector properties,
+                             bool enumerableOnly) {
+  const nsXPTInterfaceInfo* info = GetInterfaceInfo(obj);
+
+  if (!properties.reserve(info->ConstantCount())) {
+    JS_ReportOutOfMemory(cx);
+    return false;
+  }
+
+  RootedId id(cx);
+  RootedString name(cx);
+  for (uint16_t i = 0; i < info->ConstantCount(); ++i) {
+    name = JS_AtomizeString(cx, info->Constant(i).Name());
+    if (!name || !JS_StringToId(cx, name, &id)) {
+      return false;
+    }
+    properties.infallibleAppend(id);
+  }
+
+  return true;
+}
+
+static bool IID_Resolve(JSContext* cx, HandleObject obj, HandleId id,
+                        bool* resolvedp) {
+  *resolvedp = false;
+  if (!JSID_IS_STRING(id)) {
+    return true;
+  }
+
+  JSLinearString* name = JSID_TO_LINEAR_STRING(id);
+  const nsXPTInterfaceInfo* info = GetInterfaceInfo(obj);
+  for (uint16_t i = 0; i < info->ConstantCount(); ++i) {
+    if (JS_LinearStringEqualsAscii(name, info->Constant(i).Name())) {
+      *resolvedp = true;
+
+      RootedValue constant(cx, info->Constant(i).JSValue());
+      return JS_DefinePropertyById(
+          cx, obj, id, constant,
+          JSPROP_READONLY | JSPROP_ENUMERATE | JSPROP_PERMANENT);
+    }
+  }
+  return true;
+}
+
+static bool IID_MayResolve(const JSAtomState& names, jsid id,
+                           JSObject* maybeObj) {
+  if (!JSID_IS_STRING(id)) {
+    return false;
+  }
+
+  if (!maybeObj) {
+    // Each interface object has its own set of constants, so if we don't know
+    // the object, assume any string property may be resolved.
+    return true;
+  }
+
+  JSLinearString* name = JSID_TO_LINEAR_STRING(id);
+  const nsXPTInterfaceInfo* info = GetInterfaceInfo(maybeObj);
+  for (uint16_t i = 0; i < info->ConstantCount(); ++i) {
+    if (JS_LinearStringEqualsAscii(name, info->Constant(i).Name())) {
+      return true;
+    }
+  }
+  return false;
 }
 
 // Common code for CID_CreateInstance and CID_GetService
@@ -486,7 +569,7 @@ static bool CIGSHelper(JSContext* aCx, unsigned aArgc, Value* aVp,
     return Throw(aCx, NS_ERROR_XPC_BAD_CONVERT_JS);
   }
   JS::UniqueChars contractID = JS_EncodeStringToLatin1(
-      aCx, js::GetReservedSlot(obj, kCID_ContractSlot).toString());
+      aCx, JS::GetReservedSlot(obj, kCID_ContractSlot).toString());
 
   // Extract the IID from the first argument, if passed. Default: nsISupports.
   Maybe<nsIID> iid = args.length() >= 1 ? JSValue2ID(aCx, args[0])
@@ -537,7 +620,7 @@ static bool CID_GetName(JSContext* aCx, unsigned aArgc, Value* aVp) {
   }
 
   // Return the string stored in our reserved ContractID slot.
-  args.rval().set(js::GetReservedSlot(obj, kCID_ContractSlot));
+  args.rval().set(JS::GetReservedSlot(obj, kCID_ContractSlot));
   return true;
 }
 

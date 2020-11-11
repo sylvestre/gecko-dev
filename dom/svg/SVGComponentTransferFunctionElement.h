@@ -4,13 +4,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef mozilla_dom_SVGComponentTransferFunctionElement_h
-#define mozilla_dom_SVGComponentTransferFunctionElement_h
+#ifndef DOM_SVG_SVGCOMPONENTTRANSFERFUNCTIONELEMENT_H_
+#define DOM_SVG_SVGCOMPONENTTRANSFERFUNCTIONELEMENT_H_
 
-#include "nsSVGEnum.h"
-#include "nsSVGFilters.h"
-#include "nsSVGNumber2.h"
+#include "SVGAnimatedEnumeration.h"
+#include "SVGAnimatedNumber.h"
 #include "SVGAnimatedNumberList.h"
+#include "mozilla/dom/SVGFilters.h"
 
 #define NS_SVG_FE_COMPONENT_TRANSFER_FUNCTION_ELEMENT_CID \
   {                                                       \
@@ -21,11 +21,11 @@
 
 namespace mozilla {
 
-class DOMSVGAnimatedNumberList;
-
 namespace dom {
 
-typedef SVGFEUnstyledElement SVGComponentTransferFunctionElementBase;
+class DOMSVGAnimatedNumberList;
+
+using SVGComponentTransferFunctionElementBase = SVGFEUnstyledElement;
 
 class SVGComponentTransferFunctionElement
     : public SVGComponentTransferFunctionElementBase {
@@ -34,10 +34,10 @@ class SVGComponentTransferFunctionElement
       already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo)
       : SVGComponentTransferFunctionElementBase(std::move(aNodeInfo)) {}
 
-  virtual ~SVGComponentTransferFunctionElement() {}
+  virtual ~SVGComponentTransferFunctionElement() = default;
 
  public:
-  typedef gfx::ComponentTransferAttributes ComponentTransferAttributes;
+  using ComponentTransferAttributes = gfx::ComponentTransferAttributes;
 
   // interfaces:
   NS_DECLARE_STATIC_IID_ACCESSOR(
@@ -56,13 +56,13 @@ class SVGComponentTransferFunctionElement
   // WebIDL
   virtual JSObject* WrapNode(JSContext* aCx,
                              JS::Handle<JSObject*> aGivenProto) override = 0;
-  already_AddRefed<SVGAnimatedEnumeration> Type();
+  already_AddRefed<DOMSVGAnimatedEnumeration> Type();
   already_AddRefed<DOMSVGAnimatedNumberList> TableValues();
-  already_AddRefed<SVGAnimatedNumber> Slope();
-  already_AddRefed<SVGAnimatedNumber> Intercept();
-  already_AddRefed<SVGAnimatedNumber> Amplitude();
-  already_AddRefed<SVGAnimatedNumber> Exponent();
-  already_AddRefed<SVGAnimatedNumber> Offset();
+  already_AddRefed<DOMSVGAnimatedNumber> Slope();
+  already_AddRefed<DOMSVGAnimatedNumber> Intercept();
+  already_AddRefed<DOMSVGAnimatedNumber> Amplitude();
+  already_AddRefed<DOMSVGAnimatedNumber> Exponent();
+  already_AddRefed<DOMSVGAnimatedNumber> Offset();
 
  protected:
   virtual NumberAttributesInfo GetNumberInfo() override;
@@ -74,12 +74,12 @@ class SVGComponentTransferFunctionElement
   static NumberListInfo sNumberListInfo[1];
 
   enum { SLOPE, INTERCEPT, AMPLITUDE, EXPONENT, OFFSET };
-  nsSVGNumber2 mNumberAttributes[5];
+  SVGAnimatedNumber mNumberAttributes[5];
   static NumberInfo sNumberInfo[5];
 
   enum { TYPE };
-  nsSVGEnum mEnumAttributes[1];
-  static nsSVGEnumMapping sTypeMap[];
+  SVGAnimatedEnumeration mEnumAttributes[1];
+  static SVGEnumMapping sTypeMap[];
   static EnumInfo sEnumInfo[1];
 };
 
@@ -201,4 +201,4 @@ class SVGFEFuncAElement : public SVGComponentTransferFunctionElement {
 }  // namespace dom
 }  // namespace mozilla
 
-#endif  // mozilla_dom_SVGComponentTransferFunctionElement_h
+#endif  // DOM_SVG_SVGCOMPONENTTRANSFERFUNCTIONELEMENT_H_

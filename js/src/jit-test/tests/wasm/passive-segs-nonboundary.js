@@ -1,4 +1,7 @@
-// |jit-test| skip-if: !wasmBulkMemSupported()
+load(libdir + "wasm-binary.js");
+
+const v2vSig = {args:[], ret:VoidCode};
+const v2vSigSection = sigSection([v2vSig]);
 
 const Module = WebAssembly.Module;
 const Instance = WebAssembly.Instance;
@@ -19,11 +22,11 @@ let tab_expmod_t =
 
 // .. and this one imports those 5 functions.  It adds 5 of its own, creates a
 // 30 element table using both active and passive initialisers, with a mixture
-// of the imported and local functions.  |testfn| is exported.  It uses the
-// supplied |insn| to modify the table somehow, and then will indirect-call
-// the table entry number specified as a parameter.  That will either return a
-// value 0 to 9 indicating the function called, or will throw an exception if
-// the table entry is empty.
+// of the imported and local functions.  |setup| and |check| are exported.
+// |setup| uses the supplied |insn| to modify the table somehow.  |check| will
+// indirect-call the table entry number specified as a parameter.  That will
+// either return a value 0 to 9 indicating the function called, or will throw an
+// exception if the table entry is empty.
 function gen_tab_impmod_t(insn)
 {
   let t =
@@ -31,18 +34,18 @@ function gen_tab_impmod_t(insn)
      ;; -------- Types --------
      (type (func (result i32)))  ;; type #0
      ;; -------- Tables --------
-     (table 30 30 anyfunc)
+     (table 30 30 funcref)
      ;; -------- Table initialisers --------
      (elem (i32.const 2) 3 1 4 1)
-     (elem passive 2 7 1 8)
+     (elem func 2 7 1 8)
      (elem (i32.const 12) 7 5 2 3 6)
-     (elem passive 5 9 2 7 6)
+     (elem func 5 9 2 7 6)
      ;; -------- Imports --------
-     (import "a" "if0" (result i32))    ;; index 0
-     (import "a" "if1" (result i32))
-     (import "a" "if2" (result i32))
-     (import "a" "if3" (result i32))
-     (import "a" "if4" (result i32))    ;; index 4
+     (import "a" "if0" (func (result i32)))    ;; index 0
+     (import "a" "if1" (func (result i32)))
+     (import "a" "if2" (func (result i32)))
+     (import "a" "if3" (func (result i32)))
+     (import "a" "if4" (func (result i32)))    ;; index 4
      ;; -------- Functions --------
      (func (result i32) (i32.const 5))  ;; index 5
      (func (result i32) (i32.const 6))
@@ -50,12 +53,13 @@ function gen_tab_impmod_t(insn)
      (func (result i32) (i32.const 8))
      (func (result i32) (i32.const 9))  ;; index 9
 
-     (func (export "testfn") (param i32) (result i32)
-       ${insn}
+     (func (export "setup")
+       ${insn})
+     (func (export "check") (param i32) (result i32)
        ;; call the selected table entry, which will either return a value,
        ;; or will cause an exception.
-       get_local 0      ;; callIx
-       call_indirect 0  ;; and its return value is our return value.
+       local.get 0      ;; callIx
+       call_indirect (type 0)  ;; and its return value is our return value.
      )
    )`;
    return t;
@@ -74,18 +78,20 @@ function tab_test(instruction, expected_result_vector)
     let tab_impmod_t = gen_tab_impmod_t(instruction);
     let tab_impmod_b = wasmTextToBinary(tab_impmod_t);
 
+    let inst = new Instance(new Module(tab_impmod_b),
+                            {a:{if0:tab_expmod_i.exports.ef0,
+                                if1:tab_expmod_i.exports.ef1,
+                                if2:tab_expmod_i.exports.ef2,
+                                if3:tab_expmod_i.exports.ef3,
+                                if4:tab_expmod_i.exports.ef4
+                               }});
+    inst.exports.setup();
+
     for (let i = 0; i < expected_result_vector.length; i++) {
-        let inst = new Instance(new Module(tab_impmod_b),
-                                {a:{if0:tab_expmod_i.exports.ef0,
-                                    if1:tab_expmod_i.exports.ef1,
-                                    if2:tab_expmod_i.exports.ef2,
-                                    if3:tab_expmod_i.exports.ef3,
-                                    if4:tab_expmod_i.exports.ef4
-                                   }});
         let expected = expected_result_vector[i];
         let actual = undefined;
         try {
-            actual = inst.exports.testfn(i);
+            actual = inst.exports.check(i);
             assertEq(actual !== null, true);
         } catch (e) {
             if (!(e instanceof Error &&
@@ -146,16 +152,15 @@ tab_test("(table.init 3 (i32.const 15) (i32.const 1) (i32.const 3))",
 
 // Perform active and passive initialisation and then multiple copies
 tab_test("(table.init 1 (i32.const 7) (i32.const 0) (i32.const 4)) \n" +
-         "table.drop 1 \n" +
+         "elem.drop 1 \n" +
          "(table.init 3 (i32.const 15) (i32.const 1) (i32.const 3)) \n" +
-         "table.drop 3 \n" +
+         "elem.drop 3 \n" +
          "(table.copy (i32.const 20) (i32.const 15) (i32.const 5)) \n" +
          "(table.copy (i32.const 21) (i32.const 29) (i32.const 1)) \n" +
          "(table.copy (i32.const 24) (i32.const 10) (i32.const 1)) \n" +
          "(table.copy (i32.const 13) (i32.const 11) (i32.const 4)) \n" +
          "(table.copy (i32.const 19) (i32.const 20) (i32.const 5))",
          [e,e,3,1,4, 1,e,2,7,1, 8,e,7,e,7, 5,2,7,e,9, e,7,e,8,8, e,e,e,e,e]);
-
 
 // And now a simplified version of the above, for memory.{init,drop,copy}.
 
@@ -167,9 +172,9 @@ function gen_mem_mod_t(insn)
      (memory (export "memory0") 1 1)
      ;; -------- Memory initialisers --------
      (data (i32.const 2) "\\03\\01\\04\\01")
-     (data passive "\\02\\07\\01\\08")
+     (data "\\02\\07\\01\\08")
      (data (i32.const 12) "\\07\\05\\02\\03\\06")
-     (data passive "\\05\\09\\02\\07\\06")
+     (data "\\05\\09\\02\\07\\06")
 
      (func (export "testfn")
        ${insn}
@@ -243,9 +248,9 @@ mem_test("(memory.init 3 (i32.const 15) (i32.const 1) (i32.const 3))",
 
 // Perform active and passive initialisation and then multiple copies
 mem_test("(memory.init 1 (i32.const 7) (i32.const 0) (i32.const 4)) \n" +
-         "memory.drop 1 \n" +
+         "data.drop 1 \n" +
          "(memory.init 3 (i32.const 15) (i32.const 1) (i32.const 3)) \n" +
-         "memory.drop 3 \n" +
+         "data.drop 3 \n" +
          "(memory.copy (i32.const 20) (i32.const 15) (i32.const 5)) \n" +
          "(memory.copy (i32.const 21) (i32.const 29) (i32.const 1)) \n" +
          "(memory.copy (i32.const 24) (i32.const 10) (i32.const 1)) \n" +
@@ -253,99 +258,51 @@ mem_test("(memory.init 1 (i32.const 7) (i32.const 0) (i32.const 4)) \n" +
          "(memory.copy (i32.const 19) (i32.const 20) (i32.const 5))",
          [e,e,3,1,4, 1,e,2,7,1, 8,e,7,e,7, 5,2,7,e,9, e,7,e,8,8, e,e,e,e,e]);
 
+function checkDataCount(count, err) {
+    let binary = moduleWithSections(
+        [v2vSigSection,
+         dataCountSection(count),
+         dataSection([
+           {offset: 0, elems: []},
+           {offset: 0, elems: []},
+         ])
+        ]);
+    assertErrorMessage(() => new WebAssembly.Module(binary),
+                       WebAssembly.CompileError,
+                       err);
+}
+
+// DataCount section is present but value is too low for the number of data segments
+checkDataCount(1, /number of data segments does not match declared count/);
+// DataCount section is present but value is too high for the number of data segments
+checkDataCount(3, /number of data segments does not match declared count/);
+
+// DataCount section is not present but memory.init or data.drop uses it
+function checkNoDataCount(body, err) {
+    let binary = moduleWithSections(
+        [v2vSigSection,
+         declSection([0]),
+         memorySection(1),
+         bodySection(
+             [funcBody({locals:[], body})])]);
+    assertErrorMessage(() => new WebAssembly.Module(binary),
+                       WebAssembly.CompileError,
+                       err);
+}
+
+checkNoDataCount([I32ConstCode, 0,
+                  I32ConstCode, 0,
+                  I32ConstCode, 0,
+                  MiscPrefix, MemoryInitCode, 0, 0],
+                /(memory.init requires a DataCount section)|(unknown data segment)/);
+
+checkNoDataCount([MiscPrefix, DataDropCode, 0],
+                 /(data.drop requires a DataCount section)|(unknown data segment)/);
 
 //---------------------------------------------------------------------//
 //---------------------------------------------------------------------//
 // Some further tests for memory.copy and memory.fill.  First, validation
 // tests.
-
-//-----------------------------------------------------------
-// Test helpers.  Copied and simplified from binary.js.
-
-load(libdir + "wasm-binary.js");
-
-function toU8(array) {
-    for (let b of array)
-        assertEq(b < 256, true);
-    return Uint8Array.from(array);
-}
-
-function varU32(u32) {
-    assertEq(u32 >= 0, true);
-    assertEq(u32 < Math.pow(2,32), true);
-    var bytes = [];
-    do {
-        var byte = u32 & 0x7f;
-        u32 >>>= 7;
-        if (u32 != 0)
-            byte |= 0x80;
-        bytes.push(byte);
-    } while (u32 != 0);
-    return bytes;
-}
-
-function moduleHeaderThen(...rest) {
-    return [magic0, magic1, magic2, magic3, ver0, ver1, ver2, ver3, ...rest];
-}
-
-function moduleWithSections(sectionArray) {
-    var bytes = moduleHeaderThen();
-    for (let section of sectionArray) {
-        bytes.push(section.name);
-        bytes.push(...varU32(section.body.length));
-        bytes.push(...section.body);
-    }
-    return toU8(bytes);
-}
-
-function sigSection(sigs) {
-    var body = [];
-    body.push(...varU32(sigs.length));
-    for (let sig of sigs) {
-        body.push(...varU32(FuncCode));
-        body.push(...varU32(sig.args.length));
-        for (let arg of sig.args)
-            body.push(...varU32(arg));
-        body.push(...varU32(sig.ret == VoidCode ? 0 : 1));
-        if (sig.ret != VoidCode)
-            body.push(...varU32(sig.ret));
-    }
-    return { name: typeId, body };
-}
-
-function declSection(decls) {
-    var body = [];
-    body.push(...varU32(decls.length));
-    for (let decl of decls)
-        body.push(...varU32(decl));
-    return { name: functionId, body };
-}
-
-function funcBody(func) {
-    var body = varU32(func.locals.length);
-    for (let local of func.locals)
-        body.push(...varU32(local));
-    body = body.concat(...func.body);
-    body.push(EndCode);
-    body.splice(0, 0, ...varU32(body.length));
-    return body;
-}
-
-function bodySection(bodies) {
-    var body = varU32(bodies.length).concat(...bodies);
-    return { name: codeId, body };
-}
-
-function memorySection(initialSize) {
-    var body = [];
-    body.push(...varU32(1));           // number of memories
-    body.push(...varU32(0x0));         // for now, no maximum
-    body.push(...varU32(initialSize));
-    return { name: memoryId, body };
-}
-
-const v2vSig = {args:[], ret:VoidCode};
-const v2vSigSection = sigSection([v2vSig]);
 
 // Prefixed opcodes
 
@@ -355,11 +312,13 @@ function checkMiscPrefixed(opcode, expect_failure) {
             bodySection(
                 [funcBody(
                     {locals:[],
-                     body:[0x41, 0x0, 0x41, 0x0, 0x41, 0x0, // 3 x const.i32 0
+                     body:[I32ConstCode, 0x0,
+                           I32ConstCode, 0x0,
+                           I32ConstCode, 0x0,
                            MiscPrefix, ...opcode]})])]);
     if (expect_failure) {
         assertErrorMessage(() => new WebAssembly.Module(binary),
-                           WebAssembly.CompileError, /unrecognized opcode/);
+                           WebAssembly.CompileError, /(unrecognized opcode)|(Unknown.*subopcode)/);
     } else {
         assertEq(WebAssembly.validate(binary), true);
     }
@@ -368,9 +327,8 @@ function checkMiscPrefixed(opcode, expect_failure) {
 //-----------------------------------------------------------
 // Verification cases for memory.copy/fill opcode encodings
 
-checkMiscPrefixed([0x0a, 0x00], false); // memory.copy, flags=0
-checkMiscPrefixed([0x0b, 0x00], false); // memory.fill, flags=0
-checkMiscPrefixed([0x0b, 0x80, 0x00], false); // memory.fill, flags=0 (long encoding)
+checkMiscPrefixed([MemoryCopyCode, 0x00, 0x00], false); // memory.copy src=0 dest=0
+checkMiscPrefixed([MemoryFillCode, 0x00], false); // memory.fill mem=0
 checkMiscPrefixed([0x13], true);        // table.size+1, which is currently unassigned
 
 //-----------------------------------------------------------
@@ -412,7 +370,7 @@ checkMiscPrefixed([0x13], true);        // table.size+1, which is currently unas
         )`;
         assertErrorMessage(() => wasmEvalText(text1),
                            WebAssembly.CompileError,
-                           /popping value from empty stack/);
+                           /(popping value from empty stack)|(expected Some\(I32\) but nothing on stack)/);
         let text2 =
         `(module
           (memory (export "memory") 1 1)
@@ -426,7 +384,7 @@ checkMiscPrefixed([0x13], true);        // table.size+1, which is currently unas
         )`;
         assertErrorMessage(() => wasmEvalText(text2),
                            WebAssembly.CompileError,
-                           /unused values not explicitly dropped by end of block/);
+                           /(unused values not explicitly dropped by end of block)|(values remaining on stack at end of block)/);
     }
 }
 
@@ -441,7 +399,7 @@ checkMiscPrefixed([0x13], true);        // table.size+1, which is currently unas
         )`;
         assertErrorMessage(() => wasmEvalText(text),
                            WebAssembly.CompileError,
-                           /can't touch memory without memory/);
+                           /(can't touch memory without memory)|(unknown memory)/);
     }
 }
 
@@ -520,13 +478,25 @@ function checkRange(arr, minIx, maxIxPlusOne, expectedValue)
     checkRange(b, 0x00000, 0x10000, 0x00);
 }
 
-// Zero len with offset out-of-bounds gets an exception
+// Zero len with offset out-of-bounds is OK
 {
     let inst = wasmEvalText(
     `(module
        (memory (export "memory") 1 1)
        (func (export "testfn")
          (memory.fill (i32.const 0x10000) (i32.const 0x55) (i32.const 0))
+       )
+     )`
+    );
+    inst.exports.testfn();
+}
+
+{
+    let inst = wasmEvalText(
+    `(module
+       (memory (export "memory") 1 1)
+       (func (export "testfn")
+         (memory.fill (i32.const 0x10001) (i32.const 0x55) (i32.const 0))
        )
      )`
     );
@@ -688,7 +658,7 @@ function checkRange(arr, minIx, maxIxPlusOne, expectedValue)
     checkRange(b, 0x08000, 0x10000, 0xAA);
 }
 
-// Zero len with dest offset out-of-bounds is an exception
+// Zero len with dest offset out-of-bounds at the edge of memory
 {
     let inst = wasmEvalText(
     `(module
@@ -698,17 +668,43 @@ function checkRange(arr, minIx, maxIxPlusOne, expectedValue)
        )
      )`
     );
+    inst.exports.testfn();
+}
+
+// Ditto, but one element further out
+{
+    let inst = wasmEvalText(
+    `(module
+       (memory (export "memory") 1 1)
+       (func (export "testfn")
+         (memory.copy (i32.const 0x10001) (i32.const 0x7000) (i32.const 0))
+       )
+     )`
+    );
     assertErrorMessage(() => inst.exports.testfn(),
                        WebAssembly.RuntimeError, /index out of bounds/);
 }
 
-// Zero len with src offset out-of-bounds is an exception
+// Zero len with src offset out-of-bounds at the edge of memory
 {
     let inst = wasmEvalText(
     `(module
        (memory (export "memory") 1 1)
        (func (export "testfn")
          (memory.copy (i32.const 0x9000) (i32.const 0x10000) (i32.const 0))
+       )
+     )`
+    );
+    inst.exports.testfn();
+}
+
+// Ditto, but one element further out
+{
+    let inst = wasmEvalText(
+    `(module
+       (memory (export "memory") 1 1)
+       (func (export "testfn")
+         (memory.copy (i32.const 0x9000) (i32.const 0x10001) (i32.const 0))
        )
      )`
     );
@@ -1160,3 +1156,33 @@ function checkRange(arr, minIx, maxIxPlusOne, expectedValue)
     checkRange(b, 64827, 64834, 26);
     checkRange(b, 64834, 65536, 0);
 }
+
+// Make sure dead code doesn't prevent compilation.
+wasmEvalText(
+    `(module
+       (memory 0 10)
+       (data (i32.const 0))
+       (func
+         (return)
+         (memory.init 0)
+        )
+    )`);
+
+wasmEvalText(
+    `(module
+       (memory 0 10)
+       (func
+         (return)
+         (memory.fill)
+        )
+    )`);
+
+wasmEvalText(
+    `(module
+       (table (export "t") 10 funcref)
+       (elem (i32.const 0) 0)
+       (func
+         (return)
+         (elem.drop 0)
+        )
+    )`);

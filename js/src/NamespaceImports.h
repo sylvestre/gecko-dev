@@ -22,32 +22,16 @@
 // by the headers included above.
 namespace JS {
 
-class Latin1Chars;
-class Latin1CharsZ;
-class ConstTwoByteChars;
-class TwoByteChars;
-class TwoByteCharsZ;
-class UTF8Chars;
-class WTF8Chars;
-class UTF8CharsZ;
-
-using AutoValueVector = AutoVector<Value>;
-using AutoIdVector = AutoVector<jsid>;
-using AutoObjectVector = AutoVector<JSObject*>;
-
 using ValueVector = JS::GCVector<JS::Value>;
 using IdVector = JS::GCVector<jsid>;
 using ScriptVector = JS::GCVector<JSScript*>;
-
-template <typename UnitT>
-class SourceText;
 
 class HandleValueArray;
 
 class ObjectOpResult;
 class PropertyResult;
 
-enum class SymbolCode : uint32_t;
+struct JS_PUBLIC_API PropertyDescriptor;
 
 }  // namespace JS
 
@@ -69,26 +53,26 @@ using JS::PrivateValue;
 using JS::StringValue;
 using JS::UndefinedValue;
 using JS::Value;
+using JS::ValueType;
 
-using JS::ConstTwoByteChars;
 using JS::Latin1Char;
-using JS::Latin1Chars;
-using JS::Latin1CharsZ;
-using JS::TwoByteChars;
-using JS::TwoByteCharsZ;
 using JS::UniqueChars;
+using JS::UniqueLatin1Chars;
 using JS::UniqueTwoByteChars;
-using JS::UTF8Chars;
-using JS::UTF8CharsZ;
-using JS::WTF8Chars;
 
 using JS::Ok;
 using JS::OOM;
 using JS::Result;
 
-using JS::AutoIdVector;
-using JS::AutoObjectVector;
-using JS::AutoValueVector;
+using JS::HandleIdVector;
+using JS::HandleObjectVector;
+using JS::HandleValueVector;
+using JS::MutableHandleIdVector;
+using JS::MutableHandleObjectVector;
+using JS::MutableHandleValueVector;
+using JS::RootedIdVector;
+using JS::RootedObjectVector;
+using JS::RootedValueVector;
 
 using JS::IdVector;
 using JS::ScriptVector;
@@ -104,51 +88,43 @@ using JS::IsAcceptableThis;
 using JS::NativeImpl;
 
 using JS::Rooted;
+using JS::RootedBigInt;
 using JS::RootedFunction;
 using JS::RootedId;
 using JS::RootedObject;
 using JS::RootedScript;
 using JS::RootedString;
 using JS::RootedSymbol;
-#ifdef ENABLE_BIGINT
-using JS::RootedBigInt;
-#endif
 using JS::RootedValue;
 
 using JS::PersistentRooted;
+using JS::PersistentRootedBigInt;
 using JS::PersistentRootedFunction;
 using JS::PersistentRootedId;
 using JS::PersistentRootedObject;
 using JS::PersistentRootedScript;
 using JS::PersistentRootedString;
 using JS::PersistentRootedSymbol;
-#ifdef ENABLE_BIGINT
-using JS::PersistentRootedBigInt;
-#endif
 using JS::PersistentRootedValue;
 
 using JS::Handle;
+using JS::HandleBigInt;
 using JS::HandleFunction;
 using JS::HandleId;
 using JS::HandleObject;
 using JS::HandleScript;
 using JS::HandleString;
 using JS::HandleSymbol;
-#ifdef ENABLE_BIGINT
-using JS::HandleBigInt;
-#endif
 using JS::HandleValue;
 
 using JS::MutableHandle;
+using JS::MutableHandleBigInt;
 using JS::MutableHandleFunction;
 using JS::MutableHandleId;
 using JS::MutableHandleObject;
 using JS::MutableHandleScript;
 using JS::MutableHandleString;
 using JS::MutableHandleSymbol;
-#ifdef ENABLE_BIGINT
-using JS::MutableHandleBigInt;
-#endif
 using JS::MutableHandleValue;
 
 using JS::FalseHandleValue;
@@ -161,16 +137,13 @@ using JS::HandleValueArray;
 using JS::ObjectOpResult;
 using JS::PropertyResult;
 
+using JS::PropertyDescriptor;
+
 using JS::Compartment;
 using JS::Realm;
 using JS::Zone;
 
-using JS::Symbol;
-using JS::SymbolCode;
-
-#ifdef ENABLE_BIGINT
 using JS::BigInt;
-#endif
 
 } /* namespace js */
 

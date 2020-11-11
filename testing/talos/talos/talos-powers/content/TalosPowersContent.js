@@ -23,7 +23,9 @@ var TalosPowersParent;
     let pingPromise = new Promise(resolve => {
       TalosPowersParent.exec("ping", null, resolve);
     });
-    let timeoutPromise = new Promise((resolve, reject) => { setTimeout(reject, 500); });
+    let timeoutPromise = new Promise((resolve, reject) => {
+      setTimeout(reject, 500);
+    });
 
     try {
       await Promise.race([pingPromise, timeoutPromise]);
@@ -60,31 +62,51 @@ var TalosPowersParent;
           callback();
         });
       }
-      document.dispatchEvent(new CustomEvent("TalosPowersContentFocus", {
-        bubbles: true,
-      }));
+      document.dispatchEvent(
+        new CustomEvent("TalosPowersContentFocus", {
+          bubbles: true,
+        })
+      );
     },
 
     getStartupInfo() {
-      return new Promise((resolve) => {
+      return new Promise(resolve => {
         var event = new CustomEvent("TalosPowersContentGetStartupInfo", {
           bubbles: true,
         });
         document.dispatchEvent(event);
 
-        addEventListener("TalosPowersContentGetStartupInfoResult",
-                         function onResult(e) {
-          removeEventListener("TalosPowersContentGetStartupInfoResult",
-                              onResult);
-          resolve(e.detail);
-        });
+        addEventListener(
+          "TalosPowersContentGetStartupInfoResult",
+          function onResult(e) {
+            removeEventListener(
+              "TalosPowersContentGetStartupInfoResult",
+              onResult
+            );
+            resolve(e.detail);
+          }
+        );
       });
+    },
+
+    dumpConsole() {
+      var event = new CustomEvent("TalosPowersContentDumpConsole", {
+        bubbles: true,
+      });
+      document.dispatchEvent(event);
     },
 
     goQuitApplication(waitForSafeBrowsing) {
       var event = new CustomEvent("TalosPowersGoQuitApplication", {
         bubbles: true,
         detail: waitForSafeBrowsing,
+      });
+      document.dispatchEvent(event);
+    },
+
+    wrCapture() {
+      var event = new CustomEvent("TalosPowersWebRenderCapture", {
+        bubbles: true,
       });
       document.dispatchEvent(event);
     },
@@ -103,9 +125,13 @@ var TalosPowersParent;
       let win = opt_custom_window || window;
       let replyEvent = "TalosPowers:ParentExec:ReplyEvent:" + this.replyId++;
       if (callback) {
-        win.addEventListener(replyEvent, function(e) {
-          callback(e.detail);
-        }, {once: true});
+        win.addEventListener(
+          replyEvent,
+          function(e) {
+            callback(e.detail);
+          },
+          { once: true }
+        );
       }
       win.dispatchEvent(
         new win.CustomEvent("TalosPowers:ParentExec:QueryEvent", {
@@ -120,8 +146,6 @@ var TalosPowersParent;
         })
       );
     },
-
   };
   // End of possibly embedded code
-
 })();

@@ -14,7 +14,7 @@ class nsIObserver;
 namespace mozilla {
 
 namespace dom {
-class TabChild;
+class BrowserChild;
 }  // namespace dom
 
 namespace layers {
@@ -22,8 +22,8 @@ namespace layers {
 class APZChild;
 
 /**
- * ContentProcessController is a GeckoContentController for a TabChild, and is
- * always remoted using PAPZ/APZChild.
+ * ContentProcessController is a GeckoContentController for a BrowserChild, and
+ * is always remoted using PAPZ/APZChild.
  *
  * ContentProcessController is created in ContentChild when a layer tree id has
  * been allocated for a PBrowser that lives in that content process, and is
@@ -35,9 +35,11 @@ class APZChild;
  */
 class ContentProcessController final : public GeckoContentController {
  public:
-  explicit ContentProcessController(const RefPtr<dom::TabChild>& aBrowser);
+  explicit ContentProcessController(const RefPtr<dom::BrowserChild>& aBrowser);
 
   // GeckoContentController
+
+  void NotifyLayerTransforms(nsTArray<MatrixMessage>&& aTransforms) override;
 
   void RequestContentRepaint(const RepaintRequest& aRequest) override;
 
@@ -47,6 +49,7 @@ class ContentProcessController final : public GeckoContentController {
 
   void NotifyPinchGesture(PinchGestureInput::PinchGestureType aType,
                           const ScrollableLayerGuid& aGuid,
+                          const LayoutDevicePoint& aFocusPoint,
                           LayoutDeviceCoord aSpanChange,
                           Modifiers aModifiers) override;
 
@@ -69,15 +72,12 @@ class ContentProcessController final : public GeckoContentController {
 
   void CancelAutoscroll(const ScrollableLayerGuid& aGuid) override;
 
-  void PostDelayedTask(already_AddRefed<Runnable> aRunnable,
-                       int aDelayMs) override;
-
   bool IsRepaintThread() override;
 
   void DispatchToRepaintThread(already_AddRefed<Runnable> aTask) override;
 
  private:
-  RefPtr<dom::TabChild> mBrowser;
+  RefPtr<dom::BrowserChild> mBrowser;
 };
 
 }  // namespace layers

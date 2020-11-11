@@ -1,6 +1,14 @@
+// |jit-test| --no-warp; --ion-osr=off
+
+// Warp lacks Scalar Replacement support (bug 1650233). Re-evaluate after that
+// bug has been fixed.
 
 var max = 40;
 setJitCompilerOption("ion.warmup.trigger", max - 10);
+setJitCompilerOption("ion.full.warmup.trigger", max - 10);
+
+// Prevent the GC from cancelling Ion compilations, when we expect them to succeed
+gczeal(0);
 
 // This function is used to escape "g" which is a non-escaped inner function.
 // As it is not escaped within "f", the lambda for "g" would be computed on the
@@ -36,7 +44,7 @@ var uceFault = function (i) {
     return false;
 };
 
-var uceFault_lambdaCall = eval(uneval(uceFault).replace('uceFault', 'uceFault_lambdaCall'));
+var uceFault_lambdaCall = eval(`(${uceFault})`.replace('uceFault', 'uceFault_lambdaCall'));
 function lambdaCall(i) {
     function g() {
         return i;

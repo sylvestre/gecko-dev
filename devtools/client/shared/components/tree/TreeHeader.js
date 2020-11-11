@@ -1,5 +1,3 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 2 -*- */
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -31,9 +29,11 @@ define(function(require, exports, module) {
 
     static get defaultProps() {
       return {
-        columns: [{
-          id: "default",
-        }],
+        columns: [
+          {
+            id: "default",
+          },
+        ],
       };
     }
 
@@ -68,7 +68,7 @@ define(function(require, exports, module) {
       // Render the rest of the columns (if any)
       this.props.columns.forEach(col => {
         const cellStyle = {
-          "width": col.width ? col.width : "",
+          width: col.width ? col.width : "",
         };
 
         let classNames = [];
@@ -79,28 +79,38 @@ define(function(require, exports, module) {
         }
 
         cells.push(
-          td({
-            className: classNames.join(" "),
-            style: cellStyle,
-            role: "presentation",
-            id: col.id,
-            key: col.id,
-          },
-            visible ? div({
-              className: "treeHeaderCellBox",
+          td(
+            {
+              className: classNames.join(" "),
+              style: cellStyle,
               role: "presentation",
-            }, col.title) : null
+              id: col.id,
+              key: col.id,
+            },
+            visible
+              ? div(
+                  {
+                    className: "treeHeaderCellBox",
+                    role: "presentation",
+                  },
+                  col.title
+                )
+              : null
           )
         );
       });
 
-      return (
-        thead({
+      return thead(
+        {
           role: "presentation",
-        }, tr({
-          className: visible ? "treeHeaderRow" : "",
-          role: "presentation",
-        }, cells))
+        },
+        tr(
+          {
+            className: visible ? "treeHeaderRow" : "",
+            role: "presentation",
+          },
+          cells
+        )
       );
     }
   }

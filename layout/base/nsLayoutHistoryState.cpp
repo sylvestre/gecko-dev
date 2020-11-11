@@ -27,7 +27,7 @@ class nsLayoutHistoryState final : public nsILayoutHistoryState,
   NS_DECL_NSILAYOUTHISTORYSTATE
 
  private:
-  ~nsLayoutHistoryState() {}
+  ~nsLayoutHistoryState() = default;
   bool mScrollPositionOnly;
 
   nsDataHashtable<nsCStringHashKey, UniquePtr<PresState>> mStates;
@@ -48,19 +48,14 @@ nsLayoutHistoryState::GetHasStates(bool* aHasStates) {
 }
 
 NS_IMETHODIMP
-nsLayoutHistoryState::GetKeys(uint32_t* aCount, char*** aKeys) {
+nsLayoutHistoryState::GetKeys(nsTArray<nsCString>& aKeys) {
   if (!HasStates()) {
     return NS_ERROR_FAILURE;
   }
 
-  char** keys =
-      static_cast<char**>(moz_xmalloc(sizeof(char*) * mStates.Count()));
-  *aCount = mStates.Count();
-  *aKeys = keys;
-
+  aKeys.SetCapacity(mStates.Count());
   for (auto iter = mStates.Iter(); !iter.Done(); iter.Next()) {
-    *keys = ToNewCString(iter.Key());
-    keys++;
+    aKeys.AppendElement(iter.Key());
   }
 
   return NS_OK;
@@ -138,6 +133,23 @@ void nsLayoutHistoryState::ResetScrollState() {
       state->scrollState() = nsPoint(0, 0);
     }
   }
+}
+
+void nsLayoutHistoryState::GetContents(bool* aScrollPositionOnly,
+                                       nsTArray<nsCString>& aKeys,
+                                       nsTArray<mozilla::PresState>& aStates) {
+  *aScrollPositionOnly = mScrollPositionOnly;
+  aKeys.SetCapacity(mStates.Count());
+  aStates.SetCapacity(mStates.Count());
+  for (auto iter = mStates.Iter(); !iter.Done(); iter.Next()) {
+    aKeys.AppendElement(iter.Key());
+    aStates.AppendElement(*(iter.Data().get()));
+  }
+}
+
+void nsLayoutHistoryState::Reset() {
+  mScrollPositionOnly = false;
+  mStates.Clear();
 }
 
 namespace mozilla {

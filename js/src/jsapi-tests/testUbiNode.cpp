@@ -2,8 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#include "mozilla/Utf8.h"  // mozilla::Utf8Unit
+
 #include "builtin/TestingFunctions.h"
-#include "js/CompilationAndEvaluation.h"
+#include "js/CompilationAndEvaluation.h"  // JS::Compile
+#include "js/SourceText.h"                // JS::Source{Ownership,Text}
 #include "js/UbiNode.h"
 #include "js/UbiNodeDominatorTree.h"
 #include "js/UbiNodePostOrder.h"
@@ -91,8 +94,12 @@ BEGIN_TEST(test_ubiNodeZone) {
   RootedString string1(
       cx, JS_NewStringCopyZ(cx, "Simpson's Individual Stringettes!"));
   CHECK(string1);
-  RootedScript script1(cx);
-  CHECK(JS::CompileUtf8(cx, options, "", 0, &script1));
+
+  JS::SourceText<mozilla::Utf8Unit> emptySrcBuf;
+  CHECK(emptySrcBuf.init(cx, "", 0, JS::SourceOwnership::Borrowed));
+
+  RootedScript script1(cx, JS::Compile(cx, options, emptySrcBuf));
+  CHECK(script1);
 
   {
     // ... and then enter global2's zone and create a string and script
@@ -102,8 +109,8 @@ BEGIN_TEST(test_ubiNodeZone) {
     RootedString string2(cx,
                          JS_NewStringCopyZ(cx, "A million household uses!"));
     CHECK(string2);
-    RootedScript script2(cx);
-    CHECK(JS::CompileUtf8(cx, options, "", 0, &script2));
+    RootedScript script2(cx, JS::Compile(cx, options, emptySrcBuf));
+    CHECK(script2);
 
     CHECK(JS::ubi::Node(string1).zone() == global1->zone());
     CHECK(JS::ubi::Node(script1).zone() == global1->zone());
@@ -136,17 +143,20 @@ BEGIN_TEST(test_ubiNodeCompartment) {
 
   JS::CompileOptions options(cx);
 
+  JS::SourceText<mozilla::Utf8Unit> emptySrcBuf;
+  CHECK(emptySrcBuf.init(cx, "", 0, JS::SourceOwnership::Borrowed));
+
   // Create a script in the original realm...
-  RootedScript script1(cx);
-  CHECK(JS::CompileUtf8(cx, options, "", 0, &script1));
+  RootedScript script1(cx, JS::Compile(cx, options, emptySrcBuf));
+  CHECK(script1);
 
   {
     // ... and then enter global2's realm and create a script
     // there, too.
     JSAutoRealm ar(cx, global2);
 
-    RootedScript script2(cx);
-    CHECK(JS::CompileUtf8(cx, options, "", 0, &script2));
+    RootedScript script2(cx, JS::Compile(cx, options, emptySrcBuf));
+    CHECK(script2);
 
     CHECK(JS::ubi::Node(script1).compartment() == global1->compartment());
     CHECK(JS::ubi::Node(script2).compartment() == global2->compartment());
@@ -166,20 +176,6 @@ BEGIN_TEST(test_ubiNodeCompartment) {
   return true;
 }
 END_TEST(test_ubiNodeCompartment)
-
-BEGIN_TEST(test_ubiNodeJSObjectConstructorName) {
-  JS::RootedValue val(cx);
-  EVAL("this.Ctor = function Ctor() {}; new Ctor", &val);
-  CHECK(val.isObject());
-
-  UniqueTwoByteChars ctorName;
-  CHECK(JS::ubi::Node(&val.toObject()).jsObjectConstructorName(cx, ctorName));
-  CHECK(ctorName);
-  CHECK(EqualChars(ctorName.get(), u"Ctor", js_strlen(u"Ctor") + 1));
-
-  return true;
-}
-END_TEST(test_ubiNodeJSObjectConstructorName)
 
 template <typename F, typename G>
 static bool checkString(const char* expected, F fillBufferFunction,
@@ -226,11 +222,12 @@ BEGIN_TEST(test_ubiStackFrame) {
 
   // All frames should be from the "filename.js" source.
   while (ubiFrame) {
-    CHECK(checkString("filename.js",
-                      [&](mozilla::RangedPtr<char16_t> ptr, size_t length) {
-                        return ubiFrame.source(ptr, length);
-                      },
-                      [&] { return ubiFrame.source(); }));
+    CHECK(checkString(
+        "filename.js",
+        [&](mozilla::RangedPtr<char16_t> ptr, size_t length) {
+          return ubiFrame.source(ptr, length);
+        },
+        [&] { return ubiFrame.source(); }));
     ubiFrame = ubiFrame.parent();
   }
 
@@ -248,16 +245,16 @@ BEGIN_TEST(test_ubiStackFrame) {
 
   ubiFrame = ubiFrame.parent();
   CHECK(checkString("two", bufferFunctionDisplayName, getFunctionDisplayName));
-  CHECK(ubiFrame.line() == 3);
+  CHECK(ubiFrame.line() == 5);
 
   ubiFrame = ubiFrame.parent();
   CHECK(checkString("one", bufferFunctionDisplayName, getFunctionDisplayName));
-  CHECK(ubiFrame.line() == 2);
+  CHECK(ubiFrame.line() == 6);
 
   ubiFrame = ubiFrame.parent();
   CHECK(ubiFrame.functionDisplayName().is<JSAtom*>());
   CHECK(ubiFrame.functionDisplayName().as<JSAtom*>() == nullptr);
-  CHECK(ubiFrame.line() == 1);
+  CHECK(ubiFrame.line() == 7);
 
   ubiFrame = ubiFrame.parent();
   CHECK(!ubiFrame);
@@ -275,8 +272,8 @@ BEGIN_TEST(test_ubiCoarseType) {
   JSScript* script = nullptr;
   CHECK(JS::ubi::Node(script).coarseType() == JS::ubi::CoarseType::Script);
 
-  js::LazyScript* lazyScript = nullptr;
-  CHECK(JS::ubi::Node(lazyScript).coarseType() == JS::ubi::CoarseType::Script);
+  js::BaseScript* baseScript = nullptr;
+  CHECK(JS::ubi::Node(baseScript).coarseType() == JS::ubi::CoarseType::Script);
 
   js::jit::JitCode* jitCode = nullptr;
   CHECK(JS::ubi::Node(jitCode).coarseType() == JS::ubi::CoarseType::Script);

@@ -23,6 +23,7 @@ add_task(async function() {
   await testCommandOrControlModifier(shortcuts);
   await testCtrlModifier(shortcuts);
   await testInvalidShortcutString(shortcuts);
+  await testNullShortcut(shortcuts);
   await testCmdShiftShortcut(shortcuts);
   await testTabCharacterShortcut(shortcuts);
   shortcuts.destroy();
@@ -100,7 +101,8 @@ async function testPlusCharacter(shortcuts) {
 async function testMixup(shortcuts) {
   info("Test possible listener mixup");
 
-  let hitFirst = false, hitSecond = false;
+  let hitFirst = false,
+    hitSecond = false;
   const onFirstKey = once(shortcuts, "0", event => {
     is(event.key, "0");
     hitFirst = true;
@@ -143,10 +145,7 @@ async function testLooseDigits(shortcuts) {
   });
   // Simulate a press on the "0" key, without shift pressed on a french
   // keyboard
-  EventUtils.synthesizeKey(
-    "à",
-    { keyCode: 48 },
-    window);
+  EventUtils.synthesizeKey("à", { keyCode: 48 }, window);
   await onKey;
 
   onKey = once(shortcuts, "0", event => {
@@ -157,10 +156,7 @@ async function testLooseDigits(shortcuts) {
     ok(event.shiftKey);
   });
   // Simulate the same press with shift pressed
-  EventUtils.synthesizeKey(
-    "0",
-    { keyCode: 48, shiftKey: true },
-    window);
+  EventUtils.synthesizeKey("0", { keyCode: 48, shiftKey: true }, window);
   await onKey;
 }
 
@@ -180,21 +176,26 @@ async function testExactModifiers(shortcuts) {
 
   // Dispatch with unexpected set of modifiers
   ok(!hit, "Shortcut isn't notified before firing the key event");
-  EventUtils.synthesizeKey("a",
+  EventUtils.synthesizeKey(
+    "a",
     { accelKey: true, altKey: true, shiftKey: true },
-    window);
+    window
+  );
   EventUtils.synthesizeKey(
     "a",
     { accelKey: true, altKey: false, shiftKey: false },
-    window);
+    window
+  );
   EventUtils.synthesizeKey(
     "a",
     { accelKey: false, altKey: false, shiftKey: true },
-    window);
+    window
+  );
   EventUtils.synthesizeKey(
     "a",
     { accelKey: false, altKey: false, shiftKey: false },
-    window);
+    window
+  );
 
   // Wait an extra time to let a chance to call the listener
   await new Promise(done => {
@@ -203,8 +204,11 @@ async function testExactModifiers(shortcuts) {
   ok(!hit, "Listener isn't called when modifiers aren't exactly matching");
 
   // Dispatch the expected modifiers
-  EventUtils.synthesizeKey("a", { accelKey: false, altKey: true, shiftKey: false},
-                           window);
+  EventUtils.synthesizeKey(
+    "a",
+    { accelKey: false, altKey: true, shiftKey: false },
+    window
+  );
   await onKey;
   ok(hit, "Got shortcut notified once it is actually fired");
 }
@@ -224,8 +228,9 @@ async function testLooseShiftModifier(shortcuts) {
   });
   EventUtils.synthesizeKey(
     "%",
-    { accelKey: false, altKey: false, ctrlKey: false, shiftKey: true},
-    window);
+    { accelKey: false, altKey: false, ctrlKey: false, shiftKey: true },
+    window
+  );
   await onKey;
 
   onKey = once(shortcuts, "@", event => {
@@ -237,8 +242,9 @@ async function testLooseShiftModifier(shortcuts) {
   });
   EventUtils.synthesizeKey(
     "@",
-    { accelKey: false, altKey: false, ctrlKey: false, shiftKey: true},
-    window);
+    { accelKey: false, altKey: false, ctrlKey: false, shiftKey: true },
+    window
+  );
   await onKey;
 }
 
@@ -261,17 +267,11 @@ async function testStrictLetterShiftModifier(shortcuts) {
     ok(!event.metaKey);
     ok(event.shiftKey);
   });
-  EventUtils.synthesizeKey(
-    "a",
-    { shiftKey: true},
-    window);
+  EventUtils.synthesizeKey("a", { shiftKey: true }, window);
   await onShiftKey;
   ok(!hitFirst, "Didn't fire the explicit shift+a");
 
-  EventUtils.synthesizeKey(
-    "a",
-    { shiftKey: false},
-    window);
+  EventUtils.synthesizeKey("a", { shiftKey: false }, window);
   await onKey;
 }
 
@@ -284,10 +284,7 @@ async function testAltModifier(shortcuts) {
     ok(!event.metaKey);
     ok(!event.shiftKey);
   });
-  EventUtils.synthesizeKey(
-    "VK_F1",
-    { altKey: true },
-    window);
+  EventUtils.synthesizeKey("VK_F1", { altKey: true }, window);
   await onKey;
 }
 
@@ -318,15 +315,9 @@ async function testCommandOrControlModifier(shortcuts) {
     ok(!event.shiftKey);
   });
   if (isOSX) {
-    EventUtils.synthesizeKey(
-      "VK_F1",
-      { metaKey: true },
-      window);
+    EventUtils.synthesizeKey("VK_F1", { metaKey: true }, window);
   } else {
-    EventUtils.synthesizeKey(
-      "VK_F1",
-      { ctrlKey: true },
-      window);
+    EventUtils.synthesizeKey("VK_F1", { ctrlKey: true }, window);
   }
   await onKey;
   await onKeyAlias;
@@ -348,10 +339,7 @@ async function testCtrlModifier(shortcuts) {
     ok(!event.metaKey);
     ok(!event.shiftKey);
   });
-  EventUtils.synthesizeKey(
-    "VK_F1",
-    { ctrlKey: true },
-    window);
+  EventUtils.synthesizeKey("VK_F1", { ctrlKey: true }, window);
   await onKey;
   await onKeyAlias;
 }
@@ -377,14 +365,8 @@ async function testCmdShiftShortcut(shortcuts) {
     ok(event.shiftKey);
   });
 
-  EventUtils.synthesizeKey(
-    "[",
-    { metaKey: true, shiftKey: true },
-    window);
-  EventUtils.synthesizeKey(
-    "[",
-    { metaKey: true },
-    window);
+  EventUtils.synthesizeKey("[", { metaKey: true, shiftKey: true }, window);
+  EventUtils.synthesizeKey("[", { metaKey: true }, window);
 
   await onCmdKey;
   await onCmdShiftKey;
@@ -393,8 +375,10 @@ async function testCmdShiftShortcut(shortcuts) {
 async function testTarget() {
   info("Test KeyShortcuts with target argument");
 
-  const target = document.createElementNS("http://www.w3.org/1999/xhtml",
-    "input");
+  const target = document.createElementNS(
+    "http://www.w3.org/1999/xhtml",
+    "input"
+  );
   document.documentElement.appendChild(target);
   target.focus();
 
@@ -418,10 +402,28 @@ function testInvalidShortcutString(shortcuts) {
   info("Test wrong shortcut string");
 
   const shortcut = KeyShortcuts.parseElectronKey(window, "Cmmd+F");
-  ok(!shortcut, "Passing a invalid shortcut string should return a null object");
+  ok(
+    !shortcut,
+    "Passing a invalid shortcut string should return a null object"
+  );
 
   shortcuts.on("Cmmd+F", function() {});
   ok(true, "on() shouldn't throw when passing invalid shortcut string");
+}
+
+// Can happen on localized builds where the value of the localized string is
+// empty, eg `toolbox.elementPicker.key=`. See Bug 1569572.
+function testNullShortcut(shortcuts) {
+  info("Test null shortcut");
+
+  const shortcut = KeyShortcuts.parseElectronKey(window, null);
+  ok(!shortcut, "Passing a null object should return a null object");
+
+  const stringified = KeyShortcuts.stringify(shortcut);
+  is(stringified, "", "A null object should be stringified as an empty string");
+
+  shortcuts.on(null, function() {});
+  ok(true, "on() shouldn't throw when passing a null object");
 }
 
 /**
@@ -449,14 +451,18 @@ async function testTabCharacterShortcut(shortcuts) {
   // Simulate `CmdOrCtrl+Alt+Shift+I` shortcut. Note that EventUtils doesn't
   // generate `^` like real keyboard, so we need to pass it explicitly
   // and use proper keyCode for `I` character.
-  EventUtils.synthesizeKey("^", {
-    code: "KeyI",
-    key: "^",
-    keyCode: 73,
-    shiftKey: true,
-    altKey: true,
-    metaKey: true,
-  }, window);
+  EventUtils.synthesizeKey(
+    "^",
+    {
+      code: "KeyI",
+      key: "^",
+      keyCode: 73,
+      shiftKey: true,
+      altKey: true,
+      metaKey: true,
+    },
+    window
+  );
 
   await onKey;
 }

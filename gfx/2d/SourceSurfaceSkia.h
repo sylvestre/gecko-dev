@@ -25,11 +25,11 @@ class SourceSurfaceSkia : public DataSourceSurface {
   MOZ_DECLARE_REFCOUNTED_VIRTUAL_TYPENAME(DataSourceSurfaceSkia, override)
 
   SourceSurfaceSkia();
-  ~SourceSurfaceSkia();
+  virtual ~SourceSurfaceSkia();
 
-  virtual SurfaceType GetType() const override { return SurfaceType::SKIA; }
-  virtual IntSize GetSize() const override;
-  virtual SurfaceFormat GetFormat() const override;
+  SurfaceType GetType() const override { return SurfaceType::SKIA; }
+  IntSize GetSize() const override;
+  SurfaceFormat GetFormat() const override;
 
   // This is only ever called by the DT destructor, which can only ever happen
   // from one place at a time. Therefore it doesn't need to hold the ChangeMutex
@@ -40,7 +40,7 @@ class SourceSurfaceSkia : public DataSourceSurface {
     mDrawTarget = nullptr;
   }
 
-  sk_sp<SkImage> GetImage();
+  sk_sp<SkImage> GetImage(Maybe<MutexAutoLock>* aLock);
 
   bool InitFromData(unsigned char* aData, const IntSize& aSize, int32_t aStride,
                     SurfaceFormat aFormat);
@@ -49,16 +49,16 @@ class SourceSurfaceSkia : public DataSourceSurface {
                      SurfaceFormat aFormat = SurfaceFormat::UNKNOWN,
                      DrawTargetSkia* aOwner = nullptr);
 
-  virtual uint8_t* GetData() override;
+  uint8_t* GetData() override;
 
   /**
    * The caller is responsible for ensuring aMappedSurface is not null.
    */
-  virtual bool Map(MapType, MappedSurface* aMappedSurface) override;
+  bool Map(MapType, MappedSurface* aMappedSurface) override;
 
-  virtual void Unmap() override;
+  void Unmap() override;
 
-  virtual int32_t Stride() override { return mStride; }
+  int32_t Stride() override { return mStride; }
 
  private:
   friend class DrawTargetSkia;

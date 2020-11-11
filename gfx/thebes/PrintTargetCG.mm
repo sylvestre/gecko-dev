@@ -13,60 +13,52 @@
 namespace mozilla {
 namespace gfx {
 
-PrintTargetCG::PrintTargetCG(PMPrintSession aPrintSession,
-                             PMPageFormat aPageFormat,
-                             PMPrintSettings aPrintSettings,
-                             const IntSize& aSize)
-  : PrintTarget(/* aCairoSurface */ nullptr, aSize)
-  , mPrintSession(aPrintSession)
-  , mPageFormat(aPageFormat)
-  , mPrintSettings(aPrintSettings)
-{
+PrintTargetCG::PrintTargetCG(PMPrintSession aPrintSession, PMPageFormat aPageFormat,
+                             PMPrintSettings aPrintSettings, const IntSize& aSize)
+    : PrintTarget(/* aCairoSurface */ nullptr, aSize),
+      mPrintSession(aPrintSession),
+      mPageFormat(aPageFormat),
+      mPrintSettings(aPrintSettings) {
   NS_OBJC_BEGIN_TRY_ABORT_BLOCK;
+
+  MOZ_ASSERT(mPrintSession && mPageFormat && mPrintSettings);
 
   ::PMRetain(mPrintSession);
+  ::PMRetain(mPageFormat);
+  ::PMRetain(mPrintSettings);
 
   // TODO: Add memory reporting like gfxQuartzSurface.
-  //RecordMemoryUsed(mSize.height * 4 + sizeof(gfxQuartzSurface));
+  // RecordMemoryUsed(mSize.height * 4 + sizeof(gfxQuartzSurface));
 
   NS_OBJC_END_TRY_ABORT_BLOCK;
 }
 
-PrintTargetCG::~PrintTargetCG()
-{
+PrintTargetCG::~PrintTargetCG() {
   NS_OBJC_BEGIN_TRY_ABORT_BLOCK;
 
-  if (mPrintSession)
-    ::PMRelease(mPrintSession);
+  ::PMRelease(mPrintSession);
+  ::PMRelease(mPageFormat);
+  ::PMRelease(mPrintSettings);
 
   NS_OBJC_END_TRY_ABORT_BLOCK;
 }
 
-/* static */ already_AddRefed<PrintTargetCG>
-PrintTargetCG::CreateOrNull(PMPrintSession aPrintSession,
-                            PMPageFormat aPageFormat,
-                            PMPrintSettings aPrintSettings,
-                            const IntSize& aSize)
-{
+/* static */ already_AddRefed<PrintTargetCG> PrintTargetCG::CreateOrNull(
+    PMPrintSession aPrintSession, PMPageFormat aPageFormat, PMPrintSettings aPrintSettings,
+    const IntSize& aSize) {
   if (!Factory::CheckSurfaceSize(aSize)) {
     return nullptr;
   }
 
-  RefPtr<PrintTargetCG> target = new PrintTargetCG(aPrintSession, aPageFormat,
-                                                   aPrintSettings, aSize);
+  RefPtr<PrintTargetCG> target =
+      new PrintTargetCG(aPrintSession, aPageFormat, aPrintSettings, aSize);
 
   return target.forget();
 }
 
-static size_t
-PutBytesNull(void* info, const void* buffer, size_t count)
-{
-  return count;
-}
+static size_t PutBytesNull(void* info, const void* buffer, size_t count) { return count; }
 
-already_AddRefed<DrawTarget>
-PrintTargetCG::GetReferenceDrawTarget()
-{
+already_AddRefed<DrawTarget> PrintTargetCG::GetReferenceDrawTarget() {
   if (!mRefDT) {
     const IntSize size(1, 1);
 
@@ -76,8 +68,7 @@ PrintTargetCG::GetReferenceDrawTarget()
     CGDataConsumerRelease(consumer);
 
     cairo_surface_t* similar =
-      cairo_quartz_surface_create_for_cg_context(
-        pdfContext, size.width, size.height);
+        cairo_quartz_surface_create_for_cg_context(pdfContext, size.width, size.height);
 
     CGContextRelease(pdfContext);
 
@@ -85,8 +76,7 @@ PrintTargetCG::GetReferenceDrawTarget()
       return nullptr;
     }
 
-    RefPtr<DrawTarget> dt =
-      Factory::CreateDrawTargetForCairoSurface(similar, size);
+    RefPtr<DrawTarget> dt = Factory::CreateDrawTargetForCairoSurface(similar, size);
 
     // The DT addrefs the surface, so we need drop our own reference to it:
     cairo_surface_destroy(similar);
@@ -100,13 +90,25 @@ PrintTargetCG::GetReferenceDrawTarget()
   return do_AddRef(mRefDT);
 }
 
-nsresult
-PrintTargetCG::BeginPrinting(const nsAString& aTitle,
-                             const nsAString& aPrintToFileName,
-                             int32_t aStartPage,
-                             int32_t aEndPage)
-{
+nsresult PrintTargetCG::BeginPrinting(const nsAString& aTitle, const nsAString& aPrintToFileName,
+                                      int32_t aStartPage, int32_t aEndPage) {
   NS_OBJC_BEGIN_TRY_ABORT_BLOCK_NSRESULT;
+
+  // Print Core of Application Service sent print job with names exceeding
+  // 255 bytes. This is a workaround until fix it.
+  // (https://openradar.appspot.com/34428043)
+  nsAutoString adjustedTitle;
+  PrintTarget::AdjustPrintJobNameForIPP(aTitle, adjustedTitle);
+
+  if (!adjustedTitle.IsEmpty()) {
+    CFStringRef cfString = ::CFStringCreateWithCharacters(
+        NULL, reinterpret_cast<const UniChar*>(adjustedTitle.BeginReading()),
+        adjustedTitle.Length());
+    if (cfString) {
+      ::PMPrintSettingsSetJobName(mPrintSettings, cfString);
+      ::CFRelease(cfString);
+    }
+  }
 
   OSStatus status;
   status = ::PMSetFirstPage(mPrintSettings, aStartPage, false);
@@ -121,9 +123,7 @@ PrintTargetCG::BeginPrinting(const nsAString& aTitle,
   NS_OBJC_END_TRY_ABORT_BLOCK_NSRESULT;
 }
 
-nsresult
-PrintTargetCG::EndPrinting()
-{
+nsresult PrintTargetCG::EndPrinting() {
   NS_OBJC_BEGIN_TRY_ABORT_BLOCK_NSRESULT;
 
   ::PMSessionEndDocumentNoDialog(mPrintSession);
@@ -132,18 +132,14 @@ PrintTargetCG::EndPrinting()
   NS_OBJC_END_TRY_ABORT_BLOCK_NSRESULT;
 }
 
-nsresult
-PrintTargetCG::AbortPrinting()
-{
+nsresult PrintTargetCG::AbortPrinting() {
 #ifdef DEBUG
   mHasActivePage = false;
 #endif
   return EndPrinting();
 }
 
-nsresult
-PrintTargetCG::BeginPage()
-{
+nsresult PrintTargetCG::BeginPage() {
   NS_OBJC_BEGIN_TRY_ABORT_BLOCK_NSRESULT;
 
   PMSessionError(mPrintSession);
@@ -169,8 +165,7 @@ PrintTargetCG::BeginPage()
   CGContextTranslateCTM(context, 0, height);
   CGContextScaleCTM(context, 1.0, -1.0);
 
-  cairo_surface_t* surface =
-    cairo_quartz_surface_create_for_cg_context(context, width, height);
+  cairo_surface_t* surface = cairo_quartz_surface_create_for_cg_context(context, width, height);
 
   if (cairo_surface_status(surface)) {
     return NS_ERROR_FAILURE;
@@ -183,9 +178,7 @@ PrintTargetCG::BeginPage()
   NS_OBJC_END_TRY_ABORT_BLOCK_NSRESULT;
 }
 
-nsresult
-PrintTargetCG::EndPage()
-{
+nsresult PrintTargetCG::EndPage() {
   NS_OBJC_BEGIN_TRY_ABORT_BLOCK_NSRESULT;
 
   cairo_surface_finish(mCairoSurface);
@@ -201,5 +194,5 @@ PrintTargetCG::EndPage()
   NS_OBJC_END_TRY_ABORT_BLOCK_NSRESULT;
 }
 
-} // namespace gfx
-} // namespace mozilla
+}  // namespace gfx
+}  // namespace mozilla

@@ -7,23 +7,26 @@
 use std::fmt::Display;
 use std::iter::{self, Zip};
 #[cfg(feature = "use_std")]
-use Itertools;
+type VecIntoIter<T> = ::std::vec::IntoIter<T>;
 
-pub use adaptors::{
+#[cfg(feature = "use_std")]
+use crate::Itertools;
+
+pub use crate::adaptors::{
     interleave,
     merge,
     put_back,
 };
 #[cfg(feature = "use_std")]
-pub use put_back_n_impl::put_back_n;
+pub use crate::put_back_n_impl::put_back_n;
 #[cfg(feature = "use_std")]
-pub use multipeek_impl::multipeek;
+pub use crate::multipeek_impl::multipeek;
 #[cfg(feature = "use_std")]
-pub use kmerge_impl::kmerge;
-pub use zip_eq_impl::zip_eq;
-pub use merge_join::merge_join_by;
+pub use crate::kmerge_impl::kmerge;
+pub use crate::zip_eq_impl::zip_eq;
+pub use crate::merge_join::merge_join_by;
 #[cfg(feature = "use_std")]
-pub use rciter_impl::rciter;
+pub use crate::rciter_impl::rciter;
 
 /// Iterate `iterable` with a running index.
 ///
@@ -211,9 +214,11 @@ pub fn join<I>(iterable: I, sep: &str) -> String
     iterable.into_iter().join(sep)
 }
 
-/// Collect all the iterable's elements into a sorted vector in ascending order.
+/// Sort all iterator elements into a new iterator in ascending order.
 ///
-/// `IntoIterator` enabled version of `iterable.sorted()`.
+/// `IntoIterator` enabled version of [`iterable.sorted()`][1].
+///
+/// [1]: trait.Itertools.html#method.sorted
 ///
 /// ```
 /// use itertools::sorted;
@@ -222,7 +227,7 @@ pub fn join<I>(iterable: I, sep: &str) -> String
 /// assert_equal(sorted("rust".chars()), "rstu".chars());
 /// ```
 #[cfg(feature = "use_std")]
-pub fn sorted<I>(iterable: I) -> Vec<I::Item>
+pub fn sorted<I>(iterable: I) -> VecIntoIter<I::Item>
     where I: IntoIterator,
           I::Item: Ord
 {

@@ -21,8 +21,14 @@ ProcessHandle GetCurrentProcessHandle() {
 }
 
 ProcessId GetProcId(ProcessHandle process) {
+  if (process == base::kNullProcessHandle)
+    return 0;
   // This returns 0 if we have insufficient rights to query the process handle.
-  return GetProcessId(process);
+  // Invalid handles or non-process handles will cause a hard failure.
+  ProcessId result = GetProcessId(process);
+  CHECK(result != 0 || GetLastError() != ERROR_INVALID_HANDLE)
+      << "process handle = " << process;
+  return result;
 }
 
 ProcessId GetParentProcessId(ProcessHandle process) {
@@ -38,6 +44,8 @@ ProcessId GetParentProcessId(ProcessHandle process) {
     } while (Process32Next(snapshot.Get(), &process_entry));
   }
 
+  // TODO(zijiehe): To match other platforms, -1 (UINT32_MAX) should be returned
+  // if |child_id| cannot be found in the |snapshot|.
   return 0u;
 }
 

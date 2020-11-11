@@ -10,8 +10,7 @@
 
 NS_IMPL_NS_NEW_HTML_ELEMENT(Meter)
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 const double HTMLMeterElement::kDefaultValue = 0.0;
 const double HTMLMeterElement::kDefaultMin = 0.0;
@@ -21,7 +20,7 @@ HTMLMeterElement::HTMLMeterElement(
     already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo)
     : nsGenericHTMLElement(std::move(aNodeInfo)) {}
 
-HTMLMeterElement::~HTMLMeterElement() {}
+HTMLMeterElement::~HTMLMeterElement() = default;
 
 NS_IMPL_ELEMENT_CLONE(HTMLMeterElement)
 
@@ -240,5 +239,4 @@ JSObject* HTMLMeterElement::WrapNode(JSContext* aCx,
   return HTMLMeterElement_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

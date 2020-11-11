@@ -8,8 +8,7 @@
 #include "AudioContext.h"
 #include "mozilla/dom/PeriodicWaveBinding.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(PeriodicWave, mContext)
 
@@ -17,20 +16,46 @@ NS_IMPL_CYCLE_COLLECTION_ROOT_NATIVE(PeriodicWave, AddRef)
 NS_IMPL_CYCLE_COLLECTION_UNROOT_NATIVE(PeriodicWave, Release)
 
 PeriodicWave::PeriodicWave(AudioContext* aContext, const float* aRealData,
-                           const float* aImagData, const uint32_t aLength,
+                           const uint32_t aRealSize, const float* aImagData,
+                           const uint32_t aImagSize,
                            const bool aDisableNormalization, ErrorResult& aRv)
     : mContext(aContext), mDisableNormalization(aDisableNormalization) {
+  if (aRealData && aImagData && aRealSize != aImagSize) {
+    aRv.ThrowIndexSizeError("\"real\" and \"imag\" are different in length");
+    return;
+  }
+
+  uint32_t length = 0;
+  if (aRealData) {
+    length = aRealSize;
+  } else if (aImagData) {
+    length = aImagSize;
+  } else {
+    // If nothing has been passed, this PeriodicWave will be a sine wave: 2
+    // elements for each array, the second imaginary component set to 1.0.
+    length = 2;
+  }
+
+  if (length < 2) {
+    aRv.ThrowIndexSizeError(
+        "\"real\" and \"imag\" must have a length of "
+        "at least 2");
+    return;
+  }
+
   MOZ_ASSERT(aContext);
-  MOZ_ASSERT((aRealData || aImagData) || aLength == 2);
+  MOZ_ASSERT((aRealData || aImagData) || length == 2);
 
   // Caller should have checked this and thrown.
-  MOZ_ASSERT(aLength > 0);
-  mCoefficients.mDuration = aLength;
+  MOZ_ASSERT(length >= 2);
+  mCoefficients.mDuration = length;
 
   // Copy coefficient data.
   // The SharedBuffer and two arrays share a single allocation.
-  RefPtr<SharedBuffer> buffer =
-      SharedBuffer::Create(sizeof(float) * aLength * 2, fallible);
+  CheckedInt<size_t> bufferSize(sizeof(float));
+  bufferSize *= length;
+  bufferSize *= 2;
+  RefPtr<SharedBuffer> buffer = SharedBuffer::Create(bufferSize, fallible);
   if (!buffer) {
     aRv.Throw(NS_ERROR_OUT_OF_MEMORY);
     return;
@@ -40,25 +65,25 @@ PeriodicWave::PeriodicWave(AudioContext* aContext, const float* aRealData,
   mCoefficients.mBuffer = std::move(buffer);
 
   if (!aRealData && !aImagData) {
-    PodZero(data, aLength);
+    PodZero(data, length);
     mCoefficients.mChannelData.AppendElement(data);
-    data += aLength;
+    data += length;
     data[0] = 0.0f;
     data[1] = 1.0f;
     mCoefficients.mChannelData.AppendElement(data);
   } else {
     if (aRealData) {
-      PodCopy(data, aRealData, aLength);
+      PodCopy(data, aRealData, length);
     } else {
-      PodZero(data, aLength);
+      PodZero(data, length);
     }
     mCoefficients.mChannelData.AppendElement(data);
 
-    data += aLength;
+    data += length;
     if (aImagData) {
-      PodCopy(data, aImagData, aLength);
+      PodCopy(data, aImagData, length);
     } else {
-      PodZero(data, aLength);
+      PodZero(data, length);
     }
     mCoefficients.mChannelData.AppendElement(data);
   }
@@ -66,38 +91,33 @@ PeriodicWave::PeriodicWave(AudioContext* aContext, const float* aRealData,
   mCoefficients.mBufferFormat = AUDIO_FORMAT_FLOAT32;
 }
 
-/* static */ already_AddRefed<PeriodicWave> PeriodicWave::Constructor(
+/* static */
+already_AddRefed<PeriodicWave> PeriodicWave::Constructor(
     const GlobalObject& aGlobal, AudioContext& aAudioContext,
     const PeriodicWaveOptions& aOptions, ErrorResult& aRv) {
-  if (aOptions.mReal.WasPassed() && aOptions.mImag.WasPassed() &&
-      aOptions.mReal.Value().Length() != aOptions.mImag.Value().Length()) {
-    aRv.Throw(NS_ERROR_DOM_INDEX_SIZE_ERR);
-    return nullptr;
-  }
+  const float* realData;
+  const float* imagData;
+  uint32_t realSize;
+  uint32_t imagSize;
 
-  uint32_t length = 0;
   if (aOptions.mReal.WasPassed()) {
-    length = aOptions.mReal.Value().Length();
-  } else if (aOptions.mImag.WasPassed()) {
-    length = aOptions.mImag.Value().Length();
+    realData = aOptions.mReal.Value().Elements();
+    realSize = aOptions.mReal.Value().Length();
   } else {
-    // If nothing has been passed, this PeriodicWave will be a sine wave: 2
-    // elements for each array, the second imaginary component set to 1.0.
-    length = 2;
+    realData = nullptr;
+    realSize = 0;
   }
 
-  if (length == 0) {
-    aRv.Throw(NS_ERROR_DOM_INDEX_SIZE_ERR);
-    return nullptr;
+  if (aOptions.mImag.WasPassed()) {
+    imagData = aOptions.mImag.Value().Elements();
+    imagSize = aOptions.mImag.Value().Length();
+  } else {
+    imagData = nullptr;
+    imagSize = 0;
   }
-
-  const float* realData =
-      aOptions.mReal.WasPassed() ? aOptions.mReal.Value().Elements() : nullptr;
-  const float* imagData =
-      aOptions.mImag.WasPassed() ? aOptions.mImag.Value().Elements() : nullptr;
 
   RefPtr<PeriodicWave> wave =
-      new PeriodicWave(&aAudioContext, realData, imagData, length,
+      new PeriodicWave(&aAudioContext, realData, realSize, imagData, imagSize,
                        aOptions.mDisableNormalization, aRv);
   if (aRv.Failed()) {
     return nullptr;
@@ -126,5 +146,4 @@ JSObject* PeriodicWave::WrapObject(JSContext* aCx,
   return PeriodicWave_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

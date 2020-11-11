@@ -5,13 +5,14 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #if !defined(OmxPlatformLayer_h_)
-#define OmxPlatformLayer_h_
+#  define OmxPlatformLayer_h_
 
-#include "OMX_Core.h"
-#include "OMX_Types.h"
+#  include "OMX_Core.h"
+#  include "OMX_Types.h"
+#  include "OMX_Video.h"
 
-#include "nsStringFwd.h"
-#include "OmxPromiseLayer.h"
+#  include "nsStringFwd.h"
+#  include "OmxPromiseLayer.h"
 
 namespace mozilla {
 
@@ -63,7 +64,7 @@ class OmxPlatformLayer {
 
   virtual nsresult Shutdown() = 0;
 
-  virtual ~OmxPlatformLayer() {}
+  virtual ~OmxPlatformLayer() = default;
 
   // For decoders, input port index is start port number and output port is
   // next. See OpenMAX IL spec v1.1.2 section 8.6.1 & 8.8.1.

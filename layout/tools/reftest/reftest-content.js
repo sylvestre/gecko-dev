@@ -20,6 +20,9 @@ Cu.import("resource://gre/modules/Timer.jsm");
 Cu.import("resource://reftest/AsyncSpellCheckTestHelper.jsm");
 Cu.import("resource://gre/modules/Services.jsm");
 
+// This will load chrome Custom Elements inside chrome documents:
+ChromeUtils.import("resource://gre/modules/CustomElementsListener.jsm", null);
+
 var gBrowserIsRemote;
 var gIsWebRenderEnabled;
 var gHaveCanvasSnapshot = false;
@@ -33,6 +36,7 @@ var gHaveCanvasSnapshot = false;
 var gExplicitPendingPaintCount = 0;
 var gExplicitPendingPaintsCompleteHook;
 var gCurrentURL;
+var gCurrentURLRecordResults;
 var gCurrentURLTargetType;
 var gCurrentTestType;
 var gTimeoutHook = null;
@@ -56,12 +60,12 @@ const TYPE_PRINT = 'print'; // test and reference will be printed to PDF's and
 const URL_TARGET_TYPE_TEST = 0;      // first url
 const URL_TARGET_TYPE_REFERENCE = 1; // second url, if any
 
-function markupDocumentViewer() {
-    return docShell.contentViewer;
-}
-
 function webNavigation() {
     return docShell.QueryInterface(Ci.nsIWebNavigation);
+}
+
+function webProgress() {
+    return docShell.QueryInterface(Ci.nsIInterfaceRequestor).getInterface(Ci.nsIWebProgress);
 }
 
 function windowUtilsForWindow(w) {
@@ -101,11 +105,35 @@ function PaintWaitFinishedListener(event)
     }
 }
 
+var progressListener = {
+  onStateChange(webprogress, request, flags, status) {
+    let uri;
+    try {
+      request.QueryInterface(Ci.nsIChannel);
+      uri = request.originalURI.spec;
+    } catch (ex) {
+      return;
+    }
+    const WPL = Ci.nsIWebProgressListener;
+    const endFlags = WPL.STATE_STOP | WPL.STATE_IS_WINDOW | WPL.STATE_IS_NETWORK;
+    if ((flags & endFlags) == endFlags) {
+      OnDocumentLoad(uri);
+    }
+  },
+  QueryInterface: ChromeUtils.generateQI([
+    "nsIWebProgressListener",
+    "nsISupportsWeakReference",
+  ]),
+};
+
 function OnInitialLoad()
 {
     removeEventListener("load", OnInitialLoad, true);
 
     gDebug = Cc[DEBUG_CONTRACTID].getService(Ci.nsIDebug2);
+    if (gDebug.isDebugBuild) {
+        gAssertionCount = gDebug.assertionCount;
+    }
     var env = Cc[ENVIRONMENT_CONTRACTID].getService(Ci.nsIEnvironment);
     gVerbose = !!env.get("MOZ_REFTEST_VERBOSE");
 
@@ -114,7 +142,7 @@ function OnInitialLoad()
     var initInfo = SendContentReady();
     gBrowserIsRemote = initInfo.remote;
 
-    addEventListener("load", OnDocumentLoad, true);
+    webProgress().addProgressListener(progressListener, Ci.nsIWebProgress.NOTIFY_STATE_WINDOW);
 
     addEventListener("MozPaintWait", PaintWaitListener, true);
     addEventListener("MozPaintWaitFinished", PaintWaitFinishedListener, true);
@@ -163,6 +191,7 @@ function StartTestURI(type, uri, uriTargetType, timeout)
     gCurrentTestType = type;
     gCurrentURL = uri;
     gCurrentURLTargetType = uriTargetType;
+    gCurrentURLRecordResults = 0;
 
     gCurrentTestStartTime = Date.now();
     if (gFailureTimeout != null) {
@@ -173,15 +202,23 @@ function StartTestURI(type, uri, uriTargetType, timeout)
     LoadURI(gCurrentURL);
 }
 
+function setupTextZoom(contentRootElement) {
+    if (!contentRootElement || !contentRootElement.hasAttribute('reftest-text-zoom'))
+        return;
+    docShell.browsingContext.textZoom =
+        contentRootElement.getAttribute('reftest-text-zoom');
+}
+
 function setupFullZoom(contentRootElement) {
     if (!contentRootElement || !contentRootElement.hasAttribute('reftest-zoom'))
         return;
-    markupDocumentViewer().fullZoom =
+    docShell.browsingContext.fullZoom =
         contentRootElement.getAttribute('reftest-zoom');
 }
 
-function resetZoom() {
-    markupDocumentViewer().fullZoom = 1.0;
+function resetZoomAndTextZoom() {
+    docShell.browsingContext.fullZoom = 1.0;
+    docShell.browsingContext.textZoom = 1.0;
 }
 
 function doPrintMode(contentRootElement) {
@@ -198,30 +235,33 @@ function doPrintMode(contentRootElement) {
 }
 
 function setupPrintMode() {
-   var PSSVC =
-       Cc[PRINTSETTINGS_CONTRACTID].getService(Ci.nsIPrintSettingsService);
-   var ps = PSSVC.newPrintSettings;
-   ps.paperWidth = 5;
-   ps.paperHeight = 3;
+    var PSSVC =
+        Cc[PRINTSETTINGS_CONTRACTID].getService(Ci.nsIPrintSettingsService);
+    var ps = PSSVC.newPrintSettings;
+    ps.paperWidth = 5;
+    ps.paperHeight = 3;
 
-   // Override any os-specific unwriteable margins
-   ps.unwriteableMarginTop = 0;
-   ps.unwriteableMarginLeft = 0;
-   ps.unwriteableMarginBottom = 0;
-   ps.unwriteableMarginRight = 0;
+    // Override any os-specific unwriteable margins
+    ps.unwriteableMarginTop = 0;
+    ps.unwriteableMarginLeft = 0;
+    ps.unwriteableMarginBottom = 0;
+    ps.unwriteableMarginRight = 0;
 
-   ps.headerStrLeft = "";
-   ps.headerStrCenter = "";
-   ps.headerStrRight = "";
-   ps.footerStrLeft = "";
-   ps.footerStrCenter = "";
-   ps.footerStrRight = "";
-   docShell.contentViewer.setPageMode(true, ps);
+    ps.headerStrLeft = "";
+    ps.headerStrCenter = "";
+    ps.headerStrRight = "";
+    ps.footerStrLeft = "";
+    ps.footerStrCenter = "";
+    ps.footerStrRight = "";
+
+    ps.printBGColors = true;
+    ps.printBGImages = true;
+
+    docShell.contentViewer.setPageModeForTesting(/* aPageMode */ true, ps);
 }
 
-// Prints current page to a PDF file and calls callback when sucessfully
-// printed and written.
-function printToPdf(callback) {
+// Message the parent process to ask it to print the current page to a PDF file.
+function printToPdf() {
     let currentDoc = content.document;
     let isPrintSelection = false;
     let printRange = '';
@@ -234,50 +274,13 @@ function printToPdf(callback) {
     if (printRange) {
         if (printRange === 'selection') {
             isPrintSelection = true;
-        } else if (!/^[1-9]\d*-[1-9]\d*$/.test(printRange)) {
+        } else if (!printRange.split(',').every(range => /^[1-9]\d*-[1-9]\d*$/.test(range))) {
             SendException("invalid value for reftest-print-range");
             return;
         }
     }
 
-    let fileName = "reftest-print.pdf";
-    let file = Services.dirsvc.get("TmpD", Ci.nsIFile);
-    file.append(fileName);
-    file.createUnique(file.NORMAL_FILE_TYPE, 0o644);
-
-    let PSSVC = Cc[PRINTSETTINGS_CONTRACTID].getService(Ci.nsIPrintSettingsService);
-    let ps = PSSVC.newPrintSettings;
-    ps.printSilent = true;
-    ps.showPrintProgress = false;
-    ps.printBGImages = true;
-    ps.printBGColors = true;
-    ps.printToFile = true;
-    ps.toFileName = file.path;
-    ps.printFrameType = Ci.nsIPrintSettings.kFramesAsIs;
-    ps.outputFormat = Ci.nsIPrintSettings.kOutputFormatPDF;
-
-    if (isPrintSelection) {
-        ps.printRange = Ci.nsIPrintSettings.kRangeSelection;
-    } else if (printRange) {
-        ps.printRange = Ci.nsIPrintSettings.kRangeSpecifiedPageRange;
-        let range = printRange.split('-');
-        ps.startPageRange = +range[0] || 1;
-        ps.endPageRange = +range[1] || 1;
-    }
-
-    let webBrowserPrint = content.getInterface(Ci.nsIWebBrowserPrint);
-    webBrowserPrint.print(ps, {
-        onStateChange: function(webProgress, request, stateFlags, status) {
-            if (stateFlags & Ci.nsIWebProgressListener.STATE_STOP &&
-                stateFlags & Ci.nsIWebProgressListener.STATE_IS_NETWORK) {
-                callback(status, file.path);
-            }
-        },
-        onProgressChange: function () {},
-        onLocationChange: function () {},
-        onStatusChange: function () {},
-        onSecurityChange: function () {},
-    });
+    SendStartPrint(isPrintSelection, printRange);
 }
 
 function attrOrDefault(element, attr, def) {
@@ -296,7 +299,11 @@ function setupViewport(contentRootElement) {
         windowUtils().setVisualViewportSize(sw, sh);
     }
 
-    // XXX support resolution when needed
+    var res = attrOrDefault(contentRootElement, "reftest-resolution", 1);
+    if (res !== 1) {
+        LogInfo("Setting resolution to " + res);
+        windowUtils().setResolutionAndScaleTo(res);
+    }
 
     // XXX support viewconfig when needed
 }
@@ -440,6 +447,14 @@ function shouldSnapshotWholePage(contentRootElement) {
                              .includes("reftest-snapshot-all");
 }
 
+function shouldNotFlush(contentRootElement) {
+    // use getAttribute because className works differently in HTML and SVG
+    return contentRootElement &&
+           contentRootElement.hasAttribute('class') &&
+           contentRootElement.getAttribute('class').split(/\s+/)
+                             .includes("reftest-no-flush");
+}
+
 function getNoPaintElements(contentRootElement) {
     return contentRootElement.getElementsByClassName('reftest-no-paint');
 }
@@ -492,47 +507,159 @@ const STATE_WAITING_TO_FINISH = 4;
 const STATE_COMPLETED = 5;
 
 function FlushRendering(aFlushMode) {
-    var anyPendingPaintsGeneratedInDescendants = false;
-
-    function flushWindow(win) {
-        var utils = win.windowUtils;
-        var afterPaintWasPending = utils.isMozAfterPaintPending;
-
-        var root = win.document.documentElement;
-        if (root && !root.classList.contains("reftest-no-flush")) {
-            try {
-                if (aFlushMode === FlushMode.IGNORE_THROTTLED_ANIMATIONS) {
-                    utils.flushLayoutWithoutThrottledAnimations();
-                } else {
-                    root.getBoundingClientRect();
-                }
-            } catch (e) {
-                LogWarning("flushWindow failed: " + e + "\n");
-            }
+    let browsingContext = content.docShell.browsingContext;
+    let ignoreThrottledAnimations = (aFlushMode === FlushMode.IGNORE_THROTTLED_ANIMATIONS);
+    let promise = content.windowGlobalChild.getActor("ReftestFission").sendQuery("FlushRendering", {browsingContext, ignoreThrottledAnimations});
+    return promise.then(function(result) {
+        for (let errorString of result.errorStrings) {
+            LogError(errorString);
         }
-
-        if (!afterPaintWasPending && utils.isMozAfterPaintPending) {
-            LogInfo("FlushRendering generated paint for window " + win.location.href);
-            anyPendingPaintsGeneratedInDescendants = true;
+        for (let warningString of result.warningStrings) {
+            LogWarning(warningString);
         }
-
-        for (var i = 0; i < win.frames.length; ++i) {
-            flushWindow(win.frames[i]);
+        for (let infoString of result.infoStrings) {
+            LogInfo(infoString);
         }
-    }
-
-    flushWindow(content);
-
-    if (anyPendingPaintsGeneratedInDescendants &&
-        !windowUtils().isMozAfterPaintPending) {
-        LogWarning("Internal error: descendant frame generated a MozAfterPaint event, but the root document doesn't have one!");
-    }
+    }, function(reason) {
+        // We expect actors to go away causing sendQuery's to fail, so
+        // just note it.
+        LogInfo("FlushRendering sendQuery to parent rejected: " + reason);
+    });
 }
 
-function WaitForTestEnd(contentRootElement, inPrintMode, spellCheckedElements) {
+function WaitForTestEnd(contentRootElement, inPrintMode, spellCheckedElements, forURL) {
+    // WaitForTestEnd works via the MakeProgress function below. It is responsible for
+    // moving through the states listed above and calling FlushRendering. We also listen
+    // for a number of events, the most important of which is the AfterPaintListener,
+    // which is responsible for updating the canvas after paints. In a fission world
+    // FlushRendering and updating the canvas must necessarily be async operations.
+    // During these async operations we want to wait for them to finish and we don't
+    // want to try to do anything else (what would we even want to do while only some of
+    // the processes involved have flushed layout or updated their layer trees?). So
+    // we call OperationInProgress whenever we are about to go back to the event loop
+    // during one of these calls, and OperationCompleted when it finishes. This prevents
+    // anything else from running while we wait and getting us into a confused state. We
+    // then record anything that happens while we are waiting to make sure that the
+    // right actions are triggered. The possible actions are basically calling
+    // MakeProgress from a setTimeout, and updating the canvas for an after paint event.
+    // The after paint listener just stashes the rects and we update them after a
+    // completed MakeProgress call. This is handled by
+    // HandlePendingTasksAfterMakeProgress, which also waits for any pending after paint
+    // events. The general sequence of events is:
+    //   - MakeProgress
+    //   - HandlePendingTasksAfterMakeProgress
+    //     - wait for after paint event if one is pending
+    //     - update canvas for after paint events we have received
+    //   - MakeProgress
+    //   etc
+
+    function CheckForLivenessOfContentRootElement() {
+        if (contentRootElement && Cu.isDeadWrapper(contentRootElement)) {
+            contentRootElement = null;
+        }
+    }
+
+    var setTimeoutCallMakeProgressWhenComplete = false;
+
+    var operationInProgress = false;
+    function OperationInProgress() {
+        if (operationInProgress != false) {
+            LogWarning("Nesting atomic operations?");
+        }
+        operationInProgress = true;
+    }
+    function OperationCompleted() {
+        if (operationInProgress != true) {
+            LogWarning("Mismatched OperationInProgress/OperationCompleted calls?");
+        }
+        operationInProgress = false;
+        if (setTimeoutCallMakeProgressWhenComplete) {
+            setTimeoutCallMakeProgressWhenComplete = false;
+            setTimeout(CallMakeProgress, 0);
+        }
+    }
+    function AssertNoOperationInProgress() {
+        if (operationInProgress) {
+            LogWarning("AssertNoOperationInProgress but operationInProgress");
+        }
+    }
+
+    var updateCanvasPending = false;
+    var updateCanvasRects = [];
+
     var stopAfterPaintReceived = false;
     var currentDoc = content.document;
     var state = STATE_WAITING_TO_FIRE_INVALIDATE_EVENT;
+
+    var setTimeoutMakeProgressPending = false;
+
+    function CallSetTimeoutMakeProgress() {
+        if (setTimeoutMakeProgressPending) {
+            return;
+        }
+        setTimeoutMakeProgressPending = true;
+        setTimeout(CallMakeProgress, 0);
+    }
+
+    // This should only ever be called from a timeout.
+    function CallMakeProgress() {
+        if (operationInProgress) {
+            setTimeoutCallMakeProgressWhenComplete = true;
+            return;
+        }
+        setTimeoutMakeProgressPending = false;
+        MakeProgress();
+    }
+
+    var waitingForAnAfterPaint = false;
+
+    // Updates the canvas if there are pending updates for it. Checks if we
+    // need to call MakeProgress.
+    function HandlePendingTasksAfterMakeProgress() {
+        AssertNoOperationInProgress();
+
+        if ((state == STATE_WAITING_TO_FIRE_INVALIDATE_EVENT || state == STATE_WAITING_TO_FINISH) &&
+            shouldWaitForPendingPaints()) {
+            LogInfo("HandlePendingTasksAfterMakeProgress waiting for a MozAfterPaint");
+            // We are in a state where we wait for MozAfterPaint to clear and a
+            // MozAfterPaint event is pending, give it a chance to fire, but don't
+            // let anything else run.
+            waitingForAnAfterPaint = true;
+            OperationInProgress();
+            return;
+        }
+
+        if (updateCanvasPending) {
+            LogInfo("HandlePendingTasksAfterMakeProgress updating canvas");
+            updateCanvasPending = false;
+            let rects = updateCanvasRects;
+            updateCanvasRects = [];
+            OperationInProgress();
+            CheckForLivenessOfContentRootElement();
+            let promise = SendUpdateCanvasForEvent(forURL, rects, contentRootElement);
+            promise.then(function () {
+                OperationCompleted();
+                // After paint events are fired immediately after a paint (one
+                // of the things that can call us). Don't confuse ourselves by
+                // firing synchronously if we triggered the paint ourselves.
+                CallSetTimeoutMakeProgress();
+            });
+        }
+    }
+
+    // true if rectA contains rectB
+    function Contains(rectA, rectB) {
+        return (rectA.left <= rectB.left && rectB.right <= rectA.right && rectA.top <= rectB.top && rectB.bottom <= rectA.bottom);
+    }
+    // true if some rect in rectList contains rect
+    function ContainedIn(rectList, rect) {
+        for (let i = 0; i < rectList.length; ++i) {
+            if (Contains(rectList[i], rect)) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     function AfterPaintListener(event) {
         LogInfo("AfterPaintListener in " + event.target.document.location.href);
@@ -542,11 +669,52 @@ function WaitForTestEnd(contentRootElement, inPrintMode, spellCheckedElements) {
             return;
         }
 
-        SendUpdateCanvasForEvent(event, contentRootElement);
-        // These events are fired immediately after a paint. Don't
-        // confuse ourselves by firing synchronously if we triggered the
-        // paint ourselves.
-        setTimeout(MakeProgress, 0);
+        updateCanvasPending = true;
+        for (let r of event.clientRects) {
+            if (ContainedIn(updateCanvasRects, r)) {
+                continue;
+            }
+
+            // Copy the rect; it's content and we are chrome, which means if the
+            // document goes away (and it can in some crashtests) our reference
+            // to it will be turned into a dead wrapper that we can't acccess.
+            updateCanvasRects.push({ left: r.left, top: r.top, right: r.right, bottom: r.bottom });
+        }
+
+        if (waitingForAnAfterPaint) {
+            waitingForAnAfterPaint = false;
+            OperationCompleted();
+        }
+
+        if (!operationInProgress) {
+            HandlePendingTasksAfterMakeProgress();
+        }
+        // Otherwise we know that eventually after the operation finishes we
+        // will get a MakeProgress and/or HandlePendingTasksAfterMakeProgress
+        // call, so we don't need to do anything.
+    }
+
+    function FromChildAfterPaintListener(event) {
+        LogInfo("FromChildAfterPaintListener from " + event.detail.originalTargetUri);
+
+        updateCanvasPending = true;
+        for (let r of event.detail.rects) {
+            if (ContainedIn(updateCanvasRects, r)) {
+                continue;
+            }
+
+            // Copy the rect; it's content and we are chrome, which means if the
+            // document goes away (and it can in some crashtests) our reference
+            // to it will be turned into a dead wrapper that we can't acccess.
+            updateCanvasRects.push({ left: r.left, top: r.top, right: r.right, bottom: r.bottom });
+        }
+
+        if (!operationInProgress) {
+            HandlePendingTasksAfterMakeProgress();
+        }
+        // Otherwise we know that eventually after the operation finishes we
+        // will get a MakeProgress and/or HandlePendingTasksAfterMakeProgress
+        // call, so we don't need to do anything.
     }
 
     function AttrModifiedListener() {
@@ -555,19 +723,21 @@ function WaitForTestEnd(contentRootElement, inPrintMode, spellCheckedElements) {
         // example, the attribute may have been modified in an subdocument's
         // load event handler, in which case we need load event processing
         // to complete and unsuppress painting before we check isMozAfterPaintPending.
-        setTimeout(MakeProgress, 0);
+        CallSetTimeoutMakeProgress();
     }
 
     function ExplicitPaintsCompleteListener() {
         LogInfo("ExplicitPaintsCompleteListener fired");
         // Since this can fire while painting, don't confuse ourselves by
         // firing synchronously. It's fine to do this asynchronously.
-        setTimeout(MakeProgress, 0);
+        CallSetTimeoutMakeProgress();
     }
 
     function RemoveListeners() {
         // OK, we can end the test now.
         removeEventListener("MozAfterPaint", AfterPaintListener, false);
+        removeEventListener("Reftest:MozAfterPaintFromChild", FromChildAfterPaintListener, false);
+        CheckForLivenessOfContentRootElement();
         if (contentRootElement) {
             contentRootElement.removeEventListener("DOMAttrModified", AttrModifiedListener);
         }
@@ -587,8 +757,12 @@ function WaitForTestEnd(contentRootElement, inPrintMode, spellCheckedElements) {
             return;
         }
 
+        LogInfo("MakeProgress");
+
         // We don't need to flush styles any more when we are in the state
         // after reftest-wait has removed.
+        OperationInProgress();
+        let promise = Promise.resolve(undefined);
         if (state != STATE_WAITING_TO_FINISH) {
           // If we are waiting for the MozReftestInvalidate event we don't want
           // to flush throttled animations. Flushing throttled animations can
@@ -600,13 +774,25 @@ function WaitForTestEnd(contentRootElement, inPrintMode, spellCheckedElements) {
           flushMode = (state === STATE_WAITING_TO_FIRE_INVALIDATE_EVENT)
                     ? FlushMode.IGNORE_THROTTLED_ANIMATIONS
                     : FlushMode.ALL;
-          FlushRendering(flushMode);
+          promise = FlushRendering(flushMode);
         }
+        promise.then(function () {
+            OperationCompleted();
+            MakeProgress2();
+            // If there is an operation in progress then we know there will be
+            // a MakeProgress call is will happen after it finishes.
+            if (!operationInProgress) {
+                HandlePendingTasksAfterMakeProgress();
+            }
+        });
+    }
 
+    function MakeProgress2() {
         switch (state) {
         case STATE_WAITING_TO_FIRE_INVALIDATE_EVENT: {
             LogInfo("MakeProgress: STATE_WAITING_TO_FIRE_INVALIDATE_EVENT");
-            if (shouldWaitForExplicitPaintWaiters() || shouldWaitForPendingPaints()) {
+            if (shouldWaitForExplicitPaintWaiters() || shouldWaitForPendingPaints() ||
+                updateCanvasPending) {
                 gFailureReason = "timed out waiting for pending paint count to reach zero";
                 if (shouldWaitForExplicitPaintWaiters()) {
                     gFailureReason += " (waiting for MozPaintWaitFinished)";
@@ -616,10 +802,15 @@ function WaitForTestEnd(contentRootElement, inPrintMode, spellCheckedElements) {
                     gFailureReason += " (waiting for MozAfterPaint)";
                     LogInfo("MakeProgress: waiting for MozAfterPaint");
                 }
+                if (updateCanvasPending) {
+                    gFailureReason += " (waiting for updateCanvasPending)";
+                    LogInfo("MakeProgress: waiting for updateCanvasPending");
+                }
                 return;
             }
 
             state = STATE_WAITING_FOR_REFTEST_WAIT_REMOVAL;
+            CheckForLivenessOfContentRootElement();
             var hasReftestWait = shouldWaitForReftestWaitRemoval(contentRootElement);
             // Notify the test document that now is a good time to test some invalidation
             LogInfo("MakeProgress: dispatching MozReftestInvalidate");
@@ -649,10 +840,17 @@ function WaitForTestEnd(contentRootElement, inPrintMode, spellCheckedElements) {
             if (hasReftestWait && !shouldWaitForReftestWaitRemoval(contentRootElement)) {
                 // MozReftestInvalidate handler removed reftest-wait.
                 // We expect something to have been invalidated...
-                FlushRendering(FlushMode.ALL);
-                if (!shouldWaitForPendingPaints() && !shouldWaitForExplicitPaintWaiters()) {
-                    LogWarning("MozInvalidateEvent didn't invalidate");
-                }
+                OperationInProgress();
+                let promise = FlushRendering(FlushMode.ALL);
+                promise.then(function () {
+                    OperationCompleted();
+                    if (!updateCanvasPending && !shouldWaitForPendingPaints() &&
+                        !shouldWaitForExplicitPaintWaiters()) {
+                        LogWarning("MozInvalidateEvent didn't invalidate");
+                    }
+                    MakeProgress();
+                });
+                return;
             }
             // Try next state
             MakeProgress();
@@ -661,12 +859,23 @@ function WaitForTestEnd(contentRootElement, inPrintMode, spellCheckedElements) {
 
         case STATE_WAITING_FOR_REFTEST_WAIT_REMOVAL:
             LogInfo("MakeProgress: STATE_WAITING_FOR_REFTEST_WAIT_REMOVAL");
+            CheckForLivenessOfContentRootElement();
             if (shouldWaitForReftestWaitRemoval(contentRootElement)) {
                 gFailureReason = "timed out waiting for reftest-wait to be removed";
                 LogInfo("MakeProgress: waiting for reftest-wait to be removed");
                 return;
             }
 
+            if (shouldNotFlush(contentRootElement)) {
+              // If reftest-no-flush is specified, we need to set
+              // updateCanvasPending explicitly to take the latest snapshot
+              // since animation changes on the compositor thread don't invoke
+              // any MozAfterPaint events at all.
+              // NOTE: We don't add any rects to updateCanvasRects here since
+              // SendUpdateCanvasForEvent() will handle this case properly
+              // without any rects.
+              updateCanvasPending = true;
+            }
             // Try next state
             state = STATE_WAITING_FOR_SPELL_CHECKS;
             MakeProgress();
@@ -689,14 +898,17 @@ function WaitForTestEnd(contentRootElement, inPrintMode, spellCheckedElements) {
                 if (aTopic) LogInfo("MakeProgress: apz-repaints-flushed fired");
                 os.removeObserver(flushWaiter, "apz-repaints-flushed");
                 state = STATE_WAITING_TO_FINISH;
-                MakeProgress();
+                if (operationInProgress) {
+                    CallSetTimeoutMakeProgress();
+                } else {
+                    MakeProgress();
+                }
             };
             os.addObserver(flushWaiter, "apz-repaints-flushed");
 
             var willSnapshot = IsSnapshottableTestType();
-            var noFlush =
-                !(contentRootElement &&
-                  contentRootElement.classList.contains("reftest-no-flush"));
+            CheckForLivenessOfContentRootElement();
+            var noFlush = !shouldNotFlush(contentRootElement);
             if (noFlush && willSnapshot && windowUtils().flushApzRepaints()) {
                 LogInfo("MakeProgress: done requesting APZ flush");
             } else {
@@ -713,7 +925,8 @@ function WaitForTestEnd(contentRootElement, inPrintMode, spellCheckedElements) {
 
         case STATE_WAITING_TO_FINISH:
             LogInfo("MakeProgress: STATE_WAITING_TO_FINISH");
-            if (shouldWaitForExplicitPaintWaiters() || shouldWaitForPendingPaints()) {
+            if (shouldWaitForExplicitPaintWaiters() || shouldWaitForPendingPaints() ||
+                updateCanvasPending) {
                 gFailureReason = "timed out waiting for pending paint count to " +
                     "reach zero (after reftest-wait removed and switch to print mode)";
                 if (shouldWaitForExplicitPaintWaiters()) {
@@ -724,8 +937,13 @@ function WaitForTestEnd(contentRootElement, inPrintMode, spellCheckedElements) {
                     gFailureReason += " (waiting for MozAfterPaint)";
                     LogInfo("MakeProgress: waiting for MozAfterPaint");
                 }
+                if (updateCanvasPending) {
+                    gFailureReason += " (waiting for updateCanvasPending)";
+                    LogInfo("MakeProgress: waiting for updateCanvasPending");
+                }
                 return;
             }
+            CheckForLivenessOfContentRootElement();
             if (contentRootElement) {
               var elements = getNoPaintElements(contentRootElement);
               for (var i = 0; i < elements.length; ++i) {
@@ -767,16 +985,20 @@ function WaitForTestEnd(contentRootElement, inPrintMode, spellCheckedElements) {
             state = STATE_COMPLETED;
             gFailureReason = "timed out while taking snapshot (bug in harness?)";
             RemoveListeners();
-            CheckForProcessCrashExpectation();
-            setTimeout(RecordResult, 0);
+            CheckForLivenessOfContentRootElement();
+            CheckForProcessCrashExpectation(contentRootElement);
+            setTimeout(RecordResult, 0, forURL);
             return;
         }
     }
 
     LogInfo("WaitForTestEnd: Adding listeners");
     addEventListener("MozAfterPaint", AfterPaintListener, false);
+    addEventListener("Reftest:MozAfterPaintFromChild", FromChildAfterPaintListener, false);
+
     // If contentRootElement is null then shouldWaitForReftestWaitRemoval will
     // always return false so we don't need a listener anyway
+    CheckForLivenessOfContentRootElement();
     if (contentRootElement) {
       contentRootElement.addEventListener("DOMAttrModified", AttrModifiedListener);
     }
@@ -787,7 +1009,11 @@ function WaitForTestEnd(contentRootElement, inPrintMode, spellCheckedElements) {
     var numPendingSpellChecks = spellCheckedElements.length;
     function decNumPendingSpellChecks() {
         --numPendingSpellChecks;
-        MakeProgress();
+        if (operationInProgress) {
+            CallSetTimeoutMakeProgress();
+        } else {
+            MakeProgress();
+        }
     }
     for (let editable of spellCheckedElements) {
         try {
@@ -801,19 +1027,18 @@ function WaitForTestEnd(contentRootElement, inPrintMode, spellCheckedElements) {
     // Take a full snapshot now that all our listeners are set up. This
     // ensures it's impossible for us to miss updates between taking the snapshot
     // and adding our listeners.
-    SendInitCanvasWithSnapshot();
-    MakeProgress();
+    OperationInProgress();
+    let promise = SendInitCanvasWithSnapshot(forURL);
+    promise.then(function () {
+        OperationCompleted();
+        MakeProgress();
+    });
 }
 
-function OnDocumentLoad(event)
+function OnDocumentLoad(uri)
 {
-    var currentDoc = content.document;
-    if (event.target != currentDoc)
-        // Ignore load events for subframes.
-        return;
-
     if (gClearingForAssertionCheck) {
-        if (currentDoc.location.href == BLANK_URL_FOR_CLEARING) {
+        if (uri == BLANK_URL_FOR_CLEARING) {
             DoAssertionCheck();
             return;
         }
@@ -822,15 +1047,17 @@ function OnDocumentLoad(event)
         // attempt of loading blank page fails. In this case we should retry
         // loading the blank page.
         LogInfo("Retry loading a blank page");
-        LoadURI(BLANK_URL_FOR_CLEARING);
+        setTimeout(LoadURI, 0, BLANK_URL_FOR_CLEARING);
         return;
     }
 
-    if (currentDoc.location.href != gCurrentURL) {
+    if (uri != gCurrentURL) {
         LogInfo("OnDocumentLoad fired for previous document");
         // Ignore load events for previous documents.
         return;
     }
+    
+    var currentDoc = content && content.document;
 
     // Collect all editable, spell-checked elements.  It may be the case that
     // not all the elements that match this selector will be spell checked: for
@@ -843,30 +1070,55 @@ function OnDocumentLoad(event)
         'textarea:not([spellcheck="false"]),' +
         'input[spellcheck]:-moz-any([spellcheck=""],[spellcheck="true"]),' +
         '*[contenteditable]:-moz-any([contenteditable=""],[contenteditable="true"])';
-    var spellCheckedElements = currentDoc.querySelectorAll(querySelector);
+    var spellCheckedElements = currentDoc ? currentDoc.querySelectorAll(querySelector) : [];
 
     var contentRootElement = currentDoc ? currentDoc.documentElement : null;
     currentDoc = null;
     setupFullZoom(contentRootElement);
+    setupTextZoom(contentRootElement);
     setupViewport(contentRootElement);
     setupDisplayport(contentRootElement);
     var inPrintMode = false;
 
-    function AfterOnLoadScripts() {
+    async function AfterOnLoadScripts() {
         // Regrab the root element, because the document may have changed.
         var contentRootElement =
           content.document ? content.document.documentElement : null;
 
+        // "MozPaintWait" events are dispatched using a scriptrunner, so we
+        // receive then after painting has finished but before the main thread
+        // returns from the paint call. Then a "MozPaintWaitFinished" is
+        // dispatched to the main thread event loop.
+        // Before Fission both the FlushRendering and SendInitCanvasWithSnapshot
+        // calls were sync, but with Fission they must be async. So before Fission
+        // we got the MozPaintWait event but not the MozPaintWaitFinished event
+        // here (yet), which made us enter WaitForTestEnd. After Fission we get
+        // both MozPaintWait and MozPaintWaitFinished here. So to make this work
+        // the same way as before we just track if we got either event and go
+        // into reftest-wait mode.
+        var paintWaiterFinished = false;
+
+        gExplicitPendingPaintsCompleteHook = function () {
+            LogInfo("PaintWaiters finished while we were sending initial snapshop in AfterOnLoadScripts");
+            paintWaiterFinished = true;
+        }
+
         // Flush the document in case it got modified in a load event handler.
-        FlushRendering(FlushMode.ALL);
+        await FlushRendering(FlushMode.ALL);
 
         // Take a snapshot now. We need to do this before we check whether
         // we should wait, since this might trigger dispatching of
         // MozPaintWait events and make shouldWaitForExplicitPaintWaiters() true
         // below.
-        var painted = SendInitCanvasWithSnapshot();
+        let painted = await SendInitCanvasWithSnapshot(uri);
 
-        if (shouldWaitForExplicitPaintWaiters() ||
+        gExplicitPendingPaintsCompleteHook = null;
+
+        if (contentRootElement && Cu.isDeadWrapper(contentRootElement)) {
+            contentRootElement = null;
+        }
+
+        if (paintWaiterFinished || shouldWaitForExplicitPaintWaiters() ||
             (!inPrintMode && doPrintMode(contentRootElement)) ||
             // If we didn't force a paint above, in
             // InitCurrentCanvasWithSnapshot, so we should wait for a
@@ -874,11 +1126,11 @@ function OnDocumentLoad(event)
             !painted) {
             LogInfo("AfterOnLoadScripts belatedly entering WaitForTestEnd");
             // Go into reftest-wait mode belatedly.
-            WaitForTestEnd(contentRootElement, inPrintMode, []);
+            WaitForTestEnd(contentRootElement, inPrintMode, [], uri);
         } else {
             CheckLayerAssertions(contentRootElement);
             CheckForProcessCrashExpectation(contentRootElement);
-            RecordResult();
+            RecordResult(uri);
         }
     }
 
@@ -889,7 +1141,7 @@ function OnDocumentLoad(event)
         // unsuppressed, after the onload event has finished dispatching.
         gFailureReason = "timed out waiting for test to complete (trying to get into WaitForTestEnd)";
         LogInfo("OnDocumentLoad triggering WaitForTestEnd");
-        setTimeout(function () { WaitForTestEnd(contentRootElement, inPrintMode, spellCheckedElements); }, 0);
+        setTimeout(function () { WaitForTestEnd(contentRootElement, inPrintMode, spellCheckedElements, uri); }, 0);
     } else {
         if (doPrintMode(contentRootElement)) {
             LogInfo("OnDocumentLoad setting up print mode");
@@ -936,7 +1188,7 @@ function CheckLayerAssertions(contentRootElement)
         try {
             var elements = layerNameToElementsMap[layerName];
             oneOfEach.push(elements[0]);
-            var numberOfLayers = windowUtils().numberOfAssignedPaintedLayers(elements, elements.length);
+            var numberOfLayers = windowUtils().numberOfAssignedPaintedLayers(elements);
             if (numberOfLayers !== 1) {
                 SendFailedAssignedLayer('these elements are assigned to ' + numberOfLayers +
                                         ' different layers, instead of sharing just one layer: ' +
@@ -950,7 +1202,7 @@ function CheckLayerAssertions(contentRootElement)
     // Check that elements with different reftest-assigned-layer are assigned to different PaintedLayers.
     if (oneOfEach.length > 0) {
         try {
-            var numberOfLayers = windowUtils().numberOfAssignedPaintedLayers(oneOfEach, oneOfEach.length);
+            var numberOfLayers = windowUtils().numberOfAssignedPaintedLayers(oneOfEach);
             if (numberOfLayers !== oneOfEach.length) {
                 SendFailedAssignedLayer('these elements are assigned to ' + numberOfLayers +
                                         ' different layers, instead of having none in common (expected ' +
@@ -974,8 +1226,20 @@ function CheckForProcessCrashExpectation(contentRootElement)
     }
 }
 
-function RecordResult()
+function RecordResult(forURL)
 {
+    if (forURL != gCurrentURL) {
+        LogInfo("RecordResult fired for previous document");
+        return;
+    }
+
+    if (gCurrentURLRecordResults > 0) {
+        LogInfo("RecordResult fired extra times");
+        FinishTestItem();
+        return;
+    }
+    gCurrentURLRecordResults++;
+
     LogInfo("RecordResult fired");
 
     var currentTestRunTime = Date.now() - gCurrentTestStartTime;
@@ -987,10 +1251,7 @@ function RecordResult()
     gCurrentURLTargetType = undefined;
 
     if (gCurrentTestType == TYPE_PRINT) {
-        printToPdf(function (status, fileName) {
-            SendPrintResult(currentTestRunTime, status, fileName);
-            FinishTestItem();
-        });
+        printToPdf();
         return;
     }
     if (gCurrentTestType == TYPE_SCRIPT) {
@@ -1080,9 +1341,19 @@ function DoAssertionCheck()
 
 function LoadURI(uri)
 {
-    var flags = webNavigation().LOAD_FLAGS_NONE;
-    var systemPrincipal = Services.scriptSecurityManager.getSystemPrincipal();
-    webNavigation().loadURI(uri, flags, null, null, null, systemPrincipal);
+    let loadURIOptions = {
+      triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
+    };
+    webNavigation().loadURI(uri, loadURIOptions);
+}
+
+function LogError(str)
+{
+    if (gVerbose) {
+        sendSyncMessage("reftest:Log", { type: "error", msg: str });
+    } else {
+        sendAsyncMessage("reftest:Log", { type: "error", msg: str });
+    }
 }
 
 function LogWarning(str)
@@ -1113,28 +1384,47 @@ function IsSnapshottableTestType()
 
 const SYNC_DEFAULT = 0x0;
 const SYNC_ALLOW_DISABLE = 0x1;
+// Returns a promise that resolve when the snapshot is done.
 function SynchronizeForSnapshot(flags)
 {
     if (!IsSnapshottableTestType()) {
-        return;
+        return Promise.resolve(undefined);
     }
 
     if (flags & SYNC_ALLOW_DISABLE) {
         var docElt = content.document.documentElement;
         if (docElt &&
             (docElt.hasAttribute("reftest-no-sync-layers") ||
-             docElt.classList.contains("reftest-no-flush"))) {
+             shouldNotFlush(docElt))) {
             LogInfo("Test file chose to skip SynchronizeForSnapshot");
-            return;
+            return Promise.resolve(undefined);
         }
     }
 
-    windowUtils().updateLayerTree();
+    let browsingContext = content.docShell.browsingContext;
+    let promise = content.windowGlobalChild.getActor("ReftestFission").sendQuery("UpdateLayerTree", {browsingContext});
+    return promise.then(function (result) {
+        for (let errorString of result.errorStrings) {
+            LogError(errorString);
+        }
+        for (let infoString of result.infoStrings) {
+            LogInfo(infoString);
+        }
 
-    // Setup async scroll offsets now, because any scrollable layers should
-    // have had their AsyncPanZoomControllers created.
-    setupAsyncScrollOffsets({allowFailure:false});
-    setupAsyncZoom({allowFailure:false});
+        // Setup async scroll offsets now, because any scrollable layers should
+        // have had their AsyncPanZoomControllers created.
+        setupAsyncScrollOffsets({allowFailure:false});
+        setupAsyncZoom({allowFailure:false});
+    }, function(reason) {
+        // We expect actors to go away causing sendQuery's to fail, so
+        // just note it.
+        LogInfo("UpdateLayerTree sendQuery to parent rejected: " + reason);
+
+        // Setup async scroll offsets now, because any scrollable layers should
+        // have had their AsyncPanZoomControllers created.
+        setupAsyncScrollOffsets({allowFailure:false});
+        setupAsyncZoom({allowFailure:false});
+    });
 }
 
 function RegisterMessageListeners()
@@ -1161,6 +1451,10 @@ function RegisterMessageListeners()
         "reftest:ResetRenderingState",
         function (m) { RecvResetRenderingState(); }
     );
+    addMessageListener(
+        "reftest:PrintDone",
+        function (m) { RecvPrintDone(m.json.status, m.json.fileName); }
+    );
 }
 
 function RecvClear()
@@ -1186,8 +1480,15 @@ function RecvLoadPrintTest(uri, timeout)
 
 function RecvResetRenderingState()
 {
-    resetZoom();
+    resetZoomAndTextZoom();
     resetDisplayportAndViewport();
+}
+
+function RecvPrintDone(status, fileName)
+{
+    const currentTestRunTime = Date.now() - gCurrentTestStartTime;
+    SendPrintResult(currentTestRunTime, status, fileName);
+    FinishTestItem();
 }
 
 function SendAssertionCount(numAssertions)
@@ -1211,9 +1512,11 @@ function SendContentReady()
     try {
         info.D2DEnabled = gfxInfo.D2DEnabled;
         info.DWriteEnabled = gfxInfo.DWriteEnabled;
+        info.EmbeddedInFirefoxReality = gfxInfo.EmbeddedInFirefoxReality;
     } catch (e) {
         info.D2DEnabled = false;
         info.DWriteEnabled = false;
+        info.EmbeddedInFirefoxReality = false;
     }
 
     return sendSyncMessage("reftest:ContentReady", { 'gfx': info })[0];
@@ -1254,9 +1557,17 @@ function SendFailedAssignedLayer(why)
     sendAsyncMessage("reftest:FailedAssignedLayer", { why: why });
 }
 
-// Return true if a snapshot was taken.
-function SendInitCanvasWithSnapshot()
+// Returns a promise that resolves to a bool that indicates if a snapshot was taken.
+function SendInitCanvasWithSnapshot(forURL)
 {
+    if (forURL != gCurrentURL) {
+        LogInfo("SendInitCanvasWithSnapshot called for previous document");
+        // Lie and say we painted because it doesn't matter, this is a test we
+        // are already done with that is clearing out. Then AfterOnLoadScripts
+        // should finish quicker if that is who is calling us.
+        return Promise.resolve(true);
+    }
+
     // If we're in the same process as the top-level XUL window, then
     // drawing that window will also update our layers, so no
     // synchronization is needed.
@@ -1264,7 +1575,13 @@ function SendInitCanvasWithSnapshot()
     // NB: this is a test-harness optimization only, it must not
     // affect the validity of the tests.
     if (gBrowserIsRemote) {
-        SynchronizeForSnapshot(SYNC_DEFAULT);
+        let promise = SynchronizeForSnapshot(SYNC_DEFAULT);
+        return promise.then(function () {
+            let ret = sendSyncMessage("reftest:InitCanvasWithSnapshot")[0];
+
+            gHaveCanvasSnapshot = ret.painted;
+            return ret.painted;
+        });
     }
 
     // For in-process browser, we have to make a synchronous request
@@ -1273,16 +1590,21 @@ function SendInitCanvasWithSnapshot()
     // before we check the paint-wait counter.  For out-of-process
     // browser though, it doesn't wrt correctness whether this request
     // is sync or async.
-    var ret = sendSyncMessage("reftest:InitCanvasWithSnapshot")[0];
+    let ret = sendSyncMessage("reftest:InitCanvasWithSnapshot")[0];
 
     gHaveCanvasSnapshot = ret.painted;
-    return ret.painted;
+    return Promise.resolve(ret.painted);
 }
 
 function SendScriptResults(runtimeMs, error, results)
 {
     sendAsyncMessage("reftest:ScriptResults",
                      { runtimeMs: runtimeMs, error: error, results: results });
+}
+
+function SendStartPrint(isPrintSelection, printRange)
+{
+    sendAsyncMessage("reftest:StartPrint", { isPrintSelection, printRange });
 }
 
 function SendPrintResult(runtimeMs, status, fileName)
@@ -1314,10 +1636,17 @@ function elementDescription(element)
         '>';
 }
 
-function SendUpdateCanvasForEvent(event, contentRootElement)
+function SendUpdateCanvasForEvent(forURL, rectList, contentRootElement)
 {
+    if (forURL != gCurrentURL) {
+        LogInfo("SendUpdateCanvasForEvent called for previous document");
+        // This is a test we are already done with that is clearing out.
+        // Don't do anything.
+        return Promise.resolve(undefined);
+    }
+
     var win = content;
-    var scale = markupDocumentViewer().fullZoom;
+    var scale = docShell.browsingContext.fullZoom;
 
     var rects = [ ];
     if (shouldSnapshotWholePage(contentRootElement)) {
@@ -1326,22 +1655,26 @@ function SendUpdateCanvasForEvent(event, contentRootElement)
       if (!gBrowserIsRemote) {
           sendSyncMessage("reftest:UpdateWholeCanvasForInvalidation");
       } else {
-          SynchronizeForSnapshot(SYNC_ALLOW_DISABLE);
-          sendAsyncMessage("reftest:UpdateWholeCanvasForInvalidation");
+          let promise = SynchronizeForSnapshot(SYNC_ALLOW_DISABLE);
+          return promise.then(function () {
+            sendAsyncMessage("reftest:UpdateWholeCanvasForInvalidation");
+          });
       }
-      return;
+      return Promise.resolve(undefined);
     }
 
     var message;
-    if (gIsWebRenderEnabled && !windowUtils().isMozAfterPaintPending) {
-        // Webrender doesn't have invalidation, so we just invalidate the whole
-        // screen once we don't have anymore paints pending. This will force
-        // the snapshot.
+
+    if ((gIsWebRenderEnabled || shouldNotFlush(contentRootElement)) &&
+        !windowUtils().isMozAfterPaintPending) {
+        // Webrender doesn't have invalidation, and animations on the compositor
+        // don't invoke any MozAfterEvent which means we have no invalidated
+        // rect so we just invalidate the whole screen once we don't have
+        // anymore paints pending. This will force the snapshot.
 
         LogInfo("Webrender enabled, sending update whole canvas for invalidation");
         message = "reftest:UpdateWholeCanvasForInvalidation";
     } else {
-        var rectList = event.clientRects;
         LogInfo("SendUpdateCanvasForEvent with " + rectList.length + " rects");
         for (var i = 0; i < rectList.length; ++i) {
             var r = rectList[i];
@@ -1363,10 +1696,15 @@ function SendUpdateCanvasForEvent(event, contentRootElement)
     if (!gBrowserIsRemote) {
         sendSyncMessage(message, { rects: rects });
     } else {
-        SynchronizeForSnapshot(SYNC_ALLOW_DISABLE);
-        sendAsyncMessage(message, { rects: rects });
+        let promise = SynchronizeForSnapshot(SYNC_ALLOW_DISABLE);
+        return promise.then(function () {
+            sendAsyncMessage(message, { rects: rects });
+        });
     }
+
+    return Promise.resolve(undefined);
 }
+
 if (content.document.readyState == "complete") {
   // load event has already fired for content, get started
   OnInitialLoad();

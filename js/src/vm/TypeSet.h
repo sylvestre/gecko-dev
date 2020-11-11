@@ -13,30 +13,33 @@
 #include "mozilla/Attributes.h"  // MOZ_ALWAYS_INLINE
 #include "mozilla/Likely.h"      // MOZ_UNLIKELY
 
+#include <initializer_list>
 #include <stdint.h>  // intptr_t, uintptr_t, uint8_t, uint32_t
 #include <stdio.h>   // FILE
 
-#include "jstypes.h"  // JS_BITS_PER_WORD
-#include "jsutil.h"   // JS_CRASH_DIAGNOSTICS
+#include "jstypes.h"  // JS_BITS_PER_WORD, JS_PUBLIC_API
 
-#include "jit/IonTypes.h"      // jit::MIRType
+#include "jit/IonTypes.h"  // jit::MIRType
+#include "jit/JitOptions.h"
 #include "js/GCAnnotations.h"  // JS_HAZ_GC_POINTER
 #include "js/Id.h"
-#include "js/TracingAPI.h"   // JSTracer
-#include "js/TypeDecls.h"    // IF_BIGINT
-#include "js/Utility.h"      // UniqueChars
-#include "js/Value.h"        // JSVAL_TYPE_*
-#include "js/Vector.h"       // js::Vector
+#include "js/ScalarType.h"  // js::Scalar::Type
+#include "js/TracingAPI.h"  // JSTracer
+#include "js/TypeDecls.h"   // IF_BIGINT
+#include "js/Utility.h"     // UniqueChars
+#include "js/Value.h"       // JSVAL_TYPE_*
+#include "js/Vector.h"      // js::Vector
+#include "util/DiagnosticAssertions.h"
 #include "vm/TaggedProto.h"  // js::TaggedProto
 
-struct JSContext;
-class JSObject;
+struct JS_PUBLIC_API JSContext;
+class JS_PUBLIC_API JSObject;
 
 namespace JS {
 
-class Compartment;
-class Realm;
-class Zone;
+class JS_PUBLIC_API Compartment;
+class JS_PUBLIC_API Realm;
+class JS_PUBLIC_API Zone;
 
 }  // namespace JS
 
@@ -44,7 +47,7 @@ namespace js {
 
 namespace jit {
 
-struct IonScript;
+class IonScript;
 class TempAllocator;
 
 }  // namespace jit
@@ -52,7 +55,6 @@ class TempAllocator;
 class AutoClearTypeInferenceStateOnOOM;
 class AutoSweepBase;
 class AutoSweepObjectGroup;
-struct Class;
 class CompilerConstraintList;
 class HeapTypeSetKey;
 class LifoAlloc;
@@ -83,29 +85,25 @@ enum : uint32_t {
   TYPE_FLAG_DOUBLE = 0x10,
   TYPE_FLAG_STRING = 0x20,
   TYPE_FLAG_SYMBOL = 0x40,
-#ifdef ENABLE_BIGINT
   TYPE_FLAG_BIGINT = 0x80,
   TYPE_FLAG_LAZYARGS = 0x100,
   TYPE_FLAG_ANYOBJECT = 0x200,
-#else
-  TYPE_FLAG_LAZYARGS = 0x80,
-  TYPE_FLAG_ANYOBJECT = 0x100,
-#endif
+
+  /* Mask containing all "immediate" primitives (not heap-allocated) */
+  TYPE_FLAG_PRIMITIVE_IMMEDIATE = TYPE_FLAG_UNDEFINED | TYPE_FLAG_NULL |
+                                  TYPE_FLAG_BOOLEAN | TYPE_FLAG_INT32 |
+                                  TYPE_FLAG_DOUBLE,
+  /* Mask containing all GCThing primitives (heap-allocated) */
+  TYPE_FLAG_PRIMITIVE_GCTHING =
+      TYPE_FLAG_STRING | TYPE_FLAG_SYMBOL | TYPE_FLAG_BIGINT,
 
   /* Mask containing all primitives */
-  TYPE_FLAG_PRIMITIVE = TYPE_FLAG_UNDEFINED | TYPE_FLAG_NULL |
-                        TYPE_FLAG_BOOLEAN | TYPE_FLAG_INT32 | TYPE_FLAG_DOUBLE |
-                        TYPE_FLAG_STRING | TYPE_FLAG_SYMBOL |
-                        IF_BIGINT(TYPE_FLAG_BIGINT, 0),
+  TYPE_FLAG_PRIMITIVE =
+      TYPE_FLAG_PRIMITIVE_IMMEDIATE | TYPE_FLAG_PRIMITIVE_GCTHING,
 
-/* Mask/shift for the number of objects in objectSet */
-#ifdef ENABLE_BIGINT
+  /* Mask/shift for the number of objects in objectSet */
   TYPE_FLAG_OBJECT_COUNT_MASK = 0x3c00,
   TYPE_FLAG_OBJECT_COUNT_SHIFT = 10,
-#else
-  TYPE_FLAG_OBJECT_COUNT_MASK = 0x3e00,
-  TYPE_FLAG_OBJECT_COUNT_SHIFT = 9,
-#endif
   TYPE_FLAG_OBJECT_COUNT_LIMIT = 7,
   TYPE_FLAG_DOMOBJECT_COUNT_LIMIT =
       TYPE_FLAG_OBJECT_COUNT_MASK >> TYPE_FLAG_OBJECT_COUNT_SHIFT,
@@ -189,17 +187,9 @@ enum : uint32_t {
   /* Whether any object this represents may have non-extensible elements. */
   OBJECT_FLAG_NON_EXTENSIBLE_ELEMENTS = 0x00100000,
 
-  /*
-   * For the function on a run-once script, whether the function has actually
-   * run multiple times.
-   */
-  OBJECT_FLAG_RUNONCE_INVALIDATED = 0x00200000,
+  // (0x00200000 is unused)
 
-  /*
-   * For a global object, whether any array buffers in this compartment with
-   * typed object views have ever been detached.
-   */
-  OBJECT_FLAG_TYPED_OBJECT_HAS_DETACHED_BUFFER = 0x00400000,
+  // (0x00400000 is unused)
 
   /*
    * Whether objects with this type should be allocated directly in the
@@ -243,7 +233,7 @@ class TemporaryTypeSet;
  * Information about the set of types associated with an lvalue. There are
  * three kinds of type sets:
  *
- * - StackTypeSet are associated with TypeScripts, for arguments and values
+ * - StackTypeSet are associated with JitScripts, for arguments and values
  *   observed at property reads. These are implicitly frozen on compilation
  *   and only have constraints added to them which can trigger invalidation of
  *   TypeNewScript information.
@@ -263,12 +253,6 @@ class TemporaryTypeSet;
  *   the new group. When this occurs, the properties of the old and new group
  *   will both be marked as unknown, which will prevent Ion from optimizing
  *   based on the object's type information.
- *
- * - If an unboxed object is converted to a native object, its group will also
- *   change and type sets containing the old group will not necessarily contain
- *   the new group. Unlike the above case, this will not degrade property type
- *   information, but Ion will no longer optimize unboxed objects with the old
- *   group.
  */
 class TypeSet {
  protected:
@@ -297,6 +281,7 @@ class TypeSet {
 
     bool isGroup() { return (uintptr_t(this) & 1) == 0; }
     bool isSingleton() { return (uintptr_t(this) & 1) != 0; }
+    static constexpr uintptr_t TypeHashSetMarkBit = 1 << 1;
 
     inline ObjectGroup* group();
     inline JSObject* singleton();
@@ -304,16 +289,13 @@ class TypeSet {
     inline ObjectGroup* groupNoBarrier();
     inline JSObject* singletonNoBarrier();
 
-    const Class* clasp();
+    const JSClass* clasp();
     TaggedProto proto();
-    TypeNewScript* newScript();
 
     bool unknownProperties();
     bool hasFlags(CompilerConstraintList* constraints, ObjectGroupFlags flags);
     bool hasStableClassAndProto(CompilerConstraintList* constraints);
     void watchStateChangeForTypedArrayData(CompilerConstraintList* constraints);
-    void watchStateChangeForUnboxedConvertedToNative(
-        CompilerConstraintList* constraints);
     HeapTypeSetKey property(jsid id);
     void ensureTrackedProperty(JSContext* cx, jsid id);
 
@@ -336,17 +318,15 @@ class TypeSet {
 
     bool isPrimitive() const { return data < JSVAL_TYPE_OBJECT; }
 
-    bool isPrimitive(JSValueType type) const {
-      MOZ_ASSERT(type < JSVAL_TYPE_OBJECT);
-      return (uintptr_t)type == data;
+    bool isPrimitive(ValueType type) const {
+      MOZ_ASSERT(type != ValueType::Object);
+      return uintptr_t(type) == data;
     }
 
-    JSValueType primitive() const {
+    ValueType primitive() const {
       MOZ_ASSERT(isPrimitive());
-      return (JSValueType)data;
+      return ValueType(data);
     }
-
-    bool isMagicArguments() const { return primitive() == JSVAL_TYPE_MAGIC; }
 
     bool isSomeObject() const {
       return data == JSVAL_TYPE_OBJECT || data > JSVAL_TYPE_UNKNOWN;
@@ -400,17 +380,23 @@ class TypeSet {
   static inline Type DoubleType() { return Type(JSVAL_TYPE_DOUBLE); }
   static inline Type StringType() { return Type(JSVAL_TYPE_STRING); }
   static inline Type SymbolType() { return Type(JSVAL_TYPE_SYMBOL); }
-#ifdef ENABLE_BIGINT
   static inline Type BigIntType() { return Type(JSVAL_TYPE_BIGINT); }
-#endif
   static inline Type MagicArgType() { return Type(JSVAL_TYPE_MAGIC); }
   static inline Type AnyObjectType() { return Type(JSVAL_TYPE_OBJECT); }
   static inline Type UnknownType() { return Type(JSVAL_TYPE_UNKNOWN); }
 
-  static inline Type PrimitiveType(JSValueType type) {
-    MOZ_ASSERT(type < JSVAL_TYPE_UNKNOWN);
-    return Type(type);
-  }
+ protected:
+  static inline Type PrimitiveTypeFromTypeFlag(TypeFlags flag);
+
+ public:
+  // Returns the Type corresponding to a primitive JS::Value or MIRType. The
+  // argument must not be a magic value we can't represent directly (see
+  // IsUntrackedValueType and IsUntrackedMIRType).
+  static inline Type PrimitiveType(const JS::Value& val);
+  static inline Type PrimitiveType(jit::MIRType type);
+
+  // Like PrimitiveType above but also accepts MIRType::Object.
+  static inline Type PrimitiveOrAnyObjectType(jit::MIRType type);
 
   static inline Type ObjectType(const JSObject* obj);
   static inline Type ObjectType(const ObjectGroup* group);
@@ -421,7 +407,6 @@ class TypeSet {
   static JS::UniqueChars TypeString(const Type type);
   static JS::UniqueChars ObjectGroupString(const ObjectGroup* group);
 
- public:
   void print(FILE* fp = stderr);
 
   /* Whether this set contains a specific type. */
@@ -474,8 +459,7 @@ class TypeSet {
 
   /* Get a list of all types in this set. */
   using TypeList = Vector<Type, 1, SystemAllocPolicy>;
-  template <class TypeListT>
-  bool enumerateTypes(TypeListT* list) const;
+  bool enumerateTypes(TypeList* list) const;
 
   /*
    * Iterate through the objects in this set. getObjectCount overapproximates
@@ -501,7 +485,7 @@ class TypeSet {
   inline ObjectGroup* getGroupNoBarrier(unsigned i) const;
 
   /* The Class of an object in this set. */
-  inline const Class* getObjectClass(unsigned i) const;
+  inline const JSClass* getObjectClass(unsigned i) const;
 
   bool canSetDefinite(unsigned slot) {
     // Note: the cast is required to work around an MSVC issue.
@@ -516,6 +500,9 @@ class TypeSet {
 
   /* Whether any values in this set might have the specified type. */
   bool mightBeMIRType(jit::MIRType type) const;
+
+  /* Get whether this type set is known to be a subset of the given types. */
+  bool isSubset(std::initializer_list<jit::MIRType> types) const;
 
   /*
    * Get whether this type set is known to be a subset of other.
@@ -571,12 +558,15 @@ class TypeSet {
  public:
   static inline Type GetValueType(const JS::Value& val);
 
+  // An 'untracked' type is a value type we can't represent in a TypeSet
+  // (all magic types except JS_OPTIMIZED_ARGUMENTS).
   static inline bool IsUntrackedValue(const JS::Value& val);
+  static inline bool IsUntrackedMIRType(jit::MIRType type);
 
-  // Get the type of a possibly optimized out or uninitialized let value.
-  // This generally only happens on unconditional type monitors on bailing
-  // out of Ion, such as for argument and local types.
+  // Get the type of a possibly untracked value. Returns UnknownType() for
+  // such untracked values.
   static inline Type GetMaybeUntrackedValueType(const JS::Value& val);
+  static inline Type GetMaybeUntrackedType(jit::MIRType type);
 
   static bool IsTypeMarked(JSRuntime* rt, Type* v);
   static bool IsTypeAboutToBeFinalized(Type* v);
@@ -679,13 +669,6 @@ class ConstraintTypeSet : public TypeSet {
  public:
   ConstraintTypeSet() = default;
 
-#ifdef JS_CRASH_DIAGNOSTICS
-  void initMagic() {
-    MOZ_ASSERT(!magic_);
-    magic_ = ConstraintTypeSetMagic;
-  }
-#endif
-
   void checkMagic() const {
 #ifdef JS_CRASH_DIAGNOSTICS
     if (MOZ_UNLIKELY(magic_ != ConstraintTypeSetMagic)) {
@@ -696,21 +679,13 @@ class ConstraintTypeSet : public TypeSet {
   }
 
   // This takes a reference to AutoSweepBase to ensure we swept the owning
-  // ObjectGroup or TypeScript.
+  // ObjectGroup or JitScript.
   TypeConstraint* constraintList(const AutoSweepBase& sweep) const {
     checkMagic();
     if (constraintList_) {
       constraintList_->checkMagic();
     }
     return constraintList_;
-  }
-  void setConstraintList(TypeConstraint* constraint) {
-    MOZ_ASSERT(!constraintList_);
-    checkMagic();
-    if (constraint) {
-      constraint->checkMagic();
-    }
-    constraintList_ = constraint;
   }
 
   /*
@@ -756,24 +731,27 @@ class HeapTypeSet : public ConstraintTypeSet {
   // Mark this type set as being non-constant.
   inline void setNonConstantProperty(const AutoSweepObjectGroup& sweep,
                                      JSContext* cx);
+
+  // Trigger freeze constraints for this property because a lexical binding was
+  // added to the global lexical environment.
+  inline void markLexicalBindingExists(const AutoSweepObjectGroup& sweep,
+                                       JSContext* cx);
 };
 
 enum class DOMObjectKind : uint8_t { Proxy, Native, Unknown };
 
 class TemporaryTypeSet : public TypeSet {
  public:
-  TemporaryTypeSet() {}
+  TemporaryTypeSet() { MOZ_ASSERT(!jit::JitOptions.warpBuilder); }
   TemporaryTypeSet(LifoAlloc* alloc, Type type);
 
   TemporaryTypeSet(uint32_t flags, ObjectKey** objectSet) {
+    MOZ_ASSERT(!jit::JitOptions.warpBuilder);
     this->flags = flags;
     this->objectSet = objectSet;
   }
 
-  TemporaryTypeSet(LifoAlloc* alloc, jit::MIRType type)
-      : TemporaryTypeSet(alloc, PrimitiveType(ValueTypeFromMIRType(type))) {
-    MOZ_ASSERT(type != jit::MIRType::Value);
-  }
+  inline TemporaryTypeSet(LifoAlloc* alloc, jit::MIRType type);
 
   /*
    * Constraints for JIT compilation.
@@ -786,10 +764,6 @@ class TemporaryTypeSet : public TypeSet {
 
   /* Get any type tag which all values in this set must have. */
   jit::MIRType getKnownMIRType();
-
-  bool isMagicArguments() {
-    return getKnownMIRType() == jit::MIRType::MagicOptimizedArguments;
-  }
 
   /* Whether this value may be an object. */
   bool maybeObject() { return unknownObject() || baseObjectCount() > 0; }
@@ -814,7 +788,7 @@ class TemporaryTypeSet : public TypeSet {
                       ObjectGroupFlags flags);
 
   /* Get the class shared by all objects in this set, or nullptr. */
-  const Class* getKnownClass(CompilerConstraintList* constraints);
+  const JSClass* getKnownClass(CompilerConstraintList* constraints);
 
   /*
    * Get the realm shared by all objects in this set, or nullptr. Returns
@@ -837,7 +811,7 @@ class TemporaryTypeSet : public TypeSet {
    * The iteration may end early if the result becomes known early.
    */
   ForAllResult forAllClasses(CompilerConstraintList* constraints,
-                             bool (*func)(const Class* clasp));
+                             bool (*func)(const JSClass* clasp));
 
   /*
    * Returns true if all objects in this set have the same prototype, and
@@ -948,8 +922,6 @@ class HeapTypeSetKey {
   bool nonWritable(CompilerConstraintList* constraints);
   bool isOwnProperty(CompilerConstraintList* constraints,
                      bool allowEmptyTypesForGlobal = false);
-  bool knownSubset(CompilerConstraintList* constraints,
-                   const HeapTypeSetKey& other);
   JSObject* singleton(CompilerConstraintList* constraints);
   bool needsBarrier(CompilerConstraintList* constraints);
   bool constant(CompilerConstraintList* constraints, Value* valOut);

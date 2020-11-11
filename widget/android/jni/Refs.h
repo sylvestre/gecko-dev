@@ -1,11 +1,17 @@
+/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
+/* vim: set ts=8 sts=2 et sw=2 tw=80: */
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 #ifndef mozilla_jni_Refs_h__
 #define mozilla_jni_Refs_h__
 
 #include <jni.h>
 
-#include "mozilla/Move.h"
-#include "mozilla/jni/Utils.h"
+#include <utility>
 
+#include "mozilla/jni/Utils.h"
 #include "nsError.h"  // for nsresult
 #include "nsString.h"
 #include "nsTArray.h"
@@ -710,6 +716,9 @@ class StringParam : public String::Ref {
   static jstring GetString(JNIEnv* env, const nsAString& str) {
     const jstring result = env->NewString(
         reinterpret_cast<const jchar*>(str.BeginReading()), str.Length());
+    if (!result) {
+      NS_ABORT_OOM(str.Length() * sizeof(char16_t));
+    }
     MOZ_CATCH_JNI_EXCEPTION(env);
     return result;
   }
@@ -993,6 +1002,12 @@ class ReturnToGlobal {
 template <class Cls>
 ReturnToGlobal<Cls> ReturnTo(GlobalRef<Cls>* ref) {
   return ReturnToGlobal<Cls>(ref);
+}
+
+// Make a LocalRef<T> from any other Ref<T>
+template <typename Cls, typename JNIType>
+LocalRef<Cls> ToLocalRef(const Ref<Cls, JNIType>& aRef) {
+  return LocalRef<Cls>(aRef);
 }
 
 }  // namespace jni

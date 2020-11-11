@@ -1,7 +1,7 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
+---
 loader: taskgraph.loader.transform:loader
 
 kind-dependencies:
@@ -10,18 +10,19 @@ kind-dependencies:
 transforms:
     - taskgraph.transforms.build_attrs:transforms
     - taskgraph.transforms.build_lints:transforms
-    - taskgraph.transforms.use_toolchains:transforms
     - taskgraph.transforms.job:transforms
     - taskgraph.transforms.task:transforms
 
 job-defaults:
+    attributes:
+        retrigger: true
     treeherder:
         kind: build
         tier: 1
-    worker-type: aws-provisioner-v1/gecko-{level}-b-linux
+    worker-type: b-linux
     worker:
         max-run-time: 36000
-        docker-image: {in-tree: debian7-amd64-build}
+        docker-image: {in-tree: debian8-amd64-build}
 
 jobs:
     linux64-shell-haz/debug:
@@ -41,13 +42,14 @@ jobs:
             files-changed:
                 - js/public/**
                 - js/src/**
-        toolchains:
-            - linux64-clang
-            - linux64-gcc-6
-            - linux64-gcc-sixgill
-            - linux64-rust
-            - linux64-cbindgen
-            - linux64-node
+        fetches:
+            toolchain:
+                - linux64-clang
+                - linux64-gcc-9
+                - linux64-gcc-sixgill
+                - linux64-rust
+                - linux64-cbindgen
+                - linux64-node
 
     linux64-haz/debug:
         description: "Browser Hazard Analysis Linux"
@@ -59,14 +61,19 @@ jobs:
             symbol: H
         run:
             using: hazard
-            mozconfig: "browser/config/mozconfigs/linux64/hazards"
             command: >
                 cd /builds/worker/checkouts/gecko/taskcluster/scripts/builder
                 && ./build-haz-linux.sh --project browser $HOME/workspace
-        toolchains:
-            - linux64-clang
-            - linux64-gcc-6
-            - linux64-gcc-sixgill
-            - linux64-rust
-            - linux64-cbindgen
-            - linux64-node
+        fetches:
+            toolchain:
+                - linux64-clang
+                - linux64-gcc-9
+                - linux64-gcc-sixgill
+                - linux64-rust
+                - linux64-cbindgen
+                - linux64-nasm
+                - linux64-node
+                - linux64-lucetc
+                - wasi-sysroot
+        optimization:
+            skip-unless-backstop: null

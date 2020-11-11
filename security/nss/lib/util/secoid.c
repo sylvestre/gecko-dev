@@ -455,6 +455,11 @@ CONST_OID pkixExtendedKeyUsageServerAuth[] = { PKIX_KEY_USAGE, 1 };
 CONST_OID pkixExtendedKeyUsageClientAuth[] = { PKIX_KEY_USAGE, 2 };
 CONST_OID pkixExtendedKeyUsageCodeSign[] = { PKIX_KEY_USAGE, 3 };
 CONST_OID pkixExtendedKeyUsageEMailProtect[] = { PKIX_KEY_USAGE, 4 };
+/* IPsecEnd, IPsecTunnel, and IPsecUser are deprecated, but still in use
+ * (see RFC4945) */
+CONST_OID pkixExtendedKeyUsageIPsecEnd[] = { PKIX_KEY_USAGE, 5 };
+CONST_OID pkixExtendedKeyUsageIPsecTunnel[] = { PKIX_KEY_USAGE, 6 };
+CONST_OID pkixExtendedKeyUsageIPsecUser[] = { PKIX_KEY_USAGE, 7 };
 CONST_OID pkixExtendedKeyUsageTimeStamp[] = { PKIX_KEY_USAGE, 8 };
 CONST_OID pkixOCSPResponderExtendedKeyUsage[] = { PKIX_KEY_USAGE, 9 };
 /* 17 replaces 5 + 6 + 7 (declared obsolete in RFC 4945) */
@@ -689,7 +694,7 @@ const static SECOidData oids[SEC_OID_TOTAL] = {
        CKM_PBE_MD5_DES_CBC, INVALID_CERT_EXTENSION),
     OD(pkcs5PbeWithSha1AndDEScbc, SEC_OID_PKCS5_PBE_WITH_SHA1_AND_DES_CBC,
        "PKCS #5 Password Based Encryption with SHA-1 and DES-CBC",
-       CKM_NETSCAPE_PBE_SHA1_DES_CBC, INVALID_CERT_EXTENSION),
+       CKM_NSS_PBE_SHA1_DES_CBC, INVALID_CERT_EXTENSION),
     OD(pkcs7, SEC_OID_PKCS7,
        "PKCS #7", CKM_INVALID_MECHANISM, INVALID_CERT_EXTENSION),
     OD(pkcs7Data, SEC_OID_PKCS7_DATA,
@@ -957,23 +962,23 @@ const static SECOidData oids[SEC_OID_TOTAL] = {
     OD(pkcs12PBEWithSha1And128BitRC4,
        SEC_OID_PKCS12_PBE_WITH_SHA1_AND_128_BIT_RC4,
        "PKCS #12 PBE With SHA-1 and 128 Bit RC4",
-       CKM_NETSCAPE_PBE_SHA1_128_BIT_RC4, INVALID_CERT_EXTENSION),
+       CKM_NSS_PBE_SHA1_128_BIT_RC4, INVALID_CERT_EXTENSION),
     OD(pkcs12PBEWithSha1And40BitRC4,
        SEC_OID_PKCS12_PBE_WITH_SHA1_AND_40_BIT_RC4,
        "PKCS #12 PBE With SHA-1 and 40 Bit RC4",
-       CKM_NETSCAPE_PBE_SHA1_40_BIT_RC4, INVALID_CERT_EXTENSION),
+       CKM_NSS_PBE_SHA1_40_BIT_RC4, INVALID_CERT_EXTENSION),
     OD(pkcs12PBEWithSha1AndTripleDESCBC,
        SEC_OID_PKCS12_PBE_WITH_SHA1_AND_TRIPLE_DES_CBC,
        "PKCS #12 PBE With SHA-1 and Triple DES-CBC",
-       CKM_NETSCAPE_PBE_SHA1_TRIPLE_DES_CBC, INVALID_CERT_EXTENSION),
+       CKM_NSS_PBE_SHA1_TRIPLE_DES_CBC, INVALID_CERT_EXTENSION),
     OD(pkcs12PBEWithSha1And128BitRC2CBC,
        SEC_OID_PKCS12_PBE_WITH_SHA1_AND_128_BIT_RC2_CBC,
        "PKCS #12 PBE With SHA-1 and 128 Bit RC2 CBC",
-       CKM_NETSCAPE_PBE_SHA1_128_BIT_RC2_CBC, INVALID_CERT_EXTENSION),
+       CKM_NSS_PBE_SHA1_128_BIT_RC2_CBC, INVALID_CERT_EXTENSION),
     OD(pkcs12PBEWithSha1And40BitRC2CBC,
        SEC_OID_PKCS12_PBE_WITH_SHA1_AND_40_BIT_RC2_CBC,
        "PKCS #12 PBE With SHA-1 and 40 Bit RC2 CBC",
-       CKM_NETSCAPE_PBE_SHA1_40_BIT_RC2_CBC, INVALID_CERT_EXTENSION),
+       CKM_NSS_PBE_SHA1_40_BIT_RC2_CBC, INVALID_CERT_EXTENSION),
     OD(pkcs12RSAEncryptionWith128BitRC4,
        SEC_OID_PKCS12_RSA_ENCRYPTION_WITH_128_BIT_RC4,
        "PKCS #12 RSA Encryption with 128 Bit RC4",
@@ -1778,6 +1783,18 @@ const static SECOidData oids[SEC_OID_TOTAL] = {
        SEC_OID_IPSEC_IKE_INTERMEDIATE,
        "IPsec IKE Intermediate",
        CKM_INVALID_MECHANISM, INVALID_CERT_EXTENSION),
+    OD(pkixExtendedKeyUsageIPsecEnd,
+       SEC_OID_EXT_KEY_USAGE_IPSEC_END,
+       "IPsec Tunnel",
+       CKM_INVALID_MECHANISM, INVALID_CERT_EXTENSION),
+    OD(pkixExtendedKeyUsageIPsecTunnel,
+       SEC_OID_EXT_KEY_USAGE_IPSEC_TUNNEL,
+       "IPsec Tunnel",
+       CKM_INVALID_MECHANISM, INVALID_CERT_EXTENSION),
+    OD(pkixExtendedKeyUsageIPsecUser,
+       SEC_OID_EXT_KEY_USAGE_IPSEC_USER,
+       "IPsec User",
+       CKM_INVALID_MECHANISM, INVALID_CERT_EXTENSION),
 };
 
 /* PRIVATE EXTENDED SECOID Table
@@ -2041,7 +2058,7 @@ SECOID_Init(void)
 {
     PLHashEntry *entry;
     const SECOidData *oid;
-    int i;
+    SECOidTag i;
     char *envVal;
 
 #define NSS_VERSION_VARIABLE __nss_util_version
@@ -2227,6 +2244,8 @@ NSS_GetAlgorithmPolicy(SECOidTag tag, PRUint32 *pValue)
     return SECSuccess;
 }
 
+static PRBool nss_policy_locked = PR_FALSE;
+
 /* The Set function modifies the stored value according to the following
  * algorithm:
  *   policy[tag] = (policy[tag] & ~clearBits) | setBits;
@@ -2238,6 +2257,11 @@ NSS_SetAlgorithmPolicy(SECOidTag tag, PRUint32 setBits, PRUint32 clearBits)
     PRUint32 policyFlags;
     if (!pxo)
         return SECFailure;
+
+    if (nss_policy_locked) {
+        PORT_SetError(SEC_ERROR_POLICY_LOCKED);
+        return SECFailure;
+    }
     /* The stored policy flags are the ones complement of the flags as
      * seen by the user.  This is not atomic, but these changes should
      * be done rarely, e.g. at initialization time.
@@ -2246,6 +2270,20 @@ NSS_SetAlgorithmPolicy(SECOidTag tag, PRUint32 setBits, PRUint32 clearBits)
     policyFlags = (policyFlags & ~clearBits) | setBits;
     pxo->notPolicyFlags = ~policyFlags;
     return SECSuccess;
+}
+
+/* Get the state of nss_policy_locked */
+PRBool
+NSS_IsPolicyLocked(void)
+{
+    return nss_policy_locked;
+}
+
+/* Once the policy is locked, it can't be unlocked */
+void
+NSS_LockPolicy(void)
+{
+    nss_policy_locked = PR_TRUE;
 }
 
 /* --------- END OF opaque extended OID table accessor functions ---------*/
@@ -2309,6 +2347,9 @@ SECOID_Shutdown(void)
         dynOidEntriesAllocated = 0;
         dynOidEntriesUsed = 0;
     }
+    /* we are trashing the old policy state now, also reenable changing
+     * the policy as well */
+    nss_policy_locked = PR_FALSE;
     memset(xOids, 0, sizeof xOids);
     return SECSuccess;
 }

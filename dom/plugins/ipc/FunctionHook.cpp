@@ -4,18 +4,19 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#include "mozilla/TextUtils.h"
+
 #include "FunctionHook.h"
 #include "FunctionBroker.h"
 #include "nsClassHashtable.h"
 #include "mozilla/ClearOnShutdown.h"
 
 #if defined(XP_WIN)
-#include <shlobj.h>
-#include "PluginModuleChild.h"
+#  include <shlobj.h>
+#  include "PluginModuleChild.h"
 #endif
 
-namespace mozilla {
-namespace plugins {
+namespace mozilla::plugins {
 
 StaticAutoPtr<FunctionHookArray> FunctionHook::sFunctionHooks;
 
@@ -65,7 +66,7 @@ WindowsDllInterceptor* FunctionHook::GetDllInterceptorFor(
     sDllInterceptorCache = new DllInterceptors();
   }
 
-  MOZ_ASSERT(NS_IsAscii(aModuleName),
+  MOZ_ASSERT(IsAsciiNullTerminated(aModuleName),
              "Non-ASCII module names are not supported");
   NS_ConvertASCIItoUTF16 moduleName(aModuleName);
 
@@ -92,7 +93,8 @@ ShouldHookFunc* const GetWindowInfoFH::mShouldHook =
 static const wchar_t* kMozillaWindowClass = L"MozillaWindowClass";
 static HWND sBrowserHwnd = nullptr;
 
-BOOL WINAPI GetWindowInfoHook(HWND hWnd, PWINDOWINFO pwi) {
+INTERCEPTOR_DISABLE_CFGUARD BOOL WINAPI GetWindowInfoHook(HWND hWnd,
+                                                          PWINDOWINFO pwi) {
   if (!pwi) {
     return FALSE;
   }
@@ -139,7 +141,7 @@ template <>
 ShouldHookFunc* const PrintDlgWFH::mShouldHook =
     &CheckQuirks<QUIRK_FLASH_HOOK_PRINTDLGW>;
 
-BOOL WINAPI PrintDlgWHook(LPPRINTDLGW aDlg) {
+INTERCEPTOR_DISABLE_CFGUARD BOOL WINAPI PrintDlgWHook(LPPRINTDLGW aDlg) {
   // Zero out the HWND supplied by the plugin.  We are sacrificing window
   // parentage for the ability to run in the NPAPI sandbox.
   HWND hwnd = aDlg->hwndOwner;
@@ -203,7 +205,7 @@ static HANDLE WINAPI CreateFileAHookFn(LPCSTR aFname, DWORD aAccess,
 }
 
 static bool GetLocalLowTempPath(size_t aLen, LPWSTR aPath) {
-  NS_NAMED_LITERAL_STRING(tempname, "\\Temp");
+  constexpr auto tempname = u"\\Temp"_ns;
   LPWSTR path;
   if (SUCCEEDED(
           SHGetKnownFolderPath(FOLDERID_LocalAppDataLow, 0, nullptr, &path))) {
@@ -295,14 +297,15 @@ void FunctionHook::HookProtectedMode() {
   sCreateFileAStub.Set(sKernel32Intercept, "CreateFileA", &CreateFileAHookFn);
 }
 
-#if defined(MOZ_SANDBOX)
+#  if defined(MOZ_SANDBOX)
 
 /* GetFileAttributesW */
 
 typedef BasicFunctionHook<ID_GetFileAttributesW, decltype(GetFileAttributesW)>
     GetFileAttributesWFH;
 
-DWORD WINAPI GetFileAttributesWHook(LPCWSTR aFilename) {
+INTERCEPTOR_DISABLE_CFGUARD DWORD WINAPI
+GetFileAttributesWHook(LPCWSTR aFilename) {
   MOZ_ASSERT(ID_GetFileAttributesW < FunctionHook::GetHooks()->Length());
   GetFileAttributesWFH* functionHook = static_cast<GetFileAttributesWFH*>(
       FunctionHook::GetHooks()->ElementAt(ID_GetFileAttributesW));
@@ -330,7 +333,7 @@ DWORD WINAPI GetFileAttributesWHook(LPCWSTR aFilename) {
   return FILE_ATTRIBUTE_DIRECTORY;
 }
 
-#endif  // defined(MOZ_SANDBOX)
+#  endif  // defined(MOZ_SANDBOX)
 
 #endif  // defined(XP_WIN)
 
@@ -343,15 +346,14 @@ void FunctionHook::AddFunctionHooks(FunctionHookArray& aHooks) {
       "user32.dll", "GetWindowInfo", &GetWindowInfo, &GetWindowInfoHook));
   aHooks[ID_PrintDlgW] = FUN_HOOK(
       new PrintDlgWFH("comdlg32.dll", "PrintDlgW", &PrintDlgW, PrintDlgWHook));
-#if defined(MOZ_SANDBOX)
+#  if defined(MOZ_SANDBOX)
   aHooks[ID_GetFileAttributesW] = FUN_HOOK(
       new GetFileAttributesWFH("kernel32.dll", "GetFileAttributesW",
                                &GetFileAttributesW, &GetFileAttributesWHook));
-#endif  // defined(MOZ_SANDBOX)
-#endif  // defined(XP_WIN)
+#  endif  // defined(MOZ_SANDBOX)
+#endif    // defined(XP_WIN)
 }
 
 #undef FUN_HOOK
 
-}  // namespace plugins
-}  // namespace mozilla
+}  // namespace mozilla::plugins

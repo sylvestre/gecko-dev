@@ -23,10 +23,9 @@
 #include "nsPrintfCString.h"                // for nsPrintfCString
 #include "nsThreadUtils.h"                  // for NS_DispatchToMainThread, etc
 #include "nscore.h"                         // for NS_IMETHOD
-#include "gfxPrefs.h"                       // for the preferences
 
-#define AXIS_LOG(...)
-// #define AXIS_LOG(...) printf_stderr("AXIS: " __VA_ARGS__)
+static mozilla::LazyLogModule sApzAxsLog("apz.axis");
+#define AXIS_LOG(...) MOZ_LOG(sApzAxsLog, LogLevel::Debug, (__VA_ARGS__))
 
 namespace mozilla {
 namespace layers {
@@ -38,7 +37,7 @@ bool FuzzyEqualsCoordinate(float aValue1, float aValue2) {
 
 Axis::Axis(AsyncPanZoomController* aAsyncPanZoomController)
     : mPos(0),
-      mVelocity(0.0f),
+      mVelocity(0.0f, "Axis::mVelocity"),
       mAxisLocked(false),
       mAsyncPanZoomController(aAsyncPanZoomController),
       mOverscroll(0),
@@ -59,32 +58,27 @@ float Axis::ToLocalVelocity(float aVelocityInchesPerMs) const {
 }
 
 void Axis::UpdateWithTouchAtDevicePoint(ParentLayerCoord aPos,
-                                        uint32_t aTimestampMs) {
+                                        TimeStamp aTimestamp) {
   // mVelocityTracker is controller-thread only
   APZThreadUtils::AssertOnControllerThread();
 
   mPos = aPos;
 
+  AXIS_LOG("%p|%s got position %f\n", mAsyncPanZoomController, Name(),
+           mPos.value);
   if (Maybe<float> newVelocity =
-          mVelocityTracker->AddPosition(aPos, aTimestampMs, mAxisLocked)) {
-    mVelocity = *newVelocity;
+          mVelocityTracker->AddPosition(aPos, aTimestamp)) {
+    DoSetVelocity(mAxisLocked ? 0 : *newVelocity);
+    AXIS_LOG("%p|%s velocity from tracker is %f%s\n", mAsyncPanZoomController,
+             Name(), *newVelocity,
+             mAxisLocked ? ", but we are axis locked" : "");
   }
 }
 
-void Axis::HandleDynamicToolbarMovement(uint32_t aStartTimestampMs,
-                                        uint32_t aEndTimestampMs,
-                                        ParentLayerCoord aDelta) {
-  // mVelocityTracker is controller-thread only
-  APZThreadUtils::AssertOnControllerThread();
-
-  mVelocity = mVelocityTracker->HandleDynamicToolbarMovement(
-      aStartTimestampMs, aEndTimestampMs, aDelta);
-}
-
-void Axis::StartTouch(ParentLayerCoord aPos, uint32_t aTimestampMs) {
+void Axis::StartTouch(ParentLayerCoord aPos, TimeStamp aTimestamp) {
   mStartPos = aPos;
   mPos = aPos;
-  mVelocityTracker->StartTracking(aPos, aTimestampMs);
+  mVelocityTracker->StartTracking(aPos, aTimestamp);
   mAxisLocked = false;
 }
 
@@ -126,7 +120,7 @@ bool Axis::AdjustDisplacement(
     // anywhere, so we're just spinning needlessly.
     AXIS_LOG("%p|%s has overscrolled, clearing velocity\n",
              mAsyncPanZoomController, Name());
-    mVelocity = 0.0f;
+    DoSetVelocity(0.0f);
     displacement -= aOverscrollAmountOut;
   }
   aDisplacementOut = displacement;
@@ -192,7 +186,7 @@ void Axis::StartOverscrollAnimation(float aVelocity) {
   mMSDModel.SetPosition(mOverscroll);
   // Convert velocity from ParentLayerCoords/millisecond to
   // ParentLayerCoords/second.
-  mMSDModel.SetVelocity(mVelocity * 1000.0);
+  mMSDModel.SetVelocity(DoGetVelocity() * 1000.0);
 }
 
 void Axis::EndOverscrollAnimation() {
@@ -210,7 +204,7 @@ bool Axis::SampleOverscrollAnimation(const TimeDuration& aDelta) {
     AXIS_LOG("%p|%s oscillation dropped below threshold, going to rest\n",
              mAsyncPanZoomController, Name());
     ClearOverscroll();
-    mVelocity = 0;
+    DoSetVelocity(0);
     return false;
   }
 
@@ -233,21 +227,26 @@ ParentLayerCoord Axis::PanDistance(ParentLayerCoord aPos) const {
   return fabs(aPos - mStartPos);
 }
 
-void Axis::EndTouch(uint32_t aTimestampMs) {
+void Axis::EndTouch(TimeStamp aTimestamp) {
   // mVelocityQueue is controller-thread only
   APZThreadUtils::AssertOnControllerThread();
 
-  mAxisLocked = false;
   // If the velocity tracker wasn't able to compute a velocity, zero out
   // the velocity to make sure we don't get a fling based on some old and
-  // no-longer-relevant value of mVelocity.
-  if (Maybe<float> velocity = mVelocityTracker->ComputeVelocity(aTimestampMs)) {
-    mVelocity = *velocity;
+  // no-longer-relevant value of mVelocity. Also if the axis is locked then
+  // just reset the velocity to 0 since we don't need any velocity to carry
+  // into the fling.
+  if (mAxisLocked) {
+    DoSetVelocity(0);
+  } else if (Maybe<float> velocity =
+                 mVelocityTracker->ComputeVelocity(aTimestamp)) {
+    DoSetVelocity(*velocity);
   } else {
-    mVelocity = 0;
+    DoSetVelocity(0);
   }
+  mAxisLocked = false;
   AXIS_LOG("%p|%s ending touch, computed velocity %f\n",
-           mAsyncPanZoomController, Name(), mVelocity);
+           mAsyncPanZoomController, Name(), DoGetVelocity());
 }
 
 void Axis::CancelGesture() {
@@ -256,7 +255,7 @@ void Axis::CancelGesture() {
 
   AXIS_LOG("%p|%s cancelling touch, clearing velocity queue\n",
            mAsyncPanZoomController, Name());
-  mVelocity = 0.0f;
+  DoSetVelocity(0.0f);
   mVelocityTracker->Clear();
 }
 
@@ -347,12 +346,12 @@ CSSCoord Axis::ScaleWillOverscrollAmount(float aScale, CSSCoord aFocus) const {
 
 bool Axis::IsAxisLocked() const { return mAxisLocked; }
 
-float Axis::GetVelocity() const { return mAxisLocked ? 0 : mVelocity; }
+float Axis::GetVelocity() const { return mAxisLocked ? 0 : DoGetVelocity(); }
 
 void Axis::SetVelocity(float aVelocity) {
   AXIS_LOG("%p|%s direct-setting velocity to %f\n", mAsyncPanZoomController,
            Name(), aVelocity);
-  mVelocity = aVelocity;
+  DoSetVelocity(aVelocity);
 }
 
 ParentLayerCoord Axis::GetCompositionEnd() const {
@@ -369,7 +368,7 @@ ParentLayerCoord Axis::GetScrollRangeEnd() const {
 
 ParentLayerCoord Axis::GetOrigin() const {
   ParentLayerPoint origin =
-      GetFrameMetrics().GetScrollOffset() * GetFrameMetrics().GetZoom();
+      GetFrameMetrics().GetVisualScrollOffset() * GetFrameMetrics().GetZoom();
   return GetPointOffset(origin);
 }
 
@@ -395,6 +394,15 @@ bool Axis::ScaleWillOverscrollBothSides(float aScale) const {
       metrics.GetCompositionBounds() / ParentLayerToParentLayerScale(aScale);
   return GetRectLength(screenCompositionBounds) - GetPageLength() >
          COORDINATE_EPSILON;
+}
+
+float Axis::DoGetVelocity() const {
+  auto velocity = mVelocity.Lock();
+  return velocity.ref();
+}
+void Axis::DoSetVelocity(float aVelocity) {
+  auto velocity = mVelocity.Lock();
+  velocity.ref() = aVelocity;
 }
 
 const FrameMetrics& Axis::GetFrameMetrics() const {
@@ -497,8 +505,19 @@ bool AxisY::CanScrollTo(Side aSide) const {
   }
 }
 
+bool AxisY::CanScrollDownwardsWithDynamicToolbar() const {
+  return GetCompositionLengthWithoutDynamicToolbar() == ParentLayerCoord(0)
+             ? CanScroll()
+             : GetPageLength() - GetCompositionLengthWithoutDynamicToolbar() >
+                   COORDINATE_EPSILON;
+}
+
 OverscrollBehavior AxisY::GetOverscrollBehavior() const {
   return GetScrollMetadata().GetOverscrollBehavior().mBehaviorY;
+}
+
+ParentLayerCoord AxisY::GetCompositionLengthWithoutDynamicToolbar() const {
+  return GetFrameMetrics().GetCompositionSizeWithoutDynamicToolbar().Height();
 }
 
 }  // namespace layers

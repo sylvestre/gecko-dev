@@ -7,7 +7,6 @@
 #ifndef nsTreeColumns_h__
 #define nsTreeColumns_h__
 
-#include "nsITreeBoxObject.h"
 #include "mozilla/Attributes.h"
 #include "mozilla/RefPtr.h"
 #include "nsCoord.h"
@@ -24,10 +23,12 @@ class nsIContent;
 struct nsRect;
 
 namespace mozilla {
+enum class StyleTextAlignKeyword : uint8_t;
+using StyleTextAlign = StyleTextAlignKeyword;
 class ErrorResult;
 namespace dom {
 class Element;
-class TreeBoxObject;
+class XULTreeElement;
 }  // namespace dom
 }  // namespace mozilla
 
@@ -72,6 +73,8 @@ class nsTreeColumn final : public nsISupports, public nsWrapperCache {
   nsTreeColumn* GetNext() const { return mNext; }
   nsTreeColumn* GetPrevious() const { return mPrevious; }
 
+  already_AddRefed<nsTreeColumn> GetPreviousColumn();
+
   void Invalidate(mozilla::ErrorResult& aRv);
 
   friend class nsTreeBodyFrame;
@@ -110,7 +113,7 @@ class nsTreeColumn final : public nsISupports, public nsWrapperCache {
   int16_t GetType() { return mType; }
 
   int8_t GetCropStyle() { return mCropStyle; }
-  int32_t GetTextAlignment() { return mTextAlignment; }
+  mozilla::StyleTextAlign GetTextAlignment() { return mTextAlignment; }
 
   void SetNext(nsTreeColumn* aNext) {
     NS_ASSERTION(!mNext, "already have a next sibling");
@@ -139,7 +142,7 @@ class nsTreeColumn final : public nsISupports, public nsWrapperCache {
   int16_t mType;
 
   int8_t mCropStyle;
-  int8_t mTextAlignment;
+  mozilla::StyleTextAlign mTextAlignment;
 
   RefPtr<nsTreeColumn> mNext;
   nsTreeColumn* mPrevious;
@@ -162,7 +165,7 @@ class nsTreeColumns final : public nsISupports, public nsWrapperCache {
                                JS::Handle<JSObject*> aGivenProto) override;
 
   // WebIDL
-  mozilla::dom::TreeBoxObject* GetTree() const;
+  mozilla::dom::XULTreeElement* GetTree() const;
   uint32_t Count();
   uint32_t Length() { return Count(); }
 
@@ -185,7 +188,6 @@ class nsTreeColumns final : public nsISupports, public nsWrapperCache {
   void GetSupportedNames(nsTArray<nsString>& aNames);
 
   void InvalidateColumns();
-  void RestoreNaturalOrder();
 
   friend class nsTreeBodyFrame;
 

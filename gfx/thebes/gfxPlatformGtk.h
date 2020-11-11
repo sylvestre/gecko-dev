@@ -22,7 +22,7 @@ class SystemFontListEntry;
 };
 };  // namespace mozilla
 
-class gfxPlatformGtk : public gfxPlatform {
+class gfxPlatformGtk final : public gfxPlatform {
  public:
   gfxPlatformGtk();
   virtual ~gfxPlatformGtk();
@@ -32,41 +32,32 @@ class gfxPlatformGtk : public gfxPlatform {
   }
 
   void ReadSystemFontList(
-      InfallibleTArray<mozilla::dom::SystemFontListEntry>* retValue) override;
+      nsTArray<mozilla::dom::SystemFontListEntry>* retValue) override;
 
-  virtual already_AddRefed<gfxASurface> CreateOffscreenSurface(
+  already_AddRefed<gfxASurface> CreateOffscreenSurface(
       const IntSize& aSize, gfxImageFormat aFormat) override;
 
-  virtual nsresult GetFontList(nsAtom* aLangGroup,
-                               const nsACString& aGenericFamily,
-                               nsTArray<nsString>& aListOfFonts) override;
+  nsresult GetFontList(nsAtom* aLangGroup, const nsACString& aGenericFamily,
+                       nsTArray<nsString>& aListOfFonts) override;
 
-  virtual nsresult UpdateFontList() override;
+  nsresult UpdateFontList() override;
 
-  virtual void GetCommonFallbackFonts(
-      uint32_t aCh, uint32_t aNextCh, Script aRunScript,
-      nsTArray<const char*>& aFontList) override;
+  void GetCommonFallbackFonts(uint32_t aCh, Script aRunScript,
+                              eFontPresentation aPresentation,
+                              nsTArray<const char*>& aFontList) override;
 
-  virtual gfxPlatformFontList* CreatePlatformFontList() override;
-
-  gfxFontGroup* CreateFontGroup(const mozilla::FontFamilyList& aFontFamilyList,
-                                const gfxFontStyle* aStyle,
-                                gfxTextPerfMetrics* aTextPerf,
-                                gfxUserFontSet* aUserFontSet,
-                                gfxFloat aDevToCssSize) override;
+  gfxPlatformFontList* CreatePlatformFontList() override;
 
   /**
    * Calls XFlush if xrender is enabled.
    */
-  virtual void FlushContentDrawing() override;
-
-  FT_Library GetFTLibrary() override;
+  void FlushContentDrawing() override;
 
   static int32_t GetFontScaleDPI();
   static double GetFontScaleFactor();
 
 #ifdef MOZ_X11
-  virtual void GetAzureBackendInfo(mozilla::widget::InfoObject& aObj) override {
+  void GetAzureBackendInfo(mozilla::widget::InfoObject& aObj) override {
     gfxPlatform::GetAzureBackendInfo(aObj);
     aObj.DefineProperty("CairoUseXRender", mozilla::gfx::gfxVars::UseXRender());
   }
@@ -74,7 +65,7 @@ class gfxPlatformGtk : public gfxPlatform {
 
   bool UseImageOffscreenSurfaces();
 
-  virtual gfxImageFormat GetOffscreenFormat() override;
+  gfxImageFormat GetOffscreenFormat() override;
 
   bool SupportsApzWheelInput() const override { return true; }
 
@@ -92,35 +83,28 @@ class gfxPlatformGtk : public gfxPlatform {
       override;
 #endif
 
-#ifdef MOZ_X11
-  Display* GetCompositorDisplay() { return mCompositorDisplay; }
-#endif  // MOZ_X11
-
 #ifdef MOZ_WAYLAND
-  void SetWaylandLastVsync(uint32_t aVsyncTimestamp) {
-    mWaylandLastVsyncTimestamp = aVsyncTimestamp;
-  }
-  int64_t GetWaylandLastVsync() { return mWaylandLastVsyncTimestamp; }
-  void SetWaylandFrameDelay(int64_t aFrameDelay) {
-    mWaylandFrameDelay = aFrameDelay;
-  }
-  int64_t GetWaylandFrameDelay() { return mWaylandFrameDelay; }
+  bool UseDMABufWebGL() override { return mUseWebGLDmabufBackend; }
+  void DisableDMABufWebGL() { mUseWebGLDmabufBackend = false; }
 #endif
 
+  bool IsX11Display() { return mIsX11Display; }
+  bool IsWaylandDisplay() override {
+    return !mIsX11Display && !gfxPlatform::IsHeadless();
+  }
+
  protected:
+  void InitPlatformGPUProcessPrefs() override;
   bool CheckVariationFontSupport() override;
 
   int8_t mMaxGenericSubstitutions;
 
  private:
-  virtual void GetPlatformCMSOutputProfile(void*& mem, size_t& size) override;
+  nsTArray<uint8_t> GetPlatformCMSOutputProfileData() override;
 
-#ifdef MOZ_X11
-  Display* mCompositorDisplay;
-#endif
+  bool mIsX11Display;
 #ifdef MOZ_WAYLAND
-  int64_t mWaylandLastVsyncTimestamp;
-  int64_t mWaylandFrameDelay;
+  bool mUseWebGLDmabufBackend;
 #endif
 };
 

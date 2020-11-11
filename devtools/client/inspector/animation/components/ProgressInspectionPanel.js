@@ -4,12 +4,19 @@
 
 "use strict";
 
-const { createFactory, PureComponent } = require("devtools/client/shared/vendor/react");
+const {
+  createFactory,
+  PureComponent,
+} = require("devtools/client/shared/vendor/react");
 const PropTypes = require("devtools/client/shared/vendor/react-prop-types");
 const dom = require("devtools/client/shared/vendor/react-dom-factories");
 
-const TickLabels = createFactory(require("./TickLabels"));
-const TickLines = createFactory(require("./TickLines"));
+const TickLabels = createFactory(
+  require("devtools/client/inspector/animation/components/TickLabels")
+);
+const TickLines = createFactory(
+  require("devtools/client/inspector/animation/components/TickLines")
+);
 
 /**
  * This component is a panel for the progress of animations or keyframes, supports
@@ -25,11 +32,7 @@ class ProgressInspectionPanel extends PureComponent {
   }
 
   render() {
-    const {
-      indicator,
-      list,
-      ticks,
-    } = this.props;
+    const { indicator, list, ticks } = this.props;
 
     return dom.div(
       {

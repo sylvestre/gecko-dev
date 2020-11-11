@@ -1,4 +1,3 @@
-// |reftest| skip-if(!Symbol.hasOwnProperty('matchAll')) -- Symbol.matchAll is not enabled unconditionally
 // Copyright (C) 2018 Peter Wong. All rights reserved.
 // This code is governed by the BSD license found in the LICENSE file.
 /*---
@@ -19,7 +18,7 @@ Object.defineProperty(RegExp.prototype, Symbol.matchAll, {
 });
 
 assert.throws(Test262Error, function() {
-  ''.matchAll(/./);
+  ''.matchAll(/./g);
 });
 
 reportCompare(0, 0);

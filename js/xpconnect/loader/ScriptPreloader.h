@@ -18,6 +18,7 @@
 #include "mozilla/Result.h"
 #include "mozilla/loader/AutoMemMap.h"
 #include "nsClassHashtable.h"
+#include "nsIAsyncShutdown.h"
 #include "nsIFile.h"
 #include "nsIMemoryReporter.h"
 #include "nsIObserver.h"
@@ -25,6 +26,7 @@
 #include "nsITimer.h"
 
 #include "jsapi.h"
+#include "js/CompileOptions.h"  // JS::CompileOptions, JS::ReadOnlyCompileOptions
 #include "js/GCAnnotations.h"
 
 #include <prio.h>
@@ -45,7 +47,7 @@ enum class ProcessType : uint8_t {
   Parent,
   Web,
   Extension,
-  Privileged,
+  PrivilegedAbout,
 };
 
 template <typename T>
@@ -58,7 +60,8 @@ using namespace mozilla::loader;
 
 class ScriptPreloader : public nsIObserver,
                         public nsIMemoryReporter,
-                        public nsIRunnable {
+                        public nsIRunnable,
+                        public nsIAsyncShutdownBlocker {
   MOZ_DEFINE_MALLOC_SIZE_OF(MallocSizeOf)
 
   friend class mozilla::loader::ScriptCacheChild;
@@ -68,15 +71,22 @@ class ScriptPreloader : public nsIObserver,
   NS_DECL_NSIOBSERVER
   NS_DECL_NSIMEMORYREPORTER
   NS_DECL_NSIRUNNABLE
+  NS_DECL_NSIASYNCSHUTDOWNBLOCKER
 
   static ScriptPreloader& GetSingleton();
   static ScriptPreloader& GetChildSingleton();
 
-  static ProcessType GetChildProcessType(const nsAString& remoteType);
+  static ProcessType GetChildProcessType(const nsACString& remoteType);
+
+  // Fill some options that should be consistent across all scripts stored
+  // into preloader cache.
+  static void FillCompileOptionsForCachedScript(JS::CompileOptions& options);
 
   // Retrieves the script with the given cache key from the script cache.
   // Returns null if the script is not cached.
-  JSScript* GetCachedScript(JSContext* cx, const nsCString& name);
+  JSScript* GetCachedScript(JSContext* cx,
+                            const JS::ReadOnlyCompileOptions& options,
+                            const nsCString& path);
 
   // Notes the execution of a script with the given URL and cache key.
   // Depending on the stage of startup, the script may be serialized and
@@ -93,8 +103,7 @@ class ScriptPreloader : public nsIObserver,
                   TimeStamp loadTime);
 
   // Initializes the script cache from the startup script cache file.
-  Result<Ok, nsresult> InitCache(
-      const nsAString& = NS_LITERAL_STRING("scriptCache"));
+  Result<Ok, nsresult> InitCache(const nsAString& = u"scriptCache"_ns);
 
   Result<Ok, nsresult> InitCache(const Maybe<ipc::FileDescriptor>& cacheFile,
                                  ScriptCacheChild* cacheChild);
@@ -103,6 +112,9 @@ class ScriptPreloader : public nsIObserver,
 
  private:
   Result<Ok, nsresult> InitCacheInternal(JS::HandleObject scope = nullptr);
+  JSScript* GetCachedScriptInternal(JSContext* cx,
+                                    const JS::ReadOnlyCompileOptions& options,
+                                    const nsCString& path);
 
  public:
   void Trace(JSTracer* trc);
@@ -264,7 +276,8 @@ class ScriptPreloader : public nsIObserver,
 
     bool HasArray() { return mXDRData.constructed<nsTArray<uint8_t>>(); }
 
-    JSScript* GetJSScript(JSContext* cx);
+    JSScript* GetJSScript(JSContext* cx,
+                          const JS::ReadOnlyCompileOptions& options);
 
     size_t HeapSizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf) {
       auto size = mallocSizeOf(this);
@@ -373,7 +386,6 @@ class ScriptPreloader : public nsIObserver,
 
   ScriptPreloader();
 
-  void ForceWriteCacheFile();
   void Cleanup();
 
   void FinishPendingParses(MonitorAutoLock& aMal);
@@ -385,17 +397,21 @@ class ScriptPreloader : public nsIObserver,
   // Writes a new cache file to disk. Must not be called on the main thread.
   Result<Ok, nsresult> WriteCache();
 
+  void StartCacheWrite();
+
   // Prepares scripts for writing to the cache, serializing new scripts to
   // XDR, and calculating their size-based offsets.
   void PrepareCacheWrite();
 
   void PrepareCacheWriteInternal();
 
+  void CacheWriteComplete();
+
   void FinishContentStartup();
 
   // Returns true if scripts added to the cache now will be encoded and
-  // written to the cache. If we've passed the startup script loading
-  // window, or this is a content process which hasn't been asked to return
+  // written to the cache. If we've already encoded scripts for the cache
+  // write, or this is a content process which hasn't been asked to return
   // script bytecode, this will return false.
   bool WillWriteScripts();
 
@@ -405,13 +421,17 @@ class ScriptPreloader : public nsIObserver,
 
   // Waits for the given cached script to finish compiling off-thread, or
   // decodes it synchronously on the main thread, as appropriate.
-  JSScript* WaitForCachedScript(JSContext* cx, CachedScript* script);
+  JSScript* WaitForCachedScript(JSContext* cx,
+                                const JS::ReadOnlyCompileOptions& options,
+                                CachedScript* script);
 
   void DecodeNextBatch(size_t chunkSize, JS::HandleObject scope = nullptr);
 
   static void OffThreadDecodeCallback(JS::OffThreadToken* token, void* context);
   void MaybeFinishOffThreadDecode();
   void DoFinishOffThreadDecode();
+
+  already_AddRefed<nsIAsyncShutdownClient> GetShutdownBarrier();
 
   size_t ShallowHeapSizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf) {
     return (mallocSizeOf(this) +
@@ -440,8 +460,8 @@ class ScriptPreloader : public nsIObserver,
   bool mCacheInitialized = false;
   bool mSaveComplete = false;
   bool mDataPrepared = false;
+  // May only be changed on the main thread, while `mSaveMonitor` is held.
   bool mCacheInvalidated = false;
-  bool mBlockedOnSyncDispatch = false;
 
   // The list of scripts that we read from the initial startup cache file,
   // but have yet to initiate a decode task for.

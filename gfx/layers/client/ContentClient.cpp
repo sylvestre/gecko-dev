@@ -5,11 +5,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "mozilla/layers/ContentClient.h"
-#include "BasicLayers.h"            // for BasicLayerManager
-#include "gfxContext.h"             // for gfxContext, etc
-#include "gfxPlatform.h"            // for gfxPlatform
-#include "gfxEnv.h"                 // for gfxEnv
-#include "gfxPrefs.h"               // for gfxPrefs
+#include "BasicLayers.h"  // for BasicLayerManager
+#include "gfxContext.h"   // for gfxContext, etc
+#include "gfxPlatform.h"  // for gfxPlatform
+#include "gfxEnv.h"       // for gfxEnv
+
 #include "gfxPoint.h"               // for IntSize, gfxPoint
 #include "gfxUtils.h"               // for gfxUtils
 #include "ipc/ShadowLayers.h"       // for ShadowLayerForwarder
@@ -29,17 +29,18 @@
 #include "nsIWidget.h"        // for nsIWidget
 #include "nsLayoutUtils.h"
 #ifdef XP_WIN
-#include "gfxWindowsPlatform.h"
+#  include "gfxWindowsPlatform.h"
 #endif
 #ifdef MOZ_WIDGET_GTK
-#include "gfxPlatformGtk.h"
+#  include "gfxPlatformGtk.h"
+#endif
+#ifdef MOZ_WAYLAND
+#  include "mozilla/widget/nsWaylandDisplay.h"
 #endif
 #include "ReadbackLayer.h"
 
 #include <utility>
 #include <vector>
-
-using namespace std;
 
 namespace mozilla {
 
@@ -68,7 +69,8 @@ static IntRect ComputeBufferRect(const IntRect& aRequestedRect) {
   return rect;
 }
 
-/* static */ already_AddRefed<ContentClient> ContentClient::CreateContentClient(
+/* static */
+already_AddRefed<ContentClient> ContentClient::CreateContentClient(
     CompositableForwarder* aForwarder) {
   LayersBackend backend = aForwarder->GetCompositorBackendType();
   if (backend != LayersBackend::LAYERS_OPENGL &&
@@ -85,15 +87,22 @@ static IntRect ComputeBufferRect(const IntRect& aRequestedRect) {
     useDoubleBuffering = gfxWindowsPlatform::GetPlatform()->IsDirect2DBackend();
   } else
 #endif
-#ifdef MOZ_WIDGET_GTK
-      // We can't use double buffering when using image content with
-      // Xrender support on Linux, as ContentHostDoubleBuffered is not
-      // suited for direct uploads to the server.
-      if (!gfxPlatformGtk::GetPlatform()->UseImageOffscreenSurfaces() ||
-          !gfxVars::UseXRender())
-#endif
   {
-    useDoubleBuffering = backend == LayersBackend::LAYERS_BASIC;
+#ifdef MOZ_WIDGET_GTK
+#  ifdef MOZ_WAYLAND
+    if (widget::GetDMABufDevice()->IsDMABufTexturesEnabled()) {
+      useDoubleBuffering = true;
+    } else
+#  endif
+        // We can't use double buffering when using image content with
+        // Xrender support on Linux, as ContentHostDoubleBuffered is not
+        // suited for direct uploads to the server.
+        if (!gfxPlatformGtk::GetPlatform()->UseImageOffscreenSurfaces() ||
+            !gfxVars::UseXRender())
+#endif
+    {
+      useDoubleBuffering = backend == LayersBackend::LAYERS_BASIC;
+    }
   }
 
   if (useDoubleBuffering || gfxEnv::ForceDoubleBuffering()) {
@@ -301,9 +310,9 @@ void ContentClient::EndPaint(
   }
 }
 
-nsIntRegion ExpandDrawRegion(ContentClient::PaintState& aPaintState,
-                             RotatedBuffer::DrawIterator* aIter,
-                             BackendType aBackendType) {
+static nsIntRegion ExpandDrawRegion(ContentClient::PaintState& aPaintState,
+                                    RotatedBuffer::DrawIterator* aIter,
+                                    BackendType aBackendType) {
   nsIntRegion* drawPtr = &aPaintState.mRegionToDraw;
   if (aIter) {
     // The iterators draw region currently only contains the bounds of the
@@ -505,8 +514,7 @@ RefPtr<RotatedBuffer> ContentClientBasic::CreateBuffer(gfxContentType aType,
     RefPtr<gfxASurface> surf = new gfxWindowsSurface(
         size, aType == gfxContentType::COLOR ? gfxImageFormat::X8R8G8B8_UINT32
                                              : gfxImageFormat::A8R8G8B8_UINT32);
-    drawTarget =
-        gfxPlatform::GetPlatform()->CreateDrawTargetForSurface(surf, size);
+    drawTarget = gfxPlatform::CreateDrawTargetForSurface(surf, size);
   }
 #endif
 
@@ -529,7 +537,7 @@ class RemoteBufferReadbackProcessor : public TextureReadbackSink {
   RemoteBufferReadbackProcessor(
       nsTArray<ReadbackProcessor::Update>* aReadbackUpdates,
       const IntRect& aBufferRect, const nsIntPoint& aBufferRotation)
-      : mReadbackUpdates(*aReadbackUpdates),
+      : mReadbackUpdates(aReadbackUpdates->Clone()),
         mBufferRect(aBufferRect),
         mBufferRotation(aBufferRotation) {
     for (uint32_t i = 0; i < mReadbackUpdates.Length(); ++i) {
@@ -574,7 +582,7 @@ class RemoteBufferReadbackProcessor : public TextureReadbackSink {
  private:
   nsTArray<ReadbackProcessor::Update> mReadbackUpdates;
   // This array is used to keep the layers alive until the callback.
-  vector<RefPtr<Layer>> mLayerRefs;
+  std::vector<RefPtr<Layer>> mLayerRefs;
 
   IntRect mBufferRect;
   nsIntPoint mBufferRotation;
@@ -641,9 +649,7 @@ RefPtr<RotatedBuffer> ContentClientRemoteBuffer::CreateBufferInternal(
     const gfx::IntRect& aRect, gfx::SurfaceFormat aFormat,
     TextureFlags aFlags) {
   TextureAllocationFlags textureAllocFlags =
-      (aFlags & TextureFlags::COMPONENT_ALPHA)
-          ? TextureAllocationFlags::ALLOC_CLEAR_BUFFER_BLACK
-          : TextureAllocationFlags::ALLOC_CLEAR_BUFFER;
+      TextureAllocationFlags::ALLOC_DEFAULT;
 
   RefPtr<TextureClient> textureClient = CreateTextureClientForDrawing(
       aFormat, aRect.Size(), BackendSelector::Content,
@@ -656,7 +662,7 @@ RefPtr<RotatedBuffer> ContentClientRemoteBuffer::CreateBufferInternal(
 
   RefPtr<TextureClient> textureClientOnWhite;
   if (aFlags & TextureFlags::COMPONENT_ALPHA) {
-    TextureAllocationFlags allocFlags = ALLOC_CLEAR_BUFFER_WHITE;
+    TextureAllocationFlags allocFlags = TextureAllocationFlags::ALLOC_DEFAULT;
     if (mForwarder->SupportsTextureDirectMapping()) {
       allocFlags =
           TextureAllocationFlags(allocFlags | ALLOC_ALLOW_DIRECT_MAPPING);
@@ -716,6 +722,7 @@ void ContentClientRemoteBuffer::Updated(const nsIntRegion& aRegionToDraw,
     t->mTextureClient = remoteBuffer->GetClient();
     IntSize size = remoteBuffer->GetClient()->GetSize();
     t->mPictureRect = nsIntRect(0, 0, size.width, size.height);
+
     GetForwarder()->UseTextures(this, textures);
   }
 

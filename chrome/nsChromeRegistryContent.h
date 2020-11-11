@@ -17,21 +17,17 @@ class nsChromeRegistryContent : public nsChromeRegistry {
  public:
   nsChromeRegistryContent();
 
-  void RegisterRemoteChrome(
-      const InfallibleTArray<ChromePackage>& aPackages,
-      const InfallibleTArray<SubstitutionMapping>& aResources,
-      const InfallibleTArray<OverrideMapping>& aOverrides,
-      const nsACString& aLocale, bool aReset);
+  void RegisterRemoteChrome(const nsTArray<ChromePackage>& aPackages,
+                            const nsTArray<SubstitutionMapping>& aResources,
+                            const nsTArray<OverrideMapping>& aOverrides,
+                            const nsACString& aLocale, bool aReset);
 
   NS_IMETHOD GetLocalesForPackage(const nsACString& aPackage,
                                   nsIUTF8StringEnumerator** aResult) override;
   NS_IMETHOD CheckForNewChrome() override;
-  NS_IMETHOD CheckForOSAccessibility() override;
   NS_IMETHOD Observe(nsISupports* aSubject, const char* aTopic,
                      const char16_t* aData) override;
   NS_IMETHOD IsLocaleRTL(const nsACString& package, bool* aResult) override;
-  NS_IMETHOD GetSelectedLocale(const nsACString& aPackage, bool aAsBCP47,
-                               nsACString& aLocale) override;
 
   void RegisterPackage(const ChromePackage& aPackage);
   void RegisterOverride(const OverrideMapping& aOverride);

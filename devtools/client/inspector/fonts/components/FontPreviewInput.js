@@ -4,12 +4,15 @@
 
 "use strict";
 
-const { createRef, PureComponent } = require("devtools/client/shared/vendor/react");
+const {
+  createRef,
+  PureComponent,
+} = require("devtools/client/shared/vendor/react");
 const dom = require("devtools/client/shared/vendor/react-dom-factories");
 const PropTypes = require("devtools/client/shared/vendor/react-prop-types");
 
-const Types = require("../types");
-const { getStr } = require("../utils/l10n");
+const Types = require("devtools/client/inspector/fonts/types");
+const { getStr } = require("devtools/client/inspector/fonts/utils/l10n");
 
 const PREVIEW_TEXT_MAX_LENGTH = 30;
 
@@ -37,7 +40,7 @@ class FontPreviewInput extends PureComponent {
     const value = e.target.value;
     this.props.onPreviewTextChange(value);
 
-    this.setState((prevState) => {
+    this.setState(prevState => {
       return { ...prevState, value };
     });
   }
@@ -59,7 +62,7 @@ class FontPreviewInput extends PureComponent {
         className: "devtools-searchinput",
         onChange: this.onChange,
         onFocus: this.onFocus,
-        maxlength: PREVIEW_TEXT_MAX_LENGTH,
+        maxLength: PREVIEW_TEXT_MAX_LENGTH,
         placeholder: getStr("fontinspector.previewTextPlaceholder"),
         ref: this.inputRef,
         type: "text",

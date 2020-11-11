@@ -7,32 +7,34 @@
 #ifndef MOZILLA_GFX_TEXTURECLIENT_H
 #define MOZILLA_GFX_TEXTURECLIENT_H
 
-#include <stddef.h>              // for size_t
-#include <stdint.h>              // for uint32_t, uint8_t, uint64_t
-#include "GLTextureImage.h"      // for TextureImage
+#include <stddef.h>  // for size_t
+#include <stdint.h>  // for uint32_t, uint8_t, uint64_t
+
+#include "GLTextureImage.h"  // for TextureImage
+#include "GfxTexturesReporter.h"
 #include "ImageTypes.h"          // for StereoMode
 #include "mozilla/Assertions.h"  // for MOZ_ASSERT, etc
 #include "mozilla/Atomics.h"
 #include "mozilla/Attributes.h"  // for override
 #include "mozilla/DebugOnly.h"
-#include "mozilla/RefPtr.h"     // for RefPtr, RefCounted
-#include "mozilla/gfx/2D.h"     // for DrawTarget
+#include "mozilla/RefPtr.h"  // for RefPtr, RefCounted
+#include "mozilla/gfx/2D.h"  // for DrawTarget
+#include "mozilla/gfx/CriticalSection.h"
 #include "mozilla/gfx/Point.h"  // for IntSize
 #include "mozilla/gfx/Types.h"  // for SurfaceFormat
+#include "mozilla/ipc/FileDescriptor.h"
 #include "mozilla/ipc/Shmem.h"  // for Shmem
 #include "mozilla/layers/AtomicRefCountedWithFinalize.h"
 #include "mozilla/layers/CompositorTypes.h"  // for TextureFlags, etc
 #include "mozilla/layers/ISurfaceAllocator.h"
-#include "mozilla/layers/LayersTypes.h"
 #include "mozilla/layers/LayersSurfaces.h"  // for SurfaceDescriptor
-#include "mozilla/mozalloc.h"               // for operator delete
-#include "mozilla/gfx/CriticalSection.h"
+#include "mozilla/layers/LayersTypes.h"
+#include "mozilla/mozalloc.h"  // for operator delete
 #include "mozilla/webrender/WebRenderTypes.h"
 #include "nsCOMPtr.h"         // for already_AddRefed
 #include "nsISupportsImpl.h"  // for TextureImage::AddRef, etc
-#include "GfxTexturesReporter.h"
-#include "pratom.h"
 #include "nsThreadUtils.h"
+#include "pratom.h"
 
 class gfxImageSurface;
 struct ID3D11Device;
@@ -42,12 +44,12 @@ namespace mozilla {
 // When defined, we track which pool the tile came from and test for
 // any inconsistencies.  This can be defined in release build as well.
 #ifdef DEBUG
-#define GFX_DEBUG_TRACK_CLIENTS_IN_POOL 1
+#  define GFX_DEBUG_TRACK_CLIENTS_IN_POOL 1
 #endif
 
 namespace layers {
 
-class AsyncTransactionWaiter;
+class AndroidHardwareBufferTextureData;
 class BufferTextureData;
 class CompositableForwarder;
 class KnowsCompositor;
@@ -118,7 +120,7 @@ class TextureReadbackSink {
   virtual void ProcessReadback(gfx::DataSourceSurface* aSourceSurface) = 0;
 
  protected:
-  virtual ~TextureReadbackSink() {}
+  virtual ~TextureReadbackSink() = default;
 };
 
 enum class BackendSelector { Content, Canvas };
@@ -182,7 +184,7 @@ class NonBlockingTextureReadLock;
 // once.
 class TextureReadLock {
  protected:
-  virtual ~TextureReadLock() {}
+  virtual ~TextureReadLock() = default;
 
  public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(TextureReadLock)
@@ -217,9 +219,7 @@ class NonBlockingTextureReadLock : public TextureReadLock {
 
   static already_AddRefed<TextureReadLock> Create(LayersIPCChannel* aAllocator);
 
-  virtual NonBlockingTextureReadLock* AsNonBlockingLock() override {
-    return this;
-  }
+  NonBlockingTextureReadLock* AsNonBlockingLock() override { return this; }
 };
 
 #ifdef XP_WIN
@@ -247,9 +247,17 @@ class TextureData {
           canConcurrentlyReadLock(true) {}
   };
 
-  TextureData() { MOZ_COUNT_CTOR(TextureData); }
+  static TextureData* Create(TextureForwarder* aAllocator,
+                             gfx::SurfaceFormat aFormat, gfx::IntSize aSize,
+                             KnowsCompositor* aKnowsCompositor,
+                             BackendSelector aSelector,
+                             TextureFlags aTextureFlags,
+                             TextureAllocationFlags aAllocFlags);
 
-  virtual ~TextureData() { MOZ_COUNT_DTOR(TextureData); }
+  static bool IsRemote(KnowsCompositor* aKnowsCompositor,
+                       BackendSelector aSelector);
+
+  MOZ_COUNTED_DTOR_VIRTUAL(TextureData)
 
   virtual void FillInfo(TextureData::Info& aInfo) const = 0;
 
@@ -258,6 +266,10 @@ class TextureData {
   virtual void Unlock() = 0;
 
   virtual already_AddRefed<gfx::DrawTarget> BorrowDrawTarget() {
+    return nullptr;
+  }
+
+  virtual already_AddRefed<gfx::SourceSurface> BorrowSnapshot() {
     return nullptr;
   }
 
@@ -271,7 +283,7 @@ class TextureData {
   virtual void Forget(LayersIPCChannel* aAllocator) {}
 
   virtual bool Serialize(SurfaceDescriptor& aDescriptor) = 0;
-  virtual void GetSubDescriptor(GPUVideoSubDescriptor* aOutDesc) {}
+  virtual void GetSubDescriptor(RemoteDecoderVideoSubDescriptor* aOutDesc) {}
 
   virtual void OnForwardedToHost() {}
 
@@ -302,6 +314,26 @@ class TextureData {
   virtual BufferTextureData* AsBufferTextureData() { return nullptr; }
 
   virtual GPUVideoTextureData* AsGPUVideoTextureData() { return nullptr; }
+
+  virtual AndroidHardwareBufferTextureData*
+  AsAndroidHardwareBufferTextureData() {
+    return nullptr;
+  }
+
+  // It is used by AndroidHardwareBufferTextureData and
+  // SharedSurfaceTextureData. Returns buffer id when it owns
+  // AndroidHardwareBuffer. It is used only on android.
+  virtual Maybe<uint64_t> GetBufferId() const { return Nothing(); }
+
+  // The acquire fence is a fence that is used for waiting until rendering to
+  // its AHardwareBuffer is completed.
+  // It is used only on android.
+  virtual mozilla::ipc::FileDescriptor GetAcquireFence() {
+    return mozilla::ipc::FileDescriptor();
+  }
+
+ protected:
+  MOZ_COUNTED_DEFAULT_CTOR(TextureData)
 };
 
 /**
@@ -323,14 +355,14 @@ class TextureData {
  * lifetime. This means that the lifetime of the underlying shared data
  * matches the lifetime of the TextureClient/Host pair. It also means
  * TextureClient/Host do not implement double buffering, which is the
- * responsibility of the compositable (which would use two Texture pairs).
+ * responsibility of the compositable (which would use pairs of Textures).
  * In order to send several different buffers to the compositor side, use
  * several TextureClients.
  */
 class TextureClient : public AtomicRefCountedWithFinalize<TextureClient> {
  public:
-  explicit TextureClient(TextureData* aData, TextureFlags aFlags,
-                         LayersIPCChannel* aAllocator);
+  TextureClient(TextureData* aData, TextureFlags aFlags,
+                LayersIPCChannel* aAllocator);
 
   virtual ~TextureClient();
 
@@ -350,9 +382,11 @@ class TextureClient : public AtomicRefCountedWithFinalize<TextureClient> {
 
   // Creates and allocates a TextureClient supporting the YCbCr format.
   static already_AddRefed<TextureClient> CreateForYCbCr(
-      KnowsCompositor* aAllocator, gfx::IntSize aYSize, uint32_t aYStride,
-      gfx::IntSize aCbCrSize, uint32_t aCbCrStride, StereoMode aStereoMode,
-      gfx::ColorDepth aColorDepth, YUVColorSpace aYUVColorSpace,
+      KnowsCompositor* aAllocator, const gfx::IntRect& aDisplay,
+      const gfx::IntSize& aYSize, uint32_t aYStride,
+      const gfx::IntSize& aCbCrSize, uint32_t aCbCrStride,
+      StereoMode aStereoMode, gfx::ColorDepth aColorDepth,
+      gfx::YUVColorSpace aYUVColorSpace, gfx::ColorRange aColorRange,
       TextureFlags aTextureFlags);
 
   // Creates and allocates a TextureClient (can be accessed through raw
@@ -431,6 +465,8 @@ class TextureClient : public AtomicRefCountedWithFinalize<TextureClient> {
    *
    */
   gfx::DrawTarget* BorrowDrawTarget();
+
+  already_AddRefed<gfx::SourceSurface> BorrowSnapshot();
 
   /**
    * Similar to BorrowDrawTarget but provides direct access to the texture's
@@ -542,7 +578,7 @@ class TextureClient : public AtomicRefCountedWithFinalize<TextureClient> {
    * Should be called only once per TextureClient.
    * The TextureClient must not be locked when calling this method.
    */
-  bool InitIPDLActor(KnowsCompositor* aForwarder);
+  bool InitIPDLActor(KnowsCompositor* aKnowsCompositor);
 
   /**
    * Return a pointer to the IPDLActor.
@@ -596,9 +632,10 @@ class TextureClient : public AtomicRefCountedWithFinalize<TextureClient> {
   const TextureData* GetInternalData() const { return mData; }
 
   uint64_t GetSerial() const { return mSerial; }
-  void GPUVideoDesc(SurfaceDescriptorGPUVideo* aOutDesc);
+  void GetSurfaceDescriptorRemoteDecoder(
+      SurfaceDescriptorRemoteDecoder* aOutDesc);
 
-  void CancelWaitForRecycle();
+  void CancelWaitForNotifyNotUsed();
 
   /**
    * Set last transaction id of CompositableForwarder.
@@ -648,7 +685,7 @@ class TextureClient : public AtomicRefCountedWithFinalize<TextureClient> {
   friend class TextureClientPool;
   static already_AddRefed<TextureClient> CreateForDrawing(
       TextureForwarder* aAllocator, gfx::SurfaceFormat aFormat,
-      gfx::IntSize aSize, LayersBackend aLayersBackend, int32_t aMaxTextureSize,
+      gfx::IntSize aSize, KnowsCompositor* aKnowsCompositor,
       BackendSelector aSelector, TextureFlags aTextureFlags,
       TextureAllocationFlags aAllocFlags = ALLOC_DEFAULT);
 
@@ -769,14 +806,9 @@ class TextureClientReleaseTask : public Runnable {
 // Automatically lock and unlock a texture. Since texture locking is fallible,
 // Succeeded() must be checked on the guard object before proceeding.
 class MOZ_RAII TextureClientAutoLock {
-  MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER;
-
  public:
-  TextureClientAutoLock(TextureClient* aTexture,
-                        OpenMode aMode MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
+  TextureClientAutoLock(TextureClient* aTexture, OpenMode aMode)
       : mTexture(aTexture), mSucceeded(false) {
-    MOZ_GUARD_OBJECT_NOTIFIER_INIT;
-
     mSucceeded = mTexture->Lock(aMode);
 #ifdef DEBUG
     mChecked = false;
@@ -876,7 +908,7 @@ class MOZ_RAII DualTextureClientAutoLock {
 
 class KeepAlive {
  public:
-  virtual ~KeepAlive() {}
+  virtual ~KeepAlive() = default;
 };
 
 template <typename T>
@@ -891,6 +923,8 @@ class TKeepAlive : public KeepAlive {
 /// Convenience function to set the content of ycbcr texture.
 bool UpdateYCbCrTextureClient(TextureClient* aTexture,
                               const PlanarYCbCrData& aData);
+
+TextureType PreferredCanvasTextureType(KnowsCompositor* aKnowsCompositor);
 
 }  // namespace layers
 }  // namespace mozilla

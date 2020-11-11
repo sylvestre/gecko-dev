@@ -2,9 +2,9 @@
 <html>
 <head>
   <title>Test for Bug 545812</title>
-  <script type="application/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css"/>
-  <script type="application/javascript" src="/tests/SimpleTest/EventUtils.js"></script>
+  <script src="/tests/SimpleTest/EventUtils.js"></script>
   <script type="application/javascript" src="file_fullscreen-utils.js"></script>
   <style>
   body {
@@ -28,7 +28,9 @@ SimpleTest.requestFlakyTimeout("untriaged");
 // run in an iframe, which by default will not have the allowfullscreen
 // attribute set, so full-screen won't work.
 var gTestWindows = [
-  { test: "file_fullscreen-multiple.html" },
+  { test: "file_fullscreen-multiple.html",
+    prefs: [["full-screen-api.exit-on.windowRaise", false],
+            ["full-screen-api.exit-on.windowOpen", false]] },
   { test: "file_fullscreen-rollback.html" },
   { test: "file_fullscreen-esc-exit.html" },
   { test: "file_fullscreen-denied.html" },
@@ -44,14 +46,14 @@ var gTestWindows = [
   { test: "file_fullscreen-backdrop.html" },
   { test: "file_fullscreen-nested.html" },
   { test: "file_fullscreen-prefixed.html" },
-  { test: "file_fullscreen-unprefix-disabled.html" },
   { test: "file_fullscreen-lenient-setters.html" },
   { test: "file_fullscreen-table.html" },
   { test: "file_fullscreen-event-order.html" },
   { test: "file_fullscreen-featurePolicy.html",
-    prefs: [["dom.security.featurePolicy.enabled", true],
-            ["dom.security.featurePolicy.header.enabled", true],
+    prefs: [["dom.security.featurePolicy.header.enabled", true],
             ["dom.security.featurePolicy.webidl.enabled", true]] },
+  { test: "file_fullscreen-async.html" },
+  { test: "file_fullscreen-sub-iframe.html" },
 ];
 
 var testWindow = null;
@@ -76,13 +78,10 @@ function nextTest() {
 
 var gHeadlessSkipList = [
   { test: "file_fullscreen-plugins.html", reason: "bug 1409805" },
-  { test: "file_fullscreen-scrollbar.html", reason: "bug 1468648" },
 ];
 
 var gLinuxE10sSkipList = [
   { "test": "file_fullscreen-plugins.html", "reason": "bug 1330553" },
-  { "test": "file_fullscreen-api.html", "reason": "bug 1332040" },
-  { "test": "file_fullscreen-scrollbar.html", "reason": "bug 1350875" }
 ];
 
 function shouldSkipTest(test) {
@@ -138,21 +137,19 @@ function runNextTest() {
         // OS X Lion before we run the test.
         waitForLoadAndPaint(testWindow, function() {
           SimpleTest.waitForFocus(function() {
-            SimpleTest.waitForFocus(function() {
-              info("Were focused");
-              // For the platforms that support reporting occlusion state (e.g. Mac),
-              // we should wait until the docshell has been activated again,
-              // otherwise, the fullscreen request might be denied.
-              if (testWindow.document.hidden) {
-                info("Waiting for document to unhide");
-                waitForEvent(testWindow.document, "visibilitychange", (event) => {
-                  return !testWindow.document.hidden;
-                }, testWindow.begin);
-                return;
-              }
-              testWindow.begin();
-            }, testWindow);
-          });
+            info("Were focused");
+            // For the platforms that support reporting occlusion state (e.g. Mac),
+            // we should wait until the docshell has been activated again,
+            // otherwise, the fullscreen request might be denied.
+            if (testWindow.document.hidden) {
+              info("Waiting for document to unhide");
+              waitForEvent(testWindow.document, "visibilitychange", (event) => {
+                return !testWindow.document.hidden;
+              }, testWindow.begin);
+              return;
+            }
+            testWindow.begin();
+          }, testWindow);
         });
       });
     }
@@ -174,7 +171,6 @@ addLoadEvent(function() {
   SpecialPowers.pushPrefEnv({
       "set": [
         ["full-screen-api.enabled", true],
-        ["full-screen-api.unprefix.enabled", true],
         ["full-screen-api.allow-trusted-requests-only", false],
         ["full-screen-api.transition-duration.enter", "0 0"],
         ["full-screen-api.transition-duration.leave", "0 0"]

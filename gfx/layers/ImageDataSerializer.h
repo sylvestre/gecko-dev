@@ -11,6 +11,7 @@
 #include "mozilla/Attributes.h"             // for MOZ_STACK_CLASS
 #include "mozilla/RefPtr.h"                 // for already_AddRefed
 #include "mozilla/gfx/Point.h"              // for IntSize
+#include "mozilla/gfx/Rect.h"               // for IntRect
 #include "mozilla/gfx/Types.h"              // for SurfaceFormat
 #include "mozilla/layers/LayersSurfaces.h"  // for SurfaceDescriptor
 
@@ -57,13 +58,23 @@ gfx::SurfaceFormat FormatFromBufferDescriptor(
 
 gfx::IntSize SizeFromBufferDescriptor(const BufferDescriptor& aDescriptor);
 
+gfx::IntRect RectFromBufferDescriptor(const BufferDescriptor& aDescriptor);
+
 Maybe<gfx::IntSize> CbCrSizeFromBufferDescriptor(
     const BufferDescriptor& aDescriptor);
 
-Maybe<YUVColorSpace> YUVColorSpaceFromBufferDescriptor(
+Maybe<int32_t> YStrideFromBufferDescriptor(const BufferDescriptor& aDescriptor);
+
+Maybe<int32_t> CbCrStrideFromBufferDescriptor(
+    const BufferDescriptor& aDescriptor);
+
+Maybe<gfx::YUVColorSpace> YUVColorSpaceFromBufferDescriptor(
     const BufferDescriptor& aDescriptor);
 
 Maybe<gfx::ColorDepth> ColorDepthFromBufferDescriptor(
+    const BufferDescriptor& aDescriptor);
+
+Maybe<gfx::ColorRange> ColorRangeFromBufferDescriptor(
     const BufferDescriptor& aDescriptor);
 
 Maybe<StereoMode> StereoModeFromBufferDescriptor(

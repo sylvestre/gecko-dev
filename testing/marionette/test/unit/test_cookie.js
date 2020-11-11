@@ -2,14 +2,25 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-ChromeUtils.import("chrome://marionette/content/cookie.js");
+const { cookie } = ChromeUtils.import("chrome://marionette/content/cookie.js");
 
 /* eslint-disable mozilla/use-chromeutils-generateqi */
 
 cookie.manager = {
   cookies: [],
 
-  add(domain, path, name, value, secure, httpOnly, session, expiry, originAttributes) {
+  add(
+    domain,
+    path,
+    name,
+    value,
+    secure,
+    httpOnly,
+    session,
+    expiry,
+    originAttributes,
+    sameSite
+  ) {
     if (name === "fail") {
       throw new Error("An error occurred while adding cookie");
     }
@@ -23,6 +34,7 @@ cookie.manager = {
       isSession: session,
       expiry,
       originAttributes,
+      sameSite,
     };
     cookie.manager.cookies.push(newCookie);
   },
@@ -30,9 +42,11 @@ cookie.manager = {
   remove(host, name, path) {
     for (let i = 0; i < this.cookies.length; ++i) {
       let candidate = this.cookies[i];
-      if (candidate.host === host &&
-          candidate.name === name &&
-          candidate.path === path) {
+      if (
+        candidate.host === host &&
+        candidate.name === name &&
+        candidate.path === path
+      ) {
         return this.cookies.splice(i, 1);
       }
     }
@@ -40,8 +54,9 @@ cookie.manager = {
   },
 
   getCookiesFromHost(host) {
-    let hostCookies = this.cookies.filter(c => c.host === host ||
-       c.host === "." + host);
+    let hostCookies = this.cookies.filter(
+      c => c.host === host || c.host === "." + host
+    );
 
     return hostCookies;
   },
@@ -55,8 +70,14 @@ add_test(function test_fromJSON() {
 
   // name and value
   for (let invalidType of [42, true, [], {}, null, undefined]) {
-    Assert.throws(() => cookie.fromJSON({name: invalidType}), /Cookie name must be string/);
-    Assert.throws(() => cookie.fromJSON({name: "foo", value: invalidType}), /Cookie value must be string/);
+    Assert.throws(
+      () => cookie.fromJSON({ name: invalidType }),
+      /Cookie name must be string/
+    );
+    Assert.throws(
+      () => cookie.fromJSON({ name: "foo", value: invalidType }),
+      /Cookie value must be string/
+    );
   }
 
   // domain
@@ -66,7 +87,10 @@ add_test(function test_fromJSON() {
       value: "bar",
       domain: invalidType,
     };
-    Assert.throws(() => cookie.fromJSON(domainTest), /Cookie domain must be string/);
+    Assert.throws(
+      () => cookie.fromJSON(domainTest),
+      /Cookie domain must be string/
+    );
   }
   let domainTest = {
     name: "foo",
@@ -83,7 +107,10 @@ add_test(function test_fromJSON() {
       value: "bar",
       path: invalidType,
     };
-    Assert.throws(() => cookie.fromJSON(pathTest), /Cookie path must be string/);
+    Assert.throws(
+      () => cookie.fromJSON(pathTest),
+      /Cookie path must be string/
+    );
   }
 
   // secure
@@ -93,7 +120,10 @@ add_test(function test_fromJSON() {
       value: "bar",
       secure: invalidType,
     };
-    Assert.throws(() => cookie.fromJSON(secureTest), /Cookie secure flag must be boolean/);
+    Assert.throws(
+      () => cookie.fromJSON(secureTest),
+      /Cookie secure flag must be boolean/
+    );
   }
 
   // httpOnly
@@ -103,24 +133,58 @@ add_test(function test_fromJSON() {
       value: "bar",
       httpOnly: invalidType,
     };
-    Assert.throws(() => cookie.fromJSON(httpOnlyTest), /Cookie httpOnly flag must be boolean/);
+    Assert.throws(
+      () => cookie.fromJSON(httpOnlyTest),
+      /Cookie httpOnly flag must be boolean/
+    );
   }
 
   // expiry
-  for (let invalidType of [-1, Number.MAX_SAFE_INTEGER + 1, "foo", true, [], {}, null]) {
+  for (let invalidType of [
+    -1,
+    Number.MAX_SAFE_INTEGER + 1,
+    "foo",
+    true,
+    [],
+    {},
+    null,
+  ]) {
     let expiryTest = {
       name: "foo",
       value: "bar",
       expiry: invalidType,
     };
-    Assert.throws(() => cookie.fromJSON(expiryTest), /Cookie expiry must be a positive integer/);
+    Assert.throws(
+      () => cookie.fromJSON(expiryTest),
+      /Cookie expiry must be a positive integer/
+    );
+  }
+
+  // sameSite
+  for (let invalidType of ["foo", 42, [], {}, null]) {
+    const sameSiteTest = {
+      name: "foo",
+      value: "bar",
+      sameSite: invalidType,
+    };
+    Assert.throws(
+      () => cookie.fromJSON(sameSiteTest),
+      /Cookie SameSite flag must be one of None, Lax, or Strict/
+    );
   }
 
   // bare requirements
-  let bare = cookie.fromJSON({name: "name", value: "value"});
+  let bare = cookie.fromJSON({ name: "name", value: "value" });
   equal("name", bare.name);
   equal("value", bare.value);
-  for (let missing of ["path", "secure", "httpOnly", "session", "expiry"]) {
+  for (let missing of [
+    "path",
+    "secure",
+    "httpOnly",
+    "session",
+    "expiry",
+    "sameSite",
+  ]) {
     ok(!bare.hasOwnProperty(missing));
   }
 
@@ -133,6 +197,7 @@ add_test(function test_fromJSON() {
     secure: true,
     httpOnly: true,
     expiry: 42,
+    sameSite: "Lax",
   });
   equal("name", full.name);
   equal("value", full.value);
@@ -141,6 +206,7 @@ add_test(function test_fromJSON() {
   equal(true, full.secure);
   equal(true, full.httpOnly);
   equal(42, full.expiry);
+  equal("Lax", full.sameSite);
 
   run_next_test();
 });
@@ -150,14 +216,17 @@ add_test(function test_add() {
 
   for (let invalidType of [42, true, [], {}, null, undefined]) {
     Assert.throws(
-        () => cookie.add({name: invalidType}),
-        /Cookie name must be string/);
+      () => cookie.add({ name: invalidType }),
+      /Cookie name must be string/
+    );
     Assert.throws(
-        () => cookie.add({name: "name", value: invalidType}),
-        /Cookie value must be string/);
+      () => cookie.add({ name: "name", value: invalidType }),
+      /Cookie value must be string/
+    );
     Assert.throws(
-        () => cookie.add({name: "name", value: "value", domain: invalidType}),
-        /Cookie domain must be string/);
+      () => cookie.add({ name: "name", value: "value", domain: invalidType }),
+      /Cookie domain must be string/
+    );
   }
 
   cookie.add({
@@ -180,8 +249,8 @@ add_test(function test_add() {
   equal(2, cookie.manager.cookies.length);
 
   Assert.throws(() => {
-    let biscuit = {name: "name3", value: "value3", domain: "domain3"};
-    cookie.add(biscuit, {restrictToHost: "other domain"});
+    let biscuit = { name: "name3", value: "value3", domain: "domain3" };
+    cookie.add(biscuit, { restrictToHost: "other domain" });
   }, /Cookies may only be set for the current domain/);
 
   cookie.add({
@@ -206,8 +275,24 @@ add_test(function test_add() {
   });
   equal(".domain", cookie.manager.cookies[4].host);
 
+  const sameSiteMap = new Map([
+    ["None", Ci.nsICookie.SAMESITE_NONE],
+    ["Lax", Ci.nsICookie.SAMESITE_LAX],
+    ["Strict", Ci.nsICookie.SAMESITE_STRICT],
+  ]);
+
+  Array.from(sameSiteMap.keys()).forEach((entry, index) => {
+    cookie.add({
+      name: "name" + index,
+      value: "value",
+      domain: ".domain",
+      sameSite: entry,
+    });
+    equal(sameSiteMap.get(entry), cookie.manager.cookies[5 + index].sameSite);
+  });
+
   Assert.throws(() => {
-    cookie.add({name: "fail", value: "value6", domain: "domain6"});
+    cookie.add({ name: "fail", value: "value6", domain: "domain6" });
   }, /UnableToSetCookieError/);
 
   run_next_test();
@@ -267,6 +352,17 @@ add_test(function test_iter() {
   equal(1, sessionCookies.length);
   equal("aSessionCookie", sessionCookies[0].name);
   equal(false, sessionCookies[0].hasOwnProperty("expiry"));
+
+  cookie.add({
+    name: "2",
+    value: "",
+    domain: "samesite.example.com",
+    sameSite: "Lax",
+  });
+
+  let sameSiteCookies = [...cookie.iter("samesite.example.com")];
+  equal(1, sameSiteCookies.length);
+  equal("Lax", sameSiteCookies[0].sameSite);
 
   run_next_test();
 });

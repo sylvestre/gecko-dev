@@ -15,11 +15,12 @@
 #include "mozilla/layers/ImageClient.h"        // for ImageClient
 #include "mozilla/layers/LayersSurfaces.h"     // for SurfaceDescriptor, etc
 #include "mozilla/layers/TextureClient.h"      // for BufferTextureClient, etc
-#include "mozilla/layers/ImageBridgeChild.h"   // for ImageBridgeChild
-#include "mozilla/mozalloc.h"                  // for operator delete, etc
-#include "nsDebug.h"                           // for NS_WARNING, NS_ASSERTION
-#include "nsISupportsImpl.h"                   // for Image::AddRef, etc
-#include "nsRect.h"                            // for mozilla::gfx::IntRect
+#include "mozilla/layers/TextureClientRecycleAllocator.h"  // for ITextureClientAllocationHelper
+#include "mozilla/layers/ImageBridgeChild.h"  // for ImageBridgeChild
+#include "mozilla/mozalloc.h"                 // for operator delete, etc
+#include "nsDebug.h"                          // for NS_WARNING, NS_ASSERTION
+#include "nsISupportsImpl.h"                  // for Image::AddRef, etc
+#include "nsRect.h"                           // for mozilla::gfx::IntRect
 
 // Just big enough for a 1080p RGBA32 frame
 #define MAX_FRAME_SIZE (16 * 1024 * 1024)
@@ -27,57 +28,77 @@
 namespace mozilla {
 namespace layers {
 
-already_AddRefed<Image> CreateSharedRGBImage(ImageContainer* aImageContainer,
-                                             gfx::IntSize aSize,
-                                             gfxImageFormat aImageFormat) {
-  NS_ASSERTION(aImageFormat == gfx::SurfaceFormat::A8R8G8B8_UINT32 ||
-                   aImageFormat == gfx::SurfaceFormat::X8R8G8B8_UINT32 ||
-                   aImageFormat == gfx::SurfaceFormat::R5G6B5_UINT16,
-               "RGB formats supported only");
+class TextureClientForRawBufferAccessAllocationHelper
+    : public ITextureClientAllocationHelper {
+ public:
+  TextureClientForRawBufferAccessAllocationHelper(gfx::SurfaceFormat aFormat,
+                                                  gfx::IntSize aSize,
+                                                  TextureFlags aTextureFlags)
+      : ITextureClientAllocationHelper(aFormat, aSize, BackendSelector::Content,
+                                       aTextureFlags, ALLOC_DEFAULT) {}
 
-  if (!aImageContainer) {
-    NS_WARNING("No ImageContainer to allocate SharedRGBImage");
-    return nullptr;
+  bool IsCompatible(TextureClient* aTextureClient) override {
+    bool ret = aTextureClient->GetFormat() == mFormat &&
+               aTextureClient->GetSize() == mSize;
+    return ret;
   }
 
-  RefPtr<SharedRGBImage> rgbImage = aImageContainer->CreateSharedRGBImage();
-  if (!rgbImage) {
-    NS_WARNING("Failed to create SharedRGBImage");
-    return nullptr;
+  already_AddRefed<TextureClient> Allocate(
+      KnowsCompositor* aAllocator) override {
+    return TextureClient::CreateForRawBufferAccess(
+        aAllocator, mFormat, mSize, gfx::BackendType::NONE, mTextureFlags);
   }
-  if (!rgbImage->Allocate(aSize,
-                          gfx::ImageFormatToSurfaceFormat(aImageFormat))) {
-    NS_WARNING("Failed to allocate a shared image");
-    return nullptr;
-  }
-  return rgbImage.forget();
-}
+};
 
 SharedRGBImage::SharedRGBImage(ImageClient* aCompositable)
     : Image(nullptr, ImageFormat::SHARED_RGB), mCompositable(aCompositable) {
   MOZ_COUNT_CTOR(SharedRGBImage);
 }
 
-SharedRGBImage::~SharedRGBImage() { MOZ_COUNT_DTOR(SharedRGBImage); }
+SharedRGBImage::SharedRGBImage(TextureClientRecycleAllocator* aRecycleAllocator)
+    : Image(nullptr, ImageFormat::SHARED_RGB),
+      mRecycleAllocator(aRecycleAllocator) {
+  MOZ_COUNT_CTOR(SharedRGBImage);
+}
+
+SharedRGBImage::~SharedRGBImage() {
+  MOZ_COUNT_DTOR(SharedRGBImage);
+  NS_ReleaseOnMainThread("SharedRGBImage::mSourceSurface",
+                         mSourceSurface.forget());
+}
+
+TextureClientRecycleAllocator* SharedRGBImage::RecycleAllocator() {
+  static const uint32_t MAX_POOLED_VIDEO_COUNT = 5;
+
+  if (!mRecycleAllocator && mCompositable) {
+    if (!mCompositable->HasTextureClientRecycler()) {
+      // Initialize TextureClientRecycler
+      mCompositable->GetTextureClientRecycler()->SetMaxPoolSize(
+          MAX_POOLED_VIDEO_COUNT);
+    }
+    mRecycleAllocator = mCompositable->GetTextureClientRecycler();
+  }
+  return mRecycleAllocator;
+}
 
 bool SharedRGBImage::Allocate(gfx::IntSize aSize, gfx::SurfaceFormat aFormat) {
   mSize = aSize;
-  mTextureClient = mCompositable->CreateBufferTextureClient(
-      aFormat, aSize, gfx::BackendType::NONE, TextureFlags::DEFAULT);
-  return !!mTextureClient;
-}
 
-uint8_t* SharedRGBImage::GetBuffer() const {
-  MappedTextureData mapped;
-  if (mTextureClient && mTextureClient->BorrowMappedData(mapped)) {
-    return mapped.data;
+  TextureFlags flags =
+      mCompositable ? mCompositable->GetTextureFlags() : TextureFlags::DEFAULT;
+  {
+    TextureClientForRawBufferAccessAllocationHelper helper(aFormat, aSize,
+                                                           flags);
+    mTextureClient = RecycleAllocator()->CreateOrRecycle(helper);
   }
-  return 0;
+
+  return !!mTextureClient;
 }
 
 gfx::IntSize SharedRGBImage::GetSize() const { return mSize; }
 
-TextureClient* SharedRGBImage::GetTextureClient(KnowsCompositor* aForwarder) {
+TextureClient* SharedRGBImage::GetTextureClient(
+    KnowsCompositor* aKnowsCompositor) {
   return mTextureClient.get();
 }
 

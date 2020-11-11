@@ -4,16 +4,14 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "xpcom-private.h"
-
 //-----------------------------------------------------------------------------
 // Non-Windows
 //-----------------------------------------------------------------------------
 #ifndef XP_WIN
 
-#include "nsAString.h"
-#include "nsReadableUtils.h"
-#include "nsString.h"
+#  include "nsAString.h"
+#  include "nsReadableUtils.h"
+#  include "nsString.h"
 
 nsresult NS_CopyNativeToUnicode(const nsACString& aInput, nsAString& aOutput) {
   CopyUTF8toUTF16(aInput, aOutput);
@@ -30,10 +28,10 @@ nsresult NS_CopyUnicodeToNative(const nsAString& aInput, nsACString& aOutput) {
 //-----------------------------------------------------------------------------
 #else
 
-#include <windows.h>
-#include "nsString.h"
-#include "nsAString.h"
-#include "nsReadableUtils.h"
+#  include <windows.h>
+#  include "nsString.h"
+#  include "nsAString.h"
+#  include "nsReadableUtils.h"
 
 using namespace mozilla;
 

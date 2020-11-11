@@ -15,16 +15,10 @@
 namespace js {
 namespace jit {
 
-// Longer scripts can only be compiled off thread, as these compilations
-// can be expensive and stall the main thread for too long.
-static const uint32_t MAX_MAIN_THREAD_SCRIPT_SIZE = 2 * 1000;
-static const uint32_t MAX_MAIN_THREAD_LOCALS_AND_ARGS = 256;
-
 // Possible register allocators which may be used.
 enum IonRegisterAllocator {
   RegisterAllocator_Backtracking,
   RegisterAllocator_Testbed,
-  RegisterAllocator_Stupid
 };
 
 static inline mozilla::Maybe<IonRegisterAllocator> LookupRegisterAllocator(
@@ -34,9 +28,6 @@ static inline mozilla::Maybe<IonRegisterAllocator> LookupRegisterAllocator(
   }
   if (!strcmp(name, "testbed")) {
     return mozilla::Some(RegisterAllocator_Testbed);
-  }
-  if (!strcmp(name, "stupid")) {
-    return mozilla::Some(RegisterAllocator_Stupid);
   }
   return mozilla::Nothing();
 }
@@ -55,18 +46,20 @@ struct DefaultJitOptions {
   bool disableGvn;
   bool disableInlining;
   bool disableLicm;
-  bool disableLoopUnrolling;
-  bool disableOptimizationTracking;
   bool disablePgo;
   bool disableInstructionReordering;
   bool disableRangeAnalysis;
   bool disableRecoverIns;
   bool disableScalarReplacement;
   bool disableCacheIR;
-  bool disableCacheIRBinaryArith;
-  bool disableSincos;
   bool disableSink;
-  bool eagerCompilation;
+  bool disableOptimizationLevels;
+  bool baselineInterpreter;
+  bool baselineJit;
+  bool ion;
+  bool warpBuilder;
+  bool jitForTrustedPrincipals;
+  bool nativeRegExp;
   bool forceInlineCaches;
   bool fullDebugChecks;
   bool limitScriptSize;
@@ -76,22 +69,43 @@ struct DefaultJitOptions {
 #ifdef JS_TRACE_LOGGING
   bool enableTraceLogger;
 #endif
-  uint32_t baselineWarmUpThreshold;
+  bool traceRegExpParser;
+  bool traceRegExpAssembler;
+  bool traceRegExpInterpreter;
+  bool traceRegExpPeephole;
+  bool enableWasmJitExit;
+  bool enableWasmJitEntry;
+  bool enableWasmIonFastCalls;
+#ifdef WASM_CODEGEN_DEBUG
+  bool enableWasmImportCallSpew;
+  bool enableWasmFuncCallSpew;
+#endif
+  uint32_t baselineInterpreterWarmUpThreshold;
+  uint32_t baselineJitWarmUpThreshold;
+  uint32_t trialInliningWarmUpThreshold;
+  uint32_t trialInliningInitialWarmUpCount;
+  uint32_t normalIonWarmUpThreshold;
+  uint32_t fullIonWarmUpThreshold;
+  uint32_t regexpWarmUpThreshold;
   uint32_t exceptionBailoutThreshold;
   uint32_t frequentBailoutThreshold;
   uint32_t maxStackArgs;
   uint32_t osrPcMismatchesBeforeRecompile;
-  uint32_t smallFunctionMaxBytecodeLength_;
+  uint32_t smallFunctionMaxBytecodeLength;
+  uint32_t inliningEntryThreshold;
   uint32_t jumpThreshold;
   uint32_t branchPruningHitCountFactor;
   uint32_t branchPruningInstFactor;
   uint32_t branchPruningBlockSpanFactor;
   uint32_t branchPruningEffectfulInstFactor;
   uint32_t branchPruningThreshold;
-  uint32_t wasmBatchIonThreshold;
+  uint32_t ionMaxScriptSize;
+  uint32_t ionMaxScriptSizeMainThread;
+  uint32_t ionMaxLocalsAndArgs;
+  uint32_t ionMaxLocalsAndArgsMainThread;
   uint32_t wasmBatchBaselineThreshold;
-  mozilla::Maybe<uint32_t> forcedDefaultIonWarmUpThreshold;
-  mozilla::Maybe<uint32_t> forcedDefaultIonSmallFunctionWarmUpThreshold;
+  uint32_t wasmBatchIonThreshold;
+  uint32_t wasmBatchCraneliftThreshold;
   mozilla::Maybe<IonRegisterAllocator> forcedRegisterAllocator;
 
   // Spectre mitigation flags. Each mitigation has its own flag in order to
@@ -104,20 +118,38 @@ struct DefaultJitOptions {
   bool spectreValueMasking;
   bool spectreJitToCxxCalls;
 
-  // The options below affect the rest of the VM, and not just the JIT.
-  bool disableUnboxedObjects;
+  bool supportsFloatingPoint;
+  bool supportsUnalignedAccesses;
 
   DefaultJitOptions();
   bool isSmallFunction(JSScript* script) const;
-  void setEagerCompilation();
-  void setCompilerWarmUpThreshold(uint32_t warmUpThreshold);
-  void resetCompilerWarmUpThreshold();
+  void setEagerBaselineCompilation();
+  void setEagerIonCompilation();
+  void setNormalIonWarmUpThreshold(uint32_t warmUpThreshold);
+  void setFullIonWarmUpThreshold(uint32_t warmUpThreshold);
+  void resetNormalIonWarmUpThreshold();
+  void resetFullIonWarmUpThreshold();
   void enableGvn(bool val);
+  void setFastWarmUp();
+  void setWarpEnabled(bool enable);
+
+  bool eagerIonCompilation() const { return normalIonWarmUpThreshold == 0; }
 };
 
 extern DefaultJitOptions JitOptions;
 
+inline bool IsBaselineInterpreterEnabled() {
+#ifdef JS_CODEGEN_NONE
+  return false;
+#else
+  return JitOptions.baselineInterpreter && JitOptions.supportsFloatingPoint;
+#endif
+}
+
 }  // namespace jit
+
+inline bool IsTypeInferenceEnabled() { return !jit::JitOptions.warpBuilder; }
+
 }  // namespace js
 
 #endif /* jit_JitOptions_h */

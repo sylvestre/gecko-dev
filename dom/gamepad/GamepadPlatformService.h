@@ -9,13 +9,20 @@
 
 #include "mozilla/dom/GamepadBinding.h"
 
+#include <map>
 #include "mozilla/Mutex.h"
 #include "mozilla/StaticPtr.h"
+#include "mozilla/WeakPtr.h"
 
 namespace mozilla {
 namespace dom {
 
+class GamepadAdded;
 class GamepadEventChannelParent;
+enum class GamepadLightIndicatorType : uint8_t;
+struct GamepadPoseState;
+class GamepadTestChannelParent;
+struct GamepadTouchState;
 
 // Platform Service for building and transmitting IPDL messages
 // through the HAL sandbox. Used by platform specific
@@ -32,13 +39,38 @@ class GamepadEventChannelParent;
 class GamepadPlatformService final {
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(GamepadPlatformService)
  public:
+  class MonitoringState {
+   public:
+    MonitoringState() = default;
+    ~MonitoringState();
+
+    void AddObserver(WeakPtr<GamepadTestChannelParent> aParent);
+    void RemoveObserver(GamepadTestChannelParent* aParent);
+
+    bool IsMonitoring() const;
+
+    MonitoringState(const MonitoringState&) = delete;
+    MonitoringState(MonitoringState&&) = delete;
+    MonitoringState& operator=(const MonitoringState) = delete;
+    MonitoringState& operator=(MonitoringState&&) = delete;
+
+   private:
+    void Set(bool aIsMonitoring);
+
+    bool mIsMonitoring{false};
+    nsTArray<WeakPtr<GamepadTestChannelParent>> mObservers;
+
+    friend class GamepadPlatformService;
+  };
+
   // Get the singleton service
   static already_AddRefed<GamepadPlatformService> GetParentService();
 
   // Add a gamepad to the list of known gamepads, and return its index.
   uint32_t AddGamepad(const char* aID, GamepadMappingType aMapping,
                       GamepadHand aHand, uint32_t aNumButtons,
-                      uint32_t aNumAxes, uint32_t aNumHaptics);
+                      uint32_t aNumAxes, uint32_t aNumHaptics,
+                      uint32_t aNumLightIndicator, uint32_t aNumTouchEvents);
   // Remove the gamepad at |aIndex| from the list of known gamepads.
   void RemoveGamepad(uint32_t aIndex);
 
@@ -54,7 +86,9 @@ class GamepadPlatformService final {
   // When only a digital button are available the value will be synthesized.
   void NewButtonEvent(uint32_t aIndex, uint32_t aButton, bool aPressed,
                       bool aTouched);
-
+  // When only a digital button are available the value will be synthesized.
+  void NewButtonEvent(uint32_t aIndex, uint32_t aButton, bool aPressed,
+                      double aValue);
   // Update the state of |aAxis| for the gamepad at |aIndex| for all
   // windows that are listening and visible, and fire a gamepadaxismove
   // event at them as well.
@@ -62,6 +96,14 @@ class GamepadPlatformService final {
   // Update the state of |aState| for the gamepad at |aIndex| for all
   // windows that are listening and visible.
   void NewPoseEvent(uint32_t aIndex, const GamepadPoseState& aState);
+  // Update the type of |aType| for the gamepad at |aIndex| for all
+  // windows that are listening and visible.
+  void NewLightIndicatorTypeEvent(uint32_t aIndex, uint32_t aLight,
+                                  GamepadLightIndicatorType aType);
+  // Update the state of |aState| for the gamepad at |aIndex| with
+  // |aTouchArrayIndex| for all windows that are listening and visible.
+  void NewMultiTouchEvent(uint32_t aIndex, uint32_t aTouchArrayIndex,
+                          const GamepadTouchState& aState);
 
   // When shutting down the platform communications for gamepad, also reset the
   // indexes.
@@ -73,9 +115,9 @@ class GamepadPlatformService final {
   // Remove IPDL parent instance
   void RemoveChannelParent(GamepadEventChannelParent* aParent);
 
-  bool HasGamepadListeners();
-
   void MaybeShutdown();
+
+  MonitoringState& GetMonitoringState() { return mMonitoringState; }
 
  private:
   GamepadPlatformService();
@@ -83,9 +125,6 @@ class GamepadPlatformService final {
   template <class T>
   void NotifyGamepadChange(uint32_t aIndex, const T& aInfo);
 
-  // Flush all pending events buffered in mPendingEvents, must be called
-  // with mMutex held
-  void FlushPendingEvents();
   void Cleanup();
 
   // mGamepadIndex can only be accessed by monitor thread
@@ -100,10 +139,9 @@ class GamepadPlatformService final {
   // between background and monitor thread
   Mutex mMutex;
 
-  // In mochitest, it is possible that the test Events is synthesized
-  // before GamepadEventChannel created, we need to buffer all events
-  // until the channel is created if that happens.
-  nsTArray<GamepadChangeEvent> mPendingEvents;
+  std::map<uint32_t, GamepadAdded> mGamepadAdded;
+
+  MonitoringState mMonitoringState;
 };
 
 }  // namespace dom

@@ -4,36 +4,44 @@
 
 "use strict";
 
-ChromeUtils.import("resource://gre/modules/AppConstants.jsm");
-ChromeUtils.import("resource://gre/modules/Services.jsm");
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
-
-const {
-  error,
-  stack,
-  TimeoutError,
-} = ChromeUtils.import("chrome://marionette/content/error.js", {});
-const {truncate} = ChromeUtils.import("chrome://marionette/content/format.js", {});
-const {Log} = ChromeUtils.import("chrome://marionette/content/log.js", {});
-
-XPCOMUtils.defineLazyGetter(this, "log", Log.get);
-
-this.EXPORTED_SYMBOLS = [
+const EXPORTED_SYMBOLS = [
   "executeSoon",
   "DebounceCallback",
   "IdlePromise",
+  "MessageManagerDestroyedPromise",
   "PollPromise",
   "Sleep",
   "TimedPromise",
   "waitForEvent",
+  "waitForLoadEvent",
   "waitForMessage",
   "waitForObserverTopic",
 ];
 
-const {TYPE_ONE_SHOT, TYPE_REPEATING_SLACK} = Ci.nsITimer;
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+
+XPCOMUtils.defineLazyModuleGetters(this, {
+  AppConstants: "resource://gre/modules/AppConstants.jsm",
+
+  error: "chrome://marionette/content/error.js",
+  EventDispatcher:
+    "chrome://marionette/content/actors/MarionetteEventsParent.jsm",
+  Log: "chrome://marionette/content/log.js",
+  registerEventsActor:
+    "chrome://marionette/content/actors/MarionetteEventsParent.jsm",
+  truncate: "chrome://marionette/content/format.js",
+  unregisterEventsActor:
+    "chrome://marionette/content/actors/MarionetteEventsParent.jsm",
+});
+
+XPCOMUtils.defineLazyGetter(this, "logger", () => Log.get());
+
+const { TYPE_ONE_SHOT, TYPE_REPEATING_SLACK } = Ci.nsITimer;
 
 const PROMISE_TIMEOUT = AppConstants.DEBUG ? 4500 : 1500;
-
 
 /**
  * Dispatch a function to be executed on the main thread.
@@ -48,20 +56,6 @@ function executeSoon(func) {
 
   Services.tm.dispatchToMainThread(func);
 }
-
-/**
- * @callback Condition
- *
- * @param {function(*)} resolve
- *     To be called when the condition has been met.  Will return the
- *     resolved value.
- * @param {function} reject
- *     To be called when the condition has not been met.  Will cause
- *     the condition to be revaluated or time out.
- *
- * @return {*}
- *     The value from calling ``resolve``.
- */
 
 /**
  * Runs a Promise-like function off the main thread until it is resolved
@@ -91,14 +85,14 @@ function executeSoon(func) {
  *       } else {
  *         reject([]);
  *       }
- *     });
+ *     }, {timeout: 1000});
  *
  * @param {Condition} func
  *     Function to run off the main thread.
- * @param {number=} [timeout=2000] timeout
- *     Desired timeout.  If 0 or less than the runtime evaluation
+ * @param {number=} [timeout] timeout
+ *     Desired timeout if wanted.  If 0 or less than the runtime evaluation
  *     time of ``func``, ``func`` is guaranteed to run at least once.
- *     The default is 2000 milliseconds.
+ *     Defaults to using no timeout.
  * @param {number=} [interval=10] interval
  *     Duration between each poll of ``func`` in milliseconds.
  *     Defaults to 10 milliseconds.
@@ -114,36 +108,51 @@ function executeSoon(func) {
  * @throws {RangeError}
  *     If `timeout` or `interval` are not unsigned integers.
  */
-function PollPromise(func, {timeout = 2000, interval = 10} = {}) {
+function PollPromise(func, { timeout = null, interval = 10 } = {}) {
   const timer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
 
   if (typeof func != "function") {
     throw new TypeError();
   }
-  if (!(typeof timeout == "number" && typeof interval == "number")) {
+  if (timeout != null && typeof timeout != "number") {
     throw new TypeError();
   }
-  if ((!Number.isInteger(timeout) || timeout < 0) ||
-      (!Number.isInteger(interval) || interval < 0)) {
+  if (typeof interval != "number") {
+    throw new TypeError();
+  }
+  if (
+    (timeout && (!Number.isInteger(timeout) || timeout < 0)) ||
+    !Number.isInteger(interval) ||
+    interval < 0
+  ) {
     throw new RangeError();
   }
 
   return new Promise((resolve, reject) => {
-    const start = new Date().getTime();
-    const end = start + timeout;
+    let start, end;
+
+    if (Number.isInteger(timeout)) {
+      start = new Date().getTime();
+      end = start + timeout;
+    }
 
     let evalFn = () => {
-      new Promise(func).then(resolve, rejected => {
-        if (error.isError(rejected)) {
-          throw rejected;
-        }
+      new Promise(func)
+        .then(resolve, rejected => {
+          if (error.isError(rejected)) {
+            throw rejected;
+          }
 
-        // return if timeout is 0, allowing |func| to be evaluated at
-        // least once
-        if (start == end || new Date().getTime() >= end) {
-          resolve(rejected);
-        }
-      }).catch(reject);
+          // return if there is a timeout and set to 0,
+          // allowing |func| to be evaluated at least once
+          if (
+            typeof end != "undefined" &&
+            (start == end || new Date().getTime() >= end)
+          ) {
+            resolve(rejected);
+          }
+        })
+        .catch(reject);
     };
 
     // the repeating slack timer waits |interval|
@@ -151,14 +160,16 @@ function PollPromise(func, {timeout = 2000, interval = 10} = {}) {
     evalFn();
 
     timer.init(evalFn, interval, TYPE_REPEATING_SLACK);
-
-  }).then(res => {
-    timer.cancel();
-    return res;
-  }, err => {
-    timer.cancel();
-    throw err;
-  });
+  }).then(
+    res => {
+      timer.cancel();
+      return res;
+    },
+    err => {
+      timer.cancel();
+      throw err;
+    }
+  );
 }
 
 /**
@@ -190,8 +201,10 @@ function PollPromise(func, {timeout = 2000, interval = 10} = {}) {
  * @throws {RangeError}
  *     If `timeout` is not an unsigned integer.
  */
-function TimedPromise(fn,
-    {timeout = PROMISE_TIMEOUT, throws = TimeoutError} = {}) {
+function TimedPromise(
+  fn,
+  { timeout = PROMISE_TIMEOUT, throws = error.TimeoutError } = {}
+) {
   const timer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
 
   if (typeof fn != "function") {
@@ -205,6 +218,8 @@ function TimedPromise(fn,
   }
 
   return new Promise((resolve, reject) => {
+    let trace;
+
     // Reject only if |throws| is given.  Otherwise it is assumed that
     // the user is OK with the promise timing out.
     let bail = () => {
@@ -212,26 +227,29 @@ function TimedPromise(fn,
         let err = new throws();
         reject(err);
       } else {
-        log.warn(`TimedPromise timed out after ${timeout} ms`, stack());
+        logger.warn(`TimedPromise timed out after ${timeout} ms`, trace);
         resolve();
       }
     };
 
-    timer.initWithCallback({notify: bail}, timeout, TYPE_ONE_SHOT);
+    trace = error.stack();
+    timer.initWithCallback({ notify: bail }, timeout, TYPE_ONE_SHOT);
 
     try {
       fn(resolve, reject);
     } catch (e) {
       reject(e);
     }
-
-  }).then(res => {
-    timer.cancel();
-    return res;
-  }, err => {
-    timer.cancel();
-    throw err;
-  });
+  }).then(
+    res => {
+      timer.cancel();
+      return res;
+    },
+    err => {
+      timer.cancel();
+      throw err;
+    }
+  );
 }
 
 /**
@@ -252,7 +270,62 @@ function Sleep(timeout) {
   if (typeof timeout != "number") {
     throw new TypeError();
   }
-  return new TimedPromise(() => {}, {timeout, throws: null});
+  if (!Number.isInteger(timeout) || timeout < 0) {
+    throw new RangeError();
+  }
+
+  return new Promise(resolve => {
+    const timer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
+    timer.init(
+      () => {
+        // Bug 1663880 - Explicitely cancel the timer for now to prevent a hang
+        timer.cancel();
+        resolve();
+      },
+      timeout,
+      TYPE_ONE_SHOT
+    );
+  });
+}
+
+/**
+ * Detects when the specified message manager has been destroyed.
+ *
+ * One can observe the removal and detachment of a content browser
+ * (`<xul:browser>`) or a chrome window by its message manager
+ * disconnecting.
+ *
+ * When a browser is associated with a tab, this is safer than only
+ * relying on the event `TabClose` which signalises the _intent to_
+ * remove a tab and consequently would lead to the destruction of
+ * the content browser and its browser message manager.
+ *
+ * When closing a chrome window it is safer than only relying on
+ * the event 'unload' which signalises the _intent to_ close the
+ * chrome window and consequently would lead to the destruction of
+ * the window and its window message manager.
+ *
+ * @param {MessageListenerManager} messageManager
+ *     The message manager to observe for its disconnect state.
+ *     Use the browser message manager when closing a content browser,
+ *     and the window message manager when closing a chrome window.
+ *
+ * @return {Promise}
+ *     A promise that resolves when the message manager has been destroyed.
+ */
+function MessageManagerDestroyedPromise(messageManager) {
+  return new Promise(resolve => {
+    function observe(subject, topic) {
+      logger.trace(`Received observer notification ${topic}`);
+
+      if (subject == messageManager) {
+        Services.obs.removeObserver(this, "message-manager-disconnect");
+        resolve();
+      }
+    }
+
+    Services.obs.addObserver(observe, "message-manager-disconnect");
+  });
 }
 
 /**
@@ -265,11 +338,20 @@ function Sleep(timeout) {
  * @return Promise
  */
 function IdlePromise(win) {
-  return new Promise(resolve => {
-    Services.tm.idleDispatchToMainThread(() => {
+  const animationFramePromise = new Promise(resolve => {
+    executeSoon(() => {
       win.requestAnimationFrame(resolve);
     });
   });
+
+  // Abort if the underlying window gets closed
+  const windowClosedPromise = new PollPromise(resolve => {
+    if (win.closed) {
+      resolve();
+    }
+  });
+
+  return Promise.race([animationFramePromise, windowClosedPromise]);
 }
 
 /**
@@ -308,7 +390,7 @@ function IdlePromise(win) {
  *     Time since last event firing, before `fn` will be invoked.
  */
 class DebounceCallback {
-  constructor(fn, {timeout = 250} = {}) {
+  constructor(fn, { timeout = 250 } = {}) {
     if (typeof fn != "function" || typeof timeout != "number") {
       throw new TypeError();
     }
@@ -323,10 +405,14 @@ class DebounceCallback {
 
   handleEvent(ev) {
     this.timer.cancel();
-    this.timer.initWithCallback(() => {
-      this.timer.cancel();
-      this.fn(ev);
-    }, this.timeout, TYPE_ONE_SHOT);
+    this.timer.initWithCallback(
+      () => {
+        this.timer.cancel();
+        this.fn(ev);
+      },
+      this.timeout,
+      TYPE_ONE_SHOT
+    );
   }
 }
 this.DebounceCallback = DebounceCallback;
@@ -388,8 +474,11 @@ this.DebounceCallback = DebounceCallback;
  *     Promise which resolves to the received ``Event`` object, or rejects
  *     in case of a failure.
  */
-function waitForEvent(subject, eventName,
-    {capture = false, checkFn = null, wantsUntrusted = false} = {}) {
+function waitForEvent(
+  subject,
+  eventName,
+  { capture = false, checkFn = null, wantsUntrusted = false } = {}
+) {
   if (subject == null || !("addEventListener" in subject)) {
     throw new TypeError();
   }
@@ -407,23 +496,67 @@ function waitForEvent(subject, eventName,
   }
 
   return new Promise((resolve, reject) => {
-    subject.addEventListener(eventName, function listener(event) {
-      log.trace(`Received DOM event ${event.type} for ${event.target}`);
-      try {
-        if (checkFn && !checkFn(event)) {
-          return;
-        }
-        subject.removeEventListener(eventName, listener, capture);
-        executeSoon(() => resolve(event));
-      } catch (ex) {
+    subject.addEventListener(
+      eventName,
+      function listener(event) {
+        logger.trace(`Received DOM event ${event.type} for ${event.target}`);
         try {
+          if (checkFn && !checkFn(event)) {
+            return;
+          }
           subject.removeEventListener(eventName, listener, capture);
-        } catch (ex2) {
-          // Maybe the provided object does not support removeEventListener.
+          executeSoon(() => resolve(event));
+        } catch (ex) {
+          try {
+            subject.removeEventListener(eventName, listener, capture);
+          } catch (ex2) {
+            // Maybe the provided object does not support removeEventListener.
+          }
+          executeSoon(() => reject(ex));
         }
-        executeSoon(() => reject(ex));
+      },
+      capture,
+      wantsUntrusted
+    );
+  });
+}
+
+/**
+ * Wait for a load event to be fired on a specific browsing context.
+ * The supported events are:
+ *   - beforeunload
+ *   - DOMContentLoaded
+ *   - hashchange
+ *   - pagehide
+ *   - pageshow
+ *   - popstate
+ *
+ * @param {string} eventName
+ *     The specific load event name to wait for.
+ * @param {function(): BrowsingContext} browsingContextFn
+ *     A function that returns the reference to the browsing context for which
+ *     the load event should be fired.
+ *
+ * @return {Promise.<Object>}
+ *     Promise which resolves when the load event has been fired
+ */
+function waitForLoadEvent(eventName, browsingContextFn) {
+  let onPageLoad;
+  return new Promise(resolve => {
+    onPageLoad = (_, data) => {
+      logger.trace(`Received event ${data.type} for ${data.documentURI}`);
+      if (
+        data.browsingContext === browsingContextFn() &&
+        data.type === eventName
+      ) {
+        EventDispatcher.off("page-load", onPageLoad);
+        resolve(data);
       }
-    }, capture, wantsUntrusted);
+    };
+    EventDispatcher.on("page-load", onPageLoad);
+    registerEventsActor();
+  }).finally(() => {
+    unregisterEventsActor();
   });
 }
 
@@ -448,8 +581,11 @@ function waitForEvent(subject, eventName,
  *     Promise which resolves to the data property of the received
  *     ``Message``.
  */
-function waitForMessage(messageManager, messageName,
-    {checkFn = undefined} = {}) {
+function waitForMessage(
+  messageManager,
+  messageName,
+  { checkFn = undefined } = {}
+) {
   if (messageManager == null || !("addMessageListener" in messageManager)) {
     throw new TypeError();
   }
@@ -462,7 +598,7 @@ function waitForMessage(messageManager, messageName,
 
   return new Promise(resolve => {
     messageManager.addMessageListener(messageName, function onMessage(msg) {
-      log.trace(`Received ${messageName} for ${msg.target}`);
+      logger.trace(`Received ${messageName} for ${msg.target}`);
       if (checkFn && !checkFn(msg)) {
         return;
       }
@@ -495,7 +631,7 @@ function waitForMessage(messageManager, messageName,
  *     Promise which resolves to an array of ``subject``, and ``data`` from
  *     the observed notification.
  */
-function waitForObserverTopic(topic, {checkFn = null} = {}) {
+function waitForObserverTopic(topic, { checkFn = null } = {}) {
   if (typeof topic != "string") {
     throw new TypeError();
   }
@@ -505,13 +641,13 @@ function waitForObserverTopic(topic, {checkFn = null} = {}) {
 
   return new Promise((resolve, reject) => {
     Services.obs.addObserver(function observer(subject, topic, data) {
-      log.trace(`Received observer notification ${topic}`);
+      logger.trace(`Received observer notification ${topic}`);
       try {
         if (checkFn && !checkFn(subject, data)) {
           return;
         }
         Services.obs.removeObserver(observer, topic);
-        resolve({subject, data});
+        resolve({ subject, data });
       } catch (ex) {
         Services.obs.removeObserver(observer, topic);
         reject(ex);

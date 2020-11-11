@@ -1,5 +1,3 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 2 -*- */
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -16,20 +14,40 @@ var promise = require("promise");
 var defer = require("devtools/shared/defer");
 var DevToolsUtils = require("devtools/shared/DevToolsUtils");
 var { dumpn, dumpv } = DevToolsUtils;
-loader.lazyRequireGetter(this, "WebSocketServer",
-  "devtools/server/socket/websocket-server");
-loader.lazyRequireGetter(this, "DebuggerTransport",
-  "devtools/shared/transport/transport", true);
-loader.lazyRequireGetter(this, "WebSocketDebuggerTransport",
-  "devtools/shared/transport/websocket-transport");
-loader.lazyRequireGetter(this, "discovery",
-  "devtools/shared/discovery/discovery");
-loader.lazyRequireGetter(this, "cert",
-  "devtools/shared/security/cert");
-loader.lazyRequireGetter(this, "Authenticators",
-  "devtools/shared/security/auth", true);
-loader.lazyRequireGetter(this, "AuthenticationResult",
-  "devtools/shared/security/auth", true);
+loader.lazyRequireGetter(
+  this,
+  "WebSocketServer",
+  "devtools/server/socket/websocket-server"
+);
+loader.lazyRequireGetter(
+  this,
+  "DebuggerTransport",
+  "devtools/shared/transport/transport",
+  true
+);
+loader.lazyRequireGetter(
+  this,
+  "WebSocketDebuggerTransport",
+  "devtools/shared/transport/websocket-transport"
+);
+loader.lazyRequireGetter(
+  this,
+  "discovery",
+  "devtools/shared/discovery/discovery"
+);
+loader.lazyRequireGetter(this, "cert", "devtools/shared/security/cert");
+loader.lazyRequireGetter(
+  this,
+  "Authenticators",
+  "devtools/shared/security/auth",
+  true
+);
+loader.lazyRequireGetter(
+  this,
+  "AuthenticationResult",
+  "devtools/shared/security/auth",
+  true
+);
 loader.lazyRequireGetter(this, "EventEmitter", "devtools/shared/event-emitter");
 
 DevToolsUtils.defineLazyGetter(this, "nsFile", () => {
@@ -37,29 +55,32 @@ DevToolsUtils.defineLazyGetter(this, "nsFile", () => {
 });
 
 DevToolsUtils.defineLazyGetter(this, "socketTransportService", () => {
-  return Cc["@mozilla.org/network/socket-transport-service;1"]
-         .getService(Ci.nsISocketTransportService);
+  return Cc["@mozilla.org/network/socket-transport-service;1"].getService(
+    Ci.nsISocketTransportService
+  );
 });
 
 DevToolsUtils.defineLazyGetter(this, "certOverrideService", () => {
-  return Cc["@mozilla.org/security/certoverride;1"]
-         .getService(Ci.nsICertOverrideService);
+  return Cc["@mozilla.org/security/certoverride;1"].getService(
+    Ci.nsICertOverrideService
+  );
 });
 
 DevToolsUtils.defineLazyGetter(this, "nssErrorsService", () => {
-  return Cc["@mozilla.org/nss_errors_service;1"]
-         .getService(Ci.nsINSSErrorsService);
+  return Cc["@mozilla.org/nss_errors_service;1"].getService(
+    Ci.nsINSSErrorsService
+  );
 });
 
 var DebuggerSocket = {};
 
 /**
- * Connects to a debugger server socket.
+ * Connects to a devtools server socket.
  *
  * @param host string
- *        The host name or IP address of the debugger server.
+ *        The host name or IP address of the devtools server.
  * @param port number
- *        The port number of the debugger server.
+ *        The port number of the devtools server.
  * @param encryption boolean (optional)
  *        Whether the server requires encryption.  Defaults to false.
  * @param webSocket boolean (optional)
@@ -109,9 +130,9 @@ function _validateSettings(settings) {
  * connect attempts in the process.
  *
  * @param host string
- *        The host name or IP address of the debugger server.
+ *        The host name or IP address of the devtools server.
  * @param port number
- *        The port number of the debugger server.
+ *        The port number of the devtools server.
  * @param encryption boolean (optional)
  *        Whether the server requires encryption.  Defaults to false.
  * @param webSocket boolean (optional)
@@ -169,9 +190,9 @@ var _getTransport = async function(settings) {
  * after storing a cert override.
  *
  * @param host string
- *        The host name or IP address of the debugger server.
+ *        The host name or IP address of the devtools server.
  * @param port number
- *        The port number of the debugger server.
+ *        The port number of the devtools server.
  * @param encryption boolean (optional)
  *        Whether the server requires encryption.  Defaults to false.
  * @param authenticator Authenticator
@@ -211,13 +232,15 @@ var _attemptTransport = async function(settings) {
 
   // The |Authenticator| examines the connection as well and may determine it
   // should be dropped.
-  alive = alive && authenticator.validateConnection({
-    host: settings.host,
-    port: settings.port,
-    encryption: settings.encryption,
-    cert: settings.cert,
-    socket: s,
-  });
+  alive =
+    alive &&
+    authenticator.validateConnection({
+      host: settings.host,
+      port: settings.port,
+      encryption: settings.encryption,
+      cert: settings.cert,
+      socket: s,
+    });
 
   let transport;
   if (alive) {
@@ -248,10 +271,17 @@ var _attemptTransport = async function(settings) {
 var _attemptConnect = async function({ host, port, encryption }) {
   let s;
   if (encryption) {
-    s = socketTransportService.createTransport(["ssl"], 1, host, port, null);
+    s = socketTransportService.createTransport(["ssl"], host, port, null);
   } else {
-    s = socketTransportService.createTransport(null, 0, host, port, null);
+    s = socketTransportService.createTransport([], host, port, null);
   }
+
+  // Force disabling IPV6 if we aren't explicitely connecting to an IPv6 address
+  // It fails intermitently on MacOS when opening the Browser Toolbox (bug 1615412)
+  if (!host.includes(":")) {
+    s.connectionFlags |= Ci.nsISocketTransport.DISABLE_IPV6;
+  }
+
   // By default the CONNECT socket timeout is very long, 65535 seconds,
   // so that if we race to be in CONNECT state while the server socket is still
   // initializing, the connection is stuck in connecting state for 18.20 hours!
@@ -274,24 +304,28 @@ var _attemptConnect = async function({ host, port, encryption }) {
   // specify a client cert programmatically, we need to access the transport's
   // nsISSLSocketControl interface, which is not accessible until the transport
   // has connected.
-  s.setEventSink({
-    onTransportStatus(transport, status) {
-      if (status != Ci.nsISocketTransport.STATUS_CONNECTING_TO) {
-        return;
-      }
-      if (encryption) {
-        const sslSocketControl =
-          transport.securityInfo.QueryInterface(Ci.nsISSLSocketControl);
-        sslSocketControl.clientCert = clientCert;
-      }
-      try {
-        input = s.openInputStream(0, 0, 0);
-      } catch (e) {
-        deferred.reject(e);
-      }
-      deferred.resolve({ s, input, output });
+  s.setEventSink(
+    {
+      onTransportStatus(transport, status) {
+        if (status != Ci.nsISocketTransport.STATUS_CONNECTING_TO) {
+          return;
+        }
+        if (encryption) {
+          const sslSocketControl = transport.securityInfo.QueryInterface(
+            Ci.nsISSLSocketControl
+          );
+          sslSocketControl.clientCert = clientCert;
+        }
+        try {
+          input = s.openInputStream(0, 0, 0);
+        } catch (e) {
+          deferred.reject(e);
+        }
+        deferred.resolve({ s, input, output });
+      },
     },
-  }, Services.tm.currentThread);
+    Services.tm.currentThread
+  );
 
   // openOutputStream may throw NS_ERROR_NOT_INITIALIZED if we hit some race
   // where the nsISocketTransport gets shutdown in between its instantiation and
@@ -322,26 +356,31 @@ var _attemptConnect = async function({ host, port, encryption }) {
  */
 function _isInputAlive(input) {
   const deferred = defer();
-  input.asyncWait({
-    onInputStreamReady(stream) {
-      try {
-        stream.available();
-        deferred.resolve({ alive: true });
-      } catch (e) {
+  input.asyncWait(
+    {
+      onInputStreamReady(stream) {
         try {
-          // getErrorClass may throw if you pass a non-NSS error
-          const errorClass = nssErrorsService.getErrorClass(e.result);
-          if (errorClass === Ci.nsINSSErrorsService.ERROR_CLASS_BAD_CERT) {
-            deferred.resolve({ certError: true });
-          } else {
+          stream.available();
+          deferred.resolve({ alive: true });
+        } catch (e) {
+          try {
+            // getErrorClass may throw if you pass a non-NSS error
+            const errorClass = nssErrorsService.getErrorClass(e.result);
+            if (errorClass === Ci.nsINSSErrorsService.ERROR_CLASS_BAD_CERT) {
+              deferred.resolve({ certError: true });
+            } else {
+              deferred.reject(e);
+            }
+          } catch (nssErr) {
             deferred.reject(e);
           }
-        } catch (nssErr) {
-          deferred.reject(e);
         }
-      }
+      },
     },
-  }, 0, 0, Services.tm.currentThread);
+    0,
+    0,
+    Services.tm.currentThread
+  );
   return deferred.promise;
 }
 
@@ -353,21 +392,27 @@ function _isInputAlive(input) {
 function _storeCertOverride(s, host, port) {
   // eslint-disable-next-line no-shadow
   const cert = s.securityInfo.QueryInterface(Ci.nsITransportSecurityInfo)
-                             .serverCert;
-  const overrideBits = Ci.nsICertOverrideService.ERROR_UNTRUSTED |
-                     Ci.nsICertOverrideService.ERROR_MISMATCH;
-  certOverrideService.rememberValidityOverride(host, port, cert, overrideBits,
-                                               true /* temporary */);
+    .serverCert;
+  const overrideBits =
+    Ci.nsICertOverrideService.ERROR_UNTRUSTED |
+    Ci.nsICertOverrideService.ERROR_MISMATCH;
+  certOverrideService.rememberValidityOverride(
+    host,
+    port,
+    cert,
+    overrideBits,
+    true /* temporary */
+  );
 }
 
 /**
- * Creates a new socket listener for remote connections to the DebuggerServer.
+ * Creates a new socket listener for remote connections to the DevToolsServer.
  * This helps contain and organize the parts of the server that may differ or
  * are particular to one given listener mechanism vs. another.
  * This can be closed at any later time by calling |close|.
  * If remote connections are disabled, an error is thrown.
  *
- * @param {DebuggerServer} debuggerServer
+ * @param {DevToolsServer} devToolsServer
  * @param {Object} socketOptions
  *        options of socket as follows
  *        {
@@ -391,12 +436,13 @@ function _storeCertOverride(s, host, port) {
  *            Whether to use WebSocket protocol. Defaults is false.
  *        }
  */
-function SocketListener(debuggerServer, socketOptions) {
-  this._debuggerServer = debuggerServer;
+function SocketListener(devToolsServer, socketOptions) {
+  this._devToolsServer = devToolsServer;
 
   // Set socket options with default value
   this._socketOptions = {
-    authenticator: socketOptions.authenticator || new (Authenticators.get().Server)(),
+    authenticator:
+      socketOptions.authenticator || new (Authenticators.get().Server)(),
     discoverable: !!socketOptions.discoverable,
     encryption: !!socketOptions.encryption,
     portOrPath: socketOptions.portOrPath || null,
@@ -448,7 +494,7 @@ SocketListener.prototype = {
    */
   open: function() {
     this._validateOptions();
-    this._debuggerServer.addSocketListener(this);
+    this._devToolsServer.addSocketListener(this);
 
     let flags = Ci.nsIServerSocket.KeepWhenOffline;
     // A preference setting can force binding on the loopback interface.
@@ -476,13 +522,19 @@ SocketListener.prototype = {
       await self._setAdditionalSocketOptions();
       self._socket.asyncListen(self);
       dumpn("Socket listening on: " + (self.port || self.portOrPath));
-    })().then(() => {
-      this._advertise();
-    }).catch(e => {
-      dumpn("Could not start debugging listener on '" + this.portOrPath +
-            "': " + e);
-      this.close();
-    });
+    })()
+      .then(() => {
+        this._advertise();
+      })
+      .catch(e => {
+        dumpn(
+          "Could not start debugging listener on '" +
+            this.portOrPath +
+            "': " +
+            e
+        );
+        this.close();
+      });
   },
 
   _advertise: function() {
@@ -502,11 +554,13 @@ SocketListener.prototype = {
 
   _createSocketInstance: function() {
     if (this.encryption) {
-      return Cc["@mozilla.org/network/tls-server-socket;1"]
-             .createInstance(Ci.nsITLSServerSocket);
+      return Cc["@mozilla.org/network/tls-server-socket;1"].createInstance(
+        Ci.nsITLSServerSocket
+      );
     }
-    return Cc["@mozilla.org/network/server-socket;1"]
-           .createInstance(Ci.nsIServerSocket);
+    return Cc["@mozilla.org/network/server-socket;1"].createInstance(
+      Ci.nsIServerSocket
+    );
   },
 
   async _setAdditionalSocketOptions() {
@@ -531,7 +585,7 @@ SocketListener.prototype = {
       this._socket.close();
       this._socket = null;
     }
-    this._debuggerServer.removeSocketListener(this);
+    this._devToolsServer.removeSocketListener(this);
   },
 
   get host() {
@@ -578,16 +632,18 @@ SocketListener.prototype = {
 
   // nsIServerSocketListener implementation
 
-  onSocketAccepted:
-  DevToolsUtils.makeInfallible(function(socket, socketTransport) {
+  onSocketAccepted: DevToolsUtils.makeInfallible(function(
+    socket,
+    socketTransport
+  ) {
     const connection = new ServerSocketConnection(this, socketTransport);
     connection.once("allowed", this.onAllowedConnection.bind(this));
-  }, "SocketListener.onSocketAccepted"),
+  },
+  "SocketListener.onSocketAccepted"),
 
   onStopListening: function(socket, status) {
     dumpn("onStopListening, status: " + status);
   },
-
 };
 
 // Client must complete TLS handshake within this window (ms)
@@ -599,7 +655,7 @@ loader.lazyGetter(this, "HANDSHAKE_TIMEOUT", () => {
  * A |ServerSocketConnection| is created by a |SocketListener| for each accepted
  * incoming socket.  This is a short-lived object used to implement
  * authentication and verify encryption prior to handing off the connection to
- * the |DebuggerServer|.
+ * the |DevToolsServer|.
  */
 function ServerSocketConnection(listener, socketTransport) {
   this._listener = listener;
@@ -609,7 +665,6 @@ function ServerSocketConnection(listener, socketTransport) {
 }
 
 ServerSocketConnection.prototype = {
-
   get authentication() {
     return this._listener.authenticator.mode;
   },
@@ -660,7 +715,7 @@ ServerSocketConnection.prototype = {
   /**
    * This is the main authentication workflow.  If any pieces reject a promise,
    * the connection is denied.  If the entire process resolves successfully,
-   * the connection is finally handed off to the |DebuggerServer|.
+   * the connection is finally handed off to the |DevToolsServer|.
    */
   async _handle() {
     dumpn("Debugging connection starting authentication on " + this.address);
@@ -684,7 +739,11 @@ ServerSocketConnection.prototype = {
     const output = this._socketTransport.openOutputStream(0, 0, 0);
 
     if (this._listener.webSocket) {
-      const socket = await WebSocketServer.accept(this._socketTransport, input, output);
+      const socket = await WebSocketServer.accept(
+        this._socketTransport,
+        input,
+        output
+      );
       this._transport = new WebSocketDebuggerTransport(socket);
     } else {
       this._transport = new DebuggerTransport(input, output);
@@ -708,8 +767,9 @@ ServerSocketConnection.prototype = {
     if (!this._socketTransport || !this._socketTransport.securityInfo) {
       return;
     }
-    const connectionInfo = this._socketTransport.securityInfo
-                         .QueryInterface(Ci.nsITLSServerConnectionInfo);
+    const connectionInfo = this._socketTransport.securityInfo.QueryInterface(
+      Ci.nsITLSServerConnectionInfo
+    );
     connectionInfo.setSecurityObserver(observer);
   },
 
@@ -725,8 +785,10 @@ ServerSocketConnection.prototype = {
       return;
     }
     this._setSecurityObserver(this);
-    this._handshakeTimeout = setTimeout(this._onHandshakeTimeout.bind(this),
-                                        HANDSHAKE_TIMEOUT);
+    this._handshakeTimeout = setTimeout(
+      this._onHandshakeTimeout.bind(this),
+      HANDSHAKE_TIMEOUT
+    );
   },
 
   _awaitTLSHandshake() {
@@ -771,7 +833,7 @@ ServerSocketConnection.prototype = {
     });
     switch (result) {
       case AuthenticationResult.DISABLE_ALL:
-        this._listener._debuggerServer.closeAllSocketListeners();
+        this._listener._devToolsServer.closeAllSocketListeners();
         Services.prefs.setBoolPref("devtools.debugger.remote-enabled", false);
         return promise.reject(Cr.NS_ERROR_CONNECTION_REFUSED);
       case AuthenticationResult.DENY:
@@ -795,8 +857,9 @@ ServerSocketConnection.prototype = {
         break;
       }
     }
-    dumpn("Debugging connection denied on " + this.address +
-          " (" + errorName + ")");
+    dumpn(
+      "Debugging connection denied on " + this.address + " (" + errorName + ")"
+    );
     if (this._transport) {
       this._transport.hooks = null;
       this._transport.close(result);
@@ -823,7 +886,6 @@ ServerSocketConnection.prototype = {
     this._transport = null;
     this._clientCert = null;
   },
-
 };
 
 exports.DebuggerSocket = DebuggerSocket;

@@ -5,26 +5,31 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 // Keep in (case-insensitive) order:
+#include "mozilla/PresShell.h"
+#include "mozilla/SVGObserverUtils.h"
+#include "mozilla/dom/SVGFilters.h"
 #include "nsContainerFrame.h"
 #include "nsGkAtoms.h"
 #include "nsIFrame.h"
 #include "nsLiteralString.h"
-#include "SVGObserverUtils.h"
-#include "nsSVGFilters.h"
 
-using namespace mozilla;
+nsIFrame* NS_NewSVGFEContainerFrame(mozilla::PresShell* aPresShell,
+                                    mozilla::ComputedStyle* aStyle);
+
+namespace mozilla {
 
 /*
  * This frame is used by filter primitive elements that
  * have special child elements that provide parameters.
  */
 class SVGFEContainerFrame final : public nsContainerFrame {
-  friend nsIFrame* NS_NewSVGFEContainerFrame(nsIPresShell* aPresShell,
-                                             ComputedStyle* aStyle);
+  friend nsIFrame* ::NS_NewSVGFEContainerFrame(mozilla::PresShell* aPresShell,
+                                               ComputedStyle* aStyle);
 
  protected:
-  explicit SVGFEContainerFrame(ComputedStyle* aStyle)
-      : nsContainerFrame(aStyle, kClassID) {
+  explicit SVGFEContainerFrame(ComputedStyle* aStyle,
+                               nsPresContext* aPresContext)
+      : nsContainerFrame(aStyle, aPresContext, kClassID) {
     AddStateBits(NS_FRAME_SVG_LAYOUT | NS_FRAME_IS_NONDISPLAY);
   }
 
@@ -42,7 +47,7 @@ class SVGFEContainerFrame final : public nsContainerFrame {
 
 #ifdef DEBUG_FRAME_DUMP
   virtual nsresult GetFrameName(nsAString& aResult) const override {
-    return MakeFrameName(NS_LITERAL_STRING("SVGFEContainer"), aResult);
+    return MakeFrameName(u"SVGFEContainer"_ns, aResult);
   }
 #endif
 
@@ -55,22 +60,28 @@ class SVGFEContainerFrame final : public nsContainerFrame {
                                     int32_t aModType) override;
 
   virtual bool ComputeCustomOverflow(nsOverflowAreas& aOverflowAreas) override {
-    // We don't maintain a visual overflow rect
+    // We don't maintain a ink overflow rect
     return false;
   }
 };
 
-nsIFrame* NS_NewSVGFEContainerFrame(nsIPresShell* aPresShell,
-                                    ComputedStyle* aStyle) {
-  return new (aPresShell) SVGFEContainerFrame(aStyle);
+}  // namespace mozilla
+
+nsIFrame* NS_NewSVGFEContainerFrame(mozilla::PresShell* aPresShell,
+                                    mozilla::ComputedStyle* aStyle) {
+  return new (aPresShell)
+      mozilla::SVGFEContainerFrame(aStyle, aPresShell->GetPresContext());
 }
+
+namespace mozilla {
 
 NS_IMPL_FRAMEARENA_HELPERS(SVGFEContainerFrame)
 
 #ifdef DEBUG
 void SVGFEContainerFrame::Init(nsIContent* aContent, nsContainerFrame* aParent,
                                nsIFrame* aPrevInFlow) {
-  NS_ASSERTION(aContent->IsNodeOfType(nsINode::eFILTER),
+  nsCOMPtr<SVGFE> filterPrimitive = do_QueryInterface(aContent);
+  NS_ASSERTION(filterPrimitive,
                "Trying to construct an SVGFEContainerFrame for a "
                "content element that doesn't support the right interfaces");
 
@@ -81,7 +92,7 @@ void SVGFEContainerFrame::Init(nsIContent* aContent, nsContainerFrame* aParent,
 nsresult SVGFEContainerFrame::AttributeChanged(int32_t aNameSpaceID,
                                                nsAtom* aAttribute,
                                                int32_t aModType) {
-  nsSVGFE* element = static_cast<nsSVGFE*>(GetContent());
+  dom::SVGFE* element = static_cast<dom::SVGFE*>(GetContent());
   if (element->AttributeAffectsRendering(aNameSpaceID, aAttribute)) {
     MOZ_ASSERT(
         GetParent()->IsSVGFilterFrame(),
@@ -91,3 +102,5 @@ nsresult SVGFEContainerFrame::AttributeChanged(int32_t aNameSpaceID,
 
   return nsContainerFrame::AttributeChanged(aNameSpaceID, aAttribute, aModType);
 }
+
+}  // namespace mozilla

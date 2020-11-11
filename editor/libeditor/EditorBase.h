@@ -9,29 +9,34 @@
 #include "mozilla/Assertions.h"          // for MOZ_ASSERT, etc.
 #include "mozilla/EditAction.h"          // for EditAction and EditSubAction
 #include "mozilla/EditorDOMPoint.h"      // for EditorDOMPoint
+#include "mozilla/EventForwards.h"       // for InputEventTargetRanges
 #include "mozilla/Maybe.h"               // for Maybe
 #include "mozilla/OwningNonNull.h"       // for OwningNonNull
 #include "mozilla/PresShell.h"           // for PresShell
+#include "mozilla/TypeInState.h"         // for PropItem, StyleCache
 #include "mozilla/RangeBoundary.h"       // for RawRangeBoundary, RangeBoundary
 #include "mozilla/SelectionState.h"      // for RangeUpdater, etc.
 #include "mozilla/StyleSheet.h"          // for StyleSheet
 #include "mozilla/TransactionManager.h"  // for TransactionManager
 #include "mozilla/WeakPtr.h"             // for WeakPtr
+#include "mozilla/dom/DataTransfer.h"    // for dom::DataTransfer
+#include "mozilla/dom/HTMLBRElement.h"   // for dom::HTMLBRElement
 #include "mozilla/dom/Selection.h"
 #include "mozilla/dom/Text.h"
+#include "nsAtom.h"    // for nsAtom, nsStaticAtom
 #include "nsCOMPtr.h"  // for already_AddRefed, nsCOMPtr
 #include "nsCycleCollectionParticipant.h"
 #include "nsGkAtoms.h"
-#include "nsIDocument.h"             // for nsIDocument
+#include "mozilla/dom/Document.h"
 #include "nsIContentInlines.h"       // for nsINode::IsEditable()
 #include "nsIEditor.h"               // for nsIEditor, etc.
-#include "nsIObserver.h"             // for NS_DECL_NSIOBSERVER, etc.
-#include "nsIPlaintextEditor.h"      // for nsIPlaintextEditor, etc.
+#include "nsIFrame.h"                // for nsBidiLevel
 #include "nsISelectionController.h"  // for nsISelectionController constants
 #include "nsISelectionListener.h"    // for nsISelectionListener
 #include "nsISupportsImpl.h"         // for EditorBase::Release, etc.
 #include "nsIWeakReferenceUtils.h"   // for nsWeakPtr
 #include "nsLiteralString.h"         // for NS_LITERAL_STRING
+#include "nsPIDOMWindow.h"           // for nsPIDOMWindowInner, etc.
 #include "nsString.h"                // for nsCString
 #include "nsTArray.h"                // for nsTArray and nsAutoTArray
 #include "nsWeakReference.h"         // for nsSupportsWeakReference
@@ -39,19 +44,23 @@
 
 class mozInlineSpellChecker;
 class nsAtom;
+class nsCaret;
 class nsIContent;
 class nsIDocumentStateListener;
 class nsIEditActionListener;
 class nsIEditorObserver;
 class nsINode;
-class nsIPresShell;
+class nsIPrincipal;
 class nsISupports;
+class nsITransferable;
 class nsITransaction;
 class nsITransactionListener;
 class nsIWidget;
 class nsRange;
 
 namespace mozilla {
+class AlignStateAtSelection;
+class AutoRangeArray;
 class AutoSelectionRestorer;
 class AutoTopLevelEditSubActionNotifier;
 class AutoTransactionBatch;
@@ -64,6 +73,7 @@ class CSSEditUtils;
 class DeleteNodeTransaction;
 class DeleteRangeTransaction;
 class DeleteTextTransaction;
+class EditActionResult;
 class EditAggregateTransaction;
 class EditorEventListener;
 class EditTransactionBase;
@@ -74,105 +84,37 @@ class IMEContentObserver;
 class InsertNodeTransaction;
 class InsertTextTransaction;
 class JoinNodeTransaction;
+class ListElementSelectionState;
+class ListItemElementSelectionState;
+class ParagraphStateAtSelection;
 class PlaceholderTransaction;
+class PresShell;
+class ReplaceTextTransaction;
 class SplitNodeResult;
 class SplitNodeTransaction;
 class TextComposition;
 class TextEditor;
-class TextEditRules;
 class TextInputListener;
 class TextServicesDocument;
 class TypeInState;
-class WSRunObject;
+class WhiteSpaceVisibilityKeeper;
+
+template <typename NodeType>
+class CreateNodeResultBase;
+typedef CreateNodeResultBase<dom::Element> CreateElementResult;
 
 namespace dom {
+class AbstractRange;
 class DataTransfer;
 class DragEvent;
 class Element;
 class EventTarget;
-class Text;
+class HTMLBRElement;
 }  // namespace dom
 
 namespace widget {
 struct IMEState;
 }  // namespace widget
-
-/**
- * CachedWeakPtr stores a pointer to a class which inherits nsIWeakReference.
- * If the instance of the class has already been destroyed, this returns
- * nullptr.  Otherwise, returns cached pointer.
- * If class T inherits nsISupports a lot, specify Base explicitly for avoiding
- * ambiguous conversion to nsISupports.
- */
-template <class T, class Base = nsISupports>
-class CachedWeakPtr final {
- public:
-  CachedWeakPtr<T, Base>() : mCache(nullptr) {}
-  explicit CachedWeakPtr<T, Base>(T* aObject) {
-    mWeakPtr = do_GetWeakReference(static_cast<Base*>(aObject));
-    mCache = aObject;
-  }
-  explicit CachedWeakPtr<T, Base>(const nsCOMPtr<T>& aOther) {
-    mWeakPtr = do_GetWeakReference(static_cast<Base*>(aOther.get()));
-    mCache = aOther;
-  }
-  explicit CachedWeakPtr<T, Base>(already_AddRefed<T>& aOther) {
-    RefPtr<T> other = aOther;
-    mWeakPtr = do_GetWeakReference(static_cast<Base*>(other.get()));
-    mCache = other;
-  }
-
-  CachedWeakPtr<T, Base>& operator=(T* aObject) {
-    mWeakPtr = do_GetWeakReference(static_cast<Base*>(aObject));
-    mCache = aObject;
-    return *this;
-  }
-  CachedWeakPtr<T, Base>& operator=(const nsCOMPtr<T>& aOther) {
-    mWeakPtr = do_GetWeakReference(static_cast<Base*>(aOther.get()));
-    mCache = aOther;
-    return *this;
-  }
-  CachedWeakPtr<T, Base>& operator=(already_AddRefed<T>& aOther) {
-    RefPtr<T> other = aOther;
-    mWeakPtr = do_GetWeakReference(static_cast<Base*>(other.get()));
-    mCache = other;
-    return *this;
-  }
-
-  bool IsAlive() const { return mWeakPtr && mWeakPtr->IsAlive(); }
-
-  explicit operator bool() const { return mWeakPtr; }
-  operator T*() const { return get(); }
-  T* get() const {
-    if (mCache && !mWeakPtr->IsAlive()) {
-      const_cast<CachedWeakPtr<T, Base>*>(this)->mCache = nullptr;
-    }
-    return mCache;
-  }
-
- private:
-  nsWeakPtr mWeakPtr;
-  T* MOZ_NON_OWNING_REF mCache;
-};
-
-#define kMOZEditorBogusNodeAttrAtom nsGkAtoms::mozeditorbogusnode
-#define kMOZEditorBogusNodeValue NS_LITERAL_STRING("TRUE")
-
-/**
- * SplitAtEdges is for EditorBase::SplitNodeDeepWithTransaction(),
- * HTMLEditor::InsertNodeAtPoint()
- */
-enum class SplitAtEdges {
-  // EditorBase::SplitNodeDeepWithTransaction() won't split container element
-  // nodes at their edges.  I.e., when split point is start or end of
-  // container, it won't be split.
-  eDoNotCreateEmptyContainer,
-  // EditorBase::SplitNodeDeepWithTransaction() always splits containers even
-  // if the split point is at edge of a container.  E.g., if split point is
-  // start of an inline element, empty inline element is created as a new left
-  // node.
-  eAllowToCreateEmptyContainer,
-};
 
 /**
  * Implementation of an editor object.  it will be the controller/focal point
@@ -195,9 +137,12 @@ class EditorBase : public nsIEditor,
    *       method to edit the DOM tree, you can make your new method public.
    ****************************************************************************/
 
+  typedef dom::Document Document;
   typedef dom::Element Element;
   typedef dom::Selection Selection;
   typedef dom::Text Text;
+
+  enum class EditorType { Text, HTML };
 
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_CLASS_AMBIGUOUS(EditorBase, nsIEditor)
@@ -214,6 +159,9 @@ class EditorBase : public nsIEditor,
    */
   EditorBase();
 
+  bool IsTextEditor() const { return !mIsHTMLEditorClass; }
+  bool IsHTMLEditor() const { return mIsHTMLEditorClass; }
+
   /**
    * Init is to tell the implementation of nsIEditor to begin its services
    * @param aDoc          The dom document interface being observed
@@ -225,15 +173,16 @@ class EditorBase : public nsIEditor,
    * @param aFlags        A bitmask of flags for specifying the behavior
    *                      of the editor.
    */
-  virtual nsresult Init(nsIDocument& doc, Element* aRoot,
-                        nsISelectionController* aSelCon, uint32_t aFlags,
-                        const nsAString& aInitialValue);
+  MOZ_CAN_RUN_SCRIPT virtual nsresult Init(Document& doc, Element* aRoot,
+                                           nsISelectionController* aSelCon,
+                                           uint32_t aFlags,
+                                           const nsAString& aInitialValue);
 
   /**
    * PostCreate should be called after Init, and is the time that the editor
    * tells its documentStateObservers that the document has been created.
    */
-  nsresult PostCreate();
+  MOZ_CAN_RUN_SCRIPT nsresult PostCreate();
 
   /**
    * PreDestroy is called before the editor goes away, and gives the editor a
@@ -242,19 +191,91 @@ class EditorBase : public nsIEditor,
    * are being destroyed (so there is no need to modify any nsISelections,
    * nor is it safe to do so)
    */
-  virtual void PreDestroy(bool aDestroyingFrames);
+  MOZ_CAN_RUN_SCRIPT virtual void PreDestroy(bool aDestroyingFrames);
 
   bool IsInitialized() const { return !!mDocument; }
   bool Destroyed() const { return mDidPreDestroy; }
 
-  nsIDocument* GetDocument() const { return mDocument; }
+  Document* GetDocument() const { return mDocument; }
+  nsPIDOMWindowOuter* GetWindow() const {
+    return mDocument ? mDocument->GetWindow() : nullptr;
+  }
+  nsPIDOMWindowInner* GetInnerWindow() const {
+    return mDocument ? mDocument->GetInnerWindow() : nullptr;
+  }
 
-  nsIPresShell* GetPresShell() const {
-    return mDocument ? mDocument->GetShell() : nullptr;
+  /**
+   * MayHaveMutationEventListeners() returns true when the window may have
+   * mutation event listeners.
+   *
+   * @param aMutationEventType  One or multiple of NS_EVENT_BITS_MUTATION_*.
+   * @return                    true if the editor is an HTMLEditor instance,
+   *                            and at least one of NS_EVENT_BITS_MUTATION_* is
+   *                            set to the window or in debug build.
+   */
+  bool MayHaveMutationEventListeners(
+      uint32_t aMutationEventType = 0xFFFFFFFF) const {
+    if (IsTextEditor()) {
+      // DOM mutation event listeners cannot catch the changes of
+      // <input type="text"> nor <textarea>.
+      return false;
+    }
+#ifdef DEBUG
+    // On debug build, this should always return true for testing complicated
+    // path without mutation event listeners because when mutation event
+    // listeners do not touch the DOM, editor needs to run as there is no
+    // mutation event listeners.
+    return true;
+#else   // #ifdef DEBUG
+    nsPIDOMWindowInner* window = GetInnerWindow();
+    return window ? window->HasMutationListeners(aMutationEventType) : false;
+#endif  // #ifdef DEBUG #else
+  }
+
+  /**
+   * MayHaveBeforeInputEventListenersForTelemetry() returns true when the
+   * window may have or have had one or more `beforeinput` event listeners.
+   * Note that this may return false even if there is a `beforeinput`.
+   * See nsPIDOMWindowInner::HasBeforeInputEventListenersForTelemetry()'s
+   * comment for the detail.
+   */
+  bool MayHaveBeforeInputEventListenersForTelemetry() const {
+    if (const nsPIDOMWindowInner* window = GetInnerWindow()) {
+      return window->HasBeforeInputEventListenersForTelemetry();
+    }
+    return false;
+  }
+
+  /**
+   * MutationObserverHasObservedNodeForTelemetry() returns true when a node in
+   * the window may have been observed by the web apps with a mutation observer
+   * (i.e., `MutationObserver.observe()` called by chrome script and addon's
+   * script does not make this returns true).
+   * Note that this may return false even if there is a node observed by
+   * a MutationObserver.  See
+   * nsPIDOMWindowInner::MutationObserverHasObservedNodeForTelemetry()'s comment
+   * for the detail.
+   */
+  bool MutationObserverHasObservedNodeForTelemetry() const {
+    if (const nsPIDOMWindowInner* window = GetInnerWindow()) {
+      return window->MutationObserverHasObservedNodeForTelemetry();
+    }
+    return false;
+  }
+
+  PresShell* GetPresShell() const {
+    return mDocument ? mDocument->GetPresShell() : nullptr;
   }
   nsPresContext* GetPresContext() const {
-    nsIPresShell* presShell = GetPresShell();
+    PresShell* presShell = GetPresShell();
     return presShell ? presShell->GetPresContext() : nullptr;
+  }
+  already_AddRefed<nsCaret> GetCaret() const {
+    PresShell* presShell = GetPresShell();
+    if (NS_WARN_IF(!presShell)) {
+      return nullptr;
+    }
+    return presShell->GetCaret();
   }
 
   already_AddRefed<nsIWidget> GetWidget();
@@ -266,12 +287,7 @@ class EditorBase : public nsIEditor,
     if (!mDocument) {
       return nullptr;
     }
-    nsIPresShell* presShell = mDocument->GetShell();
-    if (!presShell) {
-      return nullptr;
-    }
-    nsISelectionController* sc = static_cast<PresShell*>(presShell);
-    return sc;
+    return mDocument->GetPresShell();
   }
 
   nsresult GetSelection(SelectionType aSelectionType,
@@ -334,9 +350,13 @@ class EditorBase : public nsIEditor,
 
   /**
    * ToggleTextDirection() toggles text-direction of the root element.
+   *
+   * @param aPrincipal          Set subject principal if it may be called by
+   *                            JS.  If set to nullptr, will be treated as
+   *                            called by system.
    */
-  MOZ_CAN_RUN_SCRIPT_BOUNDARY
-  nsresult ToggleTextDirection();
+  MOZ_CAN_RUN_SCRIPT nsresult
+  ToggleTextDirectionAsAction(nsIPrincipal* aPrincipal = nullptr);
 
   /**
    * SwitchTextDirectionTo() sets the text-direction of the root element to
@@ -346,8 +366,7 @@ class EditorBase : public nsIEditor,
     eLTR,
     eRTL,
   };
-  MOZ_CAN_RUN_SCRIPT
-  void SwitchTextDirectionTo(TextDirection aTextDirection);
+  MOZ_CAN_RUN_SCRIPT void SwitchTextDirectionTo(TextDirection aTextDirection);
 
   /**
    * Finalizes selection and caret for the editor.
@@ -441,16 +460,25 @@ class EditorBase : public nsIEditor,
     return mTransactionManager->RemoveTransactionListener(aListener);
   }
 
-  virtual nsresult HandleKeyPressEvent(WidgetKeyboardEvent* aKeyboardEvent);
+  MOZ_CAN_RUN_SCRIPT virtual nsresult HandleKeyPressEvent(
+      WidgetKeyboardEvent* aKeyboardEvent);
 
-  virtual dom::EventTarget* GetDOMEventTarget() = 0;
+  virtual dom::EventTarget* GetDOMEventTarget() const = 0;
+
+  /**
+   * Similar to the setter for wrapWidth, but just sets the editor
+   * internal state without actually changing the content being edited
+   * to wrap at that column.  This should only be used by callers who
+   * are sure that their content is already set up correctly.
+   */
+  void SetWrapColumn(int32_t aWrapColumn) { mWrapColumn = aWrapColumn; }
 
   /**
    * Accessor methods to flags.
    */
   uint32_t Flags() const { return mFlags; }
 
-  nsresult AddFlags(uint32_t aFlags) {
+  MOZ_CAN_RUN_SCRIPT nsresult AddFlags(uint32_t aFlags) {
     const uint32_t kOldFlags = Flags();
     const uint32_t kNewFlags = (kOldFlags | aFlags);
     if (kNewFlags == kOldFlags) {
@@ -458,7 +486,7 @@ class EditorBase : public nsIEditor,
     }
     return SetFlags(kNewFlags);  // virtual call and may be expensive.
   }
-  nsresult RemoveFlags(uint32_t aFlags) {
+  MOZ_CAN_RUN_SCRIPT nsresult RemoveFlags(uint32_t aFlags) {
     const uint32_t kOldFlags = Flags();
     const uint32_t kNewFlags = (kOldFlags & ~aFlags);
     if (kNewFlags == kOldFlags) {
@@ -466,7 +494,8 @@ class EditorBase : public nsIEditor,
     }
     return SetFlags(kNewFlags);  // virtual call and may be expensive.
   }
-  nsresult AddAndRemoveFlags(uint32_t aAddingFlags, uint32_t aRemovingFlags) {
+  MOZ_CAN_RUN_SCRIPT nsresult AddAndRemoveFlags(uint32_t aAddingFlags,
+                                                uint32_t aRemovingFlags) {
     MOZ_ASSERT(!(aAddingFlags & aRemovingFlags),
                "Same flags are specified both adding and removing");
     const uint32_t kOldFlags = Flags();
@@ -478,64 +507,54 @@ class EditorBase : public nsIEditor,
   }
 
   bool IsPlaintextEditor() const {
-    return (mFlags & nsIPlaintextEditor::eEditorPlaintextMask) != 0;
+    return (mFlags & nsIEditor::eEditorPlaintextMask) != 0;
   }
 
   bool IsSingleLineEditor() const {
-    return (mFlags & nsIPlaintextEditor::eEditorSingleLineMask) != 0;
+    return (mFlags & nsIEditor::eEditorSingleLineMask) != 0;
   }
 
   bool IsPasswordEditor() const {
-    return (mFlags & nsIPlaintextEditor::eEditorPasswordMask) != 0;
+    return (mFlags & nsIEditor::eEditorPasswordMask) != 0;
   }
 
   // FYI: Both IsRightToLeft() and IsLeftToRight() may return false if
   //      the editor inherits the content node's direction.
   bool IsRightToLeft() const {
-    return (mFlags & nsIPlaintextEditor::eEditorRightToLeft) != 0;
+    return (mFlags & nsIEditor::eEditorRightToLeft) != 0;
   }
   bool IsLeftToRight() const {
-    return (mFlags & nsIPlaintextEditor::eEditorLeftToRight) != 0;
+    return (mFlags & nsIEditor::eEditorLeftToRight) != 0;
   }
 
   bool IsReadonly() const {
-    return (mFlags & nsIPlaintextEditor::eEditorReadonlyMask) != 0;
-  }
-
-  bool IsDisabled() const {
-    return (mFlags & nsIPlaintextEditor::eEditorDisabledMask) != 0;
+    return (mFlags & nsIEditor::eEditorReadonlyMask) != 0;
   }
 
   bool IsInputFiltered() const {
-    return (mFlags & nsIPlaintextEditor::eEditorFilterInputMask) != 0;
+    return (mFlags & nsIEditor::eEditorFilterInputMask) != 0;
   }
 
   bool IsMailEditor() const {
-    return (mFlags & nsIPlaintextEditor::eEditorMailMask) != 0;
+    return (mFlags & nsIEditor::eEditorMailMask) != 0;
   }
 
   bool IsWrapHackEnabled() const {
-    return (mFlags & nsIPlaintextEditor::eEditorEnableWrapHackMask) != 0;
+    return (mFlags & nsIEditor::eEditorEnableWrapHackMask) != 0;
   }
 
   bool IsFormWidget() const {
-    return (mFlags & nsIPlaintextEditor::eEditorWidgetMask) != 0;
+    return (mFlags & nsIEditor::eEditorWidgetMask) != 0;
   }
 
-  bool NoCSS() const {
-    return (mFlags & nsIPlaintextEditor::eEditorNoCSSMask) != 0;
-  }
+  bool NoCSS() const { return (mFlags & nsIEditor::eEditorNoCSSMask) != 0; }
 
   bool IsInteractionAllowed() const {
-    return (mFlags & nsIPlaintextEditor::eEditorAllowInteraction) != 0;
-  }
-
-  bool DontEchoPassword() const {
-    return (mFlags & nsIPlaintextEditor::eEditorDontEchoPassword) != 0;
+    return (mFlags & nsIEditor::eEditorAllowInteraction) != 0;
   }
 
   bool ShouldSkipSpellCheck() const {
-    return (mFlags & nsIPlaintextEditor::eEditorSkipSpellCheck) != 0;
+    return (mFlags & nsIEditor::eEditorSkipSpellCheck) != 0;
   }
 
   bool IsTabbable() const {
@@ -582,13 +601,13 @@ class EditorBase : public nsIEditor,
   /**
    * Get the focused content, if we're focused.  Returns null otherwise.
    */
-  virtual nsIContent* GetFocusedContent();
+  virtual nsIContent* GetFocusedContent() const;
 
   /**
    * Get the focused content for the argument of some IMEStateManager's
    * methods.
    */
-  virtual already_AddRefed<nsIContent> GetFocusedContentForIME();
+  virtual nsIContent* GetFocusedContentForIME() const;
 
   /**
    * Whether the aGUIEvent should be handled by this editor or not.  When this
@@ -596,7 +615,7 @@ class EditorBase : public nsIEditor,
    * i.e., The aGUIEvent should be handled by another inner editor or ancestor
    * elements.
    */
-  virtual bool IsAcceptableInputEvent(WidgetGUIEvent* aGUIEvent);
+  virtual bool IsAcceptableInputEvent(WidgetGUIEvent* aGUIEvent) const;
 
   /**
    * FindSelectionRoot() returns a selection root of this editor when aNode
@@ -612,7 +631,7 @@ class EditorBase : public nsIEditor,
    * All actions that have to be done when the editor is focused needs to be
    * added here.
    */
-  void OnFocus(dom::EventTarget* aFocusEventTarget);
+  MOZ_CAN_RUN_SCRIPT void OnFocus(nsINode& aFocusEventTargetNode);
 
   /** Resyncs spellchecking state (enabled/disabled).  This should be called
    * when anything that affects spellchecking state changes, such as the
@@ -626,9 +645,202 @@ class EditorBase : public nsIEditor,
    * selection state even if this has no focus.  So if destroying editor,
    * we have to call this method for focused editor to set selection state.
    */
-  void ReinitializeSelection(Element& aElement);
+  MOZ_CAN_RUN_SCRIPT void ReinitializeSelection(Element& aElement);
+
+  /**
+   * InsertTextAsAction() inserts aStringToInsert at selection.
+   * Although this method is implementation of nsIEditor.insertText(),
+   * this treats the input is an edit action.  If you'd like to insert text
+   * as part of edit action, you probably should use InsertTextAsSubAction().
+   *
+   * @param aStringToInsert     The string to insert.
+   * @param aPrincipal          Set subject principal if it may be called by
+   *                            JS.  If set to nullptr, will be treated as
+   *                            called by system.
+   */
+  MOZ_CAN_RUN_SCRIPT nsresult InsertTextAsAction(
+      const nsAString& aStringToInsert, nsIPrincipal* aPrincipal = nullptr);
+
+  /**
+   * DeleteSelectionAsAction() removes selection content or content around
+   * caret with transactions.  This should be used for handling it as an
+   * edit action.  If you'd like to remove selection for preparing to insert
+   * something, you probably should use DeleteSelectionAsSubAction().
+   *
+   * @param aDirectionAndAmount How much range should be removed.
+   * @param aStripWrappers      Whether the parent blocks should be removed
+   *                            when they become empty.
+   * @param aPrincipal          Set subject principal if it may be called by
+   *                            JS.  If set to nullptr, will be treated as
+   *                            called by system.
+   */
+  MOZ_CAN_RUN_SCRIPT nsresult
+  DeleteSelectionAsAction(nsIEditor::EDirection aDirectionAndAmount,
+                          nsIEditor::EStripWrappers aStripWrappers,
+                          nsIPrincipal* aPrincipal = nullptr);
+
+ protected:  // May be used by friends.
+  class AutoEditActionDataSetter;
+
+  /**
+   * TopLevelEditSubActionData stores temporary data while we're handling
+   * top-level edit sub-action.
+   */
+  struct MOZ_STACK_CLASS TopLevelEditSubActionData final {
+    friend class AutoEditActionDataSetter;
+
+    // If we have created a new block element, set to it.
+    RefPtr<Element> mNewBlockElement;
+
+    // Set selected range before edit.  Then, RangeUpdater keep modifying
+    // the range while we're changing the DOM tree.
+    RefPtr<RangeItem> mSelectedRange;
+
+    // Computing changed range while we're handling sub actions.
+    RefPtr<nsRange> mChangedRange;
+
+    // XXX In strict speaking, mCachedInlineStyles isn't enough to cache inline
+    //     styles because inline style can be specified with "style" attribute
+    //     and/or CSS in <style> elements or CSS files.  So, we need to look
+    //     for better implementation about this.
+    // FYI: Initialization cost of AutoStyleCacheArray is expensive and it is
+    //      not used by TextEditor so that we should construct it only when
+    //      we're an HTMLEditor.
+    Maybe<AutoStyleCacheArray> mCachedInlineStyles;
+
+    // If we tried to delete selection, set to true.
+    bool mDidDeleteSelection;
+
+    // If we have explicitly set selection inter line, set to true.
+    // `AfterEdit()` or something shouldn't overwrite it in such case.
+    bool mDidExplicitlySetInterLine;
+
+    // If we have deleted non-collapsed range set to true, there are only 2
+    // cases for now:
+    //   - non-collapsed range was selected.
+    //   - selection was collapsed in a text node and a Unicode character
+    //     was removed.
+    bool mDidDeleteNonCollapsedRange;
+
+    // If we have deleted parent empty blocks, set to true.
+    bool mDidDeleteEmptyParentBlocks;
+
+    // If we're a contenteditable editor, we temporarily increase edit count
+    // of the document between `BeforeEdit()` and `AfterEdit()`.  I.e., if
+    // we increased the count in `BeforeEdit()`, we need to decrease it in
+    // `AfterEdit()`, however, the document may be changed to designMode or
+    // non-editable.  Therefore, we need to store with this whether we need
+    // to restore it.
+    bool mRestoreContentEditableCount;
+
+    // If we explicitly normalized whitespaces around the changed range,
+    // set to true.
+    bool mDidNormalizeWhitespaces;
+
+    /**
+     * The following methods modifies some data of this struct and
+     * `EditSubActionData` struct.  Currently, these are required only
+     * by `HTMLEditor`.  Therefore, for cutting the runtime cost of
+     * `TextEditor`, these methods should be called only by `HTMLEditor`.
+     * But it's fine to use these methods in `TextEditor` if necessary.
+     * If so, you need to call `DidDeleteText()` and `DidInsertText()`
+     * from `SetTextNodeWithoutTransaction()`.
+     */
+    void DidCreateElement(EditorBase& aEditorBase, Element& aNewElement);
+    void DidInsertContent(EditorBase& aEditorBase, nsIContent& aNewContent);
+    void WillDeleteContent(EditorBase& aEditorBase,
+                           nsIContent& aRemovingContent);
+    void DidSplitContent(EditorBase& aEditorBase,
+                         nsIContent& aExistingRightContent,
+                         nsIContent& aNewLeftContent);
+    void WillJoinContents(EditorBase& aEditorBase, nsIContent& aLeftContent,
+                          nsIContent& aRightContent);
+    void DidJoinContents(EditorBase& aEditorBase, nsIContent& aLeftContent,
+                         nsIContent& aRightContent);
+    void DidInsertText(EditorBase& aEditorBase,
+                       const EditorRawDOMPoint& aInsertionBegin,
+                       const EditorRawDOMPoint& aInsertionEnd);
+    void DidDeleteText(EditorBase& aEditorBase,
+                       const EditorRawDOMPoint& aStartInTextNode);
+    void WillDeleteRange(EditorBase& aEditorBase,
+                         const EditorRawDOMPoint& aStart,
+                         const EditorRawDOMPoint& aEnd);
+
+   private:
+    void Clear() {
+      mDidExplicitlySetInterLine = false;
+      // We don't need to clear other members which are referred only when the
+      // editor is an HTML editor anymore.  Note that if `mSelectedRange` is
+      // non-nullptr, that means that we're in `HTMLEditor`.
+      if (!mSelectedRange) {
+        return;
+      }
+      mNewBlockElement = nullptr;
+      mSelectedRange->Clear();
+      mChangedRange->Reset();
+      if (mCachedInlineStyles.isSome()) {
+        mCachedInlineStyles->Clear();
+      }
+      mDidDeleteSelection = false;
+      mDidDeleteNonCollapsedRange = false;
+      mDidDeleteEmptyParentBlocks = false;
+      mRestoreContentEditableCount = false;
+      mDidNormalizeWhitespaces = false;
+    }
+
+    /**
+     * Extend mChangedRange to include `aNode`.
+     */
+    nsresult AddNodeToChangedRange(const HTMLEditor& aHTMLEditor,
+                                   nsINode& aNode);
+
+    /**
+     * Extend mChangedRange to include `aPoint`.
+     */
+    nsresult AddPointToChangedRange(const HTMLEditor& aHTMLEditor,
+                                    const EditorRawDOMPoint& aPoint);
+
+    /**
+     * Extend mChangedRange to include `aStart` and `aEnd`.
+     */
+    nsresult AddRangeToChangedRange(const HTMLEditor& aHTMLEditor,
+                                    const EditorRawDOMPoint& aStart,
+                                    const EditorRawDOMPoint& aEnd);
+
+    TopLevelEditSubActionData() = default;
+    TopLevelEditSubActionData(const TopLevelEditSubActionData& aOther) = delete;
+  };
+
+  struct MOZ_STACK_CLASS EditSubActionData final {
+    uint32_t mJoinedLeftNodeLength;
+
+    // While this is set to false, TopLevelEditSubActionData::mChangedRange
+    // shouldn't be modified since in some cases, modifying it in the setter
+    // itself may be faster.  Note that we should affect this only for current
+    // edit sub action since mutation event listener may edit different range.
+    bool mAdjustChangedRangeFromListener;
+
+   private:
+    void Clear() {
+      mJoinedLeftNodeLength = 0;
+      mAdjustChangedRangeFromListener = true;
+    }
+
+    friend EditorBase;
+  };
 
  protected:  // AutoEditActionDataSetter, this shouldn't be accessed by friends.
+  /**
+   * SettingDataTransfer enum class is used to specify whether DataTransfer
+   * should be initialized with or without format.  For example, when user
+   * uses Accel + Shift + V to paste text without format, DataTransfer should
+   * have only plain/text data to make web apps treat it without format.
+   */
+  enum class SettingDataTransfer {
+    eWithFormat,
+    eWithoutFormat,
+  };
+
   /**
    * AutoEditActionDataSetter grabs some necessary objects for handling any
    * edit actions and store the edit action what we're handling.  When this is
@@ -637,20 +849,194 @@ class EditorBase : public nsIEditor,
    */
   class MOZ_STACK_CLASS AutoEditActionDataSetter final {
    public:
+    // NOTE: aPrincipal will be used when we implement "beforeinput" event.
+    //       It's set only when maybe we shouldn't dispatch it because of
+    //       called by JS.  I.e., if this is nullptr, we can always dispatch
+    //       it.
     AutoEditActionDataSetter(const EditorBase& aEditorBase,
-                             EditAction aEditAction);
+                             EditAction aEditAction,
+                             nsIPrincipal* aPrincipal = nullptr);
     ~AutoEditActionDataSetter();
 
-    void UpdateEditAction(EditAction aEditAction) { mEditAction = aEditAction; }
+    void UpdateEditAction(EditAction aEditAction) {
+      MOZ_ASSERT(!mHasTriedToDispatchBeforeInputEvent,
+                 "It's too late to update EditAction since this may have "
+                 "already dispatched a beforeinput event");
+      mEditAction = aEditAction;
+    }
 
-    bool CanHandle() const { return mSelection && mEditorBase.IsInitialized(); }
+    /**
+     * CanHandle() or CanHandleAndHandleBeforeInput() must be called
+     * immediately after creating the instance.  If caller does not need to
+     * handle "beforeinput" event or caller needs to set additional information
+     * the events later, use the former.  Otherwise, use the latter.  If caller
+     * uses the former, it's required to call MaybeDispatchBeforeInputEvent() by
+     * itself.
+     *
+     */
+    [[nodiscard]] bool CanHandle() const {
+#ifdef DEBUG
+      mHasCanHandleChecked = true;
+#endif  // #ifdefn DEBUG
+      return mSelection && mEditorBase.IsInitialized();
+    }
+    [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult
+    CanHandleAndMaybeDispatchBeforeInputEvent() {
+      if (NS_WARN_IF(!CanHandle())) {
+        return NS_ERROR_NOT_INITIALIZED;
+      }
+      return MaybeDispatchBeforeInputEvent();
+    }
 
-    const RefPtr<Selection>& SelectionRefPtr() const { return mSelection; }
+    /**
+     * MaybeDispatchBeforeInputEvent() considers whether this instance needs to
+     * dispatch "beforeinput" event or not.  Then,
+     * mHasTriedToDispatchBeforeInputEvent is set to true.
+     *
+     * @param aDeleteDirectionAndAmount
+     *                  If `MayEditActionDeleteAroundCollapsedSelection(
+     *                  mEditAction)` returns true, this must be set.
+     *                  Otherwise, don't set explicitly.
+     * @return          If this method actually dispatches "beforeinput" event
+     *                  and it's canceled, returns
+     *                  NS_ERROR_EDITOR_ACTION_CANCELED.
+     */
+    [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult MaybeDispatchBeforeInputEvent(
+        nsIEditor::EDirection aDeleteDirectionAndAmount = nsIEditor::eNone);
+
+    /**
+     * MarkAsBeforeInputHasBeenDispatched() should be called only when updating
+     * the DOM occurs asynchronously from user input (e.g., inserting blob
+     * object which is loaded asynchronously) and `beforeinput` has already
+     * been dispatched (always should be so).
+     */
+    void MarkAsBeforeInputHasBeenDispatched() {
+      MOZ_ASSERT(!HasTriedToDispatchBeforeInputEvent());
+      MOZ_ASSERT(mEditAction == EditAction::ePaste ||
+                 mEditAction == EditAction::ePasteAsQuotation ||
+                 mEditAction == EditAction::eDrop);
+      mHasTriedToDispatchBeforeInputEvent = true;
+    }
+
+    /**
+     * ShouldAlreadyHaveHandledBeforeInputEventDispatching() returns true if the
+     * edit action requires to handle "beforeinput" event but not yet dispatched
+     * it nor considered as not dispatched it and can dispatch it when this is
+     * called.
+     */
+    bool ShouldAlreadyHaveHandledBeforeInputEventDispatching() const {
+      return !HasTriedToDispatchBeforeInputEvent() &&
+             NeedsBeforeInputEventHandling(mEditAction) &&
+             IsBeforeInputEventEnabled() /* &&
+              // If we still need to dispatch a clipboard event, we should
+              // dispatch it first, then, we need to dispatch beforeinput
+              // event later.
+              !NeedsToDispatchClipboardEvent()*/
+          ;
+    }
+
+    /**
+     * HasTriedToDispatchBeforeInputEvent() returns true if the instance's
+     * MaybeDispatchBeforeInputEvent() has already been called.
+     */
+    bool HasTriedToDispatchBeforeInputEvent() const {
+      return mHasTriedToDispatchBeforeInputEvent;
+    }
+
+    bool IsCanceled() const { return mBeforeInputEventCanceled; }
+
+    const RefPtr<Selection>& SelectionRefPtr() const {
+      MOZ_ASSERT(!mSelection ||
+                 (mSelection->GetType() == SelectionType::eNormal));
+
+      return mSelection;
+    }
+
+    nsIPrincipal* GetPrincipal() const { return mPrincipal; }
     EditAction GetEditAction() const { return mEditAction; }
+
+    template <typename PT, typename CT>
+    void SetSpellCheckRestartPoint(const EditorDOMPointBase<PT, CT>& aPoint) {
+      MOZ_ASSERT(aPoint.IsSet());
+      // We should store only container and offset because new content may
+      // be inserted before referring child.
+      // XXX Shouldn't we compare whether aPoint is before
+      //     mSpellCheckRestartPoint if it's set.
+      mSpellCheckRestartPoint =
+          EditorDOMPoint(aPoint.GetContainer(), aPoint.Offset());
+    }
+    void ClearSpellCheckRestartPoint() { mSpellCheckRestartPoint.Clear(); }
+    const EditorDOMPoint& GetSpellCheckRestartPoint() const {
+      return mSpellCheckRestartPoint;
+    }
+
+    void SetData(const nsAString& aData) {
+      MOZ_ASSERT(!mHasTriedToDispatchBeforeInputEvent,
+                 "It's too late to set data since this may have already "
+                 "dispatched a beforeinput event");
+      mData = aData;
+    }
+    const nsString& GetData() const { return mData; }
+
+    void SetColorData(const nsAString& aData);
+
+    /**
+     * InitializeDataTransfer(DataTransfer*) sets mDataTransfer to
+     * aDataTransfer.  In this case, aDataTransfer should not be read/write
+     * because it'll be set to InputEvent.dataTransfer and which should be
+     * read-only.
+     */
+    void InitializeDataTransfer(dom::DataTransfer* aDataTransfer);
+    /**
+     * InitializeDataTransfer(nsITransferable*) creates new DataTransfer
+     * instance, initializes it with aTransferable and sets mDataTransfer to
+     * it.
+     */
+    void InitializeDataTransfer(nsITransferable* aTransferable);
+    /**
+     * InitializeDataTransfer(const nsAString&) creates new DataTransfer
+     * instance, initializes it with aString and sets mDataTransfer to it.
+     */
+    void InitializeDataTransfer(const nsAString& aString);
+    /**
+     * InitializeDataTransferWithClipboard() creates new DataTransfer instance,
+     * initializes it with clipboard and sets mDataTransfer to it.
+     */
+    void InitializeDataTransferWithClipboard(
+        SettingDataTransfer aSettingDataTransfer, int32_t aClipboardType);
+    dom::DataTransfer* GetDataTransfer() const { return mDataTransfer; }
+
+    /**
+     * AppendTargetRange() appends aTargetRange to target ranges.  This should
+     * be used only by edit action handlers which do not want to set target
+     * ranges to selection ranges.
+     */
+    void AppendTargetRange(dom::StaticRange& aTargetRange);
+
+    /**
+     * Make dispatching `beforeinput` forcibly non-cancelable.
+     */
+    void MakeBeforeInputEventNonCancelable() {
+      mMakeBeforeInputEventNonCancelable = true;
+    }
+
+    /**
+     * NotifyOfDispatchingClipboardEvent() is called after dispatching
+     * a clipboard event.
+     */
+    void NotifyOfDispatchingClipboardEvent() {
+      MOZ_ASSERT(NeedsToDispatchClipboardEvent());
+      MOZ_ASSERT(!mHasTriedToDispatchClipboardEvent);
+      mHasTriedToDispatchClipboardEvent = true;
+    }
+
+    void Abort() { mAborted = true; }
+    bool IsAborted() const { return mAborted; }
 
     void SetTopLevelEditSubAction(EditSubAction aEditSubAction,
                                   EDirection aDirection = eNone) {
       mTopLevelEditSubAction = aEditSubAction;
+      TopLevelEditSubActionDataRef().Clear();
       switch (mTopLevelEditSubAction) {
         case EditSubAction::eInsertNode:
         case EditSubAction::eCreateNode:
@@ -668,10 +1054,12 @@ class EditorBase : public nsIEditor,
         case EditSubAction::eOutdent:
         case EditSubAction::eSetOrClearAlignment:
         case EditSubAction::eCreateOrRemoveBlock:
+        case EditSubAction::eMergeBlockContents:
         case EditSubAction::eRemoveList:
-        case EditSubAction::eCreateOrChangeDefinitionList:
+        case EditSubAction::eCreateOrChangeDefinitionListItem:
         case EditSubAction::eInsertElement:
         case EditSubAction::eInsertQuotation:
+        case EditSubAction::eInsertQuotedText:
         case EditSubAction::ePasteHTMLContent:
         case EditSubAction::eInsertHTMLSource:
         case EditSubAction::eSetPositionToAbsolute:
@@ -689,7 +1077,7 @@ class EditorBase : public nsIEditor,
         case EditSubAction::eUndo:
         case EditSubAction::eRedo:
         case EditSubAction::eComputeTextToOutput:
-        case EditSubAction::eCreateBogusNode:
+        case EditSubAction::eCreatePaddingBRElementForEmptyEditor:
         case EditSubAction::eNone:
           MOZ_ASSERT(aDirection == eNone);
           mDirectionOfTopLevelEditSubAction = eNone;
@@ -717,6 +1105,20 @@ class EditorBase : public nsIEditor,
       return mDirectionOfTopLevelEditSubAction;
     }
 
+    const TopLevelEditSubActionData& TopLevelEditSubActionDataRef() const {
+      return mParentData ? mParentData->TopLevelEditSubActionDataRef()
+                         : mTopLevelEditSubActionData;
+    }
+    TopLevelEditSubActionData& TopLevelEditSubActionDataRef() {
+      return mParentData ? mParentData->TopLevelEditSubActionDataRef()
+                         : mTopLevelEditSubActionData;
+    }
+
+    const EditSubActionData& EditSubActionDataRef() const {
+      return mEditSubActionData;
+    }
+    EditSubActionData& EditSubActionDataRef() { return mEditSubActionData; }
+
     SelectionState& SavedSelectionRef() {
       return mParentData ? mParentData->SavedSelectionRef() : mSavedSelection;
     }
@@ -731,9 +1133,78 @@ class EditorBase : public nsIEditor,
       return mParentData ? mParentData->RangeUpdaterRef() : mRangeUpdater;
     }
 
+    void UpdateSelectionCache(Selection& aSelection) {
+      MOZ_ASSERT(aSelection.GetType() == SelectionType::eNormal);
+
+      AutoEditActionDataSetter* actionData = this;
+      while (actionData) {
+        if (actionData->mSelection) {
+          actionData->mSelection = &aSelection;
+        }
+        actionData = actionData->mParentData;
+      }
+    }
+
    private:
+    bool IsBeforeInputEventEnabled() const;
+
+    static bool NeedsBeforeInputEventHandling(EditAction aEditAction) {
+      MOZ_ASSERT(aEditAction != EditAction::eNone);
+      switch (aEditAction) {
+        case EditAction::eNone:
+        // If we're not handling edit action, we don't need to handle
+        // "beforeinput" event.
+        case EditAction::eNotEditing:
+        // If raw level transaction API is used, the API user needs to handle
+        // both "beforeinput" event and "input" event if it's necessary.
+        case EditAction::eUnknown:
+        // Hiding/showing password affects only layout so that we don't need
+        // to handle beforeinput event for it.
+        case EditAction::eHidePassword:
+        // We don't need to dispatch "beforeinput" event before
+        // "compositionstart".
+        case EditAction::eStartComposition:
+        // We don't need to let web apps know the mode change.
+        case EditAction::eEnableOrDisableCSS:
+        case EditAction::eEnableOrDisableAbsolutePositionEditor:
+        case EditAction::eEnableOrDisableResizer:
+        case EditAction::eEnableOrDisableInlineTableEditingUI:
+        // We don't need to let contents in chrome's editor to know the size
+        // change.
+        case EditAction::eSetWrapWidth:
+        // While resizing or moving element, we update only shadow, i.e.,
+        // don't touch to the DOM in content.  Therefore, we don't need to
+        // dispatch "beforeinput" event.
+        case EditAction::eResizingElement:
+        case EditAction::eMovingElement:
+        // Perhaps, we don't need to dispatch "beforeinput" event for
+        // padding `<br>` element for empty editor because it's internal
+        // handling and it should be occurred by another change.
+        case EditAction::eCreatePaddingBRElementForEmptyEditor:
+          return false;
+        default:
+          return true;
+      }
+    }
+
+    bool NeedsToDispatchClipboardEvent() const {
+      if (mHasTriedToDispatchClipboardEvent) {
+        return false;
+      }
+      switch (mEditAction) {
+        case EditAction::ePaste:
+        case EditAction::ePasteAsQuotation:
+        case EditAction::eCut:
+        case EditAction::eCopy:
+          return true;
+        default:
+          return false;
+      }
+    }
+
     EditorBase& mEditorBase;
     RefPtr<Selection> mSelection;
+    nsCOMPtr<nsIPrincipal> mPrincipal;
     // EditAction may be nested, for example, a command may be executed
     // from mutation event listener which is run while editor changes
     // the DOM tree.  In such case, we need to handle edit action separately.
@@ -745,26 +1216,115 @@ class EditorBase : public nsIEditor,
     // Utility class object for maintaining preserved ranges.
     RangeUpdater mRangeUpdater;
 
+    // The data should be set to InputEvent.data.
+    nsString mData;
+
+    // The dataTransfer should be set to InputEvent.dataTransfer.
+    RefPtr<dom::DataTransfer> mDataTransfer;
+
+    // They are used for result of InputEvent.getTargetRanges() of beforeinput.
+    OwningNonNullStaticRangeArray mTargetRanges;
+
+    // Start point where spell checker should check from.  This is used only
+    // by TextEditor.
+    EditorDOMPoint mSpellCheckRestartPoint;
+
+    // Different from mTopLevelEditSubAction, its data should be stored only
+    // in the most ancestor AutoEditActionDataSetter instance since we don't
+    // want to pay the copying cost and sync cost.
+    TopLevelEditSubActionData mTopLevelEditSubActionData;
+
+    // Different from mTopLevelEditSubActionData, this stores temporaly data
+    // for current edit sub action.
+    EditSubActionData mEditSubActionData;
+
     EditAction mEditAction;
+
+    // Different from its data, you can refer "current" AutoEditActionDataSetter
+    // instance's mTopLevelEditSubAction member since it's copied from the
+    // parent instance at construction and it's always cleared before this
+    // won't be overwritten and cleared before destruction.
     EditSubAction mTopLevelEditSubAction;
+
     EDirection mDirectionOfTopLevelEditSubAction;
+
+    bool mAborted;
+
+    // Set to true when this handles "beforeinput" event dispatching.  Note
+    // that even if "beforeinput" event shouldn't be dispatched for this,
+    // instance, this is set to true when it's considered.
+    bool mHasTriedToDispatchBeforeInputEvent;
+    // Set to true if "beforeinput" event was dispatched and it's canceled.
+    bool mBeforeInputEventCanceled;
+    // Set to true if `beforeinput` event must not be cancelable even if
+    // its inputType is defined as cancelable by the standards.
+    bool mMakeBeforeInputEventNonCancelable;
+    // Set to true when the edit action handler tries to dispatch a clipboard
+    // event.
+    bool mHasTriedToDispatchClipboardEvent;
+
+#ifdef DEBUG
+    mutable bool mHasCanHandleChecked = false;
+#endif  // #ifdef DEBUG
 
     AutoEditActionDataSetter() = delete;
     AutoEditActionDataSetter(const AutoEditActionDataSetter& aOther) = delete;
   };
 
+  void UpdateEditActionData(const nsAString& aData) {
+    mEditActionData->SetData(aData);
+  }
+
+  void NotifyOfDispatchingClipboardEvent() {
+    MOZ_ASSERT(mEditActionData);
+    mEditActionData->NotifyOfDispatchingClipboardEvent();
+  }
+
  protected:  // May be called by friends.
   /****************************************************************************
-   * Some classes like TextEditRules, HTMLEditRules, WSRunObject which are
-   * part of handling edit actions are allowed to call the following protected
-   * methods.  However, those methods won't prepare caches of some objects
-   * which are necessary for them.  So, if you want some following methods
-   * to do that for you, you need to create a wrapper method in public scope
-   * and call it.
+   * Some friend classes are allowed to call the following protected methods.
+   * However, those methods won't prepare caches of some objects which are
+   * necessary for them.  So, if you call them from friend classes, you need
+   * to make sure that AutoEditActionDataSetter is created.
    ****************************************************************************/
+
+  bool IsEditActionCanceled() const {
+    MOZ_ASSERT(mEditActionData);
+    return mEditActionData->IsCanceled();
+  }
+
+  bool ShouldAlreadyHaveHandledBeforeInputEventDispatching() const {
+    MOZ_ASSERT(mEditActionData);
+    return mEditActionData
+        ->ShouldAlreadyHaveHandledBeforeInputEventDispatching();
+  }
+
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult MaybeDispatchBeforeInputEvent() {
+    MOZ_ASSERT(mEditActionData);
+    return mEditActionData->MaybeDispatchBeforeInputEvent();
+  }
+
+  void MarkAsBeforeInputHasBeenDispatched() {
+    MOZ_ASSERT(mEditActionData);
+    return mEditActionData->MarkAsBeforeInputHasBeenDispatched();
+  }
+
+  bool HasTriedToDispatchBeforeInputEvent() const {
+    return mEditActionData &&
+           mEditActionData->HasTriedToDispatchBeforeInputEvent();
+  }
 
   bool IsEditActionDataAvailable() const {
     return mEditActionData && mEditActionData->CanHandle();
+  }
+
+  bool IsTopLevelEditSubActionDataAvailable() const {
+    return mEditActionData && !!GetTopLevelEditSubAction();
+  }
+
+  bool IsEditActionAborted() const {
+    MOZ_ASSERT(mEditActionData);
+    return mEditActionData->IsAborted();
   }
 
   /**
@@ -777,7 +1337,15 @@ class EditorBase : public nsIEditor,
    */
   const RefPtr<Selection>& SelectionRefPtr() const {
     MOZ_ASSERT(mEditActionData);
+    MOZ_ASSERT(mEditActionData->SelectionRefPtr()->GetType() ==
+               SelectionType::eNormal);
+
     return mEditActionData->SelectionRefPtr();
+  }
+
+  nsIPrincipal* GetEditActionPrincipal() const {
+    MOZ_ASSERT(mEditActionData);
+    return mEditActionData->GetPrincipal();
   }
 
   /**
@@ -787,6 +1355,23 @@ class EditorBase : public nsIEditor,
   EditAction GetEditAction() const {
     return mEditActionData ? mEditActionData->GetEditAction()
                            : EditAction::eNone;
+  }
+
+  /**
+   * GetInputEventData() returns inserting or inserted text value with
+   * current edit action.  The result is proper for InputEvent.data value.
+   */
+  const nsString& GetInputEventData() const {
+    return mEditActionData ? mEditActionData->GetData() : VoidString();
+  }
+
+  /**
+   * GetInputEventDataTransfer() returns inserting or inserted transferable
+   * content with current edit action.  The result is proper for
+   * InputEvent.dataTransfer value.
+   */
+  dom::DataTransfer* GetInputEventDataTransfer() const {
+    return mEditActionData ? mEditActionData->GetDataTransfer() : nullptr;
   }
 
   /**
@@ -837,6 +1422,63 @@ class EditorBase : public nsIEditor,
     return mEditActionData->RangeUpdaterRef();
   }
 
+  template <typename PT, typename CT>
+  void SetSpellCheckRestartPoint(const EditorDOMPointBase<PT, CT>& aPoint) {
+    MOZ_ASSERT(IsEditActionDataAvailable());
+    return mEditActionData->SetSpellCheckRestartPoint(aPoint);
+  }
+
+  void ClearSpellCheckRestartPoint() {
+    MOZ_ASSERT(IsEditActionDataAvailable());
+    return mEditActionData->ClearSpellCheckRestartPoint();
+  }
+
+  const EditorDOMPoint& GetSpellCheckRestartPoint() const {
+    MOZ_ASSERT(IsEditActionDataAvailable());
+    return mEditActionData->GetSpellCheckRestartPoint();
+  }
+
+  const TopLevelEditSubActionData& TopLevelEditSubActionDataRef() const {
+    MOZ_ASSERT(IsEditActionDataAvailable());
+    return mEditActionData->TopLevelEditSubActionDataRef();
+  }
+  TopLevelEditSubActionData& TopLevelEditSubActionDataRef() {
+    MOZ_ASSERT(IsEditActionDataAvailable());
+    return mEditActionData->TopLevelEditSubActionDataRef();
+  }
+
+  const EditSubActionData& EditSubActionDataRef() const {
+    MOZ_ASSERT(IsEditActionDataAvailable());
+    return mEditActionData->EditSubActionDataRef();
+  }
+  EditSubActionData& EditSubActionDataRef() {
+    MOZ_ASSERT(IsEditActionDataAvailable());
+    return mEditActionData->EditSubActionDataRef();
+  }
+
+  /**
+   * GetCompositionStartPoint() and GetCompositionEndPoint() returns start and
+   * end point of composition string if there is.  Otherwise, returns non-set
+   * DOM point.
+   */
+  EditorRawDOMPoint GetCompositionStartPoint() const;
+  EditorRawDOMPoint GetCompositionEndPoint() const;
+
+  /**
+   * IsSelectionRangeContainerNotContent() returns true if one of container
+   * of selection ranges is not a content node, i.e., a Document node.
+   */
+  bool IsSelectionRangeContainerNotContent() const;
+
+  /**
+   * InsertTextAsSubAction() inserts aStringToInsert at selection.  This
+   * should be used for handling it as an edit sub-action.
+   *
+   * @param aStringToInsert     The string to insert.
+   */
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult
+  InsertTextAsSubAction(const nsAString& aStringToInsert);
+
   /**
    * InsertTextWithTransaction() inserts aStringToInsert to aPointToInsert or
    * better insertion point around it.  If aPointToInsert isn't in a text node,
@@ -857,8 +1499,8 @@ class EditorBase : public nsIEditor,
    *                        does nothing during composition, returns NS_OK.
    *                        Otherwise, an error code.
    */
-  virtual nsresult InsertTextWithTransaction(
-      nsIDocument& aDocument, const nsAString& aStringToInsert,
+  MOZ_CAN_RUN_SCRIPT virtual nsresult InsertTextWithTransaction(
+      Document& aDocument, const nsAString& aStringToInsert,
       const EditorRawDOMPoint& aPointToInsert,
       EditorRawDOMPoint* aPointAfterInsertedString = nullptr);
 
@@ -867,24 +1509,29 @@ class EditorBase : public nsIEditor,
    * aOffset of aTextNode with transaction.
    *
    * @param aStringToInsert     String to be inserted.
-   * @param aTextNode           Text node to contain aStringToInsert.
-   * @param aOffset             Offset at insertion point in aTextNode.
+   * @param aPointToInsert      The insertion point.
    * @param aSuppressIME        true if it's not a part of IME composition.
-   *                            E.g., adjusting whitespaces during composition.
+   *                            E.g., adjusting white-spaces during composition.
    *                            false, otherwise.
    */
-  nsresult InsertTextIntoTextNodeWithTransaction(
-      const nsAString& aStringToInsert, Text& aTextNode, int32_t aOffset,
-      bool aSuppressIME = false);
-
-  nsresult SetTextImpl(const nsAString& aString, Text& aTextNode);
+  MOZ_CAN_RUN_SCRIPT nsresult InsertTextIntoTextNodeWithTransaction(
+      const nsAString& aStringToInsert,
+      const EditorDOMPointInText& aPointToInsert, bool aSuppressIME = false);
 
   /**
-   * DeleteNodeWithTransaction() removes aNode from the DOM tree.
-   *
-   * @param aNode       The node which will be removed form the DOM tree.
+   * SetTextNodeWithoutTransaction() is optimized path to set new value to
+   * the text node directly and without transaction.  This is used when
+   * setting `<input>.value` and `<textarea>.value`.
    */
-  nsresult DeleteNodeWithTransaction(nsINode& aNode);
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult
+  SetTextNodeWithoutTransaction(const nsAString& aString, Text& aTextNode);
+
+  /**
+   * DeleteNodeWithTransaction() removes aContent from the DOM tree.
+   *
+   * @param aContent    The node which will be removed form the DOM tree.
+   */
+  MOZ_CAN_RUN_SCRIPT nsresult DeleteNodeWithTransaction(nsIContent& aContent);
 
   /**
    * InsertNodeWithTransaction() inserts aContentToInsert before the child
@@ -897,227 +1544,28 @@ class EditorBase : public nsIEditor,
    *                            container.  Otherwise, will insert the node
    *                            before child node referred by this.
    */
-  template <typename PT, typename CT>
-  nsresult InsertNodeWithTransaction(
-      nsIContent& aContentToInsert,
-      const EditorDOMPointBase<PT, CT>& aPointToInsert);
+  MOZ_CAN_RUN_SCRIPT nsresult InsertNodeWithTransaction(
+      nsIContent& aContentToInsert, const EditorDOMPoint& aPointToInsert);
 
   /**
-   * ReplaceContainerWithTransaction() creates new element whose name is
-   * aTagName, moves all children in aOldContainer to the new element, then,
-   * removes aOldContainer from the DOM tree.
+   * InsertPaddingBRElementForEmptyLastLineWithTransaction() creates a padding
+   * <br> element with setting flags to NS_PADDING_FOR_EMPTY_LAST_LINE and
+   * inserts it around aPointToInsert.
    *
-   * @param aOldContainer       The element node which should be replaced
-   *                            with new element.
-   * @param aTagName            The name of new element node.
+   * @param aPointToInsert      The DOM point where should be <br> node inserted
+   *                            before.
    */
-  already_AddRefed<Element> ReplaceContainerWithTransaction(
-      Element& aOldContainer, nsAtom& aTagName) {
-    return ReplaceContainerWithTransactionInternal(
-        aOldContainer, aTagName, *nsGkAtoms::_empty, EmptyString(), false);
-  }
-
-  /**
-   * ReplaceContainerAndCloneAttributesWithTransaction() creates new element
-   * whose name is aTagName, copies all attributes from aOldContainer to the
-   * new element, moves all children in aOldContainer to the new element, then,
-   * removes aOldContainer from the DOM tree.
-   *
-   * @param aOldContainer       The element node which should be replaced
-   *                            with new element.
-   * @param aTagName            The name of new element node.
-   */
-  already_AddRefed<Element> ReplaceContainerAndCloneAttributesWithTransaction(
-      Element& aOldContainer, nsAtom& aTagName) {
-    return ReplaceContainerWithTransactionInternal(
-        aOldContainer, aTagName, *nsGkAtoms::_empty, EmptyString(), true);
-  }
-
-  /**
-   * ReplaceContainerWithTransaction() creates new element whose name is
-   * aTagName, sets aAttributes of the new element to aAttributeValue, moves
-   * all children in aOldContainer to the new element, then, removes
-   * aOldContainer from the DOM tree.
-   *
-   * @param aOldContainer       The element node which should be replaced
-   *                            with new element.
-   * @param aTagName            The name of new element node.
-   * @param aAttribute          Attribute name to be set to the new element.
-   * @param aAttributeValue     Attribute value to be set to aAttribute.
-   */
-  already_AddRefed<Element> ReplaceContainerWithTransaction(
-      Element& aOldContainer, nsAtom& aTagName, nsAtom& aAttribute,
-      const nsAString& aAttributeValue) {
-    return ReplaceContainerWithTransactionInternal(
-        aOldContainer, aTagName, aAttribute, aAttributeValue, false);
-  }
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT CreateElementResult
+  InsertPaddingBRElementForEmptyLastLineWithTransaction(
+      const EditorDOMPoint& aPointToInsert);
 
   /**
    * CloneAttributesWithTransaction() clones all attributes from
    * aSourceElement to aDestElement after removing all attributes in
    * aDestElement.
    */
-  void CloneAttributesWithTransaction(Element& aDestElement,
-                                      Element& aSourceElement);
-
-  /**
-   * RemoveContainerWithTransaction() removes aElement from the DOM tree and
-   * moves all its children to the parent of aElement.
-   *
-   * @param aElement            The element to be removed.
-   */
-  nsresult RemoveContainerWithTransaction(Element& aElement);
-
-  /**
-   * InsertContainerWithTransaction() creates new element whose name is
-   * aTagName, moves aContent into the new element, then, inserts the new
-   * element into where aContent was.
-   * Note that this method does not check if aContent is valid child of
-   * the new element.  So, callers need to guarantee it.
-   *
-   * @param aContent            The content which will be wrapped with new
-   *                            element.
-   * @param aTagName            Element name of new element which will wrap
-   *                            aContent and be inserted into where aContent
-   *                            was.
-   * @return                    The new element.
-   */
-  already_AddRefed<Element> InsertContainerWithTransaction(nsIContent& aContent,
-                                                           nsAtom& aTagName) {
-    return InsertContainerWithTransactionInternal(
-        aContent, aTagName, *nsGkAtoms::_empty, EmptyString());
-  }
-
-  /**
-   * InsertContainerWithTransaction() creates new element whose name is
-   * aTagName, sets its aAttribute to aAttributeValue, moves aContent into the
-   * new element, then, inserts the new element into where aContent was.
-   * Note that this method does not check if aContent is valid child of
-   * the new element.  So, callers need to guarantee it.
-   *
-   * @param aContent            The content which will be wrapped with new
-   *                            element.
-   * @param aTagName            Element name of new element which will wrap
-   *                            aContent and be inserted into where aContent
-   *                            was.
-   * @param aAttribute          Attribute which should be set to the new
-   *                            element.
-   * @param aAttributeValue     Value to be set to aAttribute.
-   * @return                    The new element.
-   */
-  already_AddRefed<Element> InsertContainerWithTransaction(
-      nsIContent& aContent, nsAtom& aTagName, nsAtom& aAttribute,
-      const nsAString& aAttributeValue) {
-    return InsertContainerWithTransactionInternal(aContent, aTagName,
-                                                  aAttribute, aAttributeValue);
-  }
-
-  /**
-   * SplitNodeWithTransaction() creates a transaction to create a new node
-   * (left node) identical to an existing node (right node), and split the
-   * contents between the same point in both nodes, then, execute the
-   * transaction.
-   *
-   * @param aStartOfRightNode   The point to split.  Its container will be
-   *                            the right node, i.e., become the new node's
-   *                            next sibling.  And the point will be start
-   *                            of the right node.
-   * @param aError              If succeed, returns no error.  Otherwise, an
-   *                            error.
-   */
-  template <typename PT, typename CT>
-  already_AddRefed<nsIContent> SplitNodeWithTransaction(
-      const EditorDOMPointBase<PT, CT>& aStartOfRightNode,
-      ErrorResult& aResult);
-
-  /**
-   * JoinNodesWithTransaction() joins aLeftNode and aRightNode.  Content of
-   * aLeftNode will be merged into aRightNode.  Actual implemenation of this
-   * method is JoinNodesImpl().  So, see its explanation for the detail.
-   *
-   * @param aLeftNode   Will be removed from the DOM tree.
-   * @param aRightNode  The node which will be new container of the content of
-   *                    aLeftNode.
-   */
-  nsresult JoinNodesWithTransaction(nsINode& aLeftNode, nsINode& aRightNode);
-
-  /**
-   * MoveNodeWithTransaction() moves aContent to aPointToInsert.
-   *
-   * @param aContent        The node to be moved.
-   */
-  template <typename PT, typename CT>
-  nsresult MoveNodeWithTransaction(
-      nsIContent& aContent, const EditorDOMPointBase<PT, CT>& aPointToInsert);
-
-  /**
-   * MoveNodeToEndWithTransaction() moves aContent to end of aNewContainer.
-   *
-   * @param aContent        The node to be moved.
-   * @param aNewContainer   The new container which will contain aContent as
-   *                        its last child.
-   */
-  nsresult MoveNodeToEndWithTransaction(nsIContent& aContent,
-                                        nsINode& aNewContainer) {
-    EditorRawDOMPoint pointToInsert;
-    pointToInsert.SetToEndOf(&aNewContainer);
-    return MoveNodeWithTransaction(aContent, pointToInsert);
-  }
-
-  /**
-   * MoveAllChildren() moves all children of aContainer to before
-   * aPointToInsert.GetChild().
-   * See explanation of MoveChildren() for the detail of the behavior.
-   *
-   * @param aContainer          The container node whose all children should
-   *                            be moved.
-   * @param aPointToInsert      The insertion point.  The container must not
-   *                            be a data node like a text node.
-   * @param aError              The result.  If this succeeds to move children,
-   *                            returns NS_OK.  Otherwise, an error.
-   */
-  void MoveAllChildren(nsINode& aContainer,
-                       const EditorRawDOMPoint& aPointToInsert,
-                       ErrorResult& aError);
-
-  /**
-   * MovePreviousSiblings() moves all siblings before aChild (i.e., aChild
-   * won't be moved) to before aPointToInsert.GetChild().
-   * See explanation of MoveChildren() for the detail of the behavior.
-   *
-   * @param aChild              The node which is next sibling of the last
-   *                            node to be moved.
-   * @param aPointToInsert      The insertion point.  The container must not
-   *                            be a data node like a text node.
-   * @param aError              The result.  If this succeeds to move children,
-   *                            returns NS_OK.  Otherwise, an error.
-   */
-  void MovePreviousSiblings(nsIContent& aChild,
-                            const EditorRawDOMPoint& aPointToInsert,
-                            ErrorResult& aError);
-
-  /**
-   * MoveChildren() moves all children between aFirstChild and aLastChild to
-   * before aPointToInsert.GetChild().
-   * If some children are moved to different container while this method
-   * moves other children, they are just ignored.
-   * If the child node referred by aPointToInsert is moved to different
-   * container while this method moves children, returns error.
-   *
-   * @param aFirstChild         The first child which should be moved to
-   *                            aPointToInsert.
-   * @param aLastChild          The last child which should be moved.  This
-   *                            must be a sibling of aFirstChild and it should
-   *                            be positioned after aFirstChild in the DOM tree
-   *                            order.
-   * @param aPointToInsert      The insertion point.  The container must not
-   *                            be a data node like a text node.
-   * @param aError              The result.  If this succeeds to move children,
-   *                            returns NS_OK.  Otherwise, an error.
-   */
-  void MoveChildren(nsIContent& aFirstChild, nsIContent& aLastChild,
-                    const EditorRawDOMPoint& aPointToInsert,
-                    ErrorResult& aError);
+  MOZ_CAN_RUN_SCRIPT void CloneAttributesWithTransaction(
+      Element& aDestElement, Element& aSourceElement);
 
   /**
    * CloneAttributeWithTransaction() copies aAttribute of aSourceElement to
@@ -1130,9 +1578,8 @@ class EditorBase : public nsIEditor,
    * @param aSourceElement      Element node which provides the value of
    *                            aAttribute in aDestElement.
    */
-  nsresult CloneAttributeWithTransaction(nsAtom& aAttribute,
-                                         Element& aDestElement,
-                                         Element& aSourceElement);
+  MOZ_CAN_RUN_SCRIPT nsresult CloneAttributeWithTransaction(
+      nsAtom& aAttribute, Element& aDestElement, Element& aSourceElement);
 
   /**
    * RemoveAttributeWithTransaction() removes aAttribute from aElement.
@@ -1140,12 +1587,11 @@ class EditorBase : public nsIEditor,
    * @param aElement        Element node which will lose aAttribute.
    * @param aAttribute      Attribute name to be removed from aElement.
    */
-  nsresult RemoveAttributeWithTransaction(Element& aElement,
-                                          nsAtom& aAttribute);
+  MOZ_CAN_RUN_SCRIPT nsresult
+  RemoveAttributeWithTransaction(Element& aElement, nsAtom& aAttribute);
 
-  virtual nsresult RemoveAttributeOrEquivalent(Element* aElement,
-                                               nsAtom* aAttribute,
-                                               bool aSuppressTransaction) = 0;
+  MOZ_CAN_RUN_SCRIPT virtual nsresult RemoveAttributeOrEquivalent(
+      Element* aElement, nsAtom* aAttribute, bool aSuppressTransaction) = 0;
 
   /**
    * SetAttributeWithTransaction() sets aAttribute of aElement to aValue.
@@ -1154,13 +1600,12 @@ class EditorBase : public nsIEditor,
    * @param aAttribute      Attribute name to be set.
    * @param aValue          Attribute value be set to aAttribute.
    */
-  nsresult SetAttributeWithTransaction(Element& aElement, nsAtom& aAttribute,
-                                       const nsAString& aValue);
+  MOZ_CAN_RUN_SCRIPT nsresult SetAttributeWithTransaction(
+      Element& aElement, nsAtom& aAttribute, const nsAString& aValue);
 
-  virtual nsresult SetAttributeOrEquivalent(Element* aElement,
-                                            nsAtom* aAttribute,
-                                            const nsAString& aValue,
-                                            bool aSuppressTransaction) = 0;
+  MOZ_CAN_RUN_SCRIPT virtual nsresult SetAttributeOrEquivalent(
+      Element* aElement, nsAtom* aAttribute, const nsAString& aValue,
+      bool aSuppressTransaction) = 0;
 
   /**
    * Method to replace certain CreateElementNS() calls.
@@ -1170,10 +1615,28 @@ class EditorBase : public nsIEditor,
   already_AddRefed<Element> CreateHTMLContent(const nsAtom* aTag);
 
   /**
-   * Creates text node which is marked as "maybe modified frequently".
+   * Creates text node which is marked as "maybe modified frequently" and
+   * "maybe masked" if this is a password editor.
    */
-  static already_AddRefed<nsTextNode> CreateTextNode(nsIDocument& aDocument,
-                                                     const nsAString& aData);
+  already_AddRefed<nsTextNode> CreateTextNode(const nsAString& aData);
+
+  /**
+   * DoInsertText(), DoDeleteText(), DoReplaceText() and DoSetText() are
+   * wrapper of `CharacterData::InsertData()`, `CharacterData::DeleteData()`,
+   * `CharacterData::ReplaceData()` and `CharacterData::SetData()`.
+   */
+  MOZ_CAN_RUN_SCRIPT void DoInsertText(dom::Text& aText, uint32_t aOffset,
+                                       const nsAString& aStringToInsert,
+                                       ErrorResult& aRv);
+  MOZ_CAN_RUN_SCRIPT void DoDeleteText(dom::Text& aText, uint32_t aOffset,
+                                       uint32_t aCount, ErrorResult& aRv);
+  MOZ_CAN_RUN_SCRIPT void DoReplaceText(dom::Text& aText, uint32_t aOffset,
+                                        uint32_t aCount,
+                                        const nsAString& aStringToInsert,
+                                        ErrorResult& aRv);
+  MOZ_CAN_RUN_SCRIPT void DoSetText(dom::Text& aText,
+                                    const nsAString& aStringToSet,
+                                    ErrorResult& aRv);
 
   /**
    * Create an element node whose name is aTag at before aPointToInsert.  When
@@ -1190,217 +1653,84 @@ class EditorBase : public nsIEditor,
    *                        child node referred by this.
    * @return                The created new element node.
    */
-  template <typename PT, typename CT>
-  already_AddRefed<Element> CreateNodeWithTransaction(
-      nsAtom& aTag, const EditorDOMPointBase<PT, CT>& aPointToInsert);
+  MOZ_CAN_RUN_SCRIPT already_AddRefed<Element> CreateNodeWithTransaction(
+      nsAtom& aTag, const EditorDOMPoint& aPointToInsert);
 
   /**
-   * Create an aggregate transaction for delete selection.  The result may
-   * include DeleteNodeTransactions and/or DeleteTextTransactions as its
-   * children.
+   * DeleteTextWithTransaction() removes text in the range from aTextNode.
    *
-   * @param aAction             The action caused removing the selection.
-   * @param aRemovingNode       The node to be removed.
-   * @param aOffset             The start offset of the range in aRemovingNode.
-   * @param aLength             The length of the range in aRemovingNode.
-   * @return                    If it can remove the selection, returns an
-   *                            aggregate transaction which has some
-   *                            DeleteNodeTransactions and/or
-   *                            DeleteTextTransactions as its children.
-   */
-  already_AddRefed<EditAggregateTransaction> CreateTxnForDeleteSelection(
-      EDirection aAction, nsINode** aNode, int32_t* aOffset, int32_t* aLength);
-
-  /**
-   * Create a transaction for removing the nodes and/or text in aRange.
-   *
-   * @param aRangeToDelete      The range to be removed.
-   * @param aAction             The action caused removing the range.
-   * @param aRemovingNode       The node to be removed.
-   * @param aOffset             The start offset of the range in aRemovingNode.
-   * @param aLength             The length of the range in aRemovingNode.
-   * @return                    The transaction to remove the range.  Its type
-   *                            is DeleteNodeTransaction or
-   *                            DeleteTextTransaction.
-   */
-  already_AddRefed<EditTransactionBase> CreateTxnForDeleteRange(
-      nsRange* aRangeToDelete, EDirection aAction, nsINode** aRemovingNode,
-      int32_t* aOffset, int32_t* aLength);
-
-  /**
-   * DeleteTextWithTransaction() removes text in the range from aCharData.
-   *
-   * @param aCharData           The data node which should be modified.
-   * @param aOffset             Start offset of removing text in aCharData.
+   * @param aTextNode           The text node which should be modified.
+   * @param aOffset             Start offset of removing text in aTextNode.
    * @param aLength             Length of removing text.
    */
-  nsresult DeleteTextWithTransaction(dom::CharacterData& aCharacterData,
-                                     uint32_t aOffset, uint32_t aLength);
+  MOZ_CAN_RUN_SCRIPT nsresult DeleteTextWithTransaction(dom::Text& aTextNode,
+                                                        uint32_t aOffset,
+                                                        uint32_t aLength);
 
   /**
-   * ReplaceContainerWithTransactionInternal() is implementation of
-   * ReplaceContainerWithTransaction() and
-   * ReplaceContainerAndCloneAttributesWithTransaction().
+   * EnsureNoPaddingBRElementForEmptyEditor() removes padding <br> element
+   * for empty editor if there is.
+   */
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult
+  EnsureNoPaddingBRElementForEmptyEditor();
+
+  /**
+   * MaybeCreatePaddingBRElementForEmptyEditor() creates padding <br> element
+   * for empty editor if there is no children.
+   */
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult
+  MaybeCreatePaddingBRElementForEmptyEditor();
+
+  /**
+   * MarkElementDirty() sets a special dirty attribute on the element.
+   * Usually this will be called immediately after creating a new node.
    *
-   * @param aOldContainer       The element which will be replaced with new
-   *                            element.
-   * @param aTagName            The name of new element node.
-   * @param aAttribute          Attribute name which will be set to the new
-   *                            element.  This will be ignored if
-   *                            aCloneAllAttributes is set to true.
-   * @param aAttributeValue     Attribute value which will be set to
-   *                            aAttribute.
-   * @param aCloneAllAttributes If true, all attributes of aOldContainer will
-   *                            be copied to the new element.
+   * @param aElement    The element for which to insert formatting.
    */
-  already_AddRefed<Element> ReplaceContainerWithTransactionInternal(
-      Element& aElement, nsAtom& aTagName, nsAtom& aAttribute,
-      const nsAString& aAttributeValue, bool aCloneAllAttributes);
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult MarkElementDirty(Element& aElement);
 
-  /**
-   * InsertContainerWithTransactionInternal() creates new element whose name is
-   * aTagName, moves aContent into the new element, then, inserts the new
-   * element into where aContent was.  If aAttribute is not nsGkAtoms::_empty,
-   * aAttribute of the new element will be set to aAttributeValue.
-   *
-   * @param aContent            The content which will be wrapped with new
-   *                            element.
-   * @param aTagName            Element name of new element which will wrap
-   *                            aContent and be inserted into where aContent
-   *                            was.
-   * @param aAttribute          Attribute which should be set to the new
-   *                            element.  If this is nsGkAtoms::_empty,
-   *                            this does not set any attributes to the new
-   *                            element.
-   * @param aAttributeValue     Value to be set to aAttribute.
-   * @return                    The new element.
-   */
-  already_AddRefed<Element> InsertContainerWithTransactionInternal(
-      nsIContent& aContent, nsAtom& aTagName, nsAtom& aAttribute,
-      const nsAString& aAttributeValue);
-
-  /**
-   * DoSplitNode() creates a new node (left node) identical to an existing
-   * node (right node), and split the contents between the same point in both
-   * nodes.
-   *
-   * @param aStartOfRightNode   The point to split.  Its container will be
-   *                            the right node, i.e., become the new node's
-   *                            next sibling.  And the point will be start
-   *                            of the right node.
-   * @param aNewLeftNode        The new node called as left node, so, this
-   *                            becomes the container of aPointToSplit's
-   *                            previous sibling.
-   * @param aError              Must have not already failed.
-   *                            If succeed to insert aLeftNode before the
-   *                            right node and remove unnecessary contents
-   *                            (and collapse selection at end of the left
-   *                            node if necessary), returns no error.
-   *                            Otherwise, an error.
-   */
-  void DoSplitNode(const EditorDOMPoint& aStartOfRightNode,
-                   nsIContent& aNewLeftNode, ErrorResult& aError);
-
-  /**
-   * DoJoinNodes() merges contents in aNodeToJoin to aNodeToKeep and remove
-   * aNodeToJoin from the DOM tree.  aNodeToJoin and aNodeToKeep must have
-   * same parent, aParent.  Additionally, if one of aNodeToJoin or aNodeToKeep
-   * is a text node, the other must be a text node.
-   *
-   * @param aNodeToKeep   The node that will remain after the join.
-   * @param aNodeToJoin   The node that will be joined with aNodeToKeep.
-   *                      There is no requirement that the two nodes be of the
-   *                      same type.
-   * @param aParent       The parent of aNodeToKeep
-   */
-  nsresult DoJoinNodes(nsINode* aNodeToKeep, nsINode* aNodeToJoin,
-                       nsINode* aParent);
-
-  /**
-   * SplitNodeDeepWithTransaction() splits aMostAncestorToSplit deeply.
-   *
-   * @param aMostAncestorToSplit        The most ancestor node which should be
-   *                                    split.
-   * @param aStartOfDeepestRightNode    The start point of deepest right node.
-   *                                    This point must be descendant of
-   *                                    aMostAncestorToSplit.
-   * @param aSplitAtEdges               Whether the caller allows this to
-   *                                    create empty container element when
-   *                                    split point is start or end of an
-   *                                    element.
-   * @return                            SplitPoint() returns split point in
-   *                                    aMostAncestorToSplit.  The point must
-   *                                    be good to insert something if the
-   *                                    caller want to do it.
-   */
-  template <typename PT, typename CT>
-  SplitNodeResult SplitNodeDeepWithTransaction(
-      nsIContent& aMostAncestorToSplit,
-      const EditorDOMPointBase<PT, CT>& aDeepestStartOfRightNode,
-      SplitAtEdges aSplitAtEdges);
-
-  /**
-   * JoinNodesDeepWithTransaction() joins aLeftNode and aRightNode "deeply".
-   * First, they are joined simply, then, new right node is assumed as the
-   * child at length of the left node before joined and new left node is
-   * assumed as its previous sibling.  Then, they will be joined again.
-   * And then, these steps are repeated.
-   *
-   * @param aLeftNode   The node which will be removed form the tree.
-   * @param aRightNode  The node which will be inserted the contents of
-   *                    aLeftNode.
-   * @return            The point of the first child of the last right node.
-   */
-  EditorDOMPoint JoinNodesDeepWithTransaction(nsIContent& aLeftNode,
-                                              nsIContent& aRightNode);
-
-  nsresult DoTransactionInternal(nsITransaction* aTxn);
-
-  virtual bool IsBlockNode(nsINode* aNode);
-
-  /**
-   * Set outOffset to the offset of aChild in the parent.
-   * Returns the parent of aChild.
-   */
-  static nsINode* GetNodeLocation(nsINode* aChild, int32_t* aOffset);
+  MOZ_CAN_RUN_SCRIPT nsresult
+  DoTransactionInternal(nsITransaction* aTransaction);
 
   /**
    * Get the previous node.
    */
-  nsIContent* GetPreviousNode(const EditorRawDOMPoint& aPoint) {
+  nsIContent* GetPreviousNode(const EditorRawDOMPoint& aPoint) const {
     return GetPreviousNodeInternal(aPoint, false, true, false);
   }
-  nsIContent* GetPreviousElementOrText(const EditorRawDOMPoint& aPoint) {
+  nsIContent* GetPreviousElementOrText(const EditorRawDOMPoint& aPoint) const {
     return GetPreviousNodeInternal(aPoint, false, false, false);
   }
-  nsIContent* GetPreviousEditableNode(const EditorRawDOMPoint& aPoint) {
+  nsIContent* GetPreviousEditableNode(const EditorRawDOMPoint& aPoint) const {
     return GetPreviousNodeInternal(aPoint, true, true, false);
   }
-  nsIContent* GetPreviousNodeInBlock(const EditorRawDOMPoint& aPoint) {
+  nsIContent* GetPreviousNodeInBlock(const EditorRawDOMPoint& aPoint) const {
     return GetPreviousNodeInternal(aPoint, false, true, true);
   }
-  nsIContent* GetPreviousElementOrTextInBlock(const EditorRawDOMPoint& aPoint) {
+  nsIContent* GetPreviousElementOrTextInBlock(
+      const EditorRawDOMPoint& aPoint) const {
     return GetPreviousNodeInternal(aPoint, false, false, true);
   }
-  nsIContent* GetPreviousEditableNodeInBlock(const EditorRawDOMPoint& aPoint) {
+  nsIContent* GetPreviousEditableNodeInBlock(
+      const EditorRawDOMPoint& aPoint) const {
     return GetPreviousNodeInternal(aPoint, true, true, true);
   }
-  nsIContent* GetPreviousNode(nsINode& aNode) {
+  nsIContent* GetPreviousNode(const nsINode& aNode) const {
     return GetPreviousNodeInternal(aNode, false, true, false);
   }
-  nsIContent* GetPreviousElementOrText(nsINode& aNode) {
+  nsIContent* GetPreviousElementOrText(const nsINode& aNode) const {
     return GetPreviousNodeInternal(aNode, false, false, false);
   }
-  nsIContent* GetPreviousEditableNode(nsINode& aNode) {
+  nsIContent* GetPreviousEditableNode(const nsINode& aNode) const {
     return GetPreviousNodeInternal(aNode, true, true, false);
   }
-  nsIContent* GetPreviousNodeInBlock(nsINode& aNode) {
+  nsIContent* GetPreviousNodeInBlock(const nsINode& aNode) const {
     return GetPreviousNodeInternal(aNode, false, true, true);
   }
-  nsIContent* GetPreviousElementOrTextInBlock(nsINode& aNode) {
+  nsIContent* GetPreviousElementOrTextInBlock(const nsINode& aNode) const {
     return GetPreviousNodeInternal(aNode, false, false, true);
   }
-  nsIContent* GetPreviousEditableNodeInBlock(nsINode& aNode) {
+  nsIContent* GetPreviousEditableNodeInBlock(const nsINode& aNode) const {
     return GetPreviousNodeInternal(aNode, true, true, true);
   }
 
@@ -1431,137 +1761,64 @@ class EditorBase : public nsIEditor,
    * node.
    */
   template <typename PT, typename CT>
-  nsIContent* GetNextNode(const EditorDOMPointBase<PT, CT>& aPoint) {
+  nsIContent* GetNextNode(const EditorDOMPointBase<PT, CT>& aPoint) const {
     return GetNextNodeInternal(aPoint, false, true, false);
   }
   template <typename PT, typename CT>
-  nsIContent* GetNextElementOrText(const EditorDOMPointBase<PT, CT>& aPoint) {
+  nsIContent* GetNextElementOrText(
+      const EditorDOMPointBase<PT, CT>& aPoint) const {
     return GetNextNodeInternal(aPoint, false, false, false);
   }
   template <typename PT, typename CT>
-  nsIContent* GetNextEditableNode(const EditorDOMPointBase<PT, CT>& aPoint) {
+  nsIContent* GetNextEditableNode(
+      const EditorDOMPointBase<PT, CT>& aPoint) const {
     return GetNextNodeInternal(aPoint, true, true, false);
   }
   template <typename PT, typename CT>
-  nsIContent* GetNextNodeInBlock(const EditorDOMPointBase<PT, CT>& aPoint) {
+  nsIContent* GetNextNodeInBlock(
+      const EditorDOMPointBase<PT, CT>& aPoint) const {
     return GetNextNodeInternal(aPoint, false, true, true);
   }
   template <typename PT, typename CT>
   nsIContent* GetNextElementOrTextInBlock(
-      const EditorDOMPointBase<PT, CT>& aPoint) {
+      const EditorDOMPointBase<PT, CT>& aPoint) const {
     return GetNextNodeInternal(aPoint, false, false, true);
   }
   template <typename PT, typename CT>
   nsIContent* GetNextEditableNodeInBlock(
-      const EditorDOMPointBase<PT, CT>& aPoint) {
+      const EditorDOMPointBase<PT, CT>& aPoint) const {
     return GetNextNodeInternal(aPoint, true, true, true);
   }
-  nsIContent* GetNextNode(nsINode& aNode) {
+  nsIContent* GetNextNode(const nsINode& aNode) const {
     return GetNextNodeInternal(aNode, false, true, false);
   }
-  nsIContent* GetNextElementOrText(nsINode& aNode) {
+  nsIContent* GetNextElementOrText(const nsINode& aNode) const {
     return GetNextNodeInternal(aNode, false, false, false);
   }
-  nsIContent* GetNextEditableNode(nsINode& aNode) {
+  nsIContent* GetNextEditableNode(const nsINode& aNode) const {
     return GetNextNodeInternal(aNode, true, true, false);
   }
-  nsIContent* GetNextNodeInBlock(nsINode& aNode) {
+  nsIContent* GetNextNodeInBlock(const nsINode& aNode) const {
     return GetNextNodeInternal(aNode, false, true, true);
   }
-  nsIContent* GetNextElementOrTextInBlock(nsINode& aNode) {
+  nsIContent* GetNextElementOrTextInBlock(const nsINode& aNode) const {
     return GetNextNodeInternal(aNode, false, false, true);
   }
-  nsIContent* GetNextEditableNodeInBlock(nsINode& aNode) {
+  nsIContent* GetNextEditableNodeInBlock(const nsINode& aNode) const {
     return GetNextNodeInternal(aNode, true, true, true);
   }
 
   /**
-   * Get the rightmost child of aCurrentNode;
-   * return nullptr if aCurrentNode has no children.
-   */
-  nsIContent* GetRightmostChild(nsINode* aCurrentNode,
-                                bool bNoBlockCrossing = false);
-
-  /**
-   * Get the leftmost child of aCurrentNode;
-   * return nullptr if aCurrentNode has no children.
-   */
-  nsIContent* GetLeftmostChild(nsINode* aCurrentNode,
-                               bool bNoBlockCrossing = false);
-
-  /**
-   * Returns true if aParent can contain a child of type aTag.
-   */
-  bool CanContain(nsINode& aParent, nsIContent& aChild) const;
-  bool CanContainTag(nsINode& aParent, nsAtom& aTag) const;
-  bool TagCanContain(nsAtom& aParentTag, nsIContent& aChild) const;
-  virtual bool TagCanContainTag(nsAtom& aParentTag, nsAtom& aChildTag) const;
-
-  /**
    * Returns true if aNode is our root node.
    */
-  bool IsRoot(nsINode* inNode) const;
-  bool IsEditorRoot(nsINode* aNode) const;
+  bool IsRoot(const nsINode* inNode) const;
+  bool IsEditorRoot(const nsINode* aNode) const;
 
   /**
    * Returns true if aNode is a descendant of our root node.
    */
-  bool IsDescendantOfRoot(nsINode* inNode) const;
-  bool IsDescendantOfEditorRoot(nsINode* aNode) const;
-
-  /**
-   * Returns true if aNode is a container.
-   */
-  virtual bool IsContainer(nsINode* aNode);
-
-  /**
-   * returns true if aNode is an editable node.
-   */
-  bool IsEditable(nsINode* aNode) {
-    if (NS_WARN_IF(!aNode)) {
-      return false;
-    }
-
-    if (!aNode->IsContent() || IsMozEditorBogusNode(aNode) ||
-        !IsModifiableNode(*aNode)) {
-      return false;
-    }
-
-    switch (aNode->NodeType()) {
-      case nsINode::ELEMENT_NODE:
-        // In HTML editors, if we're dealing with an element, then ask it
-        // whether it's editable.
-        return mIsHTMLEditorClass ? aNode->IsEditable() : true;
-      case nsINode::TEXT_NODE:
-        // Text nodes are considered to be editable by both typed of editors.
-        return true;
-      default:
-        return false;
-    }
-  }
-
-  /**
-   * Returns true if aNode is a usual element node (not bogus node) or
-   * a text node.  In other words, returns true if aNode is a usual element
-   * node or visible data node.
-   */
-  bool IsElementOrText(const nsINode& aNode) const {
-    if (!aNode.IsContent() || IsMozEditorBogusNode(&aNode)) {
-      return false;
-    }
-    return aNode.NodeType() == nsINode::ELEMENT_NODE ||
-           aNode.NodeType() == nsINode::TEXT_NODE;
-  }
-
-  /**
-   * Returns true if aNode is a MozEditorBogus node.
-   */
-  bool IsMozEditorBogusNode(const nsINode* aNode) const {
-    return aNode && aNode->IsElement() &&
-           aNode->AsElement()->AttrValueIs(
-               kNameSpaceID_None, kMOZEditorBogusNodeAttrAtom,
-               kMOZEditorBogusNodeValue, eCaseMatters);
-  }
+  bool IsDescendantOfRoot(const nsINode* inNode) const;
+  bool IsDescendantOfEditorRoot(const nsINode* aNode) const;
 
   /**
    * Counts number of editable child nodes.
@@ -1577,23 +1834,6 @@ class EditorBase : public nsIEditor,
    * Returns true when inserting text should be a part of current composition.
    */
   bool ShouldHandleIMEComposition() const;
-
-  /**
-   * AreNodesSameType() returns true if aNode1 and aNode2 are same type.
-   * If the instance is TextEditor, only their names are checked.
-   * If the instance is HTMLEditor in CSS mode and both of them are <span>
-   * element, their styles are also checked.
-   */
-  bool AreNodesSameType(nsIContent& aNode1, nsIContent& aNode2) const;
-
-  static bool IsTextNode(nsINode* aNode) {
-    return aNode->NodeType() == nsINode::TEXT_NODE;
-  }
-
-  /**
-   * IsModifiableNode() checks whether the node is editable or not.
-   */
-  bool IsModifiableNode(const nsINode& aNode) const;
 
   /**
    * GetNodeAtRangeOffsetPoint() returns the node at this position in a range,
@@ -1615,17 +1855,7 @@ class EditorBase : public nsIEditor,
   /**
    * CollapseSelectionToEnd() collapses the selection to the end of the editor.
    */
-  nsresult CollapseSelectionToEnd();
-
-  /**
-   * Helpers to add a node to the selection.
-   * Used by table cell selection methods.
-   */
-  nsresult CreateRange(nsINode* aStartContainer, int32_t aStartOffset,
-                       nsINode* aEndContainer, int32_t aEndOffset,
-                       nsRange** aRange);
-
-  static bool IsPreformatted(nsINode* aNode);
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY nsresult CollapseSelectionToEnd() const;
 
   /**
    * AllowsTransactionsToChangeSelection() returns true if editor allows any
@@ -1645,12 +1875,9 @@ class EditorBase : public nsIEditor,
     mAllowsTransactionsToChangeSelection = aAllow;
   }
 
-  nsresult HandleInlineSpellCheck(EditSubAction aEditSubAction,
-                                  nsINode* previousSelectedNode,
-                                  uint32_t previousSelectedOffset,
-                                  nsINode* aStartContainer,
-                                  uint32_t aStartOffset, nsINode* aEndContainer,
-                                  uint32_t aEndOffset);
+  nsresult HandleInlineSpellCheck(
+      const EditorDOMPoint& aPreviouslySelectedStart,
+      const dom::AbstractRange* aRange = nullptr);
 
   /**
    * Likewise, but gets the editor's root instead, which is different for HTML
@@ -1669,13 +1896,7 @@ class EditorBase : public nsIEditor,
    * returns true but GetFocusedContent() returns null, it means that this
    * editor was focused when the DOM window was active.
    */
-  virtual bool IsActiveInDOMWindow();
-
-  /**
-   * GetIMESelectionStartOffsetIn() returns the start offset of IME selection in
-   * the aTextNode.  If there is no IME selection, returns -1.
-   */
-  int32_t GetIMESelectionStartOffsetIn(nsINode* aTextNode);
+  virtual bool IsActiveInDOMWindow() const;
 
   /**
    * FindBetterInsertionPoint() tries to look for better insertion point which
@@ -1685,7 +1906,8 @@ class EditorBase : public nsIEditor,
    * @return            Better insertion point if there is.  If not returns
    *                    same point as aPoint.
    */
-  EditorRawDOMPoint FindBetterInsertionPoint(const EditorRawDOMPoint& aPoint);
+  EditorRawDOMPoint FindBetterInsertionPoint(
+      const EditorRawDOMPoint& aPoint) const;
 
   /**
    * HideCaret() hides caret with nsCaret::AddForceHide() or may show carent
@@ -1694,24 +1916,122 @@ class EditorBase : public nsIEditor,
    */
   void HideCaret(bool aHide);
 
+ protected:  // Edit sub-action handler
+  /**
+   * AutoCaretBidiLevelManager() computes bidi level of caret, deleting
+   * character(s) from aPointAtCaret at construction.  Then, if you'll
+   * need to extend the selection, you should calls `UpdateCaretBidiLevel()`,
+   * then, this class may update caret bidi level for you if it's required.
+   */
+  class MOZ_RAII AutoCaretBidiLevelManager final {
+   public:
+    /**
+     * @param aEditorBase         The editor.
+     * @param aPointAtCaret       Collapsed `Selection` point.
+     * @param aDirectionAndAmount The direction and amount to delete.
+     */
+    template <typename PT, typename CT>
+    AutoCaretBidiLevelManager(const EditorBase& aEditorBase,
+                              nsIEditor::EDirection aDirectionAndAmount,
+                              const EditorDOMPointBase<PT, CT>& aPointAtCaret);
+
+    /**
+     * Failed() returns true if the constructor failed to handle the bidi
+     * information.
+     */
+    bool Failed() const { return mFailed; }
+
+    /**
+     * Canceled() returns true if when the caller should stop deleting
+     * characters since caret position is not visually adjacent the deleting
+     * characters and user does not wand to delete them in that case.
+     */
+    bool Canceled() const { return mCanceled; }
+
+    /**
+     * MaybeUpdateCaretBidiLevel() may update caret bidi level and schedule to
+     * paint it if they are necessary.
+     */
+    void MaybeUpdateCaretBidiLevel(const EditorBase& aEditorBase) const;
+
+   private:
+    Maybe<nsBidiLevel> mNewCaretBidiLevel;
+    bool mFailed = false;
+    bool mCanceled = false;
+  };
+
+  /**
+   * UndefineCaretBidiLevel() resets bidi level of the caret.
+   */
+  void UndefineCaretBidiLevel() const;
+
+  /**
+   * Flushing pending notifications if nsFrameSelection requires the latest
+   * layout information to compute deletion range.  This may destroy the
+   * editor instance itself.  When this returns false, don't keep doing
+   * anything.
+   */
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT bool
+  FlushPendingNotificationsIfToHandleDeletionWithFrameSelection(
+      nsIEditor::EDirection aDirectionAndAmount) const;
+
+  /**
+   * DeleteSelectionAsSubAction() removes selection content or content around
+   * caret with transactions.  This should be used for handling it as an
+   * edit sub-action.
+   *
+   * @param aDirectionAndAmount How much range should be removed.
+   * @param aStripWrappers      Whether the parent blocks should be removed
+   *                            when they become empty.  If this instance is
+   *                            a TextEditor, Must be nsIEditor::eNoStrip.
+   */
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult
+  DeleteSelectionAsSubAction(nsIEditor::EDirection aDirectionAndAmount,
+                             nsIEditor::EStripWrappers aStripWrappers);
+
+  /**
+   * This method handles "delete selection" commands.
+   * NOTE: Don't call this method recursively from the helper methods since
+   *       when nobody handled it without canceling and returing an error,
+   *       this falls it back to `DeleteSelectionWithTransaction()`.
+   *
+   * @param aDirectionAndAmount Direction of the deletion.
+   * @param aStripWrappers      Must be nsIEditor::eNoStrip if this is a
+   *                            TextEditor instance.  Otherwise,
+   *                            nsIEditor::eStrip is also valid.
+   */
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT virtual EditActionResult
+  HandleDeleteSelection(nsIEditor::EDirection aDirectionAndAmount,
+                        nsIEditor::EStripWrappers aStripWrappers) = 0;
+
  protected:  // Called by helper classes.
   /**
    * OnStartToHandleTopLevelEditSubAction() is called when
    * GetTopLevelEditSubAction() is EditSubAction::eNone and somebody starts to
    * handle aEditSubAction.
    *
-   * @param aEditSubAction      Top level edit sub action which will be
-   *                            handled soon.
-   * @param aDirection          Direction of aEditSubAction.
+   * @param aTopLevelEditSubAction              Top level edit sub action which
+   *                                            will be handled soon.
+   * @param aDirectionOfTopLevelEditSubAction   Direction of aEditSubAction.
    */
-  virtual void OnStartToHandleTopLevelEditSubAction(
-      EditSubAction aEditSubAction, nsIEditor::EDirection aDirection);
+  MOZ_CAN_RUN_SCRIPT virtual void OnStartToHandleTopLevelEditSubAction(
+      EditSubAction aTopLevelEditSubAction,
+      nsIEditor::EDirection aDirectionOfTopLevelEditSubAction,
+      ErrorResult& aRv);
 
   /**
    * OnEndHandlingTopLevelEditSubAction() is called after
    * SetTopLevelEditSubAction() is handled.
    */
-  virtual void OnEndHandlingTopLevelEditSubAction();
+  MOZ_CAN_RUN_SCRIPT virtual nsresult OnEndHandlingTopLevelEditSubAction();
+
+  /**
+   * OnStartToHandleEditSubAction() and OnEndHandlingEditSubAction() are called
+   * when starting to handle an edit sub action and ending handling an edit
+   * sub action.
+   */
+  void OnStartToHandleEditSubAction() { EditSubActionDataRef().Clear(); }
+  void OnEndHandlingEditSubAction() { EditSubActionDataRef().Clear(); }
 
   /**
    * Routines for managing the preservation of selection across
@@ -1731,13 +2051,14 @@ class EditorBase : public nsIEditor,
    * can later merge, if needed.  Merging is unavailable between transaction
    * manager batches.
    */
-  MOZ_CAN_RUN_SCRIPT_BOUNDARY
-  void BeginPlaceholderTransaction(nsAtom* aTransactionName);
-  MOZ_CAN_RUN_SCRIPT_BOUNDARY
-  void EndPlaceholderTransaction();
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY void BeginPlaceholderTransaction(
+      nsStaticAtom& aTransactionName);
+  enum class ScrollSelectionIntoView { No, Yes };
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY void EndPlaceholderTransaction(
+      ScrollSelectionIntoView aScrollSelectionIntoView);
 
   void BeginUpdateViewBatch();
-  void EndUpdateViewBatch();
+  MOZ_CAN_RUN_SCRIPT void EndUpdateViewBatch();
 
   /**
    * Used by AutoTransactionBatch.  After calling BeginTransactionInternal(),
@@ -1746,8 +2067,8 @@ class EditorBase : public nsIEditor,
    * XXX What's the difference with PlaceholderTransaction? Should we always
    *     use it instead?
    */
-  void BeginTransactionInternal();
-  void EndTransactionInternal();
+  MOZ_CAN_RUN_SCRIPT void BeginTransactionInternal();
+  MOZ_CAN_RUN_SCRIPT void EndTransactionInternal();
 
  protected:  // Shouldn't be used by friend classes
   /**
@@ -1755,6 +2076,42 @@ class EditorBase : public nsIEditor,
    * for someone to derive from the EditorBase later? I don't believe so.
    */
   virtual ~EditorBase();
+
+  MOZ_ALWAYS_INLINE EditorType GetEditorType() const {
+    return mIsHTMLEditorClass ? EditorType::HTML : EditorType::Text;
+  }
+
+  int32_t WrapWidth() const { return mWrapColumn; }
+
+  /**
+   * ToGenericNSResult() computes proper nsresult value for the editor users.
+   * This should be used only when public methods return result of internal
+   * methods.
+   */
+  static inline nsresult ToGenericNSResult(nsresult aRv) {
+    switch (aRv) {
+      // If the editor is destroyed while handling an edit action, editor needs
+      // to stop handling it.  However, editor throw exception in this case
+      // because Chrome does not throw exception even in this case.
+      case NS_ERROR_EDITOR_DESTROYED:
+        return NS_OK;
+      // If editor meets unexpected DOM tree due to modified by mutation event
+      // listener, editor needs to stop handling it.  However, editor shouldn't
+      // return error for the users because Chrome does not throw exception in
+      // this case.
+      case NS_ERROR_EDITOR_UNEXPECTED_DOM_TREE:
+        return NS_OK;
+      // If the editing action is canceled by event listeners, editor needs
+      // to stop handling it.  However, editor shouldn't return error for
+      // the callers but they should be able to distinguish whether it's
+      // canceled or not.  Although it's DOM specific code, let's return
+      // DOM_SUCCESS_DOM_NO_OPERATION here.
+      case NS_ERROR_EDITOR_ACTION_CANCELED:
+        return NS_SUCCESS_DOM_NO_OPERATION;
+      default:
+        return aRv;
+    }
+  }
 
   /**
    * GetDocumentCharsetInternal() returns charset of the document.
@@ -1766,28 +2123,31 @@ class EditorBase : public nsIEditor,
    * because SelectAll() creates AutoEditActionSetter but we should avoid
    * to create it as far as possible.
    */
-  virtual nsresult SelectAllInternal();
+  MOZ_CAN_RUN_SCRIPT virtual nsresult SelectAllInternal();
 
   nsresult DetermineCurrentDirection();
 
-  MOZ_CAN_RUN_SCRIPT
-  void FireInputEvent();
+  /**
+   * DispatchInputEvent() dispatches an "input" event synchronously or
+   * asynchronously if it's not safe to dispatch.
+   */
+  MOZ_CAN_RUN_SCRIPT void DispatchInputEvent();
 
   /**
    * Called after a transaction is done successfully.
    */
-  void DoAfterDoTransaction(nsITransaction* aTxn);
+  MOZ_CAN_RUN_SCRIPT void DoAfterDoTransaction(nsITransaction* aTransaction);
 
   /**
    * Called after a transaction is undone successfully.
    */
 
-  void DoAfterUndoTransaction();
+  MOZ_CAN_RUN_SCRIPT void DoAfterUndoTransaction();
 
   /**
    * Called after a transaction is redone successfully.
    */
-  void DoAfterRedoTransaction();
+  MOZ_CAN_RUN_SCRIPT void DoAfterRedoTransaction();
 
   /**
    * Tell the doc state listeners that the doc state has changed.
@@ -1797,35 +2157,33 @@ class EditorBase : public nsIEditor,
     eDocumentToBeDestroyed,
     eDocumentStateChanged
   };
-  nsresult NotifyDocumentListeners(
-      TDocumentListenerNotification aNotificationType);
+  MOZ_CAN_RUN_SCRIPT nsresult
+  NotifyDocumentListeners(TDocumentListenerNotification aNotificationType);
 
   /**
    * Make the given selection span the entire document.
    */
-  virtual nsresult SelectEntireDocument();
+  MOZ_CAN_RUN_SCRIPT virtual nsresult SelectEntireDocument() = 0;
 
   /**
    * Helper method for scrolling the selection into view after
-   * an edit operation. aScrollToAnchor should be true if you
-   * want to scroll to the point where the selection was started.
-   * If false, it attempts to scroll the end of the selection into view.
+   * an edit operation.
    *
    * Editor methods *should* call this method instead of the versions
-   * in the various selection interfaces, since this version makes sure
-   * that the editor's sync/async settings for reflowing, painting, and
-   * scrolling match.
+   * in the various selection interfaces, since this makes sure that
+   * the editor's sync/async settings for reflowing, painting, and scrolling
+   * match.
    */
-  nsresult ScrollSelectionIntoView(bool aScrollToAnchor);
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult ScrollSelectionFocusIntoView();
 
   /**
    * Helper for GetPreviousNodeInternal() and GetNextNodeInternal().
    */
-  nsIContent* FindNextLeafNode(nsINode* aCurrentNode, bool aGoForward,
-                               bool bNoBlockCrossing);
-  nsIContent* FindNode(nsINode* aCurrentNode, bool aGoForward,
+  nsIContent* FindNextLeafNode(const nsINode* aCurrentNode, bool aGoForward,
+                               bool bNoBlockCrossing) const;
+  nsIContent* FindNode(const nsINode* aCurrentNode, bool aGoForward,
                        bool aEditableNode, bool aFindAnyDataNode,
-                       bool bNoBlockCrossing);
+                       bool bNoBlockCrossing) const;
 
   /**
    * Get the node immediately previous node of aNode.
@@ -1840,9 +2198,10 @@ class EditorBase : public nsIEditor,
    *                             aFindEditableNode is true.  If there is no
    *                             previous node, returns nullptr.
    */
-  nsIContent* GetPreviousNodeInternal(nsINode& aNode, bool aFindEditableNode,
+  nsIContent* GetPreviousNodeInternal(const nsINode& aNode,
+                                      bool aFindEditableNode,
                                       bool aFindAnyDataNode,
-                                      bool aNoBlockCrossing);
+                                      bool aNoBlockCrossing) const;
 
   /**
    * And another version that takes a point in DOM tree rather than a node.
@@ -1850,7 +2209,7 @@ class EditorBase : public nsIEditor,
   nsIContent* GetPreviousNodeInternal(const EditorRawDOMPoint& aPoint,
                                       bool aFindEditableNode,
                                       bool aFindAnyDataNode,
-                                      bool aNoBlockCrossing);
+                                      bool aNoBlockCrossing) const;
 
   /**
    * Get the node immediately next node of aNode.
@@ -1865,15 +2224,16 @@ class EditorBase : public nsIEditor,
    *                             aFindEditableNode is true.  If there is no
    *                             next node, returns nullptr.
    */
-  nsIContent* GetNextNodeInternal(nsINode& aNode, bool aFindEditableNode,
-                                  bool aFindAnyDataNode, bool bNoBlockCrossing);
+  nsIContent* GetNextNodeInternal(const nsINode& aNode, bool aFindEditableNode,
+                                  bool aFindAnyDataNode,
+                                  bool aNoBlockCrossing) const;
 
   /**
    * And another version that takes a point in DOM tree rather than a node.
    */
   nsIContent* GetNextNodeInternal(const EditorRawDOMPoint& aPoint,
                                   bool aFindEditableNode, bool aFindAnyDataNode,
-                                  bool aNoBlockCrossing);
+                                  bool aNoBlockCrossing) const;
 
   virtual nsresult InstallEventListeners();
   virtual void CreateEventListeners();
@@ -1882,7 +2242,7 @@ class EditorBase : public nsIEditor,
   /**
    * Get the input event target. This might return null.
    */
-  virtual already_AddRefed<Element> GetInputEventTargetElement() = 0;
+  virtual already_AddRefed<Element> GetInputEventTargetElement() const = 0;
 
   /**
    * Return true if spellchecking should be enabled for this editor.
@@ -1893,8 +2253,7 @@ class EditorBase : public nsIEditor,
     // Check for password/readonly/disabled, which are not spellchecked
     // regardless of DOM. Also, check to see if spell check should be skipped
     // or not.
-    return !IsPasswordEditor() && !IsReadonly() && !IsDisabled() &&
-           !ShouldSkipSpellCheck();
+    return !IsPasswordEditor() && !IsReadonly() && !ShouldSkipSpellCheck();
   }
 
   /**
@@ -1906,22 +2265,15 @@ class EditorBase : public nsIEditor,
    *                            has parent node.  So, it's always safe to
    *                            call SetAncestorLimit() with this node.
    */
-  virtual void InitializeSelectionAncestorLimit(nsIContent& aAncestorLimit);
-
-  /**
-   * Return the offset of aChild in aParent.  Asserts fatally if parent or
-   * child is null, or parent is not child's parent.
-   * FYI: aChild must not be being removed from aParent.  In such case, these
-   *      methods may return wrong index if aChild doesn't have previous
-   *      sibling or next sibling.
-   */
-  static int32_t GetChildOffset(nsINode* aChild, nsINode* aParent);
+  virtual void InitializeSelectionAncestorLimit(
+      nsIContent& aAncestorLimit) const;
 
   /**
    * Creates a range with just the supplied node and appends that to the
    * selection.
    */
-  nsresult AppendNodeToSelectionAsRange(nsINode* aNode);
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY nsresult
+  AppendNodeToSelectionAsRange(nsINode* aNode);
 
   /**
    * When you are using AppendNodeToSelectionAsRange(), call this first to
@@ -1934,19 +2286,139 @@ class EditorBase : public nsIEditor,
    * a host of the editor, i.e., the editor doesn't get focus, this does
    * nothing.
    */
-  nsresult InitializeSelection(dom::EventTarget* aFocusEventTarget);
+  MOZ_CAN_RUN_SCRIPT nsresult InitializeSelection(nsINode& aFocusEventTarget);
 
   enum NotificationForEditorObservers {
     eNotifyEditorObserversOfEnd,
     eNotifyEditorObserversOfBefore,
     eNotifyEditorObserversOfCancel
   };
-  MOZ_CAN_RUN_SCRIPT
-  void NotifyEditorObservers(NotificationForEditorObservers aNotification);
+  MOZ_CAN_RUN_SCRIPT void NotifyEditorObservers(
+      NotificationForEditorObservers aNotification);
+
+  /**
+   * InsertLineBreakAsSubAction() inserts a line break, i.e., \n if it's
+   * TextEditor or <br> if it's HTMLEditor.
+   */
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult InsertLineBreakAsSubAction();
+
+  /**
+   * HowToHandleCollapsedRange indicates how collapsed range should be treated.
+   */
+  enum class HowToHandleCollapsedRange {
+    // Ignore collapsed range.
+    Ignore,
+    // Extend collapsed range for removing previous content.
+    ExtendBackward,
+    // Extend collapsed range for removing next content.
+    ExtendForward,
+  };
+
+  static HowToHandleCollapsedRange HowToHandleCollapsedRangeFor(
+      nsIEditor::EDirection aDirectionAndAmount) {
+    switch (aDirectionAndAmount) {
+      case nsIEditor::eNone:
+        return HowToHandleCollapsedRange::Ignore;
+      case nsIEditor::ePrevious:
+        return HowToHandleCollapsedRange::ExtendBackward;
+      case nsIEditor::eNext:
+        return HowToHandleCollapsedRange::ExtendForward;
+      case nsIEditor::ePreviousWord:
+      case nsIEditor::eNextWord:
+      case nsIEditor::eToBeginningOfLine:
+      case nsIEditor::eToEndOfLine:
+        // If the amount is word or
+        // line,`AutoRangeArray::ExtendAnchorFocusRangeFor()` must have already
+        // been extended collapsed ranges before.
+        return HowToHandleCollapsedRange::Ignore;
+    }
+    MOZ_ASSERT_UNREACHABLE("Invalid nsIEditor::EDirection value");
+    return HowToHandleCollapsedRange::Ignore;
+  }
+
+  /**
+   * DeleteSelectionWithTransaction() removes selected content or content
+   * around caret with transactions and remove empty inclusive ancestor
+   * inline elements of collapsed selection after removing the contents.
+   *
+   * @param aDirectionAndAmount How much range should be removed.
+   * @param aStripWrappers      Whether the parent blocks should be removed
+   *                            when they become empty.
+   *                            Note that this must be `nsIEditor::eNoStrip`
+   *                            if this is a TextEditor because anyway it'll
+   *                            be ignored.
+   */
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult
+  DeleteSelectionWithTransaction(nsIEditor::EDirection aDirectionAndAmount,
+                                 nsIEditor::EStripWrappers aStripWrappers);
+
+  /**
+   * DeleteRangesWithTransaction() removes content in aRangesToDelete or content
+   * around collapsed ranges in aRangesToDelete with transactions and remove
+   * empty inclusive ancestor inline elements of collapsed ranges after
+   * removing the contents.
+   *
+   * @param aDirectionAndAmount How much range should be removed.
+   * @param aStripWrappers      Whether the parent blocks should be removed
+   *                            when they become empty.
+   *                            Note that this must be `nsIEditor::eNoStrip`
+   *                            if this is a TextEditor because anyway it'll
+   *                            be ignored.
+   * @param aRangesToDelete     The ranges to delete content.
+   */
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT nsresult
+  DeleteRangesWithTransaction(nsIEditor::EDirection aDirectionAndAmount,
+                              nsIEditor::EStripWrappers aStripWrappers,
+                              const AutoRangeArray& aRangesToDelete);
+
+  /**
+   * Create an aggregate transaction for delete the content in aRangesToDelete.
+   * The result may include DeleteNodeTransactions and/or DeleteTextTransactions
+   * as its children.
+   *
+   * @param aHowToHandleCollapsedRange
+   *                            How to handle collapsed ranges.
+   * @param aRangesToDelete     The ranges to delete content.
+   * @return                    If it can remove the content in ranges, returns
+   *                            an aggregate transaction which has some
+   *                            DeleteNodeTransactions and/or
+   *                            DeleteTextTransactions as its children.
+   */
+  already_AddRefed<EditAggregateTransaction>
+  CreateTransactionForDeleteSelection(
+      HowToHandleCollapsedRange aHowToHandleCollapsedRange,
+      const AutoRangeArray& aRangesToDelete);
+
+  /**
+   * Create a transaction for removing the nodes and/or text around
+   * aRangeToDelete.
+   *
+   * @param aCollapsedRange     The range to be removed.  This must be
+   *                            collapsed.
+   * @param aHowToHandleCollapsedRange
+   *                            How to handle aCollapsedRange.  Must
+   *                            be HowToHandleCollapsedRange::ExtendBackward or
+   *                            HowToHandleCollapsedRange::ExtendForward.
+   * @return                    The transaction to remove content around the
+   *                            range.  Its type is DeleteNodeTransaction or
+   *                            DeleteTextTransaction.
+   */
+  already_AddRefed<EditTransactionBase> CreateTransactionForCollapsedRange(
+      const nsRange& aCollapsedRange,
+      HowToHandleCollapsedRange aHowToHandleCollapsedRange);
+
+  /**
+   * ComputeInsertedRange() returns actual range modified by inserting string
+   * in a text node.  If mutation event listener changed the text data, this
+   * returns a range which covers all over the text data.
+   */
+  Tuple<EditorDOMPointInText, EditorDOMPointInText> ComputeInsertedRange(
+      const EditorDOMPointInText& aInsertedPoint,
+      const nsAString& aInsertedString) const;
 
  private:
   nsCOMPtr<nsISelectionController> mSelectionController;
-  nsCOMPtr<nsIDocument> mDocument;
+  RefPtr<Document> mDocument;
 
   AutoEditActionDataSetter* mEditActionData;
 
@@ -1960,49 +2432,56 @@ class EditorBase : public nsIEditor,
  protected:  // helper classes which may be used by friends
   /**
    * Stack based helper class for calling EditorBase::EndTransactionInternal().
+   * NOTE:  This does not suppress multiple input events.  In most cases,
+   *        only one "input" event should be fired for an edit action rather
+   *        than per edit sub-action.  In such case, you should use
+   *        AutoPlaceholderBatch instead.
    */
   class MOZ_RAII AutoTransactionBatch final {
    public:
-    explicit AutoTransactionBatch(
-        EditorBase& aEditorBase MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
+    MOZ_CAN_RUN_SCRIPT explicit AutoTransactionBatch(EditorBase& aEditorBase)
         : mEditorBase(aEditorBase) {
-      MOZ_GUARD_OBJECT_NOTIFIER_INIT;
-      mEditorBase->BeginTransactionInternal();
+      MOZ_KnownLive(mEditorBase).BeginTransactionInternal();
     }
 
-    ~AutoTransactionBatch() { mEditorBase->EndTransactionInternal(); }
+    MOZ_CAN_RUN_SCRIPT ~AutoTransactionBatch() {
+      MOZ_KnownLive(mEditorBase).EndTransactionInternal();
+    }
 
    protected:
-    OwningNonNull<EditorBase> mEditorBase;
-    MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
+    EditorBase& mEditorBase;
   };
 
   /**
    * Stack based helper class for batching a collection of transactions inside
-   * a placeholder transaction.
+   * a placeholder transaction.  Different from AutoTransactionBatch, this
+   * notifies editor observers of before/end edit action handling, and
+   * dispatches "input" event if it's necessary.
    */
   class MOZ_RAII AutoPlaceholderBatch final {
    public:
-    explicit AutoPlaceholderBatch(
-        EditorBase& aEditorBase MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
-        : mEditorBase(aEditorBase) {
-      MOZ_GUARD_OBJECT_NOTIFIER_INIT;
-      mEditorBase->BeginPlaceholderTransaction(nullptr);
+    AutoPlaceholderBatch(EditorBase& aEditorBase,
+                         ScrollSelectionIntoView aScrollSelectionIntoView)
+        : mEditorBase(aEditorBase),
+          mScrollSelectionIntoView(aScrollSelectionIntoView) {
+      mEditorBase->BeginPlaceholderTransaction(*nsGkAtoms::_empty);
     }
 
     AutoPlaceholderBatch(EditorBase& aEditorBase,
-                         nsAtom& aTransactionName
-                             MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
-        : mEditorBase(aEditorBase) {
-      MOZ_GUARD_OBJECT_NOTIFIER_INIT;
-      mEditorBase->BeginPlaceholderTransaction(&aTransactionName);
+                         nsStaticAtom& aTransactionName,
+                         ScrollSelectionIntoView aScrollSelectionIntoView)
+        : mEditorBase(aEditorBase),
+          mScrollSelectionIntoView(aScrollSelectionIntoView) {
+      mEditorBase->BeginPlaceholderTransaction(aTransactionName);
     }
 
-    ~AutoPlaceholderBatch() { mEditorBase->EndPlaceholderTransaction(); }
+    ~AutoPlaceholderBatch() {
+      mEditorBase->EndPlaceholderTransaction(mScrollSelectionIntoView);
+    }
 
    protected:
     OwningNonNull<EditorBase> mEditorBase;
-    MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
+    ScrollSelectionIntoView mScrollSelectionIntoView;
   };
 
   /**
@@ -2015,8 +2494,7 @@ class EditorBase : public nsIEditor,
      * Constructor responsible for remembering all state needed to restore
      * aSelection.
      */
-    explicit AutoSelectionRestorer(
-        EditorBase& aEditorBase MOZ_GUARD_OBJECT_NOTIFIER_PARAM);
+    explicit AutoSelectionRestorer(EditorBase& aEditorBase);
 
     /**
      * Destructor restores mSelection to its former state
@@ -2030,42 +2508,42 @@ class EditorBase : public nsIEditor,
 
    protected:
     EditorBase* mEditorBase;
-    MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
   };
 
   /**
-   * AutoTopLevelEditSubActionNotifier notifies editor of start to handle
+   * AutoEditSubActionNotifier notifies editor of start to handle
    * top level edit sub-action and end handling top level edit sub-action.
    */
-  class MOZ_RAII AutoTopLevelEditSubActionNotifier final {
+  class MOZ_RAII AutoEditSubActionNotifier final {
    public:
-    AutoTopLevelEditSubActionNotifier(
+    MOZ_CAN_RUN_SCRIPT AutoEditSubActionNotifier(
         EditorBase& aEditorBase, EditSubAction aEditSubAction,
-        nsIEditor::EDirection aDirection MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
-        : mEditorBase(aEditorBase), mDoNothing(false) {
-      MOZ_GUARD_OBJECT_NOTIFIER_INIT;
+        nsIEditor::EDirection aDirection, ErrorResult& aRv)
+        : mEditorBase(aEditorBase), mIsTopLevel(true) {
       // The top level edit sub action has already be set if this is nested call
       // XXX Looks like that this is not aware of unexpected nested edit action
       //     handling via selectionchange event listener or mutation event
       //     listener.
       if (!mEditorBase.GetTopLevelEditSubAction()) {
-        mEditorBase.OnStartToHandleTopLevelEditSubAction(aEditSubAction,
-                                                         aDirection);
+        MOZ_KnownLive(mEditorBase)
+            .OnStartToHandleTopLevelEditSubAction(aEditSubAction, aDirection,
+                                                  aRv);
       } else {
-        mDoNothing = true;  // nested calls will end up here
+        mIsTopLevel = false;
       }
+      mEditorBase.OnStartToHandleEditSubAction();
     }
 
-    ~AutoTopLevelEditSubActionNotifier() {
-      if (!mDoNothing) {
-        mEditorBase.OnEndHandlingTopLevelEditSubAction();
+    MOZ_CAN_RUN_SCRIPT ~AutoEditSubActionNotifier() {
+      mEditorBase.OnEndHandlingEditSubAction();
+      if (mIsTopLevel) {
+        MOZ_KnownLive(mEditorBase).OnEndHandlingTopLevelEditSubAction();
       }
     }
 
    protected:
     EditorBase& mEditorBase;
-    bool mDoNothing;
-    MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
+    bool mIsTopLevel;
   };
 
   /**
@@ -2074,12 +2552,10 @@ class EditorBase : public nsIEditor,
    */
   class MOZ_RAII AutoTransactionsConserveSelection final {
    public:
-    explicit AutoTransactionsConserveSelection(
-        EditorBase& aEditorBase MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
+    explicit AutoTransactionsConserveSelection(EditorBase& aEditorBase)
         : mEditorBase(aEditorBase),
           mAllowedTransactionsToChangeSelection(
               aEditorBase.AllowsTransactionsToChangeSelection()) {
-      MOZ_GUARD_OBJECT_NOTIFIER_INIT;
       mEditorBase.MakeThisAllowTransactionsToChangeSelection(false);
     }
 
@@ -2091,7 +2567,6 @@ class EditorBase : public nsIEditor,
    protected:
     EditorBase& mEditorBase;
     bool mAllowedTransactionsToChangeSelection;
-    MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
   };
 
   /***************************************************************************
@@ -2099,25 +2574,24 @@ class EditorBase : public nsIEditor,
    */
   class MOZ_RAII AutoUpdateViewBatch final {
    public:
-    explicit AutoUpdateViewBatch(
-        EditorBase& aEditorBase MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
+    MOZ_CAN_RUN_SCRIPT explicit AutoUpdateViewBatch(EditorBase& aEditorBase)
         : mEditorBase(aEditorBase) {
-      MOZ_GUARD_OBJECT_NOTIFIER_INIT;
       mEditorBase.BeginUpdateViewBatch();
     }
 
-    ~AutoUpdateViewBatch() { mEditorBase.EndUpdateViewBatch(); }
+    MOZ_CAN_RUN_SCRIPT ~AutoUpdateViewBatch() {
+      MOZ_KnownLive(mEditorBase).EndUpdateViewBatch();
+    }
 
    protected:
     EditorBase& mEditorBase;
-    MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
   };
 
  protected:
   enum Tristate { eTriUnset, eTriFalse, eTriTrue };
 
   // MIME type of the doc we are editing.
-  nsCString mContentMIMEType;
+  nsString mContentMIMEType;
 
   RefPtr<mozInlineSpellChecker> mInlineSpellChecker;
   // Reference to text services document for mInlineSpellChecker.
@@ -2126,20 +2600,23 @@ class EditorBase : public nsIEditor,
   RefPtr<TransactionManager> mTransactionManager;
   // Cached root node.
   RefPtr<Element> mRootElement;
+
+  // mPaddingBRElementForEmptyEditor should be used for placing caret
+  // at proper position when editor is empty.
+  RefPtr<dom::HTMLBRElement> mPaddingBRElementForEmptyEditor;
+
   // The form field as an event receiver.
   nsCOMPtr<dom::EventTarget> mEventTarget;
   RefPtr<EditorEventListener> mEventListener;
   // Strong reference to placeholder for begin/end batch purposes.
   RefPtr<PlaceholderTransaction> mPlaceholderTransaction;
   // Name of placeholder transaction.
-  nsAtom* mPlaceholderName;
+  nsStaticAtom* mPlaceholderName;
   // Saved selection state for placeholder transaction batching.
   mozilla::Maybe<SelectionState> mSelState;
   // IME composition this is not null between compositionstart and
   // compositionend.
   RefPtr<TextComposition> mComposition;
-
-  RefPtr<TextEditRules> mRules;
 
   RefPtr<TextInputListener> mTextInputListener;
 
@@ -2158,16 +2635,15 @@ class EditorBase : public nsIEditor,
       AutoEditorObserverArray;
   AutoEditorObserverArray mEditorObservers;
   // Listen to overall doc state (dirty or not, just created, etc.).
-  // Document state listener is currently used by EditingSession and
-  // BlueGriffon so that reserving only one is enough (although, this is not
-  // necessary for TextEditor).
+  // Document state listener is currently used by FinderHighlighter and
+  // BlueGriffon so that reserving only one is enough.
   typedef AutoTArray<OwningNonNull<nsIDocumentStateListener>, 1>
       AutoDocumentStateListenerArray;
   AutoDocumentStateListenerArray mDocStateListeners;
 
   // Number of modifications (for undo/redo stack).
   uint32_t mModCount;
-  // Behavior flags. See nsIPlaintextEditor.idl for the flags we use.
+  // Behavior flags. See nsIEditor.idl for the flags we use.
   uint32_t mFlags;
 
   int32_t mUpdateCount;
@@ -2175,11 +2651,17 @@ class EditorBase : public nsIEditor,
   // Nesting count for batching.
   int32_t mPlaceholderBatch;
 
+  int32_t mWrapColumn;
+  int32_t mNewlineHandling;
+  int32_t mCaretStyle;
+
   // -1 = not initialized
   int8_t mDocDirtyState;
   // A Tristate value.
   uint8_t mSpellcheckCheckboxState;
 
+  // If true, initialization was succeeded.
+  bool mInitSucceeded;
   // If false, transactions should not change Selection even after modifying
   // the DOM tree.
   bool mAllowsTransactionsToChangeSelection;
@@ -2197,21 +2679,26 @@ class EditorBase : public nsIEditor,
   // Whether we are an HTML editor class.
   bool mIsHTMLEditorClass;
 
+  friend class AlignStateAtSelection;
+  friend class AutoRangeArray;
   friend class CompositionTransaction;
   friend class CreateElementTransaction;
   friend class CSSEditUtils;
   friend class DeleteNodeTransaction;
   friend class DeleteRangeTransaction;
   friend class DeleteTextTransaction;
-  friend class HTMLEditRules;
   friend class HTMLEditUtils;
   friend class InsertNodeTransaction;
   friend class InsertTextTransaction;
   friend class JoinNodeTransaction;
+  friend class ListElementSelectionState;
+  friend class ListItemElementSelectionState;
+  friend class ParagraphStateAtSelection;
+  friend class ReplaceTextTransaction;
   friend class SplitNodeTransaction;
-  friend class TextEditRules;
   friend class TypeInState;
-  friend class WSRunObject;
+  friend class WhiteSpaceVisibilityKeeper;
+  friend class WSRunScanner;
   friend class nsIEditor;
 };
 

@@ -1,4 +1,4 @@
-/* Copyright 2017 Mozilla Foundation
+/* Copyright 2018 Mozilla Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,114 +13,185 @@
  * limitations under the License.
  */
 
-use std::boxed::Box;
-use std::cmp::min;
-use std::collections::HashSet;
-use std::result;
-use std::str;
-use std::vec::Vec;
+use crate::limits::*;
+use crate::ResizableLimits64;
+use crate::WasmModuleResources;
+use crate::{Alias, AliasedInstance, ExternalKind, Import, ImportSectionEntryType};
+use crate::{BinaryReaderError, GlobalType, MemoryType, Range, Result, TableType, Type};
+use crate::{DataKind, ElementItem, ElementKind, InitExpr, Instance, Operator};
+use crate::{Export, ExportType, FunctionBody, Parser, Payload};
+use crate::{FuncType, ResizableLimits, SectionReader, SectionWithLimitedItems};
+use std::collections::{HashMap, HashSet};
+use std::mem;
+use std::sync::Arc;
 
-use limits::{
-    MAX_WASM_FUNCTIONS, MAX_WASM_GLOBALS, MAX_WASM_MEMORIES, MAX_WASM_MEMORY_PAGES,
-    MAX_WASM_TABLES, MAX_WASM_TYPES,
-};
-
-use binary_reader::BinaryReader;
-
-use primitives::{
-    BinaryReaderError, ExternalKind, FuncType, GlobalType, ImportSectionEntryType, MemoryImmediate,
-    MemoryType, Operator, ResizableLimits, Result, SectionCode, TableType, Type,
-};
-
-use parser::{Parser, ParserInput, ParserState, WasmDecoder};
-
-type ValidatorResult<'a, T> = result::Result<T, ParserState<'a>>;
-
-/// Test if `subtype` is a subtype of `supertype`.
-fn is_subtype_supertype(subtype: Type, supertype: Type) -> bool {
-    match supertype {
-        Type::AnyRef => subtype == Type::AnyRef || subtype == Type::AnyFunc,
-        _ => subtype == supertype,
-    }
+/// Test whether the given buffer contains a valid WebAssembly module,
+/// analogous to [`WebAssembly.validate`][js] in the JS API.
+///
+/// This functions requires the wasm module is entirely resident in memory and
+/// is specified by `bytes`. Additionally this validates the given bytes with
+/// the default set of WebAssembly features implemented by `wasmparser`.
+///
+/// For more fine-tuned control over validation it's recommended to review the
+/// documentation of [`Validator`].
+///
+/// [js]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/WebAssembly/validate
+pub fn validate(bytes: &[u8]) -> Result<()> {
+    Validator::new().validate_all(bytes)
 }
 
-struct BlockState {
-    return_types: Vec<Type>,
-    stack_starts_at: usize,
-    jump_to_top: bool,
-    is_else_allowed: bool,
-    is_dead_code: bool,
-    polymorphic_values: Option<usize>,
+#[test]
+fn test_validate() {
+    assert!(validate(&[0x0, 0x61, 0x73, 0x6d, 0x1, 0x0, 0x0, 0x0]).is_ok());
+    assert!(validate(&[0x0, 0x61, 0x73, 0x6d, 0x2, 0x0, 0x0, 0x0]).is_err());
 }
 
-impl BlockState {
-    fn is_stack_polymorphic(&self) -> bool {
-        self.polymorphic_values.is_some()
-    }
+mod func;
+pub use func::FuncValidator;
+
+/// Validator for a WebAssembly binary module.
+///
+/// This structure encapsulates state necessary to validate a WebAssembly
+/// binary. This implements validation as defined by the [core
+/// specification][core]. A `Validator` is designed, like
+/// [`Parser`], to accept incremental input over time.
+/// Additionally a `Validator` is also designed for parallel validation of
+/// functions as they are received.
+///
+/// It's expected that you'll be using a [`Parser`] in tandem with a
+/// `Validator`. As each [`Payload`](crate::Payload) is received from a
+/// [`Parser`] you'll pass it into a `Validator` to test the validity of the
+/// payload. Note that all payloads received from a [`Parser`] are expected to
+/// be passed to a [`Validator`]. For example if you receive
+/// [`Payload::TypeSection`](crate::Payload) you'll call
+/// [`Validator::type_section`] to validate this.
+///
+/// The design of [`Validator`] is intended that you'll interleave, in your own
+/// application's processing, calls to validation. Each variant, after it's
+/// received, will be validated and then your application would proceed as
+/// usual. At all times, however, you'll have access to the [`Validator`] and
+/// the validation context up to that point. This enables applications to check
+/// the types of functions and learn how many globals there are, for example.
+///
+/// [core]: https://webassembly.github.io/spec/core/valid/index.html
+#[derive(Default)]
+pub struct Validator {
+    /// Internal state that is incrementally built-up for the module being
+    /// validate. This houses type information for all wasm items, like
+    /// functions. Note that this starts out as a solely owned `Arc<T>` so we can
+    /// get mutable access, but after we get to the code section this is never
+    /// mutated to we can clone it cheaply and hand it to sub-validators.
+    state: arc::MaybeOwned<ModuleState>,
+
+    /// Enabled WebAssembly feature flags, dictating what's valid and what
+    /// isn't.
+    features: WasmFeatures,
+
+    /// Where we are, order-wise, in the wasm binary.
+    order: Order,
+
+    /// The current byte-level offset in the wasm binary. This is updated to
+    /// produce error messages in `create_error`.
+    offset: usize,
+
+    /// The number of data segments we ended up finding in this module, or 0 if
+    /// they either weren't present or none were found.
+    data_found: u32,
+
+    /// The number of functions we expect to be defined in the code section, or
+    /// basically the length of the function section if it was found. The next
+    /// index is where we are, in the function index space, for the next entry
+    /// in the code section (used to figure out what type is next for the
+    /// function being validated.
+    expected_code_bodies: Option<u32>,
+    code_section_index: usize,
+
+    /// Similar to code bodies above, but for module bodies instead.
+    expected_modules: Option<u32>,
+    module_code_section_index: usize,
+
+    /// If this validator is for a nested module then this keeps track of the
+    /// type of the module that we're matching against. The `expected_type` is
+    /// an entry in our parent's type index space, and the two positional
+    /// indices keep track of where we are in matching against imports/exports.
+    ///
+    /// Note that the exact algorithm for how it's determine that a submodule
+    /// matches its declare type is a bit up for debate. For now we go for 1:1
+    /// "everything must be equal" matching. This is the subject of
+    /// WebAssembly/module-linking#7, though.
+    expected_type: Option<Def<u32>>,
+    expected_import_pos: usize,
+    expected_export_pos: usize,
 }
 
-struct FuncState {
-    local_types: Vec<Type>,
-    blocks: Vec<BlockState>,
-    stack_types: Vec<Type>,
-    end_function: bool,
+#[derive(Default)]
+struct ModuleState {
+    depth: usize,
+    types: Vec<ValidatedType>,
+    tables: Vec<Def<TableType>>,
+    memories: Vec<MemoryType>,
+    globals: Vec<Def<GlobalType>>,
+    element_types: Vec<Type>,
+    data_count: Option<u32>,
+    func_type_indices: Vec<Def<u32>>,
+    module_type_indices: Vec<Def<u32>>,
+    instance_type_indices: Vec<Def<InstanceDef>>,
+    function_references: HashSet<u32>,
+    parent: Option<Arc<ModuleState>>,
 }
 
-impl FuncState {
-    fn block_at(&self, depth: usize) -> &BlockState {
-        assert!(depth < self.blocks.len());
-        &self.blocks[self.blocks.len() - 1 - depth]
-    }
-    fn last_block(&self) -> &BlockState {
-        self.blocks.last().unwrap()
-    }
-    fn assert_stack_type_at(&self, index: usize, expected: Type) -> bool {
-        let stack_starts_at = self.last_block().stack_starts_at;
-        if self.last_block().is_stack_polymorphic()
-            && stack_starts_at + index >= self.stack_types.len()
-        {
-            return true;
+/// Flags for features that are enabled for validation.
+#[derive(Hash, Debug, Copy, Clone)]
+pub struct WasmFeatures {
+    /// The WebAssembly reference types proposal
+    pub reference_types: bool,
+    /// The WebAssembly module linking proposal
+    pub module_linking: bool,
+    /// The WebAssembly SIMD proposal
+    pub simd: bool,
+    /// The WebAssembly multi-value proposal (enabled by default)
+    pub multi_value: bool,
+    /// The WebAssembly threads proposal
+    pub threads: bool,
+    /// The WebAssembly tail-call proposal
+    pub tail_call: bool,
+    /// The WebAssembly bulk memory operations proposal
+    pub bulk_memory: bool,
+    /// Whether or not only deterministic instructions are allowed
+    pub deterministic_only: bool,
+    /// The WebAssembly multi memory proposal
+    pub multi_memory: bool,
+    /// The WebAssembly memory64 proposal
+    pub memory64: bool,
+}
+
+impl Default for WasmFeatures {
+    fn default() -> WasmFeatures {
+        WasmFeatures {
+            // off-by-default features
+            reference_types: false,
+            module_linking: false,
+            simd: false,
+            threads: false,
+            tail_call: false,
+            bulk_memory: false,
+            multi_memory: false,
+            memory64: false,
+            deterministic_only: cfg!(feature = "deterministic"),
+
+            // on-by-default features
+            multi_value: true,
         }
-        assert!(stack_starts_at + index < self.stack_types.len());
-        is_subtype_supertype(
-            self.stack_types[self.stack_types.len() - 1 - index],
-            expected,
-        )
-    }
-    fn assert_block_stack_len(&self, depth: usize, minimal_len: usize) -> bool {
-        assert!(depth < self.blocks.len());
-        let blocks_end = self.blocks.len();
-        let block_offset = blocks_end - 1 - depth;
-        for i in block_offset..blocks_end {
-            if self.blocks[i].is_stack_polymorphic() {
-                return true;
-            }
-        }
-        let block_starts_at = self.blocks[block_offset].stack_starts_at;
-        self.stack_types.len() >= block_starts_at + minimal_len
-    }
-    fn assert_last_block_stack_len_exact(&self, len: usize) -> bool {
-        let block_starts_at = self.last_block().stack_starts_at;
-        if self.last_block().is_stack_polymorphic() {
-            let polymorphic_values = self.last_block().polymorphic_values.unwrap();
-            self.stack_types.len() + polymorphic_values <= block_starts_at + len
-        } else {
-            self.stack_types.len() == block_starts_at + len
-        }
     }
 }
 
-struct InitExpressionState {
-    ty: Type,
-    global_count: usize,
-    validated: bool,
-}
-
-#[derive(Copy, Clone, PartialOrd, Ord, PartialEq, Eq)]
-enum SectionOrderState {
+#[derive(Copy, Clone, PartialOrd, Ord, PartialEq, Eq, Debug)]
+enum Order {
     Initial,
+    AfterHeader,
     Type,
     Import,
+    ModuleLinkingHeader,
     Function,
     Table,
     Memory,
@@ -128,1798 +199,1630 @@ enum SectionOrderState {
     Export,
     Start,
     Element,
+    DataCount,
+    ModuleCode,
     Code,
     Data,
 }
 
-impl SectionOrderState {
-    pub fn from_section_code(code: &SectionCode) -> Option<SectionOrderState> {
-        match *code {
-            SectionCode::Type => Some(SectionOrderState::Type),
-            SectionCode::Import => Some(SectionOrderState::Import),
-            SectionCode::Function => Some(SectionOrderState::Function),
-            SectionCode::Table => Some(SectionOrderState::Table),
-            SectionCode::Memory => Some(SectionOrderState::Memory),
-            SectionCode::Global => Some(SectionOrderState::Global),
-            SectionCode::Export => Some(SectionOrderState::Export),
-            SectionCode::Start => Some(SectionOrderState::Start),
-            SectionCode::Element => Some(SectionOrderState::Element),
-            SectionCode::Code => Some(SectionOrderState::Code),
-            SectionCode::Data => Some(SectionOrderState::Data),
-            _ => None,
-        }
+impl Default for Order {
+    fn default() -> Order {
+        Order::Initial
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq)]
-enum BlockType {
-    Block,
-    Loop,
-    If,
+enum InstanceDef {
+    Imported { type_idx: u32 },
+    Instantiated { module_idx: u32 },
 }
 
-enum OperatorAction {
-    None,
-    ChangeFrame(usize),
-    ChangeFrameWithType(usize, Type),
-    ChangeFrameWithTypes(usize, Box<[Type]>),
-    ChangeFrameToExactTypes(Vec<Type>),
-    ChangeFrameAfterSelect(Option<Type>),
-    PushBlock(Type, BlockType),
-    PopBlock,
-    ResetBlock,
-    DeadCode,
-    EndFunction,
+enum ValidatedType {
+    Def(TypeDef),
+    Alias(Def<u32>),
 }
 
-impl OperatorAction {
-    fn remove_frame_stack_types(
-        func_state: &mut FuncState,
-        remove_count: usize,
-    ) -> OperatorValidatorResult<()> {
-        if remove_count == 0 {
-            return Ok(());
+enum TypeDef {
+    Func(FuncType),
+    Module(ModuleType),
+    Instance(InstanceType),
+}
+
+struct ModuleType {
+    imports: Vec<(String, Option<String>, ImportSectionEntryType)>,
+    exports: Vec<(String, ImportSectionEntryType)>,
+}
+
+struct InstanceType {
+    exports: Vec<(String, ImportSectionEntryType)>,
+}
+
+fn to_import(item: &(String, Option<String>, ImportSectionEntryType)) -> Import<'_> {
+    Import {
+        module: &item.0,
+        field: item.1.as_deref(),
+        ty: item.2,
+    }
+}
+
+fn to_export(item: &(String, ImportSectionEntryType)) -> ExportType<'_> {
+    ExportType {
+        name: &item.0,
+        ty: item.1,
+    }
+}
+
+/// Possible return values from [`Validator::payload`].
+pub enum ValidPayload<'a> {
+    /// The payload validated, no further action need be taken.
+    Ok,
+    /// The payload validated, but it started a nested module.
+    ///
+    /// This result indicates that the current validator needs to be saved until
+    /// later. The returned parser and validator should be used instead.
+    Push(Parser, Validator),
+    /// The payload validated, and the current validator is finished. The last
+    /// validator that was in use should be popped off the stack to resume.
+    Pop,
+    /// A function was found to be validate.
+    Func(FuncValidator<ValidatorResources>, FunctionBody<'a>),
+}
+
+impl Validator {
+    /// Creates a new [`Validator`] ready to validate a WebAssembly module.
+    ///
+    /// The new validator will receive payloads parsed from
+    /// [`Parser`], and expects the first payload received to be
+    /// the version header from the parser.
+    pub fn new() -> Validator {
+        Validator::default()
+    }
+
+    /// Configures the enabled WebAssembly features for this `Validator`.
+    pub fn wasm_features(&mut self, features: WasmFeatures) -> &mut Validator {
+        self.features = features;
+        self
+    }
+
+    /// Validates an entire in-memory module with this validator.
+    ///
+    /// This function will internally create a [`Parser`] to parse the `bytes`
+    /// provided. The entire wasm module specified by `bytes` will be parsed and
+    /// validated. Parse and validation errors will be returned through
+    /// `Err(_)`, and otherwise a successful validation means `Ok(())` is
+    /// returned.
+    pub fn validate_all(self, bytes: &[u8]) -> Result<()> {
+        let mut functions_to_validate = Vec::new();
+        let mut stack = Vec::new();
+        let mut cur = self;
+        for payload in Parser::new(0).parse_all(bytes) {
+            match cur.payload(&payload?)? {
+                ValidPayload::Ok => {}
+                ValidPayload::Pop => cur = stack.pop().unwrap(),
+                ValidPayload::Push(_parser, validator) => {
+                    stack.push(cur);
+                    cur = validator
+                }
+                ValidPayload::Func(validator, ops) => functions_to_validate.push((validator, ops)),
+            }
         }
-        let last_block = func_state.blocks.last_mut().unwrap();
-        if last_block.is_stack_polymorphic() {
-            let len = func_state.stack_types.len();
-            let remove_non_polymorphic = len
-                .checked_sub(last_block.stack_starts_at)
-                .ok_or("invalid block signature")?
-                .min(remove_count);
-            func_state
-                .stack_types
-                .truncate(len - remove_non_polymorphic);
-            let polymorphic_values = last_block.polymorphic_values.unwrap();
-            let remove_polymorphic = min(remove_count - remove_non_polymorphic, polymorphic_values);
-            last_block.polymorphic_values = Some(polymorphic_values - remove_polymorphic);
-        } else {
-            assert!(func_state.stack_types.len() >= last_block.stack_starts_at + remove_count);
-            let keep = func_state.stack_types.len() - remove_count;
-            func_state.stack_types.truncate(keep);
+
+        for (mut validator, body) in functions_to_validate {
+            validator.validate(&body)?;
         }
         Ok(())
     }
-    fn update(&self, func_state: &mut FuncState) -> OperatorValidatorResult<()> {
-        match *self {
-            OperatorAction::None => (),
-            OperatorAction::PushBlock(ty, block_type) => {
-                let return_types = match ty {
-                    Type::EmptyBlockType => Vec::with_capacity(0),
-                    _ => vec![ty],
-                };
-                if block_type == BlockType::If {
-                    func_state.stack_types.pop();
-                }
-                let stack_starts_at = func_state.stack_types.len();
-                func_state.blocks.push(BlockState {
-                    return_types,
-                    stack_starts_at,
-                    jump_to_top: block_type == BlockType::Loop,
-                    is_else_allowed: block_type == BlockType::If,
-                    is_dead_code: false,
-                    polymorphic_values: None,
+
+    /// Convenience function to validate a single [`Payload`].
+    ///
+    /// This function is intended to be used as a convenience. It will
+    /// internally perform any validation necessary to validate the [`Payload`]
+    /// provided. The convenience part is that you're likely already going to
+    /// be matching on [`Payload`] in your application, at which point it's more
+    /// appropriate to call the individual methods on [`Validator`] per-variant
+    /// in [`Payload`], such as [`Validator::type_section`].
+    ///
+    /// This function returns a [`ValidPayload`] variant on success, indicating
+    /// one of a few possible actions that need to be taken after a payload is
+    /// validated. For example function contents are not validated here, they're
+    /// returned through [`ValidPayload`] for validation by the caller.
+    pub fn payload<'a>(&mut self, payload: &Payload<'a>) -> Result<ValidPayload<'a>> {
+        use crate::Payload::*;
+        match payload {
+            Version { num, range } => self.version(*num, range)?,
+            TypeSection(s) => self.type_section(s)?,
+            ImportSection(s) => self.import_section(s)?,
+            AliasSection(s) => self.alias_section(s)?,
+            InstanceSection(s) => self.instance_section(s)?,
+            ModuleSection(s) => self.module_section(s)?,
+            FunctionSection(s) => self.function_section(s)?,
+            TableSection(s) => self.table_section(s)?,
+            MemorySection(s) => self.memory_section(s)?,
+            GlobalSection(s) => self.global_section(s)?,
+            ExportSection(s) => self.export_section(s)?,
+            StartSection { func, range } => self.start_section(*func, range)?,
+            ElementSection(s) => self.element_section(s)?,
+            DataCountSection { count, range } => self.data_count_section(*count, range)?,
+            CodeSectionStart {
+                count,
+                range,
+                size: _,
+            } => self.code_section_start(*count, range)?,
+            CodeSectionEntry(body) => {
+                let func_validator = self.code_section_entry()?;
+                return Ok(ValidPayload::Func(func_validator, body.clone()));
+            }
+            ModuleCodeSectionStart {
+                count,
+                range,
+                size: _,
+            } => self.module_code_section_start(*count, range)?,
+            DataSection(s) => self.data_section(s)?,
+            End => {
+                self.end()?;
+                return Ok(if self.state.depth > 0 {
+                    ValidPayload::Pop
+                } else {
+                    ValidPayload::Ok
                 });
             }
-            OperatorAction::PopBlock => {
-                assert!(func_state.blocks.len() > 1);
-                let last_block = func_state.blocks.pop().unwrap();
-                if last_block.is_stack_polymorphic() {
-                    assert!(
-                        func_state.stack_types.len()
-                            <= last_block.return_types.len() + last_block.stack_starts_at
-                    );
-                } else {
-                    assert!(
-                        func_state.stack_types.len()
-                            == last_block.return_types.len() + last_block.stack_starts_at
-                    );
-                }
-                let keep = last_block.stack_starts_at;
-                func_state.stack_types.truncate(keep);
-                func_state
-                    .stack_types
-                    .extend_from_slice(&last_block.return_types);
-            }
-            OperatorAction::ResetBlock => {
-                assert!(func_state.last_block().is_else_allowed);
-                let last_block = func_state.blocks.last_mut().unwrap();
-                let keep = last_block.stack_starts_at;
-                func_state.stack_types.truncate(keep);
-                last_block.is_else_allowed = false;
-                last_block.polymorphic_values = None;
-            }
-            OperatorAction::ChangeFrame(remove_count) => {
-                OperatorAction::remove_frame_stack_types(func_state, remove_count)?
-            }
-            OperatorAction::ChangeFrameWithType(remove_count, ty) => {
-                OperatorAction::remove_frame_stack_types(func_state, remove_count)?;
-                func_state.stack_types.push(ty);
-            }
-            OperatorAction::ChangeFrameWithTypes(remove_count, ref new_items) => {
-                OperatorAction::remove_frame_stack_types(func_state, remove_count)?;
-                if new_items.is_empty() {
-                    return Ok(());
-                }
-                func_state.stack_types.extend_from_slice(new_items);
-            }
-            OperatorAction::ChangeFrameToExactTypes(ref items) => {
-                let last_block = func_state.blocks.last_mut().unwrap();
-                let keep = last_block.stack_starts_at;
-                func_state.stack_types.truncate(keep);
-                func_state.stack_types.extend_from_slice(items);
-                last_block.polymorphic_values = None;
-            }
-            OperatorAction::ChangeFrameAfterSelect(ty) => {
-                OperatorAction::remove_frame_stack_types(func_state, 3)?;
-                if ty.is_none() {
-                    let last_block = func_state.blocks.last_mut().unwrap();
-                    assert!(last_block.is_stack_polymorphic());
-                    last_block.polymorphic_values =
-                        Some(last_block.polymorphic_values.unwrap() + 1);
-                    return Ok(());
-                }
-                func_state.stack_types.push(ty.unwrap());
-            }
-            OperatorAction::DeadCode => {
-                let last_block = func_state.blocks.last_mut().unwrap();
-                let keep = last_block.stack_starts_at;
-                func_state.stack_types.truncate(keep);
-                last_block.is_dead_code = true;
-                last_block.polymorphic_values = Some(0);
-            }
-            OperatorAction::EndFunction => {
-                func_state.end_function = true;
+
+            CustomSection { .. } => {} // no validation for custom sections
+            UnknownSection { id, range, .. } => self.unknown_section(*id, range)?,
+            ModuleCodeSectionEntry { parser, range: _ } => {
+                let subvalidator = self.module_code_section_entry();
+                return Ok(ValidPayload::Push(parser.clone(), subvalidator));
             }
         }
-        Ok(())
+        Ok(ValidPayload::Ok)
     }
-}
 
-pub trait WasmModuleResources {
-    fn types(&self) -> &[FuncType];
-    fn tables(&self) -> &[TableType];
-    fn memories(&self) -> &[MemoryType];
-    fn globals(&self) -> &[GlobalType];
-    fn func_type_indices(&self) -> &[u32];
-}
+    fn create_error<T>(&self, msg: impl Into<String>) -> Result<T> {
+        Err(BinaryReaderError::new(msg.into(), self.offset))
+    }
 
-type OperatorValidatorResult<T> = result::Result<T, &'static str>;
-
-#[derive(Copy, Clone)]
-pub struct OperatorValidatorConfig {
-    pub enable_threads: bool,
-    pub enable_reference_types: bool,
-}
-
-const DEFAULT_OPERATOR_VALIDATOR_CONFIG: OperatorValidatorConfig = OperatorValidatorConfig {
-    enable_threads: false,
-    enable_reference_types: false,
-};
-
-struct OperatorValidator {
-    func_state: FuncState,
-    config: OperatorValidatorConfig,
-}
-
-impl OperatorValidator {
-    pub fn new(
-        func_type: &FuncType,
-        locals: &[(u32, Type)],
-        config: OperatorValidatorConfig,
-    ) -> OperatorValidator {
-        let mut local_types = Vec::new();
-        local_types.extend_from_slice(&*func_type.params);
-        for local in locals {
-            for _ in 0..local.0 {
-                local_types.push(local.1);
-            }
+    /// Validates [`Payload::Version`](crate::Payload)
+    pub fn version(&mut self, num: u32, range: &Range) -> Result<()> {
+        self.offset = range.start;
+        if self.order != Order::Initial {
+            return self.create_error("wasm version header out of order");
         }
-
-        let mut blocks = Vec::new();
-        let mut last_returns = Vec::new();
-        last_returns.extend_from_slice(&*func_type.returns);
-        blocks.push(BlockState {
-            return_types: last_returns,
-            stack_starts_at: 0,
-            jump_to_top: false,
-            is_else_allowed: false,
-            is_dead_code: false,
-            polymorphic_values: None,
-        });
-
-        OperatorValidator {
-            func_state: FuncState {
-                local_types,
-                blocks,
-                stack_types: Vec::new(),
-                end_function: false,
-            },
-            config,
-        }
-    }
-
-    pub fn is_dead_code(&self) -> bool {
-        self.func_state.last_block().is_dead_code
-    }
-
-    fn check_frame_size(
-        &self,
-        func_state: &FuncState,
-        require_count: usize,
-    ) -> OperatorValidatorResult<()> {
-        if !func_state.assert_block_stack_len(0, require_count) {
-            Err("not enough operands")
-        } else {
-            Ok(())
-        }
-    }
-
-    fn check_operands_1(
-        &self,
-        func_state: &FuncState,
-        operand: Type,
-    ) -> OperatorValidatorResult<()> {
-        self.check_frame_size(func_state, 1)?;
-        if !func_state.assert_stack_type_at(0, operand) {
-            return Err("stack operand type mismatch");
+        self.order = Order::AfterHeader;
+        if num != 1 {
+            return self.create_error("bad wasm file version");
         }
         Ok(())
     }
 
-    fn check_operands_2(
-        &self,
-        func_state: &FuncState,
-        operand1: Type,
-        operand2: Type,
-    ) -> OperatorValidatorResult<()> {
-        self.check_frame_size(func_state, 2)?;
-        if !func_state.assert_stack_type_at(1, operand1) {
-            return Err("stack operand type mismatch");
-        }
-        if !func_state.assert_stack_type_at(0, operand2) {
-            return Err("stack operand type mismatch");
-        }
-        Ok(())
-    }
-
-    fn check_operands(
-        &self,
-        func_state: &FuncState,
-        expected_types: &[Type],
-    ) -> OperatorValidatorResult<()> {
-        let len = expected_types.len();
-        self.check_frame_size(func_state, len)?;
-        for i in 0..len {
-            if !func_state.assert_stack_type_at(len - 1 - i, expected_types[i]) {
-                return Err("stack operand type mismatch");
-            }
-        }
-        Ok(())
-    }
-
-    fn check_block_return_types(
-        &self,
-        func_state: &FuncState,
-        block: &BlockState,
-        reserve_items: usize,
-    ) -> OperatorValidatorResult<()> {
-        let len = block.return_types.len();
-        for i in 0..len {
-            if !func_state.assert_stack_type_at(len - 1 - i + reserve_items, block.return_types[i])
-            {
-                return Err("stack item type does not match block item type");
-            }
-        }
-        Ok(())
-    }
-
-    fn check_block_return(&self, func_state: &FuncState) -> OperatorValidatorResult<()> {
-        let len = func_state.last_block().return_types.len();
-        if !func_state.assert_last_block_stack_len_exact(len) {
-            return Err("stack size does not match block type");
-        }
-        self.check_block_return_types(func_state, func_state.last_block(), 0)
-    }
-
-    fn check_jump_from_block(
-        &self,
-        func_state: &FuncState,
-        relative_depth: u32,
-        reserve_items: usize,
-    ) -> OperatorValidatorResult<()> {
-        if relative_depth as usize >= func_state.blocks.len() {
-            return Err("invalid block depth");
-        }
-        let block = func_state.block_at(relative_depth as usize);
-        if block.jump_to_top {
-            if !func_state.assert_last_block_stack_len_exact(reserve_items) {
-                return Err("stack size does not match target loop type");
-            }
+    fn update_order(&mut self, order: Order) -> Result<()> {
+        let prev = mem::replace(&mut self.order, order);
+        // If the previous section came before this section, then that's always
+        // valid.
+        if prev < order {
             return Ok(());
         }
-
-        let len = block.return_types.len();
-        if !func_state.assert_block_stack_len(0, len + reserve_items) {
-            return Err("stack size does not match target block type");
+        // ... otherwise if this is a repeated section then only the "module
+        // linking header" is allows to have repeats
+        if prev == self.order && self.order == Order::ModuleLinkingHeader {
+            return Ok(());
         }
-        self.check_block_return_types(func_state, block, reserve_items)
+        self.create_error("section out of order")
     }
 
-    fn match_block_return(
-        &self,
-        func_state: &FuncState,
-        depth1: u32,
-        depth2: u32,
-    ) -> OperatorValidatorResult<()> {
-        if depth1 as usize >= func_state.blocks.len() {
-            return Err("invalid block depth");
-        }
-        if depth2 as usize >= func_state.blocks.len() {
-            return Err("invalid block depth");
-        }
-        let block1 = func_state.block_at(depth1 as usize);
-        let block2 = func_state.block_at(depth2 as usize);
-        let return_types1 = &block1.return_types;
-        let return_types2 = &block2.return_types;
-        if block1.jump_to_top || block2.jump_to_top {
-            if block1.jump_to_top {
-                if !block2.jump_to_top && !return_types2.is_empty() {
-                    return Err("block types do not match");
-                }
-            } else if !return_types1.is_empty() {
-                return Err("block types do not match");
-            }
-        } else if *return_types1 != *return_types2 {
-            return Err("block types do not match");
-        }
-        Ok(())
-    }
-
-    fn check_memory_index(
-        &self,
-        memory_index: u32,
-        resources: &WasmModuleResources,
-    ) -> OperatorValidatorResult<()> {
-        if memory_index as usize >= resources.memories().len() {
-            return Err("no liner memories are present");
-        }
-        Ok(())
-    }
-
-    fn check_shared_memory_index(
-        &self,
-        memory_index: u32,
-        resources: &WasmModuleResources,
-    ) -> OperatorValidatorResult<()> {
-        if memory_index as usize >= resources.memories().len() {
-            return Err("no liner memories are present");
-        }
-        if !resources.memories()[memory_index as usize].shared {
-            return Err("atomic accesses require shared memory");
-        }
-        Ok(())
-    }
-
-    fn check_memarg(
-        &self,
-        memarg: &MemoryImmediate,
-        max_align: u32,
-        resources: &WasmModuleResources,
-    ) -> OperatorValidatorResult<()> {
-        self.check_memory_index(0, resources)?;
-        let align = memarg.flags;
-        if align > max_align {
-            return Err("align is required to be at most the number of accessed bytes");
-        }
-        Ok(())
-    }
-
-    fn check_threads_enabled(&self) -> OperatorValidatorResult<()> {
-        if !self.config.enable_threads {
-            return Err("threads support is not enabled");
-        }
-        Ok(())
-    }
-
-    fn check_reference_types_enabled(&self) -> OperatorValidatorResult<()> {
-        if !self.config.enable_reference_types {
-            return Err("reference types support is not enabled");
-        }
-        Ok(())
-    }
-
-    fn check_shared_memarg_wo_align(
-        &self,
-        _: &MemoryImmediate,
-        resources: &WasmModuleResources,
-    ) -> OperatorValidatorResult<()> {
-        self.check_shared_memory_index(0, resources)?;
-        Ok(())
-    }
-
-    fn check_block_type(&self, ty: Type) -> OperatorValidatorResult<()> {
-        match ty {
-            Type::EmptyBlockType | Type::I32 | Type::I64 | Type::F32 | Type::F64 => Ok(()),
-            _ => Err("invalid block return type"),
-        }
-    }
-
-    fn check_select(&self, func_state: &FuncState) -> OperatorValidatorResult<Option<Type>> {
-        self.check_frame_size(func_state, 3)?;
-        let last_block = func_state.last_block();
-        Ok(if last_block.is_stack_polymorphic() {
-            match func_state
-                .stack_types
-                .len()
-                .checked_sub(last_block.stack_starts_at)
-                .ok_or("invalid block signature")?
-            {
-                0 => None,
-                1 => {
-                    self.check_operands_1(func_state, Type::I32)?;
-                    None
-                }
-                2 => {
-                    self.check_operands_1(func_state, Type::I32)?;
-                    Some(func_state.stack_types[func_state.stack_types.len() - 2])
-                }
-                _ => {
-                    let ty = func_state.stack_types[func_state.stack_types.len() - 3];
-                    self.check_operands_2(func_state, ty, Type::I32)?;
-                    Some(ty)
-                }
-            }
+    fn header_order(&mut self, order: Order) -> Order {
+        if self.features.module_linking {
+            Order::ModuleLinkingHeader
         } else {
-            let ty = func_state.stack_types[func_state.stack_types.len() - 3];
-            self.check_operands_2(func_state, ty, Type::I32)?;
-            Some(ty)
-        })
-    }
-
-    fn process_operator(
-        &self,
-        operator: &Operator,
-        resources: &WasmModuleResources,
-    ) -> OperatorValidatorResult<OperatorAction> {
-        let func_state = &self.func_state;
-        if func_state.end_function {
-            return Err("unexpected operator");
-        }
-        Ok(match *operator {
-            Operator::Unreachable => OperatorAction::DeadCode,
-            Operator::Nop => OperatorAction::None,
-            Operator::Block { ty } => {
-                self.check_block_type(ty)?;
-                OperatorAction::PushBlock(ty, BlockType::Block)
-            }
-            Operator::Loop { ty } => {
-                self.check_block_type(ty)?;
-                OperatorAction::PushBlock(ty, BlockType::Loop)
-            }
-            Operator::If { ty } => {
-                self.check_block_type(ty)?;
-                self.check_operands_1(func_state, Type::I32)?;
-                OperatorAction::PushBlock(ty, BlockType::If)
-            }
-            Operator::Else => {
-                if !func_state.last_block().is_else_allowed {
-                    return Err("unexpected else: if block is not started");
-                }
-                self.check_block_return(func_state)?;
-                OperatorAction::ResetBlock
-            }
-            Operator::End => {
-                self.check_block_return(func_state)?;
-                let last_block = &func_state.last_block();
-                if func_state.blocks.len() == 1 {
-                    OperatorAction::EndFunction
-                } else {
-                    if last_block.is_else_allowed && !last_block.return_types.is_empty() {
-                        return Err("else is expected: if block has type");
-                    }
-                    OperatorAction::PopBlock
-                }
-            }
-            Operator::Br { relative_depth } => {
-                self.check_jump_from_block(func_state, relative_depth, 0)?;
-                OperatorAction::DeadCode
-            }
-            Operator::BrIf { relative_depth } => {
-                self.check_operands_1(func_state, Type::I32)?;
-                self.check_jump_from_block(func_state, relative_depth, 1)?;
-                if func_state.last_block().is_stack_polymorphic() {
-                    let block = func_state.block_at(relative_depth as usize);
-                    OperatorAction::ChangeFrameToExactTypes(block.return_types.clone())
-                } else {
-                    OperatorAction::ChangeFrame(1)
-                }
-            }
-            Operator::BrTable { ref table } => {
-                self.check_operands_1(func_state, Type::I32)?;
-                let mut depth0: Option<u32> = None;
-                for relative_depth in table {
-                    if depth0.is_none() {
-                        self.check_jump_from_block(func_state, relative_depth, 1)?;
-                        depth0 = Some(relative_depth);
-                        continue;
-                    }
-                    self.match_block_return(func_state, relative_depth, depth0.unwrap())?;
-                }
-                OperatorAction::DeadCode
-            }
-            Operator::Return => {
-                let depth = (func_state.blocks.len() - 1) as u32;
-                self.check_jump_from_block(func_state, depth, 0)?;
-                OperatorAction::DeadCode
-            }
-            Operator::Call { function_index } => {
-                if function_index as usize >= resources.func_type_indices().len() {
-                    return Err("function index out of bounds");
-                }
-                let type_index = resources.func_type_indices()[function_index as usize];
-                let ty = &resources.types()[type_index as usize];
-                self.check_operands(func_state, &ty.params)?;
-                OperatorAction::ChangeFrameWithTypes(ty.params.len(), ty.returns.clone())
-            }
-            Operator::CallIndirect { index, table_index } => {
-                if table_index as usize >= resources.tables().len() {
-                    return Err("table index out of bounds");
-                }
-                if index as usize >= resources.types().len() {
-                    return Err("type index out of bounds");
-                }
-                let ty = &resources.types()[index as usize];
-                let mut types = Vec::with_capacity(ty.params.len() + 1);
-                types.extend_from_slice(&ty.params);
-                types.push(Type::I32);
-                self.check_operands(func_state, &types)?;
-                OperatorAction::ChangeFrameWithTypes(ty.params.len() + 1, ty.returns.clone())
-            }
-            Operator::Drop => {
-                self.check_frame_size(func_state, 1)?;
-                OperatorAction::ChangeFrame(1)
-            }
-            Operator::Select => {
-                let ty = self.check_select(func_state)?;
-                OperatorAction::ChangeFrameAfterSelect(ty)
-            }
-            Operator::GetLocal { local_index } => {
-                if local_index as usize >= func_state.local_types.len() {
-                    return Err("local index out of bounds");
-                }
-                let local_type = func_state.local_types[local_index as usize];
-                OperatorAction::ChangeFrameWithType(0, local_type)
-            }
-            Operator::SetLocal { local_index } => {
-                if local_index as usize >= func_state.local_types.len() {
-                    return Err("local index out of bounds");
-                }
-                let local_type = func_state.local_types[local_index as usize];
-                self.check_operands_1(func_state, local_type)?;
-                OperatorAction::ChangeFrame(1)
-            }
-            Operator::TeeLocal { local_index } => {
-                if local_index as usize >= func_state.local_types.len() {
-                    return Err("local index out of bounds");
-                }
-                let local_type = func_state.local_types[local_index as usize];
-                self.check_operands_1(func_state, local_type)?;
-                OperatorAction::ChangeFrameWithType(1, local_type)
-            }
-            Operator::GetGlobal { global_index } => {
-                if global_index as usize >= resources.globals().len() {
-                    return Err("global index out of bounds");
-                }
-                let ty = &resources.globals()[global_index as usize];
-                OperatorAction::ChangeFrameWithType(0, ty.content_type)
-            }
-            Operator::SetGlobal { global_index } => {
-                if global_index as usize >= resources.globals().len() {
-                    return Err("global index out of bounds");
-                }
-                let ty = &resources.globals()[global_index as usize];
-                // FIXME
-                //    if !ty.mutable {
-                //        return self.create_error("global expected to be mutable");
-                //    }
-                self.check_operands_1(func_state, ty.content_type)?;
-                OperatorAction::ChangeFrame(1)
-            }
-            Operator::I32Load { ref memarg } => {
-                self.check_memarg(memarg, 2, resources)?;
-                self.check_operands_1(func_state, Type::I32)?;
-                OperatorAction::ChangeFrameWithType(1, Type::I32)
-            }
-            Operator::I64Load { ref memarg } => {
-                self.check_memarg(memarg, 3, resources)?;
-                self.check_operands_1(func_state, Type::I32)?;
-                OperatorAction::ChangeFrameWithType(1, Type::I64)
-            }
-            Operator::F32Load { ref memarg } => {
-                self.check_memarg(memarg, 2, resources)?;
-                self.check_operands_1(func_state, Type::I32)?;
-                OperatorAction::ChangeFrameWithType(1, Type::F32)
-            }
-            Operator::F64Load { ref memarg } => {
-                self.check_memarg(memarg, 3, resources)?;
-                self.check_operands_1(func_state, Type::I32)?;
-                OperatorAction::ChangeFrameWithType(1, Type::F64)
-            }
-            Operator::I32Load8S { ref memarg } => {
-                self.check_memarg(memarg, 0, resources)?;
-                self.check_operands_1(func_state, Type::I32)?;
-                OperatorAction::ChangeFrameWithType(1, Type::I32)
-            }
-            Operator::I32Load8U { ref memarg } => {
-                self.check_memarg(memarg, 0, resources)?;
-                self.check_operands_1(func_state, Type::I32)?;
-                OperatorAction::ChangeFrameWithType(1, Type::I32)
-            }
-            Operator::I32Load16S { ref memarg } => {
-                self.check_memarg(memarg, 1, resources)?;
-                self.check_operands_1(func_state, Type::I32)?;
-                OperatorAction::ChangeFrameWithType(1, Type::I32)
-            }
-            Operator::I32Load16U { ref memarg } => {
-                self.check_memarg(memarg, 1, resources)?;
-                self.check_operands_1(func_state, Type::I32)?;
-                OperatorAction::ChangeFrameWithType(1, Type::I32)
-            }
-            Operator::I64Load8S { ref memarg } => {
-                self.check_memarg(memarg, 0, resources)?;
-                self.check_operands_1(func_state, Type::I32)?;
-                OperatorAction::ChangeFrameWithType(1, Type::I64)
-            }
-            Operator::I64Load8U { ref memarg } => {
-                self.check_memarg(memarg, 0, resources)?;
-                self.check_operands_1(func_state, Type::I32)?;
-                OperatorAction::ChangeFrameWithType(1, Type::I64)
-            }
-            Operator::I64Load16S { ref memarg } => {
-                self.check_memarg(memarg, 1, resources)?;
-                self.check_operands_1(func_state, Type::I32)?;
-                OperatorAction::ChangeFrameWithType(1, Type::I64)
-            }
-            Operator::I64Load16U { ref memarg } => {
-                self.check_memarg(memarg, 1, resources)?;
-                self.check_operands_1(func_state, Type::I32)?;
-                OperatorAction::ChangeFrameWithType(1, Type::I64)
-            }
-            Operator::I64Load32S { ref memarg } => {
-                self.check_memarg(memarg, 2, resources)?;
-                self.check_operands_1(func_state, Type::I32)?;
-                OperatorAction::ChangeFrameWithType(1, Type::I64)
-            }
-            Operator::I64Load32U { ref memarg } => {
-                self.check_memarg(memarg, 2, resources)?;
-                self.check_operands_1(func_state, Type::I32)?;
-                OperatorAction::ChangeFrameWithType(1, Type::I64)
-            }
-            Operator::I32Store { ref memarg } => {
-                self.check_memarg(memarg, 2, resources)?;
-                self.check_operands_2(func_state, Type::I32, Type::I32)?;
-                OperatorAction::ChangeFrame(2)
-            }
-            Operator::I64Store { ref memarg } => {
-                self.check_memarg(memarg, 3, resources)?;
-                self.check_operands_2(func_state, Type::I32, Type::I64)?;
-                OperatorAction::ChangeFrame(2)
-            }
-            Operator::F32Store { ref memarg } => {
-                self.check_memarg(memarg, 2, resources)?;
-                self.check_operands_2(func_state, Type::I32, Type::F32)?;
-                OperatorAction::ChangeFrame(2)
-            }
-            Operator::F64Store { ref memarg } => {
-                self.check_memarg(memarg, 3, resources)?;
-                self.check_operands_2(func_state, Type::I32, Type::F64)?;
-                OperatorAction::ChangeFrame(2)
-            }
-            Operator::I32Store8 { ref memarg } => {
-                self.check_memarg(memarg, 0, resources)?;
-                self.check_operands_2(func_state, Type::I32, Type::I32)?;
-                OperatorAction::ChangeFrame(2)
-            }
-            Operator::I32Store16 { ref memarg } => {
-                self.check_memarg(memarg, 1, resources)?;
-                self.check_operands_2(func_state, Type::I32, Type::I32)?;
-                OperatorAction::ChangeFrame(2)
-            }
-            Operator::I64Store8 { ref memarg } => {
-                self.check_memarg(memarg, 0, resources)?;
-                self.check_operands_2(func_state, Type::I32, Type::I64)?;
-                OperatorAction::ChangeFrame(2)
-            }
-            Operator::I64Store16 { ref memarg } => {
-                self.check_memarg(memarg, 1, resources)?;
-                self.check_operands_2(func_state, Type::I32, Type::I64)?;
-                OperatorAction::ChangeFrame(2)
-            }
-            Operator::I64Store32 { ref memarg } => {
-                self.check_memarg(memarg, 2, resources)?;
-                self.check_operands_2(func_state, Type::I32, Type::I64)?;
-                OperatorAction::ChangeFrame(2)
-            }
-            Operator::MemorySize {
-                reserved: memory_index,
-            } => {
-                self.check_memory_index(memory_index, resources)?;
-                OperatorAction::ChangeFrameWithType(0, Type::I32)
-            }
-            Operator::MemoryGrow {
-                reserved: memory_index,
-            } => {
-                self.check_memory_index(memory_index, resources)?;
-                self.check_operands_1(func_state, Type::I32)?;
-                OperatorAction::ChangeFrameWithType(1, Type::I32)
-            }
-            Operator::I32Const { .. } => OperatorAction::ChangeFrameWithType(0, Type::I32),
-            Operator::I64Const { .. } => OperatorAction::ChangeFrameWithType(0, Type::I64),
-            Operator::F32Const { .. } => OperatorAction::ChangeFrameWithType(0, Type::F32),
-            Operator::F64Const { .. } => OperatorAction::ChangeFrameWithType(0, Type::F64),
-            Operator::I32Eqz => {
-                self.check_operands_1(func_state, Type::I32)?;
-                OperatorAction::ChangeFrameWithType(1, Type::I32)
-            }
-            Operator::I32Eq
-            | Operator::I32Ne
-            | Operator::I32LtS
-            | Operator::I32LtU
-            | Operator::I32GtS
-            | Operator::I32GtU
-            | Operator::I32LeS
-            | Operator::I32LeU
-            | Operator::I32GeS
-            | Operator::I32GeU => {
-                self.check_operands_2(func_state, Type::I32, Type::I32)?;
-                OperatorAction::ChangeFrameWithType(2, Type::I32)
-            }
-            Operator::I64Eqz => {
-                self.check_operands_1(func_state, Type::I64)?;
-                OperatorAction::ChangeFrameWithType(1, Type::I32)
-            }
-            Operator::I64Eq
-            | Operator::I64Ne
-            | Operator::I64LtS
-            | Operator::I64LtU
-            | Operator::I64GtS
-            | Operator::I64GtU
-            | Operator::I64LeS
-            | Operator::I64LeU
-            | Operator::I64GeS
-            | Operator::I64GeU => {
-                self.check_operands_2(func_state, Type::I64, Type::I64)?;
-                OperatorAction::ChangeFrameWithType(2, Type::I32)
-            }
-            Operator::F32Eq
-            | Operator::F32Ne
-            | Operator::F32Lt
-            | Operator::F32Gt
-            | Operator::F32Le
-            | Operator::F32Ge => {
-                self.check_operands_2(func_state, Type::F32, Type::F32)?;
-                OperatorAction::ChangeFrameWithType(2, Type::I32)
-            }
-            Operator::F64Eq
-            | Operator::F64Ne
-            | Operator::F64Lt
-            | Operator::F64Gt
-            | Operator::F64Le
-            | Operator::F64Ge => {
-                self.check_operands_2(func_state, Type::F64, Type::F64)?;
-                OperatorAction::ChangeFrameWithType(2, Type::I32)
-            }
-            Operator::I32Clz | Operator::I32Ctz | Operator::I32Popcnt => {
-                self.check_operands_1(func_state, Type::I32)?;
-                OperatorAction::ChangeFrameWithType(1, Type::I32)
-            }
-            Operator::I32Add
-            | Operator::I32Sub
-            | Operator::I32Mul
-            | Operator::I32DivS
-            | Operator::I32DivU
-            | Operator::I32RemS
-            | Operator::I32RemU
-            | Operator::I32And
-            | Operator::I32Or
-            | Operator::I32Xor
-            | Operator::I32Shl
-            | Operator::I32ShrS
-            | Operator::I32ShrU
-            | Operator::I32Rotl
-            | Operator::I32Rotr => {
-                self.check_operands_2(func_state, Type::I32, Type::I32)?;
-                OperatorAction::ChangeFrameWithType(2, Type::I32)
-            }
-            Operator::I64Clz | Operator::I64Ctz | Operator::I64Popcnt => {
-                self.check_operands_1(func_state, Type::I64)?;
-                OperatorAction::ChangeFrameWithType(1, Type::I64)
-            }
-            Operator::I64Add
-            | Operator::I64Sub
-            | Operator::I64Mul
-            | Operator::I64DivS
-            | Operator::I64DivU
-            | Operator::I64RemS
-            | Operator::I64RemU
-            | Operator::I64And
-            | Operator::I64Or
-            | Operator::I64Xor
-            | Operator::I64Shl
-            | Operator::I64ShrS
-            | Operator::I64ShrU
-            | Operator::I64Rotl
-            | Operator::I64Rotr => {
-                self.check_operands_2(func_state, Type::I64, Type::I64)?;
-                OperatorAction::ChangeFrameWithType(2, Type::I64)
-            }
-            Operator::F32Abs
-            | Operator::F32Neg
-            | Operator::F32Ceil
-            | Operator::F32Floor
-            | Operator::F32Trunc
-            | Operator::F32Nearest
-            | Operator::F32Sqrt => {
-                self.check_operands_1(func_state, Type::F32)?;
-                OperatorAction::ChangeFrameWithType(1, Type::F32)
-            }
-            Operator::F32Add
-            | Operator::F32Sub
-            | Operator::F32Mul
-            | Operator::F32Div
-            | Operator::F32Min
-            | Operator::F32Max
-            | Operator::F32Copysign => {
-                self.check_operands_2(func_state, Type::F32, Type::F32)?;
-                OperatorAction::ChangeFrameWithType(2, Type::F32)
-            }
-            Operator::F64Abs
-            | Operator::F64Neg
-            | Operator::F64Ceil
-            | Operator::F64Floor
-            | Operator::F64Trunc
-            | Operator::F64Nearest
-            | Operator::F64Sqrt => {
-                self.check_operands_1(func_state, Type::F64)?;
-                OperatorAction::ChangeFrameWithType(1, Type::F64)
-            }
-            Operator::F64Add
-            | Operator::F64Sub
-            | Operator::F64Mul
-            | Operator::F64Div
-            | Operator::F64Min
-            | Operator::F64Max
-            | Operator::F64Copysign => {
-                self.check_operands_2(func_state, Type::F64, Type::F64)?;
-                OperatorAction::ChangeFrameWithType(2, Type::F64)
-            }
-            Operator::I32WrapI64 => {
-                self.check_operands_1(func_state, Type::I64)?;
-                OperatorAction::ChangeFrameWithType(1, Type::I32)
-            }
-            Operator::I32TruncSF32 | Operator::I32TruncUF32 => {
-                self.check_operands_1(func_state, Type::F32)?;
-                OperatorAction::ChangeFrameWithType(1, Type::I32)
-            }
-            Operator::I32TruncSF64 | Operator::I32TruncUF64 => {
-                self.check_operands_1(func_state, Type::F64)?;
-                OperatorAction::ChangeFrameWithType(1, Type::I32)
-            }
-            Operator::I64ExtendSI32 | Operator::I64ExtendUI32 => {
-                self.check_operands_1(func_state, Type::I32)?;
-                OperatorAction::ChangeFrameWithType(1, Type::I64)
-            }
-            Operator::I64TruncSF32 | Operator::I64TruncUF32 => {
-                self.check_operands_1(func_state, Type::F32)?;
-                OperatorAction::ChangeFrameWithType(1, Type::I64)
-            }
-            Operator::I64TruncSF64 | Operator::I64TruncUF64 => {
-                self.check_operands_1(func_state, Type::F64)?;
-                OperatorAction::ChangeFrameWithType(1, Type::I64)
-            }
-            Operator::F32ConvertSI32 | Operator::F32ConvertUI32 => {
-                self.check_operands_1(func_state, Type::I32)?;
-                OperatorAction::ChangeFrameWithType(1, Type::F32)
-            }
-            Operator::F32ConvertSI64 | Operator::F32ConvertUI64 => {
-                self.check_operands_1(func_state, Type::I64)?;
-                OperatorAction::ChangeFrameWithType(1, Type::F32)
-            }
-            Operator::F32DemoteF64 => {
-                self.check_operands_1(func_state, Type::F64)?;
-                OperatorAction::ChangeFrameWithType(1, Type::F32)
-            }
-            Operator::F64ConvertSI32 | Operator::F64ConvertUI32 => {
-                self.check_operands_1(func_state, Type::I32)?;
-                OperatorAction::ChangeFrameWithType(1, Type::F64)
-            }
-            Operator::F64ConvertSI64 | Operator::F64ConvertUI64 => {
-                self.check_operands_1(func_state, Type::I64)?;
-                OperatorAction::ChangeFrameWithType(1, Type::F64)
-            }
-            Operator::F64PromoteF32 => {
-                self.check_operands_1(func_state, Type::F32)?;
-                OperatorAction::ChangeFrameWithType(1, Type::F64)
-            }
-            Operator::I32ReinterpretF32 => {
-                self.check_operands_1(func_state, Type::F32)?;
-                OperatorAction::ChangeFrameWithType(1, Type::I32)
-            }
-            Operator::I64ReinterpretF64 => {
-                self.check_operands_1(func_state, Type::F64)?;
-                OperatorAction::ChangeFrameWithType(1, Type::I64)
-            }
-            Operator::F32ReinterpretI32 => {
-                self.check_operands_1(func_state, Type::I32)?;
-                OperatorAction::ChangeFrameWithType(1, Type::F32)
-            }
-            Operator::F64ReinterpretI64 => {
-                self.check_operands_1(func_state, Type::I64)?;
-                OperatorAction::ChangeFrameWithType(1, Type::F64)
-            }
-            Operator::I32TruncSSatF32 | Operator::I32TruncUSatF32 => {
-                self.check_operands_1(func_state, Type::F32)?;
-                OperatorAction::ChangeFrameWithType(1, Type::I32)
-            }
-            Operator::I32TruncSSatF64 | Operator::I32TruncUSatF64 => {
-                self.check_operands_1(func_state, Type::F64)?;
-                OperatorAction::ChangeFrameWithType(1, Type::I32)
-            }
-            Operator::I64TruncSSatF32 | Operator::I64TruncUSatF32 => {
-                self.check_operands_1(func_state, Type::F32)?;
-                OperatorAction::ChangeFrameWithType(1, Type::I64)
-            }
-            Operator::I64TruncSSatF64 | Operator::I64TruncUSatF64 => {
-                self.check_operands_1(func_state, Type::F64)?;
-                OperatorAction::ChangeFrameWithType(1, Type::I64)
-            }
-            Operator::I32Extend16S | Operator::I32Extend8S => {
-                self.check_operands_1(func_state, Type::I32)?;
-                OperatorAction::ChangeFrameWithType(1, Type::I32)
-            }
-
-            Operator::I64Extend32S | Operator::I64Extend16S | Operator::I64Extend8S => {
-                self.check_operands_1(func_state, Type::I64)?;
-                OperatorAction::ChangeFrameWithType(1, Type::I64)
-            }
-
-            Operator::I32AtomicLoad { ref memarg }
-            | Operator::I32AtomicLoad16U { ref memarg }
-            | Operator::I32AtomicLoad8U { ref memarg } => {
-                self.check_threads_enabled()?;
-                self.check_shared_memarg_wo_align(memarg, resources)?;
-                self.check_operands_1(func_state, Type::I32)?;
-                OperatorAction::ChangeFrameWithType(1, Type::I32)
-            }
-            Operator::I64AtomicLoad { ref memarg }
-            | Operator::I64AtomicLoad32U { ref memarg }
-            | Operator::I64AtomicLoad16U { ref memarg }
-            | Operator::I64AtomicLoad8U { ref memarg } => {
-                self.check_threads_enabled()?;
-                self.check_shared_memarg_wo_align(memarg, resources)?;
-                self.check_operands_1(func_state, Type::I32)?;
-                OperatorAction::ChangeFrameWithType(1, Type::I64)
-            }
-            Operator::I32AtomicStore { ref memarg }
-            | Operator::I32AtomicStore16 { ref memarg }
-            | Operator::I32AtomicStore8 { ref memarg } => {
-                self.check_threads_enabled()?;
-                self.check_shared_memarg_wo_align(memarg, resources)?;
-                self.check_operands_2(func_state, Type::I32, Type::I32)?;
-                OperatorAction::ChangeFrame(2)
-            }
-            Operator::I64AtomicStore { ref memarg }
-            | Operator::I64AtomicStore32 { ref memarg }
-            | Operator::I64AtomicStore16 { ref memarg }
-            | Operator::I64AtomicStore8 { ref memarg } => {
-                self.check_threads_enabled()?;
-                self.check_shared_memarg_wo_align(memarg, resources)?;
-                self.check_operands_2(func_state, Type::I32, Type::I64)?;
-                OperatorAction::ChangeFrame(2)
-            }
-            Operator::I32AtomicRmwAdd { ref memarg }
-            | Operator::I32AtomicRmwSub { ref memarg }
-            | Operator::I32AtomicRmwAnd { ref memarg }
-            | Operator::I32AtomicRmwOr { ref memarg }
-            | Operator::I32AtomicRmwXor { ref memarg }
-            | Operator::I32AtomicRmw16UAdd { ref memarg }
-            | Operator::I32AtomicRmw16USub { ref memarg }
-            | Operator::I32AtomicRmw16UAnd { ref memarg }
-            | Operator::I32AtomicRmw16UOr { ref memarg }
-            | Operator::I32AtomicRmw16UXor { ref memarg }
-            | Operator::I32AtomicRmw8UAdd { ref memarg }
-            | Operator::I32AtomicRmw8USub { ref memarg }
-            | Operator::I32AtomicRmw8UAnd { ref memarg }
-            | Operator::I32AtomicRmw8UOr { ref memarg }
-            | Operator::I32AtomicRmw8UXor { ref memarg } => {
-                self.check_threads_enabled()?;
-                self.check_shared_memarg_wo_align(memarg, resources)?;
-                self.check_operands_2(func_state, Type::I32, Type::I32)?;
-                OperatorAction::ChangeFrameWithType(2, Type::I32)
-            }
-            Operator::I64AtomicRmwAdd { ref memarg }
-            | Operator::I64AtomicRmwSub { ref memarg }
-            | Operator::I64AtomicRmwAnd { ref memarg }
-            | Operator::I64AtomicRmwOr { ref memarg }
-            | Operator::I64AtomicRmwXor { ref memarg }
-            | Operator::I64AtomicRmw32UAdd { ref memarg }
-            | Operator::I64AtomicRmw32USub { ref memarg }
-            | Operator::I64AtomicRmw32UAnd { ref memarg }
-            | Operator::I64AtomicRmw32UOr { ref memarg }
-            | Operator::I64AtomicRmw32UXor { ref memarg }
-            | Operator::I64AtomicRmw16UAdd { ref memarg }
-            | Operator::I64AtomicRmw16USub { ref memarg }
-            | Operator::I64AtomicRmw16UAnd { ref memarg }
-            | Operator::I64AtomicRmw16UOr { ref memarg }
-            | Operator::I64AtomicRmw16UXor { ref memarg }
-            | Operator::I64AtomicRmw8UAdd { ref memarg }
-            | Operator::I64AtomicRmw8USub { ref memarg }
-            | Operator::I64AtomicRmw8UAnd { ref memarg }
-            | Operator::I64AtomicRmw8UOr { ref memarg }
-            | Operator::I64AtomicRmw8UXor { ref memarg } => {
-                self.check_threads_enabled()?;
-                self.check_shared_memarg_wo_align(memarg, resources)?;
-                self.check_operands_2(func_state, Type::I32, Type::I64)?;
-                OperatorAction::ChangeFrameWithType(2, Type::I64)
-            }
-            Operator::I32AtomicRmwXchg { ref memarg }
-            | Operator::I32AtomicRmw16UXchg { ref memarg }
-            | Operator::I32AtomicRmw8UXchg { ref memarg } => {
-                self.check_threads_enabled()?;
-                self.check_shared_memarg_wo_align(memarg, resources)?;
-                self.check_operands_2(func_state, Type::I32, Type::I32)?;
-                OperatorAction::ChangeFrameWithType(2, Type::I32)
-            }
-            Operator::I32AtomicRmwCmpxchg { ref memarg }
-            | Operator::I32AtomicRmw16UCmpxchg { ref memarg }
-            | Operator::I32AtomicRmw8UCmpxchg { ref memarg } => {
-                self.check_threads_enabled()?;
-                self.check_shared_memarg_wo_align(memarg, resources)?;
-                self.check_operands(func_state, &[Type::I32, Type::I32, Type::I32])?;
-                OperatorAction::ChangeFrameWithType(3, Type::I32)
-            }
-            Operator::I64AtomicRmwXchg { ref memarg }
-            | Operator::I64AtomicRmw32UXchg { ref memarg }
-            | Operator::I64AtomicRmw16UXchg { ref memarg }
-            | Operator::I64AtomicRmw8UXchg { ref memarg } => {
-                self.check_threads_enabled()?;
-                self.check_shared_memarg_wo_align(memarg, resources)?;
-                self.check_operands_2(func_state, Type::I32, Type::I64)?;
-                OperatorAction::ChangeFrameWithType(2, Type::I64)
-            }
-            Operator::I64AtomicRmwCmpxchg { ref memarg }
-            | Operator::I64AtomicRmw32UCmpxchg { ref memarg }
-            | Operator::I64AtomicRmw16UCmpxchg { ref memarg }
-            | Operator::I64AtomicRmw8UCmpxchg { ref memarg } => {
-                self.check_threads_enabled()?;
-                self.check_shared_memarg_wo_align(memarg, resources)?;
-                self.check_operands(func_state, &[Type::I32, Type::I64, Type::I64])?;
-                OperatorAction::ChangeFrameWithType(3, Type::I64)
-            }
-            Operator::Wake { ref memarg } => {
-                self.check_threads_enabled()?;
-                self.check_shared_memarg_wo_align(memarg, resources)?;
-                self.check_operands_2(func_state, Type::I32, Type::I32)?;
-                OperatorAction::ChangeFrameWithType(2, Type::I32)
-            }
-            Operator::I32Wait { ref memarg } => {
-                self.check_threads_enabled()?;
-                self.check_shared_memarg_wo_align(memarg, resources)?;
-                self.check_operands(func_state, &[Type::I32, Type::I32, Type::I64])?;
-                OperatorAction::ChangeFrameWithType(3, Type::I32)
-            }
-            Operator::I64Wait { ref memarg } => {
-                self.check_threads_enabled()?;
-                self.check_shared_memarg_wo_align(memarg, resources)?;
-                self.check_operands(func_state, &[Type::I32, Type::I64, Type::I64])?;
-                OperatorAction::ChangeFrameWithType(3, Type::I32)
-            }
-            Operator::RefNull => {
-                self.check_reference_types_enabled()?;
-                OperatorAction::ChangeFrameWithType(0, Type::AnyRef)
-            }
-            Operator::RefIsNull => {
-                self.check_reference_types_enabled()?;
-                self.check_operands(func_state, &[Type::AnyRef])?;
-                OperatorAction::ChangeFrameWithType(0, Type::I32)
-            }
-        })
-    }
-
-    fn process_end_function(&self) -> OperatorValidatorResult<()> {
-        let func_state = &self.func_state;
-        if !func_state.end_function {
-            return Err("expected end of function");
-        }
-        Ok(())
-    }
-}
-
-#[derive(Copy, Clone)]
-pub struct ValidatingParserConfig {
-    pub operator_config: OperatorValidatorConfig,
-}
-
-const DEFAULT_VALIDATING_PARSER_CONFIG: ValidatingParserConfig = ValidatingParserConfig {
-    operator_config: DEFAULT_OPERATOR_VALIDATOR_CONFIG,
-};
-
-pub struct ValidatingParser<'a> {
-    parser: Parser<'a>,
-    validation_error: Option<ParserState<'a>>,
-    read_position: Option<usize>,
-    section_order_state: SectionOrderState,
-    types: Vec<FuncType>,
-    tables: Vec<TableType>,
-    memories: Vec<MemoryType>,
-    globals: Vec<GlobalType>,
-    func_type_indices: Vec<u32>,
-    current_func_index: u32,
-    func_imports_count: u32,
-    init_expression_state: Option<InitExpressionState>,
-    exported_names: HashSet<Vec<u8>>,
-    current_operator_validator: Option<OperatorValidator>,
-    config: ValidatingParserConfig,
-}
-
-impl<'a> WasmModuleResources for ValidatingParser<'a> {
-    fn types(&self) -> &[FuncType] {
-        &self.types
-    }
-
-    fn tables(&self) -> &[TableType] {
-        &self.tables
-    }
-
-    fn memories(&self) -> &[MemoryType] {
-        &self.memories
-    }
-
-    fn globals(&self) -> &[GlobalType] {
-        &self.globals
-    }
-
-    fn func_type_indices(&self) -> &[u32] {
-        &self.func_type_indices
-    }
-}
-
-impl<'a> ValidatingParser<'a> {
-    pub fn new(bytes: &[u8], config: Option<ValidatingParserConfig>) -> ValidatingParser {
-        ValidatingParser {
-            parser: Parser::new(bytes),
-            validation_error: None,
-            read_position: None,
-            section_order_state: SectionOrderState::Initial,
-            types: Vec::new(),
-            tables: Vec::new(),
-            memories: Vec::new(),
-            globals: Vec::new(),
-            func_type_indices: Vec::new(),
-            current_func_index: 0,
-            func_imports_count: 0,
-            current_operator_validator: None,
-            init_expression_state: None,
-            exported_names: HashSet::new(),
-            config: config.unwrap_or(DEFAULT_VALIDATING_PARSER_CONFIG),
+            order
         }
     }
 
-    fn create_validation_error(&self, message: &'static str) -> Option<ParserState<'a>> {
-        Some(ParserState::Error(BinaryReaderError {
-            message,
-            offset: self.read_position.unwrap(),
-        }))
-    }
-
-    fn create_error<T>(&self, message: &'static str) -> ValidatorResult<'a, T> {
-        Err(ParserState::Error(BinaryReaderError {
-            message,
-            offset: self.read_position.unwrap(),
-        }))
-    }
-
-    fn check_utf8(&self, bytes: &[u8]) -> ValidatorResult<'a, ()> {
-        match str::from_utf8(bytes) {
-            Ok(_) => Ok(()),
-            Err(utf8_error) => match utf8_error.error_len() {
-                None => self.create_error("Invalid utf-8: unexpected end of string"),
-                Some(_) => self.create_error("Invalid utf-8: unexpected byte"),
-            },
+    fn get_type<'me>(&'me self, idx: Def<u32>) -> Result<Def<&'me TypeDef>> {
+        match self.state.get_type(idx) {
+            Some(t) => Ok(t),
+            None => self.create_error("unknown type: type index out of bounds"),
         }
     }
 
-    fn check_value_type(&self, ty: Type) -> ValidatorResult<'a, ()> {
-        match ty {
-            Type::I32 | Type::I64 | Type::F32 | Type::F64 => Ok(()),
-            _ => self.create_error("invalid value type"),
+    fn get_table<'me>(&'me self, idx: Def<u32>) -> Result<&'me Def<TableType>> {
+        match self.state.get_table(idx) {
+            Some(t) => Ok(t),
+            None => self.create_error("unknown table: table index out of bounds"),
         }
     }
 
-    fn check_value_types(&self, types: &[Type]) -> ValidatorResult<'a, ()> {
-        for ty in types {
-            self.check_value_type(*ty)?;
+    fn get_memory<'me>(&'me self, idx: Def<u32>) -> Result<&'me MemoryType> {
+        match self.state.get_memory(idx) {
+            Some(t) => Ok(t),
+            None => self.create_error("unknown memory: memory index out of bounds"),
+        }
+    }
+
+    fn get_global<'me>(&'me self, idx: Def<u32>) -> Result<&'me Def<GlobalType>> {
+        match self.state.get_global(idx) {
+            Some(t) => Ok(t),
+            None => self.create_error("unknown global: global index out of bounds"),
+        }
+    }
+
+    fn get_func_type_index<'me>(&'me self, idx: Def<u32>) -> Result<Def<u32>> {
+        match self.state.get_func_type_index(idx) {
+            Some(t) => Ok(t),
+            None => self.create_error(format!(
+                "unknown function {}: func index out of bounds",
+                idx.item
+            )),
+        }
+    }
+
+    fn get_module_type_index<'me>(&'me self, idx: Def<u32>) -> Result<Def<u32>> {
+        match self.state.get_module_type_index(idx) {
+            Some(t) => Ok(t),
+            None => self.create_error("unknown module: module index out of bounds"),
+        }
+    }
+
+    fn get_instance_def<'me>(&'me self, idx: Def<u32>) -> Result<&'me Def<InstanceDef>> {
+        match self.state.get_instance_def(idx) {
+            Some(t) => Ok(t),
+            None => self.create_error("unknown instance: instance index out of bounds"),
+        }
+    }
+
+    fn func_type_at<'me>(&'me self, type_index: Def<u32>) -> Result<Def<&'me FuncType>> {
+        let def = self.get_type(type_index)?;
+        match &def.item {
+            TypeDef::Func(item) => Ok(def.with(item)),
+            _ => self.create_error("type index is not a function"),
+        }
+    }
+
+    fn module_type_at<'me>(&'me self, type_index: Def<u32>) -> Result<Def<&'me ModuleType>> {
+        if !self.features.module_linking {
+            return self.create_error("module linking proposal not enabled");
+        }
+        let ty = self.get_type(type_index)?;
+        match &ty.item {
+            TypeDef::Module(item) => Ok(ty.with(item)),
+            _ => self.create_error("type index is not a module"),
+        }
+    }
+
+    fn instance_type_at<'me>(&'me self, type_index: Def<u32>) -> Result<Def<&'me InstanceType>> {
+        if !self.features.module_linking {
+            return self.create_error("module linking proposal not enabled");
+        }
+        let def = self.get_type(type_index)?;
+        match &def.item {
+            TypeDef::Instance(item) => Ok(def.with(item)),
+            _ => self.create_error("type index is not an instance"),
+        }
+    }
+
+    fn check_max(&self, cur_len: usize, amt_added: u32, max: usize, desc: &str) -> Result<()> {
+        let overflow = max
+            .checked_sub(cur_len)
+            .and_then(|amt| amt.checked_sub(amt_added as usize))
+            .is_none();
+        if overflow {
+            return if max == 1 {
+                self.create_error(format!("multiple {}", desc))
+            } else {
+                self.create_error(format!("{} count is out of bounds", desc))
+            };
         }
         Ok(())
     }
 
-    fn check_limits(&self, limits: &ResizableLimits) -> ValidatorResult<'a, ()> {
-        if limits.maximum.is_some() && limits.initial > limits.maximum.unwrap() {
-            return self.create_error("maximum limits less than initial");
+    fn section<T>(
+        &mut self,
+        order: Order,
+        section: &T,
+        mut validate_item: impl FnMut(&mut Self, T::Item) -> Result<()>,
+    ) -> Result<()>
+    where
+        T: SectionReader + Clone + SectionWithLimitedItems,
+    {
+        self.offset = section.range().start;
+        self.update_order(order)?;
+
+        let mut section = section.clone();
+        for _ in 0..section.get_count() {
+            self.offset = section.original_position();
+            let item = section.read()?;
+            validate_item(self, item)?;
         }
+        self.offset = section.range().end;
+        section.ensure_end()?;
         Ok(())
     }
 
-    fn check_func_type(&self, func_type: &FuncType) -> ValidatorResult<'a, ()> {
-        if let Type::Func = func_type.form {
-            self.check_value_types(&*func_type.params)?;
-            self.check_value_types(&*func_type.returns)?;
-            if func_type.returns.len() > 1 {
-                return self.create_error("too many returns, expected 0 or 1");
+    /// Validates [`Payload::TypeSection`](crate::Payload)
+    pub fn type_section(&mut self, section: &crate::TypeSectionReader<'_>) -> Result<()> {
+        let order = self.header_order(Order::Type);
+        self.check_max(
+            self.state.types.len(),
+            section.get_count(),
+            MAX_WASM_TYPES,
+            "types",
+        )?;
+        self.section(order, section, |me, item| me.type_def(item))
+    }
+
+    fn type_def(&mut self, def: crate::TypeDef<'_>) -> Result<()> {
+        let def = match def {
+            crate::TypeDef::Func(t) => {
+                for ty in t.params.iter().chain(t.returns.iter()) {
+                    self.value_type(*ty)?;
+                }
+                if t.returns.len() > 1 && !self.features.multi_value {
+                    return self
+                        .create_error("invalid result arity: func type returns multiple values");
+                }
+                TypeDef::Func(t)
             }
-            Ok(())
-        } else {
-            self.create_error("type signature is not a func")
-        }
-    }
-
-    fn check_table_type(&self, table_type: &TableType) -> ValidatorResult<'a, ()> {
-        if let Type::AnyFunc = table_type.element_type {
-            self.check_limits(&table_type.limits)
-        } else {
-            self.create_error("element is not anyfunc")
-        }
-    }
-
-    fn check_memory_type(&self, memory_type: &MemoryType) -> ValidatorResult<'a, ()> {
-        self.check_limits(&memory_type.limits)?;
-        let initial = memory_type.limits.initial;
-        if initial as usize > MAX_WASM_MEMORY_PAGES {
-            return self.create_error("memory initial value exceeds limit");
-        }
-        let maximum = memory_type.limits.maximum;
-        if maximum.is_some() && maximum.unwrap() as usize > MAX_WASM_MEMORY_PAGES {
-            return self.create_error("memory maximum value exceeds limit");
-        }
+            crate::TypeDef::Module(t) => {
+                if !self.features.module_linking {
+                    return self.create_error("module linking proposal not enabled");
+                }
+                let imports = t
+                    .imports
+                    .iter()
+                    .map(|i| {
+                        self.import_entry_type(&i.ty)?;
+                        Ok((i.module.to_string(), i.field.map(|i| i.to_string()), i.ty))
+                    })
+                    .collect::<Result<_>>()?;
+                let mut names = HashSet::new();
+                let exports = t
+                    .exports
+                    .iter()
+                    .map(|e| {
+                        if !names.insert(e.name) {
+                            return self.create_error("duplicate export name");
+                        }
+                        self.import_entry_type(&e.ty)?;
+                        Ok((e.name.to_string(), e.ty))
+                    })
+                    .collect::<Result<_>>()?;
+                TypeDef::Module(ModuleType { imports, exports })
+            }
+            crate::TypeDef::Instance(t) => {
+                if !self.features.module_linking {
+                    return self.create_error("module linking proposal not enabled");
+                }
+                let mut names = HashSet::new();
+                let exports = t
+                    .exports
+                    .iter()
+                    .map(|e| {
+                        if !names.insert(e.name) {
+                            return self.create_error("duplicate export name");
+                        }
+                        self.import_entry_type(&e.ty)?;
+                        Ok((e.name.to_string(), e.ty))
+                    })
+                    .collect::<Result<_>>()?;
+                TypeDef::Instance(InstanceType { exports })
+            }
+        };
+        let def = ValidatedType::Def(def);
+        self.state.assert_mut().types.push(def);
         Ok(())
     }
 
-    fn check_global_type(&self, global_type: GlobalType) -> ValidatorResult<'a, ()> {
-        self.check_value_type(global_type.content_type)
+    fn value_type(&self, ty: Type) -> Result<()> {
+        match self.features.check_value_type(ty) {
+            Ok(()) => Ok(()),
+            Err(e) => self.create_error(e),
+        }
     }
 
-    fn check_import_entry(
-        &self,
-        module: &[u8],
-        field: &[u8],
-        import_type: &ImportSectionEntryType,
-    ) -> ValidatorResult<'a, ()> {
-        self.check_utf8(module)?;
-        self.check_utf8(field)?;
-        match *import_type {
+    fn import_entry_type(&self, import_type: &ImportSectionEntryType) -> Result<()> {
+        match import_type {
             ImportSectionEntryType::Function(type_index) => {
-                if self.func_type_indices.len() >= MAX_WASM_FUNCTIONS {
-                    return self.create_error("functions count out of bounds");
-                }
-                if type_index as usize >= self.types.len() {
-                    return self.create_error("type index out of bounds");
-                }
+                self.func_type_at(self.state.def(*type_index))?;
                 Ok(())
             }
-            ImportSectionEntryType::Table(ref table_type) => {
-                if self.tables.len() >= MAX_WASM_TABLES {
-                    return self.create_error("tables count must be at most 1");
-                }
-                self.check_table_type(table_type)
+            ImportSectionEntryType::Table(t) => self.table_type(t),
+            ImportSectionEntryType::Memory(t) => self.memory_type(t),
+            ImportSectionEntryType::Global(t) => self.global_type(t),
+            ImportSectionEntryType::Module(type_index) => {
+                self.module_type_at(self.state.def(*type_index))?;
+                Ok(())
             }
-            ImportSectionEntryType::Memory(ref memory_type) => {
-                if self.memories.len() >= MAX_WASM_MEMORIES {
-                    return self.create_error("memory count must be at most 1");
-                }
-                self.check_memory_type(memory_type)
-            }
-            ImportSectionEntryType::Global(global_type) => {
-                if self.globals.len() >= MAX_WASM_GLOBALS {
-                    return self.create_error("functions count out of bounds");
-                }
-                if global_type.mutable {
-                    return self.create_error("global imports are required to be immutable");
-                }
-                self.check_global_type(global_type)
+            ImportSectionEntryType::Instance(type_index) => {
+                self.instance_type_at(self.state.def(*type_index))?;
+                Ok(())
             }
         }
     }
 
-    fn check_init_expression_operator(&self, operator: &Operator) -> ValidatorResult<'a, ()> {
-        let state = self.init_expression_state.as_ref().unwrap();
-        if state.validated {
-            return self.create_error("only one init_expr operator is expected");
+    fn table_type(&self, ty: &TableType) -> Result<()> {
+        match ty.element_type {
+            Type::FuncRef => {}
+            Type::ExternRef => {
+                if !self.features.reference_types {
+                    return self.create_error("element is not anyfunc");
+                }
+            }
+            _ => return self.create_error("element is not reference type"),
         }
-        let ty = match *operator {
+        self.limits(&ty.limits)?;
+        if ty.limits.initial > MAX_WASM_TABLE_ENTRIES as u32 {
+            return self.create_error("minimum table size is out of bounds");
+        }
+        Ok(())
+    }
+
+    fn memory_type(&self, ty: &MemoryType) -> Result<()> {
+        match ty {
+            MemoryType::M32 { limits, shared } => {
+                self.limits(limits)?;
+                let initial = limits.initial;
+                if initial as usize > MAX_WASM_MEMORY_PAGES {
+                    return self.create_error("memory size must be at most 65536 pages (4GiB)");
+                }
+                if let Some(maximum) = limits.maximum {
+                    if maximum as usize > MAX_WASM_MEMORY_PAGES {
+                        return self.create_error("memory size must be at most 65536 pages (4GiB)");
+                    }
+                }
+                if *shared {
+                    if !self.features.threads {
+                        return self.create_error("threads must be enabled for shared memories");
+                    }
+                    if limits.maximum.is_none() {
+                        return self.create_error("shared memory must have maximum size");
+                    }
+                }
+            }
+            MemoryType::M64 { limits } => {
+                if !self.features.memory64 {
+                    return self.create_error("memory64 must be enabled for 64-bit memories");
+                }
+                self.limits64(&limits)?;
+                let initial = limits.initial;
+                if initial > MAX_WASM_MEMORY64_PAGES {
+                    return self.create_error("memory initial size too large");
+                }
+                if let Some(maximum) = limits.maximum {
+                    if maximum > MAX_WASM_MEMORY64_PAGES {
+                        return self.create_error("memory initial size too large");
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn global_type(&self, ty: &GlobalType) -> Result<()> {
+        self.value_type(ty.content_type)
+    }
+
+    fn limits(&self, limits: &ResizableLimits) -> Result<()> {
+        if let Some(max) = limits.maximum {
+            if limits.initial > max {
+                return self.create_error("size minimum must not be greater than maximum");
+            }
+        }
+        Ok(())
+    }
+
+    fn limits64(&self, limits: &ResizableLimits64) -> Result<()> {
+        if let Some(max) = limits.maximum {
+            if limits.initial > max {
+                return self.create_error("size minimum must not be greater than maximum");
+            }
+        }
+        Ok(())
+    }
+
+    /// Validates [`Payload::ImportSection`](crate::Payload)
+    pub fn import_section(&mut self, section: &crate::ImportSectionReader<'_>) -> Result<()> {
+        let order = self.header_order(Order::Import);
+        self.section(order, section, |me, item| me.import(item))
+    }
+
+    fn import(&mut self, entry: Import<'_>) -> Result<()> {
+        if !self.features.module_linking && entry.field.is_none() {
+            return self.create_error("module linking proposal is not enabled");
+        }
+        self.import_entry_type(&entry.ty)?;
+        let (len, max, desc) = match entry.ty {
+            ImportSectionEntryType::Function(type_index) => {
+                let def = self.state.def(type_index);
+                let state = self.state.assert_mut();
+                state.func_type_indices.push(def);
+                (state.func_type_indices.len(), MAX_WASM_FUNCTIONS, "funcs")
+            }
+            ImportSectionEntryType::Table(ty) => {
+                let def = self.state.def(ty);
+                let state = self.state.assert_mut();
+                state.tables.push(def);
+                (state.tables.len(), self.max_tables(), "tables")
+            }
+            ImportSectionEntryType::Memory(ty) => {
+                let state = self.state.assert_mut();
+                state.memories.push(ty);
+                (state.memories.len(), self.max_memories(), "memories")
+            }
+            ImportSectionEntryType::Global(ty) => {
+                let def = self.state.def(ty);
+                let state = self.state.assert_mut();
+                state.globals.push(def);
+                (state.globals.len(), MAX_WASM_GLOBALS, "globals")
+            }
+            ImportSectionEntryType::Instance(type_idx) => {
+                let def = self.state.def(InstanceDef::Imported { type_idx });
+                let state = self.state.assert_mut();
+                state.instance_type_indices.push(def);
+                (
+                    state.instance_type_indices.len(),
+                    MAX_WASM_INSTANCES,
+                    "instances",
+                )
+            }
+            ImportSectionEntryType::Module(type_index) => {
+                let def = self.state.def(type_index);
+                let state = self.state.assert_mut();
+                state.module_type_indices.push(def);
+                (state.module_type_indices.len(), MAX_WASM_MODULES, "modules")
+            }
+        };
+        self.check_max(len, 0, max, desc)?;
+
+        if let Some(ty) = self.expected_type {
+            let idx = self.expected_import_pos;
+            self.expected_import_pos += 1;
+            let module_ty = self.module_type_at(ty)?;
+            let equal = match module_ty.item.imports.get(idx) {
+                Some(import) => {
+                    self.imports_equal(self.state.def(entry), module_ty.with(to_import(import)))
+                }
+                None => false,
+            };
+            if !equal {
+                return self.create_error("inline module type does not match declared type");
+            }
+        }
+        Ok(())
+    }
+
+    /// Validates [`Payload::AliasSection`](crate::Payload)
+    pub fn alias_section(&mut self, section: &crate::AliasSectionReader<'_>) -> Result<()> {
+        if !self.features.module_linking {
+            return self.create_error("module linking proposal not enabled");
+        }
+        self.section(Order::ModuleLinkingHeader, section, |me, a| me.alias(a))
+    }
+
+    fn alias(&mut self, alias: Alias) -> Result<()> {
+        match alias.instance {
+            AliasedInstance::Child(instance_idx) => {
+                let ty = self.get_instance_def(self.state.def(instance_idx))?;
+                let exports = match ty.item {
+                    InstanceDef::Imported { type_idx } => {
+                        let ty = self.instance_type_at(ty.with(type_idx))?;
+                        ty.map(|t| &t.exports)
+                    }
+                    InstanceDef::Instantiated { module_idx } => {
+                        let ty = self.get_module_type_index(ty.with(module_idx))?;
+                        let ty = self.module_type_at(ty)?;
+                        ty.map(|t| &t.exports)
+                    }
+                };
+                let export = match exports.item.get(alias.index as usize) {
+                    Some(e) => e,
+                    None => {
+                        return self.create_error("aliased export index out of bounds");
+                    }
+                };
+                match (export.1, alias.kind) {
+                    (ImportSectionEntryType::Function(ty), ExternalKind::Function) => {
+                        let def = exports.with(ty);
+                        self.state.assert_mut().func_type_indices.push(def);
+                    }
+                    (ImportSectionEntryType::Table(ty), ExternalKind::Table) => {
+                        let def = exports.with(ty);
+                        self.state.assert_mut().tables.push(def);
+                    }
+                    (ImportSectionEntryType::Memory(ty), ExternalKind::Memory) => {
+                        self.state.assert_mut().memories.push(ty);
+                    }
+                    (ImportSectionEntryType::Global(ty), ExternalKind::Global) => {
+                        let def = exports.with(ty);
+                        self.state.assert_mut().globals.push(def);
+                    }
+                    (ImportSectionEntryType::Instance(ty), ExternalKind::Instance) => {
+                        let def = exports.with(InstanceDef::Imported { type_idx: ty });
+                        self.state.assert_mut().instance_type_indices.push(def);
+                    }
+                    (ImportSectionEntryType::Module(ty), ExternalKind::Module) => {
+                        let def = exports.with(ty);
+                        self.state.assert_mut().module_type_indices.push(def);
+                    }
+                    _ => return self.create_error("alias kind mismatch with export kind"),
+                }
+            }
+            AliasedInstance::Parent => {
+                let idx = match self.state.depth.checked_sub(1) {
+                    None => return self.create_error("no parent module to alias from"),
+                    Some(depth) => Def {
+                        depth,
+                        item: alias.index,
+                    },
+                };
+                match alias.kind {
+                    ExternalKind::Module => {
+                        let ty = self.get_module_type_index(idx)?;
+                        self.state.assert_mut().module_type_indices.push(ty);
+                    }
+                    ExternalKind::Type => {
+                        // make sure this type actually exists, then push it as
+                        // ourselve aliasing that type.
+                        self.get_type(idx)?;
+                        self.state
+                            .assert_mut()
+                            .types
+                            .push(ValidatedType::Alias(idx));
+                    }
+                    _ => return self.create_error("only parent types/modules can be aliased"),
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Validates [`Payload::ModuleSection`](crate::Payload)
+    pub fn module_section(&mut self, section: &crate::ModuleSectionReader<'_>) -> Result<()> {
+        if !self.features.module_linking {
+            return self.create_error("module linking proposal not enabled");
+        }
+        self.check_max(
+            self.state.module_type_indices.len(),
+            section.get_count(),
+            MAX_WASM_MODULES,
+            "modules",
+        )?;
+        self.expected_modules = Some(section.get_count() + self.expected_modules.unwrap_or(0));
+        self.section(Order::ModuleLinkingHeader, section, |me, type_index| {
+            let type_index = me.state.def(type_index);
+            me.module_type_at(type_index)?;
+            me.state.assert_mut().module_type_indices.push(type_index);
+            Ok(())
+        })
+    }
+
+    /// Validates [`Payload::InstanceSection`](crate::Payload)
+    pub fn instance_section(&mut self, section: &crate::InstanceSectionReader<'_>) -> Result<()> {
+        if !self.features.module_linking {
+            return self.create_error("module linking proposal not enabled");
+        }
+        self.check_max(
+            self.state.instance_type_indices.len(),
+            section.get_count(),
+            MAX_WASM_INSTANCES,
+            "instances",
+        )?;
+        self.section(Order::ModuleLinkingHeader, section, |me, i| me.instance(i))
+    }
+
+    fn instance(&mut self, instance: Instance<'_>) -> Result<()> {
+        // Fetch the type of the instantiated module so we can typecheck all of
+        // the import items.
+        let module_idx = instance.module();
+        let module_ty = self.get_module_type_index(self.state.def(module_idx))?;
+        let ty = self.module_type_at(module_ty)?;
+
+        // Make sure the right number of imports are provided
+        let mut args = instance.args()?;
+        if args.get_count() as usize != ty.item.imports.len() {
+            return self.create_error("wrong number of imports provided");
+        }
+
+        // Now pairwise match each import against the expected type, making sure
+        // that the provided type is a subtype of the expected type.
+        for import_ty in ty.item.imports.iter() {
+            let (kind, index) = args.read()?;
+            let index = self.state.def(index);
+            let actual = match kind {
+                ExternalKind::Function => self
+                    .get_func_type_index(index)?
+                    .map(ImportSectionEntryType::Function),
+                ExternalKind::Table => self.get_table(index)?.map(ImportSectionEntryType::Table),
+                ExternalKind::Memory => self
+                    .state
+                    .def(ImportSectionEntryType::Memory(*self.get_memory(index)?)),
+                ExternalKind::Global => self.get_global(index)?.map(ImportSectionEntryType::Global),
+                ExternalKind::Module => self
+                    .get_module_type_index(index)?
+                    .map(ImportSectionEntryType::Module),
+                ExternalKind::Instance => {
+                    let def = self.get_instance_def(index)?;
+                    match def.item {
+                        InstanceDef::Imported { type_idx } => {
+                            def.with(ImportSectionEntryType::Instance(type_idx))
+                        }
+                        InstanceDef::Instantiated { module_idx } => {
+                            let expected = match import_ty.2 {
+                                ImportSectionEntryType::Instance(idx) => ty.with(idx),
+                                _ => {
+                                    return self
+                                        .create_error("wrong kind of item used for instantiate")
+                                }
+                            };
+                            let expected = self.instance_type_at(expected)?;
+                            let module_idx = def.with(module_idx);
+                            let actual = self.get_module_type_index(module_idx)?;
+                            let actual = self.module_type_at(actual)?;
+                            self.check_export_sets_match(
+                                expected.map(|m| &*m.exports),
+                                actual.map(|m| &*m.exports),
+                            )?;
+                            continue;
+                        }
+                    }
+                }
+                ExternalKind::Type => return self.create_error("cannot export types"),
+            };
+            let item = actual.item;
+            self.check_imports_match(ty.with(&import_ty.2), actual.map(|_| &item))?;
+        }
+        args.ensure_end()?;
+
+        let def = self.state.def(InstanceDef::Instantiated { module_idx });
+        self.state.assert_mut().instance_type_indices.push(def);
+        Ok(())
+    }
+
+    // Note that this function is basically implementing
+    // https://webassembly.github.io/spec/core/exec/modules.html#import-matching
+    fn check_imports_match(
+        &self,
+        expected: Def<&ImportSectionEntryType>,
+        actual: Def<&ImportSectionEntryType>,
+    ) -> Result<()> {
+        macro_rules! limits_match {
+            ($expected:expr, $actual:expr) => {{
+                let expected = $expected;
+                let actual = $actual;
+                actual.initial >= expected.initial
+                    && match expected.maximum {
+                        Some(expected_max) => match actual.maximum {
+                            Some(actual_max) => actual_max <= expected_max,
+                            None => false,
+                        },
+                        None => true,
+                    }
+            }};
+        }
+        match (expected.item, actual.item) {
+            (
+                ImportSectionEntryType::Function(expected_idx),
+                ImportSectionEntryType::Function(actual_idx),
+            ) => {
+                let expected = self.func_type_at(expected.map(|_| *expected_idx))?;
+                let actual = self.func_type_at(actual.map(|_| *actual_idx))?;
+                if actual.item == expected.item {
+                    return Ok(());
+                }
+                self.create_error("function provided for instantiation has wrong type")
+            }
+            (ImportSectionEntryType::Table(expected), ImportSectionEntryType::Table(actual)) => {
+                if expected.element_type == actual.element_type
+                    && limits_match!(&expected.limits, &actual.limits)
+                {
+                    return Ok(());
+                }
+                self.create_error("table provided for instantiation has wrong type")
+            }
+            (ImportSectionEntryType::Memory(expected), ImportSectionEntryType::Memory(actual)) => {
+                match (expected, actual) {
+                    (
+                        MemoryType::M32 {
+                            limits: a,
+                            shared: ash,
+                        },
+                        MemoryType::M32 {
+                            limits: b,
+                            shared: bsh,
+                        },
+                    ) => {
+                        if limits_match!(a, b) && ash == bsh {
+                            return Ok(());
+                        }
+                    }
+                    (MemoryType::M64 { limits: a }, MemoryType::M64 { limits: b }) => {
+                        if limits_match!(a, b) {
+                            return Ok(());
+                        }
+                    }
+                    _ => {}
+                }
+                self.create_error("memory provided for instantiation has wrong type")
+            }
+            (ImportSectionEntryType::Global(expected), ImportSectionEntryType::Global(actual)) => {
+                if expected == actual {
+                    return Ok(());
+                }
+                self.create_error("global provided for instantiation has wrong type")
+            }
+            (
+                ImportSectionEntryType::Instance(expected_idx),
+                ImportSectionEntryType::Instance(actual_idx),
+            ) => {
+                let expected = self.instance_type_at(expected.map(|_| *expected_idx))?;
+                let actual = self.instance_type_at(actual.map(|_| *actual_idx))?;
+                self.check_export_sets_match(
+                    expected.map(|i| &*i.exports),
+                    actual.map(|i| &*i.exports),
+                )?;
+                Ok(())
+            }
+            (
+                ImportSectionEntryType::Module(expected_idx),
+                ImportSectionEntryType::Module(actual_idx),
+            ) => {
+                let expected = self.module_type_at(expected.map(|_| *expected_idx))?;
+                let actual = self.module_type_at(actual.map(|_| *actual_idx))?;
+                if expected.item.imports.len() != actual.item.imports.len() {
+                    return self.create_error("mismatched number of module imports");
+                }
+                for (a, b) in expected.item.imports.iter().zip(actual.item.imports.iter()) {
+                    self.check_imports_match(expected.map(|_| &a.2), actual.map(|_| &b.2))?;
+                }
+                self.check_export_sets_match(
+                    expected.map(|i| &*i.exports),
+                    actual.map(|i| &*i.exports),
+                )?;
+                Ok(())
+            }
+            _ => self.create_error("wrong kind of item used for instantiate"),
+        }
+    }
+
+    fn check_export_sets_match(
+        &self,
+        expected: Def<&[(String, ImportSectionEntryType)]>,
+        actual: Def<&[(String, ImportSectionEntryType)]>,
+    ) -> Result<()> {
+        let name_to_idx = actual
+            .item
+            .iter()
+            .enumerate()
+            .map(|(i, e)| (&e.0, i))
+            .collect::<HashMap<_, _>>();
+        for expected_export in expected.item {
+            let idx = match name_to_idx.get(&expected_export.0) {
+                Some(i) => *i,
+                None => {
+                    return self.create_error(&format!("no export named `{}`", expected_export.0))
+                }
+            };
+            self.check_imports_match(
+                expected.map(|_| &expected_export.1),
+                actual.map(|_| &actual.item[idx].1),
+            )?;
+        }
+        Ok(())
+    }
+
+    /// Validates [`Payload::FunctionSection`](crate::Payload)
+    pub fn function_section(&mut self, section: &crate::FunctionSectionReader<'_>) -> Result<()> {
+        self.expected_code_bodies = Some(section.get_count());
+        self.check_max(
+            self.state.func_type_indices.len(),
+            section.get_count(),
+            MAX_WASM_FUNCTIONS,
+            "funcs",
+        )?;
+        // Assert that each type index is indeed a function type, and otherwise
+        // just push it for handling later.
+        self.section(Order::Function, section, |me, i| {
+            let type_index = me.state.def(i);
+            me.func_type_at(type_index)?;
+            me.state.assert_mut().func_type_indices.push(type_index);
+            Ok(())
+        })
+    }
+
+    fn max_tables(&self) -> usize {
+        if self.features.reference_types || self.features.module_linking {
+            MAX_WASM_TABLES
+        } else {
+            1
+        }
+    }
+
+    /// Validates [`Payload::TableSection`](crate::Payload)
+    pub fn table_section(&mut self, section: &crate::TableSectionReader<'_>) -> Result<()> {
+        self.check_max(
+            self.state.tables.len(),
+            section.get_count(),
+            self.max_tables(),
+            "tables",
+        )?;
+        self.section(Order::Table, section, |me, ty| {
+            me.table_type(&ty)?;
+            let def = me.state.def(ty);
+            me.state.assert_mut().tables.push(def);
+            Ok(())
+        })
+    }
+
+    fn max_memories(&self) -> usize {
+        if self.features.multi_memory {
+            MAX_WASM_MEMORIES
+        } else {
+            1
+        }
+    }
+
+    pub fn memory_section(&mut self, section: &crate::MemorySectionReader<'_>) -> Result<()> {
+        self.check_max(
+            self.state.memories.len(),
+            section.get_count(),
+            self.max_memories(),
+            "memories",
+        )?;
+        self.section(Order::Memory, section, |me, ty| {
+            me.memory_type(&ty)?;
+            me.state.assert_mut().memories.push(ty);
+            Ok(())
+        })
+    }
+
+    /// Validates [`Payload::GlobalSection`](crate::Payload)
+    pub fn global_section(&mut self, section: &crate::GlobalSectionReader<'_>) -> Result<()> {
+        self.check_max(
+            self.state.globals.len(),
+            section.get_count(),
+            MAX_WASM_GLOBALS,
+            "globals",
+        )?;
+        self.section(Order::Global, section, |me, g| {
+            me.global_type(&g.ty)?;
+            me.init_expr(&g.init_expr, g.ty.content_type, false)?;
+            let def = me.state.def(g.ty);
+            me.state.assert_mut().globals.push(def);
+            Ok(())
+        })
+    }
+
+    fn init_expr(&mut self, expr: &InitExpr<'_>, expected_ty: Type, allow32: bool) -> Result<()> {
+        let mut ops = expr.get_operators_reader().into_iter_with_offsets();
+        let (op, offset) = match ops.next() {
+            Some(Err(e)) => return Err(e),
+            Some(Ok(pair)) => pair,
+            None => return self.create_error("type mismatch: init_expr is empty"),
+        };
+        self.offset = offset;
+        let ty = match op {
             Operator::I32Const { .. } => Type::I32,
             Operator::I64Const { .. } => Type::I64,
             Operator::F32Const { .. } => Type::F32,
             Operator::F64Const { .. } => Type::F64,
-            Operator::GetGlobal { global_index } => {
-                if global_index as usize >= state.global_count {
-                    return self.create_error("init_expr global index out of bounds");
-                }
-                self.globals[global_index as usize].content_type
+            Operator::RefNull { ty } => ty,
+            Operator::V128Const { .. } => Type::V128,
+            Operator::GlobalGet { global_index } => {
+                self.get_global(self.state.def(global_index))?
+                    .item
+                    .content_type
             }
-            _ => return self.create_error("invalid init_expr operator"),
-        };
-        if ty != state.ty {
-            return self.create_error("invalid init_expr type");
-        }
-        Ok(())
-    }
-
-    fn check_export_entry(
-        &self,
-        field: &[u8],
-        kind: ExternalKind,
-        index: u32,
-    ) -> ValidatorResult<'a, ()> {
-        self.check_utf8(field)?;
-        if self.exported_names.contains(&Vec::from(field)) {
-            return self.create_error("non-unique export name");
-        }
-        match kind {
-            ExternalKind::Function => {
-                if index as usize >= self.func_type_indices.len() {
-                    return self.create_error("exported function index out of bounds");
-                }
+            Operator::RefFunc { function_index } => {
+                self.get_func_type_index(self.state.def(function_index))?;
+                self.state
+                    .assert_mut()
+                    .function_references
+                    .insert(function_index);
+                Type::FuncRef
             }
-            ExternalKind::Table => {
-                if index as usize >= self.tables.len() {
-                    return self.create_error("exported table index out of bounds");
-                }
-            }
-            ExternalKind::Memory => {
-                if index as usize >= self.memories.len() {
-                    return self.create_error("exported memory index out of bounds");
-                }
-            }
-            ExternalKind::Global => {
-                if index as usize >= self.globals.len() {
-                    return self.create_error("exported global index out of bounds");
-                }
-                let global = &self.globals[index as usize];
-                if global.mutable {
-                    return self.create_error("exported global must be const");
-                }
+            Operator::End => return self.create_error("type mismatch: init_expr is empty"),
+            _ => {
+                return self
+                    .create_error("constant expression required: invalid init_expr operator")
             }
         };
-        Ok(())
+        if ty != expected_ty {
+            if !allow32 || ty != Type::I32 {
+                return self.create_error("type mismatch: invalid init_expr type");
+            }
+        }
+
+        // Make sure the next instruction is an `end`
+        match ops.next() {
+            Some(Err(e)) => return Err(e),
+            Some(Ok((Operator::End, _))) => {}
+            Some(Ok(_)) => {
+                return self
+                    .create_error("constant expression required: type mismatch: only one init_expr operator is expected")
+            }
+            None => return self.create_error("type mismatch: init_expr is not terminated"),
+        }
+
+        // ... and verify we're done after that
+        match ops.next() {
+            Some(Err(e)) => Err(e),
+            Some(Ok(_)) => {
+                self.create_error("constant expression required: invalid init_expr operator")
+            }
+            None => Ok(()),
+        }
     }
 
-    fn check_start(&self, func_index: u32) -> ValidatorResult<'a, ()> {
-        if func_index as usize >= self.func_type_indices.len() {
-            return self.create_error("start function index out of bounds");
-        }
-        let type_index = self.func_type_indices[func_index as usize];
-        let ty = &self.types[type_index as usize];
-        if !ty.params.is_empty() || !ty.returns.is_empty() {
-            return self.create_error("invlid start function type");
-        }
-        Ok(())
-    }
-
-    fn process_begin_section(&self, code: &SectionCode) -> ValidatorResult<'a, SectionOrderState> {
-        let order_state = SectionOrderState::from_section_code(code);
-        if let SectionCode::Custom { name, .. } = *code {
-            self.check_utf8(name)?;
-        }
-        Ok(match self.section_order_state {
-            SectionOrderState::Initial => {
-                if order_state.is_none() {
-                    SectionOrderState::Initial
-                } else {
-                    order_state.unwrap()
-                }
+    /// Validates [`Payload::ExportSection`](crate::Payload)
+    pub fn export_section(&mut self, section: &crate::ExportSectionReader<'_>) -> Result<()> {
+        let mut exported_names = HashSet::new();
+        self.section(Order::Export, section, |me, e| {
+            if !exported_names.insert(e.field.to_string()) {
+                return me.create_error("duplicate export name");
             }
-            previous => {
-                if let Some(order_state_unwraped) = order_state {
-                    if previous >= order_state_unwraped {
-                        return self.create_error("section out of order");
-                    }
-                    order_state_unwraped
-                } else {
-                    previous
-                }
+            if let ExternalKind::Type = e.kind {
+                return me.create_error("cannot export types");
             }
+            me.check_external_kind("exported", e.kind, e.index)?;
+            if !me.export_is_expected(e)? {
+                return me.create_error("inline module type does not match declared type");
+            }
+            Ok(())
         })
     }
 
-    fn process_state(&mut self) {
-        match *self.parser.last_state() {
-            ParserState::BeginWasm { version } => {
-                if version != 1 {
-                    self.validation_error = self.create_validation_error("bad wasm file version");
-                }
-            }
-            ParserState::BeginSection { ref code, .. } => {
-                let check = self.process_begin_section(code);
-                if check.is_err() {
-                    self.validation_error = check.err();
-                } else {
-                    self.section_order_state = check.ok().unwrap();
-                }
-            }
-            ParserState::TypeSectionEntry(ref func_type) => {
-                let check = self.check_func_type(func_type);
-                if check.is_err() {
-                    self.validation_error = check.err();
-                } else if self.types.len() > MAX_WASM_TYPES {
-                    self.validation_error =
-                        self.create_validation_error("types count is out of bounds");
-                } else {
-                    self.types.push(func_type.clone());
-                }
-            }
-            ParserState::ImportSectionEntry {
-                module,
-                field,
-                ref ty,
-            } => {
-                let check = self.check_import_entry(module, field, ty);
-                if check.is_err() {
-                    self.validation_error = check.err();
-                } else {
-                    match *ty {
-                        ImportSectionEntryType::Function(type_index) => {
-                            self.func_imports_count += 1;
-                            self.func_type_indices.push(type_index);
-                        }
-                        ImportSectionEntryType::Table(ref table_type) => {
-                            self.tables.push(table_type.clone());
-                        }
-                        ImportSectionEntryType::Memory(ref memory_type) => {
-                            self.memories.push(memory_type.clone());
-                        }
-                        ImportSectionEntryType::Global(ref global_type) => {
-                            self.globals.push(global_type.clone());
-                        }
-                    }
-                }
-            }
-            ParserState::FunctionSectionEntry(type_index) => {
-                if type_index as usize >= self.types.len() {
-                    self.validation_error =
-                        self.create_validation_error("func type index out of bounds");
-                } else if self.func_type_indices.len() >= MAX_WASM_FUNCTIONS {
-                    self.validation_error =
-                        self.create_validation_error("functions count out of bounds");
-                } else {
-                    self.func_type_indices.push(type_index);
-                }
-            }
-            ParserState::TableSectionEntry(ref table_type) => {
-                if self.tables.len() >= MAX_WASM_TABLES {
-                    self.validation_error =
-                        self.create_validation_error("tables count must be at most 1");
-                } else {
-                    self.validation_error = self.check_table_type(table_type).err();
-                    self.tables.push(table_type.clone());
-                }
-            }
-            ParserState::MemorySectionEntry(ref memory_type) => {
-                if self.memories.len() >= MAX_WASM_MEMORIES {
-                    self.validation_error =
-                        self.create_validation_error("memories count must be at most 1");
-                } else {
-                    self.validation_error = self.check_memory_type(memory_type).err();
-                    self.memories.push(memory_type.clone());
-                }
-            }
-            ParserState::BeginGlobalSectionEntry(global_type) => {
-                if self.globals.len() >= MAX_WASM_GLOBALS {
-                    self.validation_error =
-                        self.create_validation_error("globals count out of bounds");
-                } else {
-                    self.validation_error = self.check_global_type(global_type).err();
-                    self.init_expression_state = Some(InitExpressionState {
-                        ty: global_type.content_type,
-                        global_count: self.globals.len(),
-                        validated: false,
-                    });
-                    self.globals.push(global_type);
-                }
-            }
-            ParserState::BeginInitExpressionBody => {
-                assert!(self.init_expression_state.is_some());
-            }
-            ParserState::InitExpressionOperator(ref operator) => {
-                self.validation_error = self.check_init_expression_operator(operator).err();
-                self.init_expression_state.as_mut().unwrap().validated = true;
-            }
-            ParserState::EndInitExpressionBody => {
-                if !self.init_expression_state.as_ref().unwrap().validated {
-                    self.validation_error = self.create_validation_error("init_expr is empty");
-                }
-                self.init_expression_state = None;
-            }
-            ParserState::ExportSectionEntry { field, kind, index } => {
-                self.validation_error = self.check_export_entry(field, kind, index).err();
-                self.exported_names.insert(Vec::from(field));
-            }
-            ParserState::StartSectionEntry(func_index) => {
-                self.validation_error = self.check_start(func_index).err();
-            }
-            ParserState::BeginElementSectionEntry(table_index) => {
-                if table_index as usize >= self.tables.len() {
-                    self.validation_error =
-                        self.create_validation_error("element section table index out of bounds");
-                } else {
-                    assert!(self.tables[table_index as usize].element_type == Type::AnyFunc);
-                    self.init_expression_state = Some(InitExpressionState {
-                        ty: Type::I32,
-                        global_count: self.globals.len(),
-                        validated: false,
-                    });
-                }
-            }
-            ParserState::ElementSectionEntryBody(ref indices) => {
-                for func_index in &**indices {
-                    if *func_index as usize >= self.func_type_indices.len() {
-                        self.validation_error =
-                            self.create_validation_error("element func index out of bounds");
-                        break;
-                    }
-                }
-            }
-            ParserState::BeginFunctionBody { .. } => {
-                let index = (self.current_func_index + self.func_imports_count) as usize;
-                if index as usize >= self.func_type_indices.len() {
-                    self.validation_error =
-                        self.create_validation_error("func type is not defined");
-                }
-            }
-            ParserState::FunctionBodyLocals { ref locals } => {
-                let index = (self.current_func_index + self.func_imports_count) as usize;
-                let func_type = &self.types[self.func_type_indices[index] as usize];
-                let operator_config = self.config.operator_config;
-                self.current_operator_validator =
-                    Some(OperatorValidator::new(func_type, locals, operator_config));
-            }
-            ParserState::CodeOperator(ref operator) => {
-                let check = self
-                    .current_operator_validator
-                    .as_ref()
-                    .unwrap()
-                    .process_operator(operator, self);
-                match check {
-                    Ok(action) => {
-                        if let Err(err) = action.update(
-                            &mut self.current_operator_validator.as_mut().unwrap().func_state,
-                        ) {
-                            self.create_validation_error(err);
-                        }
-                    }
-                    Err(err) => {
-                        self.validation_error = self.create_validation_error(err);
-                    }
-                }
-            }
-            ParserState::EndFunctionBody => {
-                let check = self
-                    .current_operator_validator
-                    .as_ref()
-                    .unwrap()
-                    .process_end_function();
-                if check.is_err() {
-                    self.validation_error = self.create_validation_error(check.err().unwrap());
-                }
-                self.current_func_index += 1;
-                self.current_operator_validator = None;
-            }
-            ParserState::BeginDataSectionEntry(memory_index) => {
-                if memory_index as usize >= self.memories.len() {
-                    self.validation_error =
-                        self.create_validation_error("data section memory index out of bounds");
-                } else {
-                    self.init_expression_state = Some(InitExpressionState {
-                        ty: Type::I32,
-                        global_count: self.globals.len(),
-                        validated: false,
-                    });
-                }
-            }
-            _ => (),
+    fn check_external_kind(&mut self, desc: &str, kind: ExternalKind, index: u32) -> Result<()> {
+        let (ty, total) = match kind {
+            ExternalKind::Function => ("function", self.state.func_type_indices.len()),
+            ExternalKind::Table => ("table", self.state.tables.len()),
+            ExternalKind::Memory => ("memory", self.state.memories.len()),
+            ExternalKind::Global => ("global", self.state.globals.len()),
+            ExternalKind::Module => ("module", self.state.module_type_indices.len()),
+            ExternalKind::Instance => ("instance", self.state.instance_type_indices.len()),
+            ExternalKind::Type => return self.create_error("cannot export types"),
         };
+        if index as usize >= total {
+            return self.create_error(&format!(
+                "unknown {ty} {index}: {desc} {ty} index out of bounds",
+                desc = desc,
+                index = index,
+                ty = ty,
+            ));
+        }
+        if let ExternalKind::Function = kind {
+            self.state.assert_mut().function_references.insert(index);
+        }
+        Ok(())
     }
 
-    pub fn create_validating_operator_parser<'b>(&mut self) -> ValidatingOperatorParser<'b>
-    where
-        'a: 'b,
-    {
-        let func_body_offset = match *self.last_state() {
-            ParserState::BeginFunctionBody { .. } => self.parser.current_position(),
-            _ => panic!("Invalid reader state"),
+    fn export_is_expected(&mut self, actual: Export<'_>) -> Result<bool> {
+        let expected_ty = match self.expected_type {
+            Some(ty) => ty,
+            None => return Ok(true),
         };
-        self.read();
-        let operator_validator = match *self.last_state() {
-            ParserState::FunctionBodyLocals { ref locals } => {
-                let index = (self.current_func_index + self.func_imports_count) as usize;
-                let func_type = &self.types[self.func_type_indices[index] as usize];
-                let operator_config = self.config.operator_config;
-                OperatorValidator::new(func_type, locals, operator_config)
+        let idx = self.expected_export_pos;
+        self.expected_export_pos += 1;
+        let module_ty = self.module_type_at(expected_ty)?;
+        let expected = match module_ty.item.exports.get(idx) {
+            Some(expected) => module_ty.with(to_export(expected)),
+            None => return Ok(false),
+        };
+        let index = self.state.def(actual.index);
+        let ty = match actual.kind {
+            ExternalKind::Function => self
+                .get_func_type_index(index)?
+                .map(ImportSectionEntryType::Function),
+            ExternalKind::Table => self.get_table(index)?.map(ImportSectionEntryType::Table),
+            ExternalKind::Memory => {
+                let mem = *self.get_memory(index)?;
+                let ty = ImportSectionEntryType::Memory(mem);
+                self.state.def(ty)
             }
-            _ => panic!("Invalid reader state"),
+            ExternalKind::Global => self.get_global(index)?.map(ImportSectionEntryType::Global),
+            ExternalKind::Module => self
+                .get_module_type_index(index)?
+                .map(ImportSectionEntryType::Module),
+            ExternalKind::Instance => {
+                let def = self.get_instance_def(index)?;
+                match def.item {
+                    InstanceDef::Imported { type_idx } => {
+                        def.with(ImportSectionEntryType::Instance(type_idx))
+                    }
+                    InstanceDef::Instantiated { module_idx } => {
+                        let a = self.get_module_type_index(def.with(module_idx))?;
+                        let a = self.module_type_at(a)?;
+                        let b = match expected.item.ty {
+                            ImportSectionEntryType::Instance(idx) => {
+                                self.instance_type_at(expected.with(idx))?
+                            }
+                            _ => return Ok(false),
+                        };
+                        return Ok(actual.field == expected.item.name
+                            && a.item.exports.len() == b.item.exports.len()
+                            && a.item
+                                .exports
+                                .iter()
+                                .map(to_export)
+                                .zip(b.item.exports.iter().map(to_export))
+                                .all(|(ae, be)| self.exports_equal(a.with(ae), b.with(be))));
+                    }
+                }
+            }
+            ExternalKind::Type => unreachable!(), // already validated to not exist
         };
-        let reader = self.create_binary_reader();
-        ValidatingOperatorParser {
-            operator_validator,
-            reader,
-            func_body_offset,
-            end_function: false,
+        let actual = ty.map(|ty| ExportType {
+            name: actual.field,
+            ty,
+        });
+        Ok(self.exports_equal(actual, expected))
+    }
+
+    fn imports_equal(&self, a: Def<Import<'_>>, b: Def<Import<'_>>) -> bool {
+        a.item.module == b.item.module
+            && a.item.field == b.item.field
+            && self.import_ty_equal(a.with(&a.item.ty), b.with(&b.item.ty))
+    }
+
+    fn exports_equal(&self, a: Def<ExportType<'_>>, b: Def<ExportType<'_>>) -> bool {
+        a.item.name == b.item.name && self.import_ty_equal(a.with(&a.item.ty), b.with(&b.item.ty))
+    }
+
+    fn import_ty_equal(
+        &self,
+        a: Def<&ImportSectionEntryType>,
+        b: Def<&ImportSectionEntryType>,
+    ) -> bool {
+        match (a.item, b.item) {
+            (ImportSectionEntryType::Function(ai), ImportSectionEntryType::Function(bi)) => {
+                self.func_type_at(a.with(*ai)).unwrap().item
+                    == self.func_type_at(b.with(*bi)).unwrap().item
+            }
+            (ImportSectionEntryType::Table(a), ImportSectionEntryType::Table(b)) => a == b,
+            (ImportSectionEntryType::Memory(a), ImportSectionEntryType::Memory(b)) => a == b,
+            (ImportSectionEntryType::Global(a), ImportSectionEntryType::Global(b)) => a == b,
+            (ImportSectionEntryType::Instance(ai), ImportSectionEntryType::Instance(bi)) => {
+                let a = self.instance_type_at(a.with(*ai)).unwrap();
+                let b = self.instance_type_at(b.with(*bi)).unwrap();
+                a.item.exports.len() == b.item.exports.len()
+                    && a.item
+                        .exports
+                        .iter()
+                        .map(to_export)
+                        .zip(b.item.exports.iter().map(to_export))
+                        .all(|(ae, be)| self.exports_equal(a.with(ae), b.with(be)))
+            }
+            (ImportSectionEntryType::Module(ai), ImportSectionEntryType::Module(bi)) => {
+                let a = self.module_type_at(a.with(*ai)).unwrap();
+                let b = self.module_type_at(b.with(*bi)).unwrap();
+                a.item.imports.len() == b.item.imports.len()
+                    && a.item
+                        .imports
+                        .iter()
+                        .map(to_import)
+                        .zip(b.item.imports.iter().map(to_import))
+                        .all(|(ai, bi)| self.imports_equal(a.with(ai), b.with(bi)))
+                    && a.item.exports.len() == b.item.exports.len()
+                    && a.item
+                        .exports
+                        .iter()
+                        .map(to_export)
+                        .zip(b.item.exports.iter().map(to_export))
+                        .all(|(ae, be)| self.exports_equal(a.with(ae), b.with(be)))
+            }
+            _ => false,
         }
     }
-}
 
-impl<'a> WasmDecoder<'a> for ValidatingParser<'a> {
-    fn read(&mut self) -> &ParserState<'a> {
-        if self.validation_error.is_some() {
-            panic!("Parser in error state: validation");
+    /// Validates [`Payload::StartSection`](crate::Payload)
+    pub fn start_section(&mut self, func: u32, range: &Range) -> Result<()> {
+        self.offset = range.start;
+        self.update_order(Order::Start)?;
+        let ty = self.get_func_type_index(self.state.def(func))?;
+        let ty = self.func_type_at(ty)?;
+        if !ty.item.params.is_empty() || !ty.item.returns.is_empty() {
+            return self.create_error("invalid start function type");
         }
-        self.read_position = Some(self.parser.current_position());
-        self.parser.read();
-        self.process_state();
-        self.last_state()
+        Ok(())
     }
 
-    fn push_input(&mut self, input: ParserInput) {
-        match input {
-            ParserInput::SkipSection => panic!("Not supported"),
-            ParserInput::ReadSectionRawData => panic!("Not supported"),
-            _ => self.parser.push_input(input),
+    /// Validates [`Payload::ElementSection`](crate::Payload)
+    pub fn element_section(&mut self, section: &crate::ElementSectionReader<'_>) -> Result<()> {
+        self.section(Order::Element, section, |me, e| {
+            match e.ty {
+                Type::FuncRef => {}
+                Type::ExternRef if me.features.reference_types => {}
+                Type::ExternRef => {
+                    return me
+                        .create_error("reference types must be enabled for anyref elem segment");
+                }
+                _ => return me.create_error("invalid reference type"),
+            }
+            match e.kind {
+                ElementKind::Active {
+                    table_index,
+                    init_expr,
+                } => {
+                    let table = me.get_table(me.state.def(table_index))?;
+                    if e.ty != table.item.element_type {
+                        return me.create_error("element_type != table type");
+                    }
+                    me.init_expr(&init_expr, Type::I32, false)?;
+                }
+                ElementKind::Passive | ElementKind::Declared => {
+                    if !me.features.bulk_memory {
+                        return me.create_error("reference types must be enabled");
+                    }
+                }
+            }
+            let mut items = e.items.get_items_reader()?;
+            if items.get_count() > MAX_WASM_TABLE_ENTRIES as u32 {
+                return me.create_error("num_elements is out of bounds");
+            }
+            for _ in 0..items.get_count() {
+                me.offset = items.original_position();
+                match items.read()? {
+                    ElementItem::Null(ty) => {
+                        if ty != e.ty {
+                            return me.create_error(
+                                "type mismatch: null type doesn't match element type",
+                            );
+                        }
+                    }
+                    ElementItem::Func(f) => {
+                        if e.ty != Type::FuncRef {
+                            return me
+                                .create_error("type mismatch: segment does not have funcref type");
+                        }
+                        me.get_func_type_index(me.state.def(f))?;
+                        me.state.assert_mut().function_references.insert(f);
+                    }
+                }
+            }
+
+            me.state.assert_mut().element_types.push(e.ty);
+            Ok(())
+        })
+    }
+
+    /// Validates [`Payload::DataCountSection`](crate::Payload)
+    pub fn data_count_section(&mut self, count: u32, range: &Range) -> Result<()> {
+        self.offset = range.start;
+        self.update_order(Order::DataCount)?;
+        self.state.assert_mut().data_count = Some(count);
+        if count > MAX_WASM_DATA_SEGMENTS as u32 {
+            return self.create_error("data count section specifies too many data segments");
         }
+        Ok(())
     }
 
-    fn read_with_input(&mut self, input: ParserInput) -> &ParserState<'a> {
-        self.push_input(input);
-        self.read()
-    }
-
-    fn create_binary_reader<'b>(&mut self) -> BinaryReader<'b>
-    where
-        'a: 'b,
-    {
-        if let ParserState::BeginSection { .. } = *self.parser.last_state() {
-            panic!("Not supported");
+    /// Validates [`Payload::ModuleCodeSectionStart`](crate::Payload)
+    pub fn module_code_section_start(&mut self, count: u32, range: &Range) -> Result<()> {
+        if !self.features.module_linking {
+            return self.create_error("module linking proposal not enabled");
         }
-        self.parser.create_binary_reader()
-    }
-
-    fn last_state(&self) -> &ParserState<'a> {
-        if self.validation_error.is_some() {
-            self.validation_error.as_ref().unwrap()
-        } else {
-            self.parser.last_state()
+        self.offset = range.start;
+        self.update_order(Order::ModuleCode)?;
+        match self.expected_modules.take() {
+            Some(n) if n == count => {}
+            Some(_) => {
+                return self
+                    .create_error("module and module code section have inconsistent lengths");
+            }
+            None if count == 0 => {}
+            None => return self.create_error("module code section without module section"),
         }
-    }
-}
-
-pub struct ValidatingOperatorParser<'b> {
-    operator_validator: OperatorValidator,
-    reader: BinaryReader<'b>,
-    func_body_offset: usize,
-    end_function: bool,
-}
-
-impl<'b> ValidatingOperatorParser<'b> {
-    pub fn eof(&self) -> bool {
-        self.end_function
+        self.module_code_section_index = self.state.module_type_indices.len() - (count as usize);
+        Ok(())
     }
 
-    pub fn current_position(&self) -> usize {
-        self.reader.current_position()
-    }
-
-    pub fn is_dead_code(&self) -> bool {
-        self.operator_validator.is_dead_code()
-    }
-
-    /// Creates a BinaryReader when current state is ParserState::BeginSection
-    /// or ParserState::BeginFunctionBody.
+    /// Validates [`Payload::ModuleCodeSectionEntry`](crate::Payload).
     ///
-    /// # Examples
-    /// ```
-    /// # let data = &[0x0, 0x61, 0x73, 0x6d, 0x1, 0x0, 0x0, 0x0, 0x1, 0x84,
-    /// #              0x80, 0x80, 0x80, 0x0, 0x1, 0x60, 0x0, 0x0, 0x3, 0x83,
-    /// #              0x80, 0x80, 0x80, 0x0, 0x2, 0x0, 0x0, 0x6, 0x81, 0x80,
-    /// #              0x80, 0x80, 0x0, 0x0, 0xa, 0x91, 0x80, 0x80, 0x80, 0x0,
-    /// #              0x2, 0x83, 0x80, 0x80, 0x80, 0x0, 0x0, 0x1, 0xb, 0x83,
-    /// #              0x80, 0x80, 0x80, 0x0, 0x0, 0x0, 0xb];
-    /// use wasmparser::{WasmDecoder, ParserState, ValidatingParser};
-    /// let mut parser = ValidatingParser::new(data, None);
-    /// let mut validating_parsers = Vec::new();
-    /// loop {
-    ///     {
-    ///         match *parser.read() {
-    ///             ParserState::Error(_) |
-    ///             ParserState::EndWasm => break,
-    ///             ParserState::BeginFunctionBody {..} => (),
-    ///             _ => continue
-    ///         }
-    ///     }
-    ///     let reader = parser.create_validating_operator_parser();
-    ///     validating_parsers.push(reader);
-    /// }
-    /// for (i, reader) in validating_parsers.iter_mut().enumerate() {
-    ///     println!("Function {}", i);
-    ///     while !reader.eof() {
-    ///       let read = reader.next(&parser);
-    ///       if let Ok(ref op) = read {
-    ///           println!("  {:?}", op);
-    ///       } else {
-    ///           panic!("  Bad wasm code {:?}", read.err());
-    ///       }
-    ///     }
-    /// }
-    /// ```
-    pub fn next(&mut self, resources: &WasmModuleResources) -> Result<Operator<'b>> {
-        let op = self.reader.read_operator()?;
-        let check = self.operator_validator.process_operator(&op, resources);
-        if check.is_err() {
-            return Err(BinaryReaderError {
-                message: check.err().unwrap(),
-                offset: self.func_body_offset + self.reader.current_position(),
-            });
+    /// Note that this does not actually perform any validation itself. The
+    /// `ModuleCodeSectionEntry` payload is associated with a sub-parser for the
+    /// sub-module, and it's expected that the returned [`Validator`] will be
+    /// paired with the [`Parser`] otherwise used with the module.
+    ///
+    /// Note that the returned [`Validator`] should be used for the nested
+    /// module. It will correctly work with parent aliases as well as ensure the
+    /// type of the inline module matches the declared type. Using
+    /// [`Validator::new`] will result in incorrect validation.
+    pub fn module_code_section_entry<'a>(&mut self) -> Validator {
+        let mut ret = Validator::default();
+        ret.features = self.features.clone();
+        ret.expected_type = Some(self.state.module_type_indices[self.module_code_section_index]);
+        self.module_code_section_index += 1;
+        let state = ret.state.assert_mut();
+        state.parent = Some(self.state.arc().clone());
+        state.depth = self.state.depth + 1;
+        return ret;
+    }
+
+    /// Validates [`Payload::CodeSectionStart`](crate::Payload).
+    pub fn code_section_start(&mut self, count: u32, range: &Range) -> Result<()> {
+        self.offset = range.start;
+        self.update_order(Order::Code)?;
+        match self.expected_code_bodies.take() {
+            Some(n) if n == count => {}
+            Some(_) => {
+                return self.create_error("function and code section have inconsistent lengths");
+            }
+            // empty code sections are allowed even if the function section is
+            // missing
+            None if count == 0 => {}
+            None => return self.create_error("code section without function section"),
         }
-        if let OperatorAction::EndFunction = check.ok().unwrap() {
-            self.end_function = true;
-            if !self.reader.eof() {
-                return Err(BinaryReaderError {
-                    message: "unexpected end of function",
-                    offset: self.func_body_offset + self.reader.current_position(),
-                });
+        self.code_section_index = self.state.func_type_indices.len() - (count as usize);
+        Ok(())
+    }
+
+    /// Validates [`Payload::CodeSectionEntry`](crate::Payload).
+    ///
+    /// This function will prepare a [`FuncValidator`] which can be used to
+    /// validate the function. The function body provided will be parsed only
+    /// enough to create the function validation context. After this the
+    /// [`OperatorsReader`](crate::readers::OperatorsReader) returned can be used to read the
+    /// opcodes of the function as well as feed information into the validator.
+    ///
+    /// Note that the returned [`FuncValidator`] is "connected" to this
+    /// [`Validator`] in that it uses the internal context of this validator for
+    /// validating the function. The [`FuncValidator`] can be sent to
+    /// another thread, for example, to offload actual processing of functions
+    /// elsewhere.
+    pub fn code_section_entry(&mut self) -> Result<FuncValidator<ValidatorResources>> {
+        let ty_index = self.state.func_type_indices[self.code_section_index];
+        self.code_section_index += 1;
+        let resources = ValidatorResources(self.state.arc().clone());
+        Ok(FuncValidator::new(ty_index.item, 0, resources, &self.features).unwrap())
+    }
+
+    /// Validates [`Payload::DataSection`](crate::Payload).
+    pub fn data_section(&mut self, section: &crate::DataSectionReader<'_>) -> Result<()> {
+        self.data_found = section.get_count();
+        self.check_max(0, section.get_count(), MAX_WASM_DATA_SEGMENTS, "segments")?;
+        self.section(Order::Data, section, |me, d| {
+            match d.kind {
+                DataKind::Passive => {}
+                DataKind::Active {
+                    memory_index,
+                    init_expr,
+                } => {
+                    let ty = me.get_memory(me.state.def(memory_index))?.index_type();
+                    let allow32 = ty == Type::I64;
+                    me.init_expr(&init_expr, ty, allow32)?;
+                }
+            }
+            Ok(())
+        })
+    }
+
+    /// Validates [`Payload::UnknownSection`](crate::Payload).
+    ///
+    /// Currently always returns an error.
+    pub fn unknown_section(&mut self, id: u8, range: &Range) -> Result<()> {
+        self.offset = range.start;
+        self.create_error(format!("invalid section code: {}", id))
+    }
+
+    /// Validates [`Payload::End`](crate::Payload).
+    pub fn end(&mut self) -> Result<()> {
+        if let Some(data_count) = self.state.data_count {
+            if data_count != self.data_found {
+                return self.create_error("data count section and passive data mismatch");
             }
         }
-        Ok(op)
+        if let Some(n) = self.expected_code_bodies.take() {
+            if n > 0 {
+                return self.create_error("function and code sections have inconsistent lengths");
+            }
+        }
+        if let Some(n) = self.expected_modules.take() {
+            if n > 0 {
+                return self
+                    .create_error("module and module code sections have inconsistent lengths");
+            }
+        }
+        if let Some(t) = self.expected_type {
+            let ty = self.module_type_at(t)?;
+            if self.expected_import_pos != ty.item.imports.len()
+                || self.expected_export_pos != ty.item.exports.len()
+            {
+                return self.create_error("inline module type does not match declared type");
+            }
+        }
+        Ok(())
     }
 }
 
-/// Test whether the given buffer contains a valid WebAssembly module,
-/// analogous to WebAssembly.validate in the JS API.
-pub fn validate(bytes: &[u8], config: Option<ValidatingParserConfig>) -> bool {
-    let mut parser = ValidatingParser::new(bytes, config);
-    loop {
-        let state = parser.read();
-        match *state {
-            ParserState::EndWasm => return true,
-            ParserState::Error(_) => return false,
-            _ => (),
+impl WasmFeatures {
+    pub(crate) fn check_value_type(&self, ty: Type) -> Result<(), &'static str> {
+        match ty {
+            Type::I32 | Type::I64 | Type::F32 | Type::F64 => Ok(()),
+            Type::FuncRef | Type::ExternRef => {
+                if self.reference_types {
+                    Ok(())
+                } else {
+                    Err("reference types support is not enabled")
+                }
+            }
+            Type::V128 => {
+                if self.simd {
+                    Ok(())
+                } else {
+                    Err("SIMD support is not enabled")
+                }
+            }
+            _ => Err("invalid value type"),
         }
     }
 }
 
-#[test]
-fn test_validate() {
-    assert!(validate(&[0x0, 0x61, 0x73, 0x6d, 0x1, 0x0, 0x0, 0x0], None));
-    assert!(!validate(
-        &[0x0, 0x61, 0x73, 0x6d, 0x2, 0x0, 0x0, 0x0],
-        None
-    ));
+impl ModuleState {
+    fn def<T>(&self, item: T) -> Def<T> {
+        Def {
+            depth: self.depth,
+            item,
+        }
+    }
+
+    fn get<'me, T>(
+        &'me self,
+        idx: Def<u32>,
+        get_list: impl FnOnce(&'me ModuleState) -> &'me [T],
+    ) -> Option<&'me T> {
+        let mut cur = self;
+        for _ in 0..(self.depth - idx.depth) {
+            cur = cur.parent.as_ref().unwrap();
+        }
+        get_list(cur).get(idx.item as usize)
+    }
+
+    fn get_type<'me>(&'me self, mut idx: Def<u32>) -> Option<Def<&'me TypeDef>> {
+        loop {
+            let def = self.get(idx, |v| &v.types)?;
+            match def {
+                ValidatedType::Def(item) => break Some(idx.with(item)),
+                ValidatedType::Alias(other) => idx = *other,
+            }
+        }
+    }
+
+    fn get_table<'me>(&'me self, idx: Def<u32>) -> Option<&'me Def<TableType>> {
+        self.get(idx, |v| &v.tables)
+    }
+
+    fn get_memory<'me>(&'me self, idx: Def<u32>) -> Option<&'me MemoryType> {
+        self.get(idx, |v| &v.memories)
+    }
+
+    fn get_global<'me>(&'me self, idx: Def<u32>) -> Option<&'me Def<GlobalType>> {
+        self.get(idx, |v| &v.globals)
+    }
+
+    fn get_func_type_index<'me>(&'me self, idx: Def<u32>) -> Option<Def<u32>> {
+        Some(*self.get(idx, |v| &v.func_type_indices)?)
+    }
+
+    fn get_module_type_index<'me>(&'me self, idx: Def<u32>) -> Option<Def<u32>> {
+        Some(*self.get(idx, |v| &v.module_type_indices)?)
+    }
+
+    fn get_instance_def<'me>(&'me self, idx: Def<u32>) -> Option<&'me Def<InstanceDef>> {
+        self.get(idx, |v| &v.instance_type_indices)
+    }
+}
+
+#[derive(Copy, Clone)]
+struct Def<T> {
+    depth: usize,
+    item: T,
+}
+
+impl<T> Def<T> {
+    fn map<U>(self, map: impl FnOnce(T) -> U) -> Def<U> {
+        Def {
+            depth: self.depth,
+            item: map(self.item),
+        }
+    }
+
+    fn with<U>(&self, item: U) -> Def<U> {
+        Def {
+            depth: self.depth,
+            item: item,
+        }
+    }
+}
+
+/// The implementation of [`WasmModuleResources`] used by [`Validator`].
+pub struct ValidatorResources(Arc<ModuleState>);
+
+impl WasmModuleResources for ValidatorResources {
+    type FuncType = crate::FuncType;
+
+    fn table_at(&self, at: u32) -> Option<TableType> {
+        self.0.get_table(self.0.def(at)).map(|t| t.item)
+    }
+
+    fn memory_at(&self, at: u32) -> Option<MemoryType> {
+        self.0.get_memory(self.0.def(at)).copied()
+    }
+
+    fn global_at(&self, at: u32) -> Option<GlobalType> {
+        self.0.get_global(self.0.def(at)).map(|t| t.item)
+    }
+
+    fn func_type_at(&self, at: u32) -> Option<&Self::FuncType> {
+        match self.0.get_type(self.0.def(at))?.item {
+            TypeDef::Func(f) => Some(f),
+            _ => None,
+        }
+    }
+
+    fn type_of_function(&self, at: u32) -> Option<&Self::FuncType> {
+        let ty = self.0.get_func_type_index(self.0.def(at))?;
+        match self.0.get_type(ty)?.item {
+            TypeDef::Func(f) => Some(f),
+            _ => None,
+        }
+    }
+
+    fn element_type_at(&self, at: u32) -> Option<Type> {
+        self.0.element_types.get(at as usize).cloned()
+    }
+
+    fn element_count(&self) -> u32 {
+        self.0.element_types.len() as u32
+    }
+
+    fn data_count(&self) -> u32 {
+        self.0.data_count.unwrap_or(0)
+    }
+
+    fn is_function_referenced(&self, idx: u32) -> bool {
+        self.0.function_references.contains(&idx)
+    }
+}
+
+mod arc {
+    use std::ops::Deref;
+    use std::sync::Arc;
+
+    pub struct MaybeOwned<T> {
+        owned: bool,
+        arc: Arc<T>,
+    }
+
+    impl<T> MaybeOwned<T> {
+        pub fn as_mut(&mut self) -> Option<&mut T> {
+            if !self.owned {
+                return None;
+            }
+            debug_assert!(Arc::get_mut(&mut self.arc).is_some());
+            Some(unsafe { &mut *(&*self.arc as *const T as *mut T) })
+        }
+
+        pub fn assert_mut(&mut self) -> &mut T {
+            self.as_mut().unwrap()
+        }
+
+        pub fn arc(&mut self) -> &Arc<T> {
+            self.owned = false;
+            &self.arc
+        }
+    }
+
+    impl<T: Default> Default for MaybeOwned<T> {
+        fn default() -> MaybeOwned<T> {
+            MaybeOwned {
+                owned: true,
+                arc: Arc::default(),
+            }
+        }
+    }
+
+    impl<T> Deref for MaybeOwned<T> {
+        type Target = T;
+
+        fn deref(&self) -> &T {
+            &self.arc
+        }
+    }
 }

@@ -34,6 +34,11 @@
 #if 0
 #include "../../lib/freebl/mpi/mpi.h"
 #endif
+#define MATCH_OPENSSL 1
+/*#define MATCH_NIST 1 */
+#ifdef MATCH_NIST
+#define VERBOSE_REASON 1
+#endif
 
 extern SECStatus
 EC_DecodeParams(const SECItem *encodedParams, ECParams **ecparams);
@@ -1022,7 +1027,7 @@ aes_gcm(char *reqfn, int encrypt)
     unsigned int tagbits;
     unsigned int taglen = 0;
     unsigned int ivlen;
-    CK_GCM_PARAMS params;
+    CK_NSS_GCM_PARAMS params;
     SECStatus rv;
 
     aesreq = fopen(reqfn, "r");
@@ -3169,6 +3174,10 @@ ecdh_functional(char *reqfn, PRBool response)
                 fprintf(stderr, "generate key was compressed\n");
                 goto loser;
             }
+            fputs("deIUT = ", ecdhresp);
+            to_hex_str(buf, ecpriv->privateValue.data, ecpriv->privateValue.len);
+            fputs(buf, ecdhresp);
+            fputc('\n', ecdhresp);
             fputs("QeIUTx = ", ecdhresp);
             to_hex_str(buf, &ecpriv->publicValue.data[1], uit_len);
             fputs(buf, ecdhresp);
@@ -3215,7 +3224,6 @@ loser:
     fclose(ecdhreq);
 }
 
-#define MATCH_OPENSSL 1
 /*
  * Perform the ECDH Validity Test.
  *
@@ -3408,9 +3416,10 @@ ecdh_verify(char *reqfn, PRBool response)
             fputs(buf, ecdhresp);
             continue;
         }
-        if (strncmp(buf, "CAVSHashZZ", 10) == 0) {
+        if ((strncmp(buf, "CAVSHashZZ", 10) == 0) ||
+            (strncmp(buf, "HashZZ", 6) == 0)) {
             fputs(buf, ecdhresp);
-            i = 10;
+            i = (buf[0] == 'C') ? 10 : 6;
             while (isspace(buf[i]) || buf[i] == '=') {
                 i++;
             }
@@ -3421,10 +3430,10 @@ ecdh_verify(char *reqfn, PRBool response)
             }
             /* validate CAVS public key */
             if (EC_ValidatePublicKey(current_ecparams, &pubkey) != SECSuccess) {
-#ifdef MATCH_OPENSSL
-                fprintf(ecdhresp, "Result = F\n");
-#else
+#ifdef VERBOSE_REASON
                 fprintf(ecdhresp, "Result = F # key didn't validate\n");
+#else
+                fprintf(ecdhresp, "Result = F\n");
 #endif
                 continue;
             }
@@ -3432,8 +3441,12 @@ ecdh_verify(char *reqfn, PRBool response)
             /* ECDH */
             if (ECDH_Derive(&pubkey, current_ecparams, &private_value,
                             PR_FALSE, &ZZ) != SECSuccess) {
-                fprintf(stderr, "Derive failed\n");
-                goto loser;
+#ifdef VERBOSE_REASON
+                fprintf(ecdhresp, "Result = F # derive failure\n");
+#else
+                fprintf(ecdhresp, "Result = F\n");
+#endif
+                continue;
             }
 /* output  ZZ */
 #ifndef MATCH_OPENSSL
@@ -3455,10 +3468,10 @@ ecdh_verify(char *reqfn, PRBool response)
             fputc('\n', ecdhresp);
 #endif
             if (memcmp(hashBuf, cavsHashBuf, fips_hashLen(hash)) != 0) {
-#ifdef MATCH_OPENSSL
-                fprintf(ecdhresp, "Result = F\n");
-#else
+#ifdef VERBOSE_REASON
                 fprintf(ecdhresp, "Result = F # hash doesn't match\n");
+#else
+                fprintf(ecdhresp, "Result = F\n");
 #endif
             } else {
                 fprintf(ecdhresp, "Result = P\n");
@@ -3675,7 +3688,6 @@ loser:
     fclose(dhreq);
 }
 
-#define MATCH_OPENSSL 1
 /*
  * Perform the DH Validity Test.
  *
@@ -3846,9 +3858,10 @@ dh_verify(char *reqfn, PRBool response)
             continue;
         }
         /* CAVSHashZZ = ... */
-        if (strncmp(buf, "CAVSHashZZ", 10) == 0) {
+        if ((strncmp(buf, "CAVSHashZZ", 10) == 0) ||
+            (strncmp(buf, "HashZZ", 6) == 0)) {
             fputs(buf, dhresp);
-            i = 10;
+            i = buf[0] == 'C' ? 10 : 6;
             while (isspace(buf[i]) || buf[i] == '=') {
                 i++;
             }
@@ -3871,7 +3884,7 @@ dh_verify(char *reqfn, PRBool response)
                 goto loser;
             }
             SECITEM_FreeItem(&ZZ, PR_FALSE);
-#ifndef MATCH_NIST_
+#ifndef MATCH_NIST
             fputs("IUTHashZZ = ", dhresp);
             to_hex_str(buf, hashBuf, fips_hashLen(hash));
             fputs(buf, dhresp);
@@ -6656,12 +6669,13 @@ tls(char *reqfn)
 
     CK_MECHANISM master_mech = { CKM_TLS_MASTER_KEY_DERIVE, NULL, 0 };
     CK_MECHANISM key_block_mech = { CKM_TLS_KEY_AND_MAC_DERIVE, NULL, 0 };
-    CK_SSL3_MASTER_KEY_DERIVE_PARAMS master_params;
-    CK_SSL3_KEY_MAT_PARAMS key_block_params;
+    CK_TLS12_MASTER_KEY_DERIVE_PARAMS master_params;
+    CK_TLS12_KEY_MAT_PARAMS key_block_params;
     CK_SSL3_KEY_MAT_OUT key_material;
     CK_RV crv;
 
     /* set up PKCS #11 parameters */
+    master_params.prfHashMechanism = CKM_SHA256;
     master_params.pVersion = NULL;
     master_params.RandomInfo.pClientRandom = clientHello_random;
     master_params.RandomInfo.ulClientRandomLen = sizeof(clientHello_random);
@@ -6669,6 +6683,7 @@ tls(char *reqfn)
     master_params.RandomInfo.ulServerRandomLen = sizeof(serverHello_random);
     master_mech.pParameter = (void *)&master_params;
     master_mech.ulParameterLen = sizeof(master_params);
+    key_block_params.prfHashMechanism = CKM_SHA256;
     key_block_params.ulMacSizeInBits = 0;
     key_block_params.ulKeySizeInBits = 0;
     key_block_params.ulIVSizeInBits = 0;
@@ -6711,13 +6726,39 @@ tls(char *reqfn)
         if (buf[0] == '[') {
             if (strncmp(buf, "[TLS", 4) == 0) {
                 if (buf[7] == '0') {
+                    /* CK_SSL3_MASTER_KEY_DERIVE_PARAMS is a subset of
+                     * CK_TLS12_MASTER_KEY_DERIVE_PARAMS and
+                     * CK_SSL3_KEY_MAT_PARAMS is a subset of
+                     * CK_TLS12_KEY_MAT_PARAMS. The latter params have
+                     * an extra prfHashMechanism field at the end. */
                     master_mech.mechanism = CKM_TLS_MASTER_KEY_DERIVE;
                     key_block_mech.mechanism = CKM_TLS_KEY_AND_MAC_DERIVE;
+                    master_mech.ulParameterLen = sizeof(CK_SSL3_MASTER_KEY_DERIVE_PARAMS);
+                    key_block_mech.ulParameterLen = sizeof(CK_SSL3_KEY_MAT_PARAMS);
                 } else if (buf[7] == '2') {
-                    master_mech.mechanism =
-                        CKM_NSS_TLS_MASTER_KEY_DERIVE_SHA256;
-                    key_block_mech.mechanism =
-                        CKM_NSS_TLS_KEY_AND_MAC_DERIVE_SHA256;
+                    if (strncmp(&buf[10], "SHA-1", 5) == 0) {
+                        master_params.prfHashMechanism = CKM_SHA_1;
+                        key_block_params.prfHashMechanism = CKM_SHA_1;
+                    } else if (strncmp(&buf[10], "SHA-224", 7) == 0) {
+                        master_params.prfHashMechanism = CKM_SHA224;
+                        key_block_params.prfHashMechanism = CKM_SHA224;
+                    } else if (strncmp(&buf[10], "SHA-256", 7) == 0) {
+                        master_params.prfHashMechanism = CKM_SHA256;
+                        key_block_params.prfHashMechanism = CKM_SHA256;
+                    } else if (strncmp(&buf[10], "SHA-384", 7) == 0) {
+                        master_params.prfHashMechanism = CKM_SHA384;
+                        key_block_params.prfHashMechanism = CKM_SHA384;
+                    } else if (strncmp(&buf[10], "SHA-512", 7) == 0) {
+                        master_params.prfHashMechanism = CKM_SHA512;
+                        key_block_params.prfHashMechanism = CKM_SHA512;
+                    } else {
+                        fprintf(tlsresp, "ERROR: Unable to find prf Hash type");
+                        goto loser;
+                    }
+                    master_mech.mechanism = CKM_TLS12_MASTER_KEY_DERIVE;
+                    key_block_mech.mechanism = CKM_TLS12_KEY_AND_MAC_DERIVE;
+                    master_mech.ulParameterLen = sizeof(master_params);
+                    key_block_mech.ulParameterLen = sizeof(key_block_params);
                 } else {
                     fprintf(stderr, "Unknown TLS type %x\n",
                             (unsigned int)buf[0]);
@@ -6900,6 +6941,1817 @@ loser:
         fclose(tlsreq);
 }
 
+void
+ikev1(char *reqfn)
+{
+    char buf[4096]; /* holds one line from the input REQUEST file.
+                         * needs to be large enough to hold the longest
+                         * line "g^xy = <2048 hex digits>\n".
+                         */
+    unsigned char *gxy = NULL;
+    int gxy_len;
+    unsigned char *Ni = NULL;
+    int Ni_len;
+    unsigned char *Nr = NULL;
+    int Nr_len;
+    unsigned char CKYi[8];
+    int CKYi_len;
+    unsigned char CKYr[8];
+    int CKYr_len;
+    unsigned int i, j;
+    FILE *ikereq = NULL; /* input stream from the REQUEST file */
+    FILE *ikeresp;       /* output stream to the RESPONSE file */
+
+    CK_SLOT_ID slotList[10];
+    CK_SLOT_ID slotID;
+    CK_ULONG slotListCount = sizeof(slotList) / sizeof(slotList[0]);
+    CK_ULONG count;
+    static const CK_C_INITIALIZE_ARGS pk11args = {
+        NULL, NULL, NULL, NULL, CKF_LIBRARY_CANT_CREATE_OS_THREADS,
+        (void *)"flags=readOnly,noCertDB,noModDB", NULL
+    };
+    static CK_OBJECT_CLASS ck_secret = CKO_SECRET_KEY;
+    static CK_KEY_TYPE ck_generic = CKK_GENERIC_SECRET;
+    static CK_BBOOL ck_true = CK_TRUE;
+    static CK_ULONG keyLen = 1;
+    CK_ATTRIBUTE gxy_template[] = {
+        { CKA_VALUE, NULL, 0 }, /* must be first */
+        { CKA_CLASS, &ck_secret, sizeof(ck_secret) },
+        { CKA_KEY_TYPE, &ck_generic, sizeof(ck_generic) },
+        { CKA_DERIVE, &ck_true, sizeof(ck_true) },
+    };
+    CK_ULONG gxy_template_count =
+        sizeof(gxy_template) / sizeof(gxy_template[0]);
+    CK_ATTRIBUTE derive_template[] = {
+        { CKA_CLASS, &ck_secret, sizeof(ck_secret) },
+        { CKA_KEY_TYPE, &ck_generic, sizeof(ck_generic) },
+        { CKA_DERIVE, &ck_true, sizeof(ck_true) },
+        { CKA_VALUE_LEN, &keyLen, sizeof(keyLen) }, /* must be last */
+    };
+    CK_ULONG derive_template_count =
+        sizeof(derive_template) / sizeof(derive_template[0]);
+    CK_ATTRIBUTE skeyid_template =
+        { CKA_VALUE, NULL, 0 };
+    CK_ATTRIBUTE skeyid_d_template =
+        { CKA_VALUE, NULL, 0 };
+    CK_ATTRIBUTE skeyid_a_template =
+        { CKA_VALUE, NULL, 0 };
+    CK_ATTRIBUTE skeyid_e_template =
+        { CKA_VALUE, NULL, 0 };
+    unsigned char skeyid_secret[HASH_LENGTH_MAX];
+    unsigned char skeyid_d_secret[HASH_LENGTH_MAX];
+    unsigned char skeyid_a_secret[HASH_LENGTH_MAX];
+    unsigned char skeyid_e_secret[HASH_LENGTH_MAX];
+
+    CK_MECHANISM ike_mech = { CKM_NSS_IKE_PRF_DERIVE, NULL, 0 };
+    CK_MECHANISM ike1_mech = { CKM_NSS_IKE1_PRF_DERIVE, NULL, 0 };
+    CK_NSS_IKE_PRF_DERIVE_PARAMS ike_prf;
+    CK_NSS_IKE1_PRF_DERIVE_PARAMS ike1_prf;
+    CK_RV crv;
+
+    /* set up PKCS #11 parameters */
+    ike_prf.bDataAsKey = PR_TRUE;
+    ike_prf.bRekey = PR_FALSE;
+    ike_prf.hNewKey = CK_INVALID_HANDLE;
+    CKYi_len = sizeof(CKYi);
+    CKYr_len = sizeof(CKYr);
+    ike1_prf.pCKYi = CKYi;
+    ike1_prf.ulCKYiLen = CKYi_len;
+    ike1_prf.pCKYr = CKYr;
+    ike1_prf.ulCKYrLen = CKYr_len;
+    ike_mech.pParameter = &ike_prf;
+    ike_mech.ulParameterLen = sizeof(ike_prf);
+    ike1_mech.pParameter = &ike1_prf;
+    ike1_mech.ulParameterLen = sizeof(ike1_prf);
+    skeyid_template.pValue = skeyid_secret;
+    skeyid_template.ulValueLen = HASH_LENGTH_MAX;
+    skeyid_d_template.pValue = skeyid_d_secret;
+    skeyid_d_template.ulValueLen = HASH_LENGTH_MAX;
+    skeyid_a_template.pValue = skeyid_a_secret;
+    skeyid_a_template.ulValueLen = HASH_LENGTH_MAX;
+    skeyid_e_template.pValue = skeyid_e_secret;
+    skeyid_e_template.ulValueLen = HASH_LENGTH_MAX;
+
+    crv = NSC_Initialize((CK_VOID_PTR)&pk11args);
+    if (crv != CKR_OK) {
+        fprintf(stderr, "NSC_Initialize failed crv=0x%x\n", (unsigned int)crv);
+        goto loser;
+    }
+    count = slotListCount;
+    crv = NSC_GetSlotList(PR_TRUE, slotList, &count);
+    if (crv != CKR_OK) {
+        fprintf(stderr, "NSC_GetSlotList failed crv=0x%x\n", (unsigned int)crv);
+        goto loser;
+    }
+    if ((count > slotListCount) || count < 1) {
+        fprintf(stderr,
+                "NSC_GetSlotList returned too many or too few slots: %d slots max=%d min=1\n",
+                (int)count, (int)slotListCount);
+        goto loser;
+    }
+    slotID = slotList[0];
+    ikereq = fopen(reqfn, "r");
+    ikeresp = stdout;
+    while (fgets(buf, sizeof buf, ikereq) != NULL) {
+        /* a comment or blank line */
+        if (buf[0] == '#' || buf[0] == '\n') {
+            fputs(buf, ikeresp);
+            continue;
+        }
+        /* [.....] */
+        if (buf[0] == '[') {
+            if (strncmp(buf, "[SHA-1]", 7) == 0) {
+                ike_prf.prfMechanism = CKM_SHA_1_HMAC;
+                ike1_prf.prfMechanism = CKM_SHA_1_HMAC;
+            }
+            if (strncmp(buf, "[SHA-224]", 9) == 0) {
+                ike_prf.prfMechanism = CKM_SHA224_HMAC;
+                ike1_prf.prfMechanism = CKM_SHA224_HMAC;
+            }
+            if (strncmp(buf, "[SHA-256]", 9) == 0) {
+                ike_prf.prfMechanism = CKM_SHA256_HMAC;
+                ike1_prf.prfMechanism = CKM_SHA256_HMAC;
+            }
+            if (strncmp(buf, "[SHA-384]", 9) == 0) {
+                ike_prf.prfMechanism = CKM_SHA384_HMAC;
+                ike1_prf.prfMechanism = CKM_SHA384_HMAC;
+            }
+            if (strncmp(buf, "[SHA-512]", 9) == 0) {
+                ike_prf.prfMechanism = CKM_SHA512_HMAC;
+                ike1_prf.prfMechanism = CKM_SHA512_HMAC;
+            }
+            if (strncmp(buf, "[AES-XCBC", 9) == 0) {
+                ike_prf.prfMechanism = CKM_AES_XCBC_MAC;
+                ike1_prf.prfMechanism = CKM_AES_XCBC_MAC;
+            }
+            if (strncmp(buf, "[g^xy", 5) == 0) {
+                if (sscanf(buf, "[g^xy length = %d]",
+                           &gxy_len) != 1) {
+                    goto loser;
+                }
+                gxy_len = gxy_len / 8;
+                if (gxy)
+                    free(gxy);
+                gxy = malloc(gxy_len);
+                gxy_template[0].pValue = gxy;
+                gxy_template[0].ulValueLen = gxy_len;
+            }
+            if (strncmp(buf, "[Ni", 3) == 0) {
+                if (sscanf(buf, "[Ni length = %d]", &Ni_len) != 1) {
+                    goto loser;
+                }
+                Ni_len = Ni_len / 8;
+                if (Ni)
+                    free(Ni);
+                Ni = malloc(Ni_len);
+                ike_prf.pNi = Ni;
+                ike_prf.ulNiLen = Ni_len;
+            }
+            if (strncmp(buf, "[Nr", 3) == 0) {
+                if (sscanf(buf, "[Nr length = %d]", &Nr_len) != 1) {
+                    goto loser;
+                }
+                Nr_len = Nr_len / 8;
+                if (Nr)
+                    free(Nr);
+                Nr = malloc(Nr_len);
+                ike_prf.pNr = Nr;
+                ike_prf.ulNrLen = Nr_len;
+            }
+            fputs(buf, ikeresp);
+            continue;
+        }
+        /* "COUNT = x" begins a new data set */
+        if (strncmp(buf, "COUNT", 5) == 0) {
+            /* zeroize the variables for the test with this data set */
+            memset(gxy, 0, gxy_len);
+            memset(Ni, 0, Ni_len);
+            memset(Nr, 0, Nr_len);
+            memset(CKYi, 0, CKYi_len);
+            memset(CKYr, 0, CKYr_len);
+            fputs(buf, ikeresp);
+            continue;
+        }
+        /* Ni = ... */
+        if (strncmp(buf, "Ni", 2) == 0) {
+            i = 2;
+            while (isspace(buf[i]) || buf[i] == '=') {
+                i++;
+            }
+            for (j = 0; j < Ni_len; i += 2, j++) {
+                hex_to_byteval(&buf[i], &Ni[j]);
+            }
+            fputs(buf, ikeresp);
+            continue;
+        }
+        /* Nr = ... */
+        if (strncmp(buf, "Nr", 2) == 0) {
+            i = 2;
+            while (isspace(buf[i]) || buf[i] == '=') {
+                i++;
+            }
+            for (j = 0; j < Nr_len; i += 2, j++) {
+                hex_to_byteval(&buf[i], &Nr[j]);
+            }
+            fputs(buf, ikeresp);
+            continue;
+        }
+        /* CKYi = ... */
+        if (strncmp(buf, "CKY_I", 5) == 0) {
+            i = 5;
+            while (isspace(buf[i]) || buf[i] == '=') {
+                i++;
+            }
+            for (j = 0; j < CKYi_len; i += 2, j++) {
+                hex_to_byteval(&buf[i], &CKYi[j]);
+            }
+            fputs(buf, ikeresp);
+            continue;
+        }
+        /* CKYr = ... */
+        if (strncmp(buf, "CKY_R", 5) == 0) {
+            i = 5;
+            while (isspace(buf[i]) || buf[i] == '=') {
+                i++;
+            }
+            for (j = 0; j < CKYr_len; i += 2, j++) {
+                hex_to_byteval(&buf[i], &CKYr[j]);
+            }
+            fputs(buf, ikeresp);
+            continue;
+        }
+        /* g^xy = ... */
+        if (strncmp(buf, "g^xy", 4) == 0) {
+            CK_SESSION_HANDLE session;
+            CK_OBJECT_HANDLE gxy_handle;
+            CK_OBJECT_HANDLE skeyid_handle;
+            CK_OBJECT_HANDLE skeyid_d_handle;
+            CK_OBJECT_HANDLE skeyid_a_handle;
+            CK_OBJECT_HANDLE skeyid_e_handle;
+            i = 4;
+            while (isspace(buf[i]) || buf[i] == '=') {
+                i++;
+            }
+            for (j = 0; j < gxy_len; i += 2, j++) {
+                hex_to_byteval(&buf[i], &gxy[j]);
+            }
+            fputs(buf, ikeresp);
+            crv = NSC_OpenSession(slotID, 0, NULL, NULL, &session);
+            if (crv != CKR_OK) {
+                fprintf(stderr, "NSC_OpenSession failed crv=0x%x\n",
+                        (unsigned int)crv);
+                goto loser;
+            }
+            crv = NSC_CreateObject(session, gxy_template,
+                                   gxy_template_count, &gxy_handle);
+            if (crv != CKR_OK) {
+                fprintf(stderr, "NSC_CreateObject failed crv=0x%x\n",
+                        (unsigned int)crv);
+                goto loser;
+            }
+            /* get the skeyid key */
+            crv = NSC_DeriveKey(session, &ike_mech, gxy_handle,
+                                derive_template, derive_template_count - 1,
+                                &skeyid_handle);
+            if (crv != CKR_OK) {
+                fprintf(stderr, "NSC_DeriveKey(skeyid) failed crv=0x%x\n",
+                        (unsigned int)crv);
+                goto loser;
+            }
+            skeyid_template.ulValueLen = HASH_LENGTH_MAX;
+            crv = NSC_GetAttributeValue(session, skeyid_handle,
+                                        &skeyid_template, 1);
+            if (crv != CKR_OK) {
+                fprintf(stderr, "NSC_GetAttribute(skeyid) failed crv=0x%x\n",
+                        (unsigned int)crv);
+                goto loser;
+            }
+            /* use the length of the skeyid to set the target length of all the
+             * other keys */
+            keyLen = skeyid_template.ulValueLen;
+            ike1_prf.hKeygxy = gxy_handle;
+            ike1_prf.bHasPrevKey = PR_FALSE;
+            ike1_prf.keyNumber = 0;
+            crv = NSC_DeriveKey(session, &ike1_mech, skeyid_handle,
+                                derive_template, derive_template_count,
+                                &skeyid_d_handle);
+            if (crv != CKR_OK) {
+                fprintf(stderr, "NSC_DeriveKey(skeyid_d) failed crv=0x%x\n",
+                        (unsigned int)crv);
+                goto loser;
+            }
+
+            ike1_prf.hKeygxy = gxy_handle;
+            ike1_prf.bHasPrevKey = CK_TRUE;
+            ike1_prf.hPrevKey = skeyid_d_handle;
+            ike1_prf.keyNumber = 1;
+            crv = NSC_DeriveKey(session, &ike1_mech, skeyid_handle,
+                                derive_template, derive_template_count,
+                                &skeyid_a_handle);
+            if (crv != CKR_OK) {
+                fprintf(stderr, "NSC_DeriveKey(skeyid_a) failed crv=0x%x\n",
+                        (unsigned int)crv);
+                goto loser;
+            }
+            ike1_prf.hKeygxy = gxy_handle;
+            ike1_prf.bHasPrevKey = CK_TRUE;
+            ike1_prf.hPrevKey = skeyid_a_handle;
+            ike1_prf.keyNumber = 2;
+            crv = NSC_DeriveKey(session, &ike1_mech, skeyid_handle,
+                                derive_template, derive_template_count,
+                                &skeyid_e_handle);
+            if (crv != CKR_OK) {
+                fprintf(stderr, "NSC_DeriveKey(skeyid_e) failed crv=0x%x\n",
+                        (unsigned int)crv);
+                goto loser;
+            }
+            fputs("SKEYID = ", ikeresp);
+            to_hex_str(buf, skeyid_secret, keyLen);
+            fputs(buf, ikeresp);
+            fputc('\n', ikeresp);
+
+            skeyid_d_template.ulValueLen = keyLen;
+            crv = NSC_GetAttributeValue(session, skeyid_d_handle,
+                                        &skeyid_d_template, 1);
+            if (crv != CKR_OK) {
+                fprintf(stderr, "NSC_GetAttribute(skeyid_d) failed crv=0x%x\n",
+                        (unsigned int)crv);
+                goto loser;
+            }
+            fputs("SKEYID_d = ", ikeresp);
+            to_hex_str(buf, skeyid_d_secret, skeyid_d_template.ulValueLen);
+            fputs(buf, ikeresp);
+            fputc('\n', ikeresp);
+
+            skeyid_a_template.ulValueLen = keyLen;
+            crv = NSC_GetAttributeValue(session, skeyid_a_handle,
+                                        &skeyid_a_template, 1);
+            if (crv != CKR_OK) {
+                fprintf(stderr, "NSC_GetAttribute(skeyid_a) failed crv=0x%x\n",
+                        (unsigned int)crv);
+                goto loser;
+            }
+            fputs("SKEYID_a = ", ikeresp);
+            to_hex_str(buf, skeyid_a_secret, skeyid_a_template.ulValueLen);
+            fputs(buf, ikeresp);
+            fputc('\n', ikeresp);
+
+            skeyid_e_template.ulValueLen = keyLen;
+            crv = NSC_GetAttributeValue(session, skeyid_e_handle,
+                                        &skeyid_e_template, 1);
+            if (crv != CKR_OK) {
+                fprintf(stderr, "NSC_GetAttribute(skeyid_e) failed crv=0x%x\n",
+                        (unsigned int)crv);
+                goto loser;
+            }
+            fputs("SKEYID_e = ", ikeresp);
+            to_hex_str(buf, skeyid_e_secret, skeyid_e_template.ulValueLen);
+            fputs(buf, ikeresp);
+            fputc('\n', ikeresp);
+
+            crv = NSC_CloseSession(session);
+            continue;
+        }
+    }
+loser:
+    NSC_Finalize(NULL);
+    if (gxy)
+        free(gxy);
+    if (Ni)
+        free(Ni);
+    if (Nr)
+        free(Nr);
+    if (ikereq)
+        fclose(ikereq);
+}
+
+void
+ikev1_psk(char *reqfn)
+{
+    char buf[4096]; /* holds one line from the input REQUEST file.
+                         * needs to be large enough to hold the longest
+                         * line "g^xy = <2048 hex digits>\n".
+                         */
+    unsigned char *gxy = NULL;
+    int gxy_len;
+    unsigned char *Ni = NULL;
+    int Ni_len;
+    unsigned char *Nr = NULL;
+    int Nr_len;
+    unsigned char CKYi[8];
+    int CKYi_len;
+    unsigned char CKYr[8];
+    int CKYr_len;
+    unsigned char *psk = NULL;
+    int psk_len;
+    unsigned int i, j;
+    FILE *ikereq = NULL; /* input stream from the REQUEST file */
+    FILE *ikeresp;       /* output stream to the RESPONSE file */
+
+    CK_SLOT_ID slotList[10];
+    CK_SLOT_ID slotID;
+    CK_ULONG slotListCount = sizeof(slotList) / sizeof(slotList[0]);
+    CK_ULONG count;
+    static const CK_C_INITIALIZE_ARGS pk11args = {
+        NULL, NULL, NULL, NULL, CKF_LIBRARY_CANT_CREATE_OS_THREADS,
+        (void *)"flags=readOnly,noCertDB,noModDB", NULL
+    };
+    static CK_OBJECT_CLASS ck_secret = CKO_SECRET_KEY;
+    static CK_KEY_TYPE ck_generic = CKK_GENERIC_SECRET;
+    static CK_BBOOL ck_true = CK_TRUE;
+    static CK_ULONG keyLen = 1;
+    CK_ATTRIBUTE gxy_template[] = {
+        { CKA_VALUE, NULL, 0 }, /* must be first */
+        { CKA_CLASS, &ck_secret, sizeof(ck_secret) },
+        { CKA_KEY_TYPE, &ck_generic, sizeof(ck_generic) },
+        { CKA_DERIVE, &ck_true, sizeof(ck_true) },
+    };
+    CK_ULONG gxy_template_count =
+        sizeof(gxy_template) / sizeof(gxy_template[0]);
+    CK_ATTRIBUTE psk_template[] = {
+        { CKA_VALUE, NULL, 0 }, /* must be first */
+        { CKA_CLASS, &ck_secret, sizeof(ck_secret) },
+        { CKA_KEY_TYPE, &ck_generic, sizeof(ck_generic) },
+        { CKA_DERIVE, &ck_true, sizeof(ck_true) },
+    };
+    CK_ULONG psk_template_count =
+        sizeof(psk_template) / sizeof(psk_template[0]);
+    CK_ATTRIBUTE derive_template[] = {
+        { CKA_CLASS, &ck_secret, sizeof(ck_secret) },
+        { CKA_KEY_TYPE, &ck_generic, sizeof(ck_generic) },
+        { CKA_DERIVE, &ck_true, sizeof(ck_true) },
+        { CKA_VALUE_LEN, &keyLen, sizeof(keyLen) }, /* must be last */
+    };
+    CK_ULONG derive_template_count =
+        sizeof(derive_template) / sizeof(derive_template[0]);
+    CK_ATTRIBUTE skeyid_template =
+        { CKA_VALUE, NULL, 0 };
+    CK_ATTRIBUTE skeyid_d_template =
+        { CKA_VALUE, NULL, 0 };
+    CK_ATTRIBUTE skeyid_a_template =
+        { CKA_VALUE, NULL, 0 };
+    CK_ATTRIBUTE skeyid_e_template =
+        { CKA_VALUE, NULL, 0 };
+    unsigned char skeyid_secret[HASH_LENGTH_MAX];
+    unsigned char skeyid_d_secret[HASH_LENGTH_MAX];
+    unsigned char skeyid_a_secret[HASH_LENGTH_MAX];
+    unsigned char skeyid_e_secret[HASH_LENGTH_MAX];
+
+    CK_MECHANISM ike_mech = { CKM_NSS_IKE_PRF_DERIVE, NULL, 0 };
+    CK_MECHANISM ike1_mech = { CKM_NSS_IKE1_PRF_DERIVE, NULL, 0 };
+    CK_NSS_IKE_PRF_DERIVE_PARAMS ike_prf;
+    CK_NSS_IKE1_PRF_DERIVE_PARAMS ike1_prf;
+    CK_RV crv;
+
+    /* set up PKCS #11 parameters */
+    ike_prf.bDataAsKey = PR_FALSE;
+    ike_prf.bRekey = PR_FALSE;
+    ike_prf.hNewKey = CK_INVALID_HANDLE;
+    CKYi_len = 8;
+    CKYr_len = 8;
+    ike1_prf.pCKYi = CKYi;
+    ike1_prf.ulCKYiLen = CKYi_len;
+    ike1_prf.pCKYr = CKYr;
+    ike1_prf.ulCKYrLen = CKYr_len;
+    ike_mech.pParameter = &ike_prf;
+    ike_mech.ulParameterLen = sizeof(ike_prf);
+    ike1_mech.pParameter = &ike1_prf;
+    ike1_mech.ulParameterLen = sizeof(ike1_prf);
+    skeyid_template.pValue = skeyid_secret;
+    skeyid_template.ulValueLen = HASH_LENGTH_MAX;
+    skeyid_d_template.pValue = skeyid_d_secret;
+    skeyid_d_template.ulValueLen = HASH_LENGTH_MAX;
+    skeyid_a_template.pValue = skeyid_a_secret;
+    skeyid_a_template.ulValueLen = HASH_LENGTH_MAX;
+    skeyid_e_template.pValue = skeyid_e_secret;
+    skeyid_e_template.ulValueLen = HASH_LENGTH_MAX;
+
+    crv = NSC_Initialize((CK_VOID_PTR)&pk11args);
+    if (crv != CKR_OK) {
+        fprintf(stderr, "NSC_Initialize failed crv=0x%x\n", (unsigned int)crv);
+        goto loser;
+    }
+    count = slotListCount;
+    crv = NSC_GetSlotList(PR_TRUE, slotList, &count);
+    if (crv != CKR_OK) {
+        fprintf(stderr, "NSC_GetSlotList failed crv=0x%x\n", (unsigned int)crv);
+        goto loser;
+    }
+    if ((count > slotListCount) || count < 1) {
+        fprintf(stderr,
+                "NSC_GetSlotList returned too many or too few slots: %d slots max=%d min=1\n",
+                (int)count, (int)slotListCount);
+        goto loser;
+    }
+    slotID = slotList[0];
+    ikereq = fopen(reqfn, "r");
+    ikeresp = stdout;
+    while (fgets(buf, sizeof buf, ikereq) != NULL) {
+        /* a comment or blank line */
+        if (buf[0] == '#' || buf[0] == '\n') {
+            fputs(buf, ikeresp);
+            continue;
+        }
+        /* [.....] */
+        if (buf[0] == '[') {
+            if (strncmp(buf, "[SHA-1]", 7) == 0) {
+                ike_prf.prfMechanism = CKM_SHA_1_HMAC;
+                ike1_prf.prfMechanism = CKM_SHA_1_HMAC;
+            }
+            if (strncmp(buf, "[SHA-224]", 9) == 0) {
+                ike_prf.prfMechanism = CKM_SHA224_HMAC;
+                ike1_prf.prfMechanism = CKM_SHA224_HMAC;
+            }
+            if (strncmp(buf, "[SHA-256]", 9) == 0) {
+                ike_prf.prfMechanism = CKM_SHA256_HMAC;
+                ike1_prf.prfMechanism = CKM_SHA256_HMAC;
+            }
+            if (strncmp(buf, "[SHA-384]", 9) == 0) {
+                ike_prf.prfMechanism = CKM_SHA384_HMAC;
+                ike1_prf.prfMechanism = CKM_SHA384_HMAC;
+            }
+            if (strncmp(buf, "[SHA-512]", 9) == 0) {
+                ike_prf.prfMechanism = CKM_SHA512_HMAC;
+                ike1_prf.prfMechanism = CKM_SHA512_HMAC;
+            }
+            if (strncmp(buf, "[AES-XCBC", 9) == 0) {
+                ike_prf.prfMechanism = CKM_AES_XCBC_MAC;
+                ike1_prf.prfMechanism = CKM_AES_XCBC_MAC;
+            }
+            if (strncmp(buf, "[g^xy", 5) == 0) {
+                if (sscanf(buf, "[g^xy length = %d]",
+                           &gxy_len) != 1) {
+                    goto loser;
+                }
+                gxy_len = gxy_len / 8;
+                if (gxy)
+                    free(gxy);
+                gxy = malloc(gxy_len);
+                gxy_template[0].pValue = gxy;
+                gxy_template[0].ulValueLen = gxy_len;
+            }
+            if (strncmp(buf, "[pre-shared-key", 15) == 0) {
+                if (sscanf(buf, "[pre-shared-key length = %d]",
+                           &psk_len) != 1) {
+                    goto loser;
+                }
+                psk_len = psk_len / 8;
+                if (psk)
+                    free(psk);
+                psk = malloc(psk_len);
+                psk_template[0].pValue = psk;
+                psk_template[0].ulValueLen = psk_len;
+            }
+            if (strncmp(buf, "[Ni", 3) == 0) {
+                if (sscanf(buf, "[Ni length = %d]", &Ni_len) != 1) {
+                    goto loser;
+                }
+                Ni_len = Ni_len / 8;
+                if (Ni)
+                    free(Ni);
+                Ni = malloc(Ni_len);
+                ike_prf.pNi = Ni;
+                ike_prf.ulNiLen = Ni_len;
+            }
+            if (strncmp(buf, "[Nr", 3) == 0) {
+                if (sscanf(buf, "[Nr length = %d]", &Nr_len) != 1) {
+                    goto loser;
+                }
+                Nr_len = Nr_len / 8;
+                if (Nr)
+                    free(Nr);
+                Nr = malloc(Nr_len);
+                ike_prf.pNr = Nr;
+                ike_prf.ulNrLen = Nr_len;
+            }
+            fputs(buf, ikeresp);
+            continue;
+        }
+        /* "COUNT = x" begins a new data set */
+        if (strncmp(buf, "COUNT", 5) == 0) {
+            /* zeroize the variables for the test with this data set */
+            memset(gxy, 0, gxy_len);
+            memset(Ni, 0, Ni_len);
+            memset(Nr, 0, Nr_len);
+            memset(CKYi, 0, CKYi_len);
+            memset(CKYr, 0, CKYr_len);
+            fputs(buf, ikeresp);
+            continue;
+        }
+        /* Ni = ... */
+        if (strncmp(buf, "Ni", 2) == 0) {
+            i = 2;
+            while (isspace(buf[i]) || buf[i] == '=') {
+                i++;
+            }
+            for (j = 0; j < Ni_len; i += 2, j++) {
+                hex_to_byteval(&buf[i], &Ni[j]);
+            }
+            fputs(buf, ikeresp);
+            continue;
+        }
+        /* Nr = ... */
+        if (strncmp(buf, "Nr", 2) == 0) {
+            i = 2;
+            while (isspace(buf[i]) || buf[i] == '=') {
+                i++;
+            }
+            for (j = 0; j < Nr_len; i += 2, j++) {
+                hex_to_byteval(&buf[i], &Nr[j]);
+            }
+            fputs(buf, ikeresp);
+            continue;
+        }
+        /* CKYi = ... */
+        if (strncmp(buf, "CKY_I", 5) == 0) {
+            i = 5;
+            while (isspace(buf[i]) || buf[i] == '=') {
+                i++;
+            }
+            for (j = 0; j < CKYi_len; i += 2, j++) {
+                hex_to_byteval(&buf[i], &CKYi[j]);
+            }
+            fputs(buf, ikeresp);
+            continue;
+        }
+        /* CKYr = ... */
+        if (strncmp(buf, "CKY_R", 5) == 0) {
+            i = 5;
+            while (isspace(buf[i]) || buf[i] == '=') {
+                i++;
+            }
+            for (j = 0; j < CKYr_len; i += 2, j++) {
+                hex_to_byteval(&buf[i], &CKYr[j]);
+            }
+            fputs(buf, ikeresp);
+            continue;
+        }
+        /* g^xy = ... */
+        if (strncmp(buf, "g^xy", 4) == 0) {
+            i = 4;
+            while (isspace(buf[i]) || buf[i] == '=') {
+                i++;
+            }
+            for (j = 0; j < gxy_len; i += 2, j++) {
+                hex_to_byteval(&buf[i], &gxy[j]);
+            }
+            fputs(buf, ikeresp);
+            continue;
+        }
+        /* pre-shared-key = ... */
+        if (strncmp(buf, "pre-shared-key", 14) == 0) {
+            CK_SESSION_HANDLE session;
+            CK_OBJECT_HANDLE gxy_handle;
+            CK_OBJECT_HANDLE psk_handle;
+            CK_OBJECT_HANDLE skeyid_handle;
+            CK_OBJECT_HANDLE skeyid_d_handle;
+            CK_OBJECT_HANDLE skeyid_a_handle;
+            CK_OBJECT_HANDLE skeyid_e_handle;
+            i = 14;
+            while (isspace(buf[i]) || buf[i] == '=') {
+                i++;
+            }
+            for (j = 0; j < psk_len; i += 2, j++) {
+                hex_to_byteval(&buf[i], &psk[j]);
+            }
+            fputs(buf, ikeresp);
+            crv = NSC_OpenSession(slotID, 0, NULL, NULL, &session);
+            if (crv != CKR_OK) {
+                fprintf(stderr, "NSC_OpenSession failed crv=0x%x\n",
+                        (unsigned int)crv);
+                goto loser;
+            }
+            crv = NSC_CreateObject(session, psk_template,
+                                   psk_template_count, &psk_handle);
+            if (crv != CKR_OK) {
+                fprintf(stderr, "NSC_CreateObject(psk) failed crv=0x%x\n",
+                        (unsigned int)crv);
+                goto loser;
+            }
+            crv = NSC_CreateObject(session, gxy_template,
+                                   gxy_template_count, &gxy_handle);
+            if (crv != CKR_OK) {
+                fprintf(stderr, "NSC_CreateObject(gxy) failed crv=0x%x\n",
+                        (unsigned int)crv);
+                goto loser;
+            }
+            /* get the skeyid key */
+            crv = NSC_DeriveKey(session, &ike_mech, psk_handle,
+                                derive_template, derive_template_count - 1,
+                                &skeyid_handle);
+            if (crv != CKR_OK) {
+                fprintf(stderr, "NSC_DeriveKey(skeyid) failed crv=0x%x\n",
+                        (unsigned int)crv);
+                goto loser;
+            }
+            skeyid_template.ulValueLen = HASH_LENGTH_MAX;
+            crv = NSC_GetAttributeValue(session, skeyid_handle,
+                                        &skeyid_template, 1);
+            if (crv != CKR_OK) {
+                fprintf(stderr, "NSC_GetAttribute(skeyid) failed crv=0x%x\n",
+                        (unsigned int)crv);
+                goto loser;
+            }
+            /* use the length of the skeyid to set the target length of all the
+             * other keys */
+            keyLen = skeyid_template.ulValueLen;
+            ike1_prf.hKeygxy = gxy_handle;
+            ike1_prf.bHasPrevKey = PR_FALSE;
+            ike1_prf.keyNumber = 0;
+            crv = NSC_DeriveKey(session, &ike1_mech, skeyid_handle,
+                                derive_template, derive_template_count,
+                                &skeyid_d_handle);
+            if (crv != CKR_OK) {
+                fprintf(stderr, "NSC_DeriveKey(skeyid_d) failed crv=0x%x\n",
+                        (unsigned int)crv);
+                goto loser;
+            }
+
+            ike1_prf.hKeygxy = gxy_handle;
+            ike1_prf.bHasPrevKey = CK_TRUE;
+            ike1_prf.hPrevKey = skeyid_d_handle;
+            ike1_prf.keyNumber = 1;
+            crv = NSC_DeriveKey(session, &ike1_mech, skeyid_handle,
+                                derive_template, derive_template_count,
+                                &skeyid_a_handle);
+            if (crv != CKR_OK) {
+                fprintf(stderr, "NSC_DeriveKey(skeyid_a) failed crv=0x%x\n",
+                        (unsigned int)crv);
+                goto loser;
+            }
+            ike1_prf.hKeygxy = gxy_handle;
+            ike1_prf.bHasPrevKey = CK_TRUE;
+            ike1_prf.hPrevKey = skeyid_a_handle;
+            ike1_prf.keyNumber = 2;
+            crv = NSC_DeriveKey(session, &ike1_mech, skeyid_handle,
+                                derive_template, derive_template_count,
+                                &skeyid_e_handle);
+            if (crv != CKR_OK) {
+                fprintf(stderr, "NSC_DeriveKey(skeyid_e) failed crv=0x%x\n",
+                        (unsigned int)crv);
+                goto loser;
+            }
+            fputs("SKEYID = ", ikeresp);
+            to_hex_str(buf, skeyid_secret, keyLen);
+            fputs(buf, ikeresp);
+            fputc('\n', ikeresp);
+
+            skeyid_d_template.ulValueLen = keyLen;
+            crv = NSC_GetAttributeValue(session, skeyid_d_handle,
+                                        &skeyid_d_template, 1);
+            if (crv != CKR_OK) {
+                fprintf(stderr, "NSC_GetAttribute(skeyid_d) failed crv=0x%x\n",
+                        (unsigned int)crv);
+                goto loser;
+            }
+            fputs("SKEYID_d = ", ikeresp);
+            to_hex_str(buf, skeyid_d_secret, skeyid_d_template.ulValueLen);
+            fputs(buf, ikeresp);
+            fputc('\n', ikeresp);
+
+            skeyid_a_template.ulValueLen = keyLen;
+            crv = NSC_GetAttributeValue(session, skeyid_a_handle,
+                                        &skeyid_a_template, 1);
+            if (crv != CKR_OK) {
+                fprintf(stderr, "NSC_GetAttribute(skeyid_a) failed crv=0x%x\n",
+                        (unsigned int)crv);
+                goto loser;
+            }
+            fputs("SKEYID_a = ", ikeresp);
+            to_hex_str(buf, skeyid_a_secret, skeyid_a_template.ulValueLen);
+            fputs(buf, ikeresp);
+            fputc('\n', ikeresp);
+
+            skeyid_e_template.ulValueLen = keyLen;
+            crv = NSC_GetAttributeValue(session, skeyid_e_handle,
+                                        &skeyid_e_template, 1);
+            if (crv != CKR_OK) {
+                fprintf(stderr, "NSC_GetAttribute(skeyid_e) failed crv=0x%x\n",
+                        (unsigned int)crv);
+                goto loser;
+            }
+            fputs("SKEYID_e = ", ikeresp);
+            to_hex_str(buf, skeyid_e_secret, skeyid_e_template.ulValueLen);
+            fputs(buf, ikeresp);
+            fputc('\n', ikeresp);
+
+            crv = NSC_CloseSession(session);
+            continue;
+        }
+    }
+loser:
+    NSC_Finalize(NULL);
+    if (psk)
+        free(psk);
+    if (gxy)
+        free(gxy);
+    if (Ni)
+        free(Ni);
+    if (Nr)
+        free(Nr);
+    if (ikereq)
+        fclose(ikereq);
+}
+
+void
+ikev2(char *reqfn)
+{
+    char buf[4096]; /* holds one line from the input REQUEST file.
+                         * needs to be large enough to hold the longest
+                         * line "g^xy = <2048 hex digits>\n".
+                         */
+    unsigned char *gir = NULL;
+    unsigned char *gir_new = NULL;
+    int gir_len;
+    unsigned char *Ni = NULL;
+    int Ni_len;
+    unsigned char *Nr = NULL;
+    int Nr_len;
+    unsigned char *SPIi = NULL;
+    int SPIi_len = 8;
+    unsigned char *SPIr = NULL;
+    int SPIr_len = 8;
+    unsigned char *DKM = NULL;
+    int DKM_len;
+    unsigned char *DKM_child = NULL;
+    int DKM_child_len;
+    unsigned char *seed_data = NULL;
+    int seed_data_len = 0;
+    unsigned int i, j;
+    FILE *ikereq = NULL; /* input stream from the REQUEST file */
+    FILE *ikeresp;       /* output stream to the RESPONSE file */
+
+    CK_SLOT_ID slotList[10];
+    CK_SLOT_ID slotID;
+    CK_ULONG slotListCount = sizeof(slotList) / sizeof(slotList[0]);
+    CK_ULONG count;
+    static const CK_C_INITIALIZE_ARGS pk11args = {
+        NULL, NULL, NULL, NULL, CKF_LIBRARY_CANT_CREATE_OS_THREADS,
+        (void *)"flags=readOnly,noCertDB,noModDB", NULL
+    };
+    static CK_OBJECT_CLASS ck_secret = CKO_SECRET_KEY;
+    static CK_KEY_TYPE ck_generic = CKK_GENERIC_SECRET;
+    static CK_BBOOL ck_true = CK_TRUE;
+    static CK_ULONG keyLen = 1;
+    CK_ATTRIBUTE gir_template[] = {
+        { CKA_VALUE, NULL, 0 },
+        { CKA_CLASS, &ck_secret, sizeof(ck_secret) },
+        { CKA_KEY_TYPE, &ck_generic, sizeof(ck_generic) },
+        { CKA_DERIVE, &ck_true, sizeof(ck_true) },
+    };
+    CK_ULONG gir_template_count =
+        sizeof(gir_template) / sizeof(gir_template[0]);
+    CK_ATTRIBUTE gir_new_template[] = {
+        { CKA_VALUE, NULL, 0 },
+        { CKA_CLASS, &ck_secret, sizeof(ck_secret) },
+        { CKA_KEY_TYPE, &ck_generic, sizeof(ck_generic) },
+        { CKA_DERIVE, &ck_true, sizeof(ck_true) },
+    };
+    CK_ULONG gir_new_template_count =
+        sizeof(gir_new_template) / sizeof(gir_new_template[0]);
+    CK_ATTRIBUTE derive_template[] = {
+        { CKA_CLASS, &ck_secret, sizeof(ck_secret) },
+        { CKA_KEY_TYPE, &ck_generic, sizeof(ck_generic) },
+        { CKA_DERIVE, &ck_true, sizeof(ck_true) },
+        { CKA_VALUE_LEN, &keyLen, sizeof(keyLen) },
+    };
+    CK_ULONG derive_template_count =
+        sizeof(derive_template) / sizeof(derive_template[0]);
+    CK_ATTRIBUTE skeyseed_template =
+        { CKA_VALUE, NULL, 0 };
+    CK_ATTRIBUTE dkm_template =
+        { CKA_VALUE, NULL, 0 };
+    CK_ATTRIBUTE dkm_child_template =
+        { CKA_VALUE, NULL, 0 };
+    unsigned char skeyseed_secret[HASH_LENGTH_MAX];
+
+    CK_MECHANISM ike_mech = { CKM_NSS_IKE_PRF_DERIVE, NULL, 0 };
+    CK_MECHANISM ike2_mech = { CKM_NSS_IKE_PRF_PLUS_DERIVE, NULL, 0 };
+    CK_MECHANISM subset_mech = { CKM_EXTRACT_KEY_FROM_KEY, NULL, 0 };
+    CK_NSS_IKE_PRF_DERIVE_PARAMS ike_prf;
+    CK_NSS_IKE_PRF_PLUS_DERIVE_PARAMS ike2_prf;
+    CK_EXTRACT_PARAMS subset_params;
+    CK_RV crv;
+
+    /* set up PKCS #11 parameters */
+    ike_mech.pParameter = &ike_prf;
+    ike_mech.ulParameterLen = sizeof(ike_prf);
+    ike2_mech.pParameter = &ike2_prf;
+    ike2_mech.ulParameterLen = sizeof(ike2_prf);
+    subset_mech.pParameter = &subset_params;
+    subset_mech.ulParameterLen = sizeof(subset_params);
+    subset_params = 0;
+    skeyseed_template.pValue = skeyseed_secret;
+    skeyseed_template.ulValueLen = HASH_LENGTH_MAX;
+
+    crv = NSC_Initialize((CK_VOID_PTR)&pk11args);
+    if (crv != CKR_OK) {
+        fprintf(stderr, "NSC_Initialize failed crv=0x%x\n", (unsigned int)crv);
+        goto loser;
+    }
+    count = slotListCount;
+    crv = NSC_GetSlotList(PR_TRUE, slotList, &count);
+    if (crv != CKR_OK) {
+        fprintf(stderr, "NSC_GetSlotList failed crv=0x%x\n", (unsigned int)crv);
+        goto loser;
+    }
+    if ((count > slotListCount) || count < 1) {
+        fprintf(stderr,
+                "NSC_GetSlotList returned too many or too few slots: %d slots max=%d min=1\n",
+                (int)count, (int)slotListCount);
+        goto loser;
+    }
+    slotID = slotList[0];
+    ikereq = fopen(reqfn, "r");
+    ikeresp = stdout;
+    while (fgets(buf, sizeof buf, ikereq) != NULL) {
+        /* a comment or blank line */
+        if (buf[0] == '#' || buf[0] == '\n') {
+            fputs(buf, ikeresp);
+            continue;
+        }
+        /* [.....] */
+        if (buf[0] == '[') {
+            if (strncmp(buf, "[SHA-1]", 7) == 0) {
+                ike_prf.prfMechanism = CKM_SHA_1_HMAC;
+                ike2_prf.prfMechanism = CKM_SHA_1_HMAC;
+            }
+            if (strncmp(buf, "[SHA-224]", 9) == 0) {
+                ike_prf.prfMechanism = CKM_SHA224_HMAC;
+                ike2_prf.prfMechanism = CKM_SHA224_HMAC;
+            }
+            if (strncmp(buf, "[SHA-256]", 9) == 0) {
+                ike_prf.prfMechanism = CKM_SHA256_HMAC;
+                ike2_prf.prfMechanism = CKM_SHA256_HMAC;
+            }
+            if (strncmp(buf, "[SHA-384]", 9) == 0) {
+                ike_prf.prfMechanism = CKM_SHA384_HMAC;
+                ike2_prf.prfMechanism = CKM_SHA384_HMAC;
+            }
+            if (strncmp(buf, "[SHA-512]", 9) == 0) {
+                ike_prf.prfMechanism = CKM_SHA512_HMAC;
+                ike2_prf.prfMechanism = CKM_SHA512_HMAC;
+            }
+            if (strncmp(buf, "[AES-XCBC", 9) == 0) {
+                ike_prf.prfMechanism = CKM_AES_XCBC_MAC;
+                ike2_prf.prfMechanism = CKM_AES_XCBC_MAC;
+            }
+            if (strncmp(buf, "[g^ir", 5) == 0) {
+                if (sscanf(buf, "[g^ir length = %d]",
+                           &gir_len) != 1) {
+                    goto loser;
+                }
+                gir_len = gir_len / 8;
+                if (gir)
+                    free(gir);
+                if (gir_new)
+                    free(gir_new);
+                gir = malloc(gir_len);
+                gir_new = malloc(gir_len);
+                gir_template[0].pValue = gir;
+                gir_template[0].ulValueLen = gir_len;
+                gir_new_template[0].pValue = gir_new;
+                gir_new_template[0].ulValueLen = gir_len;
+            }
+            if (strncmp(buf, "[Ni", 3) == 0) {
+                if (sscanf(buf, "[Ni length = %d]", &Ni_len) != 1) {
+                    goto loser;
+                }
+                Ni_len = Ni_len / 8;
+            }
+            if (strncmp(buf, "[Nr", 3) == 0) {
+                if (sscanf(buf, "[Nr length = %d]", &Nr_len) != 1) {
+                    goto loser;
+                }
+                Nr_len = Nr_len / 8;
+            }
+            if (strncmp(buf, "[DKM", 4) == 0) {
+                if (sscanf(buf, "[DKM length = %d]",
+                           &DKM_len) != 1) {
+                    goto loser;
+                }
+                DKM_len = DKM_len / 8;
+                if (DKM)
+                    free(DKM);
+                DKM = malloc(DKM_len);
+                dkm_template.pValue = DKM;
+                dkm_template.ulValueLen = DKM_len;
+            }
+            if (strncmp(buf, "[Child SA DKM", 13) == 0) {
+                if (sscanf(buf, "[Child SA DKM length = %d]",
+                           &DKM_child_len) != 1) {
+                    goto loser;
+                }
+                DKM_child_len = DKM_child_len / 8;
+                if (DKM_child)
+                    free(DKM_child);
+                DKM_child = malloc(DKM_child_len);
+                dkm_child_template.pValue = DKM_child;
+                dkm_child_template.ulValueLen = DKM_child_len;
+            }
+            fputs(buf, ikeresp);
+            continue;
+        }
+        /* "COUNT = x" begins a new data set */
+        if (strncmp(buf, "COUNT", 5) == 0) {
+            /* zeroize the variables for the test with this data set */
+            int new_seed_len = Ni_len + Nr_len + SPIi_len + SPIr_len;
+            if (seed_data_len != new_seed_len) {
+                if (seed_data)
+                    free(seed_data);
+                seed_data_len = new_seed_len;
+                seed_data = malloc(seed_data_len);
+                Ni = seed_data;
+                Nr = &seed_data[Ni_len];
+                SPIi = &seed_data[Ni_len + Nr_len];
+                SPIr = &seed_data[new_seed_len - SPIr_len];
+                ike_prf.pNi = Ni;
+                ike_prf.ulNiLen = Ni_len;
+                ike_prf.pNr = Nr;
+                ike_prf.ulNrLen = Nr_len;
+                ike2_prf.pSeedData = seed_data;
+            }
+            memset(gir, 0, gir_len);
+            memset(gir_new, 0, gir_len);
+            memset(seed_data, 0, seed_data_len);
+            fputs(buf, ikeresp);
+            continue;
+        }
+        /* Ni = ... */
+        if (strncmp(buf, "Ni", 2) == 0) {
+            i = 2;
+            while (isspace(buf[i]) || buf[i] == '=') {
+                i++;
+            }
+            for (j = 0; j < Ni_len; i += 2, j++) {
+                hex_to_byteval(&buf[i], &Ni[j]);
+            }
+            fputs(buf, ikeresp);
+            continue;
+        }
+        /* Nr = ... */
+        if (strncmp(buf, "Nr", 2) == 0) {
+            i = 2;
+            while (isspace(buf[i]) || buf[i] == '=') {
+                i++;
+            }
+            for (j = 0; j < Nr_len; i += 2, j++) {
+                hex_to_byteval(&buf[i], &Nr[j]);
+            }
+            fputs(buf, ikeresp);
+            continue;
+        }
+        /* g^ir (new) = ... */
+        if (strncmp(buf, "g^ir (new)", 10) == 0) {
+            i = 10;
+            while (isspace(buf[i]) || buf[i] == '=') {
+                i++;
+            }
+            for (j = 0; j < gir_len; i += 2, j++) {
+                hex_to_byteval(&buf[i], &gir_new[j]);
+            }
+            fputs(buf, ikeresp);
+            continue;
+        }
+        /* g^ir = ... */
+        if (strncmp(buf, "g^ir", 4) == 0) {
+            i = 4;
+            while (isspace(buf[i]) || buf[i] == '=') {
+                i++;
+            }
+            for (j = 0; j < gir_len; i += 2, j++) {
+                hex_to_byteval(&buf[i], &gir[j]);
+            }
+            fputs(buf, ikeresp);
+            continue;
+        }
+        /* SPIi = ... */
+        if (strncmp(buf, "SPIi", 4) == 0) {
+            i = 4;
+            while (isspace(buf[i]) || buf[i] == '=') {
+                i++;
+            }
+            for (j = 0; j < SPIi_len; i += 2, j++) {
+                hex_to_byteval(&buf[i], &SPIi[j]);
+            }
+            fputs(buf, ikeresp);
+            continue;
+        }
+        /* SPIr = ... */
+        if (strncmp(buf, "SPIr", 4) == 0) {
+            CK_SESSION_HANDLE session;
+            CK_OBJECT_HANDLE gir_handle;
+            CK_OBJECT_HANDLE gir_new_handle;
+            CK_OBJECT_HANDLE skeyseed_handle;
+            CK_OBJECT_HANDLE sk_d_handle;
+            CK_OBJECT_HANDLE skeyseed_new_handle;
+            CK_OBJECT_HANDLE dkm_handle;
+            CK_OBJECT_HANDLE dkm_child_handle;
+            i = 4;
+            while (isspace(buf[i]) || buf[i] == '=') {
+                i++;
+            }
+            for (j = 0; j < SPIr_len; i += 2, j++) {
+                hex_to_byteval(&buf[i], &SPIr[j]);
+            }
+            fputs(buf, ikeresp);
+            crv = NSC_OpenSession(slotID, 0, NULL, NULL, &session);
+            if (crv != CKR_OK) {
+                fprintf(stderr, "NSC_OpenSession failed crv=0x%x\n",
+                        (unsigned int)crv);
+                goto loser;
+            }
+            crv = NSC_CreateObject(session, gir_template,
+                                   gir_template_count, &gir_handle);
+            if (crv != CKR_OK) {
+                fprintf(stderr, "NSC_CreateObject (g^ir) failed crv=0x%x\n",
+                        (unsigned int)crv);
+                goto loser;
+            }
+            crv = NSC_CreateObject(session, gir_new_template,
+                                   gir_new_template_count, &gir_new_handle);
+            if (crv != CKR_OK) {
+                fprintf(stderr, "NSC_CreateObject (g^ir new) failed crv=0x%x\n",
+                        (unsigned int)crv);
+                goto loser;
+            }
+            /* get the SKEYSEED key */
+            ike_prf.bDataAsKey = CK_TRUE;
+            ike_prf.bRekey = CK_FALSE;
+            ike_prf.hNewKey = CK_INVALID_HANDLE;
+            crv = NSC_DeriveKey(session, &ike_mech, gir_handle,
+                                derive_template, derive_template_count - 1,
+                                &skeyseed_handle);
+            if (crv != CKR_OK) {
+                fprintf(stderr, "NSC_DeriveKey(skeyid) failed crv=0x%x\n",
+                        (unsigned int)crv);
+                goto loser;
+            }
+            skeyseed_template.ulValueLen = HASH_LENGTH_MAX;
+            crv = NSC_GetAttributeValue(session, skeyseed_handle,
+                                        &skeyseed_template, 1);
+            if (crv != CKR_OK) {
+                fprintf(stderr, "NSC_GetAttribute(skeyid) failed crv=0x%x\n",
+                        (unsigned int)crv);
+                goto loser;
+            }
+            fputs("SKEYSEED = ", ikeresp);
+            to_hex_str(buf, skeyseed_secret, skeyseed_template.ulValueLen);
+            fputs(buf, ikeresp);
+            fputc('\n', ikeresp);
+
+            /* get DKM */
+            keyLen = DKM_len;
+            ike2_prf.bHasSeedKey = CK_FALSE;
+            ike2_prf.hSeedKey = CK_INVALID_HANDLE;
+            ike2_prf.ulSeedDataLen = seed_data_len;
+            crv = NSC_DeriveKey(session, &ike2_mech, skeyseed_handle,
+                                derive_template, derive_template_count,
+                                &dkm_handle);
+            if (crv != CKR_OK) {
+                fprintf(stderr, "NSC_DeriveKey(DKM) failed crv=0x%x\n",
+                        (unsigned int)crv);
+                goto loser;
+            }
+            crv = NSC_GetAttributeValue(session, dkm_handle,
+                                        &dkm_template, 1);
+            if (crv != CKR_OK) {
+                fprintf(stderr, "NSC_GetAttribute(DKM) failed crv=0x%x\n",
+                        (unsigned int)crv);
+                goto loser;
+            }
+            fputs("DKM = ", ikeresp);
+            to_hex_str(buf, DKM, DKM_len);
+            fputs(buf, ikeresp);
+            fputc('\n', ikeresp);
+
+            /* get the sk_d from the DKM */
+            keyLen = skeyseed_template.ulValueLen;
+            crv = NSC_DeriveKey(session, &subset_mech, dkm_handle,
+                                derive_template, derive_template_count,
+                                &sk_d_handle);
+            if (crv != CKR_OK) {
+                fprintf(stderr, "NSC_DeriveKey(sk_d) failed crv=0x%x\n",
+                        (unsigned int)crv);
+                goto loser;
+            }
+
+            /* get DKM child */
+            keyLen = DKM_child_len;
+            ike2_prf.bHasSeedKey = CK_FALSE;
+            ike2_prf.hSeedKey = CK_INVALID_HANDLE;
+            ike2_prf.ulSeedDataLen = Ni_len + Nr_len;
+            crv = NSC_DeriveKey(session, &ike2_mech, sk_d_handle,
+                                derive_template, derive_template_count,
+                                &dkm_child_handle);
+            if (crv != CKR_OK) {
+                fprintf(stderr, "NSC_DeriveKey(DKM Child SA) failed crv=0x%x\n",
+                        (unsigned int)crv);
+                goto loser;
+            }
+            crv = NSC_GetAttributeValue(session, dkm_child_handle,
+                                        &dkm_child_template, 1);
+            if (crv != CKR_OK) {
+                fprintf(stderr, "NSC_GetAttribute(DKM Child SA) failed crv=0x%x\n",
+                        (unsigned int)crv);
+                goto loser;
+            }
+            fputs("DKM(Child SA) = ", ikeresp);
+            to_hex_str(buf, DKM_child, DKM_child_len);
+            fputs(buf, ikeresp);
+            fputc('\n', ikeresp);
+
+            /* get DKM child D-H*/
+            keyLen = DKM_child_len;
+            ike2_prf.bHasSeedKey = CK_TRUE;
+            ike2_prf.hSeedKey = gir_new_handle;
+            ike2_prf.ulSeedDataLen = Ni_len + Nr_len;
+            crv = NSC_DeriveKey(session, &ike2_mech, sk_d_handle,
+                                derive_template, derive_template_count,
+                                &dkm_child_handle);
+            if (crv != CKR_OK) {
+                fprintf(stderr, "NSC_DeriveKey(DKM Child SA D-H) failed crv=0x%x\n",
+                        (unsigned int)crv);
+                goto loser;
+            }
+            crv = NSC_GetAttributeValue(session, dkm_child_handle,
+                                        &dkm_child_template, 1);
+            if (crv != CKR_OK) {
+                fprintf(stderr, "NSC_GetAttribute(DKM Child SA D-H) failed crv=0x%x\n",
+                        (unsigned int)crv);
+                goto loser;
+            }
+            fputs("DKM(Child SA D-H) = ", ikeresp);
+            to_hex_str(buf, DKM_child, DKM_child_len);
+            fputs(buf, ikeresp);
+            fputc('\n', ikeresp);
+
+            /* get SKEYSEED(rekey) */
+            ike_prf.bDataAsKey = CK_FALSE;
+            ike_prf.bRekey = CK_TRUE;
+            ike_prf.hNewKey = gir_new_handle;
+            crv = NSC_DeriveKey(session, &ike_mech, sk_d_handle,
+                                derive_template, derive_template_count - 1,
+                                &skeyseed_new_handle);
+            if (crv != CKR_OK) {
+                fprintf(stderr, "NSC_DeriveKey(skeyid rekey) failed crv=0x%x\n",
+                        (unsigned int)crv);
+                goto loser;
+            }
+            skeyseed_template.ulValueLen = HASH_LENGTH_MAX;
+            crv = NSC_GetAttributeValue(session, skeyseed_new_handle,
+                                        &skeyseed_template, 1);
+            if (crv != CKR_OK) {
+                fprintf(stderr, "NSC_GetAttribute(skeyid) failed crv=0x%x\n",
+                        (unsigned int)crv);
+                goto loser;
+            }
+            fputs("SKEYSEED(rekey) = ", ikeresp);
+            to_hex_str(buf, skeyseed_secret, skeyseed_template.ulValueLen);
+            fputs(buf, ikeresp);
+            fputc('\n', ikeresp);
+
+            crv = NSC_CloseSession(session);
+            continue;
+        }
+    }
+loser:
+    NSC_Finalize(NULL);
+    if (gir)
+        free(gir);
+    if (gir_new)
+        free(gir_new);
+    if (seed_data)
+        free(seed_data);
+    if (DKM)
+        free(DKM);
+    if (DKM_child)
+        free(DKM_child);
+    if (ikereq)
+        fclose(ikereq);
+}
+
+void
+kbkdf(char *path)
+{
+    /* == Parser data == */
+    char buf[610]; /* holds one line from the input REQUEST file. Needs to
+                    * be large enough to hold the longest line:
+                    * "KO = <600 hex digits>\n". */
+    CK_ULONG L;
+    unsigned char KI[64];
+    unsigned int KI_len = 64;
+    unsigned char KO[300];
+    unsigned int KO_len = 300;
+    /* This is used only with feedback mode. */
+    unsigned char IV[64];
+    unsigned int IV_len = 64;
+    /* These are only used in counter mode with counter location as
+     * MIDDLE_FIXED. */
+    unsigned char BeforeFixedInputData[50];
+    unsigned int BeforeFixedInputData_len = 50;
+    unsigned char AfterFixedInputData[10];
+    unsigned int AfterFixedInputData_len = 10;
+    /* These are used with every KDF type. */
+    unsigned char FixedInputData[60];
+    unsigned int FixedInputData_len = 60;
+
+    /* Counter locations:
+     *
+     * 0: not used
+     * 1: beginning
+     * 2: middle
+     * 3: end */
+    int ctr_location = 0;
+    CK_ULONG counter_bitlen = 0;
+
+    size_t buf_offset;
+    size_t offset;
+
+    FILE *kbkdf_req = NULL;
+    FILE *kbkdf_resp = NULL;
+
+    /* == PKCS#11 data == */
+    CK_RV crv;
+
+    CK_SLOT_ID slotList[10];
+    CK_SLOT_ID slotID;
+    CK_ULONG slotListCount = sizeof(slotList) / sizeof(slotList[0]);
+    CK_ULONG slotCount = 0;
+
+    CK_MECHANISM kdf = { 0 };
+
+    CK_MECHANISM_TYPE prf_mech = 0;
+    CK_BBOOL ck_true = CK_TRUE;
+
+    /* We never need more than 3 data parameters. */
+    CK_PRF_DATA_PARAM dataParams[3];
+    CK_ULONG dataParams_len = 3;
+
+    CK_SP800_108_COUNTER_FORMAT iterator = { CK_FALSE, 0 };
+
+    CK_SP800_108_KDF_PARAMS kdfParams = { 0 };
+    CK_SP800_108_FEEDBACK_KDF_PARAMS feedbackParams = { 0 };
+
+    CK_OBJECT_CLASS ck_secret_key = CKO_SECRET_KEY;
+    CK_KEY_TYPE ck_generic = CKK_GENERIC_SECRET;
+
+    CK_ATTRIBUTE prf_template[] = {
+        { CKA_VALUE, &KI, sizeof(KI) },
+        { CKA_CLASS, &ck_secret_key, sizeof(ck_secret_key) },
+        { CKA_KEY_TYPE, &ck_generic, sizeof(ck_generic) },
+        { CKA_DERIVE, &ck_true, sizeof(ck_true) }
+    };
+    CK_ULONG prf_template_count = sizeof(prf_template) / sizeof(prf_template[0]);
+
+    CK_ATTRIBUTE derive_template[] = {
+        { CKA_CLASS, &ck_secret_key, sizeof(ck_secret_key) },
+        { CKA_KEY_TYPE, &ck_generic, sizeof(ck_generic) },
+        { CKA_DERIVE, &ck_true, sizeof(ck_true) },
+        { CKA_VALUE_LEN, &L, sizeof(L) }
+    };
+    CK_ULONG derive_template_count = sizeof(derive_template) / sizeof(derive_template[0]);
+
+    CK_ATTRIBUTE output_key = { CKA_VALUE, KO, KO_len };
+
+    const CK_C_INITIALIZE_ARGS pk11args = {
+        NULL, NULL, NULL, NULL, CKF_LIBRARY_CANT_CREATE_OS_THREADS,
+        (void *)"flags=readOnly,noCertDB,noModDB", NULL
+    };
+
+    /* == Start up PKCS#11 == */
+    crv = NSC_Initialize((CK_VOID_PTR)&pk11args);
+    if (crv != CKR_OK) {
+        fprintf(stderr, "NSC_Initialize failed crv=0x%x\n", (unsigned int)crv);
+        goto done;
+    }
+
+    slotCount = slotListCount;
+    crv = NSC_GetSlotList(PR_TRUE, slotList, &slotCount);
+    if (crv != CKR_OK) {
+        fprintf(stderr, "NSC_GetSlotList failed crv=0x%x\n", (unsigned int)crv);
+        goto done;
+    }
+    if ((slotCount > slotListCount) || slotCount < 1) {
+        fprintf(stderr,
+                "NSC_GetSlotList returned too many or too few slots: %d slots max=%d min=1\n",
+                (int)slotCount, (int)slotListCount);
+        goto done;
+    }
+    slotID = slotList[0];
+
+    /* == Start parsing the file == */
+    kbkdf_req = fopen(path, "r");
+    kbkdf_resp = stdout;
+
+    while (fgets(buf, sizeof buf, kbkdf_req) != NULL) {
+        /* If we have a comment, check if it tells us the type of KDF to use.
+         * This differs per-file, so we have to parse it. */
+        if (buf[0] == '#' || buf[0] == '\n' || buf[0] == '\r') {
+            if (strncmp(buf, "# KDF Mode Supported: Counter Mode", 34) == 0) {
+                kdf.mechanism = CKM_SP800_108_COUNTER_KDF;
+            }
+            if (strncmp(buf, "# KDF Mode Supported: Feedback Mode", 35) == 0) {
+                kdf.mechanism = CKM_SP800_108_FEEDBACK_KDF;
+            }
+            if (strncmp(buf, "# KDF Mode Supported: DblPipeline Mode", 38) == 0) {
+                kdf.mechanism = CKM_SP800_108_DOUBLE_PIPELINE_KDF;
+            }
+
+            fputs(buf, kbkdf_resp);
+            continue;
+        }
+
+        /* [....] - context directive */
+        if (buf[0] == '[') {
+            /* PRF begins each new section. */
+            if (strncmp(buf, "[PRF=CMAC_AES128]", 17) == 0) {
+                prf_mech = CKM_AES_CMAC;
+                KI_len = 16;
+            } else if (strncmp(buf, "[PRF=CMAC_AES192]", 17) == 0) {
+                prf_mech = CKM_AES_CMAC;
+                KI_len = 24;
+            } else if (strncmp(buf, "[PRF=CMAC_AES256]", 17) == 0) {
+                prf_mech = CKM_AES_CMAC;
+                KI_len = 32;
+            } else if (strncmp(buf, "[PRF=HMAC_SHA1]", 15) == 0) {
+                prf_mech = CKM_SHA_1_HMAC;
+                KI_len = 20;
+            } else if (strncmp(buf, "[PRF=HMAC_SHA224]", 17) == 0) {
+                prf_mech = CKM_SHA224_HMAC;
+                KI_len = 28;
+            } else if (strncmp(buf, "[PRF=HMAC_SHA256]", 17) == 0) {
+                prf_mech = CKM_SHA256_HMAC;
+                KI_len = 32;
+            } else if (strncmp(buf, "[PRF=HMAC_SHA384]", 17) == 0) {
+                prf_mech = CKM_SHA384_HMAC;
+                KI_len = 48;
+            } else if (strncmp(buf, "[PRF=HMAC_SHA512]", 17) == 0) {
+                prf_mech = CKM_SHA512_HMAC;
+                KI_len = 64;
+            } else if (strncmp(buf, "[PRF=", 5) == 0) {
+                fprintf(stderr, "Invalid or unsupported PRF mechanism: %s\n", buf);
+                goto done;
+            }
+
+            /* Then comes counter, if present. */
+            if (strncmp(buf, "[CTRLOCATION=BEFORE_FIXED]", 26) == 0 ||
+                strncmp(buf, "[CTRLOCATION=BEFORE_ITER]", 24) == 0) {
+                ctr_location = 1;
+            }
+            if (strncmp(buf, "[CTRLOCATION=MIDDLE_FIXED]", 26) == 0 ||
+                strncmp(buf, "[CTRLOCATION=AFTER_ITER]", 24) == 0) {
+                ctr_location = 2;
+            }
+            if (strncmp(buf, "[CTRLOCATION=AFTER_FIXED]", 25) == 0) {
+                ctr_location = 3;
+            }
+
+            /* If counter is present, then we need to know its size. */
+            if (strncmp(buf, "[RLEN=", 6) == 0) {
+                if (sscanf(buf, "[RLEN=%lu_BITS]", &counter_bitlen) != 1) {
+                    goto done;
+                }
+            }
+
+            fputs(buf, kbkdf_resp);
+            continue;
+        }
+
+        /* Each test contains a counter, an output length L, an input key KI,
+         * maybe an initialization vector IV, one of a couple of fixed data
+         * buffers, and finally the output key KO. */
+
+        /* First comes COUNT. */
+        if (strncmp(buf, "COUNT=", 6) == 0) {
+            /* Clear all out data fields on each test. */
+            memset(KI, 0, sizeof KI);
+            memset(KO, 0, sizeof KO);
+            memset(IV, 0, sizeof IV);
+            memset(BeforeFixedInputData, 0, sizeof BeforeFixedInputData);
+            memset(AfterFixedInputData, 0, sizeof AfterFixedInputData);
+            memset(FixedInputData, 0, sizeof FixedInputData);
+
+            /* Then reset lengths except KI: it was determined by PRF
+             * selection above. */
+            KO_len = 0;
+            IV_len = 0;
+            BeforeFixedInputData_len = 0;
+            AfterFixedInputData_len = 0;
+            FixedInputData_len = 0;
+
+            fputs(buf, kbkdf_resp);
+            continue;
+        }
+
+        /* Then comes L. */
+        if (strncmp(buf, "L = ", 4) == 0) {
+            if (sscanf(buf, "L = %lu", &L) != 1) {
+                goto done;
+            }
+
+            if ((L % 8) != 0) {
+                fprintf(stderr, "Assumption that L was length in bits incorrect: %lu - %s", L, buf);
+                fprintf(stderr, "Note that NSS only supports byte-aligned outputs and not bit-aligned outputs.\n");
+                goto done;
+            }
+
+            L = L / 8;
+
+            fputs(buf, kbkdf_resp);
+            continue;
+        }
+
+        /* Then comes KI. */
+        if (strncmp(buf, "KI = ", 5) == 0) {
+            buf_offset = 5;
+
+            for (offset = 0; offset < KI_len; offset++, buf_offset += 2) {
+                hex_to_byteval(buf + buf_offset, KI + offset);
+            }
+
+            fputs(buf, kbkdf_resp);
+            continue;
+        }
+
+        /* Then comes IVlen and IV, if present. */
+        if (strncmp(buf, "IVlen = ", 8) == 0) {
+            if (sscanf(buf, "IVlen = %u", &IV_len) != 1) {
+                goto done;
+            }
+
+            if ((IV_len % 8) != 0) {
+                fprintf(stderr, "Assumption that IV_len was length in bits incorrect: %u - %s. ", IV_len, buf);
+                fprintf(stderr, "Note that NSS only supports byte-aligned inputs and not bit-aligned inputs.\n");
+                goto done;
+            }
+
+            /* Need the IV length in bytes, not bits. */
+            IV_len = IV_len / 8;
+
+            fputs(buf, kbkdf_resp);
+            continue;
+        }
+        if (strncmp(buf, "IV = ", 5) == 0) {
+            buf_offset = 5;
+
+            for (offset = 0; offset < IV_len; offset++, buf_offset += 2) {
+                hex_to_byteval(buf + buf_offset, IV + offset);
+            }
+
+            fputs(buf, kbkdf_resp);
+            continue;
+        }
+
+        /* We might have DataBeforeCtr and DataAfterCtr if present. */
+        if (strncmp(buf, "DataBeforeCtrLen = ", 19) == 0) {
+            if (sscanf(buf, "DataBeforeCtrLen = %u", &BeforeFixedInputData_len) != 1) {
+                goto done;
+            }
+
+            fputs(buf, kbkdf_resp);
+            continue;
+        }
+        if (strncmp(buf, "DataBeforeCtrData = ", 20) == 0) {
+            buf_offset = 20;
+
+            for (offset = 0; offset < BeforeFixedInputData_len; offset++, buf_offset += 2) {
+                hex_to_byteval(buf + buf_offset, BeforeFixedInputData + offset);
+            }
+
+            fputs(buf, kbkdf_resp);
+            continue;
+        }
+        if (strncmp(buf, "DataAfterCtrLen = ", 18) == 0) {
+            if (sscanf(buf, "DataAfterCtrLen = %u", &AfterFixedInputData_len) != 1) {
+                goto done;
+            }
+
+            fputs(buf, kbkdf_resp);
+            continue;
+        }
+        if (strncmp(buf, "DataAfterCtrData = ", 19) == 0) {
+            buf_offset = 19;
+
+            for (offset = 0; offset < AfterFixedInputData_len; offset++, buf_offset += 2) {
+                hex_to_byteval(buf + buf_offset, AfterFixedInputData + offset);
+            }
+
+            fputs(buf, kbkdf_resp);
+            continue;
+        }
+
+        /* Otherwise, we might have FixedInputData, if present. */
+        if (strncmp(buf, "FixedInputDataByteLen = ", 24) == 0) {
+            if (sscanf(buf, "FixedInputDataByteLen = %u", &FixedInputData_len) != 1) {
+                goto done;
+            }
+
+            fputs(buf, kbkdf_resp);
+            continue;
+        }
+        if (strncmp(buf, "FixedInputData = ", 17) == 0) {
+            buf_offset = 17;
+
+            for (offset = 0; offset < FixedInputData_len; offset++, buf_offset += 2) {
+                hex_to_byteval(buf + buf_offset, FixedInputData + offset);
+            }
+
+            fputs(buf, kbkdf_resp);
+            continue;
+        }
+
+        /* Finally, run the KBKDF calculation when KO is passed. */
+        if (strncmp(buf, "KO = ", 5) == 0) {
+            CK_SESSION_HANDLE session;
+            CK_OBJECT_HANDLE prf_key;
+            CK_OBJECT_HANDLE derived_key;
+
+            /* Open the session. */
+            crv = NSC_OpenSession(slotID, 0, NULL, NULL, &session);
+            if (crv != CKR_OK) {
+                fprintf(stderr, "NSC_OpenSession failed crv=0x%x\n", (unsigned int)crv);
+                goto done;
+            }
+
+            /* Create the PRF key object. */
+            prf_template[0].ulValueLen = KI_len;
+            crv = NSC_CreateObject(session, prf_template, prf_template_count, &prf_key);
+            if (crv != CKR_OK) {
+                fprintf(stderr, "NSC_CreateObject (prf_key) failed crv=0x%x\n", (unsigned int)crv);
+                goto done;
+            }
+
+            /* Set up the KDF parameters. */
+            if (kdf.mechanism == CKM_SP800_108_COUNTER_KDF) {
+                /* Counter operates in one of three ways: counter before fixed
+                 * input data, counter between fixed input data, and counter
+                 * after fixed input data. In all cases, we have an iterator.
+                 */
+                iterator.ulWidthInBits = counter_bitlen;
+
+                if (ctr_location == 0 || ctr_location > 3) {
+                    fprintf(stderr, "Expected ctr_location != 0 for Counter Mode KDF but got 0.\n");
+                    goto done;
+                } else if (ctr_location == 1) {
+                    /* Counter before */
+                    dataParams[0].type = CK_SP800_108_ITERATION_VARIABLE;
+                    dataParams[0].pValue = &iterator;
+                    dataParams[0].ulValueLen = sizeof(iterator);
+
+                    dataParams[1].type = CK_SP800_108_BYTE_ARRAY;
+                    dataParams[1].pValue = FixedInputData;
+                    dataParams[1].ulValueLen = FixedInputData_len;
+
+                    dataParams_len = 2;
+                } else if (ctr_location == 2) {
+                    /* Counter between */
+                    dataParams[0].type = CK_SP800_108_BYTE_ARRAY;
+                    dataParams[0].pValue = BeforeFixedInputData;
+                    dataParams[0].ulValueLen = BeforeFixedInputData_len;
+
+                    dataParams[1].type = CK_SP800_108_ITERATION_VARIABLE;
+                    dataParams[1].pValue = &iterator;
+                    dataParams[1].ulValueLen = sizeof(iterator);
+
+                    dataParams[2].type = CK_SP800_108_BYTE_ARRAY;
+                    dataParams[2].pValue = AfterFixedInputData;
+                    dataParams[2].ulValueLen = AfterFixedInputData_len;
+
+                    dataParams_len = 3;
+                } else {
+                    /* Counter after */
+                    dataParams[0].type = CK_SP800_108_BYTE_ARRAY;
+                    dataParams[0].pValue = FixedInputData;
+                    dataParams[0].ulValueLen = FixedInputData_len;
+
+                    dataParams[1].type = CK_SP800_108_ITERATION_VARIABLE;
+                    dataParams[1].pValue = &iterator;
+                    dataParams[1].ulValueLen = sizeof(iterator);
+
+                    dataParams_len = 2;
+                }
+            } else if (kdf.mechanism == CKM_SP800_108_FEEDBACK_KDF || kdf.mechanism == CKM_SP800_108_DOUBLE_PIPELINE_KDF) {
+                /* When counter_bitlen != 0, we have an optional counter. */
+                if (counter_bitlen != 0) {
+                    iterator.ulWidthInBits = counter_bitlen;
+
+                    if (ctr_location == 0 || ctr_location > 3) {
+                        fprintf(stderr, "Expected ctr_location != 0 for Counter Mode KDF but got 0.\n");
+                        goto done;
+                    } else if (ctr_location == 1) {
+                        /* Counter before */
+                        dataParams[0].type = CK_SP800_108_OPTIONAL_COUNTER;
+                        dataParams[0].pValue = &iterator;
+                        dataParams[0].ulValueLen = sizeof(iterator);
+
+                        dataParams[1].type = CK_SP800_108_ITERATION_VARIABLE;
+                        dataParams[1].pValue = NULL;
+                        dataParams[1].ulValueLen = 0;
+
+                        dataParams[2].type = CK_SP800_108_BYTE_ARRAY;
+                        dataParams[2].pValue = FixedInputData;
+                        dataParams[2].ulValueLen = FixedInputData_len;
+
+                        dataParams_len = 3;
+                    } else if (ctr_location == 2) {
+                        /* Counter between */
+                        dataParams[0].type = CK_SP800_108_ITERATION_VARIABLE;
+                        dataParams[0].pValue = NULL;
+                        dataParams[0].ulValueLen = 0;
+
+                        dataParams[1].type = CK_SP800_108_OPTIONAL_COUNTER;
+                        dataParams[1].pValue = &iterator;
+                        dataParams[1].ulValueLen = sizeof(iterator);
+
+                        dataParams[2].type = CK_SP800_108_BYTE_ARRAY;
+                        dataParams[2].pValue = FixedInputData;
+                        dataParams[2].ulValueLen = FixedInputData_len;
+
+                        dataParams_len = 3;
+                    } else {
+                        /* Counter after */
+                        dataParams[0].type = CK_SP800_108_ITERATION_VARIABLE;
+                        dataParams[0].pValue = NULL;
+                        dataParams[0].ulValueLen = 0;
+
+                        dataParams[1].type = CK_SP800_108_BYTE_ARRAY;
+                        dataParams[1].pValue = FixedInputData;
+                        dataParams[1].ulValueLen = FixedInputData_len;
+
+                        dataParams[2].type = CK_SP800_108_OPTIONAL_COUNTER;
+                        dataParams[2].pValue = &iterator;
+                        dataParams[2].ulValueLen = sizeof(iterator);
+
+                        dataParams_len = 3;
+                    }
+                } else {
+                    dataParams[0].type = CK_SP800_108_ITERATION_VARIABLE;
+                    dataParams[0].pValue = NULL;
+                    dataParams[0].ulValueLen = 0;
+
+                    dataParams[1].type = CK_SP800_108_BYTE_ARRAY;
+                    dataParams[1].pValue = FixedInputData;
+                    dataParams[1].ulValueLen = FixedInputData_len;
+
+                    dataParams_len = 2;
+                }
+            }
+
+            if (kdf.mechanism != CKM_SP800_108_FEEDBACK_KDF) {
+                kdfParams.prfType = prf_mech;
+                kdfParams.ulNumberOfDataParams = dataParams_len;
+                kdfParams.pDataParams = dataParams;
+
+                kdf.pParameter = &kdfParams;
+                kdf.ulParameterLen = sizeof(kdfParams);
+            } else {
+                feedbackParams.prfType = prf_mech;
+                feedbackParams.ulNumberOfDataParams = dataParams_len;
+                feedbackParams.pDataParams = dataParams;
+                feedbackParams.ulIVLen = IV_len;
+                if (IV_len == 0) {
+                    feedbackParams.pIV = NULL;
+                } else {
+                    feedbackParams.pIV = IV;
+                }
+
+                kdf.pParameter = &feedbackParams;
+                kdf.ulParameterLen = sizeof(feedbackParams);
+            }
+
+            crv = NSC_DeriveKey(session, &kdf, prf_key, derive_template, derive_template_count, &derived_key);
+            if (crv != CKR_OK) {
+                fprintf(stderr, "NSC_DeriveKey(derived_key) failed crv=0x%x\n", (unsigned int)crv);
+                goto done;
+            }
+
+            crv = NSC_GetAttributeValue(session, derived_key, &output_key, 1);
+            if (crv != CKR_OK) {
+                fprintf(stderr, "NSC_GetAttribute(derived_value) failed crv=0x%x\n", (unsigned int)crv);
+                goto done;
+            }
+
+            fputs("KO = ", kbkdf_resp);
+            to_hex_str(buf, KO, output_key.ulValueLen);
+            fputs(buf, kbkdf_resp);
+            fputs("\r\n", kbkdf_resp);
+
+            continue;
+        }
+    }
+
+done:
+    if (kbkdf_req != NULL) {
+        fclose(kbkdf_req);
+    }
+    if (kbkdf_resp != stdout && kbkdf_resp != NULL) {
+        fclose(kbkdf_resp);
+    }
+
+    return;
+}
+
 int
 main(int argc, char **argv)
 {
@@ -7071,6 +8923,16 @@ main(int argc, char **argv)
     } else if (strcmp(argv[1], "ddrbg") == 0) {
         debug = 1;
         drbg(argv[2]);
+    } else if (strcmp(argv[1], "tls") == 0) {
+        tls(argv[2]);
+    } else if (strcmp(argv[1], "ikev1") == 0) {
+        ikev1(argv[2]);
+    } else if (strcmp(argv[1], "ikev1-psk") == 0) {
+        ikev1_psk(argv[2]);
+    } else if (strcmp(argv[1], "ikev2") == 0) {
+        ikev2(argv[2]);
+    } else if (strcmp(argv[1], "kbkdf") == 0) {
+        kbkdf(argv[2]);
     }
     return 0;
 }

@@ -1,16 +1,22 @@
 // ----------------------------------------------------------------------------
-// Tests installing an add-on from a local file with whitelisting disabled.
-// This should be blocked by the whitelist check.
+// Tests installing an add-on from a local file with file origins disabled.
+// This should be blocked by the origin allowed check.
 function test() {
+  // prompt prior to download
+  SpecialPowers.pushPrefEnv({
+    set: [["extensions.postDownloadThirdPartyPrompt", false]],
+  });
+
   Harness.installBlockedCallback = allow_blocked;
   Harness.installsCompletedCallback = finish_test;
   Harness.setup();
 
-  // Disable file request whitelisting, installing by file referrer should be blocked.
+  // Disable local file install, installing by file referrer should be blocked.
   Services.prefs.setBoolPref("xpinstall.whitelist.fileRequest", false);
 
-  var cr = Cc["@mozilla.org/chrome/chrome-registry;1"]
-             .getService(Ci.nsIChromeRegistry);
+  var cr = Cc["@mozilla.org/chrome/chrome-registry;1"].getService(
+    Ci.nsIChromeRegistry
+  );
 
   var chromeroot = extractChromeRoot(gTestPath);
   var xpipath = chromeroot;
@@ -19,11 +25,16 @@ function test() {
   } catch (ex) {
     // scenario where we are running from a .jar and already extracted
   }
-  var triggers = encodeURIComponent(JSON.stringify({
-    "Unsigned XPI": TESTROOT + "amosigned.xpi",
-  }));
+  var triggers = encodeURIComponent(
+    JSON.stringify({
+      "Unsigned XPI": TESTROOT + "amosigned.xpi",
+    })
+  );
   gBrowser.selectedTab = BrowserTestUtils.addTab(gBrowser);
-  BrowserTestUtils.loadURI(gBrowser, xpipath + "installtrigger.html?" + triggers);
+  BrowserTestUtils.loadURI(
+    gBrowser,
+    xpipath + "installtrigger.html?" + triggers
+  );
 }
 
 function allow_blocked(installInfo) {

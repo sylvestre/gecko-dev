@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef MOZILLA_DOMSVGPATHSEG_H__
-#define MOZILLA_DOMSVGPATHSEG_H__
+#ifndef DOM_SVG_DOMSVGPATHSEG_H_
+#define DOM_SVG_DOMSVGPATHSEG_H_
 
 #include "DOMSVGPathSegList.h"
 #include "nsCycleCollectionParticipant.h"
@@ -13,11 +13,12 @@
 #include "SVGPathSegUtils.h"
 #include "mozilla/dom/SVGPathSegBinding.h"
 
-class nsSVGElement;
-
 #define MOZ_SVG_LIST_INDEX_BIT_COUNT 31
 
 namespace mozilla {
+namespace dom {
+
+class SVGElement;
 
 #define CHECK_ARG_COUNT_IN_SYNC(segType)                                   \
   MOZ_ASSERT(                                                              \
@@ -71,7 +72,8 @@ namespace mozilla {
  * DOM wrapper for is a list of floats, not an instance of an internal class.
  */
 class DOMSVGPathSeg : public nsWrapperCache {
-  friend class AutoChangePathSegNotifier;
+  template <class T>
+  friend class AutoChangePathSegListNotifier;
 
  public:
   NS_INLINE_DECL_CYCLE_COLLECTING_NATIVE_REFCOUNTING(DOMSVGPathSeg)
@@ -92,6 +94,12 @@ class DOMSVGPathSeg : public nsWrapperCache {
   virtual DOMSVGPathSeg* Clone() = 0;
 
   bool IsInList() const { return !!mList; }
+
+  /**
+   * Returns true if our attribute is animating (in which case our animVal is
+   * not simply a mirror of our baseVal).
+   */
+  bool AttrIsAnimating() const { return mList && mList->AttrIsAnimating(); }
 
   /**
    * In future, if this class is used for non-list segments, this will be
@@ -132,7 +140,7 @@ class DOMSVGPathSeg : public nsWrapperCache {
    * encoded into a float, followed by its arguments in the same order as they
    * are given in the <path> element's 'd' attribute).
    */
-  void ToSVGPathSegEncodedData(float* aData);
+  void ToSVGPathSegEncodedData(float* aRaw);
 
   /**
    * The type of this path segment.
@@ -171,7 +179,7 @@ class DOMSVGPathSeg : public nsWrapperCache {
     }
   }
 
-  nsSVGElement* Element() { return mList->Element(); }
+  dom::SVGElement* Element() { return mList->Element(); }
 
   /**
    * Get a reference to the internal SVGPathSeg list item that this DOM wrapper
@@ -437,9 +445,9 @@ class DOMSVGPathSegArcAbs : public DOMSVGPathSeg {
   float Angle();
   void SetAngle(float aAngle, ErrorResult& rv);
   bool LargeArcFlag();
-  void SetLargeArcFlag(bool aFlag, ErrorResult& rv);
+  void SetLargeArcFlag(bool aLargeArcFlag, ErrorResult& rv);
   bool SweepFlag();
-  void SetSweepFlag(bool aFlag, ErrorResult& rv);
+  void SetSweepFlag(bool aSweepFlag, ErrorResult& rv);
 
  protected:
   float mArgs[7];
@@ -473,9 +481,9 @@ class DOMSVGPathSegArcRel : public DOMSVGPathSeg {
   float Angle();
   void SetAngle(float aAngle, ErrorResult& rv);
   bool LargeArcFlag();
-  void SetLargeArcFlag(bool aFlag, ErrorResult& rv);
+  void SetLargeArcFlag(bool aLargeArcFlag, ErrorResult& rv);
   bool SweepFlag();
-  void SetSweepFlag(bool aFlag, ErrorResult& rv);
+  void SetSweepFlag(bool aSweepFlag, ErrorResult& rv);
 
  protected:
   float mArgs[7];
@@ -641,8 +649,9 @@ class DOMSVGPathSegCurvetoQuadraticSmoothRel : public DOMSVGPathSeg {
   float mArgs[2];
 };
 
+}  // namespace dom
 }  // namespace mozilla
 
 #undef MOZ_SVG_LIST_INDEX_BIT_COUNT
 
-#endif  // MOZILLA_DOMSVGPATHSEG_H__
+#endif  // DOM_SVG_DOMSVGPATHSEG_H_

@@ -11,30 +11,49 @@
 #include <tuple>
 
 #include "base/base_export.h"
-#include "base/hash.h"
+#include "base/hash/hash.h"
 #include "base/logging.h"
+#include "base/token.h"
 
 namespace base {
 
 struct UnguessableTokenHash;
 
-// A UnguessableToken is an 128-bit token generated from a cryptographically
-// strong random source.
+// UnguessableToken is, like Token, a randomly chosen 128-bit value. Unlike
+// Token, a new UnguessableToken is always generated at runtime from a
+// cryptographically strong random source (or copied or serialized and
+// deserialized from another such UnguessableToken). It can be used as part of a
+// larger aggregate type, or as an ID in and of itself.
 //
-// UnguessableToken should be used when a sensitive ID needs to be unguessable,
-// and is shared across processes. It can be used as part of a larger aggregate
-// type, or as an ID in and of itself.
+// An UnguessableToken is a strong *bearer token*. Bearer tokens are like HTTP
+// cookies: if a caller has the token, the callee thereby considers the caller
+// authorized to request the operation the callee performs.
+//
+// UnguessableToken can be used when the resource associated with the ID needs
+// to be protected against manipulation by other untrusted agents in the system,
+// and there is no other convenient way to verify the authority of the agent to
+// do so (because the resource is part of a table shared across processes, for
+// instance). In such a scheme, knowledge of the token value in and of itself is
+// sufficient proof of authority to carry out an operation on the associated
+// resource.
 //
 // Use Create() for creating new UnguessableTokens.
 //
 // NOTE: It is illegal to send empty UnguessableTokens across processes, and
-// sending/receiving empty tokens should be treated as a security issue.
-// If there is a valid scenario for sending "no token" across processes,
-// base::Optional should be used instead of an empty token.
+// sending/receiving empty tokens should be treated as a security issue. If
+// there is a valid scenario for sending "no token" across processes, use
+// base::Optional instead of an empty token.
+
 class BASE_EXPORT UnguessableToken {
  public:
   // Create a unique UnguessableToken.
   static UnguessableToken Create();
+
+  // Returns a reference to a global null UnguessableToken. This should only be
+  // used for functions that need to return a reference to an UnguessableToken,
+  // and should not be used as a general-purpose substitute for invoking the
+  // default constructor.
+  static const UnguessableToken& Null();
 
   // Return a UnguessableToken built from the high/low bytes provided.
   // It should only be used in deserialization scenarios.
@@ -50,27 +69,28 @@ class BASE_EXPORT UnguessableToken {
   // NOTE: Serializing an empty UnguessableToken is an illegal operation.
   uint64_t GetHighForSerialization() const {
     DCHECK(!is_empty());
-    return high_;
+    return token_.high();
   }
 
   // NOTE: Serializing an empty UnguessableToken is an illegal operation.
   uint64_t GetLowForSerialization() const {
     DCHECK(!is_empty());
-    return low_;
+    return token_.low();
   }
 
-  bool is_empty() const { return high_ == 0 && low_ == 0; }
+  bool is_empty() const { return token_.is_zero(); }
 
-  std::string ToString() const;
+  // Hex representation of the unguessable token.
+  std::string ToString() const { return token_.ToString(); }
 
   explicit operator bool() const { return !is_empty(); }
 
   bool operator<(const UnguessableToken& other) const {
-    return std::tie(high_, low_) < std::tie(other.high_, other.low_);
+    return token_ < other.token_;
   }
 
   bool operator==(const UnguessableToken& other) const {
-    return high_ == other.high_ && low_ == other.low_;
+    return token_ == other.token_;
   }
 
   bool operator!=(const UnguessableToken& other) const {
@@ -79,12 +99,9 @@ class BASE_EXPORT UnguessableToken {
 
  private:
   friend struct UnguessableTokenHash;
-  UnguessableToken(uint64_t high, uint64_t low);
+  explicit UnguessableToken(const Token& token);
 
-  // Note: Two uint64_t are used instead of uint8_t[16], in order to have a
-  // simpler ToString() and is_empty().
-  uint64_t high_ = 0;
-  uint64_t low_ = 0;
+  base::Token token_;
 };
 
 BASE_EXPORT std::ostream& operator<<(std::ostream& out,
@@ -94,7 +111,7 @@ BASE_EXPORT std::ostream& operator<<(std::ostream& out,
 struct UnguessableTokenHash {
   size_t operator()(const base::UnguessableToken& token) const {
     DCHECK(token);
-    return base::HashInts64(token.high_, token.low_);
+    return TokenHash()(token.token_);
   }
 };
 

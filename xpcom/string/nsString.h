@@ -7,6 +7,8 @@
 #ifndef nsString_h___
 #define nsString_h___
 
+#include <ostream>
+
 #include "mozilla/Attributes.h"
 
 #include "nsStringFwd.h"
@@ -17,7 +19,7 @@
 
 // enable support for the obsolete string API if not explicitly disabled
 #ifndef MOZ_STRING_WITH_OBSOLETE_API
-#define MOZ_STRING_WITH_OBSOLETE_API 1
+#  define MOZ_STRING_WITH_OBSOLETE_API 1
 #endif
 
 #include "nsTString.h"
@@ -75,6 +77,10 @@ class NS_ConvertASCIItoUTF16 : public nsAutoString {
     AppendASCIItoUTF16(aCString, *this);
   }
 
+  explicit NS_ConvertASCIItoUTF16(mozilla::Span<const char> aCString) {
+    AppendASCIItoUTF16(aCString, *this);
+  }
+
  private:
   // NOT TO BE IMPLEMENTED
   NS_ConvertASCIItoUTF16(char16_t) = delete;
@@ -121,6 +127,38 @@ class NS_ConvertUTF8toUTF16 : public nsAutoString {
   // NOT TO BE IMPLEMENTED
   NS_ConvertUTF8toUTF16(char16_t) = delete;
 };
+
+/**
+ * Converts an integer (signed/unsigned, 32/64bit) to its decimal string
+ * representation and returns it as an nsAutoCString/nsAutoString.
+ */
+template <typename T, typename U>
+nsTAutoString<T> IntToTString(const U aInt, const int aRadix = 10) {
+  nsTAutoString<T> string;
+  string.AppendInt(aInt, aRadix);
+  return string;
+}
+
+template <typename U>
+nsAutoCString IntToCString(const U aInt, const int aRadix = 10) {
+  return IntToTString<char>(aInt, aRadix);
+}
+
+template <typename U>
+nsAutoString IntToString(const U aInt, const int aRadix = 10) {
+  return IntToTString<char16_t>(aInt, aRadix);
+}
+
+// MOZ_DBG support
+
+inline std::ostream& operator<<(std::ostream& aOut, const nsACString& aString) {
+  aOut.write(aString.Data(), aString.Length());
+  return aOut;
+}
+
+inline std::ostream& operator<<(std::ostream& aOut, const nsAString& aString) {
+  return aOut << NS_ConvertUTF16toUTF8(aString);
+}
 
 // the following are included/declared for backwards compatibility
 #include "nsDependentString.h"

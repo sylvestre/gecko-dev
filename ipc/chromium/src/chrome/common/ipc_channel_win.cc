@@ -9,25 +9,37 @@
 #include <windows.h>
 #include <sstream>
 
+#include "base/command_line.h"
 #include "base/compiler_specific.h"
 #include "base/logging.h"
 #include "base/process_util.h"
 #include "base/rand_util.h"
 #include "base/string_util.h"
 #include "base/win_util.h"
+#include "chrome/common/chrome_switches.h"
+#include "chrome/common/ipc_channel_utils.h"
 #include "chrome/common/ipc_message_utils.h"
 #include "mozilla/ipc/ProtocolUtils.h"
+#include "mozilla/Atomics.h"
+#include "mozilla/LateWriteChecks.h"
+#include "nsThreadUtils.h"
+
+#ifdef FUZZING
+#  include "mozilla/ipc/Faulty.h"
+#endif
+
+using namespace mozilla::ipc;
 
 // ChannelImpl is used on the IPC thread, but constructed on a different thread,
 // so it has to hold the nsAutoOwningThread as a pointer, and we need a slightly
 // different macro.
 #ifdef DEBUG
-#define ASSERT_OWNINGTHREAD(_class)                              \
-  if (nsAutoOwningThread* owningThread = _mOwningThread.get()) { \
-    owningThread->AssertOwnership(#_class " not thread-safe");   \
-  }
+#  define ASSERT_OWNINGTHREAD(_class)                              \
+    if (nsAutoOwningThread* owningThread = _mOwningThread.get()) { \
+      owningThread->AssertOwnership(#_class " not thread-safe");   \
+    }
 #else
-#define ASSERT_OWNINGTHREAD(_class) ((void)0)
+#  define ASSERT_OWNINGTHREAD(_class) ((void)0)
 #endif
 
 namespace IPC {
@@ -45,7 +57,7 @@ Channel::ChannelImpl::State::~State() {
 
 //------------------------------------------------------------------------------
 
-Channel::ChannelImpl::ChannelImpl(const std::wstring& channel_id, Mode mode,
+Channel::ChannelImpl::ChannelImpl(const ChannelId& channel_id, Mode mode,
                                   Listener* listener)
     : ALLOW_THIS_IN_INITIALIZER_LIST(input_state_(this)),
       ALLOW_THIS_IN_INITIALIZER_LIST(output_state_(this)),
@@ -62,7 +74,7 @@ Channel::ChannelImpl::ChannelImpl(const std::wstring& channel_id, Mode mode,
   }
 }
 
-Channel::ChannelImpl::ChannelImpl(const std::wstring& channel_id,
+Channel::ChannelImpl::ChannelImpl(const ChannelId& channel_id,
                                   HANDLE server_pipe, Mode mode,
                                   Listener* listener)
     : ALLOW_THIS_IN_INITIALIZER_LIST(input_state_(this)),
@@ -73,6 +85,11 @@ Channel::ChannelImpl::ChannelImpl(const std::wstring& channel_id,
   Init(mode, listener);
 
   if (mode == MODE_SERVER) {
+    // We don't need the pipe name because we've been passed a handle, but we do
+    // need to get the shared secret from the channel_id.
+    PipeName(channel_id, &shared_secret_);
+    waiting_for_shared_secret_ = !!shared_secret_;
+
     // Use the existing handle that was dup'd to us
     pipe_ = server_pipe;
     EnqueueHelloMessage();
@@ -83,6 +100,9 @@ Channel::ChannelImpl::ChannelImpl(const std::wstring& channel_id,
 }
 
 void Channel::ChannelImpl::Init(Mode mode, Listener* listener) {
+  // Verify that we fit in a "quantum-spaced" jemalloc bucket.
+  static_assert(sizeof(*this) <= 512, "Exceeded expected size class");
+
   pipe_ = INVALID_HANDLE_VALUE;
   listener_ = listener;
   waiting_connect_ = (mode == MODE_SERVER);
@@ -90,15 +110,18 @@ void Channel::ChannelImpl::Init(Mode mode, Listener* listener) {
   closed_ = false;
   output_queue_length_ = 0;
   input_buf_offset_ = 0;
+  input_buf_ = mozilla::MakeUnique<char[]>(Channel::kReadBufferSize);
 }
 
-void Channel::ChannelImpl::OutputQueuePush(Message* msg) {
-  output_queue_.push(msg);
+void Channel::ChannelImpl::OutputQueuePush(mozilla::UniquePtr<Message> msg) {
+  mozilla::LogIPCMessage::LogDispatchWithPid(msg.get(), other_pid_);
+
+  output_queue_.Push(std::move(msg));
   output_queue_length_++;
 }
 
 void Channel::ChannelImpl::OutputQueuePop() {
-  output_queue_.pop();
+  mozilla::UniquePtr<Message> message = output_queue_.Pop();
   output_queue_length_--;
 }
 
@@ -124,10 +147,8 @@ void Channel::ChannelImpl::Close() {
     MessageLoopForIO::current()->WaitForIOCompletion(INFINITE, this);
   }
 
-  while (!output_queue_.empty()) {
-    Message* m = output_queue_.front();
+  while (!output_queue_.IsEmpty()) {
     OutputQueuePop();
-    delete m;
   }
 
 #ifdef DEBUG
@@ -136,12 +157,18 @@ void Channel::ChannelImpl::Close() {
   closed_ = true;
 }
 
-bool Channel::ChannelImpl::Send(Message* message) {
+bool Channel::ChannelImpl::Send(mozilla::UniquePtr<Message> message) {
   ASSERT_OWNINGTHREAD(ChannelImpl);
+
 #ifdef IPC_MESSAGE_DEBUG_EXTRA
-  DLOG(INFO) << "sending message @" << message << " on channel @" << this
-             << " with type " << message->type() << " (" << output_queue_.size()
-             << " in queue)";
+  DLOG(INFO) << "sending message @" << message.get() << " on channel @" << this
+             << " with type " << message->type() << " ("
+             << output_queue_.Count() << " in queue)";
+#endif
+
+#ifdef FUZZING
+  message = mozilla::ipc::Faulty::instance().MutateIPCMessage(
+      "Channel::ChannelImpl::Send", std::move(message));
 #endif
 
   if (closed_) {
@@ -150,11 +177,10 @@ bool Channel::ChannelImpl::Send(Message* message) {
               "Can't send message %s, because this channel is closed.\n",
               message->name());
     }
-    delete message;
     return false;
   }
 
-  OutputQueuePush(message);
+  OutputQueuePush(std::move(message));
   // ensure waiting to write
   if (!waiting_connect_) {
     if (!output_state_.is_pending) {
@@ -165,8 +191,8 @@ bool Channel::ChannelImpl::Send(Message* message) {
   return true;
 }
 
-const std::wstring Channel::ChannelImpl::PipeName(
-    const std::wstring& channel_id, int32_t* secret) const {
+const Channel::ChannelId Channel::ChannelImpl::PipeName(
+    const ChannelId& channel_id, int32_t* secret) const {
   MOZ_ASSERT(secret);
 
   std::wostringstream ss;
@@ -185,10 +211,9 @@ const std::wstring Channel::ChannelImpl::PipeName(
   return ss.str();
 }
 
-bool Channel::ChannelImpl::CreatePipe(const std::wstring& channel_id,
-                                      Mode mode) {
+bool Channel::ChannelImpl::CreatePipe(const ChannelId& channel_id, Mode mode) {
   DCHECK(pipe_ == INVALID_HANDLE_VALUE);
-  const std::wstring pipe_name = PipeName(channel_id, &shared_secret_);
+  const ChannelId pipe_name = PipeName(channel_id, &shared_secret_);
   if (mode == MODE_SERVER) {
     waiting_for_shared_secret_ = !!shared_secret_;
     pipe_ = CreateNamedPipeW(pipe_name.c_str(),
@@ -220,8 +245,7 @@ bool Channel::ChannelImpl::CreatePipe(const std::wstring& channel_id,
 }
 
 bool Channel::ChannelImpl::EnqueueHelloMessage() {
-  mozilla::UniquePtr<Message> m =
-      mozilla::MakeUnique<Message>(MSG_ROUTING_NONE, HELLO_MESSAGE_TYPE);
+  auto m = mozilla::MakeUnique<Message>(MSG_ROUTING_NONE, HELLO_MESSAGE_TYPE);
 
   // If we're waiting for our shared secret from the other end's hello message
   // then don't give the game away by sending it in ours.
@@ -235,7 +259,7 @@ bool Channel::ChannelImpl::EnqueueHelloMessage() {
     return false;
   }
 
-  OutputQueuePush(m.release());
+  OutputQueuePush(std::move(m));
   return true;
 }
 
@@ -251,7 +275,11 @@ bool Channel::ChannelImpl::Connect() {
   MessageLoopForIO::current()->RegisterIOHandler(pipe_, this);
 
   // Check to see if there is a client connected to our pipe...
-  if (waiting_connect_) ProcessConnection();
+  if (waiting_connect_) {
+    if (!ProcessConnection()) {
+      return false;
+    }
+  }
 
   if (!input_state_.is_pending) {
     // Complete setup asynchronously. By not setting input_state_.is_pending
@@ -289,6 +317,9 @@ bool Channel::ChannelImpl::ProcessConnection() {
     case ERROR_PIPE_CONNECTED:
       waiting_connect_ = false;
       break;
+    case ERROR_NO_DATA:
+      // The pipe is being closed.
+      return false;
     default:
       NOTREACHED();
       return false;
@@ -315,7 +346,7 @@ bool Channel::ChannelImpl::ProcessIncomingMessages(
       if (INVALID_HANDLE_VALUE == pipe_) return false;
 
       // Read from pipe...
-      BOOL ok = ReadFile(pipe_, input_buf_ + input_buf_offset_,
+      BOOL ok = ReadFile(pipe_, input_buf_.get() + input_buf_offset_,
                          Channel::kReadBufferSize - input_buf_offset_,
                          &bytes_read, &input_state_.context.overlapped);
       if (!ok) {
@@ -324,7 +355,9 @@ bool Channel::ChannelImpl::ProcessIncomingMessages(
           input_state_.is_pending = true;
           return true;
         }
-        CHROMIUM_LOG(ERROR) << "pipe error: " << err;
+        if (err != ERROR_BROKEN_PIPE) {
+          CHROMIUM_LOG(ERROR) << "pipe error: " << err;
+        }
         return false;
       }
       input_state_.is_pending = true;
@@ -334,8 +367,8 @@ bool Channel::ChannelImpl::ProcessIncomingMessages(
 
     // Process messages from input buffer.
 
-    const char* p = input_buf_;
-    const char* end = input_buf_ + input_buf_offset_ + bytes_read;
+    const char* p = input_buf_.get();
+    const char* end = input_buf_.get() + input_buf_offset_ + bytes_read;
 
     while (p < end) {
       // Try to figure out how big the message is. Size is 0 if we haven't read
@@ -354,7 +387,7 @@ bool Channel::ChannelImpl::ProcessIncomingMessages(
         // Move everything we have to the start of the buffer. We'll finish
         // reading this message when we get more data. For now we leave it in
         // input_buf_.
-        memmove(input_buf_, p, end - p);
+        memmove(input_buf_.get(), p, end - p);
         input_buf_offset_ = end - p;
 
         break;
@@ -398,6 +431,12 @@ bool Channel::ChannelImpl::ProcessIncomingMessages(
 
       Message& m = incoming_message_.ref();
 
+      // Note: We set other_pid_ below when we receive a Hello message (which
+      // has no routing ID), but we only emit a profiler marker for messages
+      // with a routing ID, so there's no conflict here.
+      AddIPCProfilerMarker(m, other_pid_, MessageDirection::eReceiving,
+                           MessagePhase::TransferStart);
+
 #ifdef IPC_MESSAGE_DEBUG_EXTRA
       DLOG(INFO) << "received message on channel @" << this << " with type "
                  << m.type();
@@ -407,7 +446,7 @@ bool Channel::ChannelImpl::ProcessIncomingMessages(
         // The Hello message contains the process id and must include the
         // shared secret, if we are waiting for it.
         MessageIterator it = MessageIterator(m);
-        int32_t claimed_pid = it.NextInt();
+        other_pid_ = it.NextInt();
         if (waiting_for_shared_secret_ && (it.NextInt() != shared_secret_)) {
           NOTREACHED();
           // Something went wrong. Abort connection.
@@ -416,8 +455,9 @@ bool Channel::ChannelImpl::ProcessIncomingMessages(
           return false;
         }
         waiting_for_shared_secret_ = false;
-        listener_->OnChannelConnected(claimed_pid);
+        listener_->OnChannelConnected(other_pid_);
       } else {
+        mozilla::LogIPCMessage::Run run(&m);
         listener_->OnMessageReceived(std::move(m));
       }
 
@@ -441,29 +481,35 @@ bool Channel::ChannelImpl::ProcessOutgoingMessages(
     output_state_.is_pending = false;
     if (!context || bytes_written == 0) {
       DWORD err = GetLastError();
-      CHROMIUM_LOG(ERROR) << "pipe error: " << err;
+      if (err != ERROR_BROKEN_PIPE) {
+        CHROMIUM_LOG(ERROR) << "pipe error: " << err;
+      }
       return false;
     }
     // Message was sent.
-    DCHECK(!output_queue_.empty());
-    Message* m = output_queue_.front();
+    DCHECK(!output_queue_.IsEmpty());
+    Message* m = output_queue_.FirstElement().get();
 
     MOZ_RELEASE_ASSERT(partial_write_iter_.isSome());
     Pickle::BufferList::IterImpl& iter = partial_write_iter_.ref();
     iter.Advance(m->Buffers(), bytes_written);
     if (iter.Done()) {
+      AddIPCProfilerMarker(*m, other_pid_, MessageDirection::eSending,
+                           MessagePhase::TransferEnd);
+
       partial_write_iter_.reset();
       OutputQueuePop();
-      delete m;
+      // m has been destroyed, so clear the dangling reference.
+      m = nullptr;
     }
   }
 
-  if (output_queue_.empty()) return true;
+  if (output_queue_.IsEmpty()) return true;
 
   if (INVALID_HANDLE_VALUE == pipe_) return false;
 
   // Write to pipe...
-  Message* m = output_queue_.front();
+  Message* m = output_queue_.FirstElement().get();
 
   if (partial_write_iter_.isNothing()) {
     Pickle::BufferList::IterImpl iter(m->Buffers());
@@ -471,8 +517,18 @@ bool Channel::ChannelImpl::ProcessOutgoingMessages(
   }
 
   Pickle::BufferList::IterImpl& iter = partial_write_iter_.ref();
+
+  AddIPCProfilerMarker(*m, other_pid_, MessageDirection::eSending,
+                       MessagePhase::TransferStart);
+
+  // Don't count this write for the purposes of late write checking. If this
+  // message results in a legitimate file write, that will show up when it
+  // happens.
+  mozilla::PushSuspendLateWriteChecks();
   BOOL ok = WriteFile(pipe_, iter.Data(), iter.RemainingInSegment(),
                       &bytes_written, &output_state_.context.overlapped);
+  mozilla::PopSuspendLateWriteChecks();
+
   if (!ok) {
     DWORD err = GetLastError();
     if (err == ERROR_IO_PENDING) {
@@ -485,7 +541,9 @@ bool Channel::ChannelImpl::ProcessOutgoingMessages(
 
       return true;
     }
-    CHROMIUM_LOG(ERROR) << "pipe error: " << err;
+    if (err != ERROR_BROKEN_PIPE) {
+      CHROMIUM_LOG(ERROR) << "pipe error: " << err;
+    }
     return false;
   }
 
@@ -506,7 +564,7 @@ void Channel::ChannelImpl::OnIOCompleted(MessageLoopForIO::IOContext* context,
     if (waiting_connect_) {
       if (!ProcessConnection()) return;
       // We may have some messages queued up to send...
-      if (!output_queue_.empty() && !output_state_.is_pending)
+      if (!output_queue_.IsEmpty() && !output_state_.is_pending)
         ProcessOutgoingMessages(NULL, 0);
       if (input_state_.is_pending) return;
       // else, fall-through and look for incoming messages...
@@ -535,12 +593,12 @@ uint32_t Channel::ChannelImpl::Unsound_NumQueuedMessages() const {
 
 //------------------------------------------------------------------------------
 // Channel's methods simply call through to ChannelImpl.
-Channel::Channel(const std::wstring& channel_id, Mode mode, Listener* listener)
+Channel::Channel(const ChannelId& channel_id, Mode mode, Listener* listener)
     : channel_impl_(new ChannelImpl(channel_id, mode, listener)) {
   MOZ_COUNT_CTOR(IPC::Channel);
 }
 
-Channel::Channel(const std::wstring& channel_id, void* server_pipe, Mode mode,
+Channel::Channel(const ChannelId& channel_id, void* server_pipe, Mode mode,
                  Listener* listener)
     : channel_impl_(new ChannelImpl(channel_id, server_pipe, mode, listener)) {
   MOZ_COUNT_CTOR(IPC::Channel);
@@ -563,7 +621,9 @@ Channel::Listener* Channel::set_listener(Listener* listener) {
   return channel_impl_->set_listener(listener);
 }
 
-bool Channel::Send(Message* message) { return channel_impl_->Send(message); }
+bool Channel::Send(mozilla::UniquePtr<Message> message) {
+  return channel_impl_->Send(std::move(message));
+}
 
 bool Channel::Unsound_IsClosed() const {
   return channel_impl_->Unsound_IsClosed();
@@ -573,20 +633,32 @@ uint32_t Channel::Unsound_NumQueuedMessages() const {
   return channel_impl_->Unsound_NumQueuedMessages();
 }
 
+namespace {
+
+// Global atomic used to guarantee channel IDs are unique.
+mozilla::Atomic<int> g_last_id;
+
+}  // namespace
+
 // static
-std::wstring Channel::GenerateVerifiedChannelID(const std::wstring& prefix) {
+Channel::ChannelId Channel::GenerateVerifiedChannelID() {
   // Windows pipes can be enumerated by low-privileged processes. So, we
   // append a strong random value after the \ character. This value is not
   // included in the pipe name, but sent as part of the client hello, to
   // prevent hijacking the pipe name to spoof the client.
-  std::wstring id = prefix;
-  if (!id.empty()) id.append(L".");
   int secret;
   do {  // Guarantee we get a non-zero value.
     secret = base::RandInt(0, std::numeric_limits<int>::max());
   } while (secret == 0);
-  id.append(GenerateUniqueRandomChannelID());
-  return id.append(StringPrintf(L"\\%d", secret));
+  return StringPrintf(L"%d.%u.%d\\%d", base::GetCurrentProcId(), g_last_id++,
+                      base::RandInt(0, std::numeric_limits<int32_t>::max()),
+                      secret);
+}
+
+// static
+Channel::ChannelId Channel::ChannelIDForCurrentProcess() {
+  return CommandLine::ForCurrentProcess()->GetSwitchValue(
+      switches::kProcessChannelID);
 }
 
 }  // namespace IPC

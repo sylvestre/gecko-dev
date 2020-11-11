@@ -8,22 +8,23 @@
  * automatic creation of the content-length header.
  */
 
-#include "ipc/IPCMessageUtils.h"
+#include "nsMIMEInputStream.h"
 
+#include <utility>
+
+#include "ipc/IPCMessageUtils.h"
+#include "mozilla/Mutex.h"
+#include "mozilla/ipc/InputStreamUtils.h"
 #include "nsCOMPtr.h"
 #include "nsComponentManagerUtils.h"
 #include "nsIAsyncInputStream.h"
-#include "nsIInputStreamLength.h"
+#include "nsIClassInfoImpl.h"
 #include "nsIHttpHeaderVisitor.h"
+#include "nsIIPCSerializableInputStream.h"
+#include "nsIInputStreamLength.h"
 #include "nsIMIMEInputStream.h"
 #include "nsISeekableStream.h"
 #include "nsString.h"
-#include "nsMIMEInputStream.h"
-#include "nsIClassInfoImpl.h"
-#include "nsIIPCSerializableInputStream.h"
-#include "mozilla/Move.h"
-#include "mozilla/Mutex.h"
-#include "mozilla/ipc/InputStreamUtils.h"
 
 using namespace mozilla::ipc;
 using mozilla::Maybe;
@@ -58,6 +59,12 @@ class nsMIMEInputStream : public nsIMIMEInputStream,
  private:
   void InitStreams();
 
+  template <typename M>
+  void SerializeInternal(InputStreamParams& aParams,
+                         FileDescriptorArray& aFileDescriptors,
+                         bool aDelayedStart, uint32_t aMaxSize,
+                         uint32_t* aSizeUsed, M* aManager);
+
   struct MOZ_STACK_CLASS ReadSegmentsState {
     nsCOMPtr<nsIInputStream> mThisStream;
     nsWriteSegmentFun mWriter;
@@ -67,8 +74,8 @@ class nsMIMEInputStream : public nsIMIMEInputStream,
                             const char* aFromRawSegment, uint32_t aToOffset,
                             uint32_t aCount, uint32_t* aWriteCount);
 
+  bool IsSeekableInputStream() const;
   bool IsAsyncInputStream() const;
-  bool IsIPCSerializable() const;
   bool IsInputStreamLength() const;
   bool IsAsyncInputStreamLength() const;
   bool IsCloneableInputStream() const;
@@ -96,10 +103,9 @@ NS_IMPL_CLASSINFO(nsMIMEInputStream, nullptr, nsIClassInfo::THREADSAFE,
 NS_INTERFACE_MAP_BEGIN(nsMIMEInputStream)
   NS_INTERFACE_MAP_ENTRY(nsIMIMEInputStream)
   NS_INTERFACE_MAP_ENTRY_AMBIGUOUS(nsIInputStream, nsIMIMEInputStream)
-  NS_INTERFACE_MAP_ENTRY(nsISeekableStream)
   NS_INTERFACE_MAP_ENTRY(nsITellableStream)
-  NS_INTERFACE_MAP_ENTRY_CONDITIONAL(nsIIPCSerializableInputStream,
-                                     IsIPCSerializable())
+  NS_INTERFACE_MAP_ENTRY_CONDITIONAL(nsISeekableStream, IsSeekableInputStream())
+  NS_INTERFACE_MAP_ENTRY(nsIIPCSerializableInputStream)
   NS_INTERFACE_MAP_ENTRY_CONDITIONAL(nsIAsyncInputStream, IsAsyncInputStream())
   NS_INTERFACE_MAP_ENTRY_CONDITIONAL(nsIInputStreamCallback,
                                      IsAsyncInputStream())
@@ -329,26 +335,60 @@ nsresult nsMIMEInputStreamConstructor(nsISupports* outer, REFNSIID iid,
   return inst->QueryInterface(iid, result);
 }
 
-void nsMIMEInputStream::Serialize(InputStreamParams& aParams,
-                                  FileDescriptorArray& aFileDescriptors) {
+void nsMIMEInputStream::Serialize(
+    InputStreamParams& aParams, FileDescriptorArray& aFileDescriptors,
+    bool aDelayedStart, uint32_t aMaxSize, uint32_t* aSizeUsed,
+    mozilla::ipc::ParentToChildStreamActorManager* aManager) {
+  SerializeInternal(aParams, aFileDescriptors, aDelayedStart, aMaxSize,
+                    aSizeUsed, aManager);
+}
+
+void nsMIMEInputStream::Serialize(
+    InputStreamParams& aParams, FileDescriptorArray& aFileDescriptors,
+    bool aDelayedStart, uint32_t aMaxSize, uint32_t* aSizeUsed,
+    mozilla::ipc::ChildToParentStreamActorManager* aManager) {
+  SerializeInternal(aParams, aFileDescriptors, aDelayedStart, aMaxSize,
+                    aSizeUsed, aManager);
+}
+
+template <typename M>
+void nsMIMEInputStream::SerializeInternal(InputStreamParams& aParams,
+                                          FileDescriptorArray& aFileDescriptors,
+                                          bool aDelayedStart, uint32_t aMaxSize,
+                                          uint32_t* aSizeUsed, M* aManager) {
+  MOZ_ASSERT(aSizeUsed);
+  *aSizeUsed = 0;
+
   MIMEInputStreamParams params;
-
-  if (mStream) {
-    InputStreamParams wrappedParams;
-    InputStreamHelper::SerializeInputStream(mStream, wrappedParams,
-                                            aFileDescriptors);
-
-    NS_ASSERTION(wrappedParams.type() != InputStreamParams::T__None,
-                 "Wrapped stream failed to serialize!");
-
-    params.optionalStream() = wrappedParams;
-  } else {
-    params.optionalStream() = mozilla::void_t();
-  }
-
-  params.headers() = mHeaders;
+  params.headers() = mHeaders.Clone();
   params.startedReading() = mStartedReading;
 
+  if (!mStream) {
+    aParams = params;
+    return;
+  }
+
+  InputStreamParams wrappedParams;
+
+  if (nsCOMPtr<nsIIPCSerializableInputStream> serializable =
+          do_QueryInterface(mStream)) {
+    InputStreamHelper::SerializeInputStream(mStream, wrappedParams,
+                                            aFileDescriptors, aDelayedStart,
+                                            aMaxSize, aSizeUsed, aManager);
+  } else {
+    // Falling back to sending the underlying stream over a pipe when
+    // sending an nsMIMEInputStream over IPC is potentially wasteful
+    // if it is sent several times. This can possibly happen with
+    // fission. There are two ways to improve this, see bug 1648369
+    // and bug 1648370.
+    InputStreamHelper::SerializeInputStreamAsPipe(mStream, wrappedParams,
+                                                  aDelayedStart, aManager);
+  }
+
+  NS_ASSERTION(wrappedParams.type() != InputStreamParams::T__None,
+               "Wrapped stream failed to serialize!");
+
+  params.optionalStream().emplace(wrappedParams);
   aParams = params;
 }
 
@@ -361,33 +401,24 @@ bool nsMIMEInputStream::Deserialize(
   }
 
   const MIMEInputStreamParams& params = aParams.get_MIMEInputStreamParams();
-  const OptionalInputStreamParams& wrappedParams = params.optionalStream();
+  const Maybe<InputStreamParams>& wrappedParams = params.optionalStream();
 
-  mHeaders = params.headers();
+  mHeaders = params.headers().Clone();
   mStartedReading = params.startedReading();
 
-  if (wrappedParams.type() == OptionalInputStreamParams::TInputStreamParams) {
+  if (wrappedParams.isSome()) {
     nsCOMPtr<nsIInputStream> stream;
-    stream = InputStreamHelper::DeserializeInputStream(
-        wrappedParams.get_InputStreamParams(), aFileDescriptors);
+    stream = InputStreamHelper::DeserializeInputStream(wrappedParams.ref(),
+                                                       aFileDescriptors);
     if (!stream) {
       NS_WARNING("Failed to deserialize wrapped stream!");
       return false;
     }
 
     mStream = stream;
-  } else {
-    NS_ASSERTION(wrappedParams.type() == OptionalInputStreamParams::Tvoid_t,
-                 "Unknown type for OptionalInputStreamParams!");
   }
 
   return true;
-}
-
-Maybe<uint64_t> nsMIMEInputStream::ExpectedSerializedLength() {
-  nsCOMPtr<nsIIPCSerializableInputStream> serializable =
-      do_QueryInterface(mStream);
-  return serializable ? serializable->ExpectedSerializedLength() : Nothing();
 }
 
 NS_IMETHODIMP
@@ -435,20 +466,14 @@ nsMIMEInputStream::OnInputStreamLengthReady(nsIAsyncInputStreamLength* aStream,
   return callback->OnInputStreamLengthReady(this, aLength);
 }
 
+bool nsMIMEInputStream::IsSeekableInputStream() const {
+  nsCOMPtr<nsISeekableStream> seekable = do_QueryInterface(mStream);
+  return !!seekable;
+}
+
 bool nsMIMEInputStream::IsAsyncInputStream() const {
   nsCOMPtr<nsIAsyncInputStream> asyncStream = do_QueryInterface(mStream);
   return !!asyncStream;
-}
-
-bool nsMIMEInputStream::IsIPCSerializable() const {
-  // If SetData() or Deserialize() has not be called yet, mStream is null.
-  if (!mStream) {
-    return true;
-  }
-
-  nsCOMPtr<nsIIPCSerializableInputStream> serializable =
-      do_QueryInterface(mStream);
-  return !!serializable;
 }
 
 bool nsMIMEInputStream::IsInputStreamLength() const {

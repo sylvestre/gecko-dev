@@ -8,21 +8,22 @@
 #define mozilla_dom_FetchDriver_h
 
 #include "nsIChannelEventSink.h"
-#include "nsICacheInfoChannel.h"
 #include "nsIInterfaceRequestor.h"
 #include "nsIStreamListener.h"
 #include "nsIThreadRetargetableStreamListener.h"
 #include "mozilla/ConsoleReportCollector.h"
 #include "mozilla/dom/AbortSignal.h"
+#include "mozilla/dom/SafeRefPtr.h"
+#include "mozilla/dom/SerializedStackHolder.h"
 #include "mozilla/dom/SRIMetadata.h"
 #include "mozilla/RefPtr.h"
+#include "mozilla/UniquePtr.h"
 
 #include "mozilla/DebugOnly.h"
-#include "mozilla/net/ReferrerPolicy.h"
 
 class nsIConsoleReportCollector;
+class nsICookieJarSettings;
 class nsICSPEventListener;
-class nsIDocument;
 class nsIEventTarget;
 class nsIOutputStream;
 class nsILoadGroup;
@@ -31,6 +32,7 @@ class nsIPrincipal;
 namespace mozilla {
 namespace dom {
 
+class Document;
 class InternalRequest;
 class InternalResponse;
 class PerformanceStorage;
@@ -74,7 +76,7 @@ class FetchDriverObserver {
   virtual void OnDataAvailable() = 0;
 
  protected:
-  virtual ~FetchDriverObserver(){};
+  virtual ~FetchDriverObserver() = default;
 
   virtual void OnResponseAvailableInternal(InternalResponse* aResponse) = 0;
 
@@ -99,13 +101,14 @@ class FetchDriver final : public nsIStreamListener,
   NS_DECL_NSIINTERFACEREQUESTOR
   NS_DECL_NSITHREADRETARGETABLESTREAMLISTENER
 
-  FetchDriver(InternalRequest* aRequest, nsIPrincipal* aPrincipal,
+  FetchDriver(SafeRefPtr<InternalRequest> aRequest, nsIPrincipal* aPrincipal,
               nsILoadGroup* aLoadGroup, nsIEventTarget* aMainThreadEventTarget,
+              nsICookieJarSettings* aCookieJarSettings,
               PerformanceStorage* aPerformanceStorage, bool aIsTrackingFetch);
 
   nsresult Fetch(AbortSignalImpl* aSignalImpl, FetchDriverObserver* aObserver);
 
-  void SetDocument(nsIDocument* aDocument);
+  void SetDocument(Document* aDocument);
 
   void SetCSPEventListener(nsICSPEventListener* aCSPEventListener);
 
@@ -113,34 +116,41 @@ class FetchDriver final : public nsIStreamListener,
 
   void SetController(const Maybe<ServiceWorkerDescriptor>& aController);
 
-  void SetWorkerScript(const nsACString& aWorkerScirpt) {
-    MOZ_ASSERT(!aWorkerScirpt.IsEmpty());
-    mWorkerScript = aWorkerScirpt;
+  void SetWorkerScript(const nsACString& aWorkerScript) {
+    MOZ_ASSERT(!aWorkerScript.IsEmpty());
+    mWorkerScript = aWorkerScript;
+  }
+
+  void SetOriginStack(UniquePtr<SerializedStackHolder>&& aOriginStack) {
+    mOriginStack = std::move(aOriginStack);
   }
 
   // AbortFollower
-  void Abort() override;
+  void RunAbortAlgorithm() override;
 
  private:
   nsCOMPtr<nsIPrincipal> mPrincipal;
   nsCOMPtr<nsILoadGroup> mLoadGroup;
-  RefPtr<InternalRequest> mRequest;
+  SafeRefPtr<InternalRequest> mRequest;
   RefPtr<InternalResponse> mResponse;
   nsCOMPtr<nsIOutputStream> mPipeOutputStream;
   RefPtr<FetchDriverObserver> mObserver;
-  nsCOMPtr<nsIDocument> mDocument;
+  RefPtr<Document> mDocument;
   nsCOMPtr<nsICSPEventListener> mCSPEventListener;
   Maybe<ClientInfo> mClientInfo;
   Maybe<ServiceWorkerDescriptor> mController;
   nsCOMPtr<nsIChannel> mChannel;
-  nsAutoPtr<SRICheckDataVerifier> mSRIDataVerifier;
+  UniquePtr<SRICheckDataVerifier> mSRIDataVerifier;
   nsCOMPtr<nsIEventTarget> mMainThreadEventTarget;
+
+  nsCOMPtr<nsICookieJarSettings> mCookieJarSettings;
 
   // This is set only when Fetch is used in workers.
   RefPtr<PerformanceStorage> mPerformanceStorage;
 
   SRIMetadata mSRIMetadata;
   nsCString mWorkerScript;
+  UniquePtr<SerializedStackHolder> mOriginStack;
 
   // This is written once in OnStartRequest on the main thread and then
   // written/read in OnDataAvailable() on any thread.  Necko guarantees
@@ -151,6 +161,16 @@ class FetchDriver final : public nsIStreamListener,
 
   RefPtr<AlternativeDataStreamListener> mAltDataListener;
   bool mOnStopRequestCalled;
+
+  // This flag is true when this fetch has found a matching preload and is being
+  // satisfied by a its response.
+  bool mFromPreload = false;
+  // This flag is set in call to Abort() and spans the possible window this
+  // fetch doesn't have mChannel (to be cancelled) between reuse of the matching
+  // preload, that has already finished and dropped reference to its channel,
+  // and OnStartRequest notification.  It let's us cancel the load when we get
+  // the channel in OnStartRequest.
+  bool mAborted = false;
 
 #ifdef DEBUG
   bool mResponseAvailableCalled;
@@ -164,8 +184,11 @@ class FetchDriver final : public nsIStreamListener,
   FetchDriver& operator=(const FetchDriver&) = delete;
   ~FetchDriver();
 
-  nsresult HttpFetch(
-      const nsACString& aPreferredAlternativeDataType = EmptyCString());
+  already_AddRefed<PreloaderBase> FindPreload(nsIURI* aURI);
+
+  void UpdateReferrerInfoFromNewChannel(nsIChannel* aChannel);
+
+  nsresult HttpFetch(const nsACString& aPreferredAlternativeDataType = ""_ns);
   // Returns the filtered response sent to the observer.
   already_AddRefed<InternalResponse> BeginAndGetFilteredResponse(
       InternalResponse* aResponse, bool aFoundOpaqueRedirect);
@@ -173,9 +196,10 @@ class FetchDriver final : public nsIStreamListener,
   // response.
   void FailWithNetworkError(nsresult rv);
 
-  void SetRequestHeaders(nsIHttpChannel* aChannel) const;
+  void SetRequestHeaders(nsIHttpChannel* aChannel,
+                         bool aStripRequestBodyHeader) const;
 
-  nsresult FinishOnStopRequest(AlternativeDataStreamListener* aAltDataListener);
+  void FinishOnStopRequest(AlternativeDataStreamListener* aAltDataListener);
 };
 
 }  // namespace dom

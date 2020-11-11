@@ -5,31 +5,32 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "mozilla/AbstractThread.h"
+#include "mozilla/BasePrincipal.h"
 #include "mozilla/dom/Clipboard.h"
 #include "mozilla/dom/ClipboardBinding.h"
 #include "mozilla/dom/Promise.h"
 #include "mozilla/dom/DataTransfer.h"
 #include "mozilla/dom/DataTransferItemList.h"
 #include "mozilla/dom/DataTransferItem.h"
+#include "mozilla/StaticPrefs_dom.h"
 #include "nsIClipboard.h"
-#include "nsISupportsPrimitives.h"
 #include "nsComponentManagerUtils.h"
+#include "nsContentUtils.h"
 #include "nsITransferable.h"
 #include "nsArrayUtils.h"
 
 static mozilla::LazyLogModule gClipboardLog("Clipboard");
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 Clipboard::Clipboard(nsPIDOMWindowInner* aWindow)
     : DOMEventTargetHelper(aWindow) {}
 
-Clipboard::~Clipboard() {}
+Clipboard::~Clipboard() = default;
 
 already_AddRefed<Promise> Clipboard::ReadHelper(
-    JSContext* aCx, nsIPrincipal& aSubjectPrincipal,
-    ClipboardReadType aClipboardReadType, ErrorResult& aRv) {
+    nsIPrincipal& aSubjectPrincipal, ClipboardReadType aClipboardReadType,
+    ErrorResult& aRv) {
   // Create a new promise
   RefPtr<Promise> p = dom::Promise::Create(GetOwnerGlobal(), aRv);
   if (aRv.Failed()) {
@@ -39,7 +40,7 @@ already_AddRefed<Promise> Clipboard::ReadHelper(
   // We want to disable security check for automated tests that have the pref
   //  dom.events.testing.asyncClipboard set to true
   if (!IsTestingPrefEnabled() &&
-      !nsContentUtils::PrincipalHasPermission(&aSubjectPrincipal,
+      !nsContentUtils::PrincipalHasPermission(aSubjectPrincipal,
                                               nsGkAtoms::clipboardRead)) {
     MOZ_LOG(GetClipboardLog(), LogLevel::Debug,
             ("Clipboard, ReadHelper, "
@@ -72,8 +73,8 @@ already_AddRefed<Promise> Clipboard::ReadHelper(
             MOZ_LOG(GetClipboardLog(), LogLevel::Debug,
                     ("Clipboard, ReadHelper, read text case\n"));
             nsAutoString str;
-            dataTransfer->GetData(NS_LITERAL_STRING(kTextMime), str,
-                                  aSubjectPrincipal, ier);
+            dataTransfer->GetData(NS_LITERAL_STRING_FROM_CSTRING(kTextMime),
+                                  str, aSubjectPrincipal, ier);
             // Either resolve with a string extracted from data transfer item
             // or resolve with an empty string if nothing was found
             p->MaybeResolve(str);
@@ -85,19 +86,17 @@ already_AddRefed<Promise> Clipboard::ReadHelper(
   return p.forget();
 }
 
-already_AddRefed<Promise> Clipboard::Read(JSContext* aCx,
-                                          nsIPrincipal& aSubjectPrincipal,
+already_AddRefed<Promise> Clipboard::Read(nsIPrincipal& aSubjectPrincipal,
                                           ErrorResult& aRv) {
-  return ReadHelper(aCx, aSubjectPrincipal, eRead, aRv);
+  return ReadHelper(aSubjectPrincipal, eRead, aRv);
 }
 
-already_AddRefed<Promise> Clipboard::ReadText(JSContext* aCx,
-                                              nsIPrincipal& aSubjectPrincipal,
+already_AddRefed<Promise> Clipboard::ReadText(nsIPrincipal& aSubjectPrincipal,
                                               ErrorResult& aRv) {
-  return ReadHelper(aCx, aSubjectPrincipal, eReadText, aRv);
+  return ReadHelper(aSubjectPrincipal, eReadText, aRv);
 }
 
-already_AddRefed<Promise> Clipboard::Write(JSContext* aCx, DataTransfer& aData,
+already_AddRefed<Promise> Clipboard::Write(DataTransfer& aData,
                                            nsIPrincipal& aSubjectPrincipal,
                                            ErrorResult& aRv) {
   // Create a promise
@@ -106,10 +105,13 @@ already_AddRefed<Promise> Clipboard::Write(JSContext* aCx, DataTransfer& aData,
     return nullptr;
   }
 
+  nsPIDOMWindowInner* owner = GetOwner();
+  Document* doc = owner ? owner->GetDoc() : nullptr;
+
   // We want to disable security check for automated tests that have the pref
   //  dom.events.testing.asyncClipboard set to true
   if (!IsTestingPrefEnabled() &&
-      !nsContentUtils::IsCutCopyAllowed(&aSubjectPrincipal)) {
+      !nsContentUtils::IsCutCopyAllowed(doc, aSubjectPrincipal)) {
     MOZ_LOG(GetClipboardLog(), LogLevel::Debug,
             ("Clipboard, Write, Not allowed to write to clipboard\n"));
     p->MaybeRejectWithUndefined();
@@ -124,8 +126,6 @@ already_AddRefed<Promise> Clipboard::Write(JSContext* aCx, DataTransfer& aData,
     return p.forget();
   }
 
-  nsPIDOMWindowInner* owner = GetOwner();
-  nsIDocument* doc = owner ? owner->GetDoc() : nullptr;
   nsILoadContext* context = doc ? doc->GetLoadContext() : nullptr;
   if (!context) {
     p->MaybeRejectWithUndefined();
@@ -158,8 +158,7 @@ already_AddRefed<Promise> Clipboard::Write(JSContext* aCx, DataTransfer& aData,
   return p.forget();
 }
 
-already_AddRefed<Promise> Clipboard::WriteText(JSContext* aCx,
-                                               const nsAString& aData,
+already_AddRefed<Promise> Clipboard::WriteText(const nsAString& aData,
                                                nsIPrincipal& aSubjectPrincipal,
                                                ErrorResult& aRv) {
   // We create a data transfer with text/plain format so that
@@ -167,9 +166,9 @@ already_AddRefed<Promise> Clipboard::WriteText(JSContext* aCx,
   RefPtr<DataTransfer> dataTransfer = new DataTransfer(this, eCopy,
                                                        /* is external */ true,
                                                        /* clipboard type */ -1);
-  dataTransfer->SetData(NS_LITERAL_STRING(kTextMime), aData, aSubjectPrincipal,
-                        aRv);
-  return Write(aCx, *dataTransfer, aSubjectPrincipal, aRv);
+  dataTransfer->SetData(NS_LITERAL_STRING_FROM_CSTRING(kTextMime), aData,
+                        aSubjectPrincipal, aRv);
+  return Write(*dataTransfer, aSubjectPrincipal, aRv);
 }
 
 JSObject* Clipboard::WrapObject(JSContext* aCx,
@@ -177,27 +176,23 @@ JSObject* Clipboard::WrapObject(JSContext* aCx,
   return Clipboard_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-/* static */ LogModule* Clipboard::GetClipboardLog() { return gClipboardLog; }
+/* static */
+LogModule* Clipboard::GetClipboardLog() { return gClipboardLog; }
 
-/* static */ bool Clipboard::ReadTextEnabled(JSContext* aCx,
-                                             JSObject* aGlobal) {
+/* static */
+bool Clipboard::ReadTextEnabled(JSContext* aCx, JSObject* aGlobal) {
   nsIPrincipal* prin = nsContentUtils::SubjectPrincipal(aCx);
   return IsTestingPrefEnabled() || prin->GetIsAddonOrExpandedAddonPrincipal() ||
-         prin->GetIsSystemPrincipal();
+         prin->IsSystemPrincipal();
 }
 
-/* static */ bool Clipboard::IsTestingPrefEnabled() {
-  static bool sPrefCached = false;
-  static bool sPrefCacheValue = false;
-
-  if (!sPrefCached) {
-    sPrefCached = true;
-    Preferences::AddBoolVarCache(&sPrefCacheValue,
-                                 "dom.events.testing.asyncClipboard");
-  }
+/* static */
+bool Clipboard::IsTestingPrefEnabled() {
+  bool clipboardTestingEnabled =
+      StaticPrefs::dom_events_testing_asyncClipboard_DoNotUseDirectly();
   MOZ_LOG(GetClipboardLog(), LogLevel::Debug,
-          ("Clipboard, Is testing enabled? %d\n", sPrefCacheValue));
-  return sPrefCacheValue;
+          ("Clipboard, Is testing enabled? %d\n", clipboardTestingEnabled));
+  return clipboardTestingEnabled;
 }
 
 NS_IMPL_CYCLE_COLLECTION_CLASS(Clipboard)
@@ -215,5 +210,4 @@ NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
 NS_IMPL_ADDREF_INHERITED(Clipboard, DOMEventTargetHelper)
 NS_IMPL_RELEASE_INHERITED(Clipboard, DOMEventTargetHelper)
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

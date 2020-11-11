@@ -22,12 +22,11 @@
 
 class nsFrameSelection;
 class nsIContent;
-class nsIDocument;
-class nsIPresShell;
+
 struct nsPoint;
 
 namespace mozilla {
-
+class PresShell;
 namespace dom {
 class Element;
 class Selection;
@@ -48,7 +47,7 @@ class Selection;
 //
 class AccessibleCaretManager {
  public:
-  explicit AccessibleCaretManager(nsIPresShell* aPresShell);
+  explicit AccessibleCaretManager(PresShell* aPresShell);
   virtual ~AccessibleCaretManager();
 
   // Called by AccessibleCaretEventHub to inform us that PresShell is destroyed.
@@ -104,7 +103,7 @@ class AccessibleCaretManager {
 
   // Handle NotifySelectionChanged event from nsISelectionListener.
   MOZ_CAN_RUN_SCRIPT
-  virtual nsresult OnSelectionChanged(nsIDocument* aDoc, dom::Selection* aSel,
+  virtual nsresult OnSelectionChanged(dom::Document* aDoc, dom::Selection* aSel,
                                       int16_t aReason);
   // Handle key event.
   MOZ_CAN_RUN_SCRIPT
@@ -117,6 +116,9 @@ class AccessibleCaretManager {
   // Update the manager with the last input source that was observed. This
   // is used in part to determine if the carets should be shown or hidden.
   void SetLastInputSource(uint16_t aInputSource);
+
+  // Returns True indicating that we should disable APZ to avoid jumpy carets.
+  bool ShouldDisableApz() const { return mShouldDisableApz; }
 
  protected:
   // This enum representing the number of AccessibleCarets on the screen.
@@ -170,6 +172,9 @@ class AccessibleCaretManager {
   MOZ_CAN_RUN_SCRIPT
   void UpdateCaretsForSelectionMode(const UpdateCaretsHintSet& aHints);
 
+  // A helper function to update mShouldDisableApz.
+  void UpdateShouldDisableApz();
+
   // Provide haptic / touch feedback, primarily for select on longpress.
   void ProvideHapticFeedback();
 
@@ -181,6 +186,7 @@ class AccessibleCaretManager {
   // then re-focus the window.
   void ChangeFocusToOrClearOldFocus(nsIFrame* aFrame) const;
 
+  MOZ_CAN_RUN_SCRIPT
   nsresult SelectWord(nsIFrame* aFrame, const nsPoint& aPoint) const;
   void SetSelectionDragState(bool aState) const;
 
@@ -189,9 +195,11 @@ class AccessibleCaretManager {
 
   // Extend the current selection forwards and backwards if it's already a
   // phone number.
+  MOZ_CAN_RUN_SCRIPT
   void SelectMoreIfPhoneNumber() const;
 
   // Extend the current phone number selection in the requested direction.
+  MOZ_CAN_RUN_SCRIPT
   void ExtendPhoneNumberSelection(const nsAString& aDirection) const;
 
   void SetSelectionDirection(nsDirection aDir) const;
@@ -205,11 +213,12 @@ class AccessibleCaretManager {
       nsIContent** aOutContent = nullptr,
       int32_t* aOutContentOffset = nullptr) const;
 
-  nsresult DragCaretInternal(const nsPoint& aPoint);
+  MOZ_CAN_RUN_SCRIPT nsresult DragCaretInternal(const nsPoint& aPoint);
   nsPoint AdjustDragBoundary(const nsPoint& aPoint) const;
 
   // Start the selection scroll timer if the caret is being dragged out of
   // the scroll port.
+  MOZ_CAN_RUN_SCRIPT
   void StartSelectionAutoScrollTimer(const nsPoint& aPoint) const;
   void StopSelectionAutoScrollTimer() const;
 
@@ -221,11 +230,13 @@ class AccessibleCaretManager {
   // See the mRefCnt assertions in AccessibleCaretEventHub.
   //
   // Returns whether mPresShell we're holding is still valid.
-  MOZ_MUST_USE MOZ_CAN_RUN_SCRIPT bool FlushLayout();
+  [[nodiscard]] MOZ_CAN_RUN_SCRIPT bool FlushLayout();
 
   dom::Element* GetEditingHostForFrame(nsIFrame* aFrame) const;
   dom::Selection* GetSelection() const;
   already_AddRefed<nsFrameSelection> GetFrameSelection() const;
+
+  MOZ_CAN_RUN_SCRIPT
   nsAutoString StringifiedSelection() const;
 
   // Get the union of all the child frame scrollable overflow rects for aFrame,
@@ -290,7 +301,7 @@ class AccessibleCaretManager {
   //
   // mPresShell will be set to nullptr in Terminate(). Therefore mPresShell is
   // nullptr either we are in gtest or PresShell::IsDestroying() is true.
-  nsIPresShell* MOZ_NON_OWNING_REF mPresShell = nullptr;
+  PresShell* MOZ_NON_OWNING_REF mPresShell = nullptr;
 
   // First caret is attached to nsCaret in cursor mode, and is attached to
   // selection highlight as the left caret in selection mode.
@@ -317,6 +328,16 @@ class AccessibleCaretManager {
 
   // Whether we're flushing layout, used for sanity-checking.
   bool mFlushingLayout = false;
+
+  // Set to false to disallow flushing layout in some callbacks such as
+  // OnReflow(), OnScrollStart(), OnScrollStart(), or OnScrollPositionChanged().
+  bool mAllowFlushingLayout = true;
+
+  // Set to True if one of the caret's position is changed in last update.
+  bool mIsCaretPositionChanged = false;
+
+  // Set to true if we should disable APZ.
+  bool mShouldDisableApz = false;
 
   static const int32_t kAutoScrollTimerDelay = 30;
 

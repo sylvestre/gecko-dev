@@ -12,7 +12,6 @@
 
 #include "mozilla/LinkedList.h"
 #include "mozilla/Mutex.h"
-#include "mozilla/SystemGroup.h"
 #include "mozilla/WebRequestService.h"
 #include "nsIStreamListener.h"
 #include "nsIThread.h"
@@ -20,9 +19,9 @@
 #include "nsThreadUtils.h"
 
 #if defined(_MSC_VER)
-#define FUNC __FUNCSIG__
+#  define FUNC __FUNCSIG__
 #else
-#define FUNC __PRETTY_FUNCTION__
+#  define FUNC __PRETTY_FUNCTION__
 #endif
 
 namespace mozilla {
@@ -44,6 +43,8 @@ class StreamFilterParent final : public PStreamFilterParent,
                                  public nsIThreadRetargetableStreamListener,
                                  public nsIRequest,
                                  public StreamFilterBase {
+  friend class PStreamFilterParent;
+
  public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSISTREAMLISTENER
@@ -54,10 +55,13 @@ class StreamFilterParent final : public PStreamFilterParent,
   StreamFilterParent();
 
   using ParentEndpoint = mozilla::ipc::Endpoint<PStreamFilterParent>;
+  using ChildEndpoint = mozilla::ipc::Endpoint<PStreamFilterChild>;
 
-  static bool Create(ContentParent* aContentParent, uint64_t aChannelId,
-                     const nsAString& aAddonId,
-                     mozilla::ipc::Endpoint<PStreamFilterChild>* aEndpoint);
+  using ChildEndpointPromise = MozPromise<ChildEndpoint, bool, true>;
+
+  static MOZ_MUST_USE RefPtr<ChildEndpointPromise> Create(
+      ContentParent* aContentParent, uint64_t aChannelId,
+      const nsAString& aAddonId);
 
   static void Attach(nsIChannel* aChannel, ParentEndpoint&& aEndpoint);
 
@@ -86,15 +90,15 @@ class StreamFilterParent final : public PStreamFilterParent,
  protected:
   virtual ~StreamFilterParent();
 
-  virtual IPCResult RecvWrite(Data&& aData) override;
-  virtual IPCResult RecvFlushedData() override;
-  virtual IPCResult RecvSuspend() override;
-  virtual IPCResult RecvResume() override;
-  virtual IPCResult RecvClose() override;
-  virtual IPCResult RecvDisconnect() override;
-  virtual IPCResult RecvDestroy() override;
+  IPCResult RecvWrite(Data&& aData);
+  IPCResult RecvFlushedData();
+  IPCResult RecvSuspend();
+  IPCResult RecvResume();
+  IPCResult RecvClose();
+  IPCResult RecvDisconnect();
+  IPCResult RecvDestroy();
 
-  virtual void DeallocPStreamFilterParent() override;
+  virtual void ActorDealloc() override;
 
  private:
   bool IPCActive() {
@@ -171,10 +175,18 @@ class StreamFilterParent final : public PStreamFilterParent,
   bool mSentStop;
   bool mDisconnected = false;
 
+  // If redirection happens or alterate cached data is being sent, the stream
+  // filter is disconnected in OnStartRequest and the following ODA would not
+  // be filtered. Using mDisconnected causes race condition. mState is possible
+  // to late to be set, which leads out of sync.
+  bool mDisconnectedByOnStartRequest = false;
+
   nsCOMPtr<nsISupports> mContext;
   uint64_t mOffset;
 
-  volatile State mState;
+  // Use Release-Acquire ordering to ensure the OMT ODA is not sent while
+  // the channel is disconnecting or closed.
+  Atomic<State, ReleaseAcquire> mState;
 };
 
 }  // namespace extensions

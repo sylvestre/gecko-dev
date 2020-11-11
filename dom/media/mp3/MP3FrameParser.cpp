@@ -11,8 +11,8 @@
 
 #include "mozilla/Assertions.h"
 #include "mozilla/EndianUtils.h"
-#include "mozilla/Pair.h"
 #include "mozilla/ResultExtensions.h"
+#include "mozilla/ScopeExit.h"
 #include "VideoUtils.h"
 
 extern mozilla::LazyLogModule gMediaDemuxerLog;
@@ -34,7 +34,7 @@ static const int BITRATE_SAMPLERATE_PADDING_PRIVATE = 2;
 static const int CHANNELMODE_MODEEXT_COPY_ORIG_EMPH = 3;
 }  // namespace frame_header
 
-FrameParser::FrameParser() {}
+FrameParser::FrameParser() = default;
 
 void FrameParser::Reset() {
   mID3Parser.Reset();
@@ -77,13 +77,12 @@ Result<bool, nsresult> FrameParser::Parse(BufferReader* aReader,
   MOZ_ASSERT(aReader && aBytesToSkip);
   *aBytesToSkip = 0;
 
-  if (!mID3Parser.Header().Size() && !mFirstFrame.Length()) {
+  if (!mID3Parser.Header().HasSizeBeenSet() && !mFirstFrame.Length()) {
     // No MP3 frames have been parsed yet, look for ID3v2 headers at file begin.
     // ID3v1 tags may only be at file end.
     // TODO: should we try to read ID3 tags at end of file/mid-stream, too?
     const size_t prevReaderOffset = aReader->Offset();
-    uint32_t tagSize;
-    MOZ_TRY_VAR(tagSize, mID3Parser.Parse(aReader));
+    const uint32_t tagSize = mID3Parser.Parse(aReader).unwrapOr(0);
     if (!!tagSize) {
       // ID3 tag found, skip past it.
       const uint32_t skipSize = tagSize - ID3Parser::ID3Header::SIZE;
@@ -343,10 +342,12 @@ int64_t FrameParser::VBRHeader::Offset(float aDurationFac) const {
   return offset;
 }
 
-Result<bool, nsresult> FrameParser::VBRHeader::ParseXing(
-    BufferReader* aReader) {
+Result<bool, nsresult> FrameParser::VBRHeader::ParseXing(BufferReader* aReader,
+                                                         size_t aFrameSize) {
   static const uint32_t XING_TAG = BigEndian::readUint32("Xing");
   static const uint32_t INFO_TAG = BigEndian::readUint32("Info");
+  static const uint32_t LAME_TAG = BigEndian::readUint32("LAME");
+  static const uint32_t LAVC_TAG = BigEndian::readUint32("Lavc");
 
   enum Flags {
     NUM_FRAMES = 0x01,
@@ -356,7 +357,10 @@ Result<bool, nsresult> FrameParser::VBRHeader::ParseXing(
   };
 
   MOZ_ASSERT(aReader);
+
+  // Seek backward to the original position before leaving this scope.
   const size_t prevReaderOffset = aReader->Offset();
+  auto scopeExit = MakeScopeExit([&] { aReader->Seek(prevReaderOffset); });
 
   // We have to search for the Xing header as its position can change.
   for (auto res = aReader->PeekU32();
@@ -402,7 +406,41 @@ Result<bool, nsresult> FrameParser::VBRHeader::ParseXing(
     mScale = Some(scale);
   }
 
-  aReader->Seek(prevReaderOffset);
+  uint32_t lameOrLavcTag;
+  MOZ_TRY_VAR(lameOrLavcTag, aReader->ReadU32());
+
+  if (lameOrLavcTag == LAME_TAG || lameOrLavcTag == LAVC_TAG) {
+    // Skip 17 bytes after the LAME tag:
+    // - http://gabriel.mp3-tech.org/mp3infotag.html
+    // - 5 bytes for the encoder short version string
+    // - 1 byte for the info tag revision + VBR method
+    // - 1 byte for the lowpass filter value
+    // - 8 bytes for the ReplayGain information
+    // - 1 byte for the encoding flags + ATH Type
+    // - 1 byte for the specified bitrate if ABR, else the minimal bitrate
+    if (!aReader->Read(17)) {
+      return mozilla::Err(NS_ERROR_FAILURE);
+    }
+
+    // The encoder delay is three bytes, for two 12-bits integers are the
+    // encoder delay and the padding.
+    const uint8_t* delayPadding = aReader->Read(3);
+    if (!delayPadding) {
+      return mozilla::Err(NS_ERROR_FAILURE);
+    }
+    mEncoderDelay =
+        uint32_t(delayPadding[0]) << 4 | (delayPadding[1] & 0xf0) >> 4;
+    mEncoderPadding = uint32_t(delayPadding[1] & 0x0f) << 8 | delayPadding[2];
+
+    constexpr uint16_t DEFAULT_DECODER_DELAY = 529;
+    mEncoderDelay += DEFAULT_DECODER_DELAY + aFrameSize;  // ignore first frame.
+    mEncoderPadding -= std::min(mEncoderPadding, DEFAULT_DECODER_DELAY);
+
+    MP3LOG("VBRHeader::ParseXing: LAME encoder delay section: delay: %" PRIu16
+           " frames, padding: %" PRIu16 " frames",
+           mEncoderDelay, mEncoderPadding);
+  }
+
   return mType == XING;
 }
 
@@ -421,7 +459,10 @@ Result<bool, nsresult> FrameParser::VBRHeader::ParseVBRI(
   if (sync.isOk()) {  // To avoid compiler complains 'set but unused'.
     MOZ_ASSERT((sync.unwrap() & 0xFFE0) == 0xFFE0);
   }
+
+  // Seek backward to the original position before leaving this scope.
   const size_t prevReaderOffset = aReader->Offset();
+  auto scopeExit = MakeScopeExit([&] { aReader->Seek(prevReaderOffset); });
 
   // VBRI have a fixed relative position, so let's check for it there.
   if (aReader->Remaining() > MIN_FRAME_SIZE) {
@@ -433,18 +474,16 @@ Result<bool, nsresult> FrameParser::VBRHeader::ParseVBRI(
       MOZ_TRY_VAR(frames, aReader->ReadU32());
       mNumAudioFrames = Some(frames);
       mType = VBRI;
-      aReader->Seek(prevReaderOffset);
       return true;
     }
   }
-  aReader->Seek(prevReaderOffset);
   return false;
 }
 
-bool FrameParser::VBRHeader::Parse(BufferReader* aReader) {
-  auto res = MakePair(ParseVBRI(aReader), ParseXing(aReader));
-  const bool rv = (res.first().isOk() && res.first().unwrap()) ||
-                  (res.second().isOk() && res.second().unwrap());
+bool FrameParser::VBRHeader::Parse(BufferReader* aReader, size_t aFrameSize) {
+  auto res = std::make_pair(ParseVBRI(aReader), ParseXing(aReader, aFrameSize));
+  const bool rv = (res.first.isOk() && res.first.unwrap()) ||
+                  (res.second.isOk() && res.second.unwrap());
   if (rv) {
     MP3LOG(
         "VBRHeader::Parse found valid VBR/CBR header: type=%s"
@@ -478,7 +517,7 @@ const FrameParser::FrameHeader& FrameParser::Frame::Header() const {
 }
 
 bool FrameParser::ParseVBRHeader(BufferReader* aReader) {
-  return mVBRHeader.Parse(aReader);
+  return mVBRHeader.Parse(aReader, CurrentFrame().Header().SamplesPerFrame());
 }
 
 // ID3Parser
@@ -521,7 +560,7 @@ const ID3Parser::ID3Header& ID3Parser::Header() const { return mHeader; }
 ID3Parser::ID3Header::ID3Header() { Reset(); }
 
 void ID3Parser::ID3Header::Reset() {
-  mSize = 0;
+  mSize.reset();
   mPos = 0;
 }
 
@@ -538,11 +577,13 @@ uint8_t ID3Parser::ID3Header::Flags() const {
 }
 
 uint32_t ID3Parser::ID3Header::Size() const {
-  if (!IsValid()) {
+  if (!IsValid() || !mSize) {
     return 0;
   }
-  return mSize;
+  return *mSize;
 }
+
+bool ID3Parser::ID3Header::HasSizeBeenSet() const { return !!mSize; }
 
 uint8_t ID3Parser::ID3Header::FooterSize() const {
   if (Flags() & (1 << 4)) {
@@ -602,8 +643,8 @@ bool ID3Parser::ID3Header::IsValid() const { return mPos >= SIZE; }
 bool ID3Parser::ID3Header::Update(uint8_t c) {
   if (mPos >= id3_header::SIZE_END - id3_header::SIZE_LEN &&
       mPos < id3_header::SIZE_END) {
-    mSize <<= 7;
-    mSize |= c;
+    uint32_t tmp = mSize.valueOr(0) << 7;
+    mSize = Some(tmp | c);
   }
   if (mPos < SIZE) {
     mRaw[mPos] = c;

@@ -7,11 +7,11 @@
 #ifndef mozilla_a11y_xpcAccessibleTextRange_h_
 #define mozilla_a11y_xpcAccessibleTextRange_h_
 
-#include "nsIAccessibleTextRange.h"
-#include "TextRange.h"
+#include <utility>
 
-#include "mozilla/Move.h"
+#include "TextRange.h"
 #include "nsCycleCollectionParticipant.h"
+#include "nsIAccessibleTextRange.h"
 
 namespace mozilla {
 namespace a11y {
@@ -27,6 +27,9 @@ class TextRange;
 
 class xpcAccessibleTextRange final : public nsIAccessibleTextRange {
  public:
+  explicit xpcAccessibleTextRange(TextRange&& aRange)
+      : mRange(std::forward<TextRange>(aRange)) {}
+
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_CLASS(xpcAccessibleTextRange)
 
@@ -61,8 +64,6 @@ class xpcAccessibleTextRange final : public nsIAccessibleTextRange {
   NS_DECLARE_STATIC_IID_ACCESSOR(NS_ACCESSIBLETEXTRANGE_IMPL_IID)
 
  private:
-  explicit xpcAccessibleTextRange(TextRange&& aRange)
-      : mRange(std::forward<TextRange>(aRange)) {}
   xpcAccessibleTextRange() {}
 
   ~xpcAccessibleTextRange() {}

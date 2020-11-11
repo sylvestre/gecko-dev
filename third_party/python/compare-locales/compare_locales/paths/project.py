@@ -9,6 +9,10 @@ from .matcher import Matcher
 import six
 
 
+class ExcludeError(ValueError):
+    pass
+
+
 class ProjectConfig(object):
     '''Abstraction of l10n project configuration data.
     '''
@@ -25,9 +29,12 @@ class ProjectConfig(object):
         self.root = None
         self.paths = []
         self.rules = []
-        self.locales = []
+        self.locales = None
+        # cache for all_locales, as that's not in `filter`
+        self._all_locales = None
         self.environ = {}
         self.children = []
+        self.excludes = []
         self._cache = None
 
     def same(self, other):
@@ -63,7 +70,7 @@ class ProjectConfig(object):
         An optional key `test` is allowed to enable additional tests for this
         path pattern.
         '''
-
+        self._all_locales = None  # clear cache
         for d in paths:
             rv = {
                 'l10n': Matcher(d['l10n'], env=self.environ, root=self.root),
@@ -109,16 +116,28 @@ class ProjectConfig(object):
             self.rules.extend(self._compile_rule(rule))
 
     def add_child(self, child):
+        self._all_locales = None  # clear cache
+        if child.excludes:
+            raise ExcludeError(
+                'Included configs cannot declare their own excludes.'
+            )
         self.children.append(child)
 
+    def exclude(self, child):
+        for config in child.configs:
+            if config.excludes:
+                raise ExcludeError(
+                    'Excluded configs cannot declare their own excludes.'
+                )
+        self.excludes.append(child)
+
     def set_locales(self, locales, deep=False):
+        self._all_locales = None  # clear cache
         self.locales = locales
+        if not deep:
+            return
         for child in self.children:
-            if not child.locales or deep:
-                child.set_locales(locales, deep=deep)
-            else:
-                locs = [loc for loc in locales if loc in child.locales]
-                child.set_locales(locs)
+            child.set_locales(locales, deep=deep)
 
     @property
     def configs(self):
@@ -128,9 +147,25 @@ class ProjectConfig(object):
             for config in child.configs:
                 yield config
 
+    @property
+    def all_locales(self):
+        'Recursively get all locales in this project and its paths'
+        if self._all_locales is None:
+            all_locales = set()
+            for config in self.configs:
+                if config.locales is not None:
+                    all_locales.update(config.locales)
+                for paths in config.paths:
+                    if 'locales' in paths:
+                        all_locales.update(paths['locales'])
+            self._all_locales = sorted(all_locales)
+        return self._all_locales
+
     def filter(self, l10n_file, entity=None):
         '''Filter a localization file or entities within, according to
         this configuration file.'''
+        if l10n_file.locale not in self.all_locales:
+            return 'ignore'
         if self.filter_py is not None:
             return self.filter_py(l10n_file.module, l10n_file.file,
                                   entity=entity)
@@ -150,6 +185,8 @@ class ProjectConfig(object):
             return self._cache
         self._cache = self.FilterCache(locale)
         for paths in self.paths:
+            if 'locales' in paths and locale not in paths['locales']:
+                continue
             self._cache.l10n_paths.append(paths['l10n'].with_env({
                 "locale": locale
             }))
@@ -162,6 +199,11 @@ class ProjectConfig(object):
         return self._cache
 
     def _filter(self, l10n_file, entity=None):
+        if any(
+            exclude.filter(l10n_file) == 'error'
+            for exclude in self.excludes
+        ):
+            return
         actions = set(
             child._filter(l10n_file, entity=entity)
             for child in self.children)

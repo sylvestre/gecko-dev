@@ -7,7 +7,7 @@
 #ifndef DDLoggedTypeTraits_h_
 #define DDLoggedTypeTraits_h_
 
-#include "mozilla/TypeTraits.h"
+#include <type_traits>
 
 namespace mozilla {
 
@@ -22,7 +22,7 @@ struct DDLoggedTypeTraits;
   struct DDLoggedTypeTraits<TYPE> {                            \
     using Type = TYPE;                                         \
     static constexpr const char* Name() { return #TYPE; }      \
-    using HasBase = FalseType;                                 \
+    using HasBase = std::false_type;                           \
     using BaseType = TYPE;                                     \
     static constexpr const char* BaseTypeName() { return ""; } \
   }
@@ -32,7 +32,7 @@ struct DDLoggedTypeTraits;
   struct DDLoggedTypeTraits<TYPE> {                       \
     using Type = TYPE;                                    \
     static constexpr const char* Name() { return #TYPE; } \
-    using HasBase = TrueType;                             \
+    using HasBase = std::true_type;                       \
     using BaseType = BASE;                                \
     static constexpr const char* BaseTypeName() {         \
       return DDLoggedTypeTraits<BASE>::Name();            \
@@ -44,7 +44,7 @@ struct DDLoggedTypeTraits;
   struct DDLoggedTypeTraits<TYPE> {                            \
     using Type = TYPE;                                         \
     static constexpr const char* Name() { return #NAME; }      \
-    using HasBase = FalseType;                                 \
+    using HasBase = std::false_type;                           \
     using BaseType = TYPE;                                     \
     static constexpr const char* BaseTypeName() { return ""; } \
   }
@@ -54,7 +54,7 @@ struct DDLoggedTypeTraits;
   struct DDLoggedTypeTraits<TYPE> {                       \
     using Type = TYPE;                                    \
     static constexpr const char* Name() { return #NAME; } \
-    using HasBase = TrueType;                             \
+    using HasBase = std::true_type;                       \
     using BaseType = BASE;                                \
     static constexpr const char* BaseTypeName() {         \
       return DDLoggedTypeTraits<BASE>::Name();            \
@@ -80,21 +80,21 @@ struct DDLoggedTypeTraits;
 }  // namespace mozilla
 
 // Some essential types that live outside of the media stack.
-class nsIDocument;
 class nsPIDOMWindowInner;
 class nsPIDOMWindowOuter;
 
 namespace mozilla {
 
 namespace dom {
+class Document;
 class HTMLAudioElement;
 class HTMLMediaElement;
 class HTMLVideoElement;
 }  // namespace dom
 
-DDLoggedTypeName(nsIDocument);
 DDLoggedTypeName(nsPIDOMWindowInner);
 DDLoggedTypeName(nsPIDOMWindowOuter);
+DDLoggedTypeName(dom::Document);
 DDLoggedTypeName(dom::HTMLMediaElement);
 DDLoggedTypeNameAndBase(dom::HTMLAudioElement, dom::HTMLMediaElement);
 DDLoggedTypeNameAndBase(dom::HTMLVideoElement, dom::HTMLMediaElement);

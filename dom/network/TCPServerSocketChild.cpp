@@ -9,14 +9,13 @@
 #include "TCPServerSocket.h"
 #include "mozilla/net/NeckoChild.h"
 #include "mozilla/dom/PBrowserChild.h"
-#include "mozilla/dom/TabChild.h"
+#include "mozilla/dom/BrowserChild.h"
 #include "nsJSUtils.h"
 #include "jsfriendapi.h"
 
 using mozilla::net::gNeckoChild;
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_IMPL_CYCLE_COLLECTION(TCPServerSocketChildBase, mServerSocket)
 NS_IMPL_CYCLE_COLLECTING_ADDREF(TCPServerSocketChildBase)
@@ -28,7 +27,7 @@ NS_INTERFACE_MAP_END
 
 TCPServerSocketChildBase::TCPServerSocketChildBase() : mIPCOpen(false) {}
 
-TCPServerSocketChildBase::~TCPServerSocketChildBase() {}
+TCPServerSocketChildBase::~TCPServerSocketChildBase() = default;
 
 NS_IMETHODIMP_(MozExternalRefCountType) TCPServerSocketChild::Release(void) {
   nsrefcnt refcnt = TCPServerSocketChildBase::Release();
@@ -39,11 +38,9 @@ NS_IMETHODIMP_(MozExternalRefCountType) TCPServerSocketChild::Release(void) {
   return refcnt;
 }
 
-TCPServerSocketChild::TCPServerSocketChild(TCPServerSocket* aServerSocket,
-                                           uint16_t aLocalPort,
-                                           uint16_t aBacklog,
-                                           bool aUseArrayBuffers,
-                                           nsIEventTarget* aIPCEventTarget) {
+TCPServerSocketChild::TCPServerSocketChild(
+    TCPServerSocket* aServerSocket, uint16_t aLocalPort, uint16_t aBacklog,
+    bool aUseArrayBuffers, nsISerialEventTarget* aIPCEventTarget) {
   mServerSocket = aServerSocket;
   if (aIPCEventTarget) {
     gNeckoChild->SetEventTargetForActor(this, aIPCEventTarget);
@@ -65,7 +62,7 @@ void TCPServerSocketChildBase::AddIPDLReference() {
   this->AddRef();
 }
 
-TCPServerSocketChild::~TCPServerSocketChild() {}
+TCPServerSocketChild::~TCPServerSocketChild() = default;
 
 mozilla::ipc::IPCResult TCPServerSocketChild::RecvCallbackAccept(
     PTCPSocketChild* psocket) {
@@ -77,5 +74,4 @@ mozilla::ipc::IPCResult TCPServerSocketChild::RecvCallbackAccept(
 
 void TCPServerSocketChild::Close() { SendClose(); }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

@@ -7,6 +7,7 @@
 # This script checks bytecode documentation in js/src/vm/Opcodes.h
 # ----------------------------------------------------------------------------
 
+from __future__ import absolute_import
 from __future__ import print_function
 
 import os
@@ -17,15 +18,15 @@ topsrcdir = os.path.dirname(os.path.dirname(__file__))
 
 
 def log_pass(text):
-    print('TEST-PASS | {} | {}'.format(scriptname, text))
+    print("TEST-PASS | {} | {}".format(scriptname, text))
 
 
 def log_fail(text):
-    print('TEST-UNEXPECTED-FAIL | {} | {}'.format(scriptname, text))
+    print("TEST-UNEXPECTED-FAIL | {} | {}".format(scriptname, text))
 
 
 def check_opcode():
-    sys.path.insert(0, os.path.join(topsrcdir, 'js', 'src', 'vm'))
+    sys.path.insert(0, os.path.join(topsrcdir, "js", "src", "vm"))
     import jsopcode
 
     try:
@@ -34,7 +35,7 @@ def check_opcode():
         log_fail(e.args[0])
         return False
 
-    log_pass('ok')
+    log_pass("ok")
     return True
 
 
@@ -45,5 +46,5 @@ def main():
     sys.exit(0)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

@@ -2,7 +2,7 @@
 <html>
 <head>
   <title>Test for Exception in Worklet script</title>
-  <script type="application/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css"/>
   <script type="application/javascript" src="common.js"></script>
 </head>
@@ -32,9 +32,9 @@ function runTestInIframe() {
     return audioContext.audioWorklet.addModule("worklet_exception.js")
   })
   .then(() => {
-    ok(false, "We should not be called!");
+    ok(true, "The script threw but we are still here.");
   }, () => {
-    ok(true, "The script thrown but we are still here.");
+    ok(false, "We should not be called!");
   })
 
   .then(() => {

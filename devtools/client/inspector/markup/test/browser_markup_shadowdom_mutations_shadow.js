@@ -1,4 +1,3 @@
-/* vim: set ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -28,7 +27,7 @@ const TEST_URL = `data:text/html;charset=utf-8,
   </script>`;
 
 add_task(async function() {
-  const {inspector} = await openInspectorForURL(TEST_URL);
+  const { inspector } = await openInspectorForURL(TEST_URL);
 
   const tree = `
     test-component
@@ -44,8 +43,9 @@ add_task(async function() {
 
   info("Delete a shadow dom element and check the updated markup view");
   let mutated = waitForMutation(inspector, "childList");
-  ContentTask.spawn(gBrowser.selectedBrowser, {}, function() {
-    const shadowRoot = content.document.querySelector("test-component").shadowRoot;
+  SpecialPowers.spawn(gBrowser.selectedBrowser, [], function() {
+    const shadowRoot = content.document.querySelector("test-component")
+      .shadowRoot;
     const slotContainer = shadowRoot.getElementById("slot1-container");
     slotContainer.remove();
   });
@@ -60,19 +60,26 @@ add_task(async function() {
   await assertMarkupViewAsTree(treeAfterDelete, "test-component", inspector);
 
   mutated = inspector.once("markupmutation");
-  ContentTask.spawn(gBrowser.selectedBrowser, {}, function() {
-    const shadowRoot = content.document.querySelector("test-component").shadowRoot;
+  SpecialPowers.spawn(gBrowser.selectedBrowser, [], function() {
+    const shadowRoot = content.document.querySelector("test-component")
+      .shadowRoot;
     const shadowDiv = shadowRoot.getElementById("another-div");
     shadowDiv.setAttribute("random-attribute", "1");
   });
   await mutated;
 
-  info("Add an attribute on a shadow dom element and check the updated markup view");
+  info(
+    "Add an attribute on a shadow dom element and check the updated markup view"
+  );
   const treeAfterAttrChange = `
     test-component
       #shadow-root
         random-attribute
       div
       div`;
-  await assertMarkupViewAsTree(treeAfterAttrChange, "test-component", inspector);
+  await assertMarkupViewAsTree(
+    treeAfterAttrChange,
+    "test-component",
+    inspector
+  );
 });

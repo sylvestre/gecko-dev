@@ -5,13 +5,18 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "mozilla/AsyncEventDispatcher.h"
+#include "mozilla/dom/BindContext.h"
 #include "mozilla/dom/HTMLMetaElement.h"
 #include "mozilla/dom/HTMLMetaElementBinding.h"
 #include "mozilla/dom/nsCSPService.h"
+#include "mozilla/dom/nsCSPUtils.h"
+#include "mozilla/dom/ViewportMetaData.h"
 #include "mozilla/Logging.h"
+#include "mozilla/StaticPrefs_security.h"
 #include "nsContentUtils.h"
+#include "nsSandboxFlags.h"
 #include "nsStyleConsts.h"
-#include "nsIContentSecurityPolicy.h"
+#include "nsIXMLContentSink.h"
 
 static mozilla::LazyLogModule gMetaElementLog("nsMetaElement");
 #define LOG(msg) MOZ_LOG(gMetaElementLog, mozilla::LogLevel::Debug, msg)
@@ -19,18 +24,17 @@ static mozilla::LazyLogModule gMetaElementLog("nsMetaElement");
 
 NS_IMPL_NS_NEW_HTML_ELEMENT(Meta)
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 HTMLMetaElement::HTMLMetaElement(
     already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo)
     : nsGenericHTMLElement(std::move(aNodeInfo)) {}
 
-HTMLMetaElement::~HTMLMetaElement() {}
+HTMLMetaElement::~HTMLMetaElement() = default;
 
 NS_IMPL_ELEMENT_CLONE(HTMLMetaElement)
 
-void HTMLMetaElement::SetMetaReferrer(nsIDocument* aDocument) {
+void HTMLMetaElement::SetMetaReferrer(Document* aDocument) {
   if (!aDocument || !AttrValueIs(kNameSpaceID_None, nsGkAtoms::name,
                                  nsGkAtoms::referrer, eIgnoreCase)) {
     return;
@@ -39,10 +43,10 @@ void HTMLMetaElement::SetMetaReferrer(nsIDocument* aDocument) {
   GetContent(content);
 
   Element* headElt = aDocument->GetHeadElement();
-  if (headElt && nsContentUtils::ContentIsDescendantOf(this, headElt)) {
+  if (headElt && IsInclusiveDescendantOf(headElt)) {
     content = nsContentUtils::TrimWhitespace<nsContentUtils::IsHTMLWhitespace>(
         content);
-    aDocument->SetHeaderData(nsGkAtoms::referrer, content);
+    aDocument->UpdateReferrerInfoFromMeta(content, false);
   }
 }
 
@@ -52,15 +56,21 @@ nsresult HTMLMetaElement::AfterSetAttr(int32_t aNameSpaceID, nsAtom* aName,
                                        nsIPrincipal* aSubjectPrincipal,
                                        bool aNotify) {
   if (aNameSpaceID == kNameSpaceID_None) {
-    nsIDocument* document = GetUncomposedDoc();
+    Document* document = GetUncomposedDoc();
     if (aName == nsGkAtoms::content) {
       if (document && AttrValueIs(kNameSpaceID_None, nsGkAtoms::name,
                                   nsGkAtoms::viewport, eIgnoreCase)) {
-        nsAutoString content;
-        GetContent(content);
-        nsContentUtils::ProcessViewportInfo(document, content);
+        ProcessViewportContent(document);
       }
-      CreateAndDispatchEvent(document, NS_LITERAL_STRING("DOMMetaChanged"));
+      CreateAndDispatchEvent(document, u"DOMMetaChanged"_ns);
+    } else if (document && aName == nsGkAtoms::name) {
+      if (aValue && aValue->Equals(nsGkAtoms::viewport, eIgnoreCase)) {
+        ProcessViewportContent(document);
+      } else if (aOldValue &&
+                 aOldValue->Equals(nsGkAtoms::viewport, eIgnoreCase)) {
+        DiscardViewportContent(document);
+      }
+      CreateAndDispatchEvent(document, u"DOMMetaChanged"_ns);
     }
     // Update referrer policy when it got changed from JS
     SetMetaReferrer(document);
@@ -70,78 +80,79 @@ nsresult HTMLMetaElement::AfterSetAttr(int32_t aNameSpaceID, nsAtom* aName,
       aNameSpaceID, aName, aValue, aOldValue, aSubjectPrincipal, aNotify);
 }
 
-nsresult HTMLMetaElement::BindToTree(nsIDocument* aDocument,
-                                     nsIContent* aParent,
-                                     nsIContent* aBindingParent) {
-  nsresult rv =
-      nsGenericHTMLElement::BindToTree(aDocument, aParent, aBindingParent);
+nsresult HTMLMetaElement::BindToTree(BindContext& aContext, nsINode& aParent) {
+  nsresult rv = nsGenericHTMLElement::BindToTree(aContext, aParent);
   NS_ENSURE_SUCCESS(rv, rv);
-  if (aDocument && AttrValueIs(kNameSpaceID_None, nsGkAtoms::name,
-                               nsGkAtoms::viewport, eIgnoreCase)) {
-    nsAutoString content;
-    GetContent(content);
-    nsContentUtils::ProcessViewportInfo(aDocument, content);
+  if (!IsInUncomposedDoc()) {
+    return rv;
+  }
+  Document& doc = aContext.OwnerDoc();
+
+  bool shouldProcessMeta = true;
+  // We don't want to call ProcessMETATag when we are pretty print
+  // the document
+  if (doc.IsXMLDocument()) {
+    if (nsCOMPtr<nsIXMLContentSink> xmlSink =
+            do_QueryInterface(doc.GetCurrentContentSink())) {
+      if (xmlSink->IsPrettyPrintXML() &&
+          xmlSink->IsPrettyPrintHasSpecialRoot()) {
+        shouldProcessMeta = false;
+      }
+    }
   }
 
-  if (StaticPrefs::security_csp_enable() && aDocument &&
-      !aDocument->IsLoadedAsData() &&
-      AttrValueIs(kNameSpaceID_None, nsGkAtoms::httpEquiv, nsGkAtoms::headerCSP,
+  if (shouldProcessMeta) {
+    doc.ProcessMETATag(this);
+  }
+
+  if (AttrValueIs(kNameSpaceID_None, nsGkAtoms::name, nsGkAtoms::viewport,
+                  eIgnoreCase)) {
+    ProcessViewportContent(&doc);
+  }
+
+  if (AttrValueIs(kNameSpaceID_None, nsGkAtoms::httpEquiv, nsGkAtoms::headerCSP,
                   eIgnoreCase)) {
     // only accept <meta http-equiv="Content-Security-Policy" content=""> if it
     // appears in the <head> element.
-    Element* headElt = aDocument->GetHeadElement();
-    if (headElt && nsContentUtils::ContentIsDescendantOf(this, headElt)) {
+    Element* headElt = doc.GetHeadElement();
+    if (headElt && IsInclusiveDescendantOf(headElt)) {
       nsAutoString content;
       GetContent(content);
-      content =
-          nsContentUtils::TrimWhitespace<nsContentUtils::IsHTMLWhitespace>(
-              content);
 
-      nsIPrincipal* principal = aDocument->NodePrincipal();
-      nsCOMPtr<nsIContentSecurityPolicy> csp;
-      principal->EnsureCSP(aDocument, getter_AddRefs(csp));
-      if (csp) {
-        if (LOG_ENABLED()) {
-          nsAutoCString documentURIspec;
-          nsIURI* documentURI = aDocument->GetDocumentURI();
-          if (documentURI) {
-            documentURI->GetAsciiSpec(documentURIspec);
-          }
-
-          LOG(
-              ("HTMLMetaElement %p sets CSP '%s' on document=%p, "
-               "document-uri=%s",
-               this, NS_ConvertUTF16toUTF8(content).get(), aDocument,
-               documentURIspec.get()));
+      if (LOG_ENABLED()) {
+        nsAutoCString documentURIspec;
+        if (nsIURI* documentURI = doc.GetDocumentURI()) {
+          documentURI->GetAsciiSpec(documentURIspec);
         }
 
-        // Multiple CSPs (delivered through either header of meta tag) need to
-        // be joined together, see:
-        // https://w3c.github.io/webappsec/specs/content-security-policy/#delivery-html-meta-element
-        rv =
-            csp->AppendPolicy(content,
-                              false,  // csp via meta tag can not be report only
-                              true);  // delivered through the meta tag
-        NS_ENSURE_SUCCESS(rv, rv);
-        aDocument->ApplySettingsFromCSP(false);
+        LOG(
+            ("HTMLMetaElement %p sets CSP '%s' on document=%p, "
+             "document-uri=%s",
+             this, NS_ConvertUTF16toUTF8(content).get(), &doc,
+             documentURIspec.get()));
       }
+      CSP_ApplyMetaCSPToDoc(doc, content);
     }
   }
 
   // Referrer Policy spec requires a <meta name="referrer" tag to be in the
   // <head> element.
-  SetMetaReferrer(aDocument);
-  CreateAndDispatchEvent(aDocument, NS_LITERAL_STRING("DOMMetaAdded"));
+  SetMetaReferrer(&doc);
+  CreateAndDispatchEvent(&doc, u"DOMMetaAdded"_ns);
   return rv;
 }
 
-void HTMLMetaElement::UnbindFromTree(bool aDeep, bool aNullParent) {
-  nsCOMPtr<nsIDocument> oldDoc = GetUncomposedDoc();
-  CreateAndDispatchEvent(oldDoc, NS_LITERAL_STRING("DOMMetaRemoved"));
-  nsGenericHTMLElement::UnbindFromTree(aDeep, aNullParent);
+void HTMLMetaElement::UnbindFromTree(bool aNullParent) {
+  nsCOMPtr<Document> oldDoc = GetUncomposedDoc();
+  if (oldDoc && AttrValueIs(kNameSpaceID_None, nsGkAtoms::name,
+                            nsGkAtoms::viewport, eIgnoreCase)) {
+    DiscardViewportContent(oldDoc);
+  }
+  CreateAndDispatchEvent(oldDoc, u"DOMMetaRemoved"_ns);
+  nsGenericHTMLElement::UnbindFromTree(aNullParent);
 }
 
-void HTMLMetaElement::CreateAndDispatchEvent(nsIDocument* aDoc,
+void HTMLMetaElement::CreateAndDispatchEvent(Document* aDoc,
                                              const nsAString& aEventName) {
   if (!aDoc) return;
 
@@ -155,5 +166,29 @@ JSObject* HTMLMetaElement::WrapNode(JSContext* aCx,
   return HTMLMetaElement_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+void HTMLMetaElement::ProcessViewportContent(Document* aDocument) {
+  if (!HasAttr(kNameSpaceID_None, nsGkAtoms::content)) {
+    // Call Document::RemoveMetaViewportElement for cases that the content
+    // attribute is removed.
+    // NOTE: RemoveMetaViewportElement enumerates all existing meta viewport
+    // tags in the case where this element hasn't been there, i.e. this element
+    // is newly added to the document, but it should be fine because a document
+    // unlikely has a bunch of meta viewport tags.
+    aDocument->RemoveMetaViewportElement(this);
+    return;
+  }
+
+  nsAutoString content;
+  GetContent(content);
+
+  aDocument->SetHeaderData(nsGkAtoms::viewport, content);
+
+  ViewportMetaData data(content);
+  aDocument->AddMetaViewportElement(this, std::move(data));
+}
+
+void HTMLMetaElement::DiscardViewportContent(Document* aDocument) {
+  aDocument->RemoveMetaViewportElement(this);
+}
+
+}  // namespace mozilla::dom

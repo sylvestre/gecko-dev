@@ -34,109 +34,240 @@ add_task(async function() {
   await testLinkClick(true, true);
 });
 
-async function testLinkClick(withFrame, loadDivertedInBackground) {
-  await SpecialPowers.pushPrefEnv({"set": [["browser.tabs.loadDivertedInBackground", loadDivertedInBackground]]});
+async function waitForTestReady(loadDivertedInBackground, tab) {
+  if (!loadDivertedInBackground) {
+    await BrowserTestUtils.switchTab(gBrowser, tab);
+  } else {
+    await new Promise(resolve => setTimeout(resolve, 0));
+  }
+}
 
-  let tab = await BrowserTestUtils.openNewForegroundTab(gBrowser,
-    BASE_URL + (withFrame ? "file_bug1303838_with_iframe.html" : "file_bug1303838.html"));
+async function testLinkClick(withFrame, loadDivertedInBackground) {
+  await SpecialPowers.pushPrefEnv({
+    set: [["browser.tabs.loadDivertedInBackground", loadDivertedInBackground]],
+  });
+
+  let tab = await BrowserTestUtils.openNewForegroundTab(
+    gBrowser,
+    BASE_URL +
+      (withFrame ? "file_bug1303838_with_iframe.html" : "file_bug1303838.html")
+  );
   is(gBrowser.tabs.length, 2, "check tabs.length");
   is(gBrowser.selectedTab, tab, "check selectedTab");
 
-  info("Test normal links with loadDivertedInBackground=" + loadDivertedInBackground + ", withFrame=" + withFrame);
+  info(
+    "Test normal links with loadDivertedInBackground=" +
+      loadDivertedInBackground +
+      ", withFrame=" +
+      withFrame
+  );
 
-  let [testTab] = await clickLink(withFrame, "#link-1", tab.linkedBrowser);
+  let testTabPromise = BrowserTestUtils.waitForNewTab(gBrowser);
+  await clickLink(withFrame, "#link-1", tab.linkedBrowser);
+  let testTab = await testTabPromise;
   is(gBrowser.tabs.length, 3, "check tabs.length");
-  is(gBrowser.selectedTab, loadDivertedInBackground ? tab : testTab, "check selectedTab");
+  is(
+    gBrowser.selectedTab,
+    loadDivertedInBackground ? tab : testTab,
+    "check selectedTab"
+  );
 
-  if (!loadDivertedInBackground) {
-    await BrowserTestUtils.switchTab(gBrowser, tab);
-  }
-  await clickLink(withFrame, "#link-2", tab.linkedBrowser, testTab.linkedBrowser, !loadDivertedInBackground);
+  await waitForTestReady(loadDivertedInBackground, tab);
+  await clickLink(
+    withFrame,
+    "#link-2",
+    tab.linkedBrowser,
+    testTab.linkedBrowser,
+    !loadDivertedInBackground
+  );
   is(gBrowser.tabs.length, 3, "check tabs.length");
-  is(gBrowser.selectedTab, loadDivertedInBackground ? tab : testTab, "check selectedTab");
+  is(
+    gBrowser.selectedTab,
+    loadDivertedInBackground ? tab : testTab,
+    "check selectedTab"
+  );
 
-  if (!loadDivertedInBackground) {
-    await BrowserTestUtils.switchTab(gBrowser, tab);
-  }
-  await clickLink(withFrame, "#link-3", tab.linkedBrowser, testTab.linkedBrowser, !loadDivertedInBackground);
+  await waitForTestReady(loadDivertedInBackground, tab);
+  await clickLink(
+    withFrame,
+    "#link-3",
+    tab.linkedBrowser,
+    testTab.linkedBrowser,
+    !loadDivertedInBackground
+  );
   is(gBrowser.tabs.length, 3, "check tabs.length");
-  is(gBrowser.selectedTab, loadDivertedInBackground ? tab : testTab, "check selectedTab");
+  is(
+    gBrowser.selectedTab,
+    loadDivertedInBackground ? tab : testTab,
+    "check selectedTab"
+  );
 
-  if (!loadDivertedInBackground) {
-    await BrowserTestUtils.switchTab(gBrowser, tab);
-  }
-  await clickLink(withFrame, "#link-4", tab.linkedBrowser, testTab.linkedBrowser, !loadDivertedInBackground, 2);
+  await waitForTestReady(loadDivertedInBackground, tab);
+  let loaded = BrowserTestUtils.browserLoaded(
+    testTab.linkedBrowser,
+    true,
+    "data:text/html;charset=utf-8,testFrame"
+  );
+  await clickLink(
+    withFrame,
+    "#link-4",
+    tab.linkedBrowser,
+    testTab.linkedBrowser,
+    !loadDivertedInBackground,
+    false
+  );
+  await loaded;
   is(gBrowser.tabs.length, 3, "check tabs.length");
-  is(gBrowser.selectedTab, loadDivertedInBackground ? tab : testTab, "check selectedTab");
+  is(
+    gBrowser.selectedTab,
+    loadDivertedInBackground ? tab : testTab,
+    "check selectedTab"
+  );
 
-  info("Test anchor links with loadDivertedInBackground=" + loadDivertedInBackground + ", withFrame=" + withFrame);
+  info(
+    "Test anchor links with loadDivertedInBackground=" +
+      loadDivertedInBackground +
+      ", withFrame=" +
+      withFrame
+  );
 
-  if (!loadDivertedInBackground) {
-    await BrowserTestUtils.switchTab(gBrowser, tab);
-  }
-  await clickLink(withFrame, "#anchor-link-1", tab.linkedBrowser, testTab.linkedBrowser, !loadDivertedInBackground);
+  await waitForTestReady(loadDivertedInBackground, tab);
+  await clickLink(
+    withFrame,
+    "#anchor-link-1",
+    tab.linkedBrowser,
+    testTab.linkedBrowser,
+    !loadDivertedInBackground
+  );
   is(gBrowser.tabs.length, 3, "check tabs.length");
-  is(gBrowser.selectedTab, loadDivertedInBackground ? tab : testTab, "check selectedTab");
+  is(
+    gBrowser.selectedTab,
+    loadDivertedInBackground ? tab : testTab,
+    "check selectedTab"
+  );
 
-  if (!loadDivertedInBackground) {
-    await BrowserTestUtils.switchTab(gBrowser, tab);
-  }
-  await clickLink(withFrame, "#anchor-link-2", tab.linkedBrowser, testTab.linkedBrowser, !loadDivertedInBackground);
+  await waitForTestReady(loadDivertedInBackground, tab);
+  await clickLink(
+    withFrame,
+    "#anchor-link-2",
+    tab.linkedBrowser,
+    testTab.linkedBrowser,
+    !loadDivertedInBackground
+  );
   is(gBrowser.tabs.length, 3, "check tabs.length");
-  is(gBrowser.selectedTab, loadDivertedInBackground ? tab : testTab, "check selectedTab");
+  is(
+    gBrowser.selectedTab,
+    loadDivertedInBackground ? tab : testTab,
+    "check selectedTab"
+  );
 
-  if (!loadDivertedInBackground) {
-    await BrowserTestUtils.switchTab(gBrowser, tab);
-  }
-  await clickLink(withFrame, "#anchor-link-3", tab.linkedBrowser, testTab.linkedBrowser, !loadDivertedInBackground);
+  await waitForTestReady(loadDivertedInBackground, tab);
+  await clickLink(
+    withFrame,
+    "#anchor-link-3",
+    tab.linkedBrowser,
+    testTab.linkedBrowser,
+    !loadDivertedInBackground
+  );
   is(gBrowser.tabs.length, 3, "check tabs.length");
-  is(gBrowser.selectedTab, loadDivertedInBackground ? tab : testTab, "check selectedTab");
+  is(
+    gBrowser.selectedTab,
+    loadDivertedInBackground ? tab : testTab,
+    "check selectedTab"
+  );
 
-  info("Test iframe links with loadDivertedInBackground=" + loadDivertedInBackground + ", withFrame=" + withFrame);
+  info(
+    "Test iframe links with loadDivertedInBackground=" +
+      loadDivertedInBackground +
+      ", withFrame=" +
+      withFrame
+  );
 
-  if (!loadDivertedInBackground) {
-    await BrowserTestUtils.switchTab(gBrowser, tab);
-  }
-  await clickLink(withFrame, "#frame-link-1", tab.linkedBrowser, testTab.linkedBrowser, !loadDivertedInBackground);
+  await waitForTestReady(loadDivertedInBackground, tab);
+  await clickLink(
+    withFrame,
+    "#frame-link-1",
+    tab.linkedBrowser,
+    testTab.linkedBrowser,
+    !loadDivertedInBackground,
+    true
+  );
   is(gBrowser.tabs.length, 3, "check tabs.length");
-  is(gBrowser.selectedTab, loadDivertedInBackground ? tab : testTab, "check selectedTab");
+  is(
+    gBrowser.selectedTab,
+    loadDivertedInBackground ? tab : testTab,
+    "check selectedTab"
+  );
 
-  if (!loadDivertedInBackground) {
-    await BrowserTestUtils.switchTab(gBrowser, tab);
-  }
-  await clickLink(withFrame, "#frame-link-2", tab.linkedBrowser, testTab.linkedBrowser, !loadDivertedInBackground);
+  await waitForTestReady(loadDivertedInBackground, tab);
+  await clickLink(
+    withFrame,
+    "#frame-link-2",
+    tab.linkedBrowser,
+    testTab.linkedBrowser,
+    !loadDivertedInBackground,
+    true
+  );
   is(gBrowser.tabs.length, 3, "check tabs.length");
-  is(gBrowser.selectedTab, loadDivertedInBackground ? tab : testTab, "check selectedTab");
+  is(
+    gBrowser.selectedTab,
+    loadDivertedInBackground ? tab : testTab,
+    "check selectedTab"
+  );
 
-  if (!loadDivertedInBackground) {
-    await BrowserTestUtils.switchTab(gBrowser, tab);
-  }
-  await clickLink(withFrame, "#frame-link-3", tab.linkedBrowser, testTab.linkedBrowser, !loadDivertedInBackground);
+  await waitForTestReady(loadDivertedInBackground, tab);
+  await clickLink(
+    withFrame,
+    "#frame-link-3",
+    tab.linkedBrowser,
+    testTab.linkedBrowser,
+    !loadDivertedInBackground,
+    true
+  );
   is(gBrowser.tabs.length, 3, "check tabs.length");
-  is(gBrowser.selectedTab, loadDivertedInBackground ? tab : testTab, "check selectedTab");
+  is(
+    gBrowser.selectedTab,
+    loadDivertedInBackground ? tab : testTab,
+    "check selectedTab"
+  );
 
   BrowserTestUtils.removeTab(testTab);
   BrowserTestUtils.removeTab(tab);
 }
 
-function clickLink(isFrame, linkId, browser, testBrowser, awaitTabSwitch = false, locationChangeNum = 1) {
+function clickLink(
+  isFrame,
+  linkId,
+  browser,
+  testBrowser,
+  awaitTabSwitch = false,
+  targetsFrame = false,
+  locationChangeNum = 1
+) {
   let promises = [];
   if (awaitTabSwitch) {
     promises.push(waitForTabSwitch(gBrowser));
   }
-  promises.push(testBrowser ?
-                waitForLocationChange(testBrowser, locationChangeNum) :
-                BrowserTestUtils.waitForNewTab(gBrowser));
-  promises.push(ContentTask.spawn(browser, [isFrame, linkId],
-                                  ([contentIsFrame, contentLinkId]) => {
-    let doc = content.document;
-    if (contentIsFrame) {
-      let frame = content.document.getElementById("frame");
-      doc = frame.contentDocument;
-    }
-    info("Clicking " + contentLinkId);
-    doc.querySelector(contentLinkId).click();
-  }));
+  if (testBrowser) {
+    promises.push(
+      waitForLocationChange(targetsFrame, testBrowser, locationChangeNum)
+    );
+  }
+  promises.push(
+    SpecialPowers.spawn(
+      browser,
+      [[isFrame, linkId]],
+      ([contentIsFrame, contentLinkId]) => {
+        let doc = content.document;
+        if (contentIsFrame) {
+          let frame = content.document.getElementById("frame");
+          doc = frame.contentDocument;
+        }
+        info("Clicking " + contentLinkId);
+        doc.querySelector(contentLinkId).click();
+      }
+    )
+  );
   return Promise.all(promises);
 }
 
@@ -151,10 +282,12 @@ function waitForTabSwitch(tabbrowser) {
   });
 }
 
-// We need a longer lifetime reference to ensure the listener is alive when
-// location change occurs.
 let locationChangeListener;
-function waitForLocationChange(browser, locationChangeNum) {
+function waitForLocationChange(isFrame, browser, locationChangeNum) {
+  if (isFrame) {
+    return waitForFrameLocationChange(browser, locationChangeNum);
+  }
+
   info("Waiting for " + locationChangeNum + " LocationChange");
   return new Promise(resolve => {
     let seen = 0;
@@ -166,9 +299,38 @@ function waitForLocationChange(browser, locationChangeNum) {
           resolve();
         }
       },
-      QueryInterface: ChromeUtils.generateQI([Ci.nsIWebProgressListener,
-                                              Ci.nsISupportsWeakReference])
+      QueryInterface: ChromeUtils.generateQI([
+        "nsIWebProgressListener",
+        "nsISupportsWeakReference",
+      ]),
     };
     browser.addProgressListener(locationChangeListener);
+  });
+}
+
+function waitForFrameLocationChange(browser, locationChangeNum) {
+  info("Waiting for " + locationChangeNum + " LocationChange in subframe");
+  return SpecialPowers.spawn(browser, [locationChangeNum], async changeNum => {
+    let seen = 0;
+    let webprogress = content.docShell.QueryInterface(Ci.nsIWebProgress);
+    await new Promise(resolve => {
+      locationChangeListener = {
+        onLocationChange(aWebProgress, aRequest, aLocation, aFlags) {
+          info("LocationChange: " + aLocation.spec);
+          if (++seen == changeNum) {
+            resolve();
+          }
+        },
+        QueryInterface: ChromeUtils.generateQI([
+          "nsIWebProgressListener",
+          "nsISupportsWeakReference",
+        ]),
+      };
+      webprogress.addProgressListener(
+        locationChangeListener,
+        Ci.nsIWebProgress.NOTIFY_LOCATION
+      );
+    });
+    webprogress.removeProgressListener(locationChangeListener);
   });
 }

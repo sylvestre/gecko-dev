@@ -18,8 +18,7 @@
 #include "mozilla/Unused.h"
 #include "nsProxyRelease.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 namespace {
 
@@ -139,13 +138,9 @@ void FileSystemTaskChildBase::Start() {
     return;
   }
 
-  // Retain a reference so the task object isn't deleted without IPDL's
-  // knowledge. The reference will be released by
-  // mozilla::ipc::BackgroundChildImpl::DeallocPFileSystemRequestChild.
-  NS_ADDREF_THIS();
-
   if (NS_IsMainThread()) {
-    nsIEventTarget* target = mGlobalObject->EventTargetFor(TaskCategory::Other);
+    nsISerialEventTarget* target =
+        mGlobalObject->EventTargetFor(TaskCategory::Other);
     MOZ_ASSERT(target);
 
     actor->SetEventTargetForActor(this, target);
@@ -192,12 +187,12 @@ FileSystemTaskParentBase::FileSystemTaskParentBase(
       mErrorValue(NS_OK),
       mFileSystem(aFileSystem),
       mRequestParent(aParent),
-      mBackgroundEventTarget(GetCurrentThreadEventTarget()) {
+      mBackgroundEventTarget(GetCurrentEventTarget()) {
   MOZ_ASSERT(XRE_IsParentProcess(), "Only call from parent process!");
   MOZ_ASSERT(aFileSystem, "aFileSystem should not be null.");
   MOZ_ASSERT(aParent);
   MOZ_ASSERT(mBackgroundEventTarget);
-  AssertIsOnBackgroundThread();
+  mozilla::ipc::AssertIsOnBackgroundThread();
 }
 
 FileSystemTaskParentBase::~FileSystemTaskParentBase() {
@@ -210,7 +205,7 @@ FileSystemTaskParentBase::~FileSystemTaskParentBase() {
 }
 
 void FileSystemTaskParentBase::Start() {
-  AssertIsOnBackgroundThread();
+  mozilla::ipc::AssertIsOnBackgroundThread();
   mFileSystem->AssertIsOnOwningThread();
 
   DebugOnly<nsresult> rv = DispatchToIOThread(this);
@@ -218,7 +213,7 @@ void FileSystemTaskParentBase::Start() {
 }
 
 void FileSystemTaskParentBase::HandleResult() {
-  AssertIsOnBackgroundThread();
+  mozilla::ipc::AssertIsOnBackgroundThread();
   mFileSystem->AssertIsOnOwningThread();
 
   if (mFileSystem->IsShutdown()) {
@@ -230,7 +225,7 @@ void FileSystemTaskParentBase::HandleResult() {
 }
 
 FileSystemResponseValue FileSystemTaskParentBase::GetRequestResult() const {
-  AssertIsOnBackgroundThread();
+  mozilla::ipc::AssertIsOnBackgroundThread();
   mFileSystem->AssertIsOnOwningThread();
 
   if (HasError()) {
@@ -257,7 +252,7 @@ FileSystemTaskParentBase::Run() {
   // 2. After step 1, it returns back to the PBackground thread.
 
   // Run I/O thread tasks
-  if (!IsOnBackgroundThread()) {
+  if (!mozilla::ipc::IsOnBackgroundThread()) {
     nsresult rv = IOWork();
     if (NS_WARN_IF(NS_FAILED(rv))) {
       SetError(rv);
@@ -274,10 +269,9 @@ FileSystemTaskParentBase::Run() {
 
   // If we are here, it's because the I/O work has been done and we have to
   // handle the result back via IPC.
-  AssertIsOnBackgroundThread();
+  mozilla::ipc::AssertIsOnBackgroundThread();
   HandleResult();
   return NS_OK;
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

@@ -8,13 +8,12 @@
 #include "jsfriendapi.h"
 #include "NamespaceImports.h"
 
-#include "js/StableStringChars.h"
+#include "js/friend/ErrorMessages.h"  // JSMSG_*
 #include "js/Wrapper.h"
+#include "vm/JSObject.h"
 #include "vm/StringType.h"
 
 using namespace js;
-
-using JS::AutoStableStringChars;
 
 template <class Base>
 bool SecurityWrapper<Base>::enter(JSContext* cx, HandleObject wrapper,
@@ -101,15 +100,7 @@ bool SecurityWrapper<Base>::defineProperty(JSContext* cx, HandleObject wrapper,
                                            Handle<PropertyDescriptor> desc,
                                            ObjectOpResult& result) const {
   if (desc.getter() || desc.setter()) {
-    UniqueChars prop =
-        IdToPrintableUTF8(cx, id, IdToPrintableBehavior::IdIsPropertyKey);
-    if (!prop) {
-      return false;
-    }
-
-    JS_ReportErrorNumberUTF8(cx, GetErrorMessage, nullptr,
-                             JSMSG_ACCESSOR_DEF_DENIED, prop.get());
-    return false;
+    return Throw(cx, id, JSMSG_ACCESSOR_DEF_DENIED);
   }
 
   return Base::defineProperty(cx, wrapper, id, desc, result);

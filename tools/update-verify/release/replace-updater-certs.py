@@ -1,3 +1,7 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this file,
+# You can obtain one at http://mozilla.org/MPL/2.0/.
+
 from __future__ import absolute_import, print_function
 
 import os.path
@@ -15,7 +19,7 @@ if (len(cert_pairs) % 2) != 0:
     print("Certs must be provided in pairs")
     sys.exit(1)
 
-for find_cert, replace_cert in zip(*[iter(cert_pairs)]*2):
+for find_cert, replace_cert in zip(*[iter(cert_pairs)] * 2):
     find = open(os.path.join(cert_dir, find_cert), "rb").read()
     replace = open(os.path.join(cert_dir, replace_cert), "rb").read()
     print("Looking for {}...".format(find_cert))
@@ -28,10 +32,12 @@ for find_cert, replace_cert in zip(*[iter(cert_pairs)]*2):
 if len(updater_data) != len(new_updater):
     print(
         "WARNING: new updater is not the same length as the old one (old: {}, new: {})".format(
-            len(updater_data), len(new_updater)))
+            len(updater_data), len(new_updater)
+        )
+    )
 
 if updater_data == new_updater:
     print("WARNING: updater is unchanged")
 
-with open(outfile, 'wb+') as f:
+with open(outfile, "wb+") as f:
     f.write(new_updater)

@@ -14,18 +14,18 @@
 
 struct JSContext;
 class JSObject;
-class nsIDocument;
 class ComputedStyle;
 struct RawServoDeclarationBlock;
 
 namespace mozilla {
 struct AnimationProperty;
-enum class CSSPseudoElementType : uint8_t;
+enum class PseudoStyleType : uint8_t;
 class ErrorResult;
 struct Keyframe;
 struct PropertyStyleAnimationValuePair;
 
 namespace dom {
+class Document;
 class Element;
 }  // namespace dom
 }  // namespace mozilla
@@ -49,6 +49,9 @@ class KeyframeUtils {
    * @param aDocument The document to use when parsing CSS properties.
    * @param aFrames The JS value, provided as an optional IDL |object?| value,
    *   that is the keyframe list specification.
+   * @param aContext Information about who is trying to get keyframes from the
+   *   object, for use in error reporting.  This must be be a non-null
+   *   pointer representing a null-terminated ASCII string.
    * @param aRv (out) Out-param to hold any error returned by this function.
    *   Must be initially empty.
    * @return The set of processed keyframes. If an error occurs, aRv will be
@@ -56,8 +59,8 @@ class KeyframeUtils {
    *   returned.
    */
   static nsTArray<Keyframe> GetKeyframesFromObject(
-      JSContext* aCx, nsIDocument* aDocument, JS::Handle<JSObject*> aFrames,
-      ErrorResult& aRv);
+      JSContext* aCx, dom::Document* aDocument, JS::Handle<JSObject*> aFrames,
+      const char* aContext, ErrorResult& aRv);
 
   /**
    * Calculate the computed offset of keyframes by evenly distributing keyframes
@@ -87,7 +90,8 @@ class KeyframeUtils {
    */
   static nsTArray<AnimationProperty> GetAnimationPropertiesFromKeyframes(
       const nsTArray<Keyframe>& aKeyframes, dom::Element* aElement,
-      const ComputedStyle* aStyle, dom::CompositeOperation aEffectComposite);
+      PseudoStyleType aPseudoType, const ComputedStyle* aStyle,
+      dom::CompositeOperation aEffectComposite);
 
   /**
    * Check if the property or, for shorthands, one or more of

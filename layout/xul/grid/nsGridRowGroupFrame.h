@@ -30,12 +30,13 @@ class nsGridRowGroupFrame final : public nsBoxFrame {
 
 #ifdef DEBUG_FRAME_DUMP
   virtual nsresult GetFrameName(nsAString& aResult) const override {
-    return MakeFrameName(NS_LITERAL_STRING("nsGridRowGroup"), aResult);
+    return MakeFrameName(u"nsGridRowGroup"_ns, aResult);
   }
 #endif
 
-  nsGridRowGroupFrame(ComputedStyle* aStyle, nsBoxLayout* aLayoutManager)
-      : nsBoxFrame(aStyle, kClassID, false, aLayoutManager) {}
+  nsGridRowGroupFrame(ComputedStyle* aStyle, nsPresContext* aPresContext,
+                      nsBoxLayout* aLayoutManager)
+      : nsBoxFrame(aStyle, aPresContext, kClassID, false, aLayoutManager) {}
 
   virtual nscoord GetXULFlex() override;
 

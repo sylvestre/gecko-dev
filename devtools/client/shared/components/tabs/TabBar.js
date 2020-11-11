@@ -1,5 +1,3 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 2 -*- */
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -8,14 +6,23 @@
 
 "use strict";
 
-const { Component, createFactory } = require("devtools/client/shared/vendor/react");
+const {
+  Component,
+  createFactory,
+} = require("devtools/client/shared/vendor/react");
 const PropTypes = require("devtools/client/shared/vendor/react-prop-types");
 const dom = require("devtools/client/shared/vendor/react-dom-factories");
 
-const Sidebar = createFactory(require("devtools/client/shared/components/Sidebar"));
+const Sidebar = createFactory(
+  require("devtools/client/shared/components/Sidebar")
+);
 
 loader.lazyRequireGetter(this, "Menu", "devtools/client/framework/menu");
-loader.lazyRequireGetter(this, "MenuItem", "devtools/client/framework/menu-item");
+loader.lazyRequireGetter(
+  this,
+  "MenuItem",
+  "devtools/client/framework/menu-item"
+);
 
 // Shortcuts
 const { div } = dom;
@@ -30,6 +37,7 @@ class Tabbar extends Component {
       menuDocument: PropTypes.object,
       onSelect: PropTypes.func,
       showAllTabsMenu: PropTypes.bool,
+      allTabsMenuButtonTooltip: PropTypes.string,
       activeTabId: PropTypes.string,
       renderOnlySelected: PropTypes.bool,
       sidebarToggleButton: PropTypes.shape({
@@ -41,6 +49,10 @@ class Tabbar extends Component {
         expandPaneTitle: PropTypes.string.isRequired,
         // Click callback
         onClick: PropTypes.func.isRequired,
+        // align toggle button to right
+        alignRight: PropTypes.bool,
+        // if set to true toggle-button rotate 90
+        canVerticalSplit: PropTypes.bool,
       }),
     };
   }
@@ -86,8 +98,10 @@ class Tabbar extends Component {
     const tabs = this.createTabs(children);
     const activeTab = tabs.findIndex((tab, index) => tab.id === activeTabId);
 
-    if (activeTab !== this.state.activeTab ||
-        (children !== this.props.children)) {
+    if (
+      activeTab !== this.state.activeTab ||
+      children !== this.props.children
+    ) {
       this.setState({
         activeTab: activeTab === -1 ? 0 : activeTab,
         tabs,
@@ -97,7 +111,7 @@ class Tabbar extends Component {
 
   createTabs(children) {
     return children
-      .filter((panel) => panel)
+      .filter(panel => panel)
       .map((panel, index) =>
         Object.assign({}, children[index], {
           id: panel.props.id || index,
@@ -113,9 +127,9 @@ class Tabbar extends Component {
     const tabs = this.state.tabs.slice();
 
     if (index >= 0) {
-      tabs.splice(index, 0, {id, title, panel, url});
+      tabs.splice(index, 0, { id, title, panel, url });
     } else {
-      tabs.push({id, title, panel, url});
+      tabs.push({ id, title, panel, url });
     }
 
     const newState = Object.assign({}, this.state, {
@@ -146,9 +160,9 @@ class Tabbar extends Component {
 
     for (const { id, index, panel, selected, title, url } of this.queuedTabs) {
       if (index >= 0) {
-        tabs.splice(index, 0, {id, title, panel, url});
+        tabs.splice(index, 0, { id, title, panel, url });
       } else {
-        tabs.push({id, title, panel, url});
+        tabs.push({ id, title, panel, url });
       }
 
       if (selected) {
@@ -199,9 +213,11 @@ class Tabbar extends Component {
       isVisible: isVisible,
     });
 
-    this.setState(Object.assign({}, this.state, {
-      tabs: tabs,
-    }));
+    this.setState(
+      Object.assign({}, this.state, {
+        tabs: tabs,
+      })
+    );
   }
 
   removeTab(tabId) {
@@ -216,16 +232,19 @@ class Tabbar extends Component {
     let activeTab = this.state.activeTab - 1;
     activeTab = activeTab === -1 ? 0 : activeTab;
 
-    this.setState(Object.assign({}, this.state, {
-      activeTab,
-      tabs,
-    }), () => {
-      // Select the next active tab and force the select event handler to initialize
-      // the panel if needed.
-      if (tabs.length > 0 && this.props.onSelect) {
-        this.props.onSelect(this.getTabId(activeTab));
+    this.setState(
+      Object.assign({}, this.state, {
+        activeTab,
+        tabs,
+      }),
+      () => {
+        // Select the next active tab and force the select event handler to initialize
+        // the panel if needed.
+        if (tabs.length > 0 && this.props.onSelect) {
+          this.props.onSelect(this.getTabId(activeTab));
+        }
       }
-    });
+    );
   }
 
   select(tabId) {
@@ -268,13 +287,16 @@ class Tabbar extends Component {
   // Event Handlers
 
   onTabChanged(index) {
-    this.setState({
-      activeTab: index,
-    }, () => {
-      if (this.props.onSelect) {
-        this.props.onSelect(this.state.tabs[index].id);
+    this.setState(
+      {
+        activeTab: index,
+      },
+      () => {
+        if (this.props.onSelect) {
+          this.props.onSelect(this.state.tabs[index].id);
+        }
       }
-    });
+    );
   }
 
   onAllTabsMenuClick(event) {
@@ -282,25 +304,19 @@ class Tabbar extends Component {
     const target = event.target;
 
     // Generate list of menu items from the list of tabs.
-    this.state.tabs.forEach((tab) => {
-      menu.append(new MenuItem({
-        label: tab.title,
-        type: "checkbox",
-        checked: this.getCurrentTabId() === tab.id,
-        click: () => this.select(tab.id),
-      }));
+    this.state.tabs.forEach(tab => {
+      menu.append(
+        new MenuItem({
+          label: tab.title,
+          type: "checkbox",
+          checked: this.getCurrentTabId() === tab.id,
+          click: () => this.select(tab.id),
+        })
+      );
     });
 
     // Show a drop down menu with frames.
-    // XXX Missing menu API for specifying target (anchor)
-    // and relative position to it. See also:
-    // https://developer.mozilla.org/en-US/docs/Mozilla/Tech/XUL/Method/openPopup
-    // https://bugzilla.mozilla.org/show_bug.cgi?id=1274551
-    const rect = target.getBoundingClientRect();
-    const screenX = target.ownerDocument.defaultView.mozInnerScreenX;
-    const screenY = target.ownerDocument.defaultView.mozInnerScreenY;
-    menu.popupWithZoom(rect.left + screenX, rect.bottom + screenY,
-                       { doc: this.props.menuDocument });
+    menu.popupAtTarget(target, this.props.menuDocument);
 
     return menu;
   }
@@ -321,20 +337,21 @@ class Tabbar extends Component {
   }
 
   render() {
-    const tabs = this.state.tabs.map((tab) => this.renderTab(tab));
+    const tabs = this.state.tabs.map(tab => this.renderTab(tab));
 
-    return (
-      div({className: "devtools-sidebar-tabs"},
-        Sidebar({
+    return div(
+      { className: "devtools-sidebar-tabs" },
+      Sidebar(
+        {
           onAllTabsMenuClick: this.onAllTabsMenuClick,
           renderOnlySelected: this.props.renderOnlySelected,
           showAllTabsMenu: this.props.showAllTabsMenu,
+          allTabsMenuButtonTooltip: this.props.allTabsMenuButtonTooltip,
           sidebarToggleButton: this.props.sidebarToggleButton,
-          tabActive: this.state.activeTab,
+          activeTab: this.state.activeTab,
           onAfterChange: this.onTabChanged,
         },
-          tabs
-        )
+        tabs
       )
     );
   }

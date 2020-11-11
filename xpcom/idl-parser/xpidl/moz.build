@@ -5,11 +5,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 PYTHON_UNITTEST_MANIFESTS += [
-    'python.ini',
+    "python.ini",
 ]
 
-GENERATED_FILES += [
-    ('xpidl.stub', 'xpidllex.py', 'xpidlyacc.py'),
-]
-
-GENERATED_FILES[('xpidl.stub', 'xpidllex.py', 'xpidlyacc.py')].script = 'header.py:main'
+GeneratedFile("xpidl.stub", script="header.py", entry_point="main")

@@ -10,9 +10,10 @@
 #include "DocAccessible.h"
 #include "ARIAMap.h"
 #include "nsCoreUtils.h"
+#include "mozilla/PresShell.h"
 
 #ifdef A11Y_LOG
-#include "Logging.h"
+#  include "Logging.h"
 #endif
 
 namespace mozilla {
@@ -70,9 +71,11 @@ inline bool Accessible::HasGenericType(AccGenericType aType) const {
          (roleMapEntry && roleMapEntry->IsOfType(aType));
 }
 
-inline bool Accessible::HasNumericValue() const {
-  if (mStateFlags & eHasNumericValue) return true;
+inline bool Accessible::NativeHasNumericValue() const {
+  return mStateFlags & eHasNumericValue;
+}
 
+inline bool Accessible::ARIAHasNumericValue() const {
   const nsRoleMapEntry* roleMapEntry = ARIARoleMap();
   if (!roleMapEntry || roleMapEntry->valueRule == eNoValue) return false;
 
@@ -80,6 +83,10 @@ inline bool Accessible::HasNumericValue() const {
     return InteractiveState() & states::FOCUSABLE;
 
   return true;
+}
+
+inline bool Accessible::HasNumericValue() const {
+  return NativeHasNumericValue() || ARIAHasNumericValue();
 }
 
 inline bool Accessible::IsDefunct() const {
@@ -90,7 +97,11 @@ inline bool Accessible::IsDefunct() const {
 }
 
 inline void Accessible::ScrollTo(uint32_t aHow) const {
-  if (mContent) nsCoreUtils::ScrollTo(mDoc->PresShell(), mContent, aHow);
+  if (mContent) {
+    RefPtr<PresShell> presShell = mDoc->PresShellPtr();
+    nsCOMPtr<nsIContent> content = mContent;
+    nsCoreUtils::ScrollTo(presShell, content, aHow);
+  }
 }
 
 inline bool Accessible::InsertAfter(Accessible* aNewChild,

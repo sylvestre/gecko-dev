@@ -2,13 +2,14 @@
 <html>
 <head>
   <title>Test for Worklet - Console</title>
-  <script type="application/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css"/>
   <script type="application/javascript" src="common.js"></script>
 </head>
 <body>
 
 <script type="application/javascript">
+const WORKLET_SCRIPT = "worklet_console.js";
 
 function configureTest() {
   function consoleListener() {
@@ -16,11 +17,13 @@ function configureTest() {
   }
 
   consoleListener.prototype  = {
-    observe: function(aSubject, aTopic, aData) {
+    observe(aSubject, aTopic, aData) {
       if (aTopic == "console-api-log-event") {
         var obj = aSubject.wrappedJSObject;
         if (obj.arguments[0] == "Hello world from a worklet") {
           ok(true, "Message received \\o/");
+          is(obj.filename,
+             new URL(WORKLET_SCRIPT, document.baseURI).toString());
 
           SpecialPowers.removeObserver(this, "console-api-log-event");
           SimpleTest.finish();
@@ -40,7 +43,7 @@ function configureTest() {
 // This function is called into an iframe.
 function runTestInIframe() {
   var audioContext = new AudioContext();
-  audioContext.audioWorklet.addModule("worklet_console.js");
+  audioContext.audioWorklet.addModule(WORKLET_SCRIPT);
 }
 
 </script>

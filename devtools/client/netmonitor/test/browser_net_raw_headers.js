@@ -8,60 +8,80 @@
  */
 
 add_task(async function() {
-  const { tab, monitor } = await initNetMonitor(POST_DATA_URL);
+  const { tab, monitor } = await initNetMonitor(POST_DATA_URL, {
+    requestCount: 1,
+  });
   info("Starting test... ");
 
   const { document, store, windowRequire } = monitor.panelWin;
   const Actions = windowRequire("devtools/client/netmonitor/src/actions/index");
-  const {
-    getSortedRequests,
-  } = windowRequire("devtools/client/netmonitor/src/selectors/index");
+  const { getSortedRequests } = windowRequire(
+    "devtools/client/netmonitor/src/selectors/index"
+  );
 
   store.dispatch(Actions.batchEnable(false));
 
   // Execute requests.
   await performRequests(monitor, tab, 2);
 
-  wait = waitForDOM(document, "#headers-panel .tree-section", 2);
-  EventUtils.sendMouseEvent({ type: "mousedown" },
-    document.querySelectorAll(".request-list-item")[0]);
+  let wait = waitForDOM(document, "#headers-panel .accordion-item", 2);
+  EventUtils.sendMouseEvent(
+    { type: "mousedown" },
+    document.querySelectorAll(".request-list-item")[0]
+  );
   await wait;
 
-  wait = waitForDOM(document, ".raw-headers-container textarea", 2);
-  EventUtils.sendMouseEvent({ type: "click" }, getRawHeadersButton());
+  wait = waitForDOM(document, "#responseHeaders textarea.raw-headers", 1);
+  EventUtils.sendMouseEvent({ type: "click" }, getRawHeadersToggle("RESPONSE"));
   await wait;
 
-  testRawHeaderButtonStyle(true);
+  wait = waitForDOM(document, "#requestHeaders textarea.raw-headers", 1);
+  EventUtils.sendMouseEvent({ type: "click" }, getRawHeadersToggle("REQUEST"));
+  await wait;
 
-  testShowRawHeaders(getSortedRequests(store.getState()).get(0));
+  testRawHeaderToggleStyle(true);
+  testShowRawHeaders(getSortedRequests(store.getState())[0]);
 
-  EventUtils.sendMouseEvent({ type: "click" }, getRawHeadersButton());
+  EventUtils.sendMouseEvent({ type: "click" }, getRawHeadersToggle("RESPONSE"));
+  EventUtils.sendMouseEvent({ type: "click" }, getRawHeadersToggle("REQUEST"));
 
-  testRawHeaderButtonStyle(false);
-
+  testRawHeaderToggleStyle(false);
   testHideRawHeaders(document);
 
   return teardown(monitor);
 
   /**
-   * Tests that checked, aria-pressed style is applied correctly
+   * Tests that checked is applied correctly
    *
    * @param checked
-   *        flag indicating whether button is pressed or not
+   *        flag indicating whether toggle is checked or not
    */
-  function testRawHeaderButtonStyle(checked) {
-    const rawHeadersButton = getRawHeadersButton();
+  function testRawHeaderToggleStyle(checked) {
+    const rawHeadersRequestToggle = getRawHeadersToggle("REQUEST");
+    const rawHeadersResponseToggle = getRawHeadersToggle("RESPONSE");
 
     if (checked) {
-      is(rawHeadersButton.classList.contains("checked"), true,
-        "The 'Raw Headers' button should have a 'checked' class.");
-      is(rawHeadersButton.getAttribute("aria-pressed"), "true",
-        "The 'Raw Headers' button should have the 'aria-pressed' attribute set to true");
+      is(
+        rawHeadersRequestToggle.checked,
+        true,
+        "The 'Raw Request Headers' toggle should be 'checked'"
+      );
+      is(
+        rawHeadersResponseToggle.checked,
+        true,
+        "The 'Raw Response Headers' toggle should be 'checked'"
+      );
     } else {
-      is(rawHeadersButton.classList.contains("checked"), false,
-        "The 'Raw Headers' button should not have a 'checked' class.");
-      is(rawHeadersButton.getAttribute("aria-pressed"), "false",
-        "The 'Raw Headers' button should have the 'aria-pressed' attribute set to false");
+      is(
+        rawHeadersRequestToggle.checked,
+        false,
+        "The 'Raw Request Headers' toggle should NOT be 'checked'"
+      );
+      is(
+        rawHeadersResponseToggle.checked,
+        false,
+        "The 'Raw Response Headers' toggle should NOT be 'checked'"
+      );
     }
   }
 
@@ -69,17 +89,23 @@ add_task(async function() {
    * Tests that raw headers were displayed correctly
    */
   function testShowRawHeaders(data) {
-    const requestHeaders = document
-      .querySelectorAll(".raw-headers-container textarea")[0].value;
+    // Request headers are rendered first, so it is element with index 1
+    const requestHeaders = document.querySelectorAll("textarea.raw-headers")[1]
+      .value;
     for (const header of data.requestHeaders.headers) {
-      ok(requestHeaders.includes(header.name + ": " + header.value),
-        "textarea contains request headers");
+      ok(
+        requestHeaders.includes(header.name + ": " + header.value),
+        "textarea contains request headers"
+      );
     }
-    const responseHeaders = document
-      .querySelectorAll(".raw-headers-container textarea")[1].value;
+    // Response headers are rendered first, so it is element with index 0
+    const responseHeaders = document.querySelectorAll("textarea.raw-headers")[0]
+      .value;
     for (const header of data.responseHeaders.headers) {
-      ok(responseHeaders.includes(header.name + ": " + header.value),
-        "textarea contains response headers");
+      ok(
+        responseHeaders.includes(header.name + ": " + header.value),
+        "textarea contains response headers"
+      );
     }
   }
 
@@ -87,14 +113,20 @@ add_task(async function() {
    * Tests that raw headers textareas are hidden
    */
   function testHideRawHeaders() {
-    ok(!document.querySelector(".raw-headers-container"),
-      "raw request headers textarea is empty");
+    ok(
+      !document.querySelector(".raw-headers-container"),
+      "raw request headers textarea is empty"
+    );
   }
 
   /**
    * Returns the 'Raw Headers' button
    */
-  function getRawHeadersButton() {
-    return document.querySelectorAll(".headers-summary .devtools-button")[2];
+  function getRawHeadersToggle(rawHeaderType) {
+    if (rawHeaderType === "RESPONSE") {
+      // Response header is first displayed
+      return document.querySelectorAll(".devtools-checkbox-toggle")[0];
+    }
+    return document.querySelectorAll(".devtools-checkbox-toggle")[1];
   }
 });

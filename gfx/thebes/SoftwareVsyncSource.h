@@ -15,21 +15,19 @@
 #include "VsyncSource.h"
 
 class SoftwareDisplay final : public mozilla::gfx::VsyncSource::Display {
-  NS_INLINE_DECL_THREADSAFE_REFCOUNTING(SoftwareDisplay)
-
  public:
   SoftwareDisplay();
-  virtual void EnableVsync() override;
-  virtual void DisableVsync() override;
-  virtual bool IsVsyncEnabled() override;
+  void EnableVsync() override;
+  void DisableVsync() override;
+  bool IsVsyncEnabled() override;
   bool IsInSoftwareVsyncThread();
-  virtual void NotifyVsync(mozilla::TimeStamp aVsyncTimestamp) override;
-  virtual mozilla::TimeDuration GetVsyncRate() override;
+  void NotifyVsync(const mozilla::TimeStamp& aVsyncTimestamp,
+                   const mozilla::TimeStamp& aOutputTimestamp) override;
+  mozilla::TimeDuration GetVsyncRate() override;
   void ScheduleNextVsync(mozilla::TimeStamp aVsyncTimestamp);
   void Shutdown() override;
 
- protected:
-  ~SoftwareDisplay();
+  virtual ~SoftwareDisplay();
 
  private:
   mozilla::TimeDuration mVsyncRate;
@@ -46,9 +44,9 @@ class SoftwareDisplay final : public mozilla::gfx::VsyncSource::Display {
 class SoftwareVsyncSource : public mozilla::gfx::VsyncSource {
  public:
   SoftwareVsyncSource();
-  ~SoftwareVsyncSource();
+  virtual ~SoftwareVsyncSource();
 
-  virtual Display& GetGlobalDisplay() override {
+  Display& GetGlobalDisplay() override {
     MOZ_ASSERT(mGlobalDisplay != nullptr);
     return *mGlobalDisplay;
   }

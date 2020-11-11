@@ -2,7 +2,7 @@
 <html>
 <head>
   <title>Media test: disable phase inversion in opus decoder</title>
-  <script type="text/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css" />
 </head>
 <body>
@@ -15,6 +15,8 @@
   Secondly, mono playback is forced which results in the phase inversion being disabled (Bug 1431810).
 */
 SimpleTest.waitForExplicitFinish();
+
+/* global a, b */
 
 function areChannelsInverted(b1, b2) {
   for (var i = 0; i < b1.length; i++) {

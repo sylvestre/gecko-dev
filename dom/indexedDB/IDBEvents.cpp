@@ -15,8 +15,7 @@ using namespace mozilla;
 using namespace mozilla::dom;
 using namespace mozilla::dom::indexedDB;
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 namespace indexedDB {
 
 const char16_t* kAbortEventType = u"abort";
@@ -28,24 +27,22 @@ const char16_t* kUpgradeNeededEventType = u"upgradeneeded";
 const char16_t* kVersionChangeEventType = u"versionchange";
 const char16_t* kCloseEventType = u"close";
 
-already_AddRefed<Event> CreateGenericEvent(EventTarget* aOwner,
-                                           const nsDependentString& aType,
-                                           Bubbles aBubbles,
-                                           Cancelable aCancelable) {
-  RefPtr<Event> event = new Event(aOwner, nullptr, nullptr);
+RefPtr<Event> CreateGenericEvent(EventTarget* aOwner,
+                                 const nsDependentString& aType,
+                                 Bubbles aBubbles, Cancelable aCancelable) {
+  RefPtr<Event> event = MakeAndAddRef<Event>(aOwner, nullptr, nullptr);
 
-  event->InitEvent(aType, aBubbles == eDoesBubble ? true : false,
-                   aCancelable == eCancelable ? true : false);
+  event->InitEvent(aType, aBubbles == eDoesBubble, aCancelable == eCancelable);
 
   event->SetTrusted(true);
 
-  return event.forget();
+  return event;
 }
 
 }  // namespace indexedDB
 
 // static
-already_AddRefed<IDBVersionChangeEvent> IDBVersionChangeEvent::CreateInternal(
+RefPtr<IDBVersionChangeEvent> IDBVersionChangeEvent::CreateInternal(
     EventTarget* aOwner, const nsAString& aType, uint64_t aOldVersion,
     const Nullable<uint64_t>& aNewVersion) {
   RefPtr<IDBVersionChangeEvent> event =
@@ -58,12 +55,26 @@ already_AddRefed<IDBVersionChangeEvent> IDBVersionChangeEvent::CreateInternal(
 
   event->SetTrusted(true);
 
-  return event.forget();
+  return event;
 }
 
-already_AddRefed<IDBVersionChangeEvent> IDBVersionChangeEvent::Constructor(
+RefPtr<IDBVersionChangeEvent> IDBVersionChangeEvent::Create(
+    EventTarget* aOwner, const nsDependentString& aName, uint64_t aOldVersion,
+    uint64_t aNewVersion) {
+  Nullable<uint64_t> newVersion(aNewVersion);
+  return CreateInternal(aOwner, aName, aOldVersion, newVersion);
+}
+
+RefPtr<IDBVersionChangeEvent> IDBVersionChangeEvent::Create(
+    EventTarget* aOwner, const nsDependentString& aName, uint64_t aOldVersion) {
+  Nullable<uint64_t> newVersion(0);
+  newVersion.SetNull();
+  return CreateInternal(aOwner, aName, aOldVersion, newVersion);
+}
+
+RefPtr<IDBVersionChangeEvent> IDBVersionChangeEvent::Constructor(
     const GlobalObject& aGlobal, const nsAString& aType,
-    const IDBVersionChangeEventInit& aOptions, ErrorResult& aRv) {
+    const IDBVersionChangeEventInit& aOptions) {
   nsCOMPtr<EventTarget> target = do_QueryInterface(aGlobal.GetAsSupports());
 
   return CreateInternal(target, aType, aOptions.mOldVersion,
@@ -82,5 +93,4 @@ JSObject* IDBVersionChangeEvent::WrapObjectInternal(
   return IDBVersionChangeEvent_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

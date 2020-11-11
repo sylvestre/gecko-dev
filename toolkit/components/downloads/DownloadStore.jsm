@@ -18,7 +18,7 @@
  *     {
  *       "source": {
  *         "url": "http://www.example.com/download.txt",
- *         "referrer": "http://www.example.com/referrer.html"
+ *         "referrerInfo": serialized string represents referrerInfo object
  *       },
  *       "target": "/home/user/Downloads/download-2.txt"
  *     }
@@ -28,16 +28,17 @@
 
 "use strict";
 
-var EXPORTED_SYMBOLS = [
-  "DownloadStore",
-];
+var EXPORTED_SYMBOLS = ["DownloadStore"];
 
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
 
-ChromeUtils.defineModuleGetter(this, "Downloads",
-                               "resource://gre/modules/Downloads.jsm");
-ChromeUtils.defineModuleGetter(this, "OS",
-                               "resource://gre/modules/osfile.jsm");
+ChromeUtils.defineModuleGetter(
+  this,
+  "Downloads",
+  "resource://gre/modules/Downloads.jsm"
+);
 
 XPCOMUtils.defineLazyGetter(this, "gTextDecoder", function() {
   return new TextDecoder();
@@ -61,7 +62,7 @@ var DownloadStore = function(aList, aPath) {
   this.path = aPath;
 };
 
-this.DownloadStore.prototype = {
+DownloadStore.prototype = {
   /**
    * DownloadList object to be populated or serialized.
    */
@@ -89,9 +90,9 @@ this.DownloadStore.prototype = {
     return (async () => {
       let bytes;
       try {
-        bytes = await OS.File.read(this.path);
+        bytes = await IOUtils.read(this.path);
       } catch (ex) {
-        if (!(ex instanceof OS.File.Error) || !ex.becauseNoSuchFile) {
+        if (!(ex.name == "NotFoundError")) {
           throw ex;
         }
         // If the file does not exist, there are no downloads to load.
@@ -167,15 +168,15 @@ this.DownloadStore.prototype = {
       if (atLeastOneDownload) {
         // Create or overwrite the file if there are downloads to save.
         let bytes = gTextEncoder.encode(JSON.stringify(storeData));
-        await OS.File.writeAtomic(this.path, bytes,
-                                  { tmpPath: this.path + ".tmp" });
+        await IOUtils.writeAtomic(this.path, bytes, {
+          tmpPath: this.path + ".tmp",
+        });
       } else {
         // Remove the file if there are no downloads to save at all.
         try {
-          await OS.File.remove(this.path);
+          await IOUtils.remove(this.path);
         } catch (ex) {
-          if (!(ex instanceof OS.File.Error) ||
-              !(ex.becauseNoSuchFile || ex.becauseAccessDenied)) {
+          if (!(ex.name == "NotFoundError" || ex.name == "NotAllowedError")) {
             throw ex;
           }
           // On Windows, we may get an access denied error instead of a no such

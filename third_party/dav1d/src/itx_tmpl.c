@@ -1,6 +1,6 @@
 /*
- * Copyright © 2018, VideoLAN and dav1d authors
- * Copyright © 2018, Two Orioles, LLC
+ * Copyright © 2018-2019, VideoLAN and dav1d authors
+ * Copyright © 2018-2019, Two Orioles, LLC
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,7 +27,6 @@
 
 #include "config.h"
 
-#include <assert.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
@@ -36,138 +35,152 @@
 #include "common/intops.h"
 
 #include "src/itx.h"
+#include "src/itx_1d.h"
 
-#include "src/itx_1d.c"
-
-typedef void (*itx_1d_fn)(const coef *in, ptrdiff_t in_s,
-                          coef *out, ptrdiff_t out_s, const int range);
-
-static void NOINLINE
-inv_txfm_add_c(pixel *dst, const ptrdiff_t stride,
-               coef *const coeff, const int eob,
-               const int w, const int h, const int shift1, const int shift2,
-               const itx_1d_fn first_1d_fn, const itx_1d_fn second_1d_fn)
+static NOINLINE void
+inv_txfm_add_c(pixel *dst, const ptrdiff_t stride, coef *const coeff,
+               const int eob, const int w, const int h, const int shift,
+               const itx_1d_fn first_1d_fn, const itx_1d_fn second_1d_fn,
+               const int has_dconly HIGHBD_DECL_SUFFIX)
 {
-    int i, j;
-    const ptrdiff_t sh = imin(h, 32), sw = imin(w, 32);
-    assert((h >= 4 || h <= 64) && (w >= 4 || w <= 64));
-    // Maximum value for h and w is 64
-    coef tmp[4096 /* w * h */], out[64 /* h */], in_mem[64 /* w */];
+    assert(w >= 4 && w <= 64);
+    assert(h >= 4 && h <= 64);
+    assert(eob >= 0);
+
     const int is_rect2 = w * 2 == h || h * 2 == w;
-    const int row_clip_max = (1 << (BITDEPTH + 8 - 1)) - 1;
-    const int col_clip_max = (1 << (imax(BITDEPTH + 6, 16) - 1)) -1;
-    const int col_clip_min = -col_clip_max - 1;
+    const int rnd = (1 << shift) >> 1;
 
-    if (w != sw) memset(&in_mem[sw], 0, (w - sw) * sizeof(*in_mem));
-    const int rnd1 = (1 << shift1) >> 1;
-    for (i = 0; i < sh; i++) {
-        if (w != sw || is_rect2) {
-            for (j = 0; j < sw; j++) {
-                in_mem[j] = coeff[i + j * sh];
-                if (is_rect2)
-                    in_mem[j] = (in_mem[j] * 2896 + 2048) >> 12;
-            }
-            first_1d_fn(in_mem, 1, &tmp[i * w], 1, row_clip_max);
-        } else {
-            first_1d_fn(&coeff[i], sh, &tmp[i * w], 1, row_clip_max);
-        }
-        for (j = 0; j < w; j++)
-            tmp[i * w + j] = iclip((tmp[i * w + j] + (rnd1)) >> shift1,
-                                   col_clip_min, col_clip_max);
+    if (eob < has_dconly) {
+        int dc = coeff[0];
+        coeff[0] = 0;
+        if (is_rect2)
+            dc = (dc * 181 + 128) >> 8;
+        dc = (dc * 181 + 128) >> 8;
+        dc = (dc + rnd) >> shift;
+        dc = (dc * 181 + 128 + 2048) >> 12;
+        for (int y = 0; y < h; y++, dst += PXSTRIDE(stride))
+            for (int x = 0; x < w; x++)
+                dst[x] = iclip_pixel(dst[x] + dc);
+        return;
     }
 
-    if (h != sh) memset(&tmp[sh * w], 0, w * (h - sh) * sizeof(*tmp));
-    const int rnd2 = (1 << shift2) >> 1;
-    for (i = 0; i < w; i++) {
-        second_1d_fn(&tmp[i], w, out, 1, col_clip_max);
-        for (j = 0; j < h; j++)
-            dst[i + j * PXSTRIDE(stride)] =
-                iclip_pixel(dst[i + j * PXSTRIDE(stride)] +
-                            ((out[j] + (rnd2)) >> shift2));
+    const int sh = imin(h, 32), sw = imin(w, 32);
+#if BITDEPTH == 8
+    const int row_clip_min = INT16_MIN;
+    const int col_clip_min = INT16_MIN;
+#else
+    const int row_clip_min = (int) ((unsigned) ~bitdepth_max << 7);
+    const int col_clip_min = (int) ((unsigned) ~bitdepth_max << 5);
+#endif
+    const int row_clip_max = ~row_clip_min;
+    const int col_clip_max = ~col_clip_min;
+
+    int32_t tmp[64 * 64], *c = tmp;
+    for (int y = 0; y < sh; y++, c += w) {
+        if (is_rect2)
+            for (int x = 0; x < sw; x++)
+                c[x] = (coeff[y + x * sh] * 181 + 128) >> 8;
+        else
+            for (int x = 0; x < sw; x++)
+                c[x] = coeff[y + x * sh];
+        first_1d_fn(c, 1, row_clip_min, row_clip_max);
     }
-    memset(coeff, 0, sizeof(*coeff) * sh * sw);
+
+    memset(coeff, 0, sizeof(*coeff) * sw * sh);
+    for (int i = 0; i < w * sh; i++)
+        tmp[i] = iclip((tmp[i] + rnd) >> shift, col_clip_min, col_clip_max);
+
+    for (int x = 0; x < w; x++)
+        second_1d_fn(&tmp[x], w, col_clip_min, col_clip_max);
+
+    c = tmp;
+    for (int y = 0; y < h; y++, dst += PXSTRIDE(stride))
+        for (int x = 0; x < w; x++)
+            dst[x] = iclip_pixel(dst[x] + ((*c++ + 8) >> 4));
 }
 
-#define inv_txfm_fn(type1, type2, w, h, shift1, shift2) \
+#define inv_txfm_fn(type1, type2, w, h, shift, has_dconly) \
 static void \
 inv_txfm_add_##type1##_##type2##_##w##x##h##_c(pixel *dst, \
                                                const ptrdiff_t stride, \
                                                coef *const coeff, \
-                                               const int eob) \
+                                               const int eob \
+                                               HIGHBD_DECL_SUFFIX) \
 { \
-    inv_txfm_add_c(dst, stride, coeff, eob, w, h, shift1, shift2, \
-                   inv_##type1##w##_1d, inv_##type2##h##_1d); \
+    inv_txfm_add_c(dst, stride, coeff, eob, w, h, shift, \
+                   dav1d_inv_##type1##w##_1d_c, dav1d_inv_##type2##h##_1d_c, \
+                   has_dconly HIGHBD_TAIL_SUFFIX); \
 }
 
-#define inv_txfm_fn64(w, h, shift1, shift2) \
-inv_txfm_fn(dct, dct, w, h, shift1, shift2)
+#define inv_txfm_fn64(w, h, shift) \
+inv_txfm_fn(dct, dct, w, h, shift, 1)
 
-#define inv_txfm_fn32(w, h, shift1, shift2) \
-inv_txfm_fn64(w, h, shift1, shift2) \
-inv_txfm_fn(identity, identity, w, h, shift1, shift2)
+#define inv_txfm_fn32(w, h, shift) \
+inv_txfm_fn64(w, h, shift) \
+inv_txfm_fn(identity, identity, w, h, shift, 0)
 
-#define inv_txfm_fn16(w, h, shift1, shift2) \
-inv_txfm_fn32(w, h, shift1, shift2) \
-inv_txfm_fn(adst,     dct,      w, h, shift1, shift2) \
-inv_txfm_fn(dct,      adst,     w, h, shift1, shift2) \
-inv_txfm_fn(adst,     adst,     w, h, shift1, shift2) \
-inv_txfm_fn(dct,      flipadst, w, h, shift1, shift2) \
-inv_txfm_fn(flipadst, dct,      w, h, shift1, shift2) \
-inv_txfm_fn(adst,     flipadst, w, h, shift1, shift2) \
-inv_txfm_fn(flipadst, adst,     w, h, shift1, shift2) \
-inv_txfm_fn(flipadst, flipadst, w, h, shift1, shift2) \
-inv_txfm_fn(identity, dct,      w, h, shift1, shift2) \
-inv_txfm_fn(dct,      identity, w, h, shift1, shift2) \
+#define inv_txfm_fn16(w, h, shift) \
+inv_txfm_fn32(w, h, shift) \
+inv_txfm_fn(adst,     dct,      w, h, shift, 0) \
+inv_txfm_fn(dct,      adst,     w, h, shift, 0) \
+inv_txfm_fn(adst,     adst,     w, h, shift, 0) \
+inv_txfm_fn(dct,      flipadst, w, h, shift, 0) \
+inv_txfm_fn(flipadst, dct,      w, h, shift, 0) \
+inv_txfm_fn(adst,     flipadst, w, h, shift, 0) \
+inv_txfm_fn(flipadst, adst,     w, h, shift, 0) \
+inv_txfm_fn(flipadst, flipadst, w, h, shift, 0) \
+inv_txfm_fn(identity, dct,      w, h, shift, 0) \
+inv_txfm_fn(dct,      identity, w, h, shift, 0) \
 
-#define inv_txfm_fn84(w, h, shift1, shift2) \
-inv_txfm_fn16(w, h, shift1, shift2) \
-inv_txfm_fn(identity, flipadst, w, h, shift1, shift2) \
-inv_txfm_fn(flipadst, identity, w, h, shift1, shift2) \
-inv_txfm_fn(identity, adst,     w, h, shift1, shift2) \
-inv_txfm_fn(adst,     identity, w, h, shift1, shift2) \
+#define inv_txfm_fn84(w, h, shift) \
+inv_txfm_fn16(w, h, shift) \
+inv_txfm_fn(identity, flipadst, w, h, shift, 0) \
+inv_txfm_fn(flipadst, identity, w, h, shift, 0) \
+inv_txfm_fn(identity, adst,     w, h, shift, 0) \
+inv_txfm_fn(adst,     identity, w, h, shift, 0) \
 
-inv_txfm_fn84( 4,  4, 0, 4)
-inv_txfm_fn84( 4,  8, 0, 4)
-inv_txfm_fn84( 4, 16, 1, 4)
-inv_txfm_fn84( 8,  4, 0, 4)
-inv_txfm_fn84( 8,  8, 1, 4)
-inv_txfm_fn84( 8, 16, 1, 4)
-inv_txfm_fn32( 8, 32, 2, 4)
-inv_txfm_fn84(16,  4, 1, 4)
-inv_txfm_fn84(16,  8, 1, 4)
-inv_txfm_fn16(16, 16, 2, 4)
-inv_txfm_fn32(16, 32, 1, 4)
-inv_txfm_fn64(16, 64, 2, 4)
-inv_txfm_fn32(32,  8, 2, 4)
-inv_txfm_fn32(32, 16, 1, 4)
-inv_txfm_fn32(32, 32, 2, 4)
-inv_txfm_fn64(32, 64, 1, 4)
-inv_txfm_fn64(64, 16, 2, 4)
-inv_txfm_fn64(64, 32, 1, 4)
-inv_txfm_fn64(64, 64, 2, 4)
+inv_txfm_fn84( 4,  4, 0)
+inv_txfm_fn84( 4,  8, 0)
+inv_txfm_fn84( 4, 16, 1)
+inv_txfm_fn84( 8,  4, 0)
+inv_txfm_fn84( 8,  8, 1)
+inv_txfm_fn84( 8, 16, 1)
+inv_txfm_fn32( 8, 32, 2)
+inv_txfm_fn84(16,  4, 1)
+inv_txfm_fn84(16,  8, 1)
+inv_txfm_fn16(16, 16, 2)
+inv_txfm_fn32(16, 32, 1)
+inv_txfm_fn64(16, 64, 2)
+inv_txfm_fn32(32,  8, 2)
+inv_txfm_fn32(32, 16, 1)
+inv_txfm_fn32(32, 32, 2)
+inv_txfm_fn64(32, 64, 1)
+inv_txfm_fn64(64, 16, 2)
+inv_txfm_fn64(64, 32, 1)
+inv_txfm_fn64(64, 64, 2)
 
 static void inv_txfm_add_wht_wht_4x4_c(pixel *dst, const ptrdiff_t stride,
-                                       coef *const coeff, const int eob)
+                                       coef *const coeff, const int eob
+                                       HIGHBD_DECL_SUFFIX)
 {
-    const int col_clip_max = (1 << (imax(BITDEPTH + 6, 16) - 1)) -1;
-    const int col_clip_min = -col_clip_max - 1;
-    coef tmp[4 * 4], out[4];
-
-    for (int i = 0; i < 4; i++)
-        inv_wht4_1d(&coeff[i], 4, &tmp[i * 4], 1, 0);
-    for (int k = 0; k < 4 * 4; k++)
-        tmp[k] = iclip(tmp[k], col_clip_min, col_clip_max);
-
-    for (int i = 0; i < 4; i++) {
-        inv_wht4_1d(&tmp[i], 4, out, 1, 1);
-        for (int j = 0; j < 4; j++)
-            dst[i + j * PXSTRIDE(stride)] =
-                iclip_pixel(dst[i + j * PXSTRIDE(stride)] + out[j]);
+    int32_t tmp[4 * 4], *c = tmp;
+    for (int y = 0; y < 4; y++, c += 4) {
+        for (int x = 0; x < 4; x++)
+            c[x] = coeff[y + x * 4] >> 2;
+        dav1d_inv_wht4_1d_c(c, 1);
     }
     memset(coeff, 0, sizeof(*coeff) * 4 * 4);
+
+    for (int x = 0; x < 4; x++)
+        dav1d_inv_wht4_1d_c(&tmp[x], 4);
+
+    c = tmp;
+    for (int y = 0; y < 4; y++, dst += PXSTRIDE(stride))
+        for (int x = 0; x < 4; x++)
+            dst[x] = iclip_pixel(dst[x] + *c++);
 }
 
-void bitfn(dav1d_itx_dsp_init)(Dav1dInvTxfmDSPContext *const c) {
+COLD void bitfn(dav1d_itx_dsp_init)(Dav1dInvTxfmDSPContext *const c, int bpc) {
 #define assign_itx_all_fn64(w, h, pfx) \
     c->itxfm_add[pfx##TX_##w##X##h][DCT_DCT  ] = \
         inv_txfm_add_dct_dct_##w##x##h##_c
@@ -211,8 +224,6 @@ void bitfn(dav1d_itx_dsp_init)(Dav1dInvTxfmDSPContext *const c) {
     c->itxfm_add[pfx##TX_##w##X##h][V_ADST] = \
         inv_txfm_add_identity_adst_##w##x##h##_c; \
 
-    memset(c, 0, sizeof(*c)); /* Zero unused function pointer elements. */
-
     c->itxfm_add[TX_4X4][WHT_WHT] = inv_txfm_add_wht_wht_4x4_c;
     assign_itx_all_fn84( 4,  4, );
     assign_itx_all_fn84( 4,  8, R);
@@ -234,7 +245,12 @@ void bitfn(dav1d_itx_dsp_init)(Dav1dInvTxfmDSPContext *const c) {
     assign_itx_all_fn64(64, 32, R);
     assign_itx_all_fn64(64, 64, );
 
-#if HAVE_ASM && ARCH_X86
+#if HAVE_ASM
+#if ARCH_AARCH64 || ARCH_ARM
+    bitfn(dav1d_itx_dsp_init_arm)(c, bpc);
+#endif
+#if ARCH_X86
     bitfn(dav1d_itx_dsp_init_x86)(c);
+#endif
 #endif
 }

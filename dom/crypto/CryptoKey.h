@@ -113,13 +113,17 @@ class CryptoKey final : public nsISupports, public nsWrapperCache {
   nsresult AddPublicKeyData(SECKEYPublicKey* point);
   void ClearUsages();
   nsresult AddUsage(const nsString& aUsage);
-  nsresult AddUsageIntersecting(const nsString& aUsage, uint32_t aUsageMask);
+  nsresult AddAllowedUsage(const nsString& aUsage, const nsString& aAlgorithm);
+  nsresult AddAllowedUsageIntersecting(const nsString& aUsage,
+                                       const nsString& aAlgorithm,
+                                       uint32_t aUsageMask = USAGES_MASK);
   void AddUsage(KeyUsage aUsage);
   bool HasAnyUsage();
   bool HasUsage(KeyUsage aUsage);
   bool HasUsageOtherThan(uint32_t aUsages);
   static bool IsRecognizedUsage(const nsString& aUsage);
   static bool AllUsagesRecognized(const Sequence<nsString>& aUsages);
+  static uint32_t GetAllowedUsagesForAlgorithm(const nsString& aAlgorithm);
 
   nsresult SetSymKey(const CryptoBuffer& aSymKey);
   nsresult SetPrivateKey(SECKEYPrivateKey* aPrivateKey);
@@ -150,12 +154,6 @@ class CryptoKey final : public nsISupports, public nsWrapperCache {
   static UniqueSECKEYPublicKey PublicKeyFromJwk(const JsonWebKey& aKeyData);
   static nsresult PublicKeyToJwk(SECKEYPublicKey* aPubKey, JsonWebKey& aRetVal);
 
-  static UniqueSECKEYPublicKey PublicDhKeyFromRaw(
-      CryptoBuffer& aKeyData, const CryptoBuffer& aPrime,
-      const CryptoBuffer& aGenerator);
-  static nsresult PublicDhKeyToRaw(SECKEYPublicKey* aPubKey,
-                                   CryptoBuffer& aRetVal);
-
   static UniqueSECKEYPublicKey PublicECKeyFromRaw(CryptoBuffer& aKeyData,
                                                   const nsString& aNamedCurve);
   static nsresult PublicECKeyToRaw(SECKEYPublicKey* aPubKey,
@@ -164,11 +162,14 @@ class CryptoKey final : public nsISupports, public nsWrapperCache {
   static bool PublicKeyValid(SECKEYPublicKey* aPubKey);
 
   // Structured clone methods use these to clone keys
-  bool WriteStructuredClone(JSStructuredCloneWriter* aWriter) const;
-  bool ReadStructuredClone(JSStructuredCloneReader* aReader);
+  bool WriteStructuredClone(JSContext* aCx,
+                            JSStructuredCloneWriter* aWriter) const;
+  static already_AddRefed<CryptoKey> ReadStructuredClone(
+      JSContext* aCx, nsIGlobalObject* aGlobal,
+      JSStructuredCloneReader* aReader);
 
  private:
-  ~CryptoKey() {}
+  ~CryptoKey() = default;
 
   RefPtr<nsIGlobalObject> mGlobal;
   uint32_t mAttributes;  // see above

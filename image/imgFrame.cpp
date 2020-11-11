@@ -13,7 +13,7 @@
 
 #include "gfx2DGlue.h"
 #include "gfxPlatform.h"
-#include "gfxPrefs.h"
+
 #include "gfxUtils.h"
 
 #include "GeckoProfiler.h"
@@ -22,14 +22,16 @@
 #include "mozilla/gfx/gfxVars.h"
 #include "mozilla/gfx/Tools.h"
 #include "mozilla/gfx/SourceSurfaceRawData.h"
-#include "mozilla/image/RecyclingSourceSurface.h"
 #include "mozilla/layers/SourceSurfaceSharedData.h"
 #include "mozilla/layers/SourceSurfaceVolatileData.h"
 #include "mozilla/Likely.h"
 #include "mozilla/MemoryReporting.h"
+#include "mozilla/StaticPrefs_browser.h"
 #include "nsMargin.h"
 #include "nsRefreshDriver.h"
 #include "nsThreadUtils.h"
+
+#include <algorithm>  // for min, max
 
 namespace mozilla {
 
@@ -37,9 +39,20 @@ using namespace gfx;
 
 namespace image {
 
-static void ScopedMapRelease(void* aMap) {
-  delete static_cast<DataSourceSurface::ScopedMap*>(aMap);
-}
+/**
+ * This class is identical to SourceSurfaceSharedData but returns a different
+ * type so that SharedSurfacesChild is aware imagelib wants to recycle this
+ * surface for future animation frames.
+ */
+class RecyclingSourceSurfaceSharedData final : public SourceSurfaceSharedData {
+ public:
+  MOZ_DECLARE_REFCOUNTED_VIRTUAL_TYPENAME(RecyclingSourceSurfaceSharedData,
+                                          override)
+
+  SurfaceType GetType() const override {
+    return SurfaceType::DATA_RECYCLING_SHARED;
+  }
+};
 
 static int32_t VolatileSurfaceStride(const IntSize& size,
                                      SurfaceFormat format) {
@@ -49,25 +62,27 @@ static int32_t VolatileSurfaceStride(const IntSize& size,
 
 static already_AddRefed<DataSourceSurface> CreateLockedSurface(
     DataSourceSurface* aSurface, const IntSize& size, SurfaceFormat format) {
-  // Shared memory is never released until the surface itself is released
-  if (aSurface->GetType() == SurfaceType::DATA_SHARED) {
-    RefPtr<DataSourceSurface> surf(aSurface);
-    return surf.forget();
-  }
-
-  DataSourceSurface::ScopedMap* smap =
-      new DataSourceSurface::ScopedMap(aSurface, DataSourceSurface::READ_WRITE);
-  if (smap->IsMapped()) {
-    // The ScopedMap is held by this DataSourceSurface.
-    RefPtr<DataSourceSurface> surf = Factory::CreateWrappingDataSourceSurface(
-        smap->GetData(), aSurface->Stride(), size, format, &ScopedMapRelease,
-        static_cast<void*>(smap));
-    if (surf) {
+  switch (aSurface->GetType()) {
+    case SurfaceType::DATA_SHARED:
+    case SurfaceType::DATA_RECYCLING_SHARED:
+    case SurfaceType::DATA_ALIGNED: {
+      // Shared memory is never released until the surface itself is released.
+      // Similar for aligned/heap surfaces.
+      RefPtr<DataSourceSurface> surf(aSurface);
       return surf.forget();
+    }
+    default: {
+      // Volatile memory requires us to map it first, and it is fallible.
+      DataSourceSurface::ScopedMap smap(aSurface,
+                                        DataSourceSurface::READ_WRITE);
+      if (smap.IsMapped()) {
+        return MakeAndAddRef<SourceSurfaceMappedData>(std::move(smap), size,
+                                                      format);
+      }
+      break;
     }
   }
 
-  delete smap;
   return nullptr;
 }
 
@@ -81,28 +96,28 @@ static bool ShouldUseHeap(const IntSize& aSize, int32_t aStride,
 
   // For as long as an animated image is retained, its frames will never be
   // released to let the OS purge volatile buffers.
-  if (aIsAnimated && gfxPrefs::ImageMemAnimatedUseHeap()) {
+  if (aIsAnimated && StaticPrefs::image_mem_animated_use_heap()) {
     return true;
   }
 
   // Lets us avoid too many small images consuming all of the handles. The
   // actual allocation checks for overflow.
-  int32_t bufferSize = (aStride * aSize.width) / 1024;
-  if (bufferSize < gfxPrefs::ImageMemVolatileMinThresholdKB()) {
-    return true;
-  }
-
-  return false;
+  int32_t bufferSize = (aStride * aSize.height) / 1024;
+  return bufferSize < StaticPrefs::image_mem_volatile_min_threshold_kb();
 }
 
 static already_AddRefed<DataSourceSurface> AllocateBufferForImage(
-    const IntSize& size, SurfaceFormat format, bool aIsAnimated = false,
-    bool aIsFullFrame = true) {
+    const IntSize& size, SurfaceFormat format, bool aShouldRecycle = false,
+    bool aIsAnimated = false) {
   int32_t stride = VolatileSurfaceStride(size, format);
 
-  if (gfxVars::GetUseWebRenderOrDefault() && gfxPrefs::ImageMemShared() &&
-      aIsFullFrame) {
-    RefPtr<SourceSurfaceSharedData> newSurf = new SourceSurfaceSharedData();
+  if (gfxVars::GetUseWebRenderOrDefault() && StaticPrefs::image_mem_shared()) {
+    RefPtr<SourceSurfaceSharedData> newSurf;
+    if (aShouldRecycle) {
+      newSurf = new RecyclingSourceSurfaceSharedData();
+    } else {
+      newSurf = new SourceSurfaceSharedData();
+    }
     if (newSurf->Init(size, stride, format)) {
       return newSurf.forget();
     }
@@ -121,17 +136,50 @@ static already_AddRefed<DataSourceSurface> AllocateBufferForImage(
   return nullptr;
 }
 
+static bool GreenSurface(DataSourceSurface* aSurface, const IntSize& aSize,
+                         SurfaceFormat aFormat) {
+  int32_t stride = aSurface->Stride();
+  uint32_t* surfaceData = reinterpret_cast<uint32_t*>(aSurface->GetData());
+  uint32_t surfaceDataLength = (stride * aSize.height) / sizeof(uint32_t);
+
+  // Start by assuming that GG is in the second byte and
+  // AA is in the final byte -- the most common case.
+  uint32_t color = mozilla::NativeEndian::swapFromBigEndian(0x00FF00FF);
+
+  // We are only going to handle this type of test under
+  // certain circumstances.
+  MOZ_ASSERT(surfaceData);
+  MOZ_ASSERT(aFormat == SurfaceFormat::B8G8R8A8 ||
+             aFormat == SurfaceFormat::B8G8R8X8 ||
+             aFormat == SurfaceFormat::R8G8B8A8 ||
+             aFormat == SurfaceFormat::R8G8B8X8 ||
+             aFormat == SurfaceFormat::A8R8G8B8 ||
+             aFormat == SurfaceFormat::X8R8G8B8);
+  MOZ_ASSERT((stride * aSize.height) % sizeof(uint32_t));
+
+  if (aFormat == SurfaceFormat::A8R8G8B8 ||
+      aFormat == SurfaceFormat::X8R8G8B8) {
+    color = mozilla::NativeEndian::swapFromBigEndian(0xFF00FF00);
+  }
+
+  for (uint32_t i = 0; i < surfaceDataLength; i++) {
+    surfaceData[i] = color;
+  }
+
+  return true;
+}
+
 static bool ClearSurface(DataSourceSurface* aSurface, const IntSize& aSize,
                          SurfaceFormat aFormat) {
   int32_t stride = aSurface->Stride();
   uint8_t* data = aSurface->GetData();
   MOZ_ASSERT(data);
 
-  if (aFormat == SurfaceFormat::B8G8R8X8) {
+  if (aFormat == SurfaceFormat::OS_RGBX) {
     // Skia doesn't support RGBX surfaces, so ensure the alpha value is set
     // to opaque white. While it would be nice to only do this for Skia,
     // imgFrame can run off main thread and past shutdown where
-    // we might not have gfxPlatform, so just memset everytime instead.
+    // we might not have gfxPlatform, so just memset every time instead.
     memset(data, 0xFF, stride * aSize.height);
   } else if (aSurface->OnHeap()) {
     // We only need to memset it if the buffer was allocated on the heap.
@@ -143,26 +191,10 @@ static bool ClearSurface(DataSourceSurface* aSurface, const IntSize& aSize,
   return true;
 }
 
-static bool AllowedImageAndFrameDimensions(const nsIntSize& aImageSize,
-                                           const nsIntRect& aFrameRect) {
-  if (!SurfaceCache::IsLegalSize(aImageSize)) {
-    return false;
-  }
-  if (!SurfaceCache::IsLegalSize(aFrameRect.Size())) {
-    return false;
-  }
-  nsIntRect imageRect(0, 0, aImageSize.width, aImageSize.height);
-  if (!imageRect.Contains(aFrameRect)) {
-    NS_WARNING("Animated image frame does not fit inside bounds of image");
-  }
-  return true;
-}
-
 imgFrame::imgFrame()
     : mMonitor("imgFrame"),
       mDecoded(0, 0, 0, 0),
       mLockCount(0),
-      mRecycleLockCount(0),
       mAborted(false),
       mFinished(false),
       mOptimizable(false),
@@ -171,11 +203,7 @@ imgFrame::imgFrame()
       mDisposalMethod(DisposalMethod::NOT_SPECIFIED),
       mBlendMethod(BlendMethod::OVER),
       mFormat(SurfaceFormat::UNKNOWN),
-      mPalettedImageData(nullptr),
-      mPaletteDepth(0),
-      mNonPremult(false),
-      mIsFullFrame(false),
-      mCompositingFailed(false) {}
+      mNonPremult(false) {}
 
 imgFrame::~imgFrame() {
 #ifdef DEBUG
@@ -183,112 +211,94 @@ imgFrame::~imgFrame() {
   MOZ_ASSERT(mAborted || AreAllPixelsWritten());
   MOZ_ASSERT(mAborted || mFinished);
 #endif
-
-  free(mPalettedImageData);
-  mPalettedImageData = nullptr;
 }
 
 nsresult imgFrame::InitForDecoder(const nsIntSize& aImageSize,
-                                  const nsIntRect& aRect, SurfaceFormat aFormat,
-                                  uint8_t aPaletteDepth, bool aNonPremult,
+                                  SurfaceFormat aFormat, bool aNonPremult,
                                   const Maybe<AnimationParams>& aAnimParams,
-                                  bool aIsFullFrame, bool aShouldRecycle) {
+                                  bool aShouldRecycle) {
   // Assert for properties that should be verified by decoders,
   // warn for properties related to bad content.
-  if (!AllowedImageAndFrameDimensions(aImageSize, aRect)) {
+  if (!SurfaceCache::IsLegalSize(aImageSize)) {
     NS_WARNING("Should have legal image size");
     mAborted = true;
     return NS_ERROR_FAILURE;
   }
 
   mImageSize = aImageSize;
-  mFrameRect = aRect;
 
   // May be updated shortly after InitForDecoder by BlendAnimationFilter
   // because it needs to take into consideration the previous frames to
   // properly calculate. We start with the whole frame as dirty.
-  mDirtyRect = aRect;
+  mDirtyRect = GetRect();
 
   if (aAnimParams) {
     mBlendRect = aAnimParams->mBlendRect;
     mTimeout = aAnimParams->mTimeout;
     mBlendMethod = aAnimParams->mBlendMethod;
     mDisposalMethod = aAnimParams->mDisposalMethod;
-    mIsFullFrame = aAnimParams->mFrameNum == 0 || aIsFullFrame;
   } else {
-    mBlendRect = aRect;
-    mIsFullFrame = true;
-  }
-
-  // We only allow a non-trivial frame rect (i.e., a frame rect that doesn't
-  // cover the entire image) for paletted animation frames. We never draw those
-  // frames directly; we just use FrameAnimator to composite them and produce a
-  // BGRA surface that we actually draw. We enforce this here to make sure that
-  // imgFrame::Draw(), which is responsible for drawing all other kinds of
-  // frames, never has to deal with a non-trivial frame rect.
-  if (aPaletteDepth == 0 &&
-      !mFrameRect.IsEqualEdges(IntRect(IntPoint(), mImageSize))) {
-    MOZ_ASSERT_UNREACHABLE(
-        "Creating a non-paletted imgFrame with a "
-        "non-trivial frame rect");
-    return NS_ERROR_FAILURE;
+    mBlendRect = GetRect();
   }
 
   if (aShouldRecycle) {
     // If we are recycling then we should always use BGRA for the underlying
     // surface because if we use BGRX, the next frame composited into the
     // surface could be BGRA and cause rendering problems.
-    MOZ_ASSERT(mIsFullFrame);
-    MOZ_ASSERT(aPaletteDepth == 0);
     MOZ_ASSERT(aAnimParams);
-    mFormat = SurfaceFormat::B8G8R8A8;
+    mFormat = SurfaceFormat::OS_RGBA;
   } else {
     mFormat = aFormat;
   }
 
-  mPaletteDepth = aPaletteDepth;
   mNonPremult = aNonPremult;
   mShouldRecycle = aShouldRecycle;
 
-  if (aPaletteDepth != 0) {
-    // We're creating for a paletted image.
-    if (aPaletteDepth > 8) {
-      NS_WARNING("Should have legal palette depth");
-      NS_ERROR("This Depth is not supported");
-      mAborted = true;
-      return NS_ERROR_FAILURE;
-    }
+  MOZ_ASSERT(!mLockedSurface, "Called imgFrame::InitForDecoder() twice?");
 
-    // Use the fallible allocator here. Paletted images always use 1 byte per
-    // pixel, so calculating the amount of memory we need is straightforward.
-    size_t dataSize = PaletteDataLength() + mFrameRect.Area();
-    mPalettedImageData =
-        static_cast<uint8_t*>(calloc(dataSize, sizeof(uint8_t)));
-    if (!mPalettedImageData) {
-      NS_WARNING("Call to calloc for paletted image data should succeed");
-    }
-    NS_ENSURE_TRUE(mPalettedImageData, NS_ERROR_OUT_OF_MEMORY);
-  } else {
-    MOZ_ASSERT(!mLockedSurface, "Called imgFrame::InitForDecoder() twice?");
+  bool postFirstFrame = aAnimParams && aAnimParams->mFrameNum > 0;
+  mRawSurface = AllocateBufferForImage(mImageSize, mFormat, mShouldRecycle,
+                                       postFirstFrame);
+  if (!mRawSurface) {
+    mAborted = true;
+    return NS_ERROR_OUT_OF_MEMORY;
+  }
 
-    bool postFirstFrame = aAnimParams && aAnimParams->mFrameNum > 0;
-    mRawSurface = AllocateBufferForImage(mFrameRect.Size(), mFormat,
-                                         postFirstFrame, mIsFullFrame);
-    if (!mRawSurface) {
+  if (StaticPrefs::browser_measurement_render_anims_and_video_solid() &&
+      aAnimParams) {
+    mBlankRawSurface = AllocateBufferForImage(mImageSize, mFormat);
+    if (!mBlankRawSurface) {
       mAborted = true;
       return NS_ERROR_OUT_OF_MEMORY;
     }
+  }
 
-    mLockedSurface =
-        CreateLockedSurface(mRawSurface, mFrameRect.Size(), mFormat);
-    if (!mLockedSurface) {
-      NS_WARNING("Failed to create LockedSurface");
+  mLockedSurface = CreateLockedSurface(mRawSurface, mImageSize, mFormat);
+  if (!mLockedSurface) {
+    NS_WARNING("Failed to create LockedSurface");
+    mAborted = true;
+    return NS_ERROR_OUT_OF_MEMORY;
+  }
+
+  if (mBlankRawSurface) {
+    mBlankLockedSurface =
+        CreateLockedSurface(mBlankRawSurface, mImageSize, mFormat);
+    if (!mBlankLockedSurface) {
+      NS_WARNING("Failed to create BlankLockedSurface");
       mAborted = true;
       return NS_ERROR_OUT_OF_MEMORY;
     }
+  }
 
-    if (!ClearSurface(mRawSurface, mFrameRect.Size(), mFormat)) {
-      NS_WARNING("Could not clear allocated buffer");
+  if (!ClearSurface(mRawSurface, mImageSize, mFormat)) {
+    NS_WARNING("Could not clear allocated buffer");
+    mAborted = true;
+    return NS_ERROR_OUT_OF_MEMORY;
+  }
+
+  if (mBlankRawSurface) {
+    if (!GreenSurface(mBlankRawSurface, mImageSize, mFormat)) {
+      NS_WARNING("Could not clear allocated blank buffer");
       mAborted = true;
       return NS_ERROR_OUT_OF_MEMORY;
     }
@@ -302,12 +312,25 @@ nsresult imgFrame::InitForDecoderRecycle(const AnimationParams& aAnimParams) {
   // done with it in a timely manner. Let's ensure they are done with it first.
   MonitorAutoLock lock(mMonitor);
 
-  MOZ_ASSERT(mIsFullFrame);
   MOZ_ASSERT(mLockCount > 0);
   MOZ_ASSERT(mLockedSurface);
-  MOZ_ASSERT(mShouldRecycle);
 
-  if (mRecycleLockCount > 0) {
+  if (!mShouldRecycle) {
+    // This frame either was never marked as recyclable, or the flag was cleared
+    // for a caller which does not support recycling.
+    return NS_ERROR_NOT_AVAILABLE;
+  }
+
+  // Ensure we account for all internal references to the surface.
+  MozRefCountType internalRefs = 1;
+  if (mRawSurface == mLockedSurface) {
+    ++internalRefs;
+  }
+  if (mOptSurface == mLockedSurface) {
+    ++internalRefs;
+  }
+
+  if (mLockedSurface->refCount() > internalRefs) {
     if (NS_IsMainThread()) {
       // We should never be both decoding and recycling on the main thread. Sync
       // decoding can only be used to produce the first set of frames. Those
@@ -329,23 +352,23 @@ nsresult imgFrame::InitForDecoderRecycle(const AnimationParams& aAnimParams) {
     // outstanding transactions, we are already skipping frames. If the frame
     // is still in use for some other purpose, it won't be returned to the pool
     // and its owner can hold onto it forever without additional impact here.
-    TimeDuration timeout =
-        TimeDuration::FromMilliseconds(nsRefreshDriver::DefaultInterval());
+    int32_t refreshInterval =
+        std::max(std::min(nsRefreshDriver::DefaultInterval(), 20), 4);
+    TimeDuration waitInterval =
+        TimeDuration::FromMilliseconds(refreshInterval >> 2);
+    TimeStamp timeout =
+        TimeStamp::Now() + TimeDuration::FromMilliseconds(refreshInterval);
     while (true) {
-      TimeStamp start = TimeStamp::Now();
-      mMonitor.Wait(timeout);
-      if (mRecycleLockCount == 0) {
+      mMonitor.Wait(waitInterval);
+      if (mLockedSurface->refCount() <= internalRefs) {
         break;
       }
 
-      TimeDuration delta = TimeStamp::Now() - start;
-      if (delta >= timeout) {
+      if (timeout <= TimeStamp::Now()) {
         // We couldn't secure the frame for recycling. It will allocate a new
         // frame instead.
         return NS_ERROR_NOT_AVAILABLE;
       }
-
-      timeout -= delta;
     }
   }
 
@@ -353,7 +376,7 @@ nsresult imgFrame::InitForDecoderRecycle(const AnimationParams& aAnimParams) {
   mTimeout = aAnimParams.mTimeout;
   mBlendMethod = aAnimParams.mBlendMethod;
   mDisposalMethod = aAnimParams.mDisposalMethod;
-  mDirtyRect = mFrameRect;
+  mDirtyRect = GetRect();
 
   return NS_OK;
 }
@@ -373,10 +396,7 @@ nsresult imgFrame::InitWithDrawable(gfxDrawable* aDrawable,
   }
 
   mImageSize = aSize;
-  mFrameRect = IntRect(IntPoint(0, 0), aSize);
-
   mFormat = aFormat;
-  mPaletteDepth = 0;
 
   RefPtr<DrawTarget> target;
 
@@ -386,28 +406,27 @@ nsresult imgFrame::InitWithDrawable(gfxDrawable* aDrawable,
     // get away with using volatile buffers.
     MOZ_ASSERT(!mLockedSurface, "Called imgFrame::InitWithDrawable() twice?");
 
-    mRawSurface = AllocateBufferForImage(mFrameRect.Size(), mFormat);
+    mRawSurface = AllocateBufferForImage(mImageSize, mFormat);
     if (!mRawSurface) {
       mAborted = true;
       return NS_ERROR_OUT_OF_MEMORY;
     }
 
-    mLockedSurface =
-        CreateLockedSurface(mRawSurface, mFrameRect.Size(), mFormat);
+    mLockedSurface = CreateLockedSurface(mRawSurface, mImageSize, mFormat);
     if (!mLockedSurface) {
       NS_WARNING("Failed to create LockedSurface");
       mAborted = true;
       return NS_ERROR_OUT_OF_MEMORY;
     }
 
-    if (!ClearSurface(mRawSurface, mFrameRect.Size(), mFormat)) {
+    if (!ClearSurface(mRawSurface, mImageSize, mFormat)) {
       NS_WARNING("Could not clear allocated buffer");
       mAborted = true;
       return NS_ERROR_OUT_OF_MEMORY;
     }
 
     target = gfxPlatform::CreateDrawTargetForData(
-        mLockedSurface->GetData(), mFrameRect.Size(), mLockedSurface->Stride(),
+        mLockedSurface->GetData(), mImageSize, mLockedSurface->Stride(),
         mFormat);
   } else {
     // We can't use data surfaces for content, so we'll create an offscreen
@@ -418,10 +437,10 @@ nsresult imgFrame::InitWithDrawable(gfxDrawable* aDrawable,
 
     if (gfxPlatform::GetPlatform()->SupportsAzureContentForType(aBackend)) {
       target = gfxPlatform::GetPlatform()->CreateDrawTargetForBackend(
-          aBackend, mFrameRect.Size(), mFormat);
+          aBackend, mImageSize, mFormat);
     } else {
       target = gfxPlatform::GetPlatform()->CreateOffscreenContentDrawTarget(
-          mFrameRect.Size(), mFormat);
+          mImageSize, mFormat);
     }
   }
 
@@ -433,8 +452,8 @@ nsresult imgFrame::InitWithDrawable(gfxDrawable* aDrawable,
   // Draw using the drawable the caller provided.
   RefPtr<gfxContext> ctx = gfxContext::CreateOrNull(target);
   MOZ_ASSERT(ctx);  // Already checked the draw target above.
-  gfxUtils::DrawPixelSnapped(ctx, aDrawable, SizeDouble(mFrameRect.Size()),
-                             ImageRegion::Create(ThebesRect(mFrameRect)),
+  gfxUtils::DrawPixelSnapped(ctx, aDrawable, SizeDouble(mImageSize),
+                             ImageRegion::Create(ThebesRect(GetRect())),
                              mFormat, aSamplingFilter, aImageFlags);
 
   if (canUseDataSurface && !mLockedSurface) {
@@ -491,7 +510,7 @@ nsresult imgFrame::Optimize(DrawTarget* aTarget) {
     return NS_OK;
   }
 
-  if (mPalettedImageData || mOptSurface) {
+  if (mOptSurface) {
     return NS_OK;
   }
 
@@ -500,10 +519,13 @@ nsresult imgFrame::Optimize(DrawTarget* aTarget) {
   if (mNonPremult) {
     return NS_OK;
   }
-
-  mOptSurface = gfxPlatform::GetPlatform()
-                    ->ScreenReferenceDrawTarget()
-                    ->OptimizeSourceSurface(mLockedSurface);
+  if (!gfxVars::UseWebRender()) {
+    mOptSurface = aTarget->OptimizeSourceSurface(mLockedSurface);
+  } else {
+    mOptSurface = gfxPlatform::GetPlatform()
+                      ->ScreenReferenceDrawTarget()
+                      ->OptimizeSourceSurface(mLockedSurface);
+  }
   if (mOptSurface == mLockedSurface) {
     mOptSurface = nullptr;
   }
@@ -558,7 +580,7 @@ imgFrame::SurfaceWithFormat imgFrame::SurfaceForDrawing(
     // transparent pixels in the padding or undecoded area
     RefPtr<DrawTarget> target =
         gfxPlatform::GetPlatform()->CreateOffscreenContentDrawTarget(
-            mImageSize, SurfaceFormat::B8G8R8A8);
+            mImageSize, SurfaceFormat::OS_RGBA);
     if (!target) {
       return SurfaceWithFormat();
     }
@@ -591,13 +613,6 @@ bool imgFrame::Draw(gfxContext* aContext, const ImageRegion& aRegion,
   NS_ASSERTION(!aRegion.IsRestricted() ||
                    !aRegion.Rect().Intersect(aRegion.Restriction()).IsEmpty(),
                "We must be allowed to sample *some* source pixels!");
-  MOZ_ASSERT(mFrameRect.IsEqualEdges(IntRect(IntPoint(), mImageSize)),
-             "Directly drawing an image with a non-trivial frame rect!");
-
-  if (mPalettedImageData) {
-    MOZ_ASSERT_UNREACHABLE("Directly drawing a paletted image!");
-    return false;
-  }
 
   // Perform the draw and freeing of the surface outside the lock. We want to
   // avoid contention with the decoder if we can. The surface may also attempt
@@ -624,9 +639,8 @@ bool imgFrame::Draw(gfxContext* aContext, const ImageRegion& aRegion,
     // this frame is the current frame of the animation. Since we can only
     // advance on the main thread, we know nothing else will try to use it.
     DrawTarget* drawTarget = aContext->GetDrawTarget();
-    bool temporary = !drawTarget->IsCaptureDT() &&
-                     drawTarget->GetBackendType() != BackendType::RECORDING;
-    RefPtr<SourceSurface> surf = GetSourceSurfaceInternal(temporary);
+    bool recording = drawTarget->GetBackendType() == BackendType::RECORDING;
+    RefPtr<SourceSurface> surf = GetSourceSurfaceInternal();
     if (!surf) {
       return false;
     }
@@ -635,6 +649,14 @@ bool imgFrame::Draw(gfxContext* aContext, const ImageRegion& aRegion,
                   !(aImageFlags & imgIContainer::FLAG_CLAMP);
 
     surfaceResult = SurfaceForDrawing(doPartialDecode, doTile, region, surf);
+
+    // If we are recording, then we cannot recycle the surface. The blob
+    // rasterizer is not properly synchronized for recycling in the compositor
+    // process. The easiest thing to do is just mark the frames it consumes as
+    // non-recyclable.
+    if (recording && surfaceResult.IsValid()) {
+      mShouldRecycle = false;
+    }
   }
 
   if (surfaceResult.IsValid()) {
@@ -656,17 +678,12 @@ nsresult imgFrame::ImageUpdatedInternal(const nsIntRect& aUpdateRect) {
 
   // Clamp to the frame rect to ensure that decoder bugs don't result in a
   // decoded rect that extends outside the bounds of the frame rect.
-  IntRect updateRect = mFrameRect.Intersect(aUpdateRect);
+  IntRect updateRect = aUpdateRect.Intersect(GetRect());
   if (updateRect.IsEmpty()) {
     return NS_OK;
   }
 
   mDecoded.UnionRect(mDecoded, updateRect);
-
-  // Paletted images cannot invalidate.
-  if (mPalettedImageData) {
-    return NS_OK;
-  }
 
   // Update our invalidation counters for any consumers watching for changes
   // in the surface.
@@ -684,27 +701,26 @@ void imgFrame::Finish(Opacity aFrameOpacity /* = Opacity::SOME_TRANSPARENCY */,
   MonitorAutoLock lock(mMonitor);
   MOZ_ASSERT(mLockCount > 0, "Image data should be locked");
 
-  if (mPalettedImageData) {
-    ImageUpdatedInternal(mFrameRect);
-  } else if (!mDecoded.IsEqualEdges(mFrameRect)) {
+  IntRect frameRect(GetRect());
+  if (!mDecoded.IsEqualEdges(frameRect)) {
     // The decoder should have produced rows starting from either the bottom or
     // the top of the image. We need to calculate the region for which we have
     // not yet invalidated.
-    IntRect delta(0, 0, mFrameRect.width, 0);
+    IntRect delta(0, 0, frameRect.width, 0);
     if (mDecoded.y == 0) {
       delta.y = mDecoded.height;
-      delta.height = mFrameRect.height - mDecoded.height;
-    } else if (mDecoded.y + mDecoded.height == mFrameRect.height) {
-      delta.height = mFrameRect.height - mDecoded.y;
+      delta.height = frameRect.height - mDecoded.height;
+    } else if (mDecoded.y + mDecoded.height == frameRect.height) {
+      delta.height = frameRect.height - mDecoded.y;
     } else {
       MOZ_ASSERT_UNREACHABLE("Decoder only updated middle of image!");
-      delta = mFrameRect;
+      delta = frameRect;
     }
 
     ImageUpdatedInternal(delta);
   }
 
-  MOZ_ASSERT(mDecoded.IsEqualEdges(mFrameRect));
+  MOZ_ASSERT(mDecoded.IsEqualEdges(frameRect));
 
   if (aFinalize) {
     FinalizeSurfaceInternal();
@@ -720,18 +736,14 @@ uint32_t imgFrame::GetImageBytesPerRow() const {
   mMonitor.AssertCurrentThreadOwns();
 
   if (mRawSurface) {
-    return mFrameRect.Width() * BytesPerPixel(mFormat);
-  }
-
-  if (mPaletteDepth) {
-    return mFrameRect.Width();
+    return mImageSize.width * BytesPerPixel(mFormat);
   }
 
   return 0;
 }
 
 uint32_t imgFrame::GetImageDataLength() const {
-  return GetImageBytesPerRow() * mFrameRect.Height();
+  return GetImageBytesPerRow() * mImageSize.height;
 }
 
 void imgFrame::GetImageData(uint8_t** aData, uint32_t* aLength) const {
@@ -742,6 +754,7 @@ void imgFrame::GetImageData(uint8_t** aData, uint32_t* aLength) const {
 void imgFrame::GetImageDataInternal(uint8_t** aData, uint32_t* aLength) const {
   mMonitor.AssertCurrentThreadOwns();
   MOZ_ASSERT(mLockCount > 0, "Image data should be locked");
+  MOZ_ASSERT(mLockedSurface);
 
   if (mLockedSurface) {
     // TODO: This is okay for now because we only realloc shared surfaces on
@@ -751,15 +764,7 @@ void imgFrame::GetImageDataInternal(uint8_t** aData, uint32_t* aLength) const {
     MOZ_ASSERT(
         *aData,
         "mLockedSurface is non-null, but GetData is null in GetImageData");
-  } else if (mPalettedImageData) {
-    *aData = mPalettedImageData + PaletteDataLength();
-    MOZ_ASSERT(
-        *aData,
-        "mPalettedImageData is non-null, but result is null in GetImageData");
   } else {
-    MOZ_ASSERT(
-        false,
-        "Have neither mLockedSurface nor mPalettedImageData in GetImageData");
     *aData = nullptr;
   }
 
@@ -773,27 +778,6 @@ uint8_t* imgFrame::GetImageData() const {
   return data;
 }
 
-bool imgFrame::GetIsPaletted() const { return mPalettedImageData != nullptr; }
-
-void imgFrame::GetPaletteData(uint32_t** aPalette, uint32_t* length) const {
-  AssertImageDataLocked();
-
-  if (!mPalettedImageData) {
-    *aPalette = nullptr;
-    *length = 0;
-  } else {
-    *aPalette = (uint32_t*)mPalettedImageData;
-    *length = PaletteDataLength();
-  }
-}
-
-uint32_t* imgFrame::GetPaletteData() const {
-  uint32_t* data;
-  uint32_t length;
-  GetPaletteData(&data, &length);
-  return data;
-}
-
 uint8_t* imgFrame::LockImageData(bool aOnlyFinished) {
   MonitorAutoLock lock(mMonitor);
 
@@ -803,9 +787,7 @@ uint8_t* imgFrame::LockImageData(bool aOnlyFinished) {
   }
 
   uint8_t* data;
-  if (mPalettedImageData) {
-    data = mPalettedImageData;
-  } else if (mLockedSurface) {
+  if (mLockedSurface) {
     data = mLockedSurface->GetData();
   } else {
     data = nullptr;
@@ -864,37 +846,35 @@ void imgFrame::FinalizeSurfaceInternal() {
     return;
   }
 
-  auto sharedSurf = static_cast<SourceSurfaceSharedData*>(mRawSurface.get());
+  auto* sharedSurf = static_cast<SourceSurfaceSharedData*>(mRawSurface.get());
   sharedSurf->Finalize();
 }
 
 already_AddRefed<SourceSurface> imgFrame::GetSourceSurface() {
   MonitorAutoLock lock(mMonitor);
-  return GetSourceSurfaceInternal(/* aTemporary */ false);
+  return GetSourceSurfaceInternal();
 }
 
-already_AddRefed<SourceSurface> imgFrame::GetSourceSurfaceInternal(
-    bool aTemporary) {
+already_AddRefed<SourceSurface> imgFrame::GetSourceSurfaceInternal() {
   mMonitor.AssertCurrentThreadOwns();
 
   if (mOptSurface) {
     if (mOptSurface->IsValid()) {
       RefPtr<SourceSurface> surf(mOptSurface);
       return surf.forget();
-    } else {
-      mOptSurface = nullptr;
     }
+    mOptSurface = nullptr;
+  }
+
+  if (mBlankLockedSurface) {
+    // We are going to return the blank surface because of the flags.
+    // We are including comments here that are copied from below
+    // just so that we are on the same page!
+    RefPtr<SourceSurface> surf(mBlankLockedSurface);
+    return surf.forget();
   }
 
   if (mLockedSurface) {
-    // We don't need to create recycling wrapper for some callers because they
-    // promise to release the surface immediately after.
-    if (!aTemporary && mShouldRecycle) {
-      RefPtr<SourceSurface> surf =
-          new RecyclingSourceSurface(this, mLockedSurface);
-      return surf.forget();
-    }
-
     RefPtr<SourceSurface> surf(mLockedSurface);
     return surf.forget();
   }
@@ -905,7 +885,7 @@ already_AddRefed<SourceSurface> imgFrame::GetSourceSurfaceInternal(
     return nullptr;
   }
 
-  return CreateLockedSurface(mRawSurface, mFrameRect.Size(), mFormat);
+  return CreateLockedSurface(mRawSurface, mImageSize, mFormat);
 }
 
 void imgFrame::Abort() {
@@ -943,17 +923,7 @@ void imgFrame::WaitUntilFinished() const {
 
 bool imgFrame::AreAllPixelsWritten() const {
   mMonitor.AssertCurrentThreadOwns();
-  return mDecoded.IsEqualInterior(mFrameRect);
-}
-
-bool imgFrame::GetCompositingFailed() const {
-  MOZ_ASSERT(NS_IsMainThread());
-  return mCompositingFailed;
-}
-
-void imgFrame::SetCompositingFailed(bool val) {
-  MOZ_ASSERT(NS_IsMainThread());
-  mCompositingFailed = val;
+  return mDecoded.IsEqualInterior(GetRect());
 }
 
 void imgFrame::AddSizeOfExcludingThis(MallocSizeOf aMallocSizeOf,
@@ -961,42 +931,30 @@ void imgFrame::AddSizeOfExcludingThis(MallocSizeOf aMallocSizeOf,
   MonitorAutoLock lock(mMonitor);
 
   AddSizeOfCbData metadata;
-  if (mPalettedImageData) {
-    metadata.heap += aMallocSizeOf(mPalettedImageData);
-  }
+
+  metadata.mFinished = mFinished;
   if (mLockedSurface) {
-    metadata.heap += aMallocSizeOf(mLockedSurface);
+    // The locked surface should only be present if we have mRawSurface. Hence
+    // we only need to get its allocation size to avoid double counting.
+    metadata.mHeapBytes += aMallocSizeOf(mLockedSurface);
+    metadata.AddType(mLockedSurface->GetType());
   }
   if (mOptSurface) {
-    metadata.heap += aMallocSizeOf(mOptSurface);
+    metadata.mHeapBytes += aMallocSizeOf(mOptSurface);
+
+    SourceSurface::SizeOfInfo info;
+    mOptSurface->SizeOfExcludingThis(aMallocSizeOf, info);
+    metadata.Accumulate(info);
   }
   if (mRawSurface) {
-    metadata.heap += aMallocSizeOf(mRawSurface);
-    mRawSurface->AddSizeOfExcludingThis(aMallocSizeOf, metadata.heap,
-                                        metadata.nonHeap, metadata.handles,
-                                        metadata.externalId);
+    metadata.mHeapBytes += aMallocSizeOf(mRawSurface);
+
+    SourceSurface::SizeOfInfo info;
+    mRawSurface->SizeOfExcludingThis(aMallocSizeOf, info);
+    metadata.Accumulate(info);
   }
 
   aCallback(metadata);
-}
-
-RecyclingSourceSurface::RecyclingSourceSurface(imgFrame* aParent,
-                                               DataSourceSurface* aSurface)
-    : mParent(aParent), mSurface(aSurface), mType(SurfaceType::DATA) {
-  mParent->mMonitor.AssertCurrentThreadOwns();
-  ++mParent->mRecycleLockCount;
-
-  if (aSurface->GetType() == SurfaceType::DATA_SHARED) {
-    mType = SurfaceType::DATA_RECYCLING_SHARED;
-  }
-}
-
-RecyclingSourceSurface::~RecyclingSourceSurface() {
-  MonitorAutoLock lock(mParent->mMonitor);
-  MOZ_ASSERT(mParent->mRecycleLockCount > 0);
-  if (--mParent->mRecycleLockCount == 0) {
-    mParent->mMonitor.NotifyAll();
-  }
 }
 
 }  // namespace image

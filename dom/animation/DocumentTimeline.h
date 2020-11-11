@@ -7,13 +7,14 @@
 #ifndef mozilla_dom_DocumentTimeline_h
 #define mozilla_dom_DocumentTimeline_h
 
+#include "mozilla/dom/Document.h"
 #include "mozilla/dom/DocumentTimelineBinding.h"
 #include "mozilla/LinkedList.h"
 #include "mozilla/TimeStamp.h"
 #include "AnimationTimeline.h"
-#include "nsIDocument.h"
 #include "nsDOMNavigationTiming.h"  // for DOMHighResTimeStamp
 #include "nsRefreshDriver.h"
+#include "nsRefreshObservers.h"
 
 struct JSContext;
 
@@ -25,7 +26,7 @@ class DocumentTimeline final : public AnimationTimeline,
                                public nsATimerAdjustmentObserver,
                                public LinkedListElement<DocumentTimeline> {
  public:
-  DocumentTimeline(nsIDocument* aDocument, const TimeDuration& aOriginTime)
+  DocumentTimeline(Document* aDocument, const TimeDuration& aOriginTime)
       : AnimationTimeline(aDocument->GetParentObject()),
         mDocument(aDocument),
         mIsObservingRefreshDriver(false),
@@ -63,11 +64,7 @@ class DocumentTimeline final : public AnimationTimeline,
   // with a macro defined in winbase.h
   virtual Nullable<TimeDuration> GetCurrentTimeAsDuration() const override;
 
-  bool TracksWallclockTime() const override {
-    nsRefreshDriver* refreshDriver = GetRefreshDriver();
-    return !refreshDriver ||
-           !refreshDriver->IsTestControllingRefreshesEnabled();
-  }
+  bool TracksWallclockTime() const override;
   Nullable<TimeDuration> ToTimelineTime(
       const TimeStamp& aTimeStamp) const override;
   TimeStamp ToTimeStamp(const TimeDuration& aTimelineTime) const override;
@@ -84,7 +81,7 @@ class DocumentTimeline final : public AnimationTimeline,
   void NotifyRefreshDriverCreated(nsRefreshDriver* aDriver);
   void NotifyRefreshDriverDestroying(nsRefreshDriver* aDriver);
 
-  nsIDocument* GetDocument() const override { return mDocument; }
+  Document* GetDocument() const override { return mDocument; }
 
  protected:
   TimeStamp GetCurrentTimeStamp() const;
@@ -94,7 +91,7 @@ class DocumentTimeline final : public AnimationTimeline,
   void ObserveRefreshDriver(nsRefreshDriver* aDriver);
   void DisconnectRefreshDriver(nsRefreshDriver* aDriver);
 
-  nsCOMPtr<nsIDocument> mDocument;
+  RefPtr<Document> mDocument;
 
   // The most recently used refresh driver time. This is used in cases where
   // we don't have a refresh driver (e.g. because we are in a display:none

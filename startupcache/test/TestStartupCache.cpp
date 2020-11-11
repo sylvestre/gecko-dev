@@ -9,19 +9,12 @@
 #include "mozilla/scache/StartupCacheUtils.h"
 
 #include "nsDirectoryServiceDefs.h"
-#include "nsIClassInfo.h"
 #include "nsIOutputStream.h"
-#include "nsIObserver.h"
-#include "nsISerializable.h"
 #include "nsISupports.h"
-#include "nsIStringStream.h"
 #include "nsIStorageStream.h"
 #include "nsIObjectInputStream.h"
 #include "nsIObjectOutputStream.h"
 #include "nsIURI.h"
-#include "nsIPrefBranch.h"
-#include "nsIPrefService.h"
-#include "nsIXPConnect.h"
 #include "nsThreadUtils.h"
 #include "prenv.h"
 #include "prio.h"
@@ -39,7 +32,7 @@ using mozilla::UniquePtr;
 
 void WaitForStartupTimer() {
   StartupCache* sc = StartupCache::GetSingleton();
-  PR_Sleep(10 * PR_TicksPerSecond());
+  PR_Sleep(3 * PR_TicksPerSecond());
 
   while (true) {
     NS_ProcessPendingEvents(nullptr);
@@ -60,9 +53,9 @@ class TestStartupCache : public ::testing::Test {
 
 TestStartupCache::TestStartupCache() {
   NS_GetSpecialDirectory(NS_OS_TEMP_DIR, getter_AddRefs(mSCFile));
-  mSCFile->AppendNative(NS_LITERAL_CSTRING("test-startupcache.tmp"));
+  mSCFile->AppendNative("test-startupcache.tmp"_ns);
 #ifdef XP_WIN
-  nsAutoString env(NS_LITERAL_STRING("MOZ_STARTUP_CACHE="));
+  nsAutoString env(u"MOZ_STARTUP_CACHE="_ns);
   env.Append(mSCFile->NativePath());
   _wputenv(env.get());
 #else
@@ -86,7 +79,7 @@ TEST_F(TestStartupCache, StartupWriteRead) {
 
   const char* buf = "Market opportunities for BeardBook";
   const char* id = "id";
-  UniquePtr<char[]> outbuf;
+  const char* outbuf;
   uint32_t len;
 
   rv = sc->PutBuffer(id, UniquePtr<char[]>(strdup(buf)), strlen(buf) + 1);
@@ -94,7 +87,7 @@ TEST_F(TestStartupCache, StartupWriteRead) {
 
   rv = sc->GetBuffer(id, &outbuf, &len);
   EXPECT_TRUE(NS_SUCCEEDED(rv));
-  EXPECT_STREQ(buf, outbuf.get());
+  EXPECT_STREQ(buf, outbuf);
 
   rv = sc->ResetStartupWriteTimer();
   EXPECT_TRUE(NS_SUCCEEDED(rv));
@@ -102,14 +95,14 @@ TEST_F(TestStartupCache, StartupWriteRead) {
 
   rv = sc->GetBuffer(id, &outbuf, &len);
   EXPECT_TRUE(NS_SUCCEEDED(rv));
-  EXPECT_STREQ(buf, outbuf.get());
+  EXPECT_STREQ(buf, outbuf);
 }
 
 TEST_F(TestStartupCache, WriteInvalidateRead) {
   nsresult rv;
   const char* buf = "BeardBook competitive analysis";
   const char* id = "id";
-  UniquePtr<char[]> outbuf;
+  const char* outbuf;
   uint32_t len;
   StartupCache* sc = StartupCache::GetSingleton();
   ASSERT_TRUE(sc);
@@ -128,7 +121,7 @@ TEST_F(TestStartupCache, WriteObject) {
 
   nsCOMPtr<nsIURI> obj;
 
-  NS_NAMED_LITERAL_CSTRING(spec, "http://www.mozilla.org");
+  constexpr auto spec = "http://www.mozilla.org"_ns;
   rv = NS_MutateURI(NS_SIMPLEURIMUTATOR_CONTRACTID).SetSpec(spec).Finalize(obj);
   EXPECT_TRUE(NS_SUCCEEDED(rv));
 
@@ -168,14 +161,13 @@ TEST_F(TestStartupCache, WriteObject) {
   rv = sc->PutBuffer(id, std::move(buf), len);
   EXPECT_TRUE(NS_SUCCEEDED(rv));
 
-  UniquePtr<char[]> buf2;
+  const char* buf2;
   uint32_t len2;
   nsCOMPtr<nsIObjectInputStream> objectInput;
   rv = sc->GetBuffer(id, &buf2, &len2);
   EXPECT_TRUE(NS_SUCCEEDED(rv));
 
-  rv = NewObjectInputStreamFromBuffer(std::move(buf2), len2,
-                                      getter_AddRefs(objectInput));
+  rv = NewObjectInputStreamFromBuffer(buf2, len2, getter_AddRefs(objectInput));
   EXPECT_TRUE(NS_SUCCEEDED(rv));
 
   nsCOMPtr<nsISupports> deserialized;

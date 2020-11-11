@@ -10,7 +10,7 @@
 #include "mozilla/dom/FileHandleStorage.h"
 #include "mozilla/dom/PBackgroundMutableFileParent.h"
 #include "mozilla/ipc/BackgroundParent.h"
-#include "nsAutoPtr.h"
+#include "mozilla/UniquePtr.h"
 #include "nsClassHashtable.h"
 #include "nsCOMPtr.h"
 #include "nsHashKeys.h"
@@ -49,7 +49,7 @@ class FileHandleThreadPool final {
 
   nsClassHashtable<nsCStringHashKey, DirectoryInfo> mDirectoryInfos;
 
-  nsTArray<nsAutoPtr<StoragesCompleteCallback>> mCompleteCallbacks;
+  nsTArray<UniquePtr<StoragesCompleteCallback>> mCompleteCallbacks;
 
   bool mShutdownRequested;
   bool mShutdownComplete;
@@ -91,6 +91,8 @@ class FileHandleThreadPool final {
 };
 
 class BackgroundMutableFileParentBase : public PBackgroundMutableFileParent {
+  friend PBackgroundMutableFileParent;
+
   nsTHashtable<nsPtrHashKey<FileHandle>> mFileHandles;
   nsCString mDirectoryId;
   nsString mFileName;
@@ -153,17 +155,17 @@ class BackgroundMutableFileParentBase : public PBackgroundMutableFileParent {
   virtual void ActorDestroy(ActorDestroyReason aWhy) override;
 
   virtual PBackgroundFileHandleParent* AllocPBackgroundFileHandleParent(
-      const FileMode& aMode) override;
+      const FileMode& aMode);
 
   virtual mozilla::ipc::IPCResult RecvPBackgroundFileHandleConstructor(
       PBackgroundFileHandleParent* aActor, const FileMode& aMode) override;
 
   virtual bool DeallocPBackgroundFileHandleParent(
-      PBackgroundFileHandleParent* aActor) override;
+      PBackgroundFileHandleParent* aActor);
 
-  virtual mozilla::ipc::IPCResult RecvDeleteMe() override;
+  mozilla::ipc::IPCResult RecvDeleteMe();
 
-  virtual mozilla::ipc::IPCResult RecvGetFileId(int64_t* aFileId) override;
+  virtual mozilla::ipc::IPCResult RecvGetFileId(int64_t* aFileId);
 };
 
 }  // namespace dom

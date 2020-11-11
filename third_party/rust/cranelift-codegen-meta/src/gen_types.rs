@@ -1,15 +1,15 @@
 //! Generate sources with type info.
 //!
 //! This generates a `types.rs` file which is included in
-//! `lib/codegen/ir/types.rs`. The file provides constant definitions for the
+//! `cranelift-codegen/ir/types.rs`. The file provides constant definitions for the
 //! most commonly used types, including all of the scalar types.
 //!
 //! This ensures that the metaprogram and the generated program see the same
 //! type numbering.
 
-use cdsl::types as cdsl_types;
-use error;
-use srcgen;
+use crate::cdsl::types as cdsl_types;
+use crate::error;
+use crate::srcgen;
 
 /// Emit a constant definition of a single value type.
 fn emit_type(ty: &cdsl_types::ValueType, fmt: &mut srcgen::Formatter) -> Result<(), error::Error> {
@@ -21,10 +21,8 @@ fn emit_type(ty: &cdsl_types::ValueType, fmt: &mut srcgen::Formatter) -> Result<
         ))
     })?;
 
-    let definition = format!("pub const {}: Type = Type({:#x});\n", name, number);
-
     fmt.doc_comment(&ty.doc());
-    fmt.line(&definition);
+    fmtln!(fmt, "pub const {}: Type = Type({:#x});\n", name, number);
 
     Ok(())
 }
@@ -56,6 +54,11 @@ fn emit_types(fmt: &mut srcgen::Formatter) -> Result<(), error::Error> {
         emit_type(&ty, fmt)?;
     }
 
+    // Emit all reference types.
+    for ty in cdsl_types::ValueType::all_reference_types().map(cdsl_types::ValueType::from) {
+        emit_type(&ty, fmt)?;
+    }
+
     // Emit vector definitions for common SIMD sizes.
     for vec_size in &[64_u64, 128, 256, 512] {
         emit_vectors(*vec_size, fmt)?;
@@ -65,7 +68,7 @@ fn emit_types(fmt: &mut srcgen::Formatter) -> Result<(), error::Error> {
 }
 
 /// Generate the types file.
-pub fn generate(filename: &str, out_dir: &str) -> Result<(), error::Error> {
+pub(crate) fn generate(filename: &str, out_dir: &str) -> Result<(), error::Error> {
     let mut fmt = srcgen::Formatter::new();
     emit_types(&mut fmt)?;
     fmt.update_file(filename, out_dir)?;

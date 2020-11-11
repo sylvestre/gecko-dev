@@ -7,50 +7,34 @@
 #include "LocalStorageManager.h"
 #include "LocalStorage.h"
 #include "StorageDBThread.h"
+#include "StorageIPC.h"
 #include "StorageUtils.h"
 
-#include "nsIScriptSecurityManager.h"
 #include "nsIEffectiveTLDService.h"
 
+#include "nsPIDOMWindow.h"
 #include "nsNetUtil.h"
 #include "nsNetCID.h"
-#include "nsIURL.h"
 #include "nsPrintfCString.h"
 #include "nsXULAppAPI.h"
 #include "nsThreadUtils.h"
 #include "nsIObserverService.h"
+#include "mozilla/ipc/BackgroundChild.h"
+#include "mozilla/ipc/PBackgroundChild.h"
 #include "mozilla/Services.h"
-#include "mozilla/Preferences.h"
+#include "mozilla/StaticPrefs_dom.h"
 #include "mozilla/dom/LocalStorageCommon.h"
-
-// Only allow relatively small amounts of data since performance of
-// the synchronous IO is very bad.
-// We are enforcing simple per-origin quota only.
-#define DEFAULT_QUOTA_LIMIT (5 * 1024)
 
 namespace mozilla {
 namespace dom {
 
 using namespace StorageUtils;
 
-namespace {
-
-int32_t gQuotaLimit = DEFAULT_QUOTA_LIMIT;
-
-}  // namespace
-
 LocalStorageManager* LocalStorageManager::sSelf = nullptr;
 
 // static
 uint32_t LocalStorageManager::GetQuota() {
-  static bool preferencesInitialized = false;
-  if (!preferencesInitialized) {
-    mozilla::Preferences::AddIntVarCache(
-        &gQuotaLimit, "dom.storage.default_quota", DEFAULT_QUOTA_LIMIT);
-    preferencesInitialized = true;
-  }
-
-  return gQuotaLimit * 1024;  // pref is in kBs
+  return StaticPrefs::dom_storage_default_quota() * 1024;  // pref is in kBs
 }
 
 NS_IMPL_ISUPPORTS(LocalStorageManager, nsIDOMStorageManager,
@@ -77,7 +61,9 @@ LocalStorageManager::LocalStorageManager() : mCaches(8) {
     // Do this only on the child process.  The thread IPC bridge
     // is also used to communicate chrome observer notifications.
     // Note: must be called after we set sSelf
-    StorageDBChild::GetOrCreate();
+    for (const uint32_t id : {0, 1}) {
+      StorageDBChild::GetOrCreate(id);
+    }
   }
 }
 
@@ -89,42 +75,6 @@ LocalStorageManager::~LocalStorageManager() {
 
   sSelf = nullptr;
 }
-
-namespace {
-
-nsresult CreateQuotaDBKey(nsIPrincipal* aPrincipal, nsACString& aKey) {
-  nsresult rv;
-
-  nsCOMPtr<nsIEffectiveTLDService> eTLDService(
-      do_GetService(NS_EFFECTIVETLDSERVICE_CONTRACTID, &rv));
-  NS_ENSURE_SUCCESS(rv, rv);
-
-  nsCOMPtr<nsIURI> uri;
-  rv = aPrincipal->GetURI(getter_AddRefs(uri));
-  NS_ENSURE_SUCCESS(rv, rv);
-  NS_ENSURE_TRUE(uri, NS_ERROR_UNEXPECTED);
-
-  nsAutoCString eTLDplusOne;
-  rv = eTLDService->GetBaseDomain(uri, 0, eTLDplusOne);
-  if (NS_ERROR_INSUFFICIENT_DOMAIN_LEVELS == rv) {
-    // XXX bug 357323 - what to do for localhost/file exactly?
-    rv = uri->GetAsciiHost(eTLDplusOne);
-  }
-  NS_ENSURE_SUCCESS(rv, rv);
-
-  aKey.Truncate();
-  aPrincipal->OriginAttributesRef().CreateSuffix(aKey);
-
-  nsAutoCString subdomainsDBKey;
-  CreateReversedDomain(eTLDplusOne, subdomainsDBKey);
-
-  aKey.Append(':');
-  aKey.Append(subdomainsDBKey);
-
-  return NS_OK;
-}
-
-}  // namespace
 
 // static
 nsAutoCString LocalStorageManager::CreateOrigin(
@@ -152,7 +102,7 @@ LocalStorageCache* LocalStorageManager::GetCache(
 }
 
 already_AddRefed<StorageUsage> LocalStorageManager::GetOriginUsage(
-    const nsACString& aOriginNoSuffix) {
+    const nsACString& aOriginNoSuffix, const uint32_t aPrivateBrowsingId) {
   RefPtr<StorageUsage> usage;
   if (mUsages.Get(aOriginNoSuffix, &usage)) {
     return usage.forget();
@@ -160,7 +110,8 @@ already_AddRefed<StorageUsage> LocalStorageManager::GetOriginUsage(
 
   usage = new StorageUsage(aOriginNoSuffix);
 
-  StorageDBChild* storageChild = StorageDBChild::GetOrCreate();
+  StorageDBChild* storageChild =
+      StorageDBChild::GetOrCreate(aPrivateBrowsingId);
   if (storageChild) {
     storageChild->AsyncGetUsage(usage);
   }
@@ -178,7 +129,7 @@ already_AddRefed<LocalStorageCache> LocalStorageManager::PutCache(
   RefPtr<LocalStorageCache> cache = entry->cache();
 
   nsAutoCString quotaOrigin;
-  CreateQuotaDBKey(aPrincipal, quotaOrigin);
+  aPrincipal->GetLocalStorageQuotaKey(quotaOrigin);
 
   // Lifetime handled by the cache, do persist
   cache->Init(this, true, aPrincipal, quotaOrigin);
@@ -198,11 +149,13 @@ void LocalStorageManager::DropCache(LocalStorageCache* aCache) {
 
 nsresult LocalStorageManager::GetStorageInternal(
     CreateMode aCreateMode, mozIDOMWindow* aWindow, nsIPrincipal* aPrincipal,
-    const nsAString& aDocumentURI, bool aPrivate, Storage** aRetval) {
+    nsIPrincipal* aStoragePrincipal, const nsAString& aDocumentURI,
+    bool aPrivate, Storage** aRetval) {
   nsAutoCString originAttrSuffix;
   nsAutoCString originKey;
 
-  nsresult rv = GenerateOriginKey(aPrincipal, originAttrSuffix, originKey);
+  nsresult rv = aStoragePrincipal->GetStorageOriginKey(originKey);
+  aStoragePrincipal->OriginAttributesRef().CreateSuffix(originAttrSuffix);
   if (NS_FAILED(rv)) {
     return NS_ERROR_NOT_AVAILABLE;
   }
@@ -217,9 +170,12 @@ nsresult LocalStorageManager::GetStorageInternal(
     }
 
     if (aCreateMode == CreateMode::CreateIfShouldPreload) {
+      const uint32_t privateBrowsingId =
+          aStoragePrincipal->GetPrivateBrowsingId();
+
       // This is a demand to just preload the cache, if the scope has
       // no data stored, bypass creation and preload of the cache.
-      StorageDBChild* db = StorageDBChild::Get();
+      StorageDBChild* db = StorageDBChild::Get(privateBrowsingId);
       if (db) {
         if (!db->ShouldPreloadOrigin(LocalStorageManager::CreateOrigin(
                 originAttrSuffix, originKey))) {
@@ -233,14 +189,15 @@ nsresult LocalStorageManager::GetStorageInternal(
     }
 
 #if !defined(MOZ_WIDGET_ANDROID)
-    PBackgroundChild* backgroundActor =
-        BackgroundChild::GetOrCreateForCurrentThread();
+    ::mozilla::ipc::PBackgroundChild* backgroundActor =
+        ::mozilla::ipc::BackgroundChild::GetOrCreateForCurrentThread();
     if (NS_WARN_IF(!backgroundActor)) {
       return NS_ERROR_FAILURE;
     }
 
-    PrincipalInfo principalInfo;
-    rv = mozilla::ipc::PrincipalToPrincipalInfo(aPrincipal, &principalInfo);
+    ::mozilla::ipc::PrincipalInfo principalInfo;
+    rv = mozilla::ipc::PrincipalToPrincipalInfo(aStoragePrincipal,
+                                                &principalInfo);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return rv;
     }
@@ -254,7 +211,7 @@ nsresult LocalStorageManager::GetStorageInternal(
 
     // There is always a single instance of a cache per scope
     // in a single instance of a DOM storage manager.
-    cache = PutCache(originAttrSuffix, originKey, aPrincipal);
+    cache = PutCache(originAttrSuffix, originKey, aStoragePrincipal);
 
 #if !defined(MOZ_WIDGET_ANDROID)
     LocalStorageCacheChild* actor = new LocalStorageCacheChild(cache);
@@ -270,8 +227,9 @@ nsresult LocalStorageManager::GetStorageInternal(
   if (aRetval) {
     nsCOMPtr<nsPIDOMWindowInner> inner = nsPIDOMWindowInner::From(aWindow);
 
-    RefPtr<Storage> storage = new LocalStorage(inner, this, cache, aDocumentURI,
-                                               aPrincipal, aPrivate);
+    RefPtr<Storage> storage =
+        new LocalStorage(inner, this, cache, aDocumentURI, aPrincipal,
+                         aStoragePrincipal, aPrivate);
     storage.forget(aRetval);
   }
 
@@ -280,26 +238,31 @@ nsresult LocalStorageManager::GetStorageInternal(
 
 NS_IMETHODIMP
 LocalStorageManager::PrecacheStorage(nsIPrincipal* aPrincipal,
+                                     nsIPrincipal* aStoragePrincipal,
                                      Storage** aRetval) {
   return GetStorageInternal(CreateMode::CreateIfShouldPreload, nullptr,
-                            aPrincipal, EmptyString(), false, aRetval);
+                            aPrincipal, aStoragePrincipal, u""_ns, false,
+                            aRetval);
 }
 
 NS_IMETHODIMP
 LocalStorageManager::CreateStorage(mozIDOMWindow* aWindow,
                                    nsIPrincipal* aPrincipal,
+                                   nsIPrincipal* aStoragePrincipal,
                                    const nsAString& aDocumentURI, bool aPrivate,
                                    Storage** aRetval) {
   return GetStorageInternal(CreateMode::CreateAlways, aWindow, aPrincipal,
-                            aDocumentURI, aPrivate, aRetval);
+                            aStoragePrincipal, aDocumentURI, aPrivate, aRetval);
 }
 
 NS_IMETHODIMP
 LocalStorageManager::GetStorage(mozIDOMWindow* aWindow,
-                                nsIPrincipal* aPrincipal, bool aPrivate,
+                                nsIPrincipal* aPrincipal,
+                                nsIPrincipal* aStoragePrincipal, bool aPrivate,
                                 Storage** aRetval) {
   return GetStorageInternal(CreateMode::UseIfExistsNeverCreate, aWindow,
-                            aPrincipal, EmptyString(), aPrivate, aRetval);
+                            aPrincipal, aStoragePrincipal, u""_ns, aPrivate,
+                            aRetval);
 }
 
 NS_IMETHODIMP
@@ -311,36 +274,13 @@ LocalStorageManager::CloneStorage(Storage* aStorage) {
 NS_IMETHODIMP
 LocalStorageManager::CheckStorage(nsIPrincipal* aPrincipal, Storage* aStorage,
                                   bool* aRetval) {
-  if (!aStorage || aStorage->Type() != Storage::eLocalStorage) {
-    return NS_ERROR_UNEXPECTED;
-  }
+  MOZ_ASSERT(NS_IsMainThread());
+  MOZ_ASSERT(aPrincipal);
+  MOZ_ASSERT(aStorage);
+  MOZ_ASSERT(aRetval);
 
-  RefPtr<LocalStorage> storage = static_cast<LocalStorage*>(aStorage);
-
-  *aRetval = false;
-
-  if (!aPrincipal) {
-    return NS_ERROR_NOT_AVAILABLE;
-  }
-
-  nsAutoCString suffix;
-  nsAutoCString origin;
-  nsresult rv = GenerateOriginKey(aPrincipal, suffix, origin);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
-
-  LocalStorageCache* cache = GetCache(suffix, origin);
-  if (cache != storage->GetCache()) {
-    return NS_OK;
-  }
-
-  if (!storage->PrincipalEquals(aPrincipal)) {
-    return NS_OK;
-  }
-
-  *aRetval = true;
-  return NS_OK;
+  // Only used by sessionStorage.
+  return NS_ERROR_NOT_IMPLEMENTED;
 }
 
 NS_IMETHODIMP
@@ -354,7 +294,7 @@ LocalStorageManager::GetNextGenLocalStorageEnabled(bool* aResult) {
 
 NS_IMETHODIMP
 LocalStorageManager::Preload(nsIPrincipal* aPrincipal, JSContext* aContext,
-                             nsISupports** _retval) {
+                             Promise** _retval) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aPrincipal);
   MOZ_ASSERT(_retval);
@@ -364,7 +304,7 @@ LocalStorageManager::Preload(nsIPrincipal* aPrincipal, JSContext* aContext,
 
 NS_IMETHODIMP
 LocalStorageManager::IsPreloaded(nsIPrincipal* aPrincipal, JSContext* aContext,
-                                 nsISupports** _retval) {
+                                 Promise** _retval) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aPrincipal);
   MOZ_ASSERT(_retval);
@@ -384,7 +324,7 @@ void LocalStorageManager::ClearCaches(uint32_t aUnloadFlags,
       continue;
     }
 
-    CacheOriginHashtable* table = iter1.Data();
+    CacheOriginHashtable* table = iter1.UserData();
 
     for (auto iter2 = table->Iter(); !iter2.Done(); iter2.Next()) {
       LocalStorageCache* cache = iter2.Get()->cache();
@@ -408,13 +348,18 @@ nsresult LocalStorageManager::Observe(const char* aTopic,
 
   // Clear everything, caches + database
   if (!strcmp(aTopic, "cookie-cleared")) {
-    ClearCaches(LocalStorageCache::kUnloadComplete, pattern, EmptyCString());
+    ClearCaches(LocalStorageCache::kUnloadComplete, pattern, ""_ns);
     return NS_OK;
   }
 
   // Clear everything, caches + database
   if (!strcmp(aTopic, "extension:purge-localStorage-caches")) {
     ClearCaches(LocalStorageCache::kUnloadComplete, pattern, aOriginScope);
+    return NS_OK;
+  }
+
+  if (!strcmp(aTopic, "browser:purge-sessionStorage")) {
+    // This is only meant for SessionStorageManager.
     return NS_OK;
   }
 
@@ -425,28 +370,21 @@ nsresult LocalStorageManager::Observe(const char* aTopic,
     return NS_OK;
   }
 
-  // Clear everything (including so and pb data) from caches and database
-  // for the gived domain and subdomains.
-  if (!strcmp(aTopic, "domain-data-cleared")) {
-    ClearCaches(LocalStorageCache::kUnloadComplete, pattern, aOriginScope);
-    return NS_OK;
-  }
-
   // Clear all private-browsing caches
   if (!strcmp(aTopic, "private-browsing-data-cleared")) {
-    ClearCaches(LocalStorageCache::kUnloadPrivate, pattern, EmptyCString());
+    ClearCaches(LocalStorageCache::kUnloadComplete, pattern, ""_ns);
     return NS_OK;
   }
 
   // Clear localStorage data beloging to an origin pattern
   if (!strcmp(aTopic, "origin-attr-pattern-cleared")) {
-    ClearCaches(LocalStorageCache::kUnloadComplete, pattern, EmptyCString());
+    ClearCaches(LocalStorageCache::kUnloadComplete, pattern, ""_ns);
     return NS_OK;
   }
 
   if (!strcmp(aTopic, "profile-change")) {
     // For case caches are still referenced - clear them completely
-    ClearCaches(LocalStorageCache::kUnloadComplete, pattern, EmptyCString());
+    ClearCaches(LocalStorageCache::kUnloadComplete, pattern, ""_ns);
     mCaches.Clear();
     return NS_OK;
   }
@@ -454,7 +392,7 @@ nsresult LocalStorageManager::Observe(const char* aTopic,
 #ifdef DOM_STORAGE_TESTS
   if (!strcmp(aTopic, "test-reload")) {
     // This immediately completely reloads all caches from the database.
-    ClearCaches(LocalStorageCache::kTestReload, pattern, EmptyCString());
+    ClearCaches(LocalStorageCache::kTestReload, pattern, ""_ns);
     return NS_OK;
   }
 

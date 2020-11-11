@@ -3,7 +3,7 @@
 
 load(libdir + "asserts.js");
 
-let g = newGlobal();
+let g = newGlobal({newCompartment: true});
 g.eval("function* f(x) { yield x; }");
 let dbg = new Debugger;
 let gw = dbg.addDebuggee(g);
@@ -22,5 +22,5 @@ dbg.onDebuggerStatement = frame => {
 g.eval("debugger;");
 
 assertEq(genFrame instanceof Debugger.Frame, true);
-assertEq(genFrame.live, false);
+assertEq(genFrame.onStack, false);
 assertThrowsInstanceOf(() => genFrame.callee, Error);

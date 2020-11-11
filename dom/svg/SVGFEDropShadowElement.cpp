@@ -6,10 +6,10 @@
 
 #include "mozilla/dom/SVGFEDropShadowElement.h"
 #include "mozilla/dom/SVGFEDropShadowElementBinding.h"
+#include "mozilla/SVGFilterInstance.h"
 #include "nsIFrame.h"
-#include "nsSVGFilterInstance.h"
 
-NS_IMPL_NS_NEW_NAMESPACED_SVG_ELEMENT(FEDropShadow)
+NS_IMPL_NS_NEW_SVG_ELEMENT(FEDropShadow)
 
 using namespace mozilla::gfx;
 
@@ -21,13 +21,13 @@ JSObject* SVGFEDropShadowElement::WrapNode(JSContext* aCx,
   return SVGFEDropShadowElement_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-nsSVGElement::NumberInfo SVGFEDropShadowElement::sNumberInfo[2] = {
+SVGElement::NumberInfo SVGFEDropShadowElement::sNumberInfo[2] = {
     {nsGkAtoms::dx, 2, false}, {nsGkAtoms::dy, 2, false}};
 
-nsSVGElement::NumberPairInfo SVGFEDropShadowElement::sNumberPairInfo[1] = {
+SVGElement::NumberPairInfo SVGFEDropShadowElement::sNumberPairInfo[1] = {
     {nsGkAtoms::stdDeviation, 2, 2}};
 
-nsSVGElement::StringInfo SVGFEDropShadowElement::sStringInfo[2] = {
+SVGElement::StringInfo SVGFEDropShadowElement::sStringInfo[2] = {
     {nsGkAtoms::result, kNameSpaceID_None, true},
     {nsGkAtoms::in, kNameSpaceID_None, true}};
 
@@ -38,26 +38,26 @@ NS_IMPL_ELEMENT_CLONE_WITH_INIT(SVGFEDropShadowElement)
 
 //----------------------------------------------------------------------
 
-already_AddRefed<SVGAnimatedString> SVGFEDropShadowElement::In1() {
+already_AddRefed<DOMSVGAnimatedString> SVGFEDropShadowElement::In1() {
   return mStringAttributes[IN1].ToDOMAnimatedString(this);
 }
 
-already_AddRefed<SVGAnimatedNumber> SVGFEDropShadowElement::Dx() {
+already_AddRefed<DOMSVGAnimatedNumber> SVGFEDropShadowElement::Dx() {
   return mNumberAttributes[DX].ToDOMAnimatedNumber(this);
 }
 
-already_AddRefed<SVGAnimatedNumber> SVGFEDropShadowElement::Dy() {
+already_AddRefed<DOMSVGAnimatedNumber> SVGFEDropShadowElement::Dy() {
   return mNumberAttributes[DY].ToDOMAnimatedNumber(this);
 }
 
-already_AddRefed<SVGAnimatedNumber> SVGFEDropShadowElement::StdDeviationX() {
+already_AddRefed<DOMSVGAnimatedNumber> SVGFEDropShadowElement::StdDeviationX() {
   return mNumberPairAttributes[STD_DEV].ToDOMAnimatedNumber(
-      nsSVGNumberPair::eFirst, this);
+      SVGAnimatedNumberPair::eFirst, this);
 }
 
-already_AddRefed<SVGAnimatedNumber> SVGFEDropShadowElement::StdDeviationY() {
+already_AddRefed<DOMSVGAnimatedNumber> SVGFEDropShadowElement::StdDeviationY() {
   return mNumberPairAttributes[STD_DEV].ToDOMAnimatedNumber(
-      nsSVGNumberPair::eSecond, this);
+      SVGAnimatedNumberPair::eSecond, this);
 }
 
 void SVGFEDropShadowElement::SetStdDeviation(float stdDeviationX,
@@ -67,23 +67,23 @@ void SVGFEDropShadowElement::SetStdDeviation(float stdDeviationX,
 }
 
 FilterPrimitiveDescription SVGFEDropShadowElement::GetPrimitiveDescription(
-    nsSVGFilterInstance* aInstance, const IntRect& aFilterSubregion,
+    SVGFilterInstance* aInstance, const IntRect& aFilterSubregion,
     const nsTArray<bool>& aInputsAreTainted,
     nsTArray<RefPtr<SourceSurface>>& aInputImages) {
   float stdX = aInstance->GetPrimitiveNumber(SVGContentUtils::X,
                                              &mNumberPairAttributes[STD_DEV],
-                                             nsSVGNumberPair::eFirst);
+                                             SVGAnimatedNumberPair::eFirst);
   float stdY = aInstance->GetPrimitiveNumber(SVGContentUtils::Y,
                                              &mNumberPairAttributes[STD_DEV],
-                                             nsSVGNumberPair::eSecond);
+                                             SVGAnimatedNumberPair::eSecond);
   if (stdX < 0 || stdY < 0) {
     return FilterPrimitiveDescription();
   }
 
-  IntPoint offset(int32_t(aInstance->GetPrimitiveNumber(
-                      SVGContentUtils::X, &mNumberAttributes[DX])),
-                  int32_t(aInstance->GetPrimitiveNumber(
-                      SVGContentUtils::Y, &mNumberAttributes[DY])));
+  Point offset(
+      aInstance->GetPrimitiveNumber(SVGContentUtils::X, &mNumberAttributes[DX]),
+      aInstance->GetPrimitiveNumber(SVGContentUtils::Y,
+                                    &mNumberAttributes[DY]));
 
   DropShadowAttributes atts;
   atts.mStdDeviation = Size(stdX, stdY);
@@ -92,11 +92,12 @@ FilterPrimitiveDescription SVGFEDropShadowElement::GetPrimitiveDescription(
   nsIFrame* frame = GetPrimaryFrame();
   if (frame) {
     const nsStyleSVGReset* styleSVGReset = frame->Style()->StyleSVGReset();
-    Color color(Color::FromABGR(styleSVGReset->mFloodColor.CalcColor(frame)));
+    sRGBColor color(
+        sRGBColor::FromABGR(styleSVGReset->mFloodColor.CalcColor(frame)));
     color.a *= styleSVGReset->mFloodOpacity;
     atts.mColor = color;
   } else {
-    atts.mColor = Color();
+    atts.mColor = sRGBColor();
   }
   return FilterPrimitiveDescription(AsVariant(std::move(atts)));
 }
@@ -112,8 +113,8 @@ bool SVGFEDropShadowElement::AttributeAffectsRendering(
 }
 
 void SVGFEDropShadowElement::GetSourceImageNames(
-    nsTArray<nsSVGStringInfo>& aSources) {
-  aSources.AppendElement(nsSVGStringInfo(&mStringAttributes[IN1], this));
+    nsTArray<SVGStringInfo>& aSources) {
+  aSources.AppendElement(SVGStringInfo(&mStringAttributes[IN1], this));
 }
 
 //----------------------------------------------------------------------
@@ -128,20 +129,20 @@ SVGFEDropShadowElement::IsAttributeMapped(const nsAtom* name) const {
 }
 
 //----------------------------------------------------------------------
-// nsSVGElement methods
+// SVGElement methods
 
-nsSVGElement::NumberAttributesInfo SVGFEDropShadowElement::GetNumberInfo() {
+SVGElement::NumberAttributesInfo SVGFEDropShadowElement::GetNumberInfo() {
   return NumberAttributesInfo(mNumberAttributes, sNumberInfo,
                               ArrayLength(sNumberInfo));
 }
 
-nsSVGElement::NumberPairAttributesInfo
+SVGElement::NumberPairAttributesInfo
 SVGFEDropShadowElement::GetNumberPairInfo() {
   return NumberPairAttributesInfo(mNumberPairAttributes, sNumberPairInfo,
                                   ArrayLength(sNumberPairInfo));
 }
 
-nsSVGElement::StringAttributesInfo SVGFEDropShadowElement::GetStringInfo() {
+SVGElement::StringAttributesInfo SVGFEDropShadowElement::GetStringInfo() {
   return StringAttributesInfo(mStringAttributes, sStringInfo,
                               ArrayLength(sStringInfo));
 }

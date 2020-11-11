@@ -30,18 +30,18 @@ diff --git a/security/sandbox/chromium/sandbox/win/src/filesystem_dispatcher.cc 
  FilesystemDispatcher::FilesystemDispatcher(PolicyBase* policy_base)
      : policy_base_(policy_base) {
    static const IPCCall create_params = {
-       {IPC_NTCREATEFILE_TAG,
-        {WCHAR_TYPE,
-         UINT32_TYPE,
-@@ -110,16 +112,26 @@ bool FilesystemDispatcher::NtCreateFile(
+       {IpcTag::NTCREATEFILE,
+        {WCHAR_TYPE, UINT32_TYPE, UINT32_TYPE, UINT32_TYPE, UINT32_TYPE,
+         UINT32_TYPE, UINT32_TYPE}},
+@@ -105,16 +107,26 @@ bool FilesystemDispatcher::NtCreateFile(
    params[OpenFile::OPTIONS] = ParamPickerMake(create_options);
    params[OpenFile::BROKER] = ParamPickerMake(broker);
  
    // To evaluate the policy we need to call back to the policy object. We
    // are just middlemen in the operation since is the FileSystemPolicy which
    // knows what to do.
-   EvalResult result = policy_base_->EvalPolicy(IPC_NTCREATEFILE_TAG,
-                                                params.GetBase());
+   EvalResult result =
+       policy_base_->EvalPolicy(IpcTag::NTCREATEFILE, params.GetBase());
 +
 +  // If the policies forbid access (any result other than ASK_BROKER),
 +  // then check for user-granted access to file.
@@ -55,20 +55,20 @@ diff --git a/security/sandbox/chromium/sandbox/win/src/filesystem_dispatcher.cc 
    HANDLE handle;
    ULONG_PTR io_information = 0;
    NTSTATUS nt_status;
-   if (!FileSystemPolicy::CreateFileAction(result, *ipc->client_info, *name,
-                                           attributes, desired_access,
-                                           file_attributes, share_access,
-                                           create_disposition, create_options,
-                                           &handle, &nt_status,
-@@ -157,16 +169,26 @@ bool FilesystemDispatcher::NtOpenFile(IP
+   if (!FileSystemPolicy::CreateFileAction(
+           result, *ipc->client_info, *name, attributes, desired_access,
+           file_attributes, share_access, create_disposition, create_options,
+           &handle, &nt_status, &io_information)) {
+     ipc->return_info.nt_status = STATUS_ACCESS_DENIED;
+@@ -150,16 +162,26 @@ bool FilesystemDispatcher::NtOpenFile(IP
    params[OpenFile::OPTIONS] = ParamPickerMake(open_options);
    params[OpenFile::BROKER] = ParamPickerMake(broker);
  
    // To evaluate the policy we need to call back to the policy object. We
    // are just middlemen in the operation since is the FileSystemPolicy which
    // knows what to do.
-   EvalResult result = policy_base_->EvalPolicy(IPC_NTOPENFILE_TAG,
-                                                params.GetBase());
+   EvalResult result =
+       policy_base_->EvalPolicy(IpcTag::NTOPENFILE, params.GetBase());
 +
 +  // If the policies forbid access (any result other than ASK_BROKER),
 +  // then check for user-granted access to file.
@@ -82,51 +82,51 @@ diff --git a/security/sandbox/chromium/sandbox/win/src/filesystem_dispatcher.cc 
    HANDLE handle;
    ULONG_PTR io_information = 0;
    NTSTATUS nt_status;
-   if (!FileSystemPolicy::OpenFileAction(result, *ipc->client_info, *name,
-                                         attributes, desired_access,
-                                         share_access, open_options, &handle,
-                                         &nt_status, &io_information)) {
+   if (!FileSystemPolicy::OpenFileAction(
+           result, *ipc->client_info, *name, attributes, desired_access,
+           share_access, open_options, &handle, &nt_status, &io_information)) {
      ipc->return_info.nt_status = STATUS_ACCESS_DENIED;
+     return true;
 diff --git a/security/sandbox/chromium/sandbox/win/src/filesystem_interception.cc b/security/sandbox/chromium/sandbox/win/src/filesystem_interception.cc
 --- a/security/sandbox/chromium/sandbox/win/src/filesystem_interception.cc
 +++ b/security/sandbox/chromium/sandbox/win/src/filesystem_interception.cc
-@@ -70,19 +70,16 @@ NTSTATUS WINAPI TargetNtCreateFile(NtCre
-     uint32_t broker = FALSE;
+@@ -75,19 +75,16 @@ NTSTATUS WINAPI TargetNtCreateFile(NtCre
      CountedParameterSet<OpenFile> params;
-     params[OpenFile::NAME] = ParamPickerMake(name);
+     const wchar_t* name_ptr = name.get();
+     params[OpenFile::NAME] = ParamPickerMake(name_ptr);
      params[OpenFile::ACCESS] = ParamPickerMake(desired_access_uint32);
      params[OpenFile::DISPOSITION] = ParamPickerMake(disposition_uint32);
      params[OpenFile::OPTIONS] = ParamPickerMake(options_uint32);
      params[OpenFile::BROKER] = ParamPickerMake(broker);
  
--    if (!QueryBroker(IPC_NTCREATEFILE_TAG, params.GetBase()))
+-    if (!QueryBroker(IpcTag::NTCREATEFILE, params.GetBase()))
 -      break;
 -
      SharedMemIPCClient ipc(memory);
      CrossCallReturn answer = {0};
      // The following call must match in the parameters with
      // FilesystemDispatcher::ProcessNtCreateFile.
-     ResultCode code = CrossCall(ipc, IPC_NTCREATEFILE_TAG, name, attributes,
-                                 desired_access_uint32, file_attributes, sharing,
-                                 disposition, options_uint32, &answer);
-     if (SBOX_ALL_OK != code)
-@@ -154,19 +151,16 @@ NTSTATUS WINAPI TargetNtOpenFile(NtOpenF
-     uint32_t broker = FALSE;
+     ResultCode code =
+         CrossCall(ipc, IpcTag::NTCREATEFILE, name.get(), attributes,
+                   desired_access_uint32, file_attributes, sharing, disposition,
+                   options_uint32, &answer);
+@@ -160,19 +157,16 @@ NTSTATUS WINAPI TargetNtOpenFile(NtOpenF
+     const wchar_t* name_ptr = name.get();
      CountedParameterSet<OpenFile> params;
-     params[OpenFile::NAME] = ParamPickerMake(name);
+     params[OpenFile::NAME] = ParamPickerMake(name_ptr);
      params[OpenFile::ACCESS] = ParamPickerMake(desired_access_uint32);
      params[OpenFile::DISPOSITION] = ParamPickerMake(disposition_uint32);
      params[OpenFile::OPTIONS] = ParamPickerMake(options_uint32);
      params[OpenFile::BROKER] = ParamPickerMake(broker);
  
--    if (!QueryBroker(IPC_NTOPENFILE_TAG, params.GetBase()))
+-    if (!QueryBroker(IpcTag::NTOPENFILE, params.GetBase()))
 -      break;
 -
      SharedMemIPCClient ipc(memory);
      CrossCallReturn answer = {0};
-     ResultCode code = CrossCall(ipc, IPC_NTOPENFILE_TAG, name, attributes,
-                                 desired_access_uint32, sharing, options_uint32,
-                                 &answer);
+     ResultCode code =
+         CrossCall(ipc, IpcTag::NTOPENFILE, name.get(), attributes,
+                   desired_access_uint32, sharing, options_uint32, &answer);
      if (SBOX_ALL_OK != code)
        break;
  

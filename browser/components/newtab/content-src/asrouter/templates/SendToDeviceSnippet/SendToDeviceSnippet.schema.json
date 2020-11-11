@@ -1,7 +1,7 @@
 {
   "title": "SendToDeviceSnippet",
   "description": "A snippet template for send to device mobile download",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "type": "object",
   "definitions": {
     "plainText": {
@@ -41,6 +41,24 @@
         {"description": "Main body text of snippet. HTML subset allowed: i, b, u, strong, em, br"}
       ]
     },
+    "scene1_section_title_icon": {
+      "type": "string",
+      "description": "Section title icon for scene 1. 16x16px. SVG or PNG preferred. scene1_section_title_text must also be specified to display."
+    },
+    "scene1_section_title_icon_dark_theme": {
+      "type": "string",
+      "description": "Section title icon for scene 1, dark theme variant. 16x16px. SVG or PNG preferred. scene1_section_title_text must also be specified to display."
+    },
+    "scene1_section_title_text": {
+      "type": "string",
+      "description": "Section title text for scene 1. scene1_section_title_icon must also be specified to display."
+    },
+    "scene1_section_title_url": {
+      "allOf": [
+        {"$ref": "#/definitions/link_url"},
+        {"description": "A url, scene1_section_title_text links to this"}
+      ]
+    },
     "scene2_title": {
       "allOf": [
         {"$ref": "#/definitions/plainText"},
@@ -57,13 +75,25 @@
       "type": "string",
       "description": "Snippet icon. 64x64px. SVG or PNG preferred."
     },
+    "scene1_icon_dark_theme": {
+      "type": "string",
+      "description": "Snippet icon. Dark theme variant. 64x64px. SVG or PNG preferred."
+    },
     "scene2_icon": {
+      "type": "string",
+      "description": "(send to device) Image to display above the form. Dark theme variant. 98x98px. SVG or PNG preferred."
+    },
+    "scene2_icon_dark_theme": {
       "type": "string",
       "description": "(send to device) Image to display above the form. 98x98px. SVG or PNG preferred."
     },
     "scene1_title_icon": {
       "type": "string",
       "description": "Small icon that shows up before the title / text. 16x16px. SVG or PNG preferred. Grayscale."
+    },
+    "scene1_title_icon_dark_theme": {
+      "type": "string",
+      "description": "Small icon that shows up before the title / text. Dark theme variant. 16x16px. SVG or PNG preferred. Grayscale."
     },
     "scene2_button_label": {
       "type": "string",
@@ -100,10 +130,6 @@
           "type": "string",
           "enum": ["snippets"]
         },
-        "service": {
-          "type": "string",
-          "enum": ["sync"]
-        },
         "utm_content": {
           "type": "string",
           "description": "Firefox version number"
@@ -137,6 +163,13 @@
     "scene1_button_background_color": {
       "type": "string",
       "description": "The background color of the button. Valid CSS color."
+    },
+    "retry_button_label": {
+      "allOf": [
+        {"$ref": "#/definitions/plainText"},
+        {"description": "Text for the button in the event of a submission error/failure."}
+      ],
+      "default": "Try again"
     },
     "do_not_autoblock": {
       "type": "boolean",

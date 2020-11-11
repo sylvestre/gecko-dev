@@ -6,11 +6,11 @@
 #define MEDIAENGINE_H_
 
 #include "DOMMediaStream.h"
-#include "MediaStreamGraph.h"
+#include "MediaEventSource.h"
+#include "MediaTrackGraph.h"
 #include "MediaTrackConstraints.h"
 #include "mozilla/dom/MediaStreamTrackBinding.h"
 #include "mozilla/dom/VideoStreamTrack.h"
-#include "mozilla/media/DeviceChangeCallback.h"
 #include "mozilla/RefPtr.h"
 #include "mozilla/ThreadSafeWeakPtr.h"
 
@@ -30,10 +30,10 @@ enum MediaSinkEnum {
 
 enum { kVideoTrack = 1, kAudioTrack = 2, kTrackCount };
 
-class MediaEngine : public DeviceChangeCallback {
+class MediaEngine {
  public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(MediaEngine)
-  NS_DECL_OWNINGTHREAD
+  NS_DECL_OWNINGEVENTTARGET
 
   void AssertIsOnOwningThread() const { NS_ASSERT_OWNINGTHREAD(MediaEngine); }
 
@@ -45,13 +45,16 @@ class MediaEngine : public DeviceChangeCallback {
                                 MediaSinkEnum,
                                 nsTArray<RefPtr<MediaDevice>>*) = 0;
 
-  virtual void ReleaseResourcesForWindow(uint64_t aWindowId) = 0;
   virtual void Shutdown() = 0;
 
-  virtual void SetFakeDeviceChangeEvents() {}
+  virtual void SetFakeDeviceChangeEventsEnabled(bool aEnable) {
+    MOZ_DIAGNOSTIC_ASSERT(false, "Fake events may not have started/stopped");
+  }
+
+  virtual MediaEventSource<void>& DeviceListChangeEvent() = 0;
 
  protected:
-  virtual ~MediaEngine() {}
+  virtual ~MediaEngine() = default;
 };
 
 }  // namespace mozilla

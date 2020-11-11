@@ -1,3 +1,5 @@
+/* import-globals-from common.js */
+
 // //////////////////////////////////////////////////////////////////////////////
 // Role constants
 
@@ -15,10 +17,12 @@ const ROLE_CELL = nsIAccessibleRole.ROLE_CELL;
 const ROLE_CHECKBUTTON = nsIAccessibleRole.ROLE_CHECKBUTTON;
 const ROLE_CHECK_MENU_ITEM = nsIAccessibleRole.ROLE_CHECK_MENU_ITEM;
 const ROLE_CHROME_WINDOW = nsIAccessibleRole.ROLE_CHROME_WINDOW;
+const ROLE_CODE = nsIAccessibleRole.ROLE_CODE;
 const ROLE_COLUMNHEADER = nsIAccessibleRole.ROLE_COLUMNHEADER;
 const ROLE_COMBOBOX = nsIAccessibleRole.ROLE_COMBOBOX;
 const ROLE_COMBOBOX_LIST = nsIAccessibleRole.ROLE_COMBOBOX_LIST;
 const ROLE_COMBOBOX_OPTION = nsIAccessibleRole.ROLE_COMBOBOX_OPTION;
+const ROLE_COMMENT = nsIAccessibleRole.ROLE_COMMENT;
 const ROLE_CONTENT_DELETION = nsIAccessibleRole.ROLE_CONTENT_DELETION;
 const ROLE_CONTENT_INSERTION = nsIAccessibleRole.ROLE_CONTENT_INSERTION;
 const ROLE_DATE_EDITOR = nsIAccessibleRole.ROLE_DATE_EDITOR;
@@ -51,6 +55,8 @@ const ROLE_LINK = nsIAccessibleRole.ROLE_LINK;
 const ROLE_LIST = nsIAccessibleRole.ROLE_LIST;
 const ROLE_LISTBOX = nsIAccessibleRole.ROLE_LISTBOX;
 const ROLE_LISTITEM = nsIAccessibleRole.ROLE_LISTITEM;
+const ROLE_LISTITEM_MARKER = nsIAccessibleRole.ROLE_LISTITEM_MARKER;
+const ROLE_MARK = nsIAccessibleRole.ROLE_MARK;
 const ROLE_MATHML_MATH = nsIAccessibleRole.ROLE_MATHML_MATH;
 const ROLE_MATHML_IDENTIFIER = nsIAccessibleRole.ROLE_MATHML_IDENTIFIER;
 const ROLE_MATHML_NUMBER = nsIAccessibleRole.ROLE_MATHML_NUMBER;
@@ -118,6 +124,7 @@ const ROLE_SLIDER = nsIAccessibleRole.ROLE_SLIDER;
 const ROLE_SPINBUTTON = nsIAccessibleRole.ROLE_SPINBUTTON;
 const ROLE_STATICTEXT = nsIAccessibleRole.ROLE_STATICTEXT;
 const ROLE_STATUSBAR = nsIAccessibleRole.ROLE_STATUSBAR;
+const ROLE_SUGGESTION = nsIAccessibleRole.ROLE_SUGGESTION;
 const ROLE_SUMMARY = nsIAccessibleRole.ROLE_SUMMARY;
 const ROLE_SWITCH = nsIAccessibleRole.ROLE_SWITCH;
 const ROLE_TABLE = nsIAccessibleRole.ROLE_TABLE;
@@ -125,6 +132,7 @@ const ROLE_TERM = nsIAccessibleRole.ROLE_TERM;
 const ROLE_TEXT = nsIAccessibleRole.ROLE_TEXT;
 const ROLE_TEXT_CONTAINER = nsIAccessibleRole.ROLE_TEXT_CONTAINER;
 const ROLE_TEXT_LEAF = nsIAccessibleRole.ROLE_TEXT_LEAF;
+const ROLE_TIME_EDITOR = nsIAccessibleRole.ROLE_TIME_EDITOR;
 const ROLE_TOGGLE_BUTTON = nsIAccessibleRole.ROLE_TOGGLE_BUTTON;
 const ROLE_TOOLBAR = nsIAccessibleRole.ROLE_TOOLBAR;
 const ROLE_TOOLTIP = nsIAccessibleRole.ROLE_TOOLTIP;
@@ -154,8 +162,9 @@ function testRole(aAccOrElmOrID, aRole) {
  */
 function getRole(aAccOrElmOrID) {
   var acc = getAccessible(aAccOrElmOrID);
-  if (!acc)
+  if (!acc) {
     return -1;
+  }
 
   var role = -1;
   try {
@@ -172,8 +181,9 @@ function getRole(aAccOrElmOrID) {
  */
 function isRole(aIdentifier, aRole, aMsg) {
   var role = getRole(aIdentifier);
-  if (role == -1)
+  if (role == -1) {
     return;
+  }
 
   if (role == aRole) {
     ok(true, aMsg);

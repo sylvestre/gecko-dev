@@ -9,6 +9,16 @@
 #include "mozilla/Attributes.h"
 #include "Units.h"
 
+namespace mozilla {
+namespace dom {
+enum class ViewportFitType : uint8_t {
+  Auto,
+  Contain,
+  Cover,
+};
+}
+}  // namespace mozilla
+
 /**
  * Default values for the nsViewportInfo class.
  */
@@ -19,7 +29,7 @@ static const mozilla::CSSIntSize kViewportMaxSize(10000, 10000);
 
 /**
  * Information retrieved from the <meta name="viewport"> tag. See
- * nsIDocument::GetViewportInfo for more information on this functionality.
+ * Document::GetViewportInfo for more information on this functionality.
  */
 class MOZ_STACK_CLASS nsViewportInfo {
  public:
@@ -35,16 +45,25 @@ class MOZ_STACK_CLASS nsViewportInfo {
     AllowZoom,
     DisallowZoom,
   };
+  enum class ZoomBehaviour {
+    Mobile,
+    Desktop,  // disallows zooming out past default zoom
+  };
   nsViewportInfo(const mozilla::ScreenIntSize& aDisplaySize,
                  const mozilla::CSSToScreenScale& aDefaultZoom,
-                 ZoomFlag aZoomFlag)
+                 ZoomFlag aZoomFlag, ZoomBehaviour aBehaviour)
       : mDefaultZoom(aDefaultZoom),
+        mViewportFit(mozilla::dom::ViewportFitType::Auto),
         mDefaultZoomValid(true),
         mAutoSize(true),
         mAllowZoom(aZoomFlag == ZoomFlag::AllowZoom) {
     mSize = mozilla::ScreenSize(aDisplaySize) / mDefaultZoom;
     mozilla::CSSToLayoutDeviceScale pixelRatio(1.0f);
-    mMinZoom = pixelRatio * kViewportMinScale;
+    if (aBehaviour == ZoomBehaviour::Desktop) {
+      mMinZoom = aDefaultZoom;
+    } else {
+      mMinZoom = pixelRatio * kViewportMinScale;
+    }
     mMaxZoom = pixelRatio * kViewportMaxScale;
     ConstrainViewportValues();
   }
@@ -53,11 +72,13 @@ class MOZ_STACK_CLASS nsViewportInfo {
                  const mozilla::CSSToScreenScale& aMinZoom,
                  const mozilla::CSSToScreenScale& aMaxZoom,
                  const mozilla::CSSSize& aSize, AutoSizeFlag aAutoSizeFlag,
-                 AutoScaleFlag aAutoScaleFlag, ZoomFlag aZoomFlag)
+                 AutoScaleFlag aAutoScaleFlag, ZoomFlag aZoomFlag,
+                 mozilla::dom::ViewportFitType aViewportFit)
       : mDefaultZoom(aDefaultZoom),
         mMinZoom(aMinZoom),
         mMaxZoom(aMaxZoom),
         mSize(aSize),
+        mViewportFit(aViewportFit),
         mDefaultZoomValid(aAutoScaleFlag != AutoScaleFlag::AutoScale),
         mAutoSize(aAutoSizeFlag == AutoSizeFlag::AutoSize),
         mAllowZoom(aZoomFlag == ZoomFlag::AllowZoom) {
@@ -74,6 +95,8 @@ class MOZ_STACK_CLASS nsViewportInfo {
   bool IsAutoSizeEnabled() const { return mAutoSize; }
   bool IsZoomAllowed() const { return mAllowZoom; }
 
+  mozilla::dom::ViewportFitType GetViewportFit() const { return mViewportFit; }
+
   enum {
     Auto = -1,
     ExtendToZoom = -2,
@@ -89,7 +112,7 @@ class MOZ_STACK_CLASS nsViewportInfo {
  private:
   /**
    * Constrain the viewport calculations from the
-   * nsIDocument::GetViewportInfo() function in order to always return
+   * Document::GetViewportInfo() function in order to always return
    * sane minimum/maximum values.
    */
   void ConstrainViewportValues();
@@ -106,6 +129,9 @@ class MOZ_STACK_CLASS nsViewportInfo {
 
   // The size of the viewport, specified by the <meta name="viewport"> tag.
   mozilla::CSSSize mSize;
+
+  // The value of the viewport-fit.
+  mozilla::dom::ViewportFitType mViewportFit;
 
   // If the default zoom was specified and was between the min and max
   // zoom values.

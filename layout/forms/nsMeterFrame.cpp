@@ -6,36 +6,37 @@
 
 #include "nsMeterFrame.h"
 
+#include "mozilla/PresShell.h"
+#include "mozilla/dom/Document.h"
+#include "mozilla/dom/Element.h"
+#include "mozilla/dom/HTMLMeterElement.h"
 #include "nsIContent.h"
 #include "nsPresContext.h"
 #include "nsGkAtoms.h"
 #include "nsNameSpaceManager.h"
-#include "nsIDocument.h"
-#include "nsIPresShell.h"
 #include "nsNodeInfoManager.h"
 #include "nsContentCreatorFunctions.h"
 #include "nsCheckboxRadioFrame.h"
 #include "nsFontMetrics.h"
-#include "mozilla/dom/Element.h"
-#include "mozilla/dom/HTMLMeterElement.h"
 #include "nsCSSPseudoElements.h"
 #include "nsStyleConsts.h"
 #include <algorithm>
 
 using namespace mozilla;
+using mozilla::dom::Document;
 using mozilla::dom::Element;
 using mozilla::dom::HTMLMeterElement;
 
-nsIFrame* NS_NewMeterFrame(nsIPresShell* aPresShell, ComputedStyle* aStyle) {
-  return new (aPresShell) nsMeterFrame(aStyle);
+nsIFrame* NS_NewMeterFrame(PresShell* aPresShell, ComputedStyle* aStyle) {
+  return new (aPresShell) nsMeterFrame(aStyle, aPresShell->GetPresContext());
 }
 
 NS_IMPL_FRAMEARENA_HELPERS(nsMeterFrame)
 
-nsMeterFrame::nsMeterFrame(ComputedStyle* aStyle)
-    : nsContainerFrame(aStyle, kClassID), mBarDiv(nullptr) {}
+nsMeterFrame::nsMeterFrame(ComputedStyle* aStyle, nsPresContext* aPresContext)
+    : nsContainerFrame(aStyle, aPresContext, kClassID), mBarDiv(nullptr) {}
 
-nsMeterFrame::~nsMeterFrame() {}
+nsMeterFrame::~nsMeterFrame() = default;
 
 void nsMeterFrame::DestroyFrom(nsIFrame* aDestructRoot,
                                PostDestroyData& aPostDestroyData) {
@@ -50,13 +51,13 @@ void nsMeterFrame::DestroyFrom(nsIFrame* aDestructRoot,
 nsresult nsMeterFrame::CreateAnonymousContent(
     nsTArray<ContentInfo>& aElements) {
   // Get the NodeInfoManager and tag necessary to create the meter bar div.
-  nsCOMPtr<nsIDocument> doc = mContent->GetComposedDoc();
+  nsCOMPtr<Document> doc = mContent->GetComposedDoc();
 
   // Create the div.
   mBarDiv = doc->CreateHTMLElement(nsGkAtoms::div);
 
   // Associate ::-moz-meter-bar pseudo-element to the anonymous child.
-  mBarDiv->SetPseudoElementType(CSSPseudoElementType::mozMeterBar);
+  mBarDiv->SetPseudoElementType(PseudoStyleType::mozMeterBar);
 
   aElements.AppendElement(mBarDiv);
 
@@ -98,8 +99,8 @@ void nsMeterFrame::Reflow(nsPresContext* aPresContext,
 
   ReflowBarFrame(barFrame, aPresContext, aReflowInput, aStatus);
 
-  aDesiredSize.SetSize(aReflowInput.GetWritingMode(),
-                       aReflowInput.ComputedSizeWithBorderPadding());
+  const auto wm = aReflowInput.GetWritingMode();
+  aDesiredSize.SetSize(wm, aReflowInput.ComputedSizeWithBorderPadding(wm));
 
   aDesiredSize.SetOverflowAreasToDesiredBounds();
   ConsiderChildOverflow(aDesiredSize.mOverflowAreas, barFrame);
@@ -136,7 +137,7 @@ void nsMeterFrame::ReflowBarFrame(nsIFrame* aBarFrame,
 
   size = NSToCoordRound(size * position);
 
-  if (!vertical && (wm.IsVertical() ? wm.IsVerticalRL() : !wm.IsBidiLTR())) {
+  if (!vertical && wm.IsPhysicalRTL()) {
     xoffset += aReflowInput.ComputedWidth() - size;
   }
 
@@ -161,9 +162,9 @@ void nsMeterFrame::ReflowBarFrame(nsIFrame* aBarFrame,
 
   ReflowOutput barDesiredSize(reflowInput);
   ReflowChild(aBarFrame, aPresContext, barDesiredSize, reflowInput, xoffset,
-              yoffset, 0, aStatus);
+              yoffset, ReflowChildFlags::Default, aStatus);
   FinishReflowChild(aBarFrame, aPresContext, barDesiredSize, &reflowInput,
-                    xoffset, yoffset, 0);
+                    xoffset, yoffset, ReflowChildFlags::Default);
 }
 
 nsresult nsMeterFrame::AttributeChanged(int32_t aNameSpaceID,
@@ -175,7 +176,7 @@ nsresult nsMeterFrame::AttributeChanged(int32_t aNameSpaceID,
        aAttribute == nsGkAtoms::min)) {
     nsIFrame* barFrame = mBarDiv->GetPrimaryFrame();
     NS_ASSERTION(barFrame, "The meter frame should have a child with a frame!");
-    PresShell()->FrameNeedsReflow(barFrame, nsIPresShell::eResize,
+    PresShell()->FrameNeedsReflow(barFrame, IntrinsicDirty::Resize,
                                   NS_FRAME_IS_DIRTY);
     InvalidateFrame();
   }
@@ -186,14 +187,14 @@ nsresult nsMeterFrame::AttributeChanged(int32_t aNameSpaceID,
 LogicalSize nsMeterFrame::ComputeAutoSize(
     gfxContext* aRenderingContext, WritingMode aWM, const LogicalSize& aCBSize,
     nscoord aAvailableISize, const LogicalSize& aMargin,
-    const LogicalSize& aBorder, const LogicalSize& aPadding,
-    ComputeSizeFlags aFlags) {
+    const LogicalSize& aBorderPadding, ComputeSizeFlags aFlags) {
   RefPtr<nsFontMetrics> fontMet =
       nsLayoutUtils::GetFontMetricsForFrame(this, 1.0f);
 
   const WritingMode wm = GetWritingMode();
   LogicalSize autoSize(wm);
-  autoSize.BSize(wm) = autoSize.ISize(wm) = fontMet->Font().size;  // 1em
+  autoSize.BSize(wm) = autoSize.ISize(wm) =
+      fontMet->Font().size.ToAppUnits();  // 1em
 
   if (ResolvedOrientationIsVertical() == wm.IsVertical()) {
     autoSize.ISize(wm) *= 5;  // 5em
@@ -208,7 +209,7 @@ nscoord nsMeterFrame::GetMinISize(gfxContext* aRenderingContext) {
   RefPtr<nsFontMetrics> fontMet =
       nsLayoutUtils::GetFontMetricsForFrame(this, 1.0f);
 
-  nscoord minISize = fontMet->Font().size;  // 1em
+  nscoord minISize = fontMet->Font().size.ToAppUnits();  // 1em
 
   if (ResolvedOrientationIsVertical() == GetWritingMode().IsVertical()) {
     // The orientation is inline
@@ -229,13 +230,12 @@ bool nsMeterFrame::ShouldUseNativeStyle() const {
   // - both frames use the native appearance;
   // - neither frame has author specified rules setting the border or the
   //   background.
-  return StyleDisplay()->mAppearance == StyleAppearance::Meter &&
+  return StyleDisplay()->EffectiveAppearance() == StyleAppearance::Meter &&
          !PresContext()->HasAuthorSpecifiedRules(
-             this,
-             NS_AUTHOR_SPECIFIED_BORDER | NS_AUTHOR_SPECIFIED_BACKGROUND) &&
+             this, NS_AUTHOR_SPECIFIED_BORDER_OR_BACKGROUND) &&
          barFrame &&
-         barFrame->StyleDisplay()->mAppearance == StyleAppearance::Meterchunk &&
+         barFrame->StyleDisplay()->EffectiveAppearance() ==
+             StyleAppearance::Meterchunk &&
          !PresContext()->HasAuthorSpecifiedRules(
-             barFrame,
-             NS_AUTHOR_SPECIFIED_BORDER | NS_AUTHOR_SPECIFIED_BACKGROUND);
+             barFrame, NS_AUTHOR_SPECIFIED_BORDER_OR_BACKGROUND);
 }

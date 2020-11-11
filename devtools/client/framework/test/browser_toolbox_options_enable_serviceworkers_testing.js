@@ -1,18 +1,11 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 2 -*- */
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
 // Test that enabling Service Workers testing option enables the
 // mServiceWorkersTestingEnabled attribute added to nsPIDOMWindow.
 
-const ROOT_TEST_DIR =
-  getRootDirectory(gTestPath);
-const FRAME_SCRIPT_URL =
-  ROOT_TEST_DIR +
-  "browser_toolbox_options_enable_serviceworkers_testing_frame_script.js";
-const TEST_URI = URL_ROOT +
-                 "browser_toolbox_options_enable_serviceworkers_testing.html";
+const TEST_URI =
+  URL_ROOT + "browser_toolbox_options_enable_serviceworkers_testing.html";
 
 const ELEMENT_ID = "devtools-enable-serviceWorkersTesting";
 
@@ -21,21 +14,21 @@ var toolbox;
 function test() {
   // Note: Pref dom.serviceWorkers.testing.enabled is false since we are testing
   // the same capabilities are enabled with the devtool pref.
-  SpecialPowers.pushPrefEnv({"set": [
-    ["dom.serviceWorkers.exemptFromPerDomainMax", true],
-    ["dom.serviceWorkers.enabled", true],
-    ["dom.serviceWorkers.testing.enabled", false],
-  ]}, init);
+  SpecialPowers.pushPrefEnv(
+    {
+      set: [
+        ["dom.serviceWorkers.exemptFromPerDomainMax", true],
+        ["dom.serviceWorkers.enabled", true],
+        ["dom.serviceWorkers.testing.enabled", false],
+      ],
+    },
+    init
+  );
 }
 
 function init() {
   addTab(TEST_URI).then(async tab => {
     const target = await TargetFactory.forTab(tab);
-    const linkedBrowser = tab.linkedBrowser;
-
-    loadFrameScriptUtils(linkedBrowser);
-    linkedBrowser.messageManager.loadFrameScript(FRAME_SCRIPT_URL, false);
-
     gDevTools.showToolbox(target).then(testSelectTool);
   });
 }
@@ -46,16 +39,29 @@ function testSelectTool(aToolbox) {
   toolbox.selectTool("options");
 }
 
+function sendMessage(name) {
+  return SpecialPowers.spawn(gBrowser.selectedBrowser, [name], nameChild => {
+    return new Promise(resolve => {
+      const channel = new content.MessageChannel();
+      content.postMessage(nameChild, "*", [channel.port2]);
+      channel.port1.onmessage = function(msg) {
+        resolve(msg.data);
+        channel.port1.close();
+      };
+    });
+  });
+}
+
 function register() {
-  return executeInContent("devtools:sw-test:register");
+  return sendMessage("devtools:sw-test:register");
 }
 
 function unregister(swr) {
-  return executeInContent("devtools:sw-test:unregister");
+  return sendMessage("devtools:sw-test:unregister");
 }
 
 function registerAndUnregisterInFrame() {
-  return executeInContent("devtools:sw-test:iframe:register-and-unregister");
+  return sendMessage("devtools:sw-test:iframe:register-and-unregister");
 }
 
 function testRegisterFails(data) {
@@ -83,7 +89,9 @@ function toggleServiceWorkersTestingCheckbox() {
 function reload() {
   const promise = BrowserTestUtils.browserLoaded(gBrowser.selectedBrowser);
 
-  executeInContent("devtools:test:reload", {}, {}, false);
+  SpecialPowers.spawn(gBrowser.selectedBrowser, [], () => {
+    content.location.reload(false);
+  });
   return promise;
 }
 
@@ -109,7 +117,8 @@ function start() {
     .then(testRegisterFails)
     .catch(function(e) {
       ok(false, "Some test failed with error " + e);
-    }).then(finishUp);
+    })
+    .then(finishUp);
 }
 
 function finishUp() {

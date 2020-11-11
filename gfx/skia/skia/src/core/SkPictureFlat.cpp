@@ -5,17 +5,14 @@
  * found in the LICENSE file.
  */
 
-#include "SkPictureFlat.h"
-#include "SkChecksum.h"
-#include "SkColorFilter.h"
-#include "SkDrawLooper.h"
-#include "SkMaskFilter.h"
-#include "SkShader.h"
-#include "SkTypeface.h"
+#include "include/core/SkColorFilter.h"
+#include "include/core/SkMaskFilter.h"
+#include "include/core/SkShader.h"
+#include "include/core/SkTypeface.h"
+#include "include/private/SkChecksum.h"
+#include "src/core/SkPictureFlat.h"
 
 ///////////////////////////////////////////////////////////////////////////////
-
-SkTypefacePlayback::~SkTypefacePlayback() {}
 
 void SkTypefacePlayback::setCount(size_t count) {
     fCount = count;

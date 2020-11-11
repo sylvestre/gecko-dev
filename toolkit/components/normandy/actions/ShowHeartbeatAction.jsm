@@ -4,18 +4,53 @@
 
 "use strict";
 
-ChromeUtils.import("resource://gre/modules/Services.jsm");
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
-ChromeUtils.import("resource://normandy/actions/BaseAction.jsm");
-ChromeUtils.defineModuleGetter(this, "ActionSchemas", "resource://normandy/actions/schemas/index.js");
-ChromeUtils.defineModuleGetter(this, "BrowserWindowTracker", "resource:///modules/BrowserWindowTracker.jsm");
-ChromeUtils.defineModuleGetter(this, "ClientEnvironment", "resource://normandy/lib/ClientEnvironment.jsm");
-ChromeUtils.defineModuleGetter(this, "Heartbeat", "resource://normandy/lib/Heartbeat.jsm");
-ChromeUtils.defineModuleGetter(this, "ShellService", "resource:///modules/ShellService.jsm");
-ChromeUtils.defineModuleGetter(this, "Storage", "resource://normandy/lib/Storage.jsm");
-ChromeUtils.defineModuleGetter(this, "UpdateUtils", "resource://gre/modules/UpdateUtils.jsm");
-
-XPCOMUtils.defineLazyServiceGetter(this, "uuidGenerator", "@mozilla.org/uuid-generator;1", "nsIUUIDGenerator");
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+const { BaseAction } = ChromeUtils.import(
+  "resource://normandy/actions/BaseAction.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "ActionSchemas",
+  "resource://normandy/actions/schemas/index.js"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "BrowserWindowTracker",
+  "resource:///modules/BrowserWindowTracker.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "ClientEnvironment",
+  "resource://normandy/lib/ClientEnvironment.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "Heartbeat",
+  "resource://normandy/lib/Heartbeat.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "ShellService",
+  "resource:///modules/ShellService.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "Storage",
+  "resource://normandy/lib/Storage.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "UpdateUtils",
+  "resource://gre/modules/UpdateUtils.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "NormandyUtils",
+  "resource://normandy/lib/NormandyUtils.jsm"
+);
 
 var EXPORTED_SYMBOLS = ["ShowHeartbeatAction"];
 
@@ -42,11 +77,13 @@ class ShowHeartbeatAction extends BaseAction {
 
     const recipeStorage = new Storage(recipe.id);
 
-    if (!await this.shouldShow(recipeStorage, recipe)) {
+    if (!(await this.shouldShow(recipeStorage, recipe))) {
       return;
     }
 
-    this.log.debug(`Heartbeat for recipe ${recipe.id} showing prompt "${message}"`);
+    this.log.debug(
+      `Heartbeat for recipe ${recipe.id} showing prompt "${message}"`
+    );
     const targetWindow = BrowserWindowTracker.getTopWindow();
 
     if (!targetWindow) {
@@ -61,12 +98,18 @@ class ShowHeartbeatAction extends BaseAction {
       learnMoreMessage,
       learnMoreUrl,
       postAnswerUrl: await this.generatePostAnswerURL(recipe),
-      flowId: this.uuid(),
+      flowId: NormandyUtils.generateUuid(),
       surveyVersion: recipe.revision_id,
     });
 
-    heartbeat.eventEmitter.once("Voted", this.updateLastInteraction.bind(this, recipeStorage));
-    heartbeat.eventEmitter.once("Engaged", this.updateLastInteraction.bind(this, recipeStorage));
+    heartbeat.eventEmitter.once(
+      "Voted",
+      this.updateLastInteraction.bind(this, recipeStorage)
+    );
+    heartbeat.eventEmitter.once(
+      "Engaged",
+      this.updateLastInteraction.bind(this, recipeStorage)
+    );
 
     let now = Date.now();
     await Promise.all([
@@ -84,7 +127,9 @@ class ShowHeartbeatAction extends BaseAction {
       if (duration < HEARTBEAT_THROTTLE) {
         // show the number of hours since the last heartbeat, with at most 1 decimal point.
         const hoursAgo = Math.floor(duration / 1000 / 60 / 6) / 10;
-        this.log.debug(`A heartbeat was shown too recently (${hoursAgo} hours), skipping recipe ${recipe.id}.`);
+        this.log.debug(
+          `A heartbeat was shown too recently (${hoursAgo} hours), skipping recipe ${recipe.id}.`
+        );
         return false;
       }
     }
@@ -93,17 +138,23 @@ class ShowHeartbeatAction extends BaseAction {
       case "once": {
         // Don't show if we've ever shown before
         if (await recipeStorage.getItem("lastShown")) {
-          this.log.debug(`Heartbeat for "once" recipe ${recipe.id} has been shown before, skipping.`);
+          this.log.debug(
+            `Heartbeat for "once" recipe ${recipe.id} has been shown before, skipping.`
+          );
           return false;
         }
+        break;
       }
 
       case "nag": {
         // Show a heartbeat again only if the user has not interacted with it before
         if (await recipeStorage.getItem("lastInteraction")) {
-          this.log.debug(`Heartbeat for "nag" recipe ${recipe.id} has already been interacted with, skipping.`);
+          this.log.debug(
+            `Heartbeat for "nag" recipe ${recipe.id} has already been interacted with, skipping.`
+          );
           return false;
         }
+        break;
       }
 
       case "xdays": {
@@ -111,7 +162,7 @@ class ShowHeartbeatAction extends BaseAction {
         let lastShown = await gAllRecipeStorage.getItem("lastShown");
         if (lastShown) {
           lastShown = new Date(lastShown);
-          const duration  = new Date() - lastShown;
+          const duration = new Date() - lastShown;
           if (duration < repeatEvery * DAY_IN_MS) {
             // show the number of hours since the last time this hearbeat was shown, with at most 1 decimal point.
             const hoursAgo = Math.floor(duration / 1000 / 60 / 6) / 10;
@@ -142,15 +193,6 @@ class ShowHeartbeatAction extends BaseAction {
     return surveyId;
   }
 
-  /*
-   * Generate a UUID without surrounding brackets, as expected by Heartbeat
-   * telemetry.
-   */
-  uuid() {
-    let rv = uuidGenerator.generateUUID().toString();
-    return rv.slice(1, rv.length - 1);
-  }
-
   /**
    * Generate the appropriate post-answer URL for a recipe.
    * @param  recipe
@@ -165,14 +207,7 @@ class ShowHeartbeatAction extends BaseAction {
     }
 
     const userId = ClientEnvironment.userId;
-    const searchEngine = await new Promise(resolve => {
-      Services.search.init(rv => {
-        if (Components.isSuccessCode(rv)) {
-          resolve(Services.search.defaultEngine.identifier);
-        }
-      });
-    });
-
+    const searchEngine = (await Services.search.getDefault()).identifier;
     const args = {
       fxVersion: Services.appinfo.version,
       isDefaultBrowser: ShellService.isDefaultBrowser() ? 1 : 0,
@@ -181,7 +216,9 @@ class ShowHeartbeatAction extends BaseAction {
       // `surveyversion` used to be the version of the heartbeat action when it
       // was hosted on a server. Keeping it around for compatibility.
       surveyversion: Services.appinfo.version,
-      syncSetup: Services.prefs.prefHasUserValue("services.sync.username") ? 1 : 0,
+      syncSetup: Services.prefs.prefHasUserValue("services.sync.username")
+        ? 1
+        : 0,
       updateChannel: UpdateUtils.getUpdateChannel(false),
       utm_campaign: encodeURIComponent(message.replace(/\s+/g, "")),
       utm_medium: recipe.action,

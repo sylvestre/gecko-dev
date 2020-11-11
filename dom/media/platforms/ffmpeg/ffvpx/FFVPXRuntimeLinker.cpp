@@ -12,11 +12,13 @@
 #include "prmem.h"
 #include "prlink.h"
 #ifdef XP_WIN
-#include <windows.h>
+#  include <windows.h>
 #endif
 
 // We use a known symbol located in lgpllibs to determine its location.
 // soundtouch happens to be always included in lgpllibs
+// Use abort() instead of exception in SoundTouch.
+#define ST_NO_EXCEPTION_HANDLING 1
 #include "soundtouch/SoundTouch.h"
 
 namespace mozilla {
@@ -53,7 +55,8 @@ static PRLibrary* MozAVLink(nsIFile* aFile) {
   return lib;
 }
 
-/* static */ bool FFVPXRuntimeLinker::Init() {
+/* static */
+bool FFVPXRuntimeLinker::Init() {
   if (sLinkStatus) {
     return sLinkStatus == LinkStatus_SUCCEEDED;
   }
@@ -107,15 +110,16 @@ static PRLibrary* MozAVLink(nsIFile* aFile) {
   return false;
 }
 
-/* static */ already_AddRefed<PlatformDecoderModule>
-FFVPXRuntimeLinker::CreateDecoderModule() {
+/* static */
+already_AddRefed<PlatformDecoderModule> FFVPXRuntimeLinker::Create() {
   if (!Init()) {
     return nullptr;
   }
   return FFmpegDecoderModule<FFVPX_VERSION>::Create(&sFFVPXLib);
 }
 
-/* static */ void FFVPXRuntimeLinker::GetRDFTFuncs(FFmpegRDFTFuncs* aOutFuncs) {
+/* static */
+void FFVPXRuntimeLinker::GetRDFTFuncs(FFmpegRDFTFuncs* aOutFuncs) {
   MOZ_ASSERT(sLinkStatus != LinkStatus_INIT);
   if (sFFVPXLib.av_rdft_init && sFFVPXLib.av_rdft_calc &&
       sFFVPXLib.av_rdft_end) {

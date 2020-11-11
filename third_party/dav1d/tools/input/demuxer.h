@@ -25,8 +25,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __DAV1D_INPUT_DEMUXER_H__
-#define __DAV1D_INPUT_DEMUXER_H__
+#ifndef DAV1D_INPUT_DEMUXER_H
+#define DAV1D_INPUT_DEMUXER_H
 
 #include "data.h"
 
@@ -34,11 +34,12 @@ typedef struct DemuxerPriv DemuxerPriv;
 typedef struct Demuxer {
     int priv_data_size;
     const char *name;
-    const char *extension;
+    int probe_sz;
+    int (*probe)(const uint8_t *data);
     int (*open)(DemuxerPriv *ctx, const char *filename,
-                unsigned fps[2], unsigned *num_frames);
+                unsigned fps[2], unsigned *num_frames, unsigned timebase[2]);
     int (*read)(DemuxerPriv *ctx, Dav1dData *data);
     void (*close)(DemuxerPriv *ctx);
 } Demuxer;
 
-#endif /* __DAV1D_INPUT_DEMUXER_H__ */
+#endif /* DAV1D_INPUT_DEMUXER_H */

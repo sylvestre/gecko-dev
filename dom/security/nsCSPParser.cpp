@@ -5,22 +5,21 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "mozilla/ArrayUtils.h"
+#include "mozilla/dom/Document.h"
 #include "mozilla/Preferences.h"
-#include "mozilla/StaticPrefs.h"
+#include "mozilla/StaticPrefs_security.h"
 #include "nsCOMPtr.h"
 #include "nsContentUtils.h"
 #include "nsCSPParser.h"
 #include "nsCSPUtils.h"
-#include "nsIConsoleService.h"
-#include "nsIContentPolicy.h"
 #include "nsIScriptError.h"
-#include "nsIStringBundle.h"
 #include "nsNetUtil.h"
 #include "nsReadableUtils.h"
 #include "nsServiceManagerUtils.h"
 #include "nsUnicharUtils.h"
 
 using namespace mozilla;
+using namespace mozilla::dom;
 
 static LogModule* GetCspParserLog() {
   static LazyLogModule gCspParserPRLog("CSPParser");
@@ -32,36 +31,10 @@ static LogModule* GetCspParserLog() {
 #define CSPPARSERLOGENABLED() \
   MOZ_LOG_TEST(GetCspParserLog(), mozilla::LogLevel::Debug)
 
-// clang-format off
-static const char16_t COLON        = ':';
-static const char16_t SEMICOLON    = ';';
-static const char16_t SLASH        = '/';
-static const char16_t PLUS         = '+';
-static const char16_t DASH         = '-';
-static const char16_t DOT          = '.';
-static const char16_t UNDERLINE    = '_';
-static const char16_t TILDE        = '~';
-static const char16_t WILDCARD     = '*';
-static const char16_t SINGLEQUOTE  = '\'';
-static const char16_t NUMBER_SIGN  = '#';
-static const char16_t QUESTIONMARK = '?';
-static const char16_t PERCENT_SIGN = '%';
-static const char16_t EXCLAMATION  = '!';
-static const char16_t DOLLAR       = '$';
-static const char16_t AMPERSAND    = '&';
-static const char16_t OPENBRACE    = '(';
-static const char16_t CLOSINGBRACE = ')';
-static const char16_t EQUALS       = '=';
-static const char16_t ATSYMBOL     = '@';
-// clang-format on
-
 static const uint32_t kSubHostPathCharacterCutoff = 512;
 
 static const char* const kHashSourceValidFns[] = {"sha256", "sha384", "sha512"};
 static const uint32_t kHashSourceValidFnsLen = 3;
-
-static const char* const kStyle = "style";
-static const char* const kScript = "script";
 
 /* ===== nsCSPParser ==================== */
 
@@ -77,7 +50,7 @@ nsCSPParser::nsCSPParser(policyTokens& aTokens, nsIURI* aSelfURI,
       mWorkerSrc(nullptr),
       mScriptSrc(nullptr),
       mParsingFrameAncestorsDir(false),
-      mTokens(aTokens),
+      mTokens(aTokens.Clone()),
       mSelfURI(aSelfURI),
       mPolicy(nullptr),
       mCSPContext(aCSPContext),
@@ -92,11 +65,11 @@ static bool isCharacterToken(char16_t aSymbol) {
          (aSymbol >= 'A' && aSymbol <= 'Z');
 }
 
-static bool isNumberToken(char16_t aSymbol) {
+bool isNumberToken(char16_t aSymbol) {
   return (aSymbol >= '0' && aSymbol <= '9');
 }
 
-static bool isValidHexDig(char16_t aHexDig) {
+bool isValidHexDig(char16_t aHexDig) {
   return (isNumberToken(aHexDig) || (aHexDig >= 'A' && aHexDig <= 'F') ||
           (aHexDig >= 'a' && aHexDig <= 'f'));
 }
@@ -183,14 +156,13 @@ bool nsCSPParser::atValidPathChar() {
 
 void nsCSPParser::logWarningErrorToConsole(uint32_t aSeverityFlag,
                                            const char* aProperty,
-                                           const char16_t* aParams[],
-                                           uint32_t aParamsLength) {
+                                           const nsTArray<nsString>& aParams) {
   CSPPARSERLOG(("nsCSPParser::logWarningErrorToConsole: %s", aProperty));
   // send console messages off to the context and let the context
   // deal with it (potentially messages need to be queued up)
-  mCSPContext->logToConsole(aProperty, aParams, aParamsLength,
-                            EmptyString(),   // aSourceName
-                            EmptyString(),   // aSourceLine
+  mCSPContext->logToConsole(aProperty, aParams,
+                            u""_ns,          // aSourceName
+                            u""_ns,          // aSourceLine
                             0,               // aLineNumber
                             0,               // aColumnNumber
                             aSeverityFlag);  // aFlags
@@ -233,9 +205,9 @@ bool nsCSPParser::port() {
 
   // Port must start with a number
   if (!accept(isNumberToken)) {
-    const char16_t* params[] = {mCurToken.get()};
+    AutoTArray<nsString, 1> params = {mCurToken};
     logWarningErrorToConsole(nsIScriptError::warningFlag, "couldntParsePort",
-                             params, ArrayLength(params));
+                             params);
     return false;
   }
   // Consume more numbers and set parsed port to the nsCSPHost
@@ -268,10 +240,9 @@ bool nsCSPParser::subPath(nsCSPHostSrc* aCspHost) {
       // first part is "/path1", second part "/path2"
       resetCurValue();
     } else if (!atValidPathChar()) {
-      const char16_t* params[] = {mCurToken.get()};
+      AutoTArray<nsString, 1> params = {mCurToken};
       logWarningErrorToConsole(nsIScriptError::warningFlag,
-                               "couldntParseInvalidSource", params,
-                               ArrayLength(params));
+                               "couldntParseInvalidSource", params);
       return false;
     }
     // potentially we have encountred a valid pct-encoded character in
@@ -307,10 +278,9 @@ bool nsCSPParser::path(nsCSPHostSrc* aCspHost) {
   resetCurValue();
 
   if (!accept(SLASH)) {
-    const char16_t* params[] = {mCurToken.get()};
+    AutoTArray<nsString, 1> params = {mCurToken};
     logWarningErrorToConsole(nsIScriptError::warningFlag,
-                             "couldntParseInvalidSource", params,
-                             ArrayLength(params));
+                             "couldntParseInvalidSource", params);
     return false;
   }
   if (atEndOfPath()) {
@@ -318,16 +288,15 @@ bool nsCSPParser::path(nsCSPHostSrc* aCspHost) {
     // www.example.com/ should result in www.example.com/
     // please note that we do not have to perform any pct-decoding here
     // because we are just appending a '/' and not any actual chars.
-    aCspHost->appendPath(NS_LITERAL_STRING("/"));
+    aCspHost->appendPath(u"/"_ns);
     return true;
   }
   // path can begin with "/" but not "//"
   // see http://tools.ietf.org/html/rfc3986#section-3.3
   if (peek(SLASH)) {
-    const char16_t* params[] = {mCurToken.get()};
+    AutoTArray<nsString, 1> params = {mCurToken};
     logWarningErrorToConsole(nsIScriptError::warningFlag,
-                             "couldntParseInvalidSource", params,
-                             ArrayLength(params));
+                             "couldntParseInvalidSource", params);
     return false;
   }
   return subPath(aCspHost);
@@ -376,29 +345,26 @@ nsCSPHostSrc* nsCSPParser::host() {
     }
     // If the token is not only the "*", a "." must follow right after
     if (!accept(DOT)) {
-      const char16_t* params[] = {mCurToken.get()};
+      AutoTArray<nsString, 1> params = {mCurToken};
       logWarningErrorToConsole(nsIScriptError::warningFlag,
-                               "couldntParseInvalidHost", params,
-                               ArrayLength(params));
+                               "couldntParseInvalidHost", params);
       return nullptr;
     }
   }
 
   // Expecting at least one host-char
   if (!hostChar()) {
-    const char16_t* params[] = {mCurToken.get()};
+    AutoTArray<nsString, 1> params = {mCurToken};
     logWarningErrorToConsole(nsIScriptError::warningFlag,
-                             "couldntParseInvalidHost", params,
-                             ArrayLength(params));
+                             "couldntParseInvalidHost", params);
     return nullptr;
   }
 
   // There might be several sub hosts defined.
   if (!subHost()) {
-    const char16_t* params[] = {mCurToken.get()};
+    AutoTArray<nsString, 1> params = {mCurToken};
     logWarningErrorToConsole(nsIScriptError::warningFlag,
-                             "couldntParseInvalidHost", params,
-                             ArrayLength(params));
+                             "couldntParseInvalidHost", params);
     return nullptr;
   }
 
@@ -406,10 +372,9 @@ nsCSPHostSrc* nsCSPParser::host() {
   if (CSP_IsQuotelessKeyword(mCurValue)) {
     nsString keyword = mCurValue;
     ToLowerCase(keyword);
-    const char16_t* params[] = {mCurToken.get(), keyword.get()};
+    AutoTArray<nsString, 2> params = {mCurToken, keyword};
     logWarningErrorToConsole(nsIScriptError::warningFlag,
-                             "hostNameMightBeKeyword", params,
-                             ArrayLength(params));
+                             "hostNameMightBeKeyword", params);
   }
 
   // Create a new nsCSPHostSrc with the parsed host.
@@ -433,17 +398,12 @@ nsCSPBaseSrc* nsCSPParser::keywordSource() {
   }
 
   if (CSP_IsKeyword(mCurToken, CSP_STRICT_DYNAMIC)) {
-    // make sure strict dynamic is enabled
-    if (!StaticPrefs::security_csp_enableStrictDynamic()) {
-      return nullptr;
-    }
     if (!CSP_IsDirective(mCurDir[0],
                          nsIContentSecurityPolicy::SCRIPT_SRC_DIRECTIVE)) {
       // Todo: Enforce 'strict-dynamic' within default-src; see Bug 1313937
-      const char16_t* params[] = {u"strict-dynamic"};
+      AutoTArray<nsString, 1> params = {u"strict-dynamic"_ns};
       logWarningErrorToConsole(nsIScriptError::warningFlag,
-                               "ignoringStrictDynamic", params,
-                               ArrayLength(params));
+                               "ignoringStrictDynamic", params);
       return nullptr;
     }
     mStrictDynamic = true;
@@ -452,17 +412,16 @@ nsCSPBaseSrc* nsCSPParser::keywordSource() {
 
   if (CSP_IsKeyword(mCurToken, CSP_UNSAFE_INLINE)) {
     nsWeakPtr ctx = mCSPContext->GetLoadingContext();
-    nsCOMPtr<nsIDocument> doc = do_QueryReferent(ctx);
+    nsCOMPtr<Document> doc = do_QueryReferent(ctx);
     if (doc) {
       doc->SetHasUnsafeInlineCSP(true);
     }
     // make sure script-src only contains 'unsafe-inline' once;
     // ignore duplicates and log warning
     if (mUnsafeInlineKeywordSrc) {
-      const char16_t* params[] = {mCurToken.get()};
+      AutoTArray<nsString, 1> params = {mCurToken};
       logWarningErrorToConsole(nsIScriptError::warningFlag,
-                               "ignoringDuplicateSrc", params,
-                               ArrayLength(params));
+                               "ignoringDuplicateSrc", params);
       return nullptr;
     }
     // cache if we encounter 'unsafe-inline' so we can invalidate (ignore) it in
@@ -474,12 +433,27 @@ nsCSPBaseSrc* nsCSPParser::keywordSource() {
 
   if (CSP_IsKeyword(mCurToken, CSP_UNSAFE_EVAL)) {
     nsWeakPtr ctx = mCSPContext->GetLoadingContext();
-    nsCOMPtr<nsIDocument> doc = do_QueryReferent(ctx);
+    nsCOMPtr<Document> doc = do_QueryReferent(ctx);
     if (doc) {
       doc->SetHasUnsafeEvalCSP(true);
     }
     return new nsCSPKeywordSrc(CSP_UTF16KeywordToEnum(mCurToken));
   }
+
+  if (CSP_IsKeyword(mCurToken, CSP_UNSAFE_ALLOW_REDIRECTS)) {
+    if (!CSP_IsDirective(mCurDir[0],
+                         nsIContentSecurityPolicy::NAVIGATE_TO_DIRECTIVE)) {
+      // Only allow 'unsafe-allow-redirects' within navigate-to.
+      AutoTArray<nsString, 2> params = {u"unsafe-allow-redirects"_ns,
+                                        u"navigate-to"_ns};
+      logWarningErrorToConsole(nsIScriptError::warningFlag,
+                               "IgnoringSourceWithinDirective", params);
+      return nullptr;
+    }
+
+    return new nsCSPKeywordSrc(CSP_UTF16KeywordToEnum(mCurToken));
+  }
+
   return nullptr;
 }
 
@@ -559,7 +533,7 @@ nsCSPNonceSrc* nsCSPParser::nonceSource() {
   // Check if mCurToken begins with "'nonce-" and ends with "'"
   if (!StringBeginsWith(mCurToken,
                         nsDependentString(CSP_EnumToUTF16Keyword(CSP_NONCE)),
-                        nsASCIICaseInsensitiveStringComparator()) ||
+                        nsASCIICaseInsensitiveStringComparator) ||
       mCurToken.Last() != SINGLEQUOTE) {
     return nullptr;
   }
@@ -646,7 +620,7 @@ nsCSPBaseSrc* nsCSPParser::sourceExpression() {
   // the default scheme. However, we still would need to apply the default
   // scheme in case we would parse "*:80".
   if (mCurToken.EqualsASCII("*")) {
-    return new nsCSPHostSrc(NS_LITERAL_STRING("*"));
+    return new nsCSPHostSrc(u"*"_ns);
   }
 
   // Calling resetCurChar allows us to use mCurChar and mEndChar
@@ -674,10 +648,9 @@ nsCSPBaseSrc* nsCSPParser::sourceExpression() {
     // If mCurToken provides not only a scheme, but also a host, we have to
     // check if two slashes follow the scheme.
     if (!accept(SLASH) || !accept(SLASH)) {
-      const char16_t* params[] = {mCurToken.get()};
+      AutoTArray<nsString, 1> params = {mCurToken};
       logWarningErrorToConsole(nsIScriptError::warningFlag,
-                               "failedToParseUnrecognizedSource", params,
-                               ArrayLength(params));
+                               "failedToParseUnrecognizedSource", params);
       return nullptr;
     }
   }
@@ -750,58 +723,12 @@ void nsCSPParser::sourceList(nsTArray<nsCSPBaseSrc*>& outSrcs) {
     }
     // Otherwise, we ignore 'none' and report a warning
     else {
-      const char16_t* params[] = {CSP_EnumToUTF16Keyword(CSP_NONE)};
+      AutoTArray<nsString, 1> params;
+      params.AppendElement(CSP_EnumToUTF16Keyword(CSP_NONE));
       logWarningErrorToConsole(nsIScriptError::warningFlag,
-                               "ignoringUnknownOption", params,
-                               ArrayLength(params));
+                               "ignoringUnknownOption", params);
     }
   }
-}
-
-void nsCSPParser::requireSRIForDirectiveValue(nsRequireSRIForDirective* aDir) {
-  CSPPARSERLOG(("nsCSPParser::requireSRIForDirectiveValue"));
-
-  // directive-value = "style" / "script"
-  // directive name is token 0, we need to examine the remaining tokens
-  for (uint32_t i = 1; i < mCurDir.Length(); i++) {
-    // mCurToken is only set here and remains the current token
-    // to be processed, which avoid passing arguments between functions.
-    mCurToken = mCurDir[i];
-    resetCurValue();
-    CSPPARSERLOG(
-        ("nsCSPParser:::directive (require-sri-for directive), "
-         "mCurToken: %s (valid), mCurValue: %s",
-         NS_ConvertUTF16toUTF8(mCurToken).get(),
-         NS_ConvertUTF16toUTF8(mCurValue).get()));
-    // add contentPolicyTypes to the CSP's required-SRI list for this token
-    if (mCurToken.LowerCaseEqualsASCII(kScript)) {
-      aDir->addType(nsIContentPolicy::TYPE_SCRIPT);
-    } else if (mCurToken.LowerCaseEqualsASCII(kStyle)) {
-      aDir->addType(nsIContentPolicy::TYPE_STYLESHEET);
-    } else {
-      const char16_t* invalidTokenName[] = {mCurToken.get()};
-      logWarningErrorToConsole(nsIScriptError::warningFlag,
-                               "failedToParseUnrecognizedSource",
-                               invalidTokenName, ArrayLength(invalidTokenName));
-      CSPPARSERLOG(
-          ("nsCSPParser:::directive (require-sri-for directive), "
-           "mCurToken: %s (invalid), mCurValue: %s",
-           NS_ConvertUTF16toUTF8(mCurToken).get(),
-           NS_ConvertUTF16toUTF8(mCurValue).get()));
-    }
-  }
-
-  if (!(aDir->hasType(nsIContentPolicy::TYPE_STYLESHEET)) &&
-      !(aDir->hasType(nsIContentPolicy::TYPE_SCRIPT))) {
-    const char16_t* directiveName[] = {mCurToken.get()};
-    logWarningErrorToConsole(nsIScriptError::warningFlag,
-                             "ignoringDirectiveWithNoValues", directiveName,
-                             ArrayLength(directiveName));
-    delete aDir;
-    return;
-  }
-
-  mPolicy->addDirective(aDir);
 }
 
 void nsCSPParser::reportURIList(nsCSPDirective* aDir) {
@@ -823,10 +750,9 @@ void nsCSPParser::reportURIList(nsCSPDirective* aDir) {
 
     // If creating the URI casued an error, skip this URI
     if (NS_FAILED(rv)) {
-      const char16_t* params[] = {mCurToken.get()};
+      AutoTArray<nsString, 1> params = {mCurToken};
       logWarningErrorToConsole(nsIScriptError::warningFlag,
-                               "couldNotParseReportURI", params,
-                               ArrayLength(params));
+                               "couldNotParseReportURI", params);
       continue;
     }
 
@@ -836,10 +762,9 @@ void nsCSPParser::reportURIList(nsCSPDirective* aDir) {
   }
 
   if (srcs.Length() == 0) {
-    const char16_t* directiveName[] = {mCurToken.get()};
+    AutoTArray<nsString, 1> directiveName = {mCurToken};
     logWarningErrorToConsole(nsIScriptError::warningFlag,
-                             "ignoringDirectiveWithNoValues", directiveName,
-                             ArrayLength(directiveName));
+                             "ignoringDirectiveWithNoValues", directiveName);
     delete aDir;
     return;
   }
@@ -866,10 +791,9 @@ void nsCSPParser::sandboxFlagList(nsCSPDirective* aDir) {
                   NS_ConvertUTF16toUTF8(mCurValue).get()));
 
     if (!nsContentUtils::IsValidSandboxFlag(mCurToken)) {
-      const char16_t* params[] = {mCurToken.get()};
+      AutoTArray<nsString, 1> params = {mCurToken};
       logWarningErrorToConsole(nsIScriptError::warningFlag,
-                               "couldntParseInvalidSandboxFlag", params,
-                               ArrayLength(params));
+                               "couldntParseInvalidSandboxFlag", params);
       continue;
     }
 
@@ -902,13 +826,10 @@ nsCSPDirective* nsCSPParser::directiveName() {
                 NS_ConvertUTF16toUTF8(mCurValue).get()));
 
   // Check if it is a valid directive
-  if (!CSP_IsValidDirective(mCurToken) ||
-      (!StaticPrefs::security_csp_experimentalEnabled() &&
-       CSP_IsDirective(mCurToken, nsIContentSecurityPolicy::REQUIRE_SRI_FOR))) {
-    const char16_t* params[] = {mCurToken.get()};
+  if (!CSP_IsValidDirective(mCurToken)) {
+    AutoTArray<nsString, 1> params = {mCurToken};
     logWarningErrorToConsole(nsIScriptError::warningFlag,
-                             "couldNotProcessUnknownDirective", params,
-                             ArrayLength(params));
+                             "couldNotProcessUnknownDirective", params);
     return nullptr;
   }
 
@@ -918,19 +839,31 @@ nsCSPDirective* nsCSPParser::directiveName() {
   // warning to the console and ignore the directive including its values.
   if (CSP_IsDirective(mCurToken,
                       nsIContentSecurityPolicy::REFLECTED_XSS_DIRECTIVE)) {
-    const char16_t* params[] = {mCurToken.get()};
+    AutoTArray<nsString, 1> params = {mCurToken};
     logWarningErrorToConsole(nsIScriptError::warningFlag,
-                             "notSupportingDirective", params,
-                             ArrayLength(params));
+                             "notSupportingDirective", params);
+    return nullptr;
+  }
+
+  // Bug 1529068: Implement navigate-to directive.
+  // Once all corner cases are resolved we can remove that special
+  // if-handling here and let the parser just fall through to
+  // return new nsCSPDirective.
+  if (CSP_IsDirective(mCurToken,
+                      nsIContentSecurityPolicy::NAVIGATE_TO_DIRECTIVE) &&
+      !StaticPrefs::security_csp_enableNavigateTo()) {
+    AutoTArray<nsString, 1> params = {mCurToken};
+    logWarningErrorToConsole(nsIScriptError::warningFlag,
+                             "couldNotProcessUnknownDirective", params);
     return nullptr;
   }
 
   // Make sure the directive does not already exist
   // (see http://www.w3.org/TR/CSP11/#parsing)
   if (mPolicy->hasDirective(CSP_StringToCSPDirective(mCurToken))) {
-    const char16_t* params[] = {mCurToken.get()};
+    AutoTArray<nsString, 1> params = {mCurToken};
     logWarningErrorToConsole(nsIScriptError::warningFlag, "duplicateDirective",
-                             params, ArrayLength(params));
+                             params);
     return nullptr;
   }
 
@@ -945,10 +878,9 @@ nsCSPDirective* nsCSPParser::directiveName() {
        (CSP_IsDirective(mCurToken,
                         nsIContentSecurityPolicy::SANDBOX_DIRECTIVE)))) {
     // log to the console to indicate that meta CSP is ignoring the directive
-    const char16_t* params[] = {mCurToken.get()};
+    AutoTArray<nsString, 1> params = {mCurToken};
     logWarningErrorToConsole(nsIScriptError::warningFlag,
-                             "ignoringSrcFromMetaCSP", params,
-                             ArrayLength(params));
+                             "ignoringSrcFromMetaCSP", params);
     return nullptr;
   }
 
@@ -965,15 +897,11 @@ nsCSPDirective* nsCSPParser::directiveName() {
     return new nsUpgradeInsecureDirective(CSP_StringToCSPDirective(mCurToken));
   }
 
-  // child-src by itself is deprecatd but will be enforced
-  //   * for workers (if worker-src is not explicitly specified)
-  //   * for frames  (if frame-src is not explicitly specified)
+  // if we have a child-src, cache it as a fallback for
+  //   * workers (if worker-src is not explicitly specified)
+  //   * frames  (if frame-src is not explicitly specified)
   if (CSP_IsDirective(mCurToken,
                       nsIContentSecurityPolicy::CHILD_SRC_DIRECTIVE)) {
-    const char16_t* params[] = {mCurToken.get()};
-    logWarningErrorToConsole(nsIScriptError::warningFlag,
-                             "deprecatedChildSrcDirective", params,
-                             ArrayLength(params));
     mChildSrc = new nsCSPChildSrcDirective(CSP_StringToCSPDirective(mCurToken));
     return mChildSrc;
   }
@@ -1001,10 +929,6 @@ nsCSPDirective* nsCSPParser::directiveName() {
     return mScriptSrc;
   }
 
-  if (CSP_IsDirective(mCurToken, nsIContentSecurityPolicy::REQUIRE_SRI_FOR)) {
-    return new nsRequireSRIForDirective(CSP_StringToCSPDirective(mCurToken));
-  }
-
   return new nsCSPDirective(CSP_StringToCSPDirective(mCurToken));
 }
 
@@ -1021,10 +945,9 @@ void nsCSPParser::directive() {
   // Make sure that the directive-srcs-array contains at least
   // one directive and one src.
   if (mCurDir.Length() < 1) {
-    const char16_t* params[] = {u"directive missing"};
+    AutoTArray<nsString, 1> params = {u"directive missing"_ns};
     logWarningErrorToConsole(nsIScriptError::warningFlag,
-                             "failedToParseUnrecognizedSource", params,
-                             ArrayLength(params));
+                             "failedToParseUnrecognizedSource", params);
     return;
   }
 
@@ -1044,10 +967,9 @@ void nsCSPParser::directive() {
   // by a directive name but does not include any srcs.
   if (cspDir->equals(nsIContentSecurityPolicy::BLOCK_ALL_MIXED_CONTENT)) {
     if (mCurDir.Length() > 1) {
-      const char16_t* params[] = {u"block-all-mixed-content"};
+      AutoTArray<nsString, 1> params = {u"block-all-mixed-content"_ns};
       logWarningErrorToConsole(nsIScriptError::warningFlag,
-                               "ignoreSrcForDirective", params,
-                               ArrayLength(params));
+                               "ignoreSrcForDirective", params);
     }
     // add the directive and return
     mPolicy->addDirective(cspDir);
@@ -1058,21 +980,13 @@ void nsCSPParser::directive() {
   // specified by a directive name but does not include any srcs.
   if (cspDir->equals(nsIContentSecurityPolicy::UPGRADE_IF_INSECURE_DIRECTIVE)) {
     if (mCurDir.Length() > 1) {
-      const char16_t* params[] = {u"upgrade-insecure-requests"};
+      AutoTArray<nsString, 1> params = {u"upgrade-insecure-requests"_ns};
       logWarningErrorToConsole(nsIScriptError::warningFlag,
-                               "ignoreSrcForDirective", params,
-                               ArrayLength(params));
+                               "ignoreSrcForDirective", params);
     }
     // add the directive and return
     mPolicy->addUpgradeInsecDir(
         static_cast<nsUpgradeInsecureDirective*>(cspDir));
-    return;
-  }
-
-  // special case handling for require-sri-for, which has directive values that
-  // are well-defined tokens but are not sources
-  if (cspDir->equals(nsIContentSecurityPolicy::REQUIRE_SRI_FOR)) {
-    requireSRIForDirectiveValue(static_cast<nsRequireSRIForDirective*>(cspDir));
     return;
   }
 
@@ -1133,30 +1047,27 @@ void nsCSPParser::directive() {
           !srcStr.EqualsASCII(CSP_EnumToUTF8Keyword(CSP_UNSAFE_EVAL)) &&
           !StringBeginsWith(
               srcStr, nsDependentString(CSP_EnumToUTF16Keyword(CSP_NONCE))) &&
-          !StringBeginsWith(srcStr, NS_LITERAL_STRING("'sha"))) {
-        const char16_t* params[] = {srcStr.get()};
+          !StringBeginsWith(srcStr, u"'sha"_ns)) {
+        AutoTArray<nsString, 1> params = {srcStr};
         logWarningErrorToConsole(nsIScriptError::warningFlag,
-                                 "ignoringSrcForStrictDynamic", params,
-                                 ArrayLength(params));
+                                 "ignoringSrcForStrictDynamic", params);
       }
     }
     // Log a warning that all scripts might be blocked because the policy
     // contains 'strict-dynamic' but no valid nonce or hash.
     if (!mHasHashOrNonce) {
-      const char16_t* params[] = {mCurDir[0].get()};
+      AutoTArray<nsString, 1> params = {mCurDir[0]};
       logWarningErrorToConsole(nsIScriptError::warningFlag,
-                               "strictDynamicButNoHashOrNonce", params,
-                               ArrayLength(params));
+                               "strictDynamicButNoHashOrNonce", params);
     }
   } else if (mHasHashOrNonce && mUnsafeInlineKeywordSrc &&
              (cspDir->equals(nsIContentSecurityPolicy::SCRIPT_SRC_DIRECTIVE) ||
               cspDir->equals(nsIContentSecurityPolicy::STYLE_SRC_DIRECTIVE))) {
     mUnsafeInlineKeywordSrc->invalidate();
     // log to the console that unsafe-inline will be ignored
-    const char16_t* params[] = {u"'unsafe-inline'"};
+    AutoTArray<nsString, 1> params = {u"'unsafe-inline'"_ns};
     logWarningErrorToConsole(nsIScriptError::warningFlag,
-                             "ignoringSrcWithinScriptStyleSrc", params,
-                             ArrayLength(params));
+                             "ignoringSrcWithinScriptStyleSrc", params);
   }
 
   // Add the newly created srcs to the directive and add the directive to the
@@ -1174,7 +1085,7 @@ nsCSPPolicy* nsCSPParser::policy() {
     // All input is already tokenized; set one tokenized array in the form of
     // [ name, src, src, ... ]
     // to mCurDir and call directive which processes the current directive.
-    mCurDir = mTokens[i];
+    mCurDir = mTokens[i].Clone();
     directive();
   }
 
@@ -1223,7 +1134,7 @@ nsCSPPolicy* nsCSPParser::parseContentSecurityPolicy(
   // The tokenizer itself can not fail; all eventual errors
   // are detected in the parser itself.
 
-  nsTArray<nsTArray<nsString> > tokens;
+  nsTArray<CopyableTArray<nsString> > tokens;
   PolicyTokenizer::tokenizePolicy(aPolicyString, tokens);
 
   nsCSPParser parser(tokens, aSelfURI, aCSPContext, aDeliveredViaMetaTag);
@@ -1238,11 +1149,10 @@ nsCSPPolicy* nsCSPParser::parseContentSecurityPolicy(
       nsAutoCString prePath;
       nsresult rv = aSelfURI->GetPrePath(prePath);
       NS_ENSURE_SUCCESS(rv, policy);
-      NS_ConvertUTF8toUTF16 unicodePrePath(prePath);
-      const char16_t* params[] = {unicodePrePath.get()};
+      AutoTArray<nsString, 1> params;
+      CopyUTF8toUTF16(prePath, *params.AppendElement());
       parser.logWarningErrorToConsole(nsIScriptError::warningFlag,
-                                      "reportURInotInReportOnlyHeader", params,
-                                      ArrayLength(params));
+                                      "reportURInotInReportOnlyHeader", params);
     }
   }
 

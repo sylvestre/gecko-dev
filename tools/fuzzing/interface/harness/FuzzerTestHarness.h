@@ -19,15 +19,14 @@
 #include "nsComponentManagerUtils.h"
 #include "nsServiceManagerUtils.h"
 #include "nsCOMPtr.h"
-#include "nsAutoPtr.h"
 #include "nsString.h"
 #include "nsAppDirectoryServiceDefs.h"
 #include "nsDirectoryServiceDefs.h"
 #include "nsDirectoryServiceUtils.h"
 #include "nsIDirectoryService.h"
 #include "nsIFile.h"
-#include "nsIProperties.h"
 #include "nsIObserverService.h"
+#include "nsIServiceManager.h"
 #include "nsXULAppAPI.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -42,7 +41,7 @@ static uint32_t gFailCount = 0;
  * "TEST-UNEXPECTED-FAIL " for the benefit of the test harness and
  * appending "\n" to eliminate having to type it at each call site.
  */
-MOZ_FORMAT_PRINTF(1, 2) void fail(const char *msg, ...) {
+MOZ_FORMAT_PRINTF(1, 2) void fail(const char* msg, ...) {
   va_list ap;
 
   printf("TEST-UNEXPECTED-FAIL | ");
@@ -57,19 +56,19 @@ MOZ_FORMAT_PRINTF(1, 2) void fail(const char *msg, ...) {
 
 //-----------------------------------------------------------------------------
 
-class ScopedXPCOM : public nsIDirectoryServiceProvider2 {
+class ScopedXPCOM final : public nsIDirectoryServiceProvider2 {
  public:
   NS_DECL_ISUPPORTS
 
-  explicit ScopedXPCOM(const char *testName,
-                       nsIDirectoryServiceProvider *dirSvcProvider = nullptr)
+  explicit ScopedXPCOM(const char* testName,
+                       nsIDirectoryServiceProvider* dirSvcProvider = nullptr)
       : mDirSvcProvider(dirSvcProvider) {
     mTestName = testName;
     printf("Running %s tests...\n", mTestName);
 
-    nsresult rv = NS_InitXPCOM2(&mServMgr, nullptr, this);
+    nsresult rv = NS_InitXPCOM(&mServMgr, nullptr, this);
     if (NS_FAILED(rv)) {
-      fail("NS_InitXPCOM2 returned failure code 0x%" PRIx32,
+      fail("NS_InitXPCOM returned failure code 0x%" PRIx32,
            static_cast<uint32_t>(rv));
       mServMgr = nullptr;
       return;
@@ -129,7 +128,7 @@ class ScopedXPCOM : public nsIDirectoryServiceProvider2 {
                                          getter_AddRefs(profD));
     NS_ENSURE_SUCCESS(rv, nullptr);
 
-    rv = profD->Append(NS_LITERAL_STRING("cpp-unit-profd"));
+    rv = profD->Append(u"cpp-unit-profd"_ns);
     NS_ENSURE_SUCCESS(rv, nullptr);
 
     rv = profD->CreateUnique(nsIFile::DIRECTORY_TYPE, 0755);
@@ -145,7 +144,7 @@ class ScopedXPCOM : public nsIDirectoryServiceProvider2 {
       return copy.forget();
     }
 
-    char *env = PR_GetEnv("MOZ_XRE_DIR");
+    char* env = PR_GetEnv("MOZ_XRE_DIR");
     nsCOMPtr<nsIFile> greD;
     if (env) {
       NS_NewLocalFile(NS_ConvertUTF8toUTF16(env), false, getter_AddRefs(greD));
@@ -171,7 +170,7 @@ class ScopedXPCOM : public nsIDirectoryServiceProvider2 {
     nsAutoCString leafName;
     mGREBinD->GetNativeLeafName(leafName);
     if (leafName.EqualsLiteral("Resources")) {
-      mGREBinD->SetNativeLeafName(NS_LITERAL_CSTRING("MacOS"));
+      mGREBinD->SetNativeLeafName("MacOS"_ns);
     }
 #endif
 
@@ -182,8 +181,8 @@ class ScopedXPCOM : public nsIDirectoryServiceProvider2 {
   ////////////////////////////////////////////////////////////////////////////
   //// nsIDirectoryServiceProvider
 
-  NS_IMETHODIMP GetFile(const char *aProperty, bool *_persistent,
-                        nsIFile **_result) override {
+  NS_IMETHODIMP GetFile(const char* aProperty, bool* _persistent,
+                        nsIFile** _result) override {
     // If we were supplied a directory service provider, ask it first.
     if (mDirSvcProvider && NS_SUCCEEDED(mDirSvcProvider->GetFile(
                                aProperty, _persistent, _result))) {
@@ -226,8 +225,8 @@ class ScopedXPCOM : public nsIDirectoryServiceProvider2 {
   ////////////////////////////////////////////////////////////////////////////
   //// nsIDirectoryServiceProvider2
 
-  NS_IMETHODIMP GetFiles(const char *aProperty,
-                         nsISimpleEnumerator **_enum) override {
+  NS_IMETHODIMP GetFiles(const char* aProperty,
+                         nsISimpleEnumerator** _enum) override {
     // If we were supplied a directory service provider, ask it first.
     nsCOMPtr<nsIDirectoryServiceProvider2> provider =
         do_QueryInterface(mDirSvcProvider);
@@ -239,8 +238,8 @@ class ScopedXPCOM : public nsIDirectoryServiceProvider2 {
   }
 
  private:
-  const char *mTestName;
-  nsIServiceManager *mServMgr;
+  const char* mTestName;
+  nsIServiceManager* mServMgr;
   nsCOMPtr<nsIDirectoryServiceProvider> mDirSvcProvider;
   nsCOMPtr<nsIFile> mProfD;
   nsCOMPtr<nsIFile> mGRED;

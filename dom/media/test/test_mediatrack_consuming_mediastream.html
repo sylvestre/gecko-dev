@@ -2,7 +2,7 @@
 <html>
 <head>
   <title>Test track interfaces when consuming a MediaStream from gUM</title>
-  <script type="text/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css" />
   <script type="text/javascript" src="manifest.js"></script>
   <script type="text/javascript" src="gUM_support.js"></script>
@@ -14,10 +14,8 @@ async function startTest() {
   let steps = 0;
   let audioOnchange = 0;
   let audioOnaddtrack = 0;
-  let audioOnremovetrack = 0;
   let videoOnchange = 0;
   let videoOnaddtrack = 0;
-  let videoOnremovetrack = 0;
   let isPlaying = false;
   let element = document.createElement("video");
   let stream;
@@ -34,20 +32,12 @@ async function startTest() {
     audioOnaddtrack++;
   };
 
-  element.audioTracks.onremovetrack = function(e) {
-    audioOnremovetrack++;
-  };
-
   element.audioTracks.onchange = function(e) {
     audioOnchange++;
   };
 
   element.videoTracks.onaddtrack = function(e) {
     videoOnaddtrack++;
-  };
-
-  element.videoTracks.onremovetrack = function(e) {
-    videoOnremovetrack++;
   };
 
   element.videoTracks.onchange = function(e) {

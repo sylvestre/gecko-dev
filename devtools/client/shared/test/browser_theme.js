@@ -1,4 +1,3 @@
-/* vim: set ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
    http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -6,8 +5,12 @@
 
 // Tests that theme utilities work
 
-const {getColor, getTheme, setTheme} = require("devtools/client/shared/theme");
-const {PrefObserver} = require("devtools/client/shared/prefs");
+const {
+  getColor,
+  getTheme,
+  setTheme,
+} = require("devtools/client/shared/theme");
+const { PrefObserver } = require("devtools/client/shared/prefs");
 
 add_task(async function() {
   testGetTheme();
@@ -37,53 +40,101 @@ function testSetTheme() {
   const prefObserver = new PrefObserver("devtools.");
   prefObserver.once("devtools.theme", () => {
     const newValue = Services.prefs.getCharPref("devtools.theme");
-    is(newValue, otherTheme,
-      "A preference event triggered by setTheme comes after the value is set.");
+    is(
+      newValue,
+      otherTheme,
+      "A preference event triggered by setTheme comes after the value is set."
+    );
   });
   setTheme(otherTheme);
-  is(Services.prefs.getCharPref("devtools.theme"), otherTheme,
-     "setTheme() correctly sets another theme.");
+  is(
+    Services.prefs.getCharPref("devtools.theme"),
+    otherTheme,
+    "setTheme() correctly sets another theme."
+  );
   setTheme(originalTheme);
-  is(Services.prefs.getCharPref("devtools.theme"), originalTheme,
-     "setTheme() correctly sets the original theme.");
+  is(
+    Services.prefs.getCharPref("devtools.theme"),
+    originalTheme,
+    "setTheme() correctly sets the original theme."
+  );
   setTheme("unknown");
-  is(Services.prefs.getCharPref("devtools.theme"), "unknown",
-     "setTheme() correctly sets an unknown theme.");
+  is(
+    Services.prefs.getCharPref("devtools.theme"),
+    "unknown",
+    "setTheme() correctly sets an unknown theme."
+  );
   Services.prefs.setCharPref("devtools.theme", originalTheme);
 
   prefObserver.destroy();
 }
 
 function testGetColor() {
-  const BLUE_DARK = "#75BFFF";
+  const BLUE_DARK = "#75bfff";
   const BLUE_LIGHT = "#0074e8";
   const originalTheme = getTheme();
 
   setTheme("dark");
-  is(getColor("highlight-blue"), BLUE_DARK, "correctly gets color for enabled theme.");
+  is(
+    getColor("highlight-blue"),
+    BLUE_DARK,
+    "correctly gets color for enabled theme."
+  );
   setTheme("light");
-  is(getColor("highlight-blue"), BLUE_LIGHT, "correctly gets color for enabled theme.");
+  is(
+    getColor("highlight-blue"),
+    BLUE_LIGHT,
+    "correctly gets color for enabled theme."
+  );
   setTheme("metal");
-  is(getColor("highlight-blue"), BLUE_LIGHT,
-     "correctly uses light for default theme if enabled theme not found");
+  is(
+    getColor("highlight-blue"),
+    BLUE_LIGHT,
+    "correctly uses light for default theme if enabled theme not found"
+  );
 
-  is(getColor("highlight-blue", "dark"), BLUE_DARK,
-     "if provided and found, uses the provided theme.");
-  is(getColor("highlight-blue", "metal"), BLUE_LIGHT,
-     "if provided and not found, defaults to light theme.");
-  is(getColor("somecomponents"), null, "if a type cannot be found, should return null.");
+  is(
+    getColor("highlight-blue", "dark"),
+    BLUE_DARK,
+    "if provided and found, uses the provided theme."
+  );
+  is(
+    getColor("highlight-blue", "metal"),
+    BLUE_LIGHT,
+    "if provided and not found, defaults to light theme."
+  );
+  is(
+    getColor("somecomponents"),
+    null,
+    "if a type cannot be found, should return null."
+  );
 
   setTheme(originalTheme);
 }
 
 function testColorExistence() {
   const vars = [
-    "body-background", "sidebar-background", "contrast-background",
-    "tab-toolbar-background", "toolbar-background", "selection-background",
-    "selection-color", "selection-background-hover", "splitter-color",
-    "comment", "body-color", "body-color-alt", "content-color1", "content-color2",
-    "content-color3", "highlight-green", "highlight-blue", "highlight-bluegrey",
-    "highlight-purple", "highlight-lightorange", "highlight-orange", "highlight-red",
+    "body-background",
+    "sidebar-background",
+    "contrast-background",
+    "tab-toolbar-background",
+    "toolbar-background",
+    "selection-background",
+    "selection-color",
+    "selection-background-hover",
+    "splitter-color",
+    "comment",
+    "body-color",
+    "text-color-alt",
+    "text-color-inactive",
+    "text-color-strong",
+    "highlight-green",
+    "highlight-blue",
+    "highlight-bluegrey",
+    "highlight-purple",
+    "highlight-lightorange",
+    "highlight-orange",
+    "highlight-red",
     "highlight-pink",
   ];
 

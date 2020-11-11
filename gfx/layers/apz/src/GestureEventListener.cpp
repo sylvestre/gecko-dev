@@ -5,18 +5,20 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "GestureEventListener.h"
+#include <algorithm>                 // for max
 #include <math.h>                    // for fabsf
 #include <stddef.h>                  // for size_t
 #include "AsyncPanZoomController.h"  // for AsyncPanZoomController
 #include "InputBlockState.h"         // for TouchBlockState
 #include "base/task.h"               // for CancelableTask, etc
-#include "gfxPrefs.h"                // for gfxPrefs
 #include "InputBlockState.h"         // for TouchBlockState
-#include "nsDebug.h"                 // for NS_WARNING
-#include "nsMathUtils.h"             // for NS_hypot
+#include "mozilla/StaticPrefs_apz.h"
+#include "mozilla/StaticPrefs_ui.h"
+#include "nsDebug.h"      // for NS_WARNING
+#include "nsMathUtils.h"  // for NS_hypot
 
-#define GEL_LOG(...)
-// #define GEL_LOG(...) printf_stderr("GEL: " __VA_ARGS__)
+static mozilla::LazyLogModule sApzGelLog("apz.gesture");
+#define GEL_LOG(...) MOZ_LOG(sApzGelLog, LogLevel::Debug, (__VA_ARGS__))
 
 namespace mozilla {
 namespace layers {
@@ -38,29 +40,29 @@ static const float ONE_TOUCH_PINCH_SPEED = 0.005f;
 
 static bool sLongTapEnabled = true;
 
-ParentLayerPoint GetCurrentFocus(const MultiTouchInput& aEvent) {
-  const ParentLayerPoint& firstTouch = aEvent.mTouches[0].mLocalScreenPoint;
-  const ParentLayerPoint& secondTouch = aEvent.mTouches[1].mLocalScreenPoint;
+static ScreenPoint GetCurrentFocus(const MultiTouchInput& aEvent) {
+  const ScreenPoint& firstTouch = aEvent.mTouches[0].mScreenPoint;
+  const ScreenPoint& secondTouch = aEvent.mTouches[1].mScreenPoint;
   return (firstTouch + secondTouch) / 2;
 }
 
-ParentLayerCoord GetCurrentSpan(const MultiTouchInput& aEvent) {
-  const ParentLayerPoint& firstTouch = aEvent.mTouches[0].mLocalScreenPoint;
-  const ParentLayerPoint& secondTouch = aEvent.mTouches[1].mLocalScreenPoint;
-  ParentLayerPoint delta = secondTouch - firstTouch;
+static ScreenCoord GetCurrentSpan(const MultiTouchInput& aEvent) {
+  const ScreenPoint& firstTouch = aEvent.mTouches[0].mScreenPoint;
+  const ScreenPoint& secondTouch = aEvent.mTouches[1].mScreenPoint;
+  ScreenPoint delta = secondTouch - firstTouch;
   return delta.Length();
 }
 
-ParentLayerCoord GestureEventListener::GetYSpanFromGestureStartPoint() {
+ScreenCoord GestureEventListener::GetYSpanFromGestureStartPoint() {
   // use the position that began the one-touch-pinch gesture rather
   // mTouchStartPosition
-  const ParentLayerPoint start = mOneTouchPinchStartPosition;
-  const ParentLayerPoint& current = mTouches[0].mLocalScreenPoint;
+  const ScreenPoint start = mOneTouchPinchStartPosition;
+  const ScreenPoint& current = mTouches[0].mScreenPoint;
   return current.y - start.y;
 }
 
-TapGestureInput CreateTapEvent(const MultiTouchInput& aTouch,
-                               TapGestureInput::TapGestureType aType) {
+static TapGestureInput CreateTapEvent(const MultiTouchInput& aTouch,
+                                      TapGestureInput::TapGestureType aType) {
   return TapGestureInput(aType, aTouch.mTime, aTouch.mTimeStamp,
                          aTouch.mTouches[0].mScreenPoint, aTouch.modifiers);
 }
@@ -153,30 +155,43 @@ void GestureEventListener::SetLongTapEnabled(bool aLongTapEnabled) {
   sLongTapEnabled = aLongTapEnabled;
 }
 
+/* static */
+bool GestureEventListener::IsLongTapEnabled() { return sLongTapEnabled; }
+
+void GestureEventListener::EnterFirstSingleTouchDown() {
+  SetState(GESTURE_FIRST_SINGLE_TOUCH_DOWN);
+  mTouchStartPosition = mLastTouchInput.mTouches[0].mScreenPoint;
+  mTouchStartOffset = mLastTouchInput.mScreenOffset;
+
+  if (sLongTapEnabled) {
+    CreateLongTapTimeoutTask();
+  }
+  CreateMaxTapTimeoutTask();
+}
+
 nsEventStatus GestureEventListener::HandleInputTouchSingleStart() {
   switch (mState) {
     case GESTURE_NONE:
-      SetState(GESTURE_FIRST_SINGLE_TOUCH_DOWN);
-      mTouchStartPosition = mLastTouchInput.mTouches[0].mLocalScreenPoint;
-
-      if (sLongTapEnabled) {
-        CreateLongTapTimeoutTask();
-      }
-      CreateMaxTapTimeoutTask();
+      EnterFirstSingleTouchDown();
       break;
     case GESTURE_FIRST_SINGLE_TOUCH_UP:
       if (SecondTapIsFar()) {
         // If the second tap goes down far away from the first, then bail out
-        // of the gesture.
+        // of any gesture that includes the first tap.
         CancelLongTapTimeoutTask();
         CancelMaxTapTimeoutTask();
         mSingleTapSent = Nothing();
-        SetState(GESTURE_NONE);
+
+        // But still allow the second tap to participate in a gesture
+        // (e.g. lead to a single tap, or a double tap if an additional
+        // tap occurs near the same location).
+        EnterFirstSingleTouchDown();
       } else {
         // Otherwise, reset the touch start position so that, if this turns into
         // a one-touch-pinch gesture, it uses the second tap's down position as
         // the focus, rather than the first tap's.
-        mTouchStartPosition = mLastTouchInput.mTouches[0].mLocalScreenPoint;
+        mTouchStartPosition = mLastTouchInput.mTouches[0].mScreenPoint;
+        mTouchStartOffset = mLastTouchInput.mScreenOffset;
         SetState(GESTURE_SECOND_SINGLE_TOUCH_DOWN);
       }
       break;
@@ -240,11 +255,11 @@ nsEventStatus GestureEventListener::HandleInputTouchMultiStart() {
 }
 
 bool GestureEventListener::MoveDistanceExceeds(ScreenCoord aThreshold) const {
-  const ParentLayerPoint start = mLastTouchInput.mTouches[0].mLocalScreenPoint;
-  ParentLayerPoint delta = start - mTouchStartPosition;
-  ScreenPoint screenDelta =
-      mAsyncPanZoomController->ToScreenCoordinates(delta, start);
-  return (screenDelta.Length() > aThreshold);
+  ExternalPoint start = AsyncPanZoomController::ToExternalPoint(
+      mTouchStartOffset, mTouchStartPosition);
+  ExternalPoint end = AsyncPanZoomController::ToExternalPoint(
+      mLastTouchInput.mScreenOffset, mLastTouchInput.mTouches[0].mScreenPoint);
+  return (start - end).Length() > aThreshold;
 }
 
 bool GestureEventListener::MoveDistanceIsLarge() const {
@@ -289,13 +304,13 @@ nsEventStatus GestureEventListener::HandleInputTouchMove() {
 
     // The user has performed a double tap, but not lifted her finger.
     case GESTURE_SECOND_SINGLE_TOUCH_DOWN: {
-      // If touch has moved noticeably (within gfxPrefs::APZMaxTapTime()),
+      // If touch has moved noticeably (within StaticPrefs::apz_max_tap_time()),
       // change state.
       if (MoveDistanceIsLarge()) {
         CancelLongTapTimeoutTask();
         CancelMaxTapTimeoutTask();
         mSingleTapSent = Nothing();
-        if (!gfxPrefs::APZOneTouchPinchEnabled()) {
+        if (!StaticPrefs::apz_one_touch_pinch_enabled()) {
           // If the one-touch-pinch feature is disabled, bail out of the double-
           // tap gesture instead.
           SetState(GESTURE_NONE);
@@ -304,17 +319,17 @@ nsEventStatus GestureEventListener::HandleInputTouchMove() {
 
         SetState(GESTURE_ONE_TOUCH_PINCH);
 
-        ParentLayerCoord currentSpan = 1.0f;
-        ParentLayerPoint currentFocus = mTouchStartPosition;
+        ScreenCoord currentSpan = 1.0f;
+        ScreenPoint currentFocus = mTouchStartPosition;
 
         // save the position that the one-touch-pinch gesture actually begins
-        mOneTouchPinchStartPosition =
-            mLastTouchInput.mTouches[0].mLocalScreenPoint;
+        mOneTouchPinchStartPosition = mLastTouchInput.mTouches[0].mScreenPoint;
 
         PinchGestureInput pinchEvent(
-            PinchGestureInput::PINCHGESTURE_START, mLastTouchInput.mTime,
-            mLastTouchInput.mTimeStamp, currentFocus, currentSpan, currentSpan,
-            mLastTouchInput.modifiers);
+            PinchGestureInput::PINCHGESTURE_START, PinchGestureInput::ONE_TOUCH,
+            mLastTouchInput.mTime, mLastTouchInput.mTimeStamp,
+            mLastTouchInput.mScreenOffset, currentFocus, currentSpan,
+            currentSpan, mLastTouchInput.modifiers);
 
         rv = mAsyncPanZoomController->HandleGestureEvent(pinchEvent);
 
@@ -332,8 +347,8 @@ nsEventStatus GestureEventListener::HandleInputTouchMove() {
         break;
       }
 
-      ParentLayerCoord currentSpan = GetCurrentSpan(mLastTouchInput);
-      ParentLayerPoint currentFocus = GetCurrentFocus(mLastTouchInput);
+      ScreenCoord currentSpan = GetCurrentSpan(mLastTouchInput);
+      ScreenPoint currentFocus = GetCurrentFocus(mLastTouchInput);
 
       mSpanChange += fabsf(currentSpan - mPreviousSpan);
       mFocusChange += (currentFocus - mPreviousFocus).Length();
@@ -341,9 +356,10 @@ nsEventStatus GestureEventListener::HandleInputTouchMove() {
           mFocusChange > PINCH_START_THRESHOLD) {
         SetState(GESTURE_PINCH);
         PinchGestureInput pinchEvent(
-            PinchGestureInput::PINCHGESTURE_START, mLastTouchInput.mTime,
-            mLastTouchInput.mTimeStamp, currentFocus, currentSpan, currentSpan,
-            mLastTouchInput.modifiers);
+            PinchGestureInput::PINCHGESTURE_START, PinchGestureInput::TOUCH,
+            mLastTouchInput.mTime, mLastTouchInput.mTimeStamp,
+            mLastTouchInput.mScreenOffset, currentFocus, currentSpan,
+            currentSpan, mLastTouchInput.modifiers);
 
         rv = mAsyncPanZoomController->HandleGestureEvent(pinchEvent);
       } else {
@@ -366,11 +382,12 @@ nsEventStatus GestureEventListener::HandleInputTouchMove() {
         break;
       }
 
-      ParentLayerCoord currentSpan = GetCurrentSpan(mLastTouchInput);
+      ScreenCoord currentSpan = GetCurrentSpan(mLastTouchInput);
 
       PinchGestureInput pinchEvent(
-          PinchGestureInput::PINCHGESTURE_SCALE, mLastTouchInput.mTime,
-          mLastTouchInput.mTimeStamp, GetCurrentFocus(mLastTouchInput),
+          PinchGestureInput::PINCHGESTURE_SCALE, PinchGestureInput::TOUCH,
+          mLastTouchInput.mTime, mLastTouchInput.mTimeStamp,
+          mLastTouchInput.mScreenOffset, GetCurrentFocus(mLastTouchInput),
           currentSpan, mPreviousSpan, mLastTouchInput.modifiers);
 
       rv = mAsyncPanZoomController->HandleGestureEvent(pinchEvent);
@@ -380,10 +397,10 @@ nsEventStatus GestureEventListener::HandleInputTouchMove() {
     }
 
     case GESTURE_ONE_TOUCH_PINCH: {
-      ParentLayerCoord currentSpan = GetYSpanFromGestureStartPoint();
+      ScreenCoord currentSpan = GetYSpanFromGestureStartPoint();
       float effectiveSpan =
           1.0f + (fabsf(currentSpan.value) * ONE_TOUCH_PINCH_SPEED);
-      ParentLayerPoint currentFocus = mTouchStartPosition;
+      ScreenPoint currentFocus = mTouchStartPosition;
 
       // Invert zoom.
       if (currentSpan.value < 0) {
@@ -391,8 +408,9 @@ nsEventStatus GestureEventListener::HandleInputTouchMove() {
       }
 
       PinchGestureInput pinchEvent(
-          PinchGestureInput::PINCHGESTURE_SCALE, mLastTouchInput.mTime,
-          mLastTouchInput.mTimeStamp, currentFocus, effectiveSpan,
+          PinchGestureInput::PINCHGESTURE_SCALE, PinchGestureInput::ONE_TOUCH,
+          mLastTouchInput.mTime, mLastTouchInput.mTimeStamp,
+          mLastTouchInput.mScreenOffset, currentFocus, effectiveSpan,
           mPreviousSpan, mLastTouchInput.modifiers);
 
       rv = mAsyncPanZoomController->HandleGestureEvent(pinchEvent);
@@ -468,16 +486,19 @@ nsEventStatus GestureEventListener::HandleInputTouchEnd() {
     case GESTURE_PINCH:
       if (mTouches.Length() < 2) {
         SetState(GESTURE_NONE);
-        ParentLayerPoint point = PinchGestureInput::BothFingersLifted();
+        PinchGestureInput::PinchGestureType type =
+            PinchGestureInput::PINCHGESTURE_END;
+        ScreenPoint point;
         if (mTouches.Length() == 1) {
           // As user still keeps one finger down the event's focus point should
           // contain meaningful data.
-          point = mTouches[0].mLocalScreenPoint;
+          type = PinchGestureInput::PINCHGESTURE_FINGERLIFTED;
+          point = mTouches[0].mScreenPoint;
         }
-        PinchGestureInput pinchEvent(PinchGestureInput::PINCHGESTURE_END,
-                                     mLastTouchInput.mTime,
-                                     mLastTouchInput.mTimeStamp, point, 1.0f,
-                                     1.0f, mLastTouchInput.modifiers);
+        PinchGestureInput pinchEvent(
+            type, PinchGestureInput::TOUCH, mLastTouchInput.mTime,
+            mLastTouchInput.mTimeStamp, mLastTouchInput.mScreenOffset, point,
+            1.0f, 1.0f, mLastTouchInput.modifiers);
         mAsyncPanZoomController->HandleGestureEvent(pinchEvent);
       }
 
@@ -487,11 +508,11 @@ nsEventStatus GestureEventListener::HandleInputTouchEnd() {
 
     case GESTURE_ONE_TOUCH_PINCH: {
       SetState(GESTURE_NONE);
-      ParentLayerPoint point(-1, -1);
-      PinchGestureInput pinchEvent(PinchGestureInput::PINCHGESTURE_END,
-                                   mLastTouchInput.mTime,
-                                   mLastTouchInput.mTimeStamp, point, 1.0f,
-                                   1.0f, mLastTouchInput.modifiers);
+      PinchGestureInput pinchEvent(
+          PinchGestureInput::PINCHGESTURE_END, PinchGestureInput::ONE_TOUCH,
+          mLastTouchInput.mTime, mLastTouchInput.mTimeStamp,
+          mLastTouchInput.mScreenOffset, ScreenPoint(), 1.0f, 1.0f,
+          mLastTouchInput.modifiers);
       mAsyncPanZoomController->HandleGestureEvent(pinchEvent);
 
       rv = nsEventStatus_eConsumeNoDefault;
@@ -526,7 +547,7 @@ void GestureEventListener::HandleInputTimeoutLongTap() {
       // just in case MaxTapTime > ContextMenuDelay cancel MaxTap timer
       // and fall through
       CancelMaxTapTimeoutTask();
-      MOZ_FALLTHROUGH;
+      [[fallthrough]];
     case GESTURE_FIRST_SINGLE_TOUCH_MAX_TAP_DOWN: {
       SetState(GESTURE_LONG_TOUCH_DOWN);
       mAsyncPanZoomController->HandleGestureEvent(
@@ -597,8 +618,16 @@ void GestureEventListener::CreateLongTapTimeoutTask() {
       &GestureEventListener::HandleInputTimeoutLongTap);
 
   mLongTapTimeoutTask = task;
-  mAsyncPanZoomController->PostDelayedTask(
-      task.forget(), gfxPrefs::UiClickHoldContextMenusDelay());
+
+  TouchBlockState* block =
+      mAsyncPanZoomController->GetInputQueue()->GetCurrentTouchBlock();
+  MOZ_ASSERT(block);
+  long alreadyElapsed =
+      static_cast<long>(block->GetTimeSinceBlockStart().ToMilliseconds());
+  long remainingDelay =
+      StaticPrefs::ui_click_hold_context_menus_delay() - alreadyElapsed;
+  mAsyncPanZoomController->PostDelayedTask(task.forget(),
+                                           std::max(0L, remainingDelay));
 }
 
 void GestureEventListener::CancelMaxTapTimeoutTask() {
@@ -625,8 +654,12 @@ void GestureEventListener::CreateMaxTapTimeoutTask() {
       block->IsDuringFastFling());
 
   mMaxTapTimeoutTask = task;
+
+  long alreadyElapsed =
+      static_cast<long>(block->GetTimeSinceBlockStart().ToMilliseconds());
+  long remainingDelay = StaticPrefs::apz_max_tap_time() - alreadyElapsed;
   mAsyncPanZoomController->PostDelayedTask(task.forget(),
-                                           gfxPrefs::APZMaxTapTime());
+                                           std::max(0L, remainingDelay));
 }
 
 }  // namespace layers

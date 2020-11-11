@@ -17,13 +17,11 @@ class GLContextWGL final : public GLContext {
  public:
   MOZ_DECLARE_REFCOUNTED_VIRTUAL_TYPENAME(GLContextWGL, override)
   // From Window: (possibly for offscreen!)
-  GLContextWGL(CreateContextFlags flags, const SurfaceCaps& caps,
-               bool isOffscreen, HDC aDC, HGLRC aContext,
+  GLContextWGL(const GLContextDesc&, HDC aDC, HGLRC aContext,
                HWND aWindow = nullptr);
 
   // From PBuffer
-  GLContextWGL(CreateContextFlags flags, const SurfaceCaps& caps,
-               bool isOffscreen, HANDLE aPbuffer, HDC aDC, HGLRC aContext,
+  GLContextWGL(const GLContextDesc&, HANDLE aPbuffer, HDC aDC, HGLRC aContext,
                int aPixelFormat);
 
   ~GLContextWGL();
@@ -32,13 +30,16 @@ class GLContextWGL final : public GLContext {
     return GLContextType::WGL;
   }
 
-  bool Init() override;
   virtual bool MakeCurrentImpl() const override;
   virtual bool IsCurrentImpl() const override;
   virtual bool IsDoubleBuffered() const override { return mIsDoubleBuffered; }
   virtual bool SwapBuffers() override;
-  virtual bool SetupLookupFunction() override;
   virtual void GetWSIInfo(nsCString* const out) const override;
+
+  Maybe<SymbolLoader> GetSymbolLoader() const override {
+    return Some(sWGLLib.GetSymbolLoader());
+  }
+
   HGLRC Context() { return mContext; }
 
  protected:

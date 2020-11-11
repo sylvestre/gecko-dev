@@ -20,14 +20,14 @@
 #include "mozilla/Types.h"
 
 #include "builtin/AtomicsObject.h"
-#include "vm/ArrayBufferObject.h"
+#include "vm/Uint8Clamped.h"
 
 #if !defined(__clang__) && !defined(__GNUC__)
-#error "This file only for gcc-compatible compilers"
+#  error "This file only for gcc-compatible compilers"
 #endif
 
 #if defined(JS_SIMULATOR_MIPS32) && !defined(__i386__)
-#error "The MIPS32 simulator atomics assume x86"
+#  error "The MIPS32 simulator atomics assume x86"
 #endif
 
 namespace js {
@@ -60,6 +60,15 @@ struct MOZ_RAII AddressGuard {
 
 }  // namespace jit
 }  // namespace js
+
+inline bool js::jit::AtomicOperations::Initialize() {
+  // Nothing
+  return true;
+}
+
+inline void js::jit::AtomicOperations::ShutDown() {
+  // Nothing
+}
 
 inline bool js::jit::AtomicOperations::hasAtomic8() { return true; }
 

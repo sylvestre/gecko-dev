@@ -1,4 +1,3 @@
-
 config = {
     "log_name": "updates_release_dev",
     # TODO: use real repo
@@ -20,7 +19,7 @@ config = {
     "archive_prefix": "https://ftp.stage.mozaws.net/pub",
     "previous_archive_prefix": "https://archive.mozilla.org/pub",
     "download_domain": "download.mozilla.org",
-    "balrog_url": "https://aus4.stage.mozaws.net/",
+    "balrog_url": "https://stage.balrog.nonprod.cloudops.mozgcp.net/",
     "balrog_username": "balrog-stage-ffxbld",
     "update_channels": {
         "beta": {
@@ -29,7 +28,8 @@ config = {
             "patcher_config": "mozBeta-branch-patcher2.cfg",
             "update_verify_channel": "beta-localtest",
             "mar_channel_ids": [
-                "firefox-mozilla-beta", "firefox-mozilla-release",
+                "firefox-mozilla-beta",
+                "firefox-mozilla-release",
             ],
             "channel_names": ["beta", "beta-localtest", "beta-cdntest"],
             "rules_to_update": ["firefox-beta-cdntest", "firefox-beta-localtest"],

@@ -4,14 +4,14 @@
 
 var EXPORTED_SYMBOLS = ["Async"];
 
-ChromeUtils.import("resource://gre/modules/Services.jsm");
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+
+const Timer = Components.Constructor("@mozilla.org/timer;1", "nsITimer");
 
 /*
  * Helpers for various async operations.
  */
 var Async = {
-
   /**
    * Execute an arbitrary number of asynchronous functions one after the
    * other, passing the callback arguments on to the next one.  All functions
@@ -30,12 +30,11 @@ var Async = {
    *     });
    *   });
    */
-  chain: function chain() {
-    let funcs = Array.slice(arguments);
+  chain: function chain(...funcs) {
     let thisObj = this;
     return function callback() {
       if (funcs.length) {
-        let args = Array.slice(arguments).concat(callback);
+        let args = [...arguments, callback];
         let f = funcs.shift();
         f.apply(thisObj, args);
       }
@@ -51,13 +50,18 @@ var Async = {
     Services.obs.addObserver(function onQuitApplication() {
       Services.obs.removeObserver(onQuitApplication, "quit-application");
       Async.checkAppReady = Async.promiseYield = function() {
-        let exception = Components.Exception("App. Quitting", Cr.NS_ERROR_ABORT);
+        let exception = Components.Exception(
+          "App. Quitting",
+          Cr.NS_ERROR_ABORT
+        );
         exception.appIsShuttingDown = true;
         throw exception;
       };
     }, "quit-application");
     // In the common case, checkAppReady just returns true
-    return (Async.checkAppReady = function() { return true; })();
+    return (Async.checkAppReady = function() {
+      return true;
+    })();
   },
 
   /**
@@ -100,38 +104,69 @@ var Async = {
     });
   },
 
-  // Returns a method that yields every X calls.
-  // Common case is calling the returned method every iteration in a loop.
-  jankYielder(yieldEvery = 50) {
+  /**
+   * Shared state for yielding every N calls.
+   *
+   * Can be passed to multiple Async.yieldingForEach to have them overall yield
+   * every N iterations.
+   */
+  yieldState(yieldEvery = 50) {
     let iterations = 0;
-    return async () => {
-      Async.checkAppReady(); // Let it throw!
-      if (++iterations % yieldEvery === 0) {
-        await Async.promiseYield();
-      }
+
+    return {
+      shouldYield() {
+        ++iterations;
+        return iterations % yieldEvery === 0;
+      },
     };
   },
 
   /**
-   * Turn a synchronous iterator/iterable into an async iterator that calls a
-   * Async.jankYielder at each step.
+   * Apply the given function to each element of the iterable, yielding the
+   * event loop every yieldEvery iterations.
    *
    * @param iterable {Iterable}
-   *        Iterable or iterator that should be wrapped. (Anything usable in
-   *        for..of should work)
+   *        The iterable or iterator to iterate through.
    *
-   * @param [maybeYield = 50] {number|() => Promise<void>}
-   *        Either an existing jankYielder to use, or a number to provide as the
-   *        argument to Async.jankYielder.
+   * @param fn {(*) -> void|boolean}
+   *        The function to be called on each element of the iterable.
+   *
+   *        Returning true from the function will stop the iteration.
+   *
+   * @param [yieldEvery = 50] {number|object}
+   *        The number of iterations to complete before yielding back to the event
+   *        loop.
+   *
+   * @return {boolean}
+   *         Whether or not the function returned early.
    */
-  async* yieldingIterator(iterable, maybeYield = 50) {
-    if (typeof maybeYield == "number") {
-      maybeYield = Async.jankYielder(maybeYield);
+  async yieldingForEach(iterable, fn, yieldEvery = 50) {
+    const yieldState =
+      typeof yieldEvery === "number"
+        ? Async.yieldState(yieldEvery)
+        : yieldEvery;
+    let iteration = 0;
+
+    for (const item of iterable) {
+      let result = fn(item, iteration++);
+      if (typeof result !== "undefined" && typeof result.then !== "undefined") {
+        // If we await result when it is not a Promise, we create an
+        // automatically resolved promise, which is exactly the case that we
+        // are trying to avoid.
+        result = await result;
+      }
+
+      if (result === true) {
+        return true;
+      }
+
+      if (yieldState.shouldYield()) {
+        await Async.promiseYield();
+        Async.checkAppReady();
+      }
     }
-    for (let item of iterable) {
-      await maybeYield();
-      yield item;
-    }
+
+    return false;
   },
 
   asyncQueueCaller(log) {
@@ -140,6 +175,10 @@ var Async = {
 
   asyncObserver(log, obj) {
     return new AsyncObserver(log, obj);
+  },
+
+  watchdog() {
+    return new Watchdog();
   },
 };
 
@@ -152,7 +191,10 @@ class AsyncQueueCaller {
   constructor(log) {
     this._log = log;
     this._queue = Promise.resolve();
-    this.QueryInterface = ChromeUtils.generateQI([Ci.nsIObserver, Ci.nsISupportsWeakReference]);
+    this.QueryInterface = ChromeUtils.generateQI([
+      "nsIObserver",
+      "nsISupportsWeakReference",
+    ]);
   }
 
   /**
@@ -193,5 +235,71 @@ class AsyncObserver extends AsyncQueueCaller {
 
   promiseObserversComplete() {
     return this.promiseCallsComplete();
+  }
+}
+
+/**
+ * Woof! Signals an operation to abort, either at shutdown or after a timeout.
+ * The buffered engine uses this to abort long-running merges, so that they
+ * don't prevent Firefox from quitting, or block future syncs.
+ */
+class Watchdog {
+  constructor() {
+    this.controller = new AbortController();
+    this.timer = new Timer();
+
+    /**
+     * The reason for signaling an abort. `null` if not signaled,
+     * `"timeout"` if the watchdog timer fired, or `"shutdown"` if the app is
+     * is quitting.
+     *
+     * @type {String?}
+     */
+    this.abortReason = null;
+  }
+
+  /**
+   * Returns the abort signal for this watchdog. This can be passed to APIs
+   * that take a signal for cancellation, like `SyncedBookmarksMirror::apply`
+   * or `fetch`.
+   *
+   * @type {AbortSignal}
+   */
+  get signal() {
+    return this.controller.signal;
+  }
+
+  /**
+   * Starts the watchdog timer, and listens for the app quitting.
+   *
+   * @param {Number} delay
+   *                 The time to wait before signaling the operation to abort.
+   */
+  start(delay) {
+    if (!this.signal.aborted) {
+      Services.obs.addObserver(this, "quit-application");
+      this.timer.init(this, delay, Ci.nsITimer.TYPE_ONE_SHOT);
+    }
+  }
+
+  /**
+   * Stops the watchdog timer and removes any listeners. This should be called
+   * after the operation finishes.
+   */
+  stop() {
+    if (!this.signal.aborted) {
+      Services.obs.removeObserver(this, "quit-application");
+      this.timer.cancel();
+    }
+  }
+
+  observe(subject, topic, data) {
+    if (topic == "timer-callback") {
+      this.abortReason = "timeout";
+    } else if (topic == "quit-application") {
+      this.abortReason = "shutdown";
+    }
+    this.stop();
+    this.controller.abort();
   }
 }

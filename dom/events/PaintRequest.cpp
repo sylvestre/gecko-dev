@@ -10,8 +10,7 @@
 #include "mozilla/dom/PaintRequestListBinding.h"
 #include "mozilla/dom/DOMRect.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 /******************************************************************************
  * mozilla::dom::PaintRequest
@@ -27,8 +26,9 @@ NS_INTERFACE_MAP_END
 NS_IMPL_CYCLE_COLLECTING_ADDREF(PaintRequest)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(PaintRequest)
 
-/* virtual */ JSObject* PaintRequest::WrapObject(
-    JSContext* aCx, JS::Handle<JSObject*> aGivenProto) {
+/* virtual */
+JSObject* PaintRequest::WrapObject(JSContext* aCx,
+                                   JS::Handle<JSObject*> aGivenProto) {
   return PaintRequest_Binding::Wrap(aCx, this, aGivenProto);
 }
 
@@ -57,5 +57,4 @@ JSObject* PaintRequestList::WrapObject(JSContext* aCx,
   return PaintRequestList_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

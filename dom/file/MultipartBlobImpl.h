@@ -7,13 +7,21 @@
 #ifndef mozilla_dom_MultipartBlobImpl_h
 #define mozilla_dom_MultipartBlobImpl_h
 
+#include <utility>
+
+#include "Blob.h"
 #include "mozilla/Attributes.h"
 #include "mozilla/ErrorResult.h"
-#include "mozilla/Move.h"
+#include "mozilla/Maybe.h"
 #include "mozilla/dom/BaseBlobImpl.h"
 
 namespace mozilla {
 namespace dom {
+
+// This is just a sentinel value to be sure that we don't call
+// SetLengthAndModifiedDate more than once.
+constexpr int64_t MULTIPARTBLOBIMPL_UNKNOWN_LAST_MODIFIED = INT64_MAX;
+constexpr uint64_t MULTIPARTBLOBIMPL_UNKNOWN_LENGTH = UINT64_MAX;
 
 class MultipartBlobImpl final : public BaseBlobImpl {
  public:
@@ -22,7 +30,8 @@ class MultipartBlobImpl final : public BaseBlobImpl {
   // Create as a file
   static already_AddRefed<MultipartBlobImpl> Create(
       nsTArray<RefPtr<BlobImpl>>&& aBlobImpls, const nsAString& aName,
-      const nsAString& aContentType, ErrorResult& aRv);
+      const nsAString& aContentType, bool aCrossOriginIsolated,
+      ErrorResult& aRv);
 
   // Create as a blob
   static already_AddRefed<MultipartBlobImpl> Create(
@@ -31,49 +40,33 @@ class MultipartBlobImpl final : public BaseBlobImpl {
 
   // Create as a file to be later initialized
   explicit MultipartBlobImpl(const nsAString& aName)
-      : BaseBlobImpl(NS_LITERAL_STRING("MultipartBlobImpl"), aName,
-                     EmptyString(), UINT64_MAX),
-        mIsFromNsIFile(false) {}
+      : BaseBlobImpl(aName, u""_ns, MULTIPARTBLOBIMPL_UNKNOWN_LENGTH,
+                     MULTIPARTBLOBIMPL_UNKNOWN_LAST_MODIFIED) {}
 
   // Create as a blob to be later initialized
   MultipartBlobImpl()
-      : BaseBlobImpl(NS_LITERAL_STRING("MultipartBlobImpl"), EmptyString(),
-                     UINT64_MAX),
-        mIsFromNsIFile(false) {}
+      : BaseBlobImpl(u""_ns, MULTIPARTBLOBIMPL_UNKNOWN_LENGTH) {}
 
-  void InitializeBlob(ErrorResult& aRv);
+  void InitializeBlob(bool aCrossOriginIsolated, ErrorResult& aRv);
 
   void InitializeBlob(const Sequence<Blob::BlobPart>& aData,
                       const nsAString& aContentType, bool aNativeEOL,
-                      ErrorResult& aRv);
+                      bool aCrossOriginIsolated, ErrorResult& aRv);
 
-  nsresult InitializeChromeFile(nsIFile* aData, const nsAString& aType,
-                                const nsAString& aName,
-                                bool aLastModifiedPassed, int64_t aLastModified,
-                                bool aIsFromNsIFile);
+  already_AddRefed<BlobImpl> CreateSlice(uint64_t aStart, uint64_t aLength,
+                                         const nsAString& aContentType,
+                                         ErrorResult& aRv) override;
 
-  virtual already_AddRefed<BlobImpl> CreateSlice(uint64_t aStart,
-                                                 uint64_t aLength,
-                                                 const nsAString& aContentType,
-                                                 ErrorResult& aRv) override;
+  uint64_t GetSize(ErrorResult& aRv) override { return mLength; }
 
-  virtual uint64_t GetSize(ErrorResult& aRv) override { return mLength; }
+  void CreateInputStream(nsIInputStream** aInputStream,
+                         ErrorResult& aRv) override;
 
-  virtual void CreateInputStream(nsIInputStream** aInputStream,
-                                 ErrorResult& aRv) override;
-
-  virtual const nsTArray<RefPtr<BlobImpl>>* GetSubBlobImpls() const override {
+  const nsTArray<RefPtr<BlobImpl>>* GetSubBlobImpls() const override {
     return mBlobImpls.Length() ? &mBlobImpls : nullptr;
   }
 
-  virtual void GetMozFullPathInternal(nsAString& aFullPath,
-                                      ErrorResult& aRv) const override;
-
-  virtual nsresult SetMutable(bool aMutable) override;
-
   void SetName(const nsAString& aName) { mName = aName; }
-
-  virtual bool MayBeClonedToOtherThreads() const override;
 
   size_t GetAllocationSize() const override;
   size_t GetAllocationSize(
@@ -81,27 +74,28 @@ class MultipartBlobImpl final : public BaseBlobImpl {
 
   void GetBlobImplType(nsAString& aBlobImplType) const override;
 
+  void SetLastModified(int64_t aLastModified);
+
  protected:
+  // File constructor.
   MultipartBlobImpl(nsTArray<RefPtr<BlobImpl>>&& aBlobImpls,
                     const nsAString& aName, const nsAString& aContentType)
-      : BaseBlobImpl(NS_LITERAL_STRING("MultipartBlobImpl"), aName,
-                     aContentType, UINT64_MAX),
-        mBlobImpls(std::move(aBlobImpls)),
-        mIsFromNsIFile(false) {}
+      : BaseBlobImpl(aName, aContentType, MULTIPARTBLOBIMPL_UNKNOWN_LENGTH,
+                     MULTIPARTBLOBIMPL_UNKNOWN_LAST_MODIFIED),
+        mBlobImpls(std::move(aBlobImpls)) {}
 
+  // Blob constructor.
   MultipartBlobImpl(nsTArray<RefPtr<BlobImpl>>&& aBlobImpls,
                     const nsAString& aContentType)
-      : BaseBlobImpl(NS_LITERAL_STRING("MultipartBlobImpl"), aContentType,
-                     UINT64_MAX),
-        mBlobImpls(std::move(aBlobImpls)),
-        mIsFromNsIFile(false) {}
+      : BaseBlobImpl(aContentType, MULTIPARTBLOBIMPL_UNKNOWN_LENGTH),
+        mBlobImpls(std::move(aBlobImpls)) {}
 
-  virtual ~MultipartBlobImpl() {}
+  ~MultipartBlobImpl() = default;
 
-  void SetLengthAndModifiedDate(ErrorResult& aRv);
+  void SetLengthAndModifiedDate(const Maybe<bool>& aCrossOriginIsolated,
+                                ErrorResult& aRv);
 
   nsTArray<RefPtr<BlobImpl>> mBlobImpls;
-  bool mIsFromNsIFile;
 };
 
 }  // namespace dom

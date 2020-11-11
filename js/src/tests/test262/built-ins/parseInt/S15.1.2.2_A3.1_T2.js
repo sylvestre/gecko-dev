@@ -3,25 +3,12 @@
 
 /*---
 info: Operator use ToNumber
-es5id: 15.1.2.2_A3.1_T2
-es6id: 18.2.5
 esid: sec-parseint-string-radix
 description: Checking for string primitive
 ---*/
 
-//CHECK#1
-if (parseInt("11", "2") !== parseInt("11", 2)) {
-  $ERROR('#1: parseInt("11", "2") === parseInt("11", 2). Actual: ' + (parseInt("11", "2")));
-}
-
-//CHECK#2
-if (parseInt("11", "0") !== parseInt("11", 10)) {
-  $ERROR('#2: parseInt("11", "0") === parseInt("11", 10). Actual: ' + (parseInt("11", "0")));
-}
-
-//CHECK#3
-if (parseInt("11", "") !== parseInt("11", 10)) {
-  $ERROR('#3: parseInt("11", "") === parseInt("11", 10). Actual: ' + (parseInt("11", "")));
-}
+assert.sameValue(parseInt("11", "2"), parseInt("11", 2), 'parseInt("11", "2") must return the same value returned by parseInt("11", 2)');
+assert.sameValue(parseInt("11", "0"), parseInt("11", 10), 'parseInt("11", "0") must return the same value returned by parseInt("11", 10)');
+assert.sameValue(parseInt("11", ""), parseInt("11", 10), 'parseInt("11", "") must return the same value returned by parseInt("11", 10)');
 
 reportCompare(0, 0);

@@ -25,14 +25,13 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __DAV1D_OUTPUT_OUTPUT_H__
-#define __DAV1D_OUTPUT_OUTPUT_H__
+#ifndef DAV1D_OUTPUT_OUTPUT_H
+#define DAV1D_OUTPUT_OUTPUT_H
 
 #include "picture.h"
 
 typedef struct MuxerContext MuxerContext;
 
-void init_muxers(void);
 int output_open(MuxerContext **c, const char *name, const char *filename,
                 const Dav1dPictureParameters *p, const unsigned fps[2]);
 int output_write(MuxerContext *ctx, Dav1dPicture *pic);
@@ -46,4 +45,4 @@ void output_close(MuxerContext *ctx);
  */
 int output_verify(MuxerContext *ctx, const char *hash_string);
 
-#endif /* __DAV1D_OUTPUT_OUTPUT_H__ */
+#endif /* DAV1D_OUTPUT_OUTPUT_H */

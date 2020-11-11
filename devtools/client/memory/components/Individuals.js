@@ -4,12 +4,19 @@
 
 "use strict";
 
-const { Component, createFactory } = require("devtools/client/shared/vendor/react");
+const {
+  Component,
+  createFactory,
+} = require("devtools/client/shared/vendor/react");
 const PropTypes = require("devtools/client/shared/vendor/react-prop-types");
-const Tree = createFactory(require("devtools/client/shared/components/VirtualizedTree"));
-const DominatorTreeItem = createFactory(require("./DominatorTreeItem"));
-const { TREE_ROW_HEIGHT } = require("../constants");
-const models = require("../models");
+const Tree = createFactory(
+  require("devtools/client/shared/components/VirtualizedTree")
+);
+const DominatorTreeItem = createFactory(
+  require("devtools/client/memory/components/DominatorTreeItem")
+);
+const { TREE_ROW_HEIGHT } = require("devtools/client/memory/constants");
+const models = require("devtools/client/memory/models");
 
 /**
  * The list of individuals in a census group.
@@ -50,7 +57,8 @@ class Individuals extends Component {
           focused,
           arrow: undefined,
           expanded,
-          getPercentSize: size => (size / dominatorTree.root.retainedSize) * 100,
+          getPercentSize: size =>
+            (size / dominatorTree.root.retainedSize) * 100,
           onViewSourceInDebugger,
         });
       },

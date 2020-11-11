@@ -2,10 +2,8 @@
 <html>
 <head>
   <title>Test for simple WebExtension</title>
-  <script type="text/javascript" src="chrome://mochikit/content/tests/SimpleTest/SimpleTest.js"></script>
-  <script type="text/javascript" src="chrome://mochikit/content/tests/SimpleTest/AddTask.js"></script>
-  <script type="text/javascript" src="chrome://mochikit/content/tests/SimpleTest/ExtensionTestUtils.js"></script>
-  <script type="text/javascript" src="chrome_head.js"></script>
+  <script src="chrome://mochikit/content/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="chrome://mochikit/content/tests/SimpleTest/ExtensionTestUtils.js"></script>
   <script type="text/javascript" src="head.js"></script>
   <link rel="stylesheet" type="text/css" href="chrome://mochikit/content/tests/SimpleTest/test.css"/>
 </head>
@@ -14,7 +12,7 @@
 <script type="text/javascript">
 "use strict";
 
-var {UrlClassifierTestUtils} = ChromeUtils.import("resource://testing-common/UrlClassifierTestUtils.jsm", {});
+var {UrlClassifierTestUtils} = ChromeUtils.import("resource://testing-common/UrlClassifierTestUtils.jsm");
 
 function tp_background(expectFail = true) {
   fetch("https://tracking.example.com/example.txt").then(() => {
@@ -51,8 +49,8 @@ add_task(async function() { await test_permission([], true); });
 add_task(async function() { await test_permission(["http://*/"], true); });
 add_task(async function() { await test_permission(["http://*.example.com/"], true); });
 add_task(async function() { await test_permission(["http://localhost/*"], true); });
-add_task(async function() { await test_permission(["<all_urls>"], true); });
-// Fetch will not be blocked with explicit permissions
+// Fetch will not be blocked if the extension has host permissions.
+add_task(async function() { await test_permission(["<all_urls>"], false); });
 add_task(async function() { await test_permission(["*://tracking.example.com/*"], false); });
 
 add_task(async function test_contentscript() {

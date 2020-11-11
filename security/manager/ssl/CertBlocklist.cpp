@@ -14,13 +14,13 @@
 #include "mozilla/Preferences.h"
 #include "mozilla/Unused.h"
 #include "nsAppDirectoryServiceDefs.h"
+#include "nsComponentManagerUtils.h"  // for do_CreateInstance
 #include "nsDependentString.h"
 #include "nsDirectoryServiceUtils.h"
 #include "nsICryptoHash.h"
 #include "nsIFileStreams.h"
 #include "nsILineInputStream.h"
 #include "nsISafeOutputStream.h"
-#include "nsIX509Cert.h"
 #include "nsNetCID.h"
 #include "nsNetUtil.h"
 #include "nsPromiseFlatString.h"
@@ -36,7 +36,8 @@ using namespace mozilla::pkix;
 
 #define PREF_BACKGROUND_UPDATE_TIMER \
   "app.update.lastUpdateTime.blocklist-background-update-timer"
-#define PREF_BLOCKLIST_ONECRL_CHECKED "services.blocklist.onecrl.checked"
+#define PREF_BLOCKLIST_ONECRL_CHECKED \
+  "services.settings.security.onecrl.checked"
 #define PREF_MAX_STALENESS_IN_SECONDS \
   "security.onecrl.maximum_staleness_in_seconds"
 
@@ -164,7 +165,7 @@ nsresult CertBlocklist::Init() {
     mBackingFile = nullptr;
     return NS_OK;
   }
-  rv = mBackingFile->Append(NS_LITERAL_STRING("revocations.txt"));
+  rv = mBackingFile->Append(u"revocations.txt"_ns);
   if (NS_FAILED(rv)) {
     return rv;
   }
@@ -403,8 +404,7 @@ CertBlocklist::SaveEntries() {
     return rv;
   }
 
-  rv = WriteLine(outputStream,
-                 NS_LITERAL_CSTRING("# Auto generated contents. Do not edit."));
+  rv = WriteLine(outputStream, "# Auto generated contents. Do not edit."_ns);
   if (NS_FAILED(rv)) {
     return rv;
   }
@@ -429,7 +429,7 @@ CertBlocklist::SaveEntries() {
     // If it's a subject / public key block, write it straight out
     if (item.mItemMechanism == BlockBySubjectAndPubKey) {
       WriteLine(outputStream, encDN);
-      WriteLine(outputStream, NS_LITERAL_CSTRING("\t") + encOther);
+      WriteLine(outputStream, "\t"_ns + encOther);
       continue;
     }
 
@@ -445,7 +445,7 @@ CertBlocklist::SaveEntries() {
 
   for (auto iter = issuers.Iter(); !iter.Done(); iter.Next()) {
     nsCStringHashKey* hashKey = iter.Get();
-    nsAutoPtr<BlocklistStringSet> issuerSet;
+    UniquePtr<BlocklistStringSet> issuerSet;
     issuerTable.Remove(hashKey->GetKey(), &issuerSet);
 
     nsresult rv = WriteLine(outputStream, hashKey->GetKey());
@@ -455,8 +455,7 @@ CertBlocklist::SaveEntries() {
 
     // Write serial data to the output stream
     for (auto iter = issuerSet->Iter(); !iter.Done(); iter.Next()) {
-      nsresult rv = WriteLine(outputStream,
-                              NS_LITERAL_CSTRING(" ") + iter.Get()->GetKey());
+      nsresult rv = WriteLine(outputStream, " "_ns + iter.Get()->GetKey());
       if (NS_FAILED(rv)) {
         MOZ_LOG(gCertBlockPRLog, LogLevel::Warning,
                 ("CertBlocklist::SaveEntries writing revocation data failed"));
@@ -608,11 +607,9 @@ CertBlocklist::IsBlocklistFresh(bool* _retval) {
 }
 
 /* static */
-void CertBlocklist::PreferenceChanged(const char* aPref,
-                                      CertBlocklist* aBlocklist)
-
-{
-  MutexAutoLock lock(aBlocklist->mMutex);
+void CertBlocklist::PreferenceChanged(const char* aPref, void* aBlocklist) {
+  auto blocklist = static_cast<CertBlocklist*>(aBlocklist);
+  MutexAutoLock lock(blocklist->mMutex);
 
   MOZ_LOG(gCertBlockPRLog, LogLevel::Warning,
           ("CertBlocklist::PreferenceChanged %s changed", aPref));

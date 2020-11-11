@@ -6,10 +6,14 @@
 
 #include "mozISandboxSettings.h"
 
-#include "mozilla/ModuleUtils.h"
+#include "mozilla/Components.h"
 #include "mozilla/Preferences.h"
+#include "mozilla/StaticPrefs_media.h"
+#include "mozilla/StaticPrefs_security.h"
 
 #include "prenv.h"
+
+using namespace mozilla;
 
 namespace mozilla {
 
@@ -17,7 +21,7 @@ int GetEffectiveContentSandboxLevel() {
   if (PR_GetEnv("MOZ_DISABLE_CONTENT_SANDBOX")) {
     return 0;
   }
-  int level = Preferences::GetInt("security.sandbox.content.level");
+  int level = StaticPrefs::security_sandbox_content_level_DoNotUseDirectly();
 // On Windows and macOS, enforce a minimum content sandbox level of 1 (except on
 // Nightly, where it can be set to 0).
 #if !defined(NIGHTLY_BUILD) && (defined(XP_WIN) || defined(XP_MACOSX))
@@ -27,7 +31,7 @@ int GetEffectiveContentSandboxLevel() {
 #endif
 #ifdef XP_LINUX
   // Level 4 and up will break direct access to audio.
-  if (level > 3 && !Preferences::GetBool("media.cubeb.sandbox")) {
+  if (level > 3 && !StaticPrefs::media_cubeb_sandbox()) {
     level = 3;
   }
 #endif
@@ -36,6 +40,17 @@ int GetEffectiveContentSandboxLevel() {
 }
 
 bool IsContentSandboxEnabled() { return GetEffectiveContentSandboxLevel() > 0; }
+
+int GetEffectiveSocketProcessSandboxLevel() {
+  if (PR_GetEnv("MOZ_DISABLE_SOCKET_PROCESS_SANDBOX")) {
+    return 0;
+  }
+
+  int level =
+      StaticPrefs::security_sandbox_socket_process_level_DoNotUseDirectly();
+
+  return level;
+}
 
 #if defined(XP_MACOSX)
 int ClampFlashSandboxLevel(const int aLevel) {
@@ -58,34 +73,22 @@ class SandboxSettings final : public mozISandboxSettings {
   NS_DECL_ISUPPORTS
   NS_DECL_MOZISANDBOXSETTINGS
 
-  SandboxSettings() {}
+  SandboxSettings() = default;
 
  private:
-  ~SandboxSettings() {}
+  ~SandboxSettings() = default;
 };
 
 NS_IMPL_ISUPPORTS(SandboxSettings, mozISandboxSettings)
 
 NS_IMETHODIMP SandboxSettings::GetEffectiveContentSandboxLevel(
-    int32_t *aRetVal) {
+    int32_t* aRetVal) {
   *aRetVal = mozilla::GetEffectiveContentSandboxLevel();
   return NS_OK;
 }
 
-NS_GENERIC_FACTORY_CONSTRUCTOR(SandboxSettings)
-
-NS_DEFINE_NAMED_CID(MOZ_SANDBOX_SETTINGS_CID);
-
-static const mozilla::Module::CIDEntry kSandboxSettingsCIDs[] = {
-    {&kMOZ_SANDBOX_SETTINGS_CID, false, nullptr, SandboxSettingsConstructor},
-    {nullptr}};
-
-static const mozilla::Module::ContractIDEntry kSandboxSettingsContracts[] = {
-    {MOZ_SANDBOX_SETTINGS_CONTRACTID, &kMOZ_SANDBOX_SETTINGS_CID}, {nullptr}};
-
-static const mozilla::Module kSandboxSettingsModule = {
-    mozilla::Module::kVersion, kSandboxSettingsCIDs, kSandboxSettingsContracts};
-
-NSMODULE_DEFN(SandboxSettingsModule) = &kSandboxSettingsModule;
-
 }  // namespace mozilla
+
+NS_IMPL_COMPONENT_FACTORY(mozISandboxSettings) {
+  return MakeAndAddRef<SandboxSettings>().downcast<nsISupports>();
+}

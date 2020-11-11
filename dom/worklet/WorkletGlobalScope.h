@@ -9,8 +9,10 @@
 
 #include "mozilla/Attributes.h"
 #include "mozilla/ErrorResult.h"
+#include "mozilla/Maybe.h"
 #include "mozilla/TimeStamp.h"
 #include "mozilla/dom/BindingDeclarations.h"
+#include "nsDOMNavigationTiming.h"
 #include "nsIGlobalObject.h"
 #include "nsWrapperCache.h"
 
@@ -36,7 +38,8 @@ class WorkletGlobalScope : public nsIGlobalObject, public nsWrapperCache {
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(WorkletGlobalScope)
 
-  WorkletGlobalScope();
+  WorkletGlobalScope(const Maybe<nsID>& aAgentClusterId,
+                     bool aSharedMemoryAllowed);
 
   nsIGlobalObject* GetParentObject() const { return nullptr; }
 
@@ -46,7 +49,10 @@ class WorkletGlobalScope : public nsIGlobalObject, public nsWrapperCache {
   virtual bool WrapGlobalObject(JSContext* aCx,
                                 JS::MutableHandle<JSObject*> aReflector) = 0;
 
-  virtual JSObject* GetGlobalJSObject() override { return GetWrapper(); }
+  JSObject* GetGlobalJSObject() override { return GetWrapper(); }
+  JSObject* GetGlobalJSObjectPreserveColor() const override {
+    return GetWrapperPreserveColor();
+  }
 
   already_AddRefed<Console> GetConsole(JSContext* aCx, ErrorResult& aRv);
 
@@ -60,13 +66,19 @@ class WorkletGlobalScope : public nsIGlobalObject, public nsWrapperCache {
     return duration.ToMilliseconds();
   }
 
+  Maybe<nsID> GetAgentClusterId() const override { return mAgentClusterId; }
+
+  bool IsSharedMemoryAllowed() const override { return mSharedMemoryAllowed; }
+
  protected:
   ~WorkletGlobalScope();
   ;
 
  private:
   TimeStamp mCreationTimeStamp;
+  Maybe<nsID> mAgentClusterId;
   RefPtr<Console> mConsole;
+  bool mSharedMemoryAllowed;
 };
 
 NS_DEFINE_STATIC_IID_ACCESSOR(WorkletGlobalScope, WORKLET_IID)

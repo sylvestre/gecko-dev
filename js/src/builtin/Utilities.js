@@ -2,28 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/*jshint bitwise: true, camelcase: false, curly: false, eqeqeq: true,
-         es5: true, forin: true, immed: true, indent: 4, latedef: false,
-         newcap: false, noarg: true, noempty: true, nonew: true,
-         plusplus: false, quotmark: false, regexp: true, undef: true,
-         unused: false, strict: false, trailing: true,
-*/
-
-/*global ToObject: false, ToInteger: false, IsCallable: false,
-         ThrowRangeError: false, ThrowTypeError: false,
-         AssertionFailed: false,
-         MakeConstructible: false, DecompileArg: false,
-         RuntimeDefaultLocale: false,
-         NewDenseArray: false,
-         Dump: false,
-         callFunction: false,
-         TO_UINT32: false,
-         JSMSG_NOT_FUNCTION: false, JSMSG_MISSING_FUN_ARG: false,
-         JSMSG_EMPTY_ARRAY_REDUCE: false, JSMSG_CANT_CONVERT_TO: false,
-*/
-
 #include "SelfHostingDefines.h"
-#include "TypedObjectConstants.h"
 
 // Assertions and debug printing, defined here instead of in the header above
 // to make `assert` invisible to C++.
@@ -88,28 +67,6 @@ function ToNumber(v) {
     return +v;
 }
 
-
-// ES6 7.2.1 (previously, ES5 9.10 under the name "CheckObjectCoercible").
-function RequireObjectCoercible(v) {
-    if (v === undefined || v === null)
-        ThrowTypeError(JSMSG_CANT_CONVERT_TO, ToString(v), "object");
-}
-
-/* Spec: ECMAScript Draft, 6 edition May 22, 2014, 7.1.15 */
-function ToLength(v) {
-    // Step 1.
-    v = ToInteger(v);
-
-    // Step 2.
-    // Use max(v, 0) here, because it's easier to optimize in Ion.
-    // This is correct even for -0.
-    v = std_Math_max(v, 0);
-
-    // Step 3.
-    // Math.pow(2, 53) - 1 = 0x1fffffffffffff
-    return std_Math_min(v, 0x1fffffffffffff);
-}
-
 // ES2017 draft rev aebf014403a3e641fb1622aec47c40f051943527
 // 7.2.10 SameValueZero ( x, y )
 function SameValueZero(x, y) {
@@ -145,19 +102,6 @@ function IsPropertyKey(argument) {
 #define TO_PROPERTY_KEY(name) \
 (typeof name !== "string" && typeof name !== "number" && typeof name !== "symbol" ? ToPropertyKey(name) : name)
 
-var _builtinCtorsCache = {__proto__: null};
-
-function GetBuiltinConstructor(builtinName) {
-    var ctor = _builtinCtorsCache[builtinName] ||
-               (_builtinCtorsCache[builtinName] = GetBuiltinConstructorImpl(builtinName));
-    assert(ctor, `No builtin with name "${builtinName}" found`);
-    return ctor;
-}
-
-function GetBuiltinPrototype(builtinName) {
-    return (_builtinCtorsCache[builtinName] || GetBuiltinConstructor(builtinName)).prototype;
-}
-
 // ES 2016 draft Mar 25, 2016 7.3.20.
 function SpeciesConstructor(obj, defaultConstructor) {
     // Step 1.
@@ -172,7 +116,7 @@ function SpeciesConstructor(obj, defaultConstructor) {
 
     // Step 4.
     if (!IsObject(ctor))
-        ThrowTypeError(JSMSG_NOT_NONNULL_OBJECT, "object's 'constructor' property");
+        ThrowTypeError(JSMSG_OBJECT_REQUIRED, "object's 'constructor' property");
 
     // Steps 5.
     var s = ctor[std_species];
@@ -192,6 +136,15 @@ function SpeciesConstructor(obj, defaultConstructor) {
 function GetTypeError(msg) {
     try {
         FUN_APPLY(ThrowTypeError, undefined, arguments);
+    } catch (e) {
+        return e;
+    }
+    assert(false, "the catch block should've returned from this function.");
+}
+
+function GetAggregateError(msg) {
+    try {
+        FUN_APPLY(ThrowAggregateError, undefined, arguments);
     } catch (e) {
         return e;
     }

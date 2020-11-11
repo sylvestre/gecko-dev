@@ -10,8 +10,8 @@
 // Intended to be used like so:
 //
 // let bytes = <an array of bytes describing a SEQUENCE OF INTEGER>;
-// let der = new DER.DER(bytes);
-// let contents = new DER.DER(der.readTagAndGetContents(DER.SEQUENCE));
+// let der = new DER.DERDecoder(bytes);
+// let contents = new DER.DERDecoder(der.readTagAndGetContents(DER.SEQUENCE));
 // while (!contents.atEnd()) {
 //   let integerBytes = contents.readTagAndGetContents(DER.INTEGER);
 //   <... do something with integerBytes ...>
@@ -83,7 +83,7 @@ class BitString {
 }
 
 /** Class representing DER-encoded data. Provides methods for decoding it. */
-class DER {
+class DERDecoder {
   /**
    * @param {Number[]} bytes an array of bytes representing the encoded data
    */
@@ -292,13 +292,29 @@ class DER {
     let tag = this._peekByte();
     if (!tagList.includes(tag)) {
       throw new Error(
-        `unexpected tag: found ${tag} instead of one of ${tagList}`);
+        `unexpected tag: found ${tag} instead of one of ${tagList}`
+      );
     }
     return this._readExpectedTLV(tag);
   }
 }
 
-this.DER = { UNIVERSAL, CONSTRUCTED, CONTEXT_SPECIFIC, INTEGER, BIT_STRING,
-             NULL, OBJECT_IDENTIFIER, PrintableString, TeletexString, IA5String,
-             UTCTime, GeneralizedTime, UTF8String, SEQUENCE, SET, DER };
-this.EXPORTED_SYMBOLS = ["DER"];
+const DER = {
+  UNIVERSAL,
+  CONSTRUCTED,
+  CONTEXT_SPECIFIC,
+  INTEGER,
+  BIT_STRING,
+  NULL,
+  OBJECT_IDENTIFIER,
+  PrintableString,
+  TeletexString,
+  IA5String,
+  UTCTime,
+  GeneralizedTime,
+  UTF8String,
+  SEQUENCE,
+  SET,
+  DERDecoder,
+};
+var EXPORTED_SYMBOLS = ["DER"];

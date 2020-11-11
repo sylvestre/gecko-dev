@@ -6,15 +6,26 @@
 
 var EXPORTED_SYMBOLS = ["MockDocument"];
 
-const { NetUtil } = ChromeUtils.import("resource://gre/modules/NetUtil.jsm", {});
+const { NetUtil } = ChromeUtils.import("resource://gre/modules/NetUtil.jsm");
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 const MockDocument = {
   /**
    * Create a document for the given URL containing the given HTML with the ownerDocument of all <form>s having a mocked location.
    */
-  createTestDocument(aDocumentURL, aContent = "<form>", aType = "text/html") {
+  createTestDocument(
+    aDocumentURL,
+    aContent = "<form>",
+    aType = "text/html",
+    useSystemPrincipal = false
+  ) {
     let parser = new DOMParser();
-    let parsedDoc = parser.parseFromString(aContent, aType);
+    let parsedDoc;
+    if (useSystemPrincipal) {
+      parsedDoc = parser.parseFromSafeString(aContent, aType);
+    } else {
+      parsedDoc = parser.parseFromString(aContent, aType);
+    }
 
     // Assign ownerGlobal to documentElement as well for the form-less
     // inputs treating it as rootElement.
@@ -64,14 +75,32 @@ const MockDocument = {
     });
   },
 
+  mockNodePrincipalProperty(aElement, aURL) {
+    Object.defineProperty(aElement, "nodePrincipal", {
+      value: Services.scriptSecurityManager.createContentPrincipal(
+        Services.io.newURI(aURL),
+        {}
+      ),
+    });
+  },
+
+  mockBrowsingContextProperty(aElement, aBC) {
+    Object.defineProperty(aElement, "browsingContext", {
+      value: aBC,
+    });
+  },
+
   createTestDocumentFromFile(aDocumentURL, aFile) {
-    let fileStream = Cc["@mozilla.org/network/file-input-stream;1"].
-                     createInstance(Ci.nsIFileInputStream);
+    let fileStream = Cc[
+      "@mozilla.org/network/file-input-stream;1"
+    ].createInstance(Ci.nsIFileInputStream);
     fileStream.init(aFile, -1, -1, 0);
 
-    let data = NetUtil.readInputStreamToString(fileStream, fileStream.available());
+    let data = NetUtil.readInputStreamToString(
+      fileStream,
+      fileStream.available()
+    );
 
     return this.createTestDocument(aDocumentURL, data);
   },
-
 };

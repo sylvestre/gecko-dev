@@ -10,6 +10,10 @@
 #include "mozilla/Attributes.h"
 #include "nsMathMLContainerFrame.h"
 
+namespace mozilla {
+class PresShell;
+}  // namespace mozilla
+
 //
 // <mfrac> -- form a fraction from two subexpressions
 //
@@ -54,7 +58,7 @@ class nsMathMLmfracFrame final : public nsMathMLContainerFrame {
  public:
   NS_DECL_FRAMEARENA_HELPERS(nsMathMLmfracFrame)
 
-  friend nsIFrame* NS_NewMathMLmfracFrame(nsIPresShell* aPresShell,
+  friend nsIFrame* NS_NewMathMLmfracFrame(mozilla::PresShell* aPresShell,
                                           ComputedStyle* aStyle);
 
   virtual eMathMLFrameType GetMathMLFrameType() override;
@@ -78,18 +82,18 @@ class nsMathMLmfracFrame final : public nsMathMLContainerFrame {
   virtual nscoord FixInterFrameSpacing(ReflowOutput& aDesiredSize) override;
 
   // helper to translate the thickness attribute into a usable form
-  static nscoord CalcLineThickness(nsPresContext* aPresContext,
-                                   ComputedStyle* aComputedStyle,
-                                   nsString& aThicknessAttribute,
-                                   nscoord onePixel,
-                                   nscoord aDefaultRuleThickness,
-                                   float aFontSizeInflation);
+  nscoord CalcLineThickness(nsPresContext* aPresContext,
+                            ComputedStyle* aComputedStyle,
+                            nsString& aThicknessAttribute, nscoord onePixel,
+                            nscoord aDefaultRuleThickness,
+                            float aFontSizeInflation);
 
   uint8_t ScriptIncrement(nsIFrame* aFrame) override;
 
  protected:
-  explicit nsMathMLmfracFrame(ComputedStyle* aStyle)
-      : nsMathMLContainerFrame(aStyle, kClassID),
+  explicit nsMathMLmfracFrame(ComputedStyle* aStyle,
+                              nsPresContext* aPresContext)
+      : nsMathMLContainerFrame(aStyle, aPresContext, kClassID),
         mLineRect(),
         mSlashChar(nullptr),
         mLineThickness(0),
@@ -100,9 +104,8 @@ class nsMathMLmfracFrame final : public nsMathMLContainerFrame {
                          ReflowOutput& aDesiredSize, bool aWidthOnly);
 
   // Display a slash
-  void DisplaySlash(nsDisplayListBuilder* aBuilder, nsIFrame* aFrame,
-                    const nsRect& aRect, nscoord aThickness,
-                    const nsDisplayListSet& aLists);
+  void DisplaySlash(nsDisplayListBuilder* aBuilder, const nsRect& aRect,
+                    nscoord aThickness, const nsDisplayListSet& aLists);
 
   nsRect mLineRect;
   nsMathMLChar* mSlashChar;

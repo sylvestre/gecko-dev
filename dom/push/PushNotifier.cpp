@@ -13,7 +13,7 @@
 #include "nsNetUtil.h"
 #include "nsXPCOM.h"
 #include "mozilla/dom/ServiceWorkerManager.h"
-
+#include "mozilla/BasePrincipal.h"
 #include "mozilla/Services.h"
 #include "mozilla/Unused.h"
 
@@ -24,9 +24,9 @@
 namespace mozilla {
 namespace dom {
 
-PushNotifier::PushNotifier() {}
+PushNotifier::PushNotifier() = default;
 
-PushNotifier::~PushNotifier() {}
+PushNotifier::~PushNotifier() = default;
 
 NS_IMPL_CYCLE_COLLECTION_0(PushNotifier)
 
@@ -41,17 +41,18 @@ NS_IMPL_CYCLE_COLLECTING_RELEASE(PushNotifier)
 NS_IMETHODIMP
 PushNotifier::NotifyPushWithData(const nsACString& aScope,
                                  nsIPrincipal* aPrincipal,
-                                 const nsAString& aMessageId, uint32_t aDataLen,
-                                 uint8_t* aData) {
+                                 const nsAString& aMessageId,
+                                 const nsTArray<uint8_t>& aData) {
   NS_ENSURE_ARG(aPrincipal);
+  // We still need to do this copying business, if we want the copy to be
+  // fallible.  Just passing Some(aData) would do an infallible copy at the
+  // point where the Some() call happens.
   nsTArray<uint8_t> data;
-  if (!data.SetCapacity(aDataLen, fallible)) {
+  if (!data.AppendElements(aData, fallible)) {
     return NS_ERROR_OUT_OF_MEMORY;
   }
-  if (!data.InsertElementsAt(0, aData, aDataLen, fallible)) {
-    return NS_ERROR_OUT_OF_MEMORY;
-  }
-  PushMessageDispatcher dispatcher(aScope, aPrincipal, aMessageId, Some(data));
+  PushMessageDispatcher dispatcher(aScope, aPrincipal, aMessageId,
+                                   Some(std::move(data)));
   return Dispatch(dispatcher);
 }
 
@@ -99,9 +100,10 @@ nsresult PushNotifier::Dispatch(PushDispatcher& aDispatcher) {
       // Broadcast a message to notify observers and service workers.
       for (uint32_t i = 0; i < contentActors.Length(); ++i) {
         // We need to filter based on process type, only "web" AKA the default
-        // remote type is acceptable.
-        if (!contentActors[i]->GetRemoteType().EqualsLiteral(
-                DEFAULT_REMOTE_TYPE)) {
+        // remote type is acceptable. This should not run when Fission is
+        // enabled, and we specifically don't want this for
+        // LARGE_ALLOCATION_REMOTE_TYPE, so don't use IsWebRemoteType().
+        if (contentActors[i]->GetRemoteType() != DEFAULT_REMOTE_TYPE) {
           continue;
         }
 
@@ -144,9 +146,9 @@ nsresult PushNotifier::Dispatch(PushDispatcher& aDispatcher) {
   return rv;
 }
 
-PushData::PushData(const nsTArray<uint8_t>& aData) : mData(aData) {}
+PushData::PushData(const nsTArray<uint8_t>& aData) : mData(aData.Clone()) {}
 
-PushData::~PushData() {}
+PushData::~PushData() = default;
 
 NS_IMPL_CYCLE_COLLECTION_0(PushData)
 
@@ -194,27 +196,15 @@ PushData::Json(JSContext* aCx, JS::MutableHandle<JS::Value> aResult) {
 }
 
 NS_IMETHODIMP
-PushData::Binary(uint32_t* aDataLen, uint8_t** aData) {
-  NS_ENSURE_ARG_POINTER(aDataLen);
-  NS_ENSURE_ARG_POINTER(aData);
-
-  *aData = nullptr;
-  if (mData.IsEmpty()) {
-    *aDataLen = 0;
-    return NS_OK;
-  }
-  uint32_t length = mData.Length();
-  uint8_t* data = static_cast<uint8_t*>(moz_xmalloc(length * sizeof(uint8_t)));
-  memcpy(data, mData.Elements(), length * sizeof(uint8_t));
-  *aDataLen = length;
-  *aData = data;
+PushData::Binary(nsTArray<uint8_t>& aData) {
+  aData = mData.Clone();
   return NS_OK;
 }
 
 PushMessage::PushMessage(nsIPrincipal* aPrincipal, nsIPushData* aData)
     : mPrincipal(aPrincipal), mData(aData) {}
 
-PushMessage::~PushMessage() {}
+PushMessage::~PushMessage() = default;
 
 NS_IMPL_CYCLE_COLLECTION(PushMessage, mPrincipal, mData)
 
@@ -248,7 +238,7 @@ PushDispatcher::PushDispatcher(const nsACString& aScope,
                                nsIPrincipal* aPrincipal)
     : mScope(aScope), mPrincipal(aPrincipal) {}
 
-PushDispatcher::~PushDispatcher() {}
+PushDispatcher::~PushDispatcher() = default;
 
 nsresult PushDispatcher::HandleNoChildProcesses() { return NS_OK; }
 
@@ -261,11 +251,29 @@ bool PushDispatcher::ShouldNotifyWorkers() {
   if (NS_WARN_IF(!mPrincipal)) {
     return false;
   }
+
   // System subscriptions use observer notifications instead of service worker
   // events. The `testing.notifyWorkers` pref disables worker events for
   // non-system subscriptions.
-  return !nsContentUtils::IsSystemPrincipal(mPrincipal) &&
-         Preferences::GetBool("dom.push.testing.notifyWorkers", true);
+  if (mPrincipal->IsSystemPrincipal() ||
+      !Preferences::GetBool("dom.push.testing.notifyWorkers", true)) {
+    return false;
+  }
+
+  // If e10s is off, no need to worry about processes.
+  if (!BrowserTabsRemoteAutostart()) {
+    return true;
+  }
+
+  // If parent intercept is enabled, then we only want to notify in the parent
+  // process. Otherwise, we only want to notify in the child process.
+  bool isContentProcess = XRE_GetProcessType() == GeckoProcessType_Content;
+  bool parentInterceptEnabled = ServiceWorkerParentInterceptEnabled();
+  if (parentInterceptEnabled) {
+    return !isContentProcess;
+  }
+
+  return isContentProcess;
 }
 
 nsresult PushDispatcher::DoNotifyObservers(nsISupports* aSubject,
@@ -297,9 +305,9 @@ PushMessageDispatcher::PushMessageDispatcher(
     const nsAString& aMessageId, const Maybe<nsTArray<uint8_t>>& aData)
     : PushDispatcher(aScope, aPrincipal),
       mMessageId(aMessageId),
-      mData(aData) {}
+      mData(aData ? Some(aData->Clone()) : Nothing()) {}
 
-PushMessageDispatcher::~PushMessageDispatcher() {}
+PushMessageDispatcher::~PushMessageDispatcher() = default;
 
 nsresult PushMessageDispatcher::NotifyObservers() {
   nsCOMPtr<nsIPushData> data;
@@ -348,7 +356,7 @@ PushSubscriptionChangeDispatcher::PushSubscriptionChangeDispatcher(
     const nsACString& aScope, nsIPrincipal* aPrincipal)
     : PushDispatcher(aScope, aPrincipal) {}
 
-PushSubscriptionChangeDispatcher::~PushSubscriptionChangeDispatcher() {}
+PushSubscriptionChangeDispatcher::~PushSubscriptionChangeDispatcher() = default;
 
 nsresult PushSubscriptionChangeDispatcher::NotifyObservers() {
   return DoNotifyObservers(mPrincipal, OBSERVER_TOPIC_SUBSCRIPTION_CHANGE,
@@ -387,7 +395,8 @@ PushSubscriptionModifiedDispatcher::PushSubscriptionModifiedDispatcher(
     const nsACString& aScope, nsIPrincipal* aPrincipal)
     : PushDispatcher(aScope, aPrincipal) {}
 
-PushSubscriptionModifiedDispatcher::~PushSubscriptionModifiedDispatcher() {}
+PushSubscriptionModifiedDispatcher::~PushSubscriptionModifiedDispatcher() =
+    default;
 
 nsresult PushSubscriptionModifiedDispatcher::NotifyObservers() {
   return DoNotifyObservers(mPrincipal, OBSERVER_TOPIC_SUBSCRIPTION_MODIFIED,
@@ -414,27 +423,29 @@ PushErrorDispatcher::PushErrorDispatcher(const nsACString& aScope,
                                          uint32_t aFlags)
     : PushDispatcher(aScope, aPrincipal), mMessage(aMessage), mFlags(aFlags) {}
 
-PushErrorDispatcher::~PushErrorDispatcher() {}
+PushErrorDispatcher::~PushErrorDispatcher() = default;
 
 nsresult PushErrorDispatcher::NotifyObservers() { return NS_OK; }
 
 nsresult PushErrorDispatcher::NotifyWorkers() {
-  if (!ShouldNotifyWorkers()) {
+  if (!ShouldNotifyWorkers() &&
+      (!mPrincipal || mPrincipal->IsSystemPrincipal())) {
     // For system subscriptions, log the error directly to the browser console.
     return nsContentUtils::ReportToConsoleNonLocalized(
-        mMessage, mFlags, NS_LITERAL_CSTRING("Push"), nullptr, /* aDocument */
-        nullptr,                                               /* aURI */
-        EmptyString(),                                         /* aLine */
-        0,                                                     /* aLineNumber */
-        0, /* aColumnNumber */
+        mMessage, mFlags, "Push"_ns, nullptr, /* aDocument */
+        nullptr,                              /* aURI */
+        u""_ns,                               /* aLine */
+        0,                                    /* aLineNumber */
+        0,                                    /* aColumnNumber */
         nsContentUtils::eOMIT_LOCATION);
   }
+
   // For service worker subscriptions, report the error to all clients.
   RefPtr<ServiceWorkerManager> swm = ServiceWorkerManager::GetInstance();
   if (swm) {
     swm->ReportToAllClients(mScope, mMessage,
                             NS_ConvertUTF8toUTF16(mScope), /* aFilename */
-                            EmptyString(),                 /* aLine */
+                            u""_ns,                        /* aLine */
                             0,                             /* aLineNumber */
                             0,                             /* aColumnNumber */
                             mFlags);
@@ -442,7 +453,10 @@ nsresult PushErrorDispatcher::NotifyWorkers() {
   return NS_OK;
 }
 
-bool PushErrorDispatcher::SendToParent(ContentChild*) { return true; }
+bool PushErrorDispatcher::SendToParent(ContentChild* aContentActor) {
+  return aContentActor->SendPushError(mScope, IPC::Principal(mPrincipal),
+                                      mMessage, mFlags);
+}
 
 bool PushErrorDispatcher::SendToChild(ContentParent* aContentActor) {
   return aContentActor->SendPushError(mScope, IPC::Principal(mPrincipal),
@@ -457,11 +471,11 @@ nsresult PushErrorDispatcher::HandleNoChildProcesses() {
     return rv;
   }
   return nsContentUtils::ReportToConsoleNonLocalized(
-      mMessage, mFlags, NS_LITERAL_CSTRING("Push"), nullptr, /* aDocument */
-      scopeURI,                                              /* aURI */
-      EmptyString(),                                         /* aLine */
-      0,                                                     /* aLineNumber */
-      0,                                                     /* aColumnNumber */
+      mMessage, mFlags, "Push"_ns, nullptr, /* aDocument */
+      scopeURI,                             /* aURI */
+      u""_ns,                               /* aLine */
+      0,                                    /* aLineNumber */
+      0,                                    /* aColumnNumber */
       nsContentUtils::eOMIT_LOCATION);
 }
 

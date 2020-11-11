@@ -7,32 +7,34 @@
 const { Component } = require("devtools/client/shared/vendor/react");
 const PropTypes = require("devtools/client/shared/vendor/react-prop-types");
 const dom = require("devtools/client/shared/vendor/react-dom-factories");
-const { connect } = require("devtools/client/shared/redux/visibility-handler-connect");
-const { L10N } = require("../utils/l10n");
-const { fetchNetworkUpdatePacket } = require("../utils/request-utils");
-const Actions = require("../actions/index");
-const { getSelectedRequest } = require("../selectors/index");
+const {
+  connect,
+} = require("devtools/client/shared/redux/visibility-handler-connect");
+const { L10N } = require("devtools/client/netmonitor/src/utils/l10n");
+const {
+  fetchNetworkUpdatePacket,
+} = require("devtools/client/netmonitor/src/utils/request-utils");
+const Actions = require("devtools/client/netmonitor/src/actions/index");
+const {
+  getSelectedRequest,
+} = require("devtools/client/netmonitor/src/selectors/index");
 const {
   getUrlQuery,
   parseQueryString,
   writeHeaderText,
-} = require("../utils/request-utils");
+} = require("devtools/client/netmonitor/src/utils/request-utils");
 
-const {
-  button,
-  div,
-  input,
-  label,
-  textarea,
-} = dom;
+const { button, div, input, label, textarea } = dom;
 
 const CUSTOM_CANCEL = L10N.getStr("netmonitor.custom.cancel");
 const CUSTOM_HEADERS = L10N.getStr("netmonitor.custom.headers");
 const CUSTOM_NEW_REQUEST = L10N.getStr("netmonitor.custom.newRequest");
-const CUSTOM_NEW_REQUEST_METHOD_LABEL =
-    L10N.getStr("netmonitor.custom.newRequestMethodLabel");
-const CUSTOM_NEW_REQUEST_URL_LABEL =
-    L10N.getStr("netmonitor.custom.newRequestUrlLabel");
+const CUSTOM_NEW_REQUEST_METHOD_LABEL = L10N.getStr(
+  "netmonitor.custom.newRequestMethodLabel"
+);
+const CUSTOM_NEW_REQUEST_URL_LABEL = L10N.getStr(
+  "netmonitor.custom.newRequestUrlLabel"
+);
 const CUSTOM_POSTDATA = L10N.getStr("netmonitor.custom.postData");
 const CUSTOM_QUERY = L10N.getStr("netmonitor.custom.query");
 const CUSTOM_SEND = L10N.getStr("netmonitor.custom.send");
@@ -117,30 +119,52 @@ class CustomRequestPanel extends Component {
       case "custom-method-value":
         // If val is empty when leaving the "method" field, set the method to
         // its original value
-        data = (evt.type === "blur" && val === "") ?
-          { method: this.initialRequestMethod } :
-          { method: val.trim() };
+        data =
+          evt.type === "blur" && val === ""
+            ? { method: this.initialRequestMethod }
+            : { method: val.trim() };
         break;
       case "custom-postdata-value":
+        // Update "content-length" header value to reflect change
+        // in post data field.
+        const { requestHeaders } = request;
+        const newHeaders = requestHeaders.headers.map(header => {
+          if (header.name.toLowerCase() == "content-length") {
+            return {
+              name: header.name,
+              value: val.length,
+            };
+          }
+          return header;
+        });
+
         data = {
           requestPostData: {
             postData: { text: val },
+          },
+          requestHeaders: {
+            headers: newHeaders,
           },
         };
         break;
       case "custom-query-value":
         let customQueryValue = val || "";
         // Parse readable text list of a query string
-        const queryArray = customQueryValue ?
-          this.parseRequestText(customQueryValue, ".+?", "=") : [];
+        const queryArray = customQueryValue
+          ? this.parseRequestText(customQueryValue, ".+?", "=")
+          : [];
         // Write out a list of query params into a query string
-        const queryString = queryArray.map(
-          ({ name, value }) => name + "=" + value).join("&");
-        const url = queryString ? [request.url.split("?")[0], queryString].join("?") :
-          request.url.split("?")[0];
+        const queryString = queryArray
+          .map(({ name, value }) => name + "=" + value)
+          .join("&");
+        const url = queryString
+          ? [request.url.split("?")[0], queryString].join("?")
+          : request.url.split("?")[0];
         // Remove temp customQueryValue while query string is parsable
-        if (customQueryValue === "" ||
-          queryArray.length === customQueryValue.split("\n").length) {
+        if (
+          customQueryValue === "" ||
+          queryArray.length === customQueryValue.split("\n").length
+        ) {
           customQueryValue = null;
         }
         data = {
@@ -180,137 +204,169 @@ class CustomRequestPanel extends Component {
 
     let headers = "";
     if (requestHeaders) {
-      headers = requestHeaders.customHeadersValue ?
-        requestHeaders.customHeadersValue : writeHeaderText(requestHeaders.headers);
+      headers = requestHeaders.customHeadersValue
+        ? requestHeaders.customHeadersValue
+        : writeHeaderText(requestHeaders.headers).trim();
     }
     const queryArray = url ? parseQueryString(getUrlQuery(url)) : [];
     let params = customQueryValue;
     if (!params) {
-      params = queryArray ?
-        queryArray.map(({ name, value }) => name + "=" + value).join("\n") : "";
+      params = queryArray
+        ? queryArray.map(({ name, value }) => name + "=" + value).join("\n")
+        : "";
     }
-    const postData = requestPostData && requestPostData.postData.text ?
-      requestPostData.postData.text : "";
+    const postData = requestPostData?.postData.text
+      ? requestPostData.postData.text
+      : "";
 
-    return (
-      div({ className: "custom-request-panel" },
-        div({ className: "tabpanel-summary-container custom-request" },
-          div({ className: "custom-request-label custom-header" },
-            CUSTOM_NEW_REQUEST,
-          ),
-          button({
-            className: "devtools-button",
-            id: "custom-request-send-button",
-            onClick: sendCustomRequest,
-          },
-            CUSTOM_SEND,
-          ),
-          button({
-            className: "devtools-button",
-            id: "custom-request-close-button",
-            onClick: removeSelectedCustomRequest,
-          },
-            CUSTOM_CANCEL,
-          ),
+    return div(
+      { className: "custom-request-panel" },
+      div(
+        { className: "custom-request-label custom-header" },
+        CUSTOM_NEW_REQUEST
+      ),
+      div(
+        { className: "custom-request-panel-content" },
+        div(
+          { className: "tabpanel-summary-container custom-request" },
+          div(
+            { className: "custom-request-button-container" },
+            button(
+              {
+                className: "devtools-button",
+                id: "custom-request-close-button",
+                onClick: removeSelectedCustomRequest,
+              },
+              CUSTOM_CANCEL
+            ),
+            button(
+              {
+                className: "devtools-button",
+                id: "custom-request-send-button",
+                onClick: sendCustomRequest,
+              },
+              CUSTOM_SEND
+            )
+          )
         ),
-        div({
-          className: "tabpanel-summary-container custom-method-and-url",
-          id: "custom-method-and-url",
-        },
-          label({
-            className: "custom-method-value-label custom-request-label",
-            htmlFor: "custom-method-value",
+        div(
+          {
+            className: "tabpanel-summary-container custom-method-and-url",
+            id: "custom-method-and-url",
           },
-            CUSTOM_NEW_REQUEST_METHOD_LABEL,
+          label(
+            {
+              className: "custom-method-value-label custom-request-label",
+              htmlFor: "custom-method-value",
+            },
+            CUSTOM_NEW_REQUEST_METHOD_LABEL
           ),
           input({
             className: "custom-method-value",
             id: "custom-method-value",
-            onChange: (evt) =>
+            onChange: evt =>
               this.updateCustomRequestFields(evt, request, updateRequest),
-            onBlur: (evt) =>
+            onBlur: evt =>
               this.updateCustomRequestFields(evt, request, updateRequest),
             value: method,
           }),
-          label({
-            className: "custom-url-value-label custom-request-label",
-            htmlFor: "custom-url-value",
-          },
-            CUSTOM_NEW_REQUEST_URL_LABEL,
+          label(
+            {
+              className: "custom-url-value-label custom-request-label",
+              htmlFor: "custom-url-value",
+            },
+            CUSTOM_NEW_REQUEST_URL_LABEL
           ),
           input({
             className: "custom-url-value",
             id: "custom-url-value",
-            onChange: (evt) =>
+            onChange: evt =>
               this.updateCustomRequestFields(evt, request, updateRequest),
             value: url || "http://",
-          }),
+          })
         ),
         // Hide query field when there is no params
-        params ? div({
-          className: "tabpanel-summary-container custom-section",
-          id: "custom-query",
-        },
-          label({
-            className: "custom-request-label",
-            htmlFor: "custom-query-value",
-          }, CUSTOM_QUERY),
-          textarea({
-            className: "tabpanel-summary-input",
-            id: "custom-query-value",
-            onChange: (evt) =>
-              this.updateCustomRequestFields(evt, request, updateRequest),
-            rows: 4,
-            value: params,
-            wrap: "off",
-          }),
-        ) : null,
-        div({
-          id: "custom-headers",
-          className: "tabpanel-summary-container custom-section",
-        },
-          label({
-            className: "custom-request-label",
-            htmlFor: "custom-headers-value",
-          }, CUSTOM_HEADERS),
+        params
+          ? div(
+              {
+                className: "tabpanel-summary-container custom-section",
+                id: "custom-query",
+              },
+              label(
+                {
+                  className: "custom-request-label",
+                  htmlFor: "custom-query-value",
+                },
+                CUSTOM_QUERY
+              ),
+              textarea({
+                className: "tabpanel-summary-input",
+                id: "custom-query-value",
+                onChange: evt =>
+                  this.updateCustomRequestFields(evt, request, updateRequest),
+                rows: 4,
+                value: params,
+                wrap: "off",
+              })
+            )
+          : null,
+        div(
+          {
+            id: "custom-headers",
+            className: "tabpanel-summary-container custom-section",
+          },
+          label(
+            {
+              className: "custom-request-label",
+              htmlFor: "custom-headers-value",
+            },
+            CUSTOM_HEADERS
+          ),
           textarea({
             className: "tabpanel-summary-input",
             id: "custom-headers-value",
-            onChange: (evt) =>
+            onChange: evt =>
               this.updateCustomRequestFields(evt, request, updateRequest),
             rows: 8,
             value: headers,
             wrap: "off",
-          }),
+          })
         ),
-        div({
-          id: "custom-postdata",
-          className: "tabpanel-summary-container custom-section",
-        },
-          label({
-            className: "custom-request-label",
-            htmlFor: "custom-postdata-value",
-          }, CUSTOM_POSTDATA),
+        div(
+          {
+            id: "custom-postdata",
+            className: "tabpanel-summary-container custom-section",
+          },
+          label(
+            {
+              className: "custom-request-label",
+              htmlFor: "custom-postdata-value",
+            },
+            CUSTOM_POSTDATA
+          ),
           textarea({
             className: "tabpanel-summary-input",
             id: "custom-postdata-value",
-            onChange: (evt) =>
+            onChange: evt =>
               this.updateCustomRequestFields(evt, request, updateRequest),
             rows: 6,
             value: postData,
             wrap: "off",
-          }),
-        ),
+          })
+        )
       )
     );
   }
 }
 
 module.exports = connect(
-  (state) => ({ request: getSelectedRequest(state) }),
+  state => ({ request: getSelectedRequest(state) }),
   (dispatch, props) => ({
-    removeSelectedCustomRequest: () => dispatch(Actions.removeSelectedCustomRequest()),
-    sendCustomRequest: () => dispatch(Actions.sendCustomRequest(props.connector)),
-    updateRequest: (id, data, batch) => dispatch(Actions.updateRequest(id, data, batch)),
+    removeSelectedCustomRequest: () =>
+      dispatch(Actions.removeSelectedCustomRequest()),
+    sendCustomRequest: () =>
+      dispatch(Actions.sendCustomRequest(props.connector)),
+    updateRequest: (id, data, batch) =>
+      dispatch(Actions.updateRequest(id, data, batch)),
   })
 )(CustomRequestPanel);

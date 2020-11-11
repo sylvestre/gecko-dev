@@ -8,8 +8,7 @@
 #include "mozilla/dom/DOMException.h"
 #include "nsPrintfCString.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 DetailedPromise::DetailedPromise(nsIGlobalObject* aGlobal,
                                  const nsACString& aName)
@@ -35,39 +34,45 @@ DetailedPromise::~DetailedPromise() {
   MaybeReportTelemetry(kFailed);
 }
 
-void DetailedPromise::MaybeReject(nsresult aArg, const nsACString& aReason) {
+void DetailedPromise::LogRejectionReason(uint32_t aErrorCode,
+                                         const nsACString& aReason) {
   nsPrintfCString msg("%s promise rejected 0x%" PRIx32 " '%s'", mName.get(),
-                      static_cast<uint32_t>(aArg),
-                      PromiseFlatCString(aReason).get());
+                      aErrorCode, PromiseFlatCString(aReason).get());
   EME_LOG("%s", msg.get());
 
   MaybeReportTelemetry(kFailed);
 
   LogToBrowserConsole(NS_ConvertUTF8toUTF16(msg));
-
-  ErrorResult rv;
-  rv.ThrowDOMException(aArg, aReason);
-  Promise::MaybeReject(rv);
 }
 
-void DetailedPromise::MaybeReject(ErrorResult&, const nsACString& aReason) {
-  MOZ_ASSERT_UNREACHABLE("nsresult expected in MaybeReject()");
+void DetailedPromise::MaybeReject(nsresult aArg, const nsACString& aReason) {
+  LogRejectionReason(static_cast<uint32_t>(aArg), aReason);
+
+  Promise::MaybeRejectWithDOMException(aArg, aReason);
 }
 
-/* static */ already_AddRefed<DetailedPromise> DetailedPromise::Create(
+void DetailedPromise::MaybeReject(ErrorResult&& aArg,
+                                  const nsACString& aReason) {
+  LogRejectionReason(aArg.ErrorCodeAsInt(), aReason);
+  Promise::MaybeReject(std::move(aArg));
+}
+
+/* static */
+already_AddRefed<DetailedPromise> DetailedPromise::Create(
     nsIGlobalObject* aGlobal, ErrorResult& aRv, const nsACString& aName) {
   RefPtr<DetailedPromise> promise = new DetailedPromise(aGlobal, aName);
-  promise->CreateWrapper(nullptr, aRv);
+  promise->CreateWrapper(aRv);
   return aRv.Failed() ? nullptr : promise.forget();
 }
 
-/* static */ already_AddRefed<DetailedPromise> DetailedPromise::Create(
+/* static */
+already_AddRefed<DetailedPromise> DetailedPromise::Create(
     nsIGlobalObject* aGlobal, ErrorResult& aRv, const nsACString& aName,
     Telemetry::HistogramID aSuccessLatencyProbe,
     Telemetry::HistogramID aFailureLatencyProbe) {
   RefPtr<DetailedPromise> promise = new DetailedPromise(
       aGlobal, aName, aSuccessLatencyProbe, aFailureLatencyProbe);
-  promise->CreateWrapper(nullptr, aRv);
+  promise->CreateWrapper(aRv);
   return aRv.Failed() ? nullptr : promise.forget();
 }
 
@@ -88,5 +93,4 @@ void DetailedPromise::MaybeReportTelemetry(eStatus aStatus) {
   Telemetry::Accumulate(tid, latency);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

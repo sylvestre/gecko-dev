@@ -23,7 +23,8 @@ class nsCheckboxRadioFrame final : public nsAtomicContainerFrame,
   NS_DECL_QUERYFRAME
   NS_DECL_FRAMEARENA_HELPERS(nsCheckboxRadioFrame)
 
-  explicit nsCheckboxRadioFrame(ComputedStyle* aStyle);
+  explicit nsCheckboxRadioFrame(ComputedStyle* aStyle,
+                                nsPresContext* aPresContext);
 
   // nsIFrame replacements
   virtual bool IsFrameOfType(uint32_t aFlags) const override {
@@ -50,8 +51,9 @@ class nsCheckboxRadioFrame final : public nsAtomicContainerFrame,
   virtual mozilla::LogicalSize ComputeAutoSize(
       gfxContext* aRenderingContext, mozilla::WritingMode aWM,
       const mozilla::LogicalSize& aCBSize, nscoord aAvailableISize,
-      const mozilla::LogicalSize& aMargin, const mozilla::LogicalSize& aBorder,
-      const mozilla::LogicalSize& aPadding, ComputeSizeFlags aFlags) override;
+      const mozilla::LogicalSize& aMargin,
+      const mozilla::LogicalSize& aBorderPadding,
+      mozilla::ComputeSizeFlags aFlags) override;
 
   /**
    * Respond to a gui event

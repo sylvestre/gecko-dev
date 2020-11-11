@@ -4,13 +4,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 #if !defined(OpusDecoder_h_)
-#define OpusDecoder_h_
+#  define OpusDecoder_h_
 
-#include "PlatformDecoderModule.h"
+#  include "PlatformDecoderModule.h"
 
-#include "mozilla/Maybe.h"
-#include "nsAutoPtr.h"
-#include "nsTArray.h"
+#  include "mozilla/Maybe.h"
+#  include "nsTArray.h"
 
 struct OpusMSDecoder;
 
@@ -32,7 +31,7 @@ class OpusDataDecoder : public MediaDataDecoder,
   RefPtr<FlushPromise> Flush() override;
   RefPtr<ShutdownPromise> Shutdown() override;
   nsCString GetDescriptionName() const override {
-    return NS_LITERAL_CSTRING("opus audio decoder");
+    return "opus audio decoder"_ns;
   }
 
   // Return true if mimetype is Opus
@@ -48,13 +47,11 @@ class OpusDataDecoder : public MediaDataDecoder,
  private:
   nsresult DecodeHeader(const unsigned char* aData, size_t aLength);
 
-  RefPtr<DecodePromise> ProcessDecode(MediaRawData* aSample);
-
   const AudioInfo& mInfo;
-  const RefPtr<TaskQueue> mTaskQueue;
+  nsCOMPtr<nsISerialEventTarget> mThread;
 
   // Opus decoder state
-  nsAutoPtr<OpusParser> mOpusParser;
+  UniquePtr<OpusParser> mOpusParser;
   OpusMSDecoder* mOpusDecoder;
 
   uint16_t mSkip;  // Samples left to trim before playback.
@@ -68,6 +65,7 @@ class OpusDataDecoder : public MediaDataDecoder,
   Maybe<int64_t> mLastFrameTime;
   AutoTArray<uint8_t, 8> mMappingTable;
   AudioConfig::ChannelLayout::ChannelMap mChannelMap;
+  bool mDefaultPlaybackDeviceMono;
 };
 
 }  // namespace mozilla

@@ -13,7 +13,7 @@
 
 // X.h defines KeyPress
 #ifdef KeyPress
-#undef KeyPress
+#  undef KeyPress
 #endif
 
 class nsMenuFrame;
@@ -45,8 +45,6 @@ class nsMenuBarListener final : public nsIDOMEventListener {
    * When mMenuBarFrame is being destroyed, this should be called.
    */
   void OnDestroyMenuBarFrame();
-
-  static void InitializeStatics();
 
   /**
    * GetMenuAccessKey() returns keyCode value of a modifier key which is
@@ -109,8 +107,6 @@ class nsMenuBarListener final : public nsIDOMEventListener {
   bool mAccessKeyDown;
   // Whether or not the ALT key down is canceled by other action.
   bool mAccessKeyDownCanceled;
-  // Does the access key by itself focus the menubar?
-  static bool mAccessKeyFocuses;
   // See KeyboardEvent for sample values (DOM_VK_* constants).
   static int32_t mAccessKey;
   // Modifier mask for the access key.

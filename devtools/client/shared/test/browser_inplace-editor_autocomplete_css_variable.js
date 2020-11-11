@@ -1,4 +1,3 @@
-/* vim: set ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
    http://creativecommons.org/publicdomain/zero/1.0/ */
 /* import-globals-from helper_inplace_editor.js */
@@ -65,23 +64,27 @@ const mockGetCSSValuesForPropertyName = function(propertyName) {
 };
 
 add_task(async function() {
-  await addTab("data:text/html;charset=utf-8,inplace editor CSS variable autocomplete");
-  const [host, win, doc] = await createHost();
+  await addTab(
+    "data:text/html;charset=utf-8,inplace editor CSS variable autocomplete"
+  );
+  const { host, doc } = await createHost();
 
-  const xulDocument = win.top.document;
-  const popup = new AutocompletePopup(xulDocument, { autoSelect: true });
+  const popup = new AutocompletePopup(doc, { autoSelect: true });
 
   await new Promise(resolve => {
-    createInplaceEditorAndClick({
-      start: runAutocompletionTest,
-      contentType: InplaceEditor.CONTENT_TYPES.CSS_VALUE,
-      property: {
-        name: "color",
+    createInplaceEditorAndClick(
+      {
+        start: runAutocompletionTest,
+        contentType: InplaceEditor.CONTENT_TYPES.CSS_VALUE,
+        property: {
+          name: "color",
+        },
+        cssVariables: new Map(CSS_VARIABLES),
+        done: resolve,
+        popup: popup,
       },
-      cssVariables: new Map(CSS_VARIABLES),
-      done: resolve,
-      popup: popup,
-    }, doc);
+      doc
+    );
   });
 
   popup.destroy();

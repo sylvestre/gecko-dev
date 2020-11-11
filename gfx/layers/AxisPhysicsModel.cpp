@@ -38,7 +38,7 @@ AxisPhysicsModel::AxisPhysicsModel(double aInitialPosition,
       mPrevState(aInitialPosition, aInitialVelocity),
       mNextState(aInitialPosition, aInitialVelocity) {}
 
-AxisPhysicsModel::~AxisPhysicsModel() {}
+AxisPhysicsModel::~AxisPhysicsModel() = default;
 
 double AxisPhysicsModel::GetVelocity() const {
   return LinearInterpolate(mPrevState.v, mNextState.v, mProgress);
@@ -60,7 +60,7 @@ void AxisPhysicsModel::SetPosition(double aPosition) {
   mProgress = 1.0;
 }
 
-void AxisPhysicsModel::Simulate(const TimeDuration &aDeltaTime) {
+void AxisPhysicsModel::Simulate(const TimeDuration& aDeltaTime) {
   for (mProgress += aDeltaTime.ToSeconds() / kFixedTimestep; mProgress > 1.0;
        mProgress -= 1.0) {
     Integrate(kFixedTimestep);
@@ -85,7 +85,7 @@ void AxisPhysicsModel::Integrate(double aDeltaTime) {
 }
 
 AxisPhysicsModel::Derivative AxisPhysicsModel::Evaluate(
-    const State &aInitState, double aDeltaTime, const Derivative &aDerivative) {
+    const State& aInitState, double aDeltaTime, const Derivative& aDerivative) {
   State state(aInitState.p + aDerivative.dp * aDeltaTime,
               aInitState.v + aDerivative.dv * aDeltaTime);
 

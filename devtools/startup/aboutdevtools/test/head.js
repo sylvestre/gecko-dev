@@ -1,11 +1,8 @@
-/* vim: set ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 /* eslint no-unused-vars: [2, {"vars": "local"}] */
 
 "use strict";
-
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm", {});
 
 // All test are asynchronous
 waitForExplicitFinish();
@@ -58,7 +55,7 @@ const removeTab = async function(tab) {
   const { gBrowser } = tab.ownerGlobal;
 
   await new Promise(resolve => {
-    gBrowser.tabContainer.addEventListener("TabClose", resolve, {once: true});
+    gBrowser.tabContainer.addEventListener("TabClose", resolve, { once: true });
     gBrowser.removeTab(tab);
   });
 
@@ -76,7 +73,7 @@ const openAboutDevTools = async function() {
   const doc = browser.contentDocument;
   const win = browser.contentWindow;
 
-  return {tab, doc, win};
+  return { tab, doc, win };
 };
 
 /**
@@ -85,7 +82,7 @@ const openAboutDevTools = async function() {
  */
 const pushPref = function(preferenceName, value) {
   return new Promise(resolve => {
-    const options = {"set": [[preferenceName, value]]};
+    const options = { set: [[preferenceName, value]] };
     SpecialPowers.pushPrefEnv(options, resolve);
   });
 };
@@ -107,6 +104,10 @@ function synthesizeToggleToolboxKey() {
  */
 function isAboutDevtoolsTab(tab) {
   const browser = tab.linkedBrowser;
-  const location = browser.documentURI.spec;
-  return location.startsWith("about:devtools");
+  // browser.documentURI might be unavailable if the tab is loading.
+  if (browser && browser.documentURI) {
+    const location = browser.documentURI.spec;
+    return location.startsWith("about:devtools");
+  }
+  return false;
 }

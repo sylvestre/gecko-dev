@@ -6,22 +6,50 @@
 #include "CompositorWidgetChild.h"
 #include "mozilla/Unused.h"
 #include "mozilla/widget/CompositorWidgetVsyncObserver.h"
+#include "mozilla/widget/PlatformWidgetTypes.h"
 #include "nsBaseWidget.h"
 #include "VsyncDispatcher.h"
 #include "gfxPlatform.h"
+#include "RemoteBackbuffer.h"
 
 namespace mozilla {
 namespace widget {
 
 CompositorWidgetChild::CompositorWidgetChild(
     RefPtr<CompositorVsyncDispatcher> aVsyncDispatcher,
-    RefPtr<CompositorWidgetVsyncObserver> aVsyncObserver)
-    : mVsyncDispatcher(aVsyncDispatcher), mVsyncObserver(aVsyncObserver) {
+    RefPtr<CompositorWidgetVsyncObserver> aVsyncObserver,
+    const CompositorWidgetInitData& aInitData)
+    : mVsyncDispatcher(aVsyncDispatcher),
+      mVsyncObserver(aVsyncObserver),
+      mCompositorWnd(nullptr),
+      mWnd(reinterpret_cast<HWND>(
+          aInitData.get_WinCompositorWidgetInitData().hWnd())),
+      mTransparencyMode(
+          aInitData.get_WinCompositorWidgetInitData().transparencyMode()),
+      mRemoteBackbufferProvider() {
   MOZ_ASSERT(XRE_IsParentProcess());
   MOZ_ASSERT(!gfxPlatform::IsHeadless());
+  MOZ_ASSERT(mWnd && ::IsWindow(mWnd));
 }
 
 CompositorWidgetChild::~CompositorWidgetChild() {}
+
+bool CompositorWidgetChild::Initialize() {
+  mRemoteBackbufferProvider = std::make_unique<remote_backbuffer::Provider>();
+  if (!mRemoteBackbufferProvider->Initialize(mWnd, OtherPid(),
+                                             mTransparencyMode)) {
+    return false;
+  }
+
+  auto maybeRemoteHandles = mRemoteBackbufferProvider->CreateRemoteHandles();
+  if (!maybeRemoteHandles) {
+    return false;
+  }
+
+  Unused << SendInitialize(*maybeRemoteHandles);
+
+  return true;
+}
 
 void CompositorWidgetChild::EnterPresentLock() {
   Unused << SendEnterPresentLock();
@@ -33,17 +61,20 @@ void CompositorWidgetChild::LeavePresentLock() {
 
 void CompositorWidgetChild::OnDestroyWindow() {}
 
+bool CompositorWidgetChild::OnWindowResize(const LayoutDeviceIntSize& aSize) {
+  return true;
+}
+
+void CompositorWidgetChild::OnWindowModeChange(nsSizeMode aSizeMode) {}
+
 void CompositorWidgetChild::UpdateTransparency(nsTransparencyMode aMode) {
+  mTransparencyMode = aMode;
+  mRemoteBackbufferProvider->UpdateTransparencyMode(aMode);
   Unused << SendUpdateTransparency(aMode);
 }
 
 void CompositorWidgetChild::ClearTransparentWindow() {
   Unused << SendClearTransparentWindow();
-}
-
-HDC CompositorWidgetChild::GetTransparentDC() const {
-  // Not supported in out-of-process mode.
-  return nullptr;
 }
 
 mozilla::ipc::IPCResult CompositorWidgetChild::RecvObserveVsync() {
@@ -53,6 +84,23 @@ mozilla::ipc::IPCResult CompositorWidgetChild::RecvObserveVsync() {
 
 mozilla::ipc::IPCResult CompositorWidgetChild::RecvUnobserveVsync() {
   mVsyncDispatcher->SetCompositorVsyncObserver(nullptr);
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult CompositorWidgetChild::RecvUpdateCompositorWnd(
+    const WindowsHandle& aCompositorWnd, const WindowsHandle& aParentWnd,
+    UpdateCompositorWndResolver&& aResolve) {
+  HWND parentWnd = reinterpret_cast<HWND>(aParentWnd);
+  if (mWnd == parentWnd) {
+    mCompositorWnd = reinterpret_cast<HWND>(aCompositorWnd);
+    ::SetParent(mCompositorWnd, mWnd);
+    aResolve(true);
+  } else {
+    aResolve(false);
+    gfxCriticalNote << "Parent winow does not match";
+    MOZ_ASSERT_UNREACHABLE("unexpected to happen");
+  }
+
   return IPC_OK();
 }
 

@@ -5,23 +5,29 @@
 //! Generic types for CSS values related to flexbox.
 
 /// A generic value for the `flex-basis` property.
-#[cfg_attr(feature = "servo", derive(MallocSizeOf))]
 #[derive(
     Animate,
     Clone,
     ComputeSquaredDistance,
     Copy,
     Debug,
+    MallocSizeOf,
+    Parse,
     PartialEq,
     SpecifiedValueInfo,
     ToAnimatedValue,
     ToAnimatedZero,
     ToComputedValue,
     ToCss,
+    ToResolvedValue,
+    ToShmem,
 )]
-pub enum FlexBasis<Width> {
+#[repr(C)]
+pub enum GenericFlexBasis<S> {
     /// `content`
     Content,
     /// `<width>`
-    Width(Width),
+    Size(S),
 }
+
+pub use self::GenericFlexBasis as FlexBasis;

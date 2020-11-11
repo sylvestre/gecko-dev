@@ -8,19 +8,19 @@
 #include "BackgroundUtils.h"
 #include "mozilla/BasePrincipal.h"
 #include "mozilla/dom/Element.h"
-#include "mozilla/dom/TabParent.h"
+#include "mozilla/dom/BrowserParent.h"
 #include "mozilla/ipc/URIUtils.h"
 #include "mozilla/Unused.h"
 #include "nsContentUtils.h"
+#include "nsDebug.h"
 #include "nsOfflineCacheUpdate.h"
 #include "nsIApplicationCache.h"
-#include "nsIScriptSecurityManager.h"
 #include "nsNetUtil.h"
 
 using namespace mozilla::ipc;
 using mozilla::BasePrincipal;
 using mozilla::OriginAttributes;
-using mozilla::dom::TabParent;
+using mozilla::dom::BrowserParent;
 
 //
 // To enable logging (see mozilla/Logging.h for full details):
@@ -71,51 +71,64 @@ void OfflineCacheUpdateParent::ActorDestroy(ActorDestroyReason why) {
 }
 
 nsresult OfflineCacheUpdateParent::Schedule(
-    const URIParams& aManifestURI, const URIParams& aDocumentURI,
-    const PrincipalInfo& aLoadingPrincipalInfo, const bool& stickDocument) {
+    nsIURI* aManifestURI, nsIURI* aDocumentURI,
+    const PrincipalInfo& aLoadingPrincipalInfo, const bool& stickDocument,
+    const CookieJarSettingsArgs& aCookieJarSettingsArgs) {
   LOG(("OfflineCacheUpdateParent::RecvSchedule [%p]", this));
 
-  nsresult rv;
-
   RefPtr<nsOfflineCacheUpdate> update;
-  nsCOMPtr<nsIURI> manifestURI = DeserializeURI(aManifestURI);
-  if (!manifestURI) return NS_ERROR_FAILURE;
+  if (!aManifestURI) {
+    return NS_ERROR_FAILURE;
+  }
 
-  mLoadingPrincipal = PrincipalInfoToPrincipal(aLoadingPrincipalInfo, &rv);
-  NS_ENSURE_SUCCESS(rv, rv);
+  auto loadingPrincipalOrErr = PrincipalInfoToPrincipal(aLoadingPrincipalInfo);
+
+  if (NS_WARN_IF(loadingPrincipalOrErr.isErr())) {
+    return loadingPrincipalOrErr.unwrapErr();
+  }
+
+  mLoadingPrincipal = loadingPrincipalOrErr.unwrap();
 
   nsOfflineCacheUpdateService* service =
       nsOfflineCacheUpdateService::EnsureService();
-  if (!service) return NS_ERROR_FAILURE;
+  if (!service) {
+    return NS_ERROR_FAILURE;
+  }
 
   bool offlinePermissionAllowed = false;
 
-  rv = service->OfflineAppAllowed(mLoadingPrincipal, nullptr,
-                                  &offlinePermissionAllowed);
+  nsresult rv =
+      service->OfflineAppAllowed(mLoadingPrincipal, &offlinePermissionAllowed);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  if (!offlinePermissionAllowed) return NS_ERROR_DOM_SECURITY_ERR;
-
-  nsCOMPtr<nsIURI> documentURI = DeserializeURI(aDocumentURI);
-  if (!documentURI) return NS_ERROR_FAILURE;
-
-  if (!NS_SecurityCompareURIs(manifestURI, documentURI, false))
+  if (!offlinePermissionAllowed) {
     return NS_ERROR_DOM_SECURITY_ERR;
+  }
+
+  if (!aDocumentURI) {
+    return NS_ERROR_FAILURE;
+  }
+
+  if (!NS_SecurityCompareURIs(aManifestURI, aDocumentURI, false)) {
+    return NS_ERROR_DOM_SECURITY_ERR;
+  }
 
   nsAutoCString originSuffix;
   rv = mLoadingPrincipal->GetOriginSuffix(originSuffix);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  service->FindUpdate(manifestURI, originSuffix, nullptr,
+  service->FindUpdate(aManifestURI, originSuffix, nullptr,
                       getter_AddRefs(update));
   if (!update) {
     update = new nsOfflineCacheUpdate();
 
     // Leave aDocument argument null. Only glues and children keep
     // document instances.
-    rv = update->Init(manifestURI, documentURI, mLoadingPrincipal, nullptr,
+    rv = update->Init(aManifestURI, aDocumentURI, mLoadingPrincipal, nullptr,
                       nullptr);
     NS_ENSURE_SUCCESS(rv, rv);
+
+    update->SetCookieJarSettingsArgs(aCookieJarSettingsArgs);
 
     // Must add before Schedule() call otherwise we would miss
     // oncheck event notification.
@@ -128,7 +141,7 @@ nsresult OfflineCacheUpdateParent::Schedule(
   }
 
   if (stickDocument) {
-    update->StickDocument(documentURI);
+    update->StickDocument(aDocumentURI);
   }
 
   return NS_OK;
@@ -137,7 +150,9 @@ nsresult OfflineCacheUpdateParent::Schedule(
 NS_IMETHODIMP
 OfflineCacheUpdateParent::UpdateStateChanged(nsIOfflineCacheUpdate* aUpdate,
                                              uint32_t state) {
-  if (mIPCClosed) return NS_ERROR_UNEXPECTED;
+  if (mIPCClosed) {
+    return NS_ERROR_UNEXPECTED;
+  }
 
   LOG(("OfflineCacheUpdateParent::StateEvent [%p]", this));
 
@@ -163,7 +178,9 @@ OfflineCacheUpdateParent::UpdateStateChanged(nsIOfflineCacheUpdate* aUpdate,
 NS_IMETHODIMP
 OfflineCacheUpdateParent::ApplicationCacheAvailable(
     nsIApplicationCache* aApplicationCache) {
-  if (mIPCClosed) return NS_ERROR_UNEXPECTED;
+  if (mIPCClosed) {
+    return NS_ERROR_UNEXPECTED;
+  }
 
   NS_ENSURE_ARG(aApplicationCache);
 
@@ -197,11 +214,6 @@ OfflineCacheUpdateParent::GetTopFrameElement(dom::Element** aElement) {
 }
 
 NS_IMETHODIMP
-OfflineCacheUpdateParent::GetNestedFrameId(uint64_t* aId) {
-  return NS_ERROR_NOT_IMPLEMENTED;
-}
-
-NS_IMETHODIMP
 OfflineCacheUpdateParent::GetIsContent(bool* aIsContent) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
@@ -231,11 +243,13 @@ OfflineCacheUpdateParent::SetRemoteTabs(bool aUseRemoteTabs) {
 }
 
 NS_IMETHODIMP
-OfflineCacheUpdateParent::GetIsInIsolatedMozBrowserElement(
-    bool* aIsInIsolatedMozBrowserElement) {
-  NS_ENSURE_TRUE(mLoadingPrincipal, NS_ERROR_UNEXPECTED);
-  return mLoadingPrincipal->GetIsInIsolatedMozBrowserElement(
-      aIsInIsolatedMozBrowserElement);
+OfflineCacheUpdateParent::GetUseRemoteSubframes(bool* aUseRemoteSubframes) {
+  return NS_ERROR_NOT_IMPLEMENTED;
+}
+
+NS_IMETHODIMP
+OfflineCacheUpdateParent::SetRemoteSubframes(bool aUseRemoteSubframes) {
+  return NS_ERROR_NOT_IMPLEMENTED;
 }
 
 NS_IMETHODIMP

@@ -12,10 +12,10 @@ const HIGHLIGHTER_TYPE = "ShapesHighlighter";
 add_task(async function() {
   const env = await openInspectorForURL(TEST_URL);
   const helper = await getHighlighterHelperFor(HIGHLIGHTER_TYPE)(env);
-  const {testActor, inspector} = env;
+  const { testActor, inspector } = env;
   const view = selectRuleView(inspector);
   const highlighters = view.highlighters;
-  const config = {inspector, view, highlighters, testActor, helper};
+  const config = { inspector, view, highlighters, testActor, helper };
 
   await testPolygonIframeMovePoint(config);
 });
@@ -27,13 +27,21 @@ async function testPolygonIframeMovePoint(config) {
 
   info(`Turn on shapes highlighter for ${selector}`);
   // Get a reference to the highlighter's target node inside the iframe.
-  const highlightedNode = await getNodeFrontInFrame(selector, "#frame", inspector);
+  const highlightedNode = await getNodeFrontInFrame(
+    selector,
+    "#frame",
+    inspector
+  );
   // Select the nested node so toggling of the shapes highlighter works from the rule view
   await selectNode(highlightedNode, inspector);
   await toggleShapesHighlighter(view, selector, property, true);
   const { mouse } = helper;
 
-  let onRuleViewChanged = view.once("ruleview-changed");
+  // We expect two ruleview-changed events:
+  // - one for previewing the change (DomRule::previewPropertyValue)
+  // - one for applying the change (DomRule::applyProperties)
+  let onRuleViewChanged = waitForNEvents(view, "ruleview-changed", 2);
+
   info("Moving polygon point visible in iframe");
   // Iframe has 10px margin. Element in iframe is 800px by 800px. First point is at 0 0%
   await mouse.down(10, 10);
@@ -42,11 +50,14 @@ async function testPolygonIframeMovePoint(config) {
   await testActor.reflow();
   await onRuleViewChanged;
 
-  let computedStyle = await inspector.pageStyle.getComputed(highlightedNode);
+  let computedStyle = await highlightedNode.inspectorFront.pageStyle.getComputed(
+    highlightedNode
+  );
   let definition = computedStyle["clip-path"].value;
   ok(definition.includes("10px 1.25%"), "Point moved to 10px 1.25%");
 
-  onRuleViewChanged = view.once("ruleview-changed");
+  onRuleViewChanged = waitForNEvents(view, "ruleview-changed", 2);
+
   info("Moving polygon point not visible in iframe");
   await mouse.down(110, 410);
   await mouse.move(120, 420);
@@ -54,7 +65,9 @@ async function testPolygonIframeMovePoint(config) {
   await testActor.reflow();
   await onRuleViewChanged;
 
-  computedStyle = await inspector.pageStyle.getComputed(highlightedNode);
+  computedStyle = await highlightedNode.inspectorFront.pageStyle.getComputed(
+    highlightedNode
+  );
   definition = computedStyle["clip-path"].value;
   ok(definition.includes("110px 51.25%"), "Point moved to 110px 51.25%");
 

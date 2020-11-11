@@ -22,6 +22,11 @@ topic.
 Push Information
 ----------------
 
+``backstop``
+   Whether or not this push is a "backstop" push. That is a push where all
+   builds and tests should run to ensure regressions aren't accidentally
+   missed.
+
 ``base_repository``
    The repository from which to do an initial clone, utilizing any available
    caching.
@@ -45,7 +50,7 @@ Push Information
    value may be forged and *must not* be relied on for authentication.
 
 ``message``
-   The commit message
+   The try syntax in the commit message, if any.
 
 ``pushlog_id``
    The ID from the ``hg.mozilla.org`` pushlog
@@ -65,6 +70,9 @@ Push Information
    A formatted timestamp of ``build_date``. Expressed as a string with the following
    format: %Y%m%d%H%M%S
 
+``tasks_for``
+   The ``tasks_for`` value used to generate the decision task.
+
 Tree Information
 ----------------
 
@@ -83,19 +91,27 @@ Try Configuration
 -----------------
 
 ``try_mode``
-    The mode in which a try push is operating.  This can be one of
-    ``"try_task_config"``, ``"try_option_syntax"``, ``"try_select"`` or ``None`` meaning no try
-    input was provided.
+   The mode in which a try push is operating.  This can be one of:
 
-    ``"try_select"`` is used by ``mach try fuzzy`` to build a list of tasks to select from.
+    * ``"try_task_config"`` - Used to configure the taskgraph.
+    * ``"try_option_syntax"`` - Used when pushing to try with legacy try syntax.
+    * ``"try_auto"`` - Used to make try pushes behave more like a push on ``autoland``.
+    * ``"try_select"`` - Used by ``mach try`` to build a list of tasks locally.
+    * ``None`` - Not a try push or ``mach try release``.
 
 ``try_options``
     The arguments given as try syntax (as a dictionary), or ``None`` if
     ``try_mode`` is not ``try_option_syntax``.
 
 ``try_task_config``
-    The contents of the ``try_task_config.json`` file, or ``None`` if
+    The contents of the ``try_task_config.json`` file, or ``{}`` if
     ``try_mode`` is not ``try_task_config``.
+
+Test Configuration
+------------------
+
+``test_manifest_loader``
+   The test manifest loader to use as defined in ``taskgraph.util.chunking.manifest_loaders``.
 
 Target Set
 ----------
@@ -124,8 +140,12 @@ syntax or reading a project-specific configuration file).
 Optimization
 ------------
 
+``optimize_strategies``
+   A python path of the form ``<module>:<object>`` containing a dictionary of
+   optimization strategies to use, overwriting the defaults.
+
 ``optimize_target_tasks``
-    If true, then target tasks are eligible for optimization.
+   If true, then target tasks are eligible for optimization.
 
 ``do_not_optimize``
    Specify tasks to not optimize out of the graph. This is a list of labels.
@@ -153,25 +173,28 @@ Release Promotion
    Specify the next version for version bump tasks.
 
 ``release_type``
-   The type of release being promoted. One of "nightly", "beta", "esr60", "release-rc", or "release".
+   The type of release being promoted. One of "nightly", "beta", "esr78", "release-rc", or "release".
 
 ``release_eta``
    The time and date when a release is scheduled to live. This value is passed to Balrog.
 
-``release_enable_partners``
+``release_enable_partner_repack``
    Boolean which controls repacking vanilla Firefox builds for partners.
 
-``release_partners``
-   List of partners to repack. A null value defaults to all.
-
-``release_partner_config``
-   Configuration for partner repacks.
-
-``release_partner_build_number``
-   The build number for partner repacks. We sometimes have multiple partner build numbers per release build number; this parameter lets us bump them independently. Defaults to 1.
+``release_enable_partner_attribution``
+   Boolean which controls adding attribution to vanilla Firefox builds for partners.
 
 ``release_enable_emefree``
    Boolean which controls repacking vanilla Firefox builds into EME-free builds.
+
+``release_partners``
+   List of partners to repack or attribute if a subset of the whole config. A null value defaults to all.
+
+``release_partner_config``
+   Configuration for partner repacks & attribution, as well as EME-free repacks.
+
+``release_partner_build_number``
+   The build number for partner repacks. We sometimes have multiple partner build numbers per release build number; this parameter lets us bump them independently. Defaults to 1.
 
 ``release_product``
    The product that is being released.
@@ -181,6 +204,29 @@ Release Promotion
 
 ``signoff_urls``
    A dictionary of signoff keys to url values. These are the urls marking the corresponding ``required_signoffs`` as signed off.
+
+
+Repository Merge Day
+--------------------
+
+``merge_config``
+   Merge config describes the repository merge behaviour, using an alias to cover which set of file replacements and version increments are required, along with overrides for the source and target repository URIs.
+
+``source_repo``
+   The clone/push URI of the source repository, such as https://hg.mozilla.org/mozilla-central
+
+``target_repo``
+   The clone/push URI of the target repository, such as https://hg.mozilla.org/releases/mozilla-beta
+
+``source_branch``
+   The firefoxtree alias of the source branch, such as 'central', 'beta'
+
+``target_branch``
+   The firefoxtree alias of the target branch, such as 'beta', 'release'
+
+``force-dry-run``
+   Don't push any results to target repositories.
+
 
 Comm Push Information
 ---------------------
@@ -194,3 +240,17 @@ them are specified, they must all be specified.
 ``comm_head_repository``
 ``comm_head_rev``
 ``comm_head_ref``
+
+Code Review
+-----------
+
+``phabricator_diff``
+   The code review process needs to know the Phabricator Differential diff that
+   started the analysis. This parameter must start with `PHID-DIFF-`
+
+Local configuration
+-------------------
+
+``target-kind``
+  Generate only the given kind and its kind-dependencies. This is used for local inspection of the graph
+  and is not supported at run-time.

@@ -1,10 +1,9 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
 from __future__ import absolute_import, print_function
 
-
-from ConfigParser import (
-    ConfigParser,
-    RawConfigParser
-)
 import datetime
 import os
 import posixpath
@@ -13,6 +12,7 @@ import tempfile
 import time
 
 from mozdevice import ADBHost, ADBError
+from six.moves.configparser import ConfigParser, RawConfigParser
 
 
 class Device(object):
@@ -43,12 +43,17 @@ class Device(object):
 
         profiles = []
         for section in cfg.sections():
-            if cfg.has_option(section, 'Path'):
-                if cfg.has_option(section, 'IsRelative') and cfg.getint(section, 'IsRelative'):
-                    profiles.append(posixpath.join(posixpath.dirname(remote_ini),
-                                                   cfg.get(section, 'Path')))
+            if cfg.has_option(section, "Path"):
+                if cfg.has_option(section, "IsRelative") and cfg.getint(
+                    section, "IsRelative"
+                ):
+                    profiles.append(
+                        posixpath.join(
+                            posixpath.dirname(remote_ini), cfg.get(section, "Path")
+                        )
+                    )
                 else:
-                    profiles.append(cfg.get(section, 'Path'))
+                    profiles.append(cfg.get(section, "Path"))
         return profiles
 
     def pull_minidumps(self):
@@ -57,16 +62,24 @@ class Device(object):
 
         :returns: Path to directory containing the dumps.
         """
-        remote_dump_dir = posixpath.join(self.app_ctx.remote_profile, 'minidumps')
+        remote_dump_dir = posixpath.join(self.app_ctx.remote_profile, "minidumps")
         local_dump_dir = tempfile.mkdtemp()
         try:
             self.device.pull(remote_dump_dir, local_dump_dir)
         except ADBError as e:
             # OK if directory not present -- sometimes called before browser start
-            if 'does not exist' not in str(e):
-                raise
+            if "does not exist" not in str(e):
+                try:
+                    shutil.rmtree(local_dump_dir)
+                except Exception:
+                    pass
+                finally:
+                    raise e
+            else:
+                print("WARNING: {}".format(e))
         if os.listdir(local_dump_dir):
             self.device.rm(remote_dump_dir, recursive=True)
+            self.device.mkdir(remote_dump_dir, parents=True)
         return local_dump_dir
 
     def setup_profile(self, profile):
@@ -99,19 +112,19 @@ class Device(object):
         config = ProfileConfigParser()
         config.read(local_profiles_ini.name)
         for section in config.sections():
-            if 'Profile' in section:
-                config.set(section, 'IsRelative', 0)
-                config.set(section, 'Path', self.app_ctx.remote_profile)
+            if "Profile" in section:
+                config.set(section, "IsRelative", 0)
+                config.set(section, "Path", self.app_ctx.remote_profile)
 
         new_profiles_ini = tempfile.NamedTemporaryFile()
-        config.write(open(new_profiles_ini.name, 'w'))
+        config.write(open(new_profiles_ini.name, "w"))
 
         self.backup_file(self.app_ctx.remote_profiles_ini)
         self.device.push(new_profiles_ini.name, self.app_ctx.remote_profiles_ini)
 
         # Ideally all applications would read the profile the same way, but in practice
         # this isn't true. Perform application specific profile-related setup if necessary.
-        if hasattr(self.app_ctx, 'setup_profile'):
+        if hasattr(self.app_ctx, "setup_profile"):
             for remote_path in self.app_ctx.remote_backup_files:
                 self.backup_file(remote_path)
             self.app_ctx.setup_profile(profile)
@@ -119,9 +132,12 @@ class Device(object):
     def _get_online_devices(self):
         adbhost = ADBHost(adb=self.app_ctx.adb)
         devices = adbhost.devices()
-        return [d['device_serial'] for d in devices
-                if d['state'] != 'offline'
-                if not d['device_serial'].startswith('emulator')]
+        return [
+            d["device_serial"]
+            for d in devices
+            if d["state"] != "offline"
+            if not d["device_serial"].startswith("emulator")
+        ]
 
     def connect(self):
         """
@@ -133,8 +149,10 @@ class Device(object):
 
         online_devices = self._get_online_devices()
         if not online_devices:
-            raise IOError("No devices connected. Ensure the device is on and "
-                          "remote debugging via adb is enabled in the settings.")
+            raise IOError(
+                "No devices connected. Ensure the device is on and "
+                "remote debugging via adb is enabled in the settings."
+            )
         self.serial = online_devices[0]
 
         self.connected = True
@@ -160,7 +178,7 @@ class Device(object):
             return
 
         if self.device.exists(remote_path):
-            self.device.cp(remote_path, '%s.orig' % remote_path, recursive=True)
+            self.device.cp(remote_path, "%s.orig" % remote_path, recursive=True)
             self.backup_files.add(remote_path)
         else:
             self.added_files.add(remote_path)
@@ -179,15 +197,15 @@ class Device(object):
                 self.device.rm(added_file)
 
             for backup_file in self.backup_files:
-                if self.device.exists('%s.orig' % backup_file):
-                    self.device.mv('%s.orig' % backup_file, backup_file)
+                if self.device.exists("%s.orig" % backup_file):
+                    self.device.mv("%s.orig" % backup_file, backup_file)
 
             # Perform application specific profile cleanup if necessary
-            if hasattr(self.app_ctx, 'cleanup_profile'):
+            if hasattr(self.app_ctx, "cleanup_profile"):
                 self.app_ctx.cleanup_profile()
 
             # Remove the test profile
-            self.device.rm(self.app_ctx.remote_profile, recursive=True)
+            self.device.rm(self.app_ctx.remote_profile, force=True, recursive=True)
         except Exception as e:
             print("cleanup aborted: %s" % str(e))
 
@@ -197,10 +215,10 @@ class Device(object):
         deleting the last file if necessary.
         """
         basename = os.path.basename(srclog)
-        basename = basename[:-len('.log')]
+        basename = basename[: -len(".log")]
         if index > 1:
-            basename = basename[:-len('.1')]
-        basename = '%s.%d.log' % (basename, index)
+            basename = basename[: -len(".1")]
+        basename = "%s.%d.log" % (basename, index)
 
         destlog = os.path.join(self.logdir, basename)
         if os.path.isfile(destlog):
@@ -227,7 +245,7 @@ class ProfileConfigParser(RawConfigParser):
         if self._defaults:
             fp.write("[%s]\n" % ConfigParser.DEFAULTSECT)
             for (key, value) in self._defaults.items():
-                fp.write("%s=%s\n" % (key, str(value).replace('\n', '\n\t')))
+                fp.write("%s=%s\n" % (key, str(value).replace("\n", "\n\t")))
             fp.write("\n")
         for section in self._sections:
             fp.write("[%s]\n" % section)
@@ -235,6 +253,6 @@ class ProfileConfigParser(RawConfigParser):
                 if key == "__name__":
                     continue
                 if (value is not None) or (self._optcre == self.OPTCRE):
-                    key = "=".join((key, str(value).replace('\n', '\n\t')))
+                    key = "=".join((key, str(value).replace("\n", "\n\t")))
                 fp.write("%s\n" % (key))
             fp.write("\n")

@@ -7,6 +7,8 @@
 #include "AudioBuffer.h"
 #include "mozilla/dom/AudioBufferBinding.h"
 #include "jsfriendapi.h"
+#include "js/ArrayBuffer.h"             // JS::StealArrayBufferContents
+#include "js/experimental/TypedData.h"  // JS_NewFloat32Array, JS_GetFloat32ArrayData, JS_GetTypedArrayLength, JS_GetArrayBufferViewBuffer
 #include "mozilla/ErrorResult.h"
 #include "AudioSegment.h"
 #include "AudioChannelFormat.h"
@@ -14,9 +16,9 @@
 #include "mozilla/CheckedInt.h"
 #include "mozilla/MemoryReporting.h"
 #include "AudioNodeEngine.h"
+#include "nsPrintfCString.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_IMPL_CYCLE_COLLECTION_CLASS(AudioBuffer)
 
@@ -86,7 +88,7 @@ AudioBufferMemoryTracker* AudioBufferMemoryTracker::GetInstance() {
   return sSingleton;
 }
 
-AudioBufferMemoryTracker::AudioBufferMemoryTracker() {}
+AudioBufferMemoryTracker::AudioBufferMemoryTracker() = default;
 
 void AudioBufferMemoryTracker::Init() { RegisterWeakMemoryReporter(this); }
 
@@ -151,10 +153,21 @@ AudioBuffer::AudioBuffer(nsPIDOMWindowInner* aWindow,
   // AudioProcessingEvent, where channel counts must match parameters passed
   // to createScriptProcessor(), one of which may be zero.
   if (aSampleRate < WebAudioUtils::MinSampleRate ||
-      aSampleRate > WebAudioUtils::MaxSampleRate ||
-      aNumberOfChannels > WebAudioUtils::MaxChannelCount || !aLength ||
-      aLength > INT32_MAX) {
-    aRv.Throw(NS_ERROR_DOM_NOT_SUPPORTED_ERR);
+      aSampleRate > WebAudioUtils::MaxSampleRate) {
+    aRv.ThrowNotSupportedError(
+        nsPrintfCString("Sample rate (%g) is out of range", aSampleRate));
+    return;
+  }
+
+  if (aNumberOfChannels > WebAudioUtils::MaxChannelCount) {
+    aRv.ThrowNotSupportedError(nsPrintfCString(
+        "Number of channels (%u) is out of range", aNumberOfChannels));
+    return;
+  }
+
+  if (!aLength || aLength > INT32_MAX) {
+    aRv.ThrowNotSupportedError(
+        nsPrintfCString("Length (%u) is out of range", aLength));
     return;
   }
 
@@ -170,11 +183,12 @@ AudioBuffer::~AudioBuffer() {
   mozilla::DropJSObjects(this);
 }
 
-/* static */ already_AddRefed<AudioBuffer> AudioBuffer::Constructor(
+/* static */
+already_AddRefed<AudioBuffer> AudioBuffer::Constructor(
     const GlobalObject& aGlobal, const AudioBufferOptions& aOptions,
     ErrorResult& aRv) {
   if (!aOptions.mNumberOfChannels) {
-    aRv.Throw(NS_ERROR_DOM_NOT_SUPPORTED_ERR);
+    aRv.ThrowNotSupportedError("Must have nonzero number of channels");
     return nullptr;
   }
 
@@ -195,11 +209,12 @@ void AudioBuffer::SetSharedChannels(
   for (uint32_t i = 0; i < channelCount; ++i) {
     mSharedChannels.mChannelData[i] = buffer->GetData(i);
   }
-  mSharedChannels.mBuffer = buffer.forget();
+  mSharedChannels.mBuffer = std::move(buffer);
   mSharedChannels.mBufferFormat = AUDIO_FORMAT_FLOAT32;
 }
 
-/* static */ already_AddRefed<AudioBuffer> AudioBuffer::Create(
+/* static */
+already_AddRefed<AudioBuffer> AudioBuffer::Create(
     nsPIDOMWindowInner* aWindow, uint32_t aNumberOfChannels, uint32_t aLength,
     float aSampleRate,
     already_AddRefed<ThreadSharedFloatArrayBufferList> aInitialContents,
@@ -219,7 +234,8 @@ void AudioBuffer::SetSharedChannels(
   return buffer.forget();
 }
 
-/* static */ already_AddRefed<AudioBuffer> AudioBuffer::Create(
+/* static */
+already_AddRefed<AudioBuffer> AudioBuffer::Create(
     nsPIDOMWindowInner* aWindow, float aSampleRate,
     AudioChunk&& aInitialContents) {
   AudioChunk initialContents = aInitialContents;
@@ -255,6 +271,13 @@ static void CopyChannelDataToFloat(const AudioChunk& aChunk, uint32_t aChannel,
 }
 
 bool AudioBuffer::RestoreJSChannelData(JSContext* aJSContext) {
+  nsPIDOMWindowInner* global = GetParentObject();
+  if (!global || !global->AsGlobal()->HasJSGlobal()) {
+    return false;
+  }
+
+  JSAutoRealm ar(aJSContext, global->AsGlobal()->GetGlobalJSObject());
+
   for (uint32_t i = 0; i < mJSChannels.Length(); ++i) {
     if (mJSChannels[i]) {
       // Already have data in JS array.
@@ -288,58 +311,53 @@ bool AudioBuffer::RestoreJSChannelData(JSContext* aJSContext) {
 
 void AudioBuffer::CopyFromChannel(const Float32Array& aDestination,
                                   uint32_t aChannelNumber,
-                                  uint32_t aStartInChannel, ErrorResult& aRv) {
-  aDestination.ComputeLengthAndData();
-
-  uint32_t length = aDestination.Length();
-  CheckedInt<uint32_t> end = aStartInChannel;
-  end += length;
-  if (aChannelNumber >= NumberOfChannels() || !end.isValid() ||
-      end.value() > Length()) {
-    aRv.Throw(NS_ERROR_DOM_INDEX_SIZE_ERR);
+                                  uint32_t aBufferOffset, ErrorResult& aRv) {
+  if (aChannelNumber >= NumberOfChannels()) {
+    aRv.ThrowIndexSizeError(
+        nsPrintfCString("Channel number (%u) is out of range", aChannelNumber));
     return;
   }
 
   JS::AutoCheckCannotGC nogc;
+  aDestination.ComputeState();
+
+  int64_t length = Length();
+  int64_t offset = aBufferOffset;
+  int64_t destLength = aDestination.Length();
+  uint32_t count = std::max(int64_t(0), std::min(length - offset, destLength));
+
   JSObject* channelArray = mJSChannels[aChannelNumber];
   if (channelArray) {
     if (JS_GetTypedArrayLength(channelArray) != Length()) {
       // The array's buffer was detached.
-      aRv.Throw(NS_ERROR_DOM_INDEX_SIZE_ERR);
       return;
     }
-
     bool isShared = false;
     const float* sourceData =
         JS_GetFloat32ArrayData(channelArray, &isShared, nogc);
     // The sourceData arrays should all have originated in
     // RestoreJSChannelData, where they are created unshared.
     MOZ_ASSERT(!isShared);
-    PodMove(aDestination.Data(), sourceData + aStartInChannel, length);
+    PodMove(aDestination.Data(), sourceData + aBufferOffset, count);
     return;
   }
 
   if (!mSharedChannels.IsNull()) {
-    CopyChannelDataToFloat(mSharedChannels, aChannelNumber, aStartInChannel,
-                           aDestination.Data(), length);
+    CopyChannelDataToFloat(mSharedChannels, aChannelNumber, aBufferOffset,
+                           aDestination.Data(), count);
     return;
   }
 
-  PodZero(aDestination.Data(), length);
+  PodZero(aDestination.Data(), count);
 }
 
 void AudioBuffer::CopyToChannel(JSContext* aJSContext,
                                 const Float32Array& aSource,
-                                uint32_t aChannelNumber,
-                                uint32_t aStartInChannel, ErrorResult& aRv) {
-  aSource.ComputeLengthAndData();
-
-  uint32_t length = aSource.Length();
-  CheckedInt<uint32_t> end = aStartInChannel;
-  end += length;
-  if (aChannelNumber >= NumberOfChannels() || !end.isValid() ||
-      end.value() > Length()) {
-    aRv.Throw(NS_ERROR_DOM_INDEX_SIZE_ERR);
+                                uint32_t aChannelNumber, uint32_t aBufferOffset,
+                                ErrorResult& aRv) {
+  if (aChannelNumber >= NumberOfChannels()) {
+    aRv.ThrowIndexSizeError(
+        nsPrintfCString("Channel number (%u) is out of range", aChannelNumber));
     return;
   }
 
@@ -352,23 +370,28 @@ void AudioBuffer::CopyToChannel(JSContext* aJSContext,
   JSObject* channelArray = mJSChannels[aChannelNumber];
   if (JS_GetTypedArrayLength(channelArray) != Length()) {
     // The array's buffer was detached.
-    aRv.Throw(NS_ERROR_DOM_INDEX_SIZE_ERR);
     return;
   }
 
+  aSource.ComputeState();
+  int64_t length = JS_GetTypedArrayLength(channelArray);
+  int64_t offset = aBufferOffset;
+  int64_t srcLength = aSource.Length();
+  uint32_t count = std::max(int64_t(0), std::min(length - offset, srcLength));
   bool isShared = false;
   float* channelData = JS_GetFloat32ArrayData(channelArray, &isShared, nogc);
   // The channelData arrays should all have originated in
   // RestoreJSChannelData, where they are created unshared.
   MOZ_ASSERT(!isShared);
-  PodMove(channelData + aStartInChannel, aSource.Data(), length);
+  PodMove(channelData + aBufferOffset, aSource.Data(), count);
 }
 
 void AudioBuffer::GetChannelData(JSContext* aJSContext, uint32_t aChannel,
                                  JS::MutableHandle<JSObject*> aRetval,
                                  ErrorResult& aRv) {
   if (aChannel >= NumberOfChannels()) {
-    aRv.Throw(NS_ERROR_DOM_INDEX_SIZE_ERR);
+    aRv.ThrowIndexSizeError(
+        nsPrintfCString("Channel number (%u) is out of range", aChannel));
     return;
   }
 
@@ -382,6 +405,13 @@ void AudioBuffer::GetChannelData(JSContext* aJSContext, uint32_t aChannel,
 
 already_AddRefed<ThreadSharedFloatArrayBufferList>
 AudioBuffer::StealJSArrayDataIntoSharedChannels(JSContext* aJSContext) {
+  nsPIDOMWindowInner* global = GetParentObject();
+  if (!global || !global->AsGlobal()->HasJSGlobal()) {
+    return nullptr;
+  }
+
+  JSAutoRealm ar(aJSContext, global->AsGlobal()->GetGlobalJSObject());
+
   // "1. If any of the AudioBuffer's ArrayBuffer have been detached, abort
   // these steps, and return a zero-length channel data buffers to the
   // invoker."
@@ -409,7 +439,7 @@ AudioBuffer::StealJSArrayDataIntoSharedChannels(JSContext* aJSContext) {
     // RestoreJSChannelData, where they are created unshared.
     MOZ_ASSERT(!isSharedMemory);
     auto stolenData = arrayBuffer
-                          ? static_cast<float*>(JS_StealArrayBufferContents(
+                          ? static_cast<float*>(JS::StealArrayBufferContents(
                                 aJSContext, arrayBuffer))
                           : nullptr;
     if (stolenData) {
@@ -449,5 +479,4 @@ size_t AudioBuffer::SizeOfIncludingThis(MallocSizeOf aMallocSizeOf) const {
   return amount;
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

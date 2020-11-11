@@ -7,10 +7,11 @@
 
 // Globals
 
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
-
-ChromeUtils.defineModuleGetter(this, "DeferredTask",
-                               "resource://gre/modules/DeferredTask.jsm");
+ChromeUtils.defineModuleGetter(
+  this,
+  "DeferredTask",
+  "resource://gre/modules/DeferredTask.jsm"
+);
 
 /**
  * Due to the nature of this module, most of the tests are time-dependent.  All
@@ -19,6 +20,16 @@ ChromeUtils.defineModuleGetter(this, "DeferredTask",
  * but low enough to prevent an excessive overall test execution time.
  */
 const T = 100;
+
+const originalIdleDispatch = DeferredTask.prototype._startIdleDispatch;
+function replaceIdleDispatch(handleIdleDispatch) {
+  DeferredTask.prototype._startIdleDispatch = function(callback, timeout) {
+    handleIdleDispatch(callback, timeout);
+  };
+}
+function restoreIdleDispatch() {
+  DeferredTask.prototype.idleDispatch = originalIdleDispatch;
+}
 
 /**
  * Waits for the specified timeout before resolving the returned promise.
@@ -64,7 +75,9 @@ add_test(function test_arm_delay_notrestarted() {
   let executed = false;
 
   // Create a task that will run later.
-  let deferredTask = new DeferredTask(() => { executed = true; }, 4 * T);
+  let deferredTask = new DeferredTask(() => {
+    executed = true;
+  }, 4 * T);
   deferredTask.arm();
 
   // Before the task starts, call "arm" again.
@@ -178,18 +191,6 @@ add_test(function test_arm_async() {
 });
 
 /**
- * Checks that "arm" accepts a Task.jsm async function.
- */
-add_test(function test_arm_async_function() {
-  let deferredTask = new DeferredTask(async function() {
-    await Promise.resolve();
-    run_next_test();
-  }, 50);
-
-  deferredTask.arm();
-});
-
-/**
  * Checks that an armed task can be disarmed.
  */
 add_test(function test_disarm() {
@@ -212,7 +213,9 @@ add_test(function test_disarm() {
 add_test(function test_disarm_delay_restarted() {
   let executed = false;
 
-  let deferredTask = new DeferredTask(() => { executed = true; }, 4 * T);
+  let deferredTask = new DeferredTask(() => {
+    executed = true;
+  }, 4 * T);
   deferredTask.arm();
 
   do_timeout(2 * T, function() {
@@ -309,11 +312,90 @@ add_test(function test_isArmed_isRunning() {
 });
 
 /**
+ * Checks that task execution is delayed when the idle task has no deadline.
+ */
+add_test(function test_idle_without_deadline() {
+  let idleStarted = false;
+  let executed = false;
+
+  // When idleDispatch is not passed a deadline/timeout, let it take a while.
+  replaceIdleDispatch((callback, timeout) => {
+    Assert.ok(!idleStarted);
+    idleStarted = true;
+    do_timeout(timeout || 2 * T, callback);
+  });
+
+  let deferredTask = new DeferredTask(function() {
+    Assert.ok(!executed);
+    executed = true;
+  }, 1 * T);
+  deferredTask.arm();
+
+  do_timeout(2 * T, () => {
+    Assert.ok(idleStarted);
+    Assert.ok(!executed);
+  });
+
+  do_timeout(4 * T, () => {
+    Assert.ok(executed);
+    restoreIdleDispatch();
+    run_next_test();
+  });
+});
+
+/**
+ * Checks that the third parameter can be used to enforce an execution deadline.
+ */
+add_test(function test_idle_deadline() {
+  let idleStarted = false;
+  let executed = false;
+
+  // Let idleDispatch wait until the deadline.
+  replaceIdleDispatch((callback, timeout) => {
+    Assert.ok(!idleStarted);
+    idleStarted = true;
+    do_timeout(timeout || 0, callback);
+  });
+
+  let deferredTask = new DeferredTask(
+    function() {
+      Assert.ok(!executed);
+      executed = true;
+    },
+    1 * T,
+    2 * T
+  );
+  deferredTask.arm();
+
+  // idleDispatch is expected to be called after 1 * T,
+  // the task is expected to be executed after 1 * T + 2 * T.
+  do_timeout(2 * T, () => {
+    Assert.ok(idleStarted);
+    Assert.ok(!executed);
+  });
+
+  do_timeout(4 * T, () => {
+    Assert.ok(executed);
+    restoreIdleDispatch();
+    run_next_test();
+  });
+});
+
+/**
  * Checks that the "finalize" method executes a synchronous task.
  */
 add_test(function test_finalize() {
   let executed = false;
   let timePassed = false;
+  let idleStarted = false;
+  let finalized = false;
+
+  // Let idleDispatch take longer.
+  replaceIdleDispatch((callback, timeout) => {
+    Assert.ok(!idleStarted);
+    idleStarted = true;
+    do_timeout(T, callback);
+  });
 
   let deferredTask = new DeferredTask(function() {
     Assert.ok(!timePassed);
@@ -321,11 +403,24 @@ add_test(function test_finalize() {
   }, 2 * T);
   deferredTask.arm();
 
-  do_timeout(1 * T, () => { timePassed = true; });
+  do_timeout(1 * T, () => {
+    timePassed = true;
+    Assert.ok(finalized);
+    Assert.ok(!idleStarted);
+  });
 
   // This should trigger the immediate execution of the task.
   deferredTask.finalize().then(function() {
+    finalized = true;
     Assert.ok(executed);
+  });
+
+  // idleDispatch was originally supposed to start at 2 * T,
+  // so if the task did not run at T * 3, then the finalization was successful.
+  do_timeout(3 * T, () => {
+    // Because the timer was canceled, the idle task shouldn't even start.
+    Assert.ok(!idleStarted);
+    restoreIdleDispatch();
     run_next_test();
   });
 });
@@ -360,7 +455,9 @@ add_test(function test_finalize_executes_entirely() {
       // wait for the 2*T specified on construction as normal task delay.  The
       // second execution will finish after the timeout below has passed again,
       // for a total of 2*T of wait time.
-      do_timeout(3 * T, () => { timePassed = true; });
+      do_timeout(3 * T, () => {
+        timePassed = true;
+      });
     }
 
     await promiseTimeout(1 * T);

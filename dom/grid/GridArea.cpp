@@ -8,8 +8,7 @@
 #include "mozilla/dom/GridBinding.h"
 #include "Grid.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(GridArea, mParent)
 NS_IMPL_CYCLE_COLLECTING_ADDREF(GridArea)
@@ -19,7 +18,7 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(GridArea)
   NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END
 
-GridArea::GridArea(Grid* aParent, const nsString& aName, GridDeclaration aType,
+GridArea::GridArea(Grid* aParent, nsAtom* aName, GridDeclaration aType,
                    uint32_t aRowStart, uint32_t aRowEnd, uint32_t aColumnStart,
                    uint32_t aColumnEnd)
     : mParent(aParent),
@@ -30,14 +29,14 @@ GridArea::GridArea(Grid* aParent, const nsString& aName, GridDeclaration aType,
       mColumnStart(aColumnStart),
       mColumnEnd(aColumnEnd) {}
 
-GridArea::~GridArea() {}
+GridArea::~GridArea() = default;
 
 JSObject* GridArea::WrapObject(JSContext* aCx,
                                JS::Handle<JSObject*> aGivenProto) {
   return GridArea_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-void GridArea::GetName(nsString& aName) const { aName = mName; }
+void GridArea::GetName(nsString& aName) const { mName->ToString(aName); }
 
 GridDeclaration GridArea::Type() const { return mType; }
 
@@ -49,5 +48,4 @@ uint32_t GridArea::ColumnStart() const { return mColumnStart; }
 
 uint32_t GridArea::ColumnEnd() const { return mColumnEnd; }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

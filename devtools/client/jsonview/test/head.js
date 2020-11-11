@@ -1,4 +1,3 @@
-/* vim: set ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 /* eslint no-unused-vars: [2, {"vars": "local", "args": "none"}] */
@@ -9,7 +8,9 @@
 
 // shared-head.js handles imports, constants, and utility functions
 Services.scriptloader.loadSubScript(
-  "chrome://mochitests/content/browser/devtools/client/framework/test/head.js", this);
+  "chrome://mochitests/content/browser/devtools/client/framework/test/head.js",
+  this
+);
 
 const JSON_VIEW_PREF = "devtools.jsonview.enabled";
 
@@ -45,72 +46,86 @@ registerCleanupFunction(() => {
  *      - "complete" (default): Since there aren't sub-resources like images,
  *        behaves as "interactive". Note the app might not be loaded yet.
  */
-async function addJsonViewTab(url, {
-  appReadyState = "complete",
-  docReadyState = "complete",
-} = {}) {
+async function addJsonViewTab(
+  url,
+  { appReadyState = "complete", docReadyState = "complete" } = {}
+) {
   info("Adding a new JSON tab with URL: '" + url + "'");
   const tabAdded = BrowserTestUtils.waitForNewTab(gBrowser, url);
   const tabLoaded = addTab(url);
+
+  // The `tabAdded` promise resolves when the JSON Viewer starts loading.
+  // This is usually what we want, however, it never resolves for unrecognized
+  // content types that trigger a download.
+  // On the other hand, `tabLoaded` always resolves, but not until the document
+  // is fully loaded, which is too late if `docReadyState !== "complete"`.
+  // Therefore, we race both promises.
   const tab = await Promise.race([tabAdded, tabLoaded]);
   const browser = tab.linkedBrowser;
 
-  // Load devtools/shared/test/frame-script-utils.js
-  loadFrameScriptUtils();
   const rootDir = getRootDirectory(gTestPath);
 
   // Catch RequireJS errors (usually timeouts)
-  const error = tabLoaded.then(() => ContentTask.spawn(browser, null, function() {
-    return new Promise((resolve, reject) => {
-      const {requirejs} = content.wrappedJSObject;
-      if (requirejs) {
-        requirejs.onError = err => {
-          info(err);
-          ok(false, "RequireJS error");
-          reject(err);
-        };
+  const error = tabLoaded.then(() =>
+    SpecialPowers.spawn(browser, [], function() {
+      return new Promise((resolve, reject) => {
+        const { requirejs } = content.wrappedJSObject;
+        if (requirejs) {
+          requirejs.onError = err => {
+            info(err);
+            ok(false, "RequireJS error");
+            reject(err);
+          };
+        }
+      });
+    })
+  );
+
+  const data = { rootDir, appReadyState, docReadyState };
+  await Promise.race([
+    error,
+    // eslint-disable-next-line no-shadow
+    ContentTask.spawn(browser, data, async function(data) {
+      // Check if there is a JSONView object.
+      const { JSONView } = content.wrappedJSObject;
+      if (!JSONView) {
+        throw new Error("The JSON Viewer did not load.");
       }
-    });
-  }));
 
-  const data = {rootDir, appReadyState, docReadyState};
-  // eslint-disable-next-line no-shadow
-  await Promise.race([error, ContentTask.spawn(browser, data, async function(data) {
-    // Check if there is a JSONView object.
-    const {JSONView} = content.wrappedJSObject;
-    if (!JSONView) {
-      throw new Error("The JSON Viewer did not load.");
-    }
+      const docReadyStates = ["loading", "interactive", "complete"];
+      const docReadyIndex = docReadyStates.indexOf(data.docReadyState);
+      const appReadyStates = ["uninitialized", ...docReadyStates];
+      const appReadyIndex = appReadyStates.indexOf(data.appReadyState);
+      if (docReadyIndex < 0 || appReadyIndex < 0) {
+        throw new Error("Invalid app or doc readyState parameter.");
+      }
 
-    // Load frame script with helpers for JSON View tests.
-    const frameScriptUrl = data.rootDir + "doc_frame_script.js";
-    Services.scriptloader.loadSubScript(frameScriptUrl, {}, "UTF-8");
+      // Wait until the document readyState suffices.
+      const { document } = content;
+      while (docReadyStates.indexOf(document.readyState) < docReadyIndex) {
+        info(
+          `DocReadyState is "${document.readyState}". Await "${data.docReadyState}"`
+        );
+        await new Promise(resolve => {
+          document.addEventListener("readystatechange", resolve, {
+            once: true,
+          });
+        });
+      }
 
-    const docReadyStates = ["loading", "interactive", "complete"];
-    const docReadyIndex = docReadyStates.indexOf(data.docReadyState);
-    const appReadyStates = ["uninitialized", ...docReadyStates];
-    const appReadyIndex = appReadyStates.indexOf(data.appReadyState);
-    if (docReadyIndex < 0 || appReadyIndex < 0) {
-      throw new Error("Invalid app or doc readyState parameter.");
-    }
-
-    // Wait until the document readyState suffices.
-    const {document} = content;
-    while (docReadyStates.indexOf(document.readyState) < docReadyIndex) {
-      info(`DocReadyState is "${document.readyState}". Await "${data.docReadyState}"`);
-      await new Promise(resolve => {
-        document.addEventListener("readystatechange", resolve, {once: true});
-      });
-    }
-
-    // Wait until the app readyState suffices.
-    while (appReadyStates.indexOf(JSONView.readyState) < appReadyIndex) {
-      info(`AppReadyState is "${JSONView.readyState}". Await "${data.appReadyState}"`);
-      await new Promise(resolve => {
-        content.addEventListener("AppReadyStateChange", resolve, {once: true});
-      });
-    }
-  })]);
+      // Wait until the app readyState suffices.
+      while (appReadyStates.indexOf(JSONView.readyState) < appReadyIndex) {
+        info(
+          `AppReadyState is "${JSONView.readyState}". Await "${data.appReadyState}"`
+        );
+        await new Promise(resolve => {
+          content.addEventListener("AppReadyStateChange", resolve, {
+            once: true,
+          });
+        });
+      }
+    }),
+  ]);
 
   return tab;
 }
@@ -139,45 +154,54 @@ function selectJsonViewContentTab(name) {
 function getElementCount(selector) {
   info("Get element count: '" + selector + "'");
 
-  const data = {
-    selector: selector,
-  };
-
-  return executeInContent("Test:JsonView:GetElementCount", data)
-  .then(result => {
-    return result.count;
-  });
+  return SpecialPowers.spawn(
+    gBrowser.selectedBrowser,
+    [selector],
+    selectorChild => {
+      return content.document.querySelectorAll(selectorChild).length;
+    }
+  );
 }
 
 function getElementText(selector) {
   info("Get element text: '" + selector + "'");
 
-  const data = {
-    selector: selector,
-  };
-
-  return executeInContent("Test:JsonView:GetElementText", data)
-  .then(result => {
-    return result.text;
-  });
+  return SpecialPowers.spawn(
+    gBrowser.selectedBrowser,
+    [selector],
+    selectorChild => {
+      const element = content.document.querySelector(selectorChild);
+      return element ? element.textContent : null;
+    }
+  );
 }
 
 function getElementAttr(selector, attr) {
   info("Get attribute '" + attr + "' for element '" + selector + "'");
 
-  const data = {selector, attr};
-  return executeInContent("Test:JsonView:GetElementAttr", data)
-  .then(result => result.text);
+  return SpecialPowers.spawn(
+    gBrowser.selectedBrowser,
+    [selector, attr],
+    (selectorChild, attrChild) => {
+      const element = content.document.querySelector(selectorChild);
+      return element ? element.getAttribute(attrChild) : null;
+    }
+  );
 }
 
 function focusElement(selector) {
   info("Focus element: '" + selector + "'");
 
-  const data = {
-    selector: selector,
-  };
-
-  return executeInContent("Test:JsonView:FocusElement", data);
+  return SpecialPowers.spawn(
+    gBrowser.selectedBrowser,
+    [selector],
+    selectorChild => {
+      const element = content.document.querySelector(selectorChild);
+      if (element) {
+        element.focus();
+      }
+    }
+  );
 }
 
 /**
@@ -189,12 +213,20 @@ function focusElement(selector) {
 function sendString(str, selector) {
   info("Send string: '" + str + "'");
 
-  const data = {
-    selector: selector,
-    str: str,
-  };
+  return SpecialPowers.spawn(
+    gBrowser.selectedBrowser,
+    [selector, str],
+    (selectorChild, strChild) => {
+      if (selectorChild) {
+        const element = content.document.querySelector(selectorChild);
+        if (element) {
+          element.focus();
+        }
+      }
 
-  return executeInContent("Test:JsonView:SendString", data);
+      EventUtils.sendString(strChild, content);
+    }
+  );
 }
 
 function waitForTime(delay) {
@@ -202,7 +234,35 @@ function waitForTime(delay) {
 }
 
 function waitForFilter() {
-  return executeInContent("Test:JsonView:WaitForFilter");
+  return SpecialPowers.spawn(gBrowser.selectedBrowser, [], () => {
+    return new Promise(resolve => {
+      const firstRow = content.document.querySelector(
+        ".jsonPanelBox .treeTable .treeRow"
+      );
+
+      // Check if the filter is already set.
+      if (firstRow.classList.contains("hidden")) {
+        resolve();
+        return;
+      }
+
+      // Wait till the first row has 'hidden' class set.
+      const observer = new content.MutationObserver(function(mutations) {
+        for (let i = 0; i < mutations.length; i++) {
+          const mutation = mutations[i];
+          if (mutation.attributeName == "class") {
+            if (firstRow.classList.contains("hidden")) {
+              observer.disconnect();
+              resolve();
+              break;
+            }
+          }
+        }
+      });
+
+      observer.observe(firstRow, { attributes: true });
+    });
+  });
 }
 
 function normalizeNewLines(value) {

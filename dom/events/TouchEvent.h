@@ -28,7 +28,7 @@ class TouchList final : public nsISupports, public nsWrapperCache {
     nsJSContext::LikelyShortLivingObjectCreated();
   }
   TouchList(nsISupports* aParent, const WidgetTouchEvent::TouchArray& aTouches)
-      : mParent(aParent), mPoints(aTouches) {
+      : mParent(aParent), mPoints(aTouches.Clone()) {
     nsJSContext::LikelyShortLivingObjectCreated();
   }
 
@@ -54,7 +54,7 @@ class TouchList final : public nsISupports, public nsWrapperCache {
   void Clear() { mPoints.Clear(); }
 
  protected:
-  ~TouchList() {}
+  ~TouchList() = default;
 
   nsCOMPtr<nsISupports> mParent;
   WidgetTouchEvent::TouchArray mPoints;
@@ -97,14 +97,15 @@ class TouchEvent : public UIEvent {
   static bool PlatformSupportsTouch();
   static bool PrefEnabled(JSContext* aCx, JSObject* aGlobal);
   static bool PrefEnabled(nsIDocShell* aDocShell);
+  static bool LegacyAPIEnabled(JSContext* aCx, JSObject* aGlobal);
+  static bool LegacyAPIEnabled(nsIDocShell* aDocShell, bool aCallerIsSystem);
 
   static already_AddRefed<TouchEvent> Constructor(const GlobalObject& aGlobal,
                                                   const nsAString& aType,
-                                                  const TouchEventInit& aParam,
-                                                  ErrorResult& aRv);
+                                                  const TouchEventInit& aParam);
 
  protected:
-  ~TouchEvent() {}
+  ~TouchEvent() = default;
 
   void AssignTouchesToWidgetEvent(TouchList* aList, bool aCheckDuplicates);
 

@@ -7,24 +7,24 @@
 #ifndef mozilla_AccessibleCaretEventHub_h
 #define mozilla_AccessibleCaretEventHub_h
 
+#include "LayoutConstants.h"
 #include "mozilla/EventForwards.h"
+#include "mozilla/MouseEvents.h"
 #include "mozilla/UniquePtr.h"
 #include "mozilla/WeakPtr.h"
 #include "nsCOMPtr.h"
 #include "nsDocShell.h"
-#include "nsIFrame.h"
 #include "nsIReflowObserver.h"
 #include "nsIScrollObserver.h"
 #include "nsPoint.h"
 #include "mozilla/RefPtr.h"
 #include "nsWeakReference.h"
 
-class nsIPresShell;
 class nsITimer;
-class nsIDocument;
 
 namespace mozilla {
 class AccessibleCaretManager;
+class PresShell;
 class WidgetKeyboardEvent;
 class WidgetMouseEvent;
 class WidgetTouchEvent;
@@ -52,19 +52,16 @@ class WidgetTouchEvent;
 // platform lacks eMouseLongTap. Turn on this preference
 // "layout.accessiblecaret.use_long_tap_injector" for the fake long-tap events.
 //
-// State transition diagram:
-// https://hg.mozilla.org/mozilla-central/raw-file/default/layout/base/doc/AccessibleCaretEventHubStates.png
-// Source code of the diagram:
-// https://hg.mozilla.org/mozilla-central/file/default/layout/base/doc/AccessibleCaretEventHubStates.dot
-//
-// Please see the wiki page for more information.
-// https://wiki.mozilla.org/AccessibleCaret
+// Please see the in-tree document for state transition diagram and more
+// information.
+// HTML: https://firefox-source-docs.mozilla.org/layout/AccessibleCaret.html
+// Source rst: layout/docs/AccessibleCaret.rst
 //
 class AccessibleCaretEventHub : public nsIReflowObserver,
                                 public nsIScrollObserver,
                                 public nsSupportsWeakReference {
  public:
-  explicit AccessibleCaretEventHub(nsIPresShell* aPresShell);
+  explicit AccessibleCaretEventHub(PresShell* aPresShell);
   void Init();
   void Terminate();
 
@@ -97,8 +94,10 @@ class AccessibleCaretEventHub : public nsIReflowObserver,
   State* GetState() const;
 
   MOZ_CAN_RUN_SCRIPT
-  void OnSelectionChange(nsIDocument* aDocument, dom::Selection* aSelection,
+  void OnSelectionChange(dom::Document* aDocument, dom::Selection* aSelection,
                          int16_t aReason);
+
+  bool ShouldDisableApz() const;
 
  protected:
   virtual ~AccessibleCaretEventHub() = default;
@@ -152,7 +151,7 @@ class AccessibleCaretEventHub : public nsIReflowObserver,
   State* mState = NoActionState();
 
   // Will be set to nullptr in Terminate().
-  nsIPresShell* MOZ_NON_OWNING_REF mPresShell = nullptr;
+  PresShell* MOZ_NON_OWNING_REF mPresShell = nullptr;
 
   UniquePtr<AccessibleCaretManager> mManager;
 
@@ -188,34 +187,45 @@ class AccessibleCaretEventHub::State {
  public:
   virtual const char* Name() const { return ""; }
 
+  MOZ_CAN_RUN_SCRIPT
   virtual nsEventStatus OnPress(AccessibleCaretEventHub* aContext,
                                 const nsPoint& aPoint, int32_t aTouchId,
                                 EventClassID aEventClass) {
     return nsEventStatus_eIgnore;
   }
 
+  MOZ_CAN_RUN_SCRIPT
   virtual nsEventStatus OnMove(AccessibleCaretEventHub* aContext,
-                               const nsPoint& aPoint) {
+                               const nsPoint& aPoint,
+                               WidgetMouseEvent::Reason aReason) {
     return nsEventStatus_eIgnore;
   }
 
+  MOZ_CAN_RUN_SCRIPT
   virtual nsEventStatus OnRelease(AccessibleCaretEventHub* aContext) {
     return nsEventStatus_eIgnore;
   }
 
+  MOZ_CAN_RUN_SCRIPT
   virtual nsEventStatus OnLongTap(AccessibleCaretEventHub* aContext,
                                   const nsPoint& aPoint) {
     return nsEventStatus_eIgnore;
   }
 
+  MOZ_CAN_RUN_SCRIPT
   virtual void OnScrollStart(AccessibleCaretEventHub* aContext) {}
+  MOZ_CAN_RUN_SCRIPT
   virtual void OnScrollEnd(AccessibleCaretEventHub* aContext) {}
+  MOZ_CAN_RUN_SCRIPT
   virtual void OnScrollPositionChanged(AccessibleCaretEventHub* aContext) {}
+  MOZ_CAN_RUN_SCRIPT
   virtual void OnBlur(AccessibleCaretEventHub* aContext,
                       bool aIsLeavingDocument) {}
+  MOZ_CAN_RUN_SCRIPT
   virtual void OnSelectionChanged(AccessibleCaretEventHub* aContext,
-                                  nsIDocument* aDoc, dom::Selection* aSel,
+                                  dom::Document* aDoc, dom::Selection* aSel,
                                   int16_t aReason) {}
+  MOZ_CAN_RUN_SCRIPT
   virtual void OnReflow(AccessibleCaretEventHub* aContext) {}
   virtual void Enter(AccessibleCaretEventHub* aContext) {}
   virtual void Leave(AccessibleCaretEventHub* aContext) {}

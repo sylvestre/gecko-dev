@@ -8,30 +8,16 @@
 #include "nsIFrame.h"
 #include "PointerEvent.h"
 #include "mozilla/PresShell.h"
+#include "mozilla/StaticPrefs_dom.h"
+#include "mozilla/dom/BrowserChild.h"
+#include "mozilla/dom/BrowserParent.h"
 #include "mozilla/dom/MouseEventBinding.h"
 
 namespace mozilla {
 
 using namespace dom;
 
-static bool sPointerEventEnabled = true;
-static bool sPointerEventImplicitCapture = false;
-
 Maybe<int32_t> PointerEventHandler::sSpoofedPointerId;
-
-class PointerInfo final {
- public:
-  uint16_t mPointerType;
-  bool mActiveState;
-  bool mPrimaryState;
-  bool mPreventMouseEventByContent;
-  explicit PointerInfo(bool aActiveState, uint16_t aPointerType,
-                       bool aPrimaryState)
-      : mPointerType(aPointerType),
-        mActiveState(aActiveState),
-        mPrimaryState(aPrimaryState),
-        mPreventMouseEventByContent(false) {}
-};
 
 // Keeps a map between pointerId and element that currently capturing pointer
 // with such pointerId. If pointerId is absent in this map then nobody is
@@ -43,62 +29,70 @@ static nsClassHashtable<nsUint32HashKey, PointerCaptureInfo>*
 // primaryState
 static nsClassHashtable<nsUint32HashKey, PointerInfo>* sActivePointersIds;
 
-/* static */ void PointerEventHandler::Initialize() {
-  static bool initialized = false;
-  if (initialized) {
-    return;
-  }
-  initialized = true;
-  Preferences::AddBoolVarCache(&sPointerEventEnabled,
-                               "dom.w3c_pointer_events.enabled", true);
-  Preferences::AddBoolVarCache(&sPointerEventImplicitCapture,
-                               "dom.w3c_pointer_events.implicit_capture", true);
-}
+// Keeps track of which BrowserParent requested pointer capture for a pointer
+// id.
+static nsDataHashtable<nsUint32HashKey, BrowserParent*>*
+    sPointerCaptureRemoteTargetTable = nullptr;
 
-/* static */ void PointerEventHandler::InitializeStatics() {
+/* static */
+void PointerEventHandler::InitializeStatics() {
   MOZ_ASSERT(!sPointerCaptureList, "InitializeStatics called multiple times!");
   sPointerCaptureList =
       new nsClassHashtable<nsUint32HashKey, PointerCaptureInfo>;
   sActivePointersIds = new nsClassHashtable<nsUint32HashKey, PointerInfo>;
+  if (XRE_IsParentProcess()) {
+    sPointerCaptureRemoteTargetTable =
+        new nsDataHashtable<nsUint32HashKey, BrowserParent*>;
+  }
 }
 
-/* static */ void PointerEventHandler::ReleaseStatics() {
+/* static */
+void PointerEventHandler::ReleaseStatics() {
   MOZ_ASSERT(sPointerCaptureList, "ReleaseStatics called without Initialize!");
   delete sPointerCaptureList;
   sPointerCaptureList = nullptr;
   delete sActivePointersIds;
   sActivePointersIds = nullptr;
+  if (sPointerCaptureRemoteTargetTable) {
+    MOZ_ASSERT(XRE_IsParentProcess());
+    delete sPointerCaptureRemoteTargetTable;
+    sPointerCaptureRemoteTargetTable = nullptr;
+  }
 }
 
-/* static */ bool PointerEventHandler::IsPointerEventEnabled() {
-  return sPointerEventEnabled;
+/* static */
+bool PointerEventHandler::IsPointerEventImplicitCaptureForTouchEnabled() {
+  return StaticPrefs::dom_w3c_pointer_events_enabled() &&
+         StaticPrefs::dom_w3c_pointer_events_implicit_capture();
 }
 
-/* static */ bool
-PointerEventHandler::IsPointerEventImplicitCaptureForTouchEnabled() {
-  return sPointerEventEnabled && sPointerEventImplicitCapture;
-}
-
-/* static */ void PointerEventHandler::UpdateActivePointerState(
-    WidgetMouseEvent* aEvent) {
-  if (!IsPointerEventEnabled() || !aEvent) {
+/* static */
+void PointerEventHandler::UpdateActivePointerState(WidgetMouseEvent* aEvent,
+                                                   nsIContent* aTargetContent) {
+  if (!StaticPrefs::dom_w3c_pointer_events_enabled() || !aEvent) {
     return;
   }
   switch (aEvent->mMessage) {
     case eMouseEnterIntoWidget:
       // In this case we have to know information about available mouse pointers
       sActivePointersIds->Put(
-          aEvent->pointerId, new PointerInfo(false, aEvent->inputSource, true));
+          aEvent->pointerId,
+          new PointerInfo(false, aEvent->mInputSource, true, nullptr));
 
-      MaybeCacheSpoofedPointerID(aEvent->inputSource, aEvent->pointerId);
+      MaybeCacheSpoofedPointerID(aEvent->mInputSource, aEvent->pointerId);
       break;
     case ePointerDown:
       // In this case we switch pointer to active state
       if (WidgetPointerEvent* pointerEvent = aEvent->AsPointerEvent()) {
-        sActivePointersIds->Put(pointerEvent->pointerId,
-                                new PointerInfo(true, pointerEvent->inputSource,
-                                                pointerEvent->mIsPrimary));
-        MaybeCacheSpoofedPointerID(pointerEvent->inputSource,
+        // XXXedgar, test could possibly synthesize a mousedown event on a
+        // coordinate outside the browser window and cause aTargetContent to be
+        // nullptr, not sure if this also happens on real usage.
+        sActivePointersIds->Put(
+            pointerEvent->pointerId,
+            new PointerInfo(
+                true, pointerEvent->mInputSource, pointerEvent->mIsPrimary,
+                aTargetContent ? aTargetContent->OwnerDoc() : nullptr));
+        MaybeCacheSpoofedPointerID(pointerEvent->mInputSource,
                                    pointerEvent->pointerId);
       }
       break;
@@ -110,11 +104,12 @@ PointerEventHandler::IsPointerEventImplicitCaptureForTouchEnabled() {
       // In this case we remove information about pointer or turn off active
       // state
       if (WidgetPointerEvent* pointerEvent = aEvent->AsPointerEvent()) {
-        if (pointerEvent->inputSource != MouseEvent_Binding::MOZ_SOURCE_TOUCH) {
+        if (pointerEvent->mInputSource !=
+            MouseEvent_Binding::MOZ_SOURCE_TOUCH) {
           sActivePointersIds->Put(
               pointerEvent->pointerId,
-              new PointerInfo(false, pointerEvent->inputSource,
-                              pointerEvent->mIsPrimary));
+              new PointerInfo(false, pointerEvent->mInputSource,
+                              pointerEvent->mIsPrimary, nullptr));
         } else {
           sActivePointersIds->Remove(pointerEvent->pointerId);
         }
@@ -130,60 +125,145 @@ PointerEventHandler::IsPointerEventImplicitCaptureForTouchEnabled() {
   }
 }
 
-/* static */ void PointerEventHandler::SetPointerCaptureById(
-    uint32_t aPointerId, nsIContent* aContent) {
-  MOZ_ASSERT(aContent);
-  if (MouseEvent_Binding::MOZ_SOURCE_MOUSE == GetPointerType(aPointerId)) {
-    nsIPresShell::SetCapturingContent(aContent, CAPTURE_PREVENTDRAG);
-  }
+/* static */
+void PointerEventHandler::RequestPointerCaptureById(uint32_t aPointerId,
+                                                    Element* aElement) {
+  SetPointerCaptureById(aPointerId, aElement);
 
-  PointerCaptureInfo* pointerCaptureInfo = GetPointerCaptureInfo(aPointerId);
-  if (pointerCaptureInfo) {
-    pointerCaptureInfo->mPendingContent = aContent;
-  } else {
-    sPointerCaptureList->Put(aPointerId, new PointerCaptureInfo(aContent));
+  if (BrowserChild* browserChild =
+          BrowserChild::GetFrom(aElement->OwnerDoc()->GetDocShell())) {
+    browserChild->SendRequestPointerCapture(
+        aPointerId,
+        [aPointerId](bool aSuccess) {
+          if (!aSuccess) {
+            PointerEventHandler::ReleasePointerCaptureById(aPointerId);
+          }
+        },
+        [](mozilla::ipc::ResponseRejectReason) {});
   }
 }
 
-/* static */ PointerCaptureInfo* PointerEventHandler::GetPointerCaptureInfo(
+/* static */
+void PointerEventHandler::SetPointerCaptureById(uint32_t aPointerId,
+                                                Element* aElement) {
+  MOZ_ASSERT(aElement);
+  PointerCaptureInfo* pointerCaptureInfo = GetPointerCaptureInfo(aPointerId);
+  if (pointerCaptureInfo) {
+    pointerCaptureInfo->mPendingElement = aElement;
+  } else {
+    sPointerCaptureList->Put(aPointerId, new PointerCaptureInfo(aElement));
+  }
+}
+
+/* static */
+PointerCaptureInfo* PointerEventHandler::GetPointerCaptureInfo(
     uint32_t aPointerId) {
   PointerCaptureInfo* pointerCaptureInfo = nullptr;
   sPointerCaptureList->Get(aPointerId, &pointerCaptureInfo);
   return pointerCaptureInfo;
 }
 
-/* static */ void PointerEventHandler::ReleasePointerCaptureById(
-    uint32_t aPointerId) {
+/* static */
+void PointerEventHandler::ReleasePointerCaptureById(uint32_t aPointerId) {
   PointerCaptureInfo* pointerCaptureInfo = GetPointerCaptureInfo(aPointerId);
-  if (pointerCaptureInfo && pointerCaptureInfo->mPendingContent) {
-    if (MouseEvent_Binding::MOZ_SOURCE_MOUSE == GetPointerType(aPointerId)) {
-      nsIPresShell::SetCapturingContent(nullptr, CAPTURE_PREVENTDRAG);
+  if (pointerCaptureInfo) {
+    if (Element* pendingElement = pointerCaptureInfo->mPendingElement) {
+      if (BrowserChild* browserChild = BrowserChild::GetFrom(
+              pendingElement->OwnerDoc()->GetDocShell())) {
+        browserChild->SendReleasePointerCapture(aPointerId);
+      }
     }
-    pointerCaptureInfo->mPendingContent = nullptr;
+    pointerCaptureInfo->mPendingElement = nullptr;
   }
 }
 
-/* static */ void PointerEventHandler::ReleaseAllPointerCapture() {
+/* static */
+void PointerEventHandler::ReleaseAllPointerCapture() {
   for (auto iter = sPointerCaptureList->Iter(); !iter.Done(); iter.Next()) {
     PointerCaptureInfo* data = iter.UserData();
-    if (data && data->mPendingContent) {
+    if (data && data->mPendingElement) {
       ReleasePointerCaptureById(iter.Key());
     }
   }
 }
 
-/* static */ bool PointerEventHandler::GetPointerInfo(uint32_t aPointerId,
-                                                      bool& aActiveState) {
-  PointerInfo* pointerInfo = nullptr;
-  if (sActivePointersIds->Get(aPointerId, &pointerInfo) && pointerInfo) {
-    aActiveState = pointerInfo->mActiveState;
-    return true;
+/* static */
+bool PointerEventHandler::SetPointerCaptureRemoteTarget(
+    uint32_t aPointerId, dom::BrowserParent* aBrowserParent) {
+  MOZ_ASSERT(XRE_IsParentProcess());
+  MOZ_ASSERT(sPointerCaptureRemoteTargetTable);
+  MOZ_ASSERT(aBrowserParent);
+
+  if (BrowserParent::GetPointerLockedRemoteTarget()) {
+    return false;
   }
-  return false;
+
+  BrowserParent* currentRemoteTarget =
+      PointerEventHandler::GetPointerCapturingRemoteTarget(aPointerId);
+  if (currentRemoteTarget && currentRemoteTarget != aBrowserParent) {
+    return false;
+  }
+
+  sPointerCaptureRemoteTargetTable->Put(aPointerId, aBrowserParent);
+  return true;
 }
 
-/* static */ void PointerEventHandler::MaybeProcessPointerCapture(
-    WidgetGUIEvent* aEvent) {
+/* static */
+void PointerEventHandler::ReleasePointerCaptureRemoteTarget(
+    BrowserParent* aBrowserParent) {
+  MOZ_ASSERT(XRE_IsParentProcess());
+  MOZ_ASSERT(sPointerCaptureRemoteTargetTable);
+  MOZ_ASSERT(aBrowserParent);
+
+  sPointerCaptureRemoteTargetTable->RemoveIf([aBrowserParent](
+                                                 const auto& iter) {
+    BrowserParent* browserParent = iter.Data();
+    MOZ_ASSERT(browserParent, "Null BrowserParent in pointer captured table?");
+
+    return aBrowserParent == browserParent;
+  });
+}
+
+/* static */
+void PointerEventHandler::ReleasePointerCaptureRemoteTarget(
+    uint32_t aPointerId) {
+  MOZ_ASSERT(XRE_IsParentProcess());
+  MOZ_ASSERT(sPointerCaptureRemoteTargetTable);
+
+  sPointerCaptureRemoteTargetTable->Remove(aPointerId);
+}
+
+/* static */
+BrowserParent* PointerEventHandler::GetPointerCapturingRemoteTarget(
+    uint32_t aPointerId) {
+  MOZ_ASSERT(XRE_IsParentProcess());
+  MOZ_ASSERT(sPointerCaptureRemoteTargetTable);
+
+  return sPointerCaptureRemoteTargetTable->Get(aPointerId);
+}
+
+/* static */
+void PointerEventHandler::ReleaseAllPointerCaptureRemoteTarget() {
+  MOZ_ASSERT(XRE_IsParentProcess());
+  MOZ_ASSERT(sPointerCaptureRemoteTargetTable);
+
+  for (auto iter = sPointerCaptureRemoteTargetTable->Iter(); !iter.Done();
+       iter.Next()) {
+    BrowserParent* browserParent = iter.Data();
+    MOZ_ASSERT(browserParent, "Null BrowserParent in pointer captured table?");
+
+    Unused << browserParent->SendReleaseAllPointerCapture();
+    iter.Remove();
+  }
+}
+
+/* static */
+const PointerInfo* PointerEventHandler::GetPointerInfo(uint32_t aPointerId) {
+  return sActivePointersIds->Get(aPointerId);
+}
+
+/* static */
+void PointerEventHandler::MaybeProcessPointerCapture(WidgetGUIEvent* aEvent) {
   switch (aEvent->mClass) {
     case eMouseEventClass:
       ProcessPointerCaptureForMouse(aEvent->AsMouseEvent());
@@ -196,14 +276,15 @@ PointerEventHandler::IsPointerEventImplicitCaptureForTouchEnabled() {
   }
 }
 
-/* static */ void PointerEventHandler::ProcessPointerCaptureForMouse(
+/* static */
+void PointerEventHandler::ProcessPointerCaptureForMouse(
     WidgetMouseEvent* aEvent) {
   if (!ShouldGeneratePointerEventFromMouse(aEvent)) {
     return;
   }
 
   PointerCaptureInfo* info = GetPointerCaptureInfo(aEvent->pointerId);
-  if (!info || info->mPendingContent == info->mOverrideContent) {
+  if (!info || info->mPendingElement == info->mOverrideElement) {
     return;
   }
   WidgetPointerEvent localEvent(*aEvent);
@@ -211,7 +292,8 @@ PointerEventHandler::IsPointerEventImplicitCaptureForTouchEnabled() {
   CheckPointerCaptureState(&localEvent);
 }
 
-/* static */ void PointerEventHandler::ProcessPointerCaptureForTouch(
+/* static */
+void PointerEventHandler::ProcessPointerCaptureForTouch(
     WidgetTouchEvent* aEvent) {
   if (!ShouldGeneratePointerEventFromTouch(aEvent)) {
     return;
@@ -223,7 +305,7 @@ PointerEventHandler::IsPointerEventImplicitCaptureForTouchEnabled() {
       continue;
     }
     PointerCaptureInfo* info = GetPointerCaptureInfo(touch->Identifier());
-    if (!info || info->mPendingContent == info->mOverrideContent) {
+    if (!info || info->mPendingElement == info->mOverrideElement) {
       continue;
     }
     WidgetPointerEvent event(aEvent->IsTrusted(), eVoidEvent, aEvent->mWidget);
@@ -232,14 +314,14 @@ PointerEventHandler::IsPointerEventImplicitCaptureForTouchEnabled() {
   }
 }
 
-/* static */ void PointerEventHandler::CheckPointerCaptureState(
-    WidgetPointerEvent* aEvent) {
+/* static */
+void PointerEventHandler::CheckPointerCaptureState(WidgetPointerEvent* aEvent) {
   // Handle pending pointer capture before any pointer events except
   // gotpointercapture / lostpointercapture.
   if (!aEvent) {
     return;
   }
-  MOZ_ASSERT(IsPointerEventEnabled());
+  MOZ_ASSERT(StaticPrefs::dom_w3c_pointer_events_enabled());
   MOZ_ASSERT(aEvent->mClass == ePointerEventClass);
 
   PointerCaptureInfo* captureInfo = GetPointerCaptureInfo(aEvent->pointerId);
@@ -260,8 +342,8 @@ PointerEventHandler::IsPointerEventImplicitCaptureForTouchEnabled() {
     // we don't need to send a capture event since the capture info of the
     // original pointer id doesn't exist in the case.
     if (!spoofedCaptureInfo ||
-        (spoofedCaptureInfo->mPendingContent &&
-         spoofedCaptureInfo->mPendingContent->IsInChromeDocument())) {
+        (spoofedCaptureInfo->mPendingElement &&
+         spoofedCaptureInfo->mPendingElement->IsInChromeDocument())) {
       return;
     }
 
@@ -269,38 +351,40 @@ PointerEventHandler::IsPointerEventImplicitCaptureForTouchEnabled() {
   }
 
   if (!captureInfo ||
-      captureInfo->mPendingContent == captureInfo->mOverrideContent) {
+      captureInfo->mPendingElement == captureInfo->mOverrideElement) {
     return;
   }
-  // cache captureInfo->mPendingContent since it may be changed in the pointer
+  // cache captureInfo->mPendingElement since it may be changed in the pointer
   // event listener
-  nsIContent* pendingContent = captureInfo->mPendingContent.get();
-  if (captureInfo->mOverrideContent) {
+  RefPtr<Element> pendingElement = captureInfo->mPendingElement.get();
+  if (captureInfo->mOverrideElement) {
+    RefPtr<Element> overrideElement = captureInfo->mOverrideElement;
     DispatchGotOrLostPointerCaptureEvent(/* aIsGotCapture */ false, aEvent,
-                                         captureInfo->mOverrideContent);
+                                         overrideElement);
   }
-  if (pendingContent) {
+  if (pendingElement) {
     DispatchGotOrLostPointerCaptureEvent(/* aIsGotCapture */ true, aEvent,
-                                         pendingContent);
+                                         pendingElement);
   }
 
-  captureInfo->mOverrideContent = pendingContent;
+  captureInfo->mOverrideElement = std::move(pendingElement);
   if (captureInfo->Empty()) {
     sPointerCaptureList->Remove(aEvent->pointerId);
   }
 }
 
-/* static */ void PointerEventHandler::ImplicitlyCapturePointer(
-    nsIFrame* aFrame, WidgetEvent* aEvent) {
+/* static */
+void PointerEventHandler::ImplicitlyCapturePointer(nsIFrame* aFrame,
+                                                   WidgetEvent* aEvent) {
   MOZ_ASSERT(aEvent->mMessage == ePointerDown);
-  if (!aFrame || !IsPointerEventEnabled() ||
+  if (!aFrame || !StaticPrefs::dom_w3c_pointer_events_enabled() ||
       !IsPointerEventImplicitCaptureForTouchEnabled()) {
     return;
   }
   WidgetPointerEvent* pointerEvent = aEvent->AsPointerEvent();
   NS_WARNING_ASSERTION(pointerEvent,
                        "Call ImplicitlyCapturePointer with non-pointer event");
-  if (pointerEvent->inputSource != MouseEvent_Binding::MOZ_SOURCE_TOUCH) {
+  if (pointerEvent->mInputSource != MouseEvent_Binding::MOZ_SOURCE_TOUCH) {
     // We only implicitly capture the pointer for touch device.
     return;
   }
@@ -312,11 +396,11 @@ PointerEventHandler::IsPointerEventImplicitCaptureForTouchEnabled() {
   if (NS_WARN_IF(!target)) {
     return;
   }
-  SetPointerCaptureById(pointerEvent->pointerId, target);
+  RequestPointerCaptureById(pointerEvent->pointerId, target->AsElement());
 }
 
-/* static */ void PointerEventHandler::ImplicitlyReleasePointerCapture(
-    WidgetEvent* aEvent) {
+/* static */
+void PointerEventHandler::ImplicitlyReleasePointerCapture(WidgetEvent* aEvent) {
   MOZ_ASSERT(aEvent);
   if (aEvent->mMessage != ePointerUp && aEvent->mMessage != ePointerCancel) {
     return;
@@ -326,18 +410,19 @@ PointerEventHandler::IsPointerEventImplicitCaptureForTouchEnabled() {
   CheckPointerCaptureState(pointerEvent);
 }
 
-/* static */ nsIContent* PointerEventHandler::GetPointerCapturingContent(
-    uint32_t aPointerId) {
+/* static */
+Element* PointerEventHandler::GetPointerCapturingElement(uint32_t aPointerId) {
   PointerCaptureInfo* pointerCaptureInfo = GetPointerCaptureInfo(aPointerId);
   if (pointerCaptureInfo) {
-    return pointerCaptureInfo->mOverrideContent;
+    return pointerCaptureInfo->mOverrideElement;
   }
   return nullptr;
 }
 
-/* static */ nsIContent* PointerEventHandler::GetPointerCapturingContent(
+/* static */
+Element* PointerEventHandler::GetPointerCapturingElement(
     WidgetGUIEvent* aEvent) {
-  if (!IsPointerEventEnabled() ||
+  if (!StaticPrefs::dom_w3c_pointer_events_enabled() ||
       (aEvent->mClass != ePointerEventClass &&
        aEvent->mClass != eMouseEventClass) ||
       aEvent->mMessage == ePointerDown || aEvent->mMessage == eMouseDown) {
@@ -350,24 +435,24 @@ PointerEventHandler::IsPointerEventImplicitCaptureForTouchEnabled() {
   if (!mouseEvent) {
     return nullptr;
   }
-  return GetPointerCapturingContent(mouseEvent->pointerId);
+  return GetPointerCapturingElement(mouseEvent->pointerId);
 }
 
-/* static */ void PointerEventHandler::ReleaseIfCaptureByDescendant(
-    nsIContent* aContent) {
+/* static */
+void PointerEventHandler::ReleaseIfCaptureByDescendant(nsIContent* aContent) {
   // We should check that aChild does not contain pointer capturing elements.
   // If it does we should release the pointer capture for the elements.
   for (auto iter = sPointerCaptureList->Iter(); !iter.Done(); iter.Next()) {
     PointerCaptureInfo* data = iter.UserData();
-    if (data && data->mPendingContent &&
-        nsContentUtils::ContentIsDescendantOf(data->mPendingContent,
-                                              aContent)) {
+    if (data && data->mPendingElement &&
+        data->mPendingElement->IsInclusiveDescendantOf(aContent)) {
       ReleasePointerCaptureById(iter.Key());
     }
   }
 }
 
-/* static */ void PointerEventHandler::PreHandlePointerEventsPreventDefault(
+/* static */
+void PointerEventHandler::PreHandlePointerEventsPreventDefault(
     WidgetPointerEvent* aPointerEvent, WidgetGUIEvent* aMouseOrTouchEvent) {
   if (!aPointerEvent->mIsPrimary || aPointerEvent->mMessage == ePointerDown) {
     return;
@@ -393,7 +478,8 @@ PointerEventHandler::IsPointerEventImplicitCaptureForTouchEnabled() {
   }
 }
 
-/* static */ void PointerEventHandler::PostHandlePointerEventsPreventDefault(
+/* static */
+void PointerEventHandler::PostHandlePointerEventsPreventDefault(
     WidgetPointerEvent* aPointerEvent, WidgetGUIEvent* aMouseOrTouchEvent) {
   if (!aPointerEvent->mIsPrimary || aPointerEvent->mMessage != ePointerDown ||
       !aPointerEvent->DefaultPreventedByContent()) {
@@ -418,38 +504,40 @@ PointerEventHandler::IsPointerEventImplicitCaptureForTouchEnabled() {
   pointerInfo->mPreventMouseEventByContent = true;
 }
 
-/* static */ void PointerEventHandler::InitPointerEventFromMouse(
+/* static */
+void PointerEventHandler::InitPointerEventFromMouse(
     WidgetPointerEvent* aPointerEvent, WidgetMouseEvent* aMouseEvent,
     EventMessage aMessage) {
   MOZ_ASSERT(aPointerEvent);
   MOZ_ASSERT(aMouseEvent);
   aPointerEvent->pointerId = aMouseEvent->pointerId;
-  aPointerEvent->inputSource = aMouseEvent->inputSource;
+  aPointerEvent->mInputSource = aMouseEvent->mInputSource;
   aPointerEvent->mMessage = aMessage;
-  aPointerEvent->button = aMouseEvent->mMessage == eMouseMove
-                              ? WidgetMouseEvent::eNoButton
-                              : aMouseEvent->button;
+  aPointerEvent->mButton = aMouseEvent->mMessage == eMouseMove
+                               ? MouseButton::eNotPressed
+                               : aMouseEvent->mButton;
 
-  aPointerEvent->buttons = aMouseEvent->buttons;
-  aPointerEvent->pressure =
-      aPointerEvent->buttons
-          ? aMouseEvent->pressure ? aMouseEvent->pressure : 0.5f
+  aPointerEvent->mButtons = aMouseEvent->mButtons;
+  aPointerEvent->mPressure =
+      aPointerEvent->mButtons
+          ? aMouseEvent->mPressure ? aMouseEvent->mPressure : 0.5f
           : 0.0f;
 }
 
-/* static */ void PointerEventHandler::InitPointerEventFromTouch(
+/* static */
+void PointerEventHandler::InitPointerEventFromTouch(
     WidgetPointerEvent* aPointerEvent, WidgetTouchEvent* aTouchEvent,
     mozilla::dom::Touch* aTouch, bool aIsPrimary) {
   MOZ_ASSERT(aPointerEvent);
   MOZ_ASSERT(aTouchEvent);
 
   int16_t button = aTouchEvent->mMessage == eTouchMove
-                       ? WidgetMouseEvent::eNoButton
-                       : WidgetMouseEvent::eLeftButton;
+                       ? MouseButton::eNotPressed
+                       : MouseButton::ePrimary;
 
   int16_t buttons = aTouchEvent->mMessage == eTouchEnd
-                        ? WidgetMouseEvent::eNoButtonFlag
-                        : WidgetMouseEvent::eLeftButtonFlag;
+                        ? MouseButtonsFlag::eNoButtons
+                        : MouseButtonsFlag::ePrimaryFlag;
 
   aPointerEvent->mIsPrimary = aIsPrimary;
   aPointerEvent->pointerId = aTouch->Identifier();
@@ -462,22 +550,36 @@ PointerEventHandler::IsPointerEventImplicitCaptureForTouchEnabled() {
   aPointerEvent->mTime = aTouchEvent->mTime;
   aPointerEvent->mTimeStamp = aTouchEvent->mTimeStamp;
   aPointerEvent->mFlags = aTouchEvent->mFlags;
-  aPointerEvent->button = button;
-  aPointerEvent->buttons = buttons;
-  aPointerEvent->inputSource = MouseEvent_Binding::MOZ_SOURCE_TOUCH;
+  aPointerEvent->mButton = button;
+  aPointerEvent->mButtons = buttons;
+  aPointerEvent->mInputSource = MouseEvent_Binding::MOZ_SOURCE_TOUCH;
 }
 
-/* static */ void PointerEventHandler::DispatchPointerFromMouseOrTouch(
+/* static */
+void PointerEventHandler::DispatchPointerFromMouseOrTouch(
     PresShell* aShell, nsIFrame* aFrame, nsIContent* aContent,
     WidgetGUIEvent* aEvent, bool aDontRetargetEvents, nsEventStatus* aStatus,
     nsIContent** aTargetContent) {
-  MOZ_ASSERT(IsPointerEventEnabled());
+  MOZ_ASSERT(StaticPrefs::dom_w3c_pointer_events_enabled());
   MOZ_ASSERT(aFrame || aContent);
   MOZ_ASSERT(aEvent);
 
   EventMessage pointerMessage = eVoidEvent;
   if (aEvent->mClass == eMouseEventClass) {
     WidgetMouseEvent* mouseEvent = aEvent->AsMouseEvent();
+    // Don't dispatch pointer events caused by a mouse when simulating touch
+    // devices in RDM.
+    Document* doc = aShell->GetDocument();
+    if (!doc) {
+      return;
+    }
+
+    BrowsingContext* bc = doc->GetBrowsingContext();
+    if (bc && bc->TouchEventsOverride() == TouchEventsOverride::Enabled &&
+        bc->InRDMPane()) {
+      return;
+    }
+
     // 1. If it is not mouse then it is likely will come as touch event
     // 2. We don't synthesize pointer events for those events that are not
     //    dispatched to DOM.
@@ -485,19 +587,18 @@ PointerEventHandler::IsPointerEventImplicitCaptureForTouchEnabled() {
         !aEvent->IsAllowedToDispatchDOMEvent()) {
       return;
     }
-    int16_t button = mouseEvent->button;
+
     switch (mouseEvent->mMessage) {
       case eMouseMove:
-        button = WidgetMouseEvent::eNoButton;
         pointerMessage = ePointerMove;
         break;
       case eMouseUp:
-        pointerMessage = mouseEvent->buttons ? ePointerMove : ePointerUp;
+        pointerMessage = mouseEvent->mButtons ? ePointerMove : ePointerUp;
         break;
       case eMouseDown:
         pointerMessage =
-            mouseEvent->buttons &
-                    ~nsContentUtils::GetButtonsFlagForButton(button)
+            mouseEvent->mButtons & ~nsContentUtils::GetButtonsFlagForButton(
+                                       mouseEvent->mButton)
                 ? ePointerMove
                 : ePointerDown;
         break;
@@ -586,7 +687,8 @@ PointerEventHandler::IsPointerEventImplicitCaptureForTouchEnabled() {
   }
 }
 
-/* static */ uint16_t PointerEventHandler::GetPointerType(uint32_t aPointerId) {
+/* static */
+uint16_t PointerEventHandler::GetPointerType(uint32_t aPointerId) {
   PointerInfo* pointerInfo = nullptr;
   if (sActivePointersIds->Get(aPointerId, &pointerInfo) && pointerInfo) {
     return pointerInfo->mPointerType;
@@ -594,8 +696,8 @@ PointerEventHandler::IsPointerEventImplicitCaptureForTouchEnabled() {
   return MouseEvent_Binding::MOZ_SOURCE_UNKNOWN;
 }
 
-/* static */ bool PointerEventHandler::GetPointerPrimaryState(
-    uint32_t aPointerId) {
+/* static */
+bool PointerEventHandler::GetPointerPrimaryState(uint32_t aPointerId) {
   PointerInfo* pointerInfo = nullptr;
   if (sActivePointersIds->Get(aPointerId, &pointerInfo) && pointerInfo) {
     return pointerInfo->mPrimaryState;
@@ -603,12 +705,13 @@ PointerEventHandler::IsPointerEventImplicitCaptureForTouchEnabled() {
   return false;
 }
 
-/* static */ void PointerEventHandler::DispatchGotOrLostPointerCaptureEvent(
+/* static */
+void PointerEventHandler::DispatchGotOrLostPointerCaptureEvent(
     bool aIsGotCapture, const WidgetPointerEvent* aPointerEvent,
-    nsIContent* aCaptureTarget) {
-  nsIDocument* targetDoc = aCaptureTarget->OwnerDoc();
-  nsCOMPtr<nsIPresShell> shell = targetDoc->GetShell();
-  if (NS_WARN_IF(!shell)) {
+    Element* aCaptureTarget) {
+  Document* targetDoc = aCaptureTarget->OwnerDoc();
+  RefPtr<PresShell> presShell = targetDoc->GetPresShell();
+  if (NS_WARN_IF(!presShell)) {
     return;
   }
 
@@ -619,11 +722,11 @@ PointerEventHandler::IsPointerEventImplicitCaptureForTouchEnabled() {
     init.mPointerId = aPointerEvent->pointerId;
     init.mBubbles = true;
     init.mComposed = true;
-    ConvertPointerTypeToString(aPointerEvent->inputSource, init.mPointerType);
+    ConvertPointerTypeToString(aPointerEvent->mInputSource, init.mPointerType);
     init.mIsPrimary = aPointerEvent->mIsPrimary;
     RefPtr<PointerEvent> event;
-    event = PointerEvent::Constructor(
-        aCaptureTarget, NS_LITERAL_STRING("lostpointercapture"), init);
+    event = PointerEvent::Constructor(aCaptureTarget, u"lostpointercapture"_ns,
+                                      init);
     targetDoc->DispatchEvent(*event);
     return;
   }
@@ -634,15 +737,16 @@ PointerEventHandler::IsPointerEventImplicitCaptureForTouchEnabled() {
       aPointerEvent->mWidget);
 
   localEvent.AssignPointerEventData(*aPointerEvent, true);
-  DebugOnly<nsresult> rv = shell->HandleEventWithTarget(
+  DebugOnly<nsresult> rv = presShell->HandleEventWithTarget(
       &localEvent, aCaptureTarget->GetPrimaryFrame(), aCaptureTarget, &status);
 
   NS_WARNING_ASSERTION(NS_SUCCEEDED(rv),
                        "DispatchGotOrLostPointerCaptureEvent failed");
 }
 
-/* static */ void PointerEventHandler::MaybeCacheSpoofedPointerID(
-    uint16_t aInputSource, uint32_t aPointerId) {
+/* static */
+void PointerEventHandler::MaybeCacheSpoofedPointerID(uint16_t aInputSource,
+                                                     uint32_t aPointerId) {
   if (sSpoofedPointerId.isSome() || aInputSource != SPOOFED_POINTER_INTERFACE) {
     return;
   }

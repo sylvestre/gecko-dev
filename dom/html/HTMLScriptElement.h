@@ -34,13 +34,12 @@ class HTMLScriptElement final : public nsGenericHTMLElement,
   virtual bool GetScriptType(nsAString& type) override;
   virtual void GetScriptText(nsAString& text) override;
   virtual void GetScriptCharset(nsAString& charset) override;
-  virtual void FreezeExecutionAttrs(nsIDocument* aOwnerDoc) override;
+  virtual void FreezeExecutionAttrs(Document* aOwnerDoc) override;
   virtual CORSMode GetCORSMode() const override;
-  virtual mozilla::net::ReferrerPolicy GetReferrerPolicy() override;
+  virtual mozilla::dom::ReferrerPolicy GetReferrerPolicy() override;
 
   // nsIContent
-  virtual nsresult BindToTree(nsIDocument* aDocument, nsIContent* aParent,
-                              nsIContent* aBindingParent) override;
+  virtual nsresult BindToTree(BindContext&, nsINode& aParent) override;
   virtual bool ParseAttribute(int32_t aNamespaceID, nsAtom* aAttribute,
                               const nsAString& aValue,
                               nsIPrincipal* aMaybeScriptedPrincipal,
@@ -128,8 +127,7 @@ class HTMLScriptElement final : public nsGenericHTMLElement,
     SetHTMLAttr(nsGkAtoms::referrerpolicy, aReferrerPolicy, aError);
   }
   void GetReferrerPolicy(nsAString& aReferrerPolicy) {
-    GetEnumAttr(nsGkAtoms::referrerpolicy, EmptyCString().get(),
-                aReferrerPolicy);
+    GetEnumAttr(nsGkAtoms::referrerpolicy, "", aReferrerPolicy);
   }
 
  protected:

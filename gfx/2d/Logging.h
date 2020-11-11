@@ -13,14 +13,16 @@
 #include <vector>
 
 #ifdef MOZ_LOGGING
-#include "mozilla/Logging.h"
+#  include "mozilla/Logging.h"
 #endif
 #include "mozilla/Tuple.h"
 
 #if defined(MOZ_WIDGET_ANDROID)
-#include "nsDebug.h"
+#  include "nsDebug.h"
 #endif
 #include "2D.h"
+#include "mozilla/Atomics.h"
+#include "mozilla/StaticPrefs_gfx.h"
 #include "Point.h"
 #include "BaseRect.h"
 #include "Matrix.h"
@@ -50,16 +52,6 @@ inline mozilla::LogLevel PRLogLevelForLevel(int aLevel) {
   return LogLevel::Debug;
 }
 #endif
-
-class LoggingPrefs {
- public:
-  // Used to choose the level of logging we get.  The higher the number,
-  // the more logging we get.  Value of zero will give you no logging,
-  // 1 just errors, 2 adds warnings and 3 or 4 add debug logging.
-  // In addition to setting the value to 4, you will need to set the
-  // environment variable MOZ_LOG to gfx:4. See mozilla/Logging.h for details.
-  static int32_t sGfxLogLevel;
-};
 
 /// Graphics logging is available in both debug and release builds and is
 /// controlled with a gfx.logging.level preference. If not set, the default
@@ -134,7 +126,7 @@ enum class LogReason : int {
   NativeFontResourceNotFound,
   UnscaledFontNotFound,
   ScaledFontNotFound,
-  InvalidLayerType,
+  InvalidLayerType,  // 40
   // End
   MustBeLessThanThis = 101,
 };
@@ -144,16 +136,16 @@ struct BasicLogger {
   // OutputMessage below.  If making any changes here, also make it
   // in the appropriate places in that method.
   static bool ShouldOutputMessage(int aLevel) {
-    if (LoggingPrefs::sGfxLogLevel >= aLevel) {
+    if (StaticPrefs::gfx_logging_level() >= aLevel) {
 #if defined(MOZ_WIDGET_ANDROID)
       return true;
 #else
-#if defined(MOZ_LOGGING)
+#  if defined(MOZ_LOGGING)
       if (MOZ_LOG_TEST(GetGFX2DLog(), PRLogLevelForLevel(aLevel))) {
         return true;
       } else
-#endif
-          if ((LoggingPrefs::sGfxLogLevel >= LOG_DEBUG_PRLOG) ||
+#  endif
+          if ((StaticPrefs::gfx_logging_level() >= LOG_DEBUG_PRLOG) ||
               (aLevel < LOG_DEBUG)) {
         return true;
       }
@@ -170,23 +162,22 @@ struct BasicLogger {
     // This behavior (the higher the preference, the more we log)
     // is consistent with what prlog does in general.  Note that if prlog
     // is in the build, but disabled, we will printf if the preferences
-    // requires us to log something (see sGfxLogLevel for the special
-    // treatment of LOG_DEBUG and LOG_DEBUG_PRLOG)
+    // requires us to log something.
     //
     // If making any logic changes to this method, you should probably
     // make the corresponding change in the ShouldOutputMessage method
     // above.
-    if (LoggingPrefs::sGfxLogLevel >= aLevel) {
+    if (StaticPrefs::gfx_logging_level() >= aLevel) {
 #if defined(MOZ_WIDGET_ANDROID)
       printf_stderr("%s%s", aString.c_str(), aNoNewline ? "" : "\n");
 #else
-#if defined(MOZ_LOGGING)
+#  if defined(MOZ_LOGGING)
       if (MOZ_LOG_TEST(GetGFX2DLog(), PRLogLevelForLevel(aLevel))) {
         MOZ_LOG(GetGFX2DLog(), PRLogLevelForLevel(aLevel),
                 ("%s%s", aString.c_str(), aNoNewline ? "" : "\n"));
       } else
-#endif
-          if ((LoggingPrefs::sGfxLogLevel >= LOG_DEBUG_PRLOG) ||
+#  endif
+          if ((StaticPrefs::gfx_logging_level() >= LOG_DEBUG_PRLOG) ||
               (aLevel < LOG_DEBUG)) {
         printf("%s%s", aString.c_str(), aNoNewline ? "" : "\n");
       }
@@ -212,7 +203,7 @@ typedef mozilla::Tuple<int32_t, std::string, double> LoggingRecordEntry;
 typedef std::vector<LoggingRecordEntry> LoggingRecord;
 class LogForwarder {
  public:
-  virtual ~LogForwarder() {}
+  virtual ~LogForwarder() = default;
   virtual void Log(const std::string& aString) = 0;
   virtual void CrashAction(LogReason aReason) = 0;
   virtual bool UpdateStringsVector(const std::string& aString) = 0;
@@ -223,11 +214,11 @@ class LogForwarder {
 
 class NoLog {
  public:
-  NoLog() {}
-  ~NoLog() {}
+  NoLog() = default;
+  ~NoLog() = default;
 
   // No-op
-  MOZ_IMPLICIT NoLog(const NoLog&) {}
+  MOZ_IMPLICIT NoLog(const NoLog&) = default;
 
   template <typename T>
   NoLog& operator<<(const T& aLogText) {
@@ -257,7 +248,7 @@ void LogWStr(const wchar_t* aStr, std::stringstream& aOut);
 #endif
 
 template <int L, typename Logger = BasicLogger>
-class Log {
+class Log final {
  public:
   // The default is to have the prefix, have the new line, and for critical
   // logs assert on each call.
@@ -368,10 +359,17 @@ class Log {
     }
     return *this;
   }
-  Log& operator<<(const Color& aColor) {
+  Log& operator<<(const sRGBColor& aColor) {
     if (MOZ_UNLIKELY(LogIt())) {
-      mMessage << "Color(" << aColor.r << ", " << aColor.g << ", " << aColor.b
-               << ", " << aColor.a << ")";
+      mMessage << "sRGBColor(" << aColor.r << ", " << aColor.g << ", "
+               << aColor.b << ", " << aColor.a << ")";
+    }
+    return *this;
+  }
+  Log& operator<<(const DeviceColor& aColor) {
+    if (MOZ_UNLIKELY(LogIt())) {
+      mMessage << "DeviceColor(" << aColor.r << ", " << aColor.g << ", "
+               << aColor.b << ", " << aColor.a << ")";
     }
     return *this;
   }
@@ -684,11 +682,20 @@ class Log {
         case SurfaceType::RECORDING:
           mMessage << "SurfaceType::RECORDING";
           break;
+        case SurfaceType::WRAP_AND_RECORD:
+          mMessage << "SurfaceType::WRAP_AND_RECORD";
+          break;
         case SurfaceType::TILED:
           mMessage << "SurfaceType::TILED";
           break;
         case SurfaceType::DATA_SHARED:
           mMessage << "SurfaceType::DATA_SHARED";
+          break;
+        case SurfaceType::DATA_RECYCLING_SHARED:
+          mMessage << "SurfaceType::DATA_RECYCLING_SHARED";
+          break;
+        case SurfaceType::DATA_ALIGNED:
+          mMessage << "SurfaceType::DATA_ALIGNED";
           break;
         default:
           mMessage << "Invalid SurfaceType (" << (int)aType << ")";
@@ -766,7 +773,7 @@ typedef Log<LOG_CRITICAL, CriticalLogger> CriticalLog;
 
 // Macro to glue names to get us less chance of name clashing.
 #if defined GFX_LOGGING_GLUE1 || defined GFX_LOGGING_GLUE
-#error "Clash of the macro GFX_LOGGING_GLUE1 or GFX_LOGGING_GLUE"
+#  error "Clash of the macro GFX_LOGGING_GLUE1 or GFX_LOGGING_GLUE"
 #endif
 #define GFX_LOGGING_GLUE1(x, y) x##y
 #define GFX_LOGGING_GLUE(x, y) GFX_LOGGING_GLUE1(x, y)
@@ -798,20 +805,20 @@ typedef Log<LOG_CRITICAL, CriticalLogger> CriticalLog;
 //   gfxCriticalError() << "This message only shows up once;
 // }
 #if defined(DEBUG)
-#define gfxDebug mozilla::gfx::DebugLog
-#define gfxDebugOnce \
-  static gfxDebug GFX_LOGGING_GLUE(sOnceAtLine, __LINE__) = gfxDebug
+#  define gfxDebug mozilla::gfx::DebugLog
+#  define gfxDebugOnce \
+    static gfxDebug GFX_LOGGING_GLUE(sOnceAtLine, __LINE__) = gfxDebug
 #else
-#define gfxDebug \
-  if (1)         \
-    ;            \
-  else           \
-    mozilla::gfx::NoLog
-#define gfxDebugOnce \
-  if (1)             \
-    ;                \
-  else               \
-    mozilla::gfx::NoLog
+#  define gfxDebug \
+    if (1)         \
+      ;            \
+    else           \
+      mozilla::gfx::NoLog
+#  define gfxDebugOnce \
+    if (1)             \
+      ;                \
+    else               \
+      mozilla::gfx::NoLog
 #endif
 
 // Have gfxWarning available (behind a runtime preference)
@@ -842,10 +849,10 @@ inline bool MOZ2D_error_if_impl(bool aCondition, const char* aExpr,
   }
   return aCondition;
 }
-#define MOZ2D_ERROR_IF(condition) \
-  MOZ2D_error_if_impl(condition, #condition, __FILE__, __LINE__)
+#  define MOZ2D_ERROR_IF(condition) \
+    MOZ2D_error_if_impl(condition, #condition, __FILE__, __LINE__)
 
-#ifdef DEBUG
+#  ifdef DEBUG
 inline bool MOZ2D_warn_if_impl(bool aCondition, const char* aExpr,
                                const char* aFile, int32_t aLine) {
   if (MOZ_UNLIKELY(aCondition)) {
@@ -853,15 +860,16 @@ inline bool MOZ2D_warn_if_impl(bool aCondition, const char* aExpr,
   }
   return aCondition;
 }
-#define MOZ2D_WARN_IF(condition) \
-  MOZ2D_warn_if_impl(condition, #condition, __FILE__, __LINE__)
-#else
-#define MOZ2D_WARN_IF(condition) (bool)(condition)
-#endif
+#    define MOZ2D_WARN_IF(condition) \
+      MOZ2D_warn_if_impl(condition, #condition, __FILE__, __LINE__)
+#  else
+#    define MOZ2D_WARN_IF(condition) (bool)(condition)
+#  endif
 #endif
 
 const int INDENT_PER_LEVEL = 2;
 
+template <int Level = LOG_DEBUG>
 class TreeLog {
  public:
   explicit TreeLog(const std::string& aPrefix = "")
@@ -906,7 +914,7 @@ class TreeLog {
   }
 
  private:
-  Log<LOG_DEBUG> mLog;
+  Log<Level> mLog;
   std::string mPrefix;
   uint32_t mDepth;
   bool mStartOfLine;
@@ -929,9 +937,10 @@ class TreeLog {
   }
 };
 
-class TreeAutoIndent {
+template <int Level = LOG_DEBUG>
+class TreeAutoIndent final {
  public:
-  explicit TreeAutoIndent(TreeLog& aTreeLog) : mTreeLog(aTreeLog) {
+  explicit TreeAutoIndent(TreeLog<Level>& aTreeLog) : mTreeLog(aTreeLog) {
     mTreeLog.IncreaseIndent();
   }
 
@@ -945,7 +954,7 @@ class TreeAutoIndent {
   ~TreeAutoIndent() { mTreeLog.DecreaseIndent(); }
 
  private:
-  TreeLog& mTreeLog;
+  TreeLog<Level>& mTreeLog;
 };
 
 }  // namespace gfx

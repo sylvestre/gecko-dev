@@ -4,7 +4,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "Image.h"
-#include "gfxPrefs.h"
+
+#include "imgRequest.h"
 #include "Layers.h"  // for LayerManager
 #include "nsRefreshDriver.h"
 #include "nsContentUtils.h"
@@ -20,9 +21,40 @@ namespace image {
 // Memory Reporting
 ///////////////////////////////////////////////////////////////////////////////
 
-ImageMemoryCounter::ImageMemoryCounter(Image* aImage, SizeOfState& aState,
-                                       bool aIsUsed)
-    : mIsUsed(aIsUsed) {
+ImageMemoryCounter::ImageMemoryCounter(imgRequest* aRequest,
+                                       SizeOfState& aState, bool aIsUsed)
+    : mProgress(UINT32_MAX),
+      mType(UINT16_MAX),
+      mIsUsed(aIsUsed),
+      mHasError(false),
+      mValidating(false) {
+  MOZ_ASSERT(aRequest);
+
+  // We don't have the image object yet, but we can get some information.
+  nsCOMPtr<nsIURI> imageURL;
+  nsresult rv = aRequest->GetURI(getter_AddRefs(imageURL));
+  if (NS_SUCCEEDED(rv) && imageURL) {
+    imageURL->GetSpec(mURI);
+  }
+
+  mType = imgIContainer::TYPE_REQUEST;
+  mHasError = NS_FAILED(aRequest->GetImageErrorCode());
+  mValidating = !!aRequest->GetValidator();
+
+  RefPtr<ProgressTracker> tracker = aRequest->GetProgressTracker();
+  if (tracker) {
+    mProgress = tracker->GetProgress();
+  }
+}
+
+ImageMemoryCounter::ImageMemoryCounter(imgRequest* aRequest, Image* aImage,
+                                       SizeOfState& aState, bool aIsUsed)
+    : mProgress(UINT32_MAX),
+      mType(UINT16_MAX),
+      mIsUsed(aIsUsed),
+      mHasError(false),
+      mValidating(false) {
+  MOZ_ASSERT(aRequest);
   MOZ_ASSERT(aImage);
 
   // Extract metadata about the image.
@@ -38,6 +70,13 @@ ImageMemoryCounter::ImageMemoryCounter(Image* aImage, SizeOfState& aState,
   mIntrinsicSize.SizeTo(width, height);
 
   mType = aImage->GetType();
+  mHasError = aImage->HasError();
+  mValidating = !!aRequest->GetValidator();
+
+  RefPtr<ProgressTracker> tracker = aImage->GetProgressTracker();
+  if (tracker) {
+    mProgress = tracker->GetProgress();
+  }
 
   // Populate memory counters for source and decoded data.
   mValues.SetSource(aImage->SizeOfSourceWithComputedFallback(aState));
@@ -97,11 +136,10 @@ void ImageResource::SetCurrentImage(ImageContainer* aContainer,
     aContainer->SetCurrentImages(imageList);
   }
 
-  // If we are generating full frames, and we are animated, then we should
-  // request that the image container be treated as such, to avoid display
-  // list rebuilding to update frames for WebRender.
-  if (gfxPrefs::ImageAnimatedGenerateFullFrames() &&
-      mProgressTracker->GetProgress() & FLAG_IS_ANIMATED) {
+  // If we are animated, then we should request that the image container be
+  // treated as such, to avoid display list rebuilding to update frames for
+  // WebRender.
+  if (mProgressTracker->GetProgress() & FLAG_IS_ANIMATED) {
     if (aDirtyRect) {
       layers::SharedSurfacesChild::UpdateAnimation(aContainer, aSurface,
                                                    aDirtyRect.ref());
@@ -144,18 +182,14 @@ ImgDrawResult ImageResource::GetImageContainerImpl(
   int i = mImageContainers.Length() - 1;
   for (; i >= 0; --i) {
     entry = &mImageContainers[i];
-    container = entry->mContainer.get();
     if (size == entry->mSize && flags == entry->mFlags &&
         aSVGContext == entry->mSVGContext) {
       // Lack of a container is handled below.
+      container = RefPtr<layers::ImageContainer>(entry->mContainer);
       break;
-    } else if (!container) {
+    } else if (!entry->mContainer) {
       // Stop tracking if our weak pointer to the image container was freed.
       mImageContainers.RemoveElementAt(i);
-    } else {
-      // It isn't a match, but still valid. Forget the container so we don't
-      // try to reuse it below.
-      container = nullptr;
     }
   }
 
@@ -216,7 +250,7 @@ ImgDrawResult ImageResource::GetImageContainerImpl(
       entry = &mImageContainers[i];
       if (bestSize == entry->mSize && flags == entry->mFlags &&
           aSVGContext == entry->mSVGContext) {
-        container = entry->mContainer.get();
+        container = RefPtr<layers::ImageContainer>(entry->mContainer);
         if (container) {
           switch (entry->mLastDrawResult) {
             case ImgDrawResult::SUCCESS:
@@ -262,12 +296,12 @@ ImgDrawResult ImageResource::GetImageContainerImpl(
   return drawResult;
 }
 
-void ImageResource::UpdateImageContainer(const Maybe<IntRect>& aDirtyRect) {
+bool ImageResource::UpdateImageContainer(const Maybe<IntRect>& aDirtyRect) {
   MOZ_ASSERT(NS_IsMainThread());
 
   for (int i = mImageContainers.Length() - 1; i >= 0; --i) {
     ImageContainerEntry& entry = mImageContainers[i];
-    RefPtr<ImageContainer> container = entry.mContainer.get();
+    RefPtr<layers::ImageContainer> container(entry.mContainer);
     if (container) {
       IntSize bestSize;
       RefPtr<SourceSurface> surface;
@@ -289,6 +323,8 @@ void ImageResource::UpdateImageContainer(const Maybe<IntRect>& aDirtyRect) {
       mImageContainers.RemoveElementAt(i);
     }
   }
+
+  return !mImageContainers.IsEmpty();
 }
 
 void ImageResource::ReleaseImageContainer() {
@@ -398,7 +434,8 @@ void ImageResource::SendOnUnlockedDraw(uint32_t aFlags) {
             tracker->OnUnlockedDraw();
           }
         });
-    eventTarget->Dispatch(ev.forget(), NS_DISPATCH_NORMAL);
+    eventTarget->Dispatch(CreateMediumHighRunnable(ev.forget()),
+                          NS_DISPATCH_NORMAL);
   }
 }
 
@@ -408,9 +445,7 @@ void ImageResource::NotifyDrawingObservers() {
     return;
   }
 
-  bool match = false;
-  if ((NS_FAILED(mURI->SchemeIs("resource", &match)) || !match) &&
-      (NS_FAILED(mURI->SchemeIs("chrome", &match)) || !match)) {
+  if (!mURI->SchemeIs("resource") && !mURI->SchemeIs("chrome")) {
     return;
   }
 

@@ -8,7 +8,7 @@ interface mozIDOMWindow;
 webidl Document;
 webidl WebExtensionContentScript;
 
-[scriptable,uuid(6b09dc51-6caa-4ca7-9d6d-30c87258a630)]
+[scriptable, uuid(6b09dc51-6caa-4ca7-9d6d-30c87258a630)]
 interface mozIExtensionProcessScript : nsISupports
 {
   void preloadContentScript(in nsISupports contentScript);

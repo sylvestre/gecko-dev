@@ -7,33 +7,35 @@
 #ifndef GFX_VR_SERVICE_VRSERVICE_H
 #define GFX_VR_SERVICE_VRSERVICE_H
 
-#include "mozilla/Atomics.h"
 #include "moz_external_vr.h"
 #include "base/process.h"  // for base::ProcessHandle
+#include "mozilla/UniquePtr.h"
 
-namespace base {
-class Thread;
-}  // namespace base
+class nsIThread;
 namespace mozilla {
+class BackgroundHangMonitor;
 namespace gfx {
 
 class VRSession;
+class VRShMem;
 
 static const int kVRFrameTimingHistoryDepth = 100;
 
 class VRService {
  public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(VRService)
-  static already_AddRefed<VRService> Create();
+  static already_AddRefed<VRService> Create(
+      volatile VRExternalShmem* aShmem = nullptr);
 
   void Refresh();
   void Start();
   void Stop();
-  VRExternalShmem* GetAPIShmem();
 
  private:
-  VRService();
+  explicit VRService(volatile VRExternalShmem* aShmem);
   ~VRService();
+
+  void StopInternal(bool aFromDtor);
 
   bool InitShmem();
   void PushState(const mozilla::gfx::VRSystemState& aState);
@@ -53,21 +55,19 @@ class VRService {
    * mBrowserState is memcpy'ed from the Shmem atomically
    */
   VRBrowserState mBrowserState;
-  int64_t mBrowserGeneration;
 
   UniquePtr<VRSession> mSession;
-  base::Thread* mServiceThread;
+  nsCOMPtr<nsIThread> mServiceThread;
+  // Only ever accessed on the service thread.
+  UniquePtr<mozilla::BackgroundHangMonitor> mBackgroundHangMonitor;
+
   bool mShutdownRequested;
 
-  VRExternalShmem* MOZ_OWNING_REF mAPIShmem;
-  base::ProcessHandle mTargetShmemFile;
+  // Note: mShmem doesn't support RefPtr; thus, do not share this private
+  // pointer so that its lifetime can still be controlled by VRService
+  VRShMem* mShmem;
   VRHapticState mLastHapticState[kVRHapticsMaxCount];
   TimeStamp mFrameStartTime[kVRFrameTimingHistoryDepth];
-  // We store the value of gfxPrefs::VRProcessEnabled() in mVRProcessEnabled.
-  // This allows us to read the value in the VRService destructor, after
-  // gfxPrefs has been shut down.  We should investigate why gfxPrefs
-  // is shutting down earlier - See bug xxx
-  bool mVRProcessEnabled;
 
   bool IsInServiceThread();
   void UpdateHaptics();

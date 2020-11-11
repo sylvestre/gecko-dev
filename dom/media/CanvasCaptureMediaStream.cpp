@@ -7,115 +7,27 @@
 
 #include "DOMMediaStream.h"
 #include "ImageContainer.h"
-#include "MediaStreamGraph.h"
-#include "MediaStreamListener.h"
+#include "MediaTrackGraph.h"
+#include "Tracing.h"
+#include "VideoSegment.h"
 #include "gfxPlatform.h"
 #include "mozilla/Atomics.h"
 #include "mozilla/dom/CanvasCaptureMediaStreamBinding.h"
 #include "mozilla/gfx/2D.h"
 #include "nsContentUtils.h"
-#include "Tracing.h"
 
 using namespace mozilla::layers;
 using namespace mozilla::gfx;
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
-class OutputStreamDriver::TrackListener : public MediaStreamTrackListener {
- public:
-  TrackListener(TrackID aTrackId, const PrincipalHandle& aPrincipalHandle,
-                SourceMediaStream* aSourceStream)
-      : mEnded(false),
-        mSourceStream(aSourceStream),
-        mTrackId(aTrackId),
-        mPrincipalHandle(aPrincipalHandle),
-        mMutex("CanvasCaptureMediaStream OutputStreamDriver::StreamListener") {
-    MOZ_ASSERT(mSourceStream);
-  }
-
-  void Forget() {
-    EndTrack();
-    mSourceStream->EndTrack(mTrackId);
-
-    MutexAutoLock lock(mMutex);
-    mImage = nullptr;
-  }
-
-  void EndTrack() { mEnded = true; }
-
-  void SetImage(const RefPtr<layers::Image>& aImage, const TimeStamp& aTime) {
-    MutexAutoLock lock(mMutex);
-    mImage = aImage;
-    mImageTime = aTime;
-  }
-
-  void NotifyPull(MediaStreamGraph* aGraph, StreamTime aEndOfAppendedData,
-                  StreamTime aDesiredTime) override {
-    // Called on the MediaStreamGraph thread.
-    TRACE_AUDIO_CALLBACK_COMMENT("SourceMediaStream %p track %i",
-                                 mSourceStream.get(), mTrackId);
-    MOZ_ASSERT(mSourceStream);
-    StreamTime delta = aDesiredTime - aEndOfAppendedData;
-    MOZ_ASSERT(delta > 0);
-
-    MutexAutoLock lock(mMutex);
-
-    RefPtr<Image> image = mImage;
-    IntSize size = image ? image->GetSize() : IntSize(0, 0);
-    VideoSegment segment;
-    segment.AppendFrame(image.forget(), delta, size, mPrincipalHandle, false,
-                        mImageTime);
-
-    mSourceStream->AppendToTrack(mTrackId, &segment);
-
-    if (mEnded) {
-      mSourceStream->EndTrack(mTrackId);
-    }
-  }
-
-  void NotifyEnded() override {
-    Forget();
-
-    mSourceStream->Graph()->DispatchToMainThreadAfterStreamStateUpdate(
-        NS_NewRunnableFunction(
-            "OutputStreamDriver::TrackListener::RemoveTrackListener",
-            [self = RefPtr<TrackListener>(this), this]() {
-              if (!mSourceStream->IsDestroyed()) {
-                mSourceStream->RemoveTrackListener(this, mTrackId);
-              }
-            }));
-  }
-
-  void NotifyRemoved() override { Forget(); }
-
- protected:
-  ~TrackListener() = default;
-
- private:
-  Atomic<bool> mEnded;
-  const RefPtr<SourceMediaStream> mSourceStream;
-  const TrackID mTrackId;
-  const PrincipalHandle mPrincipalHandle;
-
-  Mutex mMutex;
-  // The below members are protected by mMutex.
-  RefPtr<layers::Image> mImage;
-  TimeStamp mImageTime;
-};
-
-OutputStreamDriver::OutputStreamDriver(SourceMediaStream* aSourceStream,
-                                       const TrackID& aTrackId,
+OutputStreamDriver::OutputStreamDriver(SourceMediaTrack* aSourceStream,
                                        const PrincipalHandle& aPrincipalHandle)
     : FrameCaptureListener(),
       mSourceStream(aSourceStream),
-      mTrackListener(
-          new TrackListener(aTrackId, aPrincipalHandle, aSourceStream)) {
+      mPrincipalHandle(aPrincipalHandle) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(mSourceStream);
-  mSourceStream->AddTrack(aTrackId, new VideoSegment());
-  mSourceStream->AddTrackListener(mTrackListener, aTrackId);
-  mSourceStream->SetPullingEnabled(aTrackId, true);
 
   // All CanvasCaptureMediaStreams shall at least get one frame.
   mFrameCaptureRequested = true;
@@ -123,26 +35,35 @@ OutputStreamDriver::OutputStreamDriver(SourceMediaStream* aSourceStream,
 
 OutputStreamDriver::~OutputStreamDriver() {
   MOZ_ASSERT(NS_IsMainThread());
-  // MediaStreamGraph will keep the listener alive until it can end the track in
-  // the graph on the next NotifyPull().
-  mTrackListener->EndTrack();
+  EndTrack();
 }
 
-void OutputStreamDriver::EndTrack() { mTrackListener->EndTrack(); }
+void OutputStreamDriver::EndTrack() {
+  MOZ_ASSERT(NS_IsMainThread());
+  if (!mSourceStream->IsDestroyed()) {
+    mSourceStream->Destroy();
+  }
+}
 
-void OutputStreamDriver::SetImage(const RefPtr<layers::Image>& aImage,
+void OutputStreamDriver::SetImage(RefPtr<layers::Image>&& aImage,
                                   const TimeStamp& aTime) {
-  mTrackListener->SetImage(aImage, aTime);
+  MOZ_ASSERT(NS_IsMainThread());
+
+  TRACE_COMMENT("SourceMediaTrack %p", mSourceStream.get());
+
+  VideoSegment segment;
+  const auto size = aImage->GetSize();
+  segment.AppendFrame(aImage.forget(), size, mPrincipalHandle, false, aTime);
+  mSourceStream->AppendData(&segment);
 }
 
 // ----------------------------------------------------------------------
 
 class TimerDriver : public OutputStreamDriver {
  public:
-  explicit TimerDriver(SourceMediaStream* aSourceStream, const double& aFPS,
-                       const TrackID& aTrackId,
+  explicit TimerDriver(SourceMediaTrack* aSourceStream, const double& aFPS,
                        const PrincipalHandle& aPrincipalHandle)
-      : OutputStreamDriver(aSourceStream, aTrackId, aPrincipalHandle),
+      : OutputStreamDriver(aSourceStream, aPrincipalHandle),
         mFPS(aFPS),
         mTimer(nullptr) {
     if (mFPS == 0.0) {
@@ -170,7 +91,7 @@ class TimerDriver : public OutputStreamDriver {
     }
 
     mFrameCaptureRequested = false;
-    SetImage(image.forget(), aTime);
+    SetImage(std::move(image), aTime);
   }
 
   void Forget() override {
@@ -181,7 +102,7 @@ class TimerDriver : public OutputStreamDriver {
   }
 
  protected:
-  virtual ~TimerDriver() {}
+  virtual ~TimerDriver() = default;
 
  private:
   const double mFPS;
@@ -192,9 +113,9 @@ class TimerDriver : public OutputStreamDriver {
 
 class AutoDriver : public OutputStreamDriver {
  public:
-  explicit AutoDriver(SourceMediaStream* aSourceStream, const TrackID& aTrackId,
+  explicit AutoDriver(SourceMediaTrack* aSourceStream,
                       const PrincipalHandle& aPrincipalHandle)
-      : OutputStreamDriver(aSourceStream, aTrackId, aPrincipalHandle) {}
+      : OutputStreamDriver(aSourceStream, aPrincipalHandle) {}
 
   void NewFrame(already_AddRefed<Image> aImage,
                 const TimeStamp& aTime) override {
@@ -204,11 +125,11 @@ class AutoDriver : public OutputStreamDriver {
     // after something changed.
 
     RefPtr<Image> image = aImage;
-    SetImage(image.forget(), aTime);
+    SetImage(std::move(image), aTime);
   }
 
  protected:
-  virtual ~AutoDriver() {}
+  virtual ~AutoDriver() = default;
 };
 
 // ----------------------------------------------------------------------
@@ -224,7 +145,7 @@ NS_INTERFACE_MAP_END_INHERITING(DOMMediaStream)
 
 CanvasCaptureMediaStream::CanvasCaptureMediaStream(nsPIDOMWindowInner* aWindow,
                                                    HTMLCanvasElement* aCanvas)
-    : DOMMediaStream(aWindow), mCanvas(aCanvas), mOutputStreamDriver(nullptr) {}
+    : DOMMediaStream(aWindow), mCanvas(aCanvas) {}
 
 CanvasCaptureMediaStream::~CanvasCaptureMediaStream() {
   if (mOutputStreamDriver) {
@@ -244,34 +165,23 @@ void CanvasCaptureMediaStream::RequestFrame() {
 }
 
 nsresult CanvasCaptureMediaStream::Init(const dom::Optional<double>& aFPS,
-                                        const TrackID& aTrackId,
                                         nsIPrincipal* aPrincipal) {
+  MediaTrackGraph* graph = MediaTrackGraph::GetInstance(
+      MediaTrackGraph::SYSTEM_THREAD_DRIVER, mWindow,
+      MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE,
+      MediaTrackGraph::DEFAULT_OUTPUT_DEVICE);
+  SourceMediaTrack* source = graph->CreateSourceTrack(MediaSegment::VIDEO);
   PrincipalHandle principalHandle = MakePrincipalHandle(aPrincipal);
-
   if (!aFPS.WasPassed()) {
-    mOutputStreamDriver = new AutoDriver(GetInputStream()->AsSourceStream(),
-                                         aTrackId, principalHandle);
+    mOutputStreamDriver = new AutoDriver(source, principalHandle);
   } else if (aFPS.Value() < 0) {
     return NS_ERROR_ILLEGAL_VALUE;
   } else {
     // Cap frame rate to 60 FPS for sanity
     double fps = std::min(60.0, aFPS.Value());
-    mOutputStreamDriver = new TimerDriver(GetInputStream()->AsSourceStream(),
-                                          fps, aTrackId, principalHandle);
+    mOutputStreamDriver = new TimerDriver(source, fps, principalHandle);
   }
   return NS_OK;
-}
-
-already_AddRefed<CanvasCaptureMediaStream>
-CanvasCaptureMediaStream::CreateSourceStream(nsPIDOMWindowInner* aWindow,
-                                             HTMLCanvasElement* aCanvas) {
-  RefPtr<CanvasCaptureMediaStream> stream =
-      new CanvasCaptureMediaStream(aWindow, aCanvas);
-  MediaStreamGraph* graph = MediaStreamGraph::GetInstance(
-      MediaStreamGraph::SYSTEM_THREAD_DRIVER, aWindow,
-      MediaStreamGraph::REQUEST_DEFAULT_SAMPLE_RATE);
-  stream->InitSourceStream(graph);
-  return stream.forget();
 }
 
 FrameCaptureListener* CanvasCaptureMediaStream::FrameCaptureListener() {
@@ -288,5 +198,11 @@ void CanvasCaptureMediaStream::StopCapture() {
   mOutputStreamDriver = nullptr;
 }
 
-}  // namespace dom
-}  // namespace mozilla
+SourceMediaTrack* CanvasCaptureMediaStream::GetSourceStream() const {
+  if (!mOutputStreamDriver) {
+    return nullptr;
+  }
+  return mOutputStreamDriver->mSourceStream;
+}
+
+}  // namespace mozilla::dom

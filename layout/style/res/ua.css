@@ -47,7 +47,15 @@
   /* Bug 724750 */
   backface-visibility: inherit;
   clip: inherit;
+  /* Other transform-related properties */
+  /* transform-style: inherit; Bug 1560704 */
+  rotate: inherit;
+  scale: inherit;
+  translate: inherit;
   /* When the table wrapper is a Flex/Grid item we need these: */
+  flex-grow: inherit;
+  flex-shrink: inherit;
+  flex-basis: inherit;
   align-self: inherit;
   justify-self: inherit;
   grid-column-start: inherit;
@@ -55,7 +63,11 @@
   grid-row-start: inherit;
   grid-row-end: inherit;
   order: inherit;
+  outline: inherit;
+  outline-offset: inherit;
   column-span: inherit; /* needed if <table> has "column-span:all" */
+  contain: inherit; /* needed if table has 'contain:layout' or 'paint' */
+  scroll-margin: inherit;  /* Bug 1633192 */
 }
 
 *|*::-moz-table-row {
@@ -121,14 +133,12 @@
   unicode-bidi: isolate;
 }
 
-/* Lists */
-
-*|*::-moz-list-bullet, *|*::-moz-list-number {
-  display: inline;
-  vertical-align: baseline;
+/* https://drafts.csswg.org/css-lists-3/#ua-stylesheet */
+*|*::marker {
+  text-align: end;
+  text-transform: none;
+  unicode-bidi: isolate;
   font-variant-numeric: tabular-nums;
-  /* Prevent the element from being selected when clicking on the marker. */
-  -moz-user-select: none;
 }
 
 /* SVG documents don't always load this file but they do have links.
@@ -145,6 +155,11 @@
 *|*:any-link:-moz-focusring {
   /* Don't specify the outline-color, we should always use initial value. */
   outline: 1px dotted;
+}
+
+/* Inert subtrees */
+*|*:-moz-inert {
+  -moz-inert: inert;
 }
 
 /* Miscellaneous */
@@ -202,11 +217,11 @@
   /* Please keep the Multicol/Flex/Grid/Align sections below in sync with
      ::-moz-fieldset-content/::-moz-button-content in forms.css */
   /* Multicol container */
-  -moz-column-count: inherit;
-  -moz-column-width: inherit;
-  -moz-column-gap: inherit;
-  -moz-column-rule: inherit;
-  -moz-column-fill: inherit;
+  column-count: inherit;
+  column-width: inherit;
+  column-gap: inherit;
+  column-rule: inherit;
+  column-fill: inherit;
   /* Flex container */
   flex-direction: inherit;
   flex-wrap: inherit;
@@ -215,6 +230,7 @@
   -moz-box-direction: inherit;
   -moz-box-pack: inherit;
   -moz-box-align: inherit;
+  -webkit-line-clamp: inherit;
   /* Grid container */
   grid-auto-columns: inherit;
   grid-auto-rows: inherit;
@@ -241,9 +257,6 @@
 
 *|*::-moz-viewport-scroll {
   overflow: auto;
-%ifdef XP_WIN
-  resize: both;
-%endif
 }
 
 *|*::-moz-column-set,
@@ -252,11 +265,8 @@
   /* make unicode-bidi inherit, otherwise it has no effect on column boxes */
   unicode-bidi: inherit;
   text-overflow: inherit;
-  /* inherit the outer frame's display, otherwise we turn into an inline */
-  display: inherit;
-  /* Carry through our parent's height so that %-height children get
-  their heights set */
-  height: 100%;
+  /* Both -moz-column-set and -moz-column-content need to be blocks. */
+  display: block;
 }
 
 *|*::-moz-column-set {
@@ -292,14 +302,21 @@
   height: 100%;
 }
 
-*|*::-moz-page {
-  /* Individual page in print/print preview. Visual styles may only appear
-   * in print preview. */
+*|*::-moz-printed-sheet {
+  /* Individual sheet of paper in print/print preview. Visual styles may only
+   * appear in print preview. */
   display: block;
   background: white;
   box-shadow: 5px 5px 8px #202020;
   box-decoration-break: clone;
+  /* TODO: Remove margin if viewport is small or something? */
   margin: 0.125in 0.25in;
+}
+
+@media (monochrome) and (-moz-print-preview) {
+  *|*::-moz-page {
+    filter: grayscale(1);
+  }
 }
 
 *|*::-moz-pagecontent {
@@ -337,6 +354,14 @@
   box-sizing: border-box !important;
   object-fit: contain;
   transform: none !important;
+}
+
+xul|*:fullscreen:not(:root):not([hidden="true"]) {
+  /* The position: fixed; property above used to force the computed display
+   * value to block. It is no longer the case now, so we manually set it here to
+   * maintain the old behaviour. We should probably not do this, but we don't
+   * fullscreen XUL element that frequently either. */
+  display: block;
 }
 
 /* Selectors here should match the check in
@@ -389,18 +414,12 @@ div:-moz-native-anonymous.moz-accessiblecaret {
   /* Add transition effect to make caret size changing smoother. */
   transition-duration: 250ms;
   transition-property: width, height, margin-left;
-}
 
-div:-moz-native-anonymous.moz-accessiblecaret,
-div:-moz-native-anonymous.moz-accessiblecaret > #text-overlay,
-div:-moz-native-anonymous.moz-accessiblecaret > #image {
   position: absolute;
   z-index: 2147483647;
 }
 
-div:-moz-native-anonymous.moz-accessiblecaret > #text-overlay,
-div:-moz-native-anonymous.moz-accessiblecaret > #image {
-  top: 0;
+div:-moz-native-anonymous.moz-accessiblecaret > :is(#text-overlay, #image) {
   width: 100%;
 
   /* Override this property in moz-custom-content-container to make dummy touch
@@ -413,15 +432,13 @@ div:-moz-native-anonymous.moz-accessiblecaret > #image {
   background-size: 100%;
   background-repeat: no-repeat;
   background-origin: content-box;
-  height: 100%;
 }
 
 div:-moz-native-anonymous.moz-accessiblecaret.normal > #image {
   background-image: url("resource://gre-resources/accessiblecaret-normal@1x.png");
 }
 
-div:-moz-native-anonymous.moz-accessiblecaret.left > #text-overlay,
-div:-moz-native-anonymous.moz-accessiblecaret.left > #image {
+div:-moz-native-anonymous.moz-accessiblecaret.left > :is(#text-overlay, #image) {
   margin-left: -39%;
 }
 
@@ -429,8 +446,7 @@ div:-moz-native-anonymous.moz-accessiblecaret.left > #image {
   background-image: url("resource://gre-resources/accessiblecaret-tilt-left@1x.png");
 }
 
-div:-moz-native-anonymous.moz-accessiblecaret.right > #text-overlay,
-div:-moz-native-anonymous.moz-accessiblecaret.right > #image {
+div:-moz-native-anonymous.moz-accessiblecaret.right > :is(#text-overlay, #image) {
   margin-left: 41%;
 }
 
@@ -483,6 +499,81 @@ div:-moz-native-anonymous.moz-accessiblecaret.none {
     background-image: url("resource://gre-resources/accessiblecaret-tilt-right@2.25x.png");
   }
 }
+
+%ifdef ANDROID
+div:-moz-native-anonymous.moz-accessiblecaret > :is(#text-overlay, #image) {
+  /* border: 0.1px solid red; */ /* Uncomment border to see the touch target. */
+  padding-left: 59%; /* Enlarge the touch area. ((48-22)/2)px / 22px ~= 59% */
+  padding-right: 59%; /* Enlarge the touch area. */
+  margin-left: -59%;
+}
+
+div:-moz-native-anonymous.moz-accessiblecaret > #image {
+  padding-bottom: 59%; /* Enlarge the touch area. */
+}
+
+div:-moz-native-anonymous.moz-accessiblecaret.normal > #image {
+  background-image: url("chrome://geckoview/skin/images/accessiblecaret-normal-hdpi.png");
+}
+
+div:-moz-native-anonymous.moz-accessiblecaret.left > :is(#text-overlay, #image) {
+  margin-left: -109%;
+}
+
+div:-moz-native-anonymous.moz-accessiblecaret.left > #image {
+  background-image: url("chrome://geckoview/skin/images/accessiblecaret-tilt-left-hdpi.png");
+}
+
+div:-moz-native-anonymous.moz-accessiblecaret.right > :is(#text-overlay, #image) {
+  margin-left: -12%;
+}
+
+div:-moz-native-anonymous.moz-accessiblecaret.right > #image {
+  background-image: url("chrome://geckoview/skin/images/accessiblecaret-tilt-right-hdpi.png");
+}
+
+@media (min-resolution: 1.5dppx) {
+  div:-moz-native-anonymous.moz-accessiblecaret.normal > #image {
+    background-image: url("chrome://geckoview/skin/images/accessiblecaret-normal-hdpi.png");
+  }
+
+  div:-moz-native-anonymous.moz-accessiblecaret.left > #image {
+    background-image: url("chrome://geckoview/skin/images/accessiblecaret-tilt-left-hdpi.png");
+  }
+
+  div:-moz-native-anonymous.moz-accessiblecaret.right > #image {
+    background-image: url("chrome://geckoview/skin/images/accessiblecaret-tilt-right-hdpi.png");
+  }
+}
+
+@media (min-resolution: 2dppx) {
+  div:-moz-native-anonymous.moz-accessiblecaret.normal > #image {
+    background-image: url("chrome://geckoview/skin/images/accessiblecaret-normal-xhdpi.png");
+  }
+
+  div:-moz-native-anonymous.moz-accessiblecaret.left > #image {
+    background-image: url("chrome://geckoview/skin/images/accessiblecaret-tilt-left-xhdpi.png");
+  }
+
+  div:-moz-native-anonymous.moz-accessiblecaret.right > #image {
+    background-image: url("chrome://geckoview/skin/images/accessiblecaret-tilt-right-xhdpi.png");
+  }
+}
+
+@media (min-resolution: 2.25dppx) {
+  div:-moz-native-anonymous.moz-accessiblecaret.normal > #image {
+    background-image: url("chrome://geckoview/skin/images/accessiblecaret-normal-xxhdpi.png");
+  }
+
+  div:-moz-native-anonymous.moz-accessiblecaret.left > #image {
+    background-image: url("chrome://geckoview/skin/images/accessiblecaret-tilt-left-xxhdpi.png");
+  }
+
+  div:-moz-native-anonymous.moz-accessiblecaret.right > #image {
+    background-image: url("chrome://geckoview/skin/images/accessiblecaret-tilt-right-xxhdpi.png");
+  }
+}
+%endif
 
 /* Custom content container in the CanvasFrame, positioned on top of everything
    everything else, not reacting to pointer events. */

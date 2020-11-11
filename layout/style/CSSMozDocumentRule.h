@@ -22,7 +22,7 @@ class CSSMozDocumentRule final : public css::ConditionRule {
 
   NS_DECL_ISUPPORTS_INHERITED
 
-  static bool Match(nsIDocument* aDoc, nsIURI* aDocURI,
+  static bool Match(const Document*, nsIURI* aDocURI,
                     const nsACString& aDocURISpec, const nsACString& aPattern,
                     css::DocumentMatchingFunction);
 
@@ -39,8 +39,7 @@ class CSSMozDocumentRule final : public css::ConditionRule {
   void SetConditionText(const nsAString& aConditionText,
                         ErrorResult& aRv) final;
 
-  size_t SizeOfIncludingThis(
-      mozilla::MallocSizeOf aMallocSizeOf) const override;
+  size_t SizeOfIncludingThis(MallocSizeOf) const override;
 
   JSObject* WrapObject(JSContext* aCx,
                        JS::Handle<JSObject*> aGivenProto) override;

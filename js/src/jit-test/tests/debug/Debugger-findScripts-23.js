@@ -1,8 +1,10 @@
+// |jit-test| skip-if: isLcovEnabled()
+
 // If a script is (re)lazified, findScripts should not delazify it.
 
 var dbg = new Debugger();
 
-var g = newGlobal();
+var g = newGlobal({newCompartment: true});
 g.eval('function f(){}');
 assertEq(g.eval('isLazyFunction(f)'), true);
 

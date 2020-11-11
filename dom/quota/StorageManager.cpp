@@ -6,30 +6,66 @@
 
 #include "StorageManager.h"
 
-#include "mozilla/dom/DOMPrefs.h"
-#include "mozilla/dom/PromiseWorkerProxy.h"
-#include "mozilla/dom/quota/QuotaManagerService.h"
-#include "mozilla/dom/StorageManagerBinding.h"
-#include "mozilla/dom/WorkerPrivate.h"
+#include <cstdint>
+#include <cstdlib>
+#include <utility>
+#include "ErrorList.h"
+#include "MainThreadUtils.h"
+#include "js/CallArgs.h"
+#include "js/TypeDecls.h"
+#include "mozilla/Attributes.h"
 #include "mozilla/ErrorResult.h"
-#include "mozilla/EventStateManager.h"
+#include "mozilla/MacroForEach.h"
+#include "mozilla/Maybe.h"
+#include "mozilla/Mutex.h"
+#include "mozilla/RefPtr.h"
 #include "mozilla/Telemetry.h"
+#include "mozilla/TelemetryScalarEnums.h"
+#include "mozilla/dom/BindingDeclarations.h"
+#include "mozilla/dom/Document.h"
+#include "mozilla/dom/Promise.h"
+#include "mozilla/dom/PromiseWorkerProxy.h"
+#include "mozilla/dom/StorageManagerBinding.h"
+#include "mozilla/dom/WorkerCommon.h"
+#include "mozilla/dom/WorkerPrivate.h"
+#include "mozilla/dom/WorkerRunnable.h"
+#include "mozilla/dom/WorkerStatus.h"
+#include "mozilla/dom/quota/QuotaManagerService.h"
 #include "nsContentPermissionHelper.h"
+#include "nsContentUtils.h"
+#include "nsDebug.h"
+#include "nsError.h"
+#include "nsIGlobalObject.h"
+#include "nsIPrincipal.h"
 #include "nsIQuotaCallbacks.h"
+#include "nsIQuotaManagerService.h"
 #include "nsIQuotaRequests.h"
+#include "nsIQuotaResults.h"
+#include "nsIVariant.h"
+#include "nsLiteralString.h"
 #include "nsPIDOMWindow.h"
+#include "nsString.h"
+#include "nsStringFlags.h"
+#include "nsTLiteralString.h"
+#include "nscore.h"
+
+class JSObject;
+struct JSContext;
+struct nsID;
+
+namespace mozilla {
+class Runnable;
+}
 
 using namespace mozilla::dom::quota;
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 namespace {
 
 // This class is used to get quota usage, request persist and check persisted
 // status callbacks.
-class RequestResolver final : public nsIQuotaCallback,
-                              public nsIQuotaUsageCallback {
+class RequestResolver final : public nsIQuotaCallback {
  public:
   enum Type { Estimate, Persist, Persisted };
 
@@ -66,17 +102,15 @@ class RequestResolver final : public nsIQuotaCallback,
 
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIQUOTACALLBACK
-  NS_DECL_NSIQUOTAUSAGECALLBACK
 
  private:
-  ~RequestResolver() {}
+  ~RequestResolver() = default;
 
   nsresult GetStorageEstimate(nsIVariant* aResult);
 
   nsresult GetPersisted(nsIVariant* aResult);
 
-  template <typename T>
-  nsresult OnCompleteOrUsageResult(T* aRequest);
+  nsresult OnCompleteInternal(nsIQuotaRequest* aRequest);
 
   nsresult Finish();
 };
@@ -102,8 +136,8 @@ class EstimateWorkerMainThreadRunnable final : public WorkerMainThreadRunnable {
  public:
   EstimateWorkerMainThreadRunnable(WorkerPrivate* aWorkerPrivate,
                                    PromiseWorkerProxy* aProxy)
-      : WorkerMainThreadRunnable(
-            aWorkerPrivate, NS_LITERAL_CSTRING("StorageManager :: Estimate")),
+      : WorkerMainThreadRunnable(aWorkerPrivate,
+                                 "StorageManager :: Estimate"_ns),
         mProxy(aProxy) {
     MOZ_ASSERT(aWorkerPrivate);
     aWorkerPrivate->AssertIsOnWorkerThread();
@@ -120,8 +154,8 @@ class PersistedWorkerMainThreadRunnable final
  public:
   PersistedWorkerMainThreadRunnable(WorkerPrivate* aWorkerPrivate,
                                     PromiseWorkerProxy* aProxy)
-      : WorkerMainThreadRunnable(
-            aWorkerPrivate, NS_LITERAL_CSTRING("StorageManager :: Persisted")),
+      : WorkerMainThreadRunnable(aWorkerPrivate,
+                                 "StorageManager :: Persisted"_ns),
         mProxy(aProxy) {
     MOZ_ASSERT(aWorkerPrivate);
     aWorkerPrivate->AssertIsOnWorkerThread();
@@ -142,11 +176,10 @@ class PersistentStoragePermissionRequest final
  public:
   PersistentStoragePermissionRequest(nsIPrincipal* aPrincipal,
                                      nsPIDOMWindowInner* aWindow,
-                                     bool aIsHandlingUserInput,
                                      Promise* aPromise)
-      : ContentPermissionRequestBase(aPrincipal, aIsHandlingUserInput, aWindow,
-                                     NS_LITERAL_CSTRING("dom.storageManager"),
-                                     NS_LITERAL_CSTRING("persistent-storage")),
+      : ContentPermissionRequestBase(aPrincipal, aWindow,
+                                     "dom.storageManager"_ns,
+                                     "persistent-storage"_ns),
         mPromise(aPromise) {
     MOZ_ASSERT(aWindow);
     MOZ_ASSERT(aPromise);
@@ -166,24 +199,35 @@ class PersistentStoragePermissionRequest final
   ~PersistentStoragePermissionRequest() = default;
 };
 
-nsresult GetUsageForPrincipal(nsIPrincipal* aPrincipal,
-                              nsIQuotaUsageCallback* aCallback,
-                              nsIQuotaUsageRequest** aRequest) {
+nsresult Estimate(nsIPrincipal* aPrincipal, nsIQuotaCallback* aCallback,
+                  nsIQuotaRequest** aRequest) {
   MOZ_ASSERT(aPrincipal);
   MOZ_ASSERT(aCallback);
   MOZ_ASSERT(aRequest);
+
+  // Firefox and Quota Manager have always used the schemeless origin group
+  // (https://storage.spec.whatwg.org/#schemeless-origin-group) for quota limit
+  // purposes. This has been to prevent a site/eTLD+1 from claiming more than
+  // its fair share of storage through the use of sub-domains. Because the limit
+  // is at the group level and the usage needs to make sense in the context of
+  // that limit, we also expose the group usage. Bug 1374970 reflects this
+  // reality and bug 1305665 tracks our plan to eliminate our use of groups for
+  // this.
 
   nsCOMPtr<nsIQuotaManagerService> qms = QuotaManagerService::GetOrCreate();
   if (NS_WARN_IF(!qms)) {
     return NS_ERROR_FAILURE;
   }
 
-  nsresult rv =
-      qms->GetUsageForPrincipal(aPrincipal, aCallback, true, aRequest);
+  nsCOMPtr<nsIQuotaRequest> request;
+  nsresult rv = qms->Estimate(aPrincipal, getter_AddRefs(request));
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
 
+  MOZ_ALWAYS_SUCCEEDS(request->SetCallback(aCallback));
+
+  request.forget(aRequest);
   return NS_OK;
 };
 
@@ -232,7 +276,7 @@ already_AddRefed<Promise> ExecuteOpOnMainOrWorkerThread(
       return nullptr;
     }
 
-    nsCOMPtr<nsIDocument> doc = window->GetExtantDoc();
+    nsCOMPtr<Document> doc = window->GetExtantDoc();
     if (NS_WARN_IF(!doc)) {
       aRv.Throw(NS_ERROR_FAILURE);
       return nullptr;
@@ -244,7 +288,21 @@ already_AddRefed<Promise> ExecuteOpOnMainOrWorkerThread(
     // Storage Standard 7. API
     // If origin is an opaque origin, then reject promise with a TypeError.
     if (principal->GetIsNullPrincipal()) {
-      promise->MaybeReject(NS_ERROR_DOM_TYPE_ERR);
+      switch (aType) {
+        case RequestResolver::Type::Persisted:
+          promise->MaybeRejectWithTypeError(
+              "persisted() called for opaque origin");
+          break;
+        case RequestResolver::Type::Persist:
+          promise->MaybeRejectWithTypeError(
+              "persist() called for opaque origin");
+          break;
+        case RequestResolver::Type::Estimate:
+          promise->MaybeRejectWithTypeError(
+              "estimate() called for opaque origin");
+          break;
+      }
+
       return promise.forget();
     }
 
@@ -261,12 +319,12 @@ already_AddRefed<Promise> ExecuteOpOnMainOrWorkerThread(
 
       case RequestResolver::Type::Persist: {
         RefPtr<PersistentStoragePermissionRequest> request =
-            new PersistentStoragePermissionRequest(
-                principal, window, EventStateManager::IsHandlingUserInput(),
-                promise);
+            new PersistentStoragePermissionRequest(principal, window, promise);
 
         // In private browsing mode, no permission prompt.
         if (nsContentUtils::IsInPrivateBrowsing(doc)) {
+          aRv = request->Cancel();
+        } else if (!request->CheckPermissionDelegate()) {
           aRv = request->Cancel();
         } else {
           aRv = request->Start();
@@ -279,9 +337,8 @@ already_AddRefed<Promise> ExecuteOpOnMainOrWorkerThread(
         RefPtr<RequestResolver> resolver =
             new RequestResolver(RequestResolver::Type::Estimate, promise);
 
-        RefPtr<nsIQuotaUsageRequest> request;
-        aRv =
-            GetUsageForPrincipal(principal, resolver, getter_AddRefs(request));
+        RefPtr<nsIQuotaRequest> request;
+        aRv = Estimate(principal, resolver, getter_AddRefs(request));
 
         break;
       }
@@ -378,7 +435,8 @@ void RequestResolver::ResolveOrReject() {
     if (NS_SUCCEEDED(mResultCode)) {
       promise->MaybeResolve(mStorageEstimate);
     } else {
-      promise->MaybeReject(NS_ERROR_DOM_TYPE_ERR);
+      promise->MaybeRejectWithTypeError(
+          "Internal error while estimating storage usage");
     }
 
     return;
@@ -393,7 +451,7 @@ void RequestResolver::ResolveOrReject() {
   }
 }
 
-NS_IMPL_ISUPPORTS(RequestResolver, nsIQuotaUsageCallback, nsIQuotaCallback)
+NS_IMPL_ISUPPORTS(RequestResolver, nsIQuotaCallback)
 
 nsresult RequestResolver::GetStorageEstimate(nsIVariant* aResult) {
   MOZ_ASSERT(aResult);
@@ -410,15 +468,14 @@ nsresult RequestResolver::GetStorageEstimate(nsIVariant* aResult) {
 
   free(iid);
 
-  nsCOMPtr<nsIQuotaOriginUsageResult> originUsageResult =
-      do_QueryInterface(supports);
-  MOZ_ASSERT(originUsageResult);
+  nsCOMPtr<nsIQuotaEstimateResult> estimateResult = do_QueryInterface(supports);
+  MOZ_ASSERT(estimateResult);
 
   MOZ_ALWAYS_SUCCEEDS(
-      originUsageResult->GetUsage(&mStorageEstimate.mUsage.Construct()));
+      estimateResult->GetUsage(&mStorageEstimate.mUsage.Construct()));
 
   MOZ_ALWAYS_SUCCEEDS(
-      originUsageResult->GetLimit(&mStorageEstimate.mQuota.Construct()));
+      estimateResult->GetLimit(&mStorageEstimate.mQuota.Construct()));
 
   return NS_OK;
 }
@@ -450,8 +507,7 @@ nsresult RequestResolver::GetPersisted(nsIVariant* aResult) {
   return NS_OK;
 }
 
-template <typename T>
-nsresult RequestResolver::OnCompleteOrUsageResult(T* aRequest) {
+nsresult RequestResolver::OnCompleteInternal(nsIQuotaRequest* aRequest) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aRequest);
 
@@ -516,22 +572,7 @@ RequestResolver::OnComplete(nsIQuotaRequest* aRequest) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aRequest);
 
-  mResultCode = OnCompleteOrUsageResult(aRequest);
-
-  nsresult rv = Finish();
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return rv;
-  }
-
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-RequestResolver::OnUsageResult(nsIQuotaUsageRequest* aRequest) {
-  MOZ_ASSERT(NS_IsMainThread());
-  MOZ_ASSERT(aRequest);
-
-  mResultCode = OnCompleteOrUsageResult(aRequest);
+  mResultCode = OnCompleteInternal(aRequest);
 
   nsresult rv = Finish();
   if (NS_WARN_IF(NS_FAILED(rv))) {
@@ -571,9 +612,8 @@ bool EstimateWorkerMainThreadRunnable::MainThreadRun() {
   RefPtr<RequestResolver> resolver =
       new RequestResolver(RequestResolver::Type::Estimate, mProxy);
 
-  RefPtr<nsIQuotaUsageRequest> request;
-  nsresult rv =
-      GetUsageForPrincipal(principal, resolver, getter_AddRefs(request));
+  RefPtr<nsIQuotaRequest> request;
+  nsresult rv = Estimate(principal, resolver, getter_AddRefs(request));
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return false;
   }
@@ -612,10 +652,19 @@ nsresult PersistentStoragePermissionRequest::Start() {
   MOZ_ASSERT(NS_IsMainThread());
 
   PromptResult pr;
+#ifdef MOZ_WIDGET_ANDROID
+  // on Android calling `ShowPrompt` here calls
+  // `nsContentPermissionUtils::AskPermission` once, and a response of
+  // `PromptResult::Pending` calls it again. This results in multiple requests
+  // for storage access, so we check the prompt prefs only to ensure we only
+  // request it once.
+  pr = CheckPromptPrefs();
+#else
   nsresult rv = ShowPrompt(pr);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
+#endif
   if (pr == PromptResult::Granted) {
     return Allow(JS::UndefinedHandleValue);
   }
@@ -677,7 +726,7 @@ StorageManager::StorageManager(nsIGlobalObject* aGlobal) : mOwner(aGlobal) {
   MOZ_ASSERT(aGlobal);
 }
 
-StorageManager::~StorageManager() {}
+StorageManager::~StorageManager() = default;
 
 already_AddRefed<Promise> StorageManager::Persisted(ErrorResult& aRv) {
   MOZ_ASSERT(mOwner);
@@ -718,5 +767,4 @@ JSObject* StorageManager::WrapObject(JSContext* aCx,
   return StorageManager_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

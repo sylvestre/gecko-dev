@@ -6,30 +6,27 @@
 
 #include "LulMain.h"
 
-#include <string.h>
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <unistd.h>  // write(), only for testing LUL
 
 #include <algorithm>  // std::sort
 #include <string>
+#include <utility>
 
-#include "mozilla/Assertions.h"
+#include "GeckoProfiler.h"  // for profiler_current_thread_id()
+#include "LulCommonExt.h"
+#include "LulElfExt.h"
+#include "LulMainInt.h"
 #include "mozilla/ArrayUtils.h"
+#include "mozilla/Assertions.h"
 #include "mozilla/CheckedInt.h"
 #include "mozilla/DebugOnly.h"
 #include "mozilla/MemoryChecking.h"
-#include "mozilla/Move.h"
 #include "mozilla/Sprintf.h"
 #include "mozilla/UniquePtr.h"
 #include "mozilla/Unused.h"
-
-#include "LulCommonExt.h"
-#include "LulElfExt.h"
-
-#include "LulMainInt.h"
-
-#include "platform-linux-lul.h"  // for gettid()
 
 // Set this to 1 for verbose logging
 #define DEBUG_MAIN 0
@@ -97,7 +94,7 @@ static const char* NameOf_DW_REG(int16_t aReg) {
     case DW_REG_MIPS_PC:
       return "pc";
 #else
-#error "Unsupported arch"
+#  error "Unsupported arch"
 #endif
     default:
       return "???";
@@ -130,10 +127,11 @@ string LExpr::ShowRule(const char* aNewReg) const {
   return res;
 }
 
-void RuleSet::Print(void (*aLog)(const char*)) const {
+void RuleSet::Print(uintptr_t avma, uintptr_t len,
+                    void (*aLog)(const char*)) const {
   char buf[96];
-  SprintfLiteral(buf, "[%llx .. %llx]: let ", (unsigned long long int)mAddr,
-                 (unsigned long long int)(mAddr + mLen - 1));
+  SprintfLiteral(buf, "[%llx .. %llx]: let ", (unsigned long long int)avma,
+                 (unsigned long long int)(avma + len - 1));
   string res = string(buf);
   res += mCfaExpr.ShowRule("cfa");
   res += " in";
@@ -158,7 +156,7 @@ void RuleSet::Print(void (*aLog)(const char*)) const {
   res += mSPexpr.ShowRule(" SP");
   res += mFPexpr.ShowRule(" FP");
 #else
-#error "Unsupported arch"
+#  error "Unsupported arch"
 #endif
   aLog(res.c_str());
 }
@@ -202,7 +200,7 @@ LExpr* RuleSet::ExprForRegno(DW_REG_NUMBER aRegno) {
     case DW_REG_MIPS_PC:
       return &mPCexpr;
 #else
-#error "Unknown arch"
+#  error "Unknown arch"
 #endif
     default:
       return nullptr;
@@ -210,10 +208,7 @@ LExpr* RuleSet::ExprForRegno(DW_REG_NUMBER aRegno) {
 }
 
 RuleSet::RuleSet() {
-  mAddr = 0;
-  mLen = 0;
-  // The only other fields are of type LExpr and those are initialised
-  // by LExpr::LExpr().
+  // All fields are of type LExpr and so are initialised by LExpr::LExpr().
 }
 
 ////////////////////////////////////////////////////////////////
@@ -222,23 +217,43 @@ RuleSet::RuleSet() {
 
 // See header file LulMainInt.h for comments about invariants.
 
-SecMap::SecMap(void (*aLog)(const char*))
-    : mSummaryMinAddr(1), mSummaryMaxAddr(0), mUsable(true), mLog(aLog) {}
+SecMap::SecMap(uintptr_t mapStartAVMA, uint32_t mapLen,
+               void (*aLog)(const char*))
+    : mUsable(false),
+      mUniqifier(new mozilla::HashMap<RuleSet, uint32_t, RuleSet,
+                                      InfallibleAllocPolicy>),
+      mLog(aLog) {
+  if (mapLen == 0) {
+    // Degenerate case.
+    mMapMinAVMA = 1;
+    mMapMaxAVMA = 0;
+  } else {
+    mMapMinAVMA = mapStartAVMA;
+    mMapMaxAVMA = mapStartAVMA + (uintptr_t)mapLen - 1;
+  }
+}
 
-SecMap::~SecMap() { mRuleSets.clear(); }
+SecMap::~SecMap() {
+  mExtents.clear();
+  mDictionary.clear();
+  if (mUniqifier) {
+    mUniqifier->clear();
+    mUniqifier = nullptr;
+  }
+}
 
 // RUNS IN NO-MALLOC CONTEXT
 RuleSet* SecMap::FindRuleSet(uintptr_t ia) {
-  // Binary search mRuleSets to find one that brackets |ia|.
+  // Binary search mExtents to find one that brackets |ia|.
   // lo and hi need to be signed, else the loop termination tests
   // don't work properly.  Note that this works correctly even when
-  // mRuleSets.size() == 0.
+  // mExtents.size() == 0.
 
   // Can't do this until the array has been sorted and preened.
   MOZ_ASSERT(mUsable);
 
   long int lo = 0;
-  long int hi = (long int)mRuleSets.size() - 1;
+  long int hi = (long int)mExtents.size() - 1;
   while (true) {
     // current unsearched space is from lo to hi, inclusive.
     if (lo > hi) {
@@ -246,9 +261,11 @@ RuleSet* SecMap::FindRuleSet(uintptr_t ia) {
       return nullptr;
     }
     long int mid = lo + ((hi - lo) / 2);
-    RuleSet* mid_ruleSet = &mRuleSets[mid];
-    uintptr_t mid_minAddr = mid_ruleSet->mAddr;
-    uintptr_t mid_maxAddr = mid_minAddr + mid_ruleSet->mLen - 1;
+    Extent* mid_extent = &mExtents[mid];
+    uintptr_t mid_offset = mid_extent->offset();
+    uintptr_t mid_len = mid_extent->len();
+    uintptr_t mid_minAddr = mMapMinAVMA + mid_offset;
+    uintptr_t mid_maxAddr = mid_minAddr + mid_len - 1;
     if (ia < mid_minAddr) {
       hi = mid - 1;
       continue;
@@ -258,16 +275,68 @@ RuleSet* SecMap::FindRuleSet(uintptr_t ia) {
       continue;
     }
     MOZ_ASSERT(mid_minAddr <= ia && ia <= mid_maxAddr);
-    return mid_ruleSet;
+    uint32_t mid_extent_dictIx = mid_extent->dictIx();
+    MOZ_RELEASE_ASSERT(mid_extent_dictIx < mExtents.size());
+    return &mDictionary[mid_extent_dictIx];
   }
   // NOTREACHED
 }
 
 // Add a RuleSet to the collection.  The rule is copied in.  Calling
 // this makes the map non-searchable.
-void SecMap::AddRuleSet(const RuleSet* rs) {
+void SecMap::AddRuleSet(const RuleSet* rs, uintptr_t avma, uintptr_t len) {
   mUsable = false;
-  mRuleSets.push_back(*rs);
+
+  // Zero length RuleSet?  Meaningless, but ignore it anyway.
+  if (len == 0) {
+    return;
+  }
+
+  // Ignore attempts to add RuleSets whose address range doesn't fall within
+  // the declared address range for the SecMap.  Maybe we should print some
+  // kind of error message rather than silently ignoring them.
+  if (!(avma >= mMapMinAVMA && avma + len - 1 <= mMapMaxAVMA)) {
+    return;
+  }
+
+  // Because `mMapStartAVMA` .. `mMapEndAVMA` can specify at most a 2^32-1 byte
+  // chunk of address space, the following must now hold.
+  MOZ_RELEASE_ASSERT(len <= (uintptr_t)0xFFFFFFFF);
+
+  // See if `mUniqifier` already has `rs`.  If so set `dictIx` to the assigned
+  // dictionary index; if not, add `rs` to `mUniqifier` and assign a new
+  // dictionary index.  This is the core of the RuleSet-de-duplication process.
+  uint32_t dictIx = 0;
+  mozilla::HashMap<RuleSet, uint32_t, RuleSet, InfallibleAllocPolicy>::AddPtr
+      p = mUniqifier->lookupForAdd(*rs);
+  if (!p) {
+    dictIx = mUniqifier->count();
+    // If this ever fails, Extents::dictIx will need to be changed to be a
+    // type wider than the current uint16_t.
+    MOZ_RELEASE_ASSERT(dictIx < (1 << 16));
+    // This returns `false` on OOM.  We ignore the return value since we asked
+    // for it to use the InfallibleAllocPolicy.
+    DebugOnly<bool> addedOK = mUniqifier->add(p, *rs, dictIx);
+    MOZ_ASSERT(addedOK);
+  } else {
+    dictIx = p->value();
+  }
+
+  uint32_t offset = (uint32_t)(avma - mMapMinAVMA);
+  while (len > 0) {
+    // Because Extents::len is a uint16_t, we have to add multiple `mExtents`
+    // entries to cover the case where `len` is equal to or greater than 2^16.
+    // This happens only exceedingly rarely.  In order to get more test
+    // coverage on what would otherwise be a very low probability (less than
+    // 0.0002%) corner case, we do this in steps of 4095.  On libxul.so as of
+    // Sept 2020, this increases the number of `mExtents` entries by about
+    // 0.05%, hence has no meaningful effect on space use, but increases the
+    // use of this corner case, and hence its test coverage, by a factor of 250.
+    uint32_t this_step_len = (len > 4095) ? 4095 : len;
+    mExtents.emplace_back(offset, this_step_len, dictIx);
+    offset += this_step_len;
+    len -= this_step_len;
+  }
 }
 
 // Add a PfxInstr to the vector of such instrs, and return the index
@@ -278,36 +347,60 @@ uint32_t SecMap::AddPfxInstr(PfxInstr pfxi) {
   return mPfxInstrs.size() - 1;
 }
 
-static bool CmpRuleSetsByAddrLE(const RuleSet& rs1, const RuleSet& rs2) {
-  return rs1.mAddr < rs2.mAddr;
+static bool CmpExtentsByOffsetLE(const Extent& ext1, const Extent& ext2) {
+  return ext1.offset() < ext2.offset();
 }
 
-// Prepare the map for searching.  Completely remove any which don't
-// fall inside the specified range [start, +len).
-void SecMap::PrepareRuleSets(uintptr_t aStart, size_t aLen) {
-  if (mRuleSets.empty()) {
+// Prepare the map for searching, by sorting it, de-overlapping entries and
+// removing any resulting zero-length entries.  At the start of this routine,
+// all Extents should fall within [mMapMinAVMA, mMapMaxAVMA] and not have zero
+// length, as a result of the checks in AddRuleSet().
+void SecMap::PrepareRuleSets() {
+  // At this point, the de-duped RuleSets are in `mUniqifier`, and
+  // `mDictionary` is empty.  This method will, amongst other things, copy
+  // them into `mDictionary` in order of their assigned dictionary-index
+  // values, as established by `SecMap::AddRuleSet`, and free `mUniqifier`;
+  // after this method, it has no further use.
+  MOZ_RELEASE_ASSERT(mUniqifier);
+  MOZ_RELEASE_ASSERT(mDictionary.empty());
+
+  if (mExtents.empty()) {
+    mUniqifier->clear();
+    mUniqifier = nullptr;
     return;
   }
 
-  MOZ_ASSERT(aLen > 0);
-  if (aLen == 0) {
-    // This should never happen.
-    mRuleSets.clear();
+  if (mMapMinAVMA == 1 && mMapMaxAVMA == 0) {
+    // The map is empty.  This should never happen.
+    mExtents.clear();
+    mUniqifier->clear();
+    mUniqifier = nullptr;
     return;
   }
+  MOZ_RELEASE_ASSERT(mMapMinAVMA <= mMapMaxAVMA);
+
+  // We must have at least one Extent, and as a consequence there must be at
+  // least one entry in the uniqifier.
+  MOZ_RELEASE_ASSERT(!mExtents.empty() && !mUniqifier->empty());
+
+#ifdef DEBUG
+  // Check invariants on incoming Extents.
+  for (size_t i = 0; i < mExtents.size(); ++i) {
+    Extent* ext = &mExtents[i];
+    uint32_t len = ext->len();
+    MOZ_ASSERT(len > 0);
+    MOZ_ASSERT(len <= 4095 /* per '4095' in AddRuleSet() */);
+    uint32_t offset = ext->offset();
+    uintptr_t avma = mMapMinAVMA + (uintptr_t)offset;
+    // Upper bounds test.  There's no lower bounds test because `offset` is a
+    // positive displacement from `mMapMinAVMA`, so a small underrun will
+    // manifest as `len` being close to 2^32.
+    MOZ_ASSERT(avma + (uintptr_t)len - 1 <= mMapMaxAVMA);
+  }
+#endif
 
   // Sort by start addresses.
-  std::sort(mRuleSets.begin(), mRuleSets.end(), CmpRuleSetsByAddrLE);
-
-  // Detect any entry not completely contained within [start, +len).
-  // Set its length to zero, so that the next pass will remove it.
-  for (size_t i = 0; i < mRuleSets.size(); ++i) {
-    RuleSet* rs = &mRuleSets[i];
-    if (rs->mLen > 0 &&
-        (rs->mAddr < aStart || rs->mAddr + rs->mLen > aStart + aLen)) {
-      rs->mLen = 0;
-    }
-  }
+  std::sort(mExtents.begin(), mExtents.end(), CmpExtentsByOffsetLE);
 
   // Iteratively truncate any overlaps and remove any zero length
   // entries that might result, or that may have been present
@@ -315,7 +408,7 @@ void SecMap::PrepareRuleSets(uintptr_t aStart, size_t aLen) {
   // expected to iterate only once.
   while (true) {
     size_t i;
-    size_t n = mRuleSets.size();
+    size_t n = mExtents.size();
     size_t nZeroLen = 0;
 
     if (n == 0) {
@@ -323,16 +416,18 @@ void SecMap::PrepareRuleSets(uintptr_t aStart, size_t aLen) {
     }
 
     for (i = 1; i < n; ++i) {
-      RuleSet* prev = &mRuleSets[i - 1];
-      RuleSet* here = &mRuleSets[i];
-      MOZ_ASSERT(prev->mAddr <= here->mAddr);
-      if (prev->mAddr + prev->mLen > here->mAddr) {
-        prev->mLen = here->mAddr - prev->mAddr;
+      Extent* prev = &mExtents[i - 1];
+      Extent* here = &mExtents[i];
+      MOZ_ASSERT(prev->offset() <= here->offset());
+      if (prev->offset() + prev->len() > here->offset()) {
+        prev->setLen(here->offset() - prev->offset());
       }
-      if (prev->mLen == 0) nZeroLen++;
+      if (prev->len() == 0) {
+        nZeroLen++;
+      }
     }
 
-    if (mRuleSets[n - 1].mLen == 0) {
+    if (mExtents[n - 1].len() == 0) {
       nZeroLen++;
     }
 
@@ -345,78 +440,99 @@ void SecMap::PrepareRuleSets(uintptr_t aStart, size_t aLen) {
     // Slide back the entries to remove the zero length ones.
     size_t j = 0;  // The write-point.
     for (i = 0; i < n; ++i) {
-      if (mRuleSets[i].mLen == 0) {
+      if (mExtents[i].len() == 0) {
         continue;
       }
-      if (j != i) mRuleSets[j] = mRuleSets[i];
+      if (j != i) {
+        mExtents[j] = mExtents[i];
+      }
       ++j;
     }
     MOZ_ASSERT(i == n);
     MOZ_ASSERT(nZeroLen <= n);
     MOZ_ASSERT(j == n - nZeroLen);
     while (nZeroLen > 0) {
-      mRuleSets.pop_back();
+      mExtents.pop_back();
       nZeroLen--;
     }
 
-    MOZ_ASSERT(mRuleSets.size() == j);
+    MOZ_ASSERT(mExtents.size() == j);
   }
 
-  size_t n = mRuleSets.size();
+  size_t nExtents = mExtents.size();
 
 #ifdef DEBUG
-  // Do a final check on the rules: their address ranges must be
+  // Do a final check on the extents: their address ranges must be
   // ascending, non overlapping, non zero sized.
-  if (n > 0) {
-    MOZ_ASSERT(mRuleSets[0].mLen > 0);
-    for (size_t i = 1; i < n; ++i) {
-      RuleSet* prev = &mRuleSets[i - 1];
-      RuleSet* here = &mRuleSets[i];
-      MOZ_ASSERT(prev->mAddr < here->mAddr);
-      MOZ_ASSERT(here->mLen > 0);
-      MOZ_ASSERT(prev->mAddr + prev->mLen <= here->mAddr);
+  if (nExtents > 0) {
+    MOZ_ASSERT(mExtents[0].len() > 0);
+    for (size_t i = 1; i < nExtents; ++i) {
+      const Extent* prev = &mExtents[i - 1];
+      const Extent* here = &mExtents[i];
+      MOZ_ASSERT(prev->offset() < here->offset());
+      MOZ_ASSERT(here->len() > 0);
+      MOZ_ASSERT(prev->offset() + prev->len() <= here->offset());
     }
   }
 #endif
 
-  // Set the summary min and max address values.
-  if (n == 0) {
-    // Use the values defined in comments in the class declaration.
-    mSummaryMinAddr = 1;
-    mSummaryMaxAddr = 0;
-  } else {
-    mSummaryMinAddr = mRuleSets[0].mAddr;
-    mSummaryMaxAddr = mRuleSets[n - 1].mAddr + mRuleSets[n - 1].mLen - 1;
+  // Create the final dictionary by enumerating the uniqifier.
+  size_t nUniques = mUniqifier->count();
+
+  RuleSet dummy;
+  mozilla::PodZero(&dummy);
+
+  mDictionary.reserve(nUniques);
+  for (size_t i = 0; i < nUniques; i++) {
+    mDictionary.push_back(dummy);
   }
+
+  for (auto iter = mUniqifier->iter(); !iter.done(); iter.next()) {
+    MOZ_RELEASE_ASSERT(iter.get().value() < nUniques);
+    mDictionary[iter.get().value()] = iter.get().key();
+  }
+
+  mUniqifier = nullptr;
+
   char buf[150];
-  SprintfLiteral(buf, "PrepareRuleSets: %d entries, smin/smax 0x%llx, 0x%llx\n",
-                 (int)n, (unsigned long long int)mSummaryMinAddr,
-                 (unsigned long long int)mSummaryMaxAddr);
+  SprintfLiteral(
+      buf,
+      "PrepareRuleSets: %lu extents, %lu rulesets, "
+      "avma min/max 0x%llx, 0x%llx\n",
+      (unsigned long int)nExtents, (unsigned long int)mDictionary.size(),
+      (unsigned long long int)mMapMinAVMA, (unsigned long long int)mMapMaxAVMA);
   buf[sizeof(buf) - 1] = 0;
   mLog(buf);
 
   // Is now usable for binary search.
   mUsable = true;
 
-  if (0) {
-    mLog("\nRulesets after preening\n");
-    for (size_t i = 0; i < mRuleSets.size(); ++i) {
-      mRuleSets[i].Print(mLog);
-      mLog("\n");
-    }
+#if 0
+  mLog("\nRulesets after preening\n");
+  for (size_t i = 0; i < nExtents; ++i) {
+    const Extent* extent = &mExtents[i];
+    uintptr_t avma = mMapMinAVMA + (uintptr_t)extent->offset();
+    mDictionary[extent->dictIx()].Print(avma, extent->len(), mLog);
     mLog("\n");
   }
+  mLog("\n");
+#endif
 }
 
-bool SecMap::IsEmpty() { return mRuleSets.empty(); }
+bool SecMap::IsEmpty() { return mExtents.empty(); }
 
 size_t SecMap::SizeOfIncludingThis(MallocSizeOf aMallocSizeOf) const {
   size_t n = aMallocSizeOf(this);
 
   // It's conceivable that these calls would be unsafe with some
   // implementations of std::vector, but it seems to be working for now...
-  n += aMallocSizeOf(mRuleSets.data());
   n += aMallocSizeOf(mPfxInstrs.data());
+
+  if (mUniqifier) {
+    n += mUniqifier->shallowSizeOfIncludingThis(aMallocSizeOf);
+  }
+  n += aMallocSizeOf(mDictionary.data());
+  n += aMallocSizeOf(mExtents.data());
 
   return n;
 }
@@ -570,14 +686,14 @@ class PriMap {
     // non-overlapping invariant is preserved (and, generally, holds).
     // FIXME: this gives a cost that is O(N^2) in the total number of
     // shared objects in the system.  ToDo: better.
-    MOZ_ASSERT(aSecMap->mSummaryMinAddr <= aSecMap->mSummaryMaxAddr);
+    MOZ_ASSERT(aSecMap->mMapMinAVMA <= aSecMap->mMapMaxAVMA);
 
     size_t num_secMaps = mSecMaps.size();
     uintptr_t i;
     for (i = 0; i < num_secMaps; ++i) {
       mozilla::UniquePtr<SecMap>& sm_i = mSecMaps[i];
-      MOZ_ASSERT(sm_i->mSummaryMinAddr <= sm_i->mSummaryMaxAddr);
-      if (aSecMap->mSummaryMinAddr < sm_i->mSummaryMaxAddr) {
+      MOZ_ASSERT(sm_i->mMapMinAVMA <= sm_i->mMapMaxAVMA);
+      if (aSecMap->mMapMinAVMA < sm_i->mMapMaxAVMA) {
         // |aSecMap| needs to be inserted immediately before mSecMaps[i].
         break;
       }
@@ -611,8 +727,7 @@ class PriMap {
       // to the number of elements in the map.
       for (i = (intptr_t)num_secMaps - 1; i >= 0; i--) {
         mozilla::UniquePtr<SecMap>& sm_i = mSecMaps[i];
-        if (sm_i->mSummaryMaxAddr < avma_min ||
-            avma_max < sm_i->mSummaryMinAddr) {
+        if (sm_i->mMapMaxAVMA < avma_min || avma_max < sm_i->mMapMinAVMA) {
           // There's no overlap.  Move on.
           continue;
         }
@@ -656,8 +771,8 @@ class PriMap {
       }
       long int mid = lo + ((hi - lo) / 2);
       mozilla::UniquePtr<SecMap>& mid_secMap = mSecMaps[mid];
-      uintptr_t mid_minAddr = mid_secMap->mSummaryMinAddr;
-      uintptr_t mid_maxAddr = mid_secMap->mSummaryMaxAddr;
+      uintptr_t mid_minAddr = mid_secMap->mMapMinAVMA;
+      uintptr_t mid_maxAddr = mid_secMap->mMapMaxAVMA;
       if (ia < mid_minAddr) {
         hi = mid - 1;
         continue;
@@ -684,19 +799,20 @@ class PriMap {
 // LUL                                                        //
 ////////////////////////////////////////////////////////////////
 
-#define LUL_LOG(_str)                                                  \
-  do {                                                                 \
-    char buf[200];                                                     \
-    SprintfLiteral(buf, "LUL: pid %d tid %d lul-obj %p: %s", getpid(), \
-                   gettid(), this, (_str));                            \
-    buf[sizeof(buf) - 1] = 0;                                          \
-    mLog(buf);                                                         \
+#define LUL_LOG(_str)                                           \
+  do {                                                          \
+    char buf[200];                                              \
+    SprintfLiteral(buf, "LUL: pid %d tid %d lul-obj %p: %s",    \
+                   profiler_current_process_id(),               \
+                   profiler_current_thread_id(), this, (_str)); \
+    buf[sizeof(buf) - 1] = 0;                                   \
+    mLog(buf);                                                  \
   } while (0)
 
 LUL::LUL(void (*aLog)(const char*))
     : mLog(aLog),
       mAdminMode(true),
-      mAdminThreadId(gettid()),
+      mAdminThreadId(profiler_current_thread_id()),
       mPriMap(new PriMap(aLog)),
       mSegArray(new SegArray()),
       mUSU(new UniqueStringUniverse()) {
@@ -749,7 +865,7 @@ void LUL::EnableUnwinding() {
   LUL_LOG("LUL::EnableUnwinding");
   // Don't assert for Admin mode here.  That is, tolerate a call here
   // if we are already in Unwinding mode.
-  MOZ_RELEASE_ASSERT(gettid() == mAdminThreadId);
+  MOZ_RELEASE_ASSERT(profiler_current_thread_id() == mAdminThreadId);
 
   mAdminMode = false;
 }
@@ -757,7 +873,7 @@ void LUL::EnableUnwinding() {
 void LUL::NotifyAfterMap(uintptr_t aRXavma, size_t aSize, const char* aFileName,
                          const void* aMappedImage) {
   MOZ_RELEASE_ASSERT(mAdminMode);
-  MOZ_RELEASE_ASSERT(gettid() == mAdminThreadId);
+  MOZ_RELEASE_ASSERT(profiler_current_thread_id() == mAdminThreadId);
 
   mLog(":\n");
   char buf[200];
@@ -767,10 +883,20 @@ void LUL::NotifyAfterMap(uintptr_t aRXavma, size_t aSize, const char* aFileName,
   buf[sizeof(buf) - 1] = 0;
   mLog(buf);
 
+  // We can't have a SecMap covering more than 2^32-1 bytes of address space.
+  // See the definition of SecMap for why.  Rather than crash the system, just
+  // limit the SecMap's size accordingly.  This case is never actually
+  // expected to happen.
+  if (((unsigned long long int)aSize) > 0xFFFFFFFFULL) {
+    aSize = (uintptr_t)0xFFFFFFFF;
+  }
+  MOZ_RELEASE_ASSERT(aSize <= 0xFFFFFFFF);
+
   // Ignore obviously-stupid notifications.
   if (aSize > 0) {
     // Here's a new mapping, for this object.
-    mozilla::UniquePtr<SecMap> smap = mozilla::MakeUnique<SecMap>(mLog);
+    mozilla::UniquePtr<SecMap> smap =
+        mozilla::MakeUnique<SecMap>(aRXavma, (uint32_t)aSize, mLog);
 
     // Read CFI or EXIDX unwind data into |smap|.
     if (!aMappedImage) {
@@ -784,7 +910,7 @@ void LUL::NotifyAfterMap(uintptr_t aRXavma, size_t aSize, const char* aFileName,
 
     mLog("NotifyMap .. preparing entries\n");
 
-    smap->PrepareRuleSets(aRXavma, aSize);
+    smap->PrepareRuleSets();
 
     SprintfLiteral(buf, "NotifyMap got %lld entries\n",
                    (long long int)smap->Size());
@@ -802,7 +928,7 @@ void LUL::NotifyAfterMap(uintptr_t aRXavma, size_t aSize, const char* aFileName,
 
 void LUL::NotifyExecutableArea(uintptr_t aRXavma, size_t aSize) {
   MOZ_RELEASE_ASSERT(mAdminMode);
-  MOZ_RELEASE_ASSERT(gettid() == mAdminThreadId);
+  MOZ_RELEASE_ASSERT(profiler_current_thread_id() == mAdminThreadId);
 
   mLog(":\n");
   char buf[200];
@@ -822,7 +948,7 @@ void LUL::NotifyExecutableArea(uintptr_t aRXavma, size_t aSize) {
 
 void LUL::NotifyBeforeUnmap(uintptr_t aRXavmaMin, uintptr_t aRXavmaMax) {
   MOZ_RELEASE_ASSERT(mAdminMode);
-  MOZ_RELEASE_ASSERT(gettid() == mAdminThreadId);
+  MOZ_RELEASE_ASSERT(profiler_current_thread_id() == mAdminThreadId);
 
   mLog(":\n");
   char buf[100];
@@ -850,7 +976,7 @@ void LUL::NotifyBeforeUnmap(uintptr_t aRXavmaMin, uintptr_t aRXavmaMax) {
 
 size_t LUL::CountMappings() {
   MOZ_RELEASE_ASSERT(mAdminMode);
-  MOZ_RELEASE_ASSERT(gettid() == mAdminThreadId);
+  MOZ_RELEASE_ASSERT(profiler_current_thread_id() == mAdminThreadId);
 
   return mPriMap->CountSecMaps();
 }
@@ -930,7 +1056,7 @@ static TaggedUWord EvaluateReg(int16_t aReg, const UnwindRegs* aOldRegs,
     case DW_REG_MIPS_PC:
       return aOldRegs->pc;
 #else
-#error "Unsupported arch"
+#  error "Unsupported arch"
 #endif
     default:
       MOZ_ASSERT(0);
@@ -1133,7 +1259,7 @@ static void UseRuleSet(/*MOD*/ UnwindRegs* aRegs, const StackImage* aStackImg,
   aRegs->fp = TaggedUWord();
   aRegs->pc = TaggedUWord();
 #else
-#error "Unsupported arch"
+#  error "Unsupported arch"
 #endif
 
   // This is generally useful.
@@ -1178,7 +1304,7 @@ static void UseRuleSet(/*MOD*/ UnwindRegs* aRegs, const StackImage* aStackImg,
   aRegs->fp = aRS->mFPexpr.EvaluateExpr(&old_regs, cfa, aStackImg, aPfxInstrs);
   aRegs->pc = aRS->mPCexpr.EvaluateExpr(&old_regs, cfa, aStackImg, aPfxInstrs);
 #else
-#error "Unsupported arch"
+#  error "Unsupported arch"
 #endif
 
   // We're done.  Any regs for which we didn't manage to compute a
@@ -1247,7 +1373,7 @@ void LUL::Unwind(/*OUT*/ uintptr_t* aFramePCs,
       buf[sizeof(buf) - 1] = 0;
       mLog(buf);
 #else
-#error "Unsupported arch"
+#  error "Unsupported arch"
 #endif
     }
 
@@ -1264,7 +1390,7 @@ void LUL::Unwind(/*OUT*/ uintptr_t* aFramePCs,
     TaggedUWord ia = regs.pc;
     TaggedUWord sp = regs.sp;
 #else
-#error "Unsupported arch"
+#  error "Unsupported arch"
 #endif
 
     if (*aFramesUsed >= aFramesAvail) {
@@ -1398,7 +1524,7 @@ void LUL::Unwind(/*OUT*/ uintptr_t* aFramePCs,
     // So, do we have a ruleset for this address?  If so, use it now.
     if (ruleset) {
       if (DEBUG_MAIN) {
-        ruleset->Print(mLog);
+        ruleset->Print(ia.Value(), 1 /*bogus, but doesn't matter*/, mLog);
         mLog("\n");
       }
       // Use the RuleSet to compute the registers for the previous
@@ -1407,7 +1533,9 @@ void LUL::Unwind(/*OUT*/ uintptr_t* aFramePCs,
       continue;
     }
 
-#if defined(GP_PLAT_amd64_linux) || defined(GP_PLAT_x86_linux)
+#if defined(GP_PLAT_amd64_linux) || defined(GP_PLAT_x86_linux) ||     \
+    defined(GP_PLAT_amd64_android) || defined(GP_PLAT_x86_android) || \
+    defined(GP_PLAT_amd64_freebsd)
     // There's no RuleSet for the specified address.  On amd64/x86_linux, see if
     // it's possible to recover the caller's frame by using the frame pointer.
 
@@ -1456,7 +1584,70 @@ void LUL::Unwind(/*OUT*/ uintptr_t* aFramePCs,
         }
       }
     }
-#endif  // defined(GP_PLAT_amd64_linux) || defined(GP_PLAT_x86_linux)
+#elif defined(GP_ARCH_arm64)
+    // Here is an example of generated code for prologue and epilogue..
+    //
+    // stp     x29, x30, [sp, #-16]!
+    // mov     x29, sp
+    // ...
+    // ldp     x29, x30, [sp], #16
+    // ret
+    //
+    // Next is another example of generated code.
+    //
+    // stp     x20, x19, [sp, #-32]!
+    // stp     x29, x30, [sp, #16]
+    // add     x29, sp, #0x10
+    // ...
+    // ldp     x29, x30, [sp, #16]
+    // ldp     x20, x19, [sp], #32
+    // ret
+    //
+    // Previous x29 and x30 register are stored in the address of x29 register.
+    // But since sp register value depends on local variables, we cannot compute
+    // previous sp register from current sp/fp/lr register and there is no
+    // regular rule for sp register in prologue. But since return address is lr
+    // register, if x29 is valid, we will get return address without sp
+    // register.
+    //
+    // So we assume the following layout that if no rule set. x29 is frame
+    // pointer, so we will be able to compute x29 and x30 .
+    //
+    //   +----------+  <--- new_sp (cannot compute)
+    //   |   ....   |
+    //   +----------+
+    //   |  new_lr  |  (return address)
+    //   +----------+
+    //   |  new_fp  |  <--- old_fp
+    //   +----------+
+    //   |   ....   |
+    //   |   ....   |
+    //   +----------+  <---- old_sp (arbitrary, but unused)
+
+    TaggedUWord old_fp = regs.x29;
+    if (old_fp.Valid() && old_fp.IsAligned() && last_valid_sp.Valid() &&
+        last_valid_sp.Value() <= old_fp.Value()) {
+      TaggedUWord new_fp = DerefTUW(old_fp, aStackImg);
+      if (new_fp.Valid() && new_fp.IsAligned() &&
+          old_fp.Value() < new_fp.Value()) {
+        TaggedUWord old_fp_plus1 = old_fp + TaggedUWord(8);
+        TaggedUWord new_lr = DerefTUW(old_fp_plus1, aStackImg);
+        if (new_lr.Valid()) {
+          regs.x29 = new_fp;
+          regs.x30 = new_lr;
+          // When using frame pointer to walk stack, we cannot compute sp
+          // register since we cannot compute sp register from fp/lr/sp
+          // register, and there is no regular rule to compute previous sp
+          // register. So mark as invalid.
+          regs.sp = TaggedUWord();
+          (*aFramePointerFramesAcquired)++;
+          continue;
+        }
+      }
+    }
+#endif  // defined(GP_PLAT_amd64_linux) || defined(GP_PLAT_x86_linux) ||
+        // defined(GP_PLAT_amd64_android) || defined(GP_PLAT_x86_android) ||
+        // defined(GP_PLAT_amd64_freebsd)
 
     // We failed to recover a frame either using CFI or FP chasing, and we
     // have no other ways to recover the frame.  So we have to give up.
@@ -1499,7 +1690,7 @@ static __attribute__((noinline)) bool GetAndCheckStackTrace(
   // Get hold of the current unwind-start registers.
   UnwindRegs startRegs;
   memset(&startRegs, 0, sizeof(startRegs));
-#if defined(GP_PLAT_amd64_linux)
+#if defined(GP_ARCH_amd64)
   volatile uintptr_t block[3];
   MOZ_ASSERT(sizeof(block) == 24);
   __asm__ __volatile__(
@@ -1605,7 +1796,7 @@ static __attribute__((noinline)) bool GetAndCheckStackTrace(
   const uintptr_t REDZONE_SIZE = 0;
   uintptr_t start = block[1] - REDZONE_SIZE;
 #else
-#error "Unsupported platform"
+#  error "Unsupported platform"
 #endif
 
   // Get hold of the innermost LUL_UNIT_TEST_STACK_SIZE bytes of the

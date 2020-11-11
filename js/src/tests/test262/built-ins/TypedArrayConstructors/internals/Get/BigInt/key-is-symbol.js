@@ -1,10 +1,9 @@
-// |reftest| skip-if(!this.hasOwnProperty('BigInt')) -- BigInt is not enabled unconditionally
 // Copyright (C) 2016 the V8 project authors. All rights reserved.
 // This code is governed by the BSD license found in the LICENSE file.
 /*---
 esid: sec-integer-indexed-exotic-objects-get-p-receiver
 description: >
-  Use OrginaryGet if key is a Symbol
+  Use OrdinaryGet if key is a Symbol
 info: |
   9.4.5.4 [[Get]] (P, Receiver)
 
@@ -13,7 +12,7 @@ info: |
     ...
   3. Return ? OrdinaryGet(O, P, Receiver).
 includes: [testBigIntTypedArray.js]
-features: [BigInt, Symbol, TypedArray]
+features: [align-detached-buffer-semantics-with-web-reality, BigInt, Symbol, TypedArray]
 ---*/
 
 var parentKey = Symbol("2");

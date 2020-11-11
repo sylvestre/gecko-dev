@@ -4,18 +4,18 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef MOZILLA_SVGTRANSFORMLIST_H__
-#define MOZILLA_SVGTRANSFORMLIST_H__
+#ifndef DOM_SVG_SVGTRANSFORMLIST_H_
+#define DOM_SVG_SVGTRANSFORMLIST_H_
 
 #include "gfxMatrix.h"
-#include "nsDebug.h"
+#include "SVGTransform.h"
 #include "nsTArray.h"
-#include "nsSVGTransform.h"
 
 namespace mozilla {
 
 namespace dom {
-class SVGTransform;
+class DOMSVGTransform;
+class DOMSVGTransformList;
 }  // namespace dom
 
 /**
@@ -28,13 +28,13 @@ class SVGTransform;
  * The DOM wrapper class for this class is DOMSVGTransformList.
  */
 class SVGTransformList {
-  friend class nsSVGAnimatedTransformList;
-  friend class DOMSVGTransformList;
-  friend class dom::SVGTransform;
+  friend class SVGAnimatedTransformList;
+  friend class dom::DOMSVGTransform;
+  friend class dom::DOMSVGTransformList;
 
  public:
-  SVGTransformList() {}
-  ~SVGTransformList() {}
+  SVGTransformList() = default;
+  ~SVGTransformList() = default;
 
   // Only methods that don't make/permit modification to this list are public.
   // Only our friend classes can access methods that may change us.
@@ -46,7 +46,7 @@ class SVGTransformList {
 
   uint32_t Length() const { return mItems.Length(); }
 
-  const nsSVGTransform& operator[](uint32_t aIndex) const {
+  const SVGTransform& operator[](uint32_t aIndex) const {
     return mItems[aIndex];
   }
 
@@ -64,8 +64,8 @@ class SVGTransformList {
   // limited. This is to reduce the chances of someone modifying objects of
   // this type without taking the necessary steps to keep DOM wrappers in sync.
   // If you need wider access to these methods, consider adding a method to
-  // SVGAnimatedTransformList and having that class act as an intermediary so it
-  // can take care of keeping DOM wrappers in sync.
+  // DOMSVGAnimatedTransformList and having that class act as an intermediary so
+  // it can take care of keeping DOM wrappers in sync.
 
  protected:
   /**
@@ -73,9 +73,9 @@ class SVGTransformList {
    * which case the list will be left unmodified.
    */
   nsresult CopyFrom(const SVGTransformList& rhs);
-  nsresult CopyFrom(const nsTArray<nsSVGTransform>& aTransformArray);
+  nsresult CopyFrom(const nsTArray<SVGTransform>& aTransformArray);
 
-  nsSVGTransform& operator[](uint32_t aIndex) { return mItems[aIndex]; }
+  SVGTransform& operator[](uint32_t aIndex) { return mItems[aIndex]; }
 
   /**
    * This may fail (return false) on OOM if the internal capacity is being
@@ -94,14 +94,14 @@ class SVGTransformList {
 
   void Clear() { mItems.Clear(); }
 
-  bool InsertItem(uint32_t aIndex, const nsSVGTransform& aTransform) {
+  bool InsertItem(uint32_t aIndex, const SVGTransform& aTransform) {
     if (aIndex >= mItems.Length()) {
       aIndex = mItems.Length();
     }
     return !!mItems.InsertElementAt(aIndex, aTransform, fallible);
   }
 
-  void ReplaceItem(uint32_t aIndex, const nsSVGTransform& aTransform) {
+  void ReplaceItem(uint32_t aIndex, const SVGTransform& aTransform) {
     MOZ_ASSERT(aIndex < mItems.Length(),
                "DOM wrapper caller should have raised INDEX_SIZE_ERR");
     mItems[aIndex] = aTransform;
@@ -113,19 +113,19 @@ class SVGTransformList {
     mItems.RemoveElementAt(aIndex);
   }
 
-  bool AppendItem(const nsSVGTransform& aTransform) {
+  bool AppendItem(const SVGTransform& aTransform) {
     return !!mItems.AppendElement(aTransform, fallible);
   }
 
  protected:
   /*
    * See SVGLengthList for the rationale for using
-   * FallibleTArray<nsSVGTransform> instead of FallibleTArray<nsSVGTransform,
+   * FallibleTArray<SVGTransform> instead of FallibleTArray<SVGTransform,
    * 1>.
    */
-  FallibleTArray<nsSVGTransform> mItems;
+  FallibleTArray<SVGTransform> mItems;
 };
 
 }  // namespace mozilla
 
-#endif  // MOZILLA_SVGTRANSFORMLIST_H__
+#endif  // DOM_SVG_SVGTRANSFORMLIST_H_

@@ -9,12 +9,11 @@
 #include "nsNodeInfoManager.h"
 #include "nsContentCreatorFunctions.h"
 #include "mozilla/dom/HTMLMediaElement.h"
-#include "nsIDocumentInlines.h"
+#include "DocumentInlines.h"
 #include "nsContentUtils.h"
 #include "mozilla/dom/Element.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 class VideoDocument final : public MediaDocument {
  public:
@@ -38,11 +37,12 @@ class VideoDocument final : public MediaDocument {
     MediaDocument::Destroy();
   }
 
+  nsresult StartLayout() override;
+
  protected:
+  nsresult CreateVideoElement();
   // Sets document <title> to reflect the file name and description.
   void UpdateTitle(nsIChannel* aChannel);
-
-  nsresult CreateSyntheticVideoDocument();
 
   RefPtr<MediaDocumentStreamListener> mStreamListener;
 };
@@ -62,6 +62,22 @@ nsresult VideoDocument::StartDocumentLoad(const char* aCommand,
   return rv;
 }
 
+nsresult VideoDocument::StartLayout() {
+  // Create video element, and begin loading the media resource. Note we
+  // delay creating the video element until now (we're called from
+  // MediaDocumentStreamListener::OnStartRequest) as the PresShell is likely
+  // to have been created by now, so the MediaDecoder will be able to tell
+  // what kind of compositor we have, so the video element knows whether
+  // it can create a hardware accelerated video decoder or not.
+  nsresult rv = CreateVideoElement();
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  rv = MediaDocument::StartLayout();
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  return NS_OK;
+}
+
 void VideoDocument::SetScriptGlobalObject(
     nsIScriptGlobalObject* aScriptGlobalObject) {
   // Set the script global object on the superclass before doing
@@ -69,31 +85,22 @@ void VideoDocument::SetScriptGlobalObject(
   MediaDocument::SetScriptGlobalObject(aScriptGlobalObject);
 
   if (aScriptGlobalObject && !InitialSetupHasBeenDone()) {
-    // Create synthetic document
-#ifdef DEBUG
-    nsresult rv =
-#endif
-        CreateSyntheticVideoDocument();
+    DebugOnly<nsresult> rv = CreateSyntheticDocument();
     NS_ASSERTION(NS_SUCCEEDED(rv), "failed to create synthetic video document");
 
     if (!nsContentUtils::IsChildOfSameType(this)) {
-      LinkStylesheet(NS_LITERAL_STRING(
-          "resource://content-accessible/TopLevelVideoDocument.css"));
-      LinkStylesheet(NS_LITERAL_STRING(
-          "chrome://global/skin/media/TopLevelVideoDocument.css"));
-      LinkScript(NS_LITERAL_STRING(
-          "chrome://global/content/TopLevelVideoDocument.js"));
+      LinkStylesheet(nsLiteralString(
+          u"resource://content-accessible/TopLevelVideoDocument.css"));
+      LinkStylesheet(nsLiteralString(
+          u"chrome://global/skin/media/TopLevelVideoDocument.css"));
+      LinkScript(u"chrome://global/content/TopLevelVideoDocument.js"_ns);
     }
     InitialSetupDone();
   }
 }
 
-nsresult VideoDocument::CreateSyntheticVideoDocument() {
-  // make our generic document
-  nsresult rv = MediaDocument::CreateSyntheticDocument();
-  NS_ENSURE_SUCCESS(rv, rv);
-
-  Element* body = GetBodyElement();
+nsresult VideoDocument::CreateVideoElement() {
+  RefPtr<Element> body = GetBodyElement();
   if (!body) {
     NS_WARNING("no body on video document!");
     return NS_ERROR_FAILURE;
@@ -118,8 +125,8 @@ nsresult VideoDocument::CreateSyntheticVideoDocument() {
     // not have margins
     element->SetAttr(
         kNameSpaceID_None, nsGkAtoms::style,
-        NS_LITERAL_STRING(
-            "position:absolute; top:0; left:0; width:100%; height:100%"),
+        nsLiteralString(
+            u"position:absolute; top:0; left:0; width:100%; height:100%"),
         true);
   }
 
@@ -135,11 +142,10 @@ void VideoDocument::UpdateTitle(nsIChannel* aChannel) {
   SetTitle(fileName, ignored);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom
 
-nsresult NS_NewVideoDocument(nsIDocument** aResult) {
-  mozilla::dom::VideoDocument* doc = new mozilla::dom::VideoDocument();
+nsresult NS_NewVideoDocument(mozilla::dom::Document** aResult) {
+  auto* doc = new mozilla::dom::VideoDocument();
 
   NS_ADDREF(doc);
   nsresult rv = doc->Init();

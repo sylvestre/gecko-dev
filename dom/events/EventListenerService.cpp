@@ -14,7 +14,6 @@
 #include "mozilla/dom/ScriptSettings.h"
 #include "nsArrayUtils.h"
 #include "nsCOMArray.h"
-#include "nsIXPConnect.h"
 #include "nsJSUtils.h"
 #include "nsMemory.h"
 #include "nsServiceManagerUtils.h"
@@ -31,7 +30,7 @@ using namespace dom;
 
 NS_IMPL_ISUPPORTS(EventListenerChange, nsIEventListenerChange)
 
-EventListenerChange::~EventListenerChange() {}
+EventListenerChange::~EventListenerChange() = default;
 
 EventListenerChange::EventListenerChange(EventTarget* aTarget)
     : mTarget(aTarget) {}
@@ -197,35 +196,23 @@ EventListenerService::~EventListenerService() {
 }
 
 NS_IMETHODIMP
-EventListenerService::GetListenerInfoFor(EventTarget* aEventTarget,
-                                         uint32_t* aCount,
-                                         nsIEventListenerInfo*** aOutArray) {
+EventListenerService::GetListenerInfoFor(
+    EventTarget* aEventTarget,
+    nsTArray<RefPtr<nsIEventListenerInfo>>& aOutArray) {
   NS_ENSURE_ARG_POINTER(aEventTarget);
-  *aCount = 0;
-  *aOutArray = nullptr;
-  nsCOMArray<nsIEventListenerInfo> listenerInfos;
 
   EventListenerManager* elm = aEventTarget->GetExistingListenerManager();
   if (elm) {
-    elm->GetListenerInfo(&listenerInfos);
+    elm->GetListenerInfo(aOutArray);
   }
 
-  int32_t count = listenerInfos.Count();
-  if (count == 0) {
-    return NS_OK;
-  }
-
-  listenerInfos.Forget(aOutArray);
-  *aCount = count;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-EventListenerService::GetEventTargetChainFor(EventTarget* aEventTarget,
-                                             bool aComposed, uint32_t* aCount,
-                                             EventTarget*** aOutArray) {
-  *aCount = 0;
-  *aOutArray = nullptr;
+EventListenerService::GetEventTargetChainFor(
+    EventTarget* aEventTarget, bool aComposed,
+    nsTArray<RefPtr<EventTarget>>& aOutArray) {
   NS_ENSURE_ARG(aEventTarget);
   WidgetEvent event(true, eVoidEvent);
   event.SetComposed(aComposed);
@@ -233,19 +220,7 @@ EventListenerService::GetEventTargetChainFor(EventTarget* aEventTarget,
   nsresult rv = EventDispatcher::Dispatch(aEventTarget, nullptr, &event,
                                           nullptr, nullptr, nullptr, &targets);
   NS_ENSURE_SUCCESS(rv, rv);
-  int32_t count = targets.Length();
-  if (count == 0) {
-    return NS_OK;
-  }
-
-  *aOutArray =
-      static_cast<EventTarget**>(moz_xmalloc(sizeof(EventTarget*) * count));
-
-  for (int32_t i = 0; i < count; ++i) {
-    NS_ADDREF((*aOutArray)[i] = targets[i]);
-  }
-  *aCount = count;
-
+  aOutArray.AppendElements(targets);
   return NS_OK;
 }
 
@@ -410,10 +385,8 @@ void EventListenerService::NotifyPendingChanges() {
   mPendingListenerChanges.swap(changes);
   mPendingListenerChangesSet.Clear();
 
-  nsTObserverArray<nsCOMPtr<nsIListenerChangeListener>>::EndLimitedIterator
-      iter(mChangeListeners);
-  while (iter.HasMore()) {
-    nsCOMPtr<nsIListenerChangeListener> listener = iter.GetNext();
+  for (nsCOMPtr<nsIListenerChangeListener> listener :
+       mChangeListeners.EndLimitedRange()) {
     listener->ListenersChanged(changes);
   }
 }

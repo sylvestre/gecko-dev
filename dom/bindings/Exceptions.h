@@ -26,8 +26,7 @@ class Exception;
 
 // If we're throwing a DOMException and message is empty, the default
 // message for the nsresult in question will be used.
-bool Throw(JSContext* cx, nsresult rv,
-           const nsACString& message = EmptyCString());
+bool Throw(JSContext* cx, nsresult rv, const nsACString& message = ""_ns);
 
 // Create, throw and report an exception to a given window.
 void ThrowAndReport(nsPIDOMWindowInner* aWindow, nsresult aRv);
@@ -41,8 +40,8 @@ void ThrowExceptionObject(JSContext* aCx, Exception* aException);
 // nsresult in question will be used.
 //
 // This never returns null.
-already_AddRefed<Exception> CreateException(
-    nsresult aRv, const nsACString& aMessage = EmptyCString());
+already_AddRefed<Exception> CreateException(nsresult aRv,
+                                            const nsACString& aMessage = ""_ns);
 
 // aMaxDepth can be used to define a maximal depth for the stack trace. If the
 // value is -1, a default maximal depth will be selected.  Will return null if
@@ -54,6 +53,11 @@ namespace exceptions {
 
 already_AddRefed<nsIStackFrame> CreateStack(JSContext* aCx,
                                             JS::StackCapture&& aCaptureMode);
+
+// Like the above, but creates a JSStackFrame wrapper for an existing
+// JS::SavedFrame object, passed as aStack.
+already_AddRefed<nsIStackFrame> CreateStack(JSContext* aCx,
+                                            JS::Handle<JSObject*> aStack);
 
 }  // namespace exceptions
 }  // namespace dom

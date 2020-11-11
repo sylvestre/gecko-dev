@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef MOZILLA_SVGCONTENTUTILS_H
-#define MOZILLA_SVGCONTENTUTILS_H
+#ifndef DOM_SVG_SVGCONTENTUTILS_H_
+#define DOM_SVG_SVGCONTENTUTILS_H_
 
 // include math.h to pick up definition of M_ maths defines e.g. M_PI
 #include <math.h>
@@ -13,30 +13,30 @@
 #include "mozilla/gfx/2D.h"  // for StrokeOptions
 #include "mozilla/gfx/Matrix.h"
 #include "mozilla/RangedPtr.h"
+#include "mozilla/ServoStyleConsts.h"
 #include "nsError.h"
 #include "nsStringFwd.h"
 #include "gfx2DGlue.h"
+#include "nsDependentSubstring.h"
 
 class nsIContent;
-class nsIDocument;
+
 class nsIFrame;
 class nsPresContext;
-class nsStyleCoord;
-class nsSVGElement;
 
 namespace mozilla {
 class ComputedStyle;
-class nsSVGAnimatedTransformList;
+class SVGAnimatedTransformList;
 class SVGAnimatedPreserveAspectRatio;
 class SVGContextPaint;
 class SVGPreserveAspectRatio;
 namespace dom {
+class Document;
 class Element;
+class SVGElement;
 class SVGSVGElement;
 class SVGViewportElement;
 }  // namespace dom
-
-}  // namespace mozilla
 
 #define SVG_ZERO_LENGTH_PATH_FIX_FACTOR 512
 
@@ -71,35 +71,19 @@ enum SVGTransformTypes {
 
 /**
  * Functions generally used by SVG Content classes. Functions here
- * should not generally depend on layout methods/classes e.g. nsSVGUtils
+ * should not generally depend on layout methods/classes e.g. SVGUtils
  */
 class SVGContentUtils {
  public:
-  typedef mozilla::ComputedStyle ComputedStyle;
-  typedef mozilla::gfx::Float Float;
-  typedef mozilla::gfx::Matrix Matrix;
-  typedef mozilla::gfx::Rect Rect;
-  typedef mozilla::gfx::StrokeOptions StrokeOptions;
-  typedef mozilla::SVGAnimatedPreserveAspectRatio
-      SVGAnimatedPreserveAspectRatio;
-  typedef mozilla::SVGPreserveAspectRatio SVGPreserveAspectRatio;
+  using Float = gfx::Float;
+  using Matrix = gfx::Matrix;
+  using Rect = gfx::Rect;
+  using StrokeOptions = gfx::StrokeOptions;
 
   /*
    * Get the outer SVG element of an nsIContent
    */
-  static mozilla::dom::SVGSVGElement* GetOuterSVGElement(
-      nsSVGElement* aSVGElement);
-
-  /**
-   * Activates the animation element aContent as a result of navigation to the
-   * fragment identifier that identifies aContent. aContent must be an instance
-   * of nsSVGAnimationElement.
-   *
-   * This is just a shim to allow nsSVGAnimationElement::ActivateByHyperlink to
-   * be called from layout/base without adding to that directory's include
-   * paths.
-   */
-  static void ActivateByHyperlink(nsIContent* aContent);
+  static dom::SVGSVGElement* GetOuterSVGElement(dom::SVGElement* aSVGElement);
 
   /**
    * Moz2D's StrokeOptions requires someone else to own its mDashPattern
@@ -155,8 +139,8 @@ class SVGContentUtils {
    * whether or not the stroke is dashed.
    */
   static void GetStrokeOptions(AutoStrokeOptions* aStrokeOptions,
-                               nsSVGElement* aElement,
-                               ComputedStyle* aComputedStyle,
+                               dom::SVGElement* aElement,
+                               const ComputedStyle* aComputedStyle,
                                mozilla::SVGContextPaint* aContextPaint,
                                StrokeOptionFlags aFlags = eAllStrokeOptions);
 
@@ -169,8 +153,8 @@ class SVGContentUtils {
    * and 'stroke-opacity' properties to, say, return zero if they are "none" or
    * "0", respectively.
    */
-  static Float GetStrokeWidth(nsSVGElement* aElement,
-                              ComputedStyle* aComputedStyle,
+  static Float GetStrokeWidth(dom::SVGElement* aElement,
+                              const ComputedStyle* aComputedStyle,
                               mozilla::SVGContextPaint* aContextPaint);
 
   /*
@@ -197,11 +181,10 @@ class SVGContentUtils {
   /*
    * Report a localized error message to the error console.
    */
-  static nsresult ReportToConsole(nsIDocument* doc, const char* aWarning,
-                                  const char16_t** aParams,
-                                  uint32_t aParamsLength);
+  static nsresult ReportToConsole(dom::Document* doc, const char* aWarning,
+                                  const nsTArray<nsString>& aParams);
 
-  static Matrix GetCTM(nsSVGElement* aElement, bool aScreenCTM);
+  static Matrix GetCTM(dom::SVGElement* aElement, bool aScreenCTM);
 
   /**
    * Gets the tight bounds-space stroke bounds of the non-scaling-stroked rect
@@ -324,11 +307,11 @@ class SVGContentUtils {
   static bool ParseInteger(const nsAString& aString, int32_t& aValue);
 
   /**
-   * Converts an nsStyleCoord into a userspace value.  Handles units
-   * Factor (straight userspace), Coord (dimensioned), and Percent (of
-   * aContent's SVG viewport)
+   * Converts a LengthPercentage into a userspace value, resolving percentage
+   * values relative to aContent's SVG viewport.
    */
-  static float CoordToFloat(nsSVGElement* aContent, const nsStyleCoord& aCoord);
+  static float CoordToFloat(dom::SVGElement* aContent, const LengthPercentage&,
+                            uint8_t aCtxType = SVGContentUtils::XY);
   /**
    * Parse the SVG path string
    * Returns a path
@@ -342,6 +325,16 @@ class SVGContentUtils {
    *  to have no corners: circle or ellipse
    */
   static bool ShapeTypeHasNoCorners(const nsIContent* aContent);
+
+  /**
+   *  Return one token in aString, aString may have leading and trailing
+   * whitespace; aSuccess will be set to false if there is no token or more than
+   * one token, otherwise it's set to true.
+   */
+  static nsDependentSubstring GetAndEnsureOneToken(const nsAString& aString,
+                                                   bool& aSuccess);
 };
 
-#endif
+}  // namespace mozilla
+
+#endif  // DOM_SVG_SVGCONTENTUTILS_H_

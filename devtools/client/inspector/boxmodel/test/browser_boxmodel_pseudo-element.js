@@ -1,4 +1,3 @@
-/* vim: set ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -49,57 +48,57 @@ const res1 = [
   },
   {
     selector: ".boxmodel-margin.boxmodel-top > span",
-    value: 0,
+    value: "0",
   },
   {
     selector: ".boxmodel-margin.boxmodel-left > span",
-    value: 4, // (100 - (10 * 2) - (20 * 2) - 32) / 2
+    value: "4", // (100 - (10 * 2) - (20 * 2) - 32) / 2
   },
   {
     selector: ".boxmodel-margin.boxmodel-bottom > span",
-    value: 6,
+    value: "6",
   },
   {
     selector: ".boxmodel-margin.boxmodel-right > span",
-    value: 4, // (100 - (10 * 2) - (20 * 2) - 32) / 2
+    value: "4", // (100 - (10 * 2) - (20 * 2) - 32) / 2
   },
   {
     selector: ".boxmodel-padding.boxmodel-top > span",
-    value: 0,
+    value: "0",
   },
   {
     selector: ".boxmodel-padding.boxmodel-left > span",
-    value: 0,
+    value: "0",
   },
   {
     selector: ".boxmodel-padding.boxmodel-bottom > span",
-    value: 0,
+    value: "0",
   },
   {
     selector: ".boxmodel-padding.boxmodel-right > span",
-    value: 0,
+    value: "0",
   },
   {
     selector: ".boxmodel-border.boxmodel-top > span",
-    value: 0,
+    value: "0",
   },
   {
     selector: ".boxmodel-border.boxmodel-left > span",
-    value: 0,
+    value: "0",
   },
   {
     selector: ".boxmodel-border.boxmodel-bottom > span",
-    value: 0,
+    value: "0",
   },
   {
     selector: ".boxmodel-border.boxmodel-right > span",
-    value: 0,
+    value: "0",
   },
 ];
 
 add_task(async function() {
   await addTab("data:text/html;charset=utf-8," + encodeURIComponent(TEST_URI));
-  const {inspector, boxmodel} = await openLayoutView();
+  const { inspector, boxmodel } = await openLayoutView();
   const node = await getNodeFront("div", inspector);
   const children = await inspector.markup.walker.children(node);
   const beforeElement = children.nodes[0];
@@ -114,7 +113,10 @@ function testInitialValues(inspector, boxmodel) {
 
   for (let i = 0; i < res1.length; i++) {
     const elt = doc.querySelector(res1[i].selector);
-    is(elt.textContent, res1[i].value,
-       res1[i].selector + " has the right value.");
+    is(
+      elt.textContent,
+      res1[i].value,
+      res1[i].selector + " has the right value."
+    );
   }
 }

@@ -9,7 +9,6 @@
 
 #include "mozilla/DebugOnly.h"
 #include "mozilla/MemoryReporting.h"
-#include "mozilla/TypeTraits.h"
 #include "mozilla/Unused.h"
 #include "nsTArray.h"
 #include "nsThreadUtils.h"
@@ -138,7 +137,7 @@ class FrameProperties {
   template <typename T>
   using PropertyType = typename detail::FramePropertyTypeHelper<T>::Type;
 
-  explicit FrameProperties() {}
+  explicit FrameProperties() = default;
 
   ~FrameProperties() {
     MOZ_ASSERT(mProperties.Length() == 0, "forgot to delete properties");
@@ -177,7 +176,7 @@ class FrameProperties {
    *
    * In most cases, this shouldn't be used outside of assertions, because if
    * you're doing a lookup anyway it would be far more efficient to call Get()
-   * or Remove() and check the aFoundResult outparam to find out whether the
+   * or Take() and check the aFoundResult outparam to find out whether the
    * property is set. Legitimate non-assertion uses include:
    *
    *   - Checking if a frame property is set in cases where that's all we want
@@ -186,11 +185,6 @@ class FrameProperties {
    *
    *   - Calling Has() before Set() in cases where we don't want to overwrite
    *     an existing value for the frame property.
-   *
-   * The HasSkippingBitCheck variant doesn't test NS_FRAME_HAS_PROPERTIES
-   * on aFrame, so it is safe to call after aFrame has been destroyed as
-   * long as, since that destruction happened, it isn't possible for a
-   * new frame to have been created and the same property added.
    */
   template <typename T>
   bool Has(Descriptor<T> aProperty) const {
@@ -215,31 +209,30 @@ class FrameProperties {
   }
 
   /**
-   * Remove a property value. This requires a linear search through
-   * the properties of the frame. The old property value is returned
-   * (and not destroyed). If the frame has no such property,
-   * returns zero-filled result, which means null for pointers and
-   * zero for integers and floating point types.
+   * Remove a property value, and return it without destroying it.
+   *
+   * This requires a linear search through the properties of the frame.
+   * If the frame has no such property, returns zero-filled result, which means
+   * null for pointers and zero for integers and floating point types.
    * @param aFoundResult if non-null, receives a value 'true' iff
    * the frame had a value for the property. This lets callers
    * disambiguate a null result, which can mean 'no such property' or
    * 'property value is null'.
    */
   template <typename T>
-  PropertyType<T> Remove(Descriptor<T> aProperty,
-                         bool* aFoundResult = nullptr) {
-    void* ptr = RemoveInternal(aProperty, aFoundResult);
+  PropertyType<T> Take(Descriptor<T> aProperty, bool* aFoundResult = nullptr) {
+    void* ptr = TakeInternal(aProperty, aFoundResult);
     return ReinterpretHelper<T>::FromPointer(ptr);
   }
 
   /**
-   * Remove and destroy a property value. This requires a linear search
-   * through the properties of the frame. If the frame has no such
-   * property, nothing happens.
+   * Remove and destroy a property value. This requires a linear search through
+   * the properties of the frame. If the frame has no such property, nothing
+   * happens.
    */
   template <typename T>
-  void Delete(Descriptor<T> aProperty, const nsIFrame* aFrame) {
-    DeleteInternal(aProperty, aFrame);
+  void Remove(Descriptor<T> aProperty, const nsIFrame* aFrame) {
+    RemoveInternal(aProperty, aFrame);
   }
 
   /**
@@ -263,9 +256,8 @@ class FrameProperties {
   /**
    * Remove and destroy all property values for the frame.
    */
-  void DeleteAll(const nsIFrame* aFrame) {
-    nsTArray<PropertyValue> toDelete;
-    toDelete.SwapElements(mProperties);
+  void RemoveAll(const nsIFrame* aFrame) {
+    nsTArray<PropertyValue> toDelete = std::move(mProperties);
     for (auto& prop : toDelete) {
       prop.DestroyValueFor(aFrame);
     }
@@ -295,9 +287,9 @@ class FrameProperties {
   inline void* GetInternal(UntypedDescriptor aProperty,
                            bool* aFoundResult) const;
 
-  inline void* RemoveInternal(UntypedDescriptor aProperty, bool* aFoundResult);
+  inline void* TakeInternal(UntypedDescriptor aProperty, bool* aFoundResult);
 
-  inline void DeleteInternal(UntypedDescriptor aProperty,
+  inline void RemoveInternal(UntypedDescriptor aProperty,
                              const nsIFrame* aFrame);
 
   template <typename T>
@@ -407,8 +399,8 @@ inline void FrameProperties::AddInternal(UntypedDescriptor aProperty,
   mProperties.AppendElement(PropertyValue(aProperty, aValue));
 }
 
-inline void* FrameProperties::RemoveInternal(UntypedDescriptor aProperty,
-                                             bool* aFoundResult) {
+inline void* FrameProperties::TakeInternal(UntypedDescriptor aProperty,
+                                           bool* aFoundResult) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aProperty, "Null property?");
 
@@ -430,7 +422,7 @@ inline void* FrameProperties::RemoveInternal(UntypedDescriptor aProperty,
   return result;
 }
 
-inline void FrameProperties::DeleteInternal(UntypedDescriptor aProperty,
+inline void FrameProperties::RemoveInternal(UntypedDescriptor aProperty,
                                             const nsIFrame* aFrame) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aProperty, "Null property?");

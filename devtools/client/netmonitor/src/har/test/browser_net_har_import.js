@@ -8,31 +8,38 @@
  */
 add_task(async () => {
   const { tab, monitor } = await initNetMonitor(
-    HAR_EXAMPLE_URL + "html_har_import-test-page.html");
+    HAR_EXAMPLE_URL + "html_har_import-test-page.html",
+    { requestCount: 1 }
+  );
 
   info("Starting test... ");
 
   const { actions, connector, store, windowRequire } = monitor.panelWin;
   const Actions = windowRequire("devtools/client/netmonitor/src/actions/index");
   const { HarMenuUtils } = windowRequire(
-    "devtools/client/netmonitor/src/har/har-menu-utils");
+    "devtools/client/netmonitor/src/har/har-menu-utils"
+  );
   const { getSortedRequests } = windowRequire(
-    "devtools/client/netmonitor/src/selectors/index");
+    "devtools/client/netmonitor/src/selectors/index"
+  );
   const { HarImporter } = windowRequire(
-    "devtools/client/netmonitor/src/har/har-importer");
+    "devtools/client/netmonitor/src/har/har-importer"
+  );
 
   store.dispatch(Actions.batchEnable(false));
 
   // Execute one POST request on the page and wait till its done.
   const wait = waitForNetworkEvents(monitor, 3);
-  await ContentTask.spawn(tab.linkedBrowser, {}, async () => {
+  await SpecialPowers.spawn(tab.linkedBrowser, [], async () => {
     await content.wrappedJSObject.executeTest();
   });
   await wait;
 
   // Copy HAR into the clipboard
   const json1 = await HarMenuUtils.copyAllAsHar(
-    getSortedRequests(store.getState()), connector);
+    getSortedRequests(store.getState()),
+    connector
+  );
 
   // Import HAR string
   const importer = new HarImporter(actions);
@@ -40,7 +47,9 @@ add_task(async () => {
 
   // Copy HAR into the clipboard again
   const json2 = await HarMenuUtils.copyAllAsHar(
-    getSortedRequests(store.getState()), connector);
+    getSortedRequests(store.getState()),
+    connector
+  );
 
   // Compare exported HAR data
   const har1 = JSON.parse(json1);
@@ -54,18 +63,30 @@ add_task(async () => {
   dump("---------------\n");
 
   // Explicit tests
-  is(har2.log.entries.length, 3,
-    "There must be expected number of requests");
-  ok(har2.log.entries[0].request.headers.length > 0,
-    "There must be some request headers");
-  ok(har2.log.entries[0].response.headers.length > 0,
-    "There must be some response headers");
-  is(har2.log.entries[1].response.cookies.length, 3,
-    "There must be expected number of cookies");
-  is(har2.log.entries[1]._securityState, "insecure",
-    "There must be expected security state");
-  is(har2.log.entries[2].response.status, 304,
-    "There must be expected status");
+  is(har2.log.entries.length, 3, "There must be expected number of requests");
+  ok(
+    har2.log.pages[0].title.endsWith("Network Monitor Test Page"),
+    "There must be some page title"
+  );
+  ok(
+    har2.log.entries[0].request.headers.length > 0,
+    "There must be some request headers"
+  );
+  ok(
+    har2.log.entries[0].response.headers.length > 0,
+    "There must be some response headers"
+  );
+  is(
+    har2.log.entries[1].response.cookies.length,
+    3,
+    "There must be expected number of cookies"
+  );
+  is(
+    har2.log.entries[1]._securityState,
+    "insecure",
+    "There must be expected security state"
+  );
+  is(har2.log.entries[2].response.status, 304, "There must be expected status");
 
   // Complex test comparing exported & imported HARs.
   ok(compare(har1.log, har2.log, ["log"]), "Exported HAR must be the same");
@@ -83,7 +104,11 @@ function compare(obj1, obj2, path) {
 
   const name = path.join("/");
 
-  is(keys1.length, keys2.length, "There must be the same number of keys for: " + name);
+  is(
+    keys1.length,
+    keys2.length,
+    "There must be the same number of keys for: " + name
+  );
   if (keys1.length != keys2.length) {
     return false;
   }

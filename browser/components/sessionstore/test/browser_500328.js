@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 async function checkState(browser) {
-  await ContentTask.spawn(browser, null, () => {
+  await SpecialPowers.spawn(browser, [], () => {
     // Go back and then forward, and make sure that the state objects received
     // from the popState event are as we expect them to be.
     //
@@ -17,19 +17,23 @@ async function checkState(browser) {
   });
 
   // Now go back.  This should trigger the popstate event handler.
-  let popstatePromise = ContentTask.spawn(browser, null, async () => {
-    let event = await ContentTaskUtils.waitForEvent(this, "popstate", true);
+  let popstatePromise = SpecialPowers.spawn(browser, [], async () => {
+    let event = await ContentTaskUtils.waitForEvent(content, "popstate", true);
     ok(event.state, "Event should have a state property.");
 
-    is(content.testState, "foo",
-       "testState after going back");
-    is(JSON.stringify(content.history.state), JSON.stringify({obj1: 1}),
-       "first popstate object.");
+    is(content.testState, "foo", "testState after going back");
+    is(
+      JSON.stringify(content.history.state),
+      JSON.stringify({ obj1: 1 }),
+      "first popstate object."
+    );
 
     // Add a node with id "new-elem" to the document.
     let doc = content.document;
-    ok(!doc.getElementById("new-elem"),
-       "doc shouldn't contain new-elem before we add it.");
+    ok(
+      !doc.getElementById("new-elem"),
+      "doc shouldn't contain new-elem before we add it."
+    );
     let elem = doc.createElement("div");
     elem.id = "new-elem";
     doc.body.appendChild(elem);
@@ -37,13 +41,13 @@ async function checkState(browser) {
 
   // Ensure that the message manager has processed the previous task before
   // going back to prevent racing with it in non-e10s mode.
-  await ContentTask.spawn(browser, null, () => {});
+  await SpecialPowers.spawn(browser, [], () => {});
   browser.goBack();
 
   await popstatePromise;
 
-  popstatePromise = ContentTask.spawn(browser, null, async () => {
-    let event = await ContentTaskUtils.waitForEvent(this, "popstate", true);
+  popstatePromise = SpecialPowers.spawn(browser, [], async () => {
+    let event = await ContentTaskUtils.waitForEvent(content, "popstate", true);
 
     // When content fires a PopStateEvent and we observe it from a chrome event
     // listener (as we do here, and, thankfully, nowhere else in the tree), the
@@ -51,8 +55,11 @@ async function checkState(browser) {
     // deserialized in the content scope. And in this case, since RegExps are
     // not currently Xrayable (see bug 1014991), trying to pull |obj3| (a RegExp)
     // off of an Xrayed Object won't work. So we need to waive.
-    Assert.equal(Cu.waiveXrays(event.state).obj3.toString(),
-                 "/^a$/", "second popstate object.");
+    Assert.equal(
+      Cu.waiveXrays(event.state).obj3.toString(),
+      "/^a$/",
+      "second popstate object."
+    );
 
     // Make sure that the new-elem node is present in the document.  If it's
     // not, then this history entry has a different doc identifier than the
@@ -66,12 +73,16 @@ async function checkState(browser) {
 
   // Ensure that the message manager has processed the previous task before
   // going forward to prevent racing with it in non-e10s mode.
-  await ContentTask.spawn(browser, null, () => {});
+  await SpecialPowers.spawn(browser, [], () => {});
   browser.goForward();
   await popstatePromise;
 }
 
 add_task(async function test() {
+  await SpecialPowers.pushPrefEnv({
+    set: [["browser.navigation.requireUserInteraction", false]],
+  });
+
   // Tests session restore functionality of history.pushState and
   // history.replaceState().  (Bug 500328)
 
@@ -79,37 +90,43 @@ add_task(async function test() {
   // http://example.com.  We need to load the blank window first, otherwise the
   // docshell gets confused and doesn't have a current history entry.
   let state;
-  await BrowserTestUtils.withNewTab({ gBrowser, url: "about:blank" }, async function(browser) {
-    BrowserTestUtils.loadURI(browser, "http://example.com");
-    await BrowserTestUtils.browserLoaded(browser);
+  await BrowserTestUtils.withNewTab(
+    { gBrowser, url: "about:blank" },
+    async function(browser) {
+      BrowserTestUtils.loadURI(browser, "http://example.com");
+      await BrowserTestUtils.browserLoaded(browser);
 
-    // After these push/replaceState calls, the window should have three
-    // history entries:
-    //   testURL        (state object: null)          <-- oldest
-    //   testURL        (state object: {obj1:1})
-    //   testURL?page2  (state object: {obj3:/^a$/})  <-- newest
-    function contentTest() {
-      let history = content.window.history;
-      history.pushState({obj1: 1}, "title-obj1");
-      history.pushState({obj2: 2}, "title-obj2", "?page2");
-      history.replaceState({obj3: /^a$/}, "title-obj3");
+      // After these push/replaceState calls, the window should have three
+      // history entries:
+      //   testURL        (state object: null)          <-- oldest
+      //   testURL        (state object: {obj1:1})
+      //   testURL?page2  (state object: {obj3:/^a$/})  <-- newest
+      function contentTest() {
+        let history = content.window.history;
+        history.pushState({ obj1: 1 }, "title-obj1");
+        history.pushState({ obj2: 2 }, "title-obj2", "?page2");
+        history.replaceState({ obj3: /^a$/ }, "title-obj3");
+      }
+      await SpecialPowers.spawn(browser, [], contentTest);
+      await TabStateFlusher.flush(browser);
+
+      state = ss.getTabState(gBrowser.getTabForBrowser(browser));
     }
-    await ContentTask.spawn(browser, null, contentTest);
-    await TabStateFlusher.flush(browser);
-
-    state = ss.getTabState(gBrowser.getTabForBrowser(browser));
-  });
+  );
 
   // Restore the state into a new tab.  Things don't work well when we
   // restore into the old tab, but that's not a real use case anyway.
-  await BrowserTestUtils.withNewTab({ gBrowser, url: "about:blank" }, async function(browser) {
-    let tab2 = gBrowser.getTabForBrowser(browser);
+  await BrowserTestUtils.withNewTab(
+    { gBrowser, url: "about:blank" },
+    async function(browser) {
+      let tab2 = gBrowser.getTabForBrowser(browser);
 
-    let tabRestoredPromise = promiseTabRestored(tab2);
-    ss.setTabState(tab2, state, true);
+      let tabRestoredPromise = promiseTabRestored(tab2);
+      ss.setTabState(tab2, state, true);
 
-    // Run checkState() once the tab finishes loading its restored state.
-    await tabRestoredPromise;
-    await checkState(browser);
-  });
+      // Run checkState() once the tab finishes loading its restored state.
+      await tabRestoredPromise;
+      await checkState(browser);
+    }
+  );
 });

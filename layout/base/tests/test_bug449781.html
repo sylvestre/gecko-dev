@@ -5,8 +5,8 @@ https://bugzilla.mozilla.org/show_bug.cgi?id=449781
 -->
 <head>
   <title>Test for Bug 449781</title>
-  <script type="text/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
-  <script type="text/javascript" src="/tests/SimpleTest/WindowSnapshot.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/WindowSnapshot.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css" />
 </head>
 <body>
@@ -36,9 +36,7 @@ addLoadEvent(function() {
   ok(equal, "Show/hide should have no effect - " +
      "got " + str1 + " but expected " + str2);
 
-  var viewer =
-    SpecialPowers.wrap($("ourFrame")).contentWindow.docShell.contentViewer;
-  viewer.fullZoom = 2;
+  SpecialPowers.setFullZoom($("ourFrame").contentWindow, 2);
 
   s3 = snapshotWindow(window);
 

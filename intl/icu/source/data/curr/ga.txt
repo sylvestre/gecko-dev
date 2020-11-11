@@ -72,7 +72,7 @@ ga{
         }
         ATS{
             "ATS",
-            "ATS",
+            "Scilling na hOstaire",
         }
         AUD{
             "A$",
@@ -112,7 +112,7 @@ ga{
         }
         BEC{
             "BEC",
-            "BEC",
+            "Franc na Beilge (inmhalartaithe)",
         }
         BEF{
             "BEF",
@@ -120,7 +120,7 @@ ga{
         }
         BEL{
             "BEL",
-            "BEL",
+            "Franc na Beilge (airgeadais)",
         }
         BGL{
             "BGL",
@@ -250,10 +250,6 @@ ga{
             "CLP",
             "Peso na Sile",
         }
-        CNH{
-            "CNH",
-            "CNH",
-        }
         CNY{
             "CN¥",
             "Yuan na Síne",
@@ -300,7 +296,7 @@ ga{
         }
         DDM{
             "DDM",
-            "DDM",
+            "Marc Ghearmáin an Oirthir",
         }
         DEM{
             "DEM",
@@ -1164,7 +1160,6 @@ ga{
         BRL{"R$"}
         BSD{"$"}
         BWP{"P"}
-        BYN{"р."}
         BZD{"$"}
         CAD{"$"}
         CLP{"$"}
@@ -1667,13 +1662,6 @@ ga{
             one{"pheso na Sile"}
             other{"peso na Sile"}
             two{"pheso na Sile"}
-        }
-        CNH{
-            few{"CNH"}
-            many{"CNH"}
-            one{"CNH"}
-            other{"CNH"}
-            two{"CNH"}
         }
         CNY{
             few{"yuan na Síne"}
@@ -2213,13 +2201,6 @@ ga{
             one{"Talonas Liotuánach"}
             other{"Talonas Liotuánach"}
             two{"Talonas Liotuánach"}
-        }
-        LUC{
-            few{"LUC"}
-            many{"LUC"}
-            one{"LUC"}
-            other{"LUC"}
-            two{"LUC"}
         }
         LUF{
             few{"Franc Lucsamburg"}
@@ -3188,5 +3169,5 @@ ga{
         other{"{0} {1}"}
         two{"{0} {1}"}
     }
-    Version{"2.1.44.91"}
+    Version{"37"}
 }

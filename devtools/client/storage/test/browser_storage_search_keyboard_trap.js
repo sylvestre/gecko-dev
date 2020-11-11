@@ -8,8 +8,8 @@ add_task(async function() {
   await selectTreeItem(["localStorage", "http://test1.example.org"]);
 
   await focusSearchBoxUsingShortcut(gPanelWindow);
-  ok(containsFocus(gPanelWindow.document, gUI.searchBox),
-     "Focus is in a searchbox");
-
-  await finishTests();
+  ok(
+    containsFocus(gPanelWindow.document, gUI.searchBox),
+    "Focus is in a searchbox"
+  );
 });

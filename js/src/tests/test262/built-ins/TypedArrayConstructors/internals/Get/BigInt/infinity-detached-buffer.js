@@ -1,4 +1,3 @@
-// |reftest| skip-if(!this.hasOwnProperty('BigInt')) -- BigInt is not enabled unconditionally
 // Copyright (C) 2017 André Bargull. All rights reserved.
 // This code is governed by the BSD license found in the LICENSE file.
 
@@ -28,16 +27,14 @@ info: |
     ...
 
 includes: [testBigIntTypedArray.js, detachArrayBuffer.js]
-features: [BigInt, TypedArray]
+features: [align-detached-buffer-semantics-with-web-reality, BigInt, TypedArray]
 ---*/
 
 testWithBigIntTypedArrayConstructors(function(TA) {
-  var sample = new TA(0);
+  let sample = new TA(0);
   $DETACHBUFFER(sample.buffer);
 
-  assert.throws(TypeError, function() {
-    sample.Infinity;
-  });
+  assert.sameValue(sample.Infinity, undefined, 'The value of sample.Infinity is expected to equal `undefined`');
 });
 
 reportCompare(0, 0);

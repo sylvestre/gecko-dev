@@ -1,9 +1,8 @@
 use proc_macro2::{Delimiter, Span};
 
-use error::Result;
-use parse::{ParseBuffer, ParseStream};
-use private;
-use token;
+use crate::error::Result;
+use crate::parse::ParseBuffer;
+use crate::token;
 
 // Not public API.
 #[doc(hidden)]
@@ -36,47 +35,49 @@ pub struct Group<'a> {
 
 // Not public API.
 #[doc(hidden)]
-pub fn parse_parens(input: ParseStream) -> Result<Parens> {
+pub fn parse_parens<'a>(input: &ParseBuffer<'a>) -> Result<Parens<'a>> {
     parse_delimited(input, Delimiter::Parenthesis).map(|(span, content)| Parens {
         token: token::Paren(span),
-        content: content,
+        content,
     })
 }
 
 // Not public API.
 #[doc(hidden)]
-pub fn parse_braces(input: ParseStream) -> Result<Braces> {
+pub fn parse_braces<'a>(input: &ParseBuffer<'a>) -> Result<Braces<'a>> {
     parse_delimited(input, Delimiter::Brace).map(|(span, content)| Braces {
         token: token::Brace(span),
-        content: content,
+        content,
     })
 }
 
 // Not public API.
 #[doc(hidden)]
-pub fn parse_brackets(input: ParseStream) -> Result<Brackets> {
+pub fn parse_brackets<'a>(input: &ParseBuffer<'a>) -> Result<Brackets<'a>> {
     parse_delimited(input, Delimiter::Bracket).map(|(span, content)| Brackets {
         token: token::Bracket(span),
-        content: content,
+        content,
     })
 }
 
 #[cfg(any(feature = "full", feature = "derive"))]
-impl private {
-    pub fn parse_group(input: ParseStream) -> Result<Group> {
-        parse_delimited(input, Delimiter::None).map(|(span, content)| Group {
-            token: token::Group(span),
-            content: content,
-        })
-    }
+pub(crate) fn parse_group<'a>(input: &ParseBuffer<'a>) -> Result<Group<'a>> {
+    parse_delimited(input, Delimiter::None).map(|(span, content)| Group {
+        token: token::Group(span),
+        content,
+    })
 }
 
-fn parse_delimited(input: ParseStream, delimiter: Delimiter) -> Result<(Span, ParseBuffer)> {
+fn parse_delimited<'a>(
+    input: &ParseBuffer<'a>,
+    delimiter: Delimiter,
+) -> Result<(Span, ParseBuffer<'a>)> {
     input.step(|cursor| {
         if let Some((content, span, rest)) = cursor.group(delimiter) {
-            let unexpected = private::get_unexpected(input);
-            let nested = private::advance_step_cursor(cursor, content);
-            let content = private::new_parse_buffer(span, nested, unexpected);
+            let scope = crate::buffer::close_span_of_group(*cursor);
+            let nested = crate::parse::advance_step_cursor(cursor, content);
+            let unexpected = crate::parse::get_unexpected(input);
+            let content = crate::parse::new_parse_buffer(scope, nested, unexpected);
             Ok(((span, content), rest))
         } else {
             let message = match delimiter {
@@ -94,15 +95,11 @@ fn parse_delimited(input: ParseStream, delimiter: Delimiter) -> Result<(Span, Pa
 ///
 /// # Example
 ///
-/// ```rust
-/// # #[macro_use]
-/// # extern crate quote;
+/// ```
+/// # use quote::quote;
 /// #
-/// #[macro_use]
-/// extern crate syn;
-///
-/// use syn::{token, Ident, Type};
-/// use syn::parse::{Parse, ParseStream, Result};
+/// use syn::{parenthesized, token, Ident, Result, Token, Type};
+/// use syn::parse::{Parse, ParseStream};
 /// use syn::punctuated::Punctuated;
 ///
 /// // Parse a simplified tuple struct syntax like:
@@ -155,14 +152,11 @@ macro_rules! parenthesized {
 ///
 /// # Example
 ///
-/// ```rust
-/// # #[macro_use]
-/// # extern crate quote;
+/// ```
+/// # use quote::quote;
 /// #
-/// #[macro_use]
-/// extern crate syn;
-/// use syn::{token, Ident, Type};
-/// use syn::parse::{Parse, ParseStream, Result};
+/// use syn::{braced, token, Ident, Result, Token, Type};
+/// use syn::parse::{Parse, ParseStream};
 /// use syn::punctuated::Punctuated;
 ///
 /// // Parse a simplified struct syntax like:
@@ -236,18 +230,12 @@ macro_rules! braced {
 ///
 /// # Example
 ///
-/// ```rust
-/// # #[macro_use]
-/// # extern crate quote;
+/// ```
+/// # use quote::quote;
 /// #
-/// #[macro_use]
-/// extern crate syn;
-///
-/// extern crate proc_macro2;
-///
 /// use proc_macro2::TokenStream;
-/// use syn::token;
-/// use syn::parse::{Parse, ParseStream, Result};
+/// use syn::{bracketed, token, Result, Token};
+/// use syn::parse::{Parse, ParseStream};
 ///
 /// // Parse an outer attribute like:
 /// //

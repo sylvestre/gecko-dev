@@ -7,7 +7,9 @@
  * Tests if Request-Headers and Response-Headers are correctly filtered in Headers tab.
  */
 add_task(async function() {
-  const { tab, monitor } = await initNetMonitor(SIMPLE_SJS);
+  const { tab, monitor } = await initNetMonitor(SIMPLE_SJS, {
+    requestCount: 1,
+  });
   info("Starting test... ");
 
   const { document, store, windowRequire } = monitor.panelWin;
@@ -20,8 +22,10 @@ add_task(async function() {
   await wait;
 
   wait = waitUntil(() => document.querySelector(".headers-overview"));
-  EventUtils.sendMouseEvent({ type: "mousedown" },
-    document.querySelectorAll(".request-list-item")[0]);
+  EventUtils.sendMouseEvent(
+    { type: "mousedown" },
+    document.querySelectorAll(".request-list-item")[0]
+  );
   await wait;
 
   await waitForRequestData(store, ["requestHeaders", "responseHeaders"]);
@@ -32,35 +36,45 @@ add_task(async function() {
 
   info("Check if Headers are filtered correctly");
 
-  const totalResponseHeaders = ["cache-control", "connection", "content-length",
-                                "content-type", "date", "expires", "foo-bar",
-                                "foo-bar", "foo-bar", "pragma", "server", "set-cookie",
-                                "set-cookie"];
-  const expectedResponseHeaders = ["cache-control", "connection", "content-length",
-                                   "content-type"];
+  const expectedResponseHeaders = [
+    "cache-control",
+    "connection",
+    "content-length",
+    "content-type",
+  ];
   const expectedRequestHeaders = ["Cache-Control", "Connection"];
 
-  const labelCells = document.querySelectorAll(".treeLabelCell");
+  const responseLabelCells = document.querySelectorAll(
+    "#responseHeaders .treeLabelCell"
+  );
+  const requestLabelCells = document.querySelectorAll(
+    "#requestHeaders .treeLabelCell"
+  );
   const filteredResponseHeaders = [];
   const filteredRequestHeaders = [];
 
-  const responseHeadersLength = totalResponseHeaders.length;
-  for (let i = 1; i < responseHeadersLength + 1; i++) {
-    if (labelCells[i].offsetHeight > 0) {
-      filteredResponseHeaders.push(labelCells[i].innerText);
+  for (let i = 0; i < responseLabelCells.length; i++) {
+    if (responseLabelCells[i].offsetHeight > 0) {
+      filteredResponseHeaders.push(responseLabelCells[i].innerText);
     }
   }
 
-  for (let i = responseHeadersLength + 2; i < labelCells.length; i++) {
-    if (labelCells[i].offsetHeight > 0) {
-      filteredRequestHeaders.push(labelCells[i].innerText);
+  for (let i = 0; i < requestLabelCells.length; i++) {
+    if (requestLabelCells[i].offsetHeight > 0) {
+      filteredRequestHeaders.push(requestLabelCells[i].innerText);
     }
   }
 
-  is(filteredResponseHeaders.toString(), expectedResponseHeaders.toString(),
-    "Response Headers are filtered");
-  is(filteredRequestHeaders.toString(), expectedRequestHeaders.toString(),
-    "Request Headers are filtered");
+  is(
+    filteredResponseHeaders.toString(),
+    expectedResponseHeaders.toString(),
+    "Response Headers are filtered"
+  );
+  is(
+    filteredRequestHeaders.toString(),
+    expectedRequestHeaders.toString(),
+    "Request Headers are filtered"
+  );
 
   await teardown(monitor);
 });

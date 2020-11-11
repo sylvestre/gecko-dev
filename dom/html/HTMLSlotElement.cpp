@@ -5,22 +5,22 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "mozilla/dom/DocGroup.h"
+#include "mozilla/dom/Document.h"
 #include "mozilla/dom/HTMLSlotElement.h"
 #include "mozilla/dom/HTMLSlotElementBinding.h"
 #include "mozilla/dom/HTMLUnknownElement.h"
 #include "mozilla/dom/ShadowRoot.h"
 #include "nsGkAtoms.h"
-#include "nsDocument.h"
 
 nsGenericHTMLElement* NS_NewHTMLSlotElement(
     already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo,
     mozilla::dom::FromParser aFromParser) {
   RefPtr<mozilla::dom::NodeInfo> nodeInfo(std::move(aNodeInfo));
-  return new mozilla::dom::HTMLSlotElement(nodeInfo.forget());
+  auto* nim = nodeInfo->NodeInfoManager();
+  return new (nim) mozilla::dom::HTMLSlotElement(nodeInfo.forget());
 }
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 HTMLSlotElement::HTMLSlotElement(
     already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo)
@@ -39,13 +39,10 @@ NS_INTERFACE_MAP_END_INHERITING(nsGenericHTMLElement)
 
 NS_IMPL_ELEMENT_CLONE(HTMLSlotElement)
 
-nsresult HTMLSlotElement::BindToTree(nsIDocument* aDocument,
-                                     nsIContent* aParent,
-                                     nsIContent* aBindingParent) {
+nsresult HTMLSlotElement::BindToTree(BindContext& aContext, nsINode& aParent) {
   RefPtr<ShadowRoot> oldContainingShadow = GetContainingShadow();
 
-  nsresult rv =
-      nsGenericHTMLElement::BindToTree(aDocument, aParent, aBindingParent);
+  nsresult rv = nsGenericHTMLElement::BindToTree(aContext, aParent);
   NS_ENSURE_SUCCESS(rv, rv);
 
   ShadowRoot* containingShadow = GetContainingShadow();
@@ -56,10 +53,10 @@ nsresult HTMLSlotElement::BindToTree(nsIDocument* aDocument,
   return NS_OK;
 }
 
-void HTMLSlotElement::UnbindFromTree(bool aDeep, bool aNullParent) {
+void HTMLSlotElement::UnbindFromTree(bool aNullParent) {
   RefPtr<ShadowRoot> oldContainingShadow = GetContainingShadow();
 
-  nsGenericHTMLElement::UnbindFromTree(aDeep, aNullParent);
+  nsGenericHTMLElement::UnbindFromTree(aNullParent);
 
   if (oldContainingShadow && !GetContainingShadow()) {
     oldContainingShadow->RemoveSlot(this);
@@ -139,33 +136,43 @@ void HTMLSlotElement::AssignedNodes(const AssignedNodesOptions& aOptions,
     return FlattenAssignedNodes(this, aNodes);
   }
 
-  aNodes = mAssignedNodes;
+  aNodes = mAssignedNodes.Clone();
+}
+
+void HTMLSlotElement::AssignedElements(const AssignedNodesOptions& aOptions,
+                                       nsTArray<RefPtr<Element>>& aElements) {
+  AutoTArray<RefPtr<nsINode>, 128> assignedNodes;
+  AssignedNodes(aOptions, assignedNodes);
+  for (const RefPtr<nsINode>& assignedNode : assignedNodes) {
+    if (assignedNode->IsElement()) {
+      aElements.AppendElement(assignedNode->AsElement());
+    }
+  }
 }
 
 const nsTArray<RefPtr<nsINode>>& HTMLSlotElement::AssignedNodes() const {
   return mAssignedNodes;
 }
 
-void HTMLSlotElement::InsertAssignedNode(uint32_t aIndex, nsINode* aNode) {
-  MOZ_ASSERT(!aNode->AsContent()->GetAssignedSlot(), "Losing track of a slot");
-  mAssignedNodes.InsertElementAt(aIndex, aNode);
-  aNode->AsContent()->SetAssignedSlot(this);
+void HTMLSlotElement::InsertAssignedNode(uint32_t aIndex, nsIContent& aNode) {
+  MOZ_ASSERT(!aNode.GetAssignedSlot(), "Losing track of a slot");
+  mAssignedNodes.InsertElementAt(aIndex, &aNode);
+  aNode.SetAssignedSlot(this);
 }
 
-void HTMLSlotElement::AppendAssignedNode(nsINode* aNode) {
-  MOZ_ASSERT(!aNode->AsContent()->GetAssignedSlot(), "Losing track of a slot");
-  mAssignedNodes.AppendElement(aNode);
-  aNode->AsContent()->SetAssignedSlot(this);
+void HTMLSlotElement::AppendAssignedNode(nsIContent& aNode) {
+  MOZ_ASSERT(!aNode.GetAssignedSlot(), "Losing track of a slot");
+  mAssignedNodes.AppendElement(&aNode);
+  aNode.SetAssignedSlot(this);
 }
 
-void HTMLSlotElement::RemoveAssignedNode(nsINode* aNode) {
+void HTMLSlotElement::RemoveAssignedNode(nsIContent& aNode) {
   // This one runs from unlinking, so we can't guarantee that the slot pointer
   // hasn't been cleared.
-  MOZ_ASSERT(!aNode->AsContent()->GetAssignedSlot() ||
-                 aNode->AsContent()->GetAssignedSlot() == this,
+  MOZ_ASSERT(!aNode.GetAssignedSlot() || aNode.GetAssignedSlot() == this,
              "How exactly?");
-  mAssignedNodes.RemoveElement(aNode);
-  aNode->AsContent()->SetAssignedSlot(nullptr);
+  mAssignedNodes.RemoveElement(&aNode);
+  aNode.SetAssignedSlot(nullptr);
 }
 
 void HTMLSlotElement::ClearAssignedNodes() {
@@ -201,8 +208,8 @@ void HTMLSlotElement::EnqueueSlotChangeEvent() {
 
 void HTMLSlotElement::FireSlotChangeEvent() {
   nsContentUtils::DispatchTrustedEvent(
-      OwnerDoc(), static_cast<nsIContent*>(this),
-      NS_LITERAL_STRING("slotchange"), CanBubble::eYes, Cancelable::eNo);
+      OwnerDoc(), static_cast<nsIContent*>(this), u"slotchange"_ns,
+      CanBubble::eYes, Cancelable::eNo);
 }
 
 JSObject* HTMLSlotElement::WrapNode(JSContext* aCx,
@@ -210,5 +217,4 @@ JSObject* HTMLSlotElement::WrapNode(JSContext* aCx,
   return HTMLSlotElement_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

@@ -11,15 +11,23 @@
  */
 
 dictionary AudioContextOptions {
-             float        sampleRate = 0;
+             float        sampleRate;
+};
+
+dictionary AudioTimestamp {
+  double contextTime;
+  DOMHighResTimeStamp performanceTime;
 };
 
 [Pref="dom.webaudio.enabled",
- Constructor(optional AudioContextOptions contextOptions)]
+ Exposed=Window]
 interface AudioContext : BaseAudioContext {
+    [Throws]
+    constructor(optional AudioContextOptions contextOptions = {});
 
-    // Bug 1324545: readonly        attribute double outputLatency;
-    // Bug 1324545: AudioTimestamp                  getOutputTimestamp ();
+    readonly        attribute double               baseLatency;
+    readonly        attribute double               outputLatency;
+    AudioTimestamp                  getOutputTimestamp();
 
     [Throws]
     Promise<void> suspend();
@@ -32,7 +40,8 @@ interface AudioContext : BaseAudioContext {
     [NewObject, Throws]
     MediaStreamAudioSourceNode createMediaStreamSource(MediaStream mediaStream);
 
-    // Bug 1324548: MediaStreamTrackAudioSourceNode createMediaStreamTrackSource (AudioMediaStreamTrack mediaStreamTrack);
+    [NewObject, Throws]
+    MediaStreamTrackAudioSourceNode createMediaStreamTrackSource(MediaStreamTrack mediaStreamTrack);
 
     [NewObject, Throws]
     MediaStreamAudioDestinationNode createMediaStreamDestination();

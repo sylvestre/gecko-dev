@@ -5,28 +5,62 @@
 
 "use strict";
 
-function run_test() {
-  Assert.ok(!Services.search.isInitialized, "search isn't initialized yet");
+add_task(async function setup() {
+  await AddonTestUtils.promiseStartupManager();
 
-  run_next_test();
+  Services.prefs.setBoolPref(
+    SearchUtils.BROWSER_SEARCH_PREF + "separatePrivateDefault.ui.enabled",
+    true
+  );
+
+  await SearchTestUtils.useTestEngines();
+  await Services.search.init();
+});
+
+async function checkOrder(expectedOrder) {
+  const sortedEngines = await Services.search.getEngines();
+  Assert.deepEqual(
+    sortedEngines.map(s => s.name),
+    expectedOrder,
+    "Should have the expected engine order"
+  );
 }
 
-// Override list.json with test data from data/list.json
-// and check that searchOrder is working
-add_task(async function test_searchOrderJSON() {
-  let url = "resource://test/data/";
-  let resProt = Services.io.getProtocolHandler("resource")
-                        .QueryInterface(Ci.nsIResProtocolHandler);
-  resProt.setSubstitution("search-plugins", Services.io.newURI(url));
+add_task(async function test_searchOrderJSON_no_separate_private() {
+  Services.prefs.setBoolPref(
+    SearchUtils.BROWSER_SEARCH_PREF + "separatePrivateDefault",
+    false
+  );
 
-  await asyncReInit();
+  await checkOrder([
+    // Default engine
+    "Test search engine",
+    // Two engines listed in searchOrder.
+    "engine-resourceicon",
+    "engine-chromeicon",
+    // Rest of the engines in order.
+    "engine-pref",
+    "engine-rel-searchform-purpose",
+    "Test search engine (Reordered)",
+  ]);
+});
 
-  Assert.ok(Services.search.isInitialized, "search initialized");
-  Assert.equal(Services.search.defaultEngine.name,
-               kTestEngineName, "expected test list JSON default search engine");
+add_task(async function test_searchOrderJSON_separate_private() {
+  Services.prefs.setBoolPref(
+    SearchUtils.BROWSER_SEARCH_PREF + "separatePrivateDefault",
+    true
+  );
 
-  let sortedEngines = Services.search.getEngines();
-  Assert.equal(sortedEngines[0].name, "Test search engine", "First engine should be default");
-  Assert.equal(sortedEngines[1].name, "engine-resourceicon", "Second engine should be resource");
-  Assert.equal(sortedEngines[2].name, "engine-chromeicon", "Third engine should be chrome");
+  await checkOrder([
+    // Default engine
+    "Test search engine",
+    // Default private engine
+    "engine-pref",
+    // Two engines listed in searchOrder.
+    "engine-resourceicon",
+    "engine-chromeicon",
+    // Rest of the engines in order.
+    "engine-rel-searchform-purpose",
+    "Test search engine (Reordered)",
+  ]);
 });

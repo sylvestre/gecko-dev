@@ -7,33 +7,65 @@
 #ifndef nsDocShellLoadState_h__
 #define nsDocShellLoadState_h__
 
+#include "mozilla/dom/BrowsingContext.h"
+#include "mozilla/dom/SessionHistoryEntry.h"
+
 // Helper Classes
+#include "mozilla/Maybe.h"
 #include "nsCOMPtr.h"
 #include "nsString.h"
 #include "nsDocShellLoadTypes.h"
-#include "mozilla/net/ReferrerPolicy.h"
+#include "nsTArrayForwardDeclare.h"
 
+class nsIContentSecurityPolicy;
 class nsIInputStream;
 class nsISHEntry;
 class nsIURI;
 class nsIDocShell;
+class nsIChannel;
+class nsIReferrerInfo;
 class OriginAttibutes;
+namespace mozilla {
+template <typename, class>
+class UniquePtr;
+namespace dom {
+class DocShellLoadStateInit;
+}  // namespace dom
+}  // namespace mozilla
 
 /**
  * nsDocShellLoadState contains setup information used in a nsIDocShell::loadURI
  * call.
  */
 class nsDocShellLoadState final {
+  using BrowsingContext = mozilla::dom::BrowsingContext;
+  template <typename T>
+  using MaybeDiscarded = mozilla::dom::MaybeDiscarded<T>;
+
  public:
   NS_INLINE_DECL_REFCOUNTING(nsDocShellLoadState);
 
-  nsDocShellLoadState();
+  explicit nsDocShellLoadState(nsIURI* aURI);
+  explicit nsDocShellLoadState(
+      const mozilla::dom::DocShellLoadStateInit& aLoadState);
+  explicit nsDocShellLoadState(const nsDocShellLoadState& aOther);
+  nsDocShellLoadState(nsIURI* aURI, uint64_t aLoadIdentifier);
+
+  static nsresult CreateFromPendingChannel(nsIChannel* aPendingChannel,
+                                           uint64_t aLoadIdentifier,
+                                           uint64_t aRegistarId,
+                                           nsDocShellLoadState** aResult);
+
+  static nsresult CreateFromLoadURIOptions(
+      BrowsingContext* aBrowsingContext, const nsAString& aURI,
+      const mozilla::dom::LoadURIOptions& aLoadURIOptions,
+      nsDocShellLoadState** aResult);
 
   // Getters and Setters
 
-  nsIURI* Referrer() const;
+  nsIReferrerInfo* GetReferrerInfo() const;
 
-  void SetReferrer(nsIURI* aReferrer);
+  void SetReferrerInfo(nsIReferrerInfo* aReferrerInfo);
 
   nsIURI* URI() const;
 
@@ -59,6 +91,11 @@ class nsDocShellLoadState final {
 
   void SetPrincipalToInherit(nsIPrincipal* aPrincipalToInherit);
 
+  nsIPrincipal* PartitionedPrincipalToInherit() const;
+
+  void SetPartitionedPrincipalToInherit(
+      nsIPrincipal* aPartitionedPrincipalToInherit);
+
   bool LoadReplace() const;
 
   void SetLoadReplace(bool aLoadReplace);
@@ -66,6 +103,14 @@ class nsDocShellLoadState final {
   nsIPrincipal* TriggeringPrincipal() const;
 
   void SetTriggeringPrincipal(nsIPrincipal* aTriggeringPrincipal);
+
+  uint32_t TriggeringSandboxFlags() const;
+
+  void SetTriggeringSandboxFlags(uint32_t aTriggeringSandboxFlags);
+
+  nsIContentSecurityPolicy* Csp() const;
+
+  void SetCsp(nsIContentSecurityPolicy* aCsp);
 
   bool InheritPrincipal() const;
 
@@ -83,6 +128,10 @@ class nsDocShellLoadState final {
 
   void SetOriginalFrameSrc(bool aOriginalFrameSrc);
 
+  bool IsFormSubmission() const;
+
+  void SetIsFormSubmission(bool aIsFormSubmission);
+
   uint32_t LoadType() const;
 
   void SetLoadType(uint32_t aLoadType);
@@ -90,6 +139,19 @@ class nsDocShellLoadState final {
   nsISHEntry* SHEntry() const;
 
   void SetSHEntry(nsISHEntry* aSHEntry);
+
+  const mozilla::dom::LoadingSessionHistoryInfo* GetLoadingSessionHistoryInfo()
+      const;
+
+  // Copies aLoadingInfo and stores the copy in this nsDocShellLoadState.
+  void SetLoadingSessionHistoryInfo(
+      const mozilla::dom::LoadingSessionHistoryInfo& aLoadingInfo);
+
+  // Stores aLoadingInfo in this nsDocShellLoadState.
+  void SetLoadingSessionHistoryInfo(
+      mozilla::UniquePtr<mozilla::dom::LoadingSessionHistoryInfo> aLoadingInfo);
+
+  bool LoadIsFromSessionHistory() const;
 
   const nsString& Target() const;
 
@@ -103,23 +165,23 @@ class nsDocShellLoadState final {
 
   void SetHeadersStream(nsIInputStream* aHeadersStream);
 
-  bool SendReferrer() const;
-
-  void SetSendReferrer(bool aSendReferrer);
-
-  uint32_t ReferrerPolicy() const;
-
-  void SetReferrerPolicy(mozilla::net::ReferrerPolicy aReferrerPolicy);
-
   bool IsSrcdocLoad() const;
 
   const nsString& SrcdocData() const;
 
   void SetSrcdocData(const nsAString& aSrcdocData);
 
-  nsIDocShell* SourceDocShell() const;
+  const MaybeDiscarded<BrowsingContext>& SourceBrowsingContext() const {
+    return mSourceBrowsingContext;
+  }
 
-  void SetSourceDocShell(nsIDocShell* aSourceDocShell);
+  void SetSourceBrowsingContext(BrowsingContext* aSourceBrowsingContext);
+
+  const MaybeDiscarded<BrowsingContext>& TargetBrowsingContext() const {
+    return mTargetBrowsingContext;
+  }
+
+  void SetTargetBrowsingContext(BrowsingContext* aTargetBrowsingContext);
 
   nsIURI* BaseURI() const;
 
@@ -138,9 +200,19 @@ class nsDocShellLoadState final {
 
   void SetLoadFlags(uint32_t aFlags);
 
+  void SetLoadFlag(uint32_t aFlag);
+
+  void UnsetLoadFlag(uint32_t aFlag);
+
+  bool HasLoadFlags(uint32_t aFlag);
+
   bool FirstParty() const;
 
   void SetFirstParty(bool aFirstParty);
+
+  bool HasValidUserGestureActivation() const;
+
+  void SetHasValidUserGestureActivation(bool HasValidUserGestureActivation);
 
   const nsCString& TypeHint() const;
 
@@ -150,17 +222,14 @@ class nsDocShellLoadState final {
 
   void SetFileName(const nsAString& aFileName);
 
-  uint32_t DocShellInternalLoadFlags() const;
-
-  void SetDocShellInternalLoadFlags(uint32_t aFlags);
-
   // Give the type of DocShell we're loading into (chrome/content/etc) and
   // origin attributes for the URI we're loading, figure out if we should
   // inherit our principal from the document the load was requested from, or
   // else if the principal should be set up later in the process (after loads).
   // See comments in function for more info on principal selection algorithm
   nsresult SetupInheritingPrincipal(
-      uint32_t aItemType, const mozilla::OriginAttributes& aOriginAttributes);
+      mozilla::dom::BrowsingContext::Type aType,
+      const mozilla::OriginAttributes& aOriginAttributes);
 
   // If no triggering principal exists at the moment, create one using referrer
   // information and origin attributes.
@@ -170,15 +239,58 @@ class nsDocShellLoadState final {
   void SetIsFromProcessingFrameAttributes() {
     mIsFromProcessingFrameAttributes = true;
   }
-  bool GetIsFromProcessingFrameAttributes() {
+  bool GetIsFromProcessingFrameAttributes() const {
     return mIsFromProcessingFrameAttributes;
   }
+
+  nsIChannel* GetPendingRedirectedChannel() {
+    return mPendingRedirectedChannel;
+  }
+
+  uint64_t GetPendingRedirectChannelRegistrarId() const {
+    return mChannelRegistrarId;
+  }
+
+  void SetOriginalURIString(const nsCString& aOriginalURI) {
+    mOriginalURIString.emplace(aOriginalURI);
+  }
+  const mozilla::Maybe<nsCString>& GetOriginalURIString() const {
+    return mOriginalURIString;
+  }
+
+  void SetCancelContentJSEpoch(int32_t aCancelEpoch) {
+    mCancelContentJSEpoch.emplace(aCancelEpoch);
+  }
+  const mozilla::Maybe<int32_t>& GetCancelContentJSEpoch() const {
+    return mCancelContentJSEpoch;
+  }
+
+  uint64_t GetLoadIdentifier() const { return mLoadIdentifier; }
+
+  void SetChannelInitialized(bool aInitilized) {
+    mChannelInitialized = aInitilized;
+  }
+
+  bool GetChannelInitialized() const { return mChannelInitialized; }
 
   // When loading a document through nsDocShell::LoadURI(), a special set of
   // flags needs to be set based on other values in nsDocShellLoadState. This
   // function calculates those flags, before the LoadState is passed to
   // nsDocShell::InternalLoad.
-  void CalculateDocShellInternalLoadFlags();
+  void CalculateLoadURIFlags();
+
+  // Compute the load flags to be used by creating channel.  aUriModified and
+  // aIsXFOError are expected to be Nothing when called from Parent process.
+  nsLoadFlags CalculateChannelLoadFlags(
+      mozilla::dom::BrowsingContext* aBrowsingContext,
+      mozilla::Maybe<bool> aUriModified, mozilla::Maybe<bool> aIsXFOError);
+
+  mozilla::dom::DocShellLoadStateInit Serialize();
+
+  void SetLoadIsFromSessionHistory(int32_t aRequestedIndex,
+                                   int32_t aSessionHistoryLength,
+                                   bool aLoadingFromActiveEntry);
+  void ClearLoadIsFromSessionHistory();
 
  protected:
   // Destructor can't be defaulted or inlined, as header doesn't have all type
@@ -187,30 +299,54 @@ class nsDocShellLoadState final {
 
  protected:
   // This is the referrer for the load.
-  nsCOMPtr<nsIURI> mReferrer;
+  nsCOMPtr<nsIReferrerInfo> mReferrerInfo;
 
   // The URI we are navigating to. Will not be null once set.
   nsCOMPtr<nsIURI> mURI;
 
-  // The originalURI to be passed to nsIDocShell.internalLoad. May be null.
+  // The URI to set as the originalURI on the channel that does the load. If
+  // null, aURI will be set as the originalURI.
   nsCOMPtr<nsIURI> mOriginalURI;
 
-  // Result principal URL from nsILoadInfo, may be null. Valid only if
-  // mResultPrincipalURIIsSome is true (has the same meaning as isSome() on
-  // mozilla::Maybe.)
+  // The URI to be set to loadInfo.resultPrincipalURI
+  // - When Nothing, there will be no change
+  // - When Some, the principal URI will overwrite even
+  //   with a null value.
+  //
+  // Valid only if mResultPrincipalURIIsSome is true (has the same meaning as
+  // isSome() on mozilla::Maybe.)
   nsCOMPtr<nsIURI> mResultPrincipalURI;
   bool mResultPrincipalURIIsSome;
 
   // The principal of the load, that is, the entity responsible for causing the
   // load to occur. In most cases the referrer and the triggeringPrincipal's URI
   // will be identical.
+  //
+  // Please note that this is the principal that is used for security checks. If
+  // the argument aURI is provided by the web, then please do not pass a
+  // SystemPrincipal as the triggeringPrincipal.
   nsCOMPtr<nsIPrincipal> mTriggeringPrincipal;
 
-  // if http-equiv="refresh" cause reload we do not want to replace
-  // ResultPrinicpalURI if it was already set.
+  // The SandboxFlags of the load, that are, the SandboxFlags of the entity
+  // responsible for causing the load to occur. Most likely this are the
+  // SandboxFlags of the document that started the load.
+  uint32_t mTriggeringSandboxFlags;
+
+  // The CSP of the load, that is, the CSP of the entity responsible for causing
+  // the load to occur. Most likely this is the CSP of the document that started
+  // the load. In case the entity starting the load did not use a CSP, then mCsp
+  // can be null. Please note that this is also the CSP that will be applied to
+  // the load in case the load encounters a server side redirect.
+  nsCOMPtr<nsIContentSecurityPolicy> mCsp;
+
+  // If a refresh is caused by http-equiv="refresh" we want to set
+  // aResultPrincipalURI, but we do not want to overwrite the channel's
+  // ResultPrincipalURI, if it has already been set on the channel by a protocol
+  // handler.
   bool mKeepResultPrincipalURIIfSet;
 
-  // loadReplace flag to be passed to nsIDocShell.internalLoad.
+  // If set LOAD_REPLACE flag will be set on the channel. If aOriginalURI is
+  // null, this argument is ignored.
   bool mLoadReplace;
 
   // If this attribute is true and no triggeringPrincipal is specified,
@@ -226,9 +362,16 @@ class nsDocShellLoadState final {
 
   // Principal we're inheriting. If null, this means the principal should be
   // inherited from the current document. If set to NullPrincipal, the channel
-  // will fill in principal information later in the load. See internal function
-  // comments for more info.
+  // will fill in principal information later in the load. See internal comments
+  // of SetupInheritingPrincipal for more info.
+  //
+  // When passed to InternalLoad, If this argument is null then
+  // principalToInherit is computed differently. See nsDocShell::InternalLoad
+  // for more comments.
+
   nsCOMPtr<nsIPrincipal> mPrincipalToInherit;
+
+  nsCOMPtr<nsIPrincipal> mPartitionedPrincipalToInherit;
 
   // If this attribute is true, then a top-level navigation
   // to a data URI will be allowed.
@@ -238,33 +381,34 @@ class nsDocShellLoadState final {
   // element loading its original src (or srcdoc) attribute.
   bool mOriginalFrameSrc;
 
-  // True if the referrer should be sent, false if it shouldn't be sent, even if
-  // it's available. This attribute defaults to true.
-  bool mSendReferrer;
-
-  // Referrer policy for the load. This attribute holds one of the values
-  // (REFERRER_POLICY_*) defined in nsIHttpChannel.
-  mozilla::net::ReferrerPolicy mReferrerPolicy;
+  // If this attribute is true, then the load was initiated by a
+  // form submission. This is important to know for the CSP directive
+  // navigate-to.
+  bool mIsFormSubmission;
 
   // Contains a load type as specified by the nsDocShellLoadTypes::load*
   // constants
   uint32_t mLoadType;
 
-  // SHEntry for this page
+  // Active Session History entry (if loading from SH)
   nsCOMPtr<nsISHEntry> mSHEntry;
+
+  // Loading session history info for the load
+  mozilla::UniquePtr<mozilla::dom::LoadingSessionHistoryInfo>
+      mLoadingSessionHistoryInfo;
 
   // Target for load, like _content, _blank etc.
   nsString mTarget;
 
-  // Post data
+  // When set, this is the Target Browsing Context for the navigation
+  // after retargeting.
+  MaybeDiscarded<BrowsingContext> mTargetBrowsingContext;
+
+  // Post data stream (if POSTing)
   nsCOMPtr<nsIInputStream> mPostDataStream;
 
   // Additional Headers
   nsCOMPtr<nsIInputStream> mHeadersStream;
-
-  // True if the docshell has been created to load an iframe where the srcdoc
-  // attribute has been set. Set when srcdocData is specified.
-  bool mIsSrcdocLoad;
 
   // When set, the load will be interpreted as a srcdoc load, where contents of
   // this string will be loaded instead of the URI. Setting srcdocData sets
@@ -272,17 +416,20 @@ class nsDocShellLoadState final {
   nsString mSrcdocData;
 
   // When set, this is the Source Browsing Context for the navigation.
-  nsCOMPtr<nsIDocShell> mSourceDocShell;
+  MaybeDiscarded<BrowsingContext> mSourceBrowsingContext;
 
   // Used for srcdoc loads to give view-source knowledge of the load's base URI
   // as this information isn't embedded in the load's URI.
   nsCOMPtr<nsIURI> mBaseURI;
 
-  // Set of Load Flags, taken from nsDocShellLoadTypes.h
+  // Set of Load Flags, taken from nsDocShellLoadTypes.h and nsIWebNavigation
   uint32_t mLoadFlags;
 
   // Is this a First Party Load?
   bool mFirstParty;
+
+  // Is this load triggered by a user gesture?
+  bool mHasValidUserGestureActivation;
 
   // A hint as to the content-type of the resulting data. If no hint, IsVoid()
   // should return true.
@@ -294,14 +441,36 @@ class nsDocShellLoadState final {
   // mFileName.IsVoid() should return true.
   nsString mFileName;
 
-  // LoadFlags calculated in nsDocShell::LoadURI and passed to
-  // nsDocShell::InternalLoad, taken from the INTERNAL_LOAD consts in
-  // nsIDocShell.idl
-  uint32_t mDocShellInternalLoadFlags;
-
   // This will be true if this load is triggered by attribute changes.
   // See nsILoadInfo.isFromProcessingFrameAttributes
   bool mIsFromProcessingFrameAttributes;
+
+  // If set, a pending cross-process redirected channel should be used to
+  // perform the load. The channel will be stored in this value.
+  nsCOMPtr<nsIChannel> mPendingRedirectedChannel;
+
+  // An optional string representation of mURI, before any
+  // fixups were applied, so that we can send it to a search
+  // engine service if needed.
+  mozilla::Maybe<nsCString> mOriginalURIString;
+
+  // An optional value to pass to nsIDocShell::setCancelJSEpoch
+  // when initiating the load.
+  mozilla::Maybe<int32_t> mCancelContentJSEpoch;
+
+  // If mPendingRedirectChannel is set, then this is the identifier
+  // that the parent-process equivalent channel has been registered
+  // with using RedirectChannelRegistrar.
+  uint64_t mChannelRegistrarId;
+
+  // An identifier to make it possible to examine if two loads are
+  // equal, and which browsing context they belong to (see
+  // BrowsingContext::{Get, Set}CurrentLoadIdentifier)
+  const uint64_t mLoadIdentifier;
+
+  // Optional value to indicate that a channel has been
+  // pre-initialized in the parent process.
+  bool mChannelInitialized;
 };
 
 #endif /* nsDocShellLoadState_h__ */

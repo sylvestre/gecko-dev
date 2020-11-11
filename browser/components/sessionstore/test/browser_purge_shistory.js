@@ -7,17 +7,23 @@
  */
 
 const TAB_STATE = {
-  entries: [{url: "about:mozilla", triggeringPrincipal_base64},
-            {url: "about:robots", triggeringPrincipal_base64}],
+  entries: [
+    { url: "about:mozilla", triggeringPrincipal_base64 },
+    { url: "about:robots", triggeringPrincipal_base64 },
+  ],
   index: 1,
 };
 
 function checkTabContents(browser) {
-  return ContentTask.spawn(browser, null, async function() {
+  return SpecialPowers.spawn(browser, [], async function() {
     let webNavigation = docShell.QueryInterface(Ci.nsIWebNavigation);
     let history = webNavigation.sessionHistory;
-    Assert.ok(history && history.count == 1 && content.document.documentURI == "about:mozilla",
-      "expected tab contents found");
+    Assert.ok(
+      history &&
+        history.count == 1 &&
+        content.document.documentURI == "about:mozilla",
+      "expected tab contents found"
+    );
   });
 }
 

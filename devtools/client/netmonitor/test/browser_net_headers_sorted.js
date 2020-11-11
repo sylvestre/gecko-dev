@@ -12,7 +12,9 @@
  * order and not sorted.
  */
 add_task(async function() {
-  const { tab, monitor } = await initNetMonitor(SIMPLE_SJS);
+  const { tab, monitor } = await initNetMonitor(SIMPLE_SJS, {
+    requestCount: 1,
+  });
   info("Starting test... ");
 
   const { store, windowRequire } = monitor.panelWin;
@@ -37,38 +39,70 @@ async function verifyHeaders(monitor) {
   info("Check if Request-Headers and Response-Headers are sorted");
 
   const wait = waitForDOM(document, ".headers-overview");
-  EventUtils.sendMouseEvent({ type: "mousedown" },
-    document.querySelectorAll(".request-list-item")[0]);
+  EventUtils.sendMouseEvent(
+    { type: "mousedown" },
+    document.querySelectorAll(".request-list-item")[0]
+  );
   await wait;
 
   await waitForRequestData(store, ["requestHeaders", "responseHeaders"]);
 
-  const expectedResponseHeaders = ["cache-control", "connection", "content-length",
-                                   "content-type", "date", "expires", "foo-bar",
-                                   "foo-bar", "foo-bar", "pragma", "server", "set-cookie",
-                                   "set-cookie"];
-  const expectedRequestHeaders = ["Accept", "Accept-Encoding", "Accept-Language",
-                                  "Cache-Control", "Connection", "Cookie", "Host",
-                                  "Pragma", "Upgrade-Insecure-Requests", "User-Agent"];
+  const expectedResponseHeaders = [
+    "cache-control",
+    "connection",
+    "content-length",
+    "content-type",
+    "date",
+    "expires",
+    "foo-bar",
+    "foo-bar",
+    "foo-bar",
+    "pragma",
+    "server",
+    "set-cookie",
+    "set-cookie",
+  ];
+  const expectedRequestHeaders = [
+    "Accept",
+    "Accept-Encoding",
+    "Accept-Language",
+    "Cache-Control",
+    "Connection",
+    "Cookie",
+    "Host",
+    "Pragma",
+    "Upgrade-Insecure-Requests",
+    "User-Agent",
+  ];
 
-  const labelCells = document.querySelectorAll(".treeLabelCell");
+  const responseLabelCells = document.querySelectorAll(
+    "#responseHeaders .treeLabelCell"
+  );
+  const requestLabelCells = document.querySelectorAll(
+    "#requestHeaders .treeLabelCell"
+  );
   const actualResponseHeaders = [];
   const actualRequestHeaders = [];
 
-  const responseHeadersLength = expectedResponseHeaders.length;
-  for (let i = 1; i < responseHeadersLength + 1; i++) {
-    actualResponseHeaders.push(labelCells[i].innerText);
+  for (let i = 0; i < responseLabelCells.length; i++) {
+    actualResponseHeaders.push(responseLabelCells[i].innerText);
   }
 
-  for (let i = responseHeadersLength + 2; i < labelCells.length; i++) {
-    actualRequestHeaders.push(labelCells[i].innerText);
+  for (let i = 0; i < requestLabelCells.length; i++) {
+    actualRequestHeaders.push(requestLabelCells[i].innerText);
   }
 
-  is(actualResponseHeaders.toString(), expectedResponseHeaders.toString(),
-    "Response Headers are sorted");
+  is(
+    actualResponseHeaders.toString(),
+    expectedResponseHeaders.toString(),
+    "Response Headers are sorted"
+  );
 
-  is(actualRequestHeaders.toString(), expectedRequestHeaders.toString(),
-    "Request Headers are sorted");
+  is(
+    actualRequestHeaders.toString(),
+    expectedRequestHeaders.toString(),
+    "Request Headers are sorted"
+  );
 }
 
 async function verifyRawHeaders(monitor) {
@@ -79,33 +113,57 @@ async function verifyRawHeaders(monitor) {
   const actualResponseHeaders = [];
   const actualRequestHeaders = [];
 
-  const expectedResponseHeaders = ["cache-control", "pragma", "expires",
-                                   "set-cookie", "set-cookie", "content-type", "foo-bar",
-                                   "foo-bar", "foo-bar", "connection", "server",
-                                   "date", "content-length"];
+  const expectedResponseHeaders = [
+    "cache-control",
+    "pragma",
+    "expires",
+    "set-cookie",
+    "set-cookie",
+    "content-type",
+    "foo-bar",
+    "foo-bar",
+    "foo-bar",
+    "connection",
+    "server",
+    "date",
+    "content-length",
+  ];
 
-  const expectedRequestHeaders = ["Host", "User-Agent", "Accept", "Accept-Language",
-                                  "Accept-Encoding", "Connection", "Cookie",
-                                  "Upgrade-Insecure-Requests", "Pragma",
-                                  "Cache-Control"];
+  const expectedRequestHeaders = [
+    "Host",
+    "User-Agent",
+    "Accept",
+    "Accept-Language",
+    "Accept-Encoding",
+    "Connection",
+    "Cookie",
+    "Upgrade-Insecure-Requests",
+    "Pragma",
+    "Cache-Control",
+  ];
 
-  // Click the 'Raw headers' button to show original headers source.
-  const rawHeadersBtn = document.querySelector(".raw-headers-button");
-  rawHeadersBtn.click();
+  // Click the 'Raw headers' toggle to show original headers source.
+  for (const rawToggleInput of document.querySelectorAll(
+    ".devtools-checkbox-toggle"
+  )) {
+    rawToggleInput.click();
+  }
 
   // Wait till raw headers are available.
+  let rawArr;
   await waitUntil(() => {
-    return document.querySelector(".raw-request-headers-textarea") &&
-      document.querySelector(".raw-response-headers-textarea");
+    rawArr = document.querySelectorAll("textarea.raw-headers");
+    // Both raw headers must be present
+    return rawArr.length > 1;
   });
 
-  const requestHeadersText =
-    document.querySelector(".raw-request-headers-textarea").textContent;
-  const responseHeadersText =
-    document.querySelector(".raw-response-headers-textarea").textContent;
+  // Request headers are rendered first, so it is element with index 1
+  const requestHeadersText = rawArr[1].textContent;
+  // Response headers are rendered first, so it is element with index 0
+  const responseHeadersText = rawArr[0].textContent;
 
   const rawRequestHeadersArray = requestHeadersText.split("\n");
-  for (let i = 0; i < rawRequestHeadersArray.length; i++) {
+  for (let i = 1; i < rawRequestHeadersArray.length; i++) {
     const header = rawRequestHeadersArray[i];
     actualRequestHeaders.push(header.split(":")[0]);
   }
@@ -116,9 +174,15 @@ async function verifyRawHeaders(monitor) {
     actualResponseHeaders.push(header.split(":")[0]);
   }
 
-  is(actualResponseHeaders.toString(), expectedResponseHeaders.toString(),
-    "Raw Response Headers are not sorted");
+  is(
+    actualResponseHeaders.toString(),
+    expectedResponseHeaders.toString(),
+    "Raw Response Headers are not sorted"
+  );
 
-  is(actualRequestHeaders.toString(), expectedRequestHeaders.toString(),
-    "Raw Request Headers are not sorted");
+  is(
+    actualRequestHeaders.toString(),
+    expectedRequestHeaders.toString(),
+    "Raw Request Headers are not sorted"
+  );
 }

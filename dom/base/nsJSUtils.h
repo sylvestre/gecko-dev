@@ -15,6 +15,8 @@
  */
 
 #include "mozilla/Assertions.h"
+#include "mozilla/StaticPrefs_dom.h"
+#include "mozilla/Utf8.h"  // mozilla::Utf8Unit
 
 #include "GeckoProfiler.h"
 #include "jsapi.h"
@@ -22,7 +24,9 @@
 #include "js/Conversions.h"
 #include "js/SourceText.h"
 #include "js/StableStringChars.h"
+#include "js/String.h"  // JS::{,Lossy}CopyLinearStringChars, JS::CopyStringChars, JS::Get{,Linear}StringLength, JS::MaxStringLength, JS::StringHasLatin1Chars
 #include "nsString.h"
+#include "xpcpublic.h"
 
 class nsIScriptContext;
 class nsIScriptElement;
@@ -56,7 +60,7 @@ class nsJSUtils {
   static uint64_t GetCurrentlyRunningCodeInnerWindowID(JSContext* aContext);
 
   static nsresult CompileFunction(mozilla::dom::AutoJSAPI& jsapi,
-                                  JS::AutoObjectVector& aScopeChain,
+                                  JS::HandleVector<JSObject*> aScopeChain,
                                   JS::CompileOptions& aOptions,
                                   const nsACString& aName, uint32_t aArgCount,
                                   const char** aArgArray,
@@ -79,7 +83,10 @@ class nsJSUtils {
     JS::Rooted<JS::Value> mRetValue;
 
     // Scope chain in which the execution takes place.
-    JS::AutoObjectVector mScopeChain;
+    JS::RootedVector<JSObject*> mScopeChain;
+
+    // The compiled script.
+    JS::Rooted<JSScript*> mScript;
 
     // returned value forwarded when we have to interupt the execution eagerly
     // with mSkip.
@@ -100,7 +107,15 @@ class nsJSUtils {
     bool mWantsReturnValue;
 
     bool mExpectScopeChain;
+
+    bool mScriptUsed;
 #endif
+
+   private:
+    // Compile a script contained in a SourceText.
+    template <typename Unit>
+    nsresult InternalCompile(JS::CompileOptions& aCompileOptions,
+                             JS::SourceText<Unit>& aSrcBuf);
 
    public:
     // Enter compartment in which the code would be executed.  The JSContext
@@ -111,8 +126,12 @@ class nsJSUtils {
     ExecutionContext(ExecutionContext&&) = delete;
 
     ~ExecutionContext() {
-      // This flag is resetted, when the returned value is extracted.
-      MOZ_ASSERT(!mWantsReturnValue);
+      // This flag is reset when the returned value is extracted.
+      MOZ_ASSERT_IF(!mSkip, !mWantsReturnValue);
+
+      // If encoding was started we expect the script to have been
+      // used when ending the encoding.
+      MOZ_ASSERT_IF(mEncodeBytecode && mScript && mRv == NS_OK, mScriptUsed);
     }
 
     // The returned value would be converted to a string if the
@@ -132,57 +151,63 @@ class nsJSUtils {
     }
 
     // Set the scope chain in which the code should be executed.
-    void SetScopeChain(const JS::AutoObjectVector& aScopeChain);
+    void SetScopeChain(JS::HandleVector<JSObject*> aScopeChain);
 
-    // Copy the returned value in the mutable handle argument, in case of a
+    // After getting a notification that an off-thread compilation terminated,
+    // this function will take the result of the parser and move it to the main
+    // thread.
+    MOZ_MUST_USE nsresult JoinCompile(JS::OffThreadToken** aOffThreadToken);
+
+    // Compile a script contained in a SourceText.
+    nsresult Compile(JS::CompileOptions& aCompileOptions,
+                     JS::SourceText<char16_t>& aSrcBuf);
+    nsresult Compile(JS::CompileOptions& aCompileOptions,
+                     JS::SourceText<mozilla::Utf8Unit>& aSrcBuf);
+
+    // Compile a script contained in a string.
+    nsresult Compile(JS::CompileOptions& aCompileOptions,
+                     const nsAString& aScript);
+
+    // Decode a script contained in a buffer.
+    nsresult Decode(JS::CompileOptions& aCompileOptions,
+                    mozilla::Vector<uint8_t>& aBytecodeBuf,
+                    size_t aBytecodeIndex);
+
+    // After getting a notification that an off-thread decoding terminated, this
+    // function will get the result of the decoder and move it to the main
+    // thread.
+    nsresult JoinDecode(JS::OffThreadToken** aOffThreadToken);
+
+    nsresult JoinDecodeBinAST(JS::OffThreadToken** aOffThreadToken);
+
+    // Decode a BinAST encoded script contained in a buffer.
+    nsresult DecodeBinAST(JS::CompileOptions& aCompileOptions,
+                          const uint8_t* aBuf, size_t aLength);
+
+    // Get a successfully compiled script.
+    JSScript* GetScript();
+
+    // Get the compiled script if present, or nullptr.
+    JSScript* MaybeGetScript();
+
+    // Execute the compiled script and ignore the return value.
+    MOZ_MUST_USE nsresult ExecScript();
+
+    // Execute the compiled script a get the return value.
+    //
+    // Copy the returned value into the mutable handle argument. In case of a
     // evaluation failure either during the execution or the conversion of the
-    // result to a string, the nsresult would be set to the corresponding result
-    // code, and the mutable handle argument would remain unchanged.
+    // result to a string, the nsresult is be set to the corresponding result
+    // code and the mutable handle argument remains unchanged.
     //
     // The value returned in the mutable handle argument is part of the
     // compartment given as argument to the ExecutionContext constructor. If the
     // caller is in a different compartment, then the out-param value should be
     // wrapped by calling |JS_WrapValue|.
-    MOZ_MUST_USE nsresult
-    ExtractReturnValue(JS::MutableHandle<JS::Value> aRetValue);
-
-    // After getting a notification that an off-thread compilation terminated,
-    // this function will take the result of the parser by moving it to the main
-    // thread before starting the execution of the script.
-    //
-    // The compiled script would be returned in the |aScript| out-param.
-    MOZ_MUST_USE nsresult JoinAndExec(JS::OffThreadToken** aOffThreadToken,
-                                      JS::MutableHandle<JSScript*> aScript);
-
-    // Compile a script contained in a SourceText, and execute it.
-    nsresult CompileAndExec(JS::CompileOptions& aCompileOptions,
-                            JS::SourceText<char16_t>& aSrcBuf,
-                            JS::MutableHandle<JSScript*> aScript);
-
-    // Compile a script contained in a string, and execute it.
-    nsresult CompileAndExec(JS::CompileOptions& aCompileOptions,
-                            const nsAString& aScript);
-
-    // Decode a script contained in a buffer, and execute it.
-    MOZ_MUST_USE nsresult DecodeAndExec(JS::CompileOptions& aCompileOptions,
-                                        mozilla::Vector<uint8_t>& aBytecodeBuf,
-                                        size_t aBytecodeIndex);
-
-    // After getting a notification that an off-thread decoding terminated, this
-    // function will get the result of the decoder by moving it to the main
-    // thread before starting the execution of the script.
-    MOZ_MUST_USE nsresult
-    DecodeJoinAndExec(JS::OffThreadToken** aOffThreadToken);
-
-    MOZ_MUST_USE nsresult
-    DecodeBinASTJoinAndExec(JS::OffThreadToken** aOffThreadToken,
-                            JS::MutableHandle<JSScript*> aScript);
-
-    // Decode a BinAST encoded script contained in a buffer, and execute it.
-    nsresult DecodeBinASTAndExec(JS::CompileOptions& aCompileOptions,
-                                 const uint8_t* aBuf, size_t aLength,
-                                 JS::MutableHandle<JSScript*> aScript);
+    MOZ_MUST_USE nsresult ExecScript(JS::MutableHandle<JS::Value> aRetValue);
   };
+
+  static bool BinASTEncodingEnabled() { return false; }
 
   static nsresult CompileModule(JSContext* aCx,
                                 JS::SourceText<char16_t>& aSrcBuf,
@@ -190,9 +215,11 @@ class nsJSUtils {
                                 JS::CompileOptions& aCompileOptions,
                                 JS::MutableHandle<JSObject*> aModule);
 
-  static nsresult InitModuleSourceElement(JSContext* aCx,
-                                          JS::Handle<JSObject*> aModule,
-                                          nsIScriptElement* aElement);
+  static nsresult CompileModule(JSContext* aCx,
+                                JS::SourceText<mozilla::Utf8Unit>& aSrcBuf,
+                                JS::Handle<JSObject*> aEvaluationGlobal,
+                                JS::CompileOptions& aCompileOptions,
+                                JS::MutableHandle<JSObject*> aModule);
 
   static nsresult ModuleInstantiate(JSContext* aCx,
                                     JS::Handle<JSObject*> aModule);
@@ -201,51 +228,134 @@ class nsJSUtils {
 
   // Returns false if an exception got thrown on aCx.  Passing a null
   // aElement is allowed; that wil produce an empty aScopeChain.
-  static bool GetScopeChainForElement(JSContext* aCx,
-                                      mozilla::dom::Element* aElement,
-                                      JS::AutoObjectVector& aScopeChain);
-
-  // Returns a scope chain suitable for XBL execution.
-  //
-  // This is by default GetScopeChainForElemenet, but will be different if the
-  // <binding> element had the simpleScopeChain attribute.
-  //
-  // This is to prevent footguns like bug 1446342.
-  static bool GetScopeChainForXBL(JSContext* aCx,
-                                  mozilla::dom::Element* aBoundElement,
-                                  const nsXBLPrototypeBinding& aProtoBinding,
-                                  JS::AutoObjectVector& aScopeChain);
+  static bool GetScopeChainForElement(
+      JSContext* aCx, mozilla::dom::Element* aElement,
+      JS::MutableHandleVector<JSObject*> aScopeChain);
 
   static void ResetTimeZone();
+
+  static bool DumpEnabled();
 };
 
-template <typename T>
+inline void AssignFromStringBuffer(nsStringBuffer* buffer, size_t len,
+                                   nsAString& dest) {
+  buffer->ToString(len, dest);
+}
+
+template <typename T, typename std::enable_if_t<std::is_same<
+                          typename T::char_type, char16_t>::value>* = nullptr>
 inline bool AssignJSString(JSContext* cx, T& dest, JSString* s) {
   size_t len = JS::GetStringLength(s);
-  static_assert(js::MaxStringLength < (1 << 30),
+  static_assert(JS::MaxStringLength < (1 << 30),
                 "Shouldn't overflow here or in SetCapacity");
+
+  const char16_t* chars;
+  if (XPCStringConvert::MaybeGetDOMStringChars(s, &chars)) {
+    // The characters represent an existing string buffer that we shared with
+    // JS.  We can share that buffer ourselves if the string corresponds to the
+    // whole buffer; otherwise we have to copy.
+    if (chars[len] == '\0') {
+      AssignFromStringBuffer(
+          nsStringBuffer::FromData(const_cast<char16_t*>(chars)), len, dest);
+      return true;
+    }
+  } else if (XPCStringConvert::MaybeGetLiteralStringChars(s, &chars)) {
+    // The characters represent a literal char16_t string constant
+    // compiled into libxul; we can just use it as-is.
+    dest.AssignLiteral(chars, len);
+    return true;
+  }
+
+  // We don't bother checking for a dynamic-atom external string, because we'd
+  // just need to copy out of it anyway.
+
   if (MOZ_UNLIKELY(!dest.SetLength(len, mozilla::fallible))) {
     JS_ReportOutOfMemory(cx);
     return false;
   }
-  return js::CopyStringChars(cx, dest.BeginWriting(), s, len);
+  return JS::CopyStringChars(cx, dest.BeginWriting(), s, len);
 }
 
-inline void AssignJSFlatString(nsAString& dest, JSFlatString* s) {
-  size_t len = js::GetFlatStringLength(s);
-  static_assert(js::MaxStringLength < (1 << 30),
+// Specialization for UTF8String.
+template <typename T, typename std::enable_if_t<std::is_same<
+                          typename T::char_type, char>::value>* = nullptr>
+inline bool AssignJSString(JSContext* cx, T& dest, JSString* s) {
+  using namespace mozilla;
+  CheckedInt<size_t> bufLen(JS::GetStringLength(s));
+  // From the contract for JS_EncodeStringToUTF8BufferPartial, to guarantee that
+  // the whole string is converted.
+  if (JS::StringHasLatin1Chars(s)) {
+    bufLen *= 2;
+  } else {
+    bufLen *= 3;
+  }
+
+  if (MOZ_UNLIKELY(!bufLen.isValid())) {
+    JS_ReportOutOfMemory(cx);
+    return false;
+  }
+
+  // Shouldn't really matter, but worth being safe.
+  const bool kAllowShrinking = true;
+
+  auto handleOrErr = dest.BulkWrite(bufLen.value(), 0, kAllowShrinking);
+  if (MOZ_UNLIKELY(handleOrErr.isErr())) {
+    JS_ReportOutOfMemory(cx);
+    return false;
+  }
+
+  auto handle = handleOrErr.unwrap();
+
+  auto maybe = JS_EncodeStringToUTF8BufferPartial(cx, s, handle.AsSpan());
+  if (MOZ_UNLIKELY(!maybe)) {
+    JS_ReportOutOfMemory(cx);
+    return false;
+  }
+
+  size_t read;
+  size_t written;
+  Tie(read, written) = *maybe;
+
+  MOZ_ASSERT(read == JS::GetStringLength(s));
+  handle.Finish(written, kAllowShrinking);
+  return true;
+}
+
+inline void AssignJSLinearString(nsAString& dest, JSLinearString* s) {
+  size_t len = JS::GetLinearStringLength(s);
+  static_assert(JS::MaxStringLength < (1 << 30),
                 "Shouldn't overflow here or in SetCapacity");
   dest.SetLength(len);
-  js::CopyFlatStringChars(dest.BeginWriting(), s, len);
+  JS::CopyLinearStringChars(dest.BeginWriting(), s, len);
 }
 
-class nsAutoJSString : public nsAutoString {
+inline void AssignJSLinearString(nsACString& dest, JSLinearString* s) {
+  size_t len = JS::GetLinearStringLength(s);
+  static_assert(JS::MaxStringLength < (1 << 30),
+                "Shouldn't overflow here or in SetCapacity");
+  dest.SetLength(len);
+  JS::LossyCopyLinearStringChars(dest.BeginWriting(), s, len);
+}
+
+template <typename T>
+class nsTAutoJSLinearString : public nsTAutoString<T> {
+ public:
+  explicit nsTAutoJSLinearString(JSLinearString* str) {
+    AssignJSLinearString(*this, str);
+  }
+};
+
+using nsAutoJSLinearString = nsTAutoJSLinearString<char16_t>;
+using nsAutoJSLinearCString = nsTAutoJSLinearString<char>;
+
+template <typename T>
+class nsTAutoJSString : public nsTAutoString<T> {
  public:
   /**
-   * nsAutoJSString should be default constructed, which leaves it empty
+   * nsTAutoJSString should be default constructed, which leaves it empty
    * (this->IsEmpty()), and initialized with one of the init() methods below.
    */
-  nsAutoJSString() {}
+  nsTAutoJSString() = default;
 
   bool init(JSContext* aContext, JSString* str) {
     return AssignJSString(aContext, *this, str);
@@ -275,7 +385,12 @@ class nsAutoJSString : public nsAutoString {
 
   bool init(const JS::Value& v);
 
-  ~nsAutoJSString() {}
+  ~nsTAutoJSString() = default;
 };
+
+using nsAutoJSString = nsTAutoJSString<char16_t>;
+
+// Note that this is guaranteed to be UTF-8.
+using nsAutoJSCString = nsTAutoJSString<char>;
 
 #endif /* nsJSUtils_h__ */

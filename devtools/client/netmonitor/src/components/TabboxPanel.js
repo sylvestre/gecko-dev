@@ -4,28 +4,53 @@
 
 "use strict";
 
-const { createFactory } = require("devtools/client/shared/vendor/react");
+const Services = require("Services");
+const {
+  Component,
+  createFactory,
+} = require("devtools/client/shared/vendor/react");
 const PropTypes = require("devtools/client/shared/vendor/react-prop-types");
-const { L10N } = require("../utils/l10n");
-const { PANELS } = require("../constants");
+const { L10N } = require("devtools/client/netmonitor/src/utils/l10n");
+const { PANELS } = require("devtools/client/netmonitor/src/constants");
 
 // Components
-const Tabbar = createFactory(require("devtools/client/shared/components/tabs/TabBar"));
-const TabPanel = createFactory(require("devtools/client/shared/components/tabs/Tabs").TabPanel);
-const CookiesPanel = createFactory(require("./CookiesPanel"));
-const HeadersPanel = createFactory(require("./HeadersPanel"));
-const ParamsPanel = createFactory(require("./ParamsPanel"));
-const CachePanel = createFactory(require("./CachePanel"));
-const ResponsePanel = createFactory(require("./ResponsePanel"));
-const SecurityPanel = createFactory(require("./SecurityPanel"));
-const StackTracePanel = createFactory(require("./StackTracePanel"));
-const TimingsPanel = createFactory(require("./TimingsPanel"));
+const Tabbar = createFactory(
+  require("devtools/client/shared/components/tabs/TabBar")
+);
+const TabPanel = createFactory(
+  require("devtools/client/shared/components/tabs/Tabs").TabPanel
+);
+const CookiesPanel = createFactory(
+  require("devtools/client/netmonitor/src/components/request-details/CookiesPanel")
+);
+const HeadersPanel = createFactory(
+  require("devtools/client/netmonitor/src/components/request-details/HeadersPanel")
+);
+const RequestPanel = createFactory(
+  require("devtools/client/netmonitor/src/components/request-details/RequestPanel")
+);
+const CachePanel = createFactory(
+  require("devtools/client/netmonitor/src/components/request-details/CachePanel")
+);
+const ResponsePanel = createFactory(
+  require("devtools/client/netmonitor/src/components/request-details/ResponsePanel")
+);
+const SecurityPanel = createFactory(
+  require("devtools/client/netmonitor/src/components/request-details/SecurityPanel")
+);
+const StackTracePanel = createFactory(
+  require("devtools/client/netmonitor/src/components/request-details/StackTracePanel")
+);
+const TimingsPanel = createFactory(
+  require("devtools/client/netmonitor/src/components/request-details/TimingsPanel")
+);
 
 const COLLAPSE_DETAILS_PANE = L10N.getStr("collapseDetailsPane");
+const ALL_TABS_MENU_BUTTON_TOOLTIP = L10N.getStr("allTabsMenuButton.tooltip");
 const CACHE_TITLE = L10N.getStr("netmonitor.tab.cache");
 const COOKIES_TITLE = L10N.getStr("netmonitor.tab.cookies");
 const HEADERS_TITLE = L10N.getStr("netmonitor.tab.headers");
-const PARAMS_TITLE = L10N.getStr("netmonitor.tab.params");
+const REQUEST_TITLE = L10N.getStr("netmonitor.tab.request");
 const RESPONSE_TITLE = L10N.getStr("netmonitor.tab.response");
 const SECURITY_TITLE = L10N.getStr("netmonitor.tab.security");
 const STACK_TRACE_TITLE = L10N.getStr("netmonitor.tab.stackTrace");
@@ -35,118 +60,187 @@ const TIMINGS_TITLE = L10N.getStr("netmonitor.tab.timings");
  * Tabbox panel component
  * Display the network request details
  */
-function TabboxPanel({
-  activeTabId,
-  cloneSelectedRequest = () => {},
-  connector,
-  hideToggleButton,
-  openLink,
-  request,
-  selectTab,
-  sourceMapService,
-  toggleNetworkDetails,
-}) {
-  if (!request) {
-    return null;
+class TabboxPanel extends Component {
+  static get propTypes() {
+    return {
+      activeTabId: PropTypes.string,
+      cloneSelectedRequest: PropTypes.func,
+      connector: PropTypes.object.isRequired,
+      openLink: PropTypes.func,
+      request: PropTypes.object,
+      selectTab: PropTypes.func.isRequired,
+      sourceMapURLService: PropTypes.object,
+      hideToggleButton: PropTypes.bool,
+      toggleNetworkDetails: PropTypes.func,
+      openNetworkDetails: PropTypes.func.isRequired,
+      showMessagesView: PropTypes.bool,
+      targetSearchResult: PropTypes.object,
+    };
+  }
+  static get defaultProps() {
+    return {
+      showMessagesView: true,
+    };
+  }
+  componentDidMount() {
+    this.closeOnEscRef = this.closeOnEsc.bind(this);
+    window.addEventListener("keydown", this.closeOnEscRef);
   }
 
-  return (
-    Tabbar({
+  componentWillUnmount() {
+    window.removeEventListener("keydown", this.closeOnEscRef);
+  }
+
+  closeOnEsc(event) {
+    if (event.key == "Escape") {
+      event.preventDefault();
+      this.props.openNetworkDetails(false);
+    }
+  }
+
+  render() {
+    const {
       activeTabId,
-      menuDocument: window.parent.document,
-      onSelect: selectTab,
-      renderOnlySelected: true,
-      showAllTabsMenu: true,
-      sidebarToggleButton: hideToggleButton ? null :
+      cloneSelectedRequest = () => {},
+      connector,
+      hideToggleButton,
+      openLink,
+      request,
+      selectTab,
+      sourceMapURLService,
+      toggleNetworkDetails,
+      targetSearchResult,
+    } = this.props;
+
+    if (!request) {
+      return null;
+    }
+
+    const isWs =
+      request.cause.type === "websocket" &&
+      Services.prefs.getBoolPref("devtools.netmonitor.features.webSockets");
+
+    const isSse =
+      request.isEventStream &&
+      Services.prefs.getBoolPref(
+        "devtools.netmonitor.features.serverSentEvents"
+      );
+
+    const showMessagesView = (isWs || isSse) && this.props.showMessagesView;
+
+    return Tabbar(
       {
-        collapsed: false,
-        collapsePaneTitle: COLLAPSE_DETAILS_PANE,
-        expandPaneTitle: "",
-        onClick: toggleNetworkDetails,
+        activeTabId,
+        menuDocument: window.parent.document,
+        onSelect: selectTab,
+        renderOnlySelected: true,
+        showAllTabsMenu: true,
+        allTabsMenuButtonTooltip: ALL_TABS_MENU_BUTTON_TOOLTIP,
+        sidebarToggleButton: hideToggleButton
+          ? null
+          : {
+              collapsed: false,
+              collapsePaneTitle: COLLAPSE_DETAILS_PANE,
+              expandPaneTitle: "",
+              onClick: toggleNetworkDetails,
+            },
       },
-    },
-      TabPanel({
-        id: PANELS.HEADERS,
-        title: HEADERS_TITLE,
-      },
+      TabPanel(
+        {
+          id: PANELS.HEADERS,
+          title: HEADERS_TITLE,
+          className: "panel-with-code",
+        },
         HeadersPanel({
           cloneSelectedRequest,
           connector,
           openLink,
           request,
-        }),
+          targetSearchResult,
+        })
       ),
-      TabPanel({
-        id: PANELS.COOKIES,
-        title: COOKIES_TITLE,
-      },
+      TabPanel(
+        {
+          id: PANELS.COOKIES,
+          title: COOKIES_TITLE,
+          className: "panel-with-code",
+        },
         CookiesPanel({
           connector,
           openLink,
           request,
-        }),
+          targetSearchResult,
+        })
       ),
-      TabPanel({
-        id: PANELS.PARAMS,
-        title: PARAMS_TITLE,
-      },
-        ParamsPanel({ connector, openLink, request }),
-      ),
-      TabPanel({
-        id: PANELS.RESPONSE,
-        title: RESPONSE_TITLE,
-      },
-        ResponsePanel({ request, openLink, connector }),
-      ),
-      (request.fromCache || request.status == "304") &&
-      TabPanel({
-        id: PANELS.CACHE,
-        title: CACHE_TITLE,
-      },
-        CachePanel({ request, openLink, connector }),
-      ),
-      TabPanel({
-        id: PANELS.TIMINGS,
-        title: TIMINGS_TITLE,
-      },
-        TimingsPanel({
-          connector,
-          request,
-        }),
-      ),
-      request.cause && request.cause.stacktraceAvailable &&
-      TabPanel({
-        id: PANELS.STACK_TRACE,
-        title: STACK_TRACE_TITLE,
-      },
-        StackTracePanel({ connector, openLink, request, sourceMapService }),
-      ),
-      request.securityState && request.securityState !== "insecure" &&
-      TabPanel({
-        id: PANELS.SECURITY,
-        title: SECURITY_TITLE,
-      },
-        SecurityPanel({
+      TabPanel(
+        {
+          id: PANELS.REQUEST,
+          title: REQUEST_TITLE,
+          className: "panel-with-code",
+        },
+        RequestPanel({
           connector,
           openLink,
           request,
-        }),
+          targetSearchResult,
+        })
       ),
-    )
-  );
+      TabPanel(
+        {
+          id: PANELS.RESPONSE,
+          title: RESPONSE_TITLE,
+          className: "panel-with-code",
+        },
+        ResponsePanel({
+          request,
+          openLink,
+          connector,
+          showMessagesView,
+          targetSearchResult,
+        })
+      ),
+      (request.fromCache || request.status == "304") &&
+        TabPanel(
+          {
+            id: PANELS.CACHE,
+            title: CACHE_TITLE,
+          },
+          CachePanel({ request, openLink, connector })
+        ),
+      TabPanel(
+        {
+          id: PANELS.TIMINGS,
+          title: TIMINGS_TITLE,
+        },
+        TimingsPanel({
+          connector,
+          request,
+        })
+      ),
+      request.cause?.stacktraceAvailable &&
+        TabPanel(
+          {
+            id: PANELS.STACK_TRACE,
+            title: STACK_TRACE_TITLE,
+            className: "panel-with-code",
+          },
+          StackTracePanel({ connector, openLink, request, sourceMapURLService })
+        ),
+      request.securityState &&
+        request.securityState !== "insecure" &&
+        TabPanel(
+          {
+            id: PANELS.SECURITY,
+            title: SECURITY_TITLE,
+          },
+          SecurityPanel({
+            connector,
+            openLink,
+            request,
+          })
+        )
+    );
+  }
 }
-
-TabboxPanel.displayName = "TabboxPanel";
-
-TabboxPanel.propTypes = {
-  activeTabId: PropTypes.string,
-  cloneSelectedRequest: PropTypes.func,
-  connector: PropTypes.object.isRequired,
-  openLink: PropTypes.func,
-  request: PropTypes.object,
-  selectTab: PropTypes.func.isRequired,
-  sourceMapService: PropTypes.object,
-  hideToggleButton: PropTypes.bool,
-};
 
 module.exports = TabboxPanel;

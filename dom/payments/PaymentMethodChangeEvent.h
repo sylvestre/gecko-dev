@@ -10,6 +10,7 @@
 #include "mozilla/ErrorResult.h"
 #include "mozilla/dom/PaymentMethodChangeEventBinding.h"
 #include "mozilla/dom/PaymentRequestUpdateEvent.h"
+#include "mozilla/dom/PaymentRequest.h"
 
 namespace mozilla {
 namespace dom {
@@ -34,7 +35,7 @@ class PaymentMethodChangeEvent final : public PaymentRequestUpdateEvent {
   // Called by WebIDL constructor
   static already_AddRefed<PaymentMethodChangeEvent> Constructor(
       const GlobalObject& aGlobal, const nsAString& aType,
-      const PaymentMethodChangeEventInit& aEventInitDict, ErrorResult& aRv);
+      const PaymentMethodChangeEventInit& aEventInitDict);
 
   void GetMethodName(nsAString& aMethodName);
   void SetMethodName(const nsAString& aMethodName);

@@ -2,6 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use peek_poke::PeekPoke;
 use std::cmp;
 use std::hash::{Hash, Hasher};
 
@@ -21,13 +22,11 @@ pub struct PremultipliedColorF {
     pub a: f32,
 }
 
+#[allow(missing_docs)]
 impl PremultipliedColorF {
-    ///
-    pub const BLACK: Self = PremultipliedColorF { r: 0.0, g: 0.0, b: 0.0, a: 1.0 };
-    ///
-    pub const TRANSPARENT: Self = PremultipliedColorF { r: 0.0, g: 0.0, b: 0.0, a: 0.0 };
-    ///
-    pub const WHITE: Self = PremultipliedColorF { r: 1.0, g: 1.0, b: 1.0, a: 1.0 };
+    pub const BLACK: PremultipliedColorF = PremultipliedColorF { r: 0.0, g: 0.0, b: 0.0, a: 1.0 };
+    pub const TRANSPARENT: PremultipliedColorF = PremultipliedColorF { r: 0.0, g: 0.0, b: 0.0, a: 0.0 };
+    pub const WHITE: PremultipliedColorF = PremultipliedColorF { r: 1.0, g: 1.0, b: 1.0, a: 1.0 };
 
     pub fn to_array(&self) -> [f32; 4] {
         [self.r, self.g, self.b, self.a]
@@ -39,7 +38,7 @@ impl PremultipliedColorF {
 /// All components must be between 0.0 and 1.0.
 /// An alpha value of 1.0 is opaque while 0.0 is fully transparent.
 #[repr(C)]
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, MallocSizeOf, PartialEq, Serialize, PeekPoke)]
 pub struct ColorF {
     pub r: f32,
     pub g: f32,
@@ -47,13 +46,11 @@ pub struct ColorF {
     pub a: f32,
 }
 
+#[allow(missing_docs)]
 impl ColorF {
-    ///
-    pub const BLACK: Self = ColorF { r: 0.0, g: 0.0, b: 0.0, a: 1.0 };
-    ///
-    pub const TRANSPARENT: Self = ColorF { r: 0.0, g: 0.0, b: 0.0, a: 0.0 };
-    ///
-    pub const WHITE: Self = ColorF { r: 1.0, g: 1.0, b: 1.0, a: 1.0 };
+    pub const BLACK: ColorF = ColorF { r: 0.0, g: 0.0, b: 0.0, a: 1.0 };
+    pub const TRANSPARENT: ColorF = ColorF { r: 0.0, g: 0.0, b: 0.0, a: 0.0 };
+    pub const WHITE: ColorF = ColorF { r: 1.0, g: 1.0, b: 1.0, a: 1.0 };
 
     /// Constructs a new `ColorF` from its components.
     pub fn new(r: f32, g: f32, b: f32, a: f32) -> Self {
@@ -98,6 +95,8 @@ impl Ord for PremultipliedColorF {
         self.partial_cmp(other).unwrap_or(cmp::Ordering::Equal)
     }
 }
+
+#[cfg_attr(feature = "cargo-clippy", allow(clippy::derive_hash_xor_eq))]
 impl Hash for PremultipliedColorF {
     fn hash<H: Hasher>(&self, state: &mut H) {
         // Note: this is inconsistent with the Eq impl for -0.0 (don't care).
@@ -112,7 +111,7 @@ impl Hash for PremultipliedColorF {
 ///
 /// If the alpha value `a` is 255 the color is opaque.
 #[repr(C)]
-#[derive(Clone, Copy, Hash, Eq, Debug, Deserialize, PartialEq, PartialOrd, Ord, Serialize)]
+#[derive(Clone, Copy, Hash, Eq, Debug, Deserialize, MallocSizeOf, PartialEq, PartialOrd, Ord, Serialize)]
 pub struct ColorU {
     pub r: u8,
     pub g: u8,
@@ -128,7 +127,7 @@ impl ColorU {
 }
 
 fn round_to_int(x: f32) -> u8 {
-    debug_assert!((0.0 <= x) && (x <= 1.0));
+    debug_assert!((0.0 <= x) && (x <= 1.0), "{} should be between 0 and 1", x);
     let f = (255.0 * x) + 0.5;
     let val = f.floor();
     debug_assert!(val <= 255.0);

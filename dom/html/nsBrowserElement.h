@@ -27,8 +27,8 @@ class ErrorResult;
  */
 class nsBrowserElement {
  public:
-  nsBrowserElement() {}
-  virtual ~nsBrowserElement() {}
+  nsBrowserElement() = default;
+  virtual ~nsBrowserElement() = default;
 
   void SendMouseEvent(const nsAString& aType, uint32_t aX, uint32_t aY,
                       uint32_t aButton, uint32_t aClickCount,
@@ -42,7 +42,7 @@ class nsBrowserElement {
   already_AddRefed<dom::Promise> GetCanGoForward(ErrorResult& aRv);
 
  protected:
-  NS_IMETHOD_(already_AddRefed<nsFrameLoader>) GetFrameLoader() = 0;
+  virtual already_AddRefed<nsFrameLoader> GetFrameLoader() = 0;
 
   void InitBrowserElementAPI();
   void DestroyBrowserElementFrameScripts();

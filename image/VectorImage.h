@@ -14,6 +14,8 @@ class nsIRequest;
 class gfxDrawable;
 
 namespace mozilla {
+struct MediaFeatureChange;
+
 namespace image {
 
 struct SVGDrawingParameters;
@@ -32,6 +34,7 @@ class VectorImage final : public ImageResource, public nsIStreamListener {
   // (no public constructor - use ImageFactory)
 
   // Methods inherited from Image
+  void MediaFeatureValuesChangedAllDocuments(const MediaFeatureChange&) final;
   nsresult GetNativeSizes(nsTArray<gfx::IntSize>& aNativeSizes) const override;
   size_t GetNativeSizesLength() const override;
   virtual size_t SizeOfSourceWithComputedFallback(
@@ -67,8 +70,6 @@ class VectorImage final : public ImageResource, public nsIStreamListener {
   void OnSVGDocumentLoaded();
   void OnSVGDocumentError();
 
-  virtual void ReportUseCounters() override;
-
  protected:
   explicit VectorImage(nsIURI* aURI = nullptr);
   virtual ~VectorImage();
@@ -103,9 +104,6 @@ class VectorImage final : public ImageResource, public nsIStreamListener {
   already_AddRefed<gfxDrawable> CreateSVGDrawable(
       const SVGDrawingParameters& aParams);
 
-  /// Returns true if we use the surface cache to store rasterized copies.
-  bool UseSurfaceCacheForSize(const IntSize& aSize) const;
-
   /// Rasterize the SVG into a surface. aWillCache will be set to whether or
   /// not the new surface was put into the cache.
   already_AddRefed<SourceSurface> CreateSurface(
@@ -129,6 +127,8 @@ class VectorImage final : public ImageResource, public nsIStreamListener {
 
   void CancelAllListeners();
   void SendInvalidationNotifications();
+
+  void ReportDocumentUseCounters();
 
   RefPtr<SVGDocumentWrapper> mSVGDocumentWrapper;
   RefPtr<SVGRootRenderingObserver> mRenderingObserver;

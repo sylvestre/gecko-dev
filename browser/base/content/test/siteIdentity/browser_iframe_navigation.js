@@ -7,8 +7,10 @@
 // security state after navigating an iframe in various contexts.
 // See bug 1490982.
 
-const ROOT_URI = getRootDirectory(gTestPath).replace("chrome://mochitests/content",
-                                                     "https://example.com");
+const ROOT_URI = getRootDirectory(gTestPath).replace(
+  "chrome://mochitests/content",
+  "https://example.com"
+);
 const SECURE_TEST_URI = ROOT_URI + "iframe_navigation.html";
 const INSECURE_TEST_URI = SECURE_TEST_URI.replace("https://", "http://");
 
@@ -16,18 +18,19 @@ const INSECURE_TEST_URI = SECURE_TEST_URI.replace("https://", "http://");
 // secure).
 add_task(async function() {
   let uri = SECURE_TEST_URI + "#blank";
-  await BrowserTestUtils.withNewTab(uri, async (browser) => {
+  await BrowserTestUtils.withNewTab(uri, async browser => {
     let identityMode = window.document.getElementById("identity-box").className;
     is(identityMode, "verifiedDomain", "identity should be secure before");
 
-    await ContentTask.spawn(browser, null, async () => {
+    await SpecialPowers.spawn(browser, [], async () => {
       content.postMessage("", "*"); // This kicks off the navigation.
       await ContentTaskUtils.waitForCondition(() => {
         return !content.document.body.classList.contains("running");
       });
     });
 
-    let newIdentityMode = window.document.getElementById("identity-box").className;
+    let newIdentityMode = window.document.getElementById("identity-box")
+      .className;
     is(newIdentityMode, "verifiedDomain", "identity should be secure after");
   });
 });
@@ -36,22 +39,27 @@ add_task(async function() {
 // (mixed active content should be blocked, should still be secure).
 add_task(async function() {
   let uri = SECURE_TEST_URI + "#insecure";
-  await BrowserTestUtils.withNewTab(uri, async (browser) => {
+  await BrowserTestUtils.withNewTab(uri, async browser => {
     let identityMode = window.document.getElementById("identity-box").className;
     is(identityMode, "verifiedDomain", "identity should be secure before");
 
-    await ContentTask.spawn(browser, null, async () => {
+    await SpecialPowers.spawn(browser, [], async () => {
       content.postMessage("", "*"); // This kicks off the navigation.
       await ContentTaskUtils.waitForCondition(() => {
         return !content.document.body.classList.contains("running");
       });
     });
 
-    let newIdentityMode = window.document.getElementById("identity-box").classList;
-    ok(newIdentityMode.contains("mixedActiveBlocked"),
-       "identity should be blocked mixed active content after");
-    ok(newIdentityMode.contains("verifiedDomain"),
-       "identity should still contain 'verifiedDomain'");
+    let newIdentityMode = window.document.getElementById("identity-box")
+      .classList;
+    ok(
+      newIdentityMode.contains("mixedActiveBlocked"),
+      "identity should be blocked mixed active content after"
+    );
+    ok(
+      newIdentityMode.contains("verifiedDomain"),
+      "identity should still contain 'verifiedDomain'"
+    );
     is(newIdentityMode.length, 2, "shouldn't have any other identity states");
   });
 });
@@ -60,19 +68,20 @@ add_task(async function() {
 // still be insecure).
 add_task(async function() {
   let uri = INSECURE_TEST_URI + "#blank";
-  await BrowserTestUtils.withNewTab(uri, async (browser) => {
+  await BrowserTestUtils.withNewTab(uri, async browser => {
     let identityMode = window.document.getElementById("identity-box").className;
-    is(identityMode, "unknownIdentity", "identity should be 'unknown' before");
+    is(identityMode, "notSecure", "identity should be 'not secure' before");
 
-    await ContentTask.spawn(browser, null, async () => {
+    await SpecialPowers.spawn(browser, [], async () => {
       content.postMessage("", "*"); // This kicks off the navigation.
       await ContentTaskUtils.waitForCondition(() => {
         return !content.document.body.classList.contains("running");
       });
     });
 
-    let newIdentityMode = window.document.getElementById("identity-box").className;
-    is(newIdentityMode, "unknownIdentity", "identity should be 'unknown' after");
+    let newIdentityMode = window.document.getElementById("identity-box")
+      .className;
+    is(newIdentityMode, "notSecure", "identity should be 'not secure' after");
   });
 });
 
@@ -80,18 +89,19 @@ add_task(async function() {
 // (https://...) (should still be insecure).
 add_task(async function() {
   let uri = INSECURE_TEST_URI + "#secure";
-  await BrowserTestUtils.withNewTab(uri, async (browser) => {
+  await BrowserTestUtils.withNewTab(uri, async browser => {
     let identityMode = window.document.getElementById("identity-box").className;
-    is(identityMode, "unknownIdentity", "identity should be 'unknown' before");
+    is(identityMode, "notSecure", "identity should be 'not secure' before");
 
-    await ContentTask.spawn(browser, null, async () => {
+    await SpecialPowers.spawn(browser, [], async () => {
       content.postMessage("", "*"); // This kicks off the navigation.
       await ContentTaskUtils.waitForCondition(() => {
         return !content.document.body.classList.contains("running");
       });
     });
 
-    let newIdentityMode = window.document.getElementById("identity-box").className;
-    is(newIdentityMode, "unknownIdentity", "identity should be 'unknown' after");
+    let newIdentityMode = window.document.getElementById("identity-box")
+      .className;
+    is(newIdentityMode, "notSecure", "identity should be 'not secure' after");
   });
 });

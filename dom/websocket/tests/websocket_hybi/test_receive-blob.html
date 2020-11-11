@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <script type="text/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css" />
 </head>
 <body>
@@ -13,7 +13,7 @@
 
 <script class="testbody" type="text/javascript">
 
-function debug(msg) { 
+function debug(msg) {
    ok(true, msg);
 }
 
@@ -69,7 +69,7 @@ function check(index)
     }
 
     debug("Checking message #" + index + ".");
-    ok(receivedMessages[index] instanceof Blob, 
+    ok(receivedMessages[index] instanceof Blob,
        "We should be receiving a Blob");
     var reader = new FileReader();
     reader.readAsArrayBuffer(receivedMessages[index]);

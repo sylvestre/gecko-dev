@@ -7,12 +7,12 @@
 
 const Cm = Components.manager;
 
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
-ChromeUtils.import("resource://gre/modules/Services.jsm");
-ChromeUtils.import("resource://gre/modules/Timer.jsm");
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { setTimeout } = ChromeUtils.import("resource://gre/modules/Timer.jsm");
 
-const uuidGenerator = Cc["@mozilla.org/uuid-generator;1"]
-                      .getService(Ci.nsIUUIDGenerator);
+const uuidGenerator = Cc["@mozilla.org/uuid-generator;1"].getService(
+  Ci.nsIUUIDGenerator
+);
 
 function registerMockedFactory(contractId, mockedClassId, mockedFactory) {
   var originalClassId, originalFactory;
@@ -26,39 +26,51 @@ function registerMockedFactory(contractId, mockedClassId, mockedFactory) {
       originalClassId = "";
       originalFactory = null;
     }
-    if (originalFactory) {
-      registrar.unregisterFactory(originalClassId, originalFactory);
-    }
     registrar.registerFactory(mockedClassId, "", contractId, mockedFactory);
   }
 
-  return { contractId,
-           mockedClassId,
-           mockedFactory,
-           originalClassId,
-           originalFactory };
+  return {
+    contractId,
+    mockedClassId,
+    mockedFactory,
+    originalClassId,
+    originalFactory,
+  };
 }
 
-function registerOriginalFactory(contractId, mockedClassId, mockedFactory, originalClassId, originalFactory) {
+function registerOriginalFactory(
+  contractId,
+  mockedClassId,
+  mockedFactory,
+  originalClassId,
+  originalFactory
+) {
   if (originalFactory) {
     var registrar = Cm.QueryInterface(Ci.nsIComponentRegistrar);
     registrar.unregisterFactory(mockedClassId, mockedFactory);
-    registrar.registerFactory(originalClassId, "", contractId, originalFactory);
+    // Passing null for the factory remaps the original CID to the
+    // contract ID.
+    registrar.registerFactory(originalClassId, "", contractId, null);
   }
 }
 
 var sessionId = "test-session-id-" + uuidGenerator.generateUUID().toString();
 
-const address = Cc["@mozilla.org/supports-cstring;1"]
-                  .createInstance(Ci.nsISupportsCString);
+const address = Cc["@mozilla.org/supports-cstring;1"].createInstance(
+  Ci.nsISupportsCString
+);
 address.data = "127.0.0.1";
 const addresses = Cc["@mozilla.org/array;1"].createInstance(Ci.nsIMutableArray);
 addresses.appendElement(address);
 
 const mockedChannelDescription = {
-  QueryInterface: ChromeUtils.generateQI([Ci.nsIPresentationChannelDescription]),
+  QueryInterface: ChromeUtils.generateQI(["nsIPresentationChannelDescription"]),
   get type() {
-    if (Services.prefs.getBoolPref("dom.presentation.session_transport.data_channel.enable")) {
+    if (
+      Services.prefs.getBoolPref(
+        "dom.presentation.session_transport.data_channel.enable"
+      )
+    ) {
       return Ci.nsIPresentationChannelDescription.TYPE_DATACHANNEL;
     }
     return Ci.nsIPresentationChannelDescription.TYPE_TCP;
@@ -68,11 +80,10 @@ const mockedChannelDescription = {
 };
 
 const mockedServerSocket = {
-  QueryInterface: ChromeUtils.generateQI([Ci.nsIServerSocket,
-                                          Ci.nsIFactory]),
+  QueryInterface: ChromeUtils.generateQI(["nsIServerSocket", "nsIFactory"]),
   createInstance(aOuter, aIID) {
     if (aOuter) {
-      throw Cr.NS_ERROR_NO_AGGREGATION;
+      throw Components.Exception("", Cr.NS_ERROR_NO_AGGREGATION);
     }
     return this.QueryInterface(aIID);
   },
@@ -101,11 +112,11 @@ const mockedServerSocket = {
 };
 
 const mockedSocketTransport = {
-  QueryInterface: ChromeUtils.generateQI([Ci.nsISocketTransport]),
+  QueryInterface: ChromeUtils.generateQI(["nsISocketTransport"]),
 };
 
 const mockedControlChannel = {
-  QueryInterface: ChromeUtils.generateQI([Ci.nsIPresentationControlChannel]),
+  QueryInterface: ChromeUtils.generateQI(["nsIPresentationControlChannel"]),
   set listener(listener) {
     this._listener = listener;
   },
@@ -119,7 +130,9 @@ const mockedControlChannel = {
     sendAsyncMessage("answer-sent", this._isValidSDP(answer));
 
     if (answer.type == Ci.nsIPresentationChannelDescription.TYPE_TCP) {
-      this._listener.QueryInterface(Ci.nsIPresentationSessionTransportCallback).notifyTransportReady();
+      this._listener
+        .QueryInterface(Ci.nsIPresentationSessionTransportCallback)
+        .notifyTransportReady();
     }
   },
   _isValidSDP(aSDP) {
@@ -138,8 +151,10 @@ const mockedControlChannel = {
       } catch (e) {
         isValid = false;
       }
-    } else if (aSDP.type == Ci.nsIPresentationChannelDescription.TYPE_DATACHANNEL) {
-      isValid = (aSDP.dataChannelSDP == "test-sdp");
+    } else if (
+      aSDP.type == Ci.nsIPresentationChannelDescription.TYPE_DATACHANNEL
+    ) {
+      isValid = aSDP.dataChannelSDP == "test-sdp";
     }
     return isValid;
   },
@@ -154,32 +169,42 @@ const mockedControlChannel = {
   },
   notifyReconnected() {
     this._listener
-        .QueryInterface(Ci.nsIPresentationControlChannelListener)
-        .notifyReconnected();
+      .QueryInterface(Ci.nsIPresentationControlChannelListener)
+      .notifyReconnected();
   },
   disconnect(reason) {
     sendAsyncMessage("control-channel-closed", reason);
-    this._listener.QueryInterface(Ci.nsIPresentationControlChannelListener).notifyDisconnected(reason);
+    this._listener
+      .QueryInterface(Ci.nsIPresentationControlChannelListener)
+      .notifyDisconnected(reason);
   },
   simulateReceiverReady() {
-    this._listener.QueryInterface(Ci.nsIPresentationControlChannelListener).notifyReceiverReady();
+    this._listener
+      .QueryInterface(Ci.nsIPresentationControlChannelListener)
+      .notifyReceiverReady();
   },
   simulateOnOffer() {
     sendAsyncMessage("offer-received");
-    this._listener.QueryInterface(Ci.nsIPresentationControlChannelListener).onOffer(mockedChannelDescription);
+    this._listener
+      .QueryInterface(Ci.nsIPresentationControlChannelListener)
+      .onOffer(mockedChannelDescription);
   },
   simulateOnAnswer() {
     sendAsyncMessage("answer-received");
-    this._listener.QueryInterface(Ci.nsIPresentationControlChannelListener).onAnswer(mockedChannelDescription);
+    this._listener
+      .QueryInterface(Ci.nsIPresentationControlChannelListener)
+      .onAnswer(mockedChannelDescription);
   },
   simulateNotifyConnected() {
     sendAsyncMessage("control-channel-opened");
-    this._listener.QueryInterface(Ci.nsIPresentationControlChannelListener).notifyConnected();
+    this._listener
+      .QueryInterface(Ci.nsIPresentationControlChannelListener)
+      .notifyConnected();
   },
 };
 
 const mockedDevice = {
-  QueryInterface: ChromeUtils.generateQI([Ci.nsIPresentationDevice]),
+  QueryInterface: ChromeUtils.generateQI(["nsIPresentationDevice"]),
   id: "id",
   name: "name",
   type: "type",
@@ -194,11 +219,13 @@ const mockedDevice = {
 };
 
 const mockedDevicePrompt = {
-  QueryInterface: ChromeUtils.generateQI([Ci.nsIPresentationDevicePrompt,
-                                          Ci.nsIFactory]),
+  QueryInterface: ChromeUtils.generateQI([
+    "nsIPresentationDevicePrompt",
+    "nsIFactory",
+  ]),
   createInstance(aOuter, aIID) {
     if (aOuter) {
-      throw Cr.NS_ERROR_NO_AGGREGATION;
+      throw Components.Exception("", Cr.NS_ERROR_NO_AGGREGATION);
     }
     return this.QueryInterface(aIID);
   },
@@ -221,15 +248,17 @@ const mockedDevicePrompt = {
 };
 
 const mockedSessionTransport = {
-  QueryInterface: ChromeUtils.generateQI([Ci.nsIPresentationSessionTransport,
-                                          Ci.nsIPresentationSessionTransportBuilder,
-                                          Ci.nsIPresentationTCPSessionTransportBuilder,
-                                          Ci.nsIPresentationDataChannelSessionTransportBuilder,
-                                          Ci.nsIPresentationControlChannelListener,
-                                          Ci.nsIFactory]),
+  QueryInterface: ChromeUtils.generateQI([
+    "nsIPresentationSessionTransport",
+    "nsIPresentationSessionTransportBuilder",
+    "nsIPresentationTCPSessionTransportBuilder",
+    "nsIPresentationDataChannelSessionTransportBuilder",
+    "nsIPresentationControlChannelListener",
+    "nsIFactory",
+  ]),
   createInstance(aOuter, aIID) {
     if (aOuter) {
-      throw Cr.NS_ERROR_NO_AGGREGATION;
+      throw Components.Exception("", Cr.NS_ERROR_NO_AGGREGATION);
     }
     return this.QueryInterface(aIID);
   },
@@ -257,12 +286,17 @@ const mockedSessionTransport = {
     this._listener = listener;
     this._role = Ci.nsIPresentationService.ROLE_RECEIVER;
 
-    var tcpAddresses = description.QueryInterface(Ci.nsIPresentationChannelDescription).tcpAddress;
+    var tcpAddresses = description.QueryInterface(
+      Ci.nsIPresentationChannelDescription
+    ).tcpAddress;
     this._selfAddress = {
-      QueryInterface: ChromeUtils.generateQI([Ci.nsINetAddr]),
-      address: (tcpAddresses.length > 0) ?
-                tcpAddresses.queryElementAt(0, Ci.nsISupportsCString).data : "",
-      port: description.QueryInterface(Ci.nsIPresentationChannelDescription).tcpPort,
+      QueryInterface: ChromeUtils.generateQI(["nsINetAddr"]),
+      address:
+        tcpAddresses.length > 0
+          ? tcpAddresses.queryElementAt(0, Ci.nsISupportsCString).data
+          : "",
+      port: description.QueryInterface(Ci.nsIPresentationChannelDescription)
+        .tcpPort,
     };
 
     setTimeout(() => {
@@ -275,7 +309,7 @@ const mockedSessionTransport = {
     this._listener = listener;
     this._role = role;
 
-    var hasNavigator = window ? (typeof window.navigator != "undefined") : false;
+    var hasNavigator = window ? typeof window.navigator != "undefined" : false;
     sendAsyncMessage("check-navigator", hasNavigator);
 
     setTimeout(() => {
@@ -294,23 +328,27 @@ const mockedSessionTransport = {
     // Don't send a message after tearDown, to avoid a leak.
     if (this._callback) {
       sendAsyncMessage("data-transport-closed", reason);
-      this._callback.QueryInterface(Ci.nsIPresentationSessionTransportCallback).notifyTransportClosed(reason);
+      this._callback
+        .QueryInterface(Ci.nsIPresentationSessionTransportCallback)
+        .notifyTransportClosed(reason);
     }
   },
   simulateTransportReady() {
-    this._callback.QueryInterface(Ci.nsIPresentationSessionTransportCallback).notifyTransportReady();
+    this._callback
+      .QueryInterface(Ci.nsIPresentationSessionTransportCallback)
+      .notifyTransportReady();
   },
   simulateIncomingMessage(message) {
-    this._callback.QueryInterface(Ci.nsIPresentationSessionTransportCallback).notifyData(message, false);
+    this._callback
+      .QueryInterface(Ci.nsIPresentationSessionTransportCallback)
+      .notifyData(message, false);
   },
-  onOffer(aOffer) {
-  },
-  onAnswer(aAnswer) {
-  },
+  onOffer(aOffer) {},
+  onAnswer(aAnswer) {},
 };
 
 const mockedNetworkInfo = {
-  QueryInterface: ChromeUtils.generateQI([Ci.nsINetworkInfo]),
+  QueryInterface: ChromeUtils.generateQI(["nsINetworkInfo"]),
   getAddresses(ips, prefixLengths) {
     ips.value = ["127.0.0.1"];
     prefixLengths.value = [0];
@@ -319,11 +357,10 @@ const mockedNetworkInfo = {
 };
 
 const mockedNetworkManager = {
-  QueryInterface: ChromeUtils.generateQI([Ci.nsINetworkManager,
-                                          Ci.nsIFactory]),
+  QueryInterface: ChromeUtils.generateQI(["nsINetworkManager", "nsIFactory"]),
   createInstance(aOuter, aIID) {
     if (aOuter) {
-      throw Cr.NS_ERROR_NO_AGGREGATION;
+      throw Components.Exception("", Cr.NS_ERROR_NO_AGGREGATION);
     }
     return this.QueryInterface(aIID);
   },
@@ -335,11 +372,13 @@ const mockedNetworkManager = {
 var requestPromise = null;
 
 const mockedRequestUIGlue = {
-  QueryInterface: ChromeUtils.generateQI([Ci.nsIPresentationRequestUIGlue,
-                                          Ci.nsIFactory]),
+  QueryInterface: ChromeUtils.generateQI([
+    "nsIPresentationRequestUIGlue",
+    "nsIFactory",
+  ]),
   createInstance(aOuter, aIID) {
     if (aOuter) {
-      throw Cr.NS_ERROR_NO_AGGREGATION;
+      throw Components.Exception("", Cr.NS_ERROR_NO_AGGREGATION);
     }
     return this.QueryInterface(aIID);
   },
@@ -351,24 +390,48 @@ const mockedRequestUIGlue = {
 
 // Register mocked factories.
 const originalFactoryData = [];
-originalFactoryData.push(registerMockedFactory("@mozilla.org/presentation-device/prompt;1",
-                                               uuidGenerator.generateUUID(),
-                                               mockedDevicePrompt));
-originalFactoryData.push(registerMockedFactory("@mozilla.org/network/server-socket;1",
-                                               uuidGenerator.generateUUID(),
-                                               mockedServerSocket));
-originalFactoryData.push(registerMockedFactory("@mozilla.org/presentation/presentationtcpsessiontransport;1",
-                                               uuidGenerator.generateUUID(),
-                                               mockedSessionTransport));
-originalFactoryData.push(registerMockedFactory("@mozilla.org/presentation/datachanneltransportbuilder;1",
-                                               uuidGenerator.generateUUID(),
-                                               mockedSessionTransport));
-originalFactoryData.push(registerMockedFactory("@mozilla.org/network/manager;1",
-                                               uuidGenerator.generateUUID(),
-                                               mockedNetworkManager));
-originalFactoryData.push(registerMockedFactory("@mozilla.org/presentation/requestuiglue;1",
-                                               uuidGenerator.generateUUID(),
-                                               mockedRequestUIGlue));
+originalFactoryData.push(
+  registerMockedFactory(
+    "@mozilla.org/presentation-device/prompt;1",
+    uuidGenerator.generateUUID(),
+    mockedDevicePrompt
+  )
+);
+originalFactoryData.push(
+  registerMockedFactory(
+    "@mozilla.org/network/server-socket;1",
+    uuidGenerator.generateUUID(),
+    mockedServerSocket
+  )
+);
+originalFactoryData.push(
+  registerMockedFactory(
+    "@mozilla.org/presentation/presentationtcpsessiontransport;1",
+    uuidGenerator.generateUUID(),
+    mockedSessionTransport
+  )
+);
+originalFactoryData.push(
+  registerMockedFactory(
+    "@mozilla.org/presentation/datachanneltransportbuilder;1",
+    uuidGenerator.generateUUID(),
+    mockedSessionTransport
+  )
+);
+originalFactoryData.push(
+  registerMockedFactory(
+    "@mozilla.org/network/manager;1",
+    uuidGenerator.generateUUID(),
+    mockedNetworkManager
+  )
+);
+originalFactoryData.push(
+  registerMockedFactory(
+    "@mozilla.org/presentation/requestuiglue;1",
+    uuidGenerator.generateUUID(),
+    mockedRequestUIGlue
+  )
+);
 
 function tearDown() {
   requestPromise = null;
@@ -378,24 +441,34 @@ function tearDown() {
   mockedDevicePrompt.request = null;
   mockedSessionTransport.callback = null;
 
-  var deviceManager = Cc["@mozilla.org/presentation-device/manager;1"]
-                      .getService(Ci.nsIPresentationDeviceManager);
-  deviceManager.QueryInterface(Ci.nsIPresentationDeviceListener).removeDevice(mockedDevice);
+  var deviceManager = Cc[
+    "@mozilla.org/presentation-device/manager;1"
+  ].getService(Ci.nsIPresentationDeviceManager);
+  deviceManager
+    .QueryInterface(Ci.nsIPresentationDeviceListener)
+    .removeDevice(mockedDevice);
 
   // Register original factories.
   for (var data of originalFactoryData) {
-    registerOriginalFactory(data.contractId, data.mockedClassId,
-                            data.mockedFactory, data.originalClassId,
-                            data.originalFactory);
+    registerOriginalFactory(
+      data.contractId,
+      data.mockedClassId,
+      data.mockedFactory,
+      data.originalClassId,
+      data.originalFactory
+    );
   }
 
   sendAsyncMessage("teardown-complete");
 }
 
 addMessageListener("trigger-device-add", function() {
-  var deviceManager = Cc["@mozilla.org/presentation-device/manager;1"]
-                      .getService(Ci.nsIPresentationDeviceManager);
-  deviceManager.QueryInterface(Ci.nsIPresentationDeviceListener).addDevice(mockedDevice);
+  var deviceManager = Cc[
+    "@mozilla.org/presentation-device/manager;1"
+  ].getService(Ci.nsIPresentationDeviceManager);
+  deviceManager
+    .QueryInterface(Ci.nsIPresentationDeviceListener)
+    .addDevice(mockedDevice);
 });
 
 addMessageListener("trigger-device-prompt-select", function() {
@@ -407,21 +480,25 @@ addMessageListener("trigger-device-prompt-cancel", function(result) {
 });
 
 addMessageListener("trigger-incoming-session-request", function(url) {
-  var deviceManager = Cc["@mozilla.org/presentation-device/manager;1"]
-                      .getService(Ci.nsIPresentationDeviceManager);
-  deviceManager.QueryInterface(Ci.nsIPresentationDeviceListener)
-               .onSessionRequest(mockedDevice, url, sessionId, mockedControlChannel);
+  var deviceManager = Cc[
+    "@mozilla.org/presentation-device/manager;1"
+  ].getService(Ci.nsIPresentationDeviceManager);
+  deviceManager
+    .QueryInterface(Ci.nsIPresentationDeviceListener)
+    .onSessionRequest(mockedDevice, url, sessionId, mockedControlChannel);
 });
 
 addMessageListener("trigger-incoming-terminate-request", function() {
-  var deviceManager = Cc["@mozilla.org/presentation-device/manager;1"]
-                      .getService(Ci.nsIPresentationDeviceManager);
-  deviceManager.QueryInterface(Ci.nsIPresentationDeviceListener)
-               .onTerminateRequest(mockedDevice, sessionId, mockedControlChannel, true);
+  var deviceManager = Cc[
+    "@mozilla.org/presentation-device/manager;1"
+  ].getService(Ci.nsIPresentationDeviceManager);
+  deviceManager
+    .QueryInterface(Ci.nsIPresentationDeviceListener)
+    .onTerminateRequest(mockedDevice, sessionId, mockedControlChannel, true);
 });
 
 addMessageListener("trigger-reconnected-acked", function(url) {
-    mockedControlChannel.notifyReconnected();
+  mockedControlChannel.notifyReconnected();
 });
 
 addMessageListener("trigger-incoming-offer", function() {
@@ -433,7 +510,10 @@ addMessageListener("trigger-incoming-answer", function() {
 });
 
 addMessageListener("trigger-incoming-transport", function() {
-  mockedServerSocket.simulateOnSocketAccepted(mockedServerSocket, mockedSocketTransport);
+  mockedServerSocket.simulateOnSocketAccepted(
+    mockedServerSocket,
+    mockedSocketTransport
+  );
 });
 
 addMessageListener("trigger-control-channel-open", function(reason) {

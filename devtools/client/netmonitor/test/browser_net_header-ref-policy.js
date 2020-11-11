@@ -7,7 +7,9 @@
  * Tests if "Referrer Policy" is displayed in the header panel.
  */
 add_task(async function() {
-  const { tab, monitor } = await initNetMonitor(POST_RAW_URL);
+  const { tab, monitor } = await initNetMonitor(POST_RAW_URL, {
+    requestCount: 1,
+  });
   info("Starting test... ");
 
   const { document, store, windowRequire } = monitor.panelWin;
@@ -18,23 +20,34 @@ add_task(async function() {
   await performRequests(monitor, tab, 1);
 
   // Wait until the tab panel summary is displayed
-  wait = waitUntil(() =>
-    document.querySelectorAll(".tabpanel-summary-label")[0]);
-  EventUtils.sendMouseEvent({ type: "mousedown" },
-  document.querySelectorAll(".request-list-item")[0]);
+  const wait = waitUntil(
+    () => document.querySelectorAll(".tabpanel-summary-label")[0]
+  );
+  EventUtils.sendMouseEvent(
+    { type: "mousedown" },
+    document.querySelectorAll(".request-list-item")[0]
+  );
   await wait;
 
-  const referrerPolicyIndex = 5;
-  const referrerPolicyHeader
-    = document.querySelectorAll(".tabpanel-summary-label")[referrerPolicyIndex];
-  const referrerPolicyValue
-    = document.querySelectorAll(".tabpanel-summary-value")[referrerPolicyIndex];
+  const referrerPolicyIndex = 3;
+  const referrerPolicyHeader = document.querySelectorAll(
+    ".tabpanel-summary-label"
+  )[referrerPolicyIndex];
+  const referrerPolicyValue = document.querySelectorAll(
+    ".tabpanel-summary-value"
+  )[referrerPolicyIndex];
 
-  is(referrerPolicyHeader.textContent === "Referrer Policy:",
-  true, "\"Referrer Policy\" header is displayed in the header panel.");
+  is(
+    referrerPolicyHeader.textContent === "Referrer Policy",
+    true,
+    '"Referrer Policy" header is displayed in the header panel.'
+  );
 
-  is(referrerPolicyValue.textContent === "no-referrer-when-downgrade",
-  true, "The referrer policy value is reflected correctly.");
+  is(
+    referrerPolicyValue.textContent === "no-referrer-when-downgrade",
+    true,
+    "The referrer policy value is reflected correctly."
+  );
 
   return teardown(monitor);
 });

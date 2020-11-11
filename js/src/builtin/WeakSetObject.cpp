@@ -9,6 +9,8 @@
 #include "jsapi.h"
 
 #include "builtin/MapObject.h"
+#include "js/friend/ErrorMessages.h"  // JSMSG_*
+#include "js/PropertySpec.h"
 #include "vm/GlobalObject.h"
 #include "vm/Iteration.h"
 #include "vm/JSContext.h"
@@ -33,7 +35,7 @@ using namespace js;
 
   // Step 4.
   if (!args.get(0).isObject()) {
-    ReportNotObjectWithName(cx, "WeakSet value", args.get(0));
+    ReportNotObject(cx, JSMSG_OBJECT_REQUIRED_WEAKSET_VAL, args.get(0));
     return false;
   }
 
@@ -49,7 +51,8 @@ using namespace js;
   return true;
 }
 
-/* static */ bool WeakSetObject::add(JSContext* cx, unsigned argc, Value* vp) {
+/* static */
+bool WeakSetObject::add(JSContext* cx, unsigned argc, Value* vp) {
   // Steps 1-3.
   CallArgs args = CallArgsFromVp(argc, vp);
   return CallNonGenericMethod<WeakSetObject::is, WeakSetObject::add_impl>(cx,
@@ -69,10 +72,10 @@ using namespace js;
   }
 
   // Steps 5-6.
-  if (ObjectValueMap* map =
+  if (ObjectValueWeakMap* map =
           args.thisv().toObject().as<WeakSetObject>().getMap()) {
     JSObject* value = &args[0].toObject();
-    if (ObjectValueMap::Ptr ptr = map->lookup(value)) {
+    if (ObjectValueWeakMap::Ptr ptr = map->lookup(value)) {
       map->remove(ptr);
       args.rval().setBoolean(true);
       return true;
@@ -84,8 +87,8 @@ using namespace js;
   return true;
 }
 
-/* static */ bool WeakSetObject::delete_(JSContext* cx, unsigned argc,
-                                         Value* vp) {
+/* static */
+bool WeakSetObject::delete_(JSContext* cx, unsigned argc, Value* vp) {
   // Steps 1-3.
   CallArgs args = CallArgsFromVp(argc, vp);
   return CallNonGenericMethod<WeakSetObject::is, WeakSetObject::delete_impl>(
@@ -105,7 +108,7 @@ using namespace js;
   }
 
   // Steps 4, 6.
-  if (ObjectValueMap* map =
+  if (ObjectValueWeakMap* map =
           args.thisv().toObject().as<WeakSetObject>().getMap()) {
     JSObject* value = &args[0].toObject();
     if (map->has(value)) {
@@ -119,7 +122,8 @@ using namespace js;
   return true;
 }
 
-/* static */ bool WeakSetObject::has(JSContext* cx, unsigned argc, Value* vp) {
+/* static */
+bool WeakSetObject::has(JSContext* cx, unsigned argc, Value* vp) {
   // Steps 1-3.
   CallArgs args = CallArgsFromVp(argc, vp);
   return CallNonGenericMethod<WeakSetObject::is, WeakSetObject::has_impl>(cx,
@@ -136,15 +140,15 @@ const ClassSpec WeakSetObject::classSpec_ = {
     WeakSetObject::properties,
 };
 
-const Class WeakSetObject::class_ = {
+const JSClass WeakSetObject::class_ = {
     "WeakSet",
     JSCLASS_HAS_PRIVATE | JSCLASS_HAS_CACHED_PROTO(JSProto_WeakSet) |
         JSCLASS_BACKGROUND_FINALIZE,
     &WeakCollectionObject::classOps_, &WeakSetObject::classSpec_};
 
-const Class WeakSetObject::protoClass_ = {
-    js_Object_str, JSCLASS_HAS_CACHED_PROTO(JSProto_WeakSet), JS_NULL_CLASS_OPS,
-    &WeakSetObject::classSpec_};
+const JSClass WeakSetObject::protoClass_ = {
+    "WeakSet.prototype", JSCLASS_HAS_CACHED_PROTO(JSProto_WeakSet),
+    JS_NULL_CLASS_OPS, &WeakSetObject::classSpec_};
 
 const JSPropertySpec WeakSetObject::properties[] = {
     JS_STRING_SYM_PS(toStringTag, "WeakSet", JSPROP_READONLY), JS_PS_END};
@@ -171,7 +175,7 @@ bool WeakSetObject::construct(JSContext* cx, unsigned argc, Value* vp) {
   }
 
   RootedObject proto(cx);
-  if (!GetPrototypeFromBuiltinConstructor(cx, args, &proto)) {
+  if (!GetPrototypeFromBuiltinConstructor(cx, args, JSProto_WeakSet, &proto)) {
     return false;
   }
 
@@ -198,7 +202,7 @@ bool WeakSetObject::construct(JSContext* cx, unsigned argc, Value* vp) {
         MOZ_ASSERT(!keyVal.isMagic(JS_ELEMENTS_HOLE));
 
         if (keyVal.isPrimitive()) {
-          ReportNotObjectWithName(cx, "WeakSet value", keyVal);
+          ReportNotObject(cx, JSMSG_OBJECT_REQUIRED_WEAKSET_VAL, keyVal);
           return false;
         }
 

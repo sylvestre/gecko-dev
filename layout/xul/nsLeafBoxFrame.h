@@ -8,13 +8,16 @@
 
 #include "mozilla/Attributes.h"
 #include "nsLeafFrame.h"
-#include "nsBox.h"
+
+namespace mozilla {
+class PresShell;
+}  // namespace mozilla
 
 class nsLeafBoxFrame : public nsLeafFrame {
  public:
   NS_DECL_FRAMEARENA_HELPERS(nsLeafBoxFrame)
 
-  friend nsIFrame* NS_NewLeafBoxFrame(nsIPresShell* aPresShell,
+  friend nsIFrame* NS_NewLeafBoxFrame(mozilla::PresShell* aPresShell,
                                       ComputedStyle* aStyle);
 
   virtual nsSize GetXULPrefSize(nsBoxLayoutState& aState) override;
@@ -37,7 +40,6 @@ class nsLeafBoxFrame : public nsLeafFrame {
 
   // nsIHTMLReflow overrides
 
-  virtual void MarkIntrinsicISizesDirty() override;
   virtual nscoord GetMinISize(gfxContext* aRenderingContext) override;
   virtual nscoord GetPrefISize(gfxContext* aRenderingContext) override;
 
@@ -45,8 +47,9 @@ class nsLeafBoxFrame : public nsLeafFrame {
   virtual mozilla::LogicalSize ComputeAutoSize(
       gfxContext* aRenderingContext, mozilla::WritingMode aWM,
       const mozilla::LogicalSize& aCBSize, nscoord aAvailableISize,
-      const mozilla::LogicalSize& aMargin, const mozilla::LogicalSize& aBorder,
-      const mozilla::LogicalSize& aPadding, ComputeSizeFlags aFlags) override;
+      const mozilla::LogicalSize& aMargin,
+      const mozilla::LogicalSize& aBorderPadding,
+      mozilla::ComputeSizeFlags aFlags) override;
 
   virtual void Reflow(nsPresContext* aPresContext, ReflowOutput& aDesiredSize,
                       const ReflowInput& aReflowInput,
@@ -61,21 +64,16 @@ class nsLeafBoxFrame : public nsLeafFrame {
   virtual void BuildDisplayList(nsDisplayListBuilder* aBuilder,
                                 const nsDisplayListSet& aLists) override;
 
-  virtual nsresult AttributeChanged(int32_t aNameSpaceID, nsAtom* aAttribute,
-                                    int32_t aModType) override;
-
-  virtual bool ComputesOwnOverflowArea() override { return false; }
+  virtual bool XULComputesOwnOverflowArea() override { return false; }
 
  protected:
   NS_IMETHOD DoXULLayout(nsBoxLayoutState& aState) override;
 
   virtual nscoord GetIntrinsicISize() override;
 
-  explicit nsLeafBoxFrame(ComputedStyle* aStyle, ClassID aID = kClassID)
-      : nsLeafFrame(aStyle, aID) {}
-
- private:
-  void UpdateMouseThrough();
+  explicit nsLeafBoxFrame(ComputedStyle* aStyle, nsPresContext* aPresContext,
+                          ClassID aID = kClassID)
+      : nsLeafFrame(aStyle, aPresContext, aID) {}
 
 };  // class nsLeafBoxFrame
 

@@ -10,7 +10,7 @@ const {
   UPDATE_SHOW_GRID_AREAS,
   UPDATE_SHOW_GRID_LINE_NUMBERS,
   UPDATE_SHOW_INFINITE_LINES,
-} = require("../actions/index");
+} = require("devtools/client/inspector/grids/actions/index");
 
 const SHOW_GRID_AREAS = "devtools.gridinspector.showGridAreas";
 const SHOW_GRID_LINE_NUMBERS = "devtools.gridinspector.showGridLineNumbers";
@@ -25,7 +25,6 @@ const INITIAL_HIGHLIGHTER_SETTINGS = () => {
 };
 
 const reducers = {
-
   [UPDATE_SHOW_GRID_AREAS](highlighterSettings, { enabled }) {
     return Object.assign({}, highlighterSettings, {
       showGridAreasOverlay: enabled,
@@ -43,10 +42,12 @@ const reducers = {
       showInfiniteLines: enabled,
     });
   },
-
 };
 
-module.exports = function(highlighterSettings = INITIAL_HIGHLIGHTER_SETTINGS(), action) {
+module.exports = function(
+  highlighterSettings = INITIAL_HIGHLIGHTER_SETTINGS(),
+  action
+) {
   const reducer = reducers[action.type];
   if (!reducer) {
     return highlighterSettings;

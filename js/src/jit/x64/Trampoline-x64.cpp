@@ -5,18 +5,22 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "jit/Bailouts.h"
+#include "jit/BaselineFrame.h"
+#include "jit/CalleeToken.h"
 #include "jit/JitFrames.h"
-#include "jit/JitRealm.h"
-#include "jit/Linker.h"
+#include "jit/JitRuntime.h"
 #ifdef JS_ION_PERF
-#include "jit/PerfSpewer.h"
+#  include "jit/PerfSpewer.h"
 #endif
 #include "jit/VMFunctions.h"
 #include "jit/x64/SharedICHelpers-x64.h"
-#include "vtune/VTuneWrapper.h"
+#ifdef MOZ_VTUNE
+#  include "vtune/VTuneWrapper.h"
+#endif
+#include "vm/JitActivation.h"  // js::jit::JitActivation
+#include "vm/JSContext.h"
 
 #include "jit/MacroAssembler-inl.h"
-#include "jit/SharedICHelpers-inl.h"
 
 using namespace js;
 using namespace js::jit;
@@ -41,7 +45,7 @@ void JitRuntime::generateEnterJIT(JSContext* cx, MacroAssembler& masm) {
   const Register reg_code = IntArgReg0;
   const Register reg_argc = IntArgReg1;
   const Register reg_argv = IntArgReg2;
-  MOZ_ASSERT(OsrFrameReg == IntArgReg3);
+  static_assert(OsrFrameReg == IntArgReg3);
 
 #if defined(_WIN64)
   const Address token = Address(rbp, 16 + ShadowStackSpace);
@@ -225,13 +229,14 @@ void JitRuntime::generateEnterJIT(JSContext* cx, MacroAssembler& masm) {
     masm.push(framePtr);
     masm.push(reg_code);
 
+    using Fn = bool (*)(BaselineFrame * frame, InterpreterFrame * interpFrame,
+                        uint32_t numStackValues);
     masm.setupUnalignedABICall(scratch);
     masm.passABIArg(framePtr);     // BaselineFrame
     masm.passABIArg(OsrFrameReg);  // InterpreterFrame
     masm.passABIArg(numStackValues);
-    masm.callWithABI(JS_FUNC_TO_DATA_PTR(void*, jit::InitBaselineFrameForOsr),
-                     MoveOp::GENERAL,
-                     CheckUnsafeCallWithABI::DontCheckHasExitFrame);
+    masm.callWithABI<Fn, jit::InitBaselineFrameForOsr>(
+        MoveOp::GENERAL, CheckUnsafeCallWithABI::DontCheckHasExitFrame);
 
     masm.pop(reg_code);
     masm.pop(framePtr);
@@ -327,15 +332,39 @@ void JitRuntime::generateEnterJIT(JSContext* cx, MacroAssembler& masm) {
   masm.ret();
 }
 
+// Push AllRegs in a way that is compatible with RegisterDump, regardless of
+// what PushRegsInMask might do to reduce the set size.
+static void DumpAllRegs(MacroAssembler& masm) {
+#ifdef ENABLE_WASM_SIMD
+  masm.PushRegsInMask(AllRegs);
+#else
+  // When SIMD isn't supported, PushRegsInMask reduces the set of float
+  // registers to be double-sized, while the RegisterDump expects each of
+  // the float registers to have the maximal possible size
+  // (Simd128DataSize). To work around this, we just spill the double
+  // registers by hand here, using the register dump offset directly.
+  for (GeneralRegisterBackwardIterator iter(AllRegs.gprs()); iter.more();
+       ++iter) {
+    masm.Push(*iter);
+  }
+
+  masm.reserveStack(sizeof(RegisterDump::FPUArray));
+  for (FloatRegisterBackwardIterator iter(AllRegs.fpus()); iter.more();
+       ++iter) {
+    FloatRegister reg = *iter;
+    Address spillAddress(StackPointer, reg.getRegisterDumpOffsetInBytes());
+    masm.storeDouble(reg, spillAddress);
+  }
+#endif
+}
+
 void JitRuntime::generateInvalidator(MacroAssembler& masm, Label* bailoutTail) {
   // See explanatory comment in x86's JitRuntime::generateInvalidator.
 
   invalidatorOffset_ = startTrampolineCode(masm);
 
-  masm.addq(Imm32(sizeof(uintptr_t)), rsp);
-
   // Push registers such that we can access them from [base + code].
-  masm.PushRegsInMask(AllRegs);
+  DumpAllRegs(masm);
 
   masm.movq(rsp, rax);  // Argument to jit::InvalidationBailout.
 
@@ -347,12 +376,14 @@ void JitRuntime::generateInvalidator(MacroAssembler& masm, Label* bailoutTail) {
   masm.reserveStack(sizeof(void*));
   masm.movq(rsp, r9);
 
+  using Fn = bool (*)(InvalidationBailoutStack * sp, size_t * frameSizeOut,
+                      BaselineBailoutInfo * *info);
   masm.setupUnalignedABICall(rdx);
   masm.passABIArg(rax);
   masm.passABIArg(rbx);
   masm.passABIArg(r9);
-  masm.callWithABI(JS_FUNC_TO_DATA_PTR(void*, InvalidationBailout),
-                   MoveOp::GENERAL, CheckUnsafeCallWithABI::DontCheckOther);
+  masm.callWithABI<Fn, InvalidationBailout>(
+      MoveOp::GENERAL, CheckUnsafeCallWithABI::DontCheckOther);
 
   masm.pop(r9);   // Get the bailoutInfo outparam.
   masm.pop(rbx);  // Get the frameSize outparam.
@@ -364,10 +395,18 @@ void JitRuntime::generateInvalidator(MacroAssembler& masm, Label* bailoutTail) {
   masm.jmp(bailoutTail);
 }
 
-void JitRuntime::generateArgumentsRectifier(MacroAssembler& masm) {
+void JitRuntime::generateArgumentsRectifier(MacroAssembler& masm,
+                                            ArgumentsRectifierKind kind) {
   // Do not erase the frame pointer in this function.
 
-  argumentsRectifierOffset_ = startTrampolineCode(masm);
+  switch (kind) {
+    case ArgumentsRectifierKind::Normal:
+      argumentsRectifierOffset_ = startTrampolineCode(masm);
+      break;
+    case ArgumentsRectifierKind::TrialInlining:
+      trialInliningArgumentsRectifierOffset_ = startTrampolineCode(masm);
+      break;
+  }
 
   // Caller:
   // [arg2] [arg1] [this] [[argc] [callee] [descr] [raddr]] <- rsp
@@ -503,8 +542,24 @@ void JitRuntime::generateArgumentsRectifier(MacroAssembler& masm) {
 
   // Call the target function.
   masm.andq(Imm32(uint32_t(CalleeTokenMask)), rax);
-  masm.loadJitCodeRaw(rax, rax);
-  argumentsRectifierReturnOffset_ = masm.callJitNoProfiler(rax);
+  switch (kind) {
+    case ArgumentsRectifierKind::Normal:
+      masm.loadJitCodeRaw(rax, rax);
+      argumentsRectifierReturnOffset_ = masm.callJitNoProfiler(rax);
+      break;
+    case ArgumentsRectifierKind::TrialInlining:
+      Label noBaselineScript, done;
+      masm.loadBaselineJitCodeRaw(rax, rbx, &noBaselineScript);
+      masm.callJitNoProfiler(rbx);
+      masm.jump(&done);
+
+      // See BaselineCacheIRCompiler::emitCallInlinedFunction.
+      masm.bind(&noBaselineScript);
+      masm.loadJitCodeRaw(rax, rax);
+      masm.callJitNoProfiler(rax);
+      masm.bind(&done);
+      break;
+  }
 
   // Remove the rectifier frame.
   masm.pop(r9);  // r9 <- descriptor with FrameType.
@@ -518,27 +573,7 @@ void JitRuntime::generateArgumentsRectifier(MacroAssembler& masm) {
 
 static void PushBailoutFrame(MacroAssembler& masm, Register spArg) {
   // Push registers such that we can access them from [base + code].
-  if (JitSupportsSimd()) {
-    masm.PushRegsInMask(AllRegs);
-  } else {
-    // When SIMD isn't supported, PushRegsInMask reduces the set of float
-    // registers to be double-sized, while the RegisterDump expects each of
-    // the float registers to have the maximal possible size
-    // (Simd128DataSize). To work around this, we just spill the double
-    // registers by hand here, using the register dump offset directly.
-    for (GeneralRegisterBackwardIterator iter(AllRegs.gprs()); iter.more();
-         ++iter) {
-      masm.Push(*iter);
-    }
-
-    masm.reserveStack(sizeof(RegisterDump::FPUArray));
-    for (FloatRegisterBackwardIterator iter(AllRegs.fpus()); iter.more();
-         ++iter) {
-      FloatRegister reg = *iter;
-      Address spillAddress(StackPointer, reg.getRegisterDumpOffsetInBytes());
-      masm.storeDouble(reg, spillAddress);
-    }
-  }
+  DumpAllRegs(masm);
 
   // Get the stack pointer into a register, pre-alignment.
   masm.movq(rsp, spArg);
@@ -553,11 +588,12 @@ static void GenerateBailoutThunk(MacroAssembler& masm, uint32_t frameClass,
   masm.movq(rsp, r9);
 
   // Call the bailout function.
+  using Fn = bool (*)(BailoutStack * sp, BaselineBailoutInfo * *info);
   masm.setupUnalignedABICall(rax);
   masm.passABIArg(r8);
   masm.passABIArg(r9);
-  masm.callWithABI(JS_FUNC_TO_DATA_PTR(void*, Bailout), MoveOp::GENERAL,
-                   CheckUnsafeCallWithABI::DontCheckOther);
+  masm.callWithABI<Fn, Bailout>(MoveOp::GENERAL,
+                                CheckUnsafeCallWithABI::DontCheckOther);
 
   masm.pop(r9);  // Get the bailoutInfo outparam.
 
@@ -591,10 +627,9 @@ void JitRuntime::generateBailoutHandler(MacroAssembler& masm,
 }
 
 bool JitRuntime::generateVMWrapper(JSContext* cx, MacroAssembler& masm,
-                                   const VMFunction& f) {
-  MOZ_ASSERT(functionWrappers_);
-
-  uint32_t wrapperOffset = startTrampolineCode(masm);
+                                   const VMFunctionData& f, DynFn nativeFun,
+                                   uint32_t* wrapperOffset) {
+  *wrapperOffset = startTrampolineCode(masm);
 
   // Avoid conflicts with argument registers while discarding the result after
   // the function call.
@@ -643,20 +678,15 @@ bool JitRuntime::generateVMWrapper(JSContext* cx, MacroAssembler& masm,
 
     case Type_Int32:
     case Type_Bool:
+    case Type_Pointer:
       outReg = regs.takeAny();
-      masm.reserveStack(sizeof(int32_t));
+      masm.reserveStack(sizeof(uintptr_t));
       masm.movq(esp, outReg);
       break;
 
     case Type_Double:
       outReg = regs.takeAny();
       masm.reserveStack(sizeof(double));
-      masm.movq(esp, outReg);
-      break;
-
-    case Type_Pointer:
-      outReg = regs.takeAny();
-      masm.reserveStack(sizeof(uintptr_t));
       masm.movq(esp, outReg);
       break;
 
@@ -677,7 +707,7 @@ bool JitRuntime::generateVMWrapper(JSContext* cx, MacroAssembler& masm,
   // Copy arguments.
   for (uint32_t explicitArg = 0; explicitArg < f.explicitArgs; explicitArg++) {
     switch (f.argProperties(explicitArg)) {
-      case VMFunction::WordByValue:
+      case VMFunctionData::WordByValue:
         if (f.argPassedInFloatReg(explicitArg)) {
           masm.passABIArg(MoveOperand(argsBase, argDisp), MoveOp::DOUBLE);
         } else {
@@ -685,14 +715,14 @@ bool JitRuntime::generateVMWrapper(JSContext* cx, MacroAssembler& masm,
         }
         argDisp += sizeof(void*);
         break;
-      case VMFunction::WordByRef:
+      case VMFunctionData::WordByRef:
         masm.passABIArg(
             MoveOperand(argsBase, argDisp, MoveOperand::EFFECTIVE_ADDRESS),
             MoveOp::GENERAL);
         argDisp += sizeof(void*);
         break;
-      case VMFunction::DoubleByValue:
-      case VMFunction::DoubleByRef:
+      case VMFunctionData::DoubleByValue:
+      case VMFunctionData::DoubleByRef:
         MOZ_CRASH("NYI: x64 callVM should not be used with 128bits values.");
     }
   }
@@ -702,7 +732,7 @@ bool JitRuntime::generateVMWrapper(JSContext* cx, MacroAssembler& masm,
     masm.passABIArg(outReg);
   }
 
-  masm.callWithABI(f.wrapped, MoveOp::GENERAL,
+  masm.callWithABI(nativeFun, MoveOp::GENERAL,
                    CheckUnsafeCallWithABI::DontCheckHasExitFrame);
 
   if (!generateTLExitVM(masm, f)) {
@@ -737,16 +767,16 @@ bool JitRuntime::generateVMWrapper(JSContext* cx, MacroAssembler& masm,
 
     case Type_Int32:
       masm.load32(Address(esp, 0), ReturnReg);
-      masm.freeStack(sizeof(int32_t));
+      masm.freeStack(sizeof(uintptr_t));
       break;
 
     case Type_Bool:
       masm.load8ZeroExtend(Address(esp, 0), ReturnReg);
-      masm.freeStack(sizeof(int32_t));
+      masm.freeStack(sizeof(uintptr_t));
       break;
 
     case Type_Double:
-      MOZ_ASSERT(cx->runtime()->jitSupportsFloatingPoint);
+      MOZ_ASSERT(JitOptions.supportsFloatingPoint);
       masm.loadDouble(Address(esp, 0), ReturnDoubleReg);
       masm.freeStack(sizeof(double));
       break;
@@ -772,14 +802,14 @@ bool JitRuntime::generateVMWrapper(JSContext* cx, MacroAssembler& masm,
                   f.explicitStackSlots() * sizeof(void*) +
                   f.extraValuesToPop * sizeof(Value)));
 
-  return functionWrappers_->putNew(&f, wrapperOffset);
+  return true;
 }
 
 uint32_t JitRuntime::generatePreBarrier(JSContext* cx, MacroAssembler& masm,
                                         MIRType type) {
   uint32_t offset = startTrampolineCode(masm);
 
-  MOZ_ASSERT(PreBarrierReg == rdx);
+  static_assert(PreBarrierReg == rdx);
   Register temp1 = rax;
   Register temp2 = rbx;
   Register temp3 = rcx;
@@ -820,89 +850,12 @@ uint32_t JitRuntime::generatePreBarrier(JSContext* cx, MacroAssembler& masm,
   return offset;
 }
 
-typedef bool (*HandleDebugTrapFn)(JSContext*, BaselineFrame*, uint8_t*, bool*);
-static const VMFunction HandleDebugTrapInfo =
-    FunctionInfo<HandleDebugTrapFn>(HandleDebugTrap, "HandleDebugTrap");
-
-JitCode* JitRuntime::generateDebugTrapHandler(JSContext* cx) {
-  StackMacroAssembler masm;
-#ifndef JS_USE_LINK_REGISTER
-  // The first value contains the return addres,
-  // which we pull into ICTailCallReg for tail calls.
-  masm.setFramePushed(sizeof(intptr_t));
-#endif
-
-  Register scratch1 = rax;
-  Register scratch2 = rcx;
-  Register scratch3 = rdx;
-
-  // Load the return address in scratch1.
-  masm.loadPtr(Address(rsp, 0), scratch1);
-
-  // Load BaselineFrame pointer in scratch2.
-  masm.mov(rbp, scratch2);
-  masm.subPtr(Imm32(BaselineFrame::Size()), scratch2);
-
-  // Enter a stub frame and call the HandleDebugTrap VM function. Ensure
-  // the stub frame has a nullptr ICStub pointer, since this pointer is marked
-  // during GC.
-  masm.movePtr(ImmPtr(nullptr), ICStubReg);
-  EmitBaselineEnterStubFrame(masm, scratch3);
-
-  TrampolinePtr code =
-      cx->runtime()->jitRuntime()->getVMWrapper(HandleDebugTrapInfo);
-  masm.push(scratch1);
-  masm.push(scratch2);
-  EmitBaselineCallVM(code, masm);
-
-  EmitBaselineLeaveStubFrame(masm);
-
-  // If the stub returns |true|, we have to perform a forced return
-  // (return from the JS frame). If the stub returns |false|, just return
-  // from the trap stub so that execution continues at the current pc.
-  Label forcedReturn;
-  masm.branchTest32(Assembler::NonZero, ReturnReg, ReturnReg, &forcedReturn);
-  masm.ret();
-
-  masm.bind(&forcedReturn);
-  masm.loadValue(Address(ebp, BaselineFrame::reverseOffsetOfReturnValue()),
-                 JSReturnOperand);
-  masm.mov(rbp, rsp);
-  masm.pop(rbp);
-
-  // Before returning, if profiling is turned on, make sure that
-  // lastProfilingFrame is set to the correct caller frame.
-  {
-    Label skipProfilingInstrumentation;
-    AbsoluteAddress addressOfEnabled(
-        cx->runtime()->geckoProfiler().addressOfEnabled());
-    masm.branch32(Assembler::Equal, addressOfEnabled, Imm32(0),
-                  &skipProfilingInstrumentation);
-    masm.profilerExitFrame();
-    masm.bind(&skipProfilingInstrumentation);
-  }
-
-  masm.ret();
-
-  Linker linker(masm);
-  JitCode* codeDbg = linker.newCode(cx, CodeKind::Other);
-
-#ifdef JS_ION_PERF
-  writePerfSpewerJitCodeProfile(codeDbg, "DebugTrapHandler");
-#endif
-#ifdef MOZ_VTUNE
-  vtune::MarkStub(codeDbg, "DebugTrapHandler");
-#endif
-
-  return codeDbg;
-}
-
-void JitRuntime::generateExceptionTailStub(MacroAssembler& masm, void* handler,
+void JitRuntime::generateExceptionTailStub(MacroAssembler& masm,
                                            Label* profilerExitTail) {
   exceptionTailOffset_ = startTrampolineCode(masm);
 
   masm.bind(masm.failureLabel());
-  masm.handleFailureWithHandlerTail(handler, profilerExitTail);
+  masm.handleFailureWithHandlerTail(profilerExitTail);
 }
 
 void JitRuntime::generateBailoutTailStub(MacroAssembler& masm,

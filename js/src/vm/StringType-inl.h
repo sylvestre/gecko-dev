@@ -13,25 +13,26 @@
 #include "mozilla/Range.h"
 
 #include "gc/Allocator.h"
-#include "gc/FreeOp.h"
 #include "gc/Marking.h"
+#include "gc/MaybeRooted.h"
 #include "gc/StoreBuffer.h"
+#include "js/UniquePtr.h"
 #include "vm/JSContext.h"
 #include "vm/Realm.h"
 
+#include "gc/FreeOp-inl.h"
 #include "gc/StoreBuffer-inl.h"
 
 namespace js {
 
 // Allocate a thin inline string if possible, and a fat inline string if not.
 template <AllowGC allowGC, typename CharT>
-static MOZ_ALWAYS_INLINE JSInlineString* AllocateInlineString(JSContext* cx,
-                                                              size_t len,
-                                                              CharT** chars) {
+static MOZ_ALWAYS_INLINE JSInlineString* AllocateInlineString(
+    JSContext* cx, size_t len, CharT** chars, js::gc::InitialHeap heap) {
   MOZ_ASSERT(JSInlineString::lengthFits<CharT>(len));
 
   if (JSThinInlineString::lengthFits<CharT>(len)) {
-    JSThinInlineString* str = JSThinInlineString::new_<allowGC>(cx);
+    JSThinInlineString* str = JSThinInlineString::new_<allowGC>(cx, heap);
     if (!str) {
       return nullptr;
     }
@@ -39,7 +40,7 @@ static MOZ_ALWAYS_INLINE JSInlineString* AllocateInlineString(JSContext* cx,
     return str;
   }
 
-  JSFatInlineString* str = JSFatInlineString::new_<allowGC>(cx);
+  JSFatInlineString* str = JSFatInlineString::new_<allowGC>(cx, heap);
   if (!str) {
     return nullptr;
   }
@@ -50,7 +51,8 @@ static MOZ_ALWAYS_INLINE JSInlineString* AllocateInlineString(JSContext* cx,
 // Create a thin inline string if possible, and a fat inline string if not.
 template <AllowGC allowGC, typename CharT>
 static MOZ_ALWAYS_INLINE JSInlineString* NewInlineString(
-    JSContext* cx, mozilla::Range<const CharT> chars) {
+    JSContext* cx, mozilla::Range<const CharT> chars,
+    js::gc::InitialHeap heap = js::gc::DefaultHeap) {
   /*
    * Don't bother trying to find a static atom; measurement shows that not
    * many get here (for one, Atomize is catching them).
@@ -58,37 +60,37 @@ static MOZ_ALWAYS_INLINE JSInlineString* NewInlineString(
 
   size_t len = chars.length();
   CharT* storage;
-  JSInlineString* str = AllocateInlineString<allowGC>(cx, len, &storage);
+  JSInlineString* str = AllocateInlineString<allowGC>(cx, len, &storage, heap);
   if (!str) {
     return nullptr;
   }
 
   mozilla::PodCopy(storage, chars.begin().get(), len);
-  storage[len] = 0;
   return str;
 }
 
 // Create a thin inline string if possible, and a fat inline string if not.
 template <typename CharT>
 static MOZ_ALWAYS_INLINE JSInlineString* NewInlineString(
-    JSContext* cx, HandleLinearString base, size_t start, size_t length) {
+    JSContext* cx, HandleLinearString base, size_t start, size_t length,
+    js::gc::InitialHeap heap) {
   MOZ_ASSERT(JSInlineString::lengthFits<CharT>(length));
 
   CharT* chars;
-  JSInlineString* s = AllocateInlineString<CanGC>(cx, length, &chars);
+  JSInlineString* s = AllocateInlineString<CanGC>(cx, length, &chars, heap);
   if (!s) {
     return nullptr;
   }
 
   JS::AutoCheckCannotGC nogc;
   mozilla::PodCopy(chars, base->chars<CharT>(nogc) + start, length);
-  chars[length] = 0;
   return s;
 }
 
-template <typename CharT>
-static MOZ_ALWAYS_INLINE JSFlatString* TryEmptyOrStaticString(
-    JSContext* cx, const CharT* chars, size_t n) {
+template <typename Chars>
+static MOZ_ALWAYS_INLINE JSLinearString* TryEmptyOrStaticString(JSContext* cx,
+                                                                Chars chars,
+                                                                size_t n) {
   // Measurements on popular websites indicate empty strings are pretty common
   // and most strings with length 1 or 2 are in the StaticStrings table. For
   // length 3 strings that's only about 1%, so we check n <= 2.
@@ -97,12 +99,19 @@ static MOZ_ALWAYS_INLINE JSFlatString* TryEmptyOrStaticString(
       return cx->emptyString();
     }
 
-    if (JSFlatString* str = cx->staticStrings().lookup(chars, n)) {
+    if (JSLinearString* str = cx->staticStrings().lookup(chars, n)) {
       return str;
     }
   }
 
   return nullptr;
+}
+
+template <typename CharT, typename = std::enable_if_t<!std::is_const_v<CharT>>>
+static MOZ_ALWAYS_INLINE JSLinearString* TryEmptyOrStaticString(JSContext* cx,
+                                                                CharT* chars,
+                                                                size_t n) {
+  return TryEmptyOrStaticString(cx, const_cast<const CharT*>(chars), n);
 }
 
 } /* namespace js */
@@ -159,7 +168,7 @@ MOZ_ALWAYS_INLINE JSRope* JSRope::new_(
   if (!validateLength(cx, length)) {
     return nullptr;
   }
-  JSRope* str = js::Allocate<JSRope, allowGC>(cx, heap);
+  JSRope* str = js::AllocateString<JSRope, allowGC>(cx, heap);
   if (!str) {
     return nullptr;
   }
@@ -173,10 +182,10 @@ MOZ_ALWAYS_INLINE void JSDependentString::init(JSContext* cx,
   MOZ_ASSERT(start + length <= base->length());
   JS::AutoCheckCannotGC nogc;
   if (base->hasLatin1Chars()) {
-    setLengthAndFlags(length, DEPENDENT_FLAGS | LATIN1_CHARS_BIT);
+    setLengthAndFlags(length, INIT_DEPENDENT_FLAGS | LATIN1_CHARS_BIT);
     d.s.u2.nonInlineCharsLatin1 = base->latin1Chars(nogc) + start;
   } else {
-    setLengthAndFlags(length, DEPENDENT_FLAGS);
+    setLengthAndFlags(length, INIT_DEPENDENT_FLAGS);
     d.s.u2.nonInlineCharsTwoByte = base->twoByteChars(nogc) + start;
   }
   d.s.u3.base = base;
@@ -186,16 +195,15 @@ MOZ_ALWAYS_INLINE void JSDependentString::init(JSContext* cx,
 }
 
 MOZ_ALWAYS_INLINE JSLinearString* JSDependentString::new_(
-    JSContext* cx, JSLinearString* baseArg, size_t start, size_t length) {
+    JSContext* cx, JSLinearString* baseArg, size_t start, size_t length,
+    js::gc::InitialHeap heap) {
   /*
    * Try to avoid long chains of dependent strings. We can't avoid these
    * entirely, however, due to how ropes are flattened.
    */
   if (baseArg->isDependent()) {
-    if (mozilla::Maybe<size_t> offset = baseArg->asDependent().baseOffset()) {
-      start += *offset;
-      baseArg = baseArg->asDependent().base();
-    }
+    start += baseArg->asDependent().baseOffset();
+    baseArg = baseArg->asDependent().base();
   }
 
   MOZ_ASSERT(start + length <= baseArg->length());
@@ -211,16 +219,13 @@ MOZ_ALWAYS_INLINE JSLinearString* JSDependentString::new_(
   if (useInline) {
     js::RootedLinearString base(cx, baseArg);
     return baseArg->hasLatin1Chars()
-               ? js::NewInlineString<JS::Latin1Char>(cx, base, start, length)
-               : js::NewInlineString<char16_t>(cx, base, start, length);
-  }
-
-  if (baseArg->isExternal() && !baseArg->ensureFlat(cx)) {
-    return nullptr;
+               ? js::NewInlineString<JS::Latin1Char>(cx, base, start, length,
+                                                     heap)
+               : js::NewInlineString<char16_t>(cx, base, start, length, heap);
   }
 
   JSDependentString* str =
-      js::Allocate<JSDependentString, js::NoGC>(cx, js::gc::DefaultHeap);
+      js::AllocateString<JSDependentString, js::NoGC>(cx, heap);
   if (str) {
     str->init(cx, baseArg, start, length);
     return str;
@@ -228,7 +233,7 @@ MOZ_ALWAYS_INLINE JSLinearString* JSDependentString::new_(
 
   js::RootedLinearString base(cx, baseArg);
 
-  str = js::Allocate<JSDependentString>(cx, js::gc::DefaultHeap);
+  str = js::AllocateString<JSDependentString>(cx, heap);
   if (!str) {
     return nullptr;
   }
@@ -236,58 +241,63 @@ MOZ_ALWAYS_INLINE JSLinearString* JSDependentString::new_(
   return str;
 }
 
-MOZ_ALWAYS_INLINE void JSFlatString::init(const char16_t* chars,
-                                          size_t length) {
-  setLengthAndFlags(length, INIT_FLAT_FLAGS);
+MOZ_ALWAYS_INLINE void JSLinearString::init(const char16_t* chars,
+                                            size_t length) {
+  setLengthAndFlags(length, INIT_LINEAR_FLAGS);
+  // Check that the new buffer is located in the StringBufferArena
+  checkStringCharsArena(chars);
   d.s.u2.nonInlineCharsTwoByte = chars;
 }
 
-MOZ_ALWAYS_INLINE void JSFlatString::init(const JS::Latin1Char* chars,
-                                          size_t length) {
-  setLengthAndFlags(length, INIT_FLAT_FLAGS | LATIN1_CHARS_BIT);
+MOZ_ALWAYS_INLINE void JSLinearString::init(const JS::Latin1Char* chars,
+                                            size_t length) {
+  setLengthAndFlags(length, INIT_LINEAR_FLAGS | LATIN1_CHARS_BIT);
+  // Check that the new buffer is located in the StringBufferArena
+  checkStringCharsArena(chars);
   d.s.u2.nonInlineCharsLatin1 = chars;
 }
 
 template <js::AllowGC allowGC, typename CharT>
-MOZ_ALWAYS_INLINE JSFlatString* JSFlatString::new_(JSContext* cx,
-                                                   const CharT* chars,
-                                                   size_t length) {
-  MOZ_ASSERT(chars[length] == CharT(0));
-
+MOZ_ALWAYS_INLINE JSLinearString* JSLinearString::new_(
+    JSContext* cx, js::UniquePtr<CharT[], JS::FreePolicy> chars, size_t length,
+    js::gc::InitialHeap heap) {
   if (!validateLength(cx, length)) {
     return nullptr;
   }
 
-  JSFlatString* str;
+  JSLinearString* str;
   if (cx->zone()->isAtomsZone()) {
     str = js::Allocate<js::NormalAtom, allowGC>(cx);
   } else {
-    str = js::Allocate<JSFlatString, allowGC>(cx, js::gc::DefaultHeap);
+    str = js::AllocateString<JSLinearString, allowGC>(cx, heap);
   }
   if (!str) {
     return nullptr;
   }
 
   if (!str->isTenured()) {
-    // The chars pointer is only considered to be handed over to this
-    // function on a successful return. If the following registration
-    // fails, the string is partially initialized and must be made valid,
-    // or its finalizer may attempt to free uninitialized memory.
-    void* ptr = const_cast<void*>(static_cast<const void*>(chars));
-    if (!cx->runtime()->gc.nursery().registerMallocedBuffer(ptr)) {
-      str->init((JS::Latin1Char*)nullptr, 0);
+    // If the following registration fails, the string is partially initialized
+    // and must be made valid, or its finalizer may attempt to free
+    // uninitialized memory.
+    if (!cx->runtime()->gc.nursery().registerMallocedBuffer(
+            chars.get(), length * sizeof(CharT))) {
+      str->init(static_cast<JS::Latin1Char*>(nullptr), 0);
       if (allowGC) {
         ReportOutOfMemory(cx);
       }
       return nullptr;
     }
+  } else {
+    // This can happen off the main thread for the atoms zone.
+    cx->zone()->addCellMemory(str, length * sizeof(CharT),
+                              js::MemoryUse::StringContents);
   }
 
-  str->init(chars, length);
+  str->init(chars.release(), length);
   return str;
 }
 
-inline js::PropertyName* JSFlatString::toPropertyName(JSContext* cx) {
+inline js::PropertyName* JSLinearString::toPropertyName(JSContext* cx) {
 #ifdef DEBUG
   uint32_t dummy;
   MOZ_ASSERT(!isIndex(&dummy));
@@ -303,21 +313,23 @@ inline js::PropertyName* JSFlatString::toPropertyName(JSContext* cx) {
 }
 
 template <js::AllowGC allowGC>
-MOZ_ALWAYS_INLINE JSThinInlineString* JSThinInlineString::new_(JSContext* cx) {
+MOZ_ALWAYS_INLINE JSThinInlineString* JSThinInlineString::new_(
+    JSContext* cx, js::gc::InitialHeap heap) {
   if (cx->zone()->isAtomsZone()) {
     return (JSThinInlineString*)(js::Allocate<js::NormalAtom, allowGC>(cx));
   }
 
-  return js::Allocate<JSThinInlineString, allowGC>(cx, js::gc::DefaultHeap);
+  return js::AllocateString<JSThinInlineString, allowGC>(cx, heap);
 }
 
 template <js::AllowGC allowGC>
-MOZ_ALWAYS_INLINE JSFatInlineString* JSFatInlineString::new_(JSContext* cx) {
+MOZ_ALWAYS_INLINE JSFatInlineString* JSFatInlineString::new_(
+    JSContext* cx, js::gc::InitialHeap heap) {
   if (cx->zone()->isAtomsZone()) {
     return (JSFatInlineString*)(js::Allocate<js::FatInlineAtom, allowGC>(cx));
   }
 
-  return js::Allocate<JSFatInlineString, allowGC>(cx, js::gc::DefaultHeap);
+  return js::AllocateString<JSFatInlineString, allowGC>(cx, heap);
 }
 
 template <>
@@ -350,19 +362,18 @@ MOZ_ALWAYS_INLINE char16_t* JSFatInlineString::init<char16_t>(size_t length) {
   return d.inlineStorageTwoByte;
 }
 
-MOZ_ALWAYS_INLINE void JSExternalString::init(const char16_t* chars,
-                                              size_t length,
-                                              const JSStringFinalizer* fin) {
-  MOZ_ASSERT(fin);
-  MOZ_ASSERT(fin->finalize);
+MOZ_ALWAYS_INLINE void JSExternalString::init(
+    const char16_t* chars, size_t length,
+    const JSExternalStringCallbacks* callbacks) {
+  MOZ_ASSERT(callbacks);
   setLengthAndFlags(length, EXTERNAL_FLAGS);
   d.s.u2.nonInlineCharsTwoByte = chars;
-  d.s.u3.externalFinalizer = fin;
+  d.s.u3.externalCallbacks = callbacks;
 }
 
 MOZ_ALWAYS_INLINE JSExternalString* JSExternalString::new_(
     JSContext* cx, const char16_t* chars, size_t length,
-    const JSStringFinalizer* fin) {
+    const JSExternalStringCallbacks* callbacks) {
   if (!validateLength(cx, length)) {
     return nullptr;
   }
@@ -370,8 +381,12 @@ MOZ_ALWAYS_INLINE JSExternalString* JSExternalString::new_(
   if (!str) {
     return nullptr;
   }
-  str->init(chars, length, fin);
-  cx->updateMallocCounter((length + 1) * sizeof(char16_t));
+  str->init(chars, length, callbacks);
+  size_t nbytes = length * sizeof(char16_t);
+
+  MOZ_ASSERT(str->isTenured());
+  js::AddCellMemory(str, nbytes, js::MemoryUse::StringContents);
+
   return str;
 }
 
@@ -386,65 +401,62 @@ inline JSLinearString* js::StaticStrings::getUnitStringForElement(
   if (c < UNIT_STATIC_LIMIT) {
     return getUnit(c);
   }
-  return js::NewInlineString<CanGC>(cx, mozilla::Range<const char16_t>(&c, 1));
+  return js::NewInlineString<CanGC>(cx, mozilla::Range<const char16_t>(&c, 1),
+                                    js::gc::DefaultHeap);
 }
 
-MOZ_ALWAYS_INLINE void JSString::finalize(js::FreeOp* fop) {
+MOZ_ALWAYS_INLINE void JSString::finalize(JSFreeOp* fop) {
   /* FatInline strings are in a different arena. */
   MOZ_ASSERT(getAllocKind() != js::gc::AllocKind::FAT_INLINE_STRING);
   MOZ_ASSERT(getAllocKind() != js::gc::AllocKind::FAT_INLINE_ATOM);
 
-  if (isFlat()) {
-    asFlat().finalize(fop);
+  if (isLinear()) {
+    asLinear().finalize(fop);
   } else {
-    MOZ_ASSERT(isDependent() || isRope());
+    MOZ_ASSERT(isRope());
   }
 }
 
-inline void JSFlatString::finalize(js::FreeOp* fop) {
+inline void JSLinearString::finalize(JSFreeOp* fop) {
   MOZ_ASSERT(getAllocKind() != js::gc::AllocKind::FAT_INLINE_STRING);
   MOZ_ASSERT(getAllocKind() != js::gc::AllocKind::FAT_INLINE_ATOM);
 
-  if (!isInline()) {
-    fop->free_(nonInlineCharsRaw());
+  if (!isInline() && !isDependent()) {
+    fop->free_(this, nonInlineCharsRaw(), allocSize(),
+               js::MemoryUse::StringContents);
   }
 }
 
-inline void JSFatInlineString::finalize(js::FreeOp* fop) {
+inline size_t JSLinearString::allocSize() const {
+  MOZ_ASSERT(ownsMallocedChars());
+
+  size_t charSize =
+      hasLatin1Chars() ? sizeof(JS::Latin1Char) : sizeof(char16_t);
+  size_t count = isExtensible() ? asExtensible().capacity() : length();
+  return count * charSize;
+}
+
+inline void JSFatInlineString::finalize(JSFreeOp* fop) {
   MOZ_ASSERT(getAllocKind() == js::gc::AllocKind::FAT_INLINE_STRING);
   MOZ_ASSERT(isInline());
 
   // Nothing to do.
 }
 
-inline void JSAtom::finalize(js::FreeOp* fop) {
-  MOZ_ASSERT(JSString::isAtom());
-  MOZ_ASSERT(JSString::isFlat());
-  MOZ_ASSERT(getAllocKind() == js::gc::AllocKind::ATOM);
-
-  if (!isInline()) {
-    fop->free_(nonInlineCharsRaw());
-  }
-}
-
-inline void js::FatInlineAtom::finalize(js::FreeOp* fop) {
+inline void js::FatInlineAtom::finalize(JSFreeOp* fop) {
   MOZ_ASSERT(JSString::isAtom());
   MOZ_ASSERT(getAllocKind() == js::gc::AllocKind::FAT_INLINE_ATOM);
 
   // Nothing to do.
 }
 
-inline void JSExternalString::finalize(js::FreeOp* fop) {
-  if (!JSString::isExternal()) {
-    // This started out as an external string, but was turned into a
-    // non-external string by JSExternalString::ensureFlat.
-    MOZ_ASSERT(isFlat());
-    fop->free_(nonInlineCharsRaw());
-    return;
-  }
+inline void JSExternalString::finalize(JSFreeOp* fop) {
+  MOZ_ASSERT(JSString::isExternal());
 
-  const JSStringFinalizer* fin = externalFinalizer();
-  fin->finalize(fin, const_cast<char16_t*>(rawTwoByteChars()));
+  size_t nbytes = length() * sizeof(char16_t);
+  fop->removeCellMemory(this, nbytes, js::MemoryUse::StringContents);
+
+  callbacks()->finalize(const_cast<char16_t*>(rawTwoByteChars()));
 }
 
 #endif /* vm_StringType_inl_h */

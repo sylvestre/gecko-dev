@@ -17,12 +17,11 @@
 #include "States.h"
 #include "TreeWalker.h"
 
+#include "mozilla/PresShell.h"
 #include "mozilla/dom/HTMLTableElement.h"
 #include "nsIHTMLCollection.h"
-#include "nsIDocument.h"
-#include "nsIMutableArray.h"
+#include "mozilla/dom/Document.h"
 #include "nsIPersistentProperties2.h"
-#include "nsIPresShell.h"
 #include "nsITableCellLayout.h"
 #include "nsFrameSelection.h"
 #include "nsError.h"
@@ -119,8 +118,7 @@ HTMLTableCellAccessible::NativeAttributes() {
 
 #ifdef DEBUG
   nsAutoString unused;
-  attributes->SetStringProperty(NS_LITERAL_CSTRING("cppclass"),
-                                NS_LITERAL_STRING("HTMLTableCellAccessible"),
+  attributes->SetStringProperty("cppclass"_ns, u"HTMLTableCellAccessible"_ns,
                                 unused);
 #endif
 
@@ -328,6 +326,17 @@ GroupPos HTMLTableRowAccessible::GroupPosition() {
   return AccessibleWrap::GroupPosition();
 }
 
+// Accessible protected
+ENameValueFlag HTMLTableRowAccessible::NativeName(nsString& aName) const {
+  // For table row accessibles, we only want to calculate the name from the
+  // sub tree if an ARIA role is present.
+  if (HasStrongARIARole()) {
+    return AccessibleWrap::NativeName(aName);
+  }
+
+  return eNameOK;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // HTMLTableAccessible
 ////////////////////////////////////////////////////////////////////////////////
@@ -386,8 +395,7 @@ HTMLTableAccessible::NativeAttributes() {
 
   if (IsProbablyLayoutTable()) {
     nsAutoString unused;
-    attributes->SetStringProperty(NS_LITERAL_CSTRING("layout-guess"),
-                                  NS_LITERAL_STRING("true"), unused);
+    attributes->SetStringProperty("layout-guess"_ns, u"true"_ns, unused);
   }
 
   return attributes.forget();
@@ -418,17 +426,17 @@ void HTMLTableAccessible::Summary(nsString& aSummary) {
 }
 
 uint32_t HTMLTableAccessible::ColCount() const {
-  nsTableWrapperFrame* tableFrame = do_QueryFrame(mContent->GetPrimaryFrame());
+  nsTableWrapperFrame* tableFrame = GetTableWrapperFrame();
   return tableFrame ? tableFrame->GetColCount() : 0;
 }
 
 uint32_t HTMLTableAccessible::RowCount() {
-  nsTableWrapperFrame* tableFrame = do_QueryFrame(mContent->GetPrimaryFrame());
+  nsTableWrapperFrame* tableFrame = GetTableWrapperFrame();
   return tableFrame ? tableFrame->GetRowCount() : 0;
 }
 
 uint32_t HTMLTableAccessible::SelectedCellCount() {
-  nsTableWrapperFrame* tableFrame = do_QueryFrame(mContent->GetPrimaryFrame());
+  nsTableWrapperFrame* tableFrame = GetTableWrapperFrame();
   if (!tableFrame) return 0;
 
   uint32_t count = 0, rowCount = RowCount(), colCount = ColCount();
@@ -465,7 +473,7 @@ uint32_t HTMLTableAccessible::SelectedRowCount() {
 }
 
 void HTMLTableAccessible::SelectedCells(nsTArray<Accessible*>* aCells) {
-  nsTableWrapperFrame* tableFrame = do_QueryFrame(mContent->GetPrimaryFrame());
+  nsTableWrapperFrame* tableFrame = GetTableWrapperFrame();
   if (!tableFrame) return;
 
   uint32_t rowCount = RowCount(), colCount = ColCount();
@@ -485,7 +493,7 @@ void HTMLTableAccessible::SelectedCells(nsTArray<Accessible*>* aCells) {
 }
 
 void HTMLTableAccessible::SelectedCellIndices(nsTArray<uint32_t>* aCells) {
-  nsTableWrapperFrame* tableFrame = do_QueryFrame(mContent->GetPrimaryFrame());
+  nsTableWrapperFrame* tableFrame = GetTableWrapperFrame();
   if (!tableFrame) return;
 
   uint32_t rowCount = RowCount(), colCount = ColCount();
@@ -515,7 +523,7 @@ void HTMLTableAccessible::SelectedRowIndices(nsTArray<uint32_t>* aRows) {
 }
 
 Accessible* HTMLTableAccessible::CellAt(uint32_t aRowIdx, uint32_t aColIdx) {
-  nsTableWrapperFrame* tableFrame = do_QueryFrame(mContent->GetPrimaryFrame());
+  nsTableWrapperFrame* tableFrame = GetTableWrapperFrame();
   if (!tableFrame) return nullptr;
 
   nsIContent* cellContent = tableFrame->GetCellAt(aRowIdx, aColIdx);
@@ -529,13 +537,13 @@ Accessible* HTMLTableAccessible::CellAt(uint32_t aRowIdx, uint32_t aColIdx) {
     return CellInRowAt(cell, aColIdx);
   }
 
-  // XXX bug 576838: crazy tables (like table6 in tables/test_table2.html) may
+  // XXX bug 576838: bizarre tables (like table6 in tables/test_table2.html) may
   // return itself as a cell what makes Orca hang.
   return cell == this ? nullptr : cell;
 }
 
 int32_t HTMLTableAccessible::CellIndexAt(uint32_t aRowIdx, uint32_t aColIdx) {
-  nsTableWrapperFrame* tableFrame = do_QueryFrame(mContent->GetPrimaryFrame());
+  nsTableWrapperFrame* tableFrame = GetTableWrapperFrame();
   if (!tableFrame) return -1;
 
   int32_t cellIndex = tableFrame->GetIndexByRowAndColumn(aRowIdx, aColIdx);
@@ -555,7 +563,7 @@ int32_t HTMLTableAccessible::CellIndexAt(uint32_t aRowIdx, uint32_t aColIdx) {
 }
 
 int32_t HTMLTableAccessible::ColIndexAt(uint32_t aCellIdx) {
-  nsTableWrapperFrame* tableFrame = do_QueryFrame(mContent->GetPrimaryFrame());
+  nsTableWrapperFrame* tableFrame = GetTableWrapperFrame();
   if (!tableFrame) return -1;
 
   int32_t rowIdx = -1, colIdx = -1;
@@ -572,7 +580,7 @@ int32_t HTMLTableAccessible::ColIndexAt(uint32_t aCellIdx) {
 }
 
 int32_t HTMLTableAccessible::RowIndexAt(uint32_t aCellIdx) {
-  nsTableWrapperFrame* tableFrame = do_QueryFrame(mContent->GetPrimaryFrame());
+  nsTableWrapperFrame* tableFrame = GetTableWrapperFrame();
   if (!tableFrame) return -1;
 
   int32_t rowIdx = -1, colIdx = -1;
@@ -591,7 +599,7 @@ int32_t HTMLTableAccessible::RowIndexAt(uint32_t aCellIdx) {
 void HTMLTableAccessible::RowAndColIndicesAt(uint32_t aCellIdx,
                                              int32_t* aRowIdx,
                                              int32_t* aColIdx) {
-  nsTableWrapperFrame* tableFrame = do_QueryFrame(mContent->GetPrimaryFrame());
+  nsTableWrapperFrame* tableFrame = GetTableWrapperFrame();
   if (tableFrame) {
     tableFrame->GetRowAndColumnByIndex(aCellIdx, aRowIdx, aColIdx);
     if (*aRowIdx == -1 || *aColIdx == -1) {
@@ -604,7 +612,7 @@ void HTMLTableAccessible::RowAndColIndicesAt(uint32_t aCellIdx,
 }
 
 uint32_t HTMLTableAccessible::ColExtentAt(uint32_t aRowIdx, uint32_t aColIdx) {
-  nsTableWrapperFrame* tableFrame = do_QueryFrame(mContent->GetPrimaryFrame());
+  nsTableWrapperFrame* tableFrame = GetTableWrapperFrame();
   if (!tableFrame) return 0;
 
   uint32_t colExtent = tableFrame->GetEffectiveColSpanAt(aRowIdx, aColIdx);
@@ -620,7 +628,7 @@ uint32_t HTMLTableAccessible::ColExtentAt(uint32_t aRowIdx, uint32_t aColIdx) {
 }
 
 uint32_t HTMLTableAccessible::RowExtentAt(uint32_t aRowIdx, uint32_t aColIdx) {
-  nsTableWrapperFrame* tableFrame = do_QueryFrame(mContent->GetPrimaryFrame());
+  nsTableWrapperFrame* tableFrame = GetTableWrapperFrame();
   if (!tableFrame) return 0;
 
   return tableFrame->GetEffectiveRowSpanAt(aRowIdx, aColIdx);
@@ -651,7 +659,7 @@ bool HTMLTableAccessible::IsRowSelected(uint32_t aRowIdx) {
 }
 
 bool HTMLTableAccessible::IsCellSelected(uint32_t aRowIdx, uint32_t aColIdx) {
-  nsTableWrapperFrame* tableFrame = do_QueryFrame(mContent->GetPrimaryFrame());
+  nsTableWrapperFrame* tableFrame = GetTableWrapperFrame();
   if (!tableFrame) return false;
 
   nsTableCellFrame* cellFrame = tableFrame->GetCellFrameAt(aRowIdx, aColIdx);
@@ -660,38 +668,38 @@ bool HTMLTableAccessible::IsCellSelected(uint32_t aRowIdx, uint32_t aColIdx) {
 
 void HTMLTableAccessible::SelectRow(uint32_t aRowIdx) {
   DebugOnly<nsresult> rv =
-      RemoveRowsOrColumnsFromSelection(aRowIdx, TableSelection::Row, true);
+      RemoveRowsOrColumnsFromSelection(aRowIdx, TableSelectionMode::Row, true);
   NS_ASSERTION(NS_SUCCEEDED(rv),
                "RemoveRowsOrColumnsFromSelection() Shouldn't fail!");
 
-  AddRowOrColumnToSelection(aRowIdx, TableSelection::Row);
+  AddRowOrColumnToSelection(aRowIdx, TableSelectionMode::Row);
 }
 
 void HTMLTableAccessible::SelectCol(uint32_t aColIdx) {
-  DebugOnly<nsresult> rv =
-      RemoveRowsOrColumnsFromSelection(aColIdx, TableSelection::Column, true);
+  DebugOnly<nsresult> rv = RemoveRowsOrColumnsFromSelection(
+      aColIdx, TableSelectionMode::Column, true);
   NS_ASSERTION(NS_SUCCEEDED(rv),
                "RemoveRowsOrColumnsFromSelection() Shouldn't fail!");
 
-  AddRowOrColumnToSelection(aColIdx, TableSelection::Column);
+  AddRowOrColumnToSelection(aColIdx, TableSelectionMode::Column);
 }
 
 void HTMLTableAccessible::UnselectRow(uint32_t aRowIdx) {
-  RemoveRowsOrColumnsFromSelection(aRowIdx, TableSelection::Row, false);
+  RemoveRowsOrColumnsFromSelection(aRowIdx, TableSelectionMode::Row, false);
 }
 
 void HTMLTableAccessible::UnselectCol(uint32_t aColIdx) {
-  RemoveRowsOrColumnsFromSelection(aColIdx, TableSelection::Column, false);
+  RemoveRowsOrColumnsFromSelection(aColIdx, TableSelectionMode::Column, false);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // HTMLTableAccessible: protected implementation
 
 nsresult HTMLTableAccessible::AddRowOrColumnToSelection(
-    int32_t aIndex, TableSelection aTarget) {
-  bool doSelectRow = (aTarget == TableSelection::Row);
+    int32_t aIndex, TableSelectionMode aTarget) {
+  bool doSelectRow = (aTarget == TableSelectionMode::Row);
 
-  nsTableWrapperFrame* tableFrame = do_QueryFrame(mContent->GetPrimaryFrame());
+  nsTableWrapperFrame* tableFrame = GetTableWrapperFrame();
   if (!tableFrame) return NS_OK;
 
   uint32_t count = 0;
@@ -700,7 +708,7 @@ nsresult HTMLTableAccessible::AddRowOrColumnToSelection(
   else
     count = RowCount();
 
-  nsIPresShell* presShell(mDoc->PresShell());
+  PresShell* presShell = mDoc->PresShellPtr();
   RefPtr<nsFrameSelection> tableSelection =
       const_cast<nsFrameSelection*>(presShell->ConstFrameSelection());
 
@@ -718,15 +726,15 @@ nsresult HTMLTableAccessible::AddRowOrColumnToSelection(
 }
 
 nsresult HTMLTableAccessible::RemoveRowsOrColumnsFromSelection(
-    int32_t aIndex, TableSelection aTarget, bool aIsOuter) {
-  nsTableWrapperFrame* tableFrame = do_QueryFrame(mContent->GetPrimaryFrame());
+    int32_t aIndex, TableSelectionMode aTarget, bool aIsOuter) {
+  nsTableWrapperFrame* tableFrame = GetTableWrapperFrame();
   if (!tableFrame) return NS_OK;
 
-  nsIPresShell* presShell(mDoc->PresShell());
+  PresShell* presShell = mDoc->PresShellPtr();
   RefPtr<nsFrameSelection> tableSelection =
       const_cast<nsFrameSelection*>(presShell->ConstFrameSelection());
 
-  bool doUnselectRow = (aTarget == TableSelection::Row);
+  bool doUnselectRow = (aTarget == TableSelectionMode::Row);
   uint32_t count = doUnselectRow ? ColCount() : RowCount();
 
   int32_t startRowIdx = doUnselectRow ? aIndex : 0;
@@ -772,6 +780,16 @@ void HTMLTableAccessible::Description(nsString& aDescription) {
   }
   printf("\nTABLE: %s\n", NS_ConvertUTF16toUTF8(mLayoutHeuristic).get());
 #endif
+}
+
+nsTableWrapperFrame* HTMLTableAccessible::GetTableWrapperFrame() const {
+  nsTableWrapperFrame* tableFrame = do_QueryFrame(mContent->GetPrimaryFrame());
+  if (tableFrame &&
+      tableFrame->GetChildList(nsIFrame::kPrincipalList).FirstChild()) {
+    return tableFrame;
+  }
+
+  return nullptr;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

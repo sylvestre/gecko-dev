@@ -5,35 +5,44 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "mozilla/ScrollStyles.h"
-#include "nsStyleStruct.h"  // for nsStyleDisplay and nsStyleBackground::Position
+#include "nsStyleStruct.h"  // for nsStyleDisplay
 
 namespace mozilla {
 
-ScrollStyles::ScrollStyles(StyleOverflow aH, StyleOverflow aV,
-                           const nsStyleDisplay* aDisplay)
-    : mHorizontal(aH),
-      mVertical(aV),
-      mScrollBehavior(aDisplay->mScrollBehavior),
-      mOverscrollBehaviorX(aDisplay->mOverscrollBehaviorX),
-      mOverscrollBehaviorY(aDisplay->mOverscrollBehaviorY),
-      mScrollSnapTypeX(aDisplay->mScrollSnapTypeX),
-      mScrollSnapTypeY(aDisplay->mScrollSnapTypeY),
-      mScrollSnapPointsX(aDisplay->mScrollSnapPointsX),
-      mScrollSnapPointsY(aDisplay->mScrollSnapPointsY),
-      mScrollSnapDestinationX(aDisplay->mScrollSnapDestination.mXPosition),
-      mScrollSnapDestinationY(aDisplay->mScrollSnapDestination.mYPosition) {}
+// https://drafts.csswg.org/css-overflow/#overflow-propagation
+// "If `visible` is applied to the viewport, it must be interpreted as `auto`.
+//  If `clip` is applied to the viewport, it must be interpreted as `hidden`."
+static StyleOverflow MapOverflowValueForViewportPropagation(
+    StyleOverflow aOverflow) {
+  switch (aOverflow) {
+    case StyleOverflow::Visible:
+      return StyleOverflow::Auto;
+    case StyleOverflow::Clip:
+      return StyleOverflow::Hidden;
+    default:
+      return aOverflow;
+  }
+}
 
-ScrollStyles::ScrollStyles(const nsStyleDisplay* aDisplay)
-    : mHorizontal(aDisplay->mOverflowX),
-      mVertical(aDisplay->mOverflowY),
-      mScrollBehavior(aDisplay->mScrollBehavior),
-      mOverscrollBehaviorX(aDisplay->mOverscrollBehaviorX),
-      mOverscrollBehaviorY(aDisplay->mOverscrollBehaviorY),
-      mScrollSnapTypeX(aDisplay->mScrollSnapTypeX),
-      mScrollSnapTypeY(aDisplay->mScrollSnapTypeY),
-      mScrollSnapPointsX(aDisplay->mScrollSnapPointsX),
-      mScrollSnapPointsY(aDisplay->mScrollSnapPointsY),
-      mScrollSnapDestinationX(aDisplay->mScrollSnapDestination.mXPosition),
-      mScrollSnapDestinationY(aDisplay->mScrollSnapDestination.mYPosition) {}
+ScrollStyles::ScrollStyles(StyleOverflow aH, StyleOverflow aV)
+    : mHorizontal(aH), mVertical(aV) {
+  MOZ_ASSERT(mHorizontal == StyleOverflow::Auto ||
+             mHorizontal == StyleOverflow::Hidden ||
+             mHorizontal == StyleOverflow::Scroll);
+  MOZ_ASSERT(mVertical == StyleOverflow::Auto ||
+             mVertical == StyleOverflow::Hidden ||
+             mVertical == StyleOverflow::Scroll);
+}
+
+ScrollStyles::ScrollStyles(const nsStyleDisplay& aDisplay,
+                           MapOverflowToValidScrollStyleTag)
+    : ScrollStyles(
+          MapOverflowValueForViewportPropagation(aDisplay.mOverflowX),
+          MapOverflowValueForViewportPropagation(aDisplay.mOverflowY)) {}
+
+bool ScrollStyles::IsHiddenInBothDirections() const {
+  return mHorizontal == StyleOverflow::Hidden &&
+         mVertical == StyleOverflow::Hidden;
+}
 
 }  // namespace mozilla

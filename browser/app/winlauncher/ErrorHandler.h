@@ -8,8 +8,7 @@
 #define mozilla_ErrorHandler_h
 
 #include "mozilla/Assertions.h"
-
-#include "LauncherResult.h"
+#include "mozilla/WinHeaderOnlyUtils.h"
 
 namespace mozilla {
 
@@ -17,28 +16,38 @@ namespace mozilla {
  * All launcher process error handling should live in the implementation of
  * this function.
  */
-void HandleLauncherError(const LauncherError& aError);
+void HandleLauncherError(const LauncherError& aError,
+                         const char* aProcessType = nullptr);
 
 // This function is simply a convenience overload that automatically unwraps
 // the LauncherError from the provided LauncherResult and then forwards it to
 // the main implementation.
 template <typename T>
-inline void HandleLauncherError(const LauncherResult<T>& aResult) {
+inline void HandleLauncherError(const LauncherResult<T>& aResult,
+                                const char* aProcessType = nullptr) {
   MOZ_ASSERT(aResult.isErr());
   if (aResult.isOk()) {
     return;
   }
 
-  HandleLauncherError(aResult.unwrapErr());
+  HandleLauncherError(aResult.inspectErr(), aProcessType);
 }
 
 // This function is simply a convenience overload that unwraps the provided
 // GenericErrorResult<LauncherError> and forwards it to the main implementation.
 inline void HandleLauncherError(
-    const GenericErrorResult<LauncherError>& aResult) {
+    const GenericErrorResult<LauncherError>& aResult,
+    const char* aProcessType = nullptr) {
   LauncherVoidResult r(aResult);
-  HandleLauncherError(r);
+  HandleLauncherError(r, aProcessType);
 }
+
+// Forward declaration
+struct StaticXREAppData;
+
+void SetLauncherErrorAppData(const StaticXREAppData& aAppData);
+
+void SetLauncherErrorForceEventLog();
 
 }  // namespace mozilla
 

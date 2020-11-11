@@ -8,8 +8,8 @@
 #define MediaDrmProxySupport_H
 
 #include "mozilla/DecryptorProxyCallback.h"
+#include "mozilla/java/MediaDrmProxyWrappers.h"
 #include "mozilla/Logging.h"
-#include "FennecJNIWrappers.h"
 #include "nsString.h"
 
 namespace mozilla {
@@ -22,9 +22,9 @@ enum MediaDrmSessionType {
 
 #ifndef MDRMN_LOG
 LogModule* GetMDRMNLog();
-#define MDRMN_LOG(x, ...)                          \
-  MOZ_LOG(GetMDRMNLog(), mozilla::LogLevel::Debug, \
-          ("[MediaDrmProxySupport][%s]" x, __FUNCTION__, ##__VA_ARGS__))
+#  define MDRMN_LOG(x, ...)                          \
+    MOZ_LOG(GetMDRMNLog(), mozilla::LogLevel::Debug, \
+            ("[MediaDrmProxySupport][%s]" x, __FUNCTION__, ##__VA_ARGS__))
 #endif
 
 class MediaDrmProxySupport final {

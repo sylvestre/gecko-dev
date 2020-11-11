@@ -49,7 +49,7 @@ static BOOL GetStringsFile(WCHAR filename[MAX_PATH]) {
     return FALSE;
   }
 
-  WCHAR *dot = wcsrchr(filename, '.');
+  WCHAR* dot = wcsrchr(filename, '.');
   if (!dot || wcsicmp(dot + 1, L"exe")) {
     return FALSE;
   }
@@ -94,16 +94,22 @@ static void CenterDialog(HWND hDlg) {
 }
 
 static void InitDialog(HWND hDlg) {
-  WCHAR szwTitle[MAX_TEXT_LEN];
-  WCHAR szwInfo[MAX_TEXT_LEN];
+  mozilla::UniquePtr<WCHAR[]> szwTitle;
+  mozilla::UniquePtr<WCHAR[]> szwInfo;
 
-  MultiByteToWideChar(CP_UTF8, 0, sUIStrings.title, -1, szwTitle,
-                      sizeof(szwTitle) / sizeof(szwTitle[0]));
-  MultiByteToWideChar(CP_UTF8, 0, sUIStrings.info, -1, szwInfo,
-                      sizeof(szwInfo) / sizeof(szwInfo[0]));
+  int bufferSize =
+      MultiByteToWideChar(CP_UTF8, 0, sUIStrings.title.get(), -1, nullptr, 0);
+  szwTitle = mozilla::MakeUnique<WCHAR[]>(bufferSize);
+  MultiByteToWideChar(CP_UTF8, 0, sUIStrings.title.get(), -1, szwTitle.get(),
+                      bufferSize);
+  bufferSize =
+      MultiByteToWideChar(CP_UTF8, 0, sUIStrings.info.get(), -1, nullptr, 0);
+  szwInfo = mozilla::MakeUnique<WCHAR[]>(bufferSize);
+  MultiByteToWideChar(CP_UTF8, 0, sUIStrings.info.get(), -1, szwInfo.get(),
+                      bufferSize);
 
-  SetWindowTextW(hDlg, szwTitle);
-  SetWindowTextW(GetDlgItem(hDlg, IDC_INFO), szwInfo);
+  SetWindowTextW(hDlg, szwTitle.get());
+  SetWindowTextW(GetDlgItem(hDlg, IDC_INFO), szwInfo.get());
 
   // Set dialog icon
   HICON hIcon = LoadIcon(GetModuleHandle(nullptr), MAKEINTRESOURCE(IDI_DIALOG));
@@ -134,7 +140,7 @@ static void InitDialog(HWND hDlg) {
 
   // Measure the space needed for the text on a single line. DT_CALCRECT means
   // nothing is drawn.
-  if (DrawText(hDCInfo, szwInfo, -1, &textSize,
+  if (DrawText(hDCInfo, szwInfo.get(), -1, &textSize,
                DT_CALCRECT | DT_NOCLIP | DT_SINGLELINE)) {
     GetClientRect(hWndInfo, &infoSize);
     SIZE extra;
@@ -192,7 +198,7 @@ static LRESULT CALLBACK DialogProc(HWND hDlg, UINT message, WPARAM wParam,
   return FALSE;
 }
 
-int InitProgressUI(int *argc, WCHAR ***argv) { return 0; }
+int InitProgressUI(int* argc, WCHAR*** argv) { return 0; }
 
 /**
  * Initializes the progress UI strings

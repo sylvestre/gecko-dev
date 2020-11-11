@@ -37,6 +37,10 @@ use std::fmt::{self, Write};
 /// * if `#[css(skip_if = "function")]` is found on a field, the `ToCss` call
 ///   for that field is skipped if `function` returns true. This function is
 ///   provided the field as an argument;
+/// * if `#[css(contextual_skip_if = "function")]` is found on a field, the
+///   `ToCss` call for that field is skipped if `function` returns true. This
+///   function is given all the fields in the current struct or variant as an
+///   argument;
 /// * `#[css(represents_keyword)]` can be used on bool fields in order to
 ///   serialize the field name if the field is true, or nothing otherwise.  It
 ///   also collects those keywords for `SpecifiedValueInfo`.
@@ -68,6 +72,16 @@ where
         W: Write,
     {
         (*self).to_css(dest)
+    }
+}
+
+impl ToCss for crate::owned_str::OwnedStr {
+    #[inline]
+    fn to_css<W>(&self, dest: &mut CssWriter<W>) -> fmt::Result
+    where
+        W: Write,
+    {
+        serialize_string(self, dest)
     }
 }
 
@@ -158,24 +172,6 @@ where
     }
 }
 
-#[macro_export]
-macro_rules! serialize_function {
-    ($dest: expr, $name: ident($( $arg: expr, )+)) => {
-        serialize_function!($dest, $name($($arg),+))
-    };
-    ($dest: expr, $name: ident($first_arg: expr $( , $arg: expr )*)) => {
-        {
-            $dest.write_str(concat!(stringify!($name), "("))?;
-            $first_arg.to_css($dest)?;
-            $(
-                $dest.write_str(", ")?;
-                $arg.to_css($dest)?;
-            )*
-            $dest.write_char(')')
-        }
-    }
-}
-
 /// Convenience wrapper to serialise CSS values separated by a given string.
 pub struct SequenceWriter<'a, 'b: 'a, W: 'b> {
     inner: &'a mut CssWriter<'b, W>,
@@ -201,33 +197,51 @@ where
     where
         F: FnOnce(&mut CssWriter<'b, W>) -> fmt::Result,
     {
-        let old_prefix = self.inner.prefix;
-        if old_prefix.is_none() {
-            // If there is no prefix in the inner writer, a previous
-            // call to this method produced output, which means we need
-            // to write the separator next time we produce output again.
-            self.inner.prefix = Some(self.separator);
+        // Separate non-generic functions so that this code is not repeated
+        // in every monomorphization with a different type `F` or `W`.
+        // https://github.com/servo/servo/issues/26713
+        fn before(
+            prefix: &mut Option<&'static str>,
+            separator: &'static str,
+        ) -> Option<&'static str> {
+            let old_prefix = *prefix;
+            if old_prefix.is_none() {
+                // If there is no prefix in the inner writer, a previous
+                // call to this method produced output, which means we need
+                // to write the separator next time we produce output again.
+                *prefix = Some(separator);
+            }
+            old_prefix
         }
+        fn after(
+            old_prefix: Option<&'static str>,
+            prefix: &mut Option<&'static str>,
+            separator: &'static str,
+        ) {
+            match (old_prefix, *prefix) {
+                (_, None) => {
+                    // This call produced output and cleaned up after itself.
+                },
+                (None, Some(p)) => {
+                    // Some previous call to `item` produced output,
+                    // but this one did not, prefix should be the same as
+                    // the one we set.
+                    debug_assert_eq!(separator, p);
+                    // We clean up here even though it's not necessary just
+                    // to be able to do all these assertion checks.
+                    *prefix = None;
+                },
+                (Some(old), Some(new)) => {
+                    // No previous call to `item` produced output, and this one
+                    // either.
+                    debug_assert_eq!(old, new);
+                },
+            }
+        }
+
+        let old_prefix = before(&mut self.inner.prefix, self.separator);
         f(self.inner)?;
-        match (old_prefix, self.inner.prefix) {
-            (_, None) => {
-                // This call produced output and cleaned up after itself.
-            },
-            (None, Some(p)) => {
-                // Some previous call to `item` produced output,
-                // but this one did not, prefix should be the same as
-                // the one we set.
-                debug_assert_eq!(self.separator, p);
-                // We clean up here even though it's not necessary just
-                // to be able to do all these assertion checks.
-                self.inner.prefix = None;
-            },
-            (Some(old), Some(new)) => {
-                // No previous call to `item` produced output, and this one
-                // either.
-                debug_assert_eq!(old, new);
-            },
-        }
+        after(old_prefix, &mut self.inner.prefix, self.separator);
         Ok(())
     }
 
@@ -450,12 +464,12 @@ impl_to_css_for_predefined_type!(::cssparser::RGBA);
 impl_to_css_for_predefined_type!(::cssparser::Color);
 impl_to_css_for_predefined_type!(::cssparser::UnicodeRange);
 
-#[macro_export]
+/// Define an enum type with unit variants that each correspond to a CSS keyword.
 macro_rules! define_css_keyword_enum {
     (pub enum $name:ident { $($variant:ident = $css:expr,)+ }) => {
         #[allow(missing_docs)]
         #[cfg_attr(feature = "servo", derive(Deserialize, Serialize))]
-        #[derive(Clone, Copy, Debug, Eq, Hash, MallocSizeOf, PartialEq)]
+        #[derive(Clone, Copy, Debug, Eq, Hash, MallocSizeOf, PartialEq, ToShmem)]
         pub enum $name {
             $($variant),+
         }
@@ -511,7 +525,9 @@ pub mod specified {
 
     /// Whether to allow negative lengths or not.
     #[repr(u8)]
-    #[derive(Clone, Copy, Debug, Eq, MallocSizeOf, PartialEq, PartialOrd)]
+    #[derive(
+        Clone, Copy, Debug, Deserialize, Eq, MallocSizeOf, PartialEq, PartialOrd, Serialize, ToShmem,
+    )]
     pub enum AllowedNumericType {
         /// Allow all kind of numeric values.
         All,

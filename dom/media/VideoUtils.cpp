@@ -14,25 +14,26 @@
 #include "TimeUnits.h"
 #include "VorbisUtils.h"
 #include "mozilla/Base64.h"
+#include "mozilla/dom/ContentChild.h"
+#include "mozilla/SchedulerGroup.h"
 #include "mozilla/SharedThreadPool.h"
-#include "mozilla/StaticPrefs.h"
-#include "mozilla/SystemGroup.h"
+#include "mozilla/StaticPrefs_accessibility.h"
+#include "mozilla/StaticPrefs_media.h"
 #include "mozilla/TaskCategory.h"
 #include "mozilla/TaskQueue.h"
 #include "mozilla/Telemetry.h"
 #include "nsCharSeparatedTokenizer.h"
 #include "nsContentTypeParser.h"
 #include "nsIConsoleService.h"
+#include "nsINetworkLinkService.h"
 #include "nsIRandomGenerator.h"
-#include "nsIServiceManager.h"
 #include "nsMathUtils.h"
+#include "nsNetCID.h"
 #include "nsServiceManagerUtils.h"
 #include "nsThreadUtils.h"
+#include "AudioStream.h"
 
 namespace mozilla {
-
-NS_NAMED_LITERAL_CSTRING(kEMEKeySystemClearkey, "org.w3.clearkey");
-NS_NAMED_LITERAL_CSTRING(kEMEKeySystemWidevine, "com.widevine.alpha");
 
 using layers::PlanarYCbCrImage;
 using media::TimeUnit;
@@ -55,6 +56,9 @@ CheckedInt64 FramesToUsecs(int64_t aFrames, uint32_t aRate) {
 }
 
 TimeUnit FramesToTimeUnit(int64_t aFrames, uint32_t aRate) {
+  if (MOZ_UNLIKELY(!aRate)) {
+    return TimeUnit::Invalid();
+  }
   int64_t major = aFrames / aRate;
   int64_t remainder = aFrames % aRate;
   return TimeUnit::FromMicroseconds(major) * USECS_PER_S +
@@ -69,11 +73,12 @@ CheckedInt64 UsecsToFrames(int64_t aUsecs, uint32_t aRate) {
 
 // Format TimeUnit as number of frames at given rate.
 CheckedInt64 TimeUnitToFrames(const TimeUnit& aTime, uint32_t aRate) {
-  return UsecsToFrames(aTime.ToMicroseconds(), aRate);
+  return aTime.IsValid() ? UsecsToFrames(aTime.ToMicroseconds(), aRate)
+                         : CheckedInt64(INT64_MAX) + 1;
 }
 
 nsresult SecondsToUsecs(double aSeconds, int64_t& aOutUsecs) {
-  if (aSeconds * double(USECS_PER_S) > INT64_MAX) {
+  if (aSeconds * double(USECS_PER_S) > double(INT64_MAX)) {
     return NS_ERROR_FAILURE;
   }
   aOutUsecs = int64_t(aSeconds * double(USECS_PER_S));
@@ -82,7 +87,9 @@ nsresult SecondsToUsecs(double aSeconds, int64_t& aOutUsecs) {
 
 static int32_t ConditionDimension(float aValue) {
   // This will exclude NaNs and too-big values.
-  if (aValue > 1.0 && aValue <= INT32_MAX) return int32_t(NS_round(aValue));
+  if (aValue > 1.0 && aValue <= float(INT32_MAX)) {
+    return int32_t(NS_round(aValue));
+  }
   return 0;
 }
 
@@ -99,7 +106,9 @@ void ScaleDisplayByAspectRatio(gfx::IntSize& aDisplay, float aAspectRatio) {
 static int64_t BytesToTime(int64_t offset, int64_t length, int64_t durationUs) {
   NS_ASSERTION(length > 0, "Must have positive length");
   double r = double(offset) / double(length);
-  if (r > 1.0) r = 1.0;
+  if (r > 1.0) {
+    r = 1.0;
+  }
   return int64_t(double(durationUs) * r);
 }
 
@@ -107,7 +116,9 @@ media::TimeIntervals GetEstimatedBufferedTimeRanges(
     mozilla::MediaResource* aStream, int64_t aDurationUsecs) {
   media::TimeIntervals buffered;
   // Nothing to cache if the media takes 0us to play.
-  if (aDurationUsecs <= 0 || !aStream) return buffered;
+  if (aDurationUsecs <= 0 || !aStream) {
+    return buffered;
+  }
 
   // Special case completely cached files.  This also handles local files.
   if (aStream->IsDataCachedToEndOfResource(0)) {
@@ -121,7 +132,9 @@ media::TimeIntervals GetEstimatedBufferedTimeRanges(
   // If we can't determine the total size, pretend that we have nothing
   // buffered. This will put us in a state of eternally-low-on-undecoded-data
   // which is not great, but about the best we can do.
-  if (totalBytes <= 0) return buffered;
+  if (totalBytes <= 0) {
+    return buffered;
+  }
 
   int64_t startOffset = aStream->GetNextCachedData(0);
   while (startOffset >= 0) {
@@ -151,7 +164,7 @@ void DownmixStereoToMono(mozilla::AudioDataValue* aBuffer, uint32_t aFrames) {
     int sample = 0;
 #endif
     // The sample of the buffer would be interleaved.
-    sample = (aBuffer[fIdx * channels] + aBuffer[fIdx * channels + 1]) * 0.5;
+    sample = (aBuffer[fIdx * channels] + aBuffer[fIdx * channels + 1]) * 0.5f;
     aBuffer[fIdx * channels] = aBuffer[fIdx * channels + 1] = sample;
   }
 }
@@ -161,11 +174,33 @@ uint32_t DecideAudioPlaybackChannels(const AudioInfo& info) {
     return 1;
   }
 
-  if (StaticPrefs::MediaForcestereoEnabled()) {
+  if (StaticPrefs::media_forcestereo_enabled()) {
     return 2;
   }
 
   return info.mChannels;
+}
+
+uint32_t DecideAudioPlaybackSampleRate(const AudioInfo& aInfo) {
+  bool resampling = StaticPrefs::media_resampling_enabled();
+
+  uint32_t rate = 0;
+
+  if (resampling) {
+    rate = 48000;
+  } else if (aInfo.mRate == 44100 || aInfo.mRate == 48000) {
+    // The original rate is of good quality and we want to minimize unecessary
+    // resampling. The common scenario being that the sampling rate is one or
+    // the other. This minimizes audio quality regressions but depends on
+    // content providers not changing rates mid-stream.
+    rate = aInfo.mRate;
+  } else {
+    // We will resample all data to match cubeb's preferred sampling rate.
+    rate = AudioStream::GetPreferredRate();
+  }
+  MOZ_DIAGNOSTIC_ASSERT(rate, "output rate can't be 0.");
+
+  return rate;
 }
 
 bool IsDefaultPlaybackDeviceMono() {
@@ -173,58 +208,60 @@ bool IsDefaultPlaybackDeviceMono() {
 }
 
 bool IsVideoContentType(const nsCString& aContentType) {
-  NS_NAMED_LITERAL_CSTRING(video, "video");
-  if (FindInReadable(video, aContentType)) {
-    return true;
-  }
-  return false;
+  constexpr auto video = "video"_ns;
+  return FindInReadable(video, aContentType);
 }
 
 bool IsValidVideoRegion(const gfx::IntSize& aFrame,
                         const gfx::IntRect& aPicture,
                         const gfx::IntSize& aDisplay) {
-  return aFrame.width <= PlanarYCbCrImage::MAX_DIMENSION &&
+  return aFrame.width > 0 && aFrame.width <= PlanarYCbCrImage::MAX_DIMENSION &&
+         aFrame.height > 0 &&
          aFrame.height <= PlanarYCbCrImage::MAX_DIMENSION &&
          aFrame.width * aFrame.height <= MAX_VIDEO_WIDTH * MAX_VIDEO_HEIGHT &&
-         aFrame.width * aFrame.height != 0 &&
+         aPicture.width > 0 &&
          aPicture.width <= PlanarYCbCrImage::MAX_DIMENSION &&
          aPicture.x < PlanarYCbCrImage::MAX_DIMENSION &&
          aPicture.x + aPicture.width < PlanarYCbCrImage::MAX_DIMENSION &&
+         aPicture.height > 0 &&
          aPicture.height <= PlanarYCbCrImage::MAX_DIMENSION &&
          aPicture.y < PlanarYCbCrImage::MAX_DIMENSION &&
          aPicture.y + aPicture.height < PlanarYCbCrImage::MAX_DIMENSION &&
          aPicture.width * aPicture.height <=
              MAX_VIDEO_WIDTH * MAX_VIDEO_HEIGHT &&
-         aPicture.width * aPicture.height != 0 &&
+         aDisplay.width > 0 &&
          aDisplay.width <= PlanarYCbCrImage::MAX_DIMENSION &&
+         aDisplay.height > 0 &&
          aDisplay.height <= PlanarYCbCrImage::MAX_DIMENSION &&
-         aDisplay.width * aDisplay.height <=
-             MAX_VIDEO_WIDTH * MAX_VIDEO_HEIGHT &&
-         aDisplay.width * aDisplay.height != 0;
+         aDisplay.width * aDisplay.height <= MAX_VIDEO_WIDTH * MAX_VIDEO_HEIGHT;
 }
 
 already_AddRefed<SharedThreadPool> GetMediaThreadPool(MediaThreadType aType) {
   const char* name;
+  uint32_t threads = 4;
   switch (aType) {
     case MediaThreadType::PLATFORM_DECODER:
       name = "MediaPDecoder";
       break;
-    case MediaThreadType::MSG_CONTROL:
-      name = "MSGControl";
-      break;
     case MediaThreadType::WEBRTC_DECODER:
       name = "WebRTCPD";
       break;
+    case MediaThreadType::MDSM:
+      name = "MediaDecoderStateMachine";
+      threads = 1;
+      break;
+    case MediaThreadType::PLATFORM_ENCODER:
+      name = "MediaPEncoder";
+      break;
     default:
       MOZ_FALLTHROUGH_ASSERT("Unexpected MediaThreadType");
-    case MediaThreadType::PLAYBACK:
-      name = "MediaPlayback";
+    case MediaThreadType::SUPERVISOR:
+      name = "MediaSupervisor";
       break;
   }
 
-  static const uint32_t kMediaThreadPoolDefaultCount = 4;
-  RefPtr<SharedThreadPool> pool = SharedThreadPool::Get(
-      nsDependentCString(name), kMediaThreadPoolDefaultCount);
+  RefPtr<SharedThreadPool> pool =
+      SharedThreadPool::Get(nsDependentCString(name), threads);
 
   // Ensure a larger stack for platform decoder threads
   if (aType == MediaThreadType::PLATFORM_DECODER) {
@@ -277,8 +314,8 @@ bool ExtractVPXCodecDetails(const nsAString& aCodec, uint8_t& aProfile,
       // No more than 8 fields are expected.
       return false;
     }
-    *(fields[fieldsCount]) = static_cast<uint8_t>(
-        PromiseFlatString((*fieldsItr)).ToInteger(&rv, 10));
+    *(fields[fieldsCount]) =
+        static_cast<uint8_t>((*fieldsItr).ToInteger(&rv, 10));
     // We got invalid field value, parsing error.
     NS_ENSURE_SUCCESS(rv, false);
   }
@@ -424,15 +461,15 @@ bool ExtractH264CodecDetails(const nsAString& aCodec, uint8_t& aProfile,
 
   // Extract the profile_idc, constraint_flags and level_idc.
   nsresult rv = NS_OK;
-  aProfile = PromiseFlatString(Substring(aCodec, 5, 2)).ToInteger(&rv, 16);
+  aProfile = Substring(aCodec, 5, 2).ToInteger(&rv, 16);
   NS_ENSURE_SUCCESS(rv, false);
 
   // Constraint flags are stored on the 6 most significant bits, first two bits
   // are reserved_zero_2bits.
-  aConstraint = PromiseFlatString(Substring(aCodec, 7, 2)).ToInteger(&rv, 16);
+  aConstraint = Substring(aCodec, 7, 2).ToInteger(&rv, 16);
   NS_ENSURE_SUCCESS(rv, false);
 
-  aLevel = PromiseFlatString(Substring(aCodec, 9, 2)).ToInteger(&rv, 16);
+  aLevel = Substring(aCodec, 9, 2).ToInteger(&rv, 16);
   NS_ENSURE_SUCCESS(rv, false);
 
   if (aLevel == 9) {
@@ -441,21 +478,6 @@ bool ExtractH264CodecDetails(const nsAString& aCodec, uint8_t& aProfile,
     aLevel *= 10;
   }
 
-  // We only make sure constraints is above 4 for collection perspective
-  // otherwise collect 0 for unknown.
-  Telemetry::Accumulate(Telemetry::VIDEO_CANPLAYTYPE_H264_CONSTRAINT_SET_FLAG,
-                        aConstraint >= 4 ? aConstraint : 0);
-  // 244 is the highest meaningful profile value (High 4:4:4 Intra Profile)
-  // that can be represented as single hex byte, otherwise collect 0 for
-  // unknown.
-  Telemetry::Accumulate(Telemetry::VIDEO_CANPLAYTYPE_H264_PROFILE,
-                        aProfile <= 244 ? aProfile : 0);
-
-  // Make sure aLevel represents a value between levels 1 and 5.2,
-  // otherwise collect 0 for unknown.
-  Telemetry::Accumulate(Telemetry::VIDEO_CANPLAYTYPE_H264_LEVEL,
-                        (aLevel >= 10 && aLevel <= 52) ? aLevel : 0);
-
   return true;
 }
 
@@ -463,7 +485,9 @@ nsresult GenerateRandomName(nsCString& aOutSalt, uint32_t aLength) {
   nsresult rv;
   nsCOMPtr<nsIRandomGenerator> rg =
       do_GetService("@mozilla.org/security/random-generator;1", &rv);
-  if (NS_FAILED(rv)) return rv;
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
 
   // For each three bytes of random data we will get four bytes of ASCII.
   const uint32_t requiredBytesLength =
@@ -471,23 +495,29 @@ nsresult GenerateRandomName(nsCString& aOutSalt, uint32_t aLength) {
 
   uint8_t* buffer;
   rv = rg->GenerateRandomBytes(requiredBytesLength, &buffer);
-  if (NS_FAILED(rv)) return rv;
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
 
-  nsAutoCString temp;
+  nsCString temp;
   nsDependentCSubstring randomData(reinterpret_cast<const char*>(buffer),
                                    requiredBytesLength);
   rv = Base64Encode(randomData, temp);
   free(buffer);
   buffer = nullptr;
-  if (NS_FAILED(rv)) return rv;
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
 
-  aOutSalt = temp;
+  aOutSalt = std::move(temp);
   return NS_OK;
 }
 
 nsresult GenerateRandomPathName(nsCString& aOutSalt, uint32_t aLength) {
   nsresult rv = GenerateRandomName(aOutSalt, aLength);
-  if (NS_FAILED(rv)) return rv;
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
 
   // Base64 characters are alphanumeric (a-zA-Z0-9) and '+' and '/', so we need
   // to replace illegal characters -- notably '/'
@@ -574,7 +604,7 @@ void LogToBrowserConsole(const nsAString& aMsg) {
     nsString msg(aMsg);
     nsCOMPtr<nsIRunnable> task = NS_NewRunnableFunction(
         "LogToBrowserConsole", [msg]() { LogToBrowserConsole(msg); });
-    SystemGroup::Dispatch(TaskCategory::Other, task.forget());
+    SchedulerGroup::Dispatch(TaskCategory::Other, task.forget());
     return;
   }
   nsCOMPtr<nsIConsoleService> console(
@@ -712,6 +742,48 @@ UniquePtr<TrackInfo> CreateTrackInfoWithMIMETypeAndContainerTypeExtraParameters(
     }
   }
   return trackInfo;
+}
+
+bool OnCellularConnection() {
+  uint32_t linkType = nsINetworkLinkService::LINK_TYPE_UNKNOWN;
+  if (XRE_IsContentProcess()) {
+    mozilla::dom::ContentChild* cpc =
+        mozilla::dom::ContentChild::GetSingleton();
+    if (!cpc) {
+      NS_WARNING("Can't get ContentChild singleton in content process!");
+      return false;
+    }
+    linkType = cpc->NetworkLinkType();
+  } else {
+    nsresult rv;
+    nsCOMPtr<nsINetworkLinkService> nls =
+        do_GetService(NS_NETWORK_LINK_SERVICE_CONTRACTID, &rv);
+    if (NS_FAILED(rv)) {
+      NS_WARNING("Can't get nsINetworkLinkService.");
+      return false;
+    }
+
+    rv = nls->GetLinkType(&linkType);
+    if (NS_FAILED(rv)) {
+      NS_WARNING("Can't get network link type.");
+      return false;
+    }
+  }
+
+  switch (linkType) {
+    case nsINetworkLinkService::LINK_TYPE_UNKNOWN:
+    case nsINetworkLinkService::LINK_TYPE_ETHERNET:
+    case nsINetworkLinkService::LINK_TYPE_USB:
+    case nsINetworkLinkService::LINK_TYPE_WIFI:
+      return false;
+    case nsINetworkLinkService::LINK_TYPE_WIMAX:
+    case nsINetworkLinkService::LINK_TYPE_2G:
+    case nsINetworkLinkService::LINK_TYPE_3G:
+    case nsINetworkLinkService::LINK_TYPE_4G:
+      return true;
+  }
+
+  return false;
 }
 
 }  // end namespace mozilla

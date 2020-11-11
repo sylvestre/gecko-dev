@@ -13,12 +13,11 @@
 #define frontend_EitherParser_h
 
 #include "mozilla/Attributes.h"
-#include "mozilla/Move.h"
 #include "mozilla/Tuple.h"
-#include "mozilla/TypeTraits.h"
 #include "mozilla/Utf8.h"
 #include "mozilla/Variant.h"
 
+#include <type_traits>
 #include <utility>
 
 #include "frontend/BCEParserHandle.h"
@@ -32,7 +31,7 @@ namespace detail {
 template <template <class Parser> class GetThis,
           template <class This> class MemberFunction, typename... Args>
 struct InvokeMemberFunction {
-  mozilla::Tuple<typename mozilla::Decay<Args>::Type...> args;
+  mozilla::Tuple<std::decay_t<Args>...> args;
 
   template <class This, size_t... Indices>
   auto matchInternal(This* obj, std::index_sequence<Indices...>) -> decltype(
@@ -47,7 +46,7 @@ struct InvokeMemberFunction {
       : args{std::forward<ActualArgs>(actualArgs)...} {}
 
   template <class Parser>
-  auto match(Parser* parser)
+  auto operator()(Parser* parser)
       -> decltype(this->matchInternal(GetThis<Parser>::get(parser),
                                       std::index_sequence_for<Args...>{})) {
     return this->matchInternal(GetThis<Parser>::get(parser),
@@ -64,53 +63,40 @@ struct GetParser {
 
 template <class Parser>
 struct GetTokenStream {
-  static auto get(Parser* parser) -> decltype(&parser->tokenStream) {
-    return &parser->tokenStream;
-  }
+  static auto get(Parser* parser) { return &parser->tokenStream; }
 };
 
 // Member function-computing templates.
 
 template <class Parser>
 struct ParserOptions {
-  static constexpr auto get() -> decltype(&Parser::options) {
-    return &Parser::options;
-  }
-};
-
-template <class Parser>
-struct ParserNewObjectBox {
-  static constexpr auto get() -> decltype(&Parser::newObjectBox) {
-    return &Parser::newObjectBox;
-  }
+  static constexpr auto get() { return &Parser::options; }
 };
 
 template <class TokenStream>
 struct TokenStreamComputeLineAndColumn {
-  static constexpr auto get() -> decltype(&TokenStream::computeLineAndColumn) {
-    return &TokenStream::computeLineAndColumn;
-  }
+  static constexpr auto get() { return &TokenStream::computeLineAndColumn; }
 };
 
 // Generic matchers.
 
 struct ParseHandlerMatcher {
   template <class Parser>
-  frontend::FullParseHandler& match(Parser* parser) {
-    return parser->handler;
+  frontend::FullParseHandler& operator()(Parser* parser) {
+    return parser->handler_;
   }
 };
 
-struct ParserBaseMatcher {
+struct ParserSharedBaseMatcher {
   template <class Parser>
-  frontend::ParserBase& match(Parser* parser) {
-    return *static_cast<frontend::ParserBase*>(parser);
+  frontend::ParserSharedBase& operator()(Parser* parser) {
+    return *static_cast<frontend::ParserSharedBase*>(parser);
   }
 };
 
 struct ErrorReporterMatcher {
   template <class Parser>
-  frontend::ErrorReporter& match(Parser* parser) {
+  frontend::ErrorReporter& operator()(Parser* parser) {
     return parser->tokenStream;
   }
 };
@@ -155,13 +141,6 @@ class EitherParser : public BCEParserHandle {
     return parser.match(std::move(optionsMatcher));
   }
 
-  ObjectBox* newObjectBox(JSObject* obj) final {
-    InvokeMemberFunction<detail::GetParser, detail::ParserNewObjectBox,
-                         JSObject*>
-        matcher{obj};
-    return parser.match(std::move(matcher));
-  }
-
   void computeLineAndColumn(uint32_t offset, uint32_t* line,
                             uint32_t* column) const {
     InvokeMemberFunction<detail::GetTokenStream,
@@ -169,6 +148,11 @@ class EitherParser : public BCEParserHandle {
                          uint32_t*, uint32_t*>
         matcher{offset, line, column};
     return parser.match(std::move(matcher));
+  }
+
+  JSAtom* liftParserAtomToJSAtom(const ParserAtom* parserAtom) {
+    ParserSharedBase& base = parser.match(detail::ParserSharedBaseMatcher());
+    return base.liftParserAtomToJSAtom(parserAtom);
   }
 };
 

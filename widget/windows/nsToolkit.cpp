@@ -9,7 +9,6 @@
 #include "nsWidgetsCID.h"
 #include "prmon.h"
 #include "prtime.h"
-#include "nsIServiceManager.h"
 #include "nsComponentManagerUtils.h"
 #include <objbase.h>
 #include "WinUtils.h"
@@ -47,7 +46,6 @@ nsToolkit::~nsToolkit() { MOZ_COUNT_DTOR(nsToolkit); }
 void nsToolkit::Startup(HMODULE hModule) {
   nsToolkit::mDllInstance = hModule;
   WinUtils::Initialize();
-  nsUXThemeData::Initialize();
 }
 
 void nsToolkit::Shutdown() {

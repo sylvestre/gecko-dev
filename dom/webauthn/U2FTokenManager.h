@@ -46,9 +46,10 @@ class U2FTokenManager final : public nsIU2FTokenManager {
 
  private:
   U2FTokenManager();
-  ~U2FTokenManager() {}
+  ~U2FTokenManager() = default;
   RefPtr<U2FTokenTransport> GetTokenManagerImpl();
   void AbortTransaction(const uint64_t& aTransactionId, const nsresult& aError);
+  void AbortOngoingTransaction();
   void ClearTransaction();
   // Step two of "Register", kicking off the actual transaction.
   void DoRegister(const WebAuthnMakeCredentialInfo& aInfo,

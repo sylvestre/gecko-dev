@@ -4,16 +4,31 @@
 
 "use strict";
 
-const CC = Components.Constructor;
+const EXPORTED_SYMBOLS = ["StreamUtils"];
 
-ChromeUtils.import("resource://gre/modules/EventEmitter.jsm");
-ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
 
-const IOUtil = Cc["@mozilla.org/io-util;1"].getService(Ci.nsIIOUtil);
-const ScriptableInputStream = CC("@mozilla.org/scriptableinputstream;1",
-    "nsIScriptableInputStream", "init");
+XPCOMUtils.defineLazyModuleGetters(this, {
+  EventEmitter: "resource://gre/modules/EventEmitter.jsm",
+});
 
-this.EXPORTED_SYMBOLS = ["StreamUtils"];
+XPCOMUtils.defineLazyServiceGetter(
+  this,
+  "IOUtil",
+  "@mozilla.org/io-util;1",
+  "nsIIOUtil"
+);
+
+XPCOMUtils.defineLazyGetter(this, "ScriptableInputStream", () => {
+  return Components.Constructor(
+    "@mozilla.org/scriptableinputstream;1",
+    "nsIScriptableInputStream",
+    "init"
+  );
+});
 
 const BUFFER_SIZE = 0x8000;
 
@@ -68,8 +83,9 @@ function StreamCopier(input, output, length) {
   if (IOUtil.outputStreamIsBuffered(output)) {
     this.output = output;
   } else {
-    this.output = Cc["@mozilla.org/network/buffered-output-stream;1"]
-                  .createInstance(Ci.nsIBufferedOutputStream);
+    this.output = Cc[
+      "@mozilla.org/network/buffered-output-stream;1"
+    ].createInstance(Ci.nsIBufferedOutputStream);
     this.output.init(output, BUFFER_SIZE);
   }
   this._length = length;
@@ -100,7 +116,6 @@ function StreamCopier(input, output, length) {
 StreamCopier._nextId = 0;
 
 StreamCopier.prototype = {
-
   copy() {
     // Dispatch to the next tick so that it's possible to attach a progress
     // event listener, even for extremely fast copies (like when testing).
@@ -133,8 +148,7 @@ StreamCopier.prototype = {
     }
 
     this._amountLeft -= bytesCopied;
-    this._debug("Copied: " + bytesCopied +
-                ", Left: " + this._amountLeft);
+    this._debug("Copied: " + bytesCopied + ", Left: " + this._amountLeft);
     this._emitProgress();
 
     if (this._amountLeft === 0) {
@@ -158,8 +172,10 @@ StreamCopier.prototype = {
     try {
       this.output.flush();
     } catch (e) {
-      if (e.result == Cr.NS_BASE_STREAM_WOULD_BLOCK ||
-          e.result == Cr.NS_ERROR_FAILURE) {
+      if (
+        e.result == Cr.NS_BASE_STREAM_WOULD_BLOCK ||
+        e.result == Cr.NS_ERROR_FAILURE
+      ) {
         this._debug("Flush would block, will retry");
         this._streamReadyCallback = this._flush;
         this._debug("Waiting for output stream");
@@ -189,9 +205,7 @@ StreamCopier.prototype = {
     this._streamReadyCallback();
   },
 
-  _debug() {
-  },
-
+  _debug() {},
 };
 
 /**

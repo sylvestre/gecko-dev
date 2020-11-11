@@ -3,12 +3,10 @@
 
 /*---
   description: >
-      `yield` is a valid BindingIdentifier for GeneratorMethods outside of
-      strict mode.
+      `yield` is a valid BindingIdentifier for GeneratorMethods
   features: [generators]
   es6id: 12.1.1
-  flags: [noStrict]
- ---*/
+---*/
 
 var iter, result;
 var obj = {

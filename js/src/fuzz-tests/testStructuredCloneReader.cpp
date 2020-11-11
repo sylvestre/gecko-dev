@@ -26,14 +26,14 @@ static int testStructuredCloneReaderInit(int* argc, char*** argv) { return 0; }
 static int testStructuredCloneReaderFuzz(const uint8_t* buf, size_t size) {
   auto gcGuard = mozilla::MakeScopeExit([&] {
     JS::PrepareForFullGC(gCx);
-    JS::NonIncrementalGC(gCx, GC_NORMAL, JS::gcreason::API);
+    JS::NonIncrementalGC(gCx, GC_NORMAL, JS::GCReason::API);
   });
 
   if (!size) return 0;
 
   // Make sure to pad the buffer to a multiple of kSegmentAlignment
   const size_t kSegmentAlignment = 8;
-  size_t buf_size = JS_ROUNDUP(size, kSegmentAlignment);
+  size_t buf_size = RoundUp(size, kSegmentAlignment);
 
   JS::StructuredCloneScope scope = JS::StructuredCloneScope::DifferentProcess;
 
@@ -44,13 +44,20 @@ static int testStructuredCloneReaderFuzz(const uint8_t* buf, size_t size) {
   }
 
   // Copy buffer then pad with zeroes.
-  clonebuf->AppendBytes((const char*)buf, size);
+  if (!clonebuf->AppendBytes((const char*)buf, size)) {
+    ReportOutOfMemory(gCx);
+    return 0;
+  }
   char padding[kSegmentAlignment] = {0};
-  clonebuf->AppendBytes(padding, buf_size - size);
+  if (!clonebuf->AppendBytes(padding, buf_size - size)) {
+    ReportOutOfMemory(gCx);
+    return 0;
+  }
 
+  JS::CloneDataPolicy policy;
   RootedValue deserialized(gCx);
   if (!JS_ReadStructuredClone(gCx, *clonebuf, JS_STRUCTURED_CLONE_VERSION,
-                              scope, &deserialized, nullptr, nullptr)) {
+                              scope, &deserialized, policy, nullptr, nullptr)) {
     return 0;
   }
 
@@ -64,7 +71,6 @@ static int testStructuredCloneReaderFuzz(const uint8_t* buf, size_t size) {
      Tests show that this also doesn't cause a serious performance penalty.
   */
   mozilla::Maybe<JSAutoStructuredCloneBuffer> clonebufOut;
-  JS::CloneDataPolicy policy;
 
   clonebufOut.emplace(scope, nullptr, nullptr);
   if (!clonebufOut->write(gCx, deserialized, UndefinedHandleValue, policy)) {

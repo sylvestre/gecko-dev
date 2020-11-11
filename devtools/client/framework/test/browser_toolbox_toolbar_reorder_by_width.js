@@ -1,5 +1,3 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 2 -*- */
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -20,10 +18,17 @@ add_task(async function() {
   const tab = await addTab("about:blank");
 
   info("Open devtools on the Storage in a sidebar.");
-  const toolbox = await openToolboxForTab(tab, "storage", Toolbox.HostType.BOTTOM);
+  const toolbox = await openToolboxForTab(
+    tab,
+    "storage",
+    Toolbox.HostType.BOTTOM
+  );
 
   const win = getWindow(toolbox);
-  const { outerWidth: originalWindowWidth, outerHeight: originalWindowHeight } = win;
+  const {
+    outerWidth: originalWindowWidth,
+    outerHeight: originalWindowHeight,
+  } = win;
   registerCleanupFunction(() => {
     win.resizeTo(originalWindowWidth, originalWindowHeight);
   });
@@ -49,7 +54,11 @@ add_task(async function() {
   const tab = await addTab("about:blank");
 
   info("Open devtools on the Storage in a sidebar.");
-  const toolbox = await openToolboxForTab(tab, "storage", Toolbox.HostType.BOTTOM);
+  const toolbox = await openToolboxForTab(
+    tab,
+    "storage",
+    Toolbox.HostType.BOTTOM
+  );
 
   info("Resize devtools window to a width that should trigger an overflow");
   await resizeWindow(toolbox, 800);
@@ -69,7 +78,9 @@ add_task(async function() {
   await openChevronMenu(toolbox);
 
   info("The registered new tool tab should be in the tools menu.");
-  let testToolsButton = toolbox.doc.querySelector("#tools-chevron-menupopup-test-tools");
+  let testToolsButton = toolbox.doc.querySelector(
+    "#tools-chevron-menupopup-test-tools"
+  );
   ok(testToolsButton, "The tools menu has a registered new tool button.");
 
   await closeChevronMenu(toolbox);
@@ -83,8 +94,13 @@ add_task(async function() {
   await openChevronMenu(toolbox);
 
   info("An unregistered new tool tab should not be in the tools menu.");
-  testToolsButton = toolbox.doc.querySelector("#tools-chevron-menupopup-test-tools");
-  ok(!testToolsButton, "The tools menu doesn't have a unregistered new tool button.");
+  testToolsButton = toolbox.doc.querySelector(
+    "#tools-chevron-menupopup-test-tools"
+  );
+  ok(
+    !testToolsButton,
+    "The tools menu doesn't have a unregistered new tool button."
+  );
 
   await closeChevronMenu(toolbox);
 });

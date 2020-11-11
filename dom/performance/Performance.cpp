@@ -7,7 +7,6 @@
 #include "Performance.h"
 
 #include "GeckoProfiler.h"
-#include "nsIDocShell.h"
 #include "nsRFPService.h"
 #include "PerformanceEntry.h"
 #include "PerformanceMainThread.h"
@@ -17,6 +16,7 @@
 #include "PerformanceResourceTiming.h"
 #include "PerformanceService.h"
 #include "PerformanceWorker.h"
+#include "mozilla/BasePrincipal.h"
 #include "mozilla/ErrorResult.h"
 #include "mozilla/dom/PerformanceBinding.h"
 #include "mozilla/dom/PerformanceEntryEvent.h"
@@ -29,35 +29,37 @@
 #include "mozilla/dom/WorkerRunnable.h"
 
 #ifdef MOZ_GECKO_PROFILER
-#include "ProfilerMarkerPayload.h"
+#  include "ProfilerMarkerPayload.h"
 #endif
 
 #define PERFLOG(msg, ...) printf_stderr(msg, ##__VA_ARGS__)
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(Performance)
 NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
 
 NS_IMPL_CYCLE_COLLECTION_INHERITED(Performance, DOMEventTargetHelper,
-                                   mUserEntries, mResourceEntries);
+                                   mUserEntries, mResourceEntries,
+                                   mSecondaryResourceEntries);
 
 NS_IMPL_ADDREF_INHERITED(Performance, DOMEventTargetHelper)
 NS_IMPL_RELEASE_INHERITED(Performance, DOMEventTargetHelper)
 
-/* static */ already_AddRefed<Performance> Performance::CreateForMainThread(
+/* static */
+already_AddRefed<Performance> Performance::CreateForMainThread(
     nsPIDOMWindowInner* aWindow, nsIPrincipal* aPrincipal,
     nsDOMNavigationTiming* aDOMTiming, nsITimedChannel* aChannel) {
   MOZ_ASSERT(NS_IsMainThread());
 
-  RefPtr<Performance> performance =
-      new PerformanceMainThread(aWindow, aDOMTiming, aChannel,
-                                nsContentUtils::IsSystemPrincipal(aPrincipal));
+  MOZ_ASSERT(aWindow->AsGlobal());
+  RefPtr<Performance> performance = new PerformanceMainThread(
+      aWindow, aDOMTiming, aChannel, aPrincipal->IsSystemPrincipal());
   return performance.forget();
 }
 
-/* static */ already_AddRefed<Performance> Performance::CreateForWorker(
+/* static */
+already_AddRefed<Performance> Performance::CreateForWorker(
     WorkerPrivate* aWorkerPrivate) {
   MOZ_ASSERT(aWorkerPrivate);
   aWorkerPrivate->AssertIsOnWorkerThread();
@@ -69,6 +71,7 @@ NS_IMPL_RELEASE_INHERITED(Performance, DOMEventTargetHelper)
 Performance::Performance(bool aSystemPrincipal)
     : mResourceTimingBufferSize(kDefaultResourceTimingBufferSize),
       mPendingNotificationObserversTask(false),
+      mPendingResourceTimingBufferFullEvent(false),
       mSystemPrincipal(aSystemPrincipal) {
   MOZ_ASSERT(!NS_IsMainThread());
 }
@@ -77,23 +80,38 @@ Performance::Performance(nsPIDOMWindowInner* aWindow, bool aSystemPrincipal)
     : DOMEventTargetHelper(aWindow),
       mResourceTimingBufferSize(kDefaultResourceTimingBufferSize),
       mPendingNotificationObserversTask(false),
+      mPendingResourceTimingBufferFullEvent(false),
       mSystemPrincipal(aSystemPrincipal) {
   MOZ_ASSERT(NS_IsMainThread());
 }
 
-Performance::~Performance() {}
+Performance::~Performance() = default;
+
+DOMHighResTimeStamp Performance::TimeStampToDOMHighResForRendering(
+    TimeStamp aTimeStamp) const {
+  DOMHighResTimeStamp stamp = GetDOMTiming()->TimeStampToDOMHighRes(aTimeStamp);
+  if (!IsSystemPrincipal()) {
+    // 0 is an inappropriate mixin for this this area; however CSS Animations
+    // needs to have it's Time Reduction Logic refactored, so it's currently
+    // only clamping for RFP mode. RFP mode gives a much lower time precision,
+    // so we accept the security leak here for now.
+    return nsRFPService::ReduceTimePrecisionAsMSecsRFPOnly(stamp, 0);
+  }
+  return stamp;
+}
 
 DOMHighResTimeStamp Performance::Now() {
   DOMHighResTimeStamp rawTime = NowUnclamped();
+
+  // XXX: Remove this would cause functions in pkcs11f.h to fail.
+  // Bug 1628021 will find out the root cause.
   if (mSystemPrincipal) {
     return rawTime;
   }
 
-  const double maxResolutionMs = 0.020;
-  DOMHighResTimeStamp minimallyClamped =
-      floor(rawTime / maxResolutionMs) * maxResolutionMs;
-  return nsRFPService::ReduceTimePrecisionAsMSecs(minimallyClamped,
-                                                  GetRandomTimelineSeed());
+  return nsRFPService::ReduceTimePrecisionAsMSecs(
+      rawTime, GetRandomTimelineSeed(), mSystemPrincipal,
+      CrossOriginIsolated());
 }
 
 DOMHighResTimeStamp Performance::NowUnclamped() const {
@@ -109,12 +127,9 @@ DOMHighResTimeStamp Performance::TimeOrigin() {
   MOZ_ASSERT(mPerformanceService);
   DOMHighResTimeStamp rawTimeOrigin =
       mPerformanceService->TimeOrigin(CreationTimeStamp());
-  if (mSystemPrincipal) {
-    return rawTimeOrigin;
-  }
-
   // Time Origin is an absolute timestamp, so we supply a 0 context mix-in
-  return nsRFPService::ReduceTimePrecisionAsMSecs(rawTimeOrigin, 0);
+  return nsRFPService::ReduceTimePrecisionAsMSecs(
+      rawTimeOrigin, 0, mSystemPrincipal, CrossOriginIsolated());
 }
 
 JSObject* Performance::WrapObject(JSContext* aCx,
@@ -129,7 +144,7 @@ void Performance::GetEntries(nsTArray<RefPtr<PerformanceEntry>>& aRetval) {
     return;
   }
 
-  aRetval = mResourceEntries;
+  aRetval = mResourceEntries.Clone();
   aRetval.AppendElements(mUserEntries);
   aRetval.Sort(PerformanceEntryComparator());
 }
@@ -143,7 +158,7 @@ void Performance::GetEntriesByType(
   }
 
   if (aEntryType.EqualsLiteral("resource")) {
-    aRetval = mResourceEntries;
+    aRetval = mResourceEntries.Clone();
     return;
   }
 
@@ -168,6 +183,9 @@ void Performance::GetEntriesByName(
     return;
   }
 
+  // ::Measure expects that results from this function are already
+  // passed through ReduceTimePrecision. mResourceEntries and mUserEntries
+  // are, so the invariant holds.
   for (PerformanceEntry* entry : mResourceEntries) {
     if (entry->GetName().Equals(aName) &&
         (!aEntryType.WasPassed() ||
@@ -189,16 +207,11 @@ void Performance::GetEntriesByName(
 
 void Performance::ClearUserEntries(const Optional<nsAString>& aEntryName,
                                    const nsAString& aEntryType) {
-  for (uint32_t i = 0; i < mUserEntries.Length();) {
-    if ((!aEntryName.WasPassed() ||
-         mUserEntries[i]->GetName().Equals(aEntryName.Value())) &&
-        (aEntryType.IsEmpty() ||
-         mUserEntries[i]->GetEntryType().Equals(aEntryType))) {
-      mUserEntries.RemoveElementAt(i);
-    } else {
-      ++i;
-    }
-  }
+  mUserEntries.RemoveElementsBy([&aEntryName, &aEntryType](const auto& entry) {
+    return (!aEntryName.WasPassed() ||
+            entry->GetName().Equals(aEntryName.Value())) &&
+           (aEntryType.IsEmpty() || entry->GetEntryType().Equals(aEntryType));
+  });
 }
 
 void Performance::ClearResourceTimings() { mResourceEntries.Clear(); }
@@ -219,20 +232,19 @@ void Performance::Mark(const nsAString& aName, ErrorResult& aRv) {
   InsertUserEntry(performanceMark);
 
 #ifdef MOZ_GECKO_PROFILER
-  if (profiler_is_active()) {
-    nsCOMPtr<EventTarget> et = do_QueryInterface(GetOwner());
-    nsCOMPtr<nsIDocShell> docShell =
-        nsContentUtils::GetDocShellForEventTarget(et);
-    DECLARE_DOCSHELL_AND_HISTORY_ID(docShell);
-    profiler_add_marker("UserTiming", MakeUnique<UserTimingMarkerPayload>(
-                                          aName, TimeStamp::Now(), docShellId,
-                                          docShellHistoryId));
+  if (profiler_can_accept_markers()) {
+    Maybe<uint64_t> innerWindowId;
+    if (GetOwner()) {
+      innerWindowId = Some(GetOwner()->WindowID());
+    }
+    PROFILER_ADD_MARKER_WITH_PAYLOAD("UserTiming", DOM, UserTimingMarkerPayload,
+                                     (aName, TimeStamp::Now(), innerWindowId));
   }
 #endif
 }
 
 void Performance::ClearMarks(const Optional<nsAString>& aName) {
-  ClearUserEntries(aName, NS_LITERAL_STRING("mark"));
+  ClearUserEntries(aName, u"mark"_ns);
 }
 
 DOMHighResTimeStamp Performance::ResolveTimestampFromName(
@@ -299,7 +311,7 @@ void Performance::Measure(const nsAString& aName,
   InsertUserEntry(performanceMeasure);
 
 #ifdef MOZ_GECKO_PROFILER
-  if (profiler_is_active()) {
+  if (profiler_can_accept_markers()) {
     TimeStamp startTimeStamp =
         CreationTimeStamp() + TimeDuration::FromMilliseconds(startTime);
     TimeStamp endTimeStamp =
@@ -316,20 +328,19 @@ void Performance::Measure(const nsAString& aName,
       endMark.emplace(aEndMark.Value());
     }
 
-    nsCOMPtr<EventTarget> et = do_QueryInterface(GetOwner());
-    nsCOMPtr<nsIDocShell> docShell =
-        nsContentUtils::GetDocShellForEventTarget(et);
-    DECLARE_DOCSHELL_AND_HISTORY_ID(docShell);
-    profiler_add_marker("UserTiming",
-                        MakeUnique<UserTimingMarkerPayload>(
-                            aName, startMark, endMark, startTimeStamp,
-                            endTimeStamp, docShellId, docShellHistoryId));
+    Maybe<uint64_t> innerWindowId;
+    if (GetOwner()) {
+      innerWindowId = Some(GetOwner()->WindowID());
+    }
+    PROFILER_ADD_MARKER_WITH_PAYLOAD("UserTiming", DOM, UserTimingMarkerPayload,
+                                     (aName, startMark, endMark, startTimeStamp,
+                                      endTimeStamp, innerWindowId));
   }
 #endif
 }
 
 void Performance::ClearMeasures(const Optional<nsAString>& aName) {
-  ClearUserEntries(aName, NS_LITERAL_STRING("measure"));
+  ClearUserEntries(aName, u"measure"_ns);
 }
 
 void Performance::LogEntry(PerformanceEntry* aEntry,
@@ -352,11 +363,10 @@ void Performance::TimingNotification(PerformanceEntry* aEntry,
   init.mStartTime = aEntry->StartTime();
   init.mDuration = aEntry->Duration();
   init.mEpoch = aEpoch;
-  init.mOrigin = NS_ConvertUTF8toUTF16(aOwner.BeginReading());
+  CopyUTF8toUTF16(aOwner, init.mOrigin);
 
   RefPtr<PerformanceEntryEvent> perfEntryEvent =
-      PerformanceEntryEvent::Constructor(
-          this, NS_LITERAL_STRING("performanceentry"), init);
+      PerformanceEntryEvent::Constructor(this, u"performanceentry"_ns, init);
 
   nsCOMPtr<EventTarget> et = do_QueryInterface(GetOwner());
   if (et) {
@@ -370,29 +380,158 @@ void Performance::InsertUserEntry(PerformanceEntry* aEntry) {
   QueueEntry(aEntry);
 }
 
+/*
+ * Steps are labeled according to the description found at
+ * https://w3c.github.io/resource-timing/#sec-extensions-performance-interface.
+ *
+ * Buffer Full Event
+ */
+void Performance::BufferEvent() {
+  /*
+   * While resource timing secondary buffer is not empty,
+   * run the following substeps:
+   */
+  while (!mSecondaryResourceEntries.IsEmpty()) {
+    uint32_t secondaryResourceEntriesBeforeCount = 0;
+    uint32_t secondaryResourceEntriesAfterCount = 0;
+
+    /*
+     * Let number of excess entries before be resource
+     * timing secondary buffer current size.
+     */
+    secondaryResourceEntriesBeforeCount = mSecondaryResourceEntries.Length();
+
+    /*
+     * If can add resource timing entry returns false,
+     * then fire an event named resourcetimingbufferfull
+     * at the Performance object.
+     */
+    if (!CanAddResourceTimingEntry()) {
+      DispatchBufferFullEvent();
+    }
+
+    /*
+     * Run copy secondary buffer.
+     *
+     * While resource timing secondary buffer is not
+     * empty and can add resource timing entry returns
+     * true ...
+     */
+    while (!mSecondaryResourceEntries.IsEmpty() &&
+           CanAddResourceTimingEntry()) {
+      /*
+       * Let entry be the oldest PerformanceResourceTiming
+       * in resource timing secondary buffer. Add entry to
+       * the end of performance entry buffer. Increment
+       * resource timing buffer current size by 1.
+       */
+      mResourceEntries.InsertElementSorted(
+          mSecondaryResourceEntries.ElementAt(0), PerformanceEntryComparator());
+      /*
+       * Remove entry from resource timing secondary buffer.
+       * Decrement resource timing secondary buffer current
+       * size by 1.
+       */
+      mSecondaryResourceEntries.RemoveElementAt(0);
+    }
+
+    /*
+     * Let number of excess entries after be resource
+     * timing secondary buffer current size.
+     */
+    secondaryResourceEntriesAfterCount = mSecondaryResourceEntries.Length();
+
+    /*
+     * If number of excess entries before is lower than
+     * or equals number of excess entries after, then
+     * remove all entries from resource timing secondary
+     * buffer, set resource timing secondary buffer current
+     * size to 0, and abort these steps.
+     */
+    if (secondaryResourceEntriesBeforeCount <=
+        secondaryResourceEntriesAfterCount) {
+      mSecondaryResourceEntries.Clear();
+      break;
+    }
+  }
+  /*
+   * Set resource timing buffer full event pending flag
+   * to false.
+   */
+  mPendingResourceTimingBufferFullEvent = false;
+}
+
 void Performance::SetResourceTimingBufferSize(uint64_t aMaxSize) {
   mResourceTimingBufferSize = aMaxSize;
 }
 
+/*
+ * Steps are labeled according to the description found at
+ * https://w3c.github.io/resource-timing/#sec-extensions-performance-interface.
+ *
+ * Can Add Resource Timing Entry
+ */
+MOZ_ALWAYS_INLINE bool Performance::CanAddResourceTimingEntry() {
+  /*
+   * If resource timing buffer current size is smaller than resource timing
+   * buffer size limit, return true. [Otherwise,] [r]eturn false.
+   */
+  return mResourceEntries.Length() < mResourceTimingBufferSize;
+}
+
+/*
+ * Steps are labeled according to the description found at
+ * https://w3c.github.io/resource-timing/#sec-extensions-performance-interface.
+ *
+ * Add a PerformanceResourceTiming Entry
+ */
 void Performance::InsertResourceEntry(PerformanceEntry* aEntry) {
   MOZ_ASSERT(aEntry);
 
-  // We won't add an entry when 'privacy.resistFingerprint' is true.
   if (nsContentUtils::ShouldResistFingerprinting()) {
     return;
   }
 
-  // Don't add the entry if the buffer is full
-  if (mResourceEntries.Length() >= mResourceTimingBufferSize) {
+  /*
+   * Let new entry be the input PerformanceEntry to be added.
+   *
+   * If can add resource timing entry returns true and resource
+   * timing buffer full event pending flag is false ...
+   */
+  if (CanAddResourceTimingEntry() && !mPendingResourceTimingBufferFullEvent) {
+    /*
+     * Add new entry to the performance entry buffer.
+     * Increase resource timing buffer current size by 1.
+     */
+    mResourceEntries.InsertElementSorted(aEntry, PerformanceEntryComparator());
+    QueueEntry(aEntry);
     return;
   }
 
-  mResourceEntries.InsertElementSorted(aEntry, PerformanceEntryComparator());
-  if (mResourceEntries.Length() == mResourceTimingBufferSize) {
-    // call onresourcetimingbufferfull
-    DispatchBufferFullEvent();
+  /*
+   * If resource timing buffer full event pending flag is
+   * false ...
+   */
+  if (!mPendingResourceTimingBufferFullEvent) {
+    /*
+     * Set resource timing buffer full event pending flag
+     * to true.
+     */
+    mPendingResourceTimingBufferFullEvent = true;
+
+    /*
+     * Queue a task to run fire a buffer full event.
+     */
+    NS_DispatchToCurrentThread(NewCancelableRunnableMethod(
+        "Performance::BufferEvent", this, &Performance::BufferEvent));
   }
-  QueueEntry(aEntry);
+  /*
+   * Add new entry to the resource timing secondary buffer.
+   * Increase resource timing secondary buffer current size
+   * by 1.
+   */
+  mSecondaryResourceEntries.InsertElementSorted(aEntry,
+                                                PerformanceEntryComparator());
 }
 
 void Performance::AddObserver(PerformanceObserver* aObserver) {
@@ -405,8 +544,7 @@ void Performance::RemoveObserver(PerformanceObserver* aObserver) {
 
 void Performance::NotifyObservers() {
   mPendingNotificationObserversTask = false;
-  NS_OBSERVER_ARRAY_NOTIFY_XPCOM_OBSERVERS(mObservers, PerformanceObserver,
-                                           Notify, ());
+  NS_OBSERVER_ARRAY_NOTIFY_XPCOM_OBSERVERS(mObservers, Notify, ());
 }
 
 void Performance::CancelNotificationObservers() {
@@ -421,9 +559,13 @@ class NotifyObserversTask final : public CancelableRunnable {
     MOZ_ASSERT(mPerformance);
   }
 
+  // MOZ_CAN_RUN_SCRIPT_BOUNDARY for now until Runnable::Run is
+  // MOZ_CAN_RUN_SCRIPT.
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY
   NS_IMETHOD Run() override {
     MOZ_ASSERT(mPerformance);
-    mPerformance->NotifyObservers();
+    RefPtr<Performance> performance(mPerformance);
+    performance->NotifyObservers();
     return NS_OK;
   }
 
@@ -434,10 +576,16 @@ class NotifyObserversTask final : public CancelableRunnable {
   }
 
  private:
-  ~NotifyObserversTask() {}
+  ~NotifyObserversTask() = default;
 
   RefPtr<Performance> mPerformance;
 };
+
+void Performance::QueueNotificationObserversTask() {
+  if (!mPendingNotificationObserversTask) {
+    RunNotificationObserversTask();
+  }
+}
 
 void Performance::RunNotificationObserversTask() {
   mPendingNotificationObserversTask = true;
@@ -457,12 +605,22 @@ void Performance::QueueEntry(PerformanceEntry* aEntry) {
   if (mObservers.IsEmpty()) {
     return;
   }
-  NS_OBSERVER_ARRAY_NOTIFY_XPCOM_OBSERVERS(mObservers, PerformanceObserver,
-                                           QueueEntry, (aEntry));
 
-  if (!mPendingNotificationObserversTask) {
-    RunNotificationObserversTask();
+  nsTObserverArray<PerformanceObserver*> interestedObservers;
+  const auto [begin, end] = mObservers.NonObservingRange();
+  std::copy_if(begin, end, MakeBackInserter(interestedObservers),
+               [aEntry](PerformanceObserver* observer) {
+                 return observer->ObservesTypeOfEntry(aEntry);
+               });
+
+  if (interestedObservers.IsEmpty()) {
+    return;
   }
+
+  NS_OBSERVER_ARRAY_NOTIFY_XPCOM_OBSERVERS(interestedObservers, QueueEntry,
+                                           (aEntry));
+
+  QueueNotificationObserversTask();
 }
 
 void Performance::MemoryPressure() { mUserEntries.Clear(); }
@@ -485,5 +643,4 @@ size_t Performance::SizeOfResourceEntries(
   return resourceEntries;
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

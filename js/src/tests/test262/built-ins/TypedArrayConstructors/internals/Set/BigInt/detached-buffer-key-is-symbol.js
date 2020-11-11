@@ -1,4 +1,3 @@
-// |reftest| skip-if(!this.hasOwnProperty('BigInt')) -- BigInt is not enabled unconditionally
 // Copyright (C) 2016 the V8 project authors. All rights reserved.
 // This code is governed by the BSD license found in the LICENSE file.
 /*---
@@ -13,17 +12,21 @@ info: |
     ...
   3. Return ? OrdinarySet(O, P, V, Receiver).
 includes: [testBigIntTypedArray.js, detachArrayBuffer.js]
-features: [BigInt, Symbol, Reflect, TypedArray]
+features: [align-detached-buffer-semantics-with-web-reality, BigInt, Symbol, Reflect, TypedArray]
 ---*/
-
-var s = Symbol("1");
+var s = Symbol('1');
 
 testWithBigIntTypedArrayConstructors(function(TA) {
-  var sample = new TA([42n, 43n]);
+  var sample = new TA(2);
   $DETACHBUFFER(sample.buffer);
 
-  assert.sameValue(Reflect.set(sample, s, "test262"), true);
-  assert.sameValue(sample[s], "test262");
+  assert.sameValue(
+    Reflect.set(sample, s, 'test262'),
+    true,
+    'Reflect.set(sample, "Symbol(\\"1\\")", "test262") must return true'
+  );
+
+  assert.sameValue(sample[s], 'test262', 'The value of sample[s] is "test262"');
 });
 
 reportCompare(0, 0);

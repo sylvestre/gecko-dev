@@ -5,8 +5,13 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "OGLShaderProgram.h"
+
 #include <stdint.h>  // for uint32_t
-#include <sstream>   // for ostringstream
+
+#include <sstream>  // for std::ostringstream
+
+#include "GLContext.h"
+#include "Layers.h"
 #include "gfxEnv.h"
 #include "gfxRect.h"  // for gfxRect
 #include "gfxUtils.h"
@@ -14,20 +19,18 @@
 #include "mozilla/layers/Compositor.h"  // for BlendOpIsMixBlendMode
 #include "nsAString.h"
 #include "nsString.h"  // for nsAutoCString
-#include "Layers.h"
-#include "GLContext.h"
 
 namespace mozilla {
 namespace layers {
 
-using namespace std;
+using std::endl;
 
 #define GAUSSIAN_KERNEL_HALF_WIDTH 11
 #define GAUSSIAN_KERNEL_STEP 0.2
 
-void AddUniforms(ProgramProfileOGL &aProfile) {
+static void AddUniforms(ProgramProfileOGL& aProfile) {
   // This needs to be kept in sync with the KnownUniformName enum
-  static const char *sKnownUniformNames[] = {"uLayerTransform",
+  static const char* sKnownUniformNames[] = {"uLayerTransform",
                                              "uLayerTransformInverse",
                                              "uMaskTransform",
                                              "uBackdropTransform",
@@ -60,6 +63,7 @@ void AddUniforms(ProgramProfileOGL &aProfile) {
                                              "uViewportSize",
                                              "uVisibleCenter",
                                              "uYuvColorMatrix",
+                                             "uYuvOffsetVector",
                                              nullptr};
 
   for (int i = 0; sKnownUniformNames[i] != nullptr; ++i) {
@@ -119,6 +123,9 @@ void ShaderConfigOGL::SetColorMultiplier(uint32_t aMultiplier) {
 void ShaderConfigOGL::SetNV12(bool aEnabled) {
   SetFeature(ENABLE_TEXTURE_NV12, aEnabled);
   MOZ_ASSERT(!(mFeatures & ENABLE_TEXTURE_YCBCR));
+#ifdef MOZ_WAYLAND
+  SetFeature(ENABLE_TEXTURE_NV12_GA_SWITCH, aEnabled);
+#endif
 }
 
 void ShaderConfigOGL::SetComponentAlpha(bool aEnabled) {
@@ -153,10 +160,10 @@ void ShaderConfigOGL::SetDynamicGeometry(bool aEnabled) {
   SetFeature(ENABLE_DYNAMIC_GEOMETRY, aEnabled);
 }
 
-/* static */ ProgramProfileOGL ProgramProfileOGL::GetProfileFor(
-    ShaderConfigOGL aConfig) {
+/* static */
+ProgramProfileOGL ProgramProfileOGL::GetProfileFor(ShaderConfigOGL aConfig) {
   ProgramProfileOGL result;
-  ostringstream fs, vs;
+  std::ostringstream fs, vs;
 
   AddUniforms(result);
 
@@ -184,7 +191,7 @@ void ShaderConfigOGL::SetDynamicGeometry(bool aEnabled) {
     vs << "attribute vec2 aCoord;" << endl;
   }
 
-  result.mAttributes.AppendElement(Pair<nsCString, GLuint>{"aCoord", 0});
+  result.mAttributes.AppendElement(std::pair<nsCString, GLuint>{"aCoord", 0});
 
   if (!(aConfig.mFeatures & ENABLE_RENDER_COLOR)) {
     vs << "uniform mat4 uTextureTransform;" << endl;
@@ -193,7 +200,8 @@ void ShaderConfigOGL::SetDynamicGeometry(bool aEnabled) {
 
     if (aConfig.mFeatures & ENABLE_DYNAMIC_GEOMETRY) {
       vs << "attribute vec2 aTexCoord;" << endl;
-      result.mAttributes.AppendElement(Pair<nsCString, GLuint>{"aTexCoord", 1});
+      result.mAttributes.AppendElement(
+          std::pair<nsCString, GLuint>{"aTexCoord", 1});
     }
   }
 
@@ -366,8 +374,8 @@ void ShaderConfigOGL::SetDynamicGeometry(bool aEnabled) {
     fs << "varying vec2 vBackdropCoord;" << endl;
   }
 
-  const char *sampler2D = "sampler2D";
-  const char *texture2D = "texture2D";
+  const char* sampler2D = "sampler2D";
+  const char* texture2D = "texture2D";
 
   if (aConfig.mFeatures & ENABLE_TEXTURE_RECT) {
     fs << "uniform vec2 uTexCoordMultiplier;" << endl;
@@ -379,8 +387,8 @@ void ShaderConfigOGL::SetDynamicGeometry(bool aEnabled) {
     texture2D = "texture2DRect";
   }
 
-  const char *maskSampler2D = "sampler2D";
-  const char *maskTexture2D = "texture2D";
+  const char* maskSampler2D = "sampler2D";
+  const char* maskTexture2D = "texture2D";
 
   if (aConfig.mFeatures & ENABLE_MASK &&
       aConfig.mFeatures & ENABLE_MASK_TEXTURE_RECT) {
@@ -398,9 +406,12 @@ void ShaderConfigOGL::SetDynamicGeometry(bool aEnabled) {
     fs << "uniform " << sampler2D << " uCbTexture;" << endl;
     fs << "uniform " << sampler2D << " uCrTexture;" << endl;
     fs << "uniform mat3 uYuvColorMatrix;" << endl;
+    fs << "uniform vec3 uYuvOffsetVector;" << endl;
   } else if (aConfig.mFeatures & ENABLE_TEXTURE_NV12) {
     fs << "uniform " << sampler2D << " uYTexture;" << endl;
     fs << "uniform " << sampler2D << " uCbTexture;" << endl;
+    fs << "uniform mat3 uYuvColorMatrix;" << endl;
+    fs << "uniform vec3 uYuvOffsetVector;" << endl;
   } else if (aConfig.mFeatures & ENABLE_TEXTURE_COMPONENT_ALPHA) {
     fs << "uniform " << sampler2D << " uBlackTexture;" << endl;
     fs << "uniform " << sampler2D << " uWhiteTexture;" << endl;
@@ -456,23 +467,32 @@ void ShaderConfigOGL::SetDynamicGeometry(bool aEnabled) {
              << "(uYTexture, coord * uTexCoordMultiplier).r;" << endl;
           fs << "  COLOR_PRECISION float cb = " << texture2D
              << "(uCbTexture, coord * uCbCrTexCoordMultiplier).r;" << endl;
-          fs << "  COLOR_PRECISION float cr = " << texture2D
-             << "(uCbTexture, coord * uCbCrTexCoordMultiplier).a;" << endl;
+          if (aConfig.mFeatures & ENABLE_TEXTURE_NV12_GA_SWITCH) {
+            fs << "  COLOR_PRECISION float cr = " << texture2D
+               << "(uCbTexture, coord * uCbCrTexCoordMultiplier).g;" << endl;
+          } else {
+            fs << "  COLOR_PRECISION float cr = " << texture2D
+               << "(uCbTexture, coord * uCbCrTexCoordMultiplier).a;" << endl;
+          }
         } else {
           fs << "  COLOR_PRECISION float y = " << texture2D
              << "(uYTexture, coord).r;" << endl;
           fs << "  COLOR_PRECISION float cb = " << texture2D
              << "(uCbTexture, coord).r;" << endl;
-          fs << "  COLOR_PRECISION float cr = " << texture2D
-             << "(uCbTexture, coord).a;" << endl;
+          if (aConfig.mFeatures & ENABLE_TEXTURE_NV12_GA_SWITCH) {
+            fs << "  COLOR_PRECISION float cr = " << texture2D
+               << "(uCbTexture, coord).g;" << endl;
+          } else {
+            fs << "  COLOR_PRECISION float cr = " << texture2D
+               << "(uCbTexture, coord).a;" << endl;
+          }
         }
       }
       fs << "  vec3 yuv = vec3(y, cb, cr);" << endl;
       if (aConfig.mMultiplier != 1) {
         fs << "  yuv *= " << aConfig.mMultiplier << ".0;" << endl;
       }
-      fs << "  vec3 coeff = vec3(0.06275, 0.50196, 0.50196 );" << endl;
-      fs << "  yuv -= coeff;" << endl;
+      fs << "  yuv -= uYuvOffsetVector;" << endl;
       fs << "  color.rgb = uYuvColorMatrix * yuv;" << endl;
       fs << "  color.a = 1.0;" << endl;
     } else if (aConfig.mFeatures & ENABLE_TEXTURE_COMPONENT_ALPHA) {
@@ -614,8 +634,8 @@ void ShaderConfigOGL::SetDynamicGeometry(bool aEnabled) {
   return result;
 }
 
-void ProgramProfileOGL::BuildMixBlender(const ShaderConfigOGL &aConfig,
-                                        std::ostringstream &fs) {
+void ProgramProfileOGL::BuildMixBlender(const ShaderConfigOGL& aConfig,
+                                        std::ostringstream& fs) {
   // From the "Compositing and Blending Level 1" spec.
   // Generate helper functions first.
   switch (aConfig.mCompositionOp) {
@@ -831,8 +851,8 @@ void ProgramProfileOGL::BuildMixBlender(const ShaderConfigOGL &aConfig,
   fs << "}" << endl;
 }
 
-ShaderProgramOGL::ShaderProgramOGL(GLContext *aGL,
-                                   const ProgramProfileOGL &aProfile)
+ShaderProgramOGL::ShaderProgramOGL(GLContext* aGL,
+                                   const ProgramProfileOGL& aProfile)
     : mGL(aGL), mProgram(0), mProfile(aProfile), mProgramState(STATE_NEW) {}
 
 ShaderProgramOGL::~ShaderProgramOGL() {
@@ -852,7 +872,7 @@ bool ShaderProgramOGL::Initialize() {
   NS_ASSERTION(mProgramState == STATE_NEW,
                "Shader program has already been initialised");
 
-  ostringstream vs, fs;
+  std::ostringstream vs, fs;
   for (uint32_t i = 0; i < mProfile.mDefines.Length(); ++i) {
     vs << mProfile.mDefines[i] << endl;
     fs << mProfile.mDefines[i] << endl;
@@ -876,14 +896,14 @@ bool ShaderProgramOGL::Initialize() {
 }
 
 GLint ShaderProgramOGL::CreateShader(GLenum aShaderType,
-                                     const char *aShaderSource) {
+                                     const char* aShaderSource) {
   GLint success, len = 0;
 
   GLint sh = mGL->fCreateShader(aShaderType);
-  mGL->fShaderSource(sh, 1, (const GLchar **)&aShaderSource, nullptr);
+  mGL->fShaderSource(sh, 1, (const GLchar**)&aShaderSource, nullptr);
   mGL->fCompileShader(sh);
   mGL->fGetShaderiv(sh, LOCAL_GL_COMPILE_STATUS, &success);
-  mGL->fGetShaderiv(sh, LOCAL_GL_INFO_LOG_LENGTH, (GLint *)&len);
+  mGL->fGetShaderiv(sh, LOCAL_GL_INFO_LOG_LENGTH, (GLint*)&len);
   /* Even if compiling is successful, there may still be warnings.  Print them
    * in a debug build.  The > 10 is to catch silly compilers that might put
    * some whitespace in the log but otherwise leave it empty.
@@ -894,9 +914,9 @@ GLint ShaderProgramOGL::CreateShader(GLenum aShaderType,
 #endif
   ) {
     nsAutoCString log;
-    log.SetCapacity(len);
-    mGL->fGetShaderInfoLog(sh, len, (GLint *)&len, (char *)log.BeginWriting());
     log.SetLength(len);
+    mGL->fGetShaderInfoLog(sh, len, (GLint*)&len, (char*)log.BeginWriting());
+    log.Truncate(len);
 
     if (!success) {
       printf_stderr("=== SHADER COMPILATION FAILED ===\n");
@@ -917,8 +937,8 @@ GLint ShaderProgramOGL::CreateShader(GLenum aShaderType,
   return sh;
 }
 
-bool ShaderProgramOGL::CreateProgram(const char *aVertexShaderString,
-                                     const char *aFragmentShaderString) {
+bool ShaderProgramOGL::CreateProgram(const char* aVertexShaderString,
+                                     const char* aFragmentShaderString) {
   GLuint vertexShader =
       CreateShader(LOCAL_GL_VERTEX_SHADER, aVertexShaderString);
   GLuint fragmentShader =
@@ -930,16 +950,15 @@ bool ShaderProgramOGL::CreateProgram(const char *aVertexShaderString,
   mGL->fAttachShader(result, vertexShader);
   mGL->fAttachShader(result, fragmentShader);
 
-  for (Pair<nsCString, GLuint> &attribute : mProfile.mAttributes) {
-    mGL->fBindAttribLocation(result, attribute.second(),
-                             attribute.first().get());
+  for (std::pair<nsCString, GLuint>& attribute : mProfile.mAttributes) {
+    mGL->fBindAttribLocation(result, attribute.second, attribute.first.get());
   }
 
   mGL->fLinkProgram(result);
 
   GLint success, len;
   mGL->fGetProgramiv(result, LOCAL_GL_LINK_STATUS, &success);
-  mGL->fGetProgramiv(result, LOCAL_GL_INFO_LOG_LENGTH, (GLint *)&len);
+  mGL->fGetProgramiv(result, LOCAL_GL_INFO_LOG_LENGTH, (GLint*)&len);
   /* Even if linking is successful, there may still be warnings.  Print them
    * in a debug build.  The > 10 is to catch silly compilers that might put
    * some whitespace in the log but otherwise leave it empty.
@@ -951,8 +970,8 @@ bool ShaderProgramOGL::CreateProgram(const char *aVertexShaderString,
   ) {
     nsAutoCString log;
     log.SetLength(len);
-    mGL->fGetProgramInfoLog(result, len, (GLint *)&len,
-                            (char *)log.BeginWriting());
+    mGL->fGetProgramInfoLog(result, len, (GLint*)&len,
+                            (char*)log.BeginWriting());
 
     if (!success) {
       printf_stderr("=== PROGRAM LINKING FAILED ===\n");
@@ -1008,10 +1027,17 @@ void ShaderProgramOGL::SetBlurRadius(float aRX, float aRY) {
                   gaussianKernel);
 }
 
-void ShaderProgramOGL::SetYUVColorSpace(YUVColorSpace aYUVColorSpace) {
-  const float *yuvToRgb =
+void ShaderProgramOGL::SetYUVColorSpace(gfx::YUVColorSpace aYUVColorSpace) {
+  const float* yuvToRgb =
       gfxUtils::YuvToRgbMatrix3x3ColumnMajor(aYUVColorSpace);
   SetMatrix3fvUniform(KnownUniform::YuvColorMatrix, yuvToRgb);
+  if (aYUVColorSpace == gfx::YUVColorSpace::Identity) {
+    const float identity[] = {0.0, 0.0, 0.0};
+    SetVec3fvUniform(KnownUniform::YuvOffsetVector, identity);
+  } else {
+    const float offset[] = {0.06275, 0.50196, 0.50196};
+    SetVec3fvUniform(KnownUniform::YuvOffsetVector, offset);
+  }
 }
 
 }  // namespace layers

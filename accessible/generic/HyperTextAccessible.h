@@ -9,13 +9,12 @@
 #include "AccessibleWrap.h"
 #include "nsIAccessibleText.h"
 #include "nsIAccessibleTypes.h"
+#include "nsIFrame.h"  // only for nsSelectionAmount
 #include "nsDirection.h"
 #include "WordMovementType.h"
-#include "nsIFrame.h"
-
-#include "nsISelectionController.h"
 
 class nsFrameSelection;
+class nsIFrame;
 class nsRange;
 class nsIWidget;
 
@@ -134,27 +133,13 @@ class HyperTextAccessible : public AccessibleWrap {
                            bool aIsEndOffset) const;
 
   /**
-   * Convert start and end hypertext offsets into DOM range.  Note that if
-   * aStartOffset and/or aEndOffset is in generated content such as ::before or
-   * ::after, the result range excludes the generated content.  See also
-   * ClosestNotGeneratedDOMPoint() for more information.
-   *
-   * @param  aStartOffset  [in] the given start hypertext offset
-   * @param  aEndOffset    [in] the given end hypertext offset
-   * @param  aRange        [in, out] the range whose bounds to set
-   * @return true   if conversion was successful
-   */
-  bool OffsetsToDOMRange(int32_t aStartOffset, int32_t aEndOffset,
-                         nsRange* aRange);
-
-  /**
    * Convert the given offset into DOM point.
    *
    * If offset is at text leaf then DOM point is (text node, offsetInTextNode),
    * if before embedded object then (parent node, indexInParent), if after then
    * (parent node, indexInParent + 1).
    */
-  DOMPoint OffsetToDOMPoint(int32_t aOffset);
+  DOMPoint OffsetToDOMPoint(int32_t aOffset) const;
 
   /**
    * Return true if the used ARIA role (if any) allows the hypertext accessible
@@ -343,8 +328,10 @@ class HyperTextAccessible : public AccessibleWrap {
    * Changes the start and end offset of the specified selection.
    * @return true if succeeded
    */
-  bool SetSelectionBoundsAt(int32_t aSelectionNum, int32_t aStartOffset,
-                            int32_t aEndOffset);
+  // TODO: annotate this with `MOZ_CAN_RUN_SCRIPT` instead.
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY bool SetSelectionBoundsAt(int32_t aSelectionNum,
+                                                        int32_t aStartOffset,
+                                                        int32_t aEndOffset);
 
   /**
    * Adds a selection bounded by the specified offsets.
@@ -356,7 +343,8 @@ class HyperTextAccessible : public AccessibleWrap {
    * Removes the specified selection.
    * @return true if succeeded
    */
-  bool RemoveFromSelection(int32_t aSelectionNum);
+  // TODO: annotate this with `MOZ_CAN_RUN_SCRIPT` instead.
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY bool RemoveFromSelection(int32_t aSelectionNum);
 
   /**
    * Scroll the given text range into view.
@@ -401,11 +389,14 @@ class HyperTextAccessible : public AccessibleWrap {
   //////////////////////////////////////////////////////////////////////////////
   // EditableTextAccessible
 
-  void ReplaceText(const nsAString& aText);
-  void InsertText(const nsAString& aText, int32_t aPosition);
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY void ReplaceText(const nsAString& aText);
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY void InsertText(const nsAString& aText,
+                                              int32_t aPosition);
   void CopyText(int32_t aStartPos, int32_t aEndPos);
-  void CutText(int32_t aStartPos, int32_t aEndPos);
-  void DeleteText(int32_t aStartPos, int32_t aEndPos);
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY void CutText(int32_t aStartPos, int32_t aEndPos);
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY void DeleteText(int32_t aStartPos,
+                                              int32_t aEndPos);
+  MOZ_CAN_RUN_SCRIPT
   void PasteText(int32_t aPosition);
 
   /**
@@ -454,9 +445,7 @@ class HyperTextAccessible : public AccessibleWrap {
    * Return an offset of the found word boundary.
    */
   uint32_t FindWordBoundary(uint32_t aOffset, nsDirection aDirection,
-                            EWordMovementType aWordMovementType) {
-    return FindOffset(aOffset, aDirection, eSelectWord, aWordMovementType);
-  }
+                            EWordMovementType aWordMovementType);
 
   /**
    * Used to get begin/end of previous/this/next line. Note: end of line
@@ -478,6 +467,18 @@ class HyperTextAccessible : public AccessibleWrap {
    */
   uint32_t FindLineBoundary(uint32_t aOffset,
                             EWhichLineBoundary aWhichLineBoundary);
+
+  /**
+   * Find the start offset for a paragraph , taking into account
+   * inner block elements and line breaks.
+   */
+  int32_t FindParagraphStartOffset(uint32_t aOffset);
+
+  /**
+   * Find the end offset for a paragraph , taking into account
+   * inner block elements and line breaks.
+   */
+  int32_t FindParagraphEndOffset(uint32_t aOffset);
 
   /**
    * Return an offset corresponding to the given direction and selection amount
@@ -507,24 +508,9 @@ class HyperTextAccessible : public AccessibleWrap {
   void GetSelectionDOMRanges(SelectionType aSelectionType,
                              nsTArray<nsRange*>* aRanges);
 
-  nsresult SetSelectionRange(int32_t aStartPos, int32_t aEndPos);
-
-  /**
-   * Convert the given DOM point to a DOM point in non-generated contents.
-   *
-   * If aDOMPoint is in ::before, the result is immediately after it.
-   * If aDOMPoint is in ::after, the result is immediately before it.
-   *
-   * @param aDOMPoint       [in] A DOM node and an index of its child. This may
-   *                             be in a generated content such as ::before or
-   *                             ::after.
-   * @param aElementContent [in] An nsIContent representing an element of
-   *                             aDOMPoint.node.
-   * @return                An DOM point which must not be in generated
-   *                        contents.
-   */
-  DOMPoint ClosestNotGeneratedDOMPoint(const DOMPoint& aDOMPoint,
-                                       nsIContent* aElementContent);
+  // TODO: annotate this with `MOZ_CAN_RUN_SCRIPT` instead.
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY nsresult SetSelectionRange(int32_t aStartPos,
+                                                         int32_t aEndPos);
 
   // Helpers
   nsresult GetDOMPointByFrameOffset(nsIFrame* aFrame, int32_t aOffset,

@@ -7,6 +7,8 @@
 #ifndef GFX_ZOOMCONSTRAINTS_H
 #define GFX_ZOOMCONSTRAINTS_H
 
+#include <iosfwd>
+
 #include "Units.h"  // for CSSRect, CSSPixel, etc
 #include "mozilla/Maybe.h"
 #include "mozilla/layers/ScrollableLayerGuid.h"  // for ScrollableLayerGuid
@@ -42,7 +44,7 @@ struct ZoomConstraints {
     MOZ_COUNT_CTOR(ZoomConstraints);
   }
 
-  ~ZoomConstraints() { MOZ_COUNT_DTOR(ZoomConstraints); }
+  MOZ_COUNTED_DTOR(ZoomConstraints)
 
   bool operator==(const ZoomConstraints& other) const {
     return mAllowZoom == other.mAllowZoom &&
@@ -53,6 +55,9 @@ struct ZoomConstraints {
   bool operator!=(const ZoomConstraints& other) const {
     return !(*this == other);
   }
+
+  friend std::ostream& operator<<(std::ostream& aStream,
+                                  const ZoomConstraints& z);
 };
 
 typedef Maybe<ZoomConstraints> MaybeZoomConstraints;

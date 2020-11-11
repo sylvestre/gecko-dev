@@ -2,16 +2,16 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "BufferReader.h"
 #include "Index.h"
-#include "MP4Interval.h"
-#include "MP4Metadata.h"
-#include "SinfParser.h"
-#include "nsAutoPtr.h"
-#include "mozilla/RefPtr.h"
 
 #include <algorithm>
 #include <limits>
+
+#include "BufferReader.h"
+#include "mozilla/RefPtr.h"
+#include "MP4Interval.h"
+#include "MP4Metadata.h"
+#include "SinfParser.h"
 
 using namespace mozilla::media;
 
@@ -35,7 +35,7 @@ class MOZ_STACK_CLASS RangeFinder {
 };
 
 bool RangeFinder::Contains(MediaByteRange aByteRange) {
-  if (!mRanges.Length()) {
+  if (mRanges.IsEmpty()) {
     return false;
   }
 
@@ -111,54 +111,91 @@ already_AddRefed<MediaRawData> SampleIterator::GetNext() {
     return nullptr;
   }
 
-  if (mCurrentSample == 0 && mIndex->mMoofParser) {
-    const nsTArray<Moof>& moofs = mIndex->mMoofParser->Moofs();
-    MOZ_ASSERT(mCurrentMoof < moofs.Length());
+  MoofParser* moofParser = mIndex->mMoofParser.get();
+  if (!moofParser) {
+    // File is not fragmented, we can't have crypto, just early return.
+    Next();
+    return sample.forget();
+  }
+
+  // We need to check if this moof has init data the CDM expects us to surface.
+  // This should happen when handling the first sample, even if that sample
+  // isn't encrypted (samples later in the moof may be).
+  if (mCurrentSample == 0) {
+    const nsTArray<Moof>& moofs = moofParser->Moofs();
     const Moof* currentMoof = &moofs[mCurrentMoof];
     if (!currentMoof->mPsshes.IsEmpty()) {
       // This Moof contained crypto init data. Report that. We only report
       // the init data on the Moof's first sample, to avoid reporting it more
       // than once per Moof.
-      writer->mCrypto.mValid = true;
       writer->mCrypto.mInitDatas.AppendElements(currentMoof->mPsshes);
-      writer->mCrypto.mInitDataType = NS_LITERAL_STRING("cenc");
+      writer->mCrypto.mInitDataType = u"cenc"_ns;
     }
   }
 
+  auto cryptoSchemeResult = GetEncryptionScheme();
+  if (cryptoSchemeResult.isErr()) {
+    // Log the error here in future.
+    return nullptr;
+  }
+  CryptoScheme cryptoScheme = cryptoSchemeResult.unwrap();
+  if (cryptoScheme == CryptoScheme::None) {
+    // No crypto to handle, early return.
+    Next();
+    return sample.forget();
+  }
+
+  writer->mCrypto.mCryptoScheme = cryptoScheme;
+  MOZ_ASSERT(writer->mCrypto.mCryptoScheme != CryptoScheme::None,
+             "Should have early returned if we don't have a crypto scheme!");
+  MOZ_ASSERT(writer->mCrypto.mKeyId.IsEmpty(),
+             "Sample should not already have a key ID");
+  MOZ_ASSERT(writer->mCrypto.mConstantIV.IsEmpty(),
+             "Sample should not already have a constant IV");
+  CencSampleEncryptionInfoEntry* sampleInfo = GetSampleEncryptionEntry();
+  if (sampleInfo) {
+    // Use sample group information if present, this supersedes track level
+    // information.
+    writer->mCrypto.mKeyId.AppendElements(sampleInfo->mKeyId);
+    writer->mCrypto.mIVSize = sampleInfo->mIVSize;
+    writer->mCrypto.mCryptByteBlock = sampleInfo->mCryptByteBlock;
+    writer->mCrypto.mSkipByteBlock = sampleInfo->mSkipByteBlock;
+    writer->mCrypto.mConstantIV.AppendElements(sampleInfo->mConsantIV);
+  } else {
+    // Use the crypto info from track metadata
+    writer->mCrypto.mKeyId.AppendElements(moofParser->mSinf.mDefaultKeyID, 16);
+    writer->mCrypto.mIVSize = moofParser->mSinf.mDefaultIVSize;
+    writer->mCrypto.mCryptByteBlock = moofParser->mSinf.mDefaultCryptByteBlock;
+    writer->mCrypto.mSkipByteBlock = moofParser->mSinf.mDefaultSkipByteBlock;
+    writer->mCrypto.mConstantIV.AppendElements(
+        moofParser->mSinf.mDefaultConstantIV);
+  }
+
+  if ((writer->mCrypto.mIVSize == 0 && writer->mCrypto.mConstantIV.IsEmpty()) ||
+      (writer->mCrypto.mIVSize != 0 && s->mCencRange.IsEmpty())) {
+    // If mIVSize == 0, this indicates that a constant IV is in use, thus we
+    // should have a non empty constant IV. Alternatively if IV size is non
+    // zero, we should have an IV for this sample, which we need to look up
+    // in mCencRange (which must then be non empty). If neither of these are
+    // true we have bad crypto data, so bail.
+    return nullptr;
+  }
+  // Parse auxiliary information if present
   if (!s->mCencRange.IsEmpty()) {
-    MoofParser* parser = mIndex->mMoofParser.get();
-
-    if (!parser || !parser->mSinf.IsValid()) {
-      return nullptr;
-    }
-
-    uint8_t ivSize = parser->mSinf.mDefaultIVSize;
-
     // The size comes from an 8 bit field
-    AutoTArray<uint8_t, 256> cenc;
-    cenc.SetLength(s->mCencRange.Length());
-    if (!mIndex->mSource->ReadAt(s->mCencRange.mStart, cenc.Elements(),
-                                 cenc.Length(), &bytesRead) ||
-        bytesRead != cenc.Length()) {
+    AutoTArray<uint8_t, 256> cencAuxInfo;
+    cencAuxInfo.SetLength(s->mCencRange.Length());
+    if (!mIndex->mSource->ReadAt(s->mCencRange.mStart, cencAuxInfo.Elements(),
+                                 cencAuxInfo.Length(), &bytesRead) ||
+        bytesRead != cencAuxInfo.Length()) {
       return nullptr;
     }
-    BufferReader reader(cenc);
-    writer->mCrypto.mValid = true;
-
-    CencSampleEncryptionInfoEntry* sampleInfo = GetSampleEncryptionEntry();
-    if (sampleInfo) {
-      // Use sample group information if present, this supersedes track level
-      // information.
-      writer->mCrypto.mKeyId.AppendElements(sampleInfo->mKeyId);
-      ivSize = sampleInfo->mIVSize;
-    }
-
-    writer->mCrypto.mIVSize = ivSize;
-
-    if (!reader.ReadArray(writer->mCrypto.mIV, ivSize)) {
+    BufferReader reader(cencAuxInfo);
+    if (!reader.ReadArray(writer->mCrypto.mIV, writer->mCrypto.mIVSize)) {
       return nullptr;
     }
 
+    // Parse the auxiliary information for subsample information
     auto res = reader.ReadU16();
     if (res.isOk() && res.unwrap() > 0) {
       uint16_t count = res.unwrap();
@@ -186,6 +223,22 @@ already_AddRefed<MediaRawData> SampleIterator::GetNext() {
   Next();
 
   return sample.forget();
+}
+
+SampleDescriptionEntry* SampleIterator::GetSampleDescriptionEntry() {
+  nsTArray<Moof>& moofs = mIndex->mMoofParser->Moofs();
+  Moof& currentMoof = moofs[mCurrentMoof];
+  uint32_t sampleDescriptionIndex =
+      currentMoof.mTfhd.mDefaultSampleDescriptionIndex;
+  // Mp4 indices start at 1, shift down 1 so we index our array correctly.
+  sampleDescriptionIndex--;
+  FallibleTArray<SampleDescriptionEntry>& sampleDescriptions =
+      mIndex->mMoofParser->mSampleDescriptions;
+  if (sampleDescriptionIndex >= sampleDescriptions.Length()) {
+    // The sample description index is invalid, the mp4 is malformed. Bail out.
+    return nullptr;
+  }
+  return &sampleDescriptions[sampleDescriptionIndex];
 }
 
 CencSampleEncryptionInfoEntry* SampleIterator::GetSampleEncryptionEntry() {
@@ -243,6 +296,59 @@ CencSampleEncryptionInfoEntry* SampleIterator::GetSampleEncryptionEntry() {
   // The group_index is one based.
   return groupIndex > entries->Length() ? nullptr
                                         : &entries->ElementAt(groupIndex - 1);
+}
+
+Result<CryptoScheme, nsCString> SampleIterator::GetEncryptionScheme() {
+  // See ISO/IEC 23001-7 for information on the metadata being checked.
+  MoofParser* moofParser = mIndex->mMoofParser.get();
+  if (!moofParser) {
+    // This mp4 isn't fragmented so it can't be encrypted.
+    return CryptoScheme::None;
+  }
+
+  SampleDescriptionEntry* sampleDescriptionEntry = GetSampleDescriptionEntry();
+  if (!sampleDescriptionEntry) {
+    // For the file to be valid the tfhd must reference a sample description
+    // entry.
+    // If we encounter this error often, we may consider using the first
+    // sample description entry if the index is out of bounds.
+    return mozilla::Err(nsLiteralCString(
+        "Could not determine encryption scheme due to bad index for sample "
+        "description entry."));
+  }
+
+  if (!sampleDescriptionEntry->mIsEncryptedEntry) {
+    return CryptoScheme::None;
+  }
+
+  if (!moofParser->mSinf.IsValid()) {
+    // The sample description entry says this sample is encrypted, but we
+    // don't have a valid sinf box. This shouldn't happen as the sinf box is
+    // part of the sample description entry. Suggests a malformed file, bail.
+    return mozilla::Err(nsLiteralCString(
+        "Could not determine encryption scheme. Sample description entry "
+        "indicates encryption, but could not find associated sinf box."));
+  }
+
+  CencSampleEncryptionInfoEntry* sampleInfo = GetSampleEncryptionEntry();
+  if (sampleInfo && !sampleInfo->mIsEncrypted) {
+    // May not have sample encryption info, but if we do, it should match other
+    // metadata.
+    return mozilla::Err(nsLiteralCString(
+        "Could not determine encryption scheme. Sample description entry "
+        "indicates encryption, but sample encryption entry indicates sample is "
+        "not encrypted. These should be consistent."));
+  }
+
+  if (moofParser->mSinf.mDefaultEncryptionType == AtomType("cenc")) {
+    return CryptoScheme::Cenc;
+  } else if (moofParser->mSinf.mDefaultEncryptionType == AtomType("cbcs")) {
+    return CryptoScheme::Cbcs;
+  }
+  return mozilla::Err(nsLiteralCString(
+      "Could not determine encryption scheme. Sample description entry "
+      "reports sample is encrypted, but no scheme, or an unsupported scheme "
+      "is in use."));
 }
 
 Sample* SampleIterator::Get() {
@@ -311,7 +417,8 @@ Index::Index(const IndiceWrapper& aIndices, ByteStream* aSource,
              uint32_t aTrackId, bool aIsAudio)
     : mSource(aSource), mIsAudio(aIsAudio) {
   if (!aIndices.Length()) {
-    mMoofParser = new MoofParser(aSource, aTrackId, aIsAudio);
+    mMoofParser =
+        MakeUnique<MoofParser>(aSource, AsVariant(aTrackId), aIsAudio);
   } else {
     if (!mIndex.SetCapacity(aIndices.Length(), fallible)) {
       // OOM.
@@ -334,7 +441,6 @@ Index::Index(const IndiceWrapper& aIndices, ByteStream* aSource,
       if (!haveSync) {
         continue;
       }
-
       Sample sample;
       sample.mByteRange =
           MediaByteRange(indice.start_offset, indice.end_offset);
@@ -389,7 +495,7 @@ Index::Index(const IndiceWrapper& aIndices, ByteStream* aSource,
   }
 }
 
-Index::~Index() {}
+Index::~Index() = default;
 
 void Index::UpdateMoofIndex(const MediaByteRangeSet& aByteRanges) {
   UpdateMoofIndex(aByteRanges, false);
@@ -483,9 +589,11 @@ TimeIntervals Index::ConvertByteRangesToTimeRanges(
         }
       }
       if (end > start) {
-        timeRanges += TimeInterval(
-            TimeUnit::FromMicroseconds(mDataOffset[start].mTime.start),
-            TimeUnit::FromMicroseconds(mDataOffset[end - 1].mTime.end));
+        for (uint32_t i = start; i < end; i++) {
+          timeRanges += TimeInterval(
+              TimeUnit::FromMicroseconds(mDataOffset[i].mTime.start),
+              TimeUnit::FromMicroseconds(mDataOffset[i].mTime.end));
+        }
       }
       if (end < mDataOffset.Length()) {
         // Find samples in partial block contained in the byte range.

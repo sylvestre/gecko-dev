@@ -28,13 +28,13 @@ class nsStreamLoader final : public nsIStreamLoader,
 
   nsStreamLoader();
 
-  static nsresult Create(nsISupports *aOuter, REFNSIID aIID, void **aResult);
+  static nsresult Create(nsISupports* aOuter, REFNSIID aIID, void** aResult);
 
  protected:
   ~nsStreamLoader() = default;
 
-  static nsresult WriteSegmentFun(nsIInputStream *, void *, const char *,
-                                  uint32_t, uint32_t, uint32_t *);
+  static nsresult WriteSegmentFun(nsIInputStream*, void*, const char*, uint32_t,
+                                  uint32_t, uint32_t*);
 
   // Utility method to free mData, if present, and update other state to
   // reflect that no data has been allocated.
@@ -44,6 +44,8 @@ class nsStreamLoader final : public nsIStreamLoader,
   nsCOMPtr<nsISupports> mContext;  // the observer's context
   nsCOMPtr<nsIRequest> mRequest;
   nsCOMPtr<nsIRequestObserver> mRequestObserver;
+
+  mozilla::Atomic<uint32_t, mozilla::MemoryOrdering::Relaxed> mBytesRead;
 
   // Buffer to accumulate incoming data. We preallocate if contentSize is
   // available.

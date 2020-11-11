@@ -44,9 +44,8 @@ class SourceSurfaceVolatileData : public DataSourceSurface {
 
   void GuaranteePersistance() override;
 
-  void AddSizeOfExcludingThis(MallocSizeOf aMallocSizeOf, size_t& aHeapSizeOut,
-                              size_t& aNonHeapSizeOut, size_t& aExtHandlesOut,
-                              uint64_t& aExtIdOut) const override;
+  void SizeOfExcludingThis(MallocSizeOf aMallocSizeOf,
+                           SizeOfInfo& aInfo) const override;
 
   bool OnHeap() const override { return mVBuf->OnHeap(); }
 
@@ -84,7 +83,7 @@ class SourceSurfaceVolatileData : public DataSourceSurface {
   }
 
  private:
-  ~SourceSurfaceVolatileData() override {}
+  virtual ~SourceSurfaceVolatileData() = default;
 
   Mutex mMutex;
   int32_t mStride;

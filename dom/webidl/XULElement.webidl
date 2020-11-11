@@ -6,21 +6,14 @@
 
 interface XULControllers;
 
-[HTMLConstructor, Func="IsChromeOrXBL"]
+[ChromeOnly,
+ Exposed=Window]
 interface XULElement : Element {
+  [HTMLConstructor] constructor();
+
   // Layout properties
   [SetterThrows]
-  attribute DOMString align;
-  [SetterThrows]
-  attribute DOMString dir;
-  [SetterThrows]
   attribute DOMString flex;
-  [SetterThrows]
-  attribute DOMString ordinal;
-  [SetterThrows]
-  attribute DOMString orient;
-  [SetterThrows]
-  attribute DOMString pack;
 
   // Properties for hiding elements.
   attribute boolean hidden;
@@ -52,13 +45,9 @@ interface XULElement : Element {
   [SetterThrows]
   attribute DOMString maxHeight;
 
-  // Position properties for
-  // * popups - these are screen coordinates
-  // * other elements - these are client coordinates relative to parent stack.
-  [SetterThrows]
-  attribute DOMString left;
-  [SetterThrows]
-  attribute DOMString top;
+  // Return the screen coordinates of the element.
+  readonly attribute long screenX;
+  readonly attribute long screenY;
 
   // Tooltip
   [SetterThrows]
@@ -72,21 +61,10 @@ interface XULElement : Element {
 
   [Throws, ChromeOnly]
   readonly attribute XULControllers             controllers;
-  [Throws]
-  readonly attribute BoxObject?                 boxObject;
 
-  [SetterThrows]
-  attribute long tabIndex;
-  [Throws]
-  void                      focus();
-  [Throws]
-  void                      blur();
   [NeedsCallerType]
   void                      click();
   void                      doCommand();
-
-  [Constant]
-  readonly attribute CSSStyleDeclaration style;
 
   // Returns true if this is a menu-type element that has a menu
   // frame associated with it.
@@ -97,6 +75,8 @@ interface XULElement : Element {
   void openMenu(boolean open);
 };
 
-XULElement implements GlobalEventHandlers;
-XULElement implements TouchEventHandlers;
-XULElement implements OnErrorEventHandlerForNodes;
+XULElement includes GlobalEventHandlers;
+XULElement includes HTMLOrForeignElement;
+XULElement includes ElementCSSInlineStyle;
+XULElement includes TouchEventHandlers;
+XULElement includes OnErrorEventHandlerForNodes;

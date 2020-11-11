@@ -15,13 +15,12 @@
 #include "nsContentUtils.h"
 #include "nsXULPopupManager.h"
 #include "nsIScriptContext.h"
-#include "nsIDocument.h"
+#include "mozilla/dom/Document.h"
 #include "nsServiceManagerUtils.h"
-#include "nsIPrincipal.h"
-#include "nsIScriptSecurityManager.h"
 #include "nsLayoutUtils.h"
 #include "mozilla/ReflowInput.h"
 #include "nsIObjectLoadingContent.h"
+#include "mozilla/BasePrincipal.h"
 #include "mozilla/EventStateManager.h"
 #include "mozilla/EventStates.h"
 #include "mozilla/Preferences.h"
@@ -34,7 +33,6 @@
 
 // for event firing in context menus
 #include "nsPresContext.h"
-#include "nsIPresShell.h"
 #include "nsFocusManager.h"
 #include "nsPIDOMWindow.h"
 #include "nsViewManager.h"
@@ -47,7 +45,7 @@ using namespace mozilla::dom;
 // on win32 and os/2, context menus come up on mouse up. On other platforms,
 // they appear on mouse down. Certain bits of code care about this difference.
 #if defined(XP_WIN)
-#define NS_CONTEXT_MENU_IS_MOUSEUP 1
+#  define NS_CONTEXT_MENU_IS_MOUSEUP 1
 #endif
 
 nsXULPopupListener::nsXULPopupListener(mozilla::dom::Element* aElement,
@@ -111,7 +109,7 @@ nsresult nsXULPopupListener::HandleEvent(Event* aEvent) {
   {
     EventTarget* originalTarget = mouseEvent->GetOriginalTarget();
     nsCOMPtr<nsIContent> content = do_QueryInterface(originalTarget);
-    if (content && EventStateManager::IsRemoteTarget(content)) {
+    if (content && EventStateManager::IsTopLevelRemoteTarget(content)) {
       return NS_OK;
     }
   }
@@ -135,7 +133,7 @@ nsresult nsXULPopupListener::HandleEvent(Event* aEvent) {
       // The user wants his contextmenus.  Let's make sure that this is a
       // website and not chrome since there could be places in chrome which
       // don't want contextmenus.
-      if (!nsContentUtils::IsSystemPrincipal(targetContent->NodePrincipal())) {
+      if (!targetContent->NodePrincipal()->IsSystemPrincipal()) {
         // This isn't chrome.  Cancel the preventDefault() and
         // let the event go forth.
         preventDefault = false;
@@ -183,7 +181,7 @@ nsresult nsXULPopupListener::HandleEvent(Event* aEvent) {
 #ifndef NS_CONTEXT_MENU_IS_MOUSEUP
 nsresult nsXULPopupListener::FireFocusOnTargetContent(
     nsIContent* aTargetContent, bool aIsTouch) {
-  nsCOMPtr<nsIDocument> doc = aTargetContent->OwnerDoc();
+  nsCOMPtr<Document> doc = aTargetContent->OwnerDoc();
 
   // strong reference to keep this from going away between events
   // XXXbz between what events?  We don't use this local at all!
@@ -212,7 +210,7 @@ nsresult nsXULPopupListener::FireFocusOnTargetContent(
     currFrame = currFrame->GetParent();
   }
 
-  nsIFocusManager* fm = nsFocusManager::GetFocusManager();
+  nsFocusManager* fm = nsFocusManager::GetFocusManager();
   if (fm) {
     if (newFocusElement) {
       uint32_t focusFlags =
@@ -302,7 +300,7 @@ nsresult nsXULPopupListener::LaunchPopup(MouseEvent* aEvent) {
   if (identifier.IsEmpty()) return rv;
 
   // Try to find the popup content and the document.
-  nsCOMPtr<nsIDocument> document = mElement->GetComposedDoc();
+  nsCOMPtr<Document> document = mElement->GetComposedDoc();
   if (!document) {
     NS_WARNING("No document!");
     return NS_ERROR_FAILURE;
@@ -312,20 +310,6 @@ nsresult nsXULPopupListener::LaunchPopup(MouseEvent* aEvent) {
   RefPtr<Element> popup;
   if (identifier.EqualsLiteral("_child")) {
     popup = GetImmediateChild(mElement, nsGkAtoms::menupopup);
-    if (!popup) {
-      nsINodeList* list = document->GetAnonymousNodes(*mElement);
-      if (list) {
-        uint32_t listLength = list->Length();
-        for (uint32_t ctr = 0; ctr < listLength; ctr++) {
-          nsIContent* childContent = list->Item(ctr);
-          if (childContent->NodeInfo()->Equals(nsGkAtoms::menupopup,
-                                               kNameSpaceID_XUL)) {
-            popup = childContent->AsElement();
-            break;
-          }
-        }
-      }
-    }
   } else if (!mElement->IsInUncomposedDoc() ||
              !(popup = document->GetElementById(identifier))) {
     // XXXsmaug Should we try to use ShadowRoot::GetElementById in case
@@ -360,8 +344,8 @@ nsresult nsXULPopupListener::LaunchPopup(MouseEvent* aEvent) {
       (mPopupContent->HasAttr(kNameSpaceID_None, nsGkAtoms::position) ||
        (mPopupContent->HasAttr(kNameSpaceID_None, nsGkAtoms::popupanchor) &&
         mPopupContent->HasAttr(kNameSpaceID_None, nsGkAtoms::popupalign)))) {
-    pm->ShowPopup(mPopupContent, mElement, EmptyString(), 0, 0, false, true,
-                  false, aEvent);
+    pm->ShowPopup(mPopupContent, mElement, u""_ns, 0, 0, false, true, false,
+                  aEvent);
   } else {
     int32_t xPos = aEvent->ScreenX(CallerType::System);
     int32_t yPos = aEvent->ScreenY(CallerType::System);

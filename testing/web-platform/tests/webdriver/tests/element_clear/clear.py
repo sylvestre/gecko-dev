@@ -46,7 +46,14 @@ def test_null_response_value(session):
     assert value is None
 
 
-def test_no_browsing_context(session, closed_window):
+def test_no_top_browsing_context(session, closed_window):
+    element = Element("foo", session)
+
+    response = element_clear(session, element)
+    assert_error(response, "no such window")
+
+
+def test_no_browsing_context(session, closed_frame):
     element = Element("foo", session)
 
     response = element_clear(session, element)
@@ -266,7 +273,7 @@ def test_contenteditable(session, add_event_listeners, tracked_events):
     response = element_clear(session, element)
     assert_success(response)
     assert element.property("innerHTML") == ""
-    assert_events_equal(session, ["focus", "change", "blur"])
+    assert_events_equal(session, ["focus", "blur"])
     assert_element_has_focus(session.execute_script("return document.body"))
 
 
@@ -278,7 +285,7 @@ def test_designmode(session):
 
     response = element_clear(session, element)
     assert_success(response)
-    assert element.property("innerHTML") == "<br>"
+    assert element.property("innerHTML") in ["", "<br>"]
     assert_element_has_focus(session.execute_script("return document.body"))
 
 

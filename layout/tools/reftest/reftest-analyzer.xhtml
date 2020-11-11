@@ -119,6 +119,7 @@ function load() {
     req.send();
   }
   window.addEventListener('keypress', handle_keyboard_shortcut);
+  window.addEventListener('keydown',  handle_keydown);
   ID("image1").addEventListener('error', image_load_error);
   ID("image2").addEventListener('error', image_load_error);
 }
@@ -215,19 +216,215 @@ function log_pasted() {
 
 var gTestItems;
 
+// This function is not used in production code, but can be invoked manually
+// from the devtools console in order to test changes to the parsing regexes
+// in process_log.
+function test_parsing() {
+  // Note that the logs in these testcases have been manually edited to strip
+  // out stuff for brevity.
+  var testcases = [
+    { "name": "empty log",
+      "log": "",
+      "expected": { "pass": 0, "unexpected": 0, "random": 0, "skip": 0 },
+      "expected_images": 0,
+    },
+    { "name": "android log",
+      "log": `[task 2018-12-28T10:36:45.718Z] 10:36:45     INFO -  REFTEST TEST-START | a == b
+[task 2018-12-28T10:36:45.719Z] 10:36:45     INFO -  REFTEST TEST-LOAD | a | 78 / 275 (28%)
+[task 2018-12-28T10:36:56.138Z] 10:36:56     INFO -  REFTEST TEST-LOAD | b | 78 / 275 (28%)
+[task 2018-12-28T10:37:06.559Z] 10:37:06     INFO -  REFTEST TEST-UNEXPECTED-FAIL | a == b | image comparison, max difference: 255, number of differing pixels: 5950
+[task 2018-12-28T10:37:06.568Z] 10:37:06     INFO -  REFTEST   IMAGE 1 (TEST): data:image/png;base64,
+[task 2018-12-28T10:37:06.577Z] 10:37:06     INFO -  REFTEST   IMAGE 2 (REFERENCE): data:image/png;base64,
+[task 2018-12-28T10:37:06.577Z] 10:37:06     INFO -  REFTEST INFO | Saved log: stuff trimmed here
+[task 2018-12-28T10:37:06.582Z] 10:37:06     INFO -  REFTEST TEST-END | a == b
+[task 2018-12-28T10:37:06.583Z] 10:37:06     INFO -  REFTEST TEST-START | a2 == b2
+[task 2018-12-28T10:37:06.583Z] 10:37:06     INFO -  REFTEST TEST-LOAD | a2 | 79 / 275 (28%)
+[task 2018-12-28T10:37:06.584Z] 10:37:06     INFO -  REFTEST TEST-LOAD | b2 | 79 / 275 (28%)
+[task 2018-12-28T10:37:16.982Z] 10:37:16     INFO -  REFTEST TEST-PASS | a2 == b2 | image comparison, max difference: 0, number of differing pixels: 0
+[task 2018-12-28T10:37:16.982Z] 10:37:16     INFO -  REFTEST TEST-END | a2 == b2`,
+      "expected": { "pass": 1, "unexpected": 1, "random": 0, "skip": 0 },
+      "expected_images": 2,
+    },
+    { "name": "local reftest run (Linux)",
+      "log": `REFTEST TEST-START | file:///a == file:///b
+REFTEST TEST-LOAD | file:///a | 73 / 86 (84%)
+REFTEST TEST-LOAD | file:///b | 73 / 86 (84%)
+REFTEST TEST-PASS | file:///a == file:///b | image comparison, max difference: 0, number of differing pixels: 0
+REFTEST TEST-END | file:///a == file:///b`,
+      "expected": { "pass": 1, "unexpected": 0, "random": 0, "skip": 0 },
+      "expected_images": 0,
+    },
+    { "name": "wpt reftests (Linux automation)",
+      "log": `16:50:43     INFO - TEST-START | /a
+16:50:43     INFO - PID 4276 | 1548694243694	Marionette	INFO	Testing http://web-platform.test:8000/a == http://web-platform.test:8000/b
+16:50:43     INFO - PID 4276 | 1548694243963	Marionette	INFO	No differences allowed
+16:50:44     INFO - TEST-PASS | /a | took 370ms
+16:50:44     INFO - TEST-START | /a2
+16:50:44     INFO - PID 4276 | 1548694244066	Marionette	INFO	Testing http://web-platform.test:8000/a2 == http://web-platform.test:8000/b2
+16:50:44     INFO - PID 4276 | 1548694244792	Marionette	INFO	No differences allowed
+16:50:44     INFO - PID 4276 | 1548694244792	Marionette	INFO	Found 28 pixels different, maximum difference per channel 14
+16:50:44     INFO - TEST-UNEXPECTED-FAIL | /a2 | Testing http://web-platform.test:8000/a2 == http://web-platform.test:8000/b2
+16:50:44     INFO - REFTEST   IMAGE 1 (TEST): data:image/png;base64,
+16:50:44     INFO - REFTEST   IMAGE 2 (REFERENCE): data:image/png;base64,
+16:50:44     INFO - TEST-INFO took 840ms`,
+      "expected": { "pass": 1, "unexpected": 1, "random": 0, "skip": 0 },
+      "expected_images": 2,
+    },
+    { "name": "windows log",
+      "log": `12:17:14     INFO - REFTEST TEST-START | a == b
+12:17:14     INFO - REFTEST TEST-LOAD | a | 1603 / 2053 (78%)
+12:17:14     INFO - REFTEST TEST-LOAD | b | 1603 / 2053 (78%)
+12:17:14     INFO - REFTEST TEST-PASS(EXPECTED RANDOM) | a == b | image comparison, max difference: 0, number of differing pixels: 0
+12:17:14     INFO - REFTEST TEST-END | a == b
+12:17:14     INFO - REFTEST TEST-START | a2 == b2
+12:17:14     INFO - REFTEST TEST-LOAD | a2 | 1604 / 2053 (78%)
+12:17:14     INFO - REFTEST TEST-LOAD | b2 | 1604 / 2053 (78%)
+12:17:14     INFO - REFTEST TEST-UNEXPECTED-FAIL | a2 == b2 | image comparison, max difference: 255, number of differing pixels: 9976
+12:17:14     INFO - REFTEST   IMAGE 1 (TEST): data:image/png;base64,
+12:17:14     INFO - REFTEST   IMAGE 2 (REFERENCE): data:image/png;base64,
+12:17:14     INFO - REFTEST INFO | Saved log: stuff trimmed here
+12:17:14     INFO - REFTEST TEST-END | a2 == b2
+12:01:09     INFO - REFTEST TEST-START | a3 == b3
+12:01:09     INFO - REFTEST TEST-LOAD | a3 | 66 / 189 (34%)
+12:01:09     INFO - REFTEST TEST-LOAD | b3 | 66 / 189 (34%)
+12:01:09     INFO - REFTEST TEST-KNOWN-FAIL | a3 == b3 | image comparison, max difference: 255, number of differing pixels: 9654
+12:01:09     INFO - REFTEST TEST-END | a3 == b3`,
+      "expected": { "pass": 1, "unexpected": 1, "random": 1, "skip": 0 },
+      "expected_images": 2,
+    },
+    { "name": "webrender wrench log (windows)",
+      "log": `[task 2018-12-29T04:29:48.800Z] REFTEST a == b
+[task 2018-12-29T04:29:48.984Z] REFTEST a2 == b2
+[task 2018-12-29T04:29:49.053Z] REFTEST TEST-UNEXPECTED-FAIL | a2 == b2 | image comparison, max difference: 255, number of differing pixels: 3128
+[task 2018-12-29T04:29:49.053Z] REFTEST   IMAGE 1 (TEST): data:image/png;
+[task 2018-12-29T04:29:49.053Z] REFTEST   IMAGE 2 (REFERENCE): data:image/png;
+[task 2018-12-29T04:29:49.053Z] REFTEST TEST-END | a2 == b2`,
+      "expected": { "pass": 0, "unexpected": 1, "random": 0, "skip": 0 },
+      "expected_images": 2,
+    },
+    { "name": "wpt reftests (Linux local; Bug 1530008)",
+      "log": `SUITE-START | Running 1 tests
+TEST-START | /css/css-backgrounds/border-image-6.html
+TEST-UNEXPECTED-FAIL | /css/css-backgrounds/border-image-6.html | Testing http://web-platform.test:8000/css/css-backgrounds/border-image-6.html == http://web-platform.test:8000/css/css-backgrounds/border-image-6-ref.html
+REFTEST   IMAGE 1 (TEST): data:image/png;base64,
+REFTEST   IMAGE 2 (REFERENCE): data:image/png;base64,
+TEST-INFO took 425ms
+SUITE-END | took 2s`,
+      "expected": { "pass": 0, "unexpected": 1, "random": 0, "skip": 0 },
+      "expected_images": 2,
+    },
+    { "name": "wpt reftests (taskcluster log from macOS CI)",
+      "log": `[task 2020-06-26T01:35:29.065Z] 01:35:29     INFO - TEST-START | /html/rendering/non-replaced-elements/the-page/iframe-scrolling-attribute-values.html
+[task 2020-06-26T01:35:29.065Z] 01:35:29     INFO - PID 1353 | 1593135329040    Marionette  INFO    Testing http://web-platform.test:8000/html/rendering/non-replaced-elements/the-page/iframe-scrolling-attribute-values.html == http://web-platform.test:8000/html/rendering/non-replaced-elements/the-page/iframe-scrolling-attribute-values-ref.html
+[task 2020-06-26T01:35:29.673Z] 01:35:29     INFO - PID 1353 | 1593135329633    Marionette  INFO    No differences allowed
+[task 2020-06-26T01:35:29.726Z] 01:35:29     INFO - TEST-KNOWN-INTERMITTENT-FAIL | /html/rendering/non-replaced-elements/the-page/iframe-scrolling-attribute-values.html | took 649ms
+[task 2020-06-26T01:35:29.726Z] 01:35:29     INFO - REFTEST   IMAGE 1 (TEST): data:image/png;
+[task 2020-06-26T01:35:29.726Z] 01:35:29     INFO - REFTEST   IMAGE 2 (REFERENCE): data:image/png;`,
+      "expected": { "pass": 0, "unexpected": 0, "random": 1, "skip": 0 },
+      "expected_images": 2,
+    },
+    { "name": "wpt reftests (taskcluster log from Windows CI)",
+      "log": `[task 2020-06-26T01:41:19.205Z] 01:41:19     INFO - TEST-START | /html/rendering/non-replaced-elements/the-page/iframe-scrolling-attribute-values.html
+[task 2020-06-26T01:41:19.214Z] 01:41:19     INFO - PID 5920 | 1593135679202    Marionette  WARN    [24] http://web-platform.test:8000/css/WOFF2/metadatadisplay-schema-license-022-ref.xht overflows viewport (width: 783, height: 731)
+[task 2020-06-26T01:41:19.214Z] 01:41:19     INFO - PID 9692 | 1593135679208    Marionette  INFO    Testing http://web-platform.test:8000/html/rendering/non-replaced-elements/the-page/iframe-scrolling-attribute-values.html == http://web-platform.test:8000/html/rendering/non-replaced-elements/the-page/iframe-scrolling-attribute-values-ref.html
+[task 2020-06-26T01:41:19.638Z] 01:41:19     INFO - PID 9692 | 1593135679627    Marionette  INFO    No differences allowed
+[task 2020-06-26T01:41:19.688Z] 01:41:19     INFO - TEST-KNOWN-INTERMITTENT-PASS | /html/rendering/non-replaced-elements/the-page/iframe-scrolling-attribute-values.html | took 474ms
+[task 2020-06-26T01:41:19.688Z] 01:41:19     INFO - REFTEST   IMAGE 1 (TEST): data:image/png;
+[task 2020-06-26T01:41:19.689Z] 01:41:19     INFO - REFTEST   IMAGE 2 (REFERENCE): data:image/png;`,
+      "expected": { "pass": 1, "unexpected": 0, "random": 1, "skip": 0 },
+      "expected_images": 2,
+    },
+    { "name": "local reftest run with timestamps (Linux; Bug 1167712)",
+      "log": ` 0:05.21 REFTEST TEST-START | a
+ 0:05.21 REFTEST REFTEST TEST-LOAD | a | 0 / 1 (0%)
+ 0:05.27 REFTEST REFTEST TEST-LOAD | b | 0 / 1 (0%)
+ 0:05.66 REFTEST TEST-UNEXPECTED-FAIL | a | image comparison (==), max difference: 106, number of differing pixels: 800
+ 0:05.67 REFTEST REFTEST   IMAGE 1 (TEST): data:image/png;base64,
+ 0:05.67 REFTEST REFTEST   IMAGE 2 (REFERENCE): data:image/png;base64,
+ 0:05.73 REFTEST REFTEST TEST-END | a`,
+      "expected": { "pass": 0, "unexpected": 1, "random": 0, "skip": 0 },
+      "expected_images": 2,
+    },
+    { "name": "reftest run with whitespace compressed (Treeherder; Bug 1084322)",
+      "log": ` REFTEST TEST-START | a
+REFTEST TEST-LOAD | a | 0 / 1 (0%)
+REFTEST TEST-LOAD | b | 0 / 1 (0%)
+REFTEST TEST-UNEXPECTED-FAIL | a | image comparison (==), max difference: 106, number of differing pixels: 800
+REFTEST REFTEST IMAGE 1 (TEST): data:image/png;base64,
+REFTEST REFTEST IMAGE 2 (REFERENCE): data:image/png;base64,
+REFTEST REFTEST TEST-END | a`,
+      "expected": { "pass": 0, "unexpected": 1, "random": 0, "skip": 0 },
+      "expected_images": 2,
+    },
+  ];
+
+  var current_test = 0;
+
+  // Override the build_viewer function invoked at the end of process_log to
+  // actually just check the results of parsing.
+  build_viewer = function() {
+    var expected = testcases[current_test].expected;
+    var expected_images = testcases[current_test].expected_images;
+    for (var result of gTestItems) {
+      for (let type in expected) { // type is "pass", "unexpected" etc.
+        if (result[type]) {
+          expected[type]--;
+        }
+      }
+    }
+    var failed = false;
+    for (let type in expected) {
+      if (expected[type] != 0) {
+        console.log(`Failure: for testcase ${testcases[current_test].name} got ${expected[type]} fewer ${type} results than expected!`);
+        failed = true;
+      }
+    }
+
+    let total_images = 0;
+    for (var result of gTestItems) {
+      total_images += result.images.length;
+    }
+    if (total_images !== expected_images) {
+      console.log(`Failure: for testcase ${testcases[current_test].name} got ${total_images} images, expected ${expected_images}`);
+      failed = true;
+    }
+
+    if (!failed) {
+      console.log(`Success for testcase ${testcases[current_test].name}`);
+    }
+  };
+
+  while (current_test < testcases.length) {
+    process_log(testcases[current_test].log);
+    current_test++;
+  }
+}
+
 function process_log(contents) {
   var lines = contents.split(/[\r\n]+/);
   gTestItems = [];
   for (var j in lines) {
+
+    // !!!!!!
+    // When making any changes to this code, please add a test to the
+    // test_parsing function above, and ensure all existing tests pass.
+    // !!!!!!
+
     var line = lines[j];
     // Ignore duplicated output in logcat.
     if (line.match(/I\/Gecko.*?REFTEST/))
       continue;
-    var match = line.match(/^(?:.*? (?:INFO|ERROR) -\s+)?(?:REFTEST\s+)?(.*)$/);
-    if (!match)
-      continue;
-    line = match[1];
-    match = line.match(/^(TEST-PASS|TEST-UNEXPECTED-PASS|TEST-KNOWN-FAIL|TEST-UNEXPECTED-FAIL|TEST-DEBUG-INFO)(\(EXPECTED RANDOM\)|) \| ([^\|]+) \|(.*)/);
+    var match = line.match(/^.*?(?:REFTEST\s+)+(.*)$/);
+    if (!match) {
+      // WPT reftests don't always have the "REFTEST" prefix but do have
+      // mozharness prefixing. Trying to match both prefixes optionally with a
+      // single regex either makes an unreadable mess or matches everything so
+      // we do them separately.
+      match = line.match(/^(?:.*? (?:INFO|ERROR) -\s+)(.*)$/);
+    }
+    if (match)
+      line = match[1];
+    match = line.match(/^(TEST-PASS|TEST-UNEXPECTED-PASS|TEST-FAIL|TEST-KNOWN-FAIL|TEST-UNEXPECTED-FAIL|TEST-DEBUG-INFO|TEST-KNOWN-INTERMITTENT-FAIL|TEST-KNOWN-INTERMITTENT-PASS)(\(EXPECTED RANDOM\)|) \| ([^\|]+)(?: \|(.*)|$)/);
     if (match) {
       var state = match[1];
       var random = match[2];
@@ -238,7 +435,7 @@ function process_log(contents) {
           pass: !state.match(/DEBUG-INFO$|FAIL$/),
           // only one of the following three should ever be true
           unexpected: !!state.match(/^TEST-UNEXPECTED/),
-          random: (random == "(EXPECTED RANDOM)"),
+          random: (random == "(EXPECTED RANDOM)" || state == "TEST-KNOWN-INTERMITTENT-FAIL" || state == "TEST-KNOWN-INTERMITTENT-PASS"),
           skip: (extra == " (SKIP)"),
           url: url,
           images: [],
@@ -246,7 +443,7 @@ function process_log(contents) {
         });
       continue;
     }
-    match = line.match(/IMAGE([^:]*): (data:.*)$/);
+    match = line.match(/^IMAGE([^:]*): (data:.*)$/);
     if (match) {
       var item = gTestItems[gTestItems.length - 1];
       item.images.push(match[2]);
@@ -357,6 +554,7 @@ function show_images(i) {
   ID("image2").style.display = "none";
   ID("diffrect").style.display = "none";
   ID("imgcontrols").reset();
+  ID("pixel-differences").textContent = "";
 
   ID("image1").setAttributeNS(XLINK_NS, "xlink:href", item.images[0]);
   // Making the href be #image1 doesn't seem to work
@@ -376,8 +574,61 @@ function show_images(i) {
 
   cell.style.display = "";
 
-  get_image_data(item.images[0], function(data) { gImage1Data = data; sync_svg_size(gImage1Data); });
-  get_image_data(item.images[1], function(data) { gImage2Data = data });
+  let loaded = [false, false];
+
+  function images_loaded(id) {
+    loaded[id] = true;
+    if (loaded.every(x => x)) {
+      update_pixel_difference_text()
+    }
+  }
+
+  get_image_data(item.images[0], function(data) { gImage1Data = data; sync_svg_size(gImage1Data); images_loaded(0)});
+  get_image_data(item.images[1], function(data) { gImage2Data = data; images_loaded(1)});
+
+}
+
+function update_pixel_difference_text() {
+  let differenceText;
+  if (gImage1Data.height !== gImage2Data.height ||
+      gImage1Data.width !== gImage2Data.width) {
+    differenceText = "Images are different sizes"
+  } else {
+    let [numPixels, maxPerChannel] = get_pixel_differences();
+    if (!numPixels) {
+      differenceText = "Images are identical";
+    } else {
+      differenceText = `Maximum difference per channel ${maxPerChannel}, ${numPixels} pixels differ`;
+    }
+  }
+  // Disable this for now, because per bug 1633504, the numbers may be
+  // inaccurate and dependent on the browser's configuration.
+  // ID("pixel-differences").textContent = differenceText;
+}
+
+function get_pixel_differences() {
+  let numPixels = 0;
+  let maxPerChannel = 0;
+  for (var i=0; i<gImage1Data.data.length; i+=4) {
+    let r1 = gImage1Data.data[i];
+    let r2 = gImage2Data.data[i];
+    let g1 = gImage1Data.data[i+1];
+    let g2 = gImage2Data.data[i+1];
+    let b1 = gImage1Data.data[i+2];
+    let b2 = gImage2Data.data[i+2];
+    // Ignore alpha.
+    if (r1 == r2 && g1 == g2 && b1 == b2) {
+      continue;
+    }
+    numPixels += 1;
+    let maxDiff = Math.max(Math.abs(r1-r2),
+                           Math.abs(g1-g2),
+                           Math.abs(b1-b2));
+    if (maxDiff > maxPerChannel) {
+      maxPerChannel = maxDiff
+    }
+  }
+  return [numPixels, maxPerChannel];
 }
 
 function show_image(i) {
@@ -408,6 +659,23 @@ function handle_keyboard_shortcut(event) {
     break;
   case 110: // "n" key
     shift_images(1);
+    break;
+  }
+}
+
+function handle_keydown(event) {
+  switch (event.keyCode) {
+  case 37:  // left arrow
+    move_pixel(-1, 0);
+    break;
+  case 38:  // up arrow
+    move_pixel(0,-1);
+    break;
+  case 39:  // right arrow
+    move_pixel(1, 0);
+    break;
+  case 40:  // down arrow
+    move_pixel(0, 1);
     break;
   }
 }
@@ -469,6 +737,10 @@ function hex_as_rgb(hex) {
 
 function magnify(evt) {
   var { x: x, y: y } = cursor_point(evt);
+  do_magnify(x, y);
+}
+
+function do_magnify(x, y) {
   var centerPixelColor1, centerPixelColor2;
 
   var dx_lo = -Math.floor(gMagWidth / 2);
@@ -517,6 +789,20 @@ function show_pixelinfo(x, y, pix1rgb, pix1hex, pix2rgb, pix2hex) {
   ID("pix1rgb").textContent = pix1rgb;
   ID("pix2hex").textContent = pix2hex;
   ID("pix2rgb").textContent = pix2rgb;
+}
+
+function move_pixel(deltax, deltay) {
+  coords = ID("coords").textContent.split(',');
+  x = parseInt(coords[0]);
+  y = parseInt(coords[1]);
+  if (isNaN(x) || isNaN(y)) {
+    return;
+  }
+  x = x + deltax;
+  y = y + deltay;
+  if (x >= 0 && y >= 0 && x < gImage1Data.width && y < gImage1Data.height) {
+    do_magnify(x, y);
+  }
 }
 
   ]]></script>
@@ -640,6 +926,7 @@ function show_pixelinfo(x, y, pix1rgb, pix1hex, pix2rgb, pix2hex) {
       </g>
       <rect id="diffrect" filter="url(#showDifferences)" pointer-events="none" x="0" y="0" width="100%" height="100%" />
     </svg>
+    <div id="pixel-differences"></div>
   </div>
 </div>
 

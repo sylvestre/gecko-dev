@@ -8,23 +8,37 @@
 
 "use strict";
 
-var EXPORTED_SYMBOLS = [
-  "Downloads",
-];
+var EXPORTED_SYMBOLS = ["Downloads"];
 
-ChromeUtils.import("resource://gre/modules/Integration.jsm");
-ChromeUtils.import("resource://gre/modules/DownloadCore.jsm");
+const { Integration } = ChromeUtils.import(
+  "resource://gre/modules/Integration.jsm"
+);
+const { Download, DownloadError } = ChromeUtils.import(
+  "resource://gre/modules/DownloadCore.jsm"
+);
 
-ChromeUtils.defineModuleGetter(this, "DownloadCombinedList",
-                               "resource://gre/modules/DownloadList.jsm");
-ChromeUtils.defineModuleGetter(this, "DownloadList",
-                               "resource://gre/modules/DownloadList.jsm");
-ChromeUtils.defineModuleGetter(this, "DownloadSummary",
-                               "resource://gre/modules/DownloadList.jsm");
+ChromeUtils.defineModuleGetter(
+  this,
+  "DownloadCombinedList",
+  "resource://gre/modules/DownloadList.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "DownloadList",
+  "resource://gre/modules/DownloadList.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "DownloadSummary",
+  "resource://gre/modules/DownloadList.jsm"
+);
 
 /* global DownloadIntegration */
-Integration.downloads.defineModuleGetter(this, "DownloadIntegration",
-            "resource://gre/modules/DownloadIntegration.jsm");
+Integration.downloads.defineModuleGetter(
+  this,
+  "DownloadIntegration",
+  "resource://gre/modules/DownloadIntegration.jsm"
+);
 
 /**
  * This object is exposed directly to the consumers of this JavaScript module,
@@ -65,11 +79,10 @@ var Downloads = {
    *            url: String containing the URI for the download source.
    *            isPrivate: Indicates whether the download originated from a
    *                       private window.  If omitted, the download is public.
-   *            referrer: String containing the referrer URI of the download source.
-   *                      This is the value that will be sent on the network,
-   *                      meaning that any referrer policy should be computed in
-   *                      advance.  Can be omitted or null if no referrer should be
-   *                      sent or the download source is not HTTP.
+   *            referrerInfo: String or nsIReferrerInfo object represents the
+   *                          referrerInfo of the download source.  Can be
+   *                          omitted or null for example when the download
+   *                          source is not HTTP.
    *          },
    *          target: String containing the path of the target file.
    *                  Alternatively, may be an nsIFile, a DownloadTarget object,
@@ -127,7 +140,7 @@ var Downloads = {
       source: aSource,
       target: aTarget,
     }).then(function D_SD_onSuccess(aDownload) {
-      if (aOptions && ("isPrivate" in aOptions)) {
+      if (aOptions && "isPrivate" in aOptions) {
         aDownload.source.isPrivate = aOptions.isPrivate;
       }
       return aDownload.start();
@@ -215,8 +228,11 @@ var Downloads = {
    * @rejects JavaScript exception.
    */
   getSummary(aType) {
-    if (aType != Downloads.PUBLIC && aType != Downloads.PRIVATE &&
-        aType != Downloads.ALL) {
+    if (
+      aType != Downloads.PUBLIC &&
+      aType != Downloads.PRIVATE &&
+      aType != Downloads.ALL
+    ) {
       throw new Error("Invalid aType argument.");
     }
 

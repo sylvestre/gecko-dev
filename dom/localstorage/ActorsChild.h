@@ -7,11 +7,19 @@
 #ifndef mozilla_dom_localstorage_ActorsChild_h
 #define mozilla_dom_localstorage_ActorsChild_h
 
+#include <cstdint>
+#include "mozilla/RefPtr.h"
 #include "mozilla/dom/PBackgroundLSDatabaseChild.h"
 #include "mozilla/dom/PBackgroundLSObserverChild.h"
+#include "mozilla/dom/PBackgroundLSRequest.h"
 #include "mozilla/dom/PBackgroundLSRequestChild.h"
+#include "mozilla/dom/PBackgroundLSSimpleRequest.h"
 #include "mozilla/dom/PBackgroundLSSimpleRequestChild.h"
 #include "mozilla/dom/PBackgroundLSSnapshotChild.h"
+#include "mozilla/ipc/ProtocolUtils.h"
+#include "nsISupports.h"
+#include "nsStringFwd.h"
+#include "nscore.h"
 
 namespace mozilla {
 
@@ -78,9 +86,9 @@ class LSDatabaseChild final : public PBackgroundLSDatabaseChild {
   mozilla::ipc::IPCResult RecvRequestAllowToClose() override;
 
   PBackgroundLSSnapshotChild* AllocPBackgroundLSSnapshotChild(
-      const nsString& aDocumentURI, const bool& aIncreasePeakUsage,
-      const int64_t& aRequestedSize, const int64_t& aMinSize,
-      LSSnapshotInitInfo* aInitInfo) override;
+      const nsString& aDocumentURI, const nsString& aKey,
+      const bool& aIncreasePeakUsage, const int64_t& aRequestedSize,
+      const int64_t& aMinSize, LSSnapshotInitInfo* aInitInfo) override;
 
   bool DeallocPBackgroundLSSnapshotChild(
       PBackgroundLSSnapshotChild* aActor) override;
@@ -124,8 +132,8 @@ class LSObserverChild final : public PBackgroundLSObserverChild {
                                       const uint32_t& aPrivateBrowsingId,
                                       const nsString& aDocumentURI,
                                       const nsString& aKey,
-                                      const nsString& aOldValue,
-                                      const nsString& aNewValue) override;
+                                      const LSValue& aOldValue,
+                                      const LSValue& aNewValue) override;
 };
 
 /**
@@ -158,10 +166,12 @@ class LSRequestChild final : public PBackgroundLSRequestChild {
 
  private:
   // Only created by LSObject.
-  explicit LSRequestChild(LSRequestChildCallback* aCallback);
+  LSRequestChild();
 
   // Only destroyed by mozilla::ipc::BackgroundChildImpl.
   ~LSRequestChild();
+
+  void SetCallback(LSRequestChildCallback* aCallback);
 
   // IPDL methods are only called by IPDL.
   void ActorDestroy(ActorDestroyReason aWhy) override;
@@ -179,7 +189,7 @@ class NS_NO_VTABLE LSRequestChildCallback {
   virtual void OnResponse(const LSRequestResponse& aResponse) = 0;
 
  protected:
-  virtual ~LSRequestChildCallback() {}
+  virtual ~LSRequestChildCallback() = default;
 };
 
 /**
@@ -205,7 +215,9 @@ class LSSimpleRequestChild final : public PBackgroundLSSimpleRequestChild {
 
  private:
   // Only created by LocalStorageManager2.
-  explicit LSSimpleRequestChild(LSSimpleRequestChildCallback* aCallback);
+  LSSimpleRequestChild();
+
+  void SetCallback(LSSimpleRequestChildCallback* aCallback);
 
   // Only destroyed by mozilla::ipc::BackgroundChildImpl.
   ~LSSimpleRequestChild();
@@ -224,7 +236,7 @@ class NS_NO_VTABLE LSSimpleRequestChildCallback {
   virtual void OnResponse(const LSSimpleRequestResponse& aResponse) = 0;
 
  protected:
-  virtual ~LSSimpleRequestChildCallback() {}
+  virtual ~LSSimpleRequestChildCallback() = default;
 };
 
 /**

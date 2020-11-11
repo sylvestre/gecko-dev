@@ -6,7 +6,7 @@
 
 .identity-popup-expander > .button-box,
 .identity-popup-permission-remove-button > .button-box {
-  -moz-appearance: none;
+  appearance: none;
 }
 
 .identity-popup-expander:-moz-focusring,
@@ -15,11 +15,12 @@
   outline-offset: -1px;
 }
 
-.tracking-protection-button > .button-box > .button-icon {
-  margin-inline-end: 5px;
+/* This overrides color: -moz-buttonhovertext from toolbarbutton.css */
+#protections-popup toolbarbutton:not([disabled="true"]):hover,
+#protections-popup toolbarbutton:not([disabled="true"]):hover:active {
+  color: inherit;
 }
 
-/* This overrides color: -moz-buttonhovertext from toolbarbutton.css */
-.identity-popup-content-blocking-category:hover {
-  color: inherit;
+.protections-popup-tp-switch:-moz-focusring {
+  outline: 1px dotted;
 }

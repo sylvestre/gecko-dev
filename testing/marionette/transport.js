@@ -4,37 +4,41 @@
 
 "use strict";
 
-/* global Pipe, ScriptableInputStream */
+const EXPORTED_SYMBOLS = ["DebuggerTransport"];
 
-const CC = Components.Constructor;
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
 
-ChromeUtils.import("resource://gre/modules/Services.jsm");
-ChromeUtils.import("resource://gre/modules/EventEmitter.jsm");
-const {
-  StreamUtils,
-} = ChromeUtils.import("chrome://marionette/content/stream-utils.js", {});
-const {
-  BulkPacket,
-  JSONPacket,
-  Packet,
-} = ChromeUtils.import("chrome://marionette/content/packets.js", {});
-const {
-  executeSoon,
-} = ChromeUtils.import("chrome://marionette/content/sync.js", {});
+XPCOMUtils.defineLazyModuleGetters(this, {
+  EventEmitter: "resource://gre/modules/EventEmitter.jsm",
 
-const flags = {wantVerbose: false, wantLogging: false};
+  BulkPacket: "chrome://marionette/content/packets.js",
+  executeSoon: "chrome://marionette/content/sync.js",
+  JSONPacket: "chrome://marionette/content/packets.js",
+  Packet: "chrome://marionette/content/packets.js",
+  StreamUtils: "chrome://marionette/content/stream-utils.js",
+});
 
-const dumpv =
-  flags.wantVerbose ?
-  function(msg) { dump(msg + "\n"); } :
-  function() {};
+XPCOMUtils.defineLazyGetter(this, "Pipe", () => {
+  return Components.Constructor("@mozilla.org/pipe;1", "nsIPipe", "init");
+});
 
-const Pipe = CC("@mozilla.org/pipe;1", "nsIPipe", "init");
+XPCOMUtils.defineLazyGetter(this, "ScriptableInputStream", () => {
+  return Components.Constructor(
+    "@mozilla.org/scriptableinputstream;1",
+    "nsIScriptableInputStream",
+    "init"
+  );
+});
 
-const ScriptableInputStream = CC("@mozilla.org/scriptableinputstream;1",
-    "nsIScriptableInputStream", "init");
+const flags = { wantVerbose: false, wantLogging: false };
 
-this.EXPORTED_SYMBOLS = ["DebuggerTransport"];
+const dumpv = flags.wantVerbose
+  ? function(msg) {
+      dump(msg + "\n");
+    }
+  : function() {};
 
 const PACKET_HEADER_MAX = 200;
 
@@ -362,9 +366,12 @@ DebuggerTransport.prototype = {
    */
   onInputStreamReady(stream) {
     try {
-      while (stream.available() && this._incomingEnabled &&
-             this._processIncoming(stream, stream.available())) {
-         // Loop until there is nothing more to process
+      while (
+        stream.available() &&
+        this._incomingEnabled &&
+        this._processIncoming(stream, stream.available())
+      ) {
+        // Loop until there is nothing more to process
       }
       this._waitForIncoming();
     } catch (e) {
@@ -408,8 +415,9 @@ DebuggerTransport.prototype = {
         // header pattern.
         this._incoming = Packet.fromHeader(this._incomingHeader, this);
         if (!this._incoming) {
-          throw new Error("No packet types for header: " +
-                        this._incomingHeader);
+          throw new Error(
+            "No packet types for header: " + this._incomingHeader
+          );
         }
       }
 
@@ -447,8 +455,11 @@ DebuggerTransport.prototype = {
    */
   _readHeader() {
     let amountToRead = PACKET_HEADER_MAX - this._incomingHeader.length;
-    this._incomingHeader +=
-    StreamUtils.delimitedRead(this._scriptableInput, ":", amountToRead);
+    this._incomingHeader += StreamUtils.delimitedRead(
+      this._scriptableInput,
+      ":",
+      amountToRead
+    );
     if (flags.wantVerbose) {
       dumpv("Header read: " + this._incomingHeader);
     }
@@ -487,7 +498,7 @@ DebuggerTransport.prototype = {
    */
   _onJSONObjectReady(object) {
     executeSoon(() => {
-    // Ensure the transport is still alive by the time this runs.
+      // Ensure the transport is still alive by the time this runs.
       if (this.active) {
         this.emit("packet", object);
         this.hooks.onPacket(object);
@@ -503,7 +514,7 @@ DebuggerTransport.prototype = {
    */
   _onBulkReadReady(...args) {
     executeSoon(() => {
-    // Ensure the transport is still alive by the time this runs.
+      // Ensure the transport is still alive by the time this runs.
       if (this.active) {
         this.emit("bulkpacket", ...args);
         this.hooks.onBulkPacket(...args);

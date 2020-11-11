@@ -12,13 +12,14 @@
 #include "nsIExternalHelperAppService.h"
 #include "mozilla/dom/ContentParent.h"
 #include "mozilla/dom/Element.h"
-#include "mozilla/dom/TabParent.h"
-#include "nsIBrowserDOMWindow.h"
+#include "mozilla/dom/BrowserParent.h"
 #include "nsStringStream.h"
 #include "mozilla/ipc/URIUtils.h"
 #include "nsNetUtil.h"
-#include "nsIDocument.h"
-#include "mozilla/net/ChannelDiverterParent.h"
+#include "mozilla/dom/Document.h"
+#include "mozilla/dom/CanonicalBrowsingContext.h"
+#include "mozilla/dom/WindowGlobalParent.h"
+#include "nsQueryObject.h"
 
 #include "mozilla/Unused.h"
 
@@ -33,26 +34,22 @@ NS_IMPL_ISUPPORTS_INHERITED(ExternalHelperAppParent, nsHashPropertyBag,
                             nsIStreamListener, nsIExternalHelperAppParent)
 
 ExternalHelperAppParent::ExternalHelperAppParent(
-    const OptionalURIParams& uri, const int64_t& aContentLength,
-    const bool& aWasFileChannel, const nsCString& aContentDispositionHeader,
+    nsIURI* uri, const int64_t& aContentLength, const bool& aWasFileChannel,
+    const nsCString& aContentDispositionHeader,
     const uint32_t& aContentDispositionHint,
     const nsString& aContentDispositionFilename)
-    : mURI(DeserializeURI(uri)),
-      mPending(false)
-#ifdef DEBUG
-      ,
-      mDiverted(false)
-#endif
-      ,
+    : mURI(uri),
+      mPending(false),
       mIPCClosed(false),
       mLoadFlags(0),
       mStatus(NS_OK),
+      mCanceled(false),
       mContentLength(aContentLength),
       mWasFileChannel(aWasFileChannel) {
   mContentDispositionHeader = aContentDispositionHeader;
   if (!mContentDispositionHeader.IsEmpty()) {
     NS_GetFilenameFromDisposition(mContentDispositionFilename,
-                                  mContentDispositionHeader, mURI);
+                                  mContentDispositionHeader);
     mContentDisposition =
         NS_GetContentDispositionFromHeader(mContentDispositionHeader, this);
   } else {
@@ -61,58 +58,44 @@ ExternalHelperAppParent::ExternalHelperAppParent(
   }
 }
 
-already_AddRefed<nsIInterfaceRequestor> GetWindowFromTabParent(
-    PBrowserParent* aBrowser) {
-  if (!aBrowser) {
-    return nullptr;
-  }
+void ExternalHelperAppParent::Init(
+    const Maybe<mozilla::net::LoadInfoArgs>& aLoadInfoArgs,
+    const nsCString& aMimeContentType, const bool& aForceSave,
+    nsIURI* aReferrer, BrowsingContext* aContext,
+    const bool& aShouldCloseWindow) {
+  mozilla::ipc::LoadInfoArgsToLoadInfo(aLoadInfoArgs,
+                                       getter_AddRefs(mLoadInfo));
 
-  nsCOMPtr<nsIInterfaceRequestor> window;
-  TabParent* tabParent = TabParent::GetFrom(aBrowser);
-  if (tabParent->GetOwnerElement()) {
-    window = do_QueryInterface(
-        tabParent->GetOwnerElement()->OwnerDoc()->GetWindow());
-  }
-
-  return window.forget();
-}
-
-void UpdateContentContext(nsIStreamListener* aListener,
-                          PBrowserParent* aBrowser) {
-  MOZ_ASSERT(aListener);
-  nsCOMPtr<nsIInterfaceRequestor> window = GetWindowFromTabParent(aBrowser);
-  static_cast<nsExternalAppHandler*>(aListener)->SetContentContext(window);
-}
-
-void ExternalHelperAppParent::Init(ContentParent* parent,
-                                   const nsCString& aMimeContentType,
-                                   const bool& aForceSave,
-                                   const OptionalURIParams& aReferrer,
-                                   PBrowserParent* aBrowser) {
   nsCOMPtr<nsIExternalHelperAppService> helperAppService =
       do_GetService(NS_EXTERNALHELPERAPPSERVICE_CONTRACTID);
   NS_ASSERTION(helperAppService, "No Helper App Service!");
 
-  nsCOMPtr<nsIURI> referrer = DeserializeURI(aReferrer);
-  if (referrer)
-    SetPropertyAsInterface(NS_LITERAL_STRING("docshell.internalReferrer"),
-                           referrer);
-
-  nsCOMPtr<nsIInterfaceRequestor> window;
-  if (aBrowser) {
-    TabParent* tabParent = TabParent::GetFrom(aBrowser);
-    if (tabParent->GetOwnerElement())
-      window = do_QueryInterface(
-          tabParent->GetOwnerElement()->OwnerDoc()->GetWindow());
-
-    bool isPrivate = false;
-    nsCOMPtr<nsILoadContext> loadContext = tabParent->GetLoadContext();
-    loadContext->GetUsePrivateBrowsing(&isPrivate);
-    SetPrivate(isPrivate);
+  if (aReferrer) {
+    SetPropertyAsInterface(u"docshell.internalReferrer"_ns, aReferrer);
   }
 
-  helperAppService->DoContent(aMimeContentType, this, window, aForceSave,
-                              nullptr, getter_AddRefs(mListener));
+  if (aContext) {
+    WindowGlobalParent* parent =
+        aContext->Canonical()->GetCurrentWindowGlobal();
+    if (parent) {
+      RefPtr<BrowserParent> browser = parent->GetBrowserParent();
+      if (browser) {
+        bool isPrivate = false;
+        nsCOMPtr<nsILoadContext> loadContext = browser->GetLoadContext();
+        loadContext->GetUsePrivateBrowsing(&isPrivate);
+        SetPrivate(isPrivate);
+      }
+    }
+  }
+
+  helperAppService->CreateListener(aMimeContentType, this, aContext, aForceSave,
+                                   nullptr, getter_AddRefs(mListener));
+  if (aShouldCloseWindow) {
+    RefPtr<nsExternalAppHandler> handler = do_QueryObject(mListener);
+    if (handler) {
+      handler->SetShouldCloseWindow();
+    }
+  }
 }
 
 void ExternalHelperAppParent::ActorDestroy(ActorDestroyReason why) {
@@ -126,59 +109,36 @@ void ExternalHelperAppParent::Delete() {
 }
 
 mozilla::ipc::IPCResult ExternalHelperAppParent::RecvOnStartRequest(
-    const nsCString& entityID, PBrowserParent* contentContext) {
-  MOZ_ASSERT(!mDiverted,
-             "child forwarding callbacks after request was diverted");
-
-  UpdateContentContext(mListener, contentContext);
-
+    const nsCString& entityID) {
   mEntityID = entityID;
   mPending = true;
-  mStatus = mListener->OnStartRequest(this, nullptr);
+  mStatus = mListener->OnStartRequest(this);
   return IPC_OK();
 }
 
 mozilla::ipc::IPCResult ExternalHelperAppParent::RecvOnDataAvailable(
     const nsCString& data, const uint64_t& offset, const uint32_t& count) {
-  if (NS_FAILED(mStatus)) return IPC_OK();
+  if (NS_FAILED(mStatus)) {
+    return IPC_OK();
+  }
 
-  MOZ_ASSERT(!mDiverted,
-             "child forwarding callbacks after request was diverted");
   MOZ_ASSERT(mPending, "must be pending!");
 
   nsCOMPtr<nsIInputStream> stringStream;
   DebugOnly<nsresult> rv = NS_NewByteInputStream(
-      getter_AddRefs(stringStream), data.get(), count, NS_ASSIGNMENT_DEPEND);
+      getter_AddRefs(stringStream), Span(data).To(count), NS_ASSIGNMENT_DEPEND);
   NS_ASSERTION(NS_SUCCEEDED(rv), "failed to create dependent string!");
-  mStatus =
-      mListener->OnDataAvailable(this, nullptr, stringStream, offset, count);
+  mStatus = mListener->OnDataAvailable(this, stringStream, offset, count);
 
   return IPC_OK();
 }
 
 mozilla::ipc::IPCResult ExternalHelperAppParent::RecvOnStopRequest(
     const nsresult& code) {
-  MOZ_ASSERT(!mDiverted,
-             "child forwarding callbacks after request was diverted");
-
   mPending = false;
   mListener->OnStopRequest(
-      this, nullptr,
-      (NS_SUCCEEDED(code) && NS_FAILED(mStatus)) ? mStatus : code);
+      this, (NS_SUCCEEDED(code) && NS_FAILED(mStatus)) ? mStatus : code);
   Delete();
-  return IPC_OK();
-}
-
-mozilla::ipc::IPCResult ExternalHelperAppParent::RecvDivertToParentUsing(
-    PChannelDiverterParent* diverter, PBrowserParent* contentContext) {
-  MOZ_ASSERT(diverter);
-  UpdateContentContext(mListener, contentContext);
-  auto p = static_cast<mozilla::net::ChannelDiverterParent*>(diverter);
-  p->DivertTo(this);
-#ifdef DEBUG
-  mDiverted = true;
-#endif
-  Unused << mozilla::net::ChannelDiverterParent::Send__delete__(p);
   return IPC_OK();
 }
 
@@ -187,24 +147,20 @@ mozilla::ipc::IPCResult ExternalHelperAppParent::RecvDivertToParentUsing(
 //
 
 NS_IMETHODIMP
-ExternalHelperAppParent::OnDataAvailable(nsIRequest* request, nsISupports* ctx,
+ExternalHelperAppParent::OnDataAvailable(nsIRequest* request,
                                          nsIInputStream* input, uint64_t offset,
                                          uint32_t count) {
-  MOZ_ASSERT(mDiverted);
-  return mListener->OnDataAvailable(request, ctx, input, offset, count);
+  return mListener->OnDataAvailable(request, input, offset, count);
 }
 
 NS_IMETHODIMP
-ExternalHelperAppParent::OnStartRequest(nsIRequest* request, nsISupports* ctx) {
-  MOZ_ASSERT(mDiverted);
-  return mListener->OnStartRequest(request, ctx);
+ExternalHelperAppParent::OnStartRequest(nsIRequest* request) {
+  return mListener->OnStartRequest(request);
 }
 
 NS_IMETHODIMP
-ExternalHelperAppParent::OnStopRequest(nsIRequest* request, nsISupports* ctx,
-                                       nsresult status) {
-  MOZ_ASSERT(mDiverted);
-  nsresult rv = mListener->OnStopRequest(request, ctx, status);
+ExternalHelperAppParent::OnStopRequest(nsIRequest* request, nsresult status) {
+  nsresult rv = mListener->OnStopRequest(request, status);
   Delete();
   return rv;
 }
@@ -239,8 +195,15 @@ ExternalHelperAppParent::GetStatus(nsresult* aResult) {
 
 NS_IMETHODIMP
 ExternalHelperAppParent::Cancel(nsresult aStatus) {
+  mCanceled = true;
   mStatus = aStatus;
   Unused << SendCancel(aStatus);
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+ExternalHelperAppParent::GetCanceled(bool* aCanceled) {
+  *aCanceled = mCanceled;
   return NS_OK;
 }
 
@@ -277,18 +240,7 @@ ExternalHelperAppParent::Open(nsIInputStream** aResult) {
 }
 
 NS_IMETHODIMP
-ExternalHelperAppParent::Open2(nsIInputStream** aStream) {
-  return NS_ERROR_NOT_IMPLEMENTED;
-}
-
-NS_IMETHODIMP
-ExternalHelperAppParent::AsyncOpen(nsIStreamListener* aListener,
-                                   nsISupports* aContext) {
-  return NS_ERROR_NOT_IMPLEMENTED;
-}
-
-NS_IMETHODIMP
-ExternalHelperAppParent::AsyncOpen2(nsIStreamListener* aListener) {
+ExternalHelperAppParent::AsyncOpen(nsIStreamListener* aListener) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
@@ -302,6 +254,16 @@ NS_IMETHODIMP
 ExternalHelperAppParent::SetLoadFlags(nsLoadFlags aLoadFlags) {
   mLoadFlags = aLoadFlags;
   return NS_OK;
+}
+
+NS_IMETHODIMP
+ExternalHelperAppParent::GetTRRMode(nsIRequest::TRRMode* aTRRMode) {
+  return GetTRRModeImpl(aTRRMode);
+}
+
+NS_IMETHODIMP
+ExternalHelperAppParent::SetTRRMode(nsIRequest::TRRMode aTRRMode) {
+  return SetTRRModeImpl(aTRRMode);
 }
 
 NS_IMETHODIMP
@@ -333,7 +295,7 @@ ExternalHelperAppParent::SetOwner(nsISupports* aOwner) {
 
 NS_IMETHODIMP
 ExternalHelperAppParent::GetLoadInfo(nsILoadInfo** aLoadInfo) {
-  *aLoadInfo = nullptr;
+  NS_IF_ADDREF(*aLoadInfo = mLoadInfo);
   return NS_OK;
 }
 
@@ -403,7 +365,9 @@ ExternalHelperAppParent::SetContentDisposition(uint32_t aContentDisposition) {
 NS_IMETHODIMP
 ExternalHelperAppParent::GetContentDispositionFilename(
     nsAString& aContentDispositionFilename) {
-  if (mContentDispositionFilename.IsEmpty()) return NS_ERROR_NOT_AVAILABLE;
+  if (mContentDispositionFilename.IsEmpty()) {
+    return NS_ERROR_NOT_AVAILABLE;
+  }
 
   aContentDispositionFilename = mContentDispositionFilename;
   return NS_OK;
@@ -419,7 +383,9 @@ ExternalHelperAppParent::SetContentDispositionFilename(
 NS_IMETHODIMP
 ExternalHelperAppParent::GetContentDispositionHeader(
     nsACString& aContentDispositionHeader) {
-  if (mContentDispositionHeader.IsEmpty()) return NS_ERROR_NOT_AVAILABLE;
+  if (mContentDispositionHeader.IsEmpty()) {
+    return NS_ERROR_NOT_AVAILABLE;
+  }
 
   aContentDispositionHeader = mContentDispositionHeader;
   return NS_OK;
@@ -427,10 +393,11 @@ ExternalHelperAppParent::GetContentDispositionHeader(
 
 NS_IMETHODIMP
 ExternalHelperAppParent::GetContentLength(int64_t* aContentLength) {
-  if (mContentLength < 0)
+  if (mContentLength < 0) {
     *aContentLength = -1;
-  else
+  } else {
     *aContentLength = mContentLength;
+  }
   return NS_OK;
 }
 

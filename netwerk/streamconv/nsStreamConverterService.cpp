@@ -4,9 +4,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#include "nsComponentManagerUtils.h"
 #include "nsStreamConverterService.h"
 #include "nsIComponentRegistrar.h"
-#include "nsAutoPtr.h"
 #include "nsString.h"
 #include "nsAtom.h"
 #include "nsDeque.h"
@@ -19,6 +19,7 @@
 #include "nsTArray.h"
 #include "nsServiceManagerUtils.h"
 #include "nsISimpleEnumerator.h"
+#include "mozilla/UniquePtr.h"
 
 ///////////////////////////////////////////////////////////////////
 // Breadth-First-Search (BFS) algorithm state classes and types.
@@ -31,9 +32,9 @@ struct BFSTableData {
   nsCString key;
   BFScolors color;
   int32_t distance;
-  nsAutoPtr<nsCString> predecessor;
+  mozilla::UniquePtr<nsCString> predecessor;
 
-  explicit BFSTableData(const nsACString &aKey)
+  explicit BFSTableData(const nsACString& aKey)
       : key(aKey), color(white), distance(-1) {}
 };
 
@@ -106,7 +107,7 @@ nsresult nsStreamConverterService::BuildGraph() {
 // It's
 // XXX not programatically prohibited, it's just that results are un-predictable
 // XXX right now.
-nsresult nsStreamConverterService::AddAdjacency(const char *aContractID) {
+nsresult nsStreamConverterService::AddAdjacency(const char* aContractID) {
   nsresult rv;
   // first parse out the FROM and TO MIME-types.
 
@@ -117,7 +118,7 @@ nsresult nsStreamConverterService::AddAdjacency(const char *aContractID) {
   // Each MIME-type is a vertex in the graph, so first lets make sure
   // each MIME-type is represented as a key in our hashtable.
 
-  nsTArray<RefPtr<nsAtom>> *fromEdges = mAdjacencyList.Get(fromStr);
+  nsTArray<RefPtr<nsAtom>>* fromEdges = mAdjacencyList.Get(fromStr);
   if (!fromEdges) {
     // There is no fromStr vertex, create one.
     fromEdges = new nsTArray<RefPtr<nsAtom>>();
@@ -138,12 +139,15 @@ nsresult nsStreamConverterService::AddAdjacency(const char *aContractID) {
   NS_ASSERTION(fromEdges, "something wrong in adjacency list construction");
   if (!fromEdges) return NS_ERROR_FAILURE;
 
-  return fromEdges->AppendElement(vertex) ? NS_OK : NS_ERROR_FAILURE;
+  // XXX(Bug 1631371) Check if this should use a fallible operation as it
+  // pretended earlier.
+  fromEdges->AppendElement(vertex);
+  return NS_OK;
 }
 
-nsresult nsStreamConverterService::ParseFromTo(const char *aContractID,
-                                               nsCString &aFromRes,
-                                               nsCString &aToRes) {
+nsresult nsStreamConverterService::ParseFromTo(const char* aContractID,
+                                               nsCString& aFromRes,
+                                               nsCString& aToRes) {
   nsAutoCString ContractIDStr(aContractID);
 
   int32_t fromLoc = ContractIDStr.Find("from=");
@@ -168,12 +172,9 @@ typedef nsClassHashtable<nsCStringHashKey, BFSTableData> BFSHashTable;
 
 // nsObjectHashtable enumerator functions.
 
-class CStreamConvDeallocator : public nsDequeFunctor {
+class CStreamConvDeallocator : public nsDequeFunctor<nsCString> {
  public:
-  void operator()(void *anObject) override {
-    nsCString *string = (nsCString *)anObject;
-    delete string;
-  }
+  void operator()(nsCString* anObject) override { delete anObject; }
 };
 
 // walks the graph using a breadth-first-search algorithm which generates a
@@ -183,7 +184,7 @@ class CStreamConvDeallocator : public nsDequeFunctor {
 // to calling this method in an attempt to find a direct converter rather than
 // walking the graph.
 nsresult nsStreamConverterService::FindConverter(
-    const char *aContractID, nsTArray<nsCString> **aEdgeList) {
+    const char* aContractID, nsTArray<nsCString>** aEdgeList) {
   nsresult rv;
   if (!aEdgeList) return NS_ERROR_NULL_POINTER;
   *aEdgeList = nullptr;
@@ -196,7 +197,7 @@ nsresult nsStreamConverterService::FindConverter(
   // Create a corresponding color table for each vertex in the graph.
   BFSHashTable lBFSTable;
   for (auto iter = mAdjacencyList.Iter(); !iter.Done(); iter.Next()) {
-    const nsACString &key = iter.Key();
+    const nsACString& key = iter.Key();
     MOZ_ASSERT(iter.UserData(), "no data in the table iteration");
     lBFSTable.Put(key, new BFSTableData(key));
   }
@@ -209,37 +210,37 @@ nsresult nsStreamConverterService::FindConverter(
   rv = ParseFromTo(aContractID, fromC, toC);
   if (NS_FAILED(rv)) return rv;
 
-  BFSTableData *data = lBFSTable.Get(fromC);
+  BFSTableData* data = lBFSTable.Get(fromC);
   if (!data) {
     return NS_ERROR_FAILURE;
   }
 
   data->color = gray;
   data->distance = 0;
-  auto *dtorFunc = new CStreamConvDeallocator();
+  auto* dtorFunc = new CStreamConvDeallocator();
 
   nsDeque grayQ(dtorFunc);
 
   // Now generate the shortest path tree.
   grayQ.Push(new nsCString(fromC));
   while (0 < grayQ.GetSize()) {
-    nsCString *currentHead = (nsCString *)grayQ.PeekFront();
-    nsTArray<RefPtr<nsAtom>> *data2 = mAdjacencyList.Get(*currentHead);
+    nsCString* currentHead = (nsCString*)grayQ.PeekFront();
+    nsTArray<RefPtr<nsAtom>>* data2 = mAdjacencyList.Get(*currentHead);
     if (!data2) return NS_ERROR_FAILURE;
 
     // Get the state of the current head to calculate the distance of each
     // reachable vertex in the loop.
-    BFSTableData *headVertexState = lBFSTable.Get(*currentHead);
+    BFSTableData* headVertexState = lBFSTable.Get(*currentHead);
     if (!headVertexState) return NS_ERROR_FAILURE;
 
     int32_t edgeCount = data2->Length();
 
     for (int32_t i = 0; i < edgeCount; i++) {
-      nsAtom *curVertexAtom = data2->ElementAt(i);
-      auto *curVertex = new nsCString();
+      nsAtom* curVertexAtom = data2->ElementAt(i);
+      auto* curVertex = new nsCString();
       curVertexAtom->ToUTF8String(*curVertex);
 
-      BFSTableData *curVertexState = lBFSTable.Get(*curVertex);
+      BFSTableData* curVertexState = lBFSTable.Get(*curVertex);
       if (!curVertexState) {
         delete curVertex;
         return NS_ERROR_FAILURE;
@@ -248,7 +249,8 @@ nsresult nsStreamConverterService::FindConverter(
       if (white == curVertexState->color) {
         curVertexState->color = gray;
         curVertexState->distance = headVertexState->distance + 1;
-        curVertexState->predecessor = new nsCString(*currentHead);
+        curVertexState->predecessor =
+            mozilla::MakeUnique<nsCString>(*currentHead);
         grayQ.Push(curVertex);
       } else {
         delete curVertex;  // if this vertex has already been discovered, we
@@ -257,7 +259,7 @@ nsresult nsStreamConverterService::FindConverter(
       }
     }
     headVertexState->color = black;
-    nsCString *cur = (nsCString *)grayQ.PopFront();
+    nsCString* cur = (nsCString*)grayQ.PopFront();
     delete cur;
     cur = nullptr;
   }
@@ -273,7 +275,7 @@ nsresult nsStreamConverterService::FindConverter(
 
   // get the root CONTRACTID
   nsAutoCString ContractIDPrefix(NS_ISTREAMCONVERTER_KEY);
-  auto *shortestPath = new nsTArray<nsCString>();
+  auto* shortestPath = new nsTArray<nsCString>();
 
   data = lBFSTable.Get(toMIMEType);
   if (!data) {
@@ -293,7 +295,7 @@ nsresult nsStreamConverterService::FindConverter(
     // reconstruct the CONTRACTID.
     // Get the predecessor.
     if (!data->predecessor) break;  // no predecessor
-    BFSTableData *predecessorData = lBFSTable.Get(*data->predecessor);
+    BFSTableData* predecessorData = lBFSTable.Get(*data->predecessor);
 
     if (!predecessorData) break;  // no predecessor, chain doesn't exist.
 
@@ -307,10 +309,9 @@ nsresult nsStreamConverterService::FindConverter(
     newContractID.Append(data->key);
 
     // Add this CONTRACTID to the chain.
-    rv = shortestPath->AppendElement(newContractID)
-             ? NS_OK
-             : NS_ERROR_FAILURE;  // XXX this method incorrectly returns a bool
-    NS_ASSERTION(NS_SUCCEEDED(rv), "AppendElement failed");
+    // XXX(Bug 1631371) Check if this should use a fallible operation as it
+    // pretended earlier.
+    shortestPath->AppendElement(newContractID);
 
     // move up the tree.
     data = predecessorData;
@@ -322,8 +323,8 @@ nsresult nsStreamConverterService::FindConverter(
 /////////////////////////////////////////////////////
 // nsIStreamConverterService methods
 NS_IMETHODIMP
-nsStreamConverterService::CanConvert(const char *aFromType, const char *aToType,
-                                     bool *_retval) {
+nsStreamConverterService::CanConvert(const char* aFromType, const char* aToType,
+                                     bool* _retval) {
   nsCOMPtr<nsIComponentRegistrar> reg;
   nsresult rv = NS_GetComponentRegistrar(getter_AddRefs(reg));
   if (NS_FAILED(rv)) return rv;
@@ -343,7 +344,7 @@ nsStreamConverterService::CanConvert(const char *aFromType, const char *aToType,
   rv = BuildGraph();
   if (NS_FAILED(rv)) return rv;
 
-  nsTArray<nsCString> *converterChain = nullptr;
+  nsTArray<nsCString>* converterChain = nullptr;
   rv = FindConverter(contractID.get(), &converterChain);
   *_retval = NS_SUCCEEDED(rv);
 
@@ -352,10 +353,30 @@ nsStreamConverterService::CanConvert(const char *aFromType, const char *aToType,
 }
 
 NS_IMETHODIMP
-nsStreamConverterService::Convert(nsIInputStream *aFromStream,
-                                  const char *aFromType, const char *aToType,
-                                  nsISupports *aContext,
-                                  nsIInputStream **_retval) {
+nsStreamConverterService::ConvertedType(const nsACString& aFromType,
+                                        nsIChannel* aChannel,
+                                        nsACString& aOutToType) {
+  // first determine whether we can even handle this conversion
+  // build a CONTRACTID
+  nsAutoCString contractID;
+  contractID.AssignLiteral(NS_ISTREAMCONVERTER_KEY "?from=");
+  contractID.Append(aFromType);
+  contractID.AppendLiteral("&to=*/*");
+  const char* cContractID = contractID.get();
+
+  nsresult rv;
+  nsCOMPtr<nsIStreamConverter> converter(do_CreateInstance(cContractID, &rv));
+  if (NS_SUCCEEDED(rv)) {
+    return converter->GetConvertedType(aFromType, aChannel, aOutToType);
+  }
+  return rv;
+}
+
+NS_IMETHODIMP
+nsStreamConverterService::Convert(nsIInputStream* aFromStream,
+                                  const char* aFromType, const char* aToType,
+                                  nsISupports* aContext,
+                                  nsIInputStream** _retval) {
   if (!aFromStream || !aFromType || !aToType || !_retval)
     return NS_ERROR_NULL_POINTER;
   nsresult rv;
@@ -367,7 +388,7 @@ nsStreamConverterService::Convert(nsIInputStream *aFromStream,
   contractID.Append(aFromType);
   contractID.AppendLiteral("&to=");
   contractID.Append(aToType);
-  const char *cContractID = contractID.get();
+  const char* cContractID = contractID.get();
 
   nsCOMPtr<nsIStreamConverter> converter(do_CreateInstance(cContractID, &rv));
   if (NS_FAILED(rv)) {
@@ -375,7 +396,7 @@ nsStreamConverterService::Convert(nsIInputStream *aFromStream,
     rv = BuildGraph();
     if (NS_FAILED(rv)) return rv;
 
-    nsTArray<nsCString> *converterChain = nullptr;
+    nsTArray<nsCString>* converterChain = nullptr;
 
     rv = FindConverter(cContractID, &converterChain);
     if (NS_FAILED(rv)) {
@@ -393,7 +414,7 @@ nsStreamConverterService::Convert(nsIInputStream *aFromStream,
     nsCOMPtr<nsIInputStream> convertedData;
 
     for (int32_t i = edgeCount - 1; i >= 0; i--) {
-      const char *lContractID = converterChain->ElementAt(i).get();
+      const char* lContractID = converterChain->ElementAt(i).get();
 
       converter = do_CreateInstance(lContractID, &rv);
 
@@ -429,11 +450,11 @@ nsStreamConverterService::Convert(nsIInputStream *aFromStream,
 }
 
 NS_IMETHODIMP
-nsStreamConverterService::AsyncConvertData(const char *aFromType,
-                                           const char *aToType,
-                                           nsIStreamListener *aListener,
-                                           nsISupports *aContext,
-                                           nsIStreamListener **_retval) {
+nsStreamConverterService::AsyncConvertData(const char* aFromType,
+                                           const char* aToType,
+                                           nsIStreamListener* aListener,
+                                           nsISupports* aContext,
+                                           nsIStreamListener** _retval) {
   if (!aFromType || !aToType || !aListener || !_retval)
     return NS_ERROR_NULL_POINTER;
 
@@ -446,7 +467,7 @@ nsStreamConverterService::AsyncConvertData(const char *aFromType,
   contractID.Append(aFromType);
   contractID.AppendLiteral("&to=");
   contractID.Append(aToType);
-  const char *cContractID = contractID.get();
+  const char* cContractID = contractID.get();
 
   nsCOMPtr<nsIStreamConverter> listener(do_CreateInstance(cContractID, &rv));
   if (NS_FAILED(rv)) {
@@ -454,7 +475,7 @@ nsStreamConverterService::AsyncConvertData(const char *aFromType,
     rv = BuildGraph();
     if (NS_FAILED(rv)) return rv;
 
-    nsTArray<nsCString> *converterChain = nullptr;
+    nsTArray<nsCString>* converterChain = nullptr;
 
     rv = FindConverter(cContractID, &converterChain);
     if (NS_FAILED(rv)) {
@@ -474,7 +495,7 @@ nsStreamConverterService::AsyncConvertData(const char *aFromType,
     int32_t edgeCount = int32_t(converterChain->Length());
     NS_ASSERTION(edgeCount > 0, "findConverter should have failed");
     for (int i = 0; i < edgeCount; i++) {
-      const char *lContractID = converterChain->ElementAt(i).get();
+      const char* lContractID = converterChain->ElementAt(i).get();
 
       // create the converter for this from/to pair
       nsCOMPtr<nsIStreamConverter> converter(do_CreateInstance(lContractID));
@@ -517,12 +538,12 @@ nsStreamConverterService::AsyncConvertData(const char *aFromType,
   return rv;
 }
 
-nsresult NS_NewStreamConv(nsStreamConverterService **aStreamConv) {
+nsresult NS_NewStreamConv(nsStreamConverterService** aStreamConv) {
   MOZ_ASSERT(aStreamConv != nullptr, "null ptr");
   if (!aStreamConv) return NS_ERROR_NULL_POINTER;
 
-  *aStreamConv = new nsStreamConverterService();
-  NS_ADDREF(*aStreamConv);
+  RefPtr<nsStreamConverterService> conv = new nsStreamConverterService();
+  conv.forget(aStreamConv);
 
   return NS_OK;
 }

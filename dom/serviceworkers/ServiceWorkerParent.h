@@ -19,18 +19,21 @@ class ServiceWorkerParent final : public PServiceWorkerParent {
   RefPtr<ServiceWorkerProxy> mProxy;
   bool mDeleteSent;
 
+  ~ServiceWorkerParent();
+
   // PServiceWorkerParent
   void ActorDestroy(ActorDestroyReason aReason) override;
 
   mozilla::ipc::IPCResult RecvTeardown() override;
 
   mozilla::ipc::IPCResult RecvPostMessage(
-      const ClonedMessageData& aClonedData,
+      const ClonedOrErrorMessageData& aClonedData,
       const ClientInfoAndState& aSource) override;
 
  public:
+  NS_INLINE_DECL_REFCOUNTING(ServiceWorkerParent, override);
+
   ServiceWorkerParent();
-  ~ServiceWorkerParent();
 
   void Init(const IPCServiceWorkerDescriptor& aDescriptor);
 

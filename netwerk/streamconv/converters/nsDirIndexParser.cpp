@@ -8,7 +8,6 @@
 #include "nsDirIndexParser.h"
 
 #include "mozilla/ArrayUtils.h"
-#include "mozilla/dom/FallbackEncoding.h"
 #include "mozilla/Encoding.h"
 #include "prprf.h"
 #include "nsCRT.h"
@@ -18,8 +17,68 @@
 #include "nsIInputStream.h"
 #include "nsITextToSubURI.h"
 #include "nsServiceManagerUtils.h"
+#include "mozilla/intl/LocaleService.h"
 
 using namespace mozilla;
+
+struct EncodingProp {
+  const char* const mKey;
+  NotNull<const Encoding*> mValue;
+};
+
+static const EncodingProp localesFallbacks[] = {
+    {"ar", WINDOWS_1256_ENCODING}, {"ba", WINDOWS_1251_ENCODING},
+    {"be", WINDOWS_1251_ENCODING}, {"bg", WINDOWS_1251_ENCODING},
+    {"cs", WINDOWS_1250_ENCODING}, {"el", ISO_8859_7_ENCODING},
+    {"et", WINDOWS_1257_ENCODING}, {"fa", WINDOWS_1256_ENCODING},
+    {"he", WINDOWS_1255_ENCODING}, {"hr", WINDOWS_1250_ENCODING},
+    {"hu", ISO_8859_2_ENCODING},   {"ja", SHIFT_JIS_ENCODING},
+    {"kk", WINDOWS_1251_ENCODING}, {"ko", EUC_KR_ENCODING},
+    {"ku", WINDOWS_1254_ENCODING}, {"ky", WINDOWS_1251_ENCODING},
+    {"lt", WINDOWS_1257_ENCODING}, {"lv", WINDOWS_1257_ENCODING},
+    {"mk", WINDOWS_1251_ENCODING}, {"pl", ISO_8859_2_ENCODING},
+    {"ru", WINDOWS_1251_ENCODING}, {"sah", WINDOWS_1251_ENCODING},
+    {"sk", WINDOWS_1250_ENCODING}, {"sl", ISO_8859_2_ENCODING},
+    {"sr", WINDOWS_1251_ENCODING}, {"tg", WINDOWS_1251_ENCODING},
+    {"th", WINDOWS_874_ENCODING},  {"tr", WINDOWS_1254_ENCODING},
+    {"tt", WINDOWS_1251_ENCODING}, {"uk", WINDOWS_1251_ENCODING},
+    {"vi", WINDOWS_1258_ENCODING}, {"zh", GBK_ENCODING}};
+
+static NotNull<const Encoding*>
+GetFTPFallbackEncodingDoNotAddNewCallersToThisFunction() {
+  nsAutoCString locale;
+  mozilla::intl::LocaleService::GetInstance()->GetAppLocaleAsBCP47(locale);
+
+  // Let's lower case the string just in case unofficial language packs
+  // don't stick to conventions.
+  ToLowerCase(locale);  // ASCII lowercasing with CString input!
+
+  // Special case Traditional Chinese before throwing away stuff after the
+  // language itself. Today we only ship zh-TW, but be defensive about
+  // possible future values.
+  if (locale.EqualsLiteral("zh-tw") || locale.EqualsLiteral("zh-hk") ||
+      locale.EqualsLiteral("zh-mo") || locale.EqualsLiteral("zh-hant")) {
+    return BIG5_ENCODING;
+  }
+
+  // Throw away regions and other variants to accommodate weird stuff seen
+  // in telemetry--apparently unofficial language packs.
+  int32_t hyphenIndex = locale.FindChar('-');
+  if (hyphenIndex >= 0) {
+    locale.Truncate(hyphenIndex);
+  }
+
+  size_t index;
+  if (BinarySearchIf(
+          localesFallbacks, 0, ArrayLength(localesFallbacks),
+          [&locale](const EncodingProp& aProperty) {
+            return locale.Compare(aProperty.mKey);
+          },
+          &index)) {
+    return localesFallbacks[index].mValue;
+  }
+  return WINDOWS_1252_ENCODING;
+}
 
 NS_IMPL_ISUPPORTS(nsDirIndexParser, nsIRequestObserver, nsIStreamListener,
                   nsIDirIndexParser)
@@ -30,7 +89,7 @@ nsresult nsDirIndexParser::Init() {
   mLineStart = 0;
   mHasDescription = false;
   mFormat[0] = -1;
-  auto encoding = mozilla::dom::FallbackEncoding::FromLocale();
+  auto encoding = GetFTPFallbackEncodingDoNotAddNewCallersToThisFunction();
   encoding->Name(mEncoding);
 
   nsresult rv;
@@ -51,20 +110,20 @@ nsDirIndexParser::~nsDirIndexParser() {
 }
 
 NS_IMETHODIMP
-nsDirIndexParser::SetListener(nsIDirIndexListener *aListener) {
+nsDirIndexParser::SetListener(nsIDirIndexListener* aListener) {
   mListener = aListener;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsDirIndexParser::GetListener(nsIDirIndexListener **aListener) {
+nsDirIndexParser::GetListener(nsIDirIndexListener** aListener) {
   NS_IF_ADDREF(*aListener = mListener.get());
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsDirIndexParser::GetComment(char **aComment) {
-  *aComment = ToNewCString(mComment);
+nsDirIndexParser::GetComment(char** aComment) {
+  *aComment = ToNewCString(mComment, mozilla::fallible);
 
   if (!*aComment) return NS_ERROR_OUT_OF_MEMORY;
 
@@ -72,14 +131,14 @@ nsDirIndexParser::GetComment(char **aComment) {
 }
 
 NS_IMETHODIMP
-nsDirIndexParser::SetEncoding(const char *aEncoding) {
+nsDirIndexParser::SetEncoding(const char* aEncoding) {
   mEncoding.Assign(aEncoding);
   return NS_OK;
 }
 
 NS_IMETHODIMP
-nsDirIndexParser::GetEncoding(char **aEncoding) {
-  *aEncoding = ToNewCString(mEncoding);
+nsDirIndexParser::GetEncoding(char** aEncoding) {
+  *aEncoding = ToNewCString(mEncoding, mozilla::fallible);
 
   if (!*aEncoding) return NS_ERROR_OUT_OF_MEMORY;
 
@@ -87,16 +146,13 @@ nsDirIndexParser::GetEncoding(char **aEncoding) {
 }
 
 NS_IMETHODIMP
-nsDirIndexParser::OnStartRequest(nsIRequest *aRequest, nsISupports *aCtxt) {
-  return NS_OK;
-}
+nsDirIndexParser::OnStartRequest(nsIRequest* aRequest) { return NS_OK; }
 
 NS_IMETHODIMP
-nsDirIndexParser::OnStopRequest(nsIRequest *aRequest, nsISupports *aCtxt,
-                                nsresult aStatusCode) {
+nsDirIndexParser::OnStopRequest(nsIRequest* aRequest, nsresult aStatusCode) {
   // Finish up
   if (mBuf.Length() > (uint32_t)mLineStart) {
-    ProcessData(aRequest, aCtxt);
+    ProcessData(aRequest, nullptr);
   }
 
   return NS_OK;
@@ -112,9 +168,9 @@ nsDirIndexParser::Field nsDirIndexParser::gFieldTable[] = {
     {nullptr, FIELD_UNKNOWN}};
 
 nsrefcnt nsDirIndexParser::gRefCntParser = 0;
-nsITextToSubURI *nsDirIndexParser::gTextToSubURI;
+nsITextToSubURI* nsDirIndexParser::gTextToSubURI;
 
-nsresult nsDirIndexParser::ParseFormat(const char *aFormatStr) {
+void nsDirIndexParser::ParseFormat(const char* aFormatStr) {
   // Parse a "200" format line, and remember the fields and their
   // ordering in mFormat. Multiple 200 lines stomp on each other.
   unsigned int formatNum = 0;
@@ -140,7 +196,7 @@ nsresult nsDirIndexParser::ParseFormat(const char *aFormatStr) {
     // http://www.mozilla.org/projects/netlib/dirindexformat.html
     if (name.LowerCaseEqualsLiteral("description")) mHasDescription = true;
 
-    for (Field *i = gFieldTable; i->mName; ++i) {
+    for (Field* i = gFieldTable; i->mName; ++i) {
       if (name.EqualsIgnoreCase(i->mName)) {
         mFormat[formatNum] = i->mType;
         mFormat[++formatNum] = -1;
@@ -149,28 +205,25 @@ nsresult nsDirIndexParser::ParseFormat(const char *aFormatStr) {
     }
 
   } while (*aFormatStr && (formatNum < (ArrayLength(mFormat) - 1)));
-
-  return NS_OK;
 }
 
-nsresult nsDirIndexParser::ParseData(nsIDirIndex *aIdx, char *aDataStr,
-                                     int32_t aLineLen) {
+void nsDirIndexParser::ParseData(nsIDirIndex* aIdx, char* aDataStr,
+                                 int32_t aLineLen) {
   // Parse a "201" data line, using the field ordering specified in
   // mFormat.
 
   if (mFormat[0] == -1) {
     // Ignore if we haven't seen a format yet.
-    return NS_OK;
+    return;
   }
 
-  nsresult rv = NS_OK;
   nsAutoCString filename;
   int32_t lineLen = aLineLen;
 
   for (int32_t i = 0; mFormat[i] != -1; ++i) {
     // If we've exhausted the data before we run out of fields, just bail.
     if (!*aDataStr || (lineLen < 1)) {
-      return NS_OK;
+      return;
     }
 
     while ((lineLen > 0) && nsCRT::IsAsciiSpace(*aDataStr)) {
@@ -180,10 +233,10 @@ nsresult nsDirIndexParser::ParseData(nsIDirIndex *aIdx, char *aDataStr,
 
     if (lineLen < 1) {
       // invalid format, bail
-      return NS_OK;
+      return;
     }
 
-    char *value = aDataStr;
+    char* value = aDataStr;
     if (*aDataStr == '"' || *aDataStr == '\'') {
       // it's a quoted string. snarf everything up to the next quote character
       const char quotechar = *(aDataStr++);
@@ -200,7 +253,7 @@ nsresult nsDirIndexParser::ParseData(nsIDirIndex *aIdx, char *aDataStr,
 
       if (!lineLen) {
         // invalid format, bail
-        return NS_OK;
+        return;
       }
     } else {
       // it's unquoted. snarf until we see whitespace.
@@ -229,8 +282,8 @@ nsresult nsDirIndexParser::ParseData(nsIDirIndex *aIdx, char *aDataStr,
 
         if (gTextToSubURI) {
           nsAutoString result;
-          if (NS_SUCCEEDED(rv = gTextToSubURI->UnEscapeAndConvert(
-                               mEncoding, filename, result))) {
+          if (NS_SUCCEEDED(gTextToSubURI->UnEscapeAndConvert(
+                  mEncoding, filename, result))) {
             if (!result.IsEmpty()) {
               aIdx->SetLocation(filename);
               if (!mHasDescription) aIdx->SetDescription(result);
@@ -292,13 +345,10 @@ nsresult nsDirIndexParser::ParseData(nsIDirIndex *aIdx, char *aDataStr,
         break;
     }
   }
-
-  return NS_OK;
 }
 
 NS_IMETHODIMP
-nsDirIndexParser::OnDataAvailable(nsIRequest *aRequest, nsISupports *aCtxt,
-                                  nsIInputStream *aStream,
+nsDirIndexParser::OnDataAvailable(nsIRequest* aRequest, nsIInputStream* aStream,
                                   uint64_t aSourceOffset, uint32_t aCount) {
   if (aCount < 1) return NS_OK;
 
@@ -319,11 +369,11 @@ nsDirIndexParser::OnDataAvailable(nsIRequest *aRequest, nsISupports *aCtxt,
   //       work on other strings.
   mBuf.SetLength(len + count);
 
-  return ProcessData(aRequest, aCtxt);
+  return ProcessData(aRequest, nullptr);
 }
 
-nsresult nsDirIndexParser::ProcessData(nsIRequest *aRequest,
-                                       nsISupports *aCtxt) {
+nsresult nsDirIndexParser::ProcessData(nsIRequest* aRequest,
+                                       nsISupports* aCtxt) {
   if (!mListener) return NS_ERROR_FAILURE;
 
   int32_t numItems = 0;
@@ -335,14 +385,13 @@ nsresult nsDirIndexParser::ProcessData(nsIRequest *aRequest,
     if (eol < 0) break;
     mBuf.SetCharAt(char16_t('\0'), eol);
 
-    const char *line = mBuf.get() + mLineStart;
+    const char* line = mBuf.get() + mLineStart;
 
     int32_t lineLen = eol - mLineStart;
     mLineStart = eol + 1;
 
     if (lineLen >= 4) {
-      nsresult rv;
-      const char *buf = line;
+      const char* buf = line;
 
       if (buf[0] == '1') {
         if (buf[1] == '0') {
@@ -352,7 +401,7 @@ nsresult nsDirIndexParser::ProcessData(nsIRequest *aRequest,
             // 101. Human-readable information line.
             mComment.Append(buf + 4);
 
-            char *value = ((char *)buf) + 4;
+            char* value = ((char*)buf) + 4;
             nsUnescape(value);
             mListener->OnInformationAvailable(aRequest, aCtxt,
                                               NS_ConvertUTF8toUTF16(value));
@@ -366,19 +415,12 @@ nsresult nsDirIndexParser::ProcessData(nsIRequest *aRequest,
         if (buf[1] == '0') {
           if (buf[2] == '0' && buf[3] == ':') {
             // 200. Define field names
-            rv = ParseFormat(buf + 4);
-            if (NS_FAILED(rv)) {
-              return rv;
-            }
+            ParseFormat(buf + 4);
           } else if (buf[2] == '1' && buf[3] == ':') {
             // 201. Field data
             nsCOMPtr<nsIDirIndex> idx = new nsDirIndex();
 
-            rv = ParseData(idx, ((char *)buf) + 4, lineLen - 4);
-            if (NS_FAILED(rv)) {
-              return rv;
-            }
-
+            ParseData(idx, ((char*)buf) + 4, lineLen - 4);
             mListener->OnIndexAvailable(aRequest, aCtxt, idx);
           }
         }

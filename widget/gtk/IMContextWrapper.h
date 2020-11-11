@@ -124,6 +124,7 @@ class IMContextWrapper final : public TextEventDispatcherListener {
     eIIIMF,
     eScim,
     eUim,
+    eWayland,
     eUnknown,
   };
 
@@ -139,6 +140,8 @@ class IMContextWrapper final : public TextEventDispatcherListener {
         return "eScim";
       case IMContextID::eUim:
         return "eUim";
+      case IMContextID::eWayland:
+        return "eWayland";
       default:
         return "eUnknown";
     }
@@ -149,6 +152,16 @@ class IMContextWrapper final : public TextEventDispatcherListener {
    * xim, this look for actual engine from XMODIFIERS environment variable.
    */
   nsDependentCSubstring GetIMName() const;
+
+  /**
+   * GetWaitingSynthesizedKeyPressHardwareKeyCode() returns hardware_keycode
+   * value of last handled GDK_KEY_PRESS event which is probable handled by
+   * IME asynchronously and we have not received synthesized GDK_KEY_PRESS
+   * event yet.
+   */
+  static guint16 GetWaitingSynthesizedKeyPressHardwareKeyCode() {
+    return sWaitingSynthesizedKeyPressHardwareKeyCode;
+  }
 
  protected:
   ~IMContextWrapper();
@@ -236,7 +249,7 @@ class IMContextWrapper final : public TextEventDispatcherListener {
      */
     void RemoveEvent(const GdkEventKey* aEvent) {
       size_t index = IndexOf(aEvent);
-      if (NS_WARN_IF(index == mEvents.NoIndex)) {
+      if (NS_WARN_IF(index == GdkEventKeyQueue::NoIndex())) {
         return;
       }
       RemoveEventsAt(0, index + 1);
@@ -254,16 +267,8 @@ class IMContextWrapper final : public TextEventDispatcherListener {
 
     bool IsEmpty() const { return mEvents.IsEmpty(); }
 
-   private:
-    nsTArray<GdkEventKey*> mEvents;
-
-    void RemoveEventsAt(size_t aStart, size_t aCount) {
-      for (size_t i = aStart; i < aStart + aCount; i++) {
-        gdk_event_free(reinterpret_cast<GdkEvent*>(mEvents[i]));
-      }
-      mEvents.RemoveElementsAt(aStart, aCount);
-    }
-
+    static size_t NoIndex() { return nsTArray<GdkEventKey*>::NoIndex; }
+    size_t Length() const { return mEvents.Length(); }
     size_t IndexOf(const GdkEventKey* aEvent) const {
       static_assert(!(GDK_MODIFIER_MASK & (1 << 24)),
                     "We assumes 25th bit is used by some IM, but used by GDK");
@@ -283,12 +288,24 @@ class IMContextWrapper final : public TextEventDispatcherListener {
         }
         return i;
       }
-      return mEvents.NoIndex;
+      return GdkEventKeyQueue::NoIndex();
+    }
+
+   private:
+    nsTArray<GdkEventKey*> mEvents;
+
+    void RemoveEventsAt(size_t aStart, size_t aCount) {
+      for (size_t i = aStart; i < aStart + aCount; i++) {
+        gdk_event_free(reinterpret_cast<GdkEvent*>(mEvents[i]));
+      }
+      mEvents.RemoveElementsAt(aStart, aCount);
     }
   };
   // OnKeyEvent() append mPostingKeyEvents when it believes that a key event
   // is posted to other IME process.
   GdkEventKeyQueue mPostingKeyEvents;
+
+  static guint16 sWaitingSynthesizedKeyPressHardwareKeyCode;
 
   struct Range {
     uint32_t mOffset;

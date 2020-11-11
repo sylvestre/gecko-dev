@@ -19,8 +19,10 @@
  * notification with the headers, so there are two ways to produce
  */
 
-ChromeUtils.import('resource://gre/modules/Services.jsm');
-const { Downloads } = ChromeUtils.import("resource://gre/modules/Downloads.jsm", {});
+ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { Downloads } = ChromeUtils.import(
+  "resource://gre/modules/Downloads.jsm"
+);
 
 /**
  * Clear the downloads list so other tests don't see our byproducts.
@@ -35,24 +37,30 @@ async function clearDownloads() {
  * we have clicked the given button.
  */
 function promiseClickDownloadDialogButton(buttonAction) {
-  const uri = "chrome://mozapps/content/downloads/unknownContentType.xul";
-  BrowserTestUtils.promiseAlertDialogOpen(buttonAction, uri, async win => {
-    // nsHelperAppDlg.js currently uses an eval-based setTimeout(0) to invoke
-    // its postShowCallback that results in a misleading error to the console
-    // if we close the dialog before it gets a chance to run.  Just a
-    // setTimeout is not sufficient because it appears we get our "load"
-    // listener before the document's, so we use TestUtils.waitForTick() to
-    // defer until after its load handler runs, then use setTimeout(0) to end
-    // up after its eval.
-    await TestUtils.waitForTick();
+  const uri = "chrome://mozapps/content/downloads/unknownContentType.xhtml";
+  return BrowserTestUtils.promiseAlertDialogOpen(
+    buttonAction,
+    uri,
+    async win => {
+      // nsHelperAppDlg.js currently uses an eval-based setTimeout(0) to invoke
+      // its postShowCallback that results in a misleading error to the console
+      // if we close the dialog before it gets a chance to run.  Just a
+      // setTimeout is not sufficient because it appears we get our "load"
+      // listener before the document's, so we use TestUtils.waitForTick() to
+      // defer until after its load handler runs, then use setTimeout(0) to end
+      // up after its eval.
+      await TestUtils.waitForTick();
 
-    await new Promise(resolve => setTimeout(resolve, 0));
+      await new Promise(resolve => setTimeout(resolve, 0));
 
-    const button = win.document.documentElement.getButton(buttonAction);
-    button.disabled = false;
-    info(`clicking ${buttonAction} button`);
-    button.click();
-  });
+      const button = win.document
+        .getElementById("unknownContentType")
+        .getButton(buttonAction);
+      button.disabled = false;
+      info(`clicking ${buttonAction} button`);
+      button.click();
+    }
+  );
 }
 
 async function performCanceledDownload(tab, path) {
@@ -62,19 +70,18 @@ async function performCanceledDownload(tab, path) {
 
   // Trigger the download.
   info(`triggering download of "${path}"`);
-  await ContentTask.spawn(
-    tab.linkedBrowser,
-    path,
-    function(path) {
-      // Put a Promise in place that we can wait on for stream closure.
-      content.wrappedJSObject.trackStreamClosure(path);
-      // Create the link and trigger the download.
-      const link = content.document.createElement('a');
-      link.href = path;
-      link.download = path;
-      content.document.body.appendChild(link);
-      link.click();
-    });
+  /* eslint-disable no-shadow */
+  await SpecialPowers.spawn(tab.linkedBrowser, [path], function(path) {
+    // Put a Promise in place that we can wait on for stream closure.
+    content.wrappedJSObject.trackStreamClosure(path);
+    // Create the link and trigger the download.
+    const link = content.document.createElement("a");
+    link.href = path;
+    link.download = path;
+    content.document.body.appendChild(link);
+    link.click();
+  });
+  /* eslint-enable no-shadow */
 
   // Wait for the cancelation to have been triggered.
   info("waiting for download popup");
@@ -83,12 +90,13 @@ async function performCanceledDownload(tab, path) {
 
   // Wait for confirmation that the stream stopped.
   info(`wait for the ${path} stream to close.`);
-  const why = await ContentTask.spawn(
-    tab.linkedBrowser,
-    path,
-    function(path) {
-      return content.wrappedJSObject.streamClosed[path].promise;
-    });
+  /* eslint-disable no-shadow */
+  const why = await SpecialPowers.spawn(tab.linkedBrowser, [path], function(
+    path
+  ) {
+    return content.wrappedJSObject.streamClosed[path].promise;
+  });
+  /* eslint-enable no-shadow */
   is(why.why, "canceled", "Ensure the stream canceled instead of timing out.");
   // Note that for the "sw-stream-download" case, we end up with a bogus
   // reason of "'close' may only be called on a stream in the 'readable' state."
@@ -97,35 +105,39 @@ async function performCanceledDownload(tab, path) {
   info(`Cancellation reason: ${why.message} after ${why.ticks} ticks`);
 }
 
-const gTestRoot = getRootDirectory(gTestPath)
-  .replace("chrome://mochitests/content/", "http://mochi.test:8888/");
-
+const gTestRoot = getRootDirectory(gTestPath).replace(
+  "chrome://mochitests/content/",
+  "http://mochi.test:8888/"
+);
 
 const PAGE_URL = `${gTestRoot}download_canceled/page_download_canceled.html`;
 
 add_task(async function interruptedDownloads() {
-  await SpecialPowers.pushPrefEnv({'set': [
-    ['dom.serviceWorkers.enabled', true],
-    ['dom.serviceWorkers.exemptFromPerDomainMax', true],
-    ['dom.serviceWorkers.testing.enabled', true],
-    ["javascript.options.streams", true],
-  ]});
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      ["dom.serviceWorkers.enabled", true],
+      ["dom.serviceWorkers.exemptFromPerDomainMax", true],
+      ["dom.serviceWorkers.testing.enabled", true],
+      ["javascript.options.streams", true],
+    ],
+  });
 
   // Open the tab
   const tab = await BrowserTestUtils.openNewForegroundTab({
     gBrowser,
-    opening: PAGE_URL
+    opening: PAGE_URL,
   });
 
   // Wait for it to become controlled.  Check that it was a promise that
   // resolved as expected rather than undefined by checking the return value.
-  const controlled = await ContentTask.spawn(
+  const controlled = await SpecialPowers.spawn(
     tab.linkedBrowser,
-    null,
+    [],
     function() {
       // This is a promise set up by the page during load, and we are post-load.
       return content.wrappedJSObject.controlled;
-    });
+    }
+  );
   is(controlled, "controlled", "page became controlled");
 
   // Download a pass-through fetch stream.
@@ -135,12 +147,9 @@ add_task(async function interruptedDownloads() {
   await performCanceledDownload(tab, "sw-stream-download");
 
   // Cleanup
-  await ContentTask.spawn(
-    tab.linkedBrowser,
-    null,
-    function() {
-      return content.wrappedJSObject.registration.unregister();
-    });
+  await SpecialPowers.spawn(tab.linkedBrowser, [], function() {
+    return content.wrappedJSObject.registration.unregister();
+  });
   BrowserTestUtils.removeTab(tab);
   await clearDownloads();
 });

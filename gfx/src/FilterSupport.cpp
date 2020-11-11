@@ -5,6 +5,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "FilterSupport.h"
+#include "FilterDescription.h"
 
 #include "mozilla/gfx/2D.h"
 #include "mozilla/gfx/Filters.h"
@@ -15,6 +16,7 @@
 #include "gfxContext.h"
 #include "gfxPattern.h"
 #include "gfxPlatform.h"
+#include "gfxUtils.h"
 #include "gfx2DGlue.h"
 
 #include "nsMargin.h"
@@ -54,7 +56,7 @@ static const float glinearRGBTosRGBMap[256] = {
 
 // c = n / 255
 // c <= 0.04045f ? c / 12.92f : powf((c + 0.055f) / 1.055f, 2.4f)
-static const float gsRGBToLinearRGBMap[256] = {
+extern const float gsRGBToLinearRGBMap[256] = {
     0.000f, 0.000f, 0.001f, 0.001f, 0.001f, 0.002f, 0.002f, 0.002f, 0.002f,
     0.003f, 0.003f, 0.003f, 0.004f, 0.004f, 0.004f, 0.005f, 0.005f, 0.006f,
     0.006f, 0.007f, 0.007f, 0.007f, 0.008f, 0.009f, 0.009f, 0.010f, 0.010f,
@@ -209,18 +211,18 @@ static already_AddRefed<FilterNode> GaussianBlur(DrawTarget* aDT,
   return nullptr;
 }
 
-static already_AddRefed<FilterNode> Clear(DrawTarget* aDT) {
+already_AddRefed<FilterNode> Clear(DrawTarget* aDT) {
   RefPtr<FilterNode> filter = aDT->CreateFilter(FilterType::FLOOD);
   if (filter) {
-    filter->SetAttribute(ATT_FLOOD_COLOR, Color(0, 0, 0, 0));
+    filter->SetAttribute(ATT_FLOOD_COLOR, DeviceColor());
     return filter.forget();
   }
   return nullptr;
 }
 
-static already_AddRefed<FilterNode> ForSurface(
-    DrawTarget* aDT, SourceSurface* aSurface,
-    const IntPoint& aSurfacePosition) {
+already_AddRefed<FilterNode> ForSurface(DrawTarget* aDT,
+                                        SourceSurface* aSurface,
+                                        const IntPoint& aSurfacePosition) {
   RefPtr<FilterNode> filter = aDT->CreateFilter(FilterType::TRANSFORM);
   if (filter) {
     filter->SetAttribute(
@@ -286,7 +288,7 @@ class FilterCachedColorModels {
   // This array is indexed by ColorModel::ToIndex.
   RefPtr<FilterNode> mFilterForColorModel[4];
 
-  ~FilterCachedColorModels() {}
+  ~FilterCachedColorModels() = default;
 };
 
 FilterCachedColorModels::FilterCachedColorModels(DrawTarget* aDT,
@@ -486,7 +488,9 @@ bool ComputeColorMatrix(const ColorMatrixAttributes& aMatrixAttributes,
       break;
     }
 
-    default: { return false; }
+    default: {
+      return false;
+    }
   }
 
   return !ArrayEqual(aOutMatrix, identityMatrix, 20);
@@ -668,12 +672,12 @@ static already_AddRefed<FilterNode> FilterNodeFromPrimitiveDescription(
     nsTArray<IntRect>& mSourceRegions;
     nsTArray<RefPtr<SourceSurface>>& mInputImages;
 
-    already_AddRefed<FilterNode> match(
+    already_AddRefed<FilterNode> operator()(
         const EmptyAttributes& aEmptyAttributes) {
       return nullptr;
     }
 
-    already_AddRefed<FilterNode> match(const BlendAttributes& aBlend) {
+    already_AddRefed<FilterNode> operator()(const BlendAttributes& aBlend) {
       uint32_t mode = aBlend.mBlendMode;
       RefPtr<FilterNode> filter;
       if (mode == SVG_FEBLEND_MODE_UNKNOWN) {
@@ -718,7 +722,7 @@ static already_AddRefed<FilterNode> FilterNodeFromPrimitiveDescription(
       return filter.forget();
     }
 
-    already_AddRefed<FilterNode> match(
+    already_AddRefed<FilterNode> operator()(
         const ColorMatrixAttributes& aMatrixAttributes) {
       float colorMatrix[20];
       if (!ComputeColorMatrix(aMatrixAttributes, colorMatrix)) {
@@ -744,17 +748,16 @@ static already_AddRefed<FilterNode> FilterNodeFromPrimitiveDescription(
       return filter.forget();
     }
 
-    already_AddRefed<FilterNode> match(
+    already_AddRefed<FilterNode> operator()(
         const MorphologyAttributes& aMorphology) {
       Size radii = aMorphology.mRadii;
       int32_t rx = radii.width;
       int32_t ry = radii.height;
-      if (rx < 0 || ry < 0) {
-        // XXX SVGContentUtils::ReportToConsole()
-        return nullptr;
-      }
-      if (rx == 0 && ry == 0) {
-        return nullptr;
+
+      // Is one of the radii zero or negative, return the input image
+      if (rx <= 0 || ry <= 0) {
+        RefPtr<FilterNode> filter(mSources[0]);
+        return filter.forget();
       }
 
       // Clamp radii to prevent completely insane values:
@@ -775,8 +778,8 @@ static already_AddRefed<FilterNode> FilterNodeFromPrimitiveDescription(
       return filter.forget();
     }
 
-    already_AddRefed<FilterNode> match(const FloodAttributes& aFlood) {
-      Color color = aFlood.mColor;
+    already_AddRefed<FilterNode> operator()(const FloodAttributes& aFlood) {
+      DeviceColor color = ToDeviceColor(aFlood.mColor);
       RefPtr<FilterNode> filter = mDT->CreateFilter(FilterType::FLOOD);
       if (!filter) {
         return nullptr;
@@ -785,7 +788,7 @@ static already_AddRefed<FilterNode> FilterNodeFromPrimitiveDescription(
       return filter.forget();
     }
 
-    already_AddRefed<FilterNode> match(const TileAttributes& aTile) {
+    already_AddRefed<FilterNode> operator()(const TileAttributes& aTile) {
       RefPtr<FilterNode> filter = mDT->CreateFilter(FilterType::TILE);
       if (!filter) {
         return nullptr;
@@ -795,16 +798,20 @@ static already_AddRefed<FilterNode> FilterNodeFromPrimitiveDescription(
       return filter.forget();
     }
 
-    already_AddRefed<FilterNode> match(
+    already_AddRefed<FilterNode> operator()(
         const ComponentTransferAttributes& aComponentTransfer) {
-      RefPtr<FilterNode> filters[4];  // one for each FILTER_*_TRANSFER type
-      bool useRgb = aComponentTransfer.mTypes[kChannelG] ==
-                        SVG_FECOMPONENTTRANSFER_TYPE_UNKNOWN &&
-                    aComponentTransfer.mTypes[kChannelB] ==
-                        SVG_FECOMPONENTTRANSFER_TYPE_UNKNOWN;
+      MOZ_ASSERT(aComponentTransfer.mTypes[0] !=
+                 SVG_FECOMPONENTTRANSFER_SAME_AS_R);
+      MOZ_ASSERT(aComponentTransfer.mTypes[3] !=
+                 SVG_FECOMPONENTTRANSFER_SAME_AS_R);
 
+      RefPtr<FilterNode> filters[4];  // one for each FILTER_*_TRANSFER type
       for (int32_t i = 0; i < 4; i++) {
-        int32_t inputIndex = useRgb && i < 3 ? 0 : i;
+        int32_t inputIndex = (aComponentTransfer.mTypes[i] ==
+                              SVG_FECOMPONENTTRANSFER_SAME_AS_R) &&
+                                     (i < 3)
+                                 ? 0
+                                 : i;
         ConvertComponentTransferFunctionToFilter(aComponentTransfer, inputIndex,
                                                  i, mDT, filters[0], filters[1],
                                                  filters[2], filters[3]);
@@ -822,7 +829,7 @@ static already_AddRefed<FilterNode> FilterNodeFromPrimitiveDescription(
       return lastFilter.forget();
     }
 
-    already_AddRefed<FilterNode> match(const OpacityAttributes& aOpacity) {
+    already_AddRefed<FilterNode> operator()(const OpacityAttributes& aOpacity) {
       RefPtr<FilterNode> filter = mDT->CreateFilter(FilterType::OPACITY);
       if (!filter) {
         return nullptr;
@@ -832,7 +839,7 @@ static already_AddRefed<FilterNode> FilterNodeFromPrimitiveDescription(
       return filter.forget();
     }
 
-    already_AddRefed<FilterNode> match(
+    already_AddRefed<FilterNode> operator()(
         const ConvolveMatrixAttributes& aConvolveMatrix) {
       RefPtr<FilterNode> filter =
           mDT->CreateFilter(FilterType::CONVOLVE_MATRIX);
@@ -866,11 +873,11 @@ static already_AddRefed<FilterNode> FilterNodeFromPrimitiveDescription(
       return filter.forget();
     }
 
-    already_AddRefed<FilterNode> match(const OffsetAttributes& aOffset) {
+    already_AddRefed<FilterNode> operator()(const OffsetAttributes& aOffset) {
       return FilterWrappers::Offset(mDT, mSources[0], aOffset.mValue);
     }
 
-    already_AddRefed<FilterNode> match(
+    already_AddRefed<FilterNode> operator()(
         const DisplacementMapAttributes& aDisplacementMap) {
       RefPtr<FilterNode> filter =
           mDT->CreateFilter(FilterType::DISPLACEMENT_MAP);
@@ -894,7 +901,7 @@ static already_AddRefed<FilterNode> FilterNodeFromPrimitiveDescription(
       return filter.forget();
     }
 
-    already_AddRefed<FilterNode> match(
+    already_AddRefed<FilterNode> operator()(
         const TurbulenceAttributes& aTurbulence) {
       RefPtr<FilterNode> filter = mDT->CreateFilter(FilterType::TURBULENCE);
       if (!filter) {
@@ -918,7 +925,8 @@ static already_AddRefed<FilterNode> FilterNodeFromPrimitiveDescription(
       return FilterWrappers::Offset(mDT, filter, aTurbulence.mOffset);
     }
 
-    already_AddRefed<FilterNode> match(const CompositeAttributes& aComposite) {
+    already_AddRefed<FilterNode> operator()(
+        const CompositeAttributes& aComposite) {
       RefPtr<FilterNode> filter;
       uint32_t op = aComposite.mOperator;
       if (op == SVG_FECOMPOSITE_OPERATOR_ARITHMETIC) {
@@ -955,7 +963,7 @@ static already_AddRefed<FilterNode> FilterNodeFromPrimitiveDescription(
       return filter.forget();
     }
 
-    already_AddRefed<FilterNode> match(const MergeAttributes& aMerge) {
+    already_AddRefed<FilterNode> operator()(const MergeAttributes& aMerge) {
       if (mSources.Length() == 0) {
         return nullptr;
       }
@@ -975,30 +983,30 @@ static already_AddRefed<FilterNode> FilterNodeFromPrimitiveDescription(
       return filter.forget();
     }
 
-    already_AddRefed<FilterNode> match(
+    already_AddRefed<FilterNode> operator()(
         const GaussianBlurAttributes& aGaussianBlur) {
       return FilterWrappers::GaussianBlur(mDT, mSources[0],
                                           aGaussianBlur.mStdDeviation);
     }
 
-    already_AddRefed<FilterNode> match(
+    already_AddRefed<FilterNode> operator()(
         const DropShadowAttributes& aDropShadow) {
       RefPtr<FilterNode> alpha = FilterWrappers::ToAlpha(mDT, mSources[0]);
       RefPtr<FilterNode> blur =
           FilterWrappers::GaussianBlur(mDT, alpha, aDropShadow.mStdDeviation);
-      RefPtr<FilterNode> offsetBlur =
-          FilterWrappers::Offset(mDT, blur, aDropShadow.mOffset);
+      RefPtr<FilterNode> offsetBlur = FilterWrappers::Offset(
+          mDT, blur, IntPoint::Truncate(aDropShadow.mOffset));
       RefPtr<FilterNode> flood = mDT->CreateFilter(FilterType::FLOOD);
       if (!flood) {
         return nullptr;
       }
-      Color color = aDropShadow.mColor;
+      sRGBColor color = aDropShadow.mColor;
       if (mDescription.InputColorSpace(0) == ColorSpace::LinearRGB) {
-        color = Color(gsRGBToLinearRGBMap[uint8_t(color.r * 255)],
-                      gsRGBToLinearRGBMap[uint8_t(color.g * 255)],
-                      gsRGBToLinearRGBMap[uint8_t(color.b * 255)], color.a);
+        color = sRGBColor(gsRGBToLinearRGBMap[uint8_t(color.r * 255)],
+                          gsRGBToLinearRGBMap[uint8_t(color.g * 255)],
+                          gsRGBToLinearRGBMap[uint8_t(color.b * 255)], color.a);
       }
-      flood->SetAttribute(ATT_FLOOD_COLOR, color);
+      flood->SetAttribute(ATT_FLOOD_COLOR, ToDeviceColor(color));
 
       RefPtr<FilterNode> composite = mDT->CreateFilter(FilterType::COMPOSITE);
       if (!composite) {
@@ -1020,13 +1028,13 @@ static already_AddRefed<FilterNode> FilterNodeFromPrimitiveDescription(
       return filter.forget();
     }
 
-    already_AddRefed<FilterNode> match(
+    already_AddRefed<FilterNode> operator()(
         const SpecularLightingAttributes& aLighting) {
-      return match(
+      return operator()(
           *(static_cast<const DiffuseLightingAttributes*>(&aLighting)));
     }
 
-    already_AddRefed<FilterNode> match(
+    already_AddRefed<FilterNode> operator()(
         const DiffuseLightingAttributes& aLighting) {
       bool isSpecular =
           mDescription.Attributes().is<SpecularLightingAttributes>();
@@ -1062,7 +1070,7 @@ static already_AddRefed<FilterNode> FilterNodeFromPrimitiveDescription(
         return nullptr;
       }
 
-      filter->SetAttribute(ATT_LIGHTING_COLOR, aLighting.mColor);
+      filter->SetAttribute(ATT_LIGHTING_COLOR, ToDeviceColor(aLighting.mColor));
       filter->SetAttribute(ATT_LIGHTING_SURFACE_SCALE, aLighting.mSurfaceScale);
       filter->SetAttribute(ATT_LIGHTING_KERNEL_UNIT_LENGTH,
                            aLighting.mKernelUnitLength);
@@ -1117,7 +1125,7 @@ static already_AddRefed<FilterNode> FilterNodeFromPrimitiveDescription(
       return filter.forget();
     }
 
-    already_AddRefed<FilterNode> match(const ImageAttributes& aImage) {
+    already_AddRefed<FilterNode> operator()(const ImageAttributes& aImage) {
       const Matrix& TM = aImage.mTransform;
       if (!TM.Determinant()) {
         return nullptr;
@@ -1137,7 +1145,7 @@ static already_AddRefed<FilterNode> FilterNodeFromPrimitiveDescription(
       return transform.forget();
     }
 
-    already_AddRefed<FilterNode> match(const ToAlphaAttributes& aToAlpha) {
+    already_AddRefed<FilterNode> operator()(const ToAlphaAttributes& aToAlpha) {
       return FilterWrappers::ToAlpha(mDT, mSources[0]);
     }
   };
@@ -1204,12 +1212,11 @@ static AlphaModel OutputAlphaModelForPrimitive(
 }
 
 // Returns the output FilterNode, in premultiplied sRGB space.
-static already_AddRefed<FilterNode> FilterNodeGraphFromDescription(
+already_AddRefed<FilterNode> FilterNodeGraphFromDescription(
     DrawTarget* aDT, const FilterDescription& aFilter,
-    const Rect& aResultNeededRect, SourceSurface* aSourceGraphic,
-    const IntRect& aSourceGraphicRect, SourceSurface* aFillPaint,
-    const IntRect& aFillPaintRect, SourceSurface* aStrokePaint,
-    const IntRect& aStrokePaintRect,
+    const Rect& aResultNeededRect, FilterNode* aSourceGraphic,
+    const IntRect& aSourceGraphicRect, FilterNode* aFillPaint,
+    FilterNode* aStrokePaint,
     nsTArray<RefPtr<SourceSurface>>& aAdditionalImages) {
   const nsTArray<FilterPrimitiveDescription>& primitives = aFilter.mPrimitives;
   MOZ_RELEASE_ASSERT(!primitives.IsEmpty());
@@ -1249,17 +1256,12 @@ static already_AddRefed<FilterNode> FilterNodeGraphFromDescription(
         if (!inputFilter) {
           RefPtr<FilterNode> sourceFilterNode;
 
-          nsTArray<SourceSurface*> primitiveSurfaces;
-          nsTArray<IntRect> primitiveSurfaceRects;
-          RefPtr<SourceSurface> surf =
-              ElementForIndex(inputIndex, primitiveSurfaces, aSourceGraphic,
+          nsTArray<FilterNode*> primitiveFilters;
+          RefPtr<FilterNode> filt =
+              ElementForIndex(inputIndex, primitiveFilters, aSourceGraphic,
                               aFillPaint, aStrokePaint);
-          IntRect surfaceRect = ElementForIndex(
-              inputIndex, primitiveSurfaceRects, aSourceGraphicRect,
-              aFillPaintRect, aStrokePaintRect);
-          if (surf) {
-            IntPoint offset = surfaceRect.TopLeft();
-            sourceFilterNode = FilterWrappers::ForSurface(aDT, surf, offset);
+          if (filt) {
+            sourceFilterNode = filt;
 
             // Clip the original SourceGraphic to the first filter region if the
             // surface isn't already sized appropriately.
@@ -1324,9 +1326,22 @@ void FilterSupport::RenderFilterDescription(
     SourceSurface* aStrokePaint, const IntRect& aStrokePaintRect,
     nsTArray<RefPtr<SourceSurface>>& aAdditionalImages, const Point& aDestPoint,
     const DrawOptions& aOptions) {
+  RefPtr<FilterNode> sourceGraphic, fillPaint, strokePaint;
+  if (aSourceGraphic) {
+    sourceGraphic = FilterWrappers::ForSurface(aDT, aSourceGraphic,
+                                               aSourceGraphicRect.TopLeft());
+  }
+  if (aFillPaint) {
+    fillPaint =
+        FilterWrappers::ForSurface(aDT, aFillPaint, aFillPaintRect.TopLeft());
+  }
+  if (aStrokePaint) {
+    strokePaint = FilterWrappers::ForSurface(aDT, aStrokePaint,
+                                             aStrokePaintRect.TopLeft());
+  }
   RefPtr<FilterNode> resultFilter = FilterNodeGraphFromDescription(
-      aDT, aFilter, aRenderRect, aSourceGraphic, aSourceGraphicRect, aFillPaint,
-      aFillPaintRect, aStrokePaint, aStrokePaintRect, aAdditionalImages);
+      aDT, aFilter, aRenderRect, sourceGraphic, aSourceGraphicRect, fillPaint,
+      strokePaint, aAdditionalImages);
   if (!resultFilter) {
     gfxWarning() << "Filter is NULL.";
     return;
@@ -1360,19 +1375,19 @@ static nsIntRegion ResultChangeRegionForPrimitive(
     const FilterPrimitiveDescription& mDescription;
     const nsTArray<nsIntRegion>& mInputChangeRegions;
 
-    nsIntRegion match(const EmptyAttributes& aEmptyAttributes) {
+    nsIntRegion operator()(const EmptyAttributes& aEmptyAttributes) {
       return nsIntRegion();
     }
 
-    nsIntRegion match(const BlendAttributes& aBlend) {
+    nsIntRegion operator()(const BlendAttributes& aBlend) {
       return UnionOfRegions(mInputChangeRegions);
     }
 
-    nsIntRegion match(const ColorMatrixAttributes& aColorMatrix) {
+    nsIntRegion operator()(const ColorMatrixAttributes& aColorMatrix) {
       return mInputChangeRegions[0];
     }
 
-    nsIntRegion match(const MorphologyAttributes& aMorphology) {
+    nsIntRegion operator()(const MorphologyAttributes& aMorphology) {
       Size radii = aMorphology.mRadii;
       int32_t rx = clamped(int32_t(ceil(radii.width)), 0, kMorphologyMaxRadius);
       int32_t ry =
@@ -1380,21 +1395,24 @@ static nsIntRegion ResultChangeRegionForPrimitive(
       return mInputChangeRegions[0].Inflated(nsIntMargin(ry, rx, ry, rx));
     }
 
-    nsIntRegion match(const FloodAttributes& aFlood) { return nsIntRegion(); }
+    nsIntRegion operator()(const FloodAttributes& aFlood) {
+      return nsIntRegion();
+    }
 
-    nsIntRegion match(const TileAttributes& aTile) {
+    nsIntRegion operator()(const TileAttributes& aTile) {
       return mDescription.PrimitiveSubregion();
     }
 
-    nsIntRegion match(const ComponentTransferAttributes& aComponentTransfer) {
+    nsIntRegion operator()(
+        const ComponentTransferAttributes& aComponentTransfer) {
       return mInputChangeRegions[0];
     }
 
-    nsIntRegion match(const OpacityAttributes& aOpacity) {
+    nsIntRegion operator()(const OpacityAttributes& aOpacity) {
       return UnionOfRegions(mInputChangeRegions);
     }
 
-    nsIntRegion match(const ConvolveMatrixAttributes& aConvolveMatrix) {
+    nsIntRegion operator()(const ConvolveMatrixAttributes& aConvolveMatrix) {
       if (aConvolveMatrix.mEdgeMode != EDGE_MODE_NONE) {
         return mDescription.PrimitiveSubregion();
       }
@@ -1409,38 +1427,38 @@ static nsIntRegion ResultChangeRegionForPrimitive(
       return mInputChangeRegions[0].Inflated(m);
     }
 
-    nsIntRegion match(const OffsetAttributes& aOffset) {
+    nsIntRegion operator()(const OffsetAttributes& aOffset) {
       IntPoint offset = aOffset.mValue;
       return mInputChangeRegions[0].MovedBy(offset.x, offset.y);
     }
 
-    nsIntRegion match(const DisplacementMapAttributes& aDisplacementMap) {
+    nsIntRegion operator()(const DisplacementMapAttributes& aDisplacementMap) {
       int32_t scale = ceil(std::abs(aDisplacementMap.mScale));
       return mInputChangeRegions[0].Inflated(
           nsIntMargin(scale, scale, scale, scale));
     }
 
-    nsIntRegion match(const TurbulenceAttributes& aTurbulence) {
+    nsIntRegion operator()(const TurbulenceAttributes& aTurbulence) {
       return nsIntRegion();
     }
 
-    nsIntRegion match(const CompositeAttributes& aComposite) {
+    nsIntRegion operator()(const CompositeAttributes& aComposite) {
       return UnionOfRegions(mInputChangeRegions);
     }
 
-    nsIntRegion match(const MergeAttributes& aMerge) {
+    nsIntRegion operator()(const MergeAttributes& aMerge) {
       return UnionOfRegions(mInputChangeRegions);
     }
 
-    nsIntRegion match(const GaussianBlurAttributes& aGaussianBlur) {
+    nsIntRegion operator()(const GaussianBlurAttributes& aGaussianBlur) {
       const Size& stdDeviation = aGaussianBlur.mStdDeviation;
       int32_t dx = InflateSizeForBlurStdDev(stdDeviation.width);
       int32_t dy = InflateSizeForBlurStdDev(stdDeviation.height);
       return mInputChangeRegions[0].Inflated(nsIntMargin(dy, dx, dy, dx));
     }
 
-    nsIntRegion match(const DropShadowAttributes& aDropShadow) {
-      IntPoint offset = aDropShadow.mOffset;
+    nsIntRegion operator()(const DropShadowAttributes& aDropShadow) {
+      IntPoint offset = IntPoint::Truncate(aDropShadow.mOffset);
       nsIntRegion offsetRegion =
           mInputChangeRegions[0].MovedBy(offset.x, offset.y);
       Size stdDeviation = aDropShadow.mStdDeviation;
@@ -1452,21 +1470,23 @@ static nsIntRegion ResultChangeRegionForPrimitive(
       return blurRegion;
     }
 
-    nsIntRegion match(const SpecularLightingAttributes& aLighting) {
-      return match(
+    nsIntRegion operator()(const SpecularLightingAttributes& aLighting) {
+      return operator()(
           *(static_cast<const DiffuseLightingAttributes*>(&aLighting)));
     }
 
-    nsIntRegion match(const DiffuseLightingAttributes& aLighting) {
+    nsIntRegion operator()(const DiffuseLightingAttributes& aLighting) {
       Size kernelUnitLength = aLighting.mKernelUnitLength;
       int32_t dx = ceil(kernelUnitLength.width);
       int32_t dy = ceil(kernelUnitLength.height);
       return mInputChangeRegions[0].Inflated(nsIntMargin(dy, dx, dy, dx));
     }
 
-    nsIntRegion match(const ImageAttributes& aImage) { return nsIntRegion(); }
+    nsIntRegion operator()(const ImageAttributes& aImage) {
+      return nsIntRegion();
+    }
 
-    nsIntRegion match(const ToAlphaAttributes& aToAlpha) {
+    nsIntRegion operator()(const ToAlphaAttributes& aToAlpha) {
       return mInputChangeRegions[0];
     }
   };
@@ -1475,7 +1495,8 @@ static nsIntRegion ResultChangeRegionForPrimitive(
       PrimitiveAttributesMatcher(aDescription, aInputChangeRegions));
 }
 
-/* static */ nsIntRegion FilterSupport::ComputeResultChangeRegion(
+/* static */
+nsIntRegion FilterSupport::ComputeResultChangeRegion(
     const FilterDescription& aFilter, const nsIntRegion& aSourceGraphicChange,
     const nsIntRegion& aFillPaintChange,
     const nsIntRegion& aStrokePaintChange) {
@@ -1552,15 +1573,15 @@ nsIntRegion FilterSupport::PostFilterExtentsForPrimitive(
     const FilterPrimitiveDescription& mDescription;
     const nsTArray<nsIntRegion>& mInputExtents;
 
-    nsIntRegion match(const EmptyAttributes& aEmptyAttributes) {
+    nsIntRegion operator()(const EmptyAttributes& aEmptyAttributes) {
       return IntRect();
     }
 
-    nsIntRegion match(const BlendAttributes& aBlend) {
+    nsIntRegion operator()(const BlendAttributes& aBlend) {
       return ResultChangeRegionForPrimitive(mDescription, mInputExtents);
     }
 
-    nsIntRegion match(const ColorMatrixAttributes& aColorMatrix) {
+    nsIntRegion operator()(const ColorMatrixAttributes& aColorMatrix) {
       if (aColorMatrix.mType == (uint32_t)SVG_FECOLORMATRIX_TYPE_MATRIX) {
         const nsTArray<float>& values = aColorMatrix.mValues;
         if (values.Length() == 20 && values[19] > 0.0f) {
@@ -1570,7 +1591,7 @@ nsIntRegion FilterSupport::PostFilterExtentsForPrimitive(
       return mInputExtents[0];
     }
 
-    nsIntRegion match(const MorphologyAttributes& aMorphology) {
+    nsIntRegion operator()(const MorphologyAttributes& aMorphology) {
       uint32_t op = aMorphology.mOperator;
       if (op == SVG_OPERATOR_ERODE) {
         return mInputExtents[0];
@@ -1582,18 +1603,19 @@ nsIntRegion FilterSupport::PostFilterExtentsForPrimitive(
       return mInputExtents[0].Inflated(nsIntMargin(ry, rx, ry, rx));
     }
 
-    nsIntRegion match(const FloodAttributes& aFlood) {
+    nsIntRegion operator()(const FloodAttributes& aFlood) {
       if (aFlood.mColor.a == 0.0f) {
         return IntRect();
       }
       return mDescription.PrimitiveSubregion();
     }
 
-    nsIntRegion match(const TileAttributes& aTile) {
+    nsIntRegion operator()(const TileAttributes& aTile) {
       return ResultChangeRegionForPrimitive(mDescription, mInputExtents);
     }
 
-    nsIntRegion match(const ComponentTransferAttributes& aComponentTransfer) {
+    nsIntRegion operator()(
+        const ComponentTransferAttributes& aComponentTransfer) {
       if (ResultOfZeroUnderTransferFunction(aComponentTransfer, kChannelA) >
           0.0f) {
         return mDescription.PrimitiveSubregion();
@@ -1601,30 +1623,27 @@ nsIntRegion FilterSupport::PostFilterExtentsForPrimitive(
       return mInputExtents[0];
     }
 
-    nsIntRegion match(const OpacityAttributes& aOpacity) {
-      if (aOpacity.mOpacity == 0.0f) {
-        return IntRect();
-      }
+    nsIntRegion operator()(const OpacityAttributes& aOpacity) {
       return ResultChangeRegionForPrimitive(mDescription, mInputExtents);
     }
 
-    nsIntRegion match(const ConvolveMatrixAttributes& aConvolveMatrix) {
+    nsIntRegion operator()(const ConvolveMatrixAttributes& aConvolveMatrix) {
       return ResultChangeRegionForPrimitive(mDescription, mInputExtents);
     }
 
-    nsIntRegion match(const OffsetAttributes& aOffset) {
+    nsIntRegion operator()(const OffsetAttributes& aOffset) {
       return ResultChangeRegionForPrimitive(mDescription, mInputExtents);
     }
 
-    nsIntRegion match(const DisplacementMapAttributes& aDisplacementMap) {
+    nsIntRegion operator()(const DisplacementMapAttributes& aDisplacementMap) {
       return ResultChangeRegionForPrimitive(mDescription, mInputExtents);
     }
 
-    nsIntRegion match(const TurbulenceAttributes& aTurbulence) {
+    nsIntRegion operator()(const TurbulenceAttributes& aTurbulence) {
       return mDescription.PrimitiveSubregion();
     }
 
-    nsIntRegion match(const CompositeAttributes& aComposite) {
+    nsIntRegion operator()(const CompositeAttributes& aComposite) {
       uint32_t op = aComposite.mOperator;
       if (op == SVG_FECOMPOSITE_OPERATOR_ARITHMETIC) {
         // The arithmetic composite primitive can draw outside the bounding
@@ -1655,31 +1674,32 @@ nsIntRegion FilterSupport::PostFilterExtentsForPrimitive(
       return ResultChangeRegionForPrimitive(mDescription, mInputExtents);
     }
 
-    nsIntRegion match(const MergeAttributes& aMerge) {
+    nsIntRegion operator()(const MergeAttributes& aMerge) {
       return ResultChangeRegionForPrimitive(mDescription, mInputExtents);
     }
 
-    nsIntRegion match(const GaussianBlurAttributes& aGaussianBlur) {
+    nsIntRegion operator()(const GaussianBlurAttributes& aGaussianBlur) {
       return ResultChangeRegionForPrimitive(mDescription, mInputExtents);
     }
 
-    nsIntRegion match(const DropShadowAttributes& aDropShadow) {
+    nsIntRegion operator()(const DropShadowAttributes& aDropShadow) {
       return ResultChangeRegionForPrimitive(mDescription, mInputExtents);
     }
 
-    nsIntRegion match(const DiffuseLightingAttributes& aDiffuseLighting) {
+    nsIntRegion operator()(const DiffuseLightingAttributes& aDiffuseLighting) {
       return mDescription.PrimitiveSubregion();
     }
 
-    nsIntRegion match(const SpecularLightingAttributes& aSpecularLighting) {
+    nsIntRegion operator()(
+        const SpecularLightingAttributes& aSpecularLighting) {
       return mDescription.PrimitiveSubregion();
     }
 
-    nsIntRegion match(const ImageAttributes& aImage) {
+    nsIntRegion operator()(const ImageAttributes& aImage) {
       return mDescription.PrimitiveSubregion();
     }
 
-    nsIntRegion match(const ToAlphaAttributes& aToAlpha) {
+    nsIntRegion operator()(const ToAlphaAttributes& aToAlpha) {
       return ResultChangeRegionForPrimitive(mDescription, mInputExtents);
     }
   };
@@ -1688,7 +1708,8 @@ nsIntRegion FilterSupport::PostFilterExtentsForPrimitive(
       PrimitiveAttributesMatcher(aDescription, aInputExtents));
 }
 
-/* static */ nsIntRegion FilterSupport::ComputePostFilterExtents(
+/* static */
+nsIntRegion FilterSupport::ComputePostFilterExtents(
     const FilterDescription& aFilter,
     const nsIntRegion& aSourceGraphicExtents) {
   const nsTArray<FilterPrimitiveDescription>& primitives = aFilter.mPrimitives;
@@ -1732,19 +1753,19 @@ static nsIntRegion SourceNeededRegionForPrimitive(
     const nsIntRegion& mResultNeededRegion;
     const int32_t mInputIndex;
 
-    nsIntRegion match(const EmptyAttributes& aEmptyAttributes) {
+    nsIntRegion operator()(const EmptyAttributes& aEmptyAttributes) {
       return nsIntRegion();
     }
 
-    nsIntRegion match(const BlendAttributes& aBlend) {
+    nsIntRegion operator()(const BlendAttributes& aBlend) {
       return mResultNeededRegion;
     }
 
-    nsIntRegion match(const ColorMatrixAttributes& aColorMatrix) {
+    nsIntRegion operator()(const ColorMatrixAttributes& aColorMatrix) {
       return mResultNeededRegion;
     }
 
-    nsIntRegion match(const MorphologyAttributes& aMorphology) {
+    nsIntRegion operator()(const MorphologyAttributes& aMorphology) {
       Size radii = aMorphology.mRadii;
       int32_t rx = clamped(int32_t(ceil(radii.width)), 0, kMorphologyMaxRadius);
       int32_t ry =
@@ -1752,24 +1773,25 @@ static nsIntRegion SourceNeededRegionForPrimitive(
       return mResultNeededRegion.Inflated(nsIntMargin(ry, rx, ry, rx));
     }
 
-    nsIntRegion match(const FloodAttributes& aFlood) {
+    nsIntRegion operator()(const FloodAttributes& aFlood) {
       MOZ_CRASH("GFX: this shouldn't be called for filters without inputs");
       return nsIntRegion();
     }
 
-    nsIntRegion match(const TileAttributes& aTile) {
+    nsIntRegion operator()(const TileAttributes& aTile) {
       return IntRect(INT32_MIN / 2, INT32_MIN / 2, INT32_MAX, INT32_MAX);
     }
 
-    nsIntRegion match(const ComponentTransferAttributes& aComponentTransfer) {
+    nsIntRegion operator()(
+        const ComponentTransferAttributes& aComponentTransfer) {
       return mResultNeededRegion;
     }
 
-    nsIntRegion match(const OpacityAttributes& aOpacity) {
+    nsIntRegion operator()(const OpacityAttributes& aOpacity) {
       return mResultNeededRegion;
     }
 
-    nsIntRegion match(const ConvolveMatrixAttributes& aConvolveMatrix) {
+    nsIntRegion operator()(const ConvolveMatrixAttributes& aConvolveMatrix) {
       Size kernelUnitLength = aConvolveMatrix.mKernelUnitLength;
       IntSize kernelSize = aConvolveMatrix.mKernelSize;
       IntPoint target = aConvolveMatrix.mTarget;
@@ -1781,12 +1803,12 @@ static nsIntRegion SourceNeededRegionForPrimitive(
       return mResultNeededRegion.Inflated(m);
     }
 
-    nsIntRegion match(const OffsetAttributes& aOffset) {
+    nsIntRegion operator()(const OffsetAttributes& aOffset) {
       IntPoint offset = aOffset.mValue;
       return mResultNeededRegion.MovedBy(-nsIntPoint(offset.x, offset.y));
     }
 
-    nsIntRegion match(const DisplacementMapAttributes& aDisplacementMap) {
+    nsIntRegion operator()(const DisplacementMapAttributes& aDisplacementMap) {
       if (mInputIndex == 1) {
         return mResultNeededRegion;
       }
@@ -1795,28 +1817,28 @@ static nsIntRegion SourceNeededRegionForPrimitive(
           nsIntMargin(scale, scale, scale, scale));
     }
 
-    nsIntRegion match(const TurbulenceAttributes& aTurbulence) {
+    nsIntRegion operator()(const TurbulenceAttributes& aTurbulence) {
       MOZ_CRASH("GFX: this shouldn't be called for filters without inputs");
       return nsIntRegion();
     }
 
-    nsIntRegion match(const CompositeAttributes& aComposite) {
+    nsIntRegion operator()(const CompositeAttributes& aComposite) {
       return mResultNeededRegion;
     }
 
-    nsIntRegion match(const MergeAttributes& aMerge) {
+    nsIntRegion operator()(const MergeAttributes& aMerge) {
       return mResultNeededRegion;
     }
 
-    nsIntRegion match(const GaussianBlurAttributes& aGaussianBlur) {
+    nsIntRegion operator()(const GaussianBlurAttributes& aGaussianBlur) {
       const Size& stdDeviation = aGaussianBlur.mStdDeviation;
       int32_t dx = InflateSizeForBlurStdDev(stdDeviation.width);
       int32_t dy = InflateSizeForBlurStdDev(stdDeviation.height);
       return mResultNeededRegion.Inflated(nsIntMargin(dy, dx, dy, dx));
     }
 
-    nsIntRegion match(const DropShadowAttributes& aDropShadow) {
-      IntPoint offset = aDropShadow.mOffset;
+    nsIntRegion operator()(const DropShadowAttributes& aDropShadow) {
+      IntPoint offset = IntPoint::Truncate(aDropShadow.mOffset);
       nsIntRegion offsetRegion =
           mResultNeededRegion.MovedBy(-nsIntPoint(offset.x, offset.y));
       Size stdDeviation = aDropShadow.mStdDeviation;
@@ -1828,24 +1850,24 @@ static nsIntRegion SourceNeededRegionForPrimitive(
       return blurRegion;
     }
 
-    nsIntRegion match(const SpecularLightingAttributes& aLighting) {
-      return match(
+    nsIntRegion operator()(const SpecularLightingAttributes& aLighting) {
+      return operator()(
           *(static_cast<const DiffuseLightingAttributes*>(&aLighting)));
     }
 
-    nsIntRegion match(const DiffuseLightingAttributes& aLighting) {
+    nsIntRegion operator()(const DiffuseLightingAttributes& aLighting) {
       Size kernelUnitLength = aLighting.mKernelUnitLength;
       int32_t dx = ceil(kernelUnitLength.width);
       int32_t dy = ceil(kernelUnitLength.height);
       return mResultNeededRegion.Inflated(nsIntMargin(dy, dx, dy, dx));
     }
 
-    nsIntRegion match(const ImageAttributes& aImage) {
+    nsIntRegion operator()(const ImageAttributes& aImage) {
       MOZ_CRASH("GFX: this shouldn't be called for filters without inputs");
       return nsIntRegion();
     }
 
-    nsIntRegion match(const ToAlphaAttributes& aToAlpha) {
+    nsIntRegion operator()(const ToAlphaAttributes& aToAlpha) {
       return mResultNeededRegion;
     }
   };
@@ -1854,7 +1876,8 @@ static nsIntRegion SourceNeededRegionForPrimitive(
       aDescription, aResultNeededRegion, aInputIndex));
 }
 
-/* static */ void FilterSupport::ComputeSourceNeededRegions(
+/* static */
+void FilterSupport::ComputeSourceNeededRegions(
     const FilterDescription& aFilter, const nsIntRegion& aResultNeededRegion,
     nsIntRegion& aSourceGraphicNeededRegion,
     nsIntRegion& aFillPaintNeededRegion,
@@ -1905,54 +1928,6 @@ FilterPrimitiveDescription::FilterPrimitiveDescription(
     : mAttributes(std::move(aAttributes)),
       mOutputColorSpace(ColorSpace::SRGB),
       mIsTainted(false) {}
-
-FilterPrimitiveDescription::FilterPrimitiveDescription(
-    const FilterPrimitiveDescription& aOther)
-    : mAttributes(aOther.mAttributes),
-      mInputPrimitives(aOther.mInputPrimitives),
-      mFilterPrimitiveSubregion(aOther.mFilterPrimitiveSubregion),
-      mFilterSpaceBounds(aOther.mFilterSpaceBounds),
-      mInputColorSpaces(aOther.mInputColorSpaces),
-      mOutputColorSpace(aOther.mOutputColorSpace),
-      mIsTainted(aOther.mIsTainted) {}
-
-FilterPrimitiveDescription& FilterPrimitiveDescription::operator=(
-    const FilterPrimitiveDescription& aOther) {
-  if (this != &aOther) {
-    mAttributes = aOther.mAttributes;
-    mInputPrimitives = aOther.mInputPrimitives;
-    mFilterPrimitiveSubregion = aOther.mFilterPrimitiveSubregion;
-    mFilterSpaceBounds = aOther.mFilterSpaceBounds;
-    mInputColorSpaces = aOther.mInputColorSpaces;
-    mOutputColorSpace = aOther.mOutputColorSpace;
-    mIsTainted = aOther.mIsTainted;
-  }
-  return *this;
-}
-
-FilterPrimitiveDescription::FilterPrimitiveDescription(
-    FilterPrimitiveDescription&& aOther)
-    : mAttributes(std::move(aOther.mAttributes)),
-      mInputPrimitives(std::move(aOther.mInputPrimitives)),
-      mFilterPrimitiveSubregion(aOther.mFilterPrimitiveSubregion),
-      mFilterSpaceBounds(aOther.mFilterSpaceBounds),
-      mInputColorSpaces(std::move(aOther.mInputColorSpaces)),
-      mOutputColorSpace(aOther.mOutputColorSpace),
-      mIsTainted(aOther.mIsTainted) {}
-
-FilterPrimitiveDescription& FilterPrimitiveDescription::operator=(
-    FilterPrimitiveDescription&& aOther) {
-  if (this != &aOther) {
-    mAttributes = std::move(aOther.mAttributes);
-    mInputPrimitives = std::move(aOther.mInputPrimitives);
-    mFilterPrimitiveSubregion = aOther.mFilterPrimitiveSubregion;
-    mFilterSpaceBounds = aOther.mFilterSpaceBounds;
-    mInputColorSpaces = std::move(aOther.mInputColorSpaces);
-    mOutputColorSpace = aOther.mOutputColorSpace;
-    mIsTainted = aOther.mIsTainted;
-  }
-  return *this;
-}
 
 bool FilterPrimitiveDescription::operator==(
     const FilterPrimitiveDescription& aOther) const {

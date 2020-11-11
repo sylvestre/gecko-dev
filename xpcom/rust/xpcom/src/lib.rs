@@ -11,20 +11,16 @@
 #![allow(non_snake_case)]
 #![allow(non_camel_case_types)]
 
-extern crate libc;
-extern crate nsstring;
-extern crate nserror;
-
 // re-export the xpcom_macros macro
-#[macro_use]
-#[allow(unused_imports)]
-extern crate xpcom_macros;
-#[doc(hidden)]
-pub use xpcom_macros::*;
+pub use xpcom_macros::xpcom;
 
 // Helper functions and data structures are exported in the root of the crate.
 mod base;
 pub use base::*;
+
+// Declarative macro to generate XPCOM method stubs.
+mod method;
+pub use method::*;
 
 mod refptr;
 pub use refptr::*;

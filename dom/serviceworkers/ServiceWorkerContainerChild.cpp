@@ -5,17 +5,16 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "mozilla/dom/PServiceWorkerContainerChild.h"
+#include "mozilla/dom/WorkerRef.h"
 
 #include "RemoteServiceWorkerContainerImpl.h"
+#include "ServiceWorkerContainerChild.h"
 
 namespace mozilla {
 namespace dom {
 
 void ServiceWorkerContainerChild::ActorDestroy(ActorDestroyReason aReason) {
-  if (mWorkerHolderToken) {
-    mWorkerHolderToken->RemoveListener(this);
-    mWorkerHolderToken = nullptr;
-  }
+  mIPCWorkerRef = nullptr;
 
   if (mOwner) {
     mOwner->RevokeActor(this);
@@ -23,17 +22,31 @@ void ServiceWorkerContainerChild::ActorDestroy(ActorDestroyReason aReason) {
   }
 }
 
-void ServiceWorkerContainerChild::WorkerShuttingDown() { MaybeStartTeardown(); }
+// static
+already_AddRefed<ServiceWorkerContainerChild>
+ServiceWorkerContainerChild::Create() {
+  RefPtr actor = new ServiceWorkerContainerChild;
 
-ServiceWorkerContainerChild::ServiceWorkerContainerChild(
-    WorkerHolderToken* aWorkerHolderToken)
-    : mWorkerHolderToken(aWorkerHolderToken),
-      mOwner(nullptr),
-      mTeardownStarted(false) {
-  if (mWorkerHolderToken) {
-    mWorkerHolderToken->AddListener(this);
+  if (!NS_IsMainThread()) {
+    WorkerPrivate* workerPrivate = GetCurrentThreadWorkerPrivate();
+    MOZ_DIAGNOSTIC_ASSERT(workerPrivate);
+
+    RefPtr<IPCWorkerRefHelper<ServiceWorkerContainerChild>> helper =
+        new IPCWorkerRefHelper<ServiceWorkerContainerChild>(actor);
+
+    actor->mIPCWorkerRef = IPCWorkerRef::Create(
+        workerPrivate, "ServiceWorkerContainerChild",
+        [helper] { helper->Actor()->MaybeStartTeardown(); });
+    if (NS_WARN_IF(!actor->mIPCWorkerRef)) {
+      return nullptr;
+    }
   }
+
+  return actor.forget();
 }
+
+ServiceWorkerContainerChild::ServiceWorkerContainerChild()
+    : mOwner(nullptr), mTeardownStarted(false) {}
 
 void ServiceWorkerContainerChild::SetOwner(
     RemoteServiceWorkerContainerImpl* aOwner) {

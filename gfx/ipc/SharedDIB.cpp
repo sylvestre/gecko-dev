@@ -22,11 +22,7 @@ nsresult SharedDIB::Create(uint32_t aSize) {
   return NS_OK;
 }
 
-bool SharedDIB::IsValid() {
-  if (!mShMem) return false;
-
-  return base::SharedMemory::IsHandleValid(mShMem->handle());
-}
+bool SharedDIB::IsValid() { return mShMem && mShMem->IsValid(); }
 
 nsresult SharedDIB::Close() {
   delete mShMem;
@@ -46,7 +42,7 @@ nsresult SharedDIB::Attach(Handle aHandle, uint32_t aSize) {
 }
 
 nsresult SharedDIB::ShareToProcess(base::ProcessId aTargetPid,
-                                   Handle *aNewHandle) {
+                                   Handle* aNewHandle) {
   if (!mShMem) return NS_ERROR_UNEXPECTED;
 
   if (!mShMem->ShareToProcess(aTargetPid, aNewHandle))

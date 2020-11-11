@@ -8,7 +8,8 @@
 #define vm_ProxyObject_h
 
 #include "js/Proxy.h"
-#include "vm/ShapedObject.h"
+#include "js/shadow/Object.h"  // JS::shadow::Object
+#include "vm/JSObject.h"
 
 namespace js {
 
@@ -16,14 +17,14 @@ namespace js {
  * This is the base class for the various kinds of proxy objects.  It's never
  * instantiated.
  *
- * Proxy objects use ShapedObject::shape_ primarily to record flags.  Property
+ * Proxy objects use their shape primarily to record flags. Property
  * information, &c. is all dynamically computed.
  *
  * There is no class_ member to force specialization of JSObject::is<T>().
  * The implementation in JSObject is incorrect for proxies since it doesn't
  * take account of the handler type.
  */
-class ProxyObject : public ShapedObject {
+class ProxyObject : public JSObject {
   // GetProxyDataLayout computes the address of this field.
   detail::ProxyDataLayout data;
 
@@ -33,20 +34,21 @@ class ProxyObject : public ShapedObject {
     static_assert(offsetof(ProxyObject, data) == detail::ProxyDataOffset,
                   "proxy object layout must match shadow interface");
     static_assert(offsetof(ProxyObject, data.reservedSlots) ==
-                      offsetof(shadow::Object, slots),
+                      offsetof(JS::shadow::Object, slots),
                   "Proxy reservedSlots must overlay native object slots field");
   }
-
-  static JS::Result<ProxyObject*, JS::OOM&> create(JSContext* cx,
-                                                   const js::Class* clasp,
-                                                   Handle<TaggedProto> proto,
-                                                   js::gc::AllocKind allocKind,
-                                                   js::NewObjectKind newKind);
 
  public:
   static ProxyObject* New(JSContext* cx, const BaseProxyHandler* handler,
                           HandleValue priv, TaggedProto proto_,
-                          const ProxyOptions& options);
+                          const JSClass* clasp);
+
+  static ProxyObject* NewSingleton(JSContext* cx,
+                                   const BaseProxyHandler* handler,
+                                   HandleValue priv, TaggedProto proto_,
+                                   const JSClass* clasp);
+
+  void init(const BaseProxyHandler* handler, HandleValue priv, JSContext* cx);
 
   // Proxies usually store their ProxyValueArray inline in the object.
   // There's one unfortunate exception: when a proxy is swapped with another
@@ -62,10 +64,14 @@ class ProxyObject : public ShapedObject {
         &reinterpret_cast<detail::ProxyValueArray*>(inlineDataStart())
              ->reservedSlots;
   }
-  MOZ_MUST_USE bool initExternalValueArrayAfterSwap(
-      JSContext* cx, const AutoValueVector& values);
+
+  MOZ_MUST_USE bool initExternalValueArrayAfterSwap(JSContext* cx,
+                                                    HandleValueVector values);
 
   const Value& private_() const { return GetProxyPrivate(this); }
+  const Value& expando() const { return GetProxyExpando(this); }
+
+  void setExpando(JSObject* expando);
 
   void setCrossCompartmentPrivate(const Value& priv);
   void setSameCompartmentPrivate(const Value& priv);
@@ -107,9 +113,14 @@ class ProxyObject : public ShapedObject {
         &detail::GetProxyDataLayout(this)->values()->privateSlot);
   }
 
+  GCPtrValue* slotOfExpando() {
+    return reinterpret_cast<GCPtrValue*>(
+        &detail::GetProxyDataLayout(this)->values()->expandoSlot);
+  }
+
   void setPrivate(const Value& priv);
 
-  static bool isValidProxyClass(const Class* clasp) {
+  static bool isValidProxyClass(const JSClass* clasp) {
     // Since we can take classes from the outside, make sure that they
     // are "sane". They have to quack enough like proxies for us to belive
     // they should be treated as such.
@@ -132,7 +143,7 @@ class ProxyObject : public ShapedObject {
   void nuke();
 };
 
-inline bool IsProxyClass(const Class* clasp) { return clasp->isProxy(); }
+inline bool IsProxyClass(const JSClass* clasp) { return clasp->isProxy(); }
 
 bool IsDerivedProxyObject(const JSObject* obj,
                           const js::BaseProxyHandler* handler);

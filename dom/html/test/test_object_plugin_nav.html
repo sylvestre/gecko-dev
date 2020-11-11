@@ -6,8 +6,8 @@ https://bugzilla.mozilla.org/show_bug.cgi?id=720130
 <head>
   <meta charset="utf-8">
   <title>Test for Bug 720130</title>
-  <script type="application/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
-  <script type="application/javascript" src="/tests/SimpleTest/EventUtils.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/EventUtils.js"></script>
   <script type="application/javascript" src="plugin-utils.js"></script>
   <script type="application/javascript">
     setTestPluginEnabledState(SpecialPowers.Ci.nsIPluginTag.STATE_ENABLED);
@@ -62,8 +62,8 @@ SimpleTest.waitForExplicitFinish();
 function doTest() {
   is(document.activeElement, document.body);
 
-  // Preliminary check: tabindex should be -1 on the object.
-  is(document.getElementsByTagName('object')[0].tabIndex, -1,
+  // Preliminary check: tabindex should be 0 on the object.
+  is(document.getElementsByTagName('object')[0].tabIndex, 0,
      "the plugin shouldn't get focus while navigating in the document");
 
   document.addEventListener("focus", function() {

@@ -8,12 +8,14 @@
 #include <climits>
 #include <cmath>
 #include <fstream>
+#include <mutex>
 #include <prinrval.h>
+#include <type_traits>
 #ifdef _WINDOWS
-#include <process.h>
-#define getpid _getpid
+#  include <process.h>
+#  define getpid _getpid
 #else
-#include <unistd.h>
+#  include <unistd.h>
 #endif
 #include "base/string_util.h"
 #include "FuzzingMutate.h"
@@ -22,9 +24,8 @@
 #include "chrome/common/ipc_message.h"
 #include "chrome/common/file_descriptor_set_posix.h"
 #include "mozilla/ipc/Faulty.h"
-#include "mozilla/TypeTraits.h"
+#include "nsComponentManagerUtils.h"
 #include "nsNetCID.h"
-#include "nsIEventTarget.h"
 #include "nsIFile.h"
 #include "nsIFileStreams.h"
 #include "nsILineInputStream.h"
@@ -39,7 +40,7 @@
 
 #ifdef IsLoggingEnabled
 // This is defined in the Windows SDK urlmon.h
-#undef IsLoggingEnabled
+#  undef IsLoggingEnabled
 #endif
 
 namespace mozilla {
@@ -47,36 +48,32 @@ namespace ipc {
 
 using namespace mozilla::fuzzing;
 
-const unsigned int Faulty::sDefaultProbability = Faulty::DefaultProbability();
-const bool Faulty::sIsLoggingEnabled = Faulty::Logging();
-
 /**
  * FuzzIntegralType mutates an incercepted integral type of a pickled message.
  */
 template <typename T>
 void FuzzIntegralType(T* v, bool largeValues) {
-  static_assert(mozilla::IsIntegral<T>::value == true,
-                "T must be an integral type");
+  static_assert(std::is_integral_v<T> == true, "T must be an integral type");
   switch (FuzzingTraits::Random(6)) {
     case 0:
       if (largeValues) {
         (*v) = RandomInteger<T>();
         break;
       }
-      MOZ_FALLTHROUGH;
+      [[fallthrough]];
     case 1:
       if (largeValues) {
         (*v) = RandomNumericLimit<T>();
         break;
       }
-      MOZ_FALLTHROUGH;
+      [[fallthrough]];
     case 2:
       if (largeValues) {
         (*v) = RandomIntegerRange<T>(std::numeric_limits<T>::min(),
                                      std::numeric_limits<T>::max());
         break;
       }
-      MOZ_FALLTHROUGH;
+      [[fallthrough]];
     default:
       switch (FuzzingTraits::Random(2)) {
         case 0:
@@ -85,7 +82,7 @@ void FuzzIntegralType(T* v, bool largeValues) {
             (*v)--;
             break;
           }
-          MOZ_FALLTHROUGH;
+          [[fallthrough]];
         case 1:
           // Prevent overflow
           if (*v != std::numeric_limits<T>::max()) {
@@ -102,7 +99,7 @@ void FuzzIntegralType(T* v, bool largeValues) {
  */
 template <typename T>
 void FuzzFloatingPointType(T* v, bool largeValues) {
-  static_assert(mozilla::IsFloatingPoint<T>::value == true,
+  static_assert(std::is_floating_point_v<T> == true,
                 "T must be a floating point type");
   switch (FuzzingTraits::Random(6)) {
     case 0:
@@ -110,14 +107,14 @@ void FuzzFloatingPointType(T* v, bool largeValues) {
         (*v) = RandomNumericLimit<T>();
         break;
       }
-      MOZ_FALLTHROUGH;
+      [[fallthrough]];
     case 1:
       if (largeValues) {
         (*v) = RandomFloatingPointRange<T>(std::numeric_limits<T>::min(),
                                            std::numeric_limits<T>::max());
         break;
       }
-      MOZ_FALLTHROUGH;
+      [[fallthrough]];
     default:
       (*v) = RandomFloatingPoint<T>();
   }
@@ -131,10 +128,10 @@ void FuzzStringType(T& v, const T& literal1, const T& literal2) {
   switch (FuzzingTraits::Random(5)) {
     case 4:
       v = v + v;
-      MOZ_FALLTHROUGH;
+      [[fallthrough]];
     case 3:
       v = v + v;
-      MOZ_FALLTHROUGH;
+      [[fallthrough]];
     case 2:
       v = v + v;
       break;
@@ -168,7 +165,7 @@ Faulty::Faulty()
       mIsValidProcessType(IsValidProcessType()) {
   if (mIsValidProcessType) {
     FAULTY_LOG("Initializing for new process of type '%s' with pid %u.",
-               XRE_ChildProcessTypeToString(XRE_GetProcessType()), getpid());
+               XRE_GetProcessTypeString(), getpid());
 
     /* Setup random seed. */
     const char* userSeed = PR_GetEnv("FAULTY_SEED");
@@ -179,7 +176,7 @@ Faulty::Faulty()
         randomSeed = static_cast<unsigned long>(n);
       }
     }
-    FuzzingTraits::rng.seed(randomSeed);
+    FuzzingTraits::Rng().seed(randomSeed);
 
     /* Setup directory for dumping messages. */
     mMessagePath = PR_GetEnv("FAULTY_MESSAGE_PATH");
@@ -201,7 +198,7 @@ Faulty::Faulty()
                mFuzzPickle ? "enabled" : "disabled");
     FAULTY_LOG("* Fuzzing strategy: pipe     = %s",
                mFuzzPipes ? "enabled" : "disabled");
-    FAULTY_LOG("* Fuzzing probability        = %u", sDefaultProbability);
+    FAULTY_LOG("* Fuzzing probability        = %u", DefaultProbability());
     FAULTY_LOG("* Fuzzing mutation factor    = %u", MutationFactor());
     FAULTY_LOG("* RNG seed                   = %lu", randomSeed);
 
@@ -214,17 +211,12 @@ bool Faulty::IsValidProcessType(void) {
   bool isValidProcessType;
   const bool targetChildren = !!PR_GetEnv("FAULTY_CHILDREN");
   const bool targetParent = !!PR_GetEnv("FAULTY_PARENT");
-  unsigned short int currentProcessType = XRE_GetProcessType();
+  const bool isParent = XRE_IsParentProcess();
 
   if (targetChildren && !targetParent) {
     // Fuzz every child process type but not the parent process.
-    isValidProcessType = currentProcessType == GeckoProcessType_Default;
-  } else if (!targetChildren && targetParent &&
-             (currentProcessType == GeckoProcessType_Plugin ||
-              currentProcessType == GeckoProcessType_Content ||
-              currentProcessType == GeckoProcessType_GMPlugin ||
-              currentProcessType == GeckoProcessType_GPU ||
-              currentProcessType == GeckoProcessType_VR)) {
+    isValidProcessType = isParent;
+  } else if (!targetChildren && targetParent && !isParent) {
     // Fuzz inside any of the above child process only.
     isValidProcessType = true;
   } else if (targetChildren && targetParent) {
@@ -237,29 +229,37 @@ bool Faulty::IsValidProcessType(void) {
 
   if (!isValidProcessType) {
     FAULTY_LOG("Disabled for this process of type '%s' with pid %d.",
-               XRE_ChildProcessTypeToString(XRE_GetProcessType()), getpid());
+               XRE_GetProcessTypeString(), getpid());
   }
 
   return isValidProcessType;
 }
 
 // static
-unsigned int Faulty::DefaultProbability(void) {
-  // Defines the likelihood of fuzzing a message.
-  const char* probability = PR_GetEnv("FAULTY_PROBABILITY");
-  if (probability) {
-    long n = std::strtol(probability, nullptr, 10);
-    if (n != 0) {
-      return n;
+unsigned int Faulty::DefaultProbability() {
+  static std::once_flag flag;
+  static unsigned probability;
+
+  std::call_once(flag, [&] {
+    probability = FAULTY_DEFAULT_PROBABILITY;
+    // Defines the likelihood of fuzzing a message.
+    if (const char* p = PR_GetEnv("FAULTY_PROBABILITY")) {
+      long n = std::strtol(p, nullptr, 10);
+      if (n != 0) {
+        probability = n;
+      }
     }
-  }
-  return FAULTY_DEFAULT_PROBABILITY;
+  });
+
+  return probability;
 }
 
 // static
-bool Faulty::Logging(void) {
-  // Enables logging of sendmsg() calls even in optimized builds.
-  return !!PR_GetEnv("FAULTY_ENABLE_LOGGING");
+bool Faulty::IsLoggingEnabled(void) {
+  static bool enabled;
+  static std::once_flag flag;
+  std::call_once(flag, [&] { enabled = !!PR_GetEnv("FAULTY_ENABLE_LOGGING"); });
+  return enabled;
 }
 
 // static
@@ -449,21 +449,6 @@ void Faulty::FuzzULong(unsigned long* aValue, unsigned int aProbability) {
       unsigned long oldValue = *aValue;
       MutateULong(aValue);
       FAULTY_LOG("Message field |unsigned long| of value: %lu mutated to: %lu",
-                 oldValue, *aValue);
-    }
-  }
-}
-
-void Faulty::MutateSize(size_t* aValue) {
-  FuzzIntegralType<size_t>(aValue, mUseLargeValues);
-}
-
-void Faulty::FuzzSize(size_t* aValue, unsigned int aProbability) {
-  if (mIsValidProcessType) {
-    if (mFuzzPickle && FuzzingTraits::Sometimes(aProbability)) {
-      size_t oldValue = *aValue;
-      MutateSize(aValue);
-      FAULTY_LOG("Message field |size_t| of value: %zu mutated to: %zu",
                  oldValue, *aValue);
     }
   }
@@ -684,14 +669,15 @@ void Faulty::CopyFDs(IPC::Message* aDstMsg, IPC::Message* aSrcMsg) {
 #endif
 }
 
-IPC::Message* Faulty::MutateIPCMessage(const char* aChannel, IPC::Message* aMsg,
-                                       unsigned int aProbability) {
+UniquePtr<IPC::Message> Faulty::MutateIPCMessage(const char* aChannel,
+                                                 UniquePtr<IPC::Message> aMsg,
+                                                 unsigned int aProbability) {
   if (!mIsValidProcessType || !mFuzzMessages) {
     return aMsg;
   }
 
   sMsgCounter += 1;
-  LogMessage(aChannel, aMsg);
+  LogMessage(aChannel, aMsg.get());
 
   /* Skip immediately if we shall not try to fuzz this message. */
   if (!FuzzingTraits::Sometimes(aProbability)) {
@@ -713,7 +699,7 @@ IPC::Message* Faulty::MutateIPCMessage(const char* aChannel, IPC::Message* aMsg,
   }
 
   /* Retrieve BufferLists as data from original message. */
-  std::vector<uint8_t> data(GetDataFromIPCMessage(aMsg));
+  std::vector<uint8_t> data(GetDataFromIPCMessage(aMsg.get()));
 
   /* Check if there is enough data in the message to fuzz. */
   uint32_t headerSize = aMsg->HeaderSizeFromData(nullptr, nullptr);
@@ -746,17 +732,16 @@ IPC::Message* Faulty::MutateIPCMessage(const char* aChannel, IPC::Message* aMsg,
   }
 
   /* Build new message. */
-  auto* mutatedMsg =
-      new IPC::Message(reinterpret_cast<const char*>(data.data()), data.size());
-  CopyFDs(mutatedMsg, aMsg);
+  auto mutatedMsg = MakeUnique<IPC::Message>(
+      reinterpret_cast<const char*>(data.data()), data.size());
+  CopyFDs(mutatedMsg.get(), aMsg.get());
 
   /* Dump original message for diff purposes. */
-  DumpMessage(aChannel, aMsg, nsPrintfCString(".%zu.o", sMsgCounter).get());
+  DumpMessage(aChannel, aMsg.get(),
+              nsPrintfCString(".%zu.o", sMsgCounter).get());
   /* Dump mutated message for diff purposes. */
-  DumpMessage(aChannel, mutatedMsg,
+  DumpMessage(aChannel, mutatedMsg.get(),
               nsPrintfCString(".%zu.m", sMsgCounter).get());
-
-  delete aMsg;
 
   return mutatedMsg;
 }

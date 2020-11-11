@@ -5,17 +5,17 @@
 #ifndef mozilla_dom_CanvasGradient_h
 #define mozilla_dom_CanvasGradient_h
 
-#include "mozilla/Attributes.h"
 #include "nsTArray.h"
 #include "mozilla/RefPtr.h"
 #include "mozilla/dom/CanvasRenderingContext2DBinding.h"
-#include "mozilla/dom/CanvasRenderingContext2D.h"
 #include "mozilla/gfx/2D.h"
 #include "nsWrapperCache.h"
 #include "gfxGradientCache.h"
 
 namespace mozilla {
 namespace dom {
+
+class CanvasRenderingContext2D;
 
 class CanvasGradient : public nsWrapperCache {
  public:
@@ -39,7 +39,7 @@ class CanvasGradient : public nsWrapperCache {
   }
 
   // WebIDL
-  void AddColorStop(float offset, const nsAString& colorstr, ErrorResult& rv);
+  void AddColorStop(float offset, const nsACString& colorstr, ErrorResult& rv);
 
   JSObject* WrapObject(JSContext* aCx,
                        JS::Handle<JSObject*> aGivenProto) override {
@@ -51,14 +51,14 @@ class CanvasGradient : public nsWrapperCache {
  protected:
   friend struct CanvasBidiProcessor;
 
-  CanvasGradient(CanvasRenderingContext2D* aContext, Type aType)
-      : mContext(aContext), mType(aType) {}
+  CanvasGradient(CanvasRenderingContext2D* aContext, Type aType);
+
+  virtual ~CanvasGradient();
 
   RefPtr<CanvasRenderingContext2D> mContext;
   nsTArray<mozilla::gfx::GradientStop> mRawStops;
   RefPtr<mozilla::gfx::GradientStops> mStops;
   Type mType;
-  virtual ~CanvasGradient() {}
 };
 
 }  // namespace dom

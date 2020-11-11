@@ -5,9 +5,11 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "mozilla/dom/FileSystemUtils.h"
+#include "nsCharSeparatedTokenizer.h"
+#include "nsIEventTarget.h"
+#include "nsThreadUtils.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 namespace {
 
@@ -15,8 +17,9 @@ bool TokenizerIgnoreNothing(char16_t /* aChar */) { return false; }
 
 }  // anonymous namespace
 
-/* static */ bool FileSystemUtils::IsDescendantPath(
-    const nsAString& aPath, const nsAString& aDescendantPath) {
+/* static */
+bool FileSystemUtils::IsDescendantPath(const nsAString& aPath,
+                                       const nsAString& aDescendantPath) {
   // Check the sub-directory path to see if it has the parent path as prefix.
   if (!aDescendantPath.Equals(aPath) &&
       !StringBeginsWith(aDescendantPath, aPath)) {
@@ -26,8 +29,9 @@ bool TokenizerIgnoreNothing(char16_t /* aChar */) { return false; }
   return true;
 }
 
-/* static */ bool FileSystemUtils::IsValidRelativeDOMPath(
-    const nsAString& aPath, nsTArray<nsString>& aParts) {
+/* static */
+bool FileSystemUtils::IsValidRelativeDOMPath(const nsAString& aPath,
+                                             nsTArray<nsString>& aParts) {
   // We don't allow empty relative path to access the root.
   if (aPath.IsEmpty()) {
     return false;
@@ -39,8 +43,8 @@ bool TokenizerIgnoreNothing(char16_t /* aChar */) { return false; }
     return false;
   }
 
-  NS_NAMED_LITERAL_STRING(kCurrentDir, ".");
-  NS_NAMED_LITERAL_STRING(kParentDir, "..");
+  constexpr auto kCurrentDir = u"."_ns;
+  constexpr auto kParentDir = u".."_ns;
 
   // Split path and check each path component.
   nsCharSeparatedTokenizerTemplate<TokenizerIgnoreNothing> tokenizer(
@@ -62,13 +66,14 @@ bool TokenizerIgnoreNothing(char16_t /* aChar */) { return false; }
   return true;
 }
 
-/* static */ nsresult FileSystemUtils::DispatchRunnable(
+/* static */
+nsresult FileSystemUtils::DispatchRunnable(
     nsIGlobalObject* aGlobal, already_AddRefed<nsIRunnable>&& aRunnable) {
   nsCOMPtr<nsIRunnable> runnable = aRunnable;
 
   nsCOMPtr<nsIEventTarget> target;
   if (!aGlobal) {
-    target = SystemGroup::EventTargetFor(TaskCategory::Other);
+    target = GetMainThreadSerialEventTarget();
   } else {
     target = aGlobal->EventTargetFor(TaskCategory::Other);
   }
@@ -83,5 +88,4 @@ bool TokenizerIgnoreNothing(char16_t /* aChar */) { return false; }
   return NS_OK;
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

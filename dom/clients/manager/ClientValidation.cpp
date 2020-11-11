@@ -6,11 +6,11 @@
 
 #include "ClientValidation.h"
 
-#include "ClientPrefs.h"
+#include "mozilla/ipc/PBackgroundSharedTypes.h"
+#include "mozilla/StaticPrefs_security.h"
 #include "mozilla/net/MozURL.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 using mozilla::ipc::ContentPrincipalInfo;
 using mozilla::ipc::PrincipalInfo;
@@ -58,7 +58,9 @@ bool ClientIsValidPrincipalInfo(const PrincipalInfo& aPrincipalInfo) {
       // cases in the future.
       return specOrigin == originOrigin;
     }
-    default: { break; }
+    default: {
+      break;
+    }
   }
 
   // Windows and workers should not have expanded URLs, etc.
@@ -107,13 +109,6 @@ bool ClientIsValidCreationURL(const PrincipalInfo& aPrincipalInfo,
         return true;
       }
 
-      // We have some tests that use data: URL windows without an opaque
-      // origin.  This should only happen when a pref is set.
-      if (!ClientPrefsGetDataURLUniqueOpaqueOrigin() &&
-          scheme.LowerCaseEqualsLiteral("data")) {
-        return true;
-      }
-
       // Otherwise don't support this URL type in the clients sub-system for
       // now.  This will exclude a variety of internal browser clients, but
       // currently we don't need to support those.  This function can be
@@ -131,10 +126,7 @@ bool ClientIsValidCreationURL(const PrincipalInfo& aPrincipalInfo,
              scheme.LowerCaseEqualsLiteral("resource") ||
              scheme.LowerCaseEqualsLiteral("blob") ||
              scheme.LowerCaseEqualsLiteral("javascript") ||
-             scheme.LowerCaseEqualsLiteral("view-source") ||
-
-             (!ClientPrefsGetDataURLUniqueOpaqueOrigin() &&
-              scheme.LowerCaseEqualsLiteral("data"));
+             scheme.LowerCaseEqualsLiteral("view-source");
     }
     case PrincipalInfo::TNullPrincipalInfo: {
       // A wide variety of clients can have a null principal.  For example,
@@ -144,12 +136,13 @@ bool ClientIsValidCreationURL(const PrincipalInfo& aPrincipalInfo,
       // queries anyway.
       return true;
     }
-    default: { break; }
+    default: {
+      break;
+    }
   }
 
   // Clients (windows/workers) should never have an expanded principal type.
   return false;
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

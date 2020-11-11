@@ -7,12 +7,12 @@
 #ifndef vm_Time_h
 #define vm_Time_h
 
-#include "mozilla/RecordReplay.h"
 #include "mozilla/TimeStamp.h"
 
 #include <stddef.h>
 #include <stdint.h>
 
+#if !JS_HAS_INTL_API || MOZ_SYSTEM_ICU
 /*
  * Broken down form of 64 bit time value.
  */
@@ -28,6 +28,7 @@ struct PRMJTime {
   int16_t tm_yday; /* day of year (0 to 365) */
   int8_t tm_isdst; /* non-zero if DST in effect */
 };
+#endif
 
 /* Some handy constants */
 #define PRMJ_USEC_PER_SEC 1000000L
@@ -50,10 +51,12 @@ extern void PRMJ_NowShutdown();
 inline void PRMJ_NowShutdown() {}
 #endif
 
+#if !JS_HAS_INTL_API || MOZ_SYSTEM_ICU
 /* Format a time value into a buffer. Same semantics as strftime() */
 extern size_t PRMJ_FormatTime(char* buf, size_t buflen, const char* fmt,
                               const PRMJTime* tm, int timeZoneYear,
                               int offsetInSeconds);
+#endif
 
 /**
  * Requesting the number of cycles from the CPU.
@@ -125,20 +128,12 @@ extern size_t PRMJ_FormatTime(char* buf, size_t buflen, const char* fmt,
 
 #if defined(_WIN32) && (defined(_M_IX86) || defined(_M_AMD64))
 
-#include <intrin.h>
-static __inline uint64_t ReadTimestampCounter(void) {
-  if (mozilla::recordreplay::IsRecordingOrReplaying()) {
-    return 0;
-  }
-  return __rdtsc();
-}
+#  include <intrin.h>
+static __inline uint64_t ReadTimestampCounter(void) { return __rdtsc(); }
 
 #elif defined(__i386__)
 
 static __inline__ uint64_t ReadTimestampCounter(void) {
-  if (mozilla::recordreplay::IsRecordingOrReplaying()) {
-    return 0;
-  }
   uint64_t x;
   __asm__ volatile(".byte 0x0f, 0x31" : "=A"(x));
   return x;
@@ -147,9 +142,6 @@ static __inline__ uint64_t ReadTimestampCounter(void) {
 #elif defined(__x86_64__)
 
 static __inline__ uint64_t ReadTimestampCounter(void) {
-  if (mozilla::recordreplay::IsRecordingOrReplaying()) {
-    return 0;
-  }
   unsigned hi, lo;
   __asm__ __volatile__("rdtsc" : "=a"(lo), "=d"(hi));
   return ((uint64_t)lo) | (((uint64_t)hi) << 32);
@@ -157,17 +149,31 @@ static __inline__ uint64_t ReadTimestampCounter(void) {
 
 #else
 
-#undef MOZ_HAVE_RDTSC
+#  undef MOZ_HAVE_RDTSC
 
 #endif
 
 namespace js {
 
-// Get the current time, bypassing any record/replay instrumentation.
 static inline mozilla::TimeStamp ReallyNow() {
-  mozilla::recordreplay::AutoPassThroughThreadEvents pt;
   return mozilla::TimeStamp::NowUnfuzzed();
 }
+
+class MOZ_RAII AutoIncrementalTimer {
+  mozilla::TimeStamp startTime;
+  mozilla::TimeDuration& output;
+
+ public:
+  AutoIncrementalTimer(const AutoIncrementalTimer&) = delete;
+  AutoIncrementalTimer& operator=(const AutoIncrementalTimer&) = delete;
+
+  explicit AutoIncrementalTimer(mozilla::TimeDuration& output_)
+      : output(output_) {
+    startTime = ReallyNow();
+  }
+
+  ~AutoIncrementalTimer() { output += ReallyNow() - startTime; }
+};
 
 }  // namespace js
 

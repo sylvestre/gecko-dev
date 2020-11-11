@@ -29,7 +29,7 @@ ENameValueFlag XULMenuitemAccessibleWrap::Name(nsString& aName) const {
     mContent->AsElement()->GetAttr(kNameSpaceID_None, nsGkAtoms::acceltext,
                                    accel);
   }
-  if (!accel.IsEmpty()) aName += NS_LITERAL_STRING("\t") + accel;
+  if (!accel.IsEmpty()) aName += u"\t"_ns + accel;
 
   return eNameOK;
 }
@@ -44,6 +44,10 @@ XULMenuitemAccessibleWrap::get_accKeyboardShortcut(
   if (varChild.vt != VT_I4 || varChild.lVal != CHILDID_SELF) {
     return AccessibleWrap::get_accKeyboardShortcut(varChild,
                                                    pszKeyboardShortcut);
+  }
+
+  if (IsDefunct()) {
+    return CO_E_OBJNOTCONNECTED;
   }
 
   KeyBinding keyBinding = AccessKey();

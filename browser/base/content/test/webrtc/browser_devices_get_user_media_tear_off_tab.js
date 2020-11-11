@@ -3,63 +3,94 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 var gTests = [
+  {
+    desc: "getUserMedia: tearing-off a tab keeps sharing indicators",
+    skipObserverVerification: true,
+    run: async function checkTearingOff() {
+      await enableObserverVerification();
 
-{
-  desc: "getUserMedia: tearing-off a tab keeps sharing indicators",
-  run: async function checkTearingOff() {
-    let promise = promisePopupNotificationShown("webRTC-shareDevices");
-    await promiseRequestDevice(true, true);
-    await promise;
-    await expectObserverCalled("getUserMedia:request");
-    checkDeviceSelectors(true, true);
+      let promise = promisePopupNotificationShown("webRTC-shareDevices");
+      let observerPromise = expectObserverCalled("getUserMedia:request");
+      await promiseRequestDevice(true, true);
+      await promise;
+      await observerPromise;
+      checkDeviceSelectors(true, true);
 
-    let indicator = promiseIndicatorWindow();
-    await promiseMessage("ok", () => {
-      PopupNotifications.panel.firstElementChild.button.click();
-    });
-    await expectObserverCalled("getUserMedia:response:allow");
-    await expectObserverCalled("recording-device-events");
-    Assert.deepEqual((await getMediaCaptureState()), {audio: true, video: true},
-                     "expected camera and microphone to be shared");
+      let indicator = promiseIndicatorWindow();
+      let observerPromise1 = expectObserverCalled(
+        "getUserMedia:response:allow"
+      );
+      let observerPromise2 = expectObserverCalled("recording-device-events");
+      await promiseMessage("ok", () => {
+        PopupNotifications.panel.firstElementChild.button.click();
+      });
+      await observerPromise1;
+      await observerPromise2;
+      Assert.deepEqual(
+        await getMediaCaptureState(),
+        { audio: true, video: true },
+        "expected camera and microphone to be shared"
+      );
 
-    await indicator;
-    await checkSharingUI({video: true, audio: true});
+      await indicator;
+      await checkSharingUI({ video: true, audio: true });
 
-    info("tearing off the tab");
-    let win = gBrowser.replaceTabWithWindow(gBrowser.selectedTab);
-    await whenDelayedStartupFinished(win);
-    await checkSharingUI({audio: true, video: true}, win);
+      // Don't listen to observer notifications in the tab any more, as
+      // they will need to be switched to the new window.
+      await disableObserverVerification();
 
-    // Clicking the global sharing indicator should open the control center in
-    // the second window.
-    ok(win.gIdentityHandler._identityPopup.hidden, "control center should be hidden");
-    let activeStreams = webrtcUI.getActiveStreams(true, false, false);
-    webrtcUI.showSharingDoorhanger(activeStreams[0], "Devices");
-    ok(!win.gIdentityHandler._identityPopup.hidden,
-       "control center should be open in the second window");
-    ok(gIdentityHandler._identityPopup.hidden,
-       "control center should be hidden in the first window");
-    win.gIdentityHandler._identityPopup.hidden = true;
+      info("tearing off the tab");
+      let win = gBrowser.replaceTabWithWindow(gBrowser.selectedTab);
+      await whenDelayedStartupFinished(win);
+      await checkSharingUI({ audio: true, video: true }, win);
 
-    // Closing the new window should remove all sharing indicators.
-    // We need to load the content script in the first window so that we can
-    // catch the notifications fired globally when closing the second window.
-    gBrowser.selectedBrowser.messageManager.loadFrameScript(CONTENT_SCRIPT_HELPER, true);
+      await enableObserverVerification(win.gBrowser.selectedBrowser);
 
-    let promises = [promiseObserverCalled("recording-device-events"),
-                    promiseObserverCalled("recording-window-ended")];
-    await BrowserTestUtils.closeWindow(win);
-    await Promise.all(promises);
+      // Clicking the global sharing indicator should open the control center in
+      // the second window.
+      ok(identityPopupHidden(win), "control center should be hidden");
+      let activeStreams = webrtcUI.getActiveStreams(true, false, false);
+      webrtcUI.showSharingDoorhanger(activeStreams[0], "Devices");
+      // If the popup gets hidden before being shown, by stray focus/activate
+      // events, don't bother failing the test. It's enough to know that we
+      // started showing the popup.
+      let popup = win.gIdentityHandler._identityPopup;
+      let hiddenEvent = BrowserTestUtils.waitForEvent(popup, "popuphidden");
+      let shownEvent = BrowserTestUtils.waitForEvent(popup, "popupshown");
+      let ev = await Promise.race([hiddenEvent, shownEvent]);
+      ok(ev.type, "Tried to show popup");
+      win.gIdentityHandler._identityPopup.hidePopup();
 
-    await expectNoObserverCalled();
-    await checkNotSharing();
+      ok(
+        identityPopupHidden(window),
+        "control center should be hidden in the first window"
+      );
+
+      await disableObserverVerification();
+
+      // Closing the new window should remove all sharing indicators.
+      let promises = [
+        expectObserverCalledOnClose(
+          "recording-device-events",
+          1,
+          win.gBrowser.selectedBrowser
+        ),
+        expectObserverCalledOnClose(
+          "recording-window-ended",
+          1,
+          win.gBrowser.selectedBrowser
+        ),
+      ];
+
+      await BrowserTestUtils.closeWindow(win);
+      await Promise.all(promises);
+      await checkNotSharing();
+    },
   },
-},
-
 ];
 
 add_task(async function test() {
-  await SpecialPowers.pushPrefEnv({"set": [["dom.ipc.processCount", 1]]});
+  await SpecialPowers.pushPrefEnv({ set: [["dom.ipc.processCount", 1]] });
 
   // An empty tab where we can load the content script without leaving it
   // behind at the end of the test.

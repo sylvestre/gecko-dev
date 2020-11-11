@@ -6,16 +6,18 @@
 
 #include "OmxPlatformLayer.h"
 
+#include "OmxDataDecoder.h"
+#include "OMX_Component.h"
 #include "OMX_VideoExt.h"  // For VP8.
 
 #ifdef MOZ_OMX
-#include "PureOmxPlatformLayer.h"
+#  include "PureOmxPlatformLayer.h"
 #endif
 
 #include "VPXDecoder.h"
 
 #ifdef LOG
-#undef LOG
+#  undef LOG
 #endif
 
 #define LOG(arg, ...)                        \
@@ -36,7 +38,7 @@ namespace mozilla {
 template <typename ParamType>
 class OmxConfig {
  public:
-  virtual ~OmxConfig() {}
+  virtual ~OmxConfig() = default;
   // Subclasses should implement this method to configure the codec.
   virtual OMX_ERRORTYPE Apply(OmxPlatformLayer& aOmx,
                               const ParamType& aParam) = 0;

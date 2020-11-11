@@ -1,4 +1,3 @@
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -29,7 +28,7 @@ add_task(async function() {
   Services.prefs.setBoolPref(PSEUDO_PREF, true);
 
   await addTab("data:text/html;charset=utf-8," + encodeURIComponent(TEST_URI));
-  const {inspector, view} = await openRuleView();
+  const { inspector, view } = await openRuleView();
 
   info("Selecting the test element");
   await selectNode(".testclass", inspector);
@@ -54,14 +53,17 @@ add_task(async function() {
 async function testEditSelector(view, name) {
   info("Test editing existing selector fields");
 
-  const idRuleEditor = getRuleViewRuleEditor(view, 1) ||
-    getRuleViewRuleEditor(view, 1, 0);
+  const idRuleEditor =
+    getRuleViewRuleEditor(view, 1) || getRuleViewRuleEditor(view, 1, 0);
 
   info("Focusing an existing selector name in the rule-view");
   const editor = await focusEditableField(view, idRuleEditor.selectorText);
 
-  is(inplaceEditor(idRuleEditor.selectorText), editor,
-    "The selector editor got focused");
+  is(
+    inplaceEditor(idRuleEditor.selectorText),
+    editor,
+    "The selector editor got focused"
+  );
 
   info("Entering a new selector name: " + name);
   editor.input.value = name;
@@ -76,10 +78,12 @@ async function testEditSelector(view, name) {
   is(view._elementStyle.rules.length, 2, "Should have 2 rule.");
   ok(getRuleViewRule(view, name), "Rule with " + name + " selector exists.");
 
-  const newRuleEditor = getRuleViewRuleEditor(view, 1) ||
-    getRuleViewRuleEditor(view, 1, 0);
-  ok(newRuleEditor.element.getAttribute("unmatched"),
-    "Rule with " + name + " does not match the current element.");
+  const newRuleEditor =
+    getRuleViewRuleEditor(view, 1) || getRuleViewRuleEditor(view, 1, 0);
+  ok(
+    newRuleEditor.element.getAttribute("unmatched"),
+    "Rule with " + name + " does not match the current element."
+  );
 }
 
 function checkModifiedElement(view, name) {

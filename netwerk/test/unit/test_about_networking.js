@@ -3,14 +3,17 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-ChromeUtils.import("resource://testing-common/httpd.js");
-ChromeUtils.import("resource://gre/modules/NetUtil.jsm");
+"use strict";
 
-const gDashboard = Cc['@mozilla.org/network/dashboard;1']
-  .getService(Ci.nsIDashboard);
+const { HttpServer } = ChromeUtils.import("resource://testing-common/httpd.js");
 
-const gServerSocket = Cc["@mozilla.org/network/server-socket;1"]
-                             .createInstance(Ci.nsIServerSocket);
+const gDashboard = Cc["@mozilla.org/network/dashboard;1"].getService(
+  Ci.nsIDashboard
+);
+
+const gServerSocket = Cc["@mozilla.org/network/server-socket;1"].createInstance(
+  Ci.nsIServerSocket
+);
 const gHttpServer = new HttpServer();
 
 add_test(function test_http() {
@@ -47,14 +50,26 @@ add_test(function test_dns() {
 });
 
 add_test(function test_sockets() {
-  let sts = Cc["@mozilla.org/network/socket-transport-service;1"]
-    .getService(Ci.nsISocketTransportService);
+  // TODO: enable this test in bug 1581892.
+  if (mozinfo.socketprocess_networking) {
+    info("skip test_sockets");
+    run_next_test();
+    return;
+  }
+
+  let sts = Cc["@mozilla.org/network/socket-transport-service;1"].getService(
+    Ci.nsISocketTransportService
+  );
   let threadManager = Cc["@mozilla.org/thread-manager;1"].getService();
 
-  let transport = sts.createTransport(null, 0, "127.0.0.1",
-                                      gServerSocket.port, null);
+  let transport = sts.createTransport(
+    [],
+    "127.0.0.1",
+    gServerSocket.port,
+    null
+  );
   let listener = {
-    onTransportStatus: function(aTransport, aStatus, aProgress, aProgressMax) {
+    onTransportStatus(aTransport, aStatus, aProgress, aProgressMax) {
       if (aStatus == Ci.nsISocketTransport.STATUS_CONNECTED_TO) {
         gDashboard.requestSockets(function(data) {
           gServerSocket.close();
@@ -70,7 +85,7 @@ add_test(function test_sockets() {
           run_next_test();
         });
       }
-    }
+    },
   };
   transport.setEventSink(listener, threadManager.currentThread);
 
@@ -78,18 +93,29 @@ add_test(function test_sockets() {
 });
 
 function run_test() {
-  let ioService = Cc["@mozilla.org/network/io-service;1"]
-    .getService(Ci.nsIIOService);
+  Services.prefs.setBoolPref(
+    "network.cookieJarSettings.unblocked_for_testing",
+    true
+  );
+
+  // We always resolve localhost as it's hardcoded without the following pref:
+  Services.prefs.setBoolPref("network.proxy.allow_hijacking_localhost", true);
+
+  let ioService = Cc["@mozilla.org/network/io-service;1"].getService(
+    Ci.nsIIOService
+  );
 
   gHttpServer.start(-1);
 
-  let uri = ioService.newURI("http://localhost:" + gHttpServer.identity.primaryPort);
-  let channel = NetUtil.newChannel({uri: uri, loadUsingSystemPrincipal: true});
+  let uri = ioService.newURI(
+    "http://localhost:" + gHttpServer.identity.primaryPort
+  );
+  let channel = NetUtil.newChannel({ uri, loadUsingSystemPrincipal: true });
 
-  channel.open2();
+  channel.open();
 
   gServerSocket.init(-1, true, -1);
+  Services.prefs.clearUserPref("network.proxy.allow_hijacking_localhost");
 
   run_next_test();
 }
-

@@ -25,6 +25,7 @@ using gfx::FilterNode;
 using gfx::GradientStops;
 using gfx::NativeFontResource;
 using gfx::Path;
+using gfx::RecordedDependentSurface;
 using gfx::ReferencePtr;
 using gfx::ScaledFont;
 using gfx::SourceSurface;
@@ -36,6 +37,12 @@ class PrintTranslator final : public Translator {
   explicit PrintTranslator(nsDeviceContext* aDeviceContext);
 
   bool TranslateRecording(PRFileDescStream& aRecording);
+
+  void SetDependentSurfaces(
+      nsRefPtrHashtable<nsUint64HashKey, RecordedDependentSurface>&&
+          aDependentSurfaces) {
+    mDependentSurfaces = std::move(aDependentSurfaces);
+  }
 
   DrawTarget* LookupDrawTarget(ReferencePtr aRefPtr) final {
     DrawTarget* result = mDrawTargets.GetWeak(aRefPtr);
@@ -85,38 +92,40 @@ class PrintTranslator final : public Translator {
     return result;
   }
 
+  already_AddRefed<SourceSurface> LookupExternalSurface(uint64_t aKey) final;
+
   void AddDrawTarget(ReferencePtr aRefPtr, DrawTarget* aDT) final {
-    mDrawTargets.Put(aRefPtr, aDT);
+    mDrawTargets.Put(aRefPtr, RefPtr{aDT});
   }
 
   void AddPath(ReferencePtr aRefPtr, Path* aPath) final {
-    mPaths.Put(aRefPtr, aPath);
+    mPaths.Put(aRefPtr, RefPtr{aPath});
   }
 
   void AddSourceSurface(ReferencePtr aRefPtr, SourceSurface* aSurface) final {
-    mSourceSurfaces.Put(aRefPtr, aSurface);
+    mSourceSurfaces.Put(aRefPtr, RefPtr{aSurface});
   }
 
   void AddFilterNode(ReferencePtr aRefPtr, FilterNode* aFilter) final {
-    mFilterNodes.Put(aRefPtr, aFilter);
+    mFilterNodes.Put(aRefPtr, RefPtr{aFilter});
   }
 
   void AddGradientStops(ReferencePtr aRefPtr, GradientStops* aStops) final {
-    mGradientStops.Put(aRefPtr, aStops);
+    mGradientStops.Put(aRefPtr, RefPtr{aStops});
   }
 
   void AddScaledFont(ReferencePtr aRefPtr, ScaledFont* aScaledFont) final {
-    mScaledFonts.Put(aRefPtr, aScaledFont);
+    mScaledFonts.Put(aRefPtr, RefPtr{aScaledFont});
   }
 
   void AddUnscaledFont(ReferencePtr aRefPtr,
                        UnscaledFont* aUnscaledFont) final {
-    mUnscaledFonts.Put(aRefPtr, aUnscaledFont);
+    mUnscaledFonts.Put(aRefPtr, RefPtr{aUnscaledFont});
   }
 
   void AddNativeFontResource(uint64_t aKey,
                              NativeFontResource* aScaledFontResouce) final {
-    mNativeFontResources.Put(aKey, aScaledFontResouce);
+    mNativeFontResources.Put(aKey, RefPtr{aScaledFontResouce});
   }
 
   void RemoveDrawTarget(ReferencePtr aRefPtr) final {
@@ -163,6 +172,8 @@ class PrintTranslator final : public Translator {
   nsRefPtrHashtable<nsPtrHashKey<void>, ScaledFont> mScaledFonts;
   nsRefPtrHashtable<nsPtrHashKey<void>, UnscaledFont> mUnscaledFonts;
   nsRefPtrHashtable<nsUint64HashKey, NativeFontResource> mNativeFontResources;
+  nsRefPtrHashtable<nsUint64HashKey, RecordedDependentSurface>
+      mDependentSurfaces;
 };
 
 }  // namespace layout

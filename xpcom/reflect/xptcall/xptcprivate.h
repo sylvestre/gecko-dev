@@ -9,16 +9,15 @@
 #define xptcprivate_h___
 
 #include "xptcall.h"
-#include "nsAutoPtr.h"
 #include "mozilla/Attributes.h"
 
 #if !defined(__ia64) || \
     (!defined(__hpux) && !defined(__linux__) && !defined(__FreeBSD__))
-#define STUB_ENTRY(n) NS_IMETHOD Stub##n() = 0;
+#  define STUB_ENTRY(n) NS_IMETHOD Stub##n() = 0;
 #else
-#define STUB_ENTRY(n)                                                  \
-  NS_IMETHOD Stub##n(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, \
-                     uint64_t, uint64_t, uint64_t) = 0;
+#  define STUB_ENTRY(n)                                                  \
+    NS_IMETHOD Stub##n(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, \
+                       uint64_t, uint64_t, uint64_t) = 0;
 #endif
 
 #define SENTINEL_ENTRY(n) NS_IMETHOD Sentinel##n() = 0;
@@ -33,11 +32,11 @@ class nsIXPTCStubBase : public nsISupports {
 
 #if !defined(__ia64) || \
     (!defined(__hpux) && !defined(__linux__) && !defined(__FreeBSD__))
-#define STUB_ENTRY(n) NS_IMETHOD Stub##n() override;
+#  define STUB_ENTRY(n) NS_IMETHOD Stub##n() override;
 #else
-#define STUB_ENTRY(n)                                                  \
-  NS_IMETHOD Stub##n(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, \
-                     uint64_t, uint64_t, uint64_t) override;
+#  define STUB_ENTRY(n)                                                  \
+    NS_IMETHOD Stub##n(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, \
+                       uint64_t, uint64_t, uint64_t) override;
 #endif
 
 #define SENTINEL_ENTRY(n) NS_IMETHOD Sentinel##n() override;
@@ -54,16 +53,16 @@ class nsXPTCStubBase final : public nsIXPTCStubBase {
   nsIXPTCProxy* mOuter;
   const nsXPTInterfaceInfo* mEntry;
 
-  ~nsXPTCStubBase() {}
+  ~nsXPTCStubBase() = default;
 };
 
 #undef STUB_ENTRY
 #undef SENTINEL_ENTRY
 
 #if defined(__clang__) || defined(__GNUC__)
-#define ATTRIBUTE_USED __attribute__((__used__))
+#  define ATTRIBUTE_USED __attribute__((__used__))
 #else
-#define ATTRIBUTE_USED
+#  define ATTRIBUTE_USED
 #endif
 
 #endif /* xptcprivate_h___ */

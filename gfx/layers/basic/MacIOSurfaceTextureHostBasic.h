@@ -29,17 +29,15 @@ class MacIOSurfaceTextureSourceBasic : public TextureSourceBasic,
   explicit MacIOSurfaceTextureSourceBasic(MacIOSurface* aSurface);
   virtual ~MacIOSurfaceTextureSourceBasic();
 
-  virtual const char* Name() const override {
-    return "MacIOSurfaceTextureSourceBasic";
-  }
+  const char* Name() const override { return "MacIOSurfaceTextureSourceBasic"; }
 
-  virtual TextureSourceBasic* AsSourceBasic() override { return this; }
+  TextureSourceBasic* AsSourceBasic() override { return this; }
 
-  virtual gfx::IntSize GetSize() const override;
-  virtual gfx::SurfaceFormat GetFormat() const override;
-  virtual gfx::SourceSurface* GetSurface(gfx::DrawTarget* aTarget) override;
+  gfx::IntSize GetSize() const override;
+  gfx::SurfaceFormat GetFormat() const override;
+  gfx::SourceSurface* GetSurface(gfx::DrawTarget* aTarget) override;
 
-  virtual void DeallocateDeviceData() override {}
+  void DeallocateDeviceData() override {}
 
  protected:
   RefPtr<MacIOSurface> mSurface;
@@ -56,28 +54,26 @@ class MacIOSurfaceTextureHostBasic : public TextureHost {
   MacIOSurfaceTextureHostBasic(
       TextureFlags aFlags, const SurfaceDescriptorMacIOSurface& aDescriptor);
 
-  virtual void SetTextureSourceProvider(
-      TextureSourceProvider* aProvider) override;
+  void SetTextureSourceProvider(TextureSourceProvider* aProvider) override;
 
-  virtual bool Lock() override;
+  bool Lock() override;
 
-  virtual gfx::SurfaceFormat GetFormat() const override;
+  gfx::SurfaceFormat GetFormat() const override;
 
-  virtual bool BindTextureSource(
-      CompositableTextureSourceRef& aTexture) override {
+  bool BindTextureSource(CompositableTextureSourceRef& aTexture) override {
     aTexture = mTextureSource;
     return !!aTexture;
   }
 
-  virtual already_AddRefed<gfx::DataSourceSurface> GetAsSurface() override {
+  already_AddRefed<gfx::DataSourceSurface> GetAsSurface() override {
     return nullptr;  // XXX - implement this (for MOZ_DUMP_PAINTING)
   }
 
-  virtual gfx::IntSize GetSize() const override;
-  virtual MacIOSurface* GetMacIOSurface() override { return mSurface; }
+  gfx::IntSize GetSize() const override;
+  MacIOSurface* GetMacIOSurface() override { return mSurface; }
 
 #ifdef MOZ_LAYERS_HAVE_LOG
-  virtual const char* Name() override { return "MacIOSurfaceTextureHostBasic"; }
+  const char* Name() override { return "MacIOSurfaceTextureHostBasic"; }
 #endif
 
  protected:

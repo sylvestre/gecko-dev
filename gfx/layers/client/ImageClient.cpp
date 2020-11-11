@@ -39,7 +39,8 @@ namespace layers {
 
 using namespace mozilla::gfx;
 
-/* static */ already_AddRefed<ImageClient> ImageClient::CreateImageClient(
+/* static */
+already_AddRefed<ImageClient> ImageClient::CreateImageClient(
     CompositableType aCompositableHostType, CompositableForwarder* aForwarder,
     TextureFlags aFlags) {
   RefPtr<ImageClient> result = nullptr;
@@ -78,14 +79,18 @@ TextureInfo ImageClientSingle::GetTextureInfo() const {
 
 void ImageClientSingle::FlushAllImages() {
   for (auto& b : mBuffers) {
+    // It should be safe to just assume a default render root here, even if
+    // the texture actually presents in a content render root, as the only
+    // risk would be if the content render root has not / is not going to
+    // generate a frame before the texture gets cleared.
     RemoveTexture(b.mTextureClient);
   }
   mBuffers.Clear();
 }
 
-/* static */ already_AddRefed<TextureClient>
-ImageClient::CreateTextureClientForImage(Image* aImage,
-                                         KnowsCompositor* aForwarder) {
+/* static */
+already_AddRefed<TextureClient> ImageClient::CreateTextureClientForImage(
+    Image* aImage, KnowsCompositor* aKnowsCompositor) {
   RefPtr<TextureClient> texture;
   if (aImage->GetFormat() == ImageFormat::PLANAR_YCBCR) {
     PlanarYCbCrImage* ycbcr = static_cast<PlanarYCbCrImage*>(aImage);
@@ -94,9 +99,10 @@ ImageClient::CreateTextureClientForImage(Image* aImage,
       return nullptr;
     }
     texture = TextureClient::CreateForYCbCr(
-        aForwarder, data->mYSize, data->mYStride, data->mCbCrSize,
-        data->mCbCrStride, data->mStereoMode, data->mColorDepth,
-        data->mYUVColorSpace, TextureFlags::DEFAULT);
+        aKnowsCompositor, data->GetPictureRect(), data->mYSize, data->mYStride,
+        data->mCbCrSize, data->mCbCrStride, data->mStereoMode,
+        data->mColorDepth, data->mYUVColorSpace, data->mColorRange,
+        TextureFlags::DEFAULT);
     if (!texture) {
       return nullptr;
     }
@@ -117,14 +123,14 @@ ImageClient::CreateTextureClientForImage(Image* aImage,
     SurfaceTextureImage* typedImage = aImage->AsSurfaceTextureImage();
     texture = AndroidSurfaceTextureData::CreateTextureClient(
         typedImage->GetHandle(), size, typedImage->GetContinuous(),
-        typedImage->GetOriginPos(), aForwarder->GetTextureForwarder(),
-        TextureFlags::DEFAULT);
+        typedImage->GetOriginPos(), typedImage->GetHasAlpha(),
+        aKnowsCompositor->GetTextureForwarder(), TextureFlags::DEFAULT);
 #endif
   } else {
     RefPtr<gfx::SourceSurface> surface = aImage->GetAsSourceSurface();
     MOZ_ASSERT(surface);
     texture = TextureClient::CreateForDrawing(
-        aForwarder, surface->GetFormat(), aImage->GetSize(),
+        aKnowsCompositor, surface->GetFormat(), aImage->GetSize(),
         BackendSelector::Content, TextureFlags::DEFAULT);
     if (!texture) {
       return nullptr;
@@ -166,12 +172,9 @@ bool ImageClientSingle::UpdateImage(ImageContainer* aContainer,
   }
   mLastUpdateGenerationCounter = generationCounter;
 
-  for (int32_t i = images.Length() - 1; i >= 0; --i) {
-    if (!images[i].mImage->IsValid()) {
-      // Don't try to update to an invalid image.
-      images.RemoveElementAt(i);
-    }
-  }
+  // Don't try to update to invalid images.
+  images.RemoveElementsBy(
+      [](const auto& image) { return !image.mImage->IsValid(); });
   if (images.IsEmpty()) {
     // This can happen if a ClearAllImages raced with SetCurrentImages from
     // another thread and ClearImagesFromImageBridge ran after the
@@ -249,7 +252,7 @@ bool ImageClientSingle::UpdateImage(ImageContainer* aContainer,
   for (auto& b : mBuffers) {
     RemoveTexture(b.mTextureClient);
   }
-  mBuffers.SwapElements(newBuffers);
+  mBuffers = std::move(newBuffers);
 
   return true;
 }

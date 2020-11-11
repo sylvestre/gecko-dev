@@ -18,7 +18,8 @@
 
 #include "nsIChannel.h"
 #include "nsICacheInfoChannel.h"
-#include "nsIDocument.h"
+#include "nsIClassOfService.h"
+#include "mozilla/dom/Document.h"
 #include "nsIThreadRetargetableRequest.h"
 #include "nsIInputStream.h"
 #include "nsIMultiPartChannel.h"
@@ -59,8 +60,10 @@ imgRequest::imgRequest(imgLoader* aLoader, const ImageCacheKey& aCacheKey)
       mValidator(nullptr),
       mInnerWindowId(0),
       mCORSMode(imgIRequest::CORS_NONE),
-      mReferrerPolicy(mozilla::net::RP_Unset),
       mImageErrorCode(NS_OK),
+      mImageAvailable(false),
+      mIsDeniedCrossSiteCORSRequest(false),
+      mIsCrossSiteNoCORSRequest(false),
       mMutex("imgRequest"),
       mProgressTracker(new ProgressTracker()),
       mIsMultiPartChannel(false),
@@ -84,8 +87,9 @@ imgRequest::~imgRequest() {
 nsresult imgRequest::Init(nsIURI* aURI, nsIURI* aFinalURI,
                           bool aHadInsecureRedirect, nsIRequest* aRequest,
                           nsIChannel* aChannel, imgCacheEntry* aCacheEntry,
-                          nsISupports* aCX, nsIPrincipal* aTriggeringPrincipal,
-                          int32_t aCORSMode, ReferrerPolicy aReferrerPolicy) {
+                          mozilla::dom::Document* aLoadingDocument,
+                          nsIPrincipal* aTriggeringPrincipal, int32_t aCORSMode,
+                          nsIReferrerInfo* aReferrerInfo) {
   MOZ_ASSERT(NS_IsMainThread(), "Cannot use nsIURI off main thread!");
 
   LOG_FUNC(gImgLog, "imgRequest::Init");
@@ -104,21 +108,18 @@ nsresult imgRequest::Init(nsIURI* aURI, nsIURI* aFinalURI,
   mTimedChannel = do_QueryInterface(mChannel);
   mTriggeringPrincipal = aTriggeringPrincipal;
   mCORSMode = aCORSMode;
-  mReferrerPolicy = aReferrerPolicy;
+  mReferrerInfo = aReferrerInfo;
 
   // If the original URI and the final URI are different, check whether the
   // original URI is secure. We deliberately don't take the final URI into
   // account, as it needs to be handled using more complicated rules than
   // earlier elements of the redirect chain.
   if (aURI != aFinalURI) {
-    bool isHttps = false;
-    bool isChrome = false;
     bool schemeLocal = false;
-    if (NS_FAILED(aURI->SchemeIs("https", &isHttps)) ||
-        NS_FAILED(aURI->SchemeIs("chrome", &isChrome)) ||
-        NS_FAILED(NS_URIChainHasFlags(
+    if (NS_FAILED(NS_URIChainHasFlags(
             aURI, nsIProtocolHandler::URI_IS_LOCAL_RESOURCE, &schemeLocal)) ||
-        (!isHttps && !isChrome && !schemeLocal)) {
+        (!aURI->SchemeIs("https") && !aURI->SchemeIs("chrome") &&
+         !schemeLocal)) {
       mHadInsecureRedirect = true;
     }
   }
@@ -137,15 +138,37 @@ nsresult imgRequest::Init(nsIURI* aURI, nsIURI* aFinalURI,
   mCacheEntry = aCacheEntry;
   mCacheEntry->UpdateLoadTime();
 
-  SetLoadId(aCX);
+  SetLoadId(aLoadingDocument);
 
   // Grab the inner window ID of the loading document, if possible.
-  nsCOMPtr<nsIDocument> doc = do_QueryInterface(aCX);
-  if (doc) {
-    mInnerWindowId = doc->InnerWindowID();
+  if (aLoadingDocument) {
+    mInnerWindowId = aLoadingDocument->InnerWindowID();
   }
 
   return NS_OK;
+}
+
+bool imgRequest::CanReuseWithoutValidation(dom::Document* aDoc) const {
+  // If the request's loadId is the same as the aLoadingDocument, then it is ok
+  // to use this one because it has already been validated for this context.
+  // XXX: nullptr seems to be a 'special' key value that indicates that NO
+  //      validation is required.
+  // XXX: we also check the window ID because the loadID() can return a reused
+  //      pointer of a document. This can still happen for non-document image
+  //      cache entries.
+  void* key = (void*)aDoc;
+  uint64_t innerWindowID = aDoc ? aDoc->InnerWindowID() : 0;
+  if (LoadId() == key && InnerWindowID() == innerWindowID) {
+    return true;
+  }
+
+  // As a special-case, if this is a print preview document, also validate on
+  // the original document. This allows to print uncacheable images.
+  if (dom::Document* original = aDoc ? aDoc->GetOriginalDocument() : nullptr) {
+    return CanReuseWithoutValidation(original);
+  }
+
+  return false;
 }
 
 void imgRequest::ClearLoader() { mLoader = nullptr; }
@@ -388,18 +411,9 @@ nsresult imgRequest::GetFinalURI(nsIURI** aURI) {
   return NS_ERROR_FAILURE;
 }
 
-bool imgRequest::IsScheme(const char* aScheme) const {
-  MOZ_ASSERT(aScheme);
-  bool isScheme = false;
-  if (NS_WARN_IF(NS_FAILED(mURI->SchemeIs(aScheme, &isScheme)))) {
-    return false;
-  }
-  return isScheme;
-}
+bool imgRequest::IsChrome() const { return mURI->SchemeIs("chrome"); }
 
-bool imgRequest::IsChrome() const { return IsScheme("chrome"); }
-
-bool imgRequest::IsData() const { return IsScheme("data"); }
+bool imgRequest::IsData() const { return mURI->SchemeIs("data"); }
 
 nsresult imgRequest::GetImageErrorCode() { return mImageErrorCode; }
 
@@ -468,7 +482,7 @@ void imgRequest::AdjustPriorityInternal(int32_t aDelta) {
 }
 
 void imgRequest::BoostPriority(uint32_t aCategory) {
-  if (!gfxPrefs::ImageLayoutNetworkPriority()) {
+  if (!StaticPrefs::image_layout_network_priority()) {
     return;
   }
 
@@ -486,6 +500,10 @@ void imgRequest::BoostPriority(uint32_t aCategory) {
   int32_t delta = 0;
 
   if (newRequestedCategory & imgIRequest::CATEGORY_FRAME_INIT) {
+    --delta;
+  }
+
+  if (newRequestedCategory & imgIRequest::CATEGORY_FRAME_STYLE) {
     --delta;
   }
 
@@ -522,53 +540,26 @@ void imgRequest::UpdateCacheEntrySize() {
 void imgRequest::SetCacheValidation(imgCacheEntry* aCacheEntry,
                                     nsIRequest* aRequest) {
   /* get the expires info */
-  if (aCacheEntry) {
-    // Expiration time defaults to 0. We set the expiration time on our
-    // entry if it hasn't been set yet.
-    if (aCacheEntry->GetExpiryTime() == 0) {
-      uint32_t expiration = 0;
-      nsCOMPtr<nsICacheInfoChannel> cacheChannel(do_QueryInterface(aRequest));
-      if (cacheChannel) {
-        /* get the expiration time from the caching channel's token */
-        cacheChannel->GetCacheTokenExpirationTime(&expiration);
-      }
-      if (expiration == 0) {
-        // If the channel doesn't support caching, then ensure this expires the
-        // next time it is used.
-        expiration = imgCacheEntry::SecondsFromPRTime(PR_Now()) - 1;
-      }
-      aCacheEntry->SetExpiryTime(expiration);
-    }
+  if (!aCacheEntry || aCacheEntry->GetExpiryTime() != 0) {
+    return;
+  }
 
-    // Determine whether the cache entry must be revalidated when we try to use
-    // it. Currently, only HTTP specifies this information...
-    nsCOMPtr<nsIHttpChannel> httpChannel(do_QueryInterface(aRequest));
-    if (httpChannel) {
-      bool bMustRevalidate = false;
+  auto info = nsContentUtils::GetSubresourceCacheValidationInfo(aRequest);
 
-      Unused << httpChannel->IsNoStoreResponse(&bMustRevalidate);
-
-      if (!bMustRevalidate) {
-        Unused << httpChannel->IsNoCacheResponse(&bMustRevalidate);
-      }
-
-      if (!bMustRevalidate) {
-        nsAutoCString cacheHeader;
-
-        Unused << httpChannel->GetResponseHeader(
-            NS_LITERAL_CSTRING("Cache-Control"), cacheHeader);
-        if (PL_strcasestr(cacheHeader.get(), "must-revalidate")) {
-          bMustRevalidate = true;
-        }
-      }
-
-      // Cache entries default to not needing to validate. We ensure that
-      // multiple calls to this function don't override an earlier decision to
-      // validate by making validation a one-way decision.
-      if (bMustRevalidate) {
-        aCacheEntry->SetMustValidate(bMustRevalidate);
-      }
-    }
+  // Expiration time defaults to 0. We set the expiration time on our entry if
+  // it hasn't been set yet.
+  if (!info.mExpirationTime) {
+    // If the channel doesn't support caching, then ensure this expires the
+    // next time it is used.
+    info.mExpirationTime.emplace(nsContentUtils::SecondsFromPRTime(PR_Now()) -
+                                 1);
+  }
+  aCacheEntry->SetExpiryTime(*info.mExpirationTime);
+  // Cache entries default to not needing to validate. We ensure that
+  // multiple calls to this function don't override an earlier decision to
+  // validate by making validation a one-way decision.
+  if (info.mMustRevalidate) {
+    aCacheEntry->SetMustValidate(info.mMustRevalidate);
   }
 }
 
@@ -645,17 +636,28 @@ bool imgRequest::HadInsecureRedirect() const {
 /** nsIRequestObserver methods **/
 
 NS_IMETHODIMP
-imgRequest::OnStartRequest(nsIRequest* aRequest, nsISupports* ctxt) {
+imgRequest::OnStartRequest(nsIRequest* aRequest) {
   LOG_SCOPE(gImgLog, "imgRequest::OnStartRequest");
 
   RefPtr<Image> image;
 
+  if (nsCOMPtr<nsIHttpChannel> httpChannel = do_QueryInterface(aRequest)) {
+    nsresult rv;
+    nsCOMPtr<nsILoadInfo> loadInfo = httpChannel->LoadInfo();
+    mIsDeniedCrossSiteCORSRequest =
+        loadInfo->GetTainting() == LoadTainting::CORS &&
+        (NS_FAILED(httpChannel->GetStatus(&rv)) || NS_FAILED(rv));
+    mIsCrossSiteNoCORSRequest = loadInfo->GetTainting() == LoadTainting::Opaque;
+  }
+
   // Figure out if we're multipart.
   nsCOMPtr<nsIMultiPartChannel> multiPartChannel = do_QueryInterface(aRequest);
-  MOZ_ASSERT(multiPartChannel || !mIsMultiPartChannel,
-             "Stopped being multipart?");
   {
     MutexAutoLock lock(mMutex);
+
+    MOZ_ASSERT(multiPartChannel || !mIsMultiPartChannel,
+               "Stopped being multipart?");
+
     mNewPartPending = true;
     image = mImage;
     mIsMultiPartChannel = bool(multiPartChannel);
@@ -735,8 +737,7 @@ imgRequest::OnStartRequest(nsIRequest* aRequest, nsISupports* ctxt) {
 }
 
 NS_IMETHODIMP
-imgRequest::OnStopRequest(nsIRequest* aRequest, nsISupports* ctxt,
-                          nsresult status) {
+imgRequest::OnStopRequest(nsIRequest* aRequest, nsresult status) {
   LOG_FUNC(gImgLog, "imgRequest::OnStopRequest");
   MOZ_ASSERT(NS_IsMainThread(), "Can't send notifications off-main-thread");
 
@@ -745,7 +746,7 @@ imgRequest::OnStopRequest(nsIRequest* aRequest, nsISupports* ctxt,
   RefPtr<imgRequest> strongThis = this;
 
   if (mIsMultiPartChannel && mNewPartPending) {
-    OnDataAvailable(aRequest, ctxt, nullptr, 0, 0);
+    OnDataAvailable(aRequest, nullptr, 0, 0);
   }
 
   // XXXldb What if this is a non-last part of a multipart request?
@@ -779,7 +780,8 @@ imgRequest::OnStopRequest(nsIRequest* aRequest, nsISupports* ctxt,
   // trigger a failure, since the image might be waiting for more non-optional
   // data and this is the point where we break the news that it's not coming.
   if (image) {
-    nsresult rv = image->OnImageDataComplete(aRequest, ctxt, status, lastPart);
+    nsresult rv =
+        image->OnImageDataComplete(aRequest, nullptr, status, lastPart);
 
     // If we got an error in the OnImageDataComplete() call, we don't want to
     // proceed as if nothing bad happened. However, we also want to give
@@ -974,6 +976,7 @@ void imgRequest::FinishPreparingForNewPart(const NewPartResult& aResult) {
 
   if (aResult.mIsFirstPart) {
     // Notify listeners that we have an image.
+    mImageAvailable = true;
     RefPtr<ProgressTracker> progressTracker = GetProgressTracker();
     progressTracker->OnImageAvailable();
     MOZ_ASSERT(progressTracker->HasImage());
@@ -988,10 +991,11 @@ void imgRequest::FinishPreparingForNewPart(const NewPartResult& aResult) {
   }
 }
 
+bool imgRequest::ImageAvailable() const { return mImageAvailable; }
+
 NS_IMETHODIMP
-imgRequest::OnDataAvailable(nsIRequest* aRequest, nsISupports* aContext,
-                            nsIInputStream* aInStr, uint64_t aOffset,
-                            uint32_t aCount) {
+imgRequest::OnDataAvailable(nsIRequest* aRequest, nsIInputStream* aInStr,
+                            uint64_t aOffset, uint32_t aCount) {
   LOG_SCOPE_WITH_PARAM(gImgLog, "imgRequest::OnDataAvailable", "count", aCount);
 
   NS_ASSERTION(aRequest, "imgRequest::OnDataAvailable -- no request!");
@@ -1049,7 +1053,8 @@ imgRequest::OnDataAvailable(nsIRequest* aRequest, nsISupports* aContext,
       } else {
         nsCOMPtr<nsIRunnable> runnable =
             new FinishPreparingForNewPartRunnable(this, std::move(result));
-        eventTarget->Dispatch(runnable.forget(), NS_DISPATCH_NORMAL);
+        eventTarget->Dispatch(CreateMediumHighRunnable(runnable.forget()),
+                              NS_DISPATCH_NORMAL);
       }
     }
 
@@ -1062,8 +1067,8 @@ imgRequest::OnDataAvailable(nsIRequest* aRequest, nsISupports* aContext,
 
   // Notify the image that it has new data.
   if (aInStr) {
-    nsresult rv = image->OnImageDataAvailable(aRequest, aContext, aInStr,
-                                              aOffset, aCount);
+    nsresult rv =
+        image->OnImageDataAvailable(aRequest, nullptr, aInStr, aOffset, aCount);
 
     if (NS_FAILED(rv)) {
       MOZ_LOG(gImgLog, LogLevel::Warning,
@@ -1185,22 +1190,19 @@ imgRequest::OnRedirectVerifyCallback(nsresult result) {
   // If the previous URI is a non-HTTPS URI, record that fact for later use by
   // security code, which needs to know whether there is an insecure load at any
   // point in the redirect chain.
-  bool isHttps = false;
-  bool isChrome = false;
   bool schemeLocal = false;
-  if (NS_FAILED(mFinalURI->SchemeIs("https", &isHttps)) ||
-      NS_FAILED(mFinalURI->SchemeIs("chrome", &isChrome)) ||
-      NS_FAILED(NS_URIChainHasFlags(mFinalURI,
+  if (NS_FAILED(NS_URIChainHasFlags(mFinalURI,
                                     nsIProtocolHandler::URI_IS_LOCAL_RESOURCE,
                                     &schemeLocal)) ||
-      (!isHttps && !isChrome && !schemeLocal)) {
+      (!mFinalURI->SchemeIs("https") && !mFinalURI->SchemeIs("chrome") &&
+       !schemeLocal)) {
     MutexAutoLock lock(mMutex);
 
     // The csp directive upgrade-insecure-requests performs an internal redirect
     // to upgrade all requests from http to https before any data is fetched
     // from the network. Do not pollute mHadInsecureRedirect in case of such an
     // internal redirect.
-    nsCOMPtr<nsILoadInfo> loadInfo = mChannel->GetLoadInfo();
+    nsCOMPtr<nsILoadInfo> loadInfo = mChannel->LoadInfo();
     bool upgradeInsecureRequests =
         loadInfo ? loadInfo->GetUpgradeInsecureRequests() ||
                        loadInfo->GetBrowserUpgradeInsecureRequests()

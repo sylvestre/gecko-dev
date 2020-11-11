@@ -68,8 +68,9 @@ void PaintWithMask(gfxContext* aContext, float aOpacity, Layer* aMaskLayer) {
   aContext->Paint(aOpacity);
 }
 
-void FillRectWithMask(DrawTarget* aDT, const Rect& aRect, const Color& aColor,
-                      const DrawOptions& aOptions, SourceSurface* aMaskSource,
+void FillRectWithMask(DrawTarget* aDT, const Rect& aRect,
+                      const DeviceColor& aColor, const DrawOptions& aOptions,
+                      SourceSurface* aMaskSource,
                       const Matrix* aMaskTransform) {
   if (aMaskSource && aMaskTransform) {
     aDT->PushClipRect(aRect);
@@ -85,7 +86,7 @@ void FillRectWithMask(DrawTarget* aDT, const Rect& aRect, const Color& aColor,
   aDT->FillRect(aRect, ColorPattern(aColor), aOptions);
 }
 void FillRectWithMask(DrawTarget* aDT, const gfx::Point& aDeviceOffset,
-                      const Rect& aRect, const Color& aColor,
+                      const Rect& aRect, const DeviceColor& aColor,
                       const DrawOptions& aOptions, Layer* aMaskLayer) {
   AutoMoz2DMaskData mask;
   if (GetMaskData(aMaskLayer, aDeviceOffset, &mask)) {
@@ -150,7 +151,7 @@ void FillRectWithMask(DrawTarget* aDT, const gfx::Point& aDeviceOffset,
 }
 
 void FillPathWithMask(DrawTarget* aDT, const Path* aPath, const Rect& aClipRect,
-                      const Color& aColor, const DrawOptions& aOptions,
+                      const DeviceColor& aColor, const DrawOptions& aOptions,
                       SourceSurface* aMaskSource,
                       const Matrix* aMaskTransform) {
   if (aMaskSource && aMaskTransform) {
@@ -212,19 +213,6 @@ gfx::CompositionOp GetEffectiveOperator(Layer* aLayer) {
   }
 
   return ToData(aLayer)->GetOperator();
-}
-
-ShadowableLayer* ToShadowable(Layer* aLayer) {
-  return aLayer->AsShadowableLayer();
-}
-
-bool ShouldShadow(Layer* aLayer) {
-  if (!ToShadowable(aLayer)) {
-    MOZ_ASSERT(aLayer->GetType() == Layer::TYPE_READBACK,
-               "Only expect not to shadow ReadbackLayers");
-    return false;
-  }
-  return true;
 }
 
 }  // namespace layers

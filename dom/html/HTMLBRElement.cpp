@@ -13,14 +13,13 @@
 
 NS_IMPL_NS_NEW_HTML_ELEMENT(BR)
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 HTMLBRElement::HTMLBRElement(
     already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo)
     : nsGenericHTMLElement(std::move(aNodeInfo)) {}
 
-HTMLBRElement::~HTMLBRElement() {}
+HTMLBRElement::~HTMLBRElement() = default;
 
 NS_IMPL_ELEMENT_CLONE(HTMLBRElement)
 
@@ -75,5 +74,4 @@ JSObject* HTMLBRElement::WrapNode(JSContext* aCx,
   return HTMLBRElement_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

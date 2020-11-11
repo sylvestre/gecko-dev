@@ -2,30 +2,36 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-ChromeUtils.import("resource://gre/modules/Services.jsm");
-ChromeUtils.import("resource://gre/modules/FileUtils.jsm");
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
-ChromeUtils.import("resource://gre/modules/KeyValueParser.jsm");
-XPCOMUtils.defineLazyGlobalGetters(this, ["File", "FormData", "XMLHttpRequest"]);
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { FileUtils } = ChromeUtils.import(
+  "resource://gre/modules/FileUtils.jsm"
+);
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+XPCOMUtils.defineLazyGlobalGetters(this, [
+  "File",
+  "FormData",
+  "XMLHttpRequest",
+]);
 
-ChromeUtils.defineModuleGetter(this, "OS",
-                               "resource://gre/modules/osfile.jsm");
+ChromeUtils.defineModuleGetter(this, "OS", "resource://gre/modules/osfile.jsm");
 
-var EXPORTED_SYMBOLS = [
-  "CrashSubmit",
-];
+var EXPORTED_SYMBOLS = ["CrashSubmit"];
 
 const SUCCESS = "success";
-const FAILED  = "failed";
+const FAILED = "failed";
 const SUBMITTING = "submitting";
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const SUBMISSION_REGEX = /^bp-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // TODO: this is still synchronous; need an async INI parser to make it async
 function parseINIStrings(path) {
   let file = new FileUtils.File(path);
-  let factory = Cc["@mozilla.org/xpcom/ini-parser-factory;1"].
-                getService(Ci.nsIINIParserFactory);
+  let factory = Cc["@mozilla.org/xpcom/ini-parser-factory;1"].getService(
+    Ci.nsIINIParserFactory
+  );
   let parser = factory.createINIParser(file);
   let obj = {};
   for (let key of parser.getKeys("Strings")) {
@@ -37,15 +43,23 @@ function parseINIStrings(path) {
 // Since we're basically re-implementing (with async) part of the crashreporter
 // client here, we'll just steal the strings we need from crashreporter.ini
 async function getL10nStrings() {
-  let path = OS.Path.join(Services.dirsvc.get("GreD", Ci.nsIFile).path,
-                          "crashreporter.ini");
+  let path = OS.Path.join(
+    Services.dirsvc.get("GreD", Ci.nsIFile).path,
+    "crashreporter.ini"
+  );
   let pathExists = await OS.File.exists(path);
 
   if (!pathExists) {
     // we if we're on a mac
     let parentDir = OS.Path.dirname(path);
-    path = OS.Path.join(parentDir, "MacOS", "crashreporter.app", "Contents",
-                        "Resources", "crashreporter.ini");
+    path = OS.Path.join(
+      parentDir,
+      "MacOS",
+      "crashreporter.app",
+      "Contents",
+      "Resources",
+      "crashreporter.ini"
+    );
 
     let pathExists = await OS.File.exists(path);
 
@@ -54,20 +68,22 @@ async function getL10nStrings() {
       // Android users can't see the contents of the submitted files
       // anyway, so just hardcode some fallback strings.
       return {
-        "crashid": "Crash ID: %s",
-        "reporturl": "You can view details of this crash at %s",
+        crashid: "Crash ID: %s",
+        reporturl: "You can view details of this crash at %s",
       };
     }
   }
 
   let crstrings = parseINIStrings(path);
   let strings = {
-    "crashid": crstrings.CrashID,
-    "reporturl": crstrings.CrashDetailsURL,
+    crashid: crstrings.CrashID,
+    reporturl: crstrings.CrashDetailsURL,
   };
 
-  path = OS.Path.join(Services.dirsvc.get("XCurProcD", Ci.nsIFile).path,
-                      "crashreporter-override.ini");
+  path = OS.Path.join(
+    Services.dirsvc.get("XCurProcD", Ci.nsIFile).path,
+    "crashreporter-override.ini"
+  );
   pathExists = await OS.File.exists(path);
 
   if (pathExists) {
@@ -143,13 +159,15 @@ Submitter.prototype = {
         toDelete.push(this.memory);
       }
 
-      for (let dump of this.additionalDumps) {
-        toDelete.push(dump);
+      for (let entry of this.additionalDumps) {
+        toDelete.push(entry.dump);
       }
 
-      await Promise.all(toDelete.map(path => {
-        return OS.File.remove(path, { ignoreAbsent: true });
-      }));
+      await Promise.all(
+        toDelete.map(path => {
+          return OS.File.remove(path, { ignoreAbsent: true });
+        })
+      );
     } catch (ex) {
       Cu.reportError(ex);
     }
@@ -172,16 +190,36 @@ Submitter.prototype = {
     }
   },
 
+  parseResponse: function Submitter_parseResponse(response) {
+    let parsedResponse = {};
+
+    for (let line of response.split("\n")) {
+      let data = line.split("=");
+
+      if (
+        (data.length == 2 &&
+          data[0] == "CrashID" &&
+          SUBMISSION_REGEX.test(data[1])) ||
+        data[0] == "ViewURL"
+      ) {
+        parsedResponse[data[0]] = data[1];
+      }
+    }
+
+    return parsedResponse;
+  },
+
   submitForm: function Submitter_submitForm() {
     if (!("ServerURL" in this.extraKeyVals)) {
       return false;
     }
     let serverURL = this.extraKeyVals.ServerURL;
+    delete this.extraKeyVals.ServerURL;
 
     // Override the submission URL from the environment
-
-    let envOverride = Cc["@mozilla.org/process/environment;1"].
-      getService(Ci.nsIEnvironment).get("MOZ_CRASHREPORTER_URL");
+    let envOverride = Cc["@mozilla.org/process/environment;1"]
+      .getService(Ci.nsIEnvironment)
+      .get("MOZ_CRASHREPORTER_URL");
     if (envOverride != "") {
       serverURL = envOverride;
     }
@@ -192,15 +230,16 @@ Submitter.prototype = {
     let formData = new FormData();
 
     // add the data
-    for (let [name, value] of Object.entries(this.extraKeyVals)) {
-      if (name != "ServerURL" && name != "StackTraces") {
-        formData.append(name, value);
-      }
-    }
+    let payload = Object.assign({}, this.extraKeyVals);
     if (this.noThrottle) {
       // tell the server not to throttle this, since it was manually submitted
-      formData.append("Throttleable", "0");
+      payload.Throttleable = "0";
     }
+    let json = new Blob([JSON.stringify(payload)], {
+      type: "application/json",
+    });
+    formData.append("extra", json);
+
     // add the minidumps
     let promises = [
       File.createFromFileName(this.dump).then(file => {
@@ -209,36 +248,45 @@ Submitter.prototype = {
     ];
 
     if (this.memory) {
-      promises.push(File.createFromFileName(this.memory).then(file => {
-        formData.append("memory_report", file);
-      }));
+      promises.push(
+        File.createFromFileName(this.memory).then(file => {
+          formData.append("memory_report", file);
+        })
+      );
     }
 
-    if (this.additionalDumps.length > 0) {
+    if (this.additionalDumps.length) {
       let names = [];
       for (let i of this.additionalDumps) {
         names.push(i.name);
-        promises.push(File.createFromFileName(i.dump).then(file => {
-          formData.append("upload_file_minidump_" + i.name, file);
-        }));
+        promises.push(
+          File.createFromFileName(i.dump).then(file => {
+            formData.append("upload_file_minidump_" + i.name, file);
+          })
+        );
       }
     }
 
     let manager = Services.crashmanager;
     let submissionID = manager.generateSubmissionID();
 
-    xhr.addEventListener("readystatechange", (evt) => {
+    xhr.addEventListener("readystatechange", evt => {
       if (xhr.readyState == 4) {
         let ret =
-          xhr.status === 200 ? parseKeyValuePairs(xhr.responseText) : {};
+          xhr.status === 200 ? this.parseResponse(xhr.responseText) : {};
         let submitted = !!ret.CrashID;
         let p = Promise.resolve();
 
         if (this.recordSubmission) {
-          let result = submitted ? manager.SUBMISSION_RESULT_OK :
-                                   manager.SUBMISSION_RESULT_FAILED;
-          p = manager.addSubmissionResult(this.id, submissionID, new Date(),
-                                          result);
+          let result = submitted
+            ? manager.SUBMISSION_RESULT_OK
+            : manager.SUBMISSION_RESULT_FAILED;
+          p = manager.addSubmissionResult(
+            this.id,
+            submissionID,
+            new Date(),
+            result
+          );
           if (submitted) {
             manager.setRemoteCrashID(this.id, ret.CrashID);
           }
@@ -259,25 +307,28 @@ Submitter.prototype = {
     let id = this.id;
 
     if (this.recordSubmission) {
-      p = p.then(() => { return manager.ensureCrashIsPresent(id); })
-           .then(() => {
-             return manager.addSubmissionAttempt(id, submissionID, new Date());
-            });
+      p = p.then(() => {
+        return manager.addSubmissionAttempt(id, submissionID, new Date());
+      });
     }
-    p.then(() => { xhr.send(formData); });
+    p.then(() => {
+      xhr.send(formData);
+    });
     return true;
   },
 
   notifyStatus: function Submitter_notify(status, ret) {
-    let propBag = Cc["@mozilla.org/hash-property-bag;1"].
-                  createInstance(Ci.nsIWritablePropertyBag2);
+    let propBag = Cc["@mozilla.org/hash-property-bag;1"].createInstance(
+      Ci.nsIWritablePropertyBag2
+    );
     propBag.setPropertyAsAString("minidumpID", this.id);
     if (status == SUCCESS) {
       propBag.setPropertyAsAString("serverCrashID", ret.CrashID);
     }
 
-    let extraKeyValsBag = Cc["@mozilla.org/hash-property-bag;1"].
-                          createInstance(Ci.nsIWritablePropertyBag2);
+    let extraKeyValsBag = Cc["@mozilla.org/hash-property-bag;1"].createInstance(
+      Ci.nsIWritablePropertyBag2
+    );
     for (let key in this.extraKeyVals) {
       extraKeyValsBag.setPropertyAsAString(key, this.extraKeyVals[key]);
     }
@@ -293,11 +344,32 @@ Submitter.prototype = {
         this.rejectSubmitStatusPromise(FAILED);
         break;
       default:
-        // no callbacks invoked.
+      // no callbacks invoked.
     }
   },
 
+  readAnnotations: async function Submitter_readAnnotations(extra) {
+    // These annotations are used only by the crash reporter client and should
+    // not be submitted to Socorro.
+    const strippedAnnotations = [
+      "StackTraces",
+      "TelemetryClientId",
+      "TelemetrySessionId",
+      "TelemetryServerURL",
+    ];
+    let decoder = new TextDecoder();
+    let extraData = await OS.File.read(extra);
+    let extraKeyVals = JSON.parse(decoder.decode(extraData));
+
+    this.extraKeyVals = { ...extraKeyVals, ...this.extraKeyVals };
+    strippedAnnotations.forEach(key => delete this.extraKeyVals[key]);
+  },
+
   submit: async function Submitter_submit() {
+    if (this.recordSubmission) {
+      await Services.crashmanager.ensureCrashIsPresent(this.id);
+    }
+
     let [dump, extra, memory] = getPendingMinidump(this.id);
     let [dumpExists, extraExists, memoryExists] = await Promise.all([
       OS.File.exists(dump),
@@ -314,14 +386,7 @@ Submitter.prototype = {
     this.dump = dump;
     this.extra = extra;
     this.memory = memoryExists ? memory : null;
-
-    let extraKeyVals = await parseKeyValuePairsFromFileAsync(extra);
-
-    for (let key in extraKeyVals) {
-      if (!(key in this.extraKeyVals)) {
-        this.extraKeyVals[key] = extraKeyVals[key];
-      }
-    }
+    await this.readAnnotations(extra);
 
     let additionalDumps = [];
 
@@ -330,10 +395,12 @@ Submitter.prototype = {
       let names = this.extraKeyVals.additional_minidumps.split(",");
 
       for (let name of names) {
-        let [dump /* , extra, memory */] = getPendingMinidump(this.id + "-" + name);
+        let [dump /* , extra, memory */] = getPendingMinidump(
+          this.id + "-" + name
+        );
 
         dumpsExistsPromises.push(OS.File.exists(dump));
-        additionalDumps.push({name, dump});
+        additionalDumps.push({ name, dump });
       }
 
       let dumpsExist = await Promise.all(dumpsExistsPromises);
@@ -350,8 +417,8 @@ Submitter.prototype = {
     this.additionalDumps = additionalDumps;
 
     if (!(await this.submitForm())) {
-       this.notifyStatus(FAILED);
-       this.cleanup();
+      this.notifyStatus(FAILED);
+      this.cleanup();
     }
 
     return this.submitStatusPromise;
@@ -403,8 +470,12 @@ var CrashSubmit = {
       extraExtraKeyVals = params.extraExtraKeyVals;
     }
 
-    let submitter = new Submitter(id, recordSubmission,
-                                  noThrottle, extraExtraKeyVals);
+    let submitter = new Submitter(
+      id,
+      recordSubmission,
+      noThrottle,
+      extraExtraKeyVals
+    );
     CrashSubmit._activeSubmissions.push(submitter);
     return submitter.submit();
   },
@@ -419,9 +490,11 @@ var CrashSubmit = {
    *         rejected otherwise
    */
   delete: async function CrashSubmit_delete(id) {
-    await Promise.all(getPendingMinidump(id).map(path => {
-      return OS.File.remove(path, { ignoreAbsent: true });
-    }));
+    await Promise.all(
+      getPendingMinidump(id).map(path => {
+        return OS.File.remove(path, { ignoreAbsent: true });
+      })
+    );
   },
 
   /**
@@ -436,8 +509,11 @@ var CrashSubmit = {
    */
   ignore: async function CrashSubmit_ignore(id) {
     let [dump /* , extra, memory */] = getPendingMinidump(id);
-    let file = await OS.File.open(`${dump}.ignore`, { create: true },
-                                  { unixFlags: OS.Constants.libc.O_CREAT });
+    let file = await OS.File.open(
+      `${dump}.ignore`,
+      { create: true },
+      { unixFlags: OS.Constants.libc.O_CREAT }
+    );
     await file.close();
   },
 
@@ -498,8 +574,7 @@ var CrashSubmit = {
       for (let entry in entries) {
         let entryInfo = await entries[entry];
 
-        if (!(entry in ignored) &&
-            entryInfo.lastAccessDate > minFileDate) {
+        if (!(entry in ignored) && entryInfo.lastAccessDate > minFileDate) {
           ids.push(entry);
         }
       }
@@ -589,9 +664,11 @@ var CrashSubmit = {
         }
       }
 
-      await Promise.all(toDelete.map(path => {
-        return OS.File.remove(path, { ignoreAbsent: true });
-      }));
+      await Promise.all(
+        toDelete.map(path => {
+          return OS.File.remove(path, { ignoreAbsent: true });
+        })
+      );
     }
   },
 

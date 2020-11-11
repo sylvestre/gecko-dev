@@ -11,12 +11,40 @@ users or automated tests.  This is more restrictive than most definitions of
 "build" in a Mozilla context: it does not include tasks that run build-like
 actions for static analysis or to produce instrumented artifacts.
 
+build-fat-aar
+-------------
+
+Build architecture-independent GeckoView AAR (Android ARchive) files. This build-like tasks is an
+artifact build (ARMv7, but this is arbitrary) that itself depends on arch-specific Android build
+jobs. It fetches arch-specific AAR files, extracts arch-specific libraries and preference files,
+and then assembles a multi-architecture "fat AAR". Downstream consumers are expected to use
+per-ABI feature splits to produce arch-specific APKs.
+
+If you want to run this task locally, you need to specify these environment variable:
+  - MOZ_ANDROID_FAT_AAR_ARCHITECTURES: must be a comma-separated list of architecture.
+    Eg: "armeabi-v7a,arm64-v8a,x86,x86_64".
+  - each of MOZ_ANDROID_FAT_AAR_ARM64_V8A, MOZ_ANDROID_FAT_AAR_ARMEABI_V7A,
+    MOZ_ANDROID_FAT_AAR_X86, MOZ_ANDROID_FAT_AAR_X86_64 must be a path relative to
+    MOZ_FETCHES_DIR.
+
 build-signing
 -------------
 
 Many builds must be signed. The build-signing task takes the unsigned `build`
 kind artifacts and passes them through signingscriptworker to a signing server
 and returns signed results.
+
+For mac notarization, we download the signed bits that have been notarized by Apple, and we staple the notarization to the app and pkg.
+
+build-notarization-part-1
+-------------------------
+
+We switched to a 3-part mac notarization workflow in bug 1562412. This is the first task, which signs the files and submits them for notarization.
+
+build-notarization-poller
+-------------------------
+
+We switched to a 3-part mac notarization workflow in bug 1562412. This is the second task, which polls Apple for notarization status. Because this is run in a separate, special notarization poller pool, we free up the mac notarization pool for actual signing work.
 
 artifact-build
 --------------
@@ -39,19 +67,31 @@ The l10n kind takes the last published nightly build, and generates localized bu
 from it. You can read more about how to trigger these on the `wiki
 <https://wiki.mozilla.org/ReleaseEngineering/TryServer#Desktop_l10n_jobs_.28on_Taskcluster.29>`_.
 
-nightly-l10n
-------------
+shippable-l10n
+--------------
 
 The nightly l10n kind repacks a specific nightly build (from the same source code)
 in order to provide localized versions of the same source.
 
-nightly-l10n-signing
---------------------
+shippable-l10n-signing
+----------------------
 
-The nightly l10n signing kind takes artifacts from the nightly-l10n kind and
+The shippable l10n signing kind takes artifacts from the shippable-l10n kind and
 passes them to signing servers to have their contents signed appropriately, based
-on an appropriate signing format. One signing job is created for each nightly-l10n
+on an appropriate signing format. One signing job is created for each shippable-l10n
 job (usually chunked).
+
+For mac notarization, we download the signed bits that have been notarized by Apple, and we staple the notarization to the app and pkg.
+
+shippable-l10n-notarization-part-1
+----------------------------------
+
+We switched to a 3-part mac notarization workflow in bug 1562412. This is the first task, which signs the files and submits them for notarization.
+
+shippable-l10n-notarization-poller
+----------------------------------
+
+We switched to a 3-part mac notarization workflow in bug 1562412. This is the second task, which polls Apple for notarization status. Because this is run in a separate, special notarization poller pool, we free up the mac notarization pool for actual signing work.
 
 source-test
 -----------
@@ -60,6 +100,12 @@ Source-tests are tasks that run directly from the Gecko source. This can include
 unit tests, source-code analysis, or measurement work. While source-test tasks run from
 a source checkout, it is still possible for them to depend on a build artifact, though
 often they do not.
+
+code-review
+-----------
+
+Publish issues found by source-test tasks on Phabricator.
+This is a part of Release Management code review Bot.
 
 upload-symbols
 --------------
@@ -146,7 +192,7 @@ Tasks of the ``docker-image`` kind build the Docker images in which other
 Docker tasks run.
 
 The tasks to generate each docker image have predictable labels:
-``build-docker-image-<name>``.
+``docker-image-<name>``.
 
 Docker images are built from subdirectories of ``taskcluster/docker``, using
 ``docker build``.  There is currently no capability for one Docker image to
@@ -190,21 +236,21 @@ release-beetmover-push-to-release publishes promoted releases from the
 candidates directory to the release directory. This is part of release
 promotion.
 
+beetmover-snap
+--------------
+Beetmover-source publishes Ubuntu's snap. This is part of release promotion.
+
 beetmover-source
 ----------------
-
 Beetmover-source publishes release source. This is part of release promotion.
 
 beetmover-geckoview
 -------------------
-
 Beetmover-geckoview publishes the Android library called "geckoview".
 
-checksums-signing
------------------
-Checksums-signing take as input the checksums file generated by beetmover tasks
-and sign it via the signing scriptworkers. Returns the same file signed and
-additional detached signature.
+condprof
+--------
+condprof creates and updates realistic profiles.
 
 release-source-checksums-signing
 --------------------------------
@@ -224,16 +270,9 @@ Beetmover, takes source specific artifact checksums and pushes it to a location 
 of Taskcluster's task artifacts (archive.mozilla.org as one place) and in the
 process determines the final location and "pretty" names it (version product name)
 
-google-play-strings
--------------------
-Download strings to display on Google Play from https://l10n.mozilla-community.org/stores_l10n/.
-Artifact is then used by push-apk.
-
-push-apk
+perftest
 --------
-PushApk publishes Android packages onto Google Play Store. Jobs of this kind take
-all the signed multi-locales (aka "multi") APKs for a given release and upload them
-all at once.
+Runs performance tests using mozperftest.
 
 release-balrog-submit-toplevel
 ------------------------------
@@ -267,9 +306,31 @@ release-snap-repackage
 ----------------------
 Generate an installer using Ubuntu's Snap format.
 
+release-flatpak-repackage
+-------------------------
+Generate an installer using Flathub's Flatpak format.
+
 release-snap-push
 -----------------
 Pushes Snap repackage on Snap store.
+
+release-flatpak-push
+--------------------
+Pushes Flatpak repackage on Flathub
+
+release-secondary-snap-push
+---------------------------
+Performs the same function as `release-snap-push`, except for the beta channel as part of RC
+Releases.
+
+release-secondary-flatpak-push
+------------------------------
+Performs the same function as `release-flatpak-push`, except for the beta channel as part of RC
+Releases.
+
+release-notify-av-announce
+--------------------------
+Notify anti-virus vendors when a release is likely shipping.
 
 release-notify-push
 -------------------
@@ -293,15 +354,11 @@ Notify when a release has been started.
 
 release-bouncer-sub
 -------------------
-Submits bouncer updates for releases.
+Submits bouncer information for releases.
 
 release-mark-as-shipped
 -----------------------
 Marks releases as shipped in Ship-It v1
-
-release-mark-as-started
------------------------
-Marks releases as started in Ship-It v1
 
 release-bouncer-aliases
 -----------------------
@@ -313,7 +370,7 @@ Checks Bouncer (download.mozilla.org) uptake.
 
 bouncer-locations
 -----------------
-Updates nightly bouncer locations for version bump
+Updates nightly bouncer locations for version bump.
 
 release-bouncer-check
 ---------------------
@@ -339,9 +396,9 @@ release-secondary-final-verify
 ------------------------------
 Verifies the contents and package of release update MARs for RC releases.
 
-release-sign-and-push-langpacks
+release-push-langpacks
 -------------------------------
-Sign a langpack XPI and publishes it onto addons.mozilla.org.
+Publishes language packs onto addons.mozilla.org.
 
 release-beetmover-signed-langpacks
 ----------------------------------
@@ -354,10 +411,13 @@ Publishes signed langpacks to archive.mozilla.org
 release-update-verify
 ---------------------
 Verifies the contents and package of release update MARs.
-
 release-secondary-update-verify
 -------------------------------
 Verifies the contents and package of release update MARs.
+
+release-update-verify-next
+--------------------------
+Verifies the contents and package of release and updare MARs from the previous ESR release.
 
 release-update-verify-config
 ----------------------------
@@ -366,6 +426,10 @@ Creates configs for release-update-verify tasks
 release-secondary-update-verify-config
 --------------------------------------
 Creates configs for release-secondary-update-verify tasks
+
+release-update-verify-config-next
+---------------------------------
+Creates configs for release-update-verify-next tasks
 
 release-updates-builder
 -----------------------
@@ -387,6 +451,10 @@ release-partner-repack
 ----------------------
 Generates customized versions of releases for partners.
 
+release-partner-attribution
+---------------------------
+Generates attributed versions of releases for partners.
+
 release-partner-repack-chunking-dummy
 -------------------------------------
 Chunks the partner repacks by locale.
@@ -394,6 +462,18 @@ Chunks the partner repacks by locale.
 release-partner-repack-signing
 ------------------------------
 Internal signing of partner repacks.
+
+For mac notarization, we download the signed bits that have been notarized by Apple, and we staple the notarization to the app and pkg.
+
+release-partner-repack-notarization-part-1
+------------------------------------------
+
+We switched to a 3-part mac notarization workflow in bug 1562412. This is the first task, which signs the files and submits them for notarization.
+
+release-partner-repack-notarization-poller
+------------------------------------------
+
+We switched to a 3-part mac notarization workflow in bug 1562412. This is the second task, which polls Apple for notarization status. Because this is run in a separate, special notarization poller pool, we free up the mac notarization pool for actual signing work.
 
 release-partner-repack-repackage
 --------------------------------
@@ -407,6 +487,14 @@ release-partner-repack-beetmover
 --------------------------------
 Moves the partner repacks to S3 buckets.
 
+release-partner-attribution-beetmover
+-------------------------------------
+Moves the partner attributions to S3 buckets.
+
+release-partner-repack-bouncer-sub
+----------------------------------
+Sets up bouncer products for partners.
+
 release-early-tagging
 ---------------------
 Utilises treescript to perform tagging that should happen near the start of a release.
@@ -418,6 +506,18 @@ Generates customized versions of releases for eme-free repacks.
 release-eme-free-repack-signing
 -------------------------------
 Internal signing of eme-free repacks
+
+For mac notarization, we download the signed bits that have been notarized by Apple, and we staple the notarization to the app and pkg.
+
+release-eme-free-repack-notarization-part-1
+-------------------------------------------
+
+We switched to a 3-part mac notarization workflow in bug 1562412. This is the first task, which signs the files and submits them for notarization.
+
+release-eme-free-repack-notarization-poller
+-------------------------------------------
+
+We switched to a 3-part mac notarization workflow in bug 1562412. This is the second task, which polls Apple for notarization status. Because this is run in a separate, special notarization poller pool, we free up the mac notarization pool for actual signing work.
 
 release-eme-free-repack-repackage
 ---------------------------------
@@ -462,6 +562,10 @@ mar-signing-l10n
 ----------------
 Mar-signing-l10n takes the complete update MARs and signs them for localized versions.
 
+mar-signing-autograph-stage
+---------------------------
+These tasks are only to test autograph-stage, when the autograph team asks for their staging environment to be tested.
+
 repackage-msi
 -------------
 Repackage-msi takes the signed full installer and produces an msi installer (that wraps the full installer)
@@ -476,10 +580,10 @@ repo-update
 Repo-Update tasks are tasks that perform some action on the project repo itself,
 in order to update its state in some way.
 
-pipfile-update
---------------
-Pipfile-update tasks generate update Pipfile.lock for in-tree Pipfiles, and attach
-patches with the updates to Phabricator.
+python-dependency-update
+------------------------
+Python-dependency-update runs `pip-compile --generate-hashes` against the specified `requirements.in` and
+submits patches to Phabricator.
 
 partials
 --------
@@ -526,3 +630,89 @@ taskcluster/ci/diffoscope/kind.yml for your needs.
 addon
 -----
 Tasks used to build/package add-ons.
+
+openh264-plugin
+---------------
+Tasks used to build the openh264 plugin.
+
+openh264-signing
+----------------
+Signing for the openh264 plugin.
+
+webrender
+---------
+Tasks used to do testing of WebRender standalone (without gecko). The
+WebRender code lives in gfx/wr and has its own testing infrastructure.
+
+wgpu
+---------
+Tasks used to do testing of WebGPU standalone (without gecko). The
+WebGPU code lives in gfx/wgpu and has its own testing infrastructure.
+
+github-sync
+------------
+Tasks used to do synchronize parts of Gecko that have downstream GitHub
+repositories.
+
+instrumented-build
+------------------
+Tasks that generate builds with PGO instrumentation enabled. This is an
+intermediate build that can be used to generate profiling information for a
+final PGO build. This is the 1st stage of the full 3-step PGO process.
+
+generate-profile
+----------------
+Tasks that take a build configured for PGO and run the binary against a sample
+set to generate profile data. This is the 2nd stage of the full 3-step PGO
+process.
+
+geckodriver-signing
+-------------------
+Signing for geckodriver binary.
+
+visual-metrics
+--------------
+Tasks that compute visual performance metrics from videos and images captured
+by other tasks.
+
+visual-metrics-dep
+------------------
+Tasks that compute visual performance metrics from videos and images captured
+by another task that produces a jobs.json artifact
+
+iris
+----
+Iris testing suite
+
+maybe-release
+-------------
+A shipitscript task that does the following:
+
+1. Checks if automated releases are disabled
+2. Checks if the changes between the current revision and the previous releases
+   revision are considered "worthwhile" for a new release.
+3. Triggers the release via ship-it, which will then create an action task.
+
+l10n-bump
+---------
+Cron-driven tasks that bump l10n-changesets files in-tree, using data from the l10n dashboard.
+
+merge-automation
+----------------
+Hook-driven tasks that automate "Merge Day" tasks during the release cycle.
+
+system-symbols
+--------------
+Generate missing macOS and windows system symbols from crash reports.
+
+system-symbols-upload
+---------------------
+Upload macOS and windows system symbols to tecken.
+
+scriptworker-canary
+-------------------
+Push tasks to try to test new scriptworker deployments.
+
+updatebot
+------------------
+Check for updates to (supported) third party libraries, and manage their lifecycle.

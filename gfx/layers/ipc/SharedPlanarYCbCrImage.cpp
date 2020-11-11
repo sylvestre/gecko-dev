@@ -33,8 +33,28 @@ SharedPlanarYCbCrImage::SharedPlanarYCbCrImage(ImageClient* aCompositable)
   MOZ_COUNT_CTOR(SharedPlanarYCbCrImage);
 }
 
+SharedPlanarYCbCrImage::SharedPlanarYCbCrImage(
+    TextureClientRecycleAllocator* aRecycleAllocator)
+    : mRecycleAllocator(aRecycleAllocator) {
+  MOZ_COUNT_CTOR(SharedPlanarYCbCrImage);
+}
+
 SharedPlanarYCbCrImage::~SharedPlanarYCbCrImage() {
   MOZ_COUNT_DTOR(SharedPlanarYCbCrImage);
+}
+
+TextureClientRecycleAllocator* SharedPlanarYCbCrImage::RecycleAllocator() {
+  static const uint32_t MAX_POOLED_VIDEO_COUNT = 5;
+
+  if (!mRecycleAllocator && mCompositable) {
+    if (!mCompositable->HasTextureClientRecycler()) {
+      // Initialize TextureClientRecycler
+      mCompositable->GetTextureClientRecycler()->SetMaxPoolSize(
+          MAX_POOLED_VIDEO_COUNT);
+    }
+    mRecycleAllocator = mCompositable->GetTextureClientRecycler();
+  }
+  return mRecycleAllocator;
 }
 
 size_t SharedPlanarYCbCrImage::SizeOfExcludingThis(
@@ -47,14 +67,8 @@ size_t SharedPlanarYCbCrImage::SizeOfExcludingThis(
 }
 
 TextureClient* SharedPlanarYCbCrImage::GetTextureClient(
-    KnowsCompositor* aForwarder) {
+    KnowsCompositor* aKnowsCompositor) {
   return mTextureClient.get();
-}
-
-uint8_t* SharedPlanarYCbCrImage::GetBuffer() const {
-  // This should never be used
-  MOZ_ASSERT(false);
-  return nullptr;
 }
 
 already_AddRefed<gfx::SourceSurface>
@@ -90,38 +104,8 @@ bool SharedPlanarYCbCrImage::CopyData(const PlanarYCbCrData& aData) {
 }
 
 bool SharedPlanarYCbCrImage::AdoptData(const Data& aData) {
-  MOZ_ASSERT(mTextureClient, "This Image should have already allocated data");
-  if (!mTextureClient) {
-    return false;
-  }
-  mData = aData;
-  mSize = aData.mPicSize;
-  mOrigin = gfx::IntPoint(aData.mPicX, aData.mPicY);
-
-  uint8_t* base = GetBuffer();
-  uint32_t yOffset = aData.mYChannel - base;
-  uint32_t cbOffset = aData.mCbChannel - base;
-  uint32_t crOffset = aData.mCrChannel - base;
-
-  auto fwd = mCompositable->GetForwarder();
-  bool supportsTextureDirectMapping =
-      fwd->SupportsTextureDirectMapping() &&
-      std::max(
-          aData.mYSize.width,
-          std::max(aData.mYSize.height,
-                   std::max(aData.mCbCrSize.width, aData.mCbCrSize.height))) <=
-          fwd->GetMaxTextureSize();
-  bool hasIntermediateBuffer = ComputeHasIntermediateBuffer(
-      gfx::SurfaceFormat::YUV, fwd->GetCompositorBackendType(),
-      supportsTextureDirectMapping);
-
-  static_cast<BufferTextureData*>(mTextureClient->GetInternalData())
-      ->SetDescriptor(YCbCrDescriptor(
-          aData.mYSize, aData.mYStride, aData.mCbCrSize, aData.mCbCrStride,
-          yOffset, cbOffset, crOffset, aData.mStereoMode, aData.mColorDepth,
-          aData.mYUVColorSpace, hasIntermediateBuffer));
-
-  return true;
+  MOZ_ASSERT(false, "This shouldn't be used.");
+  return false;
 }
 
 bool SharedPlanarYCbCrImage::IsValid() const {
@@ -130,19 +114,12 @@ bool SharedPlanarYCbCrImage::IsValid() const {
 
 bool SharedPlanarYCbCrImage::Allocate(PlanarYCbCrData& aData) {
   MOZ_ASSERT(!mTextureClient, "This image already has allocated data");
-  static const uint32_t MAX_POOLED_VIDEO_COUNT = 5;
 
-  if (!mCompositable->HasTextureClientRecycler()) {
-    // Initialize TextureClientRecycler
-    mCompositable->GetTextureClientRecycler()->SetMaxPoolSize(
-        MAX_POOLED_VIDEO_COUNT);
-  }
-
+  TextureFlags flags =
+      mCompositable ? mCompositable->GetTextureFlags() : TextureFlags::DEFAULT;
   {
-    YCbCrTextureClientAllocationHelper helper(aData,
-                                              mCompositable->GetTextureFlags());
-    mTextureClient =
-        mCompositable->GetTextureClientRecycler()->CreateOrRecycle(helper);
+    YCbCrTextureClientAllocationHelper helper(aData, flags);
+    mTextureClient = RecycleAllocator()->CreateOrRecycle(helper);
   }
 
   if (!mTextureClient) {

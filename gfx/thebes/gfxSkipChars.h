@@ -83,7 +83,7 @@ class gfxSkipChars {
   void KeepChar() { KeepChars(1); }
 
   void TakeFrom(gfxSkipChars* aSkipChars) {
-    mRanges.SwapElements(aSkipChars->mRanges);
+    mRanges = std::move(aSkipChars->mRanges);
     mCharCount = aSkipChars->mCharCount;
     aSkipChars->mCharCount = 0;
   }
@@ -150,13 +150,7 @@ class gfxSkipCharsIterator {
                                                                             : 0;
   }
 
-  gfxSkipCharsIterator(const gfxSkipCharsIterator& aIterator)
-      : mSkipChars(aIterator.mSkipChars),
-        mOriginalStringOffset(aIterator.mOriginalStringOffset),
-        mSkippedStringOffset(aIterator.mSkippedStringOffset),
-        mCurrentRangeIndex(aIterator.mCurrentRangeIndex),
-        mOriginalStringToSkipCharsOffset(
-            aIterator.mOriginalStringToSkipCharsOffset) {}
+  gfxSkipCharsIterator(const gfxSkipCharsIterator& aIterator) = default;
 
   /**
    * The empty constructor creates an object that is useless until it is
@@ -172,7 +166,7 @@ class gfxSkipCharsIterator {
   /**
    * Return true if this iterator is properly initialized and usable.
    */
-  bool IsInitialized() { return mSkipChars != nullptr; }
+  bool IsInitialized() const { return mSkipChars != nullptr; }
 
   /**
    * Set the iterator to aOriginalStringOffset in the original string.

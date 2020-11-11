@@ -8,7 +8,7 @@
 #include "LayerManagerMLGPU.h"
 #include "MLGDevice.h"
 #ifdef XP_WIN
-#include "mozilla/layers/MLGDeviceD3D11.h"
+#  include "mozilla/layers/MLGDeviceD3D11.h"
 #endif
 
 namespace mozilla {
@@ -18,7 +18,7 @@ TextureSourceProviderMLGPU::TextureSourceProviderMLGPU(
     LayerManagerMLGPU* aLayerManager, MLGDevice* aDevice)
     : mLayerManager(aLayerManager), mDevice(aDevice) {}
 
-TextureSourceProviderMLGPU::~TextureSourceProviderMLGPU() {}
+TextureSourceProviderMLGPU::~TextureSourceProviderMLGPU() = default;
 
 int32_t TextureSourceProviderMLGPU::GetMaxTextureSize() const {
   if (!mDevice) {

@@ -6,10 +6,9 @@
 
 const {
   UPDATE_FONTS,
-} = require("./index");
+} = require("devtools/client/inspector/fonts/actions/index");
 
 module.exports = {
-
   /**
    * Update the list of fonts in the font inspector
    */
@@ -19,5 +18,4 @@ module.exports = {
       allFonts,
     };
   },
-
 };

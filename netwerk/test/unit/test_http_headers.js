@@ -1,4 +1,4 @@
-ChromeUtils.import("resource://gre/modules/NetUtil.jsm");
+"use strict";
 
 function check_request_header(chan, name, value) {
   var chanValue;
@@ -11,10 +11,9 @@ function check_request_header(chan, name, value) {
 }
 
 function run_test() {
-
-  var chan = NetUtil.newChannel ({
+  var chan = NetUtil.newChannel({
     uri: "http://www.mozilla.org/",
-    loadUsingSystemPrincipal: true
+    loadUsingSystemPrincipal: true,
   }).QueryInterface(Ci.nsIHttpChannel);
 
   check_request_header(chan, "host", "www.mozilla.org");
@@ -26,11 +25,13 @@ function run_test() {
   chan.setRequestHeader("foopy", "baz", true);
   check_request_header(chan, "foopy", "bar, baz");
 
-  for (var i = 0; i < 100; ++i)
+  for (var i = 0; i < 100; ++i) {
     chan.setRequestHeader("foopy" + i, i, false);
+  }
 
-  for (var i = 0; i < 100; ++i)
+  for (var i = 0; i < 100; ++i) {
     check_request_header(chan, "foopy" + i, i);
+  }
 
   var x = false;
   try {
@@ -38,8 +39,9 @@ function run_test() {
   } catch (e) {
     x = true;
   }
-  if (!x)
+  if (!x) {
     do_throw("header with colon not rejected");
+  }
 
   x = false;
   try {
@@ -47,8 +49,9 @@ function run_test() {
   } catch (e) {
     x = true;
   }
-  if (!x)
+  if (!x) {
     do_throw("header value with newline not rejected");
+  }
 
   x = false;
   try {
@@ -56,8 +59,9 @@ function run_test() {
   } catch (e) {
     x = true;
   }
-  if (!x)
+  if (!x) {
     do_throw("header name with non-ASCII not rejected");
+  }
 
   x = false;
   try {
@@ -65,6 +69,7 @@ function run_test() {
   } catch (e) {
     x = true;
   }
-  if (!x)
+  if (!x) {
     do_throw("header value with null-byte not rejected");
+  }
 }

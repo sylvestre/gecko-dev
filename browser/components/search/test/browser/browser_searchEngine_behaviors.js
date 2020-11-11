@@ -7,67 +7,74 @@
 
 "use strict";
 
-const SEARCH_ENGINE_DETAILS = [{
-  alias: "a",
-  baseURL: "https://www.amazon.com/exec/obidos/external-search/?field-keywords=foo&ie=UTF-8&mode=blended&tag=mozilla-20&sourceid=Mozilla-search",
-  codes: {
-    context: "",
-    keyword: "",
-    newTab: "",
-    submission: "",
+const SEARCH_ENGINE_DETAILS = [
+  {
+    alias: "a",
+    baseURL:
+      "https://www.amazon.com/exec/obidos/external-search/?field-keywords=foo&ie=UTF-8&mode=blended&tag=mozilla-20&sourceid=Mozilla-search",
+    codes: {
+      context: "",
+      keyword: "",
+      newTab: "",
+      submission: "",
+    },
+    name: "Amazon.com",
   },
-  name: "Amazon.com",
-}, {
-  alias: "b",
-  baseURL: "https://www.bing.com/search?q=foo&pc=MOZI",
-  codes: {
-    context: "&form=MOZCON",
-    keyword: "&form=MOZLBR",
-    newTab: "&form=MOZTSB",
-    submission: "&form=MOZSBR",
+  {
+    alias: "b",
+    baseURL: "https://www.bing.com/search?{code}pc=MOZI&q=foo",
+    codes: {
+      context: "form=MOZCON&",
+      keyword: "form=MOZLBR&",
+      newTab: "form=MOZTSB&",
+      submission: "form=MOZSBR&",
+    },
+    name: "Bing",
   },
-  name: "Bing",
-}, {
-  alias: "d",
-  baseURL: "https://duckduckgo.com/?q=foo",
-  codes: {
-    context: "&t=ffcm",
-    keyword: "&t=ffab",
-    newTab: "&t=ffnt",
-    submission: "&t=ffsb",
+  {
+    alias: "d",
+    baseURL: "https://duckduckgo.com/?{code}q=foo",
+    codes: {
+      context: "t=ffcm&",
+      keyword: "t=ffab&",
+      newTab: "t=ffnt&",
+      submission: "t=ffsb&",
+    },
+    name: "DuckDuckGo",
   },
-  name: "DuckDuckGo",
-}, {
-  alias: "e",
-  baseURL: "https://rover.ebay.com/rover/1/711-53200-19255-0/1?ff3=4&toolid=20004&campid=5338192028&customid=&mpre=https://www.ebay.com/sch/foo",
-  codes: {
-    context: "",
-    keyword: "",
-    newTab: "",
-    submission: "",
+  {
+    alias: "e",
+    baseURL:
+      "https://rover.ebay.com/rover/1/711-53200-19255-0/1?ff3=4&toolid=20004&campid=5338192028&customid=&mpre=https://www.ebay.com/sch/foo",
+    codes: {
+      context: "",
+      keyword: "",
+      newTab: "",
+      submission: "",
+    },
+    name: "eBay",
   },
-  name: "eBay",
-},
-// {
-// TODO: Google is tested in browser_google_behaviors.js - we can't test it here
-// yet because of bug 1315953.
-//   alias: "g",
-//   baseURL: "https://www.google.com/search?q=foo&ie=utf-8&oe=utf-8",
-//   codes: {
-//     context: "",
-//     keyword: "",
-//     newTab: "",
-//     submission: "",
-//   },
-//   name: "Google",
-// },
+  // {
+  // TODO: Google is tested in browser_google_behaviors.js - we can't test it here
+  // yet because of bug 1315953.
+  //   alias: "g",
+  //   baseURL: "https://www.google.com/search?q=foo&ie=utf-8&oe=utf-8",
+  //   codes: {
+  //     context: "",
+  //     keyword: "",
+  //     newTab: "",
+  //     submission: "",
+  //   },
+  //   name: "Google",
+  // },
 ];
 
-
 function promiseContentSearchReady(browser) {
-  return ContentTask.spawn(browser, {}, async function(args) {
-    await ContentTaskUtils.waitForCondition(() => content.wrappedJSObject.gContentSearchController &&
-      content.wrappedJSObject.gContentSearchController.defaultEngine
+  return SpecialPowers.spawn(browser, [], async function(args) {
+    await ContentTaskUtils.waitForCondition(
+      () =>
+        content.wrappedJSObject.gContentSearchController &&
+        content.wrappedJSObject.gContentSearchController.defaultEngine
     );
   });
 }
@@ -81,10 +88,10 @@ add_task(async function test_setup() {
 
 for (let engine of SEARCH_ENGINE_DETAILS) {
   add_task(async function() {
-    let previouslySelectedEngine = Services.search.defaultEngine;
+    let previouslySelectedEngine = await Services.search.getDefault();
 
-    registerCleanupFunction(function() {
-      Services.search.defaultEngine = previouslySelectedEngine;
+    registerCleanupFunction(async function() {
+      await Services.search.setDefault(previouslySelectedEngine);
     });
 
     await testSearchEngine(engine);
@@ -95,29 +102,39 @@ async function testSearchEngine(engineDetails) {
   let engine = Services.search.getEngineByName(engineDetails.name);
   Assert.ok(engine, `${engineDetails.name} is installed`);
 
-  Services.search.defaultEngine = engine;
+  await Services.search.setDefault(engine);
   engine.alias = engineDetails.alias;
 
   let base = engineDetails.baseURL;
 
   // Test search URLs (including purposes).
   let url = engine.getSubmission("foo").uri.spec;
-  Assert.equal(url, base + engineDetails.codes.submission, "Check search URL for 'foo'");
+  Assert.equal(
+    url,
+    base.replace("{code}", engineDetails.codes.submission),
+    "Check search URL for 'foo'"
+  );
   let sb = BrowserSearch.searchBar;
 
   let engineTests = [
     {
       name: "context menu search",
-      searchURL: base + engineDetails.codes.context,
+      searchURL: base.replace("{code}", engineDetails.codes.context),
       run() {
         // Simulate a contextmenu search
         // FIXME: This is a bit "low-level"...
-        BrowserSearch._loadSearch("foo", false, "contextmenu", Services.scriptSecurityManager.getSystemPrincipal());
+        BrowserSearch._loadSearch(
+          "foo",
+          false,
+          false,
+          "contextmenu",
+          Services.scriptSecurityManager.getSystemPrincipal()
+        );
       },
     },
     {
       name: "keyword search",
-      searchURL: base + engineDetails.codes.keyword,
+      searchURL: base.replace("{code}", engineDetails.codes.keyword),
       run() {
         gURLBar.value = "? foo";
         gURLBar.focus();
@@ -126,7 +143,7 @@ async function testSearchEngine(engineDetails) {
     },
     {
       name: "keyword search with alias",
-      searchURL: base + engineDetails.codes.keyword,
+      searchURL: base.replace("{code}", engineDetails.codes.keyword),
       run() {
         gURLBar.value = `${engineDetails.alias} foo`;
         gURLBar.focus();
@@ -135,7 +152,7 @@ async function testSearchEngine(engineDetails) {
     },
     {
       name: "search bar search",
-      searchURL: base + engineDetails.codes.submission,
+      searchURL: base.replace("{code}", engineDetails.codes.submission),
       run() {
         sb.focus();
         sb.value = "foo";
@@ -144,16 +161,16 @@ async function testSearchEngine(engineDetails) {
     },
     {
       name: "new tab search",
-      searchURL: base + engineDetails.codes.newTab,
+      searchURL: base.replace("{code}", engineDetails.codes.newTab),
       async preTest(tab) {
         let browser = tab.linkedBrowser;
-        await BrowserTestUtils.loadURI(browser, "about:newtab");
-        await BrowserTestUtils.browserLoaded(browser);
+        BrowserTestUtils.loadURI(browser, "about:newtab");
+        await BrowserTestUtils.browserLoaded(browser, false, "about:newtab");
 
         await promiseContentSearchReady(browser);
       },
       async run(tab) {
-        await ContentTask.spawn(tab.linkedBrowser, {}, async function(args) {
+        await SpecialPowers.spawn(tab.linkedBrowser, [], async function() {
           let input = content.document.querySelector("input[id*=search-]");
           input.focus();
           input.value = "foo";
@@ -172,13 +189,14 @@ async function testSearchEngine(engineDetails) {
       await test.preTest(tab);
     }
 
-    let stateChangePromise = promiseStateChangeURI();
+    let promises = [
+      BrowserTestUtils.waitForDocLoadAndStopIt(test.searchURL, tab),
+      BrowserTestUtils.browserStopped(tab.linkedBrowser, null, true),
+    ];
 
     await test.run(tab);
 
-    let receivedURI = await stateChangePromise;
-
-    Assert.equal(receivedURI, test.searchURL);
+    await Promise.all(promises);
   }
 
   engine.alias = undefined;

@@ -10,16 +10,15 @@
 /* A pointer wrapper indicating that the pointer should not be dereferenced. */
 
 #include "mozilla/Attributes.h"
-#include "mozilla/TypeTraits.h"
 
 #include <cstdint>
 
 // Macro indicating that a function manipulates a pointer that will not be
 // dereferenced, and therefore there is no need to check the object.
 #if defined(__clang__)
-#define NO_POINTEE_CHECKS __attribute__((no_sanitize("vptr")))
+#  define NO_POINTEE_CHECKS __attribute__((no_sanitize("vptr")))
 #else
-#define NO_POINTEE_CHECKS /* nothing */
+#  define NO_POINTEE_CHECKS /* nothing */
 #endif
 
 namespace mozilla {

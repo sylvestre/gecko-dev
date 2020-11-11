@@ -14,7 +14,6 @@
 #include "nsCycleCollectionParticipant.h"
 #include "nsDOMNavigationTiming.h"
 #include "nsICancelableRunnable.h"
-#include "nsIRunnable.h"
 #include "nsString.h"
 
 class nsPIDOMWindowInner;
@@ -28,8 +27,9 @@ class IdleRequest final : public LinkedListElement<RefPtr<IdleRequest>> {
  public:
   IdleRequest(IdleRequestCallback* aCallback, uint32_t aHandle);
 
-  nsresult IdleRun(nsPIDOMWindowInner* aWindow, DOMHighResTimeStamp aDeadline,
-                   bool aDidTimeout);
+  MOZ_CAN_RUN_SCRIPT
+  void IdleRun(nsPIDOMWindowInner* aWindow, DOMHighResTimeStamp aDeadline,
+               bool aDidTimeout);
 
   void SetTimeoutHandle(int32_t aHandle);
   bool HasTimeout() const { return mTimeoutHandle.isSome(); }

@@ -16,6 +16,10 @@ namespace mozilla {
 namespace ipc {
 class IShmemAllocator;
 }
+namespace layers {
+class TextureClient;
+}
+
 namespace wr {
 
 /// ShmSegmentsWriter pushes bytes in a sequence of fixed size shmems for small
@@ -47,6 +51,7 @@ class ShmSegmentsWriter {
   bool IsEmpty() const;
 
   layers::WebRenderBridgeChild* WrBridge() const { return mShmAllocator; }
+  size_t ChunkSize() const { return mChunkSize; }
 
  protected:
   bool AllocChunk();
@@ -66,8 +71,33 @@ class ShmSegmentsReader {
 
   bool Read(const layers::OffsetRange& aRange, wr::Vec<uint8_t>& aInto);
 
+  // Get a read pointer, if possible, directly into the shm. If the range has
+  // been broken up into multiple chunks that can't be represented by a single
+  // range, nothing will be returned to indicate failure.
+  Maybe<Range<uint8_t>> GetReadPointer(const layers::OffsetRange& aRange);
+
+  // Get a read pointer, if possible, directly into the shm. Otherwise, copy
+  // it into the Vec and return a pointer to that contiguous memory instead.
+  // If all fails, return nothing.
+  Maybe<Range<uint8_t>> GetReadPointerOrCopy(const layers::OffsetRange& aRange,
+                                             wr::Vec<uint8_t>& aInto) {
+    if (Maybe<Range<uint8_t>> ptr = GetReadPointer(aRange)) {
+      return ptr;
+    } else {
+      size_t initialLength = aInto.Length();
+      if (Read(aRange, aInto)) {
+        return Some(Range<uint8_t>(aInto.Data() + initialLength,
+                                   aInto.Length() - initialLength));
+      } else {
+        return Nothing();
+      }
+    }
+  }
+
  protected:
   bool ReadLarge(const layers::OffsetRange& aRange, wr::Vec<uint8_t>& aInto);
+
+  Maybe<Range<uint8_t>> GetReadPointerLarge(const layers::OffsetRange& aRange);
 
   const nsTArray<layers::RefCountedShmem>& mSmallAllocs;
   const nsTArray<mozilla::ipc::Shmem>& mLargeAllocs;
@@ -92,13 +122,19 @@ class IpcResourceUpdateQueue {
   IpcResourceUpdateQueue& operator=(const IpcResourceUpdateQueue& aOther) =
       delete;
 
+  // Moves over everything but the subqueues
+  void ReplaceResources(IpcResourceUpdateQueue&& aOther);
+
   bool AddImage(wr::ImageKey aKey, const ImageDescriptor& aDescriptor,
                 Range<uint8_t> aBytes);
 
   bool AddBlobImage(wr::BlobImageKey aKey, const ImageDescriptor& aDescriptor,
-                    Range<uint8_t> aBytes);
+                    Range<uint8_t> aBytes, ImageIntRect aVisibleRect);
 
-  void AddExternalImage(wr::ExternalImageId aExtId, wr::ImageKey aKey);
+  void AddPrivateExternalImage(wr::ExternalImageId aExtId, wr::ImageKey aKey,
+                               wr::ImageDescriptor aDesc);
+
+  void AddSharedExternalImage(wr::ExternalImageId aExtId, wr::ImageKey aKey);
 
   void PushExternalImageForTexture(wr::ExternalImageId aExtId,
                                    wr::ImageKey aKey,
@@ -110,10 +146,14 @@ class IpcResourceUpdateQueue {
 
   bool UpdateBlobImage(wr::BlobImageKey aKey,
                        const ImageDescriptor& aDescriptor,
-                       Range<uint8_t> aBytes, ImageIntRect aDirtyRect);
+                       Range<uint8_t> aBytes, ImageIntRect aVisibleRect,
+                       ImageIntRect aDirtyRect);
 
-  void UpdateExternalImage(ExternalImageId aExtID, ImageKey aKey,
-                           ImageIntRect aDirtyRect);
+  void UpdatePrivateExternalImage(wr::ExternalImageId aExtId, wr::ImageKey aKey,
+                                  const wr::ImageDescriptor& aDesc,
+                                  ImageIntRect aDirtyRect);
+  void UpdateSharedExternalImage(ExternalImageId aExtID, ImageKey aKey,
+                                 ImageIntRect aDirtyRect);
 
   void SetBlobImageVisibleArea(BlobImageKey aKey, const ImageIntRect& aArea);
 

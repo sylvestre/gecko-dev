@@ -9,17 +9,14 @@
 
 #include "mozilla/dom/PlacesObserversBinding.h"
 #include "mozilla/ErrorResult.h"
-#include "mozilla/Pair.h"
 #include "nsWrapperCache.h"
 
 namespace mozilla {
 namespace dom {
 
-class PlacesWeakCallbackWrapper final
-    : public nsWrapperCache,
-      public SupportsWeakPtr<PlacesWeakCallbackWrapper> {
+class PlacesWeakCallbackWrapper final : public nsWrapperCache,
+                                        public SupportsWeakPtr {
  public:
-  MOZ_DECLARE_WEAKREFERENCE_TYPENAME(PlacesWeakCallbackWrapper)
   NS_INLINE_DECL_CYCLE_COLLECTING_NATIVE_REFCOUNTING(PlacesWeakCallbackWrapper)
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_NATIVE_CLASS(PlacesWeakCallbackWrapper)
 
@@ -27,8 +24,7 @@ class PlacesWeakCallbackWrapper final
                                      PlacesEventCallback& aCallback);
 
   static already_AddRefed<PlacesWeakCallbackWrapper> Constructor(
-      const GlobalObject& aGlobal, PlacesEventCallback& aCallback,
-      ErrorResult& rv);
+      const GlobalObject& aGlobal, PlacesEventCallback& aCallback);
 
   nsISupports* GetParentObject() const;
 

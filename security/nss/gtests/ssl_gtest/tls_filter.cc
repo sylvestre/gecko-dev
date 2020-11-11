@@ -45,40 +45,65 @@ void TlsVersioned::WriteStream(std::ostream& stream) const {
   }
 }
 
-void TlsRecordFilter::EnableDecryption() {
-  SSLInt_SetCipherSpecChangeFunc(agent()->ssl_fd(), CipherSpecChanged,
-                                 (void*)this);
+TlsRecordFilter::TlsRecordFilter(const std::shared_ptr<TlsAgent>& a)
+    : agent_(a) {
+  cipher_specs_.emplace_back(a->variant() == ssl_variant_datagram, 0);
 }
 
-void TlsRecordFilter::CipherSpecChanged(void* arg, PRBool sending,
-                                        ssl3CipherSpec* newSpec) {
-  TlsRecordFilter* self = static_cast<TlsRecordFilter*>(arg);
-  PRBool isServer = self->agent()->role() == TlsAgent::SERVER;
+void TlsRecordFilter::EnableDecryption() {
+  EXPECT_EQ(SECSuccess,
+            SSL_SecretCallback(agent()->ssl_fd(), SecretCallback, this));
+  decrypting_ = true;
+}
 
+void TlsRecordFilter::SecretCallback(PRFileDesc* fd, PRUint16 epoch,
+                                     SSLSecretDirection dir, PK11SymKey* secret,
+                                     void* arg) {
+  TlsRecordFilter* self = static_cast<TlsRecordFilter*>(arg);
   if (g_ssl_gtest_verbose) {
-    std::cerr << (isServer ? "server" : "client") << ": "
-              << (sending ? "send" : "receive")
-              << " cipher spec changed:  " << newSpec->epoch << " ("
-              << newSpec->phase << ")" << std::endl;
+    std::cerr << self->agent()->role_str() << ": " << dir
+              << " secret changed for epoch " << epoch << std::endl;
   }
-  if (!sending) {
+
+  if (dir == ssl_secret_read) {
     return;
   }
 
-  uint64_t seq_no;
-  if (self->agent()->variant() == ssl_variant_datagram) {
-    seq_no = static_cast<uint64_t>(SSLInt_CipherSpecToEpoch(newSpec)) << 48;
-  } else {
-    seq_no = 0;
+  for (auto& spec : self->cipher_specs_) {
+    ASSERT_NE(spec.epoch(), epoch) << "duplicate spec for epoch " << epoch;
   }
-  self->in_sequence_number_ = seq_no;
-  self->out_sequence_number_ = seq_no;
-  self->dropped_record_ = false;
-  self->cipher_spec_.reset(new TlsCipherSpec());
-  bool ret = self->cipher_spec_->Init(
-      SSLInt_CipherSpecToEpoch(newSpec), SSLInt_CipherSpecToAlgorithm(newSpec),
-      SSLInt_CipherSpecToKey(newSpec), SSLInt_CipherSpecToIv(newSpec));
-  EXPECT_EQ(true, ret);
+
+  SSLPreliminaryChannelInfo preinfo;
+  EXPECT_EQ(SECSuccess,
+            SSL_GetPreliminaryChannelInfo(self->agent()->ssl_fd(), &preinfo,
+                                          sizeof(preinfo)));
+  EXPECT_EQ(sizeof(preinfo), preinfo.length);
+
+  // Check the version.
+  if (preinfo.valuesSet & ssl_preinfo_version) {
+    EXPECT_EQ(SSL_LIBRARY_VERSION_TLS_1_3, preinfo.protocolVersion);
+  } else {
+    EXPECT_EQ(1U, epoch);
+  }
+
+  uint16_t suite;
+  if (epoch == 1) {
+    // 0-RTT
+    EXPECT_TRUE(preinfo.valuesSet & ssl_preinfo_0rtt_cipher_suite);
+    suite = preinfo.zeroRttCipherSuite;
+  } else {
+    EXPECT_TRUE(preinfo.valuesSet & ssl_preinfo_cipher_suite);
+    suite = preinfo.cipherSuite;
+  }
+
+  SSLCipherSuiteInfo cipherinfo;
+  EXPECT_EQ(SECSuccess,
+            SSL_GetCipherSuiteInfo(suite, &cipherinfo, sizeof(cipherinfo)));
+  EXPECT_EQ(sizeof(cipherinfo), cipherinfo.length);
+
+  bool is_dtls = self->agent()->variant() == ssl_variant_datagram;
+  self->cipher_specs_.emplace_back(is_dtls, epoch);
+  EXPECT_TRUE(self->cipher_specs_.back().SetKeys(&cipherinfo, secret));
 }
 
 bool TlsRecordFilter::is_dtls13() const {
@@ -95,6 +120,27 @@ bool TlsRecordFilter::is_dtls13() const {
          info.canSendEarlyData;
 }
 
+bool TlsRecordFilter::is_dtls13_ciphertext(uint8_t ct) const {
+  return is_dtls13() && (ct & kCtDtlsCiphertextMask) == kCtDtlsCiphertext;
+}
+
+// Gets the cipher spec that matches the specified epoch.
+TlsCipherSpec& TlsRecordFilter::spec(uint16_t write_epoch) {
+  for (auto& sp : cipher_specs_) {
+    if (sp.epoch() == write_epoch) {
+      return sp;
+    }
+  }
+
+  // If we aren't decrypting, provide a cipher spec that does nothing other than
+  // count sequence numbers.
+  EXPECT_FALSE(decrypting_) << "No spec available for epoch " << write_epoch;
+  ;
+  bool is_dtls = agent()->variant() == ssl_variant_datagram;
+  cipher_specs_.emplace_back(is_dtls, write_epoch);
+  return cipher_specs_.back();
+}
+
 PacketFilter::Action TlsRecordFilter::Filter(const DataBuffer& input,
                                              DataBuffer* output) {
   // Disable during shutdown.
@@ -108,32 +154,26 @@ PacketFilter::Action TlsRecordFilter::Filter(const DataBuffer& input,
   output->Allocate(input.len());
   TlsParser parser(input);
 
+  // This uses the current write spec for the purposes of parsing the epoch and
+  // sequence number from the header.  This might be wrong because we can
+  // receive records from older specs, but guessing is good enough:
+  // - In DTLS, parsing the sequence number corrects any errors.
+  // - In TLS, we don't use the sequence number unless decrypting, where we use
+  //   trial decryption to get the right epoch.
+  uint16_t write_epoch = 0;
+  SECStatus rv = SSL_GetCurrentEpoch(agent()->ssl_fd(), nullptr, &write_epoch);
+  if (rv != SECSuccess) {
+    ADD_FAILURE() << "unable to read epoch";
+    return KEEP;
+  }
+  uint64_t guess_seqno = static_cast<uint64_t>(write_epoch) << 48;
+
   while (parser.remaining()) {
     TlsRecordHeader header;
     DataBuffer record;
-
-    if (!header.Parse(is_dtls13(), in_sequence_number_, &parser, &record)) {
+    if (!header.Parse(is_dtls13(), guess_seqno, &parser, &record)) {
       ADD_FAILURE() << "not a valid record";
       return KEEP;
-    }
-
-    // Track the sequence number, which is necessary for stream mode when
-    // decrypting and for TLS 1.3 datagram to recover the sequence number.
-    //
-    // We reset the counter when the cipher spec changes, but that notification
-    // appears before a record is sent.  If multiple records are sent with
-    // different cipher specs, this would fail.  This filters out cleartext
-    // records, so we don't get confused by handshake messages that are sent at
-    // the same time as encrypted records.  Sequence numbers are therefore
-    // likely to be incorrect for cleartext records.
-    //
-    // This isn't perfectly robust: if there is a change from an active cipher
-    // spec to another active cipher spec (KeyUpdate for instance) AND writes
-    // are consolidated across that change, this code could use the wrong
-    // sequence numbers when re-encrypting records with the old keys.
-    if (header.content_type() == ssl_ct_application_data) {
-      in_sequence_number_ =
-          (std::max)(in_sequence_number_, header.sequence_number() + 1);
     }
 
     if (FilterRecord(header, record, &offset, output) != KEEP) {
@@ -159,30 +199,35 @@ PacketFilter::Action TlsRecordFilter::FilterRecord(
   DataBuffer filtered;
   uint8_t inner_content_type;
   DataBuffer plaintext;
+  uint16_t protection_epoch = 0;
+  TlsRecordHeader out_header(header);
 
-  if (!Unprotect(header, record, &inner_content_type, &plaintext)) {
-    if (g_ssl_gtest_verbose) {
-      std::cerr << "unprotect failed: " << header << ":" << record << std::endl;
-    }
+  if (!Unprotect(header, record, &protection_epoch, &inner_content_type,
+                 &plaintext, &out_header)) {
+    std::cerr << agent()->role_str() << ": unprotect failed: " << header << ":"
+              << record << std::endl;
     return KEEP;
   }
 
-  TlsRecordHeader real_header(header.variant(), header.version(),
-                              inner_content_type, header.sequence_number());
+  auto& protection_spec = spec(protection_epoch);
+  TlsRecordHeader real_header(out_header.variant(), out_header.version(),
+                              inner_content_type, out_header.sequence_number());
 
   PacketFilter::Action action = FilterRecord(real_header, plaintext, &filtered);
   // In stream mode, even if something doesn't change we need to re-encrypt if
   // previous packets were dropped.
   if (action == KEEP) {
-    if (header.is_dtls() || !dropped_record_) {
+    if (out_header.is_dtls() || !protection_spec.record_dropped()) {
+      // Count every outgoing packet.
+      protection_spec.RecordProtected();
       return KEEP;
     }
     filtered = plaintext;
   }
 
   if (action == DROP) {
-    std::cerr << "record drop: " << header << ":" << record << std::endl;
-    dropped_record_ = true;
+    std::cerr << "record drop: " << out_header << ":" << record << std::endl;
+    protection_spec.RecordDropped();
     return DROP;
   }
 
@@ -192,19 +237,16 @@ PacketFilter::Action TlsRecordFilter::FilterRecord(
     std::cerr << "record new: " << filtered << std::endl;
   }
 
-  uint64_t seq_num;
-  if (header.is_dtls() || !cipher_spec_ ||
-      header.content_type() != ssl_ct_application_data) {
-    seq_num = header.sequence_number();
-  } else {
-    seq_num = out_sequence_number_++;
+  uint64_t seq_num = protection_spec.next_out_seqno();
+  if (!decrypting_ && out_header.is_dtls()) {
+    // Copy over the epoch, which isn't tracked when not decrypting.
+    seq_num |= out_header.sequence_number() & (0xffffULL << 48);
   }
-  TlsRecordHeader out_header(header.variant(), header.version(),
-                             header.content_type(), seq_num);
+  out_header.sequence_number(seq_num);
 
   DataBuffer ciphertext;
-  bool rv = Protect(out_header, inner_content_type, filtered, &ciphertext);
-  EXPECT_TRUE(rv);
+  bool rv = Protect(protection_spec, out_header, inner_content_type, filtered,
+                    &ciphertext, &out_header);
   if (!rv) {
     return KEEP;
   }
@@ -223,34 +265,95 @@ size_t TlsRecordHeader::header_length() const {
   return WriteHeader(&buf, 0, 0);
 }
 
-uint64_t TlsRecordHeader::RecoverSequenceNumber(uint64_t expected,
+bool TlsRecordHeader::MaskSequenceNumber() {
+  return MaskSequenceNumber(sn_mask());
+}
+
+bool TlsRecordHeader::MaskSequenceNumber(const DataBuffer& mask_buf) {
+  if (mask_buf.empty()) {
+    return false;
+  }
+
+  DataBuffer mask;
+  if (is_dtls13_ciphertext()) {
+    uint64_t seqno = sequence_number();
+    uint8_t len = content_type() & kCtDtlsCiphertext16bSeqno ? 2 : 1;
+    uint16_t seqno_bitmask = (1 << len * 8) - 1;
+    DataBuffer val;
+    if (val.Write(0, seqno & seqno_bitmask, len) != len) {
+      return false;
+    }
+
+#ifdef UNSAFE_FUZZER_MODE
+    // Use a null mask.
+    mask.Allocate(mask_buf.len());
+#endif
+    mask.Append(mask_buf);
+    val.data()[0] ^= mask.data()[0];
+    if (len == 2 && mask.len() > 1) {
+      val.data()[1] ^= mask.data()[1];
+    }
+    uint32_t tmp;
+    if (!val.Read(0, len, &tmp)) {
+      return false;
+    }
+
+    seqno = (seqno & ~seqno_bitmask) | tmp;
+    seqno_is_masked_ = !seqno_is_masked_;
+    if (!seqno_is_masked_) {
+      seqno = ParseSequenceNumber(guess_seqno_, seqno, len * 8, 2);
+    }
+    sequence_number_ = seqno;
+
+    // Now update the header bytes
+    if (header_.len() > 1) {
+      header_.data()[1] ^= mask.data()[0];
+      if ((content_type() & kCtDtlsCiphertext16bSeqno) && header().len() > 2) {
+        header_.data()[2] ^= mask.data()[1];
+      }
+    }
+  }
+
+  sn_mask_ = mask;
+  return true;
+}
+
+uint64_t TlsRecordHeader::RecoverSequenceNumber(uint64_t guess_seqno,
                                                 uint32_t partial,
                                                 size_t partial_bits) {
   EXPECT_GE(32U, partial_bits);
-  uint64_t mask = (1 << partial_bits) - 1;
+  uint64_t mask = (1ULL << partial_bits) - 1;
   // First we determine the highest possible value.  This is half the
-  // expressible range above the expected value.
-  uint64_t cap = expected + (1ULL << (partial_bits - 1));
+  // expressible range above the expected value (|guess_seqno|), less 1.
+  //
+  // We subtract the extra 1 from the cap so that when given a choice between
+  // the equidistant expected+N and expected-N we want to chose the lower.  With
+  // 0-RTT, we sometimes have to recover an epoch of 1 when we expect an epoch
+  // of 3 and with 2 partial bits, the alternative result of 5 is wrong.
+  uint64_t cap = guess_seqno + (1ULL << (partial_bits - 1)) - 1;
   // Add the partial piece in.  e.g., xxxx789a and 1234 becomes xxxx1234.
   uint64_t seq_no = (cap & ~mask) | partial;
   // If the partial value is higher than the same partial piece from the cap,
   // then the real value has to be lower.  e.g., xxxx1234 can't become xxxx5678.
-  if (partial > (cap & mask)) {
+  if (partial > (cap & mask) && (seq_no >= (1ULL << partial_bits))) {
     seq_no -= 1ULL << partial_bits;
   }
   return seq_no;
 }
 
 // Determine the full epoch and sequence number from an expected and raw value.
-// The expected and output values are packed as they are in DTLS 1.2 and
-// earlier: with 16 bits of epoch and 48 bits of sequence number.
-uint64_t TlsRecordHeader::ParseSequenceNumber(uint64_t expected, uint32_t raw,
+// The expected, raw, and output values are packed as they are in DTLS 1.2 and
+// earlier: with 16 bits of epoch and 48 bits of sequence number. The raw value
+// is packed this way (even before recovery) so that we don't need to track a
+// moving value between two calls (one to recover the epoch, and one after
+// unmasking to recover the sequence number).
+uint64_t TlsRecordHeader::ParseSequenceNumber(uint64_t expected, uint64_t raw,
                                               size_t seq_no_bits,
                                               size_t epoch_bits) {
   uint64_t epoch_mask = (1ULL << epoch_bits) - 1;
-  uint64_t epoch = RecoverSequenceNumber(
-      expected >> 48, (raw >> seq_no_bits) & epoch_mask, epoch_bits);
-  if (epoch > (expected >> 48)) {
+  uint64_t ep = RecoverSequenceNumber(expected >> 48, (raw >> 48) & epoch_mask,
+                                      epoch_bits);
+  if (ep > (expected >> 48)) {
     // If the epoch has changed, reset the expected sequence number.
     expected = 0;
   } else {
@@ -258,9 +361,12 @@ uint64_t TlsRecordHeader::ParseSequenceNumber(uint64_t expected, uint32_t raw,
     expected &= (1ULL << 48) - 1;
   }
   uint64_t seq_no_mask = (1ULL << seq_no_bits) - 1;
-  uint64_t seq_no =
-      RecoverSequenceNumber(expected, raw & seq_no_mask, seq_no_bits);
-  return (epoch << 48) | seq_no;
+  uint64_t seq_no = (raw & seq_no_mask);
+  if (!seqno_is_masked_) {
+    seq_no = RecoverSequenceNumber(expected, seq_no, seq_no_bits);
+  }
+
+  return (ep << 48) | seq_no;
 }
 
 bool TlsRecordHeader::Parse(bool is_dtls13, uint64_t seqno, TlsParser* parser,
@@ -276,38 +382,47 @@ bool TlsRecordHeader::Parse(bool is_dtls13, uint64_t seqno, TlsParser* parser,
     version_ = SSL_LIBRARY_VERSION_TLS_1_3;
 
 #ifndef UNSAFE_FUZZER_MODE
-    // Deal with the 7 octet header.
-    if (content_type_ == ssl_ct_application_data) {
+    // Deal with the DTLSCipherText header.
+    if (is_dtls13_ciphertext()) {
+      uint8_t seq_no_bytes =
+          (content_type_ & kCtDtlsCiphertext16bSeqno) ? 2 : 1;
       uint32_t tmp;
-      if (!parser->Read(&tmp, 4)) {
-        return false;
-      }
-      sequence_number_ = ParseSequenceNumber(seqno, tmp, 30, 2);
-      if (!parser->ReadFromMark(&header_, parser->consumed() + 2 - mark,
-                                mark)) {
-        return false;
-      }
-      return parser->ReadVariable(body, 2);
-    }
 
-    // The short, 2 octet header.
-    if ((content_type_ & 0xe0) == 0x20) {
-      uint32_t tmp;
-      if (!parser->Read(&tmp, 1)) {
+      if (!parser->Read(&tmp, seq_no_bytes)) {
         return false;
       }
-      // Need to use the low 5 bits of the first octet too.
-      tmp |= (content_type_ & 0x1f) << 8;
-      content_type_ = ssl_ct_application_data;
-      sequence_number_ = ParseSequenceNumber(seqno, tmp, 12, 1);
+
+      // Store the guess if masked. If and when seqno_bytesenceNumber is called,
+      // the value will be unmasked and recovered. This assumes we only call
+      // Parse() on headers containing masked values.
+      seqno_is_masked_ = true;
+      guess_seqno_ = seqno;
+      uint64_t ep = content_type_ & 0x03;
+      sequence_number_ = (ep << 48) | tmp;
+
+      // Recover the full epoch. Note the sequence number portion holds the
+      // masked value until a call to Mask() reveals it (as indicated by
+      // |seqno_is_masked_|).
+      sequence_number_ =
+          ParseSequenceNumber(seqno, sequence_number_, seq_no_bytes * 8, 2);
+
+      uint32_t len_bytes =
+          (content_type_ & kCtDtlsCiphertextLengthPresent) ? 2 : 0;
+      if (len_bytes) {
+        if (!parser->Read(&tmp, 2)) {
+          return false;
+        }
+      }
 
       if (!parser->ReadFromMark(&header_, parser->consumed() - mark, mark)) {
         return false;
       }
-      return parser->Read(body, parser->remaining());
+
+      return len_bytes ? parser->Read(body, tmp)
+                       : parser->Read(body, parser->remaining());
     }
 
-    // The full 13 octet header can only be used for a few types.
+    // The full DTLSPlainText header can only be used for a few types.
     EXPECT_TRUE(content_type_ == ssl_ct_alert ||
                 content_type_ == ssl_ct_handshake ||
                 content_type_ == ssl_ct_ack);
@@ -345,15 +460,20 @@ bool TlsRecordHeader::Parse(bool is_dtls13, uint64_t seqno, TlsParser* parser,
 
 size_t TlsRecordHeader::WriteHeader(DataBuffer* buffer, size_t offset,
                                     size_t body_len) const {
-  offset = buffer->Write(offset, content_type_, 1);
-  if (is_dtls() && version_ >= SSL_LIBRARY_VERSION_TLS_1_3 &&
-      content_type() == ssl_ct_application_data) {
+  if (is_dtls13_ciphertext()) {
+    uint8_t seq_no_bytes = (content_type_ & kCtDtlsCiphertext16bSeqno) ? 2 : 1;
     // application_data records in TLS 1.3 have a different header format.
-    // Always use the long header here for simplicity.
     uint32_t e = (sequence_number_ >> 48) & 0x3;
-    uint32_t seqno = sequence_number_ & ((1ULL << 30) - 1);
-    offset = buffer->Write(offset, (e << 30) | seqno, 4);
+    uint32_t seqno = sequence_number_ & ((1ULL << seq_no_bytes * 8) - 1);
+    uint8_t new_content_type_ = content_type_ | e;
+    offset = buffer->Write(offset, new_content_type_, 1);
+    offset = buffer->Write(offset, seqno, seq_no_bytes);
+
+    if (content_type_ & kCtDtlsCiphertextLengthPresent) {
+      offset = buffer->Write(offset, body_len, 2);
+    }
   } else {
+    offset = buffer->Write(offset, content_type_, 1);
     uint16_t v = is_dtls() ? TlsVersionToDtlsVersion(version_) : version_;
     offset = buffer->Write(offset, v, 2);
     if (is_dtls()) {
@@ -361,8 +481,9 @@ size_t TlsRecordHeader::WriteHeader(DataBuffer* buffer, size_t offset,
       offset = buffer->Write(offset, sequence_number_ >> 32, 4);
       offset = buffer->Write(offset, sequence_number_ & 0xffffffff, 4);
     }
+    offset = buffer->Write(offset, body_len, 2);
   }
-  offset = buffer->Write(offset, body_len, 2);
+
   return offset;
 }
 
@@ -375,16 +496,43 @@ size_t TlsRecordHeader::Write(DataBuffer* buffer, size_t offset,
 
 bool TlsRecordFilter::Unprotect(const TlsRecordHeader& header,
                                 const DataBuffer& ciphertext,
+                                uint16_t* protection_epoch,
                                 uint8_t* inner_content_type,
-                                DataBuffer* plaintext) {
-  if (!cipher_spec_ || header.content_type() != ssl_ct_application_data) {
+                                DataBuffer* plaintext,
+                                TlsRecordHeader* out_header) {
+  if (!decrypting_ || !header.is_protected()) {
+    // Maintain the epoch and sequence number for plaintext records.
+    uint16_t ep = 0;
+    if (agent()->variant() == ssl_variant_datagram) {
+      ep = static_cast<uint16_t>(header.sequence_number() >> 48);
+    }
+    spec(ep).RecordUnprotected(header.sequence_number());
+    *protection_epoch = ep;
     *inner_content_type = header.content_type();
     *plaintext = ciphertext;
     return true;
   }
 
-  if (!cipher_spec_->Unprotect(header, ciphertext, plaintext)) {
-    return false;
+  uint16_t ep = 0;
+  if (agent()->variant() == ssl_variant_datagram) {
+    ep = static_cast<uint16_t>(header.sequence_number() >> 48);
+    if (!spec(ep).Unprotect(header, ciphertext, plaintext, out_header)) {
+      return false;
+    }
+  } else {
+    // In TLS, records aren't clearly labelled with their epoch, and we
+    // can't just use the newest keys because the same flight of messages can
+    // contain multiple epochs. So... trial decrypt!
+    for (size_t i = cipher_specs_.size() - 1; i > 0; --i) {
+      if (cipher_specs_[i].Unprotect(header, ciphertext, plaintext,
+                                     out_header)) {
+        ep = cipher_specs_[i].epoch();
+        break;
+      }
+    }
+    if (!ep) {
+      return false;
+    }
   }
 
   size_t len = plaintext->len();
@@ -396,33 +544,46 @@ bool TlsRecordFilter::Unprotect(const TlsRecordHeader& header,
     return false;
   }
 
+  *protection_epoch = ep;
   *inner_content_type = plaintext->data()[len - 1];
   plaintext->Truncate(len - 1);
   if (g_ssl_gtest_verbose) {
-    std::cerr << "unprotect: " << std::hex << header.sequence_number()
-              << std::dec << " type=" << static_cast<int>(*inner_content_type)
+    std::cerr << agent()->role_str() << ": unprotect: epoch=" << ep
+              << " seq=" << std::hex << header.sequence_number() << std::dec
               << " " << *plaintext << std::endl;
   }
 
   return true;
 }
 
-bool TlsRecordFilter::Protect(const TlsRecordHeader& header,
+bool TlsRecordFilter::Protect(TlsCipherSpec& protection_spec,
+                              const TlsRecordHeader& header,
                               uint8_t inner_content_type,
                               const DataBuffer& plaintext,
-                              DataBuffer* ciphertext, size_t padding) {
-  if (!cipher_spec_ || header.content_type() != ssl_ct_application_data) {
+                              DataBuffer* ciphertext,
+                              TlsRecordHeader* out_header, size_t padding) {
+  if (!protection_spec.is_protected()) {
+    // Not protected, just keep the sequence numbers updated.
+    protection_spec.RecordProtected();
     *ciphertext = plaintext;
     return true;
   }
-  if (g_ssl_gtest_verbose) {
-    std::cerr << "protect: " << header.sequence_number() << std::endl;
-  }
+
   DataBuffer padded;
   padded.Allocate(plaintext.len() + 1 + padding);
   size_t offset = padded.Write(0, plaintext.data(), plaintext.len());
   padded.Write(offset, inner_content_type, 1);
-  return cipher_spec_->Protect(header, padded, ciphertext);
+
+  bool ok = protection_spec.Protect(header, padded, ciphertext, out_header);
+  if (!ok) {
+    ADD_FAILURE() << "protect fail";
+  } else if (g_ssl_gtest_verbose) {
+    std::cerr << agent()->role_str()
+              << ": protect: epoch=" << protection_spec.epoch()
+              << " seq=" << std::hex << header.sequence_number() << std::dec
+              << " " << *ciphertext << std::endl;
+  }
+  return ok;
 }
 
 bool IsHelloRetry(const DataBuffer& body) {
@@ -986,15 +1147,14 @@ PacketFilter::Action SelectedCipherSuiteReplacer::FilterHandshake(
   *output = input;
   uint32_t temp = 0;
   EXPECT_TRUE(input.Read(0, 2, &temp));
-  // Cipher suite is after version(2) and random(32).
+  EXPECT_EQ(header.version(), NormalizeTlsVersion(temp));
+  // Cipher suite is after version(2), random(32)
+  // and [legacy_]session_id(<0..32>).
   size_t pos = 34;
-  if (temp < SSL_LIBRARY_VERSION_TLS_1_3) {
-    // In old versions, we have to skip a session_id too.
-    EXPECT_TRUE(input.Read(pos, 1, &temp));
-    pos += 1 + temp;
-  }
+  EXPECT_TRUE(input.Read(pos, 1, &temp));
+  pos += 1 + temp;
+
   output->Write(pos, static_cast<uint32_t>(cipher_suite_), 2);
   return CHANGE;
 }
-
 }  // namespace nss_test

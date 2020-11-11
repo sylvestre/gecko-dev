@@ -20,6 +20,7 @@
 #include "nsIPersistentProperties2.h"
 #include "mozilla/a11y/PDocAccessibleChild.h"
 #include "mozilla/dom/Element.h"
+#include "nsAccessibilityService.h"
 
 using namespace mozilla;
 using namespace mozilla::a11y;
@@ -96,7 +97,7 @@ int32_t nsAccUtils::GetLevelForXULContainerItem(nsIContent* aContent) {
       aContent->AsElement()->AsXULContainerItem();
   if (!item) return 0;
 
-  nsCOMPtr<Element> containerElement;
+  nsCOMPtr<dom::Element> containerElement;
   item->GetParentContainer(getter_AddRefs(containerElement));
   nsCOMPtr<nsIDOMXULContainerElement> container =
       containerElement ? containerElement->AsXULContainer() : nullptr;
@@ -115,9 +116,13 @@ int32_t nsAccUtils::GetLevelForXULContainerItem(nsIContent* aContent) {
 }
 
 void nsAccUtils::SetLiveContainerAttributes(
-    nsIPersistentProperties* aAttributes, nsIContent* aStartContent,
-    dom::Element* aTopEl) {
+    nsIPersistentProperties* aAttributes, nsIContent* aStartContent) {
   nsAutoString live, relevant, busy;
+  dom::Document* doc = aStartContent->GetComposedDoc();
+  if (!doc) {
+    return;
+  }
+  dom::Element* topEl = doc->GetRootElement();
   nsIContent* ancestor = aStartContent;
   while (ancestor) {
     // container-relevant attribute
@@ -138,7 +143,11 @@ void nsAccUtils::SetLiveContainerAttributes(
                                        live);
       } else if (role) {
         GetLiveAttrValue(role->liveAttRule, live);
+      } else if (nsStaticAtom* value = GetAccService()->MarkupAttribute(
+                     ancestor, nsGkAtoms::live)) {
+        value->ToString(live);
       }
+
       if (!live.IsEmpty()) {
         SetAccAttr(aAttributes, nsGkAtoms::containerLive, live);
         if (role) {
@@ -152,8 +161,7 @@ void nsAccUtils::SetLiveContainerAttributes(
     if (ancestor->IsElement() && ancestor->AsElement()->AttrValueIs(
                                      kNameSpaceID_None, nsGkAtoms::aria_atomic,
                                      nsGkAtoms::_true, eCaseMatters)) {
-      SetAccAttr(aAttributes, nsGkAtoms::containerAtomic,
-                 NS_LITERAL_STRING("true"));
+      SetAccAttr(aAttributes, nsGkAtoms::containerAtomic, u"true"_ns);
     }
 
     // container-busy attribute
@@ -162,10 +170,14 @@ void nsAccUtils::SetLiveContainerAttributes(
                                        busy))
       SetAccAttr(aAttributes, nsGkAtoms::containerBusy, busy);
 
-    if (ancestor == aTopEl) break;
+    if (ancestor == topEl) {
+      break;
+    }
 
     ancestor = ancestor->GetParent();
-    if (!ancestor) ancestor = aTopEl;  // Use <body>/<frameset>
+    if (!ancestor) {
+      ancestor = topEl;  // Use <body>/<frameset>
+    }
   }
 }
 
@@ -174,7 +186,7 @@ bool nsAccUtils::HasDefinedARIAToken(nsIContent* aContent, nsAtom* aAtom) {
 
   if (!aContent->IsElement()) return false;
 
-  Element* element = aContent->AsElement();
+  dom::Element* element = aContent->AsElement();
   if (!element->HasAttr(kNameSpaceID_None, aAtom) ||
       element->AttrValueIs(kNameSpaceID_None, aAtom, nsGkAtoms::_empty,
                            eCaseMatters) ||
@@ -188,7 +200,7 @@ bool nsAccUtils::HasDefinedARIAToken(nsIContent* aContent, nsAtom* aAtom) {
 nsStaticAtom* nsAccUtils::GetARIAToken(dom::Element* aElement, nsAtom* aAttr) {
   if (!HasDefinedARIAToken(aElement, aAttr)) return nsGkAtoms::_empty;
 
-  static Element::AttrValuesArray tokens[] = {
+  static dom::Element::AttrValuesArray tokens[] = {
       nsGkAtoms::_false, nsGkAtoms::_true, nsGkAtoms::mixed, nullptr};
 
   int32_t idx =
@@ -205,7 +217,7 @@ nsStaticAtom* nsAccUtils::NormalizeARIAToken(dom::Element* aElement,
   }
 
   if (aAttr == nsGkAtoms::aria_current) {
-    static Element::AttrValuesArray tokens[] = {
+    static dom::Element::AttrValuesArray tokens[] = {
         nsGkAtoms::page, nsGkAtoms::step, nsGkAtoms::location_,
         nsGkAtoms::date, nsGkAtoms::time, nsGkAtoms::_true,
         nullptr};
@@ -242,7 +254,10 @@ Accessible* nsAccUtils::TableFor(Accessible* aRow) {
     Accessible* table = aRow->Parent();
     if (table) {
       roles::Role tableRole = table->Role();
-      if (tableRole == roles::GROUPING) {  // if there's a rowgroup.
+      const nsRoleMapEntry* roleMapEntry = table->ARIARoleMap();
+      if (tableRole == roles::GROUPING ||  // if there's a rowgroup.
+          (table->IsGenericHyperText() && !roleMapEntry &&
+           !table->IsTable())) {  // or there is a wrapping text container
         table = table->Parent();
         if (table) tableRole = table->Role();
       }
@@ -341,10 +356,10 @@ nsIntPoint nsAccUtils::GetScreenCoordsForParent(Accessible* aAccessible) {
 bool nsAccUtils::GetLiveAttrValue(uint32_t aRule, nsAString& aValue) {
   switch (aRule) {
     case eOffLiveAttr:
-      aValue = NS_LITERAL_STRING("off");
+      aValue = u"off"_ns;
       return true;
     case ePoliteLiveAttr:
-      aValue = NS_LITERAL_STRING("polite");
+      aValue = u"polite"_ns;
       return true;
   }
 
@@ -389,23 +404,34 @@ uint32_t nsAccUtils::TextLength(Accessible* aAccessible) {
   return text.Length();
 }
 
-bool nsAccUtils::MustPrune(Accessible* aAccessible) {
-  roles::Role role = aAccessible->Role();
+bool nsAccUtils::MustPrune(AccessibleOrProxy aAccessible) {
+  MOZ_ASSERT(!aAccessible.IsNull());
+  roles::Role role = aAccessible.Role();
 
-  return
-      // Always prune the tree for sliders, as it doesn't make sense for a
-      // slider to have descendants and this confuses NVDA.
-      role == roles::SLIDER ||
-      // Don't prune the tree for certain roles if the tree is more complex than
-      // a single text leaf.
-      ((role == roles::MENUITEM || role == roles::COMBOBOX_OPTION ||
-        role == roles::OPTION || role == roles::ENTRY ||
-        role == roles::FLAT_EQUATION || role == roles::PASSWORD_TEXT ||
-        role == roles::PUSHBUTTON || role == roles::TOGGLE_BUTTON ||
-        role == roles::GRAPHIC || role == roles::PROGRESSBAR ||
-        role == roles::SEPARATOR) &&
-       aAccessible->ContentChildCount() == 1 &&
-       aAccessible->ContentChildAt(0)->IsTextLeaf());
+  if (role == roles::SLIDER) {
+    // Always prune the tree for sliders, as it doesn't make sense for a
+    // slider to have descendants and this confuses NVDA.
+    return true;
+  }
+
+  if (role != roles::MENUITEM && role != roles::COMBOBOX_OPTION &&
+      role != roles::OPTION && role != roles::ENTRY &&
+      role != roles::FLAT_EQUATION && role != roles::PASSWORD_TEXT &&
+      role != roles::PUSHBUTTON && role != roles::TOGGLE_BUTTON &&
+      role != roles::GRAPHIC && role != roles::PROGRESSBAR &&
+      role != roles::SEPARATOR) {
+    // If it doesn't match any of these roles, don't prune its children.
+    return false;
+  }
+
+  if (aAccessible.ChildCount() != 1) {
+    // If the accessible has more than one child, don't prune it.
+    return false;
+  }
+
+  roles::Role childRole = aAccessible.FirstChild().Role();
+  // If the accessible's child is a text leaf, prune the accessible.
+  return childRole == roles::TEXT_LEAF || childRole == roles::STATICTEXT;
 }
 
 bool nsAccUtils::PersistentPropertiesToArray(nsIPersistentProperties* aProps,
@@ -438,4 +464,51 @@ bool nsAccUtils::PersistentPropertiesToArray(nsIPersistentProperties* aProps,
   }
 
   return true;
+}
+
+bool nsAccUtils::IsARIALive(const Accessible* aAccessible) {
+  // Get computed aria-live property based on the closest container with the
+  // attribute. Inner nodes override outer nodes within the same
+  // document.
+  // This should be the same as the container-live attribute, but we don't need
+  // the other container-* attributes, so we can't use the same function.
+  nsIContent* ancestor = aAccessible->GetContent();
+  if (!ancestor) {
+    return false;
+  }
+  dom::Document* doc = ancestor->GetComposedDoc();
+  if (!doc) {
+    return false;
+  }
+  dom::Element* topEl = doc->GetRootElement();
+  while (ancestor) {
+    const nsRoleMapEntry* role = nullptr;
+    if (ancestor->IsElement()) {
+      role = aria::GetRoleMap(ancestor->AsElement());
+    }
+    nsAutoString live;
+    if (HasDefinedARIAToken(ancestor, nsGkAtoms::aria_live)) {
+      ancestor->AsElement()->GetAttr(kNameSpaceID_None, nsGkAtoms::aria_live,
+                                     live);
+    } else if (role) {
+      GetLiveAttrValue(role->liveAttRule, live);
+    } else if (nsStaticAtom* value = GetAccService()->MarkupAttribute(
+                   ancestor, nsGkAtoms::live)) {
+      value->ToString(live);
+    }
+    if (!live.IsEmpty() && !live.EqualsLiteral("off")) {
+      return true;
+    }
+
+    if (ancestor == topEl) {
+      break;
+    }
+
+    ancestor = ancestor->GetParent();
+    if (!ancestor) {
+      ancestor = topEl;  // Use <body>/<frameset>
+    }
+  }
+
+  return false;
 }

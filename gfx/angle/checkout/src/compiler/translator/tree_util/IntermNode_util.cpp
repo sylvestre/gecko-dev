@@ -86,18 +86,6 @@ TIntermTyped *CreateZeroNode(const TType &type)
         return node;
     }
 
-    if (type.getBasicType() == EbtVoid)
-    {
-        // Void array. This happens only on error condition, similarly to the case above. We don't
-        // have a constructor operator for void, so this needs special handling. We'll end up with a
-        // value without the array type, but that should not be a problem.
-        while (constType.isArray())
-        {
-            constType.toArrayElementType();
-        }
-        return CreateZeroNode(constType);
-    }
-
     TIntermSequence *arguments = new TIntermSequence();
 
     if (type.isArray())
@@ -218,6 +206,40 @@ TVariable *DeclareTempVariable(TSymbolTable *symbolTable,
         CreateTempVariable(symbolTable, new TType(initializer->getType()), qualifier);
     *declarationOut = CreateTempInitDeclarationNode(variable, initializer);
     return variable;
+}
+
+const TVariable *DeclareInterfaceBlock(TIntermBlock *root,
+                                       TSymbolTable *symbolTable,
+                                       TFieldList *fieldList,
+                                       TQualifier qualifier,
+                                       const TMemoryQualifier &memoryQualifier,
+                                       const char *blockTypeName,
+                                       const char *blockVariableName)
+{
+    // Define an interface block.
+    TLayoutQualifier layoutQualifier = TLayoutQualifier::Create();
+    TInterfaceBlock *interfaceBlock =
+        new TInterfaceBlock(symbolTable, ImmutableString(blockTypeName), fieldList, layoutQualifier,
+                            SymbolType::AngleInternal);
+
+    // Turn the inteface block into a declaration.
+    TType *interfaceBlockType = new TType(interfaceBlock, qualifier, layoutQualifier);
+    interfaceBlockType->setMemoryQualifier(memoryQualifier);
+
+    TIntermDeclaration *interfaceBlockDecl = new TIntermDeclaration;
+    TVariable *interfaceBlockVar = new TVariable(symbolTable, ImmutableString(blockVariableName),
+                                                 interfaceBlockType, SymbolType::AngleInternal);
+    TIntermSymbol *interfaceBlockDeclarator = new TIntermSymbol(interfaceBlockVar);
+    interfaceBlockDecl->appendDeclarator(interfaceBlockDeclarator);
+
+    // Insert the declarations before the first function.
+    TIntermSequence *insertSequence = new TIntermSequence;
+    insertSequence->push_back(interfaceBlockDecl);
+
+    size_t firstFunctionIndex = FindFirstFunctionDefinitionIndex(root);
+    root->insertChildNodes(firstFunctionIndex, *insertSequence);
+
+    return interfaceBlockVar;
 }
 
 TIntermBlock *EnsureBlock(TIntermNode *node)

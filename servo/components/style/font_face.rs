@@ -34,7 +34,7 @@ use style_traits::{StyleParseErrorKind, ToCss};
 
 /// A source for a font-face rule.
 #[cfg_attr(feature = "servo", derive(Deserialize, Serialize))]
-#[derive(Clone, Debug, Eq, PartialEq, ToCss)]
+#[derive(Clone, Debug, Eq, PartialEq, ToCss, ToShmem)]
 pub enum Source {
     /// A `url()` source.
     Url(UrlSource),
@@ -55,7 +55,7 @@ impl OneOrMoreSeparated for Source {
 #[repr(u8)]
 #[allow(missing_docs)]
 pub enum FontFaceSourceListComponent {
-    Url(*const crate::gecko_bindings::structs::mozilla::css::URLValue),
+    Url(*const crate::gecko::url::CssUrl),
     Local(*mut crate::gecko_bindings::structs::nsAtom),
     FormatHint {
         length: usize,
@@ -68,7 +68,7 @@ pub enum FontFaceSourceListComponent {
 ///
 /// <https://drafts.csswg.org/css-fonts/#src-desc>
 #[cfg_attr(feature = "servo", derive(Deserialize, Serialize))]
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, ToShmem)]
 pub struct UrlSource {
     /// The specified url.
     pub url: SpecifiedUrl,
@@ -101,7 +101,9 @@ impl ToCss for UrlSource {
 /// on whether and when it is downloaded and ready to use.
 #[allow(missing_docs)]
 #[cfg_attr(feature = "servo", derive(Deserialize, Serialize))]
-#[derive(Clone, Copy, Debug, Eq, MallocSizeOf, Parse, PartialEq, ToComputedValue, ToCss)]
+#[derive(
+    Clone, Copy, Debug, Eq, MallocSizeOf, Parse, PartialEq, ToComputedValue, ToCss, ToShmem,
+)]
 #[repr(u8)]
 pub enum FontDisplay {
     Auto,
@@ -120,7 +122,7 @@ macro_rules! impl_range {
             ) -> Result<Self, ParseError<'i>> {
                 let first = $component::parse(context, input)?;
                 let second = input
-                    .try(|input| $component::parse(context, input))
+                    .try_parse(|input| $component::parse(context, input))
                     .unwrap_or_else(|_| first.clone());
                 Ok($range(first, second))
             }
@@ -144,7 +146,7 @@ macro_rules! impl_range {
 /// The font-weight descriptor:
 ///
 /// https://drafts.csswg.org/css-fonts-4/#descdef-font-face-font-weight
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, ToShmem)]
 pub struct FontWeightRange(pub AbsoluteFontWeight, pub AbsoluteFontWeight);
 impl_range!(FontWeightRange, AbsoluteFontWeight);
 
@@ -176,7 +178,7 @@ impl FontWeightRange {
 /// The font-stretch descriptor:
 ///
 /// https://drafts.csswg.org/css-fonts-4/#descdef-font-face-font-stretch
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, ToShmem)]
 pub struct FontStretchRange(pub FontStretch, pub FontStretch);
 impl_range!(FontStretchRange, FontStretch);
 
@@ -205,7 +207,7 @@ impl FontStretchRange {
 /// The font-style descriptor:
 ///
 /// https://drafts.csswg.org/css-fonts-4/#descdef-font-face-font-style
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, ToShmem)]
 #[allow(missing_docs)]
 pub enum FontStyle {
     Normal,
@@ -234,7 +236,7 @@ impl Parse for FontStyle {
             GenericFontStyle::Italic => FontStyle::Italic,
             GenericFontStyle::Oblique(angle) => {
                 let second_angle = input
-                    .try(|input| SpecifiedFontStyle::parse_angle(context, input))
+                    .try_parse(|input| SpecifiedFontStyle::parse_angle(context, input))
                     .unwrap_or_else(|_| angle.clone());
 
                 FontStyle::Oblique(angle, second_angle)
@@ -336,9 +338,10 @@ impl<'a> FontFace<'a> {
                         // We support only opentype fonts and truetype is an alias for
                         // that format. Sources without format hints need to be
                         // downloaded in case we support them.
-                        hints.is_empty() || hints
-                            .iter()
-                            .any(|hint| hint == "truetype" || hint == "opentype" || hint == "woff")
+                        hints.is_empty() ||
+                            hints.iter().any(|hint| {
+                                hint == "truetype" || hint == "opentype" || hint == "woff"
+                            })
                     } else {
                         true
                     }
@@ -380,7 +383,7 @@ impl Parse for Source {
         input: &mut Parser<'i, 't>,
     ) -> Result<Source, ParseError<'i>> {
         if input
-            .try(|input| input.expect_function_matching("local"))
+            .try_parse(|input| input.expect_function_matching("local"))
             .is_ok()
         {
             return input
@@ -392,7 +395,7 @@ impl Parse for Source {
 
         // Parsing optional format()
         let format_hints = if input
-            .try(|input| input.expect_function_matching("format"))
+            .try_parse(|input| input.expect_function_matching("format"))
             .is_ok()
         {
             input.parse_nested_block(|input| {
@@ -411,16 +414,10 @@ impl Parse for Source {
 
 macro_rules! is_descriptor_enabled {
     ("font-display") => {
-        unsafe {
-            use crate::gecko_bindings::structs::mozilla;
-            mozilla::StaticPrefs_sVarCache_layout_css_font_display_enabled
-        }
+        static_prefs::pref!("layout.css.font-display.enabled")
     };
     ("font-variation-settings") => {
-        unsafe {
-            use crate::gecko_bindings::structs::mozilla;
-            mozilla::StaticPrefs_sVarCache_layout_css_font_variations_enabled != 0
-        }
+        static_prefs::pref!("layout.css.font-variations.enabled")
     };
     ($name:tt) => {
         true
@@ -434,7 +431,7 @@ macro_rules! font_face_descriptors_common {
         /// Data inside a `@font-face` rule.
         ///
         /// <https://drafts.csswg.org/css-fonts/#font-face-rule>
-        #[derive(Clone, Debug, PartialEq)]
+        #[derive(Clone, Debug, PartialEq, ToShmem)]
         pub struct FontFaceRuleData {
             $(
                 #[$doc]
@@ -459,9 +456,9 @@ macro_rules! font_face_descriptors_common {
             pub fn decl_to_css(&self, dest: &mut CssStringWriter) -> fmt::Result {
                 $(
                     if let Some(ref value) = self.$ident {
-                        dest.write_str(concat!("  ", $name, ": "))?;
+                        dest.write_str(concat!($name, ": "))?;
                         ToCss::to_css(value, &mut CssWriter::new(dest))?;
-                        dest.write_str(";\n")?;
+                        dest.write_str("; ")?;
                     }
                 )*
                 Ok(())
@@ -472,8 +469,11 @@ macro_rules! font_face_descriptors_common {
            type Declaration = ();
            type Error = StyleParseErrorKind<'i>;
 
-           fn parse_value<'t>(&mut self, name: CowRcStr<'i>, input: &mut Parser<'i, 't>)
-                              -> Result<(), ParseError<'i>> {
+           fn parse_value<'t>(
+               &mut self,
+               name: CowRcStr<'i>,
+               input: &mut Parser<'i, 't>,
+            ) -> Result<(), ParseError<'i>> {
                 match_ignore_ascii_case! { &*name,
                     $(
                         $name if is_descriptor_enabled!($name) => {
@@ -483,9 +483,9 @@ macro_rules! font_face_descriptors_common {
                             // rather than returning it.
                             let value = input.parse_entirely(|i| Parse::parse(self.context, i))?;
                             self.rule.$ident = Some(value)
-                        }
+                        },
                     )*
-                    _ => return Err(input.new_custom_error(SelectorParseErrorKind::UnexpectedIdent(name.clone())))
+                    _ => return Err(input.new_custom_error(SelectorParseErrorKind::UnexpectedIdent(name.clone()))),
                 }
                 Ok(())
             }
@@ -496,7 +496,7 @@ macro_rules! font_face_descriptors_common {
 impl ToCssWithGuard for FontFaceRuleData {
     // Serialization of FontFaceRule is not specced.
     fn to_css(&self, _guard: &SharedRwLockReadGuard, dest: &mut CssStringWriter) -> fmt::Result {
-        dest.write_str("@font-face {\n")?;
+        dest.write_str("@font-face { ")?;
         self.decl_to_css(dest)?;
         dest.write_str("}")
     }
@@ -544,7 +544,6 @@ macro_rules! font_face_descriptors {
     }
 }
 
-/// css-name rust_identifier: Type,
 #[cfg(feature = "gecko")]
 font_face_descriptors! {
     mandatory descriptors = [

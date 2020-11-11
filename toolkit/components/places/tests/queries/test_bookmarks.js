@@ -6,20 +6,21 @@ add_task(async function test_eraseEverything() {
   await PlacesUtils.bookmarks.insertTree({
     guid: PlacesUtils.bookmarks.unfiledGuid,
     children: [
-      { title: "remove-folder",
+      {
+        title: "remove-folder",
         type: PlacesUtils.bookmarks.TYPE_FOLDER,
         children: [
           { url: "http://mozilla.org/", title: "title 1" },
           { url: "http://mozilla.org/", title: "title 2" },
-          { title: "sub-folder",
-            type: PlacesUtils.bookmarks.TYPE_FOLDER },
+          { title: "sub-folder", type: PlacesUtils.bookmarks.TYPE_FOLDER },
           { type: PlacesUtils.bookmarks.TYPE_SEPARATOR },
         ],
       },
     ],
   });
 
-  let unfiled = PlacesUtils.getFolderContents(PlacesUtils.bookmarks.unfiledGuid).root;
+  let unfiled = PlacesUtils.getFolderContents(PlacesUtils.bookmarks.unfiledGuid)
+    .root;
   Assert.equal(unfiled.childCount, 1, "There should be 1 folder");
   let folder = unfiled.getChild(0);
   // Test dateAdded and lastModified properties.
@@ -32,11 +33,16 @@ add_task(async function test_eraseEverything() {
   Assert.equal(root.childCount, 4, "The folder should have 4 children");
   for (let i = 0; i < root.childCount; ++i) {
     let node = root.getChild(i);
-    Assert.ok(node.itemId > 0, "The node should have an itemId");
+    Assert.greater(node.itemId, 0, "The node should have an itemId");
   }
   Assert.equal(root.getChild(0).title, "title 1");
   Assert.equal(root.getChild(1).title, "title 2");
+
   await PlacesUtils.bookmarks.eraseEverything();
+
+  // Refetch the guid to refresh the data.
+  unfiled = PlacesUtils.getFolderContents(PlacesUtils.bookmarks.unfiledGuid)
+    .root;
   Assert.equal(unfiled.childCount, 0);
   unfiled.containerOpen = false;
 });
@@ -77,7 +83,8 @@ add_task(async function test_long_title() {
     url: "http://mozilla.org/",
     title,
   });
-  let root = PlacesUtils.getFolderContents(PlacesUtils.bookmarks.unfiledGuid).root;
+  let root = PlacesUtils.getFolderContents(PlacesUtils.bookmarks.unfiledGuid)
+    .root;
   root.containerOpen = true;
   Assert.equal(root.childCount, 1);
   let node = root.getChild(0);

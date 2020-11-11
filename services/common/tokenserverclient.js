@@ -11,10 +11,13 @@ var EXPORTED_SYMBOLS = [
   "TokenServerClientServerError",
 ];
 
-ChromeUtils.import("resource://gre/modules/Services.jsm");
-ChromeUtils.import("resource://gre/modules/Log.jsm");
-ChromeUtils.import("resource://services-common/rest.js");
-ChromeUtils.import("resource://services-common/observers.js");
+const { Log } = ChromeUtils.import("resource://gre/modules/Log.jsm");
+const { RESTRequest } = ChromeUtils.import(
+  "resource://services-common/rest.js"
+);
+const { Observers } = ChromeUtils.import(
+  "resource://services-common/observers.js"
+);
 
 const PREF_LOG_LEVEL = "services.common.log.logger.tokenserverclient";
 
@@ -36,7 +39,7 @@ function TokenServerClientError(message) {
 TokenServerClientError.prototype = new Error();
 TokenServerClientError.prototype.constructor = TokenServerClientError;
 TokenServerClientError.prototype._toStringFields = function() {
-  return {message: this.message};
+  return { message: this.message };
 };
 TokenServerClientError.prototype.toString = function() {
   return this.name + "(" + JSON.stringify(this._toStringFields()) + ")";
@@ -59,10 +62,9 @@ function TokenServerClientNetworkError(error) {
   this.stack = Error().stack;
 }
 TokenServerClientNetworkError.prototype = new TokenServerClientError();
-TokenServerClientNetworkError.prototype.constructor =
-  TokenServerClientNetworkError;
+TokenServerClientNetworkError.prototype.constructor = TokenServerClientNetworkError;
 TokenServerClientNetworkError.prototype._toStringFields = function() {
-  return {error: this.error};
+  return { error: this.error };
 };
 
 /**
@@ -103,8 +105,7 @@ function TokenServerClientServerError(message, cause = "general") {
   this.stack = Error().stack;
 }
 TokenServerClientServerError.prototype = new TokenServerClientError();
-TokenServerClientServerError.prototype.constructor =
-  TokenServerClientServerError;
+TokenServerClientServerError.prototype.constructor = TokenServerClientServerError;
 
 TokenServerClientServerError.prototype._toStringFields = function() {
   let fields = {
@@ -156,16 +157,19 @@ TokenServerClient.prototype = {
   /**
    * Obtain a token from a BrowserID assertion against a specific URL.
    *
-   * This asynchronously obtains the token. The callback receives 2 arguments:
+   * This asynchronously obtains the token.
+   * It returns a Promise that resolves or rejects:
    *
-   *   (TokenServerClientError | null) If no token could be obtained, this
+   *  Rejects with:
+   *   (TokenServerClientError) If no token could be obtained, this
    *     will be a TokenServerClientError instance describing why. The
    *     type seen defines the type of error encountered. If an HTTP response
    *     was seen, a RESTResponse instance will be stored in the `response`
    *     property of this object. If there was no error and a token is
    *     available, this will be null.
    *
-   *   (map | null) On success, this will be a map containing the results from
+   *  Resolves with:
+   *   (map) On success, this will be a map containing the results from
    *     the server. If there was an error, this will be null. The map has the
    *     following properties:
    *
@@ -217,23 +221,72 @@ TokenServerClient.prototype = {
    *         (string) URL to fetch token from.
    * @param  assertion
    *         (string) BrowserID assertion to exchange token for.
-   * @param  conditionsAccepted
-   *         (bool) Whether to send acceptance to service conditions.
+   * @param  addHeaders
+   *         (object) Extra headers for the request.
    */
   async getTokenFromBrowserIDAssertion(url, assertion, addHeaders = {}) {
-    if (!url) {
-      throw new TokenServerClientError("url argument is not valid.");
-    }
+    this._log.debug("Beginning BID assertion exchange: " + url);
 
     if (!assertion) {
       throw new TokenServerClientError("assertion argument is not valid.");
     }
 
-    this._log.debug("Beginning BID assertion exchange: " + url);
+    return this._tokenServerExchangeRequest(
+      url,
+      `BrowserID ${assertion}`,
+      addHeaders
+    );
+  },
+
+  /**
+   * Obtain a token from a provided OAuth token against a specific URL.
+   *
+   * @param  url
+   *         (string) URL to fetch token from.
+   * @param  oauthToken
+   *         (string) FxA OAuth Token to exchange token for.
+   * @param  addHeaders
+   *         (object) Extra headers for the request.
+   */
+  async getTokenFromOAuthToken(url, oauthToken, addHeaders = {}) {
+    this._log.debug("Beginning OAuth token exchange: " + url);
+
+    if (!oauthToken) {
+      throw new TokenServerClientError("oauthToken argument is not valid.");
+    }
+
+    return this._tokenServerExchangeRequest(
+      url,
+      `Bearer ${oauthToken}`,
+      addHeaders
+    );
+  },
+
+  /**
+   * Performs the exchange request to the token server to
+   * produce a token based on the authorizationHeader input.
+   *
+   * @param  url
+   *         (string) URL to fetch token from.
+   * @param  authorizationHeader
+   *         (string) The auth header string that populates the 'Authorization' header.
+   * @param  addHeaders
+   *         (object) Extra headers for the request.
+   */
+  async _tokenServerExchangeRequest(url, authorizationHeader, addHeaders = {}) {
+    if (!url) {
+      throw new TokenServerClientError("url argument is not valid.");
+    }
+
+    if (!authorizationHeader) {
+      throw new TokenServerClientError(
+        "authorizationHeader argument is not valid."
+      );
+    }
 
     let req = this.newRESTRequest(url);
     req.setHeader("Accept", "application/json");
-    req.setHeader("Authorization", "BrowserID " + assertion);
+    req.setHeader("Authorization", authorizationHeader);
 
     for (let header in addHeaders) {
       req.setHeader(header, addHeaders[header]);
@@ -275,8 +328,10 @@ TokenServerClient.prototype = {
       this._log.debug("Content-Type: " + ct);
       this._log.debug("Body: " + response.body);
 
-      let error = new TokenServerClientServerError("Non-JSON response.",
-                                                   "malformed-response");
+      let error = new TokenServerClientServerError(
+        "Non-JSON response.",
+        "malformed-response"
+      );
       error.response = response;
       throw error;
     }
@@ -286,8 +341,10 @@ TokenServerClient.prototype = {
       result = JSON.parse(response.body);
     } catch (ex) {
       this._log.warn("Invalid JSON returned by server: " + response.body);
-      let error = new TokenServerClientServerError("Malformed JSON.",
-                                                   "malformed-response");
+      let error = new TokenServerClientServerError(
+        "Malformed JSON.",
+        "malformed-response"
+      );
       error.response = response;
       throw error;
     }
@@ -332,7 +389,7 @@ TokenServerClient.prototype = {
 
           error.message = "Missing JSON fields.";
           error.cause = "malformed-response";
-        } else if (typeof(result.urls) != "object") {
+        } else if (typeof result.urls != "object") {
           error.message = "urls field is not a map.";
           error.cause = "malformed-response";
         } else {
@@ -354,9 +411,9 @@ TokenServerClient.prototype = {
 
     for (let k of ["id", "key", "api_endpoint", "uid", "duration"]) {
       if (!(k in result)) {
-        let error = new TokenServerClientServerError("Expected key not " +
-                                                     " present in result: " +
-                                                     k);
+        let error = new TokenServerClientServerError(
+          "Expected key not present in result: " + k
+        );
         error.cause = "malformed-response";
         error.response = response;
         throw error;
@@ -365,12 +422,13 @@ TokenServerClient.prototype = {
 
     this._log.debug("Successful token response");
     return {
-      id:             result.id,
-      key:            result.key,
-      endpoint:       result.api_endpoint,
-      uid:            result.uid,
-      duration:       result.duration,
+      id: result.id,
+      key: result.key,
+      endpoint: result.api_endpoint,
+      uid: result.uid,
+      duration: result.duration,
       hashed_fxa_uid: result.hashed_fxa_uid,
+      node_type: result.node_type,
     };
   },
 
@@ -396,11 +454,18 @@ TokenServerClient.prototype = {
     try {
       backoffInterval = parseInt(headerVal, 10);
     } catch (ex) {
-      this._log.error("TokenServer response had invalid backoff value in '" +
-                      headerName + "' header: " + headerVal);
+      this._log.error(
+        "TokenServer response had invalid backoff value in '" +
+          headerName +
+          "' header: " +
+          headerVal
+      );
       return;
     }
-    Observers.notify(this.observerPrefix + ":backoff:interval", backoffInterval);
+    Observers.notify(
+      this.observerPrefix + ":backoff:interval",
+      backoffInterval
+    );
   },
 
   // override points for testing.

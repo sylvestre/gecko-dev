@@ -11,26 +11,37 @@
 #include "mozilla/TelemetryProcessEnums.h"
 #include "nsIScriptError.h"
 #include "nsTHashtable.h"
+#include "nsHashKeys.h"
 #include "nsXULAppAPI.h"
 
 namespace mozilla {
 namespace Telemetry {
 namespace Common {
 
-enum class RecordedProcessType : uint8_t {
+typedef nsTHashtable<nsCStringHashKey> StringHashSet;
+
+enum class RecordedProcessType : uint16_t {
   Main = (1 << GeckoProcessType_Default),  // Also known as "parent process"
   Content = (1 << GeckoProcessType_Content),
   Gpu = (1 << GeckoProcessType_GPU),
-  AllChildren = 0xFF - 1,  // All the child processes (i.e. content, gpu, ...)
-  All = 0xFF               // All the processes
+  Socket = (1 << GeckoProcessType_Socket),
+  AllChildren = 0xFFFF - 1,  // All the child processes (i.e. content, gpu, ...)
+                             // Always `All-Main` to allow easy matching.
+  All = 0xFFFF               // All the processes
 };
 MOZ_MAKE_ENUM_CLASS_BITWISE_OPERATORS(RecordedProcessType);
+static_assert(static_cast<uint16_t>(RecordedProcessType::Main) == 1,
+              "Main process type must be equal to 1 to allow easy matching in "
+              "CanRecordInProcess");
 
 enum class SupportedProduct : uint8_t {
   Firefox = (1 << 0),
   Fennec = (1 << 1),
-  Geckoview = (1 << 2),
-  All = 0xFF  // All the products
+  // Note that `1 << 2` (former GeckoView) is missing in the representation
+  // but isn't necessary to be maintained, but we see no point in filling it
+  // at this time.
+  GeckoviewStreaming = (1 << 3),
+  Thunderbird = (1 << 4),
 };
 MOZ_MAKE_ENUM_CLASS_BITWISE_OPERATORS(SupportedProduct);
 
@@ -147,15 +158,8 @@ JSString* ToJSString(JSContext* cx, const nsACString& aStr);
 JSString* ToJSString(JSContext* cx, const nsAString& aStr);
 
 /**
- * Set the current product.
- *
- * On Firefox desktop, this method has no effect.
- * On Android it will determine if it is running Fennec or GeckoView
- */
-void SetCurrentProduct();
-
-/**
- * Get an identifier for the current running product.
+ * Get an identifier for the currently-running product.
+ * This is not stable over time and may change.
  *
  * @returns the product identifier
  */

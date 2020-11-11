@@ -16,13 +16,18 @@
 #include "nsHttpConnectionInfo.h"
 
 #include "mozilla/net/DNS.h"
+#include "mozilla/net/NeckoChannelParams.h"
+#include "nsCharSeparatedTokenizer.h"
 #include "nsComponentManagerUtils.h"
 #include "nsICryptoHash.h"
+#include "nsIDNSByTypeRecord.h"
 #include "nsIProtocolProxyService.h"
+#include "nsHttpHandler.h"
 #include "nsNetCID.h"
+#include "nsProxyInfo.h"
 #include "prnetdb.h"
 
-static nsresult SHA256(const char *aPlainText, nsAutoCString &aResult) {
+static nsresult SHA256(const char* aPlainText, nsAutoCString& aResult) {
   nsresult rv;
   nsCOMPtr<nsICryptoHash> hasher =
       do_CreateInstance(NS_CRYPTO_HASH_CONTRACTID, &rv);
@@ -32,7 +37,7 @@ static nsresult SHA256(const char *aPlainText, nsAutoCString &aResult) {
   }
   rv = hasher->Init(nsICryptoHash::SHA256);
   NS_ENSURE_SUCCESS(rv, rv);
-  rv = hasher->Update((unsigned char *)aPlainText, strlen(aPlainText));
+  rv = hasher->Update((unsigned char*)aPlainText, strlen(aPlainText));
   NS_ENSURE_SUCCESS(rv, rv);
   return hasher->Finish(false, aResult);
 }
@@ -41,50 +46,75 @@ namespace mozilla {
 namespace net {
 
 nsHttpConnectionInfo::nsHttpConnectionInfo(
-    const nsACString &originHost, int32_t originPort,
-    const nsACString &npnToken, const nsACString &username,
-    nsProxyInfo *proxyInfo, const OriginAttributes &originAttributes,
-    bool endToEndSSL)
-    : mRoutedPort(443), mLessThanTls13(false) {
-  Init(originHost, originPort, npnToken, username, proxyInfo, originAttributes,
-       endToEndSSL);
+    const nsACString& originHost, int32_t originPort,
+    const nsACString& npnToken, const nsACString& username,
+    const nsACString& topWindowOrigin, nsProxyInfo* proxyInfo,
+    const OriginAttributes& originAttributes, bool endToEndSSL, bool isolated,
+    bool aIsHttp3)
+    : mRoutedPort(443), mIsolated(isolated), mLessThanTls13(false) {
+  Init(originHost, originPort, npnToken, username, topWindowOrigin, proxyInfo,
+       originAttributes, endToEndSSL, aIsHttp3);
 }
 
 nsHttpConnectionInfo::nsHttpConnectionInfo(
-    const nsACString &originHost, int32_t originPort,
-    const nsACString &npnToken, const nsACString &username,
-    nsProxyInfo *proxyInfo, const OriginAttributes &originAttributes,
-    const nsACString &routedHost, int32_t routedPort)
-    : mLessThanTls13(false) {
+    const nsACString& originHost, int32_t originPort,
+    const nsACString& npnToken, const nsACString& username,
+    const nsACString& topWindowOrigin, nsProxyInfo* proxyInfo,
+    const OriginAttributes& originAttributes, bool endToEndSSL, bool aIsHttp3)
+    : nsHttpConnectionInfo(originHost, originPort, npnToken, username,
+                           topWindowOrigin, proxyInfo, originAttributes,
+                           endToEndSSL, false, aIsHttp3) {}
+
+nsHttpConnectionInfo::nsHttpConnectionInfo(
+    const nsACString& originHost, int32_t originPort,
+    const nsACString& npnToken, const nsACString& username,
+    const nsACString& topWindowOrigin, nsProxyInfo* proxyInfo,
+    const OriginAttributes& originAttributes, const nsACString& routedHost,
+    int32_t routedPort, bool isolated, bool aIsHttp3)
+    : mIsolated(isolated), mLessThanTls13(false) {
   mEndToEndSSL = true;  // so DefaultPort() works
   mRoutedPort = routedPort == -1 ? DefaultPort() : routedPort;
 
   if (!originHost.Equals(routedHost) || (originPort != routedPort)) {
     mRoutedHost = routedHost;
   }
-  Init(originHost, originPort, npnToken, username, proxyInfo, originAttributes,
-       true);
+  Init(originHost, originPort, npnToken, username, topWindowOrigin, proxyInfo,
+       originAttributes, true, aIsHttp3);
 }
 
-void nsHttpConnectionInfo::Init(const nsACString &host, int32_t port,
-                                const nsACString &npnToken,
-                                const nsACString &username,
-                                nsProxyInfo *proxyInfo,
-                                const OriginAttributes &originAttributes,
-                                bool e2eSSL) {
+nsHttpConnectionInfo::nsHttpConnectionInfo(
+    const nsACString& originHost, int32_t originPort,
+    const nsACString& npnToken, const nsACString& username,
+    const nsACString& topWindowOrigin, nsProxyInfo* proxyInfo,
+    const OriginAttributes& originAttributes, const nsACString& routedHost,
+    int32_t routedPort, bool aIsHttp3)
+    : nsHttpConnectionInfo(originHost, originPort, npnToken, username,
+                           topWindowOrigin, proxyInfo, originAttributes,
+                           routedHost, routedPort, false, aIsHttp3) {}
+
+void nsHttpConnectionInfo::Init(const nsACString& host, int32_t port,
+                                const nsACString& npnToken,
+                                const nsACString& username,
+                                const nsACString& topWindowOrigin,
+                                nsProxyInfo* proxyInfo,
+                                const OriginAttributes& originAttributes,
+                                bool e2eSSL, bool aIsHttp3) {
   LOG(("Init nsHttpConnectionInfo @%p\n", this));
 
   mUsername = username;
+  mTopWindowOrigin = topWindowOrigin;
   mProxyInfo = proxyInfo;
   mEndToEndSSL = e2eSSL;
   mUsingConnect = false;
   mNPNToken = npnToken;
+  mIsHttp3 = aIsHttp3;
   mOriginAttributes = originAttributes;
   mTlsFlags = 0x0;
-  mTrrUsed = false;
-  mTrrDisabled = false;
+  mIsTrrServiceChannel = false;
+  mTRRMode = nsIRequest::TRR_DEFAULT_MODE;
   mIPv4Disabled = false;
   mIPv6Disabled = false;
+  mHasIPHintAddress = false;
 
   mUsingHttpsProxy = (proxyInfo && proxyInfo->IsHTTPS());
   mUsingHttpProxy = mUsingHttpsProxy || (proxyInfo && proxyInfo->IsHTTP());
@@ -112,7 +142,7 @@ void nsHttpConnectionInfo::BuildHashKey() {
   // where we know we use anonymous connection (LOAD_ANONYMOUS load flag)
   //
 
-  const char *keyHost;
+  const char* keyHost;
   int32_t keyPort;
 
   if (mUsingHttpProxy && !mUsingConnect) {
@@ -131,8 +161,15 @@ void nsHttpConnectionInfo::BuildHashKey() {
   // byte 4 is I/. I is for insecure scheme on TLS for http:// uris
   // byte 5 is X/. X is for disallow_spdy flag
   // byte 6 is C/. C is for be Conservative
+  // byte 7 is i/. i is for isolated
+  // Note: when adding/removing fields from this list which do not have
+  // corresponding data fields on the object itself, you may also need to
+  // modify RebuildHashKey.
 
-  mHashKey.AssignLiteral(".......[tlsflags0x00000000]");
+  mHashKey.AssignLiteral("........[tlsflags0x00000000]");
+  if (mIsolated) {
+    mHashKey.SetCharAt('i', 7);
+  }
 
   mHashKey.Append(keyHost);
   mHashKey.Append(':');
@@ -178,7 +215,7 @@ void nsHttpConnectionInfo::BuildHashKey() {
     mHashKey.Append('[');
     mHashKey.Append(ProxyUsername());
     mHashKey.Append(':');
-    const char *password = ProxyPassword();
+    const char* password = ProxyPassword();
     if (strlen(password) > 0) {
       nsAutoCString digestedPassword;
       nsresult rv = SHA256(password, digestedPassword);
@@ -203,11 +240,13 @@ void nsHttpConnectionInfo::BuildHashKey() {
     mHashKey.AppendLiteral("}");
   }
 
-  if (GetTrrDisabled()) {
-    // When connecting with TRR disabled, we enforce a separate connection
+  if (GetTRRMode() != nsIRequest::TRR_DEFAULT_MODE) {
+    // When connecting with another TRR mode, we enforce a separate connection
     // hashkey so that we also can trigger a fresh DNS resolver that then
     // doesn't use TRR as the previous connection might have.
-    mHashKey.AppendLiteral("[NOTRR]");
+    mHashKey.AppendLiteral("[TRR:");
+    mHashKey.AppendInt(GetTRRMode());
+    mHashKey.AppendLiteral("]");
   }
 
   if (GetIPv4Disabled()) {
@@ -218,29 +257,75 @@ void nsHttpConnectionInfo::BuildHashKey() {
     mHashKey.AppendLiteral("[!v6]");
   }
 
+  if (mIsolated && !mTopWindowOrigin.IsEmpty()) {
+    mHashKey.Append('{');
+    mHashKey.Append('{');
+    mHashKey.Append(mTopWindowOrigin);
+    mHashKey.Append('}');
+    mHashKey.Append('}');
+  }
+
+  if (mProxyInfo) {
+    const nsCString& connectionIsolationKey =
+        mProxyInfo->ConnectionIsolationKey();
+    if (!connectionIsolationKey.IsEmpty()) {
+      mHashKey.AppendLiteral("{CIK ");
+      mHashKey.Append(connectionIsolationKey);
+      mHashKey.AppendLiteral("}");
+    }
+    if (mProxyInfo->Flags() & nsIProxyInfo::TRANSPARENT_PROXY_RESOLVES_HOST) {
+      mHashKey.AppendLiteral("{TPRH}");
+    }
+  }
+
   nsAutoCString originAttributes;
   mOriginAttributes.CreateSuffix(originAttributes);
   mHashKey.Append(originAttributes);
 }
 
-void nsHttpConnectionInfo::SetOriginServer(const nsACString &host,
+void nsHttpConnectionInfo::RebuildHashKey() {
+  // Create copies of all properties stored in our hash key.
+  bool isAnonymous = GetAnonymous();
+  bool isPrivate = GetPrivate();
+  bool isInsecureScheme = GetInsecureScheme();
+  bool isNoSpdy = GetNoSpdy();
+  bool isBeConservative = GetBeConservative();
+
+  BuildHashKey();
+
+  // Restore all of those properties.
+  SetAnonymous(isAnonymous);
+  SetPrivate(isPrivate);
+  SetInsecureScheme(isInsecureScheme);
+  SetNoSpdy(isNoSpdy);
+  SetBeConservative(isBeConservative);
+}
+
+void nsHttpConnectionInfo::SetOriginServer(const nsACString& host,
                                            int32_t port) {
   mOrigin = host;
   mOriginPort = port == -1 ? DefaultPort() : port;
+  // Use BuildHashKey() since this can only be called when constructing an
+  // nsHttpConnectionInfo object.
+  MOZ_DIAGNOSTIC_ASSERT(mHashKey.IsEmpty());
   BuildHashKey();
 }
 
-nsHttpConnectionInfo *nsHttpConnectionInfo::Clone() const {
-  nsHttpConnectionInfo *clone;
+// Note that this function needs to be synced with
+// nsHttpConnectionInfo::DeserializeHttpConnectionInfoCloneArgs to make sure
+// nsHttpConnectionInfo can be serialized/deserialized.
+already_AddRefed<nsHttpConnectionInfo> nsHttpConnectionInfo::Clone() const {
+  RefPtr<nsHttpConnectionInfo> clone;
   if (mRoutedHost.IsEmpty()) {
-    clone =
-        new nsHttpConnectionInfo(mOrigin, mOriginPort, mNPNToken, mUsername,
-                                 mProxyInfo, mOriginAttributes, mEndToEndSSL);
+    clone = new nsHttpConnectionInfo(
+        mOrigin, mOriginPort, mNPNToken, mUsername, mTopWindowOrigin,
+        mProxyInfo, mOriginAttributes, mEndToEndSSL, mIsolated, mIsHttp3);
   } else {
     MOZ_ASSERT(mEndToEndSSL);
     clone = new nsHttpConnectionInfo(mOrigin, mOriginPort, mNPNToken, mUsername,
-                                     mProxyInfo, mOriginAttributes, mRoutedHost,
-                                     mRoutedPort);
+                                     mTopWindowOrigin, mProxyInfo,
+                                     mOriginAttributes, mRoutedHost,
+                                     mRoutedPort, mIsolated, mIsHttp3);
   }
 
   // Make sure the anonymous, insecure-scheme, and private flags are transferred
@@ -250,24 +335,162 @@ nsHttpConnectionInfo *nsHttpConnectionInfo::Clone() const {
   clone->SetNoSpdy(GetNoSpdy());
   clone->SetBeConservative(GetBeConservative());
   clone->SetTlsFlags(GetTlsFlags());
-  clone->SetTrrUsed(GetTrrUsed());
-  clone->SetTrrDisabled(GetTrrDisabled());
+  clone->SetIsTrrServiceChannel(GetIsTrrServiceChannel());
+  clone->SetTRRMode(GetTRRMode());
   clone->SetIPv4Disabled(GetIPv4Disabled());
   clone->SetIPv6Disabled(GetIPv6Disabled());
+  clone->SetHasIPHintAddress(HasIPHintAddress());
+  clone->SetEchConfig(GetEchConfig());
   MOZ_ASSERT(clone->Equals(this));
 
-  return clone;
+  return clone.forget();
 }
 
-void nsHttpConnectionInfo::CloneAsDirectRoute(nsHttpConnectionInfo **outCI) {
-  if (mRoutedHost.IsEmpty()) {
-    *outCI = Clone();
+already_AddRefed<nsHttpConnectionInfo>
+nsHttpConnectionInfo::CloneAndAdoptHTTPSSVCRecord(
+    nsISVCBRecord* aRecord) const {
+  MOZ_ASSERT(aRecord);
+
+  // Get the domain name of this HTTPS RR. This name will be assigned to
+  // mRoutedHost in the new connection info.
+  nsAutoCString name;
+  aRecord->GetName(name);
+
+  // Try to get the port and Alpn. If this record has SvcParamKeyPort defined,
+  // the new port will be used as mRoutedPort.
+  Maybe<uint16_t> port = aRecord->GetPort();
+  Maybe<Tuple<nsCString, bool>> alpn = aRecord->GetAlpn();
+
+  // Let the new conn info learn h3 will be used.
+  bool isHttp3 = alpn ? Get<1>(*alpn) : false;
+
+  LOG(("HTTPSSVC: use new routed host (%s) and new npnToken (%s)", name.get(),
+       alpn ? Get<0>(*alpn).get() : "None"));
+
+  RefPtr<nsHttpConnectionInfo> clone;
+  if (name.IsEmpty()) {
+    clone = new nsHttpConnectionInfo(
+        mOrigin, mOriginPort, alpn ? Get<0>(*alpn) : EmptyCString(), mUsername,
+        mTopWindowOrigin, mProxyInfo, mOriginAttributes, mEndToEndSSL,
+        mIsolated, isHttp3);
+  } else {
+    MOZ_ASSERT(mEndToEndSSL);
+    clone = new nsHttpConnectionInfo(
+        mOrigin, mOriginPort, alpn ? Get<0>(*alpn) : EmptyCString(), mUsername,
+        mTopWindowOrigin, mProxyInfo, mOriginAttributes, name,
+        port ? *port : mRoutedPort, mIsolated, isHttp3);
+  }
+
+  // Make sure the anonymous, insecure-scheme, and private flags are transferred
+  clone->SetAnonymous(GetAnonymous());
+  clone->SetPrivate(GetPrivate());
+  clone->SetInsecureScheme(GetInsecureScheme());
+  clone->SetNoSpdy(GetNoSpdy());
+  clone->SetBeConservative(GetBeConservative());
+  clone->SetTlsFlags(GetTlsFlags());
+  clone->SetIsTrrServiceChannel(GetIsTrrServiceChannel());
+  clone->SetTRRMode(GetTRRMode());
+  clone->SetIPv4Disabled(GetIPv4Disabled());
+  clone->SetIPv6Disabled(GetIPv6Disabled());
+
+  bool hasIPHint = false;
+  Unused << aRecord->GetHasIPHintAddress(&hasIPHint);
+  if (hasIPHint) {
+    clone->SetHasIPHintAddress(hasIPHint);
+  }
+
+  nsAutoCString echConfig;
+  Unused << aRecord->GetEchConfig(echConfig);
+  clone->SetEchConfig(echConfig);
+
+  return clone.forget();
+}
+
+/* static */
+void nsHttpConnectionInfo::SerializeHttpConnectionInfo(
+    nsHttpConnectionInfo* aInfo, HttpConnectionInfoCloneArgs& aArgs) {
+  aArgs.host() = aInfo->GetOrigin();
+  aArgs.port() = aInfo->OriginPort();
+  aArgs.npnToken() = aInfo->GetNPNToken();
+  aArgs.username() = aInfo->GetUsername();
+  aArgs.originAttributes() = aInfo->GetOriginAttributes();
+  aArgs.endToEndSSL() = aInfo->EndToEndSSL();
+  aArgs.routedHost() = aInfo->GetRoutedHost();
+  aArgs.routedPort() = aInfo->RoutedPort();
+  aArgs.anonymous() = aInfo->GetAnonymous();
+  aArgs.aPrivate() = aInfo->GetPrivate();
+  aArgs.insecureScheme() = aInfo->GetInsecureScheme();
+  aArgs.noSpdy() = aInfo->GetNoSpdy();
+  aArgs.beConservative() = aInfo->GetBeConservative();
+  aArgs.tlsFlags() = aInfo->GetTlsFlags();
+  aArgs.isolated() = aInfo->GetIsolated();
+  aArgs.isTrrServiceChannel() = aInfo->GetTRRMode();
+  aArgs.trrMode() = aInfo->GetTRRMode();
+  aArgs.isIPv4Disabled() = aInfo->GetIPv4Disabled();
+  aArgs.isIPv6Disabled() = aInfo->GetIPv6Disabled();
+  aArgs.topWindowOrigin() = aInfo->GetTopWindowOrigin();
+  aArgs.isHttp3() = aInfo->IsHttp3();
+  aArgs.hasIPHintAddress() = aInfo->HasIPHintAddress();
+  aArgs.echConfig() = aInfo->GetEchConfig();
+
+  if (!aInfo->ProxyInfo()) {
     return;
   }
 
-  RefPtr<nsHttpConnectionInfo> clone =
-      new nsHttpConnectionInfo(mOrigin, mOriginPort, EmptyCString(), mUsername,
-                               mProxyInfo, mOriginAttributes, mEndToEndSSL);
+  nsTArray<ProxyInfoCloneArgs> proxyInfoArray;
+  nsProxyInfo::SerializeProxyInfo(aInfo->ProxyInfo(), proxyInfoArray);
+  aArgs.proxyInfo() = std::move(proxyInfoArray);
+}
+
+// This function needs to be synced with nsHttpConnectionInfo::Clone.
+/* static */
+already_AddRefed<nsHttpConnectionInfo>
+nsHttpConnectionInfo::DeserializeHttpConnectionInfoCloneArgs(
+    const HttpConnectionInfoCloneArgs& aInfoArgs) {
+  nsProxyInfo* pi = nsProxyInfo::DeserializeProxyInfo(aInfoArgs.proxyInfo());
+  RefPtr<nsHttpConnectionInfo> cinfo;
+  if (aInfoArgs.routedHost().IsEmpty()) {
+    cinfo = new nsHttpConnectionInfo(
+        aInfoArgs.host(), aInfoArgs.port(), aInfoArgs.npnToken(),
+        aInfoArgs.username(), aInfoArgs.topWindowOrigin(), pi,
+        aInfoArgs.originAttributes(), aInfoArgs.endToEndSSL(),
+        aInfoArgs.isolated(), aInfoArgs.isHttp3());
+  } else {
+    MOZ_ASSERT(aInfoArgs.endToEndSSL());
+    cinfo = new nsHttpConnectionInfo(
+        aInfoArgs.host(), aInfoArgs.port(), aInfoArgs.npnToken(),
+        aInfoArgs.username(), aInfoArgs.topWindowOrigin(), pi,
+        aInfoArgs.originAttributes(), aInfoArgs.routedHost(),
+        aInfoArgs.routedPort(), aInfoArgs.isolated(), aInfoArgs.isHttp3());
+  }
+
+  // Make sure the anonymous, insecure-scheme, and private flags are transferred
+  cinfo->SetAnonymous(aInfoArgs.anonymous());
+  cinfo->SetPrivate(aInfoArgs.aPrivate());
+  cinfo->SetInsecureScheme(aInfoArgs.insecureScheme());
+  cinfo->SetNoSpdy(aInfoArgs.noSpdy());
+  cinfo->SetBeConservative(aInfoArgs.beConservative());
+  cinfo->SetTlsFlags(aInfoArgs.tlsFlags());
+  cinfo->SetIsTrrServiceChannel(aInfoArgs.isTrrServiceChannel());
+  cinfo->SetTRRMode(static_cast<nsIRequest::TRRMode>(aInfoArgs.trrMode()));
+  cinfo->SetIPv4Disabled(aInfoArgs.isIPv4Disabled());
+  cinfo->SetIPv6Disabled(aInfoArgs.isIPv6Disabled());
+  cinfo->SetHasIPHintAddress(aInfoArgs.hasIPHintAddress());
+  cinfo->SetEchConfig(aInfoArgs.echConfig());
+
+  return cinfo.forget();
+}
+
+void nsHttpConnectionInfo::CloneAsDirectRoute(nsHttpConnectionInfo** outCI) {
+  if (mRoutedHost.IsEmpty()) {
+    RefPtr<nsHttpConnectionInfo> clone = Clone();
+    clone.forget(outCI);
+    return;
+  }
+
+  RefPtr<nsHttpConnectionInfo> clone = new nsHttpConnectionInfo(
+      mOrigin, mOriginPort, ""_ns, mUsername, mTopWindowOrigin, mProxyInfo,
+      mOriginAttributes, mEndToEndSSL, mIsolated);
   // Make sure the anonymous, insecure-scheme, and private flags are transferred
   clone->SetAnonymous(GetAnonymous());
   clone->SetPrivate(GetPrivate());
@@ -275,15 +498,17 @@ void nsHttpConnectionInfo::CloneAsDirectRoute(nsHttpConnectionInfo **outCI) {
   clone->SetNoSpdy(GetNoSpdy());
   clone->SetBeConservative(GetBeConservative());
   clone->SetTlsFlags(GetTlsFlags());
-  clone->SetTrrUsed(GetTrrUsed());
-  clone->SetTrrDisabled(GetTrrDisabled());
+  clone->SetIsTrrServiceChannel(GetIsTrrServiceChannel());
+  clone->SetTRRMode(GetTRRMode());
   clone->SetIPv4Disabled(GetIPv4Disabled());
   clone->SetIPv6Disabled(GetIPv6Disabled());
+  clone->SetHasIPHintAddress(HasIPHintAddress());
+  clone->SetEchConfig(GetEchConfig());
 
   clone.forget(outCI);
 }
 
-nsresult nsHttpConnectionInfo::CreateWildCard(nsHttpConnectionInfo **outParam) {
+nsresult nsHttpConnectionInfo::CreateWildCard(nsHttpConnectionInfo** outParam) {
   // T???mozilla.org:443 (https:proxy.ducksong.com:3128) [specifc form]
   // TS??*:0 (https:proxy.ducksong.com:3128)   [wildcard form]
 
@@ -293,9 +518,9 @@ nsresult nsHttpConnectionInfo::CreateWildCard(nsHttpConnectionInfo **outParam) {
   }
 
   RefPtr<nsHttpConnectionInfo> clone;
-  clone =
-      new nsHttpConnectionInfo(NS_LITERAL_CSTRING("*"), 0, mNPNToken, mUsername,
-                               mProxyInfo, mOriginAttributes, true);
+  clone = new nsHttpConnectionInfo("*"_ns, 0, mNPNToken, mUsername,
+                                   mTopWindowOrigin, mProxyInfo,
+                                   mOriginAttributes, true, mIsHttp3);
   // Make sure the anonymous and private flags are transferred!
   clone->SetAnonymous(GetAnonymous());
   clone->SetPrivate(GetPrivate());
@@ -303,31 +528,31 @@ nsresult nsHttpConnectionInfo::CreateWildCard(nsHttpConnectionInfo **outParam) {
   return NS_OK;
 }
 
-void nsHttpConnectionInfo::SetTrrDisabled(bool aNoTrr) {
-  if (mTrrDisabled != aNoTrr) {
-    mTrrDisabled = aNoTrr;
-    BuildHashKey();
+void nsHttpConnectionInfo::SetTRRMode(nsIRequest::TRRMode aTRRMode) {
+  if (mTRRMode != aTRRMode) {
+    mTRRMode = aTRRMode;
+    RebuildHashKey();
   }
 }
 
 void nsHttpConnectionInfo::SetIPv4Disabled(bool aNoIPv4) {
   if (mIPv4Disabled != aNoIPv4) {
     mIPv4Disabled = aNoIPv4;
-    BuildHashKey();
+    RebuildHashKey();
   }
 }
 
 void nsHttpConnectionInfo::SetIPv6Disabled(bool aNoIPv6) {
   if (mIPv6Disabled != aNoIPv6) {
     mIPv6Disabled = aNoIPv6;
-    BuildHashKey();
+    RebuildHashKey();
   }
 }
 
 void nsHttpConnectionInfo::SetTlsFlags(uint32_t aTlsFlags) {
   mTlsFlags = aTlsFlags;
 
-  mHashKey.Replace(18, 8, nsPrintfCString("%08x", mTlsFlags));
+  mHashKey.Replace(19, 8, nsPrintfCString("%08x", mTlsFlags));
 }
 
 bool nsHttpConnectionInfo::UsingProxy() {
@@ -345,9 +570,8 @@ bool nsHttpConnectionInfo::HostIsLocalIPLiteral() const {
   } else if (PR_StringToNetAddr(Origin(), &prAddr) != PR_SUCCESS) {
     return false;
   }
-  NetAddr netAddr;
-  PRNetAddrToNetAddr(&prAddr, &netAddr);
-  return IsIPAddrLocal(&netAddr);
+  NetAddr netAddr(&prAddr);
+  return netAddr.IsIPAddrLocal();
 }
 
 }  // namespace net

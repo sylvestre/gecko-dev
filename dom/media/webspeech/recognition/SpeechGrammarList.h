@@ -10,6 +10,7 @@
 #include "mozilla/Attributes.h"
 #include "nsCOMPtr.h"
 #include "nsCycleCollectionParticipant.h"
+#include "nsTArray.h"
 #include "nsWrapperCache.h"
 
 struct JSContext;
@@ -33,7 +34,12 @@ class SpeechGrammarList final : public nsISupports, public nsWrapperCache {
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(SpeechGrammarList)
 
   static already_AddRefed<SpeechGrammarList> Constructor(
-      const GlobalObject& aGlobal, ErrorResult& aRv);
+      const GlobalObject& aGlobal);
+
+  static already_AddRefed<SpeechGrammarList> WebkitSpeechGrammarList(
+      const GlobalObject& aGlobal, ErrorResult& aRv) {
+    return Constructor(aGlobal);
+  }
 
   nsISupports* GetParentObject() const;
 

@@ -9,14 +9,18 @@
 
 Services.scriptloader.loadSubScript(
   "chrome://mochitests/content/browser/devtools/client/shared/test/shared-head.js",
-  this);
+  this
+);
 
-const {DebuggerClient} = require("devtools/shared/client/debugger-client");
-const { ActorRegistry } = require("devtools/server/actors/utils/actor-registry");
-const {DebuggerServer} = require("devtools/server/main");
+const { DevToolsClient } = require("devtools/client/devtools-client");
+const {
+  ActorRegistry,
+} = require("devtools/server/actors/utils/actor-registry");
+const { DevToolsServer } = require("devtools/server/devtools-server");
 
 const PATH = "browser/devtools/server/tests/browser/";
-const MAIN_DOMAIN = "http://test1.example.org/" + PATH;
+const TEST_DOMAIN = "http://test1.example.org";
+const MAIN_DOMAIN = `${TEST_DOMAIN}/${PATH}`;
 const ALT_DOMAIN = "http://sectest1.example.org/" + PATH;
 const ALT_DOMAIN_SECURED = "https://sectest1.example.org:443/" + PATH;
 
@@ -33,12 +37,11 @@ waitForExplicitFinish();
  * @param {String} url The url to be loaded in the new tab
  * @return a promise that resolves to the new browser that the document
  *         is loaded in. Note that we cannot return the document
- *         directly, since this would be a CPOW in the e10s case,
- *         and Promises cannot be resolved with CPOWs (see bug 1233497).
+ *         directly, as we aren't able to access that in the parent.
  */
 var addTab = async function(url) {
   info(`Adding a new tab with URL: ${url}`);
-  const tab = gBrowser.selectedTab = BrowserTestUtils.addTab(gBrowser, url);
+  const tab = (gBrowser.selectedTab = BrowserTestUtils.addTab(gBrowser, url));
   await BrowserTestUtils.browserLoaded(tab.linkedBrowser);
 
   info(`Tab added a URL ${url} loaded`);
@@ -49,7 +52,7 @@ var addTab = async function(url) {
 // does almost the same thing as addTab, but directly returns an object
 async function addTabTarget(url) {
   info(`Adding a new tab with URL: ${url}`);
-  const tab = gBrowser.selectedTab = BrowserTestUtils.addTab(gBrowser, url);
+  const tab = (gBrowser.selectedTab = BrowserTestUtils.addTab(gBrowser, url));
   await BrowserTestUtils.browserLoaded(tab.linkedBrowser);
   info(`Tab added a URL ${url} loaded`);
   return getTargetForTab(tab);
@@ -66,65 +69,75 @@ async function initAnimationsFrontForUrl(url) {
   const { inspector, walker, target } = await initInspectorFront(url);
   const animations = await target.getFront("animations");
 
-  return {inspector, walker, animations, target};
+  return { inspector, walker, animations, target };
 }
 
 async function initLayoutFrontForUrl(url) {
-  const {inspector, walker, target} = await initInspectorFront(url);
+  const { inspector, walker, target } = await initInspectorFront(url);
   const layout = await walker.getLayoutInspector();
 
-  return {inspector, walker, layout, target};
+  return { inspector, walker, layout, target };
 }
 
-async function initAccessibilityFrontForUrl(url) {
-  const target = await addTabTarget(url);
-  const inspector = await target.getInspector();
-  const walker = inspector.walker;
+async function initAccessibilityFrontsForUrl(
+  url,
+  { enableByDefault = true } = {}
+) {
+  const { inspector, walker, target } = await initInspectorFront(url);
+  const parentAccessibility = await target.client.mainRoot.getFront(
+    "parentaccessibility"
+  );
   const accessibility = await target.getFront("accessibility");
+  const a11yWalker = accessibility.accessibleWalkerFront;
+  if (enableByDefault) {
+    await parentAccessibility.enable();
+  }
 
-  await accessibility.bootstrap();
-
-  return {inspector, walker, accessibility, target};
+  return {
+    inspector,
+    walker,
+    accessibility,
+    parentAccessibility,
+    a11yWalker,
+    target,
+  };
 }
 
-function initDebuggerServer() {
+function initDevToolsServer() {
   try {
-    // Sometimes debugger server does not get destroyed correctly by previous
+    // Sometimes devtools server does not get destroyed correctly by previous
     // tests.
-    DebuggerServer.destroy();
+    DevToolsServer.destroy();
   } catch (e) {
-    info(`DebuggerServer destroy error: ${e}\n${e.stack}`);
+    info(`DevToolsServer destroy error: ${e}\n${e.stack}`);
   }
-  DebuggerServer.init();
-  DebuggerServer.registerAllActors();
+  DevToolsServer.init();
+  DevToolsServer.registerAllActors();
 }
 
 async function initPerfFront() {
-  initDebuggerServer();
-  const client = new DebuggerClient(DebuggerServer.connectPipe());
+  initDevToolsServer();
+  const client = new DevToolsClient(DevToolsServer.connectPipe());
   await waitUntilClientConnected(client);
   const front = await client.mainRoot.getFront("perf");
-  return {front, client};
+  return { front, client };
 }
 
 async function initInspectorFront(url) {
   const target = await addTabTarget(url);
-
-  const inspector = await target.getInspector();
+  const inspector = await target.getFront("inspector");
   const walker = inspector.walker;
 
-  return {inspector, walker, target};
+  return { inspector, walker, target };
 }
 
 /**
- * Wait until a DebuggerClient is connected.
- * @param {DebuggerClient} client
+ * Wait until a DevToolsClient is connected.
+ * @param {DevToolsClient} client
  * @return {Promise} Resolves when connected.
  */
 function waitUntilClientConnected(client) {
-  return new Promise(resolve => {
-    client.addOneTimeListener("connected", resolve);
-  });
+  return client.once("connected");
 }
 
 /**
@@ -144,12 +157,16 @@ function once(target, eventName, useCapture = false) {
       ["addListener", "removeListener"],
       ["on", "off"],
     ]) {
-      if ((add in target) && (remove in target)) {
-        target[add](eventName, function onEvent(...aArgs) {
-          info("Got event: '" + eventName + "' on " + target + ".");
-          target[remove](eventName, onEvent, useCapture);
-          resolve(...aArgs);
-        }, useCapture);
+      if (add in target && remove in target) {
+        target[add](
+          eventName,
+          function onEvent(...aArgs) {
+            info("Got event: '" + eventName + "' on " + target + ".");
+            target[remove](eventName, onEvent, useCapture);
+            resolve(...aArgs);
+          },
+          useCapture
+        );
         break;
       }
     }
@@ -180,10 +197,9 @@ function idleWait(time) {
 
 function busyWait(time) {
   const start = Date.now();
-  // eslint-disable-next-line
   let stack;
   while (Date.now() - start < time) {
-    stack = Components.stack;
+    stack = Components.stack; // eslint-disable-line no-unused-vars
   }
 }
 
@@ -206,38 +222,46 @@ function waitUntil(predicate, interval = 10) {
   });
 }
 
-function waitForMarkerType(front, types, predicate,
-                           unpackFun = (name, data) => data.markers,
-                           eventName = "timeline-data") {
+function waitForMarkerType(
+  front,
+  types,
+  predicate,
+  unpackFun = (name, data) => data.markers,
+  eventName = "timeline-data"
+) {
   types = [].concat(types);
-  predicate = predicate || function() {
-    return true;
-  };
+  predicate =
+    predicate ||
+    function() {
+      return true;
+    };
   let filteredMarkers = [];
-  const { promise, resolve } = defer();
 
-  info("Waiting for markers of type: " + types);
+  return new Promise(resolve => {
+    info("Waiting for markers of type: " + types);
 
-  function handler(name, data) {
-    if (typeof name === "string" && name !== "markers") {
-      return;
+    function handler(name, data) {
+      if (typeof name === "string" && name !== "markers") {
+        return;
+      }
+
+      const markers = unpackFun(name, data);
+      info("Got markers");
+
+      filteredMarkers = filteredMarkers.concat(
+        markers.filter(m => types.includes(m.name))
+      );
+
+      if (
+        types.every(t => filteredMarkers.some(m => m.name === t)) &&
+        predicate(filteredMarkers)
+      ) {
+        front.off(eventName, handler);
+        resolve(filteredMarkers);
+      }
     }
-
-    const markers = unpackFun(name, data);
-    info("Got markers");
-
-    filteredMarkers = filteredMarkers.concat(
-      markers.filter(m => types.includes(m.name)));
-
-    if (types.every(t => filteredMarkers.some(m => m.name === t)) &&
-        predicate(filteredMarkers)) {
-      front.off(eventName, handler);
-      resolve(filteredMarkers);
-    }
-  }
-  front.on(eventName, handler);
-
-  return promise;
+    front.on(eventName, handler);
+  });
 }
 
 function getCookieId(name, domain, path) {
@@ -271,10 +295,23 @@ function checkA11yFront(front, expected, expectedFront) {
     is(front, expectedFront, "Matching accessibility front");
   }
 
+  // Clone the front so we could modify some values for comparison.
+  front = Object.assign(front);
   for (const key in expected) {
-    if (["actions", "states", "attributes"].includes(key)) {
-      SimpleTest.isDeeply(front[key], expected[key],
-        `Accessible Front has correct ${key}`);
+    if (key === "checks") {
+      const { CONTRAST } = front[key];
+      // Contrast values are rounded to two digits after the decimal point.
+      if (CONTRAST && CONTRAST.value) {
+        CONTRAST.value = parseFloat(CONTRAST.value.toFixed(2));
+      }
+    }
+
+    if (["actions", "states", "attributes", "checks"].includes(key)) {
+      SimpleTest.isDeeply(
+        front[key],
+        expected[key],
+        `Accessible Front has correct ${key}`
+      );
     } else {
       is(front[key], expected[key], `accessibility front has correct ${key}`);
     }
@@ -295,13 +332,15 @@ function getA11yInitOrShutdownPromise() {
  * Wait for accessibility service to shut down. We consider it shut down when
  * an "a11y-init-or-shutdown" event is received with a value of "0".
  */
-async function waitForA11yShutdown() {
+async function waitForA11yShutdown(parentAccessibility) {
+  await parentAccessibility.disable();
   if (!Services.appinfo.accessibilityEnabled) {
     return;
   }
 
   await getA11yInitOrShutdownPromise().then(data =>
-    data === "0" ? Promise.resolve() : Promise.reject());
+    data === "0" ? Promise.resolve() : Promise.reject()
+  );
 }
 
 /**
@@ -314,5 +353,6 @@ async function waitForA11yInit() {
   }
 
   await getA11yInitOrShutdownPromise().then(data =>
-    data === "1" ? Promise.resolve() : Promise.reject());
+    data === "1" ? Promise.resolve() : Promise.reject()
+  );
 }

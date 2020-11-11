@@ -1,19 +1,26 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+---
 linux64/opt:
     description: "Linux64 Opt"
     index:
         product: firefox
         job-name: linux64-opt
     attributes:
+        enable-build-signing: true
         enable-full-crashsymbols: true
     treeherder:
         platform: linux64/opt
         symbol: B
-    worker-type: aws-provisioner-v1/gecko-{level}-b-linux
+    worker-type: b-linux
     worker:
         max-run-time: 7200
+        env:
+            MOZ_AUTOMATION_PACKAGE_TESTS: "1"
     run:
         using: mozharness
-        actions: [get-secrets, build, check-test]
+        actions: [get-secrets, build]
         config:
             - builds/releng_base_firefox.py
             - builds/releng_base_linux_64_builds.py
@@ -21,14 +28,21 @@ linux64/opt:
         secrets: true
         tooltool-downloads: public
         need-xvfb: true
-    toolchains:
-        - linux64-binutils
-        - linux64-clang
-        - linux64-rust
-        - linux64-rust-size
-        - linux64-cbindgen
-        - linux64-sccache
-        - linux64-node
+    run-on-projects: ['integration']
+    use-sccache: true
+    fetches:
+        toolchain:
+            - linux64-binutils
+            - linux64-clang
+            - linux64-rust
+            - linux64-rust-size
+            - linux64-cbindgen
+            - linux64-dump-syms
+            - linux64-sccache
+            - linux64-nasm
+            - linux64-node
+            - linux64-lucetc
+            - wasi-sysroot
 
 linux64-plain/opt:
     description: "Linux64 Opt Plain"
@@ -39,9 +53,10 @@ linux64-plain/opt:
         platform: linux64/opt
         symbol: Bp
         tier: 2
-    worker-type: aws-provisioner-v1/gecko-{level}-b-linux
+    worker-type: b-linux
     worker:
-        max-run-time: 3600
+        docker-image: {in-tree: debian10-amd64-build}
+        max-run-time: 5400
         env:
             PERFHERDER_EXTRA_OPTIONS: plain
     run:
@@ -55,64 +70,40 @@ linux64-plain/opt:
         extra-config:
             disable_package_metrics: true
         mozconfig-variant: plain-opt
-    run-on-projects: [trunk]
-    toolchains:
-        - linux64-binutils
-        - linux64-clang
-        - linux64-rust
-        - linux64-node
-        - linux64-cbindgen
-
-linux64/pgo:
-    description: "Linux64 PGO"
-    index:
-        product: firefox
-        job-name: linux64-pgo
-    attributes:
-        enable-full-crashsymbols: true
-    treeherder:
-        platform: linux64/pgo
-        symbol: B
-    worker-type: aws-provisioner-v1/gecko-{level}-b-linux
-    worker:
-        max-run-time: 7200
-    run:
-        using: mozharness
-        actions: [get-secrets, build, check-test]
-        options: [enable-pgo]
-        config:
-            - builds/releng_base_firefox.py
-            - builds/releng_base_linux_64_builds.py
-        script: "mozharness/scripts/fx_desktop_build.py"
-        secrets: true
-        tooltool-downloads: public
-        need-xvfb: true
-    toolchains:
-        - linux64-binutils
-        - linux64-clang
-        - linux64-rust
-        - linux64-rust-size
-        - linux64-cbindgen
-        - linux64-sccache
-        - linux64-node
+    run-on-projects: ['mozilla-central']
+    fetches:
+        toolchain:
+            - linux64-binutils
+            - linux64-clang
+            - linux64-rust
+            - linux64-nasm
+            - linux64-node
+            - linux64-cbindgen
+            - linux64-dump-syms
+    optimization:
+        skip-unless-expanded: null
 
 linux64-fuzzing/debug:
     description: "Linux64 Fuzzing Debug"
     index:
         product: firefox
         job-name: linux64-fuzzing-debug
+    attributes:
+        # The gtest libxul contains libFuzzer targets
+        skip-verify-test-packaging: true
     treeherder:
         platform: linux64/debug
         symbol: Bf
-    worker-type: aws-provisioner-v1/gecko-{level}-b-linux
+    worker-type: b-linux
     worker:
         max-run-time: 5400
         env:
+            MOZ_LOW_PARALLELISM_BUILD: '1'
             PERFHERDER_EXTRA_OPTIONS: fuzzing
-            FORCE_GCC: '1'
+            MOZ_AUTOMATION_PACKAGE_TESTS: "1"
     run:
         using: mozharness
-        actions: [get-secrets, build, check-test]
+        actions: [get-secrets, build]
         config:
             - builds/releng_base_firefox.py
             - builds/releng_base_linux_64_builds.py
@@ -122,14 +113,26 @@ linux64-fuzzing/debug:
         mozconfig-variant: debug-fuzzing
         tooltool-downloads: public
         need-xvfb: true
-    toolchains:
-        - linux64-clang
-        - linux64-gcc
-        - linux64-cbindgen
-        - linux64-sccache
-        - linux64-rust
-        - linux64-rust-size
-        - linux64-node
+    use-sccache: true
+    fetches:
+        toolchain:
+            - linux64-binutils
+            - linux64-clang
+            - linux64-cbindgen
+            - linux64-dump-syms
+            - linux64-sccache
+            - linux64-rust
+            - linux64-rust-size
+            - linux64-nasm
+            - linux64-node
+            - linux64-lucetc
+            - wasi-sysroot
+            # `fix-stacks` is needed because xpcshell self tests run as part of
+            # the build step. Once bug 1614626 moves them to the xpcshell task,
+            # this dependency can be removed.
+            - linux64-fix-stacks
+    optimization:
+        skip-unless-expanded: null
 
 linux64/debug:
     description: "Linux64 Debug"
@@ -141,12 +144,14 @@ linux64/debug:
     treeherder:
         platform: linux64/debug
         symbol: B
-    worker-type: aws-provisioner-v1/gecko-{level}-b-linux
+    worker-type: b-linux
     worker:
         max-run-time: 5400
+        env:
+            MOZ_AUTOMATION_PACKAGE_TESTS: "1"
     run:
         using: mozharness
-        actions: [get-secrets, build, check-test]
+        actions: [get-secrets, build]
         config:
             - builds/releng_base_firefox.py
             - builds/releng_base_linux_64_builds.py
@@ -156,14 +161,89 @@ linux64/debug:
         mozconfig-variant: debug
         tooltool-downloads: public
         need-xvfb: true
-    toolchains:
-        - linux64-binutils
-        - linux64-clang
-        - linux64-cbindgen
-        - linux64-sccache
-        - linux64-rust
-        - linux64-rust-size
-        - linux64-node
+    use-sccache: true
+    fetches:
+        toolchain:
+            - linux64-binutils
+            - linux64-clang
+            - linux64-cbindgen
+            - linux64-dump-syms
+            - linux64-sccache
+            - linux64-rust
+            - linux64-rust-size
+            - linux64-nasm
+            - linux64-node
+            - linux64-lucetc
+            - wasi-sysroot
+            # `fix-stacks` is needed because xpcshell self tests run as part of
+            # the build step. Once bug 1614626 moves them to the xpcshell task,
+            # this dependency can be removed.
+            - linux64-fix-stacks
+
+linux64/codeql-cpp:
+    description: Builds a C++ codeql database
+    index:
+        job-name: linux64-codeql-cpp
+        product: firefox
+    treeherder:
+        platform: codeql/all
+        symbol: linux64-cpp
+        tier: 2
+        kind: other
+    shipping-phase: ship
+    shipping-product: firefox
+    worker-type: b-linux-xlarge
+    expires-after: 4 days
+    worker:
+        env:
+            PERFHERDER_EXTRA_OPTIONS: cpp
+        max-run-time: 86400
+        artifacts:
+            - type: file
+              name: public/codeql/codeql-db-cpp.tar.xz
+              path: /builds/worker/codeql-db-cpp.tar.xz
+    run:
+        using: mozharness
+        actions: [build]
+        config:
+            - builds/releng_base_firefox.py
+            - builds/releng_base_linux_64_builds.py
+        script: "mozharness/scripts/fx_desktop_build.py"
+        job-script: taskcluster/scripts/misc/generate-codeql-db-cpp.sh
+        secrets: false
+        custom-build-variant-cfg: debug
+        mozconfig-variant: debug
+        tooltool-downloads: public
+        need-xvfb: true
+    run-on-projects: []
+    fetches:
+        fetch:
+            - codeql-2.0.3
+        toolchain:
+            - linux64-binutils
+            - linux64-clang
+            - linux64-cbindgen
+            - linux64-dump-syms
+            - linux64-rust
+            - linux64-rust-size
+            - linux64-nasm
+            - linux64-node
+            - linux64-lucetc
+            - wasi-sysroot
+            # `fix-stacks` is needed because xpcshell self tests run as part of
+            # the build step. Once bug 1614626 moves them to the xpcshell task,
+            # this dependency can be removed.
+            - linux64-fix-stacks
+    notifications:
+        subject: '{task[shipping-product]} {release_config[version]} build{release_config[build_number]}/{config[params][project]} linux64 codeql-cpp status'
+        message: '{task[shipping-product]} {release_config[version]} build{release_config[build_number]}/{config[params][project]} linux64 codeql-cpp status'
+        emails:
+            by-project:
+                mozilla-release: ["tom@mozilla.com", "freddy@mozilla.com"]
+                try: ["{config[params][owner]}"]
+                default: []
+    optimization: null
+
 
 linux64-plain/debug:
     description: "Linux64 Debug Plain"
@@ -174,9 +254,10 @@ linux64-plain/debug:
         platform: linux64/debug
         symbol: Bp
         tier: 2
-    worker-type: aws-provisioner-v1/gecko-{level}-b-linux
+    worker-type: b-linux
     worker:
-        max-run-time: 3600
+        docker-image: {in-tree: debian10-amd64-build}
+        max-run-time: 5400
         env:
             PERFHERDER_EXTRA_OPTIONS: plain
     run:
@@ -191,33 +272,41 @@ linux64-plain/debug:
         script: mozharness/scripts/fx_desktop_build.py
         tooltool-downloads: public
     run-on-projects: [trunk]
-    toolchains:
-        - linux64-binutils
-        - linux64-clang
-        - linux64-rust
-        - linux64-node
-        - linux64-cbindgen
+    fetches:
+        toolchain:
+            - linux64-binutils
+            - linux64-clang
+            - linux64-rust
+            - linux64-nasm
+            - linux64-node
+            - linux64-cbindgen
+            - linux64-dump-syms
+    optimization:
+        skip-unless-expanded: null
 
-linux64-devedition-nightly/opt:
-    description: "Linux64 devedition Nightly"
+linux64-devedition/opt:
+    description: "Linux64 devedition (shippable)"
+    use-pgo: linux64-shippable/opt
     attributes:
-        nightly: true
+        shippable: true
         enable-full-crashsymbols: true
     shipping-phase: build
     shipping-product: devedition
     index:
         product: devedition
         job-name: linux64-opt
-        type: nightly
+        type: shippable
     treeherder:
         platform: linux64-devedition/opt
-        symbol: N
-    worker-type: aws-provisioner-v1/gecko-{level}-b-linux
+        symbol: B
+    worker-type: b-linux
     worker:
         max-run-time: 7200
+        env:
+            MOZ_AUTOMATION_PACKAGE_TESTS: "1"
     run:
         using: mozharness
-        actions: [get-secrets, build, check-test]
+        actions: [get-secrets, build]
         config:
             - builds/releng_base_firefox.py
             - builds/releng_base_linux_64_builds.py
@@ -230,82 +319,18 @@ linux64-devedition-nightly/opt:
         need-xvfb: true
         mozconfig-variant: devedition
     run-on-projects: ['mozilla-beta']
-    toolchains:
-        - linux64-binutils
-        - linux64-clang
-        - linux64-rust
-        - linux64-rust-size
-        - linux64-cbindgen
-        - linux64-sccache
-        - linux64-node
-
-linux64-base-toolchains/opt:
-    description: "Linux64 base toolchains Opt"
-    index:
-        product: firefox
-        job-name: linux64-base-toolchains-opt
-    treeherder:
-        platform: linux64/opt
-        symbol: Bb
-    worker-type: aws-provisioner-v1/gecko-{level}-b-linux
-    worker:
-        docker-image: {in-tree: debian7-amd64-build-base}
-        max-run-time: 7200
-        env:
-            PERFHERDER_EXTRA_OPTIONS: base-toolchains
-            FORCE_GCC: '1'
-    run:
-        using: mozharness
-        actions: [get-secrets, build, check-test]
-        config:
-            - builds/releng_base_firefox.py
-            - builds/releng_base_linux_64_builds.py
-        script: "mozharness/scripts/fx_desktop_build.py"
-        secrets: true
-        tooltool-downloads: public
-        need-xvfb: true
-    toolchains:
-        - linux64-clang-3.9
-        - linux64-gcc-6
-        - linux64-rust-1.30
-        - linux64-cbindgen
-        - linux64-sccache
-        - linux64-node
-
-linux64-base-toolchains/debug:
-    description: "Linux64 base toolchains Debug"
-    index:
-        product: firefox
-        job-name: linux64-base-toolchains-debug
-    treeherder:
-        platform: linux64/debug
-        symbol: Bb
-    worker-type: aws-provisioner-v1/gecko-{level}-b-linux
-    worker:
-        docker-image: {in-tree: debian7-amd64-build-base}
-        max-run-time: 3600
-        env:
-            PERFHERDER_EXTRA_OPTIONS: base-toolchains
-            FORCE_GCC: '1'
-    run:
-        using: mozharness
-        actions: [get-secrets, build, check-test]
-        config:
-            - builds/releng_base_firefox.py
-            - builds/releng_base_linux_64_builds.py
-        script: "mozharness/scripts/fx_desktop_build.py"
-        secrets: true
-        custom-build-variant-cfg: debug
-        mozconfig-variant: debug
-        tooltool-downloads: public
-        need-xvfb: true
-    toolchains:
-        - linux64-clang-3.9
-        - linux64-gcc-6
-        - linux64-rust-1.30
-        - linux64-cbindgen
-        - linux64-sccache
-        - linux64-node
+    fetches:
+        toolchain:
+            - linux64-binutils
+            - linux64-clang
+            - linux64-rust
+            - linux64-rust-size
+            - linux64-cbindgen
+            - linux64-dump-syms
+            - linux64-nasm
+            - linux64-node
+            - linux64-lucetc
+            - wasi-sysroot
 
 linux/opt:
     description: "Linux32 Opt"
@@ -313,17 +338,18 @@ linux/opt:
         product: firefox
         job-name: linux-opt
     attributes:
+        enable-build-signing: true
         enable-full-crashsymbols: true
     treeherder:
         platform: linux32/opt
         symbol: B
-    worker-type: aws-provisioner-v1/gecko-{level}-b-linux
+    worker-type: b-linux
     worker:
-        docker-image: {in-tree: debian7-i386-build}
+        docker-image: {in-tree: debian8-i386-build}
         max-run-time: 7200
     run:
         using: mozharness
-        actions: [get-secrets, build, check-test]
+        actions: [get-secrets, build]
         config:
             - builds/releng_base_firefox.py
             - builds/releng_base_linux_32_builds.py
@@ -331,14 +357,21 @@ linux/opt:
         secrets: true
         tooltool-downloads: public
         need-xvfb: true
-    toolchains:
-        - linux64-binutils
-        - linux64-clang
-        - linux64-rust
-        - linux64-rust-size
-        - linux64-cbindgen
-        - linux64-sccache
-        - linux64-node
+    run-on-projects: ['mozilla-beta', 'mozilla-release', 'mozilla-esr78']
+    use-sccache: true
+    fetches:
+        toolchain:
+            - linux64-binutils
+            - linux64-clang
+            - linux64-rust
+            - linux64-rust-size
+            - linux64-cbindgen
+            - linux64-dump-syms
+            - linux64-sccache
+            - linux64-nasm
+            - linux64-node
+            - linux64-lucetc
+            - wasi-sysroot
 
 linux/debug:
     description: "Linux32 Debug"
@@ -350,13 +383,13 @@ linux/debug:
     treeherder:
         platform: linux32/debug
         symbol: B
-    worker-type: aws-provisioner-v1/gecko-{level}-b-linux
+    worker-type: b-linux
     worker:
-        docker-image: {in-tree: debian7-i386-build}
+        docker-image: {in-tree: debian8-i386-build}
         max-run-time: 5400
     run:
         using: mozharness
-        actions: [get-secrets, build, check-test]
+        actions: [get-secrets, build]
         config:
             - builds/releng_base_firefox.py
             - builds/releng_base_linux_32_builds.py
@@ -366,48 +399,25 @@ linux/debug:
         mozconfig-variant: debug
         tooltool-downloads: public
         need-xvfb: true
-    toolchains:
-        - linux64-binutils
-        - linux64-clang
-        - linux64-rust
-        - linux64-rust-size
-        - linux64-cbindgen
-        - linux64-sccache
-        - linux64-node
-
-linux/pgo:
-    description: "Linux32 PGO"
-    index:
-        product: firefox
-        job-name: linux-pgo
-    attributes:
-        enable-full-crashsymbols: true
-    treeherder:
-        platform: linux32/pgo
-        symbol: B
-    worker-type: aws-provisioner-v1/gecko-{level}-b-linux
-    worker:
-        docker-image: {in-tree: debian7-i386-build}
-        max-run-time: 7200
-    run:
-        using: mozharness
-        actions: [get-secrets, build, check-test]
-        options: [enable-pgo]
-        config:
-            - builds/releng_base_firefox.py
-            - builds/releng_base_linux_32_builds.py
-        script: "mozharness/scripts/fx_desktop_build.py"
-        secrets: true
-        tooltool-downloads: public
-        need-xvfb: true
-    toolchains:
-        - linux64-binutils
-        - linux64-clang
-        - linux64-rust
-        - linux64-rust-size
-        - linux64-cbindgen
-        - linux64-sccache
-        - linux64-node
+    run-on-projects: ['release']
+    use-sccache: true
+    fetches:
+        toolchain:
+            - linux64-binutils
+            - linux64-clang
+            - linux64-rust
+            - linux64-rust-size
+            - linux64-cbindgen
+            - linux64-dump-syms
+            - linux64-sccache
+            - linux64-nasm
+            - linux64-node
+            - linux64-lucetc
+            - wasi-sysroot
+            # `fix-stacks` is needed because xpcshell self tests run as part of
+            # the build step. Once bug 1614626 moves them to the xpcshell task,
+            # this dependency can be removed.
+            - linux64-fix-stacks
 
 linux-rusttests/opt:
     description: "Linux32 Rust Tests Opt"
@@ -418,9 +428,9 @@ linux-rusttests/opt:
         platform: linux32/opt
         symbol: BR
         tier: 1
-    worker-type: aws-provisioner-v1/gecko-{level}-b-linux
+    worker-type: b-linux
     worker:
-        docker-image: {in-tree: debian7-i386-build}
+        docker-image: {in-tree: debian8-i386-build}
         max-run-time: 2700
         env:
             PERFHERDER_EXTRA_OPTIONS: rusttests
@@ -436,15 +446,22 @@ linux-rusttests/opt:
         mozconfig-variant: rusttests
         tooltool-downloads: public
         keep-artifacts: false
-        need-xvfb: true
-    run-on-projects: ['trunk', 'try']
-    toolchains:
-        - linux64-binutils
-        - linux64-clang
-        - linux64-rust
-        - linux64-cbindgen
-        - linux64-sccache
-        - linux64-node
+    run-on-projects: ['mozilla-central']
+    use-sccache: true
+    fetches:
+        toolchain:
+            - linux64-binutils
+            - linux64-clang
+            - linux64-rust
+            - linux64-cbindgen
+            - linux64-dump-syms
+            - linux64-sccache
+            - linux64-nasm
+            - linux64-node
+            - linux64-lucetc
+            - wasi-sysroot
+    optimization:
+        test-inclusive: [rusttests]
 
 linux-rusttests/debug:
     description: "Linux32 Rust Tests Debug"
@@ -455,9 +472,9 @@ linux-rusttests/debug:
         platform: linux32/debug
         symbol: BR
         tier: 1
-    worker-type: aws-provisioner-v1/gecko-{level}-b-linux
+    worker-type: b-linux
     worker:
-        docker-image: {in-tree: debian7-i386-build}
+        docker-image: {in-tree: debian8-i386-build}
         max-run-time: 2700
         env:
             PERFHERDER_EXTRA_OPTIONS: rusttests
@@ -473,37 +490,47 @@ linux-rusttests/debug:
         mozconfig-variant: rusttests-debug
         tooltool-downloads: public
         keep-artifacts: false
-        need-xvfb: true
-    run-on-projects: ['trunk', 'try']
-    toolchains:
-        - linux64-binutils
-        - linux64-clang
-        - linux64-rust
-        - linux64-cbindgen
-        - linux64-sccache
-        - linux64-node
+    run-on-projects: ['mozilla-central']
+    use-sccache: true
+    fetches:
+        toolchain:
+            - linux64-binutils
+            - linux64-clang
+            - linux64-rust
+            - linux64-cbindgen
+            - linux64-dump-syms
+            - linux64-sccache
+            - linux64-nasm
+            - linux64-node
+            - linux64-lucetc
+            - wasi-sysroot
+    optimization:
+        test-inclusive: [rusttests]
 
-linux-devedition-nightly/opt:
-    description: "Linux32 devedition Nightly"
+linux-devedition/opt:
+    description: "Linux32 devedition (shippable)"
+    use-pgo: linux-shippable/opt
     attributes:
-        nightly: true
+        shippable: true
         enable-full-crashsymbols: true
     shipping-phase: build
     shipping-product: devedition
     index:
         product: devedition
         job-name: linux-opt
-        type: nightly
+        type: shippable
     treeherder:
         platform: linux32-devedition/opt
-        symbol: N
-    worker-type: aws-provisioner-v1/gecko-{level}-b-linux
+        symbol: B
+    worker-type: b-linux
     worker:
-        docker-image: {in-tree: debian7-i386-build}
+        docker-image: {in-tree: debian8-i386-build}
         max-run-time: 7200
+        env:
+            MOZ_AUTOMATION_PACKAGE_TESTS: "1"
     run:
         using: mozharness
-        actions: [get-secrets, build, check-test]
+        actions: [get-secrets, build]
         config:
             - builds/releng_base_firefox.py
             - builds/releng_base_linux_32_builds.py
@@ -516,36 +543,43 @@ linux-devedition-nightly/opt:
         need-xvfb: true
         mozconfig-variant: devedition
     run-on-projects: ['mozilla-beta']
-    toolchains:
-        - linux64-binutils
-        - linux64-clang
-        - linux64-rust
-        - linux64-rust-size
-        - linux64-cbindgen
-        - linux64-sccache
-        - linux64-node
+    fetches:
+        toolchain:
+            - linux64-binutils
+            - linux64-clang
+            - linux64-rust
+            - linux64-rust-size
+            - linux64-cbindgen
+            - linux64-dump-syms
+            - linux64-nasm
+            - linux64-node
+            - linux64-lucetc
+            - wasi-sysroot
 
-linux-nightly/opt:
-    description: "Linux32 Nightly"
+linux-shippable/opt:
+    description: "Linux32 Shippable"
+    use-pgo: true
     attributes:
-        nightly: true
+        shippable: true
         enable-full-crashsymbols: true
     shipping-phase: build
     shipping-product: firefox
     index:
         product: firefox
         job-name: linux-opt
-        type: nightly
+        type: shippable
     treeherder:
-        platform: linux32/opt
-        symbol: N
-    worker-type: aws-provisioner-v1/gecko-{level}-b-linux
+        platform: linux32-shippable/opt
+        symbol: Bpgo(B)
+    worker-type: b-linux
     worker:
-        docker-image: {in-tree: debian7-i386-build}
-        max-run-time: 7200
+        docker-image: {in-tree: debian8-i386-build}
+        max-run-time: 9000
+        env:
+            MOZ_AUTOMATION_PACKAGE_TESTS: "1"
     run:
         using: mozharness
-        actions: [get-secrets, build, check-test]
+        actions: [get-secrets, build]
         config:
             - builds/releng_base_firefox.py
             - builds/releng_base_linux_32_builds.py
@@ -554,14 +588,63 @@ linux-nightly/opt:
         secrets: true
         tooltool-downloads: public
         need-xvfb: true
-    toolchains:
-        - linux64-binutils
-        - linux64-clang
-        - linux64-rust
-        - linux64-rust-size
-        - linux64-cbindgen
-        - linux64-sccache
-        - linux64-node
+    run-on-projects: ['release']
+    fetches:
+        toolchain:
+            - linux64-binutils
+            - linux64-clang
+            - linux64-rust
+            - linux64-rust-size
+            - linux64-cbindgen
+            - linux64-dump-syms
+            - linux64-nasm
+            - linux64-node
+            - linux64-lucetc
+            - wasi-sysroot
+
+linux-reproduced/opt:
+    description: "Linux32 Reproduced"
+    use-pgo: linux-shippable/opt
+    shipping-phase: build
+    shipping-product: firefox
+    index:
+        product: firefox
+        job-name: linux-reproduced-opt
+    treeherder:
+        platform: linux32-shippable/opt
+        symbol: Bpgo(repr)
+    worker-type: b-linux
+    worker:
+        docker-image: {in-tree: debian8-i386-build}
+        max-run-time: 9000
+        env:
+            PERFHERDER_EXTRA_OPTIONS: repr
+    run:
+        using: mozharness
+        actions: [get-secrets, build]
+        config:
+            - builds/releng_base_firefox.py
+            - builds/releng_base_linux_32_builds.py
+            - taskcluster_nightly.py
+        script: "mozharness/scripts/fx_desktop_build.py"
+        secrets: true
+        tooltool-downloads: public
+        need-xvfb: true
+    # Original comment: Limited to trunk until bug 1596350 is fixed.
+    # Addendum: Do not run on autoland, Bug 1599197
+    run-on-projects: ['mozilla-central', 'comm-central']
+    fetches:
+        toolchain:
+            - linux64-binutils
+            - linux64-clang
+            - linux64-rust
+            - linux64-rust-size
+            - linux64-cbindgen
+            - linux64-dump-syms
+            - linux64-nasm
+            - linux64-node
+            - linux64-lucetc
+            - wasi-sysroot
 
 linux64-asan/opt:
     description: "Linux64 Opt ASAN"
@@ -571,14 +654,16 @@ linux64-asan/opt:
     treeherder:
         platform: linux64/asan
         symbol: Bo
-    worker-type: aws-provisioner-v1/gecko-{level}-b-linux
+    worker-type: b-linux
     worker:
         env:
             PERFHERDER_EXTRA_OPTIONS: "opt asan"
+            ASAN_OPTIONS: "detect_leaks=0"
+            MOZ_AUTOMATION_PACKAGE_TESTS: "1"
         max-run-time: 5400
     run:
         using: mozharness
-        actions: [get-secrets, build, check-test]
+        actions: [get-secrets, build]
         config:
             - builds/releng_base_firefox.py
             - builds/releng_base_linux_64_builds.py
@@ -588,31 +673,129 @@ linux64-asan/opt:
         mozconfig-variant: nightly-asan
         tooltool-downloads: public
         need-xvfb: true
-    toolchains:
-        - linux64-binutils
-        - linux64-clang
-        - linux64-rust
-        - linux64-rust-size
-        - linux64-cbindgen
-        - linux64-sccache
-        - linux64-node
+    use-sccache: true
+    fetches:
+        toolchain:
+            - linux64-binutils
+            - linux64-clang
+            - linux64-rust
+            - linux64-rust-size
+            - linux64-cbindgen
+            - linux64-dump-syms
+            - linux64-sccache
+            - linux64-nasm
+            - linux64-node
+            - linux64-lucetc
+            - wasi-sysroot
+
+linux64-tsan/opt:
+    description: "Linux64 Opt TSAN"
+    index:
+        product: firefox
+        job-name: linux64-tsan-opt
+    treeherder:
+        platform: linux64/tsan
+        symbol: Bo
+    worker-type: b-linux
+    worker:
+        env:
+            PERFHERDER_EXTRA_OPTIONS: "opt tsan"
+            MOZ_AUTOMATION_PACKAGE_TESTS: "1"
+        max-run-time: 5400
+    run:
+        using: mozharness
+        actions: [get-secrets, build]
+        config:
+            - builds/releng_base_firefox.py
+            - builds/releng_base_linux_64_builds.py
+        script: "mozharness/scripts/fx_desktop_build.py"
+        secrets: true
+        custom-build-variant-cfg: tsan-tc
+        mozconfig-variant: tsan
+        tooltool-downloads: public
+        need-xvfb: true
+    use-sccache: true
+    fetches:
+        toolchain:
+            - linux64-binutils
+            - linux64-clang
+            - linux64-rust-nightly
+            - linux64-rust-size
+            - linux64-cbindgen
+            - linux64-dump-syms
+            - linux64-sccache
+            - linux64-nasm
+            - linux64-node
+            - linux64-lucetc
+            - wasi-sysroot
+
+linux64-tsan-fuzzing/opt:
+    description: "Linux64 Fuzzing Opt TSAN"
+    index:
+        product: firefox
+        job-name: linux64-fuzzing-tsan-opt
+    attributes:
+        # The gtest libxul contains libFuzzer targets
+        skip-verify-test-packaging: true
+    treeherder:
+        platform: linux64/tsan
+        symbol: Bof
+    worker-type: b-linux
+    worker:
+        env:
+            PERFHERDER_EXTRA_OPTIONS: tsan-fuzzing
+            MOZ_AUTOMATION_PACKAGE_TESTS: "1"
+        max-run-time: 5400
+    run:
+        using: mozharness
+        actions: [get-secrets, build]
+        config:
+            - builds/releng_base_firefox.py
+            - builds/releng_base_linux_64_builds.py
+        script: "mozharness/scripts/fx_desktop_build.py"
+        secrets: true
+        custom-build-variant-cfg: fuzzing-tsan-tc
+        mozconfig-variant: tsan-fuzzing
+        tooltool-downloads: public
+        need-xvfb: true
+    use-sccache: true
+    fetches:
+        toolchain:
+            - linux64-binutils
+            - linux64-clang
+            - linux64-rust-nightly
+            - linux64-rust-size
+            - linux64-cbindgen
+            - linux64-dump-syms
+            - linux64-sccache
+            - linux64-nasm
+            - linux64-node
+            - linux64-lucetc
+            - wasi-sysroot
+    optimization:
+        skip-unless-expanded: null
 
 linux64-asan-fuzzing/opt:
     description: "Linux64 Fuzzing Opt ASAN"
     index:
         product: firefox
         job-name: linux64-fuzzing-asan-opt
+    attributes:
+        # The gtest libxul contains libFuzzer targets
+        skip-verify-test-packaging: true
     treeherder:
         platform: linux64/asan
         symbol: Bof
-    worker-type: aws-provisioner-v1/gecko-{level}-b-linux
+    worker-type: b-linux
     worker:
         env:
             PERFHERDER_EXTRA_OPTIONS: asan-fuzzing
+            ASAN_OPTIONS: "detect_leaks=0"
+            MOZ_AUTOMATION_PACKAGE_TESTS: "1"
         max-run-time: 5400
     run:
         using: mozharness
-        actions: [get-secrets, build, check-test]
+        actions: [get-secrets, build]
         config:
             - builds/releng_base_firefox.py
             - builds/releng_base_linux_64_builds.py
@@ -622,32 +805,45 @@ linux64-asan-fuzzing/opt:
         mozconfig-variant: nightly-fuzzing-asan
         tooltool-downloads: public
         need-xvfb: true
-    toolchains:
-        - linux64-binutils
-        - linux64-clang
-        - linux64-rust
-        - linux64-rust-size
-        - linux64-cbindgen
-        - linux64-sccache
-        - linux64-node
+    use-sccache: true
+    fetches:
+        toolchain:
+            - linux64-binutils
+            - linux64-clang
+            - linux64-rust
+            - linux64-rust-size
+            - linux64-cbindgen
+            - linux64-dump-syms
+            - linux64-sccache
+            - linux64-nasm
+            - linux64-node
+            - linux64-lucetc
+            - wasi-sysroot
+    optimization:
+        skip-unless-expanded: null
 
 linux64-asan-fuzzing-ccov/opt:
     description: "Linux64 Fuzzing Opt ASAN w/ Coverage"
     index:
         product: firefox
         job-name: linux64-ccov-fuzzing-asan-opt
+    attributes:
+        # The gtest libxul contains libFuzzer targets
+        skip-verify-test-packaging: true
     treeherder:
         platform: linux64/asan
         symbol: Bocf
-    run-on-projects: ['mozilla-central', 'try']
-    worker-type: aws-provisioner-v1/gecko-{level}-b-linux
+    run-on-projects: ['mozilla-central']
+    worker-type: b-linux
     worker:
         env:
             PERFHERDER_EXTRA_OPTIONS: asan-fuzzing-ccov
+            ASAN_OPTIONS: "detect_leaks=0"
+            MOZ_AUTOMATION_PACKAGE_TESTS: "1"
         max-run-time: 5400
     run:
         using: mozharness
-        actions: [get-secrets, build, check-test]
+        actions: [get-secrets, build]
         config:
             - builds/releng_base_firefox.py
             - builds/releng_base_linux_64_builds.py
@@ -656,14 +852,20 @@ linux64-asan-fuzzing-ccov/opt:
         mozconfig-variant: asan-fuzzing-ccov
         tooltool-downloads: public
         need-xvfb: true
-    toolchains:
-        - linux64-binutils
-        - linux64-clang
-        - linux64-rust
-        - linux64-rust-size
-        - linux64-cbindgen
-        - linux64-sccache
-        - linux64-node
+    use-sccache: true
+    fetches:
+        toolchain:
+            - linux64-binutils
+            - linux64-clang
+            - linux64-rust
+            - linux64-rust-size
+            - linux64-cbindgen
+            - linux64-dump-syms
+            - linux64-sccache
+            - linux64-nasm
+            - linux64-node
+            - linux64-lucetc
+            - wasi-sysroot
 
 linux64-fuzzing-ccov/opt:
     description: "Linux64 Fuzzing Opt w/ Coverage"
@@ -673,16 +875,19 @@ linux64-fuzzing-ccov/opt:
     treeherder:
         platform: linux64/opt
         symbol: Bocf
-    run-on-projects: ['mozilla-central', 'try']
-    worker-type: aws-provisioner-v1/gecko-{level}-b-linux
+    run-on-projects: ['mozilla-central']
+    worker-type: b-linux
     worker:
         max-run-time: 5400
         env:
+            MOZ_LOW_PARALLELISM_BUILD: '1'
             PERFHERDER_EXTRA_OPTIONS: fuzzing-ccov
             FORCE_GCC: '1'
+            ASAN_OPTIONS: "detect_leaks=0"
+            RUSTC_BOOTSTRAP: '1'
     run:
         using: mozharness
-        actions: [get-secrets, build, check-test]
+        actions: [get-secrets, build]
         config:
             - builds/releng_base_firefox.py
             - builds/releng_base_linux_64_builds.py
@@ -691,34 +896,50 @@ linux64-fuzzing-ccov/opt:
         mozconfig-variant: fuzzing-ccov
         tooltool-downloads: public
         need-xvfb: true
-    toolchains:
-        - linux64-clang
-        - linux64-gcc
-        - linux64-cbindgen
-        - linux64-rust-nightly
-        - linux64-rust-size
-        - linux64-sccache
-        - linux64-node
+    use-sccache: true
+    fetches:
+        toolchain:
+            - linux64-binutils
+            - linux64-clang
+            - linux64-gcc-7
+            - linux64-cbindgen
+            - linux64-dump-syms
+            - linux64-rust
+            - linux64-rust-size
+            - linux64-sccache
+            - linux64-nasm
+            - linux64-node
+            - linux64-lucetc
+            - wasi-sysroot
+    optimization:
+        skip-unless-expanded: null
 
-linux64-asan-reporter-nightly/opt:
-    description: "Linux64 Opt ASAN Reporter Nightly"
+linux64-asan-reporter-shippable/opt:
+    description: "Linux64 Opt ASAN Reporter (Shippable)"
     attributes:
-        nightly: true
+        shippable: true
+    shipping-product:
+        by-release-type:
+            nightly: firefox
+            default: null
     index:
         product: firefox
         job-name: linux64-asan-reporter-opt
-        type: nightly
+        type: shippable
     treeherder:
         platform: linux64-asan-reporter/opt
         symbol: BoR
-    worker-type: aws-provisioner-v1/gecko-{level}-b-linux
+    run-on-projects: ['mozilla-central']
+    worker-type: b-linux
     worker:
         env:
             PERFHERDER_EXTRA_OPTIONS: asan-reporter
+            ASAN_OPTIONS: "detect_leaks=0"
+            MOZ_AUTOMATION_PACKAGE_TESTS: "1"
         max-run-time: 3600
     run:
         using: mozharness
-        actions: [get-secrets, build, check-test]
+        actions: [get-secrets, build]
         config:
             - builds/releng_base_firefox.py
             - builds/releng_base_linux_64_builds.py
@@ -729,14 +950,22 @@ linux64-asan-reporter-nightly/opt:
         mozconfig-variant: nightly-asan-reporter
         tooltool-downloads: public
         need-xvfb: true
-    toolchains:
-        - linux64-binutils
-        - linux64-clang
-        - linux64-rust
-        - linux64-rust-size
-        - linux64-cbindgen
-        - linux64-sccache
-        - linux64-node
+        mar-channel-id:
+            firefox-mozilla-central-asan
+        accepted-mar-channel-ids:
+            firefox-mozilla-central-asan
+    fetches:
+        toolchain:
+            - linux64-binutils
+            - linux64-clang
+            - linux64-rust
+            - linux64-rust-size
+            - linux64-cbindgen
+            - linux64-dump-syms
+            - linux64-nasm
+            - linux64-node
+            - linux64-lucetc
+            - wasi-sysroot
 
 linux64-asan/debug:
     description: "Linux64 Debug ASAN"
@@ -746,14 +975,15 @@ linux64-asan/debug:
     treeherder:
         platform: linux64/asan
         symbol: Bd
-    worker-type: aws-provisioner-v1/gecko-{level}-b-linux
+    worker-type: b-linux
     worker:
         env:
             PERFHERDER_EXTRA_OPTIONS: "debug asan"
+            ASAN_OPTIONS: "detect_leaks=0"
         max-run-time: 5400
     run:
         using: mozharness
-        actions: [get-secrets, build, check-test]
+        actions: [get-secrets, build]
         config:
             - builds/releng_base_firefox.py
             - builds/releng_base_linux_64_builds.py
@@ -763,35 +993,51 @@ linux64-asan/debug:
         mozconfig-variant: debug-asan
         tooltool-downloads: public
         need-xvfb: true
-    toolchains:
-        - linux64-binutils
-        - linux64-clang
-        - linux64-rust
-        - linux64-rust-size
-        - linux64-cbindgen
-        - linux64-sccache
-        - linux64-node
+    use-sccache: true
+    fetches:
+        toolchain:
+            - linux64-binutils
+            - linux64-clang
+            - linux64-rust
+            - linux64-rust-size
+            - linux64-cbindgen
+            - linux64-dump-syms
+            - linux64-sccache
+            - linux64-nasm
+            - linux64-node
+            - linux64-lucetc
+            - wasi-sysroot
+            # `fix-stacks` is needed because xpcshell self tests run as part of
+            # the build step. Once bug 1614626 moves them to the xpcshell task,
+            # this dependency can be removed.
+            - linux64-fix-stacks
+    optimization:
+        skip-unless-expanded: null
 
-linux64-nightly/opt:
-    description: "Linux64 Nightly"
+linux64-shippable/opt:
+    description: "Linux64 Shippable"
+    use-pgo: true
     attributes:
-        nightly: true
+        shippable: true
         enable-full-crashsymbols: true
     shipping-phase: build
     shipping-product: firefox
     index:
         product: firefox
         job-name: linux64-opt
-        type: nightly
+        type: shippable
     treeherder:
-        platform: linux64/opt
-        symbol: N
-    worker-type: aws-provisioner-v1/gecko-{level}-b-linux
+        platform: linux64-shippable/opt
+        symbol: Bpgo(B)
+    run-on-projects: ['release']
+    worker-type: b-linux
     worker:
-        max-run-time: 7200
+        max-run-time: 9000
+        env:
+            MOZ_AUTOMATION_PACKAGE_TESTS: "1"
     run:
         using: mozharness
-        actions: [get-secrets, build, check-test]
+        actions: [get-secrets, build]
         config:
             - builds/releng_base_firefox.py
             - builds/releng_base_linux_64_builds.py
@@ -800,14 +1046,18 @@ linux64-nightly/opt:
         secrets: true
         tooltool-downloads: public
         need-xvfb: true
-    toolchains:
-        - linux64-binutils
-        - linux64-clang
-        - linux64-rust
-        - linux64-rust-size
-        - linux64-cbindgen
-        - linux64-sccache
-        - linux64-node
+    fetches:
+        toolchain:
+            - linux64-binutils
+            - linux64-clang
+            - linux64-rust
+            - linux64-rust-size
+            - linux64-cbindgen
+            - linux64-dump-syms
+            - linux64-nasm
+            - linux64-node
+            - linux64-lucetc
+            - wasi-sysroot
 
 linux64-noopt/debug:
     description: "Linux64 No-optimize Debug"
@@ -818,12 +1068,14 @@ linux64-noopt/debug:
         platform: linux64-noopt/debug
         symbol: B
         tier: 2
-    worker-type: aws-provisioner-v1/gecko-{level}-b-linux
+    attributes:
+        enable-full-crashsymbols: true
+    worker-type: b-linux
     worker:
-        max-run-time: 3600
+        max-run-time: 5400
     run:
         using: mozharness
-        actions: [get-secrets, build, check-test]
+        actions: [get-secrets, build]
         config:
             - builds/releng_base_firefox.py
             - builds/releng_base_linux_64_builds.py
@@ -834,15 +1086,25 @@ linux64-noopt/debug:
         tooltool-downloads: public
         keep-artifacts: false
         need-xvfb: true
-    run-on-projects: ['trunk', 'try']
-    toolchains:
-        - linux64-binutils
-        - linux64-clang
-        - linux64-rust
-        - linux64-rust-size
-        - linux64-cbindgen
-        - linux64-sccache
-        - linux64-node
+    run-on-projects: ['mozilla-central']
+    use-sccache: true
+    fetches:
+        toolchain:
+            - linux64-binutils
+            - linux64-clang
+            - linux64-rust
+            - linux64-rust-size
+            - linux64-cbindgen
+            - linux64-dump-syms
+            - linux64-sccache
+            - linux64-nasm
+            - linux64-node
+            - linux64-lucetc
+            - wasi-sysroot
+            # `fix-stacks` is needed because xpcshell self tests run as part of
+            # the build step. Once bug 1614626 moves them to the xpcshell task,
+            # this dependency can be removed.
+            - linux64-fix-stacks
 
 linux64-rusttests/opt:
     description: "Linux64 Rust Tests Opt"
@@ -853,7 +1115,7 @@ linux64-rusttests/opt:
         platform: linux64/opt
         symbol: BR
         tier: 1
-    worker-type: aws-provisioner-v1/gecko-{level}-b-linux
+    worker-type: b-linux
     worker:
         max-run-time: 2700
         env:
@@ -870,15 +1132,22 @@ linux64-rusttests/opt:
         mozconfig-variant: rusttests
         tooltool-downloads: public
         keep-artifacts: false
-        need-xvfb: true
-    run-on-projects: ['trunk', 'try']
-    toolchains:
-        - linux64-binutils
-        - linux64-clang
-        - linux64-rust
-        - linux64-cbindgen
-        - linux64-sccache
-        - linux64-node
+    run-on-projects: ['mozilla-central']
+    use-sccache: true
+    fetches:
+        toolchain:
+            - linux64-binutils
+            - linux64-clang
+            - linux64-rust
+            - linux64-cbindgen
+            - linux64-dump-syms
+            - linux64-sccache
+            - linux64-nasm
+            - linux64-node
+            - linux64-lucetc
+            - wasi-sysroot
+    optimization:
+        test-inclusive: [rusttests]
 
 linux64-rusttests/debug:
     description: "Linux64 Rust Tests Debug"
@@ -889,7 +1158,7 @@ linux64-rusttests/debug:
         platform: linux64/debug
         symbol: BR
         tier: 1
-    worker-type: aws-provisioner-v1/gecko-{level}-b-linux
+    worker-type: b-linux
     worker:
         max-run-time: 2700
         env:
@@ -906,92 +1175,22 @@ linux64-rusttests/debug:
         mozconfig-variant: rusttests-debug
         tooltool-downloads: public
         keep-artifacts: false
-        need-xvfb: true
-    run-on-projects: ['trunk', 'try']
-    toolchains:
-        - linux64-binutils
-        - linux64-clang
-        - linux64-rust
-        - linux64-cbindgen
-        - linux64-sccache
-        - linux64-node
-
-linux64-tup/opt:
-    description: "Linux64 Tup"
-    index:
-        product: firefox
-        job-name: linux64-tup-opt
-    treeherder:
-        platform: linux64/opt
-        symbol: Btup
-        tier: 3
-    worker-type: aws-provisioner-v1/gecko-{level}-b-linux
-    worker:
-        max-run-time: 3600
-        env:
-            PERFHERDER_EXTRA_OPTIONS: tup
-    run:
-        using: mozharness
-        actions: [get-secrets, build]
-        config:
-            - builds/releng_base_firefox.py
-            - builds/releng_base_linux_64_builds.py
-        script: "mozharness/scripts/fx_desktop_build.py"
-        secrets: true
-        custom-build-variant-cfg: tup
-        mozconfig-variant: tup
-        tooltool-downloads: public
-        need-xvfb: true
-    toolchains:
-        - linux64-binutils
-        - linux64-clang
-        - linux64-rust-nightly
-        - linux64-cbindgen
-        - linux64-sccache
-        - linux64-tup
-        - linux64-node
-
-linux64-ccov/debug:
-    description: "Linux64-CCov Debug"
-    index:
-        product: firefox
-        job-name: linux64-ccov-debug
-    treeherder:
-        platform: linux64-ccov/debug
-        symbol: B
-        tier: 2
-    run-on-projects: ['mozilla-central', 'try']
-    worker-type: aws-provisioner-v1/gecko-{level}-b-linux
-    worker:
-        artifacts:
-            - name: public/code-coverage-grcov.zip
-              path: /builds/worker/workspace/build/src/obj-firefox/code-coverage-grcov.zip
-              type: file
-        max-run-time: 7200
-        env:
-            FORCE_GCC: '1'
-    run:
-        using: mozharness
-        actions: [get-secrets, build, check-test]
-        config:
-            - builds/releng_base_firefox.py
-            - builds/releng_base_linux_64_builds.py
-        script: "mozharness/scripts/fx_desktop_build.py"
-        secrets: true
-        custom-build-variant-cfg: code-coverage-debug
-        mozconfig-variant: code-coverage-debug
-        tooltool-downloads: public
-        need-xvfb: true
-    toolchains:
-        - linux64-clang-7
-        - linux64-rust-nightly
-        - linux64-gcc
-        - linux64-cbindgen
-        - linux64-sccache
-        - linux64-node
+    run-on-projects: ['trunk']
+    use-sccache: true
     fetches:
         toolchain:
-            - linux64-grcov
+            - linux64-binutils
+            - linux64-clang
+            - linux64-rust
+            - linux64-cbindgen
+            - linux64-dump-syms
+            - linux64-sccache
+            - linux64-nasm
+            - linux64-node
+            - linux64-lucetc
+            - wasi-sysroot
+    optimization:
+        test-inclusive: [rusttests]
 
 linux64-ccov/opt:
     description: "Linux64-CCov Opt"
@@ -1002,15 +1201,22 @@ linux64-ccov/opt:
         platform: linux64-ccov/opt
         symbol: B
         tier: 2
-    run-on-projects: ['mozilla-central', 'try']
-    worker-type: aws-provisioner-v1/gecko-{level}-b-linux
+    run-on-projects: ['mozilla-central']
+    worker-type: b-linux
     worker:
+        artifacts:
+            - name: public/code-coverage-grcov.zip
+              path: /builds/worker/workspace/obj-build/code-coverage-grcov.zip
+              type: file
         max-run-time: 7200
         env:
+            MOZ_LOW_PARALLELISM_BUILD: '1'
             FORCE_GCC: '1'
+            RUSTC_BOOTSTRAP: '1'
+            MOZ_AUTOMATION_PACKAGE_TESTS: "1"
     run:
         using: mozharness
-        actions: [get-secrets, build, check-test]
+        actions: [get-secrets, build]
         config:
             - builds/releng_base_firefox.py
             - builds/releng_base_linux_64_builds.py
@@ -1020,13 +1226,21 @@ linux64-ccov/opt:
         mozconfig-variant: code-coverage-opt
         tooltool-downloads: public
         need-xvfb: true
-    toolchains:
-        - linux64-clang-7
-        - linux64-rust-nightly
-        - linux64-gcc
-        - linux64-cbindgen
-        - linux64-sccache
-        - linux64-node
+    use-sccache: true
+    fetches:
+        toolchain:
+            - linux64-binutils
+            - linux64-clang
+            - linux64-rust
+            - linux64-gcc-7
+            - linux64-cbindgen
+            - linux64-dump-syms
+            - linux64-sccache
+            - linux64-nasm
+            - linux64-node
+            - linux64-grcov
+            - linux64-lucetc
+            - wasi-sysroot
 
 linux64-add-on-devel/opt:
     description: "Linux64 add-on-devel"
@@ -1037,12 +1251,12 @@ linux64-add-on-devel/opt:
         platform: linux64-add-on-devel/opt
         symbol: B
         tier: 2
-    worker-type: aws-provisioner-v1/gecko-{level}-b-linux
+    worker-type: b-linux
     worker:
         max-run-time: 3600
     run:
         using: mozharness
-        actions: [get-secrets, build, check-test]
+        actions: [get-secrets, build]
         config:
             - builds/releng_base_firefox.py
             - builds/releng_base_linux_64_builds.py
@@ -1052,12 +1266,248 @@ linux64-add-on-devel/opt:
         mozconfig-variant: add-on-devel
         tooltool-downloads: public
         need-xvfb: true
-    run-on-projects: ['mozilla-beta', 'mozilla-release', 'mozilla-esr45']
-    toolchains:
-        - linux64-binutils
-        - linux64-clang
-        - linux64-rust
-        - linux64-rust-size
-        - linux64-cbindgen
-        - linux64-sccache
-        - linux64-node
+    run-on-projects: ['mozilla-beta', 'mozilla-release']
+    use-sccache: true
+    fetches:
+        toolchain:
+            - linux64-binutils
+            - linux64-clang
+            - linux64-rust
+            - linux64-rust-size
+            - linux64-cbindgen
+            - linux64-dump-syms
+            - linux64-sccache
+            - linux64-nasm
+            - linux64-node
+            - linux64-lucetc
+            - wasi-sysroot
+
+linux64-aarch64/opt:
+    description: "Linux64 aarch64 Opt"
+    index:
+        product: firefox
+        job-name: linux64-aarch64-opt
+    attributes:
+        enable-full-crashsymbols: true
+    treeherder:
+        platform: linux64-aarch64/opt
+        symbol: B
+        tier: 2
+    worker-type: b-linux
+    worker:
+        docker-image: {in-tree: debian10-arm64-build}
+        max-run-time: 7200
+    run:
+        using: mozharness
+        actions: [get-secrets, build]
+        config:
+            - builds/releng_base_firefox.py
+            - builds/releng_base_linux_64_builds.py
+        extra-config:
+            mozconfig_platform: linux64-aarch64
+        script: "mozharness/scripts/fx_desktop_build.py"
+        secrets: true
+        mozconfig-variant: opt
+        tooltool-downloads: public
+        need-xvfb: true
+    run-on-projects: ['integration']
+    use-sccache: true
+    fetches:
+        toolchain:
+            - linux64-binutils
+            - linux64-clang-aarch64-cross
+            - linux64-rust
+            - linux64-rust-size
+            - linux64-cbindgen
+            - linux64-dump-syms
+            - linux64-sccache
+            - linux64-node
+            - linux64-lucetc
+            - wasi-sysroot
+    optimization:
+        skip-unless-expanded: null
+
+linux-gcp/debug:
+    description: "Linux32 Debug - built on GCP"
+    index:
+        product: firefox
+        job-name: linux-gcp-debug
+    attributes:
+        enable-full-crashsymbols: true
+    treeherder:
+        platform: linux32/debug
+        symbol: Bg
+        tier: 3
+    worker-type: b-linux-gcp
+    worker:
+        docker-image: {in-tree: debian8-i386-build}
+        max-run-time: 5400
+        env:
+            PERFHERDER_EXTRA_OPTIONS: gcp
+    run:
+        using: mozharness
+        actions: [get-secrets, build]
+        config:
+            - builds/releng_base_firefox.py
+            - builds/releng_base_linux_32_builds.py
+        script: "mozharness/scripts/fx_desktop_build.py"
+        secrets: true
+        custom-build-variant-cfg: debug
+        mozconfig-variant: debug
+        tooltool-downloads: public
+        need-xvfb: true
+    run-on-projects: ['release']
+    use-sccache: true
+    fetches:
+        toolchain:
+            - linux64-binutils
+            - linux64-clang
+            - linux64-rust
+            - linux64-rust-size
+            - linux64-cbindgen
+            - linux64-dump-syms
+            - linux64-sccache
+            - linux64-nasm
+            - linux64-node
+            - linux64-lucetc
+            - wasi-sysroot
+            # `fix-stacks` is needed because xpcshell self tests run as part of
+            # the build step. Once bug 1614626 moves them to the xpcshell task,
+            # this dependency can be removed.
+            - linux64-fix-stacks
+    optimization:
+        skip-unless-backstop: null
+
+linux-gcp/opt:
+    description: "Linux32 Opt - built on GCP"
+    index:
+        product: firefox
+        job-name: linux-gcp-opt
+    attributes:
+        enable-full-crashsymbols: true
+    treeherder:
+        platform: linux32/opt
+        symbol: Bg
+        tier: 3
+    worker-type: b-linux-gcp
+    worker:
+        docker-image: {in-tree: debian8-i386-build}
+        max-run-time: 7200
+        env:
+            PERFHERDER_EXTRA_OPTIONS: gcp
+    run:
+        using: mozharness
+        actions: [get-secrets, build]
+        config:
+            - builds/releng_base_firefox.py
+            - builds/releng_base_linux_32_builds.py
+        script: "mozharness/scripts/fx_desktop_build.py"
+        secrets: true
+        tooltool-downloads: public
+        need-xvfb: true
+    run-on-projects: ['release']
+    use-sccache: true
+    fetches:
+        toolchain:
+            - linux64-binutils
+            - linux64-clang
+            - linux64-rust
+            - linux64-rust-size
+            - linux64-cbindgen
+            - linux64-dump-syms
+            - linux64-sccache
+            - linux64-nasm
+            - linux64-node
+            - linux64-lucetc
+            - wasi-sysroot
+
+linux64-gcp/debug:
+    description: "Linux64 Debug - built on GCP"
+    index:
+        product: firefox
+        job-name: linux64-gcp-debug
+    attributes:
+        enable-full-crashsymbols: true
+    treeherder:
+        platform: linux64/debug
+        symbol: Bg
+        tier: 3
+    worker-type: b-linux-gcp
+    worker:
+        max-run-time: 5400
+        env:
+            PERFHERDER_EXTRA_OPTIONS: gcp
+    run:
+        using: mozharness
+        actions: [get-secrets, build]
+        config:
+            - builds/releng_base_firefox.py
+            - builds/releng_base_linux_64_builds.py
+        script: "mozharness/scripts/fx_desktop_build.py"
+        secrets: true
+        custom-build-variant-cfg: debug
+        mozconfig-variant: debug
+        tooltool-downloads: public
+        need-xvfb: true
+    use-sccache: true
+    fetches:
+        toolchain:
+            - linux64-binutils
+            - linux64-clang
+            - linux64-cbindgen
+            - linux64-dump-syms
+            - linux64-sccache
+            - linux64-rust
+            - linux64-rust-size
+            - linux64-nasm
+            - linux64-node
+            - linux64-lucetc
+            - wasi-sysroot
+            # `fix-stacks` is needed because xpcshell self tests run as part of
+            # the build step. Once bug 1614626 moves them to the xpcshell task,
+            # this dependency can be removed.
+            - linux64-fix-stacks
+    optimization:
+        skip-unless-backstop: null
+
+linux64-gcp/opt:
+    description: "Linux64 Opt - built on GCP"
+    index:
+        product: firefox
+        job-name: linux64-gcp-opt
+    attributes:
+        enable-full-crashsymbols: true
+    treeherder:
+        platform: linux64/opt
+        symbol: Bg
+        tier: 3
+    worker-type: b-linux-gcp
+    worker:
+        max-run-time: 7200
+        env:
+            PERFHERDER_EXTRA_OPTIONS: gcp
+    run:
+        using: mozharness
+        actions: [get-secrets, build]
+        config:
+            - builds/releng_base_firefox.py
+            - builds/releng_base_linux_64_builds.py
+        script: "mozharness/scripts/fx_desktop_build.py"
+        secrets: true
+        tooltool-downloads: public
+        need-xvfb: true
+    run-on-projects: ['mozilla-central']
+    use-sccache: true
+    fetches:
+        toolchain:
+            - linux64-binutils
+            - linux64-clang
+            - linux64-rust
+            - linux64-rust-size
+            - linux64-cbindgen
+            - linux64-dump-syms
+            - linux64-sccache
+            - linux64-nasm
+            - linux64-node
+            - linux64-lucetc
+            - wasi-sysroot

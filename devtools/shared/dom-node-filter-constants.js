@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 "use strict";
 
 module.exports = {
@@ -5,7 +9,7 @@ module.exports = {
   FILTER_REJECT: 2,
   FILTER_SKIP: 3,
 
-  SHOW_ALL: 0xFFFFFFFF,
+  SHOW_ALL: 0xffffffff,
   SHOW_ELEMENT: 0x00000001,
   SHOW_ATTRIBUTE: 0x00000002,
   SHOW_TEXT: 0x00000004,

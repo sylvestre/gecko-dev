@@ -1,8 +1,10 @@
+// GENERATED, DO NOT EDIT
 // file: compareIterator.js
 // Copyright (C) 2018 Peter Wong.  All rights reserved.
 // This code is governed by the BSD license found in the LICENSE file.
 /*---
 description: Compare the values of an iterator with an array of expected values
+defines: [assert.compareIterator]
 ---*/
 
 // Example:
@@ -40,6 +42,7 @@ assert.compareIterator = function(iter, validators, message) {
 /*---
 description: |
     Collection of functions used to assert the correctness of RegExp objects.
+defines: [buildString, testPropertyEscapes, matchValidator]
 ---*/
 
 function buildString({ loneCodePoints, ranges }) {

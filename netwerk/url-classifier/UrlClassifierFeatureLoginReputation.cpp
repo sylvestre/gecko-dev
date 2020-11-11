@@ -6,12 +6,14 @@
 
 #include "UrlClassifierFeatureLoginReputation.h"
 
-#include "mozilla/StaticPrefs.h"
+#include "mozilla/StaticPrefs_browser.h"
 
 namespace mozilla {
 namespace net {
 
 namespace {
+
+#define LOGIN_REPUTATION_FEATURE_NAME "login-reputation"
 
 #define PREF_PASSWORD_ALLOW_TABLE "urlclassifier.passwordAllowTable"
 
@@ -20,18 +22,25 @@ StaticRefPtr<UrlClassifierFeatureLoginReputation> gFeatureLoginReputation;
 }  // namespace
 
 UrlClassifierFeatureLoginReputation::UrlClassifierFeatureLoginReputation()
-    : UrlClassifierFeatureBase(NS_LITERAL_CSTRING("login-reputation"),
-                               EmptyCString(),  // blacklist tables
-                               NS_LITERAL_CSTRING(PREF_PASSWORD_ALLOW_TABLE),
-                               EmptyCString(),  // blacklist pref
-                               EmptyCString(),  // whitelist pref
-                               EmptyCString(),  // blacklist pref table name
-                               EmptyCString(),  // whitelist pref table name
-                               EmptyCString())  // skip host pref
+    : UrlClassifierFeatureBase(nsLiteralCString(LOGIN_REPUTATION_FEATURE_NAME),
+                               ""_ns,  // blocklist tables
+                               nsLiteralCString(PREF_PASSWORD_ALLOW_TABLE),
+                               ""_ns,  // blocklist pref
+                               ""_ns,  // entitylist pref
+                               ""_ns,  // blocklist pref table name
+                               ""_ns,  // entitylist pref table name
+                               ""_ns)  // exception host pref
 {}
 
-/* static */ void UrlClassifierFeatureLoginReputation::MaybeShutdown() {
-  UC_LOG(("UrlClassifierFeatureLoginReputation: MaybeShutdown"));
+/* static */ const char* UrlClassifierFeatureLoginReputation::Name() {
+  return StaticPrefs::browser_safebrowsing_passwords_enabled()
+             ? LOGIN_REPUTATION_FEATURE_NAME
+             : "";
+}
+
+/* static */
+void UrlClassifierFeatureLoginReputation::MaybeShutdown() {
+  UC_LOG_LEAK(("UrlClassifierFeatureLoginReputation::MaybeShutdown"));
 
   if (gFeatureLoginReputation) {
     gFeatureLoginReputation->ShutdownPreferences();
@@ -39,7 +48,8 @@ UrlClassifierFeatureLoginReputation::UrlClassifierFeatureLoginReputation()
   }
 }
 
-/* static */ nsIUrlClassifierFeature*
+/* static */
+nsIUrlClassifierFeature*
 UrlClassifierFeatureLoginReputation::MaybeGetOrCreate() {
   if (!StaticPrefs::browser_safebrowsing_passwords_enabled()) {
     return nullptr;
@@ -53,10 +63,21 @@ UrlClassifierFeatureLoginReputation::MaybeGetOrCreate() {
   return gFeatureLoginReputation;
 }
 
+/* static */
+already_AddRefed<nsIUrlClassifierFeature>
+UrlClassifierFeatureLoginReputation::GetIfNameMatches(const nsACString& aName) {
+  if (!aName.EqualsLiteral(LOGIN_REPUTATION_FEATURE_NAME)) {
+    return nullptr;
+  }
+
+  nsCOMPtr<nsIUrlClassifierFeature> self = MaybeGetOrCreate();
+  return self.forget();
+}
+
 NS_IMETHODIMP
-UrlClassifierFeatureLoginReputation::ProcessChannel(nsIChannel* aChannel,
-                                                    const nsACString& aList,
-                                                    bool* aShouldContinue) {
+UrlClassifierFeatureLoginReputation::ProcessChannel(
+    nsIChannel* aChannel, const nsTArray<nsCString>& aList,
+    const nsTArray<nsCString>& aHashes, bool* aShouldContinue) {
   MOZ_CRASH(
       "UrlClassifierFeatureLoginReputation::ProcessChannel should never be "
       "called");
@@ -64,33 +85,17 @@ UrlClassifierFeatureLoginReputation::ProcessChannel(nsIChannel* aChannel,
 }
 
 NS_IMETHODIMP
-UrlClassifierFeatureLoginReputation::GetTables(
-    nsIUrlClassifierFeature::listType aListType, nsTArray<nsCString>& aTables) {
-  MOZ_ASSERT(aListType == nsIUrlClassifierFeature::whitelist,
+UrlClassifierFeatureLoginReputation::GetURIByListType(
+    nsIChannel* aChannel, nsIUrlClassifierFeature::listType aListType,
+    nsIUrlClassifierFeature::URIType* aURIType, nsIURI** aURI) {
+  NS_ENSURE_ARG_POINTER(aChannel);
+  NS_ENSURE_ARG_POINTER(aURIType);
+  NS_ENSURE_ARG_POINTER(aURI);
+  MOZ_ASSERT(aListType == nsIUrlClassifierFeature::entitylist,
              "UrlClassifierFeatureLoginReputation is meant to be used just to "
-             "whitelist URLs");
-  return UrlClassifierFeatureBase::GetTables(aListType, aTables);
-}
-
-NS_IMETHODIMP
-UrlClassifierFeatureLoginReputation::HasTable(
-    const nsACString& aTable, nsIUrlClassifierFeature::listType aListType,
-    bool* aResult) {
-  MOZ_ASSERT(aListType == nsIUrlClassifierFeature::whitelist,
-             "UrlClassifierFeatureLoginReputation is meant to be used just to "
-             "whitelist URLs");
-  return UrlClassifierFeatureBase::HasTable(aTable, aListType, aResult);
-}
-
-NS_IMETHODIMP
-UrlClassifierFeatureLoginReputation::HasHostInPreferences(
-    const nsACString& aHost, nsIUrlClassifierFeature::listType aListType,
-    nsACString& aPrefTableName, bool* aResult) {
-  MOZ_ASSERT(aListType == nsIUrlClassifierFeature::whitelist,
-             "UrlClassifierFeatureLoginReputation is meant to be used just to "
-             "whitelist URLs");
-  return UrlClassifierFeatureBase::HasHostInPreferences(
-      aHost, aListType, aPrefTableName, aResult);
+             "entitylist URLs");
+  *aURIType = nsIUrlClassifierFeature::URIType::entitylistURI;
+  return aChannel->GetURI(aURI);
 }
 
 }  // namespace net

@@ -8,6 +8,7 @@
 #define vm_DataViewObject_h
 
 #include "mozilla/Attributes.h"
+#include "mozilla/CheckedInt.h"
 
 #include "gc/Barrier.h"
 #include "js/Class.h"
@@ -34,10 +35,7 @@ class DataViewObject : public ArrayBufferViewObject {
   }
 
   template <typename NativeType>
-  static SharedMem<uint8_t*> getDataPointer(JSContext* cx,
-                                            Handle<DataViewObject*> obj,
-                                            uint64_t offset,
-                                            bool* isSharedMemory);
+  SharedMem<uint8_t*> getDataPointer(uint64_t offset, bool* isSharedMemory);
 
   static bool bufferGetterImpl(JSContext* cx, const CallArgs& args);
   static bool bufferGetter(JSContext* cx, unsigned argc, Value* vp);
@@ -50,36 +48,48 @@ class DataViewObject : public ArrayBufferViewObject {
 
   static bool getAndCheckConstructorArgs(JSContext* cx, HandleObject bufobj,
                                          const CallArgs& args,
-                                         uint32_t* byteOffset,
-                                         uint32_t* byteLength);
+                                         BufferSize* byteOffset,
+                                         BufferSize* byteLength);
   static bool constructSameCompartment(JSContext* cx, HandleObject bufobj,
                                        const CallArgs& args);
   static bool constructWrapped(JSContext* cx, HandleObject bufobj,
                                const CallArgs& args);
 
   static DataViewObject* create(
-      JSContext* cx, uint32_t byteOffset, uint32_t byteLength,
+      JSContext* cx, BufferSize byteOffset, BufferSize byteLength,
       Handle<ArrayBufferObjectMaybeShared*> arrayBuffer, HandleObject proto);
 
  public:
-  static const Class class_;
-  static const Class protoClass_;
+  static const JSClass class_;
+  static const JSClass protoClass_;
 
-  static Value byteOffsetValue(const DataViewObject* view) {
-    Value v = view->getFixedSlot(BYTEOFFSET_SLOT);
-    MOZ_ASSERT(v.toInt32() >= 0);
-    return v;
+  BufferSize byteLength() const {
+    return BufferSize(size_t(getFixedSlot(LENGTH_SLOT).toPrivate()));
   }
 
-  static Value byteLengthValue(const DataViewObject* view) {
-    Value v = view->getFixedSlot(LENGTH_SLOT);
-    MOZ_ASSERT(v.toInt32() >= 0);
-    return v;
+  Value byteLengthValue() const {
+    size_t len = byteLength().get();
+    return NumberValue(len);
   }
 
-  uint32_t byteOffset() const { return byteOffsetValue(this).toInt32(); }
+  template <typename NativeType>
+  bool offsetIsInBounds(uint64_t offset) const {
+    return offsetIsInBounds(sizeof(NativeType), offset);
+  }
+  bool offsetIsInBounds(uint32_t byteSize, uint64_t offset) const {
+    MOZ_ASSERT(byteSize <= 8);
+    mozilla::CheckedInt<uint64_t> endOffset(offset);
+    endOffset += byteSize;
+    return endOffset.isValid() && endOffset.value() <= byteLength().get();
+  }
 
-  uint32_t byteLength() const { return byteLengthValue(this).toInt32(); }
+  static bool isOriginalByteOffsetGetter(Native native) {
+    return native == byteOffsetGetter;
+  }
+
+  static bool isOriginalByteLengthGetter(Native native) {
+    return native == byteLengthGetter;
+  }
 
   static bool construct(JSContext* cx, unsigned argc, Value* vp);
 
@@ -100,6 +110,12 @@ class DataViewObject : public ArrayBufferViewObject {
 
   static bool getUint32Impl(JSContext* cx, const CallArgs& args);
   static bool fun_getUint32(JSContext* cx, unsigned argc, Value* vp);
+
+  static bool getBigInt64Impl(JSContext* cx, const CallArgs& args);
+  static bool fun_getBigInt64(JSContext* cx, unsigned argc, Value* vp);
+
+  static bool getBigUint64Impl(JSContext* cx, const CallArgs& args);
+  static bool fun_getBigUint64(JSContext* cx, unsigned argc, Value* vp);
 
   static bool getFloat32Impl(JSContext* cx, const CallArgs& args);
   static bool fun_getFloat32(JSContext* cx, unsigned argc, Value* vp);
@@ -125,11 +141,20 @@ class DataViewObject : public ArrayBufferViewObject {
   static bool setUint32Impl(JSContext* cx, const CallArgs& args);
   static bool fun_setUint32(JSContext* cx, unsigned argc, Value* vp);
 
+  static bool setBigInt64Impl(JSContext* cx, const CallArgs& args);
+  static bool fun_setBigInt64(JSContext* cx, unsigned argc, Value* vp);
+
+  static bool setBigUint64Impl(JSContext* cx, const CallArgs& args);
+  static bool fun_setBigUint64(JSContext* cx, unsigned argc, Value* vp);
+
   static bool setFloat32Impl(JSContext* cx, const CallArgs& args);
   static bool fun_setFloat32(JSContext* cx, unsigned argc, Value* vp);
 
   static bool setFloat64Impl(JSContext* cx, const CallArgs& args);
   static bool fun_setFloat64(JSContext* cx, unsigned argc, Value* vp);
+
+  template <typename NativeType>
+  NativeType read(uint64_t offset, bool isLittleEndian);
 
   template <typename NativeType>
   static bool read(JSContext* cx, Handle<DataViewObject*> obj,

@@ -2,8 +2,6 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-from __future__ import absolute_import, print_function
-
 import os
 import time
 
@@ -16,7 +14,7 @@ def badreturncode(files, config, **lintargs):
 
 
 def external(files, config, **lintargs):
-    if lintargs.get('fix'):
+    if lintargs.get("fix"):
         # mimics no results because they got fixed
         return []
 
@@ -25,11 +23,14 @@ def external(files, config, **lintargs):
         if os.path.isdir(path):
             continue
 
-        with open(path, 'r') as fh:
+        with open(path, "r") as fh:
             for i, line in enumerate(fh.readlines()):
-                if 'foobar' in line:
-                    results.append(result.from_config(
-                        config, path=path, lineno=i+1, column=1, rule="no-foobar"))
+                if "foobar" in line:
+                    results.append(
+                        result.from_config(
+                            config, path=path, lineno=i + 1, column=1, rule="no-foobar"
+                        )
+                    )
     return results
 
 
@@ -47,28 +48,27 @@ def structured(files, config, logger, **kwargs):
         if os.path.isdir(path):
             continue
 
-        with open(path, 'r') as fh:
+        with open(path, "r") as fh:
             for i, line in enumerate(fh.readlines()):
-                if 'foobar' in line:
-                    logger.lint_error(path=path,
-                                      lineno=i+1,
-                                      column=1,
-                                      rule="no-foobar")
+                if "foobar" in line:
+                    logger.lint_error(
+                        path=path, lineno=i + 1, column=1, rule="no-foobar"
+                    )
 
 
 def passes(files, config, **lintargs):
     return []
 
 
-def setup(root):
-    print('setup passed')
+def setup(**lintargs):
+    print("setup passed")
 
 
-def setupfailed(root):
-    print('setup failed')
+def setupfailed(**lintargs):
+    print("setup failed")
     return 1
 
 
-def setupraised(root):
-    print('setup raised')
-    raise LintException('oh no setup failed')
+def setupraised(**lintargs):
+    print("setup raised")
+    raise LintException("oh no setup failed")

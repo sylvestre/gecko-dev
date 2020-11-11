@@ -13,6 +13,7 @@
 #include "mozilla/ComputedStyle.h"
 #include "mozilla/DebugOnly.h"
 #include "mozilla/Maybe.h"
+#include "mozilla/PresShell.h"
 #include "mozilla/WritingModes.h"
 #include "nsLayoutUtils.h"
 #include "nsLineLayout.h"
@@ -35,9 +36,10 @@ NS_QUERYFRAME_TAIL_INHERITING(nsContainerFrame)
 
 NS_IMPL_FRAMEARENA_HELPERS(nsRubyBaseContainerFrame)
 
-nsContainerFrame* NS_NewRubyBaseContainerFrame(nsIPresShell* aPresShell,
+nsContainerFrame* NS_NewRubyBaseContainerFrame(PresShell* aPresShell,
                                                ComputedStyle* aStyle) {
-  return new (aPresShell) nsRubyBaseContainerFrame(aStyle);
+  return new (aPresShell)
+      nsRubyBaseContainerFrame(aStyle, aPresShell->GetPresContext());
 }
 
 //----------------------------------------------------------------------
@@ -47,7 +49,7 @@ nsContainerFrame* NS_NewRubyBaseContainerFrame(nsIPresShell* aPresShell,
 
 #ifdef DEBUG_FRAME_DUMP
 nsresult nsRubyBaseContainerFrame::GetFrameName(nsAString& aResult) const {
-  return MakeFrameName(NS_LITERAL_STRING("RubyBaseContainer"), aResult);
+  return MakeFrameName(u"RubyBaseContainer"_ns, aResult);
 }
 #endif
 
@@ -155,7 +157,8 @@ static nscoord CalculateColumnPrefISize(
 // FIXME Currently we use pref isize of ruby content frames for
 //       computing min isize of ruby frame, which may cause problem.
 //       See bug 1134945.
-/* virtual */ void nsRubyBaseContainerFrame::AddInlineMinISize(
+/* virtual */
+void nsRubyBaseContainerFrame::AddInlineMinISize(
     gfxContext* aRenderingContext, nsIFrame::InlineMinISizeData* aData) {
   AutoRubyTextContainerArray textContainers(this);
 
@@ -207,7 +210,8 @@ static nscoord CalculateColumnPrefISize(
   }
 }
 
-/* virtual */ void nsRubyBaseContainerFrame::AddInlinePrefISize(
+/* virtual */
+void nsRubyBaseContainerFrame::AddInlinePrefISize(
     gfxContext* aRenderingContext, nsIFrame::InlinePrefISizeData* aData) {
   AutoRubyTextContainerArray textContainers(this);
 
@@ -231,8 +235,8 @@ static nscoord CalculateColumnPrefISize(
   aData->mCurrentLine += sum;
 }
 
-/* virtual */ bool nsRubyBaseContainerFrame::IsFrameOfType(
-    uint32_t aFlags) const {
+/* virtual */
+bool nsRubyBaseContainerFrame::IsFrameOfType(uint32_t aFlags) const {
   if (aFlags & (eSupportsCSSTransforms | eSupportsContainLayoutAndPaint)) {
     return false;
   }
@@ -240,21 +244,22 @@ static nscoord CalculateColumnPrefISize(
                                          ~(nsIFrame::eLineParticipant));
 }
 
-/* virtual */ bool nsRubyBaseContainerFrame::CanContinueTextRun() const {
-  return true;
-}
+/* virtual */
+bool nsRubyBaseContainerFrame::CanContinueTextRun() const { return true; }
 
-/* virtual */ LogicalSize nsRubyBaseContainerFrame::ComputeSize(
+/* virtual */
+nsIFrame::SizeComputationResult nsRubyBaseContainerFrame::ComputeSize(
     gfxContext* aRenderingContext, WritingMode aWM, const LogicalSize& aCBSize,
     nscoord aAvailableISize, const LogicalSize& aMargin,
-    const LogicalSize& aBorder, const LogicalSize& aPadding,
-    ComputeSizeFlags aFlags) {
+    const LogicalSize& aBorderPadding, ComputeSizeFlags aFlags) {
   // Ruby base container frame is inline,
   // hence don't compute size before reflow.
-  return LogicalSize(aWM, NS_UNCONSTRAINEDSIZE, NS_UNCONSTRAINEDSIZE);
+  return {LogicalSize(aWM, NS_UNCONSTRAINEDSIZE, NS_UNCONSTRAINEDSIZE),
+          AspectRatioUsage::None};
 }
 
-/* virtual */ nscoord nsRubyBaseContainerFrame::GetLogicalBaseline(
+/* virtual */
+nscoord nsRubyBaseContainerFrame::GetLogicalBaseline(
     WritingMode aWritingMode) const {
   return mBaseline;
 }
@@ -267,9 +272,11 @@ struct nsRubyBaseContainerFrame::RubyReflowInput {
   const nsTArray<UniquePtr<ReflowInput>>& mTextReflowInputs;
 };
 
-/* virtual */ void nsRubyBaseContainerFrame::Reflow(
-    nsPresContext* aPresContext, ReflowOutput& aDesiredSize,
-    const ReflowInput& aReflowInput, nsReflowStatus& aStatus) {
+/* virtual */
+void nsRubyBaseContainerFrame::Reflow(nsPresContext* aPresContext,
+                                      ReflowOutput& aDesiredSize,
+                                      const ReflowInput& aReflowInput,
+                                      nsReflowStatus& aStatus) {
   MarkInReflow();
   DO_GLOBAL_REFLOW_COUNT("nsRubyBaseContainerFrame");
   DISPLAY_REFLOW(aPresContext, this, aReflowInput, aDesiredSize, aStatus);
@@ -297,11 +304,11 @@ struct nsRubyBaseContainerFrame::RubyReflowInput {
   LogicalSize availSize(lineWM, aReflowInput.AvailableISize(),
                         aReflowInput.AvailableBSize());
 
-  // We have a reflow state and a line layout for each RTC.
+  // We have a reflow input and a line layout for each RTC.
   // They are conceptually the state of the RTCs, but we don't actually
   // reflow those RTCs in this code. These two arrays are holders of
-  // the reflow states and line layouts.
-  // Since there are pointers refer to reflow states and line layouts,
+  // the reflow inputs and line layouts.
+  // Since there are pointers refer to reflow inputs and line layouts,
   // it is necessary to guarantee that they won't be moved. For this
   // reason, they are wrapped in UniquePtr here.
   AutoTArray<UniquePtr<ReflowInput>, RTC_ARRAY_SIZE> reflowInputs;
@@ -352,12 +359,13 @@ struct nsRubyBaseContainerFrame::RubyReflowInput {
   GetIsLineBreakAllowed(this, aReflowInput.mLineLayout->LineIsBreakable(),
                         &allowInitialLineBreak, &allowLineBreak);
 
-  nscoord isize = 0;
   // Reflow columns excluding any span
   RubyReflowInput reflowInput = {allowInitialLineBreak,
                                  allowLineBreak && !hasSpan, textContainers,
                                  aReflowInput, reflowInputs};
-  isize = ReflowColumns(reflowInput, aStatus);
+  aDesiredSize.BSize(lineWM) = 0;
+  aDesiredSize.SetBlockStartAscent(0);
+  nscoord isize = ReflowColumns(reflowInput, aDesiredSize, aStatus);
   DebugOnly<nscoord> lineSpanSize = aReflowInput.mLineLayout->EndSpan(this);
   aDesiredSize.ISize(lineWM) = isize;
   // When there are no frames inside the ruby base container, EndSpan
@@ -402,12 +410,18 @@ struct nsRubyBaseContainerFrame::RubyReflowInput {
     lineLayout->EndLineReflow();
   }
 
-  // Border and padding are suppressed on ruby base container,
-  // create a fake borderPadding for setting BSize.
-  WritingMode frameWM = aReflowInput.GetWritingMode();
-  LogicalMargin borderPadding(frameWM);
-  nsLayoutUtils::SetBSizeFromFontMetrics(this, aDesiredSize, borderPadding,
-                                         lineWM, frameWM);
+  // If this ruby base container is empty, size it as if there were
+  // an empty inline child inside.
+  if (mFrames.IsEmpty()) {
+    // Border and padding are suppressed on ruby base container, so we
+    // create a dummy zero-sized borderPadding for setting BSize.
+    WritingMode frameWM = aReflowInput.GetWritingMode();
+    LogicalMargin borderPadding(frameWM);
+    nsLayoutUtils::SetBSizeFromFontMetrics(this, aDesiredSize, borderPadding,
+                                           lineWM, frameWM);
+  }
+
+  ReflowAbsoluteFrames(aPresContext, aDesiredSize, aReflowInput, aStatus);
 }
 
 /**
@@ -425,7 +439,8 @@ struct MOZ_STACK_CLASS nsRubyBaseContainerFrame::PullFrameState {
 };
 
 nscoord nsRubyBaseContainerFrame::ReflowColumns(
-    const RubyReflowInput& aReflowInput, nsReflowStatus& aStatus) {
+    const RubyReflowInput& aReflowInput, ReflowOutput& aDesiredSize,
+    nsReflowStatus& aStatus) {
   nsLineLayout* lineLayout = aReflowInput.mBaseReflowInput.mLineLayout;
   const uint32_t rtcCount = aReflowInput.mTextContainers.Length();
   nscoord icoord = lineLayout->GetCurrentICoord();
@@ -439,7 +454,8 @@ nscoord nsRubyBaseContainerFrame::ReflowColumns(
   RubyColumnEnumerator e(this, aReflowInput.mTextContainers);
   for (; !e.AtEnd(); e.Next()) {
     e.GetColumn(column);
-    icoord += ReflowOneColumn(aReflowInput, columnIndex, column, reflowStatus);
+    icoord += ReflowOneColumn(aReflowInput, columnIndex, column, aDesiredSize,
+                              reflowStatus);
     if (!reflowStatus.IsInlineBreakBefore()) {
       columnIndex++;
     }
@@ -463,7 +479,8 @@ nscoord nsRubyBaseContainerFrame::ReflowColumns(
       // No more frames can be pulled.
       break;
     }
-    icoord += ReflowOneColumn(aReflowInput, columnIndex, column, reflowStatus);
+    icoord += ReflowOneColumn(aReflowInput, columnIndex, column, aDesiredSize,
+                              reflowStatus);
     if (!reflowStatus.IsInlineBreakBefore()) {
       columnIndex++;
     }
@@ -533,7 +550,8 @@ nscoord nsRubyBaseContainerFrame::ReflowColumns(
 
 nscoord nsRubyBaseContainerFrame::ReflowOneColumn(
     const RubyReflowInput& aReflowInput, uint32_t aColumnIndex,
-    const RubyColumn& aColumn, nsReflowStatus& aStatus) {
+    const RubyColumn& aColumn, ReflowOutput& aDesiredSize,
+    nsReflowStatus& aStatus) {
   const ReflowInput& baseReflowInput = aReflowInput.mBaseReflowInput;
   const auto& textReflowInputs = aReflowInput.mTextReflowInputs;
   nscoord istart = baseReflowInput.mLineLayout->GetCurrentICoord();
@@ -617,8 +635,10 @@ nscoord nsRubyBaseContainerFrame::ReflowOneColumn(
     bool pushedFrame;
     nsReflowStatus reflowStatus;
     nsLineLayout* lineLayout = baseReflowInput.mLineLayout;
+    WritingMode lineWM = lineLayout->GetWritingMode();
     nscoord baseIStart = lineLayout->GetCurrentICoord();
-    lineLayout->ReflowFrame(aColumn.mBaseFrame, reflowStatus, nullptr,
+    ReflowOutput metrics(lineWM);
+    lineLayout->ReflowFrame(aColumn.mBaseFrame, reflowStatus, &metrics,
                             pushedFrame);
     if (MOZ_UNLIKELY(reflowStatus.IsInlineBreak() || pushedFrame)) {
       MOZ_ASSERT_UNREACHABLE(
@@ -629,6 +649,17 @@ nscoord nsRubyBaseContainerFrame::ReflowOneColumn(
     }
     nscoord baseISize = lineLayout->GetCurrentICoord() - baseIStart;
     columnISize = std::max(columnISize, baseISize);
+    // Calculate ascent & descent of the base frame and update desired
+    // size of this base container accordingly.
+    nscoord oldAscent = aDesiredSize.BlockStartAscent();
+    nscoord oldDescent = aDesiredSize.BSize(lineWM) - oldAscent;
+    nscoord baseAscent = metrics.BlockStartAscent();
+    nscoord baseDesent = metrics.BSize(lineWM) - baseAscent;
+    LogicalMargin margin = aColumn.mBaseFrame->GetLogicalUsedMargin(lineWM);
+    nscoord newAscent = std::max(baseAscent + margin.BStart(lineWM), oldAscent);
+    nscoord newDescent = std::max(baseDesent + margin.BEnd(lineWM), oldDescent);
+    aDesiredSize.SetBlockStartAscent(newAscent);
+    aDesiredSize.BSize(lineWM) = newAscent + newDescent;
   }
 
   // Align all the line layout to the new coordinate.
@@ -735,13 +766,11 @@ void nsRubyBaseContainerFrame::PullOneColumn(nsLineLayout* aLineLayout,
                  "the same old float containing block");
     }
 #endif
-    nsBlockFrame* newFloatCB =
-        nsLayoutUtils::GetAsBlock(aLineLayout->LineContainerFrame());
+    nsBlockFrame* newFloatCB = do_QueryFrame(aLineLayout->LineContainerFrame());
     MOZ_ASSERT(newFloatCB, "Must have a float containing block");
     if (oldFloatCB != newFloatCB) {
       for (nsIFrame* frame : aColumn) {
-        newFloatCB->ReparentFloats(frame, oldFloatCB, false,
-                                   ReparentingDirection::Backwards);
+        newFloatCB->ReparentFloats(frame, oldFloatCB, false);
       }
     }
   }

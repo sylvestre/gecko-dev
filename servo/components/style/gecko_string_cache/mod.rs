@@ -3,7 +3,6 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 #![allow(unsafe_code)]
-
 // This is needed for the constants in atom_macro.rs, because we have some
 // atoms whose names differ only by case, e.g. datetime and dateTime.
 #![allow(non_upper_case_globals)]
@@ -14,6 +13,9 @@ use crate::gecko_bindings::bindings::Gecko_AddRefAtom;
 use crate::gecko_bindings::bindings::Gecko_Atomize;
 use crate::gecko_bindings::bindings::Gecko_Atomize16;
 use crate::gecko_bindings::bindings::Gecko_ReleaseAtom;
+use crate::gecko_bindings::structs::root::mozilla::detail::gGkAtoms;
+use crate::gecko_bindings::structs::root::mozilla::detail::kGkAtomsArrayOffset;
+use crate::gecko_bindings::structs::root::mozilla::detail::GkAtoms_Atoms_AtomsCount;
 use crate::gecko_bindings::structs::{nsAtom, nsDynamicAtom, nsStaticAtom};
 use nsstring::{nsAString, nsStr};
 use precomputed_hash::PrecomputedHash;
@@ -22,9 +24,12 @@ use std::char::{self, DecodeUtf16};
 use std::fmt::{self, Write};
 use std::hash::{Hash, Hasher};
 use std::iter::Cloned;
+use std::mem::{self, ManuallyDrop};
+use std::num::NonZeroUsize;
 use std::ops::Deref;
-use std::{mem, slice, str};
+use std::{slice, str};
 use style_traits::SpecifiedValueInfo;
+use to_shmem::{self, SharedMemoryBuilder, ToShmem};
 
 #[macro_use]
 #[allow(improper_ctypes, non_camel_case_types, missing_docs)]
@@ -43,9 +48,18 @@ macro_rules! local_name {
     };
 }
 
-/// A strong reference to a Gecko atom.
+/// A handle to a Gecko atom. This is a type that can represent either:
+///
+///  * A strong reference to a dynamic atom (an `nsAtom` pointer), in which case
+///    the `usize` just holds the pointer value.
+///
+///  * A byte offset from `gGkAtoms` to the `nsStaticAtom` object (shifted to
+///    the left one bit, and with the lower bit set to `1` to differentiate it
+///    from the above), so `(offset << 1 | 1)`.
+///
 #[derive(Eq, PartialEq)]
-pub struct Atom(*mut WeakAtom);
+#[repr(C)]
+pub struct Atom(NonZeroUsize);
 
 /// An atom *without* a strong reference.
 ///
@@ -53,12 +67,52 @@ pub struct Atom(*mut WeakAtom);
 /// where `'a` is the lifetime of something that holds a strong reference to that atom.
 pub struct WeakAtom(nsAtom);
 
+/// The number of static atoms we have.
+const STATIC_ATOM_COUNT: usize = GkAtoms_Atoms_AtomsCount as usize;
+
+/// Returns the Gecko static atom array.
+///
+/// We have this rather than use rust-bindgen to generate
+/// mozilla::detail::gGkAtoms and then just reference gGkAtoms.mAtoms, so we
+/// avoid a problem with lld-link.exe on Windows.
+///
+/// https://bugzilla.mozilla.org/show_bug.cgi?id=1517685
+#[inline]
+fn static_atoms() -> &'static [nsStaticAtom; STATIC_ATOM_COUNT] {
+    unsafe {
+        let addr = &gGkAtoms as *const _ as usize + kGkAtomsArrayOffset as usize;
+        &*(addr as *const _)
+    }
+}
+
+/// Returns whether the specified address points to one of the nsStaticAtom
+/// objects in the Gecko static atom array.
+#[inline]
+fn valid_static_atom_addr(addr: usize) -> bool {
+    unsafe {
+        let atoms = static_atoms();
+        let start = atoms.as_ptr();
+        let end = atoms.get_unchecked(STATIC_ATOM_COUNT) as *const _;
+        let in_range = addr >= start as usize && addr < end as usize;
+        let aligned = addr % mem::align_of::<nsStaticAtom>() == 0;
+        in_range && aligned
+    }
+}
+
 impl Deref for Atom {
     type Target = WeakAtom;
 
     #[inline]
     fn deref(&self) -> &WeakAtom {
-        unsafe { &*self.0 }
+        unsafe {
+            let addr = if self.is_static() {
+                (&gGkAtoms as *const _ as usize) + (self.0.get() >> 1)
+            } else {
+                self.0.get()
+            };
+            debug_assert!(!self.is_static() || valid_static_atom_addr(addr));
+            WeakAtom::new(addr as *const nsAtom)
+        }
     }
 }
 
@@ -73,6 +127,19 @@ impl Borrow<WeakAtom> for Atom {
     #[inline]
     fn borrow(&self) -> &WeakAtom {
         self
+    }
+}
+
+impl ToShmem for Atom {
+    fn to_shmem(&self, _builder: &mut SharedMemoryBuilder) -> to_shmem::Result<Self> {
+        if !self.is_static() {
+            return Err(format!(
+                "ToShmem failed for Atom: must be a static atom: {}",
+                self
+            ));
+        }
+
+        Ok(ManuallyDrop::new(Atom(self.0)))
     }
 }
 
@@ -141,7 +208,8 @@ impl WeakAtom {
     where
         F: FnOnce(&str) -> Output,
     {
-        let mut buffer: [u8; 64] = unsafe { mem::uninitialized() };
+        let mut buffer = mem::MaybeUninit::<[u8; 64]>::uninit();
+        let buffer = unsafe { &mut *buffer.as_mut_ptr() };
 
         // The total string length in utf16 is going to be less than or equal
         // the slice length (each utf16 character is going to take at least one
@@ -210,7 +278,8 @@ impl WeakAtom {
         }
 
         let slice = self.as_slice();
-        let mut buffer: [u16; 64] = unsafe { mem::uninitialized() };
+        let mut buffer = mem::MaybeUninit::<[u16; 64]>::uninit();
+        let buffer = unsafe { &mut *buffer.as_mut_ptr() };
         let mut vec;
         let mutable_slice = if let Some(buffer_prefix) = buffer.get_mut(..slice.len()) {
             buffer_prefix.copy_from_slice(slice);
@@ -277,50 +346,73 @@ impl fmt::Display for WeakAtom {
     }
 }
 
+#[inline]
+unsafe fn make_handle(ptr: *const nsAtom) -> NonZeroUsize {
+    debug_assert!(!ptr.is_null());
+    if !WeakAtom::new(ptr).is_static() {
+        NonZeroUsize::new_unchecked(ptr as usize)
+    } else {
+        make_static_handle(ptr as *mut nsStaticAtom)
+    }
+}
+
+#[inline]
+unsafe fn make_static_handle(ptr: *const nsStaticAtom) -> NonZeroUsize {
+    // FIXME(heycam): Use offset_from once it's stabilized.
+    // https://github.com/rust-lang/rust/issues/41079
+    debug_assert!(valid_static_atom_addr(ptr as usize));
+    let base = &gGkAtoms as *const _;
+    let offset = ptr as usize - base as usize;
+    NonZeroUsize::new_unchecked((offset << 1) | 1)
+}
+
 impl Atom {
+    #[inline]
+    fn is_static(&self) -> bool {
+        self.0.get() & 1 == 1
+    }
+
     /// Execute a callback with the atom represented by `ptr`.
     pub unsafe fn with<F, R>(ptr: *const nsAtom, callback: F) -> R
     where
         F: FnOnce(&Atom) -> R,
     {
-        let atom = Atom(WeakAtom::new(ptr));
+        let atom = Atom(make_handle(ptr as *mut nsAtom));
         let ret = callback(&atom);
         mem::forget(atom);
         ret
     }
 
-    /// Creates an atom from an static atom pointer without checking in release
-    /// builds.
-    ///
-    /// Right now it's only used by the atom macro, and ideally it should keep
-    /// that way, now we have sugar for is_static, creating atoms using
-    /// Atom::from_raw should involve almost no overhead.
+    /// Creates a static atom from its index in the static atom table, without
+    /// checking.
     #[inline]
-    pub unsafe fn from_static(ptr: *const nsStaticAtom) -> Self {
-        let atom = Atom(ptr as *mut WeakAtom);
-        debug_assert!(
-            atom.is_static(),
-            "Called from_static for a non-static atom!"
-        );
-        atom
+    pub const unsafe fn from_index_unchecked(index: u16) -> Self {
+        // FIXME(emilio): No support for debug_assert! in const fn for now. Note
+        // that violating this invariant will debug-assert in the `Deref` impl
+        // though.
+        //
+        // debug_assert!((index as usize) < STATIC_ATOM_COUNT);
+        let offset =
+            (index as usize) * std::mem::size_of::<nsStaticAtom>() + kGkAtomsArrayOffset as usize;
+        Atom(NonZeroUsize::new_unchecked((offset << 1) | 1))
     }
 
     /// Creates an atom from an atom pointer.
     #[inline(always)]
     pub unsafe fn from_raw(ptr: *mut nsAtom) -> Self {
-        let atom = Atom(ptr as *mut WeakAtom);
+        let atom = Atom(make_handle(ptr));
         if !atom.is_static() {
             Gecko_AddRefAtom(ptr);
         }
         atom
     }
 
-    /// Creates an atom from a dynamic atom pointer that has already had AddRef
-    /// called on it.
+    /// Creates an atom from an atom pointer that has already had AddRef
+    /// called on it. This may be a static or dynamic atom.
     #[inline]
     pub unsafe fn from_addrefed(ptr: *mut nsAtom) -> Self {
         assert!(!ptr.is_null());
-        Atom(WeakAtom::new(ptr))
+        Atom(make_handle(ptr))
     }
 
     /// Convert this atom into an addrefed nsAtom pointer.
@@ -353,7 +445,13 @@ impl Hash for WeakAtom {
 impl Clone for Atom {
     #[inline(always)]
     fn clone(&self) -> Atom {
-        unsafe { Atom::from_raw(self.as_ptr()) }
+        unsafe {
+            let atom = Atom(self.0);
+            if !atom.is_static() {
+                Gecko_AddRefAtom(atom.as_ptr());
+            }
+            atom
+        }
     }
 }
 
@@ -377,13 +475,13 @@ impl Default for Atom {
 
 impl fmt::Debug for Atom {
     fn fmt(&self, w: &mut fmt::Formatter) -> fmt::Result {
-        write!(w, "Gecko Atom({:p}, {})", self.0, self)
+        write!(w, "Atom(0x{:08x}, {})", self.0, self)
     }
 }
 
 impl fmt::Display for Atom {
     fn fmt(&self, w: &mut fmt::Formatter) -> fmt::Result {
-        unsafe { (&*self.0).fmt(w) }
+        self.deref().fmt(w)
     }
 }
 
@@ -392,10 +490,10 @@ impl<'a> From<&'a str> for Atom {
     fn from(string: &str) -> Atom {
         debug_assert!(string.len() <= u32::max_value() as usize);
         unsafe {
-            Atom(WeakAtom::new(Gecko_Atomize(
+            Atom::from_addrefed(Gecko_Atomize(
                 string.as_ptr() as *const _,
                 string.len() as u32,
-            )))
+            ))
         }
     }
 }
@@ -410,7 +508,7 @@ impl<'a> From<&'a [u16]> for Atom {
 impl<'a> From<&'a nsAString> for Atom {
     #[inline]
     fn from(string: &nsAString) -> Atom {
-        unsafe { Atom(WeakAtom::new(Gecko_Atomize16(string))) }
+        unsafe { Atom::from_addrefed(Gecko_Atomize16(string)) }
     }
 }
 

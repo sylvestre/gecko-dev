@@ -5,17 +5,18 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #if defined(MOZILLA_INTERNAL_API)
-#error This code is NOT for internal Gecko use!
+#  error This code is NOT for internal Gecko use!
 #endif  // defined(MOZILLA_INTERNAL_API)
 
 #ifndef mozilla_a11y_AccessibleHandlerControl_h
-#define mozilla_a11y_AccessibleHandlerControl_h
+#  define mozilla_a11y_AccessibleHandlerControl_h
 
-#include "Factory.h"
-#include "HandlerData.h"
-#include "IUnknownImpl.h"
-#include "mozilla/mscom/Registration.h"
-#include "mozilla/NotNull.h"
+#  include <unordered_map>
+#  include "Factory.h"
+#  include "HandlerData.h"
+#  include "IUnknownImpl.h"
+#  include "mozilla/mscom/Registration.h"
+#  include "mozilla/NotNull.h"
 
 namespace mozilla {
 namespace a11y {
@@ -48,6 +49,8 @@ class TextChange final {
 
 }  // namespace detail
 
+class AccessibleHandler;
+
 class AccessibleHandlerControl final : public IHandlerControl {
  public:
   static HRESULT Create(AccessibleHandlerControl** aOutObject);
@@ -69,6 +72,9 @@ class AccessibleHandlerControl final : public IHandlerControl {
 
   HRESULT Register(NotNull<IGeckoBackChannel*> aGecko);
 
+  void CacheAccessible(long aUniqueId, AccessibleHandler* aAccessible);
+  HRESULT GetCachedAccessible(long aUniqueId, AccessibleHandler** aAccessible);
+
  private:
   AccessibleHandlerControl();
   ~AccessibleHandlerControl() = default;
@@ -78,6 +84,9 @@ class AccessibleHandlerControl final : public IHandlerControl {
   detail::TextChange mTextChange;
   UniquePtr<mscom::RegisteredProxy> mIA2Proxy;
   UniquePtr<mscom::RegisteredProxy> mHandlerProxy;
+  // We can't use Gecko APIs in this dll, hence the use of std::unordered_map.
+  typedef std::unordered_map<long, RefPtr<AccessibleHandler>> AccessibleCache;
+  AccessibleCache mAccessibleCache;
 };
 
 extern mscom::SingletonFactory<AccessibleHandlerControl> gControlFactory;

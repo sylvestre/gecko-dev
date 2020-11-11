@@ -9,7 +9,7 @@
 
 #include "base/message_pump_default.h"
 #if defined(XP_WIN)
-#include "base/message_pump_win.h"
+#  include "base/message_pump_win.h"
 #endif
 
 #include "base/time.h"
@@ -73,7 +73,7 @@ class MessagePumpForChildProcess final : public MessagePump {
   virtual void Run(base::MessagePump::Delegate* aDelegate) override;
 
  private:
-  ~MessagePumpForChildProcess() {}
+  ~MessagePumpForChildProcess() = default;
 
   bool mFirstRun;
 };
@@ -86,7 +86,7 @@ class MessagePumpForNonMainThreads final : public MessagePump {
   virtual void Run(base::MessagePump::Delegate* aDelegate) override;
 
  private:
-  ~MessagePumpForNonMainThreads() {}
+  ~MessagePumpForNonMainThreads() = default;
 };
 
 #if defined(XP_WIN)

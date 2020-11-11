@@ -6,25 +6,24 @@
 
 #include "mozilla/ThreadEventQueue.h"
 #include "mozilla/EventQueue.h"
-#include "LabeledEventQueue.h"
 
 #include "LeakRefPtr.h"
 #include "nsComponentManagerUtils.h"
 #include "nsIThreadInternal.h"
 #include "nsThreadUtils.h"
-#include "PrioritizedEventQueue.h"
+#include "nsThread.h"
 #include "ThreadEventTarget.h"
+#include "mozilla/TaskController.h"
 
 using namespace mozilla;
 
-template <class InnerQueueT>
-class ThreadEventQueue<InnerQueueT>::NestedSink : public ThreadTargetSink {
+class ThreadEventQueue::NestedSink : public ThreadTargetSink {
  public:
   NestedSink(EventQueue* aQueue, ThreadEventQueue* aOwner)
       : mQueue(aQueue), mOwner(aOwner) {}
 
   bool PutEvent(already_AddRefed<nsIRunnable>&& aEvent,
-                EventPriority aPriority) final {
+                EventQueuePriority aPriority) final {
     return mOwner->PutEventInternal(std::move(aEvent), aPriority, this);
   }
 
@@ -46,30 +45,27 @@ class ThreadEventQueue<InnerQueueT>::NestedSink : public ThreadTargetSink {
   RefPtr<ThreadEventQueue> mOwner;
 };
 
-template <class InnerQueueT>
-ThreadEventQueue<InnerQueueT>::ThreadEventQueue(UniquePtr<InnerQueueT> aQueue)
+ThreadEventQueue::ThreadEventQueue(UniquePtr<EventQueue> aQueue,
+                                   bool aIsMainThread)
     : mBaseQueue(std::move(aQueue)),
       mLock("ThreadEventQueue"),
-      mEventsAvailable(mLock, "EventsAvail") {
-  static_assert(IsBaseOf<AbstractEventQueue, InnerQueueT>::value,
-                "InnerQueueT must be an AbstractEventQueue subclass");
+      mEventsAvailable(mLock, "EventsAvail"),
+      mIsMainThread(aIsMainThread) {
+  if (aIsMainThread) {
+    TaskController::Get()->SetConditionVariable(&mEventsAvailable);
+  }
 }
 
-template <class InnerQueueT>
-ThreadEventQueue<InnerQueueT>::~ThreadEventQueue() {
-  MOZ_ASSERT(mNestedQueues.IsEmpty());
-}
+ThreadEventQueue::~ThreadEventQueue() { MOZ_ASSERT(mNestedQueues.IsEmpty()); }
 
-template <class InnerQueueT>
-bool ThreadEventQueue<InnerQueueT>::PutEvent(
-    already_AddRefed<nsIRunnable>&& aEvent, EventPriority aPriority) {
+bool ThreadEventQueue::PutEvent(already_AddRefed<nsIRunnable>&& aEvent,
+                                EventQueuePriority aPriority) {
   return PutEventInternal(std::move(aEvent), aPriority, nullptr);
 }
 
-template <class InnerQueueT>
-bool ThreadEventQueue<InnerQueueT>::PutEventInternal(
-    already_AddRefed<nsIRunnable>&& aEvent, EventPriority aPriority,
-    NestedSink* aSink) {
+bool ThreadEventQueue::PutEventInternal(already_AddRefed<nsIRunnable>&& aEvent,
+                                        EventQueuePriority aPriority,
+                                        NestedSink* aSink) {
   // We want to leak the reference when we fail to dispatch it, so that
   // we won't release the event in a wrong thread.
   LeakRefPtr<nsIRunnable> event(std::move(aEvent));
@@ -79,15 +75,21 @@ bool ThreadEventQueue<InnerQueueT>::PutEventInternal(
     // Check if the runnable wants to override the passed-in priority.
     // Do this outside the lock, so runnables implemented in JS can QI
     // (and possibly GC) outside of the lock.
-    if (InnerQueueT::SupportsPrioritization) {
+    if (mIsMainThread) {
       auto* e = event.get();  // can't do_QueryInterface on LeakRefPtr.
       if (nsCOMPtr<nsIRunnablePriority> runnablePrio = do_QueryInterface(e)) {
         uint32_t prio = nsIRunnablePriority::PRIORITY_NORMAL;
         runnablePrio->GetPriority(&prio);
         if (prio == nsIRunnablePriority::PRIORITY_HIGH) {
-          aPriority = EventPriority::High;
-        } else if (prio == nsIRunnablePriority::PRIORITY_INPUT) {
-          aPriority = EventPriority::Input;
+          aPriority = EventQueuePriority::High;
+        } else if (prio == nsIRunnablePriority::PRIORITY_INPUT_HIGH) {
+          aPriority = EventQueuePriority::InputHigh;
+        } else if (prio == nsIRunnablePriority::PRIORITY_MEDIUMHIGH) {
+          aPriority = EventQueuePriority::MediumHigh;
+        } else if (prio == nsIRunnablePriority::PRIORITY_DEFERRED_TIMERS) {
+          aPriority = EventQueuePriority::DeferredTimers;
+        } else if (prio == nsIRunnablePriority::PRIORITY_IDLE) {
+          aPriority = EventQueuePriority::Idle;
         }
       }
     }
@@ -124,35 +126,45 @@ bool ThreadEventQueue<InnerQueueT>::PutEventInternal(
   return true;
 }
 
-template <class InnerQueueT>
-already_AddRefed<nsIRunnable> ThreadEventQueue<InnerQueueT>::GetEvent(
-    bool aMayWait, EventPriority* aPriority) {
-  MutexAutoLock lock(mLock);
-
+already_AddRefed<nsIRunnable> ThreadEventQueue::GetEvent(
+    bool aMayWait, mozilla::TimeDuration* aLastEventDelay) {
   nsCOMPtr<nsIRunnable> event;
-  for (;;) {
-    if (mNestedQueues.IsEmpty()) {
-      event = mBaseQueue->GetEvent(aPriority, lock);
-    } else {
-      // We always get events from the topmost queue when there are nested
-      // queues.
-      event = mNestedQueues.LastElement().mQueue->GetEvent(aPriority, lock);
-    }
+  {
+    // Scope for lock.  When we are about to return, we will exit this
+    // scope so we can do some work after releasing the lock but
+    // before returning.
+    MutexAutoLock lock(mLock);
 
-    if (event || !aMayWait) {
-      break;
-    }
+    for (;;) {
+      const bool noNestedQueue = mNestedQueues.IsEmpty();
+      if (noNestedQueue) {
+        event = mBaseQueue->GetEvent(lock, aLastEventDelay);
+      } else {
+        // We always get events from the topmost queue when there are nested
+        // queues.
+        event =
+            mNestedQueues.LastElement().mQueue->GetEvent(lock, aLastEventDelay);
+      }
 
-    AUTO_PROFILER_LABEL("ThreadEventQueue::GetEvent::Wait", IDLE);
-    AUTO_PROFILER_THREAD_SLEEP;
-    mEventsAvailable.Wait();
+      if (event) {
+        break;
+      }
+
+      // No runnable available.  Sleep waiting for one if if we're supposed to.
+      // Otherwise just go ahead and return null.
+      if (!aMayWait) {
+        break;
+      }
+
+      AUTO_PROFILER_LABEL("ThreadEventQueue::GetEvent::Wait", IDLE);
+      mEventsAvailable.Wait();
+    }
   }
 
   return event.forget();
 }
 
-template <class InnerQueueT>
-bool ThreadEventQueue<InnerQueueT>::HasPendingEvent() {
+bool ThreadEventQueue::HasPendingEvent() {
   MutexAutoLock lock(mLock);
 
   // We always get events from the topmost queue when there are nested queues.
@@ -163,8 +175,7 @@ bool ThreadEventQueue<InnerQueueT>::HasPendingEvent() {
   }
 }
 
-template <class InnerQueueT>
-bool ThreadEventQueue<InnerQueueT>::ShutdownIfNoPendingEvents() {
+bool ThreadEventQueue::ShutdownIfNoPendingEvents() {
   MutexAutoLock lock(mLock);
   if (mNestedQueues.IsEmpty() && mBaseQueue->IsEmpty(lock)) {
     mEventsAreDoomed = true;
@@ -173,33 +184,7 @@ bool ThreadEventQueue<InnerQueueT>::ShutdownIfNoPendingEvents() {
   return false;
 }
 
-template <class InnerQueueT>
-void ThreadEventQueue<InnerQueueT>::EnableInputEventPrioritization() {
-  MutexAutoLock lock(mLock);
-  mBaseQueue->EnableInputEventPrioritization(lock);
-}
-
-template <class InnerQueueT>
-void ThreadEventQueue<InnerQueueT>::FlushInputEventPrioritization() {
-  MutexAutoLock lock(mLock);
-  mBaseQueue->FlushInputEventPrioritization(lock);
-}
-
-template <class InnerQueueT>
-void ThreadEventQueue<InnerQueueT>::SuspendInputEventPrioritization() {
-  MutexAutoLock lock(mLock);
-  mBaseQueue->SuspendInputEventPrioritization(lock);
-}
-
-template <class InnerQueueT>
-void ThreadEventQueue<InnerQueueT>::ResumeInputEventPrioritization() {
-  MutexAutoLock lock(mLock);
-  mBaseQueue->ResumeInputEventPrioritization(lock);
-}
-
-template <class InnerQueueT>
-already_AddRefed<nsISerialEventTarget>
-ThreadEventQueue<InnerQueueT>::PushEventQueue() {
+already_AddRefed<nsISerialEventTarget> ThreadEventQueue::PushEventQueue() {
   auto queue = MakeUnique<EventQueue>();
   RefPtr<NestedSink> sink = new NestedSink(queue.get(), this);
   RefPtr<ThreadEventTarget> eventTarget =
@@ -211,8 +196,7 @@ ThreadEventQueue<InnerQueueT>::PushEventQueue() {
   return eventTarget.forget();
 }
 
-template <class InnerQueueT>
-void ThreadEventQueue<InnerQueueT>::PopEventQueue(nsIEventTarget* aTarget) {
+void ThreadEventQueue::PopEventQueue(nsIEventTarget* aTarget) {
   MutexAutoLock lock(mLock);
 
   MOZ_ASSERT(!mNestedQueues.IsEmpty());
@@ -224,24 +208,24 @@ void ThreadEventQueue<InnerQueueT>::PopEventQueue(nsIEventTarget* aTarget) {
   // Disconnect the event target that will be popped.
   item.mEventTarget->Disconnect(lock);
 
-  AbstractEventQueue* prevQueue =
+  EventQueue* prevQueue =
       mNestedQueues.Length() == 1
-          ? static_cast<AbstractEventQueue*>(mBaseQueue.get())
-          : static_cast<AbstractEventQueue*>(
-                mNestedQueues[mNestedQueues.Length() - 2].mQueue.get());
+          ? mBaseQueue.get()
+          : mNestedQueues[mNestedQueues.Length() - 2].mQueue.get();
 
   // Move events from the old queue to the new one.
   nsCOMPtr<nsIRunnable> event;
-  EventPriority prio;
-  while ((event = item.mQueue->GetEvent(&prio, lock))) {
-    prevQueue->PutEvent(event.forget(), prio, lock);
+  TimeDuration delay;
+  while ((event = item.mQueue->GetEvent(lock, &delay))) {
+    // preserve the event delay so far
+    prevQueue->PutEvent(event.forget(), EventQueuePriority::Normal, lock,
+                        &delay);
   }
 
   mNestedQueues.RemoveLastElement();
 }
 
-template <class InnerQueueT>
-size_t ThreadEventQueue<InnerQueueT>::SizeOfExcludingThis(
+size_t ThreadEventQueue::SizeOfExcludingThis(
     mozilla::MallocSizeOf aMallocSizeOf) const {
   size_t n = 0;
 
@@ -255,27 +239,23 @@ size_t ThreadEventQueue<InnerQueueT>::SizeOfExcludingThis(
   return SynchronizedEventQueue::SizeOfExcludingThis(aMallocSizeOf) + n;
 }
 
-template <class InnerQueueT>
-already_AddRefed<nsIThreadObserver>
-ThreadEventQueue<InnerQueueT>::GetObserver() {
+already_AddRefed<nsIThreadObserver> ThreadEventQueue::GetObserver() {
   MutexAutoLock lock(mLock);
   return do_AddRef(mObserver);
 }
 
-template <class InnerQueueT>
-already_AddRefed<nsIThreadObserver>
-ThreadEventQueue<InnerQueueT>::GetObserverOnThread() {
+already_AddRefed<nsIThreadObserver> ThreadEventQueue::GetObserverOnThread() {
   return do_AddRef(mObserver);
 }
 
-template <class InnerQueueT>
-void ThreadEventQueue<InnerQueueT>::SetObserver(nsIThreadObserver* aObserver) {
+void ThreadEventQueue::SetObserver(nsIThreadObserver* aObserver) {
   MutexAutoLock lock(mLock);
   mObserver = aObserver;
+  if (NS_IsMainThread()) {
+    TaskController::Get()->SetThreadObserver(aObserver);
+  }
 }
 
-namespace mozilla {
-template class ThreadEventQueue<EventQueue>;
-template class ThreadEventQueue<PrioritizedEventQueue<EventQueue>>;
-template class ThreadEventQueue<PrioritizedEventQueue<LabeledEventQueue>>;
-}  // namespace mozilla
+ThreadEventQueue::NestedQueueItem::NestedQueueItem(
+    UniquePtr<EventQueue> aQueue, ThreadEventTarget* aEventTarget)
+    : mQueue(std::move(aQueue)), mEventTarget(aEventTarget) {}

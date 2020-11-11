@@ -9,9 +9,11 @@
 
 #include "nsContentUtils.h"
 
-class nsIDocument;
-
 namespace mozilla {
+
+namespace dom {
+class Document;
+}
 
 enum class FullscreenEventType {
   Change,
@@ -24,14 +26,14 @@ enum class FullscreenEventType {
  */
 class PendingFullscreenEvent {
  public:
-  PendingFullscreenEvent(FullscreenEventType aType, nsIDocument* aDocument,
+  PendingFullscreenEvent(FullscreenEventType aType, dom::Document* aDocument,
                          nsINode* aTarget)
       : mDocument(aDocument), mTarget(aTarget), mType(aType) {
     MOZ_ASSERT(aDocument);
     MOZ_ASSERT(aTarget);
   }
 
-  nsIDocument* Document() const { return mDocument; }
+  dom::Document* Document() const { return mDocument; }
 
   void Dispatch() {
 #ifdef DEBUG
@@ -41,10 +43,10 @@ class PendingFullscreenEvent {
     nsString name;
     switch (mType) {
       case FullscreenEventType::Change:
-        name = NS_LITERAL_STRING("fullscreenchange");
+        name = u"fullscreenchange"_ns;
         break;
       case FullscreenEventType::Error:
-        name = NS_LITERAL_STRING("fullscreenerror");
+        name = u"fullscreenerror"_ns;
         break;
     }
     nsINode* target = mTarget->GetComposedDoc() == mDocument ? mTarget.get()
@@ -55,7 +57,7 @@ class PendingFullscreenEvent {
   }
 
  private:
-  nsCOMPtr<nsIDocument> mDocument;
+  RefPtr<dom::Document> mDocument;
   nsCOMPtr<nsINode> mTarget;
   FullscreenEventType mType;
 #ifdef DEBUG

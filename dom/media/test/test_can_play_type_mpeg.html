@@ -5,7 +5,7 @@ https://bugzilla.mozilla.org/show_bug.cgi?id=799315
 -->
 <head>
   <title>Test for MP4 and MP3 support</title>
-  <script type="application/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css"/>
   <script type="text/javascript" src="manifest.js"></script>
 </head>
@@ -84,8 +84,9 @@ function check_mp4(v, enabled) {
   check("audio/mp4; codecs=opus", "probably");
 
   // Flac.
-  check("audio/mp4; codecs=\"flac\"", "probably");
-  check("audio/mp4; codecs=flac", "probably");
+  var haveFlac = getPref("media.flac.enabled");
+  check("audio/mp4; codecs=\"flac\"", haveFlac ? "probably" : "");
+  check("audio/mp4; codecs=flac", haveFlac ? "probably" : "");
 
   // VP9.
   [ "video/mp4; codecs=vp9",
@@ -94,15 +95,15 @@ function check_mp4(v, enabled) {
   ].forEach((codec) => {
     // canPlayType should support VP9 in MP4...
     check(codec, "probably");
-    ok(MediaSource.isTypeSupported(codec), "VP9 in MP4 should be supported in MSE");
+    if (!IsSupportedAndroid()) {
+      // VP9 codec is disabled on Android devices with no HW decoder. So skip it
+      // on Android for now.
+      ok(MediaSource.isTypeSupported(codec), "VP9 in MP4 should be supported in MSE");
+    }
   });
-  // AV1 is temporarily disabled on Win32 due to linker issues
-  // https://bugzilla.mozilla.org/show_bug.cgi?id=1475564
-  if (!isWindows32()) {
-    check("video/mp4; codecs=\"av1\"", "probably");
-  } else {
-    check("video/mp4; codecs=\"av1\"", "");
-  }
+
+  var haveAV1 = getPref("media.av1.enabled");
+  check("video/mp4; codecs=\"av1\"", haveAV1 ? "probably" : "");
 }
 
 function check_mp3(v, enabled) {
@@ -121,15 +122,8 @@ function check_mp3(v, enabled) {
   check("audio/mp3; codecs=mp3", "probably");
 }
 
-function IsMacOSSnowLeopardOrLater() {
-  var re = /Mac OS X (\d+)\.(\d+)/;
-  var ver = navigator.userAgent.match(re);
-  if (!ver || ver.length != 3) {
-    return false;
-  }
-  var major = ver[1] | 0;
-  var minor = ver[2] | 0;
-  return major == 10 && minor >= 6;
+function IsMacOS() {
+  return navigator.userAgent.includes("Mac OS");
 }
 
 function IsLinux() {
@@ -137,11 +131,7 @@ function IsLinux() {
 }
 
 function getPref(name) {
-  var pref = false;
-  try {
-    pref = SpecialPowers.getBoolPref(name);
-  } catch(ex) { }
-  return pref;
+  return SpecialPowers.getBoolPref(name, false);
 }
 
 function IsSupportedAndroid() {
@@ -152,20 +142,23 @@ function IsJellyBeanOrLater() {
   return getAndroidVersion() >= 16;
 }
 
-var haveMp4 = getPref("media.wmf.enabled") ||
-              IsMacOSSnowLeopardOrLater() ||
-              (IsSupportedAndroid() &&
-               (IsJellyBeanOrLater() || getPref("media.plugins.enabled"))) ||
-              (IsLinux() && getPref("media.ffmpeg.enabled"));
+var haveMp4 =
+  getPref("media.wmf.enabled") ||
+  IsMacOS() ||
+  (IsSupportedAndroid() &&
+    (IsJellyBeanOrLater() || getPref("media.plugins.enabled"))) ||
+  (IsLinux() && getPref("media.ffmpeg.enabled"));
 
 check_mp4(document.getElementById('v'), haveMp4);
 
-var haveMp3 = getPref("media.wmf.enabled") ||
-              (IsLinux() && getPref("media.ffmpeg.enabled")) ||
-              (IsSupportedAndroid() &&
-               ((IsJellyBeanOrLater() && getPref("media.android-media-codec.enabled")) ||
-                getPref("media.plugins.enabled"))) ||
-              IsMacOSSnowLeopardOrLater();
+var haveMp3 =
+  getPref("media.wmf.enabled") ||
+  (IsLinux() && getPref("media.ffmpeg.enabled")) ||
+  (IsSupportedAndroid() &&
+    ((IsJellyBeanOrLater() && getPref("media.android-media-codec.enabled")) ||
+      getPref("media.plugins.enabled"))) ||
+  IsMacOS();
+
 check_mp3(document.getElementById('v'), haveMp3);
 
 mediaTestCleanup();

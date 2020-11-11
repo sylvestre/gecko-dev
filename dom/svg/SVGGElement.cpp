@@ -7,7 +7,7 @@
 #include "mozilla/dom/SVGGElement.h"
 #include "mozilla/dom/SVGGElementBinding.h"
 
-NS_IMPL_NS_NEW_NAMESPACED_SVG_ELEMENT(G)
+NS_IMPL_NS_NEW_SVG_ELEMENT(G)
 
 namespace mozilla {
 namespace dom {
@@ -27,6 +27,10 @@ SVGGElement::SVGGElement(already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo)
 // nsINode methods
 
 NS_IMPL_ELEMENT_CLONE_WITH_INIT(SVGGElement)
+
+bool SVGGElement::IsNodeOfType(uint32_t aFlags) const {
+  return !(aFlags & ~eUSE_TARGET);
+}
 
 //----------------------------------------------------------------------
 // nsIContent methods

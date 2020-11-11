@@ -4,22 +4,22 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef mozilla_dom_SVGMPathElement_h
-#define mozilla_dom_SVGMPathElement_h
+#ifndef DOM_SVG_SVGMPATHELEMENT_H_
+#define DOM_SVG_SVGMPATHELEMENT_H_
 
 #include "mozilla/dom/IDTracker.h"
-#include "nsSVGElement.h"
+#include "mozilla/dom/SVGElement.h"
 #include "nsStubMutationObserver.h"
-#include "nsSVGString.h"
+#include "SVGAnimatedString.h"
 
 nsresult NS_NewSVGMPathElement(
     nsIContent** aResult, already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo);
 
-typedef nsSVGElement SVGMPathElementBase;
-
 namespace mozilla {
 namespace dom {
-class SVGPathElement;
+class SVGGeometryElement;
+
+using SVGMPathElementBase = SVGElement;
 
 class SVGMPathElement final : public SVGMPathElementBase,
                               public nsStubMutationObserver {
@@ -44,9 +44,8 @@ class SVGMPathElement final : public SVGMPathElementBase,
 
   // nsIContent interface
   virtual nsresult Clone(dom::NodeInfo*, nsINode** aResult) const override;
-  virtual nsresult BindToTree(nsIDocument* aDocument, nsIContent* aParent,
-                              nsIContent* aBindingParent) override;
-  virtual void UnbindFromTree(bool aDeep, bool aNullParent) override;
+  virtual nsresult BindToTree(BindContext&, nsINode& aParent) override;
+  virtual void UnbindFromTree(bool aNullParent) override;
 
   // Element specializations
   virtual bool ParseAttribute(int32_t aNamespaceID, nsAtom* aAttribute,
@@ -59,13 +58,13 @@ class SVGMPathElement final : public SVGMPathElementBase,
                                 nsIPrincipal* aMaybeScriptedPrincipal,
                                 bool aNotify) override;
 
-  // Public helper method: If our xlink:href attribute links to a <path>
+  // Public helper method: If our xlink:href attribute links to a Shape
   // element, this method returns a pointer to that element. Otherwise,
   // this returns nullptr.
-  SVGPathElement* GetReferencedPath();
+  SVGGeometryElement* GetReferencedPath();
 
   // WebIDL
-  already_AddRefed<SVGAnimatedString> Href();
+  already_AddRefed<DOMSVGAnimatedString> Href();
 
  protected:
   /**
@@ -110,7 +109,7 @@ class SVGMPathElement final : public SVGMPathElementBase,
   void NotifyParentOfMpathChange(nsIContent* aParent);
 
   enum { HREF, XLINK_HREF };
-  nsSVGString mStringAttributes[2];
+  SVGAnimatedString mStringAttributes[2];
   static StringInfo sStringInfo[2];
   PathElementTracker mPathTracker;
 };
@@ -118,4 +117,4 @@ class SVGMPathElement final : public SVGMPathElementBase,
 }  // namespace dom
 }  // namespace mozilla
 
-#endif  // mozilla_dom_SVGMPathElement_h
+#endif  // DOM_SVG_SVGMPATHELEMENT_H_

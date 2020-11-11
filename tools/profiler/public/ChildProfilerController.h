@@ -6,10 +6,12 @@
 #ifndef ChildProfilerController_h
 #define ChildProfilerController_h
 
-#include "mozilla/Attributes.h"
-#include "mozilla/RefPtr.h"
-#include "nsStringFwd.h"
 #include "base/process.h"
+#include "mozilla/Attributes.h"
+#include "mozilla/ipc/ProtocolUtils.h"
+#include "mozilla/RefPtr.h"
+#include "nsISupportsImpl.h"
+#include "nsStringFwd.h"
 
 namespace mozilla {
 
@@ -27,7 +29,7 @@ class ChildProfilerController final {
   static already_AddRefed<ChildProfilerController> Create(
       mozilla::ipc::Endpoint<PProfilerChild>&& aEndpoint);
 
-  MOZ_MUST_USE nsCString GrabShutdownProfileAndShutdown();
+  [[nodiscard]] nsCString GrabShutdownProfileAndShutdown();
   void Shutdown();
 
  private:

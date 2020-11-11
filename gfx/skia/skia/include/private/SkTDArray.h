@@ -9,9 +9,9 @@
 #ifndef SkTDArray_DEFINED
 #define SkTDArray_DEFINED
 
-#include "SkMalloc.h"
-#include "SkTo.h"
-#include "SkTypes.h"
+#include "include/core/SkTypes.h"
+#include "include/private/SkMalloc.h"
+#include "include/private/SkTo.h"
 
 #include <initializer_list>
 #include <utility>
@@ -101,10 +101,8 @@ public:
 
     T*        begin() { return fArray; }
     const T*  begin() const { return fArray; }
-    const T* cbegin() const { return fArray; }
     T*        end() { return fArray ? fArray + fCount : nullptr; }
     const T*  end() const { return fArray ? fArray + fCount : nullptr; }
-    const T* cend() const { return fArray ? fArray + fCount : nullptr; }
 
     T&  operator[](int index) {
         SkASSERT(index < fCount);
@@ -118,9 +116,7 @@ public:
     T&  getAt(int index)  {
         return (*this)[index];
     }
-    const T&  getAt(int index) const {
-        return (*this)[index];
-    }
+
 
     void reset() {
         if (fArray) {
@@ -183,12 +179,6 @@ public:
             }
         }
         return fArray + oldCount;
-    }
-
-    T* appendClear() {
-        T* result = this->append();
-        *result = 0;
-        return result;
     }
 
     T* insert(int index) {
@@ -320,15 +310,6 @@ public:
         this->reset();
     }
 
-    void visitAll(void visitor(T&)) {
-        T* stop = this->end();
-        for (T* curr = this->begin(); curr < stop; curr++) {
-            if (*curr) {
-                visitor(*curr);
-            }
-        }
-    }
-
 #ifdef SK_DEBUG
     void validate() const {
         SkASSERT((fReserve == 0 && fArray == nullptr) ||
@@ -344,8 +325,8 @@ public:
 
 private:
     T*      fArray;
-    int     fReserve;
-    int     fCount;
+    int     fReserve;   // size of the allocation in fArray (#elements)
+    int     fCount;     // logical number of elements (fCount <= fReserve)
 
     /**
      *  Adjusts the number of elements in the array.

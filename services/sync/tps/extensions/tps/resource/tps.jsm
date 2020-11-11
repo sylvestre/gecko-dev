@@ -2,53 +2,81 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
- /* This is a JavaScript module (JSM) to be imported via
-  * Components.utils.import() and acts as a singleton. Only the following
-  * listed symbols will exposed on import, and only when and where imported.
-  */
+/* This is a JavaScript module (JSM) to be imported via
+ * Components.utils.import() and acts as a singleton. Only the following
+ * listed symbols will exposed on import, and only when and where imported.
+ */
 
 var EXPORTED_SYMBOLS = [
-  "ACTIONS", "Addons", "Addresses", "Bookmarks", "CreditCards",
-  "Formdata", "History", "Passwords", "Prefs",
-  "Tabs", "TPS", "Windows",
+  "ACTIONS",
+  "Addons",
+  "Addresses",
+  "Bookmarks",
+  "CreditCards",
+  "ExtensionStorage",
+  "Formdata",
+  "History",
+  "Passwords",
+  "Prefs",
+  "Tabs",
+  "TPS",
+  "Windows",
 ];
 
 var module = this;
 
-// Global modules
-ChromeUtils.import("resource://gre/modules/Log.jsm");
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
-ChromeUtils.import("resource://gre/modules/Services.jsm");
-ChromeUtils.import("resource://gre/modules/AppConstants.jsm");
-ChromeUtils.import("resource://gre/modules/PlacesUtils.jsm");
-ChromeUtils.import("resource://gre/modules/FileUtils.jsm");
-ChromeUtils.import("resource://gre/modules/Timer.jsm");
-ChromeUtils.import("resource://gre/modules/PromiseUtils.jsm");
-ChromeUtils.import("resource://gre/modules/osfile.jsm");
-ChromeUtils.import("resource:///modules/sessionstore/SessionStore.jsm");
-ChromeUtils.import("resource://services-common/async.js");
-ChromeUtils.import("resource://services-common/utils.js");
-ChromeUtils.import("resource://services-sync/constants.js");
-ChromeUtils.import("resource://services-sync/main.js");
-ChromeUtils.import("resource://services-sync/util.js");
-ChromeUtils.import("resource://services-sync/telemetry.js");
-ChromeUtils.import("resource://services-sync/bookmark_validator.js");
-ChromeUtils.import("resource://services-sync/engines/passwords.js");
-ChromeUtils.import("resource://services-sync/engines/forms.js");
-ChromeUtils.import("resource://services-sync/engines/addons.js");
-// TPS modules
-ChromeUtils.import("resource://tps/logger.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
 
-// Module wrappers for tests
-ChromeUtils.import("resource://tps/modules/addons.jsm");
-ChromeUtils.import("resource://tps/modules/bookmarks.jsm");
-ChromeUtils.import("resource://tps/modules/formautofill.jsm");
-ChromeUtils.import("resource://tps/modules/forms.jsm");
-ChromeUtils.import("resource://tps/modules/history.jsm");
-ChromeUtils.import("resource://tps/modules/passwords.jsm");
-ChromeUtils.import("resource://tps/modules/prefs.jsm");
-ChromeUtils.import("resource://tps/modules/tabs.jsm");
-ChromeUtils.import("resource://tps/modules/windows.jsm");
+XPCOMUtils.defineLazyModuleGetters(this, {
+  AppConstants: "resource://gre/modules/AppConstants.jsm",
+  Async: "resource://services-common/async.js",
+  BrowserTabs: "resource://tps/modules/tabs.jsm",
+  BrowserWindows: "resource://tps/modules/windows.jsm",
+  CommonUtils: "resource://services-common/utils.js",
+  extensionStorageSync: "resource://gre/modules/ExtensionStorageSync.jsm",
+  FileUtils: "resource://gre/modules/FileUtils.jsm",
+  Log: "resource://gre/modules/Log.jsm",
+  Logger: "resource://tps/logger.jsm",
+  OS: "resource://gre/modules/osfile.jsm",
+  PlacesUtils: "resource://gre/modules/PlacesUtils.jsm",
+  PromiseUtils: "resource://gre/modules/PromiseUtils.jsm",
+  Services: "resource://gre/modules/Services.jsm",
+  SessionStore: "resource:///modules/sessionstore/SessionStore.jsm",
+  setTimeout: "resource://gre/modules/Timer.jsm",
+  Svc: "resource://services-sync/util.js",
+  SyncTelemetry: "resource://services-sync/telemetry.js",
+  Weave: "resource://services-sync/main.js",
+  WEAVE_VERSION: "resource://services-sync/constants.js",
+
+  Addon: "resource://tps/modules/addons.jsm",
+  AddonValidator: "resource://services-sync/engines/addons.js",
+
+  FormData: "resource://tps/modules/forms.jsm",
+  FormValidator: "resource://services-sync/engines/forms.js",
+
+  Bookmark: "resource://tps/modules/bookmarks.jsm",
+  DumpBookmarks: "resource://tps/modules/bookmarks.jsm",
+  BookmarkFolder: "resource://tps/modules/bookmarks.jsm",
+  Livemark: "resource://tps/modules/bookmarks.jsm",
+  Separator: "resource://tps/modules/bookmarks.jsm",
+  BookmarkValidator: "resource://services-sync/bookmark_validator.js",
+
+  Address: "resource://tps/modules/formautofill.jsm",
+  DumpAddresses: "resource://tps/modules/formautofill.jsm",
+  CreditCard: "resource://tps/modules/formautofill.jsm",
+  DumpCreditCards: "resource://tps/modules/formautofill.jsm",
+
+  DumpHistory: "resource://tps/modules/history.jsm",
+  HistoryEntry: "resource://tps/modules/history.jsm",
+
+  Preference: "resource://tps/modules/prefs.jsm",
+
+  DumpPasswords: "resource://tps/modules/passwords.jsm",
+  Password: "resource://tps/modules/passwords.jsm",
+  PasswordValidator: "resource://services-sync/engines/passwords.js",
+});
 
 XPCOMUtils.defineLazyGetter(this, "fileProtocolHandler", () => {
   let fileHandler = Services.io.getProtocolHandler("file");
@@ -59,25 +87,28 @@ XPCOMUtils.defineLazyGetter(this, "gTextDecoder", () => {
   return new TextDecoder();
 });
 
-ChromeUtils.defineModuleGetter(this, "NetUtil",
-                               "resource://gre/modules/NetUtil.jsm");
+ChromeUtils.defineModuleGetter(
+  this,
+  "NetUtil",
+  "resource://gre/modules/NetUtil.jsm"
+);
 
 // Options for wiping data during a sync
 const SYNC_RESET_CLIENT = "resetClient";
-const SYNC_WIPE_CLIENT  = "wipeClient";
-const SYNC_WIPE_REMOTE  = "wipeRemote";
+const SYNC_WIPE_CLIENT = "wipeClient";
+const SYNC_WIPE_REMOTE = "wipeRemote";
 
 // Actions a test can perform
-const ACTION_ADD                = "add";
-const ACTION_DELETE             = "delete";
-const ACTION_MODIFY             = "modify";
-const ACTION_SET_ENABLED        = "set-enabled";
-const ACTION_SYNC               = "sync";
-const ACTION_SYNC_RESET_CLIENT  = SYNC_RESET_CLIENT;
-const ACTION_SYNC_WIPE_CLIENT   = SYNC_WIPE_CLIENT;
-const ACTION_SYNC_WIPE_REMOTE   = SYNC_WIPE_REMOTE;
-const ACTION_VERIFY             = "verify";
-const ACTION_VERIFY_NOT         = "verify-not";
+const ACTION_ADD = "add";
+const ACTION_DELETE = "delete";
+const ACTION_MODIFY = "modify";
+const ACTION_SET_ENABLED = "set-enabled";
+const ACTION_SYNC = "sync";
+const ACTION_SYNC_RESET_CLIENT = SYNC_RESET_CLIENT;
+const ACTION_SYNC_WIPE_CLIENT = SYNC_WIPE_CLIENT;
+const ACTION_SYNC_WIPE_REMOTE = SYNC_WIPE_REMOTE;
+const ACTION_VERIFY = "verify";
+const ACTION_VERIFY_NOT = "verify-not";
 
 const ACTIONS = [
   ACTION_ADD,
@@ -92,20 +123,21 @@ const ACTIONS = [
   ACTION_VERIFY_NOT,
 ];
 
-const OBSERVER_TOPICS = ["fxaccounts:onlogin",
-                         "fxaccounts:onlogout",
-                         "profile-before-change",
-                         "weave:service:tracking-started",
-                         "weave:service:tracking-stopped",
-                         "weave:service:login:error",
-                         "weave:service:setup-complete",
-                         "weave:service:sync:finish",
-                         "weave:service:sync:delayed",
-                         "weave:service:sync:error",
-                         "weave:service:sync:start",
-                         "weave:service:resyncs-finished",
-                         "places-browser-init-complete",
-                        ];
+const OBSERVER_TOPICS = [
+  "fxaccounts:onlogin",
+  "fxaccounts:onlogout",
+  "profile-before-change",
+  "weave:service:tracking-started",
+  "weave:service:tracking-stopped",
+  "weave:service:login:error",
+  "weave:service:setup-complete",
+  "weave:service:sync:finish",
+  "weave:service:sync:delayed",
+  "weave:service:sync:error",
+  "weave:service:sync:start",
+  "weave:service:resyncs-finished",
+  "places-browser-init-complete",
+];
 
 var TPS = {
   _currentAction: -1,
@@ -167,8 +199,10 @@ var TPS = {
     this.quit();
   },
 
-  QueryInterface: ChromeUtils.generateQI([Ci.nsIObserver,
-                                          Ci.nsISupportsWeakReference]),
+  QueryInterface: ChromeUtils.generateQI([
+    "nsIObserver",
+    "nsISupportsWeakReference",
+  ]),
 
   observe: function TPS__observe(subject, topic, data) {
     try {
@@ -231,7 +265,9 @@ var TPS = {
         case "weave:service:sync:start":
           // Ensure that the sync operation has been started by TPS
           if (!this._triggeredSync) {
-            this.DumpError("Automatic sync got triggered, which is not allowed.");
+            this.DumpError(
+              "Automatic sync got triggered, which is not allowed."
+            );
           }
 
           this._syncActive = true;
@@ -244,10 +280,20 @@ var TPS = {
         case "weave:service:tracking-stopped":
           this._isTracking = false;
           break;
+
+        case "fxaccounts:onlogin":
+          // A user signed in - for TPS that always means sync - so configure
+          // that.
+          Weave.Service.configure().catch(e => {
+            this.DumpError("Configuring sync failed.", e);
+          });
+          break;
+
+        default:
+          Logger.logInfo(`unhandled event: ${topic}`);
       }
     } catch (e) {
       this.DumpError("Observer failed", e);
-
     }
   },
 
@@ -270,8 +316,12 @@ var TPS = {
   },
 
   async HandleWindows(aWindow, action) {
-    Logger.logInfo("executing action " + action.toUpperCase() +
-                   " on window " + JSON.stringify(aWindow));
+    Logger.logInfo(
+      "executing action " +
+        action.toUpperCase() +
+        " on window " +
+        JSON.stringify(aWindow)
+    );
     switch (action) {
       case ACTION_ADD:
         await BrowserWindows.Add(aWindow.private);
@@ -282,24 +332,35 @@ var TPS = {
 
   async HandleTabs(tabs, action) {
     for (let tab of tabs) {
-      Logger.logInfo("executing action " + action.toUpperCase() +
-                     " on tab " + JSON.stringify(tab));
+      Logger.logInfo(
+        "executing action " +
+          action.toUpperCase() +
+          " on tab " +
+          JSON.stringify(tab)
+      );
       switch (action) {
         case ACTION_ADD:
           await BrowserTabs.Add(tab.uri);
           break;
         case ACTION_VERIFY:
-          Logger.AssertTrue(typeof(tab.profile) != "undefined",
-            "profile must be defined when verifying tabs");
           Logger.AssertTrue(
-            BrowserTabs.Find(tab.uri, tab.title, tab.profile), "error locating tab");
+            typeof tab.profile != "undefined",
+            "profile must be defined when verifying tabs"
+          );
+          Logger.AssertTrue(
+            BrowserTabs.Find(tab.uri, tab.title, tab.profile),
+            "error locating tab"
+          );
           break;
         case ACTION_VERIFY_NOT:
-          Logger.AssertTrue(typeof(tab.profile) != "undefined",
-            "profile must be defined when verifying tabs");
+          Logger.AssertTrue(
+            typeof tab.profile != "undefined",
+            "profile must be defined when verifying tabs"
+          );
           Logger.AssertTrue(
             !BrowserTabs.Find(tab.uri, tab.title, tab.profile),
-            "tab found which was expected to be absent");
+            "tab found which was expected to be absent"
+          );
           break;
         default:
           Logger.AssertTrue(false, "invalid action: " + action);
@@ -318,8 +379,12 @@ var TPS = {
 
   async HandlePrefs(prefs, action) {
     for (let pref of prefs) {
-      Logger.logInfo("executing action " + action.toUpperCase() +
-                     " on pref " + JSON.stringify(pref));
+      Logger.logInfo(
+        "executing action " +
+          action.toUpperCase() +
+          " on pref " +
+          JSON.stringify(pref)
+      );
       let preference = new Preference(pref);
       switch (action) {
         case ACTION_MODIFY:
@@ -338,8 +403,12 @@ var TPS = {
   async HandleForms(data, action) {
     this.shouldValidateForms = true;
     for (let datum of data) {
-      Logger.logInfo("executing action " + action.toUpperCase() +
-                     " on form entry " + JSON.stringify(datum));
+      Logger.logInfo(
+        "executing action " +
+          action.toUpperCase() +
+          " on form entry " +
+          JSON.stringify(datum)
+      );
       let formdata = new FormData(datum, this._msSinceEpoch);
       switch (action) {
         case ACTION_ADD:
@@ -349,27 +418,31 @@ var TPS = {
           await formdata.Remove();
           break;
         case ACTION_VERIFY:
-          Logger.AssertTrue(await formdata.Find(),
-                            "form data not found");
+          Logger.AssertTrue(await formdata.Find(), "form data not found");
           break;
         case ACTION_VERIFY_NOT:
-          Logger.AssertTrue(!await formdata.Find(),
-                            "form data found, but it shouldn't be present");
+          Logger.AssertTrue(
+            !(await formdata.Find()),
+            "form data found, but it shouldn't be present"
+          );
           break;
         default:
           Logger.AssertTrue(false, "invalid action: " + action);
       }
     }
-    Logger.logPass("executing action " + action.toUpperCase() +
-                   " on formdata");
+    Logger.logPass("executing action " + action.toUpperCase() + " on formdata");
   },
 
   async HandleHistory(entries, action) {
     try {
       for (let entry of entries) {
         const entryString = JSON.stringify(entry);
-        Logger.logInfo("executing action " + action.toUpperCase() +
-                       " on history entry " + entryString);
+        Logger.logInfo(
+          "executing action " +
+            action.toUpperCase() +
+            " on history entry " +
+            entryString
+        );
         switch (action) {
           case ACTION_ADD:
             await HistoryEntry.Add(entry, this._msSinceEpoch);
@@ -378,22 +451,28 @@ var TPS = {
             await HistoryEntry.Delete(entry, this._msSinceEpoch);
             break;
           case ACTION_VERIFY:
-            Logger.AssertTrue((await HistoryEntry.Find(entry, this._msSinceEpoch)),
-              "Uri visits not found in history database: " + entryString);
+            Logger.AssertTrue(
+              await HistoryEntry.Find(entry, this._msSinceEpoch),
+              "Uri visits not found in history database: " + entryString
+            );
             break;
           case ACTION_VERIFY_NOT:
-            Logger.AssertTrue(!(await HistoryEntry.Find(entry, this._msSinceEpoch)),
-              "Uri visits found in history database, but they shouldn't be: " + entryString);
+            Logger.AssertTrue(
+              !(await HistoryEntry.Find(entry, this._msSinceEpoch)),
+              "Uri visits found in history database, but they shouldn't be: " +
+                entryString
+            );
             break;
           default:
             Logger.AssertTrue(false, "invalid action: " + action);
         }
       }
-      Logger.logPass("executing action " + action.toUpperCase() +
-                     " on history");
+      Logger.logPass(
+        "executing action " + action.toUpperCase() + " on history"
+      );
     } catch (e) {
       await DumpHistory();
-      throw (e);
+      throw e;
     }
   },
 
@@ -401,19 +480,28 @@ var TPS = {
     this.shouldValidatePasswords = true;
     try {
       for (let password of passwords) {
-        Logger.logInfo("executing action " + action.toUpperCase() +
-                      " on password " + JSON.stringify(password));
+        Logger.logInfo(
+          "executing action " +
+            action.toUpperCase() +
+            " on password " +
+            JSON.stringify(password)
+        );
         let passwordOb = new Password(password);
         switch (action) {
           case ACTION_ADD:
-            Logger.AssertTrue(passwordOb.Create() > -1, "error adding password");
+            Logger.AssertTrue(
+              passwordOb.Create() > -1,
+              "error adding password"
+            );
             break;
           case ACTION_VERIFY:
             Logger.AssertTrue(passwordOb.Find() != -1, "password not found");
             break;
           case ACTION_VERIFY_NOT:
-            Logger.AssertTrue(passwordOb.Find() == -1,
-              "password found, but it shouldn't exist");
+            Logger.AssertTrue(
+              passwordOb.Find() == -1,
+              "password found, but it shouldn't exist"
+            );
             break;
           case ACTION_DELETE:
             Logger.AssertTrue(passwordOb.Find() != -1, "password not found");
@@ -429,19 +517,24 @@ var TPS = {
             Logger.AssertTrue(false, "invalid action: " + action);
         }
       }
-      Logger.logPass("executing action " + action.toUpperCase() +
-                     " on passwords");
+      Logger.logPass(
+        "executing action " + action.toUpperCase() + " on passwords"
+      );
     } catch (e) {
       DumpPasswords();
-      throw (e);
+      throw e;
     }
   },
 
   async HandleAddons(addons, action, state) {
     this.shouldValidateAddons = true;
     for (let entry of addons) {
-      Logger.logInfo("executing action " + action.toUpperCase() +
-                     " on addon " + JSON.stringify(entry));
+      Logger.logInfo(
+        "executing action " +
+          action.toUpperCase() +
+          " on addon " +
+          JSON.stringify(entry)
+      );
       let addon = new Addon(this, entry);
       switch (action) {
         case ACTION_ADD:
@@ -451,20 +544,28 @@ var TPS = {
           await addon.uninstall();
           break;
         case ACTION_VERIFY:
-          Logger.AssertTrue((await addon.find(state)), "addon " + addon.id + " not found");
+          Logger.AssertTrue(
+            await addon.find(state),
+            "addon " + addon.id + " not found"
+          );
           break;
         case ACTION_VERIFY_NOT:
-          Logger.AssertFalse((await addon.find(state)), "addon " + addon.id + " is present, but it shouldn't be");
+          Logger.AssertFalse(
+            await addon.find(state),
+            "addon " + addon.id + " is present, but it shouldn't be"
+          );
           break;
         case ACTION_SET_ENABLED:
-          Logger.AssertTrue((await addon.setEnabled(state)), "addon " + addon.id + " not found");
+          Logger.AssertTrue(
+            await addon.setEnabled(state),
+            "addon " + addon.id + " not found"
+          );
           break;
         default:
           throw new Error("Unknown action for add-on: " + action);
       }
     }
-    Logger.logPass("executing action " + action.toUpperCase() +
-                   " on addons");
+    Logger.logPass("executing action " + action.toUpperCase() + " on addons");
   },
 
   async HandleBookmarks(bookmarks, action) {
@@ -486,8 +587,12 @@ var TPS = {
           let itemGuid = null;
 
           if (action != ACTION_MODIFY && action != ACTION_DELETE) {
-            Logger.logInfo("executing action " + action.toUpperCase() +
-                           " on bookmark " + JSON.stringify(bookmark));
+            Logger.logInfo(
+              "executing action " +
+                action.toUpperCase() +
+                " on bookmark " +
+                JSON.stringify(bookmark)
+            );
           }
 
           if ("uri" in bookmark) {
@@ -505,11 +610,14 @@ var TPS = {
           } else {
             itemGuid = await placesItem.Find();
             if (action == ACTION_VERIFY_NOT) {
-              Logger.AssertTrue(itemGuid == null,
+              Logger.AssertTrue(
+                itemGuid == null,
                 "places item exists but it shouldn't: " +
-                JSON.stringify(bookmark));
-            } else
+                  JSON.stringify(bookmark)
+              );
+            } else {
               Logger.AssertTrue(itemGuid, "places item not found", true);
+            }
           }
 
           last_item_pos = await placesItem.GetItemIndex();
@@ -519,8 +627,12 @@ var TPS = {
 
       if (action == ACTION_DELETE || action == ACTION_MODIFY) {
         for (let item of items) {
-          Logger.logInfo("executing action " + action.toUpperCase() +
-                         " on bookmark " + JSON.stringify(item));
+          Logger.logInfo(
+            "executing action " +
+              action.toUpperCase() +
+              " on bookmark " +
+              JSON.stringify(item)
+          );
           switch (action) {
             case ACTION_DELETE:
               await item.Remove();
@@ -534,19 +646,24 @@ var TPS = {
         }
       }
 
-      Logger.logPass("executing action " + action.toUpperCase() +
-        " on bookmarks");
+      Logger.logPass(
+        "executing action " + action.toUpperCase() + " on bookmarks"
+      );
     } catch (e) {
       await DumpBookmarks();
-      throw (e);
+      throw e;
     }
   },
 
   async HandleAddresses(addresses, action) {
     try {
       for (let address of addresses) {
-        Logger.logInfo("executing action " + action.toUpperCase() +
-                      " on address " + JSON.stringify(address));
+        Logger.logInfo(
+          "executing action " +
+            action.toUpperCase() +
+            " on address " +
+            JSON.stringify(address)
+        );
         let addressOb = new Address(address);
         switch (action) {
           case ACTION_ADD:
@@ -559,8 +676,10 @@ var TPS = {
             Logger.AssertTrue(await addressOb.Find(), "address not found");
             break;
           case ACTION_VERIFY_NOT:
-            Logger.AssertTrue(!await addressOb.Find(),
-              "address found, but it shouldn't exist");
+            Logger.AssertTrue(
+              !(await addressOb.Find()),
+              "address found, but it shouldn't exist"
+            );
             break;
           case ACTION_DELETE:
             Logger.AssertTrue(await addressOb.Find(), "address not found");
@@ -570,19 +689,24 @@ var TPS = {
             Logger.AssertTrue(false, "invalid action: " + action);
         }
       }
-      Logger.logPass("executing action " + action.toUpperCase() +
-                     " on addresses");
+      Logger.logPass(
+        "executing action " + action.toUpperCase() + " on addresses"
+      );
     } catch (e) {
       await DumpAddresses();
-      throw (e);
+      throw e;
     }
   },
 
   async HandleCreditCards(creditCards, action) {
     try {
       for (let creditCard of creditCards) {
-        Logger.logInfo("executing action " + action.toUpperCase() +
-                      " on creditCard " + JSON.stringify(creditCard));
+        Logger.logInfo(
+          "executing action " +
+            action.toUpperCase() +
+            " on creditCard " +
+            JSON.stringify(creditCard)
+        );
         let creditCardOb = new CreditCard(creditCard);
         switch (action) {
           case ACTION_ADD:
@@ -592,25 +716,34 @@ var TPS = {
             await creditCardOb.Update();
             break;
           case ACTION_VERIFY:
-            Logger.AssertTrue(await creditCardOb.Find(), "creditCard not found");
+            Logger.AssertTrue(
+              await creditCardOb.Find(),
+              "creditCard not found"
+            );
             break;
           case ACTION_VERIFY_NOT:
-            Logger.AssertTrue(!await creditCardOb.Find(),
-              "creditCard found, but it shouldn't exist");
+            Logger.AssertTrue(
+              !(await creditCardOb.Find()),
+              "creditCard found, but it shouldn't exist"
+            );
             break;
           case ACTION_DELETE:
-            Logger.AssertTrue(await creditCardOb.Find(), "creditCard not found");
+            Logger.AssertTrue(
+              await creditCardOb.Find(),
+              "creditCard not found"
+            );
             await creditCardOb.Remove();
             break;
           default:
             Logger.AssertTrue(false, "invalid action: " + action);
         }
       }
-      Logger.logPass("executing action " + action.toUpperCase() +
-                     " on creditCards");
+      Logger.logPass(
+        "executing action " + action.toUpperCase() + " on creditCards"
+      );
     } catch (e) {
       await DumpCreditCards();
-      throw (e);
+      throw e;
     }
   },
 
@@ -639,11 +772,12 @@ var TPS = {
    * Use Sync's bookmark validation code to see if we've corrupted the tree.
    */
   async ValidateBookmarks() {
-
     let getServerBookmarkState = async () => {
       let bookmarkEngine = Weave.Service.engineManager.get("bookmarks");
       let collection = bookmarkEngine.itemSource();
-      let collectionKey = bookmarkEngine.service.collectionKeys.keyForCollection(bookmarkEngine.name);
+      let collectionKey = bookmarkEngine.service.collectionKeys.keyForCollection(
+        bookmarkEngine.name
+      );
       collection.full = true;
       let items = [];
       let resp = await collection.get();
@@ -658,35 +792,51 @@ var TPS = {
     let serverRecordDumpStr;
     try {
       Logger.logInfo("About to perform bookmark validation");
-      let clientTree = await (PlacesUtils.promiseBookmarksTree("", {
+      let clientTree = await PlacesUtils.promiseBookmarksTree("", {
         includeItemIds: true,
-      }));
+      });
       let serverRecords = await getServerBookmarkState();
       // We can't wait until catch to stringify this, since at that point it will have cycles.
       serverRecordDumpStr = JSON.stringify(serverRecords);
 
       let validator = new BookmarkValidator();
-      let {problemData} = await validator.compareServerWithClient(serverRecords, clientTree);
+      let { problemData } = await validator.compareServerWithClient(
+        serverRecords,
+        clientTree
+      );
 
-      for (let {name, count} of problemData.getSummary()) {
+      for (let { name, count } of problemData.getSummary()) {
         // Exclude mobile showing up on the server hackily so that we don't
         // report it every time, see bug 1273234 and 1274394 for more information.
-        if (name === "serverUnexpected" && problemData.serverUnexpected.includes("mobile")) {
+        if (
+          name === "serverUnexpected" &&
+          problemData.serverUnexpected.includes("mobile")
+        ) {
           --count;
         }
         if (count) {
           // Log this out before we assert. This is useful in the context of TPS logs, since we
           // can see the IDs in the test files.
-          Logger.logInfo(`Validation problem: "${name}": ${JSON.stringify(problemData[name])}`);
+          Logger.logInfo(
+            `Validation problem: "${name}": ${JSON.stringify(
+              problemData[name]
+            )}`
+          );
         }
-        Logger.AssertEqual(count, 0, `Bookmark validation error of type ${name}`);
+        Logger.AssertEqual(
+          count,
+          0,
+          `Bookmark validation error of type ${name}`
+        );
       }
     } catch (e) {
       // Dump the client records (should always be doable)
       DumpBookmarks();
       // Dump the server records if gotten them already.
       if (serverRecordDumpStr) {
-        Logger.logInfo("Server bookmark records:\n" + serverRecordDumpStr + "\n");
+        Logger.logInfo(
+          "Server bookmark records:\n" + serverRecordDumpStr + "\n"
+        );
       }
       this.DumpError("Bookmark validation failed", e);
     }
@@ -705,11 +855,13 @@ var TPS = {
       try {
         // This substantially improves the logs for addons while not making a
         // substantial difference for the other two
-        clientRecordDumpStr = JSON.stringify(clientRecords.map(r => {
-          let res = validator.normalizeClientItem(r);
-          delete res.original; // Try and prevent cyclic references
-          return res;
-        }));
+        clientRecordDumpStr = JSON.stringify(
+          clientRecords.map(r => {
+            let res = validator.normalizeClientItem(r);
+            delete res.original; // Try and prevent cyclic references
+            return res;
+          })
+        );
       } catch (e) {
         // ignore the error, the dump string is just here to make debugging easier.
         clientRecordDumpStr = "<Cyclic value>";
@@ -720,21 +872,36 @@ var TPS = {
         // as above
         serverRecordDumpStr = "<Cyclic value>";
       }
-      let { problemData } = await validator.compareClientWithServer(clientRecords, serverRecords);
+      let { problemData } = await validator.compareClientWithServer(
+        clientRecords,
+        serverRecords
+      );
       for (let { name, count } of problemData.getSummary()) {
         if (count) {
-          Logger.logInfo(`Validation problem: "${name}": ${JSON.stringify(problemData[name])}`);
+          Logger.logInfo(
+            `Validation problem: "${name}": ${JSON.stringify(
+              problemData[name]
+            )}`
+          );
         }
-        Logger.AssertEqual(count, 0, `Validation error for "${engineName}" of type "${name}"`);
+        Logger.AssertEqual(
+          count,
+          0,
+          `Validation error for "${engineName}" of type "${name}"`
+        );
       }
     } catch (e) {
       // Dump the client records if possible
       if (clientRecordDumpStr) {
-        Logger.logInfo(`Client state for ${engineName}:\n${clientRecordDumpStr}\n`);
+        Logger.logInfo(
+          `Client state for ${engineName}:\n${clientRecordDumpStr}\n`
+        );
       }
       // Dump the server records if gotten them already.
       if (serverRecordDumpStr) {
-        Logger.logInfo(`Server state for ${engineName}:\n${serverRecordDumpStr}\n`);
+        Logger.logInfo(
+          `Server state for ${engineName}:\n${serverRecordDumpStr}\n`
+        );
       }
       this.DumpError(`Validation failed for ${engineName}`, e);
     }
@@ -776,13 +943,19 @@ var TPS = {
         // code won't notice the failure.
         SyncTelemetry.shutdown();
         // we're all done
-        Logger.logInfo("test phase " + this._currentPhase + ": " +
-                       (this._errors ? "FAIL" : "PASS"));
+        Logger.logInfo(
+          "test phase " +
+            this._currentPhase +
+            ": " +
+            (this._errors ? "FAIL" : "PASS")
+        );
         this._phaseFinished = true;
         this.quit();
         return;
       }
-      this.seconds_since_epoch = Services.prefs.getIntPref("tps.seconds_since_epoch");
+      this.seconds_since_epoch = Services.prefs.getIntPref(
+        "tps.seconds_since_epoch"
+      );
       if (this.seconds_since_epoch) {
         // Places dislikes it if we add visits in the future. We pretend the
         // real time is 1 minute ago to avoid issues caused by places using a
@@ -804,7 +977,9 @@ var TPS = {
         if (this._requestedQuit) {
           Logger.logInfo("Sync aborted due to requested shutdown");
         } else {
-          this.DumpError("Sync aborted due to shutdown, but we didn't request it");
+          this.DumpError(
+            "Sync aborted due to shutdown, but we didn't request it"
+          );
         }
       } else {
         this.DumpError("RunNextTestAction failed", e);
@@ -816,13 +991,7 @@ var TPS = {
 
   _getFileRelativeToSourceRoot(testFileURL, relativePath) {
     let file = fileProtocolHandler.getFileFromURLSpec(testFileURL);
-    let root = file // <root>/services/sync/tests/tps/test_foo.js
-      .parent // <root>/services/sync/tests/tps
-      .parent // <root>/services/sync/tests
-      .parent // <root>/services/sync
-      .parent // <root>/services
-      .parent // <root>
-      ;
+    let root = file.parent.parent.parent.parent.parent; // <root>/services/sync/tests/tps/test_foo.js // <root>/services/sync/tests/tps // <root>/services/sync/tests // <root>/services/sync // <root>/services // <root>
     root.appendRelativePath(OS.Path.normalize(relativePath));
     return root;
   },
@@ -842,11 +1011,14 @@ var TPS = {
       return;
     }
     try {
-      let schemaFile = this._getFileRelativeToSourceRoot(testFile,
-        "services/sync/tests/unit/sync_ping_schema.json");
+      let schemaFile = this._getFileRelativeToSourceRoot(
+        testFile,
+        "services/sync/tests/unit/sync_ping_schema.json"
+      );
 
-      let stream = Cc["@mozilla.org/network/file-input-stream;1"]
-                   .createInstance(Ci.nsIFileInputStream);
+      let stream = Cc[
+        "@mozilla.org/network/file-input-stream;1"
+      ].createInstance(Ci.nsIFileInputStream);
 
       stream.init(schemaFile, FileUtils.MODE_RDONLY, FileUtils.PERMS_FILE, 0);
 
@@ -856,14 +1028,20 @@ var TPS = {
 
       // Importing resource://testing-common/* isn't possible from within TPS,
       // so we load Ajv manually.
-      let ajvFile = this._getFileRelativeToSourceRoot(testFile, "testing/modules/ajv-4.1.1.js");
+      let ajvFile = this._getFileRelativeToSourceRoot(
+        testFile,
+        "testing/modules/ajv-4.1.1.js"
+      );
       let ajvURL = fileProtocolHandler.getURLSpecFromFile(ajvFile);
       let ns = {};
       ChromeUtils.import(ajvURL, ns);
       let ajv = new ns.Ajv({ async: "co*" });
       this.pingValidator = ajv.compile(schema);
     } catch (e) {
-      this.DumpError(`Failed to load ping schema and AJV relative to "${testFile}".`, e);
+      this.DumpError(
+        `Failed to load ping schema and AJV relative to "${testFile}".`,
+        e
+      );
     }
   },
 
@@ -900,7 +1078,10 @@ var TPS = {
       Logger.logInfo("Sync version: " + WEAVE_VERSION);
       Logger.logInfo("Firefox buildid: " + Services.appinfo.appBuildID);
       Logger.logInfo("Firefox version: " + Services.appinfo.version);
-      Logger.logInfo("Firefox source revision: " + (AppConstants.SOURCE_REVISION_URL || "unknown"));
+      Logger.logInfo(
+        "Firefox source revision: " +
+          (AppConstants.SOURCE_REVISION_URL || "unknown")
+      );
       Logger.logInfo("Firefox platform: " + AppConstants.platform);
 
       // do some sync housekeeping
@@ -977,7 +1158,9 @@ var TPS = {
       }
       Logger.logInfo("Starting phase " + this._currentPhase);
 
-      Logger.logInfo("setting client.name to " + this.phases[this._currentPhase]);
+      Logger.logInfo(
+        "setting client.name to " + this.phases[this._currentPhase]
+      );
       Weave.Svc.Prefs.set("client.name", this.phases[this._currentPhase]);
 
       this._interceptSyncTelemetry();
@@ -1006,11 +1189,16 @@ var TPS = {
       }
     };
     SyncTelemetry.submit = record => {
-      Logger.logInfo("Intercepted sync telemetry submission: " + JSON.stringify(record));
-      this._syncsReportedViaTelemetry += record.syncs.length + (record.discarded || 0);
+      Logger.logInfo(
+        "Intercepted sync telemetry submission: " + JSON.stringify(record)
+      );
+      this._syncsReportedViaTelemetry +=
+        record.syncs.length + (record.discarded || 0);
       if (record.discarded) {
         if (record.syncs.length != SyncTelemetry.maxPayloadCount) {
-          this.DumpError("Syncs discarded from ping before maximum payload count reached");
+          this.DumpError(
+            "Syncs discarded from ping before maximum payload count reached"
+          );
         }
       }
       // If this is the shutdown ping, check and see that the telemetry saw all the syncs.
@@ -1018,7 +1206,9 @@ var TPS = {
         // If we happen to sync outside of tps manually causing it, its not an
         // error in the telemetry, so we only complain if we didn't see all of them.
         if (this._syncsReportedViaTelemetry < this._syncCount) {
-          this.DumpError(`Telemetry missed syncs: Saw ${this._syncsReportedViaTelemetry}, should have >= ${this._syncCount}.`);
+          this.DumpError(
+            `Telemetry missed syncs: Saw ${this._syncsReportedViaTelemetry}, should have >= ${this._syncCount}.`
+          );
         }
       }
       if (!record.syncs.length) {
@@ -1029,7 +1219,10 @@ var TPS = {
       }
       if (!this.pingValidator(record)) {
         // Note that we already logged the record.
-        this.DumpError("Sync ping validation failed with errors: " + JSON.stringify(this.pingValidator.errors));
+        this.DumpError(
+          "Sync ping validation failed with errors: " +
+            JSON.stringify(this.pingValidator.errors)
+        );
       }
     };
   },
@@ -1067,8 +1260,9 @@ var TPS = {
    */
   EnableEngines: function EnableEngines(names) {
     if (!Array.isArray(names)) {
-      throw new Error("Argument to RestrictEngines() is not an array: "
-                      + typeof(names));
+      throw new Error(
+        "Argument to RestrictEngines() is not an array: " + typeof names
+      );
     }
 
     this._enabledEngines = names;
@@ -1105,7 +1299,6 @@ var TPS = {
       Svc.Obs.add(aEventName, handler);
     });
   },
-
 
   /**
    * Wait for the named event to be observed.
@@ -1152,14 +1345,18 @@ var TPS = {
    * Login on the server
    */
   async Login() {
-    if ((await Authentication.isReady())) {
+    if (await Authentication.isReady()) {
       return;
     }
 
     Logger.logInfo("Setting client credentials and login.");
     await Authentication.signIn(this.config.fx_account);
     await this.waitForSetupComplete();
-    Logger.AssertEqual(Weave.Status.service, Weave.STATUS_OK, "Weave status OK");
+    Logger.AssertEqual(
+      Weave.Status.service,
+      Weave.STATUS_OK,
+      "Weave status OK"
+    );
     await this.waitForTracking();
   },
 
@@ -1186,7 +1383,7 @@ var TPS = {
     } else {
       Weave.Svc.Prefs.reset("firstSync");
     }
-    if (!await Weave.Service.login()) {
+    if (!(await Weave.Service.login())) {
       // We need to complete verification.
       Logger.logInfo("Logging in before performing sync");
       await this.Login();
@@ -1373,6 +1570,20 @@ var Tabs = {
 var Windows = {
   async add(aWindow) {
     await TPS.HandleWindows(aWindow, ACTION_ADD);
+  },
+};
+
+// Jumping through loads of hoops via calling back into a "HandleXXX" method
+// and adding an ACTION_XXX indirection adds no value - let's KISS!
+// eslint-disable-next-line no-unused-vars
+var ExtStorage = {
+  async set(id, data) {
+    Logger.logInfo(`setting data for '${id}': ${data}`);
+    await extensionStorageSync.set({ id }, data);
+  },
+  async verify(id, keys, data) {
+    let got = await extensionStorageSync.get({ id }, keys);
+    Logger.AssertEqual(got, data, `data for '${id}'/${keys}`);
   },
 };
 

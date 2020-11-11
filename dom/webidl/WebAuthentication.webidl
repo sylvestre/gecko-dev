@@ -9,7 +9,8 @@
 
 /***** Interfaces to Data *****/
 
-[SecureContext, Pref="security.webauth.webauthn"]
+[SecureContext, Pref="security.webauth.webauthn",
+ Exposed=Window]
 interface PublicKeyCredential : Credential {
     [SameObject] readonly attribute ArrayBuffer              rawId;
     [SameObject] readonly attribute AuthenticatorResponse    response;
@@ -19,19 +20,24 @@ interface PublicKeyCredential : Credential {
 [SecureContext]
 partial interface PublicKeyCredential {
     static Promise<boolean> isUserVerifyingPlatformAuthenticatorAvailable();
+    // isExternalCTAP2SecurityKeySupported is non-standard; see Bug 1526023
+    static Promise<boolean> isExternalCTAP2SecurityKeySupported();
 };
 
-[SecureContext, Pref="security.webauth.webauthn"]
+[SecureContext, Pref="security.webauth.webauthn",
+ Exposed=Window]
 interface AuthenticatorResponse {
     [SameObject] readonly attribute ArrayBuffer clientDataJSON;
 };
 
-[SecureContext, Pref="security.webauth.webauthn"]
+[SecureContext, Pref="security.webauth.webauthn",
+ Exposed=Window]
 interface AuthenticatorAttestationResponse : AuthenticatorResponse {
     [SameObject] readonly attribute ArrayBuffer attestationObject;
 };
 
-[SecureContext, Pref="security.webauth.webauthn"]
+[SecureContext, Pref="security.webauth.webauthn",
+ Exposed=Window]
 interface AuthenticatorAssertionResponse : AuthenticatorResponse {
     [SameObject] readonly attribute ArrayBuffer      authenticatorData;
     [SameObject] readonly attribute ArrayBuffer      signature;
@@ -52,11 +58,11 @@ dictionary PublicKeyCredentialCreationOptions {
 
     unsigned long                                timeout;
     sequence<PublicKeyCredentialDescriptor>      excludeCredentials = [];
-    // FIXME: bug 1493860: should this "= null" be here?
-    AuthenticatorSelectionCriteria               authenticatorSelection = null;
+    // FIXME: bug 1493860: should this "= {}" be here?
+    AuthenticatorSelectionCriteria               authenticatorSelection = {};
     AttestationConveyancePreference              attestation = "none";
-    // FIXME: bug 1493860: should this "= null" be here?
-    AuthenticationExtensionsClientInputs         extensions = null;
+    // FIXME: bug 1493860: should this "= {}" be here?
+    AuthenticationExtensionsClientInputs         extensions = {};
 };
 
 dictionary PublicKeyCredentialEntity {
@@ -102,8 +108,8 @@ dictionary PublicKeyCredentialRequestOptions {
     USVString                            rpId;
     sequence<PublicKeyCredentialDescriptor> allowCredentials = [];
     UserVerificationRequirement          userVerification = "preferred";
-    // FIXME: bug 1493860: should this "= null" be here?
-    AuthenticationExtensionsClientInputs extensions = null;
+    // FIXME: bug 1493860: should this "= {}" be here?
+    AuthenticationExtensionsClientInputs extensions = {};
 };
 
 // TODO - Use partial dictionaries when bug 1436329 is fixed.
@@ -111,6 +117,10 @@ dictionary AuthenticationExtensionsClientInputs {
     // FIDO AppID Extension (appid)
     // <https://w3c.github.io/webauthn/#sctn-appid-extension>
     USVString appid;
+
+    // hmac-secret
+    // <https://fidoalliance.org/specs/fido-v2.0-ps-20190130/fido-client-to-authenticator-protocol-v2.0-ps-20190130.html#sctn-hmac-secret-extension>
+    boolean hmacCreateSecret;
 };
 
 // TODO - Use partial dictionaries when bug 1436329 is fixed.
@@ -118,18 +128,22 @@ dictionary AuthenticationExtensionsClientOutputs {
     // FIDO AppID Extension (appid)
     // <https://w3c.github.io/webauthn/#sctn-appid-extension>
     boolean appid;
+
+    // <https://fidoalliance.org/specs/fido-v2.0-ps-20190130/fido-client-to-authenticator-protocol-v2.0-ps-20190130.html#sctn-hmac-secret-extension>
+    boolean hmacCreateSecret;
 };
 
 typedef record<DOMString, DOMString> AuthenticationExtensionsAuthenticatorInputs;
 
+[GenerateToJSON]
 dictionary CollectedClientData {
     required DOMString           type;
     required DOMString           challenge;
     required DOMString           origin;
     required DOMString           hashAlgorithm;
     DOMString                    tokenBindingId;
-    // FIXME: bug 1493860: should this "= null" be here?
-    AuthenticationExtensionsClientInputs clientExtensions = null;
+    // FIXME: bug 1493860: should this "= {}" be here?
+    AuthenticationExtensionsClientInputs clientExtensions = {};
     AuthenticationExtensionsAuthenticatorInputs authenticatorExtensions;
 };
 
@@ -140,13 +154,16 @@ enum PublicKeyCredentialType {
 dictionary PublicKeyCredentialDescriptor {
     required PublicKeyCredentialType      type;
     required BufferSource                 id;
-    sequence<AuthenticatorTransport>      transports;
+    // Transports is a string that is matched against the AuthenticatorTransport
+    // enumeration so that we have forward-compatibility for new transports.
+    sequence<DOMString>                   transports;
 };
 
 enum AuthenticatorTransport {
     "usb",
     "nfc",
-    "ble"
+    "ble",
+    "internal"
 };
 
 typedef long COSEAlgorithmIdentifier;

@@ -5,12 +5,12 @@
 
 #include "nsISupports.idl"
 
-interface nsIXULWindow;
+interface nsIAppWindow;
 interface nsIWindowlessBrowser;
 interface nsIURI;
 interface mozIDOMWindowProxy;
 interface nsIAppShell;
-interface nsITabParent;
+interface nsIRemoteTab;
 
 [ptr] native JSContext(JSContext);
 
@@ -26,7 +26,7 @@ interface nsIAppShellService : nsISupports
    * @param aParent the parent window.  Can be null.
    * @param aUrl the contents of the new window.
    * @param aChromeMask chrome flags affecting the kind of OS border
-   *                    given to the window. see nsIBrowserWindow for
+   *                    given to the window. see nsIWebBrowserChrome for
    *                    bit/flag definitions.
    * @param aCallbacks interface providing C++ hooks for window initialization
    *                   before the window is made visible.  Can be null.
@@ -36,27 +36,24 @@ interface nsIAppShellService : nsISupports
    *                      tag in the XUL.  Set to NS_SIZETOCONTENT to force
    *                      the window to wrap to its contents.
    * @param aInitialHeight like aInitialWidth, but subtly different.
-   * @param aOpeningTab The TabParent that requested that this window be opened.
-   *                    Can be left null.
-   * @param aOpenerWindow The Window Proxy which requested that this window be opened.
-   *                      Can be left null.
    */
   const long SIZE_TO_CONTENT = -1;
-  nsIXULWindow createTopLevelWindow(in nsIXULWindow aParent,
-                                    in nsIURI aUrl, 
+  nsIAppWindow createTopLevelWindow(in nsIAppWindow aParent,
+                                    in nsIURI aUrl,
                                     in uint32_t aChromeMask,
                                     in long aInitialWidth,
-                                    in long aInitialHeight,
-                                    in nsITabParent aOpeningTab,
-                                    in mozIDOMWindowProxy aOpenerWindow);
+                                    in long aInitialHeight);
 
   /**
    * This is the constructor for creating an invisible DocShell.
    * It is used to simulate DOM windows without an actual physical
    * representation.
    * @param aIsChrome Set true if you want to use it for chrome content.
+   * @param aChromeMask Used to specify chrome flags that should be set on the
+   *                    window. See nsIWebBrowserChrome for flag definitions.
    */
-  nsIWindowlessBrowser createWindowlessBrowser([optional] in bool aIsChrome);
+  nsIWindowlessBrowser createWindowlessBrowser([optional] in bool aIsChrome,
+                                               [optional] in uint32_t aChromeMask);
 
   [noscript]
   void createHiddenWindow();
@@ -79,7 +76,7 @@ interface nsIAppShellService : nsISupports
    * @param aResult the hidden window.  Do not unhide hidden window.
    *                Do not taunt hidden window.
    */
-  readonly attribute nsIXULWindow hiddenWindow;
+  readonly attribute nsIAppWindow hiddenWindow;
 
   /**
    * Return the (singleton) application hidden window, automatically created
@@ -88,24 +85,6 @@ interface nsIAppShellService : nsISupports
    *                Do not taunt hidden window.
    */
   readonly attribute mozIDOMWindowProxy hiddenDOMWindow;
-
-  /**
-   * Return the (singleton) application hidden private window, automatically
-   * created and maintained by this AppShellService.  This window is created
-   * in private browsing mode.
-   * @param aResult the hidden private window.  Do not unhide hidden window.
-   *                Do not taunt hidden window.
-   */
-  readonly attribute nsIXULWindow hiddenPrivateWindow;
-
-  /**
-   * Return the (singleton) application hidden private window, automatically
-   * created and maintained by this AppShellService.  This window is created
-   * in private browsing mode.
-   * @param aResult the hidden private window.  Do not unhide hidden window.
-   *                Do not taunt hidden window.
-   */
-  readonly attribute mozIDOMWindowProxy hiddenPrivateDOMWindow;
 
   /**
    * Return true if the application hidden window was provided by the
@@ -122,7 +101,7 @@ interface nsIAppShellService : nsISupports
    * @note When this method is successful, it fires the global notification
    *       "xul-window-registered"
    */
-  void registerTopLevelWindow(in nsIXULWindow aWindow);
+  void registerTopLevelWindow(in nsIAppWindow aWindow);
 
   /**
    * Remove a window from the application's window registry. Note that
@@ -130,13 +109,12 @@ interface nsIAppShellService : nsISupports
    * the last window is unregistered. For that, see Quit().
    * @param aWindow you see the pattern
    */
-  void unregisterTopLevelWindow(in nsIXULWindow aWindow);
+  void unregisterTopLevelWindow(in nsIAppWindow aWindow);
 
   /**
-   * Whether the hidden private window has been lazily created.
+   * Whether the hidden window has been lazily created.
    */
-  [noscript]
-  readonly attribute boolean hasHiddenPrivateWindow;
+  readonly attribute boolean hasHiddenWindow;
 
   /**
    * Start/stop tracking lags in the event loop.

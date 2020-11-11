@@ -6,34 +6,36 @@
 
 #include "SDBResults.h"
 
+#include <cstdint>
+#include <cstring>
+#include <new>
+#include <utility>
+#include "ErrorList.h"
+#include "js/RootingAPI.h"
+#include "js/TypeDecls.h"
+#include "mozilla/Assertions.h"
+#include "mozilla/MacroForEach.h"
 #include "nsContentUtils.h"
+#include "nsDebug.h"
+#include "nsError.h"
+#include "nsTArray.h"
+#include "nscore.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 SDBResult::SDBResult(const nsACString& aData) : mData(aData) {}
 
 NS_IMPL_ISUPPORTS(SDBResult, nsISDBResult)
 
 NS_IMETHODIMP
-SDBResult::GetAsArray(uint32_t* aDataLen, uint8_t** aData) {
-  MOZ_ASSERT(aDataLen);
-  MOZ_ASSERT(aData);
+SDBResult::GetAsArray(nsTArray<uint8_t>& aData) {
+  uint32_t length = mData.Length();
+  aData.SetLength(length);
 
-  if (mData.IsEmpty()) {
-    *aDataLen = 0;
-    *aData = nullptr;
-    return NS_OK;
+  if (length != 0) {
+    memcpy(aData.Elements(), mData.BeginReading(), length * sizeof(uint8_t));
   }
 
-  uint32_t length = mData.Length();
-
-  uint8_t* data = static_cast<uint8_t*>(moz_xmalloc(length * sizeof(uint8_t)));
-
-  memcpy(data, mData.BeginReading(), length * sizeof(uint8_t));
-
-  *aDataLen = length;
-  *aData = data;
   return NS_OK;
 }
 
@@ -50,5 +52,4 @@ SDBResult::GetAsArrayBuffer(JSContext* aCx, JS::MutableHandleValue _retval) {
   return NS_OK;
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

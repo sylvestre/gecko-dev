@@ -1,5 +1,3 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 2 -*- */
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -7,16 +5,28 @@
 
 // Make this available to both AMD and CJS environments
 define(function(require, exports, module) {
-  const { cloneElement, Component, createFactory } =
-    require("devtools/client/shared/vendor/react");
+  const {
+    cloneElement,
+    Component,
+    createFactory,
+    createRef,
+  } = require("devtools/client/shared/vendor/react");
   const { findDOMNode } = require("devtools/client/shared/vendor/react-dom");
   const PropTypes = require("devtools/client/shared/vendor/react-prop-types");
   const dom = require("devtools/client/shared/vendor/react-dom-factories");
 
   // Reps
-  const { ObjectProvider } = require("./ObjectProvider");
-  const TreeRow = createFactory(require("./TreeRow"));
-  const TreeHeader = createFactory(require("./TreeHeader"));
+  const {
+    ObjectProvider,
+  } = require("devtools/client/shared/components/tree/ObjectProvider");
+  const TreeRow = createFactory(
+    require("devtools/client/shared/components/tree/TreeRow")
+  );
+  const TreeHeader = createFactory(
+    require("devtools/client/shared/components/tree/TreeHeader")
+  );
+
+  const { scrollIntoView } = require("devtools/client/shared/scroll");
 
   const SUPPORTED_KEYS = [
     "ArrowUp",
@@ -25,6 +35,9 @@ define(function(require, exports, module) {
     "ArrowRight",
     "End",
     "Home",
+    "Enter",
+    " ",
+    "Escape",
   ];
 
   const defaultProps = {
@@ -33,6 +46,8 @@ define(function(require, exports, module) {
     provider: ObjectProvider,
     expandedNodes: new Set(),
     selected: null,
+    defaultSelectFirstNode: true,
+    active: null,
     expandableStrings: true,
     columns: [],
   };
@@ -55,6 +70,7 @@ define(function(require, exports, module) {
    *   getChildren: function(object);
    *   hasChildren: function(object);
    *   getLabel: function(object, colId);
+   *   getLevel: function(object); // optional
    *   getValue: function(object, colId);
    *   getKey: function(object);
    *   getType: function(object);
@@ -87,6 +103,7 @@ define(function(require, exports, module) {
           getLabel: PropTypes.func,
           getValue: PropTypes.func,
           getKey: PropTypes.func,
+          getLevel: PropTypes.func,
           getType: PropTypes.func,
         }).isRequired,
         // Tree decorator (see also the interface above)
@@ -111,22 +128,32 @@ define(function(require, exports, module) {
         expandedNodes: PropTypes.object,
         // Selected node
         selected: PropTypes.string,
+        // Select first node by default
+        defaultSelectFirstNode: PropTypes.bool,
+        // The currently active (keyboard) item, if any such item exists.
+        active: PropTypes.string,
         // Custom filtering callback
         onFilter: PropTypes.func,
         // Custom sorting callback
         onSort: PropTypes.func,
         // Custom row click callback
         onClickRow: PropTypes.func,
+        // Row context menu event handler
+        onContextMenuRow: PropTypes.func,
+        // Tree context menu event handler
+        onContextMenuTree: PropTypes.func,
         // A header is displayed if set to true
         header: PropTypes.bool,
         // Long string is expandable by a toggle button
         expandableStrings: PropTypes.bool,
         // Array of columns
-        columns: PropTypes.arrayOf(PropTypes.shape({
-          id: PropTypes.string.isRequired,
-          title: PropTypes.string,
-          width: PropTypes.string,
-        })),
+        columns: PropTypes.arrayOf(
+          PropTypes.shape({
+            id: PropTypes.string.isRequired,
+            title: PropTypes.string,
+            width: PropTypes.string,
+          })
+        ),
       };
     }
 
@@ -149,15 +176,20 @@ define(function(require, exports, module) {
            Sibling nodes will either be all expanded or none expanded.
      * }
      */
-    static getExpandedNodes(rootObj, { maxLevel = Infinity, maxNodes = Infinity } = {}) {
+    static getExpandedNodes(
+      rootObj,
+      { maxLevel = Infinity, maxNodes = Infinity } = {}
+    ) {
       const expandedNodes = new Set();
-      const queue = [{
-        object: rootObj,
-        level: 1,
-        path: "",
-      }];
+      const queue = [
+        {
+          object: rootObj,
+          level: 1,
+          path: "",
+        },
+      ];
       while (queue.length) {
-        const {object, level, path} = queue.shift();
+        const { object, level, path } = queue.shift();
         if (Object(object) !== object) {
           continue;
         }
@@ -188,15 +220,21 @@ define(function(require, exports, module) {
         expandedNodes: props.expandedNodes,
         columns: ensureDefaultColumn(props.columns),
         selected: props.selected,
-        lastSelectedIndex: 0,
+        active: props.active,
+        lastSelectedIndex: props.defaultSelectFirstNode ? 0 : null,
+        mouseDown: false,
       };
+
+      this.treeRef = createRef();
 
       this.toggle = this.toggle.bind(this);
       this.isExpanded = this.isExpanded.bind(this);
+      this.onFocus = this.onFocus.bind(this);
       this.onKeyDown = this.onKeyDown.bind(this);
       this.onClickRow = this.onClickRow.bind(this);
       this.getSelectedRow = this.getSelectedRow.bind(this);
       this.selectRow = this.selectRow.bind(this);
+      this.activateRow = this.activateRow.bind(this);
       this.isSelected = this.isSelected.bind(this);
       this.onFilter = this.onFilter.bind(this);
       this.onSort = this.onSort.bind(this);
@@ -218,12 +256,57 @@ define(function(require, exports, module) {
       this.setState(Object.assign({}, this.state, state));
     }
 
+    shouldComponentUpdate(nextProps, nextState) {
+      const {
+        expandedNodes,
+        columns,
+        selected,
+        active,
+        lastSelectedIndex,
+        mouseDown,
+      } = this.state;
+
+      return (
+        expandedNodes !== nextState.expandedNodes ||
+        columns !== nextState.columns ||
+        selected !== nextState.selected ||
+        active !== nextState.active ||
+        lastSelectedIndex !== nextState.lastSelectedIndex ||
+        mouseDown === nextState.mouseDown
+      );
+    }
+
     componentDidUpdate() {
       const selected = this.getSelectedRow();
-      if (!selected && this.rows.length > 0) {
-        this.selectRow(this.rows[
-          Math.min(this.state.lastSelectedIndex, this.rows.length - 1)]);
+      if (selected || this.state.active) {
+        return;
       }
+
+      const rows = this.visibleRows;
+      if (rows.length === 0) {
+        return;
+      }
+
+      // Only select a row if there is a previous lastSelected Index
+      // This mostly happens when the treeview is loaded the first time
+      if (this.state.lastSelectedIndex !== null) {
+        this.selectRow(
+          rows[Math.min(this.state.lastSelectedIndex, rows.length - 1)],
+          { alignTo: "top" }
+        );
+      }
+    }
+
+    /**
+     * Get rows that are currently visible. Some rows can be filtered and made
+     * invisible, in which case, when navigating around the tree we need to
+     * ignore the ones that are not reachable by the user.
+     */
+    get visibleRows() {
+      return this.rows.filter(row => {
+        const rowEl = findDOMNode(row);
+        return rowEl?.offsetParent;
+      });
     }
 
     // Node expand/collapse
@@ -237,9 +320,11 @@ define(function(require, exports, module) {
       }
 
       // Compute new state and update the tree.
-      this.setState(Object.assign({}, this.state, {
-        expandedNodes: nodes,
-      }));
+      this.setState(
+        Object.assign({}, this.state, {
+          expandedNodes: nodes,
+        })
+      );
     }
 
     isExpanded(nodePath) {
@@ -248,8 +333,26 @@ define(function(require, exports, module) {
 
     // Event Handlers
 
+    onFocus(_event) {
+      if (this.state.mouseDown) {
+        return;
+      }
+      // Set focus to the first element, if none is selected or activated
+      // This is needed because keyboard navigation won't work without an element being selected
+      this.componentDidUpdate();
+    }
+
+    // eslint-disable-next-line complexity
     onKeyDown(event) {
-      if (!SUPPORTED_KEYS.includes(event.key)) {
+      const keyEligibleForFirstLetterNavigation =
+        event.key.length === 1 &&
+        !event.ctrlKey &&
+        !event.metaKey &&
+        !event.altKey;
+      if (
+        !SUPPORTED_KEYS.includes(event.key) &&
+        !keyEligibleForFirstLetterNavigation
+      ) {
         return;
       }
 
@@ -258,113 +361,203 @@ define(function(require, exports, module) {
         return;
       }
 
-      const index = this.rows.indexOf(row);
+      const rows = this.visibleRows;
+      const index = rows.indexOf(row);
+      const { hasChildren, open } = row.props.member;
+
       switch (event.key) {
         case "ArrowRight":
-          const { hasChildren, open } = row.props.member;
-          if (hasChildren && !open) {
-            this.toggle(this.state.selected);
+          if (hasChildren) {
+            if (open) {
+              const firstChildRow = this.rows
+                .slice(index + 1)
+                .find(r => r.props.member.level > row.props.member.level);
+              if (firstChildRow) {
+                this.selectRow(firstChildRow, { alignTo: "bottom" });
+              }
+            } else {
+              this.toggle(this.state.selected);
+            }
           }
           break;
         case "ArrowLeft":
-          if (row && row.props.member.open) {
+          if (hasChildren && open) {
             this.toggle(this.state.selected);
           } else {
-            const parentRow = this.rows.slice(0, index).reverse().find(
-              r => r.props.member.level < row.props.member.level);
+            const parentRow = rows
+              .slice(0, index)
+              .reverse()
+              .find(r => r.props.member.level < row.props.member.level);
             if (parentRow) {
-              this.selectRow(parentRow);
+              this.selectRow(parentRow, { alignTo: "top" });
             }
           }
           break;
         case "ArrowDown":
-          const nextRow = this.rows[index + 1];
+          const nextRow = rows[index + 1];
           if (nextRow) {
-            this.selectRow(nextRow);
+            this.selectRow(nextRow, { alignTo: "bottom" });
           }
           break;
         case "ArrowUp":
-          const previousRow = this.rows[index - 1];
+          const previousRow = rows[index - 1];
           if (previousRow) {
-            this.selectRow(previousRow);
+            this.selectRow(previousRow, { alignTo: "top" });
           }
           break;
         case "Home":
-          const firstRow = this.rows[0];
+          const firstRow = rows[0];
 
           if (firstRow) {
-            // Due to the styling, the first row is sometimes overlapped by
-            // the table head. So we want to force the tree to scroll to the very top.
-            this.selectRow(firstRow, {
-              block: "end",
-              inline: "nearest",
-            });
+            this.selectRow(firstRow, { alignTo: "top" });
           }
           break;
 
         case "End":
-          const lastRow = this.rows[this.rows.length - 1];
+          const lastRow = rows[rows.length - 1];
           if (lastRow) {
-            this.selectRow(lastRow);
+            this.selectRow(lastRow, { alignTo: "bottom" });
+          }
+          break;
+
+        case "Enter":
+        case " ":
+          // On space or enter make selected row active. This means keyboard
+          // focus handling is passed on to the tree row itself.
+          if (this.treeRef.current === document.activeElement) {
+            event.stopPropagation();
+            event.preventDefault();
+            if (this.state.active !== this.state.selected) {
+              this.activateRow(this.state.selected);
+            }
+
+            return;
+          }
+          break;
+        case "Escape":
+          event.stopPropagation();
+          if (this.state.active != null) {
+            this.activateRow(null);
           }
           break;
       }
 
+      if (keyEligibleForFirstLetterNavigation) {
+        const next = rows
+          .slice(index + 1)
+          .find(r => r.props.member.name.startsWith(event.key));
+        if (next) {
+          this.selectRow(next, { alignTo: "bottom" });
+        }
+      }
+
       // Focus should always remain on the tree container itself.
-      this.tree.focus();
+      this.treeRef.current.focus();
       event.preventDefault();
     }
 
     onClickRow(nodePath, event) {
       const onClickRow = this.props.onClickRow;
+      const row = this.visibleRows.find(r => r.props.member.path === nodePath);
 
-      if (onClickRow) {
-        onClickRow.call(this, nodePath, event);
+      // Call custom click handler and bail out if it returns true.
+      if (
+        onClickRow &&
+        onClickRow.call(this, nodePath, event, row.props.member)
+      ) {
         return;
       }
 
       event.stopPropagation();
+
       const cell = event.target.closest("td");
       if (cell && cell.classList.contains("treeLabelCell")) {
         this.toggle(nodePath);
       }
-      this.selectRow(event.currentTarget);
+
+      this.selectRow(row, { preventAutoScroll: true });
+    }
+
+    onContextMenu(member, event) {
+      const onContextMenuRow = this.props.onContextMenuRow;
+      if (onContextMenuRow) {
+        onContextMenuRow.call(this, member, event);
+      }
     }
 
     getSelectedRow() {
-      if (!this.state.selected || this.rows.length === 0) {
+      const rows = this.visibleRows;
+      if (!this.state.selected || rows.length === 0) {
         return null;
       }
-      return this.rows.find(row => this.isSelected(row.props.member.path));
+      return rows.find(row => this.isSelected(row.props.member.path));
     }
 
     getSelectedRowIndex() {
       const row = this.getSelectedRow();
       if (!row) {
-        // If selected row is not found, return index of the first row.
-        return 0;
+        return this.props.defaultSelectFirstNode ? 0 : null;
       }
 
-      return this.rows.indexOf(row);
+      return this.visibleRows.indexOf(row);
     }
 
-    selectRow(row, scrollOptions = {block: "nearest"}) {
-      row = findDOMNode(row);
-
-      if (this.state.selected === row.id) {
-        row.scrollIntoView(scrollOptions);
+    _scrollIntoView(row, options = {}) {
+      const treeEl = this.treeRef.current;
+      if (!treeEl || !row) {
         return;
       }
 
-      this.setState(Object.assign({}, this.state, {
-        selected: row.id,
-      }));
+      const { props: { member: { path } = {} } = {} } = row;
+      if (!path) {
+        return;
+      }
 
-      row.scrollIntoView(scrollOptions);
+      const element = treeEl.ownerDocument.getElementById(path);
+      if (!element) {
+        return;
+      }
+
+      scrollIntoView(element, { ...options });
+    }
+
+    selectRow(row, options = {}) {
+      const { props: { member: { path } = {} } = {} } = row;
+      if (this.isSelected(path)) {
+        return;
+      }
+
+      if (this.state.active != null) {
+        const treeEl = this.treeRef.current;
+        if (treeEl && treeEl !== treeEl.ownerDocument.activeElement) {
+          treeEl.focus();
+        }
+      }
+
+      if (!options.preventAutoScroll) {
+        this._scrollIntoView(row, options);
+      }
+
+      this.setState({
+        ...this.state,
+        selected: path,
+        active: null,
+      });
+    }
+
+    activateRow(active) {
+      this.setState({
+        ...this.state,
+        active,
+      });
     }
 
     isSelected(nodePath) {
       return nodePath === this.state.selected;
+    }
+
+    isActive(nodePath) {
+      return nodePath === this.state.active;
     }
 
     // Filtering & Sorting
@@ -435,7 +628,7 @@ define(function(require, exports, module) {
           // Class attribute computed from the type.
           rowClass: "treeRow-" + type,
           // Level of the child within the hierarchy (top == 0)
-          level: level,
+          level: provider.getLevel ? provider.getLevel(child, level) : level,
           // True if this node has children.
           hasChildren: hasChildren,
           // Value associated with this node (as provided by the data provider)
@@ -448,6 +641,8 @@ define(function(require, exports, module) {
           hidden: !this.onFilter(child),
           // True if the node is selected with keyboard
           selected: this.isSelected(nodePath),
+          // True if the node is activated with keyboard
+          active: this.isActive(nodePath),
         };
       });
     }
@@ -470,17 +665,18 @@ define(function(require, exports, module) {
       }
 
       members.forEach(member => {
-        if (decorator && decorator.renderRow) {
+        if (decorator?.renderRow) {
           renderRow = decorator.renderRow(member.object) || renderRow;
         }
 
         const props = Object.assign({}, this.props, {
-          key: member.path,
+          key: `${member.path}-${member.active ? "active" : "inactive"}`,
           member: member,
           columns: this.state.columns,
           id: member.path,
           ref: row => row && this.rows.push(row),
           onClick: this.onClickRow.bind(this, member.path),
+          onContextMenu: this.onContextMenu.bind(this, member),
         });
 
         // Render single row.
@@ -488,8 +684,11 @@ define(function(require, exports, module) {
 
         // If a child node is expanded render its rows too.
         if (member.hasChildren && member.open) {
-          const childRows = this.renderRows(member.object, level + 1,
-            member.path);
+          const childRows = this.renderRows(
+            member.object,
+            level + 1,
+            member.path
+          );
 
           // If children needs to be asynchronously fetched first,
           // set 'loading' property to the parent row. Otherwise
@@ -512,8 +711,8 @@ define(function(require, exports, module) {
       const classNames = ["treeTable"];
       this.rows = [];
 
+      const { className, onContextMenuTree } = this.props;
       // Use custom class name from props.
-      const className = this.props.className;
       if (className) {
         classNames.push(...className.split(" "));
       }
@@ -532,24 +731,41 @@ define(function(require, exports, module) {
         columns: this.state.columns,
       });
 
-      return (
-        dom.table({
+      return dom.table(
+        {
           className: classNames.join(" "),
           role: "tree",
-          ref: tree => {
-            this.tree = tree;
-          },
+          ref: this.treeRef,
           tabIndex: 0,
+          onFocus: this.onFocus,
           onKeyDown: this.onKeyDown,
+          onContextMenu: onContextMenuTree && onContextMenuTree.bind(this),
+          onMouseDown: () => this.setState({ mouseDown: true }),
+          onMouseUp: () => this.setState({ mouseDown: false }),
+          onClick: () => {
+            // Focus should always remain on the tree container itself.
+            this.treeRef.current.focus();
+          },
+          onBlur: event => {
+            if (this.state.active != null) {
+              const { relatedTarget } = event;
+              if (!this.treeRef.current.contains(relatedTarget)) {
+                this.activateRow(null);
+              }
+            }
+          },
           "aria-label": this.props.label || "",
           "aria-activedescendant": this.state.selected,
           cellPadding: 0,
-          cellSpacing: 0},
-          TreeHeader(props),
-          dom.tbody({
+          cellSpacing: 0,
+        },
+        TreeHeader(props),
+        dom.tbody(
+          {
             role: "presentation",
             tabIndex: -1,
-          }, rows)
+          },
+          rows
         )
       );
     }
@@ -572,7 +788,7 @@ define(function(require, exports, module) {
     }
 
     // The default column is usually the first one.
-    return [{id: "default"}, ...columns];
+    return [{ id: "default" }, ...columns];
   }
 
   function isLongString(value) {

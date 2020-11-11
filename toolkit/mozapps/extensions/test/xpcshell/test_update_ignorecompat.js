@@ -2,6 +2,11 @@
  * http://creativecommons.org/publicdomain/zero/1.0/
  */
 
+// This test is disabled but is being kept around so it can eventualy
+// be modernized and re-enabled.  But is uses obsolete test helpers that
+// fail lint, so just skip linting it for now.
+/* eslint-disable */
+
 // This verifies that add-on update checks work correctly when compatibility
 // check is disabled.
 
@@ -25,7 +30,7 @@ const updateFile = "test_update.json";
 const appId = "toolkit@mozilla.org";
 
 // Test that the update check correctly observes the
-// extensions.strictCompatibility pref and compatibility overrides.
+// extensions.strictCompatibility pref.
 add_test(async function() {
   await promiseWriteInstallRDFForExtension({
     id: "addon9@tests.mozilla.org",
@@ -54,8 +59,6 @@ add_test(async function() {
 
   Services.prefs.setCharPref(PREF_GETADDONS_BYIDS,
                              `http://example.com/data/test_update_addons.json`);
-  Services.prefs.setCharPref(PREF_COMPAT_OVERRIDES,
-                             `http://example.com/data/test_update_compat.json`);
   Services.prefs.setBoolPref(PREF_GETADDONS_CACHE_ENABLED, true);
 
   AddonManagerInternal.backgroundUpdateCheck();

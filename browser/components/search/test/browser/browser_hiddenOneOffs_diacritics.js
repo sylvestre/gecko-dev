@@ -7,8 +7,10 @@ const searchPopup = document.getElementById("PopupSearchAutoComplete");
 
 const diacritic_engine = "Foo \u2661";
 
-var Preferences =
-  ChromeUtils.import("resource://gre/modules/Preferences.jsm", {}).Preferences;
+var Preferences = ChromeUtils.import(
+  "resource://gre/modules/Preferences.jsm",
+  {}
+).Preferences;
 
 let searchIcon;
 
@@ -19,10 +21,10 @@ add_task(async function init() {
   });
   searchIcon = searchbar.querySelector(".searchbar-search-button");
 
-  let currentEngine = Services.search.defaultEngine;
-  await promiseNewEngine("testEngine_diacritics.xml", {setAsCurrent: false});
-  registerCleanupFunction(() => {
-    Services.search.defaultEngine = currentEngine;
+  let defaultEngine = await Services.search.getDefault();
+  await promiseNewEngine("testEngine_diacritics.xml", { setAsCurrent: false });
+  registerCleanupFunction(async () => {
+    await Services.search.setDefault(defaultEngine);
     Services.prefs.clearUserPref("browser.search.hiddenOneOffs");
   });
 });
@@ -35,8 +37,10 @@ add_task(async function test_hidden() {
   EventUtils.synthesizeMouseAtCenter(searchIcon, {});
   await promise;
 
-  ok(!getOneOffs().some(x => x.getAttribute("tooltiptext") == diacritic_engine),
-     "Search engines with diacritics are hidden when added to hiddenOneOffs preference.");
+  ok(
+    !getOneOffs().some(x => x.getAttribute("tooltiptext") == diacritic_engine),
+    "Search engines with diacritics are hidden when added to hiddenOneOffs preference."
+  );
 
   promise = promiseEvent(searchPopup, "popuphidden");
   info("Closing search panel");
@@ -47,17 +51,20 @@ add_task(async function test_hidden() {
 add_task(async function test_shown() {
   Preferences.set("browser.search.hiddenOneOffs", "");
 
-  let promise = promiseEvent(searchPopup, "popupshown");
+  let oneOffsContainer = searchPopup.searchOneOffsContainer;
+  let shownPromise = promiseEvent(searchPopup, "popupshown");
+  let builtPromise = promiseEvent(oneOffsContainer, "rebuild");
   info("Opening search panel");
-  SimpleTest.executeSoon(() => {
-    EventUtils.synthesizeMouseAtCenter(searchIcon, {});
-  });
-  await promise;
 
-  ok(getOneOffs().some(x => x.getAttribute("tooltiptext") == diacritic_engine),
-     "Search engines with diacritics are shown when removed from hiddenOneOffs preference.");
+  EventUtils.synthesizeMouseAtCenter(searchIcon, {});
+  await Promise.all([shownPromise, builtPromise]);
 
-  promise = promiseEvent(searchPopup, "popuphidden");
+  ok(
+    getOneOffs().some(x => x.getAttribute("tooltiptext") == diacritic_engine),
+    "Search engines with diacritics are shown when removed from hiddenOneOffs preference."
+  );
+
+  let promise = promiseEvent(searchPopup, "popuphidden");
   searchPopup.hidePopup();
   await promise;
 });

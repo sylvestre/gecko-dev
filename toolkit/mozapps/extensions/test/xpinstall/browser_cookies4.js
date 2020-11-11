@@ -8,20 +8,39 @@ function test() {
   Harness.installsCompletedCallback = finish_test;
   Harness.setup();
 
-  Services.cookies.add("example.org", "/browser/" + RELATIVE_DIR, "xpinstall",
-    "true", false, false, true, (Date.now() / 1000) + 60, {},
-    Ci.nsICookie2.SAMESITE_UNSET);
+  Services.cookies.add(
+    "example.org",
+    "/browser/" + RELATIVE_DIR,
+    "xpinstall",
+    "true",
+    false,
+    false,
+    true,
+    Date.now() / 1000 + 60,
+    {},
+    Ci.nsICookie.SAMESITE_NONE,
+    Ci.nsICookie.SCHEME_HTTP
+  );
 
-  var pm = Services.perms;
-  pm.add(makeURI("http://example.com/"), "install", pm.ALLOW_ACTION);
+  PermissionTestUtils.add(
+    "http://example.com/",
+    "install",
+    Services.perms.ALLOW_ACTION
+  );
 
   Services.prefs.setIntPref("network.cookie.cookieBehavior", 1);
 
-  var triggers = encodeURIComponent(JSON.stringify({
-    "Cookie check": TESTROOT2 + "cookieRedirect.sjs?" + TESTROOT + "amosigned.xpi",
-  }));
+  var triggers = encodeURIComponent(
+    JSON.stringify({
+      "Cookie check":
+        TESTROOT2 + "cookieRedirect.sjs?" + TESTROOT + "amosigned.xpi",
+    })
+  );
   gBrowser.selectedTab = BrowserTestUtils.addTab(gBrowser);
-  BrowserTestUtils.loadURI(gBrowser, TESTROOT + "installtrigger.html?" + triggers);
+  BrowserTestUtils.loadURI(
+    gBrowser,
+    TESTROOT + "installtrigger.html?" + triggers
+  );
 }
 
 function download_failed(install) {
@@ -31,11 +50,15 @@ function download_failed(install) {
 function finish_test(count) {
   is(count, 0, "No add-ons should have been installed");
 
-  Services.cookies.remove("example.org", "xpinstall", "/browser/" + RELATIVE_DIR,
-    false, {});
+  Services.cookies.remove(
+    "example.org",
+    "xpinstall",
+    "/browser/" + RELATIVE_DIR,
+    {}
+  );
 
   Services.prefs.clearUserPref("network.cookie.cookieBehavior");
-  Services.perms.remove(makeURI("http://example.com"), "install");
+  PermissionTestUtils.remove("http://example.com", "install");
 
   gBrowser.removeCurrentTab();
   Harness.finish();

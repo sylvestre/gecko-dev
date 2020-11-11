@@ -15,6 +15,7 @@
 #include "FrameLayerBuilder.h"
 
 namespace mozilla {
+class PresShell;
 namespace layers {
 class Layer;
 class LayerManager;
@@ -25,7 +26,7 @@ class WebRenderCanvasData;
 class nsPresContext;
 class nsDisplayItem;
 
-nsIFrame* NS_NewHTMLCanvasFrame(nsIPresShell* aPresShell,
+nsIFrame* NS_NewHTMLCanvasFrame(mozilla::PresShell* aPresShell,
                                 mozilla::ComputedStyle* aStyle);
 
 class nsHTMLCanvasFrame final : public nsContainerFrame {
@@ -39,14 +40,17 @@ class nsHTMLCanvasFrame final : public nsContainerFrame {
   NS_DECL_QUERYFRAME
   NS_DECL_FRAMEARENA_HELPERS(nsHTMLCanvasFrame)
 
-  explicit nsHTMLCanvasFrame(ComputedStyle* aStyle)
-      : nsContainerFrame(aStyle, kClassID), mBorderPadding(GetWritingMode()) {}
+  explicit nsHTMLCanvasFrame(ComputedStyle* aStyle, nsPresContext* aPresContext)
+      : nsContainerFrame(aStyle, aPresContext, kClassID),
+        mBorderPadding(GetWritingMode()) {}
 
   virtual void Init(nsIContent* aContent, nsContainerFrame* aParent,
                     nsIFrame* aPrevInFlow) override;
 
   virtual void BuildDisplayList(nsDisplayListBuilder* aBuilder,
                                 const nsDisplayListSet& aLists) override;
+
+  void DestroyFrom(nsIFrame*, PostDestroyData&) override;
 
   already_AddRefed<Layer> BuildLayer(
       nsDisplayListBuilder* aBuilder, LayerManager* aManager,
@@ -57,18 +61,20 @@ class nsHTMLCanvasFrame final : public nsContainerFrame {
                                  WebRenderCanvasData* aCanvasData);
 
   /* get the size of the canvas's image */
-  nsIntSize GetCanvasSize();
+  nsIntSize GetCanvasSize() const;
 
   virtual nscoord GetMinISize(gfxContext* aRenderingContext) override;
   virtual nscoord GetPrefISize(gfxContext* aRenderingContext) override;
   virtual mozilla::IntrinsicSize GetIntrinsicSize() override;
-  virtual nsSize GetIntrinsicRatio() override;
+  mozilla::AspectRatio GetIntrinsicRatio() const override;
 
-  virtual mozilla::LogicalSize ComputeSize(
-      gfxContext* aRenderingContext, mozilla::WritingMode aWritingMode,
-      const mozilla::LogicalSize& aCBSize, nscoord aAvailableISize,
-      const mozilla::LogicalSize& aMargin, const mozilla::LogicalSize& aBorder,
-      const mozilla::LogicalSize& aPadding, ComputeSizeFlags aFlags) override;
+  SizeComputationResult ComputeSize(gfxContext* aRenderingContext,
+                                    mozilla::WritingMode aWM,
+                                    const mozilla::LogicalSize& aCBSize,
+                                    nscoord aAvailableISize,
+                                    const mozilla::LogicalSize& aMargin,
+                                    const mozilla::LogicalSize& aBorderPadding,
+                                    mozilla::ComputeSizeFlags aFlags) override;
 
   virtual void Reflow(nsPresContext* aPresContext, ReflowOutput& aDesiredSize,
                       const ReflowInput& aReflowInput,

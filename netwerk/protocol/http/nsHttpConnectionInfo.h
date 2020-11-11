@@ -13,6 +13,7 @@
 #include "nsStringFwd.h"
 #include "mozilla/Logging.h"
 #include "mozilla/BasePrincipal.h"
+#include "mozilla/AlreadyAddRefed.h"
 #include "ARefBase.h"
 
 //-----------------------------------------------------------------------------
@@ -28,27 +29,40 @@
 // origin and multiplex non tunneled transactions at the same time, so they have
 // a special wildcard CI that accepts all origins through that proxy.
 
+class nsISVCBRecord;
+
 namespace mozilla {
 namespace net {
 
 extern LazyLogModule gHttpLog;
+class HttpConnectionInfoCloneArgs;
+class nsHttpTransaction;
 
 class nsHttpConnectionInfo final : public ARefBase {
  public:
-  nsHttpConnectionInfo(const nsACString &originHost, int32_t originPort,
-                       const nsACString &npnToken, const nsACString &username,
-                       nsProxyInfo *proxyInfo,
-                       const OriginAttributes &originAttributes,
-                       bool endToEndSSL = false);
+  nsHttpConnectionInfo(const nsACString& originHost, int32_t originPort,
+                       const nsACString& npnToken, const nsACString& username,
+                       const nsACString& topWindowOrigin,
+                       nsProxyInfo* proxyInfo,
+                       const OriginAttributes& originAttributes,
+                       bool endToEndSSL = false, bool aIsHttp3 = false);
 
   // this version must use TLS and you may supply separate
   // connection (aka routing) information than the authenticated
   // origin information
-  nsHttpConnectionInfo(const nsACString &originHost, int32_t originPort,
-                       const nsACString &npnToken, const nsACString &username,
-                       nsProxyInfo *proxyInfo,
-                       const OriginAttributes &originAttributes,
-                       const nsACString &routedHost, int32_t routedPort);
+  nsHttpConnectionInfo(const nsACString& originHost, int32_t originPort,
+                       const nsACString& npnToken, const nsACString& username,
+                       const nsACString& topWindowOrigin,
+                       nsProxyInfo* proxyInfo,
+                       const OriginAttributes& originAttributes,
+                       const nsACString& routedHost, int32_t routedPort,
+                       bool aIsHttp3);
+
+  static void SerializeHttpConnectionInfo(nsHttpConnectionInfo* aInfo,
+                                          HttpConnectionInfoCloneArgs& aArgs);
+  static already_AddRefed<nsHttpConnectionInfo>
+  DeserializeHttpConnectionInfoCloneArgs(
+      const HttpConnectionInfoCloneArgs& aInfoArgs);
 
  private:
   virtual ~nsHttpConnectionInfo() {
@@ -57,35 +71,49 @@ class nsHttpConnectionInfo final : public ARefBase {
   }
 
   void BuildHashKey();
+  void RebuildHashKey();
 
  public:
-  const nsCString &HashKey() const { return mHashKey; }
+  const nsCString& HashKey() const { return mHashKey; }
 
-  const nsCString &GetOrigin() const { return mOrigin; }
-  const char *Origin() const { return mOrigin.get(); }
+  const nsCString& GetOrigin() const { return mOrigin; }
+  const char* Origin() const { return mOrigin.get(); }
   int32_t OriginPort() const { return mOriginPort; }
 
-  const nsCString &GetRoutedHost() const { return mRoutedHost; }
-  const char *RoutedHost() const { return mRoutedHost.get(); }
+  const nsCString& GetRoutedHost() const { return mRoutedHost; }
+  const char* RoutedHost() const { return mRoutedHost.get(); }
   int32_t RoutedPort() const { return mRoutedPort; }
 
   // OK to treat these as an infalible allocation
-  nsHttpConnectionInfo *Clone() const;
-  void CloneAsDirectRoute(nsHttpConnectionInfo **outParam);
-  MOZ_MUST_USE nsresult CreateWildCard(nsHttpConnectionInfo **outParam);
+  already_AddRefed<nsHttpConnectionInfo> Clone() const;
+  // This main prupose of this function is to clone this connection info, but
+  // replace mRoutedHost with SvcDomainName in the given SVCB record. Note that
+  // if SvcParamKeyPort and SvcParamKeyAlpn are presented in the SVCB record,
+  // mRoutedPort and mNPNToken will be replaced as well.
+  already_AddRefed<nsHttpConnectionInfo> CloneAndAdoptHTTPSSVCRecord(
+      nsISVCBRecord* aRecord) const;
+  void CloneAsDirectRoute(nsHttpConnectionInfo** outParam);
+  [[nodiscard]] nsresult CreateWildCard(nsHttpConnectionInfo** outParam);
 
-  const char *ProxyHost() const {
+  const char* ProxyHost() const {
     return mProxyInfo ? mProxyInfo->Host().get() : nullptr;
   }
   int32_t ProxyPort() const { return mProxyInfo ? mProxyInfo->Port() : -1; }
-  const char *ProxyType() const {
+  const char* ProxyType() const {
     return mProxyInfo ? mProxyInfo->Type() : nullptr;
   }
-  const char *ProxyUsername() const {
+  const char* ProxyUsername() const {
     return mProxyInfo ? mProxyInfo->Username().get() : nullptr;
   }
-  const char *ProxyPassword() const {
+  const char* ProxyPassword() const {
     return mProxyInfo ? mProxyInfo->Password().get() : nullptr;
+  }
+
+  const nsCString& ProxyAuthorizationHeader() const {
+    return mProxyInfo ? mProxyInfo->ProxyAuthorizationHeader() : EmptyCString();
+  }
+  const nsCString& ConnectionIsolationKey() const {
+    return mProxyInfo ? mProxyInfo->ConnectionIsolationKey() : EmptyCString();
   }
 
   // Compare this connection info to another...
@@ -95,12 +123,12 @@ class nsHttpConnectionInfo final : public ARefBase {
   // Note that we don't care about transparent proxies -
   // it doesn't matter if we're talking via socks or not, since
   // a request will end up at the same host.
-  bool Equals(const nsHttpConnectionInfo *info) {
+  bool Equals(const nsHttpConnectionInfo* info) {
     return mHashKey.Equals(info->HashKey());
   }
 
-  const char *Username() const { return mUsername.get(); }
-  nsProxyInfo *ProxyInfo() const { return mProxyInfo; }
+  const char* Username() const { return mUsername.get(); }
+  nsProxyInfo* ProxyInfo() const { return mProxyInfo; }
   int32_t DefaultPort() const {
     return mEndToEndSSL ? NS_HTTPS_DEFAULT_PORT : NS_HTTP_DEFAULT_PORT;
   }
@@ -121,17 +149,24 @@ class nsHttpConnectionInfo final : public ARefBase {
   }
   bool GetBeConservative() const { return mHashKey.CharAt(6) == 'C'; }
 
+  void SetIsolated(bool aIsolated) {
+    mIsolated = aIsolated;
+    RebuildHashKey();
+  }
+  bool GetIsolated() const { return mIsolated; }
+
   void SetTlsFlags(uint32_t aTlsFlags);
   uint32_t GetTlsFlags() const { return mTlsFlags; }
 
-  // TrrUsed means that this connection is used to send TRR requests over
-  void SetTrrUsed(bool aUsed) { mTrrUsed = aUsed; }
-  bool GetTrrUsed() const { return mTrrUsed; }
+  // IsTrrServiceChannel means that this connection is used to send TRR requests
+  // over
+  void SetIsTrrServiceChannel(bool aIsTRRChannel) {
+    mIsTrrServiceChannel = aIsTRRChannel;
+  }
+  bool GetIsTrrServiceChannel() const { return mIsTrrServiceChannel; }
 
-  // SetTrrDisabled means don't use TRR to resolve host names for this
-  // connection
-  void SetTrrDisabled(bool aNoTrr);
-  bool GetTrrDisabled() const { return mTrrDisabled; }
+  void SetTRRMode(nsIRequest::TRRMode aTRRMode);
+  nsIRequest::TRRMode GetTRRMode() const { return mTRRMode; }
 
   void SetIPv4Disabled(bool aNoIPv4);
   bool GetIPv4Disabled() const { return mIPv4Disabled; }
@@ -139,10 +174,11 @@ class nsHttpConnectionInfo final : public ARefBase {
   void SetIPv6Disabled(bool aNoIPv6);
   bool GetIPv6Disabled() const { return mIPv6Disabled; }
 
-  const nsCString &GetNPNToken() { return mNPNToken; }
-  const nsCString &GetUsername() { return mUsername; }
+  const nsCString& GetNPNToken() { return mNPNToken; }
+  const nsCString& GetUsername() { return mUsername; }
+  const nsCString& GetTopWindowOrigin() { return mTopWindowOrigin; }
 
-  const OriginAttributes &GetOriginAttributes() { return mOriginAttributes; }
+  const OriginAttributes& GetOriginAttributes() { return mOriginAttributes; }
 
   // Returns true for any kind of proxy (http, socks, https, etc..)
   bool UsingProxy();
@@ -172,11 +208,36 @@ class nsHttpConnectionInfo final : public ARefBase {
     mLessThanTls13 = aLessThanTls13;
   }
 
+  bool IsHttp3() const { return mIsHttp3; }
+
+  void SetHasIPHintAddress(bool aHasIPHint) { mHasIPHintAddress = aHasIPHint; }
+  bool HasIPHintAddress() const { return mHasIPHintAddress; }
+
+  void SetEchConfig(const nsACString& aEchConfig) { mEchConfig = aEchConfig; }
+  const nsCString& GetEchConfig() const { return mEchConfig; }
+
  private:
-  void Init(const nsACString &host, int32_t port, const nsACString &npnToken,
-            const nsACString &username, nsProxyInfo *proxyInfo,
-            const OriginAttributes &originAttributes, bool EndToEndSSL);
-  void SetOriginServer(const nsACString &host, int32_t port);
+  // These constructor versions are intended to be used from Clone() and
+  // DeserializeHttpConnectionInfoCloneArgs().
+  nsHttpConnectionInfo(const nsACString& originHost, int32_t originPort,
+                       const nsACString& npnToken, const nsACString& username,
+                       const nsACString& topWindowOrigin,
+                       nsProxyInfo* proxyInfo,
+                       const OriginAttributes& originAttributes,
+                       bool endToEndSSL, bool isolated, bool aIsHttp3);
+  nsHttpConnectionInfo(const nsACString& originHost, int32_t originPort,
+                       const nsACString& npnToken, const nsACString& username,
+                       const nsACString& topWindowOrigin,
+                       nsProxyInfo* proxyInfo,
+                       const OriginAttributes& originAttributes,
+                       const nsACString& routedHost, int32_t routedPort,
+                       bool isolated, bool aIsHttp3);
+
+  void Init(const nsACString& host, int32_t port, const nsACString& npnToken,
+            const nsACString& username, const nsACString& topWindowOrigin,
+            nsProxyInfo* proxyInfo, const OriginAttributes& originAttributes,
+            bool EndToEndSSL, bool aIsHttp3);
+  void SetOriginServer(const nsACString& host, int32_t port);
 
   nsCString mOrigin;
   int32_t mOriginPort;
@@ -185,6 +246,7 @@ class nsHttpConnectionInfo final : public ARefBase {
 
   nsCString mHashKey;
   nsCString mUsername;
+  nsCString mTopWindowOrigin;
   nsCOMPtr<nsProxyInfo> mProxyInfo;
   bool mUsingHttpProxy;
   bool mUsingHttpsProxy;
@@ -192,16 +254,21 @@ class nsHttpConnectionInfo final : public ARefBase {
   bool mUsingConnect;  // if will use CONNECT with http proxy
   nsCString mNPNToken;
   OriginAttributes mOriginAttributes;
+  nsIRequest::TRRMode mTRRMode;
 
   uint32_t mTlsFlags;
-  uint16_t mTrrUsed : 1;
-  uint16_t mTrrDisabled : 1;
+  uint16_t mIsolated : 1;
+  uint16_t mIsTrrServiceChannel : 1;
   uint16_t mIPv4Disabled : 1;
   uint16_t mIPv6Disabled : 1;
 
   bool mLessThanTls13;  // This will be set to true if we negotiate less than
                         // tls1.3. If the tls version is till not know or it
                         // is 1.3 or greater the value will be false.
+  bool mIsHttp3;
+
+  bool mHasIPHintAddress = false;
+  nsCString mEchConfig;
 
   // for RefPtr
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(nsHttpConnectionInfo, override)

@@ -18,9 +18,9 @@ enableGeckoProfiling();
 
 for (let type of ['i32', 'f32', 'f64']) {
     var instance = wasmEvalText(`(module
-        (func $add (export "add") (result ${type}) (param ${type}) (param ${type})
-         get_local 0
-         get_local 1
+        (func (export "add") (param ${type}) (param ${type}) (result ${type})
+         local.get 0
+         local.get 1
          ${type}.add
         )
     )`).exports;

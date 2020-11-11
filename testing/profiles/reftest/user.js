@@ -4,11 +4,6 @@
 user_pref("app.normandy.api_url", "https://localhost/selfsupport-dummy/");
 user_pref("app.update.staging.enabled", false);
 user_pref("app.update.url.android", "");
-// Disable the thumbnailing service
-user_pref("browser.pagethumbnails.capturing_disabled", true);
-user_pref("browser.ping-centre.production.endpoint", "https://localhost");
-// Make sure Ping Centre doesn't hit the network.
-user_pref("browser.ping-centre.staging.endpoint", "https://localhost");
 user_pref("browser.safebrowsing.blockedURIs.enabled", false);
 user_pref("browser.safebrowsing.downloads.enabled", false);
 user_pref("browser.safebrowsing.downloads.remote.url", "http://127.0.0.1/safebrowsing-dummy/gethash");
@@ -22,7 +17,6 @@ user_pref("browser.safebrowsing.provider.google4.gethashURL", "http://127.0.0.1/
 user_pref("browser.safebrowsing.provider.google4.updateURL", "http://127.0.0.1/safebrowsing-dummyg4/update");
 user_pref("browser.safebrowsing.provider.mozilla.gethashURL", "http://127.0.0.1/safebrowsing-dummym/gethash");
 user_pref("browser.safebrowsing.provider.mozilla.updateURL", "http://127.0.0.1/safebrowsing-dummym/update");
-user_pref("browser.snippets.firstrunHomepage.enabled", false);
 // use about:blank, not browser.startup.homepage
 user_pref("browser.startup.page", 0);
 // Since our tests are 800px wide, set the assume-designed-for width of all
@@ -44,6 +38,7 @@ user_pref("extensions.autoDisableScopes", 0);
 // Disable blocklist updates so we don't have them reported as leaks
 user_pref("extensions.blocklist.enabled", false);
 user_pref("extensions.getAddons.cache.enabled", false);
+user_pref("extensions.getAddons.get.url", "http://localhost/extensions-dummy/repositoryGetURL");
 user_pref("extensions.systemAddon.update.url", "http://localhost/dummy-system-addons.xml");
 user_pref("gfx.color_management.force_srgb", true);
 user_pref("gfx.color_management.mode", 2);
@@ -86,9 +81,6 @@ user_pref("privacy.trackingprotection.pbmode.enabled", false);
 // rely on this to load downloadable fonts (which are restricted to same
 // origin policy by default) from outside their directory.
 user_pref("security.fileuri.strict_origin_policy", false);
-// Allow view-source URIs to be opened from URIs that share
-// their protocol with the inner URI of the view-source URI
-user_pref("security.view-source.reachable-from-inner-protocol", true);
 user_pref("startup.homepage_override_url", "");
 user_pref("startup.homepage_welcome_url", "");
 user_pref("startup.homepage_welcome_url.additional", "");
@@ -98,10 +90,17 @@ user_pref("testing.supports.moz-bool-pref", false);
 // server in the middle of the tests.
 user_pref("toolkit.telemetry.enabled", false);
 user_pref("toolkit.telemetry.server", "https://%(server)s/telemetry-dummy/");
+user_pref("telemetry.fog.test.localhost_port", -1);
 user_pref("ui.caretBlinkTime", -1);
 user_pref("ui.caretWidth", 1);
 user_pref("ui.prefersReducedMotion", 0);
+user_pref("ui.systemUsesDarkTheme", 0);
+user_pref("ui.useAccessibilityTheme", 0);
+user_pref("ui.windowForeground", "");
+user_pref("ui.windowBackground", "");
 // Turn off the Push service.
 user_pref("dom.push.serverURL", "");
 // Disable intermittent telemetry collection
 user_pref("toolkit.telemetry.initDelay", 99999999);
+// Setting this pref to true for usercss reftests, since it relies on userContent.css
+user_pref("toolkit.legacyUserProfileCustomizations.stylesheets", true);

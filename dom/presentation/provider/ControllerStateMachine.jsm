@@ -3,15 +3,14 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-/* jshint esnext:true, globalstrict:true, moz:true, undef:true, unused:true */
-/* globals Components, dump */
 
 "use strict";
 
 var EXPORTED_SYMBOLS = ["ControllerStateMachine"]; // jshint ignore:line
 
-/* globals State, CommandType */
-ChromeUtils.import("resource://gre/modules/presentation/StateMachineHelper.jsm");
+const { CommandType, State } = ChromeUtils.import(
+  "resource://gre/modules/presentation/StateMachineHelper.jsm"
+);
 
 const DEBUG = false;
 function debug(str) {
@@ -193,7 +192,8 @@ ControllerStateMachine.prototype = {
         }
         break;
       default:
-        DEBUG && debug("unexpected channel close: " + reason + ", " + isByRemote); // jshint ignore:line
+        DEBUG &&
+          debug("unexpected channel close: " + reason + ", " + isByRemote); // jshint ignore:line
         break;
     }
   },
@@ -234,4 +234,3 @@ ControllerStateMachine.prototype = {
     }
   },
 };
-

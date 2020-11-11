@@ -11,8 +11,7 @@
 #include "mozilla/dom/MultipartBlobImpl.h"
 #include "mozilla/dom/FileSystemFileEntryBinding.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 namespace {
 
@@ -24,19 +23,18 @@ class FileCallbackRunnable final : public Runnable {
     MOZ_ASSERT(aFile);
   }
 
-  NS_IMETHOD
-  Run() override {
+  // MOZ_CAN_RUN_SCRIPT_BOUNDARY until Runnable::Run is MOZ_CAN_RUN_SCRIPT.  See
+  // bug 1535398.
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY NS_IMETHOD Run() override {
     // Here we clone the File object.
 
     RefPtr<File> file = File::Create(mFile->GetParentObject(), mFile->Impl());
-    MOZ_ASSERT(file);
-
-    mCallback->HandleEvent(*file);
+    mCallback->Call(*file);
     return NS_OK;
   }
 
  private:
-  RefPtr<FileCallback> mCallback;
+  const RefPtr<FileCallback> mCallback;
   RefPtr<File> mFile;
 };
 
@@ -58,7 +56,7 @@ FileSystemFileEntry::FileSystemFileEntry(nsIGlobalObject* aGlobal, File* aFile,
   MOZ_ASSERT(mFile);
 }
 
-FileSystemFileEntry::~FileSystemFileEntry() {}
+FileSystemFileEntry::~FileSystemFileEntry() = default;
 
 JSObject* FileSystemFileEntry::WrapObject(JSContext* aCx,
                                           JS::Handle<JSObject*> aGivenProto) {
@@ -93,5 +91,4 @@ void FileSystemFileEntry::GetFile(
   FileSystemUtils::DispatchRunnable(GetParentObject(), runnable.forget());
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

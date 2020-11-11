@@ -7,15 +7,15 @@
 #ifndef jit_JitSpewer_h
 #define jit_JitSpewer_h
 
+#include "mozilla/Assertions.h"
+#include "mozilla/Attributes.h"
 #include "mozilla/DebugOnly.h"
 #include "mozilla/IntegerPrintfMacros.h"
 
 #include <stdarg.h>
 
 #include "jit/JSONSpewer.h"
-
-#include "js/RootingAPI.h"
-
+#include "js/TypeDecls.h"
 #include "vm/Printer.h"
 
 namespace js {
@@ -33,14 +33,10 @@ namespace jit {
   _(AliasSummaries)                        \
   /* Information during GVN */             \
   _(GVN)                                   \
-  /* Information during sincos */          \
-  _(Sincos)                                \
   /* Information during sinking */         \
   _(Sink)                                  \
   /* Information during Range analysis */  \
   _(Range)                                 \
-  /* Information during loop unrolling */  \
-  _(Unrolling)                             \
   /* Information during LICM */            \
   _(LICM)                                  \
   /* Info about fold linear constants */   \
@@ -59,15 +55,12 @@ namespace jit {
   _(Pools)                                 \
   /* Profiling-related information */      \
   _(Profiling)                             \
-  /* Information of tracked opt strats */  \
-  _(OptimizationTracking)                  \
-  _(OptimizationTrackingExtended)          \
   /* Debug info about the I$ */            \
   _(CacheFlush)                            \
   /* Output a list of MIR expressions */   \
   _(MIRExpressions)                        \
-  /* Print control flow graph */           \
-  _(CFG)                                   \
+  /* Spew Tracelogger summary stats */     \
+  _(ScriptStats)                           \
                                            \
   /* BASELINE COMPILER SPEW */             \
                                            \
@@ -105,7 +98,16 @@ namespace jit {
   /* Debug info about snapshots */         \
   _(IonSnapshots)                          \
   /* Generated inline cache stubs */       \
-  _(IonIC)
+  _(IonIC)                                 \
+                                           \
+  /* WARP SPEW */                          \
+                                           \
+  /* Generated WarpSnapshots */            \
+  _(WarpSnapshots)                         \
+  /* CacheIR transpiler logging */         \
+  _(WarpTranspiler)                        \
+  /* Trial inlining for Warp */            \
+  _(WarpTrialInlining)
 
 enum JitSpewChannel {
 #define JITSPEW_CHANNEL(name) JitSpew_##name,
@@ -137,6 +139,7 @@ class GraphSpewer {
   bool isSpewing() const { return graph_; }
   void init(MIRGraph* graph, JSScript* function);
   void beginFunction(JSScript* function);
+  void beginWasmFunction(unsigned funcIndex);
   void spewPass(const char* pass);
   void spewPass(const char* pass, BacktrackingAllocator* ra);
   void endFunction();
@@ -145,6 +148,8 @@ class GraphSpewer {
 };
 
 void SpewBeginFunction(MIRGenerator* mir, JSScript* function);
+void SpewBeginWasmFunction(MIRGenerator* mir, unsigned funcIndex);
+
 class AutoSpewEndFunction {
  private:
   MIRGenerator* mir_;
@@ -187,6 +192,13 @@ void DisableChannel(JitSpewChannel channel);
 void EnableIonDebugSyncLogging();
 void EnableIonDebugAsyncLogging();
 
+#  define JitSpewIfEnabled(channel, fmt, ...) \
+    do {                                      \
+      if (JitSpewEnabled(channel)) {          \
+        JitSpew(channel, fmt, __VA_ARGS__);   \
+      }                                       \
+    } while (false);
+
 #else
 
 class GraphSpewer {
@@ -204,6 +216,8 @@ class GraphSpewer {
 };
 
 static inline void SpewBeginFunction(MIRGenerator* mir, JSScript* function) {}
+static inline void SpewBeginWasmFunction(MIRGenerator* mir,
+                                         unsigned funcIndex) {}
 
 class AutoSpewEndFunction {
  public:
@@ -228,13 +242,16 @@ class JitSpewIndent {
 static inline void JitSpewCheckArguments(JitSpewChannel channel,
                                          const char* fmt) {}
 
-#define JitSpewCheckExpandedArgs(channel, fmt, ...) \
-  JitSpewCheckArguments(channel, fmt)
-#define JitSpewCheckExpandedArgs_(ArgList) \
-  JitSpewCheckExpandedArgs ArgList /* Fix MSVC issue */
-#define JitSpew(...) JitSpewCheckExpandedArgs_((__VA_ARGS__))
-#define JitSpewStart(...) JitSpewCheckExpandedArgs_((__VA_ARGS__))
-#define JitSpewCont(...) JitSpewCheckExpandedArgs_((__VA_ARGS__))
+#  define JitSpewCheckExpandedArgs(channel, fmt, ...) \
+    JitSpewCheckArguments(channel, fmt)
+#  define JitSpewCheckExpandedArgs_(ArgList) \
+    JitSpewCheckExpandedArgs ArgList /* Fix MSVC issue */
+#  define JitSpew(...) JitSpewCheckExpandedArgs_((__VA_ARGS__))
+#  define JitSpewStart(...) JitSpewCheckExpandedArgs_((__VA_ARGS__))
+#  define JitSpewCont(...) JitSpewCheckExpandedArgs_((__VA_ARGS__))
+
+#  define JitSpewIfEnabled(channel, fmt, ...) \
+    JitSpewCheckArguments(channel, fmt)
 
 static inline void JitSpewFin(JitSpewChannel channel) {}
 

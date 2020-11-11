@@ -10,23 +10,24 @@
 // This file declares the data structures used to build a control-flow graph
 // containing MIR.
 
+#include "jit/CompileInfo.h"
 #include "jit/FixedList.h"
+#include "jit/InlineScriptTree.h"
 #include "jit/JitAllocPolicy.h"
 #include "jit/MIR.h"
 
 namespace js {
 namespace jit {
 
-class BytecodeAnalysis;
 class MBasicBlock;
 class MIRGraph;
 class MStart;
 
 class MDefinitionIterator;
 
-typedef InlineListIterator<MInstruction> MInstructionIterator;
-typedef InlineListReverseIterator<MInstruction> MInstructionReverseIterator;
-typedef InlineListIterator<MPhi> MPhiIterator;
+using MInstructionIterator = InlineListIterator<MInstruction>;
+using MInstructionReverseIterator = InlineListReverseIterator<MInstruction>;
+using MPhiIterator = InlineListIterator<MPhi>;
 
 #ifdef DEBUG
 typedef InlineForwardListIterator<MResumePoint> MResumePointIterator;
@@ -44,8 +45,7 @@ class MBasicBlock : public TempObject, public InlineListNode<MBasicBlock> {
   MOZ_MUST_USE bool init();
   void copySlots(MBasicBlock* from);
   MOZ_MUST_USE bool inherit(TempAllocator& alloc, size_t stackDepth,
-                            MBasicBlock* maybePred, uint32_t popped,
-                            unsigned stackPhiCount = 0);
+                            MBasicBlock* maybePred, uint32_t popped);
   MOZ_MUST_USE bool inheritResumePoint(MBasicBlock* pred);
   void assertUsesAreNotWithin(MUseIterator use, MUseIterator end);
 
@@ -123,8 +123,7 @@ class MBasicBlock : public TempObject, public InlineListNode<MBasicBlock> {
   static MBasicBlock* NewPendingLoopHeader(MIRGraph& graph,
                                            const CompileInfo& info,
                                            MBasicBlock* pred,
-                                           BytecodeSite* site,
-                                           unsigned loopStateSlots);
+                                           BytecodeSite* site);
   static MBasicBlock* NewSplitEdge(MIRGraph& graph, MBasicBlock* pred,
                                    size_t predEdgeIdx, MBasicBlock* succ);
 
@@ -288,7 +287,7 @@ class MBasicBlock : public TempObject, public InlineListNode<MBasicBlock> {
   // phis at the loop header, returns a disabling abort.
   MOZ_MUST_USE AbortReason setBackedge(TempAllocator& alloc,
                                        MBasicBlock* block);
-  MOZ_MUST_USE bool setBackedgeWasm(MBasicBlock* block);
+  MOZ_MUST_USE bool setBackedgeWasm(MBasicBlock* block, size_t paramCount);
 
   // Resets a LOOP_HEADER block to a NORMAL block.  This is needed when
   // optimizations remove the backedge.
@@ -421,7 +420,10 @@ class MBasicBlock : public TempObject, public InlineListNode<MBasicBlock> {
     return instructions_.rbegin(at);
   }
   MInstructionReverseIterator rend() { return instructions_.rend(); }
+
   bool isLoopHeader() const { return kind_ == LOOP_HEADER; }
+  bool isPendingLoopHeader() const { return kind_ == PENDING_LOOP_HEADER; }
+
   bool hasUniqueBackedge() const {
     MOZ_ASSERT(isLoopHeader());
     MOZ_ASSERT(numPredecessors() >= 2);
@@ -565,6 +567,10 @@ class MBasicBlock : public TempObject, public InlineListNode<MBasicBlock> {
     MOZ_ASSERT(lastIns());
     return lastIns()->getSuccessor(index);
   }
+  MBasicBlock* getSingleSuccessor() const {
+    MOZ_ASSERT(numSuccessors() == 1);
+    return getSuccessor(0);
+  }
   size_t getSuccessorIndex(MBasicBlock*) const;
   size_t getPredecessorIndex(MBasicBlock*) const;
 
@@ -581,17 +587,12 @@ class MBasicBlock : public TempObject, public InlineListNode<MBasicBlock> {
 
   // Hit count
   enum class HitState {
-    // Not hit information is attached to this basic block.
+    // No hit information is attached to this basic block.
     NotDefined,
 
     // The hit information is a raw counter. Note that due to inlining this
     // counter is not guaranteed to be consistent over the graph.
     Count,
-
-    // The hit information is a frequency, which is a form of normalized
-    // counter, where a hit-count can be compared against any previous block
-    // in the graph.
-    Frequency
   };
   HitState getHitState() const { return hitState_; }
   void setHitCount(uint64_t count) {
@@ -710,9 +711,9 @@ class MBasicBlock : public TempObject, public InlineListNode<MBasicBlock> {
 #endif
 };
 
-typedef InlineListIterator<MBasicBlock> MBasicBlockIterator;
-typedef InlineListIterator<MBasicBlock> ReversePostorderIterator;
-typedef InlineListReverseIterator<MBasicBlock> PostorderIterator;
+using MBasicBlockIterator = InlineListIterator<MBasicBlock>;
+using ReversePostorderIterator = InlineListIterator<MBasicBlock>;
+using PostorderIterator = InlineListReverseIterator<MBasicBlock>;
 
 typedef Vector<MBasicBlock*, 1, JitAllocPolicy> MIRGraphReturns;
 
@@ -746,8 +747,6 @@ class MIRGraph {
   void addBlock(MBasicBlock* block);
   void insertBlockAfter(MBasicBlock* at, MBasicBlock* block);
   void insertBlockBefore(MBasicBlock* at, MBasicBlock* block);
-
-  void renumberBlocksAfter(MBasicBlock* at);
 
   void unmarkBlocks();
 
@@ -789,6 +788,11 @@ class MIRGraph {
     blocks_.remove(block);
     blocks_.insertBefore(at, block);
   }
+  void moveBlockAfter(MBasicBlock* at, MBasicBlock* block) {
+    MOZ_ASSERT(block->id());
+    blocks_.remove(block);
+    blocks_.insertAfter(at, block);
+  }
   void removeBlockFromList(MBasicBlock* block) {
     blocks_.remove(block);
     numBlocks_--;
@@ -799,17 +803,15 @@ class MIRGraph {
   uint32_t getNumInstructionIds() { return idGen_; }
   MResumePoint* entryResumePoint() { return entryBlock()->entryResumePoint(); }
 
-  void copyIds(const MIRGraph& other) {
-    idGen_ = other.idGen_;
-    blockIdGen_ = other.blockIdGen_;
-    numBlocks_ = other.numBlocks_;
-  }
-
   void setOsrBlock(MBasicBlock* osrBlock) {
     MOZ_ASSERT(!osrBlock_);
     osrBlock_ = osrBlock;
   }
-  MBasicBlock* osrBlock() { return osrBlock_; }
+  MBasicBlock* osrBlock() const { return osrBlock_; }
+
+  MBasicBlock* osrPreHeaderBlock() const {
+    return osrBlock() ? osrBlock()->getSingleSuccessor() : nullptr;
+  }
 
   bool hasTryBlock() const { return hasTryBlock_; }
   void setHasTryBlock() { hasTryBlock_ = true; }

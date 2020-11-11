@@ -4,7 +4,12 @@
 
 "use strict";
 
-const { BATCH_ACTIONS, BATCH_ENABLE, BATCH_RESET } = require("../constants");
+const {
+  BATCH_ACTIONS,
+  BATCH_ENABLE,
+  BATCH_RESET,
+  BATCH_FLUSH,
+} = require("devtools/client/netmonitor/src/constants");
 
 const REQUESTS_REFRESH_RATE = 50; // ms
 
@@ -30,7 +35,11 @@ function batchingMiddleware(store) {
         return resetQueue();
       }
 
-      if (action.meta && action.meta.batch) {
+      if (action.type === BATCH_FLUSH) {
+        return flushQueue();
+      }
+
+      if (action.meta?.batch) {
         if (!enabled) {
           next(action);
           return Promise.resolve();
@@ -66,6 +75,12 @@ function batchingMiddleware(store) {
       }
     }
 
+    function flushQueue() {
+      if (flushTask) {
+        flushTask.runNow();
+      }
+    }
+
     function flushActions() {
       const actions = queuedActions;
       queuedActions = [];
@@ -85,7 +100,7 @@ function batchingMiddleware(store) {
  */
 function DelayedTask(taskFn, delay) {
   this._promise = new Promise((resolve, reject) => {
-    this.runTask = (cancel) => {
+    this.runTask = cancel => {
       if (cancel) {
         reject("Task cancelled");
       } else {

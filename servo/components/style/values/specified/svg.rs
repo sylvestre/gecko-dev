@@ -8,138 +8,89 @@ use crate::parser::{Parse, ParserContext};
 use crate::values::generics::svg as generic;
 use crate::values::specified::color::Color;
 use crate::values::specified::url::SpecifiedUrl;
-use crate::values::specified::LengthOrPercentage;
-use crate::values::specified::{NonNegativeLengthOrPercentage, NonNegativeNumber};
-use crate::values::specified::{Number, Opacity};
+use crate::values::specified::AllowQuirks;
+use crate::values::specified::LengthPercentage;
+use crate::values::specified::{NonNegativeLengthPercentage, Opacity};
 use crate::values::CustomIdent;
-use cssparser::Parser;
+use cssparser::{Parser, Token};
 use std::fmt::{self, Write};
 use style_traits::{CommaWithSpace, CssWriter, ParseError, Separator};
 use style_traits::{StyleParseErrorKind, ToCss};
 
 /// Specified SVG Paint value
-pub type SVGPaint = generic::SVGPaint<Color, SpecifiedUrl>;
+pub type SVGPaint = generic::GenericSVGPaint<Color, SpecifiedUrl>;
 
-/// Specified SVG Paint Kind value
-pub type SVGPaintKind = generic::SVGPaintKind<Color, SpecifiedUrl>;
+/// <length> | <percentage> | <number> | context-value
+pub type SVGLength = generic::GenericSVGLength<LengthPercentage>;
 
+/// A non-negative version of SVGLength.
+pub type SVGWidth = generic::GenericSVGLength<NonNegativeLengthPercentage>;
+
+/// [ <length> | <percentage> | <number> ]# | context-value
+pub type SVGStrokeDashArray = generic::GenericSVGStrokeDashArray<NonNegativeLengthPercentage>;
+
+/// Whether the `context-value` value is enabled.
 #[cfg(feature = "gecko")]
-fn is_context_value_enabled() -> bool {
-    // The prefs can only be mutated on the main thread, so it is safe
-    // to read whenever we are on the main thread or the main thread is
-    // blocked.
-    use crate::gecko_bindings::structs::mozilla;
-    unsafe { mozilla::StaticPrefs_sVarCache_gfx_font_rendering_opentype_svg_enabled }
+pub fn is_context_value_enabled() -> bool {
+    static_prefs::pref!("gfx.font_rendering.opentype_svg.enabled")
 }
+
+/// Whether the `context-value` value is enabled.
 #[cfg(not(feature = "gecko"))]
-fn is_context_value_enabled() -> bool {
+pub fn is_context_value_enabled() -> bool {
     false
 }
 
-fn parse_context_value<'i, 't, T>(
-    input: &mut Parser<'i, 't>,
-    value: T,
-) -> Result<T, ParseError<'i>> {
-    if !is_context_value_enabled() {
-        return Err(input.new_custom_error(StyleParseErrorKind::UnspecifiedError));
-    }
+macro_rules! parse_svg_length {
+    ($ty:ty, $lp:ty) => {
+        impl Parse for $ty {
+            fn parse<'i, 't>(
+                context: &ParserContext,
+                input: &mut Parser<'i, 't>,
+            ) -> Result<Self, ParseError<'i>> {
+                if let Ok(lp) =
+                    input.try_parse(|i| <$lp>::parse_quirky(context, i, AllowQuirks::Always))
+                {
+                    return Ok(generic::SVGLength::LengthPercentage(lp));
+                }
 
-    input.expect_ident_matching("context-value")?;
-    Ok(value)
+                try_match_ident_ignore_ascii_case! { input,
+                    "context-value" if is_context_value_enabled() => {
+                        Ok(generic::SVGLength::ContextValue)
+                    },
+                }
+            }
+        }
+    };
 }
 
-/// A value of <length> | <percentage> | <number> for stroke-dashoffset.
-/// <https://www.w3.org/TR/SVG11/painting.html#StrokeProperties>
-pub type SvgLengthOrPercentageOrNumber =
-    generic::SvgLengthOrPercentageOrNumber<LengthOrPercentage, Number>;
-
-/// <length> | <percentage> | <number> | context-value
-pub type SVGLength = generic::SVGLength<SvgLengthOrPercentageOrNumber>;
-
-impl Parse for SVGLength {
-    fn parse<'i, 't>(
-        context: &ParserContext,
-        input: &mut Parser<'i, 't>,
-    ) -> Result<Self, ParseError<'i>> {
-        input
-            .try(|i| SvgLengthOrPercentageOrNumber::parse(context, i))
-            .map(Into::into)
-            .or_else(|_| parse_context_value(input, generic::SVGLength::ContextValue))
-    }
-}
-
-impl From<SvgLengthOrPercentageOrNumber> for SVGLength {
-    fn from(length: SvgLengthOrPercentageOrNumber) -> Self {
-        generic::SVGLength::Length(length)
-    }
-}
-
-/// A value of <length> | <percentage> | <number> for stroke-width/stroke-dasharray.
-/// <https://www.w3.org/TR/SVG11/painting.html#StrokeProperties>
-pub type NonNegativeSvgLengthOrPercentageOrNumber =
-    generic::SvgLengthOrPercentageOrNumber<NonNegativeLengthOrPercentage, NonNegativeNumber>;
-
-/// A non-negative version of SVGLength.
-pub type SVGWidth = generic::SVGLength<NonNegativeSvgLengthOrPercentageOrNumber>;
-
-impl Parse for SVGWidth {
-    fn parse<'i, 't>(
-        context: &ParserContext,
-        input: &mut Parser<'i, 't>,
-    ) -> Result<Self, ParseError<'i>> {
-        input
-            .try(|i| NonNegativeSvgLengthOrPercentageOrNumber::parse(context, i))
-            .map(Into::into)
-            .or_else(|_| parse_context_value(input, generic::SVGLength::ContextValue))
-    }
-}
-
-impl From<NonNegativeSvgLengthOrPercentageOrNumber> for SVGWidth {
-    fn from(length: NonNegativeSvgLengthOrPercentageOrNumber) -> Self {
-        generic::SVGLength::Length(length)
-    }
-}
-
-/// [ <length> | <percentage> | <number> ]# | context-value
-pub type SVGStrokeDashArray = generic::SVGStrokeDashArray<NonNegativeSvgLengthOrPercentageOrNumber>;
+parse_svg_length!(SVGLength, LengthPercentage);
+parse_svg_length!(SVGWidth, NonNegativeLengthPercentage);
 
 impl Parse for SVGStrokeDashArray {
     fn parse<'i, 't>(
         context: &ParserContext,
         input: &mut Parser<'i, 't>,
     ) -> Result<Self, ParseError<'i>> {
-        if let Ok(values) = input.try(|i| {
+        if let Ok(values) = input.try_parse(|i| {
             CommaWithSpace::parse(i, |i| {
-                NonNegativeSvgLengthOrPercentageOrNumber::parse(context, i)
+                NonNegativeLengthPercentage::parse_quirky(context, i, AllowQuirks::Always)
             })
         }) {
-            Ok(generic::SVGStrokeDashArray::Values(values))
-        } else if let Ok(_) = input.try(|i| i.expect_ident_matching("none")) {
-            Ok(generic::SVGStrokeDashArray::Values(vec![]))
-        } else {
-            parse_context_value(input, generic::SVGStrokeDashArray::ContextValue)
+            return Ok(generic::SVGStrokeDashArray::Values(values.into()));
+        }
+
+        try_match_ident_ignore_ascii_case! { input,
+            "context-value" if is_context_value_enabled() => {
+                Ok(generic::SVGStrokeDashArray::ContextValue)
+            },
+            "none" => Ok(generic::SVGStrokeDashArray::Values(Default::default())),
         }
     }
 }
 
 /// <opacity-value> | context-fill-opacity | context-stroke-opacity
 pub type SVGOpacity = generic::SVGOpacity<Opacity>;
-
-impl Parse for SVGOpacity {
-    fn parse<'i, 't>(
-        context: &ParserContext,
-        input: &mut Parser<'i, 't>,
-    ) -> Result<Self, ParseError<'i>> {
-        if let Ok(opacity) = input.try(|i| Opacity::parse(context, i)) {
-            return Ok(generic::SVGOpacity::Opacity(opacity));
-        }
-
-        try_match_ident_ignore_ascii_case! { input,
-            "context-fill-opacity" => Ok(generic::SVGOpacity::ContextFillOpacity),
-            "context-stroke-opacity" => Ok(generic::SVGOpacity::ContextStrokeOpacity),
-        }
-    }
-}
 
 /// The specified value for a single CSS paint-order property.
 #[repr(u8)]
@@ -156,13 +107,13 @@ pub enum PaintOrder {
 }
 
 /// Number of non-normal components
-const PAINT_ORDER_COUNT: u8 = 3;
+pub const PAINT_ORDER_COUNT: u8 = 3;
 
 /// Number of bits for each component
-const PAINT_ORDER_SHIFT: u8 = 2;
+pub const PAINT_ORDER_SHIFT: u8 = 2;
 
 /// Mask with above bits set
-const PAINT_ORDER_MASK: u8 = 0b11;
+pub const PAINT_ORDER_MASK: u8 = 0b11;
 
 /// The specified value is tree `PaintOrder` values packed into the
 /// bitfields below, as a six-bit field, of 3 two-bit pairs
@@ -174,7 +125,18 @@ const PAINT_ORDER_MASK: u8 = 0b11;
 ///
 /// Higher priority values, i.e. the values specified first,
 /// will be painted first (and may be covered by paintings of lower priority)
-#[derive(Clone, Copy, Debug, MallocSizeOf, PartialEq, SpecifiedValueInfo, ToComputedValue)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    MallocSizeOf,
+    PartialEq,
+    SpecifiedValueInfo,
+    ToComputedValue,
+    ToResolvedValue,
+    ToShmem,
+)]
+#[repr(transparent)]
 pub struct SVGPaintOrder(pub u8);
 
 impl SVGPaintOrder {
@@ -185,8 +147,13 @@ impl SVGPaintOrder {
 
     /// Get variant of `paint-order`
     pub fn order_at(&self, pos: u8) -> PaintOrder {
-        // Safe because PaintOrder covers all possible patterns.
-        unsafe { ::std::mem::transmute((self.0 >> pos * PAINT_ORDER_SHIFT) & PAINT_ORDER_MASK) }
+        match (self.0 >> pos * PAINT_ORDER_SHIFT) & PAINT_ORDER_MASK {
+            0 => PaintOrder::Normal,
+            1 => PaintOrder::Fill,
+            2 => PaintOrder::Stroke,
+            3 => PaintOrder::Markers,
+            _ => unreachable!("this cannot happen"),
+        }
     }
 }
 
@@ -195,7 +162,7 @@ impl Parse for SVGPaintOrder {
         _context: &ParserContext,
         input: &mut Parser<'i, 't>,
     ) -> Result<SVGPaintOrder, ParseError<'i>> {
-        if let Ok(()) = input.try(|i| i.expect_ident_matching("normal")) {
+        if let Ok(()) = input.try_parse(|i| i.expect_ident_matching("normal")) {
             return Ok(SVGPaintOrder::normal());
         }
 
@@ -206,7 +173,7 @@ impl Parse for SVGPaintOrder {
         let mut pos = 0;
 
         loop {
-            let result: Result<_, ParseError> = input.try(|input| {
+            let result: Result<_, ParseError> = input.try_parse(|input| {
                 try_match_ident_ignore_ascii_case! { input,
                     "fill" => Ok(PaintOrder::Fill),
                     "stroke" => Ok(PaintOrder::Stroke),
@@ -236,7 +203,7 @@ impl Parse for SVGPaintOrder {
 
         // fill in rest
         for i in pos..PAINT_ORDER_COUNT {
-            for paint in 0..PAINT_ORDER_COUNT {
+            for paint in 1..(PAINT_ORDER_COUNT + 1) {
                 // if not seen, set bit at position, mark as seen
                 if (seen & (1 << paint)) == 0 {
                     seen |= 1 << paint;
@@ -279,22 +246,91 @@ impl ToCss for SVGPaintOrder {
     }
 }
 
+bitflags! {
+    /// The context properties we understand.
+    #[derive(Default, MallocSizeOf, SpecifiedValueInfo, ToComputedValue, ToResolvedValue, ToShmem)]
+    #[repr(C)]
+    pub struct ContextPropertyBits: u8 {
+        /// `fill`
+        const FILL = 1 << 0;
+        /// `stroke`
+        const STROKE = 1 << 1;
+        /// `fill-opacity`
+        const FILL_OPACITY = 1 << 2;
+        /// `stroke-opacity`
+        const STROKE_OPACITY = 1 << 3;
+    }
+}
+
 /// Specified MozContextProperties value.
 /// Nonstandard (https://developer.mozilla.org/en-US/docs/Web/CSS/-moz-context-properties)
-#[derive(Clone, Debug, MallocSizeOf, PartialEq, SpecifiedValueInfo, ToComputedValue, ToCss)]
-pub struct MozContextProperties(pub CustomIdent);
+#[derive(
+    Clone,
+    Debug,
+    Default,
+    MallocSizeOf,
+    PartialEq,
+    SpecifiedValueInfo,
+    ToComputedValue,
+    ToCss,
+    ToResolvedValue,
+    ToShmem,
+)]
+#[repr(C)]
+pub struct MozContextProperties {
+    #[css(iterable, if_empty = "none")]
+    #[ignore_malloc_size_of = "Arc"]
+    idents: crate::ArcSlice<CustomIdent>,
+    #[css(skip)]
+    bits: ContextPropertyBits,
+}
 
 impl Parse for MozContextProperties {
     fn parse<'i, 't>(
         _context: &ParserContext,
         input: &mut Parser<'i, 't>,
     ) -> Result<MozContextProperties, ParseError<'i>> {
-        let location = input.current_source_location();
-        let i = input.expect_ident()?;
-        Ok(MozContextProperties(CustomIdent::from_ident(
-            location,
-            i,
-            &["all", "none", "auto"],
-        )?))
+        let mut values = vec![];
+        let mut bits = ContextPropertyBits::empty();
+        loop {
+            {
+                let location = input.current_source_location();
+                let ident = input.expect_ident()?;
+
+                if ident.eq_ignore_ascii_case("none") && values.is_empty() {
+                    return Ok(Self::default());
+                }
+
+                let ident = CustomIdent::from_ident(location, ident, &["all", "none", "auto"])?;
+
+                if ident.0 == atom!("fill") {
+                    bits.insert(ContextPropertyBits::FILL);
+                } else if ident.0 == atom!("stroke") {
+                    bits.insert(ContextPropertyBits::STROKE);
+                } else if ident.0 == atom!("fill-opacity") {
+                    bits.insert(ContextPropertyBits::FILL_OPACITY);
+                } else if ident.0 == atom!("stroke-opacity") {
+                    bits.insert(ContextPropertyBits::STROKE_OPACITY);
+                }
+
+                values.push(ident);
+            }
+
+            let location = input.current_source_location();
+            match input.next() {
+                Ok(&Token::Comma) => continue,
+                Err(..) => break,
+                Ok(other) => return Err(location.new_unexpected_token_error(other.clone())),
+            }
+        }
+
+        if values.is_empty() {
+            return Err(input.new_custom_error(StyleParseErrorKind::UnspecifiedError));
+        }
+
+        Ok(MozContextProperties {
+            idents: crate::ArcSlice::from_iter(values.into_iter()),
+            bits,
+        })
     }
 }

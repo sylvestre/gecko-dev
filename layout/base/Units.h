@@ -7,6 +7,8 @@
 #ifndef MOZ_UNITS_H_
 #define MOZ_UNITS_H_
 
+#include <type_traits>
+
 #include "mozilla/gfx/Coord.h"
 #include "mozilla/gfx/Point.h"
 #include "mozilla/gfx/Rect.h"
@@ -17,12 +19,11 @@
 #include "nsRect.h"
 #include "nsRegion.h"
 #include "mozilla/AppUnits.h"
-#include "mozilla/TypeTraits.h"
 
 namespace mozilla {
 
 template <typename T>
-struct IsPixel : FalseType {};
+struct IsPixel : std::false_type {};
 
 // See struct declaration for a description of each unit type.
 struct CSSPixel;
@@ -34,25 +35,28 @@ struct ScreenPixel;
 struct ParentLayerPixel;
 struct DesktopPixel;
 struct ImagePixel;
+struct ExternalPixel;
 
 template <>
-struct IsPixel<CSSPixel> : TrueType {};
+struct IsPixel<CSSPixel> : std::true_type {};
 template <>
-struct IsPixel<LayoutDevicePixel> : TrueType {};
+struct IsPixel<LayoutDevicePixel> : std::true_type {};
 template <>
-struct IsPixel<LayerPixel> : TrueType {};
+struct IsPixel<LayerPixel> : std::true_type {};
 template <>
-struct IsPixel<CSSTransformedLayerPixel> : TrueType {};
+struct IsPixel<CSSTransformedLayerPixel> : std::true_type {};
 template <>
-struct IsPixel<RenderTargetPixel> : TrueType {};
+struct IsPixel<RenderTargetPixel> : std::true_type {};
 template <>
-struct IsPixel<ImagePixel> : TrueType {};
+struct IsPixel<ImagePixel> : std::true_type {};
 template <>
-struct IsPixel<ScreenPixel> : TrueType {};
+struct IsPixel<ScreenPixel> : std::true_type {};
 template <>
-struct IsPixel<ParentLayerPixel> : TrueType {};
+struct IsPixel<ParentLayerPixel> : std::true_type {};
 template <>
-struct IsPixel<DesktopPixel> : TrueType {};
+struct IsPixel<DesktopPixel> : std::true_type {};
+template <>
+struct IsPixel<ExternalPixel> : std::true_type {};
 
 typedef gfx::CoordTyped<CSSPixel> CSSCoord;
 typedef gfx::IntCoordTyped<CSSPixel> CSSIntCoord;
@@ -152,6 +156,18 @@ typedef gfx::IntSizeTyped<DesktopPixel> DesktopIntSize;
 typedef gfx::RectTyped<DesktopPixel> DesktopRect;
 typedef gfx::IntRectTyped<DesktopPixel> DesktopIntRect;
 
+typedef gfx::CoordTyped<ExternalPixel> ExternalCoord;
+typedef gfx::IntCoordTyped<ExternalPixel> ExternalIntCoord;
+typedef gfx::PointTyped<ExternalPixel> ExternalPoint;
+typedef gfx::IntPointTyped<ExternalPixel> ExternalIntPoint;
+typedef gfx::SizeTyped<ExternalPixel> ExternalSize;
+typedef gfx::IntSizeTyped<ExternalPixel> ExternalIntSize;
+typedef gfx::RectTyped<ExternalPixel> ExternalRect;
+typedef gfx::IntRectTyped<ExternalPixel> ExternalIntRect;
+typedef gfx::MarginTyped<ExternalPixel> ExternalMargin;
+typedef gfx::IntMarginTyped<ExternalPixel> ExternalIntMargin;
+typedef gfx::IntRegionTyped<ExternalPixel> ExternalIntRegion;
+
 typedef gfx::ScaleFactor<CSSPixel, CSSPixel> CSSToCSSScale;
 typedef gfx::ScaleFactor<CSSPixel, LayoutDevicePixel> CSSToLayoutDeviceScale;
 typedef gfx::ScaleFactor<CSSPixel, LayerPixel> CSSToLayerScale;
@@ -223,10 +239,14 @@ typedef gfx::ScaleFactors2D<ParentLayerPixel, ScreenPixel>
 typedef gfx::ScaleFactors2D<ParentLayerPixel, ParentLayerPixel>
     ParentLayerToParentLayerScale2D;
 
+typedef gfx::Matrix4x4Typed<CSSPixel, CSSPixel> CSSToCSSMatrix4x4;
 typedef gfx::Matrix4x4Typed<LayoutDevicePixel, LayoutDevicePixel>
     LayoutDeviceToLayoutDeviceMatrix4x4;
+typedef gfx::Matrix4x4Typed<LayoutDevicePixel, ParentLayerPixel>
+    LayoutDeviceToParentLayerMatrix4x4;
 typedef gfx::Matrix4x4Typed<LayerPixel, ParentLayerPixel>
     LayerToParentLayerMatrix4x4;
+typedef gfx::Matrix4x4Typed<LayerPixel, ScreenPixel> LayerToScreenMatrix4x4;
 typedef gfx::Matrix4x4Typed<ScreenPixel, ScreenPixel> ScreenToScreenMatrix4x4;
 typedef gfx::Matrix4x4Typed<ScreenPixel, ParentLayerPixel>
     ScreenToParentLayerMatrix4x4;
@@ -238,13 +258,14 @@ typedef gfx::Matrix4x4Typed<ParentLayerPixel, ParentLayerPixel>
     ParentLayerToParentLayerMatrix4x4;
 typedef gfx::Matrix4x4Typed<ParentLayerPixel, RenderTargetPixel>
     ParentLayerToRenderTargetMatrix4x4;
+typedef gfx::Matrix4x4Typed<ExternalPixel, ParentLayerPixel>
+    ExternalToParentLayerMatrix4x4;
 
 /*
  * The pixels that content authors use to specify sizes in.
  */
 struct CSSPixel {
   // Conversions from app units
-
   static CSSCoord FromAppUnits(nscoord aCoord) {
     return NSAppUnitsToFloatPixels(aCoord, float(AppUnitsPerCSSPixel()));
   }
@@ -350,6 +371,12 @@ struct CSSPixel {
                                 float(AppUnitsPerCSSPixel())),
         NSToCoordRoundWithClamp(float(aRect.Height()) *
                                 float(AppUnitsPerCSSPixel())));
+  }
+
+  // Conversion from a given CSS point value.
+  static CSSCoord FromPoints(float aCoord) {
+    // One inch / 72.
+    return aCoord * 96.0f / 72.0f;
   }
 };
 
@@ -480,7 +507,7 @@ struct LayoutDevicePixel {
  * The pixels that layout rasterizes and delivers to the graphics code.
  * These also are generally referred to as "device pixels" in layout code.
  * Conversion between CSS pixels and LayerPixels is affected by:
- * 1) the "display resolution" (see nsIPresShell::SetResolution)
+ * 1) the "display resolution" (see PresShell::SetResolution)
  * 2) the "full zoom" (see nsPresContext::SetFullZoom)
  * 3) the "widget scale" (see nsIWidget::GetDefaultScale)
  * 4) rasterizing at a different scale in the presence of some CSS transforms
@@ -551,6 +578,8 @@ struct ParentLayerPixel {};
  *   desktop pixels may vary across multiple displays.
  */
 struct DesktopPixel {};
+
+struct ExternalPixel {};
 
 // Operators to apply ScaleFactors directly to Coords, Points, Rects, Sizes and
 // Margins
@@ -783,6 +812,9 @@ gfx::MarginTyped<dst> operator/(const gfx::MarginTyped<src>& aMargin,
 template <class src, class dst>
 gfx::ScaleFactor<src, dst> MaxScaleRatio(const gfx::SizeTyped<dst>& aDestSize,
                                          const gfx::SizeTyped<src>& aSrcSize) {
+  MOZ_ASSERT(aSrcSize.width != 0 && aSrcSize.height != 0,
+             "Caller must verify aSrcSize has nonzero components, "
+             "to avoid division by 0 here");
   return gfx::ScaleFactor<src, dst>(std::max(
       aDestSize.width / aSrcSize.width, aDestSize.height / aSrcSize.height));
 }
@@ -790,6 +822,9 @@ gfx::ScaleFactor<src, dst> MaxScaleRatio(const gfx::SizeTyped<dst>& aDestSize,
 template <class src, class dst>
 gfx::ScaleFactor<src, dst> MinScaleRatio(const gfx::SizeTyped<dst>& aDestSize,
                                          const gfx::SizeTyped<src>& aSrcSize) {
+  MOZ_ASSERT(aSrcSize.width != 0 && aSrcSize.height != 0,
+             "Caller must verify aSrcSize has nonzero components, "
+             "to avoid division by 0 here");
   return gfx::ScaleFactor<src, dst>(std::min(
       aDestSize.width / aSrcSize.width, aDestSize.height / aSrcSize.height));
 }
@@ -815,6 +850,11 @@ struct CoordOfImpl<gfx::RectTyped<Units>> {
 template <typename Units>
 struct CoordOfImpl<gfx::IntRectTyped<Units>> {
   typedef gfx::IntCoordTyped<Units> Type;
+};
+
+template <typename Units>
+struct CoordOfImpl<gfx::SizeTyped<Units>> {
+  typedef gfx::CoordTyped<Units> Type;
 };
 
 template <typename T>

@@ -4,9 +4,9 @@
 
 #include "nsIAuthModule.h"
 #if defined(USE_SSPI)
-#include "nsAuthSSPI.h"
+#  include "nsAuthSSPI.h"
 #else
-#include "nsAuthSambaNTLM.h"
+#  include "nsAuthSambaNTLM.h"
 #endif
 #include "nsCRT.h"
 #include "nsAuthGSSAPI.h"
@@ -39,7 +39,7 @@ already_AddRefed<nsIAuthModule> nsIAuthModule::CreateInstance(
       return nullptr;
     }
 
-    auth = sambaAuth.forget();
+    auth = std::move(sambaAuth);
 #endif
   } else if (!nsCRT::strcmp(aType, "sasl-gssapi")) {
     auth = new nsAuthSASL();
@@ -52,7 +52,7 @@ already_AddRefed<nsIAuthModule> nsIAuthModule::CreateInstance(
       return nullptr;
     }
 
-    auth = ntlmAuth.forget();
+    auth = std::move(ntlmAuth);
   } else {
     return nullptr;
   }

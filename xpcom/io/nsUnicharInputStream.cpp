@@ -6,19 +6,17 @@
 
 #include "nsUnicharInputStream.h"
 #include "nsIInputStream.h"
-#include "nsIServiceManager.h"
 #include "nsString.h"
 #include "nsTArray.h"
-#include "nsAutoPtr.h"
 #include "nsCRT.h"
 #include "nsStreamUtils.h"
 #include "nsConverterInputStream.h"
 #include "mozilla/Attributes.h"
 #include <fcntl.h>
 #if defined(XP_WIN)
-#include <io.h>
+#  include <io.h>
 #else
-#include <unistd.h>
+#  include <unistd.h>
 #endif
 
 #define STRING_BUFFER_SIZE 8192
@@ -36,7 +34,7 @@ class StringUnicharInputStream final : public nsIUnicharInputStream {
   uint32_t mLen;
 
  private:
-  ~StringUnicharInputStream() {}
+  ~StringUnicharInputStream() = default;
 };
 
 NS_IMETHODIMP

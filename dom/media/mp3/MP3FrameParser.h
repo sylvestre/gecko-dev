@@ -41,6 +41,9 @@ class ID3Parser {
     // The derived size based on the provided size fields.
     uint32_t Size() const;
 
+    // To see whether we have parsed the value of the size from header.
+    bool HasSizeBeenSet() const;
+
     // Returns the size of an ID3v2.4 footer if present and zero otherwise.
     uint8_t FooterSize() const;
 
@@ -70,7 +73,7 @@ class ID3Parser {
     // The derived size as provided by the size fields.
     // The header size fields holds a 4 byte sequence with each MSB set to 0,
     // this bits need to be ignored when deriving the actual size.
-    uint32_t mSize;
+    Maybe<uint32_t> mSize;
 
     // The current byte position in the parsed sequence. Reset via Reset and
     // incremented via Update.
@@ -218,13 +221,16 @@ class FrameParser {
     // The offset of the passed ByteReader needs to point to an MPEG frame
     // begin, as a VBRI-style header is searched at a fixed offset relative to
     // frame begin. Returns whether a valid VBR header was found in the range.
-    bool Parse(BufferReader* aReader);
+    bool Parse(BufferReader* aReader, size_t aFrameSize);
+
+    uint32_t EncoderDelay() const { return mEncoderDelay; }
+    uint32_t EncoderPadding() const { return mEncoderPadding; }
 
    private:
     // Parses contents of given ByteReader for a valid Xing header.
     // The initial ByteReader offset will be preserved.
     // Returns whether a valid Xing header was found in the range.
-    Result<bool, nsresult> ParseXing(BufferReader* aReader);
+    Result<bool, nsresult> ParseXing(BufferReader* aReader, size_t aFrameSize);
 
     // Parses contents of given ByteReader for a valid VBRI header.
     // The initial ByteReader offset will be preserved. It also needs to point
@@ -247,6 +253,13 @@ class FrameParser {
 
     // The detected VBR header type.
     VBRHeaderType mType;
+
+    // Delay and padding values found in the LAME header. The encoder delay is a
+    // number of frames that has to be skipped at the beginning of the stream,
+    // encoder padding is a number of frames that needs to be ignored in the
+    // last packet.
+    uint16_t mEncoderDelay = 0;
+    uint16_t mEncoderPadding = 0;
   };
 
   // Frame meta container used to parse and hold a frame header and side info.

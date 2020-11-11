@@ -1,4 +1,3 @@
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -21,36 +20,38 @@ const TEST_URI = `
 
 add_task(async function() {
   await addTab("data:text/html;charset=utf-8," + encodeURIComponent(TEST_URI));
-  const {inspector, view} = await openRuleView();
+  const { inspector, view } = await openRuleView();
   await selectNode("#testid", inspector);
 
-  const idRule = getRuleViewRuleEditor(view, 1).rule;
-  const idProp = idRule.textProps[0];
-  is(idProp.name, "background-color",
-    "First ID property should be background-color");
-  is(idProp.value, "blue", "First ID property value should be blue");
+  const idProp = getTextProperty(view, 1, { "background-color": "blue" });
   ok(!idProp.overridden, "ID prop should not be overridden.");
-  ok(!idProp.editor.element.classList.contains("ruleview-overridden"),
-    "ID property editor should not have ruleview-overridden class");
+  ok(
+    !idProp.editor.element.classList.contains("ruleview-overridden"),
+    "ID property editor should not have ruleview-overridden class"
+  );
 
-  const classRule = getRuleViewRuleEditor(view, 2).rule;
-  const classProp = classRule.textProps[0];
-  is(classProp.name, "background-color",
-    "First class prop should be background-color");
-  is(classProp.value, "green", "First class property value should be green");
+  const classProp = getTextProperty(view, 2, { "background-color": "green" });
   ok(classProp.overridden, "Class property should be overridden.");
-  ok(classProp.editor.element.classList.contains("ruleview-overridden"),
-    "Class property editor should have ruleview-overridden class");
+  ok(
+    classProp.editor.element.classList.contains("ruleview-overridden"),
+    "Class property editor should have ruleview-overridden class"
+  );
 
   // Override background-color by changing the element style.
   const elementProp = await addProperty(view, 0, "background-color", "purple");
 
-  ok(!elementProp.overridden,
-    "Element style property should not be overridden");
+  ok(
+    !elementProp.overridden,
+    "Element style property should not be overridden"
+  );
   ok(idProp.overridden, "ID property should be overridden");
-  ok(idProp.editor.element.classList.contains("ruleview-overridden"),
-    "ID property editor should have ruleview-overridden class");
+  ok(
+    idProp.editor.element.classList.contains("ruleview-overridden"),
+    "ID property editor should have ruleview-overridden class"
+  );
   ok(classProp.overridden, "Class property should be overridden");
-  ok(classProp.editor.element.classList.contains("ruleview-overridden"),
-    "Class property editor should have ruleview-overridden class");
+  ok(
+    classProp.editor.element.classList.contains("ruleview-overridden"),
+    "Class property editor should have ruleview-overridden class"
+  );
 });

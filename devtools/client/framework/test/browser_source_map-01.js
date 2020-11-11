@@ -11,9 +11,11 @@
 
 // There are shutdown issues for which multiple rejections are left uncaught.
 // See bug 1018184 for resolving these issues.
-const { PromiseTestUtils } = scopedCuImport("resource://testing-common/PromiseTestUtils.jsm");
-PromiseTestUtils.whitelistRejectionsGlobally(/this\.worker is null/);
-PromiseTestUtils.whitelistRejectionsGlobally(/Component not initialized/);
+const { PromiseTestUtils } = ChromeUtils.import(
+  "resource://testing-common/PromiseTestUtils.jsm"
+);
+PromiseTestUtils.allowMatchingRejectionsGlobally(/this\.worker is null/);
+PromiseTestUtils.allowMatchingRejectionsGlobally(/Component not initialized/);
 
 // Empty page
 const PAGE_URL = `${URL_ROOT}doc_empty-tab-01.html`;
@@ -30,11 +32,15 @@ add_task(async function() {
   await sourceSeen;
 
   const loc1 = { url: JS_URL, line: 6 };
-  const newLoc1 = await service.originalPositionFor(loc1.url, loc1.line, 4);
+  const newLoc1 = await new Promise(r =>
+    service.subscribeByURL(loc1.url, loc1.line, 4, r)
+  );
   checkLoc1(loc1, newLoc1);
 
   const loc2 = { url: JS_URL, line: 8, column: 3 };
-  const newLoc2 = await service.originalPositionFor(loc2.url, loc2.line, loc2.column);
+  const newLoc2 = await new Promise(r =>
+    service.subscribeByURL(loc2.url, loc2.line, loc2.column, r)
+  );
   checkLoc2(loc2, newLoc2);
 
   await toolbox.destroy();
@@ -44,11 +50,15 @@ add_task(async function() {
 
 function checkLoc1(oldLoc, newLoc) {
   is(oldLoc.line, 6, "Correct line for JS:6");
-  is(oldLoc.column, null, "Correct column for JS:6");
+  is(oldLoc.column, undefined, "Correct column for JS:6");
   is(oldLoc.url, JS_URL, "Correct url for JS:6");
   is(newLoc.line, 4, "Correct line for JS:6 -> COFFEE");
-  is(newLoc.column, 2, "Correct column for JS:6 -> COFFEE -- handles falsy column entries");
-  is(newLoc.sourceUrl, COFFEE_URL, "Correct url for JS:6 -> COFFEE");
+  is(
+    newLoc.column,
+    2,
+    "Correct column for JS:6 -> COFFEE -- handles falsy column entries"
+  );
+  is(newLoc.url, COFFEE_URL, "Correct url for JS:6 -> COFFEE");
 }
 
 function checkLoc2(oldLoc, newLoc) {
@@ -57,5 +67,5 @@ function checkLoc2(oldLoc, newLoc) {
   is(oldLoc.url, JS_URL, "Correct url for JS:8:3");
   is(newLoc.line, 6, "Correct line for JS:8:3 -> COFFEE");
   is(newLoc.column, 10, "Correct column for JS:8:3 -> COFFEE");
-  is(newLoc.sourceUrl, COFFEE_URL, "Correct url for JS:8:3 -> COFFEE");
+  is(newLoc.url, COFFEE_URL, "Correct url for JS:8:3 -> COFFEE");
 }

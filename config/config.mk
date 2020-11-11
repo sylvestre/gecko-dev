@@ -11,6 +11,8 @@
 # of the generic macros.
 #
 
+varize = $(subst -,_,$(subst a,A,$(subst b,B,$(subst c,C,$(subst d,D,$(subst e,E,$(subst f,F,$(subst g,G,$(subst h,H,$(subst i,I,$(subst j,J,$(subst k,K,$(subst l,L,$(subst m,M,$(subst n,N,$(subst o,O,$(subst p,P,$(subst q,Q,$(subst r,R,$(subst s,S,$(subst t,T,$(subst u,U,$(subst v,V,$(subst w,W,$(subst x,X,$(subst y,Y,$(subst z,Z,$1)))))))))))))))))))))))))))
+
 # Define an include-at-most-once flag
 ifdef INCLUDED_CONFIG_MK
 $(error Do not include config.mk twice!)
@@ -39,6 +41,10 @@ ifndef EXTERNALLY_MANAGED_MAKE_FILE
 ifndef STANDALONE_MAKEFILE
 GLOBAL_DEPS += backend.mk
 include backend.mk
+
+# Add e.g. `export:: $(EXPORT_TARGETS)` rules. The *_TARGETS variables are defined
+# in backend.mk.
+$(foreach tier,$(RUNNABLE_TIERS),$(eval $(tier):: $($(call varize,$(tier))_TARGETS)))
 endif
 
 endif
@@ -100,27 +106,11 @@ ifdef XPI_NAME
 ACDEFINES += -DXPI_NAME=$(XPI_NAME)
 endif
 
-# The VERSION_NUMBER is suffixed onto the end of the DLLs we ship.
-VERSION_NUMBER		= 50
-
-CONFIG_TOOLS	= $(MOZ_BUILD_ROOT)/config
-AUTOCONF_TOOLS	= $(MOZILLA_DIR)/build/autoconf
-
-ifdef _MSC_VER
-# clang-cl is smart enough to generate dependencies directly.
-ifeq (,$(CLANG_CL)$(MOZ_USING_SCCACHE))
-CC_WRAPPER ?= $(call py_action,cl)
-CXX_WRAPPER ?= $(call py_action,cl)
-endif # CLANG_CL/MOZ_USING_SCCACHE
-endif # _MSC_VER
-
 CC := $(CC_WRAPPER) $(CC)
 CXX := $(CXX_WRAPPER) $(CXX)
 MKDIR ?= mkdir
 SLEEP ?= sleep
 TOUCH ?= touch
-
-PYTHON_PATH = $(PYTHON) $(topsrcdir)/config/pythonpath.py
 
 #
 # Build using PIC by default
@@ -141,22 +131,19 @@ endif
 # Enable profile-based feedback
 ifneq (1,$(NO_PROFILE_GUIDED_OPTIMIZE))
 ifdef MOZ_PROFILE_GENERATE
-PGO_CFLAGS += $(if $(filter $(notdir $<),$(notdir $(NO_PROFILE_GUIDED_OPTIMIZE))),,$(PROFILE_GEN_CFLAGS) $(COMPUTED_PROFILE_GEN_DYN_CFLAGS))
+PGO_CFLAGS += -DNS_FREE_PERMANENT_DATA=1
+PGO_CFLAGS += $(if $(filter $(notdir $<),$(notdir $(NO_PROFILE_GUIDED_OPTIMIZE))),,$(PROFILE_GEN_CFLAGS))
 PGO_LDFLAGS += $(PROFILE_GEN_LDFLAGS)
-ifeq (WINNT,$(OS_ARCH))
-AR_FLAGS += -LTCG
-endif
 endif # MOZ_PROFILE_GENERATE
 
 ifdef MOZ_PROFILE_USE
 PGO_CFLAGS += $(if $(filter $(notdir $<),$(notdir $(NO_PROFILE_GUIDED_OPTIMIZE))),,$(PROFILE_USE_CFLAGS))
 PGO_LDFLAGS += $(PROFILE_USE_LDFLAGS)
-ifeq (WINNT,$(OS_ARCH))
-AR_FLAGS += -LTCG
-endif
 endif # MOZ_PROFILE_USE
 endif # NO_PROFILE_GUIDED_OPTIMIZE
 
+# Overloaded by comm builds to refer to $(commtopsrcdir), so that
+# `mail` resolves in en-US builds and in repacks.
 LOCALE_TOPDIR ?= $(topsrcdir)
 MAKE_JARS_FLAGS = \
 	-t $(LOCALE_TOPDIR) \
@@ -183,12 +170,12 @@ INCLUDES = \
 
 include $(MOZILLA_DIR)/config/static-checking-config.mk
 
-ifdef MOZ_PROFILE_GENERATE
+ifndef MOZ_LTO
 MOZ_LTO_CFLAGS :=
 MOZ_LTO_LDFLAGS :=
 endif
 
-LDFLAGS		= $(MOZ_LTO_LDFLAGS) $(COMPUTED_LDFLAGS) $(PGO_LDFLAGS) $(MK_LDFLAGS)
+LDFLAGS		= $(MOZ_LTO_LDFLAGS) $(COMPUTED_LDFLAGS) $(PGO_LDFLAGS)
 
 COMPILE_CFLAGS	= $(MOZ_LTO_CFLAGS) $(COMPUTED_CFLAGS) $(PGO_CFLAGS) $(_DEPEND_CFLAGS) $(MK_COMPILE_DEFINES)
 COMPILE_CXXFLAGS = $(MOZ_LTO_CFLAGS) $(COMPUTED_CXXFLAGS) $(PGO_CFLAGS) $(_DEPEND_CFLAGS) $(MK_COMPILE_DEFINES)
@@ -197,17 +184,14 @@ COMPILE_CMMFLAGS = $(MOZ_LTO_CFLAGS) $(OS_COMPILE_CMMFLAGS) $(MOZBUILD_CMMFLAGS)
 ASFLAGS = $(COMPUTED_ASFLAGS)
 SFLAGS = $(COMPUTED_SFLAGS)
 
-HOST_CFLAGS = $(COMPUTED_HOST_CFLAGS) $(_DEPEND_CFLAGS)
-HOST_CXXFLAGS = $(COMPUTED_HOST_CXXFLAGS) $(_DEPEND_CFLAGS)
+HOST_CFLAGS = $(COMPUTED_HOST_CFLAGS) $(_HOST_DEPEND_CFLAGS)
+HOST_CXXFLAGS = $(COMPUTED_HOST_CXXFLAGS) $(_HOST_DEPEND_CFLAGS)
 HOST_C_LDFLAGS = $(COMPUTED_HOST_C_LDFLAGS)
 HOST_CXX_LDFLAGS = $(COMPUTED_HOST_CXX_LDFLAGS)
-# Win32 Cross-builds on win64 need to override LIB when invoking the linker,
-# which we do for rust through cargo-linker.bat, so we abuse it here.
-# Ideally, we'd empty LIB and pass -LIBPATH options to the linker somehow but
-# we don't have this in place for rust, so...
-ifdef WIN64_CARGO_LINKER
-HOST_LINKER = $(topobjdir)/build/win64/cargo-linker.bat
-endif
+
+WASM_CFLAGS = $(COMPUTED_WASM_CFLAGS) $(_DEPEND_CFLAGS) $(MK_COMPILE_DEFINES)
+WASM_CXXFLAGS = $(COMPUTED_WASM_CXXFLAGS) $(_DEPEND_CFLAGS) $(MK_COMPILE_DEFINES)
+WASM_LDFLAGS = $(COMPUTED_WASM_LDFLAGS)
 
 ifdef MOZ_LTO
 ifeq (Darwin,$(OS_TARGET))
@@ -244,6 +228,9 @@ color_flags_vars := \
   COMPILE_CMFLAGS \
   COMPILE_CMMFLAGS \
   LDFLAGS \
+  WASM_LDFLAGS \
+  WASM_CFLAGS \
+  WASM_CXXFLAGS \
   $(NULL)
 
 ifdef MACH_STDOUT_ISATTY
@@ -286,6 +273,10 @@ export CCACHE_CPP2=1
 endif
 endif
 
+ifdef CCACHE_PREFIX
+export CCACHE_PREFIX
+endif
+
 # Set link flags according to whether we want a console.
 ifeq ($(OS_ARCH),WINNT)
 ifdef MOZ_WINCONSOLE
@@ -300,14 +291,31 @@ WIN32_EXE_LDFLAGS	+= $(WIN32_CONSOLE_EXE_LDFLAGS)
 endif
 endif # WINNT
 
-ifdef _MSC_VER
-ifeq ($(CPU_ARCH),x86_64)
-ifdef MOZ_ASAN
-# ASan could have 3x stack memory usage of normal builds.
-WIN32_EXE_LDFLAGS	+= -STACK:6291456
+ifeq ($(OS_ARCH),WINNT)
+ifneq (,$(filter msvc clang-cl,$(CC_TYPE)))
+ifneq ($(CPU_ARCH),x86)
+# Normal operation on 64-bit Windows needs 2 MB of stack. (Bug 582910)
+# ASAN requires 6 MB of stack.
+# Setting the stack to 8 MB to match the capability of other systems
+# to deal with frame construction for unreasonably deep DOM trees
+# with worst-case styling. This uses address space unnecessarily for
+# non-main threads, but that should be tolerable on 64-bit systems.
+# (Bug 256180)
+WIN32_EXE_LDFLAGS      += -STACK:8388608
 else
-# set stack to 2MB on x64 build.  See bug 582910
-WIN32_EXE_LDFLAGS	+= -STACK:2097152
+# Since this setting affects the default stack size for non-main
+# threads, too, to avoid burning the address space, increase only
+# 512 KB over the default. Just enough to be able to deal with
+# reasonable styling applied to DOM trees whose depth is near what
+# Blink's HTML parser can output, esp.
+# layout/base/crashtests/507119.html (Bug 256180)
+WIN32_EXE_LDFLAGS      += -STACK:1572864
+endif
+else
+ifneq ($(CPU_ARCH),x86)
+MOZ_PROGRAM_LDFLAGS += -Wl,-Xlink=-STACK:8388608
+else
+MOZ_PROGRAM_LDFLAGS += -Wl,-Xlink=-STACK:1572864
 endif
 endif
 endif
@@ -316,8 +324,6 @@ endif
 
 ######################################################################
 
-GARBAGE		+= $(DEPENDENCIES) core $(wildcard core.[0-9]*) $(wildcard *.err) $(wildcard *.pure) $(wildcard *_pure_*.o) Templates.DB
-
 ifeq ($(OS_ARCH),Darwin)
 ifndef NSDISTMODE
 NSDISTMODE=absolute_symlink
@@ -325,7 +331,7 @@ endif
 PWD := $(CURDIR)
 endif
 
-NSINSTALL_PY := $(PYTHON) $(abspath $(MOZILLA_DIR)/config/nsinstall.py)
+NSINSTALL_PY := $(PYTHON3) $(abspath $(MOZILLA_DIR)/config/nsinstall.py)
 ifneq (,$(or $(filter WINNT,$(HOST_OS_ARCH)),$(if $(COMPILE_ENVIRONMENT),,1)))
 NSINSTALL = $(NSINSTALL_PY)
 else
@@ -366,11 +372,7 @@ include $(MOZILLA_DIR)/config/AB_rCD.mk
 # Many locales directories want this definition.
 ACDEFINES += -DAB_CD=$(AB_CD)
 
-ifndef L10NBASEDIR
-  L10NBASEDIR = $(error L10NBASEDIR not defined by configure)
-endif
-
-EXPAND_LOCALE_SRCDIR = $(if $(filter en-US,$(AB_CD)),$(LOCALE_TOPDIR)/$(1)/en-US,$(or $(realpath $(L10NBASEDIR)),$(abspath $(L10NBASEDIR)))/$(AB_CD)/$(subst /locales,,$(1)))
+EXPAND_LOCALE_SRCDIR = $(if $(filter en-US,$(AB_CD)),$(LOCALE_TOPDIR)/$(1)/en-US,$(REAL_LOCALE_MERGEDIR)/$(subst /locales,,$(1)))
 
 ifdef relativesrcdir
 LOCALE_RELATIVEDIR ?= $(relativesrcdir)
@@ -384,10 +386,7 @@ ifdef relativesrcdir
 MAKE_JARS_FLAGS += --relativesrcdir=$(LOCALE_RELATIVEDIR)
 ifneq (en-US,$(AB_CD))
 ifdef IS_LANGUAGE_REPACK
-MAKE_JARS_FLAGS += --locale-mergedir=$(REAL_LOCALE_MERGEDIR)
-endif
-ifdef IS_LANGUAGE_REPACK
-MAKE_JARS_FLAGS += --l10n-base=$(L10NBASEDIR)/$(AB_CD)
+MAKE_JARS_FLAGS += --l10n-base=$(REAL_LOCALE_MERGEDIR)
 endif
 else
 MAKE_JARS_FLAGS += -c $(LOCALE_SRCDIR)
@@ -396,56 +395,14 @@ else
 MAKE_JARS_FLAGS += -c $(LOCALE_SRCDIR)
 endif # ! relativesrcdir
 
-ifdef IS_LANGUAGE_REPACK
-MERGE_FILE = $(firstword \
-  $(wildcard $(REAL_LOCALE_MERGEDIR)/$(subst /locales,,$(LOCALE_RELATIVEDIR))/$(1)) \
-  $(wildcard $(LOCALE_SRCDIR)/$(1)) \
-  $(srcdir)/en-US/$(1) )
-# Like MERGE_FILE, but with the specified relative source directory
-# $(2) replacing $(srcdir).  It's expected that $(2) will include
-# '/locales' but not '/locales/en-US'.
-#
-# MERGE_RELATIVE_FILE and MERGE_FILE could be -- ahem -- merged by
-# making the second argument optional, but that expression makes for
-# difficult to read Make.
-MERGE_RELATIVE_FILE = $(firstword \
-  $(wildcard $(REAL_LOCALE_MERGEDIR)/$(subst /locales,,$(2))/$(1)) \
-  $(wildcard $(call EXPAND_LOCALE_SRCDIR,$(2))/$(1)) \
-  $(topsrcdir)/$(2)/en-US/$(1) )
-else
 MERGE_FILE = $(LOCALE_SRCDIR)/$(1)
 MERGE_RELATIVE_FILE = $(call EXPAND_LOCALE_SRCDIR,$(2))/$(1)
-endif
 
 ifneq (WINNT,$(OS_ARCH))
 RUN_TEST_PROGRAM = $(DIST)/bin/run-mozilla.sh
 endif # ! WINNT
 
-# autoconf.mk sets OBJ_SUFFIX to an error to avoid use before including
-# this file
-OBJ_SUFFIX := $(_OBJ_SUFFIX)
-
-OBJS_VAR_SUFFIX := OBJS
-
-# PGO builds with GCC and clang-cl build objects with instrumentation in
-# a first pass, then objects optimized, without instrumentation, in a
-# second pass. If we overwrite the objects from the first pass with
-# those from the second, we end up not getting instrumentation data for
-# better optimization on incremental builds. As a consequence, we use a
-# different object suffix for the first pass.
-ifdef MOZ_PROFILE_GENERATE
-ifneq (,$(GNU_CC)$(CLANG_CL))
-OBJS_VAR_SUFFIX := PGO_OBJS
-ifndef NO_PROFILE_GUIDED_OPTIMIZE
-OBJ_SUFFIX := i_o
+# Enable verbose logs when not using `make -s`
+ifeq (,$(findstring s, $(filter-out --%, $(MAKEFLAGS))))
+export BUILD_VERBOSE_LOG = 1
 endif
-endif
-endif
-
-PLY_INCLUDE = -I$(MOZILLA_DIR)/other-licenses/ply
-
-export CL_INCLUDES_PREFIX
-# Make sure that the build system can handle non-ASCII characters
-# in environment variables to prevent it from breking silently on
-# non-English systems.
-export NONASCII

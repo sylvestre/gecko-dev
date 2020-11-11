@@ -10,11 +10,11 @@
 #include "glib.h"
 #include "gio/gio.h"
 
+#include "unicode/uloc.h"
+
 using namespace mozilla::intl;
 
-OSPreferences::OSPreferences() {}
-
-OSPreferences::~OSPreferences() {}
+OSPreferences::OSPreferences() = default;
 
 bool OSPreferences::ReadSystemLocales(nsTArray<nsCString>& aLocaleList) {
   MOZ_ASSERT(aLocaleList.IsEmpty());
@@ -134,8 +134,8 @@ static int HourCycle() {
 bool OSPreferences::ReadDateTimePattern(DateTimeFormatStyle aDateStyle,
                                         DateTimeFormatStyle aTimeStyle,
                                         const nsACString& aLocale,
-                                        nsAString& aRetVal) {
-  nsAutoString skeleton;
+                                        nsACString& aRetVal) {
+  nsAutoCString skeleton;
   if (!GetDateTimeSkeletonForStyle(aDateStyle, aTimeStyle, aLocale, skeleton)) {
     return false;
   }
@@ -196,3 +196,5 @@ bool OSPreferences::ReadDateTimePattern(DateTimeFormatStyle aDateStyle,
 
   return true;
 }
+
+void OSPreferences::RemoveObservers() {}

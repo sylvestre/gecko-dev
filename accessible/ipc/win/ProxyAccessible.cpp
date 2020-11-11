@@ -13,12 +13,11 @@
 #include "DocAccessible.h"
 #include "mozilla/a11y/DocManager.h"
 #include "mozilla/dom/Element.h"
-#include "mozilla/dom/TabParent.h"
+#include "mozilla/dom/BrowserParent.h"
 #include "mozilla/Unused.h"
 #include "mozilla/a11y/Platform.h"
 #include "RelationType.h"
 #include "mozilla/a11y/Role.h"
-#include "xpcAccessibleDocument.h"
 
 #include <comutil.h>
 
@@ -42,6 +41,7 @@ bool ProxyAccessible::GetCOMInterface(void** aOutAccessible) const {
     // overflow the stack.
     VARIANT realId = {{{VT_I4}}};
     realId.ulVal = wrap->GetExistingID();
+    MOZ_DIAGNOSTIC_ASSERT(realId.ulVal != CHILDID_SELF);
     thisPtr->mCOMProxy = wrap->GetIAccessibleFor(realId, &isDefunct);
   }
 
@@ -118,20 +118,26 @@ static ProxyAccessible* GetProxyFor(DocAccessibleParent* aDoc,
   return aDoc->GetAccessible(id);
 }
 
-void ProxyAccessible::Name(nsString& aName) const {
+uint32_t ProxyAccessible::Name(nsString& aName) const {
+  /* The return values here exist only to match behvaiour required
+   * by the header declaration of this function. On Mac, we'd like
+   * to return the associated ENameValueFlag, but we don't have
+   * access to that here, so we return a dummy eNameOK value instead.
+   */
   aName.Truncate();
   RefPtr<IAccessible> acc;
   if (!GetCOMInterface((void**)getter_AddRefs(acc))) {
-    return;
+    return eNameOK;
   }
 
   BSTR result;
   HRESULT hr = acc->get_accName(kChildIdSelf, &result);
   _bstr_t resultWrap(result, false);
   if (FAILED(hr)) {
-    return;
+    return eNameOK;
   }
   aName = (wchar_t*)resultWrap;
+  return eNameOK;
 }
 
 void ProxyAccessible::Value(nsString& aValue) const {
@@ -352,7 +358,7 @@ nsTArray<ProxyAccessible*> ProxyAccessible::RelationByType(
     RelationType aType) const {
   RefPtr<IAccessible2_2> acc = QueryInterface<IAccessible2_2>(this);
   if (!acc) {
-    nsTArray<ProxyAccessible*>();
+    return nsTArray<ProxyAccessible*>();
   }
 
   _bstr_t relationType;
@@ -364,7 +370,7 @@ nsTArray<ProxyAccessible*> ProxyAccessible::RelationByType(
   }
 
   if (!relationType) {
-    nsTArray<ProxyAccessible*>();
+    return nsTArray<ProxyAccessible*>();
   }
 
   IUnknown** targets;
@@ -372,7 +378,7 @@ nsTArray<ProxyAccessible*> ProxyAccessible::RelationByType(
   HRESULT hr =
       acc->get_relationTargetsOfType(relationType, 0, &targets, &nTargets);
   if (FAILED(hr)) {
-    nsTArray<ProxyAccessible*>();
+    return nsTArray<ProxyAccessible*>();
   }
 
   nsTArray<ProxyAccessible*> proxies;
@@ -454,9 +460,39 @@ static IA2TextBoundaryType GetIA2TextBoundary(
       return IA2_TEXT_BOUNDARY_WORD;
     case nsIAccessibleText::BOUNDARY_LINE_START:
       return IA2_TEXT_BOUNDARY_LINE;
+    case nsIAccessibleText::BOUNDARY_PARAGRAPH:
+      return IA2_TEXT_BOUNDARY_PARAGRAPH;
     default:
       MOZ_CRASH();
   }
+}
+
+int32_t ProxyAccessible::OffsetAtPoint(int32_t aX, int32_t aY,
+                                       uint32_t aCoordinateType) {
+  RefPtr<IAccessibleText> acc = QueryInterface<IAccessibleText>(this);
+  if (!acc) {
+    return -1;
+  }
+
+  IA2CoordinateType coordType;
+  if (aCoordinateType ==
+      nsIAccessibleCoordinateType::COORDTYPE_SCREEN_RELATIVE) {
+    coordType = IA2_COORDTYPE_SCREEN_RELATIVE;
+  } else if (aCoordinateType ==
+             nsIAccessibleCoordinateType::COORDTYPE_PARENT_RELATIVE) {
+    coordType = IA2_COORDTYPE_PARENT_RELATIVE;
+  } else {
+    MOZ_CRASH("unsupported coord type");
+  }
+
+  long offset;
+  HRESULT hr = acc->get_offsetAtPoint(
+      static_cast<long>(aX), static_cast<long>(aY), coordType, &offset);
+  if (FAILED(hr)) {
+    return -1;
+  }
+
+  return static_cast<int32_t>(offset);
 }
 
 bool ProxyAccessible::TextSubstring(int32_t aStartOffset, int32_t aEndOffset,
@@ -722,6 +758,58 @@ void ProxyAccessible::DOMNodeID(nsString& aID) {
     return;
   }
   aID = (wchar_t*)resultWrap;
+}
+
+void ProxyAccessible::TakeFocus() {
+  RefPtr<IAccessible> acc;
+  if (!GetCOMInterface((void**)getter_AddRefs(acc))) {
+    return;
+  }
+  acc->accSelect(SELFLAG_TAKEFOCUS, kChildIdSelf);
+}
+
+ProxyAccessible* ProxyAccessible::ChildAtPoint(
+    int32_t aX, int32_t aY, Accessible::EWhichChildAtPoint aWhichChild) {
+  RefPtr<IAccessible2_2> target = QueryInterface<IAccessible2_2>(this);
+  if (!target) {
+    return nullptr;
+  }
+  DocAccessibleParent* doc = Document();
+  ProxyAccessible* proxy = this;
+  // accHitTest only does direct children, but we might want the deepest child.
+  for (;;) {
+    VARIANT childVar;
+    if (FAILED(target->accHitTest(aX, aY, &childVar)) ||
+        childVar.vt == VT_EMPTY) {
+      return nullptr;
+    }
+    if (childVar.vt == VT_I4 && childVar.lVal == CHILDID_SELF) {
+      break;
+    }
+    MOZ_ASSERT(childVar.vt == VT_DISPATCH && childVar.pdispVal);
+    target = nullptr;
+    childVar.pdispVal->QueryInterface(IID_IAccessible2_2,
+                                      getter_AddRefs(target));
+    childVar.pdispVal->Release();
+    if (!target) {
+      return nullptr;
+    }
+    // We can't always use GetProxyFor because it can't cross document
+    // boundaries.
+    if (proxy->ChildrenCount() == 1) {
+      proxy = proxy->ChildAt(0);
+      if (proxy->IsDoc()) {
+        // We're crossing into a child document.
+        doc = proxy->AsDoc();
+      }
+    } else {
+      proxy = GetProxyFor(doc, target);
+    }
+    if (aWhichChild == Accessible::eDirectChild) {
+      break;
+    }
+  }
+  return proxy;
 }
 
 }  // namespace a11y

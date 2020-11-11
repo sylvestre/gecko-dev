@@ -12,8 +12,6 @@
 #define PSM_COMPONENT_CONTRACTID "@mozilla.org/psm;1"
 %}
 
-interface nsIX509CertList;
-
 [ptr] native CERTCertificatePtr(CERTCertificate);
 [ptr] native SharedCertVerifierPtr(mozilla::psm::SharedCertVerifier);
 
@@ -39,27 +37,40 @@ interface nsINSSComponent : nsISupports {
   [noscript] bool isCertTestBuiltInRoot(in CERTCertificatePtr cert);
 
   /**
-   * Used to determine if the given CERTCertificate is the content signing root
-   * certificate.
+   * Used to determine if the given certificate (represented as an array of
+   * bytes) is the content signing root certificate.
    */
-  [noscript] bool isCertContentSigningRoot(in CERTCertificatePtr cert);
+  [noscript] bool isCertContentSigningRoot(in Array<octet> cert);
 
   /**
    * If enabled by the preference "security.enterprise_roots.enabled", returns
-   * an nsIX509CertList representing the imported enterprise root certificates
-   * (i.e. root certificates gleaned from the OS certificate store). Returns
-   * null otherwise.
-   * Currently this is only implemented on Windows, so this function returns
-   * null on all other platforms.
+   * an array of arrays of bytes representing the imported enterprise root
+   * certificates (i.e. root certificates gleaned from the OS certificate
+   * store). Returns an empty array otherwise.
+   * Currently this is only implemented on Windows and MacOS X, so this
+   * function returns an empty array on all other platforms.
    */
-  [noscript] nsIX509CertList getEnterpriseRoots();
+  Array<Array<octet> > getEnterpriseRoots();
+
+  /**
+   * Similarly, but for intermediate certificates.
+   */
+  Array<Array<octet> > getEnterpriseIntermediates();
+
+  /**
+   * Test utility for adding an intermediate certificate to the current set of
+   * imported enterprise intermediates, if any. Additions to the set made using
+   * this function will be cleared when the value of the preference
+   * "security.enterprise_roots.enabled" changes.
+   */
+  void addEnterpriseIntermediate(in Array<octet> intermediateBytes);
 
   /**
    * For performance reasons, the builtin roots module is loaded on a background
    * thread. When any code that depends on the builtin roots module runs, it
    * must first wait for the module to be loaded.
    */
-  [noscript] void blockUntilLoadableRootsLoaded();
+  [noscript] void blockUntilLoadableCertsLoaded();
 
   /**
    * In theory a token on a PKCS#11 module can be inserted or removed at any
@@ -82,13 +93,11 @@ interface nsINSSComponent : nsISupports {
 
   /**
    * Returns true if the user has a PKCS#11 module with removable slots.
-   * Main thread only.
    */
   [noscript] bool hasActiveSmartCards();
 
   /**
    * Returns true if the user has any client authentication certificates.
-   * Main thread only.
    */
   [noscript] bool hasUserCertsInstalled();
 
@@ -97,4 +106,9 @@ interface nsINSSComponent : nsISupports {
    * certificate verifier.
    */
   [noscript] SharedCertVerifierPtr getDefaultCertVerifier();
+
+  /**
+   * For clearing both SSL internal and external session cache from JS.
+   */
+  void clearSSLExternalAndInternalSessionCache();
 };

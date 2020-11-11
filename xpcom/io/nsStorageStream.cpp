@@ -43,9 +43,9 @@ using mozilla::ipc::StringInputStreamParams;
 // This enables LogLevel::Debug level information and places all output in
 // the file storage.log.
 //
-static LazyLogModule sStorageStreamLog("nsStorageStream");
+static mozilla::LazyLogModule sStorageStreamLog("nsStorageStream");
 #ifdef LOG
-#undef LOG
+#  undef LOG
 #endif
 #define LOG(args) MOZ_LOG(sStorageStreamLog, mozilla::LogLevel::Debug, args)
 
@@ -343,7 +343,7 @@ class nsStorageInputStream final : public nsIInputStream,
   NS_DECL_NSICLONEABLEINPUTSTREAM
 
  private:
-  ~nsStorageInputStream() {}
+  ~nsStorageInputStream() = default;
 
  protected:
   nsresult Seek(uint32_t aPosition);
@@ -365,6 +365,10 @@ class nsStorageInputStream final : public nsIInputStream,
   uint32_t SegOffset(uint32_t aPosition) {
     return aPosition & (mSegmentSize - 1);
   }
+
+  template <typename M>
+  void SerializeInternal(InputStreamParams& aParams, bool aDelayedStart,
+                         uint32_t aMaxSize, uint32_t* aSizeUsed, M* aManager);
 };
 
 NS_IMPL_ISUPPORTS(nsStorageInputStream, nsIInputStream, nsISeekableStream,
@@ -546,19 +550,49 @@ nsresult nsStorageInputStream::Seek(uint32_t aPosition) {
   return NS_OK;
 }
 
-void nsStorageInputStream::Serialize(InputStreamParams& aParams,
-                                     FileDescriptorArray&) {
+void nsStorageInputStream::Serialize(
+    InputStreamParams& aParams, FileDescriptorArray&, bool aDelayedStart,
+    uint32_t aMaxSize, uint32_t* aSizeUsed,
+    mozilla::ipc::ParentToChildStreamActorManager* aManager) {
+  SerializeInternal(aParams, aDelayedStart, aMaxSize, aSizeUsed, aManager);
+}
+
+void nsStorageInputStream::Serialize(
+    InputStreamParams& aParams, FileDescriptorArray&, bool aDelayedStart,
+    uint32_t aMaxSize, uint32_t* aSizeUsed,
+    mozilla::ipc::ChildToParentStreamActorManager* aManager) {
+  SerializeInternal(aParams, aDelayedStart, aMaxSize, aSizeUsed, aManager);
+}
+
+template <typename M>
+void nsStorageInputStream::SerializeInternal(InputStreamParams& aParams,
+                                             bool aDelayedStart,
+                                             uint32_t aMaxSize,
+                                             uint32_t* aSizeUsed, M* aManager) {
+  MOZ_ASSERT(aSizeUsed);
+  *aSizeUsed = 0;
+
+  uint64_t remaining = 0;
+  DebugOnly<nsresult> rv = Available(&remaining);
+  MOZ_ASSERT(NS_SUCCEEDED(rv));
+
+  if (remaining >= aMaxSize) {
+    mozilla::ipc::InputStreamHelper::SerializeInputStreamAsPipe(
+        this, aParams, aDelayedStart, aManager);
+    return;
+  }
+
+  *aSizeUsed = remaining;
+
   nsCString combined;
   int64_t offset;
-  nsresult rv = Tell(&offset);
+  rv = Tell(&offset);
   MOZ_ASSERT(NS_SUCCEEDED(rv));
 
-  uint64_t remaining;
-  rv = Available(&remaining);
-  MOZ_ASSERT(NS_SUCCEEDED(rv));
+  auto handleOrErr = combined.BulkWrite(remaining, 0, false);
+  MOZ_ASSERT(!handleOrErr.isErr());
 
-  auto handle = combined.BulkWrite(remaining, 0, false, rv);
-  MOZ_ASSERT(NS_SUCCEEDED(rv));
+  auto handle = handleOrErr.unwrap();
 
   uint32_t numRead = 0;
 
@@ -574,13 +608,6 @@ void nsStorageInputStream::Serialize(InputStreamParams& aParams,
   StringInputStreamParams params;
   params.data() = combined;
   aParams = params;
-}
-
-Maybe<uint64_t> nsStorageInputStream::ExpectedSerializedLength() {
-  uint64_t remaining = 0;
-  DebugOnly<nsresult> rv = Available(&remaining);
-  MOZ_ASSERT(NS_SUCCEEDED(rv));
-  return Some(remaining);
 }
 
 bool nsStorageInputStream::Deserialize(const InputStreamParams& aParams,

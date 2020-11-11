@@ -1,24 +1,7 @@
 /*
-** Copyright (c) 2016 The Khronos Group Inc.
-**
-** Permission is hereby granted, free of charge, to any person obtaining a
-** copy of this software and/or associated documentation files (the
-** "Materials"), to deal in the Materials without restriction, including
-** without limitation the rights to use, copy, modify, merge, publish,
-** distribute, sublicense, and/or sell copies of the Materials, and to
-** permit persons to whom the Materials are furnished to do so, subject to
-** the following conditions:
-**
-** The above copyright notice and this permission notice shall be included
-** in all copies or substantial portions of the Materials.
-**
-** THE MATERIALS ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-** EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-** MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-** IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-** CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-** TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-** MATERIALS OR THE USE OR OTHER DEALINGS IN THE MATERIALS.
+Copyright (c) 2019 The Khronos Group Inc.
+Use of this source code is governed by an MIT-style license that can be
+found in the LICENSE.txt file.
 */
 
 
@@ -122,13 +105,15 @@ function runOneIterationImageBitmapTest(useTexSubImage, bindingTarget, program, 
 
     var width = gl.canvas.width;
     var halfWidth = Math.floor(width / 2);
-    var quaterWidth = Math.floor(halfWidth / 2);
+    var quarterWidth = Math.floor(halfWidth / 2);
     var height = gl.canvas.height;
     var halfHeight = Math.floor(height / 2);
-    var quaterHeight = Math.floor(halfHeight / 2);
+    var quarterHeight = Math.floor(halfHeight / 2);
 
-    var top = flipY ? quaterHeight : (height - halfHeight + quaterHeight);
-    var bottom = flipY ? (height - halfHeight + quaterHeight) : quaterHeight;
+    var top = flipY ? quarterHeight : (height - halfHeight + quarterHeight);
+    var bottom = flipY ? (height - halfHeight + quarterHeight) : quarterHeight;
+    var left = quarterWidth;
+    var right = halfWidth + quarterWidth / 2;
 
     var tl = redColor;
     var tr = premultiplyAlpha ? ((optionsVal.alpha == 0.5) ? halfRed : (optionsVal.alpha == 1) ? redColor : blackColor) : redColor;
@@ -136,18 +121,8 @@ function runOneIterationImageBitmapTest(useTexSubImage, bindingTarget, program, 
     var br = premultiplyAlpha ? ((optionsVal.alpha == 0.5) ? halfGreen : (optionsVal.alpha == 1) ? greenColor : blackColor) : greenColor;
 
     var loc;
-    var skipCorner = false;
     if (bindingTarget == gl.TEXTURE_CUBE_MAP) {
         loc = gl.getUniformLocation(program, "face");
-        switch (pixelFormat) {
-          case gl.RED_INTEGER:
-          case gl.RG_INTEGER:
-          case gl.RGB_INTEGER:
-          case gl.RGBA_INTEGER:
-            // https://github.com/KhronosGroup/WebGL/issues/1819
-            skipCorner = true;
-            break;
-        }
     }
 
     var tolerance = 10;
@@ -161,15 +136,11 @@ function runOneIterationImageBitmapTest(useTexSubImage, bindingTarget, program, 
         // Check the top pixel and bottom pixel and make sure they have
         // the right color.
         bufferedLogToConsole("Checking " + (flipY ? "top" : "bottom"));
-        wtu.checkCanvasRect(gl, quaterWidth, bottom, 2, 2, tl, "shouldBe " + tl, tolerance);
-        if (!skipCorner && !flipY) {
-            wtu.checkCanvasRect(gl, halfWidth + quaterWidth, bottom, 2, 2, tr, "shouldBe " + tr, tolerance);
-        }
+        wtu.checkCanvasRect(gl, left, bottom, 2, 2, tl, "shouldBe " + tl, tolerance);
+        wtu.checkCanvasRect(gl, right, bottom, 2, 2, tr, "shouldBe " + tr, tolerance);
         bufferedLogToConsole("Checking " + (flipY ? "bottom" : "top"));
-        wtu.checkCanvasRect(gl, quaterWidth, top, 2, 2, bl, "shouldBe " + bl, tolerance);
-        if (!skipCorner && flipY) {
-            wtu.checkCanvasRect(gl, halfWidth + quaterWidth, top, 2, 2, br, "shouldBe " + br, tolerance);
-        }
+        wtu.checkCanvasRect(gl, left, top, 2, 2, bl, "shouldBe " + bl, tolerance);
+        wtu.checkCanvasRect(gl, right, top, 2, 2, br, "shouldBe " + br, tolerance);
     }
     wtu.glErrorShouldBe(gl, gl.NO_ERROR, "should be no errors");
 }
@@ -331,13 +302,13 @@ function runOneIterationImageBitmapTestSubSource(useTexSubImage, bindingTarget, 
 
     var width = gl.canvas.width;
     var halfWidth = Math.floor(width / 2);
-    var quaterWidth = Math.floor(halfWidth / 2);
+    var quarterWidth = Math.floor(halfWidth / 2);
     var height = gl.canvas.height;
     var halfHeight = Math.floor(height / 2);
-    var quaterHeight = Math.floor(halfHeight / 2);
+    var quarterHeight = Math.floor(halfHeight / 2);
 
-    var top = flipY ? quaterHeight : (height - halfHeight + quaterHeight);
-    var bottom = flipY ? (height - halfHeight + quaterHeight) : quaterHeight;
+    var top = flipY ? quarterHeight : (height - halfHeight + quarterHeight);
+    var bottom = flipY ? (height - halfHeight + quarterHeight) : quarterHeight;
 
 
     var tolerance = 10;
@@ -348,11 +319,11 @@ function runOneIterationImageBitmapTestSubSource(useTexSubImage, bindingTarget, 
     // the right color.
     // For right side, check pixels closer to left to avoid border in the video tests.
     bufferedLogToConsole("Checking " + (flipY ? "top" : "bottom"));
-    wtu.checkCanvasRect(gl, quaterWidth, bottom, 2, 2, tl, "shouldBe " + tl, tolerance);
-    wtu.checkCanvasRect(gl, halfWidth + quaterWidth / 2, bottom, 2, 2, tr, "shouldBe " + tr, tolerance);
+    wtu.checkCanvasRect(gl, quarterWidth, bottom, 2, 2, tl, "shouldBe " + tl, tolerance);
+    wtu.checkCanvasRect(gl, halfWidth + quarterWidth / 2, bottom, 2, 2, tr, "shouldBe " + tr, tolerance);
     bufferedLogToConsole("Checking " + (flipY ? "bottom" : "top"));
-    wtu.checkCanvasRect(gl, quaterWidth, top, 2, 2, bl, "shouldBe " + bl, tolerance);
-    wtu.checkCanvasRect(gl, halfWidth + quaterWidth / 2, top, 2, 2, br, "shouldBe " + br, tolerance);
+    wtu.checkCanvasRect(gl, quarterWidth, top, 2, 2, bl, "shouldBe " + bl, tolerance);
+    wtu.checkCanvasRect(gl, halfWidth + quarterWidth / 2, top, 2, 2, br, "shouldBe " + br, tolerance);
 
     wtu.glErrorShouldBe(gl, gl.NO_ERROR, "should be no errors");
 }
@@ -415,21 +386,11 @@ function runImageBitmapTestInternal(bitmaps, alphaVal, internalFormat, pixelForm
 
 function runImageBitmapTest(source, alphaVal, internalFormat, pixelFormat, pixelType, gl, tiu, wtu, is3D)
 {
-    var p1 = createImageBitmap(source, {imageOrientation: "none", premultiplyAlpha: "premultiply"})
-                .then(cur => { cur.flipY = false; cur.premultiply = true; return cur; });
-    var p2 = createImageBitmap(source, {imageOrientation: "none", premultiplyAlpha: "none"})
-                .then(cur => { cur.flipY = false; cur.premultiply = false; return cur; });
-    var p3 = createImageBitmap(source, {imageOrientation: "flipY", premultiplyAlpha: "premultiply"})
-                .then(cur => { cur.flipY = true; cur.premultiply = true; return cur; });
-    var p4 = createImageBitmap(source, {imageOrientation: "flipY", premultiplyAlpha: "none"})
-                .then(cur => { cur.flipY = true; cur.premultiply = false; return cur; });
-    return Promise.all([p1, p2, p3, p4])
-        .catch( () => {
-            testPassed("createImageBitmap with options may be rejected if it is not supported. Retrying without options.");
-            var p = createImageBitmap(source)
-                .then(cur => { cur.flipY = false; cur.premultiply = false; return cur; });
-            return Promise.all([p]);
-        }).then( bitmaps => {
+    var p = createImageBitmap(source)
+        .then(cur => { cur.flipY = false; cur.premultiply = false; return cur; });
+
+    return Promise.all([p])
+        .then( bitmaps => {
             bufferedLogToConsole("All createImageBitmap promises are resolved");
             runImageBitmapTestInternal(bitmaps, alphaVal, internalFormat, pixelFormat, pixelType, gl, tiu, wtu, is3D);
         }, (e) => {

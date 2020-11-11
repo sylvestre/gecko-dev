@@ -8,7 +8,8 @@
 #include "mozilla/dom/WorkerCommon.h"
 #include "nsIAsyncInputStream.h"
 #include "nsIInputStream.h"
-#include "nsIStreamTransportService.h"
+#include "nsNetCID.h"
+#include "nsServiceManagerUtils.h"
 
 static NS_DEFINE_CID(kStreamTransportServiceCID, NS_STREAMTRANSPORTSERVICE_CID);
 
@@ -24,7 +25,7 @@ class AvailableEvent final : public Runnable {
         mStream(stream),
         mCallback(aCallback),
         mSize(-1) {
-    mCallbackTarget = GetCurrentThreadSerialEventTarget();
+    mCallbackTarget = GetCurrentSerialEventTarget();
     MOZ_ASSERT(NS_IsMainThread());
   }
 
@@ -64,8 +65,9 @@ class AvailableEvent final : public Runnable {
 
 }  // namespace
 
-/* static */ bool InputStreamLengthHelper::GetSyncLength(
-    nsIInputStream* aStream, int64_t* aLength) {
+/* static */
+bool InputStreamLengthHelper::GetSyncLength(nsIInputStream* aStream,
+                                            int64_t* aLength) {
   MOZ_ASSERT(aStream);
   MOZ_ASSERT(aLength);
 
@@ -130,7 +132,8 @@ class AvailableEvent final : public Runnable {
   return true;
 }
 
-/* static */ void InputStreamLengthHelper::GetAsyncLength(
+/* static */
+void InputStreamLengthHelper::GetAsyncLength(
     nsIInputStream* aStream,
     const std::function<void(int64_t aLength)>& aCallback) {
   MOZ_ASSERT(aStream);
@@ -172,7 +175,7 @@ class AvailableEvent final : public Runnable {
 
   // Let's go async in order to have similar behaviors for sync and async
   // nsIInputStreamLength implementations.
-  GetCurrentThreadSerialEventTarget()->Dispatch(helper, NS_DISPATCH_NORMAL);
+  GetCurrentSerialEventTarget()->Dispatch(helper, NS_DISPATCH_NORMAL);
 }
 
 InputStreamLengthHelper::InputStreamLengthHelper(
@@ -214,8 +217,8 @@ InputStreamLengthHelper::Run() {
   nsCOMPtr<nsIAsyncInputStreamLength> asyncStreamLength =
       do_QueryInterface(mStream);
   if (asyncStreamLength) {
-    nsresult rv = asyncStreamLength->AsyncLengthWait(
-        this, GetCurrentThreadSerialEventTarget());
+    nsresult rv =
+        asyncStreamLength->AsyncLengthWait(this, GetCurrentSerialEventTarget());
     if (NS_WARN_IF(NS_FAILED(rv))) {
       ExecCallback(-1);
     }

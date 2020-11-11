@@ -10,15 +10,18 @@
 #include "nsUnicodeProperties.h"
 #include "nsCRT.h"
 #include "nsIExternalProtocolHandler.h"
-#include "nsIIOService.h"
 #include "nsIURI.h"
 
 #include <algorithm>
 
 #ifdef DEBUG_BenB_Perf
-#include "prtime.h"
-#include "prinrval.h"
+#  include "prtime.h"
+#  include "prinrval.h"
 #endif
+
+using mozilla::IsAscii;
+using mozilla::IsAsciiAlpha;
+using mozilla::IsAsciiDigit;
 
 const double growthRate = 1.2;
 
@@ -51,7 +54,7 @@ void mozTXTToHTMLConv::EscapeChar(const char16_t ch,
         break;
       }
       // else fall through
-      MOZ_FALLTHROUGH;
+      [[fallthrough]];
     default:
       aStringToAppendTo += ch;
   }
@@ -92,7 +95,7 @@ void mozTXTToHTMLConv::EscapeStr(nsString& aInString, bool inAttribute) {
           break;
         }
         // else fall through
-        MOZ_FALLTHROUGH;
+        [[fallthrough]];
       default:
         i++;
     }
@@ -214,7 +217,7 @@ bool mozTXTToHTMLConv::FindURLStart(const char16_t* aInString,
              aInString[uint32_t(i)] != '[' && aInString[uint32_t(i)] != '(' &&
              aInString[uint32_t(i)] != '|' && aInString[uint32_t(i)] != '\\' &&
              !IsSpace(aInString[uint32_t(i)]) &&
-             (!isEmail || nsCRT::IsAscii(aInString[uint32_t(i)])) &&
+             (!isEmail || IsAscii(aInString[uint32_t(i)])) &&
              (!isEmail || aInString[uint32_t(i)] != ')');
            i--)
         ;
@@ -270,7 +273,7 @@ bool mozTXTToHTMLConv::FindURLEnd(const char16_t* aInString,
         // Disallow non-ascii-characters for email.
         // Currently correct, but revisit later after standards changed.
         if (isEmail && (aInString[i] == '(' || aInString[i] == '\'' ||
-                        !nsCRT::IsAscii(aInString[i])))
+                        !IsAscii(aInString[i])))
           break;
         if (aInString[i] == '(') seenOpeningParenthesis = true;
         if (aInString[i] == '[') seenOpeningSquareBracket = true;
@@ -454,7 +457,7 @@ bool mozTXTToHTMLConv::FindURL(const char16_t* aInString, int32_t aInLength,
   switch (aInString[pos]) {
     case '@':
       state[RFC2396E] = unchecked;
-      MOZ_FALLTHROUGH;
+      [[fallthrough]];
     case '.':
       state[abbreviated] = unchecked;
       break;
@@ -537,8 +540,7 @@ bool mozTXTToHTMLConv::ItMatchesDelimited(const char16_t* aInString,
     return false;
 
   uint32_t text0 = aInString[0];
-  if (NS_IS_HIGH_SURROGATE(text0) && aInLength > 1 &&
-      NS_IS_LOW_SURROGATE(aInString[1])) {
+  if (aInLength > 1 && NS_IS_SURROGATE_PAIR(text0, aInString[1])) {
     text0 = SURROGATE_TO_UCS4(text0, aInString[1]);
   }
   // find length of the char/cluster to be ignored
@@ -551,8 +553,8 @@ bool mozTXTToHTMLConv::ItMatchesDelimited(const char16_t* aInString,
 
   int32_t afterIndex = aRepLen + ignoreLen;
   uint32_t textAfterPos = aInString[afterIndex];
-  if (NS_IS_HIGH_SURROGATE(textAfterPos) && aInLength > afterIndex + 1 &&
-      NS_IS_LOW_SURROGATE(aInString[afterIndex + 1])) {
+  if (aInLength > afterIndex + 1 &&
+      NS_IS_SURROGATE_PAIR(textAfterPos, aInString[afterIndex + 1])) {
     textAfterPos = SURROGATE_TO_UCS4(textAfterPos, aInString[afterIndex + 1]);
   }
 
@@ -568,7 +570,7 @@ bool mozTXTToHTMLConv::ItMatchesDelimited(const char16_t* aInString,
       !Substring(Substring(aInString, aInString + aInLength), ignoreLen,
                  aRepLen)
            .Equals(Substring(rep, rep + aRepLen),
-                   nsCaseInsensitiveStringComparator()))
+                   nsCaseInsensitiveStringComparator))
     return false;
 
   return true;
@@ -930,8 +932,8 @@ int32_t mozTXTToHTMLConv::CiteLevelTXT(const char16_t* line,
       // here, |logLineStart < lineLength| is always true
       uint32_t minlength = std::min(uint32_t(6), NS_strlen(indexString));
       if (Substring(indexString, indexString + minlength)
-              .Equals(Substring(NS_LITERAL_STRING(">From "), 0, minlength),
-                      nsCaseInsensitiveStringComparator()))
+              .Equals(Substring(u">From "_ns, 0, minlength),
+                      nsCaseInsensitiveStringComparator))
         // XXX RFC2646
         moreCites = false;
       else {
@@ -1218,20 +1220,24 @@ mozTXTToHTMLConv::AsyncConvertData(const char* aFromType, const char* aToType,
 }
 
 NS_IMETHODIMP
-mozTXTToHTMLConv::OnDataAvailable(nsIRequest* request, nsISupports* ctxt,
-                                  nsIInputStream* inStr, uint64_t sourceOffset,
-                                  uint32_t count) {
+mozTXTToHTMLConv::GetConvertedType(const nsACString& aFromType,
+                                   nsIChannel* aChannel, nsACString& aToType) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
 NS_IMETHODIMP
-mozTXTToHTMLConv::OnStartRequest(nsIRequest* request, nsISupports* ctxt) {
+mozTXTToHTMLConv::OnDataAvailable(nsIRequest* request, nsIInputStream* inStr,
+                                  uint64_t sourceOffset, uint32_t count) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
 NS_IMETHODIMP
-mozTXTToHTMLConv::OnStopRequest(nsIRequest* request, nsISupports* ctxt,
-                                nsresult aStatus) {
+mozTXTToHTMLConv::OnStartRequest(nsIRequest* request) {
+  return NS_ERROR_NOT_IMPLEMENTED;
+}
+
+NS_IMETHODIMP
+mozTXTToHTMLConv::OnStopRequest(nsIRequest* request, nsresult aStatus) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
@@ -1247,10 +1253,8 @@ nsresult MOZ_NewTXTToHTMLConv(mozTXTToHTMLConv** aConv) {
   MOZ_ASSERT(aConv != nullptr, "null ptr");
   if (!aConv) return NS_ERROR_NULL_POINTER;
 
-  *aConv = new mozTXTToHTMLConv();
-  if (!*aConv) return NS_ERROR_OUT_OF_MEMORY;
-
-  NS_ADDREF(*aConv);
+  RefPtr<mozTXTToHTMLConv> conv = new mozTXTToHTMLConv();
+  conv.forget(aConv);
   //    return (*aConv)->Init();
   return NS_OK;
 }

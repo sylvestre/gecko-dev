@@ -5,22 +5,23 @@
  * found in the LICENSE file.
  */
 
-#include "SkVertices.h"
+#include "include/core/SkVertices.h"
 
-#include "SkAtomics.h"
-#include "SkData.h"
-#include "SkReader32.h"
-#include "SkSafeMath.h"
-#include "SkSafeRange.h"
-#include "SkTo.h"
-#include "SkWriter32.h"
+#include "include/core/SkData.h"
+#include "include/private/SkTo.h"
+#include "src/core/SkReader32.h"
+#include "src/core/SkSafeMath.h"
+#include "src/core/SkSafeRange.h"
+#include "src/core/SkWriter32.h"
+#include <atomic>
 #include <new>
 
-static int32_t gNextID = 1;
 static int32_t next_id() {
+    static std::atomic<int32_t> nextID{1};
+
     int32_t id;
     do {
-        id = sk_atomic_inc(&gNextID);
+        id = nextID++;
     } while (id == SK_InvalidGenID);
     return id;
 }
@@ -137,7 +138,7 @@ void SkVertices::Builder::init(VertexMode mode, int vertexCount, int indexCount,
 
 sk_sp<SkVertices> SkVertices::Builder::detach() {
     if (fVertices) {
-        fVertices->fBounds.set(fVertices->fPositions, fVertices->fVertexCnt);
+        fVertices->fBounds.setBounds(fVertices->fPositions, fVertices->fVertexCnt);
         if (fVertices->fMode == kTriangleFan_VertexMode) {
             if (fIntermediateFanIndices.get()) {
                 SkASSERT(fVertices->fIndexCnt);
@@ -265,7 +266,7 @@ sk_sp<SkVertices> SkVertices::applyBones(const SkVertices::Bone bones[], int bon
     }
 
     // Recalculate the bounds.
-    copy->fBounds.set(copy->fPositions, copy->fVertexCnt);
+    copy->fBounds.setBounds(copy->fPositions, copy->fVertexCnt);
 
     return copy;
 }

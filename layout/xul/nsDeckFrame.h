@@ -18,12 +18,16 @@ one time. So the can be flipped though like a deck of cards.
 #include "mozilla/Attributes.h"
 #include "nsBoxFrame.h"
 
+namespace mozilla {
+class PresShell;
+}  // namespace mozilla
+
 class nsDeckFrame final : public nsBoxFrame {
  public:
   NS_DECL_QUERYFRAME
   NS_DECL_FRAMEARENA_HELPERS(nsDeckFrame)
 
-  friend nsIFrame* NS_NewDeckFrame(nsIPresShell* aPresShell,
+  friend nsIFrame* NS_NewDeckFrame(mozilla::PresShell* aPresShell,
                                    ComputedStyle* aStyle);
 
   virtual nsresult AttributeChanged(int32_t aNameSpaceID, nsAtom* aAttribute,
@@ -44,11 +48,11 @@ class nsDeckFrame final : public nsBoxFrame {
 
 #ifdef DEBUG_FRAME_DUMP
   virtual nsresult GetFrameName(nsAString& aResult) const override {
-    return MakeFrameName(NS_LITERAL_STRING("Deck"), aResult);
+    return MakeFrameName(u"Deck"_ns, aResult);
   }
 #endif
 
-  explicit nsDeckFrame(ComputedStyle* aStyle);
+  explicit nsDeckFrame(ComputedStyle* aStyle, nsPresContext* aPresContext);
 
   nsIFrame* GetSelectedBox();
 
@@ -56,9 +60,12 @@ class nsDeckFrame final : public nsBoxFrame {
   void IndexChanged();
   int32_t GetSelectedIndex();
   void HideBox(nsIFrame* aBox);
+  void ShowBox(nsIFrame* aBox);
 
  private:
   int32_t mIndex;
+
+  void Animate(nsIFrame*, bool);
 
 };  // class nsDeckFrame
 

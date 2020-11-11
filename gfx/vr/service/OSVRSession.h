@@ -17,7 +17,7 @@
 #include <osvr/ClientKit/DisplayC.h>
 
 #if defined(XP_WIN)
-#include <d3d11_1.h>
+#  include <d3d11_1.h>
 #endif
 
 namespace mozilla {
@@ -28,7 +28,8 @@ class OSVRSession : public VRSession {
   OSVRSession();
   virtual ~OSVRSession();
 
-  bool Initialize(mozilla::gfx::VRSystemState& aSystemState) override;
+  bool Initialize(mozilla::gfx::VRSystemState& aSystemState,
+                  bool aDetectRuntimesOnly) override;
   void Shutdown() override;
   void ProcessEvents(mozilla::gfx::VRSystemState& aSystemState) override;
   void StartFrame(mozilla::gfx::VRSystemState& aSystemState) override;

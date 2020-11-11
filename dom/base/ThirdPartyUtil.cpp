@@ -5,20 +5,31 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "ThirdPartyUtil.h"
+#include "nsDocShell.h"
+#include "nsGlobalWindowOuter.h"
 #include "nsNetCID.h"
 #include "nsNetUtil.h"
 #include "nsIChannel.h"
-#include "nsIServiceManager.h"
+#include "nsIClassifiedChannel.h"
 #include "nsIHttpChannelInternal.h"
-#include "nsIDOMWindow.h"
 #include "nsILoadContext.h"
 #include "nsIPrincipal.h"
 #include "nsIScriptObjectPrincipal.h"
 #include "nsIURI.h"
+#include "nsReadableUtils.h"
 #include "nsThreadUtils.h"
+#include "mozilla/ClearOnShutdown.h"
+#include "mozilla/ContentBlocking.h"
+#include "mozilla/ContentBlockingAllowList.h"
+#include "mozilla/dom/Document.h"
 #include "mozilla/Logging.h"
+#include "mozilla/StaticPtr.h"
+#include "mozilla/TextUtils.h"
 #include "mozilla/Unused.h"
-#include "nsPIDOMWindow.h"
+#include "nsGlobalWindowOuter.h"
+
+using namespace mozilla;
+using namespace mozilla::dom;
 
 NS_IMPL_ISUPPORTS(ThirdPartyUtil, mozIThirdPartyUtil)
 
@@ -29,13 +40,43 @@ static mozilla::LazyLogModule gThirdPartyLog("thirdPartyUtil");
 #undef LOG
 #define LOG(args) MOZ_LOG(gThirdPartyLog, mozilla::LogLevel::Debug, args)
 
+static mozilla::StaticRefPtr<ThirdPartyUtil> gService;
+
+// static
+void ThirdPartyUtil::Startup() {
+  nsCOMPtr<mozIThirdPartyUtil> tpu;
+  if (NS_WARN_IF(!(tpu = do_GetService(THIRDPARTYUTIL_CONTRACTID)))) {
+    NS_WARNING("Failed to get third party util!");
+  }
+}
+
 nsresult ThirdPartyUtil::Init() {
   NS_ENSURE_TRUE(NS_IsMainThread(), NS_ERROR_NOT_AVAILABLE);
 
-  nsresult rv;
-  mTLDService = do_GetService(NS_EFFECTIVETLDSERVICE_CONTRACTID, &rv);
+  MOZ_ASSERT(!gService);
+  gService = this;
+  mozilla::ClearOnShutdown(&gService);
 
-  return rv;
+  mTLDService = nsEffectiveTLDService::GetInstance();
+  return mTLDService ? NS_OK : NS_ERROR_FAILURE;
+}
+
+ThirdPartyUtil::~ThirdPartyUtil() { gService = nullptr; }
+
+// static
+ThirdPartyUtil* ThirdPartyUtil::GetInstance() {
+  if (gService) {
+    return gService;
+  }
+  nsCOMPtr<mozIThirdPartyUtil> tpuService =
+      mozilla::services::GetThirdPartyUtil();
+  if (!tpuService) {
+    return nullptr;
+  }
+  MOZ_ASSERT(
+      gService,
+      "gService must have been initialized in nsEffectiveTLDService::Init");
+  return gService;
 }
 
 // Determine if aFirstDomain is a different base domain to aSecondURI; or, if
@@ -48,39 +89,67 @@ nsresult ThirdPartyUtil::IsThirdPartyInternal(const nsCString& aFirstDomain,
     return NS_ERROR_INVALID_ARG;
   }
 
+  // BlobURLs are always first-party.
+  if (aSecondURI->SchemeIs("blob")) {
+    *aResult = false;
+    return NS_OK;
+  }
+
   // Get the base domain for aSecondURI.
-  nsCString secondDomain;
+  nsAutoCString secondDomain;
   nsresult rv = GetBaseDomain(aSecondURI, secondDomain);
   LOG(("ThirdPartyUtil::IsThirdPartyInternal %s =? %s", aFirstDomain.get(),
        secondDomain.get()));
-  if (NS_FAILED(rv)) return rv;
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
 
-  // Check strict equality.
-  *aResult = aFirstDomain != secondDomain;
+  *aResult = IsThirdPartyInternal(aFirstDomain, secondDomain);
+  return NS_OK;
+}
+
+nsCString ThirdPartyUtil::GetBaseDomainFromWindow(nsPIDOMWindowOuter* aWindow) {
+  mozilla::dom::Document* doc = aWindow ? aWindow->GetExtantDoc() : nullptr;
+
+  if (!doc) {
+    return ""_ns;
+  }
+
+  return doc->GetBaseDomain();
+}
+
+NS_IMETHODIMP
+ThirdPartyUtil::GetPrincipalFromWindow(mozIDOMWindowProxy* aWin,
+                                       nsIPrincipal** result) {
+  nsCOMPtr<nsIScriptObjectPrincipal> scriptObjPrin = do_QueryInterface(aWin);
+  if (!scriptObjPrin) {
+    return NS_ERROR_INVALID_ARG;
+  }
+
+  nsCOMPtr<nsIPrincipal> prin = scriptObjPrin->GetPrincipal();
+  if (!prin) {
+    return NS_ERROR_INVALID_ARG;
+  }
+
+  prin.forget(result);
   return NS_OK;
 }
 
 // Get the URI associated with a window.
 NS_IMETHODIMP
 ThirdPartyUtil::GetURIFromWindow(mozIDOMWindowProxy* aWin, nsIURI** result) {
-  nsresult rv;
-  nsCOMPtr<nsIScriptObjectPrincipal> scriptObjPrin = do_QueryInterface(aWin);
-  if (!scriptObjPrin) {
-    return NS_ERROR_INVALID_ARG;
-  }
-
-  nsIPrincipal* prin = scriptObjPrin->GetPrincipal();
-  if (!prin) {
-    return NS_ERROR_INVALID_ARG;
+  nsCOMPtr<nsIPrincipal> prin;
+  nsresult rv = GetPrincipalFromWindow(aWin, getter_AddRefs(prin));
+  if (NS_FAILED(rv)) {
+    return rv;
   }
 
   if (prin->GetIsNullPrincipal()) {
     LOG(("ThirdPartyUtil::GetURIFromWindow can't use null principal\n"));
     return NS_ERROR_INVALID_ARG;
   }
-
-  rv = prin->GetURI(result);
-  return rv;
+  auto* basePrin = BasePrincipal::Cast(prin);
+  return basePrin->GetURI(result);
 }
 
 // Determine if aFirstURI is third party with respect to aSecondURI. See docs
@@ -92,15 +161,18 @@ ThirdPartyUtil::IsThirdPartyURI(nsIURI* aFirstURI, nsIURI* aSecondURI,
   NS_ENSURE_ARG(aSecondURI);
   NS_ASSERTION(aResult, "null outparam pointer");
 
-  nsCString firstHost;
+  nsAutoCString firstHost;
   nsresult rv = GetBaseDomain(aFirstURI, firstHost);
-  if (NS_FAILED(rv)) return rv;
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
 
   return IsThirdPartyInternal(firstHost, aSecondURI, aResult);
 }
 
-// Determine if any URI of the window hierarchy of aWindow is foreign with
-// respect to aSecondURI. See docs for mozIThirdPartyUtil.
+// If the optional aURI is provided, determine whether aWindow is foreign with
+// respect to aURI. If the optional aURI is not provided, determine whether the
+// given "window hierarchy" is third party. See docs for mozIThirdPartyUtil.
 NS_IMETHODIMP
 ThirdPartyUtil::IsThirdPartyWindow(mozIDOMWindowProxy* aWindow, nsIURI* aURI,
                                    bool* aResult) {
@@ -109,20 +181,17 @@ ThirdPartyUtil::IsThirdPartyWindow(mozIDOMWindowProxy* aWindow, nsIURI* aURI,
 
   bool result;
 
-  // Get the URI of the window, and its base domain.
-  nsresult rv;
-  nsCOMPtr<nsIURI> currentURI;
-  rv = GetURIFromWindow(aWindow, getter_AddRefs(currentURI));
-  if (NS_FAILED(rv)) return rv;
-
-  nsCString bottomDomain;
-  rv = GetBaseDomain(currentURI, bottomDomain);
-  if (NS_FAILED(rv)) return rv;
-
-  if (aURI) {
-    // Determine whether aURI is foreign with respect to currentURI.
-    rv = IsThirdPartyInternal(bottomDomain, aURI, &result);
-    if (NS_FAILED(rv)) return rv;
+  // Ignore about:blank URIs here since they have no domain and attempting to
+  // compare against them will fail.
+  if (aURI && !NS_IsAboutBlank(aURI)) {
+    nsCOMPtr<nsIPrincipal> prin;
+    nsresult rv = GetPrincipalFromWindow(aWindow, getter_AddRefs(prin));
+    NS_ENSURE_SUCCESS(rv, rv);
+    // Determine whether aURI is foreign with respect to the current principal.
+    rv = prin->IsThirdPartyURI(aURI, &result);
+    if (NS_FAILED(rv)) {
+      return rv;
+    }
 
     if (result) {
       *aResult = true;
@@ -130,36 +199,51 @@ ThirdPartyUtil::IsThirdPartyWindow(mozIDOMWindowProxy* aWindow, nsIURI* aURI,
     }
   }
 
-  nsCOMPtr<nsPIDOMWindowOuter> current = nsPIDOMWindowOuter::From(aWindow),
-                               parent;
-  nsCOMPtr<nsIURI> parentURI;
+  nsPIDOMWindowOuter* current = nsPIDOMWindowOuter::From(aWindow);
+  auto* const browsingContext = current->GetBrowsingContext();
+  MOZ_ASSERT(browsingContext);
+
+  WindowContext* wc = browsingContext->GetCurrentWindowContext();
+  if (NS_WARN_IF(!wc)) {
+    *aResult = true;
+    return NS_OK;
+  }
+
+  *aResult = wc->GetIsThirdPartyWindow();
+  return NS_OK;
+}
+
+nsresult ThirdPartyUtil::IsThirdPartyGlobal(
+    mozilla::dom::WindowGlobalParent* aWindowGlobal, bool* aResult) {
+  NS_ENSURE_ARG(aWindowGlobal);
+  NS_ASSERTION(aResult, "null outparam pointer");
+
+  auto* currentWGP = aWindowGlobal;
   do {
-    // We use GetScriptableParent rather than GetParent because we consider
-    // <iframe mozbrowser> to be a top-level frame.
-    parent = current->GetScriptableParent();
-    if (SameCOMIdentity(parent, current)) {
-      // We're at the topmost content window. We already know the answer.
+    MOZ_ASSERT(currentWGP->BrowsingContext());
+    if (currentWGP->BrowsingContext()->IsTop()) {
       *aResult = false;
       return NS_OK;
     }
+    nsCOMPtr<nsIPrincipal> currentPrincipal = currentWGP->DocumentPrincipal();
+    RefPtr<WindowGlobalParent> parent =
+        currentWGP->BrowsingContext()->GetEmbedderWindowGlobal();
+    if (!parent) {
+      return NS_ERROR_FAILURE;
+    }
+    nsCOMPtr<nsIPrincipal> parentPrincipal = parent->DocumentPrincipal();
+    nsresult rv =
+        currentPrincipal->IsThirdPartyPrincipal(parentPrincipal, aResult);
+    if (NS_FAILED(rv)) {
+      return rv;
+    }
 
-    rv = GetURIFromWindow(parent, getter_AddRefs(parentURI));
-    NS_ENSURE_SUCCESS(rv, rv);
-
-    rv = IsThirdPartyInternal(bottomDomain, parentURI, &result);
-    if (NS_FAILED(rv)) return rv;
-
-    if (result) {
-      *aResult = true;
+    if (*aResult) {
       return NS_OK;
     }
 
-    current = parent;
-    currentURI = parentURI;
-  } while (1);
-
-  MOZ_ASSERT_UNREACHABLE("should've returned");
-  return NS_ERROR_UNEXPECTED;
+    currentWGP = parent;
+  } while (true);
 }
 
 // Determine if the URI associated with aChannel or any URI of the window
@@ -195,42 +279,62 @@ ThirdPartyUtil::IsThirdPartyChannel(nsIChannel* aChannel, nsIURI* aURI,
   }
 
   bool parentIsThird = false;
+  nsAutoCString channelDomain;
 
   // Obtain the URI from the channel, and its base domain.
   nsCOMPtr<nsIURI> channelURI;
   rv = NS_GetFinalChannelURI(aChannel, getter_AddRefs(channelURI));
-  if (NS_FAILED(rv)) return rv;
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
 
-  nsCString channelDomain;
-  rv = GetBaseDomain(channelURI, channelDomain);
-  if (NS_FAILED(rv)) return rv;
+  BasePrincipal* loadingPrincipal = nullptr;
+  nsCOMPtr<nsILoadInfo> loadInfo = aChannel->LoadInfo();
 
   if (!doForce) {
-    if (nsCOMPtr<nsILoadInfo> loadInfo = aChannel->GetLoadInfo()) {
-      parentIsThird = loadInfo->GetIsInThirdPartyContext();
-      if (!parentIsThird && loadInfo->GetExternalContentPolicyType() !=
-                                nsIContentPolicy::TYPE_DOCUMENT) {
-        // Check if the channel itself is third-party to its own requestor.
-        // Unforunately, we have to go through the loading principal.
-        nsCOMPtr<nsIURI> parentURI;
-        rv = loadInfo->LoadingPrincipal()->GetURI(getter_AddRefs(parentURI));
-        if (NS_SUCCEEDED(rv) && parentURI) {
-          // We may have a principal like the system principal here which does
-          // not have a URI.
-          rv = IsThirdPartyInternal(channelDomain, parentURI, &parentIsThird);
-          if (NS_FAILED(rv)) {
-            return rv;
-          }
-        } else {
-          NS_WARNING(
-              "Found a principal with no URI, assuming third-party request");
-          parentIsThird = true;
-        }
+    parentIsThird = loadInfo->GetIsInThirdPartyContext();
+    if (!parentIsThird && loadInfo->GetExternalContentPolicyType() !=
+                              nsIContentPolicy::TYPE_DOCUMENT) {
+      // Check if the channel itself is third-party to its own requestor.
+      // Unfortunately, we have to go through the loading principal.
+      loadingPrincipal = BasePrincipal::Cast(loadInfo->GetLoadingPrincipal());
+    }
+  }
+
+  // Special consideration must be done for about:blank URIs because those
+  // inherit the principal from the parent context. For them, let's consider the
+  // principal URI.
+  if (NS_IsAboutBlank(channelURI)) {
+    nsCOMPtr<nsIPrincipal> principalToInherit =
+        loadInfo->FindPrincipalToInherit(aChannel);
+    if (!principalToInherit) {
+      *aResult = true;
+      return NS_OK;
+    }
+
+    rv = principalToInherit->GetBaseDomain(channelDomain);
+    if (NS_FAILED(rv)) {
+      return rv;
+    }
+
+    if (loadingPrincipal) {
+      rv = loadingPrincipal->IsThirdPartyPrincipal(principalToInherit,
+                                                   &parentIsThird);
+      if (NS_FAILED(rv)) {
+        return rv;
       }
-    } else {
-      NS_WARNING(
-          "Found channel with no loadinfo, assuming third-party request");
-      parentIsThird = true;
+    }
+  } else {
+    rv = GetBaseDomain(channelURI, channelDomain);
+    if (NS_FAILED(rv)) {
+      return rv;
+    }
+
+    if (loadingPrincipal) {
+      rv = loadingPrincipal->IsThirdPartyURI(channelURI, &parentIsThird);
+      if (NS_FAILED(rv)) {
+        return rv;
+      }
     }
   }
 
@@ -248,6 +352,7 @@ ThirdPartyUtil::IsThirdPartyChannel(nsIChannel* aChannel, nsIURI* aURI,
 
 NS_IMETHODIMP
 ThirdPartyUtil::GetTopWindowForChannel(nsIChannel* aChannel,
+                                       nsIURI* aURIBeingLoaded,
                                        mozIDOMWindowProxy** aWin) {
   NS_ENSURE_ARG(aWin);
 
@@ -264,7 +369,9 @@ ThirdPartyUtil::GetTopWindowForChannel(nsIChannel* aChannel,
     return NS_ERROR_INVALID_ARG;
   }
 
-  nsCOMPtr<nsPIDOMWindowOuter> top = nsPIDOMWindowOuter::From(window)->GetTop();
+  nsCOMPtr<nsPIDOMWindowOuter> top =
+      nsGlobalWindowOuter::Cast(window)
+          ->GetTopExcludingExtensionAccessibleContentFrames(aURIBeingLoaded);
   top.forget(aWin);
   return NS_OK;
 }
@@ -302,13 +409,102 @@ ThirdPartyUtil::GetBaseDomain(nsIURI* aHostURI, nsACString& aBaseDomain) {
   // only way we can get a base domain consisting of the empty string, which
   // means we can safely perform foreign tests on such URIs where "not foreign"
   // means "the involved URIs are all file://".
-  if (aBaseDomain.IsEmpty()) {
-    bool isFileURI = false;
-    aHostURI->SchemeIs("file", &isFileURI);
-    if (!isFileURI) {
-      return NS_ERROR_INVALID_ARG;
-    }
+  if (aBaseDomain.IsEmpty() && !aHostURI->SchemeIs("file")) {
+    return NS_ERROR_INVALID_ARG;
   }
 
   return NS_OK;
+}
+
+NS_IMETHODIMP
+ThirdPartyUtil::GetBaseDomainFromSchemeHost(const nsACString& aScheme,
+                                            const nsACString& aAsciiHost,
+                                            nsACString& aBaseDomain) {
+  MOZ_DIAGNOSTIC_ASSERT(IsAscii(aAsciiHost));
+
+  // Get the base domain. this will fail if the host contains a leading dot,
+  // more than one trailing dot, or is otherwise malformed.
+  nsresult rv = mTLDService->GetBaseDomainFromHost(aAsciiHost, 0, aBaseDomain);
+  if (rv == NS_ERROR_HOST_IS_IP_ADDRESS ||
+      rv == NS_ERROR_INSUFFICIENT_DOMAIN_LEVELS) {
+    // aMozURL is either an IP address, an alias such as 'localhost', an eTLD
+    // such as 'co.uk', or the empty string. Uses the normalized host in such
+    // cases.
+    aBaseDomain = aAsciiHost;
+    rv = NS_OK;
+  }
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  // aMozURL (and thus aBaseDomain) may be the string '.'. If so, fail.
+  if (aBaseDomain.Length() == 1 && aBaseDomain.Last() == '.')
+    return NS_ERROR_INVALID_ARG;
+
+  // Reject any URLs without a host that aren't file:// URLs. This makes it the
+  // only way we can get a base domain consisting of the empty string, which
+  // means we can safely perform foreign tests on such URLs where "not foreign"
+  // means "the involved URLs are all file://".
+  if (aBaseDomain.IsEmpty() && !aScheme.EqualsLiteral("file")) {
+    return NS_ERROR_INVALID_ARG;
+  }
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP_(ThirdPartyAnalysisResult)
+ThirdPartyUtil::AnalyzeChannel(nsIChannel* aChannel, bool aNotify, nsIURI* aURI,
+                               RequireThirdPartyCheck aRequireThirdPartyCheck,
+                               uint32_t* aRejectedReason) {
+  MOZ_ASSERT_IF(aNotify, aRejectedReason);
+
+  ThirdPartyAnalysisResult result;
+
+  nsCOMPtr<nsIURI> uri;
+  if (!aURI && aChannel) {
+    aChannel->GetURI(getter_AddRefs(uri));
+  }
+  nsCOMPtr<nsILoadInfo> loadInfo = aChannel ? aChannel->LoadInfo() : nullptr;
+
+  bool isForeign = true;
+  if (aChannel &&
+      (!aRequireThirdPartyCheck || aRequireThirdPartyCheck(loadInfo))) {
+    IsThirdPartyChannel(aChannel, aURI ? aURI : uri.get(), &isForeign);
+  }
+  if (isForeign) {
+    result += ThirdPartyAnalysis::IsForeign;
+  }
+
+  nsCOMPtr<nsIClassifiedChannel> classifiedChannel =
+      do_QueryInterface(aChannel);
+  if (classifiedChannel) {
+    if (classifiedChannel->IsThirdPartyTrackingResource()) {
+      result += ThirdPartyAnalysis::IsThirdPartyTrackingResource;
+    }
+    if (classifiedChannel->IsThirdPartySocialTrackingResource()) {
+      result += ThirdPartyAnalysis::IsThirdPartySocialTrackingResource;
+    }
+
+    // Check first-party storage access even for non-tracking resources, since
+    // we will need the result when computing the access rights for the reject
+    // foreign cookie behavior mode.
+
+    // If the caller has requested third-party checks, we will only perform the
+    // storage access check once we know we're in the third-party context.
+    bool performStorageChecks =
+        aRequireThirdPartyCheck ? result.contains(ThirdPartyAnalysis::IsForeign)
+                                : true;
+    if (performStorageChecks &&
+        ContentBlocking::ShouldAllowAccessFor(aChannel, aURI ? aURI : uri.get(),
+                                              aRejectedReason)) {
+      result += ThirdPartyAnalysis::IsStorageAccessPermissionGranted;
+    }
+
+    if (aNotify && !result.contains(
+                       ThirdPartyAnalysis::IsStorageAccessPermissionGranted)) {
+      ContentBlockingNotifier::OnDecision(
+          aChannel, ContentBlockingNotifier::BlockingDecision::eBlock,
+          *aRejectedReason);
+    }
+  }
+
+  return result;
 }

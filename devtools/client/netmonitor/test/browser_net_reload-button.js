@@ -8,18 +8,23 @@
  */
 
 add_task(async function() {
-  const { monitor } = await initNetMonitor(SIMPLE_URL);
+  const { monitor } = await initNetMonitor(SIMPLE_URL, { requestCount: 1 });
   info("Starting test... ");
 
   const { document } = monitor.panelWin;
 
   const wait = waitForNetworkEvents(monitor, 1);
-  EventUtils.sendMouseEvent({ type: "click" },
-    document.querySelector(".requests-list-reload-notice-button"));
+  EventUtils.sendMouseEvent(
+    { type: "click" },
+    document.querySelector(".requests-list-reload-notice-button")
+  );
   await wait;
 
-  is(document.querySelectorAll(".request-list-item").length, 1,
-    "The request list should have one item after reloading");
+  is(
+    document.querySelectorAll(".request-list-item").length,
+    1,
+    "The request list should have one item after reloading"
+  );
 
   return teardown(monitor);
 });

@@ -6,7 +6,6 @@
 //!
 //! https://drafts.csswg.org/css-align/
 
-use crate::gecko_bindings::structs;
 use crate::parser::{Parse, ParserContext};
 use cssparser::Parser;
 use std::fmt::{self, Write};
@@ -14,56 +13,55 @@ use style_traits::{CssWriter, KeywordsCollectFn, ParseError, SpecifiedValueInfo,
 
 bitflags! {
     /// Constants shared by multiple CSS Box Alignment properties
-    ///
-    /// These constants match Gecko's `NS_STYLE_ALIGN_*` constants.
-    #[derive(MallocSizeOf, ToComputedValue)]
+    #[derive(MallocSizeOf, ToComputedValue, ToResolvedValue, ToShmem)]
+    #[repr(C)]
     pub struct AlignFlags: u8 {
         // Enumeration stored in the lower 5 bits:
-        /// 'auto'
-        const AUTO =            structs::NS_STYLE_ALIGN_AUTO as u8;
+        /// {align,justify}-{content,items,self}: 'auto'
+        const AUTO = 0;
         /// 'normal'
-        const NORMAL =          structs::NS_STYLE_ALIGN_NORMAL as u8;
+        const NORMAL = 1;
         /// 'start'
-        const START =           structs::NS_STYLE_ALIGN_START as u8;
+        const START = 2;
         /// 'end'
-        const END =             structs::NS_STYLE_ALIGN_END as u8;
+        const END = 3;
         /// 'flex-start'
-        const FLEX_START =      structs::NS_STYLE_ALIGN_FLEX_START as u8;
+        const FLEX_START = 4;
         /// 'flex-end'
-        const FLEX_END =        structs::NS_STYLE_ALIGN_FLEX_END as u8;
+        const FLEX_END = 5;
         /// 'center'
-        const CENTER =          structs::NS_STYLE_ALIGN_CENTER as u8;
+        const CENTER = 6;
         /// 'left'
-        const LEFT =            structs::NS_STYLE_ALIGN_LEFT as u8;
+        const LEFT = 7;
         /// 'right'
-        const RIGHT =           structs::NS_STYLE_ALIGN_RIGHT as u8;
+        const RIGHT = 8;
         /// 'baseline'
-        const BASELINE =        structs::NS_STYLE_ALIGN_BASELINE as u8;
+        const BASELINE = 9;
         /// 'last-baseline'
-        const LAST_BASELINE =   structs::NS_STYLE_ALIGN_LAST_BASELINE as u8;
+        const LAST_BASELINE = 10;
         /// 'stretch'
-        const STRETCH =         structs::NS_STYLE_ALIGN_STRETCH as u8;
+        const STRETCH = 11;
         /// 'self-start'
-        const SELF_START =      structs::NS_STYLE_ALIGN_SELF_START as u8;
+        const SELF_START = 12;
         /// 'self-end'
-        const SELF_END =        structs::NS_STYLE_ALIGN_SELF_END as u8;
+        const SELF_END = 13;
         /// 'space-between'
-        const SPACE_BETWEEN =   structs::NS_STYLE_ALIGN_SPACE_BETWEEN as u8;
+        const SPACE_BETWEEN = 14;
         /// 'space-around'
-        const SPACE_AROUND =    structs::NS_STYLE_ALIGN_SPACE_AROUND as u8;
+        const SPACE_AROUND = 15;
         /// 'space-evenly'
-        const SPACE_EVENLY =    structs::NS_STYLE_ALIGN_SPACE_EVENLY as u8;
+        const SPACE_EVENLY = 16;
 
         // Additional flags stored in the upper bits:
         /// 'legacy' (mutually exclusive w. SAFE & UNSAFE)
-        const LEGACY =          structs::NS_STYLE_ALIGN_LEGACY as u8;
+        const LEGACY = 1 << 5;
         /// 'safe'
-        const SAFE =            structs::NS_STYLE_ALIGN_SAFE as u8;
+        const SAFE = 1 << 6;
         /// 'unsafe' (mutually exclusive w. SAFE)
-        const UNSAFE =          structs::NS_STYLE_ALIGN_UNSAFE as u8;
+        const UNSAFE = 1 << 7;
 
         /// Mask for the additional flags above.
-        const FLAG_BITS =       structs::NS_STYLE_ALIGN_FLAG_BITS as u8;
+        const FLAG_BITS = 0b11100000;
     }
 }
 
@@ -134,7 +132,19 @@ pub enum AxisDirection {
 /// Shared value for the `align-content` and `justify-content` properties.
 ///
 /// <https://drafts.csswg.org/css-align/#content-distribution>
-#[derive(Clone, Copy, Debug, Eq, MallocSizeOf, PartialEq, ToComputedValue, ToCss)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    MallocSizeOf,
+    PartialEq,
+    ToComputedValue,
+    ToCss,
+    ToResolvedValue,
+    ToShmem,
+)]
+#[repr(C)]
 #[cfg_attr(feature = "servo", derive(Deserialize, Serialize))]
 pub struct ContentDistribution {
     primary: AlignFlags,
@@ -161,16 +171,6 @@ impl ContentDistribution {
         Self { primary }
     }
 
-    fn from_bits(bits: u16) -> Self {
-        Self {
-            primary: AlignFlags::from_bits_truncate(bits as u8),
-        }
-    }
-
-    fn as_bits(&self) -> u16 {
-        self.primary.bits() as u16
-    }
-
     /// Returns whether this value is a <baseline-position>.
     pub fn is_baseline_position(&self) -> bool {
         matches!(
@@ -194,25 +194,28 @@ impl ContentDistribution {
         //      when this function is updated.
 
         // Try to parse normal first
-        if input.try(|i| i.expect_ident_matching("normal")).is_ok() {
+        if input
+            .try_parse(|i| i.expect_ident_matching("normal"))
+            .is_ok()
+        {
             return Ok(ContentDistribution::normal());
         }
 
         // Parse <baseline-position>, but only on the block axis.
         if axis == AxisDirection::Block {
-            if let Ok(value) = input.try(parse_baseline) {
+            if let Ok(value) = input.try_parse(parse_baseline) {
                 return Ok(ContentDistribution::new(value));
             }
         }
 
         // <content-distribution>
-        if let Ok(value) = input.try(parse_content_distribution) {
+        if let Ok(value) = input.try_parse(parse_content_distribution) {
             return Ok(ContentDistribution::new(value));
         }
 
         // <overflow-position>? <content-position>
         let overflow_position = input
-            .try(parse_overflow_position)
+            .try_parse(parse_overflow_position)
             .unwrap_or(AlignFlags::empty());
 
         let content_position = try_match_ident_ignore_ascii_case! { input,
@@ -247,7 +250,19 @@ impl ContentDistribution {
 /// Value for the `align-content` property.
 ///
 /// <https://drafts.csswg.org/css-align/#propdef-align-content>
-#[derive(Clone, Copy, Debug, Eq, MallocSizeOf, PartialEq, ToComputedValue, ToCss)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    MallocSizeOf,
+    PartialEq,
+    ToComputedValue,
+    ToCss,
+    ToResolvedValue,
+    ToShmem,
+)]
+#[repr(transparent)]
 pub struct AlignContent(pub ContentDistribution);
 
 impl Parse for AlignContent {
@@ -270,24 +285,52 @@ impl SpecifiedValueInfo for AlignContent {
     }
 }
 
-#[cfg(feature = "gecko")]
-impl From<u16> for AlignContent {
-    fn from(bits: u16) -> Self {
-        AlignContent(ContentDistribution::from_bits(bits))
-    }
-}
+/// Value for the `align-tracks` property.
+///
+/// <https://github.com/w3c/csswg-drafts/issues/4650>
+#[derive(
+    Clone,
+    Debug,
+    Default,
+    Eq,
+    MallocSizeOf,
+    PartialEq,
+    SpecifiedValueInfo,
+    ToComputedValue,
+    ToCss,
+    ToResolvedValue,
+    ToShmem,
+)]
+#[repr(transparent)]
+#[css(comma)]
+pub struct AlignTracks(#[css(iterable, if_empty = "normal")] pub crate::OwnedSlice<AlignContent>);
 
-#[cfg(feature = "gecko")]
-impl From<AlignContent> for u16 {
-    fn from(v: AlignContent) -> u16 {
-        v.0.as_bits()
+impl Parse for AlignTracks {
+    fn parse<'i, 't>(
+        context: &ParserContext,
+        input: &mut Parser<'i, 't>,
+    ) -> Result<Self, ParseError<'i>> {
+        let values = input.parse_comma_separated(|input| AlignContent::parse(context, input))?;
+        Ok(AlignTracks(values.into()))
     }
 }
 
 /// Value for the `justify-content` property.
 ///
 /// <https://drafts.csswg.org/css-align/#propdef-justify-content>
-#[derive(Clone, Copy, Debug, Eq, MallocSizeOf, PartialEq, ToComputedValue, ToCss)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    MallocSizeOf,
+    PartialEq,
+    ToComputedValue,
+    ToCss,
+    ToResolvedValue,
+    ToShmem,
+)]
+#[repr(transparent)]
 pub struct JustifyContent(pub ContentDistribution);
 
 impl Parse for JustifyContent {
@@ -309,23 +352,52 @@ impl SpecifiedValueInfo for JustifyContent {
         ContentDistribution::list_keywords(f, AxisDirection::Inline);
     }
 }
+/// Value for the `justify-tracks` property.
+///
+/// <https://github.com/w3c/csswg-drafts/issues/4650>
+#[derive(
+    Clone,
+    Debug,
+    Default,
+    Eq,
+    MallocSizeOf,
+    PartialEq,
+    SpecifiedValueInfo,
+    ToComputedValue,
+    ToCss,
+    ToResolvedValue,
+    ToShmem,
+)]
+#[repr(transparent)]
+#[css(comma)]
+pub struct JustifyTracks(
+    #[css(iterable, if_empty = "normal")] pub crate::OwnedSlice<JustifyContent>,
+);
 
-#[cfg(feature = "gecko")]
-impl From<u16> for JustifyContent {
-    fn from(bits: u16) -> Self {
-        JustifyContent(ContentDistribution::from_bits(bits))
-    }
-}
-
-#[cfg(feature = "gecko")]
-impl From<JustifyContent> for u16 {
-    fn from(v: JustifyContent) -> u16 {
-        v.0.as_bits()
+impl Parse for JustifyTracks {
+    fn parse<'i, 't>(
+        context: &ParserContext,
+        input: &mut Parser<'i, 't>,
+    ) -> Result<Self, ParseError<'i>> {
+        let values = input.parse_comma_separated(|input| JustifyContent::parse(context, input))?;
+        Ok(JustifyTracks(values.into()))
     }
 }
 
 /// <https://drafts.csswg.org/css-align/#self-alignment>
-#[derive(Clone, Copy, Debug, Eq, MallocSizeOf, PartialEq, ToComputedValue, ToCss)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    MallocSizeOf,
+    PartialEq,
+    ToComputedValue,
+    ToCss,
+    ToResolvedValue,
+    ToShmem,
+)]
+#[repr(transparent)]
 pub struct SelfAlignment(pub AlignFlags);
 
 impl SelfAlignment {
@@ -357,18 +429,18 @@ impl SelfAlignment {
         //
         // It's weird that this accepts <baseline-position>, but not
         // justify-content...
-        if let Ok(value) = input.try(parse_baseline) {
+        if let Ok(value) = input.try_parse(parse_baseline) {
             return Ok(SelfAlignment(value));
         }
 
         // auto | normal | stretch
-        if let Ok(value) = input.try(parse_auto_normal_stretch) {
+        if let Ok(value) = input.try_parse(parse_auto_normal_stretch) {
             return Ok(SelfAlignment(value));
         }
 
         // <overflow-position>? <self-position>
         let overflow_position = input
-            .try(parse_overflow_position)
+            .try_parse(parse_overflow_position)
             .unwrap_or(AlignFlags::empty());
         let self_position = parse_self_position(input, axis)?;
         Ok(SelfAlignment(overflow_position | self_position))
@@ -385,7 +457,19 @@ impl SelfAlignment {
 /// The specified value of the align-self property.
 ///
 /// <https://drafts.csswg.org/css-align/#propdef-align-self>
-#[derive(Clone, Copy, Debug, Eq, MallocSizeOf, PartialEq, ToComputedValue, ToCss)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    MallocSizeOf,
+    PartialEq,
+    ToComputedValue,
+    ToCss,
+    ToResolvedValue,
+    ToShmem,
+)]
+#[repr(C)]
 pub struct AlignSelf(pub SelfAlignment);
 
 impl Parse for AlignSelf {
@@ -408,22 +492,22 @@ impl SpecifiedValueInfo for AlignSelf {
     }
 }
 
-impl From<u8> for AlignSelf {
-    fn from(bits: u8) -> Self {
-        AlignSelf(SelfAlignment(AlignFlags::from_bits_truncate(bits)))
-    }
-}
-
-impl From<AlignSelf> for u8 {
-    fn from(align: AlignSelf) -> u8 {
-        (align.0).0.bits()
-    }
-}
-
 /// The specified value of the justify-self property.
 ///
 /// <https://drafts.csswg.org/css-align/#propdef-justify-self>
-#[derive(Clone, Copy, Debug, Eq, MallocSizeOf, PartialEq, ToComputedValue, ToCss)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    MallocSizeOf,
+    PartialEq,
+    ToComputedValue,
+    ToCss,
+    ToResolvedValue,
+    ToShmem,
+)]
+#[repr(C)]
 pub struct JustifySelf(pub SelfAlignment);
 
 impl Parse for JustifySelf {
@@ -446,22 +530,22 @@ impl SpecifiedValueInfo for JustifySelf {
     }
 }
 
-impl From<u8> for JustifySelf {
-    fn from(bits: u8) -> Self {
-        JustifySelf(SelfAlignment(AlignFlags::from_bits_truncate(bits)))
-    }
-}
-
-impl From<JustifySelf> for u8 {
-    fn from(justify: JustifySelf) -> u8 {
-        (justify.0).0.bits()
-    }
-}
-
 /// Value of the `align-items` property
 ///
 /// <https://drafts.csswg.org/css-align/#propdef-align-items>
-#[derive(Clone, Copy, Debug, Eq, MallocSizeOf, PartialEq, ToComputedValue, ToCss)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    MallocSizeOf,
+    PartialEq,
+    ToComputedValue,
+    ToCss,
+    ToResolvedValue,
+    ToShmem,
+)]
+#[repr(C)]
 pub struct AlignItems(pub AlignFlags);
 
 impl AlignItems {
@@ -483,17 +567,17 @@ impl Parse for AlignItems {
         //      this function is updated.
 
         // <baseline-position>
-        if let Ok(baseline) = input.try(parse_baseline) {
+        if let Ok(baseline) = input.try_parse(parse_baseline) {
             return Ok(AlignItems(baseline));
         }
 
         // normal | stretch
-        if let Ok(value) = input.try(parse_normal_stretch) {
+        if let Ok(value) = input.try_parse(parse_normal_stretch) {
             return Ok(AlignItems(value));
         }
         // <overflow-position>? <self-position>
         let overflow = input
-            .try(parse_overflow_position)
+            .try_parse(parse_overflow_position)
             .unwrap_or(AlignFlags::empty());
         let self_position = parse_self_position(input, AxisDirection::Block)?;
         Ok(AlignItems(self_position | overflow))
@@ -512,7 +596,8 @@ impl SpecifiedValueInfo for AlignItems {
 /// Value of the `justify-items` property
 ///
 /// <https://drafts.csswg.org/css-align/#justify-items-property>
-#[derive(Clone, Copy, Debug, Eq, MallocSizeOf, PartialEq, ToCss)]
+#[derive(Clone, Copy, Debug, Eq, MallocSizeOf, PartialEq, ToCss, ToResolvedValue, ToShmem)]
+#[repr(C)]
 pub struct JustifyItems(pub AlignFlags);
 
 impl JustifyItems {
@@ -541,23 +626,23 @@ impl Parse for JustifyItems {
         //
         // It's weird that this accepts <baseline-position>, but not
         // justify-content...
-        if let Ok(baseline) = input.try(parse_baseline) {
+        if let Ok(baseline) = input.try_parse(parse_baseline) {
             return Ok(JustifyItems(baseline));
         }
 
         // normal | stretch
-        if let Ok(value) = input.try(parse_normal_stretch) {
+        if let Ok(value) = input.try_parse(parse_normal_stretch) {
             return Ok(JustifyItems(value));
         }
 
         // legacy | [ legacy && [ left | right | center ] ]
-        if let Ok(value) = input.try(parse_legacy) {
+        if let Ok(value) = input.try_parse(parse_legacy) {
             return Ok(JustifyItems(value));
         }
 
         // <overflow-position>? <self-position>
         let overflow = input
-            .try(parse_overflow_position)
+            .try_parse(parse_overflow_position)
             .unwrap_or(AlignFlags::empty());
         let self_position = parse_self_position(input, AxisDirection::Inline)?;
         Ok(JustifyItems(overflow | self_position))
@@ -614,11 +699,11 @@ fn parse_baseline<'i, 't>(input: &mut Parser<'i, 't>) -> Result<AlignFlags, Pars
         "first" => {
             input.expect_ident_matching("baseline")?;
             Ok(AlignFlags::BASELINE)
-        }
+        },
         "last" => {
             input.expect_ident_matching("baseline")?;
             Ok(AlignFlags::LAST_BASELINE)
-        }
+        },
     }
 }
 
@@ -713,11 +798,11 @@ fn parse_legacy<'i, 't>(input: &mut Parser<'i, 't>) -> Result<AlignFlags, ParseE
     //      when this function is updated.
     let flags = try_match_ident_ignore_ascii_case! { input,
         "legacy" => {
-            let flags = input.try(parse_left_right_center)
+            let flags = input.try_parse(parse_left_right_center)
                 .unwrap_or(AlignFlags::empty());
 
             return Ok(AlignFlags::LEGACY | flags)
-        }
+        },
         "left" => AlignFlags::LEFT,
         "right" => AlignFlags::RIGHT,
         "center" => AlignFlags::CENTER,

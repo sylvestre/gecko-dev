@@ -9,16 +9,18 @@
  */
 
 const HTML_NS = "http://www.w3.org/1999/xhtml";
-const TEST_URI = CHROME_URL_ROOT + "doc_html_tooltip-03.xul";
+const TEST_URI = CHROME_URL_ROOT + "doc_html_tooltip-03.xhtml";
 
-const {HTMLTooltip} = require("devtools/client/shared/widgets/tooltip/HTMLTooltip");
+const {
+  HTMLTooltip,
+} = require("devtools/client/shared/widgets/tooltip/HTMLTooltip");
 loadHelperScript("helper_html_tooltip.js");
 
 let useXulWrapper;
 
 add_task(async function() {
   await addTab("about:blank");
-  const [, , doc] = await createHost("bottom", TEST_URI);
+  const { doc } = await createHost("bottom", TEST_URI);
 
   info("Run tests for a Tooltip without using a XUL panel");
   useXulWrapper = false;
@@ -37,7 +39,10 @@ async function runTests(doc) {
   const tooltip = await createTooltip(doc);
 
   await showTooltip(tooltip, doc.getElementById("box1"));
-  ok(doc.activeElement.closest("#box4-input"), "Focus is still in the #box4-input");
+  ok(
+    doc.activeElement.closest("#box4-input"),
+    "Focus is still in the #box4-input"
+  );
 
   await hideTooltip(tooltip);
   await blurNode(doc, "#box4-input");
@@ -76,7 +81,7 @@ function blurNode(doc, selector) {
  *         tooltip content will be ready.
  */
 function createTooltip(doc) {
-  const tooltip = new HTMLTooltip(doc, {useXulWrapper});
+  const tooltip = new HTMLTooltip(doc, { useXulWrapper });
   const div = doc.createElementNS(HTML_NS, "div");
   div.classList.add("tooltip-content");
   div.style.height = "50px";
@@ -86,6 +91,6 @@ function createTooltip(doc) {
   div.appendChild(input);
 
   tooltip.panel.appendChild(div);
-  tooltip.setContentSize({width: 150, height: 50});
+  tooltip.setContentSize({ width: 150, height: 50 });
   return tooltip;
 }

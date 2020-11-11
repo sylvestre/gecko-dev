@@ -7,33 +7,35 @@
 /* Helper class to help with generating anonymous path elements for
    <animateMotion> elements to use. */
 
-#ifndef MOZILLA_SVGMOTIONSMILPATHUTILS_H_
-#define MOZILLA_SVGMOTIONSMILPATHUTILS_H_
+#ifndef DOM_SVG_SVGMOTIONSMILPATHUTILS_H_
+#define DOM_SVG_SVGMOTIONSMILPATHUTILS_H_
 
 #include "mozilla/Attributes.h"
-#include "gfxPlatform.h"
-#include "mozilla/gfx/2D.h"
 #include "mozilla/RefPtr.h"
+#include "mozilla/SMILParserUtils.h"
+#include "mozilla/gfx/2D.h"
+#include "gfxPlatform.h"
 #include "nsDebug.h"
-#include "nsSMILParserUtils.h"
 #include "nsStringFwd.h"
 #include "nsTArray.h"
 
-class nsSVGElement;
-
 namespace mozilla {
 
+namespace dom {
+class SVGElement;
+}
+
 class SVGMotionSMILPathUtils {
-  typedef mozilla::gfx::DrawTarget DrawTarget;
-  typedef mozilla::gfx::Path Path;
-  typedef mozilla::gfx::PathBuilder PathBuilder;
+  using DrawTarget = mozilla::gfx::DrawTarget;
+  using Path = mozilla::gfx::Path;
+  using PathBuilder = mozilla::gfx::PathBuilder;
 
  public:
   // Class to assist in generating a Path, based on
   // coordinates in the <animateMotion> from/by/to/values attributes.
   class PathGenerator {
    public:
-    explicit PathGenerator(const nsSVGElement* aSVGElement)
+    explicit PathGenerator(const dom::SVGElement* aSVGElement)
         : mSVGElement(aSVGElement), mHaveReceivedCommands(false) {
       RefPtr<DrawTarget> drawTarget =
           gfxPlatform::GetPlatform()->ScreenReferenceDrawTarget();
@@ -64,10 +66,11 @@ class SVGMotionSMILPathUtils {
 
    protected:
     // Helper methods
-    bool ParseCoordinatePair(const nsAString& aStr, float& aXVal, float& aYVal);
+    bool ParseCoordinatePair(const nsAString& aCoordPairStr, float& aXVal,
+                             float& aYVal);
 
     // Member data
-    const nsSVGElement* mSVGElement;  // context for converting to user units
+    const dom::SVGElement* mSVGElement;  // context for converting to user units
     RefPtr<PathBuilder> mPathBuilder;
     bool mHaveReceivedCommands;
   };
@@ -75,7 +78,7 @@ class SVGMotionSMILPathUtils {
   // Class to assist in passing each subcomponent of a |values| attribute to
   // a PathGenerator, for generating a corresponding Path.
   class MOZ_STACK_CLASS MotionValueParser
-      : public nsSMILParserUtils::GenericValueParser {
+      : public SMILParserUtils::GenericValueParser {
    public:
     MotionValueParser(PathGenerator* aPathGenerator,
                       FallibleTArray<double>* aPointDistances)
@@ -86,7 +89,7 @@ class SVGMotionSMILPathUtils {
                  "expecting point distances array to start empty");
     }
 
-    // nsSMILParserUtils::GenericValueParser interface
+    // SMILParserUtils::GenericValueParser interface
     virtual bool Parse(const nsAString& aValueStr) override;
 
    protected:
@@ -98,4 +101,4 @@ class SVGMotionSMILPathUtils {
 
 }  // namespace mozilla
 
-#endif  // MOZILLA_SVGMOTIONSMILPATHUTILS_H_
+#endif  // DOM_SVG_SVGMOTIONSMILPATHUTILS_H_

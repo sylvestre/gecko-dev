@@ -1,5 +1,5 @@
 var evalInFrame = (function (global) {
-    var dbgGlobal = newGlobal();
+    var dbgGlobal = newGlobal({newCompartment: true});
     var dbg = new dbgGlobal.Debugger();
     return function evalInFrame(code) {
         dbg.addDebuggee(global);
@@ -12,9 +12,9 @@ var evalInFrame = (function (global) {
 
 const { exports } = wasmEvalText(`
     (module
-        (import "global" "func" (param i32) (result i32))
+        (import "global" "func" (func (param i32) (result i32)))
         (func (export "func_0") (param i32)(result i32)
-         get_local 0
+         local.get 0
          call 0
         )
     )

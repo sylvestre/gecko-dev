@@ -7,8 +7,9 @@
 #define mozilla_a11y_AccessibleWrap_h_
 
 #include "Accessible.h"
-#include "GeneratedJNIWrappers.h"
 #include "mozilla/a11y/ProxyAccessible.h"
+#include "mozilla/java/GeckoBundleWrappers.h"
+#include "mozilla/java/SessionAccessibilityWrappers.h"
 #include "nsCOMPtr.h"
 
 namespace mozilla {
@@ -19,7 +20,9 @@ class AccessibleWrap : public Accessible {
   AccessibleWrap(nsIContent* aContent, DocAccessible* aDoc);
   virtual ~AccessibleWrap();
 
-  virtual nsresult HandleAccEvent(AccEvent* aEvent) override;
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY  // TODO: Mark this as MOZ_CAN_RUN_SCRIPT
+      virtual nsresult
+      HandleAccEvent(AccEvent* aEvent) override;
 
   virtual void Shutdown() override;
 
@@ -33,20 +36,34 @@ class AccessibleWrap : public Accessible {
 
   virtual bool GetSelectionBounds(int32_t* aStartOffset, int32_t* aEndOffset);
 
-  mozilla::java::GeckoBundle::LocalRef ToBundle();
+  virtual void PivotTo(int32_t aGranularity, bool aForward, bool aInclusive);
+
+  virtual void ExploreByTouch(float aX, float aY);
+
+  virtual void NavigateText(int32_t aGranularity, int32_t aStartOffset,
+                            int32_t aEndOffset, bool aForward, bool aSelect);
+
+  virtual void SetSelection(int32_t aStart, int32_t aEnd);
+
+  virtual void Cut();
+
+  virtual void Copy();
+
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY
+  virtual void Paste();
+
+  mozilla::java::GeckoBundle::LocalRef ToBundle(bool aSmall = false);
 
   mozilla::java::GeckoBundle::LocalRef ToBundle(
       const uint64_t aState, const nsIntRect& aBounds,
       const uint8_t aActionCount, const nsString& aName,
       const nsString& aTextValue, const nsString& aDOMNodeID,
-      const double& aCurVal, const double& aMinVal, const double& aMaxVal,
-      const double& aStep, nsIPersistentProperties* aAttributes);
-
-  mozilla::java::GeckoBundle::LocalRef ToSmallBundle(
-      const uint64_t aState, const nsIntRect& aBounds,
-      const uint8_t aActionCount);
-
-  mozilla::java::GeckoBundle::LocalRef ToSmallBundle();
+      const nsString& aDescription,
+      const double& aCurVal = UnspecifiedNaN<double>(),
+      const double& aMinVal = UnspecifiedNaN<double>(),
+      const double& aMaxVal = UnspecifiedNaN<double>(),
+      const double& aStep = UnspecifiedNaN<double>(),
+      nsIPersistentProperties* aAttributes = nullptr);
 
   virtual void WrapperDOMNodeID(nsString& aDOMNodeID);
 
@@ -80,6 +97,12 @@ class AccessibleWrap : public Accessible {
                                 double* aMaxVal, double* aStep);
 
   virtual role WrapperRole() { return Role(); }
+
+  void GetTextEquiv(nsString& aText);
+
+  bool HandleLiveRegionEvent(AccEvent* aEvent);
+
+  void GetSelectionOrCaret(int32_t* aStartOffset, int32_t* aEndOffset);
 
   static void GetRoleDescription(role aRole,
                                  nsIPersistentProperties* aAttributes,

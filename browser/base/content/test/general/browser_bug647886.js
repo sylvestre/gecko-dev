@@ -4,26 +4,35 @@
 add_task(async function() {
   await BrowserTestUtils.openNewForegroundTab(gBrowser, "http://example.com");
 
-  await ContentTask.spawn(gBrowser.selectedBrowser, {}, async function() {
+  await SpecialPowers.spawn(gBrowser.selectedBrowser, [], async function() {
     content.history.pushState({}, "2", "2.html");
   });
 
-  await new Promise(resolve => SessionStore.getSessionHistory(gBrowser.selectedTab, resolve));
+  await new Promise(resolve =>
+    SessionStore.getSessionHistory(gBrowser.selectedTab, resolve)
+  );
 
   let backButton = document.getElementById("back-button");
   let rect = backButton.getBoundingClientRect();
 
   info("waiting for the history menu to open");
 
-  let popupShownPromise = BrowserTestUtils.waitForEvent(backButton, "popupshown");
-  EventUtils.synthesizeMouseAtCenter(backButton, {type: "mousedown"});
-  EventUtils.synthesizeMouse(backButton, rect.width / 2, rect.height, {type: "mouseup"});
+  let popupShownPromise = BrowserTestUtils.waitForEvent(
+    backButton,
+    "popupshown"
+  );
+  EventUtils.synthesizeMouseAtCenter(backButton, { type: "mousedown" });
+  EventUtils.synthesizeMouse(backButton, rect.width / 2, rect.height, {
+    type: "mouseup",
+  });
   let event = await popupShownPromise;
 
   ok(true, "history menu opened");
 
   // Wait for the session data to be flushed before continuing the test
-  await new Promise(resolve => SessionStore.getSessionHistory(gBrowser.selectedTab, resolve));
+  await new Promise(resolve =>
+    SessionStore.getSessionHistory(gBrowser.selectedTab, resolve)
+  );
 
   is(event.target.children.length, 2, "Two history items");
 

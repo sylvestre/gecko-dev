@@ -1,5 +1,3 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 2 -*- */
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -17,18 +15,20 @@ add_task(async () => {
   const tab = await addTab(TAB1_URL);
   const target = await TargetFactory.forTab(tab);
   await target.attach();
-  const targetFront = target.activeTab;
 
-  await testNavigate(targetFront);
+  await testNavigate(target);
   await testDetach(target);
 });
 
-function testNavigate(targetFront) {
+function testNavigate(target) {
   const outstanding = [promise.defer(), promise.defer()];
 
-  targetFront.on("tabNavigated", function onTabNavigated(packet) {
-    is(packet.url.split("/").pop(), TAB2_FILE,
-      "Got a tab navigation notification.");
+  target.on("tabNavigated", function onTabNavigated(packet) {
+    is(
+      packet.url.split("/").pop(),
+      TAB2_FILE,
+      "Got a tab navigation notification."
+    );
 
     info(JSON.stringify(packet));
 
@@ -37,7 +37,7 @@ function testNavigate(targetFront) {
       outstanding[0].resolve();
     } else {
       ok(true, "Tab finished navigating.");
-      targetFront.off("tabNavigated", onTabNavigated);
+      target.off("tabNavigated", onTabNavigated);
       outstanding[1].resolve();
     }
   });

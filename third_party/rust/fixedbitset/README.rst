@@ -10,14 +10,31 @@ __ https://docs.rs/fixedbitset/
 
 |build_status|_ |crates|_
 
-.. |build_status| image:: https://travis-ci.org/bluss/fixedbitset.svg?branch=master
-.. _build_status: https://travis-ci.org/bluss/fixedbitset
+.. |build_status| image:: https://travis-ci.org/petgraph/fixedbitset.svg?branch=master
+.. _build_status: https://travis-ci.org/petgraph/fixedbitset
 
 .. |crates| image:: http://meritbadge.herokuapp.com/fixedbitset
 .. _crates: https://crates.io/crates/fixedbitset
 
 Recent Changes
 --------------
+
+- 0.2.0
+
+  + Add assign operators for the bit operations by @jrraymond
+  + Add ``symmetric_difference``, ``union_with``, ``intersection_with`` by @jrraymond
+  + Add ``is_subset``, ``is_superset``, ``is_disjoint`` by @nwn
+  + Add ``.toggle(i)`` method by @ShiroUsagi-san
+  + Add default feature "std" which can be disabled to make the crate not
+    link the std library. By @jonimake and @bluss
+  + Require Rust 1.31.
+
+- 0.1.9
+
+  + Add intersection, union, difference iterators by @jrraymond
+  + Add intersection: ``&`` and union: ``|`` operator implementations by @jrraymond
+  + Add Extend and FromIterator implementations (from sequences of bit indices)
+    by @jrraymond
 
 - 0.1.8
 

@@ -8,17 +8,15 @@
 
 #include "mozilla/ClearOnShutdown.h"
 #include "mozilla/dom/ContentChild.h"
-#include "mozilla/dom/TabChild.h"
+#include "mozilla/dom/BrowserChild.h"
 #include "mozilla/layout/RemotePrintJobChild.h"
 #include "mozilla/Unused.h"
 #include "nsIDocShell.h"
-#include "nsIDocShellTreeOwner.h"
 #include "nsIPrintingPromptService.h"
 #include "nsIPrintSession.h"
 #include "nsPIDOMWindow.h"
 #include "nsPrintSettingsService.h"
 #include "nsServiceManagerUtils.h"
-#include "PrintDataUtils.h"
 #include "PrintProgressDialogChild.h"
 #include "PrintSettingsDialogChild.h"
 
@@ -31,9 +29,9 @@ static StaticRefPtr<nsPrintingProxy> sPrintingProxyInstance;
 
 NS_IMPL_ISUPPORTS(nsPrintingProxy, nsIPrintingPromptService)
 
-nsPrintingProxy::nsPrintingProxy() {}
+nsPrintingProxy::nsPrintingProxy() = default;
 
-nsPrintingProxy::~nsPrintingProxy() {}
+nsPrintingProxy::~nsPrintingProxy() = default;
 
 /* static */
 already_AddRefed<nsPrintingProxy> nsPrintingProxy::GetInstance() {
@@ -55,11 +53,6 @@ already_AddRefed<nsPrintingProxy> nsPrintingProxy::GetInstance() {
 }
 
 nsresult nsPrintingProxy::Init() {
-  // Don't create a printing proxy in middleman processes, to avoid conflicts
-  // with the one created in the child recording process.
-  if (recordreplay::IsMiddleman()) {
-    return NS_ERROR_FAILURE;
-  }
   mozilla::Unused << ContentChild::GetSingleton()->SendPPrintingConstructor(
       this);
   return NS_OK;
@@ -67,26 +60,24 @@ nsresult nsPrintingProxy::Init() {
 
 NS_IMETHODIMP
 nsPrintingProxy::ShowPrintDialog(mozIDOMWindowProxy* parent,
-                                 nsIWebBrowserPrint* webBrowserPrint,
                                  nsIPrintSettings* printSettings) {
-  NS_ENSURE_ARG(webBrowserPrint);
   NS_ENSURE_ARG(printSettings);
 
   // If parent is null we are just being called to retrieve the print settings
   // from the printer in the parent for print preview.
-  TabChild* pBrowser = nullptr;
+  BrowserChild* pBrowser = nullptr;
   if (parent) {
-    // Get the TabChild for this nsIDOMWindow, which we can then pass up to
+    // Get the BrowserChild for this nsIDOMWindow, which we can then pass up to
     // the parent.
     nsCOMPtr<nsPIDOMWindowOuter> pwin = nsPIDOMWindowOuter::From(parent);
     NS_ENSURE_STATE(pwin);
     nsCOMPtr<nsIDocShell> docShell = pwin->GetDocShell();
     NS_ENSURE_STATE(docShell);
 
-    nsCOMPtr<nsITabChild> tabchild = docShell->GetTabChild();
+    nsCOMPtr<nsIBrowserChild> tabchild = docShell->GetBrowserChild();
     NS_ENSURE_STATE(tabchild);
 
-    pBrowser = static_cast<TabChild*>(tabchild.get());
+    pBrowser = static_cast<BrowserChild*>(tabchild.get());
   }
 
   // Next, serialize the nsIWebBrowserPrint and nsIPrintSettings we were given.
@@ -96,8 +87,7 @@ nsPrintingProxy::ShowPrintDialog(mozIDOMWindowProxy* parent,
   NS_ENSURE_SUCCESS(rv, rv);
 
   PrintData inSettings;
-  rv = printSettingsSvc->SerializeToPrintData(printSettings, webBrowserPrint,
-                                              &inSettings);
+  rv = printSettingsSvc->SerializeToPrintData(printSettings, &inSettings);
   NS_ENSURE_SUCCESS(rv, rv);
 
   // Now, the waiting game. The parent process should be showing
@@ -121,11 +111,10 @@ nsPrintingProxy::ShowPrintDialog(mozIDOMWindowProxy* parent,
 }
 
 NS_IMETHODIMP
-nsPrintingProxy::ShowProgress(
+nsPrintingProxy::ShowPrintProgressDialog(
     mozIDOMWindowProxy* parent,
-    nsIWebBrowserPrint* webBrowserPrint,  // ok to be null
-    nsIPrintSettings* printSettings,      // ok to be null
-    nsIObserver* openDialogObserver,      // ok to be null
+    nsIPrintSettings* printSettings,  // ok to be null
+    nsIObserver* openDialogObserver,  // ok to be null
     bool isForPrinting, nsIWebProgressListener** webProgressListener,
     nsIPrintProgressParams** printProgressParams, bool* notifyOnOpen) {
   NS_ENSURE_ARG(parent);
@@ -133,14 +122,14 @@ nsPrintingProxy::ShowProgress(
   NS_ENSURE_ARG(printProgressParams);
   NS_ENSURE_ARG(notifyOnOpen);
 
-  // Get the TabChild for this nsIDOMWindow, which we can then pass up to
+  // Get the BrowserChild for this nsIDOMWindow, which we can then pass up to
   // the parent.
   nsCOMPtr<nsPIDOMWindowOuter> pwin = nsPIDOMWindowOuter::From(parent);
   NS_ENSURE_STATE(pwin);
   nsCOMPtr<nsIDocShell> docShell = pwin->GetDocShell();
   NS_ENSURE_STATE(docShell);
-  nsCOMPtr<nsITabChild> tabchild = docShell->GetTabChild();
-  TabChild* pBrowser = static_cast<TabChild*>(tabchild.get());
+  nsCOMPtr<nsIBrowserChild> tabchild = docShell->GetBrowserChild();
+  BrowserChild* pBrowser = static_cast<BrowserChild*>(tabchild.get());
 
   RefPtr<PrintProgressDialogChild> dialogChild =
       new PrintProgressDialogChild(openDialogObserver, printSettings);
@@ -176,8 +165,8 @@ nsPrintingProxy::ShowProgress(
 }
 
 NS_IMETHODIMP
-nsPrintingProxy::ShowPageSetup(mozIDOMWindowProxy* parent,
-                               nsIPrintSettings* printSettings) {
+nsPrintingProxy::ShowPageSetupDialog(mozIDOMWindowProxy* parent,
+                                     nsIPrintSettings* printSettings) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
@@ -190,7 +179,7 @@ nsresult nsPrintingProxy::SavePrintSettings(nsIPrintSettings* aPS,
   NS_ENSURE_SUCCESS(rv, rv);
 
   PrintData settings;
-  rv = printSettingsSvc->SerializeToPrintData(aPS, nullptr, &settings);
+  rv = printSettingsSvc->SerializeToPrintData(aPS, &settings);
   NS_ENSURE_SUCCESS(rv, rv);
 
   Unused << SendSavePrintSettings(settings, aUsePrinterNamePrefix, aFlags, &rv);
@@ -229,15 +218,8 @@ bool nsPrintingProxy::DeallocPPrintSettingsDialogChild(
   return true;
 }
 
-PRemotePrintJobChild* nsPrintingProxy::AllocPRemotePrintJobChild() {
+already_AddRefed<PRemotePrintJobChild>
+nsPrintingProxy::AllocPRemotePrintJobChild() {
   RefPtr<RemotePrintJobChild> remotePrintJob = new RemotePrintJobChild();
-  return remotePrintJob.forget().take();
-}
-
-bool nsPrintingProxy::DeallocPRemotePrintJobChild(
-    PRemotePrintJobChild* aDoomed) {
-  RemotePrintJobChild* remotePrintJob =
-      static_cast<RemotePrintJobChild*>(aDoomed);
-  NS_RELEASE(remotePrintJob);
-  return true;
+  return remotePrintJob.forget();
 }

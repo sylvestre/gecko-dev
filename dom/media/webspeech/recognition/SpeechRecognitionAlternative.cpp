@@ -10,8 +10,7 @@
 
 #include "SpeechRecognition.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(SpeechRecognitionAlternative, mParent)
 NS_IMPL_CYCLE_COLLECTING_ADDREF(SpeechRecognitionAlternative)
@@ -25,7 +24,7 @@ SpeechRecognitionAlternative::SpeechRecognitionAlternative(
     SpeechRecognition* aParent)
     : mConfidence(0), mParent(aParent) {}
 
-SpeechRecognitionAlternative::~SpeechRecognitionAlternative() {}
+SpeechRecognitionAlternative::~SpeechRecognitionAlternative() = default;
 
 JSObject* SpeechRecognitionAlternative::WrapObject(
     JSContext* aCx, JS::Handle<JSObject*> aGivenProto) {
@@ -42,5 +41,4 @@ void SpeechRecognitionAlternative::GetTranscript(nsString& aRetVal) const {
 
 float SpeechRecognitionAlternative::Confidence() const { return mConfidence; }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

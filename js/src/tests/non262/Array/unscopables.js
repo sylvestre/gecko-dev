@@ -19,13 +19,15 @@ assertDeepEq(desc2, {
 });
 
 let keys = Reflect.ownKeys(Array_unscopables);
-print(uneval(keys));
+
 assertDeepEq(keys, [
     "copyWithin",
     "entries",
     "fill",
     "find",
     "findIndex",
+    "flat",
+    "flatMap",
     "includes",
     "keys",
     "values"

@@ -6,6 +6,8 @@
 
 #include "RemoteServiceWorkerImpl.h"
 
+#include <utility>
+
 #include "mozilla/dom/ClientInfo.h"
 #include "mozilla/dom/ClientState.h"
 #include "mozilla/ipc/BackgroundChild.h"
@@ -65,7 +67,7 @@ void RemoteServiceWorkerImpl::PostMessage(
     return;
   }
 
-  ClonedMessageData data;
+  ClonedOrErrorMessageData data;
   if (!aData->BuildClonedMessageDataForBackgroundChild(mActor->Manager(),
                                                        data)) {
     return;
@@ -77,7 +79,7 @@ void RemoteServiceWorkerImpl::PostMessage(
 
 RemoteServiceWorkerImpl::RemoteServiceWorkerImpl(
     const ServiceWorkerDescriptor& aDescriptor)
-    : mActor(nullptr), mWorker(nullptr), mShutdown(false) {
+    : mWorker(nullptr), mShutdown(false) {
   PBackgroundChild* parentActor =
       BackgroundChild::GetOrCreateForCurrentThread();
   if (NS_WARN_IF(!parentActor)) {
@@ -85,21 +87,12 @@ RemoteServiceWorkerImpl::RemoteServiceWorkerImpl(
     return;
   }
 
-  RefPtr<WorkerHolderToken> workerHolderToken;
-  if (!NS_IsMainThread()) {
-    WorkerPrivate* workerPrivate = GetCurrentThreadWorkerPrivate();
-    MOZ_DIAGNOSTIC_ASSERT(workerPrivate);
-
-    workerHolderToken = WorkerHolderToken::Create(
-        workerPrivate, Canceling, WorkerHolderToken::AllowIdleShutdownStart);
-
-    if (NS_WARN_IF(!workerHolderToken)) {
-      Shutdown();
-      return;
-    }
+  RefPtr<ServiceWorkerChild> actor = ServiceWorkerChild::Create();
+  if (NS_WARN_IF(!actor)) {
+    Shutdown();
+    return;
   }
 
-  ServiceWorkerChild* actor = new ServiceWorkerChild(workerHolderToken);
   PServiceWorkerChild* sentActor =
       parentActor->SendPServiceWorkerConstructor(actor, aDescriptor.ToIPC());
   if (NS_WARN_IF(!sentActor)) {
@@ -108,7 +101,7 @@ RemoteServiceWorkerImpl::RemoteServiceWorkerImpl(
   }
   MOZ_DIAGNOSTIC_ASSERT(sentActor == actor);
 
-  mActor = actor;
+  mActor = std::move(actor);
   mActor->SetOwner(this);
 }
 

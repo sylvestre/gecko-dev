@@ -31,20 +31,14 @@ DataChannelChild::ConnectParent(uint32_t aId) {
   }
 
   // IPC now has a ref to us.
-  AddIPDLReference();
+  mIPCOpen = true;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-DataChannelChild::CompleteRedirectSetup(nsIStreamListener* aListener,
-                                        nsISupports* aContext) {
+DataChannelChild::CompleteRedirectSetup(nsIStreamListener* aListener) {
   nsresult rv;
-  if (mLoadInfo && mLoadInfo->GetEnforceSecurity()) {
-    MOZ_ASSERT(!aContext, "aContext should be null!");
-    rv = AsyncOpen2(aListener);
-  } else {
-    rv = AsyncOpen(aListener, aContext);
-  }
+  rv = AsyncOpen(aListener);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -55,15 +49,9 @@ DataChannelChild::CompleteRedirectSetup(nsIStreamListener* aListener,
   return NS_OK;
 }
 
-void DataChannelChild::AddIPDLReference() {
-  AddRef();
-  mIPCOpen = true;
-}
-
 void DataChannelChild::ActorDestroy(ActorDestroyReason why) {
   MOZ_ASSERT(mIPCOpen);
   mIPCOpen = false;
-  Release();
 }
 
 }  // namespace net

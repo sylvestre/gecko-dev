@@ -6,6 +6,7 @@
 
 #include "PartitionedLocalStorage.h"
 #include "SessionStorageCache.h"
+#include "nsContentUtils.h"
 
 #include "mozilla/dom/StorageBinding.h"
 
@@ -20,11 +21,12 @@ NS_INTERFACE_MAP_END_INHERITING(Storage)
 NS_IMPL_ADDREF_INHERITED(PartitionedLocalStorage, Storage)
 NS_IMPL_RELEASE_INHERITED(PartitionedLocalStorage, Storage)
 
-PartitionedLocalStorage::PartitionedLocalStorage(nsPIDOMWindowInner* aWindow,
-                                                 nsIPrincipal* aPrincipal)
-    : Storage(aWindow, aPrincipal), mCache(new SessionStorageCache()) {}
+PartitionedLocalStorage::PartitionedLocalStorage(
+    nsPIDOMWindowInner* aWindow, nsIPrincipal* aPrincipal,
+    nsIPrincipal* aStoragePrincipal, SessionStorageCache* aCache)
+    : Storage(aWindow, aPrincipal, aStoragePrincipal), mCache(aCache) {}
 
-PartitionedLocalStorage::~PartitionedLocalStorage() {}
+PartitionedLocalStorage::~PartitionedLocalStorage() = default;
 
 int64_t PartitionedLocalStorage::GetOriginQuotaUsage() const {
   return mCache->GetOriginQuotaUsage(SessionStorageCache::eSessionSetType);

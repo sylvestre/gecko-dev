@@ -9,22 +9,23 @@
  */
 
 /**
- * Display an existing HTMLTooltip on an anchor. After the tooltip "shown"
- * event has been fired a reflow will be triggered.
+ * Display an existing HTMLTooltip on an anchor and properly wait for the popup to be
+ * repainted.
  *
  * @param {HTMLTooltip} tooltip
  *        The tooltip instance to display
  * @param {Node} anchor
  *        The anchor that should be used to display the tooltip
  * @param {Object} see HTMLTooltip:show documentation
- * @return {Promise} promise that resolves when "shown" has been fired, reflow
- *         and repaint done.
+ * @return {Promise} promise that resolves when reflow and repaint are done.
  */
-async function showTooltip(tooltip, anchor, {position, x, y} = {}) {
-  const onShown = tooltip.once("shown");
-  tooltip.show(anchor, {position, x, y});
-  await onShown;
-  return waitForReflow(tooltip);
+async function showTooltip(tooltip, anchor, { position, x, y } = {}) {
+  await tooltip.show(anchor, { position, x, y });
+  await waitForReflow(tooltip);
+
+  // Wait for next tick. Tooltip tests sometimes fail to successively hide and
+  // show tooltips on Win32 debug.
+  await waitForTick();
 }
 
 /**
@@ -40,7 +41,11 @@ async function hideTooltip(tooltip) {
   const onPopupHidden = tooltip.once("hidden");
   tooltip.hide();
   await onPopupHidden;
-  return waitForReflow(tooltip);
+  await waitForReflow(tooltip);
+
+  // Wait for next tick. Tooltip tests sometimes fail to successively hide and
+  // show tooltips on Win32 debug.
+  await waitForTick();
 }
 
 /**
@@ -51,7 +56,7 @@ async function hideTooltip(tooltip) {
  *         have been executed.
  */
 function waitForReflow(tooltip) {
-  const {doc} = tooltip;
+  const { doc } = tooltip;
   return new Promise(resolve => {
     doc.documentElement.offsetWidth;
     doc.defaultView.requestAnimationFrame(resolve);
@@ -72,23 +77,37 @@ function waitForReflow(tooltip) {
  *        - {Number} width: expected tooltip width
  *        - {Number} height: expected tooltip height
  */
-function checkTooltipGeometry(tooltip, anchor,
-    {position, leftAligned = true, height, width} = {}) {
+function checkTooltipGeometry(
+  tooltip,
+  anchor,
+  { position, leftAligned = true, height, width } = {}
+) {
   info("Check the tooltip geometry matches expected position and dimensions");
   const tooltipRect = tooltip.container.getBoundingClientRect();
   const anchorRect = anchor.getBoundingClientRect();
 
   if (position === "top") {
-    is(tooltipRect.bottom, anchorRect.top, "Tooltip is above the anchor");
+    is(
+      tooltipRect.bottom,
+      Math.round(anchorRect.top),
+      "Tooltip is above the anchor"
+    );
   } else if (position === "bottom") {
-    is(tooltipRect.top, anchorRect.bottom, "Tooltip is below the anchor");
+    is(
+      tooltipRect.top,
+      Math.round(anchorRect.bottom),
+      "Tooltip is below the anchor"
+    );
   } else {
     ok(false, "Invalid position provided to checkTooltipGeometry");
   }
 
   if (leftAligned) {
-    is(tooltipRect.left, anchorRect.left,
-      "Tooltip left-aligned with the anchor");
+    is(
+      tooltipRect.left,
+      Math.round(anchorRect.left),
+      "Tooltip left-aligned with the anchor"
+    );
   }
 
   is(tooltipRect.height, height, "Tooltip has the expected height");

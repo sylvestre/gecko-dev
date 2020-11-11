@@ -24,9 +24,14 @@ union FileContentData {
   nsString;
 };
 
+struct TextContentData {
+  nsString value;
+  bool lastValueChangeWasInteractive;
+};
+
 union PresContentData {
   void_t;
-  nsString;
+  TextContentData;
   SelectContentData;
   CheckedContentData;
   // We can need to serialize blobs in order to transmit this type, so we need
@@ -36,6 +41,8 @@ union PresContentData {
 
 struct PresState {
   PresContentData contentData;
+  // For frames where layout and visual viewport aren't one and the same thing,
+  // scrollState will store the position of the *visual* viewport.
   nsPoint scrollState;
   bool allowScrollOriginDowngrade;
   float resolution;
@@ -44,4 +51,4 @@ struct PresState {
   bool droppedDown;
 };
 
-} // namespace mozilla
+}  // namespace mozilla

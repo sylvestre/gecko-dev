@@ -1,14 +1,16 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
-  * License, v. 2.0. If a copy of the MPL was not distributed with this
-  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 "use strict";
 
 var initialLocation = gBrowser.currentURI.spec;
-var newTab = null;
 
 add_task(async function() {
-  CustomizableUI.addWidgetToArea("add-ons-button", CustomizableUI.AREA_FIXED_OVERFLOW_PANEL);
+  CustomizableUI.addWidgetToArea(
+    "add-ons-button",
+    CustomizableUI.AREA_FIXED_OVERFLOW_PANEL
+  );
   info("Check addons button existence and functionality");
 
   await waitForOverflowButtonShown();
@@ -20,12 +22,18 @@ add_task(async function() {
   ok(addonsButton, "Add-ons button exists in Panel Menu");
   addonsButton.click();
 
-  newTab = gBrowser.selectedTab;
-  await waitForCondition(() => gBrowser.currentURI &&
-                               gBrowser.currentURI.spec == "about:addons");
+  await Promise.all([
+    TestUtils.waitForCondition(
+      () => gBrowser.currentURI && gBrowser.currentURI.spec == "about:addons"
+    ),
+    new Promise(r =>
+      gBrowser.selectedBrowser.addEventListener("load", r, true)
+    ),
+  ]);
 
-  let addonsPage = gBrowser.selectedBrowser.contentWindow.document.
-                            getElementById("addons-page");
+  let addonsPage = gBrowser.selectedBrowser.contentWindow.document.getElementById(
+    "addons-page"
+  );
   ok(addonsPage, "Add-ons page was opened");
 });
 

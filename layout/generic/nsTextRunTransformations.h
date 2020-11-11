@@ -34,13 +34,14 @@ struct nsTransformedCharStyle final {
   RefPtr<nsAtom> mLanguage;
   RefPtr<nsPresContext> mPresContext;
   float mScriptSizeMultiplier;
-  uint8_t mTextTransform;
+  mozilla::StyleTextTransform mTextTransform;
   uint8_t mMathVariant;
   bool mExplicitLanguage;
   bool mForceNonFullWidth = false;
+  bool mMaskPassword = false;
 
  private:
-  ~nsTransformedCharStyle() {}
+  ~nsTransformedCharStyle() = default;
   nsTransformedCharStyle(const nsTransformedCharStyle& aOther) = delete;
   nsTransformedCharStyle& operator=(const nsTransformedCharStyle& aOther) =
       delete;
@@ -48,7 +49,7 @@ struct nsTransformedCharStyle final {
 
 class nsTransformingTextRunFactory {
  public:
-  virtual ~nsTransformingTextRunFactory() {}
+  virtual ~nsTransformingTextRunFactory() = default;
 
   // Default 8-bit path just transforms to Unicode and takes that path
   already_AddRefed<nsTransformedTextRun> MakeTextRun(
@@ -103,10 +104,18 @@ class nsCaseTransformTextRunFactory : public nsTransformingTextRunFactory {
   // will be copied to the output arrays, which must also be provided by
   // the caller. For the global upper-casing usage (no input textrun),
   // these are ignored.
+  // If aCaseTransformsOnly is true, then only the upper/lower/capitalize
+  // transformations are performed; full-width and full-size-kana are ignored.
+  // If `aTextRun` is not nullptr and characters which are styled with setting
+  // `nsTransformedCharStyle::mMaskPassword` to true, they are replaced with
+  // password mask characters and are not transformed (i.e., won't be added
+  // or merged for the specified transform).  However, unmasked characters
+  // whose `nsTransformedCharStyle::mMaskPassword` is set to false are
+  // transformed normally.
   static bool TransformString(
       const nsAString& aString, nsString& aConvertedString, bool aAllUppercase,
-      const nsAtom* aLanguage, nsTArray<bool>& aCharsToMergeArray,
-      nsTArray<bool>& aDeletedCharsArray,
+      bool aCaseTransformsOnly, const nsAtom* aLanguage,
+      nsTArray<bool>& aCharsToMergeArray, nsTArray<bool>& aDeletedCharsArray,
       const nsTransformedTextRun* aTextRun = nullptr,
       uint32_t aOffsetInTextRun = 0,
       nsTArray<uint8_t>* aCanBreakBeforeArray = nullptr,
@@ -179,7 +188,7 @@ class nsTransformedTextRun final : public gfxTextRun {
                        bool aOwnsFactory)
       : gfxTextRun(aParams, aLength, aFontGroup, aFlags, aFlags2),
         mFactory(aFactory),
-        mStyles(aStyles),
+        mStyles(std::move(aStyles)),
         mString(aString, aLength),
         mOwnsFactory(aOwnsFactory),
         mNeedsRebuild(true) {

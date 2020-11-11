@@ -3,7 +3,7 @@
 # When uploading crates to the registry Cargo will automatically
 # "normalize" Cargo.toml files for maximal compatibility
 # with all versions of Cargo and also rewrite `path` dependencies
-# to registry (e.g. crates.io) dependencies
+# to registry (e.g., crates.io) dependencies
 #
 # If you believe there's an error in this file please file an
 # issue against the rust-lang/cargo repository. If you're
@@ -11,15 +11,16 @@
 # will likely look very different (and much more reasonable)
 
 [package]
+edition = "2018"
 name = "petgraph"
-version = "0.4.13"
+version = "0.5.1"
 authors = ["bluss", "mitchmindtree"]
 description = "Graph data structure library. Provides graph types and graph algorithms."
 documentation = "https://docs.rs/petgraph/"
 keywords = ["data-structure", "graph", "unionfind", "graph-algorithms"]
 categories = ["data-structures"]
 license = "MIT/Apache-2.0"
-repository = "https://github.com/bluss/petgraph"
+repository = "https://github.com/petgraph/petgraph"
 [package.metadata.docs.rs]
 features = ["serde-1", "quickcheck"]
 
@@ -34,14 +35,14 @@ debug = true
 name = "petgraph"
 bench = false
 [dependencies.fixedbitset]
-version = "0.1.4"
+version = "0.2.0"
+default-features = false
 
-[dependencies.ordermap]
-version = "0.3.0"
-optional = true
+[dependencies.indexmap]
+version = "1.0.2"
 
 [dependencies.quickcheck]
-version = "0.4"
+version = "0.8"
 optional = true
 default-features = false
 
@@ -56,20 +57,21 @@ optional = true
 version = "0.1"
 
 [dev-dependencies.itertools]
-version = "0.7.0"
+version = "0.8"
 default-features = false
 
 [dev-dependencies.odds]
 version = "0.2.19"
 
 [dev-dependencies.rand]
-version = "0.3"
+version = "0.5.5"
 
 [features]
-all = ["unstable", "quickcheck", "stable_graph", "graphmap"]
-default = ["graphmap", "stable_graph"]
+all = ["unstable", "quickcheck", "matrix_graph", "stable_graph", "graphmap"]
+default = ["graphmap", "stable_graph", "matrix_graph"]
 generate = []
-graphmap = ["ordermap"]
+graphmap = []
+matrix_graph = []
 serde-1 = ["serde", "serde_derive"]
 stable_graph = []
 unstable = ["generate"]

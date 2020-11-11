@@ -23,7 +23,7 @@ var DownloadList = function() {
   this._views = new Set();
 };
 
-this.DownloadList.prototype = {
+DownloadList.prototype = {
   /**
    * Array of Download objects currently in the list.
    */
@@ -39,7 +39,7 @@ this.DownloadList.prototype = {
    * @rejects JavaScript exception.
    */
   getAll: function DL_getAll() {
-    return Promise.resolve(Array.slice(this._downloads, 0));
+    return Promise.resolve(Array.from(this._downloads));
   },
 
   /**
@@ -213,8 +213,11 @@ this.DownloadList.prototype = {
         // Remove downloads that have been canceled, even if the cancellation
         // operation hasn't completed yet so we don't check "stopped" here.
         // Failed downloads with partial data are also removed.
-        if (download.stopped && (!download.hasPartialData || download.error) &&
-            (!aFilterFn || aFilterFn(download))) {
+        if (
+          download.stopped &&
+          (!download.hasPartialData || download.error) &&
+          (!aFilterFn || aFilterFn(download))
+        ) {
           // Remove the download first, so that the views don't get the change
           // notifications that may occur during finalization.
           await this.remove(download);
@@ -249,7 +252,7 @@ var DownloadCombinedList = function(aPublicList, aPrivateList) {
   aPrivateList.addView(this).catch(Cu.reportError);
 };
 
-this.DownloadCombinedList.prototype = {
+DownloadCombinedList.prototype = {
   __proto__: DownloadList.prototype,
 
   /**
@@ -337,7 +340,7 @@ var DownloadSummary = function() {
   this._views = new Set();
 };
 
-this.DownloadSummary.prototype = {
+DownloadSummary.prototype = {
   /**
    * Array of Download objects that are currently part of the summary.
    */
@@ -434,6 +437,11 @@ this.DownloadSummary.prototype = {
   allHaveStopped: true,
 
   /**
+   * Indicates whether whether all downloads have an unknown final size.
+   */
+  allUnknownSize: true,
+
+  /**
    * Indicates the total number of bytes to be transferred before completing all
    * the downloads that are currently in progress.
    *
@@ -459,6 +467,7 @@ this.DownloadSummary.prototype = {
    */
   _onListChanged() {
     let allHaveStopped = true;
+    let allUnknownSize = true;
     let progressTotalBytes = 0;
     let progressCurrentBytes = 0;
 
@@ -467,20 +476,28 @@ this.DownloadSummary.prototype = {
     for (let download of this._downloads) {
       if (!download.stopped) {
         allHaveStopped = false;
-        progressTotalBytes += download.hasProgress ? download.totalBytes
-                                                   : download.currentBytes;
+        if (download.hasProgress) {
+          allUnknownSize = false;
+          progressTotalBytes += download.totalBytes;
+        } else {
+          progressTotalBytes += download.currentBytes;
+        }
         progressCurrentBytes += download.currentBytes;
       }
     }
 
     // Exit now if the properties did not change.
-    if (this.allHaveStopped == allHaveStopped &&
-        this.progressTotalBytes == progressTotalBytes &&
-        this.progressCurrentBytes == progressCurrentBytes) {
+    if (
+      this.allHaveStopped == allHaveStopped &&
+      this.allUnknownSize == allUnknownSize &&
+      this.progressTotalBytes == progressTotalBytes &&
+      this.progressCurrentBytes == progressCurrentBytes
+    ) {
       return;
     }
 
     this.allHaveStopped = allHaveStopped;
+    this.allUnknownSize = allUnknownSize;
     this.progressTotalBytes = progressTotalBytes;
     this.progressCurrentBytes = progressCurrentBytes;
 

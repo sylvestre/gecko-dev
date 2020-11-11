@@ -1,14 +1,14 @@
 //! RISC-V register descriptions.
 
-use isa::registers::{RegBank, RegClass, RegClassData, RegInfo, RegUnit};
+use crate::isa::registers::{RegBank, RegClass, RegClassData, RegInfo, RegUnit};
 
 include!(concat!(env!("OUT_DIR"), "/registers-riscv.rs"));
 
 #[cfg(test)]
 mod tests {
     use super::{FPR, GPR, INFO};
-    use isa::RegUnit;
-    use std::string::{String, ToString};
+    use crate::isa::RegUnit;
+    use alloc::string::{String, ToString};
 
     #[test]
     fn unit_encodings() {

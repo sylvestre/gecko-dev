@@ -6,28 +6,27 @@
 #ifndef nsFaviconService_h_
 #define nsFaviconService_h_
 
-#include "nsIFaviconService.h"
+#include <utility>
 
+#include "Database.h"
+#include "FaviconHelpers.h"
+#include "imgITools.h"
+#include "mozilla/Attributes.h"
+#include "mozilla/storage.h"
 #include "nsCOMPtr.h"
-#include "nsString.h"
 #include "nsDataHashtable.h"
+#include "nsIFaviconService.h"
+#include "nsINamed.h"
+#include "nsITimer.h"
 #include "nsServiceManagerUtils.h"
+#include "nsString.h"
 #include "nsTHashtable.h"
 #include "nsToolkitCompsCID.h"
 #include "nsURIHashKey.h"
-#include "nsINamed.h"
-#include "nsITimer.h"
-#include "Database.h"
-#include "imgITools.h"
-#include "mozilla/storage.h"
-#include "mozilla/Attributes.h"
-#include "mozilla/Move.h"
-
-#include "FaviconHelpers.h"
 
 // The target dimension in pixels for favicons we store, in reverse order.
 // When adding/removing sizes from here, make sure to update the vector size.
-static uint16_t sFaviconSizes[7] = {192, 144, 96, 64, 48, 32, 16};
+extern const uint16_t gFaviconSizes[7];
 
 // forward class definitions
 class mozIStorageStatementCallback;

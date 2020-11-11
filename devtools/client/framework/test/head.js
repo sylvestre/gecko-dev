@@ -1,5 +1,3 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 2 -*- */
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -7,7 +5,10 @@
 /* import-globals-from ../../shared/test/telemetry-test-helpers.js */
 
 // shared-head.js handles imports, constants, and utility functions
-Services.scriptloader.loadSubScript("chrome://mochitests/content/browser/devtools/client/shared/test/shared-head.js", this);
+Services.scriptloader.loadSubScript(
+  "chrome://mochitests/content/browser/devtools/client/shared/test/shared-head.js",
+  this
+);
 
 const EventEmitter = require("devtools/shared/event-emitter");
 
@@ -24,93 +25,29 @@ function toggleAllTools(state) {
   }
 }
 
-function getParentProcessActors(callback) {
-  const { DebuggerServer } = require("devtools/server/main");
-  const { DebuggerClient } = require("devtools/shared/client/debugger-client");
+async function getParentProcessActors(callback) {
+  const { DevToolsServer } = require("devtools/server/devtools-server");
+  const { DevToolsClient } = require("devtools/client/devtools-client");
 
-  DebuggerServer.init();
-  DebuggerServer.registerAllActors();
-  DebuggerServer.allowChromeProcess = true;
-
-  const client = new DebuggerClient(DebuggerServer.connectPipe());
-  client.connect()
-    .then(() => client.mainRoot.getMainProcess())
-    .then(front => {
-      callback(client, front);
-    });
+  DevToolsServer.init();
+  DevToolsServer.registerAllActors();
+  DevToolsServer.allowChromeProcess = true;
 
   SimpleTest.registerCleanupFunction(() => {
-    DebuggerServer.destroy();
+    DevToolsServer.destroy();
   });
+
+  const client = new DevToolsClient(DevToolsServer.connectPipe());
+  await client.connect();
+  const mainProcessDescriptor = await client.mainRoot.getMainProcess();
+  const mainProcessTargetFront = await mainProcessDescriptor.getTarget();
+
+  callback(client, mainProcessTargetFront);
 }
 
 function getSourceActor(aSources, aURL) {
   const item = aSources.getItemForAttachment(a => a.source.url === aURL);
   return item && item.value;
-}
-
-/**
- * Open a Scratchpad window.
- *
- * @return nsIDOMWindow
- *         The new window object that holds Scratchpad.
- */
-async function openScratchpadWindow() {
-  const win = ScratchpadManager.openScratchpad();
-
-  await once(win, "load");
-
-  return new Promise(resolve => {
-    win.Scratchpad.addObserver({
-      onReady: function() {
-        win.Scratchpad.removeObserver(this);
-        resolve(win);
-      },
-    });
-  });
-}
-
-/**
- * Wait for a content -> chrome message on the message manager (the window
- * messagemanager is used).
- * @param {String} name The message name
- * @return {Promise} A promise that resolves to the response data when the
- * message has been received
- */
-function waitForContentMessage(name) {
-  info("Expecting message " + name + " from content");
-
-  const mm = gBrowser.selectedBrowser.messageManager;
-
-  return new Promise(resolve => {
-    mm.addMessageListener(name, function onMessage(msg) {
-      mm.removeMessageListener(name, onMessage);
-      resolve(msg.data);
-    });
-  });
-}
-
-/**
- * Send an async message to the frame script (chrome -> content) and wait for a
- * response message with the same name (content -> chrome).
- * @param {String} name The message name. Should be one of the messages defined
- * in doc_frame_script.js
- * @param {Object} data Optional data to send along
- * @param {Object} objects Optional CPOW objects to send along
- * @param {Boolean} expectResponse If set to false, don't wait for a response
- * with the same name from the content script. Defaults to true.
- * @return {Promise} Resolves to the response data if a response is expected,
- * immediately resolves otherwise
- */
-function executeInContent(name, data = {}, objects = {}, expectResponse = true) {
-  info("Sending message " + name + " to content");
-  const mm = gBrowser.selectedBrowser.messageManager;
-
-  mm.sendAsyncMessage(name, data, objects);
-  if (expectResponse) {
-    return waitForContentMessage(name);
-  }
-  return promise.resolve();
 }
 
 /**
@@ -121,7 +58,9 @@ function executeInContent(name, data = {}, objects = {}, expectResponse = true) 
 function synthesizeKeyElement(el) {
   const key = el.getAttribute("key") || el.getAttribute("keycode");
   const mod = {};
-  el.getAttribute("modifiers").split(" ").forEach((m) => mod[m + "Key"] = true);
+  el.getAttribute("modifiers")
+    .split(" ")
+    .forEach(m => (mod[m + "Key"] = true));
   info(`Synthesizing: key=${key}, mod=${JSON.stringify(mod)}`);
   EventUtils.synthesizeKey(key, mod, el.ownerDocument.defaultView);
 }
@@ -141,8 +80,11 @@ function checkHostType(toolbox, hostType, previousHostType) {
   is(pref, hostType, "host pref is " + hostType);
 
   if (previousHostType) {
-    is(Services.prefs.getCharPref("devtools.toolbox.previousHost"),
-      previousHostType, "The previous host is correct");
+    is(
+      Services.prefs.getCharPref("devtools.toolbox.previousHost"),
+      previousHostType,
+      "The previous host is correct"
+    );
   }
 }
 
@@ -157,14 +99,11 @@ function createScript(url) {
   info(`Creating script: ${url}`);
   // This is not ideal if called multiple times, as it loads the frame script
   // separately each time.  See bug 1443680.
-  loadFrameScriptUtils();
-  const command = `
-    let script = document.createElement("script");
-    script.setAttribute("src", "${url}");
-    document.body.appendChild(script);
-    null;
-  `;
-  return evalInDebuggee(command);
+  return SpecialPowers.spawn(gBrowser.selectedBrowser, [url], urlChild => {
+    const script = content.document.createElement("script");
+    script.setAttribute("src", urlChild);
+    content.document.body.appendChild(script);
+  });
 }
 
 /**
@@ -177,27 +116,32 @@ function createScript(url) {
 function waitForSourceLoad(toolbox, url) {
   info(`Waiting for source ${url} to be available...`);
   return new Promise(resolve => {
-    const target = toolbox.target;
+    const { resourceWatcher } = toolbox;
 
-    function sourceHandler(sourceEvent) {
-      if (sourceEvent && sourceEvent.source && sourceEvent.source.url === url) {
-        resolve();
-        target.off("source-updated", sourceHandler);
+    function onAvailable(sources) {
+      for (const source of sources) {
+        if (source.url === url) {
+          resourceWatcher.unwatchResources([resourceWatcher.TYPES.SOURCE], {
+            onAvailable,
+          });
+          resolve();
+        }
       }
     }
-
-    target.on("source-updated", sourceHandler);
+    resourceWatcher.watchResources([resourceWatcher.TYPES.SOURCE], {
+      onAvailable,
+    });
   });
 }
 
 /**
-* When a Toolbox is started it creates a DevToolPanel for each of the tools
-* by calling toolDefinition.build(). The returned object should
-* at least implement these functions. They will be used by the ToolBox.
-*
-* There may be no benefit in doing this as an abstract type, but if nothing
-* else gives us a place to write documentation.
-*/
+ * When a Toolbox is started it creates a DevToolPanel for each of the tools
+ * by calling toolDefinition.build(). The returned object should
+ * at least implement these functions. They will be used by the ToolBox.
+ *
+ * There may be no benefit in doing this as an abstract type, but if nothing
+ * else gives us a place to write documentation.
+ */
 function DevToolPanel(iframeWindow, toolbox) {
   EventEmitter.decorate(this);
 
@@ -251,7 +195,9 @@ async function openChevronMenu(toolbox) {
   const chevronMenuButton = toolbox.doc.querySelector(".tools-chevron-menu");
   EventUtils.synthesizeMouseAtCenter(chevronMenuButton, {}, toolbox.win);
 
-  const menuPopup = toolbox.doc.getElementById("tools-chevron-menu-button-panel");
+  const menuPopup = toolbox.doc.getElementById(
+    "tools-chevron-menu-button-panel"
+  );
   ok(menuPopup, "tools-chevron-menupopup is available");
 
   info("Waiting for the menu popup to be displayed");
@@ -265,54 +211,83 @@ async function closeChevronMenu(toolbox) {
   chevronMenuButton.focus();
 
   EventUtils.sendKey("ESCAPE", toolbox.doc.defaultView);
-  const menuPopup = toolbox.doc.getElementById("tools-chevron-menu-button-panel");
+  const menuPopup = toolbox.doc.getElementById(
+    "tools-chevron-menu-button-panel"
+  );
 
   info("Closing the chevron popup menu");
   await waitUntil(() => !menuPopup.classList.contains("tooltip-visible"));
 }
 
 function prepareToolTabReorderTest(toolbox, startingOrder) {
-  Services.prefs.setCharPref("devtools.toolbox.tabsOrder", startingOrder.join(","));
-  ok(!toolbox.doc.getElementById("tools-chevron-menu-button"),
-     "The size of the screen being too small");
+  Services.prefs.setCharPref(
+    "devtools.toolbox.tabsOrder",
+    startingOrder.join(",")
+  );
+  ok(
+    !toolbox.doc.getElementById("tools-chevron-menu-button"),
+    "The size of the screen being too small"
+  );
 
   for (const id of startingOrder) {
-    ok(getElementByToolId(toolbox, id), `Tab element should exist for ${ id }`);
+    ok(getElementByToolId(toolbox, id), `Tab element should exist for ${id}`);
   }
 }
 
 async function dndToolTab(toolbox, dragTarget, dropTarget, passedTargets = []) {
-  info(`Drag ${ dragTarget } to ${ dropTarget }`);
-  const dragTargetEl = getElementByToolIdOrExtensionIdOrSelector(toolbox, dragTarget);
+  info(`Drag ${dragTarget} to ${dropTarget}`);
+  const dragTargetEl = getElementByToolIdOrExtensionIdOrSelector(
+    toolbox,
+    dragTarget
+  );
 
   const onReady = dragTargetEl.classList.contains("selected")
-                ? Promise.resolve() : toolbox.once("select");
-  EventUtils.synthesizeMouseAtCenter(dragTargetEl,
-                                     { type: "mousedown" },
-                                     dragTargetEl.ownerGlobal);
+    ? Promise.resolve()
+    : toolbox.once("select");
+  EventUtils.synthesizeMouseAtCenter(
+    dragTargetEl,
+    { type: "mousedown" },
+    dragTargetEl.ownerGlobal
+  );
   await onReady;
 
   for (const passedTarget of passedTargets) {
-    info(`Via ${ passedTarget }`);
-    const passedTargetEl =
-      getElementByToolIdOrExtensionIdOrSelector(toolbox, passedTarget);
-    EventUtils.synthesizeMouseAtCenter(passedTargetEl,
-                                       { type: "mousemove" },
-                                       passedTargetEl.ownerGlobal);
+    info(`Via ${passedTarget}`);
+    const passedTargetEl = getElementByToolIdOrExtensionIdOrSelector(
+      toolbox,
+      passedTarget
+    );
+    EventUtils.synthesizeMouseAtCenter(
+      passedTargetEl,
+      { type: "mousemove" },
+      passedTargetEl.ownerGlobal
+    );
   }
 
   if (dropTarget) {
-    const dropTargetEl = getElementByToolIdOrExtensionIdOrSelector(toolbox, dropTarget);
-    EventUtils.synthesizeMouseAtCenter(dropTargetEl,
-                                       { type: "mousemove" },
-                                       dropTargetEl.ownerGlobal);
-    EventUtils.synthesizeMouseAtCenter(dropTargetEl,
-                                       { type: "mouseup" },
-                                       dropTargetEl.ownerGlobal);
+    const dropTargetEl = getElementByToolIdOrExtensionIdOrSelector(
+      toolbox,
+      dropTarget
+    );
+    EventUtils.synthesizeMouseAtCenter(
+      dropTargetEl,
+      { type: "mousemove" },
+      dropTargetEl.ownerGlobal
+    );
+    EventUtils.synthesizeMouseAtCenter(
+      dropTargetEl,
+      { type: "mouseup" },
+      dropTargetEl.ownerGlobal
+    );
   } else {
     const containerEl = toolbox.doc.getElementById("toolbox-container");
-    EventUtils.synthesizeMouse(containerEl, 0, 0,
-                               { type: "mouseout" }, containerEl.ownerGlobal);
+    EventUtils.synthesizeMouse(
+      containerEl,
+      0,
+      0,
+      { type: "mouseout" },
+      containerEl.ownerGlobal
+    );
   }
 
   // Wait for updating the preference.
@@ -332,28 +307,37 @@ function assertToolTabOrder(toolbox, expectedOrder) {
   const tabEls = toolbox.doc.querySelectorAll(".devtools-tab");
 
   for (let i = 0; i < expectedOrder.length; i++) {
-    const isOrdered = tabEls[i].dataset.id === expectedOrder[i] ||
-                      tabEls[i].dataset.extensionId === expectedOrder[i];
-    ok(isOrdered, `The tab[${ expectedOrder[i] }] should exist at [${ i }]`);
+    const isOrdered =
+      tabEls[i].dataset.id === expectedOrder[i] ||
+      tabEls[i].dataset.extensionId === expectedOrder[i];
+    ok(isOrdered, `The tab[${expectedOrder[i]}] should exist at [${i}]`);
   }
 }
 
 function assertToolTabSelected(toolbox, dragTarget) {
   info("Check whether the drag target was selected");
-  const dragTargetEl = getElementByToolIdOrExtensionIdOrSelector(toolbox, dragTarget);
-  ok(dragTargetEl.classList.contains("selected"), "The dragged tool should be selected");
+  const dragTargetEl = getElementByToolIdOrExtensionIdOrSelector(
+    toolbox,
+    dragTarget
+  );
+  ok(
+    dragTargetEl.classList.contains("selected"),
+    "The dragged tool should be selected"
+  );
 }
 
 function assertToolTabPreferenceOrder(expectedOrder) {
   info("Check the order in DevTools preference for tabs order");
-  is(Services.prefs.getCharPref("devtools.toolbox.tabsOrder"), expectedOrder.join(","),
-     "The preference should be correct");
+  is(
+    Services.prefs.getCharPref("devtools.toolbox.tabsOrder"),
+    expectedOrder.join(","),
+    "The preference should be correct"
+  );
 }
 
 function getElementByToolId(toolbox, id) {
   for (const tabEl of toolbox.doc.querySelectorAll(".devtools-tab")) {
-    if (tabEl.dataset.id === id ||
-        tabEl.dataset.extensionId === id) {
+    if (tabEl.dataset.id === id || tabEl.dataset.extensionId === id) {
       return tabEl;
     }
   }
@@ -366,8 +350,18 @@ function getElementByToolIdOrExtensionIdOrSelector(toolbox, idOrSelector) {
   return tabEl ? tabEl : toolbox.doc.querySelector(idOrSelector);
 }
 
+/**
+ * Returns a toolbox tab element, even if it's overflowed
+ **/
+function getToolboxTab(doc, toolId) {
+  return (
+    doc.getElementById(`toolbox-tab-${toolId}`) ||
+    doc.getElementById(`tools-chevron-menupopup-${toolId}`)
+  );
+}
+
 function getWindow(toolbox) {
-  return toolbox.win.parent;
+  return toolbox.topWindow;
 }
 
 async function resizeWindow(toolbox, width, height) {
@@ -388,4 +382,77 @@ function assertSelectedLocationInDebugger(debuggerPanel, line, column) {
   );
   is(location.line, line);
   is(location.column, column);
+}
+
+/**
+ * Open a new tab on about:devtools-toolbox with the provided params object used as
+ * queryString.
+ */
+async function openAboutToolbox(params) {
+  info("Open about:devtools-toolbox");
+  const querystring = new URLSearchParams();
+  Object.keys(params).forEach(x => querystring.append(x, params[x]));
+
+  const tab = await addTab(`about:devtools-toolbox?${querystring}`);
+  const browser = tab.linkedBrowser;
+
+  return {
+    tab,
+    document: browser.contentDocument,
+  };
+}
+
+/**
+ * Load FTL.
+ *
+ * @param {Toolbox} toolbox
+ *        Toolbox instance.
+ * @param {String} path
+ *        Path to the FTL file.
+ */
+function loadFTL(toolbox, path) {
+  const win = toolbox.doc.ownerGlobal;
+
+  if (win.MozXULElement) {
+    win.MozXULElement.insertFTLIfNeeded(path);
+  }
+}
+
+/**
+ * Emit a reload key shortcut from a given toolbox, and wait for the reload to
+ * be completed.
+ *
+ * @param {String} shortcut
+ *        The key shortcut to send, as expected by the devtools shortcuts
+ *        helpers (eg. "CmdOrCtrl+F5").
+ * @param {Toolbox} toolbox
+ *        The toolbox through which the event should be emitted.
+ */
+async function sendToolboxReloadShortcut(shortcut, toolbox) {
+  const promises = [];
+
+  // If we have a jsdebugger panel, wait for it to complete its reload.
+  const jsdebugger = toolbox.getPanel("jsdebugger");
+  if (jsdebugger) {
+    promises.push(jsdebugger.once("reloaded"));
+  }
+
+  // If we have an inspector panel, wait for it to complete its reload.
+  const inspector = toolbox.getPanel("inspector");
+  if (inspector) {
+    promises.push(
+      inspector.once("reloaded"),
+      inspector.once("inspector-updated")
+    );
+  }
+
+  const loadPromise = BrowserTestUtils.browserLoaded(gBrowser.selectedBrowser);
+  promises.push(loadPromise);
+
+  info("Focus the toolbox window and emit the reload shortcut: " + shortcut);
+  toolbox.win.focus();
+  synthesizeKeyShortcut(shortcut, toolbox.win);
+
+  info("Wait for page and toolbox reload promises");
+  await Promise.all(promises);
 }

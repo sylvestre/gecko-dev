@@ -6,8 +6,11 @@
 
 #include "mozilla/dom/cache/TypeUtils.h"
 
+#include "mozilla/StaticPrefs_extensions.h"
 #include "mozilla/Unused.h"
 #include "mozilla/dom/CacheBinding.h"
+#include "mozilla/dom/CacheStorageBinding.h"
+#include "mozilla/dom/FetchTypes.h"
 #include "mozilla/dom/InternalRequest.h"
 #include "mozilla/dom/Request.h"
 #include "mozilla/dom/Response.h"
@@ -19,20 +22,16 @@
 #include "mozilla/ipc/PFileDescriptorSetChild.h"
 #include "mozilla/ipc/InputStreamUtils.h"
 #include "nsCOMPtr.h"
-#include "nsIAsyncInputStream.h"
-#include "nsIAsyncOutputStream.h"
+#include "nsCRT.h"
+#include "nsHttp.h"
 #include "nsIIPCSerializableInputStream.h"
-#include "nsQueryObject.h"
 #include "nsPromiseFlatString.h"
+#include "nsQueryObject.h"
 #include "nsStreamUtils.h"
 #include "nsString.h"
 #include "nsURLParsers.h"
-#include "nsCRT.h"
-#include "nsHttp.h"
 
-namespace mozilla {
-namespace dom {
-namespace cache {
+namespace mozilla::dom::cache {
 
 using mozilla::ipc::AutoIPCStream;
 using mozilla::ipc::BackgroundChild;
@@ -45,7 +44,7 @@ namespace {
 static bool HasVaryStar(mozilla::dom::InternalHeaders* aHeaders) {
   nsCString varyHeaders;
   ErrorResult rv;
-  aHeaders->Get(NS_LITERAL_CSTRING("vary"), varyHeaders, rv);
+  aHeaders->Get("vary"_ns, varyHeaders, rv);
   MOZ_ALWAYS_TRUE(!rv.Failed());
 
   char* rawBuffer = varyHeaders.BeginWriting();
@@ -75,7 +74,7 @@ void ToHeadersEntryList(nsTArray<HeadersEntry>& aOut,
 
 }  // namespace
 
-already_AddRefed<InternalRequest> TypeUtils::ToInternalRequest(
+SafeRefPtr<InternalRequest> TypeUtils::ToInternalRequest(
     JSContext* aCx, const RequestOrUSVString& aIn, BodyAction aBodyAction,
     ErrorResult& aRv) {
   if (aIn.IsRequest()) {
@@ -83,7 +82,7 @@ already_AddRefed<InternalRequest> TypeUtils::ToInternalRequest(
 
     // Check and set bodyUsed flag immediately because its on Request
     // instead of InternalRequest.
-    CheckAndSetBodyUsed(aCx, &request, aBodyAction, aRv);
+    CheckAndSetBodyUsed(aCx, request, aBodyAction, aRv);
     if (aRv.Failed()) {
       return nullptr;
     }
@@ -94,11 +93,11 @@ already_AddRefed<InternalRequest> TypeUtils::ToInternalRequest(
   return ToInternalRequest(aIn.GetAsUSVString(), aRv);
 }
 
-already_AddRefed<InternalRequest> TypeUtils::ToInternalRequest(
+SafeRefPtr<InternalRequest> TypeUtils::ToInternalRequest(
     JSContext* aCx, const OwningRequestOrUSVString& aIn, BodyAction aBodyAction,
     ErrorResult& aRv) {
   if (aIn.IsRequest()) {
-    RefPtr<Request> request = aIn.GetAsRequest().get();
+    Request& request = aIn.GetAsRequest();
 
     // Check and set bodyUsed flag immediately because its on Request
     // instead of InternalRequest.
@@ -107,19 +106,18 @@ already_AddRefed<InternalRequest> TypeUtils::ToInternalRequest(
       return nullptr;
     }
 
-    return request->GetInternalRequest();
+    return request.GetInternalRequest();
   }
 
   return ToInternalRequest(aIn.GetAsUSVString(), aRv);
 }
 
 void TypeUtils::ToCacheRequest(
-    CacheRequest& aOut, InternalRequest* aIn, BodyAction aBodyAction,
+    CacheRequest& aOut, const InternalRequest& aIn, BodyAction aBodyAction,
     SchemeAction aSchemeAction,
     nsTArray<UniquePtr<AutoIPCStream>>& aStreamCleanupList, ErrorResult& aRv) {
-  MOZ_DIAGNOSTIC_ASSERT(aIn);
-  aIn->GetMethod(aOut.method());
-  nsCString url(aIn->GetURLWithoutFragment());
+  aIn.GetMethod(aOut.method());
+  nsCString url(aIn.GetURLWithoutFragment());
   bool schemeValid;
   ProcessURL(url, &schemeValid, &aOut.urlWithoutQuery(), &aOut.urlQuery(), aRv);
   if (aRv.Failed()) {
@@ -127,37 +125,41 @@ void TypeUtils::ToCacheRequest(
   }
   if (!schemeValid) {
     if (aSchemeAction == TypeErrorOnInvalidScheme) {
-      NS_ConvertUTF8toUTF16 urlUTF16(url);
-      aRv.ThrowTypeError<MSG_INVALID_URL_SCHEME>(NS_LITERAL_STRING("Request"),
-                                                 urlUTF16);
+      aRv.ThrowTypeError<MSG_INVALID_URL_SCHEME>("Request", url);
       return;
     }
   }
-  aOut.urlFragment() = aIn->GetFragment();
+  aOut.urlFragment() = aIn.GetFragment();
 
-  aIn->GetReferrer(aOut.referrer());
-  aOut.referrerPolicy() = aIn->ReferrerPolicy_();
-  RefPtr<InternalHeaders> headers = aIn->Headers();
+  aIn.GetReferrer(aOut.referrer());
+  aOut.referrerPolicy() = aIn.ReferrerPolicy_();
+  RefPtr<InternalHeaders> headers = aIn.Headers();
   MOZ_DIAGNOSTIC_ASSERT(headers);
   ToHeadersEntryList(aOut.headers(), headers);
   aOut.headersGuard() = headers->Guard();
-  aOut.mode() = aIn->Mode();
-  aOut.credentials() = aIn->GetCredentialsMode();
-  aOut.contentPolicyType() = aIn->ContentPolicyType();
-  aOut.requestCache() = aIn->GetCacheMode();
-  aOut.requestRedirect() = aIn->GetRedirectMode();
+  aOut.mode() = aIn.Mode();
+  aOut.credentials() = aIn.GetCredentialsMode();
+  aOut.contentPolicyType() = aIn.ContentPolicyType();
+  aOut.requestCache() = aIn.GetCacheMode();
+  aOut.requestRedirect() = aIn.GetRedirectMode();
 
-  aOut.integrity() = aIn->GetIntegrity();
+  aOut.integrity() = aIn.GetIntegrity();
+  aOut.loadingEmbedderPolicy() = aIn.GetEmbedderPolicy();
+  const mozilla::UniquePtr<mozilla::ipc::PrincipalInfo>& principalInfo =
+      aIn.GetPrincipalInfo();
+  if (principalInfo) {
+    aOut.principalInfo() = Some(*(principalInfo.get()));
+  }
 
   if (aBodyAction == IgnoreBody) {
-    aOut.body() = void_t();
+    aOut.body() = Nothing();
     return;
   }
 
   // BodyUsed flag is checked and set previously in ToInternalRequest()
 
   nsCOMPtr<nsIInputStream> stream;
-  aIn->GetBody(getter_AddRefs(stream));
+  aIn.GetBody(getter_AddRefs(stream));
   SerializeCacheStream(stream, &aOut.body(), aStreamCleanupList, aRv);
   if (NS_WARN_IF(aRv.Failed())) {
     return;
@@ -185,16 +187,16 @@ void TypeUtils::ToCacheResponseWithoutBody(CacheResponse& aOut,
   RefPtr<InternalHeaders> headers = aIn.UnfilteredHeaders();
   MOZ_DIAGNOSTIC_ASSERT(headers);
   if (HasVaryStar(headers)) {
-    aRv.ThrowTypeError<MSG_RESPONSE_HAS_VARY_STAR>();
+    aRv.ThrowTypeError("Invalid Response object with a 'Vary: *' header.");
     return;
   }
   ToHeadersEntryList(aOut.headers(), headers);
   aOut.headersGuard() = headers->Guard();
   aOut.channelInfo() = aIn.GetChannelInfo().AsIPCChannelInfo();
   if (aIn.GetPrincipalInfo()) {
-    aOut.principalInfo() = *aIn.GetPrincipalInfo();
+    aOut.principalInfo() = Some(*aIn.GetPrincipalInfo());
   } else {
-    aOut.principalInfo() = void_t();
+    aOut.principalInfo() = Nothing();
   }
 
   aOut.paddingInfo() = aIn.GetPaddingInfo();
@@ -240,11 +242,17 @@ void TypeUtils::ToCacheQueryParams(CacheQueryParams& aOut,
   aOut.ignoreSearch() = aIn.mIgnoreSearch;
   aOut.ignoreMethod() = aIn.mIgnoreMethod;
   aOut.ignoreVary() = aIn.mIgnoreVary;
+}
+
+// static
+void TypeUtils::ToCacheQueryParams(CacheQueryParams& aOut,
+                                   const MultiCacheQueryOptions& aIn) {
+  ToCacheQueryParams(aOut, static_cast<const CacheQueryOptions&>(aIn));
   aOut.cacheNameSet() = aIn.mCacheName.WasPassed();
   if (aOut.cacheNameSet()) {
     aOut.cacheName() = aIn.mCacheName.Value();
   } else {
-    aOut.cacheName() = NS_LITERAL_STRING("");
+    aOut.cacheName() = u""_ns;
   }
 }
 
@@ -273,10 +281,9 @@ already_AddRefed<Response> TypeUtils::ToResponse(const CacheResponse& aIn) {
   MOZ_DIAGNOSTIC_ASSERT(!result.Failed());
 
   ir->InitChannelInfo(aIn.channelInfo());
-  if (aIn.principalInfo().type() ==
-      mozilla::ipc::OptionalPrincipalInfo::TPrincipalInfo) {
-    UniquePtr<mozilla::ipc::PrincipalInfo> info(new mozilla::ipc::PrincipalInfo(
-        aIn.principalInfo().get_PrincipalInfo()));
+  if (aIn.principalInfo().isSome()) {
+    UniquePtr<mozilla::ipc::PrincipalInfo> info(
+        new mozilla::ipc::PrincipalInfo(aIn.principalInfo().ref()));
     ir->SetPrincipalInfo(std::move(info));
   }
 
@@ -308,12 +315,12 @@ already_AddRefed<Response> TypeUtils::ToResponse(const CacheResponse& aIn) {
   RefPtr<Response> ref = new Response(GetGlobalObject(), ir, nullptr);
   return ref.forget();
 }
-already_AddRefed<InternalRequest> TypeUtils::ToInternalRequest(
+SafeRefPtr<InternalRequest> TypeUtils::ToInternalRequest(
     const CacheRequest& aIn) {
   nsAutoCString url(aIn.urlWithoutQuery());
   url.Append(aIn.urlQuery());
-  RefPtr<InternalRequest> internalRequest =
-      new InternalRequest(url, aIn.urlFragment());
+  auto internalRequest =
+      MakeSafeRefPtr<InternalRequest>(url, aIn.urlFragment());
   internalRequest->SetMethod(aIn.method());
   internalRequest->SetReferrer(aIn.referrer());
   internalRequest->SetReferrerPolicy(aIn.referrerPolicy());
@@ -340,14 +347,12 @@ already_AddRefed<InternalRequest> TypeUtils::ToInternalRequest(
 
   internalRequest->SetBody(stream, -1);
 
-  return internalRequest.forget();
+  return internalRequest;
 }
 
-already_AddRefed<Request> TypeUtils::ToRequest(const CacheRequest& aIn) {
-  RefPtr<InternalRequest> internalRequest = ToInternalRequest(aIn);
-  RefPtr<Request> request =
-      new Request(GetGlobalObject(), internalRequest, nullptr);
-  return request.forget();
+SafeRefPtr<Request> TypeUtils::ToRequest(const CacheRequest& aIn) {
+  return MakeSafeRefPtr<Request>(GetGlobalObject(), ToInternalRequest(aIn),
+                                 nullptr);
 }
 
 // static
@@ -391,8 +396,11 @@ void TypeUtils::ProcessURL(nsACString& aUrl, bool* aSchemeValidOut,
 
   if (aSchemeValidOut) {
     nsAutoCString scheme(Substring(flatURL, schemePos, schemeLen));
-    *aSchemeValidOut = scheme.LowerCaseEqualsLiteral("http") ||
-                       scheme.LowerCaseEqualsLiteral("https");
+    *aSchemeValidOut =
+        scheme.LowerCaseEqualsLiteral("http") ||
+        scheme.LowerCaseEqualsLiteral("https") ||
+        (StaticPrefs::extensions_backgroundServiceWorker_enabled_AtStartup() &&
+         scheme.LowerCaseEqualsLiteral("moz-extension"));
   }
 
   uint32_t queryPos;
@@ -413,7 +421,7 @@ void TypeUtils::ProcessURL(nsACString& aUrl, bool* aSchemeValidOut,
 
   if (queryLen < 0) {
     *aUrlWithoutQueryOut = aUrl;
-    *aUrlQueryOut = EmptyCString();
+    aUrlQueryOut->Truncate();
     return;
   }
 
@@ -424,15 +432,13 @@ void TypeUtils::ProcessURL(nsACString& aUrl, bool* aSchemeValidOut,
   *aUrlQueryOut = Substring(aUrl, queryPos - 1, queryLen + 1);
 }
 
-void TypeUtils::CheckAndSetBodyUsed(JSContext* aCx, Request* aRequest,
+void TypeUtils::CheckAndSetBodyUsed(JSContext* aCx, Request& aRequest,
                                     BodyAction aBodyAction, ErrorResult& aRv) {
-  MOZ_DIAGNOSTIC_ASSERT(aRequest);
-
   if (aBodyAction == IgnoreBody) {
     return;
   }
 
-  bool bodyUsed = aRequest->GetBodyUsed(aRv);
+  bool bodyUsed = aRequest.GetBodyUsed(aRv);
   if (NS_WARN_IF(aRv.Failed())) {
     return;
   }
@@ -442,19 +448,19 @@ void TypeUtils::CheckAndSetBodyUsed(JSContext* aCx, Request* aRequest,
   }
 
   nsCOMPtr<nsIInputStream> stream;
-  aRequest->GetBody(getter_AddRefs(stream));
+  aRequest.GetBody(getter_AddRefs(stream));
   if (stream) {
-    aRequest->SetBodyUsed(aCx, aRv);
+    aRequest.SetBodyUsed(aCx, aRv);
     if (NS_WARN_IF(aRv.Failed())) {
       return;
     }
   }
 }
 
-already_AddRefed<InternalRequest> TypeUtils::ToInternalRequest(
-    const nsAString& aIn, ErrorResult& aRv) {
+SafeRefPtr<InternalRequest> TypeUtils::ToInternalRequest(const nsAString& aIn,
+                                                         ErrorResult& aRv) {
   RequestOrUSVString requestOrString;
-  requestOrString.SetAsUSVString().Rebind(aIn.Data(), aIn.Length());
+  requestOrString.SetAsUSVString().ShareOrDependUpon(aIn);
 
   // Re-create a GlobalObject stack object so we can use webidl Constructors.
   AutoJSAPI jsapi;
@@ -466,7 +472,7 @@ already_AddRefed<InternalRequest> TypeUtils::ToInternalRequest(
   GlobalObject global(cx, GetGlobalObject()->GetGlobalJSObject());
   MOZ_DIAGNOSTIC_ASSERT(!global.Failed());
 
-  RefPtr<Request> request =
+  SafeRefPtr<Request> request =
       Request::Constructor(global, requestOrString, RequestInit(), aRv);
   if (NS_WARN_IF(aRv.Failed())) {
     return nullptr;
@@ -476,9 +482,9 @@ already_AddRefed<InternalRequest> TypeUtils::ToInternalRequest(
 }
 
 void TypeUtils::SerializeCacheStream(
-    nsIInputStream* aStream, CacheReadStreamOrVoid* aStreamOut,
+    nsIInputStream* aStream, Maybe<CacheReadStream>* aStreamOut,
     nsTArray<UniquePtr<AutoIPCStream>>& aStreamCleanupList, ErrorResult& aRv) {
-  *aStreamOut = void_t();
+  *aStreamOut = Nothing();
   if (!aStream) {
     return;
   }
@@ -489,8 +495,8 @@ void TypeUtils::SerializeCacheStream(
     return;
   }
 
-  *aStreamOut = CacheReadStream();
-  CacheReadStream& cacheStream = aStreamOut->get_CacheReadStream();
+  aStreamOut->emplace(CacheReadStream());
+  CacheReadStream& cacheStream = aStreamOut->ref();
 
   cacheStream.controlChild() = nullptr;
   cacheStream.controlParent() = nullptr;
@@ -501,6 +507,4 @@ void TypeUtils::SerializeCacheStream(
   aStreamCleanupList.AppendElement(std::move(autoStream));
 }
 
-}  // namespace cache
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom::cache

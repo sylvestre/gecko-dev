@@ -3,27 +3,70 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use api::{
-    ColorF, ColorU,ExtendMode, GradientStop, LayoutPoint, LayoutSize,
-    LayoutPrimitiveInfo, LayoutRect, PremultipliedColorF
+    ColorF, ColorU, ExtendMode, GradientStop,
+    PremultipliedColorF, LineOrientation,
 };
-use display_list_flattener::{AsInstanceKind, IsVisible};
-use frame_builder::FrameBuildingState;
-use gpu_cache::{GpuCacheHandle, GpuDataRequest};
-use intern::{DataStore, Handle, Internable, Interner, UpdateList};
-use prim_store::{BrushSegment, GradientTileRange};
-use prim_store::{PrimitiveInstanceKind, PrimitiveOpacity, PrimitiveSceneData};
-use prim_store::{PrimKeyCommonData, PrimTemplateCommonData, PrimitiveStore};
-use prim_store::{NinePatchDescriptor, PointKey, SizeKey};
-use std::{hash, ops::{Deref, DerefMut}, mem};
-use util::pack_as_float;
+use api::units::{LayoutPoint, LayoutRect, LayoutSize, LayoutVector2D};
+use crate::scene_building::IsVisible;
+use euclid::approxeq::ApproxEq;
+use crate::frame_builder::FrameBuildingState;
+use crate::gpu_cache::{GpuCacheHandle, GpuDataRequest};
+use crate::intern::{Internable, InternDebug, Handle as InternHandle};
+use crate::internal_types::LayoutPrimitiveInfo;
+use crate::prim_store::{BrushSegment, CachedGradientSegment, GradientTileRange, VectorKey};
+use crate::prim_store::{PrimitiveInstanceKind, PrimitiveOpacity};
+use crate::prim_store::{PrimKeyCommonData, PrimTemplateCommonData, PrimitiveStore};
+use crate::prim_store::{NinePatchDescriptor, PointKey, SizeKey, InternablePrimitive};
+use std::{hash, ops::{Deref, DerefMut}};
+use crate::util::pack_as_float;
+use crate::texture_cache::TEXTURE_REGION_DIMENSIONS;
+
+/// The maximum number of stops a gradient may have to use the fast path.
+pub const GRADIENT_FP_STOPS: usize = 4;
 
 /// A hashable gradient stop that can be used in primitive keys.
 #[cfg_attr(feature = "capture", derive(Serialize))]
 #[cfg_attr(feature = "replay", derive(Deserialize))]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, MallocSizeOf, PartialEq)]
 pub struct GradientStopKey {
     pub offset: f32,
     pub color: ColorU,
+}
+
+impl GradientStopKey {
+    pub fn empty() -> Self {
+        GradientStopKey {
+            offset: 0.0,
+            color: ColorU::new(0, 0, 0, 0),
+        }
+    }
+}
+
+impl Into<GradientStopKey> for GradientStop {
+    fn into(self) -> GradientStopKey {
+        GradientStopKey {
+            offset: self.offset,
+            color: self.color.into(),
+        }
+    }
+}
+
+// Convert `stop_keys` into a vector of `GradientStop`s, which is a more
+// convenient representation for the current gradient builder. Compute the
+// minimum stop alpha along the way.
+fn stops_and_min_alpha(stop_keys: &[GradientStopKey]) -> (Vec<GradientStop>, f32) {
+    let mut min_alpha: f32 = 1.0;
+    let stops = stop_keys.iter().map(|stop_key| {
+        let color: ColorF = stop_key.color.into();
+        min_alpha = min_alpha.min(color.a);
+
+        GradientStop {
+            offset: stop_key.offset,
+            color,
+        }
+    }).collect();
+
+    (stops, min_alpha)
 }
 
 impl Eq for GradientStopKey {}
@@ -35,10 +78,10 @@ impl hash::Hash for GradientStopKey {
     }
 }
 
-/// Identifying key for a line decoration.
+/// Identifying key for a linear gradient.
 #[cfg_attr(feature = "capture", derive(Serialize))]
 #[cfg_attr(feature = "replay", derive(Deserialize))]
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, MallocSizeOf)]
 pub struct LinearGradientKey {
     pub common: PrimKeyCommonData,
     pub extend_mode: ExtendMode,
@@ -53,17 +96,11 @@ pub struct LinearGradientKey {
 
 impl LinearGradientKey {
     pub fn new(
-        is_backface_visible: bool,
-        prim_size: LayoutSize,
-        prim_relative_clip_rect: LayoutRect,
+        info: &LayoutPrimitiveInfo,
         linear_grad: LinearGradient,
     ) -> Self {
         LinearGradientKey {
-            common: PrimKeyCommonData {
-                is_backface_visible,
-                prim_size: prim_size.into(),
-                prim_relative_clip_rect: prim_relative_clip_rect.into(),
-            },
+            common: info.into(),
             extend_mode: linear_grad.extend_mode,
             start_point: linear_grad.start_point,
             end_point: linear_grad.end_point,
@@ -76,23 +113,20 @@ impl LinearGradientKey {
     }
 }
 
-impl AsInstanceKind<LinearGradientDataHandle> for LinearGradientKey {
-    /// Construct a primitive instance that matches the type
-    /// of primitive key.
-    fn as_instance_kind(
-        &self,
-        data_handle: LinearGradientDataHandle,
-        _prim_store: &mut PrimitiveStore,
-    ) -> PrimitiveInstanceKind {
-        PrimitiveInstanceKind::LinearGradient {
-            data_handle,
-            visible_tiles_range: GradientTileRange::empty(),
-        }
-    }
+impl InternDebug for LinearGradientKey {}
+
+#[derive(Clone, Debug, Hash, MallocSizeOf, PartialEq, Eq)]
+#[cfg_attr(feature = "capture", derive(Serialize))]
+#[cfg_attr(feature = "replay", derive(Deserialize))]
+pub struct GradientCacheKey {
+    pub orientation: LineOrientation,
+    pub start_stop_point: VectorKey,
+    pub stops: [GradientStopKey; GRADIENT_FP_STOPS],
 }
 
 #[cfg_attr(feature = "capture", derive(Serialize))]
 #[cfg_attr(feature = "replay", derive(Deserialize))]
+#[derive(MallocSizeOf)]
 pub struct LinearGradientTemplate {
     pub common: PrimTemplateCommonData,
     pub extend_mode: ExtendMode,
@@ -105,6 +139,9 @@ pub struct LinearGradientTemplate {
     pub brush_segments: Vec<BrushSegment>,
     pub reverse_stops: bool,
     pub stops_handle: GpuCacheHandle,
+    /// If true, this gradient can be drawn via the fast path
+    /// (cache gradient, and draw as image).
+    pub supports_caching: bool,
 }
 
 impl Deref for LinearGradientTemplate {
@@ -123,24 +160,52 @@ impl DerefMut for LinearGradientTemplate {
 impl From<LinearGradientKey> for LinearGradientTemplate {
     fn from(item: LinearGradientKey) -> Self {
         let common = PrimTemplateCommonData::with_key_common(item.common);
-        let mut min_alpha: f32 = 1.0;
 
-        // Convert the stops to more convenient representation
-        // for the current gradient builder.
-        let stops = item.stops.iter().map(|stop| {
-            let color: ColorF = stop.color.into();
-            min_alpha = min_alpha.min(color.a);
+        // Check if we can draw this gradient via a fast path by caching the
+        // gradient in a smaller task, and drawing as an image.
+        // TODO(gw): Aim to reduce the constraints on fast path gradients in future,
+        //           although this catches the vast majority of gradients on real pages.
+        let mut supports_caching =
+            // Gradient must cover entire primitive
+            item.tile_spacing.w + item.stretch_size.w >= common.prim_rect.size.width &&
+            item.tile_spacing.h + item.stretch_size.h >= common.prim_rect.size.height &&
+            // Must be a vertical or horizontal gradient
+            (item.start_point.x.approx_eq(&item.end_point.x) ||
+             item.start_point.y.approx_eq(&item.end_point.y)) &&
+            // Fast path not supported on segmented (border-image) gradients.
+            item.nine_patch.is_none();
 
-            GradientStop {
-                offset: stop.offset,
-                color,
+        // if we support caching and the gradient uses repeat, we might potentially
+        // emit a lot of quads to cover the primitive. each quad will still cover
+        // the entire gradient along the other axis, so the effect is linear in
+        // display resolution, not quadratic (unlike say a tiny background image
+        // tiling the display). in addition, excessive minification may lead to
+        // texture trashing. so use the minification as a proxy heuristic for both
+        // cases.
+        //
+        // note that the actual number of quads may be further increased due to
+        // hard-stops and/or more than GRADIENT_FP_STOPS stops per gradient.
+        if supports_caching && item.extend_mode == ExtendMode::Repeat {
+            let single_repeat_size =
+                if item.start_point.x.approx_eq(&item.end_point.x) {
+                    item.end_point.y - item.start_point.y
+                } else {
+                    item.end_point.x - item.start_point.x
+                };
+            let downscaling = single_repeat_size as f32 / TEXTURE_REGION_DIMENSIONS as f32;
+            if downscaling < 0.1 {
+                // if a single copy of the gradient is this small relative to its baked
+                // gradient cache, we have bad texture caching and/or too many quads.
+                supports_caching = false;
             }
-        }).collect();
+        }
+
+        let (stops, min_alpha) = stops_and_min_alpha(&item.stops);
 
         let mut brush_segments = Vec::new();
 
         if let Some(ref nine_patch) = item.nine_patch {
-            brush_segments = nine_patch.create_segments(common.prim_size);
+            brush_segments = nine_patch.create_segments(common.prim_rect.size);
         }
 
         // Save opacity of the stops for use in
@@ -160,7 +225,27 @@ impl From<LinearGradientKey> for LinearGradientTemplate {
             brush_segments,
             reverse_stops: item.reverse_stops,
             stops_handle: GpuCacheHandle::new(),
+            supports_caching,
         }
+    }
+}
+
+fn get_gradient_opacity(
+    prim_rect: LayoutRect,
+    stretch_size: LayoutSize,
+    tile_spacing: LayoutSize,
+    stops_opacity: PrimitiveOpacity,
+) -> PrimitiveOpacity {
+    // If the coverage of the gradient extends to or beyond
+    // the primitive rect, then the opacity can be determined
+    // by the colors of the stops. If we have tiling / spacing
+    // then we just assume the gradient is translucent for now.
+    // (In the future we could consider segmenting in some cases).
+    let stride = stretch_size + tile_spacing;
+    if stride.width >= prim_rect.size.width && stride.height >= prim_rect.size.height {
+        stops_opacity
+    } else {
+        PrimitiveOpacity::translucent()
     }
 }
 
@@ -207,33 +292,20 @@ impl LinearGradientTemplate {
             );
         }
 
-        self.opacity = {
-            // If the coverage of the gradient extends to or beyond
-            // the primitive rect, then the opacity can be determined
-            // by the colors of the stops. If we have tiling / spacing
-            // then we just assume the gradient is translucent for now.
-            // (In the future we could consider segmenting in some cases).
-            let stride = self.stretch_size + self.tile_spacing;
-            if stride.width >= self.common.prim_size.width &&
-               stride.height >= self.common.prim_size.height {
-                self.stops_opacity
-            } else {
-               PrimitiveOpacity::translucent()
-            }
-        }
+        self.opacity = get_gradient_opacity(
+            self.common.prim_rect,
+            self.stretch_size,
+            self.tile_spacing,
+            self.stops_opacity,
+        );
     }
 }
 
+pub type LinearGradientDataHandle = InternHandle<LinearGradient>;
+
+#[derive(Debug, MallocSizeOf)]
 #[cfg_attr(feature = "capture", derive(Serialize))]
 #[cfg_attr(feature = "replay", derive(Deserialize))]
-#[derive(Clone, Copy, Debug, Hash, Eq, PartialEq)]
-pub struct LinearGradientDataMarker;
-
-pub type LinearGradientDataStore = DataStore<LinearGradientKey, LinearGradientTemplate, LinearGradientDataMarker>;
-pub type LinearGradientDataHandle = Handle<LinearGradientDataMarker>;
-pub type LinearGradientDataUpdateList = UpdateList<LinearGradientKey>;
-pub type LinearGradientDataInterner = Interner<LinearGradientKey, PrimitiveSceneData, LinearGradientDataMarker>;
-
 pub struct LinearGradient {
     pub extend_mode: ExtendMode,
     pub start_point: PointKey,
@@ -246,23 +318,35 @@ pub struct LinearGradient {
 }
 
 impl Internable for LinearGradient {
-    type Marker = LinearGradientDataMarker;
-    type Source = LinearGradientKey;
+    type Key = LinearGradientKey;
     type StoreData = LinearGradientTemplate;
-    type InternData = PrimitiveSceneData;
+    type InternData = ();
+    const PROFILE_COUNTER: usize = crate::profiler::INTERNED_LINEAR_GRADIENTS;
+}
 
-    /// Build a new key from self with `info`.
-    fn build_key(
+impl InternablePrimitive for LinearGradient {
+    fn into_key(
         self,
         info: &LayoutPrimitiveInfo,
-        prim_relative_clip_rect: LayoutRect
     ) -> LinearGradientKey {
-        LinearGradientKey::new(
-            info.is_backface_visible,
-            info.rect.size,
-            prim_relative_clip_rect,
-            self
-        )
+        LinearGradientKey::new(info, self)
+    }
+
+    fn make_instance_kind(
+        _key: LinearGradientKey,
+        data_handle: LinearGradientDataHandle,
+        prim_store: &mut PrimitiveStore,
+        _reference_frame_relative_offset: LayoutVector2D,
+    ) -> PrimitiveInstanceKind {
+        let gradient_index = prim_store.linear_gradients.push(LinearGradientPrimitive {
+            cache_segments: Vec::new(),
+            visible_tiles_range: GradientTileRange::empty(),
+        });
+
+        PrimitiveInstanceKind::LinearGradient {
+            data_handle,
+            gradient_index,
+        }
     }
 }
 
@@ -272,12 +356,19 @@ impl IsVisible for LinearGradient {
     }
 }
 
+#[derive(Debug)]
+#[cfg_attr(feature = "capture", derive(Serialize))]
+pub struct LinearGradientPrimitive {
+    pub cache_segments: Vec<CachedGradientSegment>,
+    pub visible_tiles_range: GradientTileRange,
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 /// Hashable radial gradient parameters, for use during prim interning.
 #[cfg_attr(feature = "capture", derive(Serialize))]
 #[cfg_attr(feature = "replay", derive(Deserialize))]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, MallocSizeOf, PartialEq)]
 pub struct RadialGradientParams {
     pub start_radius: f32,
     pub end_radius: f32,
@@ -294,10 +385,10 @@ impl hash::Hash for RadialGradientParams {
     }
 }
 
-/// Identifying key for a line decoration.
+/// Identifying key for a radial gradient.
 #[cfg_attr(feature = "capture", derive(Serialize))]
 #[cfg_attr(feature = "replay", derive(Deserialize))]
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, MallocSizeOf)]
 pub struct RadialGradientKey {
     pub common: PrimKeyCommonData,
     pub extend_mode: ExtendMode,
@@ -311,17 +402,11 @@ pub struct RadialGradientKey {
 
 impl RadialGradientKey {
     pub fn new(
-        is_backface_visible: bool,
-        prim_size: LayoutSize,
-        prim_relative_clip_rect: LayoutRect,
+        info: &LayoutPrimitiveInfo,
         radial_grad: RadialGradient,
     ) -> Self {
         RadialGradientKey {
-            common: PrimKeyCommonData {
-                is_backface_visible,
-                prim_size: prim_size.into(),
-                prim_relative_clip_rect: prim_relative_clip_rect.into(),
-            },
+            common: info.into(),
             extend_mode: radial_grad.extend_mode,
             center: radial_grad.center,
             params: radial_grad.params,
@@ -333,23 +418,11 @@ impl RadialGradientKey {
     }
 }
 
-impl AsInstanceKind<RadialGradientDataHandle> for RadialGradientKey {
-    /// Construct a primitive instance that matches the type
-    /// of primitive key.
-    fn as_instance_kind(
-        &self,
-        data_handle: RadialGradientDataHandle,
-        _prim_store: &mut PrimitiveStore,
-    ) -> PrimitiveInstanceKind {
-        PrimitiveInstanceKind::RadialGradient {
-            data_handle,
-            visible_tiles_range: GradientTileRange::empty(),
-        }
-    }
-}
+impl InternDebug for RadialGradientKey {}
 
 #[cfg_attr(feature = "capture", derive(Serialize))]
 #[cfg_attr(feature = "replay", derive(Deserialize))]
+#[derive(MallocSizeOf)]
 pub struct RadialGradientTemplate {
     pub common: PrimTemplateCommonData,
     pub extend_mode: ExtendMode,
@@ -358,6 +431,7 @@ pub struct RadialGradientTemplate {
     pub stretch_size: LayoutSize,
     pub tile_spacing: LayoutSize,
     pub brush_segments: Vec<BrushSegment>,
+    pub stops_opacity: PrimitiveOpacity,
     pub stops: Vec<GradientStop>,
     pub stops_handle: GpuCacheHandle,
 }
@@ -381,15 +455,15 @@ impl From<RadialGradientKey> for RadialGradientTemplate {
         let mut brush_segments = Vec::new();
 
         if let Some(ref nine_patch) = item.nine_patch {
-            brush_segments = nine_patch.create_segments(common.prim_size);
+            brush_segments = nine_patch.create_segments(common.prim_rect.size);
         }
 
-        let stops = item.stops.iter().map(|stop| {
-            GradientStop {
-                offset: stop.offset,
-                color: stop.color.into(),
-            }
-        }).collect();
+        let (stops, min_alpha) = stops_and_min_alpha(&item.stops);
+
+        // Save opacity of the stops for use in
+        // selecting which pass this gradient
+        // should be drawn in.
+        let stops_opacity = PrimitiveOpacity::from_alpha(min_alpha);
 
         RadialGradientTemplate {
             common,
@@ -398,7 +472,8 @@ impl From<RadialGradientKey> for RadialGradientTemplate {
             params: item.params,
             stretch_size: item.stretch_size.into(),
             tile_spacing: item.tile_spacing.into(),
-            brush_segments: brush_segments,
+            brush_segments,
+            stops_opacity,
             stops,
             stops_handle: GpuCacheHandle::new(),
         }
@@ -448,20 +523,20 @@ impl RadialGradientTemplate {
             );
         }
 
-        self.opacity = PrimitiveOpacity::translucent();
+        self.opacity = get_gradient_opacity(
+            self.common.prim_rect,
+            self.stretch_size,
+            self.tile_spacing,
+            self.stops_opacity,
+        );
     }
 }
 
+pub type RadialGradientDataHandle = InternHandle<RadialGradient>;
+
+#[derive(Debug, MallocSizeOf)]
 #[cfg_attr(feature = "capture", derive(Serialize))]
 #[cfg_attr(feature = "replay", derive(Deserialize))]
-#[derive(Clone, Copy, Debug, Hash, Eq, PartialEq)]
-pub struct RadialGradientDataMarker;
-
-pub type RadialGradientDataStore = DataStore<RadialGradientKey, RadialGradientTemplate, RadialGradientDataMarker>;
-pub type RadialGradientDataHandle = Handle<RadialGradientDataMarker>;
-pub type RadialGradientDataUpdateList = UpdateList<RadialGradientKey>;
-pub type RadialGradientDataInterner = Interner<RadialGradientKey, PrimitiveSceneData, RadialGradientDataMarker>;
-
 pub struct RadialGradient {
     pub extend_mode: ExtendMode,
     pub center: PointKey,
@@ -473,27 +548,254 @@ pub struct RadialGradient {
 }
 
 impl Internable for RadialGradient {
-    type Marker = RadialGradientDataMarker;
-    type Source = RadialGradientKey;
+    type Key = RadialGradientKey;
     type StoreData = RadialGradientTemplate;
-    type InternData = PrimitiveSceneData;
+    type InternData = ();
+    const PROFILE_COUNTER: usize = crate::profiler::INTERNED_RADIAL_GRADIENTS;
+}
 
-    /// Build a new key from self with `info`.
-    fn build_key(
+impl InternablePrimitive for RadialGradient {
+    fn into_key(
         self,
         info: &LayoutPrimitiveInfo,
-        prim_relative_clip_rect: LayoutRect,
     ) -> RadialGradientKey {
-        RadialGradientKey::new(
-            info.is_backface_visible,
-            info.rect.size,
-            prim_relative_clip_rect,
-            self,
-        )
+        RadialGradientKey::new(info, self)
+    }
+
+    fn make_instance_kind(
+        _key: RadialGradientKey,
+        data_handle: RadialGradientDataHandle,
+        _prim_store: &mut PrimitiveStore,
+        _reference_frame_relative_offset: LayoutVector2D,
+    ) -> PrimitiveInstanceKind {
+        PrimitiveInstanceKind::RadialGradient {
+            data_handle,
+            visible_tiles_range: GradientTileRange::empty(),
+        }
     }
 }
 
 impl IsVisible for RadialGradient {
+    fn is_visible(&self) -> bool {
+        true
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+/// Conic gradients
+
+/// Hashable conic gradient parameters, for use during prim interning.
+#[cfg_attr(feature = "capture", derive(Serialize))]
+#[cfg_attr(feature = "replay", derive(Deserialize))]
+#[derive(Debug, Clone, MallocSizeOf, PartialEq)]
+pub struct ConicGradientParams {
+    pub angle: f32, // in radians
+    pub start_offset: f32,
+    pub end_offset: f32,
+}
+
+impl Eq for ConicGradientParams {}
+
+impl hash::Hash for ConicGradientParams {
+    fn hash<H: hash::Hasher>(&self, state: &mut H) {
+        self.angle.to_bits().hash(state);
+        self.start_offset.to_bits().hash(state);
+        self.end_offset.to_bits().hash(state);
+    }
+}
+
+/// Identifying key for a line decoration.
+#[cfg_attr(feature = "capture", derive(Serialize))]
+#[cfg_attr(feature = "replay", derive(Deserialize))]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, MallocSizeOf)]
+pub struct ConicGradientKey {
+    pub common: PrimKeyCommonData,
+    pub extend_mode: ExtendMode,
+    pub center: PointKey,
+    pub params: ConicGradientParams,
+    pub stretch_size: SizeKey,
+    pub stops: Vec<GradientStopKey>,
+    pub tile_spacing: SizeKey,
+    pub nine_patch: Option<Box<NinePatchDescriptor>>,
+}
+
+impl ConicGradientKey {
+    pub fn new(
+        info: &LayoutPrimitiveInfo,
+        conic_grad: ConicGradient,
+    ) -> Self {
+        ConicGradientKey {
+            common: info.into(),
+            extend_mode: conic_grad.extend_mode,
+            center: conic_grad.center,
+            params: conic_grad.params,
+            stretch_size: conic_grad.stretch_size,
+            stops: conic_grad.stops,
+            tile_spacing: conic_grad.tile_spacing,
+            nine_patch: conic_grad.nine_patch,
+        }
+    }
+}
+
+impl InternDebug for ConicGradientKey {}
+
+#[cfg_attr(feature = "capture", derive(Serialize))]
+#[cfg_attr(feature = "replay", derive(Deserialize))]
+#[derive(MallocSizeOf)]
+pub struct ConicGradientTemplate {
+    pub common: PrimTemplateCommonData,
+    pub extend_mode: ExtendMode,
+    pub center: LayoutPoint,
+    pub params: ConicGradientParams,
+    pub stretch_size: LayoutSize,
+    pub tile_spacing: LayoutSize,
+    pub brush_segments: Vec<BrushSegment>,
+    pub stops_opacity: PrimitiveOpacity,
+    pub stops: Vec<GradientStop>,
+    pub stops_handle: GpuCacheHandle,
+}
+
+impl Deref for ConicGradientTemplate {
+    type Target = PrimTemplateCommonData;
+    fn deref(&self) -> &Self::Target {
+        &self.common
+    }
+}
+
+impl DerefMut for ConicGradientTemplate {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.common
+    }
+}
+
+impl From<ConicGradientKey> for ConicGradientTemplate {
+    fn from(item: ConicGradientKey) -> Self {
+        let common = PrimTemplateCommonData::with_key_common(item.common);
+        let mut brush_segments = Vec::new();
+
+        if let Some(ref nine_patch) = item.nine_patch {
+            brush_segments = nine_patch.create_segments(common.prim_rect.size);
+        }
+
+        let (stops, min_alpha) = stops_and_min_alpha(&item.stops);
+
+        // Save opacity of the stops for use in
+        // selecting which pass this gradient
+        // should be drawn in.
+        let stops_opacity = PrimitiveOpacity::from_alpha(min_alpha);
+
+        ConicGradientTemplate {
+            common,
+            center: item.center.into(),
+            extend_mode: item.extend_mode,
+            params: item.params,
+            stretch_size: item.stretch_size.into(),
+            tile_spacing: item.tile_spacing.into(),
+            brush_segments,
+            stops_opacity,
+            stops,
+            stops_handle: GpuCacheHandle::new(),
+        }
+    }
+}
+
+impl ConicGradientTemplate {
+    /// Update the GPU cache for a given primitive template. This may be called multiple
+    /// times per frame, by each primitive reference that refers to this interned
+    /// template. The initial request call to the GPU cache ensures that work is only
+    /// done if the cache entry is invalid (due to first use or eviction).
+    pub fn update(
+        &mut self,
+        frame_state: &mut FrameBuildingState,
+    ) {
+        if let Some(mut request) =
+            frame_state.gpu_cache.request(&mut self.common.gpu_cache_handle) {
+            // write_prim_gpu_blocks
+            request.push([
+                self.center.x,
+                self.center.y,
+                self.params.start_offset,
+                self.params.end_offset,
+            ]);
+            request.push([
+                self.params.angle,
+                pack_as_float(self.extend_mode as u32),
+                self.stretch_size.width,
+                self.stretch_size.height,
+            ]);
+
+            // write_segment_gpu_blocks
+            for segment in &self.brush_segments {
+                // has to match VECS_PER_SEGMENT
+                request.write_segment(
+                    segment.local_rect,
+                    segment.extra_data,
+                );
+            }
+        }
+
+        if let Some(mut request) = frame_state.gpu_cache.request(&mut self.stops_handle) {
+            GradientGpuBlockBuilder::build(
+                false,
+                &mut request,
+                &self.stops,
+            );
+        }
+
+        self.opacity = get_gradient_opacity(
+            self.common.prim_rect,
+            self.stretch_size,
+            self.tile_spacing,
+            self.stops_opacity,
+        );
+    }
+}
+
+pub type ConicGradientDataHandle = InternHandle<ConicGradient>;
+
+#[derive(Debug, MallocSizeOf)]
+#[cfg_attr(feature = "capture", derive(Serialize))]
+#[cfg_attr(feature = "replay", derive(Deserialize))]
+pub struct ConicGradient {
+    pub extend_mode: ExtendMode,
+    pub center: PointKey,
+    pub params: ConicGradientParams,
+    pub stretch_size: SizeKey,
+    pub stops: Vec<GradientStopKey>,
+    pub tile_spacing: SizeKey,
+    pub nine_patch: Option<Box<NinePatchDescriptor>>,
+}
+
+impl Internable for ConicGradient {
+    type Key = ConicGradientKey;
+    type StoreData = ConicGradientTemplate;
+    type InternData = ();
+    const PROFILE_COUNTER: usize = crate::profiler::INTERNED_CONIC_GRADIENTS;
+}
+
+impl InternablePrimitive for ConicGradient {
+    fn into_key(
+        self,
+        info: &LayoutPrimitiveInfo,
+    ) -> ConicGradientKey {
+        ConicGradientKey::new(info, self)
+    }
+
+    fn make_instance_kind(
+        _key: ConicGradientKey,
+        data_handle: ConicGradientDataHandle,
+        _prim_store: &mut PrimitiveStore,
+        _reference_frame_relative_offset: LayoutVector2D,
+    ) -> PrimitiveInstanceKind {
+        PrimitiveInstanceKind::ConicGradient {
+            data_handle,
+            visible_tiles_range: GradientTileRange::empty(),
+        }
+    }
+}
+
+impl IsVisible for ConicGradient {
     fn is_visible(&self) -> bool {
         true
     }
@@ -516,12 +818,22 @@ pub const GRADIENT_DATA_TABLE_SIZE: usize = 128;
 // The number of entries in a gradient data: GRADIENT_DATA_TABLE_SIZE + first stop entry + last stop entry
 pub const GRADIENT_DATA_SIZE: usize = GRADIENT_DATA_TABLE_SIZE + 2;
 
-#[derive(Debug)]
+/// An entry in a gradient data table representing a segment of the gradient
+/// color space.
+#[derive(Debug, Copy, Clone)]
 #[repr(C)]
-// An entry in a gradient data table representing a segment of the gradient color space.
-pub struct GradientDataEntry {
-    pub start_color: PremultipliedColorF,
-    pub end_color: PremultipliedColorF,
+struct GradientDataEntry {
+    start_color: PremultipliedColorF,
+    end_color: PremultipliedColorF,
+}
+
+impl GradientDataEntry {
+    fn white() -> Self {
+        Self {
+            start_color: PremultipliedColorF::WHITE,
+            end_color: PremultipliedColorF::WHITE,
+        }
+    }
 }
 
 // TODO(gw): Tidy this up to be a free function / module?
@@ -598,7 +910,7 @@ impl GradientGpuBlockBuilder {
         // format for texture upload. This table requires the gradient color stops to be normalized to the
         // range [0, 1]. The first and last entries hold the first and last color stop colors respectively,
         // while the entries in between hold the interpolated color stop values for the range [0, 1].
-        let mut entries: [GradientDataEntry; GRADIENT_DATA_SIZE] = unsafe { mem::uninitialized() };
+        let mut entries = [GradientDataEntry::white(); GRADIENT_DATA_SIZE];
 
         if reverse_stops {
             // Fill in the first entry (for reversed stops) with the first color stop
@@ -633,13 +945,6 @@ impl GradientGpuBlockBuilder {
             }
             if cur_idx != GRADIENT_DATA_TABLE_BEGIN {
                 error!("Gradient stops abruptly at {}, auto-completing to white", cur_idx);
-                GradientGpuBlockBuilder::fill_colors(
-                    GRADIENT_DATA_TABLE_BEGIN,
-                    cur_idx,
-                    &PremultipliedColorF::WHITE,
-                    &cur_color,
-                    &mut entries,
-                );
             }
 
             // Fill in the last entry (for reversed stops) with the last color stop
@@ -683,13 +988,6 @@ impl GradientGpuBlockBuilder {
             }
             if cur_idx != GRADIENT_DATA_TABLE_END {
                 error!("Gradient stops abruptly at {}, auto-completing to white", cur_idx);
-                GradientGpuBlockBuilder::fill_colors(
-                    cur_idx,
-                    GRADIENT_DATA_TABLE_END,
-                    &PremultipliedColorF::WHITE,
-                    &cur_color,
-                    &mut entries,
-                );
             }
 
             // Fill in the last entry with the last color stop
@@ -710,7 +1008,7 @@ impl GradientGpuBlockBuilder {
 }
 
 #[test]
-#[cfg(target_os = "linux")]
+#[cfg(target_pointer_width = "64")]
 fn test_struct_sizes() {
     use std::mem;
     // The sizes of these structures are critical for performance on a number of
@@ -720,10 +1018,14 @@ fn test_struct_sizes() {
     // (b) You made a structure larger. This is not necessarily a problem, but should only
     //     be done with care, and after checking if talos performance regresses badly.
     assert_eq!(mem::size_of::<LinearGradient>(), 72, "LinearGradient size changed");
-    assert_eq!(mem::size_of::<LinearGradientTemplate>(), 168, "LinearGradientTemplate size changed");
-    assert_eq!(mem::size_of::<LinearGradientKey>(), 96, "LinearGradientKey size changed");
+    assert_eq!(mem::size_of::<LinearGradientTemplate>(), 120, "LinearGradientTemplate size changed");
+    assert_eq!(mem::size_of::<LinearGradientKey>(), 88, "LinearGradientKey size changed");
 
     assert_eq!(mem::size_of::<RadialGradient>(), 72, "RadialGradient size changed");
-    assert_eq!(mem::size_of::<RadialGradientTemplate>(), 168, "RadialGradientTemplate size changed");
-    assert_eq!(mem::size_of::<RadialGradientKey>(), 104, "RadialGradientKey size changed");
+    assert_eq!(mem::size_of::<RadialGradientTemplate>(), 128, "RadialGradientTemplate size changed");
+    assert_eq!(mem::size_of::<RadialGradientKey>(), 96, "RadialGradientKey size changed");
+
+    assert_eq!(mem::size_of::<ConicGradient>(), 72, "ConicGradient size changed");
+    assert_eq!(mem::size_of::<ConicGradientTemplate>(), 128, "ConicGradientTemplate size changed");
+    assert_eq!(mem::size_of::<ConicGradientKey>(), 96, "ConicGradientKey size changed");
 }

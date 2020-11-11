@@ -9,11 +9,11 @@
 #include "mozilla/dom/MediaList.h"
 
 #include "mozAutoDocUpdate.h"
+#include "mozilla/dom/Document.h"
 #include "mozilla/dom/MediaListBinding.h"
 #include "mozilla/ServoBindings.h"
 #include "mozilla/ServoStyleSet.h"
 #include "mozilla/StyleSheetInlines.h"
-#include "nsPresContext.h"
 
 namespace mozilla {
 namespace dom {
@@ -39,25 +39,29 @@ void MediaList::SetStyleSheet(StyleSheet* aSheet) {
   mStyleSheet = aSheet;
 }
 
+nsISupports* MediaList::GetParentObject() const { return mStyleSheet; }
+
 template <typename Func>
-nsresult MediaList::DoMediaChange(Func aCallback) {
+void MediaList::DoMediaChange(Func aCallback, ErrorResult& aRv) {
+  if (IsReadOnly()) {
+    return;
+  }
+
   if (mStyleSheet) {
     mStyleSheet->WillDirty();
   }
 
-  nsresult rv = aCallback();
-  if (NS_FAILED(rv)) {
-    return rv;
+  aCallback(aRv);
+  if (aRv.Failed()) {
+    return;
   }
 
   if (mStyleSheet) {
     // FIXME(emilio): We should discern between "owned by a rule" (as in @media)
     // and "owned by a sheet" (as in <style media>), and then pass something
     // meaningful here.
-    mStyleSheet->RuleChanged(nullptr);
+    mStyleSheet->RuleChanged(nullptr, StyleRuleChangeKind::Generic);
   }
-
-  return rv;
 }
 
 already_AddRefed<MediaList> MediaList::Clone() {
@@ -77,13 +81,18 @@ void MediaList::GetText(nsAString& aMediaText) {
   Servo_MediaList_GetText(mRawList, &aMediaText);
 }
 
-/* static */ already_AddRefed<MediaList> MediaList::Create(
-    const nsAString& aMedia, CallerType aCallerType) {
+/* static */
+already_AddRefed<MediaList> MediaList::Create(const nsAString& aMedia,
+                                              CallerType aCallerType) {
   RefPtr<MediaList> mediaList = new MediaList(aMedia, aCallerType);
   return mediaList.forget();
 }
 
 void MediaList::SetText(const nsAString& aMediaText) {
+  if (IsReadOnly()) {
+    return;
+  }
+
   SetTextInternal(aMediaText, CallerType::NonSystem);
 }
 
@@ -105,34 +114,36 @@ void MediaList::IndexedGetter(uint32_t aIndex, bool& aFound,
   }
 }
 
-nsresult MediaList::Delete(const nsAString& aOldMedium) {
+void MediaList::Delete(const nsAString& aOldMedium, ErrorResult& aRv) {
+  MOZ_ASSERT(!IsReadOnly());
   NS_ConvertUTF16toUTF8 oldMedium(aOldMedium);
   if (Servo_MediaList_DeleteMedium(mRawList, &oldMedium)) {
-    return NS_OK;
+    return;
   }
-  return NS_ERROR_DOM_NOT_FOUND_ERR;
+  aRv.ThrowNotFoundError("Medium not in list");
 }
 
-bool MediaList::Matches(nsPresContext* aPresContext) const {
-  const RawServoStyleSet* rawSet = aPresContext->StyleSet()->RawSet();
+bool MediaList::Matches(const Document& aDocument) const {
+  const RawServoStyleSet* rawSet =
+      aDocument.StyleSetForPresShellOrMediaQueryEvaluation()->RawSet();
   MOZ_ASSERT(rawSet, "The RawServoStyleSet should be valid!");
   return Servo_MediaList_Matches(mRawList, rawSet);
 }
 
-nsresult MediaList::Append(const nsAString& aNewMedium) {
+void MediaList::Append(const nsAString& aNewMedium, ErrorResult& aRv) {
+  MOZ_ASSERT(!IsReadOnly());
   if (aNewMedium.IsEmpty()) {
-    return NS_ERROR_DOM_NOT_FOUND_ERR;
+    // XXXbz per spec there should not be an exception here, as far as
+    // I can tell...
+    aRv.ThrowNotFoundError("Empty medium");
+    return;
   }
   NS_ConvertUTF16toUTF8 newMedium(aNewMedium);
   Servo_MediaList_AppendMedium(mRawList, &newMedium);
-  return NS_OK;
 }
 
 void MediaList::SetMediaText(const nsAString& aMediaText) {
-  DoMediaChange([&]() {
-    SetText(aMediaText);
-    return NS_OK;
-  });
+  DoMediaChange([&](ErrorResult& aRv) { SetText(aMediaText); }, IgnoreErrors());
 }
 
 void MediaList::Item(uint32_t aIndex, nsAString& aReturn) {
@@ -141,11 +152,11 @@ void MediaList::Item(uint32_t aIndex, nsAString& aReturn) {
 }
 
 void MediaList::DeleteMedium(const nsAString& aOldMedium, ErrorResult& aRv) {
-  aRv = DoMediaChange([&]() { return Delete(aOldMedium); });
+  DoMediaChange([&](ErrorResult& aRv) { Delete(aOldMedium, aRv); }, aRv);
 }
 
 void MediaList::AppendMedium(const nsAString& aNewMedium, ErrorResult& aRv) {
-  aRv = DoMediaChange([&]() { return Append(aNewMedium); });
+  DoMediaChange([&](ErrorResult& aRv) { Append(aNewMedium, aRv); }, aRv);
 }
 
 MOZ_DEFINE_MALLOC_SIZE_OF(ServoMediaListMallocSizeOf)
@@ -157,6 +168,10 @@ size_t MediaList::SizeOfExcludingThis(MallocSizeOf aMallocSizeOf) const {
                                            ServoMediaListMallocEnclosingSizeOf,
                                            mRawList);
   return n;
+}
+
+bool MediaList::IsReadOnly() const {
+  return mStyleSheet && mStyleSheet->IsReadOnly();
 }
 
 }  // namespace dom

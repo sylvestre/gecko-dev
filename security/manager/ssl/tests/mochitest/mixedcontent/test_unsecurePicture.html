@@ -6,22 +6,22 @@
   <script type="text/javascript" src="/MochiKit/DOM.js"></script>
   <script type="text/javascript" src="/MochiKit/Style.js"></script>
   <script type="text/javascript" src="/MochiKit/Signal.js"></script>
-  <script type="text/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
   <script type="text/javascript" src="mixedContentTest.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css" />
 
   <script class="testbody" type="text/javascript">
   "use strict";
 
-  function runTest()
+  async function runTest()
   {
-    isSecurityState("broken", "insecure <img> load breaks security");
+    await isSecurityState("broken", "insecure <img> load breaks security");
     finish();
   }
 
-  function afterNavigationTest()
+  async function afterNavigationTest()
   {
-    isSecurityState("broken", "security still broken after navigation");
+    await isSecurityState("broken", "security still broken after navigation");
     finish();
   }
 

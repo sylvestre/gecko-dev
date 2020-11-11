@@ -6,14 +6,20 @@
 
 #include "ActorsChild.h"
 
-#include "LocalStorageCommon.h"
+#include "ErrorList.h"
 #include "LSDatabase.h"
-#include "LSObject.h"
 #include "LSObserver.h"
 #include "LSSnapshot.h"
+#include "LocalStorageCommon.h"
+#include "mozilla/Assertions.h"
+#include "mozilla/Result.h"
+#include "mozilla/dom/LSValue.h"
+#include "mozilla/dom/Storage.h"
+#include "mozilla/dom/quota/QuotaCommon.h"
+#include "mozilla/ipc/BackgroundUtils.h"
+#include "nsCOMPtr.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 /*******************************************************************************
  * LSDatabaseChild
@@ -70,9 +76,9 @@ mozilla::ipc::IPCResult LSDatabaseChild::RecvRequestAllowToClose() {
 }
 
 PBackgroundLSSnapshotChild* LSDatabaseChild::AllocPBackgroundLSSnapshotChild(
-    const nsString& aDocumentURI, const bool& aIncreasePeakUsage,
-    const int64_t& aRequestedSize, const int64_t& aMinSize,
-    LSSnapshotInitInfo* aInitInfo) {
+    const nsString& aDocumentURI, const nsString& aKey,
+    const bool& aIncreasePeakUsage, const int64_t& aRequestedSize,
+    const int64_t& aMinSize, LSSnapshotInitInfo* aInitInfo) {
   MOZ_CRASH("PBackgroundLSSnapshotChild actor should be manually constructed!");
 }
 
@@ -126,22 +132,19 @@ void LSObserverChild::ActorDestroy(ActorDestroyReason aWhy) {
 mozilla::ipc::IPCResult LSObserverChild::RecvObserve(
     const PrincipalInfo& aPrincipalInfo, const uint32_t& aPrivateBrowsingId,
     const nsString& aDocumentURI, const nsString& aKey,
-    const nsString& aOldValue, const nsString& aNewValue) {
+    const LSValue& aOldValue, const LSValue& aNewValue) {
   AssertIsOnOwningThread();
 
   if (!mObserver) {
     return IPC_OK();
   }
 
-  nsresult rv;
-  nsCOMPtr<nsIPrincipal> principal =
-      PrincipalInfoToPrincipal(aPrincipalInfo, &rv);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    return IPC_FAIL_NO_REASON(this);
-  }
+  LS_TRY_INSPECT(const auto& principal,
+                 PrincipalInfoToPrincipal(aPrincipalInfo),
+                 IPC_FAIL_NO_REASON(this));
 
-  Storage::NotifyChange(/* aStorage */ nullptr, principal, aKey, aOldValue,
-                        aNewValue,
+  Storage::NotifyChange(/* aStorage */ nullptr, principal, aKey,
+                        aOldValue.AsString(), aNewValue.AsString(),
                         /* aStorageType */ kLocalStorageType, aDocumentURI,
                         /* aIsPrivate */ !!aPrivateBrowsingId,
                         /* aImmediateDispatch */ true);
@@ -153,8 +156,7 @@ mozilla::ipc::IPCResult LSObserverChild::RecvObserve(
  * LocalStorageRequestChild
  ******************************************************************************/
 
-LSRequestChild::LSRequestChild(LSRequestChildCallback* aCallback)
-    : mCallback(aCallback), mFinishing(false) {
+LSRequestChild::LSRequestChild() : mFinishing(false) {
   AssertIsOnOwningThread();
 
   MOZ_COUNT_CTOR(LSRequestChild);
@@ -162,8 +164,18 @@ LSRequestChild::LSRequestChild(LSRequestChildCallback* aCallback)
 
 LSRequestChild::~LSRequestChild() {
   AssertIsOnOwningThread();
+  MOZ_ASSERT(!mCallback);
 
   MOZ_COUNT_DTOR(LSRequestChild);
+}
+
+void LSRequestChild::SetCallback(LSRequestChildCallback* aCallback) {
+  AssertIsOnOwningThread();
+  MOZ_ASSERT(aCallback);
+  MOZ_ASSERT(!mCallback);
+  MOZ_ASSERT(Manager());
+
+  mCallback = aCallback;
 }
 
 bool LSRequestChild::Finishing() const {
@@ -174,6 +186,14 @@ bool LSRequestChild::Finishing() const {
 
 void LSRequestChild::ActorDestroy(ActorDestroyReason aWhy) {
   AssertIsOnOwningThread();
+
+  if (mCallback) {
+    MOZ_ASSERT(aWhy != Deletion);
+
+    mCallback->OnResponse(NS_ERROR_FAILURE);
+
+    mCallback = nullptr;
+  }
 }
 
 mozilla::ipc::IPCResult LSRequestChild::Recv__delete__(
@@ -183,6 +203,8 @@ mozilla::ipc::IPCResult LSRequestChild::Recv__delete__(
 
   mCallback->OnResponse(aResponse);
 
+  mCallback = nullptr;
+
   return IPC_OK();
 }
 
@@ -191,7 +213,9 @@ mozilla::ipc::IPCResult LSRequestChild::RecvReady() {
 
   mFinishing = true;
 
-  SendFinish();
+  // We only expect this to return false if the channel has been closed, but
+  // PBackground's channel never gets shutdown.
+  MOZ_ALWAYS_TRUE(SendFinish());
 
   return IPC_OK();
 }
@@ -200,30 +224,49 @@ mozilla::ipc::IPCResult LSRequestChild::RecvReady() {
  * LSSimpleRequestChild
  ******************************************************************************/
 
-LSSimpleRequestChild::LSSimpleRequestChild(
-    LSSimpleRequestChildCallback* aCallback)
-    : mCallback(aCallback) {
+LSSimpleRequestChild::LSSimpleRequestChild() {
   AssertIsOnOwningThread();
-  MOZ_ASSERT(aCallback);
 
   MOZ_COUNT_CTOR(LSSimpleRequestChild);
 }
 
 LSSimpleRequestChild::~LSSimpleRequestChild() {
   AssertIsOnOwningThread();
+  MOZ_ASSERT(!mCallback);
 
   MOZ_COUNT_DTOR(LSSimpleRequestChild);
 }
 
+void LSSimpleRequestChild::SetCallback(
+    LSSimpleRequestChildCallback* aCallback) {
+  AssertIsOnOwningThread();
+  MOZ_ASSERT(aCallback);
+  MOZ_ASSERT(!mCallback);
+  MOZ_ASSERT(Manager());
+
+  mCallback = aCallback;
+}
+
 void LSSimpleRequestChild::ActorDestroy(ActorDestroyReason aWhy) {
   AssertIsOnOwningThread();
+
+  if (mCallback) {
+    MOZ_ASSERT(aWhy != Deletion);
+
+    mCallback->OnResponse(NS_ERROR_FAILURE);
+
+    mCallback = nullptr;
+  }
 }
 
 mozilla::ipc::IPCResult LSSimpleRequestChild::Recv__delete__(
     const LSSimpleRequestResponse& aResponse) {
   AssertIsOnOwningThread();
+  MOZ_ASSERT(mCallback);
 
   mCallback->OnResponse(aResponse);
+
+  mCallback = nullptr;
 
   return IPC_OK();
 }
@@ -279,5 +322,4 @@ mozilla::ipc::IPCResult LSSnapshotChild::RecvMarkDirty() {
   return IPC_OK();
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

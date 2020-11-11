@@ -7,8 +7,9 @@
 #include "jit/CompileWrappers.h"
 
 #include "gc/GC.h"
+#include "gc/Heap.h"
 #include "jit/Ion.h"
-#include "jit/JitRealm.h"
+#include "jit/JitRuntime.h"
 
 #include "vm/Realm-inl.h"
 
@@ -19,7 +20,8 @@ JSRuntime* CompileRuntime::runtime() {
   return reinterpret_cast<JSRuntime*>(this);
 }
 
-/* static */ CompileRuntime* CompileRuntime::get(JSRuntime* rt) {
+/* static */
+CompileRuntime* CompileRuntime::get(JSRuntime* rt) {
   return reinterpret_cast<CompileRuntime*>(rt);
 }
 
@@ -37,10 +39,6 @@ GeckoProfilerRuntime& CompileRuntime::geckoProfiler() {
   return runtime()->geckoProfiler();
 }
 
-bool CompileRuntime::jitSupportsFloatingPoint() {
-  return runtime()->jitSupportsFloatingPoint;
-}
-
 bool CompileRuntime::hadOutOfMemory() { return runtime()->hadOutOfMemory; }
 
 bool CompileRuntime::profilingScripts() { return runtime()->profilingScripts; }
@@ -55,14 +53,12 @@ const StaticStrings& CompileRuntime::staticStrings() {
   return *runtime()->staticStrings;
 }
 
-const Value& CompileRuntime::NaNValue() { return runtime()->NaNValue; }
-
-const Value& CompileRuntime::positiveInfinityValue() {
-  return runtime()->positiveInfinityValue;
-}
-
 const WellKnownSymbols& CompileRuntime::wellKnownSymbols() {
   return *runtime()->wellKnownSymbols;
+}
+
+const JSClass* CompileRuntime::maybeWindowProxyClass() {
+  return runtime()->maybeWindowProxyClass();
 }
 
 const void* CompileRuntime::mainContextPtr() {
@@ -81,11 +77,9 @@ const void* CompileRuntime::addressOfInterruptBits() {
   return runtime()->mainContextFromAnyThread()->addressOfInterruptBits();
 }
 
-#ifdef DEBUG
-bool CompileRuntime::isInsideNursery(gc::Cell* cell) {
-  return UninlinedIsInsideNursery(cell);
+const void* CompileRuntime::addressOfZone() {
+  return runtime()->mainContextFromAnyThread()->addressOfZone();
 }
-#endif
 
 const DOMCallbacks* CompileRuntime::DOMcallbacks() {
   return runtime()->DOMcallbacks;
@@ -95,7 +89,8 @@ bool CompileRuntime::runtimeMatches(JSRuntime* rt) { return rt == runtime(); }
 
 Zone* CompileZone::zone() { return reinterpret_cast<Zone*>(this); }
 
-/* static */ CompileZone* CompileZone::get(Zone* zone) {
+/* static */
+CompileZone* CompileZone::get(Zone* zone) {
   return reinterpret_cast<CompileZone*>(zone);
 }
 
@@ -106,8 +101,8 @@ CompileRuntime* CompileZone::runtime() {
 bool CompileZone::isAtomsZone() { return zone()->isAtomsZone(); }
 
 #ifdef DEBUG
-const void* CompileZone::addressOfIonBailAfter() {
-  return zone()->runtimeFromAnyThread()->jitRuntime()->addressOfIonBailAfter();
+const void* CompileRuntime::addressOfIonBailAfterCounter() {
+  return runtime()->jitRuntime()->addressOfIonBailAfterCounter();
 }
 #endif
 
@@ -128,6 +123,11 @@ void* CompileZone::addressOfStringNurseryPosition() {
   return zone()->runtimeFromAnyThread()->gc.addressOfNurseryPosition();
 }
 
+void* CompileZone::addressOfBigIntNurseryPosition() {
+  // Objects and BigInts share a nursery, for now at least.
+  return zone()->runtimeFromAnyThread()->gc.addressOfNurseryPosition();
+}
+
 const void* CompileZone::addressOfNurseryCurrentEnd() {
   return zone()->runtimeFromAnyThread()->gc.addressOfNurseryCurrentEnd();
 }
@@ -142,18 +142,24 @@ const void* CompileZone::addressOfStringNurseryCurrentEnd() {
   return zone()->runtimeFromAnyThread()->gc.addressOfStringNurseryCurrentEnd();
 }
 
+const void* CompileZone::addressOfBigIntNurseryCurrentEnd() {
+  // Similar to Strings, BigInts also share the nursery with other nursery
+  // allocatable things.
+  return zone()->runtimeFromAnyThread()->gc.addressOfBigIntNurseryCurrentEnd();
+}
+
 uint32_t* CompileZone::addressOfNurseryAllocCount() {
   return zone()->runtimeFromAnyThread()->gc.addressOfNurseryAllocCount();
 }
 
 bool CompileZone::canNurseryAllocateStrings() {
-  return nurseryExists() &&
-         zone()->runtimeFromAnyThread()->gc.nursery().canAllocateStrings() &&
+  return zone()->runtimeFromAnyThread()->gc.nursery().canAllocateStrings() &&
          zone()->allocNurseryStrings;
 }
 
-bool CompileZone::nurseryExists() {
-  return zone()->runtimeFromAnyThread()->gc.nursery().exists();
+bool CompileZone::canNurseryAllocateBigInts() {
+  return zone()->runtimeFromAnyThread()->gc.nursery().canAllocateBigInts() &&
+         zone()->allocNurseryBigInts;
 }
 
 void CompileZone::setMinorGCShouldCancelIonCompilations() {
@@ -162,9 +168,14 @@ void CompileZone::setMinorGCShouldCancelIonCompilations() {
   rt->gc.storeBuffer().setShouldCancelIonCompilations();
 }
 
+uintptr_t CompileZone::nurseryCellHeader(JS::TraceKind kind) {
+  return gc::NurseryCellHeader::MakeValue(zone(), kind);
+}
+
 JS::Realm* CompileRealm::realm() { return reinterpret_cast<JS::Realm*>(this); }
 
-/* static */ CompileRealm* CompileRealm::get(JS::Realm* realm) {
+/* static */
+CompileRealm* CompileRealm::get(JS::Realm* realm) {
   return reinterpret_cast<CompileRealm*>(realm);
 }
 
@@ -196,35 +207,16 @@ bool CompileRealm::hasAllocationMetadataBuilder() {
   return realm()->hasAllocationMetadataBuilder();
 }
 
-// Note: This function is thread-safe because setSingletonAsValue sets a boolean
-// variable to false, and this boolean variable has no way to be resetted to
-// true. So even if there is a concurrent write, this concurrent write will
-// always have the same value.  If there is a concurrent read, then we will
-// clone a singleton instead of using the value which is baked in the JSScript,
-// and this would be an unfortunate allocation, but this will not change the
-// semantics of the JavaScript code which is executed.
-void CompileRealm::setSingletonsAsValues() {
-  realm()->behaviors().setSingletonsAsValues();
-}
-
 JitCompileOptions::JitCompileOptions()
-    : cloneSingletons_(false),
-      profilerSlowAssertionsEnabled_(false),
-      offThreadCompilationAvailable_(false)
-#ifdef ENABLE_WASM_GC
-      ,
-      wasmGcEnabled_(false)
-#endif
-{
-}
+    : profilerSlowAssertionsEnabled_(false),
+      offThreadCompilationAvailable_(false) {}
 
 JitCompileOptions::JitCompileOptions(JSContext* cx) {
-  cloneSingletons_ = cx->realm()->creationOptions().cloneSingletons();
   profilerSlowAssertionsEnabled_ =
       cx->runtime()->geckoProfiler().enabled() &&
       cx->runtime()->geckoProfiler().slowAssertionsEnabled();
   offThreadCompilationAvailable_ = OffThreadCompilationAvailable(cx);
-#ifdef ENABLE_WASM_GC
-  wasmGcEnabled_ = cx->options().wasmGc();
+#ifdef DEBUG
+  ionBailAfterEnabled_ = cx->runtime()->jitRuntime()->ionBailAfterEnabled();
 #endif
 }

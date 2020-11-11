@@ -1,16 +1,15 @@
 use ir::comp::{BitfieldUnit, CompKind, Field, FieldData, FieldMethods};
 use ir::context::BindgenContext;
-use ir::derive::CanTriviallyDeriveDebug;
 use ir::item::{HasTypeParamInArray, IsOpaque, Item, ItemCanonicalName};
-use ir::ty::{RUST_DERIVE_IN_ARRAY_LIMIT, TypeKind};
-use quote;
+use ir::ty::{TypeKind, RUST_DERIVE_IN_ARRAY_LIMIT};
+use proc_macro2;
 
 pub fn gen_debug_impl(
     ctx: &BindgenContext,
     fields: &[Field],
     item: &Item,
     kind: CompKind,
-) -> quote::Tokens {
+) -> proc_macro2::TokenStream {
     let struct_name = item.canonical_name(ctx);
     let mut format_string = format!("{} {{{{ ", struct_name);
     let mut tokens = vec![];
@@ -63,7 +62,7 @@ pub trait ImplDebug<'a> {
         &self,
         ctx: &BindgenContext,
         extra: Self::Extra,
-    ) -> Option<(String, Vec<quote::Tokens>)>;
+    ) -> Option<(String, Vec<proc_macro2::TokenStream>)>;
 }
 
 impl<'a> ImplDebug<'a> for FieldData {
@@ -73,7 +72,7 @@ impl<'a> ImplDebug<'a> for FieldData {
         &self,
         ctx: &BindgenContext,
         _: Self::Extra,
-    ) -> Option<(String, Vec<quote::Tokens>)> {
+    ) -> Option<(String, Vec<proc_macro2::TokenStream>)> {
         if let Some(name) = self.name() {
             ctx.resolve_item(self.ty()).impl_debug(ctx, name)
         } else {
@@ -89,7 +88,7 @@ impl<'a> ImplDebug<'a> for BitfieldUnit {
         &self,
         ctx: &BindgenContext,
         _: Self::Extra,
-    ) -> Option<(String, Vec<quote::Tokens>)> {
+    ) -> Option<(String, Vec<proc_macro2::TokenStream>)> {
         let mut format_string = String::new();
         let mut tokens = vec![];
         for (i, bitfield) in self.bitfields().iter().enumerate() {
@@ -118,7 +117,7 @@ impl<'a> ImplDebug<'a> for Item {
         &self,
         ctx: &BindgenContext,
         name: &str,
-    ) -> Option<(String, Vec<quote::Tokens>)> {
+    ) -> Option<(String, Vec<proc_macro2::TokenStream>)> {
         let name_ident = ctx.rust_ident(name);
 
         // We don't know if blacklisted items `impl Debug` or not, so we can't
@@ -136,8 +135,8 @@ impl<'a> ImplDebug<'a> for Item {
 
         fn debug_print(
             name: &str,
-            name_ident: quote::Tokens,
-        ) -> Option<(String, Vec<quote::Tokens>)> {
+            name_ident: proc_macro2::TokenStream,
+        ) -> Option<(String, Vec<proc_macro2::TokenStream>)> {
             Some((
                 format!("{}: {{:?}}", name),
                 vec![quote! {
@@ -178,9 +177,10 @@ impl<'a> ImplDebug<'a> for Item {
             TypeKind::Array(_, len) => {
                 // Generics are not required to implement Debug
                 if self.has_type_param_in_array(ctx) {
-                    Some(
-                        (format!("{}: Array with length {}", name, len), vec![]),
-                    )
+                    Some((
+                        format!("{}: Array with length {}", name, len),
+                        vec![],
+                    ))
                 } else if len < RUST_DERIVE_IN_ARRAY_LIMIT {
                     // The simple case
                     debug_print(name, quote! { #name_ident })
@@ -188,9 +188,7 @@ impl<'a> ImplDebug<'a> for Item {
                     if ctx.options().use_core {
                         // There is no String in core; reducing field visibility to avoid breaking
                         // no_std setups.
-                        Some((
-                            format!("{}: [...]", name), vec![]
-                        ))
+                        Some((format!("{}: [...]", name), vec![]))
                     } else {
                         // Let's implement our own print function
                         Some((
@@ -210,16 +208,14 @@ impl<'a> ImplDebug<'a> for Item {
                 if ctx.options().use_core {
                     // There is no format! in core; reducing field visibility to avoid breaking
                     // no_std setups.
-                    Some((
-                        format!("{}(...)", name), vec![]
-                    ))
+                    Some((format!("{}(...)", name), vec![]))
                 } else {
                     let self_ids = 0..len;
                     Some((
                         format!("{}({{}})", name),
                         vec![quote! {
                             #(format!("{:?}", self.#self_ids)),*
-                        }]
+                        }],
                     ))
                 }
             }
@@ -236,8 +232,9 @@ impl<'a> ImplDebug<'a> for Item {
                 let inner_type = ctx.resolve_type(inner).canonical_type(ctx);
                 match *inner_type.kind() {
                     TypeKind::Function(ref sig)
-                        if !sig.can_trivially_derive_debug(ctx) => {
-                            Some((format!("{}: FunctionPointer", name), vec![]))
+                        if !sig.function_pointers_can_derive() =>
+                    {
+                        Some((format!("{}: FunctionPointer", name), vec![]))
                     }
                     _ => debug_print(name, quote! { #name_ident }),
                 }

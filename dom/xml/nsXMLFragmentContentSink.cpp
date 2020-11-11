@@ -11,19 +11,17 @@
 #include "nsContentSink.h"
 #include "nsIExpatSink.h"
 #include "nsIDTD.h"
-#include "nsIDocument.h"
+#include "mozilla/dom/Document.h"
 #include "nsIContent.h"
 #include "nsGkAtoms.h"
 #include "mozilla/dom/NodeInfo.h"
 #include "nsContentCreatorFunctions.h"
 #include "nsError.h"
-#include "nsIConsoleService.h"
 #include "nsIScriptError.h"
 #include "nsTHashtable.h"
 #include "nsHashKeys.h"
 #include "nsTArray.h"
 #include "nsCycleCollectionParticipant.h"
-#include "nsIDocShell.h"
 #include "mozilla/css/Loader.h"
 #include "mozilla/dom/DocumentFragment.h"
 #include "mozilla/dom/ProcessingInstruction.h"
@@ -66,7 +64,7 @@ class nsXMLFragmentContentSink : public nsXMLContentSink,
 
   // nsIFragmentContentSink
   NS_IMETHOD FinishFragmentParsing(DocumentFragment** aFragment) override;
-  NS_IMETHOD SetTargetDocument(nsIDocument* aDocument) override;
+  NS_IMETHOD SetTargetDocument(Document* aDocument) override;
   NS_IMETHOD WillBuildContent() override;
   NS_IMETHOD DidBuildContent() override;
   NS_IMETHOD IgnoreFirstContainer() override;
@@ -89,8 +87,8 @@ class nsXMLFragmentContentSink : public nsXMLContentSink,
   // nsContentSink overrides
   virtual nsresult ProcessStyleLinkFromHeader(
       const nsAString& aHref, bool aAlternate, const nsAString& aTitle,
-      const nsAString& aType, const nsAString& aMedia,
-      const nsAString& aReferrerPolicy) override;
+      const nsAString& aIntegrity, const nsAString& aType,
+      const nsAString& aMedia, const nsAString& aReferrerPolicy) override;
 
   // nsXMLContentSink overrides
   virtual nsresult MaybeProcessXSLTLink(
@@ -99,7 +97,7 @@ class nsXMLFragmentContentSink : public nsXMLContentSink,
       const nsAString& aMedia, const nsAString& aReferrerPolicy,
       bool* aWasXSLT = nullptr) override;
 
-  nsCOMPtr<nsIDocument> mTargetDocument;
+  nsCOMPtr<Document> mTargetDocument;
   // the fragment
   RefPtr<DocumentFragment> mRoot;
   bool mParseError;
@@ -122,7 +120,7 @@ nsXMLFragmentContentSink::nsXMLFragmentContentSink() : mParseError(false) {
   mRunsToCompletion = true;
 }
 
-nsXMLFragmentContentSink::~nsXMLFragmentContentSink() {}
+nsXMLFragmentContentSink::~nsXMLFragmentContentSink() = default;
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(nsXMLFragmentContentSink)
   NS_INTERFACE_MAP_ENTRY(nsIFragmentContentSink)
@@ -149,7 +147,7 @@ nsXMLFragmentContentSink::WillBuildModel(nsDTDMode aDTDMode) {
 
   NS_ASSERTION(mTargetDocument, "Need a document!");
 
-  mRoot = new DocumentFragment(mNodeInfoManager);
+  mRoot = new (mNodeInfoManager) DocumentFragment(mNodeInfoManager);
 
   return NS_OK;
 }
@@ -168,7 +166,9 @@ void nsXMLFragmentContentSink::SetDocumentCharset(
   MOZ_ASSERT_UNREACHABLE("fragments shouldn't set charset");
 }
 
-nsISupports* nsXMLFragmentContentSink::GetTarget() { return mTargetDocument; }
+nsISupports* nsXMLFragmentContentSink::GetTarget() {
+  return ToSupports(mTargetDocument);
+}
 
 ////////////////////////////////////////////////////////////////////////
 
@@ -290,8 +290,8 @@ nsXMLFragmentContentSink::ReportError(const char16_t* aErrorText,
 
 nsresult nsXMLFragmentContentSink::ProcessStyleLinkFromHeader(
     const nsAString& aHref, bool aAlternate, const nsAString& aTitle,
-    const nsAString& aType, const nsAString& aMedia,
-    const nsAString& aReferrerPolicy)
+    const nsAString& aIntegrity, const nsAString& aType,
+    const nsAString& aMedia, const nsAString& aReferrerPolicy)
 
 {
   MOZ_ASSERT_UNREACHABLE("Shouldn't have headers for a fragment sink");
@@ -332,7 +332,7 @@ nsXMLFragmentContentSink::FinishFragmentParsing(DocumentFragment** aFragment) {
 }
 
 NS_IMETHODIMP
-nsXMLFragmentContentSink::SetTargetDocument(nsIDocument* aTargetDocument) {
+nsXMLFragmentContentSink::SetTargetDocument(Document* aTargetDocument) {
   NS_ENSURE_ARG_POINTER(aTargetDocument);
 
   mTargetDocument = aTargetDocument;

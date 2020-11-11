@@ -9,25 +9,25 @@
 
 #include "AudioChannelService.h"
 #include "AudioNode.h"
-#include "nsIAudioChannelAgent.h"
+#include "AudioChannelAgent.h"
 #include "mozilla/TimeStamp.h"
 
 namespace mozilla {
 namespace dom {
 
 class AudioContext;
+class WakeLock;
 
 class AudioDestinationNode final : public AudioNode,
                                    public nsIAudioChannelAgentCallback,
-                                   public MainThreadMediaStreamListener {
+                                   public MainThreadMediaTrackListener {
  public:
-  // This node type knows what MediaStreamGraph to use based on
+  // This node type knows what MediaTrackGraph to use based on
   // whether it's in offline mode.
   AudioDestinationNode(AudioContext* aContext, bool aIsOffline,
-                       bool aAllowedToStart, uint32_t aNumberOfChannels,
-                       uint32_t aLength);
+                       uint32_t aNumberOfChannels, uint32_t aLength);
 
-  void DestroyMediaStream() override;
+  void DestroyMediaTrack() override;
 
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(AudioDestinationNode, AudioNode)
@@ -41,8 +41,11 @@ class AudioDestinationNode final : public AudioNode,
   uint32_t MaxChannelCount() const;
   void SetChannelCount(uint32_t aChannelCount, ErrorResult& aRv) override;
 
-  // Returns the stream or null after unlink.
-  AudioNodeStream* Stream();
+  void Init();
+  void Close();
+
+  // Returns the track or null after unlink.
+  AudioNodeTrack* Track();
 
   void Mute();
   void Unmute();
@@ -54,18 +57,15 @@ class AudioDestinationNode final : public AudioNode,
 
   void OfflineShutdown();
 
-  void NotifyMainThreadStreamFinished() override;
+  void NotifyMainThreadTrackEnded() override;
   void FireOfflineCompletionEvent();
-
-  nsresult CreateAudioChannelAgent();
-  void DestroyAudioChannelAgent();
 
   const char* NodeType() const override { return "AudioDestinationNode"; }
 
   size_t SizeOfExcludingThis(MallocSizeOf aMallocSizeOf) const override;
   size_t SizeOfIncludingThis(MallocSizeOf aMallocSizeOf) const override;
 
-  void NotifyAudibleStateChanged(bool aAudible);
+  void NotifyDataAudibleStateChanged(bool aAudible);
   void ResolvePromise(AudioBuffer* aRenderedBuffer);
 
   unsigned long Length() {
@@ -73,23 +73,55 @@ class AudioDestinationNode final : public AudioNode,
     return mFramesToProduce;
   }
 
+  void NotifyAudioContextStateChanged();
+
  protected:
   virtual ~AudioDestinationNode();
 
  private:
+  // This would be created for non-offline audio context in order to receive
+  // tab's mute/suspend/audio capture state change and update the audible state
+  // to the tab.
+  void CreateAndStartAudioChannelAgent();
+  void DestroyAudioChannelAgentIfExists();
+  RefPtr<AudioChannelAgent> mAudioChannelAgent;
+
+  // These members are related to audio capturing. We would start capturing
+  // audio if we're starting capturing audio from whole window, and MUST stop
+  // capturing explicitly when we don't need to capture audio any more, because
+  // we have to release the resource we allocated before.
+  bool IsCapturingAudio() const;
+  void StartAudioCapturingTrack();
+  void StopAudioCapturingTrack();
+  RefPtr<MediaInputPort> mCaptureTrackPort;
+
+  // These members are used to determine if the destination node is actual
+  // audible and `mFinalAudibleState` represents the final result.
+  using AudibleChangedReasons = AudioChannelService::AudibleChangedReasons;
+  using AudibleState = AudioChannelService::AudibleState;
+  void UpdateFinalAudibleStateIfNeeded(AudibleChangedReasons aReason);
+  bool IsAudible() const;
+  bool mFinalAudibleState = false;
+  bool mIsDataAudible = false;
+  float mAudioChannelVolume = 1.0;
+
+  // True if the audio channel disables the track for unvisited tab, and the
+  // track will be enabled again when the tab gets first visited, or a user
+  // presses the tab play icon.
+  bool mAudioChannelDisabled = false;
+
+  // When the destination node is audible, we would request a wakelock to
+  // prevent computer from sleeping in order to keep audio playing.
+  void CreateAudioWakeLockIfNeeded();
+  void ReleaseAudioWakeLockIfExists();
+  RefPtr<WakeLock> mWakeLock;
+
   SelfReference<AudioDestinationNode> mOfflineRenderingRef;
   uint32_t mFramesToProduce;
-
-  nsCOMPtr<nsIAudioChannelAgent> mAudioChannelAgent;
-  RefPtr<MediaInputPort> mCaptureStreamPort;
 
   RefPtr<Promise> mOfflineRenderingPromise;
 
   bool mIsOffline;
-  bool mAudioChannelSuspended;
-
-  bool mCaptured;
-  AudioChannelService::AudibleState mAudible;
 
   // These varaibles are used to know how long AudioContext would become audible
   // since it was created.

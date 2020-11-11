@@ -6,11 +6,7 @@
 
 #include "nsArrayUtils.h"
 #include "nsIAsyncStreamCopier.h"
-#include "nsIInputStreamPump.h"
 #include "nsIMultiplexInputStream.h"
-#include "nsIMutableArray.h"
-#include "nsIOutputStream.h"
-#include "nsIPresentationControlChannel.h"
 #include "nsIScriptableInputStream.h"
 #include "nsISocketTransport.h"
 #include "nsISocketTransportService.h"
@@ -25,8 +21,8 @@
 
 #define BUFFER_SIZE 65536
 
-using namespace mozilla;
-using namespace mozilla::dom;
+namespace mozilla {
+namespace dom {
 
 class CopierCallbacks final : public nsIRequestObserver {
  public:
@@ -36,7 +32,7 @@ class CopierCallbacks final : public nsIRequestObserver {
   NS_DECL_ISUPPORTS
   NS_DECL_NSIREQUESTOBSERVER
  private:
-  ~CopierCallbacks() {}
+  ~CopierCallbacks() = default;
 
   RefPtr<PresentationTCPSessionTransport> mOwner;
 };
@@ -44,13 +40,10 @@ class CopierCallbacks final : public nsIRequestObserver {
 NS_IMPL_ISUPPORTS(CopierCallbacks, nsIRequestObserver)
 
 NS_IMETHODIMP
-CopierCallbacks::OnStartRequest(nsIRequest* aRequest, nsISupports* aContext) {
-  return NS_OK;
-}
+CopierCallbacks::OnStartRequest(nsIRequest* aRequest) { return NS_OK; }
 
 NS_IMETHODIMP
-CopierCallbacks::OnStopRequest(nsIRequest* aRequest, nsISupports* aContext,
-                               nsresult aStatus) {
+CopierCallbacks::OnStopRequest(nsIRequest* aRequest, nsresult aStatus) {
   mOwner->NotifyCopyComplete(aStatus);
   return NS_OK;
 }
@@ -79,7 +72,7 @@ PresentationTCPSessionTransport::PresentationTCPSessionTransport()
       mCloseStatus(NS_OK),
       mDataNotificationEnabled(false) {}
 
-PresentationTCPSessionTransport::~PresentationTCPSessionTransport() {}
+PresentationTCPSessionTransport::~PresentationTCPSessionTransport() = default;
 
 NS_IMETHODIMP
 PresentationTCPSessionTransport::BuildTCPSenderTransport(
@@ -168,8 +161,8 @@ PresentationTCPSessionTransport::BuildTCPReceiverTransport(
   if (NS_WARN_IF(!sts)) {
     return NS_ERROR_NOT_AVAILABLE;
   }
-  rv = sts->CreateTransport(nullptr, 0, serverHost, serverPort, nullptr,
-                            getter_AddRefs(mTransport));
+  rv = sts->CreateTransport(nsTArray<nsCString>(), serverHost, serverPort,
+                            nullptr, getter_AddRefs(mTransport));
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -251,7 +244,7 @@ nsresult PresentationTCPSessionTransport::CreateInputStreamPump() {
     return rv;
   }
 
-  rv = mInputStreamPump->AsyncRead(this, nullptr);
+  rv = mInputStreamPump->AsyncRead(this);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -503,15 +496,13 @@ PresentationTCPSessionTransport::OnInputStreamReady(
 
 // nsIRequestObserver
 NS_IMETHODIMP
-PresentationTCPSessionTransport::OnStartRequest(nsIRequest* aRequest,
-                                                nsISupports* aContext) {
+PresentationTCPSessionTransport::OnStartRequest(nsIRequest* aRequest) {
   // Do nothing.
   return NS_OK;
 }
 
 NS_IMETHODIMP
 PresentationTCPSessionTransport::OnStopRequest(nsIRequest* aRequest,
-                                               nsISupports* aContext,
                                                nsresult aStatusCode) {
   PRES_DEBUG("%s:aStatusCode[%" PRIx32 "]\n", __func__,
              static_cast<uint32_t>(aStatusCode));
@@ -539,7 +530,6 @@ PresentationTCPSessionTransport::OnStopRequest(nsIRequest* aRequest,
 // nsIStreamListener
 NS_IMETHODIMP
 PresentationTCPSessionTransport::OnDataAvailable(nsIRequest* aRequest,
-                                                 nsISupports* aContext,
                                                  nsIInputStream* aStream,
                                                  uint64_t aOffset,
                                                  uint32_t aCount) {
@@ -558,3 +548,6 @@ PresentationTCPSessionTransport::OnDataAvailable(nsIRequest* aRequest,
   // Pass the incoming data to the listener.
   return mCallback->NotifyData(data, false);
 }
+
+}  // namespace dom
+}  // namespace mozilla

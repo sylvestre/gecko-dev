@@ -7,7 +7,10 @@
 
 // A command in a menu.
 
-const { createRef, PureComponent } = require("devtools/client/shared/vendor/react");
+const {
+  createRef,
+  PureComponent,
+} = require("devtools/client/shared/vendor/react");
 const PropTypes = require("devtools/client/shared/vendor/react-prop-types");
 const dom = require("devtools/client/shared/vendor/react-dom-factories");
 const { button, li, span } = dom;
@@ -27,14 +30,8 @@ class MenuItem extends PureComponent {
       // a space-separated string.
       className: PropTypes.string,
 
-      // An optional ID to be assigned to the item.
-      id: PropTypes.string,
-
-      // The item label.
-      label: PropTypes.string.isRequired,
-
-      // An optional callback to be invoked when the item is selected.
-      onClick: PropTypes.func,
+      // A disabled state of the menu item.
+      disabled: PropTypes.bool,
 
       // URL of the icon to associate with the MenuItem. (Optional)
       //
@@ -45,7 +42,31 @@ class MenuItem extends PureComponent {
       // use, not simply the URL (e.g.
       // "url(chrome://devtools/skim/image/foo.svg)").
       icon: PropTypes.string,
+
+      // An optional ID to be assigned to the item.
+      id: PropTypes.string,
+
+      // The item label.
+      label: PropTypes.string.isRequired,
+
+      // An optional callback to be invoked when the item is selected.
+      onClick: PropTypes.func,
+
+      // Optional menu item role override. Use this property with a value
+      // "menuitemradio" if the menu item is a radio.
+      role: PropTypes.string,
+
+      // An optional text for the item tooltip.
+      tooltip: PropTypes.string,
     };
+  }
+
+  /**
+   * Use this as a fallback `icon` prop if your MenuList contains MenuItems
+   * with or without icon in order to keep all MenuItems aligned.
+   */
+  static get DUMMY_ICON() {
+    return "dummy-icon.svg";
   }
 
   constructor(props) {
@@ -82,7 +103,9 @@ class MenuItem extends PureComponent {
     }
 
     const win = this.labelRef.current.ownerDocument.defaultView;
-    win.cancelIdleCallback(this.preloadCallback);
+    if (win) {
+      win.cancelIdleCallback(this.preloadCallback);
+    }
     this.preloadCallback = null;
   }
 
@@ -108,13 +131,24 @@ class MenuItem extends PureComponent {
       attr.onClick = this.props.onClick;
     }
 
-    if (typeof this.props.checked !== "undefined") {
+    if (this.props.tooltip) {
+      attr.title = this.props.tooltip;
+    }
+
+    if (this.props.disabled) {
+      attr.disabled = this.props.disabled;
+    }
+
+    if (this.props.role) {
+      attr.role = this.props.role;
+    } else if (typeof this.props.checked !== "undefined") {
       attr.role = "menuitemcheckbox";
-      if (this.props.checked) {
-        attr["aria-checked"] = true;
-      }
     } else {
       attr.role = "menuitem";
+    }
+
+    if (this.props.checked) {
+      attr["aria-checked"] = true;
     }
 
     const textLabel = span(
@@ -132,7 +166,10 @@ class MenuItem extends PureComponent {
     }
 
     return li(
-      { className: "menuitem", role: "presentation" },
+      {
+        className: "menuitem",
+        role: "presentation",
+      },
       button(attr, children)
     );
   }

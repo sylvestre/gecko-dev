@@ -8,6 +8,7 @@ include('/js/app.mozbuild')
 
 PYTHON_UNITTEST_MANIFESTS += [
     '/layout/tools/reftest/selftest/python.ini',
+    '/testing/condprofile/condprof/tests/python.ini',
     '/testing/marionette/harness/marionette_harness/tests/harness_unit/python.ini',
     '/testing/mochitest/tests/python/python.ini',
     '/testing/raptor/test/python.ini',
@@ -73,10 +74,8 @@ if CONFIG['MOZ_UPDATER'] and CONFIG['OS_TARGET'] != 'Android':
 
 DIRS += [
     '/ipc',
-    '/js/ipc',
     '/hal',
     '/js/xpconnect',
-    '/intl/chardet',
     '/modules/libjar',
     '/storage',
 ]
@@ -87,14 +86,13 @@ if CONFIG['COMPILE_ENVIRONMENT']:
     ]
 
 DIRS += [
-    '/extensions/cookie',
     '/extensions/permissions',
 ]
 
 if CONFIG['MOZ_WEBRTC'] and CONFIG['COMPILE_ENVIRONMENT']:
     DIRS += [
         '/media/webrtc',
-        '/media/mtransport',
+        '/dom/media/webrtc/transport',
     ]
 
 if CONFIG['ENABLE_TESTS']:
@@ -132,6 +130,7 @@ if CONFIG['MOZ_JPROF']:
 
 DIRS += [
     '/tools/code-coverage',
+    '/tools/performance',
     '/tools/power',
     '/tools/profiler',
 ]
@@ -156,19 +155,22 @@ DIRS += [
     '/other-licenses/snappy',
 ]
 
-if 'gtk' in CONFIG['MOZ_WIDGET_TOOLKIT']:
+if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gtk':
     DIRS += [
         '/toolkit/system/gnome',
-        '/widget/xremoteclient',
     ]
+
+if CONFIG['ENABLE_REMOTE_AGENT']:
+    DIRS += ['/remote']
 
 if CONFIG['ENABLE_MARIONETTE']:
     DIRS += [
         '/testing/firefox-ui',
         '/testing/marionette',
+        '/toolkit/components/telemetry/tests/marionette',
     ]
 
-if CONFIG['ENABLE_GECKODRIVER'] and not CONFIG['MOZ_TSAN']:
+if CONFIG['ENABLE_GECKODRIVER'] and not CONFIG['MOZ_TSAN'] and not CONFIG['FUZZING_INTERFACES']:
     DIRS += ['/testing/geckodriver']
 
 DIRS += [
@@ -186,18 +188,15 @@ if CONFIG['ENABLE_TESTS']:
         '/testing/modules',
         '/testing/runtimes',
         '/testing/web-platform',
+        '/testing/extensions',
     ]
-
-    # The file id utility requires breakpad libraries.
-    if CONFIG['MOZ_CRASHREPORTER']:
-        DIRS += ['/testing/tools/fileid']
 
     if CONFIG['MOZ_MEMORY']:
         DIRS += ['/memory/gtest']
 
     if CONFIG['MOZ_WEBRTC'] and not CONFIG['MOZ_TASK_TRACER']:
         DIRS += [
-            '/media/mtransport/test',
+            '/dom/media/webrtc/transport/test',
         ]
 
 if CONFIG['FUZZING']:

@@ -8,8 +8,6 @@
 #include "mozilla/MediaDrmCDMProxy.h"
 #include "MediaDrmCDMCallbackProxy.h"
 
-using namespace mozilla::java::sdk;
-
 namespace mozilla {
 
 MediaDrmSessionType ToMediaDrmSessionType(
@@ -27,10 +25,9 @@ MediaDrmSessionType ToMediaDrmSessionType(
 MediaDrmCDMProxy::MediaDrmCDMProxy(dom::MediaKeys* aKeys,
                                    const nsAString& aKeySystem,
                                    bool aDistinctiveIdentifierRequired,
-                                   bool aPersistentStateRequired,
-                                   nsIEventTarget* aMainThread)
+                                   bool aPersistentStateRequired)
     : CDMProxy(aKeys, aKeySystem, aDistinctiveIdentifierRequired,
-               aPersistentStateRequired, aMainThread),
+               aPersistentStateRequired),
       mCDM(nullptr),
       mShutdownCalled(false) {
   MOZ_ASSERT(NS_IsMainThread());
@@ -55,9 +52,9 @@ void MediaDrmCDMProxy::Init(PromiseId aPromiseId, const nsAString& aOrigin,
     nsresult rv =
         NS_NewNamedThread("MDCDMThread", getter_AddRefs(mOwnerThread));
     if (NS_FAILED(rv)) {
-      RejectPromise(aPromiseId, NS_ERROR_DOM_INVALID_STATE_ERR,
-                    NS_LITERAL_CSTRING(
-                        "Couldn't create CDM thread MediaDrmCDMProxy::Init"));
+      RejectPromiseWithStateError(
+          aPromiseId, nsLiteralCString(
+                          "Couldn't create CDM thread MediaDrmCDMProxy::Init"));
       return;
     }
   }
@@ -94,9 +91,8 @@ void MediaDrmCDMProxy::LoadSession(PromiseId aPromiseId,
                                    dom::MediaKeySessionType aSessionType,
                                    const nsAString& aSessionId) {
   // TODO: Implement LoadSession.
-  RejectPromise(
-      aPromiseId, NS_ERROR_DOM_INVALID_STATE_ERR,
-      NS_LITERAL_CSTRING("Currently Fennec does not support LoadSession"));
+  RejectPromiseWithStateError(
+      aPromiseId, "Currently Fennec does not support LoadSession"_ns);
 }
 
 void MediaDrmCDMProxy::SetServerCertificate(PromiseId aPromiseId,
@@ -148,9 +144,8 @@ void MediaDrmCDMProxy::CloseSession(const nsAString& aSessionId,
 void MediaDrmCDMProxy::RemoveSession(const nsAString& aSessionId,
                                      PromiseId aPromiseId) {
   // TODO: Implement RemoveSession.
-  RejectPromise(
-      aPromiseId, NS_ERROR_DOM_INVALID_STATE_ERR,
-      NS_LITERAL_CSTRING("Currently Fennec does not support RemoveSession"));
+  RejectPromiseWithStateError(
+      aPromiseId, "Currently Fennec does not support RemoveSession"_ns);
 }
 
 void MediaDrmCDMProxy::Shutdown() {
@@ -244,10 +239,10 @@ void MediaDrmCDMProxy::OnSessionError(const nsAString& aSessionId,
 }
 
 void MediaDrmCDMProxy::OnRejectPromise(uint32_t aPromiseId,
-                                       nsresult aDOMException,
+                                       ErrorResult&& aException,
                                        const nsCString& aMsg) {
   MOZ_ASSERT(NS_IsMainThread());
-  RejectPromise(aPromiseId, aDOMException, aMsg);
+  RejectPromise(aPromiseId, std::move(aException), aMsg);
 }
 
 RefPtr<DecryptPromise> MediaDrmCDMProxy::Decrypt(MediaRawData* aSample) {
@@ -260,17 +255,24 @@ void MediaDrmCDMProxy::OnDecrypted(uint32_t aId, DecryptStatus aResult,
   MOZ_ASSERT_UNREACHABLE("Fennec could not handle decrypted event");
 }
 
-void MediaDrmCDMProxy::RejectPromise(PromiseId aId, nsresult aCode,
+void MediaDrmCDMProxy::RejectPromise(PromiseId aId, ErrorResult&& aException,
                                      const nsCString& aReason) {
   if (NS_IsMainThread()) {
     if (!mKeys.IsNull()) {
-      mKeys->RejectPromise(aId, aCode, aReason);
+      mKeys->RejectPromise(aId, std::move(aException), aReason);
     }
   } else {
     nsCOMPtr<nsIRunnable> task(
-        new RejectPromiseTask(this, aId, aCode, aReason));
+        new RejectPromiseTask(this, aId, std::move(aException), aReason));
     mMainThread->Dispatch(task.forget(), NS_DISPATCH_NORMAL);
   }
+}
+
+void MediaDrmCDMProxy::RejectPromiseWithStateError(PromiseId aId,
+                                                   const nsCString& aReason) {
+  ErrorResult rv;
+  rv.ThrowInvalidStateError(aReason);
+  RejectPromise(aId, std::move(rv), aReason);
 }
 
 void MediaDrmCDMProxy::ResolvePromise(PromiseId aId) {
@@ -326,9 +328,12 @@ void MediaDrmCDMProxy::OnKeyStatusesChange(const nsAString& aSessionId) {
 void MediaDrmCDMProxy::GetStatusForPolicy(PromiseId aPromiseId,
                                           const nsAString& aMinHdcpVersion) {
   // TODO: Implement GetStatusForPolicy.
-  RejectPromise(aPromiseId, NS_ERROR_DOM_NOT_SUPPORTED_ERR,
-                NS_LITERAL_CSTRING(
-                    "Currently Fennec does not support GetStatusForPolicy"));
+  constexpr auto err =
+      "Currently Fennec does not support GetStatusForPolicy"_ns;
+
+  ErrorResult rv;
+  rv.ThrowNotSupportedError(err);
+  RejectPromise(aPromiseId, std::move(rv), err);
 }
 
 #ifdef DEBUG
@@ -354,8 +359,10 @@ void MediaDrmCDMProxy::OnCDMCreated(uint32_t aPromiseId) {
   }
 
   // No CDM? Just reject the promise.
-  mKeys->RejectPromise(aPromiseId, NS_ERROR_DOM_INVALID_STATE_ERR,
-                       NS_LITERAL_CSTRING("Null CDM in OnCDMCreated()"));
+  constexpr auto err = "Null CDM in OnCDMCreated()"_ns;
+  ErrorResult rv;
+  rv.ThrowInvalidStateError(err);
+  mKeys->RejectPromise(aPromiseId, std::move(rv), err);
 }
 
 void MediaDrmCDMProxy::md_Init(uint32_t aPromiseId) {
@@ -374,8 +381,8 @@ void MediaDrmCDMProxy::md_CreateSession(UniquePtr<CreateSessionData>&& aData) {
   MOZ_ASSERT(IsOnOwnerThread());
 
   if (!mCDM) {
-    RejectPromise(aData->mPromiseId, NS_ERROR_DOM_INVALID_STATE_ERR,
-                  NS_LITERAL_CSTRING("Null CDM in md_CreateSession"));
+    RejectPromiseWithStateError(aData->mPromiseId,
+                                "Null CDM in md_CreateSession"_ns);
     return;
   }
 
@@ -389,17 +396,16 @@ void MediaDrmCDMProxy::md_SetServerCertificate(PromiseId aPromiseId,
   MOZ_ASSERT(IsOnOwnerThread());
 
   if (!mCDM) {
-    RejectPromise(aPromiseId, NS_ERROR_DOM_INVALID_STATE_ERR,
-                  NS_LITERAL_CSTRING("Null CDM in md_SetServerCertificate"));
+    RejectPromiseWithStateError(aPromiseId,
+                                "Null CDM in md_SetServerCertificate"_ns);
     return;
   }
 
   if (mCDM->SetServerCertificate(aCert)) {
     ResolvePromiseWithResult(aPromiseId, true);
   } else {
-    RejectPromise(aPromiseId, NS_ERROR_DOM_INVALID_STATE_ERR,
-                  NS_LITERAL_CSTRING(
-                      "MediaDrmCDMProxy unable to set server certificate"));
+    RejectPromiseWithStateError(
+        aPromiseId, "MediaDrmCDMProxy unable to set server certificate"_ns);
   }
 }
 
@@ -407,8 +413,8 @@ void MediaDrmCDMProxy::md_UpdateSession(UniquePtr<UpdateSessionData>&& aData) {
   MOZ_ASSERT(IsOnOwnerThread());
 
   if (!mCDM) {
-    RejectPromise(aData->mPromiseId, NS_ERROR_DOM_INVALID_STATE_ERR,
-                  NS_LITERAL_CSTRING("Null CDM in md_UpdateSession"));
+    RejectPromiseWithStateError(aData->mPromiseId,
+                                "Null CDM in md_UpdateSession"_ns);
     return;
   }
   mCDM->UpdateSession(aData->mPromiseId, aData->mSessionId, aData->mResponse);
@@ -418,8 +424,8 @@ void MediaDrmCDMProxy::md_CloseSession(UniquePtr<SessionOpData>&& aData) {
   MOZ_ASSERT(IsOnOwnerThread());
 
   if (!mCDM) {
-    RejectPromise(aData->mPromiseId, NS_ERROR_DOM_INVALID_STATE_ERR,
-                  NS_LITERAL_CSTRING("Null CDM in md_CloseSession"));
+    RejectPromiseWithStateError(aData->mPromiseId,
+                                "Null CDM in md_CloseSession"_ns);
     return;
   }
   mCDM->CloseSession(aData->mPromiseId, aData->mSessionId);

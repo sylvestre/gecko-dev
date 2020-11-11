@@ -5,14 +5,15 @@
  * found in the LICENSE file.
  */
 
-#include "GrSWMaskHelper.h"
+#include "src/gpu/GrSWMaskHelper.h"
 
-#include "GrContext.h"
-#include "GrContextPriv.h"
-#include "GrProxyProvider.h"
-#include "GrShape.h"
-#include "GrSurfaceContext.h"
-#include "GrTextureProxy.h"
+#include "include/private/GrRecordingContext.h"
+#include "src/gpu/GrCaps.h"
+#include "src/gpu/GrProxyProvider.h"
+#include "src/gpu/GrRecordingContextPriv.h"
+#include "src/gpu/GrSurfaceContext.h"
+#include "src/gpu/GrTextureProxy.h"
+#include "src/gpu/geometry/GrShape.h"
 
 /*
  * Convert a boolean operation into a transfer mode code
@@ -85,14 +86,14 @@ bool GrSWMaskHelper::init(const SkIRect& resultBounds) {
     }
     fPixels->erase(0);
 
-    sk_bzero(&fDraw, sizeof(fDraw));
     fDraw.fDst      = *fPixels;
     fRasterClip.setRect(bounds);
     fDraw.fRC       = &fRasterClip;
     return true;
 }
 
-sk_sp<GrTextureProxy> GrSWMaskHelper::toTextureProxy(GrContext* context, SkBackingFit fit) {
+sk_sp<GrTextureProxy> GrSWMaskHelper::toTextureProxy(GrRecordingContext* context,
+                                                     SkBackingFit fit) {
     SkImageInfo ii = SkImageInfo::MakeA8(fPixels->width(), fPixels->height());
     size_t rowBytes = fPixels->rowBytes();
 
@@ -106,15 +107,6 @@ sk_sp<GrTextureProxy> GrSWMaskHelper::toTextureProxy(GrContext* context, SkBacki
         return nullptr;
     }
 
-    // TODO: http://skbug.com/8422: Although this fixes http://skbug.com/8351, it seems like these
-    // should just participate in the normal allocation process and not need the pending IO flag.
-    auto surfaceFlags = GrInternalSurfaceFlags::kNone;
-    if (!context->contextPriv().resourceProvider()) {
-        // In DDL mode, this texture proxy will be instantiated at flush time, therfore it cannot
-        // have pending IO.
-        surfaceFlags |= GrInternalSurfaceFlags::kNoPendingIO;
-    }
-
-    return context->contextPriv().proxyProvider()->createTextureProxy(
-            std::move(img), kNone_GrSurfaceFlags, 1, SkBudgeted::kYes, fit, surfaceFlags);
+    return context->priv().proxyProvider()->createTextureProxy(std::move(img), 1, SkBudgeted::kYes,
+                                                               fit);
 }

@@ -12,6 +12,10 @@
 #include "nsCellMap.h"
 #include "nsTableFrame.h"
 
+namespace mozilla {
+class PresShell;
+}  // namespace mozilla
+
 /**
  * Primary frame for a table element,
  * the nsTableWrapperFrame contains 0 or one caption frame, and a nsTableFrame
@@ -27,8 +31,8 @@ class nsTableWrapperFrame : public nsContainerFrame {
    *
    * @return           the frame that was created
    */
-  friend nsTableWrapperFrame* NS_NewTableWrapperFrame(nsIPresShell* aPresShell,
-                                                      ComputedStyle* aStyle);
+  friend nsTableWrapperFrame* NS_NewTableWrapperFrame(
+      mozilla::PresShell* aPresShell, ComputedStyle* aStyle);
 
   // nsIFrame overrides - see there for a description
 
@@ -43,6 +47,7 @@ class nsTableWrapperFrame : public nsContainerFrame {
   virtual void AppendFrames(ChildListID aListID,
                             nsFrameList& aFrameList) override;
   virtual void InsertFrames(ChildListID aListID, nsIFrame* aPrevFrame,
+                            const nsLineList::iterator* aPrevFrameLine,
                             nsFrameList& aFrameList) override;
   virtual void RemoveFrame(ChildListID aListID, nsIFrame* aOldFrame) override;
 
@@ -66,11 +71,14 @@ class nsTableWrapperFrame : public nsContainerFrame {
   bool GetNaturalBaselineBOffset(mozilla::WritingMode aWM,
                                  BaselineSharingGroup aBaselineGroup,
                                  nscoord* aBaseline) const override {
+    if (StyleDisplay()->IsContainLayout()) {
+      return false;
+    }
     auto innerTable = InnerTableFrame();
     nscoord offset;
     if (innerTable->GetNaturalBaselineBOffset(aWM, aBaselineGroup, &offset)) {
       auto bStart = innerTable->BStart(aWM, mRect.Size());
-      if (aBaselineGroup == BaselineSharingGroup::eFirst) {
+      if (aBaselineGroup == BaselineSharingGroup::First) {
         *aBaseline = offset + bStart;
       } else {
         auto bEnd = bStart + innerTable->BSize(aWM);
@@ -87,8 +95,9 @@ class nsTableWrapperFrame : public nsContainerFrame {
   virtual mozilla::LogicalSize ComputeAutoSize(
       gfxContext* aRenderingContext, mozilla::WritingMode aWM,
       const mozilla::LogicalSize& aCBSize, nscoord aAvailableISize,
-      const mozilla::LogicalSize& aMargin, const mozilla::LogicalSize& aBorder,
-      const mozilla::LogicalSize& aPadding, ComputeSizeFlags aFlags) override;
+      const mozilla::LogicalSize& aMargin,
+      const mozilla::LogicalSize& aBorderPadding,
+      mozilla::ComputeSizeFlags aFlags) override;
 
   /** process a reflow command for the table.
    * This involves reflowing the caption and the inner table.
@@ -176,7 +185,9 @@ class nsTableWrapperFrame : public nsContainerFrame {
                                       mozilla::LogicalSize);
 
  protected:
-  explicit nsTableWrapperFrame(ComputedStyle* aStyle, ClassID aID = kClassID);
+  explicit nsTableWrapperFrame(ComputedStyle* aStyle,
+                               nsPresContext* aPresContext,
+                               ClassID aID = kClassID);
   virtual ~nsTableWrapperFrame();
 
   void InitChildReflowInput(nsPresContext& aPresContext,
@@ -194,7 +205,7 @@ class nsTableWrapperFrame : public nsContainerFrame {
            captionSide == NS_STYLE_CAPTION_SIDE_RIGHT;
   }
 
-  uint8_t GetCaptionVerticalAlign();
+  mozilla::StyleVerticalAlignKeyword GetCaptionVerticalAlign() const;
 
   void SetDesiredSize(uint8_t aCaptionSide,
                       const mozilla::LogicalSize& aInnerSize,

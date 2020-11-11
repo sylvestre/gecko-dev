@@ -15,7 +15,7 @@
 #include <string.h>
 
 #ifndef MOZILLA_INTERNAL_API
-#error "MOZILLA_INTERNAL_API must be defined"
+#  error "MOZILLA_INTERNAL_API must be defined"
 #endif
 
 // core headers required by pretty much everything else
@@ -34,7 +34,6 @@
 #include "nsISupports.h"
 
 #include "nsTArray.h"
-#include "nsTWeakRef.h"
 
 #include "nsCOMPtr.h"
 #include "nsCOMArray.h"
@@ -74,18 +73,15 @@
 #include "nsIException.h"
 #include "nsIFactory.h"
 #include "nsIFile.h"
-#include "nsIHashable.h"
 #include "nsIINIParser.h"
 #include "nsIInputStream.h"
 #include "nsIInterfaceRequestor.h"
 #include "nsILineInputStream.h"
-#include "nsIMutable.h"
 #include "nsIObserver.h"
 #include "nsIObserverService.h"
 #include "nsIOutputStream.h"
 #include "nsIProcess.h"
 #include "nsIProperties.h"
-#include "nsIPropertyBag2.h"
 #include "nsIRunnable.h"
 #include "nsISeekableStream.h"
 #include "nsISerializable.h"
@@ -132,8 +128,8 @@
 #include "nsIPipe.h"
 
 #ifdef MOZ_WIDGET_COCOA
-#include "nsILocalFileMac.h"
-#include "nsIMacUtils.h"
+#  include "nsILocalFileMac.h"
+#  include "nsIMacUtils.h"
 #endif
 
 // xpcom/glue utility headers
@@ -162,7 +158,6 @@
 
 // xpcom/base utility headers
 
-#include "nsAgg.h"
 #include "nsAutoRef.h"
 #include "nsInterfaceRequestorAgg.h"
 

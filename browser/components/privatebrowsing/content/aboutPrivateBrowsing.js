@@ -4,34 +4,138 @@
 
 /* eslint-env mozilla/frame-script */
 
-const TP_PB_ENABLED_PREF = "privacy.trackingprotection.pbmode.enabled";
-
 document.addEventListener("DOMContentLoaded", function() {
   if (!RPMIsWindowPrivate()) {
     document.documentElement.classList.remove("private");
     document.documentElement.classList.add("normal");
-    document.getElementById("startPrivateBrowsing").addEventListener("click", function() {
-      RPMSendAsyncMessage("OpenPrivateWindow");
-    });
+    document
+      .getElementById("startPrivateBrowsing")
+      .addEventListener("click", function() {
+        RPMSendAsyncMessage("OpenPrivateWindow");
+      });
     return;
   }
 
-  document.getElementById("startTour").addEventListener("click", function() {
-    RPMSendAsyncMessage("DontShowIntroPanelAgain");
+  // Setup the private browsing myths link.
+  document
+    .getElementById("private-browsing-myths")
+    .setAttribute(
+      "href",
+      RPMGetFormatURLPref("app.support.baseURL") + "private-browsing-myths"
+    );
+
+  // Setup the private browsing VPN link.
+  const vpnPromoUrl = RPMGetFormatURLPref(
+    "browser.privatebrowsing.vpnpromourl"
+  );
+  if (vpnPromoUrl) {
+    document
+      .getElementById("private-browsing-vpn-link")
+      .setAttribute("href", vpnPromoUrl);
+  } else {
+    // If the link is undefined, remove the promo completely
+    document.querySelectorAll(".vpn-promo").forEach(vpnEl => vpnEl.remove());
+  }
+
+  // Check ShouldShowVPNPromo
+  RPMSendQuery("ShouldShowVPNPromo", {}).then(shouldShow => {
+    if (!shouldShow) {
+      document.querySelectorAll(".vpn-promo").forEach(vpnEl => vpnEl.remove());
+    }
   });
 
-  let introURL = RPMGetFormatURLPref("privacy.trackingprotection.introURL");
-  // Variation 1 is specific to the Content Blocking UI.
-  let variation = "?variation=1";
+  // Set up the private search banner.
+  const privateSearchBanner = document.getElementById("search-banner");
 
-  document.getElementById("startTour").setAttribute("href", introURL + variation);
+  RPMSendQuery("ShouldShowSearchBanner", {}).then(engineName => {
+    if (engineName) {
+      document.l10n.setAttributes(
+        document.getElementById("about-private-browsing-search-banner-title"),
+        "about-private-browsing-search-banner-title",
+        { engineName }
+      );
+      privateSearchBanner.removeAttribute("hidden");
+      document.body.classList.add("showBanner");
+    }
 
-  document.getElementById("learnMore").setAttribute("href",
-    RPMGetFormatURLPref("app.support.baseURL") + "private-browsing");
+    // We set this attribute so that tests know when we are done.
+    document.documentElement.setAttribute("SearchBannerInitialized", true);
+  });
 
-  let tpEnabled = RPMGetBoolPref(TP_PB_ENABLED_PREF);
-  if (!tpEnabled) {
-    document.getElementById("tpSubHeader").remove();
-    document.getElementById("tpSection").remove();
+  function hideSearchBanner() {
+    privateSearchBanner.setAttribute("hidden", "true");
+    document.body.classList.remove("showBanner");
+    RPMSendAsyncMessage("SearchBannerDismissed");
   }
+
+  document
+    .getElementById("search-banner-close-button")
+    .addEventListener("click", () => {
+      hideSearchBanner();
+    });
+
+  let openSearchOptions = document.getElementById(
+    "about-private-browsing-search-banner-description"
+  );
+  let openSearchOptionsEvtHandler = evt => {
+    if (
+      evt.target.id == "open-search-options-link" &&
+      (evt.keyCode == evt.DOM_VK_RETURN || evt.type == "click")
+    ) {
+      RPMSendAsyncMessage("OpenSearchPreferences");
+      hideSearchBanner();
+    }
+  };
+  openSearchOptions.addEventListener("click", openSearchOptionsEvtHandler);
+  openSearchOptions.addEventListener("keypress", openSearchOptionsEvtHandler);
+
+  // Setup the search hand-off box.
+  let btn = document.getElementById("search-handoff-button");
+  let editable = document.getElementById("fake-editable");
+  let HIDE_SEARCH_TOPIC = "HideSearch";
+  let SHOW_SEARCH_TOPIC = "ShowSearch";
+  let SEARCH_HANDOFF_TOPIC = "SearchHandoff";
+
+  function showSearch() {
+    btn.classList.remove("focused");
+    btn.classList.remove("hidden");
+    RPMRemoveMessageListener(SHOW_SEARCH_TOPIC, showSearch);
+  }
+
+  function hideSearch() {
+    btn.classList.add("hidden");
+  }
+
+  function handoffSearch(text) {
+    RPMSendAsyncMessage(SEARCH_HANDOFF_TOPIC, { text });
+    RPMAddMessageListener(SHOW_SEARCH_TOPIC, showSearch);
+    if (text) {
+      hideSearch();
+    } else {
+      btn.classList.add("focused");
+      RPMAddMessageListener(HIDE_SEARCH_TOPIC, hideSearch);
+    }
+  }
+  btn.addEventListener("focus", function() {
+    handoffSearch();
+  });
+  btn.addEventListener("click", function() {
+    handoffSearch();
+  });
+
+  // Hand-off any text that gets dropped or pasted
+  editable.addEventListener("drop", function(ev) {
+    ev.preventDefault();
+    let text = ev.dataTransfer.getData("text");
+    if (text) {
+      handoffSearch(text);
+    }
+  });
+  editable.addEventListener("paste", function(ev) {
+    ev.preventDefault();
+    handoffSearch(ev.clipboardData.getData("Text"));
+  });
+
+  // Load contentSearchUI so it sets the search engine icon for us.
+  new window.ContentSearchHandoffUIController();
 });

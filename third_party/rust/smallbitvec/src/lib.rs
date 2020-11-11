@@ -28,13 +28,19 @@
 //! assert_eq!(v[1], false);
 //! ```
 
-use std::cmp::max;
-use std::fmt;
-use std::hash;
-use std::iter::{DoubleEndedIterator, ExactSizeIterator, FromIterator};
-use std::mem::{forget, replace, size_of};
-use std::ops::{Index, Range};
-use std::slice;
+#![no_std]
+
+extern crate alloc;
+
+use alloc::{vec, vec::Vec, boxed::Box};
+
+use core::cmp::max;
+use core::fmt;
+use core::hash;
+use core::iter::{DoubleEndedIterator, ExactSizeIterator, FromIterator};
+use core::mem::{forget, replace, size_of};
+use core::ops::{Index, Range};
+use core::slice;
 
 /// Creates a [`SmallBitVec`] containing the arguments.
 ///
@@ -78,6 +84,18 @@ macro_rules! sbvec {
     );
 }
 
+
+// FIXME: replace this with `debug_assert!` when it’s usable in `const`:
+// * https://github.com/rust-lang/rust/issues/49146
+// * https://github.com/rust-lang/rust/issues/51999
+macro_rules! const_debug_assert_le {
+    ($left: ident <= $right: expr) =>  {
+        #[cfg(debug_assertions)]
+        // Causes an `index out of bounds` panic if `$left` is too large
+        [(); $right + 1][$left];
+    }
+}
+
 #[cfg(test)]
 mod tests;
 
@@ -91,7 +109,7 @@ pub struct SmallBitVec {
 
 /// Total number of bits per word.
 #[inline(always)]
-fn inline_bits() -> usize {
+const fn inline_bits() -> usize {
     size_of::<usize>() * 8
 }
 
@@ -100,21 +118,21 @@ fn inline_bits() -> usize {
 /// - The rightmost bit is set to zero to signal an inline vector.
 /// - The position of the rightmost nonzero bit encodes the length.
 #[inline(always)]
-fn inline_capacity() -> usize {
+const fn inline_capacity() -> usize {
     inline_bits() - 2
 }
 
 /// Left shift amount to access the nth bit
 #[inline(always)]
-fn inline_shift(n: usize) -> usize {
-    debug_assert!(n <= inline_capacity());
+const fn inline_shift(n: usize) -> usize {
+    const_debug_assert_le!(n <= inline_capacity());
     // The storage starts at the leftmost bit.
     inline_bits() - 1 - n
 }
 
 /// An inline vector with the nth bit set.
 #[inline(always)]
-fn inline_index(n: usize) -> usize {
+const fn inline_index(n: usize) -> usize {
     1 << inline_shift(n)
 }
 
@@ -186,10 +204,22 @@ fn buffer_len(cap: usize) -> usize {
     (cap + bits_per_storage() - 1) / bits_per_storage()
 }
 
+/// A typed representation of a `SmallBitVec`'s internal storage.
+///
+/// The layout of the data inside both enum variants is a private implementation detail.
+pub enum InternalStorage {
+    /// The internal representation of a `SmallBitVec` that has not spilled to a
+    /// heap allocation.
+    Inline(usize),
+
+    /// The contents of the heap allocation of a spilled `SmallBitVec`.
+    Spilled(Box<[usize]>),
+}
+
 impl SmallBitVec {
     /// Create an empty vector.
     #[inline]
-    pub fn new() -> SmallBitVec {
+    pub const fn new() -> SmallBitVec {
         SmallBitVec {
             data: inline_index(0),
         }
@@ -265,6 +295,12 @@ impl SmallBitVec {
         } else {
             None
         }
+    }
+
+    /// Get the last bit in this bit vector.
+    #[inline]
+    pub fn last(&self) -> Option<bool> {
+        self.len().checked_sub(1).map(|n| unsafe { self.get_unchecked(n) })
     }
 
     /// Get the nth bit in this bit vector, without bounds checks.
@@ -345,15 +381,11 @@ impl SmallBitVec {
     /// ```
     #[inline]
     pub fn pop(&mut self) -> Option<bool> {
-        let old_len = self.len();
-        if old_len == 0 {
-            return None;
-        }
-        unsafe {
-            let val = self.get_unchecked(old_len - 1);
-            self.set_len(old_len - 1);
-            Some(val)
-        }
+        self.len().checked_sub(1).map(|last| unsafe {
+            let val = self.get_unchecked(last);
+            self.set_len(last);
+            val
+        })
     }
 
     /// Remove and return the bit at index `idx`, shifting all later bits toward the front.
@@ -468,6 +500,8 @@ impl SmallBitVec {
     }
 
     /// Returns true if all the bits in the vec are set to zero/false.
+    ///
+    /// On an empty vector, returns true.
     #[inline]
     pub fn all_false(&self) -> bool {
         let mut len = self.len();
@@ -498,6 +532,8 @@ impl SmallBitVec {
     }
 
     /// Returns true if all the bits in the vec are set to one/true.
+    ///
+    /// On an empty vector, returns true.
     #[inline]
     pub fn all_true(&self) -> bool {
         let mut len = self.len();
@@ -524,6 +560,42 @@ impl SmallBitVec {
                 }
             }
             true
+        }
+    }
+
+    /// Shorten the vector, keeping the first `len` elements and dropping the rest.
+    ///
+    /// If `len` is greater than or equal to the vector's current length, this has no
+    /// effect.
+    ///
+    /// This does not re-allocate.
+    pub fn truncate(&mut self, len: usize) {
+        unsafe {
+            if len < self.len() {
+                self.set_len(len);
+            }
+        }
+    }
+
+    /// Resizes the vector so that its length is equal to `len`.
+    ///
+    /// If `len` is less than the current length, the vector simply truncated.
+    ///
+    /// If `len` is greater than the current length, `value` is appended to the
+    /// vector until its length equals `len`.
+    pub fn resize(&mut self, len: usize, value: bool) {
+        let old_len = self.len();
+
+        if len > old_len {
+            unsafe {
+                self.reallocate(len);
+                self.set_len(len);
+                for i in old_len..len {
+                    self.set(i, value);
+                }
+            }
+        } else {
+            self.truncate(len);
         }
     }
 
@@ -572,6 +644,66 @@ impl SmallBitVec {
             Some((self.data & !HEAP_FLAG) as *const Storage)
         } else {
             None
+        }
+    }
+
+    /// Converts this `SmallBitVec` into its internal representation.
+    ///
+    /// The layout of the data inside both enum variants is a private implementation detail.
+    #[inline]
+    pub fn into_storage(self) -> InternalStorage {
+        if self.is_heap() {
+            let alloc_len = header_len() + self.header().buffer_len;
+            let ptr = self.header_raw() as *mut Storage;
+            let slice = unsafe { Box::from_raw(slice::from_raw_parts_mut(ptr, alloc_len)) };
+            forget(self);
+            InternalStorage::Spilled(slice)
+        } else {
+            InternalStorage::Inline(self.data)
+        }
+    }
+
+    /// Creates a `SmallBitVec` directly from the internal storage of another
+    /// `SmallBitVec`.
+    ///
+    /// # Safety
+    ///
+    /// This is highly unsafe.  `storage` needs to have been previously generated
+    /// via `SmallBitVec::into_storage` (at least, it's highly likely to be
+    /// incorrect if it wasn't.)  Violating this may cause problems like corrupting the
+    /// allocator's internal data structures.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use smallbitvec::{InternalStorage, SmallBitVec};
+    ///
+    /// fn main() {
+    ///     let v = SmallBitVec::from_elem(200, false);
+    ///
+    ///     // Get the internal representation of the SmallBitVec.
+    ///     // unless we transfer its ownership somewhere else.
+    ///     let storage = v.into_storage();
+    ///
+    ///     /// Make a copy of the SmallBitVec's data.
+    ///     let cloned_storage = match storage {
+    ///         InternalStorage::Spilled(vs) => InternalStorage::Spilled(vs.clone()),
+    ///         inline => inline,
+    ///     };
+    ///
+    ///     /// Create a new SmallBitVec from the coped storage.
+    ///     let v = unsafe { SmallBitVec::from_storage(cloned_storage) };
+    /// }
+    /// ```
+    pub unsafe fn from_storage(storage: InternalStorage) -> SmallBitVec {
+        match storage {
+            InternalStorage::Inline(data) => SmallBitVec { data },
+            InternalStorage::Spilled(vs) => {
+                let ptr = Box::into_raw(vs);
+                SmallBitVec {
+                    data: (ptr as *mut usize as usize) | HEAP_FLAG,
+                }
+            }
         }
     }
 
@@ -639,6 +771,7 @@ impl fmt::Debug for SmallBitVec {
 }
 
 impl Default for SmallBitVec {
+    #[inline]
     fn default() -> Self {
         Self::new()
     }
@@ -833,6 +966,17 @@ impl ExactSizeIterator for IntoIter {}
 pub struct Iter<'a> {
     vec: &'a SmallBitVec,
     range: Range<usize>,
+}
+
+impl<'a> Default for Iter<'a> {
+    #[inline]
+    fn default() -> Self {
+        const EMPTY: &'static SmallBitVec = &SmallBitVec::new();
+        Self {
+            vec: EMPTY,
+            range: 0..0,
+        }
+    }
 }
 
 impl<'a> Iterator for Iter<'a> {

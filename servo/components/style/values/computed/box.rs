@@ -4,7 +4,7 @@
 
 //! Computed types for box properties.
 
-use crate::values::computed::length::{LengthOrPercentage, NonNegativeLength};
+use crate::values::computed::length::{LengthPercentage, NonNegativeLength};
 use crate::values::computed::{Context, Number, ToComputedValue};
 use crate::values::generics::box_::AnimationIterationCount as GenericAnimationIterationCount;
 use crate::values::generics::box_::Perspective as GenericPerspective;
@@ -12,13 +12,16 @@ use crate::values::generics::box_::VerticalAlign as GenericVerticalAlign;
 use crate::values::specified::box_ as specified;
 
 pub use crate::values::specified::box_::{AnimationName, Appearance, BreakBetween, BreakWithin};
-pub use crate::values::specified::box_::{Clear as SpecifiedClear, Float as SpecifiedFloat};
-pub use crate::values::specified::box_::{Contain, Display, Overflow, OverflowClipBox};
-pub use crate::values::specified::box_::{OverscrollBehavior, ScrollSnapType};
+pub use crate::values::specified::box_::{Clear as SpecifiedClear};
+pub use crate::values::specified::box_::{Float as SpecifiedFloat, Contain, Display, Overflow};
+pub use crate::values::specified::box_::{OverflowAnchor, OverflowClipBox, OverscrollBehavior};
+pub use crate::values::specified::box_::{
+    ScrollSnapAlign, ScrollSnapAxis, ScrollSnapStrictness, ScrollSnapType,
+};
 pub use crate::values::specified::box_::{TouchAction, TransitionProperty, WillChange};
 
 /// A computed value for the `vertical-align` property.
-pub type VerticalAlign = GenericVerticalAlign<LengthOrPercentage>;
+pub type VerticalAlign = GenericVerticalAlign<LengthPercentage>;
 
 /// A computed value for the `animation-iteration-count` property.
 pub type AnimationIterationCount = GenericAnimationIterationCount<Number>;
@@ -37,7 +40,18 @@ pub type Perspective = GenericPerspective<NonNegativeLength>;
 #[allow(missing_docs)]
 #[cfg_attr(feature = "servo", derive(Deserialize, Serialize))]
 #[derive(
-    Clone, Copy, Debug, Eq, Hash, MallocSizeOf, Parse, PartialEq, SpecifiedValueInfo, ToCss,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    FromPrimitive,
+    Hash,
+    MallocSizeOf,
+    Parse,
+    PartialEq,
+    SpecifiedValueInfo,
+    ToCss,
+    ToResolvedValue,
 )]
 #[repr(u8)]
 /// A computed value for the `float` property.
@@ -45,6 +59,13 @@ pub enum Float {
     Left,
     Right,
     None,
+}
+
+impl Float {
+    /// Returns true if `self` is not `None`.
+    pub fn is_floating(self) -> bool {
+        self != Self::None
+    }
 }
 
 impl ToComputedValue for SpecifiedFloat {
@@ -96,7 +117,18 @@ impl ToComputedValue for SpecifiedFloat {
 #[allow(missing_docs)]
 #[cfg_attr(feature = "servo", derive(Deserialize, Serialize))]
 #[derive(
-    Clone, Copy, Debug, Eq, Hash, MallocSizeOf, Parse, PartialEq, SpecifiedValueInfo, ToCss,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    FromPrimitive,
+    Hash,
+    MallocSizeOf,
+    Parse,
+    PartialEq,
+    SpecifiedValueInfo,
+    ToCss,
+    ToResolvedValue,
 )]
 /// A computed value for the `clear` property.
 pub enum Clear {
@@ -157,7 +189,7 @@ impl ToComputedValue for SpecifiedClear {
 /// A computed value for the `resize` property.
 #[allow(missing_docs)]
 #[cfg_attr(feature = "servo", derive(Deserialize, Serialize))]
-#[derive(Clone, Copy, Debug, Eq, Hash, MallocSizeOf, Parse, PartialEq, ToCss)]
+#[derive(Clone, Copy, Debug, Eq, Hash, MallocSizeOf, Parse, PartialEq, ToCss, ToResolvedValue)]
 #[repr(u8)]
 pub enum Resize {
     None,

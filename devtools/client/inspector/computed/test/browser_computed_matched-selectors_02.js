@@ -1,4 +1,3 @@
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -8,7 +7,7 @@
 
 add_task(async function() {
   await addTab("data:text/html;charset=utf-8,<div style='color:blue;'></div>");
-  const {inspector, view} = await openComputedView();
+  const { inspector, view } = await openComputedView();
   await selectNode("div", inspector);
 
   info("Checking the color property view");
@@ -20,8 +19,9 @@ add_task(async function() {
   propertyView.matchedExpanded = true;
   await propertyView.refreshMatchedSelectors();
 
-  const span = propertyView.matchedSelectorsContainer
-    .querySelector("span.rule-text");
+  const span = propertyView.matchedSelectorsContainer.querySelector(
+    "span.rule-text"
+  );
   ok(span, "Found the first table row");
 
   const selector = propertyView.matchedSelectorViews[0];

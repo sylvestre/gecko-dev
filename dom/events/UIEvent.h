@@ -9,9 +9,11 @@
 
 #include "mozilla/Attributes.h"
 #include "mozilla/dom/Event.h"
+#include "mozilla/dom/Nullable.h"
 #include "mozilla/dom/UIEventBinding.h"
+#include "mozilla/dom/WindowProxyHolder.h"
 #include "nsDeviceContext.h"
-#include "nsLayoutUtils.h"
+#include "nsDocShell.h"
 #include "nsPresContext.h"
 
 class nsINode;
@@ -33,8 +35,7 @@ class UIEvent : public Event {
 
   static already_AddRefed<UIEvent> Constructor(const GlobalObject& aGlobal,
                                                const nsAString& aType,
-                                               const UIEventInit& aParam,
-                                               ErrorResult& aRv);
+                                               const UIEventInit& aParam);
 
   virtual JSObject* WrapObjectInternal(
       JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override {
@@ -47,16 +48,18 @@ class UIEvent : public Event {
                    bool cancelableArg, nsGlobalWindowInner* viewArg,
                    int32_t detailArg);
 
-  nsPIDOMWindowOuter* GetView() const { return mView; }
+  Nullable<WindowProxyHolder> GetView() const {
+    if (!mView) {
+      return nullptr;
+    }
+    return WindowProxyHolder(mView->GetBrowsingContext());
+  }
 
   int32_t Detail() const { return mDetail; }
 
   int32_t LayerX() const { return GetLayerPoint().x; }
 
   int32_t LayerY() const { return GetLayerPoint().y; }
-
-  int32_t PageX() const;
-  int32_t PageY() const;
 
   virtual uint32_t Which(CallerType aCallerType = CallerType::System) {
     MOZ_ASSERT(mEvent->mClass != eKeyboardEventClass,
@@ -66,14 +69,31 @@ class UIEvent : public Event {
     return 0;
   }
 
-  MOZ_CAN_RUN_SCRIPT
-  already_AddRefed<nsINode> GetRangeParent();
+  /**
+   * GetRangeParent() should be used only by JS.  C++ callers should use
+   * GetRangeParentContent() or GetRangeParentContentAndOffset() instead.
+   */
+  MOZ_CAN_RUN_SCRIPT already_AddRefed<nsINode> GetRangeParent() {
+    return GetRangeParentContent();
+  }
+  MOZ_CAN_RUN_SCRIPT already_AddRefed<nsIContent> GetRangeParentContent() {
+    return GetRangeParentContentAndOffset(nullptr);
+  }
+  /**
+   * aOffset is optional (i.e., can be nullptr), but when you call this with
+   * nullptr, you should use GetRangeParentContent() instead.
+   */
+  MOZ_CAN_RUN_SCRIPT already_AddRefed<nsIContent>
+  GetRangeParentContentAndOffset(int32_t* aOffset) const;
 
-  MOZ_CAN_RUN_SCRIPT
-  int32_t RangeOffset() const;
+  /**
+   * If you also need to compute range parent in C++ code, you should use
+   * GetRangeParentContentAndOffset() instead.
+   */
+  MOZ_CAN_RUN_SCRIPT int32_t RangeOffset() const;
 
  protected:
-  ~UIEvent() {}
+  ~UIEvent() = default;
 
   // Internal helper functions
   nsIntPoint GetMovementPoint();

@@ -24,18 +24,11 @@ class Cache;
 class CacheOpArgs;
 
 class CacheChild final : public PCacheChild, public ActorChild {
+  friend class PCacheChild;
+
  public:
-  class MOZ_RAII AutoLock final {
-    CacheChild* mActor;
-
-   public:
-    explicit AutoLock(CacheChild* aActor) : mActor(aActor) {
-      MOZ_DIAGNOSTIC_ASSERT(mActor);
-      mActor->Lock();
-    }
-
-    ~AutoLock() { mActor->Unlock(); }
-  };
+  friend class mozilla::detail::BaseAutoLock<CacheChild&>;
+  using AutoLock = mozilla::detail::BaseAutoLock<CacheChild&>;
 
   CacheChild();
   ~CacheChild();
@@ -56,16 +49,15 @@ class CacheChild final : public PCacheChild, public ActorChild {
  private:
   // ActorChild methods
 
-  // WorkerHolder is trying to destroy due to worker shutdown.
+  // WorkerRef is trying to destroy due to worker shutdown.
   virtual void StartDestroy() override;
 
   // PCacheChild methods
   virtual void ActorDestroy(ActorDestroyReason aReason) override;
 
-  virtual PCacheOpChild* AllocPCacheOpChild(
-      const CacheOpArgs& aOpArgs) override;
+  PCacheOpChild* AllocPCacheOpChild(const CacheOpArgs& aOpArgs);
 
-  virtual bool DeallocPCacheOpChild(PCacheOpChild* aActor) override;
+  bool DeallocPCacheOpChild(PCacheOpChild* aActor);
 
   // utility methods
   void NoteDeletedActor();

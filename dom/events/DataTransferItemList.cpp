@@ -8,20 +8,18 @@
 
 #include "nsContentUtils.h"
 #include "nsIGlobalObject.h"
-#include "nsIClipboard.h"
 #include "nsIScriptObjectPrincipal.h"
 #include "nsIScriptGlobalObject.h"
 #include "nsIScriptContext.h"
-#include "nsISupportsPrimitives.h"
 #include "nsQueryObject.h"
 #include "nsVariant.h"
+#include "mozilla/BasePrincipal.h"
 #include "mozilla/ContentEvents.h"
 #include "mozilla/EventForwards.h"
 #include "mozilla/storage/Variant.h"
 #include "mozilla/dom/DataTransferItemListBinding.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(DataTransferItemList, mDataTransfer,
                                       mItems, mIndexedItems, mFiles)
@@ -40,8 +38,7 @@ JSObject* DataTransferItemList::WrapObject(JSContext* aCx,
 
 already_AddRefed<DataTransferItemList> DataTransferItemList::Clone(
     DataTransfer* aDataTransfer) const {
-  RefPtr<DataTransferItemList> list =
-      new DataTransferItemList(aDataTransfer, mIsExternal);
+  RefPtr<DataTransferItemList> list = new DataTransferItemList(aDataTransfer);
 
   // We need to clone the mItems and mIndexedItems lists while keeping the same
   // correspondences between the mIndexedItems and mItems lists (namely, if an
@@ -173,7 +170,7 @@ DataTransferItem* DataTransferItemList::Add(File& aData,
   }
 
   nsCOMPtr<nsISupports> supports = do_QueryObject(&aData);
-  nsCOMPtr<nsIWritableVariant> data = new nsVariant();
+  nsCOMPtr<nsIWritableVariant> data = new nsVariantCC();
   data->SetAsISupports(supports);
 
   nsAutoString type;
@@ -221,7 +218,7 @@ already_AddRefed<FileList> DataTransferItemList::Files(
   // release builds. If this functionality is required in the future, a more
   // advanced caching mechanism for the FileList objects will be required.
   RefPtr<FileList> files;
-  if (nsContentUtils::IsSystemPrincipal(aPrincipal)) {
+  if (aPrincipal->IsSystemPrincipal()) {
     files = new FileList(mDataTransfer);
     GenerateFiles(files, aPrincipal);
     return files.forget();
@@ -415,6 +412,71 @@ DataTransferItem* DataTransferItemList::AppendNewItem(uint32_t aIndex,
   return item;
 }
 
+void DataTransferItemList::GetTypes(nsTArray<nsString>& aTypes,
+                                    CallerType aCallerType) const {
+  MOZ_ASSERT(aTypes.IsEmpty());
+
+  if (mIndexedItems.IsEmpty()) {
+    return;
+  }
+
+  bool foundFile = false;
+  for (const RefPtr<DataTransferItem>& item : mIndexedItems[0]) {
+    MOZ_ASSERT(item);
+
+    // XXX Why don't we check the caller type with item's permission only
+    //     for "Files"?
+    if (!foundFile) {
+      foundFile = item->Kind() == DataTransferItem::KIND_FILE;
+    }
+
+    if (item->ChromeOnly() && aCallerType != CallerType::System) {
+      continue;
+    }
+
+    // NOTE: The reason why we get the internal type here is because we want
+    // kFileMime to appear in the types list for backwards compatibility
+    // reasons.
+    nsAutoString type;
+    item->GetInternalType(type);
+    if (item->Kind() != DataTransferItem::KIND_FILE ||
+        type.EqualsASCII(kFileMime)) {
+      aTypes.AppendElement(type);
+    }
+  }
+
+  if (foundFile) {
+    aTypes.AppendElement(u"Files"_ns);
+  }
+}
+
+bool DataTransferItemList::HasType(const nsAString& aType) const {
+  MOZ_ASSERT(!aType.EqualsASCII("Files"), "Use HasFile instead");
+  if (mIndexedItems.IsEmpty()) {
+    return false;
+  }
+
+  for (const RefPtr<DataTransferItem>& item : mIndexedItems[0]) {
+    if (item->IsInternalType(aType)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool DataTransferItemList::HasFile() const {
+  if (mIndexedItems.IsEmpty()) {
+    return false;
+  }
+
+  for (const RefPtr<DataTransferItem>& item : mIndexedItems[0]) {
+    if (item->Kind() == DataTransferItem::KIND_FILE) {
+      return true;
+    }
+  }
+  return false;
+}
+
 const nsTArray<RefPtr<DataTransferItem>>* DataTransferItemList::MozItemsAt(
     uint32_t aIndex)  // -- INDEXED
 {
@@ -529,8 +591,7 @@ void DataTransferItemList::GenerateFiles(FileList* aFiles,
 
   // For non-system principals, the Files list should be empty if the
   // DataTransfer is protected.
-  if (!nsContentUtils::IsSystemPrincipal(aFilesPrincipal) &&
-      mDataTransfer->IsProtected()) {
+  if (!aFilesPrincipal->IsSystemPrincipal() && mDataTransfer->IsProtected()) {
     return;
   }
 
@@ -550,5 +611,4 @@ void DataTransferItemList::GenerateFiles(FileList* aFiles,
   }
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

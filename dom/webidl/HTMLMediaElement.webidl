@@ -11,6 +11,7 @@
  * and create derivative works of this document.
  */
 
+[Exposed=Window]
 interface HTMLMediaElement : HTMLElement {
 
   // error state
@@ -102,26 +103,21 @@ interface HTMLMediaElement : HTMLElement {
 partial interface HTMLMediaElement {
   [Func="HasDebuggerOrTabsPrivilege"]
   readonly attribute MediaSource? mozMediaSourceObject;
-  [Func="HasDebuggerOrTabsPrivilege"]
-  readonly attribute DOMString mozDebugReaderData;
+
   [Func="HasDebuggerOrTabsPrivilege", NewObject]
-  Promise<DOMString> mozRequestDebugInfo();
+  Promise<HTMLMediaElementDebugInfo> mozRequestDebugInfo();
 
   [Func="HasDebuggerOrTabsPrivilege", NewObject]
   static void mozEnableDebugLog();
   [Func="HasDebuggerOrTabsPrivilege", NewObject]
   Promise<DOMString> mozRequestDebugLog();
 
-  [Pref="media.test.dumpDebugInfo"]
-  Promise<void> mozDumpDebugInfo();
-
   attribute MediaStream? srcObject;
-
   attribute boolean mozPreservesPitch;
 
   // NB: for internal use with the video controls:
-  [Func="IsChromeOrXBL"] attribute boolean mozAllowCasting;
-  [Func="IsChromeOrXBL"] attribute boolean mozIsCasting;
+  [Func="IsChromeOrUAWidget"] attribute boolean mozAllowCasting;
+  [Func="IsChromeOrUAWidget"] attribute boolean mozIsCasting;
 
   // Mozilla extension: stream capture
   [Throws]
@@ -158,14 +154,22 @@ partial interface HTMLMediaElement {
   attribute EventHandler onwaitingforkey;
 };
 
-// This is just for testing
+/**
+ * These attributes are general testing attributes and they should only be used
+ * in tests.
+ */
 partial interface HTMLMediaElement {
   [Pref="media.useAudioChannelService.testing"]
   readonly attribute double computedVolume;
+
   [Pref="media.useAudioChannelService.testing"]
   readonly attribute boolean computedMuted;
-  [Pref="media.useAudioChannelService.testing"]
-  readonly attribute unsigned long computedSuspended;
+
+  // Return true if the media is suspended because its document is inactive or
+  // the docshell is inactive and explicitly being set to prohibit all media
+  // from playing.
+  [ChromeOnly]
+  readonly attribute boolean isSuspendedByInactiveDocOrDocShell;
 };
 
 /*
@@ -204,13 +208,15 @@ partial interface HTMLMediaElement {
 };
 
 /*
- * This is an API for simulating visibility changes to help debug and write
+ * These APIs are testing only, they are used to simulate visibility changes to help debug and write
  * tests about suspend-video-decoding.
  *
  * - SetVisible() is for simulating visibility changes.
  * - HasSuspendTaint() is for querying that the element's decoder cannot suspend
  *   video decoding because it has been tainted by an operation, such as
  *   drawImage().
+ * - isVisible is a boolean value which indicate whether media element is visible.
+ * - isVideoDecodingSuspended() is used to know whether video decoding has suspended.
  */
 partial interface HTMLMediaElement {
   [Pref="media.test.video-suspend"]
@@ -218,6 +224,12 @@ partial interface HTMLMediaElement {
 
   [Pref="media.test.video-suspend"]
   boolean hasSuspendTaint();
+
+  [ChromeOnly]
+  readonly attribute boolean isVisible;
+
+  [ChromeOnly]
+  readonly attribute boolean isVideoDecodingSuspended;
 };
 
 /* Audio Output Devices API */

@@ -1,31 +1,52 @@
 /* -*- Mode: indent-tabs-mode: nil; js-indent-level: 2 -*- */
 /* vim: set sts=2 sw=2 et tw=80: */
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 "use strict";
 
-ChromeUtils.defineModuleGetter(this, "CustomizableUI",
-                               "resource:///modules/CustomizableUI.jsm");
-ChromeUtils.defineModuleGetter(this, "clearTimeout",
-                               "resource://gre/modules/Timer.jsm");
-ChromeUtils.defineModuleGetter(this, "ExtensionTelemetry",
-                               "resource://gre/modules/ExtensionTelemetry.jsm");
-ChromeUtils.defineModuleGetter(this, "setTimeout",
-                               "resource://gre/modules/Timer.jsm");
-ChromeUtils.defineModuleGetter(this, "ViewPopup",
-                               "resource:///modules/ExtensionPopups.jsm");
+ChromeUtils.defineModuleGetter(
+  this,
+  "CustomizableUI",
+  "resource:///modules/CustomizableUI.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "clearTimeout",
+  "resource://gre/modules/Timer.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "ExtensionTelemetry",
+  "resource://gre/modules/ExtensionTelemetry.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "setTimeout",
+  "resource://gre/modules/Timer.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "ViewPopup",
+  "resource:///modules/ExtensionPopups.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "BrowserUsageTelemetry",
+  "resource:///modules/BrowserUsageTelemetry.jsm"
+);
 
-var {
-  DefaultWeakMap,
-  ExtensionError,
-} = ExtensionUtils;
+var { DefaultWeakMap } = ExtensionUtils;
 
-ChromeUtils.import("resource://gre/modules/ExtensionParent.jsm");
+var { ExtensionParent } = ChromeUtils.import(
+  "resource://gre/modules/ExtensionParent.jsm"
+);
+var { BrowserActionBase } = ChromeUtils.import(
+  "resource://gre/modules/ExtensionActions.jsm"
+);
 
-var {
-  IconDetails,
-  StartupCache,
-} = ExtensionParent;
-
-XPCOMUtils.defineLazyGlobalGetters(this, ["InspectorUtils"]);
+var { IconDetails, StartupCache } = ExtensionParent;
 
 const POPUP_PRELOAD_TIMEOUT_MS = 200;
 
@@ -34,12 +55,57 @@ const browserActionMap = new WeakMap();
 
 XPCOMUtils.defineLazyGetter(this, "browserAreas", () => {
   return {
-    "navbar": CustomizableUI.AREA_NAVBAR,
-    "menupanel": CustomizableUI.AREA_FIXED_OVERFLOW_PANEL,
-    "tabstrip": CustomizableUI.AREA_TABSTRIP,
-    "personaltoolbar": CustomizableUI.AREA_BOOKMARKS,
+    navbar: CustomizableUI.AREA_NAVBAR,
+    menupanel: CustomizableUI.AREA_FIXED_OVERFLOW_PANEL,
+    tabstrip: CustomizableUI.AREA_TABSTRIP,
+    personaltoolbar: CustomizableUI.AREA_BOOKMARKS,
   };
 });
+
+function actionWidgetId(widgetId) {
+  return `${widgetId}-browser-action`;
+}
+
+class BrowserAction extends BrowserActionBase {
+  constructor(extension, buttonDelegate) {
+    let tabContext = new TabContext(target => {
+      let window = target.ownerGlobal;
+      if (target === window) {
+        return this.getContextData(null);
+      }
+      return tabContext.get(window);
+    });
+    super(tabContext, extension);
+    this.buttonDelegate = buttonDelegate;
+  }
+
+  updateOnChange(target) {
+    if (target) {
+      let window = target.ownerGlobal;
+      if (target === window || target.selected) {
+        this.buttonDelegate.updateWindow(window);
+      }
+    } else {
+      for (let window of windowTracker.browserWindows()) {
+        this.buttonDelegate.updateWindow(window);
+      }
+    }
+  }
+
+  getTab(tabId) {
+    if (tabId !== null) {
+      return tabTracker.getTab(tabId);
+    }
+    return null;
+  }
+
+  getWindow(windowId) {
+    if (windowId !== null) {
+      return windowTracker.getWindow(windowId);
+    }
+    return null;
+  }
+}
 
 this.browserAction = class extends ExtensionAPI {
   static for(extension) {
@@ -47,14 +113,25 @@ this.browserAction = class extends ExtensionAPI {
   }
 
   async onManifestEntry(entryName) {
-    let {extension} = this;
+    let { extension } = this;
 
     let options = extension.manifest.browser_action;
 
+    this.action = new BrowserAction(extension, this);
+    await this.action.loadIconData();
+
     this.iconData = new DefaultWeakMap(icons => this.getIconData(icons));
+    this.iconData.set(
+      this.action.getIcon(),
+      await StartupCache.get(
+        extension,
+        ["browserAction", "default_icon_data"],
+        () => this.getIconData(this.action.getIcon())
+      )
+    );
 
     let widgetId = makeWidgetId(extension.id);
-    this.id = `${widgetId}-browser-action`;
+    this.id = actionWidgetId(widgetId);
     this.viewId = `PanelUI-webext-${widgetId}-browser-action-view`;
     this.widget = null;
 
@@ -63,62 +140,48 @@ this.browserAction = class extends ExtensionAPI {
     this.eventQueue = [];
 
     this.tabManager = extension.tabManager;
-
-    this.defaults = {
-      enabled: true,
-      title: options.default_title || extension.name,
-      badgeText: "",
-      badgeBackgroundColor: [0xd9, 0, 0, 255],
-      badgeDefaultColor: [255, 255, 255, 255],
-      badgeTextColor: null,
-      popup: options.default_popup || "",
-      area: browserAreas[options.default_area || "navbar"],
-    };
-    this.globals = Object.create(this.defaults);
-
     this.browserStyle = options.browser_style;
 
     browserActionMap.set(extension, this);
 
-    this.defaults.icon = await StartupCache.get(
-      extension, ["browserAction", "default_icon"],
-      () => IconDetails.normalize({
-        path: options.default_icon || extension.manifest.icons,
-        iconType: "browserAction",
-        themeIcons: options.theme_icons,
-      }, extension));
-
-    this.iconData.set(
-      this.defaults.icon,
-      await StartupCache.get(
-        extension, ["browserAction", "default_icon_data"],
-        () => this.getIconData(this.defaults.icon)));
-
-    this.tabContext = new TabContext(target => {
-      let window = target.ownerGlobal;
-      if (target === window) {
-        return this.globals;
-      }
-      return this.tabContext.get(window);
-    });
-
-    // eslint-disable-next-line mozilla/balanced-listeners
-    this.tabContext.on("location-change", this.handleLocationChange.bind(this));
-
     this.build();
   }
 
-  handleLocationChange(eventType, tab, fromBrowse) {
-    if (fromBrowse) {
-      this.tabContext.clear(tab);
-      this.updateOnChange(tab);
+  static onUpdate(id, manifest) {
+    if (!("browser_action" in manifest)) {
+      // If the new version has no browser action then mark this widget as
+      // hidden in the telemetry. If it is already marked hidden then this will
+      // do nothing.
+      BrowserUsageTelemetry.recordWidgetChange(
+        actionWidgetId(makeWidgetId(id)),
+        null,
+        "addon"
+      );
     }
   }
 
-  onShutdown(reason) {
-    browserActionMap.delete(this.extension);
+  static onDisable(id) {
+    BrowserUsageTelemetry.recordWidgetChange(
+      actionWidgetId(makeWidgetId(id)),
+      null,
+      "addon"
+    );
+  }
 
-    this.tabContext.shutdown();
+  static onUninstall(id) {
+    // If the telemetry already has this widget as hidden then this will not
+    // record anything.
+    BrowserUsageTelemetry.recordWidgetChange(
+      actionWidgetId(makeWidgetId(id)),
+      null,
+      "addon"
+    );
+  }
+
+  onShutdown() {
+    browserActionMap.delete(this.extension);
+    this.action.onShutdown();
+
     CustomizableUI.destroyWidget(this.id);
 
     this.clearPopup();
@@ -130,9 +193,9 @@ this.browserAction = class extends ExtensionAPI {
       viewId: this.viewId,
       type: "view",
       removable: true,
-      label: this.defaults.title || this.extension.name,
-      tooltiptext: this.defaults.title || "",
-      defaultArea: this.defaults.area,
+      label: this.action.getProperty(null, "title"),
+      tooltiptext: this.action.getProperty(null, "title"),
+      defaultArea: browserAreas[this.action.getDefaultArea()],
       showInPrivateBrowsing: this.extension.privateBrowsingAllowed,
 
       // Don't attempt to load properties from the built-in widget string
@@ -147,8 +210,10 @@ this.browserAction = class extends ExtensionAPI {
 
         document.getElementById("appMenu-viewCache").appendChild(view);
 
-        if (this.extension.hasPermission("menus") ||
-            this.extension.hasPermission("contextMenus")) {
+        if (
+          this.extension.hasPermission("menus") ||
+          this.extension.hasPermission("contextMenus")
+        ) {
           document.addEventListener("popupshowing", this);
         }
       },
@@ -165,27 +230,39 @@ this.browserAction = class extends ExtensionAPI {
       },
 
       onCreated: node => {
-        node.classList.add("badged-button");
+        node.classList.add("panel-no-padding");
         node.classList.add("webextension-browser-action");
+        node.setAttribute("badged", "true");
         node.setAttribute("constrain-size", "true");
         node.setAttribute("data-extensionid", this.extension.id);
 
         node.onmousedown = event => this.handleEvent(event);
         node.onmouseover = event => this.handleEvent(event);
         node.onmouseout = event => this.handleEvent(event);
+        node.onauxclick = event => this.handleEvent(event);
 
-        this.updateButton(node, this.globals, true);
+        this.updateButton(node, this.action.getContextData(null), true);
+      },
+
+      onBeforeCommand: event => {
+        this.lastClickInfo = {
+          button: event.button || 0,
+          modifiers: clickModifiersFromEvent(event),
+        };
       },
 
       onViewShowing: async event => {
-        const {extension} = this;
+        const { extension } = this;
 
-        ExtensionTelemetry.browserActionPopupOpen.stopwatchStart(extension, this);
+        ExtensionTelemetry.browserActionPopupOpen.stopwatchStart(
+          extension,
+          this
+        );
         let document = event.target.ownerDocument;
         let tabbrowser = document.defaultView.gBrowser;
 
         let tab = tabbrowser.selectedTab;
-        let popupURL = this.getProperty(tab, "popup");
+        let popupURL = this.action.getProperty(tab, "popup");
         this.tabManager.addActiveTabPermission(tab);
 
         // Popups are shown only if a popup URL is defined; otherwise
@@ -197,21 +274,30 @@ this.browserAction = class extends ExtensionAPI {
             let attachPromise = popup.attach(event.target);
             event.detail.addBlocker(attachPromise);
             await attachPromise;
-            ExtensionTelemetry.browserActionPopupOpen.stopwatchFinish(extension, this);
+            ExtensionTelemetry.browserActionPopupOpen.stopwatchFinish(
+              extension,
+              this
+            );
             if (this.eventQueue.length) {
               ExtensionTelemetry.browserActionPreloadResult.histogramAdd({
                 category: "popupShown",
-                extension: this.extension,
+                extension,
               });
               this.eventQueue = [];
             }
           } catch (e) {
-            ExtensionTelemetry.browserActionPopupOpen.stopwatchCancel(extension, this);
+            ExtensionTelemetry.browserActionPopupOpen.stopwatchCancel(
+              extension,
+              this
+            );
             Cu.reportError(e);
             event.preventDefault();
           }
         } else {
-          ExtensionTelemetry.browserActionPopupOpen.stopwatchCancel(extension, this);
+          ExtensionTelemetry.browserActionPopupOpen.stopwatchCancel(
+            extension,
+            this
+          );
           // This isn't not a hack, but it seems to provide the correct behavior
           // with the fewest complications.
           event.preventDefault();
@@ -222,8 +308,18 @@ this.browserAction = class extends ExtensionAPI {
       },
     });
 
-    this.tabContext.on("tab-select", // eslint-disable-line mozilla/balanced-listeners
-                       (evt, tab) => { this.updateWindow(tab.ownerGlobal); });
+    if (this.extension.startupReason != "APP_STARTUP") {
+      // Make sure the browser telemetry has the correct state for this widget.
+      // Defer loading BrowserUsageTelemetry until after startup is complete.
+      ExtensionParent.browserStartupPromise.then(() => {
+        let placement = CustomizableUI.getPlacementOfWidget(widget.id);
+        BrowserUsageTelemetry.recordWidgetChange(
+          widget.id,
+          placement?.area || null,
+          "addon"
+        );
+      });
+    }
 
     this.widget = widget;
   }
@@ -239,7 +335,7 @@ this.browserAction = class extends ExtensionAPI {
    */
   async triggerAction(window) {
     let popup = ViewPopup.for(this.extension, window);
-    if (popup) {
+    if (!this.pendingPopup && popup) {
       popup.closePopup();
       return;
     }
@@ -247,22 +343,26 @@ this.browserAction = class extends ExtensionAPI {
     let widget = this.widget.forWindow(window);
     let tab = window.gBrowser.selectedTab;
 
-    if (!widget || !this.getProperty(tab, "enabled")) {
+    if (!widget.node || !this.action.getProperty(tab, "enabled")) {
       return;
     }
 
     // Popups are shown only if a popup URL is defined; otherwise
     // a "click" event is dispatched. This is done for compatibility with the
     // Google Chrome onClicked extension API.
-    if (this.getProperty(tab, "popup")) {
+    if (this.action.getProperty(tab, "popup")) {
       if (this.widget.areaType == CustomizableUI.TYPE_MENU_PANEL) {
         await window.document.getElementById("nav-bar").overflowable.show();
       }
 
-      let event = new window.CustomEvent("command", {bubbles: true, cancelable: true});
+      let event = new window.CustomEvent("command", {
+        bubbles: true,
+        cancelable: true,
+      });
       widget.node.dispatchEvent(event);
     } else {
       this.tabManager.addActiveTabPermission(tab);
+      this.lastClickInfo = { button: 0, modifiers: [] };
       this.emit("click");
     }
   }
@@ -277,10 +377,14 @@ this.browserAction = class extends ExtensionAPI {
           // Begin pre-loading the browser for the popup, so it's more likely to
           // be ready by the time we get a complete click.
           let tab = window.gBrowser.selectedTab;
-          let popupURL = this.getProperty(tab, "popup");
-          let enabled = this.getProperty(tab, "enabled");
+          let popupURL = this.action.getProperty(tab, "popup");
+          let enabled = this.action.getProperty(tab, "enabled");
 
-          if (popupURL && enabled && (this.pendingPopup || !ViewPopup.for(this.extension, window))) {
+          if (
+            popupURL &&
+            enabled &&
+            (this.pendingPopup || !ViewPopup.for(this.extension, window))
+          ) {
             this.eventQueue.push("Mousedown");
             // Add permission for the active tab so it will exist for the popup.
             // Store the tab to revoke the permission during clearPopup.
@@ -305,8 +409,10 @@ this.browserAction = class extends ExtensionAPI {
           if (this.pendingPopup) {
             let node = window.gBrowser && this.widget.forWindow(window).node;
             if (node && node.contains(event.originalTarget)) {
-              this.pendingPopupTimeout = setTimeout(() => this.clearPopup(),
-                                                    POPUP_PRELOAD_TIMEOUT_MS);
+              this.pendingPopupTimeout = setTimeout(
+                () => this.clearPopup(),
+                POPUP_PRELOAD_TIMEOUT_MS
+              );
             } else {
               this.clearPopup();
             }
@@ -318,10 +424,14 @@ this.browserAction = class extends ExtensionAPI {
         // Begin pre-loading the browser for the popup, so it's more likely to
         // be ready by the time we get a complete click.
         let tab = window.gBrowser.selectedTab;
-        let popupURL = this.getProperty(tab, "popup");
-        let enabled = this.getProperty(tab, "enabled");
+        let popupURL = this.action.getProperty(tab, "popup");
+        let enabled = this.action.getProperty(tab, "enabled");
 
-        if (popupURL && enabled && (this.pendingPopup || !ViewPopup.for(this.extension, window))) {
+        if (
+          popupURL &&
+          enabled &&
+          (this.pendingPopup || !ViewPopup.for(this.extension, window))
+        ) {
           this.eventQueue.push("Hover");
           this.pendingPopup = this.getPopup(window, popupURL, true);
         }
@@ -341,12 +451,14 @@ this.browserAction = class extends ExtensionAPI {
         }
         break;
 
-
       case "popupshowing":
         const menu = event.target;
         const trigger = menu.triggerNode;
         const node = window.document.getElementById(this.id);
-        const contexts = ["toolbar-context-menu", "customizationPanelItemContextMenu"];
+        const contexts = [
+          "toolbar-context-menu",
+          "customizationPanelItemContextMenu",
+        ];
 
         if (contexts.includes(menu.id) && node && node.contains(trigger)) {
           global.actionContextMenu({
@@ -354,6 +466,24 @@ this.browserAction = class extends ExtensionAPI {
             onBrowserAction: true,
             menu: menu,
           });
+        }
+        break;
+
+      case "auxclick":
+        if (event.button !== 1) {
+          return;
+        }
+
+        let { gBrowser } = window;
+        if (this.action.getProperty(gBrowser.selectedTab, "enabled")) {
+          this.lastClickInfo = {
+            button: 1,
+            modifiers: clickModifiersFromEvent(event),
+          };
+
+          this.emit("click", gBrowser.selectedBrowser);
+          // Ensure we close any popups this node was in:
+          CustomizableUI.hidePanelForNode(event.target);
         }
         break;
     }
@@ -377,11 +507,14 @@ this.browserAction = class extends ExtensionAPI {
    */
   getPopup(window, popupURL, blockParser = false) {
     this.clearPopupTimeout();
-    let {pendingPopup} = this;
+    let { pendingPopup } = this;
     this.pendingPopup = null;
 
     if (pendingPopup) {
-      if (pendingPopup.window === window && pendingPopup.popupURL === popupURL) {
+      if (
+        pendingPopup.window === window &&
+        pendingPopup.popupURL === popupURL
+      ) {
         if (!blockParser) {
           pendingPopup.unblockParser();
         }
@@ -394,7 +527,14 @@ this.browserAction = class extends ExtensionAPI {
     let fixedWidth =
       this.widget.areaType == CustomizableUI.TYPE_MENU_PANEL ||
       this.widget.forWindow(window).overflowed;
-    return new ViewPopup(this.extension, window, popupURL, this.browserStyle, fixedWidth, blockParser);
+    return new ViewPopup(
+      this.extension,
+      window,
+      popupURL,
+      this.browserStyle,
+      fixedWidth,
+      blockParser
+    );
   }
 
   /**
@@ -404,7 +544,9 @@ this.browserAction = class extends ExtensionAPI {
     this.clearPopupTimeout();
     if (this.pendingPopup) {
       if (this.tabToRevokeDuringClearPopup) {
-        this.tabManager.revokeActiveTabPermission(this.tabToRevokeDuringClearPopup);
+        this.tabManager.revokeActiveTabPermission(
+          this.tabToRevokeDuringClearPopup
+        );
       }
       this.pendingPopup.destroy();
       this.pendingPopup = null;
@@ -446,11 +588,15 @@ this.browserAction = class extends ExtensionAPI {
         node.setAttribute("disabled", "true");
       }
 
-      let serializeColor = ([r, g, b, a]) => `rgba(${r}, ${g}, ${b}, ${a / 255})`;
-      node.setAttribute("badgeStyle", [
-        `background-color: ${serializeColor(tabData.badgeBackgroundColor)}`,
-        `color: ${serializeColor(this.getTextColor(tabData))}`,
-      ].join("; "));
+      let serializeColor = ([r, g, b, a]) =>
+        `rgba(${r}, ${g}, ${b}, ${a / 255})`;
+      node.setAttribute(
+        "badgeStyle",
+        [
+          `background-color: ${serializeColor(tabData.badgeBackgroundColor)}`,
+          `color: ${serializeColor(this.action.getTextColor(tabData))}`,
+        ].join("; ")
+      );
 
       let style = this.iconData.get(tabData.icon);
       node.setAttribute("style", style);
@@ -495,188 +641,22 @@ this.browserAction = class extends ExtensionAPI {
    *        Browser chrome window.
    */
   updateWindow(window) {
-    let widget = this.widget.forWindow(window);
-    if (widget) {
+    let node = this.widget.forWindow(window).node;
+    if (node) {
       let tab = window.gBrowser.selectedTab;
-      this.updateButton(widget.node, this.tabContext.get(tab));
+      this.updateButton(node, this.action.getContextData(tab));
     }
-  }
-
-  /**
-   * Update the toolbar button when the extension changes the icon, title, url, etc.
-   * If it only changes a parameter for a single tab, `target` will be that tab.
-   * If it only changes a parameter for a single window, `target` will be that window.
-   * Otherwise `target` will be null.
-   *
-   * @param {XULElement|ChromeWindow|null} target
-   *        Browser tab or browser chrome window, may be null.
-   */
-  updateOnChange(target) {
-    if (target) {
-      let window = target.ownerGlobal;
-      if (target === window || target.selected) {
-        this.updateWindow(window);
-      }
-    } else {
-      for (let window of windowTracker.browserWindows()) {
-        this.updateWindow(window);
-      }
-    }
-  }
-
-  /**
-   * Gets the target object corresponding to the `details` parameter of the various
-   * get* and set* API methods.
-   *
-   * @param {Object} details
-   *        An object with optional `tabId` or `windowId` properties.
-   * @throws if both `tabId` and `windowId` are specified, or if they are invalid.
-   * @returns {XULElement|ChromeWindow|null}
-   *        If a `tabId` was specified, the corresponding XULElement tab.
-   *        If a `windowId` was specified, the corresponding ChromeWindow.
-   *        Otherwise, `null`.
-   */
-  getTargetFromDetails({tabId, windowId}) {
-    if (tabId != null && windowId != null) {
-      throw new ExtensionError("Only one of tabId and windowId can be specified.");
-    }
-    if (tabId != null) {
-      return tabTracker.getTab(tabId);
-    } else if (windowId != null) {
-      return windowTracker.getWindow(windowId);
-    }
-    return null;
-  }
-
-  /**
-   * Gets the data associated with a tab, window, or the global one.
-   *
-   * @param {XULElement|ChromeWindow|null} target
-   *        A XULElement tab, a ChromeWindow, or null for the global data.
-   * @returns {Object}
-   *        The icon, title, badge, etc. associated with the target.
-   */
-  getContextData(target) {
-    if (target) {
-      return this.tabContext.get(target);
-    }
-    return this.globals;
-  }
-
-  /**
-   * Set a global, window specific or tab specific property.
-   *
-   * @param {XULElement|ChromeWindow|null} target
-   *        A XULElement tab, a ChromeWindow, or null for the global data.
-   * @param {string} prop
-   *        String property to set. Should should be one of "icon", "title", "badgeText",
-   *        "popup", "badgeBackgroundColor", "badgeTextColor" or "enabled".
-   * @param {string} value
-   *        Value for prop.
-   * @returns {Object}
-   *        The object to which the property has been set.
-   */
-  setProperty(target, prop, value) {
-    let values = this.getContextData(target);
-    if (value === null) {
-      delete values[prop];
-    } else {
-      values[prop] = value;
-    }
-
-    this.updateOnChange(target);
-    return values;
-  }
-
-  /**
-   * Retrieve the value of a global, window specific or tab specific property.
-   *
-   * @param {XULElement|ChromeWindow|null} target
-   *        A XULElement tab, a ChromeWindow, or null for the global data.
-   * @param {string} prop
-   *        String property to retrieve. Should should be one of "icon", "title",
-   *        "badgeText", "popup", "badgeBackgroundColor" or "enabled".
-   * @returns {string} value
-   *          Value of prop.
-   */
-  getProperty(target, prop) {
-    return this.getContextData(target)[prop];
-  }
-
-  setPropertyFromDetails(details, prop, value) {
-    return this.setProperty(this.getTargetFromDetails(details), prop, value);
-  }
-
-  getPropertyFromDetails(details, prop) {
-    return this.getProperty(this.getTargetFromDetails(details), prop);
-  }
-
-  /**
-   * Determines the text badge color to be used in a tab, window, or globally.
-   *
-   * @param {Object} values
-   *        The values associated with the tab or window, or global values.
-   * @returns {ColorArray}
-   */
-  getTextColor(values) {
-    // If a text color has been explicitly provided, use it.
-    let {badgeTextColor} = values;
-    if (badgeTextColor) {
-      return badgeTextColor;
-    }
-
-    // Otherwise, check if the default color to be used has been cached previously.
-    let {badgeDefaultColor} = values;
-    if (badgeDefaultColor) {
-      return badgeDefaultColor;
-    }
-
-    // Choose a color among white and black, maximizing contrast with background
-    // according to https://www.w3.org/TR/WCAG20-TECHS/G18.html#G18-procedure
-    let [r, g, b] = values.badgeBackgroundColor.slice(0, 3).map(function(channel) {
-      channel /= 255;
-      if (channel <= 0.03928) {
-        return channel / 12.92;
-      }
-      return ((channel + 0.055) / 1.055) ** 2.4;
-    });
-    let lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-
-    // The luminance is 0 for black, 1 for white, and `lum` for the background color.
-    // Since `0 <= lum`, the contrast ratio for black is `c0 = (lum + 0.05) / 0.05`.
-    // Since `lum <= 1`, the contrast ratio for white is `c1 = 1.05 / (lum + 0.05)`.
-    // We want to maximize contrast, so black is chosen if `c1 < c0`, that is, if
-    // `1.05 * 0.05 < (L + 0.05) ** 2`. Otherwise white is chosen.
-    let channel = 1.05 * 0.05 < (lum + 0.05) ** 2 ? 0 : 255;
-    let result = [channel, channel, channel, 255];
-
-    // Cache the result as high as possible in the prototype chain
-    while (!Object.getOwnPropertyDescriptor(values, "badgeDefaultColor")) {
-      values = Object.getPrototypeOf(values);
-    }
-    values.badgeDefaultColor = result;
-    return result;
   }
 
   getAPI(context) {
-    let {extension} = context;
-    let {tabManager} = extension;
-
-    let browserAction = this;
-
-    function parseColor(color, kind) {
-      if (typeof color == "string") {
-        let rgba = InspectorUtils.colorToRGBA(color);
-        if (!rgba) {
-          throw new ExtensionError(`Invalid badge ${kind} color: "${color}"`);
-        }
-        color = [rgba.r, rgba.g, rgba.b, Math.round(rgba.a * 255)];
-      }
-      return color;
-    }
+    let { extension } = context;
+    let { tabManager } = extension;
+    let { action } = this;
 
     return {
       browserAction: {
+        ...action.api(context),
+
         onClicked: new EventManager({
           context,
           name: "browserAction.onClicked",
@@ -684,101 +664,22 @@ this.browserAction = class extends ExtensionAPI {
           register: fire => {
             let listener = (event, browser) => {
               context.withPendingBrowser(browser, () =>
-                fire.sync(tabManager.convert(tabTracker.activeTab)));
+                fire.sync(
+                  tabManager.convert(tabTracker.activeTab),
+                  this.lastClickInfo
+                )
+              );
             };
-            browserAction.on("click", listener);
+            this.on("click", listener);
             return () => {
-              browserAction.off("click", listener);
+              this.off("click", listener);
             };
           },
         }).api(),
 
-        enable: function(tabId) {
-          browserAction.setPropertyFromDetails({tabId}, "enabled", true);
-        },
-
-        disable: function(tabId) {
-          browserAction.setPropertyFromDetails({tabId}, "enabled", false);
-        },
-
-        isEnabled: function(details) {
-          return browserAction.getPropertyFromDetails(details, "enabled");
-        },
-
-        setTitle: function(details) {
-          browserAction.setPropertyFromDetails(details, "title", details.title);
-        },
-
-        getTitle: function(details) {
-          return browserAction.getPropertyFromDetails(details, "title");
-        },
-
-        setIcon: function(details) {
-          details.iconType = "browserAction";
-
-          let icon = IconDetails.normalize(details, extension, context);
-          if (!Object.keys(icon).length) {
-            icon = null;
-          }
-          browserAction.setPropertyFromDetails(details, "icon", icon);
-        },
-
-        setBadgeText: function(details) {
-          browserAction.setPropertyFromDetails(details, "badgeText", details.text);
-        },
-
-        getBadgeText: function(details) {
-          return browserAction.getPropertyFromDetails(details, "badgeText");
-        },
-
-        setPopup: function(details) {
-          // Note: Chrome resolves arguments to setIcon relative to the calling
-          // context, but resolves arguments to setPopup relative to the extension
-          // root.
-          // For internal consistency, we currently resolve both relative to the
-          // calling context.
-          let url = details.popup && context.uri.resolve(details.popup);
-          if (url && !context.checkLoadURL(url)) {
-            return Promise.reject({message: `Access denied for URL ${url}`});
-          }
-          browserAction.setPropertyFromDetails(details, "popup", url);
-        },
-
-        getPopup: function(details) {
-          return browserAction.getPropertyFromDetails(details, "popup");
-        },
-
-        setBadgeBackgroundColor: function(details) {
-          let color = parseColor(details.color, "background");
-          let values = browserAction.setPropertyFromDetails(
-            details, "badgeBackgroundColor", color);
-          if (color === null) {
-            // Let the default text color inherit after removing background color
-            delete values.badgeDefaultColor;
-          } else {
-            // Invalidate a cached default color calculated with the old background
-            values.badgeDefaultColor = null;
-          }
-        },
-
-        getBadgeBackgroundColor: function(details, callback) {
-          return browserAction.getPropertyFromDetails(details, "badgeBackgroundColor");
-        },
-
-        setBadgeTextColor: function(details) {
-          let color = parseColor(details.color, "text");
-          browserAction.setPropertyFromDetails(details, "badgeTextColor", color);
-        },
-
-        getBadgeTextColor: function(details) {
-          let target = browserAction.getTargetFromDetails(details);
-          let values = browserAction.getContextData(target);
-          return browserAction.getTextColor(values);
-        },
-
-        openPopup: function() {
+        openPopup: () => {
           let window = windowTracker.topWindow;
-          browserAction.triggerAction(window);
+          this.triggerAction(window);
         },
       },
     };

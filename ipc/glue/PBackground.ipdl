@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-include protocol PAsmJSCacheEntry;
+include protocol PBackgroundDataBridge;
 include protocol PBackgroundIDBFactory;
 include protocol PBackgroundIndexedDBUtils;
 include protocol PBackgroundSDBConnection;
@@ -11,6 +11,7 @@ include protocol PBackgroundLSObserver;
 include protocol PBackgroundLSRequest;
 include protocol PBackgroundLSSimpleRequest;
 include protocol PBackgroundLocalStorageCache;
+include protocol PBackgroundSessionStorageManager;
 include protocol PBackgroundStorage;
 include protocol PBackgroundTest;
 include protocol PBroadcastChannel;
@@ -24,12 +25,15 @@ include protocol PFileSystemRequest;
 include protocol PGamepadEventChannel;
 include protocol PGamepadTestChannel;
 include protocol PHttpBackgroundChannel;
-include protocol PIPCBlobInputStream;
-include protocol PPendingIPCBlob;
+include protocol PIdleScheduler;
+include protocol PRemoteLazyInputStream;
+include protocol PMediaTransport;
 include protocol PRemoteWorker;
+include protocol PRemoteWorkerController;
 include protocol PRemoteWorkerService;
 include protocol PSharedWorker;
 include protocol PTemporaryIPCBlob;
+include protocol PFileCreator;
 include protocol PMessagePort;
 include protocol PCameras;
 include protocol PMIDIManager;
@@ -43,7 +47,9 @@ include protocol PServiceWorkerManager;
 include protocol PServiceWorkerRegistration;
 include protocol PWebAuthnTransaction;
 include protocol PUDPSocket;
+include protocol PVerifySSLServerCert;
 include protocol PVsync;
+include protocol PRemoteDecoderManager;
 
 include DOMTypes;
 include IPCBlob;
@@ -54,6 +60,7 @@ include PBackgroundSharedTypes;
 include PBackgroundIDBSharedTypes;
 include PFileSystemParams;
 include ProtocolTypes;
+include PSMIPCTypes;
 include RemoteWorkerTypes;
 include MIDITypes;
 
@@ -63,18 +70,12 @@ include "mozilla/layers/LayersMessageUtils.h";
 using mozilla::dom::cache::Namespace
   from "mozilla/dom/cache/Types.h";
 
-using mozilla::dom::asmjscache::OpenMode
-  from "mozilla/dom/asmjscache/AsmJSCache.h";
-
-using mozilla::dom::asmjscache::WriteParams
-  from "mozilla/dom/asmjscache/AsmJSCache.h";
-
 namespace mozilla {
 namespace ipc {
 
 sync protocol PBackground
 {
-  manages PAsmJSCacheEntry;
+  manages PBackgroundDataBridge;
   manages PBackgroundIDBFactory;
   manages PBackgroundIndexedDBUtils;
   manages PBackgroundSDBConnection;
@@ -83,6 +84,7 @@ sync protocol PBackground
   manages PBackgroundLSRequest;
   manages PBackgroundLSSimpleRequest;
   manages PBackgroundLocalStorageCache;
+  manages PBackgroundSessionStorageManager;
   manages PBackgroundStorage;
   manages PBackgroundTest;
   manages PBroadcastChannel;
@@ -96,12 +98,15 @@ sync protocol PBackground
   manages PGamepadEventChannel;
   manages PGamepadTestChannel;
   manages PHttpBackgroundChannel;
-  manages PIPCBlobInputStream;
-  manages PPendingIPCBlob;
+  manages PIdleScheduler;
+  manages PRemoteLazyInputStream;
+  manages PMediaTransport;
   manages PRemoteWorker;
+  manages PRemoteWorkerController;
   manages PRemoteWorkerService;
   manages PSharedWorker;
   manages PTemporaryIPCBlob;
+  manages PFileCreator;
   manages PMessagePort;
   manages PCameras;
   manages PMIDIManager;
@@ -115,11 +120,14 @@ sync protocol PBackground
   manages PServiceWorkerRegistration;
   manages PWebAuthnTransaction;
   manages PUDPSocket;
+  manages PVerifySSLServerCert;
   manages PVsync;
 
 parent:
   // Only called at startup during mochitests to check the basic infrastructure.
   async PBackgroundTest(nsCString testArg);
+
+  async PBackgroundDataBridge(uint64_t channelID);
 
   async PBackgroundIDBFactory(LoggingInfo loggingInfo);
 
@@ -128,7 +136,8 @@ parent:
   // Use only for testing!
   async FlushPendingFileDeletions();
 
-  async PBackgroundSDBConnection(PrincipalInfo principalInfo);
+  async PBackgroundSDBConnection(PersistenceType persistenceType,
+                                 PrincipalInfo principalInfo);
 
   async PBackgroundLSDatabase(PrincipalInfo principalInfo,
                               uint32_t privateBrowsingId,
@@ -151,17 +160,28 @@ parent:
    */
   async PBackgroundLSSimpleRequest(LSSimpleRequestParams params);
 
+  /**
+   * Asynchronously propagates the "last-pb-context-exited" observer
+   * notification to LocalStorage NextGen implementation so it can clear
+   * retained private-browsing in-memory Datastores.  Using a (same-process)
+   * IPC message avoids the need for the main-thread nsIObserver to have a
+   * reference to the PBackground thread and directly dispatch a runnable to it.
+   */
+  async LSClearPrivateBrowsing();
+
   async PBackgroundLocalStorageCache(PrincipalInfo principalInfo,
                                      nsCString originKey,
                                      uint32_t privateBrowsingId);
 
-  async PBackgroundStorage(nsString profilePath);
+  async PBackgroundSessionStorageManager(uint64_t aTopContextId);
+
+  async PBackgroundStorage(nsString profilePath, uint32_t privateBrowsingId);
 
   async PVsync();
 
   async PCameras();
 
-  async PUDPSocket(OptionalPrincipalInfo pInfo, nsCString filter);
+  async PUDPSocket(PrincipalInfo? pInfo, nsCString filter);
   async PBroadcastChannel(PrincipalInfo pInfo, nsCString origin, nsString channel);
 
   async PServiceWorkerManager();
@@ -176,11 +196,13 @@ parent:
 
   async MessagePortForceClose(nsID uuid, nsID destinationUuid, uint32_t sequenceId);
 
-  async PAsmJSCacheEntry(OpenMode openMode,
-                         WriteParams write,
-                         PrincipalInfo principalInfo);
-
   async PQuota();
+
+  async ShutdownQuotaManager();
+
+  async ShutdownBackgroundSessionStorageManagers();
+
+  async RemoveBackgroundSessionStorageManager(uint64_t topContextId);
 
   async PFileSystemRequest(FileSystemParams params);
 
@@ -198,6 +220,10 @@ parent:
 
   async PTemporaryIPCBlob();
 
+  async PFileCreator(nsString aFullPath, nsString aType, nsString aName,
+                     int64_t? lastModified, bool aExistenceCheck,
+                     bool aIsFromNsIFile);
+
   async PClientManager();
 
   async PMIDIManager();
@@ -208,6 +234,8 @@ parent:
   async StorageActivity(PrincipalInfo principalInfo);
 
   async PServiceWorker(IPCServiceWorkerDescriptor aDescriptor);
+
+  async PRemoteWorkerController(RemoteWorkerData aData);
 
   async PRemoteWorkerService();
 
@@ -220,19 +248,37 @@ parent:
   async RemoveEndpoint(nsString aGroupName, nsCString aEndpointURL,
                        PrincipalInfo aPrincipalInfo);
 
+  async PIdleScheduler();
+
+  async PMediaTransport();
+
+  async PVerifySSLServerCert(ByteArray aServerCert,
+                             ByteArray[] aPeerCertChain,
+                             nsCString aHostName,
+                             int32_t aPort,
+                             OriginAttributes aOriginAttributes,
+                             ByteArray? aStapledOCSPResponse,
+                             ByteArray? aSctsFromTLSExtension,
+                             DelegatedCredentialInfoArg? aDcInfo,
+                             uint32_t aProviderFlags,
+                             uint32_t aCertVerifierFlags);
+
+  // See Bug 1518344 - Investigate using async for PBackground::EnsureRDDProcessAndCreateBridge
+  sync EnsureRDDProcessAndCreateBridge()
+      returns (nsresult rv, Endpoint<PRemoteDecoderManagerChild> aEndpoint);
+
 child:
   async PCache();
   async PCacheStreamControl();
 
   async PParentToChildStream();
 
-  async PPendingIPCBlob(IPCBlob blob);
-
   async PRemoteWorker(RemoteWorkerData data);
+
 both:
-  // PIPCBlobInputStream is created on the parent side only if the child starts
-  // a migration.
-  async PIPCBlobInputStream(nsID aID, uint64_t aSize);
+  // PRemoteLazyInputStream is created on the parent side only if the child
+  // starts a migration.
+  async PRemoteLazyInputStream(nsID aID, uint64_t aSize);
 
   async PFileDescriptorSet(FileDescriptor fd);
 };

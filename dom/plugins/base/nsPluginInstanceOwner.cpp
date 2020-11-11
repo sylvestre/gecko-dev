@@ -5,11 +5,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #ifdef MOZ_X11
-#include <cairo-xlib.h>
-#include "gfxXlibSurface.h"
+#  include <cairo-xlib.h>
+#  include "gfxXlibSurface.h"
 /* X headers suck */
 enum { XKeyPress = KeyPress };
-#include "mozilla/X11Util.h"
+#  include "mozilla/X11Util.h"
 using mozilla::DefaultXDisplay;
 #endif
 
@@ -28,35 +28,32 @@ using mozilla::DefaultXDisplay;
 #include "nsIStringStream.h"
 #include "nsNetUtil.h"
 #include "mozilla/Preferences.h"
-#include "nsILinkHandler.h"
-#include "nsIDocShellTreeItem.h"
-#include "nsIWebBrowserChrome.h"
 #include "nsLayoutUtils.h"
 #include "nsIPluginWidget.h"
 #include "nsViewManager.h"
-#include "nsIDocShellTreeOwner.h"
 #include "nsIAppShell.h"
 #include "nsIObjectLoadingContent.h"
 #include "nsObjectLoadingContent.h"
 #include "nsAttrName.h"
 #include "nsIFocusManager.h"
 #include "nsFocusManager.h"
-#include "nsIScriptSecurityManager.h"
+#include "nsIProtocolHandler.h"
 #include "nsIScrollableFrame.h"
 #include "nsIDocShell.h"
 #include "ImageContainer.h"
 #include "GLContext.h"
-#include "EGLUtils.h"
 #include "nsIContentInlines.h"
 #include "mozilla/MiscEvents.h"
 #include "mozilla/MouseEvents.h"
 #include "mozilla/NullPrincipal.h"
+#include "mozilla/PresShell.h"
 #include "mozilla/TextEvents.h"
+#include "mozilla/dom/DocumentInlines.h"
 #include "mozilla/dom/DragEvent.h"
 #include "mozilla/dom/Element.h"
 #include "mozilla/dom/Event.h"
 #include "mozilla/dom/HTMLObjectElementBinding.h"
-#include "mozilla/dom/TabChild.h"
+#include "mozilla/dom/BrowserChild.h"
 #include "mozilla/dom/WheelEventBinding.h"
 #include "nsFrameSelection.h"
 #include "PuppetWidget.h"
@@ -70,18 +67,18 @@ using mozilla::DefaultXDisplay;
 static NS_DEFINE_CID(kAppShellCID, NS_APPSHELL_CID);
 
 #ifdef XP_WIN
-#include <wtypes.h>
-#include <winuser.h>
-#include "mozilla/widget/WinMessages.h"
+#  include <wtypes.h>
+#  include <winuser.h>
+#  include "mozilla/widget/WinMessages.h"
 #endif  // #ifdef XP_WIN
 
 #ifdef XP_MACOSX
-#include "ComplexTextInputPanel.h"
+#  include "ComplexTextInputPanel.h"
 #endif
 
 #ifdef MOZ_WIDGET_GTK
-#include <gdk/gdk.h>
-#include <gtk/gtk.h>
+#  include <gdk/gdk.h>
+#  include <gtk/gtk.h>
 #endif
 
 using namespace mozilla;
@@ -115,10 +112,9 @@ class AsyncPaintWaitEvent : public Runnable {
         mFinished(aFinished) {}
 
   NS_IMETHOD Run() override {
-    nsContentUtils::DispatchTrustedEvent(
+    nsContentUtils::DispatchEventOnlyToChrome(
         mContent->OwnerDoc(), mContent,
-        mFinished ? NS_LITERAL_STRING("MozPaintWaitFinished")
-                  : NS_LITERAL_STRING("MozPaintWait"),
+        mFinished ? u"MozPaintWaitFinished"_ns : u"MozPaintWait"_ns,
         CanBubble::eYes, Cancelable::eYes);
     return NS_OK;
   }
@@ -259,12 +255,12 @@ nsPluginInstanceOwner::nsPluginInstanceOwner()
   mLastMouseDownButtonType = -1;
 
 #ifdef XP_MACOSX
-#ifndef NP_NO_CARBON
+#  ifndef NP_NO_CARBON
   // We don't support Carbon, but it is still the default model for i386 NPAPI.
   mEventModel = NPEventModelCarbon;
-#else
+#  else
   mEventModel = NPEventModelCocoa;
-#endif
+#  endif
   mUseAsyncRendering = false;
 #endif
 
@@ -274,6 +270,9 @@ nsPluginInstanceOwner::nsPluginInstanceOwner()
   mGotCompositionData = false;
   mSentStartComposition = false;
   mPluginDidNotHandleIMEComposition = false;
+  // 3 is the Windows default for these values.
+  mWheelScrollLines = 3;
+  mWheelScrollChars = 3;
 #endif
 }
 
@@ -315,7 +314,7 @@ nsresult nsPluginInstanceOwner::SetInstance(nsNPAPIPluginInstance* aInstance) {
 
   mInstance = aInstance;
 
-  nsCOMPtr<nsIDocument> doc;
+  nsCOMPtr<Document> doc;
   GetDocument(getter_AddRefs(doc));
   if (doc) {
     if (nsCOMPtr<nsPIDOMWindowOuter> domWindow = doc->GetWindow()) {
@@ -335,7 +334,7 @@ NS_IMETHODIMP nsPluginInstanceOwner::GetWindow(NPWindow*& aWindow) {
 }
 
 NS_IMETHODIMP nsPluginInstanceOwner::GetMode(int32_t* aMode) {
-  nsCOMPtr<nsIDocument> doc;
+  nsCOMPtr<Document> doc;
   nsresult rv = GetDocument(getter_AddRefs(doc));
   nsCOMPtr<nsIPluginDocument> pDoc(do_QueryInterface(doc));
 
@@ -377,7 +376,7 @@ NS_IMETHODIMP nsPluginInstanceOwner::GetURL(
     return NS_OK;
   }
 
-  nsIDocument* doc = content->GetComposedDoc();
+  Document* doc = content->GetComposedDoc();
   if (!doc) {
     return NS_ERROR_FAILURE;
   }
@@ -388,10 +387,8 @@ NS_IMETHODIMP nsPluginInstanceOwner::GetURL(
   }
 
   // the container of the pres context will give us the link handler
-  nsCOMPtr<nsISupports> container = presContext->GetContainerWeak();
+  nsCOMPtr<nsIDocShell> container = presContext->GetDocShell();
   NS_ENSURE_TRUE(container, NS_ERROR_FAILURE);
-  nsCOMPtr<nsILinkHandler> lh = do_QueryInterface(container);
-  NS_ENSURE_TRUE(lh, NS_ERROR_FAILURE);
 
   nsAutoString unitarget;
   if ((0 == PL_strcmp(aTarget, "newwindow")) ||
@@ -403,11 +400,9 @@ NS_IMETHODIMP nsPluginInstanceOwner::GetURL(
     unitarget.AssignASCII(aTarget);  // XXX could this be nonascii?
   }
 
-  nsCOMPtr<nsIURI> baseURI = GetBaseURI();
-
   // Create an absolute URL
   nsCOMPtr<nsIURI> uri;
-  nsresult rv = NS_NewURI(getter_AddRefs(uri), aURL, baseURI);
+  nsresult rv = NS_NewURI(getter_AddRefs(uri), aURL, GetBaseURI());
   NS_ENSURE_SUCCESS(rv, NS_ERROR_FAILURE);
 
   nsCOMPtr<nsIInputStream> headersDataStream;
@@ -425,33 +420,54 @@ NS_IMETHODIMP nsPluginInstanceOwner::GetURL(
 
   int32_t blockPopups =
       Preferences::GetInt("privacy.popups.disable_from_plugins");
-  nsAutoPopupStatePusher popupStatePusher(
+  AutoPopupStatePusher popupStatePusher(
       (PopupBlocker::PopupControlState)blockPopups);
 
   // if security checks (in particular CheckLoadURIWithPrincipal) needs
-  // to be skipped we are creating a codebasePrincipal to make sure
-  // that security check succeeds. Please note that we do not want to
-  // fall back to using the systemPrincipal, because that would also
-  // bypass ContentPolicy checks which should still be enforced.
+  // to be skipped we are creating a contentPrincipal from the target URI
+  // to make sure that security checks succeed.
+  // Please note that we do not want to fall back to using the
+  // systemPrincipal, because that would also bypass ContentPolicy checks
+  // which should still be enforced.
   nsCOMPtr<nsIPrincipal> triggeringPrincipal;
   if (!aDoCheckLoadURIChecks) {
     mozilla::OriginAttributes attrs =
         BasePrincipal::Cast(content->NodePrincipal())->OriginAttributesRef();
-    triggeringPrincipal = BasePrincipal::CreateCodebasePrincipal(uri, attrs);
+    triggeringPrincipal = BasePrincipal::CreateContentPrincipal(uri, attrs);
   } else {
-    triggeringPrincipal =
-        NullPrincipal::CreateWithInheritedAttributes(content->NodePrincipal());
+    bool useParentContentPrincipal = false;
+    nsCOMPtr<nsINetUtil> netUtil = do_GetNetUtil();
+    // For protocols loadable by anyone, it doesn't matter what principal
+    // we use for the security check. However, for external URIs, we check
+    // whether the browsing context in which they load can be accessed by
+    // the triggering principal that is doing the loading, to avoid certain
+    // types of spoofing attacks. In this case, the load would never be
+    // allowed with the newly minted null principal, when all the plugin is
+    // trying to do is load a URL in its own browsing context. So we use
+    // the content principal of the plugin's node in this case.
+    netUtil->ProtocolHasFlags(uri,
+                              nsIProtocolHandler::URI_LOADABLE_BY_ANYONE |
+                                  nsIProtocolHandler::URI_DOES_NOT_RETURN_DATA,
+                              &useParentContentPrincipal);
+    if (useParentContentPrincipal) {
+      triggeringPrincipal = content->NodePrincipal();
+    } else {
+      triggeringPrincipal = NullPrincipal::CreateWithInheritedAttributes(
+          content->NodePrincipal());
+    }
   }
 
-  rv = lh->OnLinkClick(content, uri, unitarget, VoidString(), aPostStream,
-                       headersDataStream,
-                       /* isUserTriggered */ false,
-                       /* isTrusted */ true, triggeringPrincipal);
+  nsCOMPtr<nsIContentSecurityPolicy> csp = content->GetCsp();
+
+  rv = nsDocShell::Cast(container)->OnLinkClick(
+      content, uri, unitarget, VoidString(), aPostStream, headersDataStream,
+      /* isUserTriggered */ false, /* isTrusted */ true, triggeringPrincipal,
+      csp);
 
   return rv;
 }
 
-NS_IMETHODIMP nsPluginInstanceOwner::GetDocument(nsIDocument** aDocument) {
+NS_IMETHODIMP nsPluginInstanceOwner::GetDocument(Document** aDocument) {
   nsCOMPtr<nsIContent> content = do_QueryReferent(mContent);
   if (!aDocument || !content) {
     return NS_ERROR_NULL_POINTER;
@@ -867,7 +883,7 @@ bool nsPluginInstanceOwner::RequestCommitOrCancel(bool aCommitted) {
   // call nsIWidget::NotifyIME() directly from here.
   IMEStateManager::NotifyIME(aCommitted ? widget::REQUEST_TO_COMMIT_COMPOSITION
                                         : widget::REQUEST_TO_CANCEL_COMPOSITION,
-                             widget, composition->GetTabParent());
+                             widget, composition->GetBrowserParent());
   // FYI: This instance may have been destroyed.  Be careful if you need to
   //      access members of this class.
   return true;
@@ -952,7 +968,8 @@ NPBool nsPluginInstanceOwner::ConvertPointPuppet(PuppetWidget* widget,
                                                  NPCoordinateSpace sourceSpace,
                                                  double* destX, double* destY,
                                                  NPCoordinateSpace destSpace) {
-  NS_ENSURE_TRUE(widget && widget->GetOwningTabChild() && pluginFrame, false);
+  NS_ENSURE_TRUE(widget && widget->GetOwningBrowserChild() && pluginFrame,
+                 false);
   // Caller has to want a result.
   NS_ENSURE_TRUE(destX || destY, false);
 
@@ -1228,13 +1245,13 @@ static void InitializeNPCocoaEvent(NPCocoaEvent* event) {
 }
 
 NPDrawingModel nsPluginInstanceOwner::GetDrawingModel() {
-#ifndef NP_NO_QUICKDRAW
+#  ifndef NP_NO_QUICKDRAW
   // We don't support the Quickdraw drawing model any more but it's still
   // the default model for i386 per NPAPI.
   NPDrawingModel drawingModel = NPDrawingModelQuickDraw;
-#else
+#  else
   NPDrawingModel drawingModel = NPDrawingModelCoreGraphics;
-#endif
+#  endif
 
   if (!mInstance) return drawingModel;
 
@@ -1254,7 +1271,7 @@ bool nsPluginInstanceOwner::IsRemoteDrawingCoreAnimation() {
 
 NPEventModel nsPluginInstanceOwner::GetEventModel() { return mEventModel; }
 
-#define DEFAULT_REFRESH_RATE 20  // 50 FPS
+#  define DEFAULT_REFRESH_RATE 20  // 50 FPS
 StaticRefPtr<nsITimer> nsPluginInstanceOwner::sCATimer;
 nsTArray<nsPluginInstanceOwner*>* nsPluginInstanceOwner::sCARefreshListeners =
     nullptr;
@@ -1457,7 +1474,7 @@ nsresult nsPluginInstanceOwner::ProcessMouseDown(Event* aMouseEvent) {
   // otherwise, we might not get key events
   if (mPluginFrame && mPluginWindow &&
       mPluginWindow->type == NPWindowTypeDrawable) {
-    nsIFocusManager* fm = nsFocusManager::GetFocusManager();
+    nsFocusManager* fm = nsFocusManager::GetFocusManager();
     if (fm) {
       nsCOMPtr<Element> elem = do_QueryReferent(mContent);
       fm->SetFocus(elem, 0);
@@ -1466,7 +1483,7 @@ nsresult nsPluginInstanceOwner::ProcessMouseDown(Event* aMouseEvent) {
 
   WidgetMouseEvent* mouseEvent = aMouseEvent->WidgetEventPtr()->AsMouseEvent();
   if (mouseEvent && mouseEvent->mClass == eMouseEventClass) {
-    mLastMouseDownButtonType = mouseEvent->button;
+    mLastMouseDownButtonType = mouseEvent->mButton;
     nsEventStatus rv = ProcessEvent(*mouseEvent);
     if (nsEventStatus_eConsumeNoDefault == rv) {
       aMouseEvent->PreventDefault();  // consume event
@@ -1801,7 +1818,7 @@ static NPCocoaEventType CocoaEventTypeForEvent(const WidgetGUIEvent& anEvent,
       // We don't know via information on events from the widget code whether or
       // not we're dragging. The widget code just generates mouse move events
       // from native drag events. If anybody is capturing, this is a drag event.
-      if (nsIPresShell::GetCapturingContent()) {
+      if (PresShell::GetCapturingContent()) {
         return NPCocoaEventMouseDragged;
       }
 
@@ -1835,9 +1852,9 @@ static NPCocoaEvent TranslateToNPCocoaEvent(WidgetGUIEvent* anEvent,
       anEvent->mMessage == eMouseUp ||
       anEvent->mMessage == eLegacyMouseLineOrPageScroll ||
       anEvent->mMessage == eMouseOver || anEvent->mMessage == eMouseOut) {
-    nsPoint pt =
-        nsLayoutUtils::GetEventCoordinatesRelativeTo(anEvent, aObjectFrame) -
-        aObjectFrame->GetContentRectRelativeToSelf().TopLeft();
+    nsPoint pt = nsLayoutUtils::GetEventCoordinatesRelativeTo(
+                     anEvent, RelativeTo{aObjectFrame}) -
+                 aObjectFrame->GetContentRectRelativeToSelf().TopLeft();
     nsPresContext* presContext = aObjectFrame->PresContext();
     // Plugin event coordinates need to be translated from device pixels
     // into "display pixels" in HiDPI modes.
@@ -1857,18 +1874,18 @@ static NPCocoaEvent TranslateToNPCocoaEvent(WidgetGUIEvent* anEvent,
     case eMouseUp: {
       WidgetMouseEvent* mouseEvent = anEvent->AsMouseEvent();
       if (mouseEvent) {
-        switch (mouseEvent->button) {
-          case WidgetMouseEvent::eLeftButton:
+        switch (mouseEvent->mButton) {
+          case MouseButton::ePrimary:
             cocoaEvent.data.mouse.buttonNumber = 0;
             break;
-          case WidgetMouseEvent::eRightButton:
+          case MouseButton::eSecondary:
             cocoaEvent.data.mouse.buttonNumber = 1;
             break;
-          case WidgetMouseEvent::eMiddleButton:
+          case MouseButton::eMiddle:
             cocoaEvent.data.mouse.buttonNumber = 2;
             break;
           default:
-            NS_WARNING("Mouse button we don't know about?");
+            NS_WARNING("Mouse mButton we don't know about?");
         }
         cocoaEvent.data.mouse.clickCount = mouseEvent->mClickCount;
       } else {
@@ -1935,10 +1952,9 @@ void nsPluginInstanceOwner::PerformDelayedBlurs() {
   nsCOMPtr<nsIContent> content = do_QueryReferent(mContent);
   nsCOMPtr<EventTarget> windowRoot =
       content->OwnerDoc()->GetWindow()->GetTopWindowRoot();
-  nsContentUtils::DispatchTrustedEvent(
-      content->OwnerDoc(), windowRoot,
-      NS_LITERAL_STRING("MozPerformDelayedBlur"), CanBubble::eNo,
-      Cancelable::eNo, nullptr);
+  nsContentUtils::DispatchEventOnlyToChrome(
+      content->OwnerDoc(), windowRoot, u"MozPerformDelayedBlur"_ns,
+      CanBubble::eNo, Cancelable::eNo, nullptr);
 }
 
 #endif
@@ -2026,7 +2042,7 @@ nsEventStatus nsPluginInstanceOwner::ProcessEvent(
   bool handled = (response == kNPEventHandled || response == kNPEventStartIME);
   bool leftMouseButtonDown =
       (anEvent.mMessage == eMouseDown) &&
-      (anEvent.AsMouseEvent()->button == WidgetMouseEvent::eLeftButton);
+      (anEvent.AsMouseEvent()->mButton == MouseButton::ePrimary);
   if (handled && !(leftMouseButtonDown && !mContentFocused)) {
     rv = nsEventStatus_eConsumeNoDefault;
   }
@@ -2058,9 +2074,9 @@ nsEventStatus nsPluginInstanceOwner::ProcessEvent(
                                              WM_RBUTTONDBLCLK};
           const WidgetMouseEvent* mouseEvent = anEvent.AsMouseEvent();
           if (mouseEvent->mClickCount == 2) {
-            pluginEvent.event = dblClickMsgs[mouseEvent->button];
+            pluginEvent.event = dblClickMsgs[mouseEvent->mButton];
           } else {
-            pluginEvent.event = downMsgs[mouseEvent->button];
+            pluginEvent.event = downMsgs[mouseEvent->mButton];
           }
           break;
         }
@@ -2068,7 +2084,7 @@ nsEventStatus nsPluginInstanceOwner::ProcessEvent(
           static const int upMsgs[] = {WM_LBUTTONUP, WM_MBUTTONUP,
                                        WM_RBUTTONUP};
           const WidgetMouseEvent* mouseEvent = anEvent.AsMouseEvent();
-          pluginEvent.event = upMsgs[mouseEvent->button];
+          pluginEvent.event = upMsgs[mouseEvent->mButton];
           break;
         }
         // For plugins which don't support high-resolution scroll, we should
@@ -2084,13 +2100,7 @@ nsEventStatus nsPluginInstanceOwner::ProcessEvent(
                 delta = -WHEEL_DELTA * wheelEvent->mLineOrPageDeltaY;
                 break;
               case WheelEvent_Binding::DOM_DELTA_LINE: {
-                UINT linesPerWheelDelta = 0;
-                if (NS_WARN_IF(!::SystemParametersInfo(
-                        SPI_GETWHEELSCROLLLINES, 0, &linesPerWheelDelta, 0))) {
-                  // Use system default scroll amount, 3, when
-                  // SPI_GETWHEELSCROLLLINES isn't available.
-                  linesPerWheelDelta = 3;
-                }
+                UINT linesPerWheelDelta = mWheelScrollLines;
                 if (!linesPerWheelDelta) {
                   break;
                 }
@@ -2113,14 +2123,7 @@ nsEventStatus nsPluginInstanceOwner::ProcessEvent(
                 break;
               case WheelEvent_Binding::DOM_DELTA_LINE: {
                 pluginEvent.event = WM_MOUSEHWHEEL;
-                UINT charsPerWheelDelta = 0;
-                // FYI: SPI_GETWHEELSCROLLCHARS is available on Vista or later.
-                if (::SystemParametersInfo(SPI_GETWHEELSCROLLCHARS, 0,
-                                           &charsPerWheelDelta, 0)) {
-                  // Use system default scroll amount, 3, when
-                  // SPI_GETWHEELSCROLLCHARS isn't available.
-                  charsPerWheelDelta = 3;
-                }
+                UINT charsPerWheelDelta = mWheelScrollChars;
                 if (!charsPerWheelDelta) {
                   break;
                 }
@@ -2160,14 +2163,11 @@ nsEventStatus nsPluginInstanceOwner::ProcessEvent(
           break;
       }
       if (pluginEvent.event && initWParamWithCurrentState) {
+        // We created one of the messages caught above but didn't fill in
+        // wParam. Mark it with an invalid wParam value so that HandleEvent can
+        // figure it out.
         pPluginEvent = &pluginEvent;
-        pluginEvent.wParam = (::GetKeyState(VK_CONTROL) ? MK_CONTROL : 0) |
-                             (::GetKeyState(VK_SHIFT) ? MK_SHIFT : 0) |
-                             (::GetKeyState(VK_LBUTTON) ? MK_LBUTTON : 0) |
-                             (::GetKeyState(VK_MBUTTON) ? MK_MBUTTON : 0) |
-                             (::GetKeyState(VK_RBUTTON) ? MK_RBUTTON : 0) |
-                             (::GetKeyState(VK_XBUTTON1) ? MK_XBUTTON1 : 0) |
-                             (::GetKeyState(VK_XBUTTON2) ? MK_XBUTTON2 : 0);
+        pluginEvent.wParam = NPAPI_INVALID_WPARAM;
       }
     }
     if (pPluginEvent) {
@@ -2182,9 +2182,9 @@ nsEventStatus nsPluginInstanceOwner::ProcessEvent(
               anEvent.mMessage == eMouseOver || anEvent.mMessage == eMouseOut ||
               anEvent.mMessage == eMouseMove || anEvent.mMessage == eWheel,
           "Incorrect event type for coordinate translation");
-      nsPoint pt =
-          nsLayoutUtils::GetEventCoordinatesRelativeTo(&anEvent, mPluginFrame) -
-          mPluginFrame->GetContentRectRelativeToSelf().TopLeft();
+      nsPoint pt = nsLayoutUtils::GetEventCoordinatesRelativeTo(
+                       &anEvent, RelativeTo{mPluginFrame}) -
+                   mPluginFrame->GetContentRectRelativeToSelf().TopLeft();
       nsPresContext* presContext = mPluginFrame->PresContext();
       nsIntPoint ptPx(presContext->AppUnitsToDevPixels(pt.x),
                       presContext->AppUnitsToDevPixels(pt.y));
@@ -2219,6 +2219,23 @@ nsEventStatus nsPluginInstanceOwner::ProcessEvent(
     return rv;
   }
 
+  // We don't need to tell the plugin about changes to the scroll wheel
+  // settings but we do need to remember them for future mouse move
+  // calculations.  We put the scroll wheel setting in the lParam field.
+  if (pPluginEvent && pPluginEvent->event == WM_SETTINGCHANGE) {
+    switch (pPluginEvent->wParam) {
+      case SPI_SETWHEELSCROLLLINES:
+        mWheelScrollLines = static_cast<uint32_t>(pPluginEvent->lParam);
+        break;
+      case SPI_SETWHEELSCROLLCHARS:
+        mWheelScrollChars = static_cast<uint32_t>(pPluginEvent->lParam);
+        break;
+      default:
+        break;
+    }
+    return nsEventStatus_eConsumeNoDefault;
+  }
+
   if (pPluginEvent) {
     int16_t response = kNPEventNotHandled;
     mInstance->HandleEvent(const_cast<NPEvent*>(pPluginEvent), &response,
@@ -2247,9 +2264,9 @@ nsEventStatus nsPluginInstanceOwner::ProcessEvent(
 
       // Get reference point relative to plugin origin.
       const nsPresContext* presContext = mPluginFrame->PresContext();
-      nsPoint appPoint =
-          nsLayoutUtils::GetEventCoordinatesRelativeTo(&anEvent, mPluginFrame) -
-          mPluginFrame->GetContentRectRelativeToSelf().TopLeft();
+      nsPoint appPoint = nsLayoutUtils::GetEventCoordinatesRelativeTo(
+                             &anEvent, RelativeTo{mPluginFrame}) -
+                         mPluginFrame->GetContentRectRelativeToSelf().TopLeft();
       nsIntPoint pluginPoint(presContext->AppUnitsToDevPixels(appPoint.x),
                              presContext->AppUnitsToDevPixels(appPoint.y));
       const WidgetMouseEvent& mouseEvent = *anEvent.AsMouseEvent();
@@ -2258,11 +2275,11 @@ nsEventStatus nsPluginInstanceOwner::ProcessEvent(
       if (widget) {
         rootPoint = anEvent.mRefPoint + widget->WidgetToScreenOffset();
       }
-#ifdef MOZ_WIDGET_GTK
+#  ifdef MOZ_WIDGET_GTK
       Window root = GDK_ROOT_WINDOW();
-#else
+#  else
       Window root = X11None;  // Could XQueryTree, but this is not important.
-#endif
+#  endif
 
       switch (anEvent.mMessage) {
         case eMouseOver:
@@ -2281,7 +2298,7 @@ nsEventStatus nsPluginInstanceOwner::ProcessEvent(
           event.subwindow = X11None;
           event.mode = -1;
           event.detail = NotifyDetailNone;
-          event.same_screen = True;
+          event.same_screen = X11True;
           event.focus = mContentFocused;
         } break;
         case eMouseMove: {
@@ -2297,7 +2314,7 @@ nsEventStatus nsPluginInstanceOwner::ProcessEvent(
           // information lost
           event.subwindow = X11None;
           event.is_hint = NotifyNormal;
-          event.same_screen = True;
+          event.same_screen = X11True;
         } break;
         case eMouseDown:
         case eMouseUp: {
@@ -2311,20 +2328,20 @@ nsEventStatus nsPluginInstanceOwner::ProcessEvent(
           event.x_root = rootPoint.x;
           event.y_root = rootPoint.y;
           event.state = XInputEventState(mouseEvent);
-          switch (mouseEvent.button) {
-            case WidgetMouseEvent::eMiddleButton:
+          switch (mouseEvent.mButton) {
+            case MouseButton::eMiddle:
               event.button = 2;
               break;
-            case WidgetMouseEvent::eRightButton:
+            case MouseButton::eSecondary:
               event.button = 3;
               break;
-            default:  // WidgetMouseEvent::eLeftButton;
+            default:  // MouseButton::eLeft;
               event.button = 1;
               break;
           }
           // information lost:
           event.subwindow = X11None;
-          event.same_screen = True;
+          event.same_screen = X11True;
         } break;
         default:
           break;
@@ -2336,7 +2353,7 @@ nsEventStatus nsPluginInstanceOwner::ProcessEvent(
     case eKeyboardEventClass:
       if (anEvent.mPluginEvent) {
         XKeyEvent& event = pluginEvent.xkey;
-#ifdef MOZ_WIDGET_GTK
+#  ifdef MOZ_WIDGET_GTK
         event.root = GDK_ROOT_WINDOW();
         event.time = anEvent.mTime;
         const GdkEventKey* gdkEvent =
@@ -2358,7 +2375,7 @@ nsEventStatus nsPluginInstanceOwner::ProcessEvent(
           default:
             break;
         }
-#endif
+#  endif
 
         // Information that could be obtained from pluginEvent but we may not
         // want to promise to provide:
@@ -2367,7 +2384,7 @@ nsEventStatus nsPluginInstanceOwner::ProcessEvent(
         event.y = 0;
         event.x_root = -1;
         event.y_root = -1;
-        event.same_screen = False;
+        event.same_screen = X11False;
       } else {
         // If we need to send synthesized key events, then
         // DOMKeyCodeToGdkKeyCode(keyEvent.keyCode) and
@@ -2404,7 +2421,7 @@ nsEventStatus nsPluginInstanceOwner::ProcessEvent(
   event.window = X11None;  // not a real window
   // information lost:
   event.serial = 0;
-  event.send_event = False;
+  event.send_event = X11False;
 
   int16_t response = kNPEventNotHandled;
   mInstance->HandleEvent(&pluginEvent, &response,
@@ -2430,32 +2447,30 @@ nsresult nsPluginInstanceOwner::Destroy() {
     mCXMenuListener = nullptr;
   }
 
-  content->RemoveEventListener(NS_LITERAL_STRING("focus"), this, false);
-  content->RemoveEventListener(NS_LITERAL_STRING("blur"), this, false);
-  content->RemoveEventListener(NS_LITERAL_STRING("mouseup"), this, false);
-  content->RemoveEventListener(NS_LITERAL_STRING("mousedown"), this, false);
-  content->RemoveEventListener(NS_LITERAL_STRING("mousemove"), this, false);
-  content->RemoveEventListener(NS_LITERAL_STRING("click"), this, false);
-  content->RemoveEventListener(NS_LITERAL_STRING("dblclick"), this, false);
-  content->RemoveEventListener(NS_LITERAL_STRING("mouseover"), this, false);
-  content->RemoveEventListener(NS_LITERAL_STRING("mouseout"), this, false);
-  content->RemoveEventListener(NS_LITERAL_STRING("keypress"), this, true);
-  content->RemoveSystemEventListener(NS_LITERAL_STRING("keypress"), this, true);
-  content->RemoveEventListener(NS_LITERAL_STRING("keydown"), this, true);
-  content->RemoveEventListener(NS_LITERAL_STRING("keyup"), this, true);
-  content->RemoveEventListener(NS_LITERAL_STRING("drop"), this, true);
-  content->RemoveEventListener(NS_LITERAL_STRING("drag"), this, true);
-  content->RemoveEventListener(NS_LITERAL_STRING("dragenter"), this, true);
-  content->RemoveEventListener(NS_LITERAL_STRING("dragover"), this, true);
-  content->RemoveEventListener(NS_LITERAL_STRING("dragleave"), this, true);
-  content->RemoveEventListener(NS_LITERAL_STRING("dragexit"), this, true);
-  content->RemoveEventListener(NS_LITERAL_STRING("dragstart"), this, true);
-  content->RemoveEventListener(NS_LITERAL_STRING("dragend"), this, true);
-  content->RemoveSystemEventListener(NS_LITERAL_STRING("compositionstart"),
-                                     this, true);
-  content->RemoveSystemEventListener(NS_LITERAL_STRING("compositionend"), this,
-                                     true);
-  content->RemoveSystemEventListener(NS_LITERAL_STRING("text"), this, true);
+  content->RemoveEventListener(u"focus"_ns, this, false);
+  content->RemoveEventListener(u"blur"_ns, this, false);
+  content->RemoveEventListener(u"mouseup"_ns, this, false);
+  content->RemoveEventListener(u"mousedown"_ns, this, false);
+  content->RemoveEventListener(u"mousemove"_ns, this, false);
+  content->RemoveEventListener(u"click"_ns, this, false);
+  content->RemoveEventListener(u"dblclick"_ns, this, false);
+  content->RemoveEventListener(u"mouseover"_ns, this, false);
+  content->RemoveEventListener(u"mouseout"_ns, this, false);
+  content->RemoveEventListener(u"keypress"_ns, this, true);
+  content->RemoveSystemEventListener(u"keypress"_ns, this, true);
+  content->RemoveEventListener(u"keydown"_ns, this, true);
+  content->RemoveEventListener(u"keyup"_ns, this, true);
+  content->RemoveEventListener(u"drop"_ns, this, true);
+  content->RemoveEventListener(u"drag"_ns, this, true);
+  content->RemoveEventListener(u"dragenter"_ns, this, true);
+  content->RemoveEventListener(u"dragover"_ns, this, true);
+  content->RemoveEventListener(u"dragleave"_ns, this, true);
+  content->RemoveEventListener(u"dragexit"_ns, this, true);
+  content->RemoveEventListener(u"dragstart"_ns, this, true);
+  content->RemoveEventListener(u"dragend"_ns, this, true);
+  content->RemoveSystemEventListener(u"compositionstart"_ns, this, true);
+  content->RemoveSystemEventListener(u"compositionend"_ns, this, true);
+  content->RemoveSystemEventListener(u"text"_ns, this, true);
 
   if (mWidget) {
     if (mPluginWindow) {
@@ -2656,14 +2671,14 @@ nsresult nsPluginInstanceOwner::Renderer::DrawWithXlib(
 
   NPSetWindowCallbackStruct* ws_info =
       static_cast<NPSetWindowCallbackStruct*>(mWindow->ws_info);
-#ifdef MOZ_X11
+#  ifdef MOZ_X11
   if (ws_info->visual != visual || ws_info->colormap != colormap) {
     ws_info->visual = visual;
     ws_info->colormap = colormap;
     ws_info->depth = gfxXlibSurface::DepthOfVisual(screen, visual);
     doupdatewindow = true;
   }
-#endif
+#  endif
 
   {
     if (doupdatewindow) instance->SetWindow(mWindow);
@@ -2697,7 +2712,7 @@ nsresult nsPluginInstanceOwner::Renderer::DrawWithXlib(
     exposeEvent.count = 0;
     // information not set:
     exposeEvent.serial = 0;
-    exposeEvent.send_event = False;
+    exposeEvent.send_event = X11False;
     exposeEvent.major_code = 0;
     exposeEvent.minor_code = 0;
 
@@ -2732,38 +2747,33 @@ nsresult nsPluginInstanceOwner::Init(nsIContent* aContent) {
   // register context menu listener
   mCXMenuListener = new nsPluginDOMContextMenuListener(aContent);
 
-  aContent->AddEventListener(NS_LITERAL_STRING("focus"), this, false, false);
-  aContent->AddEventListener(NS_LITERAL_STRING("blur"), this, false, false);
-  aContent->AddEventListener(NS_LITERAL_STRING("mouseup"), this, false, false);
-  aContent->AddEventListener(NS_LITERAL_STRING("mousedown"), this, false,
-                             false);
-  aContent->AddEventListener(NS_LITERAL_STRING("mousemove"), this, false,
-                             false);
-  aContent->AddEventListener(NS_LITERAL_STRING("click"), this, false, false);
-  aContent->AddEventListener(NS_LITERAL_STRING("dblclick"), this, false, false);
-  aContent->AddEventListener(NS_LITERAL_STRING("mouseover"), this, false,
-                             false);
-  aContent->AddEventListener(NS_LITERAL_STRING("mouseout"), this, false, false);
+  aContent->AddEventListener(u"focus"_ns, this, false, false);
+  aContent->AddEventListener(u"blur"_ns, this, false, false);
+  aContent->AddEventListener(u"mouseup"_ns, this, false, false);
+  aContent->AddEventListener(u"mousedown"_ns, this, false, false);
+  aContent->AddEventListener(u"mousemove"_ns, this, false, false);
+  aContent->AddEventListener(u"click"_ns, this, false, false);
+  aContent->AddEventListener(u"dblclick"_ns, this, false, false);
+  aContent->AddEventListener(u"mouseover"_ns, this, false, false);
+  aContent->AddEventListener(u"mouseout"_ns, this, false, false);
   // "keypress" event should be handled when it's in the default event group
   // if the event is fired in content.  Otherwise, it should be handled when
   // it's in the system event group.
-  aContent->AddEventListener(NS_LITERAL_STRING("keypress"), this, true);
-  aContent->AddSystemEventListener(NS_LITERAL_STRING("keypress"), this, true);
-  aContent->AddEventListener(NS_LITERAL_STRING("keydown"), this, true);
-  aContent->AddEventListener(NS_LITERAL_STRING("keyup"), this, true);
-  aContent->AddEventListener(NS_LITERAL_STRING("drop"), this, true);
-  aContent->AddEventListener(NS_LITERAL_STRING("drag"), this, true);
-  aContent->AddEventListener(NS_LITERAL_STRING("dragenter"), this, true);
-  aContent->AddEventListener(NS_LITERAL_STRING("dragover"), this, true);
-  aContent->AddEventListener(NS_LITERAL_STRING("dragleave"), this, true);
-  aContent->AddEventListener(NS_LITERAL_STRING("dragexit"), this, true);
-  aContent->AddEventListener(NS_LITERAL_STRING("dragstart"), this, true);
-  aContent->AddEventListener(NS_LITERAL_STRING("dragend"), this, true);
-  aContent->AddSystemEventListener(NS_LITERAL_STRING("compositionstart"), this,
-                                   true);
-  aContent->AddSystemEventListener(NS_LITERAL_STRING("compositionend"), this,
-                                   true);
-  aContent->AddSystemEventListener(NS_LITERAL_STRING("text"), this, true);
+  aContent->AddEventListener(u"keypress"_ns, this, true);
+  aContent->AddSystemEventListener(u"keypress"_ns, this, true);
+  aContent->AddEventListener(u"keydown"_ns, this, true);
+  aContent->AddEventListener(u"keyup"_ns, this, true);
+  aContent->AddEventListener(u"drop"_ns, this, true);
+  aContent->AddEventListener(u"drag"_ns, this, true);
+  aContent->AddEventListener(u"dragenter"_ns, this, true);
+  aContent->AddEventListener(u"dragover"_ns, this, true);
+  aContent->AddEventListener(u"dragleave"_ns, this, true);
+  aContent->AddEventListener(u"dragexit"_ns, this, true);
+  aContent->AddEventListener(u"dragstart"_ns, this, true);
+  aContent->AddEventListener(u"dragend"_ns, this, true);
+  aContent->AddSystemEventListener(u"compositionstart"_ns, this, true);
+  aContent->AddSystemEventListener(u"compositionend"_ns, this, true);
+  aContent->AddSystemEventListener(u"text"_ns, this, true);
 
   return NS_OK;
 }
@@ -2805,7 +2815,7 @@ NS_IMETHODIMP nsPluginInstanceOwner::CreateWidget(void) {
     nsresult rv = NS_ERROR_FAILURE;
 
     nsCOMPtr<nsIWidget> parentWidget;
-    nsIDocument* doc = nullptr;
+    Document* doc = nullptr;
     nsCOMPtr<nsIContent> content = do_QueryReferent(mContent);
     if (content) {
       doc = content->OwnerDoc();
@@ -2814,8 +2824,9 @@ NS_IMETHODIMP nsPluginInstanceOwner::CreateWidget(void) {
       // created in chrome.
       if (XRE_IsContentProcess()) {
         if (nsCOMPtr<nsPIDOMWindowOuter> window = doc->GetWindow()) {
-          if (nsCOMPtr<nsPIDOMWindowOuter> topWindow = window->GetTop()) {
-            dom::TabChild* tc = dom::TabChild::GetFrom(topWindow);
+          if (nsCOMPtr<nsPIDOMWindowOuter> topWindow =
+                  window->GetInProcessTop()) {
+            dom::BrowserChild* tc = dom::BrowserChild::GetFrom(topWindow);
             if (tc) {
               // This returns a PluginWidgetProxy which remotes a number of
               // calls.
@@ -2880,7 +2891,7 @@ NS_IMETHODIMP nsPluginInstanceOwner::CreateWidget(void) {
 
     nsAutoCString description;
     GetPluginDescription(description);
-    NS_NAMED_LITERAL_CSTRING(flash10Head, "Shockwave Flash 10.");
+    constexpr auto flash10Head = "Shockwave Flash 10."_ns;
     mFlash10Quirks = StringBeginsWith(description, flash10Head);
 #endif
   } else if (mWidget) {
@@ -3129,7 +3140,7 @@ nsPluginInstanceOwner::GetContentsScaleFactor(double* result) {
   // pixels.
 #if defined(XP_MACOSX) || defined(XP_WIN)
   nsCOMPtr<nsIContent> content = do_QueryReferent(mContent);
-  nsIPresShell* presShell =
+  PresShell* presShell =
       nsContentUtils::FindPresShellForDocument(content->OwnerDoc());
   if (presShell) {
     scaleFactor = double(AppUnitsPerCSSPixel()) /
@@ -3144,7 +3155,7 @@ nsPluginInstanceOwner::GetContentsScaleFactor(double* result) {
 
 void nsPluginInstanceOwner::GetCSSZoomFactor(float* result) {
   nsCOMPtr<nsIContent> content = do_QueryReferent(mContent);
-  nsIPresShell* presShell =
+  PresShell* presShell =
       nsContentUtils::FindPresShellForDocument(content->OwnerDoc());
   if (presShell) {
     *result = presShell->GetPresContext()->DeviceContext()->GetFullZoom();
@@ -3163,16 +3174,14 @@ void nsPluginInstanceOwner::SetFrame(nsPluginFrame* aFrame) {
 
   // If we already have a frame that is changing or going away...
   if (mPluginFrame) {
-    if (content && content->OwnerDoc() && content->OwnerDoc()->GetWindow()) {
+    if (content && content->OwnerDoc()->GetWindow()) {
       nsCOMPtr<EventTarget> windowRoot =
           content->OwnerDoc()->GetWindow()->GetTopWindowRoot();
       if (windowRoot) {
-        windowRoot->RemoveEventListener(NS_LITERAL_STRING("activate"), this,
+        windowRoot->RemoveEventListener(u"activate"_ns, this, false);
+        windowRoot->RemoveEventListener(u"deactivate"_ns, this, false);
+        windowRoot->RemoveEventListener(u"MozPerformDelayedBlur"_ns, this,
                                         false);
-        windowRoot->RemoveEventListener(NS_LITERAL_STRING("deactivate"), this,
-                                        false);
-        windowRoot->RemoveEventListener(
-            NS_LITERAL_STRING("MozPerformDelayedBlur"), this, false);
       }
     }
 
@@ -3207,12 +3216,10 @@ void nsPluginInstanceOwner::SetFrame(nsPluginFrame* aFrame) {
       nsCOMPtr<EventTarget> windowRoot =
           content->OwnerDoc()->GetWindow()->GetTopWindowRoot();
       if (windowRoot) {
-        windowRoot->AddEventListener(NS_LITERAL_STRING("activate"), this, false,
+        windowRoot->AddEventListener(u"activate"_ns, this, false, false);
+        windowRoot->AddEventListener(u"deactivate"_ns, this, false, false);
+        windowRoot->AddEventListener(u"MozPerformDelayedBlur"_ns, this, false,
                                      false);
-        windowRoot->AddEventListener(NS_LITERAL_STRING("deactivate"), this,
-                                     false, false);
-        windowRoot->AddEventListener(NS_LITERAL_STRING("MozPerformDelayedBlur"),
-                                     this, false, false);
       }
     }
   }
@@ -3224,7 +3231,7 @@ NS_IMETHODIMP nsPluginInstanceOwner::PrivateModeChanged(bool aEnabled) {
   return mInstance ? mInstance->PrivateModeStateChanged(aEnabled) : NS_OK;
 }
 
-already_AddRefed<nsIURI> nsPluginInstanceOwner::GetBaseURI() const {
+nsIURI* nsPluginInstanceOwner::GetBaseURI() const {
   nsCOMPtr<nsIContent> content = do_QueryReferent(mContent);
   if (!content) {
     return nullptr;
@@ -3279,10 +3286,10 @@ void nsPluginInstanceOwner::GeneratePluginEvent(
 
 nsPluginDOMContextMenuListener::nsPluginDOMContextMenuListener(
     nsIContent* aContent) {
-  aContent->AddEventListener(NS_LITERAL_STRING("contextmenu"), this, true);
+  aContent->AddEventListener(u"contextmenu"_ns, this, true);
 }
 
-nsPluginDOMContextMenuListener::~nsPluginDOMContextMenuListener() {}
+nsPluginDOMContextMenuListener::~nsPluginDOMContextMenuListener() = default;
 
 NS_IMPL_ISUPPORTS(nsPluginDOMContextMenuListener, nsIDOMEventListener)
 
@@ -3295,5 +3302,5 @@ nsPluginDOMContextMenuListener::HandleEvent(Event* aEvent) {
 
 void nsPluginDOMContextMenuListener::Destroy(nsIContent* aContent) {
   // Unregister context menu listener
-  aContent->RemoveEventListener(NS_LITERAL_STRING("contextmenu"), this, true);
+  aContent->RemoveEventListener(u"contextmenu"_ns, this, true);
 }

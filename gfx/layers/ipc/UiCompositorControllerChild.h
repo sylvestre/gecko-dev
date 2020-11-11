@@ -22,6 +22,8 @@ namespace layers {
 
 class UiCompositorControllerChild final
     : protected PUiCompositorControllerChild {
+  friend class PUiCompositorControllerChild;
+
  public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(UiCompositorControllerChild)
 
@@ -37,34 +39,33 @@ class UiCompositorControllerChild final
                        const int32_t& aHeight, const int32_t& aWidth);
   bool InvalidateAndRender();
   bool SetMaxToolbarHeight(const int32_t& aHeight);
-  bool SetPinned(const bool& aPinned, const int32_t& aReason);
+  bool SetFixedBottomOffset(int32_t aOffset);
   bool ToolbarAnimatorMessageFromUI(const int32_t& aMessage);
   bool SetDefaultClearColor(const uint32_t& aColor);
   bool RequestScreenPixels();
   bool EnableLayerUpdateNotifications(const bool& aEnable);
-  bool ToolbarPixelsToCompositor(Shmem& aMem, const ScreenIntSize& aSize);
 
   void Destroy();
 
   void SetBaseWidget(nsBaseWidget* aWidget);
-  bool AllocPixelBuffer(const int32_t aSize, Shmem* aMem);
   bool DeallocPixelBuffer(Shmem& aMem);
 
  protected:
   void ActorDestroy(ActorDestroyReason aWhy) override;
-  void DeallocPUiCompositorControllerChild() override;
+  void ActorDealloc() override;
   void ProcessingError(Result aCode, const char* aReason) override;
-  virtual void HandleFatalError(const char* aMsg) const override;
+  void HandleFatalError(const char* aMsg) const override;
   mozilla::ipc::IPCResult RecvToolbarAnimatorMessageFromCompositor(
-      const int32_t& aMessage) override;
-  mozilla::ipc::IPCResult RecvRootFrameMetrics(
-      const ScreenPoint& aScrollOffset, const CSSToScreenScale& aZoom) override;
-  mozilla::ipc::IPCResult RecvScreenPixels(ipc::Shmem&& aMem,
-                                           const ScreenIntSize& aSize) override;
+      const int32_t& aMessage);
+  mozilla::ipc::IPCResult RecvRootFrameMetrics(const ScreenPoint& aScrollOffset,
+                                               const CSSToScreenScale& aZoom);
+  mozilla::ipc::IPCResult RecvScreenPixels(Shmem&& aMem,
+                                           const ScreenIntSize& aSize,
+                                           bool aNeedsYFlip);
 
  private:
   explicit UiCompositorControllerChild(const uint64_t& aProcessToken);
-  ~UiCompositorControllerChild();
+  virtual ~UiCompositorControllerChild();
   void OpenForSameProcess();
   void OpenForGPUProcess(Endpoint<PUiCompositorControllerChild>&& aEndpoint);
   void SendCachedValues();
@@ -75,7 +76,7 @@ class UiCompositorControllerChild final
   Maybe<int32_t> mMaxToolbarHeight;
   Maybe<uint32_t> mDefaultClearColor;
   Maybe<bool> mLayerUpdateEnabled;
-  nsBaseWidget* mWidget;
+  RefPtr<nsBaseWidget> mWidget;
   // Should only be set when compositor is in process.
   RefPtr<UiCompositorControllerParent> mParent;
 };

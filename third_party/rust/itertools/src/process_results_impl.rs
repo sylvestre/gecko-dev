@@ -5,6 +5,7 @@
 /// Used by [`process_results`](../fn.process_results.html), see its docs
 /// for more information.
 #[must_use = "iterator adaptors are lazy and do nothing unless consumed"]
+#[derive(Debug)]
 pub struct ProcessResults<'a, I, E: 'a> {
     error: &'a mut Result<(), E>,
     iter: I,
@@ -74,7 +75,7 @@ pub fn process_results<I, F, T, E, R>(iterable: I, processor: F) -> Result<R, E>
     let iter = iterable.into_iter();
     let mut error = Ok(());
 
-    let result = processor(ProcessResults { error: &mut error, iter: iter });
+    let result = processor(ProcessResults { error: &mut error, iter });
 
     error.map(|_| result)
 }

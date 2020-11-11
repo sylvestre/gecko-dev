@@ -1,4 +1,3 @@
-/* vim: set ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -33,9 +32,14 @@ add_task(async function() {
 
   // filter is not available on gBrowser.tabs.
   const aboutDevtoolsTabs = [...gBrowser.tabs].filter(isAboutDevtoolsTab);
-  ok(aboutDevtoolsTabs.length === 1, "Only one tab of about:devtools was opened.");
-  ok(aboutDevtoolsTabs[0] === aboutDevtoolsTab,
-    "The existing about:devtools tab was reused.");
+  ok(
+    aboutDevtoolsTabs.length === 1,
+    "Only one tab of about:devtools was opened."
+  );
+  ok(
+    aboutDevtoolsTabs[0] === aboutDevtoolsTab,
+    "The existing about:devtools tab was reused."
+  );
 
   await removeTab(aboutDevtoolsTab);
   await removeTab(tab);

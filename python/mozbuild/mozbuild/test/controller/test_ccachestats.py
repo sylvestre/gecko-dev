@@ -2,7 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-from __future__ import unicode_literals
+from __future__ import absolute_import, print_function, unicode_literals
 
 import time
 import unittest
@@ -197,7 +197,9 @@ class TestCcacheStats(unittest.TestCase):
     files in cache                     13464
     cache size                           6.2 GB
     max cache size                       7.0 GB
-    """.format(timestamp=time.strftime('%c'))
+    """.format(
+        timestamp=time.strftime("%c")
+    )
 
     STAT9 = """
     cache directory                     /Users/tlin/.ccache
@@ -222,7 +224,9 @@ class TestCcacheStats(unittest.TestCase):
     files in cache                     18525
     cache size                          13.4 GB
     max cache size                      15.0 GB
-    """.format(timestamp=time.strftime('%c'), timestamp2=time.strftime('%c'))
+    """.format(
+        timestamp=time.strftime("%c"), timestamp2=time.strftime("%c")
+    )
 
     def test_parse_garbage_stats_message(self):
         self.assertRaises(ValueError, CCacheStats, self.STAT_GARBAGE)
@@ -291,5 +295,6 @@ class TestCcacheStats(unittest.TestCase):
         stat9 = CCacheStats(self.STAT9)
         self.assertTrue(stat9)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

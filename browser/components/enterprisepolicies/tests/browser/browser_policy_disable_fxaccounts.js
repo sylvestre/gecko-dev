@@ -4,13 +4,13 @@
 "use strict";
 
 add_task(async function test_policy_disable_fxaccounts() {
-  is(gSync.SYNC_ENABLED, true, "Sync is enabled before setting the policy.");
+  is(gSync.FXA_ENABLED, true, "Sync is enabled before setting the policy.");
 
   await setupPolicyEngineWithJson({
-    "policies": {
-      "DisableFirefoxAccounts": true,
+    policies: {
+      DisableFirefoxAccounts: true,
     },
   });
 
-  is(gSync.SYNC_ENABLED, false, "Sync is disabled after setting the policy.");
+  is(gSync.FXA_ENABLED, false, "Sync is disabled after setting the policy.");
 });

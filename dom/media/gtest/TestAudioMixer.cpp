@@ -70,7 +70,8 @@ void FillBuffer(AudioDataValue* aBuffer, uint32_t aLength,
   }
 }
 
-TEST(AudioMixer, Test) {
+TEST(AudioMixer, Test)
+{
   const uint32_t CHANNEL_LENGTH = 256;
   const uint32_t AUDIO_RATE = 44100;
   MixerConsumer consumer;
@@ -85,7 +86,7 @@ TEST(AudioMixer, Test) {
   {
     int iterations = 2;
     mozilla::AudioMixer mixer;
-    mixer.AddCallback(&consumer);
+    mixer.AddCallback(WrapNotNull(&consumer));
 
     fprintf(stderr, "Test AudioMixer constant buffer length.\n");
 
@@ -98,7 +99,7 @@ TEST(AudioMixer, Test) {
 
   {
     mozilla::AudioMixer mixer;
-    mixer.AddCallback(&consumer);
+    mixer.AddCallback(WrapNotNull(&consumer));
 
     fprintf(stderr, "Test AudioMixer variable buffer length.\n");
 
@@ -136,7 +137,7 @@ TEST(AudioMixer, Test) {
 
   {
     mozilla::AudioMixer mixer;
-    mixer.AddCallback(&consumer);
+    mixer.AddCallback(WrapNotNull(&consumer));
 
     fprintf(stderr, "Test AudioMixer variable channel count.\n");
 
@@ -153,7 +154,7 @@ TEST(AudioMixer, Test) {
 
   {
     mozilla::AudioMixer mixer;
-    mixer.AddCallback(&consumer);
+    mixer.AddCallback(WrapNotNull(&consumer));
     fprintf(stderr, "Test AudioMixer variable stream count.\n");
 
     mixer.Mix(a, 2, CHANNEL_LENGTH, AUDIO_RATE);

@@ -6,16 +6,46 @@
 
 DisableStlWrapping()
 
-GeckoCppUnitTests([
-    'ShowSSEConfig',
-], linkage=None)
+# Important: for CppUnitTests to be run, they also need to be added
+# to testing/cppunittest.ini.
 
-CppUnitTests([
-    'TestPrintf',
-])
+GeckoCppUnitTests(
+    [
+        "ShowSSEConfig",
+    ],
+    linkage=None,
+)
 
-if CONFIG['OS_ARCH'] == 'WINNT':
+CppUnitTests(
+    [
+        "TestBaseProfiler",
+        "TestPrintf",
+    ]
+)
+
+with Files("TestBaseProfiler.cpp"):
+    BUG_COMPONENT = ("Core", "Gecko Profiler")
+
+if CONFIG["OS_ARCH"] == "WINNT":
+    GeckoCppUnitTests(
+        [
+            "TestNativeNt",
+            "TestPEExportSection",
+            "TestTimeStampWin",
+        ],
+        linkage=None,
+    )
     TEST_DIRS += [
-        'interceptor',
-        'gtest',
+        "interceptor",
+        "gtest",
+    ]
+    OS_LIBS += [
+        "ntdll",
+        "version",
+    ]
+
+if CONFIG["OS_TARGET"] == "WINNT" and CONFIG["CC_TYPE"] in ("gcc", "clang"):
+    # This allows us to use wmain as the entry point on mingw
+    LDFLAGS += [
+        "-municode",
     ]

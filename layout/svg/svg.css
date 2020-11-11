@@ -7,16 +7,33 @@
 @namespace url(http://www.w3.org/2000/svg);
 @namespace xml url(http://www.w3.org/XML/1998/namespace);
 
-style, script, symbol {
+style, script {
  display: none;
 }
 
-symbol:-moz-use-shadow-tree-root {
-  display: inline !important;
+/*
+ * This is only to be overridden by the rule right below.
+ *
+ * NOTE(emilio): NodeCouldBeRendered in SVGUseElement.cpp relies on this.
+ */
+symbol {
+ display: none !important;
 }
 
-switch {
- -moz-binding: none !important;
+/*
+ * From https://svgwg.org/svg2-draft/struct.html#SymbolNotes:
+ *
+ * > The generated instance of a 'symbol' that is the direct referenced element
+ * > of a 'use' element must always have a computed value of inline for the
+ * > display property. In other words, it must be rendered whenever the host
+ * > 'use' element is rendered.
+ *
+ * NOTE(emilio): other browsers instead just replace the `<symbol>` element by
+ * an `<svg>` element while cloning, but they don't implement the SVG2
+ * selector-matching rules that would make that observable via selectors.
+ */
+symbol:-moz-use-shadow-tree-root {
+  display: inline !important;
 }
 
 svg:not(:root), symbol, image, marker, pattern, foreignObject {
@@ -36,7 +53,7 @@ svg:not(:root), symbol, image, marker, pattern, foreignObject {
 }
 
 foreignObject {
-  -moz-appearance: none ! important;
+  appearance: none ! important;
   margin: 0 ! important;
   padding: 0 ! important;
   border-width: 0 ! important;
@@ -45,7 +62,7 @@ foreignObject {
 
 @media all and (-moz-is-resource-document) {
  foreignObject *|* {
-   -moz-appearance: none !important;
+   appearance: none !important;
  }
 }
 
@@ -88,6 +105,6 @@ foreignObject {
 /* Make SVG shapes unselectable to avoid triggering AccessibleCaret on tap.
    <mesh> will be supported in bug 1238882. */
 circle, ellipse, line, mesh, path, polygon, polyline, rect {
-  -moz-user-select: none;
+  user-select: none;
 }
 

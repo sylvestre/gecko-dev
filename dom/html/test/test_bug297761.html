@@ -5,7 +5,7 @@ https://bugzilla.mozilla.org/show_bug.cgi?id=297761
 -->
 <head>
   <title>Test for Bug 297761</title>
-  <script type="application/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css"/>
 </head>
 <body>
@@ -47,8 +47,8 @@ function nextTest()
 function frameLoaded(aFrame)
 {
   var documentLocation = location.href.replace(/\.html.*/, "\.html");
-  is(aFrame.contentWindow.location.href.replace(/\?x=0&y=0/, ""),
-     documentLocation.replace(/test_bug/, "file_bug"),
+  is(aFrame.contentWindow.location.href.replace(/\?x=0&y=0/, "?"),
+     documentLocation.replace(/test_bug/, "file_bug") + "?",
      "form should have been submitted to the document location");
 
   if (++curTest == nbTests) {

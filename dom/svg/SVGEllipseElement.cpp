@@ -4,14 +4,16 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#include "ComputedStyle.h"
 #include "mozilla/dom/SVGEllipseElement.h"
 #include "mozilla/dom/SVGEllipseElementBinding.h"
 #include "mozilla/dom/SVGLengthBinding.h"
 #include "mozilla/gfx/2D.h"
 #include "mozilla/gfx/PathHelpers.h"
 #include "mozilla/RefPtr.h"
+#include "SVGGeometryProperty.h"
 
-NS_IMPL_NS_NEW_NAMESPACED_SVG_ELEMENT(Ellipse)
+NS_IMPL_NS_NEW_SVG_ELEMENT(Ellipse)
 
 using namespace mozilla::gfx;
 
@@ -23,7 +25,7 @@ JSObject* SVGEllipseElement::WrapNode(JSContext* aCx,
   return SVGEllipseElement_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-nsSVGElement::LengthInfo SVGEllipseElement::sLengthInfo[4] = {
+SVGElement::LengthInfo SVGEllipseElement::sLengthInfo[4] = {
     {nsGkAtoms::cx, 0, SVGLength_Binding::SVG_LENGTHTYPE_NUMBER,
      SVGContentUtils::X},
     {nsGkAtoms::cy, 0, SVGLength_Binding::SVG_LENGTHTYPE_NUMBER,
@@ -41,6 +43,13 @@ SVGEllipseElement::SVGEllipseElement(
     already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo)
     : SVGEllipseElementBase(std::move(aNodeInfo)) {}
 
+bool SVGEllipseElement::IsAttributeMapped(const nsAtom* aAttribute) const {
+  return IsInLengthInfo(aAttribute, sLengthInfo) ||
+         SVGEllipseElementBase::IsAttributeMapped(aAttribute);
+}
+
+namespace SVGT = SVGGeometryProperty::Tags;
+
 //----------------------------------------------------------------------
 // nsINode methods
 
@@ -49,33 +58,44 @@ NS_IMPL_ELEMENT_CLONE_WITH_INIT(SVGEllipseElement)
 //----------------------------------------------------------------------
 // nsIDOMSVGEllipseElement methods
 
-already_AddRefed<SVGAnimatedLength> SVGEllipseElement::Cx() {
+already_AddRefed<DOMSVGAnimatedLength> SVGEllipseElement::Cx() {
   return mLengthAttributes[CX].ToDOMAnimatedLength(this);
 }
 
-already_AddRefed<SVGAnimatedLength> SVGEllipseElement::Cy() {
+already_AddRefed<DOMSVGAnimatedLength> SVGEllipseElement::Cy() {
   return mLengthAttributes[CY].ToDOMAnimatedLength(this);
 }
 
-already_AddRefed<SVGAnimatedLength> SVGEllipseElement::Rx() {
+already_AddRefed<DOMSVGAnimatedLength> SVGEllipseElement::Rx() {
   return mLengthAttributes[RX].ToDOMAnimatedLength(this);
 }
 
-already_AddRefed<SVGAnimatedLength> SVGEllipseElement::Ry() {
+already_AddRefed<DOMSVGAnimatedLength> SVGEllipseElement::Ry() {
   return mLengthAttributes[RY].ToDOMAnimatedLength(this);
 }
 
 //----------------------------------------------------------------------
-// nsSVGElement methods
+// SVGElement methods
 
-/* virtual */ bool SVGEllipseElement::HasValidDimensions() const {
-  return mLengthAttributes[RX].IsExplicitlySet() &&
-         mLengthAttributes[RX].GetAnimValInSpecifiedUnits() > 0 &&
-         mLengthAttributes[RY].IsExplicitlySet() &&
-         mLengthAttributes[RY].GetAnimValInSpecifiedUnits() > 0;
+/* virtual */
+bool SVGEllipseElement::HasValidDimensions() const {
+  float rx, ry;
+
+  if (SVGGeometryProperty::ResolveAll<SVGT::Rx, SVGT::Ry>(this, &rx, &ry)) {
+    return rx > 0 && ry > 0;
+  }
+  // This function might be called for an element in display:none subtree
+  // (e.g. SMIL animateMotion), we fall back to use SVG attributes.
+  bool hasRx = mLengthAttributes[RX].IsExplicitlySet();
+  bool hasRy = mLengthAttributes[RY].IsExplicitlySet();
+  if ((hasRx && mLengthAttributes[RX].GetAnimValInSpecifiedUnits() <= 0) ||
+      (hasRy && mLengthAttributes[RY].GetAnimValInSpecifiedUnits() <= 0)) {
+    return false;
+  }
+  return hasRx || hasRy;
 }
 
-nsSVGElement::LengthAttributesInfo SVGEllipseElement::GetLengthInfo() {
+SVGElement::LengthAttributesInfo SVGEllipseElement::GetLengthInfo() {
   return LengthAttributesInfo(mLengthAttributes, sLengthInfo,
                               ArrayLength(sLengthInfo));
 }
@@ -87,7 +107,11 @@ bool SVGEllipseElement::GetGeometryBounds(
     Rect* aBounds, const StrokeOptions& aStrokeOptions,
     const Matrix& aToBoundsSpace, const Matrix* aToNonScalingStrokeSpace) {
   float x, y, rx, ry;
-  GetAnimatedLengthValues(&x, &y, &rx, &ry, nullptr);
+
+  DebugOnly<bool> ok =
+      SVGGeometryProperty::ResolveAll<SVGT::Cx, SVGT::Cy, SVGT::Rx, SVGT::Ry>(
+          this, &x, &y, &rx, &ry);
+  MOZ_ASSERT(ok, "SVGGeometryProperty::ResolveAll failed");
 
   if (rx <= 0.f || ry <= 0.f) {
     // Rendering of the element is disabled
@@ -123,7 +147,14 @@ bool SVGEllipseElement::GetGeometryBounds(
 
 already_AddRefed<Path> SVGEllipseElement::BuildPath(PathBuilder* aBuilder) {
   float x, y, rx, ry;
-  GetAnimatedLengthValues(&x, &y, &rx, &ry, nullptr);
+
+  if (!SVGGeometryProperty::ResolveAllAllowFallback<SVGT::Cx, SVGT::Cy,
+                                                    SVGT::Rx, SVGT::Ry>(
+          this, &x, &y, &rx, &ry)) {
+    // This function might be called for element in display:none subtree
+    // (e.g. getTotalLength), we fall back to use SVG attributes.
+    GetAnimatedLengthValues(&x, &y, &rx, &ry, nullptr);
+  }
 
   if (rx <= 0.0f || ry <= 0.0f) {
     return nullptr;
@@ -132,6 +163,34 @@ already_AddRefed<Path> SVGEllipseElement::BuildPath(PathBuilder* aBuilder) {
   EllipseToBezier(aBuilder, Point(x, y), Size(rx, ry));
 
   return aBuilder->Finish();
+}
+
+bool SVGEllipseElement::IsLengthChangedViaCSS(const ComputedStyle& aNewStyle,
+                                              const ComputedStyle& aOldStyle) {
+  auto *newSVGReset = aNewStyle.StyleSVGReset(),
+       *oldSVGReset = aOldStyle.StyleSVGReset();
+
+  return newSVGReset->mCx != oldSVGReset->mCx ||
+         newSVGReset->mCy != oldSVGReset->mCy ||
+         newSVGReset->mRx != oldSVGReset->mRx ||
+         newSVGReset->mRy != oldSVGReset->mRy;
+}
+
+nsCSSPropertyID SVGEllipseElement::GetCSSPropertyIdForAttrEnum(
+    uint8_t aAttrEnum) {
+  switch (aAttrEnum) {
+    case CX:
+      return eCSSProperty_cx;
+    case CY:
+      return eCSSProperty_cy;
+    case RX:
+      return eCSSProperty_rx;
+    case RY:
+      return eCSSProperty_ry;
+    default:
+      MOZ_ASSERT_UNREACHABLE("Unknown attr enum");
+      return eCSSProperty_UNKNOWN;
+  }
 }
 
 }  // namespace dom

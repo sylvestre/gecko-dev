@@ -16,13 +16,13 @@ nsAboutBlank::NewChannel(nsIURI* aURI, nsILoadInfo* aLoadInfo,
   NS_ENSURE_ARG_POINTER(aURI);
 
   nsCOMPtr<nsIInputStream> in;
-  nsresult rv = NS_NewCStringInputStream(getter_AddRefs(in), EmptyCString());
+  nsresult rv = NS_NewCStringInputStream(getter_AddRefs(in), ""_ns);
   if (NS_FAILED(rv)) return rv;
 
   nsCOMPtr<nsIChannel> channel;
-  rv = NS_NewInputStreamChannelInternal(
-      getter_AddRefs(channel), aURI, in.forget(),
-      NS_LITERAL_CSTRING("text/html"), NS_LITERAL_CSTRING("utf-8"), aLoadInfo);
+  rv = NS_NewInputStreamChannelInternal(getter_AddRefs(channel), aURI,
+                                        in.forget(), "text/html"_ns, "utf-8"_ns,
+                                        aLoadInfo);
   if (NS_FAILED(rv)) return rv;
 
   channel.forget(result);
@@ -38,14 +38,15 @@ nsAboutBlank::GetURIFlags(nsIURI* aURI, uint32_t* result) {
   return NS_OK;
 }
 
+NS_IMETHODIMP
+nsAboutBlank::GetChromeURI(nsIURI* aURI, nsIURI** chromeURI) {
+  return NS_ERROR_ILLEGAL_VALUE;
+}
+
 nsresult nsAboutBlank::Create(nsISupports* aOuter, REFNSIID aIID,
                               void** aResult) {
-  nsAboutBlank* about = new nsAboutBlank();
-  if (about == nullptr) return NS_ERROR_OUT_OF_MEMORY;
-  NS_ADDREF(about);
-  nsresult rv = about->QueryInterface(aIID, aResult);
-  NS_RELEASE(about);
-  return rv;
+  RefPtr<nsAboutBlank> about = new nsAboutBlank();
+  return about->QueryInterface(aIID, aResult);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

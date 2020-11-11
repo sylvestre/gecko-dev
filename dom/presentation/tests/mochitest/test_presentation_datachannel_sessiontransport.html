@@ -5,7 +5,7 @@
 <head>
   <meta charset="utf-8">
   <title>Test for data channel as session transport in Presentation API</title>
-  <script type="application/javascript" src="chrome://mochikit/content/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="chrome://mochikit/content/tests/SimpleTest/SimpleTest.js"></script>
   <link rel="stylesheet" type="text/css" href="chrome://mochikit/content/tests/SimpleTest/test.css"/>
 </head>
 <body>
@@ -30,8 +30,8 @@ var serverTransport;
 const clientMessage = "Client Message";
 const serverMessage = "Server Message";
 
-const { XPCOMUtils } = ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm", {});
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm", {});
+const { XPCOMUtils } = ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 var isClientReady = false;
 var isServerReady = false;
@@ -42,7 +42,7 @@ var gResolve;
 var gReject;
 
 const clientCallback = {
-  QueryInterface: ChromeUtils.generateQI([Ci.nsIPresentationSessionTransportCallback]),
+  QueryInterface: ChromeUtils.generateQI(["nsIPresentationSessionTransportCallback"]),
   notifyTransportReady() {
     info("Client transport ready.");
 
@@ -66,7 +66,7 @@ const clientCallback = {
 };
 
 const serverCallback = {
-  QueryInterface: ChromeUtils.generateQI([Ci.nsIPresentationSessionTransportCallback]),
+  QueryInterface: ChromeUtils.generateQI(["nsIPresentationSessionTransportCallback"]),
   notifyTransportReady() {
     info("Server transport ready.");
 
@@ -90,7 +90,7 @@ const serverCallback = {
 };
 
 const clientListener = {
-  QueryInterface: ChromeUtils.generateQI([Ci.nsIPresentationSessionTransportBuilderListener]),
+  QueryInterface: ChromeUtils.generateQI(["nsIPresentationSessionTransportBuilderListener"]),
   onSessionTransport(aTransport) {
     info("Client Transport is built.");
     clientTransport = aTransport;
@@ -121,7 +121,7 @@ const clientListener = {
 };
 
 const serverListener = {
-  QueryInterface: ChromeUtils.generateQI([Ci.nsIPresentationSessionTransportBuilderListener]),
+  QueryInterface: ChromeUtils.generateQI(["nsIPresentationSessionTransportBuilderListener"]),
   onSessionTransport(aTransport) {
     info("Server Transport is built.");
     serverTransport = aTransport;
@@ -231,7 +231,6 @@ function runTests() {
   .then(testCloseSessionTransport)
   .then(finish)
   .catch(error);
-
 }
 
 window.addEventListener("load", function() {

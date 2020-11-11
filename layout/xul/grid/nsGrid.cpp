@@ -13,7 +13,7 @@
 
 #include "nsGrid.h"
 #include "nsGridRowGroupLayout.h"
-#include "nsBox.h"
+#include "nsIFrame.h"
 #include "nsIScrollableFrame.h"
 #include "nsSprocketLayout.h"
 #include "nsGridLayout2.h"
@@ -50,8 +50,8 @@ example 2:
 
    <rows>
       <row>
-         <text value="hello"/>
-         <text value="there"/>
+         <label value="hello"/>
+         <label value="there"/>
       </row>
    </rows>
 </grid>
@@ -62,14 +62,14 @@ example 3:
 
 <rows>
       <row>
-         <text value="hello"/>
-         <text value="there"/>
+         <label value="hello"/>
+         <label value="there"/>
       </row>
    </rows>
 
    <columns>
       <column>
-         <text value="Hey I'm in the column and I'm on top!"/>
+         <label value="Hey I'm in the column and I'm on top!"/>
       </column>
       <column/>
    </columns>
@@ -234,7 +234,9 @@ void nsGrid::FindRowsAndColumns(nsIFrame** aRows, nsIFrame** aColumns) {
   // find the boxes that contain our rows and columns
   nsIFrame* child = nullptr;
   // if we have <grid></grid> then mBox will be null (bug 125689)
-  if (mBox) child = nsBox::GetChildXULBox(mBox);
+  if (mBox) {
+    child = nsIFrame::GetChildXULBox(mBox);
+  }
 
   while (child) {
     nsIFrame* oldBox = child;
@@ -263,7 +265,7 @@ void nsGrid::FindRowsAndColumns(nsIFrame** aRows, nsIFrame** aColumns) {
       child = oldBox;
     }
 
-    child = nsBox::GetNextXULBox(child);
+    child = nsIFrame::GetNextXULBox(child);
   }
 }
 
@@ -371,7 +373,7 @@ void nsGrid::PopulateCellMap(nsGridRow* aRows, nsGridRow* aColumns,
 
     child = row->mBox;
     if (child) {
-      child = nsBox::GetChildXULBox(child);
+      child = nsIFrame::GetChildXULBox(child);
 
       j = 0;
 
@@ -388,7 +390,7 @@ void nsGrid::PopulateCellMap(nsGridRow* aRows, nsGridRow* aColumns,
         else
           GetCellAt(i, j)->SetBoxInColumn(child);
 
-        child = nsBox::GetNextXULBox(child);
+        child = nsIFrame::GetNextXULBox(child);
 
         j++;
       }
@@ -479,7 +481,7 @@ nsSize nsGrid::GetMinRowSize(nsBoxLayoutState& aState, int32_t aRowIndex,
 
 nsSize nsGrid::GetMaxRowSize(nsBoxLayoutState& aState, int32_t aRowIndex,
                              bool aIsHorizontal) {
-  nsSize size(NS_INTRINSICSIZE, NS_INTRINSICSIZE);
+  nsSize size(NS_UNCONSTRAINEDSIZE, NS_UNCONSTRAINEDSIZE);
   if (!(aRowIndex >= 0 && aRowIndex < GetRowCount(aIsHorizontal))) return size;
 
   nscoord height = GetMaxRowHeight(aState, aRowIndex, aIsHorizontal);
@@ -747,8 +749,7 @@ nscoord nsGrid::GetPrefRowHeight(nsBoxLayoutState& aState, int32_t aIndex,
     nsSize size(0, 0);
     if (box) {
       size = box->GetXULPrefSize(aState);
-      nsBox::AddMargin(box, size);
-      nsGridLayout2::AddOffset(box, size);
+      nsIFrame::AddXULMargin(box, size);
     }
 
     row->mPref = GET_HEIGHT(size, aIsHorizontal);
@@ -796,7 +797,7 @@ nscoord nsGrid::GetMinRowHeight(nsBoxLayoutState& aState, int32_t aIndex,
   if (box) {
     bool widthSet, heightSet;
     nsSize cssSize(-1, -1);
-    nsIFrame::AddXULMinSize(aState, box, cssSize, widthSet, heightSet);
+    nsIFrame::AddXULMinSize(box, cssSize, widthSet, heightSet);
 
     row->mMin = GET_HEIGHT(cssSize, aIsHorizontal);
 
@@ -815,8 +816,7 @@ nscoord nsGrid::GetMinRowHeight(nsBoxLayoutState& aState, int32_t aIndex,
     nsSize size(0, 0);
     if (box) {
       size = box->GetXULPrefSize(aState);
-      nsBox::AddMargin(box, size);
-      nsGridLayout2::AddOffset(box, size);
+      nsIFrame::AddXULMargin(box, size);
     }
 
     row->mMin = GET_HEIGHT(size, aIsHorizontal) + top + bottom;
@@ -880,18 +880,17 @@ nscoord nsGrid::GetMaxRowHeight(nsBoxLayoutState& aState, int32_t aIndex,
   // is the row bogus? If so then just ask it for its size
   // it should not be affected by cells in the grid.
   if (row->mIsBogus) {
-    nsSize size(NS_INTRINSICSIZE, NS_INTRINSICSIZE);
+    nsSize size(NS_UNCONSTRAINEDSIZE, NS_UNCONSTRAINEDSIZE);
     if (box) {
       size = box->GetXULPrefSize(aState);
-      nsBox::AddMargin(box, size);
-      nsGridLayout2::AddOffset(box, size);
+      nsIFrame::AddXULMargin(box, size);
     }
 
     row->mMax = GET_HEIGHT(size, aIsHorizontal);
     return row->mMax;
   }
 
-  nsSize size(NS_INTRINSICSIZE, NS_INTRINSICSIZE);
+  nsSize size(NS_UNCONSTRAINEDSIZE, NS_UNCONSTRAINEDSIZE);
 
   nsGridCell* child;
 
@@ -907,7 +906,7 @@ nscoord nsGrid::GetMaxRowHeight(nsBoxLayoutState& aState, int32_t aIndex,
     if (!child->IsXULCollapsed()) {
       nsSize min = child->GetXULMinSize(aState);
       nsSize childSize =
-          nsBox::BoundsCheckMinMax(min, child->GetXULMaxSize(aState));
+          nsIFrame::XULBoundsCheckMinMax(min, child->GetXULMaxSize(aState));
       nsSprocketLayout::AddLargestSize(size, childSize, aIsHorizontal);
     }
   }
@@ -949,8 +948,8 @@ nscoord nsGrid::GetRowFlex(int32_t aIndex, bool aIsHorizontal) {
     // affect us. We need to do this for this case:
     // <grid>
     //   <rows>
-    //     <rows> // this is not flexible. So our children should not be
-    //     flexible
+    //     <rows> // this is not flexible.
+    //            // So our children should not be flexible
     //        <row flex="1"/>
     //        <row flex="1"/>
     //     </rows>
@@ -989,12 +988,12 @@ nscoord nsGrid::GetRowFlex(int32_t aIndex, bool aIsHorizontal) {
     // the grid. 3) Then we are not flexible
 
     box = GetScrollBox(box);
-    nsIFrame* parent = nsBox::GetParentXULBox(box);
+    nsIFrame* parent = nsIFrame::GetParentXULBox(box);
     nsIFrame* parentsParent = nullptr;
 
     while (parent) {
       parent = GetScrollBox(parent);
-      parentsParent = nsBox::GetParentXULBox(parent);
+      parentsParent = nsIFrame::GetParentXULBox(parent);
 
       // if our parents parent is not a grid
       // the get its flex. If its 0 then we are
@@ -1105,7 +1104,7 @@ nsIFrame* nsGrid::GetScrollBox(nsIFrame* aChild) {
   if (!aChild) return nullptr;
 
   // get parent
-  nsIFrame* parent = nsBox::GetParentXULBox(aChild);
+  nsIFrame* parent = nsIFrame::GetParentXULBox(aChild);
 
   // walk up until we find a scrollframe or a part
   // if it's a scrollframe return it.
@@ -1120,7 +1119,7 @@ nsIFrame* nsGrid::GetScrollBox(nsIFrame* aChild) {
     // if a part then just return the child
     if (parentGridRow) break;
 
-    parent = nsBox::GetParentXULBox(parent);
+    parent = nsIFrame::GetParentXULBox(parent);
   }
 
   return aChild;

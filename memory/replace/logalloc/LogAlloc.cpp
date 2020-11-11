@@ -9,12 +9,12 @@
 #include <fcntl.h>
 
 #ifdef _WIN32
-#include <windows.h>
-#include <io.h>
-#include <process.h>
+#  include <windows.h>
+#  include <io.h>
+#  include <process.h>
 #else
-#include <unistd.h>
-#include <pthread.h>
+#  include <unistd.h>
+#  include <pthread.h>
 #endif
 
 #include "replace_malloc.h"
@@ -27,9 +27,11 @@ static bool sStdoutOrStderr = false;
 
 static Mutex sMutex;
 
+#ifndef _WIN32
 static void prefork() { sMutex.Lock(); }
 
 static void postfork() { sMutex.Unlock(); }
+#endif
 
 static size_t GetPid() { return size_t(getpid()); }
 
@@ -121,9 +123,10 @@ static void* replace_valloc(size_t aSize) {
   return ptr;
 }
 
-static void replace_jemalloc_stats(jemalloc_stats_t* aStats) {
+static void replace_jemalloc_stats(jemalloc_stats_t* aStats,
+                                   jemalloc_bin_stats_t* aBinStats) {
   MutexAutoLock lock(sMutex);
-  sFuncs.jemalloc_stats(aStats);
+  sFuncs.jemalloc_stats_internal(aStats, aBinStats);
   FdPrintf(sFd, "%zu %zu jemalloc_stats()\n", GetPid(), GetTid());
 }
 
@@ -131,10 +134,14 @@ void replace_init(malloc_table_t* aTable, ReplaceMallocBridge** aBridge) {
   /* Initialize output file descriptor from the MALLOC_LOG environment
    * variable. Numbers up to 9999 are considered as a preopened file
    * descriptor number. Other values are considered as a file name. */
+#ifdef _WIN32
+  wchar_t* log = _wgetenv(L"MALLOC_LOG");
+#else
   char* log = getenv("MALLOC_LOG");
+#endif
   if (log && *log) {
     int fd = 0;
-    const char* fd_num = log;
+    const auto* fd_num = log;
     while (*fd_num) {
       /* Reject non digits. */
       if (*fd_num < '0' || *fd_num > '9') {
@@ -159,7 +166,7 @@ void replace_init(malloc_table_t* aTable, ReplaceMallocBridge** aBridge) {
       handle = reinterpret_cast<HANDLE>(_get_osfhandle(fd));
     } else {
       handle =
-          CreateFileA(log, FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE,
+          CreateFileW(log, FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE,
                       nullptr, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
     }
     if (handle != INVALID_HANDLE_VALUE) {
@@ -186,7 +193,7 @@ void replace_init(malloc_table_t* aTable, ReplaceMallocBridge** aBridge) {
 #define MALLOC_FUNCS MALLOC_FUNCS_MALLOC_BASE
 #define MALLOC_DECL(name, ...) aTable->name = replace_##name;
 #include "malloc_decls.h"
-  aTable->jemalloc_stats = replace_jemalloc_stats;
+  aTable->jemalloc_stats_internal = replace_jemalloc_stats;
   if (!getenv("MALLOC_LOG_MINIMAL")) {
     aTable->posix_memalign = replace_posix_memalign;
     aTable->aligned_alloc = replace_aligned_alloc;

@@ -5,15 +5,20 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "jit/Bailouts.h"
-#include "jit/JitRealm.h"
+#include "jit/JitFrames.h"
+#include "jit/JitRuntime.h"
+#include "jit/SafepointIndex.h"
+#include "jit/ScriptFromCalleeToken.h"
 #include "vm/JSContext.h"
 #include "vm/Realm.h"
+
+#include "vm/JSScript-inl.h"
 
 using namespace js;
 using namespace js::jit;
 
 #if defined(_WIN32)
-#pragma pack(push, 1)
+#  pragma pack(push, 1)
 #endif
 
 namespace js {
@@ -60,7 +65,7 @@ class BailoutStack {
 }  // namespace js
 
 #if defined(_WIN32)
-#pragma pack(pop)
+#  pragma pack(pop)
 #endif
 
 BailoutFrameInfo::BailoutFrameInfo(const JitActivationIterator& activations,

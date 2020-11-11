@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <title>Bug 1302667 - Test worker-src</title>
-  <script type="text/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css" />
 </head>
 <body>
@@ -21,7 +21,7 @@ SimpleTest.requestLongerTimeout(3);
  * and make sure that worker-src governs these three kinds of workers correctly.
  * In addition, we make sure that child-src as well as script-src is discarded
  * in case worker-src is specified. Ideally we would use "script-src 'none'" but
- * we have to whitelist the actual script that spawns the workers, hence the nonce.
+ * we have to allowlist the actual script that spawns the workers, hence the nonce.
  */
 
 let ALLOWED_HOST = "https://example.com/tests/dom/security/test/csp/";

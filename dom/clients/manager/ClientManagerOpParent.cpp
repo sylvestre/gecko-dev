@@ -9,8 +9,7 @@
 #include "ClientManagerService.h"
 #include "mozilla/ipc/BackgroundParent.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 using mozilla::ipc::BackgroundParent;
 
@@ -24,15 +23,16 @@ void ClientManagerOpParent::DoServiceOp(Method aMethod, Args&&... aArgs) {
   // Capturing `this` is safe here because we disconnect the promise in
   // ActorDestroy() which ensures neither lambda is called if the actor
   // is destroyed before the source operation completes.
-  p->Then(GetCurrentThreadSerialEventTarget(), __func__,
-          [this](const mozilla::dom::ClientOpResult& aResult) {
-            mPromiseRequestHolder.Complete();
-            Unused << PClientManagerOpParent::Send__delete__(this, aResult);
-          },
-          [this](nsresult aRv) {
-            mPromiseRequestHolder.Complete();
-            Unused << PClientManagerOpParent::Send__delete__(this, aRv);
-          })
+  p->Then(
+       GetCurrentSerialEventTarget(), __func__,
+       [this](const mozilla::dom::ClientOpResult& aResult) {
+         mPromiseRequestHolder.Complete();
+         Unused << PClientManagerOpParent::Send__delete__(this, aResult);
+       },
+       [this](const CopyableErrorResult& aRv) {
+         mPromiseRequestHolder.Complete();
+         Unused << PClientManagerOpParent::Send__delete__(this, aRv);
+       })
       ->Track(mPromiseRequestHolder);
 }
 
@@ -67,10 +67,8 @@ void ClientManagerOpParent::Init(const ClientOpConstructorArgs& aArgs) {
       break;
     }
     case ClientOpConstructorArgs::TClientOpenWindowArgs: {
-      RefPtr<ContentParent> contentParent =
-          BackgroundParent::GetContentParent(Manager()->Manager());
       DoServiceOp(&ClientManagerService::OpenWindow,
-                  aArgs.get_ClientOpenWindowArgs(), contentParent.forget());
+                  aArgs.get_ClientOpenWindowArgs());
       break;
     }
     default: {
@@ -80,5 +78,4 @@ void ClientManagerOpParent::Init(const ClientOpConstructorArgs& aArgs) {
   }
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

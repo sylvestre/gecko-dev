@@ -1,4 +1,3 @@
-// Copyright © 2016-2017 winapi-rs developers
 // Licensed under the Apache License, Version 2.0
 // <LICENSE-APACHE or http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
 // <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your option.
@@ -12,7 +11,7 @@ use shared::minwindef::{BOOL, BYTE, DWORD, FILETIME, HGLOBAL, ULONG, WORD};
 use shared::ntdef::LONG;
 use shared::windef::{HBITMAP, HENHMETAFILE};
 use shared::wtypes::{CLIPFORMAT, HMETAFILEPICT};
-use shared::wtypesbase::{LPOLESTR, OLECHAR};
+use shared::wtypesbase::{LPCOLESTR, LPOLESTR, OLECHAR};
 use um::objidlbase::{IEnumString, IStream, STATSTG};
 use um::unknwnbase::{IUnknown, IUnknownVtbl};
 use um::winnt::{HRESULT, ULARGE_INTEGER};
@@ -315,6 +314,24 @@ interface IStorage(IStorageVtbl): IUnknown(IUnknownVtbl) {
     fn Stat(
         pstatstg: *mut STATSTG,
         grfStatFlag: DWORD,
+    ) -> HRESULT,
+}}
+RIDL!{#[uuid(0x0000010b, 0x0000, 0x0000, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46)]
+interface IPersistFile(IPersistFileVtbl): IPersist(IPersistVtbl) {
+    fn IsDirty() -> HRESULT,
+    fn Load(
+        pszFileName: LPCOLESTR,
+        dwMode: DWORD,
+    ) -> HRESULT,
+    fn Save(
+        pszFileName: LPCOLESTR,
+        fRemember: BOOL,
+    ) -> HRESULT,
+    fn SaveCompleted(
+        pszFileName: LPCOLESTR,
+    ) -> HRESULT,
+    fn GetCurFile(
+        ppszFileName: *mut LPOLESTR,
     ) -> HRESULT,
 }}
 STRUCT!{struct DVTARGETDEVICE {

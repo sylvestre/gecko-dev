@@ -48,7 +48,7 @@ fn preprocess_single_lines(comment: &str, indent: usize) -> String {
     let mut is_first = true;
     let lines: Vec<_> = comment
         .lines()
-        .map(|l| l.trim().trim_left_matches('/'))
+        .map(|l| l.trim().trim_start_matches('/'))
         .map(|l| {
             let indent = if is_first { "" } else { &*indent };
             is_first = false;
@@ -60,15 +60,16 @@ fn preprocess_single_lines(comment: &str, indent: usize) -> String {
 
 fn preprocess_multi_line(comment: &str, indent: usize) -> String {
     let comment = comment
-        .trim_left_matches('/')
-        .trim_right_matches('/')
-        .trim_right_matches('*');
+        .trim_start_matches('/')
+        .trim_end_matches('/')
+        .trim_end_matches('*');
 
     let indent = make_indent(indent);
     // Strip any potential `*` characters preceding each line.
     let mut is_first = true;
-    let mut lines: Vec<_> = comment.lines()
-        .map(|line| line.trim().trim_left_matches('*').trim_left_matches('!'))
+    let mut lines: Vec<_> = comment
+        .lines()
+        .map(|line| line.trim().trim_start_matches('*').trim_start_matches('!'))
         .skip_while(|line| line.trim().is_empty()) // Skip the first empty lines.
         .map(|line| {
             let indent = if is_first { "" } else { &*indent };
@@ -78,7 +79,10 @@ fn preprocess_multi_line(comment: &str, indent: usize) -> String {
         .collect();
 
     // Remove the trailing line corresponding to the `*/`.
-    if lines.last().map_or(false, |l| l.trim().is_empty() || l.trim() == "///") {
+    if lines
+        .last()
+        .map_or(false, |l| l.trim().is_empty() || l.trim() == "///")
+    {
         lines.pop();
     }
 

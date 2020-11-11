@@ -8,26 +8,25 @@
 #include "nsTextNode.h"
 #include "mozAutoDocUpdate.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 already_AddRefed<Text> Text::SplitText(uint32_t aOffset, ErrorResult& aRv) {
   nsAutoString cutText;
-  uint32_t length = TextLength();
+  const uint32_t length = TextLength();
 
   if (aOffset > length) {
     aRv.Throw(NS_ERROR_DOM_INDEX_SIZE_ERR);
     return nullptr;
   }
 
-  uint32_t cutStartOffset = aOffset;
-  uint32_t cutLength = length - aOffset;
+  const uint32_t cutStartOffset = aOffset;
+  const uint32_t cutLength = length - aOffset;
   SubstringData(cutStartOffset, cutLength, cutText, aRv);
   if (aRv.Failed()) {
     return nullptr;
   }
 
-  nsIDocument* document = GetComposedDoc();
+  Document* document = GetComposedDoc();
   mozAutoDocUpdate updateBatch(document, true);
 
   // Use Clone for creating the new node so that the new node is of same class
@@ -89,15 +88,6 @@ void Text::GetWholeText(nsAString& aWholeText, ErrorResult& aRv) {
     return;
   }
 
-  int32_t index = parent->ComputeIndexOf(this);
-  NS_WARNING_ASSERTION(index >= 0,
-                       "Trying to use .wholeText with an anonymous"
-                       "text node child of a binding parent?");
-  if (NS_WARN_IF(index < 0)) {
-    aRv.Throw(NS_ERROR_DOM_NOT_SUPPORTED_ERR);
-    return;
-  }
-
   Text* first = FirstLogicallyAdjacentTextNode(this);
   Text* last = LastLogicallyAdjacentTextNode(this);
 
@@ -120,8 +110,10 @@ void Text::GetWholeText(nsAString& aWholeText, ErrorResult& aRv) {
   }
 }
 
-/* static */ already_AddRefed<Text> Text::Constructor(
-    const GlobalObject& aGlobal, const nsAString& aData, ErrorResult& aRv) {
+/* static */
+already_AddRefed<Text> Text::Constructor(const GlobalObject& aGlobal,
+                                         const nsAString& aData,
+                                         ErrorResult& aRv) {
   nsCOMPtr<nsPIDOMWindowInner> window =
       do_QueryInterface(aGlobal.GetAsSupports());
   if (!window || !window->GetDoc()) {
@@ -162,5 +154,4 @@ bool Text::HasTextForTranslation() {
   return false;
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

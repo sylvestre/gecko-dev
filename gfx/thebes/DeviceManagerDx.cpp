@@ -7,9 +7,10 @@
 #include "D3D11Checks.h"
 #include "gfxConfig.h"
 #include "GfxDriverInfo.h"
-#include "gfxPrefs.h"
 #include "gfxWindowsPlatform.h"
 #include "mozilla/D3DMessageUtils.h"
+#include "mozilla/StaticPrefs_gfx.h"
+#include "mozilla/StaticPrefs_layers.h"
 #include "mozilla/Telemetry.h"
 #include "mozilla/WindowsVersion.h"
 #include "mozilla/gfx/GPUParent.h"
@@ -22,12 +23,13 @@
 #include "mozilla/layers/MLGDeviceD3D11.h"
 #include "mozilla/layers/PaintThread.h"
 #include "nsExceptionHandler.h"
-#include "nsIGfxInfo.h"
 #include "nsPrintfCString.h"
 #include "nsString.h"
 
+#undef _WIN32_WINNT
+#define _WIN32_WINNT _WIN32_WINNT_WINBLUE
 #undef NTDDI_VERSION
-#define NTDDI_VERSION NTDDI_WIN8
+#define NTDDI_VERSION NTDDI_WINBLUE
 
 #include <d3d11.h>
 #include <dcomp.h>
@@ -46,18 +48,23 @@ StaticAutoPtr<DeviceManagerDx> DeviceManagerDx::sInstance;
 // be used within InitializeD3D11.
 decltype(D3D11CreateDevice)* sD3D11CreateDeviceFn = nullptr;
 
-typedef HRESULT(WINAPI* PFN_DCOMPOSITION_CREATE_DEVICE)(
-    IDXGIDevice* dxgiDevice, REFIID iid, void** dcompositionDevice);
-PFN_DCOMPOSITION_CREATE_DEVICE sDcompCreateDeviceFn = nullptr;
+// It should only be used within CreateDirectCompositionDevice.
+decltype(DCompositionCreateDevice2)* sDcompCreateDevice2Fn = nullptr;
+
+// It should only be used within CreateDCompSurfaceHandle
+decltype(DCompositionCreateSurfaceHandle)* sDcompCreateSurfaceHandleFn =
+    nullptr;
 
 // We don't have access to the DirectDrawCreateEx type in gfxWindowsPlatform.h,
 // since it doesn't include ddraw.h, so we use a static here. It should only
 // be used within InitializeDirectDrawConfig.
 decltype(DirectDrawCreateEx)* sDirectDrawCreateExFn = nullptr;
 
-/* static */ void DeviceManagerDx::Init() { sInstance = new DeviceManagerDx(); }
+/* static */
+void DeviceManagerDx::Init() { sInstance = new DeviceManagerDx(); }
 
-/* static */ void DeviceManagerDx::Shutdown() { sInstance = nullptr; }
+/* static */
+void DeviceManagerDx::Shutdown() { sInstance = nullptr; }
 
 DeviceManagerDx::DeviceManagerDx()
     : mDeviceLock("gfxWindowsPlatform.mDeviceLock"),
@@ -83,7 +90,7 @@ bool DeviceManagerDx::LoadD3D11() {
   if (!module) {
     d3d11.SetFailed(FeatureStatus::Unavailable,
                     "Direct3D11 not available on this computer",
-                    NS_LITERAL_CSTRING("FEATURE_FAILURE_D3D11_LIB"));
+                    "FEATURE_FAILURE_D3D11_LIB"_ns);
     return false;
   }
 
@@ -93,7 +100,7 @@ bool DeviceManagerDx::LoadD3D11() {
     // We should just be on Windows Vista or XP in this case.
     d3d11.SetFailed(FeatureStatus::Unavailable,
                     "Direct3D11 not available on this computer",
-                    NS_LITERAL_CSTRING("FEATURE_FAILURE_D3D11_FUNCPTR"));
+                    "FEATURE_FAILURE_D3D11_FUNCPTR"_ns);
     return false;
   }
 
@@ -102,13 +109,12 @@ bool DeviceManagerDx::LoadD3D11() {
 }
 
 bool DeviceManagerDx::LoadDcomp() {
-  FeatureState& d3d11 = gfxConfig::GetFeature(Feature::D3D11_COMPOSITING);
-  MOZ_ASSERT(d3d11.IsEnabled());
+  MOZ_ASSERT(gfxConfig::GetFeature(Feature::D3D11_COMPOSITING).IsEnabled());
   MOZ_ASSERT(gfxVars::UseWebRender());
   MOZ_ASSERT(gfxVars::UseWebRenderANGLE());
   MOZ_ASSERT(gfxVars::UseWebRenderDCompWin());
 
-  if (sDcompCreateDeviceFn) {
+  if (sDcompCreateDevice2Fn) {
     return true;
   }
 
@@ -117,9 +123,17 @@ bool DeviceManagerDx::LoadDcomp() {
     return false;
   }
 
-  sDcompCreateDeviceFn = reinterpret_cast<PFN_DCOMPOSITION_CREATE_DEVICE>(
-      ::GetProcAddress(module, "DCompositionCreateDevice"));
-  if (!sDcompCreateDeviceFn) {
+  sDcompCreateDevice2Fn = (decltype(DCompositionCreateDevice2)*)GetProcAddress(
+      module, "DCompositionCreateDevice2");
+  if (!sDcompCreateDevice2Fn) {
+    return false;
+  }
+
+  // Load optional API for external compositing
+  sDcompCreateSurfaceHandleFn =
+      (decltype(DCompositionCreateSurfaceHandle)*)::GetProcAddress(
+          module, "DCompositionCreateSurfaceHandle");
+  if (!sDcompCreateDevice2Fn) {
     return false;
   }
 
@@ -137,11 +151,123 @@ void DeviceManagerDx::ReleaseD3D11() {
   sD3D11CreateDeviceFn = nullptr;
 }
 
+nsTArray<DXGI_OUTPUT_DESC1> DeviceManagerDx::EnumerateOutputs() {
+  RefPtr<IDXGIAdapter> adapter = GetDXGIAdapter();
+
+  if (!adapter) {
+    NS_WARNING("Failed to acquire a DXGI adapter for enumerating outputs.");
+    return nsTArray<DXGI_OUTPUT_DESC1>();
+  }
+
+  nsTArray<DXGI_OUTPUT_DESC1> outputs;
+  for (UINT i = 0;; ++i) {
+    RefPtr<IDXGIOutput> output = nullptr;
+    if (FAILED(adapter->EnumOutputs(i, getter_AddRefs(output)))) {
+      break;
+    }
+
+    RefPtr<IDXGIOutput6> output6 = nullptr;
+    if (FAILED(output->QueryInterface(__uuidof(IDXGIOutput6),
+                                      getter_AddRefs(output6)))) {
+      break;
+    }
+
+    DXGI_OUTPUT_DESC1 desc;
+    if (FAILED(output6->GetDesc1(&desc))) {
+      break;
+    }
+
+    outputs.AppendElement(desc);
+  }
+  return outputs;
+}
+
+bool DeviceManagerDx::GetOutputFromMonitor(HMONITOR monitor,
+                                           RefPtr<IDXGIOutput>* aOutOutput) {
+  RefPtr<IDXGIAdapter> adapter = GetDXGIAdapter();
+
+  if (!adapter) {
+    NS_WARNING("Failed to acquire a DXGI adapter for GetOutputFromMonitor.");
+    return false;
+  }
+
+  for (UINT i = 0;; ++i) {
+    RefPtr<IDXGIOutput> output = nullptr;
+    if (FAILED(adapter->EnumOutputs(i, getter_AddRefs(output)))) {
+      break;
+    }
+
+    DXGI_OUTPUT_DESC desc;
+    if (FAILED(output->GetDesc(&desc))) {
+      continue;
+    }
+
+    if (desc.Monitor == monitor) {
+      *aOutOutput = output;
+      return true;
+    }
+  }
+  return false;
+}
+
+void DeviceManagerDx::CheckHardwareStretchingSupport(HwStretchingSupport& aRv) {
+  RefPtr<IDXGIAdapter> adapter = GetDXGIAdapter();
+
+  if (!adapter) {
+    NS_WARNING(
+        "Failed to acquire a DXGI adapter for checking hardware stretching "
+        "support.");
+    ++aRv.mError;
+    return;
+  }
+
+  for (UINT i = 0;; ++i) {
+    RefPtr<IDXGIOutput> output = nullptr;
+    HRESULT result = adapter->EnumOutputs(i, getter_AddRefs(output));
+    if (result == DXGI_ERROR_NOT_FOUND) {
+      // No more outputs to check.
+      break;
+    }
+
+    if (FAILED(result)) {
+      ++aRv.mError;
+      break;
+    }
+
+    RefPtr<IDXGIOutput6> output6 = nullptr;
+    if (FAILED(output->QueryInterface(__uuidof(IDXGIOutput6),
+                                      getter_AddRefs(output6)))) {
+      ++aRv.mError;
+      continue;
+    }
+
+    UINT flags = 0;
+    if (FAILED(output6->CheckHardwareCompositionSupport(&flags))) {
+      ++aRv.mError;
+      continue;
+    }
+
+    bool fullScreen = flags & DXGI_HARDWARE_COMPOSITION_SUPPORT_FLAG_FULLSCREEN;
+    bool window = flags & DXGI_HARDWARE_COMPOSITION_SUPPORT_FLAG_WINDOWED;
+    if (fullScreen && window) {
+      ++aRv.mBoth;
+    } else if (fullScreen) {
+      ++aRv.mFullScreenOnly;
+    } else if (window) {
+      ++aRv.mWindowOnly;
+    } else {
+      ++aRv.mNone;
+    }
+  }
+}
+
+#ifdef DEBUG
 static inline bool ProcessOwnsCompositor() {
   return XRE_GetProcessType() == GeckoProcessType_GPU ||
          XRE_GetProcessType() == GeckoProcessType_VR ||
          (XRE_IsParentProcess() && !gfxConfig::IsEnabled(Feature::GPU_PROCESS));
 }
+#endif
 
 bool DeviceManagerDx::CreateCompositorDevices() {
   MOZ_ASSERT(ProcessOwnsCompositor());
@@ -149,7 +275,8 @@ bool DeviceManagerDx::CreateCompositorDevices() {
   FeatureState& d3d11 = gfxConfig::GetFeature(Feature::D3D11_COMPOSITING);
   MOZ_ASSERT(d3d11.IsEnabled());
 
-  if (int32_t sleepSec = gfxPrefs::Direct3D11SleepOnCreateDevice()) {
+  if (int32_t sleepSec =
+          StaticPrefs::gfx_direct3d11_sleep_on_create_device_AtStartup()) {
     printf_stderr("Attach to PID: %d\n", GetCurrentProcessId());
     Sleep(sleepSec * 1000);
   }
@@ -167,8 +294,7 @@ bool DeviceManagerDx::CreateCompositorDevices() {
     // Sync Advanced-Layers with D3D11.
     if (gfxConfig::IsEnabled(Feature::ADVANCED_LAYERS)) {
       gfxConfig::SetFailed(Feature::ADVANCED_LAYERS, FeatureStatus::Unavailable,
-                           "Requires D3D11",
-                           NS_LITERAL_CSTRING("FEATURE_FAILURE_NO_D3D11"));
+                           "Requires D3D11", "FEATURE_FAILURE_NO_D3D11"_ns);
     }
     return false;
   }
@@ -188,7 +314,7 @@ bool DeviceManagerDx::CreateCompositorDevices() {
   // Fallback from WR to D3D11 Non-WR compositor without re-creating gpu process
   // could happen when WR causes error. In this case, the attachments are loaded
   // synchronously.
-  if (!gfx::gfxVars::UseWebRender()) {
+  if (!gfx::gfxVars::UseWebRender() || gfx::gfxVars::UseSoftwareWebRender()) {
     PreloadAttachmentsOnCompositorThread();
   }
 
@@ -233,6 +359,44 @@ bool DeviceManagerDx::CreateVRDevice() {
   return true;
 }
 
+bool DeviceManagerDx::CreateCanvasDevice() {
+  MOZ_ASSERT(ProcessOwnsCompositor());
+
+  if (mCanvasDevice) {
+    return true;
+  }
+
+  if (!LoadD3D11()) {
+    return false;
+  }
+
+  RefPtr<IDXGIAdapter1> adapter = GetDXGIAdapter();
+  if (!adapter) {
+    NS_WARNING("Failed to acquire a DXGI adapter for Canvas");
+    return false;
+  }
+
+  UINT flags = D3D11_CREATE_DEVICE_BGRA_SUPPORT;
+
+  HRESULT hr;
+  if (!CreateDevice(adapter, D3D_DRIVER_TYPE_UNKNOWN, flags, hr,
+                    mCanvasDevice)) {
+    gfxCriticalError() << "Crash during D3D11 device creation for Canvas";
+    return false;
+  }
+
+  if (FAILED(hr) || !mCanvasDevice) {
+    NS_WARNING("Failed to acquire a D3D11 device for Canvas");
+    return false;
+  }
+
+  if (XRE_IsGPUProcess()) {
+    Factory::SetDirect3D11Device(mCanvasDevice);
+  }
+
+  return true;
+}
+
 void DeviceManagerDx::CreateDirectCompositionDevice() {
   if (!gfxVars::UseWebRenderDCompWin()) {
     return;
@@ -253,11 +417,12 @@ void DeviceManagerDx::CreateDirectCompositionDevice() {
   }
 
   HRESULT hr;
-  RefPtr<IDCompositionDevice> compositionDevice;
+  RefPtr<IDCompositionDesktopDevice> desktopDevice;
   MOZ_SEH_TRY {
-    hr = sDcompCreateDeviceFn(
-        dxgiDevice,
-        IID_PPV_ARGS((IDCompositionDevice**)getter_AddRefs(compositionDevice)));
+    hr = sDcompCreateDevice2Fn(
+        dxgiDevice.get(),
+        IID_PPV_ARGS(
+            (IDCompositionDesktopDevice**)getter_AddRefs(desktopDevice)));
   }
   MOZ_SEH_EXCEPT(EXCEPTION_EXECUTE_HANDLER) { return; }
 
@@ -265,7 +430,29 @@ void DeviceManagerDx::CreateDirectCompositionDevice() {
     return;
   }
 
+  RefPtr<IDCompositionDevice2> compositionDevice;
+  if (desktopDevice->QueryInterface(IID_PPV_ARGS(
+          (IDCompositionDevice2**)getter_AddRefs(compositionDevice))) != S_OK) {
+    return;
+  }
+
   mDirectCompositionDevice = compositionDevice;
+}
+
+/* static */
+HANDLE DeviceManagerDx::CreateDCompSurfaceHandle() {
+  if (!sDcompCreateSurfaceHandleFn) {
+    return 0;
+  }
+
+  HANDLE handle = 0;
+  HRESULT hr = sDcompCreateSurfaceHandleFn(COMPOSITIONOBJECT_ALL_ACCESS,
+                                           nullptr, &handle);
+  if (FAILED(hr)) {
+    return 0;
+  }
+
+  return handle;
 }
 
 void DeviceManagerDx::ImportDeviceInfo(const D3D11DeviceStatus& aDeviceStatus) {
@@ -332,8 +519,9 @@ IDXGIAdapter1* DeviceManagerDx::GetDXGIAdapter() {
     // should never reach here. Furthermore, the UI process does not create
     // devices when using a GPU process.
     //
-    // So, this should only ever get called on the content process.
-    MOZ_ASSERT(XRE_IsContentProcess());
+    // So, this should only ever get called on the content process or RDD
+    // process
+    MOZ_ASSERT(XRE_IsContentProcess() || XRE_IsRDDProcess());
 
     // In the child process, we search for the adapter that matches the parent
     // process. The first adapter can be mismatched on dual-GPU systems.
@@ -370,17 +558,25 @@ bool DeviceManagerDx::CreateCompositorDeviceHelper(
     FeatureState& aD3d11, IDXGIAdapter1* aAdapter, bool aAttemptVideoSupport,
     RefPtr<ID3D11Device>& aOutDevice) {
   // Check if a failure was injected for testing.
-  if (gfxPrefs::DeviceFailForTesting()) {
+  if (StaticPrefs::gfx_testing_device_fail()) {
     aD3d11.SetFailed(FeatureStatus::Failed,
                      "Direct3D11 device failure simulated by preference",
-                     NS_LITERAL_CSTRING("FEATURE_FAILURE_D3D11_SIM"));
+                     "FEATURE_FAILURE_D3D11_SIM"_ns);
     return false;
   }
 
-  // Use D3D11_CREATE_DEVICE_PREVENT_INTERNAL_THREADING_OPTIMIZATIONS
-  // to prevent bug 1092260. IE 11 also uses this flag.
-  UINT flags = D3D11_CREATE_DEVICE_BGRA_SUPPORT |
-               D3D11_CREATE_DEVICE_PREVENT_INTERNAL_THREADING_OPTIMIZATIONS;
+  UINT flags = D3D11_CREATE_DEVICE_BGRA_SUPPORT;
+
+  DXGI_ADAPTER_DESC desc;
+  aAdapter->GetDesc(&desc);
+  if (desc.VendorId != 0x1414) {
+    // 0x1414 is Microsoft (e.g. WARP)
+    // When not using WARP, use
+    // D3D11_CREATE_DEVICE_PREVENT_INTERNAL_THREADING_OPTIMIZATIONS to prevent
+    // bug 1092260. IE 11 also uses this flag.
+    flags |= D3D11_CREATE_DEVICE_PREVENT_INTERNAL_THREADING_OPTIMIZATIONS;
+  }
+
   if (aAttemptVideoSupport) {
     flags |= D3D11_CREATE_DEVICE_VIDEO_SUPPORT;
   }
@@ -392,7 +588,7 @@ bool DeviceManagerDx::CreateCompositorDeviceHelper(
       gfxCriticalError() << "Crash during D3D11 device creation";
       aD3d11.SetFailed(FeatureStatus::CrashedInHandler,
                        "Crashed trying to acquire a D3D11 device",
-                       NS_LITERAL_CSTRING("FEATURE_FAILURE_D3D11_DEVICE1"));
+                       "FEATURE_FAILURE_D3D11_DEVICE1"_ns);
     }
     return false;
   }
@@ -401,7 +597,7 @@ bool DeviceManagerDx::CreateCompositorDeviceHelper(
     if (!aAttemptVideoSupport) {
       aD3d11.SetFailed(FeatureStatus::Failed,
                        "Failed to acquire a D3D11 device",
-                       NS_LITERAL_CSTRING("FEATURE_FAILURE_D3D11_DEVICE2"));
+                       "FEATURE_FAILURE_D3D11_DEVICE2"_ns);
     }
     return false;
   }
@@ -409,7 +605,7 @@ bool DeviceManagerDx::CreateCompositorDeviceHelper(
     if (!aAttemptVideoSupport) {
       aD3d11.SetFailed(FeatureStatus::Broken,
                        "Direct3D11 device was determined to be broken",
-                       NS_LITERAL_CSTRING("FEATURE_FAILURE_D3D11_BROKEN"));
+                       "FEATURE_FAILURE_D3D11_BROKEN"_ns);
     }
     return false;
   }
@@ -429,7 +625,7 @@ static inline int32_t GetNextDeviceCounter() {
 }
 
 void DeviceManagerDx::CreateCompositorDevice(FeatureState& d3d11) {
-  if (gfxPrefs::LayersD3D11ForceWARP()) {
+  if (StaticPrefs::layers_d3d11_force_warp_AtStartup()) {
     CreateWARPCompositorDevice();
     return;
   }
@@ -438,14 +634,14 @@ void DeviceManagerDx::CreateCompositorDevice(FeatureState& d3d11) {
   if (!adapter) {
     d3d11.SetFailed(FeatureStatus::Unavailable,
                     "Failed to acquire a DXGI adapter",
-                    NS_LITERAL_CSTRING("FEATURE_FAILURE_D3D11_DXGI"));
+                    "FEATURE_FAILURE_D3D11_DXGI"_ns);
     return;
   }
 
   if (XRE_IsGPUProcess() && !D3D11Checks::DoesRemotePresentWork(adapter)) {
     d3d11.SetFailed(FeatureStatus::Unavailable,
                     "DXGI does not support out-of-process presentation",
-                    NS_LITERAL_CSTRING("FEATURE_FAILURE_D3D11_REMOTE_PRESENT"));
+                    "FEATURE_FAILURE_D3D11_REMOTE_PRESENT"_ns);
     return;
   }
 
@@ -470,11 +666,13 @@ void DeviceManagerDx::CreateCompositorDevice(FeatureState& d3d11) {
 
   if (!textureSharingWorks) {
     gfxConfig::SetFailed(Feature::D3D11_HW_ANGLE, FeatureStatus::Broken,
-                         "Texture sharing doesn't work");
+                         "Texture sharing doesn't work",
+                         "FEATURE_FAILURE_HW_ANGLE_NEEDS_TEXTURE_SHARING"_ns);
   }
   if (D3D11Checks::DoesRenderTargetViewNeedRecreating(device)) {
     gfxConfig::SetFailed(Feature::D3D11_HW_ANGLE, FeatureStatus::Broken,
-                         "RenderTargetViews need recreating");
+                         "RenderTargetViews need recreating",
+                         "FEATURE_FAILURE_HW_ANGLE_NEEDS_RTV_RECREATION"_ns);
   }
   if (XRE_IsParentProcess()) {
     // It seems like this may only happen when we're using the NVIDIA gpu
@@ -499,8 +697,8 @@ bool DeviceManagerDx::CreateDevice(IDXGIAdapter* aAdapter,
                                    D3D_DRIVER_TYPE aDriverType, UINT aFlags,
                                    HRESULT& aResOut,
                                    RefPtr<ID3D11Device>& aOutDevice) {
-  if (gfxPrefs::Direct3D11EnableDebugLayer() ||
-      gfxPrefs::Direct3D11BreakOnError()) {
+  if (StaticPrefs::gfx_direct3d11_enable_debug_layer_AtStartup() ||
+      StaticPrefs::gfx_direct3d11_break_on_error_AtStartup()) {
     aFlags |= D3D11_CREATE_DEVICE_DEBUG;
   }
 
@@ -512,7 +710,7 @@ bool DeviceManagerDx::CreateDevice(IDXGIAdapter* aAdapter,
   }
   MOZ_SEH_EXCEPT(EXCEPTION_EXECUTE_HANDLER) { return false; }
 
-  if (gfxPrefs::Direct3D11BreakOnError()) {
+  if (StaticPrefs::gfx_direct3d11_break_on_error_AtStartup()) {
     do {
       if (!aOutDevice) break;
 
@@ -547,8 +745,8 @@ bool DeviceManagerDx::CreateDevice(IDXGIAdapter* aAdapter,
 }
 
 void DeviceManagerDx::CreateWARPCompositorDevice() {
-  ScopedGfxFeatureReporter reporterWARP("D3D11-WARP",
-                                        gfxPrefs::LayersD3D11ForceWARP());
+  ScopedGfxFeatureReporter reporterWARP(
+      "D3D11-WARP", StaticPrefs::layers_d3d11_force_warp_AtStartup());
   FeatureState& d3d11 = gfxConfig::GetFeature(Feature::D3D11_COMPOSITING);
 
   HRESULT hr;
@@ -561,7 +759,7 @@ void DeviceManagerDx::CreateWARPCompositorDevice() {
     gfxCriticalError() << "Exception occurred initializing WARP D3D11 device!";
     d3d11.SetFailed(FeatureStatus::CrashedInHandler,
                     "Crashed creating a D3D11 WARP device",
-                    NS_LITERAL_CSTRING("FEATURE_FAILURE_D3D11_WARP_DEVICE"));
+                    "FEATURE_FAILURE_D3D11_WARP_DEVICE"_ns);
   }
 
   if (FAILED(hr) || !device) {
@@ -570,7 +768,7 @@ void DeviceManagerDx::CreateWARPCompositorDevice() {
                        << hexa(hr);
     d3d11.SetFailed(FeatureStatus::Failed,
                     "Failed to create a D3D11 WARP device",
-                    NS_LITERAL_CSTRING("FEATURE_FAILURE_D3D11_WARP_DEVICE2"));
+                    "FEATURE_FAILURE_D3D11_WARP_DEVICE2"_ns);
     return;
   }
 
@@ -581,8 +779,8 @@ void DeviceManagerDx::CreateWARPCompositorDevice() {
     textureSharingWorks = D3D11Checks::DoesTextureSharingWork(device);
   }
 
-  DxgiAdapterDesc nullAdapter;
-  PodZero(&nullAdapter);
+  DXGI_ADAPTER_DESC desc;
+  D3D11Checks::GetDxgiDesc(device, &desc);
 
   int featureLevel = device->GetFeatureLevel();
 
@@ -592,9 +790,9 @@ void DeviceManagerDx::CreateWARPCompositorDevice() {
     mCompositorDevice = device;
 
     int32_t sequenceNumber = GetNextDeviceCounter();
-    mDeviceStatus =
-        Some(D3D11DeviceStatus(true, textureSharingWorks, featureLevel,
-                               nullAdapter, sequenceNumber, formatOptions));
+    mDeviceStatus = Some(D3D11DeviceStatus(
+        true, textureSharingWorks, featureLevel, DxgiAdapterDesc::From(desc),
+        sequenceNumber, formatOptions));
   }
   mCompositorDevice->SetExceptionMode(0);
 
@@ -673,13 +871,13 @@ RefPtr<ID3D11Device> DeviceManagerDx::CreateDecoderDevice() {
   }
 
   bool reuseDevice = false;
-  if (gfxPrefs::Direct3D11ReuseDecoderDevice() < 0) {
+  if (StaticPrefs::gfx_direct3d11_reuse_decoder_device() < 0) {
     // Use the default logic, which is to allow reuse of devices on AMD, but
     // create separate devices everywhere else.
     if (isAMD) {
       reuseDevice = true;
     }
-  } else if (gfxPrefs::Direct3D11ReuseDecoderDevice() > 0) {
+  } else if (StaticPrefs::gfx_direct3d11_reuse_decoder_device() > 0) {
     reuseDevice = true;
   }
 
@@ -787,10 +985,9 @@ void DeviceManagerDx::CreateMLGDevice() {
 
   RefPtr<ID3D11Device> d3d11Device = GetCompositorDevice();
   if (!d3d11Device) {
-    DisableAdvancedLayers(
-        FeatureStatus::Unavailable,
-        NS_LITERAL_CSTRING("Advanced-layers requires a D3D11 device"),
-        NS_LITERAL_CSTRING("FEATURE_FAILURE_NEED_D3D11_DEVICE"));
+    DisableAdvancedLayers(FeatureStatus::Unavailable,
+                          "Advanced-layers requires a D3D11 device"_ns,
+                          "FEATURE_FAILURE_NEED_D3D11_DEVICE"_ns);
     return;
   }
 
@@ -832,7 +1029,9 @@ void DeviceManagerDx::ResetDevices() {
   mMLGDevice = nullptr;
   mCompositorDevice = nullptr;
   mContentDevice = nullptr;
+  mCanvasDevice = nullptr;
   mImageDevice = nullptr;
+  mDirectCompositionDevice = nullptr;
   mDeviceStatus = Nothing();
   mDeviceResetReason = Nothing();
   Factory::SetDirect3D11Device(nullptr);
@@ -854,6 +1053,8 @@ bool DeviceManagerDx::MaybeResetAndReacquireDevices() {
 
   bool createCompositorDevice = !!mCompositorDevice;
   bool createContentDevice = !!mContentDevice;
+  bool createCanvasDevice = !!mCanvasDevice;
+  bool createDirectCompositionDevice = !!mDirectCompositionDevice;
 
   ResetDevices();
 
@@ -863,6 +1064,12 @@ bool DeviceManagerDx::MaybeResetAndReacquireDevices() {
   }
   if (createContentDevice) {
     CreateContentDevices();
+  }
+  if (createCanvasDevice) {
+    CreateCanvasDevice();
+  }
+  if (createDirectCompositionDevice) {
+    CreateDirectCompositionDevice();
   }
 
   return true;
@@ -952,13 +1159,14 @@ bool DeviceManagerDx::GetAnyDeviceRemovedReason(DeviceResetReason* aOutReason) {
   mDeviceLock.AssertCurrentThreadOwns();
 
   if (DidDeviceReset(mCompositorDevice, aOutReason) ||
-      DidDeviceReset(mContentDevice, aOutReason)) {
+      DidDeviceReset(mContentDevice, aOutReason) ||
+      DidDeviceReset(mCanvasDevice, aOutReason)) {
     return true;
   }
 
   if (XRE_IsParentProcess() && NS_IsMainThread() &&
-      gfxPrefs::DeviceResetForTesting()) {
-    gfxPrefs::SetDeviceResetForTesting(0);
+      StaticPrefs::gfx_testing_device_reset()) {
+    Preferences::SetInt("gfx.testing.device-reset", 0);
     *aOutReason = DeviceResetReason::FORCED_RESET;
     return true;
   }
@@ -981,7 +1189,7 @@ void DeviceManagerDx::DisableD3D11AfterCrash() {
   gfxConfig::Disable(Feature::D3D11_COMPOSITING,
                      FeatureStatus::CrashedInHandler,
                      "Crashed while acquiring a Direct3D11 device",
-                     NS_LITERAL_CSTRING("FEATURE_FAILURE_D3D11_CRASH"));
+                     "FEATURE_FAILURE_D3D11_CRASH"_ns);
   ResetDevices();
 }
 
@@ -991,6 +1199,9 @@ RefPtr<ID3D11Device> DeviceManagerDx::GetCompositorDevice() {
 }
 
 RefPtr<ID3D11Device> DeviceManagerDx::GetContentDevice() {
+  MOZ_ASSERT(XRE_IsGPUProcess() ||
+             gfxPlatform::GetPlatform()->DevicesInitialized());
+
   MutexAutoLock lock(mDeviceLock);
   return mContentDevice;
 }
@@ -1032,7 +1243,12 @@ RefPtr<ID3D11Device> DeviceManagerDx::GetVRDevice() {
   return mVRDevice;
 }
 
-RefPtr<IDCompositionDevice> DeviceManagerDx::GetDirectCompositionDevice() {
+RefPtr<ID3D11Device> DeviceManagerDx::GetCanvasDevice() {
+  MutexAutoLock lock(mDeviceLock);
+  return mCanvasDevice;
+}
+
+RefPtr<IDCompositionDevice2> DeviceManagerDx::GetDirectCompositionDevice() {
   MutexAutoLock lock(mDeviceLock);
   return mDirectCompositionDevice;
 }
@@ -1054,7 +1270,7 @@ bool DeviceManagerDx::TextureSharingWorks() {
 
 bool DeviceManagerDx::CanInitializeKeyedMutexTextures() {
   MutexAutoLock lock(mDeviceLock);
-  return mDeviceStatus && gfxPrefs::Direct3D11AllowKeyedMutex() &&
+  return mDeviceStatus && StaticPrefs::gfx_direct3d11_allow_keyed_mutex() &&
          gfxVars::AllowD3D11KeyedMutex();
 }
 
@@ -1138,7 +1354,7 @@ void DeviceManagerDx::InitializeDirectDraw() {
   if (!mDirectDrawDLL) {
     ddraw.SetFailed(FeatureStatus::Unavailable,
                     "DirectDraw not available on this computer",
-                    NS_LITERAL_CSTRING("FEATURE_FAILURE_DDRAW_LIB"));
+                    "FEATURE_FAILURE_DDRAW_LIB"_ns);
     return;
   }
 
@@ -1147,7 +1363,7 @@ void DeviceManagerDx::InitializeDirectDraw() {
   if (!sDirectDrawCreateExFn) {
     ddraw.SetFailed(FeatureStatus::Unavailable,
                     "DirectDraw not available on this computer",
-                    NS_LITERAL_CSTRING("FEATURE_FAILURE_DDRAW_LIB"));
+                    "FEATURE_FAILURE_DDRAW_LIB"_ns);
     return;
   }
 
@@ -1158,13 +1374,13 @@ void DeviceManagerDx::InitializeDirectDraw() {
   }
   MOZ_SEH_EXCEPT(EXCEPTION_EXECUTE_HANDLER) {
     ddraw.SetFailed(FeatureStatus::Failed, "Failed to create DirectDraw",
-                    NS_LITERAL_CSTRING("FEATURE_FAILURE_DDRAW_LIB"));
+                    "FEATURE_FAILURE_DDRAW_LIB"_ns);
     gfxCriticalNote << "DoesCreatingDirectDrawFailed";
     return;
   }
   if (FAILED(hr)) {
     ddraw.SetFailed(FeatureStatus::Failed, "Failed to create DirectDraw",
-                    NS_LITERAL_CSTRING("FEATURE_FAILURE_DDRAW_LIB"));
+                    "FEATURE_FAILURE_DDRAW_LIB"_ns);
     gfxCriticalNote << "DoesCreatingDirectDrawFailed " << hexa(hr);
     return;
   }
@@ -1175,8 +1391,6 @@ IDirectDraw7* DeviceManagerDx::GetDirectDraw() { return mDirectDraw; }
 void DeviceManagerDx::GetCompositorDevices(
     RefPtr<ID3D11Device>* aOutDevice,
     RefPtr<layers::DeviceAttachmentsD3D11>* aOutAttachments) {
-  MOZ_ASSERT(layers::CompositorThreadHolder::IsInCompositorThread());
-
   RefPtr<ID3D11Device> device;
   {
     MutexAutoLock lock(mDeviceLock);
@@ -1209,13 +1423,14 @@ void DeviceManagerDx::GetCompositorDevices(
   *aOutAttachments = attachments;
 }
 
-/* static */ void DeviceManagerDx::PreloadAttachmentsOnCompositorThread() {
-  MessageLoop* loop = layers::CompositorThreadHolder::Loop();
-  if (!loop) {
+/* static */
+void DeviceManagerDx::PreloadAttachmentsOnCompositorThread() {
+  if (!CompositorThread()) {
     return;
   }
 
-  bool enableAL = gfxConfig::IsEnabled(Feature::ADVANCED_LAYERS);
+  bool enableAL = gfxConfig::IsEnabled(Feature::ADVANCED_LAYERS) &&
+                  !gfx::gfxVars::UseSoftwareWebRender();
 
   RefPtr<Runnable> task = NS_NewRunnableFunction(
       "DeviceManagerDx::PreloadAttachmentsOnCompositorThread",
@@ -1230,7 +1445,7 @@ void DeviceManagerDx::GetCompositorDevices(
           }
         }
       });
-  loop->PostTask(task.forget());
+  CompositorThread()->Dispatch(task.forget());
 }
 
 }  // namespace gfx

@@ -1,4 +1,3 @@
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -18,7 +17,7 @@ const TEST_URI = `
 
 add_task(async function() {
   await addTab("data:text/html;charset=utf-8," + encodeURIComponent(TEST_URI));
-  const {inspector, view} = await openRuleView();
+  const { inspector, view } = await openRuleView();
   await selectNode("#testid", inspector);
 
   const rule = getRuleViewRuleEditor(view, 1).rule;
@@ -34,17 +33,32 @@ add_task(async function() {
   EventUtils.synthesizeKey("VK_RETURN", {}, view.styleWindow);
   await onDone;
 
-  is(prop.editor.valueSpan.textContent, "red",
-    "'red' property value is correctly set.");
+  is(
+    prop.editor.valueSpan.textContent,
+    "red",
+    "'red' property value is correctly set."
+  );
   ok(prop.enabled, "red background-color property is enabled.");
-  is((await getComputedStyleProperty("#testid", null, "background-color")),
-    "rgb(255, 0, 0)", "red background color is set.");
+  is(
+    await getComputedStyleProperty("#testid", null, "background-color"),
+    "rgb(255, 0, 0)",
+    "red background color is set."
+  );
 
   const propEditor = rule.textProps[1].editor;
-  is(propEditor.nameSpan.textContent, "color",
-    "new 'color' property name is correctly set.");
-  is(propEditor.valueSpan.textContent, "red",
-    "new 'red' property value is correctly set.");
-  is((await getComputedStyleProperty("#testid", null, "color")),
-    "rgb(255, 0, 0)", "red color is set.");
+  is(
+    propEditor.nameSpan.textContent,
+    "color",
+    "new 'color' property name is correctly set."
+  );
+  is(
+    propEditor.valueSpan.textContent,
+    "red",
+    "new 'red' property value is correctly set."
+  );
+  is(
+    await getComputedStyleProperty("#testid", null, "color"),
+    "rgb(255, 0, 0)",
+    "red color is set."
+  );
 });

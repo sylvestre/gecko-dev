@@ -2,14 +2,14 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
+const {ComponentUtils} = ChromeUtils.import("resource://gre/modules/ComponentUtils.jsm");
 
 function FooComponent() {
   this.wrappedJSObject = this;
 }
 FooComponent.prototype =
 {
-  // nsIClassInfo + information for XPCOM registration code in XPCOMUtils.jsm
+  // nsIClassInfo + information for XPCOM registration code in ComponentUtils.jsm
   classDescription:  "Foo Component",
   classID:           Components.ID("{6b933fe6-6eba-4622-ac86-e4f654f1b474}"),
   contractID:       "@mozilla.org/tests/module-importer;1",
@@ -17,9 +17,8 @@ FooComponent.prototype =
   // nsIClassInfo
   flags: 0,
 
-  getInterfaces: function getInterfaces(aCount) {
+  get interfaces() {
     var interfaces = [Ci.nsIClassInfo];
-    aCount.value = interfaces.length;
 
     // Guerilla test for line numbers hiding in this method
     var threw = true;
@@ -27,7 +26,7 @@ FooComponent.prototype =
       thereIsNoSuchIdentifier;
       threw = false;
     } catch (ex) {
-      Assert.ok(ex.lineNumber == 27);
+      Assert.ok(ex.lineNumber == 26);
     }
     Assert.ok(threw);
 
@@ -52,7 +51,8 @@ function BarComponent() {
 }
 BarComponent.prototype =
 {
-  // nsIClassInfo + information for XPCOM registration code in XPCOMUtils.jsm
+  // nsIClassInfo + information for XPCOM registration code in
+  // ComponentUtils.jsm
   classDescription: "Module importer test 2",
   classID: Components.ID("{708a896a-b48d-4bff-906e-fc2fd134b296}"),
   contractID: "@mozilla.org/tests/module-importer;2",
@@ -60,18 +60,14 @@ BarComponent.prototype =
   // nsIClassInfo
   flags: 0,
 
-  getInterfaces: function getInterfaces(aCount) {
-    var interfaces = [Ci.nsIClassInfo];
-    aCount.value = interfaces.length;
-    return interfaces;
-  },
+  interfaces: [Ci.nsIClassInfo],
 
   getScriptableHelper: function getScriptableHelper() {
     return null;
   },
 
   // nsISupports
-  QueryInterface: ChromeUtils.generateQI([Ci.nsIClassInfo])
+  QueryInterface: ChromeUtils.generateQI(["nsIClassInfo"])
 };
 
 const Assert = {
@@ -85,4 +81,4 @@ const Assert = {
 };
 
 var gComponentsArray = [FooComponent, BarComponent];
-this.NSGetFactory = XPCOMUtils.generateNSGetFactory(gComponentsArray);
+this.NSGetFactory = ComponentUtils.generateNSGetFactory(gComponentsArray);

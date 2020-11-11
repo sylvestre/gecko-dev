@@ -9,6 +9,8 @@
 
 #include "vm/ObjectGroup.h"
 
+#include "gc/Zone.h"
+
 namespace js {
 
 inline bool ObjectGroup::needsSweep() {
@@ -54,8 +56,13 @@ inline bool ObjectGroup::unknownProperties(const AutoSweepObjectGroup& sweep) {
 }
 
 inline bool ObjectGroup::shouldPreTenure(const AutoSweepObjectGroup& sweep) {
-  return hasAnyFlags(sweep, OBJECT_FLAG_PRE_TENURE) &&
-         !unknownProperties(sweep);
+  MOZ_ASSERT(sweep.group() == this);
+  return shouldPreTenureDontCheckGeneration();
+}
+
+inline bool ObjectGroup::shouldPreTenureDontCheckGeneration() {
+  return hasAnyFlagsDontCheckGeneration(OBJECT_FLAG_PRE_TENURE) &&
+         !unknownPropertiesDontCheckGeneration();
 }
 
 inline bool ObjectGroup::canPreTenure(const AutoSweepObjectGroup& sweep) {
@@ -84,18 +91,30 @@ inline PreliminaryObjectArrayWithTemplate* ObjectGroup::maybePreliminaryObjects(
   return maybePreliminaryObjectsDontCheckGeneration();
 }
 
-inline UnboxedLayout* ObjectGroup::maybeUnboxedLayout(
-    const AutoSweepObjectGroup& sweep) {
-  MOZ_ASSERT(sweep.group() == this);
-  return maybeUnboxedLayoutDontCheckGeneration();
-}
-
-inline UnboxedLayout& ObjectGroup::unboxedLayout(
-    const AutoSweepObjectGroup& sweep) {
-  MOZ_ASSERT(sweep.group() == this);
-  return unboxedLayoutDontCheckGeneration();
+/* static */ inline ObjectGroup* ObjectGroup::lazySingletonGroup(
+    JSContext* cx, ObjectGroup* oldGroup, const JSClass* clasp,
+    TaggedProto proto) {
+  ObjectGroupRealm& realm = oldGroup ? ObjectGroupRealm::get(oldGroup)
+                                     : ObjectGroupRealm::getForNewObject(cx);
+  JS::Realm* objectRealm = oldGroup ? oldGroup->realm() : cx->realm();
+  return lazySingletonGroup(cx, realm, objectRealm, clasp, proto);
 }
 
 }  // namespace js
+
+/* static */ inline bool JSObject::setSingleton(JSContext* cx,
+                                                js::HandleObject obj) {
+  MOZ_ASSERT(!IsInsideNursery(obj));
+  MOZ_ASSERT(!obj->isSingleton());
+
+  js::ObjectGroup* group = js::ObjectGroup::lazySingletonGroup(
+      cx, obj->groupRaw(), obj->getClass(), obj->taggedProto());
+  if (!group) {
+    return false;
+  }
+
+  obj->setGroupRaw(group);
+  return true;
+}
 
 #endif /* vm_ObjectGroup_inl_h */

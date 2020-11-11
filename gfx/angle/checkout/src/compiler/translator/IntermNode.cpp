@@ -42,7 +42,7 @@ TConstantUnion *Vectorize(const TConstantUnion &constant, size_t size)
 {
     TConstantUnion *constUnion = new TConstantUnion[size];
     for (unsigned int i = 0; i < size; ++i)
-        constUnion[i]   = constant;
+        constUnion[i] = constant;
 
     return constUnion;
 }
@@ -107,8 +107,8 @@ TIntermTyped *CreateFoldedNode(const TConstantUnion *constArray, const TIntermTy
 }
 
 angle::Matrix<float> GetMatrix(const TConstantUnion *paramArray,
-                               const unsigned int &rows,
-                               const unsigned int &cols)
+                               const unsigned int rows,
+                               const unsigned int cols)
 {
     std::vector<float> elements;
     for (size_t i = 0; i < rows * cols; i++)
@@ -119,7 +119,7 @@ angle::Matrix<float> GetMatrix(const TConstantUnion *paramArray,
     return angle::Matrix<float>(elements, cols, rows).transpose();
 }
 
-angle::Matrix<float> GetMatrix(const TConstantUnion *paramArray, const unsigned int &size)
+angle::Matrix<float> GetMatrix(const TConstantUnion *paramArray, const unsigned int size)
 {
     std::vector<float> elements;
     for (size_t i = 0; i < size * size; i++)
@@ -175,7 +175,7 @@ bool CanFoldAggregateBuiltInOp(TOperator op)
     }
 }
 
-}  // namespace anonymous
+}  // namespace
 
 ////////////////////////////////////////////////////////////////
 //
@@ -183,9 +183,7 @@ bool CanFoldAggregateBuiltInOp(TOperator op)
 //
 ////////////////////////////////////////////////////////////////
 
-TIntermExpression::TIntermExpression(const TType &t) : TIntermTyped(), mType(t)
-{
-}
+TIntermExpression::TIntermExpression(const TType &t) : TIntermTyped(), mType(t) {}
 
 void TIntermExpression::setTypePreservePrecision(const TType &t)
 {
@@ -196,11 +194,14 @@ void TIntermExpression::setTypePreservePrecision(const TType &t)
 }
 
 #define REPLACE_IF_IS(node, type, original, replacement) \
-    if (node == original)                                \
+    do                                                   \
     {                                                    \
-        node = static_cast<type *>(replacement);         \
-        return true;                                     \
-    }
+        if (node == original)                            \
+        {                                                \
+            node = static_cast<type *>(replacement);     \
+            return true;                                 \
+        }                                                \
+    } while (0)
 
 size_t TIntermSymbol::getChildCount() const
 {
@@ -482,9 +483,7 @@ bool TIntermAggregateBase::insertChildNodes(TIntermSequence::size_type position,
     return true;
 }
 
-TIntermSymbol::TIntermSymbol(const TVariable *variable) : TIntermTyped(), mVariable(variable)
-{
-}
+TIntermSymbol::TIntermSymbol(const TVariable *variable) : TIntermTyped(), mVariable(variable) {}
 
 bool TIntermSymbol::hasConstantValue() const
 {
@@ -531,8 +530,7 @@ TIntermAggregate *TIntermAggregate::CreateBuiltInFunctionCall(const TFunction &f
     return new TIntermAggregate(&func, func.getReturnType(), func.getBuiltInOp(), arguments);
 }
 
-TIntermAggregate *TIntermAggregate::CreateConstructor(const TType &type,
-                                                      TIntermSequence *arguments)
+TIntermAggregate *TIntermAggregate::CreateConstructor(const TType &type, TIntermSequence *arguments)
 {
     return new TIntermAggregate(nullptr, type, EOpConstruct, arguments);
 }
@@ -863,6 +861,12 @@ void TIntermBlock::appendStatement(TIntermNode *statement)
     }
 }
 
+void TIntermBlock::insertStatement(size_t insertPosition, TIntermNode *statement)
+{
+    ASSERT(statement != nullptr);
+    mStatements.insert(mStatements.begin() + insertPosition, statement);
+}
+
 void TIntermDeclaration::appendDeclarator(TIntermTyped *declarator)
 {
     ASSERT(declarator != nullptr);
@@ -1031,8 +1035,8 @@ TIntermSwizzle::TIntermSwizzle(const TIntermSwizzle &node) : TIntermExpression(n
 {
     TIntermTyped *operandCopy = node.mOperand->deepCopy();
     ASSERT(operandCopy != nullptr);
-    mOperand = operandCopy;
-    mSwizzleOffsets = node.mSwizzleOffsets;
+    mOperand                   = operandCopy;
+    mSwizzleOffsets            = node.mSwizzleOffsets;
     mHasFoldedDuplicateOffsets = node.mHasFoldedDuplicateOffsets;
 }
 
@@ -1314,7 +1318,8 @@ TIntermBinary *TIntermBinary::CreateComma(TIntermTyped *left,
     return node;
 }
 
-TIntermInvariantDeclaration::TIntermInvariantDeclaration(TIntermSymbol *symbol, const TSourceLoc &line)
+TIntermInvariantDeclaration::TIntermInvariantDeclaration(TIntermSymbol *symbol,
+                                                         const TSourceLoc &line)
     : TIntermNode(), mSymbol(symbol)
 {
     ASSERT(symbol);
@@ -2100,132 +2105,138 @@ const TConstantUnion *TIntermConstantUnion::FoldBinary(TOperator op,
             resultArray = new TConstantUnion[objectSize];
             for (size_t i = 0; i < objectSize; i++)
             {
-                switch (leftType.getBasicType())
+                if (IsFloatDivision(leftType.getBasicType(), rightType.getBasicType()))
                 {
-                    case EbtFloat:
+                    // Float division requested, possibly with implicit conversion
+                    ASSERT(op == EOpDiv);
+                    float dividend = leftArray[i].getFConst();
+                    float divisor  = rightArray[i].getFConst();
+
+                    if (divisor == 0.0f)
                     {
-                        ASSERT(op == EOpDiv);
-                        float dividend = leftArray[i].getFConst();
-                        float divisor  = rightArray[i].getFConst();
-                        if (divisor == 0.0f)
-                        {
-                            if (dividend == 0.0f)
-                            {
-                                diagnostics->warning(
-                                    line,
-                                    "Zero divided by zero during constant folding generated NaN",
-                                    "/");
-                                resultArray[i].setFConst(std::numeric_limits<float>::quiet_NaN());
-                            }
-                            else
-                            {
-                                diagnostics->warning(line, "Divide by zero during constant folding",
-                                                     "/");
-                                bool negativeResult =
-                                    std::signbit(dividend) != std::signbit(divisor);
-                                resultArray[i].setFConst(
-                                    negativeResult ? -std::numeric_limits<float>::infinity()
-                                                   : std::numeric_limits<float>::infinity());
-                            }
-                        }
-                        else if (gl::isInf(dividend) && gl::isInf(divisor))
+                        if (dividend == 0.0f)
                         {
                             diagnostics->warning(line,
-                                                 "Infinity divided by infinity during constant "
+                                                 "Zero divided by zero during constant "
                                                  "folding generated NaN",
                                                  "/");
                             resultArray[i].setFConst(std::numeric_limits<float>::quiet_NaN());
                         }
                         else
                         {
-                            float result = dividend / divisor;
-                            if (!gl::isInf(dividend) && gl::isInf(result))
+                            diagnostics->warning(line, "Divide by zero during constant folding",
+                                                 "/");
+                            bool negativeResult = std::signbit(dividend) != std::signbit(divisor);
+                            resultArray[i].setFConst(negativeResult
+                                                         ? -std::numeric_limits<float>::infinity()
+                                                         : std::numeric_limits<float>::infinity());
+                        }
+                    }
+                    else if (gl::isInf(dividend) && gl::isInf(divisor))
+                    {
+                        diagnostics->warning(line,
+                                             "Infinity divided by infinity during constant "
+                                             "folding generated NaN",
+                                             "/");
+                        resultArray[i].setFConst(std::numeric_limits<float>::quiet_NaN());
+                    }
+                    else
+                    {
+                        float result = dividend / divisor;
+                        if (!gl::isInf(dividend) && gl::isInf(result))
+                        {
+                            diagnostics->warning(
+                                line, "Constant folded division overflowed to infinity", "/");
+                        }
+                        resultArray[i].setFConst(result);
+                    }
+                }
+                else
+                {
+                    // Types are either both int or both uint
+                    switch (leftType.getBasicType())
+                    {
+                        case EbtInt:
+                        {
+                            if (rightArray[i] == 0)
                             {
                                 diagnostics->warning(
-                                    line, "Constant folded division overflowed to infinity", "/");
+                                    line, "Divide by zero error during constant folding", "/");
+                                resultArray[i].setIConst(INT_MAX);
                             }
-                            resultArray[i].setFConst(result);
+                            else
+                            {
+                                int lhs     = leftArray[i].getIConst();
+                                int divisor = rightArray[i].getIConst();
+                                if (op == EOpDiv)
+                                {
+                                    // Check for the special case where the minimum
+                                    // representable number is divided by -1. If left alone this
+                                    // leads to integer overflow in C++. ESSL 3.00.6
+                                    // section 4.1.3 Integers: "However, for the case where the
+                                    // minimum representable value is divided by -1, it is
+                                    // allowed to return either the minimum representable value
+                                    // or the maximum representable value."
+                                    if (lhs == -0x7fffffff - 1 && divisor == -1)
+                                    {
+                                        resultArray[i].setIConst(0x7fffffff);
+                                    }
+                                    else
+                                    {
+                                        resultArray[i].setIConst(lhs / divisor);
+                                    }
+                                }
+                                else
+                                {
+                                    ASSERT(op == EOpIMod);
+                                    if (lhs < 0 || divisor < 0)
+                                    {
+                                        // ESSL 3.00.6 section 5.9: Results of modulus are
+                                        // undefined when either one of the operands is
+                                        // negative.
+                                        diagnostics->warning(line,
+                                                             "Negative modulus operator operand "
+                                                             "encountered during constant folding. "
+                                                             "Results are undefined.",
+                                                             "%");
+                                        resultArray[i].setIConst(0);
+                                    }
+                                    else
+                                    {
+                                        resultArray[i].setIConst(lhs % divisor);
+                                    }
+                                }
+                            }
+                            break;
                         }
-                        break;
+                        case EbtUInt:
+                        {
+                            if (rightArray[i] == 0)
+                            {
+                                diagnostics->warning(
+                                    line, "Divide by zero error during constant folding", "/");
+                                resultArray[i].setUConst(UINT_MAX);
+                            }
+                            else
+                            {
+                                if (op == EOpDiv)
+                                {
+                                    resultArray[i].setUConst(leftArray[i].getUConst() /
+                                                             rightArray[i].getUConst());
+                                }
+                                else
+                                {
+                                    ASSERT(op == EOpIMod);
+                                    resultArray[i].setUConst(leftArray[i].getUConst() %
+                                                             rightArray[i].getUConst());
+                                }
+                            }
+                            break;
+                        }
+                        default:
+                            UNREACHABLE();
+                            return nullptr;
                     }
-                    case EbtInt:
-                        if (rightArray[i] == 0)
-                        {
-                            diagnostics->warning(
-                                line, "Divide by zero error during constant folding", "/");
-                            resultArray[i].setIConst(INT_MAX);
-                        }
-                        else
-                        {
-                            int lhs     = leftArray[i].getIConst();
-                            int divisor = rightArray[i].getIConst();
-                            if (op == EOpDiv)
-                            {
-                                // Check for the special case where the minimum representable number
-                                // is
-                                // divided by -1. If left alone this leads to integer overflow in
-                                // C++.
-                                // ESSL 3.00.6 section 4.1.3 Integers:
-                                // "However, for the case where the minimum representable value is
-                                // divided by -1, it is allowed to return either the minimum
-                                // representable value or the maximum representable value."
-                                if (lhs == -0x7fffffff - 1 && divisor == -1)
-                                {
-                                    resultArray[i].setIConst(0x7fffffff);
-                                }
-                                else
-                                {
-                                    resultArray[i].setIConst(lhs / divisor);
-                                }
-                            }
-                            else
-                            {
-                                ASSERT(op == EOpIMod);
-                                if (lhs < 0 || divisor < 0)
-                                {
-                                    // ESSL 3.00.6 section 5.9: Results of modulus are undefined
-                                    // when either one of the operands is negative.
-                                    diagnostics->warning(line,
-                                                         "Negative modulus operator operand "
-                                                         "encountered during constant folding. "
-                                                         "Results are undefined.",
-                                                         "%");
-                                    resultArray[i].setIConst(0);
-                                }
-                                else
-                                {
-                                    resultArray[i].setIConst(lhs % divisor);
-                                }
-                            }
-                        }
-                        break;
-
-                    case EbtUInt:
-                        if (rightArray[i] == 0)
-                        {
-                            diagnostics->warning(
-                                line, "Divide by zero error during constant folding", "/");
-                            resultArray[i].setUConst(UINT_MAX);
-                        }
-                        else
-                        {
-                            if (op == EOpDiv)
-                            {
-                                resultArray[i].setUConst(leftArray[i].getUConst() /
-                                                         rightArray[i].getUConst());
-                            }
-                            else
-                            {
-                                ASSERT(op == EOpIMod);
-                                resultArray[i].setUConst(leftArray[i].getUConst() %
-                                                         rightArray[i].getUConst());
-                            }
-                        }
-                        break;
-
-                    default:
-                        UNREACHABLE();
-                        return nullptr;
                 }
             }
         }
@@ -2312,17 +2323,17 @@ const TConstantUnion *TIntermConstantUnion::FoldBinary(TOperator op,
 
         case EOpBitwiseAnd:
             resultArray = new TConstantUnion[objectSize];
-            for (size_t i      = 0; i < objectSize; i++)
+            for (size_t i = 0; i < objectSize; i++)
                 resultArray[i] = leftArray[i] & rightArray[i];
             break;
         case EOpBitwiseXor:
             resultArray = new TConstantUnion[objectSize];
-            for (size_t i      = 0; i < objectSize; i++)
+            for (size_t i = 0; i < objectSize; i++)
                 resultArray[i] = leftArray[i] ^ rightArray[i];
             break;
         case EOpBitwiseOr:
             resultArray = new TConstantUnion[objectSize];
-            for (size_t i      = 0; i < objectSize; i++)
+            for (size_t i = 0; i < objectSize; i++)
                 resultArray[i] = leftArray[i] | rightArray[i];
             break;
         case EOpBitShiftLeft:
@@ -3055,7 +3066,7 @@ void TIntermConstantUnion::foldFloatTypeUnary(const TConstantUnion &parameter,
 TConstantUnion *TIntermConstantUnion::FoldAggregateBuiltIn(TIntermAggregate *aggregate,
                                                            TDiagnostics *diagnostics)
 {
-    TOperator op              = aggregate->getOp();
+    TOperator op               = aggregate->getOp();
     TIntermSequence *arguments = aggregate->getSequence();
     unsigned int argsCount     = static_cast<unsigned int>(arguments->size());
     std::vector<const TConstantUnion *> unionArrays(argsCount);
@@ -3433,10 +3444,12 @@ TConstantUnion *TIntermConstantUnion::FoldAggregateBuiltIn(TIntermAggregate *agg
             ASSERT(basicType == EbtFloat && (*arguments)[0]->getAsTyped()->isMatrix() &&
                    (*arguments)[1]->getAsTyped()->isMatrix());
             // Perform component-wise matrix multiplication.
-            resultArray = new TConstantUnion[maxObjectSize];
-            int size    = (*arguments)[0]->getAsTyped()->getNominalSize();
-            angle::Matrix<float> result =
-                GetMatrix(unionArrays[0], size).compMult(GetMatrix(unionArrays[1], size));
+            resultArray                 = new TConstantUnion[maxObjectSize];
+            int rows                    = (*arguments)[0]->getAsTyped()->getRows();
+            int cols                    = (*arguments)[0]->getAsTyped()->getCols();
+            angle::Matrix<float> lhs    = GetMatrix(unionArrays[0], rows, cols);
+            angle::Matrix<float> rhs    = GetMatrix(unionArrays[1], rows, cols);
+            angle::Matrix<float> result = lhs.compMult(rhs);
             SetUnionArrayFromMatrix(result, resultArray);
             break;
         }
@@ -3739,12 +3752,25 @@ TConstantUnion *TIntermConstantUnion::FoldAggregateBuiltIn(TIntermAggregate *agg
     return resultArray;
 }
 
+bool TIntermConstantUnion::IsFloatDivision(TBasicType t1, TBasicType t2)
+{
+    ImplicitTypeConversion conversion = GetConversion(t1, t2);
+    ASSERT(conversion != ImplicitTypeConversion::Invalid);
+    if (conversion == ImplicitTypeConversion::Same)
+    {
+        if (t1 == EbtFloat)
+            return true;
+        return false;
+    }
+    ASSERT(t1 == EbtFloat || t2 == EbtFloat);
+    return true;
+}
+
 // TIntermPreprocessorDirective implementation.
 TIntermPreprocessorDirective::TIntermPreprocessorDirective(PreprocessorDirective directive,
                                                            ImmutableString command)
     : mDirective(directive), mCommand(std::move(command))
-{
-}
+{}
 
 TIntermPreprocessorDirective::~TIntermPreprocessorDirective() = default;
 

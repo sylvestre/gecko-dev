@@ -1,27 +1,61 @@
-# Creating and sending patches <!--TODO: (in the future: Making Pull Requests)-->
+# Sending your code for review (also known as "sending patches")
 
-## Creating a patch
+First, commit your changes. For example:
 
-To create a patch you need to first commit your changes and then export them to a patch file.
-
-```
-hg commit -m 'your commit message'
-hg export > /path/to/your/patch
+```bash
+hg add /path/to/file/changed
+hg commit -m "Bug 1234567 - [devtools] Implement feature XYZ. r=name,name2!"
 ```
 
-## Commit messages
+ The commit message explained in detail:
+ - `Bug 1234567` - The number of the bug in bugzilla.
+ - `- [devtools] Implement feature XYZ.` - The commit message, with a "devtools" prefix to quickly identify DevTools changesets.
+ - `r=name` - The short form to request a review. Enter the name you found using the
+ instructions in the [previous step](./code-reviews-find-reviewer.md).
+ - `,name2!` - You can have more than one reviewer. The `!` makes the review a *blocking* review (Patch can not land without accepted review).
 
-Commit messages should follow the pattern `Bug 1234567 - change description. r=reviewer`.
+Then create a revision in Phabricator using `moz-phab`:
 
-First is the bug number related to the patch. Then the description should explain what the patch changes. The last part is used to keep track of the reviewer for the patch.
+```bash
+moz-phab submit
+```
 
-## Submitting a patch
+A revision will be created including that information and the difference in code between your changes and the point in the repository where you based your work (this difference is sometimes called "a patch", as it's what you'd need to apply on the repository to get to the final state).
 
-Once you have a patch file, add it as an attachment to the Bugzilla ticket you are working on and add the `feedback?` or `review?` flag depending on if you just want feedback and confirmation you're doing the right thing or if you think the patch is ready to land respectively. Read more about [how to submit a patch and the Bugzilla review cycle here](https://developer.mozilla.org/en-US/docs/Developer_Guide/How_to_Submit_a_Patch).
+If you click on the provided URL for the revision, it'll bring you to Phabricator's interface, which the reviewer will visit as well in order to review the code. They will look at your changes and decide if they need any additional work, based on whether the changes do fix what the bug describes or not. To get a better idea of the types of things they will look at and verify, read the [code reviews checklist](./code-reviews-checklist.md).
 
-You can also take a look at the [Code Review Checklist](./code-reviews.md) as it contains a list of checks that your reviewer is likely to go over when reviewing your code.
+For more information on using moz-phab, you can run:
 
-## Squashing commits
+```bash
+moz-phab -h
+```
+
+or to get information on a specific command (here `submit`):
+
+```bash
+moz-phab submit -h
+```
+
+The reviewer might suggest you do additional changes. For example, they might recommend using a helper that already exists (but you were not aware of), or they might recommend renaming things to make things clearer. Or they might recommend you do *less* things (e.g. if you changed other things that are out of scope for the bug). Or they might simply ask questions if things aren't clear. You can also ask questions if the comments are unclear or if you're unsure about parts of the code you're interacting with. Something that looks very obvious to one person might confuse others.
+
+Hence, you might need to go back to the code and do some edits to address the issues and recommendations. Once you have done this, you must update the existing commit:
+
+```bash
+hg commit --amend
+```
+
+And submit the change again:
+
+```bash
+moz-phab submit
+```
+
+You might have to go through this cycle of submitting changes and getting it reviewed several times, depending on the complexity of the bug.
+
+Once your code fixes the bug, and there are no more blocking issues, the reviewer will approve the changes, and the code can be landed in the repository now.
+
+
+# Squashing commits
 
 Sometimes you may be asked to squash your commits. Squashing means merging multiple commits into one in case you created multiple commits while working on a bug. Squashing bugs is easy!
 

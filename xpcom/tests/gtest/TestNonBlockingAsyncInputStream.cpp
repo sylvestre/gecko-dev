@@ -7,7 +7,11 @@
 #include "nsStringStream.h"
 #include "Helpers.h"
 
-TEST(TestNonBlockingAsyncInputStream, Simple) {
+using mozilla::NonBlockingAsyncInputStream;
+using mozilla::SpinEventLoopUntil;
+
+TEST(TestNonBlockingAsyncInputStream, Simple)
+{
   nsCString data;
   data.Assign("Hello world!");
 
@@ -59,9 +63,9 @@ class ReadSegmentsData {
   char* mBuffer;
 };
 
-nsresult ReadSegmentsFunction(nsIInputStream* aInStr, void* aClosure,
-                              const char* aBuffer, uint32_t aOffset,
-                              uint32_t aCount, uint32_t* aCountWritten) {
+static nsresult ReadSegmentsFunction(nsIInputStream* aInStr, void* aClosure,
+                                     const char* aBuffer, uint32_t aOffset,
+                                     uint32_t aCount, uint32_t* aCountWritten) {
   ReadSegmentsData* data = static_cast<ReadSegmentsData*>(aClosure);
   if (aInStr != data->mStream) return NS_ERROR_FAILURE;
   memcpy(&data->mBuffer[aOffset], aBuffer, aCount);
@@ -69,7 +73,8 @@ nsresult ReadSegmentsFunction(nsIInputStream* aInStr, void* aClosure,
   return NS_OK;
 }
 
-TEST(TestNonBlockingAsyncInputStream, ReadSegments) {
+TEST(TestNonBlockingAsyncInputStream, ReadSegments)
+{
   nsCString data;
   data.Assign("Hello world!");
 
@@ -94,7 +99,8 @@ TEST(TestNonBlockingAsyncInputStream, ReadSegments) {
   ASSERT_TRUE(data.Equals(nsCString(buffer, read)));
 }
 
-TEST(TestNonBlockingAsyncInputStream, AsyncWait_Simple) {
+TEST(TestNonBlockingAsyncInputStream, AsyncWait_Simple)
+{
   nsCString data;
   data.Assign("Hello world!");
 
@@ -138,8 +144,8 @@ TEST(TestNonBlockingAsyncInputStream, AsyncWait_Simple) {
   ASSERT_TRUE(data.Equals(nsCString(buffer, read)));
 }
 
-TEST(TestNonBlockingAsyncInputStream,
-     AsyncWait_ClosureOnly_withoutEventTarget) {
+TEST(TestNonBlockingAsyncInputStream, AsyncWait_ClosureOnly_withoutEventTarget)
+{
   nsCString data;
   data.Assign("Hello world!");
 
@@ -166,7 +172,8 @@ TEST(TestNonBlockingAsyncInputStream,
   ASSERT_TRUE(cb->Called());
 }
 
-TEST(TestNonBlockingAsyncInputStream, AsyncWait_ClosureOnly_withEventTarget) {
+TEST(TestNonBlockingAsyncInputStream, AsyncWait_ClosureOnly_withEventTarget)
+{
   nsCString data;
   data.Assign("Hello world!");
 
@@ -197,7 +204,8 @@ TEST(TestNonBlockingAsyncInputStream, AsyncWait_ClosureOnly_withEventTarget) {
   ASSERT_TRUE(cb->Called());
 }
 
-TEST(TestNonBlockingAsyncInputStream, Helper) {
+TEST(TestNonBlockingAsyncInputStream, Helper)
+{
   nsCString data;
   data.Assign("Hello world!");
 
@@ -268,14 +276,15 @@ class QIInputStream final : public nsIInputStream,
   }
 
   // nsIIPCSerializableInputStream
-  void Serialize(mozilla::ipc::InputStreamParams&,
-                 FileDescriptorArray&) override {}
+  void Serialize(mozilla::ipc::InputStreamParams&, FileDescriptorArray&, bool,
+                 uint32_t, uint32_t*,
+                 mozilla::ipc::ParentToChildStreamActorManager*) override {}
+  void Serialize(mozilla::ipc::InputStreamParams&, FileDescriptorArray&, bool,
+                 uint32_t, uint32_t*,
+                 mozilla::ipc::ChildToParentStreamActorManager*) override {}
   bool Deserialize(const mozilla::ipc::InputStreamParams&,
                    const FileDescriptorArray&) override {
     return false;
-  }
-  mozilla::Maybe<uint64_t> ExpectedSerializedLength() override {
-    return mozilla::Nothing();
   }
 
   // nsISeekableStream
@@ -309,7 +318,8 @@ NS_INTERFACE_MAP_BEGIN(QIInputStream)
   NS_INTERFACE_MAP_ENTRY_AMBIGUOUS(nsISupports, nsIInputStream)
 NS_INTERFACE_MAP_END
 
-TEST(TestNonBlockingAsyncInputStream, QI) {
+TEST(TestNonBlockingAsyncInputStream, QI)
+{
   // Let's test ::Create() returning error.
 
   nsCOMPtr<nsIAsyncInputStream> async;

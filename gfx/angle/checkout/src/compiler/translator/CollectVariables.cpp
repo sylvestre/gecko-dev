@@ -83,7 +83,7 @@ void MarkActive(ShaderVariable *variable)
             }
         }
         ASSERT(variable->staticUse);
-        variable->active    = true;
+        variable->active = true;
     }
 }
 
@@ -174,6 +174,9 @@ class CollectVariablesTraverser : public TIntermTraverser
     bool mInstanceIDAdded;
     bool mVertexIDAdded;
     bool mPointSizeAdded;
+    bool mDrawIDAdded;
+    bool mBaseVertexAdded;
+    bool mBaseInstanceAdded;
 
     // Vertex Shader and Geometry Shader builtins
     bool mPositionAdded;
@@ -231,6 +234,9 @@ CollectVariablesTraverser::CollectVariablesTraverser(
       mInstanceIDAdded(false),
       mVertexIDAdded(false),
       mPointSizeAdded(false),
+      mDrawIDAdded(false),
+      mBaseVertexAdded(false),
+      mBaseInstanceAdded(false),
       mPositionAdded(false),
       mPointCoordAdded(false),
       mFrontFacingAdded(false),
@@ -250,8 +256,7 @@ CollectVariablesTraverser::CollectVariablesTraverser(
       mHashFunction(hashFunction),
       mShaderType(shaderType),
       mExtensionBehavior(extensionBehavior)
-{
-}
+{}
 
 std::string CollectVariablesTraverser::getMappedName(const TSymbol *symbol) const
 {
@@ -266,7 +271,7 @@ void CollectVariablesTraverser::setBuiltInInfoFromSymbol(const TVariable &variab
     info->name       = variable.name().data();
     info->mappedName = variable.name().data();
     info->type       = GLVariableType(type);
-    info->precision = GLVariablePrecision(type);
+    info->precision  = GLVariablePrecision(type);
     if (auto *arraySizes = type.getArraySizes())
     {
         info->arraySizes.assign(arraySizes->begin(), arraySizes->end());
@@ -359,7 +364,7 @@ void CollectVariablesTraverser::visitSymbol(TIntermSymbol *symbol)
         return;
     }
 
-    ShaderVariable *var       = nullptr;
+    ShaderVariable *var = nullptr;
 
     const ImmutableString &symbolName = symbol->getName();
 
@@ -485,6 +490,15 @@ void CollectVariablesTraverser::visitSymbol(TIntermSymbol *symbol)
             case EvqPointSize:
                 recordBuiltInVaryingUsed(symbol->variable(), &mPointSizeAdded, mOutputVaryings);
                 return;
+            case EvqDrawID:
+                recordBuiltInAttributeUsed(symbol->variable(), &mDrawIDAdded);
+                return;
+            case EvqBaseVertex:
+                recordBuiltInAttributeUsed(symbol->variable(), &mBaseVertexAdded);
+                return;
+            case EvqBaseInstance:
+                recordBuiltInAttributeUsed(symbol->variable(), &mBaseInstanceAdded);
+                return;
             case EvqLastFragData:
                 recordBuiltInVaryingUsed(symbol->variable(), &mLastFragDataAdded, mInputVaryings);
                 return;
@@ -550,7 +564,8 @@ void CollectVariablesTraverser::visitSymbol(TIntermSymbol *symbol)
                 else
                 {
                     ASSERT(mShaderType == GL_VERTEX_SHADER &&
-                           IsExtensionEnabled(mExtensionBehavior, TExtension::OVR_multiview));
+                           (IsExtensionEnabled(mExtensionBehavior, TExtension::OVR_multiview2) ||
+                            IsExtensionEnabled(mExtensionBehavior, TExtension::OVR_multiview)));
                 }
                 break;
             default:
@@ -580,7 +595,7 @@ void CollectVariablesTraverser::setFieldOrVariableProperties(const TType &type,
     else
     {
         // Structures use a NONE type that isn't exposed outside ANGLE.
-        variableOut->type       = GL_NONE;
+        variableOut->type = GL_NONE;
         if (structure->symbolType() != SymbolType::Empty)
         {
             variableOut->structName = structure->name().data();
@@ -648,6 +663,7 @@ OutputVariable CollectVariablesTraverser::recordOutputVariable(const TIntermSymb
     setCommonVariableProperties(type, variable.variable(), &outputVariable);
 
     outputVariable.location = type.getLayoutQualifier().location;
+    outputVariable.index    = type.getLayoutQualifier().index;
     return outputVariable;
 }
 
@@ -711,7 +727,8 @@ void CollectVariablesTraverser::recordInterfaceBlock(const char *instanceName,
             mSymbolTable->isStaticallyUsed(*static_cast<const TVariable *>(blockSymbol));
     }
     ASSERT(!interfaceBlockType.isArrayOfArrays());  // Disallowed by GLSL ES 3.10 section 4.3.9
-    interfaceBlock->arraySize = interfaceBlockType.isArray() ? interfaceBlockType.getOutermostArraySize() : 0;
+    interfaceBlock->arraySize =
+        interfaceBlockType.isArray() ? interfaceBlockType.getOutermostArraySize() : 0;
 
     interfaceBlock->blockType = GetBlockType(interfaceBlockType.getQualifier());
     if (interfaceBlock->blockType == BlockType::BLOCK_UNIFORM ||
@@ -760,9 +777,11 @@ Uniform CollectVariablesTraverser::recordUniform(const TIntermSymbol &variable) 
 {
     Uniform uniform;
     setCommonVariableProperties(variable.getType(), variable.variable(), &uniform);
-    uniform.binding  = variable.getType().getLayoutQualifier().binding;
-    uniform.location = variable.getType().getLayoutQualifier().location;
-    uniform.offset   = variable.getType().getLayoutQualifier().offset;
+    uniform.binding = variable.getType().getLayoutQualifier().binding;
+    uniform.imageUnitFormat =
+        GetImageInternalFormatType(variable.getType().getLayoutQualifier().imageInternalFormat);
+    uniform.location  = variable.getType().getLayoutQualifier().location;
+    uniform.offset    = variable.getType().getLayoutQualifier().offset;
     uniform.readonly  = variable.getType().getMemoryQualifier().readonly;
     uniform.writeonly = variable.getType().getMemoryQualifier().writeonly;
     return uniform;

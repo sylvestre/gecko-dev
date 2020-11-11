@@ -9,8 +9,7 @@
 #include "mozilla/StaticPtr.h"
 #include "mozilla/ClearOnShutdown.h"
 
-namespace mozilla {
-namespace gmp {
+namespace mozilla::gmp {
 
 // Really one set of pools on each side of the plugin API.
 
@@ -68,7 +67,7 @@ bool GMPSharedMemManager::MgrDeallocShmem(GMPSharedMem::GMPMemoryClasses aClass,
   // XXX This works; there are better pool algorithms.  We need to avoid
   // "falling off a cliff" with too low a number
   if (GetGmpFreelist(aClass).Length() > 10) {
-    Dealloc(GetGmpFreelist(aClass)[0]);
+    Dealloc(std::move(GetGmpFreelist(aClass)[0]));
     GetGmpFreelist(aClass).RemoveElementAt(0);
     // The allocation numbers will be fubar on the Child!
     mData->mGmpAllocated[aClass]--;
@@ -90,5 +89,4 @@ uint32_t GMPSharedMemManager::NumInUse(GMPSharedMem::GMPMemoryClasses aClass) {
   return mData->mGmpAllocated[aClass] - GetGmpFreelist(aClass).Length();
 }
 
-}  // namespace gmp
-}  // namespace mozilla
+}  // namespace mozilla::gmp

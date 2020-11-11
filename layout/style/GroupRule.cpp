@@ -13,6 +13,8 @@
 
 #include "mozilla/dom/CSSRuleList.h"
 
+#include "nsPrintfCString.h"
+
 using namespace mozilla::dom;
 
 namespace mozilla {
@@ -64,7 +66,8 @@ void GroupRule::List(FILE* out, int32_t aIndent) const {
 }
 #endif
 
-/* virtual */ void GroupRule::DropSheetReference() {
+/* virtual */
+void GroupRule::DropSheetReference() {
   if (mRuleList) {
     mRuleList->DropSheetReference();
   }
@@ -73,6 +76,10 @@ void GroupRule::List(FILE* out, int32_t aIndent) const {
 
 uint32_t GroupRule::InsertRule(const nsAString& aRule, uint32_t aIndex,
                                ErrorResult& aRv) {
+  if (IsReadOnly()) {
+    return 0;
+  }
+
   StyleSheet* sheet = GetStyleSheet();
   if (NS_WARN_IF(!sheet)) {
     aRv.Throw(NS_ERROR_FAILURE);
@@ -81,7 +88,9 @@ uint32_t GroupRule::InsertRule(const nsAString& aRule, uint32_t aIndex,
 
   uint32_t count = StyleRuleCount();
   if (aIndex > count) {
-    aRv.Throw(NS_ERROR_DOM_INDEX_SIZE_ERR);
+    aRv.ThrowIndexSizeError(nsPrintfCString(
+        "Can't insert rule at index %u because rule list length is %u", aIndex,
+        count));
     return 0;
   }
 
@@ -96,6 +105,10 @@ uint32_t GroupRule::InsertRule(const nsAString& aRule, uint32_t aIndex,
 }
 
 void GroupRule::DeleteRule(uint32_t aIndex, ErrorResult& aRv) {
+  if (IsReadOnly()) {
+    return;
+  }
+
   StyleSheet* sheet = GetStyleSheet();
   if (NS_WARN_IF(!sheet)) {
     aRv.Throw(NS_ERROR_FAILURE);
@@ -104,7 +117,8 @@ void GroupRule::DeleteRule(uint32_t aIndex, ErrorResult& aRv) {
 
   uint32_t count = StyleRuleCount();
   if (aIndex >= count) {
-    aRv.Throw(NS_ERROR_DOM_INDEX_SIZE_ERR);
+    aRv.ThrowIndexSizeError(nsPrintfCString(
+        "Index %u is too large for list of length %u", aIndex, count));
     return;
   }
 

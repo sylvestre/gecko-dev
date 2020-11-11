@@ -4,12 +4,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef mozilla_dom_SVGFECompositeElement_h
-#define mozilla_dom_SVGFECompositeElement_h
+#ifndef DOM_SVG_SVGFECOMPOSITEELEMENT_H_
+#define DOM_SVG_SVGFECOMPOSITEELEMENT_H_
 
-#include "nsSVGEnum.h"
-#include "nsSVGFilters.h"
-#include "nsSVGNumber2.h"
+#include "SVGAnimatedEnumeration.h"
+#include "SVGAnimatedNumber.h"
+#include "mozilla/dom/SVGFilters.h"
 
 nsresult NS_NewSVGFECompositeElement(
     nsIContent** aResult, already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo);
@@ -17,7 +17,7 @@ nsresult NS_NewSVGFECompositeElement(
 namespace mozilla {
 namespace dom {
 
-typedef nsSVGFE SVGFECompositeElementBase;
+using SVGFECompositeElementBase = SVGFE;
 
 class SVGFECompositeElement : public SVGFECompositeElementBase {
   friend nsresult(::NS_NewSVGFECompositeElement(
@@ -33,27 +33,26 @@ class SVGFECompositeElement : public SVGFECompositeElementBase {
 
  public:
   virtual FilterPrimitiveDescription GetPrimitiveDescription(
-      nsSVGFilterInstance* aInstance, const IntRect& aFilterSubregion,
+      SVGFilterInstance* aInstance, const IntRect& aFilterSubregion,
       const nsTArray<bool>& aInputsAreTainted,
       nsTArray<RefPtr<SourceSurface>>& aInputImages) override;
   virtual bool AttributeAffectsRendering(int32_t aNameSpaceID,
                                          nsAtom* aAttribute) const override;
-  virtual nsSVGString& GetResultImageName() override {
+  virtual SVGAnimatedString& GetResultImageName() override {
     return mStringAttributes[RESULT];
   }
-  virtual void GetSourceImageNames(
-      nsTArray<nsSVGStringInfo>& aSources) override;
+  virtual void GetSourceImageNames(nsTArray<SVGStringInfo>& aSources) override;
 
   virtual nsresult Clone(dom::NodeInfo*, nsINode** aResult) const override;
 
   // WebIDL
-  already_AddRefed<SVGAnimatedString> In1();
-  already_AddRefed<SVGAnimatedString> In2();
-  already_AddRefed<SVGAnimatedEnumeration> Operator();
-  already_AddRefed<SVGAnimatedNumber> K1();
-  already_AddRefed<SVGAnimatedNumber> K2();
-  already_AddRefed<SVGAnimatedNumber> K3();
-  already_AddRefed<SVGAnimatedNumber> K4();
+  already_AddRefed<DOMSVGAnimatedString> In1();
+  already_AddRefed<DOMSVGAnimatedString> In2();
+  already_AddRefed<DOMSVGAnimatedEnumeration> Operator();
+  already_AddRefed<DOMSVGAnimatedNumber> K1();
+  already_AddRefed<DOMSVGAnimatedNumber> K2();
+  already_AddRefed<DOMSVGAnimatedNumber> K3();
+  already_AddRefed<DOMSVGAnimatedNumber> K4();
   void SetK(float k1, float k2, float k3, float k4);
 
  protected:
@@ -62,20 +61,20 @@ class SVGFECompositeElement : public SVGFECompositeElementBase {
   virtual StringAttributesInfo GetStringInfo() override;
 
   enum { ATTR_K1, ATTR_K2, ATTR_K3, ATTR_K4 };
-  nsSVGNumber2 mNumberAttributes[4];
+  SVGAnimatedNumber mNumberAttributes[4];
   static NumberInfo sNumberInfo[4];
 
   enum { OPERATOR };
-  nsSVGEnum mEnumAttributes[1];
-  static nsSVGEnumMapping sOperatorMap[];
+  SVGAnimatedEnumeration mEnumAttributes[1];
+  static SVGEnumMapping sOperatorMap[];
   static EnumInfo sEnumInfo[1];
 
   enum { RESULT, IN1, IN2 };
-  nsSVGString mStringAttributes[3];
+  SVGAnimatedString mStringAttributes[3];
   static StringInfo sStringInfo[3];
 };
 
 }  // namespace dom
 }  // namespace mozilla
 
-#endif  // mozilla_dom_SVGFECompositeElement_h
+#endif  // DOM_SVG_SVGFECOMPOSITEELEMENT_H_

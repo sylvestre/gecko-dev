@@ -26,20 +26,23 @@ class HTMLEmbedElement final : public nsGenericHTMLElement,
   // nsISupports
   NS_DECL_ISUPPORTS_INHERITED
   NS_IMPL_FROMNODE_HTML_WITH_TAG(HTMLEmbedElement, embed)
-  virtual int32_t TabIndexDefault() override;
 
 #ifdef XP_MACOSX
   // EventTarget
   NS_IMETHOD PostHandleEvent(EventChainPostVisitor& aVisitor) override;
 #endif
 
+  bool AllowFullscreen() const {
+    // We don't need to check prefixed attributes because Flash does not support
+    // them.
+    return IsRewrittenYoutubeEmbed() && GetBoolAttr(nsGkAtoms::allowfullscreen);
+  }
+
   // EventTarget
   virtual void AsyncEventRunning(AsyncEventDispatcher* aEvent) override;
 
-  virtual nsresult BindToTree(nsIDocument* aDocument, nsIContent* aParent,
-                              nsIContent* aBindingParent) override;
-  virtual void UnbindFromTree(bool aDeep = true,
-                              bool aNullParent = true) override;
+  virtual nsresult BindToTree(BindContext&, nsINode& aParent) override;
+  virtual void UnbindFromTree(bool aNullParent = true) override;
 
   virtual bool IsHTMLFocusable(bool aWithMouse, bool* aIsFocusable,
                                int32_t* aTabIndex) override;
@@ -63,6 +66,8 @@ class HTMLEmbedElement final : public nsGenericHTMLElement,
   nsresult CopyInnerTo(HTMLEmbedElement* aDest);
 
   void StartObjectLoad() { StartObjectLoad(true, false); }
+
+  virtual bool IsInteractiveHTMLContent() const override { return true; }
 
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED_NO_UNLINK(HTMLEmbedElement,
                                                      nsGenericHTMLElement)
@@ -95,7 +100,7 @@ class HTMLEmbedElement final : public nsGenericHTMLElement,
   void SetType(const nsAString& aValue, ErrorResult& aRv) {
     SetHTMLAttr(nsGkAtoms::type, aValue, aRv);
   }
-  nsIDocument* GetSVGDocument(nsIPrincipal& aSubjectPrincipal) {
+  Document* GetSVGDocument(nsIPrincipal& aSubjectPrincipal) {
     return GetContentDocument(aSubjectPrincipal);
   }
 
@@ -103,8 +108,6 @@ class HTMLEmbedElement final : public nsGenericHTMLElement,
    * Calls LoadObject with the correct arguments to start the plugin load.
    */
   void StartObjectLoad(bool aNotify, bool aForceLoad);
-
-  NS_FORWARD_NSIFRAMELOADEROWNER(nsObjectLoadingContent::)
 
  protected:
   // Override for nsImageLoadingContent.

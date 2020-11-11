@@ -11,7 +11,7 @@
 #include "mozilla/layers/CompositorBridgeChild.h"
 #include "SharedSurfaceGL.h"
 #include "WebRenderBridgeChild.h"
-#include "WebRenderLayerManager.h"
+#include "RenderRootStateManager.h"
 
 namespace mozilla {
 namespace layers {
@@ -20,39 +20,27 @@ CompositableForwarder* WebRenderCanvasRenderer::GetForwarder() {
   return mManager->WrBridge();
 }
 
-void WebRenderCanvasRenderer::Initialize(const CanvasInitializeData& aData) {
-  ShareableCanvasRenderer::Initialize(aData);
-}
-
-WebRenderCanvasRendererAsync::~WebRenderCanvasRendererAsync() { Destroy(); }
-
-void WebRenderCanvasRendererAsync::Initialize(
-    const CanvasInitializeData& aData) {
-  WebRenderCanvasRenderer::Initialize(aData);
-
+WebRenderCanvasRendererAsync::~WebRenderCanvasRendererAsync() {
   if (mPipelineId.isSome()) {
-    mManager->WrBridge()->RemovePipelineIdForCompositable(mPipelineId.ref());
+    mManager->RemovePipelineIdForCompositable(mPipelineId.ref());
     mPipelineId.reset();
   }
 }
 
+void WebRenderCanvasRendererAsync::Initialize(const CanvasRendererData& aData) {
+  WebRenderCanvasRenderer::Initialize(aData);
+
+  ClearCachedResources();
+}
+
 bool WebRenderCanvasRendererAsync::CreateCompositable() {
   if (!mCanvasClient) {
-    TextureFlags flags = TextureFlags::DEFAULT;
-    if (mOriginPos == gl::OriginPos::BottomLeft) {
-      flags |= TextureFlags::ORIGIN_BOTTOM_LEFT;
+    auto compositableFlags = TextureFlags::NO_FLAGS;
+    if (!mData.mIsAlphaPremult) {
+      // WR needs this flag marked on the compositable, not just the texture.
+      compositableFlags |= TextureFlags::NON_PREMULTIPLIED;
     }
-
-    if (!mIsAlphaPremultiplied) {
-      flags |= TextureFlags::NON_PREMULTIPLIED;
-    }
-
-    mCanvasClient = CanvasClient::CreateCanvasClient(GetCanvasClientType(),
-                                                     GetForwarder(), flags);
-    if (!mCanvasClient) {
-      return false;
-    }
-
+    mCanvasClient = new CanvasClient(GetForwarder(), compositableFlags);
     mCanvasClient->Connect();
   }
 
@@ -60,8 +48,8 @@ bool WebRenderCanvasRendererAsync::CreateCompositable() {
     // Alloc async image pipeline id.
     mPipelineId = Some(
         mManager->WrBridge()->GetCompositorBridgeChild()->GetNextPipelineId());
-    mManager->WrBridge()->AddPipelineIdForCompositable(
-        mPipelineId.ref(), mCanvasClient->GetIPCHandle());
+    mManager->AddPipelineIdForCompositable(mPipelineId.ref(),
+                                           mCanvasClient->GetIPCHandle());
   }
 
   return true;
@@ -69,28 +57,22 @@ bool WebRenderCanvasRendererAsync::CreateCompositable() {
 
 void WebRenderCanvasRendererAsync::ClearCachedResources() {
   if (mPipelineId.isSome()) {
-    mManager->WrBridge()->RemovePipelineIdForCompositable(mPipelineId.ref());
-    mPipelineId.reset();
-  }
-}
-
-void WebRenderCanvasRendererAsync::Destroy() {
-  if (mPipelineId.isSome()) {
-    mManager->WrBridge()->RemovePipelineIdForCompositable(mPipelineId.ref());
+    mManager->RemovePipelineIdForCompositable(mPipelineId.ref());
     mPipelineId.reset();
   }
 }
 
 void WebRenderCanvasRendererAsync::
     UpdateCompositableClientForEmptyTransaction() {
+  bool wasDirty = IsDirty();
   UpdateCompositableClient();
-  if (mPipelineId.isSome()) {
+  if (wasDirty && mPipelineId.isSome()) {
     // Notify an update of async image pipeline during empty transaction.
     // During non empty transaction, WebRenderBridgeParent receives
     // OpUpdateAsyncImagePipeline message, but during empty transaction, the
     // message is not sent to WebRenderBridgeParent. Then
     // OpUpdatedAsyncImagePipeline is used to notify the update.
-    mManager->WrBridge()->AddWebRenderParentCommand(
+    mManager->AddWebRenderParentCommand(
         OpUpdatedAsyncImagePipeline(mPipelineId.ref()));
   }
 }

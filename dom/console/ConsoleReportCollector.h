@@ -13,6 +13,10 @@
 
 namespace mozilla {
 
+namespace net {
+class ConsoleReportCollected;
+}
+
 class ConsoleReportCollector final : public nsIConsoleReportCollector {
  public:
   ConsoleReportCollector();
@@ -32,7 +36,7 @@ class ConsoleReportCollector final : public nsIConsoleReportCollector {
       ReportAction aAction = ReportAction::Forget) override;
 
   void FlushConsoleReports(
-      nsIDocument* aDocument,
+      dom::Document* aDocument,
       ReportAction aAction = ReportAction::Forget) override;
 
   void FlushConsoleReports(
@@ -40,6 +44,9 @@ class ConsoleReportCollector final : public nsIConsoleReportCollector {
       ReportAction aAction = ReportAction::Forget) override;
 
   void FlushConsoleReports(nsIConsoleReportCollector* aCollector) override;
+
+  void StealConsoleReports(
+      nsTArray<net::ConsoleReportCollected>& aReports) override;
 
   void ClearConsoleReports() override;
 
@@ -59,7 +66,7 @@ class ConsoleReportCollector final : public nsIConsoleReportCollector {
           mLineNumber(aLineNumber),
           mColumnNumber(aColumnNumber),
           mMessageName(aMessageName),
-          mStringParams(aStringParams) {}
+          mStringParams(aStringParams.Clone()) {}
 
     const uint32_t mErrorFlags;
     const nsCString mCategory;
@@ -68,7 +75,7 @@ class ConsoleReportCollector final : public nsIConsoleReportCollector {
     const uint32_t mLineNumber;
     const uint32_t mColumnNumber;
     const nsCString mMessageName;
-    const nsTArray<nsString> mStringParams;
+    const CopyableTArray<nsString> mStringParams;
   };
 
   Mutex mMutex;

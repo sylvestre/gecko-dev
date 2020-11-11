@@ -1,3 +1,23 @@
+// GENERATED, DO NOT EDIT
+// file: isConstructor.js
+// Copyright (C) 2017 André Bargull. All rights reserved.
+// This code is governed by the BSD license found in the LICENSE file.
+
+/*---
+description: |
+    Test if a given function is a constructor function.
+defines: [isConstructor]
+---*/
+
+function isConstructor(f) {
+    try {
+        Reflect.construct(function(){}, [], f);
+    } catch (e) {
+        return false;
+    }
+    return true;
+}
+
 // file: nans.js
 // Copyright (C) 2016 the V8 project authors.  All rights reserved.
 // This code is governed by the BSD license found in the LICENSE file.
@@ -7,6 +27,7 @@ description: |
     to create distinct bit representations on various platforms. These provide a
     weak basis for assertions regarding the consistent canonicalization of NaN
     values in Array buffers.
+defines: [NaNs]
 ---*/
 
 var NaNs = [

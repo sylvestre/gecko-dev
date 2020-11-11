@@ -76,6 +76,7 @@
 #define APPLICATION_WAPXHTML_XML "application/vnd.wap.xhtml+xml"
 #define APPLICATION_PACKAGE "application/package"
 #define APPLICATION_JAVASCRIPT_BINAST "application/javascript-binast"
+#define APPLICATION_WASM "application/wasm"
 
 #define AUDIO_BASIC "audio/basic"
 #define AUDIO_OGG "audio/ogg"
@@ -118,6 +119,7 @@
 #define IMAGE_JNG "image/x-jng"
 #define IMAGE_SVG_XML "image/svg+xml"
 #define IMAGE_WEBP "image/webp"
+#define IMAGE_AVIF "image/avif"
 
 #define MESSAGE_EXTERNAL_BODY "message/external-body"
 #define MESSAGE_NEWS "message/news"
@@ -150,7 +152,6 @@
 #define TEXT_XML "text/xml"
 #define TEXT_RDF "text/rdf"
 #define TEXT_VTT "text/vtt"
-#define TEXT_XUL "application/vnd.mozilla.xul+xml"
 #define TEXT_ECMASCRIPT "text/ecmascript"
 #define TEXT_JAVASCRIPT "text/javascript"
 #define TEXT_XSL "text/xsl"
@@ -169,6 +170,7 @@
 #define VIDEO_AVI "video/avi"
 #define VIDEO_MATROSKA "video/x-matroska"
 #define APPLICATION_OGG "application/ogg"
+#define APPLICATION_MPEGURL "application/vnd.apple.mpegurl"
 
 /* x-uuencode-apple-single. QuickMail made me do this. */
 #define UUENCODE_APPLE_SINGLE "x-uuencode-apple-single"
@@ -230,6 +232,5 @@
 
 #define APPLICATION_DIRECTORY \
   "application/directory" /* text/x-vcard is synonym */
-#define APPLICATION_CACHED_XUL "mozilla.application/cached-xul"
 
 #endif /* nsMimeTypes_h_ */

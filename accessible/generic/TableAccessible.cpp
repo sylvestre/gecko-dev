@@ -11,6 +11,7 @@
 
 #include "nsTableCellFrame.h"
 #include "nsTableWrapperFrame.h"
+#include "TableCellAccessible.h"
 
 using namespace mozilla;
 using namespace mozilla::a11y;
@@ -27,19 +28,21 @@ bool TableAccessible::IsProbablyLayoutTable() {
   // the algorithm. Integrate it into Logging.
   // Change to |#define SHOW_LAYOUT_HEURISTIC DEBUG| before final release
 #ifdef SHOW_LAYOUT_HEURISTIC
-#define RETURN_LAYOUT_ANSWER(isLayout, heuristic)                          \
-  {                                                                        \
-    mLayoutHeuristic = isLayout                                            \
-                           ? NS_LITERAL_STRING("layout table: " heuristic) \
-                           : NS_LITERAL_STRING("data table: " heuristic);  \
-    return isLayout;                                                       \
-  }
+#  define RETURN_LAYOUT_ANSWER(isLayout, heuristic)                         \
+    {                                                                       \
+      mLayoutHeuristic = isLayout                                           \
+                             ? nsLiteralString(u"layout table: " heuristic) \
+                             : nsLiteralString(u"data table: " heuristic);  \
+      return isLayout;                                                      \
+    }
 #else
-#define RETURN_LAYOUT_ANSWER(isLayout, heuristic) \
-  { return isLayout; }
+#  define RETURN_LAYOUT_ANSWER(isLayout, heuristic) \
+    { return isLayout; }
 #endif
 
   Accessible* thisacc = AsAccessible();
+
+  MOZ_ASSERT(!thisacc->IsDefunct(), "Table accessible should not be defunct");
 
   // Need to see all elements while document is being edited.
   if (thisacc->Document()->State() & states::EDITABLE) {
@@ -61,15 +64,13 @@ bool TableAccessible::IsProbablyLayoutTable() {
              "Table should not be built by CSS display:table style");
 
   // Check if datatable attribute has "0" value.
-  if (el->AttrValueIs(kNameSpaceID_None, nsGkAtoms::datatable,
-                      NS_LITERAL_STRING("0"), eCaseMatters)) {
+  if (el->AttrValueIs(kNameSpaceID_None, nsGkAtoms::datatable, u"0"_ns,
+                      eCaseMatters)) {
     RETURN_LAYOUT_ANSWER(true, "Has datatable = 0 attribute, it's for layout");
   }
 
   // Check for legitimate data table attributes.
-  nsAutoString summary;
-  if (el->GetAttr(kNameSpaceID_None, nsGkAtoms::summary, summary) &&
-      !summary.IsEmpty()) {
+  if (el->Element::HasNonEmptyAttr(nsGkAtoms::summary)) {
     RETURN_LAYOUT_ANSWER(false, "Has summary -- legitimate table structures");
   }
 
@@ -95,6 +96,14 @@ bool TableAccessible::IsProbablyLayoutTable() {
       for (nsIContent* rowElm = childElm->GetFirstChild(); rowElm;
            rowElm = rowElm->GetNextSibling()) {
         if (rowElm->IsHTMLElement(nsGkAtoms::tr)) {
+          if (Accessible* row = thisacc->Document()->GetAccessible(rowElm)) {
+            if (const nsRoleMapEntry* roleMapEntry = row->ARIARoleMap()) {
+              if (roleMapEntry->role != roles::ROW) {
+                RETURN_LAYOUT_ANSWER(true, "Repurposed tr with different role");
+              }
+            }
+          }
+
           for (nsIContent* cellElm = rowElm->GetFirstChild(); cellElm;
                cellElm = cellElm->GetNextSibling()) {
             if (cellElm->IsHTMLElement()) {
@@ -114,11 +123,22 @@ bool TableAccessible::IsProbablyLayoutTable() {
                                      "legitimate table structures");
               }
 
-              Accessible* cell = thisacc->Document()->GetAccessible(cellElm);
-              if (cell && cell->ChildCount() == 1 &&
-                  cell->FirstChild()->IsAbbreviation()) {
-                RETURN_LAYOUT_ANSWER(false,
-                                     "has abbr -- legitimate table structures");
+              if (Accessible* cell =
+                      thisacc->Document()->GetAccessible(cellElm)) {
+                if (const nsRoleMapEntry* roleMapEntry = cell->ARIARoleMap()) {
+                  if (roleMapEntry->role != roles::CELL &&
+                      roleMapEntry->role != roles::COLUMNHEADER &&
+                      roleMapEntry->role != roles::ROWHEADER &&
+                      roleMapEntry->role != roles::GRID_CELL) {
+                    RETURN_LAYOUT_ANSWER(true,
+                                         "Repurposed cell with different role");
+                  }
+                }
+                if (cell->ChildCount() == 1 &&
+                    cell->FirstChild()->IsAbbreviation()) {
+                  RETURN_LAYOUT_ANSWER(
+                      false, "has abbr -- legitimate table structures");
+                }
               }
             }
           }
@@ -129,7 +149,7 @@ bool TableAccessible::IsProbablyLayoutTable() {
 
   // Check for nested tables.
   nsCOMPtr<nsIHTMLCollection> nestedTables =
-      el->GetElementsByTagName(NS_LITERAL_STRING("table"));
+      el->GetElementsByTagName(u"table"_ns);
   if (nestedTables->Length() > 0) {
     RETURN_LAYOUT_ANSWER(true, "Has a nested table within it");
   }
@@ -221,9 +241,8 @@ bool TableAccessible::IsProbablyLayoutTable() {
     RETURN_LAYOUT_ANSWER(true, "2-4 columns, 10 cells or less, non-bordered");
   }
 
-  static const nsLiteralString tags[] = {NS_LITERAL_STRING("embed"),
-                                         NS_LITERAL_STRING("object"),
-                                         NS_LITERAL_STRING("iframe")};
+  static const nsLiteralString tags[] = {u"embed"_ns, u"object"_ns,
+                                         u"iframe"_ns};
   for (auto& tag : tags) {
     nsCOMPtr<nsIHTMLCollection> descendants = el->GetElementsByTagName(tag);
     if (descendants->Length() > 0) {
@@ -262,4 +281,35 @@ Accessible* TableAccessible::CellInRowAt(Accessible* aRow, int32_t aColumn) {
   }
 
   return cell;
+}
+
+int32_t TableAccessible::ColIndexAt(uint32_t aCellIdx) {
+  uint32_t colCount = ColCount();
+  if (colCount < 1 || aCellIdx >= colCount * RowCount()) {
+    return -1;  // Error: column count is 0 or index out of bounds.
+  }
+
+  return aCellIdx % colCount;
+}
+
+int32_t TableAccessible::RowIndexAt(uint32_t aCellIdx) {
+  uint32_t colCount = ColCount();
+  if (colCount < 1 || aCellIdx >= colCount * RowCount()) {
+    return -1;  // Error: column count is 0 or index out of bounds.
+  }
+
+  return aCellIdx / colCount;
+}
+
+void TableAccessible::RowAndColIndicesAt(uint32_t aCellIdx, int32_t* aRowIdx,
+                                         int32_t* aColIdx) {
+  uint32_t colCount = ColCount();
+  if (colCount < 1 || aCellIdx >= colCount * RowCount()) {
+    *aRowIdx = -1;
+    *aColIdx = -1;
+    return;  // Error: column count is 0 or index out of bounds.
+  }
+
+  *aRowIdx = aCellIdx / colCount;
+  *aColIdx = aCellIdx % colCount;
 }

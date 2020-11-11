@@ -6,11 +6,14 @@
 
 "use strict";
 
-const { DebuggerServer } = require("devtools/server/main");
+const { DevToolsServer } = require("devtools/server/devtools-server");
 const { RootActor } = require("devtools/server/actors/root");
 const { BrowserTabList } = require("devtools/server/actors/webbrowser");
+const { ProcessActorList } = require("devtools/server/actors/process");
 const Services = require("Services");
-const { ActorRegistry } = require("devtools/server/actors/utils/actor-registry");
+const {
+  ActorRegistry,
+} = require("devtools/server/actors/utils/actor-registry");
 
 /**
  * xpcshell-test (XPCST) specific actors.
@@ -24,6 +27,7 @@ const { ActorRegistry } = require("devtools/server/actors/utils/actor-registry")
 function createRootActor(connection) {
   let parameters = {
     tabList: new XPCSTTabList(connection),
+    processList: new ProcessActorList(),
     globalActorFactories: ActorRegistry.globalActorFactories,
     onShutdown() {
       // If the user never switches to the "debugger" tab we might get a

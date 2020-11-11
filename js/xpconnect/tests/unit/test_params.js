@@ -16,6 +16,7 @@ function run_test() {
 function test_component(contractid) {
 
   // Instantiate the object.
+  info("Testing " + contractid);
   var o = Cc[contractid].createInstance(Ci["nsIXPCTestParams"]);
 
   // Possible comparator functions.
@@ -216,4 +217,21 @@ function test_component(contractid) {
   doIsTest("testInterfaceIsSequence", [makeA(), makeA(), makeA(), makeA(), makeA()], Ci['nsIXPCTestInterfaceA'],
                                       [makeB(), makeB(), makeB()], Ci['nsIXPCTestInterfaceB'],
                                       arrayComparator(interfaceComparator), dotEqualsComparator);
+
+  var ret = o.testOptionalSequence();
+  Assert.ok(Array.isArray(ret));
+  Assert.equal(ret.length, 0);
+
+  ret = o.testOptionalSequence([]);
+  Assert.ok(Array.isArray(ret));
+  Assert.equal(ret.length, 0);
+
+  ret = o.testOptionalSequence([1, 2, 3]);
+  Assert.ok(Array.isArray(ret));
+  Assert.equal(ret.length, 3);
+
+  o.testOmittedOptionalOut();
+  ret = {};
+  o.testOmittedOptionalOut(ret);
+  Assert.equal(ret.value.spec, "http://example.com/")
 }

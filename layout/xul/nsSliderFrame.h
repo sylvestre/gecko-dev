@@ -18,7 +18,11 @@
 class nsITimer;
 class nsSliderFrame;
 
-nsIFrame* NS_NewSliderFrame(nsIPresShell* aPresShell,
+namespace mozilla {
+class PresShell;
+}  // namespace mozilla
+
+nsIFrame* NS_NewSliderFrame(mozilla::PresShell* aPresShell,
                             mozilla::ComputedStyle* aStyle);
 
 class nsSliderMediator final : public nsIDOMEventListener {
@@ -34,7 +38,7 @@ class nsSliderMediator final : public nsIDOMEventListener {
   NS_DECL_NSIDOMEVENTLISTENER
 
  protected:
-  virtual ~nsSliderMediator() {}
+  virtual ~nsSliderMediator() = default;
 };
 
 class nsSliderFrame final : public nsBoxFrame {
@@ -44,12 +48,12 @@ class nsSliderFrame final : public nsBoxFrame {
 
   friend class nsSliderMediator;
 
-  explicit nsSliderFrame(ComputedStyle* aStyle);
+  explicit nsSliderFrame(ComputedStyle* aStyle, nsPresContext* aPresContext);
   virtual ~nsSliderFrame();
 
 #ifdef DEBUG_FRAME_DUMP
   virtual nsresult GetFrameName(nsAString& aResult) const override {
-    return MakeFrameName(NS_LITERAL_STRING("SliderFrame"), aResult);
+    return MakeFrameName(u"SliderFrame"_ns, aResult);
   }
 #endif
 
@@ -84,6 +88,7 @@ class nsSliderFrame final : public nsBoxFrame {
   virtual void AppendFrames(ChildListID aListID,
                             nsFrameList& aFrameList) override;
   virtual void InsertFrames(ChildListID aListID, nsIFrame* aPrevFrame,
+                            const nsLineList::iterator* aPrevFrameLine,
                             nsFrameList& aFrameList) override;
   virtual void RemoveFrame(ChildListID aListID, nsIFrame* aOldFrame) override;
 
@@ -112,6 +117,7 @@ class nsSliderFrame final : public nsBoxFrame {
     return NS_OK;
   }
 
+  MOZ_CAN_RUN_SCRIPT
   NS_IMETHOD HandleDrag(nsPresContext* aPresContext,
                         mozilla::WidgetGUIEvent* aEvent,
                         nsEventStatus* aEventStatus) override {
@@ -167,7 +173,7 @@ class nsSliderFrame final : public nsBoxFrame {
 
   void StartRepeat() {
     nsRepeatService::GetInstance()->Start(Notify, this, mContent->OwnerDoc(),
-                                          NS_LITERAL_CSTRING("nsSliderFrame"));
+                                          "nsSliderFrame"_ns);
   }
   void StopRepeat() { nsRepeatService::GetInstance()->Stop(Notify, this); }
   void Notify();

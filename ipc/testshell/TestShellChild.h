@@ -8,8 +8,7 @@
 #include "mozilla/ipc/PTestShellChild.h"
 #include "mozilla/ipc/PTestShellCommandChild.h"
 #include "mozilla/ipc/XPCShellEnvironment.h"
-
-#include "nsAutoPtr.h"
+#include "mozilla/UniquePtr.h"
 
 namespace mozilla {
 
@@ -21,18 +20,17 @@ class TestShellChild : public PTestShellChild {
  public:
   TestShellChild();
 
-  mozilla::ipc::IPCResult RecvExecuteCommand(const nsString& aCommand) override;
+  mozilla::ipc::IPCResult RecvExecuteCommand(const nsString& aCommand);
 
-  PTestShellCommandChild* AllocPTestShellCommandChild(
-      const nsString& aCommand) override;
+  PTestShellCommandChild* AllocPTestShellCommandChild(const nsString& aCommand);
 
   mozilla::ipc::IPCResult RecvPTestShellCommandConstructor(
       PTestShellCommandChild* aActor, const nsString& aCommand) override;
 
-  bool DeallocPTestShellCommandChild(PTestShellCommandChild* aCommand) override;
+  bool DeallocPTestShellCommandChild(PTestShellCommandChild* aCommand);
 
  private:
-  nsAutoPtr<XPCShellEnvironment> mXPCShell;
+  UniquePtr<XPCShellEnvironment> mXPCShell;
 };
 
 } /* namespace ipc */

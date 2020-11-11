@@ -7,10 +7,10 @@
 #include "mozilla/dom/ChannelMergerNode.h"
 #include "mozilla/dom/ChannelMergerNodeBinding.h"
 #include "AudioNodeEngine.h"
-#include "AudioNodeStream.h"
+#include "AudioNodeTrack.h"
+#include "nsPrintfCString.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 class ChannelMergerNodeEngine final : public AudioNodeEngine {
  public:
@@ -19,10 +19,12 @@ class ChannelMergerNodeEngine final : public AudioNodeEngine {
     MOZ_ASSERT(NS_IsMainThread());
   }
 
-  void ProcessBlocksOnPorts(AudioNodeStream* aStream,
-                            const OutputChunks& aInput, OutputChunks& aOutput,
+  void ProcessBlocksOnPorts(AudioNodeTrack* aTrack, GraphTime aFrom,
+                            Span<const AudioBlock> aInput,
+                            Span<AudioBlock> aOutput,
                             bool* aFinished) override {
-    MOZ_ASSERT(aInput.Length() >= 1, "Should have one or more input ports");
+    MOZ_ASSERT(aInput.Length() == InputCount());
+    MOZ_ASSERT(aOutput.Length() == 1, "Should have only one output port");
 
     // Get the number of output channels, and allocate it
     size_t channelCount = InputCount();
@@ -59,21 +61,21 @@ ChannelMergerNode::ChannelMergerNode(AudioContext* aContext,
     : AudioNode(aContext, 1, ChannelCountMode::Explicit,
                 ChannelInterpretation::Speakers),
       mInputCount(aInputCount) {
-  mStream = AudioNodeStream::Create(aContext, new ChannelMergerNodeEngine(this),
-                                    AudioNodeStream::NO_STREAM_FLAGS,
-                                    aContext->Graph());
+  mTrack =
+      AudioNodeTrack::Create(aContext, new ChannelMergerNodeEngine(this),
+                             AudioNodeTrack::NO_TRACK_FLAGS, aContext->Graph());
 }
 
-/* static */ already_AddRefed<ChannelMergerNode> ChannelMergerNode::Create(
+/* static */
+already_AddRefed<ChannelMergerNode> ChannelMergerNode::Create(
     AudioContext& aAudioContext, const ChannelMergerOptions& aOptions,
     ErrorResult& aRv) {
-  if (aAudioContext.CheckClosed(aRv)) {
-    return nullptr;
-  }
-
   if (aOptions.mNumberOfInputs == 0 ||
       aOptions.mNumberOfInputs > WebAudioUtils::MaxChannelCount) {
-    aRv.Throw(NS_ERROR_DOM_INDEX_SIZE_ERR);
+    aRv.ThrowIndexSizeError(
+        nsPrintfCString("Number of inputs (%u) must be in the range [1, number "
+                        "of supported channels]",
+                        aOptions.mNumberOfInputs));
     return nullptr;
   }
 
@@ -93,5 +95,4 @@ JSObject* ChannelMergerNode::WrapObject(JSContext* aCx,
   return ChannelMergerNode_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

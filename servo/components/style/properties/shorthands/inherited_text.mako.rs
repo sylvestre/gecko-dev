@@ -4,10 +4,13 @@
 
 <%namespace name="helpers" file="/helpers.mako.rs" />
 
-<%helpers:shorthand name="text-emphasis" products="gecko"
+<%helpers:shorthand
+    name="text-emphasis"
+    engines="gecko"
     sub_properties="text-emphasis-style text-emphasis-color"
     derive_serialize="True"
-    spec="https://drafts.csswg.org/css-text-decor-3/#text-emphasis-property">
+    spec="https://drafts.csswg.org/css-text-decor-3/#text-emphasis-property"
+>
     use crate::properties::longhands::{text_emphasis_color, text_emphasis_style};
 
     pub fn parse_value<'i, 't>(
@@ -19,13 +22,13 @@
 
         loop {
             if color.is_none() {
-                if let Ok(value) = input.try(|input| text_emphasis_color::parse(context, input)) {
+                if let Ok(value) = input.try_parse(|input| text_emphasis_color::parse(context, input)) {
                     color = Some(value);
                     continue
                 }
             }
             if style.is_none() {
-                if let Ok(value) = input.try(|input| text_emphasis_style::parse(context, input)) {
+                if let Ok(value) = input.try_parse(|input| text_emphasis_style::parse(context, input)) {
                     style = Some(value);
                     continue
                 }
@@ -46,10 +49,9 @@
 // CSS Compatibility
 // https://compat.spec.whatwg.org/
 <%helpers:shorthand name="-webkit-text-stroke"
+                    engines="gecko"
                     sub_properties="-webkit-text-stroke-width
                                     -webkit-text-stroke-color"
-                    gecko_pref="layout.css.prefixes.webkit"
-                    products="gecko"
                     derive_serialize="True"
                     spec="https://compat.spec.whatwg.org/#the-webkit-text-stroke">
     use crate::properties::longhands::{_webkit_text_stroke_color, _webkit_text_stroke_width};
@@ -62,14 +64,14 @@
         let mut width = None;
         loop {
             if color.is_none() {
-                if let Ok(value) = input.try(|input| _webkit_text_stroke_color::parse(context, input)) {
+                if let Ok(value) = input.try_parse(|input| _webkit_text_stroke_color::parse(context, input)) {
                     color = Some(value);
                     continue
                 }
             }
 
             if width.is_none() {
-                if let Ok(value) = input.try(|input| _webkit_text_stroke_width::parse(context, input)) {
+                if let Ok(value) = input.try_parse(|input| _webkit_text_stroke_width::parse(context, input)) {
                     width = Some(value);
                     continue
                 }

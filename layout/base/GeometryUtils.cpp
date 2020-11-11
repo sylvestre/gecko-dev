@@ -6,6 +6,8 @@
 
 #include "GeometryUtils.h"
 
+#include "mozilla/PresShell.h"
+#include "mozilla/SVGUtils.h"
 #include "mozilla/dom/CharacterData.h"
 #include "mozilla/dom/DOMPointBinding.h"
 #include "mozilla/dom/GeometryUtilsBinding.h"
@@ -14,10 +16,10 @@
 #include "mozilla/dom/DOMPoint.h"
 #include "mozilla/dom/DOMQuad.h"
 #include "mozilla/dom/DOMRect.h"
+#include "mozilla/dom/BrowserChild.h"
 #include "nsIFrame.h"
 #include "nsCSSFrameConstructor.h"
 #include "nsLayoutUtils.h"
-#include "nsSVGUtils.h"
 
 using namespace mozilla;
 using namespace mozilla::dom;
@@ -30,11 +32,12 @@ enum GeometryNodeType {
   GEOMETRY_NODE_DOCUMENT
 };
 
-static nsIFrame* GetFrameForNode(nsINode* aNode, GeometryNodeType aType) {
-  nsIDocument* doc = aNode->OwnerDoc();
-  if (aType == GEOMETRY_NODE_TEXT) {
-    if (nsIPresShell* shell = doc->GetShell()) {
-      shell->FrameConstructor()->EnsureFrameForTextNodeIsCreatedAfterFlush(
+static nsIFrame* GetFrameForNode(nsINode* aNode, GeometryNodeType aType,
+                                 bool aCreateFramesForSuppressedWhitespace) {
+  Document* doc = aNode->OwnerDoc();
+  if (aType == GEOMETRY_NODE_TEXT && aCreateFramesForSuppressedWhitespace) {
+    if (PresShell* presShell = doc->GetPresShell()) {
+      presShell->FrameConstructor()->EnsureFrameForTextNodeIsCreatedAfterFlush(
           static_cast<CharacterData*>(aNode));
     }
   }
@@ -45,7 +48,7 @@ static nsIFrame* GetFrameForNode(nsINode* aNode, GeometryNodeType aType) {
     case GEOMETRY_NODE_ELEMENT:
       return aNode->AsContent()->GetPrimaryFrame();
     case GEOMETRY_NODE_DOCUMENT: {
-      nsIPresShell* presShell = doc->GetShell();
+      PresShell* presShell = doc->GetPresShell();
       return presShell ? presShell->GetRootFrame() : nullptr;
     }
     default:
@@ -55,47 +58,59 @@ static nsIFrame* GetFrameForNode(nsINode* aNode, GeometryNodeType aType) {
 }
 
 static nsIFrame* GetFrameForGeometryNode(
-    const Optional<OwningGeometryNode>& aGeometryNode, nsINode* aDefaultNode) {
+    const Optional<OwningGeometryNode>& aGeometryNode, nsINode* aDefaultNode,
+    bool aCreateFramesForSuppressedWhitespace) {
   if (!aGeometryNode.WasPassed()) {
-    return GetFrameForNode(aDefaultNode->OwnerDoc(), GEOMETRY_NODE_DOCUMENT);
+    return GetFrameForNode(aDefaultNode->OwnerDoc(), GEOMETRY_NODE_DOCUMENT,
+                           aCreateFramesForSuppressedWhitespace);
   }
 
   const OwningGeometryNode& value = aGeometryNode.Value();
   if (value.IsElement()) {
-    return GetFrameForNode(value.GetAsElement(), GEOMETRY_NODE_ELEMENT);
+    return GetFrameForNode(value.GetAsElement(), GEOMETRY_NODE_ELEMENT,
+                           aCreateFramesForSuppressedWhitespace);
   }
   if (value.IsDocument()) {
-    return GetFrameForNode(value.GetAsDocument(), GEOMETRY_NODE_DOCUMENT);
+    return GetFrameForNode(value.GetAsDocument(), GEOMETRY_NODE_DOCUMENT,
+                           aCreateFramesForSuppressedWhitespace);
   }
-  return GetFrameForNode(value.GetAsText(), GEOMETRY_NODE_TEXT);
+  return GetFrameForNode(value.GetAsText(), GEOMETRY_NODE_TEXT,
+                         aCreateFramesForSuppressedWhitespace);
 }
 
 static nsIFrame* GetFrameForGeometryNode(const GeometryNode& aGeometryNode) {
+  // This will create frames for suppressed whitespace nodes.
   if (aGeometryNode.IsElement()) {
-    return GetFrameForNode(&aGeometryNode.GetAsElement(),
-                           GEOMETRY_NODE_ELEMENT);
+    return GetFrameForNode(&aGeometryNode.GetAsElement(), GEOMETRY_NODE_ELEMENT,
+                           true);
   }
   if (aGeometryNode.IsDocument()) {
     return GetFrameForNode(&aGeometryNode.GetAsDocument(),
-                           GEOMETRY_NODE_DOCUMENT);
+                           GEOMETRY_NODE_DOCUMENT, true);
   }
-  return GetFrameForNode(&aGeometryNode.GetAsText(), GEOMETRY_NODE_TEXT);
+  return GetFrameForNode(&aGeometryNode.GetAsText(), GEOMETRY_NODE_TEXT, true);
 }
 
-static nsIFrame* GetFrameForNode(nsINode* aNode) {
+static nsIFrame* GetFrameForNode(nsINode* aNode,
+                                 bool aCreateFramesForSuppressedWhitespace) {
   if (aNode->IsElement()) {
-    return GetFrameForNode(aNode, GEOMETRY_NODE_ELEMENT);
+    return GetFrameForNode(aNode, GEOMETRY_NODE_ELEMENT,
+                           aCreateFramesForSuppressedWhitespace);
   }
   if (aNode == aNode->OwnerDoc()) {
-    return GetFrameForNode(aNode, GEOMETRY_NODE_DOCUMENT);
+    return GetFrameForNode(aNode, GEOMETRY_NODE_DOCUMENT,
+                           aCreateFramesForSuppressedWhitespace);
   }
   NS_ASSERTION(aNode->IsText(), "Unknown node type");
-  return GetFrameForNode(aNode, GEOMETRY_NODE_TEXT);
+  return GetFrameForNode(aNode, GEOMETRY_NODE_TEXT,
+                         aCreateFramesForSuppressedWhitespace);
 }
 
 static nsIFrame* GetFirstNonAnonymousFrameForGeometryNode(
-    const Optional<OwningGeometryNode>& aNode, nsINode* aDefaultNode) {
-  nsIFrame* f = GetFrameForGeometryNode(aNode, aDefaultNode);
+    const Optional<OwningGeometryNode>& aNode, nsINode* aDefaultNode,
+    bool aCreateFramesForSuppressedWhitespace) {
+  nsIFrame* f = GetFrameForGeometryNode(aNode, aDefaultNode,
+                                        aCreateFramesForSuppressedWhitespace);
   if (f) {
     f = nsLayoutUtils::GetFirstNonAnonymousFrame(f);
   }
@@ -104,6 +119,7 @@ static nsIFrame* GetFirstNonAnonymousFrameForGeometryNode(
 
 static nsIFrame* GetFirstNonAnonymousFrameForGeometryNode(
     const GeometryNode& aNode) {
+  // This will create frames for suppressed whitespace nodes.
   nsIFrame* f = GetFrameForGeometryNode(aNode);
   if (f) {
     f = nsLayoutUtils::GetFirstNonAnonymousFrame(f);
@@ -112,7 +128,8 @@ static nsIFrame* GetFirstNonAnonymousFrameForGeometryNode(
 }
 
 static nsIFrame* GetFirstNonAnonymousFrameForNode(nsINode* aNode) {
-  nsIFrame* f = GetFrameForNode(aNode);
+  // This will create frames for suppressed whitespace nodes.
+  nsIFrame* f = GetFrameForNode(aNode, true);
   if (f) {
     f = nsLayoutUtils::GetFirstNonAnonymousFrame(f);
   }
@@ -126,7 +143,7 @@ static nsIFrame* GetFirstNonAnonymousFrameForNode(nsINode* aNode) {
  */
 static nsRect GetBoxRectForFrame(nsIFrame** aFrame, CSSBoxType aType) {
   nsRect r;
-  nsIFrame* f = nsSVGUtils::GetOuterSVGFrameAndCoveredRegion(*aFrame, &r);
+  nsIFrame* f = SVGUtils::GetOuterSVGFrameAndCoveredRegion(*aFrame, &r);
   if (f && f != *aFrame) {
     // For non-outer SVG frames, the BoxType is ignored.
     *aFrame = f;
@@ -157,12 +174,12 @@ static nsRect GetBoxRectForFrame(nsIFrame** aFrame, CSSBoxType aType) {
 
 class AccumulateQuadCallback : public nsLayoutUtils::BoxCallback {
  public:
-  AccumulateQuadCallback(nsISupports* aParentObject,
+  AccumulateQuadCallback(Document* aParentObject,
                          nsTArray<RefPtr<DOMQuad> >& aResult,
                          nsIFrame* aRelativeToFrame,
                          const nsPoint& aRelativeToBoxTopLeft,
                          CSSBoxType aBoxType)
-      : mParentObject(aParentObject),
+      : mParentObject(ToSupports(aParentObject)),
         mResult(aResult),
         mRelativeToFrame(aRelativeToFrame),
         mRelativeToBoxTopLeft(aRelativeToBoxTopLeft),
@@ -244,32 +261,37 @@ static bool CheckFramesInSameTopLevelBrowsingContext(nsIFrame* aFrame1,
 void GetBoxQuads(nsINode* aNode, const dom::BoxQuadOptions& aOptions,
                  nsTArray<RefPtr<DOMQuad> >& aResult, CallerType aCallerType,
                  ErrorResult& aRv) {
-  nsIFrame* frame = GetFrameForNode(aNode);
+  nsIFrame* frame =
+      GetFrameForNode(aNode, aOptions.mCreateFramesForSuppressedWhitespace);
   if (!frame) {
     // No boxes to return
     return;
   }
   AutoWeakFrame weakFrame(frame);
-  nsIDocument* ownerDoc = aNode->OwnerDoc();
-  nsIFrame* relativeToFrame =
-      GetFirstNonAnonymousFrameForGeometryNode(aOptions.mRelativeTo, ownerDoc);
+  Document* ownerDoc = aNode->OwnerDoc();
+  nsIFrame* relativeToFrame = GetFirstNonAnonymousFrameForGeometryNode(
+      aOptions.mRelativeTo, ownerDoc,
+      aOptions.mCreateFramesForSuppressedWhitespace);
   // The first frame might be destroyed now if the above call lead to an
   // EnsureFrameForTextNode call.  We need to get the first frame again
   // when that happens and re-check it.
   if (!weakFrame.IsAlive()) {
-    frame = GetFrameForNode(aNode);
+    frame =
+        GetFrameForNode(aNode, aOptions.mCreateFramesForSuppressedWhitespace);
     if (!frame) {
       // No boxes to return
       return;
     }
   }
   if (!relativeToFrame) {
-    aRv.Throw(NS_ERROR_DOM_NOT_FOUND_ERR);
-    return;
+    // XXXbz There's no spec for this.
+    return aRv.ThrowNotFoundError("No box to get quads relative to");
   }
   if (!CheckFramesInSameTopLevelBrowsingContext(frame, relativeToFrame,
                                                 aCallerType)) {
-    aRv.Throw(NS_ERROR_DOM_NOT_FOUND_ERR);
+    aRv.ThrowNotFoundError(
+        "Can't get quads relative to a box in a different toplevel browsing "
+        "context");
     return;
   }
   // GetBoxRectForFrame can modify relativeToFrame so call it first.
@@ -277,7 +299,93 @@ void GetBoxQuads(nsINode* aNode, const dom::BoxQuadOptions& aOptions,
       GetBoxRectForFrame(&relativeToFrame, CSSBoxType::Border).TopLeft();
   AccumulateQuadCallback callback(ownerDoc, aResult, relativeToFrame,
                                   relativeToTopLeft, aOptions.mBox);
+
+  // Bug 1624653: Refactor this to get boxes in layer pixels, which we will
+  // then convert into CSS units.
   nsLayoutUtils::GetAllInFlowBoxes(frame, &callback);
+}
+
+void GetBoxQuadsFromWindowOrigin(nsINode* aNode,
+                                 const dom::BoxQuadOptions& aOptions,
+                                 nsTArray<RefPtr<DOMQuad> >& aResult,
+                                 ErrorResult& aRv) {
+  // We want the quads relative to the window. To do this, we ignore the
+  // provided aOptions.mRelativeTo and instead use the document node of
+  // the top-most in-process document. Later, we'll check if there is a
+  // browserChild associated with that document, and if so, transform the
+  // calculated quads with the browserChild's to-parent matrix, which
+  // will get us to top-level coordinates.
+  if (aOptions.mRelativeTo.WasPassed()) {
+    return aRv.ThrowNotSupportedError(
+        "Can't request quads in window origin space relative to another "
+        "node.");
+  }
+
+  // We're going to call GetBoxQuads with our parameters, but we supply
+  // a new BoxQuadOptions object that uses the top in-process document
+  // as the relativeTo target.
+  BoxQuadOptions bqo(aOptions);
+
+  RefPtr<Document> topInProcessDoc =
+      nsContentUtils::GetRootDocument(aNode->OwnerDoc());
+
+  OwningGeometryNode ogn;
+  ogn.SetAsDocument() = topInProcessDoc;
+  bqo.mRelativeTo.Construct(ogn);
+
+  // Bug 1624653: Refactor this to get boxes in layer pixels, which we can
+  // transform directly with the GetChildToParentConversionMatrix below,
+  // and convert to CSS units as a final step.
+  GetBoxQuads(aNode, bqo, aResult, CallerType::System, aRv);
+  if (aRv.Failed()) {
+    return;
+  }
+
+  // Now we have aResult filled with DOMQuads with values relative to the
+  // top in-process document. See if topInProcessDoc is associated with a
+  // BrowserChild, and if it is, get its transformation matrix and use that
+  // to transform the DOMQuads in place to make them relative to the window
+  // origin.
+  nsIDocShell* docShell = topInProcessDoc->GetDocShell();
+  if (!docShell) {
+    return aRv.ThrowInvalidStateError(
+        "Returning untranslated quads because top in process document has "
+        "no docshell.");
+  }
+
+  BrowserChild* browserChild = BrowserChild::GetFrom(docShell);
+  if (!browserChild) {
+    return;
+  }
+
+  nsPresContext* presContext = docShell->GetPresContext();
+  if (!presContext) {
+    return;
+  }
+  int32_t appUnitsPerDevPixel = presContext->AppUnitsPerDevPixel();
+
+  LayoutDeviceToLayoutDeviceMatrix4x4 matrix =
+      browserChild->GetChildToParentConversionMatrix();
+
+  // For each DOMQuad in aResult, change the css units into layer pixels,
+  // then transform them by matrix, then change them back into css units
+  // and overwrite the original points.
+  LayoutDeviceToCSSScale ld2cScale((float)appUnitsPerDevPixel /
+                                   (float)AppUnitsPerCSSPixel());
+  CSSToLayoutDeviceScale c2ldScale = ld2cScale.Inverse();
+
+  for (auto& quad : aResult) {
+    for (uint32_t i = 0; i < 4; i++) {
+      DOMPoint* p = quad->Point(i);
+      CSSPoint cp(p->X(), p->Y());
+
+      LayoutDevicePoint windowLdp = matrix.TransformPoint(cp * c2ldScale);
+
+      CSSPoint windowCp = windowLdp * ld2cScale;
+      p->SetX(windowCp.x);
+      p->SetY(windowCp.y);
+    }
+  }
 }
 
 static void TransformPoints(nsINode* aTo, const GeometryNode& aFrom,
@@ -294,12 +402,15 @@ static void TransformPoints(nsINode* aTo, const GeometryNode& aFrom,
     fromFrame = GetFirstNonAnonymousFrameForGeometryNode(aFrom);
   }
   if (!fromFrame || !toFrame) {
-    aRv.Throw(NS_ERROR_DOM_NOT_FOUND_ERR);
+    aRv.ThrowNotFoundError(
+        "Can't transform coordinates between nonexistent boxes");
     return;
   }
   if (!CheckFramesInSameTopLevelBrowsingContext(fromFrame, toFrame,
                                                 aCallerType)) {
-    aRv.Throw(NS_ERROR_DOM_NOT_FOUND_ERR);
+    aRv.ThrowNotFoundError(
+        "Can't transform coordinates between boxes in different toplevel "
+        "browsing contexts");
     return;
   }
 
@@ -332,7 +443,7 @@ already_AddRefed<DOMQuad> ConvertQuadFromNode(
   for (uint32_t i = 0; i < 4; ++i) {
     DOMPoint* p = aQuad.Point(i);
     if (p->W() != 1.0 || p->Z() != 0.0) {
-      aRv.Throw(NS_ERROR_DOM_INVALID_STATE_ERR);
+      aRv.ThrowInvalidStateError("Point is not 2d");
       return nullptr;
     }
     points[i] = CSSPoint(p->X(), p->Y());
@@ -368,7 +479,7 @@ already_AddRefed<DOMPoint> ConvertPointFromNode(
     const dom::ConvertCoordinateOptions& aOptions, CallerType aCallerType,
     ErrorResult& aRv) {
   if (aPoint.mW != 1.0 || aPoint.mZ != 0.0) {
-    aRv.Throw(NS_ERROR_DOM_INVALID_STATE_ERR);
+    aRv.ThrowInvalidStateError("Point is not 2d");
     return nullptr;
   }
   CSSPoint point(aPoint.mX, aPoint.mY);

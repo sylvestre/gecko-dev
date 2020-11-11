@@ -3,8 +3,12 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #if defined(XP_WIN)
-#include <windows.h>
-#include <winioctl.h>  // for FSCTL_GET_REPARSE_POINT
+#  include <windows.h>
+#  include <winioctl.h>  // for FSCTL_GET_REPARSE_POINT
+#  include <shlobj.h>
+#  ifndef RRF_SUBKEY_WOW6464KEY
+#    define RRF_SUBKEY_WOW6464KEY 0x00010000
+#  endif
 #endif
 
 #include <stdio.h>
@@ -14,9 +18,10 @@
 
 #include "updatecommon.h"
 #ifdef XP_WIN
-#include "updatehelper.h"
-#include "nsWindowsHelpers.h"
-#include "mozilla/UniquePtr.h"
+#  include "updatehelper.h"
+#  include "nsWindowsHelpers.h"
+#  include "mozilla/UniquePtr.h"
+#  include "mozilla/WinHeaderOnlyUtils.h"
 
 // This struct isn't in any SDK header, so this definition was copied from:
 // https://docs.microsoft.com/en-us/windows-hardware/drivers/ddi/content/ntifs/ns-ntifs-_reparse_data_buffer
@@ -49,27 +54,17 @@ typedef struct _REPARSE_DATA_BUFFER {
 
 UpdateLog::UpdateLog() : logFP(nullptr) {}
 
-void UpdateLog::Init(NS_tchar* sourcePath, const NS_tchar* fileName) {
+void UpdateLog::Init(NS_tchar* logFilePath) {
   if (logFP) {
     return;
   }
 
-  int dstFilePathLen =
-      NS_tsnprintf(mDstFilePath, sizeof(mDstFilePath) / sizeof(mDstFilePath[0]),
-                   NS_T("%s/%s"), sourcePath, fileName);
-  // If the destination path was over the length limit,
-  // disable logging by skipping opening the file and setting logFP.
-  if ((dstFilePathLen > 0) &&
-      (dstFilePathLen <
-       static_cast<int>(sizeof(mDstFilePath) / sizeof(mDstFilePath[0])))) {
-#ifdef XP_WIN
-    if (GetUUIDTempFilePath(sourcePath, L"log", mTmpFilePath)) {
-      logFP = NS_tfopen(mTmpFilePath, NS_T("w"));
-      // Delete this file now so it is possible to tell from the unelevated
-      // updater process if the elevated updater process has written the log.
-      DeleteFileW(mDstFilePath);
-    }
-#elif XP_MACOSX
+  // When the path is over the length limit disable logging by not opening the
+  // file and not setting logFP.
+  int dstFilePathLen = NS_tstrlen(logFilePath);
+  if (dstFilePathLen > 0 && dstFilePathLen < MAXPATHLEN - 1) {
+    NS_tstrncpy(mDstFilePath, logFilePath, MAXPATHLEN);
+#if defined(XP_WIN) || defined(XP_MACOSX)
     logFP = NS_tfopen(mDstFilePath, NS_T("w"));
 #else
     // On platforms that have an updates directory in the installation directory
@@ -126,16 +121,6 @@ void UpdateLog::Finish() {
 
   fclose(logFP);
   logFP = nullptr;
-
-#ifdef XP_WIN
-  // When the log file already exists then the elevated updater has already
-  // written the log file and the temp file for the log should be discarded.
-  if (!NS_taccess(mDstFilePath, F_OK)) {
-    DeleteFileW(mTmpFilePath);
-  } else {
-    MoveFileW(mTmpFilePath, mDstFilePath);
-  }
-#endif
 }
 
 void UpdateLog::Flush() {
@@ -156,6 +141,11 @@ void UpdateLog::Printf(const char* fmt, ...) {
   vfprintf(logFP, fmt, ap);
   fprintf(logFP, "\n");
   va_end(ap);
+#if defined(XP_WIN) && defined(MOZ_DEBUG)
+  // When the updater crashes on Windows the log file won't be flushed and this
+  // can make it easier to debug what is going on.
+  fflush(logFP);
+#endif
 }
 
 void UpdateLog::WarnPrintf(const char* fmt, ...) {
@@ -169,6 +159,11 @@ void UpdateLog::WarnPrintf(const char* fmt, ...) {
   vfprintf(logFP, fmt, ap);
   fprintf(logFP, "***\n");
   va_end(ap);
+#if defined(XP_WIN) && defined(MOZ_DEBUG)
+  // When the updater crashes on Windows the log file won't be flushed and this
+  // can make it easier to debug what is going on.
+  fflush(logFP);
+#endif
 }
 
 #ifdef XP_WIN
@@ -256,6 +251,140 @@ bool PathContainsInvalidLinks(wchar_t* const fullPath) {
 
   return false;
 }
+
+/**
+ * Determine if a path is located within Program Files, either native or x86
+ *
+ * @param fullPath  The full path to check.
+ * @return true if fullPath begins with either Program Files directory,
+ *         false if it does not or if an error is encountered
+ */
+bool IsProgramFilesPath(NS_tchar* fullPath) {
+  // Make sure we don't try to compare against a short path.
+  DWORD longInstallPathChars = GetLongPathNameW(fullPath, nullptr, 0);
+  if (longInstallPathChars == 0) {
+    return false;
+  }
+  mozilla::UniquePtr<wchar_t[]> longInstallPath =
+      mozilla::MakeUnique<wchar_t[]>(longInstallPathChars);
+  if (!longInstallPath || !GetLongPathNameW(fullPath, longInstallPath.get(),
+                                            longInstallPathChars)) {
+    return false;
+  }
+
+  // First check for Program Files (x86).
+  {
+    PWSTR programFiles32PathRaw = nullptr;
+    // FOLDERID_ProgramFilesX86 gets native Program Files directory on a 32-bit
+    // OS or the (x86) directory on a 64-bit OS regardless of this binary's
+    // bitness.
+    if (FAILED(SHGetKnownFolderPath(FOLDERID_ProgramFilesX86, 0, nullptr,
+                                    &programFiles32PathRaw))) {
+      // That call should never fail on any supported OS version.
+      return false;
+    }
+    mozilla::UniquePtr<wchar_t, mozilla::CoTaskMemFreeDeleter>
+        programFiles32Path(programFiles32PathRaw);
+    // We need this path to have a trailing slash so our prefix test doesn't
+    // match on a different folder which happens to have a name beginning with
+    // the prefix we're looking for but then also more characters after that.
+    size_t length = wcslen(programFiles32Path.get());
+    if (length == 0) {
+      return false;
+    }
+    if (programFiles32Path.get()[length - 1] == L'\\') {
+      if (wcsnicmp(longInstallPath.get(), programFiles32Path.get(), length) ==
+          0) {
+        return true;
+      }
+    } else {
+      // Allocate space for a copy of the string along with a terminator and one
+      // extra character for the trailing backslash.
+      length += 1;
+      mozilla::UniquePtr<wchar_t[]> programFiles32PathWithSlash =
+          mozilla::MakeUnique<wchar_t[]>(length + 1);
+      if (!programFiles32PathWithSlash) {
+        return false;
+      }
+
+      NS_tsnprintf(programFiles32PathWithSlash.get(), length + 1, NS_T("%s\\"),
+                   programFiles32Path.get());
+
+      if (wcsnicmp(longInstallPath.get(), programFiles32PathWithSlash.get(),
+                   length) == 0) {
+        return true;
+      }
+    }
+  }
+
+  // If we didn't find (x86), check for the native Program Files.
+  {
+    // In case we're a 32-bit binary on 64-bit Windows, we now have a problem
+    // getting the right "native" Program Files path, which is that there is no
+    // FOLDERID_* value that returns that path. So we always read that one out
+    // of its canonical registry location instead. If we're on a 32-bit OS, this
+    // will be the same path that we just checked. First get the buffer size to
+    // allocate for the path.
+    DWORD length = 0;
+    if (RegGetValueW(HKEY_LOCAL_MACHINE,
+                     L"Software\\Microsoft\\Windows\\CurrentVersion",
+                     L"ProgramFilesDir", RRF_RT_REG_SZ | RRF_SUBKEY_WOW6464KEY,
+                     nullptr, nullptr, &length) != ERROR_SUCCESS) {
+      return false;
+    }
+    // RegGetValue returns the length including the terminator, but it's in
+    // bytes, so convert that to characters.
+    DWORD lengthChars = (length / sizeof(wchar_t));
+    if (lengthChars <= 1) {
+      return false;
+    }
+    mozilla::UniquePtr<wchar_t[]> programFilesNativePath =
+        mozilla::MakeUnique<wchar_t[]>(lengthChars);
+    if (!programFilesNativePath) {
+      return false;
+    }
+
+    // Now actually read the value.
+    if (RegGetValueW(
+            HKEY_LOCAL_MACHINE, L"Software\\Microsoft\\Windows\\CurrentVersion",
+            L"ProgramFilesDir", RRF_RT_REG_SZ | RRF_SUBKEY_WOW6464KEY, nullptr,
+            programFilesNativePath.get(), &length) != ERROR_SUCCESS) {
+      return false;
+    }
+    size_t nativePathStrLen =
+        wcsnlen_s(programFilesNativePath.get(), lengthChars);
+    if (nativePathStrLen == 0) {
+      return false;
+    }
+
+    // As before, append a backslash if there isn't one already.
+    if (programFilesNativePath.get()[nativePathStrLen - 1] == L'\\') {
+      if (wcsnicmp(longInstallPath.get(), programFilesNativePath.get(),
+                   nativePathStrLen) == 0) {
+        return true;
+      }
+    } else {
+      // Allocate space for a copy of the string along with a terminator and one
+      // extra character for the trailing backslash.
+      nativePathStrLen += 1;
+      mozilla::UniquePtr<wchar_t[]> programFilesNativePathWithSlash =
+          mozilla::MakeUnique<wchar_t[]>(nativePathStrLen + 1);
+      if (!programFilesNativePathWithSlash) {
+        return false;
+      }
+
+      NS_tsnprintf(programFilesNativePathWithSlash.get(), nativePathStrLen + 1,
+                   NS_T("%s\\"), programFilesNativePath.get());
+
+      if (wcsnicmp(longInstallPath.get(), programFilesNativePathWithSlash.get(),
+                   nativePathStrLen) == 0) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
 #endif
 
 /**
@@ -317,8 +446,17 @@ bool IsValidFullPath(NS_tchar* origFullPath) {
   }
 
   // The path must not traverse directories
-  if (NS_tstrstr(origFullPath, NS_T("..")) != nullptr ||
-      NS_tstrstr(origFullPath, NS_T("./")) != nullptr) {
+  if (NS_tstrstr(origFullPath, NS_T("/../")) != nullptr) {
+    return false;
+  }
+
+  // The path shall not have a path traversal suffix
+  const NS_tchar invalidSuffix[] = NS_T("/..");
+  size_t pathLen = NS_tstrlen(origFullPath);
+  size_t invalidSuffixLen = NS_tstrlen(invalidSuffix);
+  if (invalidSuffixLen <= pathLen &&
+      NS_tstrncmp(origFullPath + pathLen - invalidSuffixLen, invalidSuffix,
+                  invalidSuffixLen) == 0) {
     return false;
   }
 #endif

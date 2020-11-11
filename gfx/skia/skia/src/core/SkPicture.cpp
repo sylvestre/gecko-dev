@@ -5,19 +5,19 @@
  * found in the LICENSE file.
  */
 
-#include "SkPicture.h"
+#include "include/core/SkPicture.h"
 
-#include "SkAtomics.h"
-#include "SkImageGenerator.h"
-#include "SkMathPriv.h"
-#include "SkPictureCommon.h"
-#include "SkPictureData.h"
-#include "SkPicturePlayback.h"
-#include "SkPicturePriv.h"
-#include "SkPictureRecord.h"
-#include "SkPictureRecorder.h"
-#include "SkSerialProcs.h"
-#include "SkTo.h"
+#include "include/core/SkImageGenerator.h"
+#include "include/core/SkPictureRecorder.h"
+#include "include/core/SkSerialProcs.h"
+#include "include/private/SkTo.h"
+#include "src/core/SkMathPriv.h"
+#include "src/core/SkPictureCommon.h"
+#include "src/core/SkPictureData.h"
+#include "src/core/SkPicturePlayback.h"
+#include "src/core/SkPicturePriv.h"
+#include "src/core/SkPictureRecord.h"
+#include <atomic>
 
 // When we read/write the SkPictInfo via a stream, we have a sentinel byte right after the info.
 // Note: in the read/write buffer versions, we have a slightly different convention:
@@ -33,22 +33,11 @@ enum {
 
 /* SkPicture impl.  This handles generic responsibilities like unique IDs and serialization. */
 
-SkPicture::SkPicture() : fUniqueID(0) {}
-
-uint32_t SkPicture::uniqueID() const {
-    static uint32_t gNextID = 1;
-    uint32_t id = sk_atomic_load(&fUniqueID, sk_memory_order_relaxed);
-    while (id == 0) {
-        uint32_t next = sk_atomic_fetch_add(&gNextID, 1u);
-        if (sk_atomic_compare_exchange(&fUniqueID, &id, next,
-                                       sk_memory_order_relaxed,
-                                       sk_memory_order_relaxed)) {
-            id = next;
-        } else {
-            // sk_atomic_compare_exchange replaced id with the current value of fUniqueID.
-        }
-    }
-    return id;
+SkPicture::SkPicture() {
+    static std::atomic<uint32_t> nextID{1};
+    do {
+        fUniqueID = nextID.fetch_add(+1, std::memory_order_relaxed);
+    } while (fUniqueID == 0);
 }
 
 static const char kMagic[] = { 's', 'k', 'i', 'a', 'p', 'i', 'c', 't' };
@@ -61,7 +50,7 @@ SkPictInfo SkPicture::createHeader() const {
     memcpy(info.fMagic, kMagic, sizeof(kMagic));
 
     // Set picture info after magic bytes in the header
-    info.setVersion(CURRENT_PICTURE_VERSION);
+    info.setVersion(SkPicturePriv::kCurrent_Version);
     info.fCullRect = this->cullRect();
     return info;
 }
@@ -70,7 +59,8 @@ bool SkPicture::IsValidPictInfo(const SkPictInfo& info) {
     if (0 != memcmp(info.fMagic, kMagic, sizeof(kMagic))) {
         return false;
     }
-    if (info.getVersion() < MIN_PICTURE_VERSION || info.getVersion() > CURRENT_PICTURE_VERSION) {
+    if (info.getVersion() < SkPicturePriv::kMin_Version ||
+        info.getVersion() > SkPicturePriv::kCurrent_Version) {
         return false;
     }
     return true;
@@ -94,7 +84,7 @@ bool SkPicture::StreamIsSKP(SkStream* stream, SkPictInfo* pInfo) {
     if (!stream->readScalar(&info.fCullRect.fTop   )) { return false; }
     if (!stream->readScalar(&info.fCullRect.fRight )) { return false; }
     if (!stream->readScalar(&info.fCullRect.fBottom)) { return false; }
-    if (info.getVersion() < SkReadBuffer::kRemoveHeaderFlags_Version) {
+    if (info.getVersion() < SkPicturePriv::kRemoveHeaderFlags_Version) {
         if (!stream->readU32(nullptr)) { return false; }
     }
 
@@ -116,7 +106,7 @@ bool SkPicture::BufferIsSKP(SkReadBuffer* buffer, SkPictInfo* pInfo) {
 
     info.setVersion(buffer->readUInt());
     buffer->readRect(&info.fCullRect);
-    if (info.getVersion() < SkReadBuffer::kRemoveHeaderFlags_Version) {
+    if (info.getVersion() < SkPicturePriv::kRemoveHeaderFlags_Version) {
         (void)buffer->readUInt();   // used to be flags
     }
 
@@ -209,7 +199,7 @@ sk_sp<SkPicture> SkPicturePriv::MakeFromBuffer(SkReadBuffer& buffer) {
     // size should be 0, 1, or negative
     int32_t ssize = buffer.read32();
     if (ssize < 0) {
-        const SkDeserialProcs& procs = buffer.fProcs;
+        const SkDeserialProcs& procs = buffer.getDeserialProcs();
         if (!procs.fPictureProc) {
             return nullptr;
         }
@@ -226,7 +216,7 @@ sk_sp<SkPicture> SkPicturePriv::MakeFromBuffer(SkReadBuffer& buffer) {
 
 SkPictureData* SkPicture::backport() const {
     SkPictInfo info = this->createHeader();
-    SkPictureRecord rec(SkISize::Make(info.fCullRect.width(), info.fCullRect.height()), 0/*flags*/);
+    SkPictureRecord rec(info.fCullRect.roundOut(), 0/*flags*/);
     rec.beginRecording();
         this->playback(&rec);
     rec.endRecording();
@@ -268,8 +258,11 @@ static bool write_pad32(SkWStream* stream, const void* data, size_t size) {
     return true;
 }
 
+// Private serialize.
+// SkPictureData::serialize makes a first pass on all subpictures, indicatewd by textBlobsOnly=true,
+// to fill typefaceSet.
 void SkPicture::serialize(SkWStream* stream, const SkSerialProcs* procsPtr,
-                          SkRefCntSet* typefaceSet) const {
+                          SkRefCntSet* typefaceSet, bool textBlobsOnly) const {
     SkSerialProcs procs;
     if (procsPtr) {
         procs = *procsPtr;
@@ -293,7 +286,7 @@ void SkPicture::serialize(SkWStream* stream, const SkSerialProcs* procsPtr,
     std::unique_ptr<SkPictureData> data(this->backport());
     if (data) {
         stream->write8(kPictureData_TrailingStreamByteAfterPictInfo);
-        data->serialize(stream, procs, typefaceSet);
+        data->serialize(stream, procs, typefaceSet, textBlobsOnly);
     } else {
         stream->write8(kFailure_TrailingStreamByteAfterPictInfo);
     }

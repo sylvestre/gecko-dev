@@ -15,7 +15,6 @@
 #include "mozilla/RefPtr.h"
 #include "PLDHashTable.h"
 
-class nsIDocument;
 class nsIURI;
 
 namespace mozilla {
@@ -32,13 +31,18 @@ namespace image {
 class ImageCacheKey final {
  public:
   ImageCacheKey(nsIURI* aURI, const OriginAttributes& aAttrs,
-                nsIDocument* aDocument, nsresult& aRv);
+                dom::Document* aDocument);
 
   ImageCacheKey(const ImageCacheKey& aOther);
   ImageCacheKey(ImageCacheKey&& aOther);
 
   bool operator==(const ImageCacheKey& aOther) const;
-  PLDHashNumber Hash() const { return mHash; }
+  PLDHashNumber Hash() const {
+    if (MOZ_UNLIKELY(mHash.isNothing())) {
+      EnsureHash();
+    }
+    return mHash.value();
+  }
 
   /// A weak pointer to the URI.
   nsIURI* URI() const { return mURI; }
@@ -55,19 +59,22 @@ class ImageCacheKey final {
   void* ControlledDocument() const { return mControlledDocument; }
 
  private:
-  bool SchemeIs(const char* aScheme);
-
-  // For ServiceWorker and for anti-tracking we need to use the document as
+  // For ServiceWorker we need to use the document as
   // token for the key. All those exceptions are handled by this method.
-  static void* GetSpecialCaseDocumentToken(nsIDocument* aDocument,
-                                           nsIURI* aURI);
+  static void* GetSpecialCaseDocumentToken(dom::Document* aDocument);
+
+  // For anti-tracking we need to use an isolation key. It can be the suffix of
+  // the PatitionedPrincipal (see StoragePrincipalHelper.h) or the top-level
+  // document's base domain. This is handled by this method.
+  static nsCString GetIsolationKey(dom::Document* aDocument, nsIURI* aURI);
+
+  void EnsureHash() const;
 
   nsCOMPtr<nsIURI> mURI;
-  Maybe<uint64_t> mBlobSerial;
-  nsCString mBlobRef;
   OriginAttributes mOriginAttributes;
   void* mControlledDocument;
-  PLDHashNumber mHash;
+  nsCString mIsolationKey;
+  mutable Maybe<PLDHashNumber> mHash;
   bool mIsChrome;
 };
 

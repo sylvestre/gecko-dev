@@ -4,8 +4,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "nsIServiceManager.h"
-
 #include "nsLocalFile.h"  // includes platform-specific headers
 
 #include "nsString.h"
@@ -16,10 +14,119 @@
 #include "nsNativeCharsetUtils.h"
 #include "nsUTF8Utils.h"
 #include "nsArray.h"
+#include "nsLocalFileCommon.h"
 
 #ifdef XP_WIN
-#include <string.h>
+#  include <string.h>
 #endif
+
+// Extensions that should be considered 'executable', ie will not allow users
+// to open immediately without first saving to disk, and potentially provoke
+// other warnings. PLEASE read the longer comment in
+// toolkit/components/reputationservice/ApplicationReputation.cpp
+// before modifying this list!
+/* static */
+const char* const sExecutableExts[] = {
+    // clang-format off
+  ".accda",       // MS Access database
+  ".accdb",       // MS Access database
+  ".accde",       // MS Access database
+  ".accdr",       // MS Access database
+  ".ad",
+  ".ade",         // access project extension
+  ".adp",
+  ".air",         // Adobe AIR installer
+  ".app",         // executable application
+  ".application", // from bug 348763
+  ".asp",
+  ".bas",
+  ".bat",
+  ".cer",         // Signed certificate file
+  ".chm",
+  ".cmd",
+  ".com",
+  ".cpl",
+  ".crt",
+  ".der",
+  ".exe",
+  ".fileloc",     // Apple finder internet location data file
+  ".fxp",         // FoxPro compiled app
+  ".hlp",
+  ".hta",
+  ".inf",
+  ".ins",
+  ".isp",
+  ".jar",         // java application bundle
+  ".jnlp",
+  ".js",
+  ".jse",
+  ".lnk",
+  ".mad",         // Access Module Shortcut
+  ".maf",         // Access
+  ".mag",         // Access Diagram Shortcut
+  ".mam",         // Access Macro Shortcut
+  ".maq",         // Access Query Shortcut
+  ".mar",         // Access Report Shortcut
+  ".mas",         // Access Stored Procedure
+  ".mat",         // Access Table Shortcut
+  ".mau",         // Media Attachment Unit
+  ".mav",         // Access View Shortcut
+  ".maw",         // Access Data Access Page
+  ".mda",         // Access Add-in, MDA Access 2 Workgroup
+  ".mdb",
+  ".mde",
+  ".mdt",         // Access Add-in Data
+  ".mdw",         // Access Workgroup Information
+  ".mdz",         // Access Wizard Template
+  ".msc",
+  ".msh",         // Microsoft Shell
+  ".msh1",        // Microsoft Shell
+  ".msh1xml",     // Microsoft Shell
+  ".msh2",        // Microsoft Shell
+  ".msh2xml",     // Microsoft Shell
+  ".mshxml",      // Microsoft Shell
+  ".msi",
+  ".msp",
+  ".mst",
+  ".ops",         // Office Profile Settings
+  ".pcd",
+  ".pif",
+  ".plg",         // Developer Studio Build Log
+  ".prf",         // windows system file
+  ".prg",
+  ".pst",
+  ".reg",
+  ".scf",         // Windows explorer command
+  ".scr",
+  ".sct",
+  ".settingcontent-ms",
+  ".shb",
+  ".shs",
+  ".url",
+  ".vb",
+  ".vbe",
+  ".vbs",
+  ".vdx",
+  ".vsd",
+  ".vsdm",
+  ".vsdx",
+  ".vsmacros",    // Visual Studio .NET Binary-based Macro Project
+  ".vss",
+  ".vssm",
+  ".vssx",
+  ".vst",
+  ".vstm",
+  ".vstx",
+  ".vsw",
+  ".vsx",
+  ".vtx",
+  ".webloc",       // MacOS website location file
+  ".ws",
+  ".wsc",
+  ".wsf",
+  ".wsh"
+    // clang-format on
+};
 
 #if !defined(MOZ_WIDGET_COCOA) && !defined(XP_WIN)
 NS_IMETHODIMP
@@ -163,7 +270,7 @@ static const char16_t kPathSeparatorChar = '\\';
 #elif defined(XP_UNIX)
 static const char16_t kPathSeparatorChar = '/';
 #else
-#error Need to define file path separator for your platform
+#  error Need to define file path separator for your platform
 #endif
 
 static void SplitPath(char16_t* aPath, nsTArray<char16_t*>& aNodeArray) {
@@ -254,7 +361,7 @@ nsLocalFile::GetRelativeDescriptor(nsIFile* aFromFile, nsACString& aResult) {
 NS_IMETHODIMP
 nsLocalFile::SetRelativeDescriptor(nsIFile* aFromFile,
                                    const nsACString& aRelativeDesc) {
-  NS_NAMED_LITERAL_CSTRING(kParentDirStr, "../");
+  constexpr auto kParentDirStr = "../"_ns;
 
   nsCOMPtr<nsIFile> targetFile;
   nsresult rv = aFromFile->Clone(getter_AddRefs(targetFile));

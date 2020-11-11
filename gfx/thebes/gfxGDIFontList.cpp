@@ -7,6 +7,7 @@
 #include <algorithm>
 
 #include "mozilla/Logging.h"
+#include "mozilla/TextUtils.h"
 #include "mozilla/Sprintf.h"
 
 #include "gfxGDIFontList.h"
@@ -22,8 +23,6 @@
 #include "nsDirectoryServiceUtils.h"
 #include "nsDirectoryServiceDefs.h"
 #include "nsAppDirectoryServiceDefs.h"
-#include "nsISimpleEnumerator.h"
-#include "nsIWindowsRegKey.h"
 #include "gfxFontConstants.h"
 #include "GeckoProfiler.h"
 
@@ -502,6 +501,8 @@ void GDIFontFamily::FindStyleVariations(FontInfoData* aFontInfoData) {
   if (mIsBadUnderlineFamily) {
     SetBadUnderlineFonts();
   }
+
+  CheckForSimpleFamily();
 }
 
 /***************************************************************
@@ -563,7 +564,7 @@ nsresult gfxGDIFontList::GetFontSubstitutes() {
     NS_ConvertUTF16toUTF8 substitute(substituteName);
     NS_ConvertUTF16toUTF8 actual(actualFontName);
     if (!actual.IsEmpty() && (ff = mFontFamilies.GetWeak(actual))) {
-      mFontSubstitutes.Put(substitute, ff);
+      mFontSubstitutes.Put(substitute, RefPtr{ff});
     } else {
       mNonExistingFonts.AppendElement(substitute);
     }
@@ -584,7 +585,7 @@ nsresult gfxGDIFontList::GetFontSubstitutes() {
     NS_ConvertUTF16toUTF8 actual(actualFontName);
     ff = mFontFamilies.GetWeak(actual);
     if (ff) {
-      mFontSubstitutes.Put(substitute, ff);
+      mFontSubstitutes.Put(substitute, RefPtr{ff});
     }
   }
   return NS_OK;
@@ -631,14 +632,15 @@ int CALLBACK gfxGDIFontList::EnumFontFamExProc(ENUMLOGFONTEXW* lpelfe,
 
   if (!fontList->mFontFamilies.GetWeak(key)) {
     NS_ConvertUTF16toUTF8 faceName(lf.lfFaceName);
-    RefPtr<GDIFontFamily> family = new GDIFontFamily(faceName);
-    fontList->mFontFamilies.Put(key, family);
+    FontVisibility visibility = FontVisibility::Unknown;  // TODO
+    RefPtr<GDIFontFamily> family = new GDIFontFamily(faceName, visibility);
+    fontList->mFontFamilies.Put(key, RefPtr{family});
 
     // if locale is such that CJK font names are the default coming from
     // GDI, then if a family name is non-ASCII immediately read in other
     // family names.  This assures that MS Gothic, MS Mincho are all found
     // before lookups begin.
-    if (!IsASCII(faceName)) {
+    if (!IsAscii(faceName)) {
       family->ReadOtherFamilyNames(gfxPlatformFontList::PlatformFontList());
     }
 
@@ -820,7 +822,8 @@ gfxFontEntry* gfxGDIFontList::MakePlatformFont(const nsACString& aFontName,
   return fe;
 }
 
-bool gfxGDIFontList::FindAndAddFamilies(const nsACString& aFamily,
+bool gfxGDIFontList::FindAndAddFamilies(StyleGenericFontFamily aGeneric,
+                                        const nsACString& aFamily,
                                         nsTArray<FamilyAndGeneric>* aOutput,
                                         FindFamiliesFlags aFlags,
                                         gfxFontStyle* aStyle,
@@ -831,7 +834,7 @@ bool gfxGDIFontList::FindAndAddFamilies(const nsACString& aFamily,
 
   gfxFontFamily* ff = mFontSubstitutes.GetWeak(keyName);
   if (ff) {
-    aOutput->AppendElement(FamilyAndGeneric(ff));
+    aOutput->AppendElement(FamilyAndGeneric(ff, aGeneric));
     return true;
   }
 
@@ -839,13 +842,13 @@ bool gfxGDIFontList::FindAndAddFamilies(const nsACString& aFamily,
     return false;
   }
 
-  return gfxPlatformFontList::FindAndAddFamilies(aFamily, aOutput, aFlags,
-                                                 aStyle, aDevToCssSize);
+  return gfxPlatformFontList::FindAndAddFamilies(aGeneric, aFamily, aOutput,
+                                                 aFlags, aStyle, aDevToCssSize);
 }
 
-gfxFontFamily* gfxGDIFontList::GetDefaultFontForPlatform(
+FontFamily gfxGDIFontList::GetDefaultFontForPlatform(
     const gfxFontStyle* aStyle) {
-  gfxFontFamily* ff = nullptr;
+  FontFamily ff;
 
   // this really shouldn't fail to find a font....
   NONCLIENTMETRICSW ncm;
@@ -854,7 +857,7 @@ gfxFontFamily* gfxGDIFontList::GetDefaultFontForPlatform(
       ::SystemParametersInfoW(SPI_GETNONCLIENTMETRICS, sizeof(ncm), &ncm, 0);
   if (status) {
     ff = FindFamily(NS_ConvertUTF16toUTF8(ncm.lfMessageFont.lfFaceName));
-    if (ff) {
+    if (!ff.IsNull()) {
       return ff;
     }
   }
@@ -894,7 +897,7 @@ class GDIFontInfo : public FontInfoData {
   GDIFontInfo(bool aLoadOtherNames, bool aLoadFaceNames, bool aLoadCmaps)
       : FontInfoData(aLoadOtherNames, aLoadFaceNames, aLoadCmaps) {}
 
-  virtual ~GDIFontInfo() {}
+  virtual ~GDIFontInfo() = default;
 
   virtual void Load() {
     mHdc = GetDC(nullptr);
@@ -976,7 +979,7 @@ int CALLBACK GDIFontInfo::EnumerateFontsForFamily(
 
       // other family names
       if (famData->mFontInfo.mLoadOtherNames) {
-        gfxFontFamily::ReadOtherFamilyNamesForFace(
+        gfxFontUtils::ReadOtherFamilyNamesForFace(
             famData->mFamilyName, (const char*)(nameData.Elements()), nameSize,
             famData->mOtherFamilyNames, false);
       }
@@ -1053,8 +1056,9 @@ already_AddRefed<FontInfoData> gfxGDIFontList::CreateFontInfoData() {
   return fi.forget();
 }
 
-gfxFontFamily* gfxGDIFontList::CreateFontFamily(const nsACString& aName) const {
-  return new GDIFontFamily(aName);
+gfxFontFamily* gfxGDIFontList::CreateFontFamily(
+    const nsACString& aName, FontVisibility aVisibility) const {
+  return new GDIFontFamily(aName, aVisibility);
 }
 
 #ifdef MOZ_BUNDLED_FONTS
@@ -1065,7 +1069,7 @@ void gfxGDIFontList::ActivateBundledFonts() {
   if (NS_FAILED(rv)) {
     return;
   }
-  if (NS_FAILED(localDir->Append(NS_LITERAL_STRING("fonts")))) {
+  if (NS_FAILED(localDir->Append(u"fonts"_ns))) {
     return;
   }
   bool isDir;

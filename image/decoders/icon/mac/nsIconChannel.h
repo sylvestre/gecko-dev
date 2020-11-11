@@ -47,8 +47,10 @@ class nsIconChannel final : public nsIChannel, public nsIStreamListener {
 
   nsCOMPtr<nsIInputStreamPump> mPump;
   nsCOMPtr<nsIStreamListener> mListener;
+  bool mCanceled = false;
 
-  nsresult MakeInputStream(nsIInputStream** _retval, bool nonBlocking);
+  [[nodiscard]] nsresult MakeInputStream(nsIInputStream** _retval,
+                                         bool nonBlocking);
 
   nsresult ExtractIconInfoFromUrl(nsIFile** aLocalFile,
                                   uint32_t* aDesiredImageSize,

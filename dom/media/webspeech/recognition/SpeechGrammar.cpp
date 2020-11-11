@@ -8,8 +8,7 @@
 
 #include "mozilla/dom/SpeechGrammarBinding.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(SpeechGrammar, mParent)
 NS_IMPL_CYCLE_COLLECTING_ADDREF(SpeechGrammar)
@@ -21,10 +20,10 @@ NS_INTERFACE_MAP_END
 
 SpeechGrammar::SpeechGrammar(nsISupports* aParent) : mParent(aParent) {}
 
-SpeechGrammar::~SpeechGrammar() {}
+SpeechGrammar::~SpeechGrammar() = default;
 
 already_AddRefed<SpeechGrammar> SpeechGrammar::Constructor(
-    const GlobalObject& aGlobal, ErrorResult& aRv) {
+    const GlobalObject& aGlobal) {
   RefPtr<SpeechGrammar> speechGrammar =
       new SpeechGrammar(aGlobal.GetAsSupports());
   return speechGrammar.forget();
@@ -54,5 +53,4 @@ void SpeechGrammar::SetWeight(float aArg, ErrorResult& aRv) {
   aRv.Throw(NS_ERROR_NOT_IMPLEMENTED);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

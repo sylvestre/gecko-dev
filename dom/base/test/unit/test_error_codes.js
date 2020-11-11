@@ -4,7 +4,7 @@
  */
 
 var gExpectedStatus = null;
-var gNextTestFunc   = null;
+var gNextTestFunc = null;
 
 var prefs = Services.prefs;
 
@@ -14,7 +14,9 @@ var asyncXHR = {
     request.open("GET", "http://localhost:4444/test_error_code.xml", true);
 
     var self = this;
-    request.addEventListener("error", function(event) { self.onError(event); });
+    request.addEventListener("error", function(event) {
+      self.onError(event);
+    });
     request.send(null);
   },
   onError: function doAsyncRequest_onError(event) {
@@ -33,10 +35,11 @@ function run_test() {
 function run_test_pt1() {
   try {
     Services.io.manageOfflineStatus = false;
-  } catch (e) {
-  }
+  } catch (e) {}
   Services.io.offline = true;
   prefs.setBoolPref("network.dns.offline-localhost", false);
+  // We always resolve localhost as it's hardcoded without the following pref:
+  prefs.setBoolPref("network.proxy.allow_hijacking_localhost", true);
 
   gExpectedStatus = Cr.NS_ERROR_OFFLINE;
   gNextTestFunc = run_test_pt2;
@@ -48,6 +51,7 @@ function run_test_pt1() {
 function run_test_pt2() {
   Services.io.offline = false;
   prefs.clearUserPref("network.dns.offline-localhost");
+  prefs.clearUserPref("network.proxy.allow_hijacking_localhost");
 
   gExpectedStatus = Cr.NS_ERROR_CONNECTION_REFUSED;
   gNextTestFunc = end_test;

@@ -5,12 +5,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "PerformanceServerTiming.h"
-
-#include "mozilla/dom/PerformanceServerTimingBinding.h"
 #include "nsITimedChannel.h"
 
-namespace mozilla {
-namespace dom {
+#include "mozilla/dom/PerformanceServerTimingBinding.h"
+
+namespace mozilla::dom {
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(PerformanceServerTiming, mParent)
 
@@ -69,5 +68,4 @@ void PerformanceServerTiming::GetDescription(nsAString& aDescription) const {
   aDescription.Assign(NS_ConvertUTF8toUTF16(description));
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

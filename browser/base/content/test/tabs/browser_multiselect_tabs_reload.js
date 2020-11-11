@@ -1,16 +1,8 @@
-const PREF_MULTISELECT_TABS = "browser.tabs.multiselect";
-
 async function tabLoaded(tab) {
   const browser = gBrowser.getBrowserForTab(tab);
   await BrowserTestUtils.browserLoaded(browser);
   return true;
 }
-
-add_task(async function setPref() {
-  await SpecialPowers.pushPrefEnv({
-    set: [[PREF_MULTISELECT_TABS, true]],
-  });
-});
 
 add_task(async function test_usingTabContextMenu() {
   let tab1 = await addTab();
@@ -18,7 +10,9 @@ add_task(async function test_usingTabContextMenu() {
   let tab3 = await addTab();
 
   let menuItemReloadTab = document.getElementById("context_reloadTab");
-  let menuItemReloadSelectedTabs = document.getElementById("context_reloadSelectedTabs");
+  let menuItemReloadSelectedTabs = document.getElementById(
+    "context_reloadSelectedTabs"
+  );
 
   await BrowserTestUtils.switchTab(gBrowser, tab1);
   await triggerClickOn(tab2, { ctrlKey: true });
@@ -61,7 +55,6 @@ add_task(async function test_usingKeyboardShortcuts() {
   }
 
   for (let key of keys) {
-
     let tab1 = await addTab();
     let tab2 = await addTab();
     let tab3 = await addTab();

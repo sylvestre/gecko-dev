@@ -9,7 +9,7 @@ import socket
 import sys
 import time
 
-from six import reraise
+import six
 
 
 class SocketTimeout(object):
@@ -46,7 +46,9 @@ class Command(Message):
         self.params = params
 
     def __str__(self):
-        return "<Command id={0}, name={1}, params={2}>".format(self.id, self.name, self.params)
+        return "<Command id={0}, name={1}, params={2}>".format(
+            self.id, self.name, self.params
+        )
 
     def to_msg(self):
         msg = [Command.TYPE, self.id, self.name, self.params]
@@ -69,7 +71,9 @@ class Response(Message):
         self.result = result
 
     def __str__(self):
-        return "<Response id={0}, error={1}, result={2}>".format(self.id, self.error, self.result)
+        return "<Response id={0}, error={1}, result={2}>".format(
+            self.id, self.error, self.result
+        )
 
     def to_msg(self):
         msg = [Response.TYPE, self.id, self.error, self.result]
@@ -94,6 +98,7 @@ class TcpTransport(object):
     depending on the protocol level offered by the remote server, varies.
     Supported protocol levels are `min_protocol_level` and above.
     """
+
     max_packet_length = 4096
     min_protocol_level = 3
 
@@ -129,7 +134,10 @@ class TcpTransport(object):
 
         # protocol 3 and above
         if self.protocol >= 3:
-            typ = int(packet[1])
+            if six.PY3:
+                typ = int(chr(packet[1]))
+            else:
+                typ = int(packet[1])
             if typ == Command.TYPE:
                 msg = Command.from_msg(packet)
             elif typ == Response.TYPE:
@@ -145,7 +153,7 @@ class TcpTransport(object):
             the raw packet.
         """
         now = time.time()
-        data = ""
+        data = b""
         bytes_to_recv = 10
 
         while self.socket_timeout is None or (time.time() - now < self.socket_timeout):
@@ -158,10 +166,10 @@ class TcpTransport(object):
                 if not chunk:
                     raise socket.error("No data received over socket")
 
-            sep = data.find(":")
+            sep = data.find(b":")
             if sep > -1:
                 length = data[0:sep]
-                remaining = data[sep + 1:]
+                remaining = data[sep + 1 :]
 
                 if len(remaining) == int(length):
                     if unmarshal:
@@ -180,7 +188,9 @@ class TcpTransport(object):
 
                 bytes_to_recv = int(length) - len(remaining)
 
-        raise socket.timeout("Connection timed out after {}s".format(self.socket_timeout))
+        raise socket.timeout(
+            "Connection timed out after {}s".format(self.socket_timeout)
+        )
 
     def connect(self):
         """Connect to the server and process the hello message we expect
@@ -205,17 +215,18 @@ class TcpTransport(object):
                 # which we can use to tell which protocol level we are at
                 raw = self.receive(unmarshal=False)
         except socket.timeout:
+            exc_cls, exc, tb = sys.exc_info()
             msg = "Connection attempt failed because no data has been received over the socket: {}"
-            exc, val, tb = sys.exc_info()
-
-            reraise(exc, msg.format(val), tb)
+            six.reraise(exc_cls, exc_cls(msg.format(exc)), tb)
 
         hello = json.loads(raw)
         application_type = hello.get("applicationType")
         protocol = hello.get("marionetteProtocol")
 
         if application_type != "gecko":
-            raise ValueError("Application type '{}' is not supported".format(application_type))
+            raise ValueError(
+                "Application type '{}' is not supported".format(application_type)
+            )
 
         if not isinstance(protocol, int) or protocol < self.min_protocol_level:
             msg = "Earliest supported protocol level is '{}' but got '{}'"
@@ -239,14 +250,18 @@ class TcpTransport(object):
                 self.expected_response = obj
         else:
             data = json.dumps(obj)
-        payload = "{0}:{1}".format(len(data), data)
+        data = six.ensure_binary(data)
+        payload = six.ensure_binary(str(len(data))) + b":" + data
 
         totalsent = 0
         while totalsent < len(payload):
             sent = self._sock.send(payload[totalsent:])
             if sent == 0:
-                raise IOError("Socket error after sending {0} of {1} bytes"
-                              .format(totalsent, len(payload)))
+                raise IOError(
+                    "Socket error after sending {0} of {1} bytes".format(
+                        totalsent, len(payload)
+                    )
+                )
             else:
                 totalsent += sent
 

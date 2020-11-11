@@ -5,13 +5,13 @@
  * found in the LICENSE file.
  */
 
-#include "SkBmpCodec.h"
-#include "SkBmpMaskCodec.h"
-#include "SkBmpRLECodec.h"
-#include "SkBmpStandardCodec.h"
-#include "SkCodecPriv.h"
-#include "SkColorData.h"
-#include "SkStream.h"
+#include "include/core/SkStream.h"
+#include "include/private/SkColorData.h"
+#include "src/codec/SkBmpCodec.h"
+#include "src/codec/SkBmpMaskCodec.h"
+#include "src/codec/SkBmpRLECodec.h"
+#include "src/codec/SkBmpStandardCodec.h"
+#include "src/codec/SkCodecPriv.h"
 
 /*
  * Defines the version and type of the second bitmap header
@@ -374,7 +374,7 @@ SkCodec::Result SkBmpCodec::ReadHeader(SkStream* stream, bool inIco,
                     //
                     // Header types are matched based on size.  If the header is
                     // V3+, we are guaranteed to be able to read at least this size.
-                    SkASSERT(infoBytesRemaining > 52);
+                    SkASSERT(infoBytesRemaining >= 52);
                     inputMasks.alpha = get_int(iBuffer.get(), 48);
                     break;
                 case kOS2VX_BmpHeaderType:
@@ -520,7 +520,8 @@ SkCodec::Result SkBmpCodec::ReadHeader(SkStream* stream, bool inIco,
 
             if (codecOut) {
                 // Check that input bit masks are valid and create the masks object
-                std::unique_ptr<SkMasks> masks(SkMasks::CreateMasks(inputMasks, bitsPerPixel));
+                SkASSERT(bitsPerPixel % 8 == 0);
+                std::unique_ptr<SkMasks> masks(SkMasks::CreateMasks(inputMasks, bitsPerPixel/8));
                 if (nullptr == masks) {
                     SkCodecPrintf("Error: invalid input masks.\n");
                     return kInvalidInput;

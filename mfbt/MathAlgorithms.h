@@ -10,11 +10,11 @@
 #define mozilla_MathAlgorithms_h
 
 #include "mozilla/Assertions.h"
-#include "mozilla/TypeTraits.h"
 
 #include <cmath>
 #include <limits.h>
 #include <stdint.h>
+#include <type_traits>
 
 namespace mozilla {
 
@@ -47,28 +47,28 @@ MOZ_ALWAYS_INLINE IntegerType EuclidLCM(IntegerType aA, IntegerType aB) {
 namespace detail {
 
 template <typename T>
-struct AllowDeprecatedAbsFixed : FalseType {};
+struct AllowDeprecatedAbsFixed : std::false_type {};
 
 template <>
-struct AllowDeprecatedAbsFixed<int32_t> : TrueType {};
+struct AllowDeprecatedAbsFixed<int32_t> : std::true_type {};
 template <>
-struct AllowDeprecatedAbsFixed<int64_t> : TrueType {};
+struct AllowDeprecatedAbsFixed<int64_t> : std::true_type {};
 
 template <typename T>
 struct AllowDeprecatedAbs : AllowDeprecatedAbsFixed<T> {};
 
 template <>
-struct AllowDeprecatedAbs<int> : TrueType {};
+struct AllowDeprecatedAbs<int> : std::true_type {};
 template <>
-struct AllowDeprecatedAbs<long> : TrueType {};
+struct AllowDeprecatedAbs<long> : std::true_type {};
 
 }  // namespace detail
 
 // DO NOT USE DeprecatedAbs.  It exists only until its callers can be converted
 // to Abs below, and it will be removed when all callers have been changed.
 template <typename T>
-inline typename mozilla::EnableIf<detail::AllowDeprecatedAbs<T>::value, T>::Type
-DeprecatedAbs(const T aValue) {
+inline std::enable_if_t<detail::AllowDeprecatedAbs<T>::value, T> DeprecatedAbs(
+    const T aValue) {
   // The absolute value of the smallest possible value of a signed-integer type
   // won't fit in that type (on twos-complement systems -- and we're blithely
   // assuming we're on such systems, for the non-<stdint.h> types listed above),
@@ -86,66 +86,18 @@ DeprecatedAbs(const T aValue) {
 
 namespace detail {
 
-// For now mozilla::Abs only takes intN_T, the signed natural types, and
-// float/double/long double.  Feel free to add overloads for other standard,
-// signed types if you need them.
+template <typename T, typename = void>
+struct AbsReturnType;
 
 template <typename T>
-struct AbsReturnTypeFixed;
-
-template <>
-struct AbsReturnTypeFixed<int8_t> {
-  typedef uint8_t Type;
-};
-template <>
-struct AbsReturnTypeFixed<int16_t> {
-  typedef uint16_t Type;
-};
-template <>
-struct AbsReturnTypeFixed<int32_t> {
-  typedef uint32_t Type;
-};
-template <>
-struct AbsReturnTypeFixed<int64_t> {
-  typedef uint64_t Type;
+struct AbsReturnType<
+    T, std::enable_if_t<std::is_integral_v<T> && std::is_signed_v<T>>> {
+  using Type = std::make_unsigned_t<T>;
 };
 
 template <typename T>
-struct AbsReturnType : AbsReturnTypeFixed<T> {};
-
-template <>
-struct AbsReturnType<char> : EnableIf<char(-1) < char(0), unsigned char> {};
-template <>
-struct AbsReturnType<signed char> {
-  typedef unsigned char Type;
-};
-template <>
-struct AbsReturnType<short> {
-  typedef unsigned short Type;
-};
-template <>
-struct AbsReturnType<int> {
-  typedef unsigned int Type;
-};
-template <>
-struct AbsReturnType<long> {
-  typedef unsigned long Type;
-};
-template <>
-struct AbsReturnType<long long> {
-  typedef unsigned long long Type;
-};
-template <>
-struct AbsReturnType<float> {
-  typedef float Type;
-};
-template <>
-struct AbsReturnType<double> {
-  typedef double Type;
-};
-template <>
-struct AbsReturnType<long double> {
-  typedef long double Type;
+struct AbsReturnType<T, std::enable_if_t<std::is_floating_point_v<T>>> {
+  using Type = T;
 };
 
 }  // namespace detail
@@ -175,15 +127,15 @@ inline long double Abs<long double>(const long double aLongDouble) {
 
 #if defined(_MSC_VER) && (defined(_M_IX86) || defined(_M_AMD64) || \
                           defined(_M_X64) || defined(_M_ARM64))
-#define MOZ_BITSCAN_WINDOWS
+#  define MOZ_BITSCAN_WINDOWS
 
-#include <intrin.h>
-#pragma intrinsic(_BitScanForward, _BitScanReverse)
+#  include <intrin.h>
+#  pragma intrinsic(_BitScanForward, _BitScanReverse)
 
-#if defined(_M_AMD64) || defined(_M_X64) || defined(_M_ARM64)
-#define MOZ_BITSCAN_WINDOWS64
-#pragma intrinsic(_BitScanForward64, _BitScanReverse64)
-#endif
+#  if defined(_M_AMD64) || defined(_M_X64) || defined(_M_ARM64)
+#    define MOZ_BITSCAN_WINDOWS64
+#    pragma intrinsic(_BitScanForward64, _BitScanReverse64)
+#  endif
 
 #endif
 
@@ -216,75 +168,71 @@ inline uint_fast8_t CountPopulation64(uint64_t aValue) {
 }
 
 inline uint_fast8_t CountLeadingZeroes64(uint64_t aValue) {
-#if defined(MOZ_BITSCAN_WINDOWS64)
+#  if defined(MOZ_BITSCAN_WINDOWS64)
   unsigned long index;
   if (!_BitScanReverse64(&index, static_cast<unsigned __int64>(aValue)))
     return 64;
   return uint_fast8_t(63 - index);
-#else
+#  else
   uint32_t hi = uint32_t(aValue >> 32);
   if (hi != 0) {
     return CountLeadingZeroes32(hi);
   }
   return 32u + CountLeadingZeroes32(uint32_t(aValue));
-#endif
+#  endif
 }
 
 inline uint_fast8_t CountTrailingZeroes64(uint64_t aValue) {
-#if defined(MOZ_BITSCAN_WINDOWS64)
+#  if defined(MOZ_BITSCAN_WINDOWS64)
   unsigned long index;
   if (!_BitScanForward64(&index, static_cast<unsigned __int64>(aValue)))
     return 64;
   return uint_fast8_t(index);
-#else
+#  else
   uint32_t lo = uint32_t(aValue);
   if (lo != 0) {
     return CountTrailingZeroes32(lo);
   }
   return 32u + CountTrailingZeroes32(uint32_t(aValue >> 32));
-#endif
+#  endif
 }
-
-#ifdef MOZ_HAVE_BITSCAN64
-#undef MOZ_HAVE_BITSCAN64
-#endif
 
 #elif defined(__clang__) || defined(__GNUC__)
 
-#if defined(__clang__)
-#if !__has_builtin(__builtin_ctz) || !__has_builtin(__builtin_clz)
-#error "A clang providing __builtin_c[lt]z is required to build"
-#endif
-#else
+#  if defined(__clang__)
+#    if !__has_builtin(__builtin_ctz) || !__has_builtin(__builtin_clz)
+#      error "A clang providing __builtin_c[lt]z is required to build"
+#    endif
+#  else
 // gcc has had __builtin_clz and friends since 3.4: no need to check.
-#endif
+#  endif
 
 inline uint_fast8_t CountLeadingZeroes32(uint32_t aValue) {
-  return __builtin_clz(aValue);
+  return static_cast<uint_fast8_t>(__builtin_clz(aValue));
 }
 
 inline uint_fast8_t CountTrailingZeroes32(uint32_t aValue) {
-  return __builtin_ctz(aValue);
+  return static_cast<uint_fast8_t>(__builtin_ctz(aValue));
 }
 
 inline uint_fast8_t CountPopulation32(uint32_t aValue) {
-  return __builtin_popcount(aValue);
+  return static_cast<uint_fast8_t>(__builtin_popcount(aValue));
 }
 
 inline uint_fast8_t CountPopulation64(uint64_t aValue) {
-  return __builtin_popcountll(aValue);
+  return static_cast<uint_fast8_t>(__builtin_popcountll(aValue));
 }
 
 inline uint_fast8_t CountLeadingZeroes64(uint64_t aValue) {
-  return __builtin_clzll(aValue);
+  return static_cast<uint_fast8_t>(__builtin_clzll(aValue));
 }
 
 inline uint_fast8_t CountTrailingZeroes64(uint64_t aValue) {
-  return __builtin_ctzll(aValue);
+  return static_cast<uint_fast8_t>(__builtin_ctzll(aValue));
 }
 
 #else
-#error "Implement these!"
+#  error "Implement these!"
 inline uint_fast8_t CountLeadingZeroes32(uint32_t aValue) = delete;
 inline uint_fast8_t CountTrailingZeroes32(uint32_t aValue) = delete;
 inline uint_fast8_t CountPopulation32(uint32_t aValue) = delete;
@@ -450,7 +398,7 @@ inline size_t RoundUpPow2(size_t aValue) {
 template <typename T>
 MOZ_NO_SANITIZE_UNSIGNED_OVERFLOW inline T RotateLeft(const T aValue,
                                                       uint_fast8_t aShift) {
-  static_assert(IsUnsigned<T>::value, "Rotates require unsigned values");
+  static_assert(std::is_unsigned_v<T>, "Rotates require unsigned values");
 
   MOZ_ASSERT(aShift < sizeof(T) * CHAR_BIT, "Shift value is too large!");
   MOZ_ASSERT(aShift > 0,
@@ -468,7 +416,7 @@ MOZ_NO_SANITIZE_UNSIGNED_OVERFLOW inline T RotateLeft(const T aValue,
 template <typename T>
 MOZ_NO_SANITIZE_UNSIGNED_OVERFLOW inline T RotateRight(const T aValue,
                                                        uint_fast8_t aShift) {
-  static_assert(IsUnsigned<T>::value, "Rotates require unsigned values");
+  static_assert(std::is_unsigned_v<T>, "Rotates require unsigned values");
 
   MOZ_ASSERT(aShift < sizeof(T) * CHAR_BIT, "Shift value is too large!");
   MOZ_ASSERT(aShift > 0,
@@ -486,13 +434,13 @@ MOZ_NO_SANITIZE_UNSIGNED_OVERFLOW inline T RotateRight(const T aValue,
  */
 template <typename T>
 constexpr bool IsPowerOfTwo(T x) {
-  static_assert(IsUnsigned<T>::value, "IsPowerOfTwo requires unsigned values");
+  static_assert(std::is_unsigned_v<T>, "IsPowerOfTwo requires unsigned values");
   return x && (x & (x - 1)) == 0;
 }
 
 template <typename T>
 inline T Clamp(const T aValue, const T aMin, const T aMax) {
-  static_assert(IsIntegral<T>::value,
+  static_assert(std::is_integral_v<T>,
                 "Clamp accepts only integral types, so that it doesn't have"
                 " to distinguish differently-signed zeroes (which users may"
                 " or may not care to distinguish, likely at a perf cost) or"

@@ -4,7 +4,7 @@
   <title>Test MediaRecorder recording a constructed MediaStream</title>
   <script src="/tests/SimpleTest/SimpleTest.js"></script>
   <script src="/tests/dom/canvas/test/captureStream_common.js"></script>
-  <script src="/tests/dom/media/tests/mochitest/head.js"></script>
+  <script src="/tests/dom/media/webrtc/tests/mochitests/head.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css" />
 </head>
 <body>
@@ -29,11 +29,31 @@ runTestWhenReady(async () => {
   osc.connect(dest);
 
   const stream = dest.stream;
+
+  // Timeouts are experienced intermittently in Linux due to no sound in the
+  // destination. As a workaround wait for the source sound to arrive.
+  const sourceAnalyser = new AudioStreamAnalyser(audioCtx, stream);
+  const sourceAudioReady = sourceAnalyser.waitForAnalysisSuccess(array => {
+    const freq = osc.frequency.value;
+    const lowerFreq = freq / 2;
+    const upperFreq = freq + 1000;
+    const lowerAmp = array[sourceAnalyser.binIndexForFrequency(lowerFreq)];
+    const freqAmp = array[sourceAnalyser.binIndexForFrequency(freq)];
+    const upperAmp = array[sourceAnalyser.binIndexForFrequency(upperFreq)];
+    info("Analysing source audio. "
+         + lowerFreq + ": " + lowerAmp + ", "
+         + freq + ": " + freqAmp + ", "
+         + upperFreq + ": " + upperAmp);
+    return lowerAmp < 50 && freqAmp > 200 && upperAmp < 50;
+  });
+  await sourceAudioReady;
+  info("Source Audio content ok");
+
   canvas.captureStream(0).getVideoTracks().forEach(t => stream.addTrack(t));
 
   const blobs = [];
 
-  mediaRecorder = new MediaRecorder(stream);
+  let mediaRecorder = new MediaRecorder(stream);
   is(mediaRecorder.stream, stream,
      "Media recorder stream = constructed stream at the start of recording");
 
@@ -65,6 +85,10 @@ runTestWhenReady(async () => {
 
   await haveEvent(mediaRecorder, "start", wait(5000, new Error("Timeout")));
   info("onstart fired");
+
+  // The recording can be too short to cause any checks with
+  // waitForAnalysisSuccess(). Waiting a bit here solves this.
+  await wait(500);
 
   is(mediaRecorder.state, "recording",
      "Media recorder is recording before being stopped");

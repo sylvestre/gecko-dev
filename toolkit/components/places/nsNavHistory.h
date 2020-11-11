@@ -7,10 +7,7 @@
 #define nsNavHistory_h_
 
 #include "nsINavHistoryService.h"
-#include "nsINavBookmarksService.h"
-#include "nsIFaviconService.h"
 
-#include "nsIObserverService.h"
 #include "nsICollation.h"
 #include "nsIStringBundle.h"
 #include "nsITimer.h"
@@ -24,12 +21,13 @@
 #include "nsNavHistoryResult.h"
 #include "nsNavHistoryQuery.h"
 #include "Database.h"
-#include "mozilla/Attributes.h"
 #include "mozilla/Atomics.h"
+#include "mozilla/Attributes.h"
+#include "mozIStorageVacuumParticipant.h"
 
 #ifdef XP_WIN
-#include "WinUtils.h"
-#include <wincrypt.h>
+#  include "WinUtils.h"
+#  include <wincrypt.h>
 #endif
 
 #define QUERYUPDATE_TIME 0
@@ -49,18 +47,12 @@
 // If you typed it more than this time ago, it's not recent.
 #define RECENT_EVENT_THRESHOLD PRTime((int64_t)15 * 60 * PR_USEC_PER_SEC)
 
-#ifdef MOZ_XUL
-// Fired after autocomplete feedback has been updated.
-#define TOPIC_AUTOCOMPLETE_FEEDBACK_UPDATED \
-  "places-autocomplete-feedback-updated"
-#endif
-
 // The preference we watch to know when the mobile bookmarks folder is filled by
 // sync.
 #define MOBILE_BOOKMARKS_PREF "browser.bookmarks.showMobileBookmarks"
 
 // The guid of the mobile bookmarks virtual query.
-#define MOBILE_BOOKMARKS_VIRTUAL_GUID "mobile____v"
+#define MOBILE_BOOKMARKS_VIRTUAL_GUID "mobile_____v"
 
 #define ROOT_GUID "root________"
 #define MENU_ROOT_GUID "menu________"
@@ -69,6 +61,7 @@
 #define TAGS_ROOT_GUID "tags________"
 #define MOBILE_ROOT_GUID "mobile______"
 
+class mozIStorageValueArray;
 class nsIAutoCompleteController;
 class nsIEffectiveTLDService;
 class nsIIDNService;
@@ -180,8 +173,17 @@ class nsNavHistory final : public nsSupportsWeakReference,
   static void GetMonthName(const PRExplodedTime& aTime, nsACString& aResult);
   static void GetMonthYear(const PRExplodedTime& aTime, nsACString& aResult);
 
+  // Returns true if the provided URI spec and scheme is allowed in history
+  static nsresult CanAddURIToHistory(nsIURI* aURI, bool* aCanAdd);
+
+  // The max URI spec length allowed for a URI to be added to history
+  static uint32_t MaxURILength();
+
   // Returns whether history is enabled or not.
   bool IsHistoryDisabled() { return !mHistoryEnabled; }
+
+  // Returns whether or not diacritics must match in history text searches.
+  bool MatchDiacritics() const { return mMatchDiacritics; }
 
   // Constants for the columns returned by the above statement.
   static const int32_t kGetInfoIndex_PageID;
@@ -273,16 +275,6 @@ class nsNavHistory final : public nsSupportsWeakReference,
    * Note: This may cause synchronous I/O.
    */
   bool hasHistoryEntries();
-
-  /**
-   * Registers a TRANSITION_EMBED visit for the session.
-   *
-   * @param aURI
-   *        URI of the page.
-   * @param aTime
-   *        Visit time.  Only the last registered visit time is retained.
-   */
-  void registerEmbedVisit(nsIURI* aURI, int64_t aTime);
 
   /**
    * Returns whether the specified url has a embed visit.
@@ -439,16 +431,6 @@ class nsNavHistory final : public nsSupportsWeakReference,
   RefPtr<mozilla::places::Database> mDB;
 
   /**
-   * Recalculates frecency for all pages where frecency < 0, then decays
-   * frecency and inputhistory values. Pages can invalidate frecencies:
-   *  * After a "clear private data"
-   *  * After removing visits
-   *  * After migrating from older versions
-   * This method runs on idle-daily.
-   */
-  nsresult FixAndDecayFrecency();
-
-  /**
    * Loads all of the preferences that we use into member variables.
    *
    * @note If mPrefBranch is nullptr, this does nothing.
@@ -503,29 +485,16 @@ class nsNavHistory final : public nsSupportsWeakReference,
   RecentEventHash mRecentLink;
   RecentEventHash mRecentBookmark;
 
-  // Embed visits tracking.
-  class VisitHashKey : public nsURIHashKey {
-   public:
-    explicit VisitHashKey(const nsIURI* aURI) : nsURIHashKey(aURI) {}
-    VisitHashKey(VisitHashKey&& aOther) : nsURIHashKey(std::move(aOther)) {
-      MOZ_ASSERT_UNREACHABLE("Do not call me!");
-    }
-    PRTime visitTime;
-  };
-
-  nsTHashtable<VisitHashKey> mEmbedVisits;
-
   bool CheckIsRecentEvent(RecentEventHash* hashTable, const nsACString& url);
   void ExpireNonrecentEvents(RecentEventHash* hashTable);
-
-#ifdef MOZ_XUL
-  nsresult AutoCompleteFeedback(int32_t aIndex,
-                                nsIAutoCompleteController* aController);
-#endif
 
   // Whether history is enabled or not.
   // Will mimic value of the places.history.enabled preference.
   bool mHistoryEnabled;
+
+  // Whether or not diacritics must match in history text searches.
+  // Will mimic value of the places.search.matchDiacritics preference.
+  bool mMatchDiacritics;
 
   // Frecency preferences.
   int32_t mNumVisitsForFrecency;
@@ -582,13 +551,13 @@ class nsNavHistory final : public nsSupportsWeakReference,
 
 /* Returns true if the given URI represents a history query. */
 inline bool IsQueryURI(const nsCString& uri) {
-  return StringBeginsWith(uri, NS_LITERAL_CSTRING(PLACES_URI_PREFIX));
+  return StringBeginsWith(uri, nsLiteralCString(PLACES_URI_PREFIX));
 }
 
 /* Extracts the query string from a query URI. */
 inline const nsDependentCSubstring QueryURIToQuery(const nsCString& uri) {
   NS_ASSERTION(IsQueryURI(uri), "should only be called for query URIs");
-  return Substring(uri, NS_LITERAL_CSTRING(PLACES_URI_PREFIX).Length());
+  return Substring(uri, nsLiteralCString(PLACES_URI_PREFIX).Length());
 }
 
 #endif  // nsNavHistory_h_

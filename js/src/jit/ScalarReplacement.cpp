@@ -13,7 +13,6 @@
 #include "jit/MIR.h"
 #include "jit/MIRGenerator.h"
 #include "jit/MIRGraph.h"
-#include "vm/UnboxedObject.h"
 
 #include "vm/JSObject-inl.h"
 
@@ -23,7 +22,7 @@ namespace jit {
 template <typename MemoryView>
 class EmulateStateOf {
  private:
-  typedef typename MemoryView::BlockState BlockState;
+  using BlockState = typename MemoryView::BlockState;
 
   MIRGenerator* mir_;
   MIRGraph& graph_;
@@ -110,7 +109,8 @@ static bool IsObjectEscaped(MInstruction* ins, JSObject* objDefault = nullptr);
 // Returns False if the lambda is not escaped and if it is optimizable by
 // ScalarReplacementOfObject.
 static bool IsLambdaEscaped(MInstruction* lambda, JSObject* obj) {
-  MOZ_ASSERT(lambda->isLambda() || lambda->isLambdaArrow());
+  MOZ_ASSERT(lambda->isLambda() || lambda->isLambdaArrow() ||
+             lambda->isFunctionWithProto());
   JitSpewDef(JitSpew_Escape, "Check lambda\n", lambda);
   JitSpewIndent spewIndent(JitSpew_Escape);
 
@@ -155,8 +155,7 @@ static inline bool IsOptimizableObjectInstruction(MInstruction* ins) {
 static bool IsObjectEscaped(MInstruction* ins, JSObject* objDefault) {
   MOZ_ASSERT(ins->type() == MIRType::Object);
   MOZ_ASSERT(IsOptimizableObjectInstruction(ins) || ins->isGuardShape() ||
-             ins->isGuardObjectGroup() || ins->isGuardUnboxedExpando() ||
-             ins->isFunctionEnvironment());
+             ins->isGuardObjectGroup() || ins->isFunctionEnvironment());
 
   JitSpewDef(JitSpew_Escape, "Check object\n", ins);
   JitSpewIndent spewIndent(JitSpew_Escape);
@@ -197,39 +196,21 @@ static bool IsObjectEscaped(MInstruction* ins, JSObject* objDefault) {
         JitSpewDef(JitSpew_Escape, "is escaped by\n", def);
         return true;
 
-      case MDefinition::Opcode::LoadUnboxedScalar:
-      case MDefinition::Opcode::StoreUnboxedScalar:
-      case MDefinition::Opcode::LoadUnboxedObjectOrNull:
-      case MDefinition::Opcode::StoreUnboxedObjectOrNull:
-      case MDefinition::Opcode::LoadUnboxedString:
-      case MDefinition::Opcode::StoreUnboxedString:
-        // Not escaped if it is the first argument.
-        if (def->indexOf(*i) != 0) {
-          JitSpewDef(JitSpew_Escape, "is escaped by\n", def);
-          return true;
-        }
-
-        if (!def->getOperand(1)->isConstant()) {
-          JitSpewDef(JitSpew_Escape, "is addressed with unknown index\n", def);
-          return true;
-        }
-
-        break;
-
       case MDefinition::Opcode::PostWriteBarrier:
         break;
 
       case MDefinition::Opcode::Slots: {
 #ifdef DEBUG
-        // Assert that MSlots are only used by MStoreSlot and MLoadSlot.
+        // Assert that MSlots are only used by MStoreDynamicSlot and
+        // MLoadDynamicSlot.
         MSlots* ins = def->toSlots();
         MOZ_ASSERT(ins->object() != 0);
         for (MUseIterator i(ins->usesBegin()); i != ins->usesEnd(); i++) {
           // toDefinition should normally never fail, since they don't get
           // captured by resume points.
           MDefinition* def = (*i)->consumer()->toDefinition();
-          MOZ_ASSERT(def->op() == MDefinition::Opcode::StoreSlot ||
-                     def->op() == MDefinition::Opcode::LoadSlot);
+          MOZ_ASSERT(def->op() == MDefinition::Opcode::StoreDynamicSlot ||
+                     def->op() == MDefinition::Opcode::LoadDynamicSlot);
         }
 #endif
         break;
@@ -238,7 +219,7 @@ static bool IsObjectEscaped(MInstruction* ins, JSObject* objDefault) {
       case MDefinition::Opcode::GuardShape: {
         MGuardShape* guard = def->toGuardShape();
         MOZ_ASSERT(!ins->isGuardShape());
-        if (obj->maybeShape() != guard->shape()) {
+        if (obj->shape() != guard->shape()) {
           JitSpewDef(JitSpew_Escape, "has a non-matching guard shape\n", guard);
           return true;
         }
@@ -263,27 +244,9 @@ static bool IsObjectEscaped(MInstruction* ins, JSObject* objDefault) {
         break;
       }
 
-      case MDefinition::Opcode::GuardUnboxedExpando: {
-        MGuardUnboxedExpando* guard = def->toGuardUnboxedExpando();
-        MOZ_ASSERT(!ins->isGuardUnboxedExpando());
-        if (guard->requireExpando()) {
-          JitSpewDef(JitSpew_Escape, "requires an unboxed expando object\n",
-                     guard);
-          return true;
-        }
-        if (obj->as<UnboxedPlainObject>().maybeExpando()) {
-          JitSpewDef(JitSpew_Escape, "has an expando object\n", guard);
-          return true;
-        }
-        if (IsObjectEscaped(def->toInstruction(), obj)) {
-          JitSpewDef(JitSpew_Escape, "is indirectly escaped by\n", def);
-          return true;
-        }
-        break;
-      }
-
       case MDefinition::Opcode::Lambda:
-      case MDefinition::Opcode::LambdaArrow: {
+      case MDefinition::Opcode::LambdaArrow:
+      case MDefinition::Opcode::FunctionWithProto: {
         if (IsLambdaEscaped(def->toInstruction(), obj)) {
           JitSpewDef(JitSpew_Escape, "is indirectly escaped by\n", def);
           return true;
@@ -308,7 +271,7 @@ static bool IsObjectEscaped(MInstruction* ins, JSObject* objDefault) {
 
 class ObjectMemoryView : public MDefinitionVisitorDefaultNoop {
  public:
-  typedef MObjectState BlockState;
+  using BlockState = MObjectState;
   static const char phaseName[];
 
  private:
@@ -347,24 +310,16 @@ class ObjectMemoryView : public MDefinitionVisitorDefaultNoop {
   void visitStoreFixedSlot(MStoreFixedSlot* ins);
   void visitLoadFixedSlot(MLoadFixedSlot* ins);
   void visitPostWriteBarrier(MPostWriteBarrier* ins);
-  void visitStoreSlot(MStoreSlot* ins);
-  void visitLoadSlot(MLoadSlot* ins);
+  void visitStoreDynamicSlot(MStoreDynamicSlot* ins);
+  void visitLoadDynamicSlot(MLoadDynamicSlot* ins);
   void visitGuardShape(MGuardShape* ins);
   void visitGuardObjectGroup(MGuardObjectGroup* ins);
-  void visitGuardUnboxedExpando(MGuardUnboxedExpando* ins);
   void visitFunctionEnvironment(MFunctionEnvironment* ins);
   void visitLambda(MLambda* ins);
   void visitLambdaArrow(MLambdaArrow* ins);
-  void visitStoreUnboxedScalar(MStoreUnboxedScalar* ins);
-  void visitLoadUnboxedScalar(MLoadUnboxedScalar* ins);
-  void visitStoreUnboxedObjectOrNull(MStoreUnboxedObjectOrNull* ins);
-  void visitLoadUnboxedObjectOrNull(MLoadUnboxedObjectOrNull* ins);
-  void visitStoreUnboxedString(MStoreUnboxedString* ins);
-  void visitLoadUnboxedString(MLoadUnboxedString* ins);
+  void visitFunctionWithProto(MFunctionWithProto* ins);
 
  private:
-  void storeOffset(MInstruction* ins, size_t offset, MDefinition* value);
-  void loadOffset(MInstruction* ins, size_t offset);
   void visitObjectGuard(MInstruction* ins, MDefinition* operand);
 };
 
@@ -521,7 +476,8 @@ void ObjectMemoryView::assertSuccess() {
 
     // The only remaining uses would be removed by DCE, which will also
     // recover the object on bailouts.
-    MOZ_ASSERT(def->isSlots() || def->isLambda() || def->isLambdaArrow());
+    MOZ_ASSERT(def->isSlots() || def->isLambda() || def->isLambdaArrow() ||
+               def->isFunctionWithProto());
     MOZ_ASSERT(!def->hasDefUses());
   }
 }
@@ -561,7 +517,7 @@ void ObjectMemoryView::visitStoreFixedSlot(MStoreFixedSlot* ins) {
   } else {
     // UnsafeSetReserveSlot can access baked-in slots which are guarded by
     // conditions, which are not seen by the escape analysis.
-    MBail* bailout = MBail::New(alloc_, Bailout_Inevitable);
+    MBail* bailout = MBail::New(alloc_, BailoutKind::Inevitable);
     ins->block()->insertBefore(ins, bailout);
   }
 
@@ -581,7 +537,7 @@ void ObjectMemoryView::visitLoadFixedSlot(MLoadFixedSlot* ins) {
   } else {
     // UnsafeGetReserveSlot can access baked-in slots which are guarded by
     // conditions, which are not seen by the escape analysis.
-    MBail* bailout = MBail::New(alloc_, Bailout_Inevitable);
+    MBail* bailout = MBail::New(alloc_, BailoutKind::Inevitable);
     ins->block()->insertBefore(ins, bailout);
     ins->replaceAllUsesWith(undefinedVal_);
   }
@@ -600,7 +556,7 @@ void ObjectMemoryView::visitPostWriteBarrier(MPostWriteBarrier* ins) {
   ins->block()->discard(ins);
 }
 
-void ObjectMemoryView::visitStoreSlot(MStoreSlot* ins) {
+void ObjectMemoryView::visitStoreDynamicSlot(MStoreDynamicSlot* ins) {
   // Skip stores made on other objects.
   MSlots* slots = ins->slots()->toSlots();
   if (slots->object() != obj_) {
@@ -623,7 +579,7 @@ void ObjectMemoryView::visitStoreSlot(MStoreSlot* ins) {
   } else {
     // UnsafeSetReserveSlot can access baked-in slots which are guarded by
     // conditions, which are not seen by the escape analysis.
-    MBail* bailout = MBail::New(alloc_, Bailout_Inevitable);
+    MBail* bailout = MBail::New(alloc_, BailoutKind::Inevitable);
     ins->block()->insertBefore(ins, bailout);
   }
 
@@ -631,7 +587,7 @@ void ObjectMemoryView::visitStoreSlot(MStoreSlot* ins) {
   ins->block()->discard(ins);
 }
 
-void ObjectMemoryView::visitLoadSlot(MLoadSlot* ins) {
+void ObjectMemoryView::visitLoadDynamicSlot(MLoadDynamicSlot* ins) {
   // Skip loads made on other objects.
   MSlots* slots = ins->slots()->toSlots();
   if (slots->object() != obj_) {
@@ -647,7 +603,7 @@ void ObjectMemoryView::visitLoadSlot(MLoadSlot* ins) {
   } else {
     // UnsafeGetReserveSlot can access baked-in slots which are guarded by
     // conditions, which are not seen by the escape analysis.
-    MBail* bailout = MBail::New(alloc_, Bailout_Inevitable);
+    MBail* bailout = MBail::New(alloc_, BailoutKind::Inevitable);
     ins->block()->insertBefore(ins, bailout);
     ins->replaceAllUsesWith(undefinedVal_);
   }
@@ -682,10 +638,6 @@ void ObjectMemoryView::visitGuardObjectGroup(MGuardObjectGroup* ins) {
   visitObjectGuard(ins, ins->object());
 }
 
-void ObjectMemoryView::visitGuardUnboxedExpando(MGuardUnboxedExpando* ins) {
-  visitObjectGuard(ins, ins->object());
-}
-
 void ObjectMemoryView::visitFunctionEnvironment(MFunctionEnvironment* ins) {
   // Skip function environment which are not aliases of the NewCallObject.
   MDefinition* input = ins->input();
@@ -695,6 +647,10 @@ void ObjectMemoryView::visitFunctionEnvironment(MFunctionEnvironment* ins) {
     }
   } else if (input->isLambdaArrow()) {
     if (input->toLambdaArrow()->environmentChain() != obj_) {
+      return;
+    }
+  } else if (input->isFunctionWithProto()) {
+    if (input->toFunctionWithProto()->environmentChain() != obj_) {
       return;
     }
   } else {
@@ -726,117 +682,12 @@ void ObjectMemoryView::visitLambdaArrow(MLambdaArrow* ins) {
   ins->setIncompleteObject();
 }
 
-static size_t GetOffsetOf(MDefinition* index, size_t width,
-                          int32_t baseOffset) {
-  int32_t idx = index->toConstant()->toInt32();
-  MOZ_ASSERT(idx >= 0);
-  MOZ_ASSERT(baseOffset >= 0 &&
-             size_t(baseOffset) >= UnboxedPlainObject::offsetOfData());
-  return idx * width + baseOffset - UnboxedPlainObject::offsetOfData();
-}
-
-static size_t GetOffsetOf(MDefinition* index, Scalar::Type type,
-                          int32_t baseOffset) {
-  return GetOffsetOf(index, Scalar::byteSize(type), baseOffset);
-}
-
-void ObjectMemoryView::storeOffset(MInstruction* ins, size_t offset,
-                                   MDefinition* value) {
-  // Clone the state and update the slot value.
-  MOZ_ASSERT(state_->hasOffset(offset));
-  state_ = BlockState::Copy(alloc_, state_);
-  if (!state_) {
-    oom_ = true;
+void ObjectMemoryView::visitFunctionWithProto(MFunctionWithProto* ins) {
+  if (ins->environmentChain() != obj_) {
     return;
   }
 
-  state_->setOffset(offset, value);
-  ins->block()->insertBefore(ins, state_);
-
-  // Remove original instruction.
-  ins->block()->discard(ins);
-}
-
-void ObjectMemoryView::loadOffset(MInstruction* ins, size_t offset) {
-  // Replace load by the slot value.
-  MOZ_ASSERT(state_->hasOffset(offset));
-  ins->replaceAllUsesWith(state_->getOffset(offset));
-
-  // Remove original instruction.
-  ins->block()->discard(ins);
-}
-
-void ObjectMemoryView::visitStoreUnboxedScalar(MStoreUnboxedScalar* ins) {
-  // Skip stores made on other objects.
-  if (ins->elements() != obj_) {
-    return;
-  }
-
-  size_t offset =
-      GetOffsetOf(ins->index(), ins->storageType(), ins->offsetAdjustment());
-  storeOffset(ins, offset, ins->value());
-}
-
-void ObjectMemoryView::visitLoadUnboxedScalar(MLoadUnboxedScalar* ins) {
-  // Skip loads made on other objects.
-  if (ins->elements() != obj_) {
-    return;
-  }
-
-  // Replace load by the slot value.
-  size_t offset =
-      GetOffsetOf(ins->index(), ins->storageType(), ins->offsetAdjustment());
-  loadOffset(ins, offset);
-}
-
-void ObjectMemoryView::visitStoreUnboxedObjectOrNull(
-    MStoreUnboxedObjectOrNull* ins) {
-  // Skip stores made on other objects.
-  if (ins->elements() != obj_) {
-    return;
-  }
-
-  // Clone the state and update the slot value.
-  size_t offset =
-      GetOffsetOf(ins->index(), sizeof(uintptr_t), ins->offsetAdjustment());
-  storeOffset(ins, offset, ins->value());
-}
-
-void ObjectMemoryView::visitLoadUnboxedObjectOrNull(
-    MLoadUnboxedObjectOrNull* ins) {
-  // Skip loads made on other objects.
-  if (ins->elements() != obj_) {
-    return;
-  }
-
-  // Replace load by the slot value.
-  size_t offset =
-      GetOffsetOf(ins->index(), sizeof(uintptr_t), ins->offsetAdjustment());
-  loadOffset(ins, offset);
-}
-
-void ObjectMemoryView::visitStoreUnboxedString(MStoreUnboxedString* ins) {
-  // Skip stores made on other objects.
-  if (ins->elements() != obj_) {
-    return;
-  }
-
-  // Clone the state and update the slot value.
-  size_t offset =
-      GetOffsetOf(ins->index(), sizeof(uintptr_t), ins->offsetAdjustment());
-  storeOffset(ins, offset, ins->value());
-}
-
-void ObjectMemoryView::visitLoadUnboxedString(MLoadUnboxedString* ins) {
-  // Skip loads made on other objects.
-  if (ins->elements() != obj_) {
-    return;
-  }
-
-  // Replace load by the slot value.
-  size_t offset =
-      GetOffsetOf(ins->index(), sizeof(uintptr_t), ins->offsetAdjustment());
-  loadOffset(ins, offset);
+  ins->setIncompleteObject();
 }
 
 static bool IndexOf(MDefinition* ins, int32_t* res) {
@@ -904,41 +755,39 @@ static bool IsElementEscaped(MDefinition* def, uint32_t arraySize) {
       }
 
       case MDefinition::Opcode::StoreElement: {
-        MOZ_ASSERT(access->toStoreElement()->elements() == def);
+        MStoreElement* storeElem = access->toStoreElement();
+        MOZ_ASSERT(storeElem->elements() == def);
 
         // If we need hole checks, then the array cannot be escaped
         // as the array might refer to the prototype chain to look
         // for properties, thus it might do additional side-effects
         // which are not reflected by the alias set, is we are
         // bailing on holes.
-        if (access->toStoreElement()->needsHoleCheck()) {
+        if (storeElem->needsHoleCheck()) {
           JitSpewDef(JitSpew_Escape, "has a store element with a hole check\n",
-                     access);
+                     storeElem);
           return true;
         }
 
         // If the index is not a constant then this index can alias
         // all others. We do not handle this case.
         int32_t index;
-        if (!IndexOf(access, &index)) {
+        if (!IndexOf(storeElem, &index)) {
           JitSpewDef(JitSpew_Escape,
-                     "has a store element with a non-trivial index\n", access);
+                     "has a store element with a non-trivial index\n",
+                     storeElem);
           return true;
         }
         if (index < 0 || arraySize <= uint32_t(index)) {
           JitSpewDef(JitSpew_Escape,
                      "has a store element with an out-of-bound index\n",
-                     access);
+                     storeElem);
           return true;
         }
 
-        // We are not yet encoding magic hole constants in resume points.
-        if (access->toStoreElement()->value()->type() == MIRType::MagicHole) {
-          JitSpewDef(JitSpew_Escape,
-                     "has a store element with an magic-hole constant\n",
-                     access);
-          return true;
-        }
+        // Dense element holes are written using MStoreHoleValueElement instead
+        // of MStoreElement.
+        MOZ_ASSERT(storeElem->value()->type() != MIRType::MagicHole);
         break;
       }
 
@@ -1066,7 +915,7 @@ static bool IsArrayEscaped(MInstruction* ins, MInstruction* newArray) {
 // replace all reference of the allocation by the MArrayState definition.
 class ArrayMemoryView : public MDefinitionVisitorDefaultNoop {
  public:
-  typedef MArrayState BlockState;
+  using BlockState = MArrayState;
   static const char* phaseName;
 
  private:

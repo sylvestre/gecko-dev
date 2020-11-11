@@ -2,8 +2,7 @@
 <html>
 <head>
   <title>Test for alerts with requireInteraction</title>
-  <script type="text/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
-  <script type="text/javascript" src="/tests/SimpleTest/AddTask.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css"/>
 </head>
 <body>
@@ -15,8 +14,8 @@ const Cc = SpecialPowers.Cc;
 const Ci = SpecialPowers.Ci;
 
 const chromeScript = SpecialPowers.loadChromeScript(_ => {
-  ChromeUtils.import("resource://gre/modules/Services.jsm");
-  ChromeUtils.import("resource://gre/modules/Timer.jsm");
+  const {Services} = ChromeUtils.import("resource://gre/modules/Services.jsm");
+  const {clearTimeout, setTimeout} = ChromeUtils.import("resource://gre/modules/Timer.jsm");
 
   addMessageListener("waitForXULAlert", function() {
     var timer = setTimeout(function() {
@@ -24,12 +23,11 @@ const chromeScript = SpecialPowers.loadChromeScript(_ => {
       sendAsyncMessage("waitForXULAlert", false);
     }, 2000);
 
-    var windowObserver = function(aSubject, aTopic, aData) {
+    var windowObserver = function(win, aTopic, aData) {
       if (aTopic != "domwindowopened") {
         return;
       }
 
-      var win = aSubject.QueryInterface(Ci.nsIDOMWindow);
       win.addEventListener("load", function() {
         let windowType = win.document.documentElement.getAttribute("windowtype");
         if (windowType == "alert:alert") {

@@ -1,4 +1,3 @@
-/* vim: set ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -9,7 +8,7 @@
 
 add_task(async function() {
   await addTab(URL_ROOT + "doc_boxmodel_iframe1.html");
-  const {inspector, boxmodel, testActor} = await openLayoutView();
+  const { inspector, boxmodel, testActor } = await openLayoutView();
 
   await testResizingInIframe(inspector, boxmodel, testActor);
   await testReflowsAfterIframeDeletion(inspector, boxmodel, testActor);
@@ -36,8 +35,10 @@ async function testResizingInIframe(inspector, boxmodel, testActor) {
 }
 
 async function testReflowsAfterIframeDeletion(inspector, boxmodel, testActor) {
-  info("Test reflows are still sent to the box model view after deleting an " +
-       "iframe");
+  info(
+    "Test reflows are still sent to the box model view after deleting an " +
+      "iframe"
+  );
 
   info("Deleting the iframe2");
   const onInspectorUpdated = inspector.once("inspector-updated");

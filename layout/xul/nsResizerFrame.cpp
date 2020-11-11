@@ -4,18 +4,18 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "nsAutoPtr.h"
 #include "nsCOMPtr.h"
-#include "nsIServiceManager.h"
 #include "nsResizerFrame.h"
 #include "nsIContent.h"
-#include "nsIDocument.h"
+#include "mozilla/PresShell.h"
+#include "mozilla/dom/Document.h"
+#include "mozilla/UniquePtr.h"
 #include "nsGkAtoms.h"
 #include "nsNameSpaceManager.h"
 
 #include "nsPresContext.h"
 #include "nsFrameManager.h"
-#include "nsIDocShell.h"
+#include "nsDocShell.h"
 #include "nsIDocShellTreeOwner.h"
 #include "nsIBaseWindow.h"
 #include "nsPIDOMWindow.h"
@@ -37,14 +37,15 @@ using namespace mozilla;
 //
 // Creates a new Resizer frame and returns it
 //
-nsIFrame* NS_NewResizerFrame(nsIPresShell* aPresShell, ComputedStyle* aStyle) {
-  return new (aPresShell) nsResizerFrame(aStyle);
+nsIFrame* NS_NewResizerFrame(PresShell* aPresShell, ComputedStyle* aStyle) {
+  return new (aPresShell) nsResizerFrame(aStyle, aPresShell->GetPresContext());
 }
 
 NS_IMPL_FRAMEARENA_HELPERS(nsResizerFrame)
 
-nsResizerFrame::nsResizerFrame(ComputedStyle* aStyle)
-    : nsTitleBarFrame(aStyle, kClassID) {}
+nsResizerFrame::nsResizerFrame(ComputedStyle* aStyle,
+                               nsPresContext* aPresContext)
+    : nsTitleBarFrame(aStyle, aPresContext, kClassID) {}
 
 nsresult nsResizerFrame::HandleEvent(nsPresContext* aPresContext,
                                      WidgetGUIEvent* aEvent,
@@ -62,9 +63,9 @@ nsresult nsResizerFrame::HandleEvent(nsPresContext* aPresContext,
     case eMouseDown: {
       if (aEvent->mClass == eTouchEventClass ||
           (aEvent->mClass == eMouseEventClass &&
-           aEvent->AsMouseEvent()->button == WidgetMouseEvent::eLeftButton)) {
+           aEvent->AsMouseEvent()->mButton == MouseButton::ePrimary)) {
         nsCOMPtr<nsIBaseWindow> window;
-        nsIPresShell* presShell = aPresContext->GetPresShell();
+        mozilla::PresShell* presShell = aPresContext->GetPresShell();
         nsIContent* contentToResize =
             GetContentToResize(presShell, getter_AddRefs(window));
         if (contentToResize) {
@@ -111,7 +112,8 @@ nsresult nsResizerFrame::HandleEvent(nsPresContext* aPresContext,
         // we're tracking
         mTrackingMouseMove = true;
 
-        nsIPresShell::SetCapturingContent(GetContent(), CAPTURE_IGNOREALLOWED);
+        PresShell::SetCapturingContent(GetContent(),
+                                       CaptureFlags::IgnoreAllowedState);
       }
     } break;
 
@@ -119,11 +121,11 @@ nsresult nsResizerFrame::HandleEvent(nsPresContext* aPresContext,
     case eMouseUp: {
       if (aEvent->mClass == eTouchEventClass ||
           (aEvent->mClass == eMouseEventClass &&
-           aEvent->AsMouseEvent()->button == WidgetMouseEvent::eLeftButton)) {
+           aEvent->AsMouseEvent()->mButton == MouseButton::ePrimary)) {
         // we're done tracking.
         mTrackingMouseMove = false;
 
-        nsIPresShell::SetCapturingContent(nullptr, 0);
+        PresShell::ReleaseCapturingContent();
 
         doDefault = false;
       }
@@ -133,7 +135,7 @@ nsresult nsResizerFrame::HandleEvent(nsPresContext* aPresContext,
     case eMouseMove: {
       if (mTrackingMouseMove) {
         nsCOMPtr<nsIBaseWindow> window;
-        nsIPresShell* presShell = aPresContext->GetPresShell();
+        mozilla::PresShell* presShell = aPresContext->GetPresShell();
         nsCOMPtr<nsIContent> contentToResize =
             GetContentToResize(presShell, getter_AddRefs(window));
 
@@ -283,15 +285,22 @@ nsresult nsResizerFrame::HandleEvent(nsPresContext* aPresContext,
 
     case eMouseClick: {
       WidgetMouseEvent* mouseEvent = aEvent->AsMouseEvent();
-      if (mouseEvent->IsLeftClickEvent()) {
+      if (mouseEvent->IsLeftClickEvent()
+#ifdef XP_MACOSX
+          // On Mac, ctrl-click will send a context menu event from the widget,
+          // so we don't want to dispatch widget command if it is redispatched
+          // from the mouse event with ctrl key is pressed.
+          && !mouseEvent->IsControl()
+#endif
+      ) {
         MouseClicked(mouseEvent);
       }
       break;
     }
     case eMouseDoubleClick:
-      if (aEvent->AsMouseEvent()->button == WidgetMouseEvent::eLeftButton) {
+      if (aEvent->AsMouseEvent()->mButton == MouseButton::ePrimary) {
         nsCOMPtr<nsIBaseWindow> window;
-        nsIPresShell* presShell = aPresContext->GetPresShell();
+        mozilla::PresShell* presShell = aPresContext->GetPresShell();
         nsIContent* contentToResize =
             GetContentToResize(presShell, getter_AddRefs(window));
         if (contentToResize) {
@@ -318,7 +327,7 @@ nsresult nsResizerFrame::HandleEvent(nsPresContext* aPresContext,
   return NS_OK;
 }
 
-nsIContent* nsResizerFrame::GetContentToResize(nsIPresShell* aPresShell,
+nsIContent* nsResizerFrame::GetContentToResize(mozilla::PresShell* aPresShell,
                                                nsIBaseWindow** aWindow) {
   *aWindow = nullptr;
 
@@ -338,9 +347,7 @@ nsIContent* nsResizerFrame::GetContentToResize(nsIPresShell* aPresShell,
     }
 
     // don't allow resizing windows in content shells
-    nsCOMPtr<nsIDocShellTreeItem> dsti =
-        aPresShell->GetPresContext()->GetDocShell();
-    if (!dsti || dsti->ItemType() != nsIDocShellTreeItem::typeChrome) {
+    if (!aPresShell->GetPresContext()->IsChrome()) {
       // don't allow resizers in content shells, except for the viewport
       // scrollbar which doesn't have a parent
       nsIContent* nonNativeAnon =
@@ -393,10 +400,11 @@ void nsResizerFrame::AdjustDimensions(int32_t* aPos, int32_t* aSize,
   if (aResizerDirection == -1) *aPos += oldSize - *aSize;
 }
 
-/* static */ void nsResizerFrame::ResizeContent(nsIContent* aContent,
-                                                const Direction& aDirection,
-                                                const SizeInfo& aSizeInfo,
-                                                SizeInfo* aOriginalSizeInfo) {
+/* static */
+void nsResizerFrame::ResizeContent(nsIContent* aContent,
+                                   const Direction& aDirection,
+                                   const SizeInfo& aSizeInfo,
+                                   SizeInfo* aOriginalSizeInfo) {
   // for XUL elements, just set the width and height attributes. For
   // other elements, set style.width and style.height
   if (aContent->IsXULElement()) {
@@ -415,54 +423,52 @@ void nsResizerFrame::AdjustDimensions(int32_t* aPos, int32_t* aSize,
       aContent->AsElement()->SetAttr(kNameSpaceID_None, nsGkAtoms::height,
                                      aSizeInfo.height, true);
     }
-  } else {
-    nsCOMPtr<nsStyledElement> inlineStyleContent = do_QueryInterface(aContent);
-    if (inlineStyleContent) {
-      nsICSSDeclaration* decl = inlineStyleContent->Style();
+  } else if (RefPtr<nsStyledElement> inlineStyleContent =
+                 nsStyledElement::FromNode(aContent)) {
+    nsICSSDeclaration* decl = inlineStyleContent->Style();
 
-      if (aOriginalSizeInfo) {
-        decl->GetPropertyValue(NS_LITERAL_STRING("width"),
-                               aOriginalSizeInfo->width);
-        decl->GetPropertyValue(NS_LITERAL_STRING("height"),
-                               aOriginalSizeInfo->height);
-      }
+    if (aOriginalSizeInfo) {
+      decl->GetPropertyValue("width"_ns, aOriginalSizeInfo->width);
+      decl->GetPropertyValue("height"_ns, aOriginalSizeInfo->height);
+    }
 
-      // only set the property if the element could have changed in that
-      // direction
-      if (aDirection.mHorizontal) {
-        nsAutoString widthstr(aSizeInfo.width);
-        if (!widthstr.IsEmpty() &&
-            !Substring(widthstr, widthstr.Length() - 2, 2).EqualsLiteral("px"))
-          widthstr.AppendLiteral("px");
-        decl->SetProperty(NS_LITERAL_STRING("width"), widthstr, EmptyString());
-      }
-      if (aDirection.mVertical) {
-        nsAutoString heightstr(aSizeInfo.height);
-        if (!heightstr.IsEmpty() &&
-            !Substring(heightstr, heightstr.Length() - 2, 2)
-                 .EqualsLiteral("px"))
-          heightstr.AppendLiteral("px");
-        decl->SetProperty(NS_LITERAL_STRING("height"), heightstr,
-                          EmptyString());
-      }
+    // only set the property if the element could have changed in that
+    // direction
+    if (aDirection.mHorizontal) {
+      NS_ConvertUTF16toUTF8 widthstr(aSizeInfo.width);
+      if (!widthstr.IsEmpty() &&
+          !Substring(widthstr, widthstr.Length() - 2, 2).EqualsLiteral("px"))
+        widthstr.AppendLiteral("px");
+      decl->SetProperty("width"_ns, widthstr, u""_ns, IgnoreErrors());
+    }
+    if (aDirection.mVertical) {
+      NS_ConvertUTF16toUTF8 heightstr(aSizeInfo.height);
+      if (!heightstr.IsEmpty() &&
+          !Substring(heightstr, heightstr.Length() - 2, 2).EqualsLiteral("px"))
+        heightstr.AppendLiteral("px");
+      decl->SetProperty("height"_ns, heightstr, u""_ns, IgnoreErrors());
     }
   }
 }
 
-/* static */ void nsResizerFrame::MaybePersistOriginalSize(
-    nsIContent* aContent, const SizeInfo& aSizeInfo) {
+/* static */
+void nsResizerFrame::MaybePersistOriginalSize(nsIContent* aContent,
+                                              const SizeInfo& aSizeInfo) {
   nsresult rv;
 
   aContent->GetProperty(nsGkAtoms::_moz_original_size, &rv);
   if (rv != NS_PROPTABLE_PROP_NOT_THERE) return;
 
-  nsAutoPtr<SizeInfo> sizeInfo(new SizeInfo(aSizeInfo));
+  UniquePtr<SizeInfo> sizeInfo(new SizeInfo(aSizeInfo));
   rv = aContent->SetProperty(nsGkAtoms::_moz_original_size, sizeInfo.get(),
                              nsINode::DeleteProperty<nsResizerFrame::SizeInfo>);
-  if (NS_SUCCEEDED(rv)) sizeInfo.forget();
+  if (NS_SUCCEEDED(rv)) {
+    Unused << sizeInfo.release();
+  }
 }
 
-/* static */ void nsResizerFrame::RestoreOriginalSize(nsIContent* aContent) {
+/* static */
+void nsResizerFrame::RestoreOriginalSize(nsIContent* aContent) {
   nsresult rv;
   SizeInfo* sizeInfo = static_cast<SizeInfo*>(
       aContent->GetProperty(nsGkAtoms::_moz_original_size, &rv));
@@ -471,13 +477,13 @@ void nsResizerFrame::AdjustDimensions(int32_t* aPos, int32_t* aSize,
   NS_ASSERTION(sizeInfo, "We set a null sizeInfo!?");
   Direction direction = {1, 1};
   ResizeContent(aContent, direction, *sizeInfo, nullptr);
-  aContent->DeleteProperty(nsGkAtoms::_moz_original_size);
+  aContent->RemoveProperty(nsGkAtoms::_moz_original_size);
 }
 
 /* returns a Direction struct containing the horizontal and vertical direction
  */
 nsResizerFrame::Direction nsResizerFrame::GetDirection() {
-  static const Element::AttrValuesArray strings[] = {
+  static const mozilla::dom::Element::AttrValuesArray strings[] = {
       // clang-format off
      nsGkAtoms::topleft,    nsGkAtoms::top,    nsGkAtoms::topright,
      nsGkAtoms::left,                          nsGkAtoms::right,
@@ -510,7 +516,7 @@ nsResizerFrame::Direction nsResizerFrame::GetDirection() {
     // Directions 8 and higher are RTL-aware directions and should reverse the
     // horizontal component if RTL.
     WritingMode wm = GetWritingMode();
-    if (!(wm.IsVertical() ? wm.IsVerticalLR() : wm.IsBidiLTR())) {
+    if (wm.IsPhysicalRTL()) {
       Direction direction = directions[index];
       direction.mHorizontal *= -1;
       return direction;
@@ -522,7 +528,8 @@ nsResizerFrame::Direction nsResizerFrame::GetDirection() {
 
 void nsResizerFrame::MouseClicked(WidgetMouseEvent* aEvent) {
   // Execute the oncommand event handler.
+  nsCOMPtr<nsIContent> content = mContent;
   nsContentUtils::DispatchXULCommand(
-      mContent, false, nullptr, nullptr, aEvent->IsControl(), aEvent->IsAlt(),
-      aEvent->IsShift(), aEvent->IsMeta(), aEvent->inputSource);
+      content, false, nullptr, nullptr, aEvent->IsControl(), aEvent->IsAlt(),
+      aEvent->IsShift(), aEvent->IsMeta(), aEvent->mInputSource);
 }

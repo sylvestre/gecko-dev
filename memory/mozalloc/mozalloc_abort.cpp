@@ -8,11 +8,11 @@
 #include "mozilla/mozalloc_abort.h"
 
 #ifdef ANDROID
-#include <android/log.h>
+#  include <android/log.h>
 #endif
 #ifdef MOZ_WIDGET_ANDROID
-#include "APKOpen.h"
-#include "dlfcn.h"
+#  include "APKOpen.h"
+#  include "dlfcn.h"
 #endif
 #include <stdio.h>
 #include <string.h>
@@ -55,7 +55,8 @@ void fillAbortMessage(char (&msg)[N], uintptr_t retAddress) {
 }
 #endif
 
-#if defined(XP_UNIX) && !defined(MOZ_ASAN)
+#if defined(XP_UNIX) && !defined(MOZ_ASAN) && !defined(MOZ_TSAN) && \
+    !defined(LIBFUZZER)
 // Define abort() here, so that it is used instead of the system abort(). This
 // lets us control the behavior when aborting, in order to get better results
 // on *NIX platforms. See mozalloc_abort for details.
@@ -68,13 +69,19 @@ void fillAbortMessage(char (&msg)[N], uintptr_t retAddress) {
 //
 // That segmentation fault will be interpreted as another bug by ASan and as a
 // result, ASan will just exit(1) instead of aborting.
+//
+// The same applies to ThreadSanitizer when run with "halt_on_error=1" in
+// combination with "abort_on_error=1".
+//
+// When building with libFuzzer, it pulls in the UndefinedBehaviorSanitizer
+// runtime which also requires the same workaround as with ASan or TSan.
 extern "C" void abort(void) {
-#ifdef MOZ_WIDGET_ANDROID
+#  ifdef MOZ_WIDGET_ANDROID
   char msg[64] = {};
   fillAbortMessage(msg, uintptr_t(__builtin_return_address(0)));
-#else
+#  else
   const char* const msg = "Redirecting call to abort() to mozalloc_abort\n";
-#endif
+#  endif
 
   mozalloc_abort(msg);
 

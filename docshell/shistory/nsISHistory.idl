@@ -6,17 +6,19 @@
 #include "nsISupports.idl"
 
 interface nsIBFCacheEntry;
-interface nsIDocShell;
 interface nsISHEntry;
 interface nsISHistoryListener;
 interface nsIURI;
+webidl BrowsingContext;
 
 %{C++
 #include "nsTArrayForwardDeclare.h"
+#include "mozilla/Maybe.h"
+struct EntriesAndBrowsingContextData;
 %}
 
 [ref] native nsDocshellIDArray(nsTArray<nsID>);
-
+native MaybeInt32(mozilla::Maybe<int32_t>);
 /**
  * An interface to the primary properties of the Session History
  * component. In an embedded browser environment, the nsIWebBrowser
@@ -53,6 +55,14 @@ interface nsISHistory: nsISupports
   [infallible] readonly attribute long requestedIndex;
 
   /**
+   * Artifically set the |requestedIndex| for this nsISHEntry to the given
+   * index. This is used when resuming a cross-process load from a different
+   * process.
+   */
+  [noscript, notxpcom]
+  void internalSetRequestedIndex(in long aRequestedIndex);
+
+  /**
    * Get the history entry at a given index. Returns non-null on success.
    *
    * @param index             The index value whose entry is requested.
@@ -77,7 +87,7 @@ interface nsISHistory: nsISupports
    * @throws                  <code>NS_ERROR_FAILURE</code> numEntries is
    *                          invalid or out of bounds with the size of history.
    */
-  void PurgeHistory(in long aNumEntries);
+  void purgeHistory(in long aNumEntries);
 
   /**
    * Called to register a listener for the session history component.
@@ -117,6 +127,13 @@ interface nsISHistory: nsISupports
   void gotoIndex(in long aIndex);
 
   /**
+   * If an element exists at the particular index and
+   * whether it has user interaction.
+   */
+  [noscript,notxpcom]
+  boolean hasUserInteractionAtIndex(in long aIndex);
+
+  /**
    * Called to obtain the index to a given history entry.
    *
    * @param aEntry            The entry to obtain the index of.
@@ -141,12 +158,6 @@ interface nsISHistory: nsISupports
   void addEntry(in nsISHEntry aEntry, in boolean aPersist);
 
   /**
-   * Sets the toplevel docshell object to which this SHistory object belongs to.
-   */
-  [noscript, notxpcom]
-  void setRootDocShell(in nsIDocShell rootDocShell);
-
-  /**
    * Update the index maintained by sessionHistory
    */
   void updateIndex();
@@ -163,15 +174,9 @@ interface nsISHistory: nsISupports
    * Notifies all registered session history listeners about an impending
    * reload.
    *
-   * @param aReloadURI        The URI of the document to be reloaded.
-   * @param aReloadFlags      Flags that indicate how the document is to be
-   *                          refreshed. See constants on the nsIWebNavigation
-   *                          interface.
-   *
    * @return                  Whether the operation can proceed.
    */
-  boolean notifyOnHistoryReload(in nsIURI aReloadURI,
-                                in unsigned long aReloadFlags);
+  boolean notifyOnHistoryReload();
 
   /**
    * Evict content viewers which don't lie in the "safe" range around aIndex.
@@ -245,4 +250,35 @@ interface nsISHistory: nsISupports
    */
   [noscript, notxpcom]
   void RemoveEntries(in nsDocshellIDArray aIDs, in long aStartIndex);
+
+  /**
+   * Collect docshellIDs from aEntry's children and remove those
+   * entries from history.
+   *
+   * @param aEntry           Children docshellID's will be collected from
+   *                         this entry and passed to RemoveEntries as aIDs.
+  */
+  [noscript, notxpcom]
+  void RemoveFrameEntries(in nsISHEntry aEntry);
+
+  [noscript]
+  void Reload(in unsigned long aReloadFlags);
+
+  [notxpcom] void EnsureCorrectEntryAtCurrIndex(in nsISHEntry aEntry);
+
+  [notxpcom] void EvictContentViewersOrReplaceEntry(in nsISHEntry aNewSHEntry, in bool aReplace);
+
+  nsISHEntry createEntry();
+
+  [noscript] void AddToRootSessionHistory(in bool aCloneChildren, in nsISHEntry aOSHE,
+                                          in BrowsingContext aRootBC, in nsISHEntry aEntry,
+                                          in unsigned long aLoadType,
+                                          in bool aShouldPersist,
+                                          out MaybeInt32 aPreviousEntryIndex,
+                                          out MaybeInt32 aLoadedEntryIndex);
+
+  [noscript] void AddChildSHEntryHelper(in nsISHEntry aCloneRef, in nsISHEntry aNewEntry,
+                                        in BrowsingContext aRootBC, in bool aCloneChildren);
+
+  [noscript, notxpcom] boolean isEmptyOrHasEntriesForSingleTopLevelPage();
 };

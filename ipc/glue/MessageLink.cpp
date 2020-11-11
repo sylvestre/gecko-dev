@@ -10,6 +10,7 @@
 #include "mozilla/ipc/BrowserProcessSubThread.h"
 #include "mozilla/ipc/ProtocolUtils.h"
 #include "chrome/common/ipc_channel.h"
+#include "base/task.h"
 
 #include "mozilla/Assertions.h"
 #include "mozilla/DebugOnly.h"
@@ -20,7 +21,6 @@
 #include "nsXULAppAPI.h"
 
 using namespace mozilla;
-using namespace std;
 
 // We rely on invariants about the lifetime of the transport:
 //
@@ -38,7 +38,7 @@ using namespace std;
 namespace mozilla {
 namespace ipc {
 
-MessageLink::MessageLink(MessageChannel *aChan) : mChan(aChan) {}
+MessageLink::MessageLink(MessageChannel* aChan) : mChan(aChan) {}
 
 MessageLink::~MessageLink() {
 #ifdef DEBUG
@@ -46,29 +46,30 @@ MessageLink::~MessageLink() {
 #endif
 }
 
-ProcessLink::ProcessLink(MessageChannel *aChan)
-    : MessageLink(aChan),
-      mTransport(nullptr),
-      mIOLoop(nullptr),
-      mExistingListener(nullptr) {}
+ProcessLink::ProcessLink(MessageChannel* aChan)
+    : MessageLink(aChan), mIOLoop(nullptr), mExistingListener(nullptr) {}
 
 ProcessLink::~ProcessLink() {
+  // Dispatch the delete of the transport to the IO thread.
+  RefPtr<DeleteTask<IPC::Channel>> task =
+      new DeleteTask<IPC::Channel>(mTransport.release());
+  XRE_GetIOMessageLoop()->PostTask(task.forget());
+
 #ifdef DEBUG
-  mTransport = nullptr;
   mIOLoop = nullptr;
   mExistingListener = nullptr;
 #endif
 }
 
-void ProcessLink::Open(mozilla::ipc::Transport *aTransport,
-                       MessageLoop *aIOLoop, Side aSide) {
+void ProcessLink::Open(UniquePtr<Transport> aTransport, MessageLoop* aIOLoop,
+                       Side aSide) {
   mChan->AssertWorkerThread();
 
   MOZ_ASSERT(aTransport, "need transport layer");
 
   // FIXME need to check for valid channel
 
-  mTransport = aTransport;
+  mTransport = std::move(aTransport);
 
   // FIXME figure out whether we're in parent or child, grab IO loop
   // appropriately
@@ -90,7 +91,7 @@ void ProcessLink::Open(mozilla::ipc::Transport *aTransport,
   mIOLoop = aIOLoop;
 
   NS_ASSERTION(mIOLoop, "need an IO loop");
-  NS_ASSERTION(mChan->mWorkerLoop, "need a worker loop");
+  NS_ASSERTION(mChan->mWorkerThread, "need a worker thread");
 
   // If we were never able to open the transport, immediately post an error
   // message.
@@ -131,24 +132,14 @@ void ProcessLink::Open(mozilla::ipc::Transport *aTransport,
   }
 }
 
-void ProcessLink::EchoMessage(Message *msg) {
-  mChan->AssertWorkerThread();
-  mChan->mMonitor->AssertCurrentThreadOwns();
-
-  mIOLoop->PostTask(NewNonOwningRunnableMethod<Message *>(
-      "ipc::ProcessLink::OnEchoMessage", this, &ProcessLink::OnEchoMessage,
-      msg));
-  // OnEchoMessage takes ownership of |msg|
-}
-
-void ProcessLink::SendMessage(Message *msg) {
+void ProcessLink::SendMessage(UniquePtr<Message> msg) {
   if (msg->size() > IPC::Channel::kMaximumMessageSize) {
     CrashReporter::AnnotateCrashReport(
         CrashReporter::Annotation::IPCMessageName,
         nsDependentCString(msg->name()));
     CrashReporter::AnnotateCrashReport(
         CrashReporter::Annotation::IPCMessageSize,
-        static_cast<int>(msg->size()));
+        static_cast<unsigned int>(msg->size()));
     MOZ_CRASH("IPC message size is too large");
   }
 
@@ -157,8 +148,11 @@ void ProcessLink::SendMessage(Message *msg) {
   }
   mChan->mMonitor->AssertCurrentThreadOwns();
 
-  mIOLoop->PostTask(NewNonOwningRunnableMethod<Message *>(
-      "IPC::Channel::Send", mTransport, &Transport::Send, msg));
+  msg->AssertAsLargeAsHeader();
+
+  mIOLoop->PostTask(NewNonOwningRunnableMethod<UniquePtr<Message>&&>(
+      "IPC::Channel::Send", mTransport.get(), &Transport::Send,
+      std::move(msg)));
 }
 
 void ProcessLink::SendClose() {
@@ -169,10 +163,10 @@ void ProcessLink::SendClose() {
       "ipc::ProcessLink::OnCloseChannel", this, &ProcessLink::OnCloseChannel));
 }
 
-ThreadLink::ThreadLink(MessageChannel *aChan, MessageChannel *aTargetChan)
+ThreadLink::ThreadLink(MessageChannel* aChan, MessageChannel* aTargetChan)
     : MessageLink(aChan), mTargetChan(aTargetChan) {}
 
-ThreadLink::~ThreadLink() {
+void ThreadLink::PrepareToDestroy() {
   MOZ_ASSERT(mChan);
   MOZ_ASSERT(mChan->mMonitor);
   MonitorAutoLock lock(*mChan->mMonitor);
@@ -192,30 +186,47 @@ ThreadLink::~ThreadLink() {
   // to our MessageChannel.  Note that we must hold the monitor so
   // that we do this atomically with respect to them trying to send
   // us a message.  Since the channels share the same monitor this
-  // also protects against the two ~ThreadLink() calls racing.
+  // also protects against the two PrepareToDestroy() calls racing.
+  //
+  //
+  // Why splitting is done in a method separate from ~ThreadLink:
+  //
+  // ThreadLinks are destroyed in MessageChannel::Clear(), when
+  // nullptr is assigned to the UniquePtr<> MessageChannel::mLink.
+  // This single line of code gets executed in three separate steps:
+  // 1. Load the value of mLink into a temporary.
+  // 2. Store nullptr in the mLink field.
+  // 3. Call the destructor on the temporary from step 1.
+  // This is all done without holding the monitor.
+  // The splitting operation, among other things, loads the mLink field
+  // of the other thread's MessageChannel while holding the monitor.
+  // If splitting was done in the destructor, and the two sides were
+  // both running MessageChannel::Clear(), then there would be a race
+  // between the store to mLink in Clear() and the load of mLink
+  // during splitting.
+  // Instead, we call PrepareToDestroy() prior to step 1. One thread or
+  // the other will run the entire method before the other thread,
+  // because this method acquires the monitor. Once that is done, the
+  // mTargetChan of both ThreadLink will be null, so they will no
+  // longer be able to access the other and so there won't be any races.
+  //
+  // An alternate approach would be to hold the monitor in Clear() or
+  // make mLink atomic, but MessageLink does not have to worry about
+  // Clear() racing with Clear(), so it would be inefficient.
   if (mTargetChan) {
     MOZ_ASSERT(mTargetChan->mLink);
-    static_cast<ThreadLink *>(mTargetChan->mLink)->mTargetChan = nullptr;
+    static_cast<ThreadLink*>(mTargetChan->mLink.get())->mTargetChan = nullptr;
   }
   mTargetChan = nullptr;
 }
 
-void ThreadLink::EchoMessage(Message *msg) {
-  mChan->AssertWorkerThread();
-  mChan->mMonitor->AssertCurrentThreadOwns();
-
-  mChan->OnMessageReceivedFromLink(std::move(*msg));
-  delete msg;
-}
-
-void ThreadLink::SendMessage(Message *msg) {
+void ThreadLink::SendMessage(UniquePtr<Message> msg) {
   if (!mChan->mIsPostponingSends) {
     mChan->AssertWorkerThread();
   }
   mChan->mMonitor->AssertCurrentThreadOwns();
 
   if (mTargetChan) mTargetChan->OnMessageReceivedFromLink(std::move(*msg));
-  delete msg;
 }
 
 void ThreadLink::SendClose() {
@@ -246,17 +257,11 @@ uint32_t ThreadLink::Unsound_NumQueuedMessages() const {
 // The methods below run in the context of the IO thread
 //
 
-void ProcessLink::OnMessageReceived(Message &&msg) {
+void ProcessLink::OnMessageReceived(Message&& msg) {
   AssertIOThread();
   NS_ASSERTION(mChan->mChannelState != ChannelError, "Shouldn't get here!");
   MonitorAutoLock lock(*mChan->mMonitor);
   mChan->OnMessageReceivedFromLink(std::move(msg));
-}
-
-void ProcessLink::OnEchoMessage(Message *msg) {
-  AssertIOThread();
-  OnMessageReceived(std::move(*msg));
-  delete msg;
 }
 
 void ProcessLink::OnChannelOpened() {
@@ -277,7 +282,11 @@ void ProcessLink::OnChannelOpened() {
     mChan->mChannelState = ChannelOpening;
     lock.Notify();
   }
-  /*assert*/ mTransport->Connect();
+
+  if (!mTransport->Connect()) {
+    mTransport->Close();
+    OnChannelError();
+  }
 }
 
 void ProcessLink::OnTakeConnectedChannel() {
@@ -355,7 +364,7 @@ void ProcessLink::OnCloseChannel() {
 
   MonitorAutoLock lock(*mChan->mMonitor);
 
-  DebugOnly<IPC::Channel::Listener *> previousListener =
+  DebugOnly<IPC::Channel::Listener*> previousListener =
       mTransport->set_listener(mExistingListener);
 
   // OnChannelError may have reset the listener already.

@@ -37,6 +37,7 @@ interface nsITableEditor : nsISupports
    *                                    before current cell.  Otherwise, will
    *                                    be inserted after the cell.
    */
+  [can_run_script]
   void insertTableCell(in long aNumberOfColumnsToInsert,
                        in boolean aInsertAfterSelectedCell);
 
@@ -52,6 +53,7 @@ interface nsITableEditor : nsISupports
    *                                    before current cell.  Otherwise, will
    *                                    be inserted after the cell.
    */
+  [can_run_script]
   void insertTableColumn(in long aNumberOfColumnsToInsert,
                          in boolean aInsertAfterSelectedCell);
 
@@ -67,6 +69,7 @@ interface nsITableEditor : nsISupports
    *                                    before current cell.  Otherwise, will
    *                                    be inserted after the cell.
    */
+  [can_run_script]
   void insertTableRow(in long aNumberOfRowsToInsert,
                       in boolean aInsertAfterSelectedCell);
 
@@ -76,10 +79,11 @@ interface nsITableEditor : nsISupports
     * The selection is collapsed and is left in the
     *  cell at the same row,col location as
     *  the previous selection anchor, if possible,
-    *  else in the closest neigboring cell
+    *  else in the closest neighboring cell
     *
     * @param aNumber    Number of items to insert/delete
     */
+  [can_run_script]
   void deleteTable();
 
   /**
@@ -89,6 +93,7 @@ interface nsITableEditor : nsISupports
    * first selection range.  This does nothing without exception if selection
    * is not in cell element.
    */
+  [can_run_script]
   void deleteTableCellContents();
 
   /**
@@ -105,6 +110,7 @@ interface nsITableEditor : nsISupports
    * @param aNumberOfCellsToDelete  Number of cells to remove.  This is ignored
    *                                if 2 or more cells are selected.
    */
+  [can_run_script]
   void deleteTableCell(in long aNumberOfCellsToDelete);
 
   /**
@@ -124,6 +130,7 @@ interface nsITableEditor : nsISupports
    *                                    ignored if 2 ore more cells are
    *                                    selected.
    */
+  [can_run_script]
   void deleteTableColumn(in long aNumberOfColumnsToDelete);
 
   /**
@@ -141,28 +148,23 @@ interface nsITableEditor : nsISupports
    * @param aNumberOfRowsToDelete   Number of rows to remove.  This is ignored
    *                                if 2 or more cells are selected.
    */
+  [can_run_script]
   void deleteTableRow(in long aNumberOfRowsToDelete);
 
   /** Table Selection methods
     * Selecting a row or column actually
     * selects all cells (not TR in the case of rows)
     */
+  [can_run_script]
   void selectTableCell();
 
-  /** Select a rectangular block of cells:
-    *  all cells falling within the row/column index of aStartCell
-    *  to through the row/column index of the aEndCell
-    *  aStartCell can be any location relative to aEndCell,
-    *   as long as they are in the same table
-    *  @param aStartCell  starting cell in block
-    *  @param aEndCell    ending cell in block
-    */
-  void selectBlockOfCells(in Element aStartCell,
-                          in Element aEndCell);
-
+  [can_run_script]
   void selectTableRow();
+  [can_run_script]
   void selectTableColumn();
+  [can_run_script]
   void selectTable();
+  [can_run_script]
   void selectAllTableCells();
 
   /** Create a new TD or TH element, the opposite type of the supplied aSourceCell
@@ -173,6 +175,7 @@ interface nsITableEditor : nsISupports
     *  @param aSourceCell   The cell to be replaced
     *  @return              The new cell that replaces aSourceCell
     */
+  [can_run_script]
   Element switchTableCellHeaderType(in Element aSourceCell);
 
   /** Merges contents of all selected cells
@@ -195,6 +198,7 @@ interface nsITableEditor : nsISupports
     *   that cell and the one to the right
     *   are merged
     */
+  [can_run_script]
   void joinTableCells(in boolean aMergeNonContiguousContents);
 
   /** Split a cell that has rowspan and/or colspan > 0
@@ -203,6 +207,7 @@ interface nsITableEditor : nsISupports
     *  All of the contents are not touched --
     *   they will appear to be in the upper-left cell
     */
+  [can_run_script]
   void splitTableCell();
 
   /** Scan through all rows and add cells as needed so
@@ -215,6 +220,7 @@ interface nsITableEditor : nsISupports
     *   thus it can be used to fixup all tables
     *   in a page independent of the selection
     */
+  [can_run_script]
   void normalizeTable(in Element aTable);
 
   /**
@@ -234,6 +240,7 @@ interface nsITableEditor : nsISupports
    *                            column.  If colspan is set to 2 or more, the
    *                            start column index is used.
    */
+  [can_run_script]
   void getCellIndexes(in Element aCellElement,
                       out long aRowIndex, out long aColumnIndex);
 
@@ -400,33 +407,17 @@ interface nsITableEditor : nsISupports
     * @return
     *     0                        aCellElement was not a cell
     *                              (returned result = NS_ERROR_FAILURE)
-    *     TableSelection::Cell     There are 1 or more cells selected but
+    *     TableSelectionMode::Cell     There are 1 or more cells selected but
     *                              complete rows or columns are not selected
-    *     TableSelection::Row      All cells are in 1 or more rows
+    *     TableSelectionMode::Row      All cells are in 1 or more rows
     *                              and in each row, all cells selected
     *                              Note: This is the value if all rows
     *                              (thus all cells) are selected
-    *     TableSelection::Column   All cells are in 1 or more columns
+    *     TableSelectionMode::Column   All cells are in 1 or more columns
     *                              and in each column, all cells are selected
     */
+  [can_run_script]
   uint32_t getSelectedCellsType(in Element aElement);
-
-  /**
-   * getFirstSelectedCell() returns a <td> or <th> element if first range of
-   * Selection selects only one table cell element (i.e., startContainer and
-   * endContainer are same <tr> element and startOffset + 1 equals endOffset).
-   * If first range of Selection does not select a table cell element, this
-   * returns null.  However, if Selection has no range, this throws an
-   * exception.
-   *
-   * @param aFirstRangeOfSelection [OUT] Returns the first range of Selection
-   *                               only when this returns a <td> or <th>
-   *                               element.  Otherwise, returns null.
-   * @return                       A <td> or <th> element if first range of
-   *                               Selection selects only one table cell
-   *                               element.
-   */
-  Element getFirstSelectedCell(out Range aFirstRangeOfSelection);
 
   /**
    * getFirstSelectedCellInTable() returns a cell element, its row index and
@@ -446,29 +437,18 @@ interface nsITableEditor : nsISupports
    *                     range of Selection.  Even if this is not found,
    *                     this returns null, not throwing exception.
    */
+  [can_run_script]
   Element getFirstSelectedCellInTable(out long aRowIndex, out long aColIndex);
 
   /**
-   * getNextSelectedCell() is a stateful method to retrieve selected table
-   * cell elements which are selected by 2nd or later ranges of Selection.
-   * When you call getFirstSelectedCell(), it resets internal counter of
-   * this method.  Then, following calls of getNextSelectedCell() scans the
-   * remaining ranges of Selection.  If a range selects a <td> or <th>
-   * element, returns the cell element.  If a range selects an element but
-   * neither <td> nor <th> element, this ignores the range.  If a range is
-   * in a text node, returns null without throwing exception, but stops
-   * scanning the remaining ranges even you call this again.
-   * Note that this may cross <table> boundaries since this method just
-   * scans all ranges of Selection.  Therefore, returning cells which
-   * belong to different <table> elements.
-   *
-   * @param aNextSelectedCellRange [OUT] Returns null if this method returns
-   *                               null.  Otherwise, i.e., found a range which
-   *                               selects a <td> or <th> element, returns the
-   *                               range.
-   * @return                       A <td> or <th> element if one of remaining
-   *                               ranges selects a <td> or <th> element unless
-   *                               this does not meet a range in a text node.
+   * getSelectedCells() returns an array of `<td>` and `<th>` elements which
+   * are selected in **any** `<table>` elements (i.e., some cells may be
+   * in different `<table>` element).
+   * If first range does not select a table cell element, this returns empty
+   * array because editor considers that selection is not in table cell
+   * selection mode.
+   * If second or later ranges do not select only a table cell element, this
+   * ignores the ranges.
    */
-  Element getNextSelectedCell(out Range aNextSelectedCellRange);
+  Array<Element> getSelectedCells();
 };

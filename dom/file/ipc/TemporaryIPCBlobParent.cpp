@@ -4,15 +4,14 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#include "private/pprio.h"
 #include "TemporaryIPCBlobParent.h"
-
 #include "mozilla/dom/FileBlobImpl.h"
 #include "nsAnonymousTemporaryFile.h"
-#include "nsIFileStreams.h"
 #include "TemporaryFileBlobImpl.h"
+#include "mozilla/dom/IPCBlobUtils.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 TemporaryIPCBlobParent::TemporaryIPCBlobParent() : mActive(true) {}
 
@@ -100,5 +99,4 @@ mozilla::ipc::IPCResult TemporaryIPCBlobParent::SendDeleteError(nsresult aRv) {
   return IPC_OK();
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

@@ -6,7 +6,9 @@
 
 var EXPORTED_SYMBOLS = ["FormLikeFactory"];
 
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
 
 /**
  * A factory to generate FormLike objects that represent a set of related fields
@@ -14,11 +16,7 @@ ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
  * the properties of an HTMLFormElement which are relevant to form tasks.
  */
 let FormLikeFactory = {
-  _propsFromForm: [
-    "action",
-    "autocomplete",
-    "ownerDocument",
-  ],
+  _propsFromForm: ["action", "autocomplete", "ownerDocument"],
 
   /**
    * Create a FormLike object from a <form>.
@@ -63,9 +61,11 @@ let FormLikeFactory = {
    * @throws Error if aField isn't a password or username field in a document
    */
   createFromField(aField) {
-    if ((ChromeUtils.getClassName(aField) !== "HTMLInputElement" &&
-         ChromeUtils.getClassName(aField) !== "HTMLSelectElement") ||
-        !aField.ownerDocument) {
+    if (
+      (ChromeUtils.getClassName(aField) !== "HTMLInputElement" &&
+        ChromeUtils.getClassName(aField) !== "HTMLSelectElement") ||
+      !aField.ownerDocument
+    ) {
       throw new Error("createFromField requires a field in a document");
     }
 
@@ -106,6 +106,27 @@ let FormLikeFactory = {
   },
 
   /**
+   * Find the closest <form> if any when aField is inside a ShadowRoot.
+   *
+   * @param {HTMLInputElement} aField - a password or username field in a document
+   * @return {HTMLFormElement|null}
+   */
+  closestFormIgnoringShadowRoots(aField) {
+    let form = aField.closest("form");
+    let current = aField;
+    while (!form) {
+      let shadowRoot = current.getRootNode();
+      if (ChromeUtils.getClassName(shadowRoot) !== "ShadowRoot") {
+        break;
+      }
+      let host = shadowRoot.host;
+      form = host.closest("form");
+      current = host;
+    }
+    return form;
+  },
+
+  /**
    * Determine the Element that encapsulates the related fields. For example, if
    * a page contains a login form and a checkout form which are "submitted"
    * separately, and the username field is passed in, ideally this would return
@@ -116,8 +137,9 @@ let FormLikeFactory = {
    * @return {HTMLElement} - the root element surrounding related fields
    */
   findRootForField(aField) {
-    if (aField.form) {
-      return aField.form;
+    let form = aField.form || this.closestFormIgnoringShadowRoots(aField);
+    if (form) {
+      return form;
     }
 
     return aField.ownerDocument.documentElement;

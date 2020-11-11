@@ -6,7 +6,6 @@
 
 #include "MessagePump.h"
 
-#include "nsIRunnable.h"
 #include "nsIThread.h"
 #include "nsITimer.h"
 #include "nsICancelableRunnable.h"
@@ -51,7 +50,7 @@ class DoWorkRunnable final : public CancelableRunnable,
   nsresult Cancel() override;
 
  private:
-  ~DoWorkRunnable() {}
+  ~DoWorkRunnable() = default;
 
   MessagePump* mPump;
   // DoWorkRunnable is designed as a stateless singleton.  Do not add stateful
@@ -66,7 +65,7 @@ MessagePump::MessagePump(nsIEventTarget* aEventTarget)
   mDoWorkEvent = new DoWorkRunnable(this);
 }
 
-MessagePump::~MessagePump() {}
+MessagePump::~MessagePump() = default;
 
 void MessagePump::Run(MessagePump::Delegate* aDelegate) {
   MOZ_ASSERT(keep_running_);
@@ -342,12 +341,12 @@ void MessagePumpForNonMainThreads::Run(base::MessagePump::Delegate* aDelegate) {
 
 NS_IMPL_QUERY_INTERFACE(MessagePumpForNonMainUIThreads, nsIThreadObserver)
 
-#define CHECK_QUIT_STATE       \
-  {                            \
-    if (state_->should_quit) { \
-      break;                   \
-    }                          \
-  }
+#  define CHECK_QUIT_STATE       \
+    {                            \
+      if (state_->should_quit) { \
+        break;                   \
+      }                          \
+    }
 
 void MessagePumpForNonMainUIThreads::DoRunLoop() {
   MOZ_RELEASE_ASSERT(!NS_IsMainThread(),

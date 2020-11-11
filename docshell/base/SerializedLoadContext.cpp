@@ -7,18 +7,25 @@
 #include "SerializedLoadContext.h"
 #include "nsNetUtil.h"
 #include "nsIChannel.h"
+#include "nsILoadContext.h"
 #include "nsIPrivateBrowsingChannel.h"
 #include "nsIWebSocketChannel.h"
 
 namespace IPC {
 
 SerializedLoadContext::SerializedLoadContext(nsILoadContext* aLoadContext)
-    : mIsContent(false), mUseRemoteTabs(false), mUseTrackingProtection(false) {
+    : mIsContent(false),
+      mUseRemoteTabs(false),
+      mUseRemoteSubframes(false),
+      mUseTrackingProtection(false) {
   Init(aLoadContext);
 }
 
 SerializedLoadContext::SerializedLoadContext(nsIChannel* aChannel)
-    : mIsContent(false), mUseRemoteTabs(false), mUseTrackingProtection(false) {
+    : mIsContent(false),
+      mUseRemoteTabs(false),
+      mUseRemoteSubframes(false),
+      mUseTrackingProtection(false) {
   if (!aChannel) {
     Init(nullptr);
     return;
@@ -45,7 +52,10 @@ SerializedLoadContext::SerializedLoadContext(nsIChannel* aChannel)
 }
 
 SerializedLoadContext::SerializedLoadContext(nsIWebSocketChannel* aChannel)
-    : mIsContent(false), mUseRemoteTabs(false), mUseTrackingProtection(false) {
+    : mIsContent(false),
+      mUseRemoteTabs(false),
+      mUseRemoteSubframes(false),
+      mUseTrackingProtection(false) {
   nsCOMPtr<nsILoadContext> loadContext;
   if (aChannel) {
     NS_QueryNotificationCallbacks(aChannel, loadContext);
@@ -59,6 +69,7 @@ void SerializedLoadContext::Init(nsILoadContext* aLoadContext) {
     mIsPrivateBitValid = true;
     aLoadContext->GetIsContent(&mIsContent);
     aLoadContext->GetUseRemoteTabs(&mUseRemoteTabs);
+    aLoadContext->GetUseRemoteSubframes(&mUseRemoteSubframes);
     aLoadContext->GetUseTrackingProtection(&mUseTrackingProtection);
     aLoadContext->GetOriginAttributes(mOriginAttributes);
   } else {
@@ -68,6 +79,7 @@ void SerializedLoadContext::Init(nsILoadContext* aLoadContext) {
     // we won't be GetInterfaced to nsILoadContext
     mIsContent = true;
     mUseRemoteTabs = false;
+    mUseRemoteSubframes = false;
     mUseTrackingProtection = false;
   }
 }

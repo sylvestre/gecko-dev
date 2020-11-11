@@ -5,13 +5,16 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#include "js/Object.h"  // JS::GetClass
 #include "jsapi-tests/tests.h"
 
 BEGIN_TEST(testSetProperty_InheritedGlobalSetter) {
-  // This is a JSAPI test because jsapi-test globals do not have a resolve
-  // hook and therefore can use the property cache in some cases where the
-  // shell can't.
-  MOZ_RELEASE_ASSERT(!JS_GetClass(global)->getResolve());
+  // This is a JSAPI test because jsapi-test globals can be set up to not have
+  // a resolve hook and therefore can use the property cache in some cases
+  // where the shell can't.
+  MOZ_RELEASE_ASSERT(!JS::GetClass(global)->getResolve());
+
+  CHECK(JS::InitRealmStandardClasses(cx));
 
   CHECK(JS_DefineProperty(cx, global, "HOTLOOP", 8, 0));
   EXEC(
@@ -25,5 +28,27 @@ BEGIN_TEST(testSetProperty_InheritedGlobalSetter) {
       "if (n != HOTLOOP)\n"
       "    throw 'FAIL';\n");
   return true;
+}
+
+const JSClass* getGlobalClass(void) override {
+  static const JSClassOps noResolveGlobalClassOps = {
+      nullptr,                   // addProperty
+      nullptr,                   // delProperty
+      nullptr,                   // enumerate
+      nullptr,                   // newEnumerate
+      nullptr,                   // resolve
+      nullptr,                   // mayResolve
+      nullptr,                   // finalize
+      nullptr,                   // call
+      nullptr,                   // hasInstance
+      nullptr,                   // construct
+      JS_GlobalObjectTraceHook,  // trace
+  };
+
+  static const JSClass noResolveGlobalClass = {
+      "testSetProperty_InheritedGlobalSetter_noResolveGlobalClass",
+      JSCLASS_GLOBAL_FLAGS, &noResolveGlobalClassOps};
+
+  return &noResolveGlobalClass;
 }
 END_TEST(testSetProperty_InheritedGlobalSetter)

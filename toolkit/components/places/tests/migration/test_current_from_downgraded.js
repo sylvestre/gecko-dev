@@ -13,7 +13,7 @@ add_task(async function setup() {
     }
     version--;
   }
-  Assert.ok(version > 0, "Found a valid database version");
+  Assert.greater(version, 0, "Found a valid database version");
   await setupPlacesDatabase(`places_v${version}.sqlite`);
   // Downgrade the schema version to the first supported one.
   let path = OS.Path.join(OS.Constants.Path.profileDir, DB_FILENAME);
@@ -23,9 +23,11 @@ add_task(async function setup() {
 });
 
 add_task(async function database_is_valid() {
-  Assert.equal(PlacesUtils.history.databaseStatus,
-               PlacesUtils.history.DATABASE_STATUS_UPGRADED);
+  Assert.equal(
+    PlacesUtils.history.databaseStatus,
+    PlacesUtils.history.DATABASE_STATUS_UPGRADED
+  );
 
   let db = await PlacesUtils.promiseDBConnection();
-  Assert.equal((await db.getSchemaVersion()), CURRENT_SCHEMA_VERSION);
+  Assert.equal(await db.getSchemaVersion(), CURRENT_SCHEMA_VERSION);
 });

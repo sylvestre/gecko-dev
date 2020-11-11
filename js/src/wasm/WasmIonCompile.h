@@ -27,15 +27,15 @@ namespace js {
 namespace wasm {
 
 // Return whether IonCompileFunction() can generate code on the current device.
-bool IonCanCompile();
+// Usually you do *not* want this, you want IonAvailable().
+MOZ_MUST_USE bool IonPlatformSupport();
 
 // Generates very fast code at the expense of compilation time.
-MOZ_MUST_USE bool IonCompileFunctions(const ModuleEnvironment& env,
+MOZ_MUST_USE bool IonCompileFunctions(const ModuleEnvironment& moduleEnv,
+                                      const CompilerEnvironment& compilerEnv,
                                       LifoAlloc& lifo,
                                       const FuncCompileInputVector& inputs,
-                                      CompiledCode* code,
-                                      ExclusiveDeferredValidationState& dvs,
-                                      UniqueChars* error);
+                                      CompiledCode* code, UniqueChars* error);
 
 }  // namespace wasm
 }  // namespace js

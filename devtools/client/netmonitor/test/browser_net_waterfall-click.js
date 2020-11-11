@@ -8,7 +8,10 @@
  */
 
 add_task(async function() {
-  const { tab, monitor } = await initNetMonitor(CONTENT_TYPE_WITHOUT_CACHE_URL);
+  const { tab, monitor } = await initNetMonitor(
+    CONTENT_TYPE_WITHOUT_CACHE_URL,
+    { requestCount: 1 }
+  );
   const { document } = monitor.panelWin;
 
   // Execute requests.
@@ -17,13 +20,17 @@ add_task(async function() {
   info("Clicking waterfall and waiting for panel update.");
   const wait = waitForDOM(document, "#timings-panel");
 
-  EventUtils.sendMouseEvent({ type: "mousedown" },
-    document.querySelectorAll(".requests-list-timings")[0]);
+  EventUtils.sendMouseEvent(
+    { type: "mousedown" },
+    document.querySelectorAll(".requests-list-timings")[0]
+  );
 
   await wait;
 
-  ok(document.querySelector("#timings-tab[aria-selected=true]"),
-     "Timings tab is selected.");
+  ok(
+    document.querySelector("#timings-tab[aria-selected=true]"),
+    "Timings tab is selected."
+  );
 
   return teardown(monitor);
 });

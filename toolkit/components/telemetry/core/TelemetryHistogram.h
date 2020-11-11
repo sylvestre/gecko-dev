@@ -10,6 +10,7 @@
 #include "mozilla/TelemetryHistogramEnums.h"
 #include "mozilla/TelemetryProcessEnums.h"
 #include "nsXULAppAPI.h"
+#include "TelemetryCommon.h"
 
 namespace mozilla {
 // This is only used for the GeckoView persistence.
@@ -77,6 +78,14 @@ void AccumulateChildKeyed(
     mozilla::Telemetry::ProcessID aProcessType,
     const nsTArray<mozilla::Telemetry::KeyedHistogramAccumulation>&
         aAccumulations);
+
+/**
+ * Append the list of registered stores to the given set.
+ */
+nsresult GetAllStores(mozilla::Telemetry::Common::StringHashSet& set);
+
+nsresult GetCategoricalHistogramLabels(JSContext* aCx,
+                                       JS::MutableHandle<JS::Value> aResult);
 
 nsresult GetHistogramById(const nsACString& name, JSContext* cx,
                           JS::MutableHandle<JS::Value> ret);

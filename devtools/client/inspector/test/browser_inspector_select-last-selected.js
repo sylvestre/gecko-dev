@@ -1,5 +1,3 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 2 -*- */
-/* vim: set ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -68,8 +66,11 @@ add_task(async function() {
 
     const nodeFront = await getNodeFront(selectedNode, inspector);
     ok(nodeFront, "Got expected node front");
-    is(inspector.selection.nodeFront, nodeFront,
-       selectedNode + " is selected after navigation.");
+    is(
+      inspector.selection.nodeFront,
+      nodeFront,
+      selectedNode + " is selected after navigation."
+    );
   }
 
   async function navigateToAndWaitForNewRoot(url) {
@@ -82,14 +83,13 @@ add_task(async function() {
       const onNewRoot = inspector.once("new-root");
       const onUpdated = inspector.once("inspector-updated");
 
-      const activeTab = toolbox.target.activeTab;
-      await activeTab.reload();
+      await toolbox.target.reload();
       info("Waiting for inspector to be ready.");
       await markuploaded;
       await onNewRoot;
       await onUpdated;
     } else {
-      await navigateTo(inspector, url);
+      await navigateTo(url);
     }
   }
 });

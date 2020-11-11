@@ -4,19 +4,18 @@
 
 "use strict";
 
-var EXPORTED_SYMBOLS = [
-  "newAppInfo",
-  "getAppInfo",
-  "updateAppInfo",
-];
+var EXPORTED_SYMBOLS = ["newAppInfo", "getAppInfo", "updateAppInfo"];
 
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
-let origPlatformInfo = Cc["@mozilla.org/xre/app-info;1"]
-    .getService(Ci.nsIPlatformInfo);
+let origPlatformInfo = Cc["@mozilla.org/xre/app-info;1"].getService(
+  Ci.nsIPlatformInfo
+);
 
 // eslint-disable-next-line mozilla/use-services
-let origRuntime = Cc["@mozilla.org/xre/app-info;1"]
-    .getService(Ci.nsIXULRuntime);
+let origRuntime = Cc["@mozilla.org/xre/app-info;1"].getService(
+  Ci.nsIXULRuntime
+);
 
 /**
  * Create new XULAppInfo instance with specified options.
@@ -27,40 +26,44 @@ let origRuntime = Cc["@mozilla.org/xre/app-info;1"]
  *   version:         nsIXULAppInfo.version
  *   platformVersion: nsIXULAppInfo.platformVersion
  *   OS:              nsIXULRuntime.OS
+ *   appBuildID:      nsIXULRuntime.appBuildID
+ *   lastAppBuildID:  nsIXULRuntime.lastAppBuildID
+ *   lastAppVersion:  nsIXULRuntime.lastAppVersion
  *
  *   crashReporter:   nsICrashReporter interface is implemented if true
- *   extraProps:      extra properties added to XULAppInfo
  */
 var newAppInfo = function(options = {}) {
-  let ID = ("ID" in options) ? options.ID : "xpcshell@tests.mozilla.org";
-  let name = ("name" in options) ? options.name : "xpcshell";
-  let version = ("version" in options) ? options.version : "1";
-  let platformVersion
-      = ("platformVersion" in options) ? options.platformVersion : "p-ver";
-  let OS = ("OS" in options) ? options.OS : "XPCShell";
-  let extraProps = ("extraProps" in options) ? options.extraProps : {};
-
   let appInfo = {
     // nsIXULAppInfo
     vendor: "Mozilla",
-    name,
-    ID,
-    version,
-    appBuildID: "20160315",
+    name: options.name ?? "xpcshell",
+    ID: options.ID ?? "xpcshell@tests.mozilla.org",
+    version: options.version ?? "1",
+    appBuildID: options.appBuildID ?? "20160315",
 
     // nsIPlatformInfo
-    platformVersion,
+    platformVersion: options.platformVersion ?? "p-ver",
     platformBuildID: origPlatformInfo.platformBuildID,
 
     // nsIXULRuntime
+    ...Ci.nsIXULRuntime,
     inSafeMode: false,
     logConsoleErrors: true,
-    OS,
+    OS: options.OS ?? "XPCShell",
     XPCOMABI: "noarch-spidermonkey",
     invalidateCachesOnRestart() {},
     shouldBlockIncompatJaws: false,
     processType: origRuntime.processType,
     uniqueProcessID: origRuntime.uniqueProcessID,
+
+    fissionAutostart: origRuntime.fissionAutostart,
+    browserTabsRemoteAutostart: origRuntime.browserTabsRemoteAutostart,
+    get maxWebProcessCount() {
+      return origRuntime.maxWebProcessCount;
+    },
+    get launcherProcessState() {
+      return origRuntime.launcherProcessState;
+    },
 
     // nsIWinAppHelper
     get userCanElevate() {
@@ -68,24 +71,21 @@ var newAppInfo = function(options = {}) {
     },
   };
 
-  let interfaces = [Ci.nsIXULAppInfo,
-                    Ci.nsIPlatformInfo,
-                    Ci.nsIXULRuntime];
+  appInfo.lastAppBuildID = options.lastAppBuildID ?? appInfo.appBuildID;
+  appInfo.lastAppVersion = options.lastAppVersion ?? appInfo.version;
+
+  let interfaces = [Ci.nsIXULAppInfo, Ci.nsIPlatformInfo, Ci.nsIXULRuntime];
   if ("nsIWinAppHelper" in Ci) {
     interfaces.push(Ci.nsIWinAppHelper);
   }
 
-  if ("crashReporter" in options && options.crashReporter) {
+  if (options.crashReporter) {
     // nsICrashReporter
     appInfo.annotations = {};
     appInfo.annotateCrashReport = function(key, data) {
       this.annotations[key] = data;
     };
     interfaces.push(Ci.nsICrashReporter);
-  }
-
-  for (let key of Object.keys(extraProps)) {
-    appInfo.browserTabsRemoteAutostart = extraProps[key];
   }
 
   appInfo.QueryInterface = ChromeUtils.generateQI(interfaces);
@@ -98,7 +98,9 @@ var currentAppInfo = newAppInfo();
 /**
  * Obtain a reference to the current object used to define XULAppInfo.
  */
-var getAppInfo = function() { return currentAppInfo; };
+var getAppInfo = function() {
+  return currentAppInfo;
+};
 
 /**
  * Update the current application info.
@@ -117,19 +119,24 @@ var updateAppInfo = function(options) {
 
   // Unregister an existing factory if one exists.
   try {
-    let existing = Components.manager.getClassObjectByContractID(contractid, Ci.nsIFactory);
+    let existing = Components.manager.getClassObjectByContractID(
+      contractid,
+      Ci.nsIFactory
+    );
     registrar.unregisterFactory(id, existing);
   } catch (ex) {}
 
   let factory = {
     createInstance(outer, iid) {
       if (outer != null) {
-        throw Cr.NS_ERROR_NO_AGGREGATION;
+        throw Components.Exception("", Cr.NS_ERROR_NO_AGGREGATION);
       }
 
       return currentAppInfo.QueryInterface(iid);
     },
   };
+
+  Services.appinfo = currentAppInfo;
 
   registrar.registerFactory(id, "XULAppInfo", contractid, factory);
 };

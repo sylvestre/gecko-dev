@@ -5,8 +5,8 @@ https://bugzilla.mozilla.org/show_bug.cgi?id=386782
 -->
 <head>
   <title>Test for Bug 386782</title>
-  <script type="text/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
-  <script type="text/javascript" src="/tests/SimpleTest/EventUtils.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/EventUtils.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css" />
 
   <script>
@@ -70,7 +70,10 @@ https://bugzilla.mozilla.org/show_bug.cgi?id=386782
       is(gTest.window.document.body.innerHTML, gTest.expectedBodyAfterEdit, "Editing failed.");
 
       gTest.window.location = "about:blank";
-      SimpleTest.waitForFocus(goBack, gTest.window);
+      let cond = () => gTest.window.location.href == "about:blank";
+      SimpleTest.waitForCondition(cond, () => {
+        SimpleTest.waitForFocus(goBack, gTest.window, true);
+      }, "about:blank never loaded");
     }
 
     function goBack() {
@@ -88,7 +91,6 @@ https://bugzilla.mozilla.org/show_bug.cgi?id=386782
     }
 
     function checkStillEditable() {
-
       // Check that the contents are correct.
       is(gTest.window.document.body.innerHTML, gTest.expectedBodyAfterEdit, "Edited contents still correct?");
 
@@ -106,7 +108,6 @@ https://bugzilla.mozilla.org/show_bug.cgi?id=386782
 
       gTest.window.close();
       goNext();
-
     }
 
   </script>

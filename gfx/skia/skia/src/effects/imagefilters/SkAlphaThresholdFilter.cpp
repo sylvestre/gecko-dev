@@ -5,79 +5,82 @@
  * found in the LICENSE file.
  */
 
-#include "SkAlphaThresholdFilter.h"
+#include "include/effects/SkAlphaThresholdFilter.h"
 
-#include "SkBitmap.h"
-#include "SkColorSpaceXformer.h"
-#include "SkImageFilterPriv.h"
-#include "SkReadBuffer.h"
-#include "SkSpecialImage.h"
-#include "SkWriteBuffer.h"
-#include "SkRegion.h"
+#include "include/core/SkBitmap.h"
+#include "include/core/SkRegion.h"
+#include "src/core/SkImageFilter_Base.h"
+#include "src/core/SkReadBuffer.h"
+#include "src/core/SkSpecialImage.h"
+#include "src/core/SkWriteBuffer.h"
 
 #if SK_SUPPORT_GPU
-#include "GrColorSpaceXform.h"
-#include "GrContext.h"
-#include "GrFixedClip.h"
-#include "GrRenderTargetContext.h"
-#include "GrTextureProxy.h"
-#include "effects/GrSimpleTextureEffect.h"
-#include "effects/GrAlphaThresholdFragmentProcessor.h"
+#include "include/gpu/GrContext.h"
+#include "include/private/GrRecordingContext.h"
+#include "src/gpu/GrCaps.h"
+#include "src/gpu/GrColorSpaceXform.h"
+#include "src/gpu/GrFixedClip.h"
+#include "src/gpu/GrRecordingContextPriv.h"
+#include "src/gpu/GrRenderTargetContext.h"
+#include "src/gpu/GrTextureProxy.h"
+#include "src/gpu/effects/generated/GrAlphaThresholdFragmentProcessor.h"
+#include "src/gpu/effects/generated/GrSimpleTextureEffect.h"
 #endif
 
-class SkAlphaThresholdFilterImpl : public SkImageFilter {
+namespace {
+
+class SkAlphaThresholdFilterImpl final : public SkImageFilter_Base {
 public:
     SkAlphaThresholdFilterImpl(const SkRegion& region, SkScalar innerThreshold,
                                SkScalar outerThreshold, sk_sp<SkImageFilter> input,
-                               const CropRect* cropRect = nullptr);
-
-    SK_DECLARE_PUBLIC_FLATTENABLE_DESERIALIZATION_PROCS(SkAlphaThresholdFilterImpl)
-    friend void SkAlphaThresholdFilter::InitializeFlattenables();
+                               const CropRect* cropRect = nullptr)
+            : INHERITED(&input, 1, cropRect)
+            , fRegion(region)
+            , fInnerThreshold(innerThreshold)
+            , fOuterThreshold(outerThreshold) {}
 
 protected:
     void flatten(SkWriteBuffer&) const override;
 
-    sk_sp<SkSpecialImage> onFilterImage(SkSpecialImage* source, const Context&,
-                                        SkIPoint* offset) const override;
-
-    sk_sp<SkImageFilter> onMakeColorSpace(SkColorSpaceXformer*) const override;
+    sk_sp<SkSpecialImage> onFilterImage(const Context&, SkIPoint* offset) const override;
 
 #if SK_SUPPORT_GPU
-    sk_sp<GrTextureProxy> createMaskTexture(GrContext*,
+    sk_sp<GrTextureProxy> createMaskTexture(GrRecordingContext*,
                                             const SkMatrix&,
                                             const SkIRect& bounds) const;
 #endif
 
 private:
+    friend void SkAlphaThresholdFilter::RegisterFlattenables();
+    SK_FLATTENABLE_HOOKS(SkAlphaThresholdFilterImpl)
+
     SkRegion fRegion;
     SkScalar fInnerThreshold;
     SkScalar fOuterThreshold;
-    typedef SkImageFilter INHERITED;
+
+    typedef SkImageFilter_Base INHERITED;
 };
 
-SK_DEFINE_FLATTENABLE_REGISTRAR_GROUP_START(SkAlphaThresholdFilter)
-    SK_DEFINE_FLATTENABLE_REGISTRAR_ENTRY(SkAlphaThresholdFilterImpl)
-SK_DEFINE_FLATTENABLE_REGISTRAR_GROUP_END
+}; // end namespace
 
-static SkScalar pin_0_1(SkScalar x) {
-    return SkMinScalar(SkMaxScalar(x, 0), 1);
-}
-
-sk_sp<SkImageFilter> SkAlphaThresholdFilter::Make(const SkRegion& region,
-                                                  SkScalar innerThreshold,
+sk_sp<SkImageFilter> SkAlphaThresholdFilter::Make(const SkRegion& region, SkScalar innerThreshold,
                                                   SkScalar outerThreshold,
                                                   sk_sp<SkImageFilter> input,
                                                   const SkImageFilter::CropRect* cropRect) {
-    innerThreshold = pin_0_1(innerThreshold);
-    outerThreshold = pin_0_1(outerThreshold);
+    innerThreshold = SkScalarPin(innerThreshold, 0.f, 1.f);
+    outerThreshold = SkScalarPin(outerThreshold, 0.f, 1.f);
     if (!SkScalarIsFinite(innerThreshold) || !SkScalarIsFinite(outerThreshold)) {
         return nullptr;
     }
-    return sk_sp<SkImageFilter>(new SkAlphaThresholdFilterImpl(region, innerThreshold,
-                                                               outerThreshold,
-                                                               std::move(input),
-                                                               cropRect));
+    return sk_sp<SkImageFilter>(new SkAlphaThresholdFilterImpl(
+            region, innerThreshold, outerThreshold, std::move(input), cropRect));
+    }
+
+void SkAlphaThresholdFilter::RegisterFlattenables() {
+    SK_REGISTER_FLATTENABLE(SkAlphaThresholdFilterImpl);
 }
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
 
 sk_sp<SkFlattenable> SkAlphaThresholdFilterImpl::CreateProc(SkReadBuffer& buffer) {
     SK_IMAGEFILTER_UNFLATTEN_COMMON(common, 1);
@@ -89,46 +92,6 @@ sk_sp<SkFlattenable> SkAlphaThresholdFilterImpl::CreateProc(SkReadBuffer& buffer
                                         &common.cropRect());
 }
 
-SkAlphaThresholdFilterImpl::SkAlphaThresholdFilterImpl(const SkRegion& region,
-                                                       SkScalar innerThreshold,
-                                                       SkScalar outerThreshold,
-                                                       sk_sp<SkImageFilter> input,
-                                                       const CropRect* cropRect)
-    : INHERITED(&input, 1, cropRect)
-    , fRegion(region)
-    , fInnerThreshold(innerThreshold)
-    , fOuterThreshold(outerThreshold) {
-}
-
-#if SK_SUPPORT_GPU
-sk_sp<GrTextureProxy> SkAlphaThresholdFilterImpl::createMaskTexture(GrContext* context,
-                                                                    const SkMatrix& inMatrix,
-                                                                    const SkIRect& bounds) const {
-
-    sk_sp<GrRenderTargetContext> rtContext(
-        context->contextPriv().makeDeferredRenderTargetContextWithFallback(
-            SkBackingFit::kApprox, bounds.width(), bounds.height(), kAlpha_8_GrPixelConfig,
-            nullptr));
-    if (!rtContext) {
-        return nullptr;
-    }
-
-    GrPaint paint;
-    paint.setPorterDuffXPFactory(SkBlendMode::kSrc);
-    SkRegion::Iterator iter(fRegion);
-    rtContext->clear(nullptr, 0x0, GrRenderTargetContext::CanClearFullscreen::kYes);
-
-    GrFixedClip clip(SkIRect::MakeWH(bounds.width(), bounds.height()));
-    while (!iter.done()) {
-        SkRect rect = SkRect::Make(iter.rect());
-        rtContext->drawRect(clip, std::move(paint), GrAA::kNo, inMatrix, rect);
-        iter.next();
-    }
-
-    return rtContext->asTextureProxyRef();
-}
-#endif
-
 void SkAlphaThresholdFilterImpl::flatten(SkWriteBuffer& buffer) const {
     this->INHERITED::flatten(buffer);
     buffer.writeScalar(fInnerThreshold);
@@ -136,11 +99,40 @@ void SkAlphaThresholdFilterImpl::flatten(SkWriteBuffer& buffer) const {
     buffer.writeRegion(fRegion);
 }
 
-sk_sp<SkSpecialImage> SkAlphaThresholdFilterImpl::onFilterImage(SkSpecialImage* source,
-                                                                const Context& ctx,
+#if SK_SUPPORT_GPU
+sk_sp<GrTextureProxy> SkAlphaThresholdFilterImpl::createMaskTexture(GrRecordingContext* context,
+                                                                    const SkMatrix& inMatrix,
+                                                                    const SkIRect& bounds) const {
+    auto rtContext = context->priv().makeDeferredRenderTargetContextWithFallback(
+            SkBackingFit::kApprox, bounds.width(), bounds.height(), GrColorType::kAlpha_8, nullptr);
+    if (!rtContext) {
+        return nullptr;
+    }
+
+    SkRegion::Iterator iter(fRegion);
+    rtContext->clear(nullptr, SK_PMColor4fTRANSPARENT,
+                     GrRenderTargetContext::CanClearFullscreen::kYes);
+
+    GrFixedClip clip(SkIRect::MakeWH(bounds.width(), bounds.height()));
+    while (!iter.done()) {
+        GrPaint paint;
+        paint.setPorterDuffXPFactory(SkBlendMode::kSrc);
+
+        SkRect rect = SkRect::Make(iter.rect());
+
+        rtContext->drawRect(clip, std::move(paint), GrAA::kNo, inMatrix, rect);
+
+        iter.next();
+    }
+
+    return rtContext->asTextureProxyRef();
+}
+#endif
+
+sk_sp<SkSpecialImage> SkAlphaThresholdFilterImpl::onFilterImage(const Context& ctx,
                                                                 SkIPoint* offset) const {
     SkIPoint inputOffset = SkIPoint::Make(0, 0);
-    sk_sp<SkSpecialImage> input(this->filterInput(0, source, ctx, &inputOffset));
+    sk_sp<SkSpecialImage> input(this->filterInput(0, ctx, &inputOffset));
     if (!input) {
         return nullptr;
     }
@@ -154,11 +146,12 @@ sk_sp<SkSpecialImage> SkAlphaThresholdFilterImpl::onFilterImage(SkSpecialImage* 
     }
 
 #if SK_SUPPORT_GPU
-    if (source->isTextureBacked()) {
-        GrContext* context = source->getContext();
+    if (ctx.gpuBacked()) {
+        auto context = ctx.getContext();
 
         sk_sp<GrTextureProxy> inputProxy(input->asTextureProxyRef(context));
         SkASSERT(inputProxy);
+        const bool isProtected = inputProxy->isProtected();
 
         offset->fX = bounds.left();
         offset->fY = bounds.top();
@@ -173,10 +166,12 @@ sk_sp<SkSpecialImage> SkAlphaThresholdFilterImpl::onFilterImage(SkSpecialImage* 
             return nullptr;
         }
 
-        const OutputProperties& outProps = ctx.outputProperties();
-        auto textureFP = GrSimpleTextureEffect::Make(std::move(inputProxy), SkMatrix::I());
+        GrColorType srcColorType = SkColorTypeToGrColorType(input->colorType());
+        auto textureFP = GrSimpleTextureEffect::Make(std::move(inputProxy), srcColorType,
+                                                     SkMatrix::MakeTrans(input->subset().x(),
+                                                                         input->subset().y()));
         textureFP = GrColorSpaceXformEffect::Make(std::move(textureFP), input->getColorSpace(),
-                                                  input->alphaType(), outProps.colorSpace());
+                                                  input->alphaType(), ctx.colorSpace());
         if (!textureFP) {
             return nullptr;
         }
@@ -193,7 +188,8 @@ sk_sp<SkSpecialImage> SkAlphaThresholdFilterImpl::onFilterImage(SkSpecialImage* 
                                                             std::move(thresholdFP) };
         auto fp = GrFragmentProcessor::RunInSeries(fpSeries, 2);
 
-        return DrawWithFP(context, std::move(fp), bounds, outProps);
+        return DrawWithFP(context, std::move(fp), bounds, ctx.colorType(), ctx.colorSpace(),
+                          isProtected ? GrProtected::kYes : GrProtected::kNo);
     }
 #endif
 
@@ -267,15 +263,4 @@ sk_sp<SkSpecialImage> SkAlphaThresholdFilterImpl::onFilterImage(SkSpecialImage* 
     offset->fY = bounds.top();
     return SkSpecialImage::MakeFromRaster(SkIRect::MakeWH(bounds.width(), bounds.height()),
                                           dst);
-}
-
-sk_sp<SkImageFilter> SkAlphaThresholdFilterImpl::onMakeColorSpace(SkColorSpaceXformer* xformer)
-const {
-    SkASSERT(1 == this->countInputs());
-    sk_sp<SkImageFilter> input = xformer->apply(this->getInput(0));
-    if (input.get() != this->getInput(0)) {
-        return SkAlphaThresholdFilter::Make(fRegion, fInnerThreshold, fOuterThreshold,
-                                            std::move(input), this->getCropRectIfSet());
-    }
-    return this->refMe();
 }

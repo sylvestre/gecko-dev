@@ -7,10 +7,12 @@
 #include "WebBrowserPersistDocumentParent.h"
 
 #include "mozilla/dom/Attr.h"
+#include "mozilla/dom/BrowsingContext.h"
 #include "mozilla/dom/Comment.h"
 #include "mozilla/dom/Element.h"
 #include "mozilla/dom/HTMLAnchorElement.h"
 #include "mozilla/dom/HTMLAreaElement.h"
+#include "mozilla/dom/HTMLImageElement.h"
 #include "mozilla/dom/HTMLInputElement.h"
 #include "mozilla/dom/HTMLLinkElement.h"
 #include "mozilla/dom/HTMLObjectElement.h"
@@ -19,8 +21,10 @@
 #include "mozilla/dom/HTMLTextAreaElement.h"
 #include "mozilla/dom/NodeFilterBinding.h"
 #include "mozilla/dom/ProcessingInstruction.h"
-#include "mozilla/dom/TabParent.h"
+#include "mozilla/dom/ResponsiveImageSelector.h"
+#include "mozilla/dom/BrowserParent.h"
 #include "mozilla/dom/TreeWalker.h"
+#include "mozilla/Encoding.h"
 #include "mozilla/Unused.h"
 #include "nsComponentManagerUtils.h"
 #include "nsContentUtils.h"
@@ -29,22 +33,19 @@
 #include "nsDOMAttributeMap.h"
 #include "nsFrameLoader.h"
 #include "nsGlobalWindowOuter.h"
-#include "nsIComponentRegistrar.h"
 #include "nsIContent.h"
 #include "nsIDOMWindowUtils.h"
-#include "nsIDocShell.h"
-#include "nsIDocument.h"
+#include "mozilla/dom/Document.h"
 #include "nsIDocumentEncoder.h"
 #include "nsILoadContext.h"
 #include "nsIProtocolHandler.h"
 #include "nsISHEntry.h"
-#include "nsISupportsPrimitives.h"
-#include "nsITabParent.h"
 #include "nsIURIMutator.h"
 #include "nsIWebBrowserPersist.h"
 #include "nsIWebNavigation.h"
 #include "nsIWebPageDescriptor.h"
 #include "nsNetUtil.h"
+#include "nsQueryObject.h"
 
 namespace mozilla {
 
@@ -59,7 +60,7 @@ NS_INTERFACE_MAP_END
 NS_IMPL_CYCLE_COLLECTION(WebBrowserPersistLocalDocument, mDocument)
 
 WebBrowserPersistLocalDocument::WebBrowserPersistLocalDocument(
-    nsIDocument* aDocument)
+    dom::Document* aDocument)
     : mDocument(aDocument), mPersistFlags(0) {
   MOZ_ASSERT(mDocument);
 }
@@ -75,6 +76,12 @@ WebBrowserPersistLocalDocument::SetPersistFlags(uint32_t aFlags) {
 NS_IMETHODIMP
 WebBrowserPersistLocalDocument::GetPersistFlags(uint32_t* aFlags) {
   *aFlags = mPersistFlags;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+WebBrowserPersistLocalDocument::GetIsClosed(bool* aIsClosed) {
+  *aIsClosed = false;
   return NS_OK;
 }
 
@@ -126,22 +133,23 @@ WebBrowserPersistLocalDocument::GetTitle(nsAString& aTitle) {
 }
 
 NS_IMETHODIMP
-WebBrowserPersistLocalDocument::GetReferrer(nsAString& aReferrer) {
-  mDocument->GetReferrer(aReferrer);
+WebBrowserPersistLocalDocument::GetReferrerInfo(
+    nsIReferrerInfo** aReferrerInfo) {
+  *aReferrerInfo = mDocument->GetReferrerInfo();
+  NS_IF_ADDREF(*aReferrerInfo);
   return NS_OK;
 }
 
 NS_IMETHODIMP
 WebBrowserPersistLocalDocument::GetContentDisposition(nsAString& aCD) {
-  nsCOMPtr<nsPIDOMWindowOuter> window = mDocument->GetDefaultView();
+  nsCOMPtr<nsPIDOMWindowOuter> window = mDocument->GetWindow();
   if (NS_WARN_IF(!window)) {
     aCD.SetIsVoid(true);
     return NS_OK;
   }
   nsCOMPtr<nsIDOMWindowUtils> utils =
       nsGlobalWindowOuter::Cast(window)->WindowUtils();
-  nsresult rv =
-      utils->GetDocumentMetadata(NS_LITERAL_STRING("content-disposition"), aCD);
+  nsresult rv = utils->GetDocumentMetadata(u"content-disposition"_ns, aCD);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     aCD.SetIsVoid(true);
   }
@@ -150,22 +158,25 @@ WebBrowserPersistLocalDocument::GetContentDisposition(nsAString& aCD) {
 
 NS_IMETHODIMP
 WebBrowserPersistLocalDocument::GetCacheKey(uint32_t* aKey) {
-  *aKey = 0;
-  nsCOMPtr<nsISHEntry> history = GetHistory();
-  if (history) {
-    history->GetCacheKey(aKey);
+  Maybe<uint32_t> cacheKey;
+
+  if (nsDocShell* docShell = nsDocShell::Cast(mDocument->GetDocShell())) {
+    cacheKey = docShell->GetCacheKeyFromCurrentEntry();
   }
+  *aKey = cacheKey.valueOr(0);
+
   return NS_OK;
 }
 
 NS_IMETHODIMP
 WebBrowserPersistLocalDocument::GetPostData(nsIInputStream** aStream) {
-  nsCOMPtr<nsISHEntry> history = GetHistory();
-  if (!history) {
-    *aStream = nullptr;
-    return NS_OK;
+  nsCOMPtr<nsIInputStream> postData;
+  if (nsDocShell* docShell = nsDocShell::Cast(mDocument->GetDocShell())) {
+    postData = docShell->GetPostDataFromCurrentEntry();
   }
-  return history->GetPostData(aStream);
+
+  postData.forget(aStream);
+  return NS_OK;
 }
 
 NS_IMETHODIMP
@@ -176,7 +187,7 @@ WebBrowserPersistLocalDocument::GetPrincipal(nsIPrincipal** aPrincipal) {
 }
 
 already_AddRefed<nsISHEntry> WebBrowserPersistLocalDocument::GetHistory() {
-  nsCOMPtr<nsPIDOMWindowOuter> window = mDocument->GetDefaultView();
+  nsCOMPtr<nsPIDOMWindowOuter> window = mDocument->GetWindow();
   if (NS_WARN_IF(!window)) {
     return nullptr;
   }
@@ -207,7 +218,7 @@ uint32_t WebBrowserPersistLocalDocument::GetPersistFlags() const {
   return mPersistFlags;
 }
 
-already_AddRefed<nsIURI> WebBrowserPersistLocalDocument::GetBaseURI() const {
+nsIURI* WebBrowserPersistLocalDocument::GetBaseURI() const {
   return mDocument->GetBaseURI();
 }
 
@@ -246,11 +257,12 @@ class ResourceReader final : public nsIWebBrowserPersistDocumentReceiver {
   nsresult OnWalkURI(const nsACString& aURISpec,
                      nsContentPolicyType aContentPolicyType);
   nsresult OnWalkURI(nsIURI* aURI, nsContentPolicyType aContentPolicyType);
-  nsresult OnWalkAttribute(Element* aElement,
+  nsresult OnWalkAttribute(dom::Element* aElement,
                            nsContentPolicyType aContentPolicyType,
                            const char* aAttribute,
                            const char* aNamespaceURI = "");
   nsresult OnWalkSubframe(nsINode* aNode);
+  nsresult OnWalkSrcSet(dom::Element* aElement);
 
   ~ResourceReader();
 
@@ -283,17 +295,22 @@ void ResourceReader::DocumentDone(nsresult aStatus) {
 }
 
 nsresult ResourceReader::OnWalkSubframe(nsINode* aNode) {
-  nsCOMPtr<nsIFrameLoaderOwner> loaderOwner = do_QueryInterface(aNode);
+  RefPtr<nsFrameLoaderOwner> loaderOwner = do_QueryObject(aNode);
   NS_ENSURE_STATE(loaderOwner);
   RefPtr<nsFrameLoader> loader = loaderOwner->GetFrameLoader();
   NS_ENSURE_STATE(loader);
 
+  RefPtr<dom::BrowsingContext> context = loader->GetBrowsingContext();
+  NS_ENSURE_STATE(context);
+
+  if (loader->IsRemoteFrame()) {
+    mVisitor->VisitBrowsingContext(mParent, context);
+    return NS_OK;
+  }
+
   ++mOutstandingDocuments;
-  // Pass in 0 as the outer window ID so that we start
-  // persisting the root of this subframe, and not some other
-  // subframe child of this subframe.
   ErrorResult err;
-  loader->StartPersistence(0, this, err);
+  loader->StartPersistence(context, this, err);
   nsresult rv = err.StealNSResult();
   if (NS_FAILED(rv)) {
     if (rv == NS_ERROR_NO_CONTENT) {
@@ -344,11 +361,14 @@ nsresult ResourceReader::OnWalkURI(const nsACString& aURISpec,
 
   rv = NS_NewURI(getter_AddRefs(uri), aURISpec, mParent->GetCharacterSet(),
                  mCurrentBaseURI);
-  NS_ENSURE_SUCCESS(rv, rv);
+  if (NS_FAILED(rv)) {
+    // We don't want to break saving a page in case of a malformed URI.
+    return NS_OK;
+  }
   return OnWalkURI(uri, aContentPolicyType);
 }
 
-static void ExtractAttribute(Element* aElement, const char* aAttribute,
+static void ExtractAttribute(dom::Element* aElement, const char* aAttribute,
                              const char* aNamespaceURI, nsCString& aValue) {
   // Find the named URI attribute on the (element) node and store
   // a reference to the URI that maps onto a local file name
@@ -367,7 +387,7 @@ static void ExtractAttribute(Element* aElement, const char* aAttribute,
   }
 }
 
-nsresult ResourceReader::OnWalkAttribute(Element* aElement,
+nsresult ResourceReader::OnWalkAttribute(dom::Element* aElement,
                                          nsContentPolicyType aContentPolicyType,
                                          const char* aAttribute,
                                          const char* aNamespaceURI) {
@@ -377,6 +397,24 @@ nsresult ResourceReader::OnWalkAttribute(Element* aElement,
     return NS_OK;
   }
   return OnWalkURI(uriSpec, aContentPolicyType);
+}
+
+nsresult ResourceReader::OnWalkSrcSet(dom::Element* aElement) {
+  nsAutoString srcSet;
+  if (!aElement->GetAttr(nsGkAtoms::srcset, srcSet)) {
+    return NS_OK;
+  }
+
+  nsresult rv = NS_OK;
+  auto eachCandidate = [&](dom::ResponsiveImageCandidate&& aCandidate) {
+    if (!aCandidate.IsValid() || NS_FAILED(rv)) {
+      return;
+    }
+    rv = OnWalkURI(NS_ConvertUTF16toUTF8(aCandidate.URLString()),
+                   nsIContentPolicy::TYPE_IMAGE);
+  };
+  dom::ResponsiveImageSelector::ParseSourceSet(srcSet, eachCandidate);
+  return rv;
 }
 
 static nsresult GetXMLStyleSheetLink(dom::ProcessingInstruction* aPI,
@@ -405,9 +443,10 @@ nsresult ResourceReader::OnWalkDOMNode(nsINode* aNode) {
   }
 
   // Test the node to see if it's an image, frame, iframe, css, js
-  if (aNode->IsHTMLElement(nsGkAtoms::img)) {
-    return OnWalkAttribute(aNode->AsElement(), nsIContentPolicy::TYPE_IMAGE,
-                           "src");
+  if (auto* img = dom::HTMLImageElement::FromNode(*aNode)) {
+    MOZ_TRY(OnWalkAttribute(img, nsIContentPolicy::TYPE_IMAGE, "src"));
+    MOZ_TRY(OnWalkSrcSet(img));
+    return NS_OK;
   }
 
   if (aNode->IsSVGElement(nsGkAtoms::img)) {
@@ -421,6 +460,7 @@ nsresult ResourceReader::OnWalkDOMNode(nsINode* aNode) {
   }
 
   if (aNode->IsHTMLElement(nsGkAtoms::source)) {
+    MOZ_TRY(OnWalkSrcSet(aNode->AsElement()));
     return OnWalkAttribute(aNode->AsElement(), nsIContentPolicy::TYPE_MEDIA,
                            "src");
   }
@@ -550,6 +590,8 @@ class PersistNodeFixup final : public nsIDocumentEncoderNodeFixup {
   nsresult FixupXMLStyleSheetLink(dom::ProcessingInstruction* aPI,
                                   const nsAString& aHref);
 
+  nsresult FixupSrcSet(nsINode*);
+
   using IWBP = nsIWebBrowserPersist;
 };
 
@@ -612,8 +654,34 @@ nsresult PersistNodeFixup::FixupURI(nsAString& aURI) {
     return NS_ERROR_FAILURE;
   }
   if (!replacement->IsEmpty()) {
-    aURI = NS_ConvertUTF8toUTF16(*replacement);
+    CopyUTF8toUTF16(*replacement, aURI);
   }
+  return NS_OK;
+}
+
+nsresult PersistNodeFixup::FixupSrcSet(nsINode* aNode) {
+  dom::Element* element = aNode->AsElement();
+  nsAutoString originalSrcSet;
+  if (!element->GetAttr(nsGkAtoms::srcset, originalSrcSet)) {
+    return NS_OK;
+  }
+  nsAutoString newSrcSet;
+  bool first = true;
+  auto eachCandidate = [&](dom::ResponsiveImageCandidate&& aCandidate) {
+    if (!aCandidate.IsValid()) {
+      return;
+    }
+    if (!first) {
+      newSrcSet.AppendLiteral(", ");
+    }
+    first = false;
+    nsAutoString uri(aCandidate.URLString());
+    FixupURI(uri);
+    newSrcSet.Append(uri);
+    aCandidate.AppendDescriptors(newSrcSet);
+  };
+  dom::ResponsiveImageSelector::ParseSourceSet(originalSrcSet, eachCandidate);
+  element->SetAttr(nsGkAtoms::srcset, newSrcSet, IgnoreErrors());
   return NS_OK;
 }
 
@@ -652,7 +720,7 @@ nsresult PersistNodeFixup::FixupAnchor(nsINode* aNode) {
   RefPtr<nsDOMAttributeMap> attrMap = element->Attributes();
 
   // Make all anchor links absolute so they point off onto the Internet
-  nsString attribute(NS_LITERAL_STRING("href"));
+  nsString attribute(u"href"_ns);
   RefPtr<dom::Attr> attr = attrMap->GetNamedItem(attribute);
   if (attr) {
     nsString oldValue;
@@ -681,8 +749,7 @@ nsresult PersistNodeFixup::FixupAnchor(nsINode* aNode) {
     nsresult rv = NS_NewURI(getter_AddRefs(newURI), oldCValue,
                             mParent->GetCharacterSet(), relativeURI);
     if (NS_SUCCEEDED(rv) && newURI) {
-      Unused
-          << NS_MutateURI(newURI).SetUserPass(EmptyCString()).Finalize(newURI);
+      Unused << NS_MutateURI(newURI).SetUserPass(""_ns).Finalize(newURI);
       nsAutoCString uriSpec;
       rv = newURI->GetSpec(uriSpec);
       NS_ENSURE_SUCCESS(rv, rv);
@@ -748,21 +815,21 @@ nsresult PersistNodeFixup::FixupXMLStyleSheetLink(
     nsContentUtils::GetPseudoAttributeValue(data, nsGkAtoms::media, media);
 
     nsAutoString newData;
-    AppendXMLAttr(NS_LITERAL_STRING("href"), aHref, newData);
+    AppendXMLAttr(u"href"_ns, aHref, newData);
     if (!title.IsEmpty()) {
-      AppendXMLAttr(NS_LITERAL_STRING("title"), title, newData);
+      AppendXMLAttr(u"title"_ns, title, newData);
     }
     if (!media.IsEmpty()) {
-      AppendXMLAttr(NS_LITERAL_STRING("media"), media, newData);
+      AppendXMLAttr(u"media"_ns, media, newData);
     }
     if (!type.IsEmpty()) {
-      AppendXMLAttr(NS_LITERAL_STRING("type"), type, newData);
+      AppendXMLAttr(u"type"_ns, type, newData);
     }
     if (!charset.IsEmpty()) {
-      AppendXMLAttr(NS_LITERAL_STRING("charset"), charset, newData);
+      AppendXMLAttr(u"charset"_ns, charset, newData);
     }
     if (!alternate.IsEmpty()) {
-      AppendXMLAttr(NS_LITERAL_STRING("alternate"), alternate, newData);
+      AppendXMLAttr(u"alternate"_ns, alternate, newData);
     }
     aPI->SetData(newData, IgnoreErrors());
   }
@@ -816,15 +883,14 @@ PersistNodeFixup::FixupNode(nsINode* aNodeIn, bool* aSerializeCloneKids,
     // FromContent on, since it represents multiple elements. Since we've
     // already checked IsHTMLElement here, just cast as we were doing.
     auto* base = static_cast<dom::HTMLSharedElement*>(content.get());
-    nsIDocument* ownerDoc = base->OwnerDoc();
+    dom::Document* ownerDoc = base->OwnerDoc();
 
     nsAutoString href;
     base->GetHref(href);  // Doesn't matter if this fails
     nsAutoString commentText;
     commentText.AssignLiteral(" base ");
     if (!href.IsEmpty()) {
-      commentText +=
-          NS_LITERAL_STRING("href=\"") + href + NS_LITERAL_STRING("\" ");
+      commentText += u"href=\""_ns + href + u"\" "_ns;
     }
     *aNodeOut = ownerDoc->CreateComment(commentText).take();
     return NS_OK;
@@ -884,17 +950,21 @@ PersistNodeFixup::FixupNode(nsINode* aNodeIn, bool* aSerializeCloneKids,
   }
 
   if (content->IsHTMLElement(nsGkAtoms::img)) {
-    nsresult rv = GetNodeToFixup(aNodeIn, aNodeOut);
-    if (NS_SUCCEEDED(rv) && *aNodeOut) {
-      // Disable image loads
-      nsCOMPtr<nsIImageLoadingContent> imgCon = do_QueryInterface(*aNodeOut);
-      if (imgCon) {
-        imgCon->SetLoadingEnabled(false);
-      }
-      FixupAnchor(*aNodeOut);
-      FixupAttribute(*aNodeOut, "src");
+    MOZ_TRY(GetNodeToFixup(aNodeIn, aNodeOut));
+    if (!*aNodeOut) {
+      return NS_OK;
     }
-    return rv;
+
+    // Disable image loads
+    nsCOMPtr<nsIImageLoadingContent> imgCon = do_QueryInterface(*aNodeOut);
+    if (imgCon) {
+      imgCon->SetLoadingEnabled(false);
+    }
+    // FIXME(emilio): Why fixing up <img href>? Looks bogus
+    FixupAnchor(*aNodeOut);
+    FixupAttribute(*aNodeOut, "src");
+    FixupSrcSet(*aNodeOut);
+    return NS_OK;
   }
 
   if (content->IsAnyOfHTMLElements(nsGkAtoms::audio, nsGkAtoms::video)) {
@@ -909,6 +979,7 @@ PersistNodeFixup::FixupNode(nsINode* aNodeIn, bool* aSerializeCloneKids,
     nsresult rv = GetNodeToFixup(aNodeIn, aNodeOut);
     if (NS_SUCCEEDED(rv) && *aNodeOut) {
       FixupAttribute(*aNodeOut, "src");
+      FixupSrcSet(*aNodeOut);
     }
     return rv;
   }
@@ -1003,7 +1074,7 @@ PersistNodeFixup::FixupNode(nsINode* aNodeIn, bool* aSerializeCloneKids,
       FixupAttribute(*aNodeOut, "src");
 
       nsAutoString valueStr;
-      NS_NAMED_LITERAL_STRING(valueAttr, "value");
+      constexpr auto valueAttr = u"value"_ns;
       // Update element node attributes with user-entered form state
       RefPtr<dom::HTMLInputElement> outElt =
           dom::HTMLInputElement::FromNode((*aNodeOut)->AsContent());
@@ -1216,8 +1287,7 @@ WebBrowserPersistLocalDocument::WriteContent(
     nsAutoCString targetURISpec;
     rv = aMap->GetTargetBaseURI(targetURISpec);
     if (NS_SUCCEEDED(rv) && !targetURISpec.IsEmpty()) {
-      rv = NS_NewURI(getter_AddRefs(targetURI), targetURISpec,
-                     /* charset: */ nullptr, /* base: */ nullptr);
+      rv = NS_NewURI(getter_AddRefs(targetURI), targetURISpec);
       NS_ENSURE_SUCCESS(rv, NS_ERROR_UNEXPECTED);
     } else if (mPersistFlags &
                nsIWebBrowserPersist::PERSIST_FLAGS_FIXUP_LINKS_TO_DESTINATION) {

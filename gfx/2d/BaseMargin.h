@@ -17,18 +17,21 @@ namespace mozilla {
  * Sides represents a set of physical sides.
  */
 struct Sides final {
-  Sides() : mBits(0) {}
+  Sides() : mBits(SideBits::eNone) {}
   explicit Sides(SideBits aSideBits) {
-    MOZ_ASSERT((aSideBits & ~eSideBitsAll) == 0, "illegal side bits");
+    MOZ_ASSERT((aSideBits & ~SideBits::eAll) == SideBits::eNone,
+               "illegal side bits");
     mBits = aSideBits;
   }
-  bool IsEmpty() const { return mBits == 0; }
-  bool Top() const { return (mBits & eSideBitsTop) != 0; }
-  bool Right() const { return (mBits & eSideBitsRight) != 0; }
-  bool Bottom() const { return (mBits & eSideBitsBottom) != 0; }
-  bool Left() const { return (mBits & eSideBitsLeft) != 0; }
+  bool IsEmpty() const { return mBits == SideBits::eNone; }
+  bool Top() const { return (mBits & SideBits::eTop) == SideBits::eTop; }
+  bool Right() const { return (mBits & SideBits::eRight) == SideBits::eRight; }
+  bool Bottom() const {
+    return (mBits & SideBits::eBottom) == SideBits::eBottom;
+  }
+  bool Left() const { return (mBits & SideBits::eLeft) == SideBits::eLeft; }
   bool Contains(SideBits aSideBits) const {
-    MOZ_ASSERT((aSideBits & ~eSideBitsAll) == 0, "illegal side bits");
+    MOZ_ASSERT(!(aSideBits & ~SideBits::eAll), "illegal side bits");
     return (mBits & aSideBits) == aSideBits;
   }
   Sides operator|(Sides aOther) const {
@@ -44,7 +47,7 @@ struct Sides final {
   bool operator!=(Sides aOther) const { return !(*this == aOther); }
 
  private:
-  uint8_t mBits;
+  SideBits mBits;
 };
 
 namespace gfx {
@@ -85,7 +88,7 @@ struct BaseMargin {
     return *(&top + int(aSide));
   }
 
-  void ApplySkipSides(Sides aSkipSides) {
+  Sub& ApplySkipSides(Sides aSkipSides) {
     if (aSkipSides.Top()) {
       top = 0;
     }
@@ -98,6 +101,23 @@ struct BaseMargin {
     if (aSkipSides.Left()) {
       left = 0;
     }
+    return *static_cast<Sub*>(this);
+  }
+
+  // Ensures that all our sides are at least as big as the argument.
+  void EnsureAtLeast(const BaseMargin& aMargin) {
+    top = std::max(top, aMargin.top);
+    right = std::max(right, aMargin.right);
+    bottom = std::max(bottom, aMargin.bottom);
+    left = std::max(left, aMargin.left);
+  }
+
+  // Ensures that all our sides are at most as big as the argument.
+  void EnsureAtMost(const BaseMargin& aMargin) {
+    top = std::min(top, aMargin.top);
+    right = std::min(right, aMargin.right);
+    bottom = std::min(bottom, aMargin.bottom);
+    left = std::min(left, aMargin.left);
   }
 
   // Overloaded operators. Note that '=' isn't defined so we'll get the
@@ -125,8 +145,8 @@ struct BaseMargin {
 
   friend std::ostream& operator<<(std::ostream& aStream,
                                   const BaseMargin& aMargin) {
-    return aStream << '(' << aMargin.top << ',' << aMargin.right << ','
-                   << aMargin.bottom << ',' << aMargin.left << ')';
+    return aStream << "(t=" << aMargin.top << ", r=" << aMargin.right
+                   << ", b=" << aMargin.bottom << ", l=" << aMargin.left << ')';
   }
 };
 

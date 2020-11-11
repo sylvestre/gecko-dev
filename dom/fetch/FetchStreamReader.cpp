@@ -6,16 +6,21 @@
 
 #include "FetchStreamReader.h"
 #include "InternalResponse.h"
+#include "js/Stream.h"
+#include "mozilla/ConsoleReportCollector.h"
+#include "mozilla/dom/DOMException.h"
+#include "mozilla/dom/Promise.h"
 #include "mozilla/dom/PromiseBinding.h"
-#include "mozilla/SystemGroup.h"
+#include "mozilla/dom/WorkerPrivate.h"
 #include "mozilla/TaskCategory.h"
 #include "nsContentUtils.h"
+#include "nsIAsyncInputStream.h"
+#include "nsIPipe.h"
 #include "nsIScriptError.h"
 #include "nsPIDOMWindow.h"
 #include "jsapi.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_IMPL_CYCLE_COLLECTING_ADDREF(FetchStreamReader)
 NS_IMPL_CYCLE_COLLECTING_RELEASE(FetchStreamReader)
@@ -39,9 +44,10 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(FetchStreamReader)
   NS_INTERFACE_MAP_ENTRY_AMBIGUOUS(nsISupports, nsIOutputStreamCallback)
 NS_INTERFACE_MAP_END
 
-/* static */ nsresult FetchStreamReader::Create(
-    JSContext* aCx, nsIGlobalObject* aGlobal, FetchStreamReader** aStreamReader,
-    nsIInputStream** aInputStream) {
+/* static */
+nsresult FetchStreamReader::Create(JSContext* aCx, nsIGlobalObject* aGlobal,
+                                   FetchStreamReader** aStreamReader,
+                                   nsIInputStream** aInputStream) {
   MOZ_ASSERT(aCx);
   MOZ_ASSERT(aGlobal);
   MOZ_ASSERT(aStreamReader);
@@ -81,7 +87,7 @@ NS_INTERFACE_MAP_END
 
     // These 2 objects create a ref-cycle here that is broken when the stream is
     // closed or the worker shutsdown.
-    streamReader->mWorkerRef = workerRef.forget();
+    streamReader->mWorkerRef = std::move(workerRef);
   }
 
   pipeIn.forget(aInputStream);
@@ -149,7 +155,7 @@ void FetchStreamReader::CloseAndRelease(JSContext* aCx, nsresult aStatus) {
   mWorkerRef = nullptr;
 
   mReader = nullptr;
-  mBuffer = nullptr;
+  mBuffer.Clear();
 }
 
 void FetchStreamReader::StartConsuming(JSContext* aCx, JS::HandleObject aStream,
@@ -196,7 +202,7 @@ FetchStreamReader::OnOutputStreamReady(nsIAsyncOutputStream* aStream) {
     return NS_OK;
   }
 
-  if (mBuffer) {
+  if (!mBuffer.IsEmpty()) {
     return WriteBuffer();
   }
 
@@ -252,16 +258,15 @@ void FetchStreamReader::ResolvedCallback(JSContext* aCx,
     return;
   }
 
-  UniquePtr<FetchReadableStreamReadDataArray> value(
-      new FetchReadableStreamReadDataArray);
-  if (!value->Init(aCx, aValue) || !value->mValue.WasPassed()) {
+  RootedDictionary<FetchReadableStreamReadDataArray> value(aCx);
+  if (!value.Init(aCx, aValue) || !value.mValue.WasPassed()) {
     JS_ClearPendingException(aCx);
     CloseAndRelease(aCx, NS_ERROR_DOM_INVALID_STATE_ERR);
     return;
   }
 
-  Uint8Array& array = value->mValue.Value();
-  array.ComputeLengthAndData();
+  Uint8Array& array = value.mValue.Value();
+  array.ComputeState();
   uint32_t len = array.Length();
 
   if (len == 0) {
@@ -270,8 +275,13 @@ void FetchStreamReader::ResolvedCallback(JSContext* aCx,
     return;
   }
 
-  MOZ_DIAGNOSTIC_ASSERT(!mBuffer);
-  mBuffer = std::move(value);
+  MOZ_DIAGNOSTIC_ASSERT(mBuffer.IsEmpty());
+
+  // Let's take a copy of the data.
+  if (!mBuffer.AppendElements(array.Data(), len, fallible)) {
+    CloseAndRelease(aCx, NS_ERROR_OUT_OF_MEMORY);
+    return;
+  }
 
   mBufferOffset = 0;
   mBufferRemaining = len;
@@ -285,11 +295,9 @@ void FetchStreamReader::ResolvedCallback(JSContext* aCx,
 }
 
 nsresult FetchStreamReader::WriteBuffer() {
-  MOZ_ASSERT(mBuffer);
-  MOZ_ASSERT(mBuffer->mValue.WasPassed());
+  MOZ_ASSERT(!mBuffer.IsEmpty());
 
-  Uint8Array& array = mBuffer->mValue.Value();
-  char* data = reinterpret_cast<char*>(array.Data());
+  char* data = reinterpret_cast<char*>(mBuffer.Elements());
 
   while (1) {
     uint32_t written = 0;
@@ -309,7 +317,7 @@ nsresult FetchStreamReader::WriteBuffer() {
     mBufferOffset += written;
 
     if (mBufferRemaining == 0) {
-      mBuffer = nullptr;
+      mBuffer.Clear();
       break;
     }
   }
@@ -342,11 +350,10 @@ void FetchStreamReader::ReportErrorToConsole(JSContext* aCx,
   params.AppendElement(valueString);
 
   RefPtr<ConsoleReportCollector> reporter = new ConsoleReportCollector();
-  reporter->AddConsoleReport(
-      nsIScriptError::errorFlag,
-      NS_LITERAL_CSTRING("ReadableStreamReader.read"),
-      nsContentUtils::eDOM_PROPERTIES, sourceSpec, line, column,
-      NS_LITERAL_CSTRING("ReadableStreamReadingFailed"), params);
+  reporter->AddConsoleReport(nsIScriptError::errorFlag,
+                             "ReadableStreamReader.read"_ns,
+                             nsContentUtils::eDOM_PROPERTIES, sourceSpec, line,
+                             column, "ReadableStreamReadingFailed"_ns, params);
 
   uint64_t innerWindowId = 0;
 
@@ -372,5 +379,4 @@ void FetchStreamReader::ReportErrorToConsole(JSContext* aCx,
   workerPrivate->DispatchToMainThread(r.forget());
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

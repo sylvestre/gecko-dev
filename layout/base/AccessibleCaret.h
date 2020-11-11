@@ -12,6 +12,7 @@
 #include "mozilla/dom/Element.h"
 #include "nsCOMPtr.h"
 #include "nsIDOMEventListener.h"
+#include "nsIFrame.h"  // for WeakFrame only
 #include "nsISupportsBase.h"
 #include "nsISupportsImpl.h"
 #include "nsLiteralString.h"
@@ -19,13 +20,11 @@
 #include "mozilla/RefPtr.h"
 #include "nsString.h"
 
-class nsIDocument;
 class nsIFrame;
-class nsIPresShell;
 struct nsPoint;
 
 namespace mozilla {
-
+class PresShell;
 namespace dom {
 class Event;
 }  // namespace dom
@@ -47,7 +46,7 @@ class Event;
 //
 class AccessibleCaret {
  public:
-  explicit AccessibleCaret(nsIPresShell* aPresShell);
+  explicit AccessibleCaret(PresShell* aPresShell);
   virtual ~AccessibleCaret();
 
   // This enumeration representing the visibility and visual style of an
@@ -93,15 +92,18 @@ class AccessibleCaret {
            (mAppearance != Appearance::NormalNotShown);
   }
 
-  // This enumeration representing the result returned by SetPosition().
+  // This enum represents the result returned by SetPosition().
   enum class PositionChangedResult : uint8_t {
-    // Position is not changed.
+    // Both position and the zoom level are not changed.
     NotChanged,
 
-    // Position or zoom level is changed.
-    Changed,
+    // The position is changed. (The zoom level may or may not be changed.)
+    Position,
 
-    // Position is out of scroll port.
+    // Only the zoom level is changed. The position is *not* changed.
+    Zoom,
+
+    // The position is out of scroll port.
     Invisible
   };
 
@@ -136,6 +138,8 @@ class AccessibleCaret {
   // doesn't scroll the page when the user is trying to drag the caret.
   void EnsureApzAware();
 
+  bool IsInPositionFixedSubtree() const;
+
  protected:
   // Argument aRect should be relative to CustomContentContainerFrame().
   void SetCaretElementStyle(const nsRect& aRect, float aZoomLevel);
@@ -162,14 +166,16 @@ class AccessibleCaret {
   // Transform Appearance to CSS id used in ua.css.
   static nsAutoString AppearanceString(Appearance aAppearance);
 
-  already_AddRefed<dom::Element> CreateCaretElement(
-      nsIDocument* aDocument) const;
+  already_AddRefed<dom::Element> CreateCaretElement(dom::Document*) const;
 
   // Inject caret element into custom content container.
-  void InjectCaretElement(nsIDocument* aDocument);
+  void InjectCaretElement(dom::Document*);
 
   // Remove caret element from custom content container.
-  void RemoveCaretElement(nsIDocument* aDocument);
+  void RemoveCaretElement(dom::Document*);
+
+  // Clear the cached rects and zoom level.
+  void ClearCachedData();
 
   // The top-center of the imaginary caret to which this AccessibleCaret is
   // attached.
@@ -185,7 +191,7 @@ class AccessibleCaret {
     }
 
    private:
-    virtual ~DummyTouchListener(){};
+    virtual ~DummyTouchListener() = default;
   };
 
   // Member variables
@@ -195,12 +201,21 @@ class AccessibleCaret {
   // AccessibleCaretEventHub::Terminate() which is called in
   // PresShell::Destroy(), it frees us automatically. No need to worry if we
   // outlive mPresShell.
-  nsIPresShell* const MOZ_NON_OWNING_REF mPresShell = nullptr;
+  PresShell* const MOZ_NON_OWNING_REF mPresShell = nullptr;
 
   RefPtr<dom::AnonymousContent> mCaretElementHolder;
 
-  // mImaginaryCaretRect is relative to root frame.
+  // This cached rect is relative to the root frame, and is used in
+  // LogicalPosition() when dragging a caret.
   nsRect mImaginaryCaretRect;
+
+  // This cached rect is relative to the custom content container, and is used
+  // in SetPosition() to check whether the caret position has changed.
+  nsRect mImaginaryCaretRectInContainerFrame;
+
+  // The reference frame we used to calculate mImaginaryCaretRect and
+  // mImaginaryCaretRectInContainerFrame.
+  WeakFrame mImaginaryCaretReferenceFrame;
 
   // Cache current zoom level to determine whether position is changed.
   float mZoomLevel = 0.0f;

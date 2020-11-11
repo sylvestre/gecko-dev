@@ -1,3 +1,4 @@
+// |reftest| async
 // Copyright 2014 Cubane Canada, Inc.  All rights reserved.
 // See LICENSE for details.
 
@@ -20,6 +21,7 @@ Promise.resolve().then(function() {
   sequence.push(3);
 }).then(function() {
   sequence.push(4);
+  assert.sameValue(sequence.length, 4);
   checkSequence(sequence, "Promises resolved in unexpected sequence");
 }).then($DONE, $DONE);
 

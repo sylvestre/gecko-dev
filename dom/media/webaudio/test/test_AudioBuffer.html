@@ -2,7 +2,7 @@
 <html>
 <head>
   <title>Test whether we can create an AudioContext interface</title>
-  <script type="text/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css" />
 </head>
 <body>
@@ -42,7 +42,6 @@ addLoadEvent(function() {
   for (var i = 0; i < copy.length; ++i) {
     is(copy[i], 1024 + i, "Correct sample");
   }
-
   // Test copying the channel data out of a playing buffer
   var srcNode = context.createBufferSource();
   srcNode.buffer = buffer;
@@ -71,13 +70,13 @@ addLoadEvent(function() {
   worker.postMessage(data, [data]);
   SpecialPowers.gc();
 
-  expectException(function() {
+  expectNoException(function() {
     buffer.copyFromChannel(copy, 0, 1024);
-  }, DOMException.INDEX_SIZE_ERR);
+  });
 
-  expectException(function() {
+  expectNoException(function() {
     buffer.copyToChannel(newData, 0, 100);
-  }, DOMException.INDEX_SIZE_ERR);
+  });
 
   expectException(function() {
     context.createBuffer(2, 2048, 7999);
@@ -95,7 +94,7 @@ addLoadEvent(function() {
   // Null number of channels
   expectException(function() {
     context.createBuffer(0, 2048, 48000);
-  }, DOMException.INDEX_SIZE_ERR);
+  }, DOMException.NOT_SUPPORTED_ERR);
   SimpleTest.finish();
 });
 

@@ -8,6 +8,11 @@
 #include "nsString.h"
 #include "nsStreamUtils.h"
 #include "gfxColor.h"
+#include "mozilla/CheckedInt.h"
+
+extern "C" {
+#include "jpeglib.h"
+}
 
 #include <setjmp.h>
 #include "jerror.h"
@@ -16,6 +21,44 @@ using namespace mozilla;
 
 NS_IMPL_ISUPPORTS(nsJPEGEncoder, imgIEncoder, nsIInputStream,
                   nsIAsyncInputStream)
+
+class nsJPEGEncoderInternal {
+  friend class nsJPEGEncoder;
+
+ protected:
+  /**
+   * Initialize destination. This is called by jpeg_start_compress() before
+   * any data is actually written. It must initialize next_output_byte and
+   * free_in_buffer. free_in_buffer must be initialized to a positive value.
+   */
+  static void initDestination(jpeg_compress_struct* cinfo);
+
+  /**
+   * This is called whenever the buffer has filled (free_in_buffer reaches
+   * zero).  In typical applications, it should write out the *entire* buffer
+   * (use the saved start address and buffer length; ignore the current state
+   * of next_output_byte and free_in_buffer).  Then reset the pointer & count
+   * to the start of the buffer, and return TRUE indicating that the buffer
+   * has been dumped.  free_in_buffer must be set to a positive value when
+   * TRUE is returned.  A FALSE return should only be used when I/O suspension
+   * is desired (this operating mode is discussed in the next section).
+   */
+  static boolean emptyOutputBuffer(jpeg_compress_struct* cinfo);
+
+  /**
+   * Terminate destination --- called by jpeg_finish_compress() after all data
+   * has been written.  In most applications, this must flush any data
+   * remaining in the buffer.  Use either next_output_byte or free_in_buffer
+   * to determine how much data is in the buffer.
+   */
+  static void termDestination(jpeg_compress_struct* cinfo);
+
+  /**
+   * Override the standard error method in the IJG JPEG decoder code. This
+   * was mostly copied from nsJPEGDecoder.cpp
+   */
+  static void errorExit(jpeg_common_struct* cinfo);
+};
 
 // used to pass error info through the JPEG library
 struct encoder_error_mgr {
@@ -80,7 +123,7 @@ nsJPEGEncoder::InitFromData(const uint8_t* aData,
   int quality = 92;
   if (aOutputOptions.Length() > 0) {
     // have options string
-    const nsString qualityPrefix(NS_LITERAL_STRING("quality="));
+    const nsString qualityPrefix(u"quality="_ns);
     if (aOutputOptions.Length() > qualityPrefix.Length() &&
         StringBeginsWith(aOutputOptions, qualityPrefix)) {
       // have quality string
@@ -111,7 +154,7 @@ nsJPEGEncoder::InitFromData(const uint8_t* aData,
   // This must be done before the call to create_compress
   encoder_error_mgr errmgr;
   cinfo.err = jpeg_std_error(&errmgr.pub);
-  errmgr.pub.error_exit = errorExit;
+  errmgr.pub.error_exit = nsJPEGEncoderInternal::errorExit;
   // Establish the setjmp return context for my_error_exit to use.
   if (setjmp(errmgr.setjmp_buffer)) {
     // If we get here, the JPEG code has signaled an error.
@@ -138,9 +181,9 @@ nsJPEGEncoder::InitFromData(const uint8_t* aData,
 
   // set up the destination manager
   jpeg_destination_mgr destmgr;
-  destmgr.init_destination = initDestination;
-  destmgr.empty_output_buffer = emptyOutputBuffer;
-  destmgr.term_destination = termDestination;
+  destmgr.init_destination = nsJPEGEncoderInternal::initDestination;
+  destmgr.empty_output_buffer = nsJPEGEncoderInternal::emptyOutputBuffer;
+  destmgr.term_destination = nsJPEGEncoderInternal::termDestination;
   cinfo.dest = &destmgr;
   cinfo.client_data = this;
 
@@ -347,115 +390,6 @@ void nsJPEGEncoder::ConvertRGBARow(const uint8_t* aSrc, uint8_t* aDest,
   }
 }
 
-// nsJPEGEncoder::initDestination
-//
-//    Initialize destination. This is called by jpeg_start_compress() before
-//    any data is actually written. It must initialize next_output_byte and
-//    free_in_buffer. free_in_buffer must be initialized to a positive value.
-
-void  // static
-nsJPEGEncoder::initDestination(jpeg_compress_struct* cinfo) {
-  nsJPEGEncoder* that = static_cast<nsJPEGEncoder*>(cinfo->client_data);
-  NS_ASSERTION(!that->mImageBuffer, "Image buffer already initialized");
-
-  that->mImageBufferSize = 8192;
-  that->mImageBuffer = (uint8_t*)malloc(that->mImageBufferSize);
-  that->mImageBufferUsed = 0;
-
-  cinfo->dest->next_output_byte = that->mImageBuffer;
-  cinfo->dest->free_in_buffer = that->mImageBufferSize;
-}
-
-// nsJPEGEncoder::emptyOutputBuffer
-//
-//    This is called whenever the buffer has filled (free_in_buffer reaches
-//    zero).  In typical applications, it should write out the *entire* buffer
-//    (use the saved start address and buffer length; ignore the current state
-//    of next_output_byte and free_in_buffer).  Then reset the pointer & count
-//    to the start of the buffer, and return TRUE indicating that the buffer
-//    has been dumped.  free_in_buffer must be set to a positive value when
-//    TRUE is returned.  A FALSE return should only be used when I/O suspension
-//    is desired (this operating mode is discussed in the next section).
-
-boolean  // static
-nsJPEGEncoder::emptyOutputBuffer(jpeg_compress_struct* cinfo) {
-  nsJPEGEncoder* that = static_cast<nsJPEGEncoder*>(cinfo->client_data);
-  NS_ASSERTION(that->mImageBuffer, "No buffer to empty!");
-
-  // When we're reallocing the buffer we need to take the lock to ensure
-  // that nobody is trying to read from the buffer we are destroying
-  ReentrantMonitorAutoEnter autoEnter(that->mReentrantMonitor);
-
-  that->mImageBufferUsed = that->mImageBufferSize;
-
-  // expand buffer, just double size each time
-  that->mImageBufferSize *= 2;
-
-  uint8_t* newBuf =
-      (uint8_t*)realloc(that->mImageBuffer, that->mImageBufferSize);
-  if (!newBuf) {
-    // can't resize, just zero (this will keep us from writing more)
-    free(that->mImageBuffer);
-    that->mImageBuffer = nullptr;
-    that->mImageBufferSize = 0;
-    that->mImageBufferUsed = 0;
-
-    // This seems to be the only way to do errors through the JPEG library.  We
-    // pass an nsresult masquerading as an int, which works because the
-    // setjmp() caller casts it back.
-    longjmp(((encoder_error_mgr*)(cinfo->err))->setjmp_buffer,
-            static_cast<int>(NS_ERROR_OUT_OF_MEMORY));
-  }
-  that->mImageBuffer = newBuf;
-
-  cinfo->dest->next_output_byte = &that->mImageBuffer[that->mImageBufferUsed];
-  cinfo->dest->free_in_buffer = that->mImageBufferSize - that->mImageBufferUsed;
-  return 1;
-}
-
-// nsJPEGEncoder::termDestination
-//
-//    Terminate destination --- called by jpeg_finish_compress() after all data
-//    has been written.  In most applications, this must flush any data
-//    remaining in the buffer.  Use either next_output_byte or free_in_buffer
-//    to determine how much data is in the buffer.
-
-void  // static
-nsJPEGEncoder::termDestination(jpeg_compress_struct* cinfo) {
-  nsJPEGEncoder* that = static_cast<nsJPEGEncoder*>(cinfo->client_data);
-  if (!that->mImageBuffer) {
-    return;
-  }
-  that->mImageBufferUsed = cinfo->dest->next_output_byte - that->mImageBuffer;
-  NS_ASSERTION(that->mImageBufferUsed < that->mImageBufferSize,
-               "JPEG library busted, got a bad image buffer size");
-  that->NotifyListener();
-}
-
-// nsJPEGEncoder::errorExit
-//
-//    Override the standard error method in the IJG JPEG decoder code. This
-//    was mostly copied from nsJPEGDecoder.cpp
-
-void  // static
-nsJPEGEncoder::errorExit(jpeg_common_struct* cinfo) {
-  nsresult error_code;
-  encoder_error_mgr* err = (encoder_error_mgr*)cinfo->err;
-
-  // Convert error to a browser error code
-  switch (cinfo->err->msg_code) {
-    case JERR_OUT_OF_MEMORY:
-      error_code = NS_ERROR_OUT_OF_MEMORY;
-      break;
-    default:
-      error_code = NS_ERROR_FAILURE;
-  }
-
-  // Return control to the setjmp point.  We pass an nsresult masquerading as
-  // an int, which works because the setjmp() caller casts it back.
-  longjmp(err->setjmp_buffer, static_cast<int>(error_code));
-}
-
 void nsJPEGEncoder::NotifyListener() {
   // We might call this function on multiple threads (any threads that call
   // AsyncWait and any that do encoding) so we lock to avoid notifying the
@@ -483,4 +417,88 @@ void nsJPEGEncoder::NotifyListener() {
 
     callback->OnInputStreamReady(this);
   }
+}
+
+/* static */
+void nsJPEGEncoderInternal::initDestination(jpeg_compress_struct* cinfo) {
+  nsJPEGEncoder* that = static_cast<nsJPEGEncoder*>(cinfo->client_data);
+  NS_ASSERTION(!that->mImageBuffer, "Image buffer already initialized");
+
+  that->mImageBufferSize = 8192;
+  that->mImageBuffer = (uint8_t*)malloc(that->mImageBufferSize);
+  that->mImageBufferUsed = 0;
+
+  cinfo->dest->next_output_byte = that->mImageBuffer;
+  cinfo->dest->free_in_buffer = that->mImageBufferSize;
+}
+
+/* static */
+boolean nsJPEGEncoderInternal::emptyOutputBuffer(jpeg_compress_struct* cinfo) {
+  nsJPEGEncoder* that = static_cast<nsJPEGEncoder*>(cinfo->client_data);
+  NS_ASSERTION(that->mImageBuffer, "No buffer to empty!");
+
+  // When we're reallocing the buffer we need to take the lock to ensure
+  // that nobody is trying to read from the buffer we are destroying
+  ReentrantMonitorAutoEnter autoEnter(that->mReentrantMonitor);
+
+  that->mImageBufferUsed = that->mImageBufferSize;
+
+  // expand buffer, just double size each time
+  uint8_t* newBuf = nullptr;
+  CheckedInt<uint32_t> bufSize =
+      CheckedInt<uint32_t>(that->mImageBufferSize) * 2;
+  if (bufSize.isValid()) {
+    that->mImageBufferSize = bufSize.value();
+    newBuf = (uint8_t*)realloc(that->mImageBuffer, that->mImageBufferSize);
+  }
+
+  if (!newBuf) {
+    // can't resize, just zero (this will keep us from writing more)
+    free(that->mImageBuffer);
+    that->mImageBuffer = nullptr;
+    that->mImageBufferSize = 0;
+    that->mImageBufferUsed = 0;
+
+    // This seems to be the only way to do errors through the JPEG library.  We
+    // pass an nsresult masquerading as an int, which works because the
+    // setjmp() caller casts it back.
+    longjmp(((encoder_error_mgr*)(cinfo->err))->setjmp_buffer,
+            static_cast<int>(NS_ERROR_OUT_OF_MEMORY));
+  }
+  that->mImageBuffer = newBuf;
+
+  cinfo->dest->next_output_byte = &that->mImageBuffer[that->mImageBufferUsed];
+  cinfo->dest->free_in_buffer = that->mImageBufferSize - that->mImageBufferUsed;
+  return 1;
+}
+
+/* static */
+void nsJPEGEncoderInternal::termDestination(jpeg_compress_struct* cinfo) {
+  nsJPEGEncoder* that = static_cast<nsJPEGEncoder*>(cinfo->client_data);
+  if (!that->mImageBuffer) {
+    return;
+  }
+  that->mImageBufferUsed = cinfo->dest->next_output_byte - that->mImageBuffer;
+  NS_ASSERTION(that->mImageBufferUsed < that->mImageBufferSize,
+               "JPEG library busted, got a bad image buffer size");
+  that->NotifyListener();
+}
+
+/* static */
+void nsJPEGEncoderInternal::errorExit(jpeg_common_struct* cinfo) {
+  nsresult error_code;
+  encoder_error_mgr* err = (encoder_error_mgr*)cinfo->err;
+
+  // Convert error to a browser error code
+  switch (cinfo->err->msg_code) {
+    case JERR_OUT_OF_MEMORY:
+      error_code = NS_ERROR_OUT_OF_MEMORY;
+      break;
+    default:
+      error_code = NS_ERROR_FAILURE;
+  }
+
+  // Return control to the setjmp point.  We pass an nsresult masquerading as
+  // an int, which works because the setjmp() caller casts it back.
+  longjmp(err->setjmp_buffer, static_cast<int>(error_code));
 }

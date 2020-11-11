@@ -1,3 +1,4 @@
+// |reftest| async
 // Copyright (C) 2017 Jordan Harband. All rights reserved.
 // This code is governed by the BSD license found in the LICENSE file.
 /*---
@@ -24,6 +25,6 @@ p.finally(function() {
   sequence.push(2);
   assert.sameValue(reason, original, 'onFinally can not override the rejection value by returning');
 }).then(function() {
+  assert.sameValue(sequence.length, 2);
   checkSequence(sequence, "All expected callbacks called in correct order");
-  $DONE();
-}).catch($ERROR);
+}).then($DONE, $DONE);

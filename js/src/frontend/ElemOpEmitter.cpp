@@ -9,12 +9,18 @@
 #include "frontend/BytecodeEmitter.h"
 #include "frontend/SharedContext.h"
 #include "vm/Opcodes.h"
+#include "vm/ThrowMsgKind.h"  // ThrowMsgKind
 
 using namespace js;
 using namespace js::frontend;
 
-ElemOpEmitter::ElemOpEmitter(BytecodeEmitter* bce, Kind kind, ObjKind objKind)
-    : bce_(bce), kind_(kind), objKind_(objKind) {}
+ElemOpEmitter::ElemOpEmitter(BytecodeEmitter* bce, Kind kind, ObjKind objKind,
+                             NameVisibility visibility)
+    : bce_(bce), kind_(kind), objKind_(objKind), visibility_(visibility) {
+  // Can't access private names of super!
+  MOZ_ASSERT_IF(visibility == NameVisibility::Private,
+                objKind != ObjKind::Super);
+}
 
 bool ElemOpEmitter::prepareForObj() {
   MOZ_ASSERT(state_ == State::Start);
@@ -29,13 +35,13 @@ bool ElemOpEmitter::prepareForKey() {
   MOZ_ASSERT(state_ == State::Obj);
 
   if (!isSuper() && isIncDec()) {
-    if (!bce_->emit1(JSOP_CHECKOBJCOERCIBLE)) {
+    if (!bce_->emit1(JSOp::CheckObjCoercible)) {
       //            [stack] OBJ
       return false;
     }
   }
   if (isCall()) {
-    if (!bce_->emit1(JSOP_DUP)) {
+    if (!bce_->emit1(JSOp::Dup)) {
       //            [stack] # if Super
       //            [stack] THIS THIS
       //            [stack] # otherwise
@@ -50,11 +56,40 @@ bool ElemOpEmitter::prepareForKey() {
   return true;
 }
 
+bool ElemOpEmitter::emitPrivateGuard() {
+  MOZ_ASSERT(state_ == State::Key);
+
+  if (!isPrivate()) {
+    return true;
+  }
+
+  if (isPropInit()) {
+    //            [stack] OBJ KEY
+    if (!bce_->emitCheckPrivateField(ThrowCondition::ThrowHas,
+                                     ThrowMsgKind::PrivateDoubleInit)) {
+      //            [stack] OBJ KEY BOOL
+      return false;
+    }
+  } else {
+    if (!bce_->emitCheckPrivateField(ThrowCondition::ThrowHasNot,
+                                     isPrivateGet()
+                                         ? ThrowMsgKind::MissingPrivateOnGet
+                                         : ThrowMsgKind::MissingPrivateOnSet)) {
+      //            [stack] OBJ KEY BOOL
+      return false;
+    }
+  }
+
+  // CheckPrivate leaves the result of the HasOwnCheck on the stack. Pop it off.
+  return bce_->emit1(JSOp::Pop);
+  //            [stack] OBJ KEY
+}
+
 bool ElemOpEmitter::emitGet() {
   MOZ_ASSERT(state_ == State::Key);
 
   if (isIncDec() || isCompoundAssignment()) {
-    if (!bce_->emit1(JSOP_TOID)) {
+    if (!bce_->emit1(JSOp::ToPropertyKey)) {
       //            [stack] # if Super
       //            [stack] THIS KEY
       //            [stack] # otherwise
@@ -62,6 +97,11 @@ bool ElemOpEmitter::emitGet() {
       return false;
     }
   }
+
+  if (!emitPrivateGuard()) {
+    return false;
+  }
+
   if (isSuper()) {
     if (!bce_->emitSuperBase()) {
       //            [stack] THIS? THIS KEY SUPERBASE
@@ -70,22 +110,12 @@ bool ElemOpEmitter::emitGet() {
   }
   if (isIncDec() || isCompoundAssignment()) {
     if (isSuper()) {
-      // There's no such thing as JSOP_DUP3, so we have to be creative.
-      // Note that pushing things again is no fewer JSOps.
-      if (!bce_->emitDupAt(2)) {
-        //          [stack] THIS KEY SUPERBASE THIS
-        return false;
-      }
-      if (!bce_->emitDupAt(2)) {
-        //          [stack] THIS KEY SUPERBASE THIS KEY
-        return false;
-      }
-      if (!bce_->emitDupAt(2)) {
+      if (!bce_->emitDupAt(2, 3)) {
         //          [stack] THIS KEY SUPERBASE THIS KEY SUPERBASE
         return false;
       }
     } else {
-      if (!bce_->emit1(JSOP_DUP2)) {
+      if (!bce_->emit1(JSOp::Dup2)) {
         //          [stack] OBJ KEY OBJ KEY
         return false;
       }
@@ -94,13 +124,13 @@ bool ElemOpEmitter::emitGet() {
 
   JSOp op;
   if (isSuper()) {
-    op = JSOP_GETELEM_SUPER;
+    op = JSOp::GetElemSuper;
   } else if (isCall()) {
-    op = JSOP_CALLELEM;
+    op = JSOp::CallElem;
   } else {
-    op = JSOP_GETELEM;
+    op = JSOp::GetElem;
   }
-  if (!bce_->emitElemOpBase(op)) {
+  if (!bce_->emitElemOpBase(op, ShouldInstrument::Yes)) {
     //              [stack] # if Get
     //              [stack] ELEM
     //              [stack] # if Call
@@ -112,7 +142,7 @@ bool ElemOpEmitter::emitGet() {
     return false;
   }
   if (isCall()) {
-    if (!bce_->emit1(JSOP_SWAP)) {
+    if (!bce_->emit1(JSOp::Swap)) {
       //            [stack] ELEM THIS
       return false;
     }
@@ -125,12 +155,15 @@ bool ElemOpEmitter::emitGet() {
 }
 
 bool ElemOpEmitter::prepareForRhs() {
-  MOZ_ASSERT(isSimpleAssignment() || isCompoundAssignment());
-  MOZ_ASSERT_IF(isSimpleAssignment(), state_ == State::Key);
+  MOZ_ASSERT(isSimpleAssignment() || isPropInit() || isCompoundAssignment());
+  MOZ_ASSERT_IF(isSimpleAssignment() || isPropInit(), state_ == State::Key);
   MOZ_ASSERT_IF(isCompoundAssignment(), state_ == State::Get);
 
-  if (isSimpleAssignment()) {
-    // For CompoundAssignment, SUPERBASE is already emitted by emitGet.
+  if (isSimpleAssignment() || isPropInit()) {
+    if (!emitPrivateGuard()) {
+      return false;
+    }
+    // For CompoundAssignment, SuperBase is already emitted by emitGet.
     if (isSuper()) {
       if (!bce_->emitSuperBase()) {
         //          [stack] THIS KEY SUPERBASE
@@ -147,7 +180,7 @@ bool ElemOpEmitter::prepareForRhs() {
 
 bool ElemOpEmitter::skipObjAndKeyAndRhs() {
   MOZ_ASSERT(state_ == State::Start);
-  MOZ_ASSERT(isSimpleAssignment());
+  MOZ_ASSERT(isSimpleAssignment() || isPropInit());
 
 #ifdef DEBUG
   state_ = State::Rhs;
@@ -158,9 +191,10 @@ bool ElemOpEmitter::skipObjAndKeyAndRhs() {
 bool ElemOpEmitter::emitDelete() {
   MOZ_ASSERT(state_ == State::Key);
   MOZ_ASSERT(isDelete());
+  MOZ_ASSERT(!isPrivate());
 
   if (isSuper()) {
-    if (!bce_->emit1(JSOP_TOID)) {
+    if (!bce_->emit1(JSOp::ToPropertyKey)) {
       //            [stack] THIS KEY
       return false;
     }
@@ -170,7 +204,7 @@ bool ElemOpEmitter::emitDelete() {
     }
 
     // Unconditionally throw when attempting to delete a super-reference.
-    if (!bce_->emitUint16Operand(JSOP_THROWMSG, JSMSG_CANT_DELETE_SUPER)) {
+    if (!bce_->emit2(JSOp::ThrowMsg, uint8_t(ThrowMsgKind::CantDeleteSuper))) {
       //            [stack] THIS KEY SUPERBASE
       return false;
     }
@@ -182,7 +216,8 @@ bool ElemOpEmitter::emitDelete() {
       return false;
     }
   } else {
-    JSOp op = bce_->sc->strict() ? JSOP_STRICTDELELEM : JSOP_DELELEM;
+    MOZ_ASSERT(!isPrivate());
+    JSOp op = bce_->sc->strict() ? JSOp::StrictDelElem : JSOp::DelElem;
     if (!bce_->emitElemOpBase(op)) {
       // SUCCEEDED
       return false;
@@ -196,14 +231,18 @@ bool ElemOpEmitter::emitDelete() {
 }
 
 bool ElemOpEmitter::emitAssignment() {
-  MOZ_ASSERT(isSimpleAssignment() || isCompoundAssignment());
+  MOZ_ASSERT(isSimpleAssignment() || isPropInit() || isCompoundAssignment());
   MOZ_ASSERT(state_ == State::Rhs);
 
-  JSOp setOp =
-      isSuper()
-          ? bce_->sc->strict() ? JSOP_STRICTSETELEM_SUPER : JSOP_SETELEM_SUPER
-          : bce_->sc->strict() ? JSOP_STRICTSETELEM : JSOP_SETELEM;
-  if (!bce_->emitElemOpBase(setOp)) {
+  MOZ_ASSERT_IF(isPropInit(), !isSuper());
+
+  JSOp setOp = isPropInit()
+                   ? JSOp::InitElem
+                   : isSuper() ? bce_->sc->strict() ? JSOp::StrictSetElemSuper
+                                                    : JSOp::SetElemSuper
+                               : bce_->sc->strict() ? JSOp::StrictSetElem
+                                                    : JSOp::SetElem;
+  if (!bce_->emitElemOpBase(setOp, ShouldInstrument::Yes)) {
     //              [stack] ELEM
     return false;
   }
@@ -225,73 +264,37 @@ bool ElemOpEmitter::emitIncDec() {
 
   MOZ_ASSERT(state_ == State::Get);
 
-  JSOp binOp = isInc() ? JSOP_ADD : JSOP_SUB;
-  if (!bce_->emit1(JSOP_POS)) {
+  JSOp incOp = isInc() ? JSOp::Inc : JSOp::Dec;
+  if (!bce_->emit1(JSOp::ToNumeric)) {
     //              [stack] ... N
     return false;
   }
   if (isPostIncDec()) {
-    if (!bce_->emit1(JSOP_DUP)) {
-      //            [stack] ... N? N
+    //              [stack] OBJ KEY SUPERBASE? N
+    if (!bce_->emit1(JSOp::Dup)) {
+      //            [stack] ... N N
+      return false;
+    }
+    if (!bce_->emit2(JSOp::Unpick, 3 + isSuper())) {
+      //            [stack] N OBJ KEY SUPERBASE? N
       return false;
     }
   }
-  if (!bce_->emit1(JSOP_ONE)) {
-    //              [stack] ... N? N 1
+  if (!bce_->emit1(incOp)) {
+    //              [stack] ... N+1
     return false;
-  }
-  if (!bce_->emit1(binOp)) {
-    //              [stack] ... N? N+1
-    return false;
-  }
-  if (isPostIncDec()) {
-    if (isSuper()) {
-      //            [stack] THIS KEY OBJ N N+1
-
-      if (!bce_->emit2(JSOP_PICK, 4)) {
-        //          [stack] KEY SUPERBASE N N+1 THIS
-        return false;
-      }
-      if (!bce_->emit2(JSOP_PICK, 4)) {
-        //          [stack] SUPERBASE N N+1 THIS KEY
-        return false;
-      }
-      if (!bce_->emit2(JSOP_PICK, 4)) {
-        //          [stack] N N+1 THIS KEY SUPERBASE
-        return false;
-      }
-      if (!bce_->emit2(JSOP_PICK, 3)) {
-        //          [stack] N THIS KEY SUPERBASE N+1
-        return false;
-      }
-    } else {
-      //            [stack] OBJ KEY N N+1
-
-      if (!bce_->emit2(JSOP_PICK, 3)) {
-        //          [stack] KEY N N+1 OBJ
-        return false;
-      }
-      if (!bce_->emit2(JSOP_PICK, 3)) {
-        //          [stack] N N+1 OBJ KEY
-        return false;
-      }
-      if (!bce_->emit2(JSOP_PICK, 2)) {
-        //          [stack] N OBJ KEY N+1
-        return false;
-      }
-    }
   }
 
   JSOp setOp =
       isSuper()
-          ? (bce_->sc->strict() ? JSOP_STRICTSETELEM_SUPER : JSOP_SETELEM_SUPER)
-          : (bce_->sc->strict() ? JSOP_STRICTSETELEM : JSOP_SETELEM);
-  if (!bce_->emitElemOpBase(setOp)) {
+          ? (bce_->sc->strict() ? JSOp::StrictSetElemSuper : JSOp::SetElemSuper)
+          : (bce_->sc->strict() ? JSOp::StrictSetElem : JSOp::SetElem);
+  if (!bce_->emitElemOpBase(setOp, ShouldInstrument::Yes)) {
     //              [stack] N? N+1
     return false;
   }
   if (isPostIncDec()) {
-    if (!bce_->emit1(JSOP_POP)) {
+    if (!bce_->emit1(JSOp::Pop)) {
       //            [stack] N
       return false;
     }

@@ -18,8 +18,8 @@
 #include "mozilla/dom/WorkerRef.h"
 #include "mozilla/dom/WorkerRunnable.h"
 #include "mozilla/dom/WorkerScope.h"
+#include "mozilla/dom/EventSourceEventService.h"
 #include "mozilla/UniquePtrExtensions.h"
-#include "nsAutoPtr.h"
 #include "nsIThreadRetargetableStreamListener.h"
 #include "nsNetUtil.h"
 #include "nsIAuthPrompt.h"
@@ -30,6 +30,7 @@
 #include "nsIPromptFactory.h"
 #include "nsIWindowWatcher.h"
 #include "nsPresContext.h"
+#include "nsProxyRelease.h"
 #include "nsContentPolicyUtils.h"
 #include "nsIStringBundle.h"
 #include "nsIConsoleService.h"
@@ -39,7 +40,6 @@
 #include "nsIThreadRetargetableRequest.h"
 #include "nsIAsyncVerifyRedirectCallback.h"
 #include "nsIScriptError.h"
-#include "nsIContentSecurityPolicy.h"
 #include "nsContentUtils.h"
 #include "mozilla/Preferences.h"
 #include "xpcpublic.h"
@@ -47,9 +47,9 @@
 #include "mozilla/Attributes.h"
 #include "nsError.h"
 #include "mozilla/Encoding.h"
+#include "ReferrerInfo.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 static LazyLogModule gEventSourceLog("EventSource");
 
@@ -82,7 +82,8 @@ class EventSourceImpl final : public nsIObserver,
   NS_DECL_NSIEVENTTARGET_FULL
   NS_DECL_NSITHREADRETARGETABLESTREAMLISTENER
 
-  explicit EventSourceImpl(EventSource* aEventSource);
+  EventSourceImpl(EventSource* aEventSource,
+                  nsICookieJarSettings* aCookieJarSettings);
 
   enum { CONNECTING = 0U, OPEN = 1U, CLOSED = 2U };
 
@@ -93,7 +94,7 @@ class EventSourceImpl final : public nsIObserver,
   nsresult GetBaseURI(nsIURI** aBaseURI);
 
   void SetupHttpChannel();
-  nsresult SetupReferrerPolicy();
+  nsresult SetupReferrerInfo();
   nsresult InitChannelAndRequestEventSource();
   nsresult ResetConnection();
   void ResetDecoder();
@@ -112,8 +113,7 @@ class EventSourceImpl final : public nsIObserver,
   static void TimerCallback(nsITimer* aTimer, void* aClosure);
 
   nsresult PrintErrorOnConsole(const char* aBundleURI, const char* aError,
-                               const char16_t** aFormatStrings,
-                               uint32_t aFormatStringsLen);
+                               const nsTArray<nsString>& aFormatStrings);
   nsresult ConsoleError();
 
   static nsresult StreamReaderFunc(nsIInputStream* aInputStream, void* aClosure,
@@ -234,6 +234,7 @@ class EventSourceImpl final : public nsIObserver,
     PARSE_STATE_FIELD_NAME,
     PARSE_STATE_FIRST_CHAR_OF_FIELD_VALUE,
     PARSE_STATE_FIELD_VALUE,
+    PARSE_STATE_IGNORE_FIELD_VALUE,
     PARSE_STATE_BEGIN_OF_LINE
   };
 
@@ -247,7 +248,12 @@ class EventSourceImpl final : public nsIObserver,
 
   struct Message {
     nsString mEventName;
-    nsString mLastEventID;
+    // We need to be able to distinguish between different states of id field:
+    // 1) is not given at all
+    // 2) is given but is empty
+    // 3) is given and has a value
+    // We can't check for the 1st state with a simple nsString.
+    Maybe<nsString> mLastEventID;
     nsString mData;
   };
 
@@ -255,7 +261,7 @@ class EventSourceImpl final : public nsIObserver,
   // EventSourceImpl on target thread but should only be used on target thread.
   nsString mLastEventID;
   UniquePtr<Message> mCurrentMessage;
-  nsDeque mMessagesToDispatch;
+  nsDeque<Message> mMessagesToDispatch;
   ParserStatus mStatus;
   mozilla::UniquePtr<mozilla::Decoder> mUnicodeDecoder;
   nsString mLastFieldName;
@@ -264,8 +270,8 @@ class EventSourceImpl final : public nsIObserver,
   // EventSourceImpl internal states.
   // WorkerRef to keep the worker alive. (accessed on worker thread only)
   RefPtr<ThreadSafeWorkerRef> mWorkerRef;
-  // This mutex protects mFrozen and mEventSource->mReadyState that are used in
-  // different threads.
+  // This mutex protects mServiceNotifier, mFrozen and mEventSource->mReadyState
+  // that are used in different threads.
   mozilla::Mutex mMutex;
   // Whether the window is frozen. May be set on main thread and read on target
   // thread. Use mMutex to protect it before accessing it.
@@ -277,6 +283,57 @@ class EventSourceImpl final : public nsIObserver,
   // Whether the EventSourceImpl is going to be destroyed.
   bool mIsShutDown;
 
+  class EventSourceServiceNotifier final {
+   public:
+    EventSourceServiceNotifier(EventSourceImpl* aEventSourceImpl,
+                               uint64_t aHttpChannelId, uint64_t aInnerWindowID)
+        : mEventSourceImpl(aEventSourceImpl),
+          mHttpChannelId(aHttpChannelId),
+          mInnerWindowID(aInnerWindowID),
+          mConnectionOpened(false) {
+      AssertIsOnMainThread();
+      mService = EventSourceEventService::GetOrCreate();
+    }
+
+    void ConnectionOpened() {
+      mEventSourceImpl->AssertIsOnTargetThread();
+      mService->EventSourceConnectionOpened(mHttpChannelId, mInnerWindowID);
+      mConnectionOpened = true;
+    }
+
+    void EventReceived(const nsAString& aEventName,
+                       const nsAString& aLastEventID, const nsAString& aData,
+                       uint32_t aRetry, DOMHighResTimeStamp aTimeStamp) {
+      mEventSourceImpl->AssertIsOnTargetThread();
+      mService->EventReceived(mHttpChannelId, mInnerWindowID, aEventName,
+                              aLastEventID, aData, aRetry, aTimeStamp);
+    }
+
+    ~EventSourceServiceNotifier() {
+      // It is safe to call this on any thread because
+      // EventSourceConnectionClosed method is thread safe and
+      // NS_ReleaseOnMainThread explicitly releases the service on the main
+      // thread.
+      if (mConnectionOpened) {
+        // We want to notify about connection being closed only if we told
+        // it was ever opened. The check is needed if OnStartRequest is called
+        // on the main thread while close() is called on a worker thread.
+        mService->EventSourceConnectionClosed(mHttpChannelId, mInnerWindowID);
+      }
+      NS_ReleaseOnMainThread("EventSourceServiceNotifier::mService",
+                             mService.forget());
+    }
+
+   private:
+    RefPtr<EventSourceEventService> mService;
+    // Raw pointer is safe because EventSourceImpl keeps the object alive.
+    EventSourceImpl* mEventSourceImpl;
+    uint64_t mHttpChannelId;
+    uint64_t mInnerWindowID;
+    bool mConnectionOpened;
+  };
+
+  UniquePtr<EventSourceServiceNotifier> mServiceNotifier;
   // Event Source owner information:
   // - the script file name
   // - source code line number and column number where the Event Source object
@@ -291,6 +348,8 @@ class EventSourceImpl final : public nsIObserver,
   uint64_t mInnerWindowID;
 
  private:
+  nsCOMPtr<nsICookieJarSettings> mCookieJarSettings;
+
   // Pointer to the target thread for checking whether we are
   // on the target thread. This is intentionally a non-owning
   // pointer in order not to affect the thread destruction
@@ -316,7 +375,8 @@ NS_IMPL_ISUPPORTS(EventSourceImpl, nsIObserver, nsIStreamListener,
                   nsIInterfaceRequestor, nsISupportsWeakReference,
                   nsIEventTarget, nsIThreadRetargetableStreamListener)
 
-EventSourceImpl::EventSourceImpl(EventSource* aEventSource)
+EventSourceImpl::EventSourceImpl(EventSource* aEventSource,
+                                 nsICookieJarSettings* aCookieJarSettings)
     : mEventSource(aEventSource),
       mReconnectionTime(0),
       mStatus(PARSE_STATE_OFF),
@@ -328,6 +388,7 @@ EventSourceImpl::EventSourceImpl(EventSource* aEventSource)
       mScriptLine(0),
       mScriptColumn(0),
       mInnerWindowID(0),
+      mCookieJarSettings(aCookieJarSettings),
       mTargetThread(NS_GetCurrentThread()) {
   MOZ_ASSERT(mEventSource);
   if (!mIsMainThread) {
@@ -340,7 +401,7 @@ class CleanupRunnable final : public WorkerMainThreadRunnable {
  public:
   explicit CleanupRunnable(EventSourceImpl* aEventSourceImpl)
       : WorkerMainThreadRunnable(GetCurrentThreadWorkerPrivate(),
-                                 NS_LITERAL_CSTRING("EventSource :: Cleanup")),
+                                 "EventSource :: Cleanup"_ns),
         mImpl(aEventSourceImpl) {
     mWorkerPrivate->AssertIsOnWorkerThread();
   }
@@ -367,9 +428,19 @@ void EventSourceImpl::Close() {
 void EventSourceImpl::CloseInternal() {
   AssertIsOnTargetThread();
   MOZ_ASSERT(IsClosed());
+
+  {
+    MutexAutoLock lock(mMutex);
+    mServiceNotifier = nullptr;
+  }
+
   if (IsShutDown()) {
     return;
   }
+
+  // Ensure EventSourceImpl itself alive until the cleanup is completed, since
+  // it's possible to only be held by WorkerRef.
+  RefPtr<EventSourceImpl> kungFuDeathGrip = this;
 
   // Invoke CleanupOnMainThread before cleaning any members. It will call
   // ShutDown, which is supposed to be called before cleaning any members.
@@ -386,7 +457,7 @@ void EventSourceImpl::CloseInternal() {
   }
 
   while (mMessagesToDispatch.GetSize() != 0) {
-    delete static_cast<Message*>(mMessagesToDispatch.PopFront());
+    delete mMessagesToDispatch.PopFront();
   }
   SetFrozen(false);
   ResetDecoder();
@@ -421,8 +492,7 @@ class InitRunnable final : public WorkerMainThreadRunnable {
  public:
   InitRunnable(WorkerPrivate* aWorkerPrivate, EventSourceImpl* aEventSourceImpl,
                const nsAString& aURL)
-      : WorkerMainThreadRunnable(aWorkerPrivate,
-                                 NS_LITERAL_CSTRING("EventSource :: Init")),
+      : WorkerMainThreadRunnable(aWorkerPrivate, "EventSource :: Init"_ns),
         mImpl(aEventSourceImpl),
         mURL(aURL),
         mRv(NS_ERROR_NOT_INITIALIZED) {
@@ -437,7 +507,7 @@ class InitRunnable final : public WorkerMainThreadRunnable {
       wp = wp->GetParent();
     }
     nsPIDOMWindowInner* window = wp->GetWindow();
-    nsIDocument* doc = window ? window->GetExtantDoc() : nullptr;
+    Document* doc = window ? window->GetExtantDoc() : nullptr;
     nsCOMPtr<nsIPrincipal> principal =
         doc ? doc->NodePrincipal() : wp->GetPrincipal();
     if (!principal) {
@@ -463,8 +533,7 @@ class ConnectRunnable final : public WorkerMainThreadRunnable {
  public:
   explicit ConnectRunnable(WorkerPrivate* aWorkerPrivate,
                            EventSourceImpl* aEventSourceImpl)
-      : WorkerMainThreadRunnable(aWorkerPrivate,
-                                 NS_LITERAL_CSTRING("EventSource :: Connect")),
+      : WorkerMainThreadRunnable(aWorkerPrivate, "EventSource :: Connect"_ns),
         mImpl(aEventSourceImpl) {
     MOZ_ASSERT(aWorkerPrivate);
     aWorkerPrivate->AssertIsOnWorkerThread();
@@ -601,7 +670,7 @@ EventSourceImpl::Observe(nsISupports* aSubject, const char* aTopic,
 //-----------------------------------------------------------------------------
 
 NS_IMETHODIMP
-EventSourceImpl::OnStartRequest(nsIRequest* aRequest, nsISupports* aCtxt) {
+EventSourceImpl::OnStartRequest(nsIRequest* aRequest) {
   AssertIsOnMainThread();
   if (IsClosed()) {
     return NS_ERROR_ABORT;
@@ -650,6 +719,12 @@ EventSourceImpl::OnStartRequest(nsIRequest* aRequest, nsISupports* aCtxt) {
       }
     }
   }
+
+  {
+    MutexAutoLock lock(mMutex);
+    mServiceNotifier = MakeUnique<EventSourceServiceNotifier>(
+        this, mHttpChannel->ChannelId(), mInnerWindowID);
+  }
   rv = Dispatch(NewRunnableMethod("dom::EventSourceImpl::AnnounceConnection",
                                   this, &EventSourceImpl::AnnounceConnection),
                 NS_DISPATCH_NORMAL);
@@ -684,8 +759,8 @@ void EventSourceImpl::ParseSegment(const char* aBuffer, uint32_t aLength) {
     return;
   }
   char16_t buffer[1024];
-  auto dst = MakeSpan(buffer);
-  auto src = AsBytes(MakeSpan(aBuffer, aLength));
+  auto dst = Span(buffer);
+  auto src = AsBytes(Span(aBuffer, aLength));
   // XXX EOF handling is https://bugzilla.mozilla.org/show_bug.cgi?id=1369018
   for (;;) {
     uint32_t result;
@@ -707,7 +782,7 @@ void EventSourceImpl::ParseSegment(const char* aBuffer, uint32_t aLength) {
 }
 
 NS_IMETHODIMP
-EventSourceImpl::OnDataAvailable(nsIRequest* aRequest, nsISupports* aContext,
+EventSourceImpl::OnDataAvailable(nsIRequest* aRequest,
                                  nsIInputStream* aInputStream, uint64_t aOffset,
                                  uint32_t aCount) {
   AssertIsOnTargetThread();
@@ -725,8 +800,7 @@ EventSourceImpl::OnDataAvailable(nsIRequest* aRequest, nsISupports* aContext,
 }
 
 NS_IMETHODIMP
-EventSourceImpl::OnStopRequest(nsIRequest* aRequest, nsISupports* aContext,
-                               nsresult aStatusCode) {
+EventSourceImpl::OnStopRequest(nsIRequest* aRequest, nsresult aStatusCode) {
   AssertIsOnMainThread();
 
   if (IsClosed()) {
@@ -787,13 +861,9 @@ EventSourceImpl::AsyncOnChannelRedirect(
   rv = NS_GetFinalChannelURI(aNewChannel, getter_AddRefs(newURI));
   NS_ENSURE_SUCCESS(rv, rv);
 
-  bool isValidScheme =
-      (NS_SUCCEEDED(newURI->SchemeIs("http", &isValidScheme)) &&
-       isValidScheme) ||
-      (NS_SUCCEEDED(newURI->SchemeIs("https", &isValidScheme)) &&
-       isValidScheme);
+  bool isValidScheme = newURI->SchemeIs("http") || newURI->SchemeIs("https");
 
-  rv = mEventSource->CheckInnerWindowCorrectness();
+  rv = mEventSource->CheckCurrentGlobalCorrectness();
   if (NS_FAILED(rv) || !isValidScheme) {
     DispatchFailConnection();
     return NS_ERROR_DOM_SECURITY_ERR;
@@ -805,8 +875,8 @@ EventSourceImpl::AsyncOnChannelRedirect(
   NS_ENSURE_STATE(mHttpChannel);
 
   SetupHttpChannel();
-  // The HTTP impl already copies over the referrer and referrer policy on
-  // redirects, so we don't need to SetupReferrerPolicy().
+  // The HTTP impl already copies over the referrer info on
+  // redirects, so we don't need to SetupReferrerInfo().
 
   if ((aFlags & nsIChannelEventSink::REDIRECT_PERMANENT) != 0) {
     rv = NS_GetFinalChannelURI(mHttpChannel, getter_AddRefs(mSrc));
@@ -838,7 +908,7 @@ EventSourceImpl::GetInterface(const nsIID& aIID, void** aResult) {
 
   if (aIID.Equals(NS_GET_IID(nsIAuthPrompt)) ||
       aIID.Equals(NS_GET_IID(nsIAuthPrompt2))) {
-    nsresult rv = mEventSource->CheckInnerWindowCorrectness();
+    nsresult rv = mEventSource->CheckCurrentGlobalCorrectness();
     NS_ENSURE_SUCCESS(rv, NS_ERROR_UNEXPECTED);
 
     nsCOMPtr<nsIPromptFactory> wwatch =
@@ -878,14 +948,15 @@ nsresult EventSourceImpl::GetBaseURI(nsIURI** aBaseURI) {
   nsCOMPtr<nsIURI> baseURI;
 
   // first we try from document->GetBaseURI()
-  nsCOMPtr<nsIDocument> doc = mEventSource->GetDocumentIfCurrent();
+  nsCOMPtr<Document> doc = mEventSource->GetDocumentIfCurrent();
   if (doc) {
     baseURI = doc->GetBaseURI();
   }
 
   // otherwise we get from the doc's principal
   if (!baseURI) {
-    nsresult rv = mPrincipal->GetURI(getter_AddRefs(baseURI));
+    auto* basePrin = BasePrincipal::Cast(mPrincipal);
+    nsresult rv = basePrin->GetURI(getter_AddRefs(baseURI));
     NS_ENSURE_SUCCESS(rv, rv);
   }
 
@@ -898,14 +969,13 @@ nsresult EventSourceImpl::GetBaseURI(nsIURI** aBaseURI) {
 void EventSourceImpl::SetupHttpChannel() {
   AssertIsOnMainThread();
   MOZ_ASSERT(!IsShutDown());
-  nsresult rv = mHttpChannel->SetRequestMethod(NS_LITERAL_CSTRING("GET"));
+  nsresult rv = mHttpChannel->SetRequestMethod("GET"_ns);
   MOZ_ASSERT(NS_SUCCEEDED(rv));
 
   /* set the http request headers */
 
-  rv = mHttpChannel->SetRequestHeader(NS_LITERAL_CSTRING("Accept"),
-                                      NS_LITERAL_CSTRING(TEXT_EVENT_STREAM),
-                                      false);
+  rv = mHttpChannel->SetRequestHeader(
+      "Accept"_ns, nsLiteralCString(TEXT_EVENT_STREAM), false);
   MOZ_ASSERT(NS_SUCCEEDED(rv));
 
   // LOAD_BYPASS_CACHE already adds the Cache-Control: no-cache header
@@ -914,8 +984,7 @@ void EventSourceImpl::SetupHttpChannel() {
     return;
   }
   NS_ConvertUTF16toUTF8 eventId(mLastEventID);
-  rv = mHttpChannel->SetRequestHeader(NS_LITERAL_CSTRING("Last-Event-ID"),
-                                      eventId, false);
+  rv = mHttpChannel->SetRequestHeader("Last-Event-ID"_ns, eventId, false);
 #ifdef DEBUG
   if (NS_FAILED(rv)) {
     MOZ_LOG(gEventSourceLog, LogLevel::Warning,
@@ -925,13 +994,13 @@ void EventSourceImpl::SetupHttpChannel() {
   Unused << rv;
 }
 
-nsresult EventSourceImpl::SetupReferrerPolicy() {
+nsresult EventSourceImpl::SetupReferrerInfo() {
   AssertIsOnMainThread();
   MOZ_ASSERT(!IsShutDown());
-  nsCOMPtr<nsIDocument> doc = mEventSource->GetDocumentIfCurrent();
-  if (doc) {
-    nsresult rv = mHttpChannel->SetReferrerWithPolicy(doc->GetDocumentURI(),
-                                                      doc->GetReferrerPolicy());
+
+  if (nsCOMPtr<Document> doc = mEventSource->GetDocumentIfCurrent()) {
+    auto referrerInfo = MakeRefPtr<ReferrerInfo>(*doc);
+    nsresult rv = mHttpChannel->SetReferrerInfoWithoutClone(referrerInfo);
     NS_ENSURE_SUCCESS(rv, rv);
   }
 
@@ -944,11 +1013,9 @@ nsresult EventSourceImpl::InitChannelAndRequestEventSource() {
     return NS_ERROR_ABORT;
   }
 
-  bool isValidScheme =
-      (NS_SUCCEEDED(mSrc->SchemeIs("http", &isValidScheme)) && isValidScheme) ||
-      (NS_SUCCEEDED(mSrc->SchemeIs("https", &isValidScheme)) && isValidScheme);
+  bool isValidScheme = mSrc->SchemeIs("http") || mSrc->SchemeIs("https");
 
-  nsresult rv = mEventSource->CheckInnerWindowCorrectness();
+  nsresult rv = mEventSource->CheckCurrentGlobalCorrectness();
   if (NS_FAILED(rv) || !isValidScheme) {
     DispatchFailConnection();
     return NS_ERROR_DOM_SECURITY_ERR;
@@ -960,9 +1027,10 @@ nsresult EventSourceImpl::InitChannelAndRequestEventSource() {
   loadFlags = nsIRequest::LOAD_BACKGROUND | nsIRequest::LOAD_BYPASS_CACHE |
               nsIRequest::INHIBIT_CACHING;
 
-  nsCOMPtr<nsIDocument> doc = mEventSource->GetDocumentIfCurrent();
+  nsCOMPtr<Document> doc = mEventSource->GetDocumentIfCurrent();
 
-  nsSecurityFlags securityFlags = nsILoadInfo::SEC_REQUIRE_CORS_DATA_INHERITS;
+  nsSecurityFlags securityFlags =
+      nsILoadInfo::SEC_REQUIRE_CORS_INHERITS_SEC_CONTEXT;
 
   if (mEventSource->mWithCredentials) {
     securityFlags |= nsILoadInfo::SEC_COOKIES_INCLUDE;
@@ -971,6 +1039,8 @@ nsresult EventSourceImpl::InitChannelAndRequestEventSource() {
   nsCOMPtr<nsIChannel> channel;
   // If we have the document, use it
   if (doc) {
+    MOZ_ASSERT(mCookieJarSettings == doc->CookieJarSettings());
+
     nsCOMPtr<nsILoadGroup> loadGroup = doc->GetDocumentLoadGroup();
     rv = NS_NewChannel(getter_AddRefs(channel), mSrc, doc, securityFlags,
                        nsIContentPolicy::TYPE_INTERNAL_EVENTSOURCE,
@@ -982,6 +1052,7 @@ nsresult EventSourceImpl::InitChannelAndRequestEventSource() {
     // otherwise use the principal
     rv = NS_NewChannel(getter_AddRefs(channel), mSrc, mPrincipal, securityFlags,
                        nsIContentPolicy::TYPE_INTERNAL_EVENTSOURCE,
+                       mCookieJarSettings,
                        nullptr,     // aPerformanceStorage
                        nullptr,     // loadGroup
                        nullptr,     // aCallbacks
@@ -994,7 +1065,7 @@ nsresult EventSourceImpl::InitChannelAndRequestEventSource() {
   NS_ENSURE_TRUE(mHttpChannel, NS_ERROR_NO_INTERFACE);
 
   SetupHttpChannel();
-  rv = SetupReferrerPolicy();
+  rv = SetupReferrerInfo();
   NS_ENSURE_SUCCESS(rv, rv);
 
 #ifdef DEBUG
@@ -1008,7 +1079,7 @@ nsresult EventSourceImpl::InitChannelAndRequestEventSource() {
   mHttpChannel->SetNotificationCallbacks(this);
 
   // Start reading from the channel
-  rv = mHttpChannel->AsyncOpen2(this);
+  rv = mHttpChannel->AsyncOpen(this);
   if (NS_FAILED(rv)) {
     DispatchFailConnection();
     return rv;
@@ -1026,17 +1097,24 @@ void EventSourceImpl::AnnounceConnection() {
     return;
   }
 
+  {
+    MutexAutoLock lock(mMutex);
+    if (mServiceNotifier) {
+      mServiceNotifier->ConnectionOpened();
+    }
+  }
+
   // When a user agent is to announce the connection, the user agent must set
   // the readyState attribute to OPEN and queue a task to fire a simple event
   // named open at the EventSource object.
 
   SetReadyState(OPEN);
 
-  nsresult rv = mEventSource->CheckInnerWindowCorrectness();
+  nsresult rv = mEventSource->CheckCurrentGlobalCorrectness();
   if (NS_FAILED(rv)) {
     return;
   }
-  rv = mEventSource->CreateAndDispatchSimpleEvent(NS_LITERAL_STRING("open"));
+  rv = mEventSource->CreateAndDispatchSimpleEvent(u"open"_ns);
   if (NS_FAILED(rv)) {
     NS_WARNING("Failed to dispatch the error event!!!");
     return;
@@ -1064,9 +1142,8 @@ void EventSourceImpl::ResetDecoder() {
 class CallRestartConnection final : public WorkerMainThreadRunnable {
  public:
   explicit CallRestartConnection(EventSourceImpl* aEventSourceImpl)
-      : WorkerMainThreadRunnable(
-            aEventSourceImpl->mWorkerRef->Private(),
-            NS_LITERAL_CSTRING("EventSource :: RestartConnection")),
+      : WorkerMainThreadRunnable(aEventSourceImpl->mWorkerRef->Private(),
+                                 "EventSource :: RestartConnection"_ns),
         mImpl(aEventSourceImpl) {
     mWorkerPrivate->AssertIsOnWorkerThread();
   }
@@ -1086,6 +1163,7 @@ nsresult EventSourceImpl::RestartConnection() {
   if (IsClosed()) {
     return NS_ERROR_ABORT;
   }
+
   nsresult rv = ResetConnection();
   NS_ENSURE_SUCCESS(rv, rv);
   rv = SetReconnectionTimeout();
@@ -1113,14 +1191,14 @@ void EventSourceImpl::ReestablishConnection() {
     return;
   }
 
-  rv = mEventSource->CheckInnerWindowCorrectness();
+  rv = mEventSource->CheckCurrentGlobalCorrectness();
   if (NS_FAILED(rv)) {
     return;
   }
 
   SetReadyState(CONNECTING);
   ResetDecoder();
-  rv = mEventSource->CreateAndDispatchSimpleEvent(NS_LITERAL_STRING("error"));
+  rv = mEventSource->CreateAndDispatchSimpleEvent(u"error"_ns);
   if (NS_FAILED(rv)) {
     NS_WARNING("Failed to dispatch the error event!!!");
     return;
@@ -1147,10 +1225,9 @@ nsresult EventSourceImpl::SetReconnectionTimeout() {
   return NS_OK;
 }
 
-nsresult EventSourceImpl::PrintErrorOnConsole(const char* aBundleURI,
-                                              const char* aError,
-                                              const char16_t** aFormatStrings,
-                                              uint32_t aFormatStringsLen) {
+nsresult EventSourceImpl::PrintErrorOnConsole(
+    const char* aBundleURI, const char* aError,
+    const nsTArray<nsString>& aFormatStrings) {
   AssertIsOnMainThread();
   MOZ_ASSERT(!IsShutDown());
   nsCOMPtr<nsIStringBundleService> bundleService =
@@ -1172,17 +1249,16 @@ nsresult EventSourceImpl::PrintErrorOnConsole(const char* aBundleURI,
 
   // Localize the error message
   nsAutoString message;
-  if (aFormatStrings) {
-    rv = strBundle->FormatStringFromName(aError, aFormatStrings,
-                                         aFormatStringsLen, message);
+  if (!aFormatStrings.IsEmpty()) {
+    rv = strBundle->FormatStringFromName(aError, aFormatStrings, message);
   } else {
     rv = strBundle->GetStringFromName(aError, message);
   }
   NS_ENSURE_SUCCESS(rv, rv);
 
-  rv = errObj->InitWithWindowID(
-      message, mScriptFile, EmptyString(), mScriptLine, mScriptColumn,
-      nsIScriptError::errorFlag, "Event Source", mInnerWindowID);
+  rv = errObj->InitWithWindowID(message, mScriptFile, u""_ns, mScriptLine,
+                                mScriptColumn, nsIScriptError::errorFlag,
+                                "Event Source", mInnerWindowID);
   NS_ENSURE_SUCCESS(rv, rv);
 
   // print the error message directly to the JS console
@@ -1199,17 +1275,15 @@ nsresult EventSourceImpl::ConsoleError() {
   nsresult rv = mSrc->GetSpec(targetSpec);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  NS_ConvertUTF8toUTF16 specUTF16(targetSpec);
-  const char16_t* formatStrings[] = {specUTF16.get()};
+  AutoTArray<nsString, 1> formatStrings;
+  CopyUTF8toUTF16(targetSpec, *formatStrings.AppendElement());
 
   if (ReadyState() == CONNECTING) {
     rv = PrintErrorOnConsole("chrome://global/locale/appstrings.properties",
-                             "connectionFailure", formatStrings,
-                             ArrayLength(formatStrings));
+                             "connectionFailure", formatStrings);
   } else {
     rv = PrintErrorOnConsole("chrome://global/locale/appstrings.properties",
-                             "netInterrupt", formatStrings,
-                             ArrayLength(formatStrings));
+                             "netInterrupt", formatStrings);
   }
   NS_ENSURE_SUCCESS(rv, rv);
 
@@ -1245,9 +1319,9 @@ void EventSourceImpl::FailConnection() {
   // When a user agent is to fail the connection, the user agent must set the
   // readyState attribute to CLOSED and queue a task to fire a simple event
   // named error at the EventSource object.
-  nsresult rv = mEventSource->CheckInnerWindowCorrectness();
+  nsresult rv = mEventSource->CheckCurrentGlobalCorrectness();
   if (NS_SUCCEEDED(rv)) {
-    rv = mEventSource->CreateAndDispatchSimpleEvent(NS_LITERAL_STRING("error"));
+    rv = mEventSource->CreateAndDispatchSimpleEvent(u"error"_ns);
     if (NS_FAILED(rv)) {
       NS_WARNING("Failed to dispatch the error event!!!");
     }
@@ -1335,10 +1409,6 @@ nsresult EventSourceImpl::DispatchCurrentMessageEvent() {
     message->mEventName.AssignLiteral("message");
   }
 
-  if (message->mLastEventID.IsEmpty() && !mLastEventID.IsEmpty()) {
-    message->mLastEventID.Assign(mLastEventID);
-  }
-
   mMessagesToDispatch.Push(message.release());
 
   if (!mGoingToDispatchAllMessages) {
@@ -1363,27 +1433,38 @@ void EventSourceImpl::DispatchAllMessageEvents() {
     return;
   }
 
-  nsresult rv = mEventSource->CheckInnerWindowCorrectness();
+  nsresult rv = mEventSource->CheckCurrentGlobalCorrectness();
   if (NS_FAILED(rv)) {
     return;
   }
 
   AutoJSAPI jsapi;
-  if (mIsMainThread) {
-    if (NS_WARN_IF(!jsapi.Init(mEventSource->GetOwner()))) {
-      return;
-    }
-  } else {
-    MOZ_ASSERT(mWorkerRef);
-    if (NS_WARN_IF(!jsapi.Init(mWorkerRef->Private()->GlobalScope()))) {
-      return;
-    }
+  if (NS_WARN_IF(!jsapi.Init(mEventSource->GetOwnerGlobal()))) {
+    return;
   }
+
   JSContext* cx = jsapi.cx();
 
   while (mMessagesToDispatch.GetSize() > 0) {
-    UniquePtr<Message> message(
-        static_cast<Message*>(mMessagesToDispatch.PopFront()));
+    UniquePtr<Message> message(mMessagesToDispatch.PopFront());
+
+    if (message->mLastEventID.isSome()) {
+      mLastEventID.Assign(message->mLastEventID.value());
+    }
+
+    if (message->mLastEventID.isNothing() && !mLastEventID.IsEmpty()) {
+      message->mLastEventID = Some(mLastEventID);
+    }
+
+    {
+      MutexAutoLock lock(mMutex);
+      if (mServiceNotifier) {
+        mServiceNotifier->EventReceived(message->mEventName, mLastEventID,
+                                        message->mData, mReconnectionTime,
+                                        PR_Now());
+      }
+    }
+
     // Now we can turn our string into a jsval
     JS::Rooted<JS::Value> jsData(cx);
     {
@@ -1402,9 +1483,8 @@ void EventSourceImpl::DispatchAllMessageEvents() {
         new MessageEvent(mEventSource, nullptr, nullptr);
 
     event->InitMessageEvent(nullptr, message->mEventName, CanBubble::eNo,
-                            Cancelable::eNo, jsData, mOrigin,
-                            message->mLastEventID, nullptr,
-                            Sequence<OwningNonNull<MessagePort>>());
+                            Cancelable::eNo, jsData, mOrigin, mLastEventID,
+                            nullptr, Sequence<OwningNonNull<MessagePort>>());
     event->SetTrusted(true);
 
     IgnoredErrorResult err;
@@ -1414,7 +1494,6 @@ void EventSourceImpl::DispatchAllMessageEvents() {
       return;
     }
 
-    mLastEventID.Assign(message->mLastEventID);
     if (IsClosed() || IsFrozen()) {
       return;
     }
@@ -1461,7 +1540,7 @@ nsresult EventSourceImpl::SetFieldAndClear() {
 
     case char16_t('i'):
       if (mLastFieldName.EqualsLiteral("id")) {
-        mCurrentMessage->mLastEventID.Assign(mLastFieldValue);
+        mCurrentMessage->mLastEventID = Some(mLastFieldValue);
       }
       break;
 
@@ -1626,8 +1705,20 @@ nsresult EventSourceImpl::ParseCharacter(char16_t aChr) {
       } else if (aChr != 0) {
         // Avoid appending the null char to the field value.
         mLastFieldValue += aChr;
+      } else if (mLastFieldName.EqualsLiteral("id")) {
+        // Ignore the whole id field if aChr is null
+        mStatus = PARSE_STATE_IGNORE_FIELD_VALUE;
+        mLastFieldValue.Truncate();
       }
 
+      break;
+
+    case PARSE_STATE_IGNORE_FIELD_VALUE:
+      if (aChr == CR_CHAR) {
+        mStatus = PARSE_STATE_CR_CHAR;
+      } else if (aChr == LF_CHAR) {
+        mStatus = PARSE_STATE_BEGIN_OF_LINE;
+      }
       break;
 
     case PARSE_STATE_BEGIN_OF_LINE:
@@ -1776,16 +1867,19 @@ EventSourceImpl::CheckListenerChain() {
 // EventSource
 ////////////////////////////////////////////////////////////////////////////////
 
-EventSource::EventSource(nsPIDOMWindowInner* aOwnerWindow,
+EventSource::EventSource(nsIGlobalObject* aGlobal,
+                         nsICookieJarSettings* aCookieJarSettings,
                          bool aWithCredentials)
-    : DOMEventTargetHelper(aOwnerWindow),
+    : DOMEventTargetHelper(aGlobal),
       mWithCredentials(aWithCredentials),
       mIsMainThread(true),
       mKeepingAlive(false) {
-  mImpl = new EventSourceImpl(this);
+  MOZ_ASSERT(aGlobal);
+  MOZ_ASSERT(aCookieJarSettings);
+  mImpl = new EventSourceImpl(this, aCookieJarSettings);
 }
 
-EventSource::~EventSource() {}
+EventSource::~EventSource() = default;
 
 nsresult EventSource::CreateAndDispatchSimpleEvent(const nsAString& aName) {
   RefPtr<Event> event = NS_NewDOMEvent(this, nullptr, nullptr);
@@ -1797,16 +1891,35 @@ nsresult EventSource::CreateAndDispatchSimpleEvent(const nsAString& aName) {
   return rv.StealNSResult();
 }
 
-/* static */ already_AddRefed<EventSource> EventSource::Constructor(
+/* static */
+already_AddRefed<EventSource> EventSource::Constructor(
     const GlobalObject& aGlobal, const nsAString& aURL,
     const EventSourceInit& aEventSourceInitDict, ErrorResult& aRv) {
-  nsCOMPtr<nsPIDOMWindowInner> ownerWindow =
-      do_QueryInterface(aGlobal.GetAsSupports());
+  nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(aGlobal.GetAsSupports());
+  if (NS_WARN_IF(!global)) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return nullptr;
+  }
 
-  MOZ_ASSERT(!NS_IsMainThread() || ownerWindow);
+  nsCOMPtr<nsICookieJarSettings> cookieJarSettings;
+  nsCOMPtr<nsPIDOMWindowInner> ownerWindow = do_QueryInterface(global);
+  if (ownerWindow) {
+    Document* doc = ownerWindow->GetExtantDoc();
+    if (NS_WARN_IF(!doc)) {
+      aRv.Throw(NS_ERROR_FAILURE);
+      return nullptr;
+    }
 
-  RefPtr<EventSource> eventSource =
-      new EventSource(ownerWindow, aEventSourceInitDict.mWithCredentials);
+    cookieJarSettings = doc->CookieJarSettings();
+  } else {
+    // Worker side.
+    WorkerPrivate* workerPrivate = GetCurrentThreadWorkerPrivate();
+    MOZ_ASSERT(workerPrivate);
+    cookieJarSettings = workerPrivate->CookieJarSettings();
+  }
+
+  RefPtr<EventSource> eventSource = new EventSource(
+      global, cookieJarSettings, aEventSourceInitDict.mWithCredentials);
   RefPtr<EventSourceImpl> eventSourceImp = eventSource->mImpl;
 
   if (NS_IsMainThread()) {
@@ -1834,6 +1947,8 @@ nsresult EventSource::CreateAndDispatchSimpleEvent(const nsAString& aName) {
   // Worker side.
   WorkerPrivate* workerPrivate = GetCurrentThreadWorkerPrivate();
   MOZ_ASSERT(workerPrivate);
+
+  eventSourceImp->mInnerWindowID = workerPrivate->WindowID();
 
   RefPtr<InitRunnable> initRunnable =
       new InitRunnable(workerPrivate, eventSourceImp, aURL);
@@ -1934,5 +2049,4 @@ NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
 NS_IMPL_ADDREF_INHERITED(EventSource, DOMEventTargetHelper)
 NS_IMPL_RELEASE_INHERITED(EventSource, DOMEventTargetHelper)
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

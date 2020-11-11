@@ -59,8 +59,7 @@ files:
 
 - ``toolkit/components/extensions/ext-toolkit.json``
 - ``browser/components/extensions/ext-browser.json``
-- ``mobile/android/components/extensions/ext-android.js``
-  (*ugh android*)
+- ``mobile/android/components/extensions/ext-android.json``
 
 Here is a sample fragment for a new API:
 
@@ -148,7 +147,9 @@ Firefox locally. Note that extensions that include experiments cannot be
 signed by addons.mozilla.org.  They may be installed temporarily via
 ``about:debugging`` or, on browser that support it (current Nightly and
 Developer Edition), by setting the preference
-``xpinstall.signatures.required`` to ``false``.
+``xpinstall.signatures.required`` to ``false``.  You may also set the
+preference ``extensions.experiments.enabled`` to ``true`` to install the
+addon normally and test across restart.
 
 Experimental APIs have a few limitations compared with built-in APIs:
 

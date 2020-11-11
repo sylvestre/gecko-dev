@@ -7,7 +7,7 @@
 #include "mozilla/dom/HTMLStyleElementBinding.h"
 #include "nsGkAtoms.h"
 #include "nsStyleConsts.h"
-#include "nsIDocument.h"
+#include "mozilla/dom/Document.h"
 #include "nsUnicharUtils.h"
 #include "nsThreadUtils.h"
 #include "nsContentUtils.h"
@@ -15,8 +15,7 @@
 
 NS_IMPL_NS_NEW_HTML_ELEMENT(Style)
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 HTMLStyleElement::HTMLStyleElement(
     already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo)
@@ -24,28 +23,27 @@ HTMLStyleElement::HTMLStyleElement(
   AddMutationObserver(this);
 }
 
-HTMLStyleElement::~HTMLStyleElement() {}
+HTMLStyleElement::~HTMLStyleElement() = default;
 
 NS_IMPL_CYCLE_COLLECTION_CLASS(HTMLStyleElement)
 
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(HTMLStyleElement,
                                                   nsGenericHTMLElement)
-  tmp->nsStyleLinkElement::Traverse(cb);
+  tmp->LinkStyle::Traverse(cb);
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(HTMLStyleElement,
                                                 nsGenericHTMLElement)
-  tmp->nsStyleLinkElement::Unlink();
+  tmp->LinkStyle::Unlink();
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 NS_IMPL_ISUPPORTS_CYCLE_COLLECTION_INHERITED(HTMLStyleElement,
                                              nsGenericHTMLElement,
-                                             nsIStyleSheetLinkingElement,
                                              nsIMutationObserver)
 
 NS_IMPL_ELEMENT_CLONE(HTMLStyleElement)
 
-bool HTMLStyleElement::Disabled() {
+bool HTMLStyleElement::Disabled() const {
   StyleSheet* ss = GetSheet();
   return ss && ss->Disabled();
 }
@@ -81,11 +79,8 @@ void HTMLStyleElement::ContentChanged(nsIContent* aContent) {
   }
 }
 
-nsresult HTMLStyleElement::BindToTree(nsIDocument* aDocument,
-                                      nsIContent* aParent,
-                                      nsIContent* aBindingParent) {
-  nsresult rv =
-      nsGenericHTMLElement::BindToTree(aDocument, aParent, aBindingParent);
+nsresult HTMLStyleElement::BindToTree(BindContext& aContext, nsINode& aParent) {
+  nsresult rv = nsGenericHTMLElement::BindToTree(aContext, aParent);
   NS_ENSURE_SUCCESS(rv, rv);
 
   void (HTMLStyleElement::*update)() =
@@ -96,11 +91,11 @@ nsresult HTMLStyleElement::BindToTree(nsIDocument* aDocument,
   return rv;
 }
 
-void HTMLStyleElement::UnbindFromTree(bool aDeep, bool aNullParent) {
-  nsCOMPtr<nsIDocument> oldDoc = GetUncomposedDoc();
+void HTMLStyleElement::UnbindFromTree(bool aNullParent) {
+  nsCOMPtr<Document> oldDoc = GetUncomposedDoc();
   ShadowRoot* oldShadow = GetContainingShadow();
 
-  nsGenericHTMLElement::UnbindFromTree(aDeep, aNullParent);
+  nsGenericHTMLElement::UnbindFromTree(aNullParent);
 
   if (oldShadow && GetContainingShadow()) {
     // The style is in a shadow tree and is still in the
@@ -166,8 +161,12 @@ void HTMLStyleElement::SetTextContentInternal(const nsAString& aTextContent,
   Unused << UpdateStyleSheetInternal(nullptr, nullptr);
 }
 
-Maybe<nsStyleLinkElement::SheetInfo> HTMLStyleElement::GetStyleSheetInfo() {
-  if (!IsCSSMimeTypeAttribute(*this)) {
+void HTMLStyleElement::SetDevtoolsAsTriggeringPrincipal() {
+  mTriggeringPrincipal = CreateDevtoolsPrincipal();
+}
+
+Maybe<LinkStyle::SheetInfo> HTMLStyleElement::GetStyleSheetInfo() {
+  if (!IsCSSMimeTypeAttributeForStyleElement(*this)) {
     return Nothing();
   }
 
@@ -175,18 +174,22 @@ Maybe<nsStyleLinkElement::SheetInfo> HTMLStyleElement::GetStyleSheetInfo() {
   nsAutoString media;
   GetTitleAndMediaForElement(*this, title, media);
 
-  nsCOMPtr<nsIPrincipal> prin = mTriggeringPrincipal;
   return Some(SheetInfo{
       *OwnerDoc(),
       this,
       nullptr,
-      prin.forget(),
-      net::ReferrerPolicy::RP_Unset,
+      do_AddRef(mTriggeringPrincipal),
+      MakeAndAddRef<ReferrerInfo>(*this),
       CORS_NONE,
       title,
       media,
+      /* integrity = */ u""_ns,
+      /* nsStyleUtil::CSPAllowsInlineStyle takes care of nonce checking for
+         inline styles. Bug 1607011 */
+      /* nonce = */ u""_ns,
       HasAlternateRel::No,
       IsInline::Yes,
+      IsExplicitlyEnabled::No,
   });
 }
 
@@ -195,5 +198,4 @@ JSObject* HTMLStyleElement::WrapNode(JSContext* aCx,
   return HTMLStyleElement_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

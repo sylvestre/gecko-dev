@@ -3,15 +3,14 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-/* jshint esnext:true, globalstrict:true, moz:true, undef:true, unused:true */
-/* globals Components, dump */
 
 "use strict";
 
 var EXPORTED_SYMBOLS = ["ReceiverStateMachine"]; // jshint ignore:line
 
-/* globals State, CommandType */
-ChromeUtils.import("resource://gre/modules/presentation/StateMachineHelper.jsm");
+const { CommandType, State } = ChromeUtils.import(
+  "resource://gre/modules/presentation/StateMachineHelper.jsm"
+);
 
 const DEBUG = false;
 function debug(str) {
@@ -49,8 +48,7 @@ var handlers = [
         stateMachine._notifyDisconnected(command.reason);
         break;
       case CommandType.LAUNCH:
-        stateMachine._notifyLaunch(command.presentationId,
-                                   command.url);
+        stateMachine._notifyLaunch(command.presentationId, command.url);
         stateMachine._sendCommand({
           type: CommandType.LAUNCH_ACK,
           presentationId: command.presentationId,
@@ -67,8 +65,7 @@ var handlers = [
         stateMachine._notifyChannelDescriptor(command);
         break;
       case CommandType.RECONNECT:
-        stateMachine._notifyReconnect(command.presentationId,
-                                      command.url);
+        stateMachine._notifyReconnect(command.presentationId, command.url);
         stateMachine._sendCommand({
           type: CommandType.RECONNECT_ACK,
           presentationId: command.presentationId,
@@ -192,7 +189,8 @@ ReceiverStateMachine.prototype = {
         }
         break;
       default:
-        DEBUG && debug("unexpected channel close: " + reason + ", " + isByRemote); // jshint ignore:line
+        DEBUG &&
+          debug("unexpected channel close: " + reason + ", " + isByRemote); // jshint ignore:line
         break;
     }
   },
@@ -232,4 +230,3 @@ ReceiverStateMachine.prototype = {
     }
   },
 };
-

@@ -3,18 +3,20 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#include "MainThreadUtils.h"
 #include "mozilla/Preferences.h"
 #include "nsIDNService.h"
 #include "nsReadableUtils.h"
 #include "nsCRT.h"
+#include "nsServiceManagerUtils.h"
 #include "nsUnicharUtils.h"
 #include "nsUnicodeProperties.h"
 #include "nsUnicodeScriptCodes.h"
 #include "harfbuzz/hb.h"
-#include "nsIServiceManager.h"
-#include "nsIObserverService.h"
-#include "nsISupportsPrimitives.h"
 #include "punycode.h"
+#include "mozilla/ArrayUtils.h"
+#include "mozilla/TextUtils.h"
+#include "mozilla/Utf8.h"
 
 // Currently we use the non-transitional processing option -- see
 // http://unicode.org/reports/tr46/
@@ -26,6 +28,7 @@ const bool kIDNA2008_TransitionalProcessing = false;
 #include "ICUUtils.h"
 #include "unicode/uscript.h"
 
+using namespace mozilla;
 using namespace mozilla::unicode;
 using namespace mozilla::net;
 using mozilla::Preferences;
@@ -80,9 +83,10 @@ nsresult nsIDNService::Init() {
   MutexAutoLock lock(mLock);
 
   nsCOMPtr<nsIPrefService> prefs(do_GetService(NS_PREFSERVICE_CONTRACTID));
-  if (prefs)
+  if (prefs) {
     prefs->GetBranch(NS_NET_PREF_IDNWHITELIST,
                      getter_AddRefs(mIDNWhitelistPrefBranch));
+  }
 
   Preferences::RegisterPrefixCallbacks(PrefChanged, gCallbackPrefs, this);
   prefsChanged(nullptr);
@@ -95,23 +99,25 @@ void nsIDNService::prefsChanged(const char* pref) {
   MOZ_ASSERT(NS_IsMainThread());
   mLock.AssertCurrentThreadOwns();
 
-  if (pref && NS_LITERAL_CSTRING(NS_NET_PREF_EXTRAALLOWED).Equals(pref)) {
+  if (pref && nsLiteralCString(NS_NET_PREF_EXTRAALLOWED).Equals(pref)) {
     InitializeBlocklist(mIDNBlocklist);
   }
-  if (pref && NS_LITERAL_CSTRING(NS_NET_PREF_EXTRABLOCKED).Equals(pref)) {
+  if (pref && nsLiteralCString(NS_NET_PREF_EXTRABLOCKED).Equals(pref)) {
     InitializeBlocklist(mIDNBlocklist);
   }
-  if (!pref || NS_LITERAL_CSTRING(NS_NET_PREF_SHOWPUNYCODE).Equals(pref)) {
+  if (!pref || nsLiteralCString(NS_NET_PREF_SHOWPUNYCODE).Equals(pref)) {
     bool val;
-    if (NS_SUCCEEDED(Preferences::GetBool(NS_NET_PREF_SHOWPUNYCODE, &val)))
+    if (NS_SUCCEEDED(Preferences::GetBool(NS_NET_PREF_SHOWPUNYCODE, &val))) {
       mShowPunycode = val;
+    }
   }
-  if (!pref || NS_LITERAL_CSTRING(NS_NET_PREF_IDNUSEWHITELIST).Equals(pref)) {
+  if (!pref || nsLiteralCString(NS_NET_PREF_IDNUSEWHITELIST).Equals(pref)) {
     bool val;
-    if (NS_SUCCEEDED(Preferences::GetBool(NS_NET_PREF_IDNUSEWHITELIST, &val)))
+    if (NS_SUCCEEDED(Preferences::GetBool(NS_NET_PREF_IDNUSEWHITELIST, &val))) {
       mIDNUseWhitelist = val;
+    }
   }
-  if (!pref || NS_LITERAL_CSTRING(NS_NET_PREF_IDNRESTRICTION).Equals(pref)) {
+  if (!pref || nsLiteralCString(NS_NET_PREF_IDNRESTRICTION).Equals(pref)) {
     nsAutoCString profile;
     if (NS_FAILED(
             Preferences::GetCString(NS_NET_PREF_IDNRESTRICTION, profile))) {
@@ -339,7 +345,7 @@ NS_IMETHODIMP nsIDNService::IsACE(const nsACString& input, bool* _retval) {
 NS_IMETHODIMP nsIDNService::Normalize(const nsACString& input,
                                       nsACString& output) {
   // protect against bogus input
-  NS_ENSURE_TRUE(IsUTF8(input), NS_ERROR_UNEXPECTED);
+  NS_ENSURE_TRUE(IsUtf8(input), NS_ERROR_UNEXPECTED);
 
   NS_ConvertUTF8toUTF16 inUTF16(input);
   normalizeFullStops(inUTF16);
@@ -419,7 +425,7 @@ NS_IMETHODIMP nsIDNService::ConvertToDisplayIDN(const nsACString& input,
   bool isACE;
   IsACE(input, &isACE);
 
-  if (IsASCII(input)) {
+  if (IsAscii(input)) {
     // first, canonicalize the host to lowercase, for whitelist lookup
     _retval = input;
     ToLowerCase(_retval);
@@ -433,7 +439,7 @@ NS_IMETHODIMP nsIDNService::ConvertToDisplayIDN(const nsACString& input,
       ACEtoUTF8(
           temp, _retval,
           isInWhitelist(temp) ? eStringPrepIgnoreErrors : eStringPrepForUI);
-      *_isASCII = IsASCII(_retval);
+      *_isASCII = IsAscii(_retval);
     } else {
       *_isASCII = true;
     }
@@ -451,7 +457,9 @@ NS_IMETHODIMP nsIDNService::ConvertToDisplayIDN(const nsACString& input,
     } else {
       rv = Normalize(input, _retval);
     }
-    if (NS_FAILED(rv)) return rv;
+    if (NS_FAILED(rv)) {
+      return rv;
+    }
 
     if (mShowPunycode &&
         NS_SUCCEEDED(UTF8toACE(_retval, _retval, eStringPrepIgnoreErrors))) {
@@ -463,13 +471,13 @@ NS_IMETHODIMP nsIDNService::ConvertToDisplayIDN(const nsACString& input,
     // the host is converted to ACE by the normalizer, then the host may contain
     // unsafe characters, so leave it ACE encoded. see bug 283016, bug 301694,
     // and bug 309311.
-    *_isASCII = IsASCII(_retval);
+    *_isASCII = IsAscii(_retval);
     if (!*_isASCII && !isInWhitelist(_retval)) {
       // UTF8toACE with eStringPrepForUI may return a domain name where
       // some labels are in UTF-8 and some are in ACE, depending on
       // whether they are considered safe for display
       rv = UTF8toACE(_retval, _retval, eStringPrepForUI);
-      *_isASCII = IsASCII(_retval);
+      *_isASCII = IsAscii(_retval);
       return rv;
     }
   }
@@ -491,15 +499,17 @@ static nsresult utf16ToUcs4(const nsAString& in, uint32_t* out,
 
     curChar = *start++;
 
-    if (start != end && NS_IS_HIGH_SURROGATE(curChar) &&
-        NS_IS_LOW_SURROGATE(*start)) {
+    if (start != end && NS_IS_SURROGATE_PAIR(curChar, *start)) {
       out[i] = SURROGATE_TO_UCS4(curChar, *start);
       ++start;
-    } else
+    } else {
       out[i] = curChar;
+    }
 
     i++;
-    if (i >= outBufLen) return NS_ERROR_MALFORMED_URI;
+    if (i >= outBufLen) {
+      return NS_ERROR_MALFORMED_URI;
+    }
   }
   out[i] = (uint32_t)'\0';
   *outLen = i;
@@ -521,8 +531,9 @@ static nsresult punycode(const nsAString& in, nsACString& out) {
   enum punycode_status status =
       punycode_encode(ucs4Len, ucs4Buf, nullptr, &encodedLength, encodedBuf);
 
-  if (punycode_success != status || encodedLength >= kEncodedBufSize)
+  if (punycode_success != status || encodedLength >= kEncodedBufSize) {
     return NS_ERROR_MALFORMED_URI;
+  }
 
   encodedBuf[encodedLength] = '\0';
   out.Assign(nsDependentCString(kACEPrefix) + nsDependentCString(encodedBuf));
@@ -567,7 +578,7 @@ nsresult nsIDNService::stringPrepAndACE(const nsAString& in, nsACString& out,
     return NS_ERROR_MALFORMED_URI;
   }
 
-  if (IsASCII(in)) {
+  if (IsAscii(in)) {
     LossyCopyUTF16toASCII(in, out);
     return NS_OK;
   }
@@ -578,7 +589,7 @@ nsresult nsIDNService::stringPrepAndACE(const nsAString& in, nsACString& out,
     NS_ENSURE_SUCCESS(rv, rv);
   }
 
-  if (IsASCII(strPrep)) {
+  if (IsAscii(strPrep)) {
     LossyCopyUTF16toASCII(strPrep, out);
     return NS_OK;
   }
@@ -657,7 +668,7 @@ nsresult nsIDNService::decodeACE(const nsACString& in, nsACString& out,
   NS_ENSURE_SUCCESS(rv, rv);
 
   if (flag == eStringPrepForDNS &&
-      !ace.Equals(in, nsCaseInsensitiveCStringComparator())) {
+      !ace.Equals(in, nsCaseInsensitiveCStringComparator)) {
     return NS_ERROR_MALFORMED_URI;
   }
 
@@ -673,20 +684,23 @@ bool nsIDNService::isInWhitelist(const nsACString& host) {
     nsAutoCString tld(host);
     // make sure the host is ACE for lookup and check that there are no
     // unassigned codepoints
-    if (!IsASCII(tld) && NS_FAILED(UTF8toACE(tld, tld, eStringPrepForDNS))) {
+    if (!IsAscii(tld) && NS_FAILED(UTF8toACE(tld, tld, eStringPrepForDNS))) {
       return false;
     }
 
     // truncate trailing dots first
     tld.Trim(".");
     int32_t pos = tld.RFind(".");
-    if (pos == kNotFound) return false;
+    if (pos == kNotFound) {
+      return false;
+    }
 
     tld.Cut(0, pos + 1);
 
     bool safe;
-    if (NS_SUCCEEDED(mIDNWhitelistPrefBranch->GetBoolPref(tld.get(), &safe)))
+    if (NS_SUCCEEDED(mIDNWhitelistPrefBranch->GetBoolPref(tld.get(), &safe))) {
       return safe;
+    }
   }
 
   return false;
@@ -702,7 +716,7 @@ bool nsIDNService::isLabelSafe(const nsAString& label) {
   }
 
   // We should never get here if the label is ASCII
-  NS_ASSERTION(!IsASCII(label), "ASCII label in IDN checking");
+  NS_ASSERTION(!IsAscii(label), "ASCII label in IDN checking");
   if (mRestrictionProfile == eASCIIOnlyProfile) {
     return false;
   }
@@ -725,8 +739,7 @@ bool nsIDNService::isLabelSafe(const nsAString& label) {
   while (current != end) {
     uint32_t ch = *current++;
 
-    if (NS_IS_HIGH_SURROGATE(ch) && current != end &&
-        NS_IS_LOW_SURROGATE(*current)) {
+    if (current != end && NS_IS_SURROGATE_PAIR(ch, *current)) {
       ch = SURROGATE_TO_UCS4(ch, *current++);
     }
 

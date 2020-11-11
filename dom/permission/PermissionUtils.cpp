@@ -5,29 +5,33 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "PermissionUtils.h"
+#include "nsIPermissionManager.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
-const char* kPermissionTypes[] = {"geo", "desktop-notification",
-                                  // Alias `push` to `desktop-notification`.
-                                  "desktop-notification", "persistent-storage"};
+static const nsLiteralCString kPermissionTypes[] = {
+    // clang-format off
+    "geo"_ns,
+    "desktop-notification"_ns,
+    // Alias `push` to `desktop-notification`.
+    "desktop-notification"_ns,
+    "persistent-storage"_ns
+    // clang-format on
+};
 
-// `-1` for the last null entry.
-const size_t kPermissionNameCount =
-    MOZ_ARRAY_LENGTH(PermissionNameValues::strings) - 1;
+const size_t kPermissionNameCount = PermissionNameValues::Count;
 
 static_assert(MOZ_ARRAY_LENGTH(kPermissionTypes) == kPermissionNameCount,
               "kPermissionTypes and PermissionName count should match");
 
-const char* PermissionNameToType(PermissionName aName) {
+const nsLiteralCString& PermissionNameToType(PermissionName aName) {
   MOZ_ASSERT((size_t)aName < ArrayLength(kPermissionTypes));
   return kPermissionTypes[static_cast<size_t>(aName)];
 }
 
-Maybe<PermissionName> TypeToPermissionName(const char* aType) {
+Maybe<PermissionName> TypeToPermissionName(const nsACString& aType) {
   for (size_t i = 0; i < ArrayLength(kPermissionTypes); ++i) {
-    if (!strcmp(aType, kPermissionTypes[i])) {
+    if (kPermissionTypes[i].Equals(aType)) {
       return Some(static_cast<PermissionName>(i));
     }
   }
@@ -49,5 +53,4 @@ PermissionState ActionToPermissionState(uint32_t aAction) {
   }
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

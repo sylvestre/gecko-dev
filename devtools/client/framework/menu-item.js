@@ -1,5 +1,3 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 2 -*- */
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -17,7 +15,6 @@
  *                   click property will be ignored
  *   - sublabel String
  *   - accelerator Accelerator
- *   - icon NativeImage
  *   - position String - This field allows fine-grained definition of the
  *                       specific location within a given menu.
  *
@@ -37,6 +34,7 @@
  *    String type
  *      Can be normal, separator, submenu, checkbox or radio
  *    String label
+ *    String image
  *    Boolean enabled
  *      If false, the menu item will be greyed out and unclickable.
  *    Boolean checked
@@ -49,19 +47,20 @@
  *      If false, the menu item will be entirely hidden.
  */
 function MenuItem({
-    accelerator = null,
-    accesskey = null,
-    l10nID = null,
-    checked = false,
-    click = () => {},
-    disabled = false,
-    hover = () => {},
-    id = null,
-    label = "",
-    submenu = null,
-    type = "normal",
-    visible = true,
-} = { }) {
+  accelerator = null,
+  accesskey = null,
+  l10nID = null,
+  checked = false,
+  click = () => {},
+  disabled = false,
+  hover = () => {},
+  id = null,
+  label = "",
+  image = null,
+  submenu = null,
+  type = "normal",
+  visible = true,
+} = {}) {
   this.accelerator = accelerator;
   this.accesskey = accesskey;
   this.l10nID = l10nID;
@@ -71,6 +70,7 @@ function MenuItem({
   this.hover = hover;
   this.id = id;
   this.label = label;
+  this.image = image;
   this.submenu = submenu;
   this.type = type;
   this.visible = visible;

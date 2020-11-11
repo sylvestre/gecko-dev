@@ -8,8 +8,7 @@
 #include "mozilla/ContentEvents.h"
 #include "prtime.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 TransitionEvent::TransitionEvent(EventTarget* aOwner,
                                  nsPresContext* aPresContext,
@@ -27,7 +26,7 @@ TransitionEvent::TransitionEvent(EventTarget* aOwner,
 // static
 already_AddRefed<TransitionEvent> TransitionEvent::Constructor(
     const GlobalObject& aGlobal, const nsAString& aType,
-    const TransitionEventInit& aParam, ErrorResult& aRv) {
+    const TransitionEventInit& aParam) {
   nsCOMPtr<EventTarget> t = do_QueryInterface(aGlobal.GetAsSupports());
   RefPtr<TransitionEvent> e = new TransitionEvent(t, nullptr, nullptr);
   bool trusted = e->Init(t);
@@ -56,8 +55,7 @@ void TransitionEvent::GetPseudoElement(nsAString& aPseudoElement) const {
   aPseudoElement = mEvent->AsTransitionEvent()->mPseudoElement;
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom
 
 using namespace mozilla;
 using namespace mozilla::dom;

@@ -6,25 +6,40 @@ var EXPORTED_SYMBOLS = [
   "EngineManager",
   "SyncEngine",
   "Tracker",
+  "LegacyTracker",
   "Store",
   "Changeset",
 ];
 
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
-ChromeUtils.import("resource://gre/modules/JSONFile.jsm");
-ChromeUtils.import("resource://gre/modules/Log.jsm");
-ChromeUtils.import("resource://services-common/async.js");
-ChromeUtils.import("resource://services-common/observers.js");
-ChromeUtils.import("resource://services-common/utils.js");
-ChromeUtils.import("resource://services-sync/constants.js");
-ChromeUtils.import("resource://services-sync/record.js");
-ChromeUtils.import("resource://services-sync/resource.js");
-ChromeUtils.import("resource://services-sync/util.js");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+const { JSONFile } = ChromeUtils.import("resource://gre/modules/JSONFile.jsm");
+const { Log } = ChromeUtils.import("resource://gre/modules/Log.jsm");
+const { Async } = ChromeUtils.import("resource://services-common/async.js");
+const { Observers } = ChromeUtils.import(
+  "resource://services-common/observers.js"
+);
+const {
+  DEFAULT_DOWNLOAD_BATCH_SIZE,
+  DEFAULT_GUID_FETCH_BATCH_SIZE,
+  ENGINE_BATCH_INTERRUPTED,
+  ENGINE_DOWNLOAD_FAIL,
+  ENGINE_UPLOAD_FAIL,
+  VERSION_OUT_OF_DATE,
+} = ChromeUtils.import("resource://services-sync/constants.js");
+const { Collection, CryptoWrapper } = ChromeUtils.import(
+  "resource://services-sync/record.js"
+);
+const { Resource } = ChromeUtils.import("resource://services-sync/resource.js");
+const { SerializableSet, Svc, Utils } = ChromeUtils.import(
+  "resource://services-sync/util.js"
+);
 
 XPCOMUtils.defineLazyModuleGetters(this, {
   fxAccounts: "resource://gre/modules/FxAccounts.jsm",
   OS: "resource://gre/modules/osfile.jsm",
-  PlacesSyncUtils: "resource://gre/modules/PlacesSyncUtils.jsm",
+  PlacesUtils: "resource://gre/modules/PlacesUtils.jsm",
 });
 
 function ensureDirectory(path) {
@@ -32,16 +47,15 @@ function ensureDirectory(path) {
   return OS.File.makeDir(basename, { from: OS.Constants.Path.profileDir });
 }
 
-/*
+/**
  * Trackers are associated with a single engine and deal with
  * listening for changes to their particular data type.
  *
- * There are two things they keep track of:
- * 1) A score, indicating how urgently the engine wants to sync
- * 2) A list of IDs for all the changed items that need to be synced
- * and updating their 'score', indicating how urgently they
- * want to sync.
- *
+ * The base `Tracker` only supports listening for changes, and bumping the score
+ * to indicate how urgently the engine wants to sync. It does not persist any
+ * data. Engines that track changes directly in the storage layer (like
+ * bookmarks, bridged engines, addresses, and credit cards) or only upload a
+ * single record (tabs and preferences) should subclass `Tracker`.
  */
 function Tracker(name, engine) {
   if (!engine) {
@@ -49,24 +63,28 @@ function Tracker(name, engine) {
   }
 
   name = name || "Unnamed";
-  this.name = this.file = name.toLowerCase();
+  this.name = name.toLowerCase();
   this.engine = engine;
 
   this._log = Log.repository.getLogger(`Sync.Engine.${name}.Tracker`);
 
   this._score = 0;
-  this._ignored = [];
-  this._storage = new JSONFile({
-    path: Utils.jsonFilePath("changes/" + this.file),
-    dataPostProcessor: json => this._dataPostProcessor(json),
-    beforeSave: () => this._beforeSave(),
-  });
-  this.ignoreAll = false;
 
   this.asyncObserver = Async.asyncObserver(this, this._log);
 }
 
 Tracker.prototype = {
+  // New-style trackers use change sources to filter out changes made by Sync in
+  // observer notifications, so we don't want to let the engine ignore all
+  // changes during a sync.
+  get ignoreAll() {
+    return false;
+  },
+
+  // Define an empty setter so that the engine doesn't throw a `TypeError`
+  // setting a read-only property.
+  set ignoreAll(value) {},
+
   /*
    * Score can be called as often as desired to decide which engines to sync
    *
@@ -81,16 +99,6 @@ Tracker.prototype = {
     return this._score;
   },
 
-  // Default to an empty object if the file doesn't exist.
-  _dataPostProcessor(json) {
-    return typeof json == "object" && json || {};
-  },
-
-  // Ensure the Weave storage directory exists before writing the file.
-  _beforeSave() {
-    return ensureDirectory(this._storage.path);
-  },
-
   set score(value) {
     this._score = value;
     Observers.notify("weave:engine:score:updated", this.name);
@@ -101,7 +109,131 @@ Tracker.prototype = {
     this._score = 0;
   },
 
-  persistChangedIDs: true,
+  // Unsupported, and throws a more descriptive error to ensure callers aren't
+  // accidentally using persistence.
+  async getChangedIDs() {
+    throw new TypeError("This tracker doesn't store changed IDs");
+  },
+
+  // Also unsupported.
+  async addChangedID(id, when) {
+    throw new TypeError("Can't add changed ID to this tracker");
+  },
+
+  // Ditto.
+  async removeChangedID(...ids) {
+    throw new TypeError("Can't remove changed IDs from this tracker");
+  },
+
+  // This method is called at various times, so we override with a no-op
+  // instead of throwing.
+  clearChangedIDs() {},
+
+  _now() {
+    return Date.now() / 1000;
+  },
+
+  _isTracking: false,
+
+  start() {
+    if (!this.engineIsEnabled()) {
+      return;
+    }
+    this._log.trace("start().");
+    if (!this._isTracking) {
+      this.onStart();
+      this._isTracking = true;
+    }
+  },
+
+  async stop() {
+    this._log.trace("stop().");
+    if (this._isTracking) {
+      await this.asyncObserver.promiseObserversComplete();
+      this.onStop();
+      this._isTracking = false;
+    }
+  },
+
+  // Override these in your subclasses.
+  onStart() {},
+  onStop() {},
+  async observe(subject, topic, data) {},
+
+  engineIsEnabled() {
+    if (!this.engine) {
+      // Can't tell -- we must be running in a test!
+      return true;
+    }
+    return this.engine.enabled;
+  },
+
+  /**
+   * Starts or stops listening for changes depending on the associated engine's
+   * enabled state.
+   *
+   * @param {Boolean} engineEnabled Whether the engine was enabled.
+   */
+  async onEngineEnabledChanged(engineEnabled) {
+    if (engineEnabled == this._isTracking) {
+      return;
+    }
+
+    if (engineEnabled) {
+      this.start();
+    } else {
+      await this.stop();
+      this.clearChangedIDs();
+    }
+  },
+
+  async finalize() {
+    await this.stop();
+  },
+};
+
+/*
+ * A tracker that persists a list of IDs for all changed items that need to be
+ * synced. This is 🚨 _extremely deprecated_ 🚨 and only kept around for current
+ * engines. ⚠️ Please **don't use it** for new engines! ⚠️
+ *
+ * Why is this kind of external change tracking deprecated? Because it causes
+ * consistency issues due to missed notifications, interrupted syncs, and the
+ * tracker's view of what changed diverging from the data store's.
+ */
+function LegacyTracker(name, engine) {
+  Tracker.call(this, name, engine);
+
+  this._ignored = [];
+  this.file = this.name;
+  this._storage = new JSONFile({
+    path: Utils.jsonFilePath("changes/" + this.file),
+    dataPostProcessor: json => this._dataPostProcessor(json),
+    beforeSave: () => this._beforeSave(),
+  });
+  this._ignoreAll = false;
+}
+
+LegacyTracker.prototype = {
+  __proto__: Tracker.prototype,
+
+  get ignoreAll() {
+    return this._ignoreAll;
+  },
+
+  set ignoreAll(value) {
+    this._ignoreAll = value;
+  },
+
+  // Default to an empty object if the file doesn't exist.
+  _dataPostProcessor(json) {
+    return (typeof json == "object" && json) || {};
+  },
+
+  // Ensure the Weave storage directory exists before writing the file.
+  _beforeSave() {
+    return ensureDirectory(this._storage.path);
+  },
 
   async getChangedIDs() {
     await this._storage.load();
@@ -109,10 +241,6 @@ Tracker.prototype = {
   },
 
   _saveChangedIDs() {
-    if (!this.persistChangedIDs) {
-      this._log.debug("Not saving changedIDs.");
-      return;
-    }
     this._storage.saveSoon();
   },
 
@@ -182,78 +310,24 @@ Tracker.prototype = {
         delete changedIDs[id];
       }
     }
-    await this._saveChangedIDs();
+    this._saveChangedIDs();
     return true;
   },
 
-  async clearChangedIDs() {
+  clearChangedIDs() {
     this._log.trace("Clearing changed ID list");
     this._storage.data = {};
-    await this._saveChangedIDs();
-  },
-
-  _now() {
-    return Date.now() / 1000;
-  },
-
-  _isTracking: false,
-
-  start() {
-    if (!this.engineIsEnabled()) {
-      return;
-    }
-    this._log.trace("start().");
-    if (!this._isTracking) {
-      this.onStart();
-      this._isTracking = true;
-    }
-  },
-
-  async stop() {
-    this._log.trace("stop().");
-    if (this._isTracking) {
-      await this.asyncObserver.promiseObserversComplete();
-      this.onStop();
-      this._isTracking = false;
-    }
-  },
-
-  // Override these in your subclasses.
-  onStart() {},
-  onStop() {},
-  async observe(subject, topic, data) {},
-
-  engineIsEnabled() {
-    if (!this.engine) {
-      // Can't tell -- we must be running in a test!
-      return true;
-    }
-    return this.engine.enabled;
-  },
-
-  async onEngineEnabledChanged(engineEnabled) {
-    if (engineEnabled == this._isTracking) {
-      return;
-    }
-
-    if (engineEnabled) {
-      this.start();
-    } else {
-      await this.stop();
-      await this.clearChangedIDs();
-    }
+    this._saveChangedIDs();
   },
 
   async finalize() {
     // Persist all pending tracked changes to disk, and wait for the final write
     // to finish.
-    await this.stop();
+    await super.finalize();
     this._saveChangedIDs();
     await this._storage.finalize();
   },
 };
-
-
 
 /**
  * The Store serves as the interface between Sync and stored data.
@@ -291,7 +365,6 @@ function Store(name, engine) {
   });
 }
 Store.prototype = {
-
   /**
    * Apply multiple incoming records against the store.
    *
@@ -309,9 +382,8 @@ Store.prototype = {
    */
   async applyIncomingBatch(records) {
     let failed = [];
-    let maybeYield = Async.jankYielder();
-    for (let record of records) {
-      await maybeYield();
+
+    await Async.yieldingForEach(records, async record => {
       try {
         await this.applyIncoming(record);
       } catch (ex) {
@@ -327,7 +399,8 @@ Store.prototype = {
         this._log.warn("Failed to apply incoming record " + record.id, ex);
         failed.push(record.id);
       }
-    }
+    });
+
     return failed;
   },
 
@@ -477,7 +550,9 @@ function EngineManager(service) {
   this._log.manageLevelFromPref("services.sync.log.logger.service.engines");
   // define the default level for all engine logs here (although each engine
   // allows its level to be controlled via a specific, non-default pref)
-  Log.repository.getLogger(`Sync.Engine`).manageLevelFromPref("services.sync.log.logger.engine");
+  Log.repository
+    .getLogger(`Sync.Engine`)
+    .manageLevelFromPref("services.sync.log.logger.engine");
 }
 EngineManager.prototype = {
   get(name) {
@@ -515,13 +590,15 @@ EngineManager.prototype = {
     for (let [name, info] of Object.entries(this._altEngineInfo)) {
       let prefValue = info.prefValue;
       if (prefValue === info.lastValue) {
-        this._log.trace(`No change for engine ${name} (${info.pref} is still ${
-                        prefValue})`);
+        this._log.trace(
+          `No change for engine ${name} (${info.pref} is still ${prefValue})`
+        );
         continue;
       }
       // Unregister the old engine, register the new one.
-      this._log.info(`Switching ${name} engine ("${info.pref}" went from ${
-                     info.lastValue} => ${prefValue})`);
+      this._log.info(
+        `Switching ${name} engine ("${info.pref}" went from ${info.lastValue} => ${prefValue})`
+      );
       try {
         await this._removeAndFinalize(name);
       } catch (e) {
@@ -536,8 +613,10 @@ EngineManager.prototype = {
         // Note: engineType.name is using Function.prototype.name.
         this._log.info(`Switched the ${name} engine to use ${engineType.name}`);
       } catch (e) {
-        this._log.warn(`Switching the ${name} engine to use ${
-                       engineType.name} failed (couldn't register)`, e);
+        this._log.warn(
+          `Switching the ${name} engine to use ${engineType.name} failed (couldn't register)`,
+          e
+        );
       }
     }
   },
@@ -559,8 +638,8 @@ EngineManager.prototype = {
    */
   getEnabled() {
     return this.getAll()
-               .filter((engine) => engine.enabled)
-               .sort((a, b) => a.syncPriority - b.syncPriority);
+      .filter(engine => engine.enabled)
+      .sort((a, b) => a.syncPriority - b.syncPriority);
   },
 
   get enabledEngineNames() {
@@ -600,21 +679,6 @@ EngineManager.prototype = {
   undecline(engines) {
     for (let e of engines) {
       this._declined.delete(e);
-    }
-    this.persistDeclined();
-  },
-
-  /**
-   * Mark any non-enabled engines as declined.
-   *
-   * This is useful after initial customization during setup.
-   */
-  declineDisabled() {
-    for (let e of this.getAll()) {
-      if (!e.enabled) {
-        this._log.debug("Declining disabled engine " + e.name);
-        this._declined.add(e.name);
-      }
     }
     this.persistDeclined();
   },
@@ -714,18 +778,26 @@ function SyncEngine(name, service) {
     beforeSave: () => this._beforeSaveMetadata(),
   });
 
-  XPCOMUtils.defineLazyPreferenceGetter(this, "_enabled",
-    `services.sync.engine.${this.prefName}`, false,
-    (data, previous, latest) =>
-      // We do not await on the promise onEngineEnabledChanged returns.
-      this._tracker.onEngineEnabledChanged(latest));
-  XPCOMUtils.defineLazyPreferenceGetter(this, "_syncID",
-                                        `services.sync.${this.name}.syncID`,
-                                        "");
-  XPCOMUtils.defineLazyPreferenceGetter(this, "_lastSync",
-                                        `services.sync.${this.name}.lastSync`,
-                                        "0", null,
-                                        v => parseFloat(v));
+  XPCOMUtils.defineLazyPreferenceGetter(
+    this,
+    "_enabled",
+    `services.sync.engine.${this.prefName}`,
+    false
+  );
+  XPCOMUtils.defineLazyPreferenceGetter(
+    this,
+    "_syncID",
+    `services.sync.${this.name}.syncID`,
+    ""
+  );
+  XPCOMUtils.defineLazyPreferenceGetter(
+    this,
+    "_lastSync",
+    `services.sync.${this.name}.lastSync`,
+    "0",
+    null,
+    v => parseFloat(v)
+  );
   // Async initializations can be made in the initialize() method.
 
   // The map of ids => metadata for records needing a weak upload.
@@ -751,18 +823,17 @@ function SyncEngine(name, service) {
   // in the case of a conflict from the server, there's a window where our
   // record would be marked as modified more recently than a change that occurs
   // on another device change, and we lose data from the user.
-  //
-  // Additionally, we use this as the set of items to upload for bookmark
-  // repair reponse, which has similar constraints.
   this._needWeakUpload = new Map();
+
+  this.asyncObserver = Async.asyncObserver(this, this._log);
 }
 
 // Enumeration to define approaches to handling bad records.
 // Attached to the constructor to allow use as a kind of static enumeration.
 SyncEngine.kRecoveryStrategy = {
   ignore: "ignore",
-  retry:  "retry",
-  error:  "error",
+  retry: "retry",
+  error: "error",
 };
 
 SyncEngine.prototype = {
@@ -784,6 +855,8 @@ SyncEngine.prototype = {
 
   // Which sortindex to use when retrieving records for this engine.
   _defaultSort: undefined,
+
+  _hasSyncedThisSession: false,
 
   _metadataPostProcessor(json) {
     if (Array.isArray(json)) {
@@ -825,6 +898,7 @@ SyncEngine.prototype = {
   async initialize() {
     await this._toFetchStorage.load();
     await this._previousFailedStorage.load();
+    Svc.Prefs.observe(`engine.${this.prefName}`, this.asyncObserver);
     this._log.debug("SyncEngine initialized", this.name);
   },
 
@@ -881,6 +955,18 @@ SyncEngine.prototype = {
   // Returns a promise
   stopTracking() {
     return this._tracker.stop();
+  },
+
+  // Listens for engine enabled state changes, and updates the tracker's state.
+  // This is an async observer because the tracker waits on all its async
+  // observers to finish when it's stopped.
+  async observe(subject, topic, data) {
+    if (
+      topic == "nsPref:changed" &&
+      data == `services.sync.engine.${this.prefName}`
+    ) {
+      await this._tracker.onEngineEnabledChanged(this._enabled);
+    }
   },
 
   async sync() {
@@ -962,6 +1048,17 @@ SyncEngine.prototype = {
     return this.ensureCurrentSyncID(Utils.makeGUID());
   },
 
+  /**
+   * Allows overriding scheduler logic -- added to help reduce kinto server
+   * getting hammered because our scheduler never got tuned for it.
+   *
+   * Note: Overriding engines must take resyncs into account -- score will not
+   * be cleared.
+   */
+  shouldSkipSync(syncReason) {
+    return false;
+  },
+
   /*
    * lastSync is a timestamp in server time.
    */
@@ -977,6 +1074,14 @@ SyncEngine.prototype = {
     await this.setLastSync(0);
   },
 
+  get hasSyncedThisSession() {
+    return this._hasSyncedThisSession;
+  },
+
+  set hasSyncedThisSession(hasSynced) {
+    this._hasSyncedThisSession = hasSynced;
+  },
+
   get toFetch() {
     this._toFetchStorage.ensureDataReady();
     return this._toFetchStorage.data.ids;
@@ -984,7 +1089,9 @@ SyncEngine.prototype = {
 
   set toFetch(ids) {
     if (ids.constructor.name != "SerializableSet") {
-      throw new Error("Bug: Attempted to set toFetch to something that isn't a SerializableSet");
+      throw new Error(
+        "Bug: Attempted to set toFetch to something that isn't a SerializableSet"
+      );
     }
     this._toFetchStorage.data = { ids };
     this._toFetchStorage.saveSoon();
@@ -998,7 +1105,8 @@ SyncEngine.prototype = {
   set previousFailed(ids) {
     if (ids.constructor.name != "SerializableSet") {
       throw new Error(
-        "Bug: Attempted to set previousFailed to something that isn't a SerializableSet");
+        "Bug: Attempted to set previousFailed to something that isn't a SerializableSet"
+      );
     }
     this._previousFailedStorage.data = { ids };
     this._previousFailedStorage.saveSoon();
@@ -1080,11 +1188,12 @@ SyncEngine.prototype = {
     this._modified.replace(initialChanges);
     // Clear the tracker now. If the sync fails we'll add the ones we failed
     // to upload back.
-    await this._tracker.clearChangedIDs();
+    this._tracker.clearChangedIDs();
     this._tracker.resetScore();
 
-    this._log.info(this._modified.count() +
-                   " outgoing items pre-reconciliation");
+    this._log.info(
+      this._modified.count() + " outgoing items pre-reconciliation"
+    );
 
     // Keep track of what to delete at the end of sync
     this._delete = {};
@@ -1133,7 +1242,7 @@ SyncEngine.prototype = {
     let lastSync = await this.getLastSync();
 
     newitems.newer = lastSync;
-    newitems.full  = true;
+    newitems.full = true;
 
     let downloadLimit = Infinity;
     if (this.downloadLimit) {
@@ -1160,7 +1269,7 @@ SyncEngine.prototype = {
     // failed     => number of items that failed in this sync.
     // newFailed  => number of items that failed for the first time in this sync.
     // reconciled => number of items that were reconciled.
-    let count = {applied: 0, failed: 0, newFailed: 0, reconciled: 0};
+    let count = { applied: 0, failed: 0, newFailed: 0, reconciled: 0 };
     let recordsToApply = [];
     let failedInCurrentSync = new SerializableSet();
 
@@ -1169,15 +1278,15 @@ SyncEngine.prototype = {
 
     // Stage 1: Fetch new records from the server, up to the download limit.
     if (this.lastModified == null || this.lastModified > lastSync) {
-      let { response, records } = await newitems.getBatched(this.downloadBatchSize);
+      let { response, records } = await newitems.getBatched(
+        this.downloadBatchSize
+      );
       if (!response.success) {
         response.failureCode = ENGINE_DOWNLOAD_FAIL;
         throw response;
       }
 
-      let maybeYield = Async.jankYielder();
-      for (let record of records) {
-        await maybeYield();
+      await Async.yieldingForEach(records, async record => {
         downloadedIDs.add(record.id);
 
         if (record.modified < oldestModified) {
@@ -1188,14 +1297,14 @@ SyncEngine.prototype = {
         if (error) {
           failedInCurrentSync.add(record.id);
           count.failed++;
-          continue;
+          return;
         }
         if (!shouldApply) {
           count.reconciled++;
-          continue;
+          return;
         }
         recordsToApply.push(record);
-      }
+      });
 
       let failedToApply = await this._applyRecords(recordsToApply);
       Utils.setAddAll(failedInCurrentSync, failedToApply);
@@ -1217,7 +1326,7 @@ SyncEngine.prototype = {
 
       guidColl.newer = lastSync;
       guidColl.older = oldestModified;
-      guidColl.sort  = "oldest";
+      guidColl.sort = "oldest";
 
       let guids = await guidColl.get();
       if (!guids.success) {
@@ -1245,8 +1354,11 @@ SyncEngine.prototype = {
     // the others. We'll keep processing the backlog on subsequent engine syncs.
     let failedInPreviousSync = this.previousFailed;
     let idsToBackfill = Array.from(
-      Utils.setAddAll(Utils.subsetOfSize(this.toFetch, downloadLimit),
-                      failedInPreviousSync));
+      Utils.setAddAll(
+        Utils.subsetOfSize(this.toFetch, downloadLimit),
+        failedInPreviousSync
+      )
+    );
 
     // Note that we intentionally overwrite the previously failed list here.
     // Records that fail to decrypt or apply in two consecutive syncs are likely
@@ -1261,46 +1373,54 @@ SyncEngine.prototype = {
 
     // `getBatched` includes the list of IDs as a query parameter, so we need to fetch
     // records in chunks to avoid exceeding URI length limits.
-    for (let ids of PlacesSyncUtils.chunkArray(idsToBackfill, this.guidFetchBatchSize)) {
-      backfilledItems.ids = ids;
+    if (this.guidFetchBatchSize) {
+      for (let ids of PlacesUtils.chunkArray(
+        idsToBackfill,
+        this.guidFetchBatchSize
+      )) {
+        backfilledItems.ids = ids;
 
-      let {response, records} = await backfilledItems.getBatched(this.downloadBatchSize);
-      if (!response.success) {
-        response.failureCode = ENGINE_DOWNLOAD_FAIL;
-        throw response;
-      }
-
-      let maybeYield = Async.jankYielder();
-      let backfilledRecordsToApply = [];
-      let failedInBackfill = [];
-
-      for (let record of records) {
-        await maybeYield();
-
-        let { shouldApply, error } = await this._maybeReconcile(record);
-        if (error) {
-          failedInBackfill.push(record.id);
-          count.failed++;
-          continue;
+        let { response, records } = await backfilledItems.getBatched(
+          this.downloadBatchSize
+        );
+        if (!response.success) {
+          response.failureCode = ENGINE_DOWNLOAD_FAIL;
+          throw response;
         }
-        if (!shouldApply) {
-          count.reconciled++;
-          continue;
+
+        let backfilledRecordsToApply = [];
+        let failedInBackfill = [];
+
+        await Async.yieldingForEach(records, async record => {
+          let { shouldApply, error } = await this._maybeReconcile(record);
+          if (error) {
+            failedInBackfill.push(record.id);
+            count.failed++;
+            return;
+          }
+          if (!shouldApply) {
+            count.reconciled++;
+            return;
+          }
+          backfilledRecordsToApply.push(record);
+        });
+
+        let failedToApply = await this._applyRecords(backfilledRecordsToApply);
+        failedInBackfill.push(...failedToApply);
+
+        count.failed += failedToApply.length;
+        count.applied += backfilledRecordsToApply.length;
+
+        this.toFetch = Utils.setDeleteAll(this.toFetch, ids);
+        this.previousFailed = Utils.setAddAll(
+          this.previousFailed,
+          failedInBackfill
+        );
+
+        if (lastSync < this.lastModified) {
+          lastSync = this.lastModified;
+          await this.setLastSync(lastSync);
         }
-        backfilledRecordsToApply.push(record);
-      }
-      let failedToApply = await this._applyRecords(backfilledRecordsToApply);
-      failedInBackfill.push(...failedToApply);
-
-      count.failed += failedToApply.length;
-      count.applied += backfilledRecordsToApply.length;
-
-      this.toFetch = Utils.setDeleteAll(this.toFetch, ids);
-      this.previousFailed = Utils.setAddAll(this.previousFailed, failedInBackfill);
-
-      if (lastSync < this.lastModified) {
-        lastSync = this.lastModified;
-        await this.setLastSync(lastSync);
       }
     }
 
@@ -1312,12 +1432,21 @@ SyncEngine.prototype = {
     }
 
     count.succeeded = Math.max(0, count.applied - count.failed);
-    this._log.info(["Records:",
-                    count.applied, "applied,",
-                    count.succeeded, "successfully,",
-                    count.failed, "failed to apply,",
-                    count.newFailed, "newly failed to apply,",
-                    count.reconciled, "reconciled."].join(" "));
+    this._log.info(
+      [
+        "Records:",
+        count.applied,
+        "applied,",
+        count.succeeded,
+        "successfully,",
+        count.failed,
+        "failed to apply,",
+        count.newFailed,
+        "newly failed to apply,",
+        count.reconciled,
+        "reconciled.",
+      ].join(" ")
+    );
     Observers.notify("weave:engine:sync:applied", count, this.name);
   },
 
@@ -1359,13 +1488,14 @@ SyncEngine.prototype = {
             break;
           case SyncEngine.kRecoveryStrategy.retry:
             this._log.debug("Ignoring second retry suggestion.");
-            // Fall through to error case.
+          // Fall through to error case.
           case SyncEngine.kRecoveryStrategy.error:
             this._log.warn("Error decrypting record", ex);
             return { shouldApply: false, error: ex };
           case SyncEngine.kRecoveryStrategy.ignore:
-            this._log.debug("Ignoring record " + item.id +
-                            " with bad HMAC: already handled.");
+            this._log.debug(
+              "Ignoring record " + item.id + " with bad HMAC: already handled."
+            );
             return { shouldApply: false, error: null };
         }
       }
@@ -1441,8 +1571,7 @@ SyncEngine.prototype = {
    * Called before a remote record is discarded due to failed reconciliation.
    * Used by bookmark sync to merge folder child orders.
    */
-  beforeRecordDiscard(localRecord, remoteRecord, remoteIsNewer) {
-  },
+  beforeRecordDiscard(localRecord, remoteRecord, remoteIsNewer) {},
 
   // Called when the server has a record marked as deleted, but locally we've
   // changed it more recently than the deletion. If we return false, the
@@ -1475,8 +1604,12 @@ SyncEngine.prototype = {
     // We unconditionally change the item's ID in case the engine knows of
     // an item but doesn't expose it through itemExists. If the API
     // contract were stronger, this could be changed.
-    this._log.debug("Switching local ID to incoming: " + localDupeGUID + " -> " +
-                    incomingItem.id);
+    this._log.debug(
+      "Switching local ID to incoming: " +
+        localDupeGUID +
+        " -> " +
+        incomingItem.id
+    );
     return this._store.changeItemID(localDupeGUID, incomingItem.id);
   },
 
@@ -1498,19 +1631,28 @@ SyncEngine.prototype = {
     // We start reconciling by collecting a bunch of state. We do this here
     // because some state may change during the course of this function and we
     // need to operate on the original values.
-    let existsLocally   = await this._store.itemExists(item.id);
+    let existsLocally = await this._store.itemExists(item.id);
     let locallyModified = this._modified.has(item.id);
 
     // TODO Handle clock drift better. Tracked in bug 721181.
     let remoteAge = Resource.serverTime - item.modified;
-    let localAge  = locallyModified ?
-      (Date.now() / 1000 - this._modified.getModifiedTimestamp(item.id)) : null;
+    let localAge = locallyModified
+      ? Date.now() / 1000 - this._modified.getModifiedTimestamp(item.id)
+      : null;
     let remoteIsNewer = remoteAge < localAge;
 
-    this._log.trace("Reconciling " + item.id + ". exists=" +
-                    existsLocally + "; modified=" + locallyModified +
-                    "; local age=" + localAge + "; incoming age=" +
-                    remoteAge);
+    this._log.trace(
+      "Reconciling " +
+        item.id +
+        ". exists=" +
+        existsLocally +
+        "; modified=" +
+        locallyModified +
+        "; local age=" +
+        localAge +
+        "; incoming age=" +
+        remoteAge
+    );
 
     // We handle deletions first so subsequent logic doesn't have to check
     // deleted flags.
@@ -1519,8 +1661,10 @@ SyncEngine.prototype = {
       // can't check for duplicates because the incoming record has no data
       // which can be used for duplicate detection.
       if (!existsLocally) {
-        this._log.trace("Ignoring incoming item because it was deleted and " +
-                        "the item does not exist locally.");
+        this._log.trace(
+          "Ignoring incoming item because it was deleted and " +
+            "the item does not exist locally."
+        );
         return false;
       }
 
@@ -1529,8 +1673,10 @@ SyncEngine.prototype = {
       // the deletion is processed. If it is modified locally, we take the
       // newer record.
       if (!locallyModified) {
-        this._log.trace("Applying incoming delete because the local item " +
-                        "exists and isn't modified.");
+        this._log.trace(
+          "Applying incoming delete because the local item " +
+            "exists and isn't modified."
+        );
         return true;
       }
       this._log.trace("Incoming record is deleted but we had local changes.");
@@ -1558,8 +1704,13 @@ SyncEngine.prototype = {
     if (!existsLocally) {
       let localDupeGUID = await this._findDupe(item);
       if (localDupeGUID) {
-        this._log.trace("Local item " + localDupeGUID + " is a duplicate for " +
-                        "incoming item " + item.id);
+        this._log.trace(
+          "Local item " +
+            localDupeGUID +
+            " is a duplicate for " +
+            "incoming item " +
+            item.id
+        );
 
         // The current API contract does not mandate that the ID returned by
         // _findDupe() actually exists. Therefore, we have to perform this
@@ -1570,7 +1721,9 @@ SyncEngine.prototype = {
         // appropriate reconciling can be performed.
         if (this._modified.has(localDupeGUID)) {
           locallyModified = true;
-          localAge = this._tracker._now() - this._modified.getModifiedTimestamp(localDupeGUID);
+          localAge =
+            this._tracker._now() -
+            this._modified.getModifiedTimestamp(localDupeGUID);
           remoteIsNewer = remoteAge < localAge;
 
           this._modified.changeID(localDupeGUID, item.id);
@@ -1582,9 +1735,14 @@ SyncEngine.prototype = {
         // Tell the engine to do whatever it needs to switch the items.
         await this._switchItemToDupe(localDupeGUID, item);
 
-        this._log.debug("Local item after duplication: age=" + localAge +
-                        "; modified=" + locallyModified + "; exists=" +
-                        existsLocally);
+        this._log.debug(
+          "Local item after duplication: age=" +
+            localAge +
+            "; modified=" +
+            locallyModified +
+            "; exists=" +
+            existsLocally
+        );
       } else {
         this._log.trace("No duplicate found for incoming item: " + item.id);
       }
@@ -1599,8 +1757,10 @@ SyncEngine.prototype = {
       // to the item (implying that it was not deleted), always apply the remote
       // item.
       if (!locallyModified) {
-        this._log.trace("Applying incoming because local item does not exist " +
-                        "and was not deleted.");
+        this._log.trace(
+          "Applying incoming because local item does not exist " +
+            "and was not deleted."
+        );
         return true;
       }
 
@@ -1608,14 +1768,18 @@ SyncEngine.prototype = {
       // been deleted. If the incoming record is younger, we restore from
       // that record.
       if (remoteIsNewer) {
-        this._log.trace("Applying incoming because local item was deleted " +
-                        "before the incoming item was changed.");
+        this._log.trace(
+          "Applying incoming because local item was deleted " +
+            "before the incoming item was changed."
+        );
         this._modified.delete(item.id);
         return true;
       }
 
-      this._log.trace("Ignoring incoming item because the local item's " +
-                      "deletion is newer.");
+      this._log.trace(
+        "Ignoring incoming item because the local item's " +
+          "deletion is newer."
+      );
       return false;
     }
 
@@ -1626,15 +1790,15 @@ SyncEngine.prototype = {
     // possibly expensive dip into the storage layer to query item state.
     // This should get addressed in the async rewrite, so we ignore it for now.
     let localRecord = await this._createRecord(item.id);
-    let recordsEqual = Utils.deepEquals(item.cleartext,
-                                        localRecord.cleartext);
+    let recordsEqual = Utils.deepEquals(item.cleartext, localRecord.cleartext);
 
     // If the records are the same, we don't need to do anything. This does
     // potentially throw away a local modification time. But, if the records
     // are the same, does it matter?
     if (recordsEqual) {
-      this._log.trace("Ignoring incoming item because the local item is " +
-                      "identical.");
+      this._log.trace(
+        "Ignoring incoming item because the local item is identical."
+      );
 
       this._modified.delete(item.id);
       return false;
@@ -1652,8 +1816,9 @@ SyncEngine.prototype = {
     // We resolve conflicts by record age, where the newest one wins. This does
     // result in data loss and should be handled by giving the engine an
     // opportunity to merge the records. Bug 720592 tracks this feature.
-    this._log.warn("DATA LOSS: Both local and remote changes to record: " +
-                   item.id);
+    this._log.warn(
+      "DATA LOSS: Both local and remote changes to record: " + item.id
+    );
     if (!remoteIsNewer) {
       this.beforeRecordDiscard(localRecord, item, remoteIsNewer);
     }
@@ -1672,21 +1837,21 @@ SyncEngine.prototype = {
     }
     let counts = { failed: 0, sent: 0 };
     if (modifiedIDs.size) {
-      this._log.trace("Preparing " + modifiedIDs.size +
-                      " outgoing records");
+      this._log.trace("Preparing " + modifiedIDs.size + " outgoing records");
 
       counts.sent = modifiedIDs.size;
 
       let failed = [];
       let successful = [];
       let lastSync = await this.getLastSync();
-      let handleResponse = async (resp, batchOngoing = false) => {
+      let handleResponse = async (postQueue, resp, batchOngoing) => {
         // Note: We don't want to update this.lastSync, or this._modified until
         // the batch is complete, however we want to remember success/failure
         // indicators for when that happens.
         if (!resp.success) {
-          this._log.debug("Uploading records failed: " + resp);
-          resp.failureCode = resp.status == 412 ? ENGINE_BATCH_INTERRUPTED : ENGINE_UPLOAD_FAIL;
+          this._log.debug(`Uploading records failed: ${resp.status}`);
+          resp.failureCode =
+            resp.status == 412 ? ENGINE_BATCH_INTERRUPTED : ENGINE_UPLOAD_FAIL;
           throw resp;
         }
 
@@ -1698,12 +1863,13 @@ SyncEngine.prototype = {
           // Nothing to do yet
           return;
         }
-        let serverModifiedTime = parseFloat(resp.headers["x-weave-timestamp"]);
 
         if (failed.length && this._log.level <= Log.Level.Debug) {
-          this._log.debug("Records that will be uploaded again because "
-                          + "the server couldn't store them: "
-                          + failed.join(", "));
+          this._log.debug(
+            "Records that will be uploaded again because " +
+              "the server couldn't store them: " +
+              failed.join(", ")
+          );
         }
 
         counts.failed += failed.length;
@@ -1712,11 +1878,15 @@ SyncEngine.prototype = {
           this._modified.delete(id);
         }
 
-        await this._onRecordsWritten(successful, failed, serverModifiedTime);
+        await this._onRecordsWritten(
+          successful,
+          failed,
+          postQueue.lastModified
+        );
 
         // Advance lastSync since we've finished the batch.
-        if (serverModifiedTime > lastSync) {
-          lastSync = serverModifiedTime;
+        if (postQueue.lastModified > lastSync) {
+          lastSync = postQueue.lastModified;
           await this.setLastSync(lastSync);
         }
 
@@ -1740,7 +1910,9 @@ SyncEngine.prototype = {
           if (this._log.level <= Log.Level.Trace) {
             this._log.trace("Outgoing: " + out);
           }
-          await out.encrypt(this.service.collectionKeys.keyForCollection(this.name));
+          await out.encrypt(
+            this.service.collectionKeys.keyForCollection(this.name)
+          );
           ok = true;
         } catch (ex) {
           this._log.warn("Error creating record", ex);
@@ -1759,11 +1931,17 @@ SyncEngine.prototype = {
             ++counts.failed;
             if (!this.allowSkippedRecord) {
               Observers.notify("weave:engine:sync:uploaded", counts, this.name);
-              this._log.warn(`Failed to enqueue record "${id}" (aborting)`, error);
+              this._log.warn(
+                `Failed to enqueue record "${id}" (aborting)`,
+                error
+              );
               throw error;
             }
             this._modified.delete(id);
-            this._log.warn(`Failed to enqueue record "${id}" (skipping)`, error);
+            this._log.warn(
+              `Failed to enqueue record "${id}" (skipping)`,
+              error
+            );
           }
         }
         await Async.promiseYield();
@@ -1797,7 +1975,7 @@ SyncEngine.prototype = {
       // Remove the key for future uses
       delete this._delete[key];
 
-      this._log.trace("doing post-sync deletions", {key, val});
+      this._log.trace("doing post-sync deletions", { key, val });
       // Send a simple delete for the property
       if (key != "ids" || val.length <= 100) {
         await doDelete(key, val);
@@ -1809,15 +1987,12 @@ SyncEngine.prototype = {
         }
       }
     }
+    this.hasSyncedThisSession = true;
     await this._tracker.asyncObserver.promiseObserversComplete();
   },
 
   async _syncCleanup() {
     this._needWeakUpload.clear();
-    if (!this._modified) {
-      return;
-    }
-
     try {
       // Mark failed WBOs as changed again so they are reuploaded next time.
       await this.trackRemainingChanges();
@@ -1929,9 +2104,9 @@ SyncEngine.prototype = {
    */
   async handleHMACMismatch(item, mayRetry) {
     // By default we either try again, or bail out noisily.
-    return ((await this.service.handleHMACEvent()) && mayRetry) ?
-           SyncEngine.kRecoveryStrategy.retry :
-           SyncEngine.kRecoveryStrategy.error;
+    return (await this.service.handleHMACEvent()) && mayRetry
+      ? SyncEngine.kRecoveryStrategy.retry
+      : SyncEngine.kRecoveryStrategy.error;
   },
 
   /**
@@ -1986,6 +2161,7 @@ SyncEngine.prototype = {
 
   async _resetClient() {
     await this.resetLastSync();
+    this.hasSyncedThisSession = false;
     this.previousFailed = new SerializableSet();
     this.toFetch = new SerializableSet();
     this._needWeakUpload.clear();
@@ -2004,7 +2180,7 @@ SyncEngine.prototype = {
     this._tracker.ignoreAll = true;
     await this._store.wipe();
     this._tracker.ignoreAll = false;
-    await this._tracker.clearChangedIDs();
+    this._tracker.clearChangedIDs();
   },
 
   /**
@@ -2017,9 +2193,16 @@ SyncEngine.prototype = {
   },
 
   async finalize() {
+    Svc.Prefs.ignore(`engine.${this.prefName}`, this.asyncObserver);
+    await this.asyncObserver.promiseObserversComplete();
     await this._tracker.finalize();
     await this._toFetchStorage.finalize();
     await this._previousFailedStorage.finalize();
+  },
+
+  // Returns a new watchdog. Exposed for tests.
+  _newWatchdog() {
+    return Async.watchdog();
   },
 };
 

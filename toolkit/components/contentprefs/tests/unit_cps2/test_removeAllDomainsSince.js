@@ -8,7 +8,9 @@ add_task(async function resetBeforeTests() {
 
 add_task(async function nonexistent() {
   await setGlobal("foo", 1);
-  await new Promise(resolve => cps.removeAllDomainsSince(0, null, makeCallback(resolve)));
+  await new Promise(resolve =>
+    cps.removeAllDomainsSince(0, null, makeCallback(resolve))
+  );
   await getGlobalOK(["foo"], 1);
   await reset();
 });
@@ -21,7 +23,9 @@ add_task(async function domainsAll() {
   await set("b.com", "foo", 5);
   await set("b.com", "bar", 6);
 
-  await new Promise(resolve => cps.removeAllDomainsSince(0, null, makeCallback(resolve)));
+  await new Promise(resolve =>
+    cps.removeAllDomainsSince(0, null, makeCallback(resolve))
+  );
   await dbOK([
     [null, "foo", 3],
     [null, "bar", 4],
@@ -45,7 +49,9 @@ add_task(async function domainsWithDate() {
   await setWithDate("b.com", "bar", 6, 3000);
   await setWithDate("b.com", "foobar", 7, 1000);
 
-  await new Promise(resolve => cps.removeAllDomainsSince(2000, null, makeCallback(resolve)));
+  await new Promise(resolve =>
+    cps.removeAllDomainsSince(2000, null, makeCallback(resolve))
+  );
   await dbOK([
     ["a.com", "foobar", 0],
     ["a.com", "foo", 1],
@@ -66,7 +72,9 @@ add_task(async function privateBrowsing() {
   let context = privateLoadContext;
   await set("a.com", "foo", 6, context);
   await setGlobal("foo", 7, context);
-  await new Promise(resolve => cps.removeAllDomainsSince(0, context, makeCallback(resolve)));
+  await new Promise(resolve =>
+    cps.removeAllDomainsSince(0, context, makeCallback(resolve))
+  );
   await dbOK([
     [null, "foo", 3],
     [null, "bar", 4],

@@ -6,6 +6,8 @@
 
 #include "RemoteServiceWorkerContainerImpl.h"
 
+#include <utility>
+
 #include "mozilla/ipc/BackgroundChild.h"
 #include "mozilla/ipc/PBackgroundChild.h"
 #include "ServiceWorkerContainerChild.h"
@@ -55,7 +57,9 @@ void RemoteServiceWorkerContainerImpl::Register(
     ServiceWorkerRegistrationCallback&& aSuccessCB,
     ServiceWorkerFailureCallback&& aFailureCB) const {
   if (!mActor) {
-    aFailureCB(CopyableErrorResult(NS_ERROR_DOM_INVALID_STATE_ERR));
+    CopyableErrorResult rv;
+    rv.ThrowInvalidStateError("Can't register service worker");
+    aFailureCB(std::move(rv));
     return;
   }
 
@@ -80,7 +84,9 @@ void RemoteServiceWorkerContainerImpl::Register(
       },
       [aFailureCB](ResponseRejectReason&& aReason) {
         // IPC layer error
-        aFailureCB(CopyableErrorResult(NS_ERROR_DOM_INVALID_STATE_ERR));
+        CopyableErrorResult rv;
+        rv.ThrowInvalidStateError("Failed to register service worker");
+        aFailureCB(std::move(rv));
       });
 }
 
@@ -191,7 +197,7 @@ void RemoteServiceWorkerContainerImpl::GetReady(
 }
 
 RemoteServiceWorkerContainerImpl::RemoteServiceWorkerContainerImpl()
-    : mActor(nullptr), mOuter(nullptr), mShutdown(false) {
+    : mOuter(nullptr), mShutdown(false) {
   PBackgroundChild* parentActor =
       BackgroundChild::GetOrCreateForCurrentThread();
   if (NS_WARN_IF(!parentActor)) {
@@ -199,22 +205,13 @@ RemoteServiceWorkerContainerImpl::RemoteServiceWorkerContainerImpl()
     return;
   }
 
-  RefPtr<WorkerHolderToken> workerHolderToken;
-  if (!NS_IsMainThread()) {
-    WorkerPrivate* workerPrivate = GetCurrentThreadWorkerPrivate();
-    MOZ_DIAGNOSTIC_ASSERT(workerPrivate);
-
-    workerHolderToken = WorkerHolderToken::Create(
-        workerPrivate, Canceling, WorkerHolderToken::AllowIdleShutdownStart);
-
-    if (NS_WARN_IF(!workerHolderToken)) {
-      Shutdown();
-      return;
-    }
+  RefPtr<ServiceWorkerContainerChild> actor =
+      ServiceWorkerContainerChild::Create();
+  if (NS_WARN_IF(!actor)) {
+    Shutdown();
+    return;
   }
 
-  ServiceWorkerContainerChild* actor =
-      new ServiceWorkerContainerChild(workerHolderToken);
   PServiceWorkerContainerChild* sentActor =
       parentActor->SendPServiceWorkerContainerConstructor(actor);
   if (NS_WARN_IF(!sentActor)) {
@@ -223,7 +220,7 @@ RemoteServiceWorkerContainerImpl::RemoteServiceWorkerContainerImpl()
   }
   MOZ_DIAGNOSTIC_ASSERT(sentActor == actor);
 
-  mActor = actor;
+  mActor = std::move(actor);
   mActor->SetOwner(this);
 }
 

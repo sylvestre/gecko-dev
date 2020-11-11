@@ -1,7 +1,7 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
+---
 loader: taskgraph.loader.single_dep:loader
 
 transforms:
@@ -11,16 +11,20 @@ transforms:
     - taskgraph.transforms.task:transforms
 
 kind-dependencies:
-    - beetmover
-    - beetmover-l10n
     - beetmover-repackage
 
 only-for-attributes:
     - nightly
-    - signed
+    - shippable
+
+not-for-build-platforms:
+    - android-api-16-shippable/opt
+    - android-x86_64-shippable/opt
+    - android-x86-shippable/opt
+    - android-aarch64-shippable/opt
 
 job-template:
     update-no-wnp:
         by-release-type:
-            nightly: false
+            nightly.*: false
             default: true

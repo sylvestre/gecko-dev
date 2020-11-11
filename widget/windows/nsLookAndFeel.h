@@ -17,22 +17,22 @@
  * Gesture System Metrics
  */
 #ifndef SM_DIGITIZER
-#define SM_DIGITIZER 94
-#define TABLET_CONFIG_NONE 0x00000000
-#define NID_INTEGRATED_TOUCH 0x00000001
-#define NID_EXTERNAL_TOUCH 0x00000002
-#define NID_INTEGRATED_PEN 0x00000004
-#define NID_EXTERNAL_PEN 0x00000008
-#define NID_MULTI_INPUT 0x00000040
-#define NID_READY 0x00000080
+#  define SM_DIGITIZER 94
+#  define TABLET_CONFIG_NONE 0x00000000
+#  define NID_INTEGRATED_TOUCH 0x00000001
+#  define NID_EXTERNAL_TOUCH 0x00000002
+#  define NID_INTEGRATED_PEN 0x00000004
+#  define NID_EXTERNAL_PEN 0x00000008
+#  define NID_MULTI_INPUT 0x00000040
+#  define NID_READY 0x00000080
 #endif
 
 /*
  * Tablet mode detection
  */
 #ifndef SM_SYSTEMDOCKED
-#define SM_CONVERTIBLESLATEMODE 0x00002003
-#define SM_SYSTEMDOCKED 0x00002004
+#  define SM_CONVERTIBLESLATEMODE 0x00002003
+#  define SM_SYSTEMDOCKED 0x00002004
 #endif
 
 /*
@@ -54,13 +54,12 @@ class nsLookAndFeel final : public nsXPLookAndFeel {
   nsresult NativeGetColor(ColorID aID, nscolor& aResult) override;
   nsresult GetIntImpl(IntID aID, int32_t& aResult) override;
   nsresult GetFloatImpl(FloatID aID, float& aResult) override;
-  bool GetFontImpl(FontID aID, nsString& aFontName, gfxFontStyle& aFontStyle,
-                   float aDevPixPerCSSPixel) override;
+  bool GetFontImpl(FontID aID, nsString& aFontName,
+                   gfxFontStyle& aFontStyle) override;
   char16_t GetPasswordCharacterImpl() override;
 
-  nsTArray<LookAndFeelInt> GetIntCacheImpl() override;
-  void SetIntCacheImpl(
-      const nsTArray<LookAndFeelInt>& aLookAndFeelIntCache) override;
+  LookAndFeelCache GetCacheImpl() override;
+  void SetCacheImpl(const LookAndFeelCache& aCache) override;
 
  private:
   /**
@@ -80,6 +79,14 @@ class nsLookAndFeel final : public nsXPLookAndFeel {
   nsresult GetAccentColorText(nscolor& aColor);
 
   nscolor GetColorForSysColorIndex(int index);
+
+  LookAndFeelFont GetLookAndFeelFontInternal(const LOGFONTW& aLogFont,
+                                             bool aUseShellDlg);
+
+  LookAndFeelFont GetLookAndFeelFont(LookAndFeel::FontID anID);
+
+  bool GetSysFont(LookAndFeel::FontID anID, nsString& aFontName,
+                  gfxFontStyle& aFontStyle);
 
   // Content process cached values that get shipped over from the browser
   // process.
@@ -115,9 +122,13 @@ class nsLookAndFeel final : public nsXPLookAndFeel {
     gfxFontStyle mFontStyle;
   };
 
-  mozilla::RangedArray<CachedSystemFont, FontID_MINIMUM,
-                       FontID_MAXIMUM + 1 - FontID_MINIMUM>
+  mozilla::RangedArray<CachedSystemFont, size_t(FontID::MINIMUM),
+                       size_t(FontID::MAXIMUM) + 1 - size_t(FontID::MINIMUM)>
       mSystemFontCache;
+
+  mozilla::RangedArray<LookAndFeelFont, size_t(FontID::MINIMUM),
+                       size_t(FontID::MAXIMUM) + 1 - size_t(FontID::MINIMUM)>
+      mFontCache;
 
   nsCOMPtr<nsIWindowsRegKey> mDwmKey;
 };

@@ -22,7 +22,8 @@ using namespace mozilla;
 
 namespace TestUTF {
 
-TEST(UTF, Valid) {
+TEST(UTF, Valid)
+{
   for (unsigned int i = 0; i < ArrayLength(ValidStrings); ++i) {
     nsDependentCString str8(ValidStrings[i].m8);
     nsDependentString str16(ValidStrings[i].m16);
@@ -33,17 +34,18 @@ TEST(UTF, Valid) {
 
     nsCString tmp8("string ");
     AppendUTF16toUTF8(str16, tmp8);
-    EXPECT_TRUE(tmp8.Equals(NS_LITERAL_CSTRING("string ") + str8));
+    EXPECT_TRUE(tmp8.Equals("string "_ns + str8));
 
-    nsString tmp16(NS_LITERAL_STRING("string "));
+    nsString tmp16(u"string "_ns);
     AppendUTF8toUTF16(str8, tmp16);
-    EXPECT_TRUE(tmp16.Equals(NS_LITERAL_STRING("string ") + str16));
+    EXPECT_TRUE(tmp16.Equals(u"string "_ns + str16));
 
     EXPECT_EQ(CompareUTF8toUTF16(str8, str16), 0);
   }
 }
 
-TEST(UTF, Invalid16) {
+TEST(UTF, Invalid16)
+{
   for (unsigned int i = 0; i < ArrayLength(Invalid16Strings); ++i) {
     nsDependentString str16(Invalid16Strings[i].m16);
     nsDependentCString str8(Invalid16Strings[i].m8);
@@ -52,43 +54,46 @@ TEST(UTF, Invalid16) {
 
     nsCString tmp8("string ");
     AppendUTF16toUTF8(str16, tmp8);
-    EXPECT_TRUE(tmp8.Equals(NS_LITERAL_CSTRING("string ") + str8));
+    EXPECT_TRUE(tmp8.Equals("string "_ns + str8));
 
     EXPECT_EQ(CompareUTF8toUTF16(str8, str16), 0);
   }
 }
 
-TEST(UTF, Invalid8) {
+TEST(UTF, Invalid8)
+{
   for (unsigned int i = 0; i < ArrayLength(Invalid8Strings); ++i) {
     nsDependentString str16(Invalid8Strings[i].m16);
     nsDependentCString str8(Invalid8Strings[i].m8);
 
     EXPECT_TRUE(NS_ConvertUTF8toUTF16(str8).Equals(str16));
 
-    nsString tmp16(NS_LITERAL_STRING("string "));
+    nsString tmp16(u"string "_ns);
     AppendUTF8toUTF16(str8, tmp16);
-    EXPECT_TRUE(tmp16.Equals(NS_LITERAL_STRING("string ") + str16));
+    EXPECT_TRUE(tmp16.Equals(u"string "_ns + str16));
 
     EXPECT_EQ(CompareUTF8toUTF16(str8, str16), 0);
   }
 }
 
-TEST(UTF, Malformed8) {
+TEST(UTF, Malformed8)
+{
   for (unsigned int i = 0; i < ArrayLength(Malformed8Strings); ++i) {
     nsDependentString str16(Malformed8Strings[i].m16);
     nsDependentCString str8(Malformed8Strings[i].m8);
 
     EXPECT_TRUE(NS_ConvertUTF8toUTF16(str8).Equals(str16));
 
-    nsString tmp16(NS_LITERAL_STRING("string "));
+    nsString tmp16(u"string "_ns);
     AppendUTF8toUTF16(str8, tmp16);
-    EXPECT_TRUE(tmp16.Equals(NS_LITERAL_STRING("string ") + str16));
+    EXPECT_TRUE(tmp16.Equals(u"string "_ns + str16));
 
     EXPECT_EQ(CompareUTF8toUTF16(str8, str16), 0);
   }
 }
 
-TEST(UTF, Hash16) {
+TEST(UTF, Hash16)
+{
   for (unsigned int i = 0; i < ArrayLength(ValidStrings); ++i) {
     nsDependentCString str8(ValidStrings[i].m8);
     bool err;
@@ -116,7 +121,7 @@ TEST(UTF, Hash16) {
  * This tests the handling of a non-ascii character at various locations in a
  * UTF-16 string that is being converted to UTF-8.
  */
-void NonASCII16_helper(const size_t aStrSize) {
+static void NonASCII16_helper(const size_t aStrSize) {
   const size_t kTestSize = aStrSize;
   const size_t kMaxASCII = 0x80;
   const char16_t kUTF16Char = 0xC9;
@@ -154,7 +159,7 @@ void NonASCII16_helper(const size_t aStrSize) {
     // First add the leading ASCII chars.
     expected.Append(asciiCString.BeginReading(), i);
 
-    // Now append the UTF-8 surrogate pair we expect the UTF-16 unicode char to
+    // Now append the UTF-8 pair we expect the UTF-16 unicode char to
     // be converted to.
     for (auto& c : kUTF8Surrogates) {
       expected.Append(c);
@@ -167,7 +172,18 @@ void NonASCII16_helper(const size_t aStrSize) {
   }
 }
 
-TEST(UTF, UTF8CharEnumerator) {
+TEST(UTF, NonASCII16)
+{
+  // Test with various string sizes to catch any special casing.
+  NonASCII16_helper(1);
+  NonASCII16_helper(8);
+  NonASCII16_helper(16);
+  NonASCII16_helper(32);
+  NonASCII16_helper(512);
+}
+
+TEST(UTF, UTF8CharEnumerator)
+{
   const char* p =
       "\x61\xC0\xC2\xC2\x80\xE0\x80\x80\xE0\xA0\x80\xE1\x80\x80\xED\xBF\xBF\xED"
       "\x9F\xBF\xEE\x80\x80\xEE\x80\xFF\xF0\x90\x80\x80\xF0\x80\x80\x80\xF1\x80"
@@ -202,21 +218,26 @@ TEST(UTF, UTF8CharEnumerator) {
   EXPECT_EQ(UTF8CharEnumerator::NextChar(&p, end), 0xFFFDU);
   EXPECT_EQ(UTF8CharEnumerator::NextChar(&p, end), 0xFFFDU);
   EXPECT_EQ(p, end);
-  p = "\xC2";
+  p = "\xC2\xB6";
   end = p + 1;
   EXPECT_EQ(UTF8CharEnumerator::NextChar(&p, end), 0xFFFDU);
   EXPECT_EQ(p, end);
-  p = "\xE1\x80";
+  p = "\xE2\x98\x83";
   end = p + 2;
   EXPECT_EQ(UTF8CharEnumerator::NextChar(&p, end), 0xFFFDU);
   EXPECT_EQ(p, end);
-  p = "\xF1\x80\x80";
+  p = "\xF0\x9F\x92\xA9";
+  end = p + 2;
+  EXPECT_EQ(UTF8CharEnumerator::NextChar(&p, end), 0xFFFDU);
+  EXPECT_EQ(p, end);
+  p = "\xF0\x9F\x92\xA9";
   end = p + 3;
   EXPECT_EQ(UTF8CharEnumerator::NextChar(&p, end), 0xFFFDU);
   EXPECT_EQ(p, end);
 }
 
-TEST(UTF, UTF16CharEnumerator) {
+TEST(UTF, UTF16CharEnumerator)
+{
   const char16_t* p = u"\u0061\U0001F4A9";
   const char16_t* end = p + 3;
   EXPECT_EQ(UTF16CharEnumerator::NextChar(&p, end), 0x0061U);

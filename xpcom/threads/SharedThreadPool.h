@@ -10,7 +10,6 @@
 #include <queue>
 #include "mozilla/RefPtr.h"
 #include "nsThreadUtils.h"
-#include "nsIThreadManager.h"
 #include "nsIThreadPool.h"
 #include "nsISupports.h"
 #include "nsISupportsImpl.h"
@@ -35,7 +34,7 @@ namespace mozilla {
 // SharedThreadPool, and avoid sharing objects if at all possible.
 //
 // [1]
-// https://dxr.mozilla.org/mozilla-central/search?q=coinitialize&redirect=false
+// https://searchfox.org/mozilla-central/search?q=coinitialize&redirect=false
 class SharedThreadPool : public nsIThreadPool {
  public:
   // Gets (possibly creating) the shared thread pool singleton instance with

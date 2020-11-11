@@ -5,10 +5,11 @@ root:
       type: "stacking-context"
       perspective: 1000
       perspective-origin: 0 0
+      "transform-style": "preserve-3d"
       items:
         -
           type: "stacking-context"
-          transform: rotate-x(45) translate(100, 100, 0)
+          transform: rotate-x(-45) translate(100, 100, 0)
           "transform-style": "preserve-3d"
           items:
               -

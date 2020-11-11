@@ -10,6 +10,7 @@
 #include "nsIContent.h"
 #include "nsPresContext.h"
 #include "mozilla/ComputedStyle.h"
+#include "mozilla/PresShell.h"
 #include "nsBoxLayoutState.h"
 #include "nsIScrollableFrame.h"
 #include "nsIPopupContainer.h"
@@ -17,8 +18,9 @@
 
 typedef mozilla::ComputedStyle ComputedStyle;
 
-nsIFrame* NS_NewPopupSetFrame(nsIPresShell* aPresShell, ComputedStyle* aStyle) {
-  return new (aPresShell) nsPopupSetFrame(aStyle);
+nsIFrame* NS_NewPopupSetFrame(mozilla::PresShell* aPresShell,
+                              ComputedStyle* aStyle) {
+  return new (aPresShell) nsPopupSetFrame(aStyle, aPresShell->GetPresContext());
 }
 
 NS_IMPL_FRAMEARENA_HELPERS(nsPopupSetFrame)
@@ -54,12 +56,13 @@ void nsPopupSetFrame::RemoveFrame(ChildListID aListID, nsIFrame* aOldFrame) {
 }
 
 void nsPopupSetFrame::InsertFrames(ChildListID aListID, nsIFrame* aPrevFrame,
+                                   const nsLineList::iterator* aPrevFrameLine,
                                    nsFrameList& aFrameList) {
   if (aListID == kPopupList) {
     AddPopupFrameList(aFrameList);
     return;
   }
-  nsBoxFrame::InsertFrames(aListID, aPrevFrame, aFrameList);
+  nsBoxFrame::InsertFrames(aListID, aPrevFrame, aPrevFrameLine, aFrameList);
 }
 
 void nsPopupSetFrame::SetInitialChildList(ChildListID aListID,
@@ -108,14 +111,14 @@ nsPopupSetFrame::DoXULLayout(nsBoxLayoutState& aState) {
   // lay out all of our currently open popups.
   for (nsFrameList::Enumerator e(mPopupList); !e.AtEnd(); e.Next()) {
     nsMenuPopupFrame* popupChild = static_cast<nsMenuPopupFrame*>(e.get());
-    popupChild->LayoutPopup(aState, nullptr, nullptr, false);
+    popupChild->LayoutPopup(aState, nullptr, false);
   }
 
   return rv;
 }
 
 void nsPopupSetFrame::RemovePopupFrame(nsIFrame* aPopup) {
-  MOZ_ASSERT((aPopup->GetStateBits() & NS_FRAME_OUT_OF_FLOW) &&
+  MOZ_ASSERT(aPopup->HasAnyStateBits(NS_FRAME_OUT_OF_FLOW) &&
                  aPopup->IsMenuPopupFrame(),
              "removing wrong type of frame in popupset's ::popupList");
 
@@ -125,7 +128,7 @@ void nsPopupSetFrame::RemovePopupFrame(nsIFrame* aPopup) {
 void nsPopupSetFrame::AddPopupFrameList(nsFrameList& aPopupFrameList) {
 #ifdef DEBUG
   for (nsFrameList::Enumerator e(aPopupFrameList); !e.AtEnd(); e.Next()) {
-    NS_ASSERTION((e.get()->GetStateBits() & NS_FRAME_OUT_OF_FLOW) &&
+    NS_ASSERTION(e.get()->HasAnyStateBits(NS_FRAME_OUT_OF_FLOW) &&
                      e.get()->IsMenuPopupFrame(),
                  "adding wrong type of frame in popupset's ::popupList");
   }

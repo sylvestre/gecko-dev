@@ -8,6 +8,8 @@
 #define mozilla_layers_CompositorController_h
 
 #include "nsISupportsImpl.h"  // for NS_INLINE_DECL_PURE_VIRTUAL_REFCOUNTING
+#include "mozilla/Maybe.h"
+#include "mozilla/webrender/WebRenderTypes.h"
 
 namespace mozilla {
 namespace layers {
@@ -16,12 +18,15 @@ class CompositorController {
  public:
   NS_INLINE_DECL_PURE_VIRTUAL_REFCOUNTING
 
+  /**
+   * Ask the compositor to schedule a new composite.
+   */
   virtual void ScheduleRenderOnCompositorThread() = 0;
   virtual void ScheduleHideAllPluginWindows() = 0;
   virtual void ScheduleShowAllPluginWindows() = 0;
 
  protected:
-  virtual ~CompositorController() {}
+  virtual ~CompositorController() = default;
 };
 
 }  // namespace layers

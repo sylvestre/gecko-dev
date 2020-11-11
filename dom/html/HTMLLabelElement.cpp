@@ -13,6 +13,7 @@
 #include "mozilla/dom/HTMLLabelElementBinding.h"
 #include "mozilla/dom/MouseEventBinding.h"
 #include "nsFocusManager.h"
+#include "nsIFrame.h"
 #include "nsContentUtils.h"
 #include "nsQueryObject.h"
 #include "mozilla/dom/ShadowRoot.h"
@@ -21,10 +22,9 @@
 
 NS_IMPL_NS_NEW_HTML_ELEMENT(Label)
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
-HTMLLabelElement::~HTMLLabelElement() {}
+HTMLLabelElement::~HTMLLabelElement() = default;
 
 JSObject* HTMLLabelElement::WrapNode(JSContext* aCx,
                                      JS::Handle<JSObject*> aGivenProto) {
@@ -47,30 +47,22 @@ HTMLFormElement* HTMLLabelElement::GetForm() const {
     return nullptr;
   }
 
-  return static_cast<HTMLFormElement*>(formControl->GetFormElement());
+  return formControl->GetFormElement();
 }
 
-void HTMLLabelElement::Focus(ErrorResult& aError) {
-  // retarget the focus method at the for content
-  nsIFocusManager* fm = nsFocusManager::GetFocusManager();
-  if (fm) {
-    RefPtr<Element> elem = GetLabeledElement();
-    if (elem) {
-      fm->SetFocus(elem, 0);
+void HTMLLabelElement::Focus(const FocusOptions& aOptions,
+                             const CallerType aCallerType,
+                             ErrorResult& aError) {
+  {
+    nsIFrame* frame = GetPrimaryFrame(FlushType::Frames);
+    if (frame && frame->IsFocusable()) {
+      return nsGenericHTMLElement::Focus(aOptions, aCallerType, aError);
     }
   }
-}
 
-static bool InInteractiveHTMLContent(nsIContent* aContent, nsIContent* aStop) {
-  nsIContent* content = aContent;
-  while (content && content != aStop) {
-    if (content->IsElement() &&
-        content->AsElement()->IsInteractiveHTMLContent(true)) {
-      return true;
-    }
-    content = content->GetParent();
+  if (RefPtr<Element> elem = GetLabeledElement()) {
+    return elem->Focus(aOptions, aCallerType, aError);
   }
-  return false;
 }
 
 nsresult HTMLLabelElement::PostHandleEvent(EventChainPostVisitor& aVisitor) {
@@ -85,101 +77,103 @@ nsresult HTMLLabelElement::PostHandleEvent(EventChainPostVisitor& aVisitor) {
     return NS_OK;
   }
 
-  nsCOMPtr<nsIContent> target = do_QueryInterface(aVisitor.mEvent->mTarget);
-  if (InInteractiveHTMLContent(target, this)) {
+  nsCOMPtr<Element> target =
+      do_QueryInterface(aVisitor.mEvent->GetOriginalDOMEventTarget());
+  if (nsContentUtils::IsInInteractiveHTMLContent(target, this)) {
     return NS_OK;
   }
 
   // Strong ref because event dispatch is going to happen.
   RefPtr<Element> content = GetLabeledElement();
 
-  if (content) {
-    mHandlingEvent = true;
-    switch (aVisitor.mEvent->mMessage) {
-      case eMouseDown:
-        if (mouseEvent->button == WidgetMouseEvent::eLeftButton) {
-          // We reset the mouse-down point on every event because there is
-          // no guarantee we will reach the eMouseClick code below.
-          LayoutDeviceIntPoint* curPoint =
-              new LayoutDeviceIntPoint(mouseEvent->mRefPoint);
-          SetProperty(nsGkAtoms::labelMouseDownPtProperty,
-                      static_cast<void*>(curPoint),
-                      nsINode::DeleteProperty<LayoutDeviceIntPoint>);
-        }
-        break;
-
-      case eMouseClick:
-        if (mouseEvent->IsLeftClickEvent()) {
-          LayoutDeviceIntPoint* mouseDownPoint =
-              static_cast<LayoutDeviceIntPoint*>(
-                  GetProperty(nsGkAtoms::labelMouseDownPtProperty));
-
-          bool dragSelect = false;
-          if (mouseDownPoint) {
-            LayoutDeviceIntPoint dragDistance = *mouseDownPoint;
-            DeleteProperty(nsGkAtoms::labelMouseDownPtProperty);
-
-            dragDistance -= mouseEvent->mRefPoint;
-            const int CLICK_DISTANCE = 2;
-            dragSelect = dragDistance.x > CLICK_DISTANCE ||
-                         dragDistance.x < -CLICK_DISTANCE ||
-                         dragDistance.y > CLICK_DISTANCE ||
-                         dragDistance.y < -CLICK_DISTANCE;
-          }
-          // Don't click the for-content if we did drag-select text or if we
-          // have a kbd modifier (which adjusts a selection).
-          if (dragSelect || mouseEvent->IsShift() || mouseEvent->IsControl() ||
-              mouseEvent->IsAlt() || mouseEvent->IsMeta()) {
-            break;
-          }
-          // Only set focus on the first click of multiple clicks to prevent
-          // to prevent immediate de-focus.
-          if (mouseEvent->mClickCount <= 1) {
-            nsIFocusManager* fm = nsFocusManager::GetFocusManager();
-            if (fm) {
-              // Use FLAG_BYMOVEFOCUS here so that the label is scrolled to.
-              // Also, within HTMLInputElement::PostHandleEvent, inputs will
-              // be selected only when focused via a key or when the navigation
-              // flag is used and we want to select the text on label clicks as
-              // well.
-              // If the label has been clicked by the user, we also want to
-              // pass FLAG_BYMOUSE so that we get correct focus ring behavior,
-              // but we don't want to pass FLAG_BYMOUSE if this click event was
-              // caused by the user pressing an accesskey.
-              bool byMouse = (mouseEvent->inputSource !=
-                              MouseEvent_Binding::MOZ_SOURCE_KEYBOARD);
-              bool byTouch = (mouseEvent->inputSource ==
-                              MouseEvent_Binding::MOZ_SOURCE_TOUCH);
-              fm->SetFocus(content,
-                           nsIFocusManager::FLAG_BYMOVEFOCUS |
-                               (byMouse ? nsIFocusManager::FLAG_BYMOUSE : 0) |
-                               (byTouch ? nsIFocusManager::FLAG_BYTOUCH : 0));
-            }
-          }
-          // Dispatch a new click event to |content|
-          //    (For compatibility with IE, we do only left click.  If
-          //    we wanted to interpret the HTML spec very narrowly, we
-          //    would do nothing.  If we wanted to do something
-          //    sensible, we might send more events through like
-          //    this.)  See bug 7554, bug 49897, and bug 96813.
-          nsEventStatus status = aVisitor.mEventStatus;
-          // Ok to use aVisitor.mEvent as parameter because DispatchClickEvent
-          // will actually create a new event.
-          EventFlags eventFlags;
-          eventFlags.mMultipleActionsPrevented = true;
-          DispatchClickEvent(aVisitor.mPresContext, mouseEvent, content, false,
-                             &eventFlags, &status);
-          // Do we care about the status this returned?  I don't think we do...
-          // Don't run another <label> off of this click
-          mouseEvent->mFlags.mMultipleActionsPrevented = true;
-        }
-        break;
-
-      default:
-        break;
-    }
-    mHandlingEvent = false;
+  if (!content || content->IsDisabled()) {
+    return NS_OK;
   }
+
+  mHandlingEvent = true;
+  switch (aVisitor.mEvent->mMessage) {
+    case eMouseDown:
+      if (mouseEvent->mButton == MouseButton::ePrimary) {
+        // We reset the mouse-down point on every event because there is
+        // no guarantee we will reach the eMouseClick code below.
+        LayoutDeviceIntPoint* curPoint =
+            new LayoutDeviceIntPoint(mouseEvent->mRefPoint);
+        SetProperty(nsGkAtoms::labelMouseDownPtProperty,
+                    static_cast<void*>(curPoint),
+                    nsINode::DeleteProperty<LayoutDeviceIntPoint>);
+      }
+      break;
+
+    case eMouseClick:
+      if (mouseEvent->IsLeftClickEvent()) {
+        LayoutDeviceIntPoint* mouseDownPoint =
+            static_cast<LayoutDeviceIntPoint*>(
+                GetProperty(nsGkAtoms::labelMouseDownPtProperty));
+
+        bool dragSelect = false;
+        if (mouseDownPoint) {
+          LayoutDeviceIntPoint dragDistance = *mouseDownPoint;
+          RemoveProperty(nsGkAtoms::labelMouseDownPtProperty);
+
+          dragDistance -= mouseEvent->mRefPoint;
+          const int CLICK_DISTANCE = 2;
+          dragSelect = dragDistance.x > CLICK_DISTANCE ||
+                       dragDistance.x < -CLICK_DISTANCE ||
+                       dragDistance.y > CLICK_DISTANCE ||
+                       dragDistance.y < -CLICK_DISTANCE;
+        }
+        // Don't click the for-content if we did drag-select text or if we
+        // have a kbd modifier (which adjusts a selection).
+        if (dragSelect || mouseEvent->IsShift() || mouseEvent->IsControl() ||
+            mouseEvent->IsAlt() || mouseEvent->IsMeta()) {
+          break;
+        }
+        // Only set focus on the first click of multiple clicks to prevent
+        // to prevent immediate de-focus.
+        if (mouseEvent->mClickCount <= 1) {
+          if (nsFocusManager* fm = nsFocusManager::GetFocusManager()) {
+            // Use FLAG_BYMOVEFOCUS here so that the label is scrolled to.
+            // Also, within HTMLInputElement::PostHandleEvent, inputs will
+            // be selected only when focused via a key or when the navigation
+            // flag is used and we want to select the text on label clicks as
+            // well.
+            // If the label has been clicked by the user, we also want to
+            // pass FLAG_BYMOUSE so that we get correct focus ring behavior,
+            // but we don't want to pass FLAG_BYMOUSE if this click event was
+            // caused by the user pressing an accesskey.
+            bool byMouse = (mouseEvent->mInputSource !=
+                            MouseEvent_Binding::MOZ_SOURCE_KEYBOARD);
+            bool byTouch = (mouseEvent->mInputSource ==
+                            MouseEvent_Binding::MOZ_SOURCE_TOUCH);
+            fm->SetFocus(content,
+                         nsIFocusManager::FLAG_BYMOVEFOCUS |
+                             (byMouse ? nsIFocusManager::FLAG_BYMOUSE : 0) |
+                             (byTouch ? nsIFocusManager::FLAG_BYTOUCH : 0));
+          }
+        }
+        // Dispatch a new click event to |content|
+        //    (For compatibility with IE, we do only left click.  If
+        //    we wanted to interpret the HTML spec very narrowly, we
+        //    would do nothing.  If we wanted to do something
+        //    sensible, we might send more events through like
+        //    this.)  See bug 7554, bug 49897, and bug 96813.
+        nsEventStatus status = aVisitor.mEventStatus;
+        // Ok to use aVisitor.mEvent as parameter because DispatchClickEvent
+        // will actually create a new event.
+        EventFlags eventFlags;
+        eventFlags.mMultipleActionsPrevented = true;
+        DispatchClickEvent(MOZ_KnownLive(aVisitor.mPresContext), mouseEvent,
+                           content, false, &eventFlags, &status);
+        // Do we care about the status this returned?  I don't think we do...
+        // Don't run another <label> off of this click
+        mouseEvent->mFlags.mMultipleActionsPrevented = true;
+      }
+      break;
+
+    default:
+      break;
+  }
+  mHandlingEvent = false;
   return NS_OK;
 }
 
@@ -199,9 +193,9 @@ bool HTMLLabelElement::PerformAccesskey(bool aKeyCausesActivation,
     // Click on it if the users prefs indicate to do so.
     WidgetMouseEvent event(aIsTrustedEvent, eMouseClick, nullptr,
                            WidgetMouseEvent::eReal);
-    event.inputSource = MouseEvent_Binding::MOZ_SOURCE_KEYBOARD;
+    event.mInputSource = MouseEvent_Binding::MOZ_SOURCE_KEYBOARD;
 
-    nsAutoPopupStatePusher popupStatePusher(
+    AutoPopupStatePusher popupStatePusher(
         aIsTrustedEvent ? PopupBlocker::openAllowed : PopupBlocker::openAbused);
 
     EventDispatcher::Dispatch(static_cast<nsIContent*>(this), presContext,
@@ -226,7 +220,7 @@ nsGenericHTMLElement* HTMLLabelElement::GetLabeledElement() const {
 
   if (ShadowRoot* shadowRoot = GetContainingShadow()) {
     element = shadowRoot->GetElementById(elementId);
-  } else if (nsIDocument* doc = GetUncomposedDoc()) {
+  } else if (Document* doc = GetUncomposedDoc()) {
     element = doc->GetElementById(elementId);
   } else {
     element =
@@ -252,5 +246,4 @@ nsGenericHTMLElement* HTMLLabelElement::GetFirstLabelableDescendant() const {
   return nullptr;
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

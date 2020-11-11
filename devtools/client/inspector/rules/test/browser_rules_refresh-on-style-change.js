@@ -1,4 +1,3 @@
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -13,7 +12,7 @@ add_task(async function() {
   Services.prefs.setCharPref("devtools.defaultColorUnit", "name");
 
   await addTab("data:text/html;charset=utf-8," + encodeURIComponent(TEST_URI));
-  const {inspector, view, testActor} = await openRuleView();
+  const { inspector, view, testActor } = await openRuleView();
   await selectNode("#testdiv", inspector);
 
   let fontSize = getRuleViewPropertyValue(view, "element", "font-size");
@@ -21,9 +20,12 @@ add_task(async function() {
 
   info("Changing the node's style and waiting for the update");
   const onUpdated = inspector.once("rule-view-refreshed");
-  await testActor.setAttribute("#testdiv", "style",
+  await testActor.setAttribute(
+    "#testdiv",
+    "style",
     "font-size: 3em; color: lightgoldenrodyellow; " +
-    "text-align: right; text-transform: uppercase");
+      "text-align: right; text-transform: uppercase"
+  );
   await onUpdated;
 
   const textAlign = getRuleViewPropertyValue(view, "element", "text-align");
@@ -32,7 +34,10 @@ add_task(async function() {
   is(color, "lightgoldenrodyellow", "The rule view shows the new color.");
   fontSize = getRuleViewPropertyValue(view, "element", "font-size");
   is(fontSize, "3em", "The rule view shows the new font size.");
-  const textTransform = getRuleViewPropertyValue(view, "element",
-    "text-transform");
+  const textTransform = getRuleViewPropertyValue(
+    view,
+    "element",
+    "text-transform"
+  );
   is(textTransform, "uppercase", "The rule view shows the new text transform.");
 });

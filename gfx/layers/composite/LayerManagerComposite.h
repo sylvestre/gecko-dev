@@ -19,6 +19,7 @@
 #include "mozilla/gfx/Point.h"  // for IntSize
 #include "mozilla/gfx/Rect.h"   // for Rect
 #include "mozilla/gfx/Types.h"  // for SurfaceFormat
+#include "mozilla/layers/CompositionRecorder.h"
 #include "mozilla/layers/CompositorTypes.h"
 #include "mozilla/layers/Effects.h"  // for EffectChain
 #include "mozilla/layers/LayersMessages.h"
@@ -35,12 +36,12 @@
 #include "nsRegion.h"         // for nsIntRegion
 #include "nscore.h"           // for nsAString, etc
 #include "LayerTreeInvalidation.h"
-#include "mozilla/layers/CompositorScreenshotGrabber.h"
+#include "mozilla/layers/ScreenshotGrabber.h"
 
 class gfxContext;
 
 #ifdef XP_WIN
-#include <windows.h>
+#  include <windows.h>
 #endif
 
 namespace mozilla {
@@ -77,30 +78,28 @@ static const int kVisualWarningDuration = 150;  // ms
 class HostLayerManager : public LayerManager {
  public:
   HostLayerManager();
-  ~HostLayerManager();
+  virtual ~HostLayerManager();
 
-  virtual bool BeginTransactionWithTarget(gfxContext* aTarget,
-                                          const nsCString& aURL) override {
+  bool BeginTransactionWithTarget(gfxContext* aTarget,
+                                  const nsCString& aURL) override {
     MOZ_CRASH("GFX: Use BeginTransactionWithDrawTarget");
   }
 
-  virtual bool EndEmptyTransaction(
-      EndTransactionFlags aFlags = END_DEFAULT) override {
+  bool EndEmptyTransaction(EndTransactionFlags aFlags = END_DEFAULT) override {
     MOZ_CRASH("GFX: Use EndTransaction(aTimeStamp)");
     return false;
   }
 
-  virtual void EndTransaction(
-      DrawPaintedLayerCallback aCallback, void* aCallbackData,
-      EndTransactionFlags aFlags = END_DEFAULT) override {
+  void EndTransaction(DrawPaintedLayerCallback aCallback, void* aCallbackData,
+                      EndTransactionFlags aFlags = END_DEFAULT) override {
     MOZ_CRASH("GFX: Use EndTransaction(aTimeStamp)");
   }
 
-  virtual int32_t GetMaxTextureSize() const override {
+  int32_t GetMaxTextureSize() const override {
     MOZ_CRASH("GFX: Call on compositor, not LayerManagerComposite");
   }
 
-  virtual void GetBackendName(nsAString& name) override {
+  void GetBackendName(nsAString& name) override {
     MOZ_CRASH("GFX: Shouldn't be called for composited layer manager");
   }
 
@@ -118,7 +117,7 @@ class HostLayerManager : public LayerManager {
   virtual void SetDiagnosticTypes(DiagnosticTypes aDiagnostics) {}
   virtual void InvalidateAll() = 0;
 
-  virtual HostLayerManager* AsHostLayerManager() override { return this; }
+  HostLayerManager* AsHostLayerManager() override { return this; }
   virtual LayerManagerMLGPU* AsLayerManagerMLGPU() { return nullptr; }
 
   void ExtractImageCompositeNotifications(
@@ -161,11 +160,6 @@ class HostLayerManager : public LayerManager {
     }
   }
 
-  // Indicate that we need to composite even if nothing in our layers has
-  // changed, so that the widget can draw something different in its window
-  // overlay.
-  void SetWindowOverlayChanged() { mWindowOverlayChanged = true; }
-
   void SetPaintTime(const TimeDuration& aPaintTime) {
     mLastPaintTime = aPaintTime;
   }
@@ -176,6 +170,10 @@ class HostLayerManager : public LayerManager {
   void RecordPaintTimes(const PaintTiming& aTiming);
   void RecordUpdateTime(float aValue);
 
+  CompositionOpportunityId GetCompositionOpportunityId() const {
+    return mCompositionOpportunityId;
+  }
+
   TimeStamp GetCompositionTime() const { return mCompositionTime; }
   void SetCompositionTime(TimeStamp aTimeStamp) {
     mCompositionTime = aTimeStamp;
@@ -184,6 +182,7 @@ class HostLayerManager : public LayerManager {
       mCompositeUntilTime = TimeStamp();
     }
   }
+
   void CompositeUntil(TimeStamp aTimeStamp) {
     if (mCompositeUntilTime.IsNull() || mCompositeUntilTime < aTimeStamp) {
       mCompositeUntilTime = aTimeStamp;
@@ -200,6 +199,19 @@ class HostLayerManager : public LayerManager {
     mCompositorBridgeID = aID;
   }
 
+  void SetCompositionRecorder(UniquePtr<CompositionRecorder> aRecorder) {
+    mCompositionRecorder = std::move(aRecorder);
+  }
+
+  /**
+   * Write the frames collected by the |CompositionRecorder| to disk.
+   *
+   * If there is not currently a |CompositionRecorder|, this is a no-op.
+   */
+  void WriteCollectedFrames();
+
+  Maybe<CollectedFrames> GetCollectedFrames();
+
  protected:
   bool mDebugOverlayWantsNextFrame;
   nsTArray<ImageCompositeNotificationInfo> mImageCompositeNotifications;
@@ -210,12 +222,15 @@ class HostLayerManager : public LayerManager {
   UniquePtr<Diagnostics> mDiagnostics;
   uint64_t mCompositorBridgeID;
 
-  bool mWindowOverlayChanged;
   TimeDuration mLastPaintTime;
   TimeStamp mRenderStartTime;
+  UniquePtr<CompositionRecorder> mCompositionRecorder = nullptr;
 
   // Render time for the current composition.
   TimeStamp mCompositionTime;
+
+  // CompositionOpportunityId of the current composition.
+  CompositionOpportunityId mCompositionOpportunityId;
 
   // When nonnull, during rendering, some compositable indicated that it will
   // change its rendering at this time. In order not to miss it, we composite
@@ -239,9 +254,9 @@ class LayerManagerComposite final : public HostLayerManager {
 
  public:
   explicit LayerManagerComposite(Compositor* aCompositor);
-  ~LayerManagerComposite();
+  virtual ~LayerManagerComposite();
 
-  virtual void Destroy() override;
+  void Destroy() override;
 
   /**
    * Sets the clipping region for this layer manager. This is important on
@@ -259,13 +274,11 @@ class LayerManagerComposite final : public HostLayerManager {
   /**
    * LayerManager implementation.
    */
-  virtual LayerManagerComposite* AsLayerManagerComposite() override {
-    return this;
-  }
+  LayerManagerComposite* AsLayerManagerComposite() override { return this; }
 
   void UpdateRenderBounds(const gfx::IntRect& aRect) override;
 
-  virtual bool BeginTransaction(const nsCString& aURL) override;
+  bool BeginTransaction(const nsCString& aURL) override;
   void BeginTransactionWithDrawTarget(gfx::DrawTarget* aTarget,
                                       const gfx::IntRect& aRect) override;
   void EndTransaction(const TimeStamp& aTimeStamp,
@@ -276,28 +289,28 @@ class LayerManagerComposite final : public HostLayerManager {
     MOZ_CRASH("GFX: Use EndTransaction(aTimeStamp)");
   }
 
-  virtual void SetRoot(Layer* aLayer) override { mRoot = aLayer; }
+  void SetRoot(Layer* aLayer) override { mRoot = aLayer; }
 
   // XXX[nrc]: never called, we should move this logic to ClientLayerManager
   // (bug 946926).
-  virtual bool CanUseCanvasLayerForSize(const gfx::IntSize& aSize) override;
+  bool CanUseCanvasLayerForSize(const gfx::IntSize& aSize) override;
 
-  virtual void ClearCachedResources(Layer* aSubtree = nullptr) override;
+  void ClearCachedResources(Layer* aSubtree = nullptr) override;
 
-  virtual already_AddRefed<PaintedLayer> CreatePaintedLayer() override;
-  virtual already_AddRefed<ContainerLayer> CreateContainerLayer() override;
-  virtual already_AddRefed<ImageLayer> CreateImageLayer() override;
-  virtual already_AddRefed<ColorLayer> CreateColorLayer() override;
-  virtual already_AddRefed<CanvasLayer> CreateCanvasLayer() override;
-  virtual already_AddRefed<RefLayer> CreateRefLayer() override;
+  already_AddRefed<PaintedLayer> CreatePaintedLayer() override;
+  already_AddRefed<ContainerLayer> CreateContainerLayer() override;
+  already_AddRefed<ImageLayer> CreateImageLayer() override;
+  already_AddRefed<ColorLayer> CreateColorLayer() override;
+  already_AddRefed<CanvasLayer> CreateCanvasLayer() override;
+  already_AddRefed<RefLayer> CreateRefLayer() override;
 
-  virtual bool AreComponentAlphaLayersEnabled() override;
+  bool AreComponentAlphaLayersEnabled() override;
 
-  virtual already_AddRefed<DrawTarget> CreateOptimalMaskDrawTarget(
+  already_AddRefed<DrawTarget> CreateOptimalMaskDrawTarget(
       const IntSize& aSize) override;
 
-  virtual const char* Name() const override { return ""; }
-  virtual bool IsCompositingToScreen() const override;
+  const char* Name() const override { return ""; }
+  bool IsCompositingToScreen() const override;
 
   bool AlwaysScheduleComposite() const override;
 
@@ -325,7 +338,8 @@ class LayerManagerComposite final : public HostLayerManager {
   void PostProcessLayers(Layer* aLayer, nsIntRegion& aOpaqueRegion,
                          LayerIntRegion& aVisibleRegion,
                          const Maybe<RenderTargetIntRect>& aRenderTargetClip,
-                         const Maybe<ParentLayerIntRect>& aClipFromAncestors);
+                         const Maybe<ParentLayerIntRect>& aClipFromAncestors,
+                         bool aCanContributeOpaque);
 
   /**
    * RAII helper class to add a mask effect with the compositable from
@@ -371,18 +385,18 @@ class LayerManagerComposite final : public HostLayerManager {
   bool AsyncPanZoomEnabled() const override;
 
  public:
-  virtual TextureFactoryIdentifier GetTextureFactoryIdentifier() override {
+  TextureFactoryIdentifier GetTextureFactoryIdentifier() override {
     return mCompositor->GetTextureFactoryIdentifier();
   }
-  virtual LayersBackend GetBackendType() override {
+  LayersBackend GetBackendType() override {
     return mCompositor ? mCompositor->GetBackendType()
                        : LayersBackend::LAYERS_NONE;
   }
-  virtual void SetDiagnosticTypes(DiagnosticTypes aDiagnostics) override {
+  void SetDiagnosticTypes(DiagnosticTypes aDiagnostics) override {
     mCompositor->SetDiagnosticTypes(aDiagnostics);
   }
 
-  virtual void InvalidateAll() override {
+  void InvalidateAll() override {
     AddInvalidRegion(nsIntRegion(mRenderBounds));
   }
 
@@ -403,8 +417,10 @@ class LayerManagerComposite final : public HostLayerManager {
 
   /**
    * Render the current layer tree to the active target.
+   * Returns true if the current invalid region can be cleared, false if
+   * rendering was canceled.
    */
-  void Render(const nsIntRegion& aInvalidRegion,
+  bool Render(const nsIntRegion& aInvalidRegion,
               const nsIntRegion& aOpaqueRegion);
 #if defined(MOZ_WIDGET_ANDROID)
   void RenderToPresentationSurface();
@@ -428,10 +444,35 @@ class LayerManagerComposite final : public HostLayerManager {
    */
   void RenderDebugOverlay(const gfx::IntRect& aBounds);
 
+  void DrawBorder(const gfx::IntRect& aOuter, int32_t aBorderWidth,
+                  const gfx::DeviceColor& aColor,
+                  const gfx::Matrix4x4& aTransform);
+  void DrawTranslationWarningOverlay(const gfx::IntRect& aBounds);
+
+  void UpdateDebugOverlayNativeLayers();
+
   RefPtr<CompositingRenderTarget> PushGroupForLayerEffects();
   void PopGroupForLayerEffects(RefPtr<CompositingRenderTarget> aPreviousTarget,
                                gfx::IntRect aClipRect, bool aGrayscaleEffect,
                                bool aInvertEffect, float aContrastEffect);
+
+  /**
+   * Create or recycle native layers to cover aRegion or aRect.
+   * This method takes existing layers from the front of aLayersToRecycle (or
+   * creates new layers if no layers are left to recycle) and appends them to
+   * the end of mNativeLayers. The "take from front, add to back" approach keeps
+   * the layer to rect assignment stable between frames.
+   * Updates the rect and opaqueness on the layers. For layers that moved or
+   * resized, *aWindowInvalidRegion is updated to include the area impacted by
+   * the move.
+   * Any layers left in aLayersToRecycle are not needed and can be disposed of.
+   */
+  void PlaceNativeLayers(const gfx::IntRegion& aRegion, bool aOpaque,
+                         std::deque<RefPtr<NativeLayer>>* aLayersToRecycle,
+                         gfx::IntRegion* aWindowInvalidRegion);
+  void PlaceNativeLayer(const gfx::IntRect& aRect, bool aOpaque,
+                        std::deque<RefPtr<NativeLayer>>* aLayersToRecycle,
+                        gfx::IntRegion* aWindowInvalidRegion);
 
   bool mUnusedApzTransformWarning;
   bool mDisabledApzWarning;
@@ -450,8 +491,14 @@ class LayerManagerComposite final : public HostLayerManager {
   bool mIsCompositorReady;
 
   RefPtr<CompositingRenderTarget> mTwoPassTmpTarget;
-  CompositorScreenshotGrabber mProfilerScreenshotGrabber;
+  ScreenshotGrabber mProfilerScreenshotGrabber;
   RefPtr<TextRenderer> mTextRenderer;
+  RefPtr<NativeLayerRoot> mNativeLayerRoot;
+  RefPtr<SurfacePoolHandle> mSurfacePoolHandle;
+  std::deque<RefPtr<NativeLayer>> mNativeLayers;
+  RefPtr<NativeLayer> mGPUStatsLayer;
+  RefPtr<NativeLayer> mUnusedTransformWarningLayer;
+  RefPtr<NativeLayer> mDisabledApzWarningLayer;
 
 #ifdef USE_SKIA
   /**
@@ -490,7 +537,7 @@ class HostLayer {
   }
   HostLayerManager* GetLayerManager() const { return mCompositorManager; }
 
-  virtual ~HostLayer() {}
+  virtual ~HostLayer() = default;
 
   virtual LayerComposite* GetFirstChildComposite() { return nullptr; }
 
@@ -589,9 +636,9 @@ class LayerComposite : public HostLayer {
 
   virtual ~LayerComposite();
 
-  virtual void SetLayerManager(HostLayerManager* aManager) override;
+  void SetLayerManager(HostLayerManager* aManager) override;
 
-  virtual LayerComposite* GetFirstChildComposite() override { return nullptr; }
+  LayerComposite* GetFirstChildComposite() override { return nullptr; }
 
   /* Do NOT call this from the generic LayerComposite destructor.  Only from the
    * concrete class destructor
@@ -611,7 +658,7 @@ class LayerComposite : public HostLayer {
   virtual void RenderLayer(const gfx::IntRect& aClipRect,
                            const Maybe<gfx::Polygon>& aGeometry) = 0;
 
-  virtual bool SetCompositableHost(CompositableHost*) override {
+  bool SetCompositableHost(CompositableHost*) override {
     // We must handle this gracefully, see bug 967824
     NS_WARNING(
         "called SetCompositableHost for a layer type not accepting a "

@@ -1,10 +1,4 @@
-const PREF_MULTISELECT_TABS = "browser.tabs.multiselect";
-
 add_task(async function multiselectActiveTabByDefault() {
-  await SpecialPowers.pushPrefEnv({
-    set: [[PREF_MULTISELECT_TABS, true]],
-  });
-
   const tab1 = await addTab();
   const tab2 = await addTab();
   const tab3 = await addTab();
@@ -15,8 +9,10 @@ add_task(async function multiselectActiveTabByDefault() {
   await triggerClickOn(tab1, { ctrlKey: true });
 
   is(gBrowser.selectedTab, tab1, "Tab1 is active");
-  ok(!tab1.multiselected,
-    "Tab1 is not multi-selected because we are not in multi-select context yet");
+  ok(
+    !tab1.multiselected,
+    "Tab1 is not multi-selected because we are not in multi-select context yet"
+  );
   ok(!tab2.multiselected, "Tab2 is not multi-selected");
   ok(!tab3.multiselected, "Tab3 is not multi-selected");
   is(gBrowser.multiSelectedTabsCount, 0, "Zero tabs multi-selected");
@@ -30,11 +26,18 @@ add_task(async function multiselectActiveTabByDefault() {
   ok(tab2.multiselected, "Tab2 is multi-selected");
   ok(tab3.multiselected, "Tab3 is multi-selected");
   is(gBrowser.multiSelectedTabsCount, 3, "Three tabs multi-selected");
-  is(gBrowser.lastMultiSelectedTab, tab3, "Tab3 is the last multi-selected tab");
+  is(
+    gBrowser.lastMultiSelectedTab,
+    tab3,
+    "Tab3 is the last multi-selected tab"
+  );
 
   info("Unselect tab1 from multi-selection using ctrlKey");
 
-  await BrowserTestUtils.switchTab(gBrowser, triggerClickOn(tab1, { ctrlKey: true }));
+  await BrowserTestUtils.switchTab(
+    gBrowser,
+    triggerClickOn(tab1, { ctrlKey: true })
+  );
 
   isnot(gBrowser.selectedTab, tab1, "Tab1 is not active anymore");
   is(gBrowser.selectedTab, tab3, "Tab3 is active");

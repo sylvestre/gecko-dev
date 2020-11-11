@@ -25,8 +25,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __DAV1D_COMMON_ATTRIBUTES_H__
-#define __DAV1D_COMMON_ATTRIBUTES_H__
+#ifndef DAV1D_COMMON_ATTRIBUTES_H
+#define DAV1D_COMMON_ATTRIBUTES_H
 
 #include "config.h"
 
@@ -34,19 +34,27 @@
 
 #ifdef __GNUC__
 #define ATTR_ALIAS __attribute__((may_alias))
+#define ATTR_FORMAT_PRINTF(fmt, attr) __attribute__((__format__(__printf__, fmt, attr)))
+#define COLD __attribute__((cold))
 #else
 #define ATTR_ALIAS
+#define ATTR_FORMAT_PRINTF(fmt, attr)
+#define COLD
 #endif
 
-#if ARCH_X86
+#if ARCH_X86_64
+/* x86-64 needs 32- and 64-byte alignment for AVX2 and AVX-512. */
+#define ALIGN_64_VAL 64
 #define ALIGN_32_VAL 32
 #define ALIGN_16_VAL 16
-#elif ARCH_ARM || ARCH_AARCH64
-// ARM doesn't benefit from anything more than 16 byte alignment.
+#elif ARCH_X86_32 || ARCH_ARM || ARCH_AARCH64 || ARCH_PPC64LE
+/* ARM doesn't benefit from anything more than 16-byte alignment. */
+#define ALIGN_64_VAL 16
 #define ALIGN_32_VAL 16
 #define ALIGN_16_VAL 16
 #else
-// No need for extra alignment on platforms without assembly.
+/* No need for extra alignment on platforms without assembly. */
+#define ALIGN_64_VAL 8
 #define ALIGN_32_VAL 8
 #define ALIGN_16_VAL 8
 #endif
@@ -71,9 +79,10 @@
  * becomes:
  * ALIGN_STK_$align(uint8_t, var, 1, [2][3][4])
  */
+#define ALIGN_STK_64(type, var, sz1d, sznd) \
+    ALIGN(type var[sz1d]sznd, ALIGN_64_VAL)
 #define ALIGN_STK_32(type, var, sz1d, sznd) \
     ALIGN(type var[sz1d]sznd, ALIGN_32_VAL)
-// as long as stack is itself 16-byte aligned, this works (win64, gcc)
 #define ALIGN_STK_16(type, var, sz1d, sznd) \
     ALIGN(type var[sz1d]sznd, ALIGN_16_VAL)
 
@@ -86,6 +95,20 @@
 #else /* !_MSC_VER */
 #define NOINLINE __attribute__((noinline))
 #endif /* !_MSC_VER */
+
+#ifdef __clang__
+#define NO_SANITIZE(x) __attribute__((no_sanitize(x)))
+#else
+#define NO_SANITIZE(x)
+#endif
+
+#if defined(NDEBUG) && (defined(__GNUC__) || defined(__clang__))
+#define assert(x) do { if (!(x)) __builtin_unreachable(); } while (0)
+#elif defined(NDEBUG) && defined(_MSC_VER)
+#define assert __assume
+#else
+#include <assert.h>
+#endif
 
 #if defined(__GNUC__) && !defined(__INTEL_COMPILER) && !defined(__clang__)
 #    define dav1d_uninit(x) x=x
@@ -136,4 +159,8 @@ static inline int clzll(const unsigned long long mask) {
 }
 #endif /* !_MSC_VER */
 
-#endif /* __DAV1D_COMMON_ATTRIBUTES_H__ */
+#ifndef __has_feature
+#define __has_feature(x) 0
+#endif
+
+#endif /* DAV1D_COMMON_ATTRIBUTES_H */

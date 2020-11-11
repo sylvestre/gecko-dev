@@ -3,12 +3,16 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 "use strict";
 
-const {Arg, RetVal, generateActorSpec} = require("devtools/shared/protocol");
+const { Arg, RetVal, generateActorSpec } = require("devtools/shared/protocol");
 
 const preferenceSpec = generateActorSpec({
   typeName: "preference",
 
   methods: {
+    getTraits: {
+      request: {},
+      response: { traits: RetVal("json") },
+    },
     getBoolPref: {
       request: { value: Arg(0) },
       response: { value: RetVal("boolean") },

@@ -14,6 +14,8 @@
 namespace mozilla {
 namespace net {
 
+class ExtensionStreamGetter;
+
 class ExtensionProtocolHandler final
     : public nsISubstitutingProtocolHandler,
       public nsIProtocolHandlerWithDynamicFlags,
@@ -77,18 +79,17 @@ class ExtensionProtocolHandler final
  private:
   explicit ExtensionProtocolHandler();
 
-  MOZ_MUST_USE bool ResolveSpecialCases(const nsACString& aHost,
-                                        const nsACString& aPath,
-                                        const nsACString& aPathname,
-                                        nsACString& aResult) override;
+  [[nodiscard]] bool ResolveSpecialCases(const nsACString& aHost,
+                                         const nsACString& aPath,
+                                         const nsACString& aPathname,
+                                         nsACString& aResult) override;
 
   // |result| is an inout param.  On entry to this function, *result
   // is expected to be non-null and already addrefed.  This function
   // may release the object stored in *result on entry and write
   // a new pointer to an already addrefed channel to *result.
-  virtual MOZ_MUST_USE nsresult SubstituteChannel(nsIURI* uri,
-                                                  nsILoadInfo* aLoadInfo,
-                                                  nsIChannel** result) override;
+  [[nodiscard]] virtual nsresult SubstituteChannel(
+      nsIURI* uri, nsILoadInfo* aLoadInfo, nsIChannel** result) override;
 
   /**
    * For moz-extension URI's that resolve to file or JAR URI's, replaces
@@ -152,12 +153,21 @@ class ExtensionProtocolHandler final
    *        nsIFile for which Normalize() has already been called.
    * @param aRequestedFile the requested web-accessible resource file. Argument
    *        must be an nsIFile for which Normalize() has already been called.
-   * @param aResult outparam set to true when the load of the requested file
-   *        should be allowed.
    */
-  Result<Ok, nsresult> AllowExternalResource(nsIFile* aExtensionDir,
-                                             nsIFile* aRequestedFile,
-                                             bool* aResult);
+  Result<bool, nsresult> AllowExternalResource(nsIFile* aExtensionDir,
+                                               nsIFile* aRequestedFile);
+
+  // Set the channel's content type using the provided URI's type
+  static void SetContentType(nsIURI* aURI, nsIChannel* aChannel);
+
+  // Gets a SimpleChannel that wraps the provided ExtensionStreamGetter
+  static void NewSimpleChannel(nsIURI* aURI, nsILoadInfo* aLoadinfo,
+                               ExtensionStreamGetter* aStreamGetter,
+                               nsIChannel** aRetVal);
+
+  // Gets a SimpleChannel that wraps the provided channel
+  static void NewSimpleChannel(nsIURI* aURI, nsILoadInfo* aLoadinfo,
+                               nsIChannel* aChannel, nsIChannel** aRetVal);
 
 #if defined(XP_MACOSX)
   /**
@@ -171,10 +181,8 @@ class ExtensionProtocolHandler final
    *
    * @param aRequestedFile the requested web-accessible resource file. Argument
    *        must be an nsIFile for which Normalize() has already been called.
-   * @param aResult outparam set to true on development builds when the
-   *        requested file resides in the repo.
    */
-  Result<Ok, nsresult> DevRepoContains(nsIFile* aRequestedFile, bool* aResult);
+  Result<bool, nsresult> DevRepoContains(nsIFile* aRequestedFile);
 
   // On development builds, this points to development repo. Lazily set.
   nsCOMPtr<nsIFile> mDevRepo;
@@ -198,10 +206,8 @@ class ExtensionProtocolHandler final
    *
    * @param aExtensionDir the extension directory. Argument must be an
    *        nsIFile for which Normalize() has already been called.
-   * @param aResult outparam set to true on development builds when the
-   *        requested file resides in the repo.
    */
-  Result<Ok, nsresult> AppDirContains(nsIFile* aExtensionDir, bool* aResult);
+  Result<bool, nsresult> AppDirContains(nsIFile* aExtensionDir);
 
   // On development builds, cache the NS_GRE_DIR repo. Lazily set.
   nsCOMPtr<nsIFile> mAppDir;

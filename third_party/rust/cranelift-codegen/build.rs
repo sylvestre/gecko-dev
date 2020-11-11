@@ -1,7 +1,7 @@
 // Build script.
 //
-// This program is run by Cargo when building lib/codegen. It is used to generate Rust code from
-// the language definitions in the lib/codegen/meta directory.
+// This program is run by Cargo when building cranelift-codegen. It is used to generate Rust code from
+// the language definitions in the cranelift-codegen/meta directory.
 //
 // Environment:
 //
@@ -11,128 +11,90 @@
 // TARGET
 //     Target triple provided by Cargo.
 //
-// CRANELIFT_TARGETS (Optional)
-//     A setting for conditional compilation of isa targets. Possible values can be "native" or
-//     known isa targets separated by ','.
-//
 // The build script expects to be run from the directory where this build.rs file lives. The
 // current directory is used to find the sources.
 
-extern crate cranelift_codegen_meta as meta;
+use cranelift_codegen_meta as meta;
 
-use meta::isa::Isa;
 use std::env;
 use std::process;
+use std::time::Instant;
 
 fn main() {
+    let start_time = Instant::now();
+
     let out_dir = env::var("OUT_DIR").expect("The OUT_DIR environment variable must be set");
     let target_triple = env::var("TARGET").expect("The TARGET environment variable must be set");
-    let cranelift_targets = env::var("CRANELIFT_TARGETS").ok();
-    let cranelift_targets = cranelift_targets.as_ref().map(|s| s.as_ref());
-    let python = identify_python();
 
-    // Configure isa targets cfg.
-    match isa_targets(cranelift_targets, &target_triple) {
-        Ok(isa_targets) => {
-            for isa in &isa_targets {
-                println!("cargo:rustc-cfg=build_{}", isa.to_string());
-            }
-        }
-        Err(err) => {
-            eprintln!("Error: {}", err);
-            process::exit(1);
-        }
-    }
+    let new_backend_isas = if env::var("CARGO_FEATURE_X64").is_ok() {
+        // The x64 (new backend for x86_64) is a bit particular: it only requires generating
+        // the shared meta code; the only ISA-specific code is for settings.
+        vec![meta::isa::Isa::X86]
+    } else {
+        Vec::new()
+    };
+
+    // Configure isa targets using the old backend.
+    let isa_targets = meta::isa::Isa::all()
+        .iter()
+        .cloned()
+        .filter(|isa| {
+            let env_key = format!("CARGO_FEATURE_{}", isa.to_string().to_uppercase());
+            env::var(env_key).is_ok()
+        })
+        .collect::<Vec<_>>();
+
+    let old_backend_isas = if new_backend_isas.is_empty() && isa_targets.is_empty() {
+        // Try to match native target.
+        let target_name = target_triple.split('-').next().unwrap();
+        let isa = meta::isa_from_arch(&target_name).expect("error when identifying target");
+        println!("cargo:rustc-cfg=feature=\"{}\"", isa);
+        vec![isa]
+    } else {
+        isa_targets
+    };
 
     let cur_dir = env::current_dir().expect("Can't access current working directory");
     let crate_dir = cur_dir.as_path();
 
-    // Make sure we rebuild if this build script changes.
-    // I guess that won't happen if you have non-UTF8 bytes in your path names.
-    // The `build.py` script prints out its own dependencies.
+    // Make sure we rebuild if this build script changes (will not happen with
+    // if the path to this file contains non-UTF-8 bytes).
     println!(
         "cargo:rerun-if-changed={}",
         crate_dir.join("build.rs").to_str().unwrap()
     );
 
-    // Scripts are in `$crate_dir/meta-python`.
-    let meta_dir = crate_dir.join("meta-python");
-    let build_script = meta_dir.join("build.py");
-
-    // Launch build script with Python. We'll just find python in the path.
-    // Use -B to disable .pyc files, because they cause trouble for vendoring
-    // scripts, and this is a build step that isn't run very often anyway.
-    let status = process::Command::new(python)
-        .current_dir(crate_dir)
-        .arg("-B")
-        .arg(build_script)
-        .arg("--out-dir")
-        .arg(out_dir.clone())
-        .status()
-        .expect("Failed to launch second-level build script; is python installed?");
-    if !status.success() {
-        process::exit(status.code().unwrap());
-    }
-
-    // DEVELOPMENT:
-    // ------------------------------------------------------------------------
-    // Now that the Python build process is complete, generate files that are
-    // emitted by the `meta` crate.
-    // ------------------------------------------------------------------------
-    let isas = meta::isa::define_all();
-
-    if let Err(err) = meta::gen_types::generate("types.rs", &out_dir) {
+    if let Err(err) = meta::generate(&old_backend_isas, &new_backend_isas, &out_dir) {
         eprintln!("Error: {}", err);
         process::exit(1);
     }
 
-    for isa in isas {
-        if let Err(err) = meta::gen_registers::generate(isa, "registers", &out_dir) {
-            eprintln!("Error: {}", err);
-            process::exit(1);
+    if env::var("CRANELIFT_VERBOSE").is_ok() {
+        for isa in &old_backend_isas {
+            println!(
+                "cargo:warning=Includes old-backend support for {} ISA",
+                isa.to_string()
+            );
         }
+        for isa in &new_backend_isas {
+            println!(
+                "cargo:warning=Includes new-backend support for {} ISA",
+                isa.to_string()
+            );
+        }
+        println!(
+            "cargo:warning=Build step took {:?}.",
+            Instant::now() - start_time
+        );
+        println!("cargo:warning=Generated files are in {}", out_dir);
     }
-}
 
-fn identify_python() -> &'static str {
-    for python in &["python", "python3", "python2.7"] {
-        if process::Command::new(python)
-            .arg("--version")
-            .status()
-            .is_ok()
-        {
-            return python;
-        }
-    }
-    panic!("The Cranelift build requires Python (version 2.7 or version 3)");
-}
-
-/// Returns isa targets to configure conditional compilation.
-fn isa_targets(cranelift_targets: Option<&str>, target_triple: &str) -> Result<Vec<Isa>, String> {
-    match cranelift_targets {
-        Some("native") => Isa::from_arch(target_triple.split('-').next().unwrap())
-            .map(|isa| vec![isa])
-            .ok_or_else(|| {
-                format!(
-                    "no supported isa found for target triple `{}`",
-                    target_triple
-                )
-            }),
-        Some(targets) => {
-            let unknown_isa_targets = targets
-                .split(',')
-                .filter(|target| Isa::new(target).is_none())
-                .collect::<Vec<_>>();
-            let isa_targets = targets.split(',').flat_map(Isa::new).collect::<Vec<_>>();
-            match (unknown_isa_targets.is_empty(), isa_targets.is_empty()) {
-                (true, true) => Ok(Isa::all().to_vec()),
-                (true, _) => Ok(isa_targets),
-                (_, _) => Err(format!(
-                    "unknown isa targets: `{}`",
-                    unknown_isa_targets.join(", ")
-                )),
-            }
-        }
-        None => Ok(Isa::all().to_vec()),
+    #[cfg(feature = "rebuild-peephole-optimizers")]
+    {
+        std::fs::write(
+            std::path::Path::new(&out_dir).join("CRANELIFT_CODEGEN_PATH"),
+            cur_dir.to_str().unwrap(),
+        )
+        .unwrap()
     }
 }

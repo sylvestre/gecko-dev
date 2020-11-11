@@ -31,16 +31,17 @@ file_footer = """
 
 
 def to_enum_label(name):
-    return name.title().replace('_', '')
+    return name.title().replace("_", "")
 
 
 def write_processes_enum(processes, output):
     def p(line):
         print(line, file=output)
+
     processes = collections.OrderedDict(processes)
 
     p("enum class ProcessID : uint32_t {")
-    for i, (name, _) in enumerate(processes.iteritems()):
+    for i, (name, _) in enumerate(sorted(processes.items())):
         p("  %s = %d," % (to_enum_label(name), i))
     p("  Count = %d" % len(processes))
     p("};")
@@ -48,7 +49,7 @@ def write_processes_enum(processes, output):
 
 def main(output, *filenames):
     if len(filenames) > 1:
-        raise Exception('We don\'t support loading from more than one file.')
+        raise Exception("We don't support loading from more than one file.")
 
     try:
         processes = load_yaml_file(filenames[0])
@@ -63,5 +64,5 @@ def main(output, *filenames):
         sys.exit(1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main(sys.stdout, *sys.argv[1:])

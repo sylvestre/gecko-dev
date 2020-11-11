@@ -8,8 +8,9 @@
 #include "mozilla/AnimationComparator.h"
 #include "mozilla/dom/Animation.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
+
+AnimationTimeline::~AnimationTimeline() { mAnimationOrder.clear(); }
 
 NS_IMPL_CYCLE_COLLECTION_CLASS(AnimationTimeline)
 
@@ -50,5 +51,4 @@ void AnimationTimeline::RemoveAnimation(Animation* aAnimation) {
   mAnimations.RemoveEntry(aAnimation);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

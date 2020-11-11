@@ -65,8 +65,12 @@ interface nsIHttpServer : nsISupports
    * @param file
    *   the file to serve for the given path, or null to remove any mapping that
    *   might exist; this file must exist for the lifetime of the server
+   * @param handler
+   *   an optional object which can be used to handle any further changes.
    */
-  void registerFile(in string path, in nsIFile file);
+  void registerFile(in string path,
+                    in nsIFile file,
+                    [optional] in nsIHttpRequestHandler handler);
 
   /**
    * Registers a custom path handler.
@@ -319,7 +323,7 @@ interface nsIHttpServerIdentity : nsISupports
    *   RFC 2396, or if port is not a valid port number
    */
   string getScheme(in string host, in long port);
-  
+
   /**
    * Designates the given name as the primary name in this and adds it to this
    * if it is not already present.

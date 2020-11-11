@@ -4,31 +4,31 @@
 
 "use strict";
 
-var EXPORTED_SYMBOLS = [
-  "DownloadsSubview",
-];
+var EXPORTED_SYMBOLS = ["DownloadsSubview"];
 
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
 
-ChromeUtils.defineModuleGetter(this, "AppConstants",
-                               "resource://gre/modules/AppConstants.jsm");
-ChromeUtils.defineModuleGetter(this, "Downloads",
-                               "resource://gre/modules/Downloads.jsm");
-ChromeUtils.defineModuleGetter(this, "DownloadsCommon",
-                               "resource:///modules/DownloadsCommon.jsm");
-ChromeUtils.defineModuleGetter(this, "DownloadsViewUI",
-                               "resource:///modules/DownloadsViewUI.jsm");
-ChromeUtils.defineModuleGetter(this, "FileUtils",
-                               "resource://gre/modules/FileUtils.jsm");
-ChromeUtils.defineModuleGetter(this, "PlacesUtils",
-                               "resource://gre/modules/PlacesUtils.jsm");
+XPCOMUtils.defineLazyModuleGetters(this, {
+  AppConstants: "resource://gre/modules/AppConstants.jsm",
+  BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.jsm",
+  Downloads: "resource://gre/modules/Downloads.jsm",
+  DownloadsCommon: "resource:///modules/DownloadsCommon.jsm",
+  DownloadsViewUI: "resource:///modules/DownloadsViewUI.jsm",
+  FileUtils: "resource://gre/modules/FileUtils.jsm",
+  PlacesUtils: "resource://gre/modules/PlacesUtils.jsm",
+});
 
 let gPanelViewInstances = new WeakMap();
 const kRefreshBatchSize = 10;
 const kMaxWaitForIdleMs = 200;
 XPCOMUtils.defineLazyGetter(this, "kButtonLabels", () => {
   return {
-    show: DownloadsCommon.strings[AppConstants.platform == "macosx" ? "showMacLabel" : "showLabel"],
+    show:
+      DownloadsCommon.strings[
+        AppConstants.platform == "macosx" ? "showMacLabel" : "showLabel"
+      ],
     open: DownloadsCommon.strings.openFileLabel,
     retry: DownloadsCommon.strings.retryLabel,
   };
@@ -48,35 +48,56 @@ class DownloadsSubview extends DownloadsViewUI.BaseView {
       this.container.lastChild.remove();
     }
     this.panelview.addEventListener("click", DownloadsSubview.onClick);
-    this.panelview.addEventListener("ViewHiding", DownloadsSubview.onViewHiding);
+    this.panelview.addEventListener(
+      "ViewHiding",
+      DownloadsSubview.onViewHiding
+    );
 
     this._viewItemsForDownloads = new WeakMap();
 
     let contextMenu = this.document.getElementById(this.context);
     if (!contextMenu) {
-      contextMenu = this.document.getElementById("downloadsContextMenu").cloneNode(true);
+      contextMenu = this.document
+        .getElementById("downloadsContextMenu")
+        .cloneNode(true);
       contextMenu.setAttribute("closemenu", "none");
       contextMenu.setAttribute("id", this.context);
       contextMenu.removeAttribute("onpopupshown");
-      contextMenu.setAttribute("onpopupshowing",
-        "DownloadsSubview.updateContextMenu(document.popupNode, this);");
-      contextMenu.setAttribute("onpopuphidden", "DownloadsSubview.onContextMenuHidden(this);");
-      let clearButton = contextMenu.querySelector("menuitem[command='downloadsCmd_clearDownloads']");
+      contextMenu.setAttribute(
+        "onpopupshowing",
+        "DownloadsSubview.updateContextMenu(document.popupNode, this);"
+      );
+      contextMenu.setAttribute(
+        "onpopuphidden",
+        "DownloadsSubview.onContextMenuHidden(this);"
+      );
+      let clearButton = contextMenu.querySelector(
+        "menuitem[command='downloadsCmd_clearDownloads']"
+      );
       clearButton.hidden = false;
       clearButton.previousElementSibling.hidden = true;
-      contextMenu.querySelector("menuitem[command='cmd_delete']")
+      contextMenu
+        .querySelector("menuitem[command='cmd_delete']")
         .setAttribute("command", "downloadsCmd_delete");
     }
     this.panelview.appendChild(contextMenu);
     this.container.setAttribute("context", this.context);
 
-    this._downloadsData = DownloadsCommon.getData(this.window, true, true, true);
+    this._downloadsData = DownloadsCommon.getData(
+      this.window,
+      true,
+      true,
+      true
+    );
     this._downloadsData.addView(this);
   }
 
   destructor(event) {
     this.panelview.removeEventListener("click", DownloadsSubview.onClick);
-    this.panelview.removeEventListener("ViewHiding", DownloadsSubview.onViewHiding);
+    this.panelview.removeEventListener(
+      "ViewHiding",
+      DownloadsSubview.onViewHiding
+    );
     this._downloadsData.removeView(this);
     gPanelViewInstances.delete(this);
     this.destroyed = true;
@@ -87,7 +108,6 @@ class DownloadsSubview extends DownloadsViewUI.BaseView {
    * usually when this instance is added as a view in the constructor.
    */
   onDownloadBatchStarting() {
-    this.batchFragment = this.document.createDocumentFragment();
     this.window.clearTimeout(this._batchTimeout);
   }
 
@@ -96,21 +116,17 @@ class DownloadsSubview extends DownloadsViewUI.BaseView {
    * downloads.
    */
   onDownloadBatchEnded() {
-    let {window} = this;
+    let { window } = this;
     window.clearTimeout(this._batchTimeout);
-    let waitForMs = 200;
-    if (this.batchFragment.childElementCount) {
-      // Prepend the batch fragment.
-      this.container.insertBefore(this.batchFragment, this.container.firstElementChild || null);
-      waitForMs = 0;
-    }
-    // Wait a wee bit to dispatch the event, because another batch may start
-    // right away.
-    this._batchTimeout = window.setTimeout(() => {
-      this._updateStatsFromDisk();
-      this.panelview.dispatchEvent(new window.CustomEvent("DownloadsLoaded"));
-    }, waitForMs);
-    this.batchFragment = null;
+    // If there are no downloads to display, wait a bit to dispatch the load
+    // completion event, because another batch may start right away.
+    this._batchTimeout = window.setTimeout(
+      () => {
+        this._updateStatsFromDisk();
+        this.panelview.dispatchEvent(new window.CustomEvent("DownloadsLoaded"));
+      },
+      this.container.childElementCount ? 0 : 200
+    );
   }
 
   /**
@@ -120,20 +136,23 @@ class DownloadsSubview extends DownloadsViewUI.BaseView {
    * @param {DOMNode}  [options.insertBefore]
    */
   onDownloadAdded(download, { insertBefore } = {}) {
-    let shell = new DownloadsSubview.Button(download, this.document);
+    let element = this.document.createXULElement("hbox");
+    let shell = new DownloadsSubview.Button(download, element);
     this._viewItemsForDownloads.set(download, shell);
-    // Triggger the code that update all attributes to match the downloads'
-    // current state.
-    shell.onChanged();
 
     // Since newest downloads are displayed at the top, either prepend the new
     // element or insert it after the one indicated by the insertBefore option.
     if (insertBefore) {
-      this._viewItemsForDownloads.get(insertBefore)
-          .element.insertAdjacentElement("afterend", shell.element);
+      this._viewItemsForDownloads
+        .get(insertBefore)
+        .element.insertAdjacentElement("afterend", element);
     } else {
-      (this.batchFragment || this.container).prepend(shell.element);
+      this.container.prepend(element);
     }
+
+    // After connecting to the document, trigger the code that updates all
+    // attributes to match the current state of the downloads.
+    shell.ensureActive();
   }
 
   /**
@@ -160,31 +179,40 @@ class DownloadsSubview extends DownloadsViewUI.BaseView {
    * We're doing this during idle time and in chunks.
    */
   async _updateStatsFromDisk() {
-    if (this._updatingStats)
+    if (this._updatingStats) {
       return;
+    }
 
     this._updatingStats = true;
 
     try {
       let idleOptions = { timeout: kMaxWaitForIdleMs };
       // Start with getting an idle moment to (maybe) refresh the list of downloads.
-      await new Promise(resolve => this.window.requestIdleCallback(resolve), idleOptions);
+      await new Promise(
+        resolve => this.window.requestIdleCallback(resolve),
+        idleOptions
+      );
       // In the meantime, this instance could have been destroyed, so take note.
-      if (this.destroyed)
+      if (this.destroyed) {
         return;
+      }
 
       let count = 0;
       for (let button of this.container.children) {
-        if (this.destroyed)
+        if (this.destroyed) {
           return;
-        if (!button._shell)
+        }
+        if (!button._shell) {
           continue;
+        }
 
         await button._shell.refresh();
 
         // Make sure to request a new idle moment every `kRefreshBatchSize` buttons.
         if (++count % kRefreshBatchSize === 0) {
-          await new Promise(resolve => this.window.requestIdleCallback(resolve, idleOptions));
+          await new Promise(resolve =>
+            this.window.requestIdleCallback(resolve, idleOptions)
+          );
         }
       }
     } catch (ex) {
@@ -212,11 +240,19 @@ class DownloadsSubview extends DownloadsViewUI.BaseView {
 
     // Since the DownloadsLists are propagated asynchronously, we need to wait a
     // little to get the view propagated.
-    panelview.addEventListener("ViewShowing", event => {
-      event.detail.addBlocker(new Promise(resolve => {
-        panelview.addEventListener("DownloadsLoaded", resolve, { once: true });
-      }));
-    }, { once: true });
+    panelview.addEventListener(
+      "ViewShowing",
+      event => {
+        event.detail.addBlocker(
+          new Promise(resolve => {
+            panelview.addEventListener("DownloadsLoaded", resolve, {
+              once: true,
+            });
+          })
+        );
+      },
+      { once: true }
+    );
 
     window.PanelUI.showSubView("PanelUI-downloads", anchor);
   }
@@ -239,12 +275,15 @@ class DownloadsSubview extends DownloadsViewUI.BaseView {
    */
   static onClearDownloads(button) {
     let instance = gPanelViewInstances.get(button.closest("panelview"));
-    if (!instance)
+    if (!instance) {
       return;
+    }
     instance._downloadsData.removeFinished();
-    PlacesUtils.history.removeVisitsByFilter({
-      transition: PlacesUtils.history.TRANSITIONS.DOWNLOAD,
-    }).catch(Cu.reportError);
+    PlacesUtils.history
+      .removeVisitsByFilter({
+        transition: PlacesUtils.history.TRANSITIONS.DOWNLOAD,
+      })
+      .catch(Cu.reportError);
   }
 
   /**
@@ -258,16 +297,56 @@ class DownloadsSubview extends DownloadsViewUI.BaseView {
     while (!button._shell) {
       button = button.parentNode;
     }
+    let download = button._shell.download;
+    let mimeInfo = DownloadsCommon.getMimeInfo(download);
+    let { preferredAction, useSystemDefault } = mimeInfo ? mimeInfo : {};
+
     menu.setAttribute("state", button.getAttribute("state"));
-    if (button.hasAttribute("exists"))
+    if (button.hasAttribute("exists")) {
       menu.setAttribute("exists", button.getAttribute("exists"));
-    else
+    } else {
       menu.removeAttribute("exists");
-    menu.classList.toggle("temporary-block", button.classList.contains("temporary-block"));
+    }
+    menu.classList.toggle(
+      "temporary-block",
+      button.classList.contains("temporary-block")
+    );
+    // menu items are conditionally displayed via CSS based on a viewable-internally attribute
+    DownloadsCommon.log(
+      "DownloadsSubview, updateContextMenu, download is viewable internally? ",
+      download.target.path,
+      button.hasAttribute("viewable-internally")
+    );
+    if (button.hasAttribute("viewable-internally")) {
+      menu.setAttribute("viewable-internally", "true");
+      let alwaysUseSystemViewerItem = menu.querySelector(
+        ".downloadAlwaysUseSystemDefaultMenuItem"
+      );
+      if (preferredAction === useSystemDefault) {
+        alwaysUseSystemViewerItem.setAttribute("checked", "true");
+      } else {
+        alwaysUseSystemViewerItem.removeAttribute("checked");
+      }
+      alwaysUseSystemViewerItem.toggleAttribute(
+        "enabled",
+        DownloadsCommon.alwaysOpenInSystemViewerItemEnabled
+      );
+      let useSystemViewerItem = menu.querySelector(
+        ".downloadUseSystemDefaultMenuItem"
+      );
+      useSystemViewerItem.toggleAttribute(
+        "enabled",
+        DownloadsCommon.openInSystemViewerItemEnabled
+      );
+    } else {
+      menu.removeAttribute("viewable-internally");
+    }
+
     for (let menuitem of menu.getElementsByTagName("menuitem")) {
       let command = menuitem.getAttribute("command");
-      if (!command)
+      if (!command) {
         continue;
+      }
       if (command == "downloadsCmd_clearDownloads") {
         menuitem.disabled = !DownloadsSubview.canClearDownloads(button);
       } else {
@@ -297,8 +376,9 @@ class DownloadsSubview extends DownloadsViewUI.BaseView {
    */
   static canClearDownloads(button) {
     let instance = gPanelViewInstances.get(button.closest("panelview"));
-    if (!instance)
+    if (!instance) {
       return false;
+    }
     return instance.canClearDownloads(instance.container);
   }
 
@@ -310,8 +390,9 @@ class DownloadsSubview extends DownloadsViewUI.BaseView {
    */
   static onViewHiding(event) {
     let instance = gPanelViewInstances.get(event.target);
-    if (!instance)
+    if (!instance) {
       return;
+    }
     instance.destructor(event);
   }
 
@@ -325,56 +406,78 @@ class DownloadsSubview extends DownloadsViewUI.BaseView {
    * @param {DOMMouseEvent} event
    */
   static onClick(event) {
-    // Middle clicks fall through and are regarded as left clicks.
-    if (event.button > 1)
+    // Handle left & middle clicks with any key modifiers
+    if (event.button > 1) {
       return;
+    }
 
-    let button = event.originalTarget;
-    if (!button.hasAttribute || button.classList.contains("subviewbutton-back"))
+    let button = event.target.closest(
+      ".subviewbutton,toolbarbutton,menuitem,panelview"
+    );
+    if (!button || button.localName == "panelview") {
       return;
+    }
+
+    let item = button.closest(".subviewbutton.download");
 
     let command = "downloadsCmd_open";
+    let openWhere;
     if (button.classList.contains("action-button")) {
-      button = button.parentNode;
-      command = button.hasAttribute("showLabel") ? "downloadsCmd_show" : "downloadsCmd_retry";
+      command = item.hasAttribute("canShow")
+        ? "downloadsCmd_show"
+        : "downloadsCmd_retry";
     } else if (button.localName == "menuitem") {
       command = button.getAttribute("command");
-      button = button.parentNode._anchorNode;
+      if (command == "downloadsCmd_clearDownloads") {
+        DownloadsSubview.onClearDownloads(button);
+        return;
+      }
+      item = button.parentNode._anchorNode;
     }
-    while (button && !button._shell && button != this.panelview &&
-           (!button.hasAttribute || !button.hasAttribute("oncommand"))) {
-      button = button.parentNode;
+    if (
+      command == "downloadsCmd_open" &&
+      (event.shiftKey || event.ctrlKey || event.metaKey || event.button == 1)
+    ) {
+      // We adjust the command for supported modifiers to suggest where the download may
+      // be opened.
+      let topWindow = BrowserWindowTracker.getTopWindow();
+      openWhere = topWindow.whereToOpenLink(event, false, true);
     }
-
-    // We don't need to do anything when no button was clicked, like a separator
-    // or a blank panel area. Also, when 'oncommand' is set, the button will invoke
-    // its own, custom command handler.
-    if (!button || button == this.panelview || button.hasAttribute("oncommand"))
-      return;
-
-    if (command == "downloadsCmd_clearDownloads") {
-      DownloadsSubview.onClearDownloads(button);
-    } else if (button._shell.isCommandEnabled(command)) {
-      button._shell[command]();
+    if (item && item._shell.isCommandEnabled(command)) {
+      item._shell[command](openWhere);
     }
   }
 }
 
+/**
+ * Associates each document with a pre-built DOM fragment representing the
+ * download list item. This is then cloned to create each individual list item.
+ * This is stored on the document to prevent leaks that would occur if a single
+ * instance created by one document's DOMParser was stored globally.
+ */
+var gDownloadsSubviewItemFragments = new WeakMap();
+
 DownloadsSubview.Button = class extends DownloadsViewUI.DownloadElementShell {
-  constructor(download, document) {
+  constructor(download, element) {
     super();
     this.download = download;
-
-    this.element = document.createElement("toolbarbutton");
+    this.element = element;
     this.element._shell = this;
 
-    this.element.classList.add("subviewbutton", "subviewbutton-iconic", "download",
-      "download-state");
+    this.element.classList.add(
+      "subviewbutton",
+      "subviewbutton-iconic",
+      "download",
+      "download-state",
+      "navigable"
+    );
 
     let hover = event => {
       if (event.originalTarget.classList.contains("action-button")) {
-        this.element.classList.toggle("downloadHoveringButton",
-                                      event.type == "mouseover");
+        this.element.classList.toggle(
+          "downloadHoveringButton",
+          event.type == "mouseover"
+        );
       }
     };
     this.element.addEventListener("mouseover", hover);
@@ -386,8 +489,9 @@ DownloadsSubview.Button = class extends DownloadsViewUI.DownloadElementShell {
   }
 
   async refresh() {
-    if (this._targetFileChecked)
+    if (this._targetFileChecked) {
       return;
+    }
 
     try {
       await this.download.refresh();
@@ -422,12 +526,52 @@ DownloadsSubview.Button = class extends DownloadsViewUI.DownloadElementShell {
   }
 
   // DownloadElementShell
-  connect() {}
+  connect() {
+    let document = this.element.ownerDocument;
+    let downloadsSubviewItemFragment = gDownloadsSubviewItemFragments.get(
+      document
+    );
+    if (!downloadsSubviewItemFragment) {
+      let MozXULElement = document.defaultView.MozXULElement;
+      downloadsSubviewItemFragment = MozXULElement.parseXULToFragment(`
+        <image class="toolbarbutton-icon" validate="always"/>
+        <vbox class="toolbarbutton-text" flex="1">
+          <label crop="end"/>
+          <label class="status-text status-full" crop="end"/>
+          <label class="status-text status-open" crop="end"/>
+          <label class="status-text status-retry" crop="end"/>
+          <label class="status-text status-show" crop="end"/>
+        </vbox>
+        <toolbarbutton class="action-button"/>
+      `);
+      gDownloadsSubviewItemFragments.set(
+        document,
+        downloadsSubviewItemFragment
+      );
+    }
+    this.element.appendChild(downloadsSubviewItemFragment.cloneNode(true));
+    for (let [propertyName, selector] of [
+      ["_downloadTypeIcon", ".toolbarbutton-icon"],
+      ["_downloadTarget", "label"],
+      ["_downloadStatus", ".status-full"],
+      ["_downloadButton", ".action-button"],
+    ]) {
+      this[propertyName] = this.element.querySelector(selector);
+    }
+
+    for (let [label, selector] of [
+      [kButtonLabels.open, ".status-open"],
+      [kButtonLabels.retry, ".status-retry"],
+      [kButtonLabels.show, ".status-show"],
+    ]) {
+      this.element.querySelector(selector).value = label;
+    }
+  }
 
   // DownloadElementShell
   showDisplayNameAndIcon(displayName, icon) {
-    this.element.setAttribute("label", displayName);
-    this.element.setAttribute("image", icon);
+    this._downloadTarget.value = displayName;
+    this._downloadTypeIcon.src = icon;
   }
 
   // DownloadElementShell
@@ -435,8 +579,8 @@ DownloadsSubview.Button = class extends DownloadsViewUI.DownloadElementShell {
 
   // DownloadElementShell
   showStatus(status) {
-    this.element.setAttribute("status", status);
-    this.element.setAttribute("tooltiptext", status);
+    this._downloadStatus.value = status;
+    this.element.tooltipText = status;
   }
 
   // DownloadElementShell
@@ -449,8 +593,9 @@ DownloadsSubview.Button = class extends DownloadsViewUI.DownloadElementShell {
   _updateState() {
     // This view only show completed and failed downloads.
     let state = DownloadsCommon.stateOfDownload(this.download);
-    let shouldDisplay = state == DownloadsCommon.DOWNLOAD_FINISHED ||
-                        state == DownloadsCommon.DOWNLOAD_FAILED;
+    let shouldDisplay =
+      state == DownloadsCommon.DOWNLOAD_FINISHED ||
+      state == DownloadsCommon.DOWNLOAD_FAILED;
     this.element.hidden = !shouldDisplay;
     if (!shouldDisplay) {
       return;
@@ -459,17 +604,14 @@ DownloadsSubview.Button = class extends DownloadsViewUI.DownloadElementShell {
     super._updateState();
 
     if (this.isCommandEnabled("downloadsCmd_show")) {
-      this.element.setAttribute("openLabel", kButtonLabels.open);
-      this.element.setAttribute("showLabel", kButtonLabels.show);
-      this.element.removeAttribute("retryLabel");
+      this.element.setAttribute("canShow", "true");
+      this.element.removeAttribute("canRetry");
     } else if (this.isCommandEnabled("downloadsCmd_retry")) {
-      this.element.setAttribute("retryLabel", kButtonLabels.retry);
-      this.element.removeAttribute("openLabel");
-      this.element.removeAttribute("showLabel");
+      this.element.setAttribute("canRetry", "true");
+      this.element.removeAttribute("canShow");
     } else {
-      this.element.removeAttribute("openLabel");
-      this.element.removeAttribute("retryLabel");
-      this.element.removeAttribute("showLabel");
+      this.element.removeAttribute("canRetry");
+      this.element.removeAttribute("canShow");
     }
   }
 

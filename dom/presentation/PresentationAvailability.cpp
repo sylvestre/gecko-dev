@@ -11,13 +11,12 @@
 #include "mozilla/Unused.h"
 #include "nsContentUtils.h"
 #include "nsCycleCollectionParticipant.h"
-#include "nsIPresentationDeviceManager.h"
 #include "nsIPresentationService.h"
 #include "nsServiceManagerUtils.h"
 #include "PresentationLog.h"
 
-using namespace mozilla;
-using namespace mozilla::dom;
+namespace mozilla {
+namespace dom {
 
 NS_IMPL_CYCLE_COLLECTION_CLASS(PresentationAvailability)
 
@@ -30,6 +29,7 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(PresentationAvailability,
                                                 DOMEventTargetHelper)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mPromises);
   tmp->Shutdown();
+  NS_IMPL_CYCLE_COLLECTION_UNLINK_WEAK_PTR
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 NS_IMPL_ADDREF_INHERITED(PresentationAvailability, DOMEventTargetHelper)
@@ -39,10 +39,10 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(PresentationAvailability)
   NS_INTERFACE_MAP_ENTRY(nsIPresentationAvailabilityListener)
 NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
 
-/* static */ already_AddRefed<PresentationAvailability>
-PresentationAvailability::Create(nsPIDOMWindowInner* aWindow,
-                                 const nsTArray<nsString>& aUrls,
-                                 RefPtr<Promise>& aPromise) {
+/* static */
+already_AddRefed<PresentationAvailability> PresentationAvailability::Create(
+    nsPIDOMWindowInner* aWindow, const nsTArray<nsString>& aUrls,
+    RefPtr<Promise>& aPromise) {
   RefPtr<PresentationAvailability> availability =
       new PresentationAvailability(aWindow, aUrls);
   return NS_WARN_IF(!availability->Init(aPromise)) ? nullptr
@@ -51,7 +51,7 @@ PresentationAvailability::Create(nsPIDOMWindowInner* aWindow,
 
 PresentationAvailability::PresentationAvailability(
     nsPIDOMWindowInner* aWindow, const nsTArray<nsString>& aUrls)
-    : DOMEventTargetHelper(aWindow), mIsAvailable(false), mUrls(aUrls) {
+    : DOMEventTargetHelper(aWindow), mIsAvailable(false), mUrls(aUrls.Clone()) {
   for (uint32_t i = 0; i < mUrls.Length(); ++i) {
     mAvailabilityOfUrl.AppendElement(false);
   }
@@ -101,12 +101,14 @@ void PresentationAvailability::Shutdown() {
       NS_FAILED(service->UnregisterAvailabilityListener(mUrls, this)));
 }
 
-/* virtual */ void PresentationAvailability::DisconnectFromOwner() {
+/* virtual */
+void PresentationAvailability::DisconnectFromOwner() {
   Shutdown();
   DOMEventTargetHelper::DisconnectFromOwner();
 }
 
-/* virtual */ JSObject* PresentationAvailability::WrapObject(
+/* virtual */
+JSObject* PresentationAvailability::WrapObject(
     JSContext* aCx, JS::Handle<JSObject*> aGivenProto) {
   return PresentationAvailability_Binding::Wrap(aCx, this, aGivenProto);
 }
@@ -191,7 +193,9 @@ void PresentationAvailability::UpdateAvailabilityAndDispatchEvent(
   }
 
   if (isChanged) {
-    Unused << NS_WARN_IF(
-        NS_FAILED(DispatchTrustedEvent(NS_LITERAL_STRING("change"))));
+    Unused << NS_WARN_IF(NS_FAILED(DispatchTrustedEvent(u"change"_ns)));
   }
 }
+
+}  // namespace dom
+}  // namespace mozilla

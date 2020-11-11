@@ -3,7 +3,7 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 use crate::animate::{AnimationFieldAttrs, AnimationInputAttrs, AnimationVariantAttrs};
-use crate::cg;
+use derive_common::cg;
 use proc_macro2::TokenStream;
 use quote::TokenStreamExt;
 use syn;
@@ -14,7 +14,7 @@ pub fn derive(mut input: syn::DeriveInput) -> TokenStream {
     let no_bound = animation_input_attrs.no_bound.unwrap_or_default();
     let mut where_clause = input.generics.where_clause.take();
     for param in input.generics.type_params() {
-        if !no_bound.contains(&param.ident) {
+        if !no_bound.iter().any(|name| name.is_ident(&param.ident)) {
             cg::add_predicate(
                 &mut where_clause,
                 parse_quote!(#param: crate::values::animated::ToAnimatedZero),
@@ -28,7 +28,7 @@ pub fn derive(mut input: syn::DeriveInput) -> TokenStream {
             return Some(quote! { Err(()) });
         }
         let (mapped, mapped_bindings) = cg::value(variant, "mapped");
-        let bindings_pairs = variant.bindings().into_iter().zip(mapped_bindings);
+        let bindings_pairs = variant.bindings().iter().zip(mapped_bindings);
         let mut computations = quote!();
         computations.append_all(bindings_pairs.map(|(binding, mapped_binding)| {
             let field_attrs = cg::parse_field_attrs::<AnimationFieldAttrs>(&binding.ast());

@@ -10,24 +10,31 @@
 #include <stdint.h>
 #include "gfxTelemetry.h"
 #include "mozilla/Assertions.h"
+#include "mozilla/Maybe.h"
 #include "nsString.h"
 
 namespace mozilla {
 namespace gfx {
 
-#define GFX_FEATURE_MAP(_)                                     \
-  /* Name,                        Type,         Description */ \
-  _(HW_COMPOSITING, Feature, "Compositing")                    \
-  _(D3D11_COMPOSITING, Feature, "Direct3D11 Compositing")      \
-  _(OPENGL_COMPOSITING, Feature, "OpenGL Compositing")         \
-  _(DIRECT2D, Feature, "Direct2D")                             \
-  _(D3D11_HW_ANGLE, Feature, "Direct3D11 hardware ANGLE")      \
-  _(DIRECT_DRAW, Feature, "DirectDraw")                        \
-  _(GPU_PROCESS, Feature, "GPU Process")                       \
-  _(WEBRENDER, Feature, "WebRender")                           \
-  _(WEBRENDER_QUALIFIED, Feature, "WebRender qualified")       \
-  _(OMTP, Feature, "Off Main Thread Painting")                 \
-  _(ADVANCED_LAYERS, Feature, "Advanced Layers")               \
+#define GFX_FEATURE_MAP(_)                                           \
+  /* Name,                        Type,         Description */       \
+  _(HW_COMPOSITING, Feature, "Compositing")                          \
+  _(D3D11_COMPOSITING, Feature, "Direct3D11 Compositing")            \
+  _(OPENGL_COMPOSITING, Feature, "OpenGL Compositing")               \
+  _(DIRECT2D, Feature, "Direct2D")                                   \
+  _(D3D11_HW_ANGLE, Feature, "Direct3D11 hardware ANGLE")            \
+  _(DIRECT_DRAW, Feature, "DirectDraw")                              \
+  _(GPU_PROCESS, Feature, "GPU Process")                             \
+  _(WEBRENDER, Feature, "WebRender")                                 \
+  _(WEBRENDER_QUALIFIED, Feature, "WebRender qualified")             \
+  _(WEBRENDER_COMPOSITOR, Feature, "WebRender native compositor")    \
+  _(WEBRENDER_PARTIAL, Feature, "WebRender partial present")         \
+  _(WEBRENDER_ANGLE, Feature, "WebRender ANGLE")                     \
+  _(WEBRENDER_DCOMP_PRESENT, Feature, "WebRender DirectComposition") \
+  _(WEBRENDER_SOFTWARE, Feature, "WebRender software fallback")      \
+  _(OMTP, Feature, "Off Main Thread Painting")                       \
+  _(ADVANCED_LAYERS, Feature, "Advanced Layers")                     \
+  _(WEBGPU, Feature, "WebGPU")                                       \
   /* Add new entries above this comment */
 
 enum class Feature : uint32_t {
@@ -39,8 +46,11 @@ enum class Feature : uint32_t {
 
 class FeatureState {
   friend class gfxConfig;
+  friend class GfxConfigManager;  // for testing
 
  public:
+  FeatureState() { Reset(); }
+
   bool IsEnabled() const;
   FeatureStatus GetValue() const;
 
@@ -51,6 +61,8 @@ class FeatureState {
                   const char* aDisableMessage);
   bool InitOrUpdate(bool aEnable, FeatureStatus aDisableStatus,
                     const char* aMessage);
+  void SetDefaultFromPref(const char* aPrefName, bool aIsEnablePref,
+                          bool aDefaultValue, Maybe<bool> aUserValue);
   void SetDefaultFromPref(const char* aPrefName, bool aIsEnablePref,
                           bool aDefaultValue);
   void UserEnable(const char* aMessage);
@@ -72,7 +84,7 @@ class FeatureState {
   // aType is "base", "user", "env", or "runtime".
   // aMessage may be null.
   typedef std::function<void(const char* aType, FeatureStatus aStatus,
-                             const char* aMessage)>
+                             const char* aMessage, const nsCString& aFailureId)>
       StatusIterCallback;
   void ForEachStatusChange(const StatusIterCallback& aCallback) const;
 
@@ -82,9 +94,12 @@ class FeatureState {
   bool DisabledByDefault() const;
 
  private:
-  void SetUser(FeatureStatus aStatus, const char* aMessage);
-  void SetEnvironment(FeatureStatus aStatus, const char* aMessage);
-  void SetRuntime(FeatureStatus aStatus, const char* aMessage);
+  void SetUser(FeatureStatus aStatus, const char* aMessage,
+               const nsACString& aFailureId);
+  void SetEnvironment(FeatureStatus aStatus, const char* aMessage,
+                      const nsACString& aFailureId);
+  void SetRuntime(FeatureStatus aStatus, const char* aMessage,
+                  const nsACString& aFailureId);
   bool IsForcedOnByUser() const;
   const char* GetRuntimeMessage() const;
   bool IsInitialized() const { return mDefault.IsInitialized(); }
@@ -95,13 +110,14 @@ class FeatureState {
   void Reset();
 
  private:
-  void SetFailureId(const nsACString& aFailureId);
-
   struct Instance {
     char mMessage[64];
     FeatureStatus mStatus;
+    nsCString mFailureId;
 
-    void Set(FeatureStatus aStatus, const char* aMessage = nullptr);
+    void Set(FeatureStatus aStatus);
+    void Set(FeatureStatus aStatus, const char* aMessage,
+             const nsACString& aFailureId);
     bool IsInitialized() const { return mStatus != FeatureStatus::Unused; }
     const char* MessageOrNull() const {
       return mMessage[0] != '\0' ? mMessage : nullptr;
@@ -110,6 +126,7 @@ class FeatureState {
       MOZ_ASSERT(MessageOrNull());
       return mMessage;
     }
+    const nsCString& FailureId() const { return mFailureId; }
   };
 
   // The default state is the state we decide on startup, based on the operating
@@ -118,17 +135,13 @@ class FeatureState {
   // The user state factors in any changes to preferences that the user made.
   //
   // The environment state factors in any additional decisions made, such as
-  // availability or blacklisting.
+  // availability or blocklisting.
   //
   // The runtime state factors in any problems discovered at runtime.
   Instance mDefault;
   Instance mUser;
   Instance mEnvironment;
   Instance mRuntime;
-
-  // Store the first reported failureId for now but we might want to track this
-  // by instance later if we need a specific breakdown.
-  nsCString mFailureId;
 };
 
 }  // namespace gfx

@@ -4,12 +4,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef mozilla_dom_SVGFEColorMatrixElement_h
-#define mozilla_dom_SVGFEColorMatrixElement_h
+#ifndef DOM_SVG_SVGFECOLORMATRIXELEMENT_H_
+#define DOM_SVG_SVGFECOLORMATRIXELEMENT_H_
 
-#include "nsSVGEnum.h"
-#include "nsSVGFilters.h"
 #include "SVGAnimatedNumberList.h"
+#include "SVGAnimatedEnumeration.h"
+#include "mozilla/dom/SVGFilters.h"
 
 nsresult NS_NewSVGFEColorMatrixElement(
     nsIContent** aResult, already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo);
@@ -17,7 +17,9 @@ nsresult NS_NewSVGFEColorMatrixElement(
 namespace mozilla {
 namespace dom {
 
-typedef nsSVGFE SVGFEColorMatrixElementBase;
+class DOMSVGAnimatedNumberList;
+
+using SVGFEColorMatrixElementBase = SVGFE;
 
 class SVGFEColorMatrixElement : public SVGFEColorMatrixElementBase {
   friend nsresult(::NS_NewSVGFEColorMatrixElement(
@@ -33,22 +35,21 @@ class SVGFEColorMatrixElement : public SVGFEColorMatrixElementBase {
 
  public:
   virtual FilterPrimitiveDescription GetPrimitiveDescription(
-      nsSVGFilterInstance* aInstance, const IntRect& aFilterSubregion,
+      SVGFilterInstance* aInstance, const IntRect& aFilterSubregion,
       const nsTArray<bool>& aInputsAreTainted,
       nsTArray<RefPtr<SourceSurface>>& aInputImages) override;
   virtual bool AttributeAffectsRendering(int32_t aNameSpaceID,
                                          nsAtom* aAttribute) const override;
-  virtual nsSVGString& GetResultImageName() override {
+  virtual SVGAnimatedString& GetResultImageName() override {
     return mStringAttributes[RESULT];
   }
-  virtual void GetSourceImageNames(
-      nsTArray<nsSVGStringInfo>& aSources) override;
+  virtual void GetSourceImageNames(nsTArray<SVGStringInfo>& aSources) override;
 
   virtual nsresult Clone(dom::NodeInfo*, nsINode** aResult) const override;
 
   // WebIDL
-  already_AddRefed<SVGAnimatedString> In1();
-  already_AddRefed<SVGAnimatedEnumeration> Type();
+  already_AddRefed<DOMSVGAnimatedString> In1();
+  already_AddRefed<DOMSVGAnimatedEnumeration> Type();
   already_AddRefed<DOMSVGAnimatedNumberList> Values();
 
  protected:
@@ -57,12 +58,12 @@ class SVGFEColorMatrixElement : public SVGFEColorMatrixElementBase {
   virtual NumberListAttributesInfo GetNumberListInfo() override;
 
   enum { TYPE };
-  nsSVGEnum mEnumAttributes[1];
-  static nsSVGEnumMapping sTypeMap[];
+  SVGAnimatedEnumeration mEnumAttributes[1];
+  static SVGEnumMapping sTypeMap[];
   static EnumInfo sEnumInfo[1];
 
   enum { RESULT, IN1 };
-  nsSVGString mStringAttributes[2];
+  SVGAnimatedString mStringAttributes[2];
   static StringInfo sStringInfo[2];
 
   enum { VALUES };
@@ -73,4 +74,4 @@ class SVGFEColorMatrixElement : public SVGFEColorMatrixElementBase {
 }  // namespace dom
 }  // namespace mozilla
 
-#endif  // mozilla_dom_SVGFEColorMatrixElement_h
+#endif  // DOM_SVG_SVGFECOLORMATRIXELEMENT_H_

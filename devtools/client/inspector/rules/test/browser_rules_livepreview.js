@@ -1,4 +1,3 @@
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -21,19 +20,19 @@ const TEST_URI = `
 //   expected : expected computed style on the targeted element
 // }
 const TEST_DATA = [
-  {value: "inline", expected: "inline"},
-  {value: "inline-block", expected: "inline-block"},
+  { value: "inline", expected: "inline" },
+  { value: "inline-block", expected: "inline-block" },
 
   // Invalid property values should not apply, and should fall back to default
-  {value: "red", expected: "block"},
-  {value: "something", expected: "block"},
+  { value: "red", expected: "block" },
+  { value: "something", expected: "block" },
 
-  {escape: true, value: "inline", expected: "block"},
+  { escape: true, value: "inline", expected: "block" },
 ];
 
 add_task(async function() {
   await addTab("data:text/html;charset=utf-8," + encodeURIComponent(TEST_URI));
-  const {inspector, view} = await openRuleView();
+  const { inspector, view } = await openRuleView();
   await selectNode("#testid", inspector);
 
   for (const data of TEST_DATA) {
@@ -47,8 +46,11 @@ async function testLivePreviewData(data, ruleView, selector) {
 
   info("Focusing the property value inplace-editor");
   const editor = await focusEditableField(ruleView, propEditor.valueSpan);
-  is(inplaceEditor(propEditor.valueSpan), editor,
-    "The focused editor is the value");
+  is(
+    inplaceEditor(propEditor.valueSpan),
+    editor,
+    "The focused editor is the value"
+  );
 
   info("Entering value in the editor: " + data.value);
   const onPreviewDone = ruleView.once("ruleview-changed");
@@ -66,7 +68,9 @@ async function testLivePreviewData(data, ruleView, selector) {
 
   // While the editor is still focused in, the display should have
   // changed already
-  is((await getComputedStyleProperty(selector, null, "display")),
+  is(
+    await getComputedStyleProperty(selector, null, "display"),
     data.expected,
-    "Element should be previewed as " + data.expected);
+    "Element should be previewed as " + data.expected
+  );
 }

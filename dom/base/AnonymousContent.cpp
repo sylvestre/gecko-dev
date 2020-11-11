@@ -5,17 +5,18 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "AnonymousContent.h"
+#include "mozilla/PresShell.h"
+#include "mozilla/dom/Document.h"
 #include "mozilla/dom/Element.h"
+#include "mozilla/dom/Event.h"
 #include "mozilla/dom/AnonymousContentBinding.h"
 #include "nsComputedDOMStyle.h"
 #include "nsCycleCollectionParticipant.h"
-#include "nsIDocument.h"
 #include "nsIFrame.h"
 #include "nsStyledElement.h"
 #include "HTMLCanvasElement.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 // Ref counting and cycle collection
 NS_IMPL_CYCLE_COLLECTION_ROOT_NATIVE(AnonymousContent, AddRef)
@@ -177,7 +178,7 @@ bool AnonymousContent::WrapObject(JSContext* aCx,
 }
 
 void AnonymousContent::GetComputedStylePropertyValue(
-    const nsAString& aElementId, const nsAString& aPropertyName,
+    const nsAString& aElementId, const nsACString& aPropertyName,
     DOMString& aResult, ErrorResult& aRv) {
   Element* element = GetElementById(aElementId);
   if (!element) {
@@ -185,17 +186,36 @@ void AnonymousContent::GetComputedStylePropertyValue(
     return;
   }
 
-  nsIPresShell* shell = element->OwnerDoc()->GetShell();
-  if (!shell) {
+  if (!element->OwnerDoc()->GetPresShell()) {
     aRv.Throw(NS_ERROR_NOT_AVAILABLE);
     return;
   }
 
-  RefPtr<nsComputedDOMStyle> cs =
-      new nsComputedDOMStyle(element, NS_LITERAL_STRING(""),
-                             element->OwnerDoc(), nsComputedDOMStyle::eAll);
+  RefPtr<nsComputedDOMStyle> cs = new nsComputedDOMStyle(
+      element, u""_ns, element->OwnerDoc(), nsComputedDOMStyle::eAll);
   aRv = cs->GetPropertyValue(aPropertyName, aResult);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+void AnonymousContent::GetTargetIdForEvent(Event& aEvent, DOMString& aResult) {
+  nsCOMPtr<Element> el = do_QueryInterface(aEvent.GetOriginalTarget());
+  if (el && el->IsInNativeAnonymousSubtree() && mContentNode->Contains(el)) {
+    aResult.SetKnownLiveAtom(el->GetID(), DOMString::eTreatNullAsNull);
+    return;
+  }
+
+  aResult.SetNull();
+}
+
+void AnonymousContent::SetStyle(const nsACString& aProperty,
+                                const nsACString& aValue, ErrorResult& aRv) {
+  if (!mContentNode->IsHTMLElement()) {
+    aRv.Throw(NS_ERROR_NOT_AVAILABLE);
+    return;
+  }
+
+  nsGenericHTMLElement* element = nsGenericHTMLElement::FromNode(mContentNode);
+  nsCOMPtr<nsICSSDeclaration> declaration = element->Style();
+  declaration->SetProperty(aProperty, aValue, u""_ns, IgnoreErrors());
+}
+
+}  // namespace mozilla::dom

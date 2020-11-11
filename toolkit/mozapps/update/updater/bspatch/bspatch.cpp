@@ -40,24 +40,26 @@
 #include <limits.h>
 
 #if defined(XP_WIN)
-#include <io.h>
+#  include <io.h>
 #else
-#include <unistd.h>
+#  include <unistd.h>
 #endif
 
 #ifdef XP_WIN
-#include <winsock2.h>
+#  include <winsock2.h>
 #else
-#include <arpa/inet.h>
+#  include <arpa/inet.h>
 #endif
 
 #ifndef SSIZE_MAX
-#define SSIZE_MAX LONG_MAX
+#  define SSIZE_MAX LONG_MAX
 #endif
 
-int MBS_ReadHeader(FILE *file, MBSPatchHeader *header) {
+int MBS_ReadHeader(FILE* file, MBSPatchHeader* header) {
   size_t s = fread(header, 1, sizeof(MBSPatchHeader), file);
-  if (s != sizeof(MBSPatchHeader)) return READ_ERROR;
+  if (s != sizeof(MBSPatchHeader)) {
+    return READ_ERROR;
+  }
 
   header->slen = ntohl(header->slen);
   header->scrc32 = ntohl(header->scrc32);
@@ -68,43 +70,61 @@ int MBS_ReadHeader(FILE *file, MBSPatchHeader *header) {
 
   struct stat hs;
   s = fstat(fileno(file), &hs);
-  if (s != 0) return READ_ERROR;
+  if (s != 0) {
+    return READ_ERROR;
+  }
 
-  if (memcmp(header->tag, "MBDIFF10", 8) != 0) return UNEXPECTED_BSPATCH_ERROR;
+  if (memcmp(header->tag, "MBDIFF10", 8) != 0) {
+    return UNEXPECTED_BSPATCH_ERROR;
+  }
 
-  if (hs.st_size > INT_MAX) return UNEXPECTED_BSPATCH_ERROR;
+  if (hs.st_size > INT_MAX) {
+    return UNEXPECTED_BSPATCH_ERROR;
+  }
 
   size_t size = static_cast<size_t>(hs.st_size);
-  if (size < sizeof(MBSPatchHeader)) return UNEXPECTED_BSPATCH_ERROR;
+  if (size < sizeof(MBSPatchHeader)) {
+    return UNEXPECTED_BSPATCH_ERROR;
+  }
   size -= sizeof(MBSPatchHeader);
 
-  if (size < header->cblen) return UNEXPECTED_BSPATCH_ERROR;
+  if (size < header->cblen) {
+    return UNEXPECTED_BSPATCH_ERROR;
+  }
   size -= header->cblen;
 
-  if (size < header->difflen) return UNEXPECTED_BSPATCH_ERROR;
+  if (size < header->difflen) {
+    return UNEXPECTED_BSPATCH_ERROR;
+  }
   size -= header->difflen;
 
-  if (size < header->extralen) return UNEXPECTED_BSPATCH_ERROR;
+  if (size < header->extralen) {
+    return UNEXPECTED_BSPATCH_ERROR;
+  }
   size -= header->extralen;
 
-  if (size != 0) return UNEXPECTED_BSPATCH_ERROR;
+  if (size != 0) {
+    return UNEXPECTED_BSPATCH_ERROR;
+  }
 
   return OK;
 }
 
-int MBS_ApplyPatch(const MBSPatchHeader *header, FILE *patchFile,
-                   unsigned char *fbuffer, FILE *file) {
-  unsigned char *fbufstart = fbuffer;
-  unsigned char *fbufend = fbuffer + header->slen;
+int MBS_ApplyPatch(const MBSPatchHeader* header, FILE* patchFile,
+                   unsigned char* fbuffer, FILE* file) {
+  unsigned char* fbufstart = fbuffer;
+  unsigned char* fbufend = fbuffer + header->slen;
 
-  unsigned char *buf = (unsigned char *)malloc(header->cblen + header->difflen +
-                                               header->extralen);
-  if (!buf) return BSPATCH_MEM_ERROR;
+  unsigned char* buf = (unsigned char*)malloc(header->cblen + header->difflen +
+                                              header->extralen);
+  if (!buf) {
+    return BSPATCH_MEM_ERROR;
+  }
 
   int rv = OK;
 
   size_t r = header->cblen + header->difflen + header->extralen;
-  unsigned char *wb = buf;
+  unsigned char* wb = buf;
   while (r) {
     const size_t count = (r > SSIZE_MAX) ? SSIZE_MAX : r;
     size_t c = fread(wb, 1, count, patchFile);
@@ -123,18 +143,18 @@ int MBS_ApplyPatch(const MBSPatchHeader *header, FILE *patchFile,
   }
 
   {
-    MBSPatchTriple *ctrlsrc = (MBSPatchTriple *)buf;
+    MBSPatchTriple* ctrlsrc = (MBSPatchTriple*)buf;
     if (header->cblen % sizeof(MBSPatchTriple) != 0) {
       rv = UNEXPECTED_BSPATCH_ERROR;
       goto end;
     }
 
-    unsigned char *diffsrc = buf + header->cblen;
-    unsigned char *extrasrc = diffsrc + header->difflen;
+    unsigned char* diffsrc = buf + header->cblen;
+    unsigned char* extrasrc = diffsrc + header->difflen;
 
-    MBSPatchTriple *ctrlend = (MBSPatchTriple *)diffsrc;
-    unsigned char *diffend = extrasrc;
-    unsigned char *extraend = extrasrc + header->extralen;
+    MBSPatchTriple* ctrlend = (MBSPatchTriple*)diffsrc;
+    unsigned char* diffend = extrasrc;
+    unsigned char* extraend = extrasrc + header->extralen;
 
     while (ctrlsrc < ctrlend) {
       ctrlsrc->x = ntohl(ctrlsrc->x);

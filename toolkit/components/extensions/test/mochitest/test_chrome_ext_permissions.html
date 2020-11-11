@@ -2,7 +2,6 @@
 <html>
 <head>
   <title>Test for permissions</title>
-  <script src="chrome://mochikit/content/tests/SimpleTest/AddTask.js"></script>
   <script src="chrome://mochikit/content/tests/SimpleTest/SimpleTest.js"></script>
   <script src="chrome://mochikit/content/tests/SimpleTest/EventUtils.js"></script>
   <script src="chrome://mochikit/content/tests/SimpleTest/ExtensionTestUtils.js"></script>
@@ -102,7 +101,9 @@ function makeTest(manifestPermissions, optionalPermissions, checkFetch = true) {
     }
 
     let url = await extension.awaitMessage("ready");
-    let win = window.open(url);
+    let win = window.open();
+    let browserFrame = win.browsingContext.embedderElement;
+    win.location.href = url;
     await extension.awaitMessage("page-ready");
 
     // Using the cookies API from an extension page should fail
@@ -122,7 +123,7 @@ function makeTest(manifestPermissions, optionalPermissions, checkFetch = true) {
       is(result, false, "fetch() failed from content script due to lack of host permission");
     }
 
-    synthesizeKey("a", {}, win);
+    synthesizeKey("a", {}, browserFrame.contentWindow);
     result = await extension.awaitMessage("request.result");
     is(result, true, "permissions.request() succeeded");
 
@@ -156,8 +157,7 @@ function makeTest(manifestPermissions, optionalPermissions, checkFetch = true) {
 add_task(function setup() {
   // Don't bother with prompts in this test.
   return SpecialPowers.pushPrefEnv({
-    set: [["extensions.webextensions.remote", false],
-          ["extensions.webextOptionalPermissionPrompts", false]],
+    set: [["extensions.webextOptionalPermissionPrompts", false]],
   });
 });
 

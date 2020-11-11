@@ -4,27 +4,39 @@
 
 //! Generic values for UI properties.
 
+use crate::values::specified::ui::CursorKind;
 use std::fmt::{self, Write};
-use style_traits::cursor::CursorKind;
 use style_traits::{CssWriter, ToCss};
 
 /// A generic value for the `cursor` property.
 ///
 /// https://drafts.csswg.org/css-ui/#cursor
-#[derive(Clone, Debug, MallocSizeOf, PartialEq, SpecifiedValueInfo, ToComputedValue)]
-pub struct Cursor<Image> {
+#[derive(
+    Clone,
+    Debug,
+    MallocSizeOf,
+    PartialEq,
+    SpecifiedValueInfo,
+    ToComputedValue,
+    ToResolvedValue,
+    ToShmem,
+)]
+#[repr(C)]
+pub struct GenericCursor<Image> {
     /// The parsed images for the cursor.
-    pub images: Box<[Image]>,
+    pub images: crate::OwnedSlice<Image>,
     /// The kind of the cursor [default | help | ...].
     pub keyword: CursorKind,
 }
+
+pub use self::GenericCursor as Cursor;
 
 impl<Image> Cursor<Image> {
     /// Set `cursor` to `auto`
     #[inline]
     pub fn auto() -> Self {
         Self {
-            images: vec![].into_boxed_slice(),
+            images: Default::default(),
             keyword: CursorKind::Auto,
         }
     }
@@ -44,13 +56,29 @@ impl<Image: ToCss> ToCss for Cursor<Image> {
 }
 
 /// A generic value for item of `image cursors`.
-#[derive(Clone, Debug, MallocSizeOf, PartialEq, SpecifiedValueInfo, ToComputedValue)]
-pub struct CursorImage<ImageUrl, Number> {
+#[derive(
+    Clone,
+    Debug,
+    MallocSizeOf,
+    PartialEq,
+    SpecifiedValueInfo,
+    ToComputedValue,
+    ToResolvedValue,
+    ToShmem,
+)]
+#[repr(C)]
+pub struct GenericCursorImage<ImageUrl, Number> {
     /// The url to parse images from.
     pub url: ImageUrl,
-    /// The <x> and <y> coordinates.
-    pub hotspot: Option<(Number, Number)>,
+    /// Whether the image has a hotspot or not.
+    pub has_hotspot: bool,
+    /// The x coordinate.
+    pub hotspot_x: Number,
+    /// The y coordinate.
+    pub hotspot_y: Number,
 }
+
+pub use self::GenericCursorImage as CursorImage;
 
 impl<ImageUrl: ToCss, Number: ToCss> ToCss for CursorImage<ImageUrl, Number> {
     fn to_css<W>(&self, dest: &mut CssWriter<W>) -> fmt::Result
@@ -58,11 +86,11 @@ impl<ImageUrl: ToCss, Number: ToCss> ToCss for CursorImage<ImageUrl, Number> {
         W: Write,
     {
         self.url.to_css(dest)?;
-        if let Some((ref x, ref y)) = self.hotspot {
+        if self.has_hotspot {
             dest.write_str(" ")?;
-            x.to_css(dest)?;
+            self.hotspot_x.to_css(dest)?;
             dest.write_str(" ")?;
-            y.to_css(dest)?;
+            self.hotspot_y.to_css(dest)?;
         }
         Ok(())
     }
@@ -84,8 +112,11 @@ impl<ImageUrl: ToCss, Number: ToCss> ToCss for CursorImage<ImageUrl, Number> {
     ToAnimatedZero,
     ToComputedValue,
     ToCss,
+    ToResolvedValue,
+    ToShmem,
 )]
-pub enum ScrollbarColor<Color> {
+#[repr(C, u8)]
+pub enum GenericScrollbarColor<Color> {
     /// `auto`
     Auto,
     /// `<color>{2}`
@@ -96,6 +127,8 @@ pub enum ScrollbarColor<Color> {
         track: Color,
     },
 }
+
+pub use self::GenericScrollbarColor as ScrollbarColor;
 
 impl<Color> Default for ScrollbarColor<Color> {
     #[inline]

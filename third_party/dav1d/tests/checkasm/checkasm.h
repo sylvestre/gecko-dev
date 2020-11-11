@@ -25,40 +25,55 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __DAV1D_TESTS_CHECKASM_CHECKASM_H
-#define __DAV1D_TESTS_CHECKASM_CHECKASM_H
+#ifndef DAV1D_TESTS_CHECKASM_CHECKASM_H
+#define DAV1D_TESTS_CHECKASM_CHECKASM_H
 
 #include "config.h"
 
 #include <stdint.h>
 #include <stdlib.h>
 
+#if ARCH_X86_64 && defined(_WIN32)
+/* setjmp/longjmp on 64-bit Windows will try to use SEH to unwind the stack,
+ * which doesn't work for assembly functions without unwind information. */
+#include <windows.h>
+#define checkasm_context CONTEXT
+#define checkasm_save_context() RtlCaptureContext(&checkasm_context_buf)
+#define checkasm_load_context() RtlRestoreContext(&checkasm_context_buf, NULL)
+#else
+#include <setjmp.h>
+#define checkasm_context jmp_buf
+#define checkasm_save_context() setjmp(checkasm_context_buf)
+#define checkasm_load_context() longjmp(checkasm_context_buf, 1)
+#endif
+
 #include "include/common/attributes.h"
+#include "include/common/bitdepth.h"
 #include "include/common/intops.h"
 
-void checkasm_check_cdef_8bpc(void);
-void checkasm_check_cdef_10bpc(void);
+int xor128_rand(void);
+#define rnd xor128_rand
 
-void checkasm_check_ipred_8bpc(void);
-void checkasm_check_ipred_10bpc(void);
+#define decl_check_bitfns(name) \
+name##_8bpc(void); \
+name##_16bpc(void)
 
-void checkasm_check_itx_8bpc(void);
-void checkasm_check_itx_10bpc(void);
-
-void checkasm_check_loopfilter_8bpc(void);
-void checkasm_check_loopfilter_10bpc(void);
-
-void checkasm_check_looprestoration_8bpc(void);
-void checkasm_check_looprestoration_10bpc(void);
-
-void checkasm_check_mc_8bpc(void);
-void checkasm_check_mc_10bpc(void);
+void checkasm_check_msac(void);
+decl_check_bitfns(void checkasm_check_cdef);
+decl_check_bitfns(void checkasm_check_filmgrain);
+decl_check_bitfns(void checkasm_check_ipred);
+decl_check_bitfns(void checkasm_check_itx);
+decl_check_bitfns(void checkasm_check_loopfilter);
+decl_check_bitfns(void checkasm_check_looprestoration);
+decl_check_bitfns(void checkasm_check_mc);
 
 void *checkasm_check_func(void *func, const char *name, ...);
 int checkasm_bench_func(void);
-void checkasm_fail_func(const char *msg, ...);
+int checkasm_fail_func(const char *msg, ...);
 void checkasm_update_bench(int iterations, uint64_t cycles);
 void checkasm_report(const char *name, ...);
+void checkasm_set_signal_handler_state(int enabled);
+extern checkasm_context checkasm_context_buf;
 
 /* float compare utilities */
 int float_near_ulp(float a, float b, unsigned max_ulp);
@@ -71,8 +86,6 @@ int float_near_abs_eps_array(const float *a, const float *b, float eps,
 int float_near_abs_eps_array_ulp(const float *a, const float *b, float eps,
                                  unsigned max_ulp, int len);
 
-static void *func_ref, *func_new;
-
 #define BENCH_RUNS (1 << 12) /* Trade-off between accuracy and speed */
 
 /* Decide whether or not the specified function needs to be tested */
@@ -83,7 +96,10 @@ static void *func_ref, *func_new;
  * the remaining arguments are the function parameters. Naming parameters
  * is optional. */
 #define declare_func(ret, ...)\
-    declare_new(ret, __VA_ARGS__) typedef ret func_type(__VA_ARGS__)
+    declare_new(ret, __VA_ARGS__)\
+    void *func_ref, *func_new;\
+    typedef ret func_type(__VA_ARGS__);\
+    checkasm_save_context()
 
 /* Indicate that the current test has failed */
 #define fail() checkasm_fail_func("%s:%d", __FILE__, __LINE__)
@@ -92,7 +108,10 @@ static void *func_ref, *func_new;
 #define report checkasm_report
 
 /* Call the reference function */
-#define call_ref(...) ((func_type *)func_ref)(__VA_ARGS__)
+#define call_ref(...)\
+    (checkasm_set_signal_handler_state(1),\
+     ((func_type *)func_ref)(__VA_ARGS__));\
+    checkasm_set_signal_handler_state(0)
 
 #if HAVE_ASM
 #if ARCH_X86
@@ -107,6 +126,9 @@ static inline uint64_t readtime(void) {
 }
 #define readtime readtime
 #endif
+#elif (ARCH_AARCH64 || ARCH_ARM) && defined(__APPLE__)
+#include <mach/mach_time.h>
+#define readtime() mach_absolute_time()
 #elif ARCH_AARCH64
 #ifdef _MSC_VER
 #include <windows.h>
@@ -126,7 +148,7 @@ static inline uint64_t readtime(void) {
 }
 #define readtime readtime
 #endif
-#elif ARCH_ARM && !defined(_MSC_VER)
+#elif ARCH_ARM && !defined(_MSC_VER) && __ARM_ARCH >= 7
 static inline uint64_t readtime(void) {
     uint32_t cycle_counter;
     /* This requires enabling user mode access to the cycle counter (which
@@ -135,6 +157,24 @@ static inline uint64_t readtime(void) {
                          : "=r"(cycle_counter)
                          :: "memory");
     return cycle_counter;
+}
+#define readtime readtime
+#elif ARCH_PPC64LE
+static inline uint64_t readtime(void) {
+    uint32_t tbu, tbl, temp;
+
+    __asm__ __volatile__(
+        "1:\n"
+        "mfspr %2,269\n"
+        "mfspr %0,268\n"
+        "mfspr %1,269\n"
+        "cmpw   %2,%1\n"
+        "bne    1b\n"
+    : "=r"(tbl), "=r"(tbu), "=r"(temp)
+    :
+    : "cc");
+
+    return (((uint64_t)tbu) << 32) | (uint64_t)tbl;
 }
 #define readtime readtime
 #endif
@@ -155,49 +195,87 @@ void checkasm_checked_call(void *func, ...);
  * not guaranteed and false negatives is theoretically possible, but there
  * can never be any false positives. */
 void checkasm_stack_clobber(uint64_t clobber, ...);
+/* YMM and ZMM registers on x86 are turned off to save power when they haven't
+ * been used for some period of time. When they are used there will be a
+ * "warmup" period during which performance will be reduced and inconsistent
+ * which is problematic when trying to benchmark individual functions. We can
+ * work around this by periodically issuing "dummy" instructions that uses
+ * those registers to keep them powered on. */
+void checkasm_simd_warmup(void);
 #define declare_new(ret, ...)\
-    ret (*checked_call)(void *, int, int, int, int, int, __VA_ARGS__) =\
+    ret (*checked_call)(void *, int, int, int, int, int, __VA_ARGS__,\
+                        int, int, int, int, int, int, int, int,\
+                        int, int, int, int, int, int, int) =\
     (void *)checkasm_checked_call;
 #define CLOB (UINT64_C(0xdeadbeefdeadbeef))
+#ifdef _WIN32
+#define STACKARGS 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 0, 0
+#else
+#define STACKARGS 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 0, 0, 0, 0
+#endif
 #define call_new(...)\
-    (checkasm_stack_clobber(CLOB, CLOB, CLOB, CLOB, CLOB, CLOB, CLOB,\
+    (checkasm_set_signal_handler_state(1),\
+     checkasm_simd_warmup(),\
+     checkasm_stack_clobber(CLOB, CLOB, CLOB, CLOB, CLOB, CLOB, CLOB,\
                             CLOB, CLOB, CLOB, CLOB, CLOB, CLOB, CLOB,\
                             CLOB, CLOB, CLOB, CLOB, CLOB, CLOB, CLOB),\
-     checked_call(func_new, 0, 0, 0, 0, 0, __VA_ARGS__))
+     checked_call(func_new, 0, 0, 0, 0, 0, __VA_ARGS__, STACKARGS));\
+    checkasm_set_signal_handler_state(0)
 #elif ARCH_X86_32
 #define declare_new(ret, ...)\
-    ret (*checked_call)(void *, __VA_ARGS__) = (void *)checkasm_checked_call;
-#define call_new(...) checked_call(func_new, __VA_ARGS__)
+    ret (*checked_call)(void *, __VA_ARGS__, int, int, int, int, int, int,\
+                        int, int, int, int, int, int, int, int, int) =\
+        (void *)checkasm_checked_call;
+#define call_new(...)\
+    (checkasm_set_signal_handler_state(1),\
+     checked_call(func_new, __VA_ARGS__, 15, 14, 13, 12,\
+                  11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1));\
+    checkasm_set_signal_handler_state(0)
 #elif ARCH_ARM
 /* Use a dummy argument, to offset the real parameters by 2, not only 1.
  * This makes sure that potential 8-byte-alignment of parameters is kept
  * the same even when the extra parameters have been removed. */
 void checkasm_checked_call_vfp(void *func, int dummy, ...);
 #define declare_new(ret, ...)\
-    ret (*checked_call)(void *, int dummy, __VA_ARGS__) =\
+    ret (*checked_call)(void *, int dummy, __VA_ARGS__,\
+                        int, int, int, int, int, int, int, int,\
+                        int, int, int, int, int, int, int) =\
     (void *)checkasm_checked_call_vfp;
-#define call_new(...) checked_call(func_new, 0, __VA_ARGS__)
+#define call_new(...)\
+    (checkasm_set_signal_handler_state(1),\
+     checked_call(func_new, 0, __VA_ARGS__, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0, 0, 0));\
+    checkasm_set_signal_handler_state(0)
 #elif ARCH_AARCH64 && !defined(__APPLE__)
 void checkasm_stack_clobber(uint64_t clobber, ...);
 #define declare_new(ret, ...)\
     ret (*checked_call)(void *, int, int, int, int, int, int, int,\
-                        __VA_ARGS__) =\
+                        __VA_ARGS__, int, int, int, int, int, int, int, int,\
+                        int, int, int, int, int, int, int) =\
     (void *)checkasm_checked_call;
 #define CLOB (UINT64_C(0xdeadbeefdeadbeef))
 #define call_new(...)\
-    (checkasm_stack_clobber(CLOB, CLOB, CLOB, CLOB, CLOB, CLOB,\
+    (checkasm_set_signal_handler_state(1),\
+     checkasm_stack_clobber(CLOB, CLOB, CLOB, CLOB, CLOB, CLOB,\
                             CLOB, CLOB, CLOB, CLOB, CLOB, CLOB,\
                             CLOB, CLOB, CLOB, CLOB, CLOB, CLOB,\
                             CLOB, CLOB, CLOB, CLOB, CLOB),\
-     checked_call(func_new, 0, 0, 0, 0, 0, 0, 0, __VA_ARGS__))
+     checked_call(func_new, 0, 0, 0, 0, 0, 0, 0, __VA_ARGS__,\
+                  7, 6, 5, 4, 3, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0));\
+    checkasm_set_signal_handler_state(0)
 #else
 #define declare_new(ret, ...)
-#define call_new(...) ((func_type *)func_new)(__VA_ARGS__)
+#define call_new(...)\
+    (checkasm_set_signal_handler_state(1),\
+     ((func_type *)func_new)(__VA_ARGS__));\
+    checkasm_set_signal_handler_state(0)
 #endif
 #else /* HAVE_ASM */
 #define declare_new(ret, ...)
 /* Call the function */
-#define call_new(...) ((func_type *)func_new)(__VA_ARGS__)
+#define call_new(...)\
+    (checkasm_set_signal_handler_state(1),\
+     ((func_type *)func_new)(__VA_ARGS__));\
+    checkasm_set_signal_handler_state(0)
 #endif /* HAVE_ASM */
 
 /* Benchmark the function */
@@ -205,10 +283,11 @@ void checkasm_stack_clobber(uint64_t clobber, ...);
 #define bench_new(...)\
     do {\
         if (checkasm_bench_func()) {\
+            checkasm_set_signal_handler_state(1);\
             func_type *tfunc = func_new;\
             uint64_t tsum = 0;\
-            int ti, tcount = 0;\
-            for (ti = 0; ti < BENCH_RUNS; ti++) {\
+            int tcount = 0;\
+            for (int ti = 0; ti < BENCH_RUNS; ti++) {\
                 uint64_t t = readtime();\
                 tfunc(__VA_ARGS__);\
                 tfunc(__VA_ARGS__);\
@@ -220,11 +299,34 @@ void checkasm_stack_clobber(uint64_t clobber, ...);
                     tcount++;\
                 }\
             }\
+            checkasm_set_signal_handler_state(0);\
             checkasm_update_bench(tcount, tsum);\
         }\
     } while (0)
 #else
-#define bench_new(...) while (0)
+#define bench_new(...) do {} while (0)
 #endif
 
-#endif /* __DAV1D_TESTS_CHECKASM_CHECKASM_H */
+#define DECL_CHECKASM_CHECK_FUNC(type) \
+int checkasm_check_##type(const char *const file, const int line, \
+                          const type *const buf1, const ptrdiff_t stride1, \
+                          const type *const buf2, const ptrdiff_t stride2, \
+                          const int w, const int h, const char *const name)
+
+DECL_CHECKASM_CHECK_FUNC(uint8_t);
+DECL_CHECKASM_CHECK_FUNC(uint16_t);
+DECL_CHECKASM_CHECK_FUNC(int16_t);
+DECL_CHECKASM_CHECK_FUNC(int32_t);
+
+
+#define PASTE(a,b) a ## b
+#define CONCAT(a,b) PASTE(a,b)
+
+#define checkasm_check(prefix, ...) CONCAT(checkasm_check_, prefix)(__FILE__, __LINE__, __VA_ARGS__)
+
+#ifdef BITDEPTH
+#define checkasm_check_pixel(...) checkasm_check(PIXEL_TYPE, __VA_ARGS__)
+#define checkasm_check_coef(...)  checkasm_check(COEF_TYPE,  __VA_ARGS__)
+#endif
+
+#endif /* DAV1D_TESTS_CHECKASM_CHECKASM_H */

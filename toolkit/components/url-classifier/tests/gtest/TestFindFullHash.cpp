@@ -1,62 +1,50 @@
-#include "safebrowsing.pb.h"
-#include "gtest/gtest.h"
-#include "nsUrlClassifierUtils.h"
+/* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 #include "mozilla/Base64.h"
+#include "nsUrlClassifierUtils.h"
+#include "safebrowsing.pb.h"
 
-using namespace mozilla;
-using namespace mozilla::safebrowsing;
+#include "Common.h"
 
-namespace {
-
-// |Base64EncodedStringArray| and |MakeBase64EncodedStringArray|
-// works together to make us able to do things "literally" and easily.
-
-// Given a nsCString array, construct an object which can be implicitly
-// casted to |const char**|, where all owning c-style strings have been
-// base64 encoded. The memory life cycle of what the "cast operator"
-// returns is just as the object itself.
-class Base64EncodedStringArray {
- public:
-  Base64EncodedStringArray(nsCString aArray[], size_t N);
-  operator const char**() const { return (const char**)&mArray[0]; }
-
- private:
-  // Since we can't guarantee the layout of nsCString (can we?),
-  // an additional nsTArray<nsCString> is required to manage the
-  // allocated string.
-  nsTArray<const char*> mArray;
-  nsTArray<nsCString> mStringStorage;
-};
-
-// Simply used to infer the fixed-array size automatically.
 template <size_t N>
-Base64EncodedStringArray MakeBase64EncodedStringArray(nsCString (&aArray)[N]) {
-  return Base64EncodedStringArray(aArray, N);
+static void ToBase64EncodedStringArray(nsCString (&aInput)[N],
+                                       nsTArray<nsCString>& aEncodedArray) {
+  for (size_t i = 0; i < N; i++) {
+    nsCString encoded;
+    nsresult rv = mozilla::Base64Encode(aInput[i], encoded);
+    NS_ENSURE_SUCCESS_VOID(rv);
+    aEncodedArray.AppendElement(std::move(encoded));
+  }
 }
 
-}  // end of unnamed namespace.
+TEST(UrlClassifierFindFullHash, Request)
+{
+  nsUrlClassifierUtils* urlUtil = nsUrlClassifierUtils::GetInstance();
 
-TEST(UrlClassifierFindFullHash, Request) {
-  nsCOMPtr<nsIUrlClassifierUtils> urlUtil =
-      do_GetService("@mozilla.org/url-classifier/utils;1");
-
-  const char* listNames[] = {"test-phish-proto", "test-unwanted-proto"};
+  nsTArray<nsCString> listNames;
+  listNames.AppendElement("moztest-phish-proto");
+  listNames.AppendElement("moztest-unwanted-proto");
 
   nsCString listStates[] = {nsCString("sta\x00te1", 7),
                             nsCString("sta\x00te2", 7)};
+  nsTArray<nsCString> listStateArray;
+  ToBase64EncodedStringArray(listStates, listStateArray);
 
   nsCString prefixes[] = {nsCString("\x00\x00\x00\x01", 4),
                           nsCString("\x00\x00\x00\x00\x01", 5),
                           nsCString("\x00\xFF\x00\x01", 4),
                           nsCString("\x00\xFF\x00\x01\x11\x23\xAA\xBC", 8),
                           nsCString("\x00\x00\x00\x01\x00\x01\x98", 7)};
+  nsTArray<nsCString> prefixArray;
+  ToBase64EncodedStringArray(prefixes, prefixArray);
 
   nsCString requestBase64;
   nsresult rv;
-  rv = urlUtil->MakeFindFullHashRequestV4(
-      listNames, MakeBase64EncodedStringArray(listStates),
-      MakeBase64EncodedStringArray(prefixes), ArrayLength(listNames),
-      ArrayLength(prefixes), requestBase64);
+  rv = urlUtil->MakeFindFullHashRequestV4(listNames, listStateArray,
+                                          prefixArray, requestBase64);
   ASSERT_TRUE(NS_SUCCEEDED(rv));
 
   // Base64 URL decode first.
@@ -82,10 +70,10 @@ TEST(UrlClassifierFindFullHash, Request) {
   ASSERT_EQ(threatInfo.threat_types_size(), (int)ArrayLength(listStates));
   for (int i = 0; i < threatInfo.threat_types_size(); i++) {
     uint32_t expectedThreatType;
-    rv = urlUtil->ConvertListNameToThreatType(nsCString(listNames[i]),
-                                              &expectedThreatType);
+    rv =
+        urlUtil->ConvertListNameToThreatType(listNames[i], &expectedThreatType);
     ASSERT_TRUE(NS_SUCCEEDED(rv));
-    ASSERT_EQ(threatInfo.threat_types(i), expectedThreatType);
+    ASSERT_EQ(threatInfo.threat_types(i), (int)expectedThreatType);
   }
 
   // Compare prefixes.
@@ -163,8 +151,8 @@ class MyParseCallback final : public nsIUrlClassifierParseFindFullHashCallback {
     ASSERT_TRUE(aCompleteHash.Equals(expected.mCompleteHash));
 
     // Verify aTableNames
-    nsCOMPtr<nsIUrlClassifierUtils> urlUtil =
-        do_GetService("@mozilla.org/url-classifier/utils;1");
+    nsUrlClassifierUtils* urlUtil = nsUrlClassifierUtils::GetInstance();
+
     nsCString tableNames;
     nsresult rv =
         urlUtil->ConvertThreatTypeToListNames(expected.mThreatType, tableNames);
@@ -180,7 +168,7 @@ class MyParseCallback final : public nsIUrlClassifierParseFindFullHashCallback {
     ASSERT_TRUE(aToVerify == aExpected.mSecs);
   }
 
-  ~MyParseCallback() {}
+  ~MyParseCallback() = default;
 
   uint32_t& mCallbackCount;
 };
@@ -189,7 +177,8 @@ NS_IMPL_ISUPPORTS(MyParseCallback, nsIUrlClassifierParseFindFullHashCallback)
 
 }  // end of unnamed namespace.
 
-TEST(UrlClassifierFindFullHash, ParseRequest) {
+TEST(UrlClassifierFindFullHash, ParseRequest)
+{
   // Build response.
   FindFullHashesResponse r;
 
@@ -216,27 +205,10 @@ TEST(UrlClassifierFindFullHash, ParseRequest) {
   nsCOMPtr<nsIUrlClassifierParseFindFullHashCallback> callback =
       new MyParseCallback(callbackCount);
 
-  nsCOMPtr<nsIUrlClassifierUtils> urlUtil =
-      do_GetService("@mozilla.org/url-classifier/utils;1");
+  nsUrlClassifierUtils* urlUtil = nsUrlClassifierUtils::GetInstance();
   nsresult rv = urlUtil->ParseFindFullHashResponseV4(
       nsCString(s.c_str(), s.size()), callback);
   NS_ENSURE_SUCCESS_VOID(rv);
 
   ASSERT_EQ(callbackCount, ArrayLength(EXPECTED_MATCH));
 }
-
-/////////////////////////////////////////////////////////////
-namespace {
-
-Base64EncodedStringArray::Base64EncodedStringArray(nsCString aArray[],
-                                                   size_t N) {
-  for (size_t i = 0; i < N; i++) {
-    nsCString encoded;
-    nsresult rv = Base64Encode(aArray[i], encoded);
-    NS_ENSURE_SUCCESS_VOID(rv);
-    mStringStorage.AppendElement(encoded);
-    mArray.AppendElement(encoded.get());
-  }
-}
-
-}  // namespace

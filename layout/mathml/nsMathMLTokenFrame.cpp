@@ -5,6 +5,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "nsMathMLTokenFrame.h"
+
+#include "mozilla/PresShell.h"
 #include "nsPresContext.h"
 #include "nsContentUtils.h"
 #include "nsTextFrame.h"
@@ -12,14 +14,14 @@
 
 using namespace mozilla;
 
-nsIFrame* NS_NewMathMLTokenFrame(nsIPresShell* aPresShell,
-                                 ComputedStyle* aStyle) {
-  return new (aPresShell) nsMathMLTokenFrame(aStyle);
+nsIFrame* NS_NewMathMLTokenFrame(PresShell* aPresShell, ComputedStyle* aStyle) {
+  return new (aPresShell)
+      nsMathMLTokenFrame(aStyle, aPresShell->GetPresContext());
 }
 
 NS_IMPL_FRAMEARENA_HELPERS(nsMathMLTokenFrame)
 
-nsMathMLTokenFrame::~nsMathMLTokenFrame() {}
+nsMathMLTokenFrame::~nsMathMLTokenFrame() = default;
 
 NS_IMETHODIMP
 nsMathMLTokenFrame::InheritAutomaticData(nsIFrame* aParent) {
@@ -97,9 +99,11 @@ void nsMathMLTokenFrame::AppendFrames(ChildListID aListID,
   MarkTextFramesAsTokenMathML();
 }
 
-void nsMathMLTokenFrame::InsertFrames(ChildListID aListID, nsIFrame* aPrevFrame,
-                                      nsFrameList& aChildList) {
-  nsMathMLContainerFrame::InsertFrames(aListID, aPrevFrame, aChildList);
+void nsMathMLTokenFrame::InsertFrames(
+    ChildListID aListID, nsIFrame* aPrevFrame,
+    const nsLineList::iterator* aPrevFrameLine, nsFrameList& aChildList) {
+  nsMathMLContainerFrame::InsertFrames(aListID, aPrevFrame, aPrevFrameLine,
+                                       aChildList);
   MarkTextFramesAsTokenMathML();
 }
 
@@ -142,9 +146,9 @@ void nsMathMLTokenFrame::Reflow(nsPresContext* aPresContext,
 // For token elements, mBoundingMetrics is computed at the ReflowToken
 // pass, it is not computed here because our children may be text frames
 // that do not implement the GetBoundingMetrics() interface.
-/* virtual */ nsresult nsMathMLTokenFrame::Place(DrawTarget* aDrawTarget,
-                                                 bool aPlaceOrigin,
-                                                 ReflowOutput& aDesiredSize) {
+/* virtual */
+nsresult nsMathMLTokenFrame::Place(DrawTarget* aDrawTarget, bool aPlaceOrigin,
+                                   ReflowOutput& aDesiredSize) {
   mBoundingMetrics = nsBoundingMetrics();
   for (nsIFrame* childFrame : PrincipalChildList()) {
     ReflowOutput childSize(aDesiredSize.GetWritingMode());
@@ -177,7 +181,7 @@ void nsMathMLTokenFrame::Reflow(nsPresContext* aPresContext,
                ? 0
                : aDesiredSize.BlockStartAscent() - childSize.BlockStartAscent();
       FinishReflowChild(childFrame, PresContext(), childSize, nullptr, dx, dy,
-                        0);
+                        ReflowChildFlags::Default);
       dx += childSize.Width();
     }
   }

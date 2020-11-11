@@ -65,7 +65,8 @@
 
 #include "mozilla/Assertions.h"
 #include "mozilla/Attributes.h"
-#include "mozilla/TypeTraits.h"
+
+#include <type_traits>
 
 #include "jstypes.h"
 
@@ -73,7 +74,7 @@
 #include "js/Value.h"
 
 /* Typedef for native functions called by the JS VM. */
-typedef bool (*JSNative)(JSContext* cx, unsigned argc, JS::Value* vp);
+using JSNative = bool (*)(JSContext* cx, unsigned argc, JS::Value* vp);
 
 namespace JS {
 
@@ -112,8 +113,8 @@ class MOZ_STACK_CLASS NoUsedRval {
 
 template <class WantUsedRval>
 class MOZ_STACK_CLASS CallArgsBase {
-  static_assert(mozilla::IsSame<WantUsedRval, IncludeUsedRval>::value ||
-                    mozilla::IsSame<WantUsedRval, NoUsedRval>::value,
+  static_assert(std::is_same_v<WantUsedRval, IncludeUsedRval> ||
+                    std::is_same_v<WantUsedRval, NoUsedRval>,
                 "WantUsedRval can only be IncludeUsedRval or NoUsedRval");
 
  protected:

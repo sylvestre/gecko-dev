@@ -8,8 +8,10 @@
 #include "mozilla/ipc/IOThreadChild.h"
 
 #if defined(OS_WIN) && defined(MOZ_SANDBOX)
-#include "mozilla/sandboxTarget.h"
+#  include "mozilla/sandboxTarget.h"
 #endif
+
+#include "ProcessUtils.h"
 
 namespace mozilla {
 
@@ -18,24 +20,61 @@ using namespace ipc;
 RDDProcessImpl::RDDProcessImpl(ProcessId aParentPid)
     : ProcessChild(aParentPid) {}
 
-RDDProcessImpl::~RDDProcessImpl() {}
+RDDProcessImpl::~RDDProcessImpl() = default;
 
 bool RDDProcessImpl::Init(int aArgc, char* aArgv[]) {
 #if defined(MOZ_SANDBOX) && defined(OS_WIN)
+  // Preload AV dlls so we can enable Binary Signature Policy
+  // to restrict further dll loads.
+  LoadLibraryW(L"mozavcodec.dll");
+  LoadLibraryW(L"mozavutil.dll");
   mozilla::SandboxTarget::Instance()->StartSandbox();
 #endif
   char* parentBuildID = nullptr;
+  char* prefsHandle = nullptr;
+  char* prefMapHandle = nullptr;
+  char* prefsLen = nullptr;
+  char* prefMapSize = nullptr;
   for (int i = 1; i < aArgc; i++) {
     if (!aArgv[i]) {
       continue;
     }
     if (strcmp(aArgv[i], "-parentBuildID") == 0) {
       parentBuildID = aArgv[i + 1];
+
+#ifdef XP_WIN
+    } else if (strcmp(aArgv[i], "-prefsHandle") == 0) {
+      if (++i == aArgc) {
+        return false;
+      }
+      prefsHandle = aArgv[i];
+    } else if (strcmp(aArgv[i], "-prefMapHandle") == 0) {
+      if (++i == aArgc) {
+        return false;
+      }
+      prefMapHandle = aArgv[i];
+#endif
+    } else if (strcmp(aArgv[i], "-prefsLen") == 0) {
+      if (++i == aArgc) {
+        return false;
+      }
+      prefsLen = aArgv[i];
+    } else if (strcmp(aArgv[i], "-prefMapSize") == 0) {
+      if (++i == aArgc) {
+        return false;
+      }
+      prefMapSize = aArgv[i];
     }
   }
 
+  SharedPreferenceDeserializer deserializer;
+  if (!deserializer.DeserializeFromSharedMemory(prefsHandle, prefMapHandle,
+                                                prefsLen, prefMapSize)) {
+    return false;
+  }
+
   return mRDD.Init(ParentPid(), parentBuildID, IOThreadChild::message_loop(),
-                   IOThreadChild::channel());
+                   IOThreadChild::TakeChannel());
 }
 
 void RDDProcessImpl::CleanUp() { NS_ShutdownXPCOM(nullptr); }

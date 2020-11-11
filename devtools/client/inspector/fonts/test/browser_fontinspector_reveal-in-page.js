@@ -1,4 +1,3 @@
-/* vim: set ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
    http://creativecommons.org/publicdomain/zero/1.0/ */
 "use strict";
@@ -29,17 +28,34 @@ add_task(async function() {
 
     // Simulating a mouse over event on the font name and expecting a selectionchange.
     const nameEl = fontEls[i];
-    let onEvents = waitForNSelectionEvents(tab, expectedSelectionChangeEvents[i]);
-    EventUtils.synthesizeMouse(nameEl, 2, 2, {type: "mouseover"}, viewDoc.defaultView);
+    let onEvents = waitForNSelectionEvents(
+      tab,
+      expectedSelectionChangeEvents[i]
+    );
+    EventUtils.synthesizeMouse(
+      nameEl,
+      2,
+      2,
+      { type: "mouseover" },
+      viewDoc.defaultView
+    );
     await onEvents;
 
-    ok(true,
-      `${expectedSelectionChangeEvents[i]} selectionchange events detected on mouseover`);
+    ok(
+      true,
+      `${expectedSelectionChangeEvents[i]} selectionchange events detected on mouseover`
+    );
 
     // Simulating a mouse out event on the font name and expecting a selectionchange.
     const otherEl = viewDoc.querySelector("body");
     onEvents = waitForNSelectionEvents(tab, 1);
-    EventUtils.synthesizeMouse(otherEl, 2, 2, {type: "mouseover"}, viewDoc.defaultView);
+    EventUtils.synthesizeMouse(
+      otherEl,
+      2,
+      2,
+      { type: "mouseover" },
+      viewDoc.defaultView
+    );
     await onEvents;
 
     ok(true, "1 selectionchange events detected on mouseout");
@@ -47,7 +63,9 @@ add_task(async function() {
 });
 
 async function waitForNSelectionEvents(tab, numberOfTimes) {
-  await ContentTask.spawn(tab.linkedBrowser, numberOfTimes, async function(n) {
+  await SpecialPowers.spawn(tab.linkedBrowser, [numberOfTimes], async function(
+    n
+  ) {
     const win = content.wrappedJSObject;
 
     await new Promise(resolve => {

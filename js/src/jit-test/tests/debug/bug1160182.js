@@ -1,4 +1,6 @@
-var g = newGlobal();
+// |jit-test| skip-if: isLcovEnabled()
+
+var g = newGlobal({newCompartment: true});
 g.eval("(" + function() {
     var o = {get x() {}};
     this.method = Object.getOwnPropertyDescriptor(o, "x").get;

@@ -6,6 +6,12 @@
 
 var EXPORTED_SYMBOLS = ["TabStateFlusher"];
 
+ChromeUtils.defineModuleGetter(
+  this,
+  "SessionStore",
+  "resource:///modules/sessionstore/SessionStore.jsm"
+);
+
 /**
  * A module that enables async flushes. Updates from frame scripts are
  * throttled to be sent only once per second. If an action wants a tab's latest
@@ -74,6 +80,9 @@ var TabStateFlusherInternal = {
   // A map storing all active requests per browser.
   _requests: new WeakMap(),
 
+  // A map storing if there is requests to native listener per browser.
+  _requestsToNativeListener: new WeakMap(),
+
   /**
    * Requests an async flush for the given browser. Returns a promise that will
    * resolve when we heard back from the content process and the parent has
@@ -81,19 +90,44 @@ var TabStateFlusherInternal = {
    */
   flush(browser) {
     let id = ++this._lastRequestID;
+    let requestNativeListener = false;
+    if (browser && browser.frameLoader) {
+      /*
+        Request native listener to flush the tabState.
+        True if the flush is involved async ipc call.
+       */
+      requestNativeListener = browser.frameLoader.requestTabStateFlush(id);
+    }
+    /*
+      In the event that we have to trigger a process switch and thus change
+      browser remoteness, session store needs to register and track the new
+      browser window loaded and to have message manager listener registered
+      ** before ** TabStateFlusher send "SessionStore:flush" message. This fixes
+      the race where we send the message before the message listener is
+      registered for it.
+      */
+    SessionStore.ensureInitialized(browser.ownerGlobal);
+
     let mm = browser.messageManager;
-    mm.sendAsyncMessage("SessionStore:flush", {id});
+    mm.sendAsyncMessage("SessionStore:flush", { id });
 
     // Retrieve active requests for given browser.
     let permanentKey = browser.permanentKey;
     let perBrowserRequests = this._requests.get(permanentKey) || new Map();
+    let perBrowserRequestsToNative =
+      this._requestsToNativeListener.get(permanentKey) || new Map();
 
     return new Promise(resolve => {
       // Store resolve() so that we can resolve the promise later.
       perBrowserRequests.set(id, resolve);
+      perBrowserRequestsToNative.set(id, requestNativeListener);
 
       // Update the flush requests stored per browser.
       this._requests.set(permanentKey, perBrowserRequests);
+      this._requestsToNativeListener.set(
+        permanentKey,
+        perBrowserRequestsToNative
+      );
     });
   },
 
@@ -127,6 +161,23 @@ var TabStateFlusherInternal = {
   resolve(browser, flushID, success = true, message = "") {
     // Nothing to do if there are no pending flushes for the given browser.
     if (!this._requests.has(browser.permanentKey)) {
+      return;
+    }
+
+    // Check if there is request to native listener for given browser.
+    let perBrowserRequestsForNativeListener = this._requestsToNativeListener.get(
+      browser.permanentKey
+    );
+    if (!perBrowserRequestsForNativeListener.has(flushID)) {
+      return;
+    }
+    let waitForNextResolve = perBrowserRequestsForNativeListener.get(flushID);
+    if (waitForNextResolve) {
+      perBrowserRequestsForNativeListener.set(flushID, false);
+      this._requestsToNativeListener.set(
+        browser.permanentKey,
+        perBrowserRequestsForNativeListener
+      );
       return;
     }
 

@@ -27,7 +27,7 @@ constexpr uint8_t golombLen[256] = {
 
 BitWriter::BitWriter(MediaByteBuffer* aBuffer) : mBuffer(aBuffer) {}
 
-BitWriter::~BitWriter() {}
+BitWriter::~BitWriter() = default;
 
 void BitWriter::WriteBits(uint64_t aValue, size_t aBits) {
   MOZ_ASSERT(aBits <= sizeof(uint64_t) * 8);
@@ -37,7 +37,7 @@ void BitWriter::WriteBits(uint64_t aValue, size_t aBits) {
       mBuffer->AppendElement(0);
     }
 
-    const uint8_t clearMask = ~(~0 << (8 - mBitIndex));
+    const uint8_t clearMask = ~(~0u << (8 - mBitIndex));
     uint8_t mask = 0;
 
     if (mBitIndex + aBits > 8) {

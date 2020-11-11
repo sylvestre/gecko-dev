@@ -11,22 +11,23 @@
 #include "mozilla/MathAlgorithms.h"
 #include "mozilla/MemoryChecking.h"
 #include "mozilla/MemoryReporting.h"
-#include "mozilla/Move.h"
 #include "mozilla/PodOperations.h"
 #include "mozilla/TemplateLib.h"
-#include "mozilla/TypeTraits.h"
 
+#include <algorithm>
 #include <new>
 #include <stddef.h>  // size_t
+#include <type_traits>
+#include <utility>
 
 // This data structure supports stacky LIFO allocation (mark/release and
 // LifoAllocScope). It does not maintain one contiguous segment; instead, it
 // maintains a bunch of linked memory segments. In order to prevent malloc/free
 // thrashing, unused segments are deallocated when garbage collection occurs.
 
-#include "jsutil.h"
-
 #include "js/UniquePtr.h"
+#include "util/Memory.h"
+#include "util/Poison.h"
 
 namespace js {
 
@@ -174,6 +175,17 @@ class SingleLinkedList {
     assertInvariants();
     list.assertInvariants();
   }
+  void steal(SingleLinkedList&& list) {
+    head_ = std::move(list.head_);
+    last_ = list.last_;
+    list.last_ = nullptr;
+    assertInvariants();
+    list.assertInvariants();
+  }
+  void prependAll(SingleLinkedList&& list) {
+    list.appendAll(std::move(*this));
+    steal(std::move(list));
+  }
   UniquePtr<T, D> popFirst() {
     MOZ_ASSERT(head_);
     UniquePtr<T, D> result = std::move(head_);
@@ -217,43 +229,38 @@ class BumpChunk : public SingleLinkedListElement<BumpChunk> {
 #endif
 
 #if defined(DEBUG)
-#define LIFO_CHUNK_PROTECT 1
+#  define LIFO_CHUNK_PROTECT 1
 #endif
 
   // Poison the memory with memset, in order to catch errors due to
-  // use-after-free, with undefinedChunkMemory pattern, or to catch
-  // use-before-init with uninitializedChunkMemory.
+  // use-after-free, with JS_LIFO_UNDEFINED_PATTERN pattern, or to catch
+  // use-before-init with JS_LIFO_UNINITIALIZED_PATTERN.
 #if defined(DEBUG)
-#define LIFO_HAVE_MEM_CHECKS 1
+#  define LIFO_HAVE_MEM_CHECKS 1
+#  define LIFO_MAKE_MEM_NOACCESS(addr, size)       \
+    do {                                           \
+      uint8_t* base = (addr);                      \
+      size_t sz = (size);                          \
+      MOZ_MAKE_MEM_UNDEFINED(base, sz);            \
+      memset(base, JS_LIFO_UNDEFINED_PATTERN, sz); \
+      MOZ_MAKE_MEM_NOACCESS(base, sz);             \
+    } while (0)
 
-  // Byte used for poisoning unused memory after releasing memory.
-  static constexpr int undefinedChunkMemory = 0xcd;
-  // Byte used for poisoning uninitialized memory after reserving memory.
-  static constexpr int uninitializedChunkMemory = 0xce;
-
-#define LIFO_MAKE_MEM_NOACCESS(addr, size)  \
-  do {                                      \
-    uint8_t* base = (addr);                 \
-    size_t sz = (size);                     \
-    MOZ_MAKE_MEM_UNDEFINED(base, sz);       \
-    memset(base, undefinedChunkMemory, sz); \
-    MOZ_MAKE_MEM_NOACCESS(base, sz);        \
-  } while (0)
-
-#define LIFO_MAKE_MEM_UNDEFINED(addr, size)     \
-  do {                                          \
-    uint8_t* base = (addr);                     \
-    size_t sz = (size);                         \
-    MOZ_MAKE_MEM_UNDEFINED(base, sz);           \
-    memset(base, uninitializedChunkMemory, sz); \
-    MOZ_MAKE_MEM_UNDEFINED(base, sz);           \
-  } while (0)
+#  define LIFO_MAKE_MEM_UNDEFINED(addr, size)          \
+    do {                                               \
+      uint8_t* base = (addr);                          \
+      size_t sz = (size);                              \
+      MOZ_MAKE_MEM_UNDEFINED(base, sz);                \
+      memset(base, JS_LIFO_UNINITIALIZED_PATTERN, sz); \
+      MOZ_MAKE_MEM_UNDEFINED(base, sz);                \
+    } while (0)
 
 #elif defined(MOZ_HAVE_MEM_CHECKS)
-#define LIFO_HAVE_MEM_CHECKS 1
-#define LIFO_MAKE_MEM_NOACCESS(addr, size) MOZ_MAKE_MEM_NOACCESS((addr), (size))
-#define LIFO_MAKE_MEM_UNDEFINED(addr, size) \
-  MOZ_MAKE_MEM_UNDEFINED((addr), (size))
+#  define LIFO_HAVE_MEM_CHECKS 1
+#  define LIFO_MAKE_MEM_NOACCESS(addr, size) \
+    MOZ_MAKE_MEM_NOACCESS((addr), (size))
+#  define LIFO_MAKE_MEM_UNDEFINED(addr, size) \
+    MOZ_MAKE_MEM_UNDEFINED((addr), (size))
 #endif
 
 #ifdef LIFO_HAVE_MEM_CHECKS
@@ -362,8 +369,7 @@ class BumpChunk : public SingleLinkedListElement<BumpChunk> {
     uint8_t* bump_;
 
     friend class BumpChunk;
-    explicit Mark(BumpChunk* chunk, uint8_t* bump)
-        : chunk_(chunk), bump_(bump) {}
+    Mark(BumpChunk* chunk, uint8_t* bump) : chunk_(chunk), bump_(bump) {}
 
    public:
     Mark() : chunk_(nullptr), bump_(nullptr) {}
@@ -497,19 +503,36 @@ class LifoAlloc {
   using UniqueBumpChunk = js::UniquePtr<detail::BumpChunk>;
   using BumpChunkList = detail::SingleLinkedList<detail::BumpChunk>;
 
-  // List of chunks containing allocated data. In the common case, the last
-  // chunk of this list is always used to perform the allocations. When the
-  // allocation cannot be performed, we move a Chunk from the unused set to
-  // the list of used chunks.
+  // List of chunks containing allocated data of size smaller than the default
+  // chunk size. In the common case, the last chunk of this list is always
+  // used to perform the allocations. When the allocation cannot be performed,
+  // we move a Chunk from the unused set to the list of used chunks.
   BumpChunkList chunks_;
+
+  // List of chunks containing allocated data where each allocation is larger
+  // than the oversize threshold. Each chunk contains exactly one allocation.
+  // This reduces wasted space in the chunk list.
+  //
+  // Oversize chunks are allocated on demand and freed as soon as they are
+  // released, instead of being pushed to the unused list.
+  BumpChunkList oversize_;
 
   // Set of unused chunks, which can be reused for future allocations.
   BumpChunkList unused_;
 
   size_t markCount;
   size_t defaultChunkSize_;
+  size_t oversizeThreshold_;
+
+  // Size of all chunks in chunks_, oversize_, unused_ lists.
   size_t curSize_;
   size_t peakSize_;
+
+  // Size of all chunks containing small bump allocations. This heuristic is
+  // used to compute growth rate while ignoring chunks such as oversized,
+  // now-unused, or transferred (which followed their own growth patterns).
+  size_t smallAllocsSize_;
+
 #if defined(DEBUG) || defined(JS_OOM_BREAKPOINT)
   bool fallibleScope_;
 #endif
@@ -518,11 +541,11 @@ class LifoAlloc {
   LifoAlloc(const LifoAlloc&) = delete;
 
   // Return a BumpChunk that can perform an allocation of at least size |n|.
-  UniqueBumpChunk newChunkWithCapacity(size_t n);
+  UniqueBumpChunk newChunkWithCapacity(size_t n, bool oversize);
 
   // Reuse or allocate a BumpChunk that can perform an allocation of at least
   // size |n|, if successful it is placed at the end the list of |chunks_|.
-  MOZ_MUST_USE bool getOrCreateChunk(size_t n);
+  UniqueBumpChunk getOrCreateChunk(size_t n);
 
   void reset(size_t defaultChunkSize);
 
@@ -552,24 +575,29 @@ class LifoAlloc {
   void decrementCurSize(size_t size) {
     MOZ_ASSERT(curSize_ >= size);
     curSize_ -= size;
+    MOZ_ASSERT(curSize_ >= smallAllocsSize_);
   }
+
+  void* allocImplColdPath(size_t n);
+  void* allocImplOversize(size_t n);
 
   MOZ_ALWAYS_INLINE
   void* allocImpl(size_t n) {
     void* result;
-    if (!chunks_.empty() && (result = chunks_.last()->tryAlloc(n))) {
+    // Give oversized allocations their own chunk instead of wasting space
+    // due to fragmentation at the end of normal chunk.
+    if (MOZ_UNLIKELY(n > oversizeThreshold_)) {
+      return allocImplOversize(n);
+    }
+    if (MOZ_LIKELY(!chunks_.empty() &&
+                   (result = chunks_.last()->tryAlloc(n)))) {
       return result;
     }
-
-    if (!getOrCreateChunk(n)) {
-      return nullptr;
-    }
-
-    // Since we just created a large enough chunk, this can't fail.
-    result = chunks_.last()->tryAlloc(n);
-    MOZ_ASSERT(result);
-    return result;
+    return allocImplColdPath(n);
   }
+
+  // Check for space in unused chunks or allocate a new unused chunk.
+  MOZ_MUST_USE bool ensureUnusedApproximateColdPath(size_t n, size_t total);
 
  public:
   explicit LifoAlloc(size_t defaultChunkSize)
@@ -582,26 +610,16 @@ class LifoAlloc {
     reset(defaultChunkSize);
   }
 
-  // Steal allocated chunks from |other|.
-  void steal(LifoAlloc* other) {
-    MOZ_ASSERT(!other->markCount);
-    MOZ_DIAGNOSTIC_ASSERT(unused_.empty());
-    MOZ_DIAGNOSTIC_ASSERT(chunks_.empty());
-
-    // Copy everything from |other| to |this| except for |peakSize_|, which
-    // requires some care.
-    chunks_ = std::move(other->chunks_);
-    unused_ = std::move(other->unused_);
-    markCount = other->markCount;
-    defaultChunkSize_ = other->defaultChunkSize_;
-    curSize_ = other->curSize_;
-    peakSize_ = Max(peakSize_, other->peakSize_);
-#if defined(DEBUG) || defined(JS_OOM_BREAKPOINT)
-    fallibleScope_ = other->fallibleScope_;
-#endif
-
-    other->reset(defaultChunkSize_);
+  // Set the threshold to allocate data in its own chunk outside the space for
+  // small allocations.
+  void disableOversize() { oversizeThreshold_ = SIZE_MAX; }
+  void setOversizeThreshold(size_t oversizeThreshold) {
+    MOZ_ASSERT(oversizeThreshold <= defaultChunkSize_);
+    oversizeThreshold_ = oversizeThreshold;
   }
+
+  // Steal allocated chunks from |other|.
+  void steal(LifoAlloc* other);
 
   // Append all chunks from |other|. They are removed from |other|.
   void transferFrom(LifoAlloc* other);
@@ -644,7 +662,7 @@ class LifoAlloc {
     JS_OOM_POSSIBLY_FAIL();
     MOZ_ASSERT(fallibleScope_);
 
-    detail::BumpChunk::Mark m = mark();
+    Mark m = mark();
     void* result = allocImpl(n);
     if (!ensureUnusedApproximate(needed)) {
       release(m);
@@ -655,7 +673,7 @@ class LifoAlloc {
   }
 
   template <typename T, typename... Args>
-  MOZ_ALWAYS_INLINE T* allocInSize(size_t n, Args&&... args) {
+  MOZ_ALWAYS_INLINE T* newWithSize(size_t n, Args&&... args) {
     MOZ_ASSERT(n >= sizeof(T), "must request enough space to store a T");
     static_assert(alignof(T) <= detail::LIFO_ALLOC_ALIGN,
                   "LifoAlloc must provide enough alignment to store T");
@@ -691,21 +709,7 @@ class LifoAlloc {
       }
     }
 
-    for (detail::BumpChunk& bc : unused_) {
-      total += bc.unused();
-      if (total >= n) {
-        return true;
-      }
-    }
-
-    UniqueBumpChunk newChunk = newChunkWithCapacity(n);
-    if (!newChunk) {
-      return false;
-    }
-    size_t size = newChunk->computedSizeOfIncludingThis();
-    unused_.pushFront(std::move(newChunk));
-    incrementCurSize(size);
-    return true;
+    return ensureUnusedApproximateColdPath(n, total);
   }
 
   MOZ_ALWAYS_INLINE
@@ -719,12 +723,9 @@ class LifoAlloc {
 #if defined(DEBUG) || defined(JS_OOM_BREAKPOINT)
     LifoAlloc* lifoAlloc_;
     bool prevFallibleScope_;
-    MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
 
    public:
-    explicit AutoFallibleScope(
-        LifoAlloc* lifoAlloc MOZ_GUARD_OBJECT_NOTIFIER_PARAM) {
-      MOZ_GUARD_OBJECT_NOTIFIER_INIT;
+    explicit AutoFallibleScope(LifoAlloc* lifoAlloc) {
       lifoAlloc_ = lifoAlloc;
       prevFallibleScope_ = lifoAlloc->fallibleScope_;
       lifoAlloc->fallibleScope_ = true;
@@ -739,9 +740,12 @@ class LifoAlloc {
 
   template <typename T>
   T* newArray(size_t count) {
-    static_assert(mozilla::IsPod<T>::value,
-                  "T must be POD so that constructors (and destructors, "
-                  "when the LifoAlloc is freed) need not be called");
+    static_assert(std::is_trivial_v<T>,
+                  "T must be trivially constructible so that constructors need "
+                  "not be called");
+    static_assert(std::is_trivially_destructible_v<T>,
+                  "T must be trivially destructible so destructors don't need "
+                  "to be called when the LifoAlloc is freed");
     return newArrayUninitialized<T>(count);
   }
 
@@ -756,38 +760,17 @@ class LifoAlloc {
     return static_cast<T*>(alloc(bytes));
   }
 
-  using Mark = detail::BumpChunk::Mark;
+  class Mark {
+    friend class LifoAlloc;
+    detail::BumpChunk::Mark chunk;
+    detail::BumpChunk::Mark oversize;
+  };
 
-  Mark mark() {
-    markCount++;
-    if (chunks_.empty()) {
-      return Mark();
-    }
-    return chunks_.last()->mark();
-  }
+  // Note: MOZ_NEVER_INLINE is a work around for a Clang 9 (PGO) miscompilation.
+  // See bug 1583907.
+  MOZ_NEVER_INLINE Mark mark();
 
-  void release(Mark mark) {
-    markCount--;
-
-    // Move the blocks which are after the mark to the set of unused chunks.
-    BumpChunkList released;
-    if (!mark.markedChunk()) {
-      released = std::move(chunks_);
-    } else {
-      released = chunks_.splitAfter(mark.markedChunk());
-    }
-
-    // Release the content of all the blocks which are after the marks.
-    for (detail::BumpChunk& bc : released) {
-      bc.release();
-    }
-    unused_.appendAll(std::move(released));
-
-    // Release everything which follows the mark in the last chunk.
-    if (!chunks_.empty()) {
-      chunks_.last()->release(mark);
-    }
-  }
+  void release(Mark mark);
 
  private:
   void cancelMark(Mark mark) { markCount--; }
@@ -795,30 +778,29 @@ class LifoAlloc {
  public:
   void releaseAll() {
     MOZ_ASSERT(!markCount);
+
+    // When releasing all chunks, we can no longer determine which chunks were
+    // transferred and which were not, so simply clear the heuristic to zero
+    // right away.
+    smallAllocsSize_ = 0;
+
     for (detail::BumpChunk& bc : chunks_) {
       bc.release();
     }
     unused_.appendAll(std::move(chunks_));
+
+    // On release, we free any oversize allocations instead of keeping them
+    // in unused chunks.
+    while (!oversize_.empty()) {
+      UniqueBumpChunk bc = oversize_.popFirst();
+      decrementCurSize(bc->computedSizeOfIncludingThis());
+    }
   }
 
   // Protect the content of the LifoAlloc chunks.
 #ifdef LIFO_CHUNK_PROTECT
-  void setReadOnly() {
-    for (detail::BumpChunk& bc : chunks_) {
-      bc.setReadOnly();
-    }
-    for (detail::BumpChunk& bc : unused_) {
-      bc.setReadOnly();
-    }
-  }
-  void setReadWrite() {
-    for (detail::BumpChunk& bc : chunks_) {
-      bc.setReadWrite();
-    }
-    for (detail::BumpChunk& bc : unused_) {
-      bc.setReadWrite();
-    }
-  }
+  void setReadOnly();
+  void setReadWrite();
 #else
   void setReadOnly() const {}
   void setReadWrite() const {}
@@ -835,8 +817,10 @@ class LifoAlloc {
 
   // Return true if the LifoAlloc does not currently contain any allocations.
   bool isEmpty() const {
-    return chunks_.empty() ||
-           (chunks_.begin() == chunks_.last() && chunks_.last()->empty());
+    bool empty = chunks_.empty() ||
+                 (chunks_.begin() == chunks_.last() && chunks_.last()->empty());
+    MOZ_ASSERT_IF(!oversize_.empty(), !oversize_.last()->empty());
+    return empty && oversize_.empty();
   }
 
   // Return the number of bytes remaining to allocate in the current chunk.
@@ -854,20 +838,11 @@ class LifoAlloc {
     for (const detail::BumpChunk& chunk : chunks_) {
       n += chunk.sizeOfIncludingThis(mallocSizeOf);
     }
-    for (const detail::BumpChunk& chunk : unused_) {
+    for (const detail::BumpChunk& chunk : oversize_) {
       n += chunk.sizeOfIncludingThis(mallocSizeOf);
     }
-    return n;
-  }
-
-  // Get the total size of the arena chunks (including unused space).
-  size_t computedSizeOfExcludingThis() const {
-    size_t n = 0;
-    for (const detail::BumpChunk& chunk : chunks_) {
-      n += chunk.computedSizeOfIncludingThis();
-    }
     for (const detail::BumpChunk& chunk : unused_) {
-      n += chunk.computedSizeOfIncludingThis();
+      n += chunk.sizeOfIncludingThis(mallocSizeOf);
     }
     return n;
   }
@@ -876,6 +851,10 @@ class LifoAlloc {
   size_t sizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf) const {
     return mallocSizeOf(this) + sizeOfExcludingThis(mallocSizeOf);
   }
+
+  // Get the current size of the arena chunks (including unused space and
+  // bookkeeping space).
+  size_t computedSizeOfExcludingThis() const { return curSize_; }
 
   // Get the peak size of the arena chunks (including unused space and
   // bookkeeping space).
@@ -893,6 +872,11 @@ class LifoAlloc {
 #ifdef DEBUG
   bool contains(void* ptr) const {
     for (const detail::BumpChunk& chunk : chunks_) {
+      if (chunk.contains(ptr)) {
+        return true;
+      }
+    }
+    for (const detail::BumpChunk& chunk : oversize_) {
       if (chunk.contains(ptr)) {
         return true;
       }
@@ -935,6 +919,7 @@ class LifoAlloc {
         : chunkIt_(alloc.chunks_.begin()),
           chunkEnd_(alloc.chunks_.end()),
           head_(nullptr) {
+      MOZ_RELEASE_ASSERT(alloc.oversize_.empty());
       if (chunkIt_ != chunkEnd_) {
         head_ = chunkIt_->begin();
       }
@@ -963,31 +948,25 @@ class MOZ_NON_TEMPORARY_CLASS LifoAllocScope {
   LifoAlloc* lifoAlloc;
   LifoAlloc::Mark mark;
   LifoAlloc::AutoFallibleScope fallibleScope;
-  bool shouldRelease;
-  MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
 
  public:
-  explicit LifoAllocScope(LifoAlloc* lifoAlloc MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
+  explicit LifoAllocScope(LifoAlloc* lifoAlloc)
       : lifoAlloc(lifoAlloc),
         mark(lifoAlloc->mark()),
-        fallibleScope(lifoAlloc),
-        shouldRelease(true) {
-    MOZ_GUARD_OBJECT_NOTIFIER_INIT;
-  }
+        fallibleScope(lifoAlloc) {}
 
   ~LifoAllocScope() {
-    if (shouldRelease) {
-      lifoAlloc->release(mark);
-    }
+    lifoAlloc->release(mark);
+
+    /*
+     * The parser can allocate enormous amounts of memory for large functions.
+     * Eagerly free the memory now (which otherwise won't be freed until the
+     * next GC) to avoid unnecessary OOMs.
+     */
+    lifoAlloc->freeAllIfHugeAndUnused();
   }
 
   LifoAlloc& alloc() { return *lifoAlloc; }
-
-  void releaseEarly() {
-    MOZ_ASSERT(shouldRelease);
-    lifoAlloc->release(mark);
-    shouldRelease = false;
-  }
 };
 
 enum Fallibility { Fallible, Infallible };
@@ -1024,7 +1003,7 @@ class LifoAllocPolicy {
       return nullptr;
     }
     MOZ_ASSERT(!(oldSize & mozilla::tl::MulOverflowMask<sizeof(T)>::value));
-    memcpy(n, p, Min(oldSize * sizeof(T), newSize * sizeof(T)));
+    memcpy(n, p, std::min(oldSize * sizeof(T), newSize * sizeof(T)));
     return n;
   }
   template <typename T>

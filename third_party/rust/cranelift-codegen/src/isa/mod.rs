@@ -22,7 +22,6 @@
 //! ```
 //! # extern crate cranelift_codegen;
 //! # #[macro_use] extern crate target_lexicon;
-//! # fn main() {
 //! use cranelift_codegen::isa;
 //! use cranelift_codegen::settings::{self, Configurable};
 //! use std::str::FromStr;
@@ -40,42 +39,56 @@
 //!         let isa = isa_builder.finish(shared_flags);
 //!     }
 //! }
-//! # }
 //! ```
 //!
 //! The configured target ISA trait object is a `Box<TargetIsa>` which can be used for multiple
 //! concurrent function compilations.
 
-pub use isa::call_conv::CallConv;
-pub use isa::constraints::{BranchRange, ConstraintKind, OperandConstraint, RecipeConstraints};
-pub use isa::encoding::{base_size, EncInfo, Encoding};
-pub use isa::registers::{regs_overlap, RegClass, RegClassIndex, RegInfo, RegUnit};
-pub use isa::stack::{StackBase, StackBaseMask, StackRef};
+pub use crate::isa::call_conv::CallConv;
+pub use crate::isa::constraints::{
+    BranchRange, ConstraintKind, OperandConstraint, RecipeConstraints,
+};
+pub use crate::isa::enc_tables::Encodings;
+pub use crate::isa::encoding::{base_size, EncInfo, Encoding};
+pub use crate::isa::registers::{regs_overlap, RegClass, RegClassIndex, RegInfo, RegUnit};
+pub use crate::isa::stack::{StackBase, StackBaseMask, StackRef};
 
-use binemit;
-use flowgraph;
-use ir;
-use isa::enc_tables::Encodings;
-use regalloc;
-use result::CodegenResult;
-use settings;
-use settings::SetResult;
-use std::boxed::Box;
-use std::fmt;
-use target_lexicon::{Architecture, PointerWidth, Triple};
-use timing;
+use crate::binemit;
+use crate::flowgraph;
+use crate::ir;
+#[cfg(feature = "unwind")]
+use crate::isa::unwind::systemv::RegisterMappingError;
+use crate::machinst::MachBackend;
+use crate::regalloc;
+use crate::result::CodegenResult;
+use crate::settings;
+use crate::settings::SetResult;
+use crate::timing;
+use alloc::borrow::Cow;
+use alloc::boxed::Box;
+use core::any::Any;
+use core::fmt;
+use core::fmt::{Debug, Formatter};
+use target_lexicon::{triple, Architecture, PointerWidth, Triple};
+use thiserror::Error;
 
-#[cfg(build_riscv)]
+#[cfg(feature = "riscv")]
 mod riscv;
 
-#[cfg(build_x86)]
+#[cfg(feature = "x86")]
 mod x86;
 
-#[cfg(build_arm32)]
+#[cfg(feature = "x64")]
+mod x64;
+
+#[cfg(feature = "arm32")]
 mod arm32;
 
-#[cfg(build_arm64)]
-mod arm64;
+#[cfg(feature = "arm64")]
+pub(crate) mod aarch64;
+
+#[cfg(feature = "unwind")]
+pub mod unwind;
 
 mod call_conv;
 mod constraints;
@@ -84,67 +97,76 @@ mod encoding;
 pub mod registers;
 mod stack;
 
+#[cfg(test)]
+mod test_utils;
+
 /// Returns a builder that can create a corresponding `TargetIsa`
-/// or `Err(LookupError::Unsupported)` if not enabled.
+/// or `Err(LookupError::SupportDisabled)` if not enabled.
 macro_rules! isa_builder {
-    ($module:ident, $name:ident) => {{
-        #[cfg($name)]
-        fn $name(triple: Triple) -> Result<Builder, LookupError> {
-            Ok($module::isa_builder(triple))
-        };
-        #[cfg(not($name))]
-        fn $name(_triple: Triple) -> Result<Builder, LookupError> {
-            Err(LookupError::Unsupported)
+    ($name: ident, $feature: tt, $triple: ident) => {{
+        #[cfg(feature = $feature)]
+        {
+            Ok($name::isa_builder($triple))
         }
-        $name
+        #[cfg(not(feature = $feature))]
+        {
+            Err(LookupError::SupportDisabled)
+        }
     }};
 }
 
-/// Look for a supported ISA with the given `name`.
+/// Look for an ISA for the given `triple`.
 /// Return a builder that can create a corresponding `TargetIsa`.
 pub fn lookup(triple: Triple) -> Result<Builder, LookupError> {
     match triple.architecture {
-        Architecture::Riscv32 | Architecture::Riscv64 => isa_builder!(riscv, build_riscv)(triple),
-        Architecture::I386 | Architecture::I586 | Architecture::I686 | Architecture::X86_64 => {
-            isa_builder!(x86, build_x86)(triple)
+        Architecture::Riscv32 { .. } | Architecture::Riscv64 { .. } => {
+            isa_builder!(riscv, "riscv", triple)
         }
-        Architecture::Thumbv6m
-        | Architecture::Thumbv7em
-        | Architecture::Thumbv7m
-        | Architecture::Arm
-        | Architecture::Armv4t
-        | Architecture::Armv5te
-        | Architecture::Armv7
-        | Architecture::Armv7s => isa_builder!(arm32, build_arm32)(triple),
-        Architecture::Aarch64 => isa_builder!(arm64, build_arm64)(triple),
+        Architecture::X86_32 { .. } | Architecture::X86_64 => {
+            if cfg!(feature = "x64") {
+                isa_builder!(x64, "x64", triple)
+            } else {
+                isa_builder!(x86, "x86", triple)
+            }
+        }
+        Architecture::Arm { .. } => isa_builder!(arm32, "arm32", triple),
+        Architecture::Aarch64 { .. } => isa_builder!(aarch64, "arm64", triple),
         _ => Err(LookupError::Unsupported),
     }
 }
 
+/// Look for a supported ISA with the given `name`.
+/// Return a builder that can create a corresponding `TargetIsa`.
+pub fn lookup_by_name(name: &str) -> Result<Builder, LookupError> {
+    use alloc::str::FromStr;
+    lookup(triple!(name))
+}
+
 /// Describes reason for target lookup failure
-#[derive(Fail, PartialEq, Eq, Copy, Clone, Debug)]
+#[derive(Error, PartialEq, Eq, Copy, Clone, Debug)]
 pub enum LookupError {
     /// Support for this target was disabled in the current build.
-    #[fail(display = "Support for this target is disabled")]
+    #[error("Support for this target is disabled")]
     SupportDisabled,
 
     /// Support for this target has not yet been implemented.
-    #[fail(display = "Support for this target has not been implemented yet")]
+    #[error("Support for this target has not been implemented yet")]
     Unsupported,
 }
 
 /// Builder for a `TargetIsa`.
 /// Modify the ISA-specific settings before creating the `TargetIsa` trait object with `finish`.
+#[derive(Clone)]
 pub struct Builder {
     triple: Triple,
     setup: settings::Builder,
-    constructor: fn(Triple, settings::Flags, settings::Builder) -> Box<TargetIsa>,
+    constructor: fn(Triple, settings::Flags, settings::Builder) -> Box<dyn TargetIsa>,
 }
 
 impl Builder {
     /// Combine the ISA-specific settings with the provided ISA-independent settings and allocate a
     /// fully configured `TargetIsa` trait object.
-    pub fn finish(self, shared_flags: settings::Flags) -> Box<TargetIsa> {
+    pub fn finish(self, shared_flags: settings::Flags) -> Box<dyn TargetIsa> {
         (self.constructor)(self.triple, shared_flags, self.setup)
     }
 }
@@ -164,11 +186,11 @@ impl settings::Configurable for Builder {
 ///
 /// The `Encodings` iterator returns a legalization function to call.
 pub type Legalize =
-    fn(ir::Inst, &mut ir::Function, &mut flowgraph::ControlFlowGraph, &TargetIsa) -> bool;
+    fn(ir::Inst, &mut ir::Function, &mut flowgraph::ControlFlowGraph, &dyn TargetIsa) -> bool;
 
 /// This struct provides information that a frontend may need to know about a target to
 /// produce Cranelift IR for the target.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Hash)]
 pub struct TargetFrontendConfig {
     /// The default calling convention of the target.
     pub default_call_conv: CallConv,
@@ -196,7 +218,7 @@ impl TargetFrontendConfig {
 
 /// Methods that are specialized to a target ISA. Implies a Display trait that shows the
 /// shared flags, as well as any isa-specific flags.
-pub trait TargetIsa: fmt::Display + Sync {
+pub trait TargetIsa: fmt::Display + Send + Sync {
     /// Get the name of this ISA.
     fn name(&self) -> &'static str;
 
@@ -208,7 +230,7 @@ pub trait TargetIsa: fmt::Display + Sync {
 
     /// Get the default calling convention of this target.
     fn default_call_conv(&self) -> CallConv {
-        CallConv::default_for_triple(self.triple())
+        CallConv::triple_default(self.triple())
     }
 
     /// Get the pointer type of this ISA.
@@ -251,6 +273,12 @@ pub trait TargetIsa: fmt::Display + Sync {
 
     /// Get a data structure describing the registers in this ISA.
     fn register_info(&self) -> RegInfo;
+
+    #[cfg(feature = "unwind")]
+    /// Map a Cranelift register to its corresponding DWARF register.
+    fn map_dwarf_register(&self, _: RegUnit) -> Result<u16, RegisterMappingError> {
+        Err(RegisterMappingError::UnsupportedArchitecture)
+    }
 
     /// Returns an iterator over legal encodings for the instruction.
     fn legal_encodings<'a>(
@@ -312,7 +340,7 @@ pub trait TargetIsa: fmt::Display + Sync {
     /// Arguments and return values for the caller's frame pointer and other callee-saved registers
     /// should not be added by this function. These arguments are not added until after register
     /// allocation.
-    fn legalize_signature(&self, sig: &mut ir::Signature, current: bool);
+    fn legalize_signature(&self, sig: &mut Cow<ir::Signature>, current: bool);
 
     /// Get the register class that should be used to represent an ABI argument or return value of
     /// type `ty`. This should be the top-level register class that contains the argument
@@ -334,20 +362,21 @@ pub trait TargetIsa: fmt::Display + Sync {
     fn prologue_epilogue(&self, func: &mut ir::Function) -> CodegenResult<()> {
         let _tt = timing::prologue_epilogue();
         // This default implementation is unlikely to be good enough.
-        use ir::stackslot::{StackOffset, StackSize};
-        use stack_layout::layout_stack;
+        use crate::ir::stackslot::{StackOffset, StackSize};
+        use crate::stack_layout::layout_stack;
 
         let word_size = StackSize::from(self.pointer_bytes());
 
         // Account for the SpiderMonkey standard prologue pushes.
-        if func.signature.call_conv == CallConv::Baldrdash {
+        if func.signature.call_conv.extends_baldrdash() {
             let bytes = StackSize::from(self.flags().baldrdash_prologue_words()) * word_size;
             let mut ss = ir::StackSlotData::new(ir::StackSlotKind::IncomingArg, bytes);
             ss.offset = Some(-(bytes as StackOffset));
             func.stack_slots.push(ss);
         }
 
-        layout_stack(&mut func.stack_slots, word_size)?;
+        let is_leaf = func.is_leaf();
+        layout_stack(&mut func.stack_slots, is_leaf, word_size)?;
         Ok(())
     }
 
@@ -364,9 +393,56 @@ pub trait TargetIsa: fmt::Display + Sync {
         func: &ir::Function,
         inst: ir::Inst,
         divert: &mut regalloc::RegDiversions,
-        sink: &mut binemit::CodeSink,
+        sink: &mut dyn binemit::CodeSink,
     );
 
     /// Emit a whole function into memory.
     fn emit_function_to_memory(&self, func: &ir::Function, sink: &mut binemit::MemoryCodeSink);
+
+    /// IntCC condition for Unsigned Addition Overflow (Carry).
+    fn unsigned_add_overflow_condition(&self) -> ir::condcodes::IntCC;
+
+    /// IntCC condition for Unsigned Subtraction Overflow (Borrow/Carry).
+    fn unsigned_sub_overflow_condition(&self) -> ir::condcodes::IntCC;
+
+    /// Creates unwind information for the function.
+    ///
+    /// Returns `None` if there is no unwind information for the function.
+    #[cfg(feature = "unwind")]
+    fn create_unwind_info(
+        &self,
+        _func: &ir::Function,
+    ) -> CodegenResult<Option<unwind::UnwindInfo>> {
+        // By default, an ISA has no unwind information
+        Ok(None)
+    }
+
+    /// Creates a new System V Common Information Entry for the ISA.
+    ///
+    /// Returns `None` if the ISA does not support System V unwind information.
+    #[cfg(feature = "unwind")]
+    fn create_systemv_cie(&self) -> Option<gimli::write::CommonInformationEntry> {
+        // By default, an ISA cannot create a System V CIE
+        None
+    }
+
+    /// Get the new-style MachBackend, if this is an adapter around one.
+    fn get_mach_backend(&self) -> Option<&dyn MachBackend> {
+        None
+    }
+
+    /// Return an [Any] reference for downcasting to the ISA-specific implementation of this trait
+    /// with `isa.as_any().downcast_ref::<isa::foo::Isa>()`.
+    fn as_any(&self) -> &dyn Any;
+}
+
+impl Debug for &dyn TargetIsa {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "TargetIsa {{ triple: {:?}, pointer_width: {:?}}}",
+            self.triple(),
+            self.pointer_width()
+        )
+    }
 }

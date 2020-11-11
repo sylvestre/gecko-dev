@@ -6,26 +6,29 @@
 
 var EXPORTED_SYMBOLS = ["FindBarContent"];
 
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
 
-ChromeUtils.defineModuleGetter(this, "Services",
-                               "resource://gre/modules/Services.jsm");
+ChromeUtils.defineModuleGetter(
+  this,
+  "Services",
+  "resource://gre/modules/Services.jsm"
+);
 
-/* Please keep in sync with toolkit/content/widgets/findbar.xml */
+/* Please keep in sync with toolkit/content/widgets/findbar.js */
 const FIND_NORMAL = 0;
 const FIND_TYPEAHEAD = 1;
 const FIND_LINKS = 2;
 
 class FindBarContent {
-  constructor(mm) {
-    this.mm = mm;
+  constructor(actor) {
+    this.actor = actor;
 
     this.findMode = 0;
     this.inQuickFind = false;
 
-    this.mm.addMessageListener("Findbar:UpdateState", this);
-
-    Services.els.addSystemEventListener(this.mm, "mouseup", this, false);
+    this.addedEventListener = false;
   }
 
   start(event) {
@@ -33,9 +36,21 @@ class FindBarContent {
   }
 
   startQuickFind(event, autostart = false) {
+    if (!this.addedEventListener) {
+      this.addedEventListener = true;
+      Services.els.addSystemEventListener(
+        this.actor.document.defaultView,
+        "mouseup",
+        this,
+        false
+      );
+    }
+
     let mode = FIND_TYPEAHEAD;
-    if (event.charCode == "'".charAt(0) ||
-        autostart && FindBarContent.typeAheadLinksOnly) {
+    if (
+      event.charCode == "'".charAt(0) ||
+      (autostart && FindBarContent.typeAheadLinksOnly)
+    ) {
       mode = FIND_LINKS;
     }
 
@@ -45,15 +60,11 @@ class FindBarContent {
     this.passKeyToParent(event);
   }
 
-  receiveMessage(msg) {
-    switch (msg.name) {
-      case "Findbar:UpdateState":
-        this.findMode = msg.data.findMode;
-        this.inQuickFind = msg.data.hasQuickFindTimeout;
-        if (msg.data.isOpenAndFocused) {
-          this.inPassThrough = false;
-        }
-        break;
+  updateState(data) {
+    this.findMode = data.findMode;
+    this.inQuickFind = data.hasQuickFindTimeout;
+    if (data.isOpenAndFocused) {
+      this.inPassThrough = false;
     }
   }
 
@@ -71,7 +82,11 @@ class FindBarContent {
   onKeypress(event) {
     if (this.inPassThrough) {
       this.passKeyToParent(event);
-    } else if (this.findMode != FIND_NORMAL && this.inQuickFind && event.charCode) {
+    } else if (
+      this.findMode != FIND_NORMAL &&
+      this.inQuickFind &&
+      event.charCode
+    ) {
       this.passKeyToParent(event);
     }
   }
@@ -82,21 +97,32 @@ class FindBarContent {
     // to the findbar in the parent in _dispatchKeypressEvent in findbar.xml .
     // If you make changes here, verify that that method can still do its job.
     const kRequiredProps = [
-      "type", "bubbles", "cancelable", "ctrlKey", "altKey", "shiftKey",
-      "metaKey", "keyCode", "charCode",
+      "type",
+      "bubbles",
+      "cancelable",
+      "ctrlKey",
+      "altKey",
+      "shiftKey",
+      "metaKey",
+      "keyCode",
+      "charCode",
     ];
     let fakeEvent = {};
     for (let prop of kRequiredProps) {
       fakeEvent[prop] = event[prop];
     }
-    this.mm.sendAsyncMessage("Findbar:Keypress", fakeEvent);
+    this.actor.sendAsyncMessage("Findbar:Keypress", fakeEvent);
   }
 
   onMouseup(event) {
-    if (this.findMode != FIND_NORMAL)
-      this.mm.sendAsyncMessage("Findbar:Mouseup");
+    if (this.findMode != FIND_NORMAL) {
+      this.actor.sendAsyncMessage("Findbar:Mouseup", {});
+    }
   }
 }
 
-XPCOMUtils.defineLazyPreferenceGetter(FindBarContent, "typeAheadLinksOnly",
-  "accessibility.typeaheadfind.linksonly");
+XPCOMUtils.defineLazyPreferenceGetter(
+  FindBarContent,
+  "typeAheadLinksOnly",
+  "accessibility.typeaheadfind.linksonly"
+);

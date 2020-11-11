@@ -10,17 +10,16 @@
 #define mozilla_RecursiveMutex_h
 
 #include "mozilla/BlockingResourceBase.h"
-#include "mozilla/GuardObjects.h"
 
 #ifndef XP_WIN
-#include <pthread.h>
+#  include <pthread.h>
 #endif
 
 namespace mozilla {
 
 class RecursiveMutex : public BlockingResourceBase {
  public:
-  explicit RecursiveMutex(const char* aName MOZ_GUARD_OBJECT_NOTIFIER_PARAM);
+  explicit RecursiveMutex(const char* aName);
   ~RecursiveMutex();
 
 #ifdef DEBUG
@@ -68,15 +67,12 @@ class RecursiveMutex : public BlockingResourceBase {
   // enough for CRITICAL_SECTION, and we'll fix it up later.
   void* mMutex[6];
 #endif
-  MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
 };
 
 class MOZ_RAII RecursiveMutexAutoLock {
  public:
-  explicit RecursiveMutexAutoLock(
-      RecursiveMutex& aRecursiveMutex MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
+  explicit RecursiveMutexAutoLock(RecursiveMutex& aRecursiveMutex)
       : mRecursiveMutex(&aRecursiveMutex) {
-    MOZ_GUARD_OBJECT_NOTIFIER_INIT;
     NS_ASSERTION(mRecursiveMutex, "null mutex");
     mRecursiveMutex->Lock();
   }
@@ -87,18 +83,15 @@ class MOZ_RAII RecursiveMutexAutoLock {
   RecursiveMutexAutoLock() = delete;
   RecursiveMutexAutoLock(const RecursiveMutexAutoLock&) = delete;
   RecursiveMutexAutoLock& operator=(const RecursiveMutexAutoLock&) = delete;
-  static void* operator new(size_t) CPP_THROW_NEW;
+  static void* operator new(size_t) noexcept(true);
 
   mozilla::RecursiveMutex* mRecursiveMutex;
-  MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
 };
 
 class MOZ_RAII RecursiveMutexAutoUnlock {
  public:
-  explicit RecursiveMutexAutoUnlock(
-      RecursiveMutex& aRecursiveMutex MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
+  explicit RecursiveMutexAutoUnlock(RecursiveMutex& aRecursiveMutex)
       : mRecursiveMutex(&aRecursiveMutex) {
-    MOZ_GUARD_OBJECT_NOTIFIER_INIT;
     NS_ASSERTION(mRecursiveMutex, "null mutex");
     mRecursiveMutex->Unlock();
   }
@@ -109,10 +102,9 @@ class MOZ_RAII RecursiveMutexAutoUnlock {
   RecursiveMutexAutoUnlock() = delete;
   RecursiveMutexAutoUnlock(const RecursiveMutexAutoUnlock&) = delete;
   RecursiveMutexAutoUnlock& operator=(const RecursiveMutexAutoUnlock&) = delete;
-  static void* operator new(size_t) CPP_THROW_NEW;
+  static void* operator new(size_t) noexcept(true);
 
   mozilla::RecursiveMutex* mRecursiveMutex;
-  MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
 };
 
 }  // namespace mozilla

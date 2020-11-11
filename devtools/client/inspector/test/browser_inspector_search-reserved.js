@@ -1,4 +1,3 @@
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
    http://creativecommons.org/publicdomain/zero/1.0/ */
 "use strict";
@@ -13,15 +12,15 @@ const TEST_URL = URL_ROOT + "doc_inspector_search-reserved.html";
 const TEST_DATA = [
   {
     key: "#",
-    suggestions: [{label: "#d1\\.d2"}],
+    suggestions: [{ label: "#d1\\.d2" }],
   },
   {
     key: "d",
-    suggestions: [{label: "#d1\\.d2"}],
+    suggestions: [{ label: "#d1\\.d2" }],
   },
   {
     key: "VK_BACK_SPACE",
-    suggestions: [{label: "#d1\\.d2"}],
+    suggestions: [{ label: "#d1\\.d2" }],
   },
   {
     key: "VK_BACK_SPACE",
@@ -29,15 +28,15 @@ const TEST_DATA = [
   },
   {
     key: ".",
-    suggestions: [{label: ".c1\\.c2"}],
+    suggestions: [{ label: ".c1\\.c2" }],
   },
   {
     key: "c",
-    suggestions: [{label: ".c1\\.c2"}],
+    suggestions: [{ label: ".c1\\.c2" }],
   },
   {
     key: "VK_BACK_SPACE",
-    suggestions: [{label: ".c1\\.c2"}],
+    suggestions: [{ label: ".c1\\.c2" }],
   },
   {
     key: "VK_BACK_SPACE",
@@ -45,8 +44,7 @@ const TEST_DATA = [
   },
   {
     key: "d",
-    suggestions: [{label: "div"},
-                  {label: "#d1\\.d2"}],
+    suggestions: [{ label: "div" }, { label: "#d1\\.d2" }],
   },
   {
     key: "VK_BACK_SPACE",
@@ -54,7 +52,7 @@ const TEST_DATA = [
   },
   {
     key: "c",
-    suggestions: [{label: ".c1\\.c2"}],
+    suggestions: [{ label: ".c1\\.c2" }],
   },
   {
     key: "VK_BACK_SPACE",
@@ -62,15 +60,15 @@ const TEST_DATA = [
   },
   {
     key: "b",
-    suggestions: [{label: "body"}],
+    suggestions: [{ label: "body" }],
   },
   {
     key: "o",
-    suggestions: [{label: "body"}],
+    suggestions: [{ label: "body" }],
   },
   {
     key: "d",
-    suggestions: [{label: "body"}],
+    suggestions: [{ label: "body" }],
   },
   {
     key: "y",
@@ -78,19 +76,19 @@ const TEST_DATA = [
   },
   {
     key: " ",
-    suggestions: [{label: "body div"}],
+    suggestions: [{ label: "body div" }],
   },
   {
     key: ".",
-    suggestions: [{label: "body .c1\\.c2"}],
+    suggestions: [{ label: "body .c1\\.c2" }],
   },
   {
     key: "VK_BACK_SPACE",
-    suggestions: [{label: "body div"}],
+    suggestions: [{ label: "body div" }],
   },
   {
     key: "#",
-    suggestions: [{label: "body #d1\\.d2"}],
+    suggestions: [{ label: "body #d1\\.d2" }],
   },
 ];
 
@@ -111,22 +109,27 @@ add_task(async function() {
     info("Waiting for search query to complete");
     await inspector.searchSuggestions._lastQuery;
 
-    info("Query completed. Performing checks for input '" +
-         searchBox.value + "'");
+    info(
+      "Query completed. Performing checks for input '" + searchBox.value + "'"
+    );
     const actualSuggestions = popup.getItems();
 
-    is(popup.isOpen ? actualSuggestions.length : 0, suggestions.length,
-       "There are expected number of suggestions.");
+    is(
+      popup.isOpen ? actualSuggestions.length : 0,
+      suggestions.length,
+      "There are expected number of suggestions."
+    );
 
     for (let i = 0; i < suggestions.length; i++) {
-      is(suggestions[i].label, actualSuggestions[i].label,
-         "The suggestion at " + i + "th index is correct.");
+      is(
+        suggestions[i].label,
+        actualSuggestions[i].label,
+        "The suggestion at " + i + "th index is correct."
+      );
     }
   }
 });
 
 function formatSuggestions(suggestions) {
-  return "[" + suggestions
-                .map(s => "'" + s.label + "'")
-                .join(", ") + "]";
+  return "[" + suggestions.map(s => "'" + s.label + "'").join(", ") + "]";
 }

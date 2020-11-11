@@ -12,10 +12,15 @@
  * as a frame script into a browser by the parent process.
  */
 
+if (typeof window !== "undefined") {
+  window.onerror = (message, source, lineno) => {
+    dump(`TEST-UNEXPECTED-FAIL | ${source}, line ${lineno}: ${message}\n`);
+  };
+}
+
 var TalosContentProfiler;
 
 (function() {
-
   // Whether or not this TalosContentProfiler object has had initFromObject
   // or initFromURLQueryParams called on it. Any functions that will send
   // events to the parent to change the behaviour of the Gecko Profiler
@@ -28,17 +33,6 @@ var TalosContentProfiler;
 
   // Profiler settings.
   var interval, entries, threadsArray, profileDir;
-
-  try {
-    // Outside of talos, this throws a security exception which no-op this file.
-    // (It's not required nor allowed for addons since Firefox 17)
-    // It's used inside talos from non-privileged pages (like during tscroll),
-    // and it works because talos disables all/most security measures.
-    netscape.security.PrivilegeManager.enablePrivilege("UniversalXPConnect");
-  } catch (e) {}
-
-  /* eslint-disable mozilla/use-chromeutils-import */
-  Cu.import("resource://gre/modules/Services.jsm");
 
   /**
    * Emits a TalosContentProfiler prefixed event and then returns a Promise
@@ -58,10 +52,12 @@ var TalosContentProfiler;
     // If we're running as a frame script, we can send messages directly to
     // the parent, rather than going through the talos-powers-content.js
     // mediator, which ends up being more complicated.
-    if (typeof(sendAsyncMessage) !== "undefined") {
+    if (typeof sendAsyncMessage !== "undefined") {
       return new Promise(resolve => {
         sendAsyncMessage("TalosContentProfiler:Command", { name, data });
-        addMessageListener("TalosContentProfiler:Response", function onMsg(msg) {
+        addMessageListener("TalosContentProfiler:Response", function onMsg(
+          msg
+        ) {
           if (msg.data.name != name) {
             return;
           }
@@ -72,7 +68,7 @@ var TalosContentProfiler;
       });
     }
 
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       var event = new CustomEvent("TalosContentProfilerCommand", {
         bubbles: true,
         detail: {
@@ -82,7 +78,9 @@ var TalosContentProfiler;
       });
       document.dispatchEvent(event);
 
-      addEventListener("TalosContentProfilerResponse", function onResponse(event) {
+      addEventListener("TalosContentProfilerResponse", function onResponse(
+        event
+      ) {
         if (event.detail.name != name) {
           return;
         }
@@ -130,17 +128,25 @@ var TalosContentProfiler;
      */
     initFromObject(obj = {}) {
       if (!initted) {
-        if (("gecko_profile_dir" in obj) && typeof obj.gecko_profile_dir == "string" &&
-            ("gecko_profile_interval" in obj) && Number.isFinite(obj.gecko_profile_interval * 1) &&
-            ("gecko_profile_entries" in obj) && Number.isFinite(obj.gecko_profile_entries * 1) &&
-            ("gecko_profile_threads" in obj) && typeof obj.gecko_profile_threads == "string") {
+        if (
+          "gecko_profile_dir" in obj &&
+          typeof obj.gecko_profile_dir == "string" &&
+          "gecko_profile_interval" in obj &&
+          Number.isFinite(obj.gecko_profile_interval * 1) &&
+          "gecko_profile_entries" in obj &&
+          Number.isFinite(obj.gecko_profile_entries * 1) &&
+          "gecko_profile_threads" in obj &&
+          typeof obj.gecko_profile_threads == "string"
+        ) {
           interval = obj.gecko_profile_interval;
           entries = obj.gecko_profile_entries;
           threadsArray = obj.gecko_profile_threads.split(",");
           profileDir = obj.gecko_profile_dir;
           initted = true;
         } else {
-          console.error("Profiler could not init with object: " + JSON.stringify(obj));
+          console.error(
+            "Profiler could not init with object: " + JSON.stringify(obj)
+          );
         }
       }
     },
@@ -273,20 +279,12 @@ var TalosContentProfiler;
 
       return Promise.resolve();
     },
-
-    /**
-     * Add a marker to the profile on the content process samples.
-     * This occurs synchronously.
-     */
-    contentMarker(marker) {
-      Services.profiler.AddMarker(marker);
-    },
   };
 
   // sendAsyncMessage is a hack-y mechanism to determine whether or not
   // we're running as a frame script. If we are, jam TalosContentProfiler
   // into the content scope.
-  if (typeof(sendAsyncMessage) !== "undefined") {
+  if (typeof sendAsyncMessage !== "undefined") {
     content.wrappedJSObject.TalosContentProfiler = TalosContentProfiler;
   }
 })();

@@ -5,8 +5,8 @@ var ImageCaptureTest = (() => {
   // https://cs.chromium.org/chromium/src/media/capture/mojom/image_capture.mojom
   class MockImageCapture {
     constructor() {
-      this.interceptor_ = new MojoInterfaceInterceptor(
-        media.mojom.ImageCapture.name);
+      this.interceptor_ =
+          new MojoInterfaceInterceptor(media.mojom.ImageCapture.name);
       this.interceptor_.oninterfacerequest =
         e => this.bindingSet_.addBinding(this, e.handle);
       this.interceptor_.start();
@@ -91,6 +91,20 @@ var ImageCaptureTest = (() => {
             step: 1.0
           },
 
+          pan: {
+            min: 0.0,
+            max: 10.0,
+            current: 5.0,
+            step: 2.0
+          },
+
+          tilt: {
+            min: 0.0,
+            max: 10.0,
+            current: 5.0,
+            step: 2.0
+          },
+
           zoom: {
             min: 0.0,
             max: 10.0,
@@ -119,6 +133,7 @@ var ImageCaptureTest = (() => {
           ],
         }
       };
+      this.panTiltZoomPermissionStatus_ = null;
       this.settings_ = null;
       this.bindingSet_ = new mojo.BindingSet(media.mojom.ImageCapture);
     }
@@ -128,11 +143,24 @@ var ImageCaptureTest = (() => {
       this.interceptor_.stop();
     }
 
-    getPhotoState(source_id) {
-      return Promise.resolve(this.state_);
+    async getPhotoState(source_id) {
+      const shouldKeepPanTiltZoom = await this.isPanTiltZoomPermissionGranted();
+      if (shouldKeepPanTiltZoom)
+        return Promise.resolve(this.state_);
+
+      const newState = {...this.state_};
+      newState.state.pan = {};
+      newState.state.tilt = {};
+      newState.state.zoom = {};
+      return Promise.resolve(newState);
     }
 
-    setOptions(source_id, settings) {
+    async setOptions(source_id, settings) {
+      const isAllowedToControlPanTiltZoom = await this.isPanTiltZoomPermissionGranted();
+      if (!isAllowedToControlPanTiltZoom &&
+          (settings.hasPan || settings.hasTilt || settings.hasZoom)) {
+        return Promise.resolve({ success: false });
+      }
       this.settings_ = settings;
       if (settings.hasIso)
         this.state_.state.iso.current = settings.iso;
@@ -140,6 +168,10 @@ var ImageCaptureTest = (() => {
         this.state_.state.height.current = settings.height;
       if (settings.hasWidth)
         this.state_.state.width.current = settings.width;
+      if (settings.hasPan)
+        this.state_.state.pan.current = settings.pan;
+      if (settings.hasTilt)
+        this.state_.state.tilt.current = settings.tilt;
       if (settings.hasZoom)
         this.state_.state.zoom.current = settings.zoom;
       if (settings.hasFocusMode)
@@ -199,6 +231,16 @@ var ImageCaptureTest = (() => {
           data: new Array(2)
         }
       });
+    }
+
+    async isPanTiltZoomPermissionGranted() {
+      if (!this.panTiltZoomPermissionStatus_) {
+        this.panTiltZoomPermissionStatus_ = await navigator.permissions.query({
+          name: "camera",
+          panTiltZoom: true
+        });
+      }
+      return this.panTiltZoomPermissionStatus_.state == "granted";
     }
 
     state() {

@@ -22,20 +22,19 @@
 #include <unistd.h>
 
 #include "mozilla/Atomics.h"
-#include "mozilla/NullPtr.h"
 #include "mozilla/PodOperations.h"
 #include "mozilla/UniquePtr.h"
 #include "mozilla/ipc/FileDescriptor.h"
 
 namespace mozilla {
 
-static const int MAY_ACCESS = SandboxBroker::MAY_ACCESS;
-static const int MAY_READ = SandboxBroker::MAY_READ;
-static const int MAY_WRITE = SandboxBroker::MAY_WRITE;
-static const int MAY_CREATE = SandboxBroker::MAY_CREATE;
-static const auto AddAlways = SandboxBroker::Policy::AddAlways;
-
 class SandboxBrokerTest : public ::testing::Test {
+  static const int MAY_ACCESS = SandboxBroker::MAY_ACCESS;
+  static const int MAY_READ = SandboxBroker::MAY_READ;
+  static const int MAY_WRITE = SandboxBroker::MAY_WRITE;
+  static const int MAY_CREATE = SandboxBroker::MAY_CREATE;
+  static const auto AddAlways = SandboxBroker::Policy::AddAlways;
+
   UniquePtr<SandboxBroker> mServer;
   UniquePtr<SandboxBrokerClient> mClient;
 
@@ -87,7 +86,7 @@ class SandboxBrokerTest : public ::testing::Test {
     mServer = SandboxBroker::Create(GetPolicy(), getpid(), fd);
     ASSERT_NE(mServer, nullptr);
     ASSERT_TRUE(fd.IsValid());
-    auto rawFD = fd.ClonePlatformHandle();
+    auto rawFD = fd.TakePlatformHandle();
     mClient.reset(new SandboxBrokerClient(rawFD.release()));
   }
 
@@ -423,7 +422,8 @@ void SandboxBrokerTest::MultiThreadStatWorker() {
   ASSERT_EQ(0, statsyscall("/dev/null", &nullStat)) << "Shouldn't ever fail!";
   ASSERT_EQ(0, statsyscall("/dev/zero", &zeroStat)) << "Shouldn't ever fail!";
   ASSERT_EQ(0, lstatsyscall("/proc/self", &selfStat)) << "Shouldn't ever fail!";
-  ASSERT_TRUE(S_ISLNK(selfStat.st_mode)) << "Shouldn't ever fail!";
+  ASSERT_TRUE(S_ISLNK(selfStat.st_mode))
+  << "Shouldn't ever fail!";
   realNullDev = nullStat.st_rdev;
   realZeroDev = zeroStat.st_rdev;
   realSelfInode = selfStat.st_ino;
@@ -439,7 +439,8 @@ void SandboxBrokerTest::MultiThreadStatWorker() {
         << "Loop " << i << "/" << kNumLoops;
     ASSERT_EQ(realZeroDev, zeroStat.st_rdev)
         << "Loop " << i << "/" << kNumLoops;
-    ASSERT_TRUE(S_ISLNK(selfStat.st_mode)) << "Loop " << i << "/" << kNumLoops;
+    ASSERT_TRUE(S_ISLNK(selfStat.st_mode))
+    << "Loop " << i << "/" << kNumLoops;
     ASSERT_EQ(realSelfInode, selfStat.st_ino)
         << "Loop " << i << "/" << kNumLoops;
   }

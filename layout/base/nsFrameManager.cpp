@@ -9,16 +9,16 @@
 #include "nsFrameManager.h"
 
 #include "nscore.h"
-#include "nsIPresShell.h"
 #include "nsCOMPtr.h"
 #include "plhash.h"
 #include "nsPlaceholderFrame.h"
 #include "nsGkAtoms.h"
 #include "nsILayoutHistoryState.h"
+#include "mozilla/PresShell.h"
 #include "mozilla/PresState.h"
 #include "mozilla/ComputedStyle.h"
 #include "mozilla/dom/Element.h"
-#include "nsIDocument.h"
+#include "mozilla/dom/Document.h"
 
 #include "nsError.h"
 #include "nsAbsoluteContainingBlock.h"
@@ -76,9 +76,9 @@ void nsFrameManager::InsertFrames(nsContainerFrame* aParentFrame,
   MOZ_ASSERT(
       !aPrevFrame ||
           (!aPrevFrame->GetNextContinuation() ||
-           (((aPrevFrame->GetNextContinuation()->GetStateBits() &
-              NS_FRAME_IS_OVERFLOW_CONTAINER)) &&
-            !(aPrevFrame->GetStateBits() & NS_FRAME_IS_OVERFLOW_CONTAINER))),
+           (aPrevFrame->GetNextContinuation()->HasAnyStateBits(
+                NS_FRAME_IS_OVERFLOW_CONTAINER) &&
+            !aPrevFrame->HasAnyStateBits(NS_FRAME_IS_OVERFLOW_CONTAINER))),
       "aPrevFrame must be the last continuation in its chain!");
 
   if (aParentFrame->IsAbsoluteContainer() &&
@@ -86,7 +86,7 @@ void nsFrameManager::InsertFrames(nsContainerFrame* aParentFrame,
     aParentFrame->GetAbsoluteContainingBlock()->InsertFrames(
         aParentFrame, aListID, aPrevFrame, aFrameList);
   } else {
-    aParentFrame->InsertFrames(aListID, aPrevFrame, aFrameList);
+    aParentFrame->InsertFrames(aListID, aPrevFrame, nullptr, aFrameList);
   }
 }
 
@@ -104,7 +104,7 @@ void nsFrameManager::RemoveFrame(ChildListID aListID, nsIFrame* aOldFrame) {
                    // nsCSSFrameConstructor::RemoveFloatingFirstLetterFrames
                    aOldFrame->IsTextFrame(),
                "Must remove first continuation.");
-  NS_ASSERTION(!(aOldFrame->GetStateBits() & NS_FRAME_OUT_OF_FLOW &&
+  NS_ASSERTION(!(aOldFrame->HasAnyStateBits(NS_FRAME_OUT_OF_FLOW) &&
                  aOldFrame->GetPlaceholderFrame()),
                "Must call RemoveFrame on placeholder for out-of-flows.");
   nsContainerFrame* parentFrame = aOldFrame->GetParent();
@@ -145,9 +145,9 @@ void nsFrameManager::CaptureFrameStateFor(nsIFrame* aFrame,
   // Exit early if we get empty key
   nsAutoCString stateKey;
   nsIContent* content = aFrame->GetContent();
-  nsIDocument* doc = content ? content->GetUncomposedDoc() : nullptr;
-  nsresult rv = statefulFrame->GenerateStateKey(content, doc, stateKey);
-  if (NS_FAILED(rv) || stateKey.IsEmpty()) {
+  Document* doc = content ? content->GetUncomposedDoc() : nullptr;
+  statefulFrame->GenerateStateKey(content, doc, stateKey);
+  if (stateKey.IsEmpty()) {
     return;
   }
 
@@ -163,12 +163,9 @@ void nsFrameManager::CaptureFrameState(nsIFrame* aFrame,
   CaptureFrameStateFor(aFrame, aState);
 
   // Now capture state recursively for the frame hierarchy rooted at aFrame
-  nsIFrame::ChildListIterator lists(aFrame);
-  for (; !lists.IsDone(); lists.Next()) {
-    nsFrameList::Enumerator childFrames(lists.CurrentList());
-    for (; !childFrames.AtEnd(); childFrames.Next()) {
-      nsIFrame* child = childFrames.get();
-      if (child->GetStateBits() & NS_FRAME_OUT_OF_FLOW) {
+  for (const auto& childList : aFrame->ChildLists()) {
+    for (nsIFrame* child : childList.mList) {
+      if (child->HasAnyStateBits(NS_FRAME_OUT_OF_FLOW)) {
         // We'll pick it up when we get to its placeholder
         continue;
       }
@@ -206,9 +203,9 @@ void nsFrameManager::RestoreFrameStateFor(nsIFrame* aFrame,
   }
 
   nsAutoCString stateKey;
-  nsIDocument* doc = content->GetUncomposedDoc();
-  nsresult rv = statefulFrame->GenerateStateKey(content, doc, stateKey);
-  if (NS_FAILED(rv) || stateKey.IsEmpty()) {
+  Document* doc = content->GetUncomposedDoc();
+  statefulFrame->GenerateStateKey(content, doc, stateKey);
+  if (stateKey.IsEmpty()) {
     return;
   }
 
@@ -219,7 +216,7 @@ void nsFrameManager::RestoreFrameStateFor(nsIFrame* aFrame,
   }
 
   // Restore it
-  rv = statefulFrame->RestoreState(frameState);
+  nsresult rv = statefulFrame->RestoreState(frameState);
   if (NS_FAILED(rv)) {
     return;
   }
@@ -236,11 +233,9 @@ void nsFrameManager::RestoreFrameState(nsIFrame* aFrame,
   RestoreFrameStateFor(aFrame, aState);
 
   // Now restore state recursively for the frame hierarchy rooted at aFrame
-  nsIFrame::ChildListIterator lists(aFrame);
-  for (; !lists.IsDone(); lists.Next()) {
-    nsFrameList::Enumerator childFrames(lists.CurrentList());
-    for (; !childFrames.AtEnd(); childFrames.Next()) {
-      RestoreFrameState(childFrames.get(), aState);
+  for (const auto& childList : aFrame->ChildLists()) {
+    for (nsIFrame* child : childList.mList) {
+      RestoreFrameState(child, aState);
     }
   }
 }

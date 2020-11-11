@@ -37,30 +37,43 @@
  *
  * ***** END LICENSE BLOCK ***** */
 
-ChromeUtils.import("resource://gre/modules/AppConstants.jsm");
-ChromeUtils.import("resource://gre/modules/Services.jsm");
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
-ChromeUtils.import("resource://gre/modules/Timer.jsm");
+const { AppConstants } = ChromeUtils.import(
+  "resource://gre/modules/AppConstants.jsm"
+);
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+const { setTimeout } = ChromeUtils.import("resource://gre/modules/Timer.jsm");
 
-XPCOMUtils.defineLazyServiceGetter(this, "aomStartup",
-                                   "@mozilla.org/addons/addon-manager-startup;1",
-                                   "amIAddonManagerStartup");
+XPCOMUtils.defineLazyServiceGetter(
+  this,
+  "aomStartup",
+  "@mozilla.org/addons/addon-manager-startup;1",
+  "amIAddonManagerStartup"
+);
 
-XPCOMUtils.defineLazyServiceGetter(this, "env",
-                                   "@mozilla.org/process/environment;1",
-                                   "nsIEnvironment");
+XPCOMUtils.defineLazyServiceGetter(
+  this,
+  "env",
+  "@mozilla.org/process/environment;1",
+  "nsIEnvironment"
+);
 
 async function talosStart() {
-  // Tests are driven from pageloader.xul.  We need to be careful to open
-  // pageloader.xul before dismissing the default browser window or we
-  // may inadvertently cause the browser to exit before the pageloader.xul
+  // Tests are driven from pageloader.xhtml.  We need to be careful to open
+  // pageloader.xhtml before dismissing the default browser window or we
+  // may inadvertently cause the browser to exit before the pageloader.xhtml
   // window is opened.  Start by finding or waiting for the default window.
   let defaultWin = Services.wm.getMostRecentWindow("navigator:browser");
   if (!defaultWin) {
     defaultWin = await new Promise(resolve => {
       const listener = {
         onOpenWindow(win) {
-          if (win.docShell.domWindow.location.href == AppConstants.BROWSER_CHROME_URL) {
+          if (
+            win.docShell.domWindow.location.href ==
+            AppConstants.BROWSER_CHROME_URL
+          ) {
             Services.wm.removeListener(listener);
             resolve(win);
           }
@@ -71,13 +84,18 @@ async function talosStart() {
   }
 
   // Wwe've got the default window, it is time for pageloader to take over.
-  // Open pageloader.xul in a new window and then close the default window.
-  let chromeURL = "chrome://pageloader/content/pageloader.xul";
+  // Open pageloader.xhtml in a new window and then close the default window.
+  let chromeURL = "chrome://pageloader/content/pageloader.xhtml";
 
   let args = {};
   args.wrappedJSObject = args;
-  let newWin = Services.ww.openWindow(null, chromeURL, "_blank",
-                                      "chrome,dialog=no,all", args);
+  let newWin = Services.ww.openWindow(
+    null,
+    chromeURL,
+    "_blank",
+    "chrome,dialog=no,all",
+    args
+  );
 
   await new Promise(resolve => {
     newWin.addEventListener("load", resolve);
@@ -88,7 +106,11 @@ async function talosStart() {
 /* globals ExtensionAPI */
 this.pageloader = class extends ExtensionAPI {
   onStartup() {
-    const manifestURI = Services.io.newURI("manifest.json", null, this.extension.rootURI);
+    const manifestURI = Services.io.newURI(
+      "manifest.json",
+      null,
+      this.extension.rootURI
+    );
     this.chromeHandle = aomStartup.registerChrome(manifestURI, [
       ["content", "pageloader", "chrome/"],
     ]);

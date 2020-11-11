@@ -18,10 +18,10 @@
 #include "mozilla/mozalloc.h"
 #include "mozilla/TimeStamp.h"
 #ifdef FUZZING
-#include "mozilla/ipc/Faulty.h"
+#  include "mozilla/ipc/Faulty.h"
 #endif
 #if !defined(FUZZING) && (!defined(RELEASE_OR_BETA) || defined(DEBUG))
-#define MOZ_PICKLE_SENTINEL_CHECKING
+#  define MOZ_PICKLE_SENTINEL_CHECKING
 #endif
 class Pickle;
 class PickleIterator {
@@ -92,37 +92,37 @@ class Pickle {
   // the Pickle, initialize *iter to NULL.  If successful, these methods return
   // true.  Otherwise, false is returned to indicate that the result could not
   // be extracted.
-  MOZ_MUST_USE bool ReadBool(PickleIterator* iter, bool* result) const;
-  MOZ_MUST_USE bool ReadInt16(PickleIterator* iter, int16_t* result) const;
-  MOZ_MUST_USE bool ReadUInt16(PickleIterator* iter, uint16_t* result) const;
-  MOZ_MUST_USE bool ReadShort(PickleIterator* iter, short* result) const;
-  MOZ_MUST_USE bool ReadInt(PickleIterator* iter, int* result) const;
-  MOZ_MUST_USE bool ReadLong(PickleIterator* iter, long* result) const;
-  MOZ_MUST_USE bool ReadULong(PickleIterator* iter,
-                              unsigned long* result) const;
-  MOZ_MUST_USE bool ReadSize(PickleIterator* iter, size_t* result) const;
-  MOZ_MUST_USE bool ReadInt32(PickleIterator* iter, int32_t* result) const;
-  MOZ_MUST_USE bool ReadUInt32(PickleIterator* iter, uint32_t* result) const;
-  MOZ_MUST_USE bool ReadInt64(PickleIterator* iter, int64_t* result) const;
-  MOZ_MUST_USE bool ReadUInt64(PickleIterator* iter, uint64_t* result) const;
-  MOZ_MUST_USE bool ReadDouble(PickleIterator* iter, double* result) const;
-  MOZ_MUST_USE bool ReadIntPtr(PickleIterator* iter, intptr_t* result) const;
-  MOZ_MUST_USE bool ReadUnsignedChar(PickleIterator* iter,
-                                     unsigned char* result) const;
-  MOZ_MUST_USE bool ReadString(PickleIterator* iter, std::string* result) const;
-  MOZ_MUST_USE bool ReadWString(PickleIterator* iter,
-                                std::wstring* result) const;
-  MOZ_MUST_USE bool ReadBytesInto(PickleIterator* iter, void* data,
-                                  uint32_t length) const;
-  MOZ_MUST_USE bool ExtractBuffers(
+  [[nodiscard]] bool ReadBool(PickleIterator* iter, bool* result) const;
+  [[nodiscard]] bool ReadInt16(PickleIterator* iter, int16_t* result) const;
+  [[nodiscard]] bool ReadUInt16(PickleIterator* iter, uint16_t* result) const;
+  [[nodiscard]] bool ReadShort(PickleIterator* iter, short* result) const;
+  [[nodiscard]] bool ReadInt(PickleIterator* iter, int* result) const;
+  [[nodiscard]] bool ReadLong(PickleIterator* iter, long* result) const;
+  [[nodiscard]] bool ReadULong(PickleIterator* iter,
+                               unsigned long* result) const;
+  [[nodiscard]] bool ReadInt32(PickleIterator* iter, int32_t* result) const;
+  [[nodiscard]] bool ReadUInt32(PickleIterator* iter, uint32_t* result) const;
+  [[nodiscard]] bool ReadInt64(PickleIterator* iter, int64_t* result) const;
+  [[nodiscard]] bool ReadUInt64(PickleIterator* iter, uint64_t* result) const;
+  [[nodiscard]] bool ReadDouble(PickleIterator* iter, double* result) const;
+  [[nodiscard]] bool ReadIntPtr(PickleIterator* iter, intptr_t* result) const;
+  [[nodiscard]] bool ReadUnsignedChar(PickleIterator* iter,
+                                      unsigned char* result) const;
+  [[nodiscard]] bool ReadString(PickleIterator* iter,
+                                std::string* result) const;
+  [[nodiscard]] bool ReadWString(PickleIterator* iter,
+                                 std::wstring* result) const;
+  [[nodiscard]] bool ReadBytesInto(PickleIterator* iter, void* data,
+                                   uint32_t length) const;
+  [[nodiscard]] bool ExtractBuffers(
       PickleIterator* iter, size_t length, BufferList* buffers,
       uint32_t alignment = sizeof(memberAlignmentType)) const;
 
   // Safer version of ReadInt() checks for the result not being negative.
   // Use it for reading the object sizes.
-  MOZ_MUST_USE bool ReadLength(PickleIterator* iter, int* result) const;
+  [[nodiscard]] bool ReadLength(PickleIterator* iter, int* result) const;
 
-  MOZ_MUST_USE bool ReadSentinel(PickleIterator* iter, uint32_t sentinel) const
+  [[nodiscard]] bool ReadSentinel(PickleIterator* iter, uint32_t sentinel) const
 #ifdef MOZ_PICKLE_SENTINEL_CHECKING
       ;
 #else
@@ -162,7 +162,6 @@ class Pickle {
   bool WriteInt(int value);
   bool WriteLong(long value);
   bool WriteULong(unsigned long value);
-  bool WriteSize(size_t value);
   bool WriteInt32(int32_t value);
   bool WriteUInt32(uint32_t value);
   bool WriteInt64(int64_t value);

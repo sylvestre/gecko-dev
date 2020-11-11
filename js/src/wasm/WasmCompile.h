@@ -19,6 +19,7 @@
 #ifndef wasm_compile_h
 #define wasm_compile_h
 
+#include "vm/Runtime.h"
 #include "wasm/WasmModule.h"
 
 namespace js {
@@ -40,34 +41,73 @@ struct ScriptedCaller {
   ScriptedCaller() : filenameIsURL(false), line(0) {}
 };
 
+// Describes the features that control wasm compilation.
+
+struct FeatureArgs {
+  FeatureArgs()
+      : sharedMemory(Shareable::False),
+        refTypes(false),
+        functionReferences(false),
+        gcTypes(false),
+        multiValue(false),
+        v128(false),
+        hugeMemory(false) {}
+
+  static FeatureArgs build(JSContext* cx);
+
+  FeatureArgs withRefTypes(bool refTypes) const {
+    FeatureArgs features = *this;
+    features.refTypes = refTypes;
+    return features;
+  }
+
+  Shareable sharedMemory;
+  bool refTypes;
+  bool functionReferences;
+  bool gcTypes;
+  bool multiValue;
+  bool v128;
+  bool hugeMemory;
+};
+
 // Describes all the parameters that control wasm compilation.
+
+struct CompileArgs;
+using MutableCompileArgs = RefPtr<CompileArgs>;
+using SharedCompileArgs = RefPtr<const CompileArgs>;
 
 struct CompileArgs : ShareableBase<CompileArgs> {
   ScriptedCaller scriptedCaller;
   UniqueChars sourceMapURL;
+
   bool baselineEnabled;
-  bool forceCranelift;
-  bool debugEnabled;
   bool ionEnabled;
-  bool sharedMemoryEnabled;
-  HasGcTypes gcTypesConfigured;
-  bool testTiering;
+  bool craneliftEnabled;
+  bool debugEnabled;
+  bool forceTiering;
+
+  FeatureArgs features;
+
+  // CompileArgs has two constructors:
+  //
+  // - one through a factory function `build`, which checks that flags are
+  // consistent with each other.
+  // - one that gives complete access to underlying fields.
+  //
+  // You should use the first one in general, unless you have a very good
+  // reason (i.e. no JSContext around and you know which flags have been used).
+
+  static SharedCompileArgs build(JSContext* cx,
+                                 ScriptedCaller&& scriptedCaller);
 
   explicit CompileArgs(ScriptedCaller&& scriptedCaller)
       : scriptedCaller(std::move(scriptedCaller)),
         baselineEnabled(false),
-        forceCranelift(false),
-        debugEnabled(false),
         ionEnabled(false),
-        sharedMemoryEnabled(false),
-        gcTypesConfigured(HasGcTypes::False),
-        testTiering(false) {}
-
-  CompileArgs(JSContext* cx, ScriptedCaller&& scriptedCaller);
+        craneliftEnabled(false),
+        debugEnabled(false),
+        forceTiering(false) {}
 };
-
-typedef RefPtr<CompileArgs> MutableCompileArgs;
-typedef RefPtr<const CompileArgs> SharedCompileArgs;
 
 // Return the estimated compiled (machine) code size for the given bytecode size
 // compiled at the given tier.
@@ -80,15 +120,17 @@ double EstimateCompiledCodeSize(Tier tier, size_t bytecodeSize);
 //  - *error points to a string description of the error
 //  - *error is null and the caller should report out-of-memory.
 
-SharedModule CompileBuffer(const CompileArgs& args,
-                           const ShareableBytes& bytecode, UniqueChars* error,
-                           UniqueCharsVector* warnings,
-                           UniqueLinkData* maybeLinkData = nullptr);
+SharedModule CompileBuffer(
+    const CompileArgs& args, const ShareableBytes& bytecode, UniqueChars* error,
+    UniqueCharsVector* warnings,
+    JS::OptimizedEncodingListener* listener = nullptr,
+    JSTelemetrySender telemetrySender = JSTelemetrySender());
 
 // Attempt to compile the second tier of the given wasm::Module.
 
 void CompileTier2(const CompileArgs& args, const Bytes& bytecode,
-                  const Module& module, Atomic<bool>* cancelled);
+                  const Module& module, Atomic<bool>* cancelled,
+                  JSTelemetrySender telemetrySender = JSTelemetrySender());
 
 // Compile the given WebAssembly module which has been broken into three
 // partitions:
@@ -108,7 +150,7 @@ void CompileTier2(const CompileArgs& args, const Bytes& bytecode,
 // cancellation is set, both ExclusiveWaitableData will be notified and so every
 // wait() loop must check cancelled.
 
-typedef ExclusiveWaitableData<const uint8_t*> ExclusiveBytesPtr;
+using ExclusiveBytesPtr = ExclusiveWaitableData<const uint8_t*>;
 
 struct StreamEndData {
   bool reached;
@@ -117,14 +159,14 @@ struct StreamEndData {
 
   StreamEndData() : reached(false) {}
 };
-typedef ExclusiveWaitableData<StreamEndData> ExclusiveStreamEndData;
+using ExclusiveStreamEndData = ExclusiveWaitableData<StreamEndData>;
 
-SharedModule CompileStreaming(const CompileArgs& args, const Bytes& envBytes,
-                              const Bytes& codeBytes,
-                              const ExclusiveBytesPtr& codeBytesEnd,
-                              const ExclusiveStreamEndData& streamEnd,
-                              const Atomic<bool>& cancelled, UniqueChars* error,
-                              UniqueCharsVector* warnings);
+SharedModule CompileStreaming(
+    const CompileArgs& args, const Bytes& envBytes, const Bytes& codeBytes,
+    const ExclusiveBytesPtr& codeBytesEnd,
+    const ExclusiveStreamEndData& streamEnd, const Atomic<bool>& cancelled,
+    UniqueChars* error, UniqueCharsVector* warnings,
+    JSTelemetrySender telemetrySender = JSTelemetrySender());
 
 }  // namespace wasm
 }  // namespace js

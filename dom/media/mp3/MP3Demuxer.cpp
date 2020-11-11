@@ -10,9 +10,10 @@
 #include <inttypes.h>
 #include <limits>
 
-#include "mozilla/Assertions.h"
+#include "ByteWriter.h"
 #include "TimeUnits.h"
 #include "VideoUtils.h"
+#include "mozilla/Assertions.h"
 
 extern mozilla::LazyLogModule gMediaDemuxerLog;
 #define MP3LOG(msg, ...) \
@@ -120,7 +121,17 @@ bool MP3TrackDemuxer::Init() {
   mInfo->mChannels = mChannels;
   mInfo->mBitDepth = 16;
   mInfo->mMimeType = "audio/mpeg";
-  mInfo->mDuration = Duration();
+  mInfo->mDuration = Duration().valueOr(TimeUnit::FromInfinity());
+  if (mEncoderDelay) {
+    AutoTArray<uint8_t, 8> trimInfo;
+    ByteWriter<BigEndian> writer(trimInfo);
+    bool ok = false;
+    ok = writer.WriteU32(mEncoderDelay);
+    MOZ_ALWAYS_TRUE(ok);
+    ok = writer.WriteU32(mEncoderPadding);
+    MOZ_ALWAYS_TRUE(ok);
+    mInfo->mCodecSpecificConfig->AppendElements(trimInfo);
+  }
 
   MP3LOG("Init mInfo={mRate=%d mChannels=%d mBitDepth=%d mDuration=%" PRId64
          "}",
@@ -132,8 +143,9 @@ bool MP3TrackDemuxer::Init() {
 
 media::TimeUnit MP3TrackDemuxer::SeekPosition() const {
   TimeUnit pos = Duration(mFrameIndex);
-  if (Duration() > TimeUnit()) {
-    pos = std::min(Duration(), pos);
+  auto duration = Duration();
+  if (duration) {
+    pos = std::min(*duration, pos);
   }
   return pos;
 }
@@ -176,10 +188,11 @@ TimeUnit MP3TrackDemuxer::FastSeek(const TimeUnit& aTime) {
   if (!aTime.ToMicroseconds()) {
     // Quick seek to the beginning of the stream.
     mFrameIndex = 0;
-  } else if (vbr.IsTOCPresent() && Duration().ToMicroseconds() > 0) {
+  } else if (vbr.IsTOCPresent() && Duration() &&
+             *Duration() != TimeUnit::Zero()) {
     // Use TOC for more precise seeking.
     const float durationFrac = static_cast<float>(aTime.ToMicroseconds()) /
-                               Duration().ToMicroseconds();
+                               Duration()->ToMicroseconds();
     mFrameIndex = FrameIndexFromOffset(vbr.Offset(durationFrac));
   } else if (AverageFrameLength() > 0) {
     mFrameIndex = FrameIndexFromTime(aTime);
@@ -259,8 +272,11 @@ RefPtr<MP3TrackDemuxer::SamplesPromise> MP3TrackDemuxer::GetSamples(
     if (!frame) {
       break;
     }
-
-    frames->mSamples.AppendElement(frame);
+    if (!frame->HasValidTime()) {
+      return SamplesPromise::CreateAndReject(NS_ERROR_DOM_MEDIA_DEMUXER_ERR,
+                                             __func__);
+    }
+    frames->AppendSample(frame);
   }
 
   MP3LOGV("GetSamples() End mSamples.Size()=%zu aNumSamples=%d mOffset=%" PRIu64
@@ -268,11 +284,11 @@ RefPtr<MP3TrackDemuxer::SamplesPromise> MP3TrackDemuxer::GetSamples(
           " mTotalFrameLen=%" PRIu64
           " mSamplesPerFrame=%d mSamplesPerSecond=%d "
           "mChannels=%d",
-          frames->mSamples.Length(), aNumSamples, mOffset, mNumParsedFrames,
+          frames->GetSamples().Length(), aNumSamples, mOffset, mNumParsedFrames,
           mFrameIndex, mTotalFrameLen, mSamplesPerFrame, mSamplesPerSecond,
           mChannels);
 
-  if (frames->mSamples.IsEmpty()) {
+  if (frames->GetSamples().IsEmpty()) {
     return SamplesPromise::CreateAndReject(NS_ERROR_DOM_MEDIA_END_OF_STREAM,
                                            __func__);
   }
@@ -299,11 +315,11 @@ TimeIntervals MP3TrackDemuxer::GetBuffered() {
   AutoPinned<MediaResource> stream(mSource.GetResource());
   TimeIntervals buffered;
 
-  if (Duration() > TimeUnit() && stream->IsDataCachedToEndOfResource(0)) {
+  if (Duration() && stream->IsDataCachedToEndOfResource(0)) {
     // Special case completely cached files. This also handles local files.
-    buffered += TimeInterval(TimeUnit(), Duration());
+    buffered += TimeInterval(TimeUnit(), *Duration());
     MP3LOGV("buffered = [[%" PRId64 ", %" PRId64 "]]",
-            TimeUnit().ToMicroseconds(), Duration().ToMicroseconds());
+            TimeUnit().ToMicroseconds(), Duration()->ToMicroseconds());
     return buffered;
   }
 
@@ -322,28 +338,35 @@ TimeIntervals MP3TrackDemuxer::GetBuffered() {
     buffered += TimeInterval(start, end);
   }
 
+  // If the number of frames reported by the header is valid,
+  // the duration calculated from it is the maximal duration.
+  if (ValidNumAudioFrames() && Duration()) {
+    TimeInterval duration = TimeInterval(TimeUnit(), *Duration());
+    return buffered.Intersection(duration);
+  }
+
   return buffered;
 }
 
 int64_t MP3TrackDemuxer::StreamLength() const { return mSource.GetLength(); }
 
-TimeUnit MP3TrackDemuxer::Duration() const {
+media::NullableTimeUnit MP3TrackDemuxer::Duration() const {
   if (!mNumParsedFrames) {
-    return TimeUnit::FromMicroseconds(-1);
+    return Nothing();
   }
 
   int64_t numFrames = 0;
-  const auto numAudioFrames = mParser.VBRInfo().NumAudioFrames();
-  if (mParser.VBRInfo().IsValid() && numAudioFrames.valueOr(0) + 1 > 1) {
+  const auto numAudioFrames = ValidNumAudioFrames();
+  if (numAudioFrames) {
     // VBR headers don't include the VBR header frame.
     numFrames = numAudioFrames.value() + 1;
-    return Duration(numFrames);
+    return Some(Duration(numFrames));
   }
 
   const int64_t streamLen = StreamLength();
   if (streamLen < 0) {  // Live streams.
     // Unknown length, we can't estimate duration.
-    return TimeUnit::FromMicroseconds(-1);
+    return Nothing();
   }
   // We can't early return when streamLen < 0 before checking numAudioFrames
   // since some live radio will give an opening remark before playing music
@@ -355,15 +378,15 @@ TimeUnit MP3TrackDemuxer::Duration() const {
   // If it's CBR, calculate the duration by bitrate.
   if (!mParser.VBRInfo().IsValid()) {
     const int32_t bitrate = mParser.CurrentFrame().Header().Bitrate();
-    return media::TimeUnit::FromSeconds(static_cast<double>(size) * 8 /
-                                        bitrate);
+    return Some(
+        media::TimeUnit::FromSeconds(static_cast<double>(size) * 8 / bitrate));
   }
 
   if (AverageFrameLength() > 0) {
     numFrames = size / AverageFrameLength();
   }
 
-  return Duration(numFrames);
+  return Some(Duration(numFrames));
 }
 
 TimeUnit MP3TrackDemuxer::Duration(int64_t aNumFrames) const {
@@ -476,7 +499,7 @@ MediaByteRange MP3TrackDemuxer::FindNextFrame() {
   bool foundFrame = false;
   int64_t frameHeaderOffset = 0;
   int64_t startOffset = mOffset;
-  const bool searchingForID3 = !mParser.ID3Header().Size();
+  const bool searchingForID3 = !mParser.ID3Header().HasSizeBeenSet();
 
   // Check whether we've found a valid MPEG frame.
   while (!foundFrame) {
@@ -546,6 +569,11 @@ MediaByteRange MP3TrackDemuxer::FindNextFrame() {
     return {0, 0};
   }
 
+  if (frameHeaderOffset + mParser.CurrentFrame().Length() + BUFFER_SIZE >
+      StreamLength()) {
+    mEOS = true;
+  }
+
   MP3LOGV("FindNext() End mOffset=%" PRIu64 " mNumParsedFrames=%" PRIu64
           " mFrameIndex=%" PRId64 " frameHeaderOffset=%" PRId64
           " mTotalFrameLen=%" PRIu64
@@ -607,6 +635,7 @@ already_AddRefed<MediaRawData> MP3TrackDemuxer::GetNextFrame(
   frame->mDuration = Duration(1);
   frame->mTimecode = frame->mTime;
   frame->mKeyframe = true;
+  frame->mEOS = mEOS;
 
   MOZ_ASSERT(!frame->mTime.IsNegative());
   MOZ_ASSERT(frame->mDuration.IsPositive());
@@ -614,15 +643,25 @@ already_AddRefed<MediaRawData> MP3TrackDemuxer::GetNextFrame(
   if (mNumParsedFrames == 1) {
     // First frame parsed, let's read VBR info if available.
     BufferReader reader(frame->Data(), frame->Size());
-    mParser.ParseVBRHeader(&reader);
     mFirstFrameOffset = frame->mOffset;
+
+    if (mParser.ParseVBRHeader(&reader)) {
+      // Parsing was successful
+      if (mParser.VBRInfo().Type() == FrameParser::VBRHeader::XING) {
+        MP3LOGV("XING header present, skipping encoder delay (%u frames)",
+                mParser.VBRInfo().EncoderDelay());
+        mEncoderDelay = mParser.VBRInfo().EncoderDelay();
+        mEncoderPadding = mParser.VBRInfo().EncoderPadding();
+      }
+    }
   }
 
   MP3LOGV("GetNext() End mOffset=%" PRIu64 " mNumParsedFrames=%" PRIu64
           " mFrameIndex=%" PRId64 " mTotalFrameLen=%" PRIu64
-          " mSamplesPerFrame=%d mSamplesPerSecond=%d mChannels=%d",
+          " mSamplesPerFrame=%d mSamplesPerSecond=%d mChannels=%d, mEOS=%s",
           mOffset, mNumParsedFrames, mFrameIndex, mTotalFrameLen,
-          mSamplesPerFrame, mSamplesPerSecond, mChannels);
+          mSamplesPerFrame, mSamplesPerSecond, mChannels,
+          mEOS ? "true" : "false");
 
   return frame.forget();
 }
@@ -726,6 +765,13 @@ double MP3TrackDemuxer::AverageFrameLength() const {
            (vbr.NumAudioFrames().value() + 1);
   }
   return 0.0;
+}
+
+Maybe<uint32_t> MP3TrackDemuxer::ValidNumAudioFrames() const {
+  return mParser.VBRInfo().IsValid() &&
+                 mParser.VBRInfo().NumAudioFrames().valueOr(0) + 1 > 1
+             ? mParser.VBRInfo().NumAudioFrames()
+             : Nothing();
 }
 
 }  // namespace mozilla

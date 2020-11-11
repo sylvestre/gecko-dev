@@ -22,7 +22,8 @@ dictionary RTCRtpTransceiverInit {
 };
 
 [Pref="media.peerconnection.enabled",
- JSImplementation="@mozilla.org/dom/rtptransceiver;1"]
+ JSImplementation="@mozilla.org/dom/rtptransceiver;1",
+ Exposed=Window]
 interface RTCRtpTransceiver {
     readonly attribute DOMString?                  mid;
     [SameObject]
@@ -36,15 +37,6 @@ interface RTCRtpTransceiver {
     void stop();
     // TODO: bug 1396922
     // void setCodecPreferences(sequence<RTCRtpCodecCapability> codecs);
-
-    [ChromeOnly]
-    void setRemoteTrackId(DOMString trackId);
-    [ChromeOnly]
-    boolean remoteTrackIdIs(DOMString trackId);
-
-    // Mostly for testing
-    [Pref="media.peerconnection.remoteTrackId.enabled"]
-    DOMString getRemoteTrackId();
 
     [ChromeOnly]
     void setAddTrackMagic();
@@ -69,10 +61,5 @@ interface RTCRtpTransceiver {
     boolean hasBeenUsedToSend();
     [ChromeOnly]
     void sync();
-
-    [ChromeOnly]
-    void insertDTMF(DOMString tones,
-                    optional unsigned long duration = 100,
-                    optional unsigned long interToneGap = 70);
 };
 

@@ -47,7 +47,7 @@ class HTMLImageElement final : public nsGenericHTMLElement,
   }
 
   // Element
-  virtual bool IsInteractiveHTMLContent(bool aIgnoreTabindex) const override;
+  virtual bool IsInteractiveHTMLContent() const override;
 
   // EventTarget
   virtual void AsyncEventRunning(AsyncEventDispatcher* aEvent) override;
@@ -73,14 +73,13 @@ class HTMLImageElement final : public nsGenericHTMLElement,
   bool IsHTMLFocusable(bool aWithMouse, bool* aIsFocusable,
                        int32_t* aTabIndex) override;
 
-  virtual nsresult BindToTree(nsIDocument* aDocument, nsIContent* aParent,
-                              nsIContent* aBindingParent) override;
-  virtual void UnbindFromTree(bool aDeep, bool aNullParent) override;
+  virtual nsresult BindToTree(BindContext&, nsINode& aParent) override;
+  virtual void UnbindFromTree(bool aNullParent) override;
 
   virtual EventStates IntrinsicState() const override;
   virtual nsresult Clone(dom::NodeInfo*, nsINode** aResult) const override;
 
-  virtual void NodeInfoChanged(nsIDocument* aOldDoc) override;
+  virtual void NodeInfoChanged(Document* aOldDoc) override;
 
   nsresult CopyInnerTo(HTMLImageElement* aDest);
 
@@ -90,26 +89,26 @@ class HTMLImageElement final : public nsGenericHTMLElement,
   void SetIsMap(bool aIsMap, ErrorResult& aError) {
     SetHTMLBoolAttr(nsGkAtoms::ismap, aIsMap, aError);
   }
-  MOZ_CAN_RUN_SCRIPT uint32_t Width() {
-    return GetWidthHeightForImage(mCurrentRequest).width;
-  }
+  MOZ_CAN_RUN_SCRIPT uint32_t Width();
   void SetWidth(uint32_t aWidth, ErrorResult& aError) {
     SetUnsignedIntAttr(nsGkAtoms::width, aWidth, 0, aError);
   }
-  MOZ_CAN_RUN_SCRIPT uint32_t Height() {
-    return GetWidthHeightForImage(mCurrentRequest).height;
-  }
+  MOZ_CAN_RUN_SCRIPT uint32_t Height();
   void SetHeight(uint32_t aHeight, ErrorResult& aError) {
     SetUnsignedIntAttr(nsGkAtoms::height, aHeight, 0, aError);
   }
   uint32_t NaturalWidth();
   uint32_t NaturalHeight();
   bool Complete();
-  uint32_t Hspace() { return GetUnsignedIntAttr(nsGkAtoms::hspace, 0); }
+  uint32_t Hspace() {
+    return GetDimensionAttrAsUnsignedInt(nsGkAtoms::hspace, 0);
+  }
   void SetHspace(uint32_t aHspace, ErrorResult& aError) {
     SetUnsignedIntAttr(nsGkAtoms::hspace, aHspace, 0, aError);
   }
-  uint32_t Vspace() { return GetUnsignedIntAttr(nsGkAtoms::vspace, 0); }
+  uint32_t Vspace() {
+    return GetDimensionAttrAsUnsignedInt(nsGkAtoms::vspace, 0);
+  }
   void SetVspace(uint32_t aVspace, ErrorResult& aError) {
     SetUnsignedIntAttr(nsGkAtoms::vspace, aVspace, 0, aError);
   }
@@ -177,16 +176,32 @@ class HTMLImageElement final : public nsGenericHTMLElement,
     SetHTMLAttr(nsGkAtoms::referrerpolicy, aReferrer, aError);
   }
   void GetReferrerPolicy(nsAString& aReferrer) {
-    GetEnumAttr(nsGkAtoms::referrerpolicy, EmptyCString().get(), aReferrer);
+    GetEnumAttr(nsGkAtoms::referrerpolicy, "", aReferrer);
   }
   void SetDecoding(const nsAString& aDecoding, ErrorResult& aError) {
     SetHTMLAttr(nsGkAtoms::decoding, aDecoding, aError);
   }
   void GetDecoding(nsAString& aValue);
 
-  net::ReferrerPolicy GetImageReferrerPolicy() override {
-    return GetReferrerPolicyAsEnum();
+  enum class Loading : uint8_t {
+    Eager,
+    Lazy,
+  };
+
+  void SetLoading(const nsAString& aLoading, ErrorResult& aError) {
+    SetHTMLAttr(nsGkAtoms::loading, aLoading, aError);
   }
+  void GetLoading(nsAString&) const;
+
+  bool IsAwaitingLoadOrLazyLoading() const {
+    return mLazyLoading || mPendingImageLoadTask;
+  }
+
+  bool IsLazyLoading() const { return mLazyLoading; }
+
+  Loading LoadingState() const;
+
+  already_AddRefed<Promise> Decode(ErrorResult& aRv);
 
   MOZ_CAN_RUN_SCRIPT int32_t X();
   MOZ_CAN_RUN_SCRIPT int32_t Y();
@@ -241,16 +256,12 @@ class HTMLImageElement final : public nsGenericHTMLElement,
    * further <source> or <img> tags would be considered.
    */
   static bool SelectSourceForTagWithAttrs(
-      nsIDocument* aDocument, bool aIsSourceTag, const nsAString& aSrcAttr,
+      Document* aDocument, bool aIsSourceTag, const nsAString& aSrcAttr,
       const nsAString& aSrcsetAttr, const nsAString& aSizesAttr,
       const nsAString& aTypeAttr, const nsAString& aMediaAttr,
       nsAString& aResult);
 
-  /**
-   * If this image's src pointers to an SVG document, flush the SVG document's
-   * use counters to telemetry.  Only used for testing purposes.
-   */
-  void FlushUseCounters();
+  void StopLazyLoadingAndStartLoadIfNeeded();
 
  protected:
   virtual ~HTMLImageElement();
@@ -362,17 +373,23 @@ class HTMLImageElement final : public nsGenericHTMLElement,
    *        previously set. This value should only be used when
    *        aValueMaybeChanged is true; when aValueMaybeChanged is false,
    *        aOldValue should be considered unreliable.
-   * @param aValueMaybeChanged will be false when this function is called from
-   *        OnAttrSetButNotChanged to indicate that the value was not changed.
    * @param aNotify Whether we plan to notify document observers.
    */
   void AfterMaybeChangeAttr(int32_t aNamespaceID, nsAtom* aName,
                             const nsAttrValueOrString& aValue,
                             const nsAttrValue* aOldValue,
                             nsIPrincipal* aMaybeScriptedPrincipal,
-                            bool aValueMaybeChanged, bool aNotify);
+                            bool aNotify);
+
+  bool ShouldLoadImage() const;
+
+  // Set this image as a lazy load image due to loading="lazy".
+  void SetLazyLoading();
+
+  void StartLoadingIfNeeded();
 
   bool mInDocResponsiveContent;
+
   RefPtr<ImageLoadTask> mPendingImageLoadTask;
   nsCOMPtr<nsIPrincipal> mSrcTriggeringPrincipal;
   nsCOMPtr<nsIPrincipal> mSrcsetTriggeringPrincipal;

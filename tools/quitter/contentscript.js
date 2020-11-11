@@ -7,7 +7,15 @@
 /* eslint-env webextensions */
 
 const Quitter = {
-  quit() { browser.runtime.sendMessage("quit"); },
+  async quit() {
+    // This can be called before the background page has loaded,
+    // so we need to wait for it.
+    browser.runtime.sendMessage("quit").catch(() => {
+      setTimeout(Quitter.quit, 100);
+    });
+  },
 };
 
-window.wrappedJSObject.Quitter = cloneInto(Quitter, window, {cloneFunctions: true});
+window.wrappedJSObject.Quitter = cloneInto(Quitter, window, {
+  cloneFunctions: true,
+});

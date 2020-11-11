@@ -5,12 +5,12 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #if !defined(MFTDecoder_h_)
-#define MFTDecoder_h_
+#  define MFTDecoder_h_
 
-#include "WMF.h"
-#include "mozilla/ReentrantMonitor.h"
-#include "mozilla/RefPtr.h"
-#include "nsIThread.h"
+#  include "WMF.h"
+#  include "mozilla/ReentrantMonitor.h"
+#  include "mozilla/RefPtr.h"
+#  include "nsIThread.h"
 
 namespace mozilla {
 
@@ -28,7 +28,6 @@ class MFTDecoder final {
   //  - aMFTClsID the clsid used by CoCreateInstance to instantiate the
   //    decoder MFT.
   HRESULT Create(const GUID& aMFTClsID);
-  HRESULT Create(HMODULE aDecoderDLL, const GUID& aMFTClsID);
 
   // Sets the input and output media types. Call after Init().
   //
@@ -37,9 +36,10 @@ class MFTDecoder final {
   //  - aOutputType needs at least major and minor types set.
   //    This is used to select the matching output type out
   //    of all the available output types of the MFT.
-  HRESULT SetMediaTypes(IMFMediaType* aInputType, IMFMediaType* aOutputType,
-                        std::function<HRESULT(IMFMediaType*)>&& aCallback =
-                            [](IMFMediaType* aOutput) { return S_OK; });
+  HRESULT SetMediaTypes(
+      IMFMediaType* aInputType, IMFMediaType* aOutputType,
+      std::function<HRESULT(IMFMediaType*)>&& aCallback =
+          [](IMFMediaType* aOutput) { return S_OK; });
 
   // Returns the MFT's IMFAttributes object.
   already_AddRefed<IMFAttributes> GetAttributes();
@@ -55,11 +55,11 @@ class MFTDecoder final {
   //  - MF_E_NOTACCEPTING if the decoder can't accept input. The data
   //    must be resubmitted after Output() stops producing output.
   HRESULT Input(const uint8_t* aData, uint32_t aDataSize,
-                int64_t aTimestampUsecs);
+                int64_t aTimestampUsecs, int64_t aDurationUsecs);
   HRESULT Input(IMFSample* aSample);
 
   HRESULT CreateInputSample(const uint8_t* aData, uint32_t aDataSize,
-                            int64_t aTimestampUsecs,
+                            int64_t aTimestampUsecs, int64_t aDurationUsecs,
                             RefPtr<IMFSample>* aOutSample);
 
   // Retrieves output from the MFT. Call this once Input() returns

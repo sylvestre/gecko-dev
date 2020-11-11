@@ -1,5 +1,3 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 2; js-indent-level: 2 -*- */
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -20,7 +18,6 @@ const { objectSpec } = require("devtools/shared/specs/object");
 const proto = extend({}, ObjectActorProto);
 
 Object.assign(proto, {
-  typeName: "pausedobj",
   /**
    * Creates a pause-scoped actor for the specified object.
    * @see ObjectActor
@@ -32,9 +29,7 @@ Object.assign(proto, {
   },
 
   isPaused: function() {
-    return this.threadActor
-      ? this.threadActor.state === "paused"
-      : true;
+    return this.threadActor ? this.threadActor.state === "paused" : true;
   },
 
   withPaused: function(method) {
@@ -45,7 +40,8 @@ Object.assign(proto, {
 
       return {
         error: "wrongState",
-        message: this.constructor.name +
+        message:
+          this.constructor.name +
           " actors can only be accessed while the thread is paused.",
       };
     };
@@ -88,8 +84,10 @@ Object.assign(proto, {
    */
   destroy: proto.withPaused(function(request) {
     if (this.hooks.isThreadLifetimePool()) {
-      return { error: "notReleasable",
-               message: "Only thread-lifetime actors can be released." };
+      return {
+        error: "notReleasable",
+        message: "Only thread-lifetime actors can be released.",
+      };
     }
 
     return protocol.Actor.prototype.destroy.call(this);
@@ -97,5 +95,4 @@ Object.assign(proto, {
 });
 
 exports.PauseScopedObjectActor = ActorClassWithSpec(objectSpec, proto);
-  // ActorClassWithSpec(objectSpec, {...ObjectActorProto, ...proto});
-
+// ActorClassWithSpec(objectSpec, {...ObjectActorProto, ...proto});

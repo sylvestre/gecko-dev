@@ -2,6 +2,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+from .util import hash_str
+
+
 NOT_NESTED = 1
 INSIDE_SYNC_NESTED = 2
 INSIDE_CPOW_NESTED = 3
@@ -9,12 +12,14 @@ INSIDE_CPOW_NESTED = 3
 NORMAL_PRIORITY = 1
 INPUT_PRIORITY = 2
 HIGH_PRIORITY = 3
+MEDIUMHIGH_PRIORITY = 4
 
 
 class Visitor:
     def defaultVisit(self, node):
-        raise Exception("INTERNAL ERROR: no visitor for node type `%s'" %
-                        (node.__class__.__name__))
+        raise Exception(
+            "INTERNAL ERROR: no visitor for node type `%s'" % (node.__class__.__name__)
+        )
 
     def visitTranslationUnit(self, tu):
         for cxxInc in tu.cxxIncludes:
@@ -88,19 +93,19 @@ class Visitor:
 
 
 class Loc:
-    def __init__(self, filename='<??>', lineno=0):
+    def __init__(self, filename="<??>", lineno=0):
         assert filename
         self.filename = filename
         self.lineno = lineno
 
     def __repr__(self):
-        return '%r:%r' % (self.filename, self.lineno)
+        return "%r:%r" % (self.filename, self.lineno)
 
     def __str__(self):
-        return '%s:%s' % (self.filename, self.lineno)
+        return "%s:%s" % (self.filename, self.lineno)
 
 
-Loc.NONE = Loc(filename='<??>', lineno=0)
+Loc.NONE = Loc(filename="<??>", lineno=0)
 
 
 class _struct:
@@ -112,9 +117,9 @@ class Node:
         self.loc = loc
 
     def accept(self, visitor):
-        visit = getattr(visitor, 'visit' + self.__class__.__name__, None)
+        visit = getattr(visitor, "visit" + self.__class__.__name__, None)
         if visit is None:
-            return getattr(visitor, 'defaultVisit')(self)
+            return getattr(visitor, "defaultVisit")(self)
         return visit(self)
 
     def addAttrs(self, attrsName):
@@ -132,8 +137,7 @@ class NamespacedNode(Node):
         self.namespaces.insert(0, namespace)
 
     def qname(self):
-        return QualifiedId(self.loc, self.name,
-                           [ns.name for ns in self.namespaces])
+        return QualifiedId(self.loc, self.name, [ns.name for ns in self.namespaces])
 
 
 class TranslationUnit(NamespacedNode):
@@ -148,17 +152,23 @@ class TranslationUnit(NamespacedNode):
         self.structsAndUnions = []
         self.protocol = None
 
-    def addCxxInclude(self, cxxInclude): self.cxxIncludes.append(cxxInclude)
+    def addCxxInclude(self, cxxInclude):
+        self.cxxIncludes.append(cxxInclude)
 
-    def addInclude(self, inc): self.includes.append(inc)
+    def addInclude(self, inc):
+        self.includes.append(inc)
 
-    def addStructDecl(self, struct): self.structsAndUnions.append(struct)
+    def addStructDecl(self, struct):
+        self.structsAndUnions.append(struct)
 
-    def addUnionDecl(self, union): self.structsAndUnions.append(union)
+    def addUnionDecl(self, union):
+        self.structsAndUnions.append(union)
 
-    def addUsingStmt(self, using): self.using.append(using)
+    def addUsingStmt(self, using):
+        self.using.append(using)
 
-    def setProtocol(self, protocol): self.protocol = protocol
+    def setProtocol(self, protocol):
+        self.protocol = protocol
 
 
 class CxxInclude(Node):
@@ -170,19 +180,26 @@ class CxxInclude(Node):
 class Include(Node):
     def __init__(self, loc, type, name):
         Node.__init__(self, loc)
-        suffix = 'ipdl'
-        if type == 'header':
-            suffix += 'h'
+        suffix = "ipdl"
+        if type == "header":
+            suffix += "h"
         self.file = "%s.%s" % (name, suffix)
 
 
 class UsingStmt(Node):
-    def __init__(self, loc, cxxTypeSpec, cxxHeader=None, kind=None,
-                 refcounted=False, moveonly=False):
+    def __init__(
+        self,
+        loc,
+        cxxTypeSpec,
+        cxxHeader=None,
+        kind=None,
+        refcounted=False,
+        moveonly=False,
+    ):
         Node.__init__(self, loc)
         assert not isinstance(cxxTypeSpec, str)
         assert cxxHeader is None or isinstance(cxxHeader, str)
-        assert kind is None or kind == 'class' or kind == 'struct'
+        assert kind is None or kind == "class" or kind == "struct"
         self.type = cxxTypeSpec
         self.header = cxxHeader
         self.kind = kind
@@ -193,10 +210,10 @@ class UsingStmt(Node):
         return self.isClass() or self.isStruct()
 
     def isClass(self):
-        return self.kind == 'class'
+        return self.kind == "class"
 
     def isStruct(self):
-        return self.kind == 'struct'
+        return self.kind == "struct"
 
     def isRefcounted(self):
         return self.refcounted
@@ -204,39 +221,46 @@ class UsingStmt(Node):
     def isMoveonly(self):
         return self.moveonly
 
+
 # "singletons"
 
 
 class PrettyPrinted:
     @classmethod
-    def __hash__(cls): return hash(cls.pretty)
+    def __hash__(cls):
+        return hash_str(cls.pretty)
 
     @classmethod
-    def __str__(cls): return cls.pretty
+    def __str__(cls):
+        return cls.pretty
 
 
 class ASYNC(PrettyPrinted):
-    pretty = 'async'
+    pretty = "async"
+
+
+class TAINTED(PrettyPrinted):
+    pretty = "tainted"
 
 
 class INTR(PrettyPrinted):
-    pretty = 'intr'
+    pretty = "intr"
 
 
 class SYNC(PrettyPrinted):
-    pretty = 'sync'
+    pretty = "sync"
 
 
 class INOUT(PrettyPrinted):
-    pretty = 'inout'
+    pretty = "inout"
 
 
 class IN(PrettyPrinted):
-    pretty = 'in'
+    pretty = "in"
 
 
 class OUT(PrettyPrinted):
-    pretty = 'out'
+    pretty = "out"
 
 
 class Namespace(Node):
@@ -263,15 +287,22 @@ class StructField(Node):
 
 
 class StructDecl(NamespacedNode):
-    def __init__(self, loc, name, fields):
+    def __init__(self, loc, name, fields, comparable):
         NamespacedNode.__init__(self, loc, name)
         self.fields = fields
+        self.comparable = comparable
+        # A list of indices into `fields` for determining the order in
+        # which fields are laid out in memory.  We don't just reorder
+        # `fields` itself so as to keep the ordering reasonably stable
+        # for e.g. C++ constructors when new fields are added.
+        self.packed_field_ordering = []
 
 
 class UnionDecl(NamespacedNode):
-    def __init__(self, loc, name, components):
+    def __init__(self, loc, name, components, comparable):
         NamespacedNode.__init__(self, loc, name)
         self.components = components
+        self.comparable = comparable
 
 
 class Manager(Node):
@@ -296,8 +327,9 @@ class MessageDecl(Node):
         self.direction = None
         self.inParams = []
         self.outParams = []
-        self.compress = ''
-        self.verify = ''
+        self.compress = ""
+        self.tainted = ""
+        self.verify = ""
 
     def addInParams(self, inParamsList):
         self.inParams += inParamsList
@@ -307,11 +339,13 @@ class MessageDecl(Node):
 
     def addModifiers(self, modifiers):
         for modifier in modifiers:
-            if modifier.startswith('compress'):
+            if modifier.startswith("compress"):
                 self.compress = modifier
-            elif modifier == 'verify':
+            elif modifier == "verify":
                 self.verify = modifier
-            elif modifier != '':
+            elif modifier.startswith("tainted"):
+                self.tainted = modifier
+            elif modifier != "":
                 raise Exception("Unexpected message modifier `%s'" % modifier)
 
 
@@ -325,18 +359,20 @@ class Param(Node):
 class TypeSpec(Node):
     def __init__(self, loc, spec):
         Node.__init__(self, loc)
-        self.spec = spec                # QualifiedId
-        self.array = 0                  # bool
-        self.nullable = 0               # bool
-        self.uniqueptr = 0              # bool
+        self.spec = spec  # QualifiedId
+        self.array = False  # bool
+        self.maybe = False  # bool
+        self.nullable = False  # bool
+        self.uniqueptr = False  # bool
 
     def basename(self):
         return self.spec.baseid
 
-    def __str__(self): return str(self.spec)
+    def __str__(self):
+        return str(self.spec)
 
 
-class QualifiedId:              # FIXME inherit from node?
+class QualifiedId:  # FIXME inherit from node?
     def __init__(self, loc, baseid, quals=[]):
         assert isinstance(baseid, str)
         for qual in quals:
@@ -353,7 +389,8 @@ class QualifiedId:              # FIXME inherit from node?
     def __str__(self):
         if 0 == len(self.quals):
             return self.baseid
-        return '::'.join(self.quals) + '::' + self.baseid
+        return "::".join(self.quals) + "::" + self.baseid
+
 
 # added by type checking passes
 
@@ -361,9 +398,9 @@ class QualifiedId:              # FIXME inherit from node?
 class Decl(Node):
     def __init__(self, loc):
         Node.__init__(self, loc)
-        self.progname = None    # what the programmer typed, if relevant
-        self.shortname = None   # shortest way to refer to this decl
-        self.fullname = None    # full way to refer to this decl
+        self.progname = None  # what the programmer typed, if relevant
+        self.shortname = None  # shortest way to refer to this decl
+        self.fullname = None  # full way to refer to this decl
         self.loc = loc
         self.type = None
         self.scope = None

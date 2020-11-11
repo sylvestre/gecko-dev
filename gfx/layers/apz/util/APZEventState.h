@@ -11,8 +11,9 @@
 
 #include "Units.h"
 #include "mozilla/EventForwards.h"
-#include "mozilla/layers/GeckoContentController.h"  // for APZStateChange
-#include "mozilla/layers/ScrollableLayerGuid.h"     // for ScrollableLayerGuid
+#include "mozilla/layers/GeckoContentControllerTypes.h"  // for APZStateChange
+#include "mozilla/layers/ScrollableLayerGuid.h"  // for ScrollableLayerGuid
+#include "mozilla/layers/TouchCounter.h"         // for TouchCounter
 #include "mozilla/RefPtr.h"
 #include "nsCOMPtr.h"
 #include "nsISupportsImpl.h"        // for NS_INLINE_DECL_REFCOUNTING
@@ -23,17 +24,17 @@
 template <class>
 class nsCOMPtr;
 class nsIContent;
-class nsIDocument;
-class nsIPresShell;
 class nsIWidget;
 
 namespace mozilla {
+
+class PresShell;
+
 namespace layers {
 
 class ActiveElementManager;
 
-typedef std::function<void(const ScrollableLayerGuid&,
-                           uint64_t /* input block id */,
+typedef std::function<void(uint64_t /* input block id */,
                            bool /* prevent default */)>
     ContentReceivedInputBlockCallback;
 
@@ -41,8 +42,8 @@ typedef std::function<void(const ScrollableLayerGuid&,
  * A content-side component that keeps track of state for handling APZ
  * gestures and sending APZ notifications.
  */
-class APZEventState {
-  typedef GeckoContentController::APZStateChange APZStateChange;
+class APZEventState final {
+  typedef GeckoContentController_APZStateChange APZStateChange;
   typedef ScrollableLayerGuid::ViewID ViewID;
 
  public:
@@ -53,28 +54,23 @@ class APZEventState {
 
   void ProcessSingleTap(const CSSPoint& aPoint,
                         const CSSToLayoutDeviceScale& aScale,
-                        Modifiers aModifiers, const ScrollableLayerGuid& aGuid,
-                        int32_t aClickCount);
+                        Modifiers aModifiers, int32_t aClickCount);
   MOZ_CAN_RUN_SCRIPT
-  void ProcessLongTap(const nsCOMPtr<nsIPresShell>& aUtils,
-                      const CSSPoint& aPoint,
+  void ProcessLongTap(PresShell* aPresShell, const CSSPoint& aPoint,
                       const CSSToLayoutDeviceScale& aScale,
-                      Modifiers aModifiers, const ScrollableLayerGuid& aGuid,
-                      uint64_t aInputBlockId);
+                      Modifiers aModifiers, uint64_t aInputBlockId);
   MOZ_CAN_RUN_SCRIPT
-  void ProcessLongTapUp(const nsCOMPtr<nsIPresShell>& aPresShell,
-                        const CSSPoint& aPoint,
+  void ProcessLongTapUp(PresShell* aPresShell, const CSSPoint& aPoint,
                         const CSSToLayoutDeviceScale& aScale,
                         Modifiers aModifiers);
   void ProcessTouchEvent(const WidgetTouchEvent& aEvent,
                          const ScrollableLayerGuid& aGuid,
                          uint64_t aInputBlockId, nsEventStatus aApzResponse,
-                         nsEventStatus aContentResponse);
+                         nsEventStatus aContentResponse,
+                         nsTArray<TouchBehaviorFlags>&& aAllowedTouchBehaviors);
   void ProcessWheelEvent(const WidgetWheelEvent& aEvent,
-                         const ScrollableLayerGuid& aGuid,
                          uint64_t aInputBlockId);
   void ProcessMouseEvent(const WidgetMouseEvent& aEvent,
-                         const ScrollableLayerGuid& aGuid,
                          uint64_t aInputBlockId);
   void ProcessAPZStateChange(ViewID aViewId, APZStateChange aChange, int aArg);
   void ProcessClusterHit();
@@ -83,24 +79,27 @@ class APZEventState {
   ~APZEventState();
   bool SendPendingTouchPreventedResponse(bool aPreventDefault);
   MOZ_CAN_RUN_SCRIPT
-  bool FireContextmenuEvents(const nsCOMPtr<nsIPresShell>& aPresShell,
-                             const CSSPoint& aPoint,
+  bool FireContextmenuEvents(PresShell* aPresShell, const CSSPoint& aPoint,
                              const CSSToLayoutDeviceScale& aScale,
                              Modifiers aModifiers,
                              const nsCOMPtr<nsIWidget>& aWidget);
   already_AddRefed<nsIWidget> GetWidget() const;
   already_AddRefed<nsIContent> GetTouchRollup() const;
+  bool MainThreadAgreesEventsAreConsumableByAPZ() const;
 
  private:
   nsWeakPtr mWidget;
   RefPtr<ActiveElementManager> mActiveElementManager;
   ContentReceivedInputBlockCallback mContentReceivedInputBlockCallback;
+  TouchCounter mTouchCounter;
   bool mPendingTouchPreventedResponse;
   ScrollableLayerGuid mPendingTouchPreventedGuid;
   uint64_t mPendingTouchPreventedBlockId;
   bool mEndTouchIsClick;
+  bool mFirstTouchCancelled;
   bool mTouchEndCancelled;
   int32_t mLastTouchIdentifier;
+  nsTArray<TouchBehaviorFlags> mTouchBlockAllowedBehaviors;
 
   // Because touch-triggered mouse events (e.g. mouse events from a tap
   // gesture) happen asynchronously from the touch events themselves, we

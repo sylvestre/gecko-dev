@@ -7,16 +7,24 @@
 #ifndef mozilla_dom_AnonymousContent_h
 #define mozilla_dom_AnonymousContent_h
 
-#include "mozilla/dom/Element.h"
 #include "nsCycleCollectionParticipant.h"
-#include "nsICSSDeclaration.h"
-#include "nsIDocument.h"
+
+class nsIPrincipal;
 
 namespace mozilla {
+class ErrorResult;
+
 namespace dom {
 
+class Animation;
+class DOMRect;
+class DOMString;
 class Element;
+class Event;
+template <typename T>
+class Sequence;
 class UnrestrictedDoubleOrAnonymousKeyframeAnimationOptions;
+class UnrestrictedDoubleOrKeyframeAnimationOptions;
 
 class AnonymousContent final {
  public:
@@ -65,8 +73,13 @@ class AnonymousContent final {
                                 ErrorResult& aError);
 
   void GetComputedStylePropertyValue(const nsAString& aElementId,
-                                     const nsAString& aPropertyName,
+                                     const nsACString& aPropertyName,
                                      DOMString& aResult, ErrorResult& aRv);
+
+  void GetTargetIdForEvent(Event& aEvent, DOMString& aResult);
+
+  void SetStyle(const nsACString& aProperty, const nsACString& aValue,
+                ErrorResult& aRv);
 
  private:
   ~AnonymousContent();

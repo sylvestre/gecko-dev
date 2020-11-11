@@ -12,7 +12,7 @@ async function createTabWithRandomValue(url) {
   // Flush to ensure there are no scheduled messages.
   await TabStateFlusher.flush(browser);
 
-  return {tab, r};
+  return { tab, r };
 }
 
 function isValueInClosedData(rval) {
@@ -32,12 +32,26 @@ function restoreClosedTabWithValue(rval) {
   return ss.undoCloseTab(window, index);
 }
 
-function promiseNewLocationAndHistoryEntryReplaced(browser, snippet) {
-  return ContentTask.spawn(browser, snippet, async function(codeSnippet) {
+function promiseNewLocationAndHistoryEntryReplaced(tab, snippet) {
+  let browser = tab.linkedBrowser;
+
+  if (SpecialPowers.Services.appinfo.sessionHistoryInParent) {
+    SpecialPowers.spawn(browser, [snippet], async function(codeSnippet) {
+      // Need to define 'webNavigation' for 'codeSnippet'
+      // eslint-disable-next-line no-unused-vars
+      let webNavigation = docShell.QueryInterface(Ci.nsIWebNavigation);
+      // Evaluate the snippet that changes the location.
+      // eslint-disable-next-line no-eval
+      eval(codeSnippet);
+    });
+    return promiseOnHistoryReplaceEntry(tab);
+  }
+
+  return SpecialPowers.spawn(browser, [snippet], async function(codeSnippet) {
     let webNavigation = docShell.QueryInterface(Ci.nsIWebNavigation);
     let shistory = webNavigation.sessionHistory.legacySHistory;
 
-    // Evaluate the snippet that the changes the location.
+    // Evaluate the snippet that changes the location.
     // eslint-disable-next-line no-eval
     eval(codeSnippet);
 
@@ -49,25 +63,27 @@ function promiseNewLocationAndHistoryEntryReplaced(browser, snippet) {
         },
 
         QueryInterface: ChromeUtils.generateQI([
-          Ci.nsISHistoryListener,
-          Ci.nsISupportsWeakReference,
+          "nsISHistoryListener",
+          "nsISupportsWeakReference",
         ]),
       };
 
       shistory.addSHistoryListener(listener);
 
       /* Keep the weak shistory listener alive. */
-      addEventListener("unload", function() {
+      docShell.chromeEventHandler.addEventListener("unload", function() {
         try {
           shistory.removeSHistoryListener(listener);
-        } catch (e) { /* Will most likely fail. */ }
+        } catch (e) {
+          /* Will most likely fail. */
+        }
       });
     });
   });
 }
 
 add_task(async function dont_save_empty_tabs() {
-  let {tab, r} = await createTabWithRandomValue("about:blank");
+  let { tab, r } = await createTabWithRandomValue("about:blank");
 
   // Remove the tab before the update arrives.
   let promise = promiseRemoveTabAndSessionState(tab);
@@ -81,7 +97,7 @@ add_task(async function dont_save_empty_tabs() {
 });
 
 add_task(async function save_worthy_tabs_remote() {
-  let {tab, r} = await createTabWithRandomValue("https://example.com/");
+  let { tab, r } = await createTabWithRandomValue("https://example.com/");
   ok(tab.linkedBrowser.isRemoteBrowser, "browser is remote");
 
   // Remove the tab before the update arrives.
@@ -96,7 +112,7 @@ add_task(async function save_worthy_tabs_remote() {
 });
 
 add_task(async function save_worthy_tabs_nonremote() {
-  let {tab, r} = await createTabWithRandomValue("about:robots");
+  let { tab, r } = await createTabWithRandomValue("about:robots");
   ok(!tab.linkedBrowser.isRemoteBrowser, "browser is not remote");
 
   // Remove the tab before the update arrives.
@@ -111,15 +127,15 @@ add_task(async function save_worthy_tabs_nonremote() {
 });
 
 add_task(async function save_worthy_tabs_remote_final() {
-  let {tab, r} = await createTabWithRandomValue("about:blank");
+  let { tab, r } = await createTabWithRandomValue("about:blank");
   let browser = tab.linkedBrowser;
   ok(browser.isRemoteBrowser, "browser is remote");
 
   // Replace about:blank with a new remote page.
-  let snippet = 'webNavigation.loadURI("https://example.com/",\
-                                       null, null, null, null,\
-                                       Services.scriptSecurityManager.getSystemPrincipal())';
-  await promiseNewLocationAndHistoryEntryReplaced(browser, snippet);
+  let snippet =
+    'webNavigation.loadURI("https://example.com/",\
+    {triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal()})';
+  await promiseNewLocationAndHistoryEntryReplaced(tab, snippet);
 
   // Remotness shouldn't have changed.
   ok(browser.isRemoteBrowser, "browser is still remote");
@@ -136,7 +152,7 @@ add_task(async function save_worthy_tabs_remote_final() {
 });
 
 add_task(async function save_worthy_tabs_nonremote_final() {
-  let {tab, r} = await createTabWithRandomValue("about:blank");
+  let { tab, r } = await createTabWithRandomValue("about:blank");
   let browser = tab.linkedBrowser;
   ok(browser.isRemoteBrowser, "browser is remote");
 
@@ -161,12 +177,11 @@ add_task(async function save_worthy_tabs_nonremote_final() {
 });
 
 add_task(async function dont_save_empty_tabs_final() {
-  let {tab, r} = await createTabWithRandomValue("https://example.com/");
-  let browser = tab.linkedBrowser;
+  let { tab, r } = await createTabWithRandomValue("https://example.com/");
 
   // Replace the current page with an about:blank entry.
   let snippet = 'content.location.replace("about:blank")';
-  await promiseNewLocationAndHistoryEntryReplaced(browser, snippet);
+  await promiseNewLocationAndHistoryEntryReplaced(tab, snippet);
 
   // Remove the tab before the update arrives.
   let promise = promiseRemoveTabAndSessionState(tab);
@@ -180,7 +195,7 @@ add_task(async function dont_save_empty_tabs_final() {
 });
 
 add_task(async function undo_worthy_tabs() {
-  let {tab, r} = await createTabWithRandomValue("https://example.com/");
+  let { tab, r } = await createTabWithRandomValue("https://example.com/");
   ok(tab.linkedBrowser.isRemoteBrowser, "browser is remote");
 
   // Remove the tab before the update arrives.
@@ -203,7 +218,7 @@ add_task(async function undo_worthy_tabs() {
 });
 
 add_task(async function forget_worthy_tabs_remote() {
-  let {tab, r} = await createTabWithRandomValue("https://example.com/");
+  let { tab, r } = await createTabWithRandomValue("https://example.com/");
   ok(tab.linkedBrowser.isRemoteBrowser, "browser is remote");
 
   // Remove the tab before the update arrives.

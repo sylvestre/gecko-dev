@@ -1,11 +1,7 @@
 "use strict";
 
 module.exports = {
-  "extends": [
-    "plugin:mozilla/mochitest-test"
-  ],
-
-  "rules": {
-    "no-eval": "off"
+  rules: {
+    "no-eval": "off",
   },
 };

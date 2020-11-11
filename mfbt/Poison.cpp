@@ -13,24 +13,18 @@
 
 #include "mozilla/Assertions.h"
 #ifdef _WIN32
-#include <windows.h>
+#  include <windows.h>
 #elif !defined(__OS2__)
-#include <unistd.h>
-#include <sys/mman.h>
-#ifndef MAP_ANON
-#ifdef MAP_ANONYMOUS
-#define MAP_ANON MAP_ANONYMOUS
-#else
-#error "Don't know how to get anonymous memory"
+#  include <unistd.h>
+#  include <sys/mman.h>
+#  ifndef MAP_ANON
+#    ifdef MAP_ANONYMOUS
+#      define MAP_ANON MAP_ANONYMOUS
+#    else
+#      error "Don't know how to get anonymous memory"
+#    endif
+#  endif
 #endif
-#endif
-#endif
-
-extern "C" {
-uintptr_t gMozillaPoisonValue;
-uintptr_t gMozillaPoisonBase;
-uintptr_t gMozillaPoisonSize;
-}
 
 // Freed memory is filled with a poison value, which we arrange to
 // form a pointer either to an always-unmapped region of the address
@@ -66,7 +60,7 @@ static uintptr_t GetDesiredRegionSize() {
   return sinfo.dwAllocationGranularity;
 }
 
-#define RESERVE_FAILED 0
+#  define RESERVE_FAILED 0
 
 #elif defined(__OS2__)
 static void* ReserveRegion(uintptr_t aRegion, uintptr_t aSize) {
@@ -88,11 +82,11 @@ static uintptr_t GetDesiredRegionSize() {
   return 0x1000;
 }
 
-#define RESERVE_FAILED 0
+#  define RESERVE_FAILED 0
 
 #else  // Unix
 
-#include "mozilla/TaggedAnonymousMemory.h"
+#  include "mozilla/TaggedAnonymousMemory.h"
 
 static void* ReserveRegion(uintptr_t aRegion, uintptr_t aSize) {
   return MozTaggedAnonymousMmap(reinterpret_cast<void*>(aRegion), aSize,
@@ -105,12 +99,12 @@ static void ReleaseRegion(void* aRegion, uintptr_t aSize) {
 }
 
 static bool ProbeRegion(uintptr_t aRegion, uintptr_t aSize) {
-#ifdef XP_SOLARIS
+#  ifdef XP_SOLARIS
   if (posix_madvise(reinterpret_cast<void*>(aRegion), aSize,
                     POSIX_MADV_NORMAL)) {
-#else
+#  else
   if (madvise(reinterpret_cast<void*>(aRegion), aSize, MADV_NORMAL)) {
-#endif
+#  endif
     return true;
   } else {
     return false;
@@ -119,12 +113,12 @@ static bool ProbeRegion(uintptr_t aRegion, uintptr_t aSize) {
 
 static uintptr_t GetDesiredRegionSize() { return sysconf(_SC_PAGESIZE); }
 
-#define RESERVE_FAILED MAP_FAILED
+#  define RESERVE_FAILED MAP_FAILED
 
 #endif  // system dependencies
 
-static_assert(sizeof(uintptr_t) == 4 || sizeof(uintptr_t) == 8, "");
-static_assert(sizeof(uintptr_t) == sizeof(void*), "");
+static_assert((sizeof(uintptr_t) == 4 || sizeof(uintptr_t) == 8) &&
+              (sizeof(uintptr_t) == sizeof(void*)));
 
 static uintptr_t ReservePoisonArea(uintptr_t rgnsize) {
   if (sizeof(uintptr_t) == 8) {
@@ -169,12 +163,23 @@ static uintptr_t ReservePoisonArea(uintptr_t rgnsize) {
   MOZ_CRASH("no usable poison region identified");
 }
 
-void mozPoisonValueInit() {
-  gMozillaPoisonSize = GetDesiredRegionSize();
-  gMozillaPoisonBase = ReservePoisonArea(gMozillaPoisonSize);
-
-  if (gMozillaPoisonSize == 0) {  // can't happen
-    return;
+static uintptr_t GetPoisonValue(uintptr_t aBase, uintptr_t aSize) {
+  if (aSize == 0) {  // can't happen
+    return 0;
   }
-  gMozillaPoisonValue = gMozillaPoisonBase + gMozillaPoisonSize / 2 - 1;
+  return aBase + aSize / 2 - 1;
+}
+
+// Poison is used so pervasively throughout the codebase that we decided it was
+// best to actually use ordered dynamic initialization of globals (AKA static
+// constructors) for this. This way everything will have properly initialized
+// poison -- except other dynamic initialization code in libmozglue, which there
+// shouldn't be much of. (libmozglue is one of the first things loaded, and
+// specifically comes before libxul, so nearly all gecko code runs strictly
+// after this.)
+extern "C" {
+uintptr_t gMozillaPoisonSize = GetDesiredRegionSize();
+uintptr_t gMozillaPoisonBase = ReservePoisonArea(gMozillaPoisonSize);
+uintptr_t gMozillaPoisonValue =
+    GetPoisonValue(gMozillaPoisonBase, gMozillaPoisonSize);
 }

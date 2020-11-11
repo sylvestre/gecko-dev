@@ -1,7 +1,7 @@
 // |jit-test| error: TestComplete
 // onPop fires when frames are terminated.
 
-var g = newGlobal();
+var g = newGlobal({newCompartment: true});
 var dbg = new Debugger(g);
 
 // We use Debugger.Frame.prototype.eval and ignore the outer 'eval' frame so we 
@@ -9,8 +9,8 @@ var dbg = new Debugger(g);
 
 function test(type, provocation) {
     // Help people figure out which 'test' call failed.
-    print("type:        " + uneval(type));
-    print("provocation: " + uneval(provocation));
+    print("type:        " + JSON.stringify(type));
+    print("provocation: " + JSON.stringify(provocation));
 
     var log;
     dbg.onEnterFrame = function handleFirstFrame(f) {

@@ -5,9 +5,14 @@
 
 "use strict";
 
-const { EVENTS } = require("../constants");
+const {
+  EVENTS,
+  TEST_EVENTS,
+} = require("devtools/client/netmonitor/src/constants");
 const { CurlUtils } = require("devtools/client/shared/curl");
-const { fetchHeaders } = require("../utils/request-utils");
+const {
+  fetchHeaders,
+} = require("devtools/client/netmonitor/src/utils/request-utils");
 
 /**
  * This object is responsible for fetching additional HTTP
@@ -21,19 +26,25 @@ class FirefoxDataProvider {
   /**
    * Constructor for data provider
    *
-   * @param {Object} webConcoleClient represents the client object for Console actor.
-   * @param {Object} actions set of actions fired during data fetching process
-   * @params {Object} owner all events are fired on this object
+   * @param {Object} webConsoleFront represents the client object for Console actor.
+   * @param {Object} actions set of actions fired during data fetching process.
+   * @param {Object} owner all events are fired on this object.
+   * @param {Object} resourceWatcher enables checking for watcher support
    */
-  constructor({webConsoleClient, actions, owner}) {
+  constructor({ webConsoleFront, actions, owner, resourceWatcher }) {
     // Options
-    this.webConsoleClient = webConsoleClient;
+    this.webConsoleFront = webConsoleFront;
     this.actions = actions || {};
     this.actionsEnabled = true;
     this.owner = owner;
+    this.resourceWatcher = resourceWatcher;
+    // Map of all stacktrace resources keyed by network event's resourceId
+    this.stackTraces = new Map();
+    // Map of the stacktrace information keyed by the actor id's
+    this.stackTraceRequestInfoByActorID = new Map();
 
-    // Internal properties
-    this.payloadQueue = new Map();
+    // For tracking unfinished requests
+    this.pendingRequests = new Set();
 
     // Map[key string => Promise] used by `requestData` to prevent requesting the same
     // request data twice.
@@ -43,8 +54,21 @@ class FirefoxDataProvider {
     this.getLongString = this.getLongString.bind(this);
 
     // Event handlers
-    this.onNetworkEvent = this.onNetworkEvent.bind(this);
-    this.onNetworkEventUpdate = this.onNetworkEventUpdate.bind(this);
+    this.onNetworkResourceAvailable = this.onNetworkResourceAvailable.bind(
+      this
+    );
+    this.onNetworkResourceUpdated = this.onNetworkResourceUpdated.bind(this);
+
+    this.onWebSocketOpened = this.onWebSocketOpened.bind(this);
+    this.onWebSocketClosed = this.onWebSocketClosed.bind(this);
+    this.onFrameSent = this.onFrameSent.bind(this);
+    this.onFrameReceived = this.onFrameReceived.bind(this);
+
+    this.onEventSourceConnectionClosed = this.onEventSourceConnectionClosed.bind(
+      this
+    );
+    this.onEventReceived = this.onEventReceived.bind(this);
+    this.setEventStreamFlag = this.setEventStreamFlag.bind(this);
   }
 
   /**
@@ -60,40 +84,14 @@ class FirefoxDataProvider {
    * Add a new network request to application state.
    *
    * @param {string} id request id
-   * @param {object} data data payload will be added to application state
+   * @param {object} resource resource payload will be added to application state
    */
-  async addRequest(id, data) {
-    const {
-      method,
-      url,
-      isXHR,
-      cause,
-      startedDateTime,
-      fromCache,
-      fromServiceWorker,
-      isThirdPartyTrackingResource,
-      referrerPolicy,
-    } = data;
+  async addRequest(id, resource) {
+    // Add to the pending requests which helps when deciding if the request is complete.
+    this.pendingRequests.add(id);
 
     if (this.actionsEnabled && this.actions.addRequest) {
-      await this.actions.addRequest(id, {
-        // Convert the received date/time string to a unix timestamp.
-        startedMillis: Date.parse(startedDateTime),
-        method,
-        url,
-        isXHR,
-        cause,
-
-        // Compatibility code to support Firefox 58 and earlier that always
-        // send stack-trace immediately on networkEvent message.
-        // FF59+ supports fetching the traces lazily via requestData.
-        stacktrace: cause.stacktrace,
-
-        fromCache,
-        fromServiceWorker,
-        isThirdPartyTrackingResource,
-        referrerPolicy,
-      }, true);
+      await this.actions.addRequest(id, resource, true);
     }
 
     this.emit(EVENTS.REQUEST_ADDED, id);
@@ -135,7 +133,8 @@ class FirefoxDataProvider {
       this.fetchResponseCache(responseCache),
     ]);
 
-    const payload = Object.assign({},
+    const payload = Object.assign(
+      {},
       data,
       responseContentObj,
       requestHeadersObj,
@@ -143,7 +142,7 @@ class FirefoxDataProvider {
       postDataObj,
       requestCookiesObj,
       responseCookiesObj,
-      responseCacheObj,
+      responseCacheObj
     );
 
     if (this.actionsEnabled && this.actions.updateRequest) {
@@ -155,7 +154,7 @@ class FirefoxDataProvider {
 
   async fetchResponseContent(responseContent) {
     const payload = {};
-    if (responseContent && responseContent.content) {
+    if (responseContent?.content) {
       const { text } = responseContent.content;
       const response = await this.getLongString(text);
       responseContent.content.text = response;
@@ -166,7 +165,7 @@ class FirefoxDataProvider {
 
   async fetchRequestHeaders(requestHeaders) {
     const payload = {};
-    if (requestHeaders && requestHeaders.headers && requestHeaders.headers.length) {
+    if (requestHeaders?.headers?.length) {
       const headers = await fetchHeaders(requestHeaders, this.getLongString);
       if (headers) {
         payload.requestHeaders = headers;
@@ -177,7 +176,7 @@ class FirefoxDataProvider {
 
   async fetchResponseHeaders(responseHeaders) {
     const payload = {};
-    if (responseHeaders && responseHeaders.headers && responseHeaders.headers.length) {
+    if (responseHeaders?.headers?.length) {
       const headers = await fetchHeaders(responseHeaders, this.getLongString);
       if (headers) {
         payload.responseHeaders = headers;
@@ -188,7 +187,7 @@ class FirefoxDataProvider {
 
   async fetchPostData(requestPostData) {
     const payload = {};
-    if (requestPostData && requestPostData.postData) {
+    if (requestPostData?.postData) {
       const { text } = requestPostData.postData;
       const postData = await this.getLongString(text);
       const headers = CurlUtils.getHeadersFromMultipartText(postData);
@@ -213,14 +212,17 @@ class FirefoxDataProvider {
     if (requestCookies) {
       const reqCookies = [];
       // request store cookies in requestCookies or requestCookies.cookies
-      const cookies = requestCookies.cookies ?
-        requestCookies.cookies : requestCookies;
+      const cookies = requestCookies.cookies
+        ? requestCookies.cookies
+        : requestCookies;
       // make sure cookies is iterable
       if (typeof cookies[Symbol.iterator] === "function") {
         for (const cookie of cookies) {
-          reqCookies.push(Object.assign({}, cookie, {
-            value: await this.getLongString(cookie.value),
-          }));
+          reqCookies.push(
+            Object.assign({}, cookie, {
+              value: await this.getLongString(cookie.value),
+            })
+          );
         }
         if (reqCookies.length) {
           payload.requestCookies = reqCookies;
@@ -235,14 +237,17 @@ class FirefoxDataProvider {
     if (responseCookies) {
       const resCookies = [];
       // response store cookies in responseCookies or responseCookies.cookies
-      const cookies = responseCookies.cookies ?
-        responseCookies.cookies : responseCookies;
+      const cookies = responseCookies.cookies
+        ? responseCookies.cookies
+        : responseCookies;
       // make sure cookies is iterable
       if (typeof cookies[Symbol.iterator] === "function") {
         for (const cookie of cookies) {
-          resCookies.push(Object.assign({}, cookie, {
-            value: await this.getLongString(cookie.value),
-          }));
+          resCookies.push(
+            Object.assign({}, cookie, {
+              value: await this.getLongString(cookie.value),
+            })
+          );
         }
         if (resCookies.length) {
           payload.responseCookies = resCookies;
@@ -264,35 +269,10 @@ class FirefoxDataProvider {
   /**
    * Public API used by the Toolbox: Tells if there is still any pending request.
    *
-   * @return {boolean} returns true if the payload queue is empty
+   * @return {boolean} returns true if pending requests still exist in the queue.
    */
-  isPayloadQueueEmpty() {
-    return this.payloadQueue.size === 0;
-  }
-
-  /**
-   * Merge upcoming networkEventUpdate payload into existing one.
-   *
-   * @param {string} id request actor id
-   * @param {object} payload request data payload
-   */
-  pushRequestToQueue(id, payload) {
-    let payloadFromQueue = this.payloadQueue.get(id);
-    if (!payloadFromQueue) {
-      payloadFromQueue = {};
-      this.payloadQueue.set(id, payloadFromQueue);
-    }
-    Object.assign(payloadFromQueue, payload);
-  }
-
-  /**
-   * Fetches the network information packet from actor server
-   *
-   * @param {string} id request id
-   * @return {object} networkInfo data packet
-   */
-  getNetworkRequest(id) {
-    return this.webConsoleClient.getNetworkRequest(id);
+  hasPendingRequests() {
+    return this.pendingRequests.size > 0;
   }
 
   /**
@@ -307,124 +287,154 @@ class FirefoxDataProvider {
    *         are available, or rejected if something goes wrong.
    */
   getLongString(stringGrip) {
-    return this.webConsoleClient.getString(stringGrip);
-  }
-
-  /**
-   * The "networkEvent" message type handler.
-   *
-   * @param {object} networkInfo network request information
-   */
-  async onNetworkEvent(networkInfo) {
-    const {
-      actor,
-      cause,
-      fromCache,
-      fromServiceWorker,
-      isXHR,
-      request: {
-        method,
-        url,
-      },
-      startedDateTime,
-      isThirdPartyTrackingResource,
-      referrerPolicy,
-    } = networkInfo;
-
-    await this.addRequest(actor, {
-      cause,
-      fromCache,
-      fromServiceWorker,
-      isXHR,
-      method,
-      startedDateTime,
-      url,
-      isThirdPartyTrackingResource,
-      referrerPolicy,
+    return this.webConsoleFront.getString(stringGrip).then(payload => {
+      this.emitForTests(TEST_EVENTS.LONGSTRING_RESOLVED, { payload });
+      return payload;
     });
-
-    this.emit(EVENTS.NETWORK_EVENT, actor);
   }
 
   /**
-   * The "networkEventUpdate" message type handler.
+   * Retrieve the stack-trace information for the given StackTracesActor.
    *
-   * @param {object} packet the message received from the server.
-   * @param {object} networkInfo the network request information.
+   * @param object actor
+   *        - {Object} targetFront: the target front.
+   *
+   *        - {String} resourceId: the resource id for the network request".
+   * @return {object}
    */
-  onNetworkEventUpdate(data) {
-    const { packet, networkInfo } = data;
-    const { actor } = networkInfo;
-    const { updateType } = packet;
-
-    switch (updateType) {
-      case "securityInfo":
-        this.pushRequestToQueue(actor, {
-          securityState: networkInfo.securityState,
-        });
-        break;
-      case "responseStart":
-        this.pushRequestToQueue(actor, {
-          httpVersion: networkInfo.response.httpVersion,
-          remoteAddress: networkInfo.response.remoteAddress,
-          remotePort: networkInfo.response.remotePort,
-          status: networkInfo.response.status,
-          statusText: networkInfo.response.statusText,
-          headersSize: networkInfo.response.headersSize,
-        });
-        this.emit(EVENTS.STARTED_RECEIVING_RESPONSE, actor);
-        break;
-      case "responseContent":
-        this.pushRequestToQueue(actor, {
-          contentSize: networkInfo.response.bodySize,
-          transferredSize: networkInfo.response.transferredSize,
-          mimeType: networkInfo.response.content.mimeType,
-        });
-        break;
-      case "eventTimings":
-        // Total time doesn't have to be always set e.g. net provider enhancer
-        // in Console panel is using this method to fetch data when network log
-        // is expanded. So, make sure to not push undefined into the payload queue
-        // (it could overwrite an existing value).
-        if (typeof networkInfo.totalTime !== "undefined") {
-          this.pushRequestToQueue(actor, { totalTime: networkInfo.totalTime });
-        }
-        break;
-    }
-
-    // This available field helps knowing when/if updateType property is arrived
-    // and can be requested via `requestData`
-    this.pushRequestToQueue(actor, { [`${updateType}Available`]: true });
-
-    this.onPayloadDataReceived(actor);
-
-    this.emit(EVENTS.NETWORK_EVENT_UPDATED, actor);
+  async _getStackTraceFromWatcher(actor) {
+    const stacktracesFront = await actor.targetFront.getFront("stacktraces");
+    const stacktrace = await stacktracesFront.getStackTrace(
+      actor.stacktraceResourceId
+    );
+    return { stacktrace };
   }
 
   /**
-   * Notify actions when messages from onNetworkEventUpdate are done, networkEventUpdate
-   * messages contain initial network info for each updateType and then we can invoke
-   * requestData to fetch its corresponded data lazily.
-   * Once all updateTypes of networkEventUpdate message are arrived, we flush merged
-   * request payload from pending queue and then update component.
+   * The handler for when the network event stacktrace resource is available.
+   * The resource contains basic info, the actual stacktrace is fetched lazily
+   * using requestData.
+   * @param {object} resource The network event stacktrace resource
    */
-  async onPayloadDataReceived(actor) {
-    const payload = this.payloadQueue.get(actor) || {};
+  onStackTraceAvailable(resource) {
+    this.stackTraces.set(resource.resourceId, resource);
+  }
 
-    if (!payload.requestHeadersAvailable || !payload.requestCookiesAvailable ||
-        !payload.eventTimingsAvailable || !payload.responseContentAvailable) {
-      return;
+  /**
+   * The handler for when the network event resource is available.
+   *
+   * @param {object} resource The network event resource
+   */
+  async onNetworkResourceAvailable(resource) {
+    const { actor, stacktraceResourceId } = resource;
+
+    // Check if a stacktrace resource exists for this network resource.
+    // The stacktrace event is expected to happen before the network
+    // event so any neccesary stacktrace info should be available.
+    if (this.stackTraces.has(stacktraceResourceId)) {
+      const {
+        stacktraceAvailable,
+        lastFrame,
+        targetFront,
+      } = this.stackTraces.get(stacktraceResourceId);
+
+      resource.cause.stacktraceAvailable = stacktraceAvailable;
+      resource.cause.lastFrame = lastFrame;
+
+      this.stackTraces.delete(stacktraceResourceId);
+      // We retrieve preliminary information about the stacktrace from the
+      // NETWORK_EVENT_STACKTRACE resource via `this.stackTraces` Map,
+      // The actual stacktrace is fetched lazily based on the actor id, using
+      // the targetFront and the stacktrace resource id therefore we
+      // map these for easy access.
+      this.stackTraceRequestInfoByActorID.set(actor, {
+        targetFront,
+        stacktraceResourceId,
+      });
+    }
+    await this.addRequest(actor, resource);
+    this.emitForTests(TEST_EVENTS.NETWORK_EVENT, resource);
+  }
+
+  /**
+   * The handler for when the network event resource is updated.
+   *
+   * @param {object} resource The updated network event resource.
+   */
+  async onNetworkResourceUpdated(resource) {
+    // Identify the channel as SSE if mimeType is event-stream.
+    if (resource?.mimeType?.includes("text/event-stream")) {
+      await this.setEventStreamFlag(resource.actor);
     }
 
-    this.payloadQueue.delete(actor);
-
+    this.pendingRequests.delete(resource.actor);
     if (this.actionsEnabled && this.actions.updateRequest) {
-      await this.actions.updateRequest(actor, payload, true);
+      await this.actions.updateRequest(resource.actor, resource, true);
     }
 
     // This event is fired only once per request, once all the properties are fetched
-    // from `onNetworkEventUpdate`. There should be no more RDP requests after this.
-    this.emit(EVENTS.PAYLOAD_READY, actor);
+    // from `onNetworkResourceUpdated`. There should be no more RDP requests after this.
+    // Note that this event might be consumed by extension so, emit it in production
+    // release as well.
+    this.emitForTests(TEST_EVENTS.NETWORK_EVENT_UPDATED, resource.actor);
+    this.emit(EVENTS.PAYLOAD_READY, resource);
+  }
+
+  /**
+   * The "webSocketOpened" message type handler.
+   *
+   * @param {number} httpChannelId the channel ID
+   * @param {string} effectiveURI the effective URI of the page
+   * @param {string} protocols webSocket protocols
+   * @param {string} extensions
+   */
+  async onWebSocketOpened(httpChannelId, effectiveURI, protocols, extensions) {}
+
+  /**
+   * The "webSocketClosed" message type handler.
+   *
+   * @param {number} httpChannelId
+   * @param {boolean} wasClean
+   * @param {number} code
+   * @param {string} reason
+   */
+  async onWebSocketClosed(httpChannelId, wasClean, code, reason) {
+    if (this.actionsEnabled && this.actions.closeConnection) {
+      await this.actions.closeConnection(httpChannelId, wasClean, code, reason);
+    }
+  }
+
+  /**
+   * The "frameSent" message type handler.
+   *
+   * @param {number} httpChannelId the channel ID
+   * @param {object} data websocket frame information
+   */
+  async onFrameSent(httpChannelId, data) {
+    this.addMessage(httpChannelId, data);
+  }
+
+  /**
+   * The "frameReceived" message type handler.
+   *
+   * @param {number} httpChannelId the channel ID
+   * @param {object} data websocket frame information
+   */
+  async onFrameReceived(httpChannelId, data) {
+    this.addMessage(httpChannelId, data);
+  }
+
+  /**
+   * Add a new WebSocket frame to application state.
+   *
+   * @param {number} httpChannelId the channel ID
+   * @param {object} data websocket frame information
+   */
+  async addMessage(httpChannelId, data) {
+    if (this.actionsEnabled && this.actions.addMessage) {
+      await this.actions.addMessage(httpChannelId, data, true);
+    }
+    // TODO: Emit an event for test here
   }
 
   /**
@@ -450,18 +460,22 @@ class FirefoxDataProvider {
       return promise;
     }
     // Fetch the data
-    promise = this._requestData(actor, method).then(async (payload) => {
+    promise = this._requestData(actor, method).then(async payload => {
       // Remove the request from the cache, any new call to requestData will fetch the
       // data again.
       this.lazyRequestData.delete(key);
 
       if (this.actionsEnabled && this.actions.updateRequest) {
-        await this.actions.updateRequest(actor, {
-          ...payload,
-          // Lockdown *Available property once we fetch data from back-end.
-          // Using this as a flag to prevent fetching arrived data again.
-          [`${method}Available`]: false,
-        }, true);
+        await this.actions.updateRequest(
+          actor,
+          {
+            ...payload,
+            // Lockdown *Available property once we fetch data from back-end.
+            // Using this as a flag to prevent fetching arrived data again.
+            [`${method}Available`]: false,
+          },
+          true
+        );
       }
 
       return payload;
@@ -487,31 +501,51 @@ class FirefoxDataProvider {
    */
   async _requestData(actor, method) {
     // Calculate real name of the client getter.
-    const clientMethodName = `get${method.charAt(0).toUpperCase()}${method.slice(1)}`;
+    const clientMethodName = `get${method
+      .charAt(0)
+      .toUpperCase()}${method.slice(1)}`;
     // The name of the callback that processes request response
-    const callbackMethodName = `on${method.charAt(0).toUpperCase()}${method.slice(1)}`;
+    const callbackMethodName = `on${method
+      .charAt(0)
+      .toUpperCase()}${method.slice(1)}`;
     // And the event to fire before updating this data
-    const updatingEventName =
-      `UPDATING_${method.replace(/([A-Z])/g, "_$1").toUpperCase()}`;
+    const updatingEventName = `UPDATING_${method
+      .replace(/([A-Z])/g, "_$1")
+      .toUpperCase()}`;
 
     // Emit event that tell we just start fetching some data
-    this.emit(EVENTS[updatingEventName], actor);
+    this.emitForTests(EVENTS[updatingEventName], actor);
 
     let response = await new Promise((resolve, reject) => {
       // Do a RDP request to fetch data from the actor.
-      if (typeof this.webConsoleClient[clientMethodName] === "function") {
+      if (
+        clientMethodName == "getStackTrace" &&
+        this.resourceWatcher.hasWatcherSupport(
+          this.resourceWatcher.TYPES.NETWORK_EVENT_STACKTRACE
+        )
+      ) {
+        const requestInfo = this.stackTraceRequestInfoByActorID.get(actor);
+        resolve(this._getStackTraceFromWatcher(requestInfo));
+      } else if (typeof this.webConsoleFront[clientMethodName] === "function") {
         // Make sure we fetch the real actor data instead of cloned actor
         // e.g. CustomRequestPanel will clone a request with additional '-clone' actor id
-        this.webConsoleClient[clientMethodName](actor.replace("-clone", ""), (res) => {
-          if (res.error) {
-            reject(
-              new Error(`Error while calling method ${clientMethodName}: ${res.message}`)
-            );
+        this.webConsoleFront[clientMethodName](
+          actor.replace("-clone", ""),
+          res => {
+            if (res.error) {
+              reject(
+                new Error(
+                  `Error while calling method ${clientMethodName}: ${res.message}`
+                )
+              );
+            }
+            resolve(res);
           }
-          resolve(res);
-        });
+        );
       } else {
-        reject(new Error(`Error: No such client method '${clientMethodName}'!`));
+        reject(
+          new Error(`Error: No such client method '${clientMethodName}'!`)
+        );
       }
     });
 
@@ -534,7 +568,7 @@ class FirefoxDataProvider {
     const payload = await this.updateRequest(response.from, {
       requestHeaders: response,
     });
-    this.emit(EVENTS.RECEIVED_REQUEST_HEADERS, response.from);
+    this.emitForTests(TEST_EVENTS.RECEIVED_REQUEST_HEADERS, response);
     return payload.requestHeaders;
   }
 
@@ -547,7 +581,7 @@ class FirefoxDataProvider {
     const payload = await this.updateRequest(response.from, {
       responseHeaders: response,
     });
-    this.emit(EVENTS.RECEIVED_RESPONSE_HEADERS, response.from);
+    this.emitForTests(TEST_EVENTS.RECEIVED_RESPONSE_HEADERS, response);
     return payload.responseHeaders;
   }
 
@@ -560,7 +594,7 @@ class FirefoxDataProvider {
     const payload = await this.updateRequest(response.from, {
       requestCookies: response,
     });
-    this.emit(EVENTS.RECEIVED_REQUEST_COOKIES, response.from);
+    this.emitForTests(TEST_EVENTS.RECEIVED_REQUEST_COOKIES, response);
     return payload.requestCookies;
   }
 
@@ -573,7 +607,7 @@ class FirefoxDataProvider {
     const payload = await this.updateRequest(response.from, {
       requestPostData: response,
     });
-    this.emit(EVENTS.RECEIVED_REQUEST_POST_DATA, response.from);
+    this.emitForTests(TEST_EVENTS.RECEIVED_REQUEST_POST_DATA, response);
     return payload.requestPostData;
   }
 
@@ -586,7 +620,7 @@ class FirefoxDataProvider {
     const payload = await this.updateRequest(response.from, {
       securityInfo: response.securityInfo,
     });
-    this.emit(EVENTS.RECEIVED_SECURITY_INFO, response.from);
+    this.emitForTests(TEST_EVENTS.RECEIVED_SECURITY_INFO, response);
     return payload.securityInfo;
   }
 
@@ -599,7 +633,7 @@ class FirefoxDataProvider {
     const payload = await this.updateRequest(response.from, {
       responseCookies: response,
     });
-    this.emit(EVENTS.RECEIVED_RESPONSE_COOKIES, response.from);
+    this.emitForTests(TEST_EVENTS.RECEIVED_RESPONSE_COOKIES, response);
     return payload.responseCookies;
   }
 
@@ -611,7 +645,7 @@ class FirefoxDataProvider {
     const payload = await this.updateRequest(response.from, {
       responseCache: response,
     });
-    this.emit(EVENTS.RECEIVED_RESPONSE_CACHE, response.from);
+    this.emitForTests(TEST_EVENTS.RECEIVED_RESPONSE_CACHE, response);
     return payload.responseCache;
   }
 
@@ -628,7 +662,7 @@ class FirefoxDataProvider {
       mimeType: response.content.mimeType,
       responseContent: response,
     });
-    this.emit(EVENTS.RECEIVED_RESPONSE_CONTENT, response.from);
+    this.emitForTests(TEST_EVENTS.RECEIVED_RESPONSE_CONTENT, response);
     return payload.responseContent;
   }
 
@@ -641,7 +675,12 @@ class FirefoxDataProvider {
     const payload = await this.updateRequest(response.from, {
       eventTimings: response,
     });
-    this.emit(EVENTS.RECEIVED_EVENT_TIMINGS, response.from);
+
+    // This event is utilized only in tests but, DAMP is using it too
+    // and running DAMP test doesn't set the `devtools.testing` flag.
+    // So, emit this event even in the production mode.
+    // See also: https://bugzilla.mozilla.org/show_bug.cgi?id=1578215
+    this.emit(EVENTS.RECEIVED_EVENT_TIMINGS, response);
     return payload.eventTimings;
   }
 
@@ -654,8 +693,29 @@ class FirefoxDataProvider {
     const payload = await this.updateRequest(response.from, {
       stacktrace: response.stacktrace,
     });
-    this.emit(EVENTS.RECEIVED_EVENT_STACKTRACE, response.from);
+    this.emitForTests(TEST_EVENTS.RECEIVED_EVENT_STACKTRACE, response);
     return payload.stacktrace;
+  }
+
+  /**
+   * Handle EventSource events.
+   */
+
+  async onEventSourceConnectionClosed(httpChannelId) {
+    if (this.actionsEnabled && this.actions.closeConnection) {
+      await this.actions.closeConnection(httpChannelId);
+    }
+  }
+
+  async onEventReceived(httpChannelId, data) {
+    // Dispatch the same action used by websocket inspector.
+    this.addMessage(httpChannelId, data);
+  }
+
+  async setEventStreamFlag(actorId) {
+    if (this.actionsEnabled && this.actions.setEventStreamFlag) {
+      await this.actions.setEventStreamFlag(actorId, true);
+    }
   }
 
   /**
@@ -664,6 +724,16 @@ class FirefoxDataProvider {
   emit(type, data) {
     if (this.owner) {
       this.owner.emit(type, data);
+    }
+  }
+
+  /**
+   * Fire test events for the owner object. These events are
+   * emitted only when tests are running.
+   */
+  emitForTests(type, data) {
+    if (this.owner) {
+      this.owner.emitForTests(type, data);
     }
   }
 }

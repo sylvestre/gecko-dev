@@ -17,7 +17,8 @@
 #include "mozilla/a11y/DocManager.h"
 #include "mozilla/EventStateManager.h"
 #include "mozilla/dom/Element.h"
-#include "mozilla/dom/TabParent.h"
+#include "mozilla/dom/BrowsingContext.h"
+#include "mozilla/dom/BrowserParent.h"
 
 namespace mozilla {
 namespace a11y {
@@ -99,6 +100,10 @@ FocusManager::FocusDisposition FocusManager::IsInOrContainsFocus(
   return eNone;
 }
 
+bool FocusManager::WasLastFocused(const Accessible* aAccessible) const {
+  return mLastFocus == aAccessible;
+}
+
 void FocusManager::NotifyOfDOMFocus(nsISupports* aTarget) {
 #ifdef A11Y_LOG
   if (logging::IsEnabled(logging::eFocus))
@@ -134,7 +139,7 @@ void FocusManager::NotifyOfDOMBlur(nsISupports* aTarget) {
   // the case when no element within this DOM document will be focused.
   nsCOMPtr<nsINode> targetNode(do_QueryInterface(aTarget));
   if (targetNode && targetNode->OwnerDoc() == FocusedDOMDocument()) {
-    nsIDocument* DOMDoc = targetNode->OwnerDoc();
+    dom::Document* DOMDoc = targetNode->OwnerDoc();
     DocAccessible* document = GetAccService()->GetDocAccessible(DOMDoc);
     if (document) {
       // Clear selection listener for previously focused element.
@@ -168,21 +173,15 @@ void FocusManager::ActiveItemChanged(Accessible* aItem, bool aCheckIfActive) {
   }
   mActiveItem = aItem;
 
-  // If mActiveItem is null we may need to shift a11y focus back to a tab
+  // If mActiveItem is null we may need to shift a11y focus back to a remote
   // document. For example, when combobox popup is closed, then
   // the focus should be moved back to the combobox.
   if (!mActiveItem && XRE_IsParentProcess()) {
-    nsFocusManager* domfm = nsFocusManager::GetFocusManager();
-    if (domfm) {
-      nsIContent* focusedElm = domfm->GetFocusedElement();
-      if (EventStateManager::IsRemoteTarget(focusedElm)) {
-        dom::TabParent* tab = dom::TabParent::GetFrom(focusedElm);
-        if (tab) {
-          a11y::DocAccessibleParent* dap = tab->GetTopLevelDocAccessible();
-          if (dap) {
-            Unused << dap->SendRestoreFocus();
-          }
-        }
+    dom::BrowserParent* browser = dom::BrowserParent::GetFocused();
+    if (browser) {
+      a11y::DocAccessibleParent* dap = browser->GetTopLevelDocAccessible();
+      if (dap) {
+        Unused << dap->SendRestoreFocus();
       }
     }
   }
@@ -216,6 +215,7 @@ void FocusManager::DispatchFocusEvent(DocAccessible* aDocument,
         new AccEvent(nsIAccessibleEvent::EVENT_FOCUS, aTarget, eAutoDetect,
                      AccEvent::eCoalesceOfSameType);
     aDocument->FireDelayedEvent(event);
+    mLastFocus = aTarget;
 
 #ifdef A11Y_LOG
     if (logging::IsEnabled(logging::eFocus)) logging::FocusDispatched(aTarget);
@@ -262,6 +262,7 @@ void FocusManager::ProcessFocusEvent(AccEvent* aEvent) {
   // Emit focus event if event target is the active item. Otherwise then check
   // if it's still focused and then update active item and emit focus event.
   Accessible* target = aEvent->GetAccessible();
+  MOZ_ASSERT(!target->IsDefunct());
   if (target != mActiveItem) {
     // Check if still focused. Otherwise we can end up with storing the active
     // item for control that isn't focused anymore.
@@ -277,6 +278,7 @@ void FocusManager::ProcessFocusEvent(AccEvent* aEvent) {
     if (activeItem) {
       mActiveItem = activeItem;
       target = activeItem;
+      MOZ_ASSERT(!target->IsDefunct());
     }
   }
 
@@ -341,10 +343,16 @@ void FocusManager::ProcessFocusEvent(AccEvent* aEvent) {
                                              target, aEvent->FromUserInput());
   nsEventShell::FireEvent(focusEvent);
 
+  if (NS_WARN_IF(target->IsDefunct())) {
+    // target died during nsEventShell::FireEvent.
+    return;
+  }
+
   // Fire scrolling_start event when the document receives the focus if it has
   // an anchor jump. If an accessible within the document receive the focus
   // then null out the anchor jump because it no longer applies.
   DocAccessible* targetDocument = target->Document();
+  MOZ_ASSERT(targetDocument);
   Accessible* anchorJump = targetDocument->AnchorJump();
   if (anchorJump) {
     if (target == targetDocument) {
@@ -360,11 +368,23 @@ void FocusManager::ProcessFocusEvent(AccEvent* aEvent) {
 nsINode* FocusManager::FocusedDOMNode() const {
   nsFocusManager* DOMFocusManager = nsFocusManager::GetFocusManager();
   nsIContent* focusedElm = DOMFocusManager->GetFocusedElement();
-
-  // No focus on remote target elements like xul:browser having DOM focus and
-  // residing in chrome process because it means an element in content process
-  // keeps the focus.
-  if (focusedElm) {
+  nsIFrame* focusedFrame = focusedElm ? focusedElm->GetPrimaryFrame() : nullptr;
+  // DOM elements retain their focused state when they get styled as display:
+  // none/content or visibility: hidden. We should treat those cases as if those
+  // elements were removed, and focus on doc.
+  if (focusedFrame && focusedFrame->StyleVisibility()->IsVisible()) {
+    // Print preview documents don't get DocAccessibles, but we still want a11y
+    // focus to go somewhere useful. Therefore, we allow a11y focus to land on
+    // the OuterDocAccessible in this case.
+    // Note that this code only handles remote print preview documents.
+    if (EventStateManager::IsTopLevelRemoteTarget(focusedElm) &&
+        focusedElm->AsElement()->HasAttribute(u"printpreview"_ns)) {
+      return focusedElm;
+    }
+    // No focus on remote target elements like xul:browser having DOM focus and
+    // residing in chrome process because it means an element in content process
+    // keeps the focus. Similarly, suppress focus on OOP iframes because an
+    // element in another content process should now have the focus.
     if (EventStateManager::IsRemoteTarget(focusedElm)) {
       return nullptr;
     }
@@ -372,11 +392,20 @@ nsINode* FocusManager::FocusedDOMNode() const {
   }
 
   // Otherwise the focus can be on DOM document.
-  nsPIDOMWindowOuter* focusedWnd = DOMFocusManager->GetFocusedWindow();
-  return focusedWnd ? focusedWnd->GetExtantDoc() : nullptr;
+  dom::BrowsingContext* context = DOMFocusManager->GetFocusedBrowsingContext();
+  if (context) {
+    // GetDocShell will return null if the document isn't in our process.
+    nsIDocShell* shell = context->GetDocShell();
+    if (shell) {
+      return shell->GetDocument();
+    }
+  }
+
+  // Focus isn't in this process.
+  return nullptr;
 }
 
-nsIDocument* FocusManager::FocusedDOMDocument() const {
+dom::Document* FocusManager::FocusedDOMDocument() const {
   nsINode* focusedNode = FocusedDOMNode();
   return focusedNode ? focusedNode->OwnerDoc() : nullptr;
 }

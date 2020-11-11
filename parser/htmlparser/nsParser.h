@@ -43,7 +43,6 @@
 
 #include "nsIParser.h"
 #include "nsDeque.h"
-#include "nsIURL.h"
 #include "CParserContext.h"
 #include "nsParserCIID.h"
 #include "nsITokenizer.h"
@@ -57,7 +56,7 @@ class nsIDTD;
 class nsIRunnable;
 
 #ifdef _MSC_VER
-#pragma warning(disable : 4275)
+#  pragma warning(disable : 4275)
 #endif
 
 class nsParser final : public nsIParser,
@@ -255,12 +254,14 @@ class nsParser final : public nsIParser,
   /**
    * No-op.
    */
-  virtual void PushDefinedInsertionPoint() override;
+  void IncrementScriptNestingLevel() final;
 
   /**
    * No-op.
    */
-  virtual void PopDefinedInsertionPoint() override;
+  void DecrementScriptNestingLevel() final;
+
+  bool HasNonzeroScriptNestingLevel() const final;
 
   /**
    * No-op.
@@ -384,5 +385,7 @@ class nsParser final : public nsIParser,
   bool mProcessingNetworkData;
   bool mIsAboutBlank;
 };
+
+nsresult nsParserInitialize();
 
 #endif

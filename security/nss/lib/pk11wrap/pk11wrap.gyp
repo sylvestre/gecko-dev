@@ -10,7 +10,7 @@
       'target_name': 'pk11wrap_static',
       'type': 'static_library',
       'defines': [
-        'NSS_TEST_BUILD',
+        'NSS_STATIC_SOFTOKEN',
       ],
       'dependencies': [
         'pk11wrap_base',
@@ -37,6 +37,7 @@
           'pk11cert.c',
           'pk11cxt.c',
           'pk11err.c',
+          'pk11hpke.c',
           'pk11kea.c',
           'pk11list.c',
           'pk11load.c',
@@ -60,7 +61,7 @@
     'defines': [
       'SHLIB_SUFFIX=\"<(dll_suffix)\"',
       'SHLIB_PREFIX=\"<(dll_prefix)\"',
-      'SHLIB_VERSION=\"3\"',
+      'NSS_SHLIB_VERSION=\"3\"',
       'SOFTOKEN_SHLIB_VERSION=\"3\"'
     ]
   },

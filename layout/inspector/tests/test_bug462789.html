@@ -5,7 +5,7 @@ https://bugzilla.mozilla.org/show_bug.cgi?id=462789
 -->
 <head>
   <title>Test for Bug 462789</title>
-  <script type="application/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css"/>
 </head>
 <body>
@@ -55,13 +55,6 @@ function do_test() {
     is(res.nodeType, DOCUMENT_NODE_TYPE, "getParentForNode(docElement, true)");
     res = InspectorUtils.getParentForNode(text, true);
     is(res.tagName, "BODY", "getParentForNode(text, true)");
-  }
-  catch(e) { ok(false, "got an unexpected exception:" + e); }
-
-  try {
-    var res = InspectorUtils.getBindingURLs(docElement);
-    ok(Array.isArray(SpecialPowers.unwrap(res)), "getBindingURLs result type");
-    is(res.length, 0, "getBindingURLs array length");
   }
   catch(e) { ok(false, "got an unexpected exception:" + e); }
 

@@ -285,7 +285,7 @@
 
   var whitespace = [" ", "\t", "\n", "\r"];
 
-  // See http://www.w3schools.com/dom/dom_nodetype.asp
+  // See https://developer.mozilla.org/en-US/docs/Web/API/Node/nodeType
   var nodeTypes = {
     ELEMENT_NODE: 1,
     ATTRIBUTE_NODE: 2,
@@ -315,6 +315,7 @@
       }
     }
     getElems(this);
+    elems._isLiveNodeList = true;
     return elems;
   }
 
@@ -503,17 +504,9 @@
     },
     setValue: function(newValue) {
       this._value = newValue;
-      delete this._decodedValue;
     },
-    setDecodedValue: function(newValue) {
-      this._value = encodeHTML(newValue);
-      this._decodedValue = newValue;
-    },
-    getDecodedValue: function() {
-      if (typeof this._decodedValue === "undefined") {
-        this._decodedValue = (this._value && decodeHTML(this._value)) || "";
-      }
-      return this._decodedValue;
+    getEncodedValue: function() {
+      return encodeHTML(this._value);
     },
   };
 
@@ -673,6 +666,14 @@
       this.setAttribute("src", str);
     },
 
+    get srcset() {
+      return this.getAttribute("srcset") || "";
+    },
+
+    set srcset(str) {
+      this.setAttribute("srcset", str);
+    },
+
     get nodeName() {
       return this.tagName;
     },
@@ -689,7 +690,7 @@
             for (var j = 0; j < child.attributes.length; j++) {
               var attr = child.attributes[j];
               // the attribute value will be HTML escaped.
-              var val = attr.value;
+              var val = attr.getEncodedValue();
               var quote = (val.indexOf('"') === -1 ? '"' : "'");
               arr.push(" " + attr.name + "=" + quote + val + quote);
             }
@@ -711,7 +712,6 @@
       }
 
       // Using Array.join() avoids the overhead from lazy string concatenation.
-      // See http://blog.cdleary.com/2012/01/string-representation-in-spidermonkey/#ropes
       var arr = [];
       getHTML(this);
       return arr.join("");
@@ -767,8 +767,9 @@
     getAttribute: function (name) {
       for (var i = this.attributes.length; --i >= 0;) {
         var attr = this.attributes[i];
-        if (attr.name === name)
-          return attr.getDecodedValue();
+        if (attr.name === name) {
+          return attr.value;
+        }
       }
       return undefined;
     },
@@ -777,11 +778,11 @@
       for (var i = this.attributes.length; --i >= 0;) {
         var attr = this.attributes[i];
         if (attr.name === name) {
-          attr.setDecodedValue(value);
+          attr.setValue(value);
           return;
         }
       }
-      this.attributes.push(new Attribute(name, encodeHTML(value)));
+      this.attributes.push(new Attribute(name, value));
     },
 
     removeAttribute: function (name) {
@@ -880,7 +881,11 @@
 
   JSDOMParser.prototype = {
     error: function(m) {
-      dump("JSDOMParser error: " + m + "\n");
+      if (typeof dump !== "undefined") {
+        dump("JSDOMParser error: " + m + "\n");
+      } else if (typeof console !== "undefined") {
+        console.log("JSDOMParser error: " + m + "\n");
+      }
       this.errorState += m + "\n";
     },
 
@@ -945,7 +950,7 @@
       // Read the attribute value (and consume the matching quote)
       var value = this.readString(c);
 
-      node.attributes.push(new Attribute(name, value));
+      node.attributes.push(new Attribute(name, decodeHTML(value)));
 
       return;
     },
@@ -1192,3 +1197,7 @@
   global.JSDOMParser = JSDOMParser;
 
 })(this);
+
+if (typeof module === "object") {
+  module.exports = this.JSDOMParser;
+}

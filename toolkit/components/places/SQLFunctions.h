@@ -69,10 +69,10 @@ class MatchAutoCompleteFunction final : public mozIStorageFunction {
    * @param aDBConn
    *        The database connection to register with.
    */
-  static nsresult create(mozIStorageConnection *aDBConn);
+  static nsresult create(mozIStorageConnection* aDBConn);
 
  private:
-  ~MatchAutoCompleteFunction() {}
+  ~MatchAutoCompleteFunction() = default;
 
   /**
    * IntegerVariants for 0 and 1 are frequently used in awesomebar queries,
@@ -99,8 +99,8 @@ class MatchAutoCompleteFunction final : public mozIStorageFunction {
   /**
    * Typedefs
    */
-  typedef bool (*searchFunctionPtr)(const nsDependentCSubstring &aToken,
-                                    const nsACString &aSourceString);
+  typedef bool (*searchFunctionPtr)(const nsDependentCSubstring& aToken,
+                                    const nsACString& aSourceString);
 
   typedef nsACString::const_char_iterator const_char_iterator;
 
@@ -123,8 +123,8 @@ class MatchAutoCompleteFunction final : public mozIStorageFunction {
    *        The string to search.
    * @return true if found, false otherwise.
    */
-  static bool findBeginning(const nsDependentCSubstring &aToken,
-                            const nsACString &aSourceString);
+  static bool findBeginning(const nsDependentCSubstring& aToken,
+                            const nsACString& aSourceString);
 
   /**
    * Tests if aSourceString starts with aToken in a case sensitive way.
@@ -135,8 +135,8 @@ class MatchAutoCompleteFunction final : public mozIStorageFunction {
    *        The string to search.
    * @return true if found, false otherwise.
    */
-  static bool findBeginningCaseSensitive(const nsDependentCSubstring &aToken,
-                                         const nsACString &aSourceString);
+  static bool findBeginningCaseSensitive(const nsDependentCSubstring& aToken,
+                                         const nsACString& aSourceString);
 
   /**
    * Searches aSourceString for aToken anywhere in the string in a case-
@@ -148,8 +148,8 @@ class MatchAutoCompleteFunction final : public mozIStorageFunction {
    *        The string to search.
    * @return true if found, false otherwise.
    */
-  static bool findAnywhere(const nsDependentCSubstring &aToken,
-                           const nsACString &aSourceString);
+  static bool findAnywhere(const nsDependentCSubstring& aToken,
+                           const nsACString& aSourceString);
 
   /**
    * Tests if aToken is found on a word boundary in aSourceString.
@@ -160,8 +160,8 @@ class MatchAutoCompleteFunction final : public mozIStorageFunction {
    *        The string to search.
    * @return true if found, false otherwise.
    */
-  static bool findOnBoundary(const nsDependentCSubstring &aToken,
-                             const nsACString &aSourceString);
+  static bool findOnBoundary(const nsDependentCSubstring& aToken,
+                             const nsACString& aSourceString);
 
   /**
    * Fixes a URI's spec such that it is ready to be searched.  This includes
@@ -177,9 +177,9 @@ class MatchAutoCompleteFunction final : public mozIStorageFunction {
    *        A string buffer that the returned slice can point into, if needed.
    * @return the fixed up string.
    */
-  static nsDependentCSubstring fixupURISpec(const nsACString &aURISpec,
+  static nsDependentCSubstring fixupURISpec(const nsACString& aURISpec,
                                             int32_t aMatchBehavior,
-                                            nsACString &aSpecBuf);
+                                            nsACString& aSpecBuf);
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -210,10 +210,10 @@ class CalculateFrecencyFunction final : public mozIStorageFunction {
    * @param aDBConn
    *        The database connection to register with.
    */
-  static nsresult create(mozIStorageConnection *aDBConn);
+  static nsresult create(mozIStorageConnection* aDBConn);
 
  private:
-  ~CalculateFrecencyFunction() {}
+  ~CalculateFrecencyFunction() = default;
 };
 
 /**
@@ -233,10 +233,10 @@ class GenerateGUIDFunction final : public mozIStorageFunction {
    * @param aDBConn
    *        The database connection to register with.
    */
-  static nsresult create(mozIStorageConnection *aDBConn);
+  static nsresult create(mozIStorageConnection* aDBConn);
 
  private:
-  ~GenerateGUIDFunction() {}
+  ~GenerateGUIDFunction() = default;
 };
 
 /**
@@ -256,10 +256,10 @@ class IsValidGUIDFunction final : public mozIStorageFunction {
    * @param aDBConn
    *        The database connection to register with.
    */
-  static nsresult create(mozIStorageConnection *aDBConn);
+  static nsresult create(mozIStorageConnection* aDBConn);
 
  private:
-  ~IsValidGUIDFunction() {}
+  ~IsValidGUIDFunction() = default;
 };
 
 /**
@@ -281,10 +281,10 @@ class GetUnreversedHostFunction final : public mozIStorageFunction {
    * @param aDBConn
    *        The database connection to register with.
    */
-  static nsresult create(mozIStorageConnection *aDBConn);
+  static nsresult create(mozIStorageConnection* aDBConn);
 
  private:
-  ~GetUnreversedHostFunction() {}
+  ~GetUnreversedHostFunction() = default;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -310,10 +310,10 @@ class FixupURLFunction final : public mozIStorageFunction {
    * @param aDBConn
    *        The database connection to register with.
    */
-  static nsresult create(mozIStorageConnection *aDBConn);
+  static nsresult create(mozIStorageConnection* aDBConn);
 
  private:
-  ~FixupURLFunction() {}
+  ~FixupURLFunction() = default;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -347,10 +347,10 @@ class FrecencyNotificationFunction final : public mozIStorageFunction {
    * @param aDBConn
    *        The database connection to register with.
    */
-  static nsresult create(mozIStorageConnection *aDBConn);
+  static nsresult create(mozIStorageConnection* aDBConn);
 
  private:
-  ~FrecencyNotificationFunction() {}
+  ~FrecencyNotificationFunction() = default;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -376,10 +376,10 @@ class StoreLastInsertedIdFunction final : public mozIStorageFunction {
    * @param aDBConn
    *        The database connection to register with.
    */
-  static nsresult create(mozIStorageConnection *aDBConn);
+  static nsresult create(mozIStorageConnection* aDBConn);
 
  private:
-  ~StoreLastInsertedIdFunction() {}
+  ~StoreLastInsertedIdFunction() = default;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -404,10 +404,10 @@ class HashFunction final : public mozIStorageFunction {
    * @param aDBConn
    *        The database connection to register with.
    */
-  static nsresult create(mozIStorageConnection *aDBConn);
+  static nsresult create(mozIStorageConnection* aDBConn);
 
  private:
-  ~HashFunction() {}
+  ~HashFunction() = default;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -432,10 +432,10 @@ class GetQueryParamFunction final : public mozIStorageFunction {
    * @param aDBConn
    *        The database connection to register with.
    */
-  static nsresult create(mozIStorageConnection *aDBConn);
+  static nsresult create(mozIStorageConnection* aDBConn);
 
  private:
-  ~GetQueryParamFunction() {}
+  ~GetQueryParamFunction() = default;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -462,10 +462,10 @@ class GetPrefixFunction final : public mozIStorageFunction {
    * @param aDBConn
    *        The database connection to register with.
    */
-  static nsresult create(mozIStorageConnection *aDBConn);
+  static nsresult create(mozIStorageConnection* aDBConn);
 
  private:
-  ~GetPrefixFunction() {}
+  ~GetPrefixFunction() = default;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -492,10 +492,10 @@ class GetHostAndPortFunction final : public mozIStorageFunction {
    * @param aDBConn
    *        The database connection to register with.
    */
-  static nsresult create(mozIStorageConnection *aDBConn);
+  static nsresult create(mozIStorageConnection* aDBConn);
 
  private:
-  ~GetHostAndPortFunction() {}
+  ~GetHostAndPortFunction() = default;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -523,10 +523,10 @@ class StripPrefixAndUserinfoFunction final : public mozIStorageFunction {
    * @param aDBConn
    *        The database connection to register with.
    */
-  static nsresult create(mozIStorageConnection *aDBConn);
+  static nsresult create(mozIStorageConnection* aDBConn);
 
  private:
-  ~StripPrefixAndUserinfoFunction() {}
+  ~StripPrefixAndUserinfoFunction() = default;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -549,10 +549,10 @@ class IsFrecencyDecayingFunction final : public mozIStorageFunction {
    * @param aDBConn
    *        The database connection to register with.
    */
-  static nsresult create(mozIStorageConnection *aDBConn);
+  static nsresult create(mozIStorageConnection* aDBConn);
 
  private:
-  ~IsFrecencyDecayingFunction() {}
+  ~IsFrecencyDecayingFunction() = default;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -572,10 +572,10 @@ class SqrtFunction final : public mozIStorageFunction {
    * @param aDBConn
    *        The database connection to register with.
    */
-  static nsresult create(mozIStorageConnection *aDBConn);
+  static nsresult create(mozIStorageConnection* aDBConn);
 
  private:
-  ~SqrtFunction() {}
+  ~SqrtFunction() = default;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -597,10 +597,10 @@ class NoteSyncChangeFunction final : public mozIStorageFunction {
    * @param aDBConn
    *        The database connection to register with.
    */
-  static nsresult create(mozIStorageConnection *aDBConn);
+  static nsresult create(mozIStorageConnection* aDBConn);
 
  private:
-  ~NoteSyncChangeFunction() {}
+  ~NoteSyncChangeFunction() = default;
 };
 
 }  // namespace places

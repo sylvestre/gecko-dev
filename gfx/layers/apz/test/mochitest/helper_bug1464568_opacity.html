@@ -26,9 +26,14 @@
   -->
  <div style="height: 500px"></div>
  <div id="anim"></div>
+ <!--
+  Give the page room to scroll, so that the setAsyncScrollOffset() call
+  doesn't take the scroll position out of bounds
+ -->
+ <div style="height: 1000px"></div>
 </body>
 <script>
-'use strict';
+"use strict";
 
 const utils = SpecialPowers.getDOMWindowUtils(window);
 
@@ -50,11 +55,11 @@ async function test_opacity() {
      "Element should have been moved by the offset");
 }
 
-if (utils.layerManagerType == 'WebRender') {
+if (utils.layerManagerType == "WebRender") {
   ok(true, "This test doesn't need to run on WebRender");
   subtestDone();
 } else {
-  waitUntilApzStable().then(test_opacity).then(subtestDone);
+  waitUntilApzStable().then(test_opacity).then(subtestDone, subtestFailed);
 }
 
 </script>

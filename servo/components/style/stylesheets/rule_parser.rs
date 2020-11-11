@@ -19,8 +19,9 @@ use crate::stylesheets::keyframes_rule::parse_keyframe_list;
 use crate::stylesheets::stylesheet::Namespaces;
 use crate::stylesheets::supports_rule::SupportsCondition;
 use crate::stylesheets::viewport_rule;
+use crate::stylesheets::AllowImportRules;
+use crate::stylesheets::{CorsMode, DocumentRule, FontFeatureValuesRule, KeyframesRule, MediaRule};
 use crate::stylesheets::{CssRule, CssRuleType, CssRules, RulesMutateError, StylesheetLoader};
-use crate::stylesheets::{DocumentRule, FontFeatureValuesRule, KeyframesRule, MediaRule};
 use crate::stylesheets::{NamespaceRule, PageRule, StyleRule, SupportsRule, ViewportRule};
 use crate::values::computed::font::FamilyName;
 use crate::values::{CssUrl, CustomIdent, KeyframesName};
@@ -44,13 +45,13 @@ pub struct TopLevelRuleParser<'a> {
     /// A reference to the lock we need to use to create rules.
     pub shared_lock: &'a SharedRwLock,
     /// A reference to a stylesheet loader if applicable, for `@import` rules.
-    pub loader: Option<&'a StylesheetLoader>,
+    pub loader: Option<&'a dyn StylesheetLoader>,
     /// The top-level parser context.
     ///
     /// This won't contain any namespaces, and only nested parsers created with
     /// `ParserContext::new_with_rule_type` will.
     pub context: ParserContext<'a>,
-    /// The current state of the parser.
+    /// The current stajkj/te of the parser.
     pub state: State,
     /// Whether we have tried to parse was invalid due to being in the wrong
     /// place (e.g. an @import rule was found while in the `Body` state). Reset
@@ -62,6 +63,8 @@ pub struct TopLevelRuleParser<'a> {
     pub namespaces: &'a mut Namespaces,
     /// The info we need insert a rule in a list.
     pub insert_rule_context: Option<InsertRuleContext<'a>>,
+    /// Whether @import rules will be allowed.
+    pub allow_import_rules: AllowImportRules,
 }
 
 impl<'b> TopLevelRuleParser<'b> {
@@ -107,9 +110,10 @@ impl<'b> TopLevelRuleParser<'b> {
         // If there's anything that isn't a namespace rule (or import rule, but
         // we checked that already at the beginning), reject with a
         // StateError.
-        if new_state == State::Namespaces && ctx.rule_list[ctx.index..]
-            .iter()
-            .any(|r| !matches!(*r, CssRule::Namespace(..)))
+        if new_state == State::Namespaces &&
+            ctx.rule_list[ctx.index..]
+                .iter()
+                .any(|r| !matches!(*r, CssRule::Namespace(..)))
         {
             self.dom_error = Some(RulesMutateError::InvalidState);
             return false;
@@ -132,7 +136,7 @@ pub enum State {
     Body = 4,
 }
 
-#[derive(Clone, Debug, MallocSizeOf)]
+#[derive(Clone, Debug, MallocSizeOf, ToShmem)]
 /// Vendor prefix.
 pub enum VendorPrefix {
     /// -moz prefix.
@@ -188,13 +192,25 @@ impl<'a, 'i> AtRuleParser<'i> for TopLevelRuleParser<'a> {
                     return Err(input.new_custom_error(StyleParseErrorKind::UnexpectedImportRule))
                 }
 
+                if let AllowImportRules::No = self.allow_import_rules {
+                    return Err(input.new_custom_error(StyleParseErrorKind::DisallowedImportRule))
+                }
+
+                // FIXME(emilio): We should always be able to have a loader
+                // around! See bug 1533783.
+                if self.loader.is_none() {
+                    error!("Saw @import rule, but no way to trigger the load");
+                    return Err(input.new_custom_error(StyleParseErrorKind::UnexpectedImportRule))
+                }
+
                 let url_string = input.expect_url_or_string()?.as_ref().to_owned();
-                let url = CssUrl::parse_from_string(url_string, &self.context);
+                let url = CssUrl::parse_from_string(url_string, &self.context, CorsMode::None);
 
                 let media = MediaList::parse(&self.context, input);
                 let media = Arc::new(self.shared_lock.wrap(media));
 
                 let prelude = AtRuleNonBlockPrelude::Import(url, media);
+
                 return Ok(AtRuleType::WithoutBlock(prelude));
             },
             "namespace" => {
@@ -202,7 +218,7 @@ impl<'a, 'i> AtRuleParser<'i> for TopLevelRuleParser<'a> {
                     return Err(input.new_custom_error(StyleParseErrorKind::UnexpectedNamespaceRule))
                 }
 
-                let prefix = input.try(|i| i.expect_ident_cloned())
+                let prefix = input.try_parse(|i| i.expect_ident_cloned())
                                   .map(|s| Prefix::from(s.as_ref())).ok();
                 let maybe_namespace = match input.expect_url_or_string() {
                     Ok(url_or_string) => url_or_string,
@@ -220,7 +236,7 @@ impl<'a, 'i> AtRuleParser<'i> for TopLevelRuleParser<'a> {
             "charset" => {
                 self.dom_error = Some(RulesMutateError::HierarchyRequest);
                 return Err(input.new_custom_error(StyleParseErrorKind::UnexpectedCharsetRule))
-            }
+            },
             _ => {}
         }
 
@@ -540,7 +556,7 @@ impl<'a, 'b, 'i> AtRuleParser<'i> for NestedRuleParser<'a, 'b> {
                     self.namespaces,
                 );
 
-                let declarations = parse_property_declaration_list(&context, input);
+                let declarations = parse_property_declaration_list(&context, input, None);
                 Ok(CssRule::Page(Arc::new(self.shared_lock.wrap(PageRule {
                     block: Arc::new(self.shared_lock.wrap(declarations)),
                     source_location,
@@ -588,7 +604,7 @@ impl<'a, 'b, 'i> QualifiedRuleParser<'i> for NestedRuleParser<'a, 'b> {
         let context =
             ParserContext::new_with_rule_type(self.context, CssRuleType::Style, self.namespaces);
 
-        let declarations = parse_property_declaration_list(&context, input);
+        let declarations = parse_property_declaration_list(&context, input, Some(&selectors));
         let block = Arc::new(self.shared_lock.wrap(declarations));
         Ok(CssRule::Style(Arc::new(self.shared_lock.wrap(StyleRule {
             selectors,

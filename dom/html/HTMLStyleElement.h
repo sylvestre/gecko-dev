@@ -8,17 +8,15 @@
 #define mozilla_dom_HTMLStyleElement_h
 
 #include "mozilla/Attributes.h"
+#include "mozilla/dom/LinkStyle.h"
 #include "nsGenericHTMLElement.h"
-#include "nsStyleLinkElement.h"
 #include "nsStubMutationObserver.h"
-
-class nsIDocument;
 
 namespace mozilla {
 namespace dom {
 
 class HTMLStyleElement final : public nsGenericHTMLElement,
-                               public nsStyleLinkElement,
+                               public LinkStyle,
                                public nsStubMutationObserver {
  public:
   explicit HTMLStyleElement(
@@ -39,11 +37,16 @@ class HTMLStyleElement final : public nsGenericHTMLElement,
   virtual void SetTextContentInternal(const nsAString& aTextContent,
                                       nsIPrincipal* aSubjectPrincipal,
                                       mozilla::ErrorResult& aError) override;
+  /**
+   * Mark this style element with a devtools-specific principal that
+   * skips Content Security Policy unsafe-inline checks. This triggering
+   * principal will be overwritten by any callers that set textContent
+   * or innerHTML on this element.
+   */
+  void SetDevtoolsAsTriggeringPrincipal();
 
-  virtual nsresult BindToTree(nsIDocument* aDocument, nsIContent* aParent,
-                              nsIContent* aBindingParent) override;
-  virtual void UnbindFromTree(bool aDeep = true,
-                              bool aNullParent = true) override;
+  virtual nsresult BindToTree(BindContext&, nsINode& aParent) override;
+  virtual void UnbindFromTree(bool aNullParent = true) override;
   virtual nsresult AfterSetAttr(int32_t aNameSpaceID, nsAtom* aName,
                                 const nsAttrValue* aValue,
                                 const nsAttrValue* aOldValue,
@@ -58,7 +61,7 @@ class HTMLStyleElement final : public nsGenericHTMLElement,
   NS_DECL_NSIMUTATIONOBSERVER_CONTENTINSERTED
   NS_DECL_NSIMUTATIONOBSERVER_CONTENTREMOVED
 
-  bool Disabled();
+  bool Disabled() const;
   void SetDisabled(bool aDisabled);
   void GetMedia(nsAString& aValue) { GetHTMLAttr(nsGkAtoms::media, aValue); }
   void SetMedia(const nsAString& aMedia, ErrorResult& aError) {
@@ -75,6 +78,8 @@ class HTMLStyleElement final : public nsGenericHTMLElement,
  protected:
   virtual ~HTMLStyleElement();
 
+  nsIContent& AsContent() final { return *this; }
+  const LinkStyle* AsLinkStyle() const final { return this; }
   Maybe<SheetInfo> GetStyleSheetInfo() final;
 
   /**

@@ -19,88 +19,46 @@ function promiseNotification(id) {
   });
 }
 
-function arrivingHereIsBad(aResult) {
-  ok(false, "Bad result! Received a: " + aResult);
+function triggerMainPopupCommand(popup) {
+  info("triggering main command");
+  let notifications = popup.childNodes;
+  ok(notifications.length > 0, "at least one notification displayed");
+  let notification = notifications[0];
+  info("triggering command: " + notification.getAttribute("buttonlabel"));
+
+  return EventUtils.synthesizeMouseAtCenter(notification.button, {});
 }
 
-function expectAbortError(aResult) {
-  let expected = "AbortError";
-  is(aResult.slice(0, expected.length), expected, `Expecting a ${expected}`);
+let expectAbortError = expectError("Abort");
+
+function verifyAnonymizedCertificate(result) {
+  let { attObj, rawId } = result;
+  return webAuthnDecodeCBORAttestation(attObj).then(({ fmt, attStmt }) => {
+    is("none", fmt, "Is a None Attestation");
+    is("object", typeof attStmt, "attStmt is a map");
+    is(0, Object.keys(attStmt).length, "attStmt is empty");
+  });
 }
 
-function verifyAnonymizedCertificate(attestationObject) {
-  return webAuthnDecodeCBORAttestation(attestationObject)
-    .then(({fmt, attStmt}) => {
-      is("none", fmt, "Is a None Attestation");
-      is("object", typeof(attStmt), "attStmt is a map");
-      is(0, Object.keys(attStmt).length, "attStmt is empty");
-    });
-}
-
-function verifyDirectCertificate(attestationObject) {
-  return webAuthnDecodeCBORAttestation(attestationObject)
-    .then(({fmt, attStmt}) => {
-      is("fido-u2f", fmt, "Is a FIDO U2F Attestation");
-      is("object", typeof(attStmt), "attStmt is a map");
-      ok(attStmt.hasOwnProperty("x5c"), "attStmt.x5c exists");
-      ok(attStmt.hasOwnProperty("sig"), "attStmt.sig exists");
-    });
-}
-
-function promiseWebAuthnRegister(tab, attestation = "indirect") {
-  return ContentTask.spawn(tab.linkedBrowser, [attestation],
-    ([attestation]) => {
-      const cose_alg_ECDSA_w_SHA256 = -7;
-
-      let challenge = content.crypto.getRandomValues(new Uint8Array(16));
-
-      let pubKeyCredParams = [{
-        type: "public-key",
-        alg: cose_alg_ECDSA_w_SHA256
-      }];
-
-      let publicKey = {
-        rp: {id: content.document.domain, name: "none", icon: "none"},
-        user: {id: new Uint8Array(), name: "none", icon: "none", displayName: "none"},
-        pubKeyCredParams,
-        attestation,
-        challenge
-      };
-
-      return content.navigator.credentials.create({publicKey})
-        .then(cred => cred.response.attestationObject);
-    });
-}
-
-function promiseWebAuthnSign(tab) {
-  return ContentTask.spawn(tab.linkedBrowser, [], () => {
-    let challenge = content.crypto.getRandomValues(new Uint8Array(16));
-    let key_handle = content.crypto.getRandomValues(new Uint8Array(16));
-
-    let credential = {
-      id: key_handle,
-      type: "public-key",
-      transports: ["usb"]
-    };
-
-    let publicKey = {
-      challenge,
-      rpId: content.document.domain,
-      allowCredentials: [credential],
-    };
-
-    return content.navigator.credentials.get({publicKey});
+function verifyDirectCertificate(result) {
+  let { attObj, rawId } = result;
+  return webAuthnDecodeCBORAttestation(attObj).then(({ fmt, attStmt }) => {
+    is("fido-u2f", fmt, "Is a FIDO U2F Attestation");
+    is("object", typeof attStmt, "attStmt is a map");
+    ok(attStmt.hasOwnProperty("x5c"), "attStmt.x5c exists");
+    ok(attStmt.hasOwnProperty("sig"), "attStmt.sig exists");
   });
 }
 
 add_task(async function test_setup_usbtoken() {
   await SpecialPowers.pushPrefEnv({
-    "set": [
+    set: [
       ["security.webauth.u2f", false],
       ["security.webauth.webauthn", true],
       ["security.webauth.webauthn_enable_softtoken", false],
-      ["security.webauth.webauthn_enable_usbtoken", true]
-    ]
+      ["security.webauth.webauthn_enable_android_fido2", false],
+      ["security.webauth.webauthn_enable_usbtoken", true],
+    ],
   });
 });
 
@@ -110,10 +68,10 @@ add_task(async function test_register() {
 
   // Request a new credential and wait for the prompt.
   let active = true;
-  let request = promiseWebAuthnRegister(tab)
+  let request = promiseWebAuthnMakeCredential(tab, "indirect", {})
     .then(arrivingHereIsBad)
     .catch(expectAbortError)
-    .then(() => active = false);
+    .then(() => (active = false));
   await promiseNotification("webauthn-prompt-register");
 
   // Cancel the request.
@@ -131,10 +89,10 @@ add_task(async function test_sign() {
 
   // Request a new assertion and wait for the prompt.
   let active = true;
-  let request = promiseWebAuthnSign(tab)
+  let request = promiseWebAuthnGetAssertion(tab)
     .then(arrivingHereIsBad)
     .catch(expectAbortError)
-    .then(() => active = false);
+    .then(() => (active = false));
   await promiseNotification("webauthn-prompt-sign");
 
   // Cancel the request.
@@ -152,9 +110,10 @@ add_task(async function test_register_direct_cancel() {
 
   // Request a new credential with direct attestation and wait for the prompt.
   let active = true;
-  let promise = promiseWebAuthnRegister(tab, "direct")
-    .then(arrivingHereIsBad).catch(expectAbortError)
-    .then(() => active = false);
+  let promise = promiseWebAuthnMakeCredential(tab, "direct", {})
+    .then(arrivingHereIsBad)
+    .catch(expectAbortError)
+    .then(() => (active = false));
   await promiseNotification("webauthn-prompt-register-direct");
 
   // Cancel the request.
@@ -166,15 +125,112 @@ add_task(async function test_register_direct_cancel() {
   await BrowserTestUtils.removeTab(tab);
 });
 
+// Add two tabs, open WebAuthn in the first, switch, assert the prompt is
+// not visible, switch back, assert the prompt is there and cancel it.
+add_task(async function test_tab_switching() {
+  // Open a new tab.
+  let tab_one = await BrowserTestUtils.openNewForegroundTab(gBrowser, TEST_URL);
+
+  // Request a new credential and wait for the prompt.
+  let active = true;
+  let request = promiseWebAuthnMakeCredential(tab_one, "indirect", {})
+    .then(arrivingHereIsBad)
+    .catch(expectAbortError)
+    .then(() => (active = false));
+  await promiseNotification("webauthn-prompt-register");
+  is(PopupNotifications.panel.state, "open", "Doorhanger is visible");
+
+  // Open and switch to a second tab.
+  let tab_two = await BrowserTestUtils.openNewForegroundTab(
+    gBrowser,
+    "https://example.org/"
+  );
+
+  await TestUtils.waitForCondition(
+    () => PopupNotifications.panel.state == "closed"
+  );
+  is(PopupNotifications.panel.state, "closed", "Doorhanger is hidden");
+
+  // Go back to the first tab
+  await BrowserTestUtils.removeTab(tab_two);
+
+  await promiseNotification("webauthn-prompt-register");
+
+  await TestUtils.waitForCondition(
+    () => PopupNotifications.panel.state == "open"
+  );
+  is(PopupNotifications.panel.state, "open", "Doorhanger is visible");
+
+  // Cancel the request.
+  ok(active, "request should still be active");
+  await triggerMainPopupCommand(PopupNotifications.panel);
+  await request;
+  ok(!active, "request should be stopped");
+
+  // Close tab.
+  await BrowserTestUtils.removeTab(tab_one);
+});
+
+// Add two tabs, open WebAuthn in the first, switch, assert the prompt is
+// not visible, switch back, assert the prompt is there and cancel it.
+add_task(async function test_window_switching() {
+  // Open a new tab.
+  let tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, TEST_URL);
+
+  // Request a new credential and wait for the prompt.
+  let active = true;
+  let request = promiseWebAuthnMakeCredential(tab, "indirect", {})
+    .then(arrivingHereIsBad)
+    .catch(expectAbortError)
+    .then(() => (active = false));
+  await promiseNotification("webauthn-prompt-register");
+
+  await TestUtils.waitForCondition(
+    () => PopupNotifications.panel.state == "open"
+  );
+  is(PopupNotifications.panel.state, "open", "Doorhanger is visible");
+
+  // Open and switch to a second window
+  let new_window = await BrowserTestUtils.openNewBrowserWindow();
+  await SimpleTest.promiseFocus(new_window);
+
+  await TestUtils.waitForCondition(
+    () => new_window.PopupNotifications.panel.state == "closed"
+  );
+  is(
+    new_window.PopupNotifications.panel.state,
+    "closed",
+    "Doorhanger is hidden"
+  );
+
+  // Go back to the first tab
+  await BrowserTestUtils.closeWindow(new_window);
+  await SimpleTest.promiseFocus(window);
+
+  await TestUtils.waitForCondition(
+    () => PopupNotifications.panel.state == "open"
+  );
+  is(PopupNotifications.panel.state, "open", "Doorhanger is still visible");
+
+  // Cancel the request.
+  ok(active, "request should still be active");
+  await triggerMainPopupCommand(PopupNotifications.panel);
+  await request;
+  ok(!active, "request should be stopped");
+
+  // Close tab.
+  await BrowserTestUtils.removeTab(tab);
+});
+
 add_task(async function test_setup_softtoken() {
   await SpecialPowers.pushPrefEnv({
-    "set": [
+    set: [
       ["security.webauth.u2f", false],
       ["security.webauth.webauthn", true],
       ["security.webauth.webauthn_enable_softtoken", true],
-      ["security.webauth.webauthn_enable_usbtoken", false]
-    ]
-  })
+      ["security.webauth.webauthn_enable_usbtoken", false],
+    ],
+  });
 });
 
 add_task(async function test_register_direct_proceed() {
@@ -182,7 +238,7 @@ add_task(async function test_register_direct_proceed() {
   let tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, TEST_URL);
 
   // Request a new credential with direct attestation and wait for the prompt.
-  let request = promiseWebAuthnRegister(tab, "direct");
+  let request = promiseWebAuthnMakeCredential(tab, "direct", {});
   await promiseNotification("webauthn-prompt-register-direct");
 
   // Proceed.
@@ -200,7 +256,7 @@ add_task(async function test_register_direct_proceed_anon() {
   let tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, TEST_URL);
 
   // Request a new credential with direct attestation and wait for the prompt.
-  let request = promiseWebAuthnRegister(tab, "direct");
+  let request = promiseWebAuthnMakeCredential(tab, "direct", {});
   await promiseNotification("webauthn-prompt-register-direct");
 
   // Check "anonymize anyway" and proceed.

@@ -10,11 +10,11 @@
 
 #include "ipc/IPCMessageUtils.h"
 #include "nsExceptionHandler.h"
+#include "nsIHttpChannel.h"
 #include "nsPrintfCString.h"
 #include "nsString.h"
 #include "prio.h"
 #include "mozilla/net/DNS.h"
-#include "TimingStruct.h"
 
 namespace IPC {
 
@@ -27,7 +27,7 @@ struct Permission {
 
   Permission() : capability(0), expireType(0), expireTime(0) {}
 
-  Permission(const nsCString& aOrigin, const nsCString& aType,
+  Permission(const nsCString& aOrigin, const nsACString& aType,
              const uint32_t aCapability, const uint32_t aExpireType,
              const int64_t aExpireTime)
       : origin(aOrigin),
@@ -35,6 +35,12 @@ struct Permission {
         capability(aCapability),
         expireType(aExpireType),
         expireTime(aExpireTime) {}
+
+  bool operator==(const Permission& aOther) const {
+    return aOther.origin == origin && aOther.type == type &&
+           aOther.capability == capability && aOther.expireType == expireType &&
+           aOther.expireTime == expireTime;
+  }
 };
 
 template <>
@@ -132,52 +138,10 @@ struct ParamTraits<mozilla::net::NetAddr> {
 };
 
 template <>
-struct ParamTraits<mozilla::net::ResourceTimingStruct> {
-  static void Write(Message* aMsg,
-                    const mozilla::net::ResourceTimingStruct& aParam) {
-    WriteParam(aMsg, aParam.domainLookupStart);
-    WriteParam(aMsg, aParam.domainLookupEnd);
-    WriteParam(aMsg, aParam.connectStart);
-    WriteParam(aMsg, aParam.tcpConnectEnd);
-    WriteParam(aMsg, aParam.secureConnectionStart);
-    WriteParam(aMsg, aParam.connectEnd);
-    WriteParam(aMsg, aParam.requestStart);
-    WriteParam(aMsg, aParam.responseStart);
-    WriteParam(aMsg, aParam.responseEnd);
-
-    WriteParam(aMsg, aParam.fetchStart);
-    WriteParam(aMsg, aParam.redirectStart);
-    WriteParam(aMsg, aParam.redirectEnd);
-
-    WriteParam(aMsg, aParam.transferSize);
-    WriteParam(aMsg, aParam.encodedBodySize);
-    WriteParam(aMsg, aParam.protocolVersion);
-
-    WriteParam(aMsg, aParam.cacheReadStart);
-    WriteParam(aMsg, aParam.cacheReadEnd);
-  }
-
-  static bool Read(const Message* aMsg, PickleIterator* aIter,
-                   mozilla::net::ResourceTimingStruct* aResult) {
-    return ReadParam(aMsg, aIter, &aResult->domainLookupStart) &&
-           ReadParam(aMsg, aIter, &aResult->domainLookupEnd) &&
-           ReadParam(aMsg, aIter, &aResult->connectStart) &&
-           ReadParam(aMsg, aIter, &aResult->tcpConnectEnd) &&
-           ReadParam(aMsg, aIter, &aResult->secureConnectionStart) &&
-           ReadParam(aMsg, aIter, &aResult->connectEnd) &&
-           ReadParam(aMsg, aIter, &aResult->requestStart) &&
-           ReadParam(aMsg, aIter, &aResult->responseStart) &&
-           ReadParam(aMsg, aIter, &aResult->responseEnd) &&
-           ReadParam(aMsg, aIter, &aResult->fetchStart) &&
-           ReadParam(aMsg, aIter, &aResult->redirectStart) &&
-           ReadParam(aMsg, aIter, &aResult->redirectEnd) &&
-           ReadParam(aMsg, aIter, &aResult->transferSize) &&
-           ReadParam(aMsg, aIter, &aResult->encodedBodySize) &&
-           ReadParam(aMsg, aIter, &aResult->protocolVersion) &&
-           ReadParam(aMsg, aIter, &aResult->cacheReadStart) &&
-           ReadParam(aMsg, aIter, &aResult->cacheReadEnd);
-  }
-};
+struct ParamTraits<nsIHttpChannel::FlashPluginState>
+    : public ContiguousEnumSerializerInclusive<
+          nsIHttpChannel::FlashPluginState, nsIHttpChannel::FlashPluginUnknown,
+          nsIHttpChannel::FlashPluginLastValue> {};
 
 }  // namespace IPC
 

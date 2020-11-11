@@ -12,6 +12,7 @@
 #include "mozilla/EndianUtils.h"
 #include "mozilla/MathAlgorithms.h"
 #include "mozilla/Preferences.h"
+#include "mozilla/StaticPrefs_gfx.h"
 #include "mozilla/TimeStamp.h"
 
 #include "mozilla/layers/CompositorOGL.h"
@@ -21,15 +22,12 @@
 
 #include "gfxContext.h"
 #include "gfxUtils.h"
-#include "gfxPrefs.h"
+
 #include "nsIWidget.h"
 
 #include "GLContext.h"
 #include "GLContextProvider.h"
 #include "GLReadTexImageHelper.h"
-
-#include "nsIServiceManager.h"
-#include "nsIConsoleService.h"
 
 #include <memory>
 #include "mozilla/LinkedList.h"
@@ -43,7 +41,6 @@
 #include "nsNetCID.h"
 #include "nsIOutputStream.h"
 #include "nsIAsyncInputStream.h"
-#include "nsIEventTarget.h"
 #include "nsProxyRelease.h"
 #include <list>
 
@@ -53,7 +50,7 @@
 
 // Undo the damage done by X11
 #ifdef Status
-#undef Status
+#  undef Status
 #endif
 // Protocol buffer (generated automatically)
 #include "protobuf/LayerScopePacket.pb.h"
@@ -136,7 +133,7 @@ class LayerScopeWebSocketManager {
    public:
     NS_DECL_THREADSAFE_ISUPPORTS
 
-    SocketListener() {}
+    SocketListener() = default;
 
     /* nsIServerSocketListener */
     NS_IMETHOD OnSocketAccepted(nsIServerSocket* aServ,
@@ -147,7 +144,7 @@ class LayerScopeWebSocketManager {
     }
 
    private:
-    virtual ~SocketListener() {}
+    virtual ~SocketListener() = default;
   };
 
   /*
@@ -380,7 +377,7 @@ class DebugGLData : public LinkedListElement<DebugGLData> {
  public:
   explicit DebugGLData(Packet::DataType aDataType) : mDataType(aDataType) {}
 
-  virtual ~DebugGLData() {}
+  virtual ~DebugGLData() = default;
 
   virtual bool Write() = 0;
 
@@ -388,7 +385,7 @@ class DebugGLData : public LinkedListElement<DebugGLData> {
   static bool WriteToStream(Packet& aPacket) {
     if (!gLayerScopeManager.GetSocketManager()) return true;
 
-    uint32_t size = aPacket.ByteSize();
+    size_t size = aPacket.ByteSizeLong();
     auto data = MakeUnique<uint8_t[]>(size);
     aPacket.SerializeToArray(data.get(), size);
     return gLayerScopeManager.GetSocketManager()->WriteAll(data.get(), size);
@@ -405,7 +402,7 @@ class DebugGLFrameStatusData final : public DebugGLData {
   explicit DebugGLFrameStatusData(Packet::DataType aDataType)
       : DebugGLData(aDataType), mFrameStamp(0) {}
 
-  virtual bool Write() override {
+  bool Write() override {
     Packet packet;
     packet.set_type(mDataType);
 
@@ -441,7 +438,7 @@ class DebugGLTextureData final : public DebugGLData {
     pack(img);
   }
 
-  virtual bool Write() override { return WriteToStream(*mPacket); }
+  bool Write() override { return WriteToStream(*mPacket); }
 
  private:
   void pack(DataSourceSurface* aImage) {
@@ -501,13 +498,14 @@ class DebugGLTextureData final : public DebugGLData {
 
 class DebugGLColorData final : public DebugGLData {
  public:
-  DebugGLColorData(void* layerRef, const Color& color, int width, int height)
+  DebugGLColorData(void* layerRef, const DeviceColor& color, int width,
+                   int height)
       : DebugGLData(Packet::COLOR),
         mLayerRef(reinterpret_cast<uint64_t>(layerRef)),
         mColor(color.ToABGR()),
         mSize(width, height) {}
 
-  virtual bool Write() override {
+  bool Write() override {
     Packet packet;
     packet.set_type(mDataType);
 
@@ -531,7 +529,7 @@ class DebugGLLayersData final : public DebugGLData {
   explicit DebugGLLayersData(UniquePtr<Packet> aPacket)
       : DebugGLData(Packet::LAYERS), mPacket(std::move(aPacket)) {}
 
-  virtual bool Write() override {
+  bool Write() override {
     mPacket->set_type(mDataType);
     return WriteToStream(*mPacket);
   }
@@ -548,7 +546,7 @@ class DebugGLMetaData final : public DebugGLData {
   explicit DebugGLMetaData(Packet::DataType aDataType)
       : DebugGLData(aDataType), mComposedByHwc(false) {}
 
-  virtual bool Write() override {
+  bool Write() override {
     Packet packet;
     packet.set_type(mDataType);
 
@@ -581,7 +579,7 @@ class DebugGLDrawData final : public DebugGLData {
     }
   }
 
-  virtual bool Write() override {
+  bool Write() override {
     Packet packet;
     packet.set_type(mDataType);
 
@@ -640,7 +638,7 @@ class DebugDataSender {
     }
 
    private:
-    virtual ~AppendTask() {}
+    virtual ~AppendTask() = default;
 
     DebugGLData* mData;
     // Keep a strong reference to DebugDataSender to prevent this object
@@ -661,7 +659,7 @@ class DebugDataSender {
     }
 
    private:
-    virtual ~ClearTask() {}
+    virtual ~ClearTask() = default;
 
     RefPtr<DebugDataSender> mHost;
   };
@@ -691,7 +689,7 @@ class DebugDataSender {
     }
 
    private:
-    virtual ~SendTask() {}
+    virtual ~SendTask() = default;
 
     RefPtr<DebugDataSender> mHost;
   };
@@ -707,7 +705,7 @@ class DebugDataSender {
   void Send() { mThread->Dispatch(new SendTask(this), NS_DISPATCH_NORMAL); }
 
  protected:
-  virtual ~DebugDataSender() {}
+  virtual ~DebugDataSender() = default;
   void RemoveData() {
     MOZ_ASSERT(mThread->SerialEventTarget()->IsOnCurrentThread());
     if (mList.isEmpty()) return;
@@ -758,7 +756,7 @@ class SenderHelper {
 
   // Sender private functions
  private:
-  static void SendColor(void* aLayerRef, const Color& aColor, int aWidth,
+  static void SendColor(void* aLayerRef, const DeviceColor& aColor, int aWidth,
                         int aHeight);
   static void SendTextureSource(GLContext* aGLContext, void* aLayerRef,
                                 TextureSourceOGL* aSource, bool aFlipY,
@@ -836,8 +834,8 @@ void SenderHelper::SendLayer(LayerComposite* aLayer, int aWidth, int aHeight) {
   }
 }
 
-void SenderHelper::SendColor(void* aLayerRef, const Color& aColor, int aWidth,
-                             int aHeight) {
+void SenderHelper::SendColor(void* aLayerRef, const DeviceColor& aColor,
+                             int aWidth, int aHeight) {
   gLayerScopeManager.GetSocketManager()->AppendDebugData(
       new DebugGLColorData(aLayerRef, aColor, aWidth, aHeight));
 }
@@ -1022,7 +1020,7 @@ void LayerScopeWebSocketManager::SocketHandler::OpenStream(
   nsCOMPtr<nsIInputStream> debugInputStream;
   mTransport->OpenInputStream(0, 0, 0, getter_AddRefs(debugInputStream));
   mInputStream = do_QueryInterface(debugInputStream);
-  mInputStream->AsyncWait(this, 0, 0, GetCurrentThreadEventTarget());
+  mInputStream->AsyncWait(this, 0, 0, GetCurrentEventTarget());
 }
 
 bool LayerScopeWebSocketManager::SocketHandler::WriteToStream(void* aPtr,
@@ -1093,7 +1091,7 @@ LayerScopeWebSocketManager::SocketHandler::OnInputStreamReady(
     if (WebSocketHandshake(protocolString)) {
       mState = HandshakeSuccess;
       mConnected = true;
-      mInputStream->AsyncWait(this, 0, 0, GetCurrentThreadEventTarget());
+      mInputStream->AsyncWait(this, 0, 0, GetCurrentEventTarget());
     } else {
       mState = HandshakeFailed;
     }
@@ -1180,15 +1178,15 @@ bool LayerScopeWebSocketManager::SocketHandler::WebSocketHandshake(
   uint8_t digest[SHA1Sum::kHashSize];  // SHA1 digests are 20 bytes long.
   sha1.finish(digest);
   nsCString newString(reinterpret_cast<char*>(digest), SHA1Sum::kHashSize);
-  rv = Base64Encode(newString, res);
-  if (NS_FAILED(rv)) {
-    return false;
-  }
   nsCString response("HTTP/1.1 101 Switching Protocols\r\n");
   response.AppendLiteral("Upgrade: websocket\r\n");
   response.AppendLiteral("Connection: Upgrade\r\n");
-  response.Append(nsCString("Sec-WebSocket-Accept: ") + res +
-                  nsCString("\r\n"));
+  response.AppendLiteral("Sec-WebSocket-Accept: ");
+  rv = Base64EncodeAppend(newString, response);
+  if (NS_FAILED(rv)) {
+    return false;
+  }
+  response.AppendLiteral("\r\n");
   response.AppendLiteral("Sec-WebSocket-Protocol: binary\r\n\r\n");
   uint32_t written = 0;
   uint32_t size = response.Length();
@@ -1220,7 +1218,7 @@ nsresult LayerScopeWebSocketManager::SocketHandler::HandleSocketMessage(
     // TODO: combine packets if we have to read more than once
 
     if (rv == NS_BASE_STREAM_WOULD_BLOCK) {
-      mInputStream->AsyncWait(this, 0, 0, GetCurrentThreadEventTarget());
+      mInputStream->AsyncWait(this, 0, 0, GetCurrentEventTarget());
       return NS_OK;
     }
 
@@ -1420,7 +1418,7 @@ LayerScopeWebSocketManager::LayerScopeWebSocketManager()
   NS_NewNamedThread("LayerScope", getter_AddRefs(mDebugSenderThread));
 
   mServerSocket = do_CreateInstance(NS_SERVERSOCKET_CONTRACTID);
-  int port = gfxPrefs::LayerScopePort();
+  int port = StaticPrefs::gfx_layerscope_port();
   mServerSocket->Init(port, false, -1);
   mServerSocket->AsyncListen(new SocketListener);
 }
@@ -1465,7 +1463,7 @@ NS_IMETHODIMP LayerScopeWebSocketManager::SocketListener::OnSocketAccepted(
 // ----------------------------------------------
 /*static*/
 void LayerScope::Init() {
-  if (!gfxPrefs::LayerScopeEnabled() || XRE_IsGPUProcess()) {
+  if (!StaticPrefs::gfx_layerscope_enabled() || XRE_IsGPUProcess()) {
     return;
   }
 
@@ -1563,7 +1561,7 @@ bool LayerScope::CheckSendable() {
   // Only compositor threads check LayerScope status
   MOZ_ASSERT(CompositorThreadHolder::IsInCompositorThread() || gIsGtest);
 
-  if (!gfxPrefs::LayerScopeEnabled()) {
+  if (!StaticPrefs::gfx_layerscope_enabled()) {
     return false;
   }
   if (!gLayerScopeManager.GetSocketManager()) {

@@ -1,59 +1,104 @@
 # Code reviews
 
-This checklist is primarily aimed at reviewers, as it lists important points to check while reviewing a patch.
+A review is required before code is added to Mozilla's repository. In addition, contrary to what you might have seen in other open source projects, code is not pushed directly to the repository. Instead, once the code is approved by reviewers, they will _request_ the code to be _landed_ on the repository.
 
-It can also be useful for patch authors: if the changes comply with these guidelines, then it's more likely the review will be approved.
+All this can be done somehow manually, but we have infrastructure in place to help us with reviews and landing code.
 
-## Bug status and patch file
-<!--TODO: update when we move to github-->
-* Bug status is assigned, and assignee is correctly set.
-* Commit title and message follow [the conventions](https://developer.mozilla.org/en-US/docs/Mercurial/Using_Mercurial#Commit_Message_Conventions).
-* Commit message says [what is being changed and why](http://mozilla-version-control-tools.readthedocs.org/en/latest/mozreview/commits.html#write-detailed-commit-messages).
-* Patch applies locally to current sources with no merge required.
-* Check that every new file introduced by the patch has the proper Mozilla license header: https://www.mozilla.org/en-US/MPL/headers/
+Learn about how to get started with getting your code reviewed and landed in our [setting up](./code-reviews-setup.md) guide.
 
-## Manual testing
+And read on to learn about why and how we do code reviews.
 
-* Verify:
-  * if it's a new feature, the patch implements it.
-  * if it's a fix, the patch fixes the bug it addresses.
-* Report any problems you find in the global review comment.
-* Decide if any of those problems should block landing the change, or if they can be filed as follow-up bugs instead, to be fixed later.
+## Why do we do code reviews?
 
-## Automated testing
+### Quality
 
-* Run new/modified tests, [with and without e10s](../tests/writing-tests.md#electrolysis).
-* Watch out for tests that pass but log exceptions or end before protocol requests are handled.
-* Watch out for slow/long tests: suggest many small tests rather than single long tests.
-* Watch out for new tests written as integration tests instead of as unit tests: unit tests should be the preferred option, when possible.
+Doing code reviews helps with **correctness**. It gives us a chance to check that the code:
 
-## Code review
+- fixes the problem,
+- doesn't have bugs,
+- doesn't regress other things,
+- covers edge cases.
 
-* Code changes:
- * Review only what was changed by the contributor.
- * Code formatting follows [our ESLint rules](eslint.md) and [coding standards](./coding-standards.md).
- * Code is properly commented, JSDoc is updated, new "public" methods all have JSDoc, see the [comment guidelines](./javascript.md#comments).
- * If Promise code was added/modified, the right promise syntax is used and rejections are handled. See [asynchronous code](./javascript.md#asynchronous-code).
- * If a CSS file is added/modified, it follows [the CSS guidelines](./css.md).
- * If a React or Redux module is added/modified, it follows the [React/Redux guidelines](./javascript.md#react--redux).
- * If DevTools server code that should run in a worker is added/modified then it shouldn't use Services
-* Test changes:
- * The feature or bug is [tested by new tests, or a modification of existing tests](../tests/writing-tests.md).
- * [Test logging](../tests/writing-tests.md#logs-and-comments) is sufficient to help investigating test failures/timeouts.
- * [Test is e10s compliant](../tests/writing-tests.md#e10s-electrolysis) (no CPOWs, no content, etc…).
- * Tests are [clean and maintainable](../tests/writing-tests.md#writing-clean-maintainable-test-code).
- * A try push has started (or even better, is green already)<!--TODO review and update with mentions to Travis, Circle or whatever it is we use when we move to GitHub-->.
-* User facing changes:
- * If a new piece of UI or new user interaction is added/modified, then UX is `ui-review?` on the bug.<!--TODO this needs updating with the new process-->
- * If a user facing string has been added, it is localized and follows [the localization guidelines](../files/adding-files.md#localization-l10n).
- * If a user-facing string has changed meaning, [the key has been updated](https://developer.mozilla.org/en-US/docs/Mozilla/Localization/Localization_content_best_practices#Changing_existing_strings).
- * If a new image is added, it is a SVG image or there is a reason for not using a SVG.
- * If a SVG is added/modified, it follows [the SVG guidelines](../frontend/svgs.md).
- * If a documented feature has been modified, the keyword `dev-doc-needed` is present on the bug.
+A review is also a chance for the reviewer to check that the right **test coverage** is here, that the change doesn't have **performance** problems, that it **simplifies hard to understand code** and that it comes with **code comments** and **adequate documentation**.
 
-## Finalize the review
-<!--TODO update with the GitHub workflow when we're there-->
-* R+: the code should land as soon as possible.
-* R+ with comments: there are some comments, but they are minor enough, or don't require a new review once addressed, trust the author.
-* R cancel / R- / F+: there is something wrong with the code, and a new review is required.
+### Learning and sharing knowledge
 
+While going through the process of doing a code review, **both the reviewer and the reviewee** will be learning something (a new part of the code, a new efficient way to write code, tests, localization, etc.).
+
+Making the code easy to understand by the reviewer helps everybody.
+
+Doing reviews also helps people working on DevTools feel more comfortable and learn about new parts of the codebase.
+
+It helps build consensus around ideas and practices.
+
+### Maintenance
+
+Doing reviews gives us an opportunity to check we are willing to maintain and support the new code that being introduced for a feature or bug fix.
+
+### Code consistency
+
+It is also a great opportunity for us to check that whatever new code is being written is consistent with what already exists in the code base.
+
+### Shared responsibility
+
+Approving a code review means that you are the second person who thinks this change is correct and a good idea. Doing this makes you responsible for the code change just as much as the author.
+
+It is the entire DevTools group who owns the code, not just the author. We write code as a group, not as individuals, because on the long-term it's the group that maintains it.
+
+Having a review discussion shares the ownership of the code, because authors and reviewers all put a little bit of themselves in it, and the code that results isn't just the result of one person's work
+
+## What should be avoided in code reviews?
+
+- Style nits that a linter should ideally handle.
+- Requests that are outside of the scope of the bug.
+
+## What are some good practices for code reviews?
+
+### Use empathetic language.
+
+More reading:
+
+- [Mindful Communication in Code Reviews](http://amyciavolino.com/assets/MindfulCommunicationInCodeReviews.pdf)
+- [How to Do Code Reviews Like a Human](https://mtlynch.io/human-code-reviews-1/)
+
+### Prefer smaller commits over large monolithic commits.
+
+It makes it easier for the reviewer to provide a quality review. It's also easier to get consensus on the change if that change is small. Finally, it's easier to understand the risk, and find regressions.
+
+### Be explicit
+
+Specifically, be explicit about required versus optional changes.
+
+Reviews are conversations, and the reviewee should feel comfortable on discussing and pushing back on changes before making them.
+
+### Be quick
+
+As a reviewer, strive to answer in a couple of days, or at least under a week.
+
+If that is not possible, please update the bug to let the requester know when you'll get to the review. Or forward it to someone else who has more time.
+
+### Ask for help
+
+Know when you're out of your comfort zone as a reviewer, and don't hesitate to ask for an extra review to someone else.
+
+It's fine, you can't know everything, and the more people participate, the more everybody learns, and the more bugs we avoid.
+
+## How do we communicate?
+
+First and foremost, like in any Mozilla-run platforms or events, please abide by [the Community Participation Guidelines](https://www.mozilla.org/en-US/about/governance/policies/participation/).
+
+Maintainers should **lead by example through their tone and language**. We want to build an inclusive and safe environment for working together.
+
+As a reviewer, **double-check your comments**. Just because you're a reviewer and think you have a better solution doesn't mean that's true. Assume **the code author has spent more time thinking about this part of the code than you have** (if you're the reviewer) and might actually be right, even if you originally thought something was wrong. It doesn't take long to look up the code and double-check.
+
+**Being inclusive** is highly important. We shouldn't make any assumptions about the person requesting a review, or about the person you're asking a review from, and always provide as much information as required, in a way that is as inclusive as possible.
+
+The bug will live forever online, and many people will read it long after the author and reviewers are done.
+
+Talking over video/IRC/Slack is a great way to get buy-in and share responsibility over a solution. It is also helpful to resolve disagreement and work through issues in a more relaxed environment.
+
+**Do not criticize** the reviewee, talk about the quality of the code on its own, and not directly how the reviewee wrote the code.
+
+Take the time to thank and point out good code changes.
+
+**Using "please" and “what do you think?”** goes a long way in making others feel like colleagues, and not subordinates.

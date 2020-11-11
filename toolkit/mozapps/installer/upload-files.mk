@@ -12,7 +12,7 @@ ifndef MOZ_PKG_FORMAT
             ifeq (SunOS,$(OS_ARCH))
                 MOZ_PKG_FORMAT  = BZ2
             else
-                ifeq (gtk3,$(MOZ_WIDGET_TOOLKIT))
+                ifeq (gtk,$(MOZ_WIDGET_TOOLKIT))
                     MOZ_PKG_FORMAT  = BZ2
                 else
                     ifeq (android,$(MOZ_WIDGET_TOOLKIT))
@@ -93,8 +93,17 @@ endif
 
 MAKE_JSSHELL  = $(call py_action,zip,-C $(DIST)/bin --strip $(abspath $(PKG_JSSHELL)) $(JSSHELL_BINS))
 
-JARLOG_DIR = $(topobjdir)/jarlog/
-JARLOG_FILE_AB_CD = $(JARLOG_DIR)/$(AB_CD).log
+ifneq (,$(PGO_JARLOG_PATH))
+  # The backslash subst is to work around an issue with our version of mozmake,
+  # where backslashes get slurped in command-line arguments if a command is run
+  # with a double-quote character. The command to packager.py happens to be one
+  # of these commands, where double-quotes appear in certain ACDEFINES values.
+  # This turns a jarlog path like "Z:\task..." into "Z:task", which fails.
+  # Switching the backslashes for forward slashes works around the issue.
+  JARLOG_FILE_AB_CD = $(subst \,/,$(PGO_JARLOG_PATH))
+else
+  JARLOG_FILE_AB_CD = $(topobjdir)/jarlog/$(AB_CD).log
+endif
 
 TAR_CREATE_FLAGS := --exclude=.mkdir.done $(TAR_CREATE_FLAGS)
 CREATE_FINAL_TAR = $(TAR) -c --owner=0 --group=0 --numeric-owner \
@@ -124,10 +133,6 @@ ifeq ($(MOZ_PKG_FORMAT),BZ2)
 endif
 
 ifeq ($(MOZ_PKG_FORMAT),ZIP)
-  ifdef MOZ_EXTERNAL_SIGNING_FORMAT
-    # We can't use sha2signcode on zip files
-    MOZ_EXTERNAL_SIGNING_FORMAT := $(filter-out sha2signcode,$(MOZ_EXTERNAL_SIGNING_FORMAT))
-  endif
   PKG_SUFFIX	= .zip
   INNER_MAKE_PACKAGE = $(call py_action,make_zip,'$(MOZ_PKG_DIR)' '$(PACKAGE)')
   INNER_UNMAKE_PACKAGE = $(call py_action,make_unzip,$(UNPACKAGE))
@@ -157,7 +162,7 @@ ifeq ($(MOZ_PKG_FORMAT),RPM)
 
   RPM_CMD = \
     echo Creating RPM && \
-    $(PYTHON) -m mozbuild.action.preprocessor \
+    $(PYTHON3) -m mozbuild.action.preprocessor \
       -DMOZ_APP_NAME=$(MOZ_APP_NAME) \
       -DMOZ_APP_DISPLAYNAME='$(MOZ_APP_DISPLAYNAME)' \
       -DMOZ_APP_REMOTINGNAME='$(MOZ_APP_REMOTINGNAME)' \
@@ -216,7 +221,8 @@ endif #Create an RPM file
 
 
 ifeq ($(MOZ_PKG_FORMAT),APK)
-include $(MOZILLA_DIR)/toolkit/mozapps/installer/upload-files-$(MOZ_PKG_FORMAT).mk
+INNER_MAKE_PACKAGE = true
+INNER_UNMAKE_PACKAGE = true
 endif
 
 ifeq ($(MOZ_PKG_FORMAT),DMG)
@@ -241,34 +247,7 @@ ifeq ($(MOZ_PKG_FORMAT),DMG)
         )
 endif
 
-ifdef MOZ_INTERNAL_SIGNING_FORMAT
-  MOZ_SIGN_PREPARED_PACKAGE_CMD=$(MOZ_SIGN_CMD) $(foreach f,$(MOZ_INTERNAL_SIGNING_FORMAT),-f $(f)) $(foreach i,$(SIGN_INCLUDES),-i $(i)) $(foreach x,$(SIGN_EXCLUDES),-x $(x))
-  ifeq (WINNT,$(OS_ARCH))
-    MOZ_SIGN_PREPARED_PACKAGE_CMD += --nsscmd '$(ABS_DIST)/bin/shlibsign$(BIN_SUFFIX) -v -i'
-  endif
-endif
-
-# For final GPG / authenticode signing / dmg signing if required
-ifdef MOZ_EXTERNAL_SIGNING_FORMAT
-  MOZ_SIGN_PACKAGE_CMD=$(MOZ_SIGN_CMD) $(foreach f,$(MOZ_EXTERNAL_SIGNING_FORMAT),-f $(f))
-endif
-
-ifdef MOZ_SIGN_PREPARED_PACKAGE_CMD
-  ifeq (Darwin, $(OS_ARCH))
-    MAKE_PACKAGE    = cd ./$(PKG_DMG_SOURCE) && $(MOZ_SIGN_PREPARED_PACKAGE_CMD) '$(MOZ_MACBUNDLE_NAME)' \
-                      && cd $(PACKAGE_BASE_DIR) && $(INNER_MAKE_PACKAGE)
-  else
-    MAKE_PACKAGE    = $(MOZ_SIGN_PREPARED_PACKAGE_CMD) $(MOZ_PKG_DIR) \
-                      && $(INNER_MAKE_PACKAGE)
-  endif #Darwin
-
-else
-  MAKE_PACKAGE    = $(INNER_MAKE_PACKAGE)
-endif
-
-ifdef MOZ_SIGN_PACKAGE_CMD
-  MAKE_PACKAGE    += && $(MOZ_SIGN_PACKAGE_CMD) '$(PACKAGE)'
-endif
+MAKE_PACKAGE = $(INNER_MAKE_PACKAGE)
 
 NO_PKG_FILES += \
 	core \
@@ -292,9 +271,10 @@ NO_PKG_FILES += \
 	shlibsign* \
 	certutil* \
 	pk12util* \
-	BadCertServer* \
+	BadCertAndPinningServer* \
+	DelegatedCredentialsServer* \
 	OCSPStaplingServer* \
-	SymantecSanctionsServer* \
+	SanctionsTestServer* \
 	GenerateOCSPResponse* \
 	chrome/chrome.rdf \
 	chrome/app-chrome.manifest \
@@ -328,8 +308,6 @@ ifdef MOZ_FOLD_LIBS
   DEFINES += -DMOZ_FOLD_LIBS=1
 endif
 
-GARBAGE		+= $(DIST)/$(PACKAGE) $(PACKAGE)
-
 # The following target stages files into two directories: one directory for
 # core files, and one for optional extensions based on the information in
 # the MOZ_PKG_MANIFEST file.
@@ -341,7 +319,6 @@ ifndef MOZ_PACKAGER_FORMAT
 endif
 
 ifneq (android,$(MOZ_WIDGET_TOOLKIT))
-  OPTIMIZEJARS = 1
   JAR_COMPRESSION ?= none
 endif
 
@@ -401,18 +378,24 @@ UPLOAD_FILES= \
   $(call QUOTED_WILDCARD,$(MOZ_MOZINFO_FILE)) \
   $(call QUOTED_WILDCARD,$(MOZ_TEST_PACKAGES_FILE)) \
   $(call QUOTED_WILDCARD,$(PKG_JSSHELL)) \
-  $(call QUOTED_WILDCARD,$(DIST)/$(PKG_PATH)$(SYMBOL_FULL_ARCHIVE_BASENAME).zip) \
+  $(call QUOTED_WILDCARD,$(DIST)/$(PKG_PATH)$(SYMBOL_FULL_ARCHIVE_BASENAME).tar.zst) \
   $(call QUOTED_WILDCARD,$(topobjdir)/$(MOZ_BUILD_APP)/installer/windows/instgen/setup.exe) \
   $(call QUOTED_WILDCARD,$(topobjdir)/$(MOZ_BUILD_APP)/installer/windows/instgen/setup-stub.exe) \
   $(call QUOTED_WILDCARD,$(topsrcdir)/toolchains.json) \
+  $(call QUOTED_WILDCARD,$(topobjdir)/config.status) \
   $(if $(UPLOAD_EXTRA_FILES), $(foreach f, $(UPLOAD_EXTRA_FILES), $(wildcard $(DIST)/$(f))))
 
-ifneq ($(filter-out en-US x-test,$(AB_CD)),)
+ifneq ($(filter-out en-US,$(AB_CD)),)
   UPLOAD_FILES += \
     $(call QUOTED_WILDCARD,$(topobjdir)/$(MOZ_BUILD_APP)/installer/windows/l10ngen/setup.exe) \
     $(call QUOTED_WILDCARD,$(topobjdir)/$(MOZ_BUILD_APP)/installer/windows/l10ngen/setup-stub.exe)
 endif
 
+ifdef MOZ_NORMANDY
+ifndef CROSS_COMPILE
+  UPLOAD_FILES += $(call QUOTED_WILDCARD,$(MOZ_NORMANDY_JSON))
+endif
+endif
 
 ifdef MOZ_CODE_COVERAGE
   UPLOAD_FILES += \
@@ -425,18 +408,12 @@ endif
 ifdef ENABLE_MOZSEARCH_PLUGIN
   UPLOAD_FILES += $(call QUOTED_WILDCARD,$(DIST)/$(PKG_PATH)$(MOZSEARCH_ARCHIVE_BASENAME).zip)
   UPLOAD_FILES += $(call QUOTED_WILDCARD,$(DIST)/$(PKG_PATH)$(MOZSEARCH_RUST_ANALYSIS_BASENAME).zip)
+  UPLOAD_FILES += $(call QUOTED_WILDCARD,$(DIST)/$(PKG_PATH)$(MOZSEARCH_RUST_STDLIB_BASENAME).zip)
   UPLOAD_FILES += $(call QUOTED_WILDCARD,$(DIST)/$(PKG_PATH)$(MOZSEARCH_INCLUDEMAP_BASENAME).map)
 endif
 
-SIGN_CHECKSUM_CMD=
-ifdef MOZ_SIGN_CMD
-  # If we're signing with gpg, we'll have a bunch of extra detached signatures to
-  # upload. We also want to sign our checksums file
-  SIGN_CHECKSUM_CMD=$(MOZ_SIGN_CMD) -f gpg $(CHECKSUM_FILE)
-
-  CHECKSUM_FILES += $(CHECKSUM_FILE).asc
-  UPLOAD_FILES += $(call QUOTED_WILDCARD,$(INSTALLER_PACKAGE).asc)
-  UPLOAD_FILES += $(call QUOTED_WILDCARD,$(DIST)/$(PACKAGE).asc)
+ifeq (Darwin, $(OS_ARCH))
+  UPLOAD_FILES += $(call QUOTED_WILDCARD,$(DIST)/$(PKG_PATH)$(MACOS_CODESIGN_ARCHIVE_BASENAME).zip)
 endif
 
 ifdef MOZ_STUB_INSTALLER
@@ -450,6 +427,10 @@ endif
 SRC_TAR_PREFIX = $(MOZ_APP_NAME)-$(MOZ_PKG_VERSION)
 SRC_TAR_EXCLUDE_PATHS += \
   --exclude='.hg*' \
+  --exclude='.git' \
+  --exclude='.gitattributes' \
+  --exclude='.gitkeep' \
+  --exclude='.gitmodules' \
   --exclude='CVS' \
   --exclude='.cvs*' \
   --exclude='.mozconfig*' \

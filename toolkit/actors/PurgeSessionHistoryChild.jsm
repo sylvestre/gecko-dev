@@ -6,14 +6,13 @@
 
 var EXPORTED_SYMBOLS = ["PurgeSessionHistoryChild"];
 
-ChromeUtils.import("resource://gre/modules/ActorChild.jsm");
-
-class PurgeSessionHistoryChild extends ActorChild {
+class PurgeSessionHistoryChild extends JSWindowActorChild {
   receiveMessage(message) {
     if (message.name != "Browser:PurgeSessionHistory") {
       return;
     }
-    let sessionHistory = this.docShell.QueryInterface(Ci.nsIWebNavigation).sessionHistory;
+    let sessionHistory = this.docShell.QueryInterface(Ci.nsIWebNavigation)
+      .sessionHistory;
     if (!sessionHistory) {
       return;
     }
@@ -27,12 +26,12 @@ class PurgeSessionHistoryChild extends ActorChild {
     }
 
     let purge = sessionHistory.count;
-    if (this.content.location.href != "about:blank") {
+    if (this.document.location.href != "about:blank") {
       --purge; // Don't remove the page the user's staring at from shistory
     }
 
     if (purge > 0) {
-      sessionHistory.legacySHistory.PurgeHistory(purge);
+      sessionHistory.legacySHistory.purgeHistory(purge);
     }
   }
 }

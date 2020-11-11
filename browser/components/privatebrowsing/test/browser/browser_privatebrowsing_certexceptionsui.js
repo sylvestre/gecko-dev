@@ -7,16 +7,20 @@
 // window or from the SSL error page (see bug 461627).
 
 function test() {
-  const EXCEPTIONS_DLG_URL = "chrome://pippki/content/exceptionDialog.xul";
+  const EXCEPTIONS_DLG_URL = "chrome://pippki/content/exceptionDialog.xhtml";
   const EXCEPTIONS_DLG_FEATURES = "chrome,centerscreen";
   const INVALID_CERT_LOCATION = "https://nocert.example.com/";
   waitForExplicitFinish();
 
   // open a private browsing window
-  var pbWin = OpenBrowserWindow({private: true});
-  pbWin.addEventListener("load", function() {
-    doTest();
-  }, {once: true});
+  var pbWin = OpenBrowserWindow({ private: true });
+  pbWin.addEventListener(
+    "load",
+    function() {
+      doTest();
+    },
+    { once: true }
+  );
 
   // Test the certificate exceptions dialog
   function doTest() {
@@ -32,15 +36,24 @@ function test() {
         ok(win.gCert, "The certificate information should be available now");
 
         let checkbox = win.document.getElementById("permanent");
-        ok(checkbox.hasAttribute("disabled"),
-          "the permanent checkbox should be disabled when handling the private browsing mode");
-        ok(!checkbox.hasAttribute("checked"),
-          "the permanent checkbox should not be checked when handling the private browsing mode");
+        ok(
+          checkbox.hasAttribute("disabled"),
+          "the permanent checkbox should be disabled when handling the private browsing mode"
+        );
+        ok(
+          !checkbox.hasAttribute("checked"),
+          "the permanent checkbox should not be checked when handling the private browsing mode"
+        );
         win.close();
         cleanup();
       }, "cert-exception-ui-ready");
     }
-    var win = pbWin.openDialog(EXCEPTIONS_DLG_URL, "", EXCEPTIONS_DLG_FEATURES, params);
+    var win = pbWin.openDialog(
+      EXCEPTIONS_DLG_URL,
+      "",
+      EXCEPTIONS_DLG_FEATURES,
+      params
+    );
     win.addEventListener("load", testCheckbox);
   }
 

@@ -1,7 +1,7 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
+---
 loader: taskgraph.loader.transform:loader
 
 kind-dependencies:
@@ -11,7 +11,6 @@ transforms:
     - taskgraph.transforms.build:transforms
     - taskgraph.transforms.build_attrs:transforms
     - taskgraph.transforms.build_lints:transforms
-    - taskgraph.transforms.use_toolchains:transforms
     - taskgraph.transforms.job:transforms
     - taskgraph.transforms.task:transforms
 
@@ -20,12 +19,14 @@ job-defaults:
     shipping-phase: promote
     treeherder:
         symbol: Src
-    worker-type: aws-provisioner-v1/gecko-{level}-b-linux
+    worker-type: b-linux
     worker:
         max-run-time: 3600
         env:
             TOOLTOOL_MANIFEST: "browser/config/tooltool-manifests/linux64/releng.manifest"
             PKG_SRCPACK_BASENAME: source
+    attributes:
+        shippable: true
     run:
         using: mozharness
         actions: [package-source]
@@ -39,7 +40,7 @@ job-defaults:
     # The build_attrs transform defaults to setting a `skip-unlles-schedules'
     # optimization based on the task label. The tasks here don't have corresponding
     # schedules defined in mozbuild.
-    optimization: {}
+    optimization: null
 
 jobs:
     firefox-source/opt:
@@ -47,12 +48,6 @@ jobs:
         treeherder:
             platform: firefox-release/opt
         shipping-product: firefox
-
-    fennec-source/opt:
-        description: "Fennec source builder"
-        treeherder:
-            platform: fennec-release/opt
-        shipping-product: fennec
 
     devedition-source/opt:
         description: "Devedition source builder"

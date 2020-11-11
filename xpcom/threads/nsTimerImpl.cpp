@@ -5,30 +5,32 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "nsTimerImpl.h"
-#include "TimerThread.h"
-#include "nsAutoPtr.h"
-#include "nsThreadManager.h"
-#include "nsThreadUtils.h"
-#include "pratom.h"
+
+#include <utility>
+
 #include "GeckoProfiler.h"
+#include "TimerThread.h"
 #include "mozilla/Atomics.h"
 #include "mozilla/IntegerPrintfMacros.h"
 #include "mozilla/Logging.h"
-#include "mozilla/Move.h"
 #include "mozilla/Mutex.h"
 #include "mozilla/ResultExtensions.h"
+#include "mozilla/Sprintf.h"
+#include "nsThreadManager.h"
+#include "nsThreadUtils.h"
+#include "pratom.h"
 #ifdef MOZ_TASK_TRACER
-#include "GeckoTaskTracerImpl.h"
+#  include "GeckoTaskTracerImpl.h"
 using namespace mozilla::tasktracer;
 #endif
 
 #ifdef XP_WIN
-#include <process.h>
-#ifndef getpid
-#define getpid _getpid
-#endif
+#  include <process.h>
+#  ifndef getpid
+#    define getpid _getpid
+#  endif
 #else
-#include <unistd.h>
+#  include <unistd.h>
 #endif
 
 using mozilla::Atomic;
@@ -173,8 +175,7 @@ nsresult NS_NewTimerWithFuncCallback(nsITimer** aTimer,
 // - Otherwise, if we are on a platform that supports function name lookup
 //   (Mac or Linux) then the looked-up name will be shown with a
 //   "[from dladdr]" annotation. On Mac the looked-up name will be immediately
-//   useful. On Linux it'll need post-processing with
-//   tools/rb/fix_linux_stack.py.
+//   useful. On Linux it'll need post-processing with `tools/rb/fix_stacks.py`.
 //
 // - Otherwise, no name will be printed. If many timers hit this case then
 //   you'll need to re-run the workload on a Mac to find out which timers they
@@ -193,7 +194,7 @@ nsresult NS_NewTimerWithFuncCallback(nsITimer** aTimer,
 //
 static mozilla::LazyLogModule sTimerFiringsLog("TimerFirings");
 
-mozilla::LogModule* GetTimerFiringsLog() { return sTimerFiringsLog; }
+static mozilla::LogModule* GetTimerFiringsLog() { return sTimerFiringsLog; }
 
 #include <math.h>
 
@@ -244,7 +245,8 @@ nsTimerImpl::nsTimerImpl(nsITimer* aTimer, nsIEventTarget* aTarget)
       mType(0),
       mGeneration(0),
       mITimer(aTimer),
-      mMutex("nsTimerImpl::mMutex") {
+      mMutex("nsTimerImpl::mMutex"),
+      mFiring(0) {
   // XXX some code creates timers during xpcom shutdown, when threads are no
   // longer available, so we cannot turn this on yet.
   // MOZ_ASSERT(mEventTarget);
@@ -296,7 +298,7 @@ nsresult nsTimerImpl::InitCommon(const TimeDuration& aDelay, uint32_t aType,
                                  Callback&& newCallback) {
   mMutex.AssertCurrentThreadOwns();
 
-  if (NS_WARN_IF(!gThread)) {
+  if (!gThread) {
     return NS_ERROR_NOT_INITIALIZED;
   }
 
@@ -351,9 +353,9 @@ nsresult nsTimerImpl::InitWithNameableFuncCallback(
 }
 
 nsresult nsTimerImpl::InitWithCallback(nsITimerCallback* aCallback,
-                                       uint32_t aDelay, uint32_t aType) {
+                                       uint32_t aDelayInMs, uint32_t aType) {
   return InitHighResolutionWithCallback(
-      aCallback, TimeDuration::FromMilliseconds(aDelay), aType);
+      aCallback, TimeDuration::FromMilliseconds(aDelayInMs), aType);
 }
 
 nsresult nsTimerImpl::InitHighResolutionWithCallback(
@@ -371,7 +373,7 @@ nsresult nsTimerImpl::InitHighResolutionWithCallback(
   return InitCommon(aDelay, aType, std::move(cb));
 }
 
-nsresult nsTimerImpl::Init(nsIObserver* aObserver, uint32_t aDelay,
+nsresult nsTimerImpl::Init(nsIObserver* aObserver, uint32_t aDelayInMs,
                            uint32_t aType) {
   if (NS_WARN_IF(!aObserver)) {
     return NS_ERROR_INVALID_ARG;
@@ -383,7 +385,7 @@ nsresult nsTimerImpl::Init(nsIObserver* aObserver, uint32_t aDelay,
   NS_ADDREF(cb.mCallback.o);
 
   MutexAutoLock lock(mMutex);
-  return InitCommon(aDelay, aType, std::move(cb));
+  return InitCommon(aDelayInMs, aType, std::move(cb));
 }
 
 nsresult nsTimerImpl::Cancel() {
@@ -406,8 +408,7 @@ void nsTimerImpl::CancelImpl(bool aClearITimer) {
 
     // Don't clear this if we're firing; once Fire returns, we'll get this call
     // again.
-    if (aClearITimer &&
-        (mCallbackDuringFire.mType == Callback::Type::Unknown)) {
+    if (aClearITimer && !mFiring) {
       MOZ_RELEASE_ASSERT(
           mITimer,
           "mITimer was nulled already! "
@@ -496,7 +497,7 @@ nsresult nsTimerImpl::SetTarget(nsIEventTarget* aTarget) {
   if (aTarget) {
     mEventTarget = aTarget;
   } else {
-    mEventTarget = mozilla::GetCurrentThreadEventTarget();
+    mEventTarget = mozilla::GetCurrentSerialEventTarget();
   }
   return NS_OK;
 }
@@ -510,6 +511,7 @@ void nsTimerImpl::Fire(int32_t aGeneration) {
   uint8_t oldType;
   uint32_t oldDelay;
   TimeStamp oldTimeout;
+  Callback callbackDuringFire;
   nsCOMPtr<nsITimer> kungFuDeathGrip;
 
   {
@@ -520,7 +522,8 @@ void nsTimerImpl::Fire(int32_t aGeneration) {
       return;
     }
 
-    mCallbackDuringFire.swap(mCallback);
+    ++mFiring;
+    callbackDuringFire = mCallback;
     oldType = mType;
     oldDelay = mDelay.ToMilliseconds();
     oldTimeout = mTimeout;
@@ -551,39 +554,42 @@ void nsTimerImpl::Fire(int32_t aGeneration) {
   }
 
   if (MOZ_LOG_TEST(GetTimerFiringsLog(), LogLevel::Debug)) {
-    LogFiring(mCallbackDuringFire, oldType, oldDelay);
+    LogFiring(callbackDuringFire, oldType, oldDelay);
   }
 
-  switch (mCallbackDuringFire.mType) {
+  switch (callbackDuringFire.mType) {
     case Callback::Type::Function:
-      mCallbackDuringFire.mCallback.c(mITimer, mCallbackDuringFire.mClosure);
+      callbackDuringFire.mCallback.c(mITimer, callbackDuringFire.mClosure);
       break;
     case Callback::Type::Interface:
-      mCallbackDuringFire.mCallback.i->Notify(mITimer);
+      callbackDuringFire.mCallback.i->Notify(mITimer);
       break;
     case Callback::Type::Observer:
-      mCallbackDuringFire.mCallback.o->Observe(mITimer, NS_TIMER_CALLBACK_TOPIC,
-                                               nullptr);
+      callbackDuringFire.mCallback.o->Observe(mITimer, NS_TIMER_CALLBACK_TOPIC,
+                                              nullptr);
       break;
     default:;
   }
 
-  Callback trash;  // Swap into here to dispose of callback after the unlock
   MutexAutoLock lock(mMutex);
-  if (aGeneration == mGeneration && IsRepeating()) {
-    // Repeating timer has not been re-init or canceled; reschedule
-    mCallbackDuringFire.swap(mCallback);
-    if (IsSlack()) {
-      mTimeout = TimeStamp::Now() + mDelay;
+  if (aGeneration == mGeneration) {
+    if (IsRepeating()) {
+      // Repeating timer has not been re-init or canceled; reschedule
+      if (IsSlack()) {
+        mTimeout = TimeStamp::Now() + mDelay;
+      } else {
+        mTimeout = mTimeout + mDelay;
+      }
+      if (gThread) {
+        gThread->AddTimer(this);
+      }
     } else {
-      mTimeout = mTimeout + mDelay;
-    }
-    if (gThread) {
-      gThread->AddTimer(this);
+      // Non-repeating timer that has not been re-scheduled. Clear.
+      mCallback.clear();
     }
   }
 
-  mCallbackDuringFire.swap(trash);
+  --mFiring;
 
   MOZ_LOG(GetTimerLog(), LogLevel::Debug,
           ("[this=%p] Took %fms to fire timer callback\n", this,
@@ -591,12 +597,12 @@ void nsTimerImpl::Fire(int32_t aGeneration) {
 }
 
 #if defined(HAVE_DLADDR) && defined(HAVE___CXA_DEMANGLE)
-#define USE_DLADDR 1
+#  define USE_DLADDR 1
 #endif
 
 #ifdef USE_DLADDR
-#include <cxxabi.h>
-#include <dlfcn.h>
+#  include <cxxabi.h>
+#  include <dlfcn.h>
 #endif
 
 // See the big comment above GetTimerFiringsLog() to understand this code.
@@ -669,10 +675,10 @@ void nsTimerImpl::LogFiring(const Callback& aCallback, uint8_t aType,
           }
 
         } else if (info.dli_fname) {
-          // The "#0: " prefix is necessary for fix_linux_stack.py to interpret
+          // The "#0: " prefix is necessary for `fix_stacks.py` to interpret
           // this string as something to convert.
-          snprintf(buf, buflen, "#0: ???[%s +0x%" PRIxPTR "]\n", info.dli_fname,
-                   uintptr_t(addr) - uintptr_t(info.dli_fbase));
+          SprintfLiteral(buf, "#0: ???[%s +0x%" PRIxPTR "]\n", info.dli_fname,
+                         uintptr_t(addr) - uintptr_t(info.dli_fbase));
           name = buf;
 
         } else {
@@ -760,21 +766,23 @@ void nsTimerImpl::GetName(nsACString& aName) {
 
 void nsTimerImpl::SetHolder(nsTimerImplHolder* aHolder) { mHolder = aHolder; }
 
-nsTimer::~nsTimer() {}
+nsTimer::~nsTimer() = default;
 
 size_t nsTimer::SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf) const {
   return aMallocSizeOf(this);
 }
 
-/* static */ RefPtr<nsTimer> nsTimer::WithEventTarget(nsIEventTarget* aTarget) {
+/* static */
+RefPtr<nsTimer> nsTimer::WithEventTarget(nsIEventTarget* aTarget) {
   if (!aTarget) {
-    aTarget = mozilla::GetCurrentThreadEventTarget();
+    aTarget = mozilla::GetCurrentSerialEventTarget();
   }
   return do_AddRef(new nsTimer(aTarget));
 }
 
-/* static */ nsresult nsTimer::XPCOMConstructor(nsISupports* aOuter,
-                                                REFNSIID aIID, void** aResult) {
+/* static */
+nsresult nsTimer::XPCOMConstructor(nsISupports* aOuter, REFNSIID aIID,
+                                   void** aResult) {
   *aResult = nullptr;
   if (aOuter != nullptr) {
     return NS_ERROR_NO_AGGREGATION;

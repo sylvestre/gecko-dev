@@ -5,27 +5,19 @@
 
 /* Too long install directory path failure test */
 
-/* The service cannot safely write update.status for this failure. */
-const STATE_AFTER_RUNUPDATE =
-  IS_SERVICE_TEST ? STATE_PENDING_SVC
-                  : STATE_FAILED_INVALID_INSTALL_DIR_PATH_ERROR;
-
-function run_test() {
+async function run_test() {
   if (!setupTestCommon()) {
     return;
   }
+  const STATE_AFTER_RUNUPDATE = gIsServiceTest
+    ? STATE_FAILED_SERVICE_INVALID_INSTALL_DIR_PATH_ERROR
+    : STATE_FAILED_INVALID_INSTALL_DIR_PATH_ERROR;
   gTestFiles = gTestFilesCompleteSuccess;
   gTestDirs = gTestDirsCompleteSuccess;
   setTestFilesAndDirsForFailure();
-  setupUpdaterTest(FILE_COMPLETE_MAR, false);
-}
-
-/**
- * Called after the call to setupUpdaterTest finishes.
- */
-function setupUpdaterTestFinished() {
+  await setupUpdaterTest(FILE_COMPLETE_MAR, false);
   let path = "123456789";
-  if (IS_WIN) {
+  if (AppConstants.platform == "win") {
     path = "\\" + path;
     path = path.repeat(30); // 300 characters
     path = "C:" + path;
@@ -33,29 +25,28 @@ function setupUpdaterTestFinished() {
     path = "/" + path;
     path = path.repeat(1000); // 10000 characters
   }
-
   runUpdate(STATE_AFTER_RUNUPDATE, false, 1, true, null, path, null, null);
-}
-
-/**
- * Called after the call to runUpdateUsingUpdater finishes.
- */
-function runUpdateFinished() {
   standardInit();
   checkPostUpdateRunningFile(false);
   checkFilesAfterUpdateFailure(getApplyDirFile);
-  executeSoon(waitForUpdateXMLFiles);
-}
-
-/**
- * Called after the call to waitForUpdateXMLFiles finishes.
- */
-function waitForUpdateXMLFilesFinished() {
-  if (IS_SERVICE_TEST) {
+  await waitForUpdateXMLFiles();
+  if (gIsServiceTest) {
+    // The invalid argument service tests launch the maintenance service
+    // directly so the unelevated updater doesn't handle the invalid argument.
+    // By doing this it is possible to test that the maintenance service
+    // properly handles the invalid argument but since the updater isn't used to
+    // launch the maintenance service the update.status file isn't copied from
+    // the secure log directory to the patch directory and the update manager
+    // won't read the failure from the update.status file.
     checkUpdateManager(STATE_NONE, false, STATE_PENDING_SVC, 0, 1);
   } else {
-    checkUpdateManager(STATE_NONE, false, STATE_FAILED,
-                       INVALID_INSTALL_DIR_PATH_ERROR, 1);
+    checkUpdateManager(
+      STATE_NONE,
+      false,
+      STATE_FAILED,
+      INVALID_INSTALL_DIR_PATH_ERROR,
+      1
+    );
   }
 
   waitForFilesInUse();

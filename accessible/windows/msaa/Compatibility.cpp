@@ -7,7 +7,9 @@
 #include "Compatibility.h"
 
 #include "mozilla/WindowsVersion.h"
+#include "mozilla/WinHeaderOnlyUtils.h"
 #include "nsExceptionHandler.h"
+#include "nsIXULRuntime.h"
 #include "nsPrintfCString.h"
 #include "nsUnicharUtils.h"
 #include "nsWindowsDllInterceptor.h"
@@ -25,54 +27,18 @@ using namespace mozilla::a11y;
  * String versions of consumer flags. See GetHumanReadableConsumersStr.
  */
 static const wchar_t* ConsumerStringMap[CONSUMERS_ENUM_LEN + 1] = {
-    L"NVDA",    L"JAWS",         L"OLDJAWS",  L"WE",       L"DOLPHIN",
-    L"SEROTEK", L"COBRA",        L"ZOOMTEXT", L"KAZAGURU", L"YOUDAO",
-    L"UNKNOWN", L"UIAUTOMATION", L"\0"};
+    L"NVDA",    L"JAWS",         L"OLDJAWS",       L"WE",       L"DOLPHIN",
+    L"SEROTEK", L"COBRA",        L"ZOOMTEXT",      L"KAZAGURU", L"YOUDAO",
+    L"UNKNOWN", L"UIAUTOMATION", L"VISPEROSHARED", L"\0"};
 
 bool Compatibility::IsModuleVersionLessThan(HMODULE aModuleHandle,
                                             unsigned long long aVersion) {
-  // Get the full path to the dll.
-  // We start with MAX_PATH, but the path can actually be longer.
-  DWORD fnSize = MAX_PATH;
-  UniquePtr<wchar_t[]> fileName;
-  while (true) {
-    fileName = MakeUnique<wchar_t[]>(fnSize);
-    DWORD retLen = ::GetModuleFileNameW(aModuleHandle, fileName.get(), fnSize);
-    MOZ_ASSERT(retLen != 0);
-    if (retLen == 0) {
-      return true;
-    }
-    if (retLen == fnSize && ::GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
-      // The buffer was too short. Increase the size and try again.
-      fnSize *= 2;
-    }
-    break;  // Success!
-  }
-
-  // Get the version info from the file.
-  DWORD length = ::GetFileVersionInfoSizeW(fileName.get(), nullptr);
-  if (length == 0) {
+  LauncherResult<ModuleVersion> version = GetModuleVersion(aModuleHandle);
+  if (version.isErr()) {
     return true;
   }
 
-  auto versionInfo = MakeUnique<unsigned char[]>(length);
-  if (!::GetFileVersionInfoW(fileName.get(), 0, length, versionInfo.get())) {
-    return true;
-  }
-
-  UINT uLen;
-  VS_FIXEDFILEINFO* fixedFileInfo = nullptr;
-  if (!::VerQueryValueW(versionInfo.get(), L"\\", (LPVOID*)&fixedFileInfo,
-                        &uLen)) {
-    return true;
-  }
-
-  // Combine into a 64 bit value for comparison.
-  unsigned long long version =
-      ((unsigned long long)fixedFileInfo->dwFileVersionMS) << 32 |
-      ((unsigned long long)fixedFileInfo->dwFileVersionLS);
-
-  return version < aVersion;
+  return version.unwrap() < aVersion;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -86,12 +52,12 @@ static bool sInSendMessageExHackEnabled = false;
 static PVOID sVectoredExceptionHandler = nullptr;
 
 #if defined(_MSC_VER)
-#include <intrin.h>
-#pragma intrinsic(_ReturnAddress)
-#define RETURN_ADDRESS() _ReturnAddress()
+#  include <intrin.h>
+#  pragma intrinsic(_ReturnAddress)
+#  define RETURN_ADDRESS() _ReturnAddress()
 #elif defined(__GNUC__) || defined(__clang__)
-#define RETURN_ADDRESS() \
-  __builtin_extract_return_addr(__builtin_return_address(0))
+#  define RETURN_ADDRESS() \
+    __builtin_extract_return_addr(__builtin_return_address(0))
 #endif
 
 static inline bool IsCurrentThreadInBlockingMessageSend(
@@ -166,7 +132,8 @@ uint32_t Compatibility::sConsumers = Compatibility::UNKNOWN;
 /**
  * This function is safe to call multiple times.
  */
-/* static */ void Compatibility::InitConsumers() {
+/* static */
+void Compatibility::InitConsumers() {
   HMODULE jawsHandle = ::GetModuleHandleW(L"jhook");
   if (jawsHandle) {
     sConsumers |=
@@ -198,12 +165,17 @@ uint32_t Compatibility::sConsumers = Compatibility::UNKNOWN;
       ::GetModuleHandleW(L"uiautomationcore"))
     sConsumers |= UIAUTOMATION;
 
+  if (::GetModuleHandleW(L"AccEventCache")) {
+    sConsumers |= VISPEROSHARED;
+  }
+
   // If we have a known consumer remove the unknown bit.
   if (sConsumers != Compatibility::UNKNOWN)
     sConsumers &= ~Compatibility::UNKNOWN;
 }
 
-/* static */ bool Compatibility::HasKnownNonUiaConsumer() {
+/* static */
+bool Compatibility::HasKnownNonUiaConsumer() {
   InitConsumers();
   return sConsumers & ~(Compatibility::UNKNOWN | UIAUTOMATION);
 }
@@ -314,7 +286,7 @@ static bool IsSystemOleAcc(nsCOMPtr<nsIFile>& aFile) {
     return false;
   }
 
-  rv = oleAcc->Append(NS_LITERAL_STRING("oleacc.dll"));
+  rv = oleAcc->Append(u"oleacc.dll"_ns);
   if (NS_FAILED(rv)) {
     return false;
   }
@@ -327,12 +299,12 @@ static bool IsSystemOleAcc(nsCOMPtr<nsIFile>& aFile) {
 static bool IsTypelibPreferred() {
   // If IAccessible's Proxy/Stub CLSID is kUniversalMarshalerClsid, then any
   // external a11y clients are expecting to use a typelib.
-  NS_NAMED_LITERAL_STRING(kUniversalMarshalerClsid,
-                          "{00020424-0000-0000-C000-000000000046}");
+  constexpr auto kUniversalMarshalerClsid =
+      u"{00020424-0000-0000-C000-000000000046}"_ns;
 
-  NS_NAMED_LITERAL_STRING(
-      kIAccessiblePSClsidPath,
-      "Interface\\{618736E0-3C3D-11CF-810C-00AA00389B71}\\ProxyStubClsid32");
+  constexpr auto kIAccessiblePSClsidPath =
+      "Interface\\{618736E0-3C3D-11CF-810C-00AA00389B71}"
+      u"\\ProxyStubClsid32"_ns;
 
   nsAutoString psClsid;
   if (!ReadCOMRegDefaultString(kIAccessiblePSClsidPath, psClsid)) {
@@ -340,15 +312,14 @@ static bool IsTypelibPreferred() {
   }
 
   return psClsid.Equals(kUniversalMarshalerClsid,
-                        nsCaseInsensitiveStringComparator());
+                        nsCaseInsensitiveStringComparator);
 }
 
 static bool IsIAccessibleTypelibRegistered() {
   // The system default IAccessible typelib is always registered with version
   // 1.1, under the neutral locale (LCID 0).
-  NS_NAMED_LITERAL_STRING(
-      kIAccessibleTypelibRegPath,
-      "TypeLib\\{1EA4DBF0-3C3B-11CF-810C-00AA00389B71}\\1.1\\0\\win32");
+  constexpr auto kIAccessibleTypelibRegPath =
+      u"TypeLib\\{1EA4DBF0-3C3B-11CF-810C-00AA00389B71}\\1.1\\0\\win32"_ns;
 
   nsAutoString typelibPath;
   if (!ReadCOMRegDefaultString(kIAccessibleTypelibRegPath, typelibPath)) {
@@ -366,9 +337,8 @@ static bool IsIAccessibleTypelibRegistered() {
 }
 
 static bool IsIAccessiblePSRegistered() {
-  NS_NAMED_LITERAL_STRING(
-      kIAccessiblePSRegPath,
-      "CLSID\\{03022430-ABC4-11D0-BDE2-00AA001A1953}\\InProcServer32");
+  constexpr auto kIAccessiblePSRegPath =
+      u"CLSID\\{03022430-ABC4-11D0-BDE2-00AA001A1953}\\InProcServer32"_ns;
 
   nsAutoString proxyStubPath;
   if (!ReadCOMRegDefaultString(kIAccessiblePSRegPath, proxyStubPath)) {
@@ -401,8 +371,7 @@ static bool UseIAccessibleProxyStub() {
   // IAccessible configuration in the computer's registry. Let's annotate this
   // so that we can easily determine this condition during crash analysis.
   CrashReporter::AnnotateCrashReport(
-      CrashReporter::Annotation::IAccessibleConfig,
-      NS_LITERAL_CSTRING("NoSystemTypeLibOrPS"));
+      CrashReporter::Annotation::IAccessibleConfig, "NoSystemTypeLibOrPS"_ns);
   return false;
 }
 

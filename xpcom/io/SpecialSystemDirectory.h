@@ -11,13 +11,14 @@
 #include "nsIFile.h"
 
 #ifdef MOZ_WIDGET_COCOA
-#include "nsILocalFileMac.h"
-#include "prenv.h"
+#  include "nsILocalFileMac.h"
+#  include "prenv.h"
 #endif
 
 enum SystemDirectories {
   OS_TemporaryDirectory = 2,
-  OS_CurrentProcessDirectory = 3,
+  // 3 Used to be OS_CurrentProcessDirectory, which we never actually
+  //   supported getting...
   OS_CurrentWorkingDirectory = 4,
 
   Win_SystemDirectory = 201,
@@ -34,7 +35,7 @@ enum SystemDirectories {
 #if defined(MOZ_THUNDERBIRD) || defined(MOZ_SUITE)
   Win_Documents = 228,
 #endif
-#if defined(MOZ_CONTENT_SANDBOX)
+#if defined(MOZ_SANDBOX)
   Win_LocalAppdataLow = 232,
 #endif
 

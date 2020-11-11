@@ -3,11 +3,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 const appStartup = Services.startup;
 
-ChromeUtils.import("resource://gre/modules/ResetProfile.jsm");
+const { ResetProfile } = ChromeUtils.import(
+  "resource://gre/modules/ResetProfile.jsm"
+);
 
 var defaultToReset = false;
 
@@ -17,8 +19,9 @@ function restartApp() {
 
 function resetProfile() {
   // Set the reset profile environment variable.
-  let env = Cc["@mozilla.org/process/environment;1"]
-              .getService(Ci.nsIEnvironment);
+  let env = Cc["@mozilla.org/process/environment;1"].getService(
+    Ci.nsIEnvironment
+  );
   env.set("MOZ_RESET_PROFILE_RESTART", "1");
 }
 
@@ -27,24 +30,29 @@ function showResetDialog() {
   let retVals = {
     reset: false,
   };
-  window.openDialog("chrome://global/content/resetProfile.xul", null,
-                    "chrome,modal,centerscreen,titlebar,dialog=yes", retVals);
-  if (!retVals.reset)
+  window.openDialog(
+    "chrome://global/content/resetProfile.xhtml",
+    null,
+    "chrome,modal,centerscreen,titlebar,dialog=yes",
+    retVals
+  );
+  if (!retVals.reset) {
     return;
+  }
   resetProfile();
   restartApp();
 }
 
-function onDefaultButton() {
+function onDefaultButton(event) {
   if (defaultToReset) {
+    // Prevent starting into safe mode while restarting.
+    event.preventDefault();
     // Restart to reset the profile.
     resetProfile();
     restartApp();
-    // Return false to prevent starting into safe mode while restarting.
-    return false;
   }
+  // Dialog will be closed by default Event handler.
   // Continue in safe mode. No restart needed.
-  return true;
 }
 
 function onCancel() {
@@ -55,14 +63,13 @@ function onExtra1() {
   if (defaultToReset) {
     // Continue in safe mode
     window.close();
-    return true;
   }
   // The reset dialog will handle starting the reset process if the user confirms.
   showResetDialog();
-  return false;
 }
 
 function onLoad() {
+  const dialog = document.getElementById("safeModeDialog");
   if (appStartup.automaticSafeModeNecessary) {
     document.getElementById("autoSafeMode").hidden = false;
     document.getElementById("safeMode").hidden = true;
@@ -70,11 +77,14 @@ function onLoad() {
       document.getElementById("resetProfile").hidden = false;
     } else {
       // Hide the reset button is it's not supported.
-      document.documentElement.getButton("extra1").hidden = true;
+      dialog.getButton("extra1").hidden = true;
     }
   } else if (!ResetProfile.resetSupported()) {
     // Hide the reset button and text if it's not supported.
-    document.documentElement.getButton("extra1").hidden = true;
+    dialog.getButton("extra1").hidden = true;
     document.getElementById("resetProfileInstead").hidden = true;
   }
+  document.addEventListener("dialogaccept", onDefaultButton);
+  document.addEventListener("dialogcancel", onCancel);
+  document.addEventListener("dialogextra1", onExtra1);
 }

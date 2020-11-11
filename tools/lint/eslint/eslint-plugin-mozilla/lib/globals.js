@@ -11,7 +11,6 @@
 const path = require("path");
 const fs = require("fs");
 const helpers = require("./helpers");
-const eslintScope = require("eslint-scope");
 const htmlparser = require("htmlparser2");
 
 /**
@@ -45,7 +44,7 @@ function parseBooleanConfig(string, comment) {
     }
 
     items[name] = {
-      value: (value === "true"),
+      value: value === "true",
       comment,
     };
   });
@@ -135,7 +134,10 @@ GlobalsForNode.prototype = {
     // Note: We check the expression types here and only call the necessary
     // functions to aid performance.
     if (node.expression.type === "AssignmentExpression") {
-      globals = helpers.convertThisAssignmentExpressionToGlobals(node, isGlobal);
+      globals = helpers.convertThisAssignmentExpressionToGlobals(
+        node,
+        isGlobal
+      );
     } else if (node.expression.type === "CallExpression") {
       globals = helpers.convertCallExpressionToGlobals(node, isGlobal);
     }
@@ -144,8 +146,11 @@ GlobalsForNode.prototype = {
     // this is a worker. It would be nice if eslint gave us a way of getting
     // the environment directly.
     if (globalScope && globalScope.set.get("importScripts")) {
-      let workerDetails = helpers.convertWorkerExpressionToGlobals(node,
-        isGlobal, this.dirname);
+      let workerDetails = helpers.convertWorkerExpressionToGlobals(
+        node,
+        isGlobal,
+        this.dirname
+      );
       globals = globals.concat(workerDetails);
     }
 
@@ -185,10 +190,12 @@ module.exports = {
     let content = fs.readFileSync(filePath, "utf8");
 
     // Parse the content into an AST
-    let ast = helpers.getAST(content, astOptions);
+    let { ast, scopeManager, visitorKeys } = helpers.parseCode(
+      content,
+      astOptions
+    );
 
     // Discover global declarations
-    let scopeManager = eslintScope.analyze(ast, astOptions);
     let globalScope = scopeManager.acquire(ast);
 
     let globals = Object.keys(globalScope.variables).map(v => ({
@@ -199,7 +206,7 @@ module.exports = {
     // Walk over the AST to find any of our custom globals
     let handler = new GlobalsForNode(filePath);
 
-    helpers.walkAST(ast, (type, node, parents) => {
+    helpers.walkAST(ast, visitorKeys, (type, node, parents) => {
       if (type in handler) {
         let newGlobals = handler[type](node, parents, globalScope);
         globals.push.apply(globals, newGlobals);
@@ -241,16 +248,24 @@ module.exports = {
     let scriptSrcs = [];
 
     // We use htmlparser as this ensures we find the script tags correctly.
-    let parser = new htmlparser.Parser({
-      onopentag(name, attribs) {
-        if (name === "script" && "src" in attribs) {
-          scriptSrcs.push({
-            src: attribs.src,
-            type: "type" in attribs ? attribs.type : "script",
-          });
-        }
+    let parser = new htmlparser.Parser(
+      {
+        onopentag(name, attribs) {
+          if (name === "script" && "src" in attribs) {
+            scriptSrcs.push({
+              src: attribs.src,
+              type:
+                "type" in attribs && attribs.type == "module"
+                  ? "module"
+                  : "script",
+            });
+          }
+        },
       },
-    });
+      {
+        xmlMode: filePath.endsWith("xhtml"),
+      }
+    );
 
     parser.parseComplete(content);
 
@@ -265,19 +280,33 @@ module.exports = {
       } else if (script.src.includes("chrome")) {
         // This is one way of referencing test files.
         script.src = script.src.replace("chrome://mochikit/content/", "/");
-        scriptName = path.join(helpers.rootDir, "testing", "mochitest", script.src);
+        scriptName = path.join(
+          helpers.rootDir,
+          "testing",
+          "mochitest",
+          script.src
+        );
       } else if (script.src.includes("SimpleTest")) {
         // This is another way of referencing test files...
-        scriptName = path.join(helpers.rootDir, "testing", "mochitest", script.src);
+        scriptName = path.join(
+          helpers.rootDir,
+          "testing",
+          "mochitest",
+          script.src
+        );
+      } else if (script.src.startsWith("/tests/")) {
+        scriptName = path.join(helpers.rootDir, script.src.substring(7));
       } else {
         // Fallback to hoping this is a relative path.
         scriptName = path.join(dir, script.src);
       }
       if (scriptName && fs.existsSync(scriptName)) {
-        globals.push(...module.exports.getGlobalsForFile(scriptName, {
-          ecmaVersion: helpers.getECMAVersion(),
-          sourceType: script.type,
-        }));
+        globals.push(
+          ...module.exports.getGlobalsForFile(scriptName, {
+            ecmaVersion: helpers.getECMAVersion(),
+            sourceType: script.type,
+          })
+        );
       }
     }
 
@@ -317,7 +346,11 @@ module.exports = {
           helpers.addGlobals(extraHTMLGlobals, globalScope);
         }
         let globals = handler[type](node, context.getAncestors(), globalScope);
-        helpers.addGlobals(globals, globalScope, node.type !== "Program" && node);
+        helpers.addGlobals(
+          globals,
+          globalScope,
+          node.type !== "Program" && node
+        );
       };
     }
 

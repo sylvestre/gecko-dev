@@ -26,7 +26,7 @@ add_task(async function() {
   const { highlighters, store } = inspector;
 
   // Don't track reflows since this might cause intermittent failures.
-  inspector.reflowTracker.untrackReflows(gridInspector, gridInspector.onReflow);
+  inspector.off("reflow-in-selected-target", gridInspector.onReflow);
 
   const gridList = doc.getElementById("grid-list");
   const checkbox = gridList.children[0].querySelector("input");
@@ -34,9 +34,10 @@ add_task(async function() {
   info("Toggling ON the CSS grid highlighter from the layout panel.");
   const onHighlighterShown = highlighters.once("grid-highlighter-shown");
   const onGridOutlineRendered = waitForDOM(doc, "#grid-cell-group rect", 2);
-  const onCheckboxChange = waitUntilState(store, state =>
-    state.grids.length == 1 &&
-    state.grids[0].highlighted);
+  const onCheckboxChange = waitUntilState(
+    store,
+    state => state.grids.length == 1 && state.grids[0].highlighted
+  );
   checkbox.click();
   await onCheckboxChange;
   await onHighlighterShown;
@@ -45,16 +46,24 @@ add_task(async function() {
   const gridCellA = elements[0];
 
   info("Hovering over grid cell A in the grid outline.");
-  const onCellAHighlight = highlighters.once("grid-highlighter-shown",
+  const onCellAHighlight = highlighters.once(
+    "grid-highlighter-shown",
     (nodeFront, options) => {
       info("Checking show grid cell options are correct.");
       const { showGridCell } = options;
       const { gridFragmentIndex, rowNumber, columnNumber } = showGridCell;
 
-      is(gridFragmentIndex, 0, "Should be the first grid fragment index.");
-      is(rowNumber, 1, "Should be the first grid row.");
-      is(columnNumber, 1, "Should be the first grid column.");
-    });
-  EventUtils.synthesizeMouse(gridCellA, 1, 1, {type: "mouseover"}, doc.defaultView);
+      is(gridFragmentIndex, "0", "Should be the first grid fragment index.");
+      is(rowNumber, "1", "Should be the first grid row.");
+      is(columnNumber, "1", "Should be the first grid column.");
+    }
+  );
+  EventUtils.synthesizeMouse(
+    gridCellA,
+    1,
+    1,
+    { type: "mouseover" },
+    doc.defaultView
+  );
   await onCellAHighlight;
 });

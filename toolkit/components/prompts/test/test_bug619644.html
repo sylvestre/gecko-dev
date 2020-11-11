@@ -6,8 +6,8 @@ https://bugzilla.mozilla.org/show_bug.cgi?id=619644
 <head>
   <title>Test for Bug 619644</title>
   <script type="text/javascript" src="/MochiKit/MochiKit.js"></script>
-  <script type="text/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
-  <script type="text/javascript" src="/tests/SimpleTest/EventUtils.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/EventUtils.js"></script>
   <script type="text/javascript" src="prompt_common.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css" />
 </head>
@@ -20,7 +20,7 @@ https://bugzilla.mozilla.org/show_bug.cgi?id=619644
 const expectedFinalDoc =
 "<head><\/head><body><p>Original content<\/p>\n<script>\n    window.opener.postMessage(\"\", \"*\");\n    confirm(\"Message\");\n    document.write(\"Extra content\");\n    window.opener.postMessage(document.documentElement.innerHTML, \"*\");\n<\/script>Extra content<\/body>";
 
-if (!isTabModal) {
+if (!tabModalPromptEnabled) {
   todo(false, "Test disabled when tab modal prompts are not enabled.");
 } else {
   inittest();
@@ -36,6 +36,8 @@ function inittest() {
 }
 
 function runtest(e) {
+  modalType = Ci.nsIPrompt.MODAL_TYPE_CONTENT;
+
   window.removeEventListener("message", runtest);
   window.addEventListener("message", checktest);
 

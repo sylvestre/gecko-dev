@@ -7,6 +7,7 @@
 #include "mozilla/BasicEvents.h"
 #include "mozilla/EventDispatcher.h"
 #include "mozilla/EventListenerManager.h"
+#include "mozilla/StaticPrefs_browser.h"
 #include "mozilla/dom/WindowRootBinding.h"
 #include "nsCOMPtr.h"
 #include "nsWindowRoot.h"
@@ -15,19 +16,26 @@
 #include "nsLayoutCID.h"
 #include "nsContentCID.h"
 #include "nsString.h"
+#include "nsFrameLoaderOwner.h"
+#include "nsFrameLoader.h"
+#include "nsQueryActor.h"
 #include "nsGlobalWindow.h"
 #include "nsFocusManager.h"
 #include "nsIContent.h"
 #include "nsIControllers.h"
 #include "nsIController.h"
+#include "nsQueryObject.h"
 #include "xpcpublic.h"
 #include "nsCycleCollectionParticipant.h"
-#include "mozilla/dom/TabParent.h"
+#include "mozilla/dom/BrowserParent.h"
+#include "mozilla/dom/CanonicalBrowsingContext.h"
 #include "mozilla/dom/HTMLTextAreaElement.h"
 #include "mozilla/dom/HTMLInputElement.h"
+#include "mozilla/dom/JSActorService.h"
+#include "mozilla/dom/WindowGlobalParent.h"
 
 #ifdef MOZ_XUL
-#include "nsXULElement.h"
+#  include "nsXULElement.h"
 #endif
 
 using namespace mozilla;
@@ -35,25 +43,39 @@ using namespace mozilla::dom;
 
 nsWindowRoot::nsWindowRoot(nsPIDOMWindowOuter* aWindow) {
   mWindow = aWindow;
-
-  // Keyboard indicators are not shown on Mac by default.
-#if defined(XP_MACOSX)
-  mShowAccelerators = false;
-  mShowFocusRings = false;
-#else
-  mShowAccelerators = true;
-  mShowFocusRings = true;
-#endif
+  mShowFocusRings = StaticPrefs::browser_display_show_focus_rings();
 }
 
 nsWindowRoot::~nsWindowRoot() {
   if (mListenerManager) {
     mListenerManager->Disconnect();
   }
+
+  if (XRE_IsContentProcess()) {
+    JSActorService::UnregisterChromeEventTarget(this);
+  }
 }
 
-NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(nsWindowRoot, mWindow, mListenerManager,
-                                      mParent)
+NS_IMPL_CYCLE_COLLECTION_CLASS(nsWindowRoot)
+
+NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(nsWindowRoot)
+  if (XRE_IsContentProcess()) {
+    JSActorService::UnregisterChromeEventTarget(tmp);
+  }
+
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mWindow)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mListenerManager)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mParent)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK_PRESERVED_WRAPPER
+NS_IMPL_CYCLE_COLLECTION_UNLINK_END
+
+NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(nsWindowRoot)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mWindow)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mListenerManager)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mParent)
+NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
+
+NS_IMPL_CYCLE_COLLECTION_TRACE_WRAPPERCACHE(nsWindowRoot)
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(nsWindowRoot)
   NS_WRAPPERCACHE_INTERFACE_MAP_ENTRY
@@ -106,8 +128,8 @@ nsresult nsWindowRoot::PostHandleEvent(EventChainPostVisitor& aVisitor) {
   return NS_OK;
 }
 
-nsPIDOMWindowOuter* nsWindowRoot::GetOwnerGlobalForBindings() {
-  return GetWindow();
+nsPIDOMWindowOuter* nsWindowRoot::GetOwnerGlobalForBindingsInternal() {
+  return mWindow;
 }
 
 nsIGlobalObject* nsWindowRoot::GetOwnerGlobal() const {
@@ -167,6 +189,55 @@ nsresult nsWindowRoot::GetControllerForCommand(const char* aCommand,
   NS_ENSURE_ARG_POINTER(_retval);
   *_retval = nullptr;
 
+  // If this is the parent process, check if a child browsing context from
+  // another process is focused, and ask if it has a controller actor that
+  // supports the command.
+  if (XRE_IsParentProcess()) {
+    nsFocusManager* fm = nsFocusManager::GetFocusManager();
+    if (!fm) {
+      return NS_ERROR_FAILURE;
+    }
+
+    // Unfortunately, messages updating the active/focus state in the focus
+    // manager don't happen fast enough in the case when switching focus between
+    // processes when clicking on a chrome UI element while a child tab is
+    // focused, so we need to check whether the focus manager thinks a child
+    // frame is focused as well.
+    nsCOMPtr<nsPIDOMWindowOuter> focusedWindow;
+    nsIContent* focusedContent = nsFocusManager::GetFocusedDescendant(
+        mWindow, nsFocusManager::eIncludeAllDescendants,
+        getter_AddRefs(focusedWindow));
+    RefPtr<nsFrameLoaderOwner> loaderOwner = do_QueryObject(focusedContent);
+    if (loaderOwner) {
+      // Only check browsing contexts if a remote frame is focused. If chrome is
+      // focused, just check the controllers directly below.
+      RefPtr<nsFrameLoader> frameLoader = loaderOwner->GetFrameLoader();
+      if (frameLoader && frameLoader->IsRemoteFrame()) {
+        // GetActiveBrowsingContextInChrome actually returns the top-level
+        // browsing context if the focus is in a child process tab, or null if
+        // the focus is in chrome.
+        BrowsingContext* focusedBC =
+            fm->GetActiveBrowsingContextInChrome()
+                ? fm->GetFocusedBrowsingContextInChrome()
+                : nullptr;
+        if (focusedBC) {
+          // At this point, it is known that a child process is focused, so ask
+          // its Controllers actor if the command is supported.
+          nsCOMPtr<nsIController> controller = do_QueryActor(
+              "Controllers", focusedBC->Canonical()->GetCurrentWindowGlobal());
+          if (controller) {
+            bool supported;
+            controller->SupportsCommand(aCommand, &supported);
+            if (supported) {
+              controller.forget(_retval);
+              return NS_OK;
+            }
+          }
+        }
+      }
+    }
+  }
+
   {
     nsCOMPtr<nsIControllers> controllers;
     GetControllers(aForVisibleWindow, getter_AddRefs(controllers));
@@ -210,7 +281,7 @@ nsresult nsWindowRoot::GetControllerForCommand(const char* aCommand,
 
 void nsWindowRoot::GetEnabledDisabledCommandsForControllers(
     nsIControllers* aControllers,
-    nsTHashtable<nsCharPtrHashKey>& aCommandsHandled,
+    nsTHashtable<nsCStringHashKey>& aCommandsHandled,
     nsTArray<nsCString>& aEnabledCommands,
     nsTArray<nsCString>& aDisabledCommands) {
   uint32_t controllerCount;
@@ -222,21 +293,20 @@ void nsWindowRoot::GetEnabledDisabledCommandsForControllers(
     nsCOMPtr<nsICommandController> commandController(
         do_QueryInterface(controller));
     if (commandController) {
-      uint32_t commandsCount;
-      char** commands;
-      if (NS_SUCCEEDED(commandController->GetSupportedCommands(&commandsCount,
-                                                               &commands))) {
-        for (uint32_t e = 0; e < commandsCount; e++) {
+      // All of our default command controllers have 20-60 commands.  Let's just
+      // leave enough space here for all of them so we probably don't need to
+      // heap-allocate.
+      AutoTArray<nsCString, 64> commands;
+      if (NS_SUCCEEDED(commandController->GetSupportedCommands(commands))) {
+        for (auto& commandStr : commands) {
           // Use a hash to determine which commands have already been handled by
           // earlier controllers, as the earlier controller's result should get
           // priority.
-          if (aCommandsHandled.EnsureInserted(commands[e])) {
+          if (aCommandsHandled.EnsureInserted(commandStr)) {
             // We inserted a new entry into aCommandsHandled.
             bool enabled = false;
-            controller->IsCommandEnabled(commands[e], &enabled);
+            controller->IsCommandEnabled(commandStr.get(), &enabled);
 
-            const nsDependentCSubstring commandStr(commands[e],
-                                                   strlen(commands[e]));
             if (enabled) {
               aEnabledCommands.AppendElement(commandStr);
             } else {
@@ -244,8 +314,6 @@ void nsWindowRoot::GetEnabledDisabledCommandsForControllers(
             }
           }
         }
-
-        NS_FREE_XPCOM_ALLOCATED_POINTER_ARRAY(commandsCount, commands);
       }
     }
   }
@@ -254,7 +322,7 @@ void nsWindowRoot::GetEnabledDisabledCommandsForControllers(
 void nsWindowRoot::GetEnabledDisabledCommands(
     nsTArray<nsCString>& aEnabledCommands,
     nsTArray<nsCString>& aDisabledCommands) {
-  nsTHashtable<nsCharPtrHashKey> commandsHandled;
+  nsTHashtable<nsCStringHashKey> commandsHandled;
 
   nsCOMPtr<nsIControllers> controllers;
   GetControllers(false, getter_AddRefs(controllers));
@@ -297,31 +365,29 @@ JSObject* nsWindowRoot::WrapObject(JSContext* aCx,
   return mozilla::dom::WindowRoot_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-void nsWindowRoot::AddBrowser(mozilla::dom::TabParent* aBrowser) {
-  nsWeakPtr weakBrowser =
-      do_GetWeakReference(static_cast<nsITabParent*>(aBrowser));
+void nsWindowRoot::AddBrowser(nsIRemoteTab* aBrowser) {
+  nsWeakPtr weakBrowser = do_GetWeakReference(aBrowser);
   mWeakBrowsers.PutEntry(weakBrowser);
 }
 
-void nsWindowRoot::RemoveBrowser(mozilla::dom::TabParent* aBrowser) {
-  nsWeakPtr weakBrowser =
-      do_GetWeakReference(static_cast<nsITabParent*>(aBrowser));
+void nsWindowRoot::RemoveBrowser(nsIRemoteTab* aBrowser) {
+  nsWeakPtr weakBrowser = do_GetWeakReference(aBrowser);
   mWeakBrowsers.RemoveEntry(weakBrowser);
 }
 
 void nsWindowRoot::EnumerateBrowsers(BrowserEnumerator aEnumFunc, void* aArg) {
   // Collect strong references to all browsers in a separate array in
   // case aEnumFunc alters mWeakBrowsers.
-  nsTArray<RefPtr<TabParent>> tabParents;
+  nsTArray<nsCOMPtr<nsIRemoteTab>> remoteTabs;
   for (auto iter = mWeakBrowsers.ConstIter(); !iter.Done(); iter.Next()) {
-    nsCOMPtr<nsITabParent> tabParent(do_QueryReferent(iter.Get()->GetKey()));
-    if (TabParent* tab = TabParent::GetFrom(tabParent)) {
-      tabParents.AppendElement(tab);
+    nsCOMPtr<nsIRemoteTab> remoteTab(do_QueryReferent(iter.Get()->GetKey()));
+    if (remoteTab) {
+      remoteTabs.AppendElement(remoteTab);
     }
   }
 
-  for (uint32_t i = 0; i < tabParents.Length(); ++i) {
-    aEnumFunc(tabParents[i], aArg);
+  for (uint32_t i = 0; i < remoteTabs.Length(); ++i) {
+    aEnumFunc(remoteTabs[i], aArg);
   }
 }
 
@@ -329,5 +395,11 @@ void nsWindowRoot::EnumerateBrowsers(BrowserEnumerator aEnumFunc, void* aArg) {
 
 already_AddRefed<EventTarget> NS_NewWindowRoot(nsPIDOMWindowOuter* aWindow) {
   nsCOMPtr<EventTarget> result = new nsWindowRoot(aWindow);
+
+  if (XRE_IsContentProcess()) {
+    RefPtr<JSActorService> wasvc = JSActorService::GetSingleton();
+    wasvc->RegisterChromeEventTarget(result);
+  }
+
   return result.forget();
 }

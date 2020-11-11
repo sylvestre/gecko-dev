@@ -1,82 +1,228 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 2 -*- */
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 "use strict";
 
-const { createFactory, createElement } = require("devtools/client/shared/vendor/react");
+const {
+  createFactory,
+  createElement,
+} = require("devtools/client/shared/vendor/react");
 const { Provider } = require("devtools/client/shared/vendor/react-redux");
 
-const ChangesApp = createFactory(require("./components/ChangesApp"));
+loader.lazyRequireGetter(
+  this,
+  "ChangesContextMenu",
+  "devtools/client/inspector/changes/ChangesContextMenu"
+);
+loader.lazyRequireGetter(
+  this,
+  "clipboardHelper",
+  "devtools/shared/platform/clipboard"
+);
 
+const changesReducer = require("devtools/client/inspector/changes/reducers/changes");
+const {
+  getChangesStylesheet,
+} = require("devtools/client/inspector/changes/selectors/changes");
 const {
   resetChanges,
   trackChange,
-} = require("./actions/changes");
+} = require("devtools/client/inspector/changes/actions/changes");
+
+const ChangesApp = createFactory(
+  require("devtools/client/inspector/changes/components/ChangesApp")
+);
 
 class ChangesView {
   constructor(inspector, window) {
     this.document = window.document;
     this.inspector = inspector;
     this.store = this.inspector.store;
-    this.toolbox = this.inspector.toolbox;
+    this.telemetry = this.inspector.telemetry;
+    this.window = window;
+
+    this.store.injectReducer("changes", changesReducer);
 
     this.onAddChange = this.onAddChange.bind(this);
+    this.onContextMenu = this.onContextMenu.bind(this);
+    this.onCopy = this.onCopy.bind(this);
+    this.onCopyAllChanges = this.copyAllChanges.bind(this);
+    this.onCopyDeclaration = this.copyDeclaration.bind(this);
+    this.onCopyRule = this.copyRule.bind(this);
     this.onClearChanges = this.onClearChanges.bind(this);
-    this.onChangesFront = this.onChangesFront.bind(this);
+    this.onSelectAll = this.onSelectAll.bind(this);
+    this.onResourceAvailable = this.onResourceAvailable.bind(this);
+
     this.destroy = this.destroy.bind(this);
 
     this.init();
   }
 
-  init() {
-    const changesApp = ChangesApp({});
+  get contextMenu() {
+    if (!this._contextMenu) {
+      this._contextMenu = new ChangesContextMenu({
+        onCopy: this.onCopy,
+        onCopyAllChanges: this.onCopyAllChanges,
+        onCopyDeclaration: this.onCopyDeclaration,
+        onCopyRule: this.onCopyRule,
+        onSelectAll: this.onSelectAll,
+        toolboxDocument: this.inspector.toolbox.doc,
+        window: this.window,
+      });
+    }
 
-    // listen to the front for initialization, add listeners
-    // when it is ready
-    this._getChangesFront();
+    return this._contextMenu;
+  }
+
+  get resourceWatcher() {
+    return this.inspector.toolbox.resourceWatcher;
+  }
+
+  init() {
+    const changesApp = ChangesApp({
+      onContextMenu: this.onContextMenu,
+      onCopyAllChanges: this.onCopyAllChanges,
+      onCopyRule: this.onCopyRule,
+    });
 
     // Expose the provider to let inspector.js use it in setupSidebar.
-    this.provider = createElement(Provider, {
-      id: "changesview",
-      key: "changesview",
-      store: this.store,
-    }, changesApp);
+    this.provider = createElement(
+      Provider,
+      {
+        id: "changesview",
+        key: "changesview",
+        store: this.store,
+      },
+      changesApp
+    );
 
-    this.inspector.target.on("will-navigate", this.onClearChanges);
+    this.watchResources();
   }
 
-  _getChangesFront() {
-    if (this.changesFrontPromise) {
-      return this.changesFrontPromise;
-    }
-    this.changesFrontPromise = new Promise(async resolve => {
-      const target = this.inspector.target;
-      const front = target.getFront("changes");
-      this.onChangesFront(front);
-      resolve(front);
-    });
-    return this.changesFrontPromise;
+  async watchResources() {
+    await this.resourceWatcher.watchResources(
+      [this.resourceWatcher.TYPES.DOCUMENT_EVENT],
+      {
+        onAvailable: this.onResourceAvailable,
+        // Ignore any DOCUMENT_EVENT resources that have occured in the past
+        // and are cached by the resource watcher, otherwise the Changes panel will
+        // react to them erroneously and interpret that the document is reloading *now*
+        // which leads to clearing all stored changes.
+        ignoreExistingResources: true,
+      }
+    );
+
+    await this.resourceWatcher.watchResources(
+      [this.resourceWatcher.TYPES.CSS_CHANGE],
+      { onAvailable: this.onResourceAvailable }
+    );
   }
 
-  async onChangesFront(changesFront) {
-    changesFront.on("add-change", this.onAddChange);
-    changesFront.on("clear-changes", this.onClearChanges);
-    try {
-      // Get all changes collected up to this point by the ChangesActor on the server,
-      // then push them to the Redux store here on the client.
-      const changes = await changesFront.allChanges();
-      changes.forEach(change => {
-        this.onAddChange(change);
-      });
-    } catch (e) {
-      // The connection to the server may have been cut, for
-      // example during test
-      // teardown. Here we just catch the error and silently
-      // ignore it.
+  onResourceAvailable(resources) {
+    for (const resource of resources) {
+      if (resource.resourceType === this.resourceWatcher.TYPES.CSS_CHANGE) {
+        this.onAddChange(resource);
+        continue;
+      }
+
+      if (resource.name === "dom-loading" && resource.targetFront.isTopLevel) {
+        // will-navigate doesn't work when we navigate to a new process,
+        // and for now, onTargetAvailable/onTargetDestroyed doesn't fire on navigation and
+        // only when navigating to another process.
+        // So we fallback on DOCUMENT_EVENTS to be notified when we navigate. When we
+        // navigate within the same process as well as when we navigate to a new process.
+        // (We would probably revisit that in bug 1632141)
+        this.onClearChanges();
+      }
     }
+  }
+
+  /**
+   * Handler for the "Copy All Changes" button. Simple wrapper that just calls
+   * |this.copyChanges()| with no filters in order to trigger default operation.
+   */
+  copyAllChanges() {
+    this.copyChanges();
+  }
+
+  /**
+   * Handler for the "Copy Changes" option from the context menu.
+   * Builds a CSS text with the aggregated changes and copies it to the clipboard.
+   *
+   * Optional rule and source ids can be used to filter the scope of the operation:
+   * - if both a rule id and source id are provided, copy only the changes to the
+   * matching rule within the matching source.
+   * - if only a source id is provided, copy the changes to all rules within the
+   * matching source.
+   * - if neither rule id nor source id are provided, copy the changes too all rules
+   * within all sources.
+   *
+   * @param {String|null} ruleId
+   *        Optional rule id.
+   * @param {String|null} sourceId
+   *        Optional source id.
+   */
+  copyChanges(ruleId, sourceId) {
+    const state = this.store.getState().changes || {};
+    const filter = {};
+    if (ruleId) {
+      filter.ruleIds = [ruleId];
+    }
+    if (sourceId) {
+      filter.sourceIds = [sourceId];
+    }
+
+    const text = getChangesStylesheet(state, filter);
+    clipboardHelper.copyString(text);
+  }
+
+  /**
+   * Handler for the "Copy Declaration" option from the context menu.
+   * Builds a CSS declaration string with the property name and value, and copies it
+   * to the clipboard. The declaration is commented out if it is marked as removed.
+   *
+   * @param {DOMElement} element
+   *        Host element of a CSS declaration rendered the Changes panel.
+   */
+  copyDeclaration(element) {
+    const name = element.querySelector(".changes__declaration-name")
+      .textContent;
+    const value = element.querySelector(".changes__declaration-value")
+      .textContent;
+    const isRemoved = element.classList.contains("diff-remove");
+    const text = isRemoved ? `/* ${name}: ${value}; */` : `${name}: ${value};`;
+    clipboardHelper.copyString(text);
+  }
+
+  /**
+   * Handler for the "Copy Rule" option from the context menu and "Copy Rule" button.
+   * Gets the full content of the target CSS rule (including any changes applied)
+   * and copies it to the clipboard.
+   *
+   * @param {String} ruleId
+   *        Rule id of the target CSS rule.
+   */
+  async copyRule(ruleId) {
+    const inspectorFronts = await this.inspector.getAllInspectorFronts();
+
+    for (const inspectorFront of inspectorFronts) {
+      const rule = await inspectorFront.pageStyle.getRule(ruleId);
+
+      if (rule) {
+        const text = await rule.getRuleText();
+        clipboardHelper.copyString(text);
+        break;
+      }
+    }
+  }
+
+  /**
+   * Handler for the "Copy" option from the context menu.
+   * Copies the current text selection to the clipboard.
+   */
+  onCopy() {
+    clipboardHelper.copyString(this.window.getSelection().toString());
   }
 
   onAddChange(change) {
@@ -89,20 +235,45 @@ class ChangesView {
   }
 
   /**
+   * Select all text.
+   */
+  onSelectAll() {
+    const selection = this.window.getSelection();
+    selection.selectAllChildren(
+      this.document.getElementById("sidebar-panel-changes")
+    );
+  }
+
+  /**
+   * Event handler for the "contextmenu" event fired when the context menu is requested.
+   * @param {Event} e
+   */
+  onContextMenu(e) {
+    this.contextMenu.show(e);
+  }
+
+  /**
    * Destruction function called when the inspector is destroyed.
    */
-  async destroy() {
-    this.store.dispatch(resetChanges());
+  destroy() {
+    this.resourceWatcher.unwatchResources(
+      [
+        this.resourceWatcher.TYPES.CSS_CHANGE,
+        this.resourceWatcher.TYPES.DOCUMENT_EVENT,
+      ],
+      { onAvailable: this.onResourceAvailable }
+    );
 
-    // ensure we finish waiting for the front before destroying.
-    const changesFront = await this.changesFrontPromise;
-    changesFront.off("add-change", this.onAddChange);
-    changesFront.off("clear-changes", this.onClearChanges);
+    this.store.dispatch(resetChanges());
 
     this.document = null;
     this.inspector = null;
     this.store = null;
-    this.toolbox = null;
+
+    if (this._contextMenu) {
+      this._contextMenu.destroy();
+      this._contextMenu = null;
+    }
   }
 }
 

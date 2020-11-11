@@ -11,7 +11,6 @@ from six import reraise
 
 
 class WindowManagerMixin(object):
-
     def setUp(self):
         super(WindowManagerMixin, self).setUp()
 
@@ -69,65 +68,91 @@ class WindowManagerMixin(object):
                 if result["type"] != "tab":
                     raise Exception(
                         "Newly opened browsing context is of type {} and not tab.".format(
-                            result["type"]))
+                            result["type"]
+                        )
+                    )
         except Exception:
-            exc, val, tb = sys.exc_info()
-            reraise(exc, 'Failed to trigger opening a new tab: {}'.format(val), tb)
+            exc_cls, exc, tb = sys.exc_info()
+            reraise(
+                exc_cls,
+                exc_cls("Failed to trigger opening a new tab: {}".format(exc)),
+                tb,
+            )
         else:
             Wait(self.marionette).until(
                 lambda mn: len(mn.window_handles) == len(current_tabs) + 1,
-                message="No new tab has been opened"
+                message="No new tab has been opened",
             )
 
             [new_tab] = list(set(self.marionette.window_handles) - set(current_tabs))
 
             return new_tab
 
-    def open_window(self, callback=None, focus=False):
+    def open_window(self, callback=None, focus=False, private=False):
         current_windows = self.marionette.chrome_window_handles
         current_tabs = self.marionette.window_handles
 
         def loaded(handle):
             with self.marionette.using_context("chrome"):
-                return self.marionette.execute_script("""
+                return self.marionette.execute_script(
+                    """
                   Components.utils.import("resource://gre/modules/Services.jsm");
 
-                  let win = Services.wm.getOuterWindowWithId(Number(arguments[0]));
+                  const win = BrowsingContext.get(Number(arguments[0])).window;
                   return win.document.readyState == "complete";
-                """, script_args=[handle])
+                """,
+                    script_args=[handle],
+                )
 
         try:
             if callable(callback):
-                callback()
+                callback(focus)
             else:
-                result = self.marionette.open(type="window", focus=focus)
+                result = self.marionette.open(
+                    type="window", focus=focus, private=private
+                )
                 if result["type"] != "window":
                     raise Exception(
                         "Newly opened browsing context is of type {} and not window.".format(
-                            result["type"]))
+                            result["type"]
+                        )
+                    )
         except Exception:
-            exc, val, tb = sys.exc_info()
-            reraise(exc, 'Failed to trigger opening a new window: {}'.format(val), tb)
+            exc_cls, exc, tb = sys.exc_info()
+            reraise(
+                exc_cls,
+                exc_cls("Failed to trigger opening a new window: {}".format(exc)),
+                tb,
+            )
         else:
             Wait(self.marionette).until(
                 lambda mn: len(mn.chrome_window_handles) == len(current_windows) + 1,
-                message="No new window has been opened"
+                message="No new window has been opened",
             )
 
-            [new_window] = list(set(self.marionette.chrome_window_handles) - set(current_windows))
+            [new_window] = list(
+                set(self.marionette.chrome_window_handles) - set(current_windows)
+            )
 
             # Before continuing ensure the window has been completed loading
             Wait(self.marionette).until(
                 lambda _: loaded(new_window),
-                message="Window with handle '{}'' did not finish loading".format(new_window))
+                message="Window with handle '{}'' did not finish loading".format(
+                    new_window
+                ),
+            )
 
             # Bug 1507771 - Return the correct handle based on the currently selected context
             # as long as "WebDriver:NewWindow" is not handled separtely in chrome context
-            context = self.marionette._send_message("Marionette:GetContext", key="value")
+            context = self.marionette._send_message(
+                "Marionette:GetContext", key="value"
+            )
             if context == "chrome":
                 return new_window
             elif context == "content":
-                [new_tab] = list(set(self.marionette.window_handles) - set(current_tabs))
+                [new_tab] = list(
+                    set(self.marionette.window_handles) - set(current_tabs)
+                )
                 return new_tab
 
     def open_chrome_window(self, url, focus=False):
@@ -136,10 +161,12 @@ class WindowManagerMixin(object):
         Can be replaced with "WebDriver:NewWindow" once the command
         supports opening generic chrome windows beside browsers (bug 1507771).
         """
-        def open_with_js():
+
+        def open_with_js(focus):
             with self.marionette.using_context("chrome"):
-                self.marionette.execute_async_script("""
-                  let [url, resolve] = arguments;
+                self.marionette.execute_async_script(
+                    """
+                  let [url, focus, resolve] = arguments;
 
                   function waitForEvent(target, type, args) {
                     return new Promise(resolve => {
@@ -161,22 +188,24 @@ class WindowManagerMixin(object):
                   (async function() {
                     // Open a window, wait for it to receive focus
                     let win = window.openDialog(url, null, "chrome,centerscreen");
+                    let focused = waitForFocus(win);
 
-                    // Bug 1509380 - Missing focus/activate event when Firefox is not
-                    // the top-most application. As such wait for the next tick, and
-                    // manually focus the newly opened window.
-                    win.setTimeout(() => win.focus(), 0);
-
-                    await waitForFocus(win);
-
-                    // Now refocus our original window and wait for that to happen.
-                    let focused = waitForFocus(window);
-                    window.focus();
+                    win.focus();
                     await focused;
 
-                    resolve();
+                    // The new window shouldn't get focused. As such set the
+                    // focus back to the opening window.
+                    if (!focus && Services.focus.activeWindow != window) {
+                      let focused = waitForFocus(window);
+                      window.focus();
+                      await focused;
+                    }
+
+                    resolve(win.docShell.browsingContext.id);
                   })();
-                """, script_args=(url,))
+                """,
+                    script_args=(url, focus),
+                )
 
         with self.marionette.using_context("chrome"):
             return self.open_window(callback=open_with_js, focus=focus)

@@ -1,5 +1,6 @@
-function run_test()
-{
+"use strict";
+
+function run_test() {
   do_get_profile();
 
   var mc = new MultipleCallbacks(2, function() {
@@ -18,15 +19,22 @@ function run_test()
     );
   });
 
-
-  asyncOpenCacheEntry("http://an2/", "disk", Ci.nsICacheStorage.OPEN_NORMALLY, Services.loadContextInfo.default,
-    new OpenCallback(NEW|WAITFORWRITE, "an2", "an2", function(entry) {
+  asyncOpenCacheEntry(
+    "http://an2/",
+    "disk",
+    Ci.nsICacheStorage.OPEN_NORMALLY,
+    Services.loadContextInfo.default,
+    new OpenCallback(NEW | WAITFORWRITE, "an2", "an2", function(entry) {
       mc.fired();
     })
   );
 
-  asyncOpenCacheEntry("http://an2/", "disk", Ci.nsICacheStorage.OPEN_NORMALLY, Services.loadContextInfo.anonymous,
-    new OpenCallback(NEW|WAITFORWRITE, "an2", "an2", function(entry) {
+  asyncOpenCacheEntry(
+    "http://an2/",
+    "disk",
+    Ci.nsICacheStorage.OPEN_NORMALLY,
+    Services.loadContextInfo.anonymous,
+    new OpenCallback(NEW | WAITFORWRITE, "an2", "an2", function(entry) {
       mc.fired();
     })
   );

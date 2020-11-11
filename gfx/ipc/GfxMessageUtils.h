@@ -10,7 +10,6 @@
 #include "FilterSupport.h"
 #include "ImageTypes.h"
 #include "RegionBuilder.h"
-#include "base/process_util.h"
 #include "chrome/common/ipc_message_utils.h"
 #include "gfxFeature.h"
 #include "gfxFallback.h"
@@ -18,17 +17,18 @@
 #include "gfxRect.h"
 #include "gfxTelemetry.h"
 #include "gfxTypes.h"
-#include "ipc/IPCMessageUtils.h"
 #include "mozilla/gfx/CrossProcessPaint.h"
 #include "mozilla/gfx/Matrix.h"
 #include "nsRect.h"
 #include "nsRegion.h"
 #include "mozilla/Array.h"
+#include "mozilla/ipc/ProtocolUtils.h"
+#include "mozilla/ipc/Shmem.h"
 
 #include <stdint.h>
 
 #ifdef _MSC_VER
-#pragma warning(disable : 4800)
+#  pragma warning(disable : 4800)
 #endif
 
 namespace mozilla {
@@ -262,6 +262,12 @@ struct ParamTraits<mozilla::gfx::ColorSpace>
                                       mozilla::gfx::ColorSpace::SRGB,
                                       mozilla::gfx::ColorSpace::Max> {};
 
+template <>
+struct ParamTraits<mozilla::gfx::CompositionOp>
+    : public ContiguousEnumSerializerInclusive<
+          mozilla::gfx::CompositionOp, mozilla::gfx::CompositionOp::OP_OVER,
+          mozilla::gfx::CompositionOp::OP_COUNT> {};
+
 /*
 template <>
 struct ParamTraits<mozilla::PixelFormat>
@@ -272,8 +278,27 @@ struct ParamTraits<mozilla::PixelFormat>
 */
 
 template <>
-struct ParamTraits<mozilla::gfx::Color> {
-  typedef mozilla::gfx::Color paramType;
+struct ParamTraits<mozilla::gfx::sRGBColor> {
+  typedef mozilla::gfx::sRGBColor paramType;
+
+  static void Write(Message* msg, const paramType& param) {
+    WriteParam(msg, param.r);
+    WriteParam(msg, param.g);
+    WriteParam(msg, param.b);
+    WriteParam(msg, param.a);
+  }
+
+  static bool Read(const Message* msg, PickleIterator* iter,
+                   paramType* result) {
+    return (
+        ReadParam(msg, iter, &result->r) && ReadParam(msg, iter, &result->g) &&
+        ReadParam(msg, iter, &result->b) && ReadParam(msg, iter, &result->a));
+  }
+};
+
+template <>
+struct ParamTraits<mozilla::gfx::DeviceColor> {
+  typedef mozilla::gfx::DeviceColor paramType;
 
   static void Write(Message* msg, const paramType& param) {
     WriteParam(msg, param.r);
@@ -542,6 +567,31 @@ struct ParamTraits<mozilla::gfx::RectTyped<T>> {
 };
 
 template <class T>
+struct ParamTraits<mozilla::gfx::RectAbsoluteTyped<T>> {
+  typedef mozilla::gfx::RectAbsoluteTyped<T> paramType;
+
+  static void Write(Message* msg, const paramType& param) {
+    WriteParam(msg, param.Left());
+    WriteParam(msg, param.Top());
+    WriteParam(msg, param.Right());
+    WriteParam(msg, param.Bottom());
+  }
+
+  static bool Read(const Message* msg, PickleIterator* iter,
+                   paramType* result) {
+    auto l = result->Left();
+    auto t = result->Top();
+    auto r = result->Right();
+    auto b = result->Bottom();
+
+    bool retVal = (ReadParam(msg, iter, &l) && ReadParam(msg, iter, &t) &&
+                   ReadParam(msg, iter, &r) && ReadParam(msg, iter, &b));
+    result->SetBox(l, t, r, b);
+    return retVal;
+  }
+};
+
+template <class T>
 struct ParamTraits<mozilla::gfx::IntRectTyped<T>> {
   typedef mozilla::gfx::IntRectTyped<T> paramType;
 
@@ -606,6 +656,26 @@ struct ParamTraits<mozilla::gfx::MarginTyped<T>> {
   }
 };
 
+template <class T>
+struct ParamTraits<mozilla::gfx::IntMarginTyped<T>> {
+  typedef mozilla::gfx::IntMarginTyped<T> paramType;
+
+  static void Write(Message* msg, const paramType& param) {
+    WriteParam(msg, param.top);
+    WriteParam(msg, param.right);
+    WriteParam(msg, param.bottom);
+    WriteParam(msg, param.left);
+  }
+
+  static bool Read(const Message* msg, PickleIterator* iter,
+                   paramType* result) {
+    return (ReadParam(msg, iter, &result->top) &&
+            ReadParam(msg, iter, &result->right) &&
+            ReadParam(msg, iter, &result->bottom) &&
+            ReadParam(msg, iter, &result->left));
+  }
+};
+
 template <>
 struct ParamTraits<nsRect> {
   typedef nsRect paramType;
@@ -652,16 +722,22 @@ struct ParamTraits<mozilla::gfx::ColorDepth>
                                       mozilla::gfx::ColorDepth::UNKNOWN> {};
 
 template <>
+struct ParamTraits<mozilla::gfx::ColorRange>
+    : public ContiguousEnumSerializer<mozilla::gfx::ColorRange,
+                                      mozilla::gfx::ColorRange::LIMITED,
+                                      mozilla::gfx::ColorRange::UNKNOWN> {};
+
+template <>
+struct ParamTraits<mozilla::gfx::YUVColorSpace>
+    : public ContiguousEnumSerializer<
+          mozilla::gfx::YUVColorSpace, mozilla::gfx::YUVColorSpace::BT601,
+          mozilla::gfx::YUVColorSpace::_NUM_COLORSPACE> {};
+
+template <>
 struct ParamTraits<mozilla::StereoMode>
     : public ContiguousEnumSerializer<mozilla::StereoMode,
                                       mozilla::StereoMode::MONO,
                                       mozilla::StereoMode::MAX> {};
-
-template <>
-struct ParamTraits<mozilla::YUVColorSpace>
-    : public ContiguousEnumSerializer<mozilla::YUVColorSpace,
-                                      mozilla::YUVColorSpace::BT601,
-                                      mozilla::YUVColorSpace::UNKNOWN> {};
 
 template <>
 struct ParamTraits<mozilla::gfx::ImplicitlyCopyableFloatArray>
@@ -1065,72 +1141,6 @@ struct ParamTraits<mozilla::gfx::CompositeAttributes> {
 };
 
 template <>
-struct ParamTraits<mozilla::gfx::FilterPrimitiveDescription> {
-  typedef mozilla::gfx::FilterPrimitiveDescription paramType;
-
-  static void Write(Message* aMsg, const paramType& aParam) {
-    WriteParam(aMsg, aParam.PrimitiveSubregion());
-    WriteParam(aMsg, aParam.FilterSpaceBounds());
-    WriteParam(aMsg, aParam.IsTainted());
-    WriteParam(aMsg, aParam.OutputColorSpace());
-    WriteParam(aMsg, aParam.NumberOfInputs());
-    for (size_t i = 0; i < aParam.NumberOfInputs(); i++) {
-      WriteParam(aMsg, aParam.InputPrimitiveIndex(i));
-      WriteParam(aMsg, aParam.InputColorSpace(i));
-    }
-    WriteParam(aMsg, aParam.Attributes());
-  }
-
-  static bool Read(const Message* aMsg, PickleIterator* aIter,
-                   paramType* aResult) {
-    mozilla::gfx::IntRect primitiveSubregion;
-    mozilla::gfx::IntRect filterSpaceBounds;
-    bool isTainted = false;
-    mozilla::gfx::ColorSpace outputColorSpace;
-    size_t numberOfInputs = 0;
-    if (!ReadParam(aMsg, aIter, &primitiveSubregion) ||
-        !ReadParam(aMsg, aIter, &filterSpaceBounds) ||
-        !ReadParam(aMsg, aIter, &isTainted) ||
-        !ReadParam(aMsg, aIter, &outputColorSpace) ||
-        !ReadParam(aMsg, aIter, &numberOfInputs)) {
-      return false;
-    }
-
-    aResult->SetPrimitiveSubregion(primitiveSubregion);
-    aResult->SetFilterSpaceBounds(filterSpaceBounds);
-    aResult->SetIsTainted(isTainted);
-    aResult->SetOutputColorSpace(outputColorSpace);
-
-    for (size_t i = 0; i < numberOfInputs; i++) {
-      int32_t inputPrimitiveIndex = 0;
-      mozilla::gfx::ColorSpace inputColorSpace;
-      if (!ReadParam(aMsg, aIter, &inputPrimitiveIndex) ||
-          !ReadParam(aMsg, aIter, &inputColorSpace)) {
-        return false;
-      }
-      aResult->SetInputPrimitive(i, inputPrimitiveIndex);
-      aResult->SetInputColorSpace(i, inputColorSpace);
-    }
-
-    return ReadParam(aMsg, aIter, &aResult->Attributes());
-  }
-};
-
-template <>
-struct ParamTraits<mozilla::gfx::FilterDescription> {
-  typedef mozilla::gfx::FilterDescription paramType;
-
-  static void Write(Message* aMsg, const paramType& aParam) {
-    WriteParam(aMsg, aParam.mPrimitives);
-  }
-
-  static bool Read(const Message* aMsg, PickleIterator* aIter,
-                   paramType* aResult) {
-    return (ReadParam(aMsg, aIter, &aResult->mPrimitives));
-  }
-};
-
-template <>
 struct ParamTraits<mozilla::gfx::Glyph> {
   typedef mozilla::gfx::Glyph paramType;
   static void Write(Message* aMsg, const paramType& aParam) {
@@ -1166,22 +1176,64 @@ struct ParamTraits<mozilla::Array<T, Length>> {
 };
 
 template <>
-struct ParamTraits<mozilla::gfx::PaintFragment> {
+struct ParamTraits<mozilla::SideBits>
+    : public BitFlagsEnumSerializer<mozilla::SideBits,
+                                    mozilla::SideBits::eAll> {};
+
+} /* namespace IPC */
+
+namespace mozilla {
+namespace ipc {
+
+template <>
+struct IPDLParamTraits<gfx::PaintFragment> {
   typedef mozilla::gfx::PaintFragment paramType;
-  static void Write(Message* aMsg, paramType& aParam) {
+  static void Write(IPC::Message* aMsg, IProtocol* aActor, paramType&& aParam) {
+    Shmem shmem;
+    if (aParam.mSize.IsEmpty() ||
+        !aActor->AllocShmem(aParam.mRecording.mLen, SharedMemory::TYPE_BASIC,
+                            &shmem)) {
+      WriteParam(aMsg, gfx::IntSize(0, 0));
+      return;
+    }
+
+    memcpy(shmem.get<uint8_t>(), aParam.mRecording.mData,
+           aParam.mRecording.mLen);
+
     WriteParam(aMsg, aParam.mSize);
-    WriteParam(aMsg, aParam.mRecording);
+    WriteIPDLParam(aMsg, aActor, std::move(shmem));
     WriteParam(aMsg, aParam.mDependencies);
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter,
-                   paramType* aResult) {
-    return ReadParam(aMsg, aIter, &aResult->mSize) &&
-           ReadParam(aMsg, aIter, &aResult->mRecording) &&
-           ReadParam(aMsg, aIter, &aResult->mDependencies);
+  static bool Read(const IPC::Message* aMsg, PickleIterator* aIter,
+                   IProtocol* aActor, paramType* aResult) {
+    if (!ReadParam(aMsg, aIter, &aResult->mSize)) {
+      return false;
+    }
+    if (aResult->mSize.IsEmpty()) {
+      return true;
+    }
+    Shmem shmem;
+    if (!ReadIPDLParam(aMsg, aIter, aActor, &shmem) ||
+        !ReadParam(aMsg, aIter, &aResult->mDependencies)) {
+      aActor->DeallocShmem(shmem);
+      return false;
+    }
+
+    if (!aResult->mRecording.Allocate(shmem.Size<uint8_t>())) {
+      aResult->mSize.SizeTo(0, 0);
+      aActor->DeallocShmem(shmem);
+      return true;
+    }
+
+    memcpy(aResult->mRecording.mData, shmem.get<uint8_t>(),
+           shmem.Size<uint8_t>());
+    aActor->DeallocShmem(shmem);
+    return true;
   }
 };
 
-} /* namespace IPC */
+}  // namespace ipc
+}  // namespace mozilla
 
 #endif /* __GFXMESSAGEUTILS_H__ */

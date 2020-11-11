@@ -12,11 +12,13 @@
 #include <stdint.h>
 
 #include "js/TypeDecls.h"
+#include "vm/SharedStencil.h"  // GCThingIndex
 
 namespace js {
 namespace frontend {
 
 struct BytecodeEmitter;
+class ParserAtom;
 
 // Class for emitting bytecode for property operation.
 //
@@ -112,6 +114,7 @@ class MOZ_STACK_CLASS PropOpEmitter {
     PostDecrement,
     PreDecrement,
     SimpleAssignment,
+    PropInit,
     CompoundAssignment
   };
   enum class ObjKind { Super, Other };
@@ -123,7 +126,7 @@ class MOZ_STACK_CLASS PropOpEmitter {
   ObjKind objKind_;
 
   // The index for the property name's atom.
-  uint32_t propAtomIndex_ = 0;
+  GCThingIndex propAtomIndex_;
 
   // Whether the property name is `length` or not.
   bool isLength_ = false;
@@ -161,6 +164,7 @@ class MOZ_STACK_CLASS PropOpEmitter {
   // |              +--------+              |
   // |                                      |
   // | [SimpleAssignment]                   |
+  // | [PropInit]                           |
   // |                        prepareForRhs |  +-----+
   // +--------------------->+-------------->+->| Rhs |-+
   // |                      ^                  +-----+ |
@@ -207,6 +211,8 @@ class MOZ_STACK_CLASS PropOpEmitter {
     return kind_ == Kind::SimpleAssignment;
   }
 
+  MOZ_MUST_USE bool isPropInit() const { return kind_ == Kind::PropInit; }
+
   MOZ_MUST_USE bool isDelete() const { return kind_ == Kind::Delete; }
 
   MOZ_MUST_USE bool isCompoundAssignment() const {
@@ -227,22 +233,22 @@ class MOZ_STACK_CLASS PropOpEmitter {
     return kind_ == Kind::PostIncrement || kind_ == Kind::PreIncrement;
   }
 
-  MOZ_MUST_USE bool prepareAtomIndex(JSAtom* prop);
+  MOZ_MUST_USE bool prepareAtomIndex(const ParserAtom* prop);
 
  public:
   MOZ_MUST_USE bool prepareForObj();
 
-  MOZ_MUST_USE bool emitGet(JSAtom* prop);
+  MOZ_MUST_USE bool emitGet(const ParserAtom* prop);
 
   MOZ_MUST_USE bool prepareForRhs();
   MOZ_MUST_USE bool skipObjAndRhs();
 
-  MOZ_MUST_USE bool emitDelete(JSAtom* prop);
+  MOZ_MUST_USE bool emitDelete(const ParserAtom* prop);
 
   // `prop` can be nullptr for CompoundAssignment.
-  MOZ_MUST_USE bool emitAssignment(JSAtom* prop);
+  MOZ_MUST_USE bool emitAssignment(const ParserAtom* prop);
 
-  MOZ_MUST_USE bool emitIncDec(JSAtom* prop);
+  MOZ_MUST_USE bool emitIncDec(const ParserAtom* prop);
 };
 
 } /* namespace frontend */

@@ -2,7 +2,7 @@
 
 load(libdir + "asserts.js");
 
-var g = newGlobal();
+var g = newGlobal({newCompartment: true});
 g.set = false;
 g.eval("function f() {\n" +
        "    set = true;\n" +
@@ -18,11 +18,11 @@ dbg.onEnterFrame = function (frame) {
 
 savedFrame = undefined;
 assertThrowsValue(g.f, "pass");
-assertEq(savedFrame.live, false);
+assertEq(savedFrame.onStack, false);
 assertEq(g.set, false);
 
 savedFrame = undefined;
 assertThrowsValue(function () { new g.f; }, "pass");
-assertEq(savedFrame.live, false);
+assertEq(savedFrame.onStack, false);
 assertEq(g.set, false);
 

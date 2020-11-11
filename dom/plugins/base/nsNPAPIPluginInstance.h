@@ -12,12 +12,10 @@
 #include "nsPIDOMWindow.h"
 #include "nsITimer.h"
 #include "nsIPluginInstanceOwner.h"
-#include "nsIURI.h"
-#include "nsIChannel.h"
 #include "nsHashKeys.h"
 #include <prinrval.h>
 #include "js/TypeDecls.h"
-#include "nsIAudioChannelAgent.h"
+#include "AudioChannelAgent.h"
 
 #include "mozilla/EventForwards.h"
 #include "mozilla/TimeStamp.h"
@@ -43,14 +41,18 @@ const NPDrawingModel kDefaultDrawingModel = NPDrawingModelSyncWin;
 #elif defined(MOZ_X11)
 const NPDrawingModel kDefaultDrawingModel = NPDrawingModelSyncX;
 #elif defined(XP_MACOSX)
-#ifndef NP_NO_QUICKDRAW
+#  ifndef NP_NO_QUICKDRAW
 const NPDrawingModel kDefaultDrawingModel =
     NPDrawingModelQuickDraw;  // Not supported
-#else
+#  else
 const NPDrawingModel kDefaultDrawingModel = NPDrawingModelCoreGraphics;
-#endif
+#  endif
 #else
 const NPDrawingModel kDefaultDrawingModel = static_cast<NPDrawingModel>(0);
+#endif
+
+#if defined(OS_WIN)
+static const DWORD NPAPI_INVALID_WPARAM = 0xffffffff;
 #endif
 
 /**
@@ -75,16 +77,14 @@ class nsNPAPITimer {
   bool needUnschedule;
 };
 
-class nsNPAPIPluginInstance final
-    : public nsIAudioChannelAgentCallback,
-      public mozilla::SupportsWeakPtr<nsNPAPIPluginInstance> {
+class nsNPAPIPluginInstance final : public nsIAudioChannelAgentCallback,
+                                    public mozilla::SupportsWeakPtr {
  private:
   typedef mozilla::PluginLibrary PluginLibrary;
 
  public:
   typedef mozilla::gfx::DrawTarget DrawTarget;
 
-  MOZ_DECLARE_WEAKREFERENCE_TYPENAME(nsNPAPIPluginInstance)
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIAUDIOCHANNELAGENTCALLBACK
 
@@ -244,6 +244,10 @@ class nsNPAPIPluginInstance final
 
   nsresult CreateAudioChannelAgentIfNeeded();
 
+  void NotifyAudibleStateChanged() const;
+
+  nsresult UpdateMutedIfNeeded();
+
   // The structure used to communicate between the plugin instance and
   // the browser.
   NPP_t mNPP;
@@ -297,8 +301,10 @@ class nsNPAPIPluginInstance final
   char** mCachedParamNames;
   char** mCachedParamValues;
 
-  nsCOMPtr<nsIAudioChannelAgent> mAudioChannelAgent;
-  bool mMuted;
+  RefPtr<mozilla::dom::AudioChannelAgent> mAudioChannelAgent;
+  bool mIsMuted = false;
+  bool mWindowMuted = false;
+  bool mWindowSuspended = false;
 };
 
 void NS_NotifyBeginPluginCall(NSPluginCallReentry aReentryState);

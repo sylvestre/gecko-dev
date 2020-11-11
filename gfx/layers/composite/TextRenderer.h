@@ -21,7 +21,7 @@ class TextureSource;
 class TextureSourceProvider;
 struct FontBitmapInfo;
 
-class TextRenderer {
+class TextRenderer final {
   ~TextRenderer();
 
  public:
@@ -29,10 +29,10 @@ class TextRenderer {
 
   enum class FontType { Default, FixedWidth, NumTypes };
 
-  explicit TextRenderer() {}
+  TextRenderer() = default;
 
   RefPtr<TextureSource> RenderText(TextureSourceProvider* aProvider,
-                                   const std::string& aText, uint32_t aTextSize,
+                                   const std::string& aText,
                                    uint32_t aTargetPixelWidth,
                                    FontType aFontType);
 
@@ -41,6 +41,15 @@ class TextRenderer {
                   const gfx::Matrix4x4& aTransform, uint32_t aTextSize,
                   uint32_t aTargetPixelWidth,
                   FontType aFontType = FontType::Default);
+
+  gfx::IntSize ComputeSurfaceSize(const std::string& aText,
+                                  uint32_t aTargetPixelWidth,
+                                  FontType aFontType = FontType::Default);
+
+  void RenderTextToDrawTarget(gfx::DrawTarget* aDrawTarget,
+                              const std::string& aText,
+                              uint32_t aTargetPixelWidth,
+                              FontType aFontType = FontType::Default);
 
   struct FontCache {
     ~FontCache();

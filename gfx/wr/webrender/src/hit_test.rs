@@ -2,21 +2,56 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use api::{BorderRadius, ClipMode, HitTestFlags, HitTestItem, HitTestResult, ItemTag, LayoutPoint};
-use api::{LayoutPrimitiveInfo, LayoutRect, PipelineId, VoidPtrToSizeFn, WorldPoint};
-use clip::{ClipDataStore, ClipNode, ClipItem, ClipStore};
-use clip::{rounded_rectangle_contains_point};
-use clip_scroll_tree::{SpatialNodeIndex, ClipScrollTree};
-use internal_types::FastHashMap;
-use prim_store::ScrollNodeAndClipChain;
-use std::os::raw::c_void;
-use std::u32;
-use util::LayoutToWorldFastTransform;
+use api::{BorderRadius, ClipMode, HitTestItem, HitTestResult, ItemTag, PrimitiveFlags};
+use api::{PipelineId, ApiHitTester, ClipId};
+use api::units::*;
+use crate::clip::{ClipItemKind, ClipStore, ClipNode, rounded_rectangle_contains_point};
+use crate::spatial_tree::{SpatialNodeIndex, SpatialTree};
+use crate::internal_types::{FastHashMap, LayoutPrimitiveInfo};
+use std::ops;
+use std::sync::{Arc, Mutex};
+use crate::util::LayoutToWorldFastTransform;
 
-/// A copy of important clip scroll node data to use during hit testing. This a copy of
-/// data from the ClipScrollTree that will persist as a new frame is under construction,
+pub struct SharedHitTester {
+    // We don't really need a mutex here. We could do with some sort of
+    // atomic-atomic-ref-counted pointer (an Arc which would let the pointer
+    // be swapped atomically like an AtomicPtr).
+    // In practive this shouldn't cause performance issues, though.
+    hit_tester: Mutex<Arc<HitTester>>,
+}
+
+impl SharedHitTester {
+    pub fn new() -> Self {
+        SharedHitTester {
+            hit_tester: Mutex::new(Arc::new(HitTester::empty())),
+        }
+    }
+
+    pub fn get_ref(&self) -> Arc<HitTester> {
+        let guard = self.hit_tester.lock().unwrap();
+        Arc::clone(&*guard)
+    }
+
+    pub(crate) fn update(&self, new_hit_tester: Arc<HitTester>) {
+        let mut guard = self.hit_tester.lock().unwrap();
+        *guard = new_hit_tester;
+    }
+}
+
+impl ApiHitTester for SharedHitTester {
+    fn hit_test(&self,
+        pipeline_id: Option<PipelineId>,
+        point: WorldPoint,
+    ) -> HitTestResult {
+        self.get_ref().hit_test(HitTest::new(pipeline_id, point))
+    }
+}
+
+/// A copy of important spatial node data to use during hit testing. This a copy of
+/// data from the SpatialTree that will persist as a new frame is under construction,
 /// allowing hit tests consistent with the currently rendered frame.
-pub struct HitTestSpatialNode {
+#[derive(MallocSizeOf)]
+struct HitTestSpatialNode {
     /// The pipeline id of this node.
     pipeline_id: PipelineId,
 
@@ -25,80 +60,215 @@ pub struct HitTestSpatialNode {
 
     /// World viewport transform for content transformed by this node.
     world_viewport_transform: LayoutToWorldFastTransform,
+
+    /// The accumulated external scroll offset for this spatial node.
+    external_scroll_offset: LayoutVector2D,
 }
 
-pub struct HitTestClipNode {
+#[derive(MallocSizeOf)]
+struct HitTestClipNode {
     /// A particular point must be inside all of these regions to be considered clipped in
     /// for the purposes of a hit test.
     region: HitTestRegion,
+    /// The positioning node for this clip
+    spatial_node_index: SpatialNodeIndex,
 }
 
 impl HitTestClipNode {
-    fn new(local_pos: LayoutPoint, node: &ClipNode) -> Self {
-        let region = match node.item {
-            ClipItem::Rectangle(size, mode) => {
-                let rect = LayoutRect::new(local_pos, size);
+    fn new(
+        node: ClipNode,
+        spatial_node_index: SpatialNodeIndex,
+    ) -> Self {
+        let region = match node.item.kind {
+            ClipItemKind::Rectangle { rect, mode } => {
                 HitTestRegion::Rectangle(rect, mode)
             }
-            ClipItem::RoundedRectangle(size, radii, mode) => {
-                let rect = LayoutRect::new(local_pos, size);
-                HitTestRegion::RoundedRectangle(rect, radii, mode)
+            ClipItemKind::RoundedRectangle { rect, radius, mode } => {
+                HitTestRegion::RoundedRectangle(rect, radius, mode)
             }
-            ClipItem::Image { size, .. } => {
-                let rect = LayoutRect::new(local_pos, size);
+            ClipItemKind::Image { rect, .. } => {
                 HitTestRegion::Rectangle(rect, ClipMode::Clip)
             }
-            ClipItem::BoxShadow(_) => HitTestRegion::Invalid,
+            ClipItemKind::BoxShadow { .. } => HitTestRegion::Invalid,
         };
 
         HitTestClipNode {
             region,
+            spatial_node_index,
         }
     }
 }
 
-// A hit testing clip chain node is the same as a
-// normal clip chain node, except that the clip
-// node is embedded inside the clip chain, rather
-// than referenced. This means we don't need to
-// copy the complete interned clip data store for
-// hit testing.
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub struct HitTestClipChainId(u32);
-
-impl HitTestClipChainId {
-    pub const NONE: Self = HitTestClipChainId(u32::MAX);
-}
-
-pub struct HitTestClipChainNode {
-    pub region: HitTestClipNode,
-    pub spatial_node_index: SpatialNodeIndex,
-    pub parent_clip_chain_id: HitTestClipChainId,
-}
-
-#[derive(Clone)]
-pub struct HitTestingItem {
+#[derive(Clone, MallocSizeOf)]
+struct HitTestingItem {
     rect: LayoutRect,
     clip_rect: LayoutRect,
     tag: ItemTag,
     is_backface_visible: bool,
+    spatial_node_index: SpatialNodeIndex,
+    #[ignore_malloc_size_of = "Range"]
+    clip_nodes_range: ops::Range<ClipNodeIndex>,
 }
 
 impl HitTestingItem {
-    pub fn new(tag: ItemTag, info: &LayoutPrimitiveInfo) -> HitTestingItem {
+    fn new(
+        tag: ItemTag,
+        info: &LayoutPrimitiveInfo,
+        spatial_node_index: SpatialNodeIndex,
+        clip_nodes_range: ops::Range<ClipNodeIndex>,
+    ) -> HitTestingItem {
         HitTestingItem {
             rect: info.rect,
             clip_rect: info.clip_rect,
             tag,
-            is_backface_visible: info.is_backface_visible,
+            is_backface_visible: info.flags.contains(PrimitiveFlags::IS_BACKFACE_VISIBLE),
+            spatial_node_index,
+            clip_nodes_range,
         }
     }
 }
 
-#[derive(Clone)]
-pub struct HitTestingRun(pub Vec<HitTestingItem>, pub ScrollNodeAndClipChain);
+/// Statistics about allocation sizes of current hit tester,
+/// used to pre-allocate size of the next hit tester.
+pub struct HitTestingSceneStats {
+    pub clip_nodes_count: usize,
+    pub items_count: usize,
+}
 
+impl HitTestingSceneStats {
+    pub fn empty() -> Self {
+        HitTestingSceneStats {
+            clip_nodes_count: 0,
+            items_count: 0,
+        }
+    }
+}
+
+#[derive(MallocSizeOf, Debug, Copy, Clone)]
+pub struct ClipNodeIndex(u32);
+
+/// Defines the immutable part of a hit tester for a given scene.
+/// The hit tester is recreated each time a frame is built, since
+/// it relies on the current values of the spatial tree.
+/// However, the clip chain and item definitions don't change,
+/// so they are created once per scene, and shared between
+/// hit tester instances via Arc.
+#[derive(MallocSizeOf)]
+pub struct HitTestingScene {
+    /// Packed array of all hit test clip nodes
+    clip_nodes: Vec<HitTestClipNode>,
+
+    /// List of hit testing primitives.
+    items: Vec<HitTestingItem>,
+
+    /// Current stack of clip ids from stacking context
+    #[ignore_malloc_size_of = "ClipId"]
+    clip_id_stack: Vec<ClipId>,
+
+    /// Last cached clip id, useful for scenes with a lot
+    /// of hit-test items that reference the same clip
+    #[ignore_malloc_size_of = "simple"]
+    cached_clip_id: Option<(ClipId, ops::Range<ClipNodeIndex>)>,
+}
+
+impl HitTestingScene {
+    /// Construct a new hit testing scene, pre-allocating to size
+    /// provided by previous scene stats.
+    pub fn new(stats: &HitTestingSceneStats) -> Self {
+        HitTestingScene {
+            clip_nodes: Vec::with_capacity(stats.clip_nodes_count),
+            items: Vec::with_capacity(stats.items_count),
+            clip_id_stack: Vec::with_capacity(8),
+            cached_clip_id: None,
+        }
+    }
+
+    /// Get stats about the current scene allocation sizes.
+    pub fn get_stats(&self) -> HitTestingSceneStats {
+        HitTestingSceneStats {
+            clip_nodes_count: self.clip_nodes.len(),
+            items_count: self.items.len(),
+        }
+    }
+
+    /// Add a hit testing primitive.
+    pub fn add_item(
+        &mut self,
+        tag: ItemTag,
+        info: &LayoutPrimitiveInfo,
+        spatial_node_index: SpatialNodeIndex,
+        clip_id: ClipId,
+        clip_store: &ClipStore,
+    ) {
+        let clip_range = match self.cached_clip_id {
+            Some((cached_clip_id, ref range)) if cached_clip_id == clip_id => {
+                range.clone()
+            }
+            Some(_) | None => {
+                let start = ClipNodeIndex(self.clip_nodes.len() as u32);
+
+                // Flatten all clips from the stacking context hierarchy
+                for clip_id in &self.clip_id_stack {
+                    add_clips(
+                        *clip_id,
+                        clip_store,
+                        &mut self.clip_nodes,
+                    );
+                }
+
+                // Add the primitive clip
+                add_clips(
+                    clip_id,
+                    clip_store,
+                    &mut self.clip_nodes,
+                );
+
+                let end = ClipNodeIndex(self.clip_nodes.len() as u32);
+
+                let range = ops::Range {
+                    start,
+                    end,
+                };
+
+                self.cached_clip_id = Some((clip_id, range.clone()));
+
+                range
+            }
+        };
+
+        let item = HitTestingItem::new(
+            tag,
+            info,
+            spatial_node_index,
+            clip_range,
+        );
+
+        self.items.push(item);
+    }
+
+    /// Push a clip onto the current stack
+    pub fn push_clip(
+        &mut self,
+        clip_id: ClipId,
+    ) {
+        // Invalidate the cache since the stack may affect the produced hit test clip struct
+        self.cached_clip_id = None;
+
+        self.clip_id_stack.push(clip_id);
+    }
+
+    /// Pop a clip from the current stack
+    pub fn pop_clip(
+        &mut self,
+    ) {
+        // Invalidate the cache since the stack may affect the produced hit test clip struct
+        self.cached_clip_id = None;
+
+        self.clip_id_stack.pop().unwrap();
+    }
+}
+
+#[derive(MallocSizeOf)]
 enum HitTestRegion {
     Invalid,
     Rectangle(LayoutRect, ClipMode),
@@ -106,12 +276,12 @@ enum HitTestRegion {
 }
 
 impl HitTestRegion {
-    pub fn contains(&self, point: &LayoutPoint) -> bool {
+    fn contains(&self, point: &LayoutPoint) -> bool {
         match *self {
             HitTestRegion::Rectangle(ref rectangle, ClipMode::Clip) =>
-                rectangle.contains(point),
+                rectangle.contains(*point),
             HitTestRegion::Rectangle(ref rectangle, ClipMode::ClipOut) =>
-                !rectangle.contains(point),
+                !rectangle.contains(*point),
             HitTestRegion::RoundedRectangle(rect, radii, ClipMode::Clip) =>
                 rounded_rectangle_contains_point(point, &rect, &radii),
             HitTestRegion::RoundedRectangle(rect, radii, ClipMode::ClipOut) =>
@@ -121,245 +291,158 @@ impl HitTestRegion {
     }
 }
 
+#[derive(MallocSizeOf)]
 pub struct HitTester {
-    runs: Vec<HitTestingRun>,
+    #[ignore_malloc_size_of = "Arc"]
+    scene: Arc<HitTestingScene>,
     spatial_nodes: Vec<HitTestSpatialNode>,
-    clip_chains: Vec<HitTestClipChainNode>,
     pipeline_root_nodes: FastHashMap<PipelineId, SpatialNodeIndex>,
 }
 
 impl HitTester {
+    pub fn empty() -> Self {
+        HitTester {
+            scene: Arc::new(HitTestingScene::new(&HitTestingSceneStats::empty())),
+            spatial_nodes: Vec::new(),
+            pipeline_root_nodes: FastHashMap::default(),
+        }
+    }
+
     pub fn new(
-        runs: &Vec<HitTestingRun>,
-        clip_scroll_tree: &ClipScrollTree,
-        clip_store: &ClipStore,
-        clip_data_store: &ClipDataStore,
+        scene: Arc<HitTestingScene>,
+        spatial_tree: &SpatialTree,
     ) -> HitTester {
         let mut hit_tester = HitTester {
-            runs: runs.clone(),
+            scene,
             spatial_nodes: Vec::new(),
-            clip_chains: Vec::new(),
             pipeline_root_nodes: FastHashMap::default(),
         };
-        hit_tester.read_clip_scroll_tree(
-            clip_scroll_tree,
-            clip_store,
-            clip_data_store,
-        );
+        hit_tester.read_spatial_tree(spatial_tree);
         hit_tester
     }
 
-    fn read_clip_scroll_tree(
+    fn read_spatial_tree(
         &mut self,
-        clip_scroll_tree: &ClipScrollTree,
-        clip_store: &ClipStore,
-        clip_data_store: &ClipDataStore,
+        spatial_tree: &SpatialTree,
     ) {
         self.spatial_nodes.clear();
-        self.clip_chains.clear();
 
-        for (index, node) in clip_scroll_tree.spatial_nodes.iter().enumerate() {
-            let index = SpatialNodeIndex(index);
+        self.spatial_nodes.reserve(spatial_tree.spatial_nodes.len());
+        for (index, node) in spatial_tree.spatial_nodes.iter().enumerate() {
+            let index = SpatialNodeIndex::new(index);
 
             // If we haven't already seen a node for this pipeline, record this one as the root
             // node.
             self.pipeline_root_nodes.entry(node.pipeline_id).or_insert(index);
 
+            //TODO: avoid inverting more than necessary:
+            //  - if the coordinate system is non-invertible, no need to try any of these concrete transforms
+            //  - if there are other places where inversion is needed, let's not repeat the step
+
             self.spatial_nodes.push(HitTestSpatialNode {
                 pipeline_id: node.pipeline_id,
-                world_content_transform: node.world_content_transform,
-                world_viewport_transform: node.world_viewport_transform,
-            });
-        }
-
-        // For each clip chain node, extract the clip node from the clip
-        // data store, and store it inline with the clip chain node.
-        for node in &clip_store.clip_chain_nodes {
-            let clip_node = &clip_data_store[node.handle];
-            self.clip_chains.push(HitTestClipChainNode {
-                region: HitTestClipNode::new(node.local_pos, clip_node),
-                spatial_node_index: node.spatial_node_index,
-                parent_clip_chain_id: HitTestClipChainId(node.parent_clip_chain_id.0),
+                world_content_transform: spatial_tree
+                    .get_world_transform(index)
+                    .into_fast_transform(),
+                world_viewport_transform: spatial_tree
+                    .get_world_viewport_transform(index)
+                    .into_fast_transform(),
+                external_scroll_offset: spatial_tree.external_scroll_offset(index),
             });
         }
     }
 
-    fn is_point_clipped_in_for_clip_chain(
-        &self,
-        point: WorldPoint,
-        clip_chain_id: HitTestClipChainId,
-        test: &mut HitTest
-    ) -> bool {
-        if clip_chain_id == HitTestClipChainId::NONE {
-            return true;
-        }
-
-        if let Some(result) = test.get_from_clip_chain_cache(clip_chain_id) {
-            return result == ClippedIn::ClippedIn;
-        }
-
-        let descriptor = &self.clip_chains[clip_chain_id.0 as usize];
-        let parent_clipped_in = self.is_point_clipped_in_for_clip_chain(
-            point,
-            descriptor.parent_clip_chain_id,
-            test,
-        );
-
-        if !parent_clipped_in {
-            test.set_in_clip_chain_cache(clip_chain_id, ClippedIn::NotClippedIn);
-            return false;
-        }
-
-        if !self.is_point_clipped_in_for_clip_node(
-            point,
-            clip_chain_id,
-            descriptor.spatial_node_index,
-            test,
-        ) {
-            test.set_in_clip_chain_cache(clip_chain_id, ClippedIn::NotClippedIn);
-            return false;
-        }
-
-        test.set_in_clip_chain_cache(clip_chain_id, ClippedIn::ClippedIn);
-        true
-    }
-
-    fn is_point_clipped_in_for_clip_node(
-        &self,
-        point: WorldPoint,
-        clip_chain_node_id: HitTestClipChainId,
-        spatial_node_index: SpatialNodeIndex,
-        test: &mut HitTest
-    ) -> bool {
-        if let Some(clipped_in) = test.node_cache.get(&clip_chain_node_id) {
-            return *clipped_in == ClippedIn::ClippedIn;
-        }
-
-        let node = &self.clip_chains[clip_chain_node_id.0 as usize].region;
-        let transform = self
-            .spatial_nodes[spatial_node_index.0]
-            .world_viewport_transform;
-        let transformed_point = match transform
-            .inverse()
-            .and_then(|inverted| inverted.transform_point2d(&point))
-        {
-            Some(point) => point,
-            None => {
-                test.node_cache.insert(clip_chain_node_id, ClippedIn::NotClippedIn);
-                return false;
-            }
-        };
-
-        if !node.region.contains(&transformed_point) {
-            test.node_cache.insert(clip_chain_node_id, ClippedIn::NotClippedIn);
-            return false;
-        }
-
-        test.node_cache.insert(clip_chain_node_id, ClippedIn::ClippedIn);
-        true
-    }
-
-    pub fn find_node_under_point(&self, mut test: HitTest) -> Option<SpatialNodeIndex> {
-        let point = test.get_absolute_point(self);
-
-        for &HitTestingRun(ref items, ref clip_and_scroll) in self.runs.iter().rev() {
-            let spatial_node_index = clip_and_scroll.spatial_node_index;
-            let scroll_node = &self.spatial_nodes[spatial_node_index.0];
-            let transform = scroll_node.world_content_transform;
-            let point_in_layer = match transform
-                .inverse()
-                .and_then(|inverted| inverted.transform_point2d(&point))
-            {
-                Some(point) => point,
-                None => continue,
-            };
-
-            let mut clipped_in = false;
-            for item in items.iter().rev() {
-                if !item.rect.contains(&point_in_layer) ||
-                    !item.clip_rect.contains(&point_in_layer) {
-                    continue;
-                }
-
-                let clip_chain_id = HitTestClipChainId(clip_and_scroll.clip_chain_id.0);
-                clipped_in |=
-                    self.is_point_clipped_in_for_clip_chain(point, clip_chain_id, &mut test);
-                if !clipped_in {
-                    break;
-                }
-
-                return Some(spatial_node_index);
-            }
-        }
-
-        None
-    }
-
-    pub fn hit_test(&self, mut test: HitTest) -> HitTestResult {
-        let point = test.get_absolute_point(self);
-
+    pub fn hit_test(&self, test: HitTest) -> HitTestResult {
         let mut result = HitTestResult::default();
-        for &HitTestingRun(ref items, ref clip_and_scroll) in self.runs.iter().rev() {
-            let spatial_node_index = clip_and_scroll.spatial_node_index;
-            let scroll_node = &self.spatial_nodes[spatial_node_index.0];
+
+        let mut current_spatial_node_index = SpatialNodeIndex::INVALID;
+        let mut point_in_layer = None;
+        let mut current_root_spatial_node_index = SpatialNodeIndex::INVALID;
+        let mut point_in_viewport = None;
+
+        // For each hit test primitive
+        for item in self.scene.items.iter().rev() {
+            let scroll_node = &self.spatial_nodes[item.spatial_node_index.0 as usize];
             let pipeline_id = scroll_node.pipeline_id;
             match (test.pipeline_id, pipeline_id) {
                 (Some(id), node_id) if node_id != id => continue,
                 _ => {},
             }
 
-            let transform = scroll_node.world_content_transform;
-            let mut facing_backwards: Option<bool> = None;  // will be computed on first use
-            let point_in_layer = match transform
-                .inverse()
-                .and_then(|inverted| inverted.transform_point2d(&point))
-            {
-                Some(point) => point,
-                None => continue,
-            };
+            // Update the cached point in layer space, if the spatial node
+            // changed since last primitive.
+            if item.spatial_node_index != current_spatial_node_index {
+                point_in_layer = scroll_node
+                    .world_content_transform
+                    .inverse()
+                    .and_then(|inverted| inverted.transform_point2d(test.point));
+                current_spatial_node_index = item.spatial_node_index;
+            }
 
-            let mut clipped_in = false;
-            for item in items.iter().rev() {
-                if !item.rect.contains(&point_in_layer) ||
-                    !item.clip_rect.contains(&point_in_layer) {
+            // Only consider hit tests on transformable layers.
+            if let Some(point_in_layer) = point_in_layer {
+                // If the item's rect or clip rect don't contain this point,
+                // it's not a valid hit.
+                if !item.rect.contains(point_in_layer) {
+                    continue;
+                }
+                if !item.clip_rect.contains(point_in_layer) {
                     continue;
                 }
 
-                let clip_chain_id = HitTestClipChainId(clip_and_scroll.clip_chain_id.0);
-                clipped_in = clipped_in ||
-                    self.is_point_clipped_in_for_clip_chain(point, clip_chain_id, &mut test);
-                if !clipped_in {
-                    break;
+                // See if any of the clips for this primitive cull out the item.
+                let mut is_valid = true;
+                let clip_nodes = &self.scene.clip_nodes[item.clip_nodes_range.start.0 as usize .. item.clip_nodes_range.end.0 as usize];
+                for clip_node in clip_nodes {
+                    let transform = self
+                        .spatial_nodes[clip_node.spatial_node_index.0 as usize]
+                        .world_content_transform;
+                    let transformed_point = match transform
+                        .inverse()
+                        .and_then(|inverted| inverted.transform_point2d(test.point))
+                    {
+                        Some(point) => point,
+                        None => {
+                            continue;
+                        }
+                    };
+                    if !clip_node.region.contains(&transformed_point) {
+                        is_valid = false;
+                        break;
+                    }
+                }
+                if !is_valid {
+                    continue;
                 }
 
                 // Don't hit items with backface-visibility:hidden if they are facing the back.
-                if !item.is_backface_visible {
-                    if *facing_backwards.get_or_insert_with(|| transform.is_backface_visible()) {
-                        continue;
-                    }
+                if !item.is_backface_visible && scroll_node.world_content_transform.is_backface_visible() {
+                    continue;
                 }
 
                 // We need to calculate the position of the test point relative to the origin of
                 // the pipeline of the hit item. If we cannot get a transformed point, we are
                 // in a situation with an uninvertible transformation so we should just skip this
                 // result.
-                let root_node = &self.spatial_nodes[self.pipeline_root_nodes[&pipeline_id].0];
-                let point_in_viewport = match root_node.world_viewport_transform
-                    .inverse()
-                    .and_then(|inverted| inverted.transform_point2d(&point))
-                {
-                    Some(point) => point,
-                    None => continue,
-                };
+                let root_spatial_node_index = self.pipeline_root_nodes[&pipeline_id];
+                if root_spatial_node_index != current_root_spatial_node_index {
+                    let root_node = &self.spatial_nodes[root_spatial_node_index.0 as usize];
+                    point_in_viewport = root_node
+                        .world_viewport_transform
+                        .inverse()
+                        .and_then(|inverted| inverted.transform_point2d(test.point))
+                        .map(|pt| pt - scroll_node.external_scroll_offset);
 
-                result.items.push(HitTestItem {
-                    pipeline: pipeline_id,
-                    tag: item.tag,
-                    point_in_viewport,
-                    point_relative_to_item: point_in_layer - item.rect.origin.to_vector(),
-                });
-                if !test.flags.contains(HitTestFlags::FIND_ALL) {
-                    return result;
+                    current_root_spatial_node_index = root_spatial_node_index;
+                }
+
+                if let Some(point_in_viewport) = point_in_viewport {
+                    result.items.push(HitTestItem {
+                        pipeline: pipeline_id,
+                        tag: item.tag,
+                        point_in_viewport,
+                        point_relative_to_item: point_in_layer - item.rect.origin.to_vector(),
+                    });
                 }
             }
         }
@@ -367,87 +450,50 @@ impl HitTester {
         result.items.dedup();
         result
     }
-
-    pub fn get_pipeline_root(&self, pipeline_id: PipelineId) -> &HitTestSpatialNode {
-        &self.spatial_nodes[self.pipeline_root_nodes[&pipeline_id].0]
-    }
-
-    // Reports the CPU heap usage of this HitTester struct.
-    pub fn malloc_size_of(&self, op: VoidPtrToSizeFn) -> usize {
-        let mut size = 0;
-        unsafe {
-            size += op(self.runs.as_ptr() as *const c_void);
-            size += op(self.spatial_nodes.as_ptr() as *const c_void);
-            size += op(self.clip_chains.as_ptr() as *const c_void);
-            // We can't measure pipeline_root_nodes because we don't have the
-            // real machinery from the malloc_size_of crate. We could estimate
-            // it but it should generally be very small so we don't bother.
-        }
-        size
-    }
 }
 
-#[derive(Clone, Copy, PartialEq)]
-enum ClippedIn {
-    ClippedIn,
-    NotClippedIn,
-}
-
+#[derive(MallocSizeOf)]
 pub struct HitTest {
     pipeline_id: Option<PipelineId>,
     point: WorldPoint,
-    flags: HitTestFlags,
-    node_cache: FastHashMap<HitTestClipChainId, ClippedIn>,
-    clip_chain_cache: Vec<Option<ClippedIn>>,
 }
 
 impl HitTest {
     pub fn new(
         pipeline_id: Option<PipelineId>,
         point: WorldPoint,
-        flags: HitTestFlags,
     ) -> HitTest {
         HitTest {
             pipeline_id,
             point,
-            flags,
-            node_cache: FastHashMap::default(),
-            clip_chain_cache: Vec::new(),
         }
     }
+}
 
-    fn get_from_clip_chain_cache(&mut self, index: HitTestClipChainId) -> Option<ClippedIn> {
-        let index = index.0 as usize;
-        if index >= self.clip_chain_cache.len() {
-            None
-        } else {
-            self.clip_chain_cache[index]
-        }
+/// Collect clips for a given ClipId, convert and add them to the hit testing
+/// scene, if not already present.
+fn add_clips(
+    clip_id: ClipId,
+    clip_store: &ClipStore,
+    clip_nodes: &mut Vec<HitTestClipNode>,
+) {
+    let template = &clip_store.templates[&clip_id];
+
+    for clip in &template.clips {
+        let hit_test_clip_node = HitTestClipNode::new(
+            clip.key.into(),
+            clip.clip.spatial_node_index,
+        );
+
+        clip_nodes.push(hit_test_clip_node);
     }
 
-    fn set_in_clip_chain_cache(&mut self, index: HitTestClipChainId, value: ClippedIn) {
-        let index = index.0 as usize;
-        if index >= self.clip_chain_cache.len() {
-            self.clip_chain_cache.resize(index + 1, None);
-        }
-        self.clip_chain_cache[index] = Some(value);
-    }
-
-    fn get_absolute_point(&self, hit_tester: &HitTester) -> WorldPoint {
-        if !self.flags.contains(HitTestFlags::POINT_RELATIVE_TO_PIPELINE_VIEWPORT) {
-            return self.point;
-        }
-
-        let point =  &LayoutPoint::new(self.point.x, self.point.y);
-        self.pipeline_id
-            .and_then(|id|
-                hit_tester
-                    .get_pipeline_root(id)
-                    .world_viewport_transform
-                    .transform_point2d(point)
-            )
-            .unwrap_or_else(|| {
-                WorldPoint::new(self.point.x, self.point.y)
-            })
+    // The ClipId parenting is terminated when we reach the root ClipId
+    if clip_id != template.parent {
+        add_clips(
+            template.parent,
+            clip_store,
+            clip_nodes,
+        );
     }
 }

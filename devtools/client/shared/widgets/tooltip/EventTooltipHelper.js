@@ -1,15 +1,15 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 2 -*- */
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 "use strict";
 
-const {LocalizationHelper} = require("devtools/shared/l10n");
-const L10N = new LocalizationHelper("devtools/client/locales/inspector.properties");
+const { LocalizationHelper } = require("devtools/shared/l10n");
+const L10N = new LocalizationHelper(
+  "devtools/client/locales/inspector.properties"
+);
 
-const Editor = require("devtools/client/sourceeditor/editor");
+const Editor = require("devtools/client/shared/sourceeditor/editor");
 const beautify = require("devtools/shared/jsbeautify/beautify");
 
 const XHTML_NS = "http://www.w3.org/1999/xhtml";
@@ -63,7 +63,7 @@ EventTooltip.prototype = {
     this.container = doc.createElementNS(XHTML_NS, "div");
     this.container.className = "devtools-tooltip-events-container";
 
-    const sourceMapService = this._toolbox.sourceMapURLService;
+    const sourceMapURLService = this._toolbox.sourceMapURLService;
 
     const Bubbling = L10N.getStr("eventsTooltip.Bubbling");
     const Capturing = L10N.getStr("eventsTooltip.Capturing");
@@ -76,7 +76,10 @@ EventTooltip.prototype = {
 
       // Header
       const header = doc.createElementNS(XHTML_NS, "div");
-      header.className = "event-header devtools-toolbar";
+      header.className = "event-header";
+      const arrow = doc.createElementNS(XHTML_NS, "span");
+      arrow.className = "theme-twisty";
+      header.appendChild(arrow);
       this.container.appendChild(header);
 
       if (!listener.hide.type) {
@@ -90,38 +93,38 @@ EventTooltip.prototype = {
       const filename = doc.createElementNS(XHTML_NS, "span");
       filename.className = "event-tooltip-filename devtools-monospace";
 
+      let location = null;
       let text = listener.origin;
       let title = text;
       if (listener.hide.filename) {
         text = L10N.getStr("eventsTooltip.unknownLocation");
         title = L10N.getStr("eventsTooltip.unknownLocationExplanation");
       } else {
-        const location = this._parseLocation(text);
-        if (location) {
-          const callback = (enabled, url, line, column) => {
-            // Do nothing if the tooltip was destroyed while we were
-            // waiting for a response.
-            if (this._tooltip) {
-              const newUrl = enabled ? url : location.url;
-              const newLine = enabled ? line : location.line;
+        location = this._parseLocation(listener.origin);
 
-              const newURI = newUrl + ":" + newLine;
-              filename.textContent = newURI;
-              filename.setAttribute("title", newURI);
-              const eventEditor = this._eventEditors.get(content);
-              eventEditor.uri = newURI;
+        // There will be no source actor if the listener is a native function
+        // or wasn't a debuggee, in which case there's also not going to be
+        // a sourcemap, so we don't need to worry about subscribing.
+        if (location && listener.sourceActor) {
+          location.id = listener.sourceActor;
 
-              // This is emitted for testing.
-              this._tooltip.emit("event-tooltip-source-map-ready");
-            }
-          };
+          this._subscriptions.push(
+            sourceMapURLService.subscribeByID(
+              location.id,
+              location.line,
+              location.column,
+              originalLocation => {
+                const currentLoc = originalLocation || location;
 
-          sourceMapService.subscribe(location.url, location.line, null, callback);
-          this._subscriptions.push({
-            url: location.url,
-            line: location.line,
-            callback,
-          });
+                const newURI = currentLoc.url + ":" + currentLoc.line;
+                filename.textContent = newURI;
+                filename.setAttribute("title", newURI);
+
+                // This is emitted for testing.
+                this._tooltip.emit("event-tooltip-source-map-ready");
+              }
+            )
+          );
         }
       }
 
@@ -183,10 +186,10 @@ EventTooltip.prototype = {
       this._eventEditors.set(content, {
         editor: editor,
         handler: listener.handler,
-        uri: listener.origin,
         dom0: listener.DOM0,
         native: listener.native,
         appended: false,
+        location,
       });
 
       content.className = "event-tooltip-content-box";
@@ -215,19 +218,26 @@ EventTooltip.prototype = {
     const doc = this._tooltip.doc;
     const header = event.currentTarget;
     const content = header.nextElementSibling;
-    header.classList.toggle("content-expanded");
 
     if (content.hasAttribute("open")) {
+      header.classList.remove("content-expanded");
       content.removeAttribute("open");
     } else {
-      const contentNodes = doc.querySelectorAll(".event-tooltip-content-box");
-
-      for (const node of contentNodes) {
-        if (node !== content) {
-          node.removeAttribute("open");
-        }
+      // Close other open events first
+      const openHeaders = doc.querySelectorAll(
+        ".event-header.content-expanded"
+      );
+      const openContent = doc.querySelectorAll(
+        ".event-tooltip-content-box[open]"
+      );
+      for (const node of openHeaders) {
+        node.classList.remove("content-expanded");
+      }
+      for (const node of openContent) {
+        node.removeAttribute("open");
       }
 
+      header.classList.add("content-expanded");
       content.setAttribute("open", "");
 
       const eventEditor = this._eventEditors.get(content);
@@ -236,13 +246,13 @@ EventTooltip.prototype = {
         return;
       }
 
-      const {editor, handler} = eventEditor;
+      const { editor, handler } = eventEditor;
 
       const iframe = doc.createElementNS(XHTML_NS, "iframe");
-      iframe.setAttribute("style", "width: 100%; height: 100%; border-style: none;");
+      iframe.classList.add("event-tooltip-editor-frame");
 
       editor.appendTo(content, iframe).then(() => {
-        const tidied = beautify.js(handler, { "indent_size": 2 });
+        const tidied = beautify.js(handler, { indent_size: 2 });
         editor.setText(tidied);
 
         eventEditor.appended = true;
@@ -263,35 +273,45 @@ EventTooltip.prototype = {
     const header = event.currentTarget;
     const content = header.nextElementSibling;
 
-    const {uri} = this._eventEditors.get(content);
-
-    const location = this._parseLocation(uri);
+    const { location } = this._eventEditors.get(content);
     if (location) {
       // Save a copy of toolbox as it will be set to null when we hide the tooltip.
       const toolbox = this._toolbox;
 
       this._tooltip.hide();
 
-      toolbox.viewSourceInDebugger(location.url, location.line);
+      toolbox.viewSourceInDebugger(
+        location.url,
+        location.line,
+        location.column,
+        location.id
+      );
     }
   },
 
   /**
-   * Parse URI and return {url, line}; or return null if it can't be parsed.
+   * Parse URI and return {url, line, column}; or return null if it can't be parsed.
    */
   _parseLocation: function(uri) {
     if (uri && uri !== "?") {
       uri = uri.replace(/"/g, "");
 
-      const matches = uri.match(/(.*):(\d+$)/);
+      let matches = uri.match(/(.*):(\d+):(\d+$)/);
 
       if (matches) {
         return {
           url: matches[1],
           line: parseInt(matches[2], 10),
+          column: parseInt(matches[3], 10),
+        };
+      } else if ((matches = uri.match(/(.*):(\d+$)/))) {
+        return {
+          url: matches[1],
+          line: parseInt(matches[2], 10),
+          column: null,
         };
       }
-      return {url: uri, line: 1};
+      return { url: uri, line: 1, column: null };
     }
     return null;
   },
@@ -300,10 +320,12 @@ EventTooltip.prototype = {
     if (this._tooltip) {
       this._tooltip.off("hidden", this.destroy);
 
-      const boxes = this.container.querySelectorAll(".event-tooltip-content-box");
+      const boxes = this.container.querySelectorAll(
+        ".event-tooltip-content-box"
+      );
 
       for (const box of boxes) {
-        const {editor} = this._eventEditors.get(box);
+        const { editor } = this._eventEditors.get(box);
         editor.destroy();
       }
 
@@ -317,15 +339,15 @@ EventTooltip.prototype = {
       node.removeEventListener("click", this._headerClicked);
     }
 
-    const sourceNodes = this.container.querySelectorAll(".event-tooltip-debugger-icon");
+    const sourceNodes = this.container.querySelectorAll(
+      ".event-tooltip-debugger-icon"
+    );
     for (const node of sourceNodes) {
       node.removeEventListener("click", this._debugClicked);
     }
 
-    const sourceMapService = this._toolbox.sourceMapURLService;
-    for (const subscription of this._subscriptions) {
-      sourceMapService.unsubscribe(subscription.url, subscription.line, null,
-                                   subscription.callback);
+    for (const unsubscribe of this._subscriptions) {
+      unsubscribe();
     }
 
     this._eventListenerInfos = this._toolbox = this._tooltip = null;

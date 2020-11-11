@@ -4,29 +4,44 @@
 
 "use strict";
 
-const { createRef, PureComponent } = require("devtools/client/shared/vendor/react");
+const {
+  createElement,
+  createRef,
+  Fragment,
+  PureComponent,
+} = require("devtools/client/shared/vendor/react");
 const dom = require("devtools/client/shared/vendor/react-dom-factories");
 const PropTypes = require("devtools/client/shared/vendor/react-prop-types");
 
 loader.lazyGetter(this, "Rep", function() {
-  return require("devtools/client/shared/components/reps/reps").REPS.Rep;
+  return require("devtools/client/shared/components/reps/index").REPS.Rep;
 });
 loader.lazyGetter(this, "MODE", function() {
-  return require("devtools/client/shared/components/reps/reps").MODE;
+  return require("devtools/client/shared/components/reps/index").MODE;
 });
 
-loader.lazyRequireGetter(this, "translateNodeFrontToGrip", "devtools/client/inspector/shared/utils", true);
+loader.lazyRequireGetter(
+  this,
+  "translateNodeFrontToGrip",
+  "devtools/client/inspector/shared/utils",
+  true
+);
 
-const Types = require("../types");
+const Types = require("devtools/client/inspector/grids/types");
+
+const {
+  highlightNode,
+  unhighlightNode,
+} = require("devtools/client/inspector/boxmodel/actions/box-model-highlighter");
 
 class GridItem extends PureComponent {
   static get propTypes() {
     return {
+      dispatch: PropTypes.func.isRequired,
       getSwatchColorPickerTooltip: PropTypes.func.isRequired,
       grid: PropTypes.shape(Types.grid).isRequired,
-      onHideBoxModelHighlighter: PropTypes.func.isRequired,
+      grids: PropTypes.arrayOf(PropTypes.shape(Types.grid)).isRequired,
       onSetGridOverlayColor: PropTypes.func.isRequired,
-      onShowBoxModelHighlighterForNode: PropTypes.func.isRequired,
       onToggleGridHighlighter: PropTypes.func.isRequired,
       setSelectedNode: PropTypes.func.isRequired,
     };
@@ -35,7 +50,6 @@ class GridItem extends PureComponent {
   constructor(props) {
     super(props);
 
-    this.colorValueEl = createRef();
     this.swatchEl = createRef();
 
     this.onGridCheckboxClick = this.onGridCheckboxClick.bind(this);
@@ -51,7 +65,10 @@ class GridItem extends PureComponent {
       onCommit: this.setGridColor,
       onPreview: this.setGridColor,
       onRevert: () => {
-        this.props.onSetGridOverlayColor(this.props.grid.nodeFront, previousColor);
+        this.props.onSetGridOverlayColor(
+          this.props.grid.nodeFront,
+          previousColor
+        );
       },
       onShow: () => {
         previousColor = this.props.grid.color;
@@ -65,25 +82,12 @@ class GridItem extends PureComponent {
   }
 
   setGridColor() {
-    const color = this.colorValueEl.current.textContent;
+    const color = this.swatchEl.current.dataset.color;
     this.props.onSetGridOverlayColor(this.props.grid.nodeFront, color);
   }
 
-  onGridCheckboxClick(e) {
-    // If the click was on the svg icon to select the node in the inspector, bail out.
-    const originalTarget = e.nativeEvent && e.nativeEvent.explicitOriginalTarget;
-    if (originalTarget && originalTarget.namespaceURI === "http://www.w3.org/2000/svg") {
-      // We should be able to cancel the click event propagation after the following reps
-      // issue is implemented : https://github.com/devtools-html/reps/issues/95 .
-      e.preventDefault();
-      return;
-    }
-
-    const {
-      grid,
-      onToggleGridHighlighter,
-    } = this.props;
-
+  onGridCheckboxClick() {
+    const { grid, onToggleGridHighlighter } = this.props;
     onToggleGridHighlighter(grid.nodeFront);
   }
 
@@ -93,56 +97,73 @@ class GridItem extends PureComponent {
     nodeFront.scrollIntoView().catch(e => console.error(e));
   }
 
-  render() {
-    const {
-      grid,
-      onHideBoxModelHighlighter,
-      onShowBoxModelHighlighterForNode,
-    } = this.props;
+  renderSubgrids() {
+    const { grid, grids } = this.props;
 
-    return (
-      dom.li({},
-        dom.label({},
-          dom.input(
-            {
-              checked: grid.highlighted,
-              disabled: grid.disabled,
-              type: "checkbox",
-              value: grid.id,
-              onChange: this.onGridCheckboxClick,
-            }
-          ),
+    if (!grid.subgrids.length) {
+      return null;
+    }
+
+    const subgrids = grids.filter(g => grid.subgrids.includes(g.id));
+
+    return dom.ul(
+      {},
+      subgrids.map(g => {
+        return createElement(GridItem, {
+          key: g.id,
+          dispatch: this.props.dispatch,
+          getSwatchColorPickerTooltip: this.props.getSwatchColorPickerTooltip,
+          grid: g,
+          grids,
+          onSetGridOverlayColor: this.props.onSetGridOverlayColor,
+          onToggleGridHighlighter: this.props.onToggleGridHighlighter,
+          setSelectedNode: this.props.setSelectedNode,
+        });
+      })
+    );
+  }
+
+  render() {
+    const { dispatch, grid } = this.props;
+
+    return createElement(
+      Fragment,
+      null,
+      dom.li(
+        {},
+        dom.label(
+          {},
+          dom.input({
+            checked: grid.highlighted,
+            disabled: grid.disabled,
+            type: "checkbox",
+            value: grid.id,
+            onChange: this.onGridCheckboxClick,
+          }),
           Rep({
             defaultRep: Rep.ElementNode,
             mode: MODE.TINY,
             object: translateNodeFrontToGrip(grid.nodeFront),
-            onDOMNodeMouseOut: () => onHideBoxModelHighlighter(),
-            onDOMNodeMouseOver: () => onShowBoxModelHighlighterForNode(grid.nodeFront),
-            onInspectIconClick: () => this.onGridInspectIconClick(grid.nodeFront),
+            onDOMNodeMouseOut: () => dispatch(unhighlightNode()),
+            onDOMNodeMouseOver: () => dispatch(highlightNode(grid.nodeFront)),
+            onInspectIconClick: (_, e) => {
+              // Stoping click propagation to avoid firing onGridCheckboxClick()
+              e.stopPropagation();
+              this.onGridInspectIconClick(grid.nodeFront);
+            },
           })
         ),
-        dom.div(
-          {
-            className: "layout-color-swatch",
-            ref: this.swatchEl,
-            style: {
-              backgroundColor: grid.color,
-            },
-            title: grid.color,
-          }
-        ),
-        // The SwatchColorPicker relies on the nextSibling of the swatch element to apply
-        // the selected color. This is why we use a span in display: none for now.
-        // Ideally we should modify the SwatchColorPickerTooltip to bypass this
-        // requirement. See https://bugzilla.mozilla.org/show_bug.cgi?id=1341578
-        dom.span(
-          {
-            className: "layout-color-value",
-            ref: this.colorValueEl,
+        dom.div({
+          className: "layout-color-swatch",
+          "data-color": grid.color,
+          ref: this.swatchEl,
+          style: {
+            backgroundColor: grid.color,
           },
-          grid.color
-        )
-      )
+          title: grid.color,
+        })
+      ),
+      this.renderSubgrids()
     );
   }
 }

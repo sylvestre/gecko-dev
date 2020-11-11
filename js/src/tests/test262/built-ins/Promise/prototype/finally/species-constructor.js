@@ -1,3 +1,4 @@
+// |reftest| async
 // Copyright (C) 2017 V8. All rights reserved.
 // This code is governed by the BSD license found in the LICENSE file.
 /*---
@@ -20,6 +21,5 @@ class FooPromise extends Promise {
 new FooPromise(r => r())
   .finally(() => {})
   .then(() => {
-    assert.sameValue(count, 6, "6 new promises were created");
-    $DONE();
-  }, $ERROR);
+    assert.sameValue(count, 7, "7 new promises were created");
+  }).then($DONE, $DONE);

@@ -11,30 +11,18 @@
 
 #include "nsGfxCIID.h"
 #include "nsIServiceManager.h"
-#include "nsIWebBrowserPrint.h"
 #include "nsWindowsHelpers.h"
 #include "ipc/IPCMessageUtils.h"
 
-const char kPrinterEnumeratorContractID[] =
-    "@mozilla.org/gfx/printerenumerator;1";
+const char kPrinterListContractID[] = "@mozilla.org/gfx/printerlist;1";
 
 using namespace mozilla::embedding;
 
 NS_IMETHODIMP
 nsPrintSettingsServiceWin::SerializeToPrintData(nsIPrintSettings* aSettings,
-                                                nsIWebBrowserPrint* aWBP,
                                                 PrintData* data) {
-  nsresult rv =
-      nsPrintSettingsService::SerializeToPrintData(aSettings, aWBP, data);
+  nsresult rv = nsPrintSettingsService::SerializeToPrintData(aSettings, data);
   NS_ENSURE_SUCCESS(rv, rv);
-
-  // Windows wants this information for its print dialogs
-  if (aWBP) {
-    aWBP->GetIsFramesetDocument(&data->isFramesetDocument());
-    aWBP->GetIsFramesetFrameSelected(&data->isFramesetFrameSelected());
-    aWBP->GetIsIFrameSelected(&data->isIFrameSelected());
-    aWBP->GetIsRangeSelection(&data->isRangeSelection());
-  }
 
   nsCOMPtr<nsIPrintSettingsWin> psWin = do_QueryInterface(aSettings);
   if (!psWin) {
@@ -53,9 +41,6 @@ nsPrintSettingsServiceWin::SerializeToPrintData(nsIPrintSettings* aSettings,
   // When creating the print dialog on Windows, we only need to send certain
   // print settings information from the parent to the child not vice versa.
   if (XRE_IsParentProcess()) {
-    psWin->GetPrintableWidthInInches(&data->printableWidthInInches());
-    psWin->GetPrintableHeightInInches(&data->printableHeightInInches());
-
     // A DEVMODE can actually be of arbitrary size. If it turns out that it'll
     // make our IPC message larger than the limit, then we'll error out.
     LPDEVMODEW devModeRaw;
@@ -71,7 +56,7 @@ nsPrintSettingsServiceWin::SerializeToPrintData(nsIPrintSettings* aSettings,
       size_t devModeTotalSize = devMode->dmSize + devMode->dmDriverExtra;
       size_t msgTotalSize = sizeof(PrintData) + devModeTotalSize;
 
-      if (msgTotalSize > IPC::MAX_MESSAGE_SIZE) {
+      if (msgTotalSize > IPC::Channel::kMaximumMessageSize / 2) {
         return NS_ERROR_FAILURE;
       }
 
@@ -80,7 +65,7 @@ nsPrintSettingsServiceWin::SerializeToPrintData(nsIPrintSettings* aSettings,
       const char* devModeData = reinterpret_cast<const char*>(devMode.get());
       nsTArray<uint8_t> arrayBuf;
       arrayBuf.AppendElements(devModeData, devModeTotalSize);
-      data->devModeData().SwapElements(arrayBuf);
+      data->devModeData() = std::move(arrayBuf);
     }
   }
 
@@ -102,9 +87,6 @@ nsPrintSettingsServiceWin::DeserializeToPrintSettings(
   if (XRE_IsContentProcess()) {
     psWin->SetDeviceName(data.deviceName());
     psWin->SetDriverName(data.driverName());
-
-    psWin->SetPrintableWidthInInches(data.printableWidthInInches());
-    psWin->SetPrintableHeightInInches(data.printableHeightInInches());
 
     if (data.devModeData().IsEmpty()) {
       psWin->SetDevMode(nullptr);

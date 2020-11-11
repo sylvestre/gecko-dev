@@ -7,11 +7,11 @@
 #include "nsFrameList.h"
 
 #include "mozilla/ArenaObjectID.h"
+#include "mozilla/PresShell.h"
 #include "nsBidiPresUtils.h"
 #include "nsContainerFrame.h"
 #include "nsGkAtoms.h"
 #include "nsILineIterator.h"
-#include "nsIPresShell.h"
 #include "nsLayoutUtils.h"
 #include "nsPresContext.h"
 
@@ -25,11 +25,11 @@ const AlignedFrameListBytes gEmptyFrameListBytes = {0};
 }  // namespace layout
 }  // namespace mozilla
 
-void* nsFrameList::operator new(size_t sz, nsIPresShell* aPresShell) {
+void* nsFrameList::operator new(size_t sz, mozilla::PresShell* aPresShell) {
   return aPresShell->AllocateByObjectID(eArenaObjectID_nsFrameList, sz);
 }
 
-void nsFrameList::Delete(nsIPresShell* aPresShell) {
+void nsFrameList::Delete(mozilla::PresShell* aPresShell) {
   MOZ_ASSERT(this != &EmptyList(), "Shouldn't Delete() this list");
   NS_ASSERTION(IsEmpty(), "Shouldn't Delete() a non-empty list");
 
@@ -281,7 +281,8 @@ void nsFrameList::ApplySetParent(nsContainerFrame* aParent) const {
   }
 }
 
-/* static */ void nsFrameList::UnhookFrameFromSiblings(nsIFrame* aFrame) {
+/* static */
+void nsFrameList::UnhookFrameFromSiblings(nsIFrame* aFrame) {
   MOZ_ASSERT(aFrame->GetPrevSibling() && aFrame->GetNextSibling());
   nsIFrame* const nextSibling = aFrame->GetNextSibling();
   nsIFrame* const prevSibling = aFrame->GetPrevSibling();
@@ -342,33 +343,29 @@ nsIFrame* nsFrameList::GetPrevVisualFor(nsIFrame* aFrame) const {
   }
 
   nsIFrame* frame = nullptr;
-  nsIFrame* firstFrameOnLine;
-  int32_t numFramesOnLine;
-  nsRect lineBounds;
 
   if (aFrame) {
-    iter->GetLine(thisLine, &firstFrameOnLine, &numFramesOnLine, lineBounds);
+    auto line = iter->GetLine(thisLine).unwrap();
 
     if (paraDir == NSBIDI_LTR) {
-      frame = nsBidiPresUtils::GetFrameToLeftOf(aFrame, firstFrameOnLine,
-                                                numFramesOnLine);
+      frame = nsBidiPresUtils::GetFrameToLeftOf(aFrame, line.mFirstFrameOnLine,
+                                                line.mNumFramesOnLine);
     } else {  // RTL
-      frame = nsBidiPresUtils::GetFrameToRightOf(aFrame, firstFrameOnLine,
-                                                 numFramesOnLine);
+      frame = nsBidiPresUtils::GetFrameToRightOf(aFrame, line.mFirstFrameOnLine,
+                                                 line.mNumFramesOnLine);
     }
   }
 
   if (!frame && thisLine > 0) {
     // Get the last frame of the previous line
-    iter->GetLine(thisLine - 1, &firstFrameOnLine, &numFramesOnLine,
-                  lineBounds);
+    auto line = iter->GetLine(thisLine - 1).unwrap();
 
     if (paraDir == NSBIDI_LTR) {
-      frame = nsBidiPresUtils::GetFrameToLeftOf(nullptr, firstFrameOnLine,
-                                                numFramesOnLine);
+      frame = nsBidiPresUtils::GetFrameToLeftOf(nullptr, line.mFirstFrameOnLine,
+                                                line.mNumFramesOnLine);
     } else {  // RTL
-      frame = nsBidiPresUtils::GetFrameToRightOf(nullptr, firstFrameOnLine,
-                                                 numFramesOnLine);
+      frame = nsBidiPresUtils::GetFrameToRightOf(
+          nullptr, line.mFirstFrameOnLine, line.mNumFramesOnLine);
     }
   }
   return frame;
@@ -416,34 +413,30 @@ nsIFrame* nsFrameList::GetNextVisualFor(nsIFrame* aFrame) const {
   }
 
   nsIFrame* frame = nullptr;
-  nsIFrame* firstFrameOnLine;
-  int32_t numFramesOnLine;
-  nsRect lineBounds;
 
   if (aFrame) {
-    iter->GetLine(thisLine, &firstFrameOnLine, &numFramesOnLine, lineBounds);
+    auto line = iter->GetLine(thisLine).unwrap();
 
     if (paraDir == NSBIDI_LTR) {
-      frame = nsBidiPresUtils::GetFrameToRightOf(aFrame, firstFrameOnLine,
-                                                 numFramesOnLine);
+      frame = nsBidiPresUtils::GetFrameToRightOf(aFrame, line.mFirstFrameOnLine,
+                                                 line.mNumFramesOnLine);
     } else {  // RTL
-      frame = nsBidiPresUtils::GetFrameToLeftOf(aFrame, firstFrameOnLine,
-                                                numFramesOnLine);
+      frame = nsBidiPresUtils::GetFrameToLeftOf(aFrame, line.mFirstFrameOnLine,
+                                                line.mNumFramesOnLine);
     }
   }
 
   int32_t numLines = iter->GetNumLines();
   if (!frame && thisLine < numLines - 1) {
     // Get the first frame of the next line
-    iter->GetLine(thisLine + 1, &firstFrameOnLine, &numFramesOnLine,
-                  lineBounds);
+    auto line = iter->GetLine(thisLine + 1).unwrap();
 
     if (paraDir == NSBIDI_LTR) {
-      frame = nsBidiPresUtils::GetFrameToRightOf(nullptr, firstFrameOnLine,
-                                                 numFramesOnLine);
+      frame = nsBidiPresUtils::GetFrameToRightOf(
+          nullptr, line.mFirstFrameOnLine, line.mNumFramesOnLine);
     } else {  // RTL
-      frame = nsBidiPresUtils::GetFrameToLeftOf(nullptr, firstFrameOnLine,
-                                                numFramesOnLine);
+      frame = nsBidiPresUtils::GetFrameToLeftOf(nullptr, line.mFirstFrameOnLine,
+                                                line.mNumFramesOnLine);
     }
   }
   return frame;
@@ -493,7 +486,6 @@ void nsFrameList::VerifyList() const {
 #endif
 
 namespace mozilla {
-namespace layout {
 
 AutoFrameListPtr::~AutoFrameListPtr() {
   if (mFrameList) {
@@ -501,5 +493,4 @@ AutoFrameListPtr::~AutoFrameListPtr() {
   }
 }
 
-}  // namespace layout
 }  // namespace mozilla

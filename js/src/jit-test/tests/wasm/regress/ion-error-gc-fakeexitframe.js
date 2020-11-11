@@ -5,7 +5,7 @@ for (var i = 0; gczeal(4,10); g(buffer))
 //corefuzz-dcd-endofdata
 //corefuzz-dcd-endofdata
 //corefuzz-dcd-endofdata
-g = newGlobal();
+g = newGlobal({newCompartment: true});
 g.parent = this
 g.eval("Debugger(parent).onExceptionUnwind=(function(){})")
 `;
@@ -18,16 +18,16 @@ var letext =`(module
   (type $type1 (func (param i32) (result i64)))
   (type $type2 (func (result i32)))
   (memory 1)
-  (export "store" $func0)
-  (export "load" $func1)
-  (export "assert_0" $func2)
+  (export "store" (func $func0))
+  (export "load" (func $func1))
+  (export "assert_0" (func $func2))
   (func $func0 (param $var0 i32) (param $var1 i64)
-    get_local $var0
-    get_local $var1
+    local.get $var0
+    local.get $var1
     i64.store16 offset=16
   )
   (func $func1 (param $var0 i32) (result i64)
-    get_local $var0
+    local.get $var0
     i64.load16_s offset=16
   )
   (func $func2 (result i32)
@@ -37,7 +37,7 @@ var letext =`(module
     i32.const 1
   )
   (data (i32.const 0)
-    "\\00\\01\\02\\03\\04\\05\\06\\07\\08\t\n\\0b\\0c\\0d\\0e\\0f"
+    "\\00\\01\\02\\03\\04\\05\\06\\07\\08\\t\\n\\0b\\0c\\0d\\0e\\0f"
   )
   (data (i32.const 16)
     "\\f0\\f1\\f2\\f3\\f4\\f5\\f6\\f7\\f8\\f9\\fa\\fb\\fc\\fd\\fe\\ff"

@@ -4,13 +4,21 @@
 
 var EXPORTED_SYMBOLS = ["PasswordEngine", "LoginRec", "PasswordValidator"];
 
-ChromeUtils.import("resource://gre/modules/Services.jsm");
-ChromeUtils.import("resource://services-sync/record.js");
-ChromeUtils.import("resource://services-sync/constants.js");
-ChromeUtils.import("resource://services-sync/collection_validator.js");
-ChromeUtils.import("resource://services-sync/engines.js");
-ChromeUtils.import("resource://services-sync/util.js");
-ChromeUtils.import("resource://services-common/async.js");
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { Collection, CryptoWrapper } = ChromeUtils.import(
+  "resource://services-sync/record.js"
+);
+const { SCORE_INCREMENT_XLARGE } = ChromeUtils.import(
+  "resource://services-sync/constants.js"
+);
+const { CollectionValidator } = ChromeUtils.import(
+  "resource://services-sync/collection_validator.js"
+);
+const { Store, SyncEngine, LegacyTracker } = ChromeUtils.import(
+  "resource://services-sync/engines.js"
+);
+const { Svc, Utils } = ChromeUtils.import("resource://services-sync/util.js");
+const { Async } = ChromeUtils.import("resource://services-common/async.js");
 
 const SYNCABLE_LOGIN_FIELDS = [
   // `nsILoginInfo` fields.
@@ -60,11 +68,16 @@ LoginRec.prototype = {
 };
 
 Utils.deferGetSet(LoginRec, "cleartext", [
-    "hostname", "formSubmitURL",
-    "httpRealm", "username", "password", "usernameField", "passwordField",
-    "timeCreated", "timePasswordChanged",
-    ]);
-
+  "hostname",
+  "formSubmitURL",
+  "httpRealm",
+  "username",
+  "password",
+  "usernameField",
+  "passwordField",
+  "timeCreated",
+  "timePasswordChanged",
+]);
 
 function PasswordEngine(service) {
   SyncEngine.call(this, "Passwords", service);
@@ -77,6 +90,59 @@ PasswordEngine.prototype = {
 
   syncPriority: 2,
 
+  // Metadata for syncing is stored in the login manager. We also migrate it
+  // from preferences which can be removed eventually via bug 1651568. Note that
+  // we don't support profile downgrades - once it's migrated, the login manager
+  // becomes the single source of truth.
+  // Note also that the syncID is stored encrypted and null is returned if it
+  // can't be decrypted - this is done for that 'return null' side-effect rather
+  // than due to privacy - we want failure to decrypt the store to be treated as
+  // an engine reset.
+  async getSyncID() {
+    let legacyValue = this._syncID; // the base preference getter.
+    if (legacyValue) {
+      await Services.logins.setSyncID(legacyValue);
+      Svc.Prefs.reset(this.name + ".syncID");
+      this._log.debug(`migrated syncID of ${legacyValue} to the logins store`);
+      return legacyValue;
+    }
+    return Services.logins.getSyncID();
+  },
+
+  async ensureCurrentSyncID(newSyncID) {
+    // getSyncID above really only exists for this function - the rest of sync
+    // has already moved away from it, and even our tests  barely use it.
+    // When we remove the migration code (bug 1651568) we should consider
+    // removing getSyncID() from both here and the login manager, and pushing
+    // this ensureCurrentSyncID() function down into the login manager.
+    let existingSyncID = await this.getSyncID();
+    if (existingSyncID == newSyncID) {
+      return existingSyncID;
+    }
+    this._log.debug("Engine syncIDs: " + [newSyncID, existingSyncID]);
+
+    await Services.logins.setSyncID(newSyncID);
+    await Services.logins.setLastSync(0);
+    return newSyncID;
+  },
+
+  async getLastSync() {
+    let legacyValue = await super.getLastSync();
+    if (legacyValue) {
+      await this.setLastSync(legacyValue);
+      Svc.Prefs.reset(this.name + ".lastSync");
+      this._log.debug(
+        `migrated timestamp of ${legacyValue} to the logins store`
+      );
+      return legacyValue;
+    }
+    return Services.logins.getLastSync();
+  },
+
+  async setLastSync(timestamp) {
+    await Services.logins.setLastSync(timestamp);
+  },
+
   async _syncFinish() {
     await SyncEngine.prototype._syncFinish.call(this);
 
@@ -85,7 +151,7 @@ PasswordEngine.prototype = {
       try {
         let ids = [];
         for (let host of Utils.getSyncCredentialsHosts()) {
-          for (let info of Services.logins.findLogins({}, host, "", "")) {
+          for (let info of Services.logins.findLogins(host, "", "")) {
             ids.push(info.QueryInterface(Ci.nsILoginMetaInfo).guid);
           }
         }
@@ -120,11 +186,15 @@ PasswordEngine.prototype = {
       return null;
     }
 
-    let logins = Services.logins.findLogins({}, login.hostname, login.formSubmitURL, login.httpRealm);
+    let logins = Services.logins.findLogins(
+      login.origin,
+      login.formActionOrigin,
+      login.httpRealm
+    );
 
     await Async.promiseYield(); // Yield back to main thread after synchronous operation.
 
-    // Look for existing logins that match the hostname, but ignore the password.
+    // Look for existing logins that match the origin, but ignore the password.
     for (let local of logins) {
       if (login.matches(local, true) && local instanceof Ci.nsILoginMetaInfo) {
         return local.guid;
@@ -150,13 +220,19 @@ PasswordEngine.prototype = {
 
 function PasswordStore(name, engine) {
   Store.call(this, name, engine);
-  this._nsLoginInfo = new Components.Constructor("@mozilla.org/login-manager/loginInfo;1", Ci.nsILoginInfo, "init");
+  this._nsLoginInfo = new Components.Constructor(
+    "@mozilla.org/login-manager/loginInfo;1",
+    Ci.nsILoginInfo,
+    "init"
+  );
 }
 PasswordStore.prototype = {
   __proto__: Store.prototype,
 
   _newPropertyBag() {
-    return Cc["@mozilla.org/hash-property-bag;1"].createInstance(Ci.nsIWritablePropertyBag2);
+    return Cc["@mozilla.org/hash-property-bag;1"].createInstance(
+      Ci.nsIWritablePropertyBag2
+    );
   },
 
   /**
@@ -164,31 +240,44 @@ PasswordStore.prototype = {
    */
   _nsLoginInfoFromRecord(record) {
     function nullUndefined(x) {
-      return (x == undefined) ? null : x;
+      return x == undefined ? null : x;
+    }
+
+    function stringifyNullUndefined(x) {
+      return x == undefined || x == null ? "" : x;
     }
 
     if (record.formSubmitURL && record.httpRealm) {
-      this._log.warn("Record " + record.id + " has both formSubmitURL and httpRealm. Skipping.");
+      this._log.warn(
+        "Record " +
+          record.id +
+          " has both formSubmitURL and httpRealm. Skipping."
+      );
       return null;
     }
 
     // Passing in "undefined" results in an empty string, which later
     // counts as a value. Explicitly `|| null` these fields according to JS
     // truthiness. Records with empty strings or null will be unmolested.
-    let info = new this._nsLoginInfo(record.hostname,
-                                     nullUndefined(record.formSubmitURL),
-                                     nullUndefined(record.httpRealm),
-                                     record.username,
-                                     record.password,
-                                     record.usernameField,
-                                     record.passwordField);
+    let info = new this._nsLoginInfo(
+      record.hostname,
+      nullUndefined(record.formSubmitURL),
+      nullUndefined(record.httpRealm),
+      stringifyNullUndefined(record.username),
+      record.password,
+      record.usernameField,
+      record.passwordField
+    );
 
     info.QueryInterface(Ci.nsILoginMetaInfo);
     info.guid = record.id;
-    if (record.timeCreated) {
+    if (record.timeCreated && !isNaN(new Date(record.timeCreated).getTime())) {
       info.timeCreated = record.timeCreated;
     }
-    if (record.timePasswordChanged) {
+    if (
+      record.timePasswordChanged &&
+      !isNaN(new Date(record.timePasswordChanged).getTime())
+    ) {
       info.timePasswordChanged = record.timePasswordChanged;
     }
 
@@ -199,7 +288,7 @@ PasswordStore.prototype = {
     let prop = this._newPropertyBag();
     prop.setPropertyAsAUTF8String("guid", id);
 
-    let logins = Services.logins.searchLogins({}, prop);
+    let logins = Services.logins.searchLogins(prop);
     await Async.promiseYield(); // Yield back to main thread after synchronous operation.
 
     if (logins.length > 0) {
@@ -213,12 +302,12 @@ PasswordStore.prototype = {
 
   async getAllIDs() {
     let items = {};
-    let logins = Services.logins.getAllLogins({});
+    let logins = Services.logins.getAllLogins();
 
     for (let i = 0; i < logins.length; i++) {
       // Skip over Weave password/passphrase entries.
       let metaInfo = logins[i].QueryInterface(Ci.nsILoginMetaInfo);
-      if (Utils.getSyncCredentialsHosts().has(metaInfo.hostname)) {
+      if (Utils.getSyncCredentialsHosts().has(metaInfo.origin)) {
         continue;
       }
 
@@ -236,7 +325,7 @@ PasswordStore.prototype = {
       this._log.trace("Can't change item ID: item doesn't exist");
       return;
     }
-    if ((await this._getLoginFromGUID(newID))) {
+    if (await this._getLoginFromGUID(newID)) {
       this._log.trace("Can't change item ID: new ID already in use");
       return;
     }
@@ -260,8 +349,8 @@ PasswordStore.prototype = {
       return record;
     }
 
-    record.hostname = login.hostname;
-    record.formSubmitURL = login.formSubmitURL;
+    record.hostname = login.origin;
+    record.formSubmitURL = login.formActionOrigin;
     record.httpRealm = login.httpRealm;
     record.username = login.username;
     record.password = login.password;
@@ -283,8 +372,13 @@ PasswordStore.prototype = {
     }
 
     this._log.trace("Adding login for " + record.hostname);
-    this._log.trace("httpRealm: " + JSON.stringify(login.httpRealm) + "; " +
-                    "formSubmitURL: " + JSON.stringify(login.formSubmitURL));
+    this._log.trace(
+      "httpRealm: " +
+        JSON.stringify(login.httpRealm) +
+        "; " +
+        "formSubmitURL: " +
+        JSON.stringify(login.formActionOrigin)
+    );
     Services.logins.addLogin(login);
   },
 
@@ -322,10 +416,10 @@ PasswordStore.prototype = {
 };
 
 function PasswordTracker(name, engine) {
-  Tracker.call(this, name, engine);
+  LegacyTracker.call(this, name, engine);
 }
 PasswordTracker.prototype = {
-  __proto__: Tracker.prototype,
+  __proto__: LegacyTracker.prototype,
 
   onStart() {
     Svc.Obs.add("passwordmgr-storage-changed", this.asyncObserver);
@@ -360,7 +454,9 @@ PasswordTracker.prototype = {
 
       case "addLogin":
       case "removeLogin":
-        subject.QueryInterface(Ci.nsILoginMetaInfo).QueryInterface(Ci.nsILoginInfo);
+        subject
+          .QueryInterface(Ci.nsILoginMetaInfo)
+          .QueryInterface(Ci.nsILoginInfo);
         const tracked = await this._trackLogin(subject);
         if (tracked) {
           this._log.trace(data + ": " + subject.guid);
@@ -375,7 +471,7 @@ PasswordTracker.prototype = {
   },
 
   async _trackLogin(login) {
-    if (Utils.getSyncCredentialsHosts().has(login.hostname)) {
+    if (Utils.getSyncCredentialsHosts().has(login.origin)) {
       // Skip over Weave password/passphrase changes.
       return false;
     }
@@ -402,10 +498,11 @@ class PasswordValidator extends CollectionValidator {
   }
 
   getClientItems() {
-    let logins = Services.logins.getAllLogins({});
+    let logins = Services.logins.getAllLogins();
     let syncHosts = Utils.getSyncCredentialsHosts();
-    let result = logins.map(l => l.QueryInterface(Ci.nsILoginMetaInfo))
-                       .filter(l => !syncHosts.has(l.hostname));
+    let result = logins
+      .map(l => l.QueryInterface(Ci.nsILoginMetaInfo))
+      .filter(l => !syncHosts.has(l.origin));
     return Promise.resolve(result);
   }
 
@@ -428,5 +525,3 @@ class PasswordValidator extends CollectionValidator {
     return Object.assign({ guid: item.id }, item);
   }
 }
-
-

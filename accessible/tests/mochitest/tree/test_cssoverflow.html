@@ -12,10 +12,8 @@
     }
   </style>
 
-  <script type="application/javascript"
-          src="chrome://mochikit/content/tests/SimpleTest/SimpleTest.js"></script>
-  <script type="application/javascript"
-          src="chrome://mochikit/content/tests/SimpleTest/EventUtils.js"></script>
+  <script src="chrome://mochikit/content/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="chrome://mochikit/content/tests/SimpleTest/EventUtils.js"></script>
 
   <script type="application/javascript"
           src="../common.js"></script>
@@ -39,7 +37,7 @@
       };
 
       this.check = function focusAnchor_check(aEvent) {
-        todo_is(this.link, aEvent.accessible,
+        is(this.link, aEvent.accessible,
                 "Focus should be fired against new link accessible!");
       };
 
@@ -61,7 +59,7 @@
       };
 
       this.check = function tabAnchor_check(aEvent) {
-        todo_is(this.link, aEvent.accessible,
+        is(this.link, aEvent.accessible,
                    "Focus should be fired against new link accessible!");
       };
 

@@ -2,7 +2,7 @@
 <html>
 <head>
   <title>Test garbage collection of captured stream (bug 1248229)</title>
-  <script type="text/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css" />
   <script type="text/javascript" src="manifest.js"></script>
 </head>
@@ -13,6 +13,7 @@
 SimpleTest.waitForExplicitFinish();
 
 function doTest() {
+  /* global v */
   window.oak = v.mozCaptureStreamUntilEnded();
   v.mozCaptureStreamUntilEnded();
   v.play();

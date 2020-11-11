@@ -10,6 +10,7 @@
 #include "vm/GeckoProfiler.h"
 
 #include "vm/JSContext.h"
+#include "vm/Realm.h"
 #include "vm/Runtime.h"
 
 namespace js {
@@ -34,24 +35,24 @@ inline void GeckoProfilerThread::updatePC(JSContext* cx, JSScript* script,
  */
 class MOZ_RAII AutoSuppressProfilerSampling {
  public:
-  explicit AutoSuppressProfilerSampling(
-      JSContext* cx MOZ_GUARD_OBJECT_NOTIFIER_PARAM);
+  explicit AutoSuppressProfilerSampling(JSContext* cx);
 
   ~AutoSuppressProfilerSampling();
 
  private:
   JSContext* cx_;
   bool previouslyEnabled_;
-  MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
 };
 
 MOZ_ALWAYS_INLINE
-GeckoProfilerEntryMarker::GeckoProfilerEntryMarker(
-    JSContext* cx, JSScript* script MOZ_GUARD_OBJECT_NOTIFIER_PARAM_IN_IMPL)
+GeckoProfilerEntryMarker::GeckoProfilerEntryMarker(JSContext* cx,
+                                                   JSScript* script)
     : profiler_(&cx->geckoProfiler()) {
-  MOZ_GUARD_OBJECT_NOTIFIER_INIT;
   if (MOZ_LIKELY(!profiler_->infraInstalled())) {
     profiler_ = nullptr;
+#ifdef DEBUG
+    spBefore_ = 0;
+#endif
     return;
   }
 #ifdef DEBUG
@@ -63,7 +64,9 @@ GeckoProfilerEntryMarker::GeckoProfilerEntryMarker(
   profiler_->profilingStack_->pushSpMarkerFrame(this);
 
   profiler_->profilingStack_->pushJsFrame(
-      "js::RunScript", /* dynamicString = */ nullptr, script, script->code());
+      "js::RunScript",
+      /* dynamicString = */ nullptr, script, script->code(),
+      script->realm()->creationOptions().profilerRealmID());
 }
 
 MOZ_ALWAYS_INLINE
@@ -79,12 +82,14 @@ GeckoProfilerEntryMarker::~GeckoProfilerEntryMarker() {
 
 MOZ_ALWAYS_INLINE
 AutoGeckoProfilerEntry::AutoGeckoProfilerEntry(
-    JSContext* cx, const char* label, ProfilingStackFrame::Category category,
-    uint32_t flags MOZ_GUARD_OBJECT_NOTIFIER_PARAM_IN_IMPL)
+    JSContext* cx, const char* label, JS::ProfilingCategoryPair categoryPair,
+    uint32_t flags)
     : profiler_(&cx->geckoProfiler()) {
-  MOZ_GUARD_OBJECT_NOTIFIER_INIT;
   if (MOZ_LIKELY(!profiler_->infraInstalled())) {
     profiler_ = nullptr;
+#ifdef DEBUG
+    spBefore_ = 0;
+#endif
     return;
   }
 #ifdef DEBUG
@@ -92,7 +97,8 @@ AutoGeckoProfilerEntry::AutoGeckoProfilerEntry(
 #endif
   profiler_->profilingStack_->pushLabelFrame(label,
                                              /* dynamicString = */ nullptr,
-                                             /* sp = */ this, category, flags);
+                                             /* sp = */ this, categoryPair,
+                                             flags);
 }
 
 MOZ_ALWAYS_INLINE

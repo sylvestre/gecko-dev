@@ -64,9 +64,7 @@ StateManager9::StateManager9(Renderer9 *renderer9)
     mScissorStateDirtyBits.set(DIRTY_BIT_SCISSOR_RECT);
 }
 
-StateManager9::~StateManager9()
-{
-}
+StateManager9::~StateManager9() {}
 
 void StateManager9::initialize()
 {
@@ -360,10 +358,7 @@ void StateManager9::syncState(const gl::State &state, const gl::State::DirtyBits
                 }
                 break;
             case gl::State::DIRTY_BIT_DEPTH_RANGE:
-                if (state.getNearPlane() != mCurNear || state.getFarPlane() != mCurFar)
-                {
-                    mDirtyBits.set(DIRTY_BIT_VIEWPORT);
-                }
+                mDirtyBits.set(DIRTY_BIT_VIEWPORT);
                 break;
             case gl::State::DIRTY_BIT_VIEWPORT:
                 if (state.getViewport() != mCurViewport)
@@ -831,7 +826,7 @@ void StateManager9::setColorMask(const gl::Framebuffer *framebuffer,
 {
     // Set the color mask
 
-    const auto *attachment = framebuffer->getFirstColorbuffer();
+    const auto *attachment = framebuffer->getFirstColorAttachment();
     const auto &format     = attachment ? attachment->getFormat() : gl::Format::Invalid();
 
     DWORD colorMask = gl_d3d9::ConvertColorMask(

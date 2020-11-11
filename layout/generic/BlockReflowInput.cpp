@@ -17,17 +17,15 @@
 #include "mozilla/AutoRestore.h"
 #include "mozilla/DebugOnly.h"
 #include "mozilla/Preferences.h"
+#include "mozilla/StaticPrefs_layout.h"
 #include "TextOverflow.h"
 
 #ifdef DEBUG
-#include "nsBlockDebugFlags.h"
+#  include "nsBlockDebugFlags.h"
 #endif
 
 using namespace mozilla;
 using namespace mozilla::layout;
-
-static bool sFloatFragmentsInsideColumnEnabled;
-static bool sFloatFragmentsInsideColumnPrefCached;
 
 BlockReflowInput::BlockReflowInput(const ReflowInput& aReflowInput,
                                    nsPresContext* aPresContext,
@@ -41,27 +39,18 @@ BlockReflowInput::BlockReflowInput(const ReflowInput& aReflowInput,
       mContentArea(aReflowInput.GetWritingMode()),
       mPushedFloats(nullptr),
       mOverflowTracker(nullptr),
-      mBorderPadding(mReflowInput.ComputedLogicalBorderPadding()),
+      mBorderPadding(
+          mReflowInput
+              .ComputedLogicalBorderPadding(mReflowInput.GetWritingMode())
+              .ApplySkipSides(aFrame->GetLogicalSkipSides(&aReflowInput))),
       mPrevBEndMargin(),
       mLineNumber(0),
       mFloatBreakType(StyleClear::None),
       mConsumedBSize(aConsumedBSize) {
-  if (!sFloatFragmentsInsideColumnPrefCached) {
-    sFloatFragmentsInsideColumnPrefCached = true;
-    Preferences::AddBoolVarCache(
-        &sFloatFragmentsInsideColumnEnabled,
-        "layout.float-fragments-inside-column.enabled");
-  }
-  mFlags.mFloatFragmentsInsideColumnEnabled =
-      sFloatFragmentsInsideColumnEnabled;
+  NS_ASSERTION(mConsumedBSize != NS_UNCONSTRAINEDSIZE,
+               "The consumed block-size should be constrained!");
 
   WritingMode wm = aReflowInput.GetWritingMode();
-  mFlags.mIsFirstInflow = !aFrame->GetPrevInFlow();
-  mFlags.mIsOverflowContainer = IS_TRUE_OVERFLOW_CONTAINER(aFrame);
-
-  nsIFrame::LogicalSides logicalSkipSides =
-      aFrame->GetLogicalSkipSides(&aReflowInput);
-  mBorderPadding.ApplySkipSides(logicalSkipSides);
 
   // Note that mContainerSize is the physical size, needed to
   // convert logical block-coordinates in vertical-rl writing mode
@@ -85,19 +74,25 @@ BlockReflowInput::BlockReflowInput(const ReflowInput& aReflowInput,
   mContainerSize.height =
       aReflowInput.ComputedHeight() + mBorderPadding.TopBottom(wm);
 
-  if ((aBStartMarginRoot && !logicalSkipSides.BStart()) ||
-      0 != mBorderPadding.BStart(wm)) {
+  if (aBStartMarginRoot || 0 != mBorderPadding.BStart(wm)) {
     mFlags.mIsBStartMarginRoot = true;
     mFlags.mShouldApplyBStartMargin = true;
   }
-  if ((aBEndMarginRoot && !logicalSkipSides.BEnd()) ||
-      0 != mBorderPadding.BEnd(wm)) {
+  if (aBEndMarginRoot || 0 != mBorderPadding.BEnd(wm)) {
     mFlags.mIsBEndMarginRoot = true;
   }
   if (aBlockNeedsFloatManager) {
     mFlags.mBlockNeedsFloatManager = true;
   }
-  mFlags.mCanHaveTextOverflow = css::TextOverflow::CanHaveTextOverflow(mBlock);
+
+  // We need to check mInsideLineClamp here since we are here before the block
+  // has been reflowed, and CanHaveOverflowMarkers() relies on the block's
+  // NS_BLOCK_HAS_LINE_CLAMP_ELLIPSIS state bit to know if a -webkit-line-clamp
+  // ellipsis is set on one of the block's lines.  And that state bit is only
+  // set after we do the bsize measuring reflow of the flex item.
+  mFlags.mCanHaveOverflowMarkers =
+      aReflowInput.mFlags.mInsideLineClamp ||
+      css::TextOverflow::CanHaveOverflowMarkers(mBlock);
 
   MOZ_ASSERT(FloatManager(),
              "Float manager should be valid when creating BlockReflowInput!");
@@ -114,23 +109,21 @@ BlockReflowInput::BlockReflowInput(const ReflowInput& aReflowInput,
                        "width calculation");
   mContentArea.ISize(wm) = aReflowInput.ComputedISize();
 
-  // Compute content area height. Unlike the width, if we have a
-  // specified style height we ignore it since extra content is
-  // managed by the "overflow" property. When we don't have a
-  // specified style height then we may end up limiting our height if
-  // the availableHeight is constrained (this situation occurs when we
-  // are paginated).
+  // Compute content area block-size. Unlike the inline-size, if we have a
+  // specified style block-size, we ignore it since extra content is managed by
+  // the "overflow" property. When we don't have a specified style block-size,
+  // then we may end up limiting our block-size if the available block-size is
+  // constrained (this situation occurs when we are paginated).
   if (NS_UNCONSTRAINEDSIZE != aReflowInput.AvailableBSize()) {
-    // We are in a paginated situation. The bottom edge is just inside
-    // the bottom border and padding. The content area height doesn't
-    // include either border or padding edge.
-    mBEndEdge = aReflowInput.AvailableBSize() - mBorderPadding.BEnd(wm);
-    mContentArea.BSize(wm) = std::max(0, mBEndEdge - mBorderPadding.BStart(wm));
+    // We are in a paginated situation. The block-end edge is just inside the
+    // block-end border and padding. The content area block-size doesn't include
+    // either border or padding edge.
+    mContentArea.BSize(wm) = std::max(
+        0, aReflowInput.AvailableBSize() - mBorderPadding.BStartEnd(wm));
   } else {
-    // When we are not in a paginated situation then we always use
-    // a constrained height.
-    mFlags.mHasUnconstrainedBSize = true;
-    mContentArea.BSize(wm) = mBEndEdge = NS_UNCONSTRAINEDSIZE;
+    // When we are not in a paginated situation, then we always use a
+    // unconstrained block-size.
+    mContentArea.BSize(wm) = NS_UNCONSTRAINEDSIZE;
   }
   mContentArea.IStart(wm) = mBorderPadding.IStart(wm);
   mBCoord = mContentArea.BStart(wm) = mBorderPadding.BStart(wm);
@@ -139,14 +132,6 @@ BlockReflowInput::BlockReflowInput(const ReflowInput& aReflowInput,
   mCurrentLine = aFrame->LinesEnd();
 
   mMinLineHeight = aReflowInput.CalcLineHeight();
-}
-
-nscoord BlockReflowInput::ConsumedBSize() {
-  if (mConsumedBSize == NS_INTRINSICSIZE) {
-    mConsumedBSize = mBlock->ConsumedBSize(mReflowInput.GetWritingMode());
-  }
-
-  return mConsumedBSize;
 }
 
 void BlockReflowInput::ComputeReplacedBlockOffsetsForFloats(
@@ -172,8 +157,7 @@ void BlockReflowInput::ComputeReplacedBlockOffsetsForFloats(
     LogicalMargin frameMargin(wm);
     SizeComputationInput os(aFrame, mReflowInput.mRenderingContext, wm,
                             mContentArea.ISize(wm));
-    frameMargin =
-        os.ComputedLogicalMargin().ConvertTo(wm, aFrame->GetWritingMode());
+    frameMargin = os.ComputedLogicalMargin(wm);
 
     nscoord iStartFloatIOffset =
         aFloatAvailableSpace.IStart(wm) - mContentArea.IStart(wm);
@@ -190,24 +174,9 @@ void BlockReflowInput::ComputeReplacedBlockOffsetsForFloats(
   aIEndResult = iEndOffset;
 }
 
-static nscoord GetBEndMarginClone(nsIFrame* aFrame,
-                                  gfxContext* aRenderingContext,
-                                  const LogicalRect& aContentArea,
-                                  WritingMode aWritingMode) {
-  if (aFrame->StyleBorder()->mBoxDecorationBreak ==
-      StyleBoxDecorationBreak::Clone) {
-    SizeComputationInput os(aFrame, aRenderingContext, aWritingMode,
-                            aContentArea.ISize(aWritingMode));
-    return os.ComputedLogicalMargin()
-        .ConvertTo(aWritingMode, aFrame->GetWritingMode())
-        .BEnd(aWritingMode);
-  }
-  return 0;
-}
-
 // Compute the amount of available space for reflowing a block frame
-// at the current Y coordinate. This method assumes that
-// GetAvailableSpace has already been called.
+// at the current block-direction coordinate. This method assumes that
+// GetFloatAvailableSpace has already been called.
 void BlockReflowInput::ComputeBlockAvailSpace(
     nsIFrame* aFrame, const nsFlowAreaRect& aFloatAvailableSpace,
     bool aBlockAvoidsFloats, LogicalRect& aResult) {
@@ -216,16 +185,13 @@ void BlockReflowInput::ComputeBlockAvailSpace(
          aFloatAvailableSpace.HasFloats());
 #endif
   WritingMode wm = mReflowInput.GetWritingMode();
+  const nscoord availBSize = mReflowInput.AvailableBSize();
   aResult.BStart(wm) = mBCoord;
-  aResult.BSize(wm) =
-      mFlags.mHasUnconstrainedBSize
-          ? NS_UNCONSTRAINEDSIZE
-          : mReflowInput.AvailableBSize() - mBCoord -
-                GetBEndMarginClone(aFrame, mReflowInput.mRenderingContext,
-                                   mContentArea, wm);
-  // mBCoord might be greater than mBEndEdge if the block's top margin pushes
-  // it off the page/column. Negative available height can confuse other code
-  // and is nonsense in principle.
+  aResult.BSize(wm) = availBSize == NS_UNCONSTRAINEDSIZE ? NS_UNCONSTRAINEDSIZE
+                                                         : availBSize - mBCoord;
+  // mBCoord might be greater than ContentBEnd() if the block's top margin
+  // pushes it off the page/column. Negative available block-size can confuse
+  // other code and is nonsense in principle.
 
   // XXX Do we really want this condition to be this restrictive (i.e.,
   // more restrictive than it used to be)?  The |else| here is allowed
@@ -237,8 +203,8 @@ void BlockReflowInput::ComputeBlockAvailSpace(
   // If we did that, then for those frames where the condition below is
   // true but nsBlockFrame::BlockCanIntersectFloats is false,
   // nsBlockFrame::ISizeToClearPastFloats would need to use the
-  // shrink-wrap formula, max(MIN_ISIZE, min(avail width, PREF_ISIZE))
-  // rather than just using MIN_ISIZE.
+  // shrink-wrap formula, max(MinISize, min(avail width, PrefISize))
+  // rather than just using MinISize.
   NS_ASSERTION(
       nsBlockFrame::BlockCanIntersectFloats(aFrame) == !aBlockAvoidsFloats,
       "unexpected replaced width");
@@ -335,7 +301,7 @@ nsFlowAreaRect BlockReflowInput::GetFloatAvailableSpaceWithState(
 
 #ifdef DEBUG
   if (nsBlockFrame::gNoisyReflow) {
-    nsFrame::IndentBy(stdout, nsBlockFrame::gNoiseIndent);
+    nsIFrame::IndentBy(stdout, nsBlockFrame::gNoiseIndent);
     printf("%s: band=%d,%d,%d,%d hasfloats=%d\n", __func__,
            result.mRect.IStart(wm), result.mRect.BStart(wm),
            result.mRect.ISize(wm), result.mRect.BSize(wm), result.HasFloats());
@@ -365,7 +331,7 @@ nsFlowAreaRect BlockReflowInput::GetFloatAvailableSpaceForBSize(
 
 #ifdef DEBUG
   if (nsBlockFrame::gNoisyReflow) {
-    nsFrame::IndentBy(stdout, nsBlockFrame::gNoiseIndent);
+    nsIFrame::IndentBy(stdout, nsBlockFrame::gNoiseIndent);
     printf("%s: space=%d,%d,%d,%d hasfloats=%d\n", __func__,
            result.mRect.IStart(wm), result.mRect.BStart(wm),
            result.mRect.ISize(wm), result.mRect.BSize(wm), result.HasFloats());
@@ -383,7 +349,7 @@ nsFlowAreaRect BlockReflowInput::GetFloatAvailableSpaceForBSize(
  *
  * The reconstruction involves walking backward through the line list to
  * find any collapsed margins preceding the line that would have been in
- * the reflow state's |mPrevBEndMargin| when we reflowed that line in
+ * the reflow input's |mPrevBEndMargin| when we reflowed that line in
  * a full reflow (under the rule in CSS2 that all adjacent vertical
  * margins of blocks collapse).
  */
@@ -437,8 +403,7 @@ void BlockReflowInput::AppendPushedFloatChain(nsIFrame* aFloatCont) {
     if (!aFloatCont || aFloatCont->GetParent() != mBlock) {
       break;
     }
-    DebugOnly<nsresult> rv = mBlock->StealFrame(aFloatCont);
-    NS_ASSERTION(NS_SUCCEEDED(rv), "StealFrame should succeed");
+    mBlock->StealFrame(aFloatCont);
   }
 }
 
@@ -468,10 +433,10 @@ void BlockReflowInput::RecoverFloats(nsLineList::iterator aLine,
       if (nsBlockFrame::gNoisyReflow || nsBlockFrame::gNoisyFloatManager) {
         nscoord tI, tB;
         FloatManager()->GetTranslation(tI, tB);
-        nsFrame::IndentBy(stdout, nsBlockFrame::gNoiseIndent);
+        nsIFrame::IndentBy(stdout, nsBlockFrame::gNoiseIndent);
         printf("RecoverFloats: tIB=%d,%d (%d,%d) ", tI, tB, mFloatManagerI,
                mFloatManagerB);
-        nsFrame::ListTag(stdout, floatFrame);
+        floatFrame->ListTag(stdout);
         LogicalRect region =
             nsFloatManager::GetRegionFor(wm, floatFrame, ContainerSize());
         printf(" aDeltaBCoord=%d region={%d,%d,%d,%d}\n", aDeltaBCoord,
@@ -534,11 +499,11 @@ bool BlockReflowInput::AddFloat(nsLineLayout* aLineLayout, nsIFrame* aFloat,
                                 nscoord aAvailableISize) {
   MOZ_ASSERT(aLineLayout, "must have line layout");
   MOZ_ASSERT(mBlock->LinesEnd() != mCurrentLine, "null ptr");
-  MOZ_ASSERT(aFloat->GetStateBits() & NS_FRAME_OUT_OF_FLOW,
+  MOZ_ASSERT(aFloat->HasAnyStateBits(NS_FRAME_OUT_OF_FLOW),
              "aFloat must be an out-of-flow frame");
 
   MOZ_ASSERT(aFloat->GetParent(), "float must have parent");
-  MOZ_ASSERT(aFloat->GetParent()->IsFrameOfType(nsIFrame::eBlockFrame),
+  MOZ_ASSERT(aFloat->GetParent()->IsBlockFrameOrSubclass(),
              "float's parent must be block");
   if (aFloat->HasAnyStateBits(NS_FRAME_IS_PUSHED_FLOAT) ||
       aFloat->GetParent() != mBlock) {
@@ -649,29 +614,22 @@ static nscoord FloatMarginISize(const ReflowInput& aCBReflowInput,
   AutoMaybeDisableFontInflation an(aFloat);
   WritingMode wm = aFloatOffsetState.GetWritingMode();
 
-  LogicalSize floatSize = aFloat->ComputeSize(
+  auto floatSize = aFloat->ComputeSize(
       aCBReflowInput.mRenderingContext, wm, aCBReflowInput.ComputedSize(wm),
-      aFloatAvailableISize, aFloatOffsetState.ComputedLogicalMargin().Size(wm),
-      aFloatOffsetState.ComputedLogicalBorderPadding().Size(wm) -
-          aFloatOffsetState.ComputedLogicalPadding().Size(wm),
-      aFloatOffsetState.ComputedLogicalPadding().Size(wm),
-      nsIFrame::ComputeSizeFlags::eShrinkWrap);
+      aFloatAvailableISize,
+      aFloatOffsetState.ComputedLogicalMargin(wm).Size(wm),
+      aFloatOffsetState.ComputedLogicalBorderPadding(wm).Size(wm),
+      ComputeSizeFlag::ShrinkWrap);
 
   WritingMode cbwm = aCBReflowInput.GetWritingMode();
-  nscoord floatISize = floatSize.ConvertTo(cbwm, wm).ISize(cbwm);
+  nscoord floatISize = floatSize.mLogicalSize.ConvertTo(cbwm, wm).ISize(cbwm);
   if (floatISize == NS_UNCONSTRAINEDSIZE) {
     return NS_UNCONSTRAINEDSIZE;  // reflow is needed to get the true size
   }
 
   return floatISize +
-         aFloatOffsetState.ComputedLogicalMargin()
-             .Size(wm)
-             .ConvertTo(cbwm, wm)
-             .ISize(cbwm) +
-         aFloatOffsetState.ComputedLogicalBorderPadding()
-             .Size(wm)
-             .ConvertTo(cbwm, wm)
-             .ISize(cbwm);
+         aFloatOffsetState.ComputedLogicalMargin(cbwm).IStartEnd(cbwm) +
+         aFloatOffsetState.ComputedLogicalBorderPadding(cbwm).IStartEnd(cbwm);
 }
 
 // A frame property that stores the last shape source / margin / etc. if there's
@@ -684,9 +642,9 @@ static nscoord FloatMarginISize(const ReflowInput& aCBReflowInput,
 // Maybe all this code could be refactored to make this cleaner, but keeping the
 // two properties separated was slightly nicer.
 struct ShapeInvalidationData {
-  StyleShapeSource mShapeOutside;
+  StyleShapeOutside mShapeOutside{StyleShapeOutside::None()};
   float mShapeImageThreshold = 0.0;
-  nsStyleCoord mShapeMargin;
+  LengthPercentage mShapeMargin;
 
   ShapeInvalidationData() = default;
 
@@ -695,7 +653,7 @@ struct ShapeInvalidationData {
   }
 
   static bool IsNeeded(const nsStyleDisplay& aDisplay) {
-    return aDisplay.mShapeOutside.GetType() != StyleShapeSourceType::None;
+    return !aDisplay.mShapeOutside.IsNone();
   }
 
   void Update(const nsStyleDisplay& aDisplay) {
@@ -745,13 +703,19 @@ bool BlockReflowInput::FlowAndPlaceFloat(nsIFrame* aFloat) {
   // when floats are inserted before it.
   if (StyleClear::None != floatDisplay->mBreakType) {
     // XXXldb Does this handle vertical margins correctly?
-    mBCoord = ClearFloats(mBCoord, floatDisplay->mBreakType);
+    auto [bCoord, result] = ClearFloats(mBCoord, floatDisplay->mBreakType);
+    if (result == ClearFloatsResult::FloatsPushedOrSplit) {
+      PushFloatPastBreak(aFloat);
+      return false;
+    }
+    mBCoord = bCoord;
   }
+
   // Get the band of available space with respect to margin box.
   nsFlowAreaRect floatAvailableSpace =
       GetFloatAvailableSpaceForPlacingFloat(mBCoord);
-  LogicalRect adjustedAvailableSpace = mBlock->AdjustFloatAvailableSpace(
-      *this, floatAvailableSpace.mRect, aFloat);
+  LogicalRect adjustedAvailableSpace =
+      mBlock->AdjustFloatAvailableSpace(*this, floatAvailableSpace.mRect);
 
   NS_ASSERTION(aFloat->GetParent() == mBlock, "Float frame has wrong parent");
 
@@ -790,9 +754,6 @@ bool BlockReflowInput::FlowAndPlaceFloat(nsIFrame* aFloat) {
   MOZ_ASSERT(StyleFloat::Left == floatStyle || StyleFloat::Right == floatStyle,
              "Invalid float type!");
 
-  // Can the float fit here?
-  bool keepFloatOnSameLine = false;
-
   // Are we required to place at least part of the float because we're
   // at the top of the page (to avoid an infinite loop of pushing and
   // breaking).
@@ -812,63 +773,11 @@ bool BlockReflowInput::FlowAndPlaceFloat(nsIFrame* aFloat) {
     }
 
     // Nope. try to advance to the next band.
-    if (StyleDisplay::Table != floatDisplay->mDisplay ||
-        eCompatibility_NavQuirks != mPresContext->CompatibilityMode()) {
-      mBCoord += floatAvailableSpace.mRect.BSize(wm);
-      if (adjustedAvailableSpace.BSize(wm) != NS_UNCONSTRAINEDSIZE) {
-        adjustedAvailableSpace.BSize(wm) -= floatAvailableSpace.mRect.BSize(wm);
-      }
-      floatAvailableSpace = GetFloatAvailableSpaceForPlacingFloat(mBCoord);
-    } else {
-      // This quirk matches the one in nsBlockFrame::AdjustFloatAvailableSpace
-      // IE handles float tables in a very special way
-
-      // see if the previous float is also a table and has "align"
-      nsFloatCache* fc = mCurrentLineFloats.Head();
-      nsIFrame* prevFrame = nullptr;
-      while (fc) {
-        if (fc->mFloat == aFloat) {
-          break;
-        }
-        prevFrame = fc->mFloat;
-        fc = fc->Next();
-      }
-
-      if (prevFrame) {
-        // get the frame type
-        if (prevFrame->IsTableWrapperFrame()) {
-          // see if it has "align="
-          // IE makes a difference between align and the float property.
-          //
-          // We're interested only if previous frame is align=left IE messes
-          // things up when "right" (overlapping frames).
-          //
-          // FIXME(emilio, bug 1426747): This looks fishy.
-          nsIContent* content = prevFrame->GetContent();
-          if (content && content->IsElement() &&
-              content->AsElement()->AttrValueIs(
-                  kNameSpaceID_None, nsGkAtoms::align,
-                  NS_LITERAL_STRING("left"), eIgnoreCase)) {
-            keepFloatOnSameLine = true;
-            // don't advance to next line (IE quirkie behaviour)
-            // it breaks rule CSS2/9.5.1/1, but what the hell
-            // since we cannot evangelize the world
-            break;
-          }
-        }
-      }
-
-      // the table does not fit anymore in this line so advance to next band
-      mBCoord += floatAvailableSpace.mRect.BSize(wm);
-      // To match nsBlockFrame::AdjustFloatAvailableSpace, we have to
-      // get a new width for the new band.
-      floatAvailableSpace = GetFloatAvailableSpaceForPlacingFloat(mBCoord);
-      adjustedAvailableSpace = mBlock->AdjustFloatAvailableSpace(
-          *this, floatAvailableSpace.mRect, aFloat);
-      floatMarginISize = FloatMarginISize(
-          mReflowInput, adjustedAvailableSpace.ISize(wm), aFloat, offsets);
+    mBCoord += floatAvailableSpace.mRect.BSize(wm);
+    if (adjustedAvailableSpace.BSize(wm) != NS_UNCONSTRAINEDSIZE) {
+      adjustedAvailableSpace.BSize(wm) -= floatAvailableSpace.mRect.BSize(wm);
     }
-
+    floatAvailableSpace = GetFloatAvailableSpaceForPlacingFloat(mBCoord);
     mustPlaceFloat = false;
   }
 
@@ -887,14 +796,7 @@ bool BlockReflowInput::FlowAndPlaceFloat(nsIFrame* aFloat) {
   if (leftFloat == wm.IsBidiLTR()) {
     floatPos.I(wm) = floatAvailableSpace.mRect.IStart(wm);
   } else {
-    if (!keepFloatOnSameLine) {
-      floatPos.I(wm) = floatAvailableSpace.mRect.IEnd(wm) - floatMarginISize;
-    } else {
-      // this is the IE quirk (see few lines above)
-      // the table is kept in the same line: don't let it overlap the
-      // previous float
-      floatPos.I(wm) = floatAvailableSpace.mRect.IStart(wm);
-    }
+    floatPos.I(wm) = floatAvailableSpace.mRect.IEnd(wm) - floatMarginISize;
   }
   // CSS2 spec, 9.5.1 rule [4]: "A floating box's outer top may not
   // be higher than the top of its containing block."  (Since the
@@ -910,23 +812,16 @@ bool BlockReflowInput::FlowAndPlaceFloat(nsIFrame* aFloat) {
     mBlock->ReflowFloat(*this, adjustedAvailableSpace, aFloat, floatMargin,
                         floatOffsets, pushedDown, reflowStatus);
   }
-  if (aFloat->GetPrevInFlow()) floatMargin.BStart(wm) = 0;
-  if (reflowStatus.IsIncomplete()) floatMargin.BEnd(wm) = 0;
+  if (aFloat->GetPrevInFlow()) {
+    floatMargin.BStart(wm) = 0;
+  }
+  if (reflowStatus.IsIncomplete()) {
+    floatMargin.BEnd(wm) = 0;
+  }
 
-  // In the case that we're in columns and not splitting floats, we need
-  // to check here that the float's height fit, and if it didn't, bail.
-  // (controlled by the pref "layout.float-fragments-inside-column.enabled")
-  //
-  // Likewise, if none of the float fit, and it needs to be pushed in
-  // its entirety to the next page (IsTruncated() or IsInlineBreakBefore()),
-  // we need to do the same.
-  if ((ContentBSize() != NS_UNCONSTRAINEDSIZE &&
-       !mFlags.mFloatFragmentsInsideColumnEnabled &&
-       adjustedAvailableSpace.BSize(wm) == NS_UNCONSTRAINEDSIZE &&
-       !mustPlaceFloat &&
-       aFloat->BSize(wm) + floatMargin.BStartEnd(wm) >
-           ContentBEnd() - floatPos.B(wm)) ||
-      reflowStatus.IsTruncated() || reflowStatus.IsInlineBreakBefore()) {
+  // If none of the float fit, and it needs to be pushed in its entirety to the
+  // next page, we need to bail.
+  if (reflowStatus.IsTruncated() || reflowStatus.IsInlineBreakBefore()) {
     PushFloatPastBreak(aFloat);
     return false;
   }
@@ -1010,7 +905,7 @@ bool BlockReflowInput::FlowAndPlaceFloat(nsIFrame* aFloat) {
     }
   } else if (invalidationData) {
     invalidationData = nullptr;
-    aFloat->DeleteProperty(ShapeInvalidationDataProperty());
+    aFloat->RemoveProperty(ShapeInvalidationDataProperty());
   }
 
   if (!reflowStatus.IsFullyComplete()) {
@@ -1023,7 +918,7 @@ bool BlockReflowInput::FlowAndPlaceFloat(nsIFrame* aFloat) {
   if (nsBlockFrame::gNoisyFloatManager) {
     nscoord tI, tB;
     FloatManager()->GetTranslation(tI, tB);
-    nsIFrame::ListTag(stdout, mBlock);
+    mBlock->ListTag(stdout);
     printf(": FlowAndPlaceFloat: AddFloat: tIB=%d,%d (%d,%d) {%d,%d,%d,%d}\n",
            tI, tB, mFloatManagerI, mFloatManagerB, region.IStart(wm),
            region.BStart(wm), region.ISize(wm), region.BSize(wm));
@@ -1031,9 +926,9 @@ bool BlockReflowInput::FlowAndPlaceFloat(nsIFrame* aFloat) {
 
   if (nsBlockFrame::gNoisyReflow) {
     nsRect r = aFloat->GetRect();
-    nsFrame::IndentBy(stdout, nsBlockFrame::gNoiseIndent);
+    nsIFrame::IndentBy(stdout, nsBlockFrame::gNoiseIndent);
     printf("placed float: ");
-    nsFrame::ListTag(stdout, aFloat);
+    aFloat->ListTag(stdout);
     printf(" %d,%d,%d,%d\n", r.x, r.y, r.width, r.height);
   }
 #endif
@@ -1057,8 +952,7 @@ void BlockReflowInput::PushFloatPastBreak(nsIFrame* aFloat) {
 
   // Put the float on the pushed floats list, even though it
   // isn't actually a continuation.
-  DebugOnly<nsresult> rv = mBlock->StealFrame(aFloat);
-  NS_ASSERTION(NS_SUCCEEDED(rv), "StealFrame should succeed");
+  mBlock->StealFrame(aFloat);
   AppendPushedFloatChain(aFloat);
   mReflowStatus.SetOverflowIncomplete();
 }
@@ -1072,9 +966,9 @@ void BlockReflowInput::PlaceBelowCurrentLineFloats(nsLineBox* aLine) {
   while (fc) {
 #ifdef DEBUG
     if (nsBlockFrame::gNoisyReflow) {
-      nsFrame::IndentBy(stdout, nsBlockFrame::gNoiseIndent);
+      nsIFrame::IndentBy(stdout, nsBlockFrame::gNoiseIndent);
       printf("placing bcl float: ");
-      nsFrame::ListTag(stdout, fc->mFloat);
+      fc->mFloat->ListTag(stdout);
       printf("\n");
     }
 #endif
@@ -1091,12 +985,12 @@ void BlockReflowInput::PlaceBelowCurrentLineFloats(nsLineBox* aLine) {
   aLine->AppendFloats(mBelowCurrentLineFloats);
 }
 
-nscoord BlockReflowInput::ClearFloats(nscoord aBCoord, StyleClear aBreakType,
-                                      nsIFrame* aReplacedBlock,
-                                      uint32_t aFlags) {
+std::tuple<nscoord, BlockReflowInput::ClearFloatsResult>
+BlockReflowInput::ClearFloats(nscoord aBCoord, StyleClear aBreakType,
+                              nsIFrame* aReplacedBlock) {
 #ifdef DEBUG
   if (nsBlockFrame::gNoisyReflow) {
-    nsFrame::IndentBy(stdout, nsBlockFrame::gNoiseIndent);
+    nsIFrame::IndentBy(stdout, nsBlockFrame::gNoiseIndent);
     printf("clear floats: in: aBCoord=%d\n", aBCoord);
   }
 #endif
@@ -1108,13 +1002,17 @@ nscoord BlockReflowInput::ClearFloats(nscoord aBCoord, StyleClear aBreakType,
 #endif
 
   if (!FloatManager()->HasAnyFloats()) {
-    return aBCoord;
+    return {aBCoord, ClearFloatsResult::BCoordNoChange};
   }
 
   nscoord newBCoord = aBCoord;
 
   if (aBreakType != StyleClear::None) {
-    newBCoord = FloatManager()->ClearFloats(newBCoord, aBreakType, aFlags);
+    newBCoord = FloatManager()->ClearFloats(newBCoord, aBreakType);
+
+    if (FloatManager()->ClearContinues(aBreakType)) {
+      return {newBCoord, ClearFloatsResult::FloatsPushedOrSplit};
+    }
   }
 
   if (aReplacedBlock) {
@@ -1135,10 +1033,13 @@ nscoord BlockReflowInput::ClearFloats(nscoord aBCoord, StyleClear aBreakType,
 
 #ifdef DEBUG
   if (nsBlockFrame::gNoisyReflow) {
-    nsFrame::IndentBy(stdout, nsBlockFrame::gNoiseIndent);
+    nsIFrame::IndentBy(stdout, nsBlockFrame::gNoiseIndent);
     printf("clear floats: out: y=%d\n", newBCoord);
   }
 #endif
 
-  return newBCoord;
+  ClearFloatsResult result = newBCoord == aBCoord
+                                 ? ClearFloatsResult::BCoordNoChange
+                                 : ClearFloatsResult::BCoordAdvanced;
+  return {newBCoord, result};
 }

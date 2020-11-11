@@ -12,7 +12,6 @@
 #include "StorageUtils.h"
 #include "LocalStorageManager.h"
 
-#include "nsAutoPtr.h"
 #include "nsDOMString.h"
 #include "nsXULAppAPI.h"
 #include "mozilla/Unused.h"
@@ -27,15 +26,11 @@ namespace dom {
 namespace {
 
 const uint32_t kDefaultSet = 0;
-const uint32_t kPrivateSet = 1;
-const uint32_t kSessionSet = 2;
+const uint32_t kSessionSet = 1;
 
-inline uint32_t GetDataSetIndex(bool aPrivate, bool aSessionOnly) {
-  if (aPrivate) {
-    return kPrivateSet;
-  }
-
-  if (aSessionOnly) {
+inline uint32_t GetDataSetIndex(bool aPrivateBrowsing,
+                                bool aSessionScopedOrLess) {
+  if (!aPrivateBrowsing && aSessionScopedOrLess) {
     return kSessionSet;
   }
 
@@ -43,7 +38,8 @@ inline uint32_t GetDataSetIndex(bool aPrivate, bool aSessionOnly) {
 }
 
 inline uint32_t GetDataSetIndex(const LocalStorage* aStorage) {
-  return GetDataSetIndex(aStorage->IsPrivate(), aStorage->IsSessionOnly());
+  return GetDataSetIndex(aStorage->IsPrivateBrowsing(),
+                         aStorage->IsSessionScopedOrLess());
 }
 
 }  // namespace
@@ -77,7 +73,6 @@ LocalStorageCache::LocalStorageCache(const nsACString* aOriginNoSuffix)
       mLoadResult(NS_OK),
       mInitialized(false),
       mPersistent(false),
-      mSessionOnlyDataSetActive(false),
       mPreloadTelemetryRecorded(false) {
   MOZ_COUNT_CTOR(LocalStorageCache);
 }
@@ -134,6 +129,7 @@ void LocalStorageCache::Init(LocalStorageManager* aManager, bool aPersistent,
 
   mInitialized = true;
   aPrincipal->OriginAttributesRef().CreateSuffix(mOriginSuffix);
+  mPrivateBrowsingId = aPrincipal->GetPrivateBrowsingId();
   mPersistent = aPersistent;
   if (aQuotaOriginScope.IsEmpty()) {
     mQuotaOriginScope = Origin();
@@ -150,9 +146,9 @@ void LocalStorageCache::Init(LocalStorageManager* aManager, bool aPersistent,
   // this storage cache is bound to.
   MOZ_ASSERT(StringBeginsWith(mQuotaOriginScope, mOriginSuffix));
   MOZ_ASSERT(mOriginSuffix.IsEmpty() !=
-             StringBeginsWith(mQuotaOriginScope, NS_LITERAL_CSTRING("^")));
+             StringBeginsWith(mQuotaOriginScope, "^"_ns));
 
-  mUsage = aManager->GetOriginUsage(mQuotaOriginScope);
+  mUsage = aManager->GetOriginUsage(mQuotaOriginScope, mPrivateBrowsingId);
 }
 
 void LocalStorageCache::NotifyObservers(const LocalStorage* aStorage,
@@ -174,7 +170,7 @@ void LocalStorageCache::NotifyObservers(const LocalStorage* aStorage,
 }
 
 inline bool LocalStorageCache::Persist(const LocalStorage* aStorage) const {
-  return mPersistent && !aStorage->IsSessionOnly() && !aStorage->IsPrivate();
+  return mPersistent && !aStorage->IsSessionScopedOrLess();
 }
 
 const nsCString LocalStorageCache::Origin() const {
@@ -183,29 +179,7 @@ const nsCString LocalStorageCache::Origin() const {
 
 LocalStorageCache::Data& LocalStorageCache::DataSet(
     const LocalStorage* aStorage) {
-  uint32_t index = GetDataSetIndex(aStorage);
-
-  if (index == kSessionSet && !mSessionOnlyDataSetActive) {
-    // Session only data set is demanded but not filled with
-    // current data set, copy to session only set now.
-
-    WaitForPreload(Telemetry::LOCALDOMSTORAGE_SESSIONONLY_PRELOAD_BLOCKING_MS);
-
-    Data& defaultSet = mData[kDefaultSet];
-    Data& sessionSet = mData[kSessionSet];
-
-    for (auto iter = defaultSet.mKeys.Iter(); !iter.Done(); iter.Next()) {
-      sessionSet.mKeys.Put(iter.Key(), iter.UserData());
-    }
-
-    mSessionOnlyDataSetActive = true;
-
-    // This updates sessionSet.mOriginQuotaUsage and also updates global usage
-    // for all session only data
-    ProcessUsageDelta(kSessionSet, defaultSet.mOriginQuotaUsage);
-  }
-
-  return mData[index];
+  return mData[GetDataSetIndex(aStorage)];
 }
 
 bool LocalStorageCache::ProcessUsageDelta(const LocalStorage* aStorage,
@@ -241,7 +215,8 @@ void LocalStorageCache::Preload() {
     return;
   }
 
-  StorageDBChild* storageChild = StorageDBChild::GetOrCreate();
+  StorageDBChild* storageChild =
+      StorageDBChild::GetOrCreate(mPrivateBrowsingId);
   if (!storageChild) {
     mLoaded = true;
     mLoadResult = NS_ERROR_FAILURE;
@@ -281,7 +256,7 @@ void LocalStorageCache::WaitForPreload(Telemetry::HistogramID aTelemetryID) {
   // No need to check sDatabase for being non-null since preload is either
   // done before we've shut the DB down or when the DB could not start,
   // preload has not even be started.
-  StorageDBChild::Get()->SyncPreload(this);
+  StorageDBChild::Get(mPrivateBrowsingId)->SyncPreload(this);
 }
 
 nsresult LocalStorageCache::GetLength(const LocalStorage* aStorage,
@@ -401,7 +376,7 @@ nsresult LocalStorageCache::SetItem(const LocalStorage* aStorage,
 #endif
 
   if (Persist(aStorage)) {
-    StorageDBChild* storageChild = StorageDBChild::Get();
+    StorageDBChild* storageChild = StorageDBChild::Get(mPrivateBrowsingId);
     if (!storageChild) {
       NS_ERROR(
           "Writing to localStorage after the database has been shut down"
@@ -450,7 +425,7 @@ nsresult LocalStorageCache::RemoveItem(const LocalStorage* aStorage,
 #endif
 
   if (Persist(aStorage)) {
-    StorageDBChild* storageChild = StorageDBChild::Get();
+    StorageDBChild* storageChild = StorageDBChild::Get(mPrivateBrowsingId);
     if (!storageChild) {
       NS_ERROR(
           "Writing to localStorage after the database has been shut down"
@@ -501,7 +476,7 @@ nsresult LocalStorageCache::Clear(const LocalStorage* aStorage,
 #endif
 
   if (Persist(aStorage) && (refresh || hadData)) {
-    StorageDBChild* storageChild = StorageDBChild::Get();
+    StorageDBChild* storageChild = StorageDBChild::Get(mPrivateBrowsingId);
     if (!storageChild) {
       NS_ERROR(
           "Writing to localStorage after the database has been shut down"
@@ -533,15 +508,9 @@ void LocalStorageCache::UnloadItems(uint32_t aUnloadFlags) {
     ProcessUsageDelta(kDefaultSet, -mData[kDefaultSet].mOriginQuotaUsage);
   }
 
-  if (aUnloadFlags & kUnloadPrivate) {
-    mData[kPrivateSet].mKeys.Clear();
-    ProcessUsageDelta(kPrivateSet, -mData[kPrivateSet].mOriginQuotaUsage);
-  }
-
   if (aUnloadFlags & kUnloadSession) {
     mData[kSessionSet].mKeys.Clear();
     ProcessUsageDelta(kSessionSet, -mData[kSessionSet].mOriginQuotaUsage);
-    mSessionOnlyDataSetActive = false;
   }
 
 #ifdef DOM_STORAGE_TESTS
@@ -598,7 +567,7 @@ void LocalStorageCache::LoadWait() {
 
 StorageUsage::StorageUsage(const nsACString& aOriginScope)
     : mOriginScope(aOriginScope) {
-  mUsage[kDefaultSet] = mUsage[kPrivateSet] = mUsage[kSessionSet] = 0LL;
+  mUsage[kDefaultSet] = mUsage[kSessionSet] = 0LL;
 }
 
 namespace {

@@ -4,23 +4,28 @@
 
 #![deny(warnings)]
 
-extern crate webrender;
-extern crate euclid;
 extern crate app_units;
+extern crate bincode;
+extern crate euclid;
+extern crate fxhash;
 extern crate gleam;
 extern crate nsstring;
+extern crate num_cpus;
 extern crate rayon;
-extern crate thread_profiler;
-extern crate bincode;
+extern crate swgl;
+extern crate thin_vec;
+extern crate tracy_rs;
 extern crate uuid;
-extern crate fxhash;
+extern crate webrender;
+extern crate wr_malloc_size_of;
 
 #[macro_use]
 extern crate log;
 
 #[cfg(target_os = "windows")]
 extern crate dwrote;
-
+#[cfg(target_os = "windows")]
+extern crate winapi;
 
 #[cfg(target_os = "macos")]
 extern crate core_foundation;
@@ -34,3 +39,4 @@ mod program_cache;
 #[allow(non_snake_case)]
 pub mod bindings;
 pub mod moz2d_renderer;
+mod swgl_bindings;

@@ -1,7 +1,8 @@
 add_task(async function test() {
   let testPath = getRootDirectory(gTestPath);
 
-  await BrowserTestUtils.withNewTab({ gBrowser, url: "about:blank" },
+  await BrowserTestUtils.withNewTab(
+    { gBrowser, url: "about:blank" },
     async function(tabBrowser) {
       const URI = testPath + "file_with_favicon.html";
       const expectedIcon = testPath + "file_generic_favicon.ico";
@@ -14,7 +15,7 @@ add_task(async function test() {
 
       faviconPromise = waitForLinkAvailable(tabBrowser);
 
-      await ContentTask.spawn(tabBrowser, null, function() {
+      await SpecialPowers.spawn(tabBrowser, [], function() {
         content.location.href += "#foo";
       });
 
@@ -28,6 +29,6 @@ add_task(async function test() {
       } catch (e) {
         ok(true, "Should have been able to cancel the promise.");
       }
-    });
+    }
+  );
 });
-

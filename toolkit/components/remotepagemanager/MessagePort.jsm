@@ -6,79 +6,24 @@
 
 var EXPORTED_SYMBOLS = ["MessagePort", "MessageListener"];
 
-ChromeUtils.import("resource://gre/modules/Services.jsm");
-ChromeUtils.defineModuleGetter(this, "AsyncPrefs",
-  "resource://gre/modules/AsyncPrefs.jsm");
-ChromeUtils.defineModuleGetter(this, "PrivateBrowsingUtils",
-  "resource://gre/modules/PrivateBrowsingUtils.jsm");
+ChromeUtils.defineModuleGetter(
+  this,
+  "PromiseUtils",
+  "resource://gre/modules/PromiseUtils.jsm"
+);
 
-/*
- * Used for all kinds of permissions checks which requires explicit
- * whitelisting of specific permissions granted through RPM.
- *
- * Please note that prefs that one wants to update need to be
- * whitelisted within AsyncPrefs.jsm.
- */
-let RPMAccessManager = {
-  accessMap: {
-    "about:privatebrowsing": {
-      // "sendAsyncMessage": handled within AboutPrivateBrowsingHandler.jsm
-      // "setBoolPref": handled within AsyncPrefs.jsm and uses the pref
-      //                ["privacy.trackingprotection.pbmode.enabled"],
-      "getBoolPref": ["privacy.trackingprotection.pbmode.enabled"],
-      "getFormatURLPref": ["privacy.trackingprotection.introURL",
-                           "app.support.baseURL"],
-      "isWindowPrivate": ["yes"],
-    },
-  },
+class MessageListener {
+  constructor() {
+    this.listeners = new Map();
+  }
 
-  checkAllowAccess(aPrincipal, aFeature, aValue) {
-    // if there is no content principal; deny access
-    if (!aPrincipal || !aPrincipal.URI) {
-      return false;
-    }
-    let uri = aPrincipal.URI.asciiSpec;
-
-    // check if there is an entry for that requestying URI in the accessMap;
-    // if not, deny access.
-    let accessMapForURI = this.accessMap[uri];
-    if (!accessMapForURI) {
-      Cu.reportError("RPMAccessManager does not allow access to Feature: " + aFeature + " for: " + uri);
-      return false;
-    }
-
-    // check if the feature is allowed to be accessed for that URI;
-    // if not, deny access.
-    let accessMapForFeature = accessMapForURI[aFeature];
-    if (!accessMapForFeature) {
-      Cu.reportError("RPMAccessManager does not allow access to Feature: " + aFeature + " for: " + uri);
-      return false;
-    }
-
-    // if the actual value is in the whitelist for that feature;
-    // allow access
-    if (accessMapForFeature.includes(aValue)) {
-      return true;
-    }
-
-    // otherwise deny access
-    Cu.reportError("RPMAccessManager does not allow access to Feature: " + aFeature + " for: " + uri);
-    return false;
-  },
-};
-
-function MessageListener() {
-  this.listeners = new Map();
-}
-
-MessageListener.prototype = {
   keys() {
     return this.listeners.keys();
-  },
+  }
 
   has(name) {
     return this.listeners.has(name);
-  },
+  }
 
   callListeners(message) {
     let listeners = this.listeners.get(message.name);
@@ -93,22 +38,24 @@ MessageListener.prototype = {
         Cu.reportError(e);
       }
     }
-  },
+  }
 
   addMessageListener(name, callback) {
-    if (!this.listeners.has(name))
+    if (!this.listeners.has(name)) {
       this.listeners.set(name, new Set([callback]));
-    else
+    } else {
       this.listeners.get(name).add(callback);
-  },
+    }
+  }
 
   removeMessageListener(name, callback) {
-    if (!this.listeners.has(name))
+    if (!this.listeners.has(name)) {
       return;
+    }
 
     this.listeners.get(name).delete(callback);
-  },
-};
+  }
+}
 
 /*
  * A message port sits on each side of the process boundary for every remote
@@ -118,33 +65,143 @@ MessageListener.prototype = {
  * We roughly implement the same contract as nsIMessageSender and
  * nsIMessageListenerManager
  */
-function MessagePort(messageManager, portID) {
-  this.messageManager = messageManager;
-  this.portID = portID;
-  this.destroyed = false;
-  this.listener = new MessageListener();
+class MessagePort {
+  constructor(messageManagerOrActor, portID) {
+    this.messageManager = messageManagerOrActor;
+    this.portID = portID;
+    this.destroyed = false;
+    this.listener = new MessageListener();
 
-  this.message = this.message.bind(this);
-  this.messageManager.addMessageListener("RemotePage:Message", this.message);
-}
+    // This is a sparse array of pending requests. The id of each request is
+    // simply its index in the array. The next id is the current length of the
+    // array (which includes the count of missing indexes).
+    this.requests = [];
 
-MessagePort.prototype = {
-  messageManager: null,
-  portID: null,
-  destroyed: null,
-  listener: null,
-  _browser: null,
-  remotePort: null,
+    this.message = this.message.bind(this);
+    this.receiveRequest = this.receiveRequest.bind(this);
+    this.receiveResponse = this.receiveResponse.bind(this);
+    this.addMessageListeners();
+  }
+
+  addMessageListeners() {
+    if (!(this.messageManager instanceof Ci.nsIMessageSender)) {
+      return;
+    }
+
+    this.messageManager.addMessageListener("RemotePage:Message", this.message);
+    this.messageManager.addMessageListener(
+      "RemotePage:Request",
+      this.receiveRequest
+    );
+    this.messageManager.addMessageListener(
+      "RemotePage:Response",
+      this.receiveResponse
+    );
+  }
+
+  removeMessageListeners() {
+    if (!(this.messageManager instanceof Ci.nsIMessageSender)) {
+      return;
+    }
+
+    this.messageManager.removeMessageListener(
+      "RemotePage:Message",
+      this.message
+    );
+    this.messageManager.removeMessageListener(
+      "RemotePage:Request",
+      this.receiveRequest
+    );
+    this.messageManager.removeMessageListener(
+      "RemotePage:Response",
+      this.receiveResponse
+    );
+  }
 
   // Called when the message manager used to connect to the other process has
   // changed, i.e. when a tab is detached.
   swapMessageManager(messageManager) {
-    this.messageManager.removeMessageListener("RemotePage:Message", this.message);
-
+    this.removeMessageListeners();
     this.messageManager = messageManager;
+    this.addMessageListeners();
+  }
 
-    this.messageManager.addMessageListener("RemotePage:Message", this.message);
-  },
+  // Sends a request to the other process and returns a promise that completes
+  // once the other process has responded to the request or some error occurs.
+  sendRequest(name, data = null) {
+    if (this.destroyed) {
+      return this.window.Promise.reject(
+        new Error("Message port has been destroyed")
+      );
+    }
+
+    let deferred = PromiseUtils.defer();
+    this.requests.push(deferred);
+
+    this.messageManager.sendAsyncMessage("RemotePage:Request", {
+      portID: this.portID,
+      requestID: this.requests.length - 1,
+      name,
+      data,
+    });
+
+    return this.wrapPromise(deferred.promise);
+  }
+
+  // Handles an IPC message to perform a request of some kind.
+  async receiveRequest({ data: messagedata }) {
+    if (this.destroyed || messagedata.portID != this.portID) {
+      return;
+    }
+
+    let data = {
+      portID: this.portID,
+      requestID: messagedata.requestID,
+    };
+
+    try {
+      data.resolve = await this.handleRequest(
+        messagedata.name,
+        messagedata.data
+      );
+    } catch (e) {
+      data.reject = e;
+    }
+
+    this.messageManager.sendAsyncMessage("RemotePage:Response", data);
+  }
+
+  // Handles an IPC message with the response of a request.
+  receiveResponse({ data: messagedata }) {
+    if (this.destroyed || messagedata.portID != this.portID) {
+      return;
+    }
+
+    let deferred = this.requests[messagedata.requestID];
+    if (!deferred) {
+      Cu.reportError("Received a response to an unknown request.");
+      return;
+    }
+
+    delete this.requests[messagedata.requestID];
+
+    if ("resolve" in messagedata) {
+      deferred.resolve(messagedata.resolve);
+    } else if ("reject" in messagedata) {
+      deferred.reject(messagedata.reject);
+    } else {
+      deferred.reject(new Error("Internal RPM error."));
+    }
+  }
+
+  // Handles an IPC message containing any message.
+  message({ data: messagedata }) {
+    if (this.destroyed || messagedata.portID != this.portID) {
+      return;
+    }
+
+    this.handleMessage(messagedata);
+  }
 
   /* Adds a listener for messages. Many callbacks can be registered for the
    * same message if necessary. An attempt to register the same callback for the
@@ -160,7 +217,7 @@ MessagePort.prototype = {
     }
 
     this.listener.addMessageListener(name, callback);
-  },
+  }
 
   /*
    * Removes a listener for messages.
@@ -171,7 +228,7 @@ MessagePort.prototype = {
     }
 
     this.listener.removeMessageListener(name, callback);
-  },
+  }
 
   // Sends a message asynchronously to the other process
   sendAsyncMessage(name, data = null) {
@@ -179,54 +236,45 @@ MessagePort.prototype = {
       throw new Error("Message port has been destroyed");
     }
 
-    this.messageManager.sendAsyncMessage("RemotePage:Message", {
-      portID: this.portID,
-      name,
-      data,
-    });
-  },
+    let id;
+    if (this.window) {
+      id = this.window.docShell.browsingContext.id;
+    }
+    if (this.messageManager instanceof Ci.nsIMessageSender) {
+      this.messageManager.sendAsyncMessage("RemotePage:Message", {
+        portID: this.portID,
+        browsingContextID: id,
+        name,
+        data,
+      });
+    } else {
+      this.messageManager.sendAsyncMessage(name, data);
+    }
+  }
 
   // Called to destroy this port
   destroy() {
     try {
       // This can fail in the child process if the tab has already been closed
-      this.messageManager.removeMessageListener("RemotePage:Message", this.message);
-    } catch (e) { }
+      this.removeMessageListeners();
+    } catch (e) {}
+
+    for (let deferred of this.requests) {
+      if (deferred) {
+        deferred.reject(new Error("Message port has been destroyed"));
+      }
+    }
+
     this.messageManager = null;
     this.destroyed = true;
     this.portID = null;
     this.listener = null;
-  },
+    this.requests = [];
+  }
 
-  getBoolPref(aPref) {
-    let principal = this.window.document.nodePrincipal;
-    if (!RPMAccessManager.checkAllowAccess(principal, "getBoolPref", aPref)) {
-      throw new Error("RPMAccessManager does not allow access to getBoolPref");
-    }
-    return Services.prefs.getBoolPref(aPref);
-  },
-
-  setBoolPref(aPref, aVal) {
-    return new this.window.Promise(function(resolve) {
-      AsyncPrefs.set(aPref, aVal).then(function() {
-        resolve();
-      });
-    });
-  },
-
-  getFormatURLPref(aFormatURL) {
-    let principal = this.window.document.nodePrincipal;
-    if (!RPMAccessManager.checkAllowAccess(principal, "getFormatURLPref", aFormatURL)) {
-      throw new Error("RPMAccessManager does not allow access to getFormatURLPref");
-    }
-    return Services.urlFormatter.formatURLPref(aFormatURL);
-  },
-
-  isWindowPrivate() {
-    let principal = this.window.document.nodePrincipal;
-    if (!RPMAccessManager.checkAllowAccess(principal, "isWindowPrivate", "yes")) {
-      throw new Error("RPMAccessManager does not allow access to isWindowPrivate");
-    }
-    return PrivateBrowsingUtils.isContentWindowPrivate(this.window);
-  },
-};
+  wrapPromise(promise) {
+    return new this.window.Promise((resolve, reject) =>
+      promise.then(resolve, reject)
+    );
+  }
+}

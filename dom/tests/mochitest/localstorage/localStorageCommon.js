@@ -1,26 +1,23 @@
-function localStorageFlush(cb)
-{
-  if (SpecialPowers.Services.lsm.nextGenLocalStorageEnabled) {
-    SimpleTest.executeSoon(function () {
+function localStorageFlush(cb) {
+  if (SpecialPowers.Services.domStorageManager.nextGenLocalStorageEnabled) {
+    SimpleTest.executeSoon(function() {
       cb();
     });
     return;
   }
 
   var ob = {
-    observe : function(sub, top, dat)
-    {
+    observe(sub, top, dat) {
       os().removeObserver(ob, "domstorage-test-flushed");
       cb();
-    }
+    },
   };
   os().addObserver(ob, "domstorage-test-flushed");
   notify("domstorage-test-flush-force");
 }
 
-function localStorageReload(callback)
-{
-  if (SpecialPowers.Services.lsm.nextGenLocalStorageEnabled) {
+function localStorageReload(callback) {
+  if (SpecialPowers.Services.domStorageManager.nextGenLocalStorageEnabled) {
     localStorage.close();
     let qms = SpecialPowers.Services.qms;
     let principal = SpecialPowers.wrap(document).nodePrincipal;
@@ -33,14 +30,13 @@ function localStorageReload(callback)
   }
 
   notify("domstorage-test-reload");
-  SimpleTest.executeSoon(function () {
+  SimpleTest.executeSoon(function() {
     callback();
   });
 }
 
-function localStorageFlushAndReload(callback)
-{
-  if (SpecialPowers.Services.lsm.nextGenLocalStorageEnabled) {
+function localStorageFlushAndReload(callback) {
+  if (SpecialPowers.Services.domStorageManager.nextGenLocalStorageEnabled) {
     localStorage.close();
     let qms = SpecialPowers.Services.qms;
     let principal = SpecialPowers.wrap(document).nodePrincipal;
@@ -57,43 +53,46 @@ function localStorageFlushAndReload(callback)
   });
 }
 
-function localStorageClearAll(callback)
-{
-  if (SpecialPowers.Services.lsm.nextGenLocalStorageEnabled) {
+function localStorageClearAll(callback) {
+  if (SpecialPowers.Services.domStorageManager.nextGenLocalStorageEnabled) {
     let qms = SpecialPowers.Services.qms;
     let ssm = SpecialPowers.Services.scriptSecurityManager;
 
-    qms.getUsage(SpecialPowers.wrapCallback(function(request) {
-      if (request.resultCode != SpecialPowers.Cr.NS_OK) {
-        callback();
-        return;
-      }
+    qms.getUsage(
+      SpecialPowers.wrapCallback(function(request) {
+        if (request.resultCode != SpecialPowers.Cr.NS_OK) {
+          callback();
+          return;
+        }
 
-      let clearRequestCount = 0;
-      for (let item of request.result) {
-        let principal = ssm.createCodebasePrincipalFromOrigin(item.origin);
-        let clearRequest =
-          qms.clearStoragesForPrincipal(principal, "default", "ls");
-        clearRequestCount++;
-        clearRequest.callback = SpecialPowers.wrapCallback(function() {
-          if (--clearRequestCount == 0) {
-            callback();
-          }
-        });
-      }
-    }));
+        let clearRequestCount = 0;
+        for (let item of request.result) {
+          let principal = ssm.createContentPrincipalFromOrigin(item.origin);
+          let clearRequest = qms.clearStoragesForPrincipal(
+            principal,
+            "default",
+            "ls"
+          );
+          clearRequestCount++;
+          clearRequest.callback = SpecialPowers.wrapCallback(function() {
+            if (--clearRequestCount == 0) {
+              callback();
+            }
+          });
+        }
+      })
+    );
     return;
   }
 
   os().notifyObservers(null, "cookie-changed", "cleared");
-  SimpleTest.executeSoon(function () {
+  SimpleTest.executeSoon(function() {
     callback();
   });
 }
 
-function localStorageClearDomain(domain, callback)
-{
-  if (SpecialPowers.Services.lsm.nextGenLocalStorageEnabled) {
+function localStorageClearDomain(domain, callback) {
+  if (SpecialPowers.Services.domStorageManager.nextGenLocalStorageEnabled) {
     let qms = SpecialPowers.Services.qms;
     let principal = SpecialPowers.wrap(document).nodePrincipal;
     let request = qms.clearStoragesForPrincipal(principal, "default", "ls");
@@ -102,28 +101,31 @@ function localStorageClearDomain(domain, callback)
     return;
   }
 
-  os().notifyObservers(null, "browser:purge-domain-data", domain);
-  SimpleTest.executeSoon(function () {
+  os().notifyObservers(null, "extension:purge-localStorage", domain);
+  SimpleTest.executeSoon(function() {
     callback();
   });
 }
 
-function os()
-{
+function os() {
   return SpecialPowers.Services.obs;
 }
 
-function notify(top)
-{
+function notify(top) {
   os().notifyObservers(null, top);
 }
 
 /**
  * Enable testing observer notifications in DOMStorageObserver.cpp.
  */
-function localStorageEnableTestingMode(cb)
-{
-  SpecialPowers.pushPrefEnv({ set: [["dom.storage.testing", true],
-                                    ["dom.quotaManager.testing", true]] },
-                            cb);
+function localStorageEnableTestingMode(cb) {
+  SpecialPowers.pushPrefEnv(
+    {
+      set: [
+        ["dom.storage.testing", true],
+        ["dom.quotaManager.testing", true],
+      ],
+    },
+    cb
+  );
 }

@@ -1,5 +1,3 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 2 -*- */
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -7,7 +5,9 @@
 
 const protocol = require("devtools/shared/protocol");
 const { FrontClassWithSpec } = protocol;
-const { DebuggerServerConnection } = require("devtools/server/main");
+const {
+  DevToolsServerConnection,
+} = require("devtools/server/devtools-server-connection");
 const Services = require("Services");
 
 const inContentSpec = protocol.generateActorSpec({
@@ -35,7 +35,9 @@ exports.InContentActor = protocol.ActorClassWithSpec(inContentSpec, {
   },
 
   isInContent: function() {
-    return Services.appinfo.processType == Services.appinfo.PROCESS_TYPE_CONTENT;
+    return (
+      Services.appinfo.processType == Services.appinfo.PROCESS_TYPE_CONTENT
+    );
   },
 
   spawnInParent: async function(url) {
@@ -52,13 +54,7 @@ exports.InContentActor = protocol.ActorClassWithSpec(inContentSpec, {
   },
 });
 
-class InContentFront extends FrontClassWithSpec(inContentSpec) {
-  constructor(client, tabForm) {
-    super(client, tabForm);
-    this.actorID = tabForm.inContentActor;
-    this.manage(this);
-  }
-}
+class InContentFront extends FrontClassWithSpec(inContentSpec) {}
 exports.InContentFront = InContentFront;
 
 const inParentSpec = protocol.generateActorSpec({
@@ -84,8 +80,9 @@ exports.InParentActor = protocol.ActorClassWithSpec(inParentSpec, {
   test: function() {
     return {
       args: this.args,
-      isInParent: Services.appinfo.processType == Services.appinfo.PROCESS_TYPE_DEFAULT,
-      conn: this.conn instanceof DebuggerServerConnection,
+      isInParent:
+        Services.appinfo.processType == Services.appinfo.PROCESS_TYPE_DEFAULT,
+      conn: this.conn instanceof DevToolsServerConnection,
       // We don't have access to MessageListenerManager in Sandboxes,
       // so fallback to constructor name checks...
       mm: Object.getPrototypeOf(this.mm).constructor.name,
@@ -93,11 +90,5 @@ exports.InParentActor = protocol.ActorClassWithSpec(inParentSpec, {
   },
 });
 
-class InParentFront extends FrontClassWithSpec(inParentSpec) {
-  constructor(client, tabForm) {
-    super(client, tabForm);
-    this.actorID = tabForm.inParentActor;
-    this.manage(this);
-  }
-}
+class InParentFront extends FrontClassWithSpec(inParentSpec) {}
 exports.InParentFront = InParentFront;

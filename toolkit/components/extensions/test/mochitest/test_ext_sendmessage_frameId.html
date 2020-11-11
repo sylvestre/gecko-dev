@@ -1,7 +1,6 @@
 <!doctype html>
 <head>
   <title>Test sendMessage frameId</title>
-  <script src="/tests/SimpleTest/AddTask.js"></script>
   <script src="/tests/SimpleTest/SimpleTest.js"></script>
   <script src="/tests/SimpleTest/ExtensionTestUtils.js"></script>
   <script src="head.js"></script>
@@ -14,6 +13,10 @@ add_task(async function test_sendMessage_frameId() {
   const html = `<!doctype html><meta charset="utf-8"><script src="script.js"><\/script>`;
 
   const extension = ExtensionTestUtils.loadExtension({
+    useAddonManager: "permanent",
+    manifest: {
+      applications: { gecko: { id: "send_message_frame_id@tests.mozilla.org" } },
+    },
     background() {
       browser.runtime.onMessage.addListener((msg, sender) => {
         browser.test.sendMessage(msg, sender);

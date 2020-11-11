@@ -5,11 +5,13 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "WebMDecoder.h"
-#include "mozilla/Move.h"
+
+#include <utility>
+
 #include "mozilla/Preferences.h"
-#include "mozilla/StaticPrefs.h"
+#include "mozilla/StaticPrefs_media.h"
 #ifdef MOZ_AV1
-#include "AOMDecoder.h"
+#  include "AOMDecoder.h"
 #endif
 #include "MediaContainerType.h"
 #include "PDMFactory.h"
@@ -17,7 +19,8 @@
 
 namespace mozilla {
 
-/* static */ nsTArray<UniquePtr<TrackInfo>> WebMDecoder::GetTracksInfo(
+/* static */
+nsTArray<UniquePtr<TrackInfo>> WebMDecoder::GetTracksInfo(
     const MediaContainerType& aType, MediaResult& aError) {
   nsTArray<UniquePtr<TrackInfo>> tracks;
   const bool isVideo = aType.Type() == MEDIAMIMETYPE("video/webm");
@@ -40,18 +43,17 @@ namespace mozilla {
     if (codec.EqualsLiteral("opus") || codec.EqualsLiteral("vorbis")) {
       tracks.AppendElement(
           CreateTrackInfoWithMIMETypeAndContainerTypeExtraParameters(
-              NS_LITERAL_CSTRING("audio/") + NS_ConvertUTF16toUTF8(codec),
-              aType));
+              "audio/"_ns + NS_ConvertUTF16toUTF8(codec), aType));
       continue;
     }
     if (isVideo) {
       UniquePtr<TrackInfo> trackInfo;
       if (IsVP9CodecString(codec)) {
         trackInfo = CreateTrackInfoWithMIMETypeAndContainerTypeExtraParameters(
-            NS_LITERAL_CSTRING("video/vp9"), aType);
+            "video/vp9"_ns, aType);
       } else if (IsVP8CodecString(codec)) {
         trackInfo = CreateTrackInfoWithMIMETypeAndContainerTypeExtraParameters(
-            NS_LITERAL_CSTRING("video/vp8"), aType);
+            "video/vp8"_ns, aType);
       }
       if (trackInfo) {
         uint8_t profile = 0;
@@ -66,10 +68,10 @@ namespace mozilla {
       }
     }
 #ifdef MOZ_AV1
-    if (StaticPrefs::MediaAv1Enabled() && IsAV1CodecString(codec)) {
+    if (StaticPrefs::media_av1_enabled() && IsAV1CodecString(codec)) {
       tracks.AppendElement(
           CreateTrackInfoWithMIMETypeAndContainerTypeExtraParameters(
-              NS_LITERAL_CSTRING("video/av1"), aType));
+              "video/av1"_ns, aType));
       continue;
     }
 #endif
@@ -83,7 +85,7 @@ namespace mozilla {
 
 /* static */
 bool WebMDecoder::IsSupportedType(const MediaContainerType& aContainerType) {
-  if (!StaticPrefs::MediaWebMEnabled()) {
+  if (!StaticPrefs::media_webm_enabled()) {
     return false;
   }
 
@@ -104,7 +106,8 @@ bool WebMDecoder::IsSupportedType(const MediaContainerType& aContainerType) {
   // color depth
   RefPtr<PDMFactory> platform = new PDMFactory();
   for (const auto& track : tracks) {
-    if (!track || !platform->Supports(*track, nullptr /* diagnostic */)) {
+    if (!track || !platform->Supports(SupportDecoderParams(*track),
+                                      nullptr /* diagnostic */)) {
       return false;
     }
   }
@@ -112,7 +115,8 @@ bool WebMDecoder::IsSupportedType(const MediaContainerType& aContainerType) {
   return true;
 }
 
-/* static */ nsTArray<UniquePtr<TrackInfo>> WebMDecoder::GetTracksInfo(
+/* static */
+nsTArray<UniquePtr<TrackInfo>> WebMDecoder::GetTracksInfo(
     const MediaContainerType& aType) {
   MediaResult rv = NS_OK;
   return GetTracksInfo(aType, rv);

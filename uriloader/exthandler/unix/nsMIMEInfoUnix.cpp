@@ -9,17 +9,16 @@
 #include "nsIGIOService.h"
 #include "nsNetCID.h"
 #include "nsIIOService.h"
-#include "nsAutoPtr.h"
 #ifdef MOZ_ENABLE_DBUS
-#include "nsDBusHandlerApp.h"
+#  include "nsDBusHandlerApp.h"
 #endif
 
-nsresult nsMIMEInfoUnix::LoadUriInternal(nsIURI *aURI) {
+nsresult nsMIMEInfoUnix::LoadUriInternal(nsIURI* aURI) {
   return nsGNOMERegistry::LoadURL(aURI);
 }
 
 NS_IMETHODIMP
-nsMIMEInfoUnix::GetHasDefaultHandler(bool *_retval) {
+nsMIMEInfoUnix::GetHasDefaultHandler(bool* _retval) {
   // if mDefaultApplication is set, it means the application has been set from
   // either /etc/mailcap or ${HOME}/.mailcap, in which case we don't want to
   // give the GNOME answer.
@@ -47,7 +46,7 @@ nsMIMEInfoUnix::GetHasDefaultHandler(bool *_retval) {
   return NS_OK;
 }
 
-nsresult nsMIMEInfoUnix::LaunchDefaultWithFile(nsIFile *aFile) {
+nsresult nsMIMEInfoUnix::LaunchDefaultWithFile(nsIFile* aFile) {
   // if mDefaultApplication is set, it means the application has been set from
   // either /etc/mailcap or ${HOME}/.mailcap, in which case we don't want to
   // give the GNOME answer.

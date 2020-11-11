@@ -2,8 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/*global intl_Collator: false, */
-
 function StringProtoHasNoMatch() {
     var ObjectProto = GetBuiltinPrototype("Object");
     var StringProto = GetBuiltinPrototype("String");
@@ -21,10 +19,15 @@ function IsStringMatchOptimizable() {
            RegExpProto[std_match] === RegExpMatch;
 }
 
+function ThrowIncompatibleMethod(name, thisv) {
+    ThrowTypeError(JSMSG_INCOMPATIBLE_PROTO, "String", name, ToString(thisv));
+}
+
 // ES 2016 draft Mar 25, 2016 21.1.3.11.
 function String_match(regexp) {
     // Step 1.
-    RequireObjectCoercible(this);
+    if (this === undefined || this === null)
+        ThrowIncompatibleMethod("match", this);
 
     // Step 2.
     var isPatternString = (typeof regexp === "string");
@@ -57,26 +60,37 @@ function String_match(regexp) {
     return callContentFunction(GetMethod(rx, std_match), rx, S);
 }
 
-function String_generic_match(thisValue, regexp) {
-    WarnDeprecatedStringMethod(STRING_GENERICS_MATCH, "match");
-    if (thisValue === undefined)
-        ThrowTypeError(JSMSG_MISSING_FUN_ARG, 0, "String.match");
-    return callFunction(String_match, thisValue, regexp);
-}
 
 // String.prototype.matchAll proposal.
 //
 // String.prototype.matchAll ( regexp )
 function String_matchAll(regexp) {
     // Step 1.
-    RequireObjectCoercible(this);
+    if (this === undefined || this === null)
+        ThrowIncompatibleMethod("matchAll", this);
 
     // Step 2.
     if (regexp !== undefined && regexp !== null) {
-        // Step 2.a.
+        // Steps 2.a-b.
+        if (IsRegExp(regexp)) {
+            // Step 2.b.i.
+            var flags = regexp.flags;
+
+            // Step 2.b.ii.
+            if (flags === undefined || flags === null) {
+                ThrowTypeError(JSMSG_FLAGS_UNDEFINED_OR_NULL);
+            }
+
+            // Step 2.b.iii.
+            if (!callFunction(std_String_includes, ToString(flags), "g")) {
+                ThrowTypeError(JSMSG_REQUIRES_GLOBAL_REGEXP, "matchAll");
+            }
+        }
+
+        // Step 2.c.
         var matcher = GetMethod(regexp, std_matchAll);
 
-        // Step 2.b.
+        // Step 2.d.
         if (matcher !== undefined)
             return callContentFunction(matcher, regexp, this);
     }
@@ -96,8 +110,11 @@ function String_matchAll(regexp) {
  * and String.prototype.padEnd as described in ES7 Draft March 29, 2016
  */
 function String_pad(maxLength, fillString, padEnd) {
-    // Steps 1-2.
-    RequireObjectCoercible(this);
+    // Step 1.
+    if (this === undefined || this === null)
+        ThrowIncompatibleMethod(padEnd ? "padEnd" : "padStart", this);
+
+    // Step 2.
     let str = ToString(this);
 
     // Steps 3-4.
@@ -167,7 +184,8 @@ function Substring(str, from, length) {
 // ES 2016 draft Mar 25, 2016 21.1.3.14.
 function String_replace(searchValue, replaceValue) {
     // Step 1.
-    RequireObjectCoercible(this);
+    if (this === undefined || this === null)
+        ThrowIncompatibleMethod("replace", this);
 
     // Step 2.
     if (!(typeof searchValue === "string" && StringProtoHasNoReplace()) &&
@@ -225,11 +243,111 @@ function String_replace(searchValue, replaceValue) {
     return newString;
 }
 
-function String_generic_replace(thisValue, searchValue, replaceValue) {
-    WarnDeprecatedStringMethod(STRING_GENERICS_REPLACE, "replace");
-    if (thisValue === undefined)
-        ThrowTypeError(JSMSG_MISSING_FUN_ARG, 0, "String.replace");
-    return callFunction(String_replace, thisValue, searchValue, replaceValue);
+// String.prototype.replaceAll (Stage 3 proposal)
+// https://tc39.es/proposal-string-replaceall/
+//
+// String.prototype.replaceAll ( searchValue, replaceValue )
+function String_replaceAll(searchValue, replaceValue) {
+    // Step 1.
+    if (this === undefined || this === null)
+        ThrowIncompatibleMethod("replaceAll", this);
+
+    // Step 2.
+    if (searchValue !== undefined && searchValue !== null) {
+        // Steps 2.a-b.
+        if (IsRegExp(searchValue)) {
+            // Step 2.b.i.
+            var flags = searchValue.flags;
+
+            // Step 2.b.ii.
+            if (flags === undefined || flags === null) {
+                ThrowTypeError(JSMSG_FLAGS_UNDEFINED_OR_NULL);
+            }
+
+            // Step 2.b.iii.
+            if (!callFunction(std_String_includes, ToString(flags), "g")) {
+                ThrowTypeError(JSMSG_REQUIRES_GLOBAL_REGEXP, "replaceAll");
+            }
+        }
+
+        // Step 2.c.
+        var replacer = GetMethod(searchValue, std_replace);
+
+        // Step 2.b.
+        if (replacer !== undefined) {
+            return callContentFunction(replacer, searchValue, this, replaceValue);
+        }
+    }
+
+    // Step 3.
+    var string = ToString(this);
+
+    // Step 4.
+    var searchString = ToString(searchValue);
+
+    // Steps 5-6.
+    if (!IsCallable(replaceValue)) {
+        // Steps 7-16.
+        return StringReplaceAllString(string, searchString, ToString(replaceValue));
+    }
+
+    // Step 7.
+    var searchLength = searchString.length;
+
+    // Step 8.
+    var advanceBy = std_Math_max(1, searchLength);
+
+    // Step 9 (not needed in this implementation).
+
+    // Step 12.
+    var endOfLastMatch = 0;
+
+    // Step 13.
+    var result = "";
+
+    // Steps 10-11, 14.
+    var position = 0;
+    while (true) {
+        // Steps 10-11.
+        //
+        // StringIndexOf doesn't clamp the |position| argument to the input
+        // string length, i.e. |StringIndexOf("abc", "", 4)| returns -1,
+        // whereas |"abc".indexOf("", 4)| returns 3. That means we need to
+        // exit the loop when |nextPosition| is smaller than |position| and
+        // not just when |nextPosition| is -1.
+        var nextPosition = callFunction(std_String_indexOf, string, searchString, position);
+        if (nextPosition < position) {
+            break;
+        }
+        position = nextPosition;
+
+        // Step 14.a.
+        var replacement = ToString(callContentFunction(replaceValue, undefined, searchString,
+                                                       position, string));
+
+        // Step 14.b (not applicable).
+
+        // Step 14.c.
+        var stringSlice = Substring(string, endOfLastMatch, position - endOfLastMatch);
+
+        // Step 14.d.
+        result += stringSlice + replacement;
+
+        // Step 14.e.
+        endOfLastMatch = position + searchLength;
+
+        // Step 11.b.
+        position += advanceBy;
+    }
+
+    // Step 15.
+    if (endOfLastMatch < string.length) {
+        // Step 15.a.
+        result += Substring(string, endOfLastMatch, string.length - endOfLastMatch);
+    }
+
+    // Step 16.
+    return result;
 }
 
 function StringProtoHasNoSearch() {
@@ -252,7 +370,8 @@ function IsStringSearchOptimizable() {
 // ES 2016 draft Mar 25, 2016 21.1.3.15.
 function String_search(regexp) {
     // Step 1.
-    RequireObjectCoercible(this);
+    if (this === undefined || this === null)
+        ThrowIncompatibleMethod("search", this);
 
     // Step 2.
     var isPatternString = (typeof regexp === "string");
@@ -281,13 +400,6 @@ function String_search(regexp) {
     return callContentFunction(GetMethod(rx, std_search), rx, string);
 }
 
-function String_generic_search(thisValue, regexp) {
-    WarnDeprecatedStringMethod(STRING_GENERICS_SEARCH, "search");
-    if (thisValue === undefined)
-        ThrowTypeError(JSMSG_MISSING_FUN_ARG, 0, "String.search");
-    return callFunction(String_search, thisValue, regexp);
-}
-
 function StringProtoHasNoSplit() {
     var ObjectProto = GetBuiltinPrototype("Object");
     var StringProto = GetBuiltinPrototype("String");
@@ -299,7 +411,8 @@ function StringProtoHasNoSplit() {
 // ES 2016 draft Mar 25, 2016 21.1.3.17.
 function String_split(separator, limit) {
     // Step 1.
-    RequireObjectCoercible(this);
+    if (this === undefined || this === null)
+        ThrowIncompatibleMethod("split", this);
 
     // Optimized path for string.split(string), especially when both strings
     // are constants.  Following sequence of if's cannot be put together in
@@ -363,35 +476,32 @@ function String_split(separator, limit) {
     return StringSplitString(S, R);
 }
 
-function String_generic_split(thisValue, separator, limit) {
-    WarnDeprecatedStringMethod(STRING_GENERICS_SPLIT, "split");
-    if (thisValue === undefined)
-        ThrowTypeError(JSMSG_MISSING_FUN_ARG, 0, "String.split");
-    return callFunction(String_split, thisValue, separator, limit);
-}
-
-/* ES6 Draft Oct 14, 2014 21.1.3.19 */
+// ES2020 draft rev dc1e21c454bd316810be1c0e7af0131a2d7f38e9
+// 21.1.3.22 String.prototype.substring ( start, end )
 function String_substring(start, end) {
-    // Steps 1-3.
-    RequireObjectCoercible(this);
+    // Step 1.
+    if (this === undefined || this === null)
+        ThrowIncompatibleMethod("substring", this);
+
+    // Step 2.
     var str = ToString(this);
 
-    // Step 4.
+    // Step 3.
     var len = str.length;
 
-    // Step 5.
+    // Step 4.
     var intStart = ToInteger(start);
 
-    // Step 6.
+    // Step 5.
     var intEnd = (end === undefined) ? len : ToInteger(end);
 
-    // Step 7.
+    // Step 6.
     var finalStart = std_Math_min(std_Math_max(intStart, 0), len);
 
-    // Step 8.
+    // Step 7.
     var finalEnd = std_Math_min(std_Math_max(intEnd, 0), len);
 
-    // Steps 9-10.
+    // Steps 8-9.
     var from, to;
     if (finalStart < finalEnd) {
         from = finalStart;
@@ -401,141 +511,175 @@ function String_substring(start, end) {
         to = finalStart;
     }
 
-    // Step 11.
+    // Step 10.
     // While |from| and |to - from| are bounded to the length of |str| and this
     // and thus definitely in the int32 range, they can still be typed as
     // double. Eagerly truncate since SubstringKernel only accepts int32.
     return SubstringKernel(str, from | 0, (to - from) | 0);
 }
 
-function String_static_substring(string, start, end) {
-    WarnDeprecatedStringMethod(STRING_GENERICS_SUBSTRING, "substring");
-    if (arguments.length < 1)
-        ThrowTypeError(JSMSG_MISSING_FUN_ARG, 0, "String.substring");
-    return callFunction(String_substring, string, start, end);
-}
-
-/* ES6 Draft Oct 14, 2014 B.2.3.1 */
+// ES2020 draft rev dc1e21c454bd316810be1c0e7af0131a2d7f38e9
+// B.2.3.1 String.prototype.substr ( start, length )
 function String_substr(start, length) {
-    // Steps 1-2.
-    RequireObjectCoercible(this);
+    // Steps 1.
+    if (this === undefined || this === null)
+        ThrowIncompatibleMethod("substr", this);
+
+    // Step 2.
     var str = ToString(this);
 
-    // Steps 3-4.
+    // Step 3.
     var intStart = ToInteger(start);
 
-    // Steps 5-7.
+    // Steps 4-5.
     var size = str.length;
     // Use |size| instead of +Infinity to avoid performing calculations with
     // doubles. (The result is the same either way.)
     var end = (length === undefined) ? size : ToInteger(length);
 
-    // Step 8.
+    // Step 6.
     if (intStart < 0)
         intStart = std_Math_max(intStart + size, 0);
 
-    // Step 9.
+    // Step 7.
     var resultLength = std_Math_min(std_Math_max(end, 0), size - intStart);
 
-    // Step 10.
+    // Step 8.
     if (resultLength <= 0)
         return "";
 
-    // Step 11.
+    // Step 9.
     // While |intStart| and |resultLength| are bounded to the length of |str|
     // and thus definitely in the int32 range, they can still be typed as
     // double. Eagerly truncate since SubstringKernel only accepts int32.
     return SubstringKernel(str, intStart | 0, resultLength | 0);
 }
 
-function String_static_substr(string, start, length) {
-    WarnDeprecatedStringMethod(STRING_GENERICS_SUBSTR, "substr");
-    if (arguments.length < 1)
-        ThrowTypeError(JSMSG_MISSING_FUN_ARG, 0, "String.substr");
-    return callFunction(String_substr, string, start, length);
-}
+// ES2021 draft rev 12a546b92275a0e2f834017db2727bb9c6f6c8fd
+// 21.1.3.4 String.prototype.concat ( ...args )
+// Note: String.prototype.concat.length is 1.
+function String_concat(arg1) {
+    // Step 1.
+    if (this === undefined || this === null)
+        ThrowIncompatibleMethod("concat", this);
 
-/* ES6 Draft Oct 14, 2014 21.1.3.16 */
-function String_slice(start, end) {
-    // Steps 1-3.
-    RequireObjectCoercible(this);
+    // Step 2.
     var str = ToString(this);
 
+    // Specialize for the most common number of arguments for better inlining.
+    if (arguments.length === 0) {
+        return str;
+    }
+    if (arguments.length === 1) {
+        return str + ToString(arguments[0]);
+    }
+    if (arguments.length === 2) {
+        return str + ToString(arguments[0]) + ToString(arguments[1]);
+    }
+
+    // Step 3. (implicit)
     // Step 4.
-    var len = str.length;
+    var result = str;
 
     // Step 5.
-    var intStart = ToInteger(start);
+    for (var i = 0; i < arguments.length; i++) {
+        // Steps 5.a-b.
+        var nextString = ToString(arguments[i]);
+        // Step 5.c.
+        result += nextString;
+    }
 
     // Step 6.
+    return result;
+}
+
+// ES2020 draft rev dc1e21c454bd316810be1c0e7af0131a2d7f38e9
+// 21.1.3.19 String.prototype.slice ( start, end )
+function String_slice(start, end) {
+    // Step 1.
+    if (this === undefined || this === null)
+        ThrowIncompatibleMethod("slice", this);
+
+    // Step 2.
+    var str = ToString(this);
+
+    // Step 3.
+    var len = str.length;
+
+    // Step 4.
+    var intStart = ToInteger(start);
+
+    // Step 5.
     var intEnd = (end === undefined) ? len : ToInteger(end);
 
-    // Step 7.
+    // Step 6.
     var from = (intStart < 0) ? std_Math_max(len + intStart, 0) : std_Math_min(intStart, len);
 
-    // Step 8.
+    // Step 7.
     var to = (intEnd < 0) ? std_Math_max(len + intEnd, 0) : std_Math_min(intEnd, len);
 
-    // Step 9.
+    // Step 8.
     var span = std_Math_max(to - from, 0);
 
-    // Step 10.
+    // Step 9.
     // While |from| and |span| are bounded to the length of |str|
     // and thus definitely in the int32 range, they can still be typed as
     // double. Eagerly truncate since SubstringKernel only accepts int32.
     return SubstringKernel(str, from | 0, span | 0);
 }
 
-function String_static_slice(string, start, end) {
-    WarnDeprecatedStringMethod(STRING_GENERICS_SLICE, "slice");
-    if (arguments.length < 1)
-        ThrowTypeError(JSMSG_MISSING_FUN_ARG, 0, "String.slice");
-    return callFunction(String_slice, string, start, end);
-}
-
-/* ES6 Draft September 5, 2013 21.1.3.3 */
+// ES2020 draft rev dc1e21c454bd316810be1c0e7af0131a2d7f38e9
+// 21.1.3.3 String.prototype.codePointAt ( pos )
 function String_codePointAt(pos) {
-    // Steps 1-3.
-    RequireObjectCoercible(this);
+    // Step 1.
+    if (this === undefined || this === null)
+        ThrowIncompatibleMethod("codePointAt", this);
+
+    // Step 2.
     var S = ToString(this);
 
-    // Steps 4-5.
+    // Step 3.
     var position = ToInteger(pos);
 
-    // Step 6.
+    // Step 4.
     var size = S.length;
 
-    // Step 7.
+    // Step 5.
     if (position < 0 || position >= size)
         return undefined;
 
-    // Steps 8-9.
+    // Steps 6-7.
     var first = callFunction(std_String_charCodeAt, S, position);
     if (first < 0xD800 || first > 0xDBFF || position + 1 === size)
         return first;
 
-    // Steps 10-11.
+    // Steps 8-9.
     var second = callFunction(std_String_charCodeAt, S, position + 1);
     if (second < 0xDC00 || second > 0xDFFF)
         return first;
 
-    // Step 12.
+    // Step 10.
     return (first - 0xD800) * 0x400 + (second - 0xDC00) + 0x10000;
 }
 
-/* ES6 20121122 draft 15.5.4.21. */
+// ES2020 draft rev dc1e21c454bd316810be1c0e7af0131a2d7f38e9
+// 21.1.3.16 String.prototype.repeat ( count )
 function String_repeat(count) {
-    // Steps 1-3.
-    RequireObjectCoercible(this);
+    // Step 1.
+    if (this === undefined || this === null)
+        ThrowIncompatibleMethod("repeat", this);
+
+    // Step 2.
     var S = ToString(this);
 
-    // Steps 4-5.
+    // Step 3.
     var n = ToInteger(count);
 
-    // Steps 6-7.
+    // Step 4.
     if (n < 0)
         ThrowRangeError(JSMSG_NEGATIVE_REPETITION_COUNT);
 
+    // Step 5.
     // Inverted condition to handle |Infinity * 0 = NaN| correctly.
     if (!(n * S.length <= MAX_STRING_LENGTH))
         ThrowRangeError(JSMSG_RESULTING_STRING_TOO_LARGE);
@@ -549,7 +693,7 @@ function String_repeat(count) {
            "MAX_STRING_LENGTH + 1 can be used as a bitmask");
     n = n & (MAX_STRING_LENGTH + 1);
 
-    // Steps 8-9.
+    // Steps 6-7.
     var T = "";
     for (;;) {
         if (n & 1)
@@ -565,8 +709,16 @@ function String_repeat(count) {
 
 // ES6 draft specification, section 21.1.3.27, version 2013-09-27.
 function String_iterator() {
-    RequireObjectCoercible(this);
+    // Step 1.
+    if (this === undefined || this === null) {
+        ThrowTypeError(JSMSG_INCOMPATIBLE_PROTO2, "String", "Symbol.iterator",
+                       ToString(this));
+    }
+
+    // Step 2.
     var S = ToString(this);
+
+    // Step 3.
     var iterator = NewStringIterator();
     UnsafeSetReservedSlot(iterator, ITERATOR_SLOT_TARGET, S);
     UnsafeSetReservedSlot(iterator, ITERATOR_SLOT_NEXT_INDEX, 0);
@@ -611,6 +763,7 @@ function StringIteratorNext() {
     return result;
 }
 
+#if JS_HAS_INTL_API
 var collatorCache = new Record();
 
 /**
@@ -620,8 +773,11 @@ var collatorCache = new Record();
  * Spec: ECMAScript Internationalization API Specification, 13.1.1.
  */
 function String_localeCompare(that) {
-    // Steps 1-3.
-    RequireObjectCoercible(this);
+    // Step 1.
+    if (this === undefined || this === null)
+        ThrowIncompatibleMethod("localeCompare", this);
+
+    // Steps 2-3.
     var S = ToString(this);
     var That = ToString(that);
 
@@ -654,7 +810,8 @@ function String_localeCompare(that) {
  */
 function String_toLocaleLowerCase() {
     // Step 1.
-    RequireObjectCoercible(this);
+    if (this === undefined || this === null)
+        ThrowIncompatibleMethod("toLocaleLowerCase", this);
 
     // Step 2.
     var string = ToString(this);
@@ -668,7 +825,7 @@ function String_toLocaleLowerCase() {
         requestedLocale = undefined;
     } else if (typeof locales === "string") {
         // Steps 3, 5.
-        requestedLocale = ValidateAndCanonicalizeLanguageTag(locales);
+        requestedLocale = intl_ValidateAndCanonicalizeLanguageTag(locales, false);
     } else {
         // Step 3.
         var requestedLocales = CanonicalizeLocaleList(locales);
@@ -695,7 +852,8 @@ function String_toLocaleLowerCase() {
  */
 function String_toLocaleUpperCase() {
     // Step 1.
-    RequireObjectCoercible(this);
+    if (this === undefined || this === null)
+        ThrowIncompatibleMethod("toLocaleUpperCase", this);
 
     // Step 2.
     var string = ToString(this);
@@ -709,7 +867,7 @@ function String_toLocaleUpperCase() {
         requestedLocale = undefined;
     } else if (typeof locales === "string") {
         // Steps 3, 5.
-        requestedLocale = ValidateAndCanonicalizeLanguageTag(locales);
+        requestedLocale = intl_ValidateAndCanonicalizeLanguageTag(locales, false);
     } else {
         // Step 3.
         var requestedLocales = CanonicalizeLocaleList(locales);
@@ -728,6 +886,7 @@ function String_toLocaleUpperCase() {
     // Steps 7-16.
     return intl_toLocaleUpperCase(string, requestedLocale);
 }
+#endif  // JS_HAS_INTL_API
 
 // ES2018 draft rev 8fadde42cf6a9879b4ab0cb6142b31c4ee501667
 // 21.1.2.4 String.raw ( template, ...substitutions )
@@ -778,259 +937,102 @@ function String_static_raw(callSite/*, ...substitutions*/) {
     return resultString;
 }
 
-/**
- * Compare String str1 against String str2, using the locale and collation
- * options provided.
- *
- * Mozilla proprietary.
- * Spec: https://developer.mozilla.org/en-US/docs/JavaScript/Reference/Global_Objects/String#String_generic_methods
- */
-function String_static_localeCompare(str1, str2) {
-    WarnDeprecatedStringMethod(STRING_GENERICS_LOCALE_COMPARE, "localeCompare");
-    if (arguments.length < 1)
-        ThrowTypeError(JSMSG_MISSING_FUN_ARG, 0, "String.localeCompare");
-    var locales = arguments.length > 2 ? arguments[2] : undefined;
-    var options = arguments.length > 3 ? arguments[3] : undefined;
-/* eslint-disable no-unreachable */
-#if EXPOSE_INTL_API
-    return callFunction(String_localeCompare, str1, str2, locales, options);
-#else
-    return callFunction(std_String_localeCompare, str1, str2, locales, options);
-#endif
-/* eslint-enable no-unreachable */
-}
-
 // ES6 draft 2014-04-27 B.2.3.3
 function String_big() {
-    RequireObjectCoercible(this);
+    if (this === undefined || this === null)
+        ThrowIncompatibleMethod("big", this);
     return "<big>" + ToString(this) + "</big>";
 }
 
 // ES6 draft 2014-04-27 B.2.3.4
 function String_blink() {
-    RequireObjectCoercible(this);
+    if (this === undefined || this === null)
+        ThrowIncompatibleMethod("blink", this);
     return "<blink>" + ToString(this) + "</blink>";
 }
 
 // ES6 draft 2014-04-27 B.2.3.5
 function String_bold() {
-    RequireObjectCoercible(this);
+    if (this === undefined || this === null)
+        ThrowIncompatibleMethod("bold", this);
     return "<b>" + ToString(this) + "</b>";
 }
 
 // ES6 draft 2014-04-27 B.2.3.6
 function String_fixed() {
-    RequireObjectCoercible(this);
+    if (this === undefined || this === null)
+        ThrowIncompatibleMethod("fixed", this);
     return "<tt>" + ToString(this) + "</tt>";
 }
 
 // ES6 draft 2014-04-27 B.2.3.9
 function String_italics() {
-    RequireObjectCoercible(this);
+    if (this === undefined || this === null)
+        ThrowIncompatibleMethod("italics", this);
     return "<i>" + ToString(this) + "</i>";
 }
 
 // ES6 draft 2014-04-27 B.2.3.11
 function String_small() {
-    RequireObjectCoercible(this);
+    if (this === undefined || this === null)
+        ThrowIncompatibleMethod("small", this);
     return "<small>" + ToString(this) + "</small>";
 }
 
 // ES6 draft 2014-04-27 B.2.3.12
 function String_strike() {
-    RequireObjectCoercible(this);
+    if (this === undefined || this === null)
+        ThrowIncompatibleMethod("strike", this);
     return "<strike>" + ToString(this) + "</strike>";
 }
 
 // ES6 draft 2014-04-27 B.2.3.13
 function String_sub() {
-    RequireObjectCoercible(this);
+    if (this === undefined || this === null)
+        ThrowIncompatibleMethod("sub", this);
     return "<sub>" + ToString(this) + "</sub>";
 }
 
 // ES6 draft 2014-04-27 B.2.3.14
 function String_sup() {
-    RequireObjectCoercible(this);
+    if (this === undefined || this === null)
+        ThrowIncompatibleMethod("sup", this);
     return "<sup>" + ToString(this) + "</sup>";
 }
 
 function EscapeAttributeValue(v) {
     var inputStr = ToString(v);
-    var inputLen = inputStr.length;
-    var outputStr = "";
-    var chunkStart = 0;
-    for (var i = 0; i < inputLen; i++) {
-        if (inputStr[i] === '"') {
-            outputStr += callFunction(String_substring, inputStr, chunkStart, i) + "&quot;";
-            chunkStart = i + 1;
-        }
-    }
-    if (chunkStart === 0)
-        return inputStr;
-    if (chunkStart < inputLen)
-        outputStr += callFunction(String_substring, inputStr, chunkStart);
-    return outputStr;
+    return StringReplaceAllString(inputStr, '"', "&quot;");
 }
 
 // ES6 draft 2014-04-27 B.2.3.2
 function String_anchor(name) {
-    RequireObjectCoercible(this);
+    if (this === undefined || this === null)
+        ThrowIncompatibleMethod("anchor", this);
     var S = ToString(this);
     return '<a name="' + EscapeAttributeValue(name) + '">' + S + "</a>";
 }
 
 // ES6 draft 2014-04-27 B.2.3.7
 function String_fontcolor(color) {
-    RequireObjectCoercible(this);
+    if (this === undefined || this === null)
+        ThrowIncompatibleMethod("fontcolor", this);
     var S = ToString(this);
     return '<font color="' + EscapeAttributeValue(color) + '">' + S + "</font>";
 }
 
 // ES6 draft 2014-04-27 B.2.3.8
 function String_fontsize(size) {
-    RequireObjectCoercible(this);
+    if (this === undefined || this === null)
+        ThrowIncompatibleMethod("fontsize", this);
     var S = ToString(this);
     return '<font size="' + EscapeAttributeValue(size) + '">' + S + "</font>";
 }
 
 // ES6 draft 2014-04-27 B.2.3.10
 function String_link(url) {
-    RequireObjectCoercible(this);
+    if (this === undefined || this === null)
+        ThrowIncompatibleMethod("link", this);
     var S = ToString(this);
     return '<a href="' + EscapeAttributeValue(url) + '">' + S + "</a>";
-}
-
-function String_static_toLowerCase(string) {
-    WarnDeprecatedStringMethod(STRING_GENERICS_TO_LOWER_CASE, "toLowerCase");
-    if (arguments.length < 1)
-        ThrowTypeError(JSMSG_MISSING_FUN_ARG, 0, "String.toLowerCase");
-    return callFunction(std_String_toLowerCase, string);
-}
-
-function String_static_toUpperCase(string) {
-    WarnDeprecatedStringMethod(STRING_GENERICS_TO_UPPER_CASE, "toUpperCase");
-    if (arguments.length < 1)
-        ThrowTypeError(JSMSG_MISSING_FUN_ARG, 0, "String.toUpperCase");
-    return callFunction(std_String_toUpperCase, string);
-}
-
-function String_static_charAt(string, pos) {
-    WarnDeprecatedStringMethod(STRING_GENERICS_CHAR_AT, "charAt");
-    if (arguments.length < 1)
-        ThrowTypeError(JSMSG_MISSING_FUN_ARG, 0, "String.charAt");
-    return callFunction(std_String_charAt, string, pos);
-}
-
-function String_static_charCodeAt(string, pos) {
-    WarnDeprecatedStringMethod(STRING_GENERICS_CHAR_CODE_AT, "charCodeAt");
-    if (arguments.length < 1)
-        ThrowTypeError(JSMSG_MISSING_FUN_ARG, 0, "String.charCodeAt");
-    return callFunction(std_String_charCodeAt, string, pos);
-}
-
-function String_static_includes(string, searchString) {
-    WarnDeprecatedStringMethod(STRING_GENERICS_INCLUDES, "includes");
-    if (arguments.length < 1)
-        ThrowTypeError(JSMSG_MISSING_FUN_ARG, 0, "String.includes");
-    var position = arguments.length > 2 ? arguments[2] : undefined;
-    return callFunction(std_String_includes, string, searchString, position);
-}
-
-function String_static_indexOf(string, searchString) {
-    WarnDeprecatedStringMethod(STRING_GENERICS_INDEX_OF, "indexOf");
-    if (arguments.length < 1)
-        ThrowTypeError(JSMSG_MISSING_FUN_ARG, 0, "String.indexOf");
-    var position = arguments.length > 2 ? arguments[2] : undefined;
-    return callFunction(std_String_indexOf, string, searchString, position);
-}
-
-function String_static_lastIndexOf(string, searchString) {
-    WarnDeprecatedStringMethod(STRING_GENERICS_LAST_INDEX_OF, "lastIndexOf");
-    if (arguments.length < 1)
-        ThrowTypeError(JSMSG_MISSING_FUN_ARG, 0, "String.lastIndexOf");
-    var position = arguments.length > 2 ? arguments[2] : undefined;
-    return callFunction(std_String_lastIndexOf, string, searchString, position);
-}
-
-function String_static_startsWith(string, searchString) {
-    WarnDeprecatedStringMethod(STRING_GENERICS_STARTS_WITH, "startsWith");
-    if (arguments.length < 1)
-        ThrowTypeError(JSMSG_MISSING_FUN_ARG, 0, "String.startsWith");
-    var position = arguments.length > 2 ? arguments[2] : undefined;
-    return callFunction(std_String_startsWith, string, searchString, position);
-}
-
-function String_static_endsWith(string, searchString) {
-    WarnDeprecatedStringMethod(STRING_GENERICS_ENDS_WITH, "endsWith");
-    if (arguments.length < 1)
-        ThrowTypeError(JSMSG_MISSING_FUN_ARG, 0, "String.endsWith");
-    var endPosition = arguments.length > 2 ? arguments[2] : undefined;
-    return callFunction(std_String_endsWith, string, searchString, endPosition);
-}
-
-function String_static_trim(string) {
-    WarnDeprecatedStringMethod(STRING_GENERICS_TRIM, "trim");
-    if (arguments.length < 1)
-        ThrowTypeError(JSMSG_MISSING_FUN_ARG, 0, "String.trim");
-    return callFunction(std_String_trim, string);
-}
-
-function String_static_trimLeft(string) {
-    WarnDeprecatedStringMethod(STRING_GENERICS_TRIM_LEFT, "trimLeft");
-    if (arguments.length < 1)
-        ThrowTypeError(JSMSG_MISSING_FUN_ARG, 0, "String.trimLeft");
-    return callFunction(std_String_trimStart, string);
-}
-
-function String_static_trimRight(string) {
-    WarnDeprecatedStringMethod(STRING_GENERICS_TRIM_RIGHT, "trimRight");
-    if (arguments.length < 1)
-        ThrowTypeError(JSMSG_MISSING_FUN_ARG, 0, "String.trimRight");
-    return callFunction(std_String_trimEnd, string);
-}
-
-function String_static_toLocaleLowerCase(string) {
-    WarnDeprecatedStringMethod(STRING_GENERICS_TO_LOCALE_LOWER_CASE, "toLocaleLowerCase");
-    if (arguments.length < 1)
-        ThrowTypeError(JSMSG_MISSING_FUN_ARG, 0, "String.toLocaleLowerCase");
-/* eslint-disable no-unreachable */
-#if EXPOSE_INTL_API
-    var locales = arguments.length > 1 ? arguments[1] : undefined;
-    return callFunction(String_toLocaleLowerCase, string, locales);
-#else
-    return callFunction(std_String_toLocaleLowerCase, string);
-#endif
-/* eslint-enable no-unreachable */
-}
-
-function String_static_toLocaleUpperCase(string) {
-    WarnDeprecatedStringMethod(STRING_GENERICS_TO_LOCALE_UPPER_CASE, "toLocaleUpperCase");
-    if (arguments.length < 1)
-        ThrowTypeError(JSMSG_MISSING_FUN_ARG, 0, "String.toLocaleUpperCase");
-/* eslint-disable no-unreachable */
-#if EXPOSE_INTL_API
-    var locales = arguments.length > 1 ? arguments[1] : undefined;
-    return callFunction(String_toLocaleUpperCase, string, locales);
-#else
-    return callFunction(std_String_toLocaleUpperCase, string);
-#endif
-/* eslint-enable no-unreachable */
-}
-
-#if EXPOSE_INTL_API
-function String_static_normalize(string) {
-    WarnDeprecatedStringMethod(STRING_GENERICS_NORMALIZE, "normalize");
-    if (arguments.length < 1)
-        ThrowTypeError(JSMSG_MISSING_FUN_ARG, 0, "String.normalize");
-    var form = arguments.length > 1 ? arguments[1] : undefined;
-    return callFunction(std_String_normalize, string, form);
-}
-#endif
-
-function String_static_concat(string, arg1) {
-    WarnDeprecatedStringMethod(STRING_GENERICS_CONCAT, "concat");
-    if (arguments.length < 1)
-        ThrowTypeError(JSMSG_MISSING_FUN_ARG, 0, "String.concat");
-    var args = callFunction(std_Array_slice, arguments, 1);
-    return callFunction(std_Function_apply, std_String_concat, string, args);
 }

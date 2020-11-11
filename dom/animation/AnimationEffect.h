@@ -18,30 +18,23 @@
 #include "nsWrapperCache.h"
 
 namespace mozilla {
-
-struct ElementPropertyTransition;
-
 namespace dom {
 
 class Animation;
 class KeyframeEffect;
 struct ComputedEffectTiming;
+class Document;
 
 class AnimationEffect : public nsISupports, public nsWrapperCache {
  public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(AnimationEffect)
 
-  AnimationEffect(nsIDocument* aDocument, TimingParams&& aTiming);
+  AnimationEffect(Document* aDocument, TimingParams&& aTiming);
 
   virtual KeyframeEffect* AsKeyframeEffect() { return nullptr; }
 
-  virtual ElementPropertyTransition* AsTransition() { return nullptr; }
-  virtual const ElementPropertyTransition* AsTransition() const {
-    return nullptr;
-  }
-
-  nsISupports* GetParentObject() const { return mDocument; }
+  nsISupports* GetParentObject() const { return ToSupports(mDocument); }
 
   bool IsCurrent() const;
   bool IsInEffect() const;
@@ -50,9 +43,10 @@ class AnimationEffect : public nsISupports, public nsWrapperCache {
   }
 
   // AnimationEffect interface
-  void GetTiming(EffectTiming& aRetVal) const;
-  void GetComputedTimingAsDict(ComputedEffectTiming& aRetVal) const;
-  void UpdateTiming(const OptionalEffectTiming& aTiming, ErrorResult& aRv);
+  virtual void GetTiming(EffectTiming& aRetVal) const;
+  virtual void GetComputedTimingAsDict(ComputedEffectTiming& aRetVal) const;
+  virtual void UpdateTiming(const OptionalEffectTiming& aTiming,
+                            ErrorResult& aRv);
 
   const TimingParams& SpecifiedTiming() const { return mTiming; }
   void SetSpecifiedTiming(TimingParams&& aTiming);
@@ -91,7 +85,7 @@ class AnimationEffect : public nsISupports, public nsWrapperCache {
   Nullable<TimeDuration> GetLocalTime() const;
 
  protected:
-  RefPtr<nsIDocument> mDocument;
+  RefPtr<Document> mDocument;
   RefPtr<Animation> mAnimation;
   TimingParams mTiming;
 };

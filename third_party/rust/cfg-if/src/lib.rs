@@ -1,19 +1,16 @@
-//! A macro for defining #[cfg] if-else statements.
+//! A macro for defining `#[cfg]` if-else statements.
 //!
 //! The macro provided by this crate, `cfg_if`, is similar to the `if/elif` C
 //! preprocessor macro by allowing definition of a cascade of `#[cfg]` cases,
 //! emitting the implementation which matches first.
 //!
-//! This allows you to conveniently provide a long list #[cfg]'d blocks of code
+//! This allows you to conveniently provide a long list `#[cfg]`'d blocks of code
 //! without having to rewrite each clause multiple times.
 //!
 //! # Example
 //!
 //! ```
-//! #[macro_use]
-//! extern crate cfg_if;
-//!
-//! cfg_if! {
+//! cfg_if::cfg_if! {
 //!     if #[cfg(unix)] {
 //!         fn foo() { /* unix specific functionality */ }
 //!     } else if #[cfg(target_pointer_width = "32")] {
@@ -27,55 +24,66 @@
 //! ```
 
 #![no_std]
-
-#![doc(html_root_url = "http://alexcrichton.com/cfg-if")]
+#![doc(html_root_url = "https://docs.rs/cfg-if")]
 #![deny(missing_docs)]
 #![cfg_attr(test, deny(warnings))]
 
+/// The main macro provided by this crate. See crate documentation for more
+/// information.
 #[macro_export]
 macro_rules! cfg_if {
+    // match if/else chains with a final `else`
     ($(
-        if #[cfg($($meta:meta),*)] { $($it:item)* }
+        if #[cfg($meta:meta)] { $($tokens:tt)* }
     ) else * else {
-        $($it2:item)*
+        $($tokens2:tt)*
     }) => {
-        __cfg_if_items! {
+        $crate::cfg_if! {
+            @__items
             () ;
-            $( ( ($($meta),*) ($($it)*) ), )*
-            ( () ($($it2)*) ),
+            $( ( ($meta) ($($tokens)*) ), )*
+            ( () ($($tokens2)*) ),
         }
     };
+
+    // match if/else chains lacking a final `else`
     (
-        if #[cfg($($i_met:meta),*)] { $($i_it:item)* }
+        if #[cfg($i_met:meta)] { $($i_tokens:tt)* }
         $(
-            else if #[cfg($($e_met:meta),*)] { $($e_it:item)* }
+            else if #[cfg($e_met:meta)] { $($e_tokens:tt)* }
         )*
     ) => {
-        __cfg_if_items! {
+        $crate::cfg_if! {
+            @__items
             () ;
-            ( ($($i_met),*) ($($i_it)*) ),
-            $( ( ($($e_met),*) ($($e_it)*) ), )*
+            ( ($i_met) ($($i_tokens)*) ),
+            $( ( ($e_met) ($($e_tokens)*) ), )*
             ( () () ),
         }
-    }
-}
+    };
 
-#[macro_export]
-#[doc(hidden)]
-macro_rules! __cfg_if_items {
-    (($($not:meta,)*) ; ) => {};
-    (($($not:meta,)*) ; ( ($($m:meta),*) ($($it:item)*) ), $($rest:tt)*) => {
-        __cfg_if_apply! { cfg(all($($m,)* not(any($($not),*)))), $($it)* }
-        __cfg_if_items! { ($($not,)* $($m,)*) ; $($rest)* }
-    }
-}
+    // Internal and recursive macro to emit all the items
+    //
+    // Collects all the negated cfgs in a list at the beginning and after the
+    // semicolon is all the remaining items
+    (@__items ($($not:meta,)*) ; ) => {};
+    (@__items ($($not:meta,)*) ; ( ($($m:meta),*) ($($tokens:tt)*) ), $($rest:tt)*) => {
+        // Emit all items within one block, applying an appropriate #[cfg]. The
+        // #[cfg] will require all `$m` matchers specified and must also negate
+        // all previous matchers.
+        #[cfg(all($($m,)* not(any($($not),*))))] $crate::cfg_if! { @__identity $($tokens)* }
 
-#[macro_export]
-#[doc(hidden)]
-macro_rules! __cfg_if_apply {
-    ($m:meta, $($it:item)*) => {
-        $(#[$m] $it)*
-    }
+        // Recurse to emit all other items in `$rest`, and when we do so add all
+        // our `$m` matchers to the list of `$not` matchers as future emissions
+        // will have to negate everything we just matched as well.
+        $crate::cfg_if! { @__items ($($not,)* $($m,)*) ; $($rest)* }
+    };
+
+    // Internal macro to make __apply work out right for different match types,
+    // because of how macros matching/expand stuff.
+    (@__identity $($tokens:tt)*) => {
+        $($tokens)*
+    };
 }
 
 #[cfg(test)]
@@ -129,5 +137,40 @@ mod tests {
         assert!(works3());
         assert!(works4().is_some());
         assert!(works5());
+    }
+
+    #[test]
+    #[allow(clippy::assertions_on_constants)]
+    fn test_usage_within_a_function() {
+        cfg_if! {if #[cfg(debug_assertions)] {
+            // we want to put more than one thing here to make sure that they
+            // all get configured properly.
+            assert!(cfg!(debug_assertions));
+            assert_eq!(4, 2+2);
+        } else {
+            assert!(works1().is_some());
+            assert_eq!(10, 5+5);
+        }}
+    }
+
+    trait Trait {
+        fn blah(&self);
+    }
+
+    #[allow(dead_code)]
+    struct Struct;
+
+    impl Trait for Struct {
+        cfg_if! {
+            if #[cfg(feature = "blah")] {
+                fn blah(&self) {
+                    unimplemented!();
+                }
+            } else {
+                fn blah(&self) {
+                    unimplemented!();
+                }
+            }
+        }
     }
 }

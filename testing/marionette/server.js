@@ -4,39 +4,38 @@
 
 "use strict";
 
-const CC = Components.Constructor;
+const EXPORTED_SYMBOLS = ["TCPConnection", "TCPListener"];
 
-const ServerSocket = CC(
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+
+XPCOMUtils.defineLazyModuleGetters(this, {
+  OS: "resource://gre/modules/osfile.jsm",
+
+  assert: "chrome://marionette/content/assert.js",
+  Command: "chrome://marionette/content/message.js",
+  DebuggerTransport: "chrome://marionette/content/transport.js",
+  error: "chrome://marionette/content/error.js",
+  GeckoDriver: "chrome://marionette/content/driver.js",
+  Log: "chrome://marionette/content/log.js",
+  MarionettePrefs: "chrome://marionette/content/prefs.js",
+  Message: "chrome://marionette/content/message.js",
+  Response: "chrome://marionette/content/message.js",
+  WebElement: "chrome://marionette/content/element.js",
+});
+
+XPCOMUtils.defineLazyGetter(this, "logger", () => Log.get());
+XPCOMUtils.defineLazyGetter(this, "ServerSocket", () => {
+  return Components.Constructor(
     "@mozilla.org/network/server-socket;1",
     "nsIServerSocket",
-    "initSpecialConnection");
+    "initSpecialConnection"
+  );
+});
 
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
-
-ChromeUtils.import("chrome://marionette/content/assert.js");
-const {GeckoDriver} = ChromeUtils.import("chrome://marionette/content/driver.js", {});
-const {WebElement} = ChromeUtils.import("chrome://marionette/content/element.js", {});
-const {
-  error,
-  UnknownCommandError,
-} = ChromeUtils.import("chrome://marionette/content/error.js", {});
-const {
-  Command,
-  Message,
-  Response,
-} = ChromeUtils.import("chrome://marionette/content/message.js", {});
-const {Log} = ChromeUtils.import("chrome://marionette/content/log.js", {});
-const {MarionettePrefs} = ChromeUtils.import("chrome://marionette/content/prefs.js", {});
-const {DebuggerTransport} = ChromeUtils.import("chrome://marionette/content/transport.js", {});
-
-XPCOMUtils.defineLazyGetter(this, "logger", Log.get);
-
-const {KeepWhenOffline, LoopbackOnly} = Ci.nsIServerSocket;
-
-this.EXPORTED_SYMBOLS = [
-  "TCPConnection",
-  "TCPListener",
-];
+const { KeepWhenOffline, LoopbackOnly } = Ci.nsIServerSocket;
 
 /** @namespace */
 this.server = {};
@@ -92,7 +91,6 @@ class TCPListener {
         this.socket.asyncListen(this);
         logger.info(`Listening on port ${this.port}`);
       }
-
     } else if (this.socket) {
       // Note that closing the server socket will not close currently active
       // connections.
@@ -136,12 +134,17 @@ class TCPListener {
     let transport = new DebuggerTransport(input, output);
 
     let conn = new TCPConnection(
-        this.nextConnID++, transport, this.driverFactory.bind(this));
+      this.nextConnID++,
+      transport,
+      this.driverFactory.bind(this)
+    );
     conn.onclose = this.onConnectionClosed.bind(this);
     this.conns.add(conn);
 
-    logger.debug(`Accepted connection ${conn.id} ` +
-        `from ${clientSocket.host}:${clientSocket.port}`);
+    logger.debug(
+      `Accepted connection ${conn.id} ` +
+        `from ${clientSocket.host}:${clientSocket.port}`
+    );
     conn.sayHello();
     transport.ready();
   }
@@ -213,7 +216,8 @@ class TCPConnection {
     // unable to determine how to respond
     if (!Array.isArray(data)) {
       let e = new TypeError(
-          "Unable to unmarshal packet data: " + JSON.stringify(data));
+        "Unable to unmarshal packet data: " + JSON.stringify(data)
+      );
       error.report(e);
       return;
     }
@@ -261,7 +265,8 @@ class TCPConnection {
     let sendError = resp.sendError.bind(resp);
 
     await this.despatch(cmd, resp)
-        .then(sendResponse, sendError).catch(error.report);
+      .then(sendResponse, sendError)
+      .catch(error.report);
   }
 
   /**
@@ -279,19 +284,21 @@ class TCPConnection {
   async despatch(cmd, resp) {
     let fn = this.driver.commands[cmd.name];
     if (typeof fn == "undefined") {
-      throw new UnknownCommandError(cmd.name);
+      throw new error.UnknownCommandError(cmd.name);
     }
 
     if (cmd.name != "WebDriver:NewSession") {
-      assert.session(this.driver,
-          "Tried to run command without establishing a connection");
+      assert.session(
+        this.driver,
+        "Tried to run command without establishing a connection"
+      );
     }
 
     let rv = await fn.bind(this.driver)(cmd);
 
     if (rv != null) {
       if (rv instanceof WebElement || typeof rv != "object") {
-        resp.body = {value: rv};
+        resp.body = { value: rv };
       } else {
         resp.body = rv;
       }
@@ -365,7 +372,6 @@ class TCPConnection {
    *     The response to send back to the client.
    */
   sendToClient(resp) {
-    this.driver.responseCompleted();
     this.sendMessage(resp);
   }
 
@@ -393,7 +399,7 @@ class TCPConnection {
   }
 
   log_(msg) {
-    let dir = (msg.origin == Message.Origin.Client ? "->" : "<-");
+    let dir = msg.origin == Message.Origin.Client ? "->" : "<-";
     logger.debug(`${this.id} ${dir} ${msg}`);
   }
 

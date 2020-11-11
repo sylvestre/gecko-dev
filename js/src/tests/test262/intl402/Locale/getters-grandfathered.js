@@ -1,4 +1,3 @@
-// |reftest| skip -- Intl.Locale is not supported
 // Copyright 2018 André Bargull; Igalia, S.L. All rights reserved.
 // This code is governed by the BSD license found in the LICENSE file.
 
@@ -8,41 +7,35 @@ description: >
     Verifies getters with grandfathered tags.
 info: |
     get Intl.Locale.prototype.baseName
-    4. If locale does not match the langtag production, return locale.
     5. Return the substring of locale corresponding to the
        language ["-" script] ["-" region] *("-" variant)
-       subsequence of the langtag grammar.
+       subsequence of the  unicode_language_id grammar.
 
     get Intl.Locale.prototype.language
-    4. If locale matches the privateuse or the grandfathered production, return locale.
+    5. Return the substring of locale corresponding to the
+       unicode_language_subtag production.
 
     get Intl.Locale.prototype.script
-    4. If locale matches the privateuse or the grandfathered production, return undefined.
+    6. Return the substring of locale corresponding to the
+       unicode_script_subtag production.
 
     get Intl.Locale.prototype.region
-    4. If locale matches the privateuse or the grandfathered production, return undefined.
+    6. Return the substring of locale corresponding to the unicode_region_subtag
+       production.
 features: [Intl.Locale]
 ---*/
 
-// Irregular grandfathered language tag.
-var loc = new Intl.Locale("i-default");
-assert.sameValue(loc.baseName, "i-default"); // Step 4.
-assert.sameValue(loc.language, "i-default");
-assert.sameValue(loc.script, undefined);
-assert.sameValue(loc.region, undefined);
-
 // Regular grandfathered language tag.
 var loc = new Intl.Locale("cel-gaulish");
-assert.sameValue(loc.baseName, "cel-gaulish"); // Step 5.
-assert.sameValue(loc.language, "cel-gaulish");
+assert.sameValue(loc.baseName, "xtg");
+assert.sameValue(loc.language, "xtg");
 assert.sameValue(loc.script, undefined);
 assert.sameValue(loc.region, undefined);
 
 // Regular grandfathered language tag.
-var loc = new Intl.Locale("zh-min");
-assert.sameValue(loc.baseName, "zh-min"); // Step 5.
-assert.sameValue(loc.language, "zh-min");
-assert.sameValue(loc.script, undefined);
-assert.sameValue(loc.region, undefined);
+assert.throws(RangeError, () => new Intl.Locale("zh-min"));
+
+assert.throws(RangeError, () => new Intl.Locale("i-default"));
+
 
 reportCompare(0, 0);

@@ -1,26 +1,20 @@
+$search-height: 48px;
+$search-icon-size: 24px;
+$search-icon-padding: 12px;
+$search-icon-width: 2 * $search-icon-padding + $search-icon-size -2;
+$search-button-width: 48px;
+$glyph-forward: url('chrome://browser/skin/forward.svg');
+
 .search-wrapper {
-  $search-height: 48px;
-  $search-icon-size: 24px;
-  $search-icon-padding: 12px;
-  $search-icon-width: 2 * $search-icon-padding + $search-icon-size -2;
-  $search-button-width: 48px;
-  $glyph-forward: url('chrome://browser/skin/forward.svg');
-
   padding: 34px 0 64px;
-
-  @media (max-height: 700px) {
-    & {
-      padding: 0 0 30px;
-    }
-  }
 
   .only-search & {
     padding: 0 0 64px;
   }
 
   .logo-and-wordmark {
-    $logo-size: 97px;
-    $wordmark-size: 142px;
+    $logo-size: 96px;
+    $wordmark-size: 172px;
 
     align-items: center;
     display: flex;
@@ -28,15 +22,18 @@
     margin-bottom: 49px;
 
     .logo {
-      background: url('chrome://branding/content/icon128.png') no-repeat center center;
+      background: url('chrome://branding/content/about-logo.png') no-repeat center;
       background-size: $logo-size;
+      @media (min-resolution: 2x) {
+        background-image: url('chrome://branding/content/about-logo@2x.png');
+      }
       display: inline-block;
       height: $logo-size;
       width: $logo-size;
     }
 
     .wordmark {
-      background: url('#{$image-path}firefox-wordmark.svg') no-repeat center center;
+      background: url('chrome://branding/content/firefox-wordmark.svg') no-repeat center center;
       background-size: $wordmark-size;
       -moz-context-properties: fill;
       display: inline-block;
@@ -67,17 +64,29 @@
   .search-inner-wrapper {
     cursor: default;
     display: flex;
-    height: $search-height;
+    min-height: $search-height;
     margin: 0 auto;
     position: relative;
     width: $searchbar-width-small;
 
+    .ds-outer-wrapper-breakpoint-override & {
+      width: 216px;
+    }
+
     @media (min-width: $break-point-medium) {
       width: $searchbar-width-medium;
+
+      .ds-outer-wrapper-breakpoint-override & {
+        width: 460px;
+      }
     }
 
     @media (min-width: $break-point-large) {
       width: $searchbar-width-large;
+
+      .ds-outer-wrapper-breakpoint-override & {
+        width: 696px;
+      }
     }
   }
 
@@ -137,10 +146,112 @@
   }
 }
 
+.non-collapsible-section + .below-search-snippet-wrapper {
+  // If search is enabled, we need to invade its large bottom padding.
+  margin-top: -48px;
+}
+
+@media (max-height: 700px) {
+  .search-wrapper {
+    padding: 0 0 30px;
+  }
+
+  .non-collapsible-section + .below-search-snippet-wrapper {
+    // In shorter windows, search doesn't have such a large padding.
+    margin-top: -14px;
+  }
+
+  .below-search-snippet-wrapper {
+    min-height: 0;
+  }
+}
+
+.search-handoff-button {
+  background: var(--newtab-textbox-background-color) var(--newtab-search-icon) $search-icon-padding center no-repeat;
+  background-size: $search-icon-size;
+  border: solid 1px var(--newtab-search-border-color);
+  border-radius: 3px;
+  box-shadow: $shadow-secondary, 0 0 0 1px $black-15;
+  cursor: text;
+  font-size: 15px;
+  padding: 0;
+  padding-inline-end: 48px;
+  padding-inline-start: 46px;
+  opacity: 1;
+  transition: opacity 500ms;
+  width: 100%;
+
+  &:dir(rtl) {
+    background-position-x: right $search-icon-padding;
+  }
+
+  &:hover {
+    box-shadow: $shadow-secondary, 0 0 0 1px $black-25;
+  }
+
+  .fake-focus & {
+    border: $input-border-active;
+    box-shadow: var(--newtab-textbox-focus-boxshadow);
+
+    .fake-caret {
+      display: block;
+    }
+  }
+
+  .search-hidden & {
+    opacity: 0;
+    visibility: hidden;
+  }
+
+  .fake-editable:focus {
+    outline: none;
+    caret-color: transparent;
+  }
+
+  .fake-editable {
+    color: transparent;
+    height: 100%;
+    opacity: 0;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+  }
+
+  .fake-textbox {
+    opacity: 0.54;
+    text-align: start;
+  }
+
+  .fake-caret {
+    animation: caret-animation 1.3s steps(5, start) infinite;
+    background: var(--newtab-text-primary-color);
+    display: none;
+    inset-inline-start: 47px;
+    height: 17px;
+    position: absolute;
+    top: 16px;
+    width: 1px;
+
+    @keyframes caret-animation {
+      to {
+        visibility: hidden;
+      }
+    }
+  }
+}
+
 @media (min-height: 701px) {
-  .fixed-search {
+  body:not(.inline-onboarding) .fixed-search {
     main {
       padding-top: 146px;
+    }
+
+    &.visible-logo {
+      main {
+        padding-top: 291px;
+      }
     }
 
     .search-wrapper {
@@ -151,7 +262,7 @@
 
       background-color: var(--newtab-search-header-background-color);
       border-bottom: solid 1px var(--newtab-border-secondary-color);
-      height: $search-header-bar-height;
+      min-height: $search-header-bar-height;
       left: 0;
       padding: 30px 0;
       position: fixed;
@@ -160,7 +271,7 @@
       z-index: 9;
 
       .search-inner-wrapper {
-        height: $search-height;
+        min-height: $search-height;
       }
 
       input {
@@ -170,6 +281,23 @@
         &:dir(rtl) {
           background-position-x: right $search-icon-padding;
         }
+      }
+
+      .logo-and-wordmark {
+        display: none;
+      }
+    }
+
+    .search-handoff-button {
+      background-position-x: $search-icon-padding;
+      background-size: $search-icon-size;
+
+      &:dir(rtl) {
+        background-position-x: right $search-icon-padding;
+      }
+
+      .fake-caret {
+        top: 10px;
       }
     }
   }

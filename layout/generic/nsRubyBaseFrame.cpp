@@ -9,6 +9,7 @@
 #include "nsRubyBaseFrame.h"
 
 #include "mozilla/ComputedStyle.h"
+#include "mozilla/PresShell.h"
 #include "mozilla/WritingModes.h"
 #include "nsLineLayout.h"
 #include "nsPresContext.h"
@@ -26,9 +27,9 @@ NS_QUERYFRAME_TAIL_INHERITING(nsRubyContentFrame)
 
 NS_IMPL_FRAMEARENA_HELPERS(nsRubyBaseFrame)
 
-nsContainerFrame* NS_NewRubyBaseFrame(nsIPresShell* aPresShell,
+nsContainerFrame* NS_NewRubyBaseFrame(mozilla::PresShell* aPresShell,
                                       ComputedStyle* aStyle) {
-  return new (aPresShell) nsRubyBaseFrame(aStyle);
+  return new (aPresShell) nsRubyBaseFrame(aStyle, aPresShell->GetPresContext());
 }
 
 //----------------------------------------------------------------------
@@ -38,6 +39,6 @@ nsContainerFrame* NS_NewRubyBaseFrame(nsIPresShell* aPresShell,
 
 #ifdef DEBUG_FRAME_DUMP
 nsresult nsRubyBaseFrame::GetFrameName(nsAString& aResult) const {
-  return MakeFrameName(NS_LITERAL_STRING("RubyBase"), aResult);
+  return MakeFrameName(u"RubyBase"_ns, aResult);
 }
 #endif

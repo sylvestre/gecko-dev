@@ -10,15 +10,16 @@
 #include "Neutering.h"
 #include "MessageChannel.h"
 
-#include "nsAutoPtr.h"
 #include "nsServiceManagerUtils.h"
 #include "nsString.h"
-#include "nsIXULAppInfo.h"
 #include "WinUtils.h"
 
 #include "mozilla/ArrayUtils.h"
+#include "mozilla/dom/JSExecutionManager.h"
 #include "mozilla/ipc/ProtocolUtils.h"
+#include "mozilla/mscom/Utils.h"
 #include "mozilla/PaintTracker.h"
+#include "mozilla/UniquePtr.h"
 
 using namespace mozilla;
 using namespace mozilla::ipc;
@@ -76,12 +77,8 @@ using namespace mozilla::ipc::windows;
 extern const wchar_t* kPropNameTabContent;
 #endif
 
-// widget related message id constants we need to defer
-namespace mozilla {
-namespace widget {
+// widget related message id constants we need to defer, see nsAppShell.
 extern UINT sAppShellGeckoMsgId;
-}
-}  // namespace mozilla
 
 namespace {
 
@@ -91,12 +88,9 @@ const wchar_t k3rdPartyWindowProp[] = L"Mozilla3rdPartyWindow";
 // This isn't defined before Windows XP.
 enum { WM_XP_THEMECHANGED = 0x031A };
 
-char16_t gAppMessageWindowName[256] = {0};
-int32_t gAppMessageWindowNameLength = 0;
-
 nsTArray<HWND>* gNeuteredWindows = nullptr;
 
-typedef nsTArray<nsAutoPtr<DeferredMessage> > DeferredMessageArray;
+typedef nsTArray<UniquePtr<DeferredMessage>> DeferredMessageArray;
 DeferredMessageArray* gDeferredMessages = nullptr;
 
 HHOOK gDeferredGetMsgHook = nullptr;
@@ -155,7 +149,9 @@ void CALLBACK WinEventHook(HWINEVENTHOOK aWinEventHook, DWORD aEvent,
       }
       break;
     }
-    default: { return; }
+    default: {
+      return;
+    }
   }
 }
 
@@ -182,7 +178,7 @@ LRESULT CALLBACK DeferredMessageHook(int nCode, WPARAM wParam, LPARAM lParam) {
     gDeferredCallWndProcHook = 0;
 
     // Unset the global and make sure we delete it when we're done here.
-    nsAutoPtr<DeferredMessageArray> messages(gDeferredMessages);
+    auto messages = WrapUnique(gDeferredMessages);
     gDeferredMessages = nullptr;
 
     // Run all the deferred messages in order.
@@ -254,7 +250,7 @@ static void DumpNeuteredMessage(HWND hwnd, UINT uMsg) {
 
 LRESULT
 ProcessOrDeferMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
-  DeferredMessage* deferred = nullptr;
+  UniquePtr<DeferredMessage> deferred;
 
   // Most messages ask for 0 to be returned if the message is processed.
   LRESULT res = 0;
@@ -280,7 +276,7 @@ ProcessOrDeferMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     case WM_DISPLAYCHANGE:
     case WM_SHOWWINDOW:  // Intentional fall-through.
     case WM_XP_THEMECHANGED: {
-      deferred = new DeferredSendMessage(hwnd, uMsg, wParam, lParam);
+      deferred = MakeUnique<DeferredSendMessage>(hwnd, uMsg, wParam, lParam);
       break;
     }
 
@@ -290,13 +286,13 @@ ProcessOrDeferMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     case WM_SETCURSOR: {
       // Friggin unconventional return value...
       res = TRUE;
-      deferred = new DeferredSendMessage(hwnd, uMsg, wParam, lParam);
+      deferred = MakeUnique<DeferredSendMessage>(hwnd, uMsg, wParam, lParam);
       break;
     }
 
     case WM_MOUSEACTIVATE: {
       res = MA_NOACTIVATE;
-      deferred = new DeferredSendMessage(hwnd, uMsg, wParam, lParam);
+      deferred = MakeUnique<DeferredSendMessage>(hwnd, uMsg, wParam, lParam);
       break;
     }
 
@@ -306,46 +302,49 @@ ProcessOrDeferMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     case WM_ERASEBKGND: {
       UINT flags = RDW_INVALIDATE | RDW_ERASE | RDW_NOINTERNALPAINT |
                    RDW_NOFRAME | RDW_NOCHILDREN | RDW_ERASENOW;
-      deferred = new DeferredRedrawMessage(hwnd, flags);
+      deferred = MakeUnique<DeferredRedrawMessage>(hwnd, flags);
       break;
     }
 
     // This message will generate a WM_PAINT message if there are invalid
     // areas.
     case WM_PAINT: {
-      deferred = new DeferredUpdateMessage(hwnd);
+      deferred = MakeUnique<DeferredUpdateMessage>(hwnd);
       break;
     }
 
     // This message holds a string in its lParam that we must copy.
     case WM_SETTINGCHANGE: {
-      deferred = new DeferredSettingChangeMessage(hwnd, uMsg, wParam, lParam);
+      deferred =
+          MakeUnique<DeferredSettingChangeMessage>(hwnd, uMsg, wParam, lParam);
       break;
     }
 
     // These messages are faked via a call to SetWindowPos.
     case WM_WINDOWPOSCHANGED: {
-      deferred = new DeferredWindowPosMessage(hwnd, lParam);
+      deferred = MakeUnique<DeferredWindowPosMessage>(hwnd, lParam);
       break;
     }
     case WM_NCCALCSIZE: {
-      deferred = new DeferredWindowPosMessage(hwnd, lParam, true, wParam);
+      deferred =
+          MakeUnique<DeferredWindowPosMessage>(hwnd, lParam, true, wParam);
       break;
     }
 
     case WM_COPYDATA: {
-      deferred = new DeferredCopyDataMessage(hwnd, uMsg, wParam, lParam);
+      deferred =
+          MakeUnique<DeferredCopyDataMessage>(hwnd, uMsg, wParam, lParam);
       res = TRUE;
       break;
     }
 
     case WM_STYLECHANGED: {
-      deferred = new DeferredStyleChangeMessage(hwnd, wParam, lParam);
+      deferred = MakeUnique<DeferredStyleChangeMessage>(hwnd, wParam, lParam);
       break;
     }
 
     case WM_SETICON: {
-      deferred = new DeferredSetIconMessage(hwnd, uMsg, wParam, lParam);
+      deferred = MakeUnique<DeferredSetIconMessage>(hwnd, uMsg, wParam, lParam);
       break;
     }
 
@@ -393,9 +392,9 @@ ProcessOrDeferMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     default: {
       // Unknown messages only are logged in debug builds and sent to
       // DefWindowProc.
-      if (uMsg && uMsg == mozilla::widget::sAppShellGeckoMsgId) {
+      if (uMsg && uMsg == sAppShellGeckoMsgId) {
         // Widget's registered native event callback
-        deferred = new DeferredSendMessage(hwnd, uMsg, wParam, lParam);
+        deferred = MakeUnique<DeferredSendMessage>(hwnd, uMsg, wParam, lParam);
       }
     }
   }
@@ -409,12 +408,11 @@ ProcessOrDeferMessage(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 
   // Create the deferred message array if it doesn't exist already.
   if (!gDeferredMessages) {
-    gDeferredMessages = new nsTArray<nsAutoPtr<DeferredMessage> >(20);
-    NS_ASSERTION(gDeferredMessages, "Out of memory!");
+    gDeferredMessages = new DeferredMessageArray(20);
   }
 
   // Save for later. The array takes ownership of |deferred|.
-  gDeferredMessages->AppendElement(deferred);
+  gDeferredMessages->AppendElement(std::move(deferred));
   return res;
 }
 
@@ -460,8 +458,8 @@ static bool WindowIsDeferredWindow(HWND hWnd) {
 
   // Common mozilla windows we must defer messages to.
   nsDependentString className(buffer, length);
-  if (StringBeginsWith(className, NS_LITERAL_STRING("Mozilla")) ||
-      StringBeginsWith(className, NS_LITERAL_STRING("Gecko")) ||
+  if (StringBeginsWith(className, u"Mozilla"_ns) ||
+      StringBeginsWith(className, u"Gecko"_ns) ||
       className.EqualsLiteral("nsToolkitClass") ||
       className.EqualsLiteral("nsAppShell:EventWindowClass")) {
     return true;
@@ -471,34 +469,6 @@ static bool WindowIsDeferredWindow(HWND hWnd) {
   // 'ShockwaveFlashFullScreen' - flash fullscreen window
   if (className.EqualsLiteral("ShockwaveFlashFullScreen")) {
     SetPropW(hWnd, k3rdPartyWindowProp, (HANDLE)1);
-    return true;
-  }
-
-  // nsNativeAppSupport makes a window like "FirefoxMessageWindow" based on the
-  // toolkit app's name. It's pretty expensive to calculate this so we only try
-  // once.
-  if (gAppMessageWindowNameLength == 0) {
-    nsCOMPtr<nsIXULAppInfo> appInfo =
-        do_GetService("@mozilla.org/xre/app-info;1");
-    if (appInfo) {
-      nsAutoCString appName;
-      if (NS_SUCCEEDED(appInfo->GetName(appName))) {
-        appName.AppendLiteral("MessageWindow");
-        nsDependentString windowName(gAppMessageWindowName);
-        CopyUTF8toUTF16(appName, windowName);
-        gAppMessageWindowNameLength = windowName.Length();
-      }
-    }
-
-    // Don't try again if that failed.
-    if (gAppMessageWindowNameLength == 0) {
-      gAppMessageWindowNameLength = -1;
-    }
-  }
-
-  if (gAppMessageWindowNameLength != -1 &&
-      className.Equals(nsDependentString(gAppMessageWindowName,
-                                         gAppMessageWindowNameLength))) {
     return true;
   }
 
@@ -570,10 +540,9 @@ LRESULT CALLBACK CallWindowProcedureHook(int nCode, WPARAM wParam,
     if (!gNeuteredWindows->Contains(hWnd) &&
         !SuppressedNeuteringRegion::IsNeuteringSuppressed() &&
         NeuterWindowProcedure(hWnd)) {
-      if (!gNeuteredWindows->AppendElement(hWnd)) {
-        NS_ERROR("Out of memory!");
-        RestoreWindowProcedure(hWnd);
-      }
+      // XXX(Bug 1631371) Check if this should use a fallible operation as it
+      // pretended earlier.
+      gNeuteredWindows->AppendElement(hWnd);
     }
   }
   return CallNextHookEx(nullptr, nCode, wParam, lParam);
@@ -634,16 +603,10 @@ namespace mozilla {
 namespace ipc {
 namespace windows {
 
-static bool ProcessTypeRequiresWinEventHook() {
-  switch (XRE_GetProcessType()) {
-    case GeckoProcessType_GMPlugin:
-      return false;
-    default:
-      return true;
-  }
-}
-
 void InitUIThread() {
+  if (!XRE_UseNativeEventProcessing()) {
+    return;
+  }
   // If we aren't setup before a call to NotifyWorkerThread, we'll hang
   // on startup.
   if (!gUIThreadId) {
@@ -654,7 +617,7 @@ void InitUIThread() {
   MOZ_ASSERT(gUIThreadId == GetCurrentThreadId(),
              "Called InitUIThread multiple times on different threads!");
 
-  if (!gWinEventHook && ProcessTypeRequiresWinEventHook()) {
+  if (!gWinEventHook && !mscom::IsCurrentThreadMTA()) {
     gWinEventHook = SetWinEventHook(EVENT_OBJECT_CREATE, EVENT_OBJECT_DESTROY,
                                     NULL, &WinEventHook, GetCurrentProcessId(),
                                     gUIThreadId, WINEVENT_OUTOFCONTEXT);
@@ -807,6 +770,9 @@ void MessageChannel::SpinInternalEventLoop() {
 static HHOOK gWindowHook;
 
 static inline void StartNeutering() {
+  if (!gUIThreadId) {
+    mozilla::ipc::windows::InitUIThread();
+  }
   MOZ_ASSERT(gUIThreadId);
   MOZ_ASSERT(!gWindowHook);
   NS_ASSERTION(!MessageChannel::IsPumpingMessages(),
@@ -830,10 +796,9 @@ static void StopNeutering() {
   MessageChannel::SetIsPumpingMessages(false);
 }
 
-NeuteredWindowRegion::NeuteredWindowRegion(
-    bool aDoNeuter MOZ_GUARD_OBJECT_NOTIFIER_PARAM_IN_IMPL)
-    : mNeuteredByThis(!gWindowHook && aDoNeuter) {
-  MOZ_GUARD_OBJECT_NOTIFIER_INIT;
+NeuteredWindowRegion::NeuteredWindowRegion(bool aDoNeuter)
+    : mNeuteredByThis(!gWindowHook && aDoNeuter &&
+                      XRE_UseNativeEventProcessing()) {
   if (mNeuteredByThis) {
     StartNeutering();
   }
@@ -861,10 +826,8 @@ void NeuteredWindowRegion::PumpOnce() {
   ::PeekMessageW(&msg, nullptr, 0, 0, PM_NOREMOVE);
 }
 
-DeneuteredWindowRegion::DeneuteredWindowRegion(
-    MOZ_GUARD_OBJECT_NOTIFIER_ONLY_PARAM_IN_IMPL)
+DeneuteredWindowRegion::DeneuteredWindowRegion()
     : mReneuter(gWindowHook != NULL) {
-  MOZ_GUARD_OBJECT_NOTIFIER_INIT;
   if (mReneuter) {
     StopNeutering();
   }
@@ -876,10 +839,8 @@ DeneuteredWindowRegion::~DeneuteredWindowRegion() {
   }
 }
 
-SuppressedNeuteringRegion::SuppressedNeuteringRegion(
-    MOZ_GUARD_OBJECT_NOTIFIER_ONLY_PARAM_IN_IMPL)
+SuppressedNeuteringRegion::SuppressedNeuteringRegion()
     : mReenable(::gUIThreadId == ::GetCurrentThreadId() && ::gWindowHook) {
-  MOZ_GUARD_OBJECT_NOTIFIER_INIT;
   if (mReenable) {
     MOZ_ASSERT(!sSuppressNeutering);
     sSuppressNeutering = true;
@@ -956,7 +917,9 @@ bool MessageChannel::WaitForSyncNotifyWithA11yReentry() {
 bool MessageChannel::WaitForSyncNotify(bool aHandleWindowsMessages) {
   mMonitor->AssertCurrentThreadOwns();
 
-  MOZ_ASSERT(gUIThreadId, "InitUIThread was not called!");
+  if (!gUIThreadId) {
+    mozilla::ipc::windows::InitUIThread();
+  }
 
 #if defined(ACCESSIBILITY)
   if (mFlags & REQUIRE_A11Y_REENTRY) {
@@ -1099,7 +1062,13 @@ bool MessageChannel::WaitForSyncNotify(bool aHandleWindowsMessages) {
 bool MessageChannel::WaitForInterruptNotify() {
   mMonitor->AssertCurrentThreadOwns();
 
-  MOZ_ASSERT(gUIThreadId, "InitUIThread was not called!");
+  // Receiving the interrupt notification may require JS to execute on a
+  // worker.
+  dom::AutoYieldJSThreadExecution yield;
+
+  if (!gUIThreadId) {
+    mozilla::ipc::windows::InitUIThread();
+  }
 
   // Re-use sync notification wait code if this channel does not require
   // Windows message deferral behavior.

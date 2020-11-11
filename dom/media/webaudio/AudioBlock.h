@@ -38,7 +38,6 @@ class AudioBlock : private AudioChunk {
   using AudioChunk::ChannelCount;
   using AudioChunk::ChannelData;
   using AudioChunk::GetDuration;
-  using AudioChunk::IsAudible;
   using AudioChunk::IsNull;
   using AudioChunk::SizeOfExcludingThis;
   using AudioChunk::SizeOfExcludingThisIfUnshared;
@@ -72,7 +71,7 @@ class AudioBlock : private AudioChunk {
 
   ThreadSharedObject* GetBuffer() const { return mBuffer; }
   void SetBuffer(ThreadSharedObject* aNewBuffer);
-  void SetNull(StreamTime aDuration) {
+  void SetNull(TrackTime aDuration) {
     MOZ_ASSERT(aDuration == WEBAUDIO_BLOCK_SIZE);
     SetBuffer(nullptr);
     mChannelData.Clear();
@@ -104,7 +103,7 @@ class AudioBlock : private AudioChunk {
 
     for (uint32_t i = 0, length = mChannelData.Length(); i < length; ++i) {
       const float* channel = static_cast<const float*>(mChannelData[i]);
-      for (StreamTime frame = 0; frame < mDuration; ++frame) {
+      for (TrackTime frame = 0; frame < mDuration; ++frame) {
         if (fabs(channel[frame]) >= FLT_MIN) {
           return false;
         }
@@ -130,6 +129,6 @@ class AudioBlock : private AudioChunk {
 
 }  // namespace mozilla
 
-DECLARE_USE_COPY_CONSTRUCTORS(mozilla::AudioBlock)
+MOZ_DECLARE_RELOCATE_USING_MOVE_CONSTRUCTOR(mozilla::AudioBlock)
 
 #endif  // MOZILLA_AUDIOBLOCK_H_

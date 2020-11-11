@@ -1,15 +1,18 @@
 /* Any copyright is dedicated to the Public Domain.
    http://creativecommons.org/publicdomain/zero/1.0/ */
 
-const VIDEO_URL = "http://mochi.test:8888/browser/browser/base/content/test/general/web_video.html";
+const VIDEO_URL =
+  "http://mochi.test:8888/browser/browser/base/content/test/general/web_video.html";
 
 /**
  * mockTransfer.js provides a utility that lets us mock out
  * the "Save File" dialog.
  */
 /* import-globals-from ../../../../../toolkit/content/tests/browser/common/mockTransfer.js */
-Services.scriptloader.loadSubScript("chrome://mochitests/content/browser/toolkit/content/tests/browser/common/mockTransfer.js",
-                 this);
+Services.scriptloader.loadSubScript(
+  "chrome://mochitests/content/browser/toolkit/content/tests/browser/common/mockTransfer.js",
+  this
+);
 
 /**
  * Creates and returns an nsIFile for a new temporary save
@@ -20,8 +23,9 @@ Services.scriptloader.loadSubScript("chrome://mochitests/content/browser/toolkit
 function createTemporarySaveDirectory() {
   let saveDir = Services.dirsvc.get("TmpD", Ci.nsIFile);
   saveDir.append("testsavedir");
-  if (!saveDir.exists())
+  if (!saveDir.exists()) {
     saveDir.create(Ci.nsIFile.DIRECTORY_TYPE, 0o755);
+  }
   return saveDir;
 }
 /**
@@ -30,37 +34,12 @@ function createTemporarySaveDirectory() {
  * selector has selected where to save the file.
  */
 function waitForTransferComplete() {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     mockTransferCallback = () => {
       ok(true, "Transfer completed");
       resolve();
     };
   });
-}
-
-/**
- * Given some browser, loads a framescript that right-clicks
- * on the video1 element to spawn a contextmenu.
- */
-function rightClickVideo(browser) {
-  let frame_script = () => {
-    let utils = content.windowUtils;
-
-    let document = content.document;
-    let video = document.getElementById("video1");
-    let rect = video.getBoundingClientRect();
-
-    /* Synthesize a click in the center of the video. */
-    let left = rect.left + (rect.width / 2);
-    let top = rect.top + (rect.height / 2);
-
-    utils.sendMouseEvent("contextmenu", left, top,
-                         2, /* aButton */
-                         1, /* aClickCount */
-                         0 /* aModifiers */);
-  };
-  let mm = browser.messageManager;
-  mm.loadFrameScript("data:,(" + frame_script.toString() + ")();", true);
 }
 
 /**
@@ -103,7 +82,11 @@ add_task(async function() {
   let popupPromise = promisePopupShown(context);
 
   info("Synthesizing right-click on video element");
-  rightClickVideo(browser);
+  await BrowserTestUtils.synthesizeMouseAtCenter(
+    "#video1",
+    { type: "contextmenu", button: 2 },
+    browser
+  );
   info("Waiting for popup to fire popupshown.");
   await popupPromise;
   info("Popup fired popupshown");

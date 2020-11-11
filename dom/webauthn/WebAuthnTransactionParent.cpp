@@ -9,37 +9,77 @@
 #include "mozilla/ipc/PBackgroundParent.h"
 #include "mozilla/ipc/BackgroundParent.h"
 
+#ifdef OS_WIN
+#  include "WinWebAuthnManager.h"
+#endif
+
 namespace mozilla {
 namespace dom {
 
 mozilla::ipc::IPCResult WebAuthnTransactionParent::RecvRequestRegister(
     const uint64_t& aTransactionId,
     const WebAuthnMakeCredentialInfo& aTransactionInfo) {
-  AssertIsOnBackgroundThread();
+  ::mozilla::ipc::AssertIsOnBackgroundThread();
+
+#ifdef OS_WIN
+  if (WinWebAuthnManager::AreWebAuthNApisAvailable()) {
+    WinWebAuthnManager* mgr = WinWebAuthnManager::Get();
+    mgr->Register(this, aTransactionId, aTransactionInfo);
+  } else {
+    U2FTokenManager* mgr = U2FTokenManager::Get();
+    mgr->Register(this, aTransactionId, aTransactionInfo);
+  }
+#else
   U2FTokenManager* mgr = U2FTokenManager::Get();
   mgr->Register(this, aTransactionId, aTransactionInfo);
+#endif
+
   return IPC_OK();
 }
 
 mozilla::ipc::IPCResult WebAuthnTransactionParent::RecvRequestSign(
     const uint64_t& aTransactionId,
     const WebAuthnGetAssertionInfo& aTransactionInfo) {
-  AssertIsOnBackgroundThread();
+  ::mozilla::ipc::AssertIsOnBackgroundThread();
+
+#ifdef OS_WIN
+  if (WinWebAuthnManager::AreWebAuthNApisAvailable()) {
+    WinWebAuthnManager* mgr = WinWebAuthnManager::Get();
+    mgr->Sign(this, aTransactionId, aTransactionInfo);
+  } else {
+    U2FTokenManager* mgr = U2FTokenManager::Get();
+    mgr->Sign(this, aTransactionId, aTransactionInfo);
+  }
+#else
   U2FTokenManager* mgr = U2FTokenManager::Get();
   mgr->Sign(this, aTransactionId, aTransactionInfo);
+#endif
+
   return IPC_OK();
 }
 
 mozilla::ipc::IPCResult WebAuthnTransactionParent::RecvRequestCancel(
     const uint64_t& aTransactionId) {
-  AssertIsOnBackgroundThread();
+  ::mozilla::ipc::AssertIsOnBackgroundThread();
+
+#ifdef OS_WIN
+  if (WinWebAuthnManager::AreWebAuthNApisAvailable()) {
+    WinWebAuthnManager* mgr = WinWebAuthnManager::Get();
+    mgr->Cancel(this, aTransactionId);
+  } else {
+    U2FTokenManager* mgr = U2FTokenManager::Get();
+    mgr->Cancel(this, aTransactionId);
+  }
+#else
   U2FTokenManager* mgr = U2FTokenManager::Get();
   mgr->Cancel(this, aTransactionId);
+#endif
+
   return IPC_OK();
 }
 
 mozilla::ipc::IPCResult WebAuthnTransactionParent::RecvDestroyMe() {
-  AssertIsOnBackgroundThread();
+  ::mozilla::ipc::AssertIsOnBackgroundThread();
 
   // The child was disconnected from the WebAuthnManager instance and will send
   // no further messages. It is kept alive until we delete it explicitly.
@@ -57,16 +97,29 @@ mozilla::ipc::IPCResult WebAuthnTransactionParent::RecvDestroyMe() {
 }
 
 void WebAuthnTransactionParent::ActorDestroy(ActorDestroyReason aWhy) {
-  AssertIsOnBackgroundThread();
+  ::mozilla::ipc::AssertIsOnBackgroundThread();
 
   // Called either by Send__delete__() in RecvDestroyMe() above, or when
   // the channel disconnects. Ensure the token manager forgets about us.
-  U2FTokenManager* mgr = U2FTokenManager::Get();
 
-  // The manager could probably be null on shutdown?
+#ifdef OS_WIN
+  if (WinWebAuthnManager::AreWebAuthNApisAvailable()) {
+    WinWebAuthnManager* mgr = WinWebAuthnManager::Get();
+    if (mgr) {
+      mgr->MaybeClearTransaction(this);
+    }
+  } else {
+    U2FTokenManager* mgr = U2FTokenManager::Get();
+    if (mgr) {
+      mgr->MaybeClearTransaction(this);
+    }
+  }
+#else
+  U2FTokenManager* mgr = U2FTokenManager::Get();
   if (mgr) {
     mgr->MaybeClearTransaction(this);
   }
+#endif
 }
 
 }  // namespace dom

@@ -16,15 +16,25 @@ var EXPORTED_SYMBOLS = ["Subprocess"];
 
 /* exported Subprocess */
 
-ChromeUtils.import("resource://gre/modules/AppConstants.jsm");
-ChromeUtils.import("resource://gre/modules/subprocess/subprocess_common.jsm");
+const { AppConstants } = ChromeUtils.import(
+  "resource://gre/modules/AppConstants.jsm"
+);
+const { SubprocessConstants } = ChromeUtils.import(
+  "resource://gre/modules/subprocess/subprocess_common.jsm"
+);
 
 if (AppConstants.platform == "win") {
-  ChromeUtils.defineModuleGetter(this, "SubprocessImpl",
-                                 "resource://gre/modules/subprocess/subprocess_win.jsm");
+  ChromeUtils.defineModuleGetter(
+    this,
+    "SubprocessImpl",
+    "resource://gre/modules/subprocess/subprocess_win.jsm"
+  );
 } else {
-  ChromeUtils.defineModuleGetter(this, "SubprocessImpl",
-                                 "resource://gre/modules/subprocess/subprocess_unix.jsm");
+  ChromeUtils.defineModuleGetter(
+    this,
+    "SubprocessImpl",
+    "resource://gre/modules/subprocess/subprocess_unix.jsm"
+  );
 }
 
 function encodeEnvVar(name, value) {
@@ -38,6 +48,10 @@ function encodeEnvVar(name, value) {
   }
 
   return Uint8Array.of(...encode(name), ...encode("="), ...encode(value), 0);
+}
+
+function platformSupportsDisclaimedSpawn() {
+  return AppConstants.isPlatformAndVersionAtLeast("macosx", 18);
 }
 
 /**
@@ -61,16 +75,17 @@ var Subprocess = {
    * @param {string[]} [options.arguments]
    * A list of strings to pass as arguments to the process.
    *
-   * @param {object} [options.environment]
-   * An object containing a key and value for each environment variable
-   * to pass to the process. Only the object's own, enumerable properties
-   * are added to the environment.
+   * @param {object} [options.environment] An object containing a key
+   * and value for each environment variable to pass to the
+   * process. Values that are `=== null` are ignored. Only the
+   * object's own, enumerable properties are added to the environment.
    *
-   * @param {boolean} [options.environmentAppend]
-   * If true, append the environment variables passed in `environment` to
-   * the existing set of environment variables. Otherwise, the values in
-   * 'environment' constitute the entire set of environment variables
-   * passed to the new process.
+   * @param {boolean} [options.environmentAppend] If true, append the
+   * environment variables passed in `environment` to the existing set
+   * of environment variables. Values that are `=== null` are removed
+   * from the environment. Otherwise, the values in 'environment'
+   * constitute the entire set of environment variables passed to the
+   * new process.
    *
    * @param {string} [options.stderr]
    * Defines how the process's stderr output is handled. One of:
@@ -82,6 +97,13 @@ var Subprocess = {
    *
    * @param {string} [options.workdir]
    *        The working directory in which to launch the new process.
+   *
+   * @param {boolean} [options.disclaim]
+   * macOS-specific option for 10.14+ OS versions. If true, enables a
+   * macOS-specific process launch option allowing the parent process to
+   * disclaim responsibility for the child process with respect to privacy/
+   * security permission prompts and decisions. This option is ignored on
+   * platforms that do not support it.
    *
    * @returns {Promise<Process>}
    *
@@ -102,6 +124,7 @@ var Subprocess = {
 
     options.stderr = options.stderr || "ignore";
     options.workdir = options.workdir || null;
+    options.disclaim = options.disclaim || false;
 
     let environment = {};
     if (!options.environment || options.environmentAppend) {
@@ -113,13 +136,22 @@ var Subprocess = {
     }
 
     options.environment = Object.entries(environment)
-                                .map(([key, val]) => encodeEnvVar(key, val));
+      .map(([key, val]) => (val !== null ? encodeEnvVar(key, val) : null))
+      .filter(s => s);
 
     options.arguments = Array.from(options.arguments || []);
 
-    return Promise.resolve(SubprocessImpl.isExecutableFile(options.command)).then(isExecutable => {
+    if (options.disclaim && !platformSupportsDisclaimedSpawn()) {
+      options.disclaim = false;
+    }
+
+    return Promise.resolve(
+      SubprocessImpl.isExecutableFile(options.command)
+    ).then(isExecutable => {
       if (!isExecutable) {
-        let error = new Error(`File at path "${options.command}" does not exist, or is not executable`);
+        let error = new Error(
+          `File at path "${options.command}" does not exist, or is not executable`
+        );
         error.errorCode = SubprocessConstants.ERROR_BAD_EXECUTABLE;
         throw error;
       }

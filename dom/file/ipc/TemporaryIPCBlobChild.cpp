@@ -6,17 +6,17 @@
 
 #include "TemporaryIPCBlobChild.h"
 #include "mozilla/dom/MutableBlobStorage.h"
+#include "mozilla/dom/IPCBlobUtils.h"
 #include <private/pprio.h>
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 TemporaryIPCBlobChild::TemporaryIPCBlobChild(MutableBlobStorage* aStorage)
     : mMutableBlobStorage(aStorage), mActive(true) {
   MOZ_ASSERT(aStorage);
 }
 
-TemporaryIPCBlobChild::~TemporaryIPCBlobChild() {}
+TemporaryIPCBlobChild::~TemporaryIPCBlobChild() = default;
 
 mozilla::ipc::IPCResult TemporaryIPCBlobChild::RecvFileDesc(
     const FileDescriptor& aFD) {
@@ -81,5 +81,4 @@ void TemporaryIPCBlobChild::AskForBlob(TemporaryIPCBlobChildCallback* aCallback,
   SendOperationDone(nsCString(aContentType), fdd);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

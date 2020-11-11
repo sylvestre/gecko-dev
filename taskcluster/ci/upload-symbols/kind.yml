@@ -1,8 +1,10 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+---
+loader: taskgraph.loader.multi_dep:loader
 
-loader: taskgraph.loader.single_dep:loader
+group-by: platform
 
 transforms:
     - taskgraph.transforms.upload_symbols:transforms
@@ -11,34 +13,36 @@ transforms:
 
 kind-dependencies:
     - build
+    - toolchain
+
+primary-dependency: build
 
 not-for-build-platforms:
     # Address Sanitizer builds don't have symbols to upload.
-    - linux64-asan-reporter-nightly/opt
-    - win64-asan-reporter-nightly/opt
+    - linux64-asan-reporter-shippable/opt
+    - win64-asan-reporter-shippable/opt
+    - linux-geckodriver/opt
+    - linux64-geckodriver/opt
+    - macosx64-geckodriver/opt
+    - win32-geckodriver/opt
+    - win64-geckodriver/opt
 
 job-template:
     description: Upload Symbols
-    worker-type: aws-provisioner-v1/gecko-{level}-b-linux
+    worker-type: b-linux
     worker:
-        docker-image: {in-tree: "lint"}
+        docker-image: {in-tree: "debian10-base"}
         max-run-time: 900
         env:
-            ARTIFACT_TASKID: {"task-reference": "<build>"}
             # {level} gets replaced in the upload_symbols transform
             SYMBOL_SECRET: "project/releng/gecko/build/level-{level}/gecko-symbol-upload"
+            MAKECAB: /builds/worker/fetches/makecab/makecab
     run:
         using: mach
-        mach: python toolkit/crashreporter/tools/upload_symbols.py https://queue.taskcluster.net/v1/task/${ARTIFACT_TASKID}/artifacts/public/build/target.crashreporter-symbols-full.zip
+        mach: {artifact-reference: "python toolkit/crashreporter/tools/upload_symbols.py <build/public/build/target.crashreporter-symbols-full.tar.zst>"}
         sparse-profile: upload-symbols
-    optimization:
-        only-if-dependencies-run: null
     scopes:
         - secrets:get:project/releng/gecko/build/level-{level}/gecko-symbol-upload
-    run-on-projects:
-        by-build-platform:
-            .*devedition.*: ['mozilla-beta', 'maple']
-            # Only upload symbols for nightlies on most branches.
-            .*(?<!-devedition)-nightly: ['all']
-            # Allow symbol upload for any build type on try.
-            default: ['try']
+    fetches:
+        toolchain:
+            - linux64-makecab

@@ -9,7 +9,7 @@
 
 using namespace mozilla;
 
-nsMathMLSelectedFrame::~nsMathMLSelectedFrame() {}
+nsMathMLSelectedFrame::~nsMathMLSelectedFrame() = default;
 
 NS_IMETHODIMP
 nsMathMLSelectedFrame::TransmitAutomaticData() {
@@ -77,30 +77,27 @@ void nsMathMLSelectedFrame::BuildDisplayList(nsDisplayListBuilder* aBuilder,
 }
 
 /* virtual */
-LogicalSize nsMathMLSelectedFrame::ComputeSize(
+nsIFrame::SizeComputationResult nsMathMLSelectedFrame::ComputeSize(
     gfxContext* aRenderingContext, WritingMode aWM, const LogicalSize& aCBSize,
     nscoord aAvailableISize, const LogicalSize& aMargin,
-    const LogicalSize& aBorder, const LogicalSize& aPadding,
-    ComputeSizeFlags aFlags) {
+    const LogicalSize& aBorderPadding, ComputeSizeFlags aFlags) {
   nsIFrame* childFrame = GetSelectedFrame();
   if (childFrame) {
     // Delegate size computation to the child frame.
     // Try to account for border/padding/margin on this frame and the child,
     // though we don't really support them during reflow anyway...
-    nscoord availableISize = aAvailableISize - aBorder.ISize(aWM) -
-                             aPadding.ISize(aWM) - aMargin.ISize(aWM);
-    LogicalSize cbSize = aCBSize - aBorder - aPadding - aMargin;
+    const nscoord availableISize =
+        aAvailableISize - aBorderPadding.ISize(aWM) - aMargin.ISize(aWM);
+    const LogicalSize cbSize = aCBSize - aBorderPadding - aMargin;
     SizeComputationInput offsetState(childFrame, aRenderingContext, aWM,
                                      availableISize);
-    LogicalSize size = childFrame->ComputeSize(
+    const auto bpSize = offsetState.ComputedLogicalBorderPadding(aWM).Size(aWM);
+    auto size = childFrame->ComputeSize(
         aRenderingContext, aWM, cbSize, availableISize,
-        offsetState.ComputedLogicalMargin().Size(aWM),
-        offsetState.ComputedLogicalBorderPadding().Size(aWM) -
-            offsetState.ComputedLogicalPadding().Size(aWM),
-        offsetState.ComputedLogicalPadding().Size(aWM), aFlags);
-    return size + offsetState.ComputedLogicalBorderPadding().Size(aWM);
+        offsetState.ComputedLogicalMargin(aWM).Size(aWM), bpSize, aFlags);
+    return {size.mLogicalSize + bpSize, size.mAspectRatioUsage};
   }
-  return LogicalSize(aWM);
+  return {LogicalSize(aWM), AspectRatioUsage::None};
 }
 
 // Only reflow the selected child ...
@@ -133,8 +130,10 @@ void nsMathMLSelectedFrame::Reflow(nsPresContext* aPresContext,
 }
 
 // Only place the selected child ...
-/* virtual */ nsresult nsMathMLSelectedFrame::Place(
-    DrawTarget* aDrawTarget, bool aPlaceOrigin, ReflowOutput& aDesiredSize) {
+/* virtual */
+nsresult nsMathMLSelectedFrame::Place(DrawTarget* aDrawTarget,
+                                      bool aPlaceOrigin,
+                                      ReflowOutput& aDesiredSize) {
   nsIFrame* childFrame = GetSelectedFrame();
 
   if (mInvalidMarkup) {
@@ -148,7 +147,7 @@ void nsMathMLSelectedFrame::Reflow(nsPresContext* aPresContext,
     GetReflowAndBoundingMetricsFor(childFrame, aDesiredSize, mBoundingMetrics);
     if (aPlaceOrigin) {
       FinishReflowChild(childFrame, PresContext(), aDesiredSize, nullptr, 0, 0,
-                        0);
+                        ReflowChildFlags::Default);
     }
     mReference.x = 0;
     mReference.y = aDesiredSize.BlockStartAscent();

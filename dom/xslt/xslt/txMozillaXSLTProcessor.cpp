@@ -6,11 +6,8 @@
 #include "txMozillaXSLTProcessor.h"
 #include "nsContentCID.h"
 #include "nsError.h"
-#include "nsIChannel.h"
 #include "mozilla/dom/Element.h"
-#include "nsIDocument.h"
-#include "nsIIOService.h"
-#include "nsILoadGroup.h"
+#include "mozilla/dom/Document.h"
 #include "nsIStringBundle.h"
 #include "nsIURI.h"
 #include "nsMemory.h"
@@ -27,7 +24,6 @@
 #include "jsapi.h"
 #include "txExprParser.h"
 #include "nsErrorService.h"
-#include "nsIScriptSecurityManager.h"
 #include "nsJSUtils.h"
 #include "nsIXPConnect.h"
 #include "nsVariant.h"
@@ -43,7 +39,7 @@ using namespace mozilla::dom;
  */
 class txToDocHandlerFactory : public txAOutputHandlerFactory {
  public:
-  txToDocHandlerFactory(txExecutionState* aEs, nsIDocument* aSourceDocument,
+  txToDocHandlerFactory(txExecutionState* aEs, Document* aSourceDocument,
                         nsITransformObserver* aObserver, bool aDocumentIsData)
       : mEs(aEs),
         mSourceDocument(aSourceDocument),
@@ -54,7 +50,7 @@ class txToDocHandlerFactory : public txAOutputHandlerFactory {
 
  private:
   txExecutionState* mEs;
-  nsCOMPtr<nsIDocument> mSourceDocument;
+  nsCOMPtr<Document> mSourceDocument;
   nsCOMPtr<nsITransformObserver> mObserver;
   bool mDocumentIsData;
 };
@@ -81,26 +77,26 @@ nsresult txToDocHandlerFactory::createHandlerWith(
     }
 
     case eHTMLOutput: {
-      nsAutoPtr<txMozillaXMLOutput> handler(
+      UniquePtr<txMozillaXMLOutput> handler(
           new txMozillaXMLOutput(aFormat, mObserver));
 
       nsresult rv = handler->createResultDocument(
-          EmptyString(), kNameSpaceID_None, mSourceDocument, mDocumentIsData);
+          u""_ns, kNameSpaceID_None, mSourceDocument, mDocumentIsData);
       if (NS_SUCCEEDED(rv)) {
-        *aHandler = handler.forget();
+        *aHandler = handler.release();
       }
 
       return rv;
     }
 
     case eTextOutput: {
-      nsAutoPtr<txMozillaTextOutput> handler(
+      UniquePtr<txMozillaTextOutput> handler(
           new txMozillaTextOutput(mObserver));
 
       nsresult rv =
           handler->createResultDocument(mSourceDocument, mDocumentIsData);
       if (NS_SUCCEEDED(rv)) {
-        *aHandler = handler.forget();
+        *aHandler = handler.release();
       }
 
       return rv;
@@ -124,26 +120,26 @@ nsresult txToDocHandlerFactory::createHandlerWith(
 
     case eXMLOutput:
     case eHTMLOutput: {
-      nsAutoPtr<txMozillaXMLOutput> handler(
+      UniquePtr<txMozillaXMLOutput> handler(
           new txMozillaXMLOutput(aFormat, mObserver));
 
       nsresult rv = handler->createResultDocument(aName, aNsID, mSourceDocument,
                                                   mDocumentIsData);
       if (NS_SUCCEEDED(rv)) {
-        *aHandler = handler.forget();
+        *aHandler = handler.release();
       }
 
       return rv;
     }
 
     case eTextOutput: {
-      nsAutoPtr<txMozillaTextOutput> handler(
+      UniquePtr<txMozillaTextOutput> handler(
           new txMozillaTextOutput(mObserver));
 
       nsresult rv =
           handler->createResultDocument(mSourceDocument, mDocumentIsData);
       if (NS_SUCCEEDED(rv)) {
-        *aHandler = handler.forget();
+        *aHandler = handler.release();
       }
 
       return rv;
@@ -162,7 +158,7 @@ nsresult txToFragmentHandlerFactory::createHandlerWith(
     case eMethodNotSet: {
       txOutputFormat format;
       format.merge(*aFormat);
-      nsCOMPtr<nsIDocument> doc = mFragment->OwnerDoc();
+      nsCOMPtr<Document> doc = mFragment->OwnerDoc();
 
       if (doc->IsHTMLDocument()) {
         format.mMethod = eHTMLOutput;
@@ -398,7 +394,7 @@ txMozillaXSLTProcessor::AddXSLTParam(const nsString& aName,
   RefPtr<txAExprResult> value;
   if (!aSelect.IsVoid()) {
     // Set up context
-    nsAutoPtr<txXPathNode> contextNode(
+    UniquePtr<txXPathNode> contextNode(
         txXPathNativeNode::createXPathNode(aContext));
     NS_ENSURE_TRUE(contextNode, NS_ERROR_OUT_OF_MEMORY);
 
@@ -410,7 +406,7 @@ txMozillaXSLTProcessor::AddXSLTParam(const nsString& aName,
                                     mRecycler);
 
     // Parse
-    nsAutoPtr<Expr> expr;
+    UniquePtr<Expr> expr;
     rv = txExprParser::createExpr(aSelect, &paramContext,
                                   getter_Transfers(expr));
     NS_ENSURE_SUCCESS(rv, rv);
@@ -449,7 +445,7 @@ class nsTransformBlockerEvent : public mozilla::Runnable {
       : mozilla::Runnable("nsTransformBlockerEvent"), mProcessor(processor) {}
 
   ~nsTransformBlockerEvent() {
-    nsCOMPtr<nsIDocument> document =
+    nsCOMPtr<Document> document =
         mProcessor->GetSourceContentModel()->OwnerDoc();
     document->UnblockOnload(true);
   }
@@ -513,7 +509,7 @@ void txMozillaXSLTProcessor::ImportStylesheet(nsINode& aStyle,
   mStylesheetDocument->AddMutationObserver(this);
 }
 
-already_AddRefed<nsIDocument> txMozillaXSLTProcessor::TransformToDocument(
+already_AddRefed<Document> txMozillaXSLTProcessor::TransformToDocument(
     nsINode& aSource, ErrorResult& aRv) {
   if (NS_WARN_IF(NS_FAILED(mCompileResult))) {
     aRv.Throw(mCompileResult);
@@ -533,7 +529,7 @@ already_AddRefed<nsIDocument> txMozillaXSLTProcessor::TransformToDocument(
 
   mSource = &aSource;
 
-  nsCOMPtr<nsIDocument> doc;
+  nsCOMPtr<Document> doc;
   rv = TransformToDoc(getter_AddRefs(doc), true);
   if (NS_FAILED(rv)) {
     aRv.Throw(rv);
@@ -542,9 +538,9 @@ already_AddRefed<nsIDocument> txMozillaXSLTProcessor::TransformToDocument(
   return doc.forget();
 }
 
-nsresult txMozillaXSLTProcessor::TransformToDoc(nsIDocument** aResult,
+nsresult txMozillaXSLTProcessor::TransformToDoc(Document** aResult,
                                                 bool aCreateDataDocument) {
-  nsAutoPtr<txXPathNode> sourceNode(
+  UniquePtr<txXPathNode> sourceNode(
       txXPathNativeNode::createXPathNode(mSource));
   if (!sourceNode) {
     return NS_ERROR_OUT_OF_MEMORY;
@@ -575,12 +571,11 @@ nsresult txMozillaXSLTProcessor::TransformToDoc(nsIDocument** aResult,
     if (aResult) {
       txAOutputXMLEventHandler* handler =
           static_cast<txAOutputXMLEventHandler*>(es.mOutputHandler);
-      nsCOMPtr<nsIDocument> doc;
+      nsCOMPtr<Document> doc;
       handler->getOutputDocument(getter_AddRefs(doc));
-      MOZ_ASSERT(
-          doc->GetReadyStateEnum() == nsIDocument::READYSTATE_INTERACTIVE,
-          "Bad readyState");
-      doc->SetReadyStateInternal(nsIDocument::READYSTATE_COMPLETE);
+      MOZ_ASSERT(doc->GetReadyStateEnum() == Document::READYSTATE_INTERACTIVE,
+                 "Bad readyState");
+      doc->SetReadyStateInternal(Document::READYSTATE_COMPLETE);
       doc.forget(aResult);
     }
   } else if (mObserver) {
@@ -592,7 +587,7 @@ nsresult txMozillaXSLTProcessor::TransformToDoc(nsIDocument** aResult,
 }
 
 already_AddRefed<DocumentFragment> txMozillaXSLTProcessor::TransformToFragment(
-    nsINode& aSource, nsIDocument& aOutput, ErrorResult& aRv) {
+    nsINode& aSource, Document& aOutput, ErrorResult& aRv) {
   if (NS_WARN_IF(NS_FAILED(mCompileResult))) {
     aRv.Throw(mCompileResult);
     return nullptr;
@@ -612,7 +607,7 @@ already_AddRefed<DocumentFragment> txMozillaXSLTProcessor::TransformToFragment(
     return nullptr;
   }
 
-  nsAutoPtr<txXPathNode> sourceNode(
+  UniquePtr<txXPathNode> sourceNode(
       txXPathNativeNode::createXPathNode(&aSource));
   if (!sourceNode) {
     aRv.Throw(NS_ERROR_OUT_OF_MEMORY);
@@ -809,7 +804,9 @@ nsresult txMozillaXSLTProcessor::SetParameter(const nsAString& aNamespaceURI,
       break;
     }
 
-    default: { return NS_ERROR_FAILURE; }
+    default: {
+      return NS_ERROR_FAILURE;
+    }
   }
 
   int32_t nsId = kNameSpaceID_Unknown;
@@ -893,8 +890,8 @@ uint32_t txMozillaXSLTProcessor::Flags(SystemCallerGuarantee) { return mFlags; }
 
 NS_IMETHODIMP
 txMozillaXSLTProcessor::LoadStyleSheet(nsIURI* aUri,
-                                       nsIDocument* aLoaderDocument) {
-  mozilla::net::ReferrerPolicy refpol = mozilla::net::RP_Unset;
+                                       Document* aLoaderDocument) {
+  mozilla::dom::ReferrerPolicy refpol = mozilla::dom::ReferrerPolicy::_empty;
   if (mStylesheetDocument) {
     refpol = mStylesheetDocument->GetReferrerPolicy();
   }
@@ -937,20 +934,19 @@ void txMozillaXSLTProcessor::reportError(nsresult aResult,
     nsCOMPtr<nsIStringBundleService> sbs =
         mozilla::services::GetStringBundleService();
     if (sbs) {
-      nsAutoString errorText;
-      sbs->FormatStatusMessage(aResult, EmptyString().get(), errorText);
+      nsString errorText;
+      sbs->FormatStatusMessage(aResult, u"", errorText);
 
       nsAutoString errorMessage;
       nsCOMPtr<nsIStringBundle> bundle;
       sbs->CreateBundle(XSLT_MSGS_URL, getter_AddRefs(bundle));
 
       if (bundle) {
-        const char16_t* error[] = {errorText.get()};
+        AutoTArray<nsString, 1> error = {errorText};
         if (mStylesheet) {
-          bundle->FormatStringFromName("TransformError", error, 1,
-                                       errorMessage);
+          bundle->FormatStringFromName("TransformError", error, errorMessage);
         } else {
-          bundle->FormatStringFromName("LoadingError", error, 1, errorMessage);
+          bundle->FormatStringFromName("LoadingError", error, errorMessage);
         }
       }
       mErrorText.Assign(errorMessage);
@@ -967,7 +963,7 @@ void txMozillaXSLTProcessor::reportError(nsresult aResult,
 }
 
 void txMozillaXSLTProcessor::notifyError() {
-  nsCOMPtr<nsIDocument> document;
+  nsCOMPtr<Document> document;
   {
     nsresult rv = NS_NewXMLDocument(getter_AddRefs(document));
     NS_ENSURE_SUCCESS_VOID(rv);
@@ -976,19 +972,19 @@ void txMozillaXSLTProcessor::notifyError() {
   URIUtils::ResetWithSource(document, mSource);
 
   MOZ_ASSERT(
-      document->GetReadyStateEnum() == nsIDocument::READYSTATE_UNINITIALIZED,
+      document->GetReadyStateEnum() == Document::READYSTATE_UNINITIALIZED,
       "Bad readyState.");
-  document->SetReadyStateInternal(nsIDocument::READYSTATE_LOADING);
+  document->SetReadyStateInternal(Document::READYSTATE_LOADING);
 
-  NS_NAMED_LITERAL_STRING(
-      ns, "http://www.mozilla.org/newlayout/xml/parsererror.xml");
+  constexpr auto ns =
+      u"http://www.mozilla.org/newlayout/xml/parsererror.xml"_ns;
 
   IgnoredErrorResult rv;
   ElementCreationOptionsOrString options;
   options.SetAsString();
 
-  nsCOMPtr<Element> element = document->CreateElementNS(
-      ns, NS_LITERAL_STRING("parsererror"), options, rv);
+  nsCOMPtr<Element> element =
+      document->CreateElementNS(ns, u"parsererror"_ns, options, rv);
   if (rv.Failed()) {
     return;
   }
@@ -1009,8 +1005,8 @@ void txMozillaXSLTProcessor::notifyError() {
     ElementCreationOptionsOrString options;
     options.SetAsString();
 
-    nsCOMPtr<Element> sourceElement = document->CreateElementNS(
-        ns, NS_LITERAL_STRING("sourcetext"), options, rv);
+    nsCOMPtr<Element> sourceElement =
+        document->CreateElementNS(ns, u"sourcetext"_ns, options, rv);
     if (rv.Failed()) {
       return;
     }
@@ -1028,9 +1024,9 @@ void txMozillaXSLTProcessor::notifyError() {
     }
   }
 
-  MOZ_ASSERT(document->GetReadyStateEnum() == nsIDocument::READYSTATE_LOADING,
+  MOZ_ASSERT(document->GetReadyStateEnum() == Document::READYSTATE_LOADING,
              "Bad readyState.");
-  document->SetReadyStateInternal(nsIDocument::READYSTATE_INTERACTIVE);
+  document->SetReadyStateInternal(Document::READYSTATE_INTERACTIVE);
 
   mObserver->OnTransformDone(mTransformResult, document);
 }
@@ -1087,7 +1083,8 @@ void txMozillaXSLTProcessor::ContentRemoved(nsIContent* aChild,
   mStylesheet = nullptr;
 }
 
-/* virtual */ JSObject* txMozillaXSLTProcessor::WrapObject(
+/* virtual */
+JSObject* txMozillaXSLTProcessor::WrapObject(
     JSContext* aCx, JS::Handle<JSObject*> aGivenProto) {
   return XSLTProcessor_Binding::Wrap(aCx, this, aGivenProto);
 }
@@ -1096,9 +1093,9 @@ DocGroup* txMozillaXSLTProcessor::GetDocGroup() const {
   return mStylesheetDocument ? mStylesheetDocument->GetDocGroup() : nullptr;
 }
 
-/* static */ already_AddRefed<txMozillaXSLTProcessor>
-txMozillaXSLTProcessor::Constructor(const GlobalObject& aGlobal,
-                                    mozilla::ErrorResult& aRv) {
+/* static */
+already_AddRefed<txMozillaXSLTProcessor> txMozillaXSLTProcessor::Constructor(
+    const GlobalObject& aGlobal) {
   RefPtr<txMozillaXSLTProcessor> processor =
       new txMozillaXSLTProcessor(aGlobal.GetAsSupports());
   return processor.forget();
@@ -1211,7 +1208,7 @@ nsresult txVariable::Convert(nsIVariant* aValue, txAExprResult** aResult) {
 
       nsCOMPtr<nsINode> node = do_QueryInterface(supports);
       if (node) {
-        nsAutoPtr<txXPathNode> xpathNode(
+        UniquePtr<txXPathNode> xpathNode(
             txXPathNativeNode::createXPathNode(node));
         if (!xpathNode) {
           return NS_ERROR_FAILURE;
@@ -1243,7 +1240,7 @@ nsresult txVariable::Convert(nsIVariant* aValue, txAExprResult** aResult) {
 
         uint32_t i;
         for (i = 0; i < length; ++i) {
-          nsAutoPtr<txXPathNode> xpathNode(
+          UniquePtr<txXPathNode> xpathNode(
               txXPathNativeNode::createXPathNode(nodeList->Item(i)));
           if (!xpathNode) {
             return NS_ERROR_FAILURE;
@@ -1304,7 +1301,7 @@ nsresult txVariable::Convert(nsIVariant* aValue, txAExprResult** aResult) {
         nsCOMPtr<nsINode> node = do_QueryInterface(supports);
         NS_ASSERTION(node, "Huh, we checked this in SetParameter?");
 
-        nsAutoPtr<txXPathNode> xpathNode(
+        UniquePtr<txXPathNode> xpathNode(
             txXPathNativeNode::createXPathNode(node));
         if (!xpathNode) {
           while (i < count) {

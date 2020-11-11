@@ -8,21 +8,20 @@ const slavePath = "/tests/dom/tests/mochitest/localstorage/";
 
 window.addEventListener("message", onMessageReceived);
 
-function onMessageReceived(event)
-{
-  switch (event.data)
-  {
+function onMessageReceived(event) {
+  switch (event.data) {
     // Indication of the frame onload event
     case "frame loaded":
-      if (--slaveLoadsPending)
+      if (--slaveLoadsPending) {
         break;
-
-      // Just fall through...
+      }
 
     // Indication of successfully finished step of a test
+    // fall through
     case "perf":
-      if (event.data == "perf")
+      if (event.data == "perf") {
         doStep();
+      }
 
       slave.postMessage("step", slaveOrigin);
       break;

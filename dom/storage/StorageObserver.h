@@ -18,11 +18,13 @@ namespace dom {
 
 class StorageObserver;
 
-// Implementers are StorageManager and StorageDBParent to forward to
-// child processes.
+// Main-thread interface implemented by legacy LocalStorageManager and current
+// SessionStorageManager for direct consumption. Also implemented by legacy
+// StorageDBParent and current SessionStorageObserverParent for propagation to
+// content processes.
 class StorageObserverSink {
  public:
-  virtual ~StorageObserverSink() {}
+  virtual ~StorageObserverSink() = default;
 
  private:
   friend class StorageObserver;
@@ -45,21 +47,22 @@ class StorageObserver : public nsIObserver, public nsSupportsWeakReference {
   void AddSink(StorageObserverSink* aObs);
   void RemoveSink(StorageObserverSink* aObs);
   void Notify(const char* aTopic,
-              const nsAString& aOriginAttributesPattern = EmptyString(),
-              const nsACString& aOriginScope = EmptyCString());
+              const nsAString& aOriginAttributesPattern = u""_ns,
+              const nsACString& aOriginScope = ""_ns);
 
-  void NoteBackgroundThread(nsIEventTarget* aBackgroundThread);
+  void NoteBackgroundThread(uint32_t aPrivateBrowsingId,
+                            nsIEventTarget* aBackgroundThread);
 
  private:
-  virtual ~StorageObserver() {}
+  virtual ~StorageObserver() = default;
 
-  nsresult ClearMatchingOrigin(const char16_t* aData, nsACString& aOriginScope);
+  nsresult GetOriginScope(const char16_t* aData, nsACString& aOriginScope);
 
   static void TestingPrefChanged(const char* aPrefName, void* aClosure);
 
   static StorageObserver* sSelf;
 
-  nsCOMPtr<nsIEventTarget> mBackgroundThread;
+  nsCOMPtr<nsIEventTarget> mBackgroundThread[2];
 
   // Weak references
   nsTObserverArray<StorageObserverSink*> mSinks;

@@ -56,27 +56,25 @@ class TableAccessible {
 
   /**
    * Return the column index of the cell with the given index.
+   * This returns -1 if the column count is 0 or an invalid index is being
+   * passed in.
    */
-  virtual int32_t ColIndexAt(uint32_t aCellIdx) {
-    return aCellIdx % ColCount();
-  }
+  virtual int32_t ColIndexAt(uint32_t aCellIdx);
 
   /**
    * Return the row index of the cell with the given index.
+   * This returns -1 if the column count is 0 or an invalid index is being
+   * passed in.
    */
-  virtual int32_t RowIndexAt(uint32_t aCellIdx) {
-    return aCellIdx / ColCount();
-  }
+  virtual int32_t RowIndexAt(uint32_t aCellIdx);
 
   /**
    * Get the row and column indices for the cell at the given index.
+   * This returns -1 for both output parameters if the column count is 0 or an
+   * invalid index is being passed in.
    */
   virtual void RowAndColIndicesAt(uint32_t aCellIdx, int32_t* aRowIdx,
-                                  int32_t* aColIdx) {
-    uint32_t colCount = ColCount();
-    *aRowIdx = aCellIdx / colCount;
-    *aColIdx = aCellIdx % colCount;
-  }
+                                  int32_t* aColIdx);
 
   /**
    * Return the number of columns occupied by the cell at the given row and
@@ -186,6 +184,18 @@ class TableAccessible {
    */
   virtual Accessible* AsAccessible() = 0;
 
+  typedef nsRefPtrHashtable<nsPtrHashKey<const TableCellAccessible>, Accessible>
+      HeaderCache;
+
+  /**
+   * Get the header cache, which maps a TableCellAccessible to its previous
+   * header.
+   * Although this data is only used in TableCellAccessible, it is stored on
+   * TableAccessible so the cache can be easily invalidated when the table
+   * is mutated.
+   */
+  HeaderCache& GetHeaderCache() { return mHeaderCache; }
+
  protected:
   /**
    * Return row accessible at the given row index.
@@ -196,6 +206,9 @@ class TableAccessible {
    * Return cell accessible at the given column index in the row.
    */
   Accessible* CellInRowAt(Accessible* aRow, int32_t aColumn);
+
+ private:
+  HeaderCache mHeaderCache;
 };
 
 }  // namespace a11y

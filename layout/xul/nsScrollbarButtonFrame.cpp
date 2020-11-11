@@ -17,24 +17,29 @@
 #include "nsCOMPtr.h"
 #include "nsNameSpaceManager.h"
 #include "nsGkAtoms.h"
+#include "nsLayoutUtils.h"
 #include "nsSliderFrame.h"
 #include "nsScrollbarFrame.h"
 #include "nsIScrollbarMediator.h"
 #include "nsRepeatService.h"
 #include "mozilla/LookAndFeel.h"
 #include "mozilla/MouseEvents.h"
+#include "mozilla/PresShell.h"
 #include "mozilla/Telemetry.h"
+#include "mozilla/layers/ScrollInputMethods.h"
 
 using namespace mozilla;
+using mozilla::layers::ScrollInputMethod;
 
 //
 // NS_NewToolbarFrame
 //
 // Creates a new Toolbar frame and returns it
 //
-nsIFrame* NS_NewScrollbarButtonFrame(nsIPresShell* aPresShell,
+nsIFrame* NS_NewScrollbarButtonFrame(PresShell* aPresShell,
                                      ComputedStyle* aStyle) {
-  return new (aPresShell) nsScrollbarButtonFrame(aStyle);
+  return new (aPresShell)
+      nsScrollbarButtonFrame(aStyle, aPresShell->GetPresContext());
 }
 
 NS_IMPL_FRAMEARENA_HELPERS(nsScrollbarButtonFrame)
@@ -66,8 +71,8 @@ nsresult nsScrollbarButtonFrame::HandleEvent(nsPresContext* aPresContext,
       mCursorOnThis = false;
       break;
     case eMouseMove: {
-      nsPoint cursor =
-          nsLayoutUtils::GetEventCoordinatesRelativeTo(aEvent, this);
+      nsPoint cursor = nsLayoutUtils::GetEventCoordinatesRelativeTo(
+          aEvent, RelativeTo{this});
       nsRect frameRect(nsPoint(0, 0), GetSize());
       mCursorOnThis = frameRect.Contains(cursor);
       break;
@@ -84,13 +89,13 @@ bool nsScrollbarButtonFrame::HandleButtonPress(nsPresContext* aPresContext,
                                                nsEventStatus* aEventStatus) {
   // Get the desired action for the scrollbar button.
   LookAndFeel::IntID tmpAction;
-  uint16_t button = aEvent->AsMouseEvent()->button;
-  if (button == WidgetMouseEvent::eLeftButton) {
-    tmpAction = LookAndFeel::eIntID_ScrollButtonLeftMouseButtonAction;
-  } else if (button == WidgetMouseEvent::eMiddleButton) {
-    tmpAction = LookAndFeel::eIntID_ScrollButtonMiddleMouseButtonAction;
-  } else if (button == WidgetMouseEvent::eRightButton) {
-    tmpAction = LookAndFeel::eIntID_ScrollButtonRightMouseButtonAction;
+  uint16_t button = aEvent->AsMouseEvent()->mButton;
+  if (button == MouseButton::ePrimary) {
+    tmpAction = LookAndFeel::IntID::ScrollButtonLeftMouseButtonAction;
+  } else if (button == MouseButton::eMiddle) {
+    tmpAction = LookAndFeel::IntID::ScrollButtonMiddleMouseButtonAction;
+  } else if (button == MouseButton::eSecondary) {
+    tmpAction = LookAndFeel::IntID::ScrollButtonRightMouseButtonAction;
   } else {
     return false;
   }
@@ -107,8 +112,8 @@ bool nsScrollbarButtonFrame::HandleButtonPress(nsPresContext* aPresContext,
 
   if (scrollbar == nullptr) return false;
 
-  static Element::AttrValuesArray strings[] = {nsGkAtoms::increment,
-                                               nsGkAtoms::decrement, nullptr};
+  static dom::Element::AttrValuesArray strings[] = {
+      nsGkAtoms::increment, nsGkAtoms::decrement, nullptr};
   int32_t index = mContent->AsElement()->FindAttrValueIn(
       kNameSpaceID_None, nsGkAtoms::type, strings, eCaseMatters);
   int32_t direction;
@@ -123,9 +128,9 @@ bool nsScrollbarButtonFrame::HandleButtonPress(nsPresContext* aPresContext,
   // set this attribute so we can style it later
   AutoWeakFrame weakFrame(this);
   mContent->AsElement()->SetAttr(kNameSpaceID_None, nsGkAtoms::active,
-                                 NS_LITERAL_STRING("true"), true);
+                                 u"true"_ns, true);
 
-  nsIPresShell::SetCapturingContent(mContent, CAPTURE_IGNOREALLOWED);
+  PresShell::SetCapturingContent(mContent, CaptureFlags::IgnoreAllowedState);
 
   if (!weakFrame.IsAlive()) {
     return false;
@@ -163,6 +168,10 @@ bool nsScrollbarButtonFrame::HandleButtonPress(nsPresContext* aPresContext,
       return false;
     }
 
+    mozilla::Telemetry::Accumulate(
+        mozilla::Telemetry::SCROLL_INPUT_METHODS,
+        (uint32_t)ScrollInputMethod::MainThreadScrollbarButtonClick);
+
     if (!m) {
       sb->MoveToNewPosition();
       if (!weakFrame.IsAlive()) {
@@ -180,7 +189,7 @@ NS_IMETHODIMP
 nsScrollbarButtonFrame::HandleRelease(nsPresContext* aPresContext,
                                       WidgetGUIEvent* aEvent,
                                       nsEventStatus* aEventStatus) {
-  nsIPresShell::SetCapturingContent(nullptr, 0);
+  PresShell::ReleaseCapturingContent();
   // we're not active anymore
   mContent->AsElement()->UnsetAttr(kNameSpaceID_None, nsGkAtoms::active, true);
   StopRepeat();
@@ -198,7 +207,7 @@ nsScrollbarButtonFrame::HandleRelease(nsPresContext* aPresContext,
 
 void nsScrollbarButtonFrame::Notify() {
   if (mCursorOnThis ||
-      LookAndFeel::GetInt(LookAndFeel::eIntID_ScrollbarButtonAutoRepeatBehavior,
+      LookAndFeel::GetInt(LookAndFeel::IntID::ScrollbarButtonAutoRepeatBehavior,
                           0)) {
     // get the scrollbar control
     nsIFrame* scrollbar;

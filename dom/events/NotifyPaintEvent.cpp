@@ -12,8 +12,7 @@
 #include "mozilla/GfxMessageUtils.h"
 #include "nsContentUtils.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NotifyPaintEvent::NotifyPaintEvent(
     EventTarget* aOwner, nsPresContext* aPresContext, WidgetEvent* aEvent,
@@ -83,7 +82,7 @@ already_AddRefed<PaintRequestList> NotifyPaintEvent::PaintRequests(
 void NotifyPaintEvent::Serialize(IPC::Message* aMsg,
                                  bool aSerializeInterfaceType) {
   if (aSerializeInterfaceType) {
-    IPC::WriteParam(aMsg, NS_LITERAL_STRING("notifypaintevent"));
+    IPC::WriteParam(aMsg, u"notifypaintevent"_ns);
   }
 
   Event::Serialize(aMsg, false);
@@ -119,8 +118,7 @@ DOMHighResTimeStamp NotifyPaintEvent::PaintTimeStamp(SystemCallerGuarantee) {
   return mTimeStamp;
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom
 
 using namespace mozilla;
 using namespace mozilla::dom;

@@ -4,9 +4,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "base/message_loop.h"
-#include "GeneratedJNIWrappers.h"
 #include "mozilla/Atomics.h"
 #include "mozilla/EventQueue.h"
+#include "mozilla/java/GeckoThreadWrappers.h"
 #include "mozilla/LinkedList.h"
 #include "mozilla/Monitor.h"
 #include "mozilla/Mutex.h"
@@ -53,9 +53,9 @@ class AndroidUiThread : public nsThread {
  public:
   NS_INLINE_DECL_REFCOUNTING_INHERITED(AndroidUiThread, nsThread)
   AndroidUiThread()
-      : nsThread(MakeNotNull<ThreadEventQueue<mozilla::EventQueue>*>(
-                     MakeUnique<mozilla::EventQueue>()),
-                 nsThread::NOT_MAIN_THREAD, 0) {}
+      : nsThread(
+            MakeNotNull<ThreadEventQueue*>(MakeUnique<mozilla::EventQueue>()),
+            nsThread::NOT_MAIN_THREAD, 0) {}
 
   nsresult Dispatch(already_AddRefed<nsIRunnable> aEvent,
                     uint32_t aFlags) override;
@@ -249,7 +249,7 @@ void EnqueueTask(already_AddRefed<nsIRunnable> aTask, int aDelayMs) {
     // if we're inserting it at the head of the queue, notify Java because
     // we need to get a callback at an earlier time than the last scheduled
     // callback
-    GeckoThread::RequestUiThreadCallback(int64_t(aDelayMs));
+    java::GeckoThread::RequestUiThreadCallback(int64_t(aDelayMs));
   }
 }
 

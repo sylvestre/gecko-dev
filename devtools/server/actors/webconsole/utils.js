@@ -1,26 +1,28 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 2 -*- */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 "use strict";
 
-const {Ci, Cu} = require("chrome");
+const { Ci, Cu, Cc } = require("chrome");
 
-// Note that this is only used in WebConsoleCommands, see $0, screenshot and pprint().
+// Note that this is only used in WebConsoleCommands, see $0 and screenshot.
 if (!isWorker) {
-  loader.lazyImporter(this, "VariablesView", "resource://devtools/client/shared/widgets/VariablesView.jsm");
-  loader.lazyRequireGetter(this, "captureScreenshot", "devtools/shared/screenshot/capture", true);
+  loader.lazyRequireGetter(
+    this,
+    "captureScreenshot",
+    "devtools/shared/screenshot/capture",
+    true
+  );
 }
 
-const CONSOLE_WORKER_IDS = exports.CONSOLE_WORKER_IDS = [
+const CONSOLE_WORKER_IDS = (exports.CONSOLE_WORKER_IDS = [
   "SharedWorker",
   "ServiceWorker",
   "Worker",
-];
+]);
 
 var WebConsoleUtils = {
-
   /**
    * Given a message, return one of CONSOLE_WORKER_IDS if it matches
    * one of those.
@@ -57,7 +59,7 @@ var WebConsoleUtils = {
 
     if (Array.isArray(object)) {
       temp = [];
-      Array.forEach(object, function(value, index) {
+      object.forEach(function(value, index) {
         if (!filter || filter(index, value, object)) {
           temp.push(recursive ? WebConsoleUtils.cloneObject(value) : value);
         }
@@ -66,8 +68,10 @@ var WebConsoleUtils = {
       temp = {};
       for (const key in object) {
         const value = object[key];
-        if (object.hasOwnProperty(key) &&
-            (!filter || filter(key, value, object))) {
+        if (
+          object.hasOwnProperty(key) &&
+          (!filter || filter(key, value, object))
+        ) {
           temp[key] = recursive ? WebConsoleUtils.cloneObject(value) : value;
         }
       }
@@ -80,11 +84,17 @@ var WebConsoleUtils = {
    * Gets the ID of the inner window of this DOM window.
    *
    * @param nsIDOMWindow window
-   * @return integer
-   *         Inner ID for the given window.
+   * @return integer|null
+   *         Inner ID for the given window, null if we can't access it.
    */
   getInnerWindowId: function(window) {
-    return window.windowUtils.currentInnerWindowID;
+    // Might throw with SecurityError: Permission denied to access property
+    // "windowGlobalChild" on cross-origin object.
+    try {
+      return window.windowGlobalChild.innerWindowId;
+    } catch (e) {
+      return null;
+    }
   },
 
   /**
@@ -97,6 +107,10 @@ var WebConsoleUtils = {
    */
   getInnerWindowIDsForFrames: function(window) {
     const innerWindowID = this.getInnerWindowId(window);
+    if (innerWindowID === null) {
+      return [];
+    }
+
     let ids = [innerWindowID];
 
     if (window.frames) {
@@ -107,45 +121,6 @@ var WebConsoleUtils = {
     }
 
     return ids;
-  },
-
-  /**
-   * Get the property descriptor for the given object.
-   *
-   * @param object object
-   *        The object that contains the property.
-   * @param string prop
-   *        The property you want to get the descriptor for.
-   * @return object
-   *         Property descriptor.
-   */
-  getPropertyDescriptor: function(object, prop) {
-    let desc = null;
-    while (object) {
-      try {
-        if ((desc = Object.getOwnPropertyDescriptor(object, prop))) {
-          break;
-        }
-      } catch (ex) {
-        // Native getters throw here. See bug 520882.
-        // null throws TypeError.
-        if (ex.name != "NS_ERROR_XPC_BAD_CONVERT_JS" &&
-            ex.name != "NS_ERROR_XPC_BAD_OP_ON_WN_PROTO" &&
-            ex.name != "TypeError") {
-          throw ex;
-        }
-      }
-
-      try {
-        object = Object.getPrototypeOf(object);
-      } catch (ex) {
-        if (ex.name == "TypeError") {
-          return desc;
-        }
-        throw ex;
-      }
-    }
-    return desc;
   },
 
   /**
@@ -184,14 +159,57 @@ var WebConsoleUtils = {
         if (value === null) {
           return { type: "null" };
         }
-        // Fall through.
+      // Fall through.
       case "function":
         return objectWrapper(value);
       default:
-        console.error("Failed to provide a grip for value of " + typeof value
-                      + ": " + value);
+        console.error(
+          "Failed to provide a grip for value of " + typeof value + ": " + value
+        );
         return null;
     }
+  },
+
+  /**
+   * Remove any frames in a stack that are above a debugger-triggered evaluation
+   * and will correspond with devtools server code, which we never want to show
+   * to the user.
+   *
+   * @param array stack
+   *        An array of frames, with the topmost first, and each of which has a
+   *        'filename' property.
+   * @return array
+   *         An array of stack frames with any devtools server frames removed.
+   *         The original array is not modified.
+   */
+  removeFramesAboveDebuggerEval(stack) {
+    const debuggerEvalFilename = "debugger eval code";
+
+    // Remove any frames for server code above the last debugger eval frame.
+    const evalIndex = stack.findIndex(({ filename }, idx, arr) => {
+      const nextFrame = arr[idx + 1];
+      return (
+        filename == debuggerEvalFilename &&
+        (!nextFrame || nextFrame.filename !== debuggerEvalFilename)
+      );
+    });
+    if (evalIndex != -1) {
+      return stack.slice(0, evalIndex + 1);
+    }
+
+    // In some cases (e.g. evaluated expression with SyntaxError), we might not have a
+    // "debugger eval code" frame but still have internal ones. If that's the case, we
+    // return null as the end user shouldn't see those frames.
+    if (
+      stack.some(
+        ({ filename }) =>
+          filename && filename.startsWith("resource://devtools/")
+      )
+    ) {
+      return null;
+    }
+
+    return stack;
   },
 };
 
@@ -293,9 +311,9 @@ exports.WebConsoleCommands = WebConsoleCommands;
 
 /*
  * Built-in commands.
-  *
-  * A list of helper functions used by Firebug can be found here:
-  *   http://getfirebug.com/wiki/index.php/Command_Line_API
+ *
+ * A list of helper functions used by Firebug can be found here:
+ *   http://getfirebug.com/wiki/index.php/Command_Line_API
  */
 
 /**
@@ -360,18 +378,69 @@ WebConsoleCommands._registerOriginal("$_", {
  *        xPath search query to execute.
  * @param [optional] Node context
  *        Context to run the xPath query on. Uses window.document if not set.
+ * @param [optional] string|number resultType
+          Specify the result type. Default value XPathResult.ANY_TYPE
  * @return array of Node
  */
-WebConsoleCommands._registerOriginal("$x", function(owner, xPath, context) {
+WebConsoleCommands._registerOriginal("$x", function(
+  owner,
+  xPath,
+  context,
+  resultType = owner.window.XPathResult.ANY_TYPE
+) {
   const nodes = new owner.window.Array();
-
   // Not waiving Xrays, since we want the original Document.evaluate function,
   // instead of anything that's been redefined.
   const doc = owner.window.document;
   context = context || doc;
+  switch (resultType) {
+    case "number":
+      resultType = owner.window.XPathResult.NUMBER_TYPE;
+      break;
 
-  const results = doc.evaluate(xPath, context, null,
-                             owner.window.XPathResult.ANY_TYPE, null);
+    case "string":
+      resultType = owner.window.XPathResult.STRING_TYPE;
+      break;
+
+    case "bool":
+      resultType = owner.window.XPathResult.BOOLEAN_TYPE;
+      break;
+
+    case "node":
+      resultType = owner.window.XPathResult.FIRST_ORDERED_NODE_TYPE;
+      break;
+
+    case "nodes":
+      resultType = owner.window.XPathResult.UNORDERED_NODE_ITERATOR_TYPE;
+      break;
+  }
+  const results = doc.evaluate(xPath, context, null, resultType, null);
+  if (results.resultType === owner.window.XPathResult.NUMBER_TYPE) {
+    return results.numberValue;
+  }
+  if (results.resultType === owner.window.XPathResult.STRING_TYPE) {
+    return results.stringValue;
+  }
+  if (results.resultType === owner.window.XPathResult.BOOLEAN_TYPE) {
+    return results.booleanValue;
+  }
+  if (
+    results.resultType === owner.window.XPathResult.ANY_UNORDERED_NODE_TYPE ||
+    results.resultType === owner.window.XPathResult.FIRST_ORDERED_NODE_TYPE
+  ) {
+    return results.singleNodeValue;
+  }
+  if (
+    results.resultType ===
+      owner.window.XPathResult.UNORDERED_NODE_SNAPSHOT_TYPE ||
+    results.resultType === owner.window.XPathResult.ORDERED_NODE_SNAPSHOT_TYPE
+  ) {
+    for (let i = 0; i < results.snapshotLength; i++) {
+      nodes.push(results.snapshotItem(i));
+    }
+    return nodes;
+  }
+
   let node;
   while ((node = results.iterateNext())) {
     nodes.push(node);
@@ -461,8 +530,29 @@ WebConsoleCommands._registerOriginal("help", function(owner) {
  *        eval scope is cleared back to its default (the top window).
  */
 WebConsoleCommands._registerOriginal("cd", function(owner, window) {
+  // Log a deprecation warning.
+  const scriptErrorClass = Cc["@mozilla.org/scripterror;1"];
+  const scriptError = scriptErrorClass.createInstance(Ci.nsIScriptError);
+
+  const deprecationMessage =
+    "The `cd` command will be disabled in a future release. " +
+    "See https://bugzilla.mozilla.org/show_bug.cgi?id=1605327 for more information.";
+
+  scriptError.initWithWindowID(
+    deprecationMessage,
+    null,
+    null,
+    0,
+    0,
+    1,
+    "content javascript",
+    owner.window.windowGlobalChild.innerWindowId
+  );
+  const Services = require("Services");
+  Services.console.logMessage(scriptError);
+
   if (!window) {
-    owner.consoleActor.evalWindow = null;
+    owner.consoleActor.evalGlobal = null;
     owner.helperResult = { type: "cd" };
     return;
   }
@@ -481,7 +571,7 @@ WebConsoleCommands._registerOriginal("cd", function(owner, window) {
     return;
   }
 
-  owner.consoleActor.evalWindow = window;
+  owner.consoleActor.evalGlobal = window;
   owner.helperResult = { type: "cd" };
 });
 
@@ -491,78 +581,22 @@ WebConsoleCommands._registerOriginal("cd", function(owner, window) {
  * @param object object
  *        Object to inspect.
  */
-WebConsoleCommands._registerOriginal("inspect", function(owner, object) {
-  const dbgObj = owner.makeDebuggeeValue(object);
+WebConsoleCommands._registerOriginal("inspect", function(
+  owner,
+  object,
+  forceExpandInConsole = false
+) {
+  const dbgObj = owner.preprocessDebuggerObject(
+    owner.makeDebuggeeValue(object)
+  );
+
   const grip = owner.createValueGrip(dbgObj);
   owner.helperResult = {
     type: "inspectObject",
     input: owner.evalInput,
     object: grip,
+    forceExpandInConsole,
   };
-});
-
-/**
- * Prints object to the output.
- *
- * @param object object
- *        Object to print to the output.
- * @return string
- */
-WebConsoleCommands._registerOriginal("pprint", function(owner, object) {
-  if (object === null || object === undefined || object === true ||
-      object === false) {
-    owner.helperResult = {
-      type: "error",
-      message: "helperFuncUnsupportedTypeError",
-    };
-    return null;
-  }
-
-  owner.helperResult = { rawOutput: true };
-
-  if (typeof object == "function") {
-    return object + "\n";
-  }
-
-  const output = [];
-
-  const obj = object;
-  for (const name in obj) {
-    const desc = WebConsoleUtils.getPropertyDescriptor(obj, name) || {};
-    if (desc.get || desc.set) {
-      // TODO: Bug 842672 - toolkit/ imports modules from browser/.
-      const getGrip = VariablesView.getGrip(desc.get);
-      const setGrip = VariablesView.getGrip(desc.set);
-      const getString = VariablesView.getString(getGrip);
-      const setString = VariablesView.getString(setGrip);
-      output.push(name + ":", "  get: " + getString, "  set: " + setString);
-    } else {
-      const valueGrip = VariablesView.getGrip(obj[name]);
-      const valueString = VariablesView.getString(valueGrip);
-      output.push(name + ": " + valueString);
-    }
-  }
-
-  return "  " + output.join("\n  ");
-});
-
-/**
- * Print the String representation of a value to the output, as-is.
- *
- * @param any value
- *        A value you want to output as a string.
- * @return void
- */
-WebConsoleCommands._registerOriginal("print", function(owner, value) {
-  owner.helperResult = { rawOutput: true };
-  if (typeof value === "symbol") {
-    return Symbol.prototype.toString.call(value);
-  }
-  // Waiving Xrays here allows us to see a closer representation of the
-  // underlying object. This may execute arbitrary content code, but that
-  // code will run with content privileges, and the result will be rendered
-  // inert by coercing it to a String.
-  return String(Cu.waiveXrays(value));
 });
 
 /**
@@ -615,12 +649,66 @@ WebConsoleCommands._registerOriginal("screenshot", function(owner, args = {}) {
 });
 
 /**
+ * Block specific resource from loading
+ *
+ * @param object args
+ *               an object with key "url", i.e. a filter
+ *
+ * @return void
+ */
+WebConsoleCommands._registerOriginal("block", function(owner, args = {}) {
+  if (!args.url) {
+    owner.helperResult = {
+      type: "error",
+      message: "webconsole.messages.commands.blockArgMissing",
+    };
+    return;
+  }
+
+  owner.helperResult = (async () => {
+    await owner.consoleActor.blockRequest(args);
+
+    return {
+      type: "blockURL",
+      args,
+    };
+  })();
+});
+
+/*
+ * Unblock a blocked a resource
+ *
+ * @param object filter
+ *               an object with key "url", i.e. a filter
+ *
+ * @return void
+ */
+WebConsoleCommands._registerOriginal("unblock", function(owner, args = {}) {
+  if (!args.url) {
+    owner.helperResult = {
+      type: "error",
+      message: "webconsole.messages.commands.blockArgMissing",
+    };
+    return;
+  }
+
+  owner.helperResult = (async () => {
+    await owner.consoleActor.unblockRequest(args);
+
+    return {
+      type: "unblockURL",
+      args,
+    };
+  })();
+});
+
+/**
  * (Internal only) Add the bindings to |owner.sandbox|.
  * This is intended to be used by the WebConsole actor only.
-  *
-  * @param object owner
-  *        The owning object.
-  */
+ *
+ * @param object owner
+ *        The owning object.
+ */
 function addWebConsoleCommands(owner) {
   // Not supporting extra commands in workers yet.  This should be possible to
   // add one by one as long as they don't require jsm, Cu, etc.

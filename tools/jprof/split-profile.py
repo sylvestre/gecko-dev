@@ -52,6 +52,8 @@
 # functions in the input file can lead to a logical splitting of the
 # profile into segments.
 
+from __future__ import absolute_import, print_function
+
 import sys
 import subprocess
 import os.path
@@ -77,10 +79,11 @@ def read_splits(splitfile):
     representing exactly that.  (Note that the name cannot contain
     spaces, but the function name can, and often does.)
     """
+
     def line_to_split(line):
         line = line.strip("\r\n")
         idx = line.index(" ")
-        return (line[0:idx], line[idx + 1:])
+        return (line[0:idx], line[idx + 1 :])
 
     io = open(splitfile, "r")
     result = [line_to_split(line) for line in io]
@@ -96,7 +99,7 @@ def generate_profile(options, destfile):
     Run jprof to generate one split of the profile.
     """
     args = [jprof] + options + passthrough
-    print "Generating {0}".format(destfile)
+    print("Generating {}".format(destfile))
     destio = open(destfile, "w")
     # jprof expects the "jprof-map" file to be in its current working directory
     cwd = None
@@ -104,14 +107,17 @@ def generate_profile(options, destfile):
         if option.find("jprof-log"):
             cwd = os.path.dirname(option)
     if cwd is None:
-        raise StandardError("no jprof-log option given")
+        raise Exception("no jprof-log option given")
     process = subprocess.Popen(args, stdout=destio, cwd=cwd)
     process.wait()
     destio.close()
     if process.returncode != 0:
         os.remove(destfile)
-        sys.stderr.write("Error {0} from command:\n  {1}\n".format(
-            process.returncode, " ".join(args)))
+        sys.stderr.write(
+            "Error {0} from command:\n  {1}\n".format(
+                process.returncode, " ".join(args)
+            )
+        )
         sys.exit(process.returncode)
 
 
@@ -121,6 +127,7 @@ def output_filename(number, splitname):
     profile segment with the given number and splitname.  Splitname
     should be None for the complete profile and the remainder.
     """
+
     def pad_count(i):
         result = str(i)
         # 0-pad to the same length
@@ -131,8 +138,7 @@ def output_filename(number, splitname):
     if splitname is not None:
         name += "-" + splitname
 
-    return os.path.join(os.path.dirname(splitfile),
-                        "jprof-{0}.html".format(name))
+    return os.path.join(os.path.dirname(splitfile), "jprof-{0}.html".format(name))
 
 
 # generate the complete profile
@@ -142,8 +148,9 @@ generate_profile([], output_filename(0, None))
 count = 1
 excludes = []
 for (splitname, splitfunction) in splits:
-    generate_profile(excludes + ["-i" + splitfunction],
-                     output_filename(count, splitname))
+    generate_profile(
+        excludes + ["-i" + splitfunction], output_filename(count, splitname)
+    )
     excludes += ["-e" + splitfunction]
     count = count + 1
 

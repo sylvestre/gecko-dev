@@ -7,12 +7,13 @@
 #ifndef mozilla_mscom_ActivationContext_h
 #define mozilla_mscom_ActivationContext_h
 
+#include <utility>
+
 #include "mozilla/Attributes.h"
-#include "mozilla/Move.h"
 #include "mozilla/Result.h"
 
 #if defined(MOZILLA_INTERNAL_API)
-#include "nsString.h"
+#  include "nsString.h"
 #endif  // defined(MOZILLA_INTERNAL_API)
 
 #include <windows.h>
@@ -22,10 +23,15 @@ namespace mscom {
 
 class ActivationContext final {
  public:
+  // This is the default resource ID that the Windows dynamic linker searches
+  // for when seeking a manifest while loading a DLL.
+  static constexpr WORD kDllManifestDefaultResourceId = 2;
+
   ActivationContext() : mActCtx(INVALID_HANDLE_VALUE) {}
 
   explicit ActivationContext(WORD aResourceId);
-  explicit ActivationContext(HMODULE aLoadFromModule, WORD aResourceId = 2);
+  explicit ActivationContext(HMODULE aLoadFromModule,
+                             WORD aResourceId = kDllManifestDefaultResourceId);
 
   ActivationContext(ActivationContext&& aOther);
   ActivationContext& operator=(ActivationContext&& aOther);
@@ -56,7 +62,7 @@ class ActivationContext final {
 class MOZ_NON_TEMPORARY_CLASS ActivationContextRegion final {
  public:
   template <typename... Args>
-  explicit ActivationContextRegion(Args... aArgs)
+  explicit ActivationContextRegion(Args&&... aArgs)
       : mActCtx(std::forward<Args>(aArgs)...), mActCookie(0) {
     Activate();
   }

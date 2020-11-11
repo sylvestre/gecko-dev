@@ -7,10 +7,12 @@
 const EventEmitter = require("devtools/shared/event-emitter");
 
 const { bindActionCreators } = require("devtools/client/shared/vendor/redux");
-const { Connector } = require("./connector/index");
-const { configureStore } = require("./create-store");
-const { EVENTS } = require("./constants");
-const Actions = require("./actions/index");
+const { Connector } = require("devtools/client/netmonitor/src/connector/index");
+const {
+  configureStore,
+} = require("devtools/client/netmonitor/src/create-store");
+const { EVENTS } = require("devtools/client/netmonitor/src/constants");
+const Actions = require("devtools/client/netmonitor/src/actions/index");
 
 // Telemetry
 const Telemetry = require("devtools/client/shared/telemetry");
@@ -18,7 +20,7 @@ const Telemetry = require("devtools/client/shared/telemetry");
 const {
   getDisplayedRequestById,
   getSortedRequests,
-} = require("./selectors/index");
+} = require("devtools/client/netmonitor/src/selectors/index");
 
 /**
  * API object for NetMonitor panel (like a facade). This object can be
@@ -43,7 +45,7 @@ function NetMonitorAPI() {
   this._requestFinishedListeners = new Set();
 
   // Bind event handlers
-  this.onRequestAdded = this.onRequestAdded.bind(this);
+  this.onPayloadReady = this.onPayloadReady.bind(this);
   this.actions = bindActionCreators(Actions, this.store.dispatch);
 }
 
@@ -57,46 +59,33 @@ NetMonitorAPI.prototype = {
     this.toolbox = toolbox;
 
     // Register listener for new requests (utilized by WebExtension API).
-    this.on(EVENTS.REQUEST_ADDED, this.onRequestAdded);
+    this.on(EVENTS.PAYLOAD_READY, this.onPayloadReady);
 
     // Initialize connection to the backend. Pass `this` as the owner,
     // so this object can receive all emitted events.
     const connection = {
-      tabConnection: {
-        tabTarget: toolbox.target,
-      },
       toolbox,
       owner: this,
     };
 
-    await this.connectBackend(this.connector, connection, this.actions,
-      this.store.getState);
+    await this.connector.connectFirefox(
+      connection,
+      this.actions,
+      this.store.getState
+    );
   },
 
   /**
    * Clean up (unmount from DOM, remove listeners, disconnect).
    */
-  async destroy() {
-    this.off(EVENTS.REQUEST_ADDED, this.onRequestAdded);
+  destroy() {
+    this.off(EVENTS.PAYLOAD_READY, this.onPayloadReady);
 
-    await this.connector.disconnect();
+    this.connector.disconnect();
 
     if (this.harExportConnector) {
-      await this.harExportConnector.disconnect();
+      this.harExportConnector.disconnect();
     }
-  },
-
-  /**
-   * Connect to the Firefox backend by default.
-   *
-   * As soon as connections to different back-ends is supported
-   * this function should be responsible for picking the right API.
-   */
-  async connectBackend(connector, connection, actions, getState) {
-    // The connection might happen during Toolbox initialization
-    // so make sure the target is ready.
-    await connection.tabConnection.tabTarget.attach();
-    return connector.connectFirefox(connection, actions, getState);
   },
 
   // HAR
@@ -105,7 +94,9 @@ NetMonitorAPI.prototype = {
    * Support for `devtools.network.getHAR` (get collected data as HAR)
    */
   async getHar() {
-    const { HarExporter } = require("devtools/client/netmonitor/src/har/har-exporter");
+    const {
+      HarExporter,
+    } = require("devtools/client/netmonitor/src/har/har-exporter");
     const state = this.store.getState();
 
     const options = {
@@ -120,17 +111,22 @@ NetMonitorAPI.prototype = {
    * Support for `devtools.network.onRequestFinished`. A hook for
    * every finished HTTP request used by WebExtensions API.
    */
-  async onRequestAdded(requestId) {
+  async onPayloadReady(resource) {
     if (!this._requestFinishedListeners.size) {
       return;
     }
 
-    const { HarExporter } = require("devtools/client/netmonitor/src/har/har-exporter");
+    const {
+      HarExporter,
+    } = require("devtools/client/netmonitor/src/har/har-exporter");
 
     const connector = await this.getHarExportConnector();
-    const request = getDisplayedRequestById(this.store.getState(), requestId);
+    const request = getDisplayedRequestById(
+      this.store.getState(),
+      resource.actor
+    );
     if (!request) {
-      console.error("HAR: request not found " + requestId);
+      console.error("HAR: request not found " + resource.actor);
       return;
     }
 
@@ -146,10 +142,12 @@ NetMonitorAPI.prototype = {
     const harEntry = har.log.entries[0];
     delete harEntry.pageref;
 
-    this._requestFinishedListeners.forEach(listener => listener({
-      harEntry,
-      requestId,
-    }));
+    this._requestFinishedListeners.forEach(listener =>
+      listener({
+        harEntry,
+        requestId: resource.actor,
+      })
+    );
   },
 
   /**
@@ -184,24 +182,36 @@ NetMonitorAPI.prototype = {
    */
   async getHarExportConnector() {
     if (this.harExportConnector) {
-      // Ensure waiting for connectBackend completion to prevent "this.connector is null"
-      // exceptions if getHarExportConnector is called twice during its initialization.
+      // Wait for the connector to be ready to avoid exceptions if this method is called
+      // twice during its initialization.
       await this.harExportConnectorReady;
       return this.harExportConnector;
     }
 
     const connection = {
-      tabConnection: {
-        tabTarget: this.toolbox.target,
-      },
       toolbox: this.toolbox,
     };
 
     this.harExportConnector = new Connector();
-    this.harExportConnectorReady =
-      this.connectBackend(this.harExportConnector, connection);
+    this.harExportConnectorReady = this.harExportConnector.connectFirefox(
+      connection
+    );
+
     await this.harExportConnectorReady;
     return this.harExportConnector;
+  },
+
+  /**
+   * Resends a given network request
+   * @param {String} requestId
+   *        Id of the network request
+   */
+  resendRequest(requestId) {
+    // Flush queued requests.
+    this.store.dispatch(Actions.batchFlush());
+    // Send custom request with same url, headers and body as the request
+    // with the given requestId.
+    this.store.dispatch(Actions.sendCustomRequest(this.connector, requestId));
   },
 };
 

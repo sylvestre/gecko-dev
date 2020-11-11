@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+ 
 (function webpackUniversalModuleDefinition(root, factory) {
 	if(typeof exports === 'object' && typeof module === 'object')
 		module.exports = factory();
@@ -70,19 +74,372 @@ return /******/ (function(modules) { // webpackBootstrap
 /******/ 	__webpack_require__.p = "/assets/build";
 /******/
 /******/ 	// Load entry module and return exports
-/******/ 	return __webpack_require__(__webpack_require__.s = 3727);
+/******/ 	return __webpack_require__(__webpack_require__.s = 928);
 /******/ })
 /************************************************************************/
 /******/ ({
 
-/***/ 248:
+/***/ 560:
+/***/ (function(module, exports, __webpack_require__) {
+
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at <http://mozilla.org/MPL/2.0/>. */
+const networkRequest = __webpack_require__(567);
+
+const workerUtils = __webpack_require__(568);
+
+module.exports = {
+  networkRequest,
+  workerUtils
+};
+
+/***/ }),
+
+/***/ 567:
+/***/ (function(module, exports) {
+
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at <http://mozilla.org/MPL/2.0/>. */
+function networkRequest(url, opts) {
+  return fetch(url, {
+    cache: opts.loadFromCache ? "default" : "no-cache"
+  }).then(res => {
+    if (res.status >= 200 && res.status < 300) {
+      if (res.headers.get("Content-Type") === "application/wasm") {
+        return res.arrayBuffer().then(buffer => ({
+          content: buffer,
+          isDwarf: true
+        }));
+      }
+
+      return res.text().then(text => ({
+        content: text
+      }));
+    }
+
+    return Promise.reject(`request failed with status ${res.status}`);
+  });
+}
+
+module.exports = networkRequest;
+
+/***/ }),
+
+/***/ 568:
+/***/ (function(module, exports) {
+
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at <http://mozilla.org/MPL/2.0/>. */
+function WorkerDispatcher() {
+  this.msgId = 1;
+  this.worker = null;
+}
+
+WorkerDispatcher.prototype = {
+  start(url, win = window) {
+    this.worker = new win.Worker(url);
+
+    this.worker.onerror = err => {
+      console.error(`Error in worker ${url}`, err.message);
+    };
+  },
+
+  stop() {
+    if (!this.worker) {
+      return;
+    }
+
+    this.worker.terminate();
+    this.worker = null;
+  },
+
+  task(method, {
+    queue = false
+  } = {}) {
+    const calls = [];
+
+    const push = args => {
+      return new Promise((resolve, reject) => {
+        if (queue && calls.length === 0) {
+          Promise.resolve().then(flush);
+        }
+
+        calls.push([args, resolve, reject]);
+
+        if (!queue) {
+          flush();
+        }
+      });
+    };
+
+    const flush = () => {
+      const items = calls.slice();
+      calls.length = 0;
+
+      if (!this.worker) {
+        return;
+      }
+
+      const id = this.msgId++;
+      this.worker.postMessage({
+        id,
+        method,
+        calls: items.map(item => item[0])
+      });
+
+      const listener = ({
+        data: result
+      }) => {
+        if (result.id !== id) {
+          return;
+        }
+
+        if (!this.worker) {
+          return;
+        }
+
+        this.worker.removeEventListener("message", listener);
+        result.results.forEach((resultData, i) => {
+          const [, resolve, reject] = items[i];
+
+          if (resultData.error) {
+            const err = new Error(resultData.message);
+            err.metadata = resultData.metadata;
+            reject(err);
+          } else {
+            resolve(resultData.response);
+          }
+        });
+      };
+
+      this.worker.addEventListener("message", listener);
+    };
+
+    return (...args) => push(args);
+  },
+
+  invoke(method, ...args) {
+    return this.task(method)(...args);
+  }
+
+};
+
+function workerHandler(publicInterface) {
+  return function (msg) {
+    const {
+      id,
+      method,
+      calls
+    } = msg.data;
+    Promise.all(calls.map(args => {
+      try {
+        const response = publicInterface[method].apply(undefined, args);
+
+        if (response instanceof Promise) {
+          return response.then(val => ({
+            response: val
+          }), err => asErrorMessage(err));
+        }
+
+        return {
+          response
+        };
+      } catch (error) {
+        return asErrorMessage(error);
+      }
+    })).then(results => {
+      self.postMessage({
+        id,
+        results
+      });
+    });
+  };
+}
+
+function asErrorMessage(error) {
+  if (typeof error === "object" && error && "message" in error) {
+    // Error can't be sent via postMessage, so be sure to convert to
+    // string.
+    return {
+      error: true,
+      message: error.message,
+      metadata: error.metadata
+    };
+  }
+
+  return {
+    error: true,
+    message: error == null ? error : error.toString(),
+    metadata: undefined
+  };
+}
+
+module.exports = {
+  WorkerDispatcher,
+  workerHandler
+};
+
+/***/ }),
+
+/***/ 584:
+/***/ (function(module, exports, __webpack_require__) {
+
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at <http://mozilla.org/MPL/2.0/>. */
+const md5 = __webpack_require__(644);
+
+function originalToGeneratedId(sourceId) {
+  if (isGeneratedId(sourceId)) {
+    return sourceId;
+  }
+
+  const lastIndex = sourceId.lastIndexOf("/originalSource");
+  return lastIndex !== -1 ? sourceId.slice(0, lastIndex) : "";
+}
+
+const getMd5 = memoize(url => md5(url));
+
+function generatedToOriginalId(generatedId, url) {
+  return `${generatedId}/originalSource-${getMd5(url)}`;
+}
+
+function isOriginalId(id) {
+  return id.includes("/originalSource");
+}
+
+function isGeneratedId(id) {
+  return !isOriginalId(id);
+}
+/**
+ * Trims the query part or reference identifier of a URL string, if necessary.
+ */
+
+
+function trimUrlQuery(url) {
+  const length = url.length;
+
+  for (let i = 0; i < length; ++i) {
+    if (url[i] === "?" || url[i] === "&" || url[i] === "#") {
+      return url.slice(0, i);
+    }
+  }
+
+  return url;
+} // Map suffix to content type.
+
+
+const contentMap = {
+  js: "text/javascript",
+  jsm: "text/javascript",
+  mjs: "text/javascript",
+  ts: "text/typescript",
+  tsx: "text/typescript-jsx",
+  jsx: "text/jsx",
+  vue: "text/vue",
+  coffee: "text/coffeescript",
+  elm: "text/elm",
+  cljc: "text/x-clojure",
+  cljs: "text/x-clojurescript"
+};
+/**
+ * Returns the content type for the specified URL.  If no specific
+ * content type can be determined, "text/plain" is returned.
+ *
+ * @return String
+ *         The content type.
+ */
+
+function getContentType(url) {
+  url = trimUrlQuery(url);
+  const dot = url.lastIndexOf(".");
+
+  if (dot >= 0) {
+    const name = url.substring(dot + 1);
+
+    if (name in contentMap) {
+      return contentMap[name];
+    }
+  }
+
+  return "text/plain";
+}
+
+function memoize(func) {
+  const map = new Map();
+  return arg => {
+    if (map.has(arg)) {
+      return map.get(arg);
+    }
+
+    const result = func(arg);
+    map.set(arg, result);
+    return result;
+  };
+}
+
+module.exports = {
+  originalToGeneratedId,
+  generatedToOriginalId,
+  isOriginalId,
+  isGeneratedId,
+  getContentType,
+  contentMapForTesting: contentMap
+};
+
+/***/ }),
+
+/***/ 585:
+/***/ (function(module, exports) {
+
+var charenc = {
+  // UTF-8 encoding
+  utf8: {
+    // Convert a string to a byte array
+    stringToBytes: function(str) {
+      return charenc.bin.stringToBytes(unescape(encodeURIComponent(str)));
+    },
+
+    // Convert a byte array to a string
+    bytesToString: function(bytes) {
+      return decodeURIComponent(escape(charenc.bin.bytesToString(bytes)));
+    }
+  },
+
+  // Binary encoding
+  bin: {
+    // Convert a string to a byte array
+    stringToBytes: function(str) {
+      for (var bytes = [], i = 0; i < str.length; i++)
+        bytes.push(str.charCodeAt(i) & 0xFF);
+      return bytes;
+    },
+
+    // Convert a byte array to a string
+    bytesToString: function(bytes) {
+      for (var str = [], i = 0; i < bytes.length; i++)
+        str.push(String.fromCharCode(bytes[i]));
+      return str.join('');
+    }
+  }
+};
+
+module.exports = charenc;
+
+
+/***/ }),
+
+/***/ 644:
 /***/ (function(module, exports, __webpack_require__) {
 
 (function(){
-  var crypt = __webpack_require__(249),
-      utf8 = __webpack_require__(250).utf8,
-      isBuffer = __webpack_require__(251),
-      bin = __webpack_require__(250).bin,
+  var crypt = __webpack_require__(645),
+      utf8 = __webpack_require__(585).utf8,
+      isBuffer = __webpack_require__(646),
+      bin = __webpack_require__(585).bin,
 
   // The core
   md5 = function (message, options) {
@@ -242,7 +599,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 /***/ }),
 
-/***/ 249:
+/***/ 645:
 /***/ (function(module, exports) {
 
 (function() {
@@ -345,47 +702,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
 /***/ }),
 
-/***/ 250:
-/***/ (function(module, exports) {
-
-var charenc = {
-  // UTF-8 encoding
-  utf8: {
-    // Convert a string to a byte array
-    stringToBytes: function(str) {
-      return charenc.bin.stringToBytes(unescape(encodeURIComponent(str)));
-    },
-
-    // Convert a byte array to a string
-    bytesToString: function(bytes) {
-      return decodeURIComponent(escape(charenc.bin.bytesToString(bytes)));
-    }
-  },
-
-  // Binary encoding
-  bin: {
-    // Convert a string to a byte array
-    stringToBytes: function(str) {
-      for (var bytes = [], i = 0; i < str.length; i++)
-        bytes.push(str.charCodeAt(i) & 0xFF);
-      return bytes;
-    },
-
-    // Convert a byte array to a string
-    bytesToString: function(bytes) {
-      for (var str = [], i = 0; i < bytes.length; i++)
-        str.push(String.fromCharCode(bytes[i]));
-      return str.join('');
-    }
-  }
-};
-
-module.exports = charenc;
-
-
-/***/ }),
-
-/***/ 251:
+/***/ 646:
 /***/ (function(module, exports) {
 
 /*!
@@ -413,388 +730,154 @@ function isSlowBuffer (obj) {
 
 /***/ }),
 
-/***/ 3646:
+/***/ 708:
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+Object.defineProperty(exports, "originalToGeneratedId", {
+  enumerable: true,
+  get: function () {
+    return _utils.originalToGeneratedId;
+  }
+});
+Object.defineProperty(exports, "generatedToOriginalId", {
+  enumerable: true,
+  get: function () {
+    return _utils.generatedToOriginalId;
+  }
+});
+Object.defineProperty(exports, "isGeneratedId", {
+  enumerable: true,
+  get: function () {
+    return _utils.isGeneratedId;
+  }
+});
+Object.defineProperty(exports, "isOriginalId", {
+  enumerable: true,
+  get: function () {
+    return _utils.isOriginalId;
+  }
+});
+exports.default = exports.stopSourceMapWorker = exports.startSourceMapWorker = exports.getOriginalStackFrames = exports.clearSourceMaps = exports.applySourceMap = exports.getOriginalSourceText = exports.getFileGeneratedRange = exports.getGeneratedRangesForOriginal = exports.getOriginalLocations = exports.getOriginalLocation = exports.getAllGeneratedLocations = exports.getGeneratedLocation = exports.getGeneratedRanges = exports.getOriginalRanges = exports.hasOriginalURL = exports.getOriginalURLs = exports.setAssetRootURL = exports.dispatcher = void 0;
+
+var _utils = __webpack_require__(584);
+
+var self = _interopRequireWildcard(__webpack_require__(708));
+
+function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function () { return cache; }; return cache; }
+
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } if (obj === null || typeof obj !== "object" && typeof obj !== "function") { return { default: obj }; } var cache = _getRequireWildcardCache(); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj.default = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
+
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at <http://mozilla.org/MPL/2.0/>. */
-
 const {
-  originalToGeneratedId,
-  generatedToOriginalId,
-  isGeneratedId,
-  isOriginalId
-} = __webpack_require__(3652);
-
-const {
-  workerUtils: { WorkerDispatcher }
-} = __webpack_require__(3651);
+  workerUtils: {
+    WorkerDispatcher
+  }
+} = __webpack_require__(560);
 
 const dispatcher = new WorkerDispatcher();
+exports.dispatcher = dispatcher;
 
-const setAssetRootURL = dispatcher.task("setAssetRootURL");
-const getOriginalURLs = dispatcher.task("getOriginalURLs");
-const getOriginalRanges = dispatcher.task("getOriginalRanges");
-const getGeneratedRanges = dispatcher.task("getGeneratedRanges", {
+const _getGeneratedRanges = dispatcher.task("getGeneratedRanges", {
   queue: true
 });
-const getGeneratedLocation = dispatcher.task("getGeneratedLocation", {
+
+const _getGeneratedLocation = dispatcher.task("getGeneratedLocation", {
   queue: true
 });
-const getAllGeneratedLocations = dispatcher.task("getAllGeneratedLocations", {
+
+const _getAllGeneratedLocations = dispatcher.task("getAllGeneratedLocations", {
   queue: true
 });
-const getOriginalLocation = dispatcher.task("getOriginalLocation");
-const getLocationScopes = dispatcher.task("getLocationScopes");
-const getOriginalSourceText = dispatcher.task("getOriginalSourceText");
-const applySourceMap = dispatcher.task("applySourceMap");
-const clearSourceMaps = dispatcher.task("clearSourceMaps");
-const hasMappedSource = dispatcher.task("hasMappedSource");
-const getOriginalStackFrames = dispatcher.task("getOriginalStackFrames");
 
-module.exports = {
-  originalToGeneratedId,
-  generatedToOriginalId,
-  isGeneratedId,
-  isOriginalId,
-  hasMappedSource,
-  getOriginalURLs,
-  getOriginalRanges,
-  getGeneratedRanges,
-  getGeneratedLocation,
-  getAllGeneratedLocations,
-  getOriginalLocation,
-  getLocationScopes,
-  getOriginalSourceText,
-  applySourceMap,
-  clearSourceMaps,
-  getOriginalStackFrames,
-  startSourceMapWorker(url, assetRoot) {
-    dispatcher.start(url);
-    setAssetRootURL(assetRoot);
-  },
-  stopSourceMapWorker: dispatcher.stop.bind(dispatcher)
+const _getOriginalLocation = dispatcher.task("getOriginalLocation", {
+  queue: true
+});
+
+const setAssetRootURL = async assetRoot => dispatcher.invoke("setAssetRootURL", assetRoot);
+
+exports.setAssetRootURL = setAssetRootURL;
+
+const getOriginalURLs = async generatedSource => dispatcher.invoke("getOriginalURLs", generatedSource);
+
+exports.getOriginalURLs = getOriginalURLs;
+
+const hasOriginalURL = async url => dispatcher.invoke("hasOriginalURL", url);
+
+exports.hasOriginalURL = hasOriginalURL;
+
+const getOriginalRanges = async sourceId => dispatcher.invoke("getOriginalRanges", sourceId);
+
+exports.getOriginalRanges = getOriginalRanges;
+
+const getGeneratedRanges = async location => _getGeneratedRanges(location);
+
+exports.getGeneratedRanges = getGeneratedRanges;
+
+const getGeneratedLocation = async location => _getGeneratedLocation(location);
+
+exports.getGeneratedLocation = getGeneratedLocation;
+
+const getAllGeneratedLocations = async location => _getAllGeneratedLocations(location);
+
+exports.getAllGeneratedLocations = getAllGeneratedLocations;
+
+const getOriginalLocation = async (location, options = {}) => _getOriginalLocation(location, options);
+
+exports.getOriginalLocation = getOriginalLocation;
+
+const getOriginalLocations = async (locations, options = {}) => dispatcher.invoke("getOriginalLocations", locations, options);
+
+exports.getOriginalLocations = getOriginalLocations;
+
+const getGeneratedRangesForOriginal = async (sourceId, mergeUnmappedRegions) => dispatcher.invoke("getGeneratedRangesForOriginal", sourceId, mergeUnmappedRegions);
+
+exports.getGeneratedRangesForOriginal = getGeneratedRangesForOriginal;
+
+const getFileGeneratedRange = async originalSourceId => dispatcher.invoke("getFileGeneratedRange", originalSourceId);
+
+exports.getFileGeneratedRange = getFileGeneratedRange;
+
+const getOriginalSourceText = async originalSourceId => dispatcher.invoke("getOriginalSourceText", originalSourceId);
+
+exports.getOriginalSourceText = getOriginalSourceText;
+
+const applySourceMap = async (generatedId, url, code, mappings) => dispatcher.invoke("applySourceMap", generatedId, url, code, mappings);
+
+exports.applySourceMap = applySourceMap;
+
+const clearSourceMaps = async () => dispatcher.invoke("clearSourceMaps");
+
+exports.clearSourceMaps = clearSourceMaps;
+
+const getOriginalStackFrames = async generatedLocation => dispatcher.invoke("getOriginalStackFrames", generatedLocation);
+
+exports.getOriginalStackFrames = getOriginalStackFrames;
+
+const startSourceMapWorker = (url, assetRoot) => {
+  dispatcher.start(url);
+  setAssetRootURL(assetRoot);
 };
+
+exports.startSourceMapWorker = startSourceMapWorker;
+const stopSourceMapWorker = dispatcher.stop.bind(dispatcher);
+exports.stopSourceMapWorker = stopSourceMapWorker;
+var _default = self;
+exports.default = _default;
 
 /***/ }),
 
-/***/ 3651:
+/***/ 928:
 /***/ (function(module, exports, __webpack_require__) {
 
-/* This Source Code Form is subject to the terms of the Mozilla Public
- * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-
-const networkRequest = __webpack_require__(3653);
-const workerUtils = __webpack_require__(3654);
-
-module.exports = {
-  networkRequest,
-  workerUtils
-};
-
-/***/ }),
-
-/***/ 3652:
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-
-/* This Source Code Form is subject to the terms of the Mozilla Public
- * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at <http://mozilla.org/MPL/2.0/>. */
-
-const md5 = __webpack_require__(248);
-
-function originalToGeneratedId(originalId) {
-  const match = originalId.match(/(.*)\/originalSource/);
-  return match ? match[1] : "";
-}
-
-function generatedToOriginalId(generatedId, url) {
-  return `${generatedId}/originalSource-${md5(url)}`;
-}
-
-function isOriginalId(id) {
-  return !!id.match(/\/originalSource/);
-}
-
-function isGeneratedId(id) {
-  return !isOriginalId(id);
-}
-
-/**
- * Trims the query part or reference identifier of a URL string, if necessary.
- */
-function trimUrlQuery(url) {
-  const length = url.length;
-  const q1 = url.indexOf("?");
-  const q2 = url.indexOf("&");
-  const q3 = url.indexOf("#");
-  const q = Math.min(q1 != -1 ? q1 : length, q2 != -1 ? q2 : length, q3 != -1 ? q3 : length);
-
-  return url.slice(0, q);
-}
-
-// Map suffix to content type.
-const contentMap = {
-  js: "text/javascript",
-  jsm: "text/javascript",
-  mjs: "text/javascript",
-  ts: "text/typescript",
-  tsx: "text/typescript-jsx",
-  jsx: "text/jsx",
-  vue: "text/vue",
-  coffee: "text/coffeescript",
-  elm: "text/elm",
-  cljs: "text/x-clojure"
-};
-
-/**
- * Returns the content type for the specified URL.  If no specific
- * content type can be determined, "text/plain" is returned.
- *
- * @return String
- *         The content type.
- */
-function getContentType(url) {
-  url = trimUrlQuery(url);
-  const dot = url.lastIndexOf(".");
-  if (dot >= 0) {
-    const name = url.substring(dot + 1);
-    if (name in contentMap) {
-      return contentMap[name];
-    }
-  }
-  return "text/plain";
-}
-
-module.exports = {
-  originalToGeneratedId,
-  generatedToOriginalId,
-  isOriginalId,
-  isGeneratedId,
-  getContentType,
-  contentMapForTesting: contentMap
-};
-
-/***/ }),
-
-/***/ 3653:
-/***/ (function(module, exports) {
-
-/* This Source Code Form is subject to the terms of the Mozilla Public
- * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at <http://mozilla.org/MPL/2.0/>. */
-
-function networkRequest(url, opts) {
-  return fetch(url, {
-    cache: opts.loadFromCache ? "default" : "no-cache"
-  }).then(res => {
-    if (res.status >= 200 && res.status < 300) {
-      if (res.headers.get("Content-Type") === "application/wasm") {
-        return res.arrayBuffer().then(buffer => ({
-          content: buffer,
-          isDwarf: true
-        }));
-      }
-      return res.text().then(text => ({ content: text }));
-    }
-    return Promise.reject(`request failed with status ${res.status}`);
-  });
-}
-
-module.exports = networkRequest;
-
-/***/ }),
-
-/***/ 3654:
-/***/ (function(module, exports) {
-
-function _asyncToGenerator(fn) { return function () { var gen = fn.apply(this, arguments); return new Promise(function (resolve, reject) { function step(key, arg) { try { var info = gen[key](arg); var value = info.value; } catch (error) { reject(error); return; } if (info.done) { resolve(value); } else { return Promise.resolve(value).then(function (value) { step("next", value); }, function (err) { step("throw", err); }); } } return step("next"); }); }; }
-
-function WorkerDispatcher() {
-  this.msgId = 1;
-  this.worker = null;
-} /* This Source Code Form is subject to the terms of the Mozilla Public
-   * License, v. 2.0. If a copy of the MPL was not distributed with this
-   * file, You can obtain one at <http://mozilla.org/MPL/2.0/>. */
-
-WorkerDispatcher.prototype = {
-  start(url, win = window) {
-    this.worker = new win.Worker(url);
-    this.worker.onerror = () => {
-      console.error(`Error in worker ${url}`);
-    };
-  },
-
-  stop() {
-    if (!this.worker) {
-      return;
-    }
-
-    this.worker.terminate();
-    this.worker = null;
-  },
-
-  task(method, { queue = false } = {}) {
-    const calls = [];
-    const push = args => {
-      return new Promise((resolve, reject) => {
-        if (queue && calls.length === 0) {
-          Promise.resolve().then(flush);
-        }
-
-        calls.push([args, resolve, reject]);
-
-        if (!queue) {
-          flush();
-        }
-      });
-    };
-
-    const flush = () => {
-      const items = calls.slice();
-      calls.length = 0;
-
-      if (!this.worker) {
-        return;
-      }
-
-      const id = this.msgId++;
-      this.worker.postMessage({
-        id,
-        method,
-        calls: items.map(item => item[0])
-      });
-
-      const listener = ({ data: result }) => {
-        if (result.id !== id) {
-          return;
-        }
-
-        if (!this.worker) {
-          return;
-        }
-
-        this.worker.removeEventListener("message", listener);
-
-        result.results.forEach((resultData, i) => {
-          const [, resolve, reject] = items[i];
-
-          if (resultData.error) {
-            reject(resultData.error);
-          } else {
-            resolve(resultData.response);
-          }
-        });
-      };
-
-      this.worker.addEventListener("message", listener);
-    };
-
-    return (...args) => push(args);
-  },
-
-  invoke(method, ...args) {
-    return this.task(method)(...args);
-  }
-};
-
-function workerHandler(publicInterface) {
-  return function (msg) {
-    const { id, method, calls } = msg.data;
-
-    Promise.all(calls.map(args => {
-      try {
-        const response = publicInterface[method].apply(undefined, args);
-        if (response instanceof Promise) {
-          return response.then(val => ({ response: val }),
-          // Error can't be sent via postMessage, so be sure to
-          // convert to string.
-          err => ({ error: err.toString() }));
-        }
-        return { response };
-      } catch (error) {
-        // Error can't be sent via postMessage, so be sure to convert to
-        // string.
-        return { error: error.toString() };
-      }
-    })).then(results => {
-      self.postMessage({ id, results });
-    });
-  };
-}
-
-function streamingWorkerHandler(publicInterface, { timeout = 100 } = {}, worker = self) {
-  let streamingWorker = (() => {
-    var _ref = _asyncToGenerator(function* (id, tasks) {
-      let isWorking = true;
-
-      const timeoutId = setTimeout(function () {
-        isWorking = false;
-      }, timeout);
-
-      const results = [];
-      while (tasks.length !== 0 && isWorking) {
-        const { callback, context, args } = tasks.shift();
-        const result = yield callback.call(context, args);
-        results.push(result);
-      }
-      worker.postMessage({ id, status: "pending", data: results });
-      clearTimeout(timeoutId);
-
-      if (tasks.length !== 0) {
-        yield streamingWorker(id, tasks);
-      }
-    });
-
-    return function streamingWorker(_x, _x2) {
-      return _ref.apply(this, arguments);
-    };
-  })();
-
-  return (() => {
-    var _ref2 = _asyncToGenerator(function* (msg) {
-      const { id, method, args } = msg.data;
-      const workerMethod = publicInterface[method];
-      if (!workerMethod) {
-        console.error(`Could not find ${method} defined in worker.`);
-      }
-      worker.postMessage({ id, status: "start" });
-
-      try {
-        const tasks = workerMethod(args);
-        yield streamingWorker(id, tasks);
-        worker.postMessage({ id, status: "done" });
-      } catch (error) {
-        worker.postMessage({ id, status: "error", error });
-      }
-    });
-
-    return function (_x3) {
-      return _ref2.apply(this, arguments);
-    };
-  })();
-}
-
-module.exports = {
-  WorkerDispatcher,
-  workerHandler,
-  streamingWorkerHandler
-};
-
-/***/ }),
-
-/***/ 3727:
-/***/ (function(module, exports, __webpack_require__) {
-
-module.exports = __webpack_require__(3646);
+module.exports = __webpack_require__(708);
 
 
 /***/ })

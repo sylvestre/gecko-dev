@@ -7,7 +7,7 @@
 #include "StereoPannerNode.h"
 #include "mozilla/dom/StereoPannerNodeBinding.h"
 #include "AudioNodeEngine.h"
-#include "AudioNodeStream.h"
+#include "AudioNodeTrack.h"
 #include "AudioDestinationNode.h"
 #include "AlignmentUtils.h"
 #include "WebAudioUtils.h"
@@ -15,10 +15,7 @@
 #include "AudioParamTimeline.h"
 #include "AudioParam.h"
 
-namespace mozilla {
-namespace dom {
-
-using namespace std;
+namespace mozilla::dom {
 
 NS_IMPL_CYCLE_COLLECTION_INHERITED(StereoPannerNode, AudioNode, mPan)
 
@@ -32,7 +29,7 @@ class StereoPannerNodeEngine final : public AudioNodeEngine {
  public:
   StereoPannerNodeEngine(AudioNode* aNode, AudioDestinationNode* aDestination)
       : AudioNodeEngine(aNode),
-        mDestination(aDestination->Stream())
+        mDestination(aDestination->Track())
         // Keep the default value in sync with the default value in
         // StereoPannerNode::StereoPannerNode.
         ,
@@ -94,7 +91,7 @@ class StereoPannerNodeEngine final : public AudioNodeEngine {
     }
   }
 
-  virtual void ProcessBlock(AudioNodeStream* aStream, GraphTime aFrom,
+  virtual void ProcessBlock(AudioNodeTrack* aTrack, GraphTime aFrom,
                             const AudioBlock& aInput, AudioBlock* aOutput,
                             bool* aFinished) override {
     // The output of this node is always stereo, no matter what the inputs are.
@@ -124,7 +121,7 @@ class StereoPannerNodeEngine final : public AudioNodeEngine {
       bool onLeft[WEBAUDIO_BLOCK_SIZE];
 
       float values[WEBAUDIO_BLOCK_SIZE];
-      StreamTime tick = mDestination->GraphTimeToStreamTime(aFrom);
+      TrackTime tick = mDestination->GraphTimeToTrackTime(aFrom);
       mPan.GetValuesAtTime(tick, values, WEBAUDIO_BLOCK_SIZE);
 
       float* alignedComputedGain = ALIGNED16(computedGain);
@@ -149,28 +146,25 @@ class StereoPannerNodeEngine final : public AudioNodeEngine {
     return aMallocSizeOf(this) + SizeOfExcludingThis(aMallocSizeOf);
   }
 
-  RefPtr<AudioNodeStream> mDestination;
+  RefPtr<AudioNodeTrack> mDestination;
   AudioParamTimeline mPan;
 };
 
 StereoPannerNode::StereoPannerNode(AudioContext* aContext)
     : AudioNode(aContext, 2, ChannelCountMode::Clamped_max,
-                ChannelInterpretation::Speakers),
-      mPan(new AudioParam(this, StereoPannerNodeEngine::PAN, "pan", 0.f, -1.f,
-                          1.f)) {
+                ChannelInterpretation::Speakers) {
+  mPan =
+      CreateAudioParam(StereoPannerNodeEngine::PAN, u"pan"_ns, 0.f, -1.f, 1.f);
   StereoPannerNodeEngine* engine =
       new StereoPannerNodeEngine(this, aContext->Destination());
-  mStream = AudioNodeStream::Create(
-      aContext, engine, AudioNodeStream::NO_STREAM_FLAGS, aContext->Graph());
+  mTrack = AudioNodeTrack::Create(
+      aContext, engine, AudioNodeTrack::NO_TRACK_FLAGS, aContext->Graph());
 }
 
-/* static */ already_AddRefed<StereoPannerNode> StereoPannerNode::Create(
+/* static */
+already_AddRefed<StereoPannerNode> StereoPannerNode::Create(
     AudioContext& aAudioContext, const StereoPannerOptions& aOptions,
     ErrorResult& aRv) {
-  if (aAudioContext.CheckClosed(aRv)) {
-    return nullptr;
-  }
-
   RefPtr<StereoPannerNode> audioNode = new StereoPannerNode(&aAudioContext);
 
   audioNode->Initialize(aOptions, aRv);
@@ -197,5 +191,4 @@ JSObject* StereoPannerNode::WrapObject(JSContext* aCx,
   return StereoPannerNode_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

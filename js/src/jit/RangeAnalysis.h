@@ -7,17 +7,36 @@
 #ifndef jit_RangeAnalysis_h
 #define jit_RangeAnalysis_h
 
+#include "mozilla/Assertions.h"
+#include "mozilla/Attributes.h"
+#include "mozilla/DebugOnly.h"
 #include "mozilla/FloatingPoint.h"
 #include "mozilla/MathAlgorithms.h"
 
+#include <algorithm>
+#include <stdint.h>
+
 #include "jit/IonAnalysis.h"
-#include "jit/MIR.h"
+#include "jit/IonTypes.h"
+#include "jit/JitAllocPolicy.h"
+#include "js/AllocPolicy.h"
+#include "js/Value.h"
+#include "js/Vector.h"
 
 namespace js {
+
+class GenericPrinter;
+
 namespace jit {
 
 class MBasicBlock;
+class MBinaryBitwiseInstruction;
+class MBoundsCheck;
+class MDefinition;
+class MIRGenerator;
 class MIRGraph;
+class MPhi;
+class MTest;
 
 // An upper bound computed on the number of backedges a loop will take.
 // This count only includes backedges taken while running Ion code: for OSR
@@ -283,7 +302,7 @@ class Range : public TempObject {
   //     exponent of JSVAL_INT_MAX == 30
   uint16_t exponentImpliedByInt32Bounds() const {
     // The number of bits needed to encode |max| is the power of 2 plus one.
-    uint32_t max = Max(mozilla::Abs(lower()), mozilla::Abs(upper()));
+    uint32_t max = std::max(mozilla::Abs(lower()), mozilla::Abs(upper()));
     uint16_t result = mozilla::FloorLog2(max);
     MOZ_ASSERT(result ==
                (max == 0 ? 0 : mozilla::ExponentComponent(double(max))));
@@ -304,8 +323,8 @@ class Range : public TempObject {
     if (e < MaxInt32Exponent) {
       // pow(2, max_exponent_+1)-1 to compute a maximum absolute value.
       int32_t limit = (uint32_t(1) << (e + 1)) - 1;
-      *h = Min(*h, limit);
-      *l = Max(*l, -limit);
+      *h = std::min(*h, limit);
+      *l = std::max(*l, -limit);
       *hb = true;
       *lb = true;
     }
@@ -467,6 +486,7 @@ class Range : public TempObject {
   static Range* ceil(TempAllocator& alloc, const Range* op);
   static Range* sign(TempAllocator& alloc, const Range* op);
   static Range* NaNToZero(TempAllocator& alloc, const Range* op);
+  static Range* toIntegerInt32(TempAllocator& alloc, const Range* op);
 
   static MOZ_MUST_USE bool negativeZeroMul(const Range* lhs, const Range* rhs);
 
@@ -571,7 +591,7 @@ class Range : public TempObject {
   void refineLower(int32_t x) {
     assertInvariants();
     hasInt32LowerBound_ = true;
-    lower_ = Max(lower_, x);
+    lower_ = std::max(lower_, x);
     optimize();
   }
 
@@ -579,7 +599,7 @@ class Range : public TempObject {
   void refineUpper(int32_t x) {
     assertInvariants();
     hasInt32UpperBound_ = true;
-    upper_ = Min(upper_, x);
+    upper_ = std::min(upper_, x);
     optimize();
   }
 

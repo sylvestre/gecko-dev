@@ -9,7 +9,9 @@
 
 #include "CoalescedInputData.h"
 #include "mozilla/MouseEvents.h"
-#include "nsRefreshDriver.h"
+#include "nsRefreshObservers.h"
+
+class nsRefreshDriver;
 
 namespace mozilla {
 namespace dom {
@@ -31,10 +33,7 @@ class CoalescedMouseData final : public CoalescedInputData<WidgetMouseEvent> {
 
 class CoalescedMouseMoveFlusher final : public nsARefreshObserver {
  public:
-  explicit CoalescedMouseMoveFlusher(TabChild* aTabChild)
-      : mTabChild(aTabChild) {
-    MOZ_ASSERT(mTabChild);
-  }
+  explicit CoalescedMouseMoveFlusher(BrowserChild* aBrowserChild);
 
   virtual void WillRefresh(mozilla::TimeStamp aTime) override;
 
@@ -44,11 +43,11 @@ class CoalescedMouseMoveFlusher final : public nsARefreshObserver {
   void RemoveObserver();
 
  private:
-  ~CoalescedMouseMoveFlusher() { RemoveObserver(); }
+  ~CoalescedMouseMoveFlusher();
 
   nsRefreshDriver* GetRefreshDriver();
 
-  TabChild* mTabChild;
+  BrowserChild* mBrowserChild;
   RefPtr<nsRefreshDriver> mRefreshDriver;
 };
 

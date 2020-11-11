@@ -9,12 +9,16 @@ ChromeUtils.import("resource://gre/modules/Log.jsm", this);
 ChromeUtils.import("resource://gre/modules/Services.jsm", this);
 ChromeUtils.import("resource://gre/modules/TelemetryUtils.jsm", this);
 
-ChromeUtils.defineModuleGetter(this, "TelemetryController",
-                               "resource://gre/modules/TelemetryController.jsm");
+ChromeUtils.defineModuleGetter(
+  this,
+  "TelemetryController",
+  "resource://gre/modules/TelemetryController.jsm"
+);
 
 const LOGGER_NAME = "Toolkit.Telemetry";
 const PING_TYPE = "update";
 const UPDATE_DOWNLOADED_TOPIC = "update-downloaded";
+const UPDATE_STAGED_TOPIC = "update-staged";
 
 var EXPORTED_SYMBOLS = ["UpdatePing"];
 
@@ -27,8 +31,14 @@ var UpdatePing = {
   _enabled: false,
 
   earlyInit() {
-    this._log = Log.repository.getLoggerWithMessagePrefix(LOGGER_NAME, "UpdatePing::");
-    this._enabled = Services.prefs.getBoolPref(TelemetryUtils.Preferences.UpdatePing, false);
+    this._log = Log.repository.getLoggerWithMessagePrefix(
+      LOGGER_NAME,
+      "UpdatePing::"
+    );
+    this._enabled = Services.prefs.getBoolPref(
+      TelemetryUtils.Preferences.UpdatePing,
+      false
+    );
 
     this._log.trace("init - enabled: " + this._enabled);
 
@@ -37,6 +47,7 @@ var UpdatePing = {
     }
 
     Services.obs.addObserver(this, UPDATE_DOWNLOADED_TOPIC);
+    Services.obs.addObserver(this, UPDATE_STAGED_TOPIC);
   },
 
   /**
@@ -46,13 +57,14 @@ var UpdatePing = {
    * @return {nsIUpdate} The information about the update, if available, or null.
    */
   _getActiveUpdate() {
-    let updateManager =
-      Cc["@mozilla.org/updates/update-manager;1"].getService(Ci.nsIUpdateManager);
-    if (!updateManager || !updateManager.activeUpdate) {
+    let updateManager = Cc["@mozilla.org/updates/update-manager;1"].getService(
+      Ci.nsIUpdateManager
+    );
+    if (!updateManager || !updateManager.readyUpdate) {
       return null;
     }
 
-    return updateManager.activeUpdate;
+    return updateManager.readyUpdate;
   },
 
   /**
@@ -91,8 +103,13 @@ var UpdatePing = {
       usePingSender: false,
     };
 
-    TelemetryController.submitExternalPing(PING_TYPE, payload, options)
-                       .catch(e => this._log.error("handleUpdateSuccess - failed to submit update ping", e));
+    TelemetryController.submitExternalPing(
+      PING_TYPE,
+      payload,
+      options
+    ).catch(e =>
+      this._log.error("handleUpdateSuccess - failed to submit update ping", e)
+    );
   },
 
   /**
@@ -104,7 +121,11 @@ var UpdatePing = {
    */
   _handleUpdateReady(aUpdateState) {
     const ALLOWED_STATES = [
-      "applied", "applied-service", "pending", "pending-service", "pending-elevate",
+      "applied",
+      "applied-service",
+      "pending",
+      "pending-service",
+      "pending-elevate",
     ];
     if (!ALLOWED_STATES.includes(aUpdateState)) {
       this._log.trace("Unexpected update state: " + aUpdateState);
@@ -115,7 +136,9 @@ var UpdatePing = {
     // update manager.
     let update = this._getActiveUpdate();
     if (!update) {
-      this._log.trace("Cannot get the update manager or no update is currently active.");
+      this._log.trace(
+        "Cannot get the update manager or no update is currently active."
+      );
       return;
     }
 
@@ -133,8 +156,13 @@ var UpdatePing = {
       usePingSender: true,
     };
 
-    TelemetryController.submitExternalPing(PING_TYPE, payload, options)
-                       .catch(e => this._log.error("_handleUpdateReady - failed to submit update ping", e));
+    TelemetryController.submitExternalPing(
+      PING_TYPE,
+      payload,
+      options
+    ).catch(e =>
+      this._log.error("_handleUpdateReady - failed to submit update ping", e)
+    );
   },
 
   /**
@@ -142,7 +170,7 @@ var UpdatePing = {
    */
   observe(aSubject, aTopic, aData) {
     this._log.trace("observe - aTopic: " + aTopic);
-    if (aTopic == UPDATE_DOWNLOADED_TOPIC) {
+    if (aTopic == UPDATE_DOWNLOADED_TOPIC || aTopic == UPDATE_STAGED_TOPIC) {
       this._handleUpdateReady(aData);
     }
   },
@@ -152,5 +180,6 @@ var UpdatePing = {
       return;
     }
     Services.obs.removeObserver(this, UPDATE_DOWNLOADED_TOPIC);
+    Services.obs.removeObserver(this, UPDATE_STAGED_TOPIC);
   },
 };

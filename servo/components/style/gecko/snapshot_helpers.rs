@@ -29,7 +29,7 @@ unsafe fn ptr<T>(attr: &structs::nsAttrValue) -> *const T {
 }
 
 #[inline(always)]
-unsafe fn get_class_from_attr(attr: &structs::nsAttrValue) -> Class {
+unsafe fn get_class_or_part_from_attr(attr: &structs::nsAttrValue) -> Class {
     debug_assert!(bindings::Gecko_AssertClassAttrValueIsSane(attr));
     let base_type = base_type(attr);
     if base_type == structs::nsAttrValue_ValueBaseType_eStringBase {
@@ -82,15 +82,51 @@ pub fn get_id(attrs: &[structs::AttrArray_InternalAttr]) -> Option<&WeakAtom> {
     Some(unsafe { get_id_from_attr(find_attr(attrs, &atom!("id"))?) })
 }
 
-/// Given a class name, a case sensitivity, and an array of attributes, returns
-/// whether the class has the attribute that name represents.
 #[inline(always)]
-pub fn has_class(
+pub(super) fn each_exported_part(
+    attrs: &[structs::AttrArray_InternalAttr],
+    name: &Atom,
+    mut callback: impl FnMut(&Atom),
+) {
+    let attr = match find_attr(attrs, &atom!("exportparts")) {
+        Some(attr) => attr,
+        None => return,
+    };
+    let mut length = 0;
+    let atoms = unsafe { bindings::Gecko_Element_ExportedParts(attr, name.as_ptr(), &mut length) };
+    if atoms.is_null() {
+        return;
+    }
+
+    unsafe {
+        for atom in std::slice::from_raw_parts(atoms, length) {
+            Atom::with(*atom, &mut callback)
+        }
+    }
+}
+
+#[inline(always)]
+pub(super) fn imported_part(
+    attrs: &[structs::AttrArray_InternalAttr],
+    name: &Atom,
+) -> Option<Atom> {
+    let attr = find_attr(attrs, &atom!("exportparts"))?;
+    let atom = unsafe { bindings::Gecko_Element_ImportedPart(attr, name.as_ptr()) };
+    if atom.is_null() {
+        return None;
+    }
+    Some(unsafe { Atom::from_raw(atom) })
+}
+
+/// Given a class or part name, a case sensitivity, and an array of attributes,
+/// returns whether the attribute has that name.
+#[inline(always)]
+pub fn has_class_or_part(
     name: &Atom,
     case_sensitivity: CaseSensitivity,
     attr: &structs::nsAttrValue,
 ) -> bool {
-    match unsafe { get_class_from_attr(attr) } {
+    match unsafe { get_class_or_part_from_attr(attr) } {
         Class::None => false,
         Class::One(atom) => unsafe { case_sensitivity.eq_atom(name, WeakAtom::new(atom)) },
         Class::More(atoms) => match case_sensitivity {
@@ -107,14 +143,14 @@ pub fn has_class(
 }
 
 /// Given an item, a callback, and a getter, execute `callback` for each class
-/// this `item` has.
+/// or part name this `item` has.
 #[inline(always)]
-pub fn each_class<F>(attr: &structs::nsAttrValue, mut callback: F)
+pub fn each_class_or_part<F>(attr: &structs::nsAttrValue, mut callback: F)
 where
     F: FnMut(&Atom),
 {
     unsafe {
-        match get_class_from_attr(attr) {
+        match get_class_or_part_from_attr(attr) {
             Class::None => {},
             Class::One(atom) => Atom::with(atom, callback),
             Class::More(atoms) => {

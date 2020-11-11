@@ -4,12 +4,17 @@
 
 "use strict";
 
-const { AutoRefreshHighlighter } = require("./auto-refresh");
 const {
-  CanvasFrameAnonymousContentHelper, getComputedStyle,
-  createSVGNode, createNode } = require("./utils/markup");
-const { setIgnoreLayoutChanges,
-  getNodeBounds } = require("devtools/shared/layout/utils");
+  AutoRefreshHighlighter,
+} = require("devtools/server/actors/highlighters/auto-refresh");
+const {
+  CanvasFrameAnonymousContentHelper,
+  getComputedStyle,
+} = require("devtools/server/actors/highlighters/utils/markup");
+const {
+  setIgnoreLayoutChanges,
+  getNodeBounds,
+} = require("devtools/shared/layout/utils");
 
 // The minimum distance a line should be before it has an arrow marker-end
 const ARROW_LINE_MIN_DISTANCE = 10;
@@ -27,35 +32,38 @@ class CssTransformHighlighter extends AutoRefreshHighlighter {
 
     this.ID_CLASS_PREFIX = "css-transform-";
 
-    this.markup = new CanvasFrameAnonymousContentHelper(this.highlighterEnv,
-      this._buildMarkup.bind(this));
+    this.markup = new CanvasFrameAnonymousContentHelper(
+      this.highlighterEnv,
+      this._buildMarkup.bind(this)
+    );
+    this.isReady = this.markup.initialize();
   }
 
   _buildMarkup() {
-    const container = createNode(this.win, {
+    const container = this.markup.createNode({
       attributes: {
-        "class": "highlighter-container",
+        class: "highlighter-container",
       },
     });
 
     // The root wrapper is used to unzoom the highlighter when needed.
-    const rootWrapper = createNode(this.win, {
+    const rootWrapper = this.markup.createNode({
       parent: container,
       attributes: {
-        "id": "root",
-        "class": "root",
+        id: "root",
+        class: "root",
       },
       prefix: this.ID_CLASS_PREFIX,
     });
 
-    const svg = createSVGNode(this.win, {
+    const svg = this.markup.createSVGNode({
       nodeType: "svg",
       parent: rootWrapper,
       attributes: {
-        "id": "elements",
-        "hidden": "true",
-        "width": "100%",
-        "height": "100%",
+        id: "elements",
+        hidden: "true",
+        width: "100%",
+        height: "100%",
       },
       prefix: this.ID_CLASS_PREFIX,
     });
@@ -63,63 +71,63 @@ class CssTransformHighlighter extends AutoRefreshHighlighter {
     // Add a marker tag to the svg root for the arrow tip
     this.markerId = "arrow-marker-" + MARKER_COUNTER;
     MARKER_COUNTER++;
-    const marker = createSVGNode(this.win, {
+    const marker = this.markup.createSVGNode({
       nodeType: "marker",
       parent: svg,
       attributes: {
-        "id": this.markerId,
-        "markerWidth": "10",
-        "markerHeight": "5",
-        "orient": "auto",
-        "markerUnits": "strokeWidth",
-        "refX": "10",
-        "refY": "5",
-        "viewBox": "0 0 10 10",
+        id: this.markerId,
+        markerWidth: "10",
+        markerHeight: "5",
+        orient: "auto",
+        markerUnits: "strokeWidth",
+        refX: "10",
+        refY: "5",
+        viewBox: "0 0 10 10",
       },
       prefix: this.ID_CLASS_PREFIX,
     });
-    createSVGNode(this.win, {
+    this.markup.createSVGNode({
       nodeType: "path",
       parent: marker,
       attributes: {
-        "d": "M 0 0 L 10 5 L 0 10 z",
-        "fill": "#08C",
+        d: "M 0 0 L 10 5 L 0 10 z",
+        fill: "#08C",
       },
     });
 
-    const shapesGroup = createSVGNode(this.win, {
+    const shapesGroup = this.markup.createSVGNode({
       nodeType: "g",
       parent: svg,
     });
 
     // Create the 2 polygons (transformed and untransformed)
-    createSVGNode(this.win, {
+    this.markup.createSVGNode({
       nodeType: "polygon",
       parent: shapesGroup,
       attributes: {
-        "id": "untransformed",
-        "class": "untransformed",
+        id: "untransformed",
+        class: "untransformed",
       },
       prefix: this.ID_CLASS_PREFIX,
     });
-    createSVGNode(this.win, {
+    this.markup.createSVGNode({
       nodeType: "polygon",
       parent: shapesGroup,
       attributes: {
-        "id": "transformed",
-        "class": "transformed",
+        id: "transformed",
+        class: "transformed",
       },
       prefix: this.ID_CLASS_PREFIX,
     });
 
     // Create the arrows
     for (const nb of ["1", "2", "3", "4"]) {
-      createSVGNode(this.win, {
+      this.markup.createSVGNode({
         nodeType: "line",
         parent: shapesGroup,
         attributes: {
-          "id": "line" + nb,
-          "class": "line",
+          id: "line" + nb,
+          class: "line",
           "marker-end": "url(#" + this.markerId + ")",
         },
         prefix: this.ID_CLASS_PREFIX,
@@ -158,7 +166,7 @@ class CssTransformHighlighter extends AutoRefreshHighlighter {
    */
   _isTransformed(node) {
     const style = getComputedStyle(node);
-    return style && (style.transform !== "none" && style.display !== "inline");
+    return style && style.transform !== "none" && style.display !== "inline";
   }
 
   _setPolygonPoints(quad, id) {
@@ -194,8 +202,11 @@ class CssTransformHighlighter extends AutoRefreshHighlighter {
 
     // Getting the points for the transformed shape
     const quads = this.currentQuads.border;
-    if (!quads.length ||
-        quads[0].bounds.width <= 0 || quads[0].bounds.height <= 0) {
+    if (
+      !quads.length ||
+      quads[0].bounds.width <= 0 ||
+      quads[0].bounds.height <= 0
+    ) {
       this._hideShapes();
       return false;
     }
@@ -208,15 +219,25 @@ class CssTransformHighlighter extends AutoRefreshHighlighter {
     this._setPolygonPoints(quad, "transformed");
     this._setPolygonPoints(untransformedQuad, "untransformed");
     for (const nb of ["1", "2", "3", "4"]) {
-      this._setLinePoints(untransformedQuad["p" + nb], quad["p" + nb], "line" + nb);
+      this._setLinePoints(
+        untransformedQuad["p" + nb],
+        quad["p" + nb],
+        "line" + nb
+      );
     }
 
     // Adapt to the current zoom
-    this.markup.scaleRootElement(this.currentNode, this.ID_CLASS_PREFIX + "root");
+    this.markup.scaleRootElement(
+      this.currentNode,
+      this.ID_CLASS_PREFIX + "root"
+    );
 
     this._showShapes();
 
-    setIgnoreLayoutChanges(false, this.highlighterEnv.window.document.documentElement);
+    setIgnoreLayoutChanges(
+      false,
+      this.highlighterEnv.window.document.documentElement
+    );
     return true;
   }
 
@@ -226,7 +247,10 @@ class CssTransformHighlighter extends AutoRefreshHighlighter {
   _hide() {
     setIgnoreLayoutChanges(true);
     this._hideShapes();
-    setIgnoreLayoutChanges(false, this.highlighterEnv.window.document.documentElement);
+    setIgnoreLayoutChanges(
+      false,
+      this.highlighterEnv.window.document.documentElement
+    );
   }
 
   _hideShapes() {

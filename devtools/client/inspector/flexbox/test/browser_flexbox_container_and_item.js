@@ -24,14 +24,20 @@ add_task(async function() {
   const { inspector, flexboxInspector } = await openLayoutView();
   const { document: doc } = flexboxInspector;
 
-  const onAccordionsRendered = waitForDOM(doc, ".accordion > div", 4);
+  const onAccordionsRendered = waitForDOM(doc, ".accordion-item", 4);
   await selectNode("#item", inspector);
   const [flexItemPane, flexContainerPane] = await onAccordionsRendered;
 
   ok(flexItemPane, "The flex item accordion pane is rendered.");
   ok(flexContainerPane, "The flex container accordion pane is rendered.");
-  is(flexItemPane.children[0].textContent, "Flex Item of div#container.container",
-    "Got the correct header for the flex item pane.");
-  is(flexContainerPane.children[0].textContent, "Flex Container",
-    "Got the correct header for the flex container pane.");
+  is(
+    flexItemPane.children[0].textContent,
+    "Flex Item of div#container.container",
+    "Got the correct header for the flex item pane."
+  );
+  is(
+    flexContainerPane.children[0].textContent,
+    "Flex Container",
+    "Got the correct header for the flex container pane."
+  );
 });

@@ -76,6 +76,8 @@ promise_test(t => {
     getComputedStyle(div).opacity;
 
     div.style.opacity = '0.5';
+    getComputedStyle(div).opacity;
+
     div.animate({ opacity: 1 }, 100 * MS_PER_SEC);
 
     return waitForPaintsFlushed();
@@ -134,6 +136,8 @@ promise_test(t => {
     getComputedStyle(div).opacity;
 
     div.style.opacity = '0.5';
+    getComputedStyle(div).opacity;
+
     div.animate([{ offset: 0, opacity: 1 }], 100 * MS_PER_SEC);
 
     return waitForPaintsFlushed();
@@ -274,6 +278,8 @@ promise_test(t => {
     getComputedStyle(div).transform;
 
     div.style.transform = 'translateX(200px)';
+    getComputedStyle(div).transform;
+
     div.animate({ transform: 'translateX(400px)' }, 100 * MS_PER_SEC);
 
     return waitForPaintsFlushed();
@@ -334,6 +340,8 @@ promise_test(t => {
     getComputedStyle(div).transform;
 
     div.style.transform = 'translateX(200px)';
+    getComputedStyle(div).transform;
+
     div.animate([{ offset: 0, transform: 'translateX(300px)' }],
                 100 * MS_PER_SEC);
 
@@ -537,33 +545,37 @@ promise_test(t => {
 }, 'Transform value for animation with no keyframe at offset 1 and its ' +
    'iterationComposite is accumulate');
 
-promise_test(t => {
-  var div;
-  return useTestRefreshMode(t).then(() => {
-    div = addDiv(t);
-    var lowerAnimation =
-      div.animate({ transform: [ 'translateX(100px)', 'translateX(200px)' ] },
-                  100 * MS_PER_SEC);
-    var higherAnimation = div.animate({ transform: 'translateX(300px)' },
-                                      100 * MS_PER_SEC);
+const {AppConstants} =
+  SpecialPowers.Cu.import("resource://gre/modules/AppConstants.jsm", {});
+if (AppConstants.NIGHTLY_BUILD) {
+  promise_test(t => {
+    var div;
+    return useTestRefreshMode(t).then(() => {
+      div = addDiv(t);
+      var lowerAnimation =
+        div.animate({ transform: [ 'translateX(100px)', 'translateX(200px)' ] },
+                    100 * MS_PER_SEC);
+      var higherAnimation = div.animate({ transform: 'translateX(300px)' },
+                                        100 * MS_PER_SEC);
 
-    lowerAnimation.timeline = null;
-    // Set current time at 50% duration.
-    lowerAnimation.currentTime = 50 * MS_PER_SEC;
+      lowerAnimation.timeline = null;
+      // Set current time at 50% duration.
+      lowerAnimation.currentTime = 50 * MS_PER_SEC;
 
-    return waitForPaintsFlushed();
-  }).then(() => {
-    SpecialPowers.DOMWindowUtils.advanceTimeAndRefresh(50 * MS_PER_SEC);
+      return waitForPaintsFlushed();
+    }).then(() => {
+      SpecialPowers.DOMWindowUtils.advanceTimeAndRefresh(50 * MS_PER_SEC);
 
-    var transform =
-      SpecialPowers.DOMWindowUtils.getOMTAStyle(div, 'transform');
-    // (150px + 300px) * (50 * MS_PER_SEC / 100 * MS_PER_SEC) = 225px.
-    assert_matrix_equals(transform, 'matrix(1, 0, 0, 1, 225, 0)',
-      'Composed transform value should be composed onto the value of ' +
-      'lower-priority animation without timeline');
-  });
-}, 'Transform value for animation with no keyframe at offset 0 at 50% when ' +
-   'composed onto an animation without timeline');
+      var transform =
+        SpecialPowers.DOMWindowUtils.getOMTAStyle(div, 'transform');
+      // (150px + 300px) * (50 * MS_PER_SEC / 100 * MS_PER_SEC) = 225px.
+      assert_matrix_equals(transform, 'matrix(1, 0, 0, 1, 225, 0)',
+        'Composed transform value should be composed onto the value of ' +
+        'lower-priority animation without timeline');
+    });
+  }, 'Transform value for animation with no keyframe at offset 0 at 50% when ' +
+     'composed onto an animation without timeline');
+}
 
 </script>
 </body>

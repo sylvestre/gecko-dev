@@ -39,7 +39,7 @@ IPCResult ServiceWorkerContainerParent::RecvRegister(
       ->Register(ClientInfo(aClientInfo), aScopeURL, aScriptURL,
                  aUpdateViaCache)
       ->Then(
-          GetCurrentThreadSerialEventTarget(), __func__,
+          GetCurrentSerialEventTarget(), __func__,
           [aResolver](const ServiceWorkerRegistrationDescriptor& aDescriptor) {
             aResolver(aDescriptor.ToIPC());
           },
@@ -60,7 +60,7 @@ IPCResult ServiceWorkerContainerParent::RecvGetRegistration(
 
   mProxy->GetRegistration(ClientInfo(aClientInfo), aURL)
       ->Then(
-          GetCurrentThreadSerialEventTarget(), __func__,
+          GetCurrentSerialEventTarget(), __func__,
           [aResolver](const ServiceWorkerRegistrationDescriptor& aDescriptor) {
             aResolver(aDescriptor.ToIPC());
           },
@@ -79,18 +79,19 @@ IPCResult ServiceWorkerContainerParent::RecvGetRegistrations(
   }
 
   mProxy->GetRegistrations(ClientInfo(aClientInfo))
-      ->Then(GetCurrentThreadSerialEventTarget(), __func__,
-             [aResolver](
-                 const nsTArray<ServiceWorkerRegistrationDescriptor>& aList) {
-               IPCServiceWorkerRegistrationDescriptorList ipcList;
-               for (auto& desc : aList) {
-                 ipcList.values().AppendElement(desc.ToIPC());
-               }
-               aResolver(std::move(ipcList));
-             },
-             [aResolver](const CopyableErrorResult& aResult) {
-               aResolver(aResult);
-             });
+      ->Then(
+          GetCurrentSerialEventTarget(), __func__,
+          [aResolver](
+              const nsTArray<ServiceWorkerRegistrationDescriptor>& aList) {
+            IPCServiceWorkerRegistrationDescriptorList ipcList;
+            for (auto& desc : aList) {
+              ipcList.values().AppendElement(desc.ToIPC());
+            }
+            aResolver(std::move(ipcList));
+          },
+          [aResolver](const CopyableErrorResult& aResult) {
+            aResolver(aResult);
+          });
 
   return IPC_OK();
 }
@@ -104,7 +105,7 @@ IPCResult ServiceWorkerContainerParent::RecvGetReady(
 
   mProxy->GetReady(ClientInfo(aClientInfo))
       ->Then(
-          GetCurrentThreadSerialEventTarget(), __func__,
+          GetCurrentSerialEventTarget(), __func__,
           [aResolver](const ServiceWorkerRegistrationDescriptor& aDescriptor) {
             aResolver(aDescriptor.ToIPC());
           },
@@ -115,7 +116,7 @@ IPCResult ServiceWorkerContainerParent::RecvGetReady(
   return IPC_OK();
 }
 
-ServiceWorkerContainerParent::ServiceWorkerContainerParent() {}
+ServiceWorkerContainerParent::ServiceWorkerContainerParent() = default;
 
 ServiceWorkerContainerParent::~ServiceWorkerContainerParent() {
   MOZ_DIAGNOSTIC_ASSERT(!mProxy);

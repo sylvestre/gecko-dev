@@ -3,11 +3,14 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 "use strict";
 
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
 
 XPCOMUtils.defineLazyModuleGetters(this, {
   Services: "resource://gre/modules/Services.jsm",
-  AddonStudyAction: "resource://normandy/actions/AddonStudyAction.jsm",
+  BranchedAddonStudyAction:
+    "resource://normandy/actions/BranchedAddonStudyAction.jsm",
   AddonStudies: "resource://normandy/lib/AddonStudies.jsm",
   CleanupManager: "resource://normandy/lib/CleanupManager.jsm",
   PreferenceExperiments: "resource://normandy/lib/PreferenceExperiments.jsm",
@@ -46,7 +49,7 @@ var ShieldPreferences = {
       case PREF_OPT_OUT_STUDIES_ENABLED: {
         prefValue = Services.prefs.getBoolPref(PREF_OPT_OUT_STUDIES_ENABLED);
         if (!prefValue) {
-          const action = new AddonStudyAction();
+          const action = new BranchedAddonStudyAction();
           const studyPromises = (await AddonStudies.getAll()).map(study => {
             if (!study.active) {
               return null;
@@ -54,14 +57,20 @@ var ShieldPreferences = {
             return action.unenroll(study.recipeId, "general-opt-out");
           });
 
-          const experimentPromises = (await PreferenceExperiments.getAll()).map(experiment => {
-            if (experiment.expired) {
-              return null;
+          const experimentPromises = (await PreferenceExperiments.getAll()).map(
+            experiment => {
+              if (experiment.expired) {
+                return null;
+              }
+              return PreferenceExperiments.stop(experiment.slug, {
+                reason: "general-opt-out",
+              });
             }
-            return PreferenceExperiments.stop(experiment.name, { reason: "general-opt-out" });
-          });
+          );
 
-          const allPromises = studyPromises.concat(experimentPromises).map(p => p && p.catch(err => Cu.reportError(err)));
+          const allPromises = studyPromises
+            .concat(experimentPromises)
+            .map(p => p && p.catch(err => Cu.reportError(err)));
           await Promise.all(allPromises);
         }
         break;

@@ -114,7 +114,7 @@ Clock
 
 Times are relative to either elapsed realtime (an arbitrary monotonically increasing clock that continues to tick when the device is asleep), or elapsed uptime (which doesn't tick when the device is in deep sleep). We default to elapsed realtime.
 
-See the documentation in `the source <http://dxr.mozilla.org/mozilla-central/source/mobile/android/base/Telemetry.java>`_ for more details.
+See the documentation in `the source <https://searchfox.org/mozilla-central/source/mobile/android/geckoview/src/main/java/org/mozilla/geckoview/RuntimeTelemetry.java>`_ for more details.
 
 Dictionary
 ==========
@@ -198,6 +198,9 @@ Events
 ``search.setdefault.1``
   Sent when the user sets a search engine to be the default.
 
+``search.widget.1``
+  Sent when the user initiates a search through the widget.
+
 ``share.1``
   Sharing content.
 
@@ -278,6 +281,38 @@ Methods
 
 ``widget``
   Action triggered from a widget placed on the homescreen.
+
+Buttons
+-------
+``preferences``
+  Button action triggered by the "Sign in" Settings menu item.
+
+``notification``
+  Button action triggered by signing in from a Leanplum notification.
+
+``firstrun-welcome``
+  Button action triggered by the Onboarding "WELCOME" panel's "Sign up" button.
+
+``firstrun-sync``
+  Button action triggered by the Onboarding "SYNC" panel's "Sign up" button.
+
+``firstrun-sendtab``
+  Button action triggered by the Onboarding "SEND TAB" panel's "Sign up" button.
+
+``awesomescreen-signin``
+  Button action triggered by the Awesomescreen's "Sign in" link.
+
+``awesomescreen-signup``
+  Button action triggered by the Awesomescreen's "Sign up" button.
+
+``awesomescreen-signup-dismiss``
+  Button action triggered by dismissing the Awesomescreen's "Welcome to Firefox" panel
+
+``firefox_promo_open``
+  Button action triggered by the opening the promo webpage from Awesomescreen's Firefox promo banner.
+
+``firefox_promo_dismiss``
+  Button action triggered by dismissing the Awesomescreen's Firefox promo banner.
 
 Sessions
 --------

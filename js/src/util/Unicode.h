@@ -7,6 +7,8 @@
 #ifndef util_Unicode_h
 #define util_Unicode_h
 
+#include "mozilla/Casting.h"  // mozilla::AssertedCast
+
 #include "jspubtd.h"
 
 #include "util/UnicodeNonBMP.h"
@@ -66,8 +68,6 @@ const uint8_t UNICODE_ID_CONTINUE = UNICODE_ID_START + UNICODE_ID_CONTINUE_ONLY;
 
 constexpr char16_t NO_BREAK_SPACE = 0x00A0;
 constexpr char16_t MICRO_SIGN = 0x00B5;
-constexpr char16_t LATIN_CAPITAL_LETTER_A_WITH_GRAVE = 0x00C0;
-constexpr char16_t MULTIPLICATION_SIGN = 0x00D7;
 constexpr char16_t LATIN_SMALL_LETTER_SHARP_S = 0x00DF;
 constexpr char16_t LATIN_SMALL_LETTER_A_WITH_GRAVE = 0x00E0;
 constexpr char16_t DIVISION_SIGN = 0x00F7;
@@ -80,7 +80,6 @@ constexpr char16_t GREEK_SMALL_LETTER_SIGMA = 0x03C3;
 constexpr char16_t LINE_SEPARATOR = 0x2028;
 constexpr char16_t PARA_SEPARATOR = 0x2029;
 constexpr char16_t REPLACEMENT_CHARACTER = 0xFFFD;
-constexpr char16_t BYTE_ORDER_MARK2 = 0xFFFE;
 
 const char16_t LeadSurrogateMin = 0xD800;
 const char16_t LeadSurrogateMax = 0xDBFF;
@@ -204,19 +203,28 @@ inline bool IsUnicodeIDStart(uint32_t codePoint) {
   return IsUnicodeIDStart(char16_t(codePoint));
 }
 
+// IsSpace checks if a code point is included in the merged set of WhiteSpace
+// and LineTerminator specified by #sec-white-space and #sec-line-terminators.
+// We combine them because nearly every calling function wants this, excepting
+// only some tokenizer code that necessarily handles LineTerminator specially
+// due to UTF-8/UTF-16 template specialization.
 inline bool IsSpace(char16_t ch) {
-  /*
-   * IsSpace checks if some character is included in the merged set
-   * of WhiteSpace and LineTerminator, specified by ES2016 11.2 and 11.3.
-   * We combined them, because in practice nearly every
-   * calling function wants this, except some code in the tokenizer.
-   *
-   * We use a lookup table for ASCII-7 characters, because they are
-   * very common and must be handled quickly in the tokenizer.
-   * NO-BREAK SPACE is supposed to be the most common character not in
-   * this range, so we inline this case, too.
-   */
+  // ASCII code points are very common and must be handled quickly, so use a
+  // lookup table for them.
+  if (ch < 128) {
+    return js_isspace[ch];
+  }
 
+  // NO-BREAK SPACE is supposed to be the most common non-ASCII WhiteSpace code
+  // point, so inline its handling too.
+  if (ch == NO_BREAK_SPACE) {
+    return true;
+  }
+
+  return CharInfo(ch).isSpace();
+}
+
+inline bool IsSpace(JS::Latin1Char ch) {
   if (ch < 128) {
     return js_isspace[ch];
   }
@@ -225,20 +233,31 @@ inline bool IsSpace(char16_t ch) {
     return true;
   }
 
-  return CharInfo(ch).isSpace();
+  MOZ_ASSERT(!CharInfo(ch).isSpace());
+  return false;
 }
 
-inline bool IsSpaceOrBOM2(char16_t ch) {
+inline bool IsSpace(char ch) {
+  return IsSpace(static_cast<JS::Latin1Char>(ch));
+}
+
+// IsSpace(char32_t) must additionally exclude everything non-BMP.
+inline bool IsSpace(char32_t ch) {
   if (ch < 128) {
     return js_isspace[ch];
   }
 
-  /* We accept BOM2 (0xFFFE) for compatibility reasons in the parser. */
-  if (ch == NO_BREAK_SPACE || ch == BYTE_ORDER_MARK2) {
+  if (ch == NO_BREAK_SPACE) {
     return true;
   }
 
-  return CharInfo(ch).isSpace();
+  // An assertion in make_unicode.py:make_unicode_file guarantees that there are
+  // no Space_Separator (Zs) code points outside the BMP.
+  if (ch >= NonBMPMin) {
+    return false;
+  }
+
+  return CharInfo(mozilla::AssertedCast<char16_t>(ch)).isSpace();
 }
 
 /*
@@ -275,6 +294,27 @@ inline char16_t ToLowerCase(char16_t ch) {
   const CharacterInfo& info = CharInfo(ch);
 
   return uint16_t(ch) + info.lowerCase;
+}
+
+extern const JS::Latin1Char latin1ToLowerCaseTable[];
+
+/*
+ * Returns the simple lower case mapping (possibly the identity mapping; see
+ * ChangesWhenUpperCasedSpecialCasing for details) of the given Latin-1 code
+ * point.
+ */
+inline JS::Latin1Char ToLowerCase(JS::Latin1Char ch) {
+  return latin1ToLowerCaseTable[ch];
+}
+
+/*
+ * Returns the simple lower case mapping (possibly the identity mapping; see
+ * ChangesWhenUpperCasedSpecialCasing for details) of the given ASCII code
+ * point.
+ */
+inline char ToLowerCase(char ch) {
+  MOZ_ASSERT(static_cast<unsigned char>(ch) < 128);
+  return latin1ToLowerCaseTable[uint8_t(ch)];
 }
 
 /**
@@ -323,15 +363,7 @@ inline bool ChangesWhenLowerCased(char16_t ch) {
 
 // Returns true iff ToLowerCase(ch) != ch.
 inline bool ChangesWhenLowerCased(JS::Latin1Char ch) {
-  if (MOZ_LIKELY(ch < 128)) {
-    return ch >= 'A' && ch <= 'Z';
-  }
-
-  // U+00C0 to U+00DE, except U+00D7, have a lowercase form.
-  bool hasLower = ((ch & ~0x1F) == LATIN_CAPITAL_LETTER_A_WITH_GRAVE) &&
-                  ((ch & MULTIPLICATION_SIGN) != MULTIPLICATION_SIGN);
-  MOZ_ASSERT(hasLower == ChangesWhenLowerCased(char16_t(ch)));
-  return hasLower;
+  return latin1ToLowerCaseTable[ch] != ch;
 }
 
 #define CHECK_RANGE(FROM, TO, LEAD, TRAIL_FROM, TRAIL_TO, DIFF) \
@@ -416,80 +448,9 @@ size_t LengthUpperCaseSpecialCasing(char16_t ch);
 void AppendUpperCaseSpecialCasing(char16_t ch, char16_t* elements,
                                   size_t* index);
 
-/*
- * For a codepoint C, CodepointsWithSameUpperCaseInfo stores three offsets
- * from C to up to three codepoints with same uppercase (no codepoint in
- * UnicodeData.txt has more than three such codepoints).
- *
- * To illustrate, consider the codepoint U+0399 GREEK CAPITAL LETTER IOTA, the
- * uppercased form of these three codepoints:
- *
- *   U+03B9 GREEK SMALL LETTER IOTA
- *   U+1FBE GREEK PROSGEGRAMMENI
- *   U+0345 COMBINING GREEK YPOGEGRAMMENI
- *
- * For the CodepointsWithSameUpperCaseInfo corresponding to this codepoint,
- * delta{1,2,3} are 16-bit modular deltas from 0x0399 to each respective
- * codepoint:
- *   uint16_t(0x03B9 - 0x0399),
- *   uint16_t(0x1FBE - 0x0399),
- *   uint16_t(0x0345 - 0x0399)
- * in an unimportant order.
- *
- * If there are fewer than three other codepoints, some fields are zero.
- * Consider the codepoint U+03B9 above, the other two codepoints U+1FBE and
- * U+0345 have same uppercase (U+0399 is not).  For the
- * CodepointsWithSameUpperCaseInfo corresponding to this codepoint,
- * delta{1,2,3} are:
- *   uint16_t(0x1FBE - 0x03B9),
- *   uint16_t(0x0345 - 0x03B9),
- *   uint16_t(0)
- * in an unimportant order.
- *
- * Because multiple codepoints map to a single CodepointsWithSameUpperCaseInfo,
- * a CodepointsWithSameUpperCaseInfo and its delta{1,2,3} have no meaning
- * standing alone: they have meaning only with respect to a codepoint mapping
- * to that CodepointsWithSameUpperCaseInfo.
- */
-class CodepointsWithSameUpperCaseInfo {
- public:
-  uint16_t delta1;
-  uint16_t delta2;
-  uint16_t delta3;
-};
-
-extern const uint8_t codepoints_with_same_upper_index1[];
-extern const uint8_t codepoints_with_same_upper_index2[];
-extern const CodepointsWithSameUpperCaseInfo
-    js_codepoints_with_same_upper_info[];
-
-class CodepointsWithSameUpperCase {
-  const CodepointsWithSameUpperCaseInfo& info_;
-  const char16_t code_;
-
-  static const CodepointsWithSameUpperCaseInfo& computeInfo(char16_t code) {
-    const size_t shift = 6;
-    size_t index = codepoints_with_same_upper_index1[code >> shift];
-    index = codepoints_with_same_upper_index2[(index << shift) +
-                                              (code & ((1 << shift) - 1))];
-    return js_codepoints_with_same_upper_info[index];
-  }
-
- public:
-  explicit CodepointsWithSameUpperCase(char16_t code)
-      : info_(computeInfo(code)), code_(code) {}
-
-  char16_t other1() const { return uint16_t(code_) + info_.delta1; }
-  char16_t other2() const { return uint16_t(code_) + info_.delta2; }
-  char16_t other3() const { return uint16_t(code_) + info_.delta3; }
-};
-
 class FoldingInfo {
  public:
   uint16_t folding;
-  uint16_t reverse1;
-  uint16_t reverse2;
-  uint16_t reverse3;
 };
 
 extern const uint8_t folding_index1[];
@@ -497,7 +458,7 @@ extern const uint8_t folding_index2[];
 extern const FoldingInfo js_foldinfo[];
 
 inline const FoldingInfo& CaseFoldInfo(char16_t code) {
-  const size_t shift = 6;
+  const size_t shift = 5;
   size_t index = folding_index1[code >> shift];
   index = folding_index2[(index << shift) + (code & ((1 << shift) - 1))];
   return js_foldinfo[index];
@@ -506,21 +467,6 @@ inline const FoldingInfo& CaseFoldInfo(char16_t code) {
 inline char16_t FoldCase(char16_t ch) {
   const FoldingInfo& info = CaseFoldInfo(ch);
   return uint16_t(ch) + info.folding;
-}
-
-inline char16_t ReverseFoldCase1(char16_t ch) {
-  const FoldingInfo& info = CaseFoldInfo(ch);
-  return uint16_t(ch) + info.reverse1;
-}
-
-inline char16_t ReverseFoldCase2(char16_t ch) {
-  const FoldingInfo& info = CaseFoldInfo(ch);
-  return uint16_t(ch) + info.reverse2;
-}
-
-inline char16_t ReverseFoldCase3(char16_t ch) {
-  const FoldingInfo& info = CaseFoldInfo(ch);
-  return uint16_t(ch) + info.reverse3;
 }
 
 inline bool IsSupplementary(uint32_t codePoint) {

@@ -7,28 +7,37 @@
 #ifndef jit_Bailouts_h
 #define jit_Bailouts_h
 
+#include "mozilla/Assertions.h"  // MOZ_ASSERT
+#include "mozilla/Attributes.h"  // MOZ_MUST_USE
+
+#include <stddef.h>  // size_t
+#include <stdint.h>  // uint8_t, uint32_t
+
 #include "jstypes.h"
 
-#include "jit/JitFrames.h"
-#include "jit/JSJitFrameIter.h"
-#include "vm/Stack.h"
+#include "jit/IonTypes.h"  // js::jit::Bailout{Id,Kind}, js::jit::SnapshotOffset
+#include "jit/Registers.h"  // js::jit::MachineState
+#include "js/TypeDecls.h"   // jsbytecode
 
 namespace js {
+
+class AbstractFramePtr;
+
 namespace jit {
 
 // [SMDOC] IonMonkey Bailouts
 //
-// A "bailout" is the process of recovering a baseline frame from an IonFrame.
-// Bailouts are implemented in js::jit::BailoutIonToBaseline, which has the
-// following callers:
+// A "bailout" is the process of recovering a baseline interpreter frame from an
+// IonFrame.  Bailouts are implemented in js::jit::BailoutIonToBaseline, which
+// has the following callers:
 //
 // *   js::jit::Bailout - This is used when a guard fails in the Ion code
 //     itself; for example, an LGuardShape fails or an LAddI overflows. See
 //     callers of CodeGenerator::bailoutFrom() for more examples.
 //
-// *   js::jit::ExceptionHandlerBailout - Something called from Ion code
-//     failed. Ion doesn't implement `catch`; it handles all exceptions by
-//     bailing out.
+// * js::jit::ExceptionHandlerBailout - Ion doesn't implement `catch` or
+//     `finally`. If an exception is thrown and would be caught by an Ion frame,
+//     we bail out instead.
 //
 // *   js::jit::InvalidationBailout - We returned to Ion code that was
 //     invalidated while it was on the stack. See "OSI" below. Ion code can be
@@ -43,13 +52,13 @@ namespace jit {
 // Ion. There's no IC fallback case coming to save us; we've got a broken
 // assumption baked into the code we're running. So we jump to an out-of-line
 // code path that's responsible for abandoning Ion execution and resuming in
-// baseline: the bailout path.
+// the baseline interpreter: the bailout path.
 //
 // We were in the midst of optimized Ion code, so bits of program state may be
 // in registers or spilled to the native stack; values may be unboxed; some
 // objects may have been optimized away; thanks to inlining, whole call frames
 // may be missing. The bailout path must put all these pieces back together
-// into the structure the baseline code expects.
+// into the structure the baseline interpreter expects.
 //
 // The data structure that makes this possible is called a *snapshot*.
 // Snapshots are created during Ion codegen and associated with the IonScript;
@@ -64,10 +73,7 @@ namespace jit {
 // 2.  Spill all registers.
 // 3.  Call js::jit::Bailout to reconstruct the baseline frame(s).
 // 4.  memmove() those to the right place on the native stack.
-// 5.  Jump to baseline code.
-//
-// (This last step requires baseline JIT code to have an entry point at each pc
-// where an eventual Ion guard may be inserted.)
+// 5.  Jump into the baseline interpreter.
 //
 // When C++ code invalidates Ion code, we do on-stack invalidation, or OSI, to
 // arrange for every affected Ion frame on the stack to bail out as soon as
@@ -127,20 +133,17 @@ static const BailoutId INVALID_BAILOUT_ID = BailoutId(-1);
 // Keep this arbitrarily small for now, for testing.
 static const uint32_t BAILOUT_TABLE_SIZE = 16;
 
-// This address is a magic number made to cause crashes while indicating that we
-// are making an attempt to mark the stack during a bailout.
-static const uint32_t FAKE_EXITFP_FOR_BAILOUT_ADDR = 0xba2;
-static uint8_t* const FAKE_EXITFP_FOR_BAILOUT =
-    reinterpret_cast<uint8_t*>(FAKE_EXITFP_FOR_BAILOUT_ADDR);
-
-static_assert(!(FAKE_EXITFP_FOR_BAILOUT_ADDR & wasm::ExitOrJitEntryFPTag),
-              "FAKE_EXITFP_FOR_BAILOUT could be mistaken as a low-bit tagged "
-              "wasm exit fp");
-
 // BailoutStack is an architecture specific pointer to the stack, given by the
 // bailout handler.
 class BailoutStack;
 class InvalidationBailoutStack;
+
+class IonScript;
+class InlineFrameIterator;
+class JitActivation;
+class JitActivationIterator;
+class JSJitFrameIter;
+struct ResumeFromException;
 
 // Must be implemented by each architecture.
 
@@ -221,7 +224,7 @@ MOZ_MUST_USE bool ExceptionHandlerBailout(JSContext* cx,
                                           ResumeFromException* rfe,
                                           const ExceptionBailoutInfo& excInfo);
 
-MOZ_MUST_USE bool FinishBailoutToBaseline(BaselineBailoutInfo* bailoutInfo);
+MOZ_MUST_USE bool FinishBailoutToBaseline(BaselineBailoutInfo* bailoutInfoArg);
 
 void CheckFrequentBailouts(JSContext* cx, JSScript* script,
                            BailoutKind bailoutKind);

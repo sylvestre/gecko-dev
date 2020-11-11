@@ -7,16 +7,20 @@
 add_task(async function() {
   info("Creating a service");
   // Create a11y service.
-  let a11yInit = initPromise();
+  const [a11yInitObserver, a11yInit] = initAccService();
+  await a11yInitObserver;
+
   let accService1 = Cc["@mozilla.org/accessibilityService;1"].getService(
-    Ci.nsIAccessibilityService);
+    Ci.nsIAccessibilityService
+  );
   await a11yInit;
   ok(accService1, "Service initialized");
 
   // Add another reference to a11y service. This will not trigger
   // 'a11y-init-or-shutdown' event
   let accService2 = Cc["@mozilla.org/accessibilityService;1"].getService(
-    Ci.nsIAccessibilityService);
+    Ci.nsIAccessibilityService
+  );
   ok(accService2, "Service initialized");
 
   info("Removing all service references");
@@ -24,9 +28,15 @@ add_task(async function() {
   // This promise will resolve only if canShutdown flag is set to true. If
   // 'a11y-init-or-shutdown' event with '0' flag comes before it can be shut
   // down, the promise will reject.
-  let a11yShutdown = new Promise((resolve, reject) =>
-    shutdownPromise().then(flag => canShutdown ?
-      resolve() : reject("Accessible service was shut down incorrectly")));
+  const [a11yShutdownObserver, a11yShutdownPromise] = shutdownAccService();
+  await a11yShutdownObserver;
+  const a11yShutdown = new Promise((resolve, reject) =>
+    a11yShutdownPromise.then(flag =>
+      canShutdown
+        ? resolve()
+        : reject("Accessible service was shut down incorrectly")
+    )
+  );
   // Remove first a11y service reference.
   accService1 = null;
   ok(!accService1, "Service is removed");
@@ -35,7 +45,7 @@ add_task(async function() {
   forceGC();
 
   // Have some breathing room when removing a11y service references.
-  await new Promise(resolve => executeSoon(resolve));
+  await TestUtils.waitForTick();
 
   // Now allow a11y service to shutdown.
   canShutdown = true;

@@ -30,6 +30,7 @@
 
 #include "mozilla/Casting.h"
 #include "mozilla/DebugOnly.h"
+#include "mozilla/EndianUtils.h"
 #include "mozilla/FloatingPoint.h"
 #include "mozilla/Likely.h"
 #include "mozilla/MathAlgorithms.h"
@@ -41,6 +42,7 @@
 #include "js/UniquePtr.h"
 #include "js/Utility.h"
 #include "threading/LockGuard.h"
+#include "vm/JSContext.h"
 #include "vm/Runtime.h"
 #include "vm/SharedMem.h"
 #include "wasm/WasmInstance.h"
@@ -49,6 +51,18 @@
 extern "C" {
 
 int64_t __aeabi_idivmod(int x, int y) {
+  // Run-time ABI for the ARM architecture specifies that for |INT_MIN / -1|
+  // "an implementation is (sic) may return any convenient value, possibly the
+  // original numerator."
+  //
+  // |INT_MIN / -1| traps on x86, which isn't listed as an allowed behavior in
+  // the ARM docs, so instead follow LLVM and return the numerator. (And zero
+  // for the remainder.)
+
+  if (x == INT32_MIN && y == -1) {
+    return uint32_t(x);
+  }
+
   uint32_t lo = uint32_t(x / y);
   uint32_t hi = uint32_t(x % y);
   return (int64_t(hi) << 32) | lo;
@@ -526,7 +540,7 @@ bool ArmDebugger::getValue(const char* desc, int32_t* value) {
 
 bool ArmDebugger::getVFPDoubleValue(const char* desc, double* value) {
   FloatRegister reg = FloatRegister::FromCode(FloatRegister::FromName(desc));
-  if (reg == InvalidFloatReg) {
+  if (reg.isInvalid()) {
     return false;
   }
 
@@ -1036,7 +1050,8 @@ static void FlushICacheLocked(SimulatorProcess::ICacheMap& i_cache,
   }
 }
 
-/* static */ void SimulatorProcess::checkICacheLocked(SimInstruction* instr) {
+/* static */
+void SimulatorProcess::checkICacheLocked(SimInstruction* instr) {
   intptr_t address = reinterpret_cast<intptr_t>(instr);
   void* page = reinterpret_cast<void*>(address & (~CachePage::kPageMask));
   void* line = reinterpret_cast<void*>(address & (~CachePage::kLineMask));
@@ -1075,7 +1090,8 @@ void Simulator::setLastDebuggerInput(char* input) {
   lastDebuggerInput_ = input;
 }
 
-/* static */ void SimulatorProcess::FlushICache(void* start_addr, size_t size) {
+/* static */
+void SimulatorProcess::FlushICache(void* start_addr, size_t size) {
   JitSpewCont(JitSpew_CacheFlush, "[%p %zx]", start_addr, size);
   if (!ICacheCheckingDisableCount) {
     AutoLockSimulatorCache als;
@@ -1241,8 +1257,9 @@ SimulatorProcess::~SimulatorProcess() {
   }
 }
 
-/* static */ void* Simulator::RedirectNativeFunction(void* nativeFunction,
-                                                     ABIFunctionType type) {
+/* static */
+void* Simulator::RedirectNativeFunction(void* nativeFunction,
+                                        ABIFunctionType type) {
   Redirection* redirection = Redirection::Get(nativeFunction, type);
   return redirection->addressOfSwiInstruction();
 }
@@ -2332,6 +2349,8 @@ typedef int32_t (*Prototype_Int_DoubleIntInt)(double arg0, int32_t arg1,
                                               int32_t arg2);
 typedef int32_t (*Prototype_Int_IntDoubleIntInt)(int32_t arg0, double arg1,
                                                  int32_t arg2, int32_t arg3);
+
+typedef int32_t (*Prototype_Int_Float32)(float arg0);
 typedef float (*Prototype_Float32_Float32)(float arg0);
 typedef float (*Prototype_Float32_Float32Float32)(float arg0, float arg1);
 typedef float (*Prototype_Float32_IntInt)(int arg0, int arg1);
@@ -2340,6 +2359,7 @@ typedef double (*Prototype_Double_DoubleInt)(double arg0, int32_t arg1);
 typedef double (*Prototype_Double_IntDouble)(int32_t arg0, double arg1);
 typedef double (*Prototype_Double_DoubleDouble)(double arg0, double arg1);
 typedef int32_t (*Prototype_Int_IntDouble)(int32_t arg0, double arg1);
+typedef int32_t (*Prototype_Int_DoubleInt)(double arg0, int32_t arg1);
 
 typedef double (*Prototype_Double_DoubleDoubleDouble)(double arg0, double arg1,
                                                       double arg2);
@@ -2348,13 +2368,42 @@ typedef double (*Prototype_Double_DoubleDoubleDoubleDouble)(double arg0,
                                                             double arg2,
                                                             double arg3);
 
+typedef int32_t (*Prototype_Int32_General)(int32_t);
+typedef int32_t (*Prototype_Int32_GeneralInt32)(int32_t, int32_t);
+typedef int32_t (*Prototype_Int32_GeneralInt32Int32)(int32_t, int32_t, int32_t);
+typedef int32_t (*Prototype_Int32_GeneralInt32Int32Int32Int32)(int32_t, int32_t,
+                                                               int32_t, int32_t,
+                                                               int32_t);
+typedef int32_t (*Prototype_Int32_GeneralInt32Int32Int32Int32Int32)(
+    int32_t, int32_t, int32_t, int32_t, int32_t, int32_t);
+typedef int32_t (*Prototype_Int32_GeneralInt32Int32Int32General)(
+    int32_t, int32_t, int32_t, int32_t, int32_t);
+typedef int32_t (*Prototype_Int32_GeneralInt32Int32Int64)(int32_t, int32_t,
+                                                          int32_t, int64_t);
+typedef int32_t (*Prototype_Int32_GeneralInt32Int32General)(int32_t, int32_t,
+                                                            int32_t, int32_t);
+typedef int32_t (*Prototype_Int32_GeneralInt32Int64Int64)(int32_t, int32_t,
+                                                          int64_t, int64_t);
+typedef int32_t (*Prototype_Int32_GeneralInt32GeneralInt32)(int32_t, int32_t,
+                                                            int32_t, int32_t);
+typedef int32_t (*Prototype_Int32_GeneralInt32GeneralInt32Int32)(
+    int32_t, int32_t, int32_t, int32_t, int32_t);
+typedef int32_t (*Prototype_Int32_GeneralGeneral)(int32_t, int32_t);
+typedef int32_t (*Prototype_Int32_GeneralGeneralInt32Int32)(int32_t, int32_t,
+                                                            int32_t, int32_t);
+typedef int32_t (*Prototype_General_GeneralInt32)(int32_t, int32_t);
+typedef int32_t (*Prototype_General_GeneralInt32Int32)(int32_t, int32_t,
+                                                       int32_t);
+typedef int32_t (*Prototype_General_GeneralInt32General)(int32_t, int32_t,
+                                                         int32_t);
+
 // Fill the volatile registers with scratch values.
 //
-// Some of the ABI calls assume that the float registers are not scratched, even
-// though the ABI defines them as volatile - a performance optimization. These
-// are all calls passing operands in integer registers, so for now the simulator
-// does not scratch any float registers for these calls. Should try to narrow it
-// further in future.
+// Some of the ABI calls assume that the float registers are not scratched,
+// even though the ABI defines them as volatile - a performance
+// optimization. These are all calls passing operands in integer registers,
+// so for now the simulator does not scratch any float registers for these
+// calls. Should try to narrow it further in future.
 //
 void Simulator::scratchVolatileRegisters(bool scratchFloat) {
   int32_t scratch_value = 0xa5a5a5a5 ^ uint32_t(icount_);
@@ -2541,6 +2590,19 @@ void Simulator::softwareInterrupt(SimInstruction* instr) {
           set_register(r0, res);
           break;
         }
+        case Args_Int_Float32: {
+          float fval0;
+          if (UseHardFpABI()) {
+            get_float_from_s_register(0, &fval0);
+          } else {
+            fval0 = mozilla::BitwiseCast<float>(arg0);
+          }
+          auto target = reinterpret_cast<Prototype_Int_Float32>(external);
+          int32_t res = target(fval0);
+          scratchVolatileRegisters(/* scratchFloat = true */);
+          set_register(r0, res);
+          break;
+        }
         case Args_Double_Double: {
           double dval0, dval1;
           int32_t ival;
@@ -2658,6 +2720,22 @@ void Simulator::softwareInterrupt(SimInstruction* instr) {
           set_register(r0, result);
           break;
         }
+        case Args_Int_DoubleInt: {
+          double dval;
+          int32_t result;
+          Prototype_Int_DoubleInt target =
+              reinterpret_cast<Prototype_Int_DoubleInt>(external);
+          if (UseHardFpABI()) {
+            get_double_from_d_register(0, &dval);
+            result = target(dval, arg0);
+          } else {
+            dval = get_double_from_register_pair(0);
+            result = target(dval, arg2);
+          }
+          scratchVolatileRegisters(/* scratchFloat = true */);
+          set_register(r0, result);
+          break;
+        }
         case Args_Int_DoubleIntInt: {
           double dval;
           int32_t result;
@@ -2718,6 +2796,146 @@ void Simulator::softwareInterrupt(SimInstruction* instr) {
           setCallResultDouble(dresult);
           break;
         }
+
+        case Args_Int32_General: {
+          Prototype_Int32_General target =
+              reinterpret_cast<Prototype_Int32_General>(external);
+          int64_t result = target(arg0);
+          scratchVolatileRegisters(/* scratchFloat = true */);
+          setCallResult(result);
+          break;
+        }
+        case Args_Int32_GeneralInt32: {
+          Prototype_Int32_GeneralInt32 target =
+              reinterpret_cast<Prototype_Int32_GeneralInt32>(external);
+          int64_t result = target(arg0, arg1);
+          scratchVolatileRegisters(/* scratchFloat = true */);
+          setCallResult(result);
+          break;
+        }
+        case Args_Int32_GeneralInt32Int32: {
+          Prototype_Int32_GeneralInt32Int32 target =
+              reinterpret_cast<Prototype_Int32_GeneralInt32Int32>(external);
+          int64_t result = target(arg0, arg1, arg2);
+          scratchVolatileRegisters(/* scratchFloat = true */);
+          setCallResult(result);
+          break;
+        }
+        case Args_Int32_GeneralInt32Int32Int32Int32: {
+          Prototype_Int32_GeneralInt32Int32Int32Int32 target =
+              reinterpret_cast<Prototype_Int32_GeneralInt32Int32Int32Int32>(
+                  external);
+          int64_t result = target(arg0, arg1, arg2, arg3, arg4);
+          scratchVolatileRegisters(/* scratchFloat = true */);
+          setCallResult(result);
+          break;
+        }
+        case Args_Int32_GeneralInt32Int32Int32Int32Int32: {
+          Prototype_Int32_GeneralInt32Int32Int32Int32Int32 target =
+              reinterpret_cast<
+                  Prototype_Int32_GeneralInt32Int32Int32Int32Int32>(external);
+          int64_t result = target(arg0, arg1, arg2, arg3, arg4, arg5);
+          scratchVolatileRegisters(/* scratchFloat = true */);
+          setCallResult(result);
+          break;
+        }
+        case Args_Int32_GeneralInt32Int32Int32General: {
+          Prototype_Int32_GeneralInt32Int32Int32General target =
+              reinterpret_cast<Prototype_Int32_GeneralInt32Int32Int32General>(
+                  external);
+          int64_t result = target(arg0, arg1, arg2, arg3, arg4);
+          scratchVolatileRegisters(/* scratchFloat = true */);
+          setCallResult(result);
+          break;
+        }
+        case Args_Int32_GeneralInt32Int32Int64: {
+          Prototype_Int32_GeneralInt32Int32Int64 target =
+              reinterpret_cast<Prototype_Int32_GeneralInt32Int32Int64>(
+                  external);
+          int64_t result = target(arg0, arg1, arg2, MakeInt64(arg3, arg4));
+          scratchVolatileRegisters(/* scratchFloat = true */);
+          setCallResult(result);
+          break;
+        }
+        case Args_Int32_GeneralInt32Int32General: {
+          Prototype_Int32_GeneralInt32Int32General target =
+              reinterpret_cast<Prototype_Int32_GeneralInt32Int32General>(
+                  external);
+          int64_t result = target(arg0, arg1, arg2, arg3);
+          scratchVolatileRegisters(/* scratchFloat = true */);
+          setCallResult(result);
+          break;
+        }
+        case Args_Int32_GeneralInt32Int64Int64: {
+          Prototype_Int32_GeneralInt32Int64Int64 target =
+              reinterpret_cast<Prototype_Int32_GeneralInt32Int64Int64>(
+                  external);
+          int64_t result =
+              target(arg0, arg1, MakeInt64(arg2, arg3), MakeInt64(arg4, arg5));
+          scratchVolatileRegisters(/* scratchFloat = true */);
+          setCallResult(result);
+          break;
+        }
+        case Args_Int32_GeneralInt32GeneralInt32: {
+          Prototype_Int32_GeneralInt32GeneralInt32 target =
+              reinterpret_cast<Prototype_Int32_GeneralInt32GeneralInt32>(
+                  external);
+          int64_t result = target(arg0, arg1, arg2, arg3);
+          scratchVolatileRegisters(/* scratchFloat = true */);
+          setCallResult(result);
+          break;
+        }
+        case Args_Int32_GeneralInt32GeneralInt32Int32: {
+          Prototype_Int32_GeneralInt32GeneralInt32Int32 target =
+              reinterpret_cast<Prototype_Int32_GeneralInt32GeneralInt32Int32>(
+                  external);
+          int64_t result = target(arg0, arg1, arg2, arg3, arg4);
+          scratchVolatileRegisters(/* scratchFloat = true */);
+          setCallResult(result);
+          break;
+        }
+        case Args_Int32_GeneralGeneral: {
+          Prototype_Int32_GeneralGeneral target =
+              reinterpret_cast<Prototype_Int32_GeneralGeneral>(external);
+          int64_t result = target(arg0, arg1);
+          scratchVolatileRegisters(/* scratchFloat = true */);
+          setCallResult(result);
+          break;
+        }
+        case Args_Int32_GeneralGeneralInt32Int32: {
+          Prototype_Int32_GeneralGeneralInt32Int32 target =
+              reinterpret_cast<Prototype_Int32_GeneralGeneralInt32Int32>(
+                  external);
+          int64_t result = target(arg0, arg1, arg2, arg3);
+          scratchVolatileRegisters(/* scratchFloat = true */);
+          setCallResult(result);
+          break;
+        }
+        case Args_General_GeneralInt32: {
+          Prototype_General_GeneralInt32 target =
+              reinterpret_cast<Prototype_General_GeneralInt32>(external);
+          int64_t result = target(arg0, arg1);
+          scratchVolatileRegisters(/* scratchFloat = true */);
+          setCallResult(result);
+          break;
+        }
+        case Args_General_GeneralInt32Int32: {
+          Prototype_General_GeneralInt32Int32 target =
+              reinterpret_cast<Prototype_General_GeneralInt32Int32>(external);
+          int64_t result = target(arg0, arg1, arg2);
+          scratchVolatileRegisters(/* scratchFloat = true */);
+          setCallResult(result);
+          break;
+        }
+        case Args_General_GeneralInt32General: {
+          Prototype_General_GeneralInt32General target =
+              reinterpret_cast<Prototype_General_GeneralInt32General>(external);
+          int64_t result = target(arg0, arg1, arg2);
+          scratchVolatileRegisters(/* scratchFloat = true */);
+          setCallResult(result);
+          break;
+        }
+
         default:
           MOZ_CRASH("call");
       }
@@ -3507,6 +3725,25 @@ void Simulator::decodeType3(SimInstruction* instr) {
                   // Sxtb.
                   set_register(rd, (int32_t)(int8_t)(rm_val & 0xFF));
                 }
+              } else if (instr->bits(20, 16) == 0b1'1111 &&
+                         instr->bits(11, 4) == 0b1111'0011) {
+                // Rev
+                uint32_t rm_val = get_register(instr->rmValue());
+
+                static_assert(MOZ_LITTLE_ENDIAN());
+                set_register(rd,
+                             mozilla::NativeEndian::swapToBigEndian(rm_val));
+              } else if (instr->bits(20, 16) == 0b1'1111 &&
+                         instr->bits(11, 4) == 0b1111'1011) {
+                // Rev16
+                uint32_t rm_val = get_register(instr->rmValue());
+
+                static_assert(MOZ_LITTLE_ENDIAN());
+                uint32_t hi = mozilla::NativeEndian::swapToBigEndian(
+                    uint16_t(rm_val >> 16));
+                uint32_t lo =
+                    mozilla::NativeEndian::swapToBigEndian(uint16_t(rm_val));
+                set_register(rd, (hi << 16) | lo);
               } else {
                 MOZ_CRASH();
               }
@@ -3552,6 +3789,15 @@ void Simulator::decodeType3(SimInstruction* instr) {
                                                 instr->bits(11, 10));
                   set_register(rd, rn_val + (rm_val & 0xFFFF));
                 }
+              } else if (instr->bits(20, 16) == 0b1'1111 &&
+                         instr->bits(11, 4) == 0b1111'1011) {
+                // Revsh
+                uint32_t rm_val = get_register(instr->rmValue());
+
+                static_assert(MOZ_LITTLE_ENDIAN());
+                set_register(
+                    rd, int32_t(int16_t(mozilla::NativeEndian::swapToBigEndian(
+                            uint16_t(rm_val)))));
               } else {
                 MOZ_CRASH();
               }
@@ -4865,8 +5111,9 @@ int32_t Simulator::call(uint8_t* entry, int argument_count, ...) {
   va_start(parameters, argument_count);
 
   // First four arguments passed in registers.
-  MOZ_ASSERT(argument_count >= 1);
-  set_register(r0, va_arg(parameters, int32_t));
+  if (argument_count >= 1) {
+    set_register(r0, va_arg(parameters, int32_t));
+  }
   if (argument_count >= 2) {
     set_register(r1, va_arg(parameters, int32_t));
   }
@@ -4914,7 +5161,3 @@ Simulator* Simulator::Current() {
 }  // namespace js
 
 js::jit::Simulator* JSContext::simulator() const { return simulator_; }
-
-uintptr_t* JSContext::addressOfSimulatorStackLimit() {
-  return simulator_->addressOfStackLimit();
-}

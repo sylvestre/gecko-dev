@@ -31,13 +31,13 @@
 
 #ifdef JS_SIMULATOR_MIPS32
 
-#include "mozilla/Atomics.h"
+#  include "mozilla/Atomics.h"
 
-#include "jit/IonTypes.h"
-#include "js/ProfilingFrameIterator.h"
-#include "threading/Thread.h"
-#include "vm/MutexIDs.h"
-#include "wasm/WasmSignalHandlers.h"
+#  include "jit/IonTypes.h"
+#  include "js/ProfilingFrameIterator.h"
+#  include "threading/Thread.h"
+#  include "vm/MutexIDs.h"
+#  include "wasm/WasmSignalHandlers.h"
 
 namespace js {
 
@@ -212,8 +212,6 @@ class Simulator {
   // above.
   Simulator();
   ~Simulator();
-
-  static bool supportsAtomics() { return true; }
 
   // The currently executing Simulator instance. Potentially there can be one
   // for each native thread.

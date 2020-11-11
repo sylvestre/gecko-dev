@@ -26,8 +26,8 @@ AsyncEventDispatcher::AsyncEventDispatcher(EventTarget* aTarget,
       mEventMessage(eUnidentifiedEvent) {
   MOZ_ASSERT(mTarget);
   RefPtr<Event> event =
-      EventDispatcher::CreateEvent(aTarget, nullptr, &aEvent, EmptyString());
-  mEvent = event.forget();
+      EventDispatcher::CreateEvent(aTarget, nullptr, &aEvent, u""_ns);
+  mEvent = std::move(event);
   mEventType.SetIsVoid(true);
   NS_ASSERTION(mEvent, "Should never fail to create an event");
   mEvent->DuplicatePrivateData();
@@ -86,7 +86,7 @@ nsresult AsyncEventDispatcher::PostDOMEvent() {
     // Sometimes GetOwnerGlobal returns null because it uses
     // GetScriptHandlingObject rather than GetScopeObject.
     if (nsCOMPtr<nsINode> node = do_QueryInterface(mTarget)) {
-      nsCOMPtr<nsIDocument> doc = node->OwnerDoc();
+      nsCOMPtr<Document> doc = node->OwnerDoc();
       return doc->Dispatch(TaskCategory::Other,
                            ensureDeletionWhenFailing.forget());
     }

@@ -4,10 +4,13 @@
 "use strict";
 
 /**
- * Tests for timings columns.
+ * Tests for timings columns. Note that the column
+ * header is visible only if there are requests in the list.
  */
 add_task(async function() {
-  const { tab, monitor } = await initNetMonitor(SIMPLE_URL);
+  const { tab, monitor } = await initNetMonitor(SIMPLE_URL, {
+    requestCount: 1,
+  });
   info("Starting test... ");
 
   const { document, store, windowRequire } = monitor.panelWin;
@@ -15,6 +18,10 @@ add_task(async function() {
   store.dispatch(Actions.batchEnable(false));
 
   const visibleColumns = store.getState().ui.columns;
+
+  const wait = waitForNetworkEvents(monitor, 1);
+  tab.linkedBrowser.reload();
+  await wait;
 
   // Hide the waterfall column to make sure timing data are fetched
   // by the other timing columns ("endTime", "responseTime", "duration",
@@ -25,28 +32,22 @@ add_task(async function() {
     await hideColumn(monitor, "waterfall");
   }
 
-  ["endTime", "responseTime", "duration", "latency"].forEach(async (column) => {
+  ["endTime", "responseTime", "duration", "latency"].forEach(async column => {
     if (!visibleColumns[column]) {
       await showColumn(monitor, column);
     }
   });
 
   const onNetworkEvents = waitForNetworkEvents(monitor, 1);
-  const onEventTimings = waitFor(monitor.panelWin.api, EVENTS.RECEIVED_EVENT_TIMINGS);
   tab.linkedBrowser.reload();
-  await Promise.all([onNetworkEvents, onEventTimings]);
+  await onNetworkEvents;
 
   // There should be one request in the list.
   const requestItems = document.querySelectorAll(".request-list-item");
   is(requestItems.length, 1, "There must be one visible item");
 
   const item = requestItems[0];
-  const types = [
-    "end",
-    "response",
-    "duration",
-    "latency",
-  ];
+  const types = ["end", "response", "duration", "latency"];
 
   for (const t of types) {
     await waitUntil(() => {

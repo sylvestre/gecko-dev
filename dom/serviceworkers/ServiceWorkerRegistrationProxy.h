@@ -22,7 +22,7 @@ class ServiceWorkerRegistrationParent;
 class ServiceWorkerRegistrationProxy final
     : public ServiceWorkerRegistrationListener {
   // Background thread only
-  ServiceWorkerRegistrationParent* mActor;
+  RefPtr<ServiceWorkerRegistrationParent> mActor;
 
   // Written on background thread and read on main thread
   nsCOMPtr<nsISerialEventTarget> mEventTarget;
@@ -48,13 +48,17 @@ class ServiceWorkerRegistrationProxy final
 
   void StopListeningOnMainThread();
 
+  // The timer callback to perform the delayed update
+  class DelayedUpdate;
+  RefPtr<DelayedUpdate> mDelayedUpdate;
+
   // ServiceWorkerRegistrationListener interface
   void UpdateState(
       const ServiceWorkerRegistrationDescriptor& aDescriptor) override;
 
   void FireUpdateFound() override;
 
-  void RegistrationRemoved() override;
+  void RegistrationCleared() override;
 
   void GetScope(nsAString& aScope) const override;
 
@@ -71,7 +75,8 @@ class ServiceWorkerRegistrationProxy final
 
   RefPtr<GenericPromise> Unregister();
 
-  RefPtr<ServiceWorkerRegistrationPromise> Update();
+  RefPtr<ServiceWorkerRegistrationPromise> Update(
+      const nsCString& aNewestWorkerScriptUrl);
 
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(ServiceWorkerRegistrationProxy,
                                         override);

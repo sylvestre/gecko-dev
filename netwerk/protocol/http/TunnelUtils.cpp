@@ -26,28 +26,37 @@
 #include "nsComponentManagerUtils.h"
 #include "nsSocketTransport2.h"
 #include "nsSocketTransportService2.h"
+#include "mozilla/AutoRestore.h"
 #include "mozilla/Mutex.h"
+
+#if defined(FUZZING)
+#  include "FuzzySecurityInfo.h"
+#  include "mozilla/StaticPrefs_fuzzing.h"
+#endif
 
 namespace mozilla {
 namespace net {
 
 static PRDescIdentity sLayerIdentity;
 static PRIOMethods sLayerMethods;
-static PRIOMethods *sLayerMethodsPtr = nullptr;
+static PRIOMethods* sLayerMethodsPtr = nullptr;
 
-TLSFilterTransaction::TLSFilterTransaction(nsAHttpTransaction *aWrapped,
-                                           const char *aTLSHost,
+TLSFilterTransaction::TLSFilterTransaction(nsAHttpTransaction* aWrapped,
+                                           const char* aTLSHost,
                                            int32_t aTLSPort,
-                                           nsAHttpSegmentReader *aReader,
-                                           nsAHttpSegmentWriter *aWriter)
+                                           nsAHttpSegmentReader* aReader,
+                                           nsAHttpSegmentWriter* aWriter)
     : mTransaction(aWrapped),
       mEncryptedTextUsed(0),
       mEncryptedTextSize(0),
       mSegmentReader(aReader),
       mSegmentWriter(aWriter),
       mFilterReadCode(NS_ERROR_NOT_INITIALIZED),
+      mFilterReadAmount(0),
+      mInOnReadSegment(false),
       mForce(false),
-      mReadSegmentBlocked(false),
+      mReadSegmentReturnValue(NS_OK),
+      mCloseReason(NS_ERROR_UNEXPECTED),
       mNudgeCounter(0) {
   MOZ_ASSERT(OnSocketThread(), "not on socket thread");
   LOG(("TLSFilterTransaction ctor %p\n", this));
@@ -80,11 +89,25 @@ TLSFilterTransaction::TLSFilterTransaction(nsAHttpTransaction *aWrapped,
 
   mFD = PR_CreateIOLayerStub(sLayerIdentity, &sLayerMethods);
 
+  bool addTLSLayer = true;
+#ifdef FUZZING
+  addTLSLayer = !StaticPrefs::fuzzing_necko_enabled();
+  if (!addTLSLayer) {
+    SOCKET_LOG(("Skipping TLS layer in TLSFilterTransaction for fuzzing.\n"));
+
+    mSecInfo = static_cast<nsISupports*>(
+        static_cast<nsISSLSocketControl*>(new FuzzySecurityInfo()));
+  }
+#endif
+
   if (provider && mFD) {
-    mFD->secret = reinterpret_cast<PRFilePrivate *>(this);
-    provider->AddToSocket(PR_AF_INET, aTLSHost, aTLSPort, nullptr,
-                          OriginAttributes(), 0, 0, mFD,
-                          getter_AddRefs(mSecInfo));
+    mFD->secret = reinterpret_cast<PRFilePrivate*>(this);
+
+    if (addTLSLayer) {
+      provider->AddToSocket(PR_AF_INET, aTLSHost, aTLSPort, nullptr,
+                            OriginAttributes(), 0, 0, mFD,
+                            getter_AddRefs(mSecInfo));
+    }
   }
 
   if (mTransaction) {
@@ -99,10 +122,17 @@ TLSFilterTransaction::TLSFilterTransaction(nsAHttpTransaction *aWrapped,
 
 TLSFilterTransaction::~TLSFilterTransaction() {
   LOG(("TLSFilterTransaction dtor %p\n", this));
+
+  // Prevent call to OnReadSegment from FilterOutput, our mSegmentReader is now
+  // an invalid pointer.
+  mInOnReadSegment = true;
+
   Cleanup();
 }
 
 void TLSFilterTransaction::Cleanup() {
+  LOG(("TLSFilterTransaction::Cleanup %p", this));
+
   if (mTransaction) {
     mTransaction->Close(NS_ERROR_ABORT);
     mTransaction = nullptr;
@@ -120,6 +150,9 @@ void TLSFilterTransaction::Cleanup() {
 }
 
 void TLSFilterTransaction::Close(nsresult aReason) {
+  LOG(("TLSFilterTransaction::Close %p %" PRIx32, this,
+       static_cast<uint32_t>(aReason)));
+
   if (!mTransaction) {
     return;
   }
@@ -131,25 +164,37 @@ void TLSFilterTransaction::Close(nsresult aReason) {
   mTransaction->Close(aReason);
   mTransaction = nullptr;
 
-  RefPtr<NullHttpTransaction> baseTrans(do_QueryReferent(mWeakTrans));
-  SpdyConnectTransaction *trans =
-      baseTrans ? baseTrans->QuerySpdyConnectTransaction() : nullptr;
+  if (!gHttpHandler->Bug1563695()) {
+    RefPtr<NullHttpTransaction> baseTrans(do_QueryReferent(mWeakTrans));
+    SpdyConnectTransaction* trans =
+        baseTrans ? baseTrans->QuerySpdyConnectTransaction() : nullptr;
 
-  LOG(("TLSFilterTransaction::Close %p aReason=%" PRIx32 " trans=%p\n", this,
-       static_cast<uint32_t>(aReason), trans));
+    LOG(("TLSFilterTransaction::Close %p aReason=%" PRIx32 " trans=%p\n", this,
+         static_cast<uint32_t>(aReason), trans));
 
-  if (trans) {
-    trans->Close(aReason);
-    trans = nullptr;
+    if (trans) {
+      trans->Close(aReason);
+      trans = nullptr;
+    }
+  }
+
+  if (gHttpHandler->Bug1563538()) {
+    if (NS_FAILED(aReason)) {
+      mCloseReason = aReason;
+    } else {
+      mCloseReason = NS_BASE_STREAM_CLOSED;
+    }
+  } else {
+    MOZ_ASSERT(NS_ERROR_UNEXPECTED == mCloseReason);
   }
 }
 
-nsresult TLSFilterTransaction::OnReadSegment(const char *aData, uint32_t aCount,
-                                             uint32_t *outCountRead) {
+nsresult TLSFilterTransaction::OnReadSegment(const char* aData, uint32_t aCount,
+                                             uint32_t* outCountRead) {
   LOG(("TLSFilterTransaction %p OnReadSegment %d (buffered %d)\n", this, aCount,
        mEncryptedTextUsed));
 
-  mReadSegmentBlocked = false;
+  mReadSegmentReturnValue = NS_OK;
   MOZ_ASSERT(mSegmentReader);
   if (!mSecInfo) {
     return NS_ERROR_FAILURE;
@@ -186,6 +231,11 @@ nsresult TLSFilterTransaction::OnReadSegment(const char *aData, uint32_t aCount,
 
   EnsureBuffer(mEncryptedText, aCount + 4096, 0, mEncryptedTextSize);
 
+  // Prevents call to OnReadSegment from inside FilterOutput, as we handle it
+  // here.
+  AutoRestore<bool> inOnReadSegment(mInOnReadSegment);
+  mInOnReadSegment = true;
+
   while (aCount > 0) {
     int32_t written = PR_Write(mFD, aData, aCount);
     LOG(("TLSFilterTransaction %p OnReadSegment PRWrite(%d) = %d %d\n", this,
@@ -196,17 +246,12 @@ nsresult TLSFilterTransaction::OnReadSegment(const char *aData, uint32_t aCount,
         return NS_OK;
       }
       // mTransaction ReadSegments actually obscures this code, so
-      // keep it in a member var for this::ReadSegments to insepct. Similar
+      // keep it in a member var for this::ReadSegments to inspect. Similar
       // to nsHttpConnection::mSocketOutCondition
       PRErrorCode code = PR_GetError();
-      mReadSegmentBlocked = (code == PR_WOULD_BLOCK_ERROR);
-      if (mReadSegmentBlocked) {
-        return NS_BASE_STREAM_WOULD_BLOCK;
-      }
+      mReadSegmentReturnValue = ErrorAccordingToNSPR(code);
 
-      nsresult rv = ErrorAccordingToNSPR(code);
-      Close(rv);
-      return rv;
+      return mReadSegmentReturnValue;
     }
     aCount -= written;
     aData += written;
@@ -230,9 +275,14 @@ nsresult TLSFilterTransaction::OnReadSegment(const char *aData, uint32_t aCount,
 
     if (rv == NS_BASE_STREAM_WOULD_BLOCK) {
       // return OK because all the data was consumed and stored in this buffer
-      Connection()->TransactionHasDataToWrite(this);
+      // It is fine if the connection is null.  We are likely a websocket and
+      // thus writing push is ensured by the caller.
+      if (Connection()) {
+        Connection()->TransactionHasDataToWrite(this);
+      }
       return NS_OK;
-    } else if (NS_FAILED(rv)) {
+    }
+    if (NS_FAILED(rv)) {
       return rv;
     }
   }
@@ -249,11 +299,24 @@ nsresult TLSFilterTransaction::OnReadSegment(const char *aData, uint32_t aCount,
   return NS_OK;
 }
 
-int32_t TLSFilterTransaction::FilterOutput(const char *aBuf, int32_t aAmount) {
+int32_t TLSFilterTransaction::FilterOutput(const char* aBuf, int32_t aAmount) {
   EnsureBuffer(mEncryptedText, mEncryptedTextUsed + aAmount, mEncryptedTextUsed,
                mEncryptedTextSize);
   memcpy(&mEncryptedText[mEncryptedTextUsed], aBuf, aAmount);
   mEncryptedTextUsed += aAmount;
+
+  LOG(("TLSFilterTransaction::FilterOutput %p %d buffered=%u mSegmentReader=%p",
+       this, aAmount, mEncryptedTextUsed, mSegmentReader));
+
+  if (!mInOnReadSegment) {
+    // When called externally, we must make sure any newly written data is
+    // actually sent to the higher level connection.
+    // This also covers the case when PR_Read() wrote a re-negotioation
+    // response.
+    uint32_t notUsed;
+    Unused << OnReadSegment("", 0, &notUsed);
+  }
+
   return aAmount;
 }
 
@@ -269,8 +332,8 @@ nsresult TLSFilterTransaction::CommitToSegmentSize(uint32_t size,
   return mSegmentReader->CommitToSegmentSize(size + 1024, forceCommitment);
 }
 
-nsresult TLSFilterTransaction::OnWriteSegment(char *aData, uint32_t aCount,
-                                              uint32_t *outCountRead) {
+nsresult TLSFilterTransaction::OnWriteSegment(char* aData, uint32_t aCount,
+                                              uint32_t* outCountRead) {
   MOZ_ASSERT(OnSocketThread(), "not on socket thread");
   MOZ_ASSERT(mSegmentWriter);
   LOG(("TLSFilterTransaction::OnWriteSegment %p max=%d\n", this, aCount));
@@ -281,15 +344,32 @@ nsresult TLSFilterTransaction::OnWriteSegment(char *aData, uint32_t aCount,
   // this will call through to FilterInput to get data from the higher
   // level connection before removing the local TLS layer
   mFilterReadCode = NS_OK;
+  mFilterReadAmount = 0;
   int32_t bytesRead = PR_Read(mFD, aData, aCount);
   if (bytesRead == -1) {
     PRErrorCode code = PR_GetError();
     if (code == PR_WOULD_BLOCK_ERROR) {
+      LOG(
+          ("TLSFilterTransaction::OnWriteSegment %p PR_Read would block, "
+           "actual read: %d\n",
+           this, mFilterReadAmount));
+
+      if (mFilterReadAmount == 0 && NS_SUCCEEDED(mFilterReadCode)) {
+        // No reading happened, but also no error occured, hence there is no
+        // condition to break the `again` loop, propagate WOULD_BLOCK through
+        // mFilterReadCode to break it and poll the socket again for reading.
+        mFilterReadCode = NS_BASE_STREAM_WOULD_BLOCK;
+      }
       return NS_BASE_STREAM_WOULD_BLOCK;
     }
-    nsresult rv = ErrorAccordingToNSPR(code);
-    Close(rv);
-    return rv;
+    // If reading from the socket succeeded (NS_SUCCEEDED(mFilterReadCode)),
+    // but the nss layer encountered an error remember the error.
+    if (NS_SUCCEEDED(mFilterReadCode)) {
+      mFilterReadCode = ErrorAccordingToNSPR(code);
+      LOG(("TLSFilterTransaction::OnWriteSegment %p nss error %" PRIx32 ".\n",
+           this, static_cast<uint32_t>(mFilterReadCode)));
+    }
+    return mFilterReadCode;
   }
   *outCountRead = bytesRead;
 
@@ -307,7 +387,7 @@ nsresult TLSFilterTransaction::OnWriteSegment(char *aData, uint32_t aCount,
   return mFilterReadCode;
 }
 
-int32_t TLSFilterTransaction::FilterInput(char *aBuf, int32_t aAmount) {
+int32_t TLSFilterTransaction::FilterInput(char* aBuf, int32_t aAmount) {
   MOZ_ASSERT(OnSocketThread(), "not on socket thread");
   MOZ_ASSERT(mSegmentWriter);
   LOG(("TLSFilterTransaction::FilterInput max=%d\n", aAmount));
@@ -320,9 +400,11 @@ int32_t TLSFilterTransaction::FilterInput(char *aBuf, int32_t aAmount) {
          " read=%d input from net "
          "1 layer stripped, 1 still on\n",
          static_cast<uint32_t>(mFilterReadCode), outCountRead));
-    if (mReadSegmentBlocked) {
+    if (mReadSegmentReturnValue == NS_BASE_STREAM_WOULD_BLOCK) {
       mNudgeCounter = 0;
     }
+
+    mFilterReadAmount += outCountRead;
   }
   if (mFilterReadCode == NS_BASE_STREAM_WOULD_BLOCK) {
     PR_SetError(PR_WOULD_BLOCK_ERROR, 0);
@@ -331,44 +413,54 @@ int32_t TLSFilterTransaction::FilterInput(char *aBuf, int32_t aAmount) {
   return outCountRead;
 }
 
-nsresult TLSFilterTransaction::ReadSegments(nsAHttpSegmentReader *aReader,
+nsresult TLSFilterTransaction::ReadSegments(nsAHttpSegmentReader* aReader,
                                             uint32_t aCount,
-                                            uint32_t *outCountRead) {
+                                            uint32_t* outCountRead) {
   MOZ_ASSERT(OnSocketThread(), "not on socket thread");
   LOG(("TLSFilterTransaction::ReadSegments %p max=%d\n", this, aCount));
 
   if (!mTransaction) {
-    return NS_ERROR_UNEXPECTED;
+    return mCloseReason;
   }
 
-  mReadSegmentBlocked = false;
+  mReadSegmentReturnValue = NS_OK;
   mSegmentReader = aReader;
   nsresult rv = mTransaction->ReadSegments(this, aCount, outCountRead);
+
+  // mSegmentReader is left assigned (not nullified) because we want to be able
+  // to call OnReadSegment directly, it expects mSegmentReader be non-null.
+
   LOG(("TLSFilterTransaction %p called trans->ReadSegments rv=%" PRIx32 " %d\n",
        this, static_cast<uint32_t>(rv), *outCountRead));
-  if (NS_SUCCEEDED(rv) && mReadSegmentBlocked) {
-    rv = NS_BASE_STREAM_WOULD_BLOCK;
+  if (NS_SUCCEEDED(rv) &&
+      (mReadSegmentReturnValue == NS_BASE_STREAM_WOULD_BLOCK)) {
     LOG(("TLSFilterTransaction %p read segment blocked found rv=%" PRIx32 "\n",
          this, static_cast<uint32_t>(rv)));
-    Unused << Connection()->ForceSend();
+    if (Connection()) {
+      Unused << Connection()->ForceSend();
+    }
   }
 
-  return rv;
+  return NS_SUCCEEDED(rv) ? mReadSegmentReturnValue : rv;
 }
 
-nsresult TLSFilterTransaction::WriteSegments(nsAHttpSegmentWriter *aWriter,
-                                             uint32_t aCount,
-                                             uint32_t *outCountWritten) {
+nsresult TLSFilterTransaction::WriteSegmentsAgain(nsAHttpSegmentWriter* aWriter,
+                                                  uint32_t aCount,
+                                                  uint32_t* outCountWritten,
+                                                  bool* again) {
   MOZ_ASSERT(OnSocketThread(), "not on socket thread");
-  LOG(("TLSFilterTransaction::WriteSegments %p max=%d\n", this, aCount));
+  LOG(("TLSFilterTransaction::WriteSegmentsAgain %p max=%d\n", this, aCount));
 
   if (!mTransaction) {
-    return NS_ERROR_UNEXPECTED;
+    return mCloseReason;
   }
 
   mSegmentWriter = aWriter;
-  nsresult rv = mTransaction->WriteSegments(this, aCount, outCountWritten);
-  if (NS_SUCCEEDED(rv) && NS_FAILED(mFilterReadCode) && !(*outCountWritten)) {
+
+  nsresult rv =
+      mTransaction->WriteSegmentsAgain(this, aCount, outCountWritten, again);
+
+  if (NS_SUCCEEDED(rv) && !(*outCountWritten) && NS_FAILED(mFilterReadCode)) {
     // nsPipe turns failures into silent OK.. undo that!
     rv = mFilterReadCode;
     if (Connection() && (mFilterReadCode == NS_BASE_STREAM_WOULD_BLOCK)) {
@@ -381,8 +473,15 @@ nsresult TLSFilterTransaction::WriteSegments(nsAHttpSegmentWriter *aWriter,
   return rv;
 }
 
+nsresult TLSFilterTransaction::WriteSegments(nsAHttpSegmentWriter* aWriter,
+                                             uint32_t aCount,
+                                             uint32_t* outCountWritten) {
+  bool again = false;
+  return WriteSegmentsAgain(aWriter, aCount, outCountWritten, &again);
+}
+
 nsresult TLSFilterTransaction::GetTransactionSecurityInfo(
-    nsISupports **outSecInfo) {
+    nsISupports** outSecInfo) {
   if (!mSecInfo) {
     return NS_ERROR_FAILURE;
   }
@@ -392,7 +491,7 @@ nsresult TLSFilterTransaction::GetTransactionSecurityInfo(
   return NS_OK;
 }
 
-nsresult TLSFilterTransaction::NudgeTunnel(NudgeTunnelCallback *aCallback) {
+nsresult TLSFilterTransaction::NudgeTunnel(NudgeTunnelCallback* aCallback) {
   MOZ_ASSERT(OnSocketThread(), "not on socket thread");
   LOG(("TLSFilterTransaction %p NudgeTunnel\n", this));
   mNudgeCallback = nullptr;
@@ -449,20 +548,22 @@ nsresult TLSFilterTransaction::NudgeTunnel(NudgeTunnelCallback *aCallback) {
 }
 
 NS_IMETHODIMP
-TLSFilterTransaction::Notify(nsITimer *timer) {
+TLSFilterTransaction::Notify(nsITimer* timer) {
   MOZ_ASSERT(OnSocketThread(), "not on socket thread");
   LOG(("TLSFilterTransaction %p NudgeTunnel notify\n", this));
 
   if (timer != mTimer) {
     return NS_ERROR_UNEXPECTED;
   }
-  DebugOnly<nsresult> rv = StartTimerCallback();
-  MOZ_ASSERT(NS_SUCCEEDED(rv));
+  nsresult rv = StartTimerCallback();
+  if (NS_FAILED(rv)) {
+    Close(rv);
+  }
   return NS_OK;
 }
 
 NS_IMETHODIMP
-TLSFilterTransaction::GetName(nsACString &aName) {
+TLSFilterTransaction::GetName(nsACString& aName) {
   aName.AssignLiteral("TLSFilterTransaction");
   return NS_OK;
 }
@@ -475,15 +576,26 @@ nsresult TLSFilterTransaction::StartTimerCallback() {
     // This class can be called re-entrantly, so cleanup m* before ->on()
     RefPtr<NudgeTunnelCallback> cb(mNudgeCallback);
     mNudgeCallback = nullptr;
-    cb->OnTunnelNudged(this);
+    return cb->OnTunnelNudged(this);
   }
   return NS_OK;
 }
 
-PRStatus TLSFilterTransaction::GetPeerName(PRFileDesc *aFD, PRNetAddr *addr) {
+bool TLSFilterTransaction::HasDataToRecv() {
+  MOZ_ASSERT(OnSocketThread(), "not on socket thread");
+  if (!mFD) {
+    return false;
+  }
+  int32_t n = 0;
+  char c;
+  n = PR_Recv(mFD, &c, 1, PR_MSG_PEEK, 0);
+  return n > 0;
+}
+
+PRStatus TLSFilterTransaction::GetPeerName(PRFileDesc* aFD, PRNetAddr* addr) {
   NetAddr peeraddr;
-  TLSFilterTransaction *self =
-      reinterpret_cast<TLSFilterTransaction *>(aFD->secret);
+  TLSFilterTransaction* self =
+      reinterpret_cast<TLSFilterTransaction*>(aFD->secret);
 
   if (!self->mTransaction ||
       NS_FAILED(self->mTransaction->Connection()->Transport()->GetPeerAddr(
@@ -494,8 +606,8 @@ PRStatus TLSFilterTransaction::GetPeerName(PRFileDesc *aFD, PRNetAddr *addr) {
   return PR_SUCCESS;
 }
 
-PRStatus TLSFilterTransaction::GetSocketOption(PRFileDesc *aFD,
-                                               PRSocketOptionData *aOpt) {
+PRStatus TLSFilterTransaction::GetSocketOption(PRFileDesc* aFD,
+                                               PRSocketOptionData* aOpt) {
   if (aOpt->option == PR_SockOpt_Nonblocking) {
     aOpt->value.non_blocking = PR_TRUE;
     return PR_SUCCESS;
@@ -503,35 +615,35 @@ PRStatus TLSFilterTransaction::GetSocketOption(PRFileDesc *aFD,
   return PR_FAILURE;
 }
 
-PRStatus TLSFilterTransaction::SetSocketOption(PRFileDesc *aFD,
-                                               const PRSocketOptionData *aOpt) {
+PRStatus TLSFilterTransaction::SetSocketOption(PRFileDesc* aFD,
+                                               const PRSocketOptionData* aOpt) {
   return PR_FAILURE;
 }
 
-PRStatus TLSFilterTransaction::FilterClose(PRFileDesc *aFD) {
+PRStatus TLSFilterTransaction::FilterClose(PRFileDesc* aFD) {
   return PR_SUCCESS;
 }
 
-int32_t TLSFilterTransaction::FilterWrite(PRFileDesc *aFD, const void *aBuf,
+int32_t TLSFilterTransaction::FilterWrite(PRFileDesc* aFD, const void* aBuf,
                                           int32_t aAmount) {
-  TLSFilterTransaction *self =
-      reinterpret_cast<TLSFilterTransaction *>(aFD->secret);
-  return self->FilterOutput(static_cast<const char *>(aBuf), aAmount);
+  TLSFilterTransaction* self =
+      reinterpret_cast<TLSFilterTransaction*>(aFD->secret);
+  return self->FilterOutput(static_cast<const char*>(aBuf), aAmount);
 }
 
-int32_t TLSFilterTransaction::FilterSend(PRFileDesc *aFD, const void *aBuf,
+int32_t TLSFilterTransaction::FilterSend(PRFileDesc* aFD, const void* aBuf,
                                          int32_t aAmount, int, PRIntervalTime) {
   return FilterWrite(aFD, aBuf, aAmount);
 }
 
-int32_t TLSFilterTransaction::FilterRead(PRFileDesc *aFD, void *aBuf,
+int32_t TLSFilterTransaction::FilterRead(PRFileDesc* aFD, void* aBuf,
                                          int32_t aAmount) {
-  TLSFilterTransaction *self =
-      reinterpret_cast<TLSFilterTransaction *>(aFD->secret);
-  return self->FilterInput(static_cast<char *>(aBuf), aAmount);
+  TLSFilterTransaction* self =
+      reinterpret_cast<TLSFilterTransaction*>(aFD->secret);
+  return self->FilterInput(static_cast<char*>(aBuf), aAmount);
 }
 
-int32_t TLSFilterTransaction::FilterRecv(PRFileDesc *aFD, void *aBuf,
+int32_t TLSFilterTransaction::FilterRecv(PRFileDesc* aFD, void* aBuf,
                                          int32_t aAmount, int, PRIntervalTime) {
   return FilterRead(aFD, aBuf, aAmount);
 }
@@ -540,7 +652,7 @@ int32_t TLSFilterTransaction::FilterRecv(PRFileDesc *aFD, void *aBuf,
 // The other methods of TLSFilterTransaction just call mTransaction->method
 /////
 
-void TLSFilterTransaction::SetConnection(nsAHttpConnection *aConnection) {
+void TLSFilterTransaction::SetConnection(nsAHttpConnection* aConnection) {
   if (!mTransaction) {
     return;
   }
@@ -548,21 +660,21 @@ void TLSFilterTransaction::SetConnection(nsAHttpConnection *aConnection) {
   mTransaction->SetConnection(aConnection);
 }
 
-nsAHttpConnection *TLSFilterTransaction::Connection() {
+nsAHttpConnection* TLSFilterTransaction::Connection() {
   if (!mTransaction) {
     return nullptr;
   }
   return mTransaction->Connection();
 }
 
-void TLSFilterTransaction::GetSecurityCallbacks(nsIInterfaceRequestor **outCB) {
+void TLSFilterTransaction::GetSecurityCallbacks(nsIInterfaceRequestor** outCB) {
   if (!mTransaction) {
     return;
   }
   mTransaction->GetSecurityCallbacks(outCB);
 }
 
-void TLSFilterTransaction::OnTransportStatus(nsITransport *aTransport,
+void TLSFilterTransaction::OnTransportStatus(nsITransport* aTransport,
                                              nsresult aStatus,
                                              int64_t aProgress) {
   if (!mTransaction) {
@@ -571,7 +683,7 @@ void TLSFilterTransaction::OnTransportStatus(nsITransport *aTransport,
   mTransaction->OnTransportStatus(aTransport, aStatus, aProgress);
 }
 
-nsHttpConnectionInfo *TLSFilterTransaction::ConnectionInfo() {
+nsHttpConnectionInfo* TLSFilterTransaction::ConnectionInfo() {
   if (!mTransaction) {
     return nullptr;
   }
@@ -601,14 +713,6 @@ uint32_t TLSFilterTransaction::Caps() {
   return mTransaction->Caps();
 }
 
-void TLSFilterTransaction::SetDNSWasRefreshed() {
-  if (!mTransaction) {
-    return;
-  }
-
-  mTransaction->SetDNSWasRefreshed();
-}
-
 void TLSFilterTransaction::SetProxyConnectFailed() {
   if (!mTransaction) {
     return;
@@ -617,7 +721,7 @@ void TLSFilterTransaction::SetProxyConnectFailed() {
   mTransaction->SetProxyConnectFailed();
 }
 
-nsHttpRequestHead *TLSFilterTransaction::RequestHead() {
+nsHttpRequestHead* TLSFilterTransaction::RequestHead() {
   if (!mTransaction) {
     return nullptr;
   }
@@ -634,7 +738,7 @@ uint32_t TLSFilterTransaction::Http1xTransactionCount() {
 }
 
 nsresult TLSFilterTransaction::TakeSubTransactions(
-    nsTArray<RefPtr<nsAHttpTransaction> > &outTransactions) {
+    nsTArray<RefPtr<nsAHttpTransaction> >& outTransactions) {
   LOG(("TLSFilterTransaction::TakeSubTransactions [this=%p] mTransaction %p\n",
        this, mTransaction.get()));
 
@@ -652,13 +756,18 @@ nsresult TLSFilterTransaction::TakeSubTransactions(
 }
 
 nsresult TLSFilterTransaction::SetProxiedTransaction(
-    nsAHttpTransaction *aTrans, nsAHttpTransaction *aSpdyConnectTransaction) {
+    nsAHttpTransaction* aTrans, nsAHttpTransaction* aSpdyConnectTransaction) {
   LOG(
       ("TLSFilterTransaction::SetProxiedTransaction [this=%p] aTrans=%p, "
        "aSpdyConnectTransaction=%p\n",
        this, aTrans, aSpdyConnectTransaction));
 
   mTransaction = aTrans;
+
+  // Reverting mCloseReason to the default value for consistency to indicate we
+  // are no longer in closed state.
+  mCloseReason = NS_ERROR_UNEXPECTED;
+
   nsCOMPtr<nsIInterfaceRequestor> callbacks;
   mTransaction->GetSecurityCallbacks(getter_AddRefs(callbacks));
   nsCOMPtr<nsISSLSocketControl> secCtrl(do_QueryInterface(mSecInfo));
@@ -678,14 +787,14 @@ bool TLSFilterTransaction::IsNullTransaction() {
   return mTransaction->IsNullTransaction();
 }
 
-NullHttpTransaction *TLSFilterTransaction::QueryNullTransaction() {
+NullHttpTransaction* TLSFilterTransaction::QueryNullTransaction() {
   if (!mTransaction) {
     return nullptr;
   }
   return mTransaction->QueryNullTransaction();
 }
 
-nsHttpTransaction *TLSFilterTransaction::QueryHttpTransaction() {
+nsHttpTransaction* TLSFilterTransaction::QueryHttpTransaction() {
   if (!mTransaction) {
     return nullptr;
   }
@@ -697,7 +806,7 @@ class SocketInWrapper : public nsIAsyncInputStream,
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_FORWARD_NSIASYNCINPUTSTREAM(mStream->)
 
-  SocketInWrapper(nsIAsyncInputStream *aWrapped, TLSFilterTransaction *aFilter)
+  SocketInWrapper(nsIAsyncInputStream* aWrapped, TLSFilterTransaction* aFilter)
       : mStream(aWrapped), mTLSFilter(aFilter) {}
 
   NS_IMETHOD Close() override {
@@ -705,23 +814,23 @@ class SocketInWrapper : public nsIAsyncInputStream,
     return mStream->Close();
   }
 
-  NS_IMETHOD Available(uint64_t *_retval) override {
+  NS_IMETHOD Available(uint64_t* _retval) override {
     return mStream->Available(_retval);
   }
 
-  NS_IMETHOD IsNonBlocking(bool *_retval) override {
+  NS_IMETHOD IsNonBlocking(bool* _retval) override {
     return mStream->IsNonBlocking(_retval);
   }
 
-  NS_IMETHOD ReadSegments(nsWriteSegmentFun aWriter, void *aClosure,
-                          uint32_t aCount, uint32_t *_retval) override {
+  NS_IMETHOD ReadSegments(nsWriteSegmentFun aWriter, void* aClosure,
+                          uint32_t aCount, uint32_t* _retval) override {
     return mStream->ReadSegments(aWriter, aClosure, aCount, _retval);
   }
 
   // finally, ones that don't get forwarded :)
-  NS_IMETHOD Read(char *aBuf, uint32_t aCount, uint32_t *_retval) override;
-  virtual nsresult OnWriteSegment(char *segment, uint32_t count,
-                                  uint32_t *countWritten) override;
+  NS_IMETHOD Read(char* aBuf, uint32_t aCount, uint32_t* _retval) override;
+  virtual nsresult OnWriteSegment(char* segment, uint32_t count,
+                                  uint32_t* countWritten) override;
 
  private:
   virtual ~SocketInWrapper() = default;
@@ -731,8 +840,8 @@ class SocketInWrapper : public nsIAsyncInputStream,
   RefPtr<TLSFilterTransaction> mTLSFilter;
 };
 
-nsresult SocketInWrapper::OnWriteSegment(char *segment, uint32_t count,
-                                         uint32_t *countWritten) {
+nsresult SocketInWrapper::OnWriteSegment(char* segment, uint32_t count,
+                                         uint32_t* countWritten) {
   LOG(("SocketInWrapper OnWriteSegment %d %p filter=%p\n", count, this,
        mTLSFilter.get()));
 
@@ -743,7 +852,7 @@ nsresult SocketInWrapper::OnWriteSegment(char *segment, uint32_t count,
 }
 
 NS_IMETHODIMP
-SocketInWrapper::Read(char *aBuf, uint32_t aCount, uint32_t *_retval) {
+SocketInWrapper::Read(char* aBuf, uint32_t aCount, uint32_t* _retval) {
   LOG(("SocketInWrapper Read %d %p filter=%p\n", aCount, this,
        mTLSFilter.get()));
 
@@ -760,8 +869,8 @@ class SocketOutWrapper : public nsIAsyncOutputStream,
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_FORWARD_NSIASYNCOUTPUTSTREAM(mStream->)
 
-  SocketOutWrapper(nsIAsyncOutputStream *aWrapped,
-                   TLSFilterTransaction *aFilter)
+  SocketOutWrapper(nsIAsyncOutputStream* aWrapped,
+                   TLSFilterTransaction* aFilter)
       : mStream(aWrapped), mTLSFilter(aFilter) {}
 
   NS_IMETHOD Close() override {
@@ -771,25 +880,25 @@ class SocketOutWrapper : public nsIAsyncOutputStream,
 
   NS_IMETHOD Flush() override { return mStream->Flush(); }
 
-  NS_IMETHOD IsNonBlocking(bool *_retval) override {
+  NS_IMETHOD IsNonBlocking(bool* _retval) override {
     return mStream->IsNonBlocking(_retval);
   }
 
-  NS_IMETHOD WriteSegments(nsReadSegmentFun aReader, void *aClosure,
-                           uint32_t aCount, uint32_t *_retval) override {
+  NS_IMETHOD WriteSegments(nsReadSegmentFun aReader, void* aClosure,
+                           uint32_t aCount, uint32_t* _retval) override {
     return mStream->WriteSegments(aReader, aClosure, aCount, _retval);
   }
 
-  NS_IMETHOD WriteFrom(nsIInputStream *aFromStream, uint32_t aCount,
-                       uint32_t *_retval) override {
+  NS_IMETHOD WriteFrom(nsIInputStream* aFromStream, uint32_t aCount,
+                       uint32_t* _retval) override {
     return mStream->WriteFrom(aFromStream, aCount, _retval);
   }
 
   // finally, ones that don't get forwarded :)
-  NS_IMETHOD Write(const char *aBuf, uint32_t aCount,
-                   uint32_t *_retval) override;
-  virtual nsresult OnReadSegment(const char *segment, uint32_t count,
-                                 uint32_t *countRead) override;
+  NS_IMETHOD Write(const char* aBuf, uint32_t aCount,
+                   uint32_t* _retval) override;
+  virtual nsresult OnReadSegment(const char* segment, uint32_t count,
+                                 uint32_t* countRead) override;
 
  private:
   virtual ~SocketOutWrapper() = default;
@@ -799,13 +908,13 @@ class SocketOutWrapper : public nsIAsyncOutputStream,
   RefPtr<TLSFilterTransaction> mTLSFilter;
 };
 
-nsresult SocketOutWrapper::OnReadSegment(const char *segment, uint32_t count,
-                                         uint32_t *countWritten) {
+nsresult SocketOutWrapper::OnReadSegment(const char* segment, uint32_t count,
+                                         uint32_t* countWritten) {
   return mStream->Write(segment, count, countWritten);
 }
 
 NS_IMETHODIMP
-SocketOutWrapper::Write(const char *aBuf, uint32_t aCount, uint32_t *_retval) {
+SocketOutWrapper::Write(const char* aBuf, uint32_t aCount, uint32_t* _retval) {
   LOG(("SocketOutWrapper Write %d %p filter=%p\n", aCount, this,
        mTLSFilter.get()));
 
@@ -817,50 +926,33 @@ SocketOutWrapper::Write(const char *aBuf, uint32_t aCount, uint32_t *_retval) {
   return mTLSFilter->OnReadSegment(aBuf, aCount, _retval);
 }
 
-void TLSFilterTransaction::newIODriver(nsIAsyncInputStream *aSocketIn,
-                                       nsIAsyncOutputStream *aSocketOut,
-                                       nsIAsyncInputStream **outSocketIn,
-                                       nsIAsyncOutputStream **outSocketOut) {
-  SocketInWrapper *inputWrapper = new SocketInWrapper(aSocketIn, this);
+void TLSFilterTransaction::newIODriver(nsIAsyncInputStream* aSocketIn,
+                                       nsIAsyncOutputStream* aSocketOut,
+                                       nsIAsyncInputStream** outSocketIn,
+                                       nsIAsyncOutputStream** outSocketOut) {
+  SocketInWrapper* inputWrapper = new SocketInWrapper(aSocketIn, this);
   mSegmentWriter = inputWrapper;
   nsCOMPtr<nsIAsyncInputStream> newIn(inputWrapper);
   newIn.forget(outSocketIn);
 
-  SocketOutWrapper *outputWrapper = new SocketOutWrapper(aSocketOut, this);
+  SocketOutWrapper* outputWrapper = new SocketOutWrapper(aSocketOut, this);
   mSegmentReader = outputWrapper;
   nsCOMPtr<nsIAsyncOutputStream> newOut(outputWrapper);
   newOut.forget(outSocketOut);
 }
 
-SpdyConnectTransaction *TLSFilterTransaction::QuerySpdyConnectTransaction() {
+SpdyConnectTransaction* TLSFilterTransaction::QuerySpdyConnectTransaction() {
   if (!mTransaction) {
     return nullptr;
   }
   return mTransaction->QuerySpdyConnectTransaction();
 }
 
-class SocketTransportShim : public nsISocketTransport {
- public:
-  NS_DECL_THREADSAFE_ISUPPORTS
-  NS_DECL_NSITRANSPORT
-  NS_DECL_NSISOCKETTRANSPORT
-
-  explicit SocketTransportShim(nsISocketTransport *aWrapped, bool aIsWebsocket)
-      : mWrapped(aWrapped), mIsWebsocket(aIsWebsocket){};
-
- private:
-  virtual ~SocketTransportShim() = default;
-
-  nsCOMPtr<nsISocketTransport> mWrapped;
-  bool mIsWebsocket;
-  nsCOMPtr<nsIInterfaceRequestor> mSecurityCallbacks;
-};
-
 class WeakTransProxy final : public nsISupports {
  public:
   NS_DECL_THREADSAFE_ISUPPORTS
 
-  explicit WeakTransProxy(SpdyConnectTransaction *aTrans) {
+  explicit WeakTransProxy(SpdyConnectTransaction* aTrans) {
     MOZ_ASSERT(OnSocketThread());
     mWeakTrans = do_GetWeakReference(aTrans);
   }
@@ -881,7 +973,7 @@ NS_IMPL_ISUPPORTS(WeakTransProxy, nsISupports)
 
 class WeakTransFreeProxy final : public Runnable {
  public:
-  explicit WeakTransFreeProxy(WeakTransProxy *proxy)
+  explicit WeakTransFreeProxy(WeakTransProxy* proxy)
       : Runnable("WeakTransFreeProxy"), mProxy(proxy) {}
 
   NS_IMETHOD Run() override {
@@ -901,6 +993,33 @@ class WeakTransFreeProxy final : public Runnable {
   RefPtr<WeakTransProxy> mProxy;
 };
 
+class SocketTransportShim : public nsISocketTransport {
+ public:
+  NS_DECL_THREADSAFE_ISUPPORTS
+  NS_DECL_NSITRANSPORT
+  NS_DECL_NSISOCKETTRANSPORT
+
+  explicit SocketTransportShim(SpdyConnectTransaction* aTrans,
+                               nsISocketTransport* aWrapped, bool aIsWebsocket)
+      : mWrapped(aWrapped), mIsWebsocket(aIsWebsocket) {
+    mWeakTrans = new WeakTransProxy(aTrans);
+  }
+
+ private:
+  virtual ~SocketTransportShim() {
+    if (!OnSocketThread()) {
+      RefPtr<WeakTransFreeProxy> p = new WeakTransFreeProxy(mWeakTrans);
+      mWeakTrans = nullptr;
+      p->Dispatch();
+    }
+  }
+
+  nsCOMPtr<nsISocketTransport> mWrapped;
+  bool mIsWebsocket;
+  nsCOMPtr<nsIInterfaceRequestor> mSecurityCallbacks;
+  RefPtr<WeakTransProxy> mWeakTrans;  // SpdyConnectTransaction *
+};
+
 class OutputStreamShim : public nsIAsyncOutputStream {
  public:
   NS_DECL_THREADSAFE_ISUPPORTS
@@ -911,7 +1030,7 @@ class OutputStreamShim : public nsIAsyncOutputStream {
   friend class WebsocketHasDataToWrite;
   friend class OutputCloseTransaction;
 
-  OutputStreamShim(SpdyConnectTransaction *aTrans, bool aIsWebsocket)
+  OutputStreamShim(SpdyConnectTransaction* aTrans, bool aIsWebsocket)
       : mCallback(nullptr),
         mStatus(NS_OK),
         mMutex("OutputStreamShim"),
@@ -919,7 +1038,7 @@ class OutputStreamShim : public nsIAsyncOutputStream {
     mWeakTrans = new WeakTransProxy(aTrans);
   }
 
-  nsIOutputStreamCallback *GetCallback();
+  already_AddRefed<nsIOutputStreamCallback> TakeCallback();
 
  private:
   virtual ~OutputStreamShim() {
@@ -931,7 +1050,7 @@ class OutputStreamShim : public nsIAsyncOutputStream {
   }
 
   RefPtr<WeakTransProxy> mWeakTrans;  // SpdyConnectTransaction *
-  nsIOutputStreamCallback *mCallback;
+  nsCOMPtr<nsIOutputStreamCallback> mCallback;
   nsresult mStatus;
   mozilla::Mutex mMutex;
 
@@ -950,7 +1069,7 @@ class InputStreamShim : public nsIAsyncInputStream {
   friend class SpdyConnectTransaction;
   friend class InputCloseTransaction;
 
-  InputStreamShim(SpdyConnectTransaction *aTrans, bool aIsWebsocket)
+  InputStreamShim(SpdyConnectTransaction* aTrans, bool aIsWebsocket)
       : mCallback(nullptr),
         mStatus(NS_OK),
         mMutex("InputStreamShim"),
@@ -958,7 +1077,8 @@ class InputStreamShim : public nsIAsyncInputStream {
     mWeakTrans = new WeakTransProxy(aTrans);
   }
 
-  nsIInputStreamCallback *GetCallback();
+  already_AddRefed<nsIInputStreamCallback> TakeCallback();
+  bool HasCallback();
 
  private:
   virtual ~InputStreamShim() {
@@ -970,7 +1090,7 @@ class InputStreamShim : public nsIAsyncInputStream {
   }
 
   RefPtr<WeakTransProxy> mWeakTrans;  // SpdyConnectTransaction *
-  nsIInputStreamCallback *mCallback;
+  nsCOMPtr<nsIInputStreamCallback> mCallback;
   nsresult mStatus;
   mozilla::Mutex mMutex;
 
@@ -980,8 +1100,8 @@ class InputStreamShim : public nsIAsyncInputStream {
 };
 
 SpdyConnectTransaction::SpdyConnectTransaction(
-    nsHttpConnectionInfo *ci, nsIInterfaceRequestor *callbacks, uint32_t caps,
-    nsHttpTransaction *trans, nsAHttpConnection *session, bool isWebsocket)
+    nsHttpConnectionInfo* ci, nsIInterfaceRequestor* callbacks, uint32_t caps,
+    nsHttpTransaction* trans, nsAHttpConnection* session, bool isWebsocket)
     : NullHttpTransaction(ci, callbacks, caps | NS_HTTP_ALLOW_KEEPALIVE),
       mConnectStringOffset(0),
       mSession(session),
@@ -994,7 +1114,8 @@ SpdyConnectTransaction::SpdyConnectTransaction(
       mOutputDataOffset(0),
       mForcePlainText(false),
       mIsWebsocket(isWebsocket),
-      mConnRefTaken(false) {
+      mConnRefTaken(false),
+      mCreateShimErrorCalled(false) {
   LOG(("SpdyConnectTransaction ctor %p\n", this));
 
   mTimestampSyn = TimeStamp::Now();
@@ -1016,6 +1137,8 @@ SpdyConnectTransaction::SpdyConnectTransaction(
 SpdyConnectTransaction::~SpdyConnectTransaction() {
   LOG(("SpdyConnectTransaction dtor %p\n", this));
 
+  MOZ_ASSERT(OnSocketThread());
+
   if (mDrivingTransaction) {
     // requeue it I guess. This should be gone.
     mDrivingTransaction->SetH2WSTransaction(nullptr);
@@ -1034,19 +1157,38 @@ void SpdyConnectTransaction::ForcePlainText() {
   mForcePlainText = true;
 }
 
-void SpdyConnectTransaction::MapStreamToHttpConnection(
-    nsISocketTransport *aTransport, nsHttpConnectionInfo *aConnInfo) {
-  mConnInfo = aConnInfo;
+bool SpdyConnectTransaction::MapStreamToHttpConnection(
+    nsISocketTransport* aTransport, nsHttpConnectionInfo* aConnInfo,
+    const nsACString& aFlat407Headers, int32_t aHttpResponseCode) {
+  MOZ_ASSERT(OnSocketThread());
 
-  mTunnelTransport = new SocketTransportShim(aTransport, mIsWebsocket);
+  if (aHttpResponseCode >= 100 && aHttpResponseCode < 200) {
+    LOG(
+        ("SpdyConnectTransaction::MapStreamToHttpConnection %p skip "
+         "pre-response with response code %d",
+         this, aHttpResponseCode));
+    return false;
+  }
+
+  mTunnelTransport = new SocketTransportShim(this, aTransport, mIsWebsocket);
   mTunnelStreamIn = new InputStreamShim(this, mIsWebsocket);
   mTunnelStreamOut = new OutputStreamShim(this, mIsWebsocket);
   mTunneledConn = new nsHttpConnection();
 
+  // If aHttpResponseCode is -1, it means that proxy connect is not used. We
+  // should not call HttpProxyResponseToErrorCode(), since this will create a
+  // shim error.
+  if (aHttpResponseCode > 0 && aHttpResponseCode != 200) {
+    nsresult err = HttpProxyResponseToErrorCode(aHttpResponseCode);
+    if (NS_FAILED(err)) {
+      CreateShimError(err);
+    }
+  }
+
   // this new http connection has a specific hashkey (i.e. to a particular
   // host via the tunnel) and is associated with the tunnel streams
-  LOG(("SpdyConnectTransaction new httpconnection %p %s\n", mTunneledConn.get(),
-       aConnInfo->HashKey().get()));
+  LOG(("SpdyConnectTransaction %p new httpconnection %p %s\n", this,
+       mTunneledConn.get(), aConnInfo->HashKey().get()));
 
   nsCOMPtr<nsIInterfaceRequestor> callbacks;
   GetSecurityCallbacks(getter_AddRefs(callbacks));
@@ -1078,14 +1220,23 @@ void SpdyConnectTransaction::MapStreamToHttpConnection(
   mDrivingTransaction->MakeSticky();
 
   if (!mIsWebsocket) {
+    mDrivingTransaction->OnProxyConnectComplete(aHttpResponseCode);
+
+    if (aHttpResponseCode == 407) {
+      mDrivingTransaction->SetFlat407Headers(aFlat407Headers);
+      mDrivingTransaction->SetProxyConnectFailed();
+    }
+
     // jump the priority and start the dispatcher
     Unused << gHttpHandler->InitiateTransaction(
         mDrivingTransaction, nsISupportsPriority::PRIORITY_HIGHEST - 60);
     mDrivingTransaction = nullptr;
   }
+
+  return true;
 }
 
-nsresult SpdyConnectTransaction::Flush(uint32_t count, uint32_t *countRead) {
+nsresult SpdyConnectTransaction::Flush(uint32_t count, uint32_t* countRead) {
   MOZ_ASSERT(OnSocketThread(), "not on socket thread");
   LOG(("SpdyConnectTransaction::Flush %p count %d avail %d\n", this, count,
        mOutputDataUsed - mOutputDataOffset));
@@ -1125,9 +1276,9 @@ nsresult SpdyConnectTransaction::Flush(uint32_t count, uint32_t *countRead) {
   return NS_OK;
 }
 
-nsresult SpdyConnectTransaction::ReadSegments(nsAHttpSegmentReader *reader,
+nsresult SpdyConnectTransaction::ReadSegments(nsAHttpSegmentReader* reader,
                                               uint32_t count,
-                                              uint32_t *countRead) {
+                                              uint32_t* countRead) {
   MOZ_ASSERT(OnSocketThread(), "not on socket thread");
   LOG(("SpdyConnectTransaction::ReadSegments %p count %d conn %p\n", this,
        count, mTunneledConn.get()));
@@ -1158,6 +1309,9 @@ nsresult SpdyConnectTransaction::ReadSegments(nsAHttpSegmentReader *reader,
       }
       return rv;
     }
+
+    LOG(("SpdyConnectTransaciton::ReadSegments %p connect request consumed",
+         this));
     return NS_BASE_STREAM_WOULD_BLOCK;
   }
 
@@ -1176,31 +1330,42 @@ nsresult SpdyConnectTransaction::ReadSegments(nsAHttpSegmentReader *reader,
 
   *countRead = 0;
   nsresult rv = Flush(count, countRead);
-  nsIOutputStreamCallback *cb = mTunnelStreamOut->GetCallback();
-  if (!cb && !(*countRead)) {
+  if (!(*countRead)) {
     return NS_BASE_STREAM_WOULD_BLOCK;
   }
 
-  if (cb) {
-    // See if there is any more data available
-    rv = cb->OnOutputStreamReady(mTunnelStreamOut);
-    if (NS_FAILED(rv)) {
-      return rv;
-    }
-
-    // Write out anything that may have come out of the stream just above
-    uint32_t subtotal;
-    count -= *countRead;
-    rv = Flush(count, &subtotal);
-    *countRead += subtotal;
+  nsCOMPtr<nsIOutputStreamCallback> cb = mTunnelStreamOut->TakeCallback();
+  if (!cb) {
+    return NS_BASE_STREAM_WOULD_BLOCK;
   }
+
+  // See if there is any more data available
+  rv = cb->OnOutputStreamReady(mTunnelStreamOut);
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
+
+  // Write out anything that may have come out of the stream just above
+  uint32_t subtotal;
+  count -= *countRead;
+  rv = Flush(count, &subtotal);
+  *countRead += subtotal;
 
   return rv;
 }
 
 void SpdyConnectTransaction::CreateShimError(nsresult code) {
+  LOG(("SpdyConnectTransaction::CreateShimError %p 0x%08" PRIx32, this,
+       static_cast<uint32_t>(code)));
+
   MOZ_ASSERT(OnSocketThread(), "not on socket thread");
   MOZ_ASSERT(NS_FAILED(code));
+
+  MOZ_ASSERT(!mCreateShimErrorCalled);
+  if (mCreateShimErrorCalled) {
+    return;
+  }
+  mCreateShimErrorCalled = true;
 
   if (mTunnelStreamOut && NS_SUCCEEDED(mTunnelStreamOut->mStatus)) {
     mTunnelStreamOut->mStatus = code;
@@ -1211,23 +1376,24 @@ void SpdyConnectTransaction::CreateShimError(nsresult code) {
   }
 
   if (mTunnelStreamIn) {
-    nsIInputStreamCallback *cb = mTunnelStreamIn->GetCallback();
+    nsCOMPtr<nsIInputStreamCallback> cb = mTunnelStreamIn->TakeCallback();
     if (cb) {
       cb->OnInputStreamReady(mTunnelStreamIn);
     }
   }
 
   if (mTunnelStreamOut) {
-    nsIOutputStreamCallback *cb = mTunnelStreamOut->GetCallback();
+    nsCOMPtr<nsIOutputStreamCallback> cb = mTunnelStreamOut->TakeCallback();
     if (cb) {
       cb->OnOutputStreamReady(mTunnelStreamOut);
     }
   }
+  mCreateShimErrorCalled = false;
 }
 
-nsresult SpdyConnectTransaction::WriteDataToBuffer(nsAHttpSegmentWriter *writer,
+nsresult SpdyConnectTransaction::WriteDataToBuffer(nsAHttpSegmentWriter* writer,
                                                    uint32_t count,
-                                                   uint32_t *countWritten) {
+                                                   uint32_t* countWritten) {
   EnsureBuffer(mInputData, mInputDataUsed + count, mInputDataUsed,
                mInputDataSize);
   nsresult rv =
@@ -1251,14 +1417,11 @@ nsresult SpdyConnectTransaction::WriteDataToBuffer(nsAHttpSegmentWriter *writer,
   return rv;
 }
 
-nsresult SpdyConnectTransaction::WriteSegments(nsAHttpSegmentWriter *writer,
+nsresult SpdyConnectTransaction::WriteSegments(nsAHttpSegmentWriter* writer,
                                                uint32_t count,
-                                               uint32_t *countWritten) {
+                                               uint32_t* countWritten) {
   MOZ_ASSERT(OnSocketThread(), "not on socket thread");
-  nsIInputStreamCallback *cb =
-      mTunneledConn ? mTunnelStreamIn->GetCallback() : nullptr;
-  LOG(("SpdyConnectTransaction::WriteSegments %p max=%d cb=%p\n", this, count,
-       cb));
+  LOG(("SpdyConnectTransaction::WriteSegments %p max=%d", this, count));
 
   // For websockets, we need to forward the initial response through to the base
   // transaction so the normal websocket plumbing can do all the things it needs
@@ -1274,7 +1437,11 @@ nsresult SpdyConnectTransaction::WriteSegments(nsAHttpSegmentWriter *writer,
     return rv;
   }
 
-  if (!mTunneledConn || !cb) {
+  nsCOMPtr<nsIInputStreamCallback> cb =
+      mTunneledConn ? mTunnelStreamIn->TakeCallback() : nullptr;
+  LOG(("SpdyConnectTransaction::WriteSegments %p cb=%p", this, cb.get()));
+
+  if (!cb) {
     return NS_BASE_STREAM_WOULD_BLOCK;
   }
 
@@ -1289,15 +1456,19 @@ nsresult SpdyConnectTransaction::WriteSegments(nsAHttpSegmentWriter *writer,
        "goodput %p out %" PRId64 "\n",
        this, mTunneledConn.get(), mTunneledConn->ContentBytesWritten()));
   if (NS_SUCCEEDED(rv) && !mTunneledConn->ContentBytesWritten()) {
-    nsIOutputStreamCallback *ocb = mTunnelStreamOut->GetCallback();
+    nsCOMPtr<nsIOutputStreamCallback> ocb = mTunnelStreamOut->TakeCallback();
     mTunnelStreamOut->AsyncWait(ocb, 0, 0, nullptr);
   }
   return rv;
 }
 
 nsresult SpdyConnectTransaction::WebsocketWriteSegments(
-    nsAHttpSegmentWriter *writer, uint32_t count, uint32_t *countWritten) {
+    nsAHttpSegmentWriter* writer, uint32_t count, uint32_t* countWritten) {
+  MOZ_ASSERT(OnSocketThread());
   MOZ_ASSERT(mIsWebsocket);
+  LOG(("SpdyConnectTransaction::WebsocketWriteSegments %p max=%d", this,
+       count));
+
   if (mDrivingTransaction && !mDrivingTransaction->IsDone()) {
     // Transaction hasn't received end of headers yet, so keep passing data to
     // it until it has. Then we can take over.
@@ -1317,10 +1488,13 @@ nsresult SpdyConnectTransaction::WebsocketWriteSegments(
 
   nsresult rv = WriteDataToBuffer(writer, count, countWritten);
   if (NS_SUCCEEDED(rv)) {
-    if (!mTunneledConn || !mTunnelStreamIn->GetCallback()) {
+    if (!mTunneledConn) {
       return NS_BASE_STREAM_WOULD_BLOCK;
     }
-    nsIInputStreamCallback *cb = mTunnelStreamIn->GetCallback();
+    nsCOMPtr<nsIInputStreamCallback> cb = mTunnelStreamIn->TakeCallback();
+    if (!cb) {
+      return NS_BASE_STREAM_WOULD_BLOCK;
+    }
     rv = cb->OnInputStreamReady(mTunnelStreamIn);
   }
 
@@ -1328,16 +1502,18 @@ nsresult SpdyConnectTransaction::WebsocketWriteSegments(
 }
 
 bool SpdyConnectTransaction::ConnectedReadyForInput() {
-  return mTunneledConn && mTunnelStreamIn->GetCallback();
+  return mTunneledConn && mTunnelStreamIn->HasCallback();
 }
 
-nsHttpRequestHead *SpdyConnectTransaction::RequestHead() {
+nsHttpRequestHead* SpdyConnectTransaction::RequestHead() {
   return mRequestHead;
 }
 
 void SpdyConnectTransaction::Close(nsresult code) {
   LOG(("SpdyConnectTransaction close %p %" PRIx32 "\n", this,
        static_cast<uint32_t>(code)));
+
+  MOZ_ASSERT(OnSocketThread());
 
   if (mIsWebsocket && mDrivingTransaction) {
     mDrivingTransaction->SetH2WSTransaction(nullptr);
@@ -1357,25 +1533,27 @@ void SpdyConnectTransaction::Close(nsresult code) {
 }
 
 void SpdyConnectTransaction::SetConnRefTaken() {
+  MOZ_ASSERT(OnSocketThread());
+
   mConnRefTaken = true;
   mDrivingTransaction = nullptr;  // Just in case
 }
 
-nsIOutputStreamCallback *OutputStreamShim::GetCallback() {
+already_AddRefed<nsIOutputStreamCallback> OutputStreamShim::TakeCallback() {
   mozilla::MutexAutoLock lock(mMutex);
-  return mCallback;
+  return mCallback.forget();
 }
 
 class WebsocketHasDataToWrite final : public Runnable {
  public:
-  explicit WebsocketHasDataToWrite(OutputStreamShim *shim)
+  explicit WebsocketHasDataToWrite(OutputStreamShim* shim)
       : Runnable("WebsocketHasDataToWrite"), mShim(shim) {}
 
   ~WebsocketHasDataToWrite() = default;
 
   NS_IMETHOD Run() override { return mShim->CallTransactionHasDataToWrite(); }
 
-  MOZ_MUST_USE nsresult Dispatch() {
+  [[nodiscard]] nsresult Dispatch() {
     if (OnSocketThread()) {
       return Run();
     }
@@ -1390,9 +1568,9 @@ class WebsocketHasDataToWrite final : public Runnable {
 };
 
 NS_IMETHODIMP
-OutputStreamShim::AsyncWait(nsIOutputStreamCallback *callback,
+OutputStreamShim::AsyncWait(nsIOutputStreamCallback* callback,
                             unsigned int flags, unsigned int requestedCount,
-                            nsIEventTarget *target) {
+                            nsIEventTarget* target) {
   if (mIsWebsocket) {
     // With websockets, AsyncWait may be called from the main thread, but the
     // target is on the socket thread. That's all we really care about.
@@ -1427,7 +1605,7 @@ OutputStreamShim::AsyncWait(nsIOutputStreamCallback *callback,
 
 class OutputCloseTransaction final : public Runnable {
  public:
-  OutputCloseTransaction(OutputStreamShim *shim, nsresult reason)
+  OutputCloseTransaction(OutputStreamShim* shim, nsresult reason)
       : Runnable("OutputCloseTransaction"), mShim(shim), mReason(reason) {}
 
   ~OutputCloseTransaction() = default;
@@ -1458,7 +1636,7 @@ nsresult OutputStreamShim::CloseTransaction(nsresult reason) {
   if (!baseTrans) {
     return NS_ERROR_FAILURE;
   }
-  SpdyConnectTransaction *trans = baseTrans->QuerySpdyConnectTransaction();
+  SpdyConnectTransaction* trans = baseTrans->QuerySpdyConnectTransaction();
   MOZ_ASSERT(trans);
   if (!trans) {
     return NS_ERROR_UNEXPECTED;
@@ -1478,7 +1656,7 @@ OutputStreamShim::Flush() {
   if (!baseTrans) {
     return NS_ERROR_FAILURE;
   }
-  SpdyConnectTransaction *trans = baseTrans->QuerySpdyConnectTransaction();
+  SpdyConnectTransaction* trans = baseTrans->QuerySpdyConnectTransaction();
   MOZ_ASSERT(trans);
   if (!trans) {
     return NS_ERROR_UNEXPECTED;
@@ -1502,7 +1680,7 @@ nsresult OutputStreamShim::CallTransactionHasDataToWrite() {
   if (!baseTrans) {
     return NS_ERROR_FAILURE;
   }
-  SpdyConnectTransaction *trans = baseTrans->QuerySpdyConnectTransaction();
+  SpdyConnectTransaction* trans = baseTrans->QuerySpdyConnectTransaction();
   MOZ_ASSERT(trans);
   if (!trans) {
     return NS_ERROR_UNEXPECTED;
@@ -1512,7 +1690,7 @@ nsresult OutputStreamShim::CallTransactionHasDataToWrite() {
 }
 
 NS_IMETHODIMP
-OutputStreamShim::Write(const char *aBuf, uint32_t aCount, uint32_t *_retval) {
+OutputStreamShim::Write(const char* aBuf, uint32_t aCount, uint32_t* _retval) {
   MOZ_ASSERT(OnSocketThread(), "not on socket thread");
 
   if (NS_FAILED(mStatus)) {
@@ -1523,7 +1701,7 @@ OutputStreamShim::Write(const char *aBuf, uint32_t aCount, uint32_t *_retval) {
   if (!baseTrans) {
     return NS_ERROR_FAILURE;
   }
-  SpdyConnectTransaction *trans = baseTrans->QuerySpdyConnectTransaction();
+  SpdyConnectTransaction* trans = baseTrans->QuerySpdyConnectTransaction();
   MOZ_ASSERT(trans);
   if (!trans) {
     return NS_ERROR_UNEXPECTED;
@@ -1549,8 +1727,8 @@ OutputStreamShim::Write(const char *aBuf, uint32_t aCount, uint32_t *_retval) {
 }
 
 NS_IMETHODIMP
-OutputStreamShim::WriteFrom(nsIInputStream *aFromStream, uint32_t aCount,
-                            uint32_t *_retval) {
+OutputStreamShim::WriteFrom(nsIInputStream* aFromStream, uint32_t aCount,
+                            uint32_t* _retval) {
   if (mIsWebsocket) {
     LOG3(("WARNING: OutputStreamShim::WriteFrom %p", this));
   }
@@ -1558,8 +1736,8 @@ OutputStreamShim::WriteFrom(nsIInputStream *aFromStream, uint32_t aCount,
 }
 
 NS_IMETHODIMP
-OutputStreamShim::WriteSegments(nsReadSegmentFun aReader, void *aClosure,
-                                uint32_t aCount, uint32_t *_retval) {
+OutputStreamShim::WriteSegments(nsReadSegmentFun aReader, void* aClosure,
+                                uint32_t aCount, uint32_t* _retval) {
   if (mIsWebsocket) {
     LOG3(("WARNING: OutputStreamShim::WriteSegments %p", this));
   }
@@ -1567,20 +1745,57 @@ OutputStreamShim::WriteSegments(nsReadSegmentFun aReader, void *aClosure,
 }
 
 NS_IMETHODIMP
-OutputStreamShim::IsNonBlocking(bool *_retval) {
+OutputStreamShim::IsNonBlocking(bool* _retval) {
   *_retval = true;
   return NS_OK;
 }
 
-nsIInputStreamCallback *InputStreamShim::GetCallback() {
+already_AddRefed<nsIInputStreamCallback> InputStreamShim::TakeCallback() {
   mozilla::MutexAutoLock lock(mMutex);
-  return mCallback;
+  return mCallback.forget();
 }
 
+bool InputStreamShim::HasCallback() {
+  mozilla::MutexAutoLock lock(mMutex);
+  return mCallback != nullptr;
+}
+
+class CheckAvailData final : public Runnable {
+ public:
+  explicit CheckAvailData(InputStreamShim* shim)
+      : Runnable("CheckAvailData"), mShim(shim) {}
+
+  ~CheckAvailData() = default;
+
+  NS_IMETHOD Run() override {
+    uint64_t avail = 0;
+    if (NS_SUCCEEDED(mShim->Available(&avail)) && avail) {
+      nsCOMPtr<nsIInputStreamCallback> cb = mShim->TakeCallback();
+      if (cb) {
+        cb->OnInputStreamReady(mShim);
+      }
+    }
+    return NS_OK;
+  }
+
+  [[nodiscard]] nsresult Dispatch() {
+    // Dispatch the event even if we're on socket thread to avoid closing and
+    // destructing Http2Session in case this call is comming from
+    // Http2Session::ReadSegments() and the callback closes the transaction in
+    // OnInputStreamRead().
+    nsCOMPtr<nsIEventTarget> sts =
+        do_GetService("@mozilla.org/network/socket-transport-service;1");
+    return sts->Dispatch(this, nsIEventTarget::DISPATCH_NORMAL);
+  }
+
+ private:
+  RefPtr<InputStreamShim> mShim;
+};
+
 NS_IMETHODIMP
-InputStreamShim::AsyncWait(nsIInputStreamCallback *callback, unsigned int flags,
+InputStreamShim::AsyncWait(nsIInputStreamCallback* callback, unsigned int flags,
                            unsigned int requestedCount,
-                           nsIEventTarget *target) {
+                           nsIEventTarget* target) {
   if (mIsWebsocket) {
     // With websockets, AsyncWait may be called from the main thread, but the
     // target is on the socket thread. That's all we really care about.
@@ -1607,12 +1822,17 @@ InputStreamShim::AsyncWait(nsIInputStreamCallback *callback, unsigned int flags,
     mCallback = callback;
   }
 
+  if (callback) {
+    RefPtr<CheckAvailData> cad = new CheckAvailData(this);
+    Unused << cad->Dispatch();
+  }
+
   return NS_OK;
 }
 
 class InputCloseTransaction final : public Runnable {
  public:
-  InputCloseTransaction(InputStreamShim *shim, nsresult reason)
+  InputCloseTransaction(InputStreamShim* shim, nsresult reason)
       : Runnable("InputCloseTransaction"), mShim(shim), mReason(reason) {}
 
   ~InputCloseTransaction() = default;
@@ -1642,7 +1862,7 @@ nsresult InputStreamShim::CloseTransaction(nsresult reason) {
   if (!baseTrans) {
     return NS_ERROR_FAILURE;
   }
-  SpdyConnectTransaction *trans = baseTrans->QuerySpdyConnectTransaction();
+  SpdyConnectTransaction* trans = baseTrans->QuerySpdyConnectTransaction();
   MOZ_ASSERT(trans);
   if (!trans) {
     return NS_ERROR_UNEXPECTED;
@@ -1656,12 +1876,12 @@ NS_IMETHODIMP
 InputStreamShim::Close() { return CloseWithStatus(NS_OK); }
 
 NS_IMETHODIMP
-InputStreamShim::Available(uint64_t *_retval) {
+InputStreamShim::Available(uint64_t* _retval) {
   RefPtr<NullHttpTransaction> baseTrans = mWeakTrans->QueryTransaction();
   if (!baseTrans) {
     return NS_ERROR_FAILURE;
   }
-  SpdyConnectTransaction *trans = baseTrans->QuerySpdyConnectTransaction();
+  SpdyConnectTransaction* trans = baseTrans->QuerySpdyConnectTransaction();
   MOZ_ASSERT(trans);
   if (!trans) {
     return NS_ERROR_UNEXPECTED;
@@ -1672,7 +1892,7 @@ InputStreamShim::Available(uint64_t *_retval) {
 }
 
 NS_IMETHODIMP
-InputStreamShim::Read(char *aBuf, uint32_t aCount, uint32_t *_retval) {
+InputStreamShim::Read(char* aBuf, uint32_t aCount, uint32_t* _retval) {
   MOZ_ASSERT(OnSocketThread(), "not on socket thread");
 
   if (NS_FAILED(mStatus)) {
@@ -1683,7 +1903,7 @@ InputStreamShim::Read(char *aBuf, uint32_t aCount, uint32_t *_retval) {
   if (!baseTrans) {
     return NS_ERROR_FAILURE;
   }
-  SpdyConnectTransaction *trans = baseTrans->QuerySpdyConnectTransaction();
+  SpdyConnectTransaction* trans = baseTrans->QuerySpdyConnectTransaction();
   MOZ_ASSERT(trans);
   if (!trans) {
     return NS_ERROR_UNEXPECTED;
@@ -1702,8 +1922,8 @@ InputStreamShim::Read(char *aBuf, uint32_t aCount, uint32_t *_retval) {
 }
 
 NS_IMETHODIMP
-InputStreamShim::ReadSegments(nsWriteSegmentFun aWriter, void *aClosure,
-                              uint32_t aCount, uint32_t *_retval) {
+InputStreamShim::ReadSegments(nsWriteSegmentFun aWriter, void* aClosure,
+                              uint32_t aCount, uint32_t* _retval) {
   if (mIsWebsocket) {
     LOG3(("WARNING: InputStreamShim::ReadSegments %p", this));
   }
@@ -1711,7 +1931,7 @@ InputStreamShim::ReadSegments(nsWriteSegmentFun aWriter, void *aClosure,
 }
 
 NS_IMETHODIMP
-InputStreamShim::IsNonBlocking(bool *_retval) {
+InputStreamShim::IsNonBlocking(bool* _retval) {
   *_retval = true;
   return NS_OK;
 }
@@ -1735,7 +1955,7 @@ SocketTransportShim::SetKeepaliveVals(int32_t keepaliveIdleTime,
 
 NS_IMETHODIMP
 SocketTransportShim::GetSecurityCallbacks(
-    nsIInterfaceRequestor **aSecurityCallbacks) {
+    nsIInterfaceRequestor** aSecurityCallbacks) {
   if (mIsWebsocket) {
     nsCOMPtr<nsIInterfaceRequestor> out(mSecurityCallbacks);
     *aSecurityCallbacks = out.forget().take();
@@ -1747,7 +1967,7 @@ SocketTransportShim::GetSecurityCallbacks(
 
 NS_IMETHODIMP
 SocketTransportShim::SetSecurityCallbacks(
-    nsIInterfaceRequestor *aSecurityCallbacks) {
+    nsIInterfaceRequestor* aSecurityCallbacks) {
   if (mIsWebsocket) {
     mSecurityCallbacks = aSecurityCallbacks;
     return NS_OK;
@@ -1758,7 +1978,7 @@ SocketTransportShim::SetSecurityCallbacks(
 NS_IMETHODIMP
 SocketTransportShim::OpenInputStream(uint32_t aFlags, uint32_t aSegmentSize,
                                      uint32_t aSegmentCount,
-                                     nsIInputStream **_retval) {
+                                     nsIInputStream** _retval) {
   if (mIsWebsocket) {
     LOG3(("WARNING: SocketTransportShim::OpenInputStream %p", this));
   }
@@ -1768,7 +1988,7 @@ SocketTransportShim::OpenInputStream(uint32_t aFlags, uint32_t aSegmentSize,
 NS_IMETHODIMP
 SocketTransportShim::OpenOutputStream(uint32_t aFlags, uint32_t aSegmentSize,
                                       uint32_t aSegmentCount,
-                                      nsIOutputStream **_retval) {
+                                      nsIOutputStream** _retval) {
   if (mIsWebsocket) {
     LOG3(("WARNING: SocketTransportShim::OpenOutputStream %p", this));
   }
@@ -1779,13 +1999,42 @@ NS_IMETHODIMP
 SocketTransportShim::Close(nsresult aReason) {
   if (mIsWebsocket) {
     LOG3(("WARNING: SocketTransportShim::Close %p", this));
+  } else {
+    LOG(("SocketTransportShim::Close %p", this));
   }
+
+  if (gHttpHandler->Bug1563538()) {
+    // Must always post, because mSession->CloseTransaction releases the
+    // Http2Stream which is still on stack.
+    RefPtr<SocketTransportShim> self(this);
+
+    nsCOMPtr<nsIEventTarget> sts =
+        do_GetService("@mozilla.org/network/socket-transport-service;1");
+    Unused << sts->Dispatch(NS_NewRunnableFunction(
+        "SocketTransportShim::Close", [self = std::move(self), aReason]() {
+          RefPtr<NullHttpTransaction> baseTrans =
+              self->mWeakTrans->QueryTransaction();
+          if (!baseTrans) {
+            return;
+          }
+          SpdyConnectTransaction* trans =
+              baseTrans->QuerySpdyConnectTransaction();
+          MOZ_ASSERT(trans);
+          if (!trans) {
+            return;
+          }
+
+          trans->mSession->CloseTransaction(trans, aReason);
+        }));
+    return NS_OK;
+  }
+
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
 NS_IMETHODIMP
-SocketTransportShim::SetEventSink(nsITransportEventSink *aSink,
-                                  nsIEventTarget *aEventTarget) {
+SocketTransportShim::SetEventSink(nsITransportEventSink* aSink,
+                                  nsIEventTarget* aEventTarget) {
   if (mIsWebsocket) {
     // Need to pretend, since websockets expect this to work
     return NS_OK;
@@ -1794,7 +2043,7 @@ SocketTransportShim::SetEventSink(nsITransportEventSink *aSink,
 }
 
 NS_IMETHODIMP
-SocketTransportShim::Bind(NetAddr *aLocalAddr) {
+SocketTransportShim::Bind(NetAddr* aLocalAddr) {
   if (mIsWebsocket) {
     LOG3(("WARNING: SocketTransportShim::Bind %p", this));
   }
@@ -1802,7 +2051,7 @@ SocketTransportShim::Bind(NetAddr *aLocalAddr) {
 }
 
 NS_IMETHODIMP
-SocketTransportShim::GetFirstRetryError(nsresult *aFirstRetryError) {
+SocketTransportShim::GetFirstRetryError(nsresult* aFirstRetryError) {
   if (mIsWebsocket) {
     LOG3(("WARNING: SocketTransportShim::GetFirstRetryError %p", this));
   }
@@ -1810,20 +2059,36 @@ SocketTransportShim::GetFirstRetryError(nsresult *aFirstRetryError) {
 }
 
 NS_IMETHODIMP
-SocketTransportShim::GetEsniUsed(bool *aEsniUsed) {
+SocketTransportShim::GetEsniUsed(bool* aEsniUsed) {
   if (mIsWebsocket) {
     LOG3(("WARNING: SocketTransportShim::GetEsniUsed %p", this));
   }
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
+NS_IMETHODIMP
+SocketTransportShim::SetEchConfig(const nsACString& aEchConfig) {
+  if (mIsWebsocket) {
+    LOG3(("WARNING: SocketTransportShim::SetEchConfig %p", this));
+  }
+  return NS_ERROR_NOT_IMPLEMENTED;
+}
+
+NS_IMETHODIMP
+SocketTransportShim::ResolvedByTRR(bool* aResolvedByTRR) {
+  if (mIsWebsocket) {
+    LOG3(("WARNING: SocketTransportShim::IsTRR %p", this));
+  }
+  return NS_ERROR_NOT_IMPLEMENTED;
+}
+
 #define FWD_TS_PTR(fx, ts) \
   NS_IMETHODIMP            \
-  SocketTransportShim::fx(ts *arg) { return mWrapped->fx(arg); }
+  SocketTransportShim::fx(ts* arg) { return mWrapped->fx(arg); }
 
 #define FWD_TS_ADDREF(fx, ts) \
   NS_IMETHODIMP               \
-  SocketTransportShim::fx(ts **arg) { return mWrapped->fx(arg); }
+  SocketTransportShim::fx(ts** arg) { return mWrapped->fx(arg); }
 
 #define FWD_TS(fx, ts) \
   NS_IMETHODIMP        \
@@ -1848,34 +2113,34 @@ FWD_TS(SetRecvBufferSize, uint32_t);
 FWD_TS_PTR(GetResetIPFamilyPreference, bool);
 
 nsresult SocketTransportShim::GetOriginAttributes(
-    mozilla::OriginAttributes *aOriginAttributes) {
+    mozilla::OriginAttributes* aOriginAttributes) {
   return mWrapped->GetOriginAttributes(aOriginAttributes);
 }
 
 nsresult SocketTransportShim::SetOriginAttributes(
-    const mozilla::OriginAttributes &aOriginAttributes) {
+    const mozilla::OriginAttributes& aOriginAttributes) {
   return mWrapped->SetOriginAttributes(aOriginAttributes);
 }
 
 NS_IMETHODIMP
 SocketTransportShim::GetScriptableOriginAttributes(
-    JSContext *aCx, JS::MutableHandle<JS::Value> aOriginAttributes) {
+    JSContext* aCx, JS::MutableHandle<JS::Value> aOriginAttributes) {
   return mWrapped->GetScriptableOriginAttributes(aCx, aOriginAttributes);
 }
 
 NS_IMETHODIMP
 SocketTransportShim::SetScriptableOriginAttributes(
-    JSContext *aCx, JS::Handle<JS::Value> aOriginAttributes) {
+    JSContext* aCx, JS::Handle<JS::Value> aOriginAttributes) {
   return mWrapped->SetScriptableOriginAttributes(aCx, aOriginAttributes);
 }
 
 NS_IMETHODIMP
-SocketTransportShim::GetHost(nsACString &aHost) {
+SocketTransportShim::GetHost(nsACString& aHost) {
   return mWrapped->GetHost(aHost);
 }
 
 NS_IMETHODIMP
-SocketTransportShim::GetTimeout(uint32_t aType, uint32_t *_retval) {
+SocketTransportShim::GetTimeout(uint32_t aType, uint32_t* _retval) {
   return mWrapped->GetTimeout(aType, _retval);
 }
 
@@ -1890,7 +2155,12 @@ SocketTransportShim::SetReuseAddrPort(bool aReuseAddrPort) {
 }
 
 NS_IMETHODIMP
-SocketTransportShim::GetQoSBits(uint8_t *aQoSBits) {
+SocketTransportShim::SetLinger(bool aPolarity, int16_t aTimeout) {
+  return mWrapped->SetLinger(aPolarity, aTimeout);
+}
+
+NS_IMETHODIMP
+SocketTransportShim::GetQoSBits(uint8_t* aQoSBits) {
   return mWrapped->GetQoSBits(aQoSBits);
 }
 
@@ -1900,7 +2170,7 @@ SocketTransportShim::SetQoSBits(uint8_t aQoSBits) {
 }
 
 NS_IMETHODIMP
-SocketTransportShim::SetFastOpenCallback(TCPFastOpen *aFastOpen) {
+SocketTransportShim::SetFastOpenCallback(TCPFastOpen* aFastOpen) {
   return mWrapped->SetFastOpenCallback(aFastOpen);
 }
 

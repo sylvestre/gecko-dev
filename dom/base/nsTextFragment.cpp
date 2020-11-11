@@ -19,6 +19,7 @@
 #include "mozilla/CheckedInt.h"
 #include "mozilla/MemoryReporting.h"
 #include "mozilla/SSE.h"
+#include "mozilla/ppc.h"
 #include "nsTextFragmentImpl.h"
 #include <algorithm>
 
@@ -159,10 +160,16 @@ static inline int32_t FirstNon8BitUnvectorized(const char16_t* str,
 }
 
 #ifdef MOZILLA_MAY_SUPPORT_SSE2
-namespace mozilla {
-namespace SSE2 {
+namespace mozilla::SSE2 {
 int32_t FirstNon8Bit(const char16_t* str, const char16_t* end);
-}  // namespace SSE2
+}  // namespace mozilla::SSE2
+#endif
+
+#ifdef __powerpc__
+namespace mozilla {
+namespace VMX {
+int32_t FirstNon8Bit(const char16_t* str, const char16_t* end);
+}  // namespace VMX
 }  // namespace mozilla
 #endif
 
@@ -177,6 +184,10 @@ static inline int32_t FirstNon8Bit(const char16_t* str, const char16_t* end) {
 #ifdef MOZILLA_MAY_SUPPORT_SSE2
   if (mozilla::supports_sse2()) {
     return mozilla::SSE2::FirstNon8Bit(str, end);
+  }
+#elif defined(__powerpc__)
+  if (mozilla::supports_vmx()) {
+    return mozilla::VMX::FirstNon8Bit(str, end);
   }
 #endif
 
@@ -301,8 +312,7 @@ bool nsTextFragment::SetTo(const char16_t* aBuffer, int32_t aLength,
     }
 
     // Copy data
-    LossyConvertUTF16toLatin1(MakeSpan(aBuffer, aLength),
-                              MakeSpan(buff, aLength));
+    LossyConvertUtf16toLatin1(Span(aBuffer, aLength), Span(buff, aLength));
     m1b = buff;
     mState.mIs2b = false;
   }
@@ -331,7 +341,7 @@ void nsTextFragment::CopyTo(char16_t* aDest, int32_t aOffset, int32_t aCount) {
       memcpy(aDest, Get2b() + aOffset, sizeof(char16_t) * aCount);
     } else {
       const char* cp = m1b + aOffset;
-      ConvertLatin1toUTF16(MakeSpan(cp, aCount), MakeSpan(aDest, aCount));
+      ConvertLatin1toUtf16(Span(cp, aCount), Span(aDest, aCount));
     }
   }
 }
@@ -416,8 +426,7 @@ bool nsTextFragment::Append(const char16_t* aBuffer, uint32_t aLength,
 
     // Copy data into buff
     char16_t* data = static_cast<char16_t*>(buff->Data());
-    ConvertLatin1toUTF16(MakeSpan(m1b, mState.mLength),
-                         MakeSpan(data, mState.mLength));
+    ConvertLatin1toUtf16(Span(m1b, mState.mLength), Span(data, mState.mLength));
 
     memcpy(data + mState.mLength, aBuffer, aLength * sizeof(char16_t));
     mState.mLength += aLength;
@@ -458,8 +467,8 @@ bool nsTextFragment::Append(const char16_t* aBuffer, uint32_t aLength,
   }
 
   // Copy aBuffer into buff.
-  LossyConvertUTF16toLatin1(MakeSpan(aBuffer, aLength),
-                            MakeSpan(buff + mState.mLength, aLength));
+  LossyConvertUtf16toLatin1(Span(aBuffer, aLength),
+                            Span(buff + mState.mLength, aLength));
 
   m1b = buff;
   mState.mLength += aLength;
@@ -467,7 +476,8 @@ bool nsTextFragment::Append(const char16_t* aBuffer, uint32_t aLength,
   return true;
 }
 
-/* virtual */ size_t nsTextFragment::SizeOfExcludingThis(
+/* virtual */
+size_t nsTextFragment::SizeOfExcludingThis(
     mozilla::MallocSizeOf aMallocSizeOf) const {
   if (Is2b()) {
     return m2b->SizeOfIncludingThisIfUnshared(aMallocSizeOf);
@@ -484,8 +494,46 @@ bool nsTextFragment::Append(const char16_t* aBuffer, uint32_t aLength,
 // every allocation
 void nsTextFragment::UpdateBidiFlag(const char16_t* aBuffer, uint32_t aLength) {
   if (mState.mIs2b && !mState.mIsBidi) {
-    if (HasRTLChars(MakeSpan(aBuffer, aLength))) {
+    if (HasRTLChars(Span(aBuffer, aLength))) {
       mState.mIsBidi = true;
     }
   }
+}
+
+bool nsTextFragment::TextEquals(const nsTextFragment& aOther) const {
+  if (!Is2b()) {
+    // We're 1-byte.
+    if (!aOther.Is2b()) {
+      nsDependentCSubstring ourStr(Get1b(), GetLength());
+      return ourStr.Equals(
+          nsDependentCSubstring(aOther.Get1b(), aOther.GetLength()));
+    }
+
+    // We're 1-byte, the other thing is 2-byte.  Instead of implementing a
+    // separate codepath for this, just use our code below.
+    return aOther.TextEquals(*this);
+  }
+
+  nsDependentSubstring ourStr(Get2b(), GetLength());
+  if (aOther.Is2b()) {
+    return ourStr.Equals(
+        nsDependentSubstring(aOther.Get2b(), aOther.GetLength()));
+  }
+
+  // We can't use EqualsASCII here, because the other string might not
+  // actually be ASCII.  Just roll our own compare; do it in the simple way.
+  // Bug 1532356 tracks not having to roll our own.
+  if (GetLength() != aOther.GetLength()) {
+    return false;
+  }
+
+  const char16_t* ourChars = Get2b();
+  const char* otherChars = aOther.Get1b();
+  for (uint32_t i = 0; i < GetLength(); ++i) {
+    if (ourChars[i] != static_cast<char16_t>(otherChars[i])) {
+      return false;
+    }
+  }
+
+  return true;
 }

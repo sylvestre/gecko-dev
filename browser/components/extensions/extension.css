@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 /* stylelint-disable property-no-vendor-prefix */
 /* stylelint-disable property-no-vendor-prefix */
 
@@ -13,7 +17,7 @@ body {
   font: caption;
   margin: 0;
   padding: 0;
-  -moz-user-select: none;
+  user-select: none;
 }
 
 body * {
@@ -22,7 +26,7 @@ body * {
 }
 
 .browser-style {
-  -moz-appearance: none;
+  appearance: none;
   margin-bottom: 6px;
   text-align: left;
 }
@@ -135,7 +139,7 @@ button.browser-style.default.focused {
 }
 
 .browser-style > label {
-  -moz-user-select: none;
+  user-select: none;
 }
 
 .browser-style.disabled > label {
@@ -145,7 +149,7 @@ button.browser-style.default.focused {
 
 /* Radio Buttons */
 .browser-style > input[type="radio"] {
-  -moz-appearance: none;
+  appearance: none;
   background-color: #fff;
   background-position: center;
   border: 1px solid #b1b1b1;
@@ -199,7 +203,7 @@ button.browser-style.default.focused {
 
 /* Checkboxes */
 .browser-style > input[type="checkbox"] {
-  -moz-appearance: none;
+  appearance: none;
   background-color: #fff;
   background-position: center;
   border: 1px solid #b1b1b1;
@@ -335,6 +339,13 @@ textarea.browser-style:focus:hover {
   box-shadow: 0 0 0 2px rgba(97, 181, 255, 0.75);
 }
 
+.browser-style > input[type="text"]:invalid:not(:focus),
+textarea.browser-style:invalid:not(:focus) {
+  border-color: var(--red-60);
+  box-shadow: 0 0 0 1px var(--red-60),
+    0 0 0 4px rgba(251, 0, 34, 0.3);
+}
+
 /* stylelint-disable property-no-vendor-prefix */
 .panel-section {
   display: flex;
@@ -383,8 +394,7 @@ textarea.browser-style:focus:hover {
 
 .panel-list-item:not(.disabled):hover {
   background-color: rgba(0, 0, 0, 0.06);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  border-block: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 .panel-list-item:not(.disabled):hover:active {

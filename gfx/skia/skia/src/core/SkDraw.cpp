@@ -5,44 +5,44 @@
  * found in the LICENSE file.
  */
 
-#include "SkDraw.h"
+#include "src/core/SkDraw.h"
 
-#include "SkArenaAlloc.h"
-#include "SkAutoBlitterChoose.h"
-#include "SkBlendModePriv.h"
-#include "SkBlitter.h"
-#include "SkCanvas.h"
-#include "SkColorData.h"
-#include "SkDevice.h"
-#include "SkDrawProcs.h"
-#include "SkMaskFilterBase.h"
-#include "SkMacros.h"
-#include "SkMatrix.h"
-#include "SkMatrixUtils.h"
-#include "SkPaint.h"
-#include "SkPathEffect.h"
-#include "SkPathPriv.h"
-#include "SkRRect.h"
-#include "SkRasterClip.h"
-#include "SkRectPriv.h"
-#include "SkScan.h"
-#include "SkShader.h"
-#include "SkString.h"
-#include "SkStroke.h"
-#include "SkStrokeRec.h"
-#include "SkTLazy.h"
-#include "SkTemplates.h"
-#include "SkTo.h"
-#include "SkUtils.h"
+#include "include/core/SkCanvas.h"
+#include "include/core/SkMatrix.h"
+#include "include/core/SkPaint.h"
+#include "include/core/SkPathEffect.h"
+#include "include/core/SkRRect.h"
+#include "include/core/SkShader.h"
+#include "include/core/SkString.h"
+#include "include/core/SkStrokeRec.h"
+#include "include/private/SkColorData.h"
+#include "include/private/SkMacros.h"
+#include "include/private/SkTemplates.h"
+#include "include/private/SkTo.h"
+#include "src/core/SkArenaAlloc.h"
+#include "src/core/SkAutoBlitterChoose.h"
+#include "src/core/SkBlendModePriv.h"
+#include "src/core/SkBlitter.h"
+#include "src/core/SkDevice.h"
+#include "src/core/SkDrawProcs.h"
+#include "src/core/SkMaskFilterBase.h"
+#include "src/core/SkMatrixUtils.h"
+#include "src/core/SkPathPriv.h"
+#include "src/core/SkRasterClip.h"
+#include "src/core/SkRectPriv.h"
+#include "src/core/SkScan.h"
+#include "src/core/SkStroke.h"
+#include "src/core/SkTLazy.h"
+#include "src/core/SkUtils.h"
 
 #include <utility>
 
 static SkPaint make_paint_with_image(
     const SkPaint& origPaint, const SkBitmap& bitmap, SkMatrix* matrix = nullptr) {
     SkPaint paint(origPaint);
-    paint.setShader(SkMakeBitmapShader(bitmap, SkShader::kClamp_TileMode,
-                                       SkShader::kClamp_TileMode, matrix,
-                                       kNever_SkCopyPixelsMode));
+    paint.setShader(SkMakeBitmapShaderForPaint(origPaint, bitmap, SkTileMode::kClamp,
+                                               SkTileMode::kClamp, matrix,
+                                               kNever_SkCopyPixelsMode));
     return paint;
 }
 
@@ -69,120 +69,6 @@ bool SkDraw::computeConservativeLocalClipBounds(SkRect* localBounds) const {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-typedef void (*BitmapXferProc)(void* pixels, size_t bytes, uint32_t data);
-
-static void D_Clear_BitmapXferProc(void* pixels, size_t bytes, uint32_t) {
-    sk_bzero(pixels, bytes);
-}
-
-static void D_Dst_BitmapXferProc(void*, size_t, uint32_t data) {}
-
-static void D32_Src_BitmapXferProc(void* pixels, size_t bytes, uint32_t data) {
-    sk_memset32((uint32_t*)pixels, data, SkToInt(bytes >> 2));
-}
-
-static void D16_Src_BitmapXferProc(void* pixels, size_t bytes, uint32_t data) {
-    sk_memset16((uint16_t*)pixels, data, SkToInt(bytes >> 1));
-}
-
-static void DA8_Src_BitmapXferProc(void* pixels, size_t bytes, uint32_t data) {
-    memset(pixels, data, bytes);
-}
-
-static BitmapXferProc ChooseBitmapXferProc(const SkPixmap& dst, const SkPaint& paint,
-                                           uint32_t* data) {
-    // todo: we can apply colorfilter up front if no shader, so we wouldn't
-    // need to abort this fastpath
-    if (paint.getShader() || paint.getColorFilter() || dst.colorSpace()) {
-        return nullptr;
-    }
-
-    SkBlendMode mode = paint.getBlendMode();
-    SkColor color = paint.getColor();
-
-    // collaps modes based on color...
-    if (SkBlendMode::kSrcOver == mode) {
-        unsigned alpha = SkColorGetA(color);
-        if (0 == alpha) {
-            mode = SkBlendMode::kDst;
-        } else if (0xFF == alpha) {
-            mode = SkBlendMode::kSrc;
-        }
-    }
-
-    switch (mode) {
-        case SkBlendMode::kClear:
-//            SkDebugf("--- D_Clear_BitmapXferProc\n");
-            return D_Clear_BitmapXferProc;  // ignore data
-        case SkBlendMode::kDst:
-//            SkDebugf("--- D_Dst_BitmapXferProc\n");
-            return D_Dst_BitmapXferProc;    // ignore data
-        case SkBlendMode::kSrc: {
-            /*
-                should I worry about dithering for the lower depths?
-            */
-            SkPMColor pmc = SkPreMultiplyColor(color);
-            switch (dst.colorType()) {
-                case kN32_SkColorType:
-                    if (data) {
-                        *data = pmc;
-                    }
-//                    SkDebugf("--- D32_Src_BitmapXferProc\n");
-                    return D32_Src_BitmapXferProc;
-                case kRGB_565_SkColorType:
-                    if (data) {
-                        *data = SkPixel32ToPixel16(pmc);
-                    }
-//                    SkDebugf("--- D16_Src_BitmapXferProc\n");
-                    return D16_Src_BitmapXferProc;
-                case kAlpha_8_SkColorType:
-                    if (data) {
-                        *data = SkGetPackedA32(pmc);
-                    }
-//                    SkDebugf("--- DA8_Src_BitmapXferProc\n");
-                    return DA8_Src_BitmapXferProc;
-                default:
-                    break;
-            }
-            break;
-        }
-        default:
-            break;
-    }
-    return nullptr;
-}
-
-static void CallBitmapXferProc(const SkPixmap& dst, const SkIRect& rect, BitmapXferProc proc,
-                               uint32_t procData) {
-    int shiftPerPixel;
-    switch (dst.colorType()) {
-        case kN32_SkColorType:
-            shiftPerPixel = 2;
-            break;
-        case kRGB_565_SkColorType:
-            shiftPerPixel = 1;
-            break;
-        case kAlpha_8_SkColorType:
-            shiftPerPixel = 0;
-            break;
-        default:
-            SkDEBUGFAIL("Can't use xferproc on this config");
-            return;
-    }
-
-    uint8_t* pixels = (uint8_t*)dst.writable_addr();
-    SkASSERT(pixels);
-    const size_t rowBytes = dst.rowBytes();
-    const int widthBytes = rect.width() << shiftPerPixel;
-
-    // skip down to the first scanline and X position
-    pixels += rect.fTop * rowBytes + (rect.fLeft << shiftPerPixel);
-    for (int scans = rect.height() - 1; scans >= 0; --scans) {
-        proc(pixels, widthBytes, procData);
-        pixels += rowBytes;
-    }
-}
-
 void SkDraw::drawPaint(const SkPaint& paint) const {
     SkDEBUGCODE(this->validate();)
 
@@ -191,32 +77,8 @@ void SkDraw::drawPaint(const SkPaint& paint) const {
     }
 
     SkIRect    devRect;
-    devRect.set(0, 0, fDst.width(), fDst.height());
+    devRect.setWH(fDst.width(), fDst.height());
 
-    if (fRC->isBW()) {
-        /*  If we don't have a shader (i.e. we're just a solid color) we may
-            be faster to operate directly on the device bitmap, rather than invoking
-            a blitter. Esp. true for xfermodes, which require a colorshader to be
-            present, which is just redundant work. Since we're drawing everywhere
-            in the clip, we don't have to worry about antialiasing.
-        */
-        uint32_t procData = 0;  // to avoid the warning
-        BitmapXferProc proc = ChooseBitmapXferProc(fDst, paint, &procData);
-        if (proc) {
-            if (D_Dst_BitmapXferProc == proc) { // nothing to do
-                return;
-            }
-
-            SkRegion::Iterator iter(fRC->bwRgn());
-            while (!iter.done()) {
-                CallBitmapXferProc(fDst, iter.rect(), proc, procData);
-                iter.next();
-            }
-            return;
-        }
-    }
-
-    // normal case: use a blitter
     SkAutoBlitterChoose blitter(*this, nullptr, paint);
     SkScan::FillIRect(devRect, *fRC, blitter.get());
 }
@@ -635,10 +497,10 @@ void SkDraw::drawPoints(SkCanvas::PointMode mode, size_t count,
                             SkRect r;
 
                             for (int i = 0; i < pointData.fNumPoints; ++i) {
-                                r.set(pointData.fPoints[i].fX - pointData.fSize.fX,
-                                      pointData.fPoints[i].fY - pointData.fSize.fY,
-                                      pointData.fPoints[i].fX + pointData.fSize.fX,
-                                      pointData.fPoints[i].fY + pointData.fSize.fY);
+                                r.setLTRB(pointData.fPoints[i].fX - pointData.fSize.fX,
+                                          pointData.fPoints[i].fY - pointData.fSize.fY,
+                                          pointData.fPoints[i].fX + pointData.fSize.fX,
+                                          pointData.fPoints[i].fY + pointData.fSize.fY);
                                 if (device) {
                                     device->drawRect(r, newP);
                                 } else {
@@ -1040,7 +902,6 @@ void SkDraw::drawPath(const SkPath& origSrcPath, const SkPaint& origPaint,
     SkMatrix        tmpMatrix;
     const SkMatrix* matrix = fMatrix;
     tmpPath->setIsVolatile(true);
-    SkPathPriv::SetIsBadForDAA(*tmpPath, SkPathPriv::IsBadForDAA(origSrcPath));
 
     if (prePathMatrix) {
         if (origPaint.getPathEffect() || origPaint.getStyle() != SkPaint::kFill_Style) {
@@ -1117,6 +978,11 @@ void SkDraw::drawPath(const SkPath& origSrcPath, const SkPaint& origPaint,
 void SkDraw::drawBitmapAsMask(const SkBitmap& bitmap, const SkPaint& paint) const {
     SkASSERT(bitmap.colorType() == kAlpha_8_SkColorType);
 
+    // nothing to draw
+    if (fRC->isEmpty()) {
+        return;
+    }
+
     if (SkTreatAsSprite(*fMatrix, bitmap.dimensions(), paint)) {
         int ix = SkScalarRoundToInt(fMatrix->getTranslateX());
         int iy = SkScalarRoundToInt(fMatrix->getTranslateY());
@@ -1126,7 +992,7 @@ void SkDraw::drawBitmapAsMask(const SkBitmap& bitmap, const SkPaint& paint) cons
             return;
         }
         SkMask  mask;
-        mask.fBounds.set(ix, iy, ix + pmap.width(), iy + pmap.height());
+        mask.fBounds.setXYWH(ix, iy, pmap.width(), pmap.height());
         mask.fFormat = SkMask::kA8_Format;
         mask.fRowBytes = SkToU32(pmap.rowBytes());
         // fImage is typed as writable, but in this case it is used read-only
@@ -1137,16 +1003,16 @@ void SkDraw::drawBitmapAsMask(const SkBitmap& bitmap, const SkPaint& paint) cons
         SkRect  r;
         SkMask  mask;
 
-        r.set(0, 0,
-              SkIntToScalar(bitmap.width()), SkIntToScalar(bitmap.height()));
+        r.setIWH(bitmap.width(), bitmap.height());
         fMatrix->mapRect(&r);
         r.round(&mask.fBounds);
 
         // set the mask's bounds to the transformed bitmap-bounds,
-        // clipped to the actual device
+        // clipped to the actual device and further limited by the clip bounds
         {
-            SkIRect    devBounds;
-            devBounds.set(0, 0, fDst.width(), fDst.height());
+            SkASSERT(fDst.bounds().contains(fRC->getBounds()));
+            SkIRect devBounds = fDst.bounds();
+            devBounds.intersect(fRC->getBounds().makeOutset(1, 1));
             // need intersect(l, t, r, b) on irect
             if (!mask.fBounds.intersect(devBounds)) {
                 return;
@@ -1181,12 +1047,12 @@ void SkDraw::drawBitmapAsMask(const SkBitmap& bitmap, const SkPaint& paint) cons
             // We can't call drawBitmap, or we'll infinitely recurse. Instead
             // we manually build a shader and draw that into our new mask
             SkPaint tmpPaint;
-            tmpPaint.setFlags(paint.getFlags());
+            tmpPaint.setAntiAlias(paint.isAntiAlias());
+            tmpPaint.setDither(paint.isDither());
             tmpPaint.setFilterQuality(paint.getFilterQuality());
             SkPaint paintWithShader = make_paint_with_image(tmpPaint, bitmap);
             SkRect rr;
-            rr.set(0, 0, SkIntToScalar(bitmap.width()),
-                   SkIntToScalar(bitmap.height()));
+            rr.setIWH(bitmap.width(), bitmap.height());
             c.drawRect(rr, paintWithShader);
         }
         this->drawDevMask(mask, paint);
@@ -1203,7 +1069,7 @@ static bool clipped_out(const SkMatrix& m, const SkRasterClip& c,
 static bool clipped_out(const SkMatrix& matrix, const SkRasterClip& clip,
                         int width, int height) {
     SkRect  r;
-    r.set(0, 0, SkIntToScalar(width), SkIntToScalar(height));
+    r.setIWH(width, height);
     return clipped_out(matrix, clip, r);
 }
 
@@ -1338,7 +1204,7 @@ void SkDraw::validate() const {
     const SkIRect&  cr = fRC->getBounds();
     SkIRect         br;
 
-    br.set(0, 0, fDst.width(), fDst.height());
+    br.setWH(fDst.width(), fDst.height());
     SkASSERT(cr.isEmpty() || br.contains(cr));
 }
 
@@ -1346,10 +1212,10 @@ void SkDraw::validate() const {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
-#include "SkPath.h"
-#include "SkDraw.h"
-#include "SkRegion.h"
-#include "SkBlitter.h"
+#include "include/core/SkPath.h"
+#include "include/core/SkRegion.h"
+#include "src/core/SkBlitter.h"
+#include "src/core/SkDraw.h"
 
 bool SkDraw::ComputeMaskBounds(const SkRect& devPathBounds, const SkIRect* clipBounds,
                                const SkMaskFilter* filter, const SkMatrix* filterMatrix,

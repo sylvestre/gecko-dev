@@ -1,85 +1,249 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-/* globals Services */
 
 "use strict";
 
-ChromeUtils.import("resource://gre/modules/Services.jsm");
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+const { MESSAGE_TYPE_HASH: msg } = ChromeUtils.import(
+  "resource://activity-stream/common/ActorConstants.jsm"
+);
 
-const {actionTypes: at, actionUtils: au} = ChromeUtils.import("resource://activity-stream/common/Actions.jsm", {});
-const {Prefs} = ChromeUtils.import("resource://activity-stream/lib/ActivityStreamPrefs.jsm", {});
-const {classifySite} = ChromeUtils.import("resource://activity-stream/lib/SiteClassifier.jsm", {});
+const { actionTypes: at, actionUtils: au } = ChromeUtils.import(
+  "resource://activity-stream/common/Actions.jsm"
+);
+const { Prefs } = ChromeUtils.import(
+  "resource://activity-stream/lib/ActivityStreamPrefs.jsm"
+);
+const { classifySite } = ChromeUtils.import(
+  "resource://activity-stream/lib/SiteClassifier.jsm"
+);
 
-ChromeUtils.defineModuleGetter(this, "ASRouterPreferences",
-  "resource://activity-stream/lib/ASRouterPreferences.jsm");
-ChromeUtils.defineModuleGetter(this, "perfService",
-  "resource://activity-stream/common/PerfService.jsm");
-ChromeUtils.defineModuleGetter(this, "PingCentre",
-  "resource:///modules/PingCentre.jsm");
-ChromeUtils.defineModuleGetter(this, "UTEventReporting",
-  "resource://activity-stream/lib/UTEventReporting.jsm");
-ChromeUtils.defineModuleGetter(this, "UpdateUtils",
-  "resource://gre/modules/UpdateUtils.jsm");
-ChromeUtils.defineModuleGetter(this, "HomePage",
-  "resource:///modules/HomePage.jsm");
-ChromeUtils.defineModuleGetter(this, "ExtensionSettingsStore",
-  "resource://gre/modules/ExtensionSettingsStore.jsm");
+ChromeUtils.defineModuleGetter(
+  this,
+  "AboutNewTab",
+  "resource:///modules/AboutNewTab.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "PingCentre",
+  "resource:///modules/PingCentre.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "UTEventReporting",
+  "resource://activity-stream/lib/UTEventReporting.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "UpdateUtils",
+  "resource://gre/modules/UpdateUtils.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "HomePage",
+  "resource:///modules/HomePage.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "ExtensionSettingsStore",
+  "resource://gre/modules/ExtensionSettingsStore.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "PrivateBrowsingUtils",
+  "resource://gre/modules/PrivateBrowsingUtils.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "ClientID",
+  "resource://gre/modules/ClientID.jsm"
+);
+
+XPCOMUtils.defineLazyModuleGetters(this, {
+  ExperimentAPI: "resource://messaging-system/experiments/ExperimentAPI.jsm",
+  TelemetryEnvironment: "resource://gre/modules/TelemetryEnvironment.jsm",
+  TelemetrySession: "resource://gre/modules/TelemetrySession.jsm",
+});
 
 XPCOMUtils.defineLazyServiceGetters(this, {
   gUUIDGenerator: ["@mozilla.org/uuid-generator;1", "nsIUUIDGenerator"],
-  aboutNewTabService: ["@mozilla.org/browser/aboutnewtab-service;1", "nsIAboutNewTabService"],
 });
 
 const ACTIVITY_STREAM_ID = "activity-stream";
-const ACTIVITY_STREAM_ENDPOINT_PREF = "browser.newtabpage.activity-stream.telemetry.ping.endpoint";
-const ACTIVITY_STREAM_ROUTER_ID = "activity-stream-router";
+const DOMWINDOW_OPENED_TOPIC = "domwindowopened";
+const DOMWINDOW_UNLOAD_TOPIC = "unload";
+const TAB_PINNED_EVENT = "TabPinned";
 
 // This is a mapping table between the user preferences and its encoding code
 const USER_PREFS_ENCODING = {
-  "showSearch": 1 << 0,
+  showSearch: 1 << 0,
   "feeds.topsites": 1 << 1,
   "feeds.section.topstories": 1 << 2,
   "feeds.section.highlights": 1 << 3,
   "feeds.snippets": 1 << 4,
-  "showSponsored": 1 << 5,
+  showSponsored: 1 << 5,
+  "asrouter.userprefs.cfr.addons": 1 << 6,
+  "asrouter.userprefs.cfr.features": 1 << 7,
 };
 
 const PREF_IMPRESSION_ID = "impressionId";
 const TELEMETRY_PREF = "telemetry";
 const EVENTS_TELEMETRY_PREF = "telemetry.ut.events";
+const STRUCTURED_INGESTION_ENDPOINT_PREF =
+  "telemetry.structuredIngestion.endpoint";
+// List of namespaces for the structured ingestion system.
+// They are defined in https://github.com/mozilla-services/mozilla-pipeline-schemas
+const STRUCTURED_INGESTION_NAMESPACE_AS = "activity-stream";
+const STRUCTURED_INGESTION_NAMESPACE_MS = "messaging-system";
+
+// Used as the missing value for timestamps in the session ping
+const TIMESTAMP_MISSING_VALUE = -1;
+
+// Page filter for onboarding telemetry, any value other than these will
+// be set as "other"
+const ONBOARDING_ALLOWED_PAGE_VALUES = [
+  "about:welcome",
+  "about:home",
+  "about:newtab",
+];
+
+XPCOMUtils.defineLazyGetter(
+  this,
+  "browserSessionId",
+  () => TelemetrySession.getMetadata("").sessionId
+);
 
 this.TelemetryFeed = class TelemetryFeed {
-  constructor(options) {
+  constructor({ isParentProcess = true } = {}) {
     this.sessions = new Map();
     this._prefs = new Prefs();
-    this._impressionId = this.getOrCreateImpressionId();
-    this.telemetryEnabled = this._prefs.get(TELEMETRY_PREF);
-    this.eventTelemetryEnabled = this._prefs.get(EVENTS_TELEMETRY_PREF);
     this._aboutHomeSeen = false;
-    this._onTelemetryPrefChange = this._onTelemetryPrefChange.bind(this);
-    this._prefs.observe(TELEMETRY_PREF, this._onTelemetryPrefChange);
-    this._onEventsTelemetryPrefChange = this._onEventsTelemetryPrefChange.bind(this);
-    this._prefs.observe(EVENTS_TELEMETRY_PREF, this._onEventsTelemetryPrefChange);
     this._classifySite = classifySite;
+    this._addWindowListeners = this._addWindowListeners.bind(this);
+    this._browserOpenNewtabStart = null;
+    this.handleEvent = this.handleEvent.bind(this);
+    if (isParentProcess && !this._prefs.get(PREF_IMPRESSION_ID)) {
+      const id = String(gUUIDGenerator.generateUUID());
+      this._prefs.set(PREF_IMPRESSION_ID, id);
+    }
+  }
+
+  get telemetryEnabled() {
+    return this._prefs.get(TELEMETRY_PREF);
+  }
+
+  get eventTelemetryEnabled() {
+    return this._prefs.get(EVENTS_TELEMETRY_PREF);
+  }
+
+  get structuredIngestionEndpointBase() {
+    return this._prefs.get(STRUCTURED_INGESTION_ENDPOINT_PREF);
+  }
+
+  get telemetryClientId() {
+    Object.defineProperty(this, "telemetryClientId", {
+      value: ClientID.getClientID(),
+    });
+    return this.telemetryClientId;
+  }
+
+  get processStartTs() {
+    let startupInfo = Services.startup.getStartupInfo();
+    let processStartTs = startupInfo.process.getTime();
+
+    Object.defineProperty(this, "processStartTs", {
+      value: processStartTs,
+    });
+    return this.processStartTs;
   }
 
   init() {
-    Services.obs.addObserver(this.browserOpenNewtabStart, "browser-open-newtab-start");
+    Services.obs.addObserver(
+      this.browserOpenNewtabStart,
+      "browser-open-newtab-start"
+    );
+    // Add pin tab event listeners on future windows
+    Services.obs.addObserver(this._addWindowListeners, DOMWINDOW_OPENED_TOPIC);
+    // Listen for pin tab events on all open windows
+    for (let win of Services.wm.getEnumerator("navigator:browser")) {
+      this._addWindowListeners(win);
+    }
+    // Set a scalar for the "deletion-request" ping (See bug 1602064)
+    Services.telemetry.scalarSet(
+      "deletion.request.impression_id",
+      this._impressionId
+    );
   }
 
-  getOrCreateImpressionId() {
-    let impressionId = this._prefs.get(PREF_IMPRESSION_ID);
-    if (!impressionId) {
-      impressionId = String(gUUIDGenerator.generateUUID());
-      this._prefs.set(PREF_IMPRESSION_ID, impressionId);
+  handleEvent(event) {
+    switch (event.type) {
+      case TAB_PINNED_EVENT:
+        this.countPinnedTab(event.target);
+        break;
+      case DOMWINDOW_UNLOAD_TOPIC:
+        this._removeWindowListeners(event.target);
+        break;
     }
-    return impressionId;
+  }
+
+  _removeWindowListeners(win) {
+    win.removeEventListener(DOMWINDOW_UNLOAD_TOPIC, this.handleEvent);
+    win.removeEventListener(TAB_PINNED_EVENT, this.handleEvent);
+  }
+
+  _addWindowListeners(win) {
+    win.addEventListener(DOMWINDOW_UNLOAD_TOPIC, this.handleEvent);
+    win.addEventListener(TAB_PINNED_EVENT, this.handleEvent);
+  }
+
+  countPinnedTab(target, source = "TAB_CONTEXT_MENU") {
+    const win = target.ownerGlobal;
+    if (PrivateBrowsingUtils.isWindowPrivate(win)) {
+      return;
+    }
+    const event = Object.assign(this.createPing(), {
+      action: "activity_stream_user_event",
+      event: TAB_PINNED_EVENT.toUpperCase(),
+      value: { total_pinned_tabs: this.countTotalPinnedTabs() },
+      source,
+      // These fields are required but not relevant for this ping
+      page: "n/a",
+      session_id: "n/a",
+    });
+    this.sendEvent(event);
+  }
+
+  countTotalPinnedTabs() {
+    let pinnedTabs = 0;
+    for (let win of Services.wm.getEnumerator("navigator:browser")) {
+      if (win.closed || PrivateBrowsingUtils.isWindowPrivate(win)) {
+        continue;
+      }
+      for (let tab of win.gBrowser.tabs) {
+        pinnedTabs += tab.pinned ? 1 : 0;
+      }
+    }
+
+    return pinnedTabs;
+  }
+
+  get _impressionId() {
+    return this._prefs.get(PREF_IMPRESSION_ID);
   }
 
   browserOpenNewtabStart() {
-    perfService.mark("browser-open-newtab-start");
+    let now = Cu.now();
+    this._browserOpenNewtabStart = Math.round(this.processStartTs + now);
+
+    ChromeUtils.addProfilerMarker(
+      "UserTiming",
+      now,
+      "browser-open-newtab-start"
+    );
   }
 
   setLoadTriggerInfo(port) {
@@ -106,8 +270,11 @@ this.TelemetryFeed = class TelemetryFeed {
 
     let data_to_save;
     try {
+      if (!this._browserOpenNewtabStart) {
+        throw new Error("No browser-open-newtab-start recorded.");
+      }
       data_to_save = {
-        load_trigger_ts: perfService.getMostRecentAbsMarkStartByName("browser-open-newtab-start"),
+        load_trigger_ts: this._browserOpenNewtabStart,
         load_trigger_type: "menu_plus_or_keyboard",
       };
     } catch (e) {
@@ -117,45 +284,21 @@ this.TelemetryFeed = class TelemetryFeed {
     this.saveSessionPerfData(port, data_to_save);
   }
 
-  _onTelemetryPrefChange(prefVal) {
-    this.telemetryEnabled = prefVal;
-  }
-
-  _onEventsTelemetryPrefChange(prefVal) {
-    this.eventTelemetryEnabled = prefVal;
-  }
-
   /**
    * Lazily initialize PingCentre for Activity Stream to send pings
    */
   get pingCentre() {
-    Object.defineProperty(this, "pingCentre",
-      {
-        value: new PingCentre({
-          topic: ACTIVITY_STREAM_ID,
-          overrideEndpointPref: ACTIVITY_STREAM_ENDPOINT_PREF,
-        }),
-      });
+    Object.defineProperty(this, "pingCentre", {
+      value: new PingCentre({ topic: ACTIVITY_STREAM_ID }),
+    });
     return this.pingCentre;
-  }
-
-  /**
-   * Lazily initialize a PingCentre client for Activity Stream Router to send pings.
-   *
-   * Unlike the PingCentre client for Activity Stream, Activity Stream Router
-   * uses a separate client with the standard PingCentre endpoint.
-   */
-  get pingCentreForASRouter() {
-    Object.defineProperty(this, "pingCentreForASRouter",
-      {value: new PingCentre({topic: ACTIVITY_STREAM_ROUTER_ID})});
-    return this.pingCentreForASRouter;
   }
 
   /**
    * Lazily initialize UTEventReporting to send pings
    */
   get utEvents() {
-    Object.defineProperty(this, "utEvents", {value: new UTEventReporting()});
+    Object.defineProperty(this, "utEvents", { value: new UTEventReporting() });
     return this.utEvents;
   }
 
@@ -174,13 +317,19 @@ this.TelemetryFeed = class TelemetryFeed {
   }
 
   /**
-   *  Check if it is in the CFR experiment cohort. ASRouterPreferences lazily parses AS router pref.
+   *  Check if it is in the CFR experiment cohort by querying against the
+   *  experiment manager of Messaging System
    */
   get isInCFRCohort() {
-    for (let provider of ASRouterPreferences.providers) {
-      if (provider.id === "cfr" && provider.enabled && provider.cohort) {
+    try {
+      const experimentData = ExperimentAPI.getExperiment({
+        featureId: "cfr",
+      });
+      if (experimentData && experimentData.slug) {
         return true;
       }
+    } catch (e) {
+      return false;
     }
     return false;
   }
@@ -218,21 +367,9 @@ this.TelemetryFeed = class TelemetryFeed {
       load_trigger_type = "first_window_opened";
 
       // The real perceived trigger of first_window_opened is the OS-level
-      // clicking of the icon.  We use perfService.timeOrigin because it's the
-      // earliest number on this time scale that's easy to get.; We could
-      // actually use 0, but maybe that could be before the browser started?
-      // [bug 1401406](https://bugzilla.mozilla.org/show_bug.cgi?id=1401406)
-      // getting sorted out may help clarify. Even better, presumably, would be
-      // to use the process creation time for the main process, which is
-      // available, but somewhat harder to get. However, these are all more or
-      // less proxies for the same thing, so it's not clear how much the better
-      // numbers really matter, since we (activity stream) only control a
-      // relatively small amount of the code that's executing between the
-      // OS-click and when the first <browser> element starts loading.  That
-      // said, it's conceivable that it could help us catch regressions in the
-      // number of cycles early chrome code takes to execute, but it's likely
-      // that there are more direct ways to measure that.
-      load_trigger_ts = perfService.timeOrigin;
+      // clicking of the icon. We express this by using the process start
+      // absolute timestamp.
+      load_trigger_ts = this.processStartTs;
     }
 
     const session = {
@@ -242,7 +379,6 @@ this.TelemetryFeed = class TelemetryFeed {
       perf: {
         load_trigger_type,
         is_preloaded: false,
-        is_prerendered: false,
       },
     };
 
@@ -267,8 +403,30 @@ this.TelemetryFeed = class TelemetryFeed {
       return;
     }
 
+    this.sendDiscoveryStreamLoadedContent(portID, session);
+    this.sendDiscoveryStreamImpressions(portID, session);
+
     if (session.perf.visibility_event_rcvd_ts) {
-      session.session_duration = Math.round(perfService.absNow() - session.perf.visibility_event_rcvd_ts);
+      let absNow = this.processStartTs + Cu.now();
+      session.session_duration = Math.round(
+        absNow - session.perf.visibility_event_rcvd_ts
+      );
+
+      // Rounding all timestamps in perf to ease the data processing on the backend.
+      // NB: use `TIMESTAMP_MISSING_VALUE` if the value is missing.
+      session.perf.visibility_event_rcvd_ts = Math.round(
+        session.perf.visibility_event_rcvd_ts
+      );
+      session.perf.load_trigger_ts = Math.round(
+        session.perf.load_trigger_ts || TIMESTAMP_MISSING_VALUE
+      );
+      session.perf.topsites_first_painted_ts = Math.round(
+        session.perf.topsites_first_painted_ts || TIMESTAMP_MISSING_VALUE
+      );
+    } else {
+      // This session was never shown (i.e. the hidden preloaded newtab), there was no user session either.
+      this.sessions.delete(portID);
+      return;
     }
 
     let sessionEndEvent = this.createSessionEndEvent(session);
@@ -278,19 +436,65 @@ this.TelemetryFeed = class TelemetryFeed {
   }
 
   /**
-   * handlePagePrerendered - Set the session as prerendered
+   * Send impression pings for Discovery Stream for a given session.
    *
-   * @param  {string} portID the portID of the target session
+   * @note the impression reports are stored in session.impressionSets for different
+   * sources, and will be sent separately accordingly.
+   *
+   * @param {String} port  The session port with which this is associated
+   * @param {Object} session  The session object
    */
-  handlePagePrerendered(portID) {
-    const session = this.sessions.get(portID);
+  sendDiscoveryStreamImpressions(port, session) {
+    const { impressionSets } = session;
 
-    if (!session) {
-      // It's possible the tab was never visible – in which case, there was no user session.
+    if (!impressionSets) {
       return;
     }
 
-    session.perf.is_prerendered = true;
+    Object.keys(impressionSets).forEach(source => {
+      const payload = this.createImpressionStats(port, {
+        source,
+        tiles: impressionSets[source],
+      });
+      this.sendStructuredIngestionEvent(
+        payload,
+        STRUCTURED_INGESTION_NAMESPACE_AS,
+        "impression-stats",
+        "1"
+      );
+    });
+  }
+
+  /**
+   * Send loaded content pings for Discovery Stream for a given session.
+   *
+   * @note the loaded content reports are stored in session.loadedContentSets for different
+   * sources, and will be sent separately accordingly.
+   *
+   * @param {String} port  The session port with which this is associated
+   * @param {Object} session  The session object
+   */
+  sendDiscoveryStreamLoadedContent(port, session) {
+    const { loadedContentSets } = session;
+
+    if (!loadedContentSets) {
+      return;
+    }
+
+    Object.keys(loadedContentSets).forEach(source => {
+      const tiles = loadedContentSets[source];
+      const payload = this.createImpressionStats(port, {
+        source,
+        tiles,
+        loaded: tiles.length,
+      });
+      this.sendStructuredIngestionEvent(
+        payload,
+        STRUCTURED_INGESTION_NAMESPACE_AS,
+        "impression-stats",
+        "1"
+      );
+    });
   }
 
   /**
@@ -300,8 +504,12 @@ this.TelemetryFeed = class TelemetryFeed {
    * @param  {obj} action the Action object
    */
   handleNewTabInit(action) {
-    const session = this.addSession(au.getPortIdOfSender(action), action.data.url);
-    session.perf.is_preloaded = action.data.browser.getAttribute("preloadedState") === "preloaded";
+    const session = this.addSession(
+      au.getPortIdOfSender(action),
+      action.data.url
+    );
+    session.perf.is_preloaded =
+      action.data.browser.getAttribute("preloadedState") === "preloaded";
   }
 
   /**
@@ -313,17 +521,17 @@ this.TelemetryFeed = class TelemetryFeed {
   createPing(portID) {
     const ping = {
       addon_version: Services.appinfo.appBuildID,
-      locale: Services.locale.appLocaleAsLangTag,
+      locale: Services.locale.appLocaleAsBCP47,
       user_prefs: this.userPreferences,
     };
 
     // If the ping is part of a user session, add session-related info
     if (portID) {
       const session = this.sessions.get(portID) || this.addSession(portID);
-      Object.assign(ping, {session_id: session.session_id});
+      Object.assign(ping, { session_id: session.session_id });
 
       if (session.page) {
-        Object.assign(ping, {page: session.page});
+        Object.assign(ping, { page: session.page });
       }
     }
     return ping;
@@ -332,79 +540,100 @@ this.TelemetryFeed = class TelemetryFeed {
   /**
    * createImpressionStats - Create a ping for an impression stats
    *
-   * @param  {ob} action The object with data to be included in the ping.
-   *                     For some user interactions.
+   * @param  {string} portID The portID of the open session
+   * @param  {ob} data The data object to be included in the ping.
    * @return {obj}    A telemetry ping
    */
-  createImpressionStats(action) {
-    return Object.assign(
-      this.createPing(au.getPortIdOfSender(action)),
-      action.data,
-      {
-        action: "activity_stream_impression_stats",
-        impression_id: this._impressionId,
-        client_id: "n/a",
-        session_id: "n/a",
-      }
-    );
+  createImpressionStats(portID, data) {
+    return Object.assign(this.createPing(portID), data, {
+      action: "activity_stream_impression_stats",
+      impression_id: this._impressionId,
+      client_id: "n/a",
+      session_id: "n/a",
+    });
+  }
+
+  createSpocsFillPing(data) {
+    return Object.assign(this.createPing(null), data, {
+      impression_id: this._impressionId,
+      session_id: "n/a",
+    });
   }
 
   createUserEvent(action) {
     return Object.assign(
       this.createPing(au.getPortIdOfSender(action)),
       action.data,
-      {action: "activity_stream_user_event"}
+      { action: "activity_stream_user_event" }
     );
   }
 
   createUndesiredEvent(action) {
     return Object.assign(
       this.createPing(au.getPortIdOfSender(action)),
-      {value: 0}, // Default value
+      { value: 0 }, // Default value
       action.data,
-      {action: "activity_stream_undesired_event"}
+      { action: "activity_stream_undesired_event" }
     );
   }
 
   createPerformanceEvent(action) {
-    return Object.assign(
-      this.createPing(),
-      action.data,
-      {action: "activity_stream_performance_event"}
-    );
+    return Object.assign(this.createPing(), action.data, {
+      action: "activity_stream_performance_event",
+    });
   }
 
   createSessionEndEvent(session) {
-    return Object.assign(
-      this.createPing(),
-      {
-        session_id: session.session_id,
-        page: session.page,
-        session_duration: session.session_duration,
-        action: "activity_stream_session",
-        perf: session.perf,
-      }
-    );
+    return Object.assign(this.createPing(), {
+      session_id: session.session_id,
+      page: session.page,
+      session_duration: session.session_duration,
+      action: "activity_stream_session",
+      perf: session.perf,
+      profile_creation_date:
+        TelemetryEnvironment.currentEnvironment.profile.resetDate ||
+        TelemetryEnvironment.currentEnvironment.profile.creationDate,
+    });
   }
 
   /**
    * Create a ping for AS router event. The client_id is set to "n/a" by default,
    * different component can override this by its own telemetry collection policy.
    */
-  createASRouterEvent(action) {
-    const ping = {
-      client_id: "n/a",
+  async createASRouterEvent(action) {
+    let event = {
+      ...action.data,
       addon_version: Services.appinfo.appBuildID,
-      locale: Services.locale.appLocaleAsLangTag,
-      impression_id: this._impressionId,
+      locale: Services.locale.appLocaleAsBCP47,
     };
-    const event = Object.assign(ping, action.data);
-    if (event.action === "cfr_user_event") {
-      return this.applyCFRPolicy(event);
-    } else if (event.action === "snippets_user_event") {
-      return this.applySnippetsPolicy(event);
-    } else if (event.action === "onboarding_user_event") {
-      return this.applyOnboardingPolicy(event);
+    const session = this.sessions.get(au.getPortIdOfSender(action));
+    if (event.event_context && typeof event.event_context === "object") {
+      event.event_context = JSON.stringify(event.event_context);
+    }
+    switch (event.action) {
+      case "cfr_user_event":
+        event = await this.applyCFRPolicy(event);
+        break;
+      case "snippets_local_testing_user_event":
+      case "snippets_user_event":
+        event = await this.applySnippetsPolicy(event);
+        break;
+      case "badge_user_event":
+      case "whats-new-panel_user_event":
+        event = await this.applyWhatsNewPolicy(event);
+        break;
+      case "moments_user_event":
+        event = await this.applyMomentsPolicy(event);
+        break;
+      case "onboarding_user_event":
+        event = await this.applyOnboardingPolicy(event, session);
+        break;
+      case "asrouter_undesired_event":
+        event = this.applyUndesiredEventPolicy(event);
+        break;
+      default:
+        event = { ping: event };
+        break;
     }
     return event;
   }
@@ -415,48 +644,135 @@ this.TelemetryFeed = class TelemetryFeed {
    * 2). In prerelease, it collects client_id and message_id
    * 3). In shield experiments conducted in release, it collects client_id and message_id
    */
-  applyCFRPolicy(ping) {
-    if (UpdateUtils.getUpdateChannel(true) === "release" && !this.isInCFRCohort) {
-      ping.message_id = ping.bucket_id || "n/a";
-      ping.client_id = "n/a";
+  async applyCFRPolicy(ping) {
+    if (
+      UpdateUtils.getUpdateChannel(true) === "release" &&
+      !this.isInCFRCohort
+    ) {
+      ping.message_id = "n/a";
       ping.impression_id = this._impressionId;
     } else {
-      ping.impression_id = "n/a";
-      // Ping-centre client will fill in the client_id if it's not provided in the ping.
-      delete ping.client_id;
+      ping.client_id = await this.telemetryClientId;
     }
-    // bucket_id is no longer needed
-    delete ping.bucket_id;
-    return ping;
+    delete ping.action;
+    return { ping, pingType: "cfr" };
+  }
+
+  /**
+   * Per Bug 1482134, all the metrics for What's New panel use client_id in
+   * all the release channels
+   */
+  async applyWhatsNewPolicy(ping) {
+    ping.client_id = await this.telemetryClientId;
+    ping.browser_session_id = browserSessionId;
+    // Attach page info to `event_context` if there is a session associated with this ping
+    delete ping.action;
+    return { ping, pingType: "whats-new-panel" };
+  }
+
+  /**
+   * Per Bug 1484035, Moments metrics comply with following policies:
+   * 1). In release, it collects impression_id, and treats bucket_id as message_id
+   * 2). In prerelease, it collects client_id and message_id
+   * 3). In shield experiments conducted in release, it collects client_id and message_id
+   */
+  async applyMomentsPolicy(ping) {
+    if (
+      UpdateUtils.getUpdateChannel(true) === "release" &&
+      !this.isInCFRCohort
+    ) {
+      ping.message_id = "n/a";
+      ping.impression_id = this._impressionId;
+    } else {
+      ping.client_id = await this.telemetryClientId;
+    }
+    delete ping.action;
+    return { ping, pingType: "moments" };
   }
 
   /**
    * Per Bug 1485069, all the metrics for Snippets in AS router use client_id in
    * all the release channels
    */
-  applySnippetsPolicy(ping) {
-    // Ping-centre client will fill in the client_id if it's not provided in the ping.
-    delete ping.client_id;
-    ping.impression_id = "n/a";
-    return ping;
+  async applySnippetsPolicy(ping) {
+    ping.client_id = await this.telemetryClientId;
+    delete ping.action;
+    return { ping, pingType: "snippets" };
   }
 
   /**
    * Per Bug 1482134, all the metrics for Onboarding in AS router use client_id in
    * all the release channels
    */
-  applyOnboardingPolicy(ping) {
-    // Ping-centre client will fill in the client_id if it's not provided in the ping.
-    delete ping.client_id;
-    ping.impression_id = "n/a";
-    return ping;
+  async applyOnboardingPolicy(ping, session) {
+    ping.client_id = await this.telemetryClientId;
+    ping.browser_session_id = browserSessionId;
+    // Attach page info to `event_context` if there is a session associated with this ping
+    if (ping.action === "onboarding_user_event" && session && session.page) {
+      let event_context;
+
+      try {
+        event_context = ping.event_context
+          ? JSON.parse(ping.event_context)
+          : {};
+      } catch (e) {
+        // If `ping.event_context` is not a JSON serialized string, then we create a `value`
+        // key for it
+        event_context = { value: ping.event_context };
+      }
+
+      if (ONBOARDING_ALLOWED_PAGE_VALUES.includes(session.page)) {
+        event_context.page = session.page;
+      } else {
+        Cu.reportError(`Invalid 'page' for Onboarding event: ${session.page}`);
+      }
+      ping.event_context = JSON.stringify(event_context);
+    }
+    delete ping.action;
+    return { ping, pingType: "onboarding" };
+  }
+
+  applyUndesiredEventPolicy(ping) {
+    ping.impression_id = this._impressionId;
+    delete ping.action;
+    return { ping, pingType: "undesired-events" };
   }
 
   sendEvent(event_object) {
-    if (this.telemetryEnabled) {
-      this.pingCentre.sendPing(event_object,
-      {filter: ACTIVITY_STREAM_ID});
+    switch (event_object.action) {
+      case "activity_stream_user_event":
+        this.sendEventPing(event_object);
+        break;
+      case "activity_stream_session":
+        this.sendSessionPing(event_object);
+        break;
     }
+  }
+
+  async sendEventPing(ping) {
+    delete ping.action;
+    ping.client_id = await this.telemetryClientId;
+    ping.browser_session_id = browserSessionId;
+    if (ping.value && typeof ping.value === "object") {
+      ping.value = JSON.stringify(ping.value);
+    }
+    this.sendStructuredIngestionEvent(
+      ping,
+      STRUCTURED_INGESTION_NAMESPACE_AS,
+      "events",
+      1
+    );
+  }
+
+  async sendSessionPing(ping) {
+    delete ping.action;
+    ping.client_id = await this.telemetryClientId;
+    this.sendStructuredIngestionEvent(
+      ping,
+      STRUCTURED_INGESTION_NAMESPACE_AS,
+      "sessions",
+      1
+    );
   }
 
   sendUTEvent(event_object, eventFunction) {
@@ -465,15 +781,45 @@ this.TelemetryFeed = class TelemetryFeed {
     }
   }
 
-  sendASRouterEvent(event_object) {
+  /**
+   * Generates an endpoint for Structured Ingestion telemetry pipeline. Note that
+   * Structured Ingestion requires a different endpoint for each ping. See more
+   * details about endpoint schema at:
+   * https://github.com/mozilla/gcp-ingestion/blob/master/docs/edge.md#postput-request
+   *
+   * @param {String} namespace Namespace of the ping, such as "activity-stream" or "messaging-system".
+   * @param {String} pingType  Type of the ping, such as "impression-stats".
+   * @param {String} version   Endpoint version for this ping type.
+   */
+  _generateStructuredIngestionEndpoint(namespace, pingType, version) {
+    const uuid = gUUIDGenerator.generateUUID().toString();
+    // Structured Ingestion does not support the UUID generated by gUUIDGenerator,
+    // because it contains leading and trailing braces. Need to trim them first.
+    const docID = uuid.slice(1, -1);
+    const extension = `${namespace}/${pingType}/${version}/${docID}`;
+    return `${this.structuredIngestionEndpointBase}/${extension}`;
+  }
+
+  sendStructuredIngestionEvent(eventObject, namespace, pingType, version) {
     if (this.telemetryEnabled) {
-      this.pingCentreForASRouter.sendPing(event_object,
-      {filter: ACTIVITY_STREAM_ID});
+      this.pingCentre.sendStructuredIngestionPing(
+        eventObject,
+        this._generateStructuredIngestionEndpoint(namespace, pingType, version)
+      );
     }
   }
 
   handleImpressionStats(action) {
-    this.sendEvent(this.createImpressionStats(action));
+    const payload = this.createImpressionStats(
+      au.getPortIdOfSender(action),
+      action.data
+    );
+    this.sendStructuredIngestionEvent(
+      payload,
+      STRUCTURED_INGESTION_NAMESPACE_AS,
+      "impression-stats",
+      "1"
+    );
   }
 
   handleUserEvent(action) {
@@ -482,9 +828,18 @@ this.TelemetryFeed = class TelemetryFeed {
     this.sendUTEvent(userEvent, this.utEvents.sendUserEvent);
   }
 
-  handleASRouterUserEvent(action) {
-    let event = this.createASRouterEvent(action);
-    this.sendASRouterEvent(event);
+  async handleASRouterUserEvent(action) {
+    const { ping, pingType } = await this.createASRouterEvent(action);
+    if (!pingType) {
+      Cu.reportError("Unknown ping type for ASRouter telemetry");
+      return;
+    }
+    this.sendStructuredIngestionEvent(
+      ping,
+      STRUCTURED_INGESTION_NAMESPACE_MS,
+      pingType,
+      "1"
+    );
   }
 
   handleUndesiredEvent(action) {
@@ -499,27 +854,39 @@ this.TelemetryFeed = class TelemetryFeed {
 
       // Check whether or not about:home and about:newtab are set to a custom URL.
       // If so, classify them.
-      if (Services.prefs.getBoolPref("browser.newtabpage.enabled") &&
-          aboutNewTabService.overridden &&
-          !aboutNewTabService.newTabURL.startsWith("moz-extension://")) {
-        value.newtab_url_category = await this._classifySite(aboutNewTabService.newTabURL);
+      if (
+        Services.prefs.getBoolPref("browser.newtabpage.enabled") &&
+        AboutNewTab.newTabURLOverridden &&
+        !AboutNewTab.newTabURL.startsWith("moz-extension://")
+      ) {
+        value.newtab_url_category = await this._classifySite(
+          AboutNewTab.newTabURL
+        );
         newtabAffected = true;
       }
       // Check if the newtab page setting is controlled by an extension.
       await ExtensionSettingsStore.initialize();
-      const newtabExtensionInfo = ExtensionSettingsStore.getSetting("url_overrides", "newTabURL");
+      const newtabExtensionInfo = ExtensionSettingsStore.getSetting(
+        "url_overrides",
+        "newTabURL"
+      );
       if (newtabExtensionInfo && newtabExtensionInfo.id) {
         value.newtab_extension_id = newtabExtensionInfo.id;
         newtabAffected = true;
       }
 
       const homePageURL = HomePage.get();
-      if (!["about:home", "about:blank"].includes(homePageURL) &&
-          !homePageURL.startsWith("moz-extension://")) {
+      if (
+        !["about:home", "about:blank"].includes(homePageURL) &&
+        !homePageURL.startsWith("moz-extension://")
+      ) {
         value.home_url_category = await this._classifySite(homePageURL);
         homeAffected = true;
       }
-      const homeExtensionInfo = ExtensionSettingsStore.getSetting("prefs", "homepage_override");
+      const homeExtensionInfo = ExtensionSettingsStore.getSetting(
+        "prefs",
+        "homepage_override"
+      );
       if (homeExtensionInfo && homeExtensionInfo.id) {
         value.home_extension_id = homeExtensionInfo.id;
         homeAffected = true;
@@ -535,16 +902,13 @@ this.TelemetryFeed = class TelemetryFeed {
       }
 
       if (page) {
-        const event = Object.assign(
-          this.createPing(),
-          {
-            action: "activity_stream_user_event",
-            event: "PAGE_TAKEOVER_DATA",
-            value,
-            page,
-            session_id: "n/a",
-          },
-        );
+        const event = Object.assign(this.createPing(), {
+          action: "activity_stream_user_event",
+          event: "PAGE_TAKEOVER_DATA",
+          value,
+          page,
+          session_id: "n/a",
+        });
         this.sendEvent(event);
       }
     }
@@ -562,14 +926,26 @@ this.TelemetryFeed = class TelemetryFeed {
       case at.NEW_TAB_UNLOAD:
         this.endSession(au.getPortIdOfSender(action));
         break;
-      case at.PAGE_PRERENDERED:
-        this.handlePagePrerendered(au.getPortIdOfSender(action));
-        break;
       case at.SAVE_SESSION_PERF_DATA:
         this.saveSessionPerfData(au.getPortIdOfSender(action), action.data);
         break;
       case at.TELEMETRY_IMPRESSION_STATS:
         this.handleImpressionStats(action);
+        break;
+      case at.DISCOVERY_STREAM_IMPRESSION_STATS:
+        this.handleDiscoveryStreamImpressionStats(
+          au.getPortIdOfSender(action),
+          action.data
+        );
+        break;
+      case at.DISCOVERY_STREAM_LOADED_CONTENT:
+        this.handleDiscoveryStreamLoadedContent(
+          au.getPortIdOfSender(action),
+          action.data
+        );
+        break;
+      case at.DISCOVERY_STREAM_SPOCS_FILL:
+        this.handleDiscoveryStreamSpocsFill(action.data);
         break;
       case at.TELEMETRY_UNDESIRED_EVENT:
         this.handleUndesiredEvent(action);
@@ -577,6 +953,16 @@ this.TelemetryFeed = class TelemetryFeed {
       case at.TELEMETRY_USER_EVENT:
         this.handleUserEvent(action);
         break;
+      // The next few action types come from ASRouter, which doesn't use
+      // Actions from Actions.jsm, but uses these other custom strings.
+      case msg.TOOLBAR_BADGE_TELEMETRY:
+      // Intentional fall-through
+      case msg.TOOLBAR_PANEL_TELEMETRY:
+      // Intentional fall-through
+      case msg.MOMENTS_PAGE_TELEMETRY:
+      // Intentional fall-through
+      case msg.DOORHANGER_TELEMETRY:
+      // Intentional fall-through
       case at.AS_ROUTER_TELEMETRY_USER_EVENT:
         this.handleASRouterUserEvent(action);
         break;
@@ -587,6 +973,100 @@ this.TelemetryFeed = class TelemetryFeed {
         this.uninit();
         break;
     }
+  }
+
+  /**
+   * Handle impression stats actions from Discovery Stream. The data will be
+   * stored into the session.impressionSets object for the given port, so that
+   * it is sent to the server when the session ends.
+   *
+   * @note session.impressionSets will be keyed on `source` of the `data`,
+   * all the data will be appended to an array for the same source.
+   *
+   * @param {String} port  The session port with which this is associated
+   * @param {Object} data  The impression data structured as {source: "SOURCE", tiles: [{id: 123}]}
+   *
+   */
+  handleDiscoveryStreamImpressionStats(port, data) {
+    let session = this.sessions.get(port);
+
+    if (!session) {
+      throw new Error("Session does not exist.");
+    }
+
+    const impressionSets = session.impressionSets || {};
+    const impressions = impressionSets[data.source] || [];
+    // The payload might contain other properties, we need `id`, `pos` and potentially `shim` here.
+    data.tiles.forEach(tile =>
+      impressions.push({
+        id: tile.id,
+        pos: tile.pos,
+        ...(tile.shim ? { shim: tile.shim } : {}),
+      })
+    );
+    impressionSets[data.source] = impressions;
+    session.impressionSets = impressionSets;
+  }
+
+  /**
+   * Handle loaded content actions from Discovery Stream. The data will be
+   * stored into the session.loadedContentSets object for the given port, so that
+   * it is sent to the server when the session ends.
+   *
+   * @note session.loadedContentSets will be keyed on `source` of the `data`,
+   * all the data will be appended to an array for the same source.
+   *
+   * @param {String} port  The session port with which this is associated
+   * @param {Object} data  The loaded content structured as {source: "SOURCE", tiles: [{id: 123}]}
+   *
+   */
+  handleDiscoveryStreamLoadedContent(port, data) {
+    let session = this.sessions.get(port);
+
+    if (!session) {
+      throw new Error("Session does not exist.");
+    }
+
+    const loadedContentSets = session.loadedContentSets || {};
+    const loadedContents = loadedContentSets[data.source] || [];
+    // The payload might contain other properties, we need `id` and `pos` here.
+    data.tiles.forEach(tile =>
+      loadedContents.push({ id: tile.id, pos: tile.pos })
+    );
+    loadedContentSets[data.source] = loadedContents;
+    session.loadedContentSets = loadedContentSets;
+  }
+
+  /**
+   * Handl SPOCS Fill actions from Discovery Stream.
+   *
+   * @param {Object} data
+   *   The SPOCS Fill event structured as:
+   *   {
+   *     spoc_fills: [
+   *       {
+   *         id: 123,
+   *         displayed: 0,
+   *         reason: "frequency_cap",
+   *         full_recalc: 1
+   *        },
+   *        {
+   *          id: 124,
+   *          displayed: 1,
+   *          reason: "n/a",
+   *          full_recalc: 1
+   *        }
+   *      ]
+   *    }
+   */
+  handleDiscoveryStreamSpocsFill(data) {
+    const payload = this.createSpocsFillPing(data);
+    this.sendStructuredIngestionEvent(
+      payload,
+      STRUCTURED_INGESTION_NAMESPACE_AS,
+      "spoc-fills",
+      "1"
+    );
   }
 
   /**
@@ -622,13 +1102,30 @@ this.TelemetryFeed = class TelemetryFeed {
       this.setLoadTriggerInfo(port);
     }
 
+    let timestamp = data.topsites_first_painted_ts;
+
+    if (
+      timestamp &&
+      session.page === "about:home" &&
+      !HomePage.overridden &&
+      Services.prefs.getIntPref("browser.startup.page") === 1
+    ) {
+      AboutNewTab.maybeRecordTopsitesPainted(timestamp);
+    }
+
     Object.assign(session.perf, data);
   }
 
   uninit() {
     try {
-      Services.obs.removeObserver(this.browserOpenNewtabStart,
-        "browser-open-newtab-start");
+      Services.obs.removeObserver(
+        this.browserOpenNewtabStart,
+        "browser-open-newtab-start"
+      );
+      Services.obs.removeObserver(
+        this._addWindowListeners,
+        DOMWINDOW_OPENED_TOPIC
+      );
     } catch (e) {
       // Operation can fail when uninit is called before
       // init has finished setting up the observer
@@ -641,16 +1138,7 @@ this.TelemetryFeed = class TelemetryFeed {
     if (Object.prototype.hasOwnProperty.call(this, "utEvents")) {
       this.utEvents.uninit();
     }
-    if (Object.prototype.hasOwnProperty.call(this, "pingCentreForASRouter")) {
-      this.pingCentreForASRouter.uninit();
-    }
 
-    try {
-      this._prefs.ignore(TELEMETRY_PREF, this._onTelemetryPrefChange);
-      this._prefs.ignore(EVENTS_TELEMETRY_PREF, this._onEventsTelemetryPrefChange);
-    } catch (e) {
-      Cu.reportError(e);
-    }
     // TODO: Send any unfinished sessions
   }
 };
@@ -661,4 +1149,5 @@ const EXPORTED_SYMBOLS = [
   "PREF_IMPRESSION_ID",
   "TELEMETRY_PREF",
   "EVENTS_TELEMETRY_PREF",
+  "STRUCTURED_INGESTION_ENDPOINT_PREF",
 ];

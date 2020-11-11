@@ -1,4 +1,3 @@
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -24,18 +23,18 @@ const TEST_URI = `
 
 add_task(async function() {
   await addTab("data:text/html;charset=utf-8," + encodeURIComponent(TEST_URI));
-  const {inspector, view} = await openRuleView();
+  const { inspector, view } = await openRuleView();
   await selectNode("#testid", inspector);
 
   const ruleEditor = getRuleViewRuleEditor(view, 1);
-  const propEditor = ruleEditor.rule.textProps[1].editor;
+  const propEditor = getTextProperty(view, 1, { "background-color": "blue" })
+    .editor;
 
   await focusEditableField(view, propEditor.valueSpan);
 
   info("Deleting all the text out of a value field");
   let onRuleViewChanged = view.once("ruleview-changed");
-  await sendKeysAndWaitForFocus(view, ruleEditor.element,
-    ["DELETE", "RETURN"]);
+  await sendKeysAndWaitForFocus(view, ruleEditor.element, ["DELETE", "RETURN"]);
   await onRuleViewChanged;
 
   info("Pressing enter a couple times to cycle through editors");
@@ -44,7 +43,6 @@ add_task(async function() {
   await sendKeysAndWaitForFocus(view, ruleEditor.element, ["RETURN"]);
   await onRuleViewChanged;
 
-  isnot(ruleEditor.rule.textProps[1].editor.nameSpan.style.display, "none",
-    "The name span is visible");
+  isnot(propEditor.nameSpan.style.display, "none", "The name span is visible");
   is(ruleEditor.rule.textProps.length, 2, "Correct number of props");
 });

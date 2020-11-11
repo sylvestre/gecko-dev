@@ -5,35 +5,14 @@
  * found in the LICENSE file.
  */
 
-#include "SkDraw.h"
-
-#include "SkGlyphCache.h"
-#include "SkPaintPriv.h"
-#include "SkRasterClip.h"
-#include "SkScalerContext.h"
-#include "SkTextToPathIter.h"
-#include "SkUtils.h"
-
-bool SkDraw::ShouldDrawTextAsPaths(const SkPaint& paint, const SkMatrix& ctm, SkScalar sizeLimit) {
-    // hairline glyphs are fast enough so we don't need to cache them
-    if (SkPaint::kStroke_Style == paint.getStyle() && 0 == paint.getStrokeWidth()) {
-        return true;
-    }
-
-    // we don't cache perspective
-    if (ctm.hasPerspective()) {
-        return true;
-    }
-
-    // Glyphs like Emojis can't be rendered as a path.
-    if (paint.getTypeface() && paint.getTypeface()->hasColorGlyphs()) {
-      return false;
-    }
-
-    SkMatrix textM;
-    SkPaintPriv::MakeTextMatrix(&textM, paint);
-    return SkPaint::TooBigToUseCache(ctm, textM, sizeLimit);
-}
+#include "src/core/SkDraw.h"
+#include "src/core/SkFontPriv.h"
+#include "src/core/SkPaintPriv.h"
+#include "src/core/SkRasterClip.h"
+#include "src/core/SkScalerContext.h"
+#include "src/core/SkStrike.h"
+#include "src/core/SkUtils.h"
+#include <climits>
 
 // disable warning : local variable used without having been initialized
 #if defined _WIN32
@@ -43,72 +22,107 @@ bool SkDraw::ShouldDrawTextAsPaths(const SkPaint& paint, const SkMatrix& ctm, Sk
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void SkDraw::blitARGB32Mask(const SkMask& mask, const SkPaint& paint) const {
-    SkASSERT(SkMask::kARGB32_Format == mask.fFormat);
-    SkBitmap bm;
-    bm.installPixels(
-            SkImageInfo::MakeN32Premul(mask.fBounds.width(), mask.fBounds.height()),
-            (SkPMColor*)mask.fImage, mask.fRowBytes);
-
-    this->drawSprite(bm, mask.fBounds.x(), mask.fBounds.y(), paint);
+static bool check_glyph_position(SkPoint position) {
+    // Prevent glyphs from being drawn outside of or straddling the edge of device space.
+    // Comparisons written a little weirdly so that NaN coordinates are treated safely.
+    auto gt = [](float a, int b) { return !(a <= (float)b); };
+    auto lt = [](float a, int b) { return !(a >= (float)b); };
+    return !(gt(position.fX, INT_MAX - (INT16_MAX + SkTo<int>(UINT16_MAX))) ||
+             lt(position.fX, INT_MIN - (INT16_MIN + 0 /*UINT16_MIN*/)) ||
+             gt(position.fY, INT_MAX - (INT16_MAX + SkTo<int>(UINT16_MAX))) ||
+             lt(position.fY, INT_MIN - (INT16_MIN + 0 /*UINT16_MIN*/)));
 }
 
-SkGlyphRunListPainter::PerMask SkDraw::drawOneMaskCreator(
-        const SkPaint& paint, SkArenaAlloc* alloc) const {
-    SkBlitter* blitter = SkBlitter::Choose(fDst, *fMatrix, paint, alloc, false);
-    if (fCoverage != nullptr) {
-        auto coverageBlitter = SkBlitter::Choose(*fCoverage, *fMatrix, SkPaint(), alloc, true);
-        blitter = alloc->make<SkPairBlitter>(blitter, coverageBlitter);
+void SkDraw::paintMasks(SkDrawableGlyphBuffer* drawables, const SkPaint& paint) const {
+
+    // The size used for a typical blitter.
+    SkSTArenaAlloc<3308> alloc;
+    SkBlitter* blitter = SkBlitter::Choose(fDst, *fMatrix, paint, &alloc, false);
+    if (fCoverage) {
+        blitter = alloc.make<SkPairBlitter>(
+                blitter,
+                SkBlitter::Choose(*fCoverage, *fMatrix, SkPaint(), &alloc, true));
     }
 
-    auto wrapaper = alloc->make<SkAAClipBlitterWrapper>(*fRC, blitter);
-    blitter = wrapaper->getBlitter();
+    SkAAClipBlitterWrapper wrapper{*fRC, blitter};
+    blitter = wrapper.getBlitter();
 
-    auto useRegion = fRC->isBW() && !fRC->isRect();
+    bool useRegion = fRC->isBW() && !fRC->isRect();
 
     if (useRegion) {
-        return [this, blitter, &paint](const SkMask& mask, const SkGlyph&, SkPoint) {
-            SkRegion::Cliperator clipper(fRC->bwRgn(), mask.fBounds);
+        for (auto t : drawables->drawable()) {
+            SkGlyphVariant glyph; SkPoint pos;
+            std::tie(glyph, pos) = t;
+            if (check_glyph_position(pos)) {
+                SkMask mask = glyph.glyph()->mask(pos);
 
-            if (!clipper.done()) {
-                if (SkMask::kARGB32_Format == mask.fFormat) {
-                    this->blitARGB32Mask(mask, paint);
-                } else {
-                    const SkIRect& cr = clipper.rect();
-                    do {
-                        blitter->blitMask(mask, cr);
-                        clipper.next();
-                    } while (!clipper.done());
+                SkRegion::Cliperator clipper(fRC->bwRgn(), mask.fBounds);
+
+                if (!clipper.done()) {
+                    if (SkMask::kARGB32_Format == mask.fFormat) {
+                        SkBitmap bm;
+                        bm.installPixels(SkImageInfo::MakeN32Premul(mask.fBounds.size()),
+                                         mask.fImage,
+                                         mask.fRowBytes);
+                        this->drawSprite(bm, mask.fBounds.x(), mask.fBounds.y(), paint);
+                    } else {
+                        const SkIRect& cr = clipper.rect();
+                        do {
+                            blitter->blitMask(mask, cr);
+                            clipper.next();
+                        } while (!clipper.done());
+                    }
                 }
             }
-        };
+        }
     } else {
         SkIRect clipBounds = fRC->isBW() ? fRC->bwRgn().getBounds()
                                          : fRC->aaRgn().getBounds();
-        return [this, blitter, clipBounds, &paint](const SkMask& mask, const SkGlyph&, SkPoint) {
-            SkIRect  storage;
-            const SkIRect* bounds = &mask.fBounds;
+        for (auto t : drawables->drawable()) {
+            SkGlyphVariant glyph; SkPoint pos;
+            std::tie(glyph, pos) = t;
+            if (check_glyph_position(pos)) {
+                SkMask mask = glyph.glyph()->mask(pos);
+                SkIRect storage;
+                const SkIRect* bounds = &mask.fBounds;
 
-            // this extra test is worth it, assuming that most of the time it succeeds
-            // since we can avoid writing to storage
-            if (!clipBounds.containsNoEmptyCheck(mask.fBounds)) {
-                if (!storage.intersectNoEmptyCheck(mask.fBounds, clipBounds)) {
-                    return;
+                // this extra test is worth it, assuming that most of the time it succeeds
+                // since we can avoid writing to storage
+                if (!clipBounds.containsNoEmptyCheck(mask.fBounds)) {
+                    if (!storage.intersect(mask.fBounds, clipBounds)) {
+                        continue;
+                    }
+                    bounds = &storage;
                 }
-                bounds = &storage;
-            }
 
-            if (SkMask::kARGB32_Format == mask.fFormat) {
-                this->blitARGB32Mask(mask, paint);
-            } else {
-                blitter->blitMask(mask, *bounds);
+                if (SkMask::kARGB32_Format == mask.fFormat) {
+                    SkBitmap bm;
+                    bm.installPixels(SkImageInfo::MakeN32Premul(mask.fBounds.size()),
+                                     mask.fImage,
+                                     mask.fRowBytes);
+                    this->drawSprite(bm, mask.fBounds.x(), mask.fBounds.y(), paint);
+                } else {
+                    blitter->blitMask(mask, *bounds);
+                }
             }
-        };
+        }
     }
 }
 
-void SkDraw::drawGlyphRunList(
-        const SkGlyphRunList& glyphRunList, SkGlyphRunListPainter* glyphPainter) const {
+void SkDraw::paintPaths(SkDrawableGlyphBuffer* drawables,
+                        SkScalar scale,
+                        const SkPaint& paint) const {
+    for (auto t : drawables->drawable()) {
+        SkGlyphVariant path; SkPoint pos;
+        std::tie(path, pos) = t;
+        SkMatrix m;
+        m.setScaleTranslate(scale, scale, pos.x(), pos.y());
+        this->drawPath(*path.path(), paint, &m, false);
+    }
+}
+
+void SkDraw::drawGlyphRunList(const SkGlyphRunList& glyphRunList,
+                              SkGlyphRunListPainter* glyphPainter) const {
 
     SkDEBUGCODE(this->validate();)
 
@@ -116,27 +130,7 @@ void SkDraw::drawGlyphRunList(
         return;
     }
 
-    SkMatrix renderMatrix{*fMatrix};
-    auto perPathBuilder = [this, &renderMatrix]
-            (const SkPaint& paint, SkScalar scaleMatrix, SkArenaAlloc*) {
-        renderMatrix.setScale(scaleMatrix, scaleMatrix);
-        auto perPath =
-                [this, &renderMatrix, &paint]
-                (const SkPath* path, const SkGlyph&, SkPoint position) {
-            if (path != nullptr) {
-                renderMatrix[SkMatrix::kMTransX] = position.fX;
-                renderMatrix[SkMatrix::kMTransY] = position.fY;
-                this->drawPath(*path, paint, &renderMatrix, false);
-            }
-        };
-        return perPath;
-    };
-
-    auto perMaskBuilder = [this](const SkPaint& paint, SkArenaAlloc* alloc) {
-        return this->drawOneMaskCreator(paint, alloc);
-    };
-
-    glyphPainter->drawForBitmapDevice(glyphRunList, *fMatrix, perMaskBuilder, perPathBuilder);
+    glyphPainter->drawForBitmapDevice(glyphRunList, *fMatrix, this);
 }
 
 #if defined _WIN32

@@ -8,6 +8,7 @@
 #include "mozilla/dom/HTMLHeadingElementBinding.h"
 
 #include "mozilla/MappedDeclarations.h"
+#include "mozilla/StaticPrefs_accessibility.h"
 #include "nsGkAtoms.h"
 #include "nsStyleConsts.h"
 #include "nsMappedAttributes.h"
@@ -15,10 +16,9 @@
 
 NS_IMPL_NS_NEW_HTML_ELEMENT(Heading)
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
-HTMLHeadingElement::~HTMLHeadingElement() {}
+HTMLHeadingElement::~HTMLHeadingElement() = default;
 
 NS_IMPL_ELEMENT_CLONE(HTMLHeadingElement)
 
@@ -59,5 +59,4 @@ nsMapRuleToAttributesFunc HTMLHeadingElement::GetAttributeMappingFunction()
   return &MapAttributesIntoRule;
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

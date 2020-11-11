@@ -17,48 +17,12 @@ WebGLExtensionInstancedArrays::WebGLExtensionInstancedArrays(
   MOZ_ASSERT(IsSupported(webgl), "Don't construct extension if unsupported.");
 }
 
-WebGLExtensionInstancedArrays::~WebGLExtensionInstancedArrays() {}
-
-void WebGLExtensionInstancedArrays::DrawArraysInstancedANGLE(
-    GLenum mode, GLint first, GLsizei count, GLsizei primcount) {
-  if (mIsLost) {
-    mContext->ErrorInvalidOperation("%s: Extension is lost.",
-                                    "drawArraysInstancedANGLE");
-    return;
-  }
-
-  mContext->DrawArraysInstanced(mode, first, count, primcount);
-}
-
-void WebGLExtensionInstancedArrays::DrawElementsInstancedANGLE(
-    GLenum mode, GLsizei count, GLenum type, WebGLintptr offset,
-    GLsizei primcount) {
-  if (mIsLost) {
-    mContext->ErrorInvalidOperation("%s: Extension is lost.",
-                                    "drawElementsInstancedANGLE");
-    return;
-  }
-
-  mContext->DrawElementsInstanced(mode, count, type, offset, primcount);
-}
-
-void WebGLExtensionInstancedArrays::VertexAttribDivisorANGLE(GLuint index,
-                                                             GLuint divisor) {
-  if (mIsLost) {
-    mContext->ErrorInvalidOperation("%s: Extension is lost.",
-                                    "vertexAttribDivisorANGLE");
-    return;
-  }
-
-  mContext->VertexAttribDivisor(index, divisor);
-}
-
 bool WebGLExtensionInstancedArrays::IsSupported(const WebGLContext* webgl) {
+  if (webgl->IsWebGL2()) return false;
+
   gl::GLContext* gl = webgl->GL();
   return gl->IsSupported(gl::GLFeature::draw_instanced) &&
          gl->IsSupported(gl::GLFeature::instanced_arrays);
 }
-
-IMPL_WEBGL_EXTENSION_GOOP(WebGLExtensionInstancedArrays, ANGLE_instanced_arrays)
 
 }  // namespace mozilla

@@ -5,7 +5,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "gtest/gtest.h"
-#include "nsIObserverService.h"
 #include "mozilla/StaticPtr.h"
 #include "GMPTestMonitor.h"
 #include "GMPVideoDecoderProxy.h"
@@ -16,15 +15,13 @@
 #include "mozilla/DebugOnly.h"
 #include "nsThreadUtils.h"
 
-using namespace std;
-
 using namespace mozilla;
 using namespace mozilla::gmp;
 
 struct GMPTestRunner {
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(GMPTestRunner)
 
-  GMPTestRunner() {}
+  GMPTestRunner() = default;
   void DoTest(void (GMPTestRunner::*aTestMethod)(GMPTestMonitor&));
   void RunTestGMPTestCodec1(GMPTestMonitor& aMonitor);
   void RunTestGMPTestCodec2(GMPTestMonitor& aMonitor);
@@ -35,7 +32,7 @@ struct GMPTestRunner {
   void RunTestGMPCrossOrigin4(GMPTestMonitor& aMonitor);
 
  private:
-  ~GMPTestRunner() {}
+  ~GMPTestRunner() = default;
 };
 
 template <class T, class Base,
@@ -67,15 +64,14 @@ class RunTestGMPVideoCodec : public Base {
 
   static nsresult Get(const nsACString& aNodeId, UniquePtr<Base>&& aCallback) {
     nsTArray<nsCString> tags;
-    tags.AppendElement(NS_LITERAL_CSTRING("h264"));
-    tags.AppendElement(NS_LITERAL_CSTRING("fake"));
+    tags.AppendElement("h264"_ns);
+    tags.AppendElement("fake"_ns);
 
     RefPtr<GeckoMediaPluginService> service =
         GeckoMediaPluginService::GetGeckoMediaPluginService();
     return ((*service).*Getter)(nullptr, &tags, aNodeId, std::move(aCallback));
   }
 
- protected:
   GMPTestMonitor& mMonitor;
 };
 
@@ -87,15 +83,15 @@ typedef RunTestGMPVideoCodec<GMPVideoEncoderProxy, GetGMPVideoEncoderCallback,
     RunTestGMPVideoEncoder;
 
 void GMPTestRunner::RunTestGMPTestCodec1(GMPTestMonitor& aMonitor) {
-  RunTestGMPVideoDecoder::Run(aMonitor, NS_LITERAL_CSTRING("o"));
+  RunTestGMPVideoDecoder::Run(aMonitor, "o"_ns);
 }
 
 void GMPTestRunner::RunTestGMPTestCodec2(GMPTestMonitor& aMonitor) {
-  RunTestGMPVideoDecoder::Run(aMonitor, NS_LITERAL_CSTRING(""));
+  RunTestGMPVideoDecoder::Run(aMonitor, ""_ns);
 }
 
 void GMPTestRunner::RunTestGMPTestCodec3(GMPTestMonitor& aMonitor) {
-  RunTestGMPVideoEncoder::Run(aMonitor, NS_LITERAL_CSTRING(""));
+  RunTestGMPVideoEncoder::Run(aMonitor, ""_ns);
 }
 
 template <class Base>
@@ -165,23 +161,19 @@ typedef RunTestGMPCrossOrigin<RunTestGMPVideoEncoder>
     RunTestGMPVideoEncoderCrossOrigin;
 
 void GMPTestRunner::RunTestGMPCrossOrigin1(GMPTestMonitor& aMonitor) {
-  RunTestGMPVideoDecoderCrossOrigin::Run(
-      aMonitor, NS_LITERAL_CSTRING("origin1"), NS_LITERAL_CSTRING("origin2"));
+  RunTestGMPVideoDecoderCrossOrigin::Run(aMonitor, "origin1"_ns, "origin2"_ns);
 }
 
 void GMPTestRunner::RunTestGMPCrossOrigin2(GMPTestMonitor& aMonitor) {
-  RunTestGMPVideoEncoderCrossOrigin::Run(
-      aMonitor, NS_LITERAL_CSTRING("origin1"), NS_LITERAL_CSTRING("origin2"));
+  RunTestGMPVideoEncoderCrossOrigin::Run(aMonitor, "origin1"_ns, "origin2"_ns);
 }
 
 void GMPTestRunner::RunTestGMPCrossOrigin3(GMPTestMonitor& aMonitor) {
-  RunTestGMPVideoDecoderCrossOrigin::Run(
-      aMonitor, NS_LITERAL_CSTRING("origin1"), NS_LITERAL_CSTRING("origin1"));
+  RunTestGMPVideoDecoderCrossOrigin::Run(aMonitor, "origin1"_ns, "origin1"_ns);
 }
 
 void GMPTestRunner::RunTestGMPCrossOrigin4(GMPTestMonitor& aMonitor) {
-  RunTestGMPVideoEncoderCrossOrigin::Run(
-      aMonitor, NS_LITERAL_CSTRING("origin1"), NS_LITERAL_CSTRING("origin1"));
+  RunTestGMPVideoEncoderCrossOrigin::Run(aMonitor, "origin1"_ns, "origin1"_ns);
 }
 
 void GMPTestRunner::DoTest(
@@ -198,14 +190,16 @@ void GMPTestRunner::DoTest(
   monitor.AwaitFinished();
 }
 
-TEST(GeckoMediaPlugins, GMPTestCodec) {
+TEST(GeckoMediaPlugins, GMPTestCodec)
+{
   RefPtr<GMPTestRunner> runner = new GMPTestRunner();
   runner->DoTest(&GMPTestRunner::RunTestGMPTestCodec1);
   runner->DoTest(&GMPTestRunner::RunTestGMPTestCodec2);
   runner->DoTest(&GMPTestRunner::RunTestGMPTestCodec3);
 }
 
-TEST(GeckoMediaPlugins, GMPCrossOrigin) {
+TEST(GeckoMediaPlugins, GMPCrossOrigin)
+{
   RefPtr<GMPTestRunner> runner = new GMPTestRunner();
   runner->DoTest(&GMPTestRunner::RunTestGMPCrossOrigin1);
   runner->DoTest(&GMPTestRunner::RunTestGMPCrossOrigin2);

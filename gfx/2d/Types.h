@@ -7,9 +7,13 @@
 #ifndef MOZILLA_GFX_TYPES_H_
 #define MOZILLA_GFX_TYPES_H_
 
+#include "mozilla/DefineEnum.h"  // for MOZ_DEFINE_ENUM_CLASS_WITH_BASE
 #include "mozilla/EndianUtils.h"
+#include "mozilla/EnumeratedRange.h"
 #include "mozilla/MacroArgs.h"  // for MOZ_CONCAT
+#include "mozilla/TypedEnumBits.h"
 
+#include <iosfwd>  // for ostream
 #include <stddef.h>
 #include <stdint.h>
 
@@ -31,10 +35,13 @@ enum class SurfaceType : int8_t {
   DUAL_DT,                /* Snapshot of a dual drawtarget */
   D2D1_1_IMAGE,           /* A D2D 1.1 ID2D1Image SourceSurface */
   RECORDING,              /* Surface used for recording */
+  WRAP_AND_RECORD,        /* Surface used for wrap and record */
   TILED,                  /* Surface from a tiled DrawTarget */
   DATA_SHARED,            /* Data surface using shared memory */
   CAPTURE,                /* Data from a DrawTargetCapture */
-  DATA_RECYCLING_SHARED   /* Data surface using shared memory */
+  DATA_RECYCLING_SHARED,  /* Data surface using shared memory */
+  OFFSET,                 /* Offset */
+  DATA_ALIGNED,           /* Data surface using aligned heap memory */
 };
 
 enum class SurfaceFormat : int8_t {
@@ -62,17 +69,18 @@ enum class SurfaceFormat : int8_t {
   A16,
 
   R8G8,
+  R16G16,
 
   // These ones are their own special cases.
   YUV,
-  NV12,  // YUV 4:2:0 image with a plane of 8 bit Y samples followed by
-         // an interleaved U/V plane containing 8 bit 2x2 subsampled
-         // colour difference samples.
-  P016,  // Similar to NV12, but with 16 bits plane values
-  P010,  // Identical to P016 but the 6 least significant bits are 0.
-         // With DXGI in theory entirely compatible, however practice has
-         // shown that it's not the case.
-  YUV422,
+  NV12,    // YUV 4:2:0 image with a plane of 8 bit Y samples followed by
+           // an interleaved U/V plane containing 8 bit 2x2 subsampled
+           // colour difference samples.
+  P016,    // Similar to NV12, but with 16 bits plane values
+  P010,    // Identical to P016 but the 6 least significant bits are 0.
+           // With DXGI in theory entirely compatible, however practice has
+           // shown that it's not the case.
+  YUV422,  // Single plane YUV 4:2:2 interleaved as Y`0 Cb Y`1 Cr.
   HSV,
   Lab,
   Depth,
@@ -83,16 +91,66 @@ enum class SurfaceFormat : int8_t {
 // The following values are endian-independent synonyms. The _UINT32 suffix
 // indicates that the name reflects the layout when viewed as a uint32_t
 // value.
-#if MOZ_LITTLE_ENDIAN
+#if MOZ_LITTLE_ENDIAN()
   A8R8G8B8_UINT32 = B8G8R8A8,  // 0xAARRGGBB
-  X8R8G8B8_UINT32 = B8G8R8X8   // 0x00RRGGBB
-#elif MOZ_BIG_ENDIAN
+  X8R8G8B8_UINT32 = B8G8R8X8,  // 0x00RRGGBB
+#elif MOZ_BIG_ENDIAN()
   A8R8G8B8_UINT32 = A8R8G8B8,  // 0xAARRGGBB
-  X8R8G8B8_UINT32 = X8R8G8B8   // 0x00RRGGBB
+  X8R8G8B8_UINT32 = X8R8G8B8,  // 0x00RRGGBB
 #else
-#error "bad endianness"
+#  error "bad endianness"
 #endif
+
+  // The following values are OS and endian-independent synonyms.
+  //
+  // TODO(aosmond): When everything blocking bug 1581828 has been resolved, we
+  // can make this use R8B8G8A8 and R8B8G8X8 for non-Windows platforms.
+  OS_RGBA = A8R8G8B8_UINT32,
+  OS_RGBX = X8R8G8B8_UINT32
 };
+
+std::ostream& operator<<(std::ostream& aOut, const SurfaceFormat& aFormat);
+
+// Represents the bit-shifts required to access color channels when the layout
+// is viewed as a uint32_t value.
+enum class SurfaceFormatBit : uint32_t {
+#if MOZ_LITTLE_ENDIAN()
+  R8G8B8A8_R = 0,
+  R8G8B8A8_G = 8,
+  R8G8B8A8_B = 16,
+  R8G8B8A8_A = 24,
+#elif MOZ_BIG_ENDIAN()
+  R8G8B8A8_A = 0,
+  R8G8B8A8_B = 8,
+  R8G8B8A8_G = 16,
+  R8G8B8A8_R = 24,
+#else
+#  error "bad endianness"
+#endif
+
+  // The following values are endian-independent for A8R8G8B8_UINT32.
+  A8R8G8B8_UINT32_B = 0,
+  A8R8G8B8_UINT32_G = 8,
+  A8R8G8B8_UINT32_R = 16,
+  A8R8G8B8_UINT32_A = 24,
+
+  // The following values are OS and endian-independent.
+  //
+  // TODO(aosmond): When everything blocking bug 1581828 has been resolved, we
+  // can make this use R8G8B8A8_X for non-Windows platforms.
+  OS_R = A8R8G8B8_UINT32_R,
+  OS_G = A8R8G8B8_UINT32_G,
+  OS_B = A8R8G8B8_UINT32_B,
+  OS_A = A8R8G8B8_UINT32_A,
+};
+
+inline uint32_t operator<<(uint8_t a, SurfaceFormatBit b) {
+  return a << static_cast<uint32_t>(b);
+}
+
+inline uint32_t operator>>(uint32_t a, SurfaceFormatBit b) {
+  return a >> static_cast<uint32_t>(b);
+}
 
 static inline int BytesPerPixel(SurfaceFormat aFormat) {
   switch (aFormat) {
@@ -137,6 +195,17 @@ inline bool IsOpaque(SurfaceFormat aFormat) {
   }
 }
 
+// The matrix coeffiecients used for YUV to RGB conversion.
+enum class YUVColorSpace : uint8_t {
+  BT601,
+  BT709,
+  BT2020,
+  Identity,  // aka RGB
+  // This represents the unknown format and is a valid value.
+  UNKNOWN,
+  _NUM_COLORSPACE
+};
+
 enum class ColorDepth : uint8_t {
   COLOR_8,
   COLOR_10,
@@ -144,6 +213,8 @@ enum class ColorDepth : uint8_t {
   COLOR_16,
   UNKNOWN
 };
+
+enum class ColorRange : uint8_t { LIMITED, FULL, UNKNOWN };
 
 static inline SurfaceFormat SurfaceFormatForColorDepth(ColorDepth aColorDepth) {
   SurfaceFormat format = SurfaceFormat::A8;
@@ -266,6 +337,7 @@ enum class BackendType : int8_t {
   RECORDING,
   DIRECT2D1_1,
   WEBRENDER_TEXT,
+  CAPTURE,  // Used for paths
 
   // Add new entries above this line.
   BACKEND_LAST
@@ -286,12 +358,6 @@ enum class NativeSurfaceType : int8_t {
   CGCONTEXT,
   CGCONTEXT_ACCELERATED,
   OPENGL_TEXTURE
-};
-
-enum class NativeFontType : int8_t {
-  GDI_LOGFONT,
-  FREETYPE_FACE,
-  FONTCONFIG_PATTERN,
 };
 
 enum class FontStyle : int8_t { NORMAL, ITALIC, BOLD, BOLD_ITALIC };
@@ -350,12 +416,17 @@ enum class SamplingFilter : int8_t {
   SENTINEL  // one past the last valid value
 };
 
-enum class PatternType : int8_t {
+std::ostream& operator<<(std::ostream& aOut, const SamplingFilter& aFilter);
+
+// clang-format off
+MOZ_DEFINE_ENUM_CLASS_WITH_BASE(PatternType, int8_t, (
   COLOR,
   SURFACE,
   LINEAR_GRADIENT,
-  RADIAL_GRADIENT
-};
+  RADIAL_GRADIENT,
+  CONIC_GRADIENT
+));
+// clang-format on
 
 enum class JoinStyle : int8_t {
   BEVEL,
@@ -376,29 +447,44 @@ enum class LuminanceType : int8_t {
   LINEARRGB,
 };
 
-/* Color is stored in non-premultiplied form */
-struct Color {
+/* Color is stored in non-premultiplied form in sRGB color space */
+struct sRGBColor {
  public:
-  Color() : r(0.0f), g(0.0f), b(0.0f), a(0.0f) {}
-  Color(Float aR, Float aG, Float aB, Float aA) : r(aR), g(aG), b(aB), a(aA) {}
-  Color(Float aR, Float aG, Float aB) : r(aR), g(aG), b(aB), a(1.0f) {}
+  constexpr sRGBColor() : r(0.0f), g(0.0f), b(0.0f), a(0.0f) {}
+  constexpr sRGBColor(Float aR, Float aG, Float aB, Float aA)
+      : r(aR), g(aG), b(aB), a(aA) {}
+  constexpr sRGBColor(Float aR, Float aG, Float aB)
+      : r(aR), g(aG), b(aB), a(1.0f) {}
 
-  static Color FromABGR(uint32_t aColor) {
-    Color newColor(((aColor >> 0) & 0xff) * (1.0f / 255.0f),
-                   ((aColor >> 8) & 0xff) * (1.0f / 255.0f),
-                   ((aColor >> 16) & 0xff) * (1.0f / 255.0f),
-                   ((aColor >> 24) & 0xff) * (1.0f / 255.0f));
+  static sRGBColor White(float aA) { return sRGBColor(1.f, 1.f, 1.f, aA); }
+
+  static sRGBColor Black(float aA) { return sRGBColor(0.f, 0.f, 0.f, aA); }
+
+  static sRGBColor OpaqueWhite() { return White(1.f); }
+
+  static sRGBColor OpaqueBlack() { return Black(1.f); }
+
+  static sRGBColor FromU8(uint8_t aR, uint8_t aG, uint8_t aB, uint8_t aA) {
+    return sRGBColor(float(aR) / 255.f, float(aG) / 255.f, float(aB) / 255.f,
+                     float(aA) / 255.f);
+  }
+
+  static sRGBColor FromABGR(uint32_t aColor) {
+    sRGBColor newColor(((aColor >> 0) & 0xff) * (1.0f / 255.0f),
+                       ((aColor >> 8) & 0xff) * (1.0f / 255.0f),
+                       ((aColor >> 16) & 0xff) * (1.0f / 255.0f),
+                       ((aColor >> 24) & 0xff) * (1.0f / 255.0f));
 
     return newColor;
   }
 
   // The "Unusual" prefix is to avoid unintentionally using this function when
   // FromABGR(), which is much more common, is needed.
-  static Color UnusualFromARGB(uint32_t aColor) {
-    Color newColor(((aColor >> 16) & 0xff) * (1.0f / 255.0f),
-                   ((aColor >> 8) & 0xff) * (1.0f / 255.0f),
-                   ((aColor >> 0) & 0xff) * (1.0f / 255.0f),
-                   ((aColor >> 24) & 0xff) * (1.0f / 255.0f));
+  static sRGBColor UnusualFromARGB(uint32_t aColor) {
+    sRGBColor newColor(((aColor >> 16) & 0xff) * (1.0f / 255.0f),
+                       ((aColor >> 8) & 0xff) * (1.0f / 255.0f),
+                       ((aColor >> 0) & 0xff) * (1.0f / 255.0f),
+                       ((aColor >> 24) & 0xff) * (1.0f / 255.0f));
 
     return newColor;
   }
@@ -415,11 +501,85 @@ struct Color {
            uint32_t(r * 255.0f) << 16 | uint32_t(a * 255.0f) << 24;
   }
 
-  bool operator==(const Color& aColor) const {
+  bool operator==(const sRGBColor& aColor) const {
     return r == aColor.r && g == aColor.g && b == aColor.b && a == aColor.a;
   }
 
-  bool operator!=(const Color& aColor) const { return !(*this == aColor); }
+  bool operator!=(const sRGBColor& aColor) const { return !(*this == aColor); }
+
+  Float r, g, b, a;
+};
+
+/* Color is stored in non-premultiplied form in device color space */
+struct DeviceColor {
+ public:
+  DeviceColor() : r(0.0f), g(0.0f), b(0.0f), a(0.0f) {}
+  DeviceColor(Float aR, Float aG, Float aB, Float aA)
+      : r(aR), g(aG), b(aB), a(aA) {}
+  DeviceColor(Float aR, Float aG, Float aB) : r(aR), g(aG), b(aB), a(1.0f) {}
+
+  /* The following Mask* variants are helpers used to make it clear when a
+   * particular color is being used for masking purposes. These masks should
+   * never be colored managed. */
+  static DeviceColor Mask(float aC, float aA) {
+    return DeviceColor(aC, aC, aC, aA);
+  }
+
+  static DeviceColor MaskWhite(float aA) { return Mask(1.f, aA); }
+
+  static DeviceColor MaskBlack(float aA) { return Mask(0.f, aA); }
+
+  static DeviceColor MaskOpaqueWhite() { return MaskWhite(1.f); }
+
+  static DeviceColor MaskOpaqueBlack() { return MaskBlack(1.f); }
+
+  static DeviceColor FromU8(uint8_t aR, uint8_t aG, uint8_t aB, uint8_t aA) {
+    return DeviceColor(float(aR) / 255.f, float(aG) / 255.f, float(aB) / 255.f,
+                       float(aA) / 255.f);
+  }
+
+  static DeviceColor FromABGR(uint32_t aColor) {
+    DeviceColor newColor(((aColor >> 0) & 0xff) * (1.0f / 255.0f),
+                         ((aColor >> 8) & 0xff) * (1.0f / 255.0f),
+                         ((aColor >> 16) & 0xff) * (1.0f / 255.0f),
+                         ((aColor >> 24) & 0xff) * (1.0f / 255.0f));
+
+    return newColor;
+  }
+
+  // The "Unusual" prefix is to avoid unintentionally using this function when
+  // FromABGR(), which is much more common, is needed.
+  static DeviceColor UnusualFromARGB(uint32_t aColor) {
+    DeviceColor newColor(((aColor >> 16) & 0xff) * (1.0f / 255.0f),
+                         ((aColor >> 8) & 0xff) * (1.0f / 255.0f),
+                         ((aColor >> 0) & 0xff) * (1.0f / 255.0f),
+                         ((aColor >> 24) & 0xff) * (1.0f / 255.0f));
+
+    return newColor;
+  }
+
+  uint32_t ToABGR() const {
+    return uint32_t(r * 255.0f) | uint32_t(g * 255.0f) << 8 |
+           uint32_t(b * 255.0f) << 16 | uint32_t(a * 255.0f) << 24;
+  }
+
+  // The "Unusual" prefix is to avoid unintentionally using this function when
+  // ToABGR(), which is much more common, is needed.
+  uint32_t UnusualToARGB() const {
+    return uint32_t(b * 255.0f) | uint32_t(g * 255.0f) << 8 |
+           uint32_t(r * 255.0f) << 16 | uint32_t(a * 255.0f) << 24;
+  }
+
+  bool operator==(const DeviceColor& aColor) const {
+    return r == aColor.r && g == aColor.g && b == aColor.b && a == aColor.a;
+  }
+
+  bool operator!=(const DeviceColor& aColor) const {
+    return !(*this == aColor);
+  }
+
+  friend std::ostream& operator<<(std::ostream& aOut,
+                                  const DeviceColor& aColor);
 
   Float r, g, b, a;
 };
@@ -430,7 +590,7 @@ struct GradientStop {
   }
 
   Float offset;
-  Color color;
+  DeviceColor color;
 };
 
 enum class JobStatus { Complete, Wait, Yield, Error };
@@ -442,50 +602,38 @@ enum class JobStatus { Complete, Wait, Yield, Error };
 typedef mozilla::gfx::SurfaceFormat gfxImageFormat;
 
 #if defined(XP_WIN) && defined(MOZ_GFX)
-#ifdef GFX2D_INTERNAL
-#define GFX2D_API __declspec(dllexport)
+#  ifdef GFX2D_INTERNAL
+#    define GFX2D_API __declspec(dllexport)
+#  else
+#    define GFX2D_API __declspec(dllimport)
+#  endif
 #else
-#define GFX2D_API __declspec(dllimport)
-#endif
-#else
-#define GFX2D_API
+#  define GFX2D_API
 #endif
 
 namespace mozilla {
 
 // Side constants for use in various places.
-enum Side { eSideTop, eSideRight, eSideBottom, eSideLeft };
+enum Side : uint8_t { eSideTop, eSideRight, eSideBottom, eSideLeft };
 
-enum SideBits {
-  eSideBitsNone = 0,
-  eSideBitsTop = 1 << eSideTop,
-  eSideBitsRight = 1 << eSideRight,
-  eSideBitsBottom = 1 << eSideBottom,
-  eSideBitsLeft = 1 << eSideLeft,
-  eSideBitsTopBottom = eSideBitsTop | eSideBitsBottom,
-  eSideBitsLeftRight = eSideBitsLeft | eSideBitsRight,
-  eSideBitsAll = eSideBitsTopBottom | eSideBitsLeftRight
-};
-
-// Creates a for loop that walks over the four mozilla::Side values.
-// We use an int32_t helper variable (instead of a Side) for our loop counter,
-// to avoid triggering undefined behavior just before we exit the loop (at
-// which point the counter is incremented beyond the largest valid Side value).
-#define NS_FOR_CSS_SIDES(var_)                                               \
-  int32_t MOZ_CONCAT(var_, __LINE__) = mozilla::eSideTop;                    \
-  for (mozilla::Side var_;                                                   \
-       MOZ_CONCAT(var_, __LINE__) <= mozilla::eSideLeft &&                   \
-       (static_cast<void>(var_ = mozilla::Side(MOZ_CONCAT(var_, __LINE__))), \
-        true);                                                               \
-       ++MOZ_CONCAT(var_, __LINE__))
-
-static inline Side& operator++(Side& side) {
-  MOZ_ASSERT(side >= eSideTop && side <= eSideLeft, "Out of range side");
-  side = Side(side + 1);
-  return side;
+constexpr auto AllPhysicalSides() {
+  return mozilla::MakeInclusiveEnumeratedRange(eSideTop, eSideLeft);
 }
 
-enum Corner {
+enum class SideBits {
+  eNone = 0,
+  eTop = 1 << eSideTop,
+  eRight = 1 << eSideRight,
+  eBottom = 1 << eSideBottom,
+  eLeft = 1 << eSideLeft,
+  eTopBottom = SideBits::eTop | SideBits::eBottom,
+  eLeftRight = SideBits::eLeft | SideBits::eRight,
+  eAll = SideBits::eTopBottom | SideBits::eLeftRight
+};
+
+MOZ_MAKE_ENUM_CLASS_BITWISE_OPERATORS(SideBits)
+
+enum Corner : uint8_t {
   // This order is important!
   eCornerTopLeft = 0,
   eCornerTopRight = 1,
@@ -498,25 +646,13 @@ enum Corner {
 // switch-case.
 constexpr int eCornerCount = 4;
 
-// Creates a for loop that walks over the four mozilla::Corner values. This
-// implementation uses the same technique as NS_FOR_CSS_SIDES.
-#define NS_FOR_CSS_FULL_CORNERS(var_)                                          \
-  int32_t MOZ_CONCAT(var_, __LINE__) = mozilla::eCornerTopLeft;                \
-  for (mozilla::Corner var_;                                                   \
-       MOZ_CONCAT(var_, __LINE__) <= mozilla::eCornerBottomLeft &&             \
-       (static_cast<void>(var_ = mozilla::Corner(MOZ_CONCAT(var_, __LINE__))), \
-        true);                                                                 \
-       ++MOZ_CONCAT(var_, __LINE__))
-
-static inline Corner operator++(Corner& aCorner) {
-  MOZ_ASSERT(aCorner >= eCornerTopLeft && aCorner <= eCornerBottomLeft,
-             "Out of range corner!");
-  aCorner = Corner(aCorner + 1);
-  return aCorner;
+constexpr auto AllPhysicalCorners() {
+  return mozilla::MakeInclusiveEnumeratedRange(eCornerTopLeft,
+                                               eCornerBottomLeft);
 }
 
 // Indices into "half corner" arrays (nsStyleCorners e.g.)
-enum HalfCorner {
+enum HalfCorner : uint8_t {
   // This order is important!
   eCornerTopLeftX = 0,
   eCornerTopLeftY = 1,
@@ -528,27 +664,13 @@ enum HalfCorner {
   eCornerBottomLeftY = 7
 };
 
-// Creates a for loop that walks over the eight mozilla::HalfCorner values.
-// This implementation uses the same technique as NS_FOR_CSS_SIDES.
-#define NS_FOR_CSS_HALF_CORNERS(var_)                                \
-  int32_t MOZ_CONCAT(var_, __LINE__) = mozilla::eCornerTopLeftX;     \
-  for (mozilla::HalfCorner var_;                                     \
-       MOZ_CONCAT(var_, __LINE__) <= mozilla::eCornerBottomLeftY &&  \
-       (static_cast<void>(                                           \
-            var_ = mozilla::HalfCorner(MOZ_CONCAT(var_, __LINE__))), \
-        true);                                                       \
-       ++MOZ_CONCAT(var_, __LINE__))
-
-static inline HalfCorner operator++(HalfCorner& aHalfCorner) {
-  MOZ_ASSERT(
-      aHalfCorner >= eCornerTopLeftX && aHalfCorner <= eCornerBottomLeftY,
-      "Out of range half corner!");
-  aHalfCorner = HalfCorner(aHalfCorner + 1);
-  return aHalfCorner;
+constexpr auto AllPhysicalHalfCorners() {
+  return mozilla::MakeInclusiveEnumeratedRange(eCornerTopLeftX,
+                                               eCornerBottomLeftY);
 }
 
 // The result of these conversion functions are exhaustively checked in
-// nsStyleCoord.cpp, which also serves as usage examples.
+// nsFrame.cpp, which also serves as usage examples.
 
 constexpr bool HalfCornerIsX(HalfCorner aHalfCorner) {
   return !(aHalfCorner % 2);

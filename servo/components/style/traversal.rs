@@ -45,12 +45,19 @@ impl<E: TElement> PreTraverseToken<E> {
     }
 }
 
+/// A global variable holding the state of
+/// `is_servo_nonincremental_layout()`.
+/// See [#22854](https://github.com/servo/servo/issues/22854).
+#[cfg(feature = "servo")]
+pub static IS_SERVO_NONINCREMENTAL_LAYOUT: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
 #[cfg(feature = "servo")]
 #[inline]
 fn is_servo_nonincremental_layout() -> bool {
-    use servo_config::opts;
+    use std::sync::atomic::Ordering;
 
-    opts::get().nonincremental_layout
+    IS_SERVO_NONINCREMENTAL_LAYOUT.load(Ordering::Relaxed)
 }
 
 #[cfg(not(feature = "servo"))]
@@ -208,11 +215,11 @@ pub trait DomTraversal<E: TElement>: Sync {
         // animation-only restyle hint or recascade.
         if traversal_flags.for_animation_only() {
             return data.map_or(false, |d| d.has_styles()) &&
-                (el.has_animation_only_dirty_descendants() || data
-                    .as_ref()
-                    .unwrap()
-                    .hint
-                    .has_animation_hint_or_recascade());
+                (el.has_animation_only_dirty_descendants() ||
+                    data.as_ref()
+                        .unwrap()
+                        .hint
+                        .has_animation_hint_or_recascade());
         }
 
         // Non-incremental layout visits every node.
@@ -260,7 +267,6 @@ pub trait DomTraversal<E: TElement>: Sync {
         context: &mut StyleContext<E>,
         parent: E,
         parent_data: &ElementData,
-        is_initial_style: bool,
     ) -> bool {
         debug_assert!(
             parent.has_current_styles_for_traversal(parent_data, context.shared.traversal_flags)
@@ -269,21 +275,6 @@ pub trait DomTraversal<E: TElement>: Sync {
         // If the parent computed display:none, we don't style the subtree.
         if parent_data.styles.is_display_none() {
             debug!("Parent {:?} is display:none, culling traversal", parent);
-            return true;
-        }
-
-        // Gecko-only XBL handling.
-        //
-        // When we apply the XBL binding during frame construction, we restyle
-        // the whole subtree again if the binding is valid, so assuming it's
-        // likely to load valid bindings, we avoid wasted work here, which may
-        // be a very big perf hit when elements with bindings are nested
-        // heavily.
-        if cfg!(feature = "gecko") &&
-            is_initial_style &&
-            parent_data.styles.primary().has_moz_binding()
-        {
-            debug!("Parent {:?} has XBL binding, deferring traversal", parent);
             return true;
         }
 
@@ -307,8 +298,6 @@ pub fn resolve_style<E>(
 where
     E: TElement,
 {
-    use crate::style_resolver::StyleResolverForElement;
-
     debug_assert!(
         rule_inclusion == RuleInclusion::DefaultOnly ||
             pseudo.map_or(false, |p| p.is_before_or_after()) ||
@@ -362,10 +351,7 @@ where
             rule_inclusion,
             PseudoElementResolution::IfApplicable,
         )
-        .resolve_primary_style(
-            style.as_ref().map(|s| &**s),
-            layout_parent_style.as_ref().map(|s| &**s),
-        );
+        .resolve_primary_style(style.as_deref(), layout_parent_style.as_deref());
 
         let is_display_contents = primary_style.style().is_display_contents();
 
@@ -384,10 +370,7 @@ where
         rule_inclusion,
         PseudoElementResolution::Force,
     )
-    .resolve_style(
-        style.as_ref().map(|s| &**s),
-        layout_parent_style.as_ref().map(|s| &**s),
-    )
+    .resolve_style(style.as_deref(), layout_parent_style.as_deref())
     .into()
 }
 
@@ -406,7 +389,6 @@ pub fn recalc_style_at<E, D, F>(
     D: DomTraversal<E>,
     F: FnMut(E::ConcreteNode),
 {
-    use crate::traversal_flags::TraversalFlags;
     use std::cmp;
 
     let flags = context.shared.traversal_flags;
@@ -517,8 +499,7 @@ pub fn recalc_style_at<E, D, F>(
         is_servo_nonincremental_layout();
 
     traverse_children =
-        traverse_children &&
-            !traversal.should_cull_subtree(context, element, &data, is_initial_style);
+        traverse_children && !traversal.should_cull_subtree(context, element, &data);
 
     // Examine our children, and enqueue the appropriate ones for traversal.
     if traverse_children {
@@ -539,12 +520,6 @@ pub fn recalc_style_at<E, D, F>(
         debug_assert!(!element.has_animation_only_dirty_descendants());
     }
 
-    debug_assert!(
-        flags.for_animation_only() ||
-            !flags.contains(TraversalFlags::ClearDirtyBits) ||
-            !element.has_animation_only_dirty_descendants(),
-        "Should have cleared animation bits already"
-    );
     clear_state_after_traversing(element, data, flags);
 }
 
@@ -552,27 +527,11 @@ fn clear_state_after_traversing<E>(element: E, data: &mut ElementData, flags: Tr
 where
     E: TElement,
 {
-    // If we are in a forgetful traversal, drop the existing restyle
-    // data here, since we won't need to perform a post-traversal to pick up
-    // any change hints.
-    if flags.contains(TraversalFlags::Forgetful) {
+    if flags.intersects(TraversalFlags::FinalAnimationTraversal) {
+        debug_assert!(flags.for_animation_only());
         data.clear_restyle_flags_and_damage();
-    }
-
-    // Clear dirty bits as appropriate.
-    if flags.for_animation_only() {
-        if flags.intersects(
-            TraversalFlags::ClearDirtyBits | TraversalFlags::ClearAnimationOnlyDirtyDescendants,
-        ) {
-            unsafe {
-                element.unset_animation_only_dirty_descendants();
-            }
-        }
-    } else if flags.contains(TraversalFlags::ClearDirtyBits) {
-        // The animation traversal happens first, so we don't need to guard against
-        // clearing the animation bit on the regular traversal.
         unsafe {
-            element.clear_dirty_bits();
+            element.unset_animation_only_dirty_descendants();
         }
     }
 }
@@ -648,6 +607,7 @@ where
                         &new_styles.primary,
                         Some(&mut target),
                         traversal_data.current_dom_depth,
+                        &context.shared,
                     );
 
                     new_styles
@@ -687,7 +647,7 @@ where
             // sibling or cousin. Otherwise, recascading a bunch of identical
             // elements would unnecessarily flood the cache with identical entries.
             //
-            // This is analagous to the obvious "don't insert an element that just
+            // This is analogous to the obvious "don't insert an element that just
             // got a hit in the style sharing cache" behavior in the MatchAndCascade
             // handling above.
             //
@@ -704,6 +664,7 @@ where
                     &new_styles.primary,
                     None,
                     traversal_data.current_dom_depth,
+                    &context.shared,
                 );
             }
 
@@ -714,13 +675,12 @@ where
     element.finish_restyle(context, data, new_styles, important_rules_changed)
 }
 
-#[cfg(feature = "servo")]
+#[cfg(feature = "servo-layout-2013")]
 fn notify_paint_worklet<E>(context: &StyleContext<E>, data: &ElementData)
 where
     E: TElement,
 {
     use crate::values::generics::image::Image;
-    use crate::values::Either;
     use style_traits::ToCss;
 
     // We speculatively evaluate any paint worklets during styling.
@@ -730,9 +690,7 @@ where
     if let Some(ref values) = data.styles.primary {
         for image in &values.get_background().background_image.0 {
             let (name, arguments) = match *image {
-                Either::Second(Image::PaintWorklet(ref worklet)) => {
-                    (&worklet.name, &worklet.arguments)
-                },
+                Image::PaintWorklet(ref worklet) => (&worklet.name, &worklet.arguments),
                 _ => continue,
             };
             let painter = match context.shared.registered_speculative_painters.get(name) {
@@ -755,7 +713,7 @@ where
     }
 }
 
-#[cfg(feature = "gecko")]
+#[cfg(not(feature = "servo-layout-2013"))]
 fn notify_paint_worklet<E>(_context: &StyleContext<E>, _data: &ElementData)
 where
     E: TElement,
@@ -811,7 +769,7 @@ fn note_children<E, D, F>(
                     child_hint |= RestyleHint::RECASCADE_SELF | RestyleHint::RECASCADE_DESCENDANTS;
                 },
                 ChildCascadeRequirement::MustCascadeChildrenIfInheritResetStyle => {
-                    use crate::properties::computed_value_flags::ComputedValueFlags;
+                    use crate::computed_value_flags::ComputedValueFlags;
                     if child_data
                         .styles
                         .primary()
@@ -881,7 +839,7 @@ where
                 //
                 // By consequence, any element without data has no descendants with
                 // data.
-                if kid.get_data().is_some() {
+                if kid.has_data() {
                     kid.clear_data();
                     parents.push(kid);
                 }

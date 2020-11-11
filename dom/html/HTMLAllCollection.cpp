@@ -8,18 +8,19 @@
 
 #include "mozilla/dom/HTMLAllCollectionBinding.h"
 #include "mozilla/dom/Nullable.h"
+#include "mozilla/dom/Document.h"
 #include "mozilla/dom/Element.h"
-#include "nsHTMLDocument.h"
+#include "nsContentList.h"
+#include "nsGenericHTMLElement.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
-HTMLAllCollection::HTMLAllCollection(nsHTMLDocument* aDocument)
+HTMLAllCollection::HTMLAllCollection(mozilla::dom::Document* aDocument)
     : mDocument(aDocument) {
   MOZ_ASSERT(mDocument);
 }
 
-HTMLAllCollection::~HTMLAllCollection() {}
+HTMLAllCollection::~HTMLAllCollection() = default;
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(HTMLAllCollection, mDocument, mCollection,
                                       mNamedMap)
@@ -66,8 +67,8 @@ void HTMLAllCollection::Item(const Optional<nsAString>& aNameOrIndex,
 
 nsContentList* HTMLAllCollection::Collection() {
   if (!mCollection) {
-    nsIDocument* document = mDocument;
-    mCollection = document->GetElementsByTagName(NS_LITERAL_STRING("*"));
+    Document* document = mDocument;
+    mCollection = document->GetElementsByTagName(u"*"_ns);
     MOZ_ASSERT(mCollection);
   }
   return mCollection;
@@ -187,5 +188,4 @@ JSObject* HTMLAllCollection::WrapObject(JSContext* aCx,
   return HTMLAllCollection_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

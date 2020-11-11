@@ -7,8 +7,11 @@
 #ifndef mozilla_layout_ScrollSnap_h_
 #define mozilla_layout_ScrollSnap_h_
 
+#include "mozilla/ScrollTypes.h"
 #include "mozilla/Maybe.h"
-#include "nsIScrollableFrame.h"
+
+struct nsPoint;
+struct nsRect;
 
 namespace mozilla {
 
@@ -22,8 +25,8 @@ struct ScrollSnapUtils {
    * scrolling. |aStartPos| gives the position before scrolling and
    * |aDestination| gives the position after scrolling, with no snapping.
    * Behaviour is dependent on the value of |aUnit|.
-   * |aSnapInfo|, |aScrollPortSize|, and |aScrollRange| are characteristics
-   * of the scroll frame for which snapping is being performed.
+   * |aSnapInfo| and |aScrollRange| are characteristics of the scroll frame for
+   * which snapping is being performed.
    * If a suitable snap point could be found, it is returned. Otherwise, an
    * empty Maybe is returned.
    * IMPORTANT NOTE: This function is designed to be called both on and off
@@ -32,8 +35,7 @@ struct ScrollSnapUtils {
    *                 appropriate locking.
    */
   static mozilla::Maybe<nsPoint> GetSnapPointForDestination(
-      const layers::ScrollSnapInfo& aSnapInfo,
-      nsIScrollableFrame::ScrollUnit aUnit, const nsSize& aScrollPortSize,
+      const layers::ScrollSnapInfo& aSnapInfo, ScrollUnit aUnit,
       const nsRect& aScrollRange, const nsPoint& aStartPos,
       const nsPoint& aDestination);
 };

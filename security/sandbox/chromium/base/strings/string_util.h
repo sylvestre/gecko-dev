@@ -18,6 +18,7 @@
 
 #include "base/base_export.h"
 #include "base/compiler_specific.h"
+#include "base/stl_util.h"
 #include "base/strings/string16.h"
 #include "base/strings/string_piece.h"  // For implicit conversions.
 #include "build/build_config.h"
@@ -39,14 +40,9 @@ int vsnprintf(char* buffer, size_t size, const char* format, va_list arguments)
 
 // We separate the declaration from the implementation of this inline
 // function just so the PRINTF_FORMAT works.
-inline int snprintf(char* buffer,
-                    size_t size,
-                    _Printf_format_string_ const char* format,
-                    ...) PRINTF_FORMAT(3, 4);
-inline int snprintf(char* buffer,
-                    size_t size,
-                    _Printf_format_string_ const char* format,
-                    ...) {
+inline int snprintf(char* buffer, size_t size, const char* format, ...)
+    PRINTF_FORMAT(3, 4);
+inline int snprintf(char* buffer, size_t size, const char* format, ...) {
   va_list arguments;
   va_start(arguments, format);
   int result = vsnprintf(buffer, size, format, arguments);
@@ -147,8 +143,8 @@ BASE_EXPORT bool EqualsCaseInsensitiveASCII(StringPiece16 a, StringPiece16 b);
 // strings.
 //
 // It is likely faster to construct a new empty string object (just a few
-// instructions to set the length to 0) than to get the empty string singleton
-// returned by these functions (which requires threadsafe singleton access).
+// instructions to set the length to 0) than to get the empty string instance
+// returned by these functions (which requires threadsafe static access).
 //
 // Therefore, DO NOT USE THESE AS A GENERAL-PURPOSE SUBSTITUTE FOR DEFAULT
 // CONSTRUCTORS. There is only one case where you should use these: functions
@@ -164,6 +160,7 @@ BASE_EXPORT const string16& EmptyString16();
 // by HTML5, and don't include control characters.
 BASE_EXPORT extern const wchar_t kWhitespaceWide[];  // Includes Unicode.
 BASE_EXPORT extern const char16 kWhitespaceUTF16[];  // Includes Unicode.
+BASE_EXPORT extern const char16 kWhitespaceNoCrLfUTF16[];  // Unicode w/o CR/LF.
 BASE_EXPORT extern const char kWhitespaceASCII[];
 BASE_EXPORT extern const char16 kWhitespaceASCIIAs16[];  // No unicode.
 
@@ -174,10 +171,10 @@ BASE_EXPORT extern const char kUtf8ByteOrderMark[];
 // if any characters were removed.  |remove_chars| must be null-terminated.
 // NOTE: Safe to use the same variable for both |input| and |output|.
 BASE_EXPORT bool RemoveChars(const string16& input,
-                             const StringPiece16& remove_chars,
+                             StringPiece16 remove_chars,
                              string16* output);
 BASE_EXPORT bool RemoveChars(const std::string& input,
-                             const StringPiece& remove_chars,
+                             StringPiece remove_chars,
                              std::string* output);
 
 // Replaces characters in |replace_chars| from anywhere in |input| with
@@ -186,12 +183,12 @@ BASE_EXPORT bool RemoveChars(const std::string& input,
 // |replace_chars| must be null-terminated.
 // NOTE: Safe to use the same variable for both |input| and |output|.
 BASE_EXPORT bool ReplaceChars(const string16& input,
-                              const StringPiece16& replace_chars,
-                              const string16& replace_with,
+                              StringPiece16 replace_chars,
+                              StringPiece16 replace_with,
                               string16* output);
 BASE_EXPORT bool ReplaceChars(const std::string& input,
-                              const StringPiece& replace_chars,
-                              const std::string& replace_with,
+                              StringPiece replace_chars,
+                              StringPiece replace_with,
                               std::string* output);
 
 enum TrimPositions {
@@ -202,24 +199,25 @@ enum TrimPositions {
 };
 
 // Removes characters in |trim_chars| from the beginning and end of |input|.
-// The 8-bit version only works on 8-bit characters, not UTF-8.
+// The 8-bit version only works on 8-bit characters, not UTF-8. Returns true if
+// any characters were removed.
 //
 // It is safe to use the same variable for both |input| and |output| (this is
 // the normal usage to trim in-place).
-BASE_EXPORT bool TrimString(const string16& input,
+BASE_EXPORT bool TrimString(StringPiece16 input,
                             StringPiece16 trim_chars,
                             string16* output);
-BASE_EXPORT bool TrimString(const std::string& input,
+BASE_EXPORT bool TrimString(StringPiece input,
                             StringPiece trim_chars,
                             std::string* output);
 
 // StringPiece versions of the above. The returned pieces refer to the original
 // buffer.
 BASE_EXPORT StringPiece16 TrimString(StringPiece16 input,
-                                     const StringPiece16& trim_chars,
+                                     StringPiece16 trim_chars,
                                      TrimPositions positions);
 BASE_EXPORT StringPiece TrimString(StringPiece input,
-                                   const StringPiece& trim_chars,
+                                   StringPiece trim_chars,
                                    TrimPositions positions);
 
 // Truncates a string to the nearest UTF-8 character that will leave
@@ -228,6 +226,69 @@ BASE_EXPORT void TruncateUTF8ToByteSize(const std::string& input,
                                         const size_t byte_size,
                                         std::string* output);
 
+#if defined(WCHAR_T_IS_UTF16)
+// Utility functions to access the underlying string buffer as a wide char
+// pointer.
+//
+// Note: These functions violate strict aliasing when char16 and wchar_t are
+// unrelated types. We thus pass -fno-strict-aliasing to the compiler on
+// non-Windows platforms [1], and rely on it being off in Clang's CL mode [2].
+//
+// [1] https://crrev.com/b9a0976622/build/config/compiler/BUILD.gn#244
+// [2]
+// https://github.com/llvm/llvm-project/blob/1e28a66/clang/lib/Driver/ToolChains/Clang.cpp#L3949
+inline wchar_t* as_writable_wcstr(char16* str) {
+  return reinterpret_cast<wchar_t*>(str);
+}
+
+inline wchar_t* as_writable_wcstr(string16& str) {
+  return reinterpret_cast<wchar_t*>(data(str));
+}
+
+inline const wchar_t* as_wcstr(const char16* str) {
+  return reinterpret_cast<const wchar_t*>(str);
+}
+
+inline const wchar_t* as_wcstr(StringPiece16 str) {
+  return reinterpret_cast<const wchar_t*>(str.data());
+}
+
+// Utility functions to access the underlying string buffer as a char16 pointer.
+inline char16* as_writable_u16cstr(wchar_t* str) {
+  return reinterpret_cast<char16*>(str);
+}
+
+inline char16* as_writable_u16cstr(std::wstring& str) {
+  return reinterpret_cast<char16*>(data(str));
+}
+
+inline const char16* as_u16cstr(const wchar_t* str) {
+  return reinterpret_cast<const char16*>(str);
+}
+
+inline const char16* as_u16cstr(WStringPiece str) {
+  return reinterpret_cast<const char16*>(str.data());
+}
+
+// Utility functions to convert between base::WStringPiece and
+// base::StringPiece16.
+inline WStringPiece AsWStringPiece(StringPiece16 str) {
+  return WStringPiece(as_wcstr(str.data()), str.size());
+}
+
+inline StringPiece16 AsStringPiece16(WStringPiece str) {
+  return StringPiece16(as_u16cstr(str.data()), str.size());
+}
+
+inline std::wstring AsWString(StringPiece16 str) {
+  return std::wstring(as_wcstr(str.data()), str.size());
+}
+
+inline string16 AsString16(WStringPiece str) {
+  return string16(as_u16cstr(str.data()), str.size());
+}
+#endif  // defined(WCHAR_T_IS_UTF16)
+
 // Trims any whitespace from either end of the input string.
 //
 // The StringPiece versions return a substring referencing the input buffer.
@@ -235,18 +296,18 @@ BASE_EXPORT void TruncateUTF8ToByteSize(const std::string& input,
 //
 // The std::string versions return where whitespace was found.
 // NOTE: Safe to use the same variable for both input and output.
-BASE_EXPORT TrimPositions TrimWhitespace(const string16& input,
+BASE_EXPORT TrimPositions TrimWhitespace(StringPiece16 input,
                                          TrimPositions positions,
                                          string16* output);
 BASE_EXPORT StringPiece16 TrimWhitespace(StringPiece16 input,
                                          TrimPositions positions);
-BASE_EXPORT TrimPositions TrimWhitespaceASCII(const std::string& input,
+BASE_EXPORT TrimPositions TrimWhitespaceASCII(StringPiece input,
                                               TrimPositions positions,
                                               std::string* output);
 BASE_EXPORT StringPiece TrimWhitespaceASCII(StringPiece input,
                                             TrimPositions positions);
 
-// Searches  for CR or LF characters.  Removes all contiguous whitespace
+// Searches for CR or LF characters.  Removes all contiguous whitespace
 // strings that contain them.  This is useful when trying to deal with text
 // copied from terminals.
 // Returns |text|, with the following three transformations:
@@ -263,31 +324,31 @@ BASE_EXPORT std::string CollapseWhitespaceASCII(
 
 // Returns true if |input| is empty or contains only characters found in
 // |characters|.
-BASE_EXPORT bool ContainsOnlyChars(const StringPiece& input,
-                                   const StringPiece& characters);
-BASE_EXPORT bool ContainsOnlyChars(const StringPiece16& input,
-                                   const StringPiece16& characters);
+BASE_EXPORT bool ContainsOnlyChars(StringPiece input, StringPiece characters);
+BASE_EXPORT bool ContainsOnlyChars(StringPiece16 input,
+                                   StringPiece16 characters);
 
-// Returns true if the specified string matches the criteria. How can a wide
-// string be 8-bit or UTF8? It contains only characters that are < 256 (in the
-// first case) or characters that use only 8-bits and whose 8-bit
-// representation looks like a UTF-8 string (the second case).
-//
-// Note that IsStringUTF8 checks not only if the input is structurally
-// valid but also if it doesn't contain any non-character codepoint
-// (e.g. U+FFFE). It's done on purpose because all the existing callers want
-// to have the maximum 'discriminating' power from other encodings. If
-// there's a use case for just checking the structural validity, we have to
-// add a new function for that.
-//
-// IsStringASCII assumes the input is likely all ASCII, and does not leave early
-// if it is not the case.
-BASE_EXPORT bool IsStringUTF8(const StringPiece& str);
-BASE_EXPORT bool IsStringASCII(const StringPiece& str);
-BASE_EXPORT bool IsStringASCII(const StringPiece16& str);
-BASE_EXPORT bool IsStringASCII(const string16& str);
+// Returns true if |str| is structurally valid UTF-8 and also doesn't
+// contain any non-character code point (e.g. U+10FFFE). Prohibiting
+// non-characters increases the likelihood of detecting non-UTF-8 in
+// real-world text, for callers which do not need to accept
+// non-characters in strings.
+BASE_EXPORT bool IsStringUTF8(StringPiece str);
+
+// Returns true if |str| contains valid UTF-8, allowing non-character
+// code points.
+BASE_EXPORT bool IsStringUTF8AllowingNoncharacters(StringPiece str);
+
+// Returns true if |str| contains only valid ASCII character values.
+// Note 1: IsStringASCII executes in time determined solely by the
+// length of the string, not by its contents, so it is robust against
+// timing attacks for all strings of equal length.
+// Note 2: IsStringASCII assumes the input is likely all ASCII, and
+// does not leave early if it is not the case.
+BASE_EXPORT bool IsStringASCII(StringPiece str);
+BASE_EXPORT bool IsStringASCII(StringPiece16 str);
 #if defined(WCHAR_T_IS_UTF32)
-BASE_EXPORT bool IsStringASCII(const std::wstring& str);
+BASE_EXPORT bool IsStringASCII(WStringPiece str);
 #endif
 
 // Compare the lower-case form of the given string against the given
@@ -332,7 +393,7 @@ BASE_EXPORT bool EndsWith(StringPiece16 str,
 // library versions will change based on locale).
 template <typename Char>
 inline bool IsAsciiWhitespace(Char c) {
-  return c == ' ' || c == '\r' || c == '\n' || c == '\t';
+  return c == ' ' || c == '\r' || c == '\n' || c == '\t' || c == '\f';
 }
 template <typename Char>
 inline bool IsAsciiAlpha(Char c) {
@@ -349,6 +410,10 @@ inline bool IsAsciiLower(Char c) {
 template <typename Char>
 inline bool IsAsciiDigit(Char c) {
   return c >= '0' && c <= '9';
+}
+template <typename Char>
+inline bool IsAsciiPrintable(Char c) {
+  return c >= ' ' && c <= '~';
 }
 
 template <typename Char>
@@ -412,10 +477,6 @@ BASE_EXPORT void ReplaceSubstringsAfterOffset(
 // convenient in that is can be used inline in the call, and fast in that it
 // avoids copying the results of the call from a char* into a string.
 //
-// |length_with_null| must be at least 2, since otherwise the underlying string
-// would have size 0, and trying to access &((*str)[0]) in that case can result
-// in a number of problems.
-//
 // Internally, this takes linear time because the resize() call 0-fills the
 // underlying array for potentially all
 // (|length_with_null - 1| * sizeof(string_type::value_type)) bytes.  Ideally we
@@ -426,19 +487,20 @@ BASE_EXPORT void ReplaceSubstringsAfterOffset(
 // to this function (probably 0).
 BASE_EXPORT char* WriteInto(std::string* str, size_t length_with_null);
 BASE_EXPORT char16* WriteInto(string16* str, size_t length_with_null);
-#ifndef OS_WIN
-BASE_EXPORT wchar_t* WriteInto(std::wstring* str, size_t length_with_null);
-#endif
 
-// Does the opposite of SplitString()/SplitStringPiece(). Joins a vector or list
-// of strings into a single string, inserting |separator| (which may be empty)
-// in between all elements.
+// Joins a vector or list of strings into a single string, inserting |separator|
+// (which may be empty) in between all elements.
+//
+// Note this is inverse of SplitString()/SplitStringPiece() defined in
+// string_split.h.
 //
 // If possible, callers should build a vector of StringPieces and use the
 // StringPiece variant, so that they do not create unnecessary copies of
 // strings. For example, instead of using SplitString, modifying the vector,
 // then using JoinString, use SplitStringPiece followed by JoinString so that no
 // copies of those strings are created until the final join operation.
+//
+// Use StrCat (in base/strings/strcat.h) if you don't need a separator.
 BASE_EXPORT std::string JoinString(const std::vector<std::string>& parts,
                                    StringPiece separator);
 BASE_EXPORT string16 JoinString(const std::vector<string16>& parts,
@@ -465,7 +527,7 @@ BASE_EXPORT string16 ReplaceStringPlaceholders(
     std::vector<size_t>* offsets);
 
 BASE_EXPORT std::string ReplaceStringPlaceholders(
-    const StringPiece& format_string,
+    StringPiece format_string,
     const std::vector<std::string>& subst,
     std::vector<size_t>* offsets);
 
@@ -474,11 +536,30 @@ BASE_EXPORT string16 ReplaceStringPlaceholders(const string16& format_string,
                                                const string16& a,
                                                size_t* offset);
 
+#if defined(OS_WIN) && defined(BASE_STRING16_IS_STD_U16STRING)
+BASE_EXPORT TrimPositions TrimWhitespace(WStringPiece input,
+                                         TrimPositions positions,
+                                         std::wstring* output);
+
+BASE_EXPORT WStringPiece TrimWhitespace(WStringPiece input,
+                                        TrimPositions positions);
+
+BASE_EXPORT bool TrimString(WStringPiece input,
+                            WStringPiece trim_chars,
+                            std::wstring* output);
+
+BASE_EXPORT WStringPiece TrimString(WStringPiece input,
+                                    WStringPiece trim_chars,
+                                    TrimPositions positions);
+
+BASE_EXPORT wchar_t* WriteInto(std::wstring* str, size_t length_with_null);
+#endif
+
 }  // namespace base
 
 #if defined(OS_WIN)
 #include "base/strings/string_util_win.h"
-#elif defined(OS_POSIX)
+#elif defined(OS_POSIX) || defined(OS_FUCHSIA)
 #include "base/strings/string_util_posix.h"
 #else
 #error Define string operations appropriately for your platform

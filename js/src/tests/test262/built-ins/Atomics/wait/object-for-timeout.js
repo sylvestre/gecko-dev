@@ -1,4 +1,4 @@
-// |reftest| skip-if(!xulRuntime.shell||!this.hasOwnProperty('Atomics')||!this.hasOwnProperty('SharedArrayBuffer')) -- browser cannot block main thread, Atomics,SharedArrayBuffer is not enabled unconditionally
+// |reftest| skip-if(!xulRuntime.shell||!this.hasOwnProperty('Atomics')||!this.hasOwnProperty('SharedArrayBuffer')||(this.hasOwnProperty('getBuildConfiguration')&&getBuildConfiguration()['arm64-simulator'])) -- browser cannot block main thread, Atomics,SharedArrayBuffer is not enabled unconditionally, ARM64 Simulator cannot emulate atomics
 // Copyright (C) 2018 Amal Hussein. All rights reserved.
 // This code is governed by the BSD license found in the LICENSE file.
 
@@ -16,7 +16,6 @@ info: |
       Let primValue be ? ToPrimitive(argument, hint Number).
       Return ? ToNumber(primValue).
 
-includes: [atomicsHelper.js]
 features: [Atomics, SharedArrayBuffer, Symbol, Symbol.toPrimitive, TypedArray]
 flags: [CanBlockIsTrue]
 ---*/

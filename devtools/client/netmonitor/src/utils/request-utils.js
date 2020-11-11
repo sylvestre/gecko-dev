@@ -6,16 +6,17 @@
 
 "use strict";
 
-const { getUnicodeUrl, getUnicodeUrlPath, getUnicodeHostname } =
-  require("devtools/client/shared/unicode-url");
-
 const {
-  UPDATE_PROPS,
-} = require("devtools/client/netmonitor/src/constants");
+  getUnicodeUrl,
+  getUnicodeUrlPath,
+  getUnicodeHostname,
+} = require("devtools/client/shared/unicode-url");
+
+const { UPDATE_PROPS } = require("devtools/client/netmonitor/src/constants");
 
 const CONTENT_MIME_TYPE_ABBREVIATIONS = {
-  "ecmascript": "js",
-  "javascript": "js",
+  ecmascript: "js",
+  javascript: "js",
   "x-javascript": "js",
 };
 
@@ -28,7 +29,12 @@ const CONTENT_MIME_TYPE_ABBREVIATIONS = {
  * @param {object} postData - the "requestPostData".
  * @return {array} a promise list that is resolved with the extracted form data.
  */
-async function getFormDataSections(headers, uploadHeaders, postData, getLongString) {
+async function getFormDataSections(
+  headers,
+  uploadHeaders,
+  postData,
+  getLongString
+) {
   const formDataSections = [];
 
   const requestHeaders = headers.headers;
@@ -39,7 +45,9 @@ async function getFormDataSections(headers, uploadHeaders, postData, getLongStri
     return e.name.toLowerCase() == "content-type";
   });
 
-  const contentTypeLongString = contentTypeHeader ? contentTypeHeader.value : "";
+  const contentTypeLongString = contentTypeHeader
+    ? contentTypeHeader.value
+    : "";
 
   const contentType = await getLongString(contentTypeLongString);
 
@@ -81,19 +89,22 @@ async function fetchHeaders(headers, getLongString) {
  * @param {array} updateTypes - a list of network event update types
  */
 function fetchNetworkUpdatePacket(requestData, request, updateTypes) {
-  updateTypes.forEach((updateType) => {
+  const promises = [];
+  updateTypes.forEach(updateType => {
     // Only stackTrace will be handled differently
     if (updateType === "stackTrace") {
       if (request.cause.stacktraceAvailable && !request.stacktrace) {
-        requestData(request.id, updateType);
+        promises.push(requestData(request.id, updateType));
       }
       return;
     }
 
     if (request[`${updateType}Available`] && !request[updateType]) {
-      requestData(request.id, updateType);
+      promises.push(requestData(request.id, updateType));
     }
   });
+
+  return Promise.all(promises);
 }
 
 /**
@@ -117,10 +128,17 @@ function formDataURI(mimeType, encoding, text) {
  * Write out a list of headers into a chunk of text
  *
  * @param {array} headers - array of headers info { name, value }
+ * @param {string} preHeaderText - first line of the headers request/response
  * @return {string} list of headers in text format
  */
-function writeHeaderText(headers) {
-  return headers.map(({name, value}) => name + ": " + value).join("\n");
+function writeHeaderText(headers, preHeaderText) {
+  let result = "";
+  if (preHeaderText) {
+    result += preHeaderText + "\r\n";
+  }
+  result += headers.map(({ name, value }) => name + ": " + value).join("\r\n");
+  result += "\r\n\r\n";
+  return result;
 }
 
 /**
@@ -186,7 +204,7 @@ function getUrl(url) {
  */
 function getUrlProperty(input, property) {
   const url = getUrl(input);
-  return url && url[property] ? url[property] : "";
+  return url?.[property] ? url[property] : "";
 }
 
 /**
@@ -199,8 +217,7 @@ function getUrlProperty(input, property) {
  */
 function getUrlBaseName(url) {
   const pathname = getUrlProperty(url, "pathname");
-  return getUnicodeUrlPath(
-    pathname.replace(/\S*\//, "") || pathname || "/");
+  return getUnicodeUrlPath(pathname.replace(/\S*\//, "") || pathname || "/");
 }
 
 /**
@@ -290,9 +307,10 @@ function getUrlDetails(url) {
   //
   // IPv6 parsing is a little sloppy; it assumes that the address has
   // been validated before it gets here.
-  const isLocal = hostname.match(/(.+\.)?localhost$/) ||
-                hostname.match(/^127\.\d{1,3}\.\d{1,3}\.\d{1,3}/) ||
-                hostname.match(/\[[0:]+1\]/);
+  const isLocal =
+    hostname.match(/(.+\.)?localhost$/) ||
+    hostname.match(/^127\.\d{1,3}\.\d{1,3}\.\d{1,3}/) ||
+    hostname.match(/\[[0:]+1\]/);
 
   return {
     baseNameWithQuery,
@@ -300,6 +318,7 @@ function getUrlDetails(url) {
     scheme,
     unicodeUrl,
     isLocal,
+    url,
   };
 }
 
@@ -313,14 +332,23 @@ function parseQueryString(query) {
   if (!query) {
     return null;
   }
-
-  return query.replace(/^[?&]/, "").split("&").map(e => {
-    const param = e.split("=");
-    return {
-      name: param[0] ? getUnicodeUrlPath(param[0]) : "",
-      value: param[1] ? getUnicodeUrlPath(param.slice(1).join("=")) : "",
-    };
-  });
+  return query
+    .replace(/^[?&]/, "")
+    .split("&")
+    .map(e => {
+      const param = e.split("=");
+      return {
+        name: param[0] ? getUnicodeUrlPath(param[0].replace(/\+/g, " ")) : "",
+        value: param[1]
+          ? getUnicodeUrlPath(
+              param
+                .slice(1)
+                .join("=")
+                .replace(/\+/g, " ")
+            )
+          : "",
+      };
+    });
 }
 
 /**
@@ -334,13 +362,16 @@ function parseFormData(sections) {
     return null;
   }
 
-  return sections.replace(/^&/, "").split("&").map(e => {
-    const param = e.split("=");
-    return {
-      name: param[0] ? getUnicodeUrlPath(param[0]) : "",
-      value: param[1] ? getUnicodeUrlPath(param[1]) : "",
-    };
-  });
+  return sections
+    .replace(/^&/, "")
+    .split("&")
+    .map(e => {
+      const param = e.split("=");
+      return {
+        name: param[0] ? getUnicodeUrlPath(param[0]) : "",
+        value: param[1] ? getUnicodeUrlPath(param[1]) : "",
+      };
+    });
 }
 
 /**
@@ -358,23 +389,29 @@ function ipToLong(ip) {
   let base;
   let octets = ip.split(".");
 
-  if (octets.length === 4) { // IPv4
+  if (octets.length === 4) {
+    // IPv4
     base = 10;
-  } else if (ip.includes(":")) { // IPv6
-    const numberOfZeroSections = 8 - ip.replace(/^:+|:+$/g, "").split(/:+/g).length;
+  } else if (ip.includes(":")) {
+    // IPv6
+    const numberOfZeroSections =
+      8 - ip.replace(/^:+|:+$/g, "").split(/:+/g).length;
     octets = ip
       .replace("::", `:${"0:".repeat(numberOfZeroSections)}`)
       .replace(/^:|:$/g, "")
       .split(":");
     base = 16;
-  } else { // Invalid IP
+  } else {
+    // Invalid IP
     return -1;
   }
-  return octets.map((val, ix, arr) => {
-    return parseInt(val, base) * Math.pow(256, (arr.length - 1) - ix);
-  }).reduce((sum, val) => {
-    return sum + val;
-  }, 0);
+  return octets
+    .map((val, ix, arr) => {
+      return parseInt(val, base) * Math.pow(256, arr.length - 1 - ix);
+    })
+    .reduce((sum, val) => {
+      return sum + val;
+    }, 0);
 }
 
 /**
@@ -388,39 +425,40 @@ function propertiesEqual(props, item1, item2) {
  * Calculate the start time of a request, which is the time from start
  * of 1st request until the start of this request.
  *
- * Without a firstRequestStartedMillis argument the wrong time will be returned.
+ * Without a firstRequestStartedMs argument the wrong time will be returned.
  * However, it can be omitted when comparing two start times and neither supplies
- * a firstRequestStartedMillis.
+ * a firstRequestStartedMs.
  */
-function getStartTime(item, firstRequestStartedMillis = 0) {
-  return item.startedMillis - firstRequestStartedMillis;
+function getStartTime(item, firstRequestStartedMs = 0) {
+  return item.startedMs - firstRequestStartedMs;
 }
 
 /**
  * Calculate the end time of a request, which is the time from start
  * of 1st request until the end of this response.
  *
- * Without a firstRequestStartedMillis argument the wrong time will be returned.
+ * Without a firstRequestStartedMs argument the wrong time will be returned.
  * However, it can be omitted when comparing two end times and neither supplies
- * a firstRequestStartedMillis.
+ * a firstRequestStartedMs.
  */
-function getEndTime(item, firstRequestStartedMillis = 0) {
-  const { startedMillis, totalTime } = item;
-  return startedMillis + totalTime - firstRequestStartedMillis;
+function getEndTime(item, firstRequestStartedMs = 0) {
+  const { startedMs, totalTime } = item;
+  return startedMs + totalTime - firstRequestStartedMs;
 }
 
 /**
  * Calculate the response time of a request, which is the time from start
  * of 1st request until the beginning of download of this response.
  *
- * Without a firstRequestStartedMillis argument the wrong time will be returned.
+ * Without a firstRequestStartedMs argument the wrong time will be returned.
  * However, it can be omitted when comparing two response times and neither supplies
- * a firstRequestStartedMillis.
+ * a firstRequestStartedMs.
  */
-function getResponseTime(item, firstRequestStartedMillis = 0) {
-  const { startedMillis, totalTime, eventTimings = { timings: {} } } = item;
-  return startedMillis + totalTime - firstRequestStartedMillis -
-    eventTimings.timings.receive;
+function getResponseTime(item, firstRequestStartedMs = 0) {
+  const { startedMs, totalTime, eventTimings = { timings: {} } } = item;
+  return (
+    startedMs + totalTime - firstRequestStartedMs - eventTimings.timings.receive
+  );
 }
 
 /**
@@ -431,8 +469,29 @@ function getFormattedProtocol(item) {
   const protocol = [httpVersion];
   responseHeaders.headers.some(h => {
     if (h.hasOwnProperty("name") && h.name.toLowerCase() === "x-firefox-spdy") {
-      protocol.push(h.value);
-      return true;
+      /**
+       * First we make sure h.value is defined and not an empty string.
+       * Then check that HTTP version and x-firefox-spdy == "http/1.1".
+       * If not, check that HTTP version and x-firefox-spdy have the same
+       * numeric value when of the forms "http/<x>" and "h<x>" respectively.
+       * If not, will push to protocol the non-standard x-firefox-spdy value.
+       *
+       * @see https://bugzilla.mozilla.org/show_bug.cgi?id=1501357
+       */
+      if (h.value !== undefined && h.value.length > 0) {
+        if (
+          h.value.toLowerCase() !== "http/1.1" ||
+          protocol[0].toLowerCase() !== "http/1.1"
+        ) {
+          if (
+            parseFloat(h.value.toLowerCase().split("")[1]) !==
+            parseFloat(protocol[0].toLowerCase().split("/")[1])
+          ) {
+            protocol.push(h.value);
+            return true;
+          }
+        }
+      }
     }
     return false;
   });
@@ -458,14 +517,28 @@ function getResponseHeader(item, header) {
 }
 
 /**
+ * Get the value of a particular request header, or null if not
+ * present.
+ */
+function getRequestHeader(item, header) {
+  const { requestHeaders } = item;
+  if (!requestHeaders || !requestHeaders.headers.length) {
+    return null;
+  }
+  header = header.toLowerCase();
+  for (const requestHeader of requestHeaders.headers) {
+    if (requestHeader.name.toLowerCase() == header) {
+      return requestHeader.value;
+    }
+  }
+  return null;
+}
+
+/**
  * Extracts any urlencoded form data sections from a POST request.
  */
 async function updateFormDataSections(props) {
-  const {
-    connector,
-    request = {},
-    updateRequest,
-  } = props;
+  const { connector, request = {}, updateRequest } = props;
   let {
     id,
     formDataSections,
@@ -484,13 +557,17 @@ async function updateFormDataSections(props) {
     requestPostData = await connector.requestData(id, "requestPostData");
   }
 
-  if (!formDataSections && requestHeaders && requestPostData &&
-      requestHeadersFromUploadStream) {
+  if (
+    !formDataSections &&
+    requestHeaders &&
+    requestPostData &&
+    requestHeadersFromUploadStream
+  ) {
     formDataSections = await getFormDataSections(
       requestHeaders,
       requestHeadersFromUploadStream,
       requestPostData,
-      connector.getLongString,
+      connector.getLongString
     );
 
     updateRequest(request.id, { formDataSections }, true);
@@ -498,33 +575,122 @@ async function updateFormDataSections(props) {
 }
 
 /**
- * This helper function is used for additional processing of
- * incoming network update packets. It's used by Network and
- * Console panel reducers.
+ * This helper function helps to resolve the full payload of a message
+ * that is wrapped in a LongStringActor object.
  */
-function processNetworkUpdates(update, request) {
-  const result = {};
+async function getMessagePayload(payload, getLongString) {
+  const result = await getLongString(payload);
+  return result;
+}
+
+/**
+ * This helper function is used for additional processing of
+ * incoming network update packets. It makes sure the only valid
+ * update properties and the values are correct.
+ * It's used by Network and Console panel reducers.
+ * @param {object} update
+ *        The new update payload
+ * @param {object} request
+ *        The current request in the state
+ */
+function processNetworkUpdates(update) {
+  const newRequest = {};
   for (const [key, value] of Object.entries(update)) {
     if (UPDATE_PROPS.includes(key)) {
-      result[key] = value;
-
-      switch (key) {
-        case "securityInfo":
-          result.securityState = value.state;
-          break;
-        case "securityState":
-          result.securityState = update.securityState || request.securityState;
-          break;
-        case "totalTime":
-          result.totalTime = update.totalTime;
-          break;
-        case "requestPostData":
-          result.requestHeadersFromUploadStream = value.uploadHeaders;
-          break;
+      newRequest[key] = value;
+      if (key == "requestPostData") {
+        newRequest.requestHeadersFromUploadStream = value.uploadHeaders;
       }
     }
   }
-  return result;
+  return newRequest;
+}
+
+/**
+ * This method checks that the response is base64 encoded by
+ * comparing these 2 values:
+ * 1. The original response
+ * 2. The value of doing a base64 decode on the
+ * response and then base64 encoding the result.
+ * If the values are different or an error is thrown,
+ * the method will return false.
+ */
+function isBase64(payload) {
+  try {
+    return btoa(atob(payload)) == payload;
+  } catch (err) {
+    return false;
+  }
+}
+
+/**
+ * Checks if the payload is of JSON type.
+ * This function also handles JSON with XSSI-escaping characters by skipping them.
+ * This function also handles Base64 encoded JSON.
+ */
+function parseJSON(payloadUnclean) {
+  let json, error;
+  const jsonpRegex = /^\s*([\w$]+)\s*\(\s*([^]*)\s*\)\s*;?\s*$/;
+  const [, jsonpCallback, jsonp] = payloadUnclean.match(jsonpRegex) || [];
+  if (jsonpCallback && jsonp) {
+    try {
+      json = parseJSON(jsonp).json;
+    } catch (err) {
+      error = err;
+    }
+    return { json, error, jsonpCallback };
+  }
+  // Start at the first likely JSON character,
+  // so that magic XSSI characters can be avoided
+  const firstSquare = payloadUnclean.indexOf("[");
+  const firstCurly = payloadUnclean.indexOf("{");
+  // This logic finds the first starting square or curly bracket.
+  // However, since Math.min will return -1 even if
+  // the other type of bracket was found and has an index,
+  // if one of the indexes is -1, the max value is returned
+  // (this value may also be -1, but that is checked for later on.)
+  const minFirst = Math.min(firstSquare, firstCurly);
+  let first;
+  if (minFirst === -1) {
+    first = Math.max(firstCurly, firstSquare);
+  } else {
+    first = minFirst;
+  }
+  let payload = "";
+  if (first !== -1) {
+    try {
+      payload = payloadUnclean.substring(first);
+    } catch (err) {
+      error = err;
+    }
+  } else {
+    payload = payloadUnclean;
+  }
+  try {
+    json = JSON.parse(payload);
+  } catch (err) {
+    if (isBase64(payload)) {
+      try {
+        json = JSON.parse(atob(payload));
+      } catch (err64) {
+        error = err64;
+      }
+    } else {
+      error = err;
+    }
+  }
+
+  // Do not present JSON primitives (e.g. boolean, strings in quotes, numbers)
+  // as JSON expandable tree.
+  if (!error) {
+    if (typeof json !== "object") {
+      return {};
+    }
+  }
+  return {
+    json,
+    error,
+  };
 }
 
 module.exports = {
@@ -538,6 +704,8 @@ module.exports = {
   getFileName,
   getEndTime,
   getFormattedProtocol,
+  getMessagePayload,
+  getRequestHeader,
   getResponseHeader,
   getResponseTime,
   getStartTime,
@@ -554,4 +722,5 @@ module.exports = {
   processNetworkUpdates,
   propertiesEqual,
   ipToLong,
+  parseJSON,
 };

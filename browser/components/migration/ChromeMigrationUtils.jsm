@@ -5,11 +5,24 @@
 
 var EXPORTED_SYMBOLS = ["ChromeMigrationUtils"];
 
-ChromeUtils.import("resource://gre/modules/AppConstants.jsm");
-ChromeUtils.import("resource://gre/modules/osfile.jsm");
-ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+XPCOMUtils.defineLazyModuleGetters(this, {
+  AppConstants: "resource://gre/modules/AppConstants.jsm",
+  LoginHelper: "resource://gre/modules/LoginHelper.jsm",
+  MigrationUtils: "resource:///modules/MigrationUtils.jsm",
+  OS: "resource://gre/modules/osfile.jsm",
+  Services: "resource://gre/modules/Services.jsm",
+});
+
+const S100NS_FROM1601TO1970 = 0x19db1ded53e8000;
+const S100NS_PER_MS = 10;
 
 var ChromeMigrationUtils = {
+  // Supported browsers with importable logins.
+  CONTEXTUAL_LOGIN_IMPORT_BROWSERS: ["chrome", "chromium-edge", "chromium"],
+
   _extensionVersionDirectoryNames: {},
 
   // The cache for the locale strings.
@@ -24,6 +37,10 @@ var ChromeMigrationUtils = {
   // }
   _extensionLocaleStrings: {},
 
+  get supportsLoginsForPlatform() {
+    return ["macosx", "win"].includes(AppConstants.platform);
+  },
+
   /**
    * Get all extensions installed in a specific profile.
    * @param {String} profileId - A Chrome user profile ID. For example, "Profile 1".
@@ -36,14 +53,19 @@ var ChromeMigrationUtils = {
     let path = this.getExtensionPath(profileId);
     let iterator = new OS.File.DirectoryIterator(path);
     let extensionList = [];
-    await iterator.forEach(async entry => {
-      if (entry.isDir) {
-        let extensionInformation = await this.getExtensionInformation(entry.name, profileId);
-        if (extensionInformation) {
-          extensionList.push(extensionInformation);
+    await iterator
+      .forEach(async entry => {
+        if (entry.isDir) {
+          let extensionInformation = await this.getExtensionInformation(
+            entry.name,
+            profileId
+          );
+          if (extensionInformation) {
+            extensionList.push(extensionInformation);
+          }
         }
-      }
-    }).catch(ex => Cu.reportError(ex));
+      })
+      .catch(ex => Cu.reportError(ex));
     return extensionList;
   },
 
@@ -63,19 +85,35 @@ var ChromeMigrationUtils = {
       manifestPath = OS.Path.join(manifestPath, extensionId);
       // If there are multiple sub-directories in the extension directory,
       // read the files in the latest directory.
-      let directories = await this._getSortedByVersionSubDirectoryNames(manifestPath);
+      let directories = await this._getSortedByVersionSubDirectoryNames(
+        manifestPath
+      );
       if (!directories[0]) {
         return null;
       }
 
-      manifestPath = OS.Path.join(manifestPath, directories[0], "manifest.json");
+      manifestPath = OS.Path.join(
+        manifestPath,
+        directories[0],
+        "manifest.json"
+      );
       let manifest = await OS.File.read(manifestPath, { encoding: "utf-8" });
       manifest = JSON.parse(manifest);
       // No app attribute means this is a Chrome extension not a Chrome app.
       if (!manifest.app) {
         const DEFAULT_LOCALE = manifest.default_locale;
-        let name = await this._getLocaleString(manifest.name, DEFAULT_LOCALE, extensionId, profileId);
-        let description = await this._getLocaleString(manifest.description, DEFAULT_LOCALE, extensionId, profileId);
+        let name = await this._getLocaleString(
+          manifest.name,
+          DEFAULT_LOCALE,
+          extensionId,
+          profileId
+        );
+        let description = await this._getLocaleString(
+          manifest.description,
+          DEFAULT_LOCALE,
+          extensionId,
+          profileId
+        );
         if (name) {
           extensionInformation = {
             id: extensionId,
@@ -112,8 +150,10 @@ var ChromeMigrationUtils = {
     let localeString = null;
     try {
       let localeFile;
-      if (this._extensionLocaleStrings[profileId] &&
-          this._extensionLocaleStrings[profileId][extensionId]) {
+      if (
+        this._extensionLocaleStrings[profileId] &&
+        this._extensionLocaleStrings[profileId][extensionId]
+      ) {
         localeFile = this._extensionLocaleStrings[profileId][extensionId];
       } else {
         if (!this._extensionLocaleStrings[profileId]) {
@@ -121,10 +161,18 @@ var ChromeMigrationUtils = {
         }
         let localeFilePath = this.getExtensionPath(profileId);
         localeFilePath = OS.Path.join(localeFilePath, extensionId);
-        let directories = await this._getSortedByVersionSubDirectoryNames(localeFilePath);
+        let directories = await this._getSortedByVersionSubDirectoryNames(
+          localeFilePath
+        );
         // If there are multiple sub-directories in the extension directory,
         // read the files in the latest directory.
-        localeFilePath = OS.Path.join(localeFilePath, directories[0], "_locales", locale, "messages.json");
+        localeFilePath = OS.Path.join(
+          localeFilePath,
+          directories[0],
+          "_locales",
+          locale,
+          "messages.json"
+        );
         localeFile = await OS.File.read(localeFilePath, { encoding: "utf-8" });
         localeFile = JSON.parse(localeFile);
         this._extensionLocaleStrings[profileId][extensionId] = localeFile;
@@ -154,7 +202,9 @@ var ChromeMigrationUtils = {
       profileId = await this.getLastUsedProfileId();
     }
     let extensionPath = this.getExtensionPath(profileId);
-    let isInstalled = await OS.File.exists(OS.Path.join(extensionPath, extensionId));
+    let isInstalled = await OS.File.exists(
+      OS.Path.join(extensionPath, extensionId)
+    );
     return isInstalled;
   },
 
@@ -175,8 +225,13 @@ var ChromeMigrationUtils = {
   async getLocalState(dataPath = "Chrome") {
     let localState = null;
     try {
-      let localStatePath = OS.Path.join(this.getDataPath(dataPath), "Local State");
-      let localStateJson = await OS.File.read(localStatePath, { encoding: "utf-8" });
+      let localStatePath = OS.Path.join(
+        this.getDataPath(dataPath),
+        "Local State"
+      );
+      let localStateJson = await OS.File.read(localStatePath, {
+        encoding: "utf-8",
+      });
       localState = JSON.parse(localStateJson);
     } catch (ex) {
       Cu.reportError(ex);
@@ -204,13 +259,18 @@ var ChromeMigrationUtils = {
     const SUB_DIRECTORIES = {
       win: {
         Chrome: ["Google", "Chrome"],
+        "Chrome Beta": ["Google", "Chrome Beta"],
         Chromium: ["Chromium"],
         Canary: ["Google", "Chrome SxS"],
+        Edge: ["Microsoft", "Edge"],
+        "Edge Beta": ["Microsoft", "Edge Beta"],
       },
       macosx: {
         Chrome: ["Google", "Chrome"],
         Chromium: ["Chromium"],
         Canary: ["Google", "Chrome Canary"],
+        Edge: ["Microsoft Edge"],
+        "Edge Beta": ["Microsoft Edge Beta"],
       },
       linux: {
         Chrome: ["google-chrome"],
@@ -218,6 +278,7 @@ var ChromeMigrationUtils = {
         "Chrome Dev": ["google-chrome-unstable"],
         Chromium: ["chromium"],
         // Canary is not available on Linux.
+        // Edge is not available on Linux.
       },
     };
     let dirKey, subfolders;
@@ -253,14 +314,16 @@ var ChromeMigrationUtils = {
 
     let iterator = new OS.File.DirectoryIterator(path);
     let entries = [];
-    await iterator.forEach(async entry => {
-      if (entry.isDir) {
-        entries.push(entry.name);
-      }
-    }).catch(ex => {
-      Cu.reportError(ex);
-      entries = [];
-    });
+    await iterator
+      .forEach(async entry => {
+        if (entry.isDir) {
+          entries.push(entry.name);
+        }
+      })
+      .catch(ex => {
+        Cu.reportError(ex);
+        entries = [];
+      });
     // The directory name is the version number string of the extension.
     // For example, it could be "1.0_0", "1.0_1", "1.0_2", 1.1_0, 1.1_1, or 1.1_2.
     // The "1.0_1" strings mean that the "1.0_0" directory is existed and you install the version 1.0 again.
@@ -269,5 +332,109 @@ var ChromeMigrationUtils = {
 
     this._extensionVersionDirectoryNames[path] = entries;
     return entries;
+  },
+
+  /**
+   * Convert Chrome time format to Date object
+   *
+   * @param   aTime
+   *          Chrome time
+   * @param   aFallbackValue
+   *          a date or timestamp (valid argument for the Date constructor)
+   *          that will be used if the chrometime value passed is invalid.
+   * @return  converted Date object
+   * @note    Google Chrome uses FILETIME / 10 as time.
+   *          FILETIME is based on same structure of Windows.
+   */
+  chromeTimeToDate(aTime, aFallbackValue) {
+    // The date value may be 0 in some cases. Because of the subtraction below,
+    // that'd generate a date before the unix epoch, which can upset consumers
+    // due to the unix timestamp then being negative. Catch this case:
+    if (!aTime) {
+      return new Date(aFallbackValue);
+    }
+    return new Date((aTime * S100NS_PER_MS - S100NS_FROM1601TO1970) / 10000);
+  },
+
+  /**
+   * Convert Date object to Chrome time format
+   *
+   * @param   aDate
+   *          Date object or integer equivalent
+   * @return  Chrome time
+   * @note    For details on Chrome time, see chromeTimeToDate.
+   */
+  dateToChromeTime(aDate) {
+    return (aDate * 10000 + S100NS_FROM1601TO1970) / S100NS_PER_MS;
+  },
+
+  /**
+   * Returns an array of chromium browser ids that have importable logins.
+   */
+  _importableLoginsCache: null,
+  async getImportableLogins(formOrigin) {
+    // Only provide importable if we actually support importing.
+    if (!this.supportsLoginsForPlatform) {
+      return undefined;
+    }
+
+    // Lazily fill the cache with all importable login browsers.
+    if (!this._importableLoginsCache) {
+      this._importableLoginsCache = new Map();
+
+      // Just handle these chromium-based browsers for now.
+      for (const browserId of this.CONTEXTUAL_LOGIN_IMPORT_BROWSERS) {
+        // Skip if there's no profile data.
+        const migrator = await MigrationUtils.getMigrator(browserId);
+        if (!migrator) {
+          continue;
+        }
+
+        // Check each profile for logins.
+        const dataPath = await migrator.wrappedJSObject._getChromeUserDataPathIfExists();
+        for (const profile of await migrator.getSourceProfiles()) {
+          const path = OS.Path.join(dataPath, profile.id, "Login Data");
+          // Skip if login data is missing.
+          if (!(await OS.File.exists(path))) {
+            Cu.reportError(`Missing file at ${path}`);
+            continue;
+          }
+
+          try {
+            for (const row of await MigrationUtils.getRowsFromDBWithoutLocks(
+              path,
+              `Importable ${browserId} logins`,
+              `SELECT origin_url
+               FROM logins
+               WHERE blacklisted_by_user = 0`
+            )) {
+              const url = row.getString(0);
+              try {
+                // Initialize an array if it doesn't exist for the origin yet.
+                const origin = LoginHelper.getLoginOrigin(url);
+                const entries = this._importableLoginsCache.get(origin) || [];
+                if (!entries.length) {
+                  this._importableLoginsCache.set(origin, entries);
+                }
+
+                // Add the browser if it doesn't exist yet.
+                if (!entries.includes(browserId)) {
+                  entries.push(browserId);
+                }
+              } catch (ex) {
+                Cu.reportError(
+                  `Failed to process importable url ${url} from ${browserId} ${ex}`
+                );
+              }
+            }
+          } catch (ex) {
+            Cu.reportError(
+              `Failed to get importable logins from ${browserId} ${ex}`
+            );
+          }
+        }
+      }
+    }
+    return this._importableLoginsCache.get(formOrigin);
   },
 };

@@ -11,12 +11,12 @@
 class nsIProfileUnlocker;
 
 #if defined(XP_WIN)
-#include <windows.h>
+#  include <windows.h>
 #endif
 
 #if defined(XP_UNIX)
-#include <signal.h>
-#include "prclist.h"
+#  include <signal.h>
+#  include "prclist.h"
 #endif
 
 class nsProfileLock
@@ -70,16 +70,16 @@ class nsProfileLock
 #elif defined(XP_UNIX)
 
   struct RemovePidLockFilesExiting {
-    RemovePidLockFilesExiting() {}
+    RemovePidLockFilesExiting() = default;
     ~RemovePidLockFilesExiting() { RemovePidLockFiles(false); }
   };
 
   static void RemovePidLockFiles(bool aFatalSignal);
   static void FatalSignalHandler(int signo
-#ifdef SA_SIGINFO
+#  ifdef SA_SIGINFO
                                  ,
                                  siginfo_t* info, void* context
-#endif
+#  endif
   );
   static PRCList mPidLockList;
 

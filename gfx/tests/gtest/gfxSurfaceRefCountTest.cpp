@@ -11,14 +11,16 @@
 #include "gfxASurface.h"
 #include "gfxImageSurface.h"
 
+#include "nsISupportsUtils.h"  // for NS_ADDREF
+
 #include "cairo.h"
 
-int GetASurfaceRefCount(gfxASurface *s) {
+static int GetASurfaceRefCount(gfxASurface* s) {
   NS_ADDREF(s);
   return s->Release();
 }
 
-int CheckInt(int value, int expected) {
+static int CheckInt(int value, int expected) {
   if (value != expected) {
     fprintf(stderr, "Expected %d got %d\n", expected, value);
     return 1;
@@ -27,7 +29,7 @@ int CheckInt(int value, int expected) {
   return 0;
 }
 
-int CheckPointer(void *value, void *expected) {
+static int CheckPointer(void* value, void* expected) {
   if (value != expected) {
     fprintf(stderr, "Expected %p got %p\n", expected, value);
     return 1;
@@ -37,15 +39,16 @@ int CheckPointer(void *value, void *expected) {
 }
 
 static cairo_user_data_key_t destruction_key;
-void SurfaceDestroyNotifier(void *data) { *(int *)data = 1; }
+static void SurfaceDestroyNotifier(void* data) { *(int*)data = 1; }
 
-int TestNewSurface() {
+static int TestNewSurface() {
   int failures = 0;
   int destroyed = 0;
 
-  RefPtr<gfxASurface> s = new gfxImageSurface(mozilla::gfx::IntSize(10, 10),
-                                              SurfaceFormat::A8R8G8B8_UINT32);
-  cairo_surface_t *cs = s->CairoSurface();
+  RefPtr<gfxASurface> s =
+      new gfxImageSurface(mozilla::gfx::IntSize(10, 10),
+                          mozilla::gfx::SurfaceFormat::A8R8G8B8_UINT32);
+  cairo_surface_t* cs = s->CairoSurface();
 
   cairo_surface_set_user_data(cs, &destruction_key, &destroyed,
                               SurfaceDestroyNotifier);
@@ -60,7 +63,7 @@ int TestNewSurface() {
   failures += CheckInt(cairo_surface_get_reference_count(cs), 2);
   failures += CheckInt(destroyed, 0);
 
-  gfxASurface *savedWrapper = s.get();
+  gfxASurface* savedWrapper = s.get();
 
   s = nullptr;
 
@@ -87,11 +90,11 @@ int TestNewSurface() {
   return failures;
 }
 
-int TestExistingSurface() {
+static int TestExistingSurface() {
   int failures = 0;
   int destroyed = 0;
 
-  cairo_surface_t *cs = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 10, 10);
+  cairo_surface_t* cs = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 10, 10);
 
   cairo_surface_set_user_data(cs, &destruction_key, &destroyed,
                               SurfaceDestroyNotifier);
@@ -109,7 +112,7 @@ int TestExistingSurface() {
   failures += CheckInt(cairo_surface_get_reference_count(cs), 3);
   failures += CheckInt(destroyed, 0);
 
-  gfxASurface *savedWrapper = s.get();
+  gfxASurface* savedWrapper = s.get();
 
   s = nullptr;
 
@@ -141,7 +144,8 @@ int TestExistingSurface() {
   return failures;
 }
 
-TEST(Gfx, SurfaceRefCount) {
+TEST(Gfx, SurfaceRefCount)
+{
   int fail;
 
   fail = TestNewSurface();

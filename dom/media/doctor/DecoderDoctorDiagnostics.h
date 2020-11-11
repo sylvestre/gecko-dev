@@ -8,11 +8,16 @@
 #define DecoderDoctorDiagnostics_h_
 
 #include "MediaResult.h"
+#include "mozilla/DefineEnum.h"
+#include "mozilla/EnumSet.h"
+#include "mozilla/EnumTypeTraits.h"
 #include "nsString.h"
 
-class nsIDocument;
-
 namespace mozilla {
+
+namespace dom {
+class Document;
+}
 
 struct DecoderDoctorEvent {
   enum Domain {
@@ -38,25 +43,28 @@ struct DecoderDoctorEvent {
 // This class' methods must be called from the main thread.
 
 class DecoderDoctorDiagnostics {
+  friend struct IPC::ParamTraits<mozilla::DecoderDoctorDiagnostics>;
+
  public:
   // Store the diagnostic information collected so far on a document for a
   // given format. All diagnostics for a document will be analyzed together
   // within a short timeframe.
   // Should only be called once.
-  void StoreFormatDiagnostics(nsIDocument* aDocument, const nsAString& aFormat,
-                              bool aCanPlay, const char* aCallSite);
+  void StoreFormatDiagnostics(dom::Document* aDocument,
+                              const nsAString& aFormat, bool aCanPlay,
+                              const char* aCallSite);
 
-  void StoreMediaKeySystemAccess(nsIDocument* aDocument,
+  void StoreMediaKeySystemAccess(dom::Document* aDocument,
                                  const nsAString& aKeySystem, bool aIsSupported,
                                  const char* aCallSite);
 
-  void StoreEvent(nsIDocument* aDocument, const DecoderDoctorEvent& aEvent,
+  void StoreEvent(dom::Document* aDocument, const DecoderDoctorEvent& aEvent,
                   const char* aCallSite);
 
-  void StoreDecodeError(nsIDocument* aDocument, const MediaResult& aError,
+  void StoreDecodeError(dom::Document* aDocument, const MediaResult& aError,
                         const nsString& aMediaSrc, const char* aCallSite);
 
-  void StoreDecodeWarning(nsIDocument* aDocument, const MediaResult& aWarning,
+  void StoreDecodeWarning(dom::Document* aDocument, const MediaResult& aWarning,
                           const nsString& aMediaSrc, const char* aCallSite);
 
   enum DiagnosticsType {
@@ -74,20 +82,32 @@ class DecoderDoctorDiagnostics {
 
   // Methods to record diagnostic information:
 
+  MOZ_DEFINE_ENUM_CLASS_AT_CLASS_SCOPE(
+      Flags, (CanPlay, WMFFailedToLoad, FFmpegFailedToLoad,
+              GMPPDMFailedToStartup, VideoNotSupported, AudioNotSupported));
+  using FlagsSet = mozilla::EnumSet<Flags>;
+
   const nsAString& Format() const { return mFormat; }
-  bool CanPlay() const { return mCanPlay; }
+  bool CanPlay() const { return mFlags.contains(Flags::CanPlay); }
 
-  void SetWMFFailedToLoad() { mWMFFailedToLoad = true; }
-  bool DidWMFFailToLoad() const { return mWMFFailedToLoad; }
+  void SetFailureFlags(const FlagsSet& aFlags) { mFlags = aFlags; }
+  void SetWMFFailedToLoad() { mFlags += Flags::WMFFailedToLoad; }
+  bool DidWMFFailToLoad() const {
+    return mFlags.contains(Flags::WMFFailedToLoad);
+  }
 
-  void SetFFmpegFailedToLoad() { mFFmpegFailedToLoad = true; }
-  bool DidFFmpegFailToLoad() const { return mFFmpegFailedToLoad; }
+  void SetFFmpegFailedToLoad() { mFlags += Flags::FFmpegFailedToLoad; }
+  bool DidFFmpegFailToLoad() const {
+    return mFlags.contains(Flags::FFmpegFailedToLoad);
+  }
 
-  void SetGMPPDMFailedToStartup() { mGMPPDMFailedToStartup = true; }
-  bool DidGMPPDMFailToStartup() const { return mGMPPDMFailedToStartup; }
+  void SetGMPPDMFailedToStartup() { mFlags += Flags::GMPPDMFailedToStartup; }
+  bool DidGMPPDMFailToStartup() const {
+    return mFlags.contains(Flags::GMPPDMFailedToStartup);
+  }
 
-  void SetVideoNotSupported() { mVideoNotSupported = true; }
-  void SetAudioNotSupported() { mAudioNotSupported = true; }
+  void SetVideoNotSupported() { mFlags += Flags::VideoNotSupported; }
+  void SetAudioNotSupported() { mFlags += Flags::AudioNotSupported; }
 
   void SetGMP(const nsACString& aGMP) { mGMP = aGMP; }
   const nsACString& GMP() const { return mGMP; }
@@ -112,14 +132,7 @@ class DecoderDoctorDiagnostics {
   DiagnosticsType mDiagnosticsType = eUnsaved;
 
   nsString mFormat;
-  // True if there is at least one decoder that can play that format.
-  bool mCanPlay = false;
-
-  bool mWMFFailedToLoad = false;
-  bool mFFmpegFailedToLoad = false;
-  bool mGMPPDMFailedToStartup = false;
-  bool mVideoNotSupported = false;
-  bool mAudioNotSupported = false;
+  FlagsSet mFlags;
   nsCString mGMP;
 
   nsString mKeySystem;
@@ -130,6 +143,14 @@ class DecoderDoctorDiagnostics {
 
   MediaResult mDecodeIssue = NS_OK;
   nsString mDecodeIssueMediaSrc;
+};
+
+// Used for IPDL serialization.
+// The 'value' have to be the biggest enum from DecoderDoctorDiagnostics::Flags.
+template <>
+struct MaxEnumValue<::mozilla::DecoderDoctorDiagnostics::Flags> {
+  static constexpr unsigned int value =
+      static_cast<unsigned int>(DecoderDoctorDiagnostics::sFlagsCount);
 };
 
 }  // namespace mozilla

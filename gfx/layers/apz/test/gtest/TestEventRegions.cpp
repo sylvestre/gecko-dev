@@ -7,6 +7,7 @@
 #include "APZCTreeManagerTester.h"
 #include "APZTestCommon.h"
 #include "InputUtils.h"
+#include "mozilla/layers/LayersTypes.h"
 
 class APZEventRegionsTester : public APZCTreeManagerTester {
  protected:
@@ -47,7 +48,7 @@ class APZEventRegionsTester : public APZCTreeManagerTester {
 
     registration = MakeUnique<ScopedLayerTreeRegistration>(manager, LayersId{0},
                                                            root, mcc);
-    manager->UpdateHitTestingTree(LayersId{0}, root, false, LayersId{0}, 0);
+    UpdateHitTestingTree();
     rootApzc = ApzcOf(root);
   }
 
@@ -70,7 +71,7 @@ class APZEventRegionsTester : public APZCTreeManagerTester {
 
     registration = MakeUnique<ScopedLayerTreeRegistration>(manager, LayersId{0},
                                                            root, mcc);
-    manager->UpdateHitTestingTree(LayersId{0}, root, false, LayersId{0}, 0);
+    UpdateHitTestingTree();
     rootApzc = ApzcOf(root);
   }
 
@@ -111,7 +112,7 @@ class APZEventRegionsTester : public APZCTreeManagerTester {
 
     registration = MakeUnique<ScopedLayerTreeRegistration>(manager, LayersId{0},
                                                            root, mcc);
-    manager->UpdateHitTestingTree(LayersId{0}, root, false, LayersId{0}, 0);
+    UpdateHitTestingTree();
     rootApzc = ApzcOf(root);
   }
 
@@ -136,7 +137,7 @@ class APZEventRegionsTester : public APZCTreeManagerTester {
 
     registration = MakeUnique<ScopedLayerTreeRegistration>(manager, LayersId{0},
                                                            root, mcc);
-    manager->UpdateHitTestingTree(LayersId{0}, root, false, LayersId{0}, 0);
+    UpdateHitTestingTree();
   }
 
   void CreateBug1117712LayerTree() {
@@ -178,7 +179,7 @@ class APZEventRegionsTester : public APZCTreeManagerTester {
 
     registration = MakeUnique<ScopedLayerTreeRegistration>(manager, LayersId{0},
                                                            root, mcc);
-    manager->UpdateHitTestingTree(LayersId{0}, root, false, LayersId{0}, 0);
+    UpdateHitTestingTree();
   }
 };
 
@@ -265,30 +266,28 @@ TEST_F(APZEventRegionsTester, Obscuration) {
   CreateObscuringLayerTree();
   ScopedLayerTreeRegistration registration(manager, LayersId{0}, root, mcc);
 
-  manager->UpdateHitTestingTree(LayersId{0}, root, false, LayersId{0}, 0);
+  UpdateHitTestingTree();
 
   RefPtr<TestAsyncPanZoomController> parent = ApzcOf(layers[1]);
   TestAsyncPanZoomController* child = ApzcOf(layers[2]);
 
   Pan(parent, 75, 25, PanOptions::NoFling);
 
-  gfx::CompositorHitTestInfo result;
-  RefPtr<AsyncPanZoomController> hit =
-      manager->GetTargetAPZC(ScreenPoint(50, 75), &result);
-  EXPECT_EQ(child, hit.get());
-  EXPECT_EQ(result, CompositorHitTestFlags::eVisibleToHitTest);
+  APZCTreeManager::HitTestResult hit =
+      manager->GetTargetAPZC(ScreenPoint(50, 75));
+  EXPECT_EQ(child, hit.mTargetApzc.get());
+  EXPECT_EQ(hit.mHitResult, CompositorHitTestFlags::eVisibleToHitTest);
 }
 
 TEST_F(APZEventRegionsTester, Bug1119497) {
   CreateBug1119497LayerTree();
 
-  gfx::CompositorHitTestInfo result;
-  RefPtr<AsyncPanZoomController> hit =
-      manager->GetTargetAPZC(ScreenPoint(50, 50), &result);
+  APZCTreeManager::HitTestResult hit =
+      manager->GetTargetAPZC(ScreenPoint(50, 50));
   // We should hit layers[2], so |result| will be eVisibleToHitTest but there's
   // no actual APZC on layers[2], so it will be the APZC of the root layer.
-  EXPECT_EQ(ApzcOf(layers[0]), hit.get());
-  EXPECT_EQ(result, CompositorHitTestFlags::eVisibleToHitTest);
+  EXPECT_EQ(ApzcOf(layers[0]), hit.mTargetApzc.get());
+  EXPECT_EQ(hit.mHitResult, CompositorHitTestFlags::eVisibleToHitTest);
 }
 
 TEST_F(APZEventRegionsTester, Bug1117712) {
@@ -310,4 +309,102 @@ TEST_F(APZEventRegionsTester, Bug1117712) {
   nsTArray<ScrollableLayerGuid> targets;
   targets.AppendElement(apzc2->GetGuid());
   manager->SetTargetAPZC(inputBlockId, targets);
+}
+
+// Test that APZEventResult::mHandledResult is correctly
+// populated.
+TEST_F(APZEventRegionsTester, HandledByRootApzcFlag) {
+  // Create simple layer tree containing a dispatch-to-content region
+  // that covers part but not all of its area.
+  const char* layerTreeSyntax = "c";
+  nsIntRegion layerVisibleRegions[] = {
+      nsIntRegion(IntRect(0, 0, 100, 100)),
+  };
+  root = CreateLayerTree(layerTreeSyntax, layerVisibleRegions, nullptr, lm,
+                         layers);
+  SetScrollableFrameMetrics(root, ScrollableLayerGuid::START_SCROLL_ID,
+                            CSSRect(0, 0, 100, 200));
+  ModifyFrameMetrics(root, [](ScrollMetadata& sm, FrameMetrics& metrics) {
+    metrics.SetIsRootContent(true);
+  });
+  // away from the scrolling container layer.
+  EventRegions regions(nsIntRegion(IntRect(0, 0, 100, 100)));
+  // bottom half is dispatch-to-content
+  regions.mDispatchToContentHitRegion = nsIntRegion(IntRect(0, 50, 100, 50));
+  root->SetEventRegions(regions);
+  registration =
+      MakeUnique<ScopedLayerTreeRegistration>(manager, LayersId{0}, root, mcc);
+  UpdateHitTestingTree();
+
+  // Tap the top half and check that we report that the event was
+  // handled by the root APZC.
+  APZEventResult result =
+      TouchDown(manager, ScreenIntPoint(50, 25), mcc->Time());
+  TouchUp(manager, ScreenIntPoint(50, 25), mcc->Time());
+  EXPECT_EQ(result.mHandledResult, Some(APZHandledResult::HandledByRoot));
+
+  // Tap the bottom half and check that we report that we're not
+  // sure whether the event was handled by the root APZC.
+  result = TouchDown(manager, ScreenIntPoint(50, 75), mcc->Time());
+  TouchUp(manager, ScreenIntPoint(50, 75), mcc->Time());
+  EXPECT_EQ(result.mHandledResult, Nothing());
+
+  // Register an input block callback that will tell us the
+  // delayed answer.
+  APZHandledResult delayedAnswer = APZHandledResult::Invalid;
+  manager->AddInputBlockCallback(result.mInputBlockId,
+                                 [&](uint64_t id, APZHandledResult answer) {
+                                   EXPECT_EQ(id, result.mInputBlockId);
+                                   delayedAnswer = answer;
+                                 });
+
+  // Send APZ the relevant notifications to allow it to process the
+  // input block.
+  manager->SetAllowedTouchBehavior(result.mInputBlockId,
+                                   {AllowedTouchBehavior::VERTICAL_PAN});
+  manager->SetTargetAPZC(result.mInputBlockId, {result.mTargetGuid});
+  manager->ContentReceivedInputBlock(result.mInputBlockId,
+                                     /*preventDefault=*/false);
+
+  // Check that we received the delayed answer and it is what we expect.
+  EXPECT_EQ(delayedAnswer, APZHandledResult::HandledByRoot);
+
+  // Now repeat the tap on the bottom half, but simulate a prevent-default.
+  // This time, we expect a delayed answer of `HandledByContent`.
+  result = TouchDown(manager, ScreenIntPoint(50, 75), mcc->Time());
+  TouchUp(manager, ScreenIntPoint(50, 75), mcc->Time());
+  EXPECT_EQ(result.mHandledResult, Nothing());
+  manager->AddInputBlockCallback(result.mInputBlockId,
+                                 [&](uint64_t id, APZHandledResult answer) {
+                                   EXPECT_EQ(id, result.mInputBlockId);
+                                   delayedAnswer = answer;
+                                 });
+  manager->SetAllowedTouchBehavior(result.mInputBlockId,
+                                   {AllowedTouchBehavior::VERTICAL_PAN});
+  manager->SetTargetAPZC(result.mInputBlockId, {result.mTargetGuid});
+  manager->ContentReceivedInputBlock(result.mInputBlockId,
+                                     /*preventDefault=*/true);
+  EXPECT_EQ(delayedAnswer, APZHandledResult::HandledByContent);
+
+  // Shrink the scrollable area, now it's no longer scrollable.
+  ModifyFrameMetrics(root, [](ScrollMetadata& sm, FrameMetrics& metrics) {
+    metrics.SetScrollableRect(CSSRect(0, 0, 100, 100));
+  });
+  UpdateHitTestingTree();
+  // Now repeat the tap on the bottom half with an event handler.
+  // This time, we expect a delayed answer of `Unhandled`.
+  result = TouchDown(manager, ScreenIntPoint(50, 75), mcc->Time());
+  TouchUp(manager, ScreenIntPoint(50, 75), mcc->Time());
+  EXPECT_EQ(result.mHandledResult, Nothing());
+  manager->AddInputBlockCallback(result.mInputBlockId,
+                                 [&](uint64_t id, APZHandledResult answer) {
+                                   EXPECT_EQ(id, result.mInputBlockId);
+                                   delayedAnswer = answer;
+                                 });
+  manager->SetAllowedTouchBehavior(result.mInputBlockId,
+                                   {AllowedTouchBehavior::VERTICAL_PAN});
+  manager->SetTargetAPZC(result.mInputBlockId, {result.mTargetGuid});
+  manager->ContentReceivedInputBlock(result.mInputBlockId,
+                                     /*preventDefault=*/false);
+  EXPECT_EQ(delayedAnswer, APZHandledResult::Unhandled);
 }

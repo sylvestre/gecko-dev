@@ -18,8 +18,9 @@ namespace mozilla {
 
 using namespace ipc;
 
-namespace dom {
-namespace ipc {
+namespace dom::ipc {
+
+static constexpr uint32_t kSharedStringMapMagic = 0x9e3779b9;
 
 static inline size_t GetAlignmentOffset(size_t aOffset, size_t aAlign) {
   auto mod = aOffset % aAlign;
@@ -30,6 +31,7 @@ SharedStringMap::SharedStringMap(const FileDescriptor& aMapFile,
                                  size_t aMapSize) {
   auto result = mMap.initWithHandle(aMapFile, aMapSize);
   MOZ_RELEASE_ASSERT(result.isOk());
+  MOZ_RELEASE_ASSERT(GetHeader().mMagic == kSharedStringMapMagic);
   // We return literal nsStrings and nsCStrings pointing to the mapped data,
   // which means that we may still have references to the mapped data even
   // after this instance is destroyed. That means that we need to keep the
@@ -40,6 +42,7 @@ SharedStringMap::SharedStringMap(const FileDescriptor& aMapFile,
 SharedStringMap::SharedStringMap(SharedStringMapBuilder&& aBuilder) {
   auto result = aBuilder.Finalize(mMap);
   MOZ_RELEASE_ASSERT(result.isOk());
+  MOZ_RELEASE_ASSERT(GetHeader().mMagic == kSharedStringMapMagic);
   mMap.setPersistent();
 }
 
@@ -67,11 +70,12 @@ bool SharedStringMap::Get(const nsCString& aKey, nsAString& aValue) {
 bool SharedStringMap::Find(const nsCString& aKey, size_t* aIndex) {
   const auto& keys = KeyTable();
 
-  return BinarySearchIf(Entries(), 0, EntryCount(),
-                        [&](const Entry& aEntry) {
-                          return aKey.Compare(keys.GetBare(aEntry.mKey));
-                        },
-                        aIndex);
+  return BinarySearchIf(
+      Entries(), 0, EntryCount(),
+      [&](const Entry& aEntry) {
+        return aKey.Compare(keys.GetBare(aEntry.mKey));
+      },
+      aIndex);
 }
 
 void SharedStringMapBuilder::Add(const nsCString& aKey,
@@ -91,7 +95,7 @@ Result<Ok, nsresult> SharedStringMapBuilder::Finalize(
   }
   keys.Sort();
 
-  Header header = {uint32_t(keys.Length())};
+  Header header = {kSharedStringMapMagic, uint32_t(keys.Length())};
 
   size_t offset = sizeof(header);
   offset += GetAlignmentOffset(offset, alignof(Header));
@@ -135,6 +139,5 @@ Result<Ok, nsresult> SharedStringMapBuilder::Finalize(
   return mem.Finalize(aMap);
 }
 
-}  // namespace ipc
-}  // namespace dom
+}  // namespace dom::ipc
 }  // namespace mozilla

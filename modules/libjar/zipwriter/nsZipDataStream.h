@@ -9,7 +9,6 @@
 #include "nsZipWriter.h"
 #include "nsIOutputStream.h"
 #include "nsIStreamListener.h"
-#include "nsAutoPtr.h"
 #include "mozilla/Attributes.h"
 
 class nsZipDataStream final : public nsIStreamListener {
@@ -20,10 +19,10 @@ class nsZipDataStream final : public nsIStreamListener {
 
   nsZipDataStream() {}
 
-  nsresult Init(nsZipWriter *aWriter, nsIOutputStream *aStream,
-                nsZipHeader *aHeader, int32_t aCompression);
+  nsresult Init(nsZipWriter* aWriter, nsIOutputStream* aStream,
+                nsZipHeader* aHeader, int32_t aCompression);
 
-  nsresult ReadStream(nsIInputStream *aStream);
+  nsresult ReadStream(nsIInputStream* aStream);
 
  private:
   ~nsZipDataStream() {}
@@ -34,8 +33,8 @@ class nsZipDataStream final : public nsIStreamListener {
   RefPtr<nsZipHeader> mHeader;
 
   nsresult CompleteEntry();
-  nsresult ProcessData(nsIRequest *aRequest, nsISupports *aContext,
-                       char *aBuffer, uint64_t aOffset, uint32_t aCount);
+  nsresult ProcessData(nsIRequest* aRequest, nsISupports* aContext,
+                       char* aBuffer, uint64_t aOffset, uint32_t aCount);
 };
 
 #endif

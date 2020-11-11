@@ -6,7 +6,9 @@
 #ifndef __TX_I_XPATH_CONTEXT
 #define __TX_I_XPATH_CONTEXT
 
-#include "txCore.h"
+#include "nscore.h"
+#include "nsISupportsImpl.h"
+#include "nsStringFwd.h"
 
 class FunctionCall;
 class nsAtom;
@@ -25,7 +27,7 @@ class txXPathNode;
 
 class txIParseContext {
  public:
-  virtual ~txIParseContext() {}
+  virtual ~txIParseContext() = default;
 
   /*
    * Return a namespaceID for a given prefix.
@@ -64,7 +66,7 @@ class txIParseContext {
  */
 class txIMatchContext {
  public:
-  virtual ~txIMatchContext() {}
+  virtual ~txIMatchContext() = default;
 
   /*
    * Return the ExprResult associated with the variable with the

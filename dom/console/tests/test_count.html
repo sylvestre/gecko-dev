@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <title>Test for count/countReset in console</title>
-  <script type="application/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css"/>
 </head>
 <body>
@@ -18,7 +18,7 @@ function ConsoleListener() {
 ConsoleListener.prototype = {
   observe(aSubject, aTopic, aData) {
     let obj = aSubject.wrappedJSObject;
-    if (obj.arguments[0] != 'test') {
+    if (obj.arguments[0] != "test") {
       return;
     }
 
@@ -41,7 +41,7 @@ ConsoleListener.prototype = {
 
   waitFor(cb) {
     return new Promise(resolve => {
-      this._cb = cb;
+      this._cb = SpecialPowers.wrapCallback(cb);
       this._resolve = resolve;
     });
   },
@@ -106,7 +106,10 @@ async function runTest() {
   ok(true, "Console.count == 1 received!");
 }
 
-runTest().then(SimpleTest.finish);
+runTest().then(() => {
+  listener.shutdown();
+  SimpleTest.finish();
+});
 
   </script>
 </body>

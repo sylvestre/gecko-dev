@@ -18,7 +18,7 @@ class FontListEntry;
 };  // namespace mozilla
 using mozilla::dom::FontListEntry;
 
-class gfxAndroidPlatform : public gfxPlatform {
+class gfxAndroidPlatform final : public gfxPlatform {
  public:
   gfxAndroidPlatform();
   virtual ~gfxAndroidPlatform();
@@ -27,38 +27,30 @@ class gfxAndroidPlatform : public gfxPlatform {
     return (gfxAndroidPlatform*)gfxPlatform::GetPlatform();
   }
 
-  virtual already_AddRefed<gfxASurface> CreateOffscreenSurface(
+  already_AddRefed<gfxASurface> CreateOffscreenSurface(
       const IntSize& aSize, gfxImageFormat aFormat) override;
 
-  virtual gfxImageFormat GetOffscreenFormat() override {
-    return mOffscreenFormat;
-  }
-
-  // to support IPC font list (sharing between chrome and content)
-  void GetSystemFontList(InfallibleTArray<FontListEntry>* retValue);
+  gfxImageFormat GetOffscreenFormat() override { return mOffscreenFormat; }
 
   // platform implementations of font functions
-  virtual gfxPlatformFontList* CreatePlatformFontList() override;
+  gfxPlatformFontList* CreatePlatformFontList() override;
 
-  virtual void GetCommonFallbackFonts(
-      uint32_t aCh, uint32_t aNextCh, Script aRunScript,
-      nsTArray<const char*>& aFontList) override;
+  void ReadSystemFontList(
+      nsTArray<mozilla::dom::SystemFontListEntry>* aFontList) override;
 
-  gfxFontGroup* CreateFontGroup(const mozilla::FontFamilyList& aFontFamilyList,
-                                const gfxFontStyle* aStyle,
-                                gfxTextPerfMetrics* aTextPerf,
-                                gfxUserFontSet* aUserFontSet,
-                                gfxFloat aDevToCssSize) override;
+  void GetCommonFallbackFonts(uint32_t aCh, Script aRunScript,
+                              eFontPresentation aPresentation,
+                              nsTArray<const char*>& aFontList) override;
 
-  virtual bool FontHintingEnabled() override;
-  virtual bool RequiresLinearZoom() override;
+  bool FontHintingEnabled() override;
+  bool RequiresLinearZoom() override;
 
-  FT_Library GetFTLibrary() override;
-
-  virtual already_AddRefed<mozilla::gfx::VsyncSource>
-  CreateHardwareVsyncSource() override;
+  already_AddRefed<mozilla::gfx::VsyncSource> CreateHardwareVsyncSource()
+      override;
 
  protected:
+  void InitAcceleration() override;
+
   bool AccelerateLayersByDefault() override { return true; }
 
   bool CheckVariationFontSupport() override {

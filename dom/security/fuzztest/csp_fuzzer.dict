@@ -41,7 +41,6 @@
 "upgrade-insecure-requests"
 "child-src"
 "block-all-mixed-content"
-"require-sri-for"
 "sandbox"
 "worker-src"
 "plugin-types"
@@ -81,6 +80,7 @@
 "allow-same-origin"
 "allow-scripts"
 "allow-top-navigation"
+"allow-top-navigation-by-user-activation"
 
 # URI components
 "https:"

@@ -7,9 +7,8 @@
 #include "nsRegion.h"
 #include "nsTArray.h"
 #include "gfxUtils.h"
+#include "gfx2DGlue.h"
 #include "mozilla/ToString.h"
-
-using namespace std;
 
 void nsRegion::AssertStateInternal() const {
   bool failed = false;
@@ -994,7 +993,7 @@ std::ostream& operator<<(std::ostream& stream, const nsRegion& m) {
     if (!first) {
       stream << "; ";
     } else {
-      first = true;
+      first = false;
     }
     const nsRect& rect = iter.Get();
     stream << rect.X() << "," << rect.Y() << "," << rect.XMost() << ","

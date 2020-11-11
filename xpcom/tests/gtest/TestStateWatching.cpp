@@ -22,12 +22,13 @@ struct Foo {
   bool mNotified = false;
 
  private:
-  ~Foo() {}
+  ~Foo() = default;
 };
 
-TEST(WatchManager, Shutdown) {
+TEST(WatchManager, Shutdown)
+{
   RefPtr<TaskQueue> queue =
-      new TaskQueue(GetMediaThreadPool(MediaThreadType::PLAYBACK));
+      new TaskQueue(GetMediaThreadPool(MediaThreadType::SUPERVISOR));
 
   RefPtr<Foo> p = new Foo;
   WatchManager<Foo> manager(p, queue);

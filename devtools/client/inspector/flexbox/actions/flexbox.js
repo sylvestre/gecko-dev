@@ -9,10 +9,9 @@ const {
   UPDATE_FLEXBOX,
   UPDATE_FLEXBOX_COLOR,
   UPDATE_FLEXBOX_HIGHLIGHTED,
-} = require("./index");
+} = require("devtools/client/inspector/flexbox/actions/index");
 
 module.exports = {
-
   /**
    * Clears the flexbox state by resetting it back to the initial flexbox state.
    */
@@ -57,5 +56,4 @@ module.exports = {
       highlighted,
     };
   },
-
 };

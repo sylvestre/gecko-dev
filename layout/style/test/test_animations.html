@@ -16,7 +16,7 @@ https://bugzilla.mozilla.org/show_bug.cgi?id=435442
 -->
 <head>
   <title>Test for css3-animations (Bug 435442)</title>
-  <script type="application/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
   <script type="application/javascript" src="animation_utils.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css"/>
   <style type="text/css">
@@ -646,7 +646,7 @@ is(cs.paddingTop, "25px", "kf_cascade1 at 8s");
 advance_clock(500);
 is(cs.paddingTop, "30px", "kf_cascade1 at 8.5s");
 advance_clock(10);
-is(cs.paddingTop, "60px", "kf_cascade1 at 8.51s");
+is_approx(px_to_num(cs.paddingTop), 60, 0.001, "kf_cascade1 at 8.51s");
 advance_clock(745);
 is(cs.paddingTop, "65px", "kf_cascade1 at 9.2505s");
 done_div();

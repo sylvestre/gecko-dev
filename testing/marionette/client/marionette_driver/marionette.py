@@ -15,6 +15,7 @@ import traceback
 
 from contextlib import contextmanager
 
+import six
 from six import reraise
 
 from . import errors
@@ -30,15 +31,175 @@ WEB_ELEMENT_KEY = "element-6066-11e4-a52e-4f735466cecf"
 WINDOW_KEY = "window-fcc6-11e5-b4f8-330a88ab9d7f"
 
 
+class MouseButton(object):
+    """Enum-like class for mouse button constants."""
+
+    LEFT = 0
+    MIDDLE = 1
+    RIGHT = 2
+
+
+class ActionSequence(object):
+    r"""API for creating and performing action sequences.
+
+    Each action method adds one or more actions to a queue. When perform()
+    is called, the queued actions fire in order.
+
+    May be chained together as in::
+
+         ActionSequence(self.marionette, "key", id) \
+            .key_down("a") \
+            .key_up("a") \
+            .perform()
+    """
+
+    def __init__(self, marionette, action_type, input_id, pointer_params=None):
+        self.marionette = marionette
+        self._actions = []
+        self._id = input_id
+        self._pointer_params = pointer_params
+        self._type = action_type
+
+    @property
+    def dict(self):
+        d = {
+            "type": self._type,
+            "id": self._id,
+            "actions": self._actions,
+        }
+        if self._pointer_params is not None:
+            d["parameters"] = self._pointer_params
+        return d
+
+    def perform(self):
+        """Perform all queued actions."""
+        self.marionette.actions.perform([self.dict])
+
+    def _key_action(self, subtype, value):
+        self._actions.append({"type": subtype, "value": value})
+
+    def _pointer_action(self, subtype, button):
+        self._actions.append({"type": subtype, "button": button})
+
+    def pause(self, duration):
+        self._actions.append({"type": "pause", "duration": duration})
+        return self
+
+    def pointer_move(self, x, y, duration=None, origin=None):
+        """Queue a pointerMove action.
+
+        :param x: Destination x-axis coordinate of pointer in CSS pixels.
+        :param y: Destination y-axis coordinate of pointer in CSS pixels.
+        :param duration: Number of milliseconds over which to distribute the
+                         move. If None, remote end defaults to 0.
+        :param origin: Origin of coordinates, either "viewport", "pointer" or
+                       an Element. If None, remote end defaults to "viewport".
+        """
+        action = {"type": "pointerMove", "x": x, "y": y}
+        if duration is not None:
+            action["duration"] = duration
+        if origin is not None:
+            if isinstance(origin, HTMLElement):
+                action["origin"] = {origin.kind: origin.id}
+            else:
+                action["origin"] = origin
+        self._actions.append(action)
+        return self
+
+    def pointer_up(self, button=MouseButton.LEFT):
+        """Queue a pointerUp action for `button`.
+
+        :param button: Pointer button to perform action with.
+                       Default: 0, which represents main device button.
+        """
+        self._pointer_action("pointerUp", button)
+        return self
+
+    def pointer_down(self, button=MouseButton.LEFT):
+        """Queue a pointerDown action for `button`.
+
+        :param button: Pointer button to perform action with.
+                       Default: 0, which represents main device button.
+        """
+        self._pointer_action("pointerDown", button)
+        return self
+
+    def click(self, element=None, button=MouseButton.LEFT):
+        """Queue a click with the specified button.
+
+        If an element is given, move the pointer to that element first,
+        otherwise click current pointer coordinates.
+
+        :param element: Optional element to click.
+        :param button: Integer representing pointer button to perform action
+                       with. Default: 0, which represents main device button.
+        """
+        if element:
+            self.pointer_move(0, 0, origin=element)
+        return self.pointer_down(button).pointer_up(button)
+
+    def key_down(self, value):
+        """Queue a keyDown action for `value`.
+
+        :param value: Single character to perform key action with.
+        """
+        self._key_action("keyDown", value)
+        return self
+
+    def key_up(self, value):
+        """Queue a keyUp action for `value`.
+
+        :param value: Single character to perform key action with.
+        """
+        self._key_action("keyUp", value)
+        return self
+
+    def send_keys(self, keys):
+        """Queue a keyDown and keyUp action for each character in `keys`.
+
+        :param keys: String of keys to perform key actions with.
+        """
+        for c in keys:
+            self.key_down(c)
+            self.key_up(c)
+        return self
+
+
+class Actions(object):
+    def __init__(self, marionette):
+        self.marionette = marionette
+
+    def perform(self, actions=None):
+        """Perform actions by tick from each action sequence in `actions`.
+
+        :param actions: List of input source action sequences. A single action
+                        sequence may be created with the help of
+                        ``ActionSequence.dict``.
+        """
+        body = {"actions": [] if actions is None else actions}
+        return self.marionette._send_message("WebDriver:PerformActions", body)
+
+    def release(self):
+        return self.marionette._send_message("WebDriver:ReleaseActions")
+
+    def sequence(self, *args, **kwargs):
+        """Return an empty ActionSequence of the designated type.
+
+        See ActionSequence for parameter list.
+        """
+        return ActionSequence(self.marionette, *args, **kwargs)
+
+
 class HTMLElement(object):
     """Represents a DOM Element."""
 
     identifiers = (CHROME_ELEMENT_KEY, FRAME_KEY, WINDOW_KEY, WEB_ELEMENT_KEY)
 
-    def __init__(self, marionette, id):
+    def __init__(self, marionette, id, kind=WEB_ELEMENT_KEY):
         self.marionette = marionette
-        assert(id is not None)
+        assert id is not None
         self.id = id
+        self.kind = kind
 
     def __str__(self):
         return self.id
@@ -71,8 +232,9 @@ class HTMLElement(object):
         is set.
         """
         body = {"id": self.id, "name": name}
-        return self.marionette._send_message("WebDriver:GetElementAttribute",
-                                             body, key="value")
+        return self.marionette._send_message(
+            "WebDriver:GetElementAttribute", body, key="value"
+        )
 
     def get_property(self, name):
         """Returns the requested property, or None if the property is
@@ -80,8 +242,9 @@ class HTMLElement(object):
         """
         try:
             body = {"id": self.id, "name": name}
-            return self.marionette._send_message("WebDriver:GetElementProperty",
-                                                 body, key="value")
+            return self.marionette._send_message(
+                "WebDriver:GetElementProperty", body, key="value"
+            )
         except errors.UnknownCommandException:
             # Keep backward compatibility for code which uses get_attribute() to
             # also retrieve element properties.
@@ -90,8 +253,7 @@ class HTMLElement(object):
 
     def click(self):
         """Simulates a click on the element."""
-        self.marionette._send_message("WebDriver:ElementClick",
-                                      {"id": self.id})
+        self.marionette._send_message("WebDriver:ElementClick", {"id": self.id})
 
     def tap(self, x=None, y=None):
         """Simulates a set of tap events on the element.
@@ -108,30 +270,32 @@ class HTMLElement(object):
     def text(self):
         """Returns the visible text of the element, and its child elements."""
         body = {"id": self.id}
-        return self.marionette._send_message("WebDriver:GetElementText",
-                                             body, key="value")
+        return self.marionette._send_message(
+            "WebDriver:GetElementText", body, key="value"
+        )
 
     def send_keys(self, *strings):
         """Sends the string via synthesized keypresses to the element.
-           If an array is passed in like `marionette.send_keys(Keys.SHIFT, "a")` it
-           will be joined into a string.
-           If an integer is passed in like `marionette.send_keys(1234)` it will be
-           coerced into a string.
+        If an array is passed in like `marionette.send_keys(Keys.SHIFT, "a")` it
+        will be joined into a string.
+        If an integer is passed in like `marionette.send_keys(1234)` it will be
+        coerced into a string.
         """
         keys = Marionette.convert_keys(*strings)
-        self.marionette._send_message("WebDriver:ElementSendKeys",
-                                      {"id": self.id, "text": keys})
+        self.marionette._send_message(
+            "WebDriver:ElementSendKeys", {"id": self.id, "text": keys}
+        )
 
     def clear(self):
         """Clears the input of the element."""
-        self.marionette._send_message("WebDriver:ElementClear",
-                                      {"id": self.id})
+        self.marionette._send_message("WebDriver:ElementClear", {"id": self.id})
 
     def is_selected(self):
         """Returns True if the element is selected."""
         body = {"id": self.id}
-        return self.marionette._send_message("WebDriver:IsElementSelected",
-                                             body, key="value")
+        return self.marionette._send_message(
+            "WebDriver:IsElementSelected", body, key="value"
+        )
 
     def is_enabled(self):
         """This command will return False if all the following criteria
@@ -141,21 +305,24 @@ class HTMLElement(object):
         * A ``HTMLElement`` has a disabled boolean attribute.
         """
         body = {"id": self.id}
-        return self.marionette._send_message("WebDriver:IsElementEnabled",
-                                             body, key="value")
+        return self.marionette._send_message(
+            "WebDriver:IsElementEnabled", body, key="value"
+        )
 
     def is_displayed(self):
         """Returns True if the element is displayed, False otherwise."""
         body = {"id": self.id}
-        return self.marionette._send_message("WebDriver:IsElementDisplayed",
-                                             body, key="value")
+        return self.marionette._send_message(
+            "WebDriver:IsElementDisplayed", body, key="value"
+        )
 
     @property
     def tag_name(self):
         """The tag name of the element."""
         body = {"id": self.id}
-        return self.marionette._send_message("WebDriver:GetElementTagName",
-                                             body, key="value")
+        return self.marionette._send_message(
+            "WebDriver:GetElementTagName", body, key="value"
+        )
 
     @property
     def rect(self):
@@ -168,8 +335,9 @@ class HTMLElement(object):
           * height and the width will contain the height and the width
             of the DOMRect of the ``HTMLElement``.
         """
-        return self.marionette._send_message("WebDriver:GetElementRect",
-                                             {"id": self.id})
+        return self.marionette._send_message(
+            "WebDriver:GetElementRect", {"id": self.id}
+        )
 
     def value_of_css_property(self, property_name):
         """Gets the value of the specified CSS property name.
@@ -177,355 +345,22 @@ class HTMLElement(object):
         :param property_name: Property name to get the value of.
         """
         body = {"id": self.id, "propertyName": property_name}
-        return self.marionette._send_message("WebDriver:GetElementCSSValue",
-                                             body, key="value")
+        return self.marionette._send_message(
+            "WebDriver:GetElementCSSValue", body, key="value"
+        )
 
     @classmethod
     def _from_json(cls, json, marionette):
         if isinstance(json, dict):
             if WEB_ELEMENT_KEY in json:
-                return cls(marionette, json[WEB_ELEMENT_KEY])
+                return cls(marionette, json[WEB_ELEMENT_KEY], WEB_ELEMENT_KEY)
             elif CHROME_ELEMENT_KEY in json:
-                return cls(marionette, json[CHROME_ELEMENT_KEY])
+                return cls(marionette, json[CHROME_ELEMENT_KEY], CHROME_ELEMENT_KEY)
             elif FRAME_KEY in json:
-                return cls(marionette, json[FRAME_KEY])
+                return cls(marionette, json[FRAME_KEY], FRAME_KEY)
             elif WINDOW_KEY in json:
-                return cls(marionette, json[WINDOW_KEY])
+                return cls(marionette, json[WINDOW_KEY], WINDOW_KEY)
         raise ValueError("Unrecognised web element")
-
-
-class MouseButton(object):
-    """Enum-like class for mouse button constants."""
-    LEFT = 0
-    MIDDLE = 1
-    RIGHT = 2
-
-
-class Actions(object):
-    '''
-    An Action object represents a set of actions that are executed in a particular order.
-
-    All action methods (press, etc.) return the Actions object itself, to make
-    it easy to create a chain of events.
-
-    Example usage:
-
-    ::
-
-        # get html file
-        testAction = marionette.absolute_url("testFool.html")
-        # navigate to the file
-        marionette.navigate(testAction)
-        # find element1 and element2
-        element1 = marionette.find_element(By.ID, "element1")
-        element2 = marionette.find_element(By.ID, "element2")
-        # create action object
-        action = Actions(marionette)
-        # add actions (press, wait, move, release) into the object
-        action.press(element1).wait(5). move(element2).release()
-        # fire all the added events
-        action.perform()
-    '''
-
-    def __init__(self, marionette):
-        self.action_chain = []
-        self.marionette = marionette
-        self.current_id = None
-
-    def press(self, element, x=None, y=None):
-        '''
-        Sends a 'touchstart' event to this element.
-
-        If no coordinates are given, it will be targeted at the center of the
-        element. If given, it will be targeted at the (x,y) coordinates
-        relative to the top-left corner of the element.
-
-        :param element: The element to press on.
-        :param x: Optional, x-coordinate to tap, relative to the top-left
-         corner of the element.
-        :param y: Optional, y-coordinate to tap, relative to the top-left
-         corner of the element.
-        '''
-        element = element.id
-        self.action_chain.append(['press', element, x, y])
-        return self
-
-    def release(self):
-        '''
-        Sends a 'touchend' event to this element.
-
-        May only be called if :func:`press` has already be called on this element.
-
-        If press and release are chained without a move action between them,
-        then it will be processed as a 'tap' event, and will dispatch the
-        expected mouse events ('mousemove' (if necessary), 'mousedown',
-        'mouseup', 'mouseclick') after the touch events. If there is a wait
-        period between press and release that will trigger a contextmenu,
-        then the 'contextmenu' menu event will be fired instead of the
-        touch/mouse events.
-        '''
-        self.action_chain.append(['release'])
-        return self
-
-    def move(self, element):
-        '''
-        Sends a 'touchmove' event at the center of the target element.
-
-        :param element: Element to move towards.
-
-        May only be called if :func:`press` has already be called.
-        '''
-        element = element.id
-        self.action_chain.append(['move', element])
-        return self
-
-    def move_by_offset(self, x, y):
-        '''
-        Sends 'touchmove' event to the given x, y coordinates relative to the
-        top-left of the currently touched element.
-
-        May only be called if :func:`press` has already be called.
-
-        :param x: Specifies x-coordinate of move event, relative to the
-         top-left corner of the element.
-        :param y: Specifies y-coordinate of move event, relative to the
-         top-left corner of the element.
-        '''
-        self.action_chain.append(['moveByOffset', x, y])
-        return self
-
-    def wait(self, time=None):
-        '''
-        Waits for specified time period.
-
-        :param time: Time in seconds to wait. If time is None then this has no effect
-                     for a single action chain. If used inside a multi-action chain,
-                     then time being None indicates that we should wait for all other
-                     currently executing actions that are part of the chain to complete.
-        '''
-        self.action_chain.append(['wait', time])
-        return self
-
-    def cancel(self):
-        '''
-        Sends 'touchcancel' event to the target of the original 'touchstart' event.
-
-        May only be called if :func:`press` has already be called.
-        '''
-        self.action_chain.append(['cancel'])
-        return self
-
-    def tap(self, element, x=None, y=None):
-        '''
-        Performs a quick tap on the target element.
-
-        :param element: The element to tap.
-        :param x: Optional, x-coordinate of tap, relative to the top-left
-         corner of the element. If not specified, default to center of
-         element.
-        :param y: Optional, y-coordinate of tap, relative to the top-left
-         corner of the element. If not specified, default to center of
-         element.
-
-        This is equivalent to calling:
-
-        ::
-
-          action.press(element, x, y).release()
-        '''
-        element = element.id
-        self.action_chain.append(['press', element, x, y])
-        self.action_chain.append(['release'])
-        return self
-
-    def double_tap(self, element, x=None, y=None):
-        '''
-        Performs a double tap on the target element.
-
-        :param element: The element to double tap.
-        :param x: Optional, x-coordinate of double tap, relative to the
-         top-left corner of the element.
-        :param y: Optional, y-coordinate of double tap, relative to the
-         top-left corner of the element.
-        '''
-        element = element.id
-        self.action_chain.append(['press', element, x, y])
-        self.action_chain.append(['release'])
-        self.action_chain.append(['press', element, x, y])
-        self.action_chain.append(['release'])
-        return self
-
-    def click(self, element, button=MouseButton.LEFT, count=1):
-        '''
-        Performs a click with additional parameters to allow for double clicking,
-        right click, middle click, etc.
-
-        :param element: The element to click.
-        :param button: The mouse button to click (indexed from 0, left to right).
-        :param count: Optional, the count of clicks to synthesize (for double
-                      click events).
-        '''
-        el = element.id
-        self.action_chain.append(['click', el, button, count])
-        return self
-
-    def context_click(self, element):
-        '''
-        Performs a context click on the specified element.
-
-        :param element: The element to context click.
-        '''
-        return self.click(element, button=MouseButton.RIGHT)
-
-    def middle_click(self, element):
-        '''
-        Performs a middle click on the specified element.
-
-        :param element: The element to middle click.
-        '''
-        return self.click(element, button=MouseButton.MIDDLE)
-
-    def double_click(self, element):
-        '''
-        Performs a double click on the specified element.
-
-        :param element: The element to double click.
-        '''
-        return self.click(element, count=2)
-
-    def flick(self, element, x1, y1, x2, y2, duration=200):
-        '''
-        Performs a flick gesture on the target element.
-
-        :param element: The element to perform the flick gesture on.
-        :param x1: Starting x-coordinate of flick, relative to the top left
-         corner of the element.
-        :param y1: Starting y-coordinate of flick, relative to the top left
-         corner of the element.
-        :param x2: Ending x-coordinate of flick, relative to the top left
-         corner of the element.
-        :param y2: Ending y-coordinate of flick, relative to the top left
-         corner of the element.
-        :param duration: Time needed for the flick gesture for complete (in
-         milliseconds).
-        '''
-        element = element.id
-        elapsed = 0
-        time_increment = 10
-        if time_increment >= duration:
-            time_increment = duration
-        move_x = time_increment*1.0/duration * (x2 - x1)
-        move_y = time_increment*1.0/duration * (y2 - y1)
-        self.action_chain.append(['press', element, x1, y1])
-        while elapsed < duration:
-            elapsed += time_increment
-            self.action_chain.append(['moveByOffset', move_x, move_y])
-            self.action_chain.append(['wait', time_increment/1000])
-        self.action_chain.append(['release'])
-        return self
-
-    def long_press(self, element, time_in_seconds, x=None, y=None):
-        '''
-        Performs a long press gesture on the target element.
-
-        :param element: The element to press.
-        :param time_in_seconds: Time in seconds to wait before releasing the press.
-        :param x: Optional, x-coordinate to tap, relative to the top-left
-         corner of the element.
-        :param y: Optional, y-coordinate to tap, relative to the top-left
-         corner of the element.
-
-        This is equivalent to calling:
-
-        ::
-
-          action.press(element, x, y).wait(time_in_seconds).release()
-
-        '''
-        element = element.id
-        self.action_chain.append(['press', element, x, y])
-        self.action_chain.append(['wait', time_in_seconds])
-        self.action_chain.append(['release'])
-        return self
-
-    def key_down(self, key_code):
-        """
-        Perform a "keyDown" action for the given key code. Modifier keys are
-        respected by the server for the course of an action chain.
-
-        :param key_code: The key to press as a result of this action.
-        """
-        self.action_chain.append(['keyDown', key_code])
-        return self
-
-    def key_up(self, key_code):
-        """
-        Perform a "keyUp" action for the given key code. Modifier keys are
-        respected by the server for the course of an action chain.
-
-        :param key_up: The key to release as a result of this action.
-        """
-        self.action_chain.append(['keyUp', key_code])
-        return self
-
-    def perform(self):
-        """Sends the action chain built so far to the server side for
-        execution and clears the current chain of actions."""
-        body = {"chain": self.action_chain, "nextId": self.current_id}
-        try:
-            self.current_id = self.marionette._send_message("Marionette:ActionChain",
-                                                            body, key="value")
-        except errors.UnknownCommandException:
-            self.current_id = self.marionette._send_message("actionChain",
-                                                            body, key="value")
-        self.action_chain = []
-        return self
-
-
-class MultiActions(object):
-    '''
-    A MultiActions object represents a sequence of actions that may be
-    performed at the same time. Its intent is to allow the simulation
-    of multi-touch gestures.
-    Usage example:
-
-    ::
-
-      # create multiaction object
-      multitouch = MultiActions(marionette)
-      # create several action objects
-      action_1 = Actions(marionette)
-      action_2 = Actions(marionette)
-      # add actions to each action object/finger
-      action_1.press(element1).move_to(element2).release()
-      action_2.press(element3).wait().release(element3)
-      # fire all the added events
-      multitouch.add(action_1).add(action_2).perform()
-    '''
-
-    def __init__(self, marionette):
-        self.multi_actions = []
-        self.max_length = 0
-        self.marionette = marionette
-
-    def add(self, action):
-        '''
-        Adds a set of actions to perform.
-
-        :param action: An Actions object.
-        '''
-        self.multi_actions.append(action.action_chain)
-        if len(action.action_chain) > self.max_length:
-            self.max_length = len(action.action_chain)
-        return self
-
-    def perform(self):
-        """Perform all the actions added to this object."""
-        body = {"value": self.multi_actions, "max_length": self.max_length}
-        try:
-            self.marionette._send_message("Marionette:MultiAction", body)
-        except errors.UnknownCommandException:
-            self.marionette._send_message("multiAction", body)
 
 
 class Alert(object):
@@ -551,14 +386,14 @@ class Alert(object):
     @property
     def text(self):
         """Return the currently displayed text in a tab modal."""
-        return self.marionette._send_message("WebDriver:GetAlertText",
-                                             key="value")
+        return self.marionette._send_message("WebDriver:GetAlertText", key="value")
 
     def send_keys(self, *string):
         """Send keys to the currently displayed text input area in an open
         tab modal dialog."""
-        self.marionette._send_message("WebDriver:SendAlertText",
-                                      {"text": Marionette.convert_keys(*string)})
+        self.marionette._send_message(
+            "WebDriver:SendAlertText", {"text": Marionette.convert_keys(*string)}
+        )
 
 
 class Marionette(object):
@@ -567,7 +402,9 @@ class Marionette(object):
     CONTEXT_CHROME = "chrome"  # non-browser content: windows, dialogs, etc.
     CONTEXT_CONTENT = "content"  # browser content: iframes, divs, etc.
     DEFAULT_STARTUP_TIMEOUT = 120
-    DEFAULT_SHUTDOWN_TIMEOUT = 70  # By default Firefox will kill hanging threads after 60s
+    DEFAULT_SHUTDOWN_TIMEOUT = (
+        70  # By default Firefox will kill hanging threads after 60s
+    )
 
     # Bug 1336953 - Until we can remove the socket timeout parameter it has to be
     # set a default value which is larger than the longest timeout as defined by the
@@ -575,9 +412,17 @@ class Marionette(object):
     # so that slow builds have enough time to send the timeout error to the client.
     DEFAULT_SOCKET_TIMEOUT = 360
 
-    def __init__(self, host="127.0.0.1", port=2828, app=None, bin=None,
-                 baseurl=None, socket_timeout=None,
-                 startup_timeout=None, **instance_args):
+    def __init__(
+        self,
+        host="127.0.0.1",
+        port=2828,
+        app=None,
+        bin=None,
+        baseurl=None,
+        socket_timeout=None,
+        startup_timeout=None,
+        **instance_args
+    ):
         """Construct a holder for the Marionette connection.
 
         Remember to call ``start_session`` in order to initiate the
@@ -601,6 +446,8 @@ class Marionette(object):
 
         """
         self.host = "127.0.0.1"  # host
+        if int(port) == 0:
+            port = Marionette.check_port_available(port)
         self.port = self.local_port = int(port)
         self.bin = bin
         self.client = None
@@ -630,9 +477,11 @@ class Marionette(object):
 
         if self.bin:
             self.instance = GeckoInstance.create(
-                app, host=self.host, port=self.port, bin=self.bin, **instance_args)
+                app, host=self.host, port=self.port, bin=self.bin, **instance_args
+            )
             self.start_binary(self.startup_timeout)
 
+        self.actions = Actions(self)
         self.timeout = Timeouts(self)
 
     @property
@@ -641,8 +490,12 @@ class Marionette(object):
             return self.instance.profile.profile
 
     def start_binary(self, timeout):
-        if not self.is_port_available(self.port, host=self.host):
-            raise IOError("Port {0}:{1} is unavailable.".format(self.host, self.port))
+        try:
+            self.check_port_available(self.port, host=self.host)
+        except socket.error:
+            _, value, tb = sys.exc_info()
+            msg = "Port {}:{} is unavailable ({})".format(self.host, self.port, value)
+            reraise(IOError, IOError(msg), tb)
 
         try:
             self.instance.start()
@@ -652,10 +505,11 @@ class Marionette(object):
             # that the process will not quit itself, force a shutdown immediately.
             self.cleanup()
 
-            msg = "Process killed after {}s because no connection to Marionette "\
-                  "server could be established. Check gecko.log for errors"
-            _, _, tb = sys.exc_info()
-            reraise(IOError, msg.format(timeout), tb)
+            msg = (
+                "Process killed after {}s because no connection to Marionette "
+                "server could be established. Check gecko.log for errors"
+            )
+            reraise(IOError, IOError(msg.format(timeout)), sys.exc_info()[2])
 
     def cleanup(self):
         if self.session is not None:
@@ -671,23 +525,27 @@ class Marionette(object):
             self.instance.close(clean=True)
             if self.instance.unresponsive_count >= 3:
                 raise errors.UnresponsiveInstanceException(
-                    "Application clean-up has failed >2 consecutive times.")
+                    "Application clean-up has failed >2 consecutive times."
+                )
 
     def __del__(self):
         self.cleanup()
 
     @staticmethod
-    def is_port_available(port, host=''):
+    def check_port_available(port, host=""):
+        """Check if "host:port" is available.
+
+        Raise socket.error if port is not available.
+        """
         port = int(port)
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
             s.bind((host, port))
-            return True
-        except socket.error:
-            return False
+            port = s.getsockname()[1]
         finally:
             s.close()
+            return port
 
     def raise_for_port(self, timeout=None, check_process_status=True):
         """Raise socket.timeout if no connection can be established.
@@ -698,7 +556,7 @@ class Marionette(object):
             attempt will be aborted.
         """
         if timeout is None:
-            timeout = self.DEFAULT_STARTUP_TIMEOUT
+            timeout = self.startup_timeout
 
         runner = None
         if self.instance is not None:
@@ -729,10 +587,13 @@ class Marionette(object):
         if not connected:
             # There might have been a startup crash of the application
             if runner is not None and self.check_for_crash() > 0:
-                raise IOError('Process crashed (Exit code: {})'.format(runner.wait(0)))
+                raise IOError("Process crashed (Exit code: {})".format(runner.wait(0)))
 
-            raise socket.timeout("Timed out waiting for connection on {0}:{1}!".format(
-                self.host, self.port))
+            raise socket.timeout(
+                "Timed out waiting for connection on {0}:{1}!".format(
+                    self.host, self.port
+                )
+            )
 
     @do_process_check
     def _send_message(self, name, params=None, key=None):
@@ -769,7 +630,9 @@ class Marionette(object):
             return self._unwrap_response(res)
 
     def _unwrap_response(self, value):
-        if isinstance(value, dict) and any(k in value.keys() for k in HTMLElement.identifiers):
+        if isinstance(value, dict) and any(
+            k in value.keys() for k in HTMLElement.identifiers
+        ):
             return HTMLElement._from_json(value, self)
         elif isinstance(value, list):
             return list(self._unwrap_response(item) for item in value)
@@ -791,7 +654,7 @@ class Marionette(object):
         crash_count = 0
 
         if self.instance:
-            name = self.test_name or 'marionette.py'
+            name = self.test_name or "marionette.py"
             crash_count = self.instance.runner.check_for_crashes(test_name=name)
             self.crashed = self.crashed + crash_count
 
@@ -808,12 +671,12 @@ class Marionette(object):
         frame, and is only called via the `@do_process_check` decorator.
 
         """
-        exc, val, tb = sys.exc_info()
+        exc_cls, exc, tb = sys.exc_info()
 
         # If the application hasn't been launched by Marionette no further action can be done.
         # In such cases we simply re-throw the exception.
         if not self.instance:
-            reraise(exc, val, tb)
+            reraise(exc_cls, exc, tb)
 
         else:
             # Somehow the socket disconnected. Give the application some time to shutdown
@@ -821,8 +684,10 @@ class Marionette(object):
             returncode = self.instance.runner.wait(timeout=self.shutdown_timeout)
 
             if returncode is None:
-                message = ('Process killed because the connection to Marionette server is '
-                           'lost. Check gecko.log for errors')
+                message = (
+                    "Process killed because the connection to Marionette server is "
+                    "lost. Check gecko.log for errors"
+                )
                 # This will force-close the application without sending any other message.
                 self.cleanup()
             else:
@@ -831,17 +696,21 @@ class Marionette(object):
 
                 if crash_count > 0:
                     if returncode == 0:
-                        message = 'Content process crashed'
+                        message = "Content process crashed"
                     else:
-                        message = 'Process crashed (Exit code: {returncode})'
+                        message = "Process crashed (Exit code: {returncode})"
                 else:
-                    message = 'Process has been unexpectedly closed (Exit code: {returncode})'
+                    message = (
+                        "Process has been unexpectedly closed (Exit code: {returncode})"
+                    )
 
                 self.delete_session(send_request=False)
 
-            message += ' (Reason: {reason})'
+            message += " (Reason: {reason})"
 
-            reraise(IOError, message.format(returncode=returncode, reason=val), tb)
+            reraise(
+                IOError, IOError(message.format(returncode=returncode, reason=exc)), tb
+            )
 
     @staticmethod
     def convert_keys(*string):
@@ -864,10 +733,13 @@ class Marionette(object):
         :param pref: Name of the preference.
         """
         with self.using_context(self.CONTEXT_CHROME):
-            self.execute_script("""
+            self.execute_script(
+                """
                Components.utils.import("resource://gre/modules/Preferences.jsm");
                Preferences.reset(arguments[0]);
-               """, script_args=(pref,))
+               """,
+                script_args=(pref,),
+            )
 
     def get_pref(self, pref, default_branch=False, value_type="unspecified"):
         """Get the value of the specified preference.
@@ -886,7 +758,8 @@ class Marionette(object):
 
         """
         with self.using_context(self.CONTEXT_CHROME):
-            pref_value = self.execute_script("""
+            pref_value = self.execute_script(
+                """
                 Components.utils.import("resource://gre/modules/Preferences.jsm");
 
                 let pref = arguments[0];
@@ -895,7 +768,9 @@ class Marionette(object):
 
                 prefs = new Preferences({defaultBranch: defaultBranch});
                 return prefs.get(pref, null, Components.interfaces[valueType]);
-                """, script_args=(pref, default_branch, value_type))
+                """,
+                script_args=(pref, default_branch, value_type),
+            )
             return pref_value
 
     def set_pref(self, pref, value, default_branch=False):
@@ -920,7 +795,8 @@ class Marionette(object):
                 self.clear_pref(pref)
                 return
 
-            self.execute_script("""
+            self.execute_script(
+                """
                 Components.utils.import("resource://gre/modules/Preferences.jsm");
 
                 let pref = arguments[0];
@@ -929,7 +805,9 @@ class Marionette(object):
 
                 prefs = new Preferences({defaultBranch: defaultBranch});
                 prefs.set(pref, value);
-                """, script_args=(pref, value, default_branch))
+                """,
+                script_args=(pref, value, default_branch),
+            )
 
     def set_prefs(self, prefs, default_branch=False):
         """Set the value of a list of preferences.
@@ -983,14 +861,17 @@ class Marionette(object):
         :param prefs: A dictionary whose keys are preference names.
         """
         if not self.instance:
-            raise errors.MarionetteException("enforce_gecko_prefs() can only be called "
-                                             "on Gecko instances launched by Marionette")
+            raise errors.MarionetteException(
+                "enforce_gecko_prefs() can only be called "
+                "on Gecko instances launched by Marionette"
+            )
         pref_exists = True
         with self.using_context(self.CONTEXT_CHROME):
-            for pref, value in prefs.iteritems():
+            for pref, value in six.iteritems(prefs):
                 if type(value) is not str:
                     value = json.dumps(value)
-                pref_exists = self.execute_script("""
+                pref_exists = self.execute_script(
+                    """
                 let prefInterface = Components.classes["@mozilla.org/preferences-service;1"]
                                               .getService(Components.interfaces.nsIPrefBranch);
                 let pref = '{0}';
@@ -1006,13 +887,15 @@ class Marionette(object):
                     case prefInterface.PREF_INVALID:
                         return false;
                 }}
-                """.format(pref, value))
+                """.format(
+                        pref, value
+                    )
+                )
                 if not pref_exists:
                     break
 
         if not pref_exists:
-            context = self._send_message("Marionette:GetContext",
-                                         key="value")
+            context = self._send_message("Marionette:GetContext", key="value")
             self.delete_session()
             self.instance.restart(prefs)
             self.raise_for_port()
@@ -1058,23 +941,25 @@ class Marionette(object):
         # so that components can safely shutdown before quitting the
         # application.
         with self.using_context("chrome"):
-            canceled = self.execute_script("""
+            canceled = self.execute_script(
+                """
                 Components.utils.import("resource://gre/modules/Services.jsm");
                 let cancelQuit = Components.classes["@mozilla.org/supports-PRBool;1"]
                     .createInstance(Components.interfaces.nsISupportsPRBool);
                 Services.obs.notifyObservers(cancelQuit, "quit-application-requested", null);
                 return cancelQuit.data;
-                """)
+                """
+            )
             if canceled:
                 raise errors.MarionetteException(
-                    "Something cancelled the quit application request")
+                    "Something cancelled the quit application request"
+                )
 
         body = None
         if len(flags) > 0:
             body = {"flags": list(flags)}
 
-        return self._send_message("Marionette:Quit",
-                                  body, key="cause")
+        return self._send_message("Marionette:Quit", body, key="cause")
 
     @do_process_check
     def quit(self, clean=False, in_app=False, callback=None):
@@ -1094,17 +979,19 @@ class Marionette(object):
                          be used to trigger the shutdown.
         """
         if not self.instance:
-            raise errors.MarionetteException("quit() can only be called "
-                                             "on Gecko instances launched by Marionette")
+            raise errors.MarionetteException(
+                "quit() can only be called " "on Gecko instances launched by Marionette"
+            )
 
         cause = None
         if in_app:
             if callback is not None and not callable(callback):
-                raise ValueError("Specified callback '{}' is not callable".format(callback))
+                raise ValueError(
+                    "Specified callback '{}' is not callable".format(callback)
+                )
 
             # Block Marionette from accepting new connections
-            self._send_message("Marionette:AcceptConnections",
-                               {"value": False})
+            self._send_message("Marionette:AcceptConnections", {"value": False})
 
             try:
                 self.is_shutting_down = True
@@ -1135,8 +1022,10 @@ class Marionette(object):
             self.instance.close(clean=clean)
 
         if cause not in (None, "shutdown"):
-            raise errors.MarionetteException("Unexpected shutdown reason '{}' for "
-                                             "quitting the process.".format(cause))
+            raise errors.MarionetteException(
+                "Unexpected shutdown reason '{}' for "
+                "quitting the process.".format(cause)
+            )
 
     @do_process_check
     def restart(self, clean=False, in_app=False, callback=None):
@@ -1154,22 +1043,26 @@ class Marionette(object):
                          used to trigger the restart.
         """
         if not self.instance:
-            raise errors.MarionetteException("restart() can only be called "
-                                             "on Gecko instances launched by Marionette")
-        context = self._send_message("Marionette:GetContext",
-                                     key="value")
+            raise errors.MarionetteException(
+                "restart() can only be called "
+                "on Gecko instances launched by Marionette"
+            )
+        context = self._send_message("Marionette:GetContext", key="value")
 
         cause = None
         if in_app:
             if clean:
-                raise ValueError("An in_app restart cannot be triggered with the clean flag set")
+                raise ValueError(
+                    "An in_app restart cannot be triggered with the clean flag set"
+                )
 
             if callback is not None and not callable(callback):
-                raise ValueError("Specified callback '{}' is not callable".format(callback))
+                raise ValueError(
+                    "Specified callback '{}' is not callable".format(callback)
+                )
 
             # Block Marionette from accepting new connections
-            self._send_message("Marionette:AcceptConnections",
-                               {"value": False})
+            self._send_message("Marionette:AcceptConnections", {"value": False})
 
             try:
                 self.is_shutting_down = True
@@ -1184,13 +1077,13 @@ class Marionette(object):
                 # which wants to reset the context but fails sending the message.
                 pass
 
+            timeout_restart = self.shutdown_timeout + self.startup_timeout
             try:
                 # Wait for a new Marionette connection to appear while the
                 # process restarts itself.
-                self.raise_for_port(timeout=self.shutdown_timeout,
-                                    check_process_status=False)
+                self.raise_for_port(timeout=timeout_restart, check_process_status=False)
             except socket.timeout:
-                exc, val, tb = sys.exc_info()
+                exc_cls, _, tb = sys.exc_info()
 
                 if self.instance.runner.returncode is None:
                     # The process is still running, which means the shutdown
@@ -1199,13 +1092,17 @@ class Marionette(object):
                     self._send_message("Marionette:AcceptConnections", {"value": True})
 
                     message = "Process still running {}s after restart request"
-                    reraise(exc, message.format(self.shutdown_timeout), tb)
+                    reraise(exc_cls, exc_cls(message.format(timeout_restart)), tb)
 
                 else:
                     # The process shutdown but didn't start again.
                     self.cleanup()
                     msg = "Process unexpectedly quit without restarting (exit code: {})"
-                    reraise(exc, msg.format(self.instance.runner.returncode), tb)
+                    reraise(
+                        exc_cls,
+                        exc_cls(msg.format(self.instance.runner.returncode)),
+                        tb,
+                    )
 
             finally:
                 self.is_shutting_down = False
@@ -1218,8 +1115,10 @@ class Marionette(object):
             self.raise_for_port(timeout=self.DEFAULT_STARTUP_TIMEOUT)
 
         if cause not in (None, "restart"):
-            raise errors.MarionetteException("Unexpected shutdown reason '{}' for "
-                                             "restarting the process".format(cause))
+            raise errors.MarionetteException(
+                "Unexpected shutdown reason '{}' for "
+                "restarting the process".format(cause)
+            )
 
         self.start_session()
         # Restore the context as used before the restart
@@ -1232,11 +1131,11 @@ class Marionette(object):
             self.instance.runner.process_handler.check_for_detached(self.process_id)
 
     def absolute_url(self, relative_url):
-        '''
+        """
         Returns an absolute url for files served from Marionette's www directory.
 
         :param relative_url: The url of a static file, relative to Marionette's www directory.
-        '''
+        """
         return "{0}{1}".format(self.baseurl, relative_url)
 
     @do_process_check
@@ -1273,17 +1172,16 @@ class Marionette(object):
             # its server component has been started.
             self.raise_for_port(timeout=timeout)
 
-        self.client = transport.TcpTransport(
-            self.host,
-            self.port,
-            self.socket_timeout)
+        self.client = transport.TcpTransport(self.host, self.port, self.socket_timeout)
         self.protocol, _ = self.client.connect()
 
         resp = self._send_message("WebDriver:NewSession", capabilities)
         self.session_id = resp["sessionId"]
         self.session = resp["capabilities"]
         # fallback to processId can be removed in Firefox 55
-        self.process_id = self.session.get("moz:processID", self.session.get("processId"))
+        self.process_id = self.session.get(
+            "moz:processID", self.session.get("processId")
+        )
         self.profile = self.session.get("moz:profile")
 
         timeout = self.session.get("moz:shutdownTimeout")
@@ -1342,8 +1240,7 @@ class Marionette(object):
         :returns: unique window handle
         :rtype: string
         """
-        self.window = self._send_message("WebDriver:GetWindowHandle",
-                                         key="value")
+        self.window = self._send_message("WebDriver:GetWindowHandle", key="value")
         return self.window
 
     @property
@@ -1359,8 +1256,9 @@ class Marionette(object):
         :returns: unique window handle
         :rtype: string
         """
-        self.chrome_window = self._send_message("WebDriver:GetChromeWindowHandle",
-                                                key="value")
+        self.chrome_window = self._send_message(
+            "WebDriver:GetChromeWindowHandle", key="value"
+        )
 
         return self.chrome_window
 
@@ -1379,11 +1277,12 @@ class Marionette(object):
         :param height: The height to resize the window to.
         """
         if (x is None and y is None) and (height is None and width is None):
-            raise errors.InvalidArgumentException("x and y or height and width need values")
+            raise errors.InvalidArgumentException(
+                "x and y or height and width need values"
+            )
 
         body = {"x": x, "y": y, "height": height, "width": width}
-        return self._send_message("WebDriver:SetWindowRect",
-                                  body)
+        return self._send_message("WebDriver:SetWindowRect", body)
 
     @property
     def window_rect(self):
@@ -1392,8 +1291,7 @@ class Marionette(object):
     @property
     def title(self):
         """Current title of the active window."""
-        return self._send_message("WebDriver:GetTitle",
-                                  key="value")
+        return self._send_message("WebDriver:GetTitle", key="value")
 
     @property
     def window_handles(self):
@@ -1425,10 +1323,9 @@ class Marionette(object):
     @property
     def page_source(self):
         """A string representation of the DOM."""
-        return self._send_message("WebDriver:GetPageSource",
-                                  key="value")
+        return self._send_message("WebDriver:GetPageSource", key="value")
 
-    def open(self, type=None, focus=False):
+    def open(self, type=None, focus=False, private=False):
         """Open a new window, or tab based on the specified context type.
 
         If no context type is given the application will choose the best
@@ -1436,10 +1333,11 @@ class Marionette(object):
 
         :param type: Type of window to be opened. Can be one of "tab" or "window"
         :param focus: If true, the opened window will be focused
+        :param private: If true, open a private window
 
         :returns: Dict with new window handle, and type of opened window
         """
-        body = {"type": type, "focus": focus}
+        body = {"type": type, "focus": focus, "private": private}
         return self._send_message("WebDriver:NewWindow", body)
 
     def close(self):
@@ -1471,8 +1369,7 @@ class Marionette(object):
         if context not in [self.CONTEXT_CHROME, self.CONTEXT_CONTENT]:
             raise ValueError("Unknown context: {}".format(context))
 
-        self._send_message("Marionette:SetContext",
-                           {"value": context})
+        self._send_message("Marionette:SetContext", {"value": context})
 
     @contextmanager
     def using_context(self, context):
@@ -1489,8 +1386,7 @@ class Marionette(object):
                 # chrome scope
                 ... do stuff ...
         """
-        scope = self._send_message("Marionette:GetContext",
-                                   key="value")
+        scope = self._send_message("Marionette:GetContext", key="value")
         self.set_context(context)
         try:
             yield
@@ -1509,24 +1405,19 @@ class Marionette(object):
         """
         return Alert(self)
 
-    def switch_to_window(self, window_id, focus=True):
+    def switch_to_window(self, handle, focus=True):
         """Switch to the specified window; subsequent commands will be
         directed at the new window.
 
-        :param window_id: The id or name of the window to switch to.
+        :param handle: The id of the window to switch to.
 
         :param focus: A boolean value which determins whether to focus
             the window that we just switched to.
         """
-        self._send_message("WebDriver:SwitchToWindow",
-                           {"focus": focus, "name": window_id})
-        self.window = window_id
-
-    def get_active_frame(self):
-        """Returns an :class:`~marionette_driver.marionette.HTMLElement`
-        representing the frame Marionette is currently acting on."""
-        return self._send_message("WebDriver:GetActiveFrame",
-                                  key="value")
+        self._send_message(
+            "WebDriver:SwitchToWindow", {"handle": handle, "focus": focus}
+        )
+        self.window = handle
 
     def switch_to_default_content(self):
         """Switch the current context to page's default content."""
@@ -1534,7 +1425,7 @@ class Marionette(object):
 
     def switch_to_parent_frame(self):
         """
-           Switch to the Parent Frame
+        Switch to the Parent Frame
         """
         self._send_message("WebDriver:SwitchToParentFrame")
 
@@ -1545,10 +1436,8 @@ class Marionette(object):
 
         :param frame: A reference to the frame to switch to.  This can
             be an :class:`~marionette_driver.marionette.HTMLElement`,
-            an integer index, string name, or an
-            ID attribute.  If you call ``switch_to_frame`` without an
+            or an integer index. If you call ``switch_to_frame`` without an
             argument, it will switch to the top-level frame.
-
         :param focus: A boolean value which determins whether to focus
             the frame that we just switched to.
         """
@@ -1558,25 +1447,7 @@ class Marionette(object):
         elif frame is not None:
             body["id"] = frame
 
-        self._send_message("WebDriver:SwitchToFrame",
-                           body)
-
-    def switch_to_shadow_root(self, host=None):
-        """Switch the current context to the specified host's Shadow DOM.
-        Subsequent commands will operate in the context of the specified Shadow
-        DOM, if applicable.
-
-        :param host: A reference to the host element containing Shadow DOM.
-            This can be an :class:`~marionette_driver.marionette.HTMLElement`.
-            If you call ``switch_to_shadow_root`` without an argument, it will
-            switch to the parent Shadow DOM or the top-level frame.
-        """
-        body = {}
-        if isinstance(host, HTMLElement):
-            body["id"] = host.id
-
-        return self._send_message("WebDriver:SwitchToShadowRoot",
-                                  body)
+        self._send_message("WebDriver:SwitchToFrame", body)
 
     def get_url(self):
         """Get a string representing the current URL.
@@ -1590,8 +1461,7 @@ class Marionette(object):
 
         :returns: string representation of URL
         """
-        return self._send_message("WebDriver:GetCurrentURL",
-                                  key="value")
+        return self._send_message("WebDriver:GetCurrentURL", key="value")
 
     def get_window_type(self):
         """Gets the windowtype attribute of the window Marionette is
@@ -1601,8 +1471,7 @@ class Marionette(object):
         method to distinguish a browser window from an editor window.
         """
         try:
-            return self._send_message("Marionette:GetWindowType",
-                                      key="value")
+            return self._send_message("Marionette:GetWindowType", key="value")
         except errors.UnknownCommandException:
             return self._send_message("getWindowType", key="value")
 
@@ -1629,8 +1498,7 @@ class Marionette(object):
 
         :param url: The URL to navigate to.
         """
-        self._send_message("WebDriver:Navigate",
-                           {"url": url})
+        self._send_message("WebDriver:Navigate", {"url": url})
 
     def go_back(self):
         """Causes the browser to perform a back navigation."""
@@ -1654,10 +1522,14 @@ class Marionette(object):
             for arg in args:
                 wrapped[arg] = self._to_json(args[arg])
         elif type(args) == HTMLElement:
-            wrapped = {WEB_ELEMENT_KEY: args.id,
-                       CHROME_ELEMENT_KEY: args.id}
-        elif (isinstance(args, bool) or isinstance(args, basestring) or
-              isinstance(args, int) or isinstance(args, float) or args is None):
+            wrapped = {WEB_ELEMENT_KEY: args.id, CHROME_ELEMENT_KEY: args.id}
+        elif (
+            isinstance(args, bool)
+            or isinstance(args, six.string_types)
+            or isinstance(args, int)
+            or isinstance(args, float)
+            or args is None
+        ):
             wrapped = args
         return wrapped
 
@@ -1678,8 +1550,14 @@ class Marionette(object):
         else:
             return value
 
-    def execute_script(self, script, script_args=(), new_sandbox=True,
-                       sandbox="default", script_timeout=None):
+    def execute_script(
+        self,
+        script,
+        script_args=(),
+        new_sandbox=True,
+        sandbox="default",
+        script_timeout=None,
+    ):
         """Executes a synchronous JavaScript script, and returns the
         result (or None if the script does return a value).
 
@@ -1689,14 +1567,16 @@ class Marionette(object):
 
         :param script: A string containing the JavaScript to execute.
         :param script_args: An interable of arguments to pass to the script.
+        :param new_sandbox: If False, preserve global variables from
+            the last execute_*script call. This is True by default, in which
+            case no globals are preserved.
         :param sandbox: A tag referring to the sandbox you wish to use;
             if you specify a new tag, a new sandbox will be created.
             If you use the special tag `system`, the sandbox will
             be created using the system principal which has elevated
             privileges.
-        :param new_sandbox: If False, preserve global variables from
-            the last execute_*script call. This is True by default, in which
-            case no globals are preserved.
+        :param script_timeout: Timeout in milliseconds, overriding
+            the session's default script timeout.
 
         Simple usage example:
 
@@ -1741,22 +1621,42 @@ class Marionette(object):
             assert result == "foo"
 
         """
-        args = self._to_json(script_args)
-        stack = traceback.extract_stack()
-        frame = stack[-2:-1][0]  # grab the second-to-last frame
-        filename = frame[0] if sys.platform == "win32" else os.path.relpath(frame[0])
-        body = {"script": script.strip(),
+        original_timeout = None
+        if script_timeout is not None:
+            original_timeout = self.timeout.script
+            self.timeout.script = script_timeout / 1000.0
+
+        try:
+            args = self._to_json(script_args)
+            stack = traceback.extract_stack()
+            frame = stack[-2:-1][0]  # grab the second-to-last frame
+            filename = (
+                frame[0] if sys.platform == "win32" else os.path.relpath(frame[0])
+            )
+            body = {
+                "script": script.strip(),
                 "args": args,
                 "newSandbox": new_sandbox,
                 "sandbox": sandbox,
-                "scriptTimeout": script_timeout,
                 "line": int(frame[1]),
-                "filename": filename}
-        rv = self._send_message("WebDriver:ExecuteScript", body, key="value")
+                "filename": filename,
+            }
+            rv = self._send_message("WebDriver:ExecuteScript", body, key="value")
+
+        finally:
+            if script_timeout is not None:
+                self.timeout.script = original_timeout
+
         return self._from_json(rv)
 
-    def execute_async_script(self, script, script_args=(), new_sandbox=True,
-                             sandbox="default", script_timeout=None):
+    def execute_async_script(
+        self,
+        script,
+        script_args=(),
+        new_sandbox=True,
+        sandbox="default",
+        script_timeout=None,
+    ):
         """Executes an asynchronous JavaScript script, and returns the
         result (or None if the script does return a value).
 
@@ -1766,13 +1666,15 @@ class Marionette(object):
 
         :param script: A string containing the JavaScript to execute.
         :param script_args: An interable of arguments to pass to the script.
+        :param new_sandbox: If False, preserve global variables from
+            the last execute_*script call. This is True by default,
+            in which case no globals are preserved.
         :param sandbox: A tag referring to the sandbox you wish to use; if
             you specify a new tag, a new sandbox will be created.  If you
             use the special tag `system`, the sandbox will be created
             using the system principal which has elevated privileges.
-        :param new_sandbox: If False, preserve global variables from
-            the last execute_*script call. This is True by default,
-            in which case no globals are preserved.
+        :param script_timeout: Timeout in milliseconds, overriding
+            the session's default script timeout.
 
         Usage example:
 
@@ -1788,19 +1690,33 @@ class Marionette(object):
             ''')
             assert result == 1
         """
-        args = self._to_json(script_args)
-        stack = traceback.extract_stack()
-        frame = stack[-2:-1][0]  # grab the second-to-last frame
-        filename = frame[0] if sys.platform == "win32" else os.path.relpath(frame[0])
-        body = {"script": script.strip(),
+        original_timeout = None
+        if script_timeout is not None:
+            original_timeout = self.timeout.script
+            self.timeout.script = script_timeout / 1000.0
+
+        try:
+            args = self._to_json(script_args)
+            stack = traceback.extract_stack()
+            frame = stack[-2:-1][0]  # grab the second-to-last frame
+            filename = (
+                frame[0] if sys.platform == "win32" else os.path.relpath(frame[0])
+            )
+            body = {
+                "script": script.strip(),
                 "args": args,
                 "newSandbox": new_sandbox,
                 "sandbox": sandbox,
                 "scriptTimeout": script_timeout,
                 "line": int(frame[1]),
-                "filename": filename}
+                "filename": filename,
+            }
+            rv = self._send_message("WebDriver:ExecuteAsyncScript", body, key="value")
 
-        rv = self._send_message("WebDriver:ExecuteAsyncScript", body, key="value")
+        finally:
+            if script_timeout is not None:
+                self.timeout.script = original_timeout
+
         return self._from_json(rv)
 
     def find_element(self, method, target, id=None):
@@ -1819,9 +1735,9 @@ class Marionette(object):
 
         :param method: The method to use to locate the element; one of:
             "id", "name", "class name", "tag name", "css selector",
-            "link text", "partial link text", "xpath", "anon" and "anon
-            attribute". Note that the "name", "link text" and "partial
-            link test" methods are not supported in the chrome DOM.
+            "link text", "partial link text" and "xpath".
+            Note that the "name", "link text" and "partial link test"
+            methods are not supported in the chrome DOM.
         :param target: The target of the search.  For example, if method =
             "tag", target might equal "div".  If method = "id", target would
             be an element id.
@@ -1832,8 +1748,7 @@ class Marionette(object):
         if id:
             body["element"] = id
 
-        return self._send_message("WebDriver:FindElement",
-                                  body, key="value")
+        return self._send_message("WebDriver:FindElement", body, key="value")
 
     def find_elements(self, method, target, id=None):
         """Returns a list of all
@@ -1849,9 +1764,9 @@ class Marionette(object):
 
         :param method: The method to use to locate the elements; one
             of: "id", "name", "class name", "tag name", "css selector",
-            "link text", "partial link text", "xpath", "anon" and "anon
-            attribute". Note that the "name", "link text" and "partial link
-            test" methods are not supported in the chrome DOM.
+            "link text", "partial link text" and "xpath".
+            Note that the "name", "link text" and "partial link test"
+            methods are not supported in the chrome DOM.
         :param target: The target of the search.  For example, if method =
             "tag", target might equal "div".  If method = "id", target would be
             an element id.
@@ -1862,12 +1777,10 @@ class Marionette(object):
         if id:
             body["element"] = id
 
-        return self._send_message("WebDriver:FindElements",
-                                  body)
+        return self._send_message("WebDriver:FindElements", body)
 
     def get_active_element(self):
-        el_or_ref = self._send_message("WebDriver:GetActiveElement",
-                                       key="value")
+        el_or_ref = self._send_message("WebDriver:GetActiveElement", key="value")
         return el_or_ref
 
     def add_cookie(self, cookie):
@@ -1886,8 +1799,7 @@ class Marionette(object):
             driver.add_cookie({"name": "foo", "value": "bar", "path": "/",
                                "secure": True})
         """
-        self._send_message("WebDriver:AddCookie",
-                           {"cookie": cookie})
+        self._send_message("WebDriver:AddCookie", {"cookie": cookie})
 
     def delete_all_cookies(self):
         """Delete all cookies in the scope of the current session.
@@ -1911,8 +1823,7 @@ class Marionette(object):
 
             driver.delete_cookie("foo")
         """
-        self._send_message("WebDriver:DeleteCookie",
-                           {"name": name})
+        self._send_message("WebDriver:DeleteCookie", {"name": name})
 
     def get_cookie(self, name):
         """Get a single cookie by name. Returns the cookie if found,
@@ -1936,8 +1847,7 @@ class Marionette(object):
         """
         return self._send_message("WebDriver:GetCookies")
 
-    def save_screenshot(self, fh, element=None, highlights=None,
-                        full=True, scroll=True):
+    def save_screenshot(self, fh, element=None, full=True, scroll=True):
         """Takes a screenhot of a web element or the current frame and
         saves it in the filehandle.
 
@@ -1946,11 +1856,10 @@ class Marionette(object):
 
         The rest of the parameters are defined like in screenshot()
         """
-        data = self.screenshot(element, highlights, "binary", full, scroll)
+        data = self.screenshot(element, "binary", full, scroll)
         fh.write(data)
 
-    def screenshot(self, element=None, highlights=None, format="base64",
-                   full=True, scroll=True):
+    def screenshot(self, element=None, format="base64", full=True, scroll=True):
         """Takes a screenshot of a web element or the current frame.
 
         The screen capture is returned as a lossless PNG image encoded
@@ -1961,10 +1870,6 @@ class Marionette(object):
 
         :param element: The element to take a screenshot of.  If None, will
             take a screenshot of the current frame.
-
-        :param highlights: A list of
-            :class:`~marionette_driver.marionette.HTMLElement` objects to draw
-            a red box around in the returned screenshot.
 
         :param format: if "base64" (the default), returns the screenshot
             as a base64-string. If "binary", the data is decoded and
@@ -1982,28 +1887,22 @@ class Marionette(object):
 
         if element:
             element = element.id
-        lights = None
-        if highlights:
-            lights = [highlight.id for highlight in highlights]
 
-        body = {"id": element,
-                "highlights": lights,
-                "full": full,
-                "hash": False,
-                "scroll": scroll}
+        body = {"id": element, "full": full, "hash": False, "scroll": scroll}
         if format == "hash":
             body["hash"] = True
 
-        data = self._send_message("WebDriver:TakeScreenshot",
-                                  body, key="value")
+        data = self._send_message("WebDriver:TakeScreenshot", body, key="value")
 
         if format == "base64" or format == "hash":
             return data
         elif format == "binary":
             return base64.b64decode(data.encode("ascii"))
         else:
-            raise ValueError("format parameter must be either 'base64'"
-                             " or 'binary', not {0}".format(repr(format)))
+            raise ValueError(
+                "format parameter must be either 'base64'"
+                " or 'binary', not {0}".format(repr(format))
+            )
 
     @property
     def orientation(self):
@@ -2014,8 +1913,7 @@ class Marionette(object):
         landscape-secondary.
         """
         try:
-            return self._send_message("Marionette:GetScreenOrientation",
-                                      key="value")
+            return self._send_message("Marionette:GetScreenOrientation", key="value")
         except errors.UnknownCommandException:
             return self._send_message("getScreenOrientation", key="value")
 

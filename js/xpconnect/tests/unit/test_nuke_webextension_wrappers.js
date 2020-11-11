@@ -1,22 +1,22 @@
 // See https://bugzilla.mozilla.org/show_bug.cgi?id=1273251
 
-ChromeUtils.import("resource://gre/modules/Services.jsm");
-ChromeUtils.import("resource://gre/modules/NetUtil.jsm");
+const {Services} = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const {NetUtil} = ChromeUtils.import("resource://gre/modules/NetUtil.jsm");
 ChromeUtils.import("resource://gre/modules/Timer.jsm");
-ChromeUtils.import("resource://testing-common/TestUtils.jsm");
+const {TestUtils} = ChromeUtils.import("resource://testing-common/TestUtils.jsm");
 
 function getWindowlessBrowser(url) {
   let ssm = Services.scriptSecurityManager;
 
   let uri = NetUtil.newURI(url);
 
-  let principal = ssm.createCodebasePrincipal(uri, {});
+  let principal = ssm.createContentPrincipal(uri, {});
 
   let webnav = Services.appShell.createWindowlessBrowser(false);
 
   let docShell = webnav.docShell;
 
-  docShell.createAboutBlankContentViewer(principal);
+  docShell.createAboutBlankContentViewer(principal, principal);
 
   return webnav;
 }

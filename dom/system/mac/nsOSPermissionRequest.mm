@@ -15,8 +15,7 @@ using namespace mozilla;
 using mozilla::dom::Promise;
 
 NS_IMETHODIMP
-nsOSPermissionRequest::GetAudioCapturePermissionState(uint16_t* aAudio)
-{
+nsOSPermissionRequest::GetAudioCapturePermissionState(uint16_t* aAudio) {
   MOZ_ASSERT(aAudio);
 
   if (!nsCocoaFeatures::OnMojaveOrLater()) {
@@ -27,8 +26,7 @@ nsOSPermissionRequest::GetAudioCapturePermissionState(uint16_t* aAudio)
 }
 
 NS_IMETHODIMP
-nsOSPermissionRequest::GetVideoCapturePermissionState(uint16_t* aVideo)
-{
+nsOSPermissionRequest::GetVideoCapturePermissionState(uint16_t* aVideo) {
   MOZ_ASSERT(aVideo);
 
   if (!nsCocoaFeatures::OnMojaveOrLater()) {
@@ -39,9 +37,18 @@ nsOSPermissionRequest::GetVideoCapturePermissionState(uint16_t* aVideo)
 }
 
 NS_IMETHODIMP
-nsOSPermissionRequest::RequestVideoCapturePermission(JSContext* aCx,
-                                                     Promise** aPromiseOut)
-{
+nsOSPermissionRequest::GetScreenCapturePermissionState(uint16_t* aScreen) {
+  MOZ_ASSERT(aScreen);
+
+  if (!nsCocoaFeatures::OnCatalinaOrLater()) {
+    return nsOSPermissionRequestBase::GetScreenCapturePermissionState(aScreen);
+  }
+
+  return nsCocoaUtils::GetScreenCapturePermissionState(*aScreen);
+}
+
+NS_IMETHODIMP
+nsOSPermissionRequest::RequestVideoCapturePermission(JSContext* aCx, Promise** aPromiseOut) {
   if (!nsCocoaFeatures::OnMojaveOrLater()) {
     return nsOSPermissionRequestBase::RequestVideoCapturePermission(aCx, aPromiseOut);
   }
@@ -58,9 +65,7 @@ nsOSPermissionRequest::RequestVideoCapturePermission(JSContext* aCx,
 }
 
 NS_IMETHODIMP
-nsOSPermissionRequest::RequestAudioCapturePermission(JSContext* aCx,
-                                                     Promise** aPromiseOut)
-{
+nsOSPermissionRequest::RequestAudioCapturePermission(JSContext* aCx, Promise** aPromiseOut) {
   if (!nsCocoaFeatures::OnMojaveOrLater()) {
     return nsOSPermissionRequestBase::RequestAudioCapturePermission(aCx, aPromiseOut);
   }
@@ -74,4 +79,13 @@ nsOSPermissionRequest::RequestAudioCapturePermission(JSContext* aCx,
   rv = nsCocoaUtils::RequestAudioCapturePermission(promiseHandle);
   promiseHandle.forget(aPromiseOut);
   return rv;
+}
+
+NS_IMETHODIMP
+nsOSPermissionRequest::MaybeRequestScreenCapturePermission() {
+  if (!nsCocoaFeatures::OnCatalinaOrLater()) {
+    return nsOSPermissionRequestBase::MaybeRequestScreenCapturePermission();
+  }
+
+  return nsCocoaUtils::MaybeRequestScreenCapturePermission();
 }

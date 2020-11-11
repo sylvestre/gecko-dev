@@ -36,9 +36,62 @@ var W3CTest = {
   "MAX_COLLAPSED_MESSAGES": 100,
 
   /**
-   * Reference to the TestRunner object in the parent frame.
+   * Reference to the TestRunner object in the parent frame if the
+   * test and the parent frame are same-origin. Otherwise, return
+   * a stub object that relays method calls to the parent frame's
+   * TestRunner via postMessage calls.
    */
-  "runner": parent === this ? null : parent.TestRunner || parent.wrappedJSObject.TestRunner,
+  "runner": function() {
+
+    /**
+     * If true, these tests are running in cross-origin iframes
+     */
+    var xOrigin = function(){
+        try {
+            void parent.TestRunner;
+            return false;
+        } catch {
+            return true;
+        }
+    }();
+    if (!xOrigin) {
+      return parent === this ? null : parent.TestRunner || parent.wrappedJSObject.TestRunner;
+    }
+    let documentURL = new URL(document.URL);
+    return {
+      currentTestURL: function() {
+        return documentURL.searchParams.get("currentTestURL");
+      }(),
+      testFinished(tests) {
+        parent.postMessage(
+          {
+            harnessType: "SimpleTest",
+            command: "testFinished",
+            applyOn: "runner",
+            params: [tests],
+          },
+          "*"
+        );
+      },
+      getParameterInfo() {
+        return { closeWhenDone: documentURL.searchParams.get("closeWhenDone") };
+      },
+      structuredLogger: {
+        testStatus(url, subtest, status, expected, diagnostic, stack) {
+          parent.postMessage(
+            {
+              harnessType: "SimpleTest",
+              command: "structuredLogger.testStatus",
+              applyOn: "logger",
+              params: [url, subtest, status, expected, diagnostic, stack],
+            },
+            "*"
+          );
+        },
+      },
+    };
+   }(),
+
 
   /**
    * Prefixes for the error logging. Indexed first by int(todo) and second by
@@ -278,7 +331,7 @@ var W3CTest = {
    * Timeout the current test. Intended to be used from harness code, not
    * from tests.
    */
-  "timeout": function() {
+  "timeout": async function() {
     this.logFailure("Timeout", "Test runner timed us out.");
     timeout();
   }

@@ -57,6 +57,24 @@ class DynamicsCompressorNode final : public AudioNode {
     mReduction = aReduction;
   }
 
+  void SetChannelCountModeValue(ChannelCountMode aMode,
+                                ErrorResult& aRv) override {
+    if (aMode == ChannelCountMode::Max) {
+      aRv.ThrowNotSupportedError("Cannot set channel count mode to \"max\"");
+      return;
+    }
+    AudioNode::SetChannelCountModeValue(aMode, aRv);
+  }
+
+  void SetChannelCount(uint32_t aChannelCount, ErrorResult& aRv) override {
+    if (aChannelCount > 2) {
+      aRv.ThrowNotSupportedError(
+          nsPrintfCString("%u is greater than 2", aChannelCount));
+      return;
+    }
+    AudioNode::SetChannelCount(aChannelCount, aRv);
+  }
+
  private:
   explicit DynamicsCompressorNode(AudioContext* aContext);
   ~DynamicsCompressorNode() = default;

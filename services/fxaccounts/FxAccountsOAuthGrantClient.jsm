@@ -5,40 +5,58 @@
 /**
  * Firefox Accounts OAuth Grant Client allows clients to obtain
  * an OAuth token from a BrowserID assertion. Only certain client
- * IDs support this privilage.
+ * IDs support this privilege.
  */
 
-var EXPORTED_SYMBOLS = ["FxAccountsOAuthGrantClient", "FxAccountsOAuthGrantClientError"];
+var EXPORTED_SYMBOLS = [
+  "FxAccountsOAuthGrantClient",
+  "FxAccountsOAuthGrantClientError",
+];
 
-ChromeUtils.import("resource://gre/modules/FxAccountsCommon.js");
-ChromeUtils.import("resource://services-common/rest.js");
-ChromeUtils.import("resource://gre/modules/Services.jsm");
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
+const {
+  ERRNO_NETWORK,
+  ERRNO_PARSE,
+  ERRNO_UNKNOWN_ERROR,
+  ERROR_CODE_METHOD_NOT_ALLOWED,
+  ERROR_MSG_METHOD_NOT_ALLOWED,
+  ERROR_NETWORK,
+  ERROR_PARSE,
+  ERROR_UNKNOWN,
+  OAUTH_SERVER_ERRNO_OFFSET,
+  log,
+} = ChromeUtils.import("resource://gre/modules/FxAccountsCommon.js");
+const { RESTRequest } = ChromeUtils.import(
+  "resource://services-common/rest.js"
+);
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
 
 XPCOMUtils.defineLazyGlobalGetters(this, ["URL"]);
 
 const AUTH_ENDPOINT = "/authorization";
-const DESTROY_ENDPOINT = "/destroy";
+const HOST_PREF = "identity.fxaccounts.remote.oauth.uri";
+
 // This is the same pref that's used by FxAccounts.jsm.
 const ALLOW_HTTP_PREF = "identity.fxaccounts.allowHttp";
 
 /**
- * Create a new FxAccountsOAuthClient for browser some service.
+ * Create a new FxAccountsOAuthClient for the browser.
  *
  * @param {Object} options Options
- *   @param {Object} options.parameters
- *     @param {String} options.parameters.client_id
- *     OAuth id returned from client registration
- *     @param {String} options.parameters.serverURL
- *     The FxA OAuth server URL
- *   @param [authorizationEndpoint] {String}
- *   Optional authorization endpoint for the OAuth server
+ *   @param {String} options.client_id
+ *   OAuth client id under which this client is registered
+ *   @param {String} options.parameters.serverURL
+ *   The FxA OAuth server URL
  * @constructor
  */
-var FxAccountsOAuthGrantClient = function(options) {
-
-  this._validateOptions(options);
-  this.parameters = options;
+var FxAccountsOAuthGrantClient = function(options = {}) {
+  this.parameters = { ...options };
+  if (!this.parameters.serverURL) {
+    this.parameters.serverURL = Services.prefs.getCharPref(HOST_PREF);
+  }
+  this._validateOptions(this.parameters);
 
   try {
     this.serverURL = new URL(this.parameters.serverURL);
@@ -54,17 +72,17 @@ var FxAccountsOAuthGrantClient = function(options) {
   log.debug("FxAccountsOAuthGrantClient Initialized");
 };
 
-this.FxAccountsOAuthGrantClient.prototype = {
-
+FxAccountsOAuthGrantClient.prototype = {
   /**
    * Retrieves an OAuth access token for the signed in user
    *
    * @param {Object} assertion BrowserID assertion
    * @param {String} scope OAuth scope
+   * @param {Number} ttl token time to live
    * @return Promise
    *        Resolves: {Object} Object with access_token property
    */
-  getTokenFromAssertion(assertion, scope) {
+  getTokenFromAssertion(assertion, scope, ttl) {
     if (!assertion) {
       throw new Error("Missing 'assertion' parameter");
     }
@@ -76,28 +94,10 @@ this.FxAccountsOAuthGrantClient.prototype = {
       client_id: this.parameters.client_id,
       assertion,
       response_type: "token",
+      ttl,
     };
 
     return this._createRequest(AUTH_ENDPOINT, "POST", params);
-  },
-
-  /**
-   * Destroys a previously fetched OAuth access token.
-   *
-   * @param {String} token The previously fetched token
-   * @return Promise
-   *        Resolves: {Object} with the server response, which is typically
-   *        ignored.
-   */
-  destroyToken(token) {
-    if (!token) {
-      throw new Error("Missing 'token' parameter");
-    }
-    let params = {
-      token,
-    };
-
-    return this._createRequest(DESTROY_ENDPOINT, "POST", params);
   },
 
   /**
@@ -128,17 +128,17 @@ this.FxAccountsOAuthGrantClient.prototype = {
    * Remote request helper
    *
    * @param {String} path
-   *        Profile server path, i.e "/profile".
+   *        OAuth server path, i.e "/token".
    * @param {String} [method]
    *        Type of request, i.e "GET".
    * @return Promise
-   *         Resolves: {Object} Successful response from the Profile server.
-   *         Rejects: {FxAccountsOAuthGrantClientError} Profile client error.
+   *         Resolves: {Object} Successful response from the Oauth server.
+   *         Rejects: {FxAccountsOAuthGrantClientError} OAuth client error.
    * @private
    */
   async _createRequest(path, method = "POST", params) {
-    let profileDataUrl = this.serverURL + path;
-    let request = new this._Request(profileDataUrl);
+    let requestUrl = this.serverURL + path;
+    let request = new this._Request(requestUrl);
     method = method.toUpperCase();
 
     request.setHeader("Accept", "application/json");
@@ -187,11 +187,10 @@ this.FxAccountsOAuthGrantClient.prototype = {
     }
     throw new FxAccountsOAuthGrantClientError(body);
   },
-
 };
 
 /**
- * Normalized profile client errors
+ * Normalized oauth client errors
  * @param {Object} [details]
  *        Error details object
  *   @param {number} [details.code]

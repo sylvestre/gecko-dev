@@ -9,8 +9,7 @@
 #include "mozilla/dom/FileSystemBinding.h"
 #include "nsContentUtils.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(FileSystem, mParent, mRoot)
 
@@ -22,8 +21,8 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(FileSystem)
   NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END
 
-/* static */ already_AddRefed<FileSystem> FileSystem::Create(
-    nsIGlobalObject* aGlobalObject)
+/* static */
+already_AddRefed<FileSystem> FileSystem::Create(nsIGlobalObject* aGlobalObject)
 
 {
   MOZ_ASSERT(aGlobalObject);
@@ -52,7 +51,7 @@ FileSystem::FileSystem(nsIGlobalObject* aGlobal, const nsAString& aName)
   MOZ_ASSERT(aGlobal);
 }
 
-FileSystem::~FileSystem() {}
+FileSystem::~FileSystem() = default;
 
 JSObject* FileSystem::WrapObject(JSContext* aCx,
                                  JS::Handle<JSObject*> aGivenProto) {
@@ -64,5 +63,4 @@ void FileSystem::CreateRoot(const Sequence<RefPtr<FileSystemEntry>>& aEntries) {
   mRoot = new FileSystemRootDirectoryEntry(mParent, aEntries, this);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

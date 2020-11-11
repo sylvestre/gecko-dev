@@ -3,16 +3,19 @@
 <head>
   <meta charset="utf-8">
   <title>Test InspectorUtils::getCSSPseudoElementNames</title>
-  <script type="application/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css"/>
   <script type="application/javascript">
   const InspectorUtils = SpecialPowers.InspectorUtils;
 
+  // NOTE(emilio): When this changes, make sure to update _pseudoIsRelevant in devtools/server/actors/styles.js
   let expected = new Set([
     ":after",
     ":before",
+    ":marker",
     ":backdrop",
     ":cue",
+    ":file-selector-button",
     ":first-letter",
     ":first-line",
     ":placeholder",
@@ -20,9 +23,6 @@
     ":-moz-color-swatch",
     ":-moz-focus-inner",
     ":-moz-focus-outer",
-    ":-moz-list-bullet",
-    ":-moz-list-number",
-    ":-moz-math-anonymous",
     ":-moz-meter-bar",
     ":-moz-placeholder",
     ":-moz-progress-bar",

@@ -43,6 +43,7 @@ class ProxyAccessibleWrap : public AccessibleWrap {
 
   virtual nsIntRect Bounds() const override;
 
+  MOZ_CAN_RUN_SCRIPT
   virtual void ScrollTo(uint32_t aHow) const override;
 
   virtual uint8_t ActionCount() const override;
@@ -57,6 +58,23 @@ class ProxyAccessibleWrap : public AccessibleWrap {
 
   virtual bool GetSelectionBounds(int32_t* aStartOffset,
                                   int32_t* aEndOffset) override;
+
+  virtual void PivotTo(int32_t aGranularity, bool aForward,
+                       bool aInclusive) override;
+
+  virtual void NavigateText(int32_t aGranularity, int32_t aStartOffset,
+                            int32_t aEndOffset, bool aForward,
+                            bool aSelect) override;
+
+  virtual void SetSelection(int32_t aStart, int32_t aEnd) override;
+
+  virtual void Cut() override;
+
+  virtual void Copy() override;
+
+  virtual void Paste() override;
+
+  virtual void ExploreByTouch(float aX, float aY) override;
 
   virtual void WrapperDOMNodeID(nsString& aDOMNodeID) override;
 
@@ -75,21 +93,18 @@ class DocProxyAccessibleWrap : public ProxyAccessibleWrap {
       : ProxyAccessibleWrap(aProxy) {
     mGenericTypes |= eDocument;
 
-    if (auto parent = ParentDocument()) {
-      mID = AcquireID();
-      parent->AddID(mID, this);
-    } else {
-      // top level
+    if (aProxy->IsTopLevel()) {
       mID = kNoID;
+    } else {
+      mID = AcquireID();
     }
   }
 
   virtual void Shutdown() override {
     if (mID) {
-      auto parent = ParentDocument();
-      if (parent) {
-        MOZ_ASSERT(mID != kNoID, "A non root accessible always has a parent");
-        parent->RemoveID(mID);
+      auto doc = static_cast<DocAccessibleParent*>(Proxy());
+      if (!doc->IsTopLevel()) {
+        MOZ_ASSERT(mID != kNoID, "A non root accessible must have an id");
         ReleaseID(mID);
       }
     }

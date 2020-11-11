@@ -3,7 +3,10 @@
 
 "use strict";
 
-var HiddenFrame = ChromeUtils.import("resource://testing-common/HiddenFrame.jsm", {}).HiddenFrame;
+var HiddenFrame = ChromeUtils.import(
+  "resource://gre/modules/HiddenFrame.jsm",
+  {}
+).HiddenFrame;
 
 const HTML_NS = "http://www.w3.org/1999/xhtml";
 const XUL_NS = "http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul";
@@ -26,8 +29,9 @@ function createHiddenBrowser(aURL) {
       browser.setAttribute("src", aURL);
 
       doc.documentElement.appendChild(browser);
-      resolve({frame, browser});
-    }));
+      resolve({ frame, browser });
+    })
+  );
 }
 
 /**
@@ -56,45 +60,49 @@ add_task(async function test_windowless_UITour() {
 
   // Allow the URL to use the UITour.
   info("Adding UITour permission to the test page.");
-  let pageURI = Services.io.newURI(pageURL);
-  Services.perms.add(pageURI, "uitour", Services.perms.ALLOW_ACTION);
+  PermissionTestUtils.add(gTestPath, "uitour", Services.perms.ALLOW_ACTION);
 
   // UITour's ping will resolve this promise.
   await new Promise(resolve => {
-
     // Create a windowless browser and test that UITour works in it.
     let browserPromise = createHiddenBrowser(pageURL);
     browserPromise.then(frameInfo => {
       isnot(frameInfo.browser, null, "The browser must exist and not be null.");
 
-      // Load UITour frame script.
-      frameInfo.browser.messageManager.loadFrameScript(
-        "chrome://browser/content/content-UITour.js", false);
-
       // When the page loads, try to use UITour API.
-      frameInfo.browser.addEventListener("load", function loadListener() {
-        info("The test page was correctly loaded.");
+      frameInfo.browser.addEventListener(
+        "load",
+        function loadListener() {
+          info("The test page was correctly loaded.");
 
-        frameInfo.browser.removeEventListener("load", loadListener, true);
+          frameInfo.browser.removeEventListener("load", loadListener, true);
 
-        // Get a reference to the UITour API.
-        info("Testing access to the UITour API.");
-        let contentWindow = Cu.waiveXrays(frameInfo.browser.contentDocument.defaultView);
-        isnot(contentWindow, null, "The content window must exist and not be null.");
+          // Get a reference to the UITour API.
+          info("Testing access to the UITour API.");
+          let contentWindow = Cu.waiveXrays(
+            frameInfo.browser.contentDocument.defaultView
+          );
+          isnot(
+            contentWindow,
+            null,
+            "The content window must exist and not be null."
+          );
 
-        let uitourAPI = contentWindow.Mozilla.UITour;
+          let uitourAPI = contentWindow.Mozilla.UITour;
 
-        // Test the UITour API with a ping.
-        uitourAPI.ping(function() {
-          info("Ping response received from the UITour API.");
+          // Test the UITour API with a ping.
+          uitourAPI.ping(function() {
+            info("Ping response received from the UITour API.");
 
-          // Make sure to clean up.
-          destroyHiddenBrowser(frameInfo.frame, frameInfo.browser);
+            // Make sure to clean up.
+            destroyHiddenBrowser(frameInfo.frame, frameInfo.browser);
 
-          // Resolve our promise.
-          resolve();
-        });
-      }, true);
+            // Resolve our promise.
+            resolve();
+          });
+        },
+        true
+      );
     });
 
     // Wait for the UITour ping to complete.

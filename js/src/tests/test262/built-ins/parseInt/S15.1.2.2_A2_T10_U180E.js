@@ -2,8 +2,6 @@
 // This code is governed by the BSD license found in the LICENSE file.
 
 /*---
-es5id: 15.1.2.2
-es6id: 18.2.5
 esid: sec-parseint-string-radix
 description: >
   Leading U+180E is not recognized as whitespace
@@ -27,8 +25,8 @@ features: [u180e]
 
 var mongolianVowelSeparator = "\u180E";
 
-assert.sameValue(parseInt(mongolianVowelSeparator + "1"), NaN, "Single leading U+180E");
-assert.sameValue(parseInt(mongolianVowelSeparator + mongolianVowelSeparator + mongolianVowelSeparator + "1"), NaN, "Multiple leading U+180E");
-assert.sameValue(parseInt(mongolianVowelSeparator), NaN, "Only U+180E");
+assert.sameValue(parseInt(mongolianVowelSeparator + "1"), NaN, 'parseInt(mongolianVowelSeparator + "1") must return NaN');
+assert.sameValue(parseInt(mongolianVowelSeparator + mongolianVowelSeparator + mongolianVowelSeparator + "1"), NaN, 'parseInt( mongolianVowelSeparator + mongolianVowelSeparator + mongolianVowelSeparator + "1" ) must return NaN');
+assert.sameValue(parseInt(mongolianVowelSeparator), NaN, 'parseInt("\\"\\\\u180E\\"") must return NaN');
 
 reportCompare(0, 0);

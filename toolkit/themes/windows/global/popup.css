@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 @namespace url("http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul");
+@namespace html url("http://www.w3.org/1999/xhtml");
 
 /* ::::: menupopup ::::: */
 
@@ -16,7 +17,8 @@ panel {
 }
 
 menupopup {
-  -moz-appearance: menupopup;
+  appearance: auto;
+  -moz-default-appearance: menupopup;
 }
 
 menupopup > menu > menupopup {
@@ -26,21 +28,19 @@ menupopup > menu > menupopup {
 }
 
 panel[type="arrow"] {
-  -moz-appearance: none;
+  appearance: none;
   background: transparent;
   border: none;
 }
 
 panel[type="arrow"][side="top"],
 panel[type="arrow"][side="bottom"] {
-  margin-left: -20px;
-  margin-right: -20px;
+  margin-inline: -20px;
 }
 
 panel[type="arrow"][side="left"],
 panel[type="arrow"][side="right"] {
-  margin-top: -20px;
-  margin-bottom: -20px;
+  margin-block: -20px;
 }
 
 .panel-arrowcontent {
@@ -53,6 +53,15 @@ panel[type="arrow"][side="right"] {
   margin: 4px;
 }
 
+.panel-arrowcontent > html|slot {
+  /* propagate border-radius from arrowcontent to slotted children */
+  border-radius: inherit;
+}
+
+:host([orient=vertical]) .panel-arrowcontent {
+  -moz-box-orient: vertical;
+}
+
 %ifdef XP_WIN
 @media (-moz-os-version: windows-win7) {
 %endif
@@ -63,42 +72,45 @@ panel[type="arrow"][side="right"] {
 }
 %endif
 
-.panel-arrow {
+panel[type="arrow"].panel-no-padding::part(arrowcontent) {
+  padding: 0;
+  overflow: hidden; /* Don't let panel content overflow the border-radius */
+}
+
+:is(panel, menupopup)::part(arrow) {
   -moz-context-properties: fill, stroke;
   fill: var(--arrowpanel-background);
   stroke: var(--arrowpanel-border-color);
 }
 
-.panel-arrow[side="top"],
-.panel-arrow[side="bottom"] {
+:is(panel, menupopup)[side="top"]::part(arrow),
+:is(panel, menupopup)[side="bottom"]::part(arrow) {
   list-style-image: url("chrome://global/skin/arrow/panelarrow-vertical.svg");
   position: relative;
-  margin-left: 10px;
-  margin-right: 10px;
+  margin-inline: 10px;
 }
 
-.panel-arrow[side="top"] {
+:is(panel, menupopup)[side="top"]::part(arrow) {
   margin-bottom: -5px;
 }
 
-.panel-arrow[side="bottom"] {
+:is(panel, menupopup)[side="bottom"]::part(arrow) {
   transform: scaleY(-1);
   margin-top: -5px;
 }
 
-.panel-arrow[side="left"],
-.panel-arrow[side="right"] {
+:is(panel, menupopup)[side="left"]::part(arrow),
+:is(panel, menupopup)[side="right"]::part(arrow) {
   list-style-image: url("chrome://global/skin/arrow/panelarrow-horizontal.svg");
   position: relative;
-  margin-top: 10px;
-  margin-bottom: 10px;
+  margin-block: 10px;
 }
 
-.panel-arrow[side="left"] {
+:is(panel, menupopup)[side="left"]::part(arrow) {
   margin-right: -5px;
 }
 
-.panel-arrow[side="right"] {
+:is(panel, menupopup)[side="right"]::part(arrow) {
   transform: scaleX(-1);
   margin-left: -5px;
 }
@@ -114,7 +126,7 @@ panel[type="arrow"][side="right"] {
 /* rules for popups associated with menulists */
 
 menulist > menupopup {
-  -moz-appearance: none;
+  appearance: none;
   min-width: 0;
-  background-color: -moz-Field;
+  background-color: Field;
 }

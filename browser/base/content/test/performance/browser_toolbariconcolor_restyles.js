@@ -5,8 +5,8 @@
  */
 add_task(async function test_toolbar_element_restyles_on_activation() {
   let restyles = {
-    win1:  {},
-    win2:  {},
+    win1: {},
+    win2: {},
   };
 
   // create a window and snapshot the elementsStyled
@@ -20,8 +20,8 @@ add_task(async function test_toolbar_element_restyles_on_activation() {
   // (De)-activate both windows once before we take a measurement. The first
   // (de-)activation may flush styles, after that the style data should be
   // cached.
-  Services.focus.activeWindow = win1;
-  Services.focus.activeWindow = win2;
+  win1.focus();
+  win2.focus();
 
   // Flush any pending styles before we take a measurement.
   win1.getComputedStyle(win1.document.firstElementChild);
@@ -40,19 +40,25 @@ add_task(async function test_toolbar_element_restyles_on_activation() {
   restyles.win2.initial = utils2.restyleGeneration;
 
   // switch back to 1st window, and snapshot elementsStyled
-  Services.focus.activeWindow = win1;
+  win1.focus();
   restyles.win1.activate = utils1.restyleGeneration;
   restyles.win2.deactivate = utils2.restyleGeneration;
 
   // switch back to 2nd window, and snapshot elementsStyled
-  Services.focus.activeWindow = win2;
+  win2.focus();
   restyles.win2.activate = utils2.restyleGeneration;
   restyles.win1.deactivate = utils1.restyleGeneration;
 
-  is(restyles.win1.activate - restyles.win1.deactivate, 0,
-      "No elements restyled when re-activating/deactivating a window");
-  is(restyles.win2.activate - restyles.win2.deactivate, 0,
-      "No elements restyled when re-activating/deactivating a window");
+  is(
+    restyles.win1.activate - restyles.win1.deactivate,
+    0,
+    "No elements restyled when re-activating/deactivating a window"
+  );
+  is(
+    restyles.win2.activate - restyles.win2.deactivate,
+    0,
+    "No elements restyled when re-activating/deactivating a window"
+  );
 
   await BrowserTestUtils.closeWindow(win1);
   await BrowserTestUtils.closeWindow(win2);

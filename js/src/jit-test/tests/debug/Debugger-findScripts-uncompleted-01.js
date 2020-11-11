@@ -1,7 +1,9 @@
+// |jit-test| skip-if: isLcovEnabled()
+
 // Uncompleted scripts and their inner scripts shouldn't be found in
 // findScripts.
 
-let g = newGlobal();
+let g = newGlobal({newCompartment: true});
 let dbg = new Debugger(g);
 
 let message = "";

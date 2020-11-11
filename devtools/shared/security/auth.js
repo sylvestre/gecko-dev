@@ -1,5 +1,3 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 2 -*- */
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -8,15 +6,11 @@
 
 var { Ci, Cc } = require("chrome");
 var Services = require("Services");
-var defer = require("devtools/shared/defer");
 var DevToolsUtils = require("devtools/shared/DevToolsUtils");
 var { dumpn, dumpv } = DevToolsUtils;
-loader.lazyRequireGetter(this, "prompt",
-  "devtools/shared/security/prompt");
-loader.lazyRequireGetter(this, "cert",
-  "devtools/shared/security/cert");
-loader.lazyRequireGetter(this, "asyncStorage",
-  "devtools/shared/async-storage");
+loader.lazyRequireGetter(this, "prompt", "devtools/shared/security/prompt");
+loader.lazyRequireGetter(this, "cert", "devtools/shared/security/cert");
+loader.lazyRequireGetter(this, "asyncStorage", "devtools/shared/async-storage");
 
 /**
  * A simple enum-like object with keys mirrored to values.
@@ -36,8 +30,7 @@ function createEnum(obj) {
  * centralize the common actions available, while still allowing embedders to
  * present their UI in whatever way they choose.
  */
-var AuthenticationResult = exports.AuthenticationResult = createEnum({
-
+var AuthenticationResult = (exports.AuthenticationResult = createEnum({
   /**
    * Close all listening sockets, and disable them from opening again.
    */
@@ -64,8 +57,7 @@ var AuthenticationResult = exports.AuthenticationResult = createEnum({
    * identify the client in the future, such as the cert used during OOB_CERT.
    */
   ALLOW_PERSIST: null,
-
-});
+}));
 
 /**
  * An |Authenticator| implements an authentication mechanism via various hooks
@@ -86,13 +78,12 @@ var Authenticators = {};
  * no cryptographic properties at work here, so it is up to the user to be sure
  * that the client can be trusted.
  */
-var Prompt = Authenticators.Prompt = {};
+var Prompt = (Authenticators.Prompt = {});
 
 Prompt.mode = "PROMPT";
 
 Prompt.Client = function() {};
 Prompt.Client.prototype = {
-
   mode: Prompt.mode,
 
   /**
@@ -107,9 +98,9 @@ Prompt.Client.prototype = {
    * to ensure it meets the authenticator's policies.
    *
    * @param host string
-   *        The host name or IP address of the debugger server.
+   *        The host name or IP address of the devtools server.
    * @param port number
-   *        The port number of the debugger server.
+   *        The port number of the devtools server.
    * @param encryption boolean (optional)
    *        Whether the server requires encryption.  Defaults to false.
    * @param cert object (optional)
@@ -130,9 +121,9 @@ Prompt.Client.prototype = {
    * Debugging commences after this hook completes successfully.
    *
    * @param host string
-   *        The host name or IP address of the debugger server.
+   *        The host name or IP address of the devtools server.
    * @param port number
-   *        The port number of the debugger server.
+   *        The port number of the devtools server.
    * @param encryption boolean (optional)
    *        Whether the server requires encryption.  Defaults to false.
    * @param transport DebuggerTransport
@@ -140,12 +131,10 @@ Prompt.Client.prototype = {
    * @return A promise can be used if there is async behavior.
    */
   authenticate() {},
-
 };
 
 Prompt.Server = function() {};
 Prompt.Server.prototype = {
-
   mode: Prompt.mode,
 
   /**
@@ -236,7 +225,6 @@ Prompt.Server.prototype = {
    *         A promise that will be resolved to the above is also allowed.
    */
   allowConnection: prompt.Server.defaultAllowConnection,
-
 };
 
 /**
@@ -257,13 +245,12 @@ Prompt.Server.prototype = {
  *
  * See docs/wifi.md for details of the authentication design.
  */
-var OOBCert = Authenticators.OOBCert = {};
+var OOBCert = (Authenticators.OOBCert = {});
 
 OOBCert.mode = "OOB_CERT";
 
 OOBCert.Client = function() {};
 OOBCert.Client.prototype = {
-
   mode: OOBCert.mode,
 
   /**
@@ -282,9 +269,9 @@ OOBCert.Client.prototype = {
    * to ensure it meets the authenticator's policies.
    *
    * @param host string
-   *        The host name or IP address of the debugger server.
+   *        The host name or IP address of the devtools server.
    * @param port number
-   *        The port number of the debugger server.
+   *        The port number of the devtools server.
    * @param encryption boolean (optional)
    *        Whether the server requires encryption.  Defaults to false.
    * @param cert object (optional)
@@ -300,9 +287,9 @@ OOBCert.Client.prototype = {
     // Client verifies that Server's cert matches hash(ServerCert) from the
     // advertisement
     dumpv("Validate server cert hash");
-    const serverCert = socket.securityInfo
-                             .QueryInterface(Ci.nsITransportSecurityInfo)
-                             .serverCert;
+    const serverCert = socket.securityInfo.QueryInterface(
+      Ci.nsITransportSecurityInfo
+    ).serverCert;
     const advertisedCert = cert;
     if (serverCert.sha256Fingerprint != advertisedCert.sha256) {
       dumpn("Server cert hash doesn't match advertisement");
@@ -318,9 +305,9 @@ OOBCert.Client.prototype = {
    * Debugging commences after this hook completes successfully.
    *
    * @param host string
-   *        The host name or IP address of the debugger server.
+   *        The host name or IP address of the devtools server.
    * @param port number
-   *        The port number of the debugger server.
+   *        The port number of the devtools server.
    * @param encryption boolean (optional)
    *        Whether the server requires encryption.  Defaults to false.
    * @param cert object (optional)
@@ -331,69 +318,69 @@ OOBCert.Client.prototype = {
    */
   // eslint-disable-next-line no-shadow
   authenticate({ host, port, cert, transport }) {
-    const deferred = defer();
-    let oobData;
+    return new Promise((resolve, reject) => {
+      let oobData;
 
-    let activeSendDialog;
-    const closeDialog = () => {
-      // Close any prompts the client may have been showing from previous
-      // authentication steps
-      if (activeSendDialog && activeSendDialog.close) {
-        activeSendDialog.close();
-        activeSendDialog = null;
-      }
-    };
-
-    transport.hooks = {
-      onPacket: async (packet) => {
-        closeDialog();
-        const { authResult } = packet;
-        switch (authResult) {
-          case AuthenticationResult.PENDING:
-            // Step B.8
-            // Client creates hash(ClientCert) + K(random 128-bit number)
-            oobData = await this._createOOB();
-            activeSendDialog = this.sendOOB({
-              host,
-              port,
-              cert,
-              authResult,
-              oob: oobData,
-            });
-            break;
-          case AuthenticationResult.ALLOW:
-            // Step B.12
-            // Client verifies received value matches K
-            if (packet.k != oobData.k) {
-              transport.close(new Error("Auth secret mismatch"));
-              return;
-            }
-            // Step B.13
-            // Debugging begins
-            transport.hooks = null;
-            deferred.resolve(transport);
-            break;
-          case AuthenticationResult.ALLOW_PERSIST:
-            // Server previously persisted Client as allowed
-            // Step C.5
-            // Debugging begins
-            transport.hooks = null;
-            deferred.resolve(transport);
-            break;
-          default:
-            transport.close(new Error("Invalid auth result: " + authResult));
-            break;
+      let activeSendDialog;
+      const closeDialog = () => {
+        // Close any prompts the client may have been showing from previous
+        // authentication steps
+        if (activeSendDialog?.close) {
+          activeSendDialog.close();
+          activeSendDialog = null;
         }
-      },
-      onClosed(reason) {
-        closeDialog();
-        // Transport died before auth completed
-        transport.hooks = null;
-        deferred.reject(reason);
-      },
-    };
-    transport.ready();
-    return deferred.promise;
+      };
+
+      transport.hooks = {
+        onPacket: async packet => {
+          closeDialog();
+          const { authResult } = packet;
+          switch (authResult) {
+            case AuthenticationResult.PENDING:
+              // Step B.8
+              // Client creates hash(ClientCert) + K(random 128-bit number)
+              oobData = await this._createOOB();
+              activeSendDialog = this.sendOOB({
+                host,
+                port,
+                cert,
+                authResult,
+                oob: oobData,
+              });
+              break;
+            case AuthenticationResult.ALLOW:
+              // Step B.12
+              // Client verifies received value matches K
+              if (packet.k != oobData.k) {
+                transport.close(new Error("Auth secret mismatch"));
+                return;
+              }
+              // Step B.13
+              // Debugging begins
+              transport.hooks = null;
+              resolve(transport);
+              break;
+            case AuthenticationResult.ALLOW_PERSIST:
+              // Server previously persisted Client as allowed
+              // Step C.5
+              // Debugging begins
+              transport.hooks = null;
+              resolve(transport);
+              break;
+            default:
+              transport.close(new Error("Invalid auth result: " + authResult));
+              break;
+          }
+        },
+        onClosed(reason) {
+          closeDialog();
+          // Transport died before auth completed
+          transport.hooks = null;
+          reject(reason);
+        },
+      };
+      transport.ready();
+    });
   },
 
   /**
@@ -411,8 +398,9 @@ OOBCert.Client.prototype = {
   _createRandom() {
     // 16 bytes / 128 bits
     const length = 16;
-    const rng = Cc["@mozilla.org/security/random-generator;1"]
-              .createInstance(Ci.nsIRandomGenerator);
+    const rng = Cc["@mozilla.org/security/random-generator;1"].createInstance(
+      Ci.nsIRandomGenerator
+    );
     const bytes = rng.generateRandomBytes(length);
     return bytes.map(byte => byte.toString(16)).join("");
   },
@@ -421,9 +409,9 @@ OOBCert.Client.prototype = {
    * Send data across the OOB channel to the server to authenticate the devices.
    *
    * @param host string
-   *        The host name or IP address of the debugger server.
+   *        The host name or IP address of the devtools server.
    * @param port number
-   *        The port number of the debugger server.
+   *        The port number of the devtools server.
    * @param cert object (optional)
    *        The server's cert details.
    * @param authResult AuthenticationResult
@@ -436,12 +424,10 @@ OOBCert.Client.prototype = {
    *         * close: Function to hide the notification
    */
   sendOOB: prompt.Client.defaultSendOOB,
-
 };
 
 OOBCert.Server = function() {};
 OOBCert.Server.prototype = {
-
   mode: OOBCert.mode,
 
   /**
@@ -638,7 +624,6 @@ OOBCert.Server.prototype = {
    *         A promise that will be resolved to the above is also allowed.
    */
   receiveOOB: prompt.Server.defaultReceiveOOB,
-
 };
 
 exports.Authenticators = {

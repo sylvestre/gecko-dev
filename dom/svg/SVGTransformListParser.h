@@ -4,11 +4,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef MOZILLA_SVGTRANSFORMLISTPARSER_H__
-#define MOZILLA_SVGTRANSFORMLISTPARSER_H__
+#ifndef DOM_SVG_SVGTRANSFORMLISTPARSER_H_
+#define DOM_SVG_SVGTRANSFORMLISTPARSER_H_
 
 #include "mozilla/Attributes.h"
-#include "nsSVGDataParser.h"
+#include "SVGDataParser.h"
 #include "nsTArray.h"
 
 ////////////////////////////////////////////////////////////////////////
@@ -19,18 +19,16 @@
 
 namespace mozilla {
 
-class nsSVGTransform;
+class SVGTransform;
 
-class SVGTransformListParser : public nsSVGDataParser {
+class SVGTransformListParser : public SVGDataParser {
  public:
   explicit SVGTransformListParser(const nsAString& aValue)
-      : nsSVGDataParser(aValue) {}
+      : SVGDataParser(aValue) {}
 
   bool Parse();
 
-  const nsTArray<nsSVGTransform>& GetTransformList() const {
-    return mTransforms;
-  }
+  const nsTArray<SVGTransform>& GetTransformList() const { return mTransforms; }
 
  private:
   // helpers
@@ -48,9 +46,9 @@ class SVGTransformListParser : public nsSVGDataParser {
   bool ParseSkewY();
   bool ParseMatrix();
 
-  FallibleTArray<nsSVGTransform> mTransforms;
+  FallibleTArray<SVGTransform> mTransforms;
 };
 
 }  // namespace mozilla
 
-#endif  // MOZILLA_SVGTRANSFORMLISTPARSER_H__
+#endif  // DOM_SVG_SVGTRANSFORMLISTPARSER_H_

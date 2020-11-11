@@ -31,7 +31,7 @@ nsIConstraintValidation::nsIConstraintValidation()
       ,
       mBarredFromConstraintValidation(false) {}
 
-nsIConstraintValidation::~nsIConstraintValidation() {}
+nsIConstraintValidation::~nsIConstraintValidation() = default;
 
 mozilla::dom::ValidityState* nsIConstraintValidation::Validity() {
   if (!mValidity) {
@@ -89,8 +89,8 @@ bool nsIConstraintValidation::CheckValidity() {
                "This class should be inherited by HTML elements only!");
 
   nsContentUtils::DispatchTrustedEvent(content->OwnerDoc(), content,
-                                       NS_LITERAL_STRING("invalid"),
-                                       CanBubble::eNo, Cancelable::eYes);
+                                       u"invalid"_ns, CanBubble::eNo,
+                                       Cancelable::eYes);
   return false;
 }
 
@@ -111,9 +111,9 @@ bool nsIConstraintValidation::ReportValidity() {
   MOZ_ASSERT(element, "This class should be inherited by HTML elements only!");
 
   bool defaultAction = true;
-  nsContentUtils::DispatchTrustedEvent(
-      element->OwnerDoc(), element, NS_LITERAL_STRING("invalid"),
-      CanBubble::eNo, Cancelable::eYes, &defaultAction);
+  nsContentUtils::DispatchTrustedEvent(element->OwnerDoc(), element,
+                                       u"invalid"_ns, CanBubble::eNo,
+                                       Cancelable::eYes, &defaultAction);
   if (!defaultAction) {
     return false;
   }
@@ -132,7 +132,7 @@ bool nsIConstraintValidation::ReportValidity() {
 
   RefPtr<CustomEvent> event =
       NS_NewDOMCustomEvent(element->OwnerDoc(), nullptr, nullptr);
-  event->InitCustomEvent(jsapi.cx(), NS_LITERAL_STRING("MozInvalidForm"),
+  event->InitCustomEvent(jsapi.cx(), u"MozInvalidForm"_ns,
                          /* CanBubble */ true,
                          /* Cancelable */ true, detail);
   event->SetTrusted(true);
@@ -170,14 +170,8 @@ bool nsIConstraintValidation::ReportValidity() {
     }
   }
 
-  if (element->IsHTMLElement(nsGkAtoms::input) &&
-      // We don't use nsContentUtils::IsFocusedContent here, because it doesn't
-      // really do what we want for number controls: it's true for the
-      // anonymous textnode inside, but not the number control itself.  We can
-      // use the focus state, though, because that gets synced to the number
-      // control by the anonymous text control.
-      element->State().HasState(NS_EVENT_STATE_FOCUS)) {
-    HTMLInputElement* inputElement = HTMLInputElement::FromNode(element);
+  auto* inputElement = HTMLInputElement::FromNode(element);
+  if (inputElement && inputElement->State().HasState(NS_EVENT_STATE_FOCUS)) {
     inputElement->UpdateValidityUIBits(true);
   }
 
@@ -200,9 +194,7 @@ void nsIConstraintValidation::SetValidityState(ValidityStateType aState,
     nsCOMPtr<nsIFormControl> formCtrl = do_QueryInterface(this);
     NS_ASSERTION(formCtrl, "This interface should be used by form elements!");
 
-    HTMLFormElement* form =
-        static_cast<HTMLFormElement*>(formCtrl->GetFormElement());
-    if (form) {
+    if (HTMLFormElement* form = formCtrl->GetFormElement()) {
       form->UpdateValidity(IsValid());
     }
     HTMLFieldSetElement* fieldSet = formCtrl->GetFieldSet();
@@ -231,9 +223,7 @@ void nsIConstraintValidation::SetBarredFromConstraintValidation(bool aBarred) {
     // If the element is going to be barred from constraint validation, we can
     // inform the form and fieldset that we are now valid. Otherwise, we are now
     // invalid.
-    HTMLFormElement* form =
-        static_cast<HTMLFormElement*>(formCtrl->GetFormElement());
-    if (form) {
+    if (HTMLFormElement* form = formCtrl->GetFormElement()) {
       form->UpdateValidity(aBarred);
     }
     HTMLFieldSetElement* fieldSet = formCtrl->GetFieldSet();

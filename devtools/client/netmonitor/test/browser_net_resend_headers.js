@@ -8,15 +8,15 @@
  */
 
 add_task(async function() {
-  const { monitor } = await initNetMonitor(SIMPLE_SJS);
+  const { monitor } = await initNetMonitor(SIMPLE_SJS, { requestCount: 1 });
   info("Starting test... ");
 
   const { store, windowRequire, connector } = monitor.panelWin;
   const Actions = windowRequire("devtools/client/netmonitor/src/actions/index");
   const { requestData, sendHTTPRequest } = connector;
-  const {
-    getSortedRequests,
-  } = windowRequire("devtools/client/netmonitor/src/selectors/index");
+  const { getSortedRequests } = windowRequire(
+    "devtools/client/netmonitor/src/selectors/index"
+  );
 
   store.dispatch(Actions.batchEnable(false));
 
@@ -25,7 +25,7 @@ add_task(async function() {
     { name: "Host", value: "fakehost.example.com" },
     { name: "User-Agent", value: "Testzilla" },
     { name: "Referer", value: "http://example.com/referrer" },
-    { name: "Accept", value: "application/jarda"},
+    { name: "Accept", value: "application/jarda" },
     { name: "Accept-Encoding", value: "compress, identity, funcoding" },
     { name: "Accept-Language", value: "cs-CZ" },
   ];
@@ -44,7 +44,7 @@ add_task(async function() {
   });
   await wait;
 
-  let item = getSortedRequests(store.getState()).get(0);
+  let item = getSortedRequests(store.getState())[0];
 
   ok(item.requestHeadersAvailable, "headers are available for lazily fetching");
 
@@ -55,7 +55,7 @@ add_task(async function() {
   // Wait until requestHeaders packet gets updated.
   await waitForRequestData(store, ["requestHeaders"]);
 
-  item = getSortedRequests(store.getState()).get(0);
+  item = getSortedRequests(store.getState())[0];
   is(item.method, "POST", "The request has the right method");
   is(item.url, requestUrl, "The request has the right URL");
 

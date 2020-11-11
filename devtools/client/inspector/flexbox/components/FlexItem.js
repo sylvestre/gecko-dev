@@ -7,21 +7,26 @@
 const { PureComponent } = require("devtools/client/shared/vendor/react");
 const dom = require("devtools/client/shared/vendor/react-dom-factories");
 const PropTypes = require("devtools/client/shared/vendor/react-prop-types");
-const { translateNodeFrontToGrip } = require("devtools/client/inspector/shared/utils");
 
-const { REPS, MODE } = require("devtools/client/shared/components/reps/reps");
-const { Rep } = REPS;
-const ElementNode = REPS.ElementNode;
+loader.lazyRequireGetter(
+  this,
+  "getNodeRep",
+  "devtools/client/inspector/shared/node-reps"
+);
 
-const Types = require("../types");
+const Types = require("devtools/client/inspector/flexbox/types");
+
+const {
+  highlightNode,
+  unhighlightNode,
+} = require("devtools/client/inspector/boxmodel/actions/box-model-highlighter");
 
 class FlexItem extends PureComponent {
   static get propTypes() {
     return {
+      dispatch: PropTypes.func.isRequired,
       flexItem: PropTypes.shape(Types.flexItem).isRequired,
       index: PropTypes.number.isRequired,
-      onHideBoxModelHighlighter: PropTypes.func.isRequired,
-      onShowBoxModelHighlighterForNode: PropTypes.func.isRequired,
       scrollToTop: PropTypes.func.isRequired,
       setSelectedNode: PropTypes.func.isRequired,
     };
@@ -29,35 +34,28 @@ class FlexItem extends PureComponent {
 
   render() {
     const {
+      dispatch,
       flexItem,
       index,
-      onHideBoxModelHighlighter,
-      onShowBoxModelHighlighterForNode,
       scrollToTop,
       setSelectedNode,
     } = this.props;
     const { nodeFront } = flexItem;
 
-    return (
-      dom.button(
-        {
-          className: "devtools-button devtools-monospace",
-          onClick: e => {
-            e.stopPropagation();
-            scrollToTop();
-            setSelectedNode(nodeFront);
-            onHideBoxModelHighlighter();
-          },
-          onMouseOut: () => onHideBoxModelHighlighter(),
-          onMouseOver: () => onShowBoxModelHighlighterForNode(nodeFront),
+    return dom.button(
+      {
+        className: "devtools-button devtools-monospace",
+        onClick: e => {
+          e.stopPropagation();
+          scrollToTop();
+          setSelectedNode(nodeFront);
+          dispatch(unhighlightNode());
         },
-        dom.span({ className: "flex-item-index" }, index),
-        Rep({
-          defaultRep: ElementNode,
-          mode: MODE.TINY,
-          object: translateNodeFrontToGrip(nodeFront),
-        })
-      )
+        onMouseOut: () => dispatch(unhighlightNode()),
+        onMouseOver: () => dispatch(highlightNode(nodeFront)),
+      },
+      dom.span({ className: "flex-item-index" }, index),
+      getNodeRep(nodeFront)
     );
   }
 }

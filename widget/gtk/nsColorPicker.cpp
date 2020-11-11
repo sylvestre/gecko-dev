@@ -14,7 +14,7 @@
 
 NS_IMPL_ISUPPORTS(nsColorPicker, nsIColorPicker)
 
-#if defined(ACTIVATE_GTK3_COLOR_PICKER) && GTK_CHECK_VERSION(3, 4, 0)
+#if defined(ACTIVATE_GTK3_COLOR_PICKER)
 int nsColorPicker::convertGdkRgbaComponent(gdouble color_component) {
   // GdkRGBA value is in range [0.0..1.0]. We need something in range [0..255]
   return color_component * 255 + 0.5;
@@ -89,12 +89,11 @@ NS_IMETHODIMP nsColorPicker::Open(
   }
   mCallback = aColorPickerShownCallback;
 
-  nsCString title;
-  title.Adopt(ToNewUTF8String(mTitle));
+  NS_ConvertUTF16toUTF8 title(mTitle);
   GtkWindow* parent_window =
       GTK_WINDOW(mParentWidget->GetNativeData(NS_NATIVE_SHELLWIDGET));
 
-#if defined(ACTIVATE_GTK3_COLOR_PICKER) && GTK_CHECK_VERSION(3, 4, 0)
+#if defined(ACTIVATE_GTK3_COLOR_PICKER)
   GtkWidget* color_chooser = gtk_color_chooser_dialog_new(title, parent_window);
 
   if (parent_window) {
@@ -140,10 +139,10 @@ NS_IMETHODIMP nsColorPicker::Open(
   return NS_OK;
 }
 
-#if defined(ACTIVATE_GTK3_COLOR_PICKER) && GTK_CHECK_VERSION(3, 4, 0)
-/* static */ void nsColorPicker::OnColorChanged(GtkColorChooser* color_chooser,
-                                                GdkRGBA* color,
-                                                gpointer user_data) {
+#if defined(ACTIVATE_GTK3_COLOR_PICKER)
+/* static */
+void nsColorPicker::OnColorChanged(GtkColorChooser* color_chooser,
+                                   GdkRGBA* color, gpointer user_data) {
   static_cast<nsColorPicker*>(user_data)->Update(color);
 }
 
@@ -161,8 +160,9 @@ void nsColorPicker::SetColor(const GdkRGBA* color) {
   mColor += ToHexString(convertGdkRgbaComponent(color->blue));
 }
 #else
-/* static */ void nsColorPicker::OnColorChanged(
-    GtkColorSelection* colorselection, gpointer user_data) {
+/* static */
+void nsColorPicker::OnColorChanged(GtkColorSelection* colorselection,
+                                   gpointer user_data) {
   static_cast<nsColorPicker*>(user_data)->Update(colorselection);
 }
 
@@ -185,14 +185,14 @@ void nsColorPicker::ReadValueFromColorSelection(
 }
 #endif
 
-/* static */ void nsColorPicker::OnResponse(GtkWidget* color_chooser,
-                                            gint response_id,
-                                            gpointer user_data) {
+/* static */
+void nsColorPicker::OnResponse(GtkWidget* color_chooser, gint response_id,
+                               gpointer user_data) {
   static_cast<nsColorPicker*>(user_data)->Done(color_chooser, response_id);
 }
 
-/* static */ void nsColorPicker::OnDestroy(GtkWidget* color_chooser,
-                                           gpointer user_data) {
+/* static */
+void nsColorPicker::OnDestroy(GtkWidget* color_chooser, gpointer user_data) {
   static_cast<nsColorPicker*>(user_data)->Done(color_chooser,
                                                GTK_RESPONSE_CANCEL);
 }
@@ -201,7 +201,7 @@ void nsColorPicker::Done(GtkWidget* color_chooser, gint response) {
   switch (response) {
     case GTK_RESPONSE_OK:
     case GTK_RESPONSE_ACCEPT:
-#if defined(ACTIVATE_GTK3_COLOR_PICKER) && GTK_CHECK_VERSION(3, 4, 0)
+#if defined(ACTIVATE_GTK3_COLOR_PICKER)
       GdkRGBA color;
       gtk_color_chooser_get_rgba(GTK_COLOR_CHOOSER(color_chooser), &color);
       SetColor(&color);

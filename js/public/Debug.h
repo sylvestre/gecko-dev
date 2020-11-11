@@ -202,7 +202,7 @@ class Builder {
 
    public:
     Object(JSContext* cx, Builder& owner_) : Base(cx, owner_, nullptr) {}
-    Object(const Object& rhs) : Base(rhs) {}
+    Object(const Object& rhs) = default;
 
     // Our automatically-generated assignment operator can see our base
     // class's assignment operator, so we don't need to write one out here.
@@ -295,7 +295,7 @@ JS_PUBLIC_API bool IsDebugger(JSObject& obj);
 // Append each of the debuggee global objects observed by the Debugger object
 // |dbgObj| to |vector|. Returns true on success, false on failure.
 JS_PUBLIC_API bool GetDebuggeeGlobals(JSContext* cx, JSObject& dbgObj,
-                                      AutoObjectVector& vector);
+                                      MutableHandleObjectVector vector);
 
 // Hooks for reporting where JavaScript execution began.
 //

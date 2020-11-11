@@ -31,8 +31,8 @@
 class nsPIDOMWindowInner;
 
 #ifndef MOZ_HAL_NAMESPACE
-#define MOZ_HAL_NAMESPACE hal
-#define MOZ_DEFINED_HAL_NAMESPACE 1
+#  define MOZ_HAL_NAMESPACE hal
+#  define MOZ_DEFINED_HAL_NAMESPACE 1
 #endif
 
 namespace mozilla {
@@ -72,8 +72,7 @@ void Shutdown();
  * The method with WindowIdentifier will be called automatically.
  */
 void Vibrate(const nsTArray<uint32_t>& pattern, nsPIDOMWindowInner* aWindow);
-void Vibrate(const nsTArray<uint32_t>& pattern,
-             const hal::WindowIdentifier& id);
+void Vibrate(const nsTArray<uint32_t>& pattern, hal::WindowIdentifier&& id);
 
 /**
  * Cancel a vibration started by the content window identified by
@@ -88,7 +87,7 @@ void Vibrate(const nsTArray<uint32_t>& pattern,
  * automatically.
  */
 void CancelVibrate(nsPIDOMWindowInner* aWindow);
-void CancelVibrate(const hal::WindowIdentifier& id);
+void CancelVibrate(hal::WindowIdentifier&& id);
 
 #define MOZ_DEFINE_HAL_OBSERVER(name_)                             \
   /**                                                              \
@@ -235,7 +234,7 @@ void NotifyScreenConfigurationChange(
  * Lock the screen orientation to the specific orientation.
  * @return Whether the lock has been accepted.
  */
-MOZ_MUST_USE bool LockScreenOrientation(
+[[nodiscard]] bool LockScreenOrientation(
     const hal::ScreenOrientation& aOrientation);
 
 /**
@@ -262,8 +261,8 @@ void SetProcessPriority(int aPid, hal::ProcessPriority aPriority);
 }  // namespace mozilla
 
 #ifdef MOZ_DEFINED_HAL_NAMESPACE
-#undef MOZ_DEFINED_HAL_NAMESPACE
-#undef MOZ_HAL_NAMESPACE
+#  undef MOZ_DEFINED_HAL_NAMESPACE
+#  undef MOZ_HAL_NAMESPACE
 #endif
 
 #endif  // mozilla_Hal_h

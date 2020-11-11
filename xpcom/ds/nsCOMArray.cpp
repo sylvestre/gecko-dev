@@ -28,6 +28,12 @@ class nsTArrayElementTraits<nsISupports*> {
   static inline void Construct(E* aE, const A& aArg) {
     new (mozilla::KnownNotNull, static_cast<void*>(aE)) E(aArg);
   }
+  // Construct in place.
+  template <class... Args>
+  static inline void Emplace(E* aE, Args&&... aArgs) {
+    new (mozilla::KnownNotNull, static_cast<void*>(aE))
+        E(std::forward<Args>(aArgs)...);
+  }
   // Invoke the destructor in place.
   static inline void Destruct(E* aE) { aE->~E(); }
 };
@@ -90,20 +96,19 @@ bool nsCOMArray_base::EnumerateBackwards(nsBaseArrayEnumFunc aFunc,
   return true;
 }
 
-int nsCOMArray_base::nsCOMArrayComparator(const void* aElement1,
-                                          const void* aElement2, void* aData) {
-  nsCOMArrayComparatorContext* ctx =
-      static_cast<nsCOMArrayComparatorContext*>(aData);
+int nsCOMArray_base::VoidStarComparator(const void* aElement1,
+                                        const void* aElement2, void* aData) {
+  auto ctx = static_cast<nsISupportsComparatorContext*>(aData);
   return (*ctx->mComparatorFunc)(*static_cast<nsISupports* const*>(aElement1),
                                  *static_cast<nsISupports* const*>(aElement2),
                                  ctx->mData);
 }
 
-void nsCOMArray_base::Sort(nsBaseArrayComparatorFunc aFunc, void* aData) {
+void nsCOMArray_base::Sort(nsISupportsComparatorFunc aFunc, void* aData) {
   if (mArray.Length() > 1) {
-    nsCOMArrayComparatorContext ctx = {aFunc, aData};
+    nsISupportsComparatorContext ctx = {aFunc, aData};
     NS_QuickSort(mArray.Elements(), mArray.Length(), sizeof(nsISupports*),
-                 nsCOMArrayComparator, &ctx);
+                 VoidStarComparator, &ctx);
   }
 }
 
@@ -112,9 +117,7 @@ bool nsCOMArray_base::InsertObjectAt(nsISupports* aObject, int32_t aIndex) {
     return false;
   }
 
-  if (!mArray.InsertElementAt(aIndex, aObject)) {
-    return false;
-  }
+  mArray.InsertElementAt(aIndex, aObject);
 
   NS_IF_ADDREF(aObject);
   return true;
@@ -136,9 +139,7 @@ bool nsCOMArray_base::InsertObjectsAt(const nsCOMArray_base& aObjects,
     return false;
   }
 
-  if (!mArray.InsertElementsAt(aIndex, aObjects.mArray)) {
-    return false;
-  }
+  mArray.InsertElementsAt(aIndex, aObjects.mArray);
 
   // need to addref all these
   uint32_t count = aObjects.Length();
@@ -232,8 +233,7 @@ void ReleaseObjects(nsTArray<nsISupports*>& aArray) {
 }
 
 void nsCOMArray_base::Clear() {
-  nsTArray<nsISupports*> objects;
-  objects.SwapElements(mArray);
+  nsTArray<nsISupports*> objects = std::move(mArray);
   ReleaseObjects(objects);
 }
 
@@ -249,25 +249,4 @@ bool nsCOMArray_base::SetCount(int32_t aNewCount) {
   }
   mArray.SetLength(aNewCount);
   return true;
-}
-
-void nsCOMArray_base::Adopt(nsISupports** aElements, uint32_t aSize) {
-  Clear();
-  mArray.AppendElements(aElements, aSize);
-
-  // Free the allocated array as well.
-  free(aElements);
-}
-
-uint32_t nsCOMArray_base::Forget(nsISupports*** aElements) {
-  uint32_t length = Length();
-  size_t array_size = sizeof(nsISupports*) * length;
-  nsISupports** array = static_cast<nsISupports**>(moz_xmalloc(array_size));
-  memmove(array, Elements(), array_size);
-  *aElements = array;
-  // Don't Release the contained pointers; the caller of the method will
-  // do this eventually.
-  mArray.Clear();
-
-  return length;
 }

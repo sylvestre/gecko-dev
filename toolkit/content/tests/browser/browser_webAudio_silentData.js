@@ -2,31 +2,16 @@
  * This test is used to make sure we won't show the sound indicator for silent
  * web audio.
  */
- /* eslint-disable mozilla/no-arbitrary-setTimeout */
+/* eslint-disable mozilla/no-arbitrary-setTimeout */
 "use strict";
-
-function createAudioContext() {
-  content.ac = new content.AudioContext();
-  const ac = content.ac;
-  const dest = ac.destination;
-  const source = ac.createBufferSource();
-  const buf = ac.createBuffer(1, 3 * ac.sampleRate, ac.sampleRate);
-  const bufData = buf.getChannelData(0);
-  for (let idx = 0; idx < buf.length; idx++) {
-    bufData[idx] = 0.0;
-  }
-  source.buffer = buf;
-  source.connect(dest);
-  source.start();
-}
 
 async function waitUntilAudioContextStarts() {
   const ac = content.ac;
   if (ac.state == "running") {
-   return;
+    return;
   }
 
-  await new Promise((resolve) => {
+  await new Promise(resolve => {
     ac.onstatechange = () => {
       if (ac.state == "running") {
         ac.onstatechange = null;
@@ -38,18 +23,26 @@ async function waitUntilAudioContextStarts() {
 
 add_task(async function testSilentAudioContext() {
   info(`- create new tab -`);
-  const tab = await BrowserTestUtils.openNewForegroundTab(window.gBrowser,
-                                                          "about:blank");
+  const tab = await BrowserTestUtils.openNewForegroundTab(
+    window.gBrowser,
+    "about:blank"
+  );
   const browser = tab.linkedBrowser;
 
   info(`- create audio context -`);
-  // We want the same audio context to be used across different content
-  // tasks, so it needs to be loaded by a frame script.
-  const mm = tab.linkedBrowser.messageManager;
-  mm.loadFrameScript("data:,(" + createAudioContext.toString() + ")();", false);
-
+  // We want the same audio context to be used across different content tasks
+  await SpecialPowers.spawn(tab.linkedBrowser, [], () => {
+    content.ac = new content.AudioContext();
+    const ac = content.ac;
+    const dest = ac.destination;
+    const source = new content.OscillatorNode(content.ac);
+    const gain = new content.GainNode(content.ac);
+    gain.gain.value = 0.0;
+    source.connect(gain).connect(dest);
+    source.start();
+  });
   info(`- check AudioContext's state -`);
-  await ContentTask.spawn(browser, null, waitUntilAudioContextStarts);
+  await SpecialPowers.spawn(browser, [], waitUntilAudioContextStarts);
   ok(true, `AudioContext is running.`);
 
   info(`- should not show sound indicator -`);

@@ -6,14 +6,27 @@
 
 var EXPORTED_SYMBOLS = ["FinderHighlighter"];
 
-ChromeUtils.import("resource://gre/modules/Services.jsm");
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
 
-ChromeUtils.defineModuleGetter(this, "Color", "resource://gre/modules/Color.jsm");
-ChromeUtils.defineModuleGetter(this, "Rect", "resource://gre/modules/Geometry.jsm");
+ChromeUtils.defineModuleGetter(
+  this,
+  "Color",
+  "resource://gre/modules/Color.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "Rect",
+  "resource://gre/modules/Geometry.jsm"
+);
 XPCOMUtils.defineLazyGetter(this, "kDebug", () => {
   const kDebugPref = "findbar.modalHighlight.debug";
-  return Services.prefs.getPrefType(kDebugPref) && Services.prefs.getBoolPref(kDebugPref);
+  return (
+    Services.prefs.getPrefType(kDebugPref) &&
+    Services.prefs.getBoolPref(kDebugPref)
+  );
 });
 
 const kContentChangeThresholdPx = 5;
@@ -26,12 +39,28 @@ const kModalHighlightRepaintLoFreqMs = 100;
 const kModalHighlightRepaintHiFreqMs = 16;
 const kHighlightAllPref = "findbar.highlightAll";
 const kModalHighlightPref = "findbar.modalHighlight";
-const kFontPropsCSS = ["color", "font-family", "font-kerning", "font-size",
-  "font-size-adjust", "font-stretch", "font-variant", "font-weight", "line-height",
-  "letter-spacing", "text-emphasis", "text-orientation", "text-transform", "word-spacing"];
+const kFontPropsCSS = [
+  "color",
+  "font-family",
+  "font-kerning",
+  "font-size",
+  "font-size-adjust",
+  "font-stretch",
+  "font-variant",
+  "font-weight",
+  "line-height",
+  "letter-spacing",
+  "text-emphasis",
+  "text-orientation",
+  "text-transform",
+  "word-spacing",
+];
 const kFontPropsCamelCase = kFontPropsCSS.map(prop => {
   let parts = prop.split("-");
-  return parts.shift() + parts.map(part => part.charAt(0).toUpperCase() + part.slice(1)).join("");
+  return (
+    parts.shift() +
+    parts.map(part => part.charAt(0).toUpperCase() + part.slice(1)).join("")
+  );
 });
 const kRGBRE = /^rgba?\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*/i;
 // This uuid is used to prefix HTML element IDs in order to make them unique and
@@ -50,7 +79,10 @@ const kModalStyles = {
     ["box-shadow", `0 2px 0 0 rgba(0,0,0,.1)`],
     ["color", "#000"],
     ["display", "-moz-box"],
-    ["margin", `-${kOutlineBoxBorderSize}px 0 0 -${kOutlineBoxBorderSize}px !important`],
+    [
+      "margin",
+      `-${kOutlineBoxBorderSize}px 0 0 -${kOutlineBoxBorderSize}px !important`,
+    ],
     ["overflow", "hidden"],
     ["pointer-events", "none"],
     ["position", "absolute"],
@@ -58,7 +90,7 @@ const kModalStyles = {
     ["will-change", "transform"],
     ["z-index", 2],
   ],
-  outlineNodeDebug: [ ["z-index", 2147483647] ],
+  outlineNodeDebug: [["z-index", 2147483647]],
   outlineText: [
     ["margin", "0 !important"],
     ["padding", "0 !important"],
@@ -70,20 +102,18 @@ const kModalStyles = {
     ["position", "absolute"],
     ["z-index", 1],
   ],
-  maskNodeTransition: [
-    ["transition", "background .2s ease-in"],
-  ],
+  maskNodeTransition: [["transition", "background .2s ease-in"]],
   maskNodeDebug: [
     ["z-index", 2147483646],
     ["top", 0],
     ["left", 0],
   ],
-  maskNodeBrightText: [ ["background", "rgba(255,255,255,.25)"] ],
+  maskNodeBrightText: [["background", "rgba(255,255,255,.25)"]],
 };
 const kModalOutlineAnim = {
-  "keyframes": [
+  keyframes: [
     { transform: "scaleX(1) scaleY(1)" },
-    { transform: "scaleX(1.5) scaleY(1.5)", offset: .5, easing: "ease-in" },
+    { transform: "scaleX(1.5) scaleY(1.5)", offset: 0.5, easing: "ease-in" },
     { transform: "scaleX(1) scaleY(1)" },
   ],
   duration: 50,
@@ -100,17 +130,22 @@ function mockAnonymousContentNode(domNode) {
     },
     getAttributeForElement(id, attrName) {
       let node = domNode.querySelector("#" + id) || domNode;
-      if (!node.hasAttribute(attrName))
+      if (!node.hasAttribute(attrName)) {
         return undefined;
+      }
       return node.getAttribute(attrName);
     },
     setAttributeForElement(id, attrName, attrValue) {
-      (domNode.querySelector("#" + id) || domNode).setAttribute(attrName, attrValue);
+      (domNode.querySelector("#" + id) || domNode).setAttribute(
+        attrName,
+        attrValue
+      );
     },
     removeAttributeForElement(id, attrName) {
       let node = domNode.querySelector("#" + id) || domNode;
-      if (!node.hasAttribute(attrName))
+      if (!node.hasAttribute(attrName)) {
         return;
+      }
       node.removeAttribute(attrName);
     },
     remove() {
@@ -119,7 +154,10 @@ function mockAnonymousContentNode(domNode) {
       } catch (ex) {}
     },
     setAnimationForElement(id, keyframes, duration) {
-      return (domNode.querySelector("#" + id) || domNode).animate(keyframes, duration);
+      return (domNode.querySelector("#" + id) || domNode).animate(
+        keyframes,
+        duration
+      );
     },
     setCutoutRectsForElement(id, rects) {
       // no-op for now.
@@ -134,19 +172,40 @@ let gWindows = new WeakMap();
  * 'Highlight All' feature, which can highlight all find occurrences in a page.
  *
  * @param {Finder} finder Finder.jsm instance
+ * @param {boolean} useTop check and use top-level windows for rectangle
+ *                         computation, if possible.
  */
-function FinderHighlighter(finder) {
+function FinderHighlighter(finder, useTop = false) {
   this._highlightAll = Services.prefs.getBoolPref(kHighlightAllPref);
   this._modal = Services.prefs.getBoolPref(kModalHighlightPref);
+  this._useSubFrames = false;
+  this._useTop = useTop;
   this.finder = finder;
 }
 
 FinderHighlighter.prototype = {
   get iterator() {
-    if (this._iterator)
-      return this._iterator;
-    this._iterator = ChromeUtils.import("resource://gre/modules/FinderIterator.jsm", null).FinderIterator;
-    return this._iterator;
+    return this.finder.iterator;
+  },
+
+  // Get the top-most window when allowed. When out-of-process frames are used,
+  // this will usually be the same as the passed-in window. The checkUseTop
+  // argument can be used to instead check the _useTop flag which can be used
+  // to enable rectangle coordinate checks.
+  getTopWindow(window, checkUseTop) {
+    if (this._useSubFrames || (checkUseTop && this._useTop)) {
+      try {
+        return window.top;
+      } catch (ex) {}
+    }
+
+    return window;
+  },
+
+  useModal() {
+    // Modal highlighting is currently only enabled when there are no
+    // out-of-process subframes.
+    return this._modal && this._useSubFrames;
   },
 
   /**
@@ -197,23 +256,27 @@ FinderHighlighter.prototype = {
    * Toggle highlighting all occurrences of a word in a page. This method will
    * be called recursively for each (i)frame inside a page.
    *
-   * @param {Booolean} highlight   Whether highlighting should be turned on
-   * @param {String}   word        Needle to search for and highlight when found
-   * @param {Boolean}  linksOnly   Only consider nodes that are links for the search
-   * @param {Boolean}  drawOutline Whether found links should be outlined.
+   * @param {Booolean} highlight    Whether highlighting should be turned on
+   * @param {String}   word         Needle to search for and highlight when found
+   * @param {Boolean}  linksOnly    Only consider nodes that are links for the search
+   * @param {Boolean}  drawOutline  Whether found links should be outlined.
+   * @param {Boolean}  useSubFrames Whether to iterate over subframes.
    * @yield {Promise}  that resolves once the operation has finished
    */
-  async highlight(highlight, word, linksOnly, drawOutline) {
+  async highlight(highlight, word, linksOnly, drawOutline, useSubFrames) {
     let window = this.finder._getWindow();
     let dict = this.getForWindow(window);
     let controller = this.finder._getSelectionController(window);
     let doc = window.document;
     this._found = false;
+    this._useSubFrames = useSubFrames;
+
+    let result = { searchString: word, highlight, found: false };
 
     if (!controller || !doc || !doc.documentElement) {
       // Without the selection controller,
       // we are unable to (un)highlight any matches
-      return;
+      return result;
     }
 
     if (highlight) {
@@ -221,22 +284,30 @@ FinderHighlighter.prototype = {
         allowDistance: 1,
         caseSensitive: this.finder._fastFind.caseSensitive,
         entireWord: this.finder._fastFind.entireWord,
-        linksOnly, word,
+        linksOnly,
+        word,
         finder: this.finder,
         listener: this,
+        matchDiacritics: this.finder._fastFind.matchDiacritics,
         useCache: true,
+        useSubFrames,
         window,
       };
-      if (this.iterator.isAlreadyRunning(params) ||
-          (this._modal && this.iterator._areParamsEqual(params, dict.lastIteratorParams))) {
-        return;
+      if (
+        this.iterator.isAlreadyRunning(params) ||
+        (this.useModal() &&
+          this.iterator._areParamsEqual(params, dict.lastIteratorParams))
+      ) {
+        return result;
       }
 
-      if (!this._modal)
+      if (!this.useModal()) {
         dict.visible = true;
+      }
       await this.iterator.start(params);
-      if (this._found)
+      if (this._found) {
         this.finder._outlineLink(drawOutline);
+      }
     } else {
       this.hide(window);
 
@@ -244,7 +315,9 @@ FinderHighlighter.prototype = {
       this._found = true;
     }
 
-    this.notifyFinished({ highlight, found: this._found });
+    result.found = this._found;
+    this.notifyFinished(result);
+    return result;
   },
 
   // FinderIterator listener implementation
@@ -265,8 +338,9 @@ FinderHighlighter.prototype = {
     let dict = this.getForWindow(window);
     // Save a clean params set for use later in the `update()` method.
     dict.lastIteratorParams = params;
-    if (!this._modal)
+    if (!this.useModal()) {
       this.hide(window, this.finder._fastFind.getFoundRange());
+    }
     this.clear(window);
   },
 
@@ -285,14 +359,16 @@ FinderHighlighter.prototype = {
       controller = editableNode.editor.selectionController;
     }
 
-    if (this._modal) {
+    if (this.useModal()) {
       this._modalHighlight(range, controller, window);
     } else {
-      let findSelection = controller.getSelection(Ci.nsISelectionController.SELECTION_FIND);
+      let findSelection = controller.getSelection(
+        Ci.nsISelectionController.SELECTION_FIND
+      );
       findSelection.addRange(range);
       // Check if the range is inside an (i)frame.
-      if (window != window.top) {
-        let dict = this.getForWindow(window.top);
+      if (window != this.getTopWindow(window)) {
+        let dict = this.getForWindow(this.getTopWindow(window));
         // Add this frame to the list, so that we'll be able to find it later
         // when we need to clear its selection(s).
         dict.frames.set(window, {});
@@ -314,10 +390,11 @@ FinderHighlighter.prototype = {
    *                              Optional, defaults to the finder window.
    */
   show(window = null) {
-    window = (window || this.finder._getWindow()).top;
+    window = this.getTopWindow(window || this.finder._getWindow());
     let dict = this.getForWindow(window);
-    if (!this._modal || dict.visible)
+    if (!this.useModal() || dict.visible) {
       return;
+    }
 
     dict.visible = true;
 
@@ -338,7 +415,7 @@ FinderHighlighter.prototype = {
    */
   hide(window, skipRange = null, event = null) {
     try {
-      window = window.top;
+      window = this.getTopWindow(window);
     } catch (ex) {
       Cu.reportError(ex);
       return;
@@ -348,15 +425,31 @@ FinderHighlighter.prototype = {
     let isBusySelecting = dict.busySelecting;
     dict.busySelecting = false;
     // Do not hide on anything but a left-click.
-    if (event && event.type == "click" && (event.button !== 0 || event.altKey ||
-        event.ctrlKey || event.metaKey || event.shiftKey || event.relatedTarget ||
-        isBusySelecting || (event.target.localName == "a" && event.target.href))) {
+    if (
+      event &&
+      event.type == "click" &&
+      (event.button !== 0 ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.shiftKey ||
+        event.relatedTarget ||
+        isBusySelecting ||
+        (event.target.localName == "a" && event.target.href))
+    ) {
       return;
     }
 
-    this._clearSelection(this.finder._getSelectionController(window), skipRange);
-    for (let frame of dict.frames.keys())
-      this._clearSelection(this.finder._getSelectionController(frame), skipRange);
+    this._clearSelection(
+      this.finder._getSelectionController(window),
+      skipRange
+    );
+    for (let frame of dict.frames.keys()) {
+      this._clearSelection(
+        this.finder._getSelectionController(frame),
+        skipRange
+      );
+    }
 
     // Next, check our editor cache, for editors belonging to this
     // document
@@ -406,27 +499,44 @@ FinderHighlighter.prototype = {
    *   {Boolean} storeResult   Indicator if the search string should be stored
    *                           by the consumer of the Finder.
    */
-  update(data) {
+  async update(data, foundInThisFrame) {
     let window = this.finder._getWindow();
     let dict = this.getForWindow(window);
     let foundRange = this.finder._fastFind.getFoundRange();
 
-    if (data.result == Ci.nsITypeAheadFind.FIND_NOTFOUND || !data.searchString || !foundRange) {
+    if (
+      data.result == Ci.nsITypeAheadFind.FIND_NOTFOUND ||
+      !data.searchString ||
+      (foundInThisFrame && !foundRange)
+    ) {
       this.hide(window);
       return;
     }
 
-    if (!this._modal) {
+    this._useSubFrames = data.useSubFrames;
+    if (!this.useModal()) {
       if (this._highlightAll) {
         dict.previousFoundRange = dict.currentFoundRange;
         dict.currentFoundRange = foundRange;
         let params = this.iterator.params;
-        if (dict.visible && this.iterator._areParamsEqual(params, dict.lastIteratorParams))
+        if (
+          dict.visible &&
+          this.iterator._areParamsEqual(params, dict.lastIteratorParams)
+        ) {
           return;
-        if (!dict.visible && !params)
-          params = {word: data.searchString, linksOnly: data.linksOnly};
-        if (params)
-          this.highlight(true, params.word, params.linksOnly, params.drawOutline);
+        }
+        if (!dict.visible && !params) {
+          params = { word: data.searchString, linksOnly: data.linksOnly };
+        }
+        if (params) {
+          await this.highlight(
+            true,
+            params.word,
+            params.linksOnly,
+            params.drawOutline,
+            data.useSubFrames
+          );
+        }
       }
       return;
     }
@@ -439,14 +549,22 @@ FinderHighlighter.prototype = {
       dict.previousFoundRange = dict.currentFoundRange;
       dict.currentFoundRange = foundRange;
 
-      if (!dict.visible)
+      if (!dict.visible) {
         this.show(window);
-      else
+      } else {
         this._maybeCreateModalHighlightNodes(window);
+      }
     }
 
-    if (this._highlightAll)
-      this.highlight(true, data.searchString, data.linksOnly, data.drawOutline);
+    if (this._highlightAll) {
+      await this.highlight(
+        true,
+        data.searchString,
+        data.linksOnly,
+        data.drawOutline,
+        data.useSubFrames
+      );
+    }
   },
 
   /**
@@ -454,15 +572,26 @@ FinderHighlighter.prototype = {
    * keep to build the mask for.
    */
   clear(window = null) {
-    if (!window || !window.top)
+    if (!window || !this.getTopWindow(window)) {
       return;
+    }
 
-    let dict = this.getForWindow(window.top);
+    let dict = this.getForWindow(this.getTopWindow(window));
     this._finishOutlineAnimations(dict);
     dict.dynamicRangesSet.clear();
     dict.frames.clear();
     dict.modalHighlightRectsMap.clear();
     dict.brightText = null;
+  },
+
+  /**
+   * Removes the outline from a single window. This is done when
+   * switching the current search to a new frame.
+   */
+  clearCurrentOutline(window = null) {
+    let dict = this.getForWindow(this.getTopWindow(window));
+    this._finishOutlineAnimations(dict);
+    this._removeRangeOutline(window);
   },
 
   /**
@@ -473,13 +602,14 @@ FinderHighlighter.prototype = {
    */
   onLocationChange() {
     let window = this.finder._getWindow();
-    if (!window || !window.top)
+    if (!window || !this.getTopWindow(window)) {
       return;
+    }
     this.hide(window);
     this.clear(window);
     this._removeRangeOutline(window);
 
-    gWindows.delete(window.top);
+    gWindows.delete(this.getTopWindow(window));
   },
 
   /**
@@ -491,7 +621,7 @@ FinderHighlighter.prototype = {
    */
   onModalHighlightChange(useModalHighlight) {
     let window = this.finder._getWindow();
-    if (window && this._modal && !useModalHighlight) {
+    if (window && this.useModal() && !useModalHighlight) {
       this.hide(window);
       this.clear(window);
     }
@@ -508,8 +638,9 @@ FinderHighlighter.prototype = {
     this._highlightAll = highlightAll;
     if (!highlightAll) {
       let window = this.finder._getWindow();
-      if (!this._modal)
+      if (!this.useModal()) {
         this.hide(window);
+      }
       this.clear(window);
       this._scheduleRepaintOfMask(window);
     }
@@ -523,14 +654,17 @@ FinderHighlighter.prototype = {
    * @param  {Range}                  restoreRange
    */
   _clearSelection(controller, restoreRange = null) {
-    if (!controller)
+    if (!controller) {
       return;
+    }
     let sel = controller.getSelection(Ci.nsISelectionController.SELECTION_FIND);
     sel.removeAllRanges();
     if (restoreRange) {
       sel = controller.getSelection(Ci.nsISelectionController.SELECTION_NORMAL);
       sel.addRange(restoreRange);
-      controller.setDisplaySelection(Ci.nsISelectionController.SELECTION_ATTENTION);
+      controller.setDisplaySelection(
+        Ci.nsISelectionController.SELECTION_ATTENTION
+      );
       controller.repaintSelection(Ci.nsISelectionController.SELECTION_NORMAL);
     }
   },
@@ -542,8 +676,7 @@ FinderHighlighter.prototype = {
    * @return {nsIDOMWindowUtils}
    */
   _getDWU(window = null) {
-    return (window || this.finder._getWindow())
-      .windowUtils;
+    return (window || this.finder._getWindow()).windowUtils;
   },
 
   /**
@@ -559,24 +692,24 @@ FinderHighlighter.prototype = {
    * @return {Rect}
    */
   _getRootBounds(window, includeScroll = true) {
-    let dwu = this._getDWU(window.top);
+    let dwu = this._getDWU(this.getTopWindow(window, true));
     let cssPageRect = Rect.fromRect(dwu.getRootBounds());
     let scrollX = {};
     let scrollY = {};
-    if (includeScroll && window == window.top) {
+    if (includeScroll && window == this.getTopWindow(window, true)) {
       dwu.getScrollXY(false, scrollX, scrollY);
       cssPageRect.translate(scrollX.value, scrollY.value);
     }
 
     // If we're in a frame, update the position of the rect (top/ left).
     let currWin = window;
-    while (currWin != window.top) {
+    while (currWin != this.getTopWindow(window, true)) {
       let frameOffsets = this._getFrameElementOffsets(currWin);
       cssPageRect.translate(frameOffsets.x, frameOffsets.y);
 
       // Since the frame is an element inside a parent window, we'd like to
       // learn its position relative to it.
-      let el = this._getDWU(currWin).containerElement;
+      let el = currWin.browsingContext.embedderElement;
       currWin = currWin.parent;
       dwu = this._getDWU(currWin);
       let parentRect = Rect.fromRect(dwu.getBoundsWithoutFlushing(el));
@@ -588,7 +721,10 @@ FinderHighlighter.prototype = {
         // is also an iframe the scroll offsets from the parents' documentElement
         // (inverse scroll position) needs to be subtracted from the parent
         // window rect.
-        if (el.getAttribute("scrolling") == "no" && currWin != window.top) {
+        if (
+          el.getAttribute("scrolling") == "no" &&
+          currWin != this.getTopWindow(window, true)
+        ) {
           let docEl = currWin.document.documentElement;
           parentRect.translate(-docEl.scrollLeft, -docEl.scrollTop);
         }
@@ -615,27 +751,36 @@ FinderHighlighter.prototype = {
    */
   _getFrameElementOffsets(window) {
     let frame = window.frameElement;
-    if (!frame)
+    if (!frame) {
       return { x: 0, y: 0 };
+    }
 
     // Getting style info is super expensive, causing reflows, so let's cache
     // frame border widths and padding values aggressively.
-    let dict = this.getForWindow(window.top);
+    let dict = this.getForWindow(this.getTopWindow(window, true));
     let frameData = dict.frames.get(window);
-    if (!frameData)
-      dict.frames.set(window, frameData = {});
-    if (frameData.offset)
+    if (!frameData) {
+      dict.frames.set(window, (frameData = {}));
+    }
+    if (frameData.offset) {
       return frameData.offset;
+    }
 
     let style = frame.ownerGlobal.getComputedStyle(frame);
     // We only need to left sides, because ranges are offset from point 0,0 in
     // the top-left corner.
-    let borderOffset = [parseInt(style.borderLeftWidth, 10) || 0, parseInt(style.borderTopWidth, 10) || 0];
-    let paddingOffset = [parseInt(style.paddingLeft, 10) || 0, parseInt(style.paddingTop, 10) || 0];
-    return frameData.offset = {
+    let borderOffset = [
+      parseInt(style.borderLeftWidth, 10) || 0,
+      parseInt(style.borderTopWidth, 10) || 0,
+    ];
+    let paddingOffset = [
+      parseInt(style.paddingLeft, 10) || 0,
+      parseInt(style.paddingTop, 10) || 0,
+    ];
+    return (frameData.offset = {
       x: borderOffset[0] + paddingOffset[0],
       y: borderOffset[1] + paddingOffset[1],
-    };
+    });
   },
 
   /**
@@ -675,13 +820,15 @@ FinderHighlighter.prototype = {
    */
   _getRangeFontStyle(range) {
     let node = range.startContainer;
-    while (node.nodeType != 1)
+    while (node.nodeType != 1) {
       node = node.parentNode;
+    }
     let style = node.ownerGlobal.getComputedStyle(node);
     let props = {};
     for (let prop of kFontPropsCamelCase) {
-      if (prop in style && style[prop])
+      if (prop in style && style[prop]) {
         props[prop] = style[prop];
+      }
     }
     return props;
   },
@@ -697,8 +844,9 @@ FinderHighlighter.prototype = {
     let style = [];
     for (let prop of Object.getOwnPropertyNames(fontStyle)) {
       let idx = kFontPropsCamelCase.indexOf(prop);
-      if (idx == -1)
+      if (idx == -1) {
         continue;
+      }
       style.push(`${kFontPropsCSS[idx]}: ${fontStyle[prop]}`);
     }
     return style.join("; ");
@@ -717,10 +865,13 @@ FinderHighlighter.prototype = {
   _getStyleString(stylePairs, ...additionalStyles) {
     let baseStyle = new Map(stylePairs);
     for (let additionalStyle of additionalStyles) {
-      for (let [prop, value] of additionalStyle)
+      for (let [prop, value] of additionalStyle) {
         baseStyle.set(prop, value);
+      }
     }
-    return [...baseStyle].map(([cssProp, cssVal]) => `${cssProp}: ${cssVal}`).join("; ");
+    return [...baseStyle]
+      .map(([cssProp, cssVal]) => `${cssProp}: ${cssVal}`)
+      .join("; ");
   },
 
   /**
@@ -731,10 +882,11 @@ FinderHighlighter.prototype = {
    */
   _isColorBright(cssColor) {
     cssColor = cssColor.match(kRGBRE);
-    if (!cssColor || !cssColor.length)
+    if (!cssColor || !cssColor.length) {
       return false;
+    }
     cssColor.shift();
-    return new Color(...cssColor).isBright;
+    return !new Color(...cssColor).useBrightText;
   },
 
   /**
@@ -754,7 +906,10 @@ FinderHighlighter.prototype = {
    *                      will be recorded in `dict.brightText` as `true` or `false`.
    */
   _detectBrightText(dict) {
-    let sampleSize = Math.min(dict.modalHighlightRectsMap.size, kBrightTextSampleSize);
+    let sampleSize = Math.min(
+      dict.modalHighlightRectsMap.size,
+      kBrightTextSampleSize
+    );
     let ranges = [...dict.modalHighlightRectsMap.keys()];
     let rangesCount = ranges.length;
     // Make sure the sample size is an odd number.
@@ -772,11 +927,12 @@ FinderHighlighter.prototype = {
     for (let i = 0; i < sampleSize; ++i) {
       let range = ranges[Math.floor((rangesCount / sampleSize) * i)];
       let fontStyle = this._getRangeFontStyle(range);
-      if (this._isColorBright(fontStyle.color))
+      if (this._isColorBright(fontStyle.color)) {
         ++brightCount;
+      }
     }
 
-    dict.brightText = (brightCount >= Math.ceil(sampleSize / 2));
+    dict.brightText = brightCount >= Math.ceil(sampleSize / 2);
   },
 
   /**
@@ -792,23 +948,29 @@ FinderHighlighter.prototype = {
   _isInDynamicContainer(range) {
     const kFixed = new Set(["fixed", "sticky", "scroll", "auto"]);
     let node = range.startContainer;
-    while (node.nodeType != 1)
+    while (node.nodeType != 1) {
       node = node.parentNode;
+    }
     let document = node.ownerDocument;
     let window = document.defaultView;
-    let dict = this.getForWindow(window.top);
+    let dict = this.getForWindow(this.getTopWindow(window));
 
     // Check if we're in a frameset (including iframes).
-    if (window != window.top) {
-      if (!dict.frames.has(window))
+    if (window != this.getTopWindow(window)) {
+      if (!dict.frames.has(window)) {
         dict.frames.set(window, {});
+      }
       return true;
     }
 
     do {
       let style = window.getComputedStyle(node);
-      if (kFixed.has(style.position) || kFixed.has(style.overflow) ||
-          kFixed.has(style.overflowX) || kFixed.has(style.overflowY)) {
+      if (
+        kFixed.has(style.position) ||
+        kFixed.has(style.overflow) ||
+        kFixed.has(style.overflowX) ||
+        kFixed.has(style.overflowY)
+      ) {
         return true;
       }
       node = node.parentNode;
@@ -833,27 +995,29 @@ FinderHighlighter.prototype = {
     if (dict && dict.frames.has(window)) {
       let frameData = dict.frames.get(window);
       bounds = frameData.bounds;
-      if (!bounds)
+      if (!bounds) {
         bounds = frameData.bounds = this._getRootBounds(window);
+      }
     } else {
       bounds = this._getRootBounds(window);
     }
 
-    let topBounds = this._getRootBounds(window.top, false);
+    let topBounds = this._getRootBounds(this.getTopWindow(window, true), false);
     let rects = [];
     // A range may consist of multiple rectangles, we can also do these kind of
     // precise cut-outs. range.getBoundingClientRect() returns the fully
     // encompassing rectangle, which is too much for our purpose here.
-    let {rectList, textList} = range.getClientRectsAndTexts();
+    let { rectList, textList } = range.getClientRectsAndTexts();
     for (let rect of rectList) {
       rect = Rect.fromRect(rect);
       rect.x += bounds.x;
       rect.y += bounds.y;
       // If the rect is not even visible from the top document, we can ignore it.
-      if (rect.intersects(topBounds))
+      if (rect.intersects(topBounds)) {
         rects.push(rect);
+      }
     }
-    return {rectList: rects, textList};
+    return { rectList: rects, textList };
   },
 
   /**
@@ -875,15 +1039,21 @@ FinderHighlighter.prototype = {
     let rectsAndTexts = this._getRangeRectsAndTexts(range, dict);
 
     // Only fetch the rect at this point, if not passed in as argument.
-    dict = dict || this.getForWindow(window.top);
+    dict = dict || this.getForWindow(this.getTopWindow(window));
     let oldRectsAndTexts = dict.modalHighlightRectsMap.get(range);
     dict.modalHighlightRectsMap.set(range, rectsAndTexts);
     // Check here if we suddenly went down to zero rects from more than zero before,
     // which indicates that we should re-iterate the document.
-    if (oldRectsAndTexts && oldRectsAndTexts.rectList.length && !rectsAndTexts.rectList.length)
+    if (
+      oldRectsAndTexts &&
+      oldRectsAndTexts.rectList.length &&
+      !rectsAndTexts.rectList.length
+    ) {
       dict.detectedGeometryChange = true;
-    if (checkIfDynamic && this._isInDynamicContainer(range))
+    }
+    if (checkIfDynamic && this._isInDynamicContainer(range)) {
       dict.dynamicRangesSet.add(range);
+    }
     return rectsAndTexts;
   },
 
@@ -896,10 +1066,12 @@ FinderHighlighter.prototype = {
    */
   _updateDynamicRangesRects(dict) {
     // Reset the frame bounds cache.
-    for (let frameData of dict.frames.values())
+    for (let frameData of dict.frames.values()) {
       frameData.bounds = null;
-    for (let range of dict.dynamicRangesSet)
+    }
+    for (let range of dict.dynamicRangesSet) {
       this._updateRangeRects(range, false, dict);
+    }
   },
 
   /**
@@ -913,8 +1085,9 @@ FinderHighlighter.prototype = {
    */
   _updateRangeOutline(dict) {
     let range = dict.currentFoundRange;
-    if (!range)
+    if (!range) {
       return;
+    }
 
     let fontStyle = this._getRangeFontStyle(range);
     // Text color in the outline is determined by kModalStyles.
@@ -930,20 +1103,25 @@ FinderHighlighter.prototype = {
     // 2. When the amount of rectangles to draw is different from before, or
     // 3. When there's more than one rectangle to draw, because it's impossible
     //    to animate that consistently with AnonymousContent nodes.
-    let rebuildOutline = (!outlineAnonNode || rectCount !== previousRectCount ||
-      rectCount != 1);
+    let rebuildOutline =
+      !outlineAnonNode || rectCount !== previousRectCount || rectCount != 1;
     dict.previousRangeRectsAndTexts = rectsAndTexts;
 
-    let window = range.startContainer.ownerGlobal.top;
+    let window = this.getTopWindow(range.startContainer.ownerGlobal);
     let document = window.document;
     // First see if we need to and can remove the previous outline nodes.
-    if (rebuildOutline)
+    if (rebuildOutline) {
       this._removeRangeOutline(window);
+    }
 
     // Abort when there's no text to highlight OR when it's the exact same range
     // as the previous call and isn't inside a dynamic container.
-    if (!rectsAndTexts.textList.length ||
-        (!rebuildOutline && dict.previousUpdatedRange == range && !dict.dynamicRangesSet.has(range))) {
+    if (
+      !rectsAndTexts.textList.length ||
+      (!rebuildOutline &&
+        dict.previousUpdatedRange == range &&
+        !dict.dynamicRangesSet.has(range))
+    ) {
       return;
     }
 
@@ -968,38 +1146,58 @@ FinderHighlighter.prototype = {
       // These adjustments will override the styles as defined in `kModalStyles.outlineNode`.
       let intersectingSides = new Set();
       let previous = rectsAndTexts.rectList[i - 1];
-      if (previous &&
-          rect.left - previous.right <= 2 * kOutlineBoxBorderSize) {
+      if (previous && rect.left - previous.right <= 2 * kOutlineBoxBorderSize) {
         intersectingSides.add("left");
       }
       let next = rectsAndTexts.rectList[i + 1];
-      if (next &&
-          next.left - rect.right <= 2 * kOutlineBoxBorderSize) {
+      if (next && next.left - rect.right <= 2 * kOutlineBoxBorderSize) {
         intersectingSides.add("right");
       }
-      let borderStyles = [...intersectingSides].map(side => [ "border-" + side, 0 ]);
+      let borderStyles = [...intersectingSides].map(side => [
+        "border-" + side,
+        0,
+      ]);
       if (intersectingSides.size) {
-        borderStyles.push([ "margin",  `-${kOutlineBoxBorderSize}px 0 0 ${
-          intersectingSides.has("left") ? 0 : -kOutlineBoxBorderSize}px !important`]);
-        borderStyles.push([ "border-radius",
-          (intersectingSides.has("left") ? 0 : kOutlineBoxBorderRadius) + "px " +
-          (intersectingSides.has("right") ? 0 : kOutlineBoxBorderRadius) + "px " +
-          (intersectingSides.has("right") ? 0 : kOutlineBoxBorderRadius) + "px " +
-          (intersectingSides.has("left") ? 0 : kOutlineBoxBorderRadius) + "px" ]);
+        borderStyles.push([
+          "margin",
+          `-${kOutlineBoxBorderSize}px 0 0 ${
+            intersectingSides.has("left") ? 0 : -kOutlineBoxBorderSize
+          }px !important`,
+        ]);
+        borderStyles.push([
+          "border-radius",
+          (intersectingSides.has("left") ? 0 : kOutlineBoxBorderRadius) +
+            "px " +
+            (intersectingSides.has("right") ? 0 : kOutlineBoxBorderRadius) +
+            "px " +
+            (intersectingSides.has("right") ? 0 : kOutlineBoxBorderRadius) +
+            "px " +
+            (intersectingSides.has("left") ? 0 : kOutlineBoxBorderRadius) +
+            "px",
+        ]);
       }
 
-      let outlineStyle = this._getStyleString(kModalStyles.outlineNode, [
-        ["top", rect.top + "px"],
-        ["left", rect.left + "px"],
-        ["height", rect.height + "px"],
-        ["width", rect.width + "px"],
-      ], borderStyles, kDebug ? kModalStyles.outlineNodeDebug : []);
+      let outlineStyle = this._getStyleString(
+        kModalStyles.outlineNode,
+        [
+          ["top", rect.top + "px"],
+          ["left", rect.left + "px"],
+          ["height", rect.height + "px"],
+          ["width", rect.width + "px"],
+        ],
+        borderStyles,
+        kDebug ? kModalStyles.outlineNodeDebug : []
+      );
       fontStyle.lineHeight = rect.height + "px";
-      let textStyle = this._getStyleString(kModalStyles.outlineText) + "; " +
+      let textStyle =
+        this._getStyleString(kModalStyles.outlineText) +
+        "; " +
         this._getHTMLFontStyle(fontStyle);
 
       if (rebuildOutline) {
-        let textBoxParent = outlineBox.appendChild(document.createElementNS(kNSHTML, "div"));
+        let textBoxParent = outlineBox.appendChild(
+          document.createElementNS(kNSHTML, "div")
+        );
         textBoxParent.setAttribute("id", kModalOutlineId + i);
         textBoxParent.setAttribute("style", outlineStyle);
 
@@ -1011,8 +1209,16 @@ FinderHighlighter.prototype = {
       } else {
         // Set the appropriate properties on the existing nodes, which will also
         // activate the transitions.
-        outlineAnonNode.setAttributeForElement(kModalOutlineId + i, "style", outlineStyle);
-        outlineAnonNode.setAttributeForElement(kModalOutlineTextId + i, "style", textStyle);
+        outlineAnonNode.setAttributeForElement(
+          kModalOutlineId + i,
+          "style",
+          outlineStyle
+        );
+        outlineAnonNode.setAttributeForElement(
+          kModalOutlineTextId + i,
+          "style",
+          textStyle
+        );
         outlineAnonNode.setTextContentForElement(kModalOutlineTextId + i, text);
       }
 
@@ -1020,19 +1226,25 @@ FinderHighlighter.prototype = {
     }
 
     if (rebuildOutline) {
-      dict.modalHighlightOutline = kDebug ?
-        mockAnonymousContentNode((document.body ||
-          document.documentElement).appendChild(outlineBox)) :
-        document.insertAnonymousContent(outlineBox);
+      dict.modalHighlightOutline = kDebug
+        ? mockAnonymousContentNode(
+            (document.body || document.documentElement).appendChild(outlineBox)
+          )
+        : document.insertAnonymousContent(outlineBox);
     }
 
     if (dict.animateOutline && !this._isPageTooBig(dict)) {
       let animation;
       dict.animations = new Set();
       for (let i = rectsAndTexts.rectList.length - 1; i >= 0; --i) {
-        animation = dict.modalHighlightOutline.setAnimationForElement(kModalOutlineId + i,
-          Cu.cloneInto(kModalOutlineAnim.keyframes, window), kModalOutlineAnim.duration);
-        animation.onfinish = function() { dict.animations.delete(this); };
+        animation = dict.modalHighlightOutline.setAnimationForElement(
+          kModalOutlineId + i,
+          Cu.cloneInto(kModalOutlineAnim.keyframes, window),
+          kModalOutlineAnim.duration
+        );
+        animation.onfinish = function() {
+          dict.animations.delete(this);
+        };
         dict.animations.add(animation);
       }
     }
@@ -1049,10 +1261,12 @@ FinderHighlighter.prototype = {
    *                      active window
    */
   _finishOutlineAnimations(dict) {
-    if (!dict.animations)
+    if (!dict.animations) {
       return;
-    for (let animation of dict.animations)
+    }
+    for (let animation of dict.animations) {
       animation.finish();
+    }
   },
 
   /**
@@ -1062,8 +1276,9 @@ FinderHighlighter.prototype = {
    */
   _removeRangeOutline(window) {
     let dict = this.getForWindow(window);
-    if (!dict.modalHighlightOutline)
+    if (!dict.modalHighlightOutline) {
       return;
+    }
 
     if (kDebug) {
       dict.modalHighlightOutline.remove();
@@ -1099,7 +1314,7 @@ FinderHighlighter.prototype = {
    * @param {nsIDOMWindow} window Window to draw in.
    */
   _maybeCreateModalHighlightNodes(window) {
-    window = window.top;
+    window = this.getTopWindow(window);
     let dict = this.getForWindow(window);
     if (dict.modalHighlightOutline) {
       if (!dict.modalHighlightAllMask) {
@@ -1136,7 +1351,7 @@ FinderHighlighter.prototype = {
    * @param {Boolean} [paintContent]
    */
   _repaintHighlightAllMask(window, paintContent = true) {
-    window = window.top;
+    window = this.getTopWindow(window);
     let dict = this.getForWindow(window);
 
     const kMaskId = kModalIdPrefix + "-findbar-modalHighlight-outlineMask";
@@ -1144,21 +1359,36 @@ FinderHighlighter.prototype = {
       let document = window.document;
       let maskNode = document.createElementNS(kNSHTML, "div");
       maskNode.setAttribute("id", kMaskId);
-      dict.modalHighlightAllMask = kDebug ?
-        mockAnonymousContentNode((document.body || document.documentElement).appendChild(maskNode)) :
-        document.insertAnonymousContent(maskNode);
+      dict.modalHighlightAllMask = kDebug
+        ? mockAnonymousContentNode(
+            (document.body || document.documentElement).appendChild(maskNode)
+          )
+        : document.insertAnonymousContent(maskNode);
     }
 
     // Make sure the dimmed mask node takes the full width and height that's available.
-    let {width, height} = dict.lastWindowDimensions = this._getWindowDimensions(window);
-    if (typeof dict.brightText != "boolean" || dict.updateAllRanges)
+    let {
+      width,
+      height,
+    } = (dict.lastWindowDimensions = this._getWindowDimensions(window));
+    if (typeof dict.brightText != "boolean" || dict.updateAllRanges) {
       this._detectBrightText(dict);
-    let maskStyle = this._getStyleString(kModalStyles.maskNode,
-      [ ["width", width + "px"], ["height", height + "px"] ],
+    }
+    let maskStyle = this._getStyleString(
+      kModalStyles.maskNode,
+      [
+        ["width", width + "px"],
+        ["height", height + "px"],
+      ],
       dict.brightText ? kModalStyles.maskNodeBrightText : [],
       paintContent ? kModalStyles.maskNodeTransition : [],
-      kDebug ? kModalStyles.maskNodeDebug : []);
-    dict.modalHighlightAllMask.setAttributeForElement(kMaskId, "style", maskStyle);
+      kDebug ? kModalStyles.maskNodeDebug : []
+    );
+    dict.modalHighlightAllMask.setAttributeForElement(
+      kMaskId,
+      "style",
+      maskStyle
+    );
 
     this._updateRangeOutline(dict);
 
@@ -1168,24 +1398,29 @@ FinderHighlighter.prototype = {
     if (!dict.busyScrolling && (paintContent || dict.modalHighlightAllMask)) {
       // No need to update dynamic ranges separately when we already about to
       // update all of them anyway.
-      if (!dict.updateAllRanges)
+      if (!dict.updateAllRanges) {
         this._updateDynamicRangesRects(dict);
+      }
 
       let DOMRect = window.DOMRect;
       for (let [range, rectsAndTexts] of dict.modalHighlightRectsMap) {
-        if (!this.finder._fastFind.isRangeVisible(range, false))
+        if (!this.finder._fastFind.isRangeVisible(range, false)) {
           continue;
+        }
 
-        if (dict.updateAllRanges)
+        if (dict.updateAllRanges) {
           rectsAndTexts = this._updateRangeRects(range);
+        }
 
         // If a geometry change was detected, we bail out right away here, because
         // the current set of ranges has been invalidated.
-        if (dict.detectedGeometryChange)
+        if (dict.detectedGeometryChange) {
           return;
+        }
 
-        for (let rect of rectsAndTexts.rectList)
+        for (let rect of rectsAndTexts.rectList) {
           allRects.push(new DOMRect(rect.x, rect.y, rect.width, rect.height));
+        }
       }
       dict.updateAllRanges = false;
     }
@@ -1203,10 +1438,11 @@ FinderHighlighter.prototype = {
    * @param {nsIDOMWindow} window
    */
   _removeHighlightAllMask(window) {
-    window = window.top;
+    window = this.getTopWindow(window);
     let dict = this.getForWindow(window);
-    if (!dict.modalHighlightAllMask)
+    if (!dict.modalHighlightAllMask) {
       return;
+    }
 
     // If the current window isn't the one the content was inserted into, this
     // will fail, but that's fine.
@@ -1230,7 +1466,7 @@ FinderHighlighter.prototype = {
    * @return {Boolean}
    */
   _isPageTooBig(dict) {
-    let {height, width} = dict.lastWindowDimensions;
+    let { height, width } = dict.lastWindowDimensions;
     return height >= kPageIsTooBigPx || width >= kPageIsTooBigPx;
   },
 
@@ -1253,24 +1489,30 @@ FinderHighlighter.prototype = {
    *   {Boolean} updateAllRanges Whether to recalculate the rects of all ranges
    *                             that were found up until now.
    */
-  _scheduleRepaintOfMask(window, { contentChanged = false, scrollOnly = false, updateAllRanges = false } = {}) {
-    if (!this._modal)
+  _scheduleRepaintOfMask(
+    window,
+    { contentChanged = false, scrollOnly = false, updateAllRanges = false } = {}
+  ) {
+    if (!this.useModal()) {
       return;
+    }
 
-    window = window.top;
+    window = this.getTopWindow(window);
     let dict = this.getForWindow(window);
     // Bail out early if the repaint scheduler is paused or when we're supposed
     // to ignore the next paint (i.e. content change).
-    if ((dict.repaintSchedulerState == kRepaintSchedulerPaused) ||
-        (contentChanged && dict.ignoreNextContentChange)) {
+    if (
+      dict.repaintSchedulerState == kRepaintSchedulerPaused ||
+      (contentChanged && dict.ignoreNextContentChange)
+    ) {
       dict.ignoreNextContentChange = false;
       return;
     }
 
     let hasDynamicRanges = !!dict.dynamicRangesSet.size;
     let pageIsTooBig = this._isPageTooBig(dict);
-    let repaintDynamicRanges = ((scrollOnly || contentChanged) && hasDynamicRanges
-      && !pageIsTooBig);
+    let repaintDynamicRanges =
+      (scrollOnly || contentChanged) && hasDynamicRanges && !pageIsTooBig;
 
     // Determine scroll behavior and keep that state around.
     let startedScrolling = !dict.busyScrolling && scrollOnly;
@@ -1295,17 +1537,23 @@ FinderHighlighter.prototype = {
 
     // When we request to repaint unconditionally, we mean to call
     // `_repaintHighlightAllMask()` right after the timeout.
-    if (!dict.unconditionalRepaintRequested)
-      dict.unconditionalRepaintRequested = !contentChanged || repaintDynamicRanges;
+    if (!dict.unconditionalRepaintRequested) {
+      dict.unconditionalRepaintRequested =
+        !contentChanged || repaintDynamicRanges;
+    }
     // Some events, like a resize, call for recalculation of all the rects of all ranges.
-    if (!dict.updateAllRanges)
+    if (!dict.updateAllRanges) {
       dict.updateAllRanges = updateAllRanges;
+    }
 
-    if (dict.modalRepaintScheduler)
+    if (dict.modalRepaintScheduler) {
       return;
+    }
 
-    let timeoutMs = hasDynamicRanges && !dict.busyScrolling ?
-      kModalHighlightRepaintHiFreqMs : kModalHighlightRepaintLoFreqMs;
+    let timeoutMs =
+      hasDynamicRanges && !dict.busyScrolling
+        ? kModalHighlightRepaintHiFreqMs
+        : kModalHighlightRepaintLoFreqMs;
     dict.modalRepaintScheduler = window.setTimeout(() => {
       dict.modalRepaintScheduler = null;
       dict.repaintSchedulerState = kRepaintSchedulerStopped;
@@ -1313,20 +1561,30 @@ FinderHighlighter.prototype = {
 
       let pageContentChanged = dict.detectedGeometryChange;
       if (!pageContentChanged && !pageIsTooBig) {
-        let { width: previousWidth, height: previousHeight } = dict.lastWindowDimensions;
-        let { width, height } = dict.lastWindowDimensions = this._getWindowDimensions(window);
-        pageContentChanged = dict.detectedGeometryChange ||
-                             (Math.abs(previousWidth - width) > kContentChangeThresholdPx ||
-                              Math.abs(previousHeight - height) > kContentChangeThresholdPx);
+        let {
+          width: previousWidth,
+          height: previousHeight,
+        } = dict.lastWindowDimensions;
+        let {
+          width,
+          height,
+        } = (dict.lastWindowDimensions = this._getWindowDimensions(window));
+        pageContentChanged =
+          dict.detectedGeometryChange ||
+          Math.abs(previousWidth - width) > kContentChangeThresholdPx ||
+          Math.abs(previousHeight - height) > kContentChangeThresholdPx;
       }
       dict.detectedGeometryChange = false;
       // When the page has changed significantly enough in size, we'll restart
       // the iterator with the same parameters as before to find us new ranges.
-      if (pageContentChanged && !pageIsTooBig)
+      if (pageContentChanged && !pageIsTooBig) {
         this.iterator.restart(this.finder);
+      }
 
-      if (dict.unconditionalRepaintRequested ||
-          (dict.modalHighlightRectsMap.size && pageContentChanged)) {
+      if (
+        dict.unconditionalRepaintRequested ||
+        (dict.modalHighlightRectsMap.size && pageContentChanged)
+      ) {
         dict.unconditionalRepaintRequested = false;
         this._repaintHighlightAllMask(window);
       }
@@ -1341,18 +1599,18 @@ FinderHighlighter.prototype = {
    * @param {nsIDOMWindow} window
    */
   _addModalHighlightListeners(window) {
-    window = window.top;
+    window = this.getTopWindow(window);
     let dict = this.getForWindow(window);
-    if (dict.highlightListeners)
+    if (dict.highlightListeners) {
       return;
+    }
 
-    window = window.top;
     dict.highlightListeners = [
       this._scheduleRepaintOfMask.bind(this, window, { contentChanged: true }),
       this._scheduleRepaintOfMask.bind(this, window, { updateAllRanges: true }),
       this._scheduleRepaintOfMask.bind(this, window, { scrollOnly: true }),
       this.hide.bind(this, window, null),
-      () => dict.busySelecting = true,
+      () => (dict.busySelecting = true),
       () => {
         if (window.document.hidden) {
           dict.repaintSchedulerState = kRepaintSchedulerPaused;
@@ -1365,10 +1623,16 @@ FinderHighlighter.prototype = {
     let target = this.iterator._getDocShell(window).chromeEventHandler;
     target.addEventListener("MozAfterPaint", dict.highlightListeners[0]);
     target.addEventListener("resize", dict.highlightListeners[1]);
-    target.addEventListener("scroll", dict.highlightListeners[2], { capture: true, passive: true });
+    target.addEventListener("scroll", dict.highlightListeners[2], {
+      capture: true,
+      passive: true,
+    });
     target.addEventListener("click", dict.highlightListeners[3]);
     target.addEventListener("selectstart", dict.highlightListeners[4]);
-    window.document.addEventListener("visibilitychange", dict.highlightListeners[5]);
+    window.document.addEventListener(
+      "visibilitychange",
+      dict.highlightListeners[5]
+    );
   },
 
   /**
@@ -1377,18 +1641,25 @@ FinderHighlighter.prototype = {
    * @param {nsIDOMWindow} window
    */
   _removeModalHighlightListeners(window) {
-    window = window.top;
+    window = this.getTopWindow(window);
     let dict = this.getForWindow(window);
-    if (!dict.highlightListeners)
+    if (!dict.highlightListeners) {
       return;
+    }
 
     let target = this.iterator._getDocShell(window).chromeEventHandler;
     target.removeEventListener("MozAfterPaint", dict.highlightListeners[0]);
     target.removeEventListener("resize", dict.highlightListeners[1]);
-    target.removeEventListener("scroll", dict.highlightListeners[2], { capture: true, passive: true });
+    target.removeEventListener("scroll", dict.highlightListeners[2], {
+      capture: true,
+      passive: true,
+    });
     target.removeEventListener("click", dict.highlightListeners[3]);
     target.removeEventListener("selectstart", dict.highlightListeners[4]);
-    window.document.removeEventListener("visibilitychange", dict.highlightListeners[5]);
+    window.document.removeEventListener(
+      "visibilitychange",
+      dict.highlightListeners[5]
+    );
 
     dict.highlightListeners = null;
   },
@@ -1403,9 +1674,15 @@ FinderHighlighter.prototype = {
    *          null if there is no such node
    */
   _getEditableNode(node) {
-    if (node.nodeType === node.TEXT_NODE && node.parentNode && node.parentNode.parentNode &&
-        (ChromeUtils.getClassName(node.parentNode.parentNode) === "HTMLInputElement" ||
-         ChromeUtils.getClassName(node.parentNode.parentNode) === "HTMLTextAreaElement")) {
+    if (
+      node.nodeType === node.TEXT_NODE &&
+      node.parentNode &&
+      node.parentNode.parentNode &&
+      (ChromeUtils.getClassName(node.parentNode.parentNode) ===
+        "HTMLInputElement" ||
+        ChromeUtils.getClassName(node.parentNode.parentNode) ===
+          "HTMLTextAreaElement")
+    ) {
       return node.parentNode.parentNode;
     }
     return null;
@@ -1442,8 +1719,7 @@ FinderHighlighter.prototype = {
    */
   _unhookListenersAtIndex(idx) {
     this._editors[idx].removeEditActionListener(this);
-    this._editors[idx]
-        .removeDocumentStateListener(this._stateListeners[idx]);
+    this._editors[idx].removeDocumentStateListener(this._stateListeners[idx]);
     this._editors.splice(idx, 1);
     this._stateListeners.splice(idx, 1);
     if (!this._editors.length) {
@@ -1488,25 +1764,43 @@ FinderHighlighter.prototype = {
    * @returns true if they intersect, false otherwise
    */
   _checkOverlap(selectionRange, findRange) {
-    if (!selectionRange || !findRange)
+    if (!selectionRange || !findRange) {
       return false;
+    }
     // The ranges overlap if one of the following is true:
     // 1) At least one of the endpoints of the deleted selection
     //    is in the find selection
     // 2) At least one of the endpoints of the find selection
     //    is in the deleted selection
-    if (findRange.isPointInRange(selectionRange.startContainer,
-                                 selectionRange.startOffset))
+    if (
+      findRange.isPointInRange(
+        selectionRange.startContainer,
+        selectionRange.startOffset
+      )
+    ) {
       return true;
-    if (findRange.isPointInRange(selectionRange.endContainer,
-                                 selectionRange.endOffset))
+    }
+    if (
+      findRange.isPointInRange(
+        selectionRange.endContainer,
+        selectionRange.endOffset
+      )
+    ) {
       return true;
-    if (selectionRange.isPointInRange(findRange.startContainer,
-                                      findRange.startOffset))
+    }
+    if (
+      selectionRange.isPointInRange(
+        findRange.startContainer,
+        findRange.startOffset
+      )
+    ) {
       return true;
-    if (selectionRange.isPointInRange(findRange.endContainer,
-                                      findRange.endOffset))
+    }
+    if (
+      selectionRange.isPointInRange(findRange.endContainer, findRange.endOffset)
+    ) {
       return true;
+    }
 
     return false;
   },
@@ -1548,14 +1842,15 @@ FinderHighlighter.prototype = {
   WillDeleteText(textNode, offset, length) {
     let editor = this._getEditableNode(textNode).editor;
     let controller = editor.selectionController;
-    let fSelection = controller.getSelection(Ci.nsISelectionController.SELECTION_FIND);
+    let fSelection = controller.getSelection(
+      Ci.nsISelectionController.SELECTION_FIND
+    );
     let range = this._findRange(fSelection, textNode, offset);
 
     if (range) {
       // Don't remove the highlighting if the deleted text is at the
       // end of the range
-      if (textNode != range.endContainer ||
-          offset != range.endOffset) {
+      if (textNode != range.endContainer || offset != range.endOffset) {
         // Text within the highlight is being removed - the text can
         // no longer be a match, so remove the highlighting
         fSelection.removeRange(range);
@@ -1569,18 +1864,20 @@ FinderHighlighter.prototype = {
   DidInsertText(textNode, offset, aString) {
     let editor = this._getEditableNode(textNode).editor;
     let controller = editor.selectionController;
-    let fSelection = controller.getSelection(Ci.nsISelectionController.SELECTION_FIND);
+    let fSelection = controller.getSelection(
+      Ci.nsISelectionController.SELECTION_FIND
+    );
     let range = this._findRange(fSelection, textNode, offset);
 
     if (range) {
       // If the text was inserted before the highlight
       // adjust the highlight's bounds accordingly
-      if (textNode == range.startContainer &&
-          offset == range.startOffset) {
-        range.setStart(range.startContainer,
-                       range.startOffset + aString.length);
-      } else if (textNode != range.endContainer ||
-                 offset != range.endOffset) {
+      if (textNode == range.startContainer && offset == range.startOffset) {
+        range.setStart(
+          range.startContainer,
+          range.startOffset + aString.length
+        );
+      } else if (textNode != range.endContainer || offset != range.endOffset) {
         // The edit occurred within the highlight - any addition of text
         // will result in the text no longer being a match,
         // so remove the highlighting
@@ -1592,17 +1889,18 @@ FinderHighlighter.prototype = {
     }
   },
 
-  WillDeleteSelection(selection) {
-    let editor = this._getEditableNode(selection.getRangeAt(0)
-                                                 .startContainer).editor;
+  WillDeleteRanges(rangesToDelete) {
+    let { editor } = this._getEditableNode(rangesToDelete[0].startContainer);
     let controller = editor.selectionController;
-    let fSelection = controller.getSelection(Ci.nsISelectionController.SELECTION_FIND);
+    let fSelection = controller.getSelection(
+      Ci.nsISelectionController.SELECTION_FIND
+    );
 
     let shouldDelete = {};
     let numberOfDeletedSelections = 0;
     let numberOfMatches = fSelection.rangeCount;
 
-    // We need to test if any ranges in the deleted selection (selection)
+    // We need to test if any ranges to be deleted
     // are in any of the ranges of the find selection
     // Usually both selections will only contain one range, however
     // either may contain more than one.
@@ -1611,12 +1909,11 @@ FinderHighlighter.prototype = {
       shouldDelete[fIndex] = false;
       let fRange = fSelection.getRangeAt(fIndex);
 
-      for (let index = 0; index < selection.rangeCount; index++) {
+      for (let selRange of rangesToDelete) {
         if (shouldDelete[fIndex]) {
           continue;
         }
 
-        let selRange = selection.getRangeAt(index);
         let doesOverlap = this._checkOverlap(selRange, fRange);
         if (doesOverlap) {
           shouldDelete[fIndex] = true;
@@ -1632,8 +1929,9 @@ FinderHighlighter.prototype = {
     }
 
     for (let i = numberOfMatches - 1; i >= 0; i--) {
-      if (shouldDelete[i])
+      if (shouldDelete[i]) {
         fSelection.removeRange(fSelection.getRangeAt(i));
+      }
     }
 
     // Remove listeners if no more highlights left
@@ -1706,7 +2004,6 @@ FinderHighlighter.prototype = {
       },
 
       // Unimplemented
-      notifyDocumentCreated() {},
       notifyDocumentStateChanged(aDirty) {},
     };
   },

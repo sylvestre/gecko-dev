@@ -27,7 +27,8 @@ static void CheckFrameAnimatorBlendResults(const ImageTestCase& aTestCase,
   ASSERT_TRUE(surface != nullptr);
 
   CheckGeneratedSurface(surface, IntRect(0, 0, 50, 50),
-                        BGRAColor::Transparent(), BGRAColor::Red());
+                        BGRAColor::Transparent(),
+                        aTestCase.ChooseColor(BGRAColor::Red()));
 
   // Advance to the next/final frame.
   now = TimeStamp::Now() + TimeDuration::FromMilliseconds(500);
@@ -36,13 +37,14 @@ static void CheckFrameAnimatorBlendResults(const ImageTestCase& aTestCase,
   surface =
       aImage->GetFrame(imgIContainer::FRAME_CURRENT, imgIContainer::FLAG_NONE);
   ASSERT_TRUE(surface != nullptr);
-  CheckGeneratedSurface(surface, IntRect(0, 0, 50, 50), BGRAColor::Green(),
-                        BGRAColor::Red());
+  CheckGeneratedSurface(surface, IntRect(0, 0, 50, 50),
+                        aTestCase.ChooseColor(BGRAColor::Green()),
+                        aTestCase.ChooseColor(BGRAColor::Red()));
 }
 
 template <typename Func>
 static void WithFrameAnimatorDecode(const ImageTestCase& aTestCase,
-                                    bool aBlendFilter, Func aResultChecker) {
+                                    Func aResultChecker) {
   // Create an image.
   RefPtr<Image> image = ImageFactory::CreateAnonymousImage(
       nsDependentCString(aTestCase.mMimeType));
@@ -80,10 +82,7 @@ static void WithFrameAnimatorDecode(const ImageTestCase& aTestCase,
   // Create an AnimationSurfaceProvider which will manage the decoding process
   // and make this decoder's output available in the surface cache.
   DecoderFlags decoderFlags = DefaultDecoderFlags();
-  if (aBlendFilter) {
-    decoderFlags |= DecoderFlags::BLEND_ANIMATION;
-  }
-  SurfaceFlags surfaceFlags = DefaultSurfaceFlags();
+  SurfaceFlags surfaceFlags = aTestCase.mSurfaceFlags;
   rv = DecoderFactory::CreateAnimationDecoder(
       decoderType, rasterImage, sourceBuffer, aTestCase.mSize, decoderFlags,
       surfaceFlags, 0, getter_AddRefs(task));
@@ -97,9 +96,8 @@ static void WithFrameAnimatorDecode(const ImageTestCase& aTestCase,
   aResultChecker(rasterImage.get());
 }
 
-static void CheckFrameAnimatorBlend(const ImageTestCase& aTestCase,
-                                    bool aBlendFilter) {
-  WithFrameAnimatorDecode(aTestCase, aBlendFilter, [&](RasterImage* aImage) {
+static void CheckFrameAnimatorBlend(const ImageTestCase& aTestCase) {
+  WithFrameAnimatorDecode(aTestCase, [&](RasterImage* aImage) {
     CheckFrameAnimatorBlendResults(aTestCase, aImage);
   });
 }
@@ -109,27 +107,14 @@ class ImageFrameAnimator : public ::testing::Test {
   AutoInitializeImageLib mInit;
 };
 
-TEST_F(ImageFrameAnimator, BlendGIFWithAnimator) {
-  CheckFrameAnimatorBlend(BlendAnimatedGIFTestCase(), /* aBlendFilter */ false);
-}
-
 TEST_F(ImageFrameAnimator, BlendGIFWithFilter) {
-  CheckFrameAnimatorBlend(BlendAnimatedGIFTestCase(), /* aBlendFilter */ true);
-}
-
-TEST_F(ImageFrameAnimator, BlendPNGWithAnimator) {
-  CheckFrameAnimatorBlend(BlendAnimatedPNGTestCase(), /* aBlendFilter */ false);
+  CheckFrameAnimatorBlend(BlendAnimatedGIFTestCase());
 }
 
 TEST_F(ImageFrameAnimator, BlendPNGWithFilter) {
-  CheckFrameAnimatorBlend(BlendAnimatedPNGTestCase(), /* aBlendFilter */ true);
-}
-
-TEST_F(ImageFrameAnimator, BlendWebPWithAnimator) {
-  CheckFrameAnimatorBlend(BlendAnimatedWebPTestCase(),
-                          /* aBlendFilter */ false);
+  CheckFrameAnimatorBlend(BlendAnimatedPNGTestCase());
 }
 
 TEST_F(ImageFrameAnimator, BlendWebPWithFilter) {
-  CheckFrameAnimatorBlend(BlendAnimatedWebPTestCase(), /* aBlendFilter */ true);
+  CheckFrameAnimatorBlend(BlendAnimatedWebPTestCase());
 }

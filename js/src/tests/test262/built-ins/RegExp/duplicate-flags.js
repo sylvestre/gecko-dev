@@ -1,4 +1,3 @@
-// |reftest| skip -- regexp-dotall is not supported
 // Copyright 2017 the V8 project authors.  All rights reserved.
 // This code is governed by the BSD license found in the LICENSE file.
 
@@ -11,11 +10,22 @@ description: Check that duplicate RegExp flags are disallowed
 features: [regexp-dotall]
 ---*/
 
+new RegExp("", "mig"); // single g will not throw SyntaxError
 assert.throws(SyntaxError, () => new RegExp("", "migg"), "duplicate g");
+
+new RegExp("", "i"); // single i will not throw SyntaxError
 assert.throws(SyntaxError, () => new RegExp("", "ii"), "duplicate i");
+
+new RegExp("", "m"); // single m will not throw SyntaxError
 assert.throws(SyntaxError, () => new RegExp("", "mm"), "duplicate m");
+
+new RegExp("", "s"); // single s will not throw SyntaxError
 assert.throws(SyntaxError, () => new RegExp("", "ss"), "duplicate s");
+
+new RegExp("", "u"); // single u will not throw SyntaxError
 assert.throws(SyntaxError, () => new RegExp("", "uu"), "duplicate u");
+
+new RegExp("", "y"); // single y will not throw SyntaxError
 assert.throws(SyntaxError, () => new RegExp("", "yy"), "duplicate y");
 
 reportCompare(0, 0);

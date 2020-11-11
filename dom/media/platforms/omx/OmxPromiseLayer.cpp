@@ -12,7 +12,7 @@
 #include "OmxPlatformLayer.h"
 
 #ifdef LOG
-#undef LOG
+#  undef LOG
 #endif
 
 #define LOG(arg, ...)                        \
@@ -25,8 +25,8 @@ OmxPromiseLayer::OmxPromiseLayer(TaskQueue* aTaskQueue,
                                  OmxDataDecoder* aDataDecoder,
                                  layers::ImageContainer* aImageContainer)
     : mTaskQueue(aTaskQueue) {
-  mPlatformLayer =
-      OmxPlatformLayer::Create(aDataDecoder, this, aTaskQueue, aImageContainer);
+  mPlatformLayer.reset(OmxPlatformLayer::Create(aDataDecoder, this, aTaskQueue,
+                                                aImageContainer));
   MOZ_ASSERT(!!mPlatformLayer);
 }
 
@@ -298,7 +298,9 @@ bool OmxPromiseLayer::Event(OMX_EVENTTYPE aEvent, OMX_U32 aData1,
       }
       break;
     }
-    default: { return false; }
+    default: {
+      return false;
+    }
   }
   return true;
 }

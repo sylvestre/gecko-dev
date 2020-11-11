@@ -6,18 +6,40 @@
 
 #include "SDBConnection.h"
 
+// Local includes
 #include "ActorsChild.h"
-#include "jsfriendapi.h"
-#include "mozilla/ipc/BackgroundChild.h"
-#include "mozilla/ipc/BackgroundParent.h"
-#include "mozilla/ipc/BackgroundUtils.h"
-#include "mozilla/ipc/PBackgroundChild.h"
-#include "nsISDBCallbacks.h"
 #include "SDBRequest.h"
 #include "SimpleDBCommon.h"
 
-namespace mozilla {
-namespace dom {
+// Global includes
+#include <stdint.h>
+#include <utility>
+#include "MainThreadUtils.h"
+#include "js/ArrayBuffer.h"
+#include "js/RootingAPI.h"
+#include "js/TypeDecls.h"
+#include "js/experimental/TypedData.h"
+#include "mozilla/Assertions.h"
+#include "mozilla/MacroForEach.h"
+#include "mozilla/Maybe.h"
+#include "mozilla/Preferences.h"
+#include "mozilla/RefPtr.h"
+#include "mozilla/Variant.h"
+#include "mozilla/dom/PBackgroundSDBConnection.h"
+#include "mozilla/dom/quota/QuotaManager.h"
+#include "mozilla/fallible.h"
+#include "mozilla/ipc/BackgroundChild.h"
+#include "mozilla/ipc/BackgroundUtils.h"
+#include "mozilla/ipc/PBackgroundChild.h"
+#include "mozilla/ipc/PBackgroundSharedTypes.h"
+#include "nsDebug.h"
+#include "nsError.h"
+#include "nsISDBCallbacks.h"
+#include "nsISupportsUtils.h"
+#include "nsStringFwd.h"
+#include "nscore.h"
+
+namespace mozilla::dom {
 
 using namespace mozilla::ipc;
 
@@ -29,7 +51,7 @@ nsresult GetWriteData(JSContext* aCx, JS::Handle<JS::Value> aValue,
     JS::Rooted<JSObject*> obj(aCx, &aValue.toObject());
 
     bool isView = false;
-    if (JS_IsArrayBufferObject(obj) ||
+    if (JS::IsArrayBufferObject(obj) ||
         (isView = JS_IsArrayBufferViewObject(obj))) {
       uint8_t* data;
       uint32_t length;
@@ -37,7 +59,7 @@ nsresult GetWriteData(JSContext* aCx, JS::Handle<JS::Value> aValue,
       if (isView) {
         JS_GetObjectAsArrayBufferView(obj, &length, &unused, &data);
       } else {
-        JS_GetObjectAsArrayBuffer(obj, &length, &data);
+        JS::GetObjectAsArrayBuffer(obj, &length, &data);
       }
 
       if (NS_WARN_IF(!aData.Assign(reinterpret_cast<char*>(data), length,
@@ -56,6 +78,7 @@ nsresult GetWriteData(JSContext* aCx, JS::Handle<JS::Value> aValue,
 
 SDBConnection::SDBConnection()
     : mBackgroundActor(nullptr),
+      mPersistenceType(quota::PERSISTENCE_TYPE_INVALID),
       mRunningRequest(false),
       mOpen(false),
       mAllowedToClose(false) {
@@ -173,7 +196,7 @@ nsresult SDBConnection::EnsureBackgroundActor() {
 
   mBackgroundActor = static_cast<SDBConnectionChild*>(
       backgroundActor->SendPBackgroundSDBConnectionConstructor(
-          actor, *mPrincipalInfo));
+          actor, mPersistenceType, *mPrincipalInfo));
   if (NS_WARN_IF(!mBackgroundActor)) {
     return NS_ERROR_FAILURE;
   }
@@ -202,12 +225,13 @@ nsresult SDBConnection::InitiateRequest(SDBRequest* aRequest,
 NS_IMPL_ISUPPORTS(SDBConnection, nsISDBConnection)
 
 NS_IMETHODIMP
-SDBConnection::Init(nsIPrincipal* aPrincipal) {
+SDBConnection::Init(nsIPrincipal* aPrincipal,
+                    const nsACString& aPersistenceType) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aPrincipal);
 
-  nsAutoPtr<PrincipalInfo> principalInfo(new PrincipalInfo());
-  nsresult rv = PrincipalToPrincipalInfo(aPrincipal, principalInfo);
+  UniquePtr<PrincipalInfo> principalInfo(new PrincipalInfo());
+  nsresult rv = PrincipalToPrincipalInfo(aPrincipal, principalInfo.get());
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -218,7 +242,25 @@ SDBConnection::Init(nsIPrincipal* aPrincipal) {
     return NS_ERROR_INVALID_ARG;
   }
 
+  if (NS_WARN_IF(!quota::QuotaManager::IsPrincipalInfoValid(*principalInfo))) {
+    return NS_ERROR_INVALID_ARG;
+  }
+
+  PersistenceType persistenceType;
+  if (aPersistenceType.IsVoid()) {
+    persistenceType = quota::PERSISTENCE_TYPE_DEFAULT;
+  } else {
+    const auto maybePersistenceType =
+        quota::PersistenceTypeFromString(aPersistenceType, fallible);
+    if (NS_WARN_IF(maybePersistenceType.isNothing())) {
+      return NS_ERROR_INVALID_ARG;
+    }
+
+    persistenceType = maybePersistenceType.value();
+  }
+
   mPrincipalInfo = std::move(principalInfo);
+  mPersistenceType = persistenceType;
 
   return NS_OK;
 }
@@ -388,5 +430,4 @@ SDBConnection::SetCloseCallback(nsISDBCloseCallback* aCloseCallback) {
   return NS_OK;
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

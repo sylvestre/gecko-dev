@@ -84,22 +84,19 @@ this.DateTimeInputBaseImplWidget = class {
   onsetup() {
     this.generateContent();
 
-
     this.DEBUG = false;
     this.mDateTimeBoxElement = this.shadowRoot.firstChild;
     this.mInputElement = this.element;
-    this.mLocales = this.window.getRegionalPrefsLocales();
+    this.mLocales = this.window.getWebExposedLocales();
 
     this.mIsRTL = false;
     let intlUtils = this.window.intlUtils;
     if (intlUtils) {
-      this.mIsRTL =
-        intlUtils.getLocaleInfo(this.mLocales).direction === "rtl";
+      this.mIsRTL = intlUtils.isAppLocaleRTL();
     }
 
     if (this.mIsRTL) {
-      let inputBoxWrapper =
-        this.shadowRoot.getElementById("input-box-wrapper");
+      let inputBoxWrapper = this.shadowRoot.getElementById("input-box-wrapper");
       inputBoxWrapper.dir = "rtl";
     }
 
@@ -108,27 +105,34 @@ this.DateTimeInputBaseImplWidget = class {
     this.mStep = this.mInputElement.step;
     this.mIsPickerOpen = false;
 
-    this.mResetButton =
-      this.shadowRoot.getElementById("reset-button");
+    this.mResetButton = this.shadowRoot.getElementById("reset-button");
     this.mResetButton.style.visibility = "hidden";
     this.mResetButton.addEventListener("mousedown", this, {
       mozSystemGroup: true,
     });
 
-    this.mInputElement.addEventListener("keypress", this, {
-      capture: true,
-      mozSystemGroup: true,
-    }, false);
+    this.mInputElement.addEventListener(
+      "keypress",
+      this,
+      {
+        capture: true,
+        mozSystemGroup: true,
+      },
+      false
+    );
     // This is to open the picker when input element is clicked (this
     // includes padding area).
-    this.mInputElement.addEventListener("click", this,
-                                        { mozSystemGroup: true },
-                                        false);
+    this.mInputElement.addEventListener(
+      "click",
+      this,
+      { mozSystemGroup: true },
+      false
+    );
 
     // Those events are dispatched to <div class="datetimebox"> with bubble set
     // to false. They are trapped inside UA Widget Shadow DOM and are not
     // dispatched to the document.
-    this.CONTROL_EVENTS.forEach((eventName) => {
+    this.CONTROL_EVENTS.forEach(eventName => {
       this.mDateTimeBoxElement.addEventListener(eventName, this, {}, false);
     });
   }
@@ -139,7 +143,9 @@ this.DateTimeInputBaseImplWidget = class {
      * Remove it when migrate to Fluent (bug 1504363).
      */
     const parser = new this.window.DOMParser();
-    let parserDoc = parser.parseFromString(`<!DOCTYPE bindings [
+    parser.forceEnableDTD();
+    let parserDoc = parser.parseFromString(
+      `<!DOCTYPE bindings [
       <!ENTITY % datetimeboxDTD SYSTEM "chrome://global/locale/datetimebox.dtd">
       %datetimeboxDTD;
       ]>
@@ -177,7 +183,9 @@ this.DateTimeInputBaseImplWidget = class {
           data-m-day-period-place-holder="&time.dayperiod.placeholder;"
           data-m-day-period-label="&time.dayperiod.label;"
         ></div>
-      </div>`, "application/xml");
+      </div>`,
+      "application/xml"
+    );
 
     /*
      * The <div id="strings"> is also parsed in the document so that there is no
@@ -191,7 +199,11 @@ this.DateTimeInputBaseImplWidget = class {
       this[key] = stringsElement.dataset[key];
     }
 
-    this.shadowRoot.importNodeAndAppendChildAt(this.shadowRoot, parserDoc.documentElement, true);
+    this.shadowRoot.importNodeAndAppendChildAt(
+      this.shadowRoot,
+      parserDoc.documentElement,
+      true
+    );
   }
 
   destructor() {
@@ -203,10 +215,11 @@ this.DateTimeInputBaseImplWidget = class {
       capture: true,
       mozSystemGroup: true,
     });
-    this.mInputElement.removeEventListener("click", this,
-                                           { mozSystemGroup: true });
+    this.mInputElement.removeEventListener("click", this, {
+      mozSystemGroup: true,
+    });
 
-    this.CONTROL_EVENTS.forEach((eventName) => {
+    this.CONTROL_EVENTS.forEach(eventName => {
       this.mDateTimeBoxElement.removeEventListener(eventName, this);
     });
     this.mInputElement = null;
@@ -217,18 +230,28 @@ this.DateTimeInputBaseImplWidget = class {
   }
 
   get CONTROL_EVENTS() {
-    return ["MozDateTimeValueChanged", "MozNotifyMinMaxStepAttrChanged",
-            "MozFocusInnerTextBox", "MozBlurInnerTextBox",
-            "MozDateTimeAttributeChanged", "MozPickerValueChanged",
-            "MozSetDateTimePickerState"];
+    return [
+      "MozDateTimeValueChanged",
+      "MozNotifyMinMaxStepAttrChanged",
+      "MozFocusInnerTextBox",
+      "MozBlurInnerTextBox",
+      "MozDateTimeAttributeChanged",
+      "MozPickerValueChanged",
+      "MozSetDateTimePickerState",
+    ];
   }
 
   addEventListenersToField(aElement) {
     // These events don't bubble out of the Shadow DOM, so we'll have to add
     // event listeners specifically on each of the fields, not just
     // on the <input>
-    this.FIELD_EVENTS.forEach((eventName) => {
-      aElement.addEventListener(eventName, this, { mozSystemGroup: true }, false);
+    this.FIELD_EVENTS.forEach(eventName => {
+      aElement.addEventListener(
+        eventName,
+        this,
+        { mozSystemGroup: true },
+        false
+      );
     });
   }
 
@@ -237,7 +260,7 @@ this.DateTimeInputBaseImplWidget = class {
       return;
     }
 
-    this.FIELD_EVENTS.forEach((eventName) => {
+    this.FIELD_EVENTS.forEach(eventName => {
       aElement.removeEventListener(eventName, this, { mozSystemGroup: true });
     });
   }
@@ -248,9 +271,16 @@ this.DateTimeInputBaseImplWidget = class {
     }
   }
 
-  createEditFieldAndAppend(aPlaceHolder, aLabel, aIsNumeric,
-                           aMinDigits, aMaxLength,
-                           aMinValue, aMaxValue, aPageUpDownInterval) {
+  createEditFieldAndAppend(
+    aPlaceHolder,
+    aLabel,
+    aIsNumeric,
+    aMinDigits,
+    aMaxLength,
+    aMinValue,
+    aMaxValue,
+    aPageUpDownInterval
+  ) {
     let root = this.shadowRoot.getElementById("edit-wrapper");
     let field = this.shadowRoot.createElementAndAppendChildAt(root, "span");
     field.classList.add("datetime-edit-field");
@@ -267,7 +297,7 @@ this.DateTimeInputBaseImplWidget = class {
 
     // Used to store the non-formatted value, cleared when value is
     // cleared.
-    // nsDateTimeControlFrame::HasBadInput() will read this to decide
+    // DateTimeInputTypeBase::HasBadInput() will read this to decide
     // if the input has value.
     field.setAttribute("value", "");
 
@@ -307,8 +337,8 @@ this.DateTimeInputBaseImplWidget = class {
   }
 
   updateResetButtonVisibility() {
-    if (this.isAnyFieldAvailable(false)) {
-      this.mResetButton.style.visibility = "visible";
+    if (this.isAnyFieldAvailable(false) && !this.isRequired()) {
+      this.mResetButton.style.visibility = "";
     } else {
       this.mResetButton.style.visibility = "hidden";
     }
@@ -318,7 +348,9 @@ this.DateTimeInputBaseImplWidget = class {
     this.log("Focus inner editable field.");
 
     let editRoot = this.shadowRoot.getElementById("edit-wrapper");
-    for (let child of editRoot.querySelectorAll(":scope > span.datetime-edit-field")) {
+    for (let child of editRoot.querySelectorAll(
+      ":scope > span.datetime-edit-field"
+    )) {
       this.mLastFocusedField = child;
       child.focus();
       this.log("focused");
@@ -336,7 +368,9 @@ this.DateTimeInputBaseImplWidget = class {
       // so that the bound element will actually be blurred. Note that
       // blurring on a element that has no focus won't have any effect.
       let editRoot = this.shadowRoot.getElementById("edit-wrapper");
-      for (let child of editRoot.querySelectorAll(":scope > span.datetime-edit-field")) {
+      for (let child of editRoot.querySelectorAll(
+        ":scope > span.datetime-edit-field"
+      )) {
         child.blur();
       }
     }
@@ -359,8 +393,9 @@ this.DateTimeInputBaseImplWidget = class {
     this.log("advanceToNextField");
 
     let focusedInput = this.mLastFocusedField;
-    let next = aReverse ? focusedInput.previousElementSibling
-                        : focusedInput.nextElementSibling;
+    let next = aReverse
+      ? focusedInput.previousElementSibling
+      : focusedInput.nextElementSibling;
     if (!next && !aReverse) {
       this.setInputValueFromFields();
       return;
@@ -371,8 +406,7 @@ this.DateTimeInputBaseImplWidget = class {
         next.focus();
         break;
       }
-      next = aReverse ? next.previousElementSibling
-                      : next.nextElementSibling;
+      next = aReverse ? next.previousElementSibling : next.nextElementSibling;
     }
   }
 
@@ -384,10 +418,11 @@ this.DateTimeInputBaseImplWidget = class {
   updateEditAttributes() {
     this.log("updateEditAttributes");
 
-    let editRoot =
-      this.shadowRoot.getElementById("edit-wrapper");
+    let editRoot = this.shadowRoot.getElementById("edit-wrapper");
 
-    for (let child of editRoot.querySelectorAll(":scope > span.datetime-edit-field")) {
+    for (let child of editRoot.querySelectorAll(
+      ":scope > span.datetime-edit-field"
+    )) {
       // "disabled" and "readonly" must be set as attributes because they
       // are not defined properties of HTMLSpanElement, and the stylesheet
       // checks the literal string attribute values.
@@ -402,11 +437,13 @@ this.DateTimeInputBaseImplWidget = class {
       child.tabIndex = this.mInputElement.tabIndex;
     }
 
-    this.mResetButton.disabled = this.mInputElement.disabled;
+    this.mResetButton.disabled =
+      this.mInputElement.disabled || this.mInputElement.readOnly;
+    this.updateResetButtonVisibility();
   }
 
   isEmpty(aValue) {
-    return (aValue == undefined || 0 === aValue.length);
+    return aValue == undefined || 0 === aValue.length;
   }
 
   getFieldValue(aField) {
@@ -416,7 +453,7 @@ this.DateTimeInputBaseImplWidget = class {
 
     let value = aField.getAttribute("value");
     // Avoid returning 0 when field is empty.
-    return (this.isEmpty(value) ? undefined : Number(value));
+    return this.isEmpty(value) ? undefined : Number(value);
   }
 
   clearFieldValue(aField) {
@@ -429,39 +466,39 @@ this.DateTimeInputBaseImplWidget = class {
   }
 
   setFieldValue() {
-    throw Cr.NS_ERROR_NOT_IMPLEMENTED;
+    throw Components.Exception("", Cr.NS_ERROR_NOT_IMPLEMENTED);
   }
 
   clearInputFields() {
-    throw Cr.NS_ERROR_NOT_IMPLEMENTED;
+    throw Components.Exception("", Cr.NS_ERROR_NOT_IMPLEMENTED);
   }
 
   setFieldsFromInputValue() {
-    throw Cr.NS_ERROR_NOT_IMPLEMENTED;
+    throw Components.Exception("", Cr.NS_ERROR_NOT_IMPLEMENTED);
   }
 
   setInputValueFromFields() {
-    throw Cr.NS_ERROR_NOT_IMPLEMENTED;
+    throw Components.Exception("", Cr.NS_ERROR_NOT_IMPLEMENTED);
   }
 
   setFieldsFromPicker() {
-    throw Cr.NS_ERROR_NOT_IMPLEMENTED;
+    throw Components.Exception("", Cr.NS_ERROR_NOT_IMPLEMENTED);
   }
 
   handleKeypress() {
-    throw Cr.NS_ERROR_NOT_IMPLEMENTED;
+    throw Components.Exception("", Cr.NS_ERROR_NOT_IMPLEMENTED);
   }
 
   handleKeyboardNav() {
-    throw Cr.NS_ERROR_NOT_IMPLEMENTED;
+    throw Components.Exception("", Cr.NS_ERROR_NOT_IMPLEMENTED);
   }
 
   getCurrentValue() {
-    throw Cr.NS_ERROR_NOT_IMPLEMENTED;
+    throw Components.Exception("", Cr.NS_ERROR_NOT_IMPLEMENTED);
   }
 
   isAnyFieldAvailable() {
-    throw Cr.NS_ERROR_NOT_IMPLEMENTED;
+    throw Components.Exception("", Cr.NS_ERROR_NOT_IMPLEMENTED);
   }
 
   notifyPicker() {
@@ -476,6 +513,18 @@ this.DateTimeInputBaseImplWidget = class {
 
   isReadonly() {
     return this.mInputElement.hasAttribute("readonly");
+  }
+
+  isEditable() {
+    return !this.isDisabled() && !this.isReadonly();
+  }
+
+  isRequired() {
+    return this.mInputElement.hasAttribute("required");
+  }
+
+  containingTree() {
+    return this.mInputElement.containingShadowRoot || this.document;
   }
 
   handleEvent(aEvent) {
@@ -544,7 +593,7 @@ this.DateTimeInputBaseImplWidget = class {
 
   onFocus(aEvent) {
     this.log("onFocus originalTarget: " + aEvent.originalTarget);
-    if (this.document.activeElement != this.mInputElement) {
+    if (this.containingTree().activeElement != this.mInputElement) {
       return;
     }
 
@@ -559,34 +608,56 @@ this.DateTimeInputBaseImplWidget = class {
   }
 
   onBlur(aEvent) {
-    this.log("onBlur originalTarget: " + aEvent.originalTarget +
-      " target: " + aEvent.target);
+    this.log(
+      "onBlur originalTarget: " +
+        aEvent.originalTarget +
+        " target: " +
+        aEvent.target +
+        " rt: " +
+        aEvent.relatedTarget
+    );
 
     let target = aEvent.originalTarget;
     target.setAttribute("typeBuffer", "");
     this.setInputValueFromFields();
-    this.mInputElement.setFocusState(false);
+    // No need to set and unset the focus state if the focus is staying within
+    // our input. Same about closing the picker.
+    if (aEvent.relatedTarget != this.mInputElement) {
+      this.mInputElement.setFocusState(false);
+      if (this.mIsPickerOpen) {
+        this.mInputElement.closeDateTimePicker();
+      }
+    }
   }
 
   onKeyPress(aEvent) {
     this.log("onKeyPress key: " + aEvent.key);
 
     switch (aEvent.key) {
-      // Close picker on Enter, Escape or Space key.
+      // Toggle the picker on space/enter, close on Escape.
       case "Enter":
       case "Escape":
       case " ": {
         if (this.mIsPickerOpen) {
           this.mInputElement.closeDateTimePicker();
-          aEvent.preventDefault();
+        } else if (aEvent.key != "Escape") {
+          this.mInputElement.openDateTimePicker(this.getCurrentValue());
+        } else {
+          // Don't preventDefault();
+          break;
         }
+        aEvent.preventDefault();
         break;
       }
       case "Backspace": {
-        let targetField = aEvent.originalTarget;
-        this.clearFieldValue(targetField);
-        this.setInputValueFromFields();
-        aEvent.preventDefault();
+        // TODO(emilio, bug 1571533): These functions should look at
+        // defaultPrevented.
+        if (this.isEditable()) {
+          let targetField = aEvent.originalTarget;
+          this.clearFieldValue(targetField);
+          this.setInputValueFromFields();
+          aEvent.preventDefault();
+        }
         break;
       }
       case "ArrowRight":
@@ -607,8 +678,10 @@ this.DateTimeInputBaseImplWidget = class {
       }
       default: {
         // printable characters
-        if (aEvent.keyCode == 0 &&
-            !(aEvent.ctrlKey || aEvent.altKey || aEvent.metaKey)) {
+        if (
+          aEvent.keyCode == 0 &&
+          !(aEvent.ctrlKey || aEvent.altKey || aEvent.metaKey)
+        ) {
           this.handleKeypress(aEvent);
           aEvent.preventDefault();
         }
@@ -618,10 +691,14 @@ this.DateTimeInputBaseImplWidget = class {
   }
 
   onClick(aEvent) {
-    this.log("onClick originalTarget: " + aEvent.originalTarget +
-      " target: " + aEvent.target);
+    this.log(
+      "onClick originalTarget: " +
+        aEvent.originalTarget +
+        " target: " +
+        aEvent.target
+    );
 
-    if (aEvent.defaultPrevented || this.isDisabled() || this.isReadonly()) {
+    if (aEvent.defaultPrevented || !this.isEditable()) {
       return;
     }
 
@@ -682,25 +759,49 @@ this.DateInputImplWidget = class extends DateTimeInputBaseImplWidget {
     formatter.formatToParts(Date.now()).map(part => {
       switch (part.type) {
         case "year":
-          this.mYearField = this.createEditFieldAndAppend(this.mYearPlaceHolder,
-            this.mYearLabel, true, this.mYearLength, yearMaxLength,
-            this.mMinYear, this.mMaxYear, this.mYearPageUpDownInterval);
+          this.mYearField = this.createEditFieldAndAppend(
+            this.mYearPlaceHolder,
+            this.mYearLabel,
+            true,
+            this.mYearLength,
+            yearMaxLength,
+            this.mMinYear,
+            this.mMaxYear,
+            this.mYearPageUpDownInterval
+          );
           this.addEventListenersToField(this.mYearField);
           break;
         case "month":
-          this.mMonthField = this.createEditFieldAndAppend(this.mMonthPlaceHolder,
-            this.mMonthLabel, true, this.mMonthDayLength, this.mMonthDayLength,
-            this.mMinMonth, this.mMaxMonth, this.mMonthPageUpDownInterval);
+          this.mMonthField = this.createEditFieldAndAppend(
+            this.mMonthPlaceHolder,
+            this.mMonthLabel,
+            true,
+            this.mMonthDayLength,
+            this.mMonthDayLength,
+            this.mMinMonth,
+            this.mMaxMonth,
+            this.mMonthPageUpDownInterval
+          );
           this.addEventListenersToField(this.mMonthField);
           break;
         case "day":
-          this.mDayField = this.createEditFieldAndAppend(this.mDayPlaceHolder,
-            this.mDayLabel, true, this.mMonthDayLength, this.mMonthDayLength,
-            this.mMinDay, this.mMaxDay, this.mDayPageUpDownInterval);
+          this.mDayField = this.createEditFieldAndAppend(
+            this.mDayPlaceHolder,
+            this.mDayLabel,
+            true,
+            this.mMonthDayLength,
+            this.mMonthDayLength,
+            this.mMinDay,
+            this.mMaxDay,
+            this.mDayPageUpDownInterval
+          );
           this.addEventListenersToField(this.mDayField);
           break;
         default:
-          let span = this.shadowRoot.createElementAndAppendChildAt(root, "span");
+          let span = this.shadowRoot.createElementAndAppendChildAt(
+            root,
+            "span"
+          );
           span.textContent = part.value;
           break;
       }
@@ -710,22 +811,15 @@ this.DateInputImplWidget = class extends DateTimeInputBaseImplWidget {
   clearInputFields(aFromInputElement) {
     this.log("clearInputFields");
 
-    if (this.isDisabled() || this.isReadonly()) {
-      return;
-    }
-
-    if (this.mMonthField && !this.mMonthField.disabled &&
-        !this.mMonthField.readOnly) {
+    if (this.mMonthField) {
       this.clearFieldValue(this.mMonthField);
     }
 
-    if (this.mDayField && !this.mDayField.disabled &&
-        !this.mDayField.readOnly) {
+    if (this.mDayField) {
       this.clearFieldValue(this.mDayField);
     }
 
-    if (this.mYearField && !this.mYearField.disabled &&
-        !this.mYearField.readOnly) {
+    if (this.mYearField) {
       this.clearFieldValue(this.mYearField);
     }
 
@@ -776,8 +870,8 @@ this.DateInputImplWidget = class extends DateTimeInputBaseImplWidget {
     // Convert to a valid date string according to:
     // https://html.spec.whatwg.org/multipage/infrastructure.html#valid-date-string
     year = year.toString().padStart(this.mYearLength, "0");
-    month = (month < 10) ? ("0" + month) : month;
-    day = (day < 10) ? ("0" + day) : day;
+    month = month < 10 ? "0" + month : month;
+    day = day < 10 ? "0" + day : day;
 
     let date = [year, month, day].join("-");
 
@@ -812,7 +906,7 @@ this.DateInputImplWidget = class extends DateTimeInputBaseImplWidget {
   }
 
   handleKeypress(aEvent) {
-    if (this.isDisabled() || this.isReadonly()) {
+    if (!this.isEditable()) {
       return;
     }
 
@@ -833,7 +927,9 @@ this.DateInputImplWidget = class extends DateTimeInputBaseImplWidget {
         this.advanceToNextField();
       }
       targetField.setAttribute("typeBuffer", buffer);
-      this.setInputValueFromFields();
+      if (!this.isAnyFieldEmpty()) {
+        this.setInputValueFromFields();
+      }
     }
   }
 
@@ -861,16 +957,16 @@ this.DateInputImplWidget = class extends DateTimeInputBaseImplWidget {
 
     value += Number(aTimes);
     if (value > max) {
-      value -= (max - min + 1);
+      value -= max - min + 1;
     } else if (value < min) {
-      value += (max - min + 1);
+      value += max - min + 1;
     }
 
     this.setFieldValue(aTargetField, value);
   }
 
   handleKeyboardNav(aEvent) {
-    if (this.isDisabled() || this.isReadonly()) {
+    if (!this.isEditable()) {
       return;
     }
 
@@ -878,8 +974,7 @@ this.DateInputImplWidget = class extends DateTimeInputBaseImplWidget {
     let key = aEvent.key;
 
     // Home/End key does nothing on year field.
-    if (targetField == this.mYearField && (key == "Home" ||
-                                           key == "End")) {
+    if (targetField == this.mYearField && (key == "Home" || key == "End")) {
       return;
     }
 
@@ -963,15 +1058,13 @@ this.DateInputImplWidget = class extends DateTimeInputBaseImplWidget {
   isAnyFieldAvailable(aForPicker) {
     let { year, month, day } = this.getCurrentValue();
 
-    return !this.isEmpty(year) || !this.isEmpty(month) ||
-           !this.isEmpty(day);
+    return !this.isEmpty(year) || !this.isEmpty(month) || !this.isEmpty(day);
   }
 
   isAnyFieldEmpty() {
     let { year, month, day } = this.getCurrentValue();
 
-    return (this.isEmpty(year) || this.isEmpty(month) ||
-            this.isEmpty(day));
+    return this.isEmpty(year) || this.isEmpty(month) || this.isEmpty(day);
   }
 };
 
@@ -986,8 +1079,7 @@ this.TimeInputImplWidget = class extends DateTimeInputBaseImplWidget {
     const kDefaultAMString = "AM";
     const kDefaultPMString = "PM";
 
-    let { amString, pmString } =
-      this.getStringsForLocale(this.mLocales);
+    let { amString, pmString } = this.getStringsForLocale(this.mLocales);
 
     this.mAMIndicator = amString || kDefaultAMString;
     this.mPMIndicator = pmString || kDefaultPMString;
@@ -1011,6 +1103,7 @@ this.TimeInputImplWidget = class extends DateTimeInputBaseImplWidget {
     this.mMinSecPageUpDownInterval = 10;
 
     this.buildEditFields();
+    this.updateEditAttributes();
 
     if (this.mInputElement.value) {
       this.setFieldsFromInputValue();
@@ -1031,7 +1124,7 @@ this.TimeInputImplWidget = class extends DateTimeInputBaseImplWidget {
   }
 
   get kMsPerMinute() {
-    return (60 * 1000);
+    return 60 * 1000;
   }
 
   getInputElementValues() {
@@ -1075,12 +1168,12 @@ this.TimeInputImplWidget = class extends DateTimeInputBaseImplWidget {
     }
 
     let stepBase = this.mInputElement.getStepBase();
-    if ((stepBase % this.kMsPerMinute) != 0) {
+    if (stepBase % this.kMsPerMinute != 0) {
       return true;
     }
 
     let step = this.mInputElement.getStep();
-    if ((step % this.kMsPerMinute) != 0) {
+    if (step % this.kMsPerMinute != 0) {
       return true;
     }
 
@@ -1094,12 +1187,12 @@ this.TimeInputImplWidget = class extends DateTimeInputBaseImplWidget {
     }
 
     let stepBase = this.mInputElement.getStepBase();
-    if ((stepBase % this.kMsPerSecond) != 0) {
+    if (stepBase % this.kMsPerSecond != 0) {
       return true;
     }
 
     let step = this.mInputElement.getStep();
-    if ((step % this.kMsPerSecond) != 0) {
+    if (step % this.kMsPerSecond != 0) {
       return true;
     }
 
@@ -1107,15 +1200,16 @@ this.TimeInputImplWidget = class extends DateTimeInputBaseImplWidget {
   }
 
   rebuildEditFieldsIfNeeded() {
-    if ((this.shouldShowSecondField() == this.hasSecondField()) &&
-        (this.shouldShowMillisecField() == this.hasMillisecField())) {
+    if (
+      this.shouldShowSecondField() == this.hasSecondField() &&
+      this.shouldShowMillisecField() == this.hasMillisecField()
+    ) {
       return;
     }
 
     let focused = this.mInputElement.matches(":focus");
 
-    let root =
-      this.shadowRoot.getElementById("edit-wrapper");
+    let root = this.shadowRoot.getElementById("edit-wrapper");
     while (root.firstChild) {
       root.firstChild.remove();
     }
@@ -1155,46 +1249,80 @@ this.TimeInputImplWidget = class extends DateTimeInputBaseImplWidget {
     formatter.formatToParts(Date.now()).map(part => {
       switch (part.type) {
         case "hour":
-          this.mHourField = this.createEditFieldAndAppend(this.mHourPlaceHolder,
-            this.mHourLabel, true, this.mMaxLength, this.mMaxLength,
-            this.mMinHour, this.mMaxHour, this.mHourPageUpDownInterval);
+          this.mHourField = this.createEditFieldAndAppend(
+            this.mHourPlaceHolder,
+            this.mHourLabel,
+            true,
+            this.mMaxLength,
+            this.mMaxLength,
+            this.mMinHour,
+            this.mMaxHour,
+            this.mHourPageUpDownInterval
+          );
           this.addEventListenersToField(this.mHourField);
           break;
         case "minute":
-          this.mMinuteField = this.createEditFieldAndAppend(this.mMinutePlaceHolder,
-            this.mMinuteLabel, true, this.mMaxLength, this.mMaxLength,
-            this.mMinMinute, this.mMaxMinute, this.mMinSecPageUpDownInterval);
+          this.mMinuteField = this.createEditFieldAndAppend(
+            this.mMinutePlaceHolder,
+            this.mMinuteLabel,
+            true,
+            this.mMaxLength,
+            this.mMaxLength,
+            this.mMinMinute,
+            this.mMaxMinute,
+            this.mMinSecPageUpDownInterval
+          );
           this.addEventListenersToField(this.mMinuteField);
           break;
         case "second":
-          this.mSecondField = this.createEditFieldAndAppend(this.mSecondPlaceHolder,
-            this.mSecondLabel, true, this.mMaxLength, this.mMaxLength,
-            this.mMinSecond, this.mMaxSecond, this.mMinSecPageUpDownInterval);
+          this.mSecondField = this.createEditFieldAndAppend(
+            this.mSecondPlaceHolder,
+            this.mSecondLabel,
+            true,
+            this.mMaxLength,
+            this.mMaxLength,
+            this.mMinSecond,
+            this.mMaxSecond,
+            this.mMinSecPageUpDownInterval
+          );
           this.addEventListenersToField(this.mSecondField);
           if (this.shouldShowMillisecField()) {
             // Intl.DateTimeFormat does not support millisecond, so we
             // need to handle this on our own.
-            let span = this.shadowRoot.createElementAndAppendChildAt(root, "span");
+            let span = this.shadowRoot.createElementAndAppendChildAt(
+              root,
+              "span"
+            );
             span.textContent = this.mMillisecSeparatorText;
             this.mMillisecField = this.createEditFieldAndAppend(
-              this.mMillisecPlaceHolder, this.mMillisecLabel, true,
-              this.mMillisecMaxLength, this.mMillisecMaxLength,
-              this.mMinMillisecond, this.mMaxMillisecond,
-              this.mMinSecPageUpDownInterval);
+              this.mMillisecPlaceHolder,
+              this.mMillisecLabel,
+              true,
+              this.mMillisecMaxLength,
+              this.mMillisecMaxLength,
+              this.mMinMillisecond,
+              this.mMaxMillisecond,
+              this.mMinSecPageUpDownInterval
+            );
             this.addEventListenersToField(this.mMillisecField);
           }
           break;
         case "dayPeriod":
-            this.mDayPeriodField = this.createEditFieldAndAppend(
-              this.mDayPeriodPlaceHolder, this.mDayPeriodLabel, false);
-            this.addEventListenersToField(this.mDayPeriodField);
+          this.mDayPeriodField = this.createEditFieldAndAppend(
+            this.mDayPeriodPlaceHolder,
+            this.mDayPeriodLabel,
+            false
+          );
+          this.addEventListenersToField(this.mDayPeriodField);
 
-            // Give aria autocomplete hint for am/pm
-            this.mDayPeriodField.setAttribute("aria-autocomplete", "inline");
+          // Give aria autocomplete hint for am/pm
+          this.mDayPeriodField.setAttribute("aria-autocomplete", "inline");
           break;
         default:
-          let span =
-            this.shadowRoot.createElementAndAppendChildAt(root, "span");
+          let span = this.shadowRoot.createElementAndAppendChildAt(
+            root,
+            "span"
+          );
           span.textContent = part.value;
           break;
       }
@@ -1210,30 +1338,31 @@ this.TimeInputImplWidget = class extends DateTimeInputBaseImplWidget {
     }
 
     let amString, pmString;
-    let keys = [ "dates/gregorian/dayperiods/am",
-                 "dates/gregorian/dayperiods/pm" ];
+    let keys = [
+      "dates/gregorian/dayperiods/am",
+      "dates/gregorian/dayperiods/pm",
+    ];
 
     let result = intlUtils.getDisplayNames(this.mLocales, {
       style: "short",
       keys,
     });
 
-    [ amString, pmString ] = keys.map(key => result.values[key]);
+    [amString, pmString] = keys.map(key => result.values[key]);
 
     return { amString, pmString };
   }
 
   is12HourTime(aLocales) {
-    let options = (new Intl.DateTimeFormat(aLocales, {
+    let options = new Intl.DateTimeFormat(aLocales, {
       hour: "numeric",
-    })).resolvedOptions();
+    }).resolvedOptions();
 
     return options.hour12;
   }
 
   setFieldsFromInputValue() {
-    let { hour, minute, second, millisecond } =
-      this.getInputElementValues();
+    let { hour, minute, second, millisecond } = this.getInputElementValues();
 
     if (this.isEmpty(hour) && this.isEmpty(minute)) {
       this.clearInputFields(true);
@@ -1247,18 +1376,20 @@ this.TimeInputImplWidget = class extends DateTimeInputBaseImplWidget {
     this.setFieldValue(this.mHourField, hour);
     this.setFieldValue(this.mMinuteField, minute);
     if (this.mHour12) {
-      this.setDayPeriodValue(hour >= this.mMaxHour ? this.mPMIndicator
-                                                   : this.mAMIndicator);
+      this.setDayPeriodValue(
+        hour >= this.mMaxHour ? this.mPMIndicator : this.mAMIndicator
+      );
     }
 
     if (this.hasSecondField()) {
-      this.setFieldValue(this.mSecondField,
-        (second != undefined) ? second : 0);
+      this.setFieldValue(this.mSecondField, second != undefined ? second : 0);
     }
 
     if (this.hasMillisecField()) {
-      this.setFieldValue(this.mMillisecField,
-        (millisecond != undefined) ? millisecond : 0);
+      this.setFieldValue(
+        this.mMillisecField,
+        millisecond != undefined ? millisecond : 0
+      );
     }
 
     this.notifyPicker();
@@ -1288,25 +1419,25 @@ this.TimeInputImplWidget = class extends DateTimeInputBaseImplWidget {
     if (this.mHour12) {
       if (dayPeriod == this.mPMIndicator && hour < this.mMaxHour) {
         hour += this.mMaxHour;
-      } else if (dayPeriod == this.mAMIndicator &&
-                 hour == this.mMaxHour) {
+      } else if (dayPeriod == this.mAMIndicator && hour == this.mMaxHour) {
         hour = 0;
       }
     }
 
-    hour = (hour < 10) ? ("0" + hour) : hour;
-    minute = (minute < 10) ? ("0" + minute) : minute;
+    hour = hour < 10 ? "0" + hour : hour;
+    minute = minute < 10 ? "0" + minute : minute;
 
     let time = hour + ":" + minute;
     if (second != undefined) {
-      second = (second < 10) ? ("0" + second) : second;
+      second = second < 10 ? "0" + second : second;
       time += ":" + second;
     }
 
     if (millisecond != undefined) {
       // Convert milliseconds to fraction of second.
-      millisecond = millisecond.toString().padStart(
-        this.mMillisecMaxLength, "0");
+      millisecond = millisecond
+        .toString()
+        .padStart(this.mMillisecMaxLength, "0");
       time += "." + millisecond;
     }
 
@@ -1327,8 +1458,9 @@ this.TimeInputImplWidget = class extends DateTimeInputBaseImplWidget {
     if (!this.isEmpty(hour)) {
       this.setFieldValue(this.mHourField, hour);
       if (this.mHour12) {
-        this.setDayPeriodValue(hour >= this.mMaxHour ? this.mPMIndicator
-                                                     : this.mAMIndicator);
+        this.setDayPeriodValue(
+          hour >= this.mMaxHour ? this.mPMIndicator : this.mAMIndicator
+        );
       }
     }
 
@@ -1343,32 +1475,23 @@ this.TimeInputImplWidget = class extends DateTimeInputBaseImplWidget {
   clearInputFields(aFromInputElement) {
     this.log("clearInputFields");
 
-    if (this.isDisabled() || this.isReadonly()) {
-      return;
-    }
-
-    if (this.mHourField && !this.mHourField.disabled &&
-        !this.mHourField.readOnly) {
+    if (this.mHourField) {
       this.clearFieldValue(this.mHourField);
     }
 
-    if (this.mMinuteField && !this.mMinuteField.disabled &&
-        !this.mMinuteField.readOnly) {
+    if (this.mMinuteField) {
       this.clearFieldValue(this.mMinuteField);
     }
 
-    if (this.hasSecondField() && !this.mSecondField.disabled &&
-        !this.mSecondField.readOnly) {
+    if (this.hasSecondField()) {
       this.clearFieldValue(this.mSecondField);
     }
 
-    if (this.hasMillisecField() && !this.mMillisecField.disabled &&
-        !this.mMillisecField.readOnly) {
+    if (this.hasMillisecField()) {
       this.clearFieldValue(this.mMillisecField);
     }
 
-    if (this.hasDayPeriodField() && !this.mDayPeriodField.disabled &&
-        !this.mDayPeriodField.readOnly) {
+    if (this.hasDayPeriodField()) {
       this.clearFieldValue(this.mDayPeriodField);
     }
 
@@ -1399,7 +1522,7 @@ this.TimeInputImplWidget = class extends DateTimeInputBaseImplWidget {
       if (aTargetField == this.mHourField) {
         value = now.getHours();
         if (this.mHour12) {
-          value = (value % this.mMaxHour) || this.mMaxHour;
+          value = value % this.mMaxHour || this.mMaxHour;
         }
       } else if (aTargetField == this.mMinuteField) {
         value = now.getMinutes();
@@ -1418,32 +1541,33 @@ this.TimeInputImplWidget = class extends DateTimeInputBaseImplWidget {
 
     value += Number(aTimes);
     if (value > max) {
-      value -= (max - min + 1);
+      value -= max - min + 1;
     } else if (value < min) {
-      value += (max - min + 1);
+      value += max - min + 1;
     }
 
     this.setFieldValue(aTargetField, value);
   }
 
   handleKeyboardNav(aEvent) {
-    if (this.isDisabled() || this.isReadonly()) {
+    if (!this.isEditable()) {
       return;
     }
 
     let targetField = aEvent.originalTarget;
     let key = aEvent.key;
 
-    if (this.hasDayPeriodField() &&
-        targetField == this.mDayPeriodField) {
+    if (this.hasDayPeriodField() && targetField == this.mDayPeriodField) {
       // Home/End key does nothing on AM/PM field.
       if (key == "Home" || key == "End") {
         return;
       }
 
       this.setDayPeriodValue(
-        this.getDayPeriodValue() == this.mAMIndicator ? this.mPMIndicator
-                                                      : this.mAMIndicator);
+        this.getDayPeriodValue() == this.mAMIndicator
+          ? this.mPMIndicator
+          : this.mAMIndicator
+      );
       this.setInputValueFromFields();
       return;
     }
@@ -1478,21 +1602,22 @@ this.TimeInputImplWidget = class extends DateTimeInputBaseImplWidget {
   }
 
   handleKeypress(aEvent) {
-    if (this.isDisabled() || this.isReadonly()) {
+    if (!this.isEditable()) {
       return;
     }
 
     let targetField = aEvent.originalTarget;
     let key = aEvent.key;
 
-    if (this.hasDayPeriodField() &&
-        targetField == this.mDayPeriodField) {
+    if (this.hasDayPeriodField() && targetField == this.mDayPeriodField) {
       if (key == "a" || key == "A") {
         this.setDayPeriodValue(this.mAMIndicator);
       } else if (key == "p" || key == "P") {
         this.setDayPeriodValue(this.mPMIndicator);
       }
-      this.setInputValueFromFields();
+      if (!this.isAnyFieldEmpty()) {
+        this.setInputValueFromFields();
+      }
       return;
     }
 
@@ -1504,13 +1629,15 @@ this.TimeInputImplWidget = class extends DateTimeInputBaseImplWidget {
 
       let n = Number(buffer);
       let max = targetField.getAttribute("max");
-      let maxLength = targetField.getAttribute("maxLength");
+      let maxLength = targetField.getAttribute("maxlength");
       if (buffer.length >= maxLength || n * 10 > max) {
         buffer = "";
         this.advanceToNextField();
       }
       targetField.setAttribute("typeBuffer", buffer);
-      this.setInputValueFromFields();
+      if (!this.isAnyFieldEmpty()) {
+        this.setInputValueFromFields();
+      }
     }
   }
 
@@ -1533,7 +1660,7 @@ this.TimeInputImplWidget = class extends DateTimeInputBaseImplWidget {
         if (value == 0 && aValue.length == maxLength) {
           value = this.mMaxHour;
         } else {
-          value = (value > this.mMaxHour) ? value % this.mMaxHour : value;
+          value = value > this.mMaxHour ? value % this.mMaxHour : value;
         }
       } else if (value > this.mMaxHour) {
         value = this.mMaxHour;
@@ -1561,7 +1688,7 @@ this.TimeInputImplWidget = class extends DateTimeInputBaseImplWidget {
     let placeholder = this.mDayPeriodField.placeholder;
     let value = this.mDayPeriodField.textContent;
 
-    return (value == placeholder ? "" : value);
+    return value == placeholder ? "" : value;
   }
 
   setDayPeriodValue(aValue) {
@@ -1588,19 +1715,24 @@ this.TimeInputImplWidget = class extends DateTimeInputBaseImplWidget {
       return false;
     }
 
-    return (this.hasDayPeriodField() && !this.isEmpty(dayPeriod)) ||
-           (this.hasSecondField() && !this.isEmpty(second)) ||
-           (this.hasMillisecField() && !this.isEmpty(millisecond));
+    return (
+      (this.hasDayPeriodField() && !this.isEmpty(dayPeriod)) ||
+      (this.hasSecondField() && !this.isEmpty(second)) ||
+      (this.hasMillisecField() && !this.isEmpty(millisecond))
+    );
   }
 
   isAnyFieldEmpty() {
     let { hour, minute, second, millisecond } = this.getCurrentValue();
     let dayPeriod = this.getDayPeriodValue();
 
-    return (this.isEmpty(hour) || this.isEmpty(minute) ||
-            (this.hasDayPeriodField() && this.isEmpty(dayPeriod)) ||
-            (this.hasSecondField() && this.isEmpty(second)) ||
-            (this.hasMillisecField() && this.isEmpty(millisecond)));
+    return (
+      this.isEmpty(hour) ||
+      this.isEmpty(minute) ||
+      (this.hasDayPeriodField() && this.isEmpty(dayPeriod)) ||
+      (this.hasSecondField() && this.isEmpty(second)) ||
+      (this.hasMillisecField() && this.isEmpty(millisecond))
+    );
   }
 
   getCurrentValue() {
@@ -1610,8 +1742,7 @@ this.TimeInputImplWidget = class extends DateTimeInputBaseImplWidget {
         let dayPeriod = this.getDayPeriodValue();
         if (dayPeriod == this.mPMIndicator && hour < this.mMaxHour) {
           hour += this.mMaxHour;
-        } else if (dayPeriod == this.mAMIndicator &&
-                   hour == this.mMaxHour) {
+        } else if (dayPeriod == this.mAMIndicator && hour == this.mMaxHour) {
           hour = 0;
         }
       }

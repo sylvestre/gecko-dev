@@ -1,6 +1,5 @@
-var g = newGlobal();
-g.f = function() {};
-g.eval('f = clone(f);');
+var g = newGlobal({newCompartment: true});
+cloneAndExecuteScript('function f() {}', g);
 var dbg = new Debugger;
 var dg = dbg.addDebuggee(g);
 dg.getOwnPropertyDescriptor('f').value.script.source;

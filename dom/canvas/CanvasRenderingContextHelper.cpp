@@ -4,21 +4,25 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "CanvasRenderingContextHelper.h"
+#include "GLContext.h"
 #include "ImageBitmapRenderingContext.h"
 #include "ImageEncoder.h"
 #include "mozilla/dom/CanvasRenderingContext2D.h"
+#include "mozilla/GfxMessageUtils.h"
 #include "mozilla/Telemetry.h"
 #include "mozilla/UniquePtr.h"
+#include "mozilla/webgpu/CanvasContext.h"
 #include "MozFramebuffer.h"
 #include "nsContentUtils.h"
 #include "nsDOMJSUtils.h"
 #include "nsIScriptContext.h"
 #include "nsJSUtils.h"
-#include "WebGL1Context.h"
-#include "WebGL2Context.h"
+#include "ClientWebGLContext.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
+
+CanvasRenderingContextHelper::CanvasRenderingContextHelper()
+    : mCurrentContextType(CanvasContextType::NoContext) {}
 
 void CanvasRenderingContextHelper::ToBlob(
     JSContext* aCx, nsIGlobalObject* aGlobal, BlobCallback& aCallback,
@@ -31,16 +35,23 @@ void CanvasRenderingContextHelper::ToBlob(
         : mGlobal(aGlobal), mBlobCallback(aCallback) {}
 
     // This is called on main thread.
-    nsresult ReceiveBlob(already_AddRefed<Blob> aBlob) override {
-      RefPtr<Blob> blob = aBlob;
+    MOZ_CAN_RUN_SCRIPT
+    nsresult ReceiveBlobImpl(already_AddRefed<BlobImpl> aBlobImpl) override {
+      RefPtr<BlobImpl> blobImpl = aBlobImpl;
 
-      RefPtr<Blob> newBlob = Blob::Create(mGlobal, blob->Impl());
+      RefPtr<Blob> blob;
 
+      if (blobImpl) {
+        blob = Blob::Create(mGlobal, blobImpl);
+      }
+
+      RefPtr<BlobCallback> callback(std::move(mBlobCallback));
       ErrorResult rv;
-      mBlobCallback->Call(newBlob, rv);
+
+      callback->Call(blob, rv);
 
       mGlobal = nullptr;
-      mBlobCallback = nullptr;
+      MOZ_ASSERT(!mBlobCallback);
 
       return rv.StealNSResult();
     }
@@ -119,7 +130,7 @@ CanvasRenderingContextHelper::CreateContextHelper(
     case CanvasContextType::WebGL1:
       Telemetry::Accumulate(Telemetry::CANVAS_WEBGL_USED, 1);
 
-      ret = WebGL1Context::Create();
+      ret = new ClientWebGLContext(/*webgl2:*/ false);
       if (!ret) return nullptr;
 
       break;
@@ -127,7 +138,16 @@ CanvasRenderingContextHelper::CreateContextHelper(
     case CanvasContextType::WebGL2:
       Telemetry::Accumulate(Telemetry::CANVAS_WEBGL_USED, 1);
 
-      ret = WebGL2Context::Create();
+      ret = new ClientWebGLContext(/*webgl2:*/ true);
+      if (!ret) return nullptr;
+
+      break;
+
+    case CanvasContextType::WebGPU:
+      // TODO
+      // Telemetry::Accumulate(Telemetry::CANVAS_WEBGPU_USED, 1);
+
+      ret = new webgpu::CanvasContext();
       if (!ret) return nullptr;
 
       break;
@@ -166,7 +186,7 @@ already_AddRefed<nsISupports> CanvasRenderingContextHelper::GetContext(
       return nullptr;
     }
 
-    mCurrentContext = context.forget();
+    mCurrentContext = std::move(context);
     mCurrentContextType = contextType;
 
     nsresult rv = UpdateContext(aCx, aContextOptions, aRv);
@@ -178,12 +198,18 @@ already_AddRefed<nsISupports> CanvasRenderingContextHelper::GetContext(
         Telemetry::Accumulate(Telemetry::CANVAS_WEBGL_SUCCESS, 0);
       else if (contextType == CanvasContextType::WebGL2)
         Telemetry::Accumulate(Telemetry::CANVAS_WEBGL2_SUCCESS, 0);
+      else if (contextType == CanvasContextType::WebGPU) {
+        // Telemetry::Accumulate(Telemetry::CANVAS_WEBGPU_SUCCESS, 0);
+      }
       return nullptr;
     }
     if (contextType == CanvasContextType::WebGL1)
       Telemetry::Accumulate(Telemetry::CANVAS_WEBGL_SUCCESS, 1);
     else if (contextType == CanvasContextType::WebGL2)
       Telemetry::Accumulate(Telemetry::CANVAS_WEBGL2_SUCCESS, 1);
+    else if (contextType == CanvasContextType::WebGPU) {
+      // Telemetry::Accumulate(Telemetry::CANVAS_WEBGPU_SUCCESS, 1);
+    }
   } else {
     // We already have a context of some type.
     if (contextType != mCurrentContextType) return nullptr;
@@ -239,7 +265,7 @@ nsresult CanvasRenderingContextHelper::ParseParams(
   // parse options string as is and pass it to the encoder.
   *outUsingCustomParseOptions = false;
   if (outParams.Length() == 0 && aEncoderOptions.isString()) {
-    NS_NAMED_LITERAL_STRING(mozParseOptions, "-moz-parse-options:");
+    constexpr auto mozParseOptions = u"-moz-parse-options:"_ns;
     nsAutoJSString paramString;
     if (!paramString.init(aCx, aEncoderOptions.toString())) {
       return NS_ERROR_FAILURE;
@@ -256,5 +282,4 @@ nsresult CanvasRenderingContextHelper::ParseParams(
   return NS_OK;
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

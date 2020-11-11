@@ -4,56 +4,165 @@
 
 // Bug 566194 - safe mode / security & compatibility check status are not exposed in new addon manager UI
 
-function test() {
-  waitForExplicitFinish();
-  run_next_test();
+async function loadDetail(win, id) {
+  let loaded = waitForViewLoad(win);
+  // Check the detail view.
+  let card = win.document.querySelector(`addon-card[addon-id="${id}"]`);
+  EventUtils.synthesizeMouseAtCenter(card, {}, win);
+  await loaded;
 }
 
-function end_test() {
-  finish();
+function checkMessageShown(win, type, hasButton) {
+  let stack = win.document.querySelector("global-warnings");
+  is(stack.childElementCount, 1, "There is one message");
+  let messageBar = stack.firstElementChild;
+  ok(messageBar, "There is a message bar");
+  is(messageBar.localName, "message-bar", "The message bar is a message-bar");
+  is_element_visible(messageBar, "Message bar is visible");
+  is(messageBar.getAttribute("warning-type"), type);
+  if (hasButton) {
+    let button = messageBar.querySelector("button");
+    is_element_visible(button, "Button is visible");
+    is(button.getAttribute("action"), type, "Button action is set");
+  }
 }
 
-add_test(async function() {
+function checkNoMessages(win) {
+  let stack = win.document.querySelector("global-warnings");
+  if (stack.childElementCount) {
+    // The safe mode message is hidden in CSS on the plugin list.
+    for (let child of stack.children) {
+      is_element_hidden(child, "The message is hidden");
+    }
+  } else {
+    is(stack.childElementCount, 0, "There are no message bars");
+  }
+}
+
+function clickMessageAction(win) {
+  let stack = win.document.querySelector("global-warnings");
+  let button = stack.firstElementChild.querySelector("button");
+  EventUtils.synthesizeMouseAtCenter(button, {}, win);
+}
+
+add_task(async function checkCompatibility() {
   info("Testing compatibility checking warning");
 
   info("Setting checkCompatibility to false");
   AddonManager.checkCompatibility = false;
 
-  let aWindow = await open_manager("addons://list/extension");
-  var hbox = aWindow.document.querySelector("#list-view hbox.global-warning-checkcompatibility");
-  is_element_visible(hbox, "Check Compatibility warning hbox should be visible");
-  var button = aWindow.document.querySelector("#list-view button.global-warning-checkcompatibility");
-  is_element_visible(button, "Check Compatibility warning button should be visible");
+  let id = "test@mochi.test";
+  let extension = ExtensionTestUtils.loadExtension({
+    manifest: { applications: { gecko: { id } } },
+    useAddonManager: "temporary",
+  });
+  await extension.startup();
 
+  let win = await loadInitialView("extension");
+
+  // Check the extension list view.
+  checkMessageShown(win, "check-compatibility", true);
+
+  // Check the detail view.
+  await loadDetail(win, id);
+  checkMessageShown(win, "check-compatibility", true);
+
+  // Check other views.
+  let views = ["plugin", "theme"];
+  for (let view of views) {
+    await switchView(win, view);
+    checkMessageShown(win, "check-compatibility", true);
+  }
+
+  // Check the button works.
   info("Clicking 'Enable' button");
-  EventUtils.synthesizeMouse(button, 2, 2, { }, aWindow);
-  is(AddonManager.checkCompatibility, true, "Check Compatibility pref should be cleared");
-  is_element_hidden(hbox, "Check Compatibility warning hbox should be hidden");
-  is_element_hidden(button, "Check Compatibility warning button should be hidden");
+  clickMessageAction(win);
+  is(
+    AddonManager.checkCompatibility,
+    true,
+    "Check Compatibility pref should be cleared"
+  );
+  checkNoMessages(win);
 
-  await close_manager(aWindow);
-  run_next_test();
+  await closeView(win);
+  await extension.unload();
 });
 
-add_test(async function() {
+add_task(async function checkSecurity() {
   info("Testing update security checking warning");
 
   var pref = "extensions.checkUpdateSecurity";
   info("Setting " + pref + " pref to false");
-  Services.prefs.setBoolPref(pref, false);
+  await SpecialPowers.pushPrefEnv({
+    set: [[pref, false]],
+  });
 
-  let aWindow = await open_manager(null);
-  var hbox = aWindow.document.querySelector("#list-view hbox.global-warning-updatesecurity");
-  is_element_visible(hbox, "Check Update Security warning hbox should be visible");
-  var button = aWindow.document.querySelector("#list-view button.global-warning-updatesecurity");
-  is_element_visible(button, "Check Update Security warning button should be visible");
+  let id = "test-security@mochi.test";
+  let extension = ExtensionTestUtils.loadExtension({
+    manifest: { applications: { gecko: { id } } },
+    useAddonManager: "temporary",
+  });
+  await extension.startup();
 
+  let win = await loadInitialView("extension");
+
+  // Check extension list view.
+  checkMessageShown(win, "update-security", true);
+
+  // Check detail view.
+  await loadDetail(win, id);
+  checkMessageShown(win, "update-security", true);
+
+  // Check other views.
+  let views = ["plugin", "theme"];
+  for (let view of views) {
+    await switchView(win, view);
+    checkMessageShown(win, "update-security", true);
+  }
+
+  // Check the button works.
   info("Clicking 'Enable' button");
-  EventUtils.synthesizeMouse(button, 2, 2, { }, aWindow);
-  is(Services.prefs.prefHasUserValue(pref), false, "Check Update Security pref should be cleared");
-  is_element_hidden(hbox, "Check Update Security warning hbox should be hidden");
-  is_element_hidden(button, "Check Update Security warning button should be hidden");
+  clickMessageAction(win);
+  is(
+    Services.prefs.prefHasUserValue(pref),
+    false,
+    "Check Update Security pref should be cleared"
+  );
+  checkNoMessages(win);
 
-  await close_manager(aWindow);
-  run_next_test();
+  await closeView(win);
+  await extension.unload();
+});
+
+add_task(async function checkSafeMode() {
+  info("Testing safe mode warning");
+
+  let id = "test-safemode@mochi.test";
+  let extension = ExtensionTestUtils.loadExtension({
+    manifest: { applications: { gecko: { id } } },
+    useAddonManager: "temporary",
+  });
+  await extension.startup();
+
+  let win = await loadInitialView("extension");
+
+  // Check extension list view hidden.
+  checkNoMessages(win);
+
+  let globalWarnings = win.document.querySelector("global-warnings");
+  globalWarnings.inSafeMode = true;
+  globalWarnings.refresh();
+
+  // Check detail view.
+  await loadDetail(win, id);
+  checkMessageShown(win, "safe-mode");
+
+  // Check other views.
+  await switchView(win, "theme");
+  checkMessageShown(win, "safe-mode");
+  await switchView(win, "plugin");
+  checkNoMessages(win);
+
+  await closeView(win);
+  await extension.unload();
 });

@@ -46,10 +46,10 @@ namespace sh
 
 // Define ESymbolLevel as int rather than an enum so that we can do arithmetic on it.
 typedef int ESymbolLevel;
-const int COMMON_BUILTINS    = 0;
-const int ESSL1_BUILTINS     = 1;
-const int ESSL3_BUILTINS     = 2;
-const int ESSL3_1_BUILTINS   = 3;
+const int COMMON_BUILTINS  = 0;
+const int ESSL1_BUILTINS   = 1;
+const int ESSL3_BUILTINS   = 2;
+const int ESSL3_1_BUILTINS = 3;
 // GLSL_BUILTINS are desktop GLSL builtins that don't exist in ESSL but are used to implement
 // features in ANGLE's GLSL backend. They're not visible to the parser.
 const int GLSL_BUILTINS      = 4;
@@ -116,8 +116,11 @@ class TSymbolTable : angle::NonCopyable, TSymbolTableBase
     TFunction *findUserDefinedFunction(const ImmutableString &name) const;
 
     const TSymbol *findGlobal(const ImmutableString &name) const;
+    const TSymbol *findGlobalWithConversion(const std::vector<ImmutableString> &names) const;
 
     const TSymbol *findBuiltIn(const ImmutableString &name, int shaderVersion) const;
+    const TSymbol *findBuiltInWithConversion(const std::vector<ImmutableString> &names,
+                                             int shaderVersion) const;
 
     void setDefaultPrecision(TBasicType type, TPrecision prec);
 
@@ -128,7 +131,9 @@ class TSymbolTable : angle::NonCopyable, TSymbolTableBase
     // This records invariant varyings declared through "invariant varying_name;".
     void addInvariantVarying(const TVariable &variable);
 
-    // If this returns false, the varying could still be invariant if it is set as invariant during the varying variable declaration - this piece of information is stored in the variable's type, not here.
+    // If this returns false, the varying could still be invariant if it is set as invariant during
+    // the varying variable declaration - this piece of information is stored in the variable's
+    // type, not here.
     bool isVaryingInvariant(const TVariable &variable) const;
 
     void setGlobalInvariant(bool invariant);

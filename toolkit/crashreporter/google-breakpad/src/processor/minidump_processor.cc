@@ -116,6 +116,25 @@ ProcessResult MinidumpProcessor::Process(
 
     process_state->crash_reason_ = GetCrashReason(
         dump, &process_state->crash_address_);
+
+    process_state->exception_record_.set_code(
+        exception->exception()->exception_record.exception_code,
+        // TODO(ivanpe): Populate description.
+        /* description = */ "");
+    process_state->exception_record_.set_flags(
+        exception->exception()->exception_record.exception_flags,
+        // TODO(ivanpe): Populate description.
+        /* description = */ "");
+    process_state->exception_record_.set_nested_exception_record_address(
+        exception->exception()->exception_record.exception_record);
+    process_state->exception_record_.set_address(process_state->crash_address_);
+    for (uint32_t i = 0;
+         i < exception->exception()->exception_record.number_parameters; i++) {
+      process_state->exception_record_.add_parameter(
+          exception->exception()->exception_record.exception_information[i],
+          // TODO(ivanpe): Populate description.
+          /* description = */ "");
+    }
   }
 
   // This will just return an empty string if it doesn't exist.
@@ -355,6 +374,26 @@ static const MDRawSystemInfo* GetSystemInfo(Minidump *dump,
   return minidump_system_info->system_info();
 }
 
+static uint64_t GetAddressForArchitecture(const MDCPUArchitecture architecture,
+                                          size_t raw_address)
+{
+  switch (architecture) {
+    case MD_CPU_ARCHITECTURE_X86:
+    case MD_CPU_ARCHITECTURE_MIPS:
+    case MD_CPU_ARCHITECTURE_PPC:
+    case MD_CPU_ARCHITECTURE_SHX:
+    case MD_CPU_ARCHITECTURE_ARM:
+    case MD_CPU_ARCHITECTURE_X86_WIN64:
+      // 32-bit architectures, mask the upper bits.
+      return raw_address & 0xffffffffULL;
+
+    default:
+      // All other architectures either have 64-bit pointers or it's impossible
+      // to tell from the minidump (e.g. MSIL or SPARC) so use 64-bits anyway.
+      return raw_address;
+  }
+}
+
 // Extract CPU info string from ARM-specific MDRawSystemInfo structure.
 // raw_info: pointer to source MDRawSystemInfo.
 // cpu_info: address of target string, cpu info text will be appended to it.
@@ -535,6 +574,7 @@ bool MinidumpProcessor::GetCPUInfo(Minidump *dump, SystemInfo *info) {
       break;
     }
 
+    case MD_CPU_ARCHITECTURE_ARM64:
     case MD_CPU_ARCHITECTURE_ARM64_OLD: {
       info->cpu = "arm64";
       break;
@@ -626,6 +666,11 @@ bool MinidumpProcessor::GetOSInfo(Minidump *dump, SystemInfo *info) {
       break;
     }
 
+    case MD_OS_FUCHSIA: {
+      info->os = "Fuchsia";
+      break;
+    }
+
     default: {
       // Assign the numeric platform ID into the OS string.
       char os_string[11];
@@ -696,10 +741,12 @@ string MinidumpProcessor::GetCrashReason(Minidump *dump, uint64_t *address) {
   // map the codes to a string (because there's no system info, or because
   // it's an unrecognized platform, or because it's an unrecognized code.)
   char reason_string[24];
+  char flags_string[11];
   uint32_t exception_code = raw_exception->exception_record.exception_code;
   uint32_t exception_flags = raw_exception->exception_record.exception_flags;
-  snprintf(reason_string, sizeof(reason_string), "0x%08x / 0x%08x",
-           exception_code, exception_flags);
+  snprintf(flags_string, sizeof(flags_string), "0x%08x", exception_flags);
+  snprintf(reason_string, sizeof(reason_string), "0x%08x / %s", exception_code,
+           flags_string);
   string reason = reason_string;
 
   const MDRawSystemInfo *raw_system_info = GetSystemInfo(dump, NULL);
@@ -707,10 +754,56 @@ string MinidumpProcessor::GetCrashReason(Minidump *dump, uint64_t *address) {
     return reason;
 
   switch (raw_system_info->platform_id) {
+    case MD_OS_FUCHSIA: {
+      switch (exception_code) {
+        case MD_EXCEPTION_CODE_FUCHSIA_GENERAL:
+          reason = "GENERAL / ";
+          reason.append(flags_string);
+          break;
+        case MD_EXCEPTION_CODE_FUCHSIA_FATAL_PAGE_FAULT:
+          reason = "FATAL_PAGE_FAULT / ";
+          reason.append(flags_string);
+          break;
+        case MD_EXCEPTION_CODE_FUCHSIA_UNDEFINED_INSTRUCTION:
+          reason = "UNDEFINED_INSTRUCTION / ";
+          reason.append(flags_string);
+          break;
+        case MD_EXCEPTION_CODE_FUCHSIA_SW_BREAKPOINT:
+          reason = "SW_BREAKPOINT / ";
+          reason.append(flags_string);
+          break;
+        case MD_EXCEPTION_CODE_FUCHSIA_HW_BREAKPOINT:
+          reason = "HW_BREAKPOINT / ";
+          reason.append(flags_string);
+          break;
+        case MD_EXCEPTION_CODE_FUCHSIA_UNALIGNED_ACCESS:
+          reason = "UNALIGNED_ACCESS / ";
+          reason.append(flags_string);
+          break;
+        case MD_EXCEPTION_CODE_FUCHSIA_THREAD_STARTING:
+          reason = "THREAD_STARTING / ";
+          reason.append(flags_string);
+          break;
+        case MD_EXCEPTION_CODE_FUCHSIA_THREAD_EXITING:
+          reason = "THREAD_EXITING / ";
+          reason.append(flags_string);
+          break;
+        case MD_EXCEPTION_CODE_FUCHSIA_POLICY_ERROR:
+          reason = "POLICY_ERROR / ";
+          reason.append(flags_string);
+          break;
+        case MD_EXCEPTION_CODE_FUCHSIA_PROCESS_STARTING:
+          reason = "PROCESS_STARTING / ";
+          reason.append(flags_string);
+          break;
+        default:
+          BPLOG(INFO) << "Unknown exception reason " << reason;
+      }
+      break;
+    }
+
     case MD_OS_MAC_OS_X:
     case MD_OS_IOS: {
-      char flags_string[11];
-      snprintf(flags_string, sizeof(flags_string), "0x%08x", exception_flags);
       switch (exception_code) {
         case MD_EXCEPTION_MAC_BAD_ACCESS:
           reason = "EXC_BAD_ACCESS / ";
@@ -729,6 +822,9 @@ string MinidumpProcessor::GetCrashReason(Minidump *dump, uint64_t *address) {
               break;
             case MD_EXCEPTION_CODE_MAC_MEMORY_ERROR:
               reason.append("KERN_MEMORY_ERROR");
+              break;
+            case MD_EXCEPTION_CODE_MAC_CODESIGN_ERROR:
+              reason.append("KERN_CODESIGN_ERROR");
               break;
             default:
               // arm and ppc overlap
@@ -1218,8 +1314,6 @@ string MinidumpProcessor::GetCrashReason(Minidump *dump, uint64_t *address) {
 
     case MD_OS_ANDROID:
     case MD_OS_LINUX: {
-      char flags_string[11];
-      snprintf(flags_string, sizeof(flags_string), "0x%08x", exception_flags);
       switch (exception_code) {
         case MD_EXCEPTION_CODE_LIN_SIGHUP:
           reason = "SIGHUP";
@@ -1273,7 +1367,7 @@ string MinidumpProcessor::GetCrashReason(Minidump *dump, uint64_t *address) {
           reason = "SIGBUS / ";
           switch (exception_flags) {
             case MD_EXCEPTION_FLAG_LIN_BUS_ADRALN:
-              reason.append("BUS_ADALN");
+              reason.append("BUS_ADRALN");
               break;
             case MD_EXCEPTION_FLAG_LIN_BUS_ADRERR:
               reason.append("BUS_ADRERR");
@@ -1634,6 +1728,12 @@ string MinidumpProcessor::GetCrashReason(Minidump *dump, uint64_t *address) {
       BPLOG(INFO) << "Unknown exception reason " << reason;
       break;
     }
+  }
+
+  if (address) {
+    *address = GetAddressForArchitecture(
+      static_cast<MDCPUArchitecture>(raw_system_info->processor_architecture),
+      *address);
   }
 
   return reason;

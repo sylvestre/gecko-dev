@@ -9,12 +9,14 @@
 use cssparser::{serialize_identifier, CowRcStr, ToCss};
 use cssparser::{BasicParseErrorKind, ParseError, ParseErrorKind, SourceLocation, Token};
 use selectors::parser::SelectorParseErrorKind;
+use selectors::SelectorList;
 use std::ffi::CStr;
 use std::ptr;
 use style::error_reporting::{ContextualParseError, ParseErrorReporter};
 use style::gecko_bindings::bindings;
 use style::gecko_bindings::structs::URLExtraData as RawUrlExtraData;
 use style::gecko_bindings::structs::{nsIURI, Loader, StyleSheet as DomStyleSheet};
+use style::selector_parser::SelectorImpl;
 use style::stylesheets::UrlExtraData;
 use style_traits::{StyleParseErrorKind, ValueParseErrorKind};
 
@@ -22,8 +24,7 @@ pub type ErrorKind<'i> = ParseErrorKind<'i, StyleParseErrorKind<'i>>;
 
 /// An error reporter with all the data we need to report errors.
 pub struct ErrorReporter {
-    sheet: *const DomStyleSheet,
-    loader: *const Loader,
+    window_id: u64,
     uri: *mut nsIURI,
 }
 
@@ -35,7 +36,13 @@ impl ErrorReporter {
         loader: *mut Loader,
         extra_data: *mut RawUrlExtraData,
     ) -> Option<Self> {
-        if !Self::reporting_enabled(sheet, loader) {
+        let mut window_id = 0;
+
+        let enabled = unsafe {
+            bindings::Gecko_ErrorReportingEnabled(sheet, loader, &mut window_id)
+        };
+
+        if !enabled {
             return None;
         }
 
@@ -46,7 +53,7 @@ impl ErrorReporter {
                 .unwrap_or(ptr::null_mut())
         };
 
-        Some(ErrorReporter { sheet, loader, uri })
+        Some(ErrorReporter { window_id, uri })
     }
 }
 
@@ -80,6 +87,7 @@ enum Action {
 trait ErrorHelpers<'a> {
     fn error_data(self) -> (CowRcStr<'a>, ErrorKind<'a>);
     fn error_params(self) -> ErrorParams<'a>;
+    fn selector_list(&self) -> Option<&'a SelectorList<SelectorImpl>>;
     fn to_gecko_message(&self) -> (Option<&'static CStr>, &'static CStr, Action);
 }
 
@@ -162,7 +170,6 @@ fn extract_error_params<'a>(err: ErrorKind<'a>) -> Option<ErrorParams<'a>> {
             SelectorParseErrorKind::EmptySelector | SelectorParseErrorKind::DanglingCombinator => {
                 (None, None)
             },
-            SelectorParseErrorKind::EmptyNegation => (None, Some(ErrorString::Snippet(")".into()))),
             err => match extract_error_param(ParseErrorKind::Custom(
                 StyleParseErrorKind::SelectorError(err),
             )) {
@@ -184,7 +191,7 @@ fn extract_error_params<'a>(err: ErrorKind<'a>) -> Option<ErrorParams<'a>> {
 impl<'a> ErrorHelpers<'a> for ContextualParseError<'a> {
     fn error_data(self) -> (CowRcStr<'a>, ErrorKind<'a>) {
         match self {
-            ContextualParseError::UnsupportedPropertyDeclaration(s, err) |
+            ContextualParseError::UnsupportedPropertyDeclaration(s, err, _) |
             ContextualParseError::UnsupportedFontFaceDescriptor(s, err) |
             ContextualParseError::UnsupportedFontFeatureValuesDescriptor(s, err) |
             ContextualParseError::InvalidKeyframeRule(s, err) |
@@ -218,6 +225,13 @@ impl<'a> ErrorHelpers<'a> for ContextualParseError<'a> {
         })
     }
 
+    fn selector_list(&self) -> Option<&'a SelectorList<SelectorImpl>> {
+        match *self {
+            ContextualParseError::UnsupportedPropertyDeclaration(_, _, selectors) => selectors,
+            _ => None,
+        }
+    }
+
     fn to_gecko_message(&self) -> (Option<&'static CStr>, &'static CStr, Action) {
         let (msg, action): (&CStr, Action) = match *self {
             ContextualParseError::UnsupportedPropertyDeclaration(
@@ -226,6 +240,7 @@ impl<'a> ErrorHelpers<'a> for ContextualParseError<'a> {
                     kind: ParseErrorKind::Basic(BasicParseErrorKind::UnexpectedToken(_)),
                     ..
                 },
+                _,
             ) |
             ContextualParseError::UnsupportedPropertyDeclaration(
                 _,
@@ -233,6 +248,7 @@ impl<'a> ErrorHelpers<'a> for ContextualParseError<'a> {
                     kind: ParseErrorKind::Basic(BasicParseErrorKind::AtRuleInvalid(_)),
                     ..
                 },
+                _,
             ) => (cstr!("PEParseDeclarationDeclExpected"), Action::Skip),
             ContextualParseError::UnsupportedPropertyDeclaration(
                 _,
@@ -240,20 +256,21 @@ impl<'a> ErrorHelpers<'a> for ContextualParseError<'a> {
                     kind: ParseErrorKind::Custom(ref err),
                     ..
                 },
+                _,
             ) => match *err {
                 StyleParseErrorKind::InvalidColor(_, _) => {
                     return (
                         Some(cstr!("PEColorNotColor")),
                         cstr!("PEValueParsingError"),
                         Action::Drop,
-                    )
+                    );
                 },
                 StyleParseErrorKind::InvalidFilter(_, _) => {
                     return (
                         Some(cstr!("PEExpectedNoneOrURLOrFilterFunction")),
                         cstr!("PEValueParsingError"),
                         Action::Drop,
-                    )
+                    );
                 },
                 StyleParseErrorKind::OtherInvalidValue(_) => {
                     (cstr!("PEValueParsingError"), Action::Drop)
@@ -280,6 +297,13 @@ impl<'a> ErrorHelpers<'a> for ContextualParseError<'a> {
                     ..
                 },
             ) => (cstr!("PEAtNSUnexpected"), Action::Nothing),
+            ContextualParseError::InvalidRule(
+                _,
+                ParseError {
+                    kind: ParseErrorKind::Custom(StyleParseErrorKind::DisallowedImportRule),
+                    ..
+                },
+            ) => (cstr!("PEDisallowedImportRule"), Action::Nothing),
             ContextualParseError::InvalidRule(
                 _,
                 ParseError {
@@ -340,9 +364,6 @@ impl<'a> ErrorHelpers<'a> for ContextualParseError<'a> {
                             SelectorParseErrorKind::ClassNeedsIdent(_) => {
                                 Some(cstr!("PEClassSelNotIdent"))
                             },
-                            SelectorParseErrorKind::EmptyNegation => {
-                                Some(cstr!("PENegationBadArg"))
-                            },
                             _ => None,
                         }
                     },
@@ -401,19 +422,15 @@ impl<'a> ErrorHelpers<'a> for ContextualParseError<'a> {
 }
 
 impl ErrorReporter {
-    fn reporting_enabled(sheet: *const DomStyleSheet, loader: *const Loader) -> bool {
-        unsafe { bindings::Gecko_ErrorReportingEnabled(sheet, loader) }
-    }
-
     pub fn report(&self, location: SourceLocation, error: ContextualParseError) {
-        debug_assert!(Self::reporting_enabled(self.sheet, self.loader));
-
         let (pre, name, action) = error.to_gecko_message();
         let suffix = match action {
             Action::Nothing => ptr::null(),
             Action::Skip => cstr!("PEDeclSkipped").as_ptr(),
             Action::Drop => cstr!("PEDeclDropped").as_ptr(),
         };
+        let selector_list = error.selector_list().map(|l| l.to_css_string());
+        let selector_list_ptr = selector_list.as_ref().map_or(ptr::null(), |s| s.as_ptr()) as *const _;
         let params = error.error_params();
         let param = params.main_param;
         let pre_param = params.prefix_param;
@@ -425,8 +442,7 @@ impl ErrorReporter {
         let source = "";
         unsafe {
             bindings::Gecko_ReportUnexpectedCSSError(
-                self.sheet,
-                self.loader,
+                self.window_id,
                 self.uri,
                 name.as_ptr() as *const _,
                 param_ptr as *const _,
@@ -437,6 +453,8 @@ impl ErrorReporter {
                 suffix as *const _,
                 source.as_ptr() as *const _,
                 source.len() as u32,
+                selector_list_ptr,
+                selector_list.as_ref().map_or(0, |string| string.len()) as u32,
                 location.line,
                 location.column,
             );

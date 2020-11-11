@@ -43,8 +43,9 @@ typedef enum {
     PR_SI_SYSNAME,
     PR_SI_RELEASE,
     PR_SI_ARCHITECTURE,
-    PR_SI_HOSTNAME_UNTRUNCATED  /* the hostname exactly as configured
+    PR_SI_HOSTNAME_UNTRUNCATED, /* the hostname exactly as configured
                                  * on the system */
+    PR_SI_RELEASE_BUILD
 } PRSysInfo;
 
 
@@ -77,13 +78,13 @@ NSPR_API(PRInt32) PR_GetPageShift(void);
 ** Description:
 ** PR_GetNumberOfProcessors() extracts the number of processors
 ** (CPUs available in an SMP system) and returns the number.
-** 
+**
 ** Parameters:
 **   none
 **
 ** Returns:
 **   The number of available processors or -1 on error
-** 
+**
 */
 NSPR_API(PRInt32) PR_GetNumberOfProcessors( void );
 

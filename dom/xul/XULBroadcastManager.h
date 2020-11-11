@@ -17,9 +17,7 @@ namespace dom {
 
 class XULBroadcastManager final {
  public:
-  typedef mozilla::dom::Element Element;
-
-  explicit XULBroadcastManager(nsIDocument* aDocument);
+  explicit XULBroadcastManager(Document* aDocument);
 
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(XULBroadcastManager)
 
@@ -62,7 +60,7 @@ class XULBroadcastManager final {
 
   // This reference is nulled by the Document in it's destructor through
   // DropDocumentReference().
-  nsIDocument* MOZ_NON_OWNING_REF mDocument;
+  Document* MOZ_NON_OWNING_REF mDocument;
 
   /**
    * A map from a broadcaster element to a list of listener elements.
@@ -89,13 +87,8 @@ class XULBroadcastManager final {
           mSetAttr(aSetAttr),
           mNeedsAttrChange(aNeedsAttrChange) {}
 
-    nsDelayedBroadcastUpdate(const nsDelayedBroadcastUpdate& aOther)
-        : mBroadcaster(aOther.mBroadcaster),
-          mListener(aOther.mListener),
-          mAttr(aOther.mAttr),
-          mAttrName(aOther.mAttrName),
-          mSetAttr(aOther.mSetAttr),
-          mNeedsAttrChange(aOther.mNeedsAttrChange) {}
+    nsDelayedBroadcastUpdate(const nsDelayedBroadcastUpdate& aOther) = delete;
+    nsDelayedBroadcastUpdate(nsDelayedBroadcastUpdate&& aOther) = default;
 
     nsCOMPtr<Element> mBroadcaster;
     nsCOMPtr<Element> mListener;

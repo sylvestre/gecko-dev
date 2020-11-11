@@ -12,11 +12,14 @@
 #include "nsString.h"
 
 struct nsCSSToken;
-class nsIDocument;
 class nsIURI;
 
 namespace mozilla {
 class StyleSheet;
+
+namespace dom {
+class Document;
+}
 
 namespace css {
 
@@ -25,8 +28,7 @@ class Loader;
 // FIXME(emilio): Probably better to call this ErrorBuilder or something?
 class MOZ_STACK_CLASS ErrorReporter final {
  public:
-  ErrorReporter(const StyleSheet* aSheet, const Loader* aLoader, nsIURI* aURI);
-
+  explicit ErrorReporter(uint64_t aInnerWindowId);
   ~ErrorReporter();
 
   static void ReleaseGlobals();
@@ -36,12 +38,12 @@ class MOZ_STACK_CLASS ErrorReporter final {
     }
   }
 
-  static bool ShouldReportErrors(const nsIDocument&);
-  static bool ShouldReportErrors(const StyleSheet* aSheet,
-                                 const Loader* aLoader);
+  static bool ShouldReportErrors(const dom::Document&);
+  static bool ShouldReportErrors(const StyleSheet*, const Loader*);
+  static uint64_t FindInnerWindowId(const StyleSheet*, const Loader*);
 
-  void OutputError(uint32_t aLineNumber, uint32_t aLineOffset,
-                   const nsACString& aSource);
+  void OutputError(const nsACString& aSource, const nsACString& aSelectors,
+                   uint32_t aLineNumber, uint32_t aColNumber, nsIURI* aURI);
   void ClearError();
 
   // In all overloads of ReportUnexpected, aMessage is a stringbundle
@@ -52,10 +54,9 @@ class MOZ_STACK_CLASS ErrorReporter final {
   void ReportUnexpected(const char* aMessage);
   // one parameter which has already been escaped appropriately
   void ReportUnexpectedUnescaped(const char* aMessage,
-                                 const nsAutoString& aParam);
+                                 const nsTArray<nsString>& aParam);
 
  private:
-  void OutputError();
   void AddToError(const nsString& aErrorText);
   static void InitGlobals();
 
@@ -63,14 +64,7 @@ class MOZ_STACK_CLASS ErrorReporter final {
   static bool sReportErrors;
 
   nsString mError;
-  nsString mErrorLine;
-  nsString mFileName;
-  const StyleSheet* mSheet;
-  const Loader* mLoader;
-  nsIURI* mURI;
-  uint32_t mErrorLineNumber;
-  uint32_t mPrevErrorLineNumber;
-  uint32_t mErrorColNumber;
+  const uint64_t mInnerWindowId;
 };
 
 }  // namespace css

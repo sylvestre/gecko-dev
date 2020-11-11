@@ -6,23 +6,21 @@
 #include "nsComponentManagerUtils.h"
 #include "nsCycleCollectionParticipant.h"
 #include "nsISelectionController.h"
-#include "nsIController.h"
-#include "nsIControllers.h"
+#include "nsIDocShell.h"
 #include "nsIObserver.h"
 #include "nsUnicharUtils.h"
 #include "nsIFind.h"
 #include "nsIWebBrowserFind.h"
 #include "nsWeakReference.h"
-#include "nsIDocShellTreeItem.h"
 #include "nsITypeAheadFind.h"
 #include "nsISound.h"
 
 class nsPIDOMWindowInner;
-class nsIPresShell;
 class nsPresContext;
 class nsRange;
 
 namespace mozilla {
+class PresShell;
 namespace dom {
 class Element;
 class Selection;
@@ -50,34 +48,36 @@ class nsTypeAheadFind : public nsITypeAheadFind,
 
   void SaveFind();
   void PlayNotFoundSound();
-  nsresult GetWebBrowserFind(nsIDocShell *aDocShell,
-                             nsIWebBrowserFind **aWebBrowserFind);
+  nsresult GetWebBrowserFind(nsIDocShell* aDocShell,
+                             nsIWebBrowserFind** aWebBrowserFind);
 
-  void RangeStartsInsideLink(nsRange *aRange, nsIPresShell *aPresShell,
-                             bool *aIsInsideLink, bool *aIsStartingLink);
+  MOZ_CAN_RUN_SCRIPT nsresult FindInternal(uint32_t aMode,
+                                           const nsAString& aSearchString,
+                                           bool aLinksOnly,
+                                           bool aDontIterateFrames,
+                                           uint16_t* aResult);
 
-  void GetSelection(nsIPresShell *aPresShell, nsISelectionController **aSelCon,
-                    mozilla::dom::Selection **aDomSel);
-  // *aNewRange may not be collapsed.  If you want to collapse it in a
-  // particular way, you need to do it yourself.
-  bool IsRangeVisible(nsIPresShell *aPresShell, nsPresContext *aPresContext,
-                      nsRange *aRange, bool aMustBeVisible,
-                      bool aGetTopVisibleLeaf, nsRange **aNewRange,
-                      bool *aUsesIndependentSelection);
-  bool IsRangeRendered(nsIPresShell *aPresShell, nsPresContext *aPresContext,
-                       nsRange *aRange);
-  nsresult FindItNow(nsIPresShell *aPresShell, bool aIsLinksOnly,
-                     bool aIsFirstVisiblePreferred, bool aFindPrev,
-                     uint16_t *aResult);
-  nsresult GetSearchContainers(nsISupports *aContainer,
-                               nsISelectionController *aSelectionController,
+  void RangeStartsInsideLink(nsRange* aRange, bool* aIsInsideLink,
+                             bool* aIsStartingLink);
+
+  void GetSelection(mozilla::PresShell* aPresShell,
+                    nsISelectionController** aSelCon,
+                    mozilla::dom::Selection** aDomSel);
+  bool IsRangeVisible(nsRange* aRange, bool aMustBeVisible,
+                      bool aGetTopVisibleLeaf, bool* aUsesIndependentSelection);
+  bool IsRangeRendered(nsRange* aRange);
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY
+  nsresult FindItNow(uint32_t aMode, bool aIsLinksOnly,
+                     bool aIsFirstVisiblePreferred, bool aDontIterateFrames,
+                     uint16_t* aResult);
+  nsresult GetSearchContainers(nsISupports* aContainer,
+                               nsISelectionController* aSelectionController,
                                bool aIsFirstVisiblePreferred, bool aFindPrev,
-                               nsIPresShell **aPresShell,
-                               nsPresContext **aPresContext);
+                               mozilla::PresShell** aPresShell,
+                               nsPresContext** aPresContext);
 
-  // Get the pres shell from mPresShell and return it only if it is still
-  // attached to the DOM window.
-  already_AddRefed<nsIPresShell> GetPresShell();
+  // Get the document we should search on.
+  already_AddRefed<mozilla::dom::Document> GetDocument();
 
   void ReleaseStrongMemberVariables();
 
@@ -116,6 +116,7 @@ class nsTypeAheadFind : public nsITypeAheadFind,
 
   bool mCaseSensitive;
   bool mEntireWord;
+  bool mMatchDiacritics;
 
   bool EnsureFind() {
     if (mFind) {
@@ -129,15 +130,18 @@ class nsTypeAheadFind : public nsITypeAheadFind,
 
     mFind->SetCaseSensitive(mCaseSensitive);
     mFind->SetEntireWord(mEntireWord);
+    mFind->SetMatchDiacritics(mMatchDiacritics);
 
     return true;
   }
 
   nsCOMPtr<nsIWebBrowserFind> mWebBrowserFind;
 
-  // The focused content window that we're listening to and its cached objects
+  // The focused content window that we're listening to and its cached objects.
+  // This is always the root of the subtree we're finding.
   nsWeakPtr mDocShell;
-  nsWeakPtr mPresShell;
+  // The document where we're currently searching.
+  nsWeakPtr mDocument;
   nsWeakPtr mSelectionController;
   // Most recent match's controller
 };

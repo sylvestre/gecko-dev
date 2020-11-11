@@ -16,6 +16,7 @@
 #include "nsXULAppAPI.h"
 
 #include "mozilla/FileLocation.h"
+#include "mozilla/intl/LocaleService.h"
 
 class nsPIDOMWindowOuter;
 class nsIPrefBranch;
@@ -42,7 +43,6 @@ class nsChromeRegistry : public nsIToolkitChromeRegistry,
   NS_DECL_ISUPPORTS
 
   // nsIXULChromeRegistry methods:
-  NS_IMETHOD RefreshSkins() override;
   NS_IMETHOD AllowScriptsForPackage(nsIURI* url, bool* _retval) override;
   NS_IMETHOD AllowContentToAccess(nsIURI* url, bool* _retval) override;
   NS_IMETHOD CanLoadURLRemotely(nsIURI* url, bool* _retval) override;
@@ -84,10 +84,6 @@ class nsChromeRegistry : public nsIToolkitChromeRegistry,
   static nsresult RefreshWindow(nsPIDOMWindowOuter* aWindow);
   static nsresult GetProviderAndPath(nsIURI* aChromeURL, nsACString& aProvider,
                                      nsACString& aPath);
-
-  bool GetDirectionForLocale(const nsACString& aLocale);
-
-  void SanitizeForBCP47(nsACString& aLocale);
 
  public:
   static already_AddRefed<nsChromeRegistry> GetSingleton();

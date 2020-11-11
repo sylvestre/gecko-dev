@@ -1,6 +1,6 @@
 // If debugger.onEnterFrame returns {return:val}, the frame returns.
 
-var g = newGlobal();
+var g = newGlobal({newCompartment: true});
 g.set = false;
 g.eval("function f() {\n" +
        "    set = true;\n" +
@@ -19,14 +19,14 @@ dbg.onEnterFrame = function (frame) {
 // Call g.f as a function.
 savedFrame = undefined;
 assertEq(g.f(), "pass");
-assertEq(savedFrame.live, false);
+assertEq(savedFrame.onStack, false);
 assertEq(g.set, false);
 
 // Call g.f as a constructor.
 savedFrame = undefined;
 var r = new g.f;
 assertEq(typeof r, "object");
-assertEq(savedFrame.live, false);
+assertEq(savedFrame.onStack, false);
 assertEq(g.set, false);
 
 var count = 0;
@@ -41,5 +41,5 @@ dbg.onEnterFrame = function (frame) {
 g.set = false;
 savedFrame = undefined;
 assertEq(g.h(), "h g pass");
-assertEq(savedFrame.live, false);
+assertEq(savedFrame.onStack, false);
 assertEq(g.set, false);

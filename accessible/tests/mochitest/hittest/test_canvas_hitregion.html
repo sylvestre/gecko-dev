@@ -4,8 +4,7 @@
   <title>nsIAccessible::childAtPoint() for canvas from browser tests</title>
   <link rel="stylesheet" type="text/css" href="chrome://mochikit/content/tests/SimpleTest/test.css" />
 
-  <script type="application/javascript"
-          src="chrome://mochikit/content/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="chrome://mochikit/content/tests/SimpleTest/SimpleTest.js"></script>
 
   <script type="application/javascript"
           src="../common.js"></script>
@@ -57,7 +56,7 @@
       // test if we hit the region associated with the shadow dom checkbox
       var tgtX = hitX + deltaX;
       var tgtY = hitY + deltaY;
-      hitAcc = docAcc.getDeepestChildAtPoint(tgtX, tgtY);
+      let hitAcc = docAcc.getDeepestChildAtPoint(tgtX, tgtY);
       isObject(hitAcc, hitcheck, `Hit match at (${tgtX}, ${tgtY}`);
 
       // test that we don't hit the region associated with the shadow dom checkbox

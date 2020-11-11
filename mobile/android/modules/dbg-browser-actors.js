@@ -11,9 +11,22 @@
  */
 
 const { RootActor } = require("devtools/server/actors/root");
-const { ActorRegistry } = require("devtools/server/actors/utils/actor-registry");
-const { BrowserTabList, BrowserAddonList, sendShutdownEvent } =
-  require("devtools/server/actors/webbrowser");
+const {
+  ActorRegistry,
+} = require("devtools/server/actors/utils/actor-registry");
+const {
+  BrowserTabList,
+  BrowserAddonList,
+  sendShutdownEvent,
+} = require("devtools/server/actors/webbrowser");
+const {
+  ServiceWorkerRegistrationActorList,
+} = require("devtools/server/actors/worker/service-worker-registration-list");
+const {
+  WorkerDescriptorActorList,
+} = require("devtools/server/actors/worker/worker-descriptor-actor-list");
+
+const { ProcessActorList } = require("devtools/server/actors/process");
 
 /**
  * Construct a root actor appropriate for use in a server running in a
@@ -23,13 +36,18 @@ const { BrowserTabList, BrowserAddonList, sendShutdownEvent } =
  * - sends all navigator:browser window documents a Debugger:Shutdown event
  *   when it exits.
  *
- * * @param aConnection DebuggerServerConnection
+ * * @param aConnection DevToolsServerConnection
  *        The conection to the client.
  */
 exports.createRootActor = function createRootActor(aConnection) {
-  let parameters = {
+  const parameters = {
     tabList: new MobileTabList(aConnection),
     addonList: new BrowserAddonList(aConnection),
+    workerList: new WorkerDescriptorActorList(aConnection, {}),
+    serviceWorkerRegistrationList: new ServiceWorkerRegistrationActorList(
+      aConnection
+    ),
+    processList: new ProcessActorList(),
     globalActorFactories: ActorRegistry.globalActorFactories,
     onShutdown: sendShutdownEvent,
   };
@@ -46,7 +64,7 @@ exports.createRootActor = function createRootActor(aConnection) {
  * (See the documentation for RootActor for the definition of the "live
  * list" interface.)
  *
- * @param aConnection DebuggerServerConnection
+ * @param aConnection DevToolsServerConnection
  *     The connection in which this list's tab actors may participate.
  *
  * @see BrowserTabList for more a extensive description of how tab list objects
@@ -61,9 +79,9 @@ MobileTabList.prototype = Object.create(BrowserTabList.prototype);
 MobileTabList.prototype.constructor = MobileTabList;
 
 MobileTabList.prototype._getSelectedBrowser = function(aWindow) {
-  return aWindow.BrowserApp.selectedBrowser;
+  return aWindow.browser;
 };
 
 MobileTabList.prototype._getChildren = function(aWindow) {
-  return aWindow.BrowserApp.tabs.map(tab => tab.browser);
+  return [aWindow.browser];
 };

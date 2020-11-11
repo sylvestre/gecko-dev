@@ -1,10 +1,10 @@
 Parser for Rust source code
 ===========================
 
-[![Build Status](https://api.travis-ci.org/dtolnay/syn.svg?branch=master)](https://travis-ci.org/dtolnay/syn)
-[![Latest Version](https://img.shields.io/crates/v/syn.svg)](https://crates.io/crates/syn)
-[![Rust Documentation](https://img.shields.io/badge/api-rustdoc-blue.svg)](https://docs.rs/syn/0.15/syn/)
-[![Rustc Version 1.15+](https://img.shields.io/badge/rustc-1.15+-lightgray.svg)](https://blog.rust-lang.org/2017/02/02/Rust-1.15.html)
+[<img alt="github" src="https://img.shields.io/badge/github-dtolnay/syn-8da0cb?style=for-the-badge&labelColor=555555&logo=github" height="20">](https://github.com/dtolnay/syn)
+[<img alt="crates.io" src="https://img.shields.io/crates/v/syn.svg?style=for-the-badge&color=fc8d62&logo=rust" height="20">](https://crates.io/crates/syn)
+[<img alt="docs.rs" src="https://img.shields.io/badge/docs.rs-syn-66c2a5?style=for-the-badge&labelColor=555555&logoColor=white&logo=data:image/svg+xml;base64,PHN2ZyByb2xlPSJpbWciIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgdmlld0JveD0iMCAwIDUxMiA1MTIiPjxwYXRoIGZpbGw9IiNmNWY1ZjUiIGQ9Ik00ODguNiAyNTAuMkwzOTIgMjE0VjEwNS41YzAtMTUtOS4zLTI4LjQtMjMuNC0zMy43bC0xMDAtMzcuNWMtOC4xLTMuMS0xNy4xLTMuMS0yNS4zIDBsLTEwMCAzNy41Yy0xNC4xIDUuMy0yMy40IDE4LjctMjMuNCAzMy43VjIxNGwtOTYuNiAzNi4yQzkuMyAyNTUuNSAwIDI2OC45IDAgMjgzLjlWMzk0YzAgMTMuNiA3LjcgMjYuMSAxOS45IDMyLjJsMTAwIDUwYzEwLjEgNS4xIDIyLjEgNS4xIDMyLjIgMGwxMDMuOS01MiAxMDMuOSA1MmMxMC4xIDUuMSAyMi4xIDUuMSAzMi4yIDBsMTAwLTUwYzEyLjItNi4xIDE5LjktMTguNiAxOS45LTMyLjJWMjgzLjljMC0xNS05LjMtMjguNC0yMy40LTMzLjd6TTM1OCAyMTQuOGwtODUgMzEuOXYtNjguMmw4NS0zN3Y3My4zek0xNTQgMTA0LjFsMTAyLTM4LjIgMTAyIDM4LjJ2LjZsLTEwMiA0MS40LTEwMi00MS40di0uNnptODQgMjkxLjFsLTg1IDQyLjV2LTc5LjFsODUtMzguOHY3NS40em0wLTExMmwtMTAyIDQxLjQtMTAyLTQxLjR2LS42bDEwMi0zOC4yIDEwMiAzOC4ydi42em0yNDAgMTEybC04NSA0Mi41di03OS4xbDg1LTM4Ljh2NzUuNHptMC0xMTJsLTEwMiA0MS40LTEwMi00MS40di0uNmwxMDItMzguMiAxMDIgMzguMnYuNnoiPjwvcGF0aD48L3N2Zz4K" height="20">](https://docs.rs/syn)
+[<img alt="build status" src="https://img.shields.io/github/workflow/status/dtolnay/syn/CI/master?style=for-the-badge" height="20">](https://github.com/dtolnay/syn/actions?query=branch%3Amaster)
 
 Syn is a parsing library for parsing a stream of Rust tokens into a syntax tree
 of Rust source code.
@@ -12,18 +12,16 @@ of Rust source code.
 Currently this library is geared toward use in Rust procedural macros, but
 contains some APIs that may be useful more generally.
 
-[custom derive]: https://github.com/rust-lang/rfcs/blob/master/text/1681-macros-1.1.md
-
 - **Data structures** — Syn provides a complete syntax tree that can represent
   any valid Rust source code. The syntax tree is rooted at [`syn::File`] which
   represents a full source file, but there are other entry points that may be
   useful to procedural macros including [`syn::Item`], [`syn::Expr`] and
   [`syn::Type`].
 
-- **Custom derives** — Of particular interest to custom derives is
-  [`syn::DeriveInput`] which is any of the three legal input items to a derive
-  macro. An example below shows using this type in a library that can derive
-  implementations of a trait of your own.
+- **Derives** — Of particular interest to derive macros is [`syn::DeriveInput`]
+  which is any of the three legal input items to a derive macro. An example
+  below shows using this type in a library that can derive implementations of a
+  user-defined trait.
 
 - **Parsing** — Parsing in Syn is built around [parser functions] with the
   signature `fn(ParseStream) -> Result<T>`. Every syntax tree node defined by
@@ -41,27 +39,33 @@ contains some APIs that may be useful more generally.
   procedural macros enable only what they need, and do not pay in compile time
   for all the rest.
 
-[`syn::File`]: https://docs.rs/syn/0.15/syn/struct.File.html
-[`syn::Item`]: https://docs.rs/syn/0.15/syn/enum.Item.html
-[`syn::Expr`]: https://docs.rs/syn/0.15/syn/enum.Expr.html
-[`syn::Type`]: https://docs.rs/syn/0.15/syn/enum.Type.html
-[`syn::DeriveInput`]: https://docs.rs/syn/0.15/syn/struct.DeriveInput.html
-[parser functions]: https://docs.rs/syn/0.15/syn/parse/index.html
+[`syn::File`]: https://docs.rs/syn/1.0/syn/struct.File.html
+[`syn::Item`]: https://docs.rs/syn/1.0/syn/enum.Item.html
+[`syn::Expr`]: https://docs.rs/syn/1.0/syn/enum.Expr.html
+[`syn::Type`]: https://docs.rs/syn/1.0/syn/enum.Type.html
+[`syn::DeriveInput`]: https://docs.rs/syn/1.0/syn/struct.DeriveInput.html
+[parser functions]: https://docs.rs/syn/1.0/syn/parse/index.html
 
-If you get stuck with anything involving procedural macros in Rust I am happy to
-provide help even if the issue is not related to Syn. Please file a ticket in
-this repo.
-
-*Version requirement: Syn supports any compiler version back to Rust's very
-first support for procedural macros in Rust 1.15.0. Some features especially
-around error reporting are only available in newer compilers or on the nightly
-channel.*
+*Version requirement: Syn supports rustc 1.31 and up.*
 
 [*Release notes*](https://github.com/dtolnay/syn/releases)
 
-## Example of a custom derive
+<br>
 
-The canonical custom derive using Syn looks like this. We write an ordinary Rust
+## Resources
+
+The best way to learn about procedural macros is by writing some. Consider
+working through [this procedural macro workshop][workshop] to get familiar with
+the different types of procedural macros. The workshop contains relevant links
+into the Syn documentation as you work through each project.
+
+[workshop]: https://github.com/dtolnay/proc-macro-workshop
+
+<br>
+
+## Example of a derive macro
+
+The canonical derive macro using Syn looks like this. We write an ordinary Rust
 function tagged with a `proc_macro_derive` attribute and the name of the trait
 we are deriving. Any time that derive appears in the user's code, the Rust
 compiler passes their data structure as tokens into our macro. We get to execute
@@ -72,21 +76,16 @@ tokens back to the compiler to compile into the user's crate.
 
 ```toml
 [dependencies]
-syn = "0.15"
-quote = "0.6"
+syn = "1.0"
+quote = "1.0"
 
 [lib]
 proc-macro = true
 ```
 
 ```rust
-extern crate proc_macro;
-extern crate syn;
-
-#[macro_use]
-extern crate quote;
-
 use proc_macro::TokenStream;
+use quote::quote;
 use syn::{parse_macro_input, DeriveInput};
 
 #[proc_macro_derive(MyMacro)]
@@ -104,10 +103,10 @@ pub fn my_macro(input: TokenStream) -> TokenStream {
 }
 ```
 
-The [`heapsize`] example directory shows a complete working Macros 1.1
-implementation of a custom derive. It works on any Rust compiler \>=1.15.0. The
-example derives a `HeapSize` trait which computes an estimate of the amount of
-heap memory owned by a value.
+The [`heapsize`] example directory shows a complete working implementation of a
+derive macro. It works on any Rust compiler 1.31+. The example derives a
+`HeapSize` trait which computes an estimate of the amount of heap memory owned
+by a value.
 
 [`heapsize`]: examples/heapsize
 
@@ -118,7 +117,7 @@ pub trait HeapSize {
 }
 ```
 
-The custom derive allows users to write `#[derive(HeapSize)]` on data structures
+The derive macro allows users to write `#[derive(HeapSize)]` on data structures
 in their program.
 
 ```rust
@@ -131,14 +130,9 @@ struct Demo<'a, T: ?Sized> {
 }
 ```
 
+<br>
+
 ## Spans and error reporting
-
-The [`heapsize2`] example directory is an extension of the `heapsize` example
-that demonstrates some of the hygiene and error reporting properties of Macros
-2.0. This example currently requires a nightly Rust compiler \>=1.24.0-nightly
-but we are working to stabilize all of the APIs involved.
-
-[`heapsize2`]: examples/heapsize2
 
 The token-based procedural macro API provides great control over where the
 compiler's error messages are displayed in user code. Consider the error the
@@ -152,20 +146,8 @@ struct Broken {
 }
 ```
 
-In the Macros 1.1 string-based procedural macro world, the resulting error would
-point unhelpfully to the invocation of the derive macro and not to the actual
-problematic field.
-
-```
-error[E0599]: no method named `heap_size_of_children` found for type `std::thread::Thread` in the current scope
- --> src/main.rs:4:10
-  |
-4 | #[derive(HeapSize)]
-  |          ^^^^^^^^
-```
-
 By tracking span information all the way through the expansion of a procedural
-macro as shown in the `heapsize2` example, token-based macros in Syn are able to
+macro as shown in the `heapsize` example, token-based macros in Syn are able to
 trigger errors that directly pinpoint the source of the problem.
 
 ```
@@ -175,6 +157,8 @@ error[E0277]: the trait bound `std::thread::Thread: HeapSize` is not satisfied
 7 |     bad: std::thread::Thread,
   |     ^^^^^^^^^^^^^^^^^^^^^^^^ the trait `HeapSize` is not implemented for `std::thread::Thread`
 ```
+
+<br>
 
 ## Parsing a custom syntax
 
@@ -204,6 +188,22 @@ warning: come on, pick a more creative name
    |                ^^^
 ```
 
+<br>
+
+## Testing
+
+When testing macros, we often care not just that the macro can be used
+successfully but also that when the macro is provided with invalid input it
+produces maximally helpful error messages. Consider using the [`trybuild`] crate
+to write tests for errors that are emitted by your macro or errors detected by
+the Rust compiler in the expanded code following misuse of the macro. Such tests
+help avoid regressions from later refactors that mistakenly make an error no
+longer trigger or be less helpful than it used to be.
+
+[`trybuild`]: https://github.com/dtolnay/trybuild
+
+<br>
+
 ## Debugging
 
 When developing a procedural macro it can be helpful to look at what the
@@ -222,6 +222,8 @@ This write-up by Brandon W Maister discusses debugging in more detail:
 
 [debugging]: https://quodlibetor.github.io/posts/debugging-rusts-new-custom-derive-system/
 
+<br>
+
 ## Optional features
 
 Syn puts a lot of functionality behind optional features in order to optimize
@@ -229,7 +231,7 @@ compile time for the most common use cases. The following features are
 available.
 
 - **`derive`** *(enabled by default)* — Data structures for representing the
-  possible input to a custom derive, including structs and enums and types.
+  possible input to a derive macro, including structs and enums and types.
 - **`full`** — Data structures for representing the syntax tree of all valid
   Rust source code, including items and expressions.
 - **`parsing`** *(enabled by default)* — Ability to parse input tokens into a
@@ -246,36 +248,38 @@ available.
 - **`proc-macro`** *(enabled by default)* — Runtime dependency on the dynamic
   library libproc_macro from rustc toolchain.
 
-## Nightly features
+<br>
 
-By default Syn uses the [`proc-macro2`] crate to emulate the nightly compiler's
-procedural macro API in a stable way that works all the way back to Rust 1.15.0.
-This shim makes it possible to write code without regard for whether the current
-compiler version supports the features we use.
+## Proc macro shim
 
-[`proc-macro2`]: https://github.com/alexcrichton/proc-macro2
+Syn operates on the token representation provided by the [proc-macro2] crate
+from crates.io rather than using the compiler's built in proc-macro crate
+directly. This enables code using Syn to execute outside of the context of a
+procedural macro, such as in unit tests or build.rs, and we avoid needing
+incompatible ecosystems for proc macros vs non-macro use cases.
 
-On a nightly compiler, to eliminate the stable shim and use the compiler's
-`proc-macro` directly, add `proc-macro2` to your Cargo.toml and set its
-`"nightly"` feature which bypasses the stable shim.
+In general all of your code should be written against proc-macro2 rather than
+proc-macro. The one exception is in the signatures of procedural macro entry
+points, which are required by the language to use `proc_macro::TokenStream`.
 
-```toml
-[dependencies]
-syn = "0.15"
-proc-macro2 = { version = "0.4", features = ["nightly"] }
-```
+The proc-macro2 crate will automatically detect and use the compiler's data
+structures when a procedural macro is active.
 
-## License
+[proc-macro2]: https://docs.rs/proc-macro2/1.0/proc_macro2/
 
-Licensed under either of
+<br>
 
- * Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
- * MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+#### License
 
-at your option.
+<sup>
+Licensed under either of <a href="LICENSE-APACHE">Apache License, Version
+2.0</a> or <a href="LICENSE-MIT">MIT license</a> at your option.
+</sup>
 
-### Contribution
+<br>
 
+<sub>
 Unless you explicitly state otherwise, any contribution intentionally submitted
 for inclusion in this crate by you, as defined in the Apache-2.0 license, shall
 be dual licensed as above, without any additional terms or conditions.
+</sub>

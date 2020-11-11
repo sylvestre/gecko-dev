@@ -6,43 +6,50 @@
 
 #include shared,prim_shared,brush
 
-varying vec3 vSrcUv;
-varying vec3 vBackdropUv;
-flat varying int vOp;
+// xy: uv coorinates.
+// z: layer.
+varying vec3 v_src_uv;
+
+// xy: uv coorinates.
+// z: layer.
+varying vec3 v_backdrop_uv;
+
+flat varying int v_op;
 
 #ifdef WR_VERTEX_SHADER
-
-//Note: this function is unsafe for `vi.world_pos.w <= 0.0`
-vec2 snap_device_pos(VertexInfo vi, float device_pixel_scale) {
-    return vi.world_pos.xy * device_pixel_scale / max(0.0, vi.world_pos.w) + vi.snap_offset;
-}
 
 void brush_vs(
     VertexInfo vi,
     int prim_address,
     RectWithSize local_rect,
     RectWithSize segment_rect,
-    ivec4 user_data,
+    ivec4 prim_user_data,
+    int specific_resource_address,
     mat4 transform,
     PictureTask pic_task,
     int brush_flags,
     vec4 unused
 ) {
-    vec2 snapped_device_pos = snap_device_pos(vi, pic_task.common_data.device_pixel_scale);
+    //Note: this is unsafe for `vi.world_pos.w <= 0.0`
+    vec2 device_pos = vi.world_pos.xy * pic_task.device_pixel_scale / max(0.0, vi.world_pos.w);
     vec2 texture_size = vec2(textureSize(sPrevPassColor, 0));
-    vOp = user_data.x;
+    v_op = prim_user_data.x;
 
-    PictureTask src_task = fetch_picture_task(user_data.z);
-    vec2 src_uv = snapped_device_pos +
+    PictureTask src_task = fetch_picture_task(prim_user_data.z);
+    vec2 src_device_pos = vi.world_pos.xy * (src_task.device_pixel_scale / max(0.0, vi.world_pos.w));
+    vec2 src_uv = src_device_pos +
                   src_task.common_data.task_rect.p0 -
                   src_task.content_origin;
-    vSrcUv = vec3(src_uv / texture_size, src_task.common_data.texture_layer_index);
+    v_src_uv.xy = src_uv / texture_size;
+    v_src_uv.z = src_task.common_data.texture_layer_index;
 
-    RenderTaskCommonData backdrop_task = fetch_render_task_common_data(user_data.y);
-    vec2 backdrop_uv = snapped_device_pos +
+    RenderTaskCommonData backdrop_task = fetch_render_task_common_data(prim_user_data.y);
+    float src_to_backdrop_scale = pic_task.device_pixel_scale / src_task.device_pixel_scale;
+    vec2 backdrop_uv = device_pos +
                        backdrop_task.task_rect.p0 -
-                       src_task.content_origin;
-    vBackdropUv = vec3(backdrop_uv / texture_size, backdrop_task.texture_layer_index);
+                       src_task.content_origin * src_to_backdrop_scale;
+    v_backdrop_uv.xy = backdrop_uv / texture_size;
+    v_backdrop_uv.z = backdrop_task.texture_layer_index;
 }
 #endif
 
@@ -205,8 +212,8 @@ const int MixBlendMode_Color       = 14;
 const int MixBlendMode_Luminosity  = 15;
 
 Fragment brush_fs() {
-    vec4 Cb = textureLod(sPrevPassColor, vBackdropUv, 0.0);
-    vec4 Cs = textureLod(sPrevPassColor, vSrcUv, 0.0);
+    vec4 Cb = textureLod(sPrevPassColor, vec3(v_backdrop_uv.xy, v_backdrop_uv.z), 0.0);
+    vec4 Cs = textureLod(sPrevPassColor, vec3(v_src_uv.xy, v_src_uv.z), 0.0);
 
     // The mix-blend-mode functions assume no premultiplied alpha
     if (Cb.a != 0.0) {
@@ -220,7 +227,7 @@ Fragment brush_fs() {
     // Return yellow if none of the branches match (shouldn't happen).
     vec4 result = vec4(1.0, 1.0, 0.0, 1.0);
 
-    switch (vOp) {
+    switch (v_op) {
         case MixBlendMode_Multiply:
             result.rgb = Multiply(Cb.rgb, Cs.rgb);
             break;

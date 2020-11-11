@@ -9,7 +9,6 @@
 #include "mozilla/ipc/FileDescriptorUtils.h"
 #include "mozilla/ipc/URIUtils.h"
 #include "mozilla/net/NeckoChild.h"
-#include "nsIFileURL.h"
 #include "nsNetUtil.h"
 #include "nsProxyRelease.h"
 #include "nsThreadUtils.h"
@@ -126,11 +125,6 @@ FileDescriptorFile::GetParent(nsIFile** aParent) {
 }
 
 NS_IMETHODIMP
-FileDescriptorFile::GetFollowLinks(bool* aFollowLinks) {
-  return mFile->GetFollowLinks(aFollowLinks);
-}
-
-NS_IMETHODIMP
 FileDescriptorFile::GetPersistentDescriptor(nsACString& aPersistentDescriptor) {
   return mFile->GetPersistentDescriptor(aPersistentDescriptor);
 }
@@ -176,11 +170,6 @@ FileDescriptorFile::InitWithNativePath(const nsACString& aPath) {
 
 NS_IMETHODIMP
 FileDescriptorFile::InitWithFile(nsIFile* aFile) {
-  return NS_ERROR_NOT_IMPLEMENTED;
-}
-
-NS_IMETHODIMP
-FileDescriptorFile::SetFollowLinks(bool aFollowLinks) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
@@ -252,6 +241,18 @@ nsresult FileDescriptorFile::MoveTo(nsIFile* aNewParentDir,
 NS_IMETHODIMP
 FileDescriptorFile::MoveToNative(nsIFile* aNewParent,
                                  const nsACString& aNewName) {
+  return NS_ERROR_NOT_IMPLEMENTED;
+}
+
+NS_IMETHODIMP
+FileDescriptorFile::MoveToFollowingLinks(nsIFile* aNewParent,
+                                         const nsAString& aNewName) {
+  return NS_ERROR_NOT_IMPLEMENTED;
+}
+
+NS_IMETHODIMP
+FileDescriptorFile::MoveToFollowingLinksNative(nsIFile* aNewParent,
+                                               const nsACString& aNewName) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 

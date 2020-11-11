@@ -17,12 +17,10 @@ add_task(async function() {
   for (let i = 0; i < 10; i++) {
     await addRemove(`test${i}`);
   }
-
-  await finishTests();
 });
 
 function* addRemove(name) {
-  yield ContentTask.spawn(gBrowser.selectedBrowser, name, innerName => {
+  yield SpecialPowers.spawn(gBrowser.selectedBrowser, [name], innerName => {
     content.localStorage.setItem(innerName, "true");
     content.localStorage.removeItem(innerName);
   });

@@ -4,6 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 #include "nsSelectsAreaFrame.h"
+
+#include "mozilla/PresShell.h"
 #include "nsIContent.h"
 #include "nsListControlFrame.h"
 #include "nsDisplayList.h"
@@ -11,10 +13,11 @@
 
 using namespace mozilla;
 
-nsContainerFrame* NS_NewSelectsAreaFrame(nsIPresShell* aShell,
+nsContainerFrame* NS_NewSelectsAreaFrame(PresShell* aShell,
                                          ComputedStyle* aStyle,
                                          nsFrameState aFlags) {
-  nsSelectsAreaFrame* it = new (aShell) nsSelectsAreaFrame(aStyle);
+  nsSelectsAreaFrame* it =
+      new (aShell) nsSelectsAreaFrame(aStyle, aShell->GetPresContext());
 
   // We need NS_BLOCK_FLOAT_MGR to ensure that the options inside the select
   // aren't expanded by right floats outside the select.
@@ -73,7 +76,7 @@ void nsDisplayOptionEventGrabber::HitTest(nsDisplayListBuilder* aBuilder,
 
 class nsOptionEventGrabberWrapper : public nsDisplayWrapper {
  public:
-  nsOptionEventGrabberWrapper() {}
+  nsOptionEventGrabberWrapper() = default;
   virtual nsDisplayItem* WrapList(nsDisplayListBuilder* aBuilder,
                                   nsIFrame* aFrame,
                                   nsDisplayList* aList) override {
@@ -97,15 +100,13 @@ static nsListControlFrame* GetEnclosingListFrame(nsIFrame* aSelectsAreaFrame) {
   return nullptr;
 }
 
-class nsDisplayListFocus : public nsDisplayItem {
+class nsDisplayListFocus : public nsPaintedDisplayItem {
  public:
   nsDisplayListFocus(nsDisplayListBuilder* aBuilder, nsSelectsAreaFrame* aFrame)
-      : nsDisplayItem(aBuilder, aFrame) {
+      : nsPaintedDisplayItem(aBuilder, aFrame) {
     MOZ_COUNT_CTOR(nsDisplayListFocus);
   }
-#ifdef NS_BUILD_REFCNT_LOGGING
-  virtual ~nsDisplayListFocus() { MOZ_COUNT_DTOR(nsDisplayListFocus); }
-#endif
+  MOZ_COUNTED_DTOR_OVERRIDE(nsDisplayListFocus)
 
   virtual nsRect GetBounds(nsDisplayListBuilder* aBuilder,
                            bool* aSnap) const override {
@@ -113,7 +114,7 @@ class nsDisplayListFocus : public nsDisplayItem {
     // override bounds because the list item focus ring may extend outside
     // the nsSelectsAreaFrame
     nsListControlFrame* listFrame = GetEnclosingListFrame(Frame());
-    return listFrame->GetVisualOverflowRectRelativeToSelf() +
+    return listFrame->InkOverflowRectRelativeToSelf() +
            listFrame->GetOffsetToCrossDoc(ReferenceFrame());
   }
   virtual void Paint(nsDisplayListBuilder* aBuilder,
@@ -149,8 +150,7 @@ void nsSelectsAreaFrame::BuildDisplayListInternal(
     // we can't just associate the display item with the list frame,
     // because then the list's scrollframe won't clip it (the scrollframe
     // only clips contained descendants).
-    aLists.Outlines()->AppendToTop(
-        MakeDisplayItem<nsDisplayListFocus>(aBuilder, this));
+    aLists.Outlines()->AppendNewToTop<nsDisplayListFocus>(aBuilder, this);
   }
 }
 
@@ -174,7 +174,7 @@ void nsSelectsAreaFrame::Reflow(nsPresContext* aPresContext,
   if (isInDropdownMode) {
     // Store the block size now in case it changes during
     // nsBlockFrame::Reflow for some odd reason.
-    if (!(GetStateBits() & NS_FRAME_FIRST_REFLOW)) {
+    if (!HasAnyStateBits(NS_FRAME_FIRST_REFLOW)) {
       oldBSize = BSize(wm);
     } else {
       oldBSize = NS_UNCONSTRAINEDSIZE;

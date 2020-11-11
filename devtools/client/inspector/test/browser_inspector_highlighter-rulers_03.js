@@ -6,57 +6,78 @@
 
 // Test the creation of the viewport infobar and makes sure if resizes correctly
 
-const TEST_URL = "data:text/html;charset=utf-8," +
-                 "<div style='position:absolute;left: 0; top: 0; " +
-                 "width: 20px; height: 50px'></div>";
+const TEST_URL =
+  "data:text/html;charset=utf-8," +
+  "<div style='position:absolute;left: 0; top: 0; " +
+  "width: 20px; height: 50px'></div>";
 
 const ID = "rulers-highlighter-";
 
-var {Toolbox} = require("devtools/client/framework/toolbox");
+var { Toolbox } = require("devtools/client/framework/toolbox");
 
 add_task(async function() {
   const { inspector, testActor } = await openInspectorForURL(TEST_URL);
-  const front = inspector.inspector;
+  const front = inspector.inspectorFront;
 
   const highlighter = await front.getHighlighterByType("RulersHighlighter");
 
-  await isShown(highlighter, inspector, testActor);
+  await isVisibleAfterShow(highlighter, inspector, testActor);
   await hasRightLabelsContent(highlighter, inspector, testActor);
   await resizeInspector(highlighter, inspector, testActor);
   await hasRightLabelsContent(highlighter, inspector, testActor);
+  await isHiddenAfterHide(highlighter, inspector, testActor);
 
   await highlighter.finalize();
 });
 
-async function isShown(highlighterFront, inspector, testActor) {
+async function isVisibleAfterShow(highlighterFront, inspector, testActor) {
   info("Checking that the viewport infobar is displayed");
   // the rulers doesn't need any node, but as highligher it seems mandatory
   // ones, so the body is given
   const body = await getNodeFront("body", inspector);
   await highlighterFront.show(body);
 
-  const hidden = await testActor.getHighlighterNodeAttribute(
-    `${ID}viewport-infobar-container`, "hidden", highlighterFront);
+  const hidden = await isViewportInfobarHidden(highlighterFront, testActor);
+  ok(!hidden, "viewport infobar is visible after show");
+}
 
-  isnot(hidden, "true", "viewport infobar is visible after show");
+async function isHiddenAfterHide(highlighterFront, inspector, testActor) {
+  info("Checking that the viewport infobar is hidden after disabling");
+  await highlighterFront.hide();
+
+  const hidden = await isViewportInfobarHidden(highlighterFront, testActor);
+  ok(hidden, "viewport infobar is hidden after hide");
 }
 
 async function hasRightLabelsContent(highlighterFront, inspector, testActor) {
   info("Checking the rulers dimension tooltip have the proper text");
 
   const dimensionText = await testActor.getHighlighterNodeTextContent(
-    `${ID}viewport-infobar-container`, highlighterFront);
+    `${ID}viewport-infobar-container`,
+    highlighterFront
+  );
 
   const windowDimensions = await testActor.getWindowDimensions();
   const windowHeight = Math.round(windowDimensions.height);
   const windowWidth = Math.round(windowDimensions.width);
-  const windowText = windowHeight + "px \u00D7 " + windowWidth + "px";
+  const windowText = windowWidth + "px \u00D7 " + windowHeight + "px";
 
   is(dimensionText, windowText, "Dimension text was created successfully");
 }
 
 async function resizeInspector(highlighterFront, inspector, testActor) {
-  info("Docking the toolbox to the side of the browser to change the window size");
+  info(
+    "Docking the toolbox to the side of the browser to change the window size"
+  );
   const toolbox = inspector.toolbox;
   await toolbox.switchHost(Toolbox.HostType.RIGHT);
+}
+
+async function isViewportInfobarHidden(highlighterFront, testActor) {
+  const hidden = await testActor.getHighlighterNodeAttribute(
+    `${ID}viewport-infobar-container`,
+    "hidden",
+    highlighterFront
+  );
+  return hidden === "true";
 }

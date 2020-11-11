@@ -7,9 +7,11 @@
 #ifndef __FFmpegDataDecoder_h__
 #define __FFmpegDataDecoder_h__
 
-#include "PlatformDecoderModule.h"
 #include "FFmpegLibWrapper.h"
+#include "PlatformDecoderModule.h"
 #include "mozilla/StaticMutex.h"
+
+// This must be the last header included
 #include "FFmpegLibs.h"
 
 namespace mozilla {
@@ -26,8 +28,7 @@ class FFmpegDataDecoder<LIBAV_VER>
     : public MediaDataDecoder,
       public DecoderDoctorLifeLogger<FFmpegDataDecoder<LIBAV_VER>> {
  public:
-  FFmpegDataDecoder(FFmpegLibWrapper* aLib, TaskQueue* aTaskQueue,
-                    AVCodecID aCodecID);
+  FFmpegDataDecoder(FFmpegLibWrapper* aLib, AVCodecID aCodecID);
   virtual ~FFmpegDataDecoder();
 
   static bool Link();
@@ -47,6 +48,7 @@ class FFmpegDataDecoder<LIBAV_VER>
   virtual void InitCodecContext() {}
   AVFrame* PrepareFrame();
   MediaResult InitDecoder();
+  MediaResult AllocateExtraData();
   MediaResult DoDecode(MediaRawData* aSample, bool* aGotFrame,
                        DecodedData& aOutResults);
 
@@ -58,6 +60,10 @@ class FFmpegDataDecoder<LIBAV_VER>
   RefPtr<MediaByteBuffer> mExtraData;
   AVCodecID mCodecID;
 
+ protected:
+  static StaticMutex sMonitor;
+  const RefPtr<TaskQueue> mTaskQueue;
+
  private:
   RefPtr<DecodePromise> ProcessDecode(MediaRawData* aSample);
   RefPtr<DecodePromise> ProcessDrain();
@@ -67,8 +73,6 @@ class FFmpegDataDecoder<LIBAV_VER>
   virtual bool NeedParser() const { return false; }
   virtual int ParserFlags() const { return PARSER_FLAG_COMPLETE_FRAMES; }
 
-  static StaticMutex sMonitor;
-  const RefPtr<TaskQueue> mTaskQueue;
   MozPromiseHolder<DecodePromise> mPromise;
   media::TimeUnit mLastInputDts;
 };

@@ -1,11 +1,22 @@
-
-ChromeUtils.defineModuleGetter(this, "PlacesTestUtils",
-                               "resource://testing-common/PlacesTestUtils.jsm");
+ChromeUtils.defineModuleGetter(
+  this,
+  "PlacesTestUtils",
+  "resource://testing-common/PlacesTestUtils.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "TelemetryTestUtils",
+  "resource://testing-common/TelemetryTestUtils.jsm"
+);
 
 const SINGLE_TRY_TIMEOUT = 100;
 const NUMBER_OF_TRIES = 30;
 
-function waitForConditionPromise(condition, timeoutMsg, tryCount = NUMBER_OF_TRIES) {
+function waitForConditionPromise(
+  condition,
+  timeoutMsg,
+  tryCount = NUMBER_OF_TRIES
+) {
   return new Promise((resolve, reject) => {
     let tries = 0;
     function checkCondition() {
@@ -30,53 +41,10 @@ function waitForConditionPromise(condition, timeoutMsg, tryCount = NUMBER_OF_TRI
 }
 
 function waitForCondition(condition, nextTest, errorMsg) {
-  waitForConditionPromise(condition, errorMsg).then(nextTest, (reason) => {
+  waitForConditionPromise(condition, errorMsg).then(nextTest, reason => {
     ok(false, reason + (reason.stack ? "\n" + reason.stack : ""));
   });
 }
-
-/**
- * Checks if the snapshotted keyed scalars contain the expected
- * data.
- *
- * @param {Object} scalars
- *        The snapshot of the keyed scalars.
- * @param {String} scalarName
- *        The name of the keyed scalar to check.
- * @param {String} key
- *        The key that must be within the keyed scalar.
- * @param {String|Boolean|Number} expectedValue
- *        The expected value for the provided key in the scalar.
- */
-function checkKeyedScalar(scalars, scalarName, key, expectedValue) {
-  Assert.ok(scalarName in scalars,
-            scalarName + " must be recorded.");
-  Assert.ok(key in scalars[scalarName],
-            scalarName + " must contain the '" + key + "' key.");
-  Assert.equal(scalars[scalarName][key], expectedValue,
-            scalarName + "['" + key + "'] must contain the expected value");
-}
-
-/**
- * An helper that checks the value of a scalar if it's expected to be > 0,
- * otherwise makes sure that the scalar it's not reported.
- *
- * @param {Object} scalars
- *        The snapshot of the scalars.
- * @param {String} scalarName
- *        The name of the scalar to check.
- * @param {Number} value
- *        The expected value for the provided scalar.
- * @param {String} msg
- *        The message to print when checking the value.
- */
-let checkScalar = (scalars, scalarName, value, msg) => {
-  if (value > 0) {
-    is(scalars[scalarName], value, msg);
-    return;
-  }
-  ok(!(scalarName in scalars), scalarName + " must not be reported.");
-};
 
 /**
  * An utility function to write some text in the search input box
@@ -89,81 +57,16 @@ let checkScalar = (scalars, scalarName, value, msg) => {
  *        The name of the field to write to.
  */
 let typeInSearchField = async function(browser, text, fieldName) {
-  await ContentTask.spawn(browser, [fieldName, text], async function([contentFieldName, contentText]) {
+  await SpecialPowers.spawn(browser, [[fieldName, text]], async function([
+    contentFieldName,
+    contentText,
+  ]) {
     // Put the focus on the search box.
     let searchInput = content.document.getElementById(contentFieldName);
     searchInput.focus();
     searchInput.value = contentText;
   });
 };
-
-
-/**
- * Clear and get the named histogram
- * @param {String} name
- *        The name of the histogram
- */
-function getAndClearHistogram(name) {
-  let histogram = Services.telemetry.getHistogramById(name);
-  histogram.clear();
-  return histogram;
-}
-
-
-/**
- * Clear and get the named keyed histogram
- * @param {String} name
- *        The name of the keyed histogram
- */
-function getAndClearKeyedHistogram(name) {
-  let histogram = Services.telemetry.getKeyedHistogramById(name);
-  histogram.clear();
-  return histogram;
-}
-
-
-/**
- * Check that the keyed histogram contains the right value.
- */
-function checkKeyedHistogram(h, key, expectedValue) {
-  const snapshot = h.snapshot();
-  if (expectedValue === undefined) {
-    Assert.ok(!(key in snapshot), `The histogram must not contain ${key}.`);
-    return;
-  }
-  Assert.ok(key in snapshot, `The histogram must contain ${key}.`);
-  Assert.equal(snapshot[key].sum, expectedValue, `The key ${key} must contain ${expectedValue}.`);
-}
-
-/**
- * Return the scalars from the parent-process.
- */
-function getParentProcessScalars(aChannel, aKeyed = false, aClear = false) {
-  const extended = aChannel == Ci.nsITelemetry.DATASET_RELEASE_CHANNEL_OPTIN;
-  const currentExtended = Services.telemetry.canRecordExtended;
-  Services.telemetry.canRecordExtended = extended;
-  const scalars = aKeyed ?
-    Services.telemetry.getSnapshotForKeyedScalars("main", aClear).parent :
-    Services.telemetry.getSnapshotForScalars("main", aClear).parent;
-  Services.telemetry.canRecordExtended = currentExtended;
-  return scalars || {};
-}
-
-function checkEvents(events, expectedEvents) {
-  if (!Services.telemetry.canRecordExtended) {
-    // Currently we only collect the tested events when extended Telemetry is enabled.
-    return;
-  }
-
-  Assert.equal(events.length, expectedEvents.length, "Should have matching amount of events.");
-
-  // Strip timestamps from the events for easier comparison.
-  events = events.map(e => e.slice(1));
-
-  for (let i = 0; i < events.length; ++i) {
-    Assert.deepEqual(events[i], expectedEvents[i], "Events should match.");
-  }
-}
 
 /**
  * Given a <xul:browser> at some non-internal web page,
@@ -178,14 +81,16 @@ function checkEvents(events, expectedEvents) {
 function makeMockPermissionRequest(browser) {
   let type = {
     options: Cc["@mozilla.org/array;1"].createInstance(Ci.nsIArray),
-    QueryInterface: ChromeUtils.generateQI([Ci.nsIContentPermissionType]),
+    QueryInterface: ChromeUtils.generateQI(["nsIContentPermissionType"]),
   };
   let types = Cc["@mozilla.org/array;1"].createInstance(Ci.nsIMutableArray);
   types.appendElement(type);
+  let principal = browser.contentPrincipal;
   let result = {
     types,
-    principal: browser.contentPrincipal,
-    topLevelPrincipal: browser.contentPrincipal,
+    isHandlingUserInput: false,
+    principal,
+    topLevelPrincipal: principal,
     requester: null,
     _cancelled: false,
     cancel() {
@@ -195,7 +100,10 @@ function makeMockPermissionRequest(browser) {
     allow() {
       this._allowed = true;
     },
-    QueryInterface: ChromeUtils.generateQI([Ci.nsIContentPermissionRequest]),
+    getDelegatePrincipal(aType) {
+      return principal;
+    },
+    QueryInterface: ChromeUtils.generateQI(["nsIContentPermissionRequest"]),
   };
 
   // In the e10s-case, nsIContentPermissionRequest will have
@@ -218,8 +126,10 @@ function makeMockPermissionRequest(browser) {
  *         event.
  */
 function clickMainAction() {
-  let removePromise =
-    BrowserTestUtils.waitForEvent(PopupNotifications.panel, "popuphidden");
+  let removePromise = BrowserTestUtils.waitForEvent(
+    PopupNotifications.panel,
+    "popuphidden"
+  );
   let popupNotification = getPopupNotificationNode();
   popupNotification.button.click();
   return removePromise;
@@ -239,8 +149,10 @@ function clickMainAction() {
  *         event.
  */
 function clickSecondaryAction(actionIndex) {
-  let removePromise =
-    BrowserTestUtils.waitForEvent(PopupNotifications.panel, "popuphidden");
+  let removePromise = BrowserTestUtils.waitForEvent(
+    PopupNotifications.panel,
+    "popuphidden"
+  );
   let popupNotification = getPopupNotificationNode();
   if (!actionIndex) {
     popupNotification.secondaryButton.click();
@@ -249,8 +161,10 @@ function clickSecondaryAction(actionIndex) {
 
   return (async function() {
     // Click the dropmarker arrow and wait for the menu to show up.
-    let dropdownPromise =
-      BrowserTestUtils.waitForEvent(popupNotification.menupopup, "popupshown");
+    let dropdownPromise = BrowserTestUtils.waitForEvent(
+      popupNotification.menupopup,
+      "popupshown"
+    );
     await EventUtils.synthesizeMouseAtCenter(popupNotification.menubutton, {});
     await dropdownPromise;
 
@@ -258,7 +172,9 @@ function clickSecondaryAction(actionIndex) {
     // because they are injected into a <children> node in the XBL binding.
     // The target action is the menuitem at index actionIndex - 1, because the first
     // secondary action (index 0) is the button shown directly in the panel.
-    let actionMenuItem = popupNotification.querySelectorAll("menuitem")[actionIndex - 1];
+    let actionMenuItem = popupNotification.querySelectorAll("menuitem")[
+      actionIndex - 1
+    ];
     await EventUtils.synthesizeMouseAtCenter(actionMenuItem, {});
     await removePromise;
   })();
@@ -275,11 +191,13 @@ function getPopupNotificationNode() {
   // clear, popupNotifications is a list of <xul:popupnotification>
   // nodes.
   let popupNotifications = PopupNotifications.panel.childNodes;
-  Assert.equal(popupNotifications.length, 1,
-               "Should be showing a <xul:popupnotification>");
+  Assert.equal(
+    popupNotifications.length,
+    1,
+    "Should be showing a <xul:popupnotification>"
+  );
   return popupNotifications[0];
 }
-
 
 /**
  * Disable non-release page actions (that are tested elsewhere).
@@ -288,6 +206,116 @@ function getPopupNotificationNode() {
  */
 async function disableNonReleaseActions() {
   if (!["release", "esr"].includes(AppConstants.MOZ_UPDATE_CHANNEL)) {
-    SpecialPowers.Services.prefs.setBoolPref("extensions.webcompat-reporter.enabled", false);
+    SpecialPowers.Services.prefs.setBoolPref(
+      "extensions.webcompat-reporter.enabled",
+      false
+    );
   }
+}
+
+function assertActivatedPageActionPanelHidden() {
+  Assert.ok(
+    !document.getElementById(BrowserPageActions._activatedActionPanelID)
+  );
+}
+
+function promiseOpenPageActionPanel() {
+  let dwu = window.windowUtils;
+  return BrowserTestUtils.waitForCondition(() => {
+    // Wait for the main page action button to become visible.  It's hidden for
+    // some URIs, so depending on when this is called, it may not yet be quite
+    // visible.  It's up to the caller to make sure it will be visible.
+    info("Waiting for main page action button to have non-0 size");
+    let bounds = dwu.getBoundsWithoutFlushing(
+      BrowserPageActions.mainButtonNode
+    );
+    return bounds.width > 0 && bounds.height > 0;
+  })
+    .then(() => {
+      // Wait for the panel to become open, by clicking the button if necessary.
+      info("Waiting for main page action panel to be open");
+      if (BrowserPageActions.panelNode.state == "open") {
+        return Promise.resolve();
+      }
+      let shownPromise = promisePageActionPanelShown();
+      EventUtils.synthesizeMouseAtCenter(BrowserPageActions.mainButtonNode, {});
+      return shownPromise;
+    })
+    .then(() => {
+      // Wait for items in the panel to become visible.
+      return promisePageActionViewChildrenVisible(
+        BrowserPageActions.mainViewNode
+      );
+    });
+}
+
+function promisePageActionPanelShown() {
+  return promisePanelShown(BrowserPageActions.panelNode);
+}
+
+function promisePageActionPanelHidden() {
+  return promisePanelHidden(BrowserPageActions.panelNode);
+}
+
+function promisePanelShown(panelIDOrNode) {
+  return promisePanelEvent(panelIDOrNode, "popupshown");
+}
+
+function promisePanelHidden(panelIDOrNode) {
+  return promisePanelEvent(panelIDOrNode, "popuphidden");
+}
+
+function promisePanelEvent(panelIDOrNode, eventType) {
+  return new Promise(resolve => {
+    let panel = panelIDOrNode;
+    if (typeof panel == "string") {
+      panel = document.getElementById(panelIDOrNode);
+      if (!panel) {
+        throw new Error(`Panel with ID "${panelIDOrNode}" does not exist.`);
+      }
+    }
+    if (
+      (eventType == "popupshown" && panel.state == "open") ||
+      (eventType == "popuphidden" && panel.state == "closed")
+    ) {
+      executeSoon(resolve);
+      return;
+    }
+    panel.addEventListener(
+      eventType,
+      () => {
+        executeSoon(resolve);
+      },
+      { once: true }
+    );
+  });
+}
+
+function promisePageActionViewShown() {
+  info("promisePageActionViewShown waiting for ViewShown");
+  return BrowserTestUtils.waitForEvent(
+    BrowserPageActions.panelNode,
+    "ViewShown"
+  ).then(async event => {
+    let panelViewNode = event.originalTarget;
+    await promisePageActionViewChildrenVisible(panelViewNode);
+    return panelViewNode;
+  });
+}
+
+function promisePageActionViewChildrenVisible(panelViewNode) {
+  info(
+    "promisePageActionViewChildrenVisible waiting for a child node to be visible"
+  );
+  let dwu = window.windowUtils;
+  return BrowserTestUtils.waitForCondition(() => {
+    let bodyNode = panelViewNode.firstElementChild;
+    for (let childNode of bodyNode.children) {
+      let bounds = dwu.getBoundsWithoutFlushing(childNode);
+      if (bounds.width > 0 && bounds.height > 0) {
+        return true;
+      }
+    }
+    return false;
+  });
 }

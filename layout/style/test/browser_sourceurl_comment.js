@@ -24,17 +24,20 @@ add_task(async function() {
   let uri = "data:text/html;base64," + btoa(page);
   info(`URI is ${uri}`);
 
-  await BrowserTestUtils.withNewTab({
-    gBrowser,
-    url: uri
-  }, async function(browser) {
-    await ContentTask.spawn(browser, test_cases, function* (tests) {
-      for (let i = 0; i < content.document.styleSheets.length; ++i) {
-        let sheet = content.document.styleSheets[i];
+  await BrowserTestUtils.withNewTab(
+    {
+      gBrowser,
+      url: uri,
+    },
+    async function(browser) {
+      await SpecialPowers.spawn(browser, [test_cases], function(tests) {
+        for (let i = 0; i < content.document.styleSheets.length; ++i) {
+          let sheet = content.document.styleSheets[i];
 
-        info(`Checking sheet #${i}`);
-        is(sheet.sourceURL, tests[i][1], `correct source URL for sheet ${i}`);
-      }
-    });
-  });
+          info(`Checking sheet #${i}`);
+          is(sheet.sourceURL, tests[i][1], `correct source URL for sheet ${i}`);
+        }
+      });
+    }
+  );
 });

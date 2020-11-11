@@ -2,7 +2,7 @@
 <html>
 <head>
   <title>Test for HTMLButtonElement attributes reflection</title>
-  <script type="application/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
   <script type="application/javascript" src="../reflect.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css"/>
 </head>
@@ -50,16 +50,34 @@ reflectLimitedEnumerated({
 });
 
 // .formMethod
-reflectLimitedEnumerated({
-  element: document.createElement("button"),
-  attribute: "formMethod",
-  validValues: [ "get", "post" ],
-  invalidValues: [ "put", "", "tulip" ],
-  unsupportedValues: [ "dialog" ],
-  defaultValue: {
-    invalid: "get",
-    missing: "",
-  }
+add_task(async function() {
+  await SpecialPowers.pushPrefEnv({ set: [["dom.dialog_element.enabled", false]] })
+  reflectLimitedEnumerated({
+    element: document.createElement("button"),
+    attribute: "formMethod",
+    validValues: [ "get", "post" ],
+    invalidValues: [ "put", "", "tulip" ],
+    unsupportedValues: [ "dialog" ],
+    defaultValue: {
+      invalid: "get",
+      missing: "",
+    }
+  });
+});
+
+// .formMethod when dialog is enabled
+add_task(async function() {
+  await SpecialPowers.pushPrefEnv({ set: [["dom.dialog_element.enabled", true]] })
+  reflectLimitedEnumerated({
+    element: document.createElement("button"),
+    attribute: "formMethod",
+    validValues: [ "get", "post", "dialog"],
+    invalidValues: [ "put", "", "tulip" ],
+    defaultValue: {
+      invalid: "get",
+      missing: "",
+    }
+  });
 });
 
 // .formNoValidate

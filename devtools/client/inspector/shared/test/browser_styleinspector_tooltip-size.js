@@ -1,4 +1,3 @@
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -19,7 +18,7 @@ const TEST_URI = `
 
 add_task(async function() {
   await addTab("data:text/html;charset=utf-8," + encodeURIComponent(TEST_URI));
-  const {inspector, view} = await openRuleView();
+  const { inspector, view } = await openRuleView();
   await selectNode("div", inspector);
   await testImageDimension(view);
   await testPickerDimension(view);
@@ -30,7 +29,7 @@ async function testImageDimension(ruleView) {
 
   const tooltip = ruleView.tooltips.getTooltip("previewTooltip");
   const panel = tooltip.panel;
-  const {valueSpan} = getRuleViewProperty(ruleView, "div", "background");
+  const { valueSpan } = getRuleViewProperty(ruleView, "div", "background");
   const uriSpan = valueSpan.querySelector(".theme-link");
 
   // Make sure there is a hover tooltip for this property, this also will fill
@@ -42,10 +41,14 @@ async function testImageDimension(ruleView) {
   const imageRect = panel.querySelector("img").getBoundingClientRect();
   const panelRect = panel.getBoundingClientRect();
 
-  ok(panelRect.width >= imageRect.width,
-    "The panel is wide enough to show the image");
-  ok(panelRect.height >= imageRect.height,
-    "The panel is high enough to show the image");
+  ok(
+    panelRect.width >= imageRect.width,
+    "The panel is wide enough to show the image"
+  );
+  ok(
+    panelRect.height >= imageRect.height,
+    "The panel is high enough to show the image"
+  );
 
   await assertTooltipHiddenOnMouseOut(previewTooltip, uriSpan);
 }
@@ -53,7 +56,7 @@ async function testImageDimension(ruleView) {
 async function testPickerDimension(ruleView) {
   info("Testing color-picker tooltip dimensions");
 
-  const {valueSpan} = getRuleViewProperty(ruleView, "div", "background");
+  const { valueSpan } = getRuleViewProperty(ruleView, "div", "background");
   const swatch = valueSpan.querySelector(".ruleview-colorswatch");
   const cPicker = ruleView.tooltips.getTooltip("colorPicker");
 
@@ -66,10 +69,14 @@ async function testPickerDimension(ruleView) {
   const spectrumRect = cPicker.spectrum.element.getBoundingClientRect();
   const panelRect = cPicker.tooltip.container.getBoundingClientRect();
 
-  ok(panelRect.width >= spectrumRect.width,
-    "The panel is wide enough to show the picker");
-  ok(panelRect.height >= spectrumRect.height,
-    "The panel is high enough to show the picker");
+  ok(
+    panelRect.width >= spectrumRect.width,
+    "The panel is wide enough to show the picker"
+  );
+  ok(
+    panelRect.height >= spectrumRect.height,
+    "The panel is high enough to show the picker"
+  );
 
   const onHidden = cPicker.tooltip.once("hidden");
   const onRuleViewChanged = ruleView.once("ruleview-changed");

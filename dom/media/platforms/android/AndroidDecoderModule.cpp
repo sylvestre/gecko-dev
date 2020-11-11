@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "GeneratedJNIWrappers.h"
+#include "mozilla/java/HardwareCodecCapabilityUtilsWrappers.h"
 #include "MediaInfo.h"
 #include "OpusDecoder.h"
 #include "RemoteDataDecoder.h"
@@ -26,8 +26,6 @@
           ("%s: " arg, __func__, ##__VA_ARGS__))
 
 using namespace mozilla;
-using namespace mozilla::gl;
-using namespace mozilla::java::sdk;
 using media::TimeUnit;
 
 namespace mozilla {
@@ -36,10 +34,10 @@ mozilla::LazyLogModule sAndroidDecoderModuleLog("AndroidDecoderModule");
 
 const nsCString TranslateMimeType(const nsACString& aMimeType) {
   if (VPXDecoder::IsVPX(aMimeType, VPXDecoder::VP8)) {
-    static NS_NAMED_LITERAL_CSTRING(vp8, "video/x-vnd.on2.vp8");
+    static constexpr auto vp8 = "video/x-vnd.on2.vp8"_ns;
     return vp8;
   } else if (VPXDecoder::IsVPX(aMimeType, VPXDecoder::VP9)) {
-    static NS_NAMED_LITERAL_CSTRING(vp9, "video/x-vnd.on2.vp9");
+    static constexpr auto vp9 = "video/x-vnd.on2.vp9"_ns;
     return vp9;
   }
   return nsCString(aMimeType);
@@ -75,6 +73,7 @@ bool AndroidDecoderModule::SupportsMimeType(const nsACString& aMimeType) {
   // To avoid this we check for wav types here.
   if (aMimeType.EqualsLiteral("audio/x-wav") ||
       aMimeType.EqualsLiteral("audio/wave; codecs=1") ||
+      aMimeType.EqualsLiteral("audio/wave; codecs=3") ||
       aMimeType.EqualsLiteral("audio/wave; codecs=6") ||
       aMimeType.EqualsLiteral("audio/wave; codecs=7") ||
       aMimeType.EqualsLiteral("audio/wave; codecs=65534")) {
@@ -102,6 +101,12 @@ bool AndroidDecoderModule::SupportsMimeType(const nsACString& aMimeType) {
   // Not all android devices support Theora even when they say they do.
   if (TheoraDecoder::IsTheora(aMimeType)) {
     SLOG("Rejecting video of type %s", aMimeType.Data());
+    return false;
+  }
+
+  if (aMimeType.EqualsLiteral("audio/mpeg") &&
+      StaticPrefs::media_ffvpx_mp3_enabled()) {
+    // Prefer the ffvpx mp3 software decoder if available.
     return false;
   }
 
@@ -152,6 +157,12 @@ already_AddRefed<MediaDataDecoder> AndroidDecoderModule::CreateAudioDecoder(
   RefPtr<MediaDataDecoder> decoder =
       RemoteDataDecoder::CreateAudioDecoder(aParams, drmStubId, mProxy);
   return decoder.forget();
+}
+
+/* static */
+already_AddRefed<PlatformDecoderModule> AndroidDecoderModule::Create(
+    CDMProxy* aProxy) {
+  return MakeAndAddRef<AndroidDecoderModule>(aProxy);
 }
 
 }  // namespace mozilla

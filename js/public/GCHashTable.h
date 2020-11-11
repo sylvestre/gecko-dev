@@ -23,6 +23,11 @@ struct DefaultMapSweepPolicy {
   static bool needsSweep(Key* key, Value* value) {
     return GCPolicy<Key>::needsSweep(key) || GCPolicy<Value>::needsSweep(value);
   }
+
+  static bool traceWeak(JSTracer* trc, Key* key, Value* value) {
+    return GCPolicy<Key>::traceWeak(trc, key) &&
+           GCPolicy<Value>::traceWeak(trc, value);
+  }
 };
 
 // A GCHashMap is a GC-aware HashMap, meaning that it has additional trace and
@@ -57,11 +62,10 @@ class GCHashMap : public js::HashMap<Key, Value, HashPolicy, AllocPolicy> {
   using Base = js::HashMap<Key, Value, HashPolicy, AllocPolicy>;
 
  public:
-  explicit GCHashMap(AllocPolicy a = AllocPolicy()) : Base(a) {}
+  explicit GCHashMap(AllocPolicy a = AllocPolicy()) : Base(std::move(a)) {}
   explicit GCHashMap(size_t length) : Base(length) {}
-  GCHashMap(AllocPolicy a, size_t length) : Base(a, length) {}
+  GCHashMap(AllocPolicy a, size_t length) : Base(std::move(a), length) {}
 
-  static void trace(GCHashMap* map, JSTracer* trc) { map->trace(trc); }
   void trace(JSTracer* trc) {
     for (typename Base::Enum e(*this); !e.empty(); e.popFront()) {
       GCPolicy<Value>::trace(trc, &e.front().value(), "hashmap value");
@@ -72,8 +76,22 @@ class GCHashMap : public js::HashMap<Key, Value, HashPolicy, AllocPolicy> {
   bool needsSweep() const { return !this->empty(); }
 
   void sweep() {
-    for (typename Base::Enum e(*this); !e.empty(); e.popFront()) {
+    typename Base::Enum e(*this);
+    sweepEntries(e);
+  }
+
+  void sweepEntries(typename Base::Enum& e) {
+    for (; !e.empty(); e.popFront()) {
       if (MapSweepPolicy::needsSweep(&e.front().mutableKey(),
+                                     &e.front().value())) {
+        e.removeFront();
+      }
+    }
+  }
+
+  void traceWeak(JSTracer* trc) {
+    for (typename Base::Enum e(*this); !e.empty(); e.popFront()) {
+      if (!MapSweepPolicy::traceWeak(trc, &e.front().mutableKey(),
                                      &e.front().value())) {
         e.removeFront();
       }
@@ -91,7 +109,7 @@ class GCHashMap : public js::HashMap<Key, Value, HashPolicy, AllocPolicy> {
   // GCHashMap is not copyable or assignable
   GCHashMap(const GCHashMap& hm) = delete;
   GCHashMap& operator=(const GCHashMap& hm) = delete;
-};
+} MOZ_INHERIT_TYPE_ANNOTATIONS_FROM_TEMPLATE_ARGS;
 
 }  // namespace JS
 
@@ -111,14 +129,27 @@ class GCRekeyableHashMap : public JS::GCHashMap<Key, Value, HashPolicy,
   using Base = JS::GCHashMap<Key, Value, HashPolicy, AllocPolicy>;
 
  public:
-  explicit GCRekeyableHashMap(AllocPolicy a = AllocPolicy()) : Base(a) {}
+  explicit GCRekeyableHashMap(AllocPolicy a = AllocPolicy())
+      : Base(std::move(a)) {}
   explicit GCRekeyableHashMap(size_t length) : Base(length) {}
-  GCRekeyableHashMap(AllocPolicy a, size_t length) : Base(a, length) {}
+  GCRekeyableHashMap(AllocPolicy a, size_t length)
+      : Base(std::move(a), length) {}
 
   void sweep() {
     for (typename Base::Enum e(*this); !e.empty(); e.popFront()) {
       Key key(e.front().key());
       if (MapSweepPolicy::needsSweep(&key, &e.front().value())) {
+        e.removeFront();
+      } else if (!HashPolicy::match(key, e.front().key())) {
+        e.rekeyFront(key);
+      }
+    }
+  }
+
+  void traceWeak(JSTracer* trc) {
+    for (typename Base::Enum e(*this); !e.empty(); e.popFront()) {
+      Key key(e.front().key());
+      if (!MapSweepPolicy::traceWeak(trc, &key, &e.front().value())) {
         e.removeFront();
       } else if (!HashPolicy::match(key, e.front().key())) {
         e.rekeyFront(key);
@@ -132,7 +163,7 @@ class GCRekeyableHashMap : public JS::GCHashMap<Key, Value, HashPolicy,
     MOZ_ASSERT(this != &rhs, "self-move assignment is prohibited");
     Base::operator=(std::move(rhs));
   }
-};
+} MOZ_INHERIT_TYPE_ANNOTATIONS_FROM_TEMPLATE_ARGS;
 
 template <typename Wrapper, typename... Args>
 class WrappedPtrOperations<JS::GCHashMap<Args...>, Wrapper> {
@@ -231,11 +262,10 @@ class GCHashSet : public js::HashSet<T, HashPolicy, AllocPolicy> {
   using Base = js::HashSet<T, HashPolicy, AllocPolicy>;
 
  public:
-  explicit GCHashSet(AllocPolicy a = AllocPolicy()) : Base(a) {}
+  explicit GCHashSet(AllocPolicy a = AllocPolicy()) : Base(std::move(a)) {}
   explicit GCHashSet(size_t length) : Base(length) {}
-  GCHashSet(AllocPolicy a, size_t length) : Base(a, length) {}
+  GCHashSet(AllocPolicy a, size_t length) : Base(std::move(a), length) {}
 
-  static void trace(GCHashSet* set, JSTracer* trc) { set->trace(trc); }
   void trace(JSTracer* trc) {
     for (typename Base::Enum e(*this); !e.empty(); e.popFront()) {
       GCPolicy<T>::trace(trc, &e.mutableFront(), "hashset element");
@@ -245,8 +275,21 @@ class GCHashSet : public js::HashSet<T, HashPolicy, AllocPolicy> {
   bool needsSweep() const { return !this->empty(); }
 
   void sweep() {
-    for (typename Base::Enum e(*this); !e.empty(); e.popFront()) {
+    typename Base::Enum e(*this);
+    sweepEntries(e);
+  }
+
+  void sweepEntries(typename Base::Enum& e) {
+    for (; !e.empty(); e.popFront()) {
       if (GCPolicy<T>::needsSweep(&e.mutableFront())) {
+        e.removeFront();
+      }
+    }
+  }
+
+  void traceWeak(JSTracer* trc) {
+    for (typename Base::Enum e(*this); !e.empty(); e.popFront()) {
+      if (!GCPolicy<T>::traceWeak(trc, &e.mutableFront())) {
         e.removeFront();
       }
     }
@@ -263,7 +306,7 @@ class GCHashSet : public js::HashSet<T, HashPolicy, AllocPolicy> {
   // GCHashSet is not copyable or assignable
   GCHashSet(const GCHashSet& hs) = delete;
   GCHashSet& operator=(const GCHashSet& hs) = delete;
-};
+} MOZ_INHERIT_TYPE_ANNOTATIONS_FROM_TEMPLATE_ARGS;
 
 }  // namespace JS
 
@@ -377,9 +420,22 @@ class WeakCache<GCHashMap<Key, Value, HashPolicy, AllocPolicy, MapSweepPolicy>>
 
   bool needsSweep() override { return map.needsSweep(); }
 
-  size_t sweep() override {
+  size_t sweep(js::gc::StoreBuffer* sbToLock) override {
     size_t steps = map.count();
-    map.sweep();
+
+    // Create an Enum and sweep the table entries.
+    mozilla::Maybe<typename Map::Enum> e;
+    e.emplace(map);
+    map.sweepEntries(e.ref());
+
+    // Potentially take a lock while the Enum's destructor is called as this can
+    // rehash/resize the table and access the store buffer.
+    mozilla::Maybe<js::gc::AutoLockStoreBuffer> lock;
+    if (sbToLock) {
+      lock.emplace(sbToLock);
+    }
+    e.reset();
+
     return steps;
   }
 
@@ -410,7 +466,7 @@ class WeakCache<GCHashMap<Key, Value, HashPolicy, AllocPolicy, MapSweepPolicy>>
 
   struct Range {
     explicit Range(const typename Map::Range& r) : range(r) { settle(); }
-    Range() {}
+    Range() = default;
 
     bool empty() const { return range.empty(); }
     const Entry& front() const { return range.front(); }
@@ -533,7 +589,7 @@ class WeakCache<GCHashMap<Key, Value, HashPolicy, AllocPolicy, MapSweepPolicy>>
   bool putNew(KeyInput&& k, ValueInput&& v) {
     return map.putNew(std::forward<KeyInput>(k), std::forward<ValueInput>(v));
   }
-};
+} JS_HAZ_NON_GC_POINTER;
 
 // Specialize WeakCache for GCHashSet to provide a barriered set that does not
 // need to be swept immediately.
@@ -560,9 +616,24 @@ class WeakCache<GCHashSet<T, HashPolicy, AllocPolicy>>
         set(std::forward<Args>(args)...),
         needsBarrier(false) {}
 
-  size_t sweep() override {
+  size_t sweep(js::gc::StoreBuffer* sbToLock) override {
     size_t steps = set.count();
-    set.sweep();
+
+    // Create an Enum and sweep the table entries. It's not necessary to take
+    // the store buffer lock yet.
+    mozilla::Maybe<typename Set::Enum> e;
+    e.emplace(set);
+    set.sweepEntries(e.ref());
+
+    // Destroy the Enum, potentially rehashing or resizing the table. Since this
+    // can access the store buffer, we need to take a lock for this if we're
+    // called off main thread.
+    mozilla::Maybe<js::gc::AutoLockStoreBuffer> lock;
+    if (sbToLock) {
+      lock.emplace(sbToLock);
+    }
+    e.reset();
+
     return steps;
   }
 
@@ -591,7 +662,7 @@ class WeakCache<GCHashSet<T, HashPolicy, AllocPolicy>>
 
   struct Range {
     explicit Range(const typename Set::Range& r) : range(r) { settle(); }
-    Range() {}
+    Range() = default;
 
     bool empty() const { return range.empty(); }
     const Entry& front() const { return range.front(); }
@@ -718,7 +789,7 @@ class WeakCache<GCHashSet<T, HashPolicy, AllocPolicy>>
   bool putNew(const Lookup& l, TInput&& t) {
     return set.putNew(l, std::forward<TInput>(t));
   }
-};
+} JS_HAZ_NON_GC_POINTER;
 
 }  // namespace JS
 

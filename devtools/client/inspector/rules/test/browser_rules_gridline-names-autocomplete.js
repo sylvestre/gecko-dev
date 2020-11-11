@@ -1,4 +1,3 @@
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -17,7 +16,9 @@
 //    expect ruleview-changed,
 //  ]
 
-const OPEN = true, SELECTED = true, CHANGE = true;
+const OPEN = true,
+  SELECTED = true,
+  CHANGE = true;
 const changeTestData = [
   ["c", {}, "col1-start", OPEN, SELECTED, CHANGE],
   ["o", {}, "col1-start", OPEN, SELECTED, CHANGE],
@@ -36,8 +37,9 @@ const newAreaTestData = [
   "grid-line-names-updated",
   ["c", {}, "col1-start", OPEN, SELECTED, CHANGE],
   ["VK_BACK_SPACE", {}, "c", !OPEN, !SELECTED, CHANGE],
-  ["VK_BACK_SPACE", {}, "", !OPEN, !SELECTED, CHANGE],
-  ["r", {}, "row1-start", OPEN, SELECTED, CHANGE],
+  ["VK_BACK_SPACE", {}, "", OPEN, !SELECTED, CHANGE],
+  ["r", {}, "revert", OPEN, SELECTED, CHANGE],
+  ["VK_DOWN", {}, "row1-start", OPEN, SELECTED, CHANGE],
   ["r", {}, "rr", !OPEN, !SELECTED, CHANGE],
   ["VK_BACK_SPACE", {}, "r", !OPEN, !SELECTED, CHANGE],
   ["o", {}, "row1-start", OPEN, SELECTED, CHANGE],
@@ -56,8 +58,9 @@ const newRowTestData = [
   ["VK_RETURN", {}, "", !OPEN, !SELECTED, !CHANGE],
   "grid-line-names-updated",
   ["c", {}, "c", !OPEN, !SELECTED, CHANGE],
-  ["VK_BACK_SPACE", {}, "", !OPEN, !SELECTED, CHANGE],
-  ["r", {}, "row1-start", OPEN, SELECTED, CHANGE],
+  ["VK_BACK_SPACE", {}, "", OPEN, !SELECTED, CHANGE],
+  ["r", {}, "revert", OPEN, SELECTED, CHANGE],
+  ["VK_DOWN", {}, "row1-start", OPEN, SELECTED, CHANGE],
   ["VK_TAB", {}, "", !OPEN, !SELECTED, CHANGE],
 ];
 
@@ -65,19 +68,39 @@ const TEST_URL = URL_ROOT + "doc_grid_names.html";
 
 add_task(async function() {
   await addTab(TEST_URL);
-  const {toolbox, inspector, view} = await openRuleView();
+  const { toolbox, inspector, view } = await openRuleView();
 
   info("Test autocompletion changing a preexisting property");
-  await runChangePropertyAutocompletionTest(toolbox, inspector, view, changeTestData);
+  await runChangePropertyAutocompletionTest(
+    toolbox,
+    inspector,
+    view,
+    changeTestData
+  );
 
   info("Test autocompletion creating a new property");
-  await runNewPropertyAutocompletionTest(toolbox, inspector, view, newAreaTestData);
+  await runNewPropertyAutocompletionTest(
+    toolbox,
+    inspector,
+    view,
+    newAreaTestData
+  );
 
   info("Test autocompletion creating a new property");
-  await runNewPropertyAutocompletionTest(toolbox, inspector, view, newRowTestData);
+  await runNewPropertyAutocompletionTest(
+    toolbox,
+    inspector,
+    view,
+    newRowTestData
+  );
 });
 
-async function runNewPropertyAutocompletionTest(toolbox, inspector, view, testData) {
+async function runNewPropertyAutocompletionTest(
+  toolbox,
+  inspector,
+  view,
+  testData
+) {
   info("Selecting the test node");
   await selectNode("#cell2", inspector);
 
@@ -96,7 +119,12 @@ async function runNewPropertyAutocompletionTest(toolbox, inspector, view, testDa
   }
 }
 
-async function runChangePropertyAutocompletionTest(toolbox, inspector, view, testData) {
+async function runChangePropertyAutocompletionTest(
+  toolbox,
+  inspector,
+  view,
+  testData
+) {
   info("Selecting the test node");
   await selectNode("#cell3", inspector);
 
@@ -117,8 +145,11 @@ async function runChangePropertyAutocompletionTest(toolbox, inspector, view, tes
   }
 }
 
-async function testCompletion([key, modifiers, completion, open, selected, change],
-                         editor, view) {
+async function testCompletion(
+  [key, modifiers, completion, open, selected, change],
+  editor,
+  view
+) {
   info("Pressing key " + key);
   info("Expecting " + completion);
   info("Is popup opened: " + open);
@@ -133,16 +164,16 @@ async function testCompletion([key, modifiers, completion, open, selected, chang
   } else {
     // Otherwise, expect an after-suggest event (except if the popup gets
     // closed).
-    onDone = key !== "VK_RIGHT" && key !== "VK_BACK_SPACE"
-             ? editor.once("after-suggest")
-             : null;
+    onDone =
+      key !== "VK_RIGHT" && key !== "VK_BACK_SPACE"
+        ? editor.once("after-suggest")
+        : null;
   }
 
   // Also listening for popup opened/closed events if needed.
   const popupEvent = open ? "popup-opened" : "popup-closed";
-  const onPopupEvent = editor.popup.isOpen !== open
-    ? once(editor.popup, popupEvent)
-    : null;
+  const onPopupEvent =
+    editor.popup.isOpen !== open ? once(editor.popup, popupEvent) : null;
 
   info("Synthesizing key " + key + ", modifiers: " + Object.keys(modifiers));
 

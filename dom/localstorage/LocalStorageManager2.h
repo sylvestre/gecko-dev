@@ -7,12 +7,17 @@
 #ifndef mozilla_dom_localstorage_LocalStorageManager2_h
 #define mozilla_dom_localstorage_LocalStorageManager2_h
 
+#include <cstdint>
+#include "ErrorList.h"
 #include "nsIDOMStorageManager.h"
 #include "nsILocalStorageManager.h"
+#include "nsISupports.h"
 
 namespace mozilla {
 namespace dom {
 
+class LSRequestChild;
+class LSRequestChildCallback;
 class LSRequestParams;
 class LSSimpleRequestParams;
 class Promise;
@@ -39,16 +44,17 @@ class LocalStorageManager2 final : public nsIDOMStorageManager,
   NS_DECL_NSIDOMSTORAGEMANAGER
   NS_DECL_NSILOCALSTORAGEMANAGER
 
- private:
-  ~LocalStorageManager2();
-
   /**
    * Helper to trigger an LSRequest and resolve/reject the provided promise when
    * the result comes in.  This routine is notable because the LSRequest
    * mechanism is normally used synchronously from content, but here it's
    * exposed asynchronously.
    */
-  nsresult StartRequest(Promise* aPromise, const LSRequestParams& aParams);
+  LSRequestChild* StartRequest(const LSRequestParams& aParams,
+                               LSRequestChildCallback* aCallback);
+
+ private:
+  ~LocalStorageManager2();
 
   /**
    * Helper to trigger an LSSimpleRequst and resolve/reject the provided promise

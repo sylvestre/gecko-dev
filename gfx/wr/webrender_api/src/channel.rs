@@ -2,11 +2,19 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use api::{Epoch, PipelineId};
+use crate::{Epoch, PipelineId};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
-use std::io::{Cursor, Read};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::io::{self, Cursor, Error, ErrorKind, Read};
 use std::mem;
-use std::sync::mpsc::Receiver;
+
+pub use crossbeam_channel as crossbeam;
+
+#[cfg(not(target_os = "windows"))]
+pub use crossbeam_channel::{Sender, Receiver};
+
+#[cfg(target_os = "windows")]
+pub use std::sync::mpsc::{Sender, Receiver};
 
 #[derive(Clone)]
 pub struct Payload {
@@ -39,9 +47,6 @@ impl Payload {
     }
     /// Convert the payload to a raw byte vector, in order for it to be
     /// efficiently shared via shmem, for example.
-    ///
-    /// TODO(emilio, #1049): Consider moving the IPC boundary to the
-    /// constellation in Servo and remove this complexity from WR.
     pub fn to_data(&self) -> Vec<u8> {
         Self::construct_data(self.epoch, self.pipeline_id, &self.display_list_data)
     }
@@ -71,23 +76,105 @@ impl Payload {
     }
 }
 
+pub type PayloadSender = MsgSender<Payload>;
 
-/// A helper to handle the interface difference between `IpcBytesSender`
-/// and `Sender<Vec<u8>>`.
-pub trait PayloadSenderHelperMethods {
-    fn send_payload(&self, data: Payload) -> Result<(), Error>;
+pub type PayloadReceiver = MsgReceiver<Payload>;
+
+pub struct MsgReceiver<T> {
+    rx: Receiver<T>,
 }
 
-pub trait PayloadReceiverHelperMethods {
-    fn recv_payload(&self) -> Result<Payload, Error>;
+impl<T> MsgReceiver<T> {
+    pub fn recv(&self) -> Result<T, Error> {
+        self.rx.recv().map_err(|e| io::Error::new(ErrorKind::Other, e.to_string()))
+    }
 
-    // For an MPSC receiver, this is the identity function,
-    // for an IPC receiver, it routes to a new mpsc receiver
-    fn to_mpsc_receiver(self) -> Receiver<Payload>;
+    pub fn to_crossbeam_receiver(self) -> Receiver<T> {
+        self.rx
+    }
 }
 
-#[cfg(not(feature = "ipc"))]
-include!("channel_mpsc.rs");
+#[derive(Clone)]
+pub struct MsgSender<T> {
+    tx: Sender<T>,
+}
 
-#[cfg(feature = "ipc")]
-include!("channel_ipc.rs");
+impl<T> MsgSender<T> {
+    pub fn send(&self, data: T) -> Result<(), Error> {
+        self.tx.send(data).map_err(|_| Error::new(ErrorKind::Other, "cannot send on closed channel"))
+    }
+}
+
+pub fn payload_channel() -> Result<(PayloadSender, PayloadReceiver), Error> {
+    let (tx, rx) = unbounded_channel();
+    Ok((PayloadSender { tx }, PayloadReceiver { rx }))
+}
+
+pub fn msg_channel<T>() -> Result<(MsgSender<T>, MsgReceiver<T>), Error> {
+    let (tx, rx) = unbounded_channel();
+    Ok((MsgSender { tx }, MsgReceiver { rx }))
+}
+
+///
+/// These serialize methods are needed to satisfy the compiler
+/// which uses these implementations for the recording tool.
+/// The recording tool only outputs messages that don't contain
+/// Senders or Receivers, so in theory these should never be
+/// called in the in-process config. If they are called,
+/// there may be a bug in the messages that the replay tool is writing.
+///
+
+impl<T> Serialize for MsgSender<T> {
+    fn serialize<S: Serializer>(&self, _: S) -> Result<S::Ok, S::Error> {
+        unreachable!();
+    }
+}
+
+impl<'de, T> Deserialize<'de> for MsgSender<T> {
+    fn deserialize<D>(_: D) -> Result<MsgSender<T>, D::Error>
+                      where D: Deserializer<'de> {
+        unreachable!();
+    }
+}
+
+/// A create a channel intended for one-shot uses, for example the channels
+/// created to block on a synchronous query and then discarded,
+#[cfg(not(target_os = "windows"))]
+pub fn single_msg_channel<T>() -> (Sender<T>, Receiver<T>) {
+    crossbeam_channel::bounded(1)
+}
+
+/// A fast MPMC message channel that can hold a fixed number of messages.
+///
+/// If the channel is full, the sender will block upon sending extra messages
+/// until the receiver has consumed some messages.
+/// The capacity parameter should be chosen either:
+///  - high enough to avoid blocking on the common cases,
+///  - or, on the contrary, using the blocking behavior as a means to prevent
+///    fast producers from building up work faster than it is consumed.
+#[cfg(not(target_os = "windows"))]
+pub fn fast_channel<T>(capacity: usize) -> (Sender<T>, Receiver<T>) {
+    crossbeam_channel::bounded(capacity)
+}
+
+/// Creates an MPMC channel that is a bit slower than the fast_channel but doesn't
+/// have a limit on the number of messages held at a given time and therefore
+/// doesn't block when sending.
+#[cfg(not(target_os = "windows"))]
+pub use crossbeam_channel::unbounded as unbounded_channel;
+
+
+#[cfg(target_os = "windows")]
+pub fn fast_channel<T>(_cap: usize) -> (Sender<T>, Receiver<T>) {
+    std::sync::mpsc::channel()
+}
+
+#[cfg(target_os = "windows")]
+pub fn unbounded_channel<T>() -> (Sender<T>, Receiver<T>) {
+    std::sync::mpsc::channel()
+}
+
+#[cfg(target_os = "windows")]
+pub fn single_msg_channel<T>() -> (Sender<T>, Receiver<T>) {
+    std::sync::mpsc::channel()
+}

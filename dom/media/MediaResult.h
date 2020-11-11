@@ -21,6 +21,7 @@ namespace mozilla {
 
 class MediaResult {
  public:
+  MediaResult() : mCode(NS_OK) {}
   MOZ_IMPLICIT MediaResult(nsresult aResult) : mCode(aResult) {}
   MediaResult(nsresult aResult, const nsACString& aMessage)
       : mCode(aResult), mMessage(aMessage) {}
@@ -67,11 +68,11 @@ class MediaResult {
 };
 
 #ifdef _MSC_VER
-#define RESULT_DETAIL(arg, ...) \
-  nsPrintfCString("%s: " arg, __FUNCSIG__, ##__VA_ARGS__)
+#  define RESULT_DETAIL(arg, ...) \
+    nsPrintfCString("%s: " arg, __FUNCSIG__, ##__VA_ARGS__)
 #else
-#define RESULT_DETAIL(arg, ...) \
-  nsPrintfCString("%s: " arg, __PRETTY_FUNCTION__, ##__VA_ARGS__)
+#  define RESULT_DETAIL(arg, ...) \
+    nsPrintfCString("%s: " arg, __PRETTY_FUNCTION__, ##__VA_ARGS__)
 #endif
 
 }  // namespace mozilla

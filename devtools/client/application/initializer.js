@@ -4,23 +4,42 @@
 
 "use strict";
 
-const { BrowserLoader } = ChromeUtils.import("resource://devtools/client/shared/browser-loader.js", {});
+const { BrowserLoader } = ChromeUtils.import(
+  "resource://devtools/client/shared/browser-loader.js"
+);
 const require = BrowserLoader({
   baseURI: "resource://devtools/client/application/",
   window,
 }).require;
 
 const { createFactory } = require("devtools/client/shared/vendor/react");
-const { render, unmountComponentAtNode } = require("devtools/client/shared/vendor/react-dom");
-const Provider = createFactory(require("devtools/client/shared/vendor/react-redux").Provider);
+const {
+  render,
+  unmountComponentAtNode,
+} = require("devtools/client/shared/vendor/react-dom");
+const Provider = createFactory(
+  require("devtools/client/shared/vendor/react-redux").Provider
+);
 const { bindActionCreators } = require("devtools/client/shared/vendor/redux");
-const { L10nRegistry } = require("resource://gre/modules/L10nRegistry.jsm");
-const Services = require("Services");
+const { l10n } = require("devtools/client/application/src/modules/l10n");
 
-const { configureStore } = require("./src/create-store");
-const actions = require("./src/actions/index");
+const {
+  configureStore,
+} = require("devtools/client/application/src/create-store");
+const actions = require("devtools/client/application/src/actions/index");
 
-const App = createFactory(require("./src/components/App"));
+const { WorkersListener } = require("devtools/client/shared/workers-listener");
+const Telemetry = require("devtools/client/shared/telemetry");
+
+const {
+  services,
+} = require("devtools/client/application/src/modules/application-services");
+
+const App = createFactory(
+  require("devtools/client/application/src/components/App")
+);
+
+const { safeAsyncMethod } = require("devtools/shared/async-utils");
 
 /**
  * Global Application object in this panel. This object is expected by panel.js and is
@@ -28,77 +47,112 @@ const App = createFactory(require("./src/components/App"));
  */
 window.Application = {
   async bootstrap({ toolbox, panel }) {
-    this.updateWorkers = this.updateWorkers.bind(this);
+    // bind event handlers to `this`
+    this.handleOnNavigate = this.handleOnNavigate.bind(this);
     this.updateDomain = this.updateDomain.bind(this);
+    this.onTargetAvailable = this.onTargetAvailable.bind(this);
+    this.onTargetDestroyed = this.onTargetDestroyed.bind(this);
 
-    this.mount = document.querySelector("#mount");
+    // wrap updateWorkers to swallow rejections occurring after destroy
+    this.safeUpdateWorkers = safeAsyncMethod(
+      () => this.updateWorkers(),
+      () => this._destroyed
+    );
+
     this.toolbox = toolbox;
+    // NOTE: the client is the same through the lifecycle of the toolbox, even
+    // though we get it from toolbox.target
     this.client = toolbox.target.client;
 
-    this.store = configureStore();
+    this.telemetry = new Telemetry();
+    this.store = configureStore(this.telemetry, toolbox.sessionId);
     this.actions = bindActionCreators(actions, this.store.dispatch);
 
-    const serviceContainer = {
-      selectTool(toolId) {
-        return toolbox.selectTool(toolId);
-      },
-    };
-    this.toolbox.target.activeTab.on("workerListChanged", this.updateWorkers);
-    this.client.mainRoot.on("serviceWorkerRegistrationListChanged", this.updateWorkers);
-    this.client.addListener("registration-changed", this.updateWorkers);
-    this.client.mainRoot.on("processListChanged", this.updateWorkers);
-    this.toolbox.target.on("navigate", this.updateDomain);
+    services.init(this.toolbox);
+    await l10n.init(["devtools/client/application.ftl"]);
 
-    this.updateDomain();
     await this.updateWorkers();
+    this.workersListener = new WorkersListener(this.client.mainRoot);
+    this.workersListener.addListener(this.safeUpdateWorkers);
 
-    const fluentBundles = await this.createFluentBundles();
+    const deviceFront = await this.client.mainRoot.getFront("device");
+    const { canDebugServiceWorkers } = await deviceFront.getDescription();
+    this.actions.updateCanDebugWorkers(
+      canDebugServiceWorkers && services.features.doesDebuggerSupportWorkers
+    );
+
+    // awaiting for watchTargets will return the targets that are currently
+    // available, so we can have our first render with all the data ready
+    await this.toolbox.targetList.watchTargets(
+      [this.toolbox.targetList.TYPES.FRAME],
+      this.onTargetAvailable,
+      this.onTargetDestroyed
+    );
 
     // Render the root Application component.
-    const app = App({ client: this.client, fluentBundles, serviceContainer });
+    this.mount = document.querySelector("#mount");
+    const app = App({
+      client: this.client,
+      fluentBundles: l10n.getBundles(),
+    });
     render(Provider({ store: this.store }, app), this.mount);
   },
 
-  /**
-   * Retrieve message contexts for the current locales, and return them as an array of
-   * FluentBundles elements.
-   */
-  async createFluentBundles() {
-    const locales = Services.locale.appLocalesAsBCP47;
-    const generator =
-      L10nRegistry.generateBundles(locales, ["devtools/application.ftl"]);
-
-    // Return value of generateBundles is a generator and should be converted to
-    // a sync iterable before using it with React.
-    const contexts = [];
-    for await (const message of generator) {
-      contexts.push(message);
-    }
-
-    return contexts;
+  handleOnNavigate() {
+    this.updateDomain();
+    this.actions.resetManifest();
   },
 
   async updateWorkers() {
-    const { service } = await this.client.mainRoot.listAllWorkers();
-    this.actions.updateWorkers(service);
+    const registrationsWithWorkers = await this.client.mainRoot.listAllServiceWorkers();
+    this.actions.updateWorkers(registrationsWithWorkers);
   },
 
   updateDomain() {
     this.actions.updateDomain(this.toolbox.target.url);
   },
 
-  destroy() {
-    this.toolbox.target.activeTab.off("workerListChanged", this.updateWorkers);
-    this.client.mainRoot.off("serviceWorkerRegistrationListChanged",
-      this.updateWorkers);
-    this.client.removeListener("registration-changed", this.updateWorkers);
-    this.client.mainRoot.off("processListChanged", this.updateWorkers);
+  setupTarget(targetFront) {
+    this.handleOnNavigate(); // update domain and manifest for the new target
+    targetFront.on("navigate", this.handleOnNavigate);
+  },
 
-    this.toolbox.target.off("navigate", this.updateDomain);
+  cleanUpTarget(targetFront) {
+    targetFront.off("navigate", this.handleOnNavigate);
+  },
+
+  onTargetAvailable({ targetFront }) {
+    if (!targetFront.isTopLevel) {
+      return; // ignore target frames that are not top level for now
+    }
+
+    this.setupTarget(targetFront);
+  },
+
+  onTargetDestroyed({ targetFront }) {
+    if (!targetFront.isTopLevel) {
+      return; // ignore target frames that are not top level for now
+    }
+
+    this.cleanUpTarget(targetFront);
+  },
+
+  destroy() {
+    this.workersListener.removeListener();
+
+    this.toolbox.targetList.unwatchTargets(
+      [this.toolbox.targetList.TYPES.FRAME],
+      this.onTargetAvailable,
+      this.onTargetDestroyed
+    );
+
+    this.cleanUpTarget(this.toolbox.target);
 
     unmountComponentAtNode(this.mount);
     this.mount = null;
     this.toolbox = null;
     this.client = null;
+    this.workersListener = null;
+    this._destroyed = true;
   },
 };

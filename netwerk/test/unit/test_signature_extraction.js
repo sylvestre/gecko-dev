@@ -10,24 +10,34 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 //// Globals
+"use strict";
 
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
-
-ChromeUtils.defineModuleGetter(this, "FileUtils",
-                               "resource://gre/modules/FileUtils.jsm");
-ChromeUtils.defineModuleGetter(this, "NetUtil",
-                               "resource://gre/modules/NetUtil.jsm");
-ChromeUtils.defineModuleGetter(this, "FileTestUtils",
-                               "resource://testing-common/FileTestUtils.jsm");
+ChromeUtils.defineModuleGetter(
+  this,
+  "FileUtils",
+  "resource://gre/modules/FileUtils.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "NetUtil",
+  "resource://gre/modules/NetUtil.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "FileTestUtils",
+  "resource://testing-common/FileTestUtils.jsm"
+);
 
 const BackgroundFileSaverOutputStream = Components.Constructor(
-      "@mozilla.org/network/background-file-saver;1?mode=outputstream",
-      "nsIBackgroundFileSaver");
+  "@mozilla.org/network/background-file-saver;1?mode=outputstream",
+  "nsIBackgroundFileSaver"
+);
 
 const StringInputStream = Components.Constructor(
-      "@mozilla.org/io/string-input-stream;1",
-      "nsIStringInputStream",
-      "setData");
+  "@mozilla.org/io/string-input-stream;1",
+  "nsIStringInputStream",
+  "setData"
+);
 
 const TEST_FILE_NAME_1 = "test-backgroundfilesaver-1.txt";
 
@@ -54,14 +64,12 @@ function getTempFile(leafName) {
 function promiseSaverComplete(aSaver, aOnTargetChangeFn) {
   return new Promise((resolve, reject) => {
     aSaver.observer = {
-      onTargetChange: function BFSO_onSaveComplete(aSaver, aTarget)
-      {
+      onTargetChange: function BFSO_onSaveComplete(aSaver, aTarget) {
         if (aOnTargetChangeFn) {
           aOnTargetChangeFn(aTarget);
         }
       },
-      onSaveComplete: function BFSO_onSaveComplete(aSaver, aStatus)
-      {
+      onSaveComplete: function BFSO_onSaveComplete(aSaver, aStatus) {
         if (Components.isSuccessCode(aStatus)) {
           resolve();
         } else {
@@ -88,22 +96,36 @@ function promiseSaverComplete(aSaver, aOnTargetChangeFn) {
  */
 function promiseCopyToSaver(aSourceString, aSaverOutputStream, aCloseWhenDone) {
   return new Promise((resolve, reject) => {
-    let inputStream = new StringInputStream(aSourceString, aSourceString.length);
-    let copier = Cc["@mozilla.org/network/async-stream-copier;1"]
-                 .createInstance(Ci.nsIAsyncStreamCopier);
-    copier.init(inputStream, aSaverOutputStream, null, false, true, 0x8000, true,
-                aCloseWhenDone);
-    copier.asyncCopy({
-      onStartRequest: function () { },
-      onStopRequest: function (aRequest, aContext, aStatusCode)
+    let inputStream = new StringInputStream(
+      aSourceString,
+      aSourceString.length
+    );
+    let copier = Cc[
+      "@mozilla.org/network/async-stream-copier;1"
+    ].createInstance(Ci.nsIAsyncStreamCopier);
+    copier.init(
+      inputStream,
+      aSaverOutputStream,
+      null,
+      false,
+      true,
+      0x8000,
+      true,
+      aCloseWhenDone
+    );
+    copier.asyncCopy(
       {
-        if (Components.isSuccessCode(aStatusCode)) {
-          resolve();
-        } else {
-          reject(new Components.Exception(aResult));
-        }
+        onStartRequest() {},
+        onStopRequest(aRequest, aContext, aStatusCode) {
+          if (Components.isSuccessCode(aStatusCode)) {
+            resolve();
+          } else {
+            reject(new Components.Exception(aStatusCode));
+          }
+        },
       },
-    }, null);
+      null
+    );
   });
 }
 
@@ -112,32 +134,26 @@ var gStillRunning = true;
 ////////////////////////////////////////////////////////////////////////////////
 //// Tests
 
-function run_test()
-{
-  run_next_test();
-}
-
-add_task(function test_setup()
-{
+add_task(function test_setup() {
   // Wait 10 minutes, that is half of the external xpcshell timeout.
   do_timeout(10 * 60 * 1000, function() {
     if (gStillRunning) {
       do_throw("Test timed out.");
     }
-  })
+  });
 });
 
 function readFileToString(aFilename) {
   let f = do_get_file(aFilename);
-  let stream = Cc["@mozilla.org/network/file-input-stream;1"]
-                 .createInstance(Ci.nsIFileInputStream);
+  let stream = Cc["@mozilla.org/network/file-input-stream;1"].createInstance(
+    Ci.nsIFileInputStream
+  );
   stream.init(f, -1, 0, 0);
   let buf = NetUtil.readInputStreamToString(stream, stream.available());
   return buf;
 }
 
-add_task(async function test_signature()
-{
+add_task(async function test_signature() {
   // Check that we get a signature if the saver is finished on Windows.
   let destFile = getTempFile(TEST_FILE_NAME_1);
 
@@ -161,24 +177,22 @@ add_task(async function test_signature()
   saver.finish(Cr.NS_OK);
   await completionPromise;
 
-  // There's only one nsIX509CertList in the signature array.
+  // There's only one Array of certs(raw bytes) in the signature array.
   Assert.equal(1, saver.signatureInfo.length);
-  let certLists = saver.signatureInfo.enumerate();
-  Assert.ok(certLists.hasMoreElements());
-  let certList = certLists.getNext().QueryInterface(Ci.nsIX509CertList);
-  Assert.ok(!certLists.hasMoreElements());
+  let certLists = saver.signatureInfo;
+  Assert.ok(certLists.length === 1);
 
-  // Check that it has 3 certs.
-  let certs = certList.getEnumerator();
-  Assert.ok(certs.hasMoreElements());
-  let signer = certs.getNext().QueryInterface(Ci.nsIX509Cert);
-  Assert.ok(certs.hasMoreElements());
-  let issuer = certs.getNext().QueryInterface(Ci.nsIX509Cert);
-  Assert.ok(certs.hasMoreElements());
-  let root = certs.getNext().QueryInterface(Ci.nsIX509Cert);
-  Assert.ok(!certs.hasMoreElements());
+  // Check that it has 3 certs(raw bytes).
+  let certs = certLists[0];
+  Assert.ok(certs.length === 3);
 
-  // Check that the certs have expected strings attached.
+  const certDB = Cc["@mozilla.org/security/x509certdb;1"].getService(
+    Ci.nsIX509CertDB
+  );
+  let signer = certDB.constructX509(certs[0]);
+  let issuer = certDB.constructX509(certs[1]);
+  let root = certDB.constructX509(certs[2]);
+
   let organization = "Microsoft Corporation";
   Assert.equal("Microsoft Corporation", signer.commonName);
   Assert.equal(organization, signer.organization);
@@ -196,7 +210,6 @@ add_task(async function test_signature()
   destFile.remove(false);
 });
 
-add_task(function test_teardown()
-{
+add_task(function test_teardown() {
   gStillRunning = false;
 });

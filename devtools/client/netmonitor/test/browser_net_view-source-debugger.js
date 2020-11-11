@@ -5,8 +5,11 @@
 
 // There are shutdown issues for which multiple rejections are left uncaught.
 // See bug 1018184 for resolving these issues.
-const { PromiseTestUtils } = scopedCuImport("resource://testing-common/PromiseTestUtils.jsm");
-PromiseTestUtils.whitelistRejectionsGlobally(/Component not initialized/);
+const { PromiseTestUtils } = ChromeUtils.import(
+  "resource://testing-common/PromiseTestUtils.jsm"
+);
+PromiseTestUtils.allowMatchingRejectionsGlobally(/Component not initialized/);
+PromiseTestUtils.allowMatchingRejectionsGlobally(/Connection closed/);
 
 /**
  * Tests if on clicking the stack frame, UI switches to the Debugger panel.
@@ -15,10 +18,9 @@ add_task(async function() {
   // Set a higher panel height in order to get full CodeMirror content
   await pushPref("devtools.toolbox.footer.height", 400);
 
-  // Async stacks aren't on by default in all builds
-  await pushPref("javascript.options.asyncstack", true);
-
-  const { tab, monitor, toolbox } = await initNetMonitor(POST_DATA_URL);
+  const { tab, monitor, toolbox } = await initNetMonitor(POST_DATA_URL, {
+    requestCount: 1,
+  });
   info("Starting test... ");
 
   const { document, store, windowRequire } = monitor.panelWin;
@@ -31,10 +33,16 @@ add_task(async function() {
   info("Clicking stack-trace tab and waiting for stack-trace panel to open");
   const waitForTab = waitForDOM(document, "#stack-trace-tab");
   // Click on the first request
-  EventUtils.sendMouseEvent({ type: "mousedown" },
-    document.querySelector(".request-list-item"));
+  EventUtils.sendMouseEvent(
+    { type: "mousedown" },
+    document.querySelector(".request-list-item")
+  );
   await waitForTab;
-  const waitForPanel = waitForDOM(document, "#stack-trace-panel .frame-link", 5);
+  const waitForPanel = waitForDOM(
+    document,
+    "#stack-trace-panel .frame-link",
+    5
+  );
   // Open the stack-trace tab for that request
   document.getElementById("stack-trace-tab").click();
   await waitForPanel;

@@ -83,6 +83,7 @@ class ServiceWorkerContainer final : public DOMEventTargetHelper {
 
   already_AddRefed<Promise> Register(const nsAString& aScriptURL,
                                      const RegistrationOptions& aOptions,
+                                     const CallerType aCallerType,
                                      ErrorResult& aRv);
 
   already_AddRefed<ServiceWorker> GetController();
@@ -123,9 +124,9 @@ class ServiceWorkerContainer final : public DOMEventTargetHelper {
   // message if the storage check fails.  This method takes an optional
   // callback that can be used to report the storage failure to the
   // devtools console.
-  nsIGlobalObject* GetGlobalIfValid(ErrorResult& aRv,
-                                    const std::function<void(nsIDocument*)>&&
-                                        aStorageFailureCB = nullptr) const;
+  nsIGlobalObject* GetGlobalIfValid(
+      ErrorResult& aRv,
+      const std::function<void(Document*)>&& aStorageFailureCB = nullptr) const;
 
   struct ReceivedMessage;
 
@@ -139,9 +140,13 @@ class ServiceWorkerContainer final : public DOMEventTargetHelper {
 
   void DispatchMessage(RefPtr<ReceivedMessage> aMessage);
 
-  static bool FillInMessageEventInit(JSContext* aCx, nsIGlobalObject* aGlobal,
-                                     ReceivedMessage& aMessage,
-                                     MessageEventInit& aInit, ErrorResult& aRv);
+  // When it fails, returning boolean means whether it's because deserailization
+  // failed or not.
+  static Result<Ok, bool> FillInMessageEventInit(JSContext* aCx,
+                                                 nsIGlobalObject* aGlobal,
+                                                 ReceivedMessage& aMessage,
+                                                 MessageEventInit& aInit,
+                                                 ErrorResult& aRv);
 
   RefPtr<Inner> mInner;
 

@@ -7,7 +7,6 @@
 #ifndef mozilla_CamerasParent_h
 #define mozilla_CamerasParent_h
 
-#include "nsIObserver.h"
 #include "VideoEngine.h"
 #include "mozilla/camera/PCamerasParent.h"
 #include "mozilla/ipc/Shmem.h"
@@ -27,10 +26,6 @@
 #include "base/thread.h"
 
 namespace mozilla {
-
-namespace ipc {
-class PrincipalInfo;
-}
 
 namespace camera {
 
@@ -65,14 +60,14 @@ class InputObserver : public webrtc::VideoInputFeedBack {
   friend CamerasParent;
 
  private:
-  ~InputObserver() {}
+  ~InputObserver() = default;
 
   RefPtr<CamerasParent> mParent;
 };
 
-class CamerasParent final : public PCamerasParent, public nsIObserver {
+class CamerasParent final : public PCamerasParent,
+                            public nsIAsyncShutdownBlocker {
   NS_DECL_THREADSAFE_ISUPPORTS
-  NS_DECL_NSIOBSERVER
 
  public:
   static already_AddRefed<CamerasParent> Create();
@@ -80,7 +75,7 @@ class CamerasParent final : public PCamerasParent, public nsIObserver {
   // Messages received form the child. These run on the IPC/PBackground thread.
   mozilla::ipc::IPCResult RecvAllocateCaptureDevice(
       const CaptureEngine& aEngine, const nsCString& aUnique_idUTF8,
-      const ipc::PrincipalInfo& aPrincipalInfo) override;
+      const uint64_t& aWindowID) override;
   mozilla::ipc::IPCResult RecvReleaseCaptureDevice(const CaptureEngine&,
                                                    const int&) override;
   mozilla::ipc::IPCResult RecvNumberOfCaptureDevices(
@@ -130,8 +125,14 @@ class CamerasParent final : public PCamerasParent, public nsIObserver {
   void CloseEngines();
   void StopIPC();
   void StopVideoCapture();
-  // Can't take already_AddRefed because it can fail in stupid ways.
-  nsresult DispatchToVideoCaptureThread(Runnable* event);
+  nsresult DispatchToVideoCaptureThread(RefPtr<Runnable> event);
+  NS_IMETHOD BlockShutdown(nsIAsyncShutdownClient*) override;
+  NS_IMETHOD GetName(nsAString& aName) override {
+    aName = mName;
+    return NS_OK;
+  }
+  NS_IMETHOD GetState(nsIPropertyBag**) override { return NS_OK; }
+  static nsString GetNewName();
 
   // sEngines will be accessed by VideoCapture thread only
   // sNumOfCamerasParent, sNumOfOpenCamerasParentEngines, and
@@ -143,6 +144,7 @@ class CamerasParent final : public PCamerasParent, public nsIObserver {
   static int32_t sNumOfOpenCamerasParentEngines;
   static int32_t sNumOfCamerasParents;
   nsTArray<CallbackHelper*> mCallbacks;
+  nsString mName;
 
   // image buffers
   ShmemPool mShmemPool;

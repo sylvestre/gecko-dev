@@ -9,13 +9,12 @@
 #include "mozilla/dom/ContentChild.h"
 #include "mozilla/hal_sandbox/PHalChild.h"
 #include "mozilla/hal_sandbox/PHalParent.h"
-#include "mozilla/dom/TabParent.h"
-#include "mozilla/dom/TabChild.h"
+#include "mozilla/dom/BrowserParent.h"
+#include "mozilla/dom/BrowserChild.h"
 #include "mozilla/fallback/FallbackScreenConfiguration.h"
 #include "mozilla/EnumeratedRange.h"
 #include "mozilla/Observer.h"
 #include "mozilla/Unused.h"
-#include "nsAutoPtr.h"
 #include "WindowIdentifier.h"
 
 using namespace mozilla;
@@ -37,23 +36,22 @@ static PHalChild* Hal() {
   return sHal;
 }
 
-void Vibrate(const nsTArray<uint32_t>& pattern, const WindowIdentifier& id) {
+void Vibrate(const nsTArray<uint32_t>& pattern, WindowIdentifier&& id) {
   HAL_LOG("Vibrate: Sending to parent process.");
 
-  AutoTArray<uint32_t, 8> p(pattern);
-
-  WindowIdentifier newID(id);
+  WindowIdentifier newID(std::move(id));
   newID.AppendProcessID();
-  Hal()->SendVibrate(p, newID.AsArray(), TabChild::GetFrom(newID.GetWindow()));
+  Hal()->SendVibrate(pattern, newID.AsArray(),
+                     BrowserChild::GetFrom(newID.GetWindow()));
 }
 
-void CancelVibrate(const WindowIdentifier& id) {
+void CancelVibrate(WindowIdentifier&& id) {
   HAL_LOG("CancelVibrate: Sending to parent process.");
 
-  WindowIdentifier newID(id);
+  WindowIdentifier newID(std::move(id));
   newID.AppendProcessID();
   Hal()->SendCancelVibrate(newID.AsArray(),
-                           TabChild::GetFrom(newID.GetWindow()));
+                           BrowserChild::GetFrom(newID.GetWindow()));
 }
 
 void EnableBatteryNotifications() { Hal()->SendEnableBatteryNotifications(); }
@@ -84,18 +82,13 @@ void GetCurrentScreenConfiguration(ScreenConfiguration* aScreenConfiguration) {
   fallback::GetCurrentScreenConfiguration(aScreenConfiguration);
 }
 
-bool LockScreenOrientation(const ScreenOrientation& aOrientation) {
+bool LockScreenOrientation(const hal::ScreenOrientation& aOrientation) {
   bool allowed;
   Hal()->SendLockScreenOrientation(aOrientation, &allowed);
   return allowed;
 }
 
-void UnlockScreenOrientation() {
-  // Don't send this message from both the middleman and recording processes.
-  if (!recordreplay::IsMiddleman()) {
-    Hal()->SendUnlockScreenOrientation();
-  }
-}
+void UnlockScreenOrientation() { Hal()->SendUnlockScreenOrientation(); }
 
 void EnableSensorNotifications(SensorType aSensor) {
   Hal()->SendEnableSensorNotifications(aSensor);
@@ -163,28 +156,26 @@ class HalParent : public PHalParent,
   }
 
   virtual mozilla::ipc::IPCResult RecvVibrate(
-      InfallibleTArray<unsigned int>&& pattern, InfallibleTArray<uint64_t>&& id,
+      nsTArray<unsigned int>&& pattern, nsTArray<uint64_t>&& id,
       PBrowserParent* browserParent) override {
     // We give all content vibration permission.
-    //    TabParent *tabParent = TabParent::GetFrom(browserParent);
+    //    BrowserParent *browserParent = BrowserParent::GetFrom(browserParent);
     /* xxxkhuey wtf
     nsCOMPtr<nsIDOMWindow> window =
-      do_QueryInterface(tabParent->GetBrowserDOMWindow());
+      do_QueryInterface(browserParent->GetBrowserDOMWindow());
     */
-    WindowIdentifier newID(id, nullptr);
-    hal::Vibrate(pattern, newID);
+    hal::Vibrate(pattern, WindowIdentifier(std::move(id), nullptr));
     return IPC_OK();
   }
 
   virtual mozilla::ipc::IPCResult RecvCancelVibrate(
-      InfallibleTArray<uint64_t>&& id, PBrowserParent* browserParent) override {
-    // TabParent *tabParent = TabParent::GetFrom(browserParent);
+      nsTArray<uint64_t>&& id, PBrowserParent* browserParent) override {
+    // BrowserParent *browserParent = BrowserParent::GetFrom(browserParent);
     /* XXXkhuey wtf
     nsCOMPtr<nsIDOMWindow> window =
-      tabParent->GetBrowserDOMWindow();
+      browserParent->GetBrowserDOMWindow();
     */
-    WindowIdentifier newID(id, nullptr);
-    hal::CancelVibrate(newID);
+    hal::CancelVibrate(WindowIdentifier(std::move(id), nullptr));
     return IPC_OK();
   }
 

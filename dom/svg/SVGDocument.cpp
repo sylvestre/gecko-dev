@@ -7,17 +7,12 @@
 #include "mozilla/dom/SVGDocument.h"
 
 #include "mozilla/css/Loader.h"
-#include "nsICategoryManager.h"
-#include "nsISimpleEnumerator.h"
-#include "nsIStyleSheetService.h"
-#include "nsISupportsPrimitives.h"
-#include "nsLayoutStylesheetCache.h"
 #include "nsNetUtil.h"
 #include "nsServiceManagerUtils.h"
 #include "nsString.h"
 #include "nsLiteralString.h"
 #include "mozilla/dom/Element.h"
-#include "nsSVGElement.h"
+#include "SVGElement.h"
 #include "mozilla/StyleSheet.h"
 #include "mozilla/StyleSheetInlines.h"
 
@@ -48,7 +43,7 @@ nsresult SVGDocument::Clone(dom::NodeInfo* aNodeInfo, nsINode** aResult) const {
 ////////////////////////////////////////////////////////////////////////
 // Exported creation functions
 
-nsresult NS_NewSVGDocument(nsIDocument** aInstancePtrResult) {
+nsresult NS_NewSVGDocument(Document** aInstancePtrResult) {
   RefPtr<SVGDocument> doc = new SVGDocument();
 
   nsresult rv = doc->Init();

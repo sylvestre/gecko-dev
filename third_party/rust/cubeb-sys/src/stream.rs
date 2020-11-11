@@ -8,12 +8,14 @@ use channel::cubeb_channel_layout;
 use device::cubeb_device;
 use format::cubeb_sample_format;
 use std::{fmt, mem};
-use std::os::raw::{c_float, c_int, c_uint, c_void};
+use std::os::raw::{c_float, c_int, c_uint, c_void, c_char};
 
 cubeb_enum! {
     pub enum cubeb_stream_prefs {
-        CUBEB_STREAM_PREF_NONE     = 0x00,
+        CUBEB_STREAM_PREF_NONE = 0x00,
         CUBEB_STREAM_PREF_LOOPBACK = 0x01,
+        CUBEB_STREAM_PREF_DISABLE_DEVICE_SWITCHING = 0x02,
+        CUBEB_STREAM_PREF_VOICE = 0x04,
     }
 }
 
@@ -64,8 +66,9 @@ extern "C" {
     pub fn cubeb_stream_reset_default_device(stream: *mut cubeb_stream) -> c_int;
     pub fn cubeb_stream_get_position(stream: *mut cubeb_stream, position: *mut u64) -> c_int;
     pub fn cubeb_stream_get_latency(stream: *mut cubeb_stream, latency: *mut c_uint) -> c_int;
+    pub fn cubeb_stream_get_input_latency(stream: *mut cubeb_stream, latency: *mut c_uint) -> c_int;
     pub fn cubeb_stream_set_volume(stream: *mut cubeb_stream, volume: c_float) -> c_int;
-    pub fn cubeb_stream_set_panning(stream: *mut cubeb_stream, panning: c_float) -> c_int;
+    pub fn cubeb_stream_set_name(stream: *mut cubeb_stream, name: *const c_char) -> c_int;
     pub fn cubeb_stream_get_current_device(
         stream: *mut cubeb_stream,
         device: *mut *mut cubeb_device,

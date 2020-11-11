@@ -11,13 +11,15 @@ extern crate winit;
 #[path = "common/boilerplate.rs"]
 mod boilerplate;
 
-use boilerplate::{Example, HandyDandyRectBuilder};
+use crate::boilerplate::{Example, HandyDandyRectBuilder};
 use rayon::{ThreadPool, ThreadPoolBuilder};
 use rayon::prelude::*;
 use std::collections::HashMap;
 use std::sync::Arc;
-use webrender::api::{self, DisplayListBuilder, DocumentId, PipelineId, RenderApi, Transaction};
-use webrender::api::ColorF;
+use webrender::api::{self, DisplayListBuilder, DocumentId, PipelineId, PrimitiveFlags};
+use webrender::api::{ColorF, CommonItemProperties, SpaceAndClipInfo, ImageDescriptorFlags};
+use webrender::api::units::*;
+use webrender::render_api::*;
 use webrender::euclid::size2;
 
 // This example shows how to implement a very basic BlobImageHandler that can only render
@@ -47,7 +49,7 @@ fn deserialize_blob(blob: &[u8]) -> Result<ImageRenderingCommands, ()> {
 fn render_blob(
     commands: Arc<ImageRenderingCommands>,
     descriptor: &api::BlobImageDescriptor,
-    tile: Option<api::TileOffset>,
+    tile: TileOffset,
 ) -> api::BlobImageResult {
     let color = *commands;
 
@@ -61,10 +63,7 @@ fn render_blob(
 
     // Generate a per-tile pattern to see it in the demo. For a real use case it would not
     // make sense for the rendered content to depend on its tile.
-    let tile_checker = match tile {
-        Some(tile) => (tile.x % 2 == 0) != (tile.y % 2 == 0),
-        None => true,
-    };
+    let tile_checker = (tile.x % 2 == 0) != (tile.y % 2 == 0);
 
     let [w, h] = descriptor.rect.size.to_array();
     let offset = descriptor.rect.origin;
@@ -135,12 +134,18 @@ impl CheckerboardRenderer {
 }
 
 impl api::BlobImageHandler for CheckerboardRenderer {
-    fn add(&mut self, key: api::BlobImageKey, cmds: Arc<api::BlobImageData>, _: Option<api::TileSize>) {
+    fn create_similar(&self) -> Box<dyn api::BlobImageHandler> {
+        Box::new(CheckerboardRenderer::new(Arc::clone(&self.workers)))
+    }
+
+    fn add(&mut self, key: api::BlobImageKey, cmds: Arc<api::BlobImageData>,
+           _visible_rect: &DeviceIntRect, _: api::TileSize) {
         self.image_cmds
             .insert(key, Arc::new(deserialize_blob(&cmds[..]).unwrap()));
     }
 
-    fn update(&mut self, key: api::BlobImageKey, cmds: Arc<api::BlobImageData>, _dirty_rect: &api::BlobDirtyRect) {
+    fn update(&mut self, key: api::BlobImageKey, cmds: Arc<api::BlobImageData>,
+              _visible_rect: &DeviceIntRect, _dirty_rect: &BlobDirtyRect) {
         // Here, updating is just replacing the current version of the commands with
         // the new one (no incremental updates).
         self.image_cmds
@@ -153,14 +158,15 @@ impl api::BlobImageHandler for CheckerboardRenderer {
 
     fn prepare_resources(
         &mut self,
-        _services: &api::BlobImageResources,
+        _services: &dyn api::BlobImageResources,
         _requests: &[api::BlobImageParams],
     ) {}
 
+    fn enable_multithreading(&mut self, _: bool) {}
     fn delete_font(&mut self, _font: api::FontKey) {}
     fn delete_font_instance(&mut self, _instance: api::FontInstanceKey) {}
     fn clear_namespace(&mut self, _namespace: api::IdNamespace) {}
-    fn create_blob_rasterizer(&mut self) -> Box<api::AsyncBlobImageRasterizer> {
+    fn create_blob_rasterizer(&mut self) -> Box<dyn api::AsyncBlobImageRasterizer> {
         Box::new(Rasterizer {
             workers: Arc::clone(&self.workers),
             image_cmds: self.image_cmds.clone(),
@@ -196,56 +202,63 @@ struct App {}
 impl Example for App {
     fn render(
         &mut self,
-        api: &RenderApi,
+        api: &mut RenderApi,
         builder: &mut DisplayListBuilder,
         txn: &mut Transaction,
-        _framebuffer_size: api::DeviceIntSize,
-        _pipeline_id: PipelineId,
+        _device_size: DeviceIntSize,
+        pipeline_id: PipelineId,
         _document_id: DocumentId,
     ) {
+        let space_and_clip = SpaceAndClipInfo::root_scroll(pipeline_id);
+
+        builder.push_simple_stacking_context(
+            LayoutPoint::zero(),
+            space_and_clip.spatial_id,
+            PrimitiveFlags::IS_BACKFACE_VISIBLE,
+        );
+
+        let size1 = DeviceIntSize::new(500, 500);
         let blob_img1 = api.generate_blob_image_key();
         txn.add_blob_image(
             blob_img1,
-            api::ImageDescriptor::new(500, 500, api::ImageFormat::BGRA8, true, false),
+            api::ImageDescriptor::new(
+                size1.width,
+                size1.height,
+                api::ImageFormat::BGRA8,
+                ImageDescriptorFlags::IS_OPAQUE,
+            ),
             serialize_blob(api::ColorU::new(50, 50, 150, 255)),
+            size1.into(),
             Some(128),
         );
-
-        let blob_img2 = api.generate_blob_image_key();
-        txn.add_blob_image(
-            blob_img2,
-            api::ImageDescriptor::new(200, 200, api::ImageFormat::BGRA8, true, false),
-            serialize_blob(api::ColorU::new(50, 150, 50, 255)),
-            None,
-        );
-
-        let bounds = api::LayoutRect::new(api::LayoutPoint::zero(), builder.content_size());
-        let info = api::LayoutPrimitiveInfo::new(bounds);
-        builder.push_stacking_context(
-            &info,
-            None,
-            api::TransformStyle::Flat,
-            api::MixBlendMode::Normal,
-            &[],
-            api::RasterSpace::Screen,
-        );
-
-        let info = api::LayoutPrimitiveInfo::new((30, 30).by(500, 500));
+        let bounds = (30, 30).by(size1.width, size1.height);
         builder.push_image(
-            &info,
-            api::LayoutSize::new(500.0, 500.0),
-            api::LayoutSize::new(0.0, 0.0),
+            &CommonItemProperties::new(bounds, space_and_clip),
+            bounds,
             api::ImageRendering::Auto,
             api::AlphaType::PremultipliedAlpha,
             blob_img1.as_image(),
             ColorF::WHITE,
         );
 
-        let info = api::LayoutPrimitiveInfo::new((600, 600).by(200, 200));
+        let size2 = DeviceIntSize::new(256, 256);
+        let blob_img2 = api.generate_blob_image_key();
+        txn.add_blob_image(
+            blob_img2,
+            api::ImageDescriptor::new(
+                size2.width,
+                size2.height,
+                api::ImageFormat::BGRA8,
+                ImageDescriptorFlags::IS_OPAQUE,
+            ),
+            serialize_blob(api::ColorU::new(50, 150, 50, 255)),
+            size2.into(),
+            None,
+        );
+        let bounds = (600, 600).by(size2.width, size2.height);
         builder.push_image(
-            &info,
-            api::LayoutSize::new(200.0, 200.0),
-            api::LayoutSize::new(0.0, 0.0),
+            &CommonItemProperties::new(bounds, space_and_clip),
+            bounds,
             api::ImageRendering::Auto,
             api::AlphaType::PremultipliedAlpha,
             blob_img2.as_image(),

@@ -8,9 +8,9 @@
 #include "mozilla/dom/ConsoleBinding.h"
 #include "ConsoleCommon.h"
 #include "ConsoleUtils.h"
+#include "nsContentUtils.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(ConsoleInstance, mConsole)
 
@@ -39,7 +39,8 @@ ConsoleLogLevel PrefToValue(const nsAString& aPref) {
         "Console.maxLogLevelPref used with a non-existing pref: ");
     message.Append(aPref);
 
-    nsContentUtils::LogSimpleConsoleError(message, "chrome", false);
+    nsContentUtils::LogSimpleConsoleError(message, "chrome", false,
+                                          true /* from chrome context*/);
     return ConsoleLogLevel::All;
   }
 
@@ -50,11 +51,12 @@ ConsoleLogLevel PrefToValue(const nsAString& aPref) {
     message.AssignLiteral("Invalid Console.maxLogLevelPref value: ");
     message.Append(NS_ConvertUTF8toUTF16(value));
 
-    nsContentUtils::LogSimpleConsoleError(message, "chrome", false);
+    nsContentUtils::LogSimpleConsoleError(message, "chrome", false,
+                                          true /* from chrome context*/);
     return ConsoleLogLevel::All;
   }
 
-  MOZ_ASSERT(index < (int)ConsoleLogLevel::EndGuard_);
+  MOZ_ASSERT(index < (int)ConsoleLogLevelValues::Count);
   return static_cast<ConsoleLogLevel>(index);
 }
 
@@ -99,7 +101,7 @@ ConsoleInstance::ConsoleInstance(JSContext* aCx,
   }
 }
 
-ConsoleInstance::~ConsoleInstance() {}
+ConsoleInstance::~ConsoleInstance() = default;
 
 JSObject* ConsoleInstance::WrapObject(JSContext* aCx,
                                       JS::Handle<JSObject*> aGivenProto) {
@@ -109,47 +111,49 @@ JSObject* ConsoleInstance::WrapObject(JSContext* aCx,
 #define METHOD(name, string)                                     \
   void ConsoleInstance::name(JSContext* aCx,                     \
                              const Sequence<JS::Value>& aData) { \
-    mConsole->MethodInternal(aCx, Console::Method##name,         \
-                             NS_LITERAL_STRING(string), aData);  \
+    RefPtr<Console> console(mConsole);                           \
+    console->MethodInternal(aCx, Console::Method##name,          \
+                            nsLiteralString(string), aData);     \
   }
 
-METHOD(Log, "log")
-METHOD(Info, "info")
-METHOD(Warn, "warn")
-METHOD(Error, "error")
-METHOD(Exception, "exception")
-METHOD(Debug, "debug")
-METHOD(Table, "table")
-METHOD(Trace, "trace")
-METHOD(Dir, "dir");
-METHOD(Dirxml, "dirxml");
-METHOD(Group, "group")
-METHOD(GroupCollapsed, "groupCollapsed")
+METHOD(Log, u"log")
+METHOD(Info, u"info")
+METHOD(Warn, u"warn")
+METHOD(Error, u"error")
+METHOD(Exception, u"exception")
+METHOD(Debug, u"debug")
+METHOD(Table, u"table")
+METHOD(Trace, u"trace")
+METHOD(Dir, u"dir");
+METHOD(Dirxml, u"dirxml");
+METHOD(Group, u"group")
+METHOD(GroupCollapsed, u"groupCollapsed")
 
 #undef METHOD
 
 void ConsoleInstance::GroupEnd(JSContext* aCx) {
   const Sequence<JS::Value> data;
-  mConsole->MethodInternal(aCx, Console::MethodGroupEnd,
-                           NS_LITERAL_STRING("groupEnd"), data);
+  RefPtr<Console> console(mConsole);
+  console->MethodInternal(aCx, Console::MethodGroupEnd, u"groupEnd"_ns, data);
 }
 
 void ConsoleInstance::Time(JSContext* aCx, const nsAString& aLabel) {
-  mConsole->StringMethodInternal(aCx, aLabel, Sequence<JS::Value>(),
-                                 Console::MethodTime,
-                                 NS_LITERAL_STRING("time"));
+  RefPtr<Console> console(mConsole);
+  console->StringMethodInternal(aCx, aLabel, Sequence<JS::Value>(),
+                                Console::MethodTime, u"time"_ns);
 }
 
 void ConsoleInstance::TimeLog(JSContext* aCx, const nsAString& aLabel,
                               const Sequence<JS::Value>& aData) {
-  mConsole->StringMethodInternal(aCx, aLabel, aData, Console::MethodTimeLog,
-                                 NS_LITERAL_STRING("timeLog"));
+  RefPtr<Console> console(mConsole);
+  console->StringMethodInternal(aCx, aLabel, aData, Console::MethodTimeLog,
+                                u"timeLog"_ns);
 }
 
 void ConsoleInstance::TimeEnd(JSContext* aCx, const nsAString& aLabel) {
-  mConsole->StringMethodInternal(aCx, aLabel, Sequence<JS::Value>(),
-                                 Console::MethodTimeEnd,
-                                 NS_LITERAL_STRING("timeEnd"));
+  RefPtr<Console> console(mConsole);
+  console->StringMethodInternal(aCx, aLabel, Sequence<JS::Value>(),
+                                Console::MethodTimeEnd, u"timeEnd"_ns);
 }
 
 void ConsoleInstance::TimeStamp(JSContext* aCx,
@@ -163,46 +167,48 @@ void ConsoleInstance::TimeStamp(JSContext* aCx,
     return;
   }
 
-  mConsole->MethodInternal(aCx, Console::MethodTimeStamp,
-                           NS_LITERAL_STRING("timeStamp"), data);
+  RefPtr<Console> console(mConsole);
+  console->MethodInternal(aCx, Console::MethodTimeStamp, u"timeStamp"_ns, data);
 }
 
 void ConsoleInstance::Profile(JSContext* aCx,
                               const Sequence<JS::Value>& aData) {
-  mConsole->ProfileMethodInternal(aCx, Console::MethodProfile,
-                                  NS_LITERAL_STRING("profile"), aData);
+  RefPtr<Console> console(mConsole);
+  console->ProfileMethodInternal(aCx, Console::MethodProfile, u"profile"_ns,
+                                 aData);
 }
 
 void ConsoleInstance::ProfileEnd(JSContext* aCx,
                                  const Sequence<JS::Value>& aData) {
-  mConsole->ProfileMethodInternal(aCx, Console::MethodProfileEnd,
-                                  NS_LITERAL_STRING("profileEnd"), aData);
+  RefPtr<Console> console(mConsole);
+  console->ProfileMethodInternal(aCx, Console::MethodProfileEnd,
+                                 u"profileEnd"_ns, aData);
 }
 
 void ConsoleInstance::Assert(JSContext* aCx, bool aCondition,
                              const Sequence<JS::Value>& aData) {
   if (!aCondition) {
-    mConsole->MethodInternal(aCx, Console::MethodAssert,
-                             NS_LITERAL_STRING("assert"), aData);
+    RefPtr<Console> console(mConsole);
+    console->MethodInternal(aCx, Console::MethodAssert, u"assert"_ns, aData);
   }
 }
 
 void ConsoleInstance::Count(JSContext* aCx, const nsAString& aLabel) {
-  mConsole->StringMethodInternal(aCx, aLabel, Sequence<JS::Value>(),
-                                 Console::MethodCount,
-                                 NS_LITERAL_STRING("count"));
+  RefPtr<Console> console(mConsole);
+  console->StringMethodInternal(aCx, aLabel, Sequence<JS::Value>(),
+                                Console::MethodCount, u"count"_ns);
 }
 
 void ConsoleInstance::CountReset(JSContext* aCx, const nsAString& aLabel) {
-  mConsole->StringMethodInternal(aCx, aLabel, Sequence<JS::Value>(),
-                                 Console::MethodCountReset,
-                                 NS_LITERAL_STRING("countReset"));
+  RefPtr<Console> console(mConsole);
+  console->StringMethodInternal(aCx, aLabel, Sequence<JS::Value>(),
+                                Console::MethodCountReset, u"countReset"_ns);
 }
 
 void ConsoleInstance::Clear(JSContext* aCx) {
   const Sequence<JS::Value> data;
-  mConsole->MethodInternal(aCx, Console::MethodClear,
-                           NS_LITERAL_STRING("clear"), data);
+  RefPtr<Console> console(mConsole);
+  console->MethodInternal(aCx, Console::MethodClear, u"clear"_ns, data);
 }
 
 void ConsoleInstance::ReportForServiceWorkerScope(const nsAString& aScope,
@@ -220,5 +226,4 @@ void ConsoleInstance::ReportForServiceWorkerScope(const nsAString& aScope,
       WebIDLevelToConsoleUtilsLevel(aLevel));
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

@@ -4,8 +4,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#include "NamespaceImports.h"
+
+#include "js/friend/ErrorMessages.h"  // js::GetErrorMessage, JSMSG_*
 #include "js/Proxy.h"
+#include "proxy/DeadObjectProxy.h"
 #include "vm/ProxyObject.h"
+#include "vm/WrapperObject.h"
 
 #include "vm/JSContext-inl.h"
 #include "vm/JSObject-inl.h"
@@ -54,29 +59,6 @@ bool BaseProxyHandler::has(JSContext* cx, HandleObject proxy, HandleId id,
   // Step 6.
   *bp = false;
   return true;
-}
-
-bool BaseProxyHandler::getPropertyDescriptor(
-    JSContext* cx, HandleObject proxy, HandleId id,
-    MutableHandle<PropertyDescriptor> desc) const {
-  assertEnteredPolicy(cx, proxy, id, GET | SET | GET_PROPERTY_DESCRIPTOR);
-
-  if (!getOwnPropertyDescriptor(cx, proxy, id, desc)) {
-    return false;
-  }
-  if (desc.object()) {
-    return true;
-  }
-
-  RootedObject proto(cx);
-  if (!GetPrototype(cx, proxy, &proto)) {
-    return false;
-  }
-  if (!proto) {
-    MOZ_ASSERT(!desc.object());
-    return true;
-  }
-  return GetPropertyDescriptor(cx, proto, id, desc);
 }
 
 bool BaseProxyHandler::hasOwn(JSContext* cx, HandleObject proxy, HandleId id,
@@ -251,9 +233,8 @@ bool js::SetPropertyIgnoringNamedGetter(JSContext* cx, HandleObject obj,
   return result.succeed();
 }
 
-bool BaseProxyHandler::getOwnEnumerablePropertyKeys(JSContext* cx,
-                                                    HandleObject proxy,
-                                                    AutoIdVector& props) const {
+bool BaseProxyHandler::getOwnEnumerablePropertyKeys(
+    JSContext* cx, HandleObject proxy, MutableHandleIdVector props) const {
   assertEnteredPolicy(cx, proxy, JSID_VOID, ENUMERATE);
   MOZ_ASSERT(props.length() == 0);
 
@@ -291,17 +272,14 @@ bool BaseProxyHandler::getOwnEnumerablePropertyKeys(JSContext* cx,
   return true;
 }
 
-JSObject* BaseProxyHandler::enumerate(JSContext* cx, HandleObject proxy) const {
+bool BaseProxyHandler::enumerate(JSContext* cx, HandleObject proxy,
+                                 MutableHandleIdVector props) const {
   assertEnteredPolicy(cx, proxy, JSID_VOID, ENUMERATE);
 
   // GetPropertyKeys will invoke getOwnEnumerablePropertyKeys along the proto
   // chain for us.
-  AutoIdVector props(cx);
-  if (!GetPropertyKeys(cx, proxy, 0, &props)) {
-    return nullptr;
-  }
-
-  return EnumeratedIdVectorToIterator(cx, proxy, props);
+  MOZ_ASSERT(props.empty());
+  return GetPropertyKeys(cx, proxy, 0, props);
 }
 
 bool BaseProxyHandler::call(JSContext* cx, HandleObject proxy,
@@ -351,10 +329,8 @@ bool BaseProxyHandler::nativeCall(JSContext* cx, IsAcceptableThis test,
 bool BaseProxyHandler::hasInstance(JSContext* cx, HandleObject proxy,
                                    MutableHandleValue v, bool* bp) const {
   assertEnteredPolicy(cx, proxy, JSID_VOID, GET);
-  RootedValue val(cx, ObjectValue(*proxy.get()));
-  ReportValueError(cx, JSMSG_BAD_INSTANCEOF_RHS, JSDVG_SEARCH_STACK, val,
-                   nullptr);
-  return false;
+  cx->check(proxy, v);
+  return JS::InstanceofOperator(cx, proxy, v, bp);
 }
 
 bool BaseProxyHandler::getBuiltinClass(JSContext* cx, HandleObject proxy,
@@ -410,3 +386,35 @@ bool BaseProxyHandler::getElements(JSContext* cx, HandleObject proxy,
 bool BaseProxyHandler::isCallable(JSObject* obj) const { return false; }
 
 bool BaseProxyHandler::isConstructor(JSObject* obj) const { return false; }
+
+JS_FRIEND_API void js::NukeNonCCWProxy(JSContext* cx, HandleObject proxy) {
+  MOZ_ASSERT(proxy->is<ProxyObject>());
+  MOZ_ASSERT(!proxy->is<CrossCompartmentWrapperObject>());
+
+  // (NotifyGCNukeWrapper() only needs to be called on CCWs.)
+
+  // The proxy is about to be replaced, so we need to do any necessary
+  // cleanup first.
+  proxy->as<ProxyObject>().handler()->finalize(cx->defaultFreeOp(), proxy);
+
+  proxy->as<ProxyObject>().nuke();
+
+  MOZ_ASSERT(IsDeadProxyObject(proxy));
+}
+
+JS_FRIEND_API void js::NukeRemovedCrossCompartmentWrapper(JSContext* cx,
+                                                          JSObject* wrapper) {
+  MOZ_ASSERT(wrapper->is<CrossCompartmentWrapperObject>());
+
+  NotifyGCNukeWrapper(wrapper);
+
+  // We don't need to call finalize here because the CCW finalizer doesn't do
+  // anything. Skipping finalize means that |wrapper| doesn't need to be rooted
+  // to pass the hazard analysis, which is needed because this method is called
+  // from some tricky places inside transplanting where rooting can be
+  // difficult.
+
+  wrapper->as<ProxyObject>().nuke();
+
+  MOZ_ASSERT(IsDeadProxyObject(wrapper));
+}

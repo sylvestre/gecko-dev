@@ -8,11 +8,8 @@
 
 #include "nsIconChannel.h"
 #include "nsIconURI.h"
-#include "nsIURL.h"
 #include "nsCRT.h"
 #include "nsCOMPtr.h"
-#include "nsIComponentManager.h"
-#include "nsIServiceManager.h"
 #include "nsNetCID.h"
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -55,17 +52,8 @@ nsIconProtocolHandler::GetProtocolFlags(uint32_t* result) {
 }
 
 NS_IMETHODIMP
-nsIconProtocolHandler::NewURI(const nsACString& aSpec,
-                              const char* aOriginCharset,  // ignored
-                              nsIURI* aBaseURI, nsIURI** result) {
-  return NS_MutateURI(new nsMozIconURI::Mutator())
-      .SetSpec(aSpec)
-      .Finalize(result);
-}
-
-NS_IMETHODIMP
-nsIconProtocolHandler::NewChannel2(nsIURI* url, nsILoadInfo* aLoadInfo,
-                                   nsIChannel** result) {
+nsIconProtocolHandler::NewChannel(nsIURI* url, nsILoadInfo* aLoadInfo,
+                                  nsIChannel** result) {
   NS_ENSURE_ARG_POINTER(url);
   nsIconChannel* channel = new nsIconChannel;
   if (!channel) {
@@ -88,11 +76,6 @@ nsIconProtocolHandler::NewChannel2(nsIURI* url, nsILoadInfo* aLoadInfo,
 
   *result = channel;
   return NS_OK;
-}
-
-NS_IMETHODIMP
-nsIconProtocolHandler::NewChannel(nsIURI* url, nsIChannel** result) {
-  return NewChannel2(url, nullptr, result);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

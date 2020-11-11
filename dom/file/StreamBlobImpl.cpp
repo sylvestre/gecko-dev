@@ -12,54 +12,56 @@
 #include "nsStringStream.h"
 #include "nsICloneableInputStream.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_IMPL_ISUPPORTS_INHERITED(StreamBlobImpl, BlobImpl, nsIMemoryReporter)
 
-/* static */ already_AddRefed<StreamBlobImpl> StreamBlobImpl::Create(
+/* static */
+already_AddRefed<StreamBlobImpl> StreamBlobImpl::Create(
     already_AddRefed<nsIInputStream> aInputStream,
-    const nsAString& aContentType, uint64_t aLength) {
+    const nsAString& aContentType, uint64_t aLength,
+    const nsAString& aBlobImplType) {
   nsCOMPtr<nsIInputStream> inputStream = std::move(aInputStream);
 
-  RefPtr<StreamBlobImpl> blobImplStream =
-      new StreamBlobImpl(inputStream.forget(), aContentType, aLength);
+  RefPtr<StreamBlobImpl> blobImplStream = new StreamBlobImpl(
+      inputStream.forget(), aContentType, aLength, aBlobImplType);
   blobImplStream->MaybeRegisterMemoryReporter();
   return blobImplStream.forget();
 }
 
-/* static */ already_AddRefed<StreamBlobImpl> StreamBlobImpl::Create(
+/* static */
+already_AddRefed<StreamBlobImpl> StreamBlobImpl::Create(
     already_AddRefed<nsIInputStream> aInputStream, const nsAString& aName,
-    const nsAString& aContentType, int64_t aLastModifiedDate,
-    uint64_t aLength) {
+    const nsAString& aContentType, int64_t aLastModifiedDate, uint64_t aLength,
+    const nsAString& aBlobImplType) {
   nsCOMPtr<nsIInputStream> inputStream = std::move(aInputStream);
 
-  RefPtr<StreamBlobImpl> blobImplStream = new StreamBlobImpl(
-      inputStream.forget(), aName, aContentType, aLastModifiedDate, aLength);
+  RefPtr<StreamBlobImpl> blobImplStream =
+      new StreamBlobImpl(inputStream.forget(), aName, aContentType,
+                         aLastModifiedDate, aLength, aBlobImplType);
   blobImplStream->MaybeRegisterMemoryReporter();
   return blobImplStream.forget();
 }
 
 StreamBlobImpl::StreamBlobImpl(already_AddRefed<nsIInputStream> aInputStream,
-                               const nsAString& aContentType, uint64_t aLength)
-    : BaseBlobImpl(NS_LITERAL_STRING("StreamBlobImpl"), aContentType, aLength),
+                               const nsAString& aContentType, uint64_t aLength,
+                               const nsAString& aBlobImplType)
+    : BaseBlobImpl(aContentType, aLength),
       mInputStream(std::move(aInputStream)),
+      mBlobImplType(aBlobImplType),
       mIsDirectory(false),
-      mFileId(-1) {
-  mImmutable = true;
-}
+      mFileId(-1) {}
 
 StreamBlobImpl::StreamBlobImpl(already_AddRefed<nsIInputStream> aInputStream,
                                const nsAString& aName,
                                const nsAString& aContentType,
-                               int64_t aLastModifiedDate, uint64_t aLength)
-    : BaseBlobImpl(NS_LITERAL_STRING("StreamBlobImpl"), aName, aContentType,
-                   aLength, aLastModifiedDate),
+                               int64_t aLastModifiedDate, uint64_t aLength,
+                               const nsAString& aBlobImplType)
+    : BaseBlobImpl(aName, aContentType, aLength, aLastModifiedDate),
       mInputStream(std::move(aInputStream)),
+      mBlobImplType(aBlobImplType),
       mIsDirectory(false),
-      mFileId(-1) {
-  mImmutable = true;
-}
+      mFileId(-1) {}
 
 StreamBlobImpl::~StreamBlobImpl() { UnregisterWeakMemoryReporter(this); }
 
@@ -75,7 +77,7 @@ void StreamBlobImpl::CreateInputStream(nsIInputStream** aStream,
   }
 
   if (replacementStream) {
-    mInputStream = replacementStream.forget();
+    mInputStream = std::move(replacementStream);
   }
 
   nsCOMPtr<nsIInputStream> wrappedStream =
@@ -113,8 +115,8 @@ already_AddRefed<BlobImpl> StreamBlobImpl::CreateSlice(
 
   MOZ_ASSERT(clonedStream);
 
-  RefPtr<BlobImpl> impl =
-      new StreamBlobImpl(clonedStream.forget(), aContentType, aLength);
+  RefPtr<BlobImpl> impl = new StreamBlobImpl(
+      clonedStream.forget(), aContentType, aLength, mBlobImplType);
   return impl.forget();
 }
 
@@ -140,7 +142,7 @@ StreamBlobImpl::CollectReports(nsIHandleReportCallback* aHandleReport,
 
   MOZ_COLLECT_REPORT(
       "explicit/dom/memory-file-data/stream", KIND_HEAP, UNITS_BYTES,
-      stringInputStream->SizeOfIncludingThis(MallocSizeOf),
+      stringInputStream->SizeOfIncludingThisIfUnshared(MallocSizeOf),
       "Memory used to back a File/Blob based on an input stream.");
 
   return NS_OK;
@@ -153,8 +155,13 @@ size_t StreamBlobImpl::GetAllocationSize() const {
     return 0;
   }
 
-  return stringInputStream->SizeOfIncludingThis(MallocSizeOf);
+  return stringInputStream->SizeOfIncludingThisEvenIfShared(MallocSizeOf);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+void StreamBlobImpl::GetBlobImplType(nsAString& aBlobImplType) const {
+  aBlobImplType.AssignLiteral("StreamBlobImpl[");
+  aBlobImplType.Append(mBlobImplType);
+  aBlobImplType.AppendLiteral("]");
+}
+
+}  // namespace mozilla::dom

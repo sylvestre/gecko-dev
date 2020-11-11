@@ -6,9 +6,9 @@
 
 include protocol PBrowser;
 include protocol PChildToParentStream;
-include protocol PIPCBlobInputStream;
 include protocol PFileDescriptorSet;
 include protocol PParentToChildStream;
+include protocol PRemoteLazyInputStream;
 
 include IPCBlob;
 
@@ -41,8 +41,9 @@ protocol PFilePicker
 parent:
     async Open(int16_t selectedType, bool addToRecentDocs, nsString defaultFile,
                nsString defaultExtension, nsString[] filters, nsString[] filterNames,
-               nsString displayDirectory, nsString displaySpecialDirectory,
-               nsString okButtonLabel);
+               nsString[] rawFilters, nsString displayDirectory,
+               nsString displaySpecialDirectory, nsString okButtonLabel,
+               int16_t capture);
 
 child:
     async __delete__(MaybeInputData data, int16_t result);

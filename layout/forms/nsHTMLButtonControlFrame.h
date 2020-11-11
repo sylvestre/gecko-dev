@@ -18,8 +18,9 @@ class nsPresContext;
 class nsHTMLButtonControlFrame : public nsContainerFrame,
                                  public nsIFormControlFrame {
  public:
-  explicit nsHTMLButtonControlFrame(ComputedStyle* aStyle)
-      : nsHTMLButtonControlFrame(aStyle, kClassID) {}
+  explicit nsHTMLButtonControlFrame(ComputedStyle* aStyle,
+                                    nsPresContext* aPresContext)
+      : nsHTMLButtonControlFrame(aStyle, aPresContext, kClassID) {}
 
   ~nsHTMLButtonControlFrame();
 
@@ -62,6 +63,7 @@ class nsHTMLButtonControlFrame : public nsContainerFrame,
   virtual void AppendFrames(ChildListID aListID,
                             nsFrameList& aFrameList) override;
   virtual void InsertFrames(ChildListID aListID, nsIFrame* aPrevFrame,
+                            const nsLineList::iterator* aPrevFrameLine,
                             nsFrameList& aFrameList) override;
   virtual void RemoveFrame(ChildListID aListID, nsIFrame* aOldFrame) override;
 #endif
@@ -72,11 +74,11 @@ class nsHTMLButtonControlFrame : public nsContainerFrame,
 
 #ifdef DEBUG_FRAME_DUMP
   virtual nsresult GetFrameName(nsAString& aResult) const override {
-    return MakeFrameName(NS_LITERAL_STRING("HTMLButtonControl"), aResult);
+    return MakeFrameName(u"HTMLButtonControl"_ns, aResult);
   }
 #endif
 
-  virtual bool HonorPrintBackgroundSettings() override { return false; }
+  virtual bool HonorPrintBackgroundSettings() const override { return false; }
 
   // nsIFormControlFrame
   void SetFocus(bool aOn, bool aRepaint) override;
@@ -97,7 +99,8 @@ class nsHTMLButtonControlFrame : public nsContainerFrame,
   void AppendDirectlyOwnedAnonBoxes(nsTArray<OwnedAnonBox>& aResult) override;
 
  protected:
-  nsHTMLButtonControlFrame(ComputedStyle* aStyle, nsIFrame::ClassID aID);
+  nsHTMLButtonControlFrame(ComputedStyle* aStyle, nsPresContext* aPresContext,
+                           nsIFrame::ClassID aID);
 
   virtual bool IsInput() { return false; }
 

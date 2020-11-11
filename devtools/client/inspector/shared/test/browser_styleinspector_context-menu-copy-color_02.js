@@ -1,4 +1,3 @@
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 "use strict";
@@ -18,7 +17,7 @@ const TEST_URI = `
 add_task(async function() {
   await addTab("data:text/html;charset=utf-8," + encodeURIComponent(TEST_URI));
 
-  const {inspector, view} = await openRuleView();
+  const { inspector, view } = await openRuleView();
 
   await testCopyToClipboard(inspector, view);
   await testManualEdit(inspector, view);
@@ -30,17 +29,22 @@ async function testCopyToClipboard(inspector, view) {
 
   await selectNode("div", inspector);
 
-  const element = getRuleViewProperty(view, "div", "color").valueSpan
-    .querySelector(".ruleview-colorswatch");
+  const element = getRuleViewProperty(
+    view,
+    "div",
+    "color"
+  ).valueSpan.querySelector(".ruleview-colorswatch");
 
   const allMenuItems = openStyleContextMenuAndGetAllItems(view, element);
-  const menuitemCopyColor = allMenuItems.find(item => item.label ===
-    STYLE_INSPECTOR_L10N.getStr("styleinspector.contextmenu.copyColor"));
+  const menuitemCopyColor = allMenuItems.find(
+    item =>
+      item.label ===
+      STYLE_INSPECTOR_L10N.getStr("styleinspector.contextmenu.copyColor")
+  );
 
   ok(menuitemCopyColor.visible, "Copy color is visible");
 
-  await waitForClipboardPromise(() => menuitemCopyColor.click(),
-    "#123ABC");
+  await waitForClipboardPromise(() => menuitemCopyColor.click(), "#123ABC");
 
   EventUtils.synthesizeKey("KEY_Escape");
 }
@@ -49,7 +53,7 @@ async function testManualEdit(inspector, view) {
   info("Testing manually edited colors");
   await selectNode("div", inspector);
 
-  const {valueSpan} = getRuleViewProperty(view, "div", "color");
+  const { valueSpan } = getRuleViewProperty(view, "div", "color");
 
   const newColor = "#C9184E";
   const editor = await focusEditableField(view, valueSpan);
@@ -61,14 +65,14 @@ async function testManualEdit(inspector, view) {
   await onBlur;
   await wait(1);
 
-  const colorValueElement = getRuleViewProperty(view, "div", "color")
-    .valueSpan.firstChild;
+  const colorValueElement = getRuleViewProperty(view, "div", "color").valueSpan
+    .firstChild;
   is(colorValueElement.dataset.color, newColor, "data-color was updated");
 
-  view.styleDocument.popupNode = colorValueElement;
-
   const contextMenu = view.contextMenu;
+  contextMenu.currentTarget = colorValueElement;
   contextMenu._isColorPopup();
+
   is(contextMenu._colorToCopy, newColor, "_colorToCopy has the new value");
 }
 
@@ -76,8 +80,11 @@ async function testColorPickerEdit(inspector, view) {
   info("Testing colors edited via color picker");
   await selectNode("div", inspector);
 
-  const swatchElement = getRuleViewProperty(view, "div", "color").valueSpan
-    .querySelector(".ruleview-colorswatch");
+  const swatchElement = getRuleViewProperty(
+    view,
+    "div",
+    "color"
+  ).valueSpan.querySelector(".ruleview-colorswatch");
 
   info("Opening the color picker");
   const picker = view.tooltips.getTooltip("colorPicker");
@@ -85,15 +92,21 @@ async function testColorPickerEdit(inspector, view) {
   swatchElement.click();
   await onColorPickerReady;
 
-  const rgbaColor = [83, 183, 89, 1];
-  const rgbaColorText = "rgba(83, 183, 89, 1)";
-  await simulateColorPickerChange(view, picker, rgbaColor);
+  const newColor = "#53B759";
+  const { colorUtils } = require("devtools/shared/css/color");
 
-  is(swatchElement.parentNode.dataset.color, rgbaColorText,
-    "data-color was updated");
-  view.styleDocument.popupNode = swatchElement;
+  const { r, g, b, a } = new colorUtils.CssColor(newColor).getRGBATuple();
+  await simulateColorPickerChange(view, picker, [r, g, b, a]);
+
+  is(
+    swatchElement.parentNode.dataset.color,
+    newColor,
+    "data-color was updated"
+  );
 
   const contextMenu = view.contextMenu;
+  contextMenu.currentTarget = swatchElement;
   contextMenu._isColorPopup();
-  is(contextMenu._colorToCopy, rgbaColorText, "_colorToCopy has the new value");
+
+  is(contextMenu._colorToCopy, newColor, "_colorToCopy has the new value");
 }

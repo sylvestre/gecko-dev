@@ -1,4 +1,3 @@
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -17,13 +16,15 @@
 //    expect ruleview-changed,
 //  ]
 
-const OPEN = true, SELECTED = true, CHANGE = true;
+const OPEN = true,
+  SELECTED = true,
+  CHANGE = true;
 const testData = [
   ["d", {}, "display", OPEN, SELECTED, !CHANGE],
   ["VK_TAB", {}, "", OPEN, !SELECTED, CHANGE],
   ["VK_DOWN", {}, "block", OPEN, SELECTED, CHANGE],
   ["n", {}, "none", !OPEN, !SELECTED, CHANGE],
-  ["VK_TAB", {shiftKey: true}, "display", !OPEN, !SELECTED, CHANGE],
+  ["VK_TAB", { shiftKey: true }, "display", !OPEN, !SELECTED, CHANGE],
   ["VK_BACK_SPACE", {}, "", !OPEN, !SELECTED, !CHANGE],
   ["o", {}, "overflow", OPEN, SELECTED, !CHANGE],
   ["u", {}, "outline", OPEN, SELECTED, !CHANGE],
@@ -31,6 +32,7 @@ const testData = [
   ["VK_TAB", {}, "none", !OPEN, !SELECTED, CHANGE],
   ["r", {}, "rebeccapurple", OPEN, SELECTED, CHANGE],
   ["VK_DOWN", {}, "red", OPEN, SELECTED, CHANGE],
+  ["VK_DOWN", {}, "revert", OPEN, SELECTED, CHANGE],
   ["VK_DOWN", {}, "rgb", OPEN, SELECTED, CHANGE],
   ["VK_DOWN", {}, "rgba", OPEN, SELECTED, CHANGE],
   ["VK_DOWN", {}, "rosybrown", OPEN, SELECTED, CHANGE],
@@ -52,7 +54,7 @@ const TEST_URI = `
 
 add_task(async function() {
   await addTab("data:text/html;charset=utf-8," + encodeURIComponent(TEST_URI));
-  const {toolbox, inspector, view, testActor} = await openRuleView();
+  const { toolbox, inspector, view, testActor } = await openRuleView();
 
   info("Test autocompletion after 1st page load");
   await runAutocompletionTest(toolbox, inspector, view);
@@ -79,8 +81,11 @@ async function runAutocompletionTest(toolbox, inspector, view) {
   }
 }
 
-async function testCompletion([key, modifiers, completion, open, selected, change],
-                         editor, view) {
+async function testCompletion(
+  [key, modifiers, completion, open, selected, change],
+  editor,
+  view
+) {
   info("Pressing key " + key);
   info("Expecting " + completion);
   info("Is popup opened: " + open);
@@ -95,16 +100,16 @@ async function testCompletion([key, modifiers, completion, open, selected, chang
   } else {
     // Otherwise, expect an after-suggest event (except if the popup gets
     // closed).
-    onDone = key !== "VK_RIGHT" && key !== "VK_BACK_SPACE"
-             ? editor.once("after-suggest")
-             : null;
+    onDone =
+      key !== "VK_RIGHT" && key !== "VK_BACK_SPACE"
+        ? editor.once("after-suggest")
+        : null;
   }
 
   // Also listening for popup opened/closed events if needed.
   const popupEvent = open ? "popup-opened" : "popup-closed";
-  const onPopupEvent = editor.popup.isOpen !== open
-    ? once(editor.popup, popupEvent)
-    : null;
+  const onPopupEvent =
+    editor.popup.isOpen !== open ? once(editor.popup, popupEvent) : null;
 
   info("Synthesizing key " + key + ", modifiers: " + Object.keys(modifiers));
   EventUtils.synthesizeKey(key, modifiers, view.styleWindow);

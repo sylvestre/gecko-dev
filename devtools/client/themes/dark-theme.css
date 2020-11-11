@@ -1,10 +1,9 @@
-/* vim:set ts=2 sw=2 sts=2 et: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-@import url(resource://devtools/client/themes/variables.css);
-@import url(resource://devtools/client/themes/common.css);
+@import url(chrome://devtools/skin/variables.css);
+@import url(chrome://devtools/skin/common.css);
 @import url(chrome://devtools/skin/toolbars.css);
 @import url(chrome://devtools/skin/tooltips.css);
 
@@ -22,18 +21,12 @@ body {
   color: var(--theme-body-color);
 }
 
-::-moz-selection {
-  background-color: var(--theme-selection-background);
-  color: var(--theme-selection-color);
-}
-
 .theme-selected,
 .CodeMirror-hint-active {
   background-color: var(--theme-selection-background);
   color: var(--theme-selection-color);
 }
 
-.theme-bg-contrast,
 .variable-or-property:not([overridden])[changed] {
   background: var(--theme-contrast-background);
 }
@@ -76,7 +69,7 @@ body {
 .variable-or-property .token-number,
 .variable-or-property[return] > .title > .name,
 .variable-or-property[scope] > .title > .name {
-  color: #6B89FF;
+  color: #709AFF;
 }
 
 .CodeMirror-Tern-completion-number:before {
@@ -84,7 +77,6 @@ body {
 }
 
 .theme-fg-color1,
-.theme-fg-color2,
 .cm-s-mozilla .cm-attribute,
 .cm-s-mozilla .cm-builtin,
 .cm-s-mozilla .cm-keyword,
@@ -110,7 +102,6 @@ body {
 }
 
 .theme-fg-color3,
-.theme-fg-color5,
 .cm-s-mozilla .cm-tag,
 .cm-s-mozilla .cm-header,
 .cm-s-mozilla .cm-bracket,
@@ -123,7 +114,7 @@ body {
   background-color: var(--theme-highlight-bluegrey);
 }
 
-.theme-fg-color4 {
+.theme-fg-color2 {
   color: var(--theme-highlight-purple);
 }
 
@@ -131,7 +122,7 @@ body {
 .cm-s-mozilla .cm-string-2,
 .variable-or-property .token-string,
 .CodeMirror-Tern-farg {
-  color: #6B89FF;
+  color: #709AFF;
 }
 
 .CodeMirror-Tern-completion-string:before,
@@ -166,8 +157,12 @@ body {
   border-color: var(--theme-splitter-color);
 }
 
-.theme-fg-contrast { /* To be used for text on theme-bg-contrast */
-  color: black;
+.theme-bg-contrast {
+  background: var(--theme-contrast-background);
+}
+
+.theme-fg-contrast {
+  color: var(--theme-contrast-color);
 }
 
 .ruleview-swatch,
@@ -185,8 +180,10 @@ body {
   background: transparent;
 }
 
-.CodeMirror.cm-s-mozilla  pre {
-  color: var(--theme-content-color1);
+.CodeMirror.cm-s-mozilla  pre,
+.CodeMirror.cm-s-mozilla  pre.CodeMirror-line,
+.CodeMirror.cm-s-mozilla  pre.CodeMirror-line-like {
+  color: var(--theme-text-color-strong);
 }
 
 .cm-s-mozilla .cm-operator {
@@ -195,11 +192,14 @@ body {
 
 .cm-s-mozilla .cm-variable-3,
 .cm-s-mozilla .cm-special {
-  color: var(--theme-content-color1);
+  color: var(--theme-text-color-strong);
 }
 
 .cm-s-mozilla .CodeMirror-lines .CodeMirror-cursor {
   border-left: solid 1px #fff;
+}
+.cm-s-mozilla .CodeMirror-lines .CodeMirror-cursor.CodeMirror-secondarycursor {
+  border-left-color: #aaa;
 }
 
 .cm-s-mozilla.CodeMirror-focused .CodeMirror-selected { /* selected text (focused) */
@@ -238,17 +238,12 @@ div.CodeMirror span.eval-text {
 }
 
 .cm-s-mozilla .CodeMirror-linenumber { /* line number text */
-  color: var(--theme-content-color3);
+  color: var(--grey-40);
 }
 
 .cm-s-mozilla .CodeMirror-gutters { /* vertical line next to line numbers */
   border-right-color: var(--theme-toolbar-background);
   background-color: var(--theme-sidebar-background);
-}
-
-.cm-s-markup-view pre {
-  line-height: 1.4em;
-  min-height: 1.4em;
 }
 
 .CodeMirror-Tern-fname {

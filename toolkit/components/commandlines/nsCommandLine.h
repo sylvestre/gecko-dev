@@ -8,6 +8,7 @@
 #include "nsICommandLineRunner.h"
 #include "nsCOMPtr.h"
 #include "nsISupportsImpl.h"
+#include "nsString.h"
 #include "nsTArray.h"
 
 class nsICommandLineHandler;
@@ -33,6 +34,8 @@ class nsCommandLine final : public nsICommandLineRunner {
       nsICommandLineValidator* aValidator, nsICommandLine* aThis,
       void* aClosure);
 
+  nsresult ResolveRelativeFile(const nsAString& aArgument, nsIFile** aResult);
+
   void appendArg(const char* arg);
   MOZ_MUST_USE nsresult resolveShortcutURL(nsIFile* aFile, nsACString& outURL);
   nsresult EnumerateHandlers(EnumerateHandlersCallback aCallback,
@@ -43,7 +46,6 @@ class nsCommandLine final : public nsICommandLineRunner {
   nsTArray<nsString> mArgs;
   uint32_t mState;
   nsCOMPtr<nsIFile> mWorkingDir;
-  nsCOMPtr<nsIDOMWindow> mWindowContext;
   bool mPreventDefault;
 };
 

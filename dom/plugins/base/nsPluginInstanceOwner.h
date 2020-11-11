@@ -9,6 +9,7 @@
 
 #include "mozilla/Attributes.h"
 #include "mozilla/StaticPtr.h"
+#include "mozilla/dom/HTMLObjectElementBinding.h"
 #include "npapi.h"
 #include "nsCOMPtr.h"
 #include "nsIKeyEventInPluginCallback.h"
@@ -21,8 +22,8 @@
 #include "gfxRect.h"
 
 #ifdef XP_MACOSX
-#include "mozilla/gfx/QuartzSupport.h"
-#include <ApplicationServices/ApplicationServices.h>
+#  include "mozilla/gfx/QuartzSupport.h"
+#  include <ApplicationServices/ApplicationServices.h>
 #endif
 
 class nsIInputStream;
@@ -39,7 +40,6 @@ class TextComposition;
 namespace dom {
 class Element;
 class Event;
-struct MozPluginParameter;
 }  // namespace dom
 namespace widget {
 class PuppetWidget;
@@ -49,7 +49,7 @@ class PuppetWidget;
 using mozilla::widget::PuppetWidget;
 
 #ifdef MOZ_X11
-#include "gfxXlibNativeRenderer.h"
+#  include "gfxXlibNativeRenderer.h"
 #endif
 
 class nsPluginInstanceOwner final : public nsIPluginInstanceOwner,
@@ -251,7 +251,7 @@ class nsPluginInstanceOwner final : public nsIPluginInstanceOwner,
 
   bool UseAsyncRendering();
 
-  already_AddRefed<nsIURI> GetBaseURI() const;
+  nsIURI* GetBaseURI() const;
 
   bool GetCompositionString(uint32_t aIndex, nsTArray<uint8_t>* aString,
                             int32_t* aLength);
@@ -295,6 +295,8 @@ class nsPluginInstanceOwner final : public nsIPluginInstanceOwner,
   bool mGotCompositionData;
   bool mSentStartComposition;
   bool mPluginDidNotHandleIMEComposition;
+  uint32_t mWheelScrollLines;
+  uint32_t mWheelScrollChars;
 #endif
 
   nsPluginNativeWindow* mPluginWindow;

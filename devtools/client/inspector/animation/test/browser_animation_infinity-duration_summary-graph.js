@@ -64,47 +64,61 @@ add_task(async function() {
       expectedTooltip,
     } = testData;
 
-    const animationItemEl =
-      findAnimationItemElementsByTargetSelector(panel, `.${ targetClass }`);
-    const summaryGraphEl = animationItemEl.querySelector(".animation-summary-graph");
+    const animationItemEl = findAnimationItemElementsByTargetSelector(
+      panel,
+      `.${targetClass}`
+    );
+    const summaryGraphEl = animationItemEl.querySelector(
+      ".animation-summary-graph"
+    );
 
-    info(`Check tooltip for the animation of .${ targetClass }`);
+    info(`Check tooltip for the animation of .${targetClass}`);
     assertTooltip(summaryGraphEl, expectedTooltip);
 
     if (expectedDelayPath) {
-      info(`Check delay path for the animation of .${ targetClass }`);
+      info(`Check delay path for the animation of .${targetClass}`);
       assertDelayPath(summaryGraphEl, expectedDelayPath);
     }
 
     if (expectedDelaySign) {
-      info(`Check delay sign for the animation of .${ targetClass }`);
+      info(`Check delay sign for the animation of .${targetClass}`);
       assertDelaySign(summaryGraphEl, expectedDelaySign);
     }
 
-    info(`Check iteration path for the animation of .${ targetClass }`);
+    info(`Check iteration path for the animation of .${targetClass}`);
     assertIterationPath(summaryGraphEl, expectedIterationPath);
   }
 });
 
 function assertDelayPath(summaryGraphEl, expectedPath) {
-  assertPath(summaryGraphEl,
-             ".animation-computed-timing-path .animation-delay-path",
-             expectedPath);
+  assertPath(
+    summaryGraphEl,
+    ".animation-computed-timing-path .animation-delay-path",
+    expectedPath
+  );
 }
 
 function assertDelaySign(summaryGraphEl, expectedSign) {
   const signEl = summaryGraphEl.querySelector(".animation-delay-sign");
 
-  is(signEl.style.marginInlineStart, expectedSign.marginInlineStart,
-     `marginInlineStart position should be ${ expectedSign.marginInlineStart }`);
-  is(signEl.style.width, expectedSign.width,
-     `Width should be ${ expectedSign.width }`);
+  is(
+    signEl.style.marginInlineStart,
+    expectedSign.marginInlineStart,
+    `marginInlineStart position should be ${expectedSign.marginInlineStart}`
+  );
+  is(
+    signEl.style.width,
+    expectedSign.width,
+    `Width should be ${expectedSign.width}`
+  );
 }
 
 function assertIterationPath(summaryGraphEl, expectedPath) {
-  assertPath(summaryGraphEl,
-             ".animation-computed-timing-path .animation-iteration-path",
-             expectedPath);
+  assertPath(
+    summaryGraphEl,
+    ".animation-computed-timing-path .animation-iteration-path",
+    expectedPath
+  );
 }
 
 function assertPath(summaryGraphEl, pathSelector, expectedPath) {
@@ -114,24 +128,20 @@ function assertPath(summaryGraphEl, pathSelector, expectedPath) {
 
 function assertTooltip(summaryGraphEl, expectedTooltip) {
   const tooltip = summaryGraphEl.getAttribute("title");
-  const {
-    delay,
-    duration,
-    iterationStart,
-  } = expectedTooltip;
+  const { delay, duration, iterationStart } = expectedTooltip;
 
   if (delay) {
-    const expected = `Delay: ${ delay }`;
-    ok(tooltip.includes(expected), `Tooltip should include '${ expected }'`);
+    const expected = `Delay: ${delay}`;
+    ok(tooltip.includes(expected), `Tooltip should include '${expected}'`);
   }
 
   if (duration) {
-    const expected = `Duration: ${ duration }`;
-    ok(tooltip.includes(expected), `Tooltip should include '${ expected }'`);
+    const expected = `Duration: ${duration}`;
+    ok(tooltip.includes(expected), `Tooltip should include '${expected}'`);
   }
 
   if (iterationStart) {
-    const expected = `Iteration start: ${ iterationStart }`;
-    ok(tooltip.includes(expected), `Tooltip should include '${ expected }'`);
+    const expected = `Iteration start: ${iterationStart}`;
+    ok(tooltip.includes(expected), `Tooltip should include '${expected}'`);
   }
 }

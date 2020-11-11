@@ -8,19 +8,20 @@
 
 #include "mozilla/dom/ContentChild.h"
 #include "mozilla/ipc/IPCStreamUtils.h"
-#include "nsIDocument.h"
+#include "mozilla/dom/Document.h"
 #include "nsIInputStream.h"
 #include "WebBrowserPersistLocalDocument.h"
 #include "WebBrowserPersistResourcesChild.h"
 #include "WebBrowserPersistSerializeChild.h"
+#include "mozilla/StaticPrefs_fission.h"
 
 namespace mozilla {
 
-WebBrowserPersistDocumentChild::WebBrowserPersistDocumentChild() {}
+WebBrowserPersistDocumentChild::WebBrowserPersistDocumentChild() = default;
 
 WebBrowserPersistDocumentChild::~WebBrowserPersistDocumentChild() = default;
 
-void WebBrowserPersistDocumentChild::Start(nsIDocument* aDocument) {
+void WebBrowserPersistDocumentChild::Start(dom::Document* aDocument) {
   RefPtr<WebBrowserPersistLocalDocument> doc;
   if (aDocument) {
     doc = new WebBrowserPersistLocalDocument(aDocument);
@@ -37,6 +38,7 @@ void WebBrowserPersistDocumentChild::Start(
   }
 
   nsCOMPtr<nsIPrincipal> principal;
+  nsCOMPtr<nsIReferrerInfo> referrerInfo;
   WebBrowserPersistDocumentAttrs attrs;
   nsCOMPtr<nsIInputStream> postDataStream;
 #define ENSURE(e)          \
@@ -53,13 +55,17 @@ void WebBrowserPersistDocumentChild::Start(
   ENSURE(aDocument->GetContentType(attrs.contentType()));
   ENSURE(aDocument->GetCharacterSet(attrs.characterSet()));
   ENSURE(aDocument->GetTitle(attrs.title()));
-  ENSURE(aDocument->GetReferrer(attrs.referrer()));
   ENSURE(aDocument->GetContentDisposition(attrs.contentDisposition()));
-  ENSURE(aDocument->GetCacheKey(&(attrs.cacheKey())));
+
+  attrs.sessionHistoryCacheKey() = aDocument->GetCacheKey();
+
   ENSURE(aDocument->GetPersistFlags(&(attrs.persistFlags())));
 
   ENSURE(aDocument->GetPrincipal(getter_AddRefs(principal)));
   ENSURE(ipc::PrincipalToPrincipalInfo(principal, &(attrs.principal())));
+
+  ENSURE(aDocument->GetReferrerInfo(getter_AddRefs(referrerInfo)));
+  attrs.referrerInfo() = referrerInfo;
 
   ENSURE(aDocument->GetPostData(getter_AddRefs(postDataStream)));
 #undef ENSURE

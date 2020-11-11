@@ -4,31 +4,83 @@
 "use strict";
 
 const Services = require("Services");
-const { Component, createFactory } = require("devtools/client/shared/vendor/react");
-const PropTypes = require("devtools/client/shared/vendor/react-prop-types");
+const {
+  Component,
+  createFactory,
+} = require("devtools/client/shared/vendor/react");
+loader.lazyRequireGetter(
+  this,
+  "PropTypes",
+  "devtools/client/shared/vendor/react-prop-types"
+);
 const dom = require("devtools/client/shared/vendor/react-dom-factories");
-const { connect } = require("devtools/client/shared/redux/visibility-handler-connect");
+const {
+  connect,
+} = require("devtools/client/shared/redux/visibility-handler-connect");
 
 const actions = require("devtools/client/webconsole/actions/index");
-const ConsoleOutput = createFactory(require("devtools/client/webconsole/components/ConsoleOutput"));
-const FilterBar = createFactory(require("devtools/client/webconsole/components/FilterBar"));
-const SideBar = createFactory(require("devtools/client/webconsole/components/SideBar"));
-const ReverseSearchInput = createFactory(require("devtools/client/webconsole/components/ReverseSearchInput"));
-const JSTerm = createFactory(require("devtools/client/webconsole/components/JSTerm"));
-const NotificationBox = createFactory(require("devtools/client/shared/components/NotificationBox").NotificationBox);
+const {
+  FILTERBAR_DISPLAY_MODES,
+} = require("devtools/client/webconsole/constants");
 
-const l10n = require("devtools/client/webconsole/webconsole-l10n");
+// We directly require Components that we know are going to be used right away
+const ConsoleOutput = createFactory(
+  require("devtools/client/webconsole/components/Output/ConsoleOutput")
+);
+const FilterBar = createFactory(
+  require("devtools/client/webconsole/components/FilterBar/FilterBar")
+);
+const ReverseSearchInput = createFactory(
+  require("devtools/client/webconsole/components/Input/ReverseSearchInput")
+);
+const JSTerm = createFactory(
+  require("devtools/client/webconsole/components/Input/JSTerm")
+);
+const ConfirmDialog = createFactory(
+  require("devtools/client/webconsole/components/Input/ConfirmDialog")
+);
+const EagerEvaluation = createFactory(
+  require("devtools/client/webconsole/components/Input/EagerEvaluation")
+);
+
+// And lazy load the ones that may not be used.
+loader.lazyGetter(this, "SideBar", () =>
+  createFactory(require("devtools/client/webconsole/components/SideBar"))
+);
+
+loader.lazyGetter(this, "EditorToolbar", () =>
+  createFactory(
+    require("devtools/client/webconsole/components/Input/EditorToolbar")
+  )
+);
+
+loader.lazyGetter(this, "NotificationBox", () =>
+  createFactory(
+    require("devtools/client/shared/components/NotificationBox").NotificationBox
+  )
+);
+loader.lazyRequireGetter(
+  this,
+  ["getNotificationWithValue", "PriorityLevels"],
+  "devtools/client/shared/components/NotificationBox",
+  true
+);
+
+loader.lazyGetter(this, "GridElementWidthResizer", () =>
+  createFactory(
+    require("devtools/client/shared/components/splitter/GridElementWidthResizer")
+  )
+);
+
+const l10n = require("devtools/client/webconsole/utils/l10n");
 const { Utils: WebConsoleUtils } = require("devtools/client/webconsole/utils");
 
 const SELF_XSS_OK = l10n.getStr("selfxss.okstring");
 const SELF_XSS_MSG = l10n.getFormatStr("selfxss.msg", [SELF_XSS_OK]);
 
 const {
-  getNotificationWithValue,
-  PriorityLevels,
-} = require("devtools/client/shared/components/NotificationBox");
-
-const { getAllNotifications } = require("devtools/client/webconsole/selectors/notifications");
+  getAllNotifications,
+} = require("devtools/client/webconsole/selectors/notifications");
 const { div } = dom;
 const isMacOS = Services.appinfo.OS === "Darwin";
 
@@ -38,16 +90,27 @@ const isMacOS = Services.appinfo.OS === "Darwin";
 class App extends Component {
   static get propTypes() {
     return {
-      attachRefToHud: PropTypes.func.isRequired,
       dispatch: PropTypes.func.isRequired,
-      hud: PropTypes.object.isRequired,
+      webConsoleUI: PropTypes.object.isRequired,
       notifications: PropTypes.object,
       onFirstMeaningfulPaint: PropTypes.func.isRequired,
       serviceContainer: PropTypes.object.isRequired,
       closeSplitConsole: PropTypes.func.isRequired,
-      jstermCodeMirror: PropTypes.bool,
+      autocomplete: PropTypes.bool,
       currentReverseSearchEntry: PropTypes.string,
       reverseSearchInputVisible: PropTypes.bool,
+      reverseSearchInitialValue: PropTypes.string,
+      editorMode: PropTypes.bool,
+      editorWidth: PropTypes.number,
+      hidePersistLogsCheckbox: PropTypes.bool,
+      hideShowContentMessagesCheckbox: PropTypes.bool,
+      inputEnabled: PropTypes.bool,
+      sidebarVisible: PropTypes.bool.isRequired,
+      eagerEvaluationEnabled: PropTypes.bool.isRequired,
+      filterBarDisplayMode: PropTypes.oneOf([
+        ...Object.values(FILTERBAR_DISPLAY_MODES),
+      ]).isRequired,
+      showEvaluationContextSelector: PropTypes.bool,
     };
   }
 
@@ -57,31 +120,51 @@ class App extends Component {
     this.onClick = this.onClick.bind(this);
     this.onPaste = this.onPaste.bind(this);
     this.onKeyDown = this.onKeyDown.bind(this);
+    this.onBlur = this.onBlur.bind(this);
+  }
+
+  componentDidMount() {
+    window.addEventListener("blur", this.onBlur);
+  }
+
+  onBlur() {
+    this.props.dispatch(actions.autocompleteClear());
   }
 
   onKeyDown(event) {
-    const {
-      dispatch,
-    } = this.props;
+    const { dispatch, webConsoleUI } = this.props;
 
     if (
       (!isMacOS && event.key === "F9") ||
       (isMacOS && event.key === "r" && event.ctrlKey === true)
     ) {
-      dispatch(actions.reverseSearchInputToggle());
+      const initialValue =
+        webConsoleUI.jsterm && webConsoleUI.jsterm.getSelectedText();
+
+      dispatch(
+        actions.reverseSearchInputToggle({ initialValue, access: "keyboard" })
+      );
       event.stopPropagation();
+    }
+
+    if (
+      event.key.toLowerCase() === "b" &&
+      ((isMacOS && event.metaKey) || (!isMacOS && event.ctrlKey))
+    ) {
+      event.stopPropagation();
+      event.preventDefault();
+      dispatch(actions.editorToggle());
     }
   }
 
   onClick(event) {
     const target = event.originalTarget || event.target;
-    const {
-      reverseSearchInputVisible,
-      dispatch,
-      hud,
-    } = this.props;
+    const { reverseSearchInputVisible, dispatch, webConsoleUI } = this.props;
 
-    if (reverseSearchInputVisible === true && !target.closest(".reverse-search")) {
+    if (
+      reverseSearchInputVisible === true &&
+      !target.closest(".reverse-search")
+    ) {
       event.preventDefault();
       event.stopPropagation();
       dispatch(actions.reverseSearchInputToggle());
@@ -110,35 +193,31 @@ class App extends Component {
 
     // Do not focus if something other than the output region was clicked
     // (including e.g. the clear messages button in toolbar)
-    if (!target.closest(".webconsole-output-wrapper")) {
+    if (!target.closest(".webconsole-app")) {
       return;
     }
 
     // Do not focus if something is selected
-    const selection = hud.document.defaultView.getSelection();
+    const selection = webConsoleUI.document.defaultView.getSelection();
     if (selection && !selection.isCollapsed) {
       return;
     }
 
-    if (hud && hud.jsterm) {
-      hud.jsterm.focus();
+    if (webConsoleUI?.jsterm) {
+      webConsoleUI.jsterm.focus();
     }
   }
 
   onPaste(event) {
-    const {
-      dispatch,
-      hud,
-      notifications,
-    } = this.props;
+    const { dispatch, webConsoleUI, notifications } = this.props;
 
-    const {
-      usageCount,
-      CONSOLE_ENTRY_THRESHOLD,
-    } = WebConsoleUtils;
+    const { usageCount, CONSOLE_ENTRY_THRESHOLD } = WebConsoleUtils;
 
     // Bail out if self-xss notification is suppressed.
-    if (hud.isBrowserConsole || usageCount >= CONSOLE_ENTRY_THRESHOLD) {
+    if (
+      webConsoleUI.isBrowserConsole ||
+      usageCount >= CONSOLE_ENTRY_THRESHOLD
+    ) {
       return;
     }
 
@@ -154,7 +233,7 @@ class App extends Component {
     const input = event.target;
 
     // Cleanup function if notification is closed by the user.
-    const removeCallback = (eventType) => {
+    const removeCallback = eventType => {
       if (eventType == "removed") {
         input.removeEventListener("keyup", pasteKeyUpHandler);
         dispatch(actions.removeNotification("selfxss-notification"));
@@ -162,18 +241,20 @@ class App extends Component {
     };
 
     // Create self-xss notification
-    dispatch(actions.appendNotification(
-      SELF_XSS_MSG,
-      "selfxss-notification",
-      null,
-      PriorityLevels.PRIORITY_WARNING_HIGH,
-      null,
-      removeCallback
-    ));
+    dispatch(
+      actions.appendNotification(
+        SELF_XSS_MSG,
+        "selfxss-notification",
+        null,
+        PriorityLevels.PRIORITY_WARNING_HIGH,
+        null,
+        removeCallback
+      )
+    );
 
     // Remove notification automatically when the user types "allow pasting".
-    const pasteKeyUpHandler = (e) => {
-      const value = e.target.value;
+    const pasteKeyUpHandler = e => {
+      const { value } = e.target;
       if (value.includes(SELF_XSS_OK)) {
         dispatch(actions.removeNotification("selfxss-notification"));
         input.removeEventListener("keyup", pasteKeyUpHandler);
@@ -184,77 +265,231 @@ class App extends Component {
     input.addEventListener("keyup", pasteKeyUpHandler);
   }
 
-  // Rendering
-
-  render() {
+  renderFilterBar() {
     const {
-      attachRefToHud,
-      hud,
-      notifications,
-      onFirstMeaningfulPaint,
-      serviceContainer,
       closeSplitConsole,
-      jstermCodeMirror,
+      filterBarDisplayMode,
+      hidePersistLogsCheckbox,
+      hideShowContentMessagesCheckbox,
+      webConsoleUI,
     } = this.props;
 
-    const classNames = ["webconsole-output-wrapper"];
-    if (jstermCodeMirror) {
-      classNames.push("jsterm-cm");
+    return FilterBar({
+      key: "filterbar",
+      hidePersistLogsCheckbox,
+      hideShowContentMessagesCheckbox,
+      closeSplitConsole,
+      displayMode: filterBarDisplayMode,
+      webConsoleUI,
+    });
+  }
+
+  renderEditorToolbar() {
+    const {
+      editorMode,
+      dispatch,
+      reverseSearchInputVisible,
+      serviceContainer,
+      webConsoleUI,
+      showEvaluationContextSelector,
+      inputEnabled,
+    } = this.props;
+
+    if (!inputEnabled) {
+      return null;
     }
 
-    // Render the entire Console panel. The panel consists
-    // from the following parts:
-    // * FilterBar - Buttons & free text for content filtering
-    // * Content - List of logs & messages
-    // * NotificationBox - Notifications for JSTerm (self-xss warning at the moment)
-    // * JSTerm - Input command line.
-    // * ReverseSearchInput - Reverse search input.
-    // * SideBar - Object inspector
-    return (
-      div({
+    return editorMode
+      ? EditorToolbar({
+          key: "editor-toolbar",
+          editorMode,
+          dispatch,
+          reverseSearchInputVisible,
+          serviceContainer,
+          showEvaluationContextSelector,
+          webConsoleUI,
+        })
+      : null;
+  }
+
+  renderConsoleOutput() {
+    const { onFirstMeaningfulPaint, serviceContainer, editorMode } = this.props;
+
+    return ConsoleOutput({
+      key: "console-output",
+      serviceContainer,
+      onFirstMeaningfulPaint,
+      editorMode,
+    });
+  }
+
+  renderJsTerm() {
+    const {
+      webConsoleUI,
+      serviceContainer,
+      autocomplete,
+      editorMode,
+      editorWidth,
+      inputEnabled,
+    } = this.props;
+
+    return JSTerm({
+      key: "jsterm",
+      webConsoleUI,
+      serviceContainer,
+      onPaste: this.onPaste,
+      autocomplete,
+      editorMode,
+      editorWidth,
+      inputEnabled,
+    });
+  }
+
+  renderEagerEvaluation() {
+    const {
+      eagerEvaluationEnabled,
+      serviceContainer,
+      inputEnabled,
+    } = this.props;
+
+    if (!eagerEvaluationEnabled || !inputEnabled) {
+      return null;
+    }
+
+    return EagerEvaluation({ serviceContainer });
+  }
+
+  renderReverseSearch() {
+    const { serviceContainer, reverseSearchInitialValue } = this.props;
+
+    return ReverseSearchInput({
+      key: "reverse-search-input",
+      setInputValue: serviceContainer.setInputValue,
+      focusInput: serviceContainer.focusInput,
+      initialValue: reverseSearchInitialValue,
+    });
+  }
+
+  renderSideBar() {
+    const { serviceContainer, sidebarVisible } = this.props;
+    return sidebarVisible
+      ? SideBar({
+          key: "sidebar",
+          serviceContainer,
+          visible: sidebarVisible,
+        })
+      : null;
+  }
+
+  renderNotificationBox() {
+    const { notifications, editorMode } = this.props;
+
+    return notifications && notifications.size > 0
+      ? NotificationBox({
+          id: "webconsole-notificationbox",
+          key: "notification-box",
+          displayBorderTop: !editorMode,
+          displayBorderBottom: editorMode,
+          wrapping: true,
+          notifications,
+        })
+      : null;
+  }
+
+  renderConfirmDialog() {
+    const { webConsoleUI, serviceContainer } = this.props;
+
+    return ConfirmDialog({
+      webConsoleUI,
+      serviceContainer,
+      key: "confirm-dialog",
+    });
+  }
+
+  renderRootElement(children) {
+    const {
+      editorMode,
+      sidebarVisible,
+      inputEnabled,
+      eagerEvaluationEnabled,
+    } = this.props;
+
+    const classNames = ["webconsole-app"];
+    if (sidebarVisible) {
+      classNames.push("sidebar-visible");
+    }
+    if (editorMode && inputEnabled) {
+      classNames.push("jsterm-editor");
+    }
+
+    if (eagerEvaluationEnabled && inputEnabled) {
+      classNames.push("eager-evaluation");
+    }
+
+    return div(
+      {
         className: classNames.join(" "),
         onKeyDown: this.onKeyDown,
         onClick: this.onClick,
         ref: node => {
           this.node = node;
-        }},
-        div({className: "webconsole-flex-wrapper"},
-          FilterBar({
-            hidePersistLogsCheckbox: hud.isBrowserConsole,
-            serviceContainer: {
-              attachRefToHud,
-            },
-            closeSplitConsole,
-          }),
-          ConsoleOutput({
-            serviceContainer,
-            onFirstMeaningfulPaint,
-          }),
-          NotificationBox({
-            id: "webconsole-notificationbox",
-            notifications,
-          }),
-          JSTerm({
-            hud,
-            serviceContainer,
-            onPaste: this.onPaste,
-            codeMirrorEnabled: jstermCodeMirror,
-          }),
-          ReverseSearchInput({
-            hud,
-          })
-        ),
-        SideBar({
-          serviceContainer,
-        }),
-      )
+        },
+      },
+      children
     );
+  }
+
+  render() {
+    const { webConsoleUI, editorMode, dispatch, inputEnabled } = this.props;
+
+    const filterBar = this.renderFilterBar();
+    const editorToolbar = this.renderEditorToolbar();
+    const consoleOutput = this.renderConsoleOutput();
+    const notificationBox = this.renderNotificationBox();
+    const jsterm = this.renderJsTerm();
+    const eager = this.renderEagerEvaluation();
+    const reverseSearch = this.renderReverseSearch();
+    const sidebar = this.renderSideBar();
+    const confirmDialog = this.renderConfirmDialog();
+
+    return this.renderRootElement([
+      filterBar,
+      editorToolbar,
+      dom.div(
+        { className: "flexible-output-input", key: "in-out-container" },
+        consoleOutput,
+        notificationBox,
+        jsterm,
+        eager
+      ),
+      editorMode && inputEnabled
+        ? GridElementWidthResizer({
+            key: "editor-resizer",
+            enabled: editorMode,
+            position: "end",
+            className: "editor-resizer",
+            getControlledElementNode: () => webConsoleUI.jsterm.node,
+            onResizeEnd: width => dispatch(actions.setEditorWidth(width)),
+          })
+        : null,
+      reverseSearch,
+      sidebar,
+      confirmDialog,
+    ]);
   }
 }
 
 const mapStateToProps = state => ({
   notifications: getAllNotifications(state),
   reverseSearchInputVisible: state.ui.reverseSearchInputVisible,
+  reverseSearchInitialValue: state.ui.reverseSearchInitialValue,
+  editorMode: state.ui.editor,
+  editorWidth: state.ui.editorWidth,
+  sidebarVisible: state.ui.sidebarVisible,
+  filterBarDisplayMode: state.ui.filterBarDisplayMode,
+  eagerEvaluationEnabled: state.prefs.eagerEvaluation,
+  autocomplete: state.prefs.autocomplete,
+  showEvaluationContextSelector: state.ui.showEvaluationContextSelector,
 });
 
 const mapDispatchToProps = dispatch => ({

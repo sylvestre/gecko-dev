@@ -7,13 +7,14 @@
 #include "ScriptErrorHelper.h"
 
 #include "MainThreadUtils.h"
-#include "mozilla/SystemGroup.h"
 #include "nsCOMPtr.h"
 #include "nsContentUtils.h"
 #include "nsIConsoleService.h"
 #include "nsIScriptError.h"
 #include "nsString.h"
 #include "nsThreadUtils.h"
+
+#include "mozilla/SchedulerGroup.h"
 
 namespace {
 
@@ -95,26 +96,34 @@ class ScriptErrorRunnable final : public mozilla::Runnable {
 
     nsCOMPtr<nsIConsoleService> consoleService =
         do_GetService(NS_CONSOLESERVICE_CONTRACTID);
-    MOZ_ASSERT(consoleService);
 
     nsCOMPtr<nsIScriptError> scriptError =
         do_CreateInstance(NS_SCRIPTERROR_CONTRACTID);
-    MOZ_ASSERT(scriptError);
+    // We may not be able to create the script error object when we're shutting
+    // down.
+    if (!scriptError) {
+      return;
+    }
 
     if (aInnerWindowID) {
       MOZ_ALWAYS_SUCCEEDS(scriptError->InitWithWindowID(
           aMessage, aFilename,
-          /* aSourceLine */ EmptyString(), aLineNumber, aColumnNumber,
-          aSeverityFlag, category, aInnerWindowID));
+          /* aSourceLine */ u""_ns, aLineNumber, aColumnNumber, aSeverityFlag,
+          category, aInnerWindowID));
     } else {
       MOZ_ALWAYS_SUCCEEDS(scriptError->Init(
           aMessage, aFilename,
-          /* aSourceLine */ EmptyString(), aLineNumber, aColumnNumber,
-          aSeverityFlag, category.get(),
-          /* IDB doesn't run on Private browsing mode */ false));
+          /* aSourceLine */ u""_ns, aLineNumber, aColumnNumber, aSeverityFlag,
+          category.get(),
+          /* IDB doesn't run on Private browsing mode */ false,
+          /* from chrome context */ aIsChrome));
     }
 
-    MOZ_ALWAYS_SUCCEEDS(consoleService->LogMessage(scriptError));
+    // We may not be able to obtain the console service when we're shutting
+    // down.
+    if (consoleService) {
+      MOZ_ALWAYS_SUCCEEDS(consoleService->LogMessage(scriptError));
+    }
   }
 
   NS_IMETHOD
@@ -135,21 +144,18 @@ class ScriptErrorRunnable final : public mozilla::Runnable {
   }
 
  private:
-  virtual ~ScriptErrorRunnable() {}
+  virtual ~ScriptErrorRunnable() = default;
 };
 
 }  // namespace
 
-namespace mozilla {
-namespace dom {
-namespace indexedDB {
+namespace mozilla::dom::indexedDB {
 
-/*static*/ void ScriptErrorHelper::Dump(const nsAString& aMessage,
-                                        const nsAString& aFilename,
-                                        uint32_t aLineNumber,
-                                        uint32_t aColumnNumber,
-                                        uint32_t aSeverityFlag, bool aIsChrome,
-                                        uint64_t aInnerWindowID) {
+/*static*/
+void ScriptErrorHelper::Dump(const nsAString& aMessage,
+                             const nsAString& aFilename, uint32_t aLineNumber,
+                             uint32_t aColumnNumber, uint32_t aSeverityFlag,
+                             bool aIsChrome, uint64_t aInnerWindowID) {
   if (NS_IsMainThread()) {
     ScriptErrorRunnable::Dump(aMessage, aFilename, aLineNumber, aColumnNumber,
                               aSeverityFlag, aIsChrome, aInnerWindowID);
@@ -158,11 +164,12 @@ namespace indexedDB {
         new ScriptErrorRunnable(aMessage, aFilename, aLineNumber, aColumnNumber,
                                 aSeverityFlag, aIsChrome, aInnerWindowID);
     MOZ_ALWAYS_SUCCEEDS(
-        SystemGroup::Dispatch(TaskCategory::Other, runnable.forget()));
+        SchedulerGroup::Dispatch(TaskCategory::Other, runnable.forget()));
   }
 }
 
-/*static*/ void ScriptErrorHelper::DumpLocalizedMessage(
+/*static*/
+void ScriptErrorHelper::DumpLocalizedMessage(
     const nsACString& aMessageName, const nsAString& aFilename,
     uint32_t aLineNumber, uint32_t aColumnNumber, uint32_t aSeverityFlag,
     bool aIsChrome, uint64_t aInnerWindowID) {
@@ -175,10 +182,8 @@ namespace indexedDB {
         aMessageName, aFilename, aLineNumber, aColumnNumber, aSeverityFlag,
         aIsChrome, aInnerWindowID);
     MOZ_ALWAYS_SUCCEEDS(
-        SystemGroup::Dispatch(TaskCategory::Other, runnable.forget()));
+        SchedulerGroup::Dispatch(TaskCategory::Other, runnable.forget()));
   }
 }
 
-}  // namespace indexedDB
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom::indexedDB

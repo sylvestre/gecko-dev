@@ -5,6 +5,13 @@
 #ifndef ImageBitmapRenderingContext_h
 #define ImageBitmapRenderingContext_h
 
+#include "mozilla/dom/ImageBitmap.h"
+#include "mozilla/gfx/2D.h"
+#include "mozilla/gfx/DataSurfaceHelpers.h"
+#include "mozilla/gfx/Point.h"
+#include "mozilla/layers/WebRenderUserData.h"
+#include "imgIEncoder.h"
+#include "ImageEncoder.h"
 #include "nsICanvasRenderingContextInternal.h"
 #include "nsWrapperCache.h"
 
@@ -62,7 +69,7 @@ class ImageBitmapRenderingContext final
   virtual mozilla::UniquePtr<uint8_t[]> GetImageBuffer(
       int32_t* aFormat) override;
   NS_IMETHOD GetInputStream(const char* aMimeType,
-                            const char16_t* aEncoderOptions,
+                            const nsAString& aEncoderOptions,
                             nsIInputStream** aStream) override;
 
   virtual already_AddRefed<mozilla::gfx::SourceSurface> GetSurfaceSnapshot(
@@ -74,6 +81,8 @@ class ImageBitmapRenderingContext final
   virtual already_AddRefed<Layer> GetCanvasLayer(
       nsDisplayListBuilder* aBuilder, Layer* aOldLayer,
       LayerManager* aManager) override;
+  bool UpdateWebRenderCanvasData(nsDisplayListBuilder* aBuilder,
+                                 WebRenderCanvasData* aCanvasData) override;
   virtual void MarkContextClean() override;
 
   NS_IMETHOD Redraw(const gfxRect& aDirty) override;
@@ -91,6 +100,13 @@ class ImageBitmapRenderingContext final
   int32_t mHeight;
 
   RefPtr<layers::Image> mImage;
+
+  /**
+   * Flag to avoid unnecessary surface copies to FrameCaptureListeners in the
+   * case when the canvas is not currently being drawn into and not rendered
+   * but canvas capturing is still ongoing.
+   */
+  bool mIsCapturedFrameInvalid;
 };
 
 }  // namespace dom

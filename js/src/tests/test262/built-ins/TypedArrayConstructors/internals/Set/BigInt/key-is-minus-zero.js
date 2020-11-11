@@ -1,4 +1,3 @@
-// |reftest| skip-if(!this.hasOwnProperty('BigInt')) -- BigInt is not enabled unconditionally
 // Copyright (C) 2016 the V8 project authors. All rights reserved.
 // This code is governed by the BSD license found in the LICENSE file.
 /*---
@@ -21,14 +20,12 @@ info: |
   ...
   10. If index = -0, return false.
 includes: [testBigIntTypedArray.js]
-features: [BigInt, Reflect, TypedArray]
+features: [align-detached-buffer-semantics-with-web-reality, BigInt, Reflect, TypedArray]
 ---*/
-
 testWithBigIntTypedArrayConstructors(function(TA) {
   var sample = new TA([42n]);
-
-  assert.sameValue(Reflect.set(sample, "-0", 1n), false, "-0");
-  assert.sameValue(sample.hasOwnProperty("-0"), false, "has no property [-0]");
+  assert.sameValue(Reflect.set(sample, '-0', 1n), false, 'Reflect.set("new TA([42n])", "-0", 1n) must return false');
+  assert.sameValue(sample.hasOwnProperty('-0'), false, 'sample.hasOwnProperty("-0") must return false');
 });
 
 reportCompare(0, 0);

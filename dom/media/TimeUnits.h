@@ -7,6 +7,8 @@
 #ifndef TIME_UNITS_H
 #define TIME_UNITS_H
 
+#include <type_traits>
+
 #include "Intervals.h"
 #include "mozilla/CheckedInt.h"
 #include "mozilla/FloatingPoint.h"
@@ -20,8 +22,9 @@ class TimeIntervals;
 }  // namespace mozilla
 // CopyChooser specialization for nsTArray
 template <>
-struct nsTArray_CopyChooser<mozilla::media::TimeIntervals> {
-  typedef nsTArray_CopyWithConstructors<mozilla::media::TimeIntervals> Type;
+struct nsTArray_RelocationStrategy<mozilla::media::TimeIntervals> {
+  typedef nsTArray_RelocateUsingMoveConstructor<mozilla::media::TimeIntervals>
+      Type;
 };
 
 namespace mozilla {
@@ -45,7 +48,7 @@ class TimeUnit final {
     MOZ_ASSERT(!IsNaN(aValue));
 
     if (mozilla::IsInfinite<double>(aValue)) {
-      return FromInfinity();
+      return aValue > 0 ? FromInfinity() : FromNegativeInfinity();
     }
     // Due to internal double representation, this
     // operation is not commutative, do not attempt to simplify.
@@ -71,6 +74,10 @@ class TimeUnit final {
 
   static constexpr TimeUnit FromInfinity() { return TimeUnit(INT64_MAX); }
 
+  static constexpr TimeUnit FromNegativeInfinity() {
+    return TimeUnit(INT64_MIN);
+  }
+
   static TimeUnit FromTimeDuration(const TimeDuration& aDuration) {
     return FromSeconds(aDuration.ToSeconds());
   }
@@ -90,8 +97,11 @@ class TimeUnit final {
   int64_t ToNanoseconds() const { return mValue.value() * 1000; }
 
   double ToSeconds() const {
-    if (IsInfinite()) {
+    if (IsPosInf()) {
       return PositiveInfinity<double>();
+    }
+    if (IsNegInf()) {
+      return NegativeInfinity<double>();
     }
     return double(mValue.value()) / USECS_PER_S;
   }
@@ -100,7 +110,7 @@ class TimeUnit final {
     return TimeDuration::FromMicroseconds(mValue.value());
   }
 
-  bool IsInfinite() const { return mValue.value() == INT64_MAX; }
+  bool IsInfinite() const { return IsPosInf() || IsNegInf(); }
 
   bool IsPositive() const { return mValue.value() > 0; }
 
@@ -124,15 +134,29 @@ class TimeUnit final {
     return mValue.value() <= aOther.mValue.value();
   }
   bool operator<(const TimeUnit& aOther) const { return !(*this >= aOther); }
+  TimeUnit operator%(const TimeUnit& aOther) const {
+    MOZ_ASSERT(IsValid() && aOther.IsValid());
+    return TimeUnit(mValue % aOther.mValue);
+  }
+
   TimeUnit operator+(const TimeUnit& aOther) const {
     if (IsInfinite() || aOther.IsInfinite()) {
-      return FromInfinity();
+      // When adding at least one infinite value, the result is either
+      // +/-Inf, or NaN. So do the calculation in floating point for
+      // simplicity.
+      double result = ToSeconds() + aOther.ToSeconds();
+      return IsNaN(result) ? TimeUnit::Invalid() : FromSeconds(result);
     }
     return TimeUnit(mValue + aOther.mValue);
   }
+
   TimeUnit operator-(const TimeUnit& aOther) const {
-    if (IsInfinite() && !aOther.IsInfinite()) {
-      return FromInfinity();
+    if (IsInfinite() || aOther.IsInfinite()) {
+      // When subtracting at least one infinite value, the result is either
+      // +/-Inf, or NaN. So do the calculation in floating point for
+      // simplicity.
+      double result = ToSeconds() - aOther.ToSeconds();
+      return IsNaN(result) ? TimeUnit::Invalid() : FromSeconds(result);
     }
     MOZ_ASSERT(!IsInfinite() && !aOther.IsInfinite());
     return TimeUnit(mValue - aOther.mValue);
@@ -150,33 +174,42 @@ class TimeUnit final {
   TimeUnit operator*(T aVal) const {
     // See bug 853398 for the reason to block double multiplier.
     // If required, use MultDouble below and with caution.
-    static_assert(mozilla::IsIntegral<T>::value, "Must be an integral type");
+    static_assert(std::is_integral_v<T>, "Must be an integral type");
     return TimeUnit(mValue * aVal);
   }
   TimeUnit MultDouble(double aVal) const {
     return TimeUnit::FromSeconds(ToSeconds() * aVal);
   }
-  friend TimeUnit operator/(const TimeUnit& aUnit, int aVal) {
+  friend TimeUnit operator/(const TimeUnit& aUnit, int64_t aVal) {
+    MOZ_DIAGNOSTIC_ASSERT(0 <= aVal && aVal <= UINT32_MAX);
     return TimeUnit(aUnit.mValue / aVal);
   }
-  friend TimeUnit operator%(const TimeUnit& aUnit, int aVal) {
+  friend TimeUnit operator%(const TimeUnit& aUnit, int64_t aVal) {
+    MOZ_DIAGNOSTIC_ASSERT(0 <= aVal && aVal <= UINT32_MAX);
     return TimeUnit(aUnit.mValue % aVal);
   }
 
   bool IsValid() const { return mValue.isValid(); }
 
-  constexpr TimeUnit() : mValue(CheckedInt64(0)) {}
+  constexpr TimeUnit() = default;
 
   TimeUnit(const TimeUnit&) = default;
 
   TimeUnit& operator=(const TimeUnit&) = default;
+
+  bool IsPosInf() const {
+    return mValue.isValid() && mValue.value() == INT64_MAX;
+  }
+  bool IsNegInf() const {
+    return mValue.isValid() && mValue.value() == INT64_MIN;
+  }
 
  private:
   explicit constexpr TimeUnit(CheckedInt64 aMicroseconds)
       : mValue(aMicroseconds) {}
 
   // Our internal representation is in microseconds.
-  CheckedInt64 mValue;
+  CheckedInt64 mValue{0};
 };
 
 typedef Maybe<TimeUnit> NullableTimeUnit;
@@ -201,12 +234,11 @@ class TimeIntervals : public IntervalSet<TimeUnit> {
       : BaseType(std::move(aOther)) {}
 
   static TimeIntervals Invalid() {
-    return TimeIntervals(TimeInterval(TimeUnit::FromMicroseconds(INT64_MIN),
-                                      TimeUnit::FromMicroseconds(INT64_MIN)));
+    return TimeIntervals(TimeInterval(TimeUnit::FromNegativeInfinity(),
+                                      TimeUnit::FromNegativeInfinity()));
   }
   bool IsInvalid() const {
-    return Length() == 1 && Start(0).ToMicroseconds() == INT64_MIN &&
-           End(0).ToMicroseconds() == INT64_MIN;
+    return Length() == 1 && Start(0).IsNegInf() && End(0).IsNegInf();
   }
 
   TimeIntervals() = default;

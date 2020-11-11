@@ -8,12 +8,21 @@ const STRINGS_URI = "devtools/client/locales/jit-optimizations.properties";
 const L10N = new LocalizationHelper(STRINGS_URI);
 
 const { assert } = require("devtools/shared/DevToolsUtils");
-const { Component, createFactory } = require("devtools/client/shared/vendor/react");
+const {
+  Component,
+  createFactory,
+} = require("devtools/client/shared/vendor/react");
 const dom = require("devtools/client/shared/vendor/react-dom-factories");
 const PropTypes = require("devtools/client/shared/vendor/react-prop-types");
-const Tree = createFactory(require("devtools/client/shared/components/VirtualizedTree"));
-const OptimizationsItem = createFactory(require("./JITOptimizationsItem"));
-const FrameView = createFactory(require("../../shared/components/Frame"));
+const Tree = createFactory(
+  require("devtools/client/shared/components/VirtualizedTree")
+);
+const OptimizationsItem = createFactory(
+  require("devtools/client/performance/components/JITOptimizationsItem")
+);
+const FrameView = createFactory(
+  require("devtools/client/shared/components/Frame")
+);
 const JIT_TITLE = L10N.getStr("jit.title");
 // If TREE_ROW_HEIGHT changes, be sure to change `var(--jit-tree-row-height)`
 // in `devtools/client/themes/jit-optimizations.css`
@@ -25,8 +34,10 @@ const TREE_ROW_HEIGHT = 14;
  *        integrated as of yet, and this may represent intended functionality.
  */
 const onClickTooltipString = frame =>
-  L10N.getFormatStr("viewsourceindebugger",
-                    `${frame.source}:${frame.line}:${frame.column}`);
+  L10N.getFormatStr(
+    "viewsourceindebugger",
+    `${frame.source}:${frame.line}:${frame.column}`
+  );
 /* eslint-enable no-unused-vars */
 
 const optimizationAttemptModel = {
@@ -97,11 +108,9 @@ class JITOptimizations extends Component {
    */
   _createHeader({ frameData, onViewSourceInDebugger }) {
     const { isMetaCategory, url, line } = frameData;
-    const name = isMetaCategory ? frameData.categoryData.label :
-               frameData.functionName || "";
-
-    // Simulate `SavedFrame`s interface
-    const frame = { source: url, line: +line, functionDisplayName: name };
+    const name = isMetaCategory
+      ? frameData.categoryData.label
+      : frameData.functionName || "";
 
     // Neither Meta Category nodes, or the lack of a selected frame node,
     // renders out a frame source, like "file.js:123"; so just use
@@ -111,12 +120,17 @@ class JITOptimizations extends Component {
       frameComponent = dom.span();
     } else {
       frameComponent = FrameView({
-        frame,
-        onClick: () => onViewSourceInDebugger(frame),
+        frame: {
+          source: url,
+          line: +line,
+          functionDisplayName: name,
+        },
+        onClick: onViewSourceInDebugger,
       });
     }
 
-    return dom.div({ className: "optimization-header" },
+    return dom.div(
+      { className: "optimization-header" },
       dom.span({ className: "header-title" }, JIT_TITLE),
       dom.span({ className: "header-function-name" }, name),
       frameComponent
@@ -133,13 +147,15 @@ class JITOptimizations extends Component {
 
     const getSite = id => sites.find(site => site.id === id);
     const getIonTypeForObserved = type => {
-      return getSite(type.id).data.types
-        .find(iontype => (iontype.typeset || [])
-        .includes(type));
+      return getSite(type.id).data.types.find(iontype =>
+        (iontype.typeset || []).includes(type)
+      );
     };
     const isSite = site => getSite(site.id) === site;
-    const isAttempts = attempts => getSite(attempts.id).data.attempts === attempts;
-    const isAttempt = attempt => getSite(attempt.id).data.attempts.includes(attempt);
+    const isAttempts = attempts =>
+      getSite(attempts.id).data.attempts === attempts;
+    const isAttempt = attempt =>
+      getSite(attempt.id).data.attempts.includes(attempt);
     const isTypes = types => getSite(types.id).data.types === types;
     const isType = type => getSite(type.id).data.types.includes(type);
     const isObservedType = type => getIonTypeForObserved(type);
@@ -217,16 +233,18 @@ class JITOptimizations extends Component {
         return [];
       },
       isExpanded: node => this.state.expanded.has(node),
-      onExpand: node => this.setState(state => {
-        const expanded = new Set(state.expanded);
-        expanded.add(node);
-        return { expanded };
-      }),
-      onCollapse: node => this.setState(state => {
-        const expanded = new Set(state.expanded);
-        expanded.delete(node);
-        return { expanded };
-      }),
+      onExpand: node =>
+        this.setState(state => {
+          const expanded = new Set(state.expanded);
+          expanded.add(node);
+          return { expanded };
+        }),
+      onCollapse: node =>
+        this.setState(state => {
+          const expanded = new Set(state.expanded);
+          expanded.delete(node);
+          return { expanded };
+        }),
       onFocus: function() {},
       getKey,
       getRoots: () => sites || [],

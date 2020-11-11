@@ -5,11 +5,11 @@
 
 #include "nsISupports.idl"
 
-interface nsITreeBoxObject;
 interface nsITreeSelection;
 
 webidl DataTransfer;
 webidl TreeColumn;
+webidl XULTreeElement;
 
 [scriptable, uuid(091116f0-0bdc-4b32-b9c8-c8d5a37cb088)]
 interface nsITreeView : nsISupports
@@ -130,7 +130,7 @@ interface nsITreeView : nsISupports
   /**
    * Called during initialization to link the view to the front end box object.
    */
-  void setTree(in nsITreeBoxObject tree);
+  void setTree(in XULTreeElement tree);
 
   /**
    * Called on the view when an item is opened or closed.
@@ -170,21 +170,4 @@ interface nsITreeView : nsISupports
    * setCellText is called when the contents of the cell have been edited by the user.
    */
   void setCellText(in long row, in TreeColumn col, in AString value);
-
-  /**
-   * A command API that can be used to invoke commands on the selection.  The tree
-   * will automatically invoke this method when certain keys are pressed.  For example,
-   * when the DEL key is pressed, performAction will be called with the "delete" string.
-   */
-  void performAction(in wstring action);
-
-  /**
-   * A command API that can be used to invoke commands on a specific row.
-   */
-  void performActionOnRow(in wstring action, in long row);
-
-  /**
-   * A command API that can be used to invoke commands on a specific cell.
-   */
-  void performActionOnCell(in wstring action, in long row, in TreeColumn col);
 };

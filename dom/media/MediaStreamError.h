@@ -15,7 +15,7 @@
 #include "mozilla/RefPtr.h"
 
 #if defined(XP_WIN) && defined(GetMessage)
-#undef GetMessage
+#  undef GetMessage
 #endif
 
 namespace mozilla {
@@ -61,14 +61,14 @@ class BaseMediaMgrError {
 
 class MediaMgrError final : public nsISupports, public BaseMediaMgrError {
  public:
-  explicit MediaMgrError(Name aName, const nsAString& aMessage = EmptyString(),
-                         const nsAString& aConstraint = EmptyString())
+  explicit MediaMgrError(Name aName, const nsAString& aMessage = u""_ns,
+                         const nsAString& aConstraint = u""_ns)
       : BaseMediaMgrError(aName, aMessage, aConstraint) {}
 
   NS_DECL_THREADSAFE_ISUPPORTS
 
  private:
-  ~MediaMgrError() {}
+  ~MediaMgrError() = default;
 };
 
 namespace dom {
@@ -77,8 +77,8 @@ class MediaStreamError final : public nsISupports,
                                public nsWrapperCache {
  public:
   MediaStreamError(nsPIDOMWindowInner* aParent, Name aName,
-                   const nsAString& aMessage = EmptyString(),
-                   const nsAString& aConstraint = EmptyString());
+                   const nsAString& aMessage = u""_ns,
+                   const nsAString& aConstraint = u""_ns);
 
   MediaStreamError(nsPIDOMWindowInner* aParent, const BaseMediaMgrError& aOther)
       : BaseMediaMgrError(aOther.mName, aOther.mMessage, aOther.mConstraint),
@@ -98,7 +98,7 @@ class MediaStreamError final : public nsISupports,
   void GetConstraint(nsAString& aConstraint) const;
 
  private:
-  virtual ~MediaStreamError() {}
+  virtual ~MediaStreamError() = default;
 
   RefPtr<nsPIDOMWindowInner> mParent;
 };

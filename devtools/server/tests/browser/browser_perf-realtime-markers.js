@@ -11,7 +11,6 @@ add_task(async function() {
   const target = await addTabTarget(MAIN_DOMAIN + "doc_perf.html");
 
   const front = await target.getFront("performance");
-  await front.connect();
 
   let lastMemoryDelta = 0;
   let lastTickDelta = 0;
@@ -22,17 +21,16 @@ add_task(async function() {
     ticks: [],
   };
 
-  const deferreds = {
-    markers: defer(),
-    memory: defer(),
-    ticks: defer(),
-  };
+  const done = new Promise(resolve => {
+    front.on("timeline-data", (name, data) => handler(name, data, resolve));
+  });
 
-  front.on("timeline-data", handler);
-
-  const rec = await front.startRecording(
-    { withMarkers: true, withMemory: true, withTicks: true });
-  await Promise.all(Object.keys(deferreds).map(type => deferreds[type].promise));
+  const rec = await front.startRecording({
+    withMarkers: true,
+    withMemory: true,
+    withTicks: true,
+  });
+  await done;
   await front.stopRecording(rec);
   front.off("timeline-data", handler);
 
@@ -40,11 +38,10 @@ add_task(async function() {
   is(counters.memory.length, 3, "three memory events fired.");
   is(counters.ticks.length, 3, "three ticks events fired.");
 
-  await front.destroy();
   await target.destroy();
   gBrowser.removeCurrentTab();
 
-  function handler(name, data) {
+  function handler(name, data, resolve) {
     if (name === "markers") {
       if (counters.markers.length >= 1) {
         return;
@@ -83,10 +80,12 @@ add_task(async function() {
       ok(false, `Received unknown event: ${name}`);
     }
 
-    if (name === "markers" && counters[name].length === 1 ||
-        name === "memory" && counters[name].length === 3 ||
-        name === "ticks" && counters[name].length === 3) {
-      deferreds[name].resolve();
+    if (
+      counters.markers.length === 1 &&
+      counters.memory.length === 3 &&
+      counters.ticks.length === 3
+    ) {
+      resolve();
     }
   }
 });

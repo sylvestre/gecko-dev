@@ -7,7 +7,14 @@
 #ifndef mozilla_layers_APZUtils_h
 #define mozilla_layers_APZUtils_h
 
+// This file is for APZ-related utilities that are used by code in gfx/layers
+// only. For APZ-related utilities used by the Rest of the World (widget/,
+// layout/, dom/, IPDL protocols, etc.), use APZPublicUtils.h.
+// Do not include this header from source files outside of gfx/layers.
+
 #include <stdint.h>  // for uint32_t
+#include <type_traits>
+#include "gfxTypes.h"
 #include "FrameMetrics.h"
 #include "LayersTypes.h"
 #include "UnitTransforms.h"
@@ -18,9 +25,8 @@
 #include "mozilla/FloatingPoint.h"
 
 namespace mozilla {
-namespace layers {
 
-class AsyncPanZoomController;
+namespace layers {
 
 enum CancelAnimationFlags : uint32_t {
   Default = 0x0,             /* Cancel all animations */
@@ -37,8 +43,6 @@ inline CancelAnimationFlags operator|(CancelAnimationFlags a,
                                            static_cast<int>(b));
 }
 
-typedef EnumSet<ScrollDirection> ScrollDirections;
-
 // clang-format off
 enum class ScrollSource {
   // scrollTo() or something similar.
@@ -53,11 +57,6 @@ enum class ScrollSource {
   // Keyboard
   Keyboard,
 };
-
-MOZ_DEFINE_ENUM_CLASS_WITH_BASE(APZWheelAction, uint8_t, (
-    Scroll,
-    PinchZoom
-))
 // clang-format on
 
 // Epsilon to be used when comparing 'float' coordinate values
@@ -66,13 +65,35 @@ MOZ_DEFINE_ENUM_CLASS_WITH_BASE(APZWheelAction, uint8_t, (
 // ten thousands. Note also that the smallest legitimate difference in page
 // coordinates is 1 app unit, which is 1/60 of a (CSS pixel), so this epsilon
 // isn't too large.
-const float COORDINATE_EPSILON = 0.01f;
+const float COORDINATE_EPSILON = 0.02f;
 
 template <typename Units>
 static bool IsZero(const gfx::PointTyped<Units>& aPoint) {
   return FuzzyEqualsAdditive(aPoint.x, 0.0f, COORDINATE_EPSILON) &&
          FuzzyEqualsAdditive(aPoint.y, 0.0f, COORDINATE_EPSILON);
 }
+
+// Represents async transforms consisting of a scale and a translation.
+struct AsyncTransform {
+  explicit AsyncTransform(
+      LayerToParentLayerScale aScale = LayerToParentLayerScale(),
+      ParentLayerPoint aTranslation = ParentLayerPoint())
+      : mScale(aScale), mTranslation(aTranslation) {}
+
+  operator AsyncTransformComponentMatrix() const {
+    return AsyncTransformComponentMatrix::Scaling(mScale.scale, mScale.scale, 1)
+        .PostTranslate(mTranslation.x, mTranslation.y, 0);
+  }
+
+  bool operator==(const AsyncTransform& rhs) const {
+    return mTranslation == rhs.mTranslation && mScale == rhs.mScale;
+  }
+
+  bool operator!=(const AsyncTransform& rhs) const { return !(*this == rhs); }
+
+  LayerToParentLayerScale mScale;
+  ParentLayerPoint mTranslation;
+};
 
 // Deem an AsyncTransformComponentMatrix (obtained by multiplying together
 // one or more AsyncTransformComponentMatrix objects) as constituting a
@@ -83,55 +104,54 @@ inline AsyncTransformMatrix CompleteAsyncTransform(
       aMatrix, PixelCastJustification::MultipleAsyncTransforms);
 }
 
-struct TargetConfirmationFlags {
+struct TargetConfirmationFlags final {
   explicit TargetConfirmationFlags(bool aTargetConfirmed)
       : mTargetConfirmed(aTargetConfirmed),
-        mRequiresTargetConfirmation(false) {}
+        mRequiresTargetConfirmation(false),
+        mHitScrollbar(false),
+        mHitScrollThumb(false),
+        mDispatchToContent(false) {}
 
   explicit TargetConfirmationFlags(
       const gfx::CompositorHitTestInfo& aHitTestInfo)
       : mTargetConfirmed(
             (aHitTestInfo != gfx::CompositorHitTestInvisibleToHit) &&
-            !aHitTestInfo.contains(
-                gfx::CompositorHitTestFlags::eDispatchToContent)),
+            (aHitTestInfo & gfx::CompositorHitTestDispatchToContent).isEmpty()),
         mRequiresTargetConfirmation(aHitTestInfo.contains(
-            gfx::CompositorHitTestFlags::eRequiresTargetConfirmation)) {}
+            gfx::CompositorHitTestFlags::eRequiresTargetConfirmation)),
+        mHitScrollbar(
+            aHitTestInfo.contains(gfx::CompositorHitTestFlags::eScrollbar)),
+        mHitScrollThumb(aHitTestInfo.contains(
+            gfx::CompositorHitTestFlags::eScrollbarThumb)),
+        mDispatchToContent(
+            !(aHitTestInfo & gfx::CompositorHitTestDispatchToContent)
+                 .isEmpty()) {}
 
   bool mTargetConfirmed : 1;
   bool mRequiresTargetConfirmation : 1;
+  bool mHitScrollbar : 1;
+  bool mHitScrollThumb : 1;
+  bool mDispatchToContent : 1;
 };
 
-/**
- * An RAII class to temporarily apply async test attributes to the provided
- * AsyncPanZoomController.
- */
-class MOZ_RAII AutoApplyAsyncTestAttributes {
- public:
-  explicit AutoApplyAsyncTestAttributes(AsyncPanZoomController*);
-  ~AutoApplyAsyncTestAttributes();
+enum class AsyncTransformComponent { eLayout, eVisual };
 
- private:
-  AsyncPanZoomController* mApzc;
-  FrameMetrics mPrevFrameMetrics;
+using AsyncTransformComponents = EnumSet<AsyncTransformComponent>;
+
+constexpr AsyncTransformComponents LayoutAndVisual(
+    AsyncTransformComponent::eLayout, AsyncTransformComponent::eVisual);
+
+/**
+ * Metrics that GeckoView wants to know at every composite.
+ * These are the effective visual scroll offset and zoom level of
+ * the root content APZC at composition time.
+ */
+struct GeckoViewMetrics {
+  CSSPoint mVisualScrollOffset;
+  CSSToParentLayerScale2D mZoom;
 };
 
 namespace apz {
-
-/**
- * Initializes the global state used in AsyncPanZoomController.
- * This is normally called when it is first needed in the constructor
- * of APZCTreeManager, but can be called manually to force it to be
- * initialized earlier.
- */
-void InitializeGlobalState();
-
-/**
- * See AsyncPanZoomController::CalculatePendingDisplayPort. This
- * function simply delegates to that one, so that non-layers code
- * never needs to include AsyncPanZoomController.h
- */
-const ScreenMargin CalculatePendingDisplayPort(
-    const FrameMetrics& aFrameMetrics, const ParentLayerPoint& aVelocity);
 
 /**
  * Is aAngle within the given threshold of the horizontal axis?
@@ -142,6 +162,42 @@ bool IsCloseToHorizontal(float aAngle, float aThreshold);
 
 // As above, but for the vertical axis.
 bool IsCloseToVertical(float aAngle, float aThreshold);
+
+// Returns true if a sticky layer with async translation |aTranslation| is
+// stuck with a bottom margin. The inner/outer ranges are produced by the main
+// thread at the last paint, and so |aTranslation| only needs to be the
+// async translation from the last paint.
+bool IsStuckAtBottom(gfxFloat aTranslation,
+                     const LayerRectAbsolute& aInnerRange,
+                     const LayerRectAbsolute& aOuterRange);
+
+// Returns true if a sticky layer with async translation |aTranslation| is
+// stuck with a top margin.
+bool IsStuckAtTop(gfxFloat aTranslation, const LayerRectAbsolute& aInnerRange,
+                  const LayerRectAbsolute& aOuterRange);
+
+/**
+ * Compute the translation that should be applied to a layer that's fixed
+ * at |eFixedSides|, to respect the fixed layer margins |aFixedMargins|.
+ */
+ScreenPoint ComputeFixedMarginsOffset(
+    const ScreenMargin& aCompositorFixedLayerMargins, SideBits aFixedSides,
+    const ScreenMargin& aGeckoFixedLayerMargins);
+
+/**
+ * Takes the visible rect from the compositor metrics, adds a pref-based
+ * margin around it, and checks to see if it is contained inside the painted
+ * rect from the painted metrics. Returns true if it is contained, or false
+ * if not. Returning false means that a (relatively) small amount of async
+ * scrolling/zooming can result in the visible area going outside the painted
+ * area and resulting in visual checkerboarding.
+ * Note that this may return false positives for cases where the scrollframe
+ * in question is nested inside other scrollframes, as the composition bounds
+ * used to determine the visible rect may in fact be clipped by enclosing
+ * scrollframes, but that is not accounted for in this function.
+ */
+bool AboutToCheckerboard(const FrameMetrics& aPaintedMetrics,
+                         const FrameMetrics& aCompositorMetrics);
 
 }  // namespace apz
 

@@ -5,15 +5,16 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "X11TextureHost.h"
-#include "mozilla/layers/BasicCompositor.h"
-#include "mozilla/layers/X11TextureSourceBasic.h"
-#include "mozilla/layers/CompositorOGL.h"
-#include "mozilla/layers/X11TextureSourceOGL.h"
-#include "gfxXlibSurface.h"
-#include "gfx2DGlue.h"
 
-namespace mozilla {
-namespace layers {
+#include "mozilla/layers/BasicCompositor.h"
+#include "mozilla/layers/CompositorOGL.h"
+#include "mozilla/layers/X11TextureSourceBasic.h"
+#include "mozilla/layers/X11TextureSourceOGL.h"
+#include "gfx2DGlue.h"
+#include "gfxPlatform.h"
+#include "gfxXlibSurface.h"
+
+namespace mozilla::layers {
 
 using namespace mozilla::gfx;
 
@@ -99,5 +100,4 @@ already_AddRefed<gfx::DataSourceSurface> X11TextureHost::GetAsSurface() {
   return surf->GetDataSurface();
 }
 
-}  // namespace layers
-}  // namespace mozilla
+}  // namespace mozilla::layers

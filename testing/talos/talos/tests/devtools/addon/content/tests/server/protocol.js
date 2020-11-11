@@ -4,8 +4,14 @@
 
 "use strict";
 
-const { openToolbox, closeToolbox, testSetup, testTeardown, runTest,
-        SIMPLE_URL } = require("../head");
+const {
+  openToolbox,
+  closeToolbox,
+  testSetup,
+  testTeardown,
+  runTest,
+  SIMPLE_URL,
+} = require("../head");
 
 const protocol = require("devtools/shared/protocol");
 const { FrontClassWithSpec } = protocol;
@@ -18,13 +24,14 @@ const ARRAY_SIZE = 50;
 const REPEAT = 300;
 
 class DampTestFront extends FrontClassWithSpec(dampTestSpec) {
-  constructor(client, tabForm) {
-    super(client, tabForm);
-    this.actorID = tabForm.dampTestActor;
-    // Root owns itself.
-    this.manage(this);
+  constructor(client) {
+    super(client);
+
+    // Attribute name from which to retrieve the actorID out of the target actor's form
+    this.formAttributeName = "dampTestActor";
   }
 }
+protocol.registerFront(DampTestFront);
 
 module.exports = async function() {
   let tab = await testSetup(SIMPLE_URL);
@@ -33,9 +40,11 @@ module.exports = async function() {
   let url = module.uri.replace(/protocol\.js$/, "actor.js");
 
   // Register a test actor within the content process
-  messageManager.loadFrameScript("data:,(" + encodeURIComponent(
-    `function () {
-      const { require } = ChromeUtils.import("resource://devtools/shared/Loader.jsm", {});
+  messageManager.loadFrameScript(
+    "data:,(" +
+      encodeURIComponent(
+        `function () {
+      const { require } = ChromeUtils.import("resource://devtools/shared/Loader.jsm");
 
       const { ActorRegistry } = require("devtools/server/actors/utils/actor-registry");
       ActorRegistry.registerModule("${url}", {
@@ -44,7 +53,10 @@ module.exports = async function() {
         type: { target: true }
       });
     }`
-  ) + ")()", true);
+      ) +
+      ")()",
+    true
+  );
 
   // Create test payloads
   let bigString = "";
@@ -57,14 +69,14 @@ module.exports = async function() {
     bigObject["attribute-" + i] = bigString;
   }
 
-  let bigArray = Array.from({length: ARRAY_SIZE}, (_, i) => bigObject);
+  let bigArray = Array.from({ length: ARRAY_SIZE }, (_, i) => bigObject);
 
   // Open against options to avoid noise from tools
   let toolbox = await openToolbox("options");
 
   // Instanciate a front for this test actor
   let { target } = toolbox;
-  let front = new DampTestFront(target.client, target.form);
+  let front = await target.getFront("dampTest");
 
   // Execute the core of this test, call one method multiple times
   // and listen for an event sent by this method

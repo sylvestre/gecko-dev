@@ -10,9 +10,11 @@
 #include "GeckoProfiler.h"
 #include "nsEscape.h"
 
+#include "mozilla/ClearOnShutdown.h"
 #include "mozilla/dom/nsSynthVoiceRegistry.h"
 #include "mozilla/dom/nsSpeechTask.h"
 #include "mozilla/Preferences.h"
+#include "mozilla/StaticPrefs_media.h"
 
 namespace mozilla {
 namespace dom {
@@ -129,20 +131,19 @@ void SapiCallback::OnSpeechEvent(const SPEVENT& speechEvent) {
       break;
     case SPEI_TTS_BOOKMARK:
       mCurrentIndex = static_cast<ULONG>(speechEvent.lParam) - mTextOffset;
-      mTask->DispatchBoundary(NS_LITERAL_STRING("mark"),
-                              GetTickCount() - mStartingTime, mCurrentIndex, 0,
-                              0);
+      mTask->DispatchBoundary(u"mark"_ns, GetTickCount() - mStartingTime,
+                              mCurrentIndex, 0, 0);
       break;
     case SPEI_WORD_BOUNDARY:
       mCurrentIndex = static_cast<ULONG>(speechEvent.lParam) - mTextOffset;
-      mTask->DispatchBoundary(NS_LITERAL_STRING("word"),
-                              GetTickCount() - mStartingTime, mCurrentIndex,
+      mTask->DispatchBoundary(u"word"_ns, GetTickCount() - mStartingTime,
+                              mCurrentIndex,
                               static_cast<ULONG>(speechEvent.wParam), 1);
       break;
     case SPEI_SENTENCE_BOUNDARY:
       mCurrentIndex = static_cast<ULONG>(speechEvent.lParam) - mTextOffset;
-      mTask->DispatchBoundary(NS_LITERAL_STRING("sentence"),
-                              GetTickCount() - mStartingTime, mCurrentIndex,
+      mTask->DispatchBoundary(u"sentence"_ns, GetTickCount() - mStartingTime,
+                              mCurrentIndex,
                               static_cast<ULONG>(speechEvent.wParam), 1);
       break;
     default:
@@ -190,7 +191,7 @@ bool SapiService::Init() {
   MOZ_ASSERT(!mInitialized);
 
   if (Preferences::GetBool("media.webspeech.synth.test") ||
-      !Preferences::GetBool("media.webspeech.synth.enabled")) {
+      !StaticPrefs::media_webspeech_synth_enabled()) {
     // When enabled, we shouldn't add OS backend (Bug 1160844)
     return false;
   }
@@ -303,7 +304,7 @@ bool SapiService::RegisterVoices() {
       continue;
     }
 
-    mVoices.Put(uri, voiceToken);
+    mVoices.Put(uri, std::move(voiceToken));
   }
 
   registry->NotifyVoicesChanged();
@@ -415,6 +416,7 @@ SapiService* SapiService::GetInstance() {
     RefPtr<SapiService> service = new SapiService();
     if (service->Init()) {
       sSingleton = service;
+      ClearOnShutdown(&sSingleton);
     }
   }
   return sSingleton;
@@ -423,13 +425,6 @@ SapiService* SapiService::GetInstance() {
 already_AddRefed<SapiService> SapiService::GetInstanceForService() {
   RefPtr<SapiService> sapiService = GetInstance();
   return sapiService.forget();
-}
-
-void SapiService::Shutdown() {
-  if (!sSingleton) {
-    return;
-  }
-  sSingleton = nullptr;
 }
 
 }  // namespace dom

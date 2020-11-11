@@ -12,10 +12,12 @@
 #include "mozilla/DefineEnum.h"                  // for MOZ_DEFINE_ENUM
 #include "mozilla/layers/ScrollableLayerGuid.h"  // for ViewID
 #include "mozilla/Variant.h"                     // for Variant
-
-class nsIPresShell;
+#include "mozilla/Maybe.h"                       // for Maybe
 
 namespace mozilla {
+
+class PresShell;
+
 namespace layers {
 
 /**
@@ -31,7 +33,7 @@ class FocusTarget final {
     ScrollableLayerGuid::ViewID mVertical;
 
     bool operator==(const ScrollTargets& aRhs) const {
-      return mHorizontal == aRhs.mHorizontal && mVertical == aRhs.mVertical;
+      return (mHorizontal == aRhs.mHorizontal && mVertical == aRhs.mVertical);
     }
   };
 
@@ -46,7 +48,7 @@ class FocusTarget final {
   /**
    * Construct a focus target for the specified top level PresShell
    */
-  FocusTarget(nsIPresShell* aRootPresShell, uint64_t aFocusSequenceNumber);
+  FocusTarget(PresShell* aRootPresShell, uint64_t aFocusSequenceNumber);
 
   bool operator==(const FocusTarget& aRhs) const;
 

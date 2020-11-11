@@ -270,12 +270,32 @@ nsresult nsINIParser::DeleteSection(const char* aSection) {
   return NS_OK;
 }
 
+nsresult nsINIParser::RenameSection(const char* aSection,
+                                    const char* aNewName) {
+  if (!IsValidSection(aSection) || !IsValidSection(aNewName)) {
+    return NS_ERROR_INVALID_ARG;
+  }
+
+  if (mSections.Get(aNewName, nullptr)) {
+    return NS_ERROR_ILLEGAL_VALUE;
+  }
+
+  mozilla::UniquePtr<INIValue> val;
+  if (mSections.Remove(aSection, &val)) {
+    mSections.Put(aNewName, val.release());
+  } else {
+    return NS_ERROR_FAILURE;
+  }
+
+  return NS_OK;
+}
+
 nsresult nsINIParser::WriteToFile(nsIFile* aFile) {
   nsCString buffer;
 
   for (auto iter = mSections.Iter(); !iter.Done(); iter.Next()) {
     buffer.AppendPrintf("[%s]\n", iter.Key());
-    INIValue* val = iter.Data();
+    INIValue* val = iter.UserData();
     while (val) {
       buffer.AppendPrintf("%s=%s\n", val->key, val->value);
       val = val->next.get();

@@ -13,13 +13,14 @@
 #include "nsIObserverService.h"
 #include "mozilla/ClearOnShutdown.h"
 #include "mozilla/Unused.h"
+#include "SpecialSystemDirectory.h"
 
 #ifdef XP_UNIX  // {
-#include "mozilla/Preferences.h"
-#include <fcntl.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
+#  include "mozilla/Preferences.h"
+#  include <fcntl.h>
+#  include <unistd.h>
+#  include <sys/types.h>
+#  include <sys/stat.h>
 
 using namespace mozilla;
 
@@ -105,7 +106,8 @@ void FdWatcher::StopWatching() {
 
 StaticRefPtr<SignalPipeWatcher> SignalPipeWatcher::sSingleton;
 
-/* static */ SignalPipeWatcher* SignalPipeWatcher::GetSingleton() {
+/* static */
+SignalPipeWatcher* SignalPipeWatcher::GetSingleton() {
   if (!sSingleton) {
     sSingleton = new SignalPipeWatcher();
     sSingleton->Init();
@@ -220,7 +222,8 @@ void SignalPipeWatcher::OnFileCanReadWithoutBlocking(int aFd) {
 
 StaticRefPtr<FifoWatcher> FifoWatcher::sSingleton;
 
-/* static */ FifoWatcher* FifoWatcher::GetSingleton() {
+/* static */
+FifoWatcher* FifoWatcher::GetSingleton() {
   if (!sSingleton) {
     nsAutoCString dirPath;
     Preferences::GetCString("memory_info_dumper.watch_fifo.directory", dirPath);
@@ -231,7 +234,8 @@ StaticRefPtr<FifoWatcher> FifoWatcher::sSingleton;
   return sSingleton;
 }
 
-/* static */ bool FifoWatcher::MaybeCreate() {
+/* static */
+bool FifoWatcher::MaybeCreate() {
   MOZ_ASSERT(NS_IsMainThread());
 
   if (!XRE_IsParentProcess()) {
@@ -266,7 +270,7 @@ void FifoWatcher::RegisterCallback(const nsCString& aCommand,
   mFifoInfo.AppendElement(aFifoInfo);
 }
 
-FifoWatcher::~FifoWatcher() {}
+FifoWatcher::~FifoWatcher() = default;
 
 int FifoWatcher::OpenFd() {
   // If the memory_info_dumper.directory pref is specified, put the fifo
@@ -288,7 +292,7 @@ int FifoWatcher::OpenFd() {
     }
   }
 
-  rv = file->AppendNative(NS_LITERAL_CSTRING("debug_info_trigger"));
+  rv = file->AppendNative("debug_info_trigger"_ns);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return -1;
   }
@@ -313,11 +317,11 @@ int FifoWatcher::OpenFd() {
     return -1;
   }
 
-#ifdef ANDROID
+#  ifdef ANDROID
   // Android runs with a umask, so we need to chmod our fifo to make it
   // world-writable.
   chmod(path.get(), 0666);
-#endif
+#  endif
 
   int fd;
   do {
@@ -399,10 +403,9 @@ void FifoWatcher::OnFileCanReadWithoutBlocking(int aFd) {
 // In Android case, this function will open a file named aFilename under
 // /data/local/tmp/"aFoldername".
 // Otherwise, it will open a file named aFilename under "NS_OS_TEMP_DIR".
-/* static */ nsresult nsDumpUtils::OpenTempFile(const nsACString& aFilename,
-                                                nsIFile** aFile,
-                                                const nsACString& aFoldername,
-                                                Mode aMode) {
+/* static */
+nsresult nsDumpUtils::OpenTempFile(const nsACString& aFilename, nsIFile** aFile,
+                                   const nsACString& aFoldername, Mode aMode) {
 #ifdef ANDROID
   // For Android, first try the downloads directory which is world-readable
   // rather than the temp directory which is not.
@@ -415,7 +418,12 @@ void FifoWatcher::OnFileCanReadWithoutBlocking(int aFd) {
 #endif
   nsresult rv;
   if (!*aFile) {
-    rv = NS_GetSpecialDirectory(NS_OS_TEMP_DIR, aFile);
+    if (NS_IsMainThread()) {
+      // This allows tests to override, but isn't safe off-mainthread.
+      rv = NS_GetSpecialDirectory(NS_OS_TEMP_DIR, aFile);
+    } else {
+      rv = GetSpecialSystemDirectory(OS_TemporaryDirectory, aFile);
+    }
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return rv;
     }
@@ -426,7 +434,7 @@ void FifoWatcher::OnFileCanReadWithoutBlocking(int aFd) {
   // but only the user which created the file can remove it.  We want non-root
   // users to be able to remove these files, so we write them into a
   // subdirectory of the temp directory and chmod 777 that directory.
-  if (aFoldername != EmptyCString()) {
+  if (!aFoldername.IsEmpty()) {
     rv = (*aFile)->AppendNative(aFoldername);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return rv;

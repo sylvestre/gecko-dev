@@ -1,5 +1,3 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 2 -*- */
-/* vim: set ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -25,11 +23,16 @@ add_task(async function() {
   const browser = gBrowser.selectedBrowser;
 
   // Verify JSON copy into the clipboard.
-  await waitForClipboardPromise(function setup() {
-    BrowserTestUtils.synthesizeMouseAtCenter(
-      ".headersPanelBox .toolbar button.copy",
-      {}, browser);
-  }, function validator(value) {
-    return value.indexOf("application/json") > 0;
-  });
+  await waitForClipboardPromise(
+    function setup() {
+      BrowserTestUtils.synthesizeMouseAtCenter(
+        ".headersPanelBox .toolbar button.copy",
+        {},
+        browser
+      );
+    },
+    function validator(value) {
+      return value.indexOf("application/json") > 0;
+    }
+  );
 });

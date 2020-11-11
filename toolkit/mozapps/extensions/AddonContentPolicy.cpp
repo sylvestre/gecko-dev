@@ -6,7 +6,7 @@
 
 #include "AddonContentPolicy.h"
 
-#include "mozilla/dom/nsCSPUtils.h"
+#include "mozilla/dom/nsCSPContext.h"
 #include "nsCOMPtr.h"
 #include "nsContentPolicyUtils.h"
 #include "nsContentTypeParser.h"
@@ -14,7 +14,7 @@
 #include "nsIConsoleService.h"
 #include "nsIContentSecurityPolicy.h"
 #include "nsIContent.h"
-#include "nsIDocument.h"
+#include "mozilla/dom/Document.h"
 #include "nsIEffectiveTLDService.h"
 #include "nsIScriptError.h"
 #include "nsIStringBundle.h"
@@ -37,9 +37,9 @@ using namespace mozilla;
   u"not supported in WebExtension code. For alternatives, please see: "    \
   u"https://developer.mozilla.org/Add-ons/WebExtensions/Tips"
 
-AddonContentPolicy::AddonContentPolicy() {}
+AddonContentPolicy::AddonContentPolicy() = default;
 
-AddonContentPolicy::~AddonContentPolicy() {}
+AddonContentPolicy::~AddonContentPolicy() = default;
 
 NS_IMPL_ISUPPORTS(AddonContentPolicy, nsIContentPolicy, nsIAddonContentPolicy)
 
@@ -50,17 +50,15 @@ static nsresult GetWindowIDFromContext(nsISupports* aContext,
   nsCOMPtr<nsIContent> content = do_QueryInterface(aContext);
   NS_ENSURE_TRUE(content, NS_ERROR_FAILURE);
 
-  nsCOMPtr<nsIDocument> document = content->OwnerDoc();
-  NS_ENSURE_TRUE(document, NS_ERROR_FAILURE);
-
-  nsCOMPtr<nsPIDOMWindowInner> window = document->GetInnerWindow();
+  nsCOMPtr<nsPIDOMWindowInner> window = content->OwnerDoc()->GetInnerWindow();
   NS_ENSURE_TRUE(window, NS_ERROR_FAILURE);
 
   *aResult = window->WindowID();
   return NS_OK;
 }
 
-static nsresult LogMessage(const nsAString& aMessage, nsIURI* aSourceURI,
+static nsresult LogMessage(const nsAString& aMessage,
+                           const nsAString& aSourceName,
                            const nsAString& aSourceSample,
                            nsISupports* aContext) {
   nsCOMPtr<nsIScriptError> error = do_CreateInstance(NS_SCRIPTERROR_CONTRACTID);
@@ -69,9 +67,9 @@ static nsresult LogMessage(const nsAString& aMessage, nsIURI* aSourceURI,
   uint64_t windowID = 0;
   GetWindowIDFromContext(aContext, &windowID);
 
-  nsresult rv = error->InitWithSourceURI(aMessage, aSourceURI, aSourceSample, 0,
-                                         0, nsIScriptError::errorFlag,
-                                         "JavaScript", windowID);
+  nsresult rv = error->InitWithSanitizedSource(
+      aMessage, aSourceName, aSourceSample, 0, 0, nsIScriptError::errorFlag,
+      "JavaScript", windowID);
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsCOMPtr<nsIConsoleService> console =
@@ -89,34 +87,28 @@ AddonContentPolicy::ShouldLoad(nsIURI* aContentLocation, nsILoadInfo* aLoadInfo,
                                const nsACString& aMimeTypeGuess,
                                int16_t* aShouldLoad) {
   if (!aContentLocation || !aLoadInfo) {
+    NS_SetRequestBlockingReason(
+        aLoadInfo, nsILoadInfo::BLOCKING_REASON_CONTENT_POLICY_WEBEXT);
     *aShouldLoad = REJECT_REQUEST;
     return NS_ERROR_FAILURE;
   }
 
   uint32_t contentType = aLoadInfo->GetExternalContentPolicyType();
-  nsCOMPtr<nsIURI> requestOrigin;
-  nsCOMPtr<nsIPrincipal> loadingPrincipal = aLoadInfo->LoadingPrincipal();
-  if (loadingPrincipal) {
-    loadingPrincipal->GetURI(getter_AddRefs(requestOrigin));
-  }
 
   MOZ_ASSERT(contentType == nsContentUtils::InternalContentPolicyTypeToExternal(
                                 contentType),
              "We should only see external content policy types here.");
 
   *aShouldLoad = nsIContentPolicy::ACCEPT;
-
-  if (!requestOrigin) {
+  nsCOMPtr<nsIPrincipal> loadingPrincipal = aLoadInfo->GetLoadingPrincipal();
+  if (!loadingPrincipal) {
     return NS_OK;
   }
 
   // Only apply this policy to requests from documents loaded from
   // moz-extension URLs, or to resources being loaded from moz-extension URLs.
-  bool equals;
-  if (!((NS_SUCCEEDED(aContentLocation->SchemeIs("moz-extension", &equals)) &&
-         equals) ||
-        (NS_SUCCEEDED(requestOrigin->SchemeIs("moz-extension", &equals)) &&
-         equals))) {
+  if (!(aContentLocation->SchemeIs("moz-extension") ||
+        loadingPrincipal->SchemeIs("moz-extension"))) {
     return NS_OK;
   }
 
@@ -129,10 +121,16 @@ AddonContentPolicy::ShouldLoad(nsIURI* aContentLocation, nsILoadInfo* aLoadInfo,
     if (NS_SUCCEEDED(mimeParser.GetType(mimeType)) &&
         nsContentUtils::IsJavascriptMIMEType(mimeType) &&
         NS_SUCCEEDED(mimeParser.GetParameter("version", version))) {
+      NS_SetRequestBlockingReason(
+          aLoadInfo, nsILoadInfo::BLOCKING_REASON_CONTENT_POLICY_WEBEXT);
       *aShouldLoad = nsIContentPolicy::REJECT_REQUEST;
 
+      nsCString sourceName;
+      loadingPrincipal->GetExposableSpec(sourceName);
+      NS_ConvertUTF8toUTF16 nameString(sourceName);
+
       nsCOMPtr<nsISupports> context = aLoadInfo->GetLoadingContext();
-      LogMessage(NS_LITERAL_STRING(VERSIONED_JS_BLOCKED_MESSAGE), requestOrigin,
+      LogMessage(nsLiteralString(VERSIONED_JS_BLOCKED_MESSAGE), nameString,
                  typeString, context);
       return NS_OK;
     }
@@ -261,7 +259,7 @@ class CSPValidator final : public nsCSPSrcVisitor {
   };
 
   bool visitNonceSrc(const nsCSPNonceSrc& src) override {
-    FormatError("csp.error.illegal-keyword", NS_LITERAL_STRING("'nonce-*'"));
+    FormatError("csp.error.illegal-keyword", u"'nonce-*'"_ns);
     return false;
   };
 
@@ -277,8 +275,9 @@ class CSPValidator final : public nsCSPSrcVisitor {
 
   template <typename... T>
   inline void FormatError(const char* aName, const T... aParams) {
-    const char16_t* params[] = {mDirective.get(), aParams.get()...};
-    FormatErrorParams(aName, params, MOZ_ARRAY_LENGTH(params));
+    AutoTArray<nsString, sizeof...(aParams) + 1> params = {mDirective,
+                                                           aParams...};
+    FormatErrorParams(aName, params);
   };
 
  private:
@@ -333,14 +332,13 @@ class CSPValidator final : public nsCSPSrcVisitor {
     return stringBundle.forget();
   };
 
-  void FormatErrorParams(const char* aName, const char16_t** aParams,
-                         int32_t aLength) {
+  void FormatErrorParams(const char* aName, const nsTArray<nsString>& aParams) {
     nsresult rv = NS_ERROR_FAILURE;
 
     nsCOMPtr<nsIStringBundle> stringBundle = GetStringBundle();
 
     if (stringBundle) {
-      rv = stringBundle->FormatStringFromName(aName, aParams, aLength, mError);
+      rv = stringBundle->FormatStringFromName(aName, aParams, mError);
     }
 
     if (NS_WARN_IF(NS_FAILED(rv))) {
@@ -394,12 +392,13 @@ AddonContentPolicy::ValidateAddonCSP(const nsAString& aPolicyString,
   }
 
   RefPtr<BasePrincipal> principal =
-      BasePrincipal::CreateCodebasePrincipal(NS_ConvertUTF16toUTF8(url));
+      BasePrincipal::CreateContentPrincipal(NS_ConvertUTF16toUTF8(url));
 
-  nsCOMPtr<nsIContentSecurityPolicy> csp;
-  rv = principal->EnsureCSP(nullptr, getter_AddRefs(csp));
+  nsCOMPtr<nsIURI> selfURI;
+  principal->GetURI(getter_AddRefs(selfURI));
+  RefPtr<nsCSPContext> csp = new nsCSPContext();
+  rv = csp->SetRequestContextWithPrincipal(principal, selfURI, u""_ns, 0);
   NS_ENSURE_SUCCESS(rv, rv);
-
   csp->AppendPolicy(aPolicyString, false, false);
 
   const nsCSPPolicy* policy = csp->GetPolicy(0);
@@ -425,8 +424,7 @@ AddonContentPolicy::ValidateAddonCSP(const nsAString& aPolicyString,
     if (!policy->visitDirectiveSrcs(directive, &validator)) {
       aResult.Assign(validator.GetError());
     } else if (!validator.FoundSelf()) {
-      validator.FormatError("csp.error.missing-source",
-                            NS_LITERAL_STRING("'self'"));
+      validator.FormatError("csp.error.missing-source", u"'self'"_ns);
       aResult.Assign(validator.GetError());
     }
   }

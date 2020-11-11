@@ -1,9 +1,19 @@
+// GENERATED, DO NOT EDIT
 // file: testTypedArray.js
 // Copyright (C) 2015 André Bargull. All rights reserved.
 // This code is governed by the BSD license found in the LICENSE file.
 /*---
 description: |
     Collection of functions used to assert the correctness of TypedArray objects.
+defines:
+  - typedArrayConstructors
+  - floatArrayConstructors
+  - intArrayConstructors
+  - TypedArray
+  - testWithTypedArrayConstructors
+  - testWithAtomicsFriendlyTypedArrayConstructors
+  - testWithNonAtomicsFriendlyTypedArrayConstructors
+  - testTypedArrayConversions
 ---*/
 
 /**
@@ -53,6 +63,37 @@ function testWithTypedArrayConstructors(f, selected) {
       throw e;
     }
   }
+}
+
+/**
+ * Calls the provided function for every non-"Atomics Friendly" typed array constructor.
+ *
+ * @param {typedArrayConstructorCallback} f - the function to call for each typed array constructor.
+ * @param {Array} selected - An optional Array with filtered typed arrays
+ */
+function testWithNonAtomicsFriendlyTypedArrayConstructors(f) {
+  testWithTypedArrayConstructors(f, [
+    Float64Array,
+    Float32Array,
+    Uint8ClampedArray
+  ]);
+}
+
+/**
+ * Calls the provided function for every "Atomics Friendly" typed array constructor.
+ *
+ * @param {typedArrayConstructorCallback} f - the function to call for each typed array constructor.
+ * @param {Array} selected - An optional Array with filtered typed arrays
+ */
+function testWithAtomicsFriendlyTypedArrayConstructors(f) {
+  testWithTypedArrayConstructors(f, [
+    Int32Array,
+    Int16Array,
+    Int8Array,
+    Uint32Array,
+    Uint16Array,
+    Uint8Array,
+  ]);
 }
 
 /**

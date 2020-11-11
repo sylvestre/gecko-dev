@@ -5,15 +5,17 @@
 
 #include "LoginReputation.h"
 #include "nsThreadUtils.h"
+#include "mozilla/Components.h"
 #include "mozilla/ErrorNames.h"
 #include "mozilla/Logging.h"
 #include "mozilla/net/UrlClassifierFeatureFactory.h"
 #include "mozilla/Preferences.h"
-#include "mozilla/StaticPrefs.h"
+#include "mozilla/StaticPrefs_browser.h"
 #include "mozilla/Telemetry.h"
 #include "mozilla/dom/ContentChild.h"
 #include "mozilla/dom/HTMLInputElement.h"
 #include "mozilla/ipc/URIUtils.h"
+#include "nsIURIClassifier.h"
 #include "nsIUrlClassifierFeature.h"
 
 using namespace mozilla;
@@ -113,7 +115,7 @@ RefPtr<ReputationPromise> LoginWhitelist::QueryLoginWhitelist(
   }
 
   nsCOMPtr<nsIURIClassifier> uriClassifier =
-      do_GetService(NS_URLCLASSIFIERDBSERVICE_CONTRACTID, &rv);
+      mozilla::components::UrlClassifierDB::Service(&rv);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return p;
   }
@@ -132,7 +134,7 @@ RefPtr<ReputationPromise> LoginWhitelist::QueryLoginWhitelist(
   features.AppendElement(feature);
 
   rv = uriClassifier->AsyncClassifyLocalWithFeatures(
-      uri, features, nsIUrlClassifierFeature::whitelist, this);
+      uri, features, nsIUrlClassifierFeature::entitylist, this);
   if (NS_FAILED(rv)) {
     return p;
   }
@@ -296,10 +298,7 @@ LoginReputationService::QueryReputationAsync(
       return NS_ERROR_FAILURE;
     }
 
-    URIParams uri;
-    SerializeURI(documentURI, uri);
-
-    if (!content->SendPLoginReputationConstructor(uri)) {
+    if (!content->SendPLoginReputationConstructor(documentURI)) {
       return NS_ERROR_FAILURE;
     }
   } else {
@@ -334,7 +333,7 @@ LoginReputationService::QueryReputation(
   // mQueryRequests is an array used to maintain the ownership of
   // |QueryRequest|. We ensure that |QueryRequest| is always valid until
   // Finish() is called or LoginReputationService is shutdown.
-  auto* request =
+  auto request =
       mQueryRequests.AppendElement(MakeUnique<QueryRequest>(aQuery, aCallback));
 
   return QueryLoginWhitelist(request->get());
@@ -356,7 +355,7 @@ nsresult LoginReputationService::QueryLoginWhitelist(QueryRequest* aRequest) {
 
   mLoginWhitelist->QueryLoginWhitelist(aRequest->mParam)
       ->Then(
-          GetCurrentThreadSerialEventTarget(), __func__,
+          GetCurrentSerialEventTarget(), __func__,
           [self, aRequest, startTimeMs](VerdictType aResolveValue) -> void {
             // Promise is resolved if url is found in google-provided whitelist.
             MOZ_ASSERT(NS_IsMainThread());
@@ -452,7 +451,9 @@ LoginReputationService::Observe(nsISupports* aSubject, const char* aTopic,
     nsDependentString data(aData);
 
     if (data.EqualsLiteral(PREF_PP_ENABLED)) {
-      nsresult rv = StaticPrefs::browser_safebrowsing_passwords_enabled() ?  Enable() : Disable();
+      nsresult rv = StaticPrefs::browser_safebrowsing_passwords_enabled()
+                        ? Enable()
+                        : Disable();
       Unused << NS_WARN_IF(NS_FAILED(rv));
     }
   } else if (!strcmp(aTopic, "quit-application")) {

@@ -16,6 +16,10 @@
 #include "nsTableRowFrame.h"
 #include "mozilla/WritingModes.h"
 
+namespace mozilla {
+class PresShell;
+}  // namespace mozilla
+
 /**
  * nsTableCellFrame
  * data structure to maintain information about a single table cell's frame
@@ -33,7 +37,7 @@ class nsTableCellFrame : public nsContainerFrame,
   typedef mozilla::gfx::DrawTarget DrawTarget;
   typedef mozilla::image::ImgDrawResult ImgDrawResult;
 
-  friend nsTableCellFrame* NS_NewTableCellFrame(nsIPresShell* aPresShell,
+  friend nsTableCellFrame* NS_NewTableCellFrame(mozilla::PresShell* aPresShell,
                                                 ComputedStyle* aStyle,
                                                 nsTableFrame* aTableFrame);
 
@@ -81,6 +85,7 @@ class nsTableCellFrame : public nsContainerFrame,
   virtual void AppendFrames(ChildListID aListID,
                             nsFrameList& aFrameList) override;
   virtual void InsertFrames(ChildListID aListID, nsIFrame* aPrevFrame,
+                            const nsLineList::iterator* aPrevFrameLine,
                             nsFrameList& aFrameList) override;
   virtual void RemoveFrame(ChildListID aListID, nsIFrame* aOldFrame) override;
 #endif
@@ -104,7 +109,7 @@ class nsTableCellFrame : public nsContainerFrame,
 
   virtual nscoord GetMinISize(gfxContext* aRenderingContext) override;
   virtual nscoord GetPrefISize(gfxContext* aRenderingContext) override;
-  IntrinsicISizeOffsetData IntrinsicISizeOffsets(
+  IntrinsicSizeOffsetData IntrinsicISizeOffsets(
       nscoord aPercentageBasis = NS_UNCONSTRAINEDSIZE) override;
 
   virtual void Reflow(nsPresContext* aPresContext, ReflowOutput& aDesiredSize,
@@ -120,12 +125,13 @@ class nsTableCellFrame : public nsContainerFrame,
   /*
    * Get the value of vertical-align adjusted for CSS 2's rules for a
    * table cell, which means the result is always
-   * NS_STYLE_VERTICAL_ALIGN_{TOP,MIDDLE,BOTTOM,BASELINE}.
+   * StyleVerticalAlignKeyword::{Top,Middle,Bottom,Baseline}.
    */
-  virtual uint8_t GetVerticalAlign() const;
+  virtual mozilla::StyleVerticalAlignKeyword GetVerticalAlign() const;
 
   bool HasVerticalAlignBaseline() const {
-    return GetVerticalAlign() == NS_STYLE_VERTICAL_ALIGN_BASELINE;
+    return GetVerticalAlign() == mozilla::StyleVerticalAlignKeyword::Baseline &&
+           !GetContentEmpty();
   }
 
   bool CellHasVisibleContent(nscoord aBSize, nsTableFrame* tableFrame,
@@ -202,9 +208,6 @@ class nsTableCellFrame : public nsContainerFrame,
 
   bool GetContentEmpty() const;
   void SetContentEmpty(bool aContentEmpty);
-
-  bool HasPctOverBSize();
-  void SetHasPctOverBSize(bool aValue);
 
   nsTableCellFrame* GetNextCell() const {
     nsIFrame* sibling = GetNextSibling();
@@ -295,18 +298,6 @@ inline void nsTableCellFrame::SetContentEmpty(bool aContentEmpty) {
     AddStateBits(NS_TABLE_CELL_CONTENT_EMPTY);
   } else {
     RemoveStateBits(NS_TABLE_CELL_CONTENT_EMPTY);
-  }
-}
-
-inline bool nsTableCellFrame::HasPctOverBSize() {
-  return HasAnyStateBits(NS_TABLE_CELL_HAS_PCT_OVER_BSIZE);
-}
-
-inline void nsTableCellFrame::SetHasPctOverBSize(bool aValue) {
-  if (aValue) {
-    AddStateBits(NS_TABLE_CELL_HAS_PCT_OVER_BSIZE);
-  } else {
-    RemoveStateBits(NS_TABLE_CELL_HAS_PCT_OVER_BSIZE);
   }
 }
 

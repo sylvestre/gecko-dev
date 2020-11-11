@@ -12,6 +12,7 @@
 #include "mozilla/ViewportFrame.h"
 
 #include "mozilla/ComputedStyleInlines.h"
+#include "mozilla/PresShell.h"
 #include "mozilla/RestyleManager.h"
 #include "nsGkAtoms.h"
 #include "nsIScrollableFrame.h"
@@ -21,13 +22,14 @@
 #include "GeckoProfiler.h"
 #include "nsIMozBrowserFrame.h"
 #include "nsPlaceholderFrame.h"
+#include "MobileViewportManager.h"
 
 using namespace mozilla;
 typedef nsAbsoluteContainingBlock::AbsPosReflowFlags AbsPosReflowFlags;
 
-ViewportFrame* NS_NewViewportFrame(nsIPresShell* aPresShell,
+ViewportFrame* NS_NewViewportFrame(PresShell* aPresShell,
                                    ComputedStyle* aStyle) {
-  return new (aPresShell) ViewportFrame(aStyle);
+  return new (aPresShell) ViewportFrame(aStyle, aPresShell->GetPresContext());
 }
 
 NS_IMPL_FRAMEARENA_HELPERS(ViewportFrame)
@@ -51,25 +53,14 @@ void ViewportFrame::Init(nsIContent* aContent, nsContainerFrame* aParent,
 
 void ViewportFrame::BuildDisplayList(nsDisplayListBuilder* aBuilder,
                                      const nsDisplayListSet& aLists) {
-  AUTO_PROFILER_LABEL("ViewportFrame::BuildDisplayList", GRAPHICS);
+  AUTO_PROFILER_LABEL("ViewportFrame::BuildDisplayList",
+                      GRAPHICS_DisplayListBuilding);
 
   if (nsIFrame* kid = mFrames.FirstChild()) {
     // make the kid's BorderBackground our own. This ensures that the canvas
     // frame's background becomes our own background and therefore appears
     // below negative z-index elements.
     BuildDisplayListForChild(aBuilder, kid, aLists);
-  }
-
-  nsDisplayList topLayerList;
-  BuildDisplayListForTopLayer(aBuilder, &topLayerList);
-  if (!topLayerList.IsEmpty()) {
-    // Wrap the whole top layer in a single item with maximum z-index,
-    // and append it at the very end, so that it stays at the topmost.
-    nsDisplayWrapList* wrapList =
-        MakeDisplayItem<nsDisplayWrapList>(aBuilder, this, &topLayerList);
-    wrapList->SetOverrideZIndex(
-        std::numeric_limits<decltype(wrapList->ZIndex())>::max());
-    aLists.PositionedDescendants()->AppendToTop(wrapList);
   }
 }
 
@@ -78,7 +69,7 @@ void ViewportFrame::BuildDisplayList(nsDisplayListBuilder* aBuilder,
  * Returns whether we are going to put an element in the top layer for
  * fullscreen. This function should matches the CSS rule in ua.css.
  */
-static bool ShouldInTopLayerForFullscreen(Element* aElement) {
+static bool ShouldInTopLayerForFullscreen(dom::Element* aElement) {
   if (!aElement->GetParent()) {
     return false;
   }
@@ -95,7 +86,7 @@ static void BuildDisplayListForTopLayerFrame(nsDisplayListBuilder* aBuilder,
                                              nsDisplayList* aList) {
   nsRect visible;
   nsRect dirty;
-  DisplayListClipState::AutoClipMultiple clipState(aBuilder);
+  DisplayListClipState::AutoSaveRestore clipState(aBuilder);
   nsDisplayListBuilder::AutoCurrentActiveScrolledRootSetter asrSetter(aBuilder);
   nsDisplayListBuilder::OutOfFlowDisplayData* savedOutOfFlowData =
       nsDisplayListBuilder::GetOutOfFlowData(aFrame);
@@ -111,25 +102,59 @@ static void BuildDisplayListForTopLayerFrame(nsDisplayListBuilder* aBuilder,
     // root scroll frame.
     clipState.SetClipChainForContainingBlockDescendants(
         savedOutOfFlowData->mCombinedClipChain);
-    clipState.ClipContainingBlockDescendantsExtra(
-        visible + aBuilder->ToReferenceFrame(aFrame), nullptr);
     asrSetter.SetCurrentActiveScrolledRoot(
         savedOutOfFlowData->mContainingBlockActiveScrolledRoot);
   }
   nsDisplayListBuilder::AutoBuildingDisplayList buildingForChild(
-      aBuilder, aFrame, visible, dirty,
-      aBuilder->IsAtRootOfPseudoStackingContext());
+      aBuilder, aFrame, visible, dirty);
 
   nsDisplayList list;
   aFrame->BuildDisplayListForStackingContext(aBuilder, &list);
   aList->AppendToTop(&list);
 }
 
+static bool BackdropListIsOpaque(ViewportFrame* aFrame,
+                                 nsDisplayListBuilder* aBuilder,
+                                 nsDisplayList* aList) {
+  // The common case for ::backdrop elements on the top layer is a single
+  // fixed position container, holding an opaque background color covering
+  // the whole viewport.
+  if (aList->Count() != 1 ||
+      aList->GetTop()->GetType() != DisplayItemType::TYPE_FIXED_POSITION) {
+    return false;
+  }
+
+  // Make sure the fixed position container isn't clipped or scrollable.
+  nsDisplayFixedPosition* fixed =
+      static_cast<nsDisplayFixedPosition*>(aList->GetTop());
+  if (fixed->GetActiveScrolledRoot() || fixed->GetClipChain()) {
+    return false;
+  }
+
+  nsDisplayList* children = fixed->GetChildren();
+  if (!children->GetTop() ||
+      children->GetTop()->GetType() != DisplayItemType::TYPE_BACKGROUND_COLOR) {
+    return false;
+  }
+
+  nsDisplayBackgroundColor* child =
+      static_cast<nsDisplayBackgroundColor*>(children->GetTop());
+  if (child->GetActiveScrolledRoot() || child->GetClipChain()) {
+    return false;
+  }
+
+  // Check that the background color is both opaque, and covering the
+  // whole viewport.
+  bool dummy;
+  nsRegion opaque = child->GetOpaqueRegion(aBuilder, &dummy);
+  return opaque.Contains(aFrame->GetRect());
+}
+
 void ViewportFrame::BuildDisplayListForTopLayer(nsDisplayListBuilder* aBuilder,
-                                                nsDisplayList* aList) {
-  nsIDocument* doc = PresContext()->Document();
-  nsTArray<Element*> fullscreenStack = doc->GetFullscreenStack();
-  for (Element* elem : fullscreenStack) {
+                                                nsDisplayList* aList,
+                                                bool* aIsOpaque) {
+  nsTArray<dom::Element*> topLayer = PresContext()->Document()->GetTopLayer();
+  for (dom::Element* elem : topLayer) {
     if (nsIFrame* frame = elem->GetPrimaryFrame()) {
       // There are two cases where an element in fullscreen is not in
       // the top layer:
@@ -140,7 +165,7 @@ void ViewportFrame::BuildDisplayListForTopLayer(nsDisplayListBuilder* aBuilder,
       //    layer for fullscreen. See ShouldInTopLayerForFullscreen().
       // In both cases, we want to skip the frame here and paint it in
       // the normal path.
-      if (frame->StyleDisplay()->mTopLayer == NS_STYLE_TOP_LAYER_NONE) {
+      if (frame->StyleDisplay()->mTopLayer == StyleTopLayer::None) {
         MOZ_ASSERT(!aBuilder->IsForPainting() ||
                    !ShouldInTopLayerForFullscreen(elem));
         continue;
@@ -149,7 +174,7 @@ void ViewportFrame::BuildDisplayListForTopLayer(nsDisplayListBuilder* aBuilder,
       // Inner SVG, MathML elements, as well as children of some XUL
       // elements are not allowed to be out-of-flow. They should not
       // be handled as top layer element here.
-      if (!(frame->GetStateBits() & NS_FRAME_OUT_OF_FLOW)) {
+      if (!frame->HasAnyStateBits(NS_FRAME_OUT_OF_FLOW)) {
         MOZ_ASSERT(!elem->GetParent()->IsHTMLElement(),
                    "HTML element should always be out-of-flow if in the top "
                    "layer");
@@ -165,18 +190,21 @@ void ViewportFrame::BuildDisplayListForTopLayer(nsDisplayListBuilder* aBuilder,
             static_cast<nsPlaceholderFrame*>(backdropPh)->GetOutOfFlowFrame();
         MOZ_ASSERT(backdropFrame);
         BuildDisplayListForTopLayerFrame(aBuilder, backdropFrame, aList);
+
+        if (aIsOpaque) {
+          *aIsOpaque = BackdropListIsOpaque(this, aBuilder, aList);
+        }
       }
       BuildDisplayListForTopLayerFrame(aBuilder, frame, aList);
     }
   }
 
-  nsIPresShell* shell = PresShell();
-  if (nsCanvasFrame* canvasFrame = shell->GetCanvasFrame()) {
-    if (Element* container = canvasFrame->GetCustomContentContainer()) {
+  if (nsCanvasFrame* canvasFrame = PresShell()->GetCanvasFrame()) {
+    if (dom::Element* container = canvasFrame->GetCustomContentContainer()) {
       if (nsIFrame* frame = container->GetPrimaryFrame()) {
-        MOZ_ASSERT(frame->StyleDisplay()->mTopLayer != NS_STYLE_TOP_LAYER_NONE,
+        MOZ_ASSERT(frame->StyleDisplay()->mTopLayer != StyleTopLayer::None,
                    "ua.css should ensure this");
-        MOZ_ASSERT(frame->GetStateBits() & NS_FRAME_OUT_OF_FLOW);
+        MOZ_ASSERT(frame->HasAnyStateBits(NS_FRAME_OUT_OF_FLOW));
         BuildDisplayListForTopLayerFrame(aBuilder, frame, aList);
       }
     }
@@ -191,10 +219,12 @@ void ViewportFrame::AppendFrames(ChildListID aListID, nsFrameList& aFrameList) {
 }
 
 void ViewportFrame::InsertFrames(ChildListID aListID, nsIFrame* aPrevFrame,
+                                 const nsLineList::iterator* aPrevFrameLine,
                                  nsFrameList& aFrameList) {
   NS_ASSERTION(aListID == kPrincipalList, "unexpected child list");
   NS_ASSERTION(GetChildList(aListID).IsEmpty(), "Shouldn't have any kids!");
-  nsContainerFrame::InsertFrames(aListID, aPrevFrame, aFrameList);
+  nsContainerFrame::InsertFrames(aListID, aPrevFrame, aPrevFrameLine,
+                                 aFrameList);
 }
 
 void ViewportFrame::RemoveFrame(ChildListID aListID, nsIFrame* aOldFrame) {
@@ -203,8 +233,8 @@ void ViewportFrame::RemoveFrame(ChildListID aListID, nsIFrame* aOldFrame) {
 }
 #endif
 
-/* virtual */ nscoord ViewportFrame::GetMinISize(
-    gfxContext* aRenderingContext) {
+/* virtual */
+nscoord ViewportFrame::GetMinISize(gfxContext* aRenderingContext) {
   nscoord result;
   DISPLAY_MIN_INLINE_SIZE(this, result);
   if (mFrames.IsEmpty())
@@ -215,8 +245,8 @@ void ViewportFrame::RemoveFrame(ChildListID aListID, nsIFrame* aOldFrame) {
   return result;
 }
 
-/* virtual */ nscoord ViewportFrame::GetPrefISize(
-    gfxContext* aRenderingContext) {
+/* virtual */
+nscoord ViewportFrame::GetPrefISize(gfxContext* aRenderingContext) {
   nscoord result;
   DISPLAY_PREF_INLINE_SIZE(this, result);
   if (mFrames.IsEmpty())
@@ -258,16 +288,11 @@ nsRect ViewportFrame::AdjustReflowInputAsContainingBlock(
                "We don't handle correct positioning of fixed frames with "
                "scrollbars in odd positions");
 
-  // Layout fixed position elements to the visual viewport size if and only if
-  // it has been set and it is larger than the computed size, otherwise use the
-  // computed size.
   nsRect rect(0, 0, aReflowInput->ComputedWidth(),
               aReflowInput->ComputedHeight());
-  nsIPresShell* ps = PresShell();
-  if (ps->IsVisualViewportSizeSet() &&
-      rect.Size() < ps->GetVisualViewportSize()) {
-    rect.SizeTo(ps->GetVisualViewportSize());
-  }
+
+  rect.SizeTo(AdjustViewportSizeForFixedPosition(rect));
+
   return rect;
 }
 
@@ -299,24 +324,24 @@ void ViewportFrame::Reflow(nsPresContext* aPresContext,
   if (mFrames.NotEmpty()) {
     // Deal with a non-incremental reflow or an incremental reflow
     // targeted at our one-and-only principal child frame.
-    if (aReflowInput.ShouldReflowAllKids() || aReflowInput.IsBResize() ||
-        NS_SUBTREE_DIRTY(mFrames.FirstChild())) {
+    if (aReflowInput.ShouldReflowAllKids() ||
+        mFrames.FirstChild()->IsSubtreeDirty()) {
       // Reflow our one-and-only principal child frame
       nsIFrame* kidFrame = mFrames.FirstChild();
       ReflowOutput kidDesiredSize(aReflowInput);
-      WritingMode wm = kidFrame->GetWritingMode();
-      LogicalSize availableSpace = aReflowInput.AvailableSize(wm);
+      const WritingMode kidWM = kidFrame->GetWritingMode();
+      LogicalSize availableSpace = aReflowInput.AvailableSize(kidWM);
       ReflowInput kidReflowInput(aPresContext, aReflowInput, kidFrame,
                                  availableSpace);
 
       // Reflow the frame
       kidReflowInput.SetComputedBSize(aReflowInput.ComputedBSize());
       ReflowChild(kidFrame, aPresContext, kidDesiredSize, kidReflowInput, 0, 0,
-                  0, aStatus);
+                  ReflowChildFlags::Default, aStatus);
       kidBSize = kidDesiredSize.BSize(wm);
 
-      FinishReflowChild(kidFrame, aPresContext, kidDesiredSize, nullptr, 0, 0,
-                        0);
+      FinishReflowChild(kidFrame, aPresContext, kidDesiredSize, &kidReflowInput,
+                        0, 0, ReflowChildFlags::Default);
     } else {
       kidBSize = LogicalSize(wm, mFrames.FirstChild()->GetSize()).BSize(wm);
     }
@@ -336,7 +361,7 @@ void ViewportFrame::Reflow(nsPresContext* aPresContext,
   aDesiredSize.SetOverflowAreasToDesiredBounds();
 
   if (HasAbsolutelyPositionedChildren()) {
-    // Make a copy of the reflow state and change the computed width and height
+    // Make a copy of the reflow input and change the computed width and height
     // to reflect the available space for the fixed items
     ReflowInput reflowInput(aReflowInput);
 
@@ -353,7 +378,7 @@ void ViewportFrame::Reflow(nsPresContext* aPresContext,
 
     nsRect rect = AdjustReflowInputAsContainingBlock(&reflowInput);
     AbsPosReflowFlags flags =
-        AbsPosReflowFlags::eCBWidthAndHeightChanged;  // XXX could be optimized
+        AbsPosReflowFlags::CBWidthAndHeightChanged;  // XXX could be optimized
     GetAbsoluteContainingBlock()->Reflow(this, aPresContext, reflowInput,
                                          aStatus, rect, flags,
                                          /* aOverflowAreas = */ nullptr);
@@ -364,7 +389,7 @@ void ViewportFrame::Reflow(nsPresContext* aPresContext,
   }
 
   // If we were dirty then do a repaint
-  if (GetStateBits() & NS_FRAME_IS_DIRTY) {
+  if (HasAnyStateBits(NS_FRAME_IS_DIRTY)) {
     InvalidateFrame();
   }
 
@@ -377,16 +402,9 @@ void ViewportFrame::Reflow(nsPresContext* aPresContext,
 }
 
 void ViewportFrame::UpdateStyle(ServoRestyleState& aRestyleState) {
-  nsAtom* pseudo = Style()->GetPseudo();
   RefPtr<ComputedStyle> newStyle =
-      aRestyleState.StyleSet().ResolveInheritingAnonymousBoxStyle(pseudo,
-                                                                  nullptr);
-
-  // We're special because we have a null GetContent(), so don't call things
-  // like UpdateStyleOfOwnedChildFrame that try to append changes for the
-  // content to the change list.  Nor do we computed a changehint, since we have
-  // no way to apply it anyway.
-  newStyle->ResolveSameStructsAs(Style());
+      aRestyleState.StyleSet().ResolveInheritingAnonymousBoxStyle(
+          Style()->GetPseudoType(), nullptr);
 
   MOZ_ASSERT(!GetNextContinuation(), "Viewport has continuations?");
   SetComputedStyle(newStyle);
@@ -401,8 +419,35 @@ void ViewportFrame::AppendDirectlyOwnedAnonBoxes(
   }
 }
 
+nsSize ViewportFrame::AdjustViewportSizeForFixedPosition(
+    const nsRect& aViewportRect) const {
+  nsSize result = aViewportRect.Size();
+
+  mozilla::PresShell* presShell = PresShell();
+  // Layout fixed position elements to the visual viewport size if and only if
+  // it has been set and it is larger than the computed size, otherwise use the
+  // computed size.
+  if (presShell->IsVisualViewportSizeSet()) {
+    if (presShell->GetDynamicToolbarState() == DynamicToolbarState::Collapsed &&
+        result < presShell->GetVisualViewportSizeUpdatedByDynamicToolbar()) {
+      // We need to use the viewport size updated by the dynamic toolbar in the
+      // case where the dynamic toolbar is completely hidden.
+      result = presShell->GetVisualViewportSizeUpdatedByDynamicToolbar();
+    } else if (result < presShell->GetVisualViewportSize()) {
+      result = presShell->GetVisualViewportSize();
+    }
+  }
+  // Expand the size to the layout viewport size if necessary.
+  const nsSize layoutViewportSize = presShell->GetLayoutViewportSize();
+  if (result < layoutViewportSize) {
+    result = layoutViewportSize;
+  }
+
+  return result;
+}
+
 #ifdef DEBUG_FRAME_DUMP
 nsresult ViewportFrame::GetFrameName(nsAString& aResult) const {
-  return MakeFrameName(NS_LITERAL_STRING("Viewport"), aResult);
+  return MakeFrameName(u"Viewport"_ns, aResult);
 }
 #endif

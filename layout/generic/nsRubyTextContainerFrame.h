@@ -11,11 +11,15 @@
 
 #include "nsBlockFrame.h"
 
+namespace mozilla {
+class PresShell;
+}  // namespace mozilla
+
 /**
  * Factory function.
  * @return a newly allocated nsRubyTextContainerFrame (infallible)
  */
-nsContainerFrame* NS_NewRubyTextContainerFrame(nsIPresShell* aPresShell,
+nsContainerFrame* NS_NewRubyTextContainerFrame(mozilla::PresShell* aPresShell,
                                                mozilla::ComputedStyle* aStyle);
 
 class nsRubyTextContainerFrame final : public nsContainerFrame {
@@ -39,19 +43,21 @@ class nsRubyTextContainerFrame final : public nsContainerFrame {
   virtual void AppendFrames(ChildListID aListID,
                             nsFrameList& aFrameList) override;
   virtual void InsertFrames(ChildListID aListID, nsIFrame* aPrevFrame,
+                            const nsLineList::iterator* aPrevFrameLine,
                             nsFrameList& aFrameList) override;
   virtual void RemoveFrame(ChildListID aListID, nsIFrame* aOldFrame) override;
 
   bool IsSpanContainer() const {
-    return GetStateBits() & NS_RUBY_TEXT_CONTAINER_IS_SPAN;
+    return HasAnyStateBits(NS_RUBY_TEXT_CONTAINER_IS_SPAN);
   }
 
  protected:
   friend nsContainerFrame* NS_NewRubyTextContainerFrame(
-      nsIPresShell* aPresShell, ComputedStyle* aStyle);
+      mozilla::PresShell* aPresShell, ComputedStyle* aStyle);
 
-  explicit nsRubyTextContainerFrame(ComputedStyle* aStyle)
-      : nsContainerFrame(aStyle, kClassID), mISize(0) {}
+  explicit nsRubyTextContainerFrame(ComputedStyle* aStyle,
+                                    nsPresContext* aPresContext)
+      : nsContainerFrame(aStyle, aPresContext, kClassID), mISize(0) {}
 
   void UpdateSpanFlag();
 

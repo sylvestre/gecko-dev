@@ -6,21 +6,22 @@
 
 #include "DecoderDoctorDiagnostics.h"
 
-#include "mozilla/dom/DecoderDoctorNotificationBinding.h"
+#include "VideoUtils.h"
 #include "mozilla/Logging.h"
 #include "mozilla/Preferences.h"
+#include "mozilla/TimeStamp.h"
+#include "mozilla/dom/DecoderDoctorNotificationBinding.h"
+#include "mozilla/dom/Document.h"
 #include "nsContentUtils.h"
 #include "nsGkAtoms.h"
-#include "nsIDocument.h"
 #include "nsIObserverService.h"
 #include "nsIScriptError.h"
 #include "nsITimer.h"
 #include "nsPluginHost.h"
 #include "nsPrintfCString.h"
-#include "VideoUtils.h"
 
 #if defined(MOZ_FFMPEG)
-#include "FFmpegRuntimeLinker.h"
+#  include "FFmpegRuntimeLinker.h"
 #endif
 
 static mozilla::LazyLogModule sDecoderDoctorLog("DecoderDoctor");
@@ -44,7 +45,7 @@ namespace mozilla {
 class DecoderDoctorDocumentWatcher : public nsITimerCallback, public nsINamed {
  public:
   static already_AddRefed<DecoderDoctorDocumentWatcher> RetrieveOrCreate(
-      nsIDocument* aDocument);
+      dom::Document* aDocument);
 
   NS_DECL_ISUPPORTS
   NS_DECL_NSITIMERCALLBACK
@@ -54,7 +55,7 @@ class DecoderDoctorDocumentWatcher : public nsITimerCallback, public nsINamed {
                       const char* aCallSite);
 
  private:
-  explicit DecoderDoctorDocumentWatcher(nsIDocument* aDocument);
+  explicit DecoderDoctorDocumentWatcher(dom::Document* aDocument);
   virtual ~DecoderDoctorDocumentWatcher();
 
   // This will prevent further work from happening, watcher will deregister
@@ -73,7 +74,7 @@ class DecoderDoctorDocumentWatcher : public nsITimerCallback, public nsINamed {
 
   void SynthesizeAnalysis();
 
-  // Raw pointer to an nsIDocument.
+  // Raw pointer to a Document.
   // Must be non-null during construction.
   // Nulled when we want to stop watching, because either:
   // 1. The document has been destroyed (notified through
@@ -82,20 +83,24 @@ class DecoderDoctorDocumentWatcher : public nsITimerCallback, public nsINamed {
   //    period, so we just stop watching.
   // Once nulled, no more actual work will happen, and the watcher will be
   // destroyed soon.
-  nsIDocument* mDocument;
+  dom::Document* mDocument;
 
   struct Diagnostics {
-    Diagnostics(DecoderDoctorDiagnostics&& aDiagnostics, const char* aCallSite)
+    Diagnostics(DecoderDoctorDiagnostics&& aDiagnostics, const char* aCallSite,
+                mozilla::TimeStamp aTimeStamp)
         : mDecoderDoctorDiagnostics(std::move(aDiagnostics)),
-          mCallSite(aCallSite) {}
+          mCallSite(aCallSite),
+          mTimeStamp(aTimeStamp) {}
     Diagnostics(const Diagnostics&) = delete;
     Diagnostics(Diagnostics&& aOther)
         : mDecoderDoctorDiagnostics(
               std::move(aOther.mDecoderDoctorDiagnostics)),
-          mCallSite(std::move(aOther.mCallSite)) {}
+          mCallSite(std::move(aOther.mCallSite)),
+          mTimeStamp(aOther.mTimeStamp) {}
 
     const DecoderDoctorDiagnostics mDecoderDoctorDiagnostics;
     const nsCString mCallSite;
+    const mozilla::TimeStamp mTimeStamp;
   };
   typedef nsTArray<Diagnostics> DiagnosticsSequence;
   DiagnosticsSequence mDiagnosticsSequence;
@@ -108,7 +113,7 @@ NS_IMPL_ISUPPORTS(DecoderDoctorDocumentWatcher, nsITimerCallback, nsINamed)
 
 // static
 already_AddRefed<DecoderDoctorDocumentWatcher>
-DecoderDoctorDocumentWatcher::RetrieveOrCreate(nsIDocument* aDocument) {
+DecoderDoctorDocumentWatcher::RetrieveOrCreate(dom::Document* aDocument) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aDocument);
   RefPtr<DecoderDoctorDocumentWatcher> watcher =
@@ -133,7 +138,7 @@ DecoderDoctorDocumentWatcher::RetrieveOrCreate(nsIDocument* aDocument) {
 }
 
 DecoderDoctorDocumentWatcher::DecoderDoctorDocumentWatcher(
-    nsIDocument* aDocument)
+    dom::Document* aDocument)
     : mDocument(aDocument) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(mDocument);
@@ -164,8 +169,8 @@ void DecoderDoctorDocumentWatcher::RemovePropertyFromDocument() {
       "DecoderDoctorDocumentWatcher[%p, "
       "doc=%p]::RemovePropertyFromDocument()\n",
       watcher, watcher->mDocument);
-  // This will remove the property and call our DestroyPropertyCallback.
-  mDocument->DeleteProperty(nsGkAtoms::decoderDoctor);
+  // This will call our DestroyPropertyCallback.
+  mDocument->RemoveProperty(nsGkAtoms::decoderDoctor);
 }
 
 // Callback for property destructors. |aObject| is the object
@@ -181,7 +186,7 @@ void DecoderDoctorDocumentWatcher::DestroyPropertyCallback(
       static_cast<DecoderDoctorDocumentWatcher*>(aPropertyValue);
   MOZ_ASSERT(watcher);
 #ifdef DEBUG
-  nsIDocument* document = static_cast<nsIDocument*>(aObject);
+  auto* document = static_cast<dom::Document*>(aObject);
   MOZ_ASSERT(watcher->mDocument == document);
 #endif
   DD_DEBUG(
@@ -231,7 +236,8 @@ enum class ReportParam : uint8_t {
 };
 
 struct NotificationAndReportStringId {
-  // Notification type, handled by browser-media.js.
+  // Notification type, handled by DecoderDoctorChild.jsm and
+  // DecoderDoctorParent.jsm.
   dom::DecoderDoctorNotificationType mNotificationType;
   // Console message id. Key in dom/locales/.../chrome/dom/dom.properties.
   const char* mReportStringId;
@@ -342,9 +348,9 @@ static void DispatchNotification(
   }
 }
 
-static void ReportToConsole(nsIDocument* aDocument,
+static void ReportToConsole(dom::Document* aDocument,
                             const char* aConsoleStringId,
-                            nsTArray<const char16_t*>& aParams) {
+                            const nsTArray<nsString>& aParams) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aDocument);
 
@@ -354,15 +360,14 @@ static void ReportToConsole(nsIDocument* aDocument,
       aDocument, aConsoleStringId,
       aParams.IsEmpty() ? "<no params>"
                         : NS_ConvertUTF16toUTF8(aParams[0]).get(),
-      (aParams.Length() < 1 || !aParams[1]) ? "" : ", ",
-      (aParams.Length() < 1 || !aParams[1])
+      (aParams.Length() < 1 || aParams[0].IsEmpty()) ? "" : ", ",
+      (aParams.Length() < 1 || aParams[0].IsEmpty())
           ? ""
-          : NS_ConvertUTF16toUTF8(aParams[1]).get(),
+          : NS_ConvertUTF16toUTF8(aParams[0]).get(),
       aParams.Length() < 2 ? "" : ", ...");
-  nsContentUtils::ReportToConsole(
-      nsIScriptError::warningFlag, NS_LITERAL_CSTRING("Media"), aDocument,
-      nsContentUtils::eDOM_PROPERTIES, aConsoleStringId,
-      aParams.IsEmpty() ? nullptr : aParams.Elements(), aParams.Length());
+  nsContentUtils::ReportToConsole(nsIScriptError::warningFlag, "Media"_ns,
+                                  aDocument, nsContentUtils::eDOM_PROPERTIES,
+                                  aConsoleStringId, aParams);
 }
 
 static bool AllowNotification(
@@ -406,12 +411,13 @@ static bool AllowDecodeIssue(const MediaResult& aDecodeIssue,
   return StringListContains(filter, decodeIssueName);
 }
 
-static void ReportAnalysis(
-    nsIDocument* aDocument, const NotificationAndReportStringId& aNotification,
-    bool aIsSolved, const nsAString& aFormats = NS_LITERAL_STRING(""),
-    const MediaResult& aDecodeIssue = NS_OK, bool aDecodeIssueIsError = true,
-    const nsACString& aDocURL = NS_LITERAL_CSTRING(""),
-    const nsAString& aResourceURL = NS_LITERAL_STRING("")) {
+static void ReportAnalysis(dom::Document* aDocument,
+                           const NotificationAndReportStringId& aNotification,
+                           bool aIsSolved, const nsAString& aFormats = u""_ns,
+                           const MediaResult& aDecodeIssue = NS_OK,
+                           bool aDecodeIssueIsError = true,
+                           const nsACString& aDocURL = ""_ns,
+                           const nsAString& aResourceURL = u""_ns) {
   MOZ_ASSERT(NS_IsMainThread());
 
   if (!aDocument) {
@@ -427,24 +433,23 @@ static void ReportAnalysis(
   // Report non-solved issues to console.
   if (!aIsSolved) {
     // Build parameter array needed by console message.
-    AutoTArray<const char16_t*, NotificationAndReportStringId::maxReportParams>
-        params;
+    AutoTArray<nsString, NotificationAndReportStringId::maxReportParams> params;
     for (int i = 0; i < NotificationAndReportStringId::maxReportParams; ++i) {
       if (aNotification.mReportParams[i] == ReportParam::None) {
         break;
       }
       switch (aNotification.mReportParams[i]) {
         case ReportParam::Formats:
-          params.AppendElement(aFormats.Data());
+          params.AppendElement(aFormats);
           break;
         case ReportParam::DecodeIssue:
-          params.AppendElement(decodeIssueDescription.Data());
+          params.AppendElement(decodeIssueDescription);
           break;
         case ReportParam::DocURL:
-          params.AppendElement(NS_ConvertUTF8toUTF16(aDocURL).Data());
+          params.AppendElement(NS_ConvertUTF8toUTF16(aDocURL));
           break;
         case ReportParam::ResourceURL:
-          params.AppendElement(aResourceURL.Data());
+          params.AppendElement(aResourceURL);
           break;
         default:
           MOZ_ASSERT_UNREACHABLE("Bad notification parameter choice");
@@ -474,7 +479,7 @@ static nsString CleanItemForFormatsList(const nsAString& aItem) {
 
 static void AppendToFormatsList(nsAString& aList, const nsAString& aItem) {
   if (!aList.IsEmpty()) {
-    aList += NS_LITERAL_STRING(", ");
+    aList += u", "_ns;
   }
   aList += CleanItemForFormatsList(aItem);
 }
@@ -724,7 +729,7 @@ void DecoderDoctorDocumentWatcher::SynthesizeAnalysis() {
         "DecoderDoctorDocumentWatcher[%p, doc=%p]::SynthesizeAnalysis() - "
         "Decode error: %s",
         this, mDocument, firstDecodeError->Description().get());
-    ReportAnalysis(mDocument, sMediaDecodeError, false, NS_LITERAL_STRING(""),
+    ReportAnalysis(mDocument, sMediaDecodeError, false, u""_ns,
                    *firstDecodeError,
                    true,  // aDecodeIssueIsError=true
                    mDocument->GetDocumentURI()->GetSpecOrDefault(),
@@ -737,7 +742,7 @@ void DecoderDoctorDocumentWatcher::SynthesizeAnalysis() {
         "DecoderDoctorDocumentWatcher[%p, doc=%p]::SynthesizeAnalysis() - "
         "Decode warning: %s",
         this, mDocument, firstDecodeWarning->Description().get());
-    ReportAnalysis(mDocument, sMediaDecodeWarning, false, NS_LITERAL_STRING(""),
+    ReportAnalysis(mDocument, sMediaDecodeWarning, false, u""_ns,
                    *firstDecodeWarning,
                    false,  // aDecodeIssueIsError=false
                    mDocument->GetDocumentURI()->GetSpecOrDefault(),
@@ -760,12 +765,28 @@ void DecoderDoctorDocumentWatcher::AddDiagnostics(
     return;
   }
 
+  const mozilla::TimeStamp now = mozilla::TimeStamp::Now();
+
+  constexpr size_t MaxDiagnostics = 128;
+  constexpr double MaxSeconds = 10.0;
+  while (
+      mDiagnosticsSequence.Length() > MaxDiagnostics ||
+      (!mDiagnosticsSequence.IsEmpty() &&
+       (now - mDiagnosticsSequence[0].mTimeStamp).ToSeconds() > MaxSeconds)) {
+    // Too many, or too old.
+    mDiagnosticsSequence.RemoveElementAt(0);
+    if (mDiagnosticsHandled != 0) {
+      // Make sure Notify picks up the new element added below.
+      --mDiagnosticsHandled;
+    }
+  }
+
   DD_DEBUG(
       "DecoderDoctorDocumentWatcher[%p, "
       "doc=%p]::AddDiagnostics(DecoderDoctorDiagnostics{%s}, call site '%s')",
       this, mDocument, aDiagnostics.GetDescription().Data(), aCallSite);
   mDiagnosticsSequence.AppendElement(
-      Diagnostics(std::move(aDiagnostics), aCallSite));
+      Diagnostics(std::move(aDiagnostics), aCallSite, now));
   EnsureTimerIsStarted();
 }
 
@@ -810,7 +831,7 @@ DecoderDoctorDocumentWatcher::GetName(nsACString& aName) {
   return NS_OK;
 }
 
-void DecoderDoctorDiagnostics::StoreFormatDiagnostics(nsIDocument* aDocument,
+void DecoderDoctorDiagnostics::StoreFormatDiagnostics(dom::Document* aDocument,
                                                       const nsAString& aFormat,
                                                       bool aCanPlay,
                                                       const char* aCallSite) {
@@ -819,16 +840,25 @@ void DecoderDoctorDiagnostics::StoreFormatDiagnostics(nsIDocument* aDocument,
   MOZ_ASSERT(mDiagnosticsType == eUnsaved);
   mDiagnosticsType = eFormatSupportCheck;
 
+  if (NS_WARN_IF(aFormat.Length() > 2048)) {
+    DD_WARN(
+        "DecoderDoctorDiagnostics[%p]::StoreFormatDiagnostics(Document* "
+        "aDocument=%p, format= TOO LONG! '%s', can-play=%d, call site '%s')",
+        aDocument, this, NS_ConvertUTF16toUTF8(aFormat).get(), aCanPlay,
+        aCallSite);
+    return;
+  }
+
   if (NS_WARN_IF(!aDocument)) {
     DD_WARN(
-        "DecoderDoctorDiagnostics[%p]::StoreFormatDiagnostics(nsIDocument* "
+        "DecoderDoctorDiagnostics[%p]::StoreFormatDiagnostics(Document* "
         "aDocument=nullptr, format='%s', can-play=%d, call site '%s')",
         this, NS_ConvertUTF16toUTF8(aFormat).get(), aCanPlay, aCallSite);
     return;
   }
   if (NS_WARN_IF(aFormat.IsEmpty())) {
     DD_WARN(
-        "DecoderDoctorDiagnostics[%p]::StoreFormatDiagnostics(nsIDocument* "
+        "DecoderDoctorDiagnostics[%p]::StoreFormatDiagnostics(Document* "
         "aDocument=%p, format=<empty>, can-play=%d, call site '%s')",
         this, aDocument, aCanPlay, aCallSite);
     return;
@@ -839,7 +869,7 @@ void DecoderDoctorDiagnostics::StoreFormatDiagnostics(nsIDocument* aDocument,
 
   if (NS_WARN_IF(!watcher)) {
     DD_WARN(
-        "DecoderDoctorDiagnostics[%p]::StoreFormatDiagnostics(nsIDocument* "
+        "DecoderDoctorDiagnostics[%p]::StoreFormatDiagnostics(Document* "
         "aDocument=%p, format='%s', can-play=%d, call site '%s') - Could not "
         "create document watcher",
         this, aDocument, NS_ConvertUTF16toUTF8(aFormat).get(), aCanPlay,
@@ -848,7 +878,11 @@ void DecoderDoctorDiagnostics::StoreFormatDiagnostics(nsIDocument* aDocument,
   }
 
   mFormat = aFormat;
-  mCanPlay = aCanPlay;
+  if (aCanPlay) {
+    mFlags -= Flags::CanPlay;
+  } else {
+    mFlags += Flags::CanPlay;
+  }
 
   // StoreDiagnostics should only be called once, after all data is available,
   // so it is safe to std::move() from this object.
@@ -859,23 +893,33 @@ void DecoderDoctorDiagnostics::StoreFormatDiagnostics(nsIDocument* aDocument,
 }
 
 void DecoderDoctorDiagnostics::StoreMediaKeySystemAccess(
-    nsIDocument* aDocument, const nsAString& aKeySystem, bool aIsSupported,
+    dom::Document* aDocument, const nsAString& aKeySystem, bool aIsSupported,
     const char* aCallSite) {
   MOZ_ASSERT(NS_IsMainThread());
   // Make sure we only store once.
   MOZ_ASSERT(mDiagnosticsType == eUnsaved);
   mDiagnosticsType = eMediaKeySystemAccessRequest;
 
+  if (NS_WARN_IF(aKeySystem.Length() > 2048)) {
+    DD_WARN(
+        "DecoderDoctorDiagnostics[%p]::StoreMediaKeySystemAccess(Document* "
+        "aDocument=%p, keysystem= TOO LONG! '%s', supported=%d, call site "
+        "'%s')",
+        aDocument, this, NS_ConvertUTF16toUTF8(aKeySystem).get(), aIsSupported,
+        aCallSite);
+    return;
+  }
+
   if (NS_WARN_IF(!aDocument)) {
     DD_WARN(
-        "DecoderDoctorDiagnostics[%p]::StoreMediaKeySystemAccess(nsIDocument* "
+        "DecoderDoctorDiagnostics[%p]::StoreMediaKeySystemAccess(Document* "
         "aDocument=nullptr, keysystem='%s', supported=%d, call site '%s')",
         this, NS_ConvertUTF16toUTF8(aKeySystem).get(), aIsSupported, aCallSite);
     return;
   }
   if (NS_WARN_IF(aKeySystem.IsEmpty())) {
     DD_WARN(
-        "DecoderDoctorDiagnostics[%p]::StoreMediaKeySystemAccess(nsIDocument* "
+        "DecoderDoctorDiagnostics[%p]::StoreMediaKeySystemAccess(Document* "
         "aDocument=%p, keysystem=<empty>, supported=%d, call site '%s')",
         this, aDocument, aIsSupported, aCallSite);
     return;
@@ -886,7 +930,7 @@ void DecoderDoctorDiagnostics::StoreMediaKeySystemAccess(
 
   if (NS_WARN_IF(!watcher)) {
     DD_WARN(
-        "DecoderDoctorDiagnostics[%p]::StoreMediaKeySystemAccess(nsIDocument* "
+        "DecoderDoctorDiagnostics[%p]::StoreMediaKeySystemAccess(Document* "
         "aDocument=%p, keysystem='%s', supported=%d, call site '%s') - Could "
         "not create document watcher",
         this, aDocument, NS_ConvertUTF16toUTF8(aKeySystem).get(), aIsSupported,
@@ -905,7 +949,7 @@ void DecoderDoctorDiagnostics::StoreMediaKeySystemAccess(
   MOZ_ASSERT(mDiagnosticsType == eMediaKeySystemAccessRequest);
 }
 
-void DecoderDoctorDiagnostics::StoreEvent(nsIDocument* aDocument,
+void DecoderDoctorDiagnostics::StoreEvent(dom::Document* aDocument,
                                           const DecoderDoctorEvent& aEvent,
                                           const char* aCallSite) {
   MOZ_ASSERT(NS_IsMainThread());
@@ -916,7 +960,7 @@ void DecoderDoctorDiagnostics::StoreEvent(nsIDocument* aDocument,
 
   if (NS_WARN_IF(!aDocument)) {
     DD_WARN(
-        "DecoderDoctorDiagnostics[%p]::StoreEvent(nsIDocument* "
+        "DecoderDoctorDiagnostics[%p]::StoreEvent(Document* "
         "aDocument=nullptr, aEvent=%s, call site '%s')",
         this, GetDescription().get(), aCallSite);
     return;
@@ -931,22 +975,20 @@ void DecoderDoctorDiagnostics::StoreEvent(nsIDocument* aDocument,
             "DecoderDoctorDocumentWatcher[%p, doc=%p]::AddDiagnostics() - "
             "unable to initialize PulseAudio",
             this, aDocument);
-        ReportAnalysis(aDocument, sCannotInitializePulseAudio, false,
-                       NS_LITERAL_STRING("*"));
+        ReportAnalysis(aDocument, sCannotInitializePulseAudio, false, u"*"_ns);
       } else if (aEvent.mResult == NS_OK) {
         DD_INFO(
             "DecoderDoctorDocumentWatcher[%p, doc=%p]::AddDiagnostics() - now "
             "able to initialize PulseAudio",
             this, aDocument);
-        ReportAnalysis(aDocument, sCannotInitializePulseAudio, true,
-                       NS_LITERAL_STRING("*"));
+        ReportAnalysis(aDocument, sCannotInitializePulseAudio, true, u"*"_ns);
       }
       break;
   }
 #endif  // MOZ_PULSEAUDIO
 }
 
-void DecoderDoctorDiagnostics::StoreDecodeError(nsIDocument* aDocument,
+void DecoderDoctorDiagnostics::StoreDecodeError(dom::Document* aDocument,
                                                 const MediaResult& aError,
                                                 const nsString& aMediaSrc,
                                                 const char* aCallSite) {
@@ -955,10 +997,28 @@ void DecoderDoctorDiagnostics::StoreDecodeError(nsIDocument* aDocument,
   MOZ_ASSERT(mDiagnosticsType == eUnsaved);
   mDiagnosticsType = eDecodeError;
 
+  if (NS_WARN_IF(aError.Message().Length() > 2048)) {
+    DD_WARN(
+        "DecoderDoctorDiagnostics[%p]::StoreDecodeError(Document* "
+        "aDocument=%p, aError= TOO LONG! '%s', aMediaSrc=<provided>, call site "
+        "'%s')",
+        aDocument, this, aError.Description().get(), aCallSite);
+    return;
+  }
+
+  if (NS_WARN_IF(aMediaSrc.Length() > 2048)) {
+    DD_WARN(
+        "DecoderDoctorDiagnostics[%p]::StoreDecodeError(Document* "
+        "aDocument=%p, aError=%s, aMediaSrc= TOO LONG! <provided>, call site "
+        "'%s')",
+        aDocument, this, aError.Description().get(), aCallSite);
+    return;
+  }
+
   if (NS_WARN_IF(!aDocument)) {
     DD_WARN(
         "DecoderDoctorDiagnostics[%p]::StoreDecodeError("
-        "nsIDocument* aDocument=nullptr, aError=%s,"
+        "Document* aDocument=nullptr, aError=%s,"
         " aMediaSrc=<provided>, call site '%s')",
         this, aError.Description().get(), aCallSite);
     return;
@@ -970,7 +1030,7 @@ void DecoderDoctorDiagnostics::StoreDecodeError(nsIDocument* aDocument,
   if (NS_WARN_IF(!watcher)) {
     DD_WARN(
         "DecoderDoctorDiagnostics[%p]::StoreDecodeError("
-        "nsIDocument* aDocument=%p, aError='%s', aMediaSrc=<provided>,"
+        "Document* aDocument=%p, aError='%s', aMediaSrc=<provided>,"
         " call site '%s') - Could not create document watcher",
         this, aDocument, aError.Description().get(), aCallSite);
     return;
@@ -987,7 +1047,7 @@ void DecoderDoctorDiagnostics::StoreDecodeError(nsIDocument* aDocument,
   MOZ_ASSERT(mDiagnosticsType == eDecodeError);
 }
 
-void DecoderDoctorDiagnostics::StoreDecodeWarning(nsIDocument* aDocument,
+void DecoderDoctorDiagnostics::StoreDecodeWarning(dom::Document* aDocument,
                                                   const MediaResult& aWarning,
                                                   const nsString& aMediaSrc,
                                                   const char* aCallSite) {
@@ -999,7 +1059,7 @@ void DecoderDoctorDiagnostics::StoreDecodeWarning(nsIDocument* aDocument,
   if (NS_WARN_IF(!aDocument)) {
     DD_WARN(
         "DecoderDoctorDiagnostics[%p]::StoreDecodeWarning("
-        "nsIDocument* aDocument=nullptr, aWarning=%s,"
+        "Document* aDocument=nullptr, aWarning=%s,"
         " aMediaSrc=<provided>, call site '%s')",
         this, aWarning.Description().get(), aCallSite);
     return;
@@ -1011,7 +1071,7 @@ void DecoderDoctorDiagnostics::StoreDecodeWarning(nsIDocument* aDocument,
   if (NS_WARN_IF(!watcher)) {
     DD_WARN(
         "DecoderDoctorDiagnostics[%p]::StoreDecodeWarning("
-        "nsIDocument* aDocument=%p, aWarning='%s', aMediaSrc=<provided>,"
+        "Document* aDocument=%p, aWarning='%s', aMediaSrc=<provided>,"
         " call site '%s') - Could not create document watcher",
         this, aDocument, aWarning.Description().get(), aCallSite);
     return;
@@ -1045,20 +1105,20 @@ nsCString DecoderDoctorDiagnostics::GetDescription() const {
     case eFormatSupportCheck:
       s = "format='";
       s += NS_ConvertUTF16toUTF8(mFormat).get();
-      s += mCanPlay ? "', can play" : "', cannot play";
-      if (mVideoNotSupported) {
+      s += mFlags.contains(Flags::CanPlay) ? "', can play" : "', cannot play";
+      if (mFlags.contains(Flags::VideoNotSupported)) {
         s += ", but video format not supported";
       }
-      if (mAudioNotSupported) {
+      if (mFlags.contains(Flags::AudioNotSupported)) {
         s += ", but audio format not supported";
       }
-      if (mWMFFailedToLoad) {
+      if (mFlags.contains(Flags::WMFFailedToLoad)) {
         s += ", Windows platform decoder failed to load";
       }
-      if (mFFmpegFailedToLoad) {
+      if (mFlags.contains(Flags::FFmpegFailedToLoad)) {
         s += ", Linux platform decoder failed to load";
       }
-      if (mGMPPDMFailedToStartup) {
+      if (mFlags.contains(Flags::GMPPDMFailedToStartup)) {
         s += ", GMP PDM failed to startup";
       } else if (!mGMP.IsEmpty()) {
         s += ", Using GMP '";

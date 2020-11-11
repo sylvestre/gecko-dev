@@ -4,50 +4,72 @@
 
 from __future__ import absolute_import, print_function, unicode_literals
 
-import argparse
 import os
+import logging
 
 from mach.decorators import (
     Command,
     CommandArgument,
     CommandArgumentGroup,
     CommandProvider,
-    SubCommand,
 )
 
-from mozbuild.base import (
-    MachCommandBase,
-    MachCommandConditions as conditions,
-)
+from mozbuild.base import MachCommandBase, BinaryNotFoundException
 
 
 @CommandProvider
-class GeckoDriover(MachCommandBase):
-
-    @Command("geckodriver",
+class GeckoDriver(MachCommandBase):
+    @Command(
+        "geckodriver",
         category="post-build",
-        description="Run the WebDriver implementation for Gecko.")
-    @CommandArgument("--binary", type=str,
-        help="Firefox binary (defaults to the local build).")
-    @CommandArgument("params", nargs="...",
-        help="Flags to be passed through to geckodriver.")
+        description="Run the WebDriver implementation for Gecko.",
+    )
+    @CommandArgument(
+        "--binary", type=str, help="Firefox binary (defaults to the local build)."
+    )
+    @CommandArgument(
+        "params", nargs="...", help="Flags to be passed through to geckodriver."
+    )
     @CommandArgumentGroup("debugging")
-    @CommandArgument("--debug", action="store_true", group="debugging",
-        help="Enable the debugger. Not specifying a --debugger option will result in the default debugger being used.")
-    @CommandArgument("--debugger", default=None, type=str, group="debugging",
-        help="Name of debugger to use.")
-    @CommandArgument("--debugger-args", default=None, metavar="params", type=str,
+    @CommandArgument(
+        "--debug",
+        action="store_true",
         group="debugging",
-        help="Flags to pass to the debugger itself; split as the Bourne shell would.")
+        help="Enable the debugger. Not specifying a --debugger "
+        "option will result in the default debugger "
+        "being used.",
+    )
+    @CommandArgument(
+        "--debugger",
+        default=None,
+        type=str,
+        group="debugging",
+        help="Name of debugger to use.",
+    )
+    @CommandArgument(
+        "--debugger-args",
+        default=None,
+        metavar="params",
+        type=str,
+        group="debugging",
+        help="Flags to pass to the debugger itself; "
+        "split as the Bourne shell would.",
+    )
     def run(self, binary, params, debug, debugger, debugger_args):
         try:
             binpath = self.get_binary_path("geckodriver")
-        except Exception as e:
-                print("It looks like geckodriver isn't built. "
-                      "Add ac_add_options --enable-geckodriver to your mozconfig ",
-                      "and run |mach build| to build it.")
-                print(e)
-                return 1
+        except BinaryNotFoundException as e:
+            self.log(logging.ERROR, "geckodriver", {"error": str(e)}, "ERROR: {error}")
+            self.log(
+                logging.INFO,
+                "geckodriver",
+                {},
+                "It looks like geckodriver isn't built. "
+                "Add ac_add_options --enable-geckodriver to your "
+                "mozconfig "
+                "and run |./mach build| to build it.",
+            )
+            return 1
 
         args = [binpath]
 
@@ -55,7 +77,14 @@ class GeckoDriover(MachCommandBase):
             args.extend(params)
 
         if binary is None:
-            binary = self.get_binary_path("app")
+            try:
+                binary = self.get_binary_path("app")
+            except BinaryNotFoundException as e:
+                self.log(
+                    logging.ERROR, "geckodriver", {"error": str(e)}, "ERROR: {error}"
+                )
+                self.log(logging.INFO, "geckodriver", {"help": e.help()}, "{help}")
+                return 1
 
         args.extend(["--binary", binary])
 
@@ -64,10 +93,13 @@ class GeckoDriover(MachCommandBase):
                 self.log_manager.terminal_handler.setLevel(logging.WARNING)
 
             import mozdebug
+
             if not debugger:
                 # No debugger name was provided. Look for the default ones on
                 # current OS.
-                debugger = mozdebug.get_default_debugger_name(mozdebug.DebuggerSearch.KeepLooking)
+                debugger = mozdebug.get_default_debugger_name(
+                    mozdebug.DebuggerSearch.KeepLooking
+                )
 
             if debugger:
                 self.debuggerInfo = mozdebug.get_debugger_info(debugger, debugger_args)
@@ -79,28 +111,35 @@ class GeckoDriover(MachCommandBase):
             # their use.
             if debugger_args:
                 from mozbuild import shellutil
+
                 try:
                     debugger_args = shellutil.split(debugger_args)
                 except shellutil.MetaCharacterException as e:
-                    print("The --debugger-args you passed require a real shell to parse them.")
+                    print(
+                        "The --debugger-args you passed require a real shell to parse them."
+                    )
                     print("(We can't handle the %r character.)" % e.char)
                     return 1
 
             # Prepend the debugger args.
             args = [self.debuggerInfo.path] + self.debuggerInfo.args + args
 
-        return self.run_process(args=args, ensure_exit_code=False,
-            pass_thru=True)
+        return self.run_process(args=args, ensure_exit_code=False, pass_thru=True)
 
 
 @CommandProvider
 class GeckoDriverTest(MachCommandBase):
-
-    @Command("geckodriver-test",
+    @Command(
+        "geckodriver-test",
         category="post-build",
-        description="Run geckodriver unit tests.")
-    @CommandArgument("-v", "--verbose", action="store_true",
-        help="Verbose output for what commands the build is running.")
+        description="Run geckodriver unit tests.",
+    )
+    @CommandArgument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Verbose output for what" " commands the build is running.",
+    )
     def test(self, verbose=False, **kwargs):
         from mozbuild.controller.building import BuildDriver
 
@@ -110,4 +149,5 @@ class GeckoDriverTest(MachCommandBase):
         return driver.build(
             what=["testing/geckodriver/check"],
             verbose=verbose,
-            mach_context=self._mach_context)
+            mach_context=self._mach_context,
+        )

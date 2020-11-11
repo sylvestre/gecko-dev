@@ -8,19 +8,19 @@
 #define jit_shared_CodeGenerator_shared_h
 
 #include "mozilla/Alignment.h"
-#include "mozilla/Move.h"
-#include "mozilla/TypeTraits.h"
 
+#include <utility>
+
+#include "jit/InlineScriptTree.h"
 #include "jit/JitcodeMap.h"
-#include "jit/JitFrames.h"
 #include "jit/LIR.h"
 #include "jit/MacroAssembler.h"
 #include "jit/MIRGenerator.h"
 #include "jit/MIRGraph.h"
-#include "jit/OptimizationTracking.h"
+#include "jit/SafepointIndex.h"
 #include "jit/Safepoints.h"
 #include "jit/Snapshots.h"
-#include "jit/VMFunctions.h"
+#include "vm/TraceLoggingTypes.h"
 
 namespace js {
 namespace jit {
@@ -29,9 +29,6 @@ class OutOfLineCode;
 class CodeGenerator;
 class MacroAssembler;
 class IonIC;
-
-template <class ArgSeq, class StoreOutputTo>
-class OutOfLineCallVM;
 
 class OutOfLineTruncateSlow;
 
@@ -45,6 +42,8 @@ class CodeGeneratorShared : public LElementVisitor {
 
   MacroAssembler& ensureMasm(MacroAssembler* masm);
   mozilla::Maybe<IonHeapMacroAssembler> maybeMasm_;
+
+  bool useWasmStackArgumentAbi_;
 
  public:
   MacroAssembler& masm;
@@ -67,7 +66,7 @@ class CodeGeneratorShared : public LElementVisitor {
   // Label for the common return path.
   NonAssertingLabel returnLabel_;
 
-  js::Vector<SafepointIndex, 0, SystemAllocPolicy> safepointIndices_;
+  js::Vector<CodegenSafepointIndex, 0, SystemAllocPolicy> safepointIndices_;
   js::Vector<OsiIndex, 0, SystemAllocPolicy> osiIndices_;
 
   // Mapping from bailout table ID to an offset in the snapshot buffer.
@@ -113,30 +112,21 @@ class CodeGeneratorShared : public LElementVisitor {
 
   bool stringsCanBeInNursery() const { return gen->stringsCanBeInNursery(); }
 
-  js::Vector<NativeToTrackedOptimizations, 0, SystemAllocPolicy>
-      trackedOptimizations_;
-  uint8_t* trackedOptimizationsMap_;
-  uint32_t trackedOptimizationsMapSize_;
-  uint32_t trackedOptimizationsRegionTableOffset_;
-  uint32_t trackedOptimizationsTypesTableOffset_;
-  uint32_t trackedOptimizationsAttemptsTableOffset_;
-
-  bool isOptimizationTrackingEnabled() {
-    return gen->isOptimizationTrackingEnabled();
-  }
+  bool bigIntsCanBeInNursery() const { return gen->bigIntsCanBeInNursery(); }
 
  protected:
   // The offset of the first instruction of the OSR entry block from the
   // beginning of the code buffer.
-  size_t osrEntryOffset_;
+  mozilla::Maybe<size_t> osrEntryOffset_ = {};
 
   TempAllocator& alloc() const { return graph.mir().alloc(); }
 
-  inline void setOsrEntryOffset(size_t offset) {
-    MOZ_ASSERT(osrEntryOffset_ == 0);
-    osrEntryOffset_ = offset;
+  void setOsrEntryOffset(size_t offset) { osrEntryOffset_.emplace(offset); }
+
+  size_t getOsrEntryOffset() const {
+    MOZ_RELEASE_ASSERT(osrEntryOffset_.isSome());
+    return *osrEntryOffset_;
   }
-  inline size_t getOsrEntryOffset() const { return osrEntryOffset_; }
 
   // The offset of the first instruction of the body.
   // This skips the arguments type checks.
@@ -150,7 +140,8 @@ class CodeGeneratorShared : public LElementVisitor {
     return skipArgCheckEntryOffset_;
   }
 
-  typedef js::Vector<SafepointIndex, 8, SystemAllocPolicy> SafepointIndices;
+  typedef js::Vector<CodegenSafepointIndex, 8, SystemAllocPolicy>
+      SafepointIndices;
 
  protected:
 #ifdef CHECK_OSIPOINT_REGISTERS
@@ -180,8 +171,13 @@ class CodeGeneratorShared : public LElementVisitor {
   inline int32_t ToStackOffset(LAllocation a) const;
   inline int32_t ToStackOffset(const LAllocation* a) const;
 
-  inline Address ToAddress(const LAllocation& a);
-  inline Address ToAddress(const LAllocation* a);
+  inline Address ToAddress(const LAllocation& a) const;
+  inline Address ToAddress(const LAllocation* a) const;
+
+  // Returns the offset from FP to address incoming stack arguments
+  // when we use wasm stack argument abi (useWasmStackArgumentAbi()).
+  inline int32_t ToFramePointerOffset(LAllocation a) const;
+  inline int32_t ToFramePointerOffset(const LAllocation* a) const;
 
   uint32_t frameSize() const {
     return frameClass_ == FrameSizeClass::None() ? frameDepth_
@@ -189,19 +185,13 @@ class CodeGeneratorShared : public LElementVisitor {
   }
 
  protected:
-#ifdef CHECK_OSIPOINT_REGISTERS
-  void resetOsiPointRegs(LSafepoint* safepoint);
-  bool shouldVerifyOsiPointRegs(LSafepoint* safepoint);
-  void verifyOsiPointRegs(LSafepoint* safepoint);
-#endif
-
   bool addNativeToBytecodeEntry(const BytecodeSite* site);
   void dumpNativeToBytecodeEntries();
   void dumpNativeToBytecodeEntry(uint32_t idx);
 
-  bool addTrackedOptimizationsEntry(const TrackedOptimizations* optimizations);
-  void extendTrackedOptimizationsEntry(
-      const TrackedOptimizations* optimizations);
+  void setUseWasmStackArgumentAbi() { useWasmStackArgumentAbi_ = true; }
+
+  bool useWasmStackArgumentAbi() const { return useWasmStackArgumentAbi_; }
 
  public:
   MIRGenerator& mirGen() const { return *gen; }
@@ -235,8 +225,7 @@ class CodeGeneratorShared : public LElementVisitor {
 
   template <typename T>
   inline size_t allocateIC(const T& cache) {
-    static_assert(mozilla::IsBaseOf<IonIC, T>::value,
-                  "T must inherit from IonIC");
+    static_assert(std::is_base_of_v<IonIC, T>, "T must inherit from IonIC");
     size_t index;
     masm.propagateOOM(
         allocateData(sizeof(mozilla::AlignedStorage2<T>), &index));
@@ -272,13 +261,6 @@ class CodeGeneratorShared : public LElementVisitor {
   bool generateCompactNativeToBytecodeMap(JSContext* cx, JitCode* code);
   void verifyCompactNativeToBytecodeMap(JitCode* code);
 
-  bool generateCompactTrackedOptimizationsMap(JSContext* cx, JitCode* code,
-                                              IonTrackedTypeVector* allTypes);
-  void verifyCompactTrackedOptimizationsMap(
-      JitCode* code, uint32_t numRegions,
-      const UniqueTrackedOptimizations& unique,
-      const IonTrackedTypeVector* allTypes);
-
   // Mark the safepoint on |ins| as corresponding to the current assembler
   // location. The location should be just after a call.
   void markSafepoint(LInstruction* ins);
@@ -298,14 +280,12 @@ class CodeGeneratorShared : public LElementVisitor {
 
   OutOfLineCode* oolTruncateDouble(
       FloatRegister src, Register dest, MInstruction* mir,
-      wasm::BytecodeOffset callOffset = wasm::BytecodeOffset());
-  void emitTruncateDouble(FloatRegister src, Register dest,
-                          MTruncateToInt32* mir);
-  void emitTruncateFloat32(FloatRegister src, Register dest,
-                           MTruncateToInt32* mir);
+      wasm::BytecodeOffset callOffset = wasm::BytecodeOffset(),
+      bool preserveTls = false);
+  void emitTruncateDouble(FloatRegister src, Register dest, MInstruction* mir);
+  void emitTruncateFloat32(FloatRegister src, Register dest, MInstruction* mir);
 
-  void emitPreBarrier(Register elements, const LAllocation* index,
-                      int32_t offsetAdjustment);
+  void emitPreBarrier(Register elements, const LAllocation* index);
   void emitPreBarrier(Address address);
 
   // We don't emit code for trivial blocks, so if we want to branch to the
@@ -388,7 +368,8 @@ class CodeGeneratorShared : public LElementVisitor {
   inline void restoreLive(LInstruction* ins);
   inline void restoreLiveIgnore(LInstruction* ins, LiveRegisterSet reg);
 
-  // Save/restore all registers that are both live and volatile.
+  // Get/save/restore all registers that are both live and volatile.
+  inline LiveRegisterSet liveVolatileRegs(LInstruction* ins);
   inline void saveLiveVolatile(LInstruction* ins);
   inline void restoreLiveVolatile(LInstruction* ins);
 
@@ -396,6 +377,13 @@ class CodeGeneratorShared : public LElementVisitor {
   template <typename T>
   void pushArg(const T& t) {
     masm.Push(t);
+#ifdef DEBUG
+    pushedArgs_++;
+#endif
+  }
+
+  void pushArg(jsid id, Register temp) {
+    masm.Push(id, temp);
 #ifdef DEBUG
     pushedArgs_++;
 #endif
@@ -419,13 +407,6 @@ class CodeGeneratorShared : public LElementVisitor {
   }
 
  protected:
-  void callVM(const VMFunction& f, LInstruction* ins,
-              const Register* dynStack = nullptr);
-
-  template <class ArgSeq, class StoreOutputTo>
-  inline OutOfLineCode* oolCallVM(const VMFunction& fun, LInstruction* ins,
-                                  const ArgSeq& args, const StoreOutputTo& out);
-
   void addIC(LInstruction* lir, size_t cacheIndex);
 
   ReciprocalMulConstants computeDivisionConstants(uint32_t d, int maxLog);
@@ -457,9 +438,6 @@ class CodeGeneratorShared : public LElementVisitor {
   CodeGeneratorShared(MIRGenerator* gen, LIRGraph* graph, MacroAssembler* masm);
 
  public:
-  template <class ArgSeq, class StoreOutputTo>
-  void visitOutOfLineCallVM(OutOfLineCallVM<ArgSeq, StoreOutputTo>* ool);
-
   void visitOutOfLineTruncateSlow(OutOfLineTruncateSlow* ool);
 
   bool omitOverRecursedCheck() const;
@@ -552,176 +530,6 @@ class OutOfLineCodeBase : public OutOfLineCode {
   virtual void accept(T* codegen) = 0;
 };
 
-// ArgSeq store arguments for OutOfLineCallVM.
-//
-// OutOfLineCallVM are created with "oolCallVM" function. The third argument of
-// this function is an instance of a class which provides a "generate" in charge
-// of pushing the argument, with "pushArg", for a VMFunction.
-//
-// Such list of arguments can be created by using the "ArgList" function which
-// creates one instance of "ArgSeq", where the type of the arguments are
-// inferred from the type of the arguments.
-//
-// The list of arguments must be written in the same order as if you were
-// calling the function in C++.
-//
-// Example:
-//   ArgList(ToRegister(lir->lhs()), ToRegister(lir->rhs()))
-
-template <typename... ArgTypes>
-class ArgSeq;
-
-template <>
-class ArgSeq<> {
- public:
-  ArgSeq() {}
-
-  inline void generate(CodeGeneratorShared* codegen) const {}
-};
-
-template <typename HeadType, typename... TailTypes>
-class ArgSeq<HeadType, TailTypes...> : public ArgSeq<TailTypes...> {
- private:
-  using RawHeadType = typename mozilla::RemoveReference<HeadType>::Type;
-  RawHeadType head_;
-
- public:
-  template <typename ProvidedHead, typename... ProvidedTail>
-  explicit ArgSeq(ProvidedHead&& head, ProvidedTail&&... tail)
-      : ArgSeq<TailTypes...>(std::forward<ProvidedTail>(tail)...),
-        head_(std::forward<ProvidedHead>(head)) {}
-
-  // Arguments are pushed in reverse order, from last argument to first
-  // argument.
-  inline void generate(CodeGeneratorShared* codegen) const {
-    this->ArgSeq<TailTypes...>::generate(codegen);
-    codegen->pushArg(head_);
-  }
-};
-
-template <typename... ArgTypes>
-inline ArgSeq<ArgTypes...> ArgList(ArgTypes&&... args) {
-  return ArgSeq<ArgTypes...>(std::forward<ArgTypes>(args)...);
-}
-
-// Store wrappers, to generate the right move of data after the VM call.
-
-struct StoreNothing {
-  inline void generate(CodeGeneratorShared* codegen) const {}
-  inline LiveRegisterSet clobbered() const {
-    return LiveRegisterSet();  // No register gets clobbered
-  }
-};
-
-class StoreRegisterTo {
- private:
-  Register out_;
-
- public:
-  explicit StoreRegisterTo(Register out) : out_(out) {}
-
-  inline void generate(CodeGeneratorShared* codegen) const {
-    // It's okay to use storePointerResultTo here - the VMFunction wrapper
-    // ensures the upper bytes are zero for bool/int32 return values.
-    codegen->storePointerResultTo(out_);
-  }
-  inline LiveRegisterSet clobbered() const {
-    LiveRegisterSet set;
-    set.add(out_);
-    return set;
-  }
-};
-
-class StoreFloatRegisterTo {
- private:
-  FloatRegister out_;
-
- public:
-  explicit StoreFloatRegisterTo(FloatRegister out) : out_(out) {}
-
-  inline void generate(CodeGeneratorShared* codegen) const {
-    codegen->storeFloatResultTo(out_);
-  }
-  inline LiveRegisterSet clobbered() const {
-    LiveRegisterSet set;
-    set.add(out_);
-    return set;
-  }
-};
-
-template <typename Output>
-class StoreValueTo_ {
- private:
-  Output out_;
-
- public:
-  explicit StoreValueTo_(const Output& out) : out_(out) {}
-
-  inline void generate(CodeGeneratorShared* codegen) const {
-    codegen->storeResultValueTo(out_);
-  }
-  inline LiveRegisterSet clobbered() const {
-    LiveRegisterSet set;
-    set.add(out_);
-    return set;
-  }
-};
-
-template <typename Output>
-StoreValueTo_<Output> StoreValueTo(const Output& out) {
-  return StoreValueTo_<Output>(out);
-}
-
-template <class ArgSeq, class StoreOutputTo>
-class OutOfLineCallVM : public OutOfLineCodeBase<CodeGeneratorShared> {
- private:
-  LInstruction* lir_;
-  const VMFunction& fun_;
-  ArgSeq args_;
-  StoreOutputTo out_;
-
- public:
-  OutOfLineCallVM(LInstruction* lir, const VMFunction& fun, const ArgSeq& args,
-                  const StoreOutputTo& out)
-      : lir_(lir), fun_(fun), args_(args), out_(out) {}
-
-  void accept(CodeGeneratorShared* codegen) override {
-    codegen->visitOutOfLineCallVM(this);
-  }
-
-  LInstruction* lir() const { return lir_; }
-  const VMFunction& function() const { return fun_; }
-  const ArgSeq& args() const { return args_; }
-  const StoreOutputTo& out() const { return out_; }
-};
-
-template <class ArgSeq, class StoreOutputTo>
-inline OutOfLineCode* CodeGeneratorShared::oolCallVM(const VMFunction& fun,
-                                                     LInstruction* lir,
-                                                     const ArgSeq& args,
-                                                     const StoreOutputTo& out) {
-  MOZ_ASSERT(lir->mirRaw());
-  MOZ_ASSERT(lir->mirRaw()->isInstruction());
-
-  OutOfLineCode* ool =
-      new (alloc()) OutOfLineCallVM<ArgSeq, StoreOutputTo>(lir, fun, args, out);
-  addOutOfLineCode(ool, lir->mirRaw()->toInstruction());
-  return ool;
-}
-
-template <class ArgSeq, class StoreOutputTo>
-void CodeGeneratorShared::visitOutOfLineCallVM(
-    OutOfLineCallVM<ArgSeq, StoreOutputTo>* ool) {
-  LInstruction* lir = ool->lir();
-
-  saveLive(lir);
-  ool->args().generate(this);
-  callVM(ool->function(), lir);
-  ool->out().generate(this);
-  restoreLiveIgnore(lir, ool->out().clobbered());
-  masm.jump(ool->rejoin());
-}
-
 template <class CodeGen>
 class OutOfLineWasmTruncateCheckBase : public OutOfLineCodeBase<CodeGen> {
   MIRType fromType_;
@@ -740,6 +548,16 @@ class OutOfLineWasmTruncateCheckBase : public OutOfLineCodeBase<CodeGen> {
         input_(input),
         output_(output),
         output64_(Register64::Invalid()),
+        flags_(mir->flags()),
+        bytecodeOffset_(mir->bytecodeOffset()) {}
+
+  OutOfLineWasmTruncateCheckBase(MWasmBuiltinTruncateToInt64* mir,
+                                 FloatRegister input, Register64 output)
+      : fromType_(mir->input()->type()),
+        toType_(MIRType::Int64),
+        input_(input),
+        output_(Register::Invalid()),
+        output64_(output),
         flags_(mir->flags()),
         bytecodeOffset_(mir->bytecodeOffset()) {}
 

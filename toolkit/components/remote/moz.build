@@ -4,30 +4,47 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-with Files('**'):
-    BUG_COMPONENT = ('Toolkit', 'Startup and Profile System')
-
-XPIDL_SOURCES += [
-    'nsIRemoteService.idl',
-]
-
-XPIDL_MODULE = 'toolkitremote'
+with Files("**"):
+    BUG_COMPONENT = ("Toolkit", "Startup and Profile System")
 
 SOURCES += [
-    'nsXRemoteService.cpp',
+    "nsRemoteService.cpp",
 ]
 
-if 'gtk' in CONFIG['MOZ_WIDGET_TOOLKIT']:
+if CONFIG["MOZ_WIDGET_TOOLKIT"] == "gtk":
     SOURCES += [
-        'nsGTKRemoteService.cpp',
-        'nsRemoteService.cpp',
+        "nsGTKRemoteServer.cpp",
+        "nsUnixRemoteServer.cpp",
+        "nsXRemoteClient.cpp",
+        "nsXRemoteServer.cpp",
+        "RemoteUtils.cpp",
     ]
-    if CONFIG['MOZ_ENABLE_DBUS']:
+    if CONFIG["MOZ_ENABLE_DBUS"]:
         SOURCES += [
-            'nsDBusRemoteService.cpp',
+            "nsDBusRemoteClient.cpp",
+            "nsDBusRemoteServer.cpp",
         ]
-        CXXFLAGS += CONFIG['MOZ_DBUS_GLIB_CFLAGS']
+        CXXFLAGS += CONFIG["MOZ_DBUS_GLIB_CFLAGS"]
+        EXPORTS += [
+            "nsUnixRemoteServer.h",
+            "RemoteUtils.h",
+        ]
+    CXXFLAGS += CONFIG["TK_CFLAGS"]
 
-FINAL_LIBRARY = 'xul'
+if CONFIG["MOZ_WIDGET_TOOLKIT"] == "windows":
+    SOURCES += [
+        "nsWinRemoteClient.cpp",
+        "nsWinRemoteServer.cpp",
+        "WinRemoteMessage.cpp",
+    ]
+if CONFIG["MOZ_WIDGET_TOOLKIT"] == "cocoa":
+    SOURCES += [
+        "nsMacRemoteClient.mm",
+        "nsMacRemoteServer.mm",
+    ]
 
-CXXFLAGS += CONFIG['TK_CFLAGS']
+LOCAL_INCLUDES += [
+    "../../profile",
+    "../../xre",
+]
+FINAL_LIBRARY = "xul"

@@ -10,10 +10,14 @@
 
 #include "jit/BaselineJIT.h"
 #include "jit/Ion.h"
-#include "jit/JitRealm.h"
+#include "jit/JitFrames.h"
+#include "jit/JitRuntime.h"
 #include "jit/JitSpewer.h"
+#include "jit/JSJitFrameIter.h"
+#include "jit/SafepointIndex.h"
 #include "jit/Snapshots.h"
 #include "vm/JSContext.h"
+#include "vm/Stack.h"
 #include "vm/TraceLogging.h"
 
 #include "jit/JSJitFrameIter-inl.h"
@@ -25,9 +29,20 @@ using namespace js::jit;
 
 using mozilla::IsInRange;
 
+// This address is a magic number made to cause crashes while indicating that we
+// are making an attempt to mark the stack during a bailout.
+static constexpr uint32_t FAKE_EXITFP_FOR_BAILOUT_ADDR = 0xba2;
+static uint8_t* const FAKE_EXITFP_FOR_BAILOUT =
+    reinterpret_cast<uint8_t*>(FAKE_EXITFP_FOR_BAILOUT_ADDR);
+
+static_assert(!(FAKE_EXITFP_FOR_BAILOUT_ADDR & wasm::ExitOrJitEntryFPTag),
+              "FAKE_EXITFP_FOR_BAILOUT could be mistaken as a low-bit tagged "
+              "wasm exit fp");
+
 bool jit::Bailout(BailoutStack* sp, BaselineBailoutInfo** bailoutInfo) {
   JSContext* cx = TlsContext.get();
   MOZ_ASSERT(bailoutInfo);
+  MOZ_ASSERT(!cx->hasIonReturnOverride());
 
   // We don't have an exit frame.
   MOZ_ASSERT(IsInRange(FAKE_EXITFP_FOR_BAILOUT, 0, 0x1000) &&
@@ -46,21 +61,20 @@ bool jit::Bailout(BailoutStack* sp, BaselineBailoutInfo** bailoutInfo) {
   TraceLoggerThread* logger = TraceLoggerForCurrentThread(cx);
   TraceLogTimestamp(logger, TraceLogger_Bailout);
 
-  JitSpew(JitSpew_IonBailouts, "Took bailout! Snapshot offset: %d",
+  JitSpew(JitSpew_IonBailouts, "Took bailout! Snapshot offset: %u",
           frame.snapshotOffset());
 
-  MOZ_ASSERT(IsBaselineEnabled(cx));
+  MOZ_ASSERT(IsBaselineJitEnabled(cx));
 
   *bailoutInfo = nullptr;
   bool success = BailoutIonToBaseline(cx, bailoutData.activation(), frame,
-                                      false, bailoutInfo,
-                                      /* excInfo = */ nullptr);
+                                      bailoutInfo, /*exceptionInfo=*/nullptr);
   MOZ_ASSERT_IF(success, *bailoutInfo != nullptr);
 
   if (!success) {
     MOZ_ASSERT(cx->isExceptionPending());
     JSScript* script = frame.script();
-    probes::ExitScript(cx, script, script->functionNonDelazifying(),
+    probes::ExitScript(cx, script, script->function(),
                        /* popProfilerFrame = */ false);
   }
 
@@ -120,18 +134,17 @@ bool jit::InvalidationBailout(InvalidationBailoutStack* sp,
   TraceLoggerThread* logger = TraceLoggerForCurrentThread(cx);
   TraceLogTimestamp(logger, TraceLogger_Invalidation);
 
-  JitSpew(JitSpew_IonBailouts, "Took invalidation bailout! Snapshot offset: %d",
+  JitSpew(JitSpew_IonBailouts, "Took invalidation bailout! Snapshot offset: %u",
           frame.snapshotOffset());
 
   // Note: the frame size must be computed before we return from this function.
   *frameSizeOut = frame.frameSize();
 
-  MOZ_ASSERT(IsBaselineEnabled(cx));
+  MOZ_ASSERT(IsBaselineJitEnabled(cx));
 
   *bailoutInfo = nullptr;
-  bool success = BailoutIonToBaseline(cx, bailoutData.activation(), frame, true,
-                                      bailoutInfo,
-                                      /* excInfo = */ nullptr);
+  bool success = BailoutIonToBaseline(cx, bailoutData.activation(), frame,
+                                      bailoutInfo, /*exceptionInfo=*/nullptr);
   MOZ_ASSERT_IF(success, *bailoutInfo != nullptr);
 
   if (!success) {
@@ -149,7 +162,7 @@ bool jit::InvalidationBailout(InvalidationBailoutStack* sp,
     // pseudostack frame would not have been pushed in the first
     // place, so don't pop anything in that case.
     JSScript* script = frame.script();
-    probes::ExitScript(cx, script, script->functionNonDelazifying(),
+    probes::ExitScript(cx, script, script->function(),
                        /* popProfilerFrame = */ false);
 
 #ifdef JS_JITSPEW
@@ -211,14 +224,15 @@ bool jit::ExceptionHandlerBailout(JSContext* cx,
 
   BaselineBailoutInfo* bailoutInfo = nullptr;
   bool success = BailoutIonToBaseline(cx, bailoutData.activation(), frameView,
-                                      true, &bailoutInfo, &excInfo);
+                                      &bailoutInfo, &excInfo);
   if (success) {
     MOZ_ASSERT(bailoutInfo);
 
     // Overwrite the kind so HandleException after the bailout returns
     // false, jumping directly to the exception tail.
     if (excInfo.propagatingIonExceptionForDebugMode()) {
-      bailoutInfo->bailoutKind = Bailout_IonExceptionDebugMode;
+      bailoutInfo->bailoutKind =
+          mozilla::Some(BailoutKind::IonExceptionDebugMode);
     }
 
     rfe->kind = ResumeFromException::RESUME_BAILOUT;
@@ -273,9 +287,9 @@ void jit::CheckFrequentBailouts(JSContext* cx, JSScript* script,
       // which should prevent this from happening again.  Also note that
       // the first execution bailout can be related to an inlined script,
       // so there is no need to penalize the caller.
-      if (bailoutKind != Bailout_FirstExecution &&
-          !script->hadFrequentBailouts()) {
-        script->setHadFrequentBailouts();
+      if (bailoutKind != BailoutKind::FirstExecution &&
+          !script->hadLICMBailout()) {
+        script->setHadLICMBailout();
       }
 
       JitSpew(JitSpew_IonInvalidate, "Invalidating due to too many bailouts");

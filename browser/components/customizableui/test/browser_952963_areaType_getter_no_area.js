@@ -9,9 +9,19 @@ const kUnregisterAreaTestWidget = "test-widget-for-unregisterArea-areaType";
 const kTestWidget = "test-widget-no-area-areaType";
 registerCleanupFunction(removeCustomToolbars);
 
+registerCleanupFunction(() => {
+  try {
+    CustomizableUI.destroyWidget(kTestWidget);
+    CustomizableUI.destroyWidget(kUnregisterAreaTestWidget);
+  } catch (ex) {
+    Cu.reportError(ex);
+  }
+});
+
 function checkAreaType(widget) {
   try {
-    is(widget.areaType, null, "areaType should be null");
+    // widget.areaType returns either null or undefined
+    ok(!widget.areaType, "areaType should be null");
   } catch (ex) {
     info("Fetching areaType threw: " + ex);
     ok(false, "areaType getter shouldn't throw.");
@@ -22,7 +32,9 @@ function checkAreaType(widget) {
 add_task(async function() {
   // Using the ID before it's been created will imply a XUL wrapper; we'll test
   // an API-based wrapper below
-  let toolbarNode = createToolbarWithPlacements(kToolbarName, [kUnregisterAreaTestWidget]);
+  let toolbarNode = createToolbarWithPlacements(kToolbarName, [
+    kUnregisterAreaTestWidget,
+  ]);
   CustomizableUI.unregisterArea(kToolbarName);
   toolbarNode.remove();
 
@@ -32,10 +44,17 @@ add_task(async function() {
   w = CustomizableUI.getWidget(kTestWidget);
   checkAreaType(w);
 
-  let spec = {id: kUnregisterAreaTestWidget, type: "button", removable: true,
-              label: "areaType test", tooltiptext: "areaType test"};
+  let spec = {
+    id: kUnregisterAreaTestWidget,
+    type: "button",
+    removable: true,
+    label: "areaType test",
+    tooltiptext: "areaType test",
+  };
   CustomizableUI.createWidget(spec);
-  toolbarNode = createToolbarWithPlacements(kToolbarName, [kUnregisterAreaTestWidget]);
+  toolbarNode = createToolbarWithPlacements(kToolbarName, [
+    kUnregisterAreaTestWidget,
+  ]);
   CustomizableUI.unregisterArea(kToolbarName);
   toolbarNode.remove();
   w = CustomizableUI.getWidget(spec.id);
@@ -49,4 +68,3 @@ add_task(async function() {
 add_task(async function asyncCleanup() {
   await resetCustomization();
 });
-

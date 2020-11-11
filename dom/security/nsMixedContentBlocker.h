@@ -34,6 +34,11 @@ enum MixedContentTypes {
 using mozilla::OriginAttributes;
 
 class nsILoadInfo;  // forward declaration
+namespace mozilla {
+namespace net {
+class nsProtocolProxyService;  // forward declaration
+}
+}  // namespace mozilla
 
 class nsMixedContentBlocker : public nsIContentPolicy,
                               public nsIChannelEventSink {
@@ -45,12 +50,15 @@ class nsMixedContentBlocker : public nsIContentPolicy,
   NS_DECL_NSICONTENTPOLICY
   NS_DECL_NSICHANNELEVENTSINK
 
-  nsMixedContentBlocker();
+  nsMixedContentBlocker() = default;
 
   // See:
   // https://w3c.github.io/webappsec-secure-contexts/#is-origin-trustworthy
+  static bool IsPotentiallyTrustworthyLoopbackHost(
+      const nsACString& aAsciiHost);
   static bool IsPotentiallyTrustworthyLoopbackURL(nsIURI* aURL);
   static bool IsPotentiallyTrustworthyOnion(nsIURI* aURL);
+  static bool IsPotentiallyTrustworthyOrigin(nsIURI* aURI);
 
   /* Static version of ShouldLoad() that contains all the Mixed Content Blocker
    * logic.  Called from non-static ShouldLoad().
@@ -59,24 +67,26 @@ class nsMixedContentBlocker : public nsIContentPolicy,
    * @param aHadInsecureImageRedirect
    *        boolean flag indicating that an insecure redirect through http
    *        occured when this image was initially loaded and cached.
+   * @param aReportError
+   *        boolean flag indicating if a rejection should automaticly be
+   *        logged into the Console.
    * Remaining parameters are from nsIContentPolicy::ShouldLoad().
    */
   static nsresult ShouldLoad(bool aHadInsecureImageRedirect,
-                             uint32_t aContentType, nsIURI* aContentLocation,
-                             nsIURI* aRequestingLocation,
-                             nsISupports* aRequestingContext,
-                             const nsACString& aMimeGuess,
-                             nsIPrincipal* aRequestPrincipal,
+                             nsIURI* aContentLocation, nsILoadInfo* aLoadInfo,
+                             const nsACString& aMimeGuess, bool aReportError,
                              int16_t* aDecision);
   static void AccumulateMixedContentHSTS(
       nsIURI* aURI, bool aActive, const OriginAttributes& aOriginAttributes);
 
-  static bool ShouldUpgradeMixedDisplayContent();
+  static bool URISafeToBeLoadedInSecureContext(nsIURI* aURI);
 
-  static bool sBlockMixedScript;
-  static bool sBlockMixedObjectSubrequest;
-  static bool sBlockMixedDisplay;
-  static bool sUpgradeMixedDisplay;
+  static void OnPrefChange(const char* aPref, void* aClosure);
+  static void GetSecureContextAllowList(nsACString& aList);
+  static void Shutdown();
+
+  static bool sSecurecontextAllowlistCached;
+  static nsCString* sSecurecontextAllowlist;
 };
 
 #endif /* nsMixedContentBlocker_h___ */

@@ -1,4 +1,3 @@
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
    http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -25,7 +24,7 @@ const TEST_DATA = [
     keys: [
       {
         key: "VK_TAB",
-        options: { },
+        options: {},
       },
     ],
   },
@@ -40,21 +39,22 @@ const TEST_DATA = [
     ],
   },
   {
-    desc: "Open popup and then tab away (2 times) to the a next focusable " +
-          "element",
+    desc:
+      "Open popup and then tab away (2 times) to the a next focusable " +
+      "element",
     focused: false,
     keys: [
       {
         key: "d",
-        options: { },
+        options: {},
       },
       {
         key: "VK_TAB",
-        options: { },
+        options: {},
       },
       {
         key: "VK_TAB",
-        options: { },
+        options: {},
       },
     ],
   },
@@ -84,8 +84,9 @@ add_task(async function() {
   for (const { desc, focused, keys } of TEST_DATA) {
     info(desc);
     for (const { key, options } of keys) {
-      const done = !focused ?
-        inspector.searchSuggestions.once("processing-done") : Promise.resolve();
+      const done = !focused
+        ? inspector.searchSuggestions.once("processing-done")
+        : Promise.resolve();
       EventUtils.synthesizeKey(key, options);
       await done;
     }

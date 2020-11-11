@@ -10,10 +10,10 @@
 #include <stdint.h>
 #include <algorithm>  // for std::min, std::max
 #include <ostream>
+#include <type_traits>
 #include "mozilla/Assertions.h"
 #include "mozilla/Attributes.h"
 #include "mozilla/FloatingPoint.h"
-#include "mozilla/TypeTraits.h"
 #include "mozilla/Types.h"
 
 namespace IPC {
@@ -24,7 +24,7 @@ struct ParamTraits;
 #ifdef XP_WIN
 // defines TimeStampValue as a complex value keeping both
 // GetTickCount and QueryPerformanceCounter values
-#include "TimeStamp_windows.h"
+#  include "TimeStamp_windows.h"
 #endif
 
 namespace mozilla {
@@ -329,7 +329,7 @@ class TimeDurationValueCalculator {
 
   template <typename T>
   static int64_t Multiply(int64_t aA, T aB) {
-    static_assert(IsIntegral<T>::value,
+    static_assert(std::is_integral_v<T>,
                   "Using integer multiplication routine with non-integer type."
                   " Further specialization required");
     return aA * static_cast<int64_t>(aB);

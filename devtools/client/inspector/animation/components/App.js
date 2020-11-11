@@ -4,16 +4,29 @@
 
 "use strict";
 
-const { Component, createFactory } = require("devtools/client/shared/vendor/react");
+const {
+  Component,
+  createFactory,
+} = require("devtools/client/shared/vendor/react");
 const dom = require("devtools/client/shared/vendor/react-dom-factories");
 const PropTypes = require("devtools/client/shared/vendor/react-prop-types");
 const { connect } = require("devtools/client/shared/vendor/react-redux");
 
-const AnimationDetailContainer = createFactory(require("./AnimationDetailContainer"));
-const AnimationListContainer = createFactory(require("./AnimationListContainer"));
-const AnimationToolbar = createFactory(require("./AnimationToolbar"));
-const NoAnimationPanel = createFactory(require("./NoAnimationPanel"));
-const SplitBox = createFactory(require("devtools/client/shared/components/splitter/SplitBox"));
+const AnimationDetailContainer = createFactory(
+  require("devtools/client/inspector/animation/components/AnimationDetailContainer")
+);
+const AnimationListContainer = createFactory(
+  require("devtools/client/inspector/animation/components/AnimationListContainer")
+);
+const AnimationToolbar = createFactory(
+  require("devtools/client/inspector/animation/components/AnimationToolbar")
+);
+const NoAnimationPanel = createFactory(
+  require("devtools/client/inspector/animation/components/NoAnimationPanel")
+);
+const SplitBox = createFactory(
+  require("devtools/client/shared/components/splitter/SplitBox")
+);
 
 class App extends Component {
   static get propTypes() {
@@ -22,13 +35,12 @@ class App extends Component {
       animations: PropTypes.arrayOf(PropTypes.object).isRequired,
       detailVisibility: PropTypes.bool.isRequired,
       direction: PropTypes.string.isRequired,
+      dispatch: PropTypes.func.isRequired,
       emitEventForTest: PropTypes.func.isRequired,
       getAnimatedPropertyMap: PropTypes.func.isRequired,
       getAnimationsCurrentTime: PropTypes.func.isRequired,
       getComputedStyle: PropTypes.func.isRequired,
       getNodeFromActor: PropTypes.func.isRequired,
-      onHideBoxModelHighlighter: PropTypes.func.isRequired,
-      onShowBoxModelHighlighterForNode: PropTypes.func.isRequired,
       removeAnimationsCurrentTimeListener: PropTypes.func.isRequired,
       rewindAnimationsCurrentTime: PropTypes.func.isRequired,
       selectAnimation: PropTypes.func.isRequired,
@@ -47,7 +59,9 @@ class App extends Component {
   }
 
   shouldComponentUpdate(nextProps, nextState) {
-    return this.props.animations.length !== 0 || nextProps.animations.length !== 0;
+    return (
+      this.props.animations.length !== 0 || nextProps.animations.length !== 0
+    );
   }
 
   render() {
@@ -56,13 +70,12 @@ class App extends Component {
       animations,
       detailVisibility,
       direction,
+      dispatch,
       emitEventForTest,
       getAnimatedPropertyMap,
       getAnimationsCurrentTime,
       getComputedStyle,
       getNodeFromActor,
-      onHideBoxModelHighlighter,
-      onShowBoxModelHighlighterForNode,
       removeAnimationsCurrentTimeListener,
       rewindAnimationsCurrentTime,
       selectAnimation,
@@ -84,66 +97,57 @@ class App extends Component {
         className: detailVisibility ? "animation-detail-visible" : "",
         tabIndex: -1,
       },
-      animations.length ?
-      [
-        AnimationToolbar(
-          {
-            addAnimationsCurrentTimeListener,
-            animations,
-            removeAnimationsCurrentTimeListener,
-            rewindAnimationsCurrentTime,
-            setAnimationsPlaybackRate,
-            setAnimationsPlayState,
-            timeScale,
-          }
-        ),
-        SplitBox({
-          className: "animation-container-splitter",
-          endPanel: AnimationDetailContainer(
-            {
-              addAnimationsCurrentTimeListener,
-              emitEventForTest,
-              getAnimatedPropertyMap,
-              getAnimationsCurrentTime,
-              getComputedStyle,
-              removeAnimationsCurrentTimeListener,
-              setDetailVisibility,
-              simulateAnimation,
-              simulateAnimationForKeyframesProgressBar,
-              timeScale,
-            }
-          ),
-          endPanelControl: true,
-          initialHeight: "50%",
-          splitterSize: 1,
-          startPanel: AnimationListContainer(
-            {
+      animations.length
+        ? [
+            AnimationToolbar({
               addAnimationsCurrentTimeListener,
               animations,
-              direction,
-              emitEventForTest,
-              getAnimatedPropertyMap,
-              getNodeFromActor,
-              onHideBoxModelHighlighter,
-              onShowBoxModelHighlighterForNode,
               removeAnimationsCurrentTimeListener,
-              selectAnimation,
-              setAnimationsCurrentTime,
-              setHighlightedNode,
-              setSelectedNode,
-              simulateAnimation,
+              rewindAnimationsCurrentTime,
+              setAnimationsPlaybackRate,
+              setAnimationsPlayState,
               timeScale,
-            }
-          ),
-          vert: false,
-        }),
-      ]
-      :
-      NoAnimationPanel(
-        {
-          toggleElementPicker,
-        }
-      )
+            }),
+            SplitBox({
+              className: "animation-container-splitter",
+              endPanel: AnimationDetailContainer({
+                addAnimationsCurrentTimeListener,
+                emitEventForTest,
+                getAnimatedPropertyMap,
+                getAnimationsCurrentTime,
+                getComputedStyle,
+                removeAnimationsCurrentTimeListener,
+                setDetailVisibility,
+                simulateAnimation,
+                simulateAnimationForKeyframesProgressBar,
+                timeScale,
+              }),
+              endPanelControl: true,
+              initialHeight: "50%",
+              splitterSize: 1,
+              minSize: "30px",
+              startPanel: AnimationListContainer({
+                addAnimationsCurrentTimeListener,
+                animations,
+                direction,
+                dispatch,
+                emitEventForTest,
+                getAnimatedPropertyMap,
+                getNodeFromActor,
+                removeAnimationsCurrentTimeListener,
+                selectAnimation,
+                setAnimationsCurrentTime,
+                setHighlightedNode,
+                setSelectedNode,
+                simulateAnimation,
+                timeScale,
+              }),
+              vert: false,
+            }),
+          ]
+        : NoAnimationPanel({
+            toggleElementPicker,
+          })
     );
   }
 }

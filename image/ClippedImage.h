@@ -12,6 +12,8 @@
 #include "mozilla/RefPtr.h"
 #include "mozilla/UniquePtr.h"
 
+#include <utility>
+
 namespace mozilla {
 namespace image {
 
@@ -34,7 +36,7 @@ class ClippedImage : public ImageWrapper {
   NS_IMETHOD GetWidth(int32_t* aWidth) override;
   NS_IMETHOD GetHeight(int32_t* aHeight) override;
   NS_IMETHOD GetIntrinsicSize(nsSize* aSize) override;
-  NS_IMETHOD GetIntrinsicRatio(nsSize* aRatio) override;
+  Maybe<AspectRatio> GetIntrinsicRatio() override;
   NS_IMETHOD_(already_AddRefed<SourceSurface>)
   GetFrame(uint32_t aWhichFrame, uint32_t aFlags) override;
   NS_IMETHOD_(already_AddRefed<SourceSurface>)
@@ -75,7 +77,7 @@ class ClippedImage : public ImageWrapper {
   virtual ~ClippedImage();
 
  private:
-  Pair<ImgDrawResult, RefPtr<SourceSurface>> GetFrameInternal(
+  std::pair<ImgDrawResult, RefPtr<SourceSurface>> GetFrameInternal(
       const nsIntSize& aSize, const Maybe<SVGImageContext>& aSVGContext,
       uint32_t aWhichFrame, uint32_t aFlags, float aOpacity);
   bool ShouldClip();

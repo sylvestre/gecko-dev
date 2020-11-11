@@ -18,7 +18,6 @@
 #include "nsDirectoryServiceUtils.h"
 #include "nsIPrintSession.h"
 #include "nsIPrintSettings.h"
-#include "nsIUUIDGenerator.h"
 #include "private/pprio.h"
 
 using mozilla::Unused;
@@ -177,7 +176,7 @@ NS_IMETHODIMP
 nsDeviceContextSpecProxy::EndPage() {
   // Send the page recording to the parent.
   mRecorder->Close();
-  mRemotePrintJob->ProcessPage();
+  mRemotePrintJob->ProcessPage(std::move(mRecorder->TakeDependentSurfaces()));
 
   return NS_OK;
 }

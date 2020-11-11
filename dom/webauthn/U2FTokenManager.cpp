@@ -15,6 +15,11 @@
 #include "mozilla/ClearOnShutdown.h"
 #include "mozilla/Unused.h"
 #include "nsTextFormatter.h"
+#include "mozilla/Telemetry.h"
+
+#ifdef MOZ_WIDGET_ANDROID
+#  include "mozilla/dom/AndroidWebAuthnTokenManager.h"
+#endif
 
 // Not named "security.webauth.u2f_softtoken_counter" because setting that
 // name causes the window.u2f object to disappear until preferences get
@@ -26,7 +31,8 @@
   "security.webauth.webauthn_enable_usbtoken"
 #define PREF_WEBAUTHN_ALLOW_DIRECT_ATTESTATION \
   "security.webauth.webauthn_testing_allow_direct_attestation"
-
+#define PREF_WEBAUTHN_ANDROID_FIDO2_ENABLED \
+  "security.webauth.webauthn_enable_android_fido2"
 namespace mozilla {
 namespace dom {
 
@@ -45,11 +51,15 @@ static nsIThread* gBackgroundThread;
 
 // Data for WebAuthn UI prompt notifications.
 static const char16_t kRegisterPromptNotifcation[] =
-    u"{\"action\":\"register\",\"tid\":%llu,\"origin\":\"%s\"}";
+    u"{\"action\":\"register\",\"tid\":%llu,\"origin\":\"%s\","
+    u"\"browsingContextId\":%llu}";
 static const char16_t kRegisterDirectPromptNotifcation[] =
-    u"{\"action\":\"register-direct\",\"tid\":%llu,\"origin\":\"%s\"}";
+    u"{\"action\":\"register-direct\",\"tid\":%llu,\"origin\":\"%s\","
+    u"\"browsingContextId\":%llu}";
 static const char16_t kSignPromptNotifcation[] =
-    u"{\"action\":\"sign\",\"tid\":%llu,\"origin\":\"%s\"}";
+    u"{\"action\":\"sign\",\"tid\":%llu,\"origin\":\"%s\","
+    u"\"browsingContextId\":%"
+    u"llu}";
 static const char16_t kCancelPromptNotifcation[] =
     u"{\"action\":\"cancel\",\"tid\":%llu}";
 
@@ -70,6 +80,8 @@ class U2FPrefManager final : public nsIObserver {
       Preferences::AddStrongObserver(gPrefManager, PREF_U2F_NSSTOKEN_COUNTER);
       Preferences::AddStrongObserver(gPrefManager,
                                      PREF_WEBAUTHN_USBTOKEN_ENABLED);
+      Preferences::AddStrongObserver(gPrefManager,
+                                     PREF_WEBAUTHN_ANDROID_FIDO2_ENABLED);
       Preferences::AddStrongObserver(gPrefManager,
                                      PREF_WEBAUTHN_ALLOW_DIRECT_ATTESTATION);
       ClearOnShutdown(&gPrefManager, ShutdownPhase::ShutdownThreads);
@@ -94,6 +106,11 @@ class U2FPrefManager final : public nsIObserver {
     return mUsbTokenEnabled;
   }
 
+  bool GetAndroidFido2Enabled() {
+    MutexAutoLock lock(mPrefMutex);
+    return mAndroidFido2Enabled;
+  }
+
   bool GetAllowDirectAttestationForTesting() {
     MutexAutoLock lock(mPrefMutex);
     return mAllowDirectAttestation;
@@ -113,6 +130,8 @@ class U2FPrefManager final : public nsIObserver {
     mSoftTokenEnabled = Preferences::GetBool(PREF_WEBAUTHN_SOFTTOKEN_ENABLED);
     mSoftTokenCounter = Preferences::GetUint(PREF_U2F_NSSTOKEN_COUNTER);
     mUsbTokenEnabled = Preferences::GetBool(PREF_WEBAUTHN_USBTOKEN_ENABLED);
+    mAndroidFido2Enabled =
+        Preferences::GetBool(PREF_WEBAUTHN_ANDROID_FIDO2_ENABLED);
     mAllowDirectAttestation =
         Preferences::GetBool(PREF_WEBAUTHN_ALLOW_DIRECT_ATTESTATION);
   }
@@ -121,6 +140,7 @@ class U2FPrefManager final : public nsIObserver {
   bool mSoftTokenEnabled;
   int mSoftTokenCounter;
   bool mUsbTokenEnabled;
+  bool mAndroidFido2Enabled;
   bool mAllowDirectAttestation;
 };
 
@@ -166,6 +186,15 @@ void U2FTokenManager::AbortTransaction(const uint64_t& aTransactionId,
   ClearTransaction();
 }
 
+void U2FTokenManager::AbortOngoingTransaction() {
+  if (mLastTransactionId > 0 && mTransactionParent) {
+    // Send an abort to any other ongoing transaction
+    Unused << mTransactionParent->SendAbort(mLastTransactionId,
+                                            NS_ERROR_DOM_ABORT_ERR);
+  }
+  ClearTransaction();
+}
+
 void U2FTokenManager::MaybeClearTransaction(
     PWebAuthnTransactionParent* aParent) {
   // Only clear if we've been requested to do so by our current transaction
@@ -176,7 +205,7 @@ void U2FTokenManager::MaybeClearTransaction(
 }
 
 void U2FTokenManager::ClearTransaction() {
-  if (mLastTransactionId > 0) {
+  if (mLastTransactionId) {
     // Remove any prompts we might be showing for the current transaction.
     SendPromptNotification(kCancelPromptNotifcation, mLastTransactionId);
   }
@@ -244,6 +273,13 @@ RefPtr<U2FTokenTransport> U2FTokenManager::GetTokenManagerImpl() {
 
   auto pm = U2FPrefManager::Get();
 
+#ifdef MOZ_WIDGET_ANDROID
+  // On Android, prefer the platform support if enabled.
+  if (pm->GetAndroidFido2Enabled()) {
+    return AndroidWebAuthnTokenManager::GetInstance();
+  }
+#endif
+
   // Prefer the HW token, even if the softtoken is enabled too.
   // We currently don't support soft and USB tokens enabled at the
   // same time as the softtoken would always win the race to register.
@@ -268,7 +304,7 @@ void U2FTokenManager::Register(
     const WebAuthnMakeCredentialInfo& aTransactionInfo) {
   MOZ_LOG(gU2FTokenManagerLog, LogLevel::Debug, ("U2FAuthRegister"));
 
-  ClearTransaction();
+  AbortOngoingTransaction();
   mTransactionParent = aTransactionParent;
   mTokenManagerImpl = GetTokenManagerImpl();
 
@@ -281,12 +317,20 @@ void U2FTokenManager::Register(
 
   // Determine whether direct attestation was requested.
   bool directAttestationRequested = false;
-  if (aTransactionInfo.Extra().type() ==
-      WebAuthnMaybeMakeCredentialExtraInfo::TWebAuthnMakeCredentialExtraInfo) {
-    const auto& extra =
-        aTransactionInfo.Extra().get_WebAuthnMakeCredentialExtraInfo();
-    directAttestationRequested = extra.RequestDirectAttestation();
+
+// On Android, let's always reject direct attestations until we have a
+// mechanism to solicit user consent, from Bug 1550164
+#ifndef MOZ_WIDGET_ANDROID
+  if (aTransactionInfo.Extra().isSome()) {
+    const auto& extra = aTransactionInfo.Extra().ref();
+
+    AttestationConveyancePreference attestation =
+        extra.attestationConveyancePreference();
+
+    directAttestationRequested =
+        attestation == AttestationConveyancePreference::Direct;
   }
+#endif  // not MOZ_WIDGET_ANDROID
 
   // Start a register request immediately if direct attestation
   // wasn't requested or the test pref is set.
@@ -301,7 +345,7 @@ void U2FTokenManager::Register(
   // store the transaction info until the user proceeds or cancels.
   NS_ConvertUTF16toUTF8 origin(aTransactionInfo.Origin());
   SendPromptNotification(kRegisterDirectPromptNotifcation, aTransactionId,
-                         origin.get());
+                         origin.get(), aTransactionInfo.BrowsingContextId());
 
   MOZ_ASSERT(mPendingRegisterInfo.isNothing());
   mPendingRegisterInfo = Some(aTransactionInfo);
@@ -315,28 +359,29 @@ void U2FTokenManager::DoRegister(const WebAuthnMakeCredentialInfo& aInfo,
   // Show a prompt that lets the user cancel the ongoing transaction.
   NS_ConvertUTF16toUTF8 origin(aInfo.Origin());
   SendPromptNotification(kRegisterPromptNotifcation, mLastTransactionId,
-                         origin.get());
+                         origin.get(), aInfo.BrowsingContextId());
 
   uint64_t tid = mLastTransactionId;
   mozilla::TimeStamp startTime = mozilla::TimeStamp::Now();
 
   mTokenManagerImpl->Register(aInfo, aForceNoneAttestation)
-      ->Then(GetCurrentThreadSerialEventTarget(), __func__,
-             [tid, startTime](WebAuthnMakeCredentialResult&& aResult) {
-               U2FTokenManager* mgr = U2FTokenManager::Get();
-               mgr->MaybeConfirmRegister(tid, aResult);
-               Telemetry::ScalarAdd(Telemetry::ScalarID::SECURITY_WEBAUTHN_USED,
-                                    NS_LITERAL_STRING("U2FRegisterFinish"), 1);
-               Telemetry::AccumulateTimeDelta(
-                   Telemetry::WEBAUTHN_CREATE_CREDENTIAL_MS, startTime);
-             },
-             [tid](nsresult rv) {
-               MOZ_ASSERT(NS_FAILED(rv));
-               U2FTokenManager* mgr = U2FTokenManager::Get();
-               mgr->MaybeAbortRegister(tid, rv);
-               Telemetry::ScalarAdd(Telemetry::ScalarID::SECURITY_WEBAUTHN_USED,
-                                    NS_LITERAL_STRING("U2FRegisterAbort"), 1);
-             })
+      ->Then(
+          GetCurrentSerialEventTarget(), __func__,
+          [tid, startTime](WebAuthnMakeCredentialResult&& aResult) {
+            U2FTokenManager* mgr = U2FTokenManager::Get();
+            mgr->MaybeConfirmRegister(tid, aResult);
+            Telemetry::ScalarAdd(Telemetry::ScalarID::SECURITY_WEBAUTHN_USED,
+                                 u"U2FRegisterFinish"_ns, 1);
+            Telemetry::AccumulateTimeDelta(
+                Telemetry::WEBAUTHN_CREATE_CREDENTIAL_MS, startTime);
+          },
+          [tid](nsresult rv) {
+            MOZ_ASSERT(NS_FAILED(rv));
+            U2FTokenManager* mgr = U2FTokenManager::Get();
+            mgr->MaybeAbortRegister(tid, rv);
+            Telemetry::ScalarAdd(Telemetry::ScalarID::SECURITY_WEBAUTHN_USED,
+                                 u"U2FRegisterAbort"_ns, 1);
+          })
       ->Track(mRegisterPromise);
 }
 
@@ -362,7 +407,7 @@ void U2FTokenManager::Sign(PWebAuthnTransactionParent* aTransactionParent,
                            const WebAuthnGetAssertionInfo& aTransactionInfo) {
   MOZ_LOG(gU2FTokenManagerLog, LogLevel::Debug, ("U2FAuthSign"));
 
-  ClearTransaction();
+  AbortOngoingTransaction();
   mTransactionParent = aTransactionParent;
   mTokenManagerImpl = GetTokenManagerImpl();
 
@@ -373,28 +418,30 @@ void U2FTokenManager::Sign(PWebAuthnTransactionParent* aTransactionParent,
 
   // Show a prompt that lets the user cancel the ongoing transaction.
   NS_ConvertUTF16toUTF8 origin(aTransactionInfo.Origin());
-  SendPromptNotification(kSignPromptNotifcation, aTransactionId, origin.get());
+  SendPromptNotification(kSignPromptNotifcation, aTransactionId, origin.get(),
+                         aTransactionInfo.BrowsingContextId());
 
   uint64_t tid = mLastTransactionId = aTransactionId;
   mozilla::TimeStamp startTime = mozilla::TimeStamp::Now();
 
   mTokenManagerImpl->Sign(aTransactionInfo)
-      ->Then(GetCurrentThreadSerialEventTarget(), __func__,
-             [tid, startTime](WebAuthnGetAssertionResult&& aResult) {
-               U2FTokenManager* mgr = U2FTokenManager::Get();
-               mgr->MaybeConfirmSign(tid, aResult);
-               Telemetry::ScalarAdd(Telemetry::ScalarID::SECURITY_WEBAUTHN_USED,
-                                    NS_LITERAL_STRING("U2FSignFinish"), 1);
-               Telemetry::AccumulateTimeDelta(
-                   Telemetry::WEBAUTHN_GET_ASSERTION_MS, startTime);
-             },
-             [tid](nsresult rv) {
-               MOZ_ASSERT(NS_FAILED(rv));
-               U2FTokenManager* mgr = U2FTokenManager::Get();
-               mgr->MaybeAbortSign(tid, rv);
-               Telemetry::ScalarAdd(Telemetry::ScalarID::SECURITY_WEBAUTHN_USED,
-                                    NS_LITERAL_STRING("U2FSignAbort"), 1);
-             })
+      ->Then(
+          GetCurrentSerialEventTarget(), __func__,
+          [tid, startTime](WebAuthnGetAssertionResult&& aResult) {
+            U2FTokenManager* mgr = U2FTokenManager::Get();
+            mgr->MaybeConfirmSign(tid, aResult);
+            Telemetry::ScalarAdd(Telemetry::ScalarID::SECURITY_WEBAUTHN_USED,
+                                 u"U2FSignFinish"_ns, 1);
+            Telemetry::AccumulateTimeDelta(Telemetry::WEBAUTHN_GET_ASSERTION_MS,
+                                           startTime);
+          },
+          [tid](nsresult rv) {
+            MOZ_ASSERT(NS_FAILED(rv));
+            U2FTokenManager* mgr = U2FTokenManager::Get();
+            mgr->MaybeAbortSign(tid, rv);
+            Telemetry::ScalarAdd(Telemetry::ScalarID::SECURITY_WEBAUTHN_USED,
+                                 u"U2FSignAbort"_ns, 1);
+          })
       ->Track(mSignPromise);
 }
 

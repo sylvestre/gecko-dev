@@ -7,23 +7,22 @@
 // runs of genRootCAHashes.js; you should never need to manually edit it
 //***************************************************************************
 
+// Notes:
+// binNumber 1 used to be for "GTE_CyberTrust_Global_Root", but that root was
+// removed from the built-in roots module, so now it is used to indicate that
+// the certificate is not a built-in and was found in the softoken (cert9.db).
+
+// binNumber 2 used to be for "Thawte_Server_CA", but that root was removed from
+// the built-in roots module, so now it is used to indicate that the certificate
+// is not a built-in and was found on an external PKCS#11 token.
+
+// binNumber 3 used to be for "Thawte_Premium_Server_CA", but that root was
+// removed from the built-in roots module, so now it is used to indicate that
+// the certificate is not a built-in and was temporarily imported from the OS as
+// part of the "Enterprise Roots" feature.
+
 {
   "roots": [
-    {
-      "label": "GTE_CyberTrust_Global_Root",
-      "binNumber": 1,
-      "sha256Fingerprint": "pTElGI0hEKqWSwLHt8baMgMXCJTl+3H/+2Zn1eaBCjY="
-    },
-    {
-      "label": "Thawte_Server_CA",
-      "binNumber": 2,
-      "sha256Fingerprint": "tEELc+Lm6spH+8Qvj6QBivQ4HcVM+qhEUEYe7QlFTek="
-    },
-    {
-      "label": "Thawte_Premium_Server_CA",
-      "binNumber": 3,
-      "sha256Fingerprint": "q3A2NlxxVKopwsKfXUGRFjsWKiIlARNX1W0H/6e8H3I="
-    },
     {
       "label": "OU_Equifax_Secure_Certificate_Authority_O_Equifax_C_US",
       "binNumber": 4,
@@ -1033,7 +1032,72 @@
       "label": "Certigna_Root_CA",
       "binNumber": 205,
       "sha256Fingerprint": "1I09I+7bUKRZ5VGXYBwnd0udexjJTVoFlRGhAlC5MWg="
+    },
+    {
+      "label": "emSign_Root_CA___G1",
+      "binNumber": 206,
+      "sha256Fingerprint": "QPavA0apmqHNHVVaTpzOYsf5Y0YD7kBmFYM9yMjQA2c="
+    },
+    {
+      "label": "emSign_ECC_Root_CA___G3",
+      "binNumber": 207,
+      "sha256Fingerprint": "hqHsugicSo07vic0xhK6NB2BPgQ8+eioYs1cV6Nrvms="
+    },
+    {
+      "label": "emSign_Root_CA___C1",
+      "binNumber": 208,
+      "sha256Fingerprint": "ElYJqjAdoKJJuXqCOctqNCFvRNysnzlUsUKS8ujIYI8="
+    },
+    {
+      "label": "emSign_ECC_Root_CA___C3",
+      "binNumber": 209,
+      "sha256Fingerprint": "vE2AmxUYnXjbPh2M9PlyanldoWQ8pfE1jh3bDtwNfrM="
+    },
+    {
+      "label": "Hongkong_Post_Root_CA_3",
+      "binNumber": 210,
+      "sha256Fingerprint": "Wi/APwyDsJC7+kBgSwmIRGx2Nhg9+YRuFxAaRH+479Y="
+    },
+    {
+      "label": "Entrust_Root_Certification_Authority___G4",
+      "binNumber": 211,
+      "sha256Fingerprint": "2zUX0fZzKi1auXxTPscHee4ycKYvtKxCODckYObwHog="
+    },
+    {
+      "label": "Microsoft_ECC_Root_Certificate_Authority_2017",
+      "binNumber": 212,
+      "sha256Fingerprint": "NY3znXZK+eG3ZunJct81LuFc+sInr2rR1w6OSm7cugI="
+    },
+    {
+      "label": "Microsoft_RSA_Root_Certificate_Authority_2017",
+      "binNumber": 213,
+      "sha256Fingerprint": "x0H3D0sqjYi/LnHBQSLvU+8Q66DPpeZM+iD0GIUwc+A="
+    },
+    {
+      "label": "e_Szigno_Root_CA_2017",
+      "binNumber": 214,
+      "sha256Fingerprint": "vrALMIObm8MsMuREeQWVBkHyZCGxXtCJGYtRiuLqG5k="
+    },
+    {
+      "label": "OU_certSIGN_ROOT_CA_G2_O_CERTSIGN_SA_C_RO",
+      "binNumber": 215,
+      "sha256Fingerprint": "ZXz+L6c/qjhGJXHzMqI2Okb85wIJUXEHAs37tu7aMwU="
+    },
+    {
+      "label": "Trustwave_Global_Certification_Authority",
+      "binNumber": 216,
+      "sha256Fingerprint": "l1UgFfXd/DyHiMAGlEVVQIiURQCE8QCGcIa8Giu1jcg="
+    },
+    {
+      "label": "Trustwave_Global_ECC_P256_Certification_Authority",
+      "binNumber": 217,
+      "sha256Fingerprint": "lFu8gl6lVPSJ0f1Rpz3fLqYkrHAZoFIFIlwip4zPqLQ="
+    },
+    {
+      "label": "Trustwave_Global_ECC_P384_Certification_Authority",
+      "binNumber": 218,
+      "sha256Fingerprint": "VZA4WcjAw+u4dZ7OTiVXIl/1dYu9OOvUgnZgHhvVgJc="
     }
   ],
-  "maxBin": 205
+  "maxBin": 218
 }

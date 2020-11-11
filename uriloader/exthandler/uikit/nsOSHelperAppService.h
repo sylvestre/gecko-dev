@@ -24,14 +24,16 @@ class nsOSHelperAppService final : public nsExternalHelperAppService {
   // override nsIExternalProtocolService methods
   NS_IMETHOD GetApplicationDescription(const nsACString& aScheme,
                                        nsAString& _retval);
+  NS_IMETHOD IsCurrentAppOSDefaultForProtocol(const nsACString& aScheme,
+                                              bool* _retval);
 
   // method overrides --> used to hook the mime service into internet config....
   NS_IMETHOD GetFromTypeAndExtension(const nsACString& aType,
                                      const nsACString& aFileExt,
                                      nsIMIMEInfo** aMIMEInfo);
-  already_AddRefed<nsIMIMEInfo> GetMIMEInfoFromOS(const nsACString& aMIMEType,
-                                                  const nsACString& aFileExt,
-                                                  bool* aFound);
+  NS_IMETHOD GetMIMEInfoFromOS(const nsACString& aMIMEType,
+                               const nsACString& aFileExt, bool* aFound,
+                               nsIMIMEInfo** aMIMEInfo) override;
   NS_IMETHOD GetProtocolHandlerInfoFromOS(const nsACString& aScheme,
                                           bool* found,
                                           nsIHandlerInfo** _retval);
@@ -45,7 +47,8 @@ class nsOSHelperAppService final : public nsExternalHelperAppService {
   virtual nsresult GetFileTokenForPath(const char16_t* platformAppPath,
                                        nsIFile** aFile);
 
-  nsresult OSProtocolHandlerExists(const char* aScheme, bool* aHandlerExists);
+  nsresult OSProtocolHandlerExists(const char* aScheme,
+                                   bool* aHandlerExists) override;
 };
 
 #endif  // nsOSHelperAppService_h__

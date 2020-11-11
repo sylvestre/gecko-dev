@@ -4,11 +4,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef mozilla_dom_SVGFEDistantLightElement_h
-#define mozilla_dom_SVGFEDistantLightElement_h
+#ifndef DOM_SVG_SVGFEDISTANTLIGHTELEMENT_H_
+#define DOM_SVG_SVGFEDISTANTLIGHTELEMENT_H_
 
-#include "nsSVGFilters.h"
-#include "nsSVGNumber2.h"
+#include "SVGAnimatedNumber.h"
+#include "mozilla/dom/SVGFilters.h"
 
 nsresult NS_NewSVGFEDistantLightElement(
     nsIContent** aResult, already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo);
@@ -16,7 +16,7 @@ nsresult NS_NewSVGFEDistantLightElement(
 namespace mozilla {
 namespace dom {
 
-typedef SVGFELightElement SVGFEDistantLightElementBase;
+using SVGFEDistantLightElementBase = SVGFELightElement;
 
 class SVGFEDistantLightElement : public SVGFEDistantLightElementBase {
   friend nsresult(::NS_NewSVGFEDistantLightElement(
@@ -32,26 +32,25 @@ class SVGFEDistantLightElement : public SVGFEDistantLightElementBase {
 
  public:
   virtual mozilla::gfx::LightType ComputeLightAttributes(
-      nsSVGFilterInstance* aInstance,
-      nsTArray<float>& aFloatAttributes) override;
+      SVGFilterInstance* aInstance, nsTArray<float>& aFloatAttributes) override;
   virtual bool AttributeAffectsRendering(int32_t aNameSpaceID,
                                          nsAtom* aAttribute) const override;
 
   virtual nsresult Clone(dom::NodeInfo*, nsINode** aResult) const override;
 
   // WebIDL
-  already_AddRefed<SVGAnimatedNumber> Azimuth();
-  already_AddRefed<SVGAnimatedNumber> Elevation();
+  already_AddRefed<DOMSVGAnimatedNumber> Azimuth();
+  already_AddRefed<DOMSVGAnimatedNumber> Elevation();
 
  protected:
   virtual NumberAttributesInfo GetNumberInfo() override;
 
   enum { AZIMUTH, ELEVATION };
-  nsSVGNumber2 mNumberAttributes[2];
+  SVGAnimatedNumber mNumberAttributes[2];
   static NumberInfo sNumberInfo[2];
 };
 
 }  // namespace dom
 }  // namespace mozilla
 
-#endif  // mozilla_dom_SVGFEDistantLightElement_h
+#endif  // DOM_SVG_SVGFEDISTANTLIGHTELEMENT_H_

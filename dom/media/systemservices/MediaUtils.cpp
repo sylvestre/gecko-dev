@@ -5,12 +5,12 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "MediaUtils.h"
+#include "mozilla/Services.h"
 
-namespace mozilla {
-namespace media {
+namespace mozilla::media {
 
-already_AddRefed<nsIAsyncShutdownClient> GetShutdownBarrier() {
-  nsCOMPtr<nsIAsyncShutdownService> svc = services::GetAsyncShutdown();
+nsCOMPtr<nsIAsyncShutdownClient> GetShutdownBarrier() {
+  nsCOMPtr<nsIAsyncShutdownService> svc = services::GetAsyncShutdownService();
   MOZ_RELEASE_ASSERT(svc);
 
   nsCOMPtr<nsIAsyncShutdownClient> barrier;
@@ -22,10 +22,9 @@ already_AddRefed<nsIAsyncShutdownClient> GetShutdownBarrier() {
   }
   MOZ_RELEASE_ASSERT(NS_SUCCEEDED(rv));
   MOZ_RELEASE_ASSERT(barrier);
-  return barrier.forget();
+  return barrier;
 }
 
 NS_IMPL_ISUPPORTS(ShutdownBlocker, nsIAsyncShutdownBlocker)
 
-}  // namespace media
-}  // namespace mozilla
+}  // namespace mozilla::media

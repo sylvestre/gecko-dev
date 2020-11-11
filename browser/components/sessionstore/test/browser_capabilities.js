@@ -19,7 +19,10 @@ add_task(async function docshell_capabilities() {
   // Check that everything is allowed by default for new tabs.
   let state = JSON.parse(ss.getTabState(tab));
   ok(!("disallow" in state), "everything allowed by default");
-  ok(flags.every(f => docShell[f]), "all flags set to true");
+  ok(
+    flags.every(f => docShell[f]),
+    "all flags set to true"
+  );
 
   // Flip a couple of allow* flags.
   docShell.allowImages = false;
@@ -42,7 +45,9 @@ add_task(async function docshell_capabilities() {
   is(disallow.size, 2, "two capabilities disallowed");
 
   // Reuse the tab to restore a new, clean state into it.
-  await promiseTabState(tab, {entries: [{url: "about:robots", triggeringPrincipal_base64}]});
+  await promiseTabState(tab, {
+    entries: [{ url: "about:robots", triggeringPrincipal_base64 }],
+  });
 
   // Flush to make sure chrome received all data.
   await TabStateFlusher.flush(browser);
@@ -50,7 +55,10 @@ add_task(async function docshell_capabilities() {
   // After restoring disallowed features must be available again.
   state = JSON.parse(ss.getTabState(tab));
   ok(!("disallow" in state), "everything allowed again");
-  ok(flags.every(f => docShell[f]), "all flags set to true");
+  ok(
+    flags.every(f => docShell[f]),
+    "all flags set to true"
+  );
 
   // Restore the state with disallowed features.
   await promiseTabState(tab, disallowedState);
@@ -75,7 +83,7 @@ add_task(async function docshell_capabilities() {
 });
 
 async function createTab() {
-  let tab = BrowserTestUtils.addTab(gBrowser, "about:mozilla");
+  let tab = BrowserTestUtils.addTab(gBrowser, "about:rights");
   let browser = tab.linkedBrowser;
   await promiseBrowserLoaded(browser);
   return tab;

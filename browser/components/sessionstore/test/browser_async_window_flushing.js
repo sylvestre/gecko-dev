@@ -18,8 +18,10 @@ add_task(async function test_add_interesting_window() {
   let initialClosedWindows = ss.getClosedWindowCount();
 
   // Make sure we can actually store another closed window
-  await pushPrefs(["browser.sessionstore.max_windows_undo",
-                   initialClosedWindows + 1]);
+  await pushPrefs([
+    "browser.sessionstore.max_windows_undo",
+    initialClosedWindows + 1,
+  ]);
 
   // Create a new browser window. Since the default window will start
   // at about:blank, SessionStore should find this tab (and therefore the
@@ -32,12 +34,16 @@ add_task(async function test_add_interesting_window() {
   // Send a message that will cause the content to change its location
   // to someplace more interesting. We've disabled auto updates from
   // the browser, so the parent won't know about this
-  await ContentTask.spawn(browser, PAGE, async function(newPage) {
+  await SpecialPowers.spawn(browser, [PAGE], async function(newPage) {
     content.location = newPage;
   });
 
-  await promiseContentMessage(browser, "ss-test:OnHistoryReplaceEntry");
-
+  if (SpecialPowers.Services.appinfo.sessionHistoryInParent) {
+    let tab = newWin.gBrowser.selectedTab;
+    await promiseOnHistoryReplaceEntry(tab);
+  } else {
+    await promiseOnHistoryReplaceEntryInChild(browser);
+  }
   // Clear out the userTypedValue so that the new window looks like
   // it's really not worth restoring.
   browser.userTypedValue = null;
@@ -51,8 +57,11 @@ add_task(async function test_add_interesting_window() {
   whenDomWindowClosedHandled(() => {
     // SessionStore's onClose handler should have just run.
     let currentClosedWindows = ss.getClosedWindowCount();
-    is(currentClosedWindows, initialClosedWindows,
-       "We should not have added the window to the closed windows array");
+    is(
+      currentClosedWindows,
+      initialClosedWindows,
+      "We should not have added the window to the closed windows array"
+    );
 
     handled = true;
   });
@@ -66,9 +75,11 @@ add_task(async function test_add_interesting_window() {
 
   // The window flush has finished
   let currentClosedWindows = ss.getClosedWindowCount();
-  is(currentClosedWindows,
-     initialClosedWindows + 1,
-     "We should have added the window to the closed windows array");
+  is(
+    currentClosedWindows,
+    initialClosedWindows + 1,
+    "We should have added the window to the closed windows array"
+  );
 });
 
 /**
@@ -88,8 +99,10 @@ add_task(async function test_remove_uninteresting_window() {
   let initialClosedWindows = ss.getClosedWindowCount();
 
   // Make sure we can actually store another closed window
-  await pushPrefs(["browser.sessionstore.max_windows_undo",
-                   initialClosedWindows + 1]);
+  await pushPrefs([
+    "browser.sessionstore.max_windows_undo",
+    initialClosedWindows + 1,
+  ]);
 
   let newWin = await BrowserTestUtils.openNewBrowserWindow();
 
@@ -104,13 +117,20 @@ add_task(async function test_remove_uninteresting_window() {
 
   // Send a message that will cause the content to purge its
   // history entries and make itself seem uninteresting.
-  await ContentTask.spawn(browser, null, async function() {
+  await SpecialPowers.spawn(browser, [], async function() {
     // Epic hackery to make this browser seem suddenly boring.
     docShell.setCurrentURI(Services.io.newURI("about:blank"));
 
-    let {sessionHistory} = docShell.QueryInterface(Ci.nsIWebNavigation);
-    sessionHistory.legacySHistory.PurgeHistory(sessionHistory.count);
+    if (!SpecialPowers.Services.appinfo.sessionHistoryInParent) {
+      let { sessionHistory } = docShell.QueryInterface(Ci.nsIWebNavigation);
+      sessionHistory.legacySHistory.purgeHistory(sessionHistory.count);
+    }
   });
+
+  if (SpecialPowers.Services.appinfo.sessionHistoryInParent) {
+    let { sessionHistory } = browser.browsingContext;
+    sessionHistory.purgeHistory(sessionHistory.count);
+  }
 
   // Once this windowClosed Promise resolves, we should have finished
   // the flush and revisited our decision to put this window into
@@ -121,8 +141,11 @@ add_task(async function test_remove_uninteresting_window() {
   whenDomWindowClosedHandled(() => {
     // SessionStore's onClose handler should have just run.
     let currentClosedWindows = ss.getClosedWindowCount();
-    is(currentClosedWindows, initialClosedWindows + 1,
-       "We should have added the window to the closed windows array");
+    is(
+      currentClosedWindows,
+      initialClosedWindows + 1,
+      "We should have added the window to the closed windows array"
+    );
 
     handled = true;
   });
@@ -136,9 +159,11 @@ add_task(async function test_remove_uninteresting_window() {
 
   // The window flush has finished
   let currentClosedWindows = ss.getClosedWindowCount();
-  is(currentClosedWindows,
-     initialClosedWindows,
-     "We should have removed the window from the closed windows array");
+  is(
+    currentClosedWindows,
+    initialClosedWindows,
+    "We should have removed the window from the closed windows array"
+  );
 });
 
 /**
@@ -162,8 +187,11 @@ add_task(async function test_synchronously_remove_window_state() {
   await TabStateFlusher.flush(browser);
 
   state = JSON.parse(ss.getBrowserState());
-  is(state.windows.length, initialWindows + 1,
-     "The new window to be in the state");
+  is(
+    state.windows.length,
+    initialWindows + 1,
+    "The new window to be in the state"
+  );
 
   // Now close the window, and make sure that the window was removed
   // from the windows list from the SessionState. We're specifically
@@ -173,8 +201,11 @@ add_task(async function test_synchronously_remove_window_state() {
   newWin.close();
 
   state = JSON.parse(ss.getBrowserState());
-  is(state.windows.length, initialWindows,
-     "The new window should have been removed from the state");
+  is(
+    state.windows.length,
+    initialWindows,
+    "The new window should have been removed from the state"
+  );
 
   // Wait for our window to go away
   await windowClosed;

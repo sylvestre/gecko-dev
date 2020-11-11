@@ -26,7 +26,7 @@
 #include "nsIRunnable.h"
 #include "nsICryptoHash.h"
 #ifdef MOZ_PLACES
-#include "nsIFaviconService.h"
+#  include "nsIFaviconService.h"
 #endif
 #include "nsIDownloader.h"
 #include "nsIURI.h"
@@ -36,6 +36,7 @@
 #include "mozilla/Attributes.h"
 #include "mozilla/EventForwards.h"
 #include "mozilla/UniquePtr.h"
+#include "mozilla/WindowsDpiAwareness.h"
 
 /**
  * NS_INLINE_DECL_IUNKNOWN_REFCOUNTING should be used for defining and
@@ -77,35 +78,6 @@ class nsWindow;
 class nsWindowBase;
 struct KeyPair;
 
-#if !defined(DPI_AWARENESS_CONTEXT_DECLARED) && \
-    !defined(DPI_AWARENESS_CONTEXT_UNAWARE)
-
-DECLARE_HANDLE(DPI_AWARENESS_CONTEXT);
-
-typedef enum DPI_AWARENESS {
-  DPI_AWARENESS_INVALID = -1,
-  DPI_AWARENESS_UNAWARE = 0,
-  DPI_AWARENESS_SYSTEM_AWARE = 1,
-  DPI_AWARENESS_PER_MONITOR_AWARE = 2
-} DPI_AWARENESS;
-
-#define DPI_AWARENESS_CONTEXT_UNAWARE ((DPI_AWARENESS_CONTEXT)-1)
-#define DPI_AWARENESS_CONTEXT_SYSTEM_AWARE ((DPI_AWARENESS_CONTEXT)-2)
-#define DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE ((DPI_AWARENESS_CONTEXT)-3)
-
-#define DPI_AWARENESS_CONTEXT_DECLARED
-#endif  // (DPI_AWARENESS_CONTEXT_DECLARED)
-
-#if WINVER < 0x0605
-WINUSERAPI DPI_AWARENESS_CONTEXT WINAPI GetThreadDpiAwarenessContext();
-WINUSERAPI BOOL WINAPI AreDpiAwarenessContextsEqual(DPI_AWARENESS_CONTEXT,
-                                                    DPI_AWARENESS_CONTEXT);
-#endif /* WINVER < 0x0605 */
-typedef DPI_AWARENESS_CONTEXT(WINAPI* SetThreadDpiAwarenessContextProc)(
-    DPI_AWARENESS_CONTEXT);
-typedef BOOL(WINAPI* EnableNonClientDpiScalingProc)(HWND);
-typedef int(WINAPI* GetSystemMetricsForDpiProc)(int, UINT);
-
 namespace mozilla {
 enum class PointerCapabilities : uint8_t;
 #if defined(ACCESSIBILITY)
@@ -127,12 +99,12 @@ extern EventMsgInfo gAllEvents[];
 // GetQueueStatus() that include newer win8 specific defines.
 
 #ifndef QS_RAWINPUT
-#define QS_RAWINPUT 0x0400
+#  define QS_RAWINPUT 0x0400
 #endif
 
 #ifndef QS_TOUCH
-#define QS_TOUCH 0x0800
-#define QS_POINTER 0x1000
+#  define QS_TOUCH 0x0800
+#  define QS_POINTER 0x1000
 #endif
 
 #define MOZ_QS_ALLEVENT                                                      \
@@ -233,6 +205,13 @@ class WinUtils {
 
   static bool HasSystemMetricsForDpi();
   static int GetSystemMetricsForDpi(int nIndex, UINT dpi);
+
+  /**
+   * @param aHdc HDC for printer
+   * @return unwritable margins for currently set page on aHdc or empty margins
+   *         if aHdc is null
+   */
+  static gfx::MarginDouble GetUnwriteableMarginsForDeviceInInches(HDC aHdc);
 
   /**
    * Logging helpers that dump output to prlog module 'Widget', console, and
@@ -546,7 +525,9 @@ class WinUtils {
     Canonicalize = 1,
     Lengthen = 2,
     UnexpandEnvVars = 4,
-    Default = 7,
+    RequireFilePath = 8,
+
+    Default = 7,  // Default omits RequireFilePath
   };
 
   /**
@@ -565,9 +546,16 @@ class WinUtils {
       nsAString& aPath,
       PathTransformFlags aFlags = PathTransformFlags::Default);
 
-  static const nsTArray<Pair<nsString, nsDependentString>>&
-  GetWhitelistedPaths();
+  static const size_t kMaxWhitelistedItems = 3;
+  using WhitelistVec =
+      Vector<std::pair<nsString, nsDependentString>, kMaxWhitelistedItems>;
 
+  static const WhitelistVec& GetWhitelistedPaths();
+
+ private:
+  static WhitelistVec BuildWhitelist();
+
+ public:
 #ifdef ACCESSIBILITY
   static a11y::Accessible* GetRootAccessibleForHWND(HWND aHwnd);
 #endif
@@ -580,7 +568,8 @@ class AsyncFaviconDataReady final : public nsIFaviconDataCallback {
   NS_DECL_NSIFAVICONDATACALLBACK
 
   AsyncFaviconDataReady(nsIURI* aNewURI, nsCOMPtr<nsIThread>& aIOThread,
-                        const bool aURLShortcut);
+                        const bool aURLShortcut,
+                        already_AddRefed<nsIRunnable> aRunnable);
   nsresult OnFaviconDataNotAvailable(void);
 
  private:
@@ -588,6 +577,7 @@ class AsyncFaviconDataReady final : public nsIFaviconDataCallback {
 
   nsCOMPtr<nsIURI> mNewURI;
   nsCOMPtr<nsIThread> mIOThread;
+  nsCOMPtr<nsIRunnable> mRunnable;
   const bool mURLShortcut;
 };
 #endif
@@ -597,7 +587,6 @@ class AsyncFaviconDataReady final : public nsIFaviconDataCallback {
  */
 class AsyncEncodeAndWriteIcon : public nsIRunnable {
  public:
-  const bool mURLShortcut;
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIRUNNABLE
 
@@ -606,13 +595,14 @@ class AsyncEncodeAndWriteIcon : public nsIRunnable {
   AsyncEncodeAndWriteIcon(const nsAString& aIconPath,
                           UniquePtr<uint8_t[]> aData, uint32_t aStride,
                           uint32_t aWidth, uint32_t aHeight,
-                          const bool aURLShortcut);
+                          already_AddRefed<nsIRunnable> aRunnable);
 
  private:
   virtual ~AsyncEncodeAndWriteIcon();
 
   nsAutoString mIconPath;
   UniquePtr<uint8_t[]> mBuffer;
+  nsCOMPtr<nsIRunnable> mRunnable;
   uint32_t mStride;
   uint32_t mWidth;
   uint32_t mHeight;
@@ -637,10 +627,10 @@ class FaviconHelper {
  public:
   static const char kJumpListCacheDir[];
   static const char kShortcutCacheDir[];
-  static nsresult ObtainCachedIconFile(nsCOMPtr<nsIURI> aFaviconPageURI,
-                                       nsString& aICOFilePath,
-                                       nsCOMPtr<nsIThread>& aIOThread,
-                                       bool aURLShortcut);
+  static nsresult ObtainCachedIconFile(
+      nsCOMPtr<nsIURI> aFaviconPageURI, nsString& aICOFilePath,
+      nsCOMPtr<nsIThread>& aIOThread, bool aURLShortcut,
+      already_AddRefed<nsIRunnable> aRunnable = nullptr);
 
   static nsresult HashURI(nsCOMPtr<nsICryptoHash>& aCryptoHash, nsIURI* aUri,
                           nsACString& aUriHash);
@@ -651,7 +641,8 @@ class FaviconHelper {
 
   static nsresult CacheIconFileFromFaviconURIAsync(
       nsCOMPtr<nsIURI> aFaviconPageURI, nsCOMPtr<nsIFile> aICOFile,
-      nsCOMPtr<nsIThread>& aIOThread, bool aURLShortcut);
+      nsCOMPtr<nsIThread>& aIOThread, bool aURLShortcut,
+      already_AddRefed<nsIRunnable> aRunnable);
 
   static int32_t GetICOCacheSecondsTimeout();
 };

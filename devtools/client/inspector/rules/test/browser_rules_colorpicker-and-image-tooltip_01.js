@@ -1,4 +1,3 @@
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -19,7 +18,7 @@ const TEST_URI = `
 
 add_task(async function() {
   await addTab("data:text/html;charset=utf-8," + encodeURIComponent(TEST_URI));
-  const {view} = await openRuleView();
+  const { view } = await openRuleView();
   const value = getRuleViewProperty(view, "body", "background").valueSpan;
   const swatch = value.querySelectorAll(".ruleview-colorswatch")[0];
   const url = value.querySelector(".theme-link");
@@ -40,7 +39,8 @@ async function testImageTooltipAfterColorChange(swatch, url, ruleView) {
   await simulateColorPickerChange(ruleView, picker, [0, 0, 0, 1], {
     selector: "body",
     name: "background-image",
-    value: 'url("chrome://global/skin/icons/warning-64.png"), linear-gradient(rgb(0, 0, 0), rgb(255, 0, 102) 400px)',
+    value:
+      'url("chrome://global/skin/icons/warning-64.png"), linear-gradient(rgb(0, 0, 0), rgb(255, 0, 102) 400px)',
   });
 
   const spectrum = picker.spectrum;
@@ -53,8 +53,11 @@ async function testImageTooltipAfterColorChange(swatch, url, ruleView) {
   info("Verify again that the image preview tooltip works");
   // After a color change, the property is re-populated, we need to get the new
   // dom node
-  url = getRuleViewProperty(ruleView, "body", "background").valueSpan
-    .querySelector(".theme-link");
+  url = getRuleViewProperty(
+    ruleView,
+    "body",
+    "background"
+  ).valueSpan.querySelector(".theme-link");
   previewTooltip = await assertShowPreviewTooltip(ruleView, url);
 
   await assertTooltipHiddenOnMouseOut(previewTooltip, url);

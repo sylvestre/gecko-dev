@@ -14,7 +14,7 @@
 #include "nsID.h"
 #include "nsISupportsImpl.h"
 
-class nsIEventTarget;
+class nsISerialEventTarget;
 
 namespace mozilla {
 namespace net {
@@ -25,7 +25,7 @@ class HttpBackgroundChannelParent final : public PHttpBackgroundChannelParent {
  public:
   explicit HttpBackgroundChannelParent();
 
-  NS_INLINE_DECL_THREADSAFE_REFCOUNTING(HttpBackgroundChannelParent)
+  NS_INLINE_DECL_THREADSAFE_REFCOUNTING(HttpBackgroundChannelParent, final)
 
   // Try to find associated HttpChannelParent with the same
   // channel Id.
@@ -39,8 +39,11 @@ class HttpBackgroundChannelParent final : public PHttpBackgroundChannelParent {
   // IPC channel.
   void OnChannelClosed();
 
-  // To send OnStartRequestSend message over background channel.
-  bool OnStartRequestSent();
+  // To send OnStartRequest message over background channel.
+  bool OnStartRequest(const nsHttpResponseHead& aResponseHead,
+                      const bool& aUseResponseHead,
+                      const nsHttpHeaderArray& aRequestHeaders,
+                      const HttpChannelOnStartRequestArgs& aArgs);
 
   // To send OnTransportAndData message over background channel.
   bool OnTransportAndData(const nsresult& aChannelStatus,
@@ -50,35 +53,50 @@ class HttpBackgroundChannelParent final : public PHttpBackgroundChannelParent {
 
   // To send OnStopRequest message over background channel.
   bool OnStopRequest(const nsresult& aChannelStatus,
-                     const ResourceTimingStruct& aTiming,
-                     const nsHttpHeaderArray& aResponseTrailers);
+                     const ResourceTimingStructArgs& aTiming,
+                     const nsHttpHeaderArray& aResponseTrailers,
+                     const nsTArray<ConsoleReportCollected>& aConsoleReports);
+
+  // When ODA and OnStopRequest are sending from socket process to child
+  // process, this is the last IPC message sent from parent process.
+  bool OnConsoleReport(const nsTArray<ConsoleReportCollected>& aConsoleReports);
+
+  // To send OnAfterLastPart message over background channel.
+  bool OnAfterLastPart(const nsresult aStatus);
 
   // To send OnProgress message over background channel.
-  bool OnProgress(const int64_t& aProgress, const int64_t& aProgressMax);
+  bool OnProgress(const int64_t aProgress, const int64_t aProgressMax);
 
   // To send OnStatus message over background channel.
-  bool OnStatus(const nsresult& aStatus);
+  bool OnStatus(const nsresult aStatus);
 
   // To send FlushedForDiversion and DivertMessages messages
   // over background channel.
   bool OnDiversion();
 
-  // To send NotifyTrackingProtectionDisabled message over background channel.
-  bool OnNotifyTrackingProtectionDisabled();
+  // To send NotifyClassificationFlags message over background channel.
+  bool OnNotifyClassificationFlags(uint32_t aClassificationFlags,
+                                   bool aIsThirdParty);
 
-  // To send NotifyCookieAllowed message over background channel.
-  bool OnNotifyCookieAllowed();
-
-  // To send NotifyTrackingCookieBlocked message over background channel.
-  bool OnNotifyTrackingCookieBlocked(uint32_t aRejectedReason);
-
-  // To send NotifyTrackingResource message over background channel.
-  bool OnNotifyTrackingResource(bool aIsThirdParty);
+  // To send NotifyFlashPluginStateChanged message over background channel.
+  bool OnNotifyFlashPluginStateChanged(nsIHttpChannel::FlashPluginState aState);
 
   // To send SetClassifierMatchedInfo message over background channel.
   bool OnSetClassifierMatchedInfo(const nsACString& aList,
                                   const nsACString& aProvider,
                                   const nsACString& aFullHash);
+
+  // To send SetClassifierMatchedTrackingInfo message over background channel.
+  bool OnSetClassifierMatchedTrackingInfo(const nsACString& aLists,
+                                          const nsACString& aFullHashes);
+
+  nsISerialEventTarget* GetBackgroundTarget();
+
+  using ChildEndpointPromise =
+      MozPromise<ipc::Endpoint<extensions::PStreamFilterChild>, bool, true>;
+  [[nodiscard]] RefPtr<ChildEndpointPromise> AttachStreamFilter(
+      Endpoint<extensions::PStreamFilterParent>&& aParentEndpoint,
+      Endpoint<extensions::PStreamFilterChild>&& aChildEndpoint);
 
  protected:
   void ActorDestroy(ActorDestroyReason aWhy) override;
@@ -91,7 +109,7 @@ class HttpBackgroundChannelParent final : public PHttpBackgroundChannelParent {
   // Used to ensure atomicity of mBackgroundThread
   Mutex mBgThreadMutex;
 
-  nsCOMPtr<nsIEventTarget> mBackgroundThread;
+  nsCOMPtr<nsISerialEventTarget> mBackgroundThread;
 
   // associated HttpChannelParent for generating the channel events
   RefPtr<HttpChannelParent> mChannelParent;

@@ -7,7 +7,7 @@ https://bugzilla.mozilla.org/show_bug.cgi?id=1080361
   <meta charset="utf-8">
   <title>Test for Bug 1080361</title>
   <meta name="author" content="Maksim Lebedev" />
-  <script type="application/javascript" src="/tests/SimpleTest/EventUtils.js"></script>
+  <script src="/tests/SimpleTest/EventUtils.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css"/>
   <style>
     #target, #mediator, #listener { background: yellow; margin: 10px; }
@@ -32,7 +32,7 @@ https://bugzilla.mozilla.org/show_bug.cgi?id=1080361
         target.setPointerCapture(31415);
       } catch(exc) {
         test_first_exc = true;
-        parent.is(exc.name, "InvalidPointerId", "Exception InvalidPointerId should be fired");
+        parent.is(exc.name, "NotFoundError", "Exception NotFoundError should be fired");
       }
       try {
         logger("mediator.setPointerCapture()");

@@ -6,7 +6,7 @@
 
 const dom = require("devtools/client/shared/vendor/react-dom-factories");
 
-const NegativePath = require("./NegativePath");
+const NegativePath = require("devtools/client/inspector/animation/components/graph/NegativePath");
 
 class NegativeEndDelayPath extends NegativePath {
   getClassName() {
@@ -18,11 +18,9 @@ class NegativeEndDelayPath extends NegativePath {
     const startTime = endTime + state.endDelay;
     const segments = helper.createPathSegments(startTime, endTime);
 
-    return dom.path(
-      {
-        d: helper.toPathString(segments),
-      }
-    );
+    return dom.path({
+      d: helper.toPathString(segments),
+    });
   }
 }
 

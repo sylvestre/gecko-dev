@@ -7,13 +7,12 @@
 
 #include "MediaSystemResourceManagerChild.h"
 
-namespace mozilla {
-namespace media {
+namespace mozilla::media {
 
 MediaSystemResourceManagerChild::MediaSystemResourceManagerChild()
     : mDestroyed(false), mManager(nullptr) {}
 
-MediaSystemResourceManagerChild::~MediaSystemResourceManagerChild() {}
+MediaSystemResourceManagerChild::~MediaSystemResourceManagerChild() = default;
 
 mozilla::ipc::IPCResult MediaSystemResourceManagerChild::RecvResponse(
     const uint32_t& aId, const bool& aSuccess) {
@@ -40,5 +39,4 @@ void MediaSystemResourceManagerChild::Destroy() {
   // WARNING: |this| is dead, hands off
 }
 
-}  // namespace media
-}  // namespace mozilla
+}  // namespace mozilla::media

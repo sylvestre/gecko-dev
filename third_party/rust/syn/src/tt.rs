@@ -1,11 +1,3 @@
-// Copyright 2018 Syn Developers
-//
-// Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
-// http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
-// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
-// option. This file may not be copied, modified, or distributed
-// except according to those terms.
-
 use std::hash::{Hash, Hasher};
 
 use proc_macro2::{Delimiter, TokenStream, TokenTree};
@@ -17,7 +9,7 @@ impl<'a> PartialEq for TokenTreeHelper<'a> {
         use proc_macro2::Spacing;
 
         match (self.0, other.0) {
-            (&TokenTree::Group(ref g1), &TokenTree::Group(ref g2)) => {
+            (TokenTree::Group(g1), TokenTree::Group(g2)) => {
                 match (g1.delimiter(), g2.delimiter()) {
                     (Delimiter::Parenthesis, Delimiter::Parenthesis)
                     | (Delimiter::Brace, Delimiter::Brace)
@@ -26,8 +18,8 @@ impl<'a> PartialEq for TokenTreeHelper<'a> {
                     _ => return false,
                 }
 
-                let s1 = g1.stream().clone().into_iter();
-                let mut s2 = g2.stream().clone().into_iter();
+                let s1 = g1.stream().into_iter();
+                let mut s2 = g2.stream().into_iter();
 
                 for item1 in s1 {
                     let item2 = match s2.next() {
@@ -40,16 +32,15 @@ impl<'a> PartialEq for TokenTreeHelper<'a> {
                 }
                 s2.next().is_none()
             }
-            (&TokenTree::Punct(ref o1), &TokenTree::Punct(ref o2)) => {
-                o1.as_char() == o2.as_char() && match (o1.spacing(), o2.spacing()) {
-                    (Spacing::Alone, Spacing::Alone) | (Spacing::Joint, Spacing::Joint) => true,
-                    _ => false,
-                }
+            (TokenTree::Punct(o1), TokenTree::Punct(o2)) => {
+                o1.as_char() == o2.as_char()
+                    && match (o1.spacing(), o2.spacing()) {
+                        (Spacing::Alone, Spacing::Alone) | (Spacing::Joint, Spacing::Joint) => true,
+                        _ => false,
+                    }
             }
-            (&TokenTree::Literal(ref l1), &TokenTree::Literal(ref l2)) => {
-                l1.to_string() == l2.to_string()
-            }
-            (&TokenTree::Ident(ref s1), &TokenTree::Ident(ref s2)) => s1 == s2,
+            (TokenTree::Literal(l1), TokenTree::Literal(l2)) => l1.to_string() == l2.to_string(),
+            (TokenTree::Ident(s1), TokenTree::Ident(s2)) => s1 == s2,
             _ => false,
         }
     }
@@ -59,8 +50,8 @@ impl<'a> Hash for TokenTreeHelper<'a> {
     fn hash<H: Hasher>(&self, h: &mut H) {
         use proc_macro2::Spacing;
 
-        match *self.0 {
-            TokenTree::Group(ref g) => {
+        match self.0 {
+            TokenTree::Group(g) => {
                 0u8.hash(h);
                 match g.delimiter() {
                     Delimiter::Parenthesis => 0u8.hash(h),
@@ -69,12 +60,12 @@ impl<'a> Hash for TokenTreeHelper<'a> {
                     Delimiter::None => 3u8.hash(h),
                 }
 
-                for item in g.stream().clone() {
+                for item in g.stream() {
                     TokenTreeHelper(&item).hash(h);
                 }
                 0xffu8.hash(h); // terminator w/ a variant we don't normally hash
             }
-            TokenTree::Punct(ref op) => {
+            TokenTree::Punct(op) => {
                 1u8.hash(h);
                 op.as_char().hash(h);
                 match op.spacing() {
@@ -82,8 +73,8 @@ impl<'a> Hash for TokenTreeHelper<'a> {
                     Spacing::Joint => 1u8.hash(h),
                 }
             }
-            TokenTree::Literal(ref lit) => (2u8, lit.to_string()).hash(h),
-            TokenTree::Ident(ref word) => (3u8, word).hash(h),
+            TokenTree::Literal(lit) => (2u8, lit.to_string()).hash(h),
+            TokenTree::Ident(word) => (3u8, word).hash(h),
         }
     }
 }

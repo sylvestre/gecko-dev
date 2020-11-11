@@ -1,5 +1,6 @@
-ChromeUtils.import("resource://testing-common/httpd.js");
-ChromeUtils.import("resource://gre/modules/NetUtil.jsm");
+"use strict";
+
+const { HttpServer } = ChromeUtils.import("resource://testing-common/httpd.js");
 
 XPCOMUtils.defineLazyGetter(this, "URL", function() {
   return "http://localhost:" + httpserver.identity.primaryPort;
@@ -22,11 +23,14 @@ function setup_test() {
 
   channel = setupChannel(testpath);
 
-  channel.asyncOpen2(new ChannelListener(checkRequestResponse, channel));
+  channel.asyncOpen(new ChannelListener(checkRequestResponse, channel));
 }
 
 function setupChannel(path) {
-  var chan = NetUtil.newChannel({uri: URL + path, loadUsingSystemPrincipal: true});
+  var chan = NetUtil.newChannel({
+    uri: URL + path,
+    loadUsingSystemPrincipal: true,
+  });
   chan.QueryInterface(Ci.nsIHttpChannel);
   chan.requestMethod = "GET";
   return chan;

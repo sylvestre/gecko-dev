@@ -16,10 +16,11 @@
 
 #include "nsCOMPtr.h"
 #include "nsPresContext.h"
-#include "nsIPresShell.h"
+#include "nsIFrame.h"
 
 class gfxContext;
 namespace mozilla {
+class PresShell;
 struct ReflowInput;
 }  // namespace mozilla
 
@@ -35,10 +36,12 @@ class MOZ_STACK_CLASS nsBoxLayoutState {
   nsBoxLayoutState(const nsBoxLayoutState& aState);
 
   nsPresContext* PresContext() const { return mPresContext; }
-  nsIPresShell* PresShell() const { return mPresContext->PresShell(); }
+  mozilla::PresShell* PresShell() const { return mPresContext->PresShell(); }
 
-  uint32_t LayoutFlags() const { return mLayoutFlags; }
-  void SetLayoutFlags(uint32_t aFlags) { mLayoutFlags = aFlags; }
+  nsIFrame::ReflowChildFlags LayoutFlags() const { return mLayoutFlags; }
+  void SetLayoutFlags(nsIFrame::ReflowChildFlags aFlags) {
+    mLayoutFlags = aFlags;
+  }
 
   // if true no one under us will paint during reflow.
   void SetPaintingDisabled(bool aDisable) { mPaintingDisabled = aDisable; }
@@ -58,7 +61,7 @@ class MOZ_STACK_CLASS nsBoxLayoutState {
     nsBoxLayoutState& mState;
   };
 
-  // The HTML reflow state that lives outside the box-block boundary.
+  // The HTML reflow input that lives outside the box-block boundary.
   // May not be set reliably yet.
   const ReflowInput* OuterReflowInput() { return mOuterReflowInput; }
 
@@ -68,7 +71,7 @@ class MOZ_STACK_CLASS nsBoxLayoutState {
   RefPtr<nsPresContext> mPresContext;
   gfxContext* mRenderingContext;
   const ReflowInput* mOuterReflowInput;
-  uint32_t mLayoutFlags;
+  nsIFrame::ReflowChildFlags mLayoutFlags;
   uint16_t mReflowDepth;
   bool mPaintingDisabled;
 };

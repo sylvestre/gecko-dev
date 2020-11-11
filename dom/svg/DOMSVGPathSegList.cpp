@@ -4,23 +4,25 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "nsSVGElement.h"
 #include "DOMSVGPathSegList.h"
+
 #include "DOMSVGPathSeg.h"
 #include "nsError.h"
 #include "SVGAnimatedPathSegList.h"
-#include "nsCOMPtr.h"
-#include "nsSVGAttrTearoffTable.h"
+#include "SVGAttrTearoffTable.h"
 #include "SVGPathSegUtils.h"
+#include "mozilla/dom/SVGElement.h"
 #include "mozilla/dom/SVGPathSegListBinding.h"
+#include "mozilla/RefPtr.h"
 
 // See the comment in this file's header.
 
 namespace mozilla {
+namespace dom {
 
-static inline nsSVGAttrTearoffTable<void, DOMSVGPathSegList>&
+static inline SVGAttrTearoffTable<void, DOMSVGPathSegList>&
 SVGPathSegListTearoffTable() {
-  static nsSVGAttrTearoffTable<void, DOMSVGPathSegList>
+  static SVGAttrTearoffTable<void, DOMSVGPathSegList>
       sSVGPathSegListTearoffTable;
   return sSVGPathSegListTearoffTable;
 }
@@ -30,6 +32,7 @@ NS_IMPL_CYCLE_COLLECTION_CLASS(DOMSVGPathSegList)
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(DOMSVGPathSegList)
   // No unlinking of mElement, we'd need to null out the value pointer (the
   // object it points to is held by the element) and null-check it everywhere.
+  tmp->RemoveFromTearoffTable();
   NS_IMPL_CYCLE_COLLECTION_UNLINK_PRESERVED_WRAPPER
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(DOMSVGPathSegList)
@@ -47,36 +50,9 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(DOMSVGPathSegList)
   NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END
 
-//----------------------------------------------------------------------
-// Helper class: AutoChangePathSegListNotifier
-// Stack-based helper class to pair calls to WillChangePathSegList and
-// DidChangePathSegList.
-class MOZ_RAII AutoChangePathSegListNotifier {
- public:
-  explicit AutoChangePathSegListNotifier(
-      DOMSVGPathSegList* aPathSegList MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
-      : mPathSegList(aPathSegList) {
-    MOZ_GUARD_OBJECT_NOTIFIER_INIT;
-    MOZ_ASSERT(mPathSegList, "Expecting non-null pathSegList");
-    mEmptyOrOldValue = mPathSegList->Element()->WillChangePathSegList();
-  }
-
-  ~AutoChangePathSegListNotifier() {
-    mPathSegList->Element()->DidChangePathSegList(mEmptyOrOldValue);
-    if (mPathSegList->AttrIsAnimating()) {
-      mPathSegList->Element()->AnimationNeedsResample();
-    }
-  }
-
- private:
-  DOMSVGPathSegList* const mPathSegList;
-  nsAttrValue mEmptyOrOldValue;
-  MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
-};
-
-/* static */ already_AddRefed<DOMSVGPathSegList>
-DOMSVGPathSegList::GetDOMWrapper(void* aList, nsSVGElement* aElement,
-                                 bool aIsAnimValList) {
+/* static */
+already_AddRefed<DOMSVGPathSegList> DOMSVGPathSegList::GetDOMWrapper(
+    void* aList, SVGElement* aElement, bool aIsAnimValList) {
   RefPtr<DOMSVGPathSegList> wrapper =
       SVGPathSegListTearoffTable().GetTearoff(aList);
   if (!wrapper) {
@@ -86,18 +62,20 @@ DOMSVGPathSegList::GetDOMWrapper(void* aList, nsSVGElement* aElement,
   return wrapper.forget();
 }
 
-/* static */ DOMSVGPathSegList* DOMSVGPathSegList::GetDOMWrapperIfExists(
-    void* aList) {
+/* static */
+DOMSVGPathSegList* DOMSVGPathSegList::GetDOMWrapperIfExists(void* aList) {
   return SVGPathSegListTearoffTable().GetTearoff(aList);
 }
 
-DOMSVGPathSegList::~DOMSVGPathSegList() {
+void DOMSVGPathSegList::RemoveFromTearoffTable() {
   // There are now no longer any references to us held by script or list items.
   // Note we must use GetAnimValKey/GetBaseValKey here, NOT InternalList()!
   void* key = mIsAnimValList ? InternalAList().GetAnimValKey()
                              : InternalAList().GetBaseValKey();
   SVGPathSegListTearoffTable().RemoveTearoff(key);
 }
+
+DOMSVGPathSegList::~DOMSVGPathSegList() { RemoveFromTearoffTable(); }
 
 JSObject* DOMSVGPathSegList::WrapObject(JSContext* cx,
                                         JS::Handle<JSObject*> aGivenProto) {
@@ -555,4 +533,5 @@ void DOMSVGPathSegList::UpdateListIndicesFromIndex(
   }
 }
 
+}  // namespace dom
 }  // namespace mozilla

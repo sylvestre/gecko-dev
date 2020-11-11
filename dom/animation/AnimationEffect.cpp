@@ -9,11 +9,12 @@
 
 #include "mozilla/dom/Animation.h"
 #include "mozilla/dom/KeyframeEffect.h"
+#include "mozilla/dom/MutationObservers.h"
 #include "mozilla/AnimationUtils.h"
 #include "mozilla/FloatingPoint.h"
+#include "nsDOMMutationObserver.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_IMPL_CYCLE_COLLECTION_CLASS(AnimationEffect)
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(AnimationEffect)
@@ -35,7 +36,7 @@ NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(AnimationEffect)
   NS_INTERFACE_MAP_ENTRY(nsISupports)
 NS_INTERFACE_MAP_END
 
-AnimationEffect::AnimationEffect(nsIDocument* aDocument, TimingParams&& aTiming)
+AnimationEffect::AnimationEffect(Document* aDocument, TimingParams&& aTiming)
     : mDocument(aDocument), mTiming(std::move(aTiming)) {}
 
 AnimationEffect::~AnimationEffect() = default;
@@ -47,8 +48,14 @@ bool AnimationEffect::IsCurrent() const {
   }
 
   ComputedTiming computedTiming = GetComputedTiming();
-  return computedTiming.mPhase == ComputedTiming::AnimationPhase::Before ||
-         computedTiming.mPhase == ComputedTiming::AnimationPhase::Active;
+  if (computedTiming.mPhase == ComputedTiming::AnimationPhase::Active) {
+    return true;
+  }
+
+  return (mAnimation->PlaybackRate() > 0 &&
+          computedTiming.mPhase == ComputedTiming::AnimationPhase::Before) ||
+         (mAnimation->PlaybackRate() < 0 &&
+          computedTiming.mPhase == ComputedTiming::AnimationPhase::After);
 }
 
 // https://drafts.csswg.org/web-animations/#in-effect
@@ -66,22 +73,22 @@ void AnimationEffect::SetSpecifiedTiming(TimingParams&& aTiming) {
 
   if (mAnimation) {
     Maybe<nsAutoAnimationMutationBatch> mb;
-    if (AsKeyframeEffect() && AsKeyframeEffect()->GetTarget()) {
-      mb.emplace(AsKeyframeEffect()->GetTarget()->mElement->OwnerDoc());
+    if (AsKeyframeEffect() && AsKeyframeEffect()->GetAnimationTarget()) {
+      mb.emplace(AsKeyframeEffect()->GetAnimationTarget().mElement->OwnerDoc());
     }
 
     mAnimation->NotifyEffectTimingUpdated();
 
     if (mAnimation->IsRelevant()) {
-      nsNodeUtils::AnimationChanged(mAnimation);
+      MutationObservers::NotifyAnimationChanged(mAnimation);
     }
 
     if (AsKeyframeEffect()) {
       AsKeyframeEffect()->RequestRestyle(EffectCompositor::RestyleType::Layer);
     }
   }
-  // For keyframe effects, NotifyEffectTimingUpdated above will eventually cause
-  // KeyframeEffect::NotifyAnimationTimingUpdated to be called so it can
+  // For keyframe effects, NotifyEffectTimingUpdated above will eventually
+  // cause KeyframeEffect::NotifyAnimationTimingUpdated to be called so it can
   // update its registration with the target element as necessary.
 }
 
@@ -176,9 +183,9 @@ ComputedTiming AnimationEffect::GetComputedTimingAt(
   // Determine the 0-based index of the current iteration.
   // https://drafts.csswg.org/web-animations/#current-iteration
   result.mCurrentIteration =
-      (result.mIterations >= UINT64_MAX &&
+      (result.mIterations >= double(UINT64_MAX) &&
        result.mPhase == ComputedTiming::AnimationPhase::After) ||
-              overallProgress >= UINT64_MAX
+              overallProgress >= double(UINT64_MAX)
           ? UINT64_MAX  // In GetComputedTimingDictionary(),
                         // we will convert this into Infinity
           : static_cast<uint64_t>(overallProgress);
@@ -200,8 +207,8 @@ ComputedTiming AnimationEffect::GetComputedTimingAt(
       result.mActiveTime == result.mActiveDuration &&
       result.mIterations != 0.0) {
     // The only way we can reach the end of the active interval and have
-    // a progress of zero and a current iteration of zero, is if we have a zero
-    // iteration count -- something we should have detected above.
+    // a progress of zero and a current iteration of zero, is if we have a
+    // zero iteration count -- something we should have detected above.
     MOZ_ASSERT(result.mCurrentIteration != 0,
                "Should not have zero current iteration");
     progress = 1.0;
@@ -332,5 +339,4 @@ Nullable<TimeDuration> AnimationEffect::GetLocalTime() const {
   return result;
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

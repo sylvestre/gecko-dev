@@ -23,8 +23,6 @@
 // same time that we are preventing reentrancy into debuggeree's
 // onGarbageCollection hook.
 
-ChromeUtils.import("resource://gre/modules/Services.jsm");
-
 Services.prefs.setBoolPref("security.allow_eval_with_system_principal", true);
 registerCleanupFunction(() => {
   Services.prefs.clearUserPref("security.allow_eval_with_system_principal");
@@ -67,7 +65,7 @@ function run_test() {
       ok(debuggeree.fired >= 1);
       ok(fired >= 1);
 
-      debuggeree.dbg.enabled = dbg.enabled = false;
+      debuggeree.dbg.removeAllDebuggees();
       do_test_finished();
     });
   });

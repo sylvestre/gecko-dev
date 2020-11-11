@@ -1,14 +1,14 @@
 // Debugger.Script.prototype.isAsyncFunction, Debugger.Object.prototype.isAsyncFunction,
 // Debugger.Script.prototype.isGeneratorFunction, Debugger.Object.prototype.isGeneratorFunction
 
-var g = newGlobal();
+var g = newGlobal({newCompartment: true});
 var dbg = new Debugger();
 var gDO = dbg.addDebuggee(g);
 g.non_debuggee = function non_debuggee () {}
 
 function checkExpr(expr, { isAsync, isGenerator })
 {
-  print("Evaluating: " + uneval(expr));
+  print("Evaluating: " + JSON.stringify(expr));
   let completion = gDO.executeInGlobal(expr);
   if (completion.throw)
     throw completion.throw.unsafeDereference();

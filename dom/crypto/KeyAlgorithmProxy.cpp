@@ -5,14 +5,14 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "mozilla/dom/KeyAlgorithmProxy.h"
+#include "mozilla/dom/StructuredCloneHolder.h"
 #include "mozilla/dom/WebCryptoCommon.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 bool KeyAlgorithmProxy::WriteStructuredClone(
     JSStructuredCloneWriter* aWriter) const {
-  if (!WriteString(aWriter, mName) ||
+  if (!StructuredCloneHolder::WriteString(aWriter, mName) ||
       !JS_WriteUint32Pair(aWriter, mType, KEY_ALGORITHM_SC_VERSION)) {
     return false;
   }
@@ -22,18 +22,14 @@ bool KeyAlgorithmProxy::WriteStructuredClone(
       return JS_WriteUint32Pair(aWriter, mAes.mLength, 0);
     case HMAC:
       return JS_WriteUint32Pair(aWriter, mHmac.mLength, 0) &&
-             WriteString(aWriter, mHmac.mHash.mName);
+             StructuredCloneHolder::WriteString(aWriter, mHmac.mHash.mName);
     case RSA: {
       return JS_WriteUint32Pair(aWriter, mRsa.mModulusLength, 0) &&
              WriteBuffer(aWriter, mRsa.mPublicExponent) &&
-             WriteString(aWriter, mRsa.mHash.mName);
+             StructuredCloneHolder::WriteString(aWriter, mRsa.mHash.mName);
     }
     case EC:
-      return WriteString(aWriter, mEc.mNamedCurve);
-    case DH: {
-      return WriteBuffer(aWriter, mDh.mPrime) &&
-             WriteBuffer(aWriter, mDh.mGenerator);
-    }
+      return StructuredCloneHolder::WriteString(aWriter, mEc.mNamedCurve);
   }
 
   return false;
@@ -41,7 +37,7 @@ bool KeyAlgorithmProxy::WriteStructuredClone(
 
 bool KeyAlgorithmProxy::ReadStructuredClone(JSStructuredCloneReader* aReader) {
   uint32_t type, version, dummy;
-  if (!ReadString(aReader, mName) ||
+  if (!StructuredCloneHolder::ReadString(aReader, mName) ||
       !JS_ReadUint32Pair(aReader, &type, &version)) {
     return false;
   }
@@ -64,7 +60,7 @@ bool KeyAlgorithmProxy::ReadStructuredClone(JSStructuredCloneReader* aReader) {
     }
     case HMAC: {
       if (!JS_ReadUint32Pair(aReader, &mHmac.mLength, &dummy) ||
-          !ReadString(aReader, mHmac.mHash.mName)) {
+          !StructuredCloneHolder::ReadString(aReader, mHmac.mHash.mName)) {
         return false;
       }
 
@@ -76,7 +72,7 @@ bool KeyAlgorithmProxy::ReadStructuredClone(JSStructuredCloneReader* aReader) {
       nsString hashName;
       if (!JS_ReadUint32Pair(aReader, &modulusLength, &dummy) ||
           !ReadBuffer(aReader, mRsa.mPublicExponent) ||
-          !ReadString(aReader, mRsa.mHash.mName)) {
+          !StructuredCloneHolder::ReadString(aReader, mRsa.mHash.mName)) {
         return false;
       }
 
@@ -86,20 +82,11 @@ bool KeyAlgorithmProxy::ReadStructuredClone(JSStructuredCloneReader* aReader) {
     }
     case EC: {
       nsString namedCurve;
-      if (!ReadString(aReader, mEc.mNamedCurve)) {
+      if (!StructuredCloneHolder::ReadString(aReader, mEc.mNamedCurve)) {
         return false;
       }
 
       mEc.mName = mName;
-      return true;
-    }
-    case DH: {
-      if (!ReadBuffer(aReader, mDh.mPrime) ||
-          !ReadBuffer(aReader, mDh.mGenerator)) {
-        return false;
-      }
-
-      mDh.mName = mName;
       return true;
     }
   }
@@ -119,96 +106,96 @@ nsString KeyAlgorithmProxy::JwkAlg() const {
   if (mName.EqualsLiteral(WEBCRYPTO_ALG_AES_CBC)) {
     switch (mAes.mLength) {
       case 128:
-        return NS_LITERAL_STRING(JWK_ALG_A128CBC);
+        return NS_LITERAL_STRING_FROM_CSTRING(JWK_ALG_A128CBC);
       case 192:
-        return NS_LITERAL_STRING(JWK_ALG_A192CBC);
+        return NS_LITERAL_STRING_FROM_CSTRING(JWK_ALG_A192CBC);
       case 256:
-        return NS_LITERAL_STRING(JWK_ALG_A256CBC);
+        return NS_LITERAL_STRING_FROM_CSTRING(JWK_ALG_A256CBC);
     }
   }
 
   if (mName.EqualsLiteral(WEBCRYPTO_ALG_AES_CTR)) {
     switch (mAes.mLength) {
       case 128:
-        return NS_LITERAL_STRING(JWK_ALG_A128CTR);
+        return NS_LITERAL_STRING_FROM_CSTRING(JWK_ALG_A128CTR);
       case 192:
-        return NS_LITERAL_STRING(JWK_ALG_A192CTR);
+        return NS_LITERAL_STRING_FROM_CSTRING(JWK_ALG_A192CTR);
       case 256:
-        return NS_LITERAL_STRING(JWK_ALG_A256CTR);
+        return NS_LITERAL_STRING_FROM_CSTRING(JWK_ALG_A256CTR);
     }
   }
 
   if (mName.EqualsLiteral(WEBCRYPTO_ALG_AES_GCM)) {
     switch (mAes.mLength) {
       case 128:
-        return NS_LITERAL_STRING(JWK_ALG_A128GCM);
+        return NS_LITERAL_STRING_FROM_CSTRING(JWK_ALG_A128GCM);
       case 192:
-        return NS_LITERAL_STRING(JWK_ALG_A192GCM);
+        return NS_LITERAL_STRING_FROM_CSTRING(JWK_ALG_A192GCM);
       case 256:
-        return NS_LITERAL_STRING(JWK_ALG_A256GCM);
+        return NS_LITERAL_STRING_FROM_CSTRING(JWK_ALG_A256GCM);
     }
   }
 
   if (mName.EqualsLiteral(WEBCRYPTO_ALG_AES_KW)) {
     switch (mAes.mLength) {
       case 128:
-        return NS_LITERAL_STRING(JWK_ALG_A128KW);
+        return NS_LITERAL_STRING_FROM_CSTRING(JWK_ALG_A128KW);
       case 192:
-        return NS_LITERAL_STRING(JWK_ALG_A192KW);
+        return NS_LITERAL_STRING_FROM_CSTRING(JWK_ALG_A192KW);
       case 256:
-        return NS_LITERAL_STRING(JWK_ALG_A256KW);
+        return NS_LITERAL_STRING_FROM_CSTRING(JWK_ALG_A256KW);
     }
   }
 
   if (mName.EqualsLiteral(WEBCRYPTO_ALG_HMAC)) {
     nsString hashName = mHmac.mHash.mName;
     if (hashName.EqualsLiteral(WEBCRYPTO_ALG_SHA1)) {
-      return NS_LITERAL_STRING(JWK_ALG_HS1);
+      return NS_LITERAL_STRING_FROM_CSTRING(JWK_ALG_HS1);
     } else if (hashName.EqualsLiteral(WEBCRYPTO_ALG_SHA256)) {
-      return NS_LITERAL_STRING(JWK_ALG_HS256);
+      return NS_LITERAL_STRING_FROM_CSTRING(JWK_ALG_HS256);
     } else if (hashName.EqualsLiteral(WEBCRYPTO_ALG_SHA384)) {
-      return NS_LITERAL_STRING(JWK_ALG_HS384);
+      return NS_LITERAL_STRING_FROM_CSTRING(JWK_ALG_HS384);
     } else if (hashName.EqualsLiteral(WEBCRYPTO_ALG_SHA512)) {
-      return NS_LITERAL_STRING(JWK_ALG_HS512);
+      return NS_LITERAL_STRING_FROM_CSTRING(JWK_ALG_HS512);
     }
   }
 
   if (mName.EqualsLiteral(WEBCRYPTO_ALG_RSASSA_PKCS1)) {
     nsString hashName = mRsa.mHash.mName;
     if (hashName.EqualsLiteral(WEBCRYPTO_ALG_SHA1)) {
-      return NS_LITERAL_STRING(JWK_ALG_RS1);
+      return NS_LITERAL_STRING_FROM_CSTRING(JWK_ALG_RS1);
     } else if (hashName.EqualsLiteral(WEBCRYPTO_ALG_SHA256)) {
-      return NS_LITERAL_STRING(JWK_ALG_RS256);
+      return NS_LITERAL_STRING_FROM_CSTRING(JWK_ALG_RS256);
     } else if (hashName.EqualsLiteral(WEBCRYPTO_ALG_SHA384)) {
-      return NS_LITERAL_STRING(JWK_ALG_RS384);
+      return NS_LITERAL_STRING_FROM_CSTRING(JWK_ALG_RS384);
     } else if (hashName.EqualsLiteral(WEBCRYPTO_ALG_SHA512)) {
-      return NS_LITERAL_STRING(JWK_ALG_RS512);
+      return NS_LITERAL_STRING_FROM_CSTRING(JWK_ALG_RS512);
     }
   }
 
   if (mName.EqualsLiteral(WEBCRYPTO_ALG_RSA_OAEP)) {
     nsString hashName = mRsa.mHash.mName;
     if (hashName.EqualsLiteral(WEBCRYPTO_ALG_SHA1)) {
-      return NS_LITERAL_STRING(JWK_ALG_RSA_OAEP);
+      return NS_LITERAL_STRING_FROM_CSTRING(JWK_ALG_RSA_OAEP);
     } else if (hashName.EqualsLiteral(WEBCRYPTO_ALG_SHA256)) {
-      return NS_LITERAL_STRING(JWK_ALG_RSA_OAEP_256);
+      return NS_LITERAL_STRING_FROM_CSTRING(JWK_ALG_RSA_OAEP_256);
     } else if (hashName.EqualsLiteral(WEBCRYPTO_ALG_SHA384)) {
-      return NS_LITERAL_STRING(JWK_ALG_RSA_OAEP_384);
+      return NS_LITERAL_STRING_FROM_CSTRING(JWK_ALG_RSA_OAEP_384);
     } else if (hashName.EqualsLiteral(WEBCRYPTO_ALG_SHA512)) {
-      return NS_LITERAL_STRING(JWK_ALG_RSA_OAEP_512);
+      return NS_LITERAL_STRING_FROM_CSTRING(JWK_ALG_RSA_OAEP_512);
     }
   }
 
   if (mName.EqualsLiteral(WEBCRYPTO_ALG_RSA_PSS)) {
     nsString hashName = mRsa.mHash.mName;
     if (hashName.EqualsLiteral(WEBCRYPTO_ALG_SHA1)) {
-      return NS_LITERAL_STRING(JWK_ALG_PS1);
+      return NS_LITERAL_STRING_FROM_CSTRING(JWK_ALG_PS1);
     } else if (hashName.EqualsLiteral(WEBCRYPTO_ALG_SHA256)) {
-      return NS_LITERAL_STRING(JWK_ALG_PS256);
+      return NS_LITERAL_STRING_FROM_CSTRING(JWK_ALG_PS256);
     } else if (hashName.EqualsLiteral(WEBCRYPTO_ALG_SHA384)) {
-      return NS_LITERAL_STRING(JWK_ALG_PS384);
+      return NS_LITERAL_STRING_FROM_CSTRING(JWK_ALG_PS384);
     } else if (hashName.EqualsLiteral(WEBCRYPTO_ALG_SHA512)) {
-      return NS_LITERAL_STRING(JWK_ALG_PS512);
+      return NS_LITERAL_STRING_FROM_CSTRING(JWK_ALG_PS512);
     }
   }
 
@@ -245,5 +232,4 @@ KeyAlgorithmProxy::GetMechanism(const HmacKeyAlgorithm& aAlgorithm) {
   return UNKNOWN_CK_MECHANISM;
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

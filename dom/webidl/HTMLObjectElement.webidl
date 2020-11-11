@@ -13,14 +13,15 @@
  */
 
 // http://www.whatwg.org/specs/web-apps/current-work/#the-object-element
-[HTMLConstructor, NeedResolve]
+[NeedResolve,
+ Exposed=Window]
 interface HTMLObjectElement : HTMLElement {
+  [HTMLConstructor] constructor();
+
   [CEReactions, Pure, SetterThrows]
            attribute DOMString data;
   [CEReactions, Pure, SetterThrows]
            attribute DOMString type;
-  [CEReactions, Pure, SetterThrows]
-           attribute boolean typeMustMatch;
   [CEReactions, Pure, SetterThrows]
            attribute DOMString name;
   [CEReactions, Pure, SetterThrows]
@@ -68,8 +69,8 @@ partial interface HTMLObjectElement {
   [CEReactions, Pure, SetterThrows]
            attribute DOMString codeType;
 
-  [CEReactions, TreatNullAs=EmptyString, Pure, SetterThrows]
-           attribute DOMString border;
+  [CEReactions, Pure, SetterThrows]
+           attribute [TreatNullAs=EmptyString] DOMString border;
 };
 
 partial interface HTMLObjectElement {
@@ -78,8 +79,7 @@ partial interface HTMLObjectElement {
   Document? getSVGDocument();
 };
 
-[NoInterfaceObject]
-interface MozObjectLoadingContent {
+interface mixin MozObjectLoadingContent {
   // Mirrored chrome-only scriptable nsIObjectLoadingContent methods.  Please
   // make sure to update this list if nsIObjectLoadingContent changes.  Also,
   // make sure everything on here is [ChromeOnly].
@@ -114,12 +114,6 @@ interface MozObjectLoadingContent {
   // The plugin has crashed
   [ChromeOnly]
   const unsigned long PLUGIN_CRASHED              = 5;
-  // Suppressed by security policy
-  [ChromeOnly]
-  const unsigned long PLUGIN_SUPPRESSED           = 6;
-  // Blocked by content policy
-  [ChromeOnly]
-  const unsigned long PLUGIN_USER_DISABLED        = 7;
   /// ** All values >= PLUGIN_CLICK_TO_PLAY are plugin placeholder types that
   ///    would be replaced by a real plugin if activated (playPlugin())
   /// ** Furthermore, values >= PLUGIN_CLICK_TO_PLAY and
@@ -226,6 +220,6 @@ dictionary MozPluginParameter {
   DOMString value = "";
 };
 
-HTMLObjectElement implements MozImageLoadingContent;
-HTMLObjectElement implements MozFrameLoaderOwner;
-HTMLObjectElement implements MozObjectLoadingContent;
+HTMLObjectElement includes MozImageLoadingContent;
+HTMLObjectElement includes MozFrameLoaderOwner;
+HTMLObjectElement includes MozObjectLoadingContent;

@@ -1,3 +1,5 @@
+use proc_macro2::TokenStream;
+use quote::ToTokens;
 use syn::{DeriveInput, Field, Ident, Meta};
 
 use codegen::FromVariantImpl;
@@ -17,8 +19,9 @@ impl FromVariantOptions {
             base: OuterFrom::start(di),
             fields: Default::default(),
             supports: Default::default(),
-        }).parse_attributes(&di.attrs)?
-            .parse_body(&di.data)
+        })
+        .parse_attributes(&di.attrs)?
+        .parse_body(&di.data)
     }
 }
 
@@ -39,12 +42,11 @@ impl<'a> From<&'a FromVariantOptions> for FromVariantImpl<'a> {
 
 impl ParseAttribute for FromVariantOptions {
     fn parse_nested(&mut self, mi: &Meta) -> Result<()> {
-        match mi.name().to_string().as_str() {
-            "supports" => {
-                self.supports = FromMeta::from_meta(mi)?;
-                Ok(())
-            }
-            _ => self.base.parse_nested(mi),
+        if mi.path().is_ident("supports") {
+            self.supports = FromMeta::from_meta(mi)?;
+            Ok(())
+        } else {
+            self.base.parse_nested(mi)
         }
     }
 }
@@ -64,5 +66,11 @@ impl ParseData for FromVariantOptions {
             }
             _ => self.base.parse_field(field),
         }
+    }
+}
+
+impl ToTokens for FromVariantOptions {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        FromVariantImpl::from(self).to_tokens(tokens)
     }
 }

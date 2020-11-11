@@ -10,6 +10,7 @@
  * liability, trademark and document use rules apply.
  */
 
+[Exposed=Window]
 interface SVGTransform {
 
   // Transform Types
@@ -22,11 +23,12 @@ interface SVGTransform {
   const unsigned short SVG_TRANSFORM_SKEWY = 6;
 
   readonly attribute unsigned short type;
+  [BinaryName="getMatrix"]
   readonly attribute SVGMatrix matrix;
   readonly attribute float angle;
 
   [Throws]
-  void setMatrix(SVGMatrix matrix);
+  void setMatrix(optional DOMMatrix2DInit matrix = {});
   [Throws]
   void setTranslate(float tx, float ty);
   [Throws]

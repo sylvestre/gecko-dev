@@ -7,6 +7,7 @@
 #include "mozilla/layers/MultiTiledContentClient.h"
 
 #include "ClientTiledPaintedLayer.h"
+#include "mozilla/StaticPrefs_layers.h"
 #include "mozilla/layers/LayerMetricsWrapper.h"
 
 namespace mozilla {
@@ -22,8 +23,9 @@ MultiTiledContentClient::MultiTiledContentClient(
       mLowPrecisionTiledBuffer(aPaintedLayer, *this, aManager,
                                &mSharedFrameMetricsHelper) {
   MOZ_COUNT_CTOR(MultiTiledContentClient);
-  mLowPrecisionTiledBuffer.SetResolution(gfxPrefs::LowPrecisionResolution());
-  mHasLowPrecision = gfxPrefs::UseLowPrecisionBuffer();
+  mLowPrecisionTiledBuffer.SetResolution(
+      StaticPrefs::layers_low_precision_resolution());
+  mHasLowPrecision = StaticPrefs::layers_low_precision_buffer();
 }
 
 void MultiTiledContentClient::ClearCachedResources() {
@@ -60,7 +62,7 @@ void ClientMultiTiledLayerBuffer::DiscardBuffers() {
 
 SurfaceDescriptorTiles
 ClientMultiTiledLayerBuffer::GetSurfaceDescriptorTiles() {
-  InfallibleTArray<TileDescriptor> tiles;
+  nsTArray<TileDescriptor> tiles;
 
   for (TileClient& tile : mRetainedTiles) {
     TileDescriptor tileDesc = tile.GetTileDescriptor();
@@ -186,8 +188,7 @@ void ClientMultiTiledLayerBuffer::Update(const nsIntRegion& newValidRegion,
   const size_t oldTileCount = mRetainedTiles.Length();
   const size_t newTileCount = newTiles.mSize.width * newTiles.mSize.height;
 
-  nsTArray<TileClient> oldRetainedTiles;
-  mRetainedTiles.SwapElements(oldRetainedTiles);
+  nsTArray<TileClient> oldRetainedTiles = std::move(mRetainedTiles);
   mRetainedTiles.SetLength(newTileCount);
 
   for (size_t oldIndex = 0; oldIndex < oldTileCount; oldIndex++) {
@@ -264,7 +265,8 @@ void ClientMultiTiledLayerBuffer::Update(const nsIntRegion& newValidRegion,
       ctx = nullptr;
 
       // Edge padding allows us to avoid resampling artifacts
-      if (gfxPrefs::TileEdgePaddingEnabled() && mResolution == 1) {
+      if (StaticPrefs::layers_tiles_edge_padding_AtStartup() &&
+          mResolution == 1) {
         drawTarget->PadEdges(newValidRegion.MovedBy(-mTilingOrigin));
       }
 
@@ -307,8 +309,6 @@ bool ClientMultiTiledLayerBuffer::ValidateTile(TileClient& aTile,
                                                const nsIntPoint& aTileOrigin,
                                                nsIntRegion& aDirtyRegion,
                                                TilePaintFlags aFlags) {
-  AUTO_PROFILER_LABEL("ClientMultiTiledLayerBuffer::ValidateTile", GRAPHICS);
-
 #ifdef GFX_TILEDLAYER_PREF_WARNINGS
   if (aDirtyRegion.IsComplex()) {
     printf_stderr("Complex region\n");

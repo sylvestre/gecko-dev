@@ -8,6 +8,9 @@
 
 #include "jsexn.h"
 
+#include "js/friend/ErrorMessages.h"  // js::GetErrorMessage, JSMSG_*
+#include "js/friend/WindowProxy.h"    // js::IsWindowProxy
+#include "js/Object.h"                // JS::GetBuiltinClass
 #include "js/Proxy.h"
 #include "vm/ErrorObject.h"
 #include "vm/JSContext.h"
@@ -59,12 +62,12 @@ bool ForwardingProxyHandler::defineProperty(JSContext* cx, HandleObject proxy,
   return DefineProperty(cx, target, id, desc, result);
 }
 
-bool ForwardingProxyHandler::ownPropertyKeys(JSContext* cx, HandleObject proxy,
-                                             AutoIdVector& props) const {
+bool ForwardingProxyHandler::ownPropertyKeys(
+    JSContext* cx, HandleObject proxy, MutableHandleIdVector props) const {
   assertEnteredPolicy(cx, proxy, JSID_VOID, ENUMERATE);
   RootedObject target(cx, proxy->as<ProxyObject>().target());
   return GetPropertyKeys(
-      cx, target, JSITER_OWNONLY | JSITER_HIDDEN | JSITER_SYMBOLS, &props);
+      cx, target, JSITER_OWNONLY | JSITER_HIDDEN | JSITER_SYMBOLS, props);
 }
 
 bool ForwardingProxyHandler::delete_(JSContext* cx, HandleObject proxy,
@@ -75,13 +78,13 @@ bool ForwardingProxyHandler::delete_(JSContext* cx, HandleObject proxy,
   return DeleteProperty(cx, target, id, result);
 }
 
-JSObject* ForwardingProxyHandler::enumerate(JSContext* cx,
-                                            HandleObject proxy) const {
+bool ForwardingProxyHandler::enumerate(JSContext* cx, HandleObject proxy,
+                                       MutableHandleIdVector props) const {
   assertEnteredPolicy(cx, proxy, JSID_VOID, ENUMERATE);
   MOZ_ASSERT(
       !hasPrototype());  // Should never be called if there's a prototype.
   RootedObject target(cx, proxy->as<ProxyObject>().target());
-  return GetIterator(cx, target);
+  return EnumerateProperties(cx, target, props);
 }
 
 bool ForwardingProxyHandler::getPrototype(JSContext* cx, HandleObject proxy,
@@ -187,16 +190,6 @@ bool ForwardingProxyHandler::construct(JSContext* cx, HandleObject proxy,
   return true;
 }
 
-bool ForwardingProxyHandler::getPropertyDescriptor(
-    JSContext* cx, HandleObject proxy, HandleId id,
-    MutableHandle<PropertyDescriptor> desc) const {
-  assertEnteredPolicy(cx, proxy, id, GET | SET | GET_PROPERTY_DESCRIPTOR);
-  MOZ_ASSERT(
-      !hasPrototype());  // Should never be called if there's a prototype.
-  RootedObject target(cx, proxy->as<ProxyObject>().target());
-  return GetPropertyDescriptor(cx, target, id, desc);
-}
-
 bool ForwardingProxyHandler::hasOwn(JSContext* cx, HandleObject proxy,
                                     HandleId id, bool* bp) const {
   assertEnteredPolicy(cx, proxy, id, GET);
@@ -205,10 +198,10 @@ bool ForwardingProxyHandler::hasOwn(JSContext* cx, HandleObject proxy,
 }
 
 bool ForwardingProxyHandler::getOwnEnumerablePropertyKeys(
-    JSContext* cx, HandleObject proxy, AutoIdVector& props) const {
+    JSContext* cx, HandleObject proxy, MutableHandleIdVector props) const {
   assertEnteredPolicy(cx, proxy, JSID_VOID, ENUMERATE);
   RootedObject target(cx, proxy->as<ProxyObject>().target());
-  return GetPropertyKeys(cx, target, JSITER_OWNONLY, &props);
+  return GetPropertyKeys(cx, target, JSITER_OWNONLY, props);
 }
 
 bool ForwardingProxyHandler::nativeCall(JSContext* cx, IsAcceptableThis test,
@@ -234,7 +227,7 @@ bool ForwardingProxyHandler::hasInstance(JSContext* cx, HandleObject proxy,
 bool ForwardingProxyHandler::getBuiltinClass(JSContext* cx, HandleObject proxy,
                                              ESClass* cls) const {
   RootedObject target(cx, proxy->as<ProxyObject>().target());
-  return GetBuiltinClass(cx, target, cls);
+  return JS::GetBuiltinClass(cx, target, cls);
 }
 
 bool ForwardingProxyHandler::isArray(JSContext* cx, HandleObject proxy,
@@ -283,13 +276,26 @@ bool ForwardingProxyHandler::isConstructor(JSObject* obj) const {
 JSObject* Wrapper::New(JSContext* cx, JSObject* obj, const Wrapper* handler,
                        const WrapperOptions& options) {
   // If this is a cross-compartment wrapper allocate it in the compartment's
-  // first realm. See Realm::realmForNewCCW.
-  mozilla::Maybe<AutoRealmUnchecked> ar;
+  // first global. See Compartment::globalForNewCCW.
+  mozilla::Maybe<AutoRealm> ar;
   if (handler->isCrossCompartmentWrapper()) {
-    ar.emplace(cx, cx->compartment()->realmForNewCCW());
+    ar.emplace(cx, &cx->compartment()->globalForNewCCW());
   }
   RootedValue priv(cx, ObjectValue(*obj));
   return NewProxyObject(cx, handler, priv, options.proto(), options);
+}
+
+JSObject* Wrapper::NewSingleton(JSContext* cx, JSObject* obj,
+                                const Wrapper* handler,
+                                const WrapperOptions& options) {
+  // If this is a cross-compartment wrapper allocate it in the compartment's
+  // first global. See Compartment::globalForNewCCW.
+  mozilla::Maybe<AutoRealm> ar;
+  if (handler->isCrossCompartmentWrapper()) {
+    ar.emplace(cx, &cx->compartment()->globalForNewCCW());
+  }
+  RootedValue priv(cx, ObjectValue(*obj));
+  return NewSingletonProxyObject(cx, handler, priv, options.proto(), options);
 }
 
 JSObject* Wrapper::Renew(JSObject* existing, JSObject* obj,
@@ -320,9 +326,7 @@ JSObject* Wrapper::wrappedObject(JSObject* wrapper) {
 
     // Unmark wrapper targets that should be black in case an incremental GC
     // hasn't marked them the correct color yet.
-    if (!wrapper->isMarkedGray()) {
-      JS::ExposeObjectToActiveJS(target);
-    }
+    JS::ExposeObjectToActiveJS(target);
   }
 
   return target;
@@ -365,21 +369,53 @@ JS_FRIEND_API JSObject* js::UncheckedUnwrap(JSObject* wrapped,
   return wrapped;
 }
 
-JS_FRIEND_API JSObject* js::CheckedUnwrap(JSObject* obj,
-                                          bool stopAtWindowProxy) {
+JS_FRIEND_API JSObject* js::CheckedUnwrapStatic(JSObject* obj) {
   while (true) {
     JSObject* wrapper = obj;
-    obj = UnwrapOneChecked(obj, stopAtWindowProxy);
+    obj = UnwrapOneCheckedStatic(obj);
     if (!obj || obj == wrapper) {
       return obj;
     }
   }
 }
 
-JS_FRIEND_API JSObject* js::UnwrapOneChecked(JSObject* obj,
-                                             bool stopAtWindowProxy) {
+JS_FRIEND_API JSObject* js::UnwrapOneCheckedStatic(JSObject* obj) {
   MOZ_ASSERT(!JS::RuntimeHeapIsCollecting());
   MOZ_ASSERT(CurrentThreadCanAccessRuntime(obj->runtimeFromAnyThread()));
+
+  // Note: callers that care about WindowProxy unwrapping should use
+  // CheckedUnwrapDynamic or UnwrapOneCheckedDynamic instead of this. We don't
+  // unwrap WindowProxy here to preserve legacy behavior and for consistency
+  // with CheckedUnwrapDynamic's default stopAtWindowProxy = true.
+  if (!obj->is<WrapperObject>() || MOZ_UNLIKELY(IsWindowProxy(obj))) {
+    return obj;
+  }
+
+  const Wrapper* handler = Wrapper::wrapperHandler(obj);
+  return handler->hasSecurityPolicy() ? nullptr : Wrapper::wrappedObject(obj);
+}
+
+JS_FRIEND_API JSObject* js::CheckedUnwrapDynamic(JSObject* obj, JSContext* cx,
+                                                 bool stopAtWindowProxy) {
+  RootedObject wrapper(cx, obj);
+  while (true) {
+    JSObject* unwrapped =
+        UnwrapOneCheckedDynamic(wrapper, cx, stopAtWindowProxy);
+    if (!unwrapped || unwrapped == wrapper) {
+      return unwrapped;
+    }
+    wrapper = unwrapped;
+  }
+}
+
+JS_FRIEND_API JSObject* js::UnwrapOneCheckedDynamic(HandleObject obj,
+                                                    JSContext* cx,
+                                                    bool stopAtWindowProxy) {
+  MOZ_ASSERT(!JS::RuntimeHeapIsCollecting());
+  MOZ_ASSERT(CurrentThreadCanAccessRuntime(obj->runtimeFromAnyThread()));
+  // We should know who's asking.
+  MOZ_ASSERT(cx);
+  MOZ_ASSERT(cx->realm());
 
   if (!obj->is<WrapperObject>() ||
       MOZ_UNLIKELY(stopAtWindowProxy && IsWindowProxy(obj))) {
@@ -387,7 +423,12 @@ JS_FRIEND_API JSObject* js::UnwrapOneChecked(JSObject* obj,
   }
 
   const Wrapper* handler = Wrapper::wrapperHandler(obj);
-  return handler->hasSecurityPolicy() ? nullptr : Wrapper::wrappedObject(obj);
+  if (!handler->hasSecurityPolicy() ||
+      handler->dynamicCheckedUnwrapAllowed(obj, cx)) {
+    return Wrapper::wrappedObject(obj);
+  }
+
+  return nullptr;
 }
 
 void js::ReportAccessDenied(JSContext* cx) {
@@ -419,12 +460,13 @@ ErrorCopier::~ErrorCopier() {
     RootedValue exc(cx);
     if (cx->getPendingException(&exc) && exc.isObject() &&
         exc.toObject().is<ErrorObject>()) {
+      RootedSavedFrame stack(cx, cx->getPendingExceptionStack());
       cx->clearPendingException();
       ar.reset();
       Rooted<ErrorObject*> errObj(cx, &exc.toObject().as<ErrorObject>());
       if (JSObject* copyobj = CopyErrorObject(cx, errObj)) {
         RootedValue rootedCopy(cx, ObjectValue(*copyobj));
-        cx->setPendingException(rootedCopy);
+        cx->setPendingException(rootedCopy, stack);
       }
     }
   }

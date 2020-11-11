@@ -7,6 +7,7 @@
 #ifndef mozilla_dom_cache_CacheParent_h
 #define mozilla_dom_cache_CacheParent_h
 
+#include "mozilla/dom/SafeRefPtr.h"
 #include "mozilla/dom/cache/PCacheParent.h"
 #include "mozilla/dom/cache/Types.h"
 
@@ -17,25 +18,26 @@ namespace cache {
 class Manager;
 
 class CacheParent final : public PCacheParent {
+  friend class PCacheParent;
+
  public:
-  CacheParent(cache::Manager* aManager, CacheId aCacheId);
+  CacheParent(SafeRefPtr<cache::Manager> aManager, CacheId aCacheId);
   virtual ~CacheParent();
 
  private:
   // PCacheParent methods
   virtual void ActorDestroy(ActorDestroyReason aReason) override;
 
-  virtual PCacheOpParent* AllocPCacheOpParent(
-      const CacheOpArgs& aOpArgs) override;
+  PCacheOpParent* AllocPCacheOpParent(const CacheOpArgs& aOpArgs);
 
-  virtual bool DeallocPCacheOpParent(PCacheOpParent* aActor) override;
+  bool DeallocPCacheOpParent(PCacheOpParent* aActor);
 
   virtual mozilla::ipc::IPCResult RecvPCacheOpConstructor(
       PCacheOpParent* actor, const CacheOpArgs& aOpArgs) override;
 
-  virtual mozilla::ipc::IPCResult RecvTeardown() override;
+  mozilla::ipc::IPCResult RecvTeardown();
 
-  RefPtr<cache::Manager> mManager;
+  SafeRefPtr<cache::Manager> mManager;
   const CacheId mCacheId;
 };
 

@@ -4,29 +4,29 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef mozilla_dom_SVGImageElement_h
-#define mozilla_dom_SVGImageElement_h
+#ifndef DOM_SVG_SVGIMAGEELEMENT_H_
+#define DOM_SVG_SVGIMAGEELEMENT_H_
 
 #include "nsImageLoadingContent.h"
-#include "nsSVGLength2.h"
-#include "nsSVGString.h"
+#include "SVGAnimatedLength.h"
+#include "SVGAnimatedString.h"
 #include "SVGGeometryElement.h"
 #include "SVGAnimatedPreserveAspectRatio.h"
 
 nsresult NS_NewSVGImageElement(
     nsIContent** aResult, already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo);
 
-class nsSVGImageFrame;
-
 namespace mozilla {
+class SVGImageFrame;
+
 namespace dom {
 class DOMSVGAnimatedPreserveAspectRatio;
 
-typedef SVGGeometryElement SVGImageElementBase;
+using SVGImageElementBase = SVGGeometryElement;
 
 class SVGImageElement : public SVGImageElementBase,
                         public nsImageLoadingContent {
-  friend class ::nsSVGImageFrame;
+  friend class mozilla::SVGImageFrame;
 
  protected:
   explicit SVGImageElement(
@@ -56,11 +56,18 @@ class SVGImageElement : public SVGImageElementBase,
                                 const nsAttrValue* aOldValue,
                                 nsIPrincipal* aSubjectPrincipal,
                                 bool aNotify) override;
-  virtual nsresult BindToTree(nsIDocument* aDocument, nsIContent* aParent,
-                              nsIContent* aBindingParent) override;
-  virtual void UnbindFromTree(bool aDeep, bool aNullParent) override;
+  bool IsNodeOfType(uint32_t aFlags) const override {
+    // <image> is not really a SVGGeometryElement, we should
+    // ignore eSHAPE flag accepted by SVGGeometryElement.
+    return !(aFlags & ~eUSE_TARGET);
+  }
+
+  virtual nsresult BindToTree(BindContext&, nsINode& aParent) override;
+  virtual void UnbindFromTree(bool aNullParent) override;
 
   virtual EventStates IntrinsicState() const override;
+
+  virtual void DestroyContent() override;
 
   NS_IMETHOD_(bool) IsAttributeMapped(const nsAtom* name) const override;
 
@@ -71,50 +78,54 @@ class SVGImageElement : public SVGImageElementBase,
       const Matrix* aToNonScalingStrokeSpace = nullptr) override;
   virtual already_AddRefed<Path> BuildPath(PathBuilder* aBuilder) override;
 
-  // nsSVGSVGElement methods:
+  // SVGSVGElement methods:
   virtual bool HasValidDimensions() const override;
 
   virtual nsresult Clone(dom::NodeInfo*, nsINode** aResult) const override;
 
-  nsresult CopyInnerTo(mozilla::dom::Element* aDest);
-
   void MaybeLoadSVGImage();
 
   // WebIDL
-  already_AddRefed<SVGAnimatedLength> X();
-  already_AddRefed<SVGAnimatedLength> Y();
-  already_AddRefed<SVGAnimatedLength> Width();
-  already_AddRefed<SVGAnimatedLength> Height();
+  already_AddRefed<DOMSVGAnimatedLength> X();
+  already_AddRefed<DOMSVGAnimatedLength> Y();
+  already_AddRefed<DOMSVGAnimatedLength> Width();
+  already_AddRefed<DOMSVGAnimatedLength> Height();
   already_AddRefed<DOMSVGAnimatedPreserveAspectRatio> PreserveAspectRatio();
-  already_AddRefed<SVGAnimatedString> Href();
+  already_AddRefed<DOMSVGAnimatedString> Href();
 
   void SetDecoding(const nsAString& aDecoding, ErrorResult& aError) {
     SetAttr(nsGkAtoms::decoding, aDecoding, aError);
   }
   void GetDecoding(nsAString& aValue);
 
+  already_AddRefed<Promise> Decode(ErrorResult& aRv);
+
+  static nsCSSPropertyID GetCSSPropertyIdForAttrEnum(uint8_t aAttrEnum);
+
  protected:
   nsresult LoadSVGImage(bool aForce, bool aNotify);
+  bool ShouldLoadImage() const;
 
   virtual LengthAttributesInfo GetLengthInfo() override;
-  virtual SVGAnimatedPreserveAspectRatio* GetPreserveAspectRatio() override;
+  virtual SVGAnimatedPreserveAspectRatio* GetAnimatedPreserveAspectRatio()
+      override;
   virtual StringAttributesInfo GetStringInfo() override;
 
   // Override for nsImageLoadingContent.
   nsIContent* AsContent() override { return this; }
 
   enum { ATTR_X, ATTR_Y, ATTR_WIDTH, ATTR_HEIGHT };
-  nsSVGLength2 mLengthAttributes[4];
+  SVGAnimatedLength mLengthAttributes[4];
   static LengthInfo sLengthInfo[4];
 
   SVGAnimatedPreserveAspectRatio mPreserveAspectRatio;
 
   enum { HREF, XLINK_HREF };
-  nsSVGString mStringAttributes[2];
+  SVGAnimatedString mStringAttributes[2];
   static StringInfo sStringInfo[2];
 };
 
 }  // namespace dom
 }  // namespace mozilla
 
-#endif  // mozilla_dom_SVGImageElement_h
+#endif  // DOM_SVG_SVGIMAGEELEMENT_H_

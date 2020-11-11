@@ -10,7 +10,7 @@ use crate::data::{EagerPseudoStyles, ElementStyles};
 use crate::dom::TElement;
 use crate::matching::MatchMethods;
 use crate::properties::longhands::display::computed_value::T as Display;
-use crate::properties::{AnimationRules, ComputedValues};
+use crate::properties::ComputedValues;
 use crate::rule_tree::StrongRuleNode;
 use crate::selector_parser::{PseudoElement, SelectorImpl};
 use crate::stylist::RuleInclusion;
@@ -66,6 +66,18 @@ pub struct ResolvedElementStyles {
     pub pseudos: EagerPseudoStyles,
 }
 
+impl ResolvedElementStyles {
+    /// Convenience accessor for the primary style.
+    pub fn primary_style(&self) -> &Arc<ComputedValues> {
+        &self.primary.style.0
+    }
+
+    /// Convenience mutable accessor for the style.
+    pub fn primary_style_mut(&mut self) -> &mut Arc<ComputedValues> {
+        &mut self.primary.style.0
+    }
+}
+
 impl PrimaryStyle {
     /// Convenience accessor for the style.
     pub fn style(&self) -> &ComputedValues {
@@ -106,23 +118,34 @@ where
     )
 }
 
+fn layout_parent_style_for_pseudo<'a>(
+    primary_style: &'a PrimaryStyle,
+    layout_parent_style: Option<&'a ComputedValues>,
+) -> Option<&'a ComputedValues> {
+    if primary_style.style().is_display_contents() {
+        layout_parent_style
+    } else {
+        Some(primary_style.style())
+    }
+}
+
 fn eager_pseudo_is_definitely_not_generated(
     pseudo: &PseudoElement,
     style: &ComputedValues,
 ) -> bool {
-    use crate::properties::computed_value_flags::ComputedValueFlags;
+    use crate::computed_value_flags::ComputedValueFlags;
 
     if !pseudo.is_before_or_after() {
         return false;
     }
 
-    if !style.flags.intersects(ComputedValueFlags::INHERITS_DISPLAY) &&
+    if !style.flags.intersects(ComputedValueFlags::DISPLAY_DEPENDS_ON_INHERITED_STYLE) &&
         style.get_box().clone_display() == Display::None
     {
         return true;
     }
 
-    if !style.flags.intersects(ComputedValueFlags::INHERITS_CONTENT) &&
+    if !style.flags.intersects(ComputedValueFlags::CONTENT_DEPENDS_ON_INHERITED_STYLE) &&
         style.ineffective_content_property()
     {
         return true;
@@ -233,12 +256,9 @@ where
 
         let mut pseudo_styles = EagerPseudoStyles::default();
 
-        if self.element.implemented_pseudo_element().is_none() {
-            let layout_parent_style_for_pseudo = if primary_style.style().is_display_contents() {
-                layout_parent_style
-            } else {
-                Some(primary_style.style())
-            };
+        if !self.element.is_pseudo_element() {
+            let layout_parent_style_for_pseudo =
+                layout_parent_style_for_pseudo(&primary_style, layout_parent_style);
             SelectorImpl::each_eagerly_cascaded_pseudo_element(|pseudo| {
                 let pseudo_style = self.resolve_pseudo_style(
                     &pseudo,
@@ -286,6 +306,26 @@ where
         })
     }
 
+    /// Cascade a set of rules for pseudo element, using the default parent for inheritance.
+    pub fn cascade_style_and_visited_for_pseudo_with_default_parents(
+        &mut self,
+        inputs: CascadeInputs,
+        pseudo: &PseudoElement,
+        primary_style: &PrimaryStyle,
+    ) -> ResolvedStyle {
+        with_default_parent_styles(self.element, |_, layout_parent_style| {
+            let layout_parent_style_for_pseudo =
+                layout_parent_style_for_pseudo(primary_style, layout_parent_style);
+
+            self.cascade_style_and_visited(
+                inputs,
+                Some(primary_style.style()),
+                layout_parent_style_for_pseudo,
+                Some(pseudo),
+            )
+        })
+    }
+
     fn cascade_style_and_visited(
         &mut self,
         inputs: CascadeInputs,
@@ -293,10 +333,6 @@ where
         layout_parent_style: Option<&ComputedValues>,
         pseudo: Option<&PseudoElement>,
     ) -> ResolvedStyle {
-        debug_assert!(
-            self.element.implemented_pseudo_element().is_none() || pseudo.is_none(),
-            "Pseudo-elements can't have other pseudos!"
-        );
         debug_assert!(pseudo.map_or(true, |p| p.is_eager()));
 
         let implemented_pseudo = self.element.implemented_pseudo_element();
@@ -437,7 +473,7 @@ where
                 implemented_pseudo.as_ref(),
                 self.element.style_attribute(),
                 self.element.smil_override(),
-                self.element.animation_rules(),
+                self.element.animation_declarations(self.context.shared),
                 self.rule_inclusion,
                 &mut applicable_declarations,
                 &mut matching_context,
@@ -477,8 +513,8 @@ where
         );
         debug_assert!(pseudo_element.is_eager());
         debug_assert!(
-            self.element.implemented_pseudo_element().is_none(),
-            "Element pseudos can't have any other pseudo."
+            !self.element.is_pseudo_element(),
+            "Element pseudos can't have any other eager pseudo."
         );
 
         let mut applicable_declarations = ApplicableDeclarationList::new();
@@ -516,7 +552,7 @@ where
             Some(pseudo_element),
             None,
             None,
-            AnimationRules(None, None),
+            /* animation_declarations = */ Default::default(),
             self.rule_inclusion,
             &mut applicable_declarations,
             &mut matching_context,

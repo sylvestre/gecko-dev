@@ -13,6 +13,7 @@
 #include "GMPTimerParent.h"
 #include "GMPStorageParent.h"
 #include "mozilla/gmp/PGMPParent.h"
+#include "mozilla/ipc/CrashReporterHelper.h"
 #include "nsCOMPtr.h"
 #include "nscore.h"
 #include "nsISupports.h"
@@ -22,21 +23,18 @@
 #include "mozilla/MozPromise.h"
 
 namespace mozilla {
-namespace ipc {
-class CrashReporterHost;
-}  // namespace ipc
 namespace gmp {
 
 class GMPCapability {
  public:
-  explicit GMPCapability() {}
+  explicit GMPCapability() = default;
   GMPCapability(GMPCapability&& aOther)
       : mAPIName(std::move(aOther.mAPIName)),
         mAPITags(std::move(aOther.mAPITags)) {}
   explicit GMPCapability(const nsCString& aAPIName) : mAPIName(aAPIName) {}
   explicit GMPCapability(const GMPCapability& aOther) = default;
   nsCString mAPIName;
-  nsTArray<nsCString> mAPITags;
+  CopyableTArray<nsCString> mAPITags;
 
   static bool Supports(const nsTArray<GMPCapability>& aCapabilities,
                        const nsCString& aAPI, const nsTArray<nsCString>& aTags);
@@ -54,15 +52,19 @@ enum GMPState {
 
 class GMPContentParent;
 
-class GMPParent final : public PGMPParent {
+class GMPParent final
+    : public PGMPParent,
+      public ipc::CrashReporterHelper<GeckoProcessType_GMPlugin> {
+  friend class PGMPParent;
+
  public:
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(GMPParent)
 
-  explicit GMPParent(AbstractThread* aMainThread);
+  GMPParent();
 
   RefPtr<GenericPromise> Init(GeckoMediaPluginServiceParent* aService,
                               nsIFile* aPluginDir);
-  nsresult CloneFrom(const GMPParent* aOther);
+  void CloneFrom(const GMPParent* aOther);
 
   void Crash();
 
@@ -148,27 +150,24 @@ class GMPParent final : public PGMPParent {
   RefPtr<GenericPromise> ReadGMPMetaData();
   RefPtr<GenericPromise> ReadGMPInfoFile(nsIFile* aFile);
   RefPtr<GenericPromise> ParseChromiumManifest(
-      const nsAString& aJSON);  // Main thread.
+      const nsAString& aJSON);  // Worker thread.
   RefPtr<GenericPromise> ReadChromiumManifestFile(
       nsIFile* aFile);  // GMP thread.
-  void WriteExtraDataForMinidump();
-  bool GetCrashID(nsString& aResult);
+  void AddCrashAnnotations();
+  void GetCrashID(nsString& aResult);
   void ActorDestroy(ActorDestroyReason aWhy) override;
-
-  mozilla::ipc::IPCResult RecvInitCrashReporter(
-      Shmem&& shmem, const NativeThreadId& aThreadId) override;
 
   mozilla::ipc::IPCResult RecvPGMPStorageConstructor(
       PGMPStorageParent* actor) override;
-  PGMPStorageParent* AllocPGMPStorageParent() override;
-  bool DeallocPGMPStorageParent(PGMPStorageParent* aActor) override;
+  PGMPStorageParent* AllocPGMPStorageParent();
+  bool DeallocPGMPStorageParent(PGMPStorageParent* aActor);
 
   mozilla::ipc::IPCResult RecvPGMPTimerConstructor(
       PGMPTimerParent* actor) override;
-  PGMPTimerParent* AllocPGMPTimerParent() override;
-  bool DeallocPGMPTimerParent(PGMPTimerParent* aActor) override;
+  PGMPTimerParent* AllocPGMPTimerParent();
+  bool DeallocPGMPTimerParent(PGMPTimerParent* aActor);
 
-  mozilla::ipc::IPCResult RecvPGMPContentChildDestroyed() override;
+  mozilla::ipc::IPCResult RecvPGMPContentChildDestroyed();
   bool IsUsed() {
     return mGMPContentChildCount > 0 || !mGetContentParentPromises.IsEmpty();
   }
@@ -176,17 +175,22 @@ class GMPParent final : public PGMPParent {
   void ResolveGetContentParentPromises();
   void RejectGetContentParentPromises();
 
+#if defined(XP_MACOSX)
+  nsresult GetPluginFileArch(nsIFile* aPluginDir, nsAutoString& aLeafName,
+                             uint32_t& aArchSet);
+#endif
+
   GMPState mState;
   nsCOMPtr<nsIFile> mDirectory;  // plugin directory on disk
   nsString mName;  // base name of plugin on disk, UTF-16 because used for paths
   nsCString mDisplayName;  // name of plugin displayed to users
   nsCString mDescription;  // description of plugin for display to users
   nsCString mVersion;
-#ifdef XP_WIN
+#if defined(XP_WIN) || defined(XP_LINUX)
   nsCString mLibs;
 #endif
   nsString mAdapter;
-  uint32_t mPluginId;
+  const uint32_t mPluginId;
   nsTArray<GMPCapability> mCapabilities;
   GMPProcessParent* mProcess;
   bool mDeleteProcessOnlyOnUnload;
@@ -215,9 +219,12 @@ class GMPParent final : public PGMPParent {
   // to terminate gracefully.
   bool mHoldingSelfRef;
 
-  UniquePtr<ipc::CrashReporterHost> mCrashReporter;
+#if defined(XP_MACOSX) && defined(__aarch64__)
+  // The child process architecture to use.
+  uint32_t mChildLaunchArch;
+#endif
 
-  const RefPtr<AbstractThread> mMainThread;
+  const nsCOMPtr<nsISerialEventTarget> mMainThread;
 };
 
 }  // namespace gmp

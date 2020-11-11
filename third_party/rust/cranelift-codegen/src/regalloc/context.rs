@@ -4,21 +4,25 @@
 //! the register allocator algorithm. This doesn't preserve any data between functions, but it
 //! avoids allocating data structures independently for each function begin compiled.
 
-use dominator_tree::DominatorTree;
-use flowgraph::ControlFlowGraph;
-use ir::Function;
-use isa::TargetIsa;
-use regalloc::coalescing::Coalescing;
-use regalloc::coloring::Coloring;
-use regalloc::live_value_tracker::LiveValueTracker;
-use regalloc::liveness::Liveness;
-use regalloc::reload::Reload;
-use regalloc::spilling::Spilling;
-use regalloc::virtregs::VirtRegs;
-use result::CodegenResult;
-use timing;
-use topo_order::TopoOrder;
-use verifier::{verify_context, verify_cssa, verify_liveness, verify_locations, VerifierErrors};
+use crate::dominator_tree::DominatorTree;
+use crate::flowgraph::ControlFlowGraph;
+use crate::ir::Function;
+use crate::isa::TargetIsa;
+use crate::regalloc::branch_splitting;
+use crate::regalloc::coalescing::Coalescing;
+use crate::regalloc::coloring::Coloring;
+use crate::regalloc::live_value_tracker::LiveValueTracker;
+use crate::regalloc::liveness::Liveness;
+use crate::regalloc::reload::Reload;
+use crate::regalloc::safepoint::emit_stack_maps;
+use crate::regalloc::spilling::Spilling;
+use crate::regalloc::virtregs::VirtRegs;
+use crate::result::CodegenResult;
+use crate::timing;
+use crate::topo_order::TopoOrder;
+use crate::verifier::{
+    verify_context, verify_cssa, verify_liveness, verify_locations, VerifierErrors,
+};
 
 /// Persistent memory allocations for register allocation.
 pub struct Context {
@@ -62,15 +66,20 @@ impl Context {
         self.coloring.clear();
     }
 
+    /// Current values liveness state.
+    pub fn liveness(&self) -> &Liveness {
+        &self.liveness
+    }
+
     /// Allocate registers in `func`.
     ///
     /// After register allocation, all values in `func` have been assigned to a register or stack
     /// location that is consistent with instruction encoding constraints.
     pub fn run(
         &mut self,
-        isa: &TargetIsa,
+        isa: &dyn TargetIsa,
         func: &mut Function,
-        cfg: &ControlFlowGraph,
+        cfg: &mut ControlFlowGraph,
         domtree: &mut DominatorTree,
     ) -> CodegenResult<()> {
         let _tt = timing::regalloc();
@@ -84,6 +93,9 @@ impl Context {
         // Tracker state (dominator live sets) is actually reused between the spilling and coloring
         // phases.
         self.tracker.clear();
+
+        // Pass: Split branches, add space where to add copy & regmove instructions.
+        branch_splitting::run(isa, func, cfg, domtree, &mut self.topo);
 
         // Pass: Liveness analysis.
         self.liveness.compute(isa, func, cfg);
@@ -116,7 +128,8 @@ impl Context {
                     &self.liveness,
                     &self.virtregs,
                     &mut errors,
-                ).is_ok();
+                )
+                .is_ok();
 
             if !ok {
                 return Err(errors.into());
@@ -144,7 +157,8 @@ impl Context {
                     &self.liveness,
                     &self.virtregs,
                     &mut errors,
-                ).is_ok();
+                )
+                .is_ok();
 
             if !ok {
                 return Err(errors.into());
@@ -171,7 +185,8 @@ impl Context {
                     &self.liveness,
                     &self.virtregs,
                     &mut errors,
-                ).is_ok();
+                )
+                .is_ok();
 
             if !ok {
                 return Err(errors.into());
@@ -179,13 +194,38 @@ impl Context {
         }
 
         // Pass: Coloring.
-        self.coloring
-            .run(isa, func, domtree, &mut self.liveness, &mut self.tracker);
+        self.coloring.run(
+            isa,
+            func,
+            cfg,
+            domtree,
+            &mut self.liveness,
+            &mut self.tracker,
+        );
+
+        // If there are any reference types used, encode safepoints and emit
+        // stack maps.
+        //
+        // This function runs after register allocation has taken place, meaning
+        // values have locations assigned already, which is necessary for
+        // creating the stack maps.
+        let safepoints_enabled = isa.flags().enable_safepoints();
+        for val in func.dfg.values() {
+            let ty = func.dfg.value_type(val);
+            if ty.lane_type().is_ref() {
+                assert!(
+                    safepoints_enabled,
+                    "reference types were found but safepoints were not enabled"
+                );
+                emit_stack_maps(func, domtree, &self.liveness, &mut self.tracker, isa);
+                break;
+            }
+        }
 
         if isa.flags().enable_verifier() {
             let ok = verify_context(func, cfg, domtree, isa, &mut errors).is_ok()
                 && verify_liveness(isa, func, cfg, &self.liveness, &mut errors).is_ok()
-                && verify_locations(isa, func, Some(&self.liveness), &mut errors).is_ok()
+                && verify_locations(isa, func, cfg, Some(&self.liveness), &mut errors).is_ok()
                 && verify_cssa(
                     func,
                     cfg,
@@ -193,7 +233,8 @@ impl Context {
                     &self.liveness,
                     &self.virtregs,
                     &mut errors,
-                ).is_ok();
+                )
+                .is_ok();
 
             if !ok {
                 return Err(errors.into());

@@ -8,6 +8,7 @@
 #include "mozilla/ResultExtensions.h"
 #include "Atom.h"
 #include "AtomType.h"
+#include "nsTArray.h"
 
 namespace mozilla {
 
@@ -15,16 +16,25 @@ class Box;
 
 class Sinf : public Atom {
  public:
-  Sinf() : mDefaultIVSize(0), mDefaultEncryptionType() {}
+  Sinf()
+      : mDefaultIVSize(0),
+        mDefaultEncryptionType(),
+        mDefaultCryptByteBlock(0),
+        mDefaultSkipByteBlock(0) {}
   explicit Sinf(Box& aBox);
 
-  virtual bool IsValid() override {
-    return !!mDefaultIVSize && !!mDefaultEncryptionType;
+  bool IsValid() override {
+    return !!mDefaultEncryptionType &&  // Should have an encryption scheme
+           (mDefaultIVSize > 0 ||       // and either a default IV size
+            mDefaultConstantIV.Length() > 0);  // or a constant IV.
   }
 
   uint8_t mDefaultIVSize;
   AtomType mDefaultEncryptionType;
   uint8_t mDefaultKeyID[16];
+  uint8_t mDefaultCryptByteBlock;
+  uint8_t mDefaultSkipByteBlock;
+  CopyableTArray<uint8_t> mDefaultConstantIV;
 };
 
 class SinfParser {

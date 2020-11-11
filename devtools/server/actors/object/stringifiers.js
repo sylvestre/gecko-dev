@@ -1,5 +1,3 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 2; js-indent-level: 2 -*- */
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -8,7 +6,11 @@
 
 const DevToolsUtils = require("devtools/shared/DevToolsUtils");
 
-loader.lazyRequireGetter(this, "ObjectUtils", "devtools/server/actors/object/utils");
+loader.lazyRequireGetter(
+  this,
+  "ObjectUtils",
+  "devtools/server/actors/object/utils"
+);
 
 /**
  * Stringify a Debugger.Object based on its class.
@@ -20,9 +22,6 @@ loader.lazyRequireGetter(this, "ObjectUtils", "devtools/server/actors/object/uti
  */
 function stringify(obj) {
   if (!DevToolsUtils.isSafeDebuggerObject(obj)) {
-    if (DevToolsUtils.isCPOW(obj)) {
-      return "<cpow>";
-    }
     const unwrapped = DevToolsUtils.unwrap(obj);
     if (unwrapped === undefined) {
       return "<invisibleToDebugger>";
@@ -154,18 +153,30 @@ var stringifiers = {
     const code = DevToolsUtils.getProperty(obj, "code");
     const name = DevToolsUtils.getProperty(obj, "name") || "<unknown>";
 
-    return '[Exception... "' + message + '" ' +
-           'code: "' + code + '" ' +
-           'nsresult: "0x' + result + " (" + name + ')"]';
+    return (
+      '[Exception... "' +
+      message +
+      '" ' +
+      'code: "' +
+      code +
+      '" ' +
+      'nsresult: "0x' +
+      result +
+      " (" +
+      name +
+      ')"]'
+    );
   },
   Promise: obj => {
     const { state, value, reason } = ObjectUtils.getPromiseState(obj);
     let statePreview = state;
     if (state != "pending") {
       const settledValue = state === "fulfilled" ? value : reason;
-      statePreview += ": " + (typeof settledValue === "object" && settledValue !== null
-                                ? stringify(settledValue)
-                                : settledValue);
+      statePreview +=
+        ": " +
+        (typeof settledValue === "object" && settledValue !== null
+          ? stringify(settledValue)
+          : settledValue);
     }
     return "Promise (" + statePreview + ")";
   },

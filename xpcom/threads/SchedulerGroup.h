@@ -7,15 +7,15 @@
 #ifndef mozilla_SchedulerGroup_h
 #define mozilla_SchedulerGroup_h
 
-#include "mozilla/AbstractEventQueue.h"
+#include "mozilla/EventQueue.h"
 #include "mozilla/AlreadyAddRefed.h"
 #include "mozilla/LinkedList.h"
 #include "mozilla/Queue.h"
 #include "mozilla/TaskCategory.h"
 #include "mozilla/ThreadLocal.h"
+#include "mozilla/ThrottledEventQueue.h"
 #include "mozilla/TimeStamp.h"
 #include "nsCOMPtr.h"
-#include "nsILabelableRunnable.h"
 #include "nsISupportsImpl.h"
 #include "nsThreadUtils.h"
 
@@ -27,7 +27,6 @@ namespace mozilla {
 class AbstractThread;
 namespace dom {
 class DocGroup;
-class TabGroup;
 }  // namespace dom
 
 #define NS_SCHEDULERGROUPRUNNABLE_IID                \
@@ -45,75 +44,24 @@ class TabGroup;
 //
 // A SchedulerGroup is an abstract class to represent a "group". Essentially the
 // only functionality offered by a SchedulerGroup is the ability to dispatch
-// runnables to the group. TabGroup, DocGroup, and SystemGroup are the concrete
+// runnables to the group. DocGroup, and SystemGroup are the concrete
 // implementations of SchedulerGroup.
-class SchedulerGroup : public LinkedListElement<SchedulerGroup> {
+class SchedulerGroup {
  public:
   SchedulerGroup();
 
   NS_INLINE_DECL_PURE_VIRTUAL_REFCOUNTING
 
-  // This method returns true if all members of the "group" are in a
-  // "background" state.
-  virtual bool IsBackground() const { return false; }
-
-  // This function returns true if it's currently safe to run code associated
-  // with this SchedulerGroup. It will return true either if we're inside an
-  // unlabeled runnable or if we're inside a runnable labeled with this
-  // SchedulerGroup.
-  bool IsSafeToRun() const { return !sTlsValidatingAccess.get() || mIsRunning; }
-
-  // This function returns true if it's currently safe to run unlabeled code
-  // with no known SchedulerGroup. It will only return true if we're inside an
-  // unlabeled runnable.
-  static bool IsSafeToRunUnlabeled() { return !sTlsValidatingAccess.get(); }
-
-  // Ensure that it's valid to access the TabGroup at this time.
-  void ValidateAccess() const { MOZ_ASSERT(IsSafeToRun()); }
-
-  enum EnqueueStatus {
-    NewlyQueued,
-    AlreadyQueued,
-  };
-
-  // Records that this SchedulerGroup had an event enqueued in some
-  // queue. Returns whether the SchedulerGroup was already in a queue before
-  // EnqueueEvent() was called.
-  EnqueueStatus EnqueueEvent() {
-    mEventCount++;
-    return mEventCount == 1 ? NewlyQueued : AlreadyQueued;
-  }
-
-  enum DequeueStatus {
-    StillQueued,
-    NoLongerQueued,
-  };
-
-  // Records that this SchedulerGroup had an event dequeued from some
-  // queue. Returns whether the SchedulerGroup is still in a queue after
-  // DequeueEvent() returns.
-  DequeueStatus DequeueEvent() {
-    mEventCount--;
-    return mEventCount == 0 ? NoLongerQueued : StillQueued;
-  }
-
-  class Runnable final : public mozilla::Runnable,
-                         public nsIRunnablePriority,
-                         public nsILabelableRunnable {
+  class Runnable final : public mozilla::Runnable, public nsIRunnablePriority {
    public:
-    Runnable(already_AddRefed<nsIRunnable>&& aRunnable, SchedulerGroup* aGroup,
+    Runnable(already_AddRefed<nsIRunnable>&& aRunnable,
              dom::DocGroup* aDocGroup);
 
-    bool GetAffectedSchedulerGroups(SchedulerGroupSet& aGroups) override;
-
-    SchedulerGroup* Group() const { return mGroup; }
     dom::DocGroup* DocGroup() const;
 
 #ifdef MOZ_COLLECTING_RUNNABLE_TELEMETRY
     NS_IMETHOD GetName(nsACString& aName) override;
 #endif
-
-    bool IsBackground() const { return mGroup->IsBackground(); }
 
     NS_DECL_ISUPPORTS_INHERITED
     NS_DECL_NSIRUNNABLE
@@ -127,25 +75,12 @@ class SchedulerGroup : public LinkedListElement<SchedulerGroup> {
     ~Runnable() = default;
 
     nsCOMPtr<nsIRunnable> mRunnable;
-    RefPtr<SchedulerGroup> mGroup;
     RefPtr<dom::DocGroup> mDocGroup;
   };
   friend class Runnable;
 
-  bool* GetValidAccessPtr() { return &mIsRunning; }
-
-  virtual nsresult Dispatch(TaskCategory aCategory,
-                            already_AddRefed<nsIRunnable>&& aRunnable);
-
-  virtual nsISerialEventTarget* EventTargetFor(TaskCategory aCategory) const;
-
-  // Must always be called on the main thread. The returned AbstractThread can
-  // always be used off the main thread.
-  AbstractThread* AbstractMainThreadFor(TaskCategory aCategory);
-
-  // This method performs a safe cast. It returns null if |this| is not of the
-  // requested type.
-  virtual dom::TabGroup* AsTabGroup() { return nullptr; }
+  static nsresult Dispatch(TaskCategory aCategory,
+                           already_AddRefed<nsIRunnable>&& aRunnable);
 
   static nsresult UnlabeledDispatch(TaskCategory aCategory,
                                     already_AddRefed<nsIRunnable>&& aRunnable);
@@ -154,71 +89,27 @@ class SchedulerGroup : public LinkedListElement<SchedulerGroup> {
 
   static void MarkVsyncRan();
 
-  void SetIsRunning(bool aIsRunning) { mIsRunning = aIsRunning; }
-  bool IsRunning() const { return mIsRunning; }
-
-  enum ValidationType {
-    StartValidation,
-    EndValidation,
-  };
-  static void SetValidatingAccess(ValidationType aType);
-
-  struct EpochQueueEntry {
-    nsCOMPtr<nsIRunnable> mRunnable;
-    uintptr_t mEpochNumber;
-
-    EpochQueueEntry(already_AddRefed<nsIRunnable> aRunnable, uintptr_t aEpoch)
-        : mRunnable(aRunnable), mEpochNumber(aEpoch) {}
-  };
-
-  using RunnableEpochQueue = Queue<EpochQueueEntry, 32>;
-
-  RunnableEpochQueue& GetQueue(mozilla::EventPriority aPriority) {
-    return mEventQueues[size_t(aPriority)];
-  }
+  static nsresult DispatchWithDocGroup(
+      TaskCategory aCategory, already_AddRefed<nsIRunnable>&& aRunnable,
+      dom::DocGroup* aDocGroup);
 
  protected:
-  nsresult DispatchWithDocGroup(TaskCategory aCategory,
-                                already_AddRefed<nsIRunnable>&& aRunnable,
-                                dom::DocGroup* aDocGroup);
-
   static nsresult InternalUnlabeledDispatch(
       TaskCategory aCategory, already_AddRefed<Runnable>&& aRunnable);
 
-  // Implementations are guaranteed that this method is called on the main
-  // thread.
-  virtual AbstractThread* AbstractMainThreadForImpl(TaskCategory aCategory);
-
-  // Helper method to create an event target specific to a particular
-  // TaskCategory.
-  virtual already_AddRefed<nsISerialEventTarget> CreateEventTargetFor(
-      TaskCategory aCategory);
-
-  // Given an event target returned by |dispatcher->CreateEventTargetFor|, this
-  // function returns |dispatcher|.
-  static SchedulerGroup* FromEventTarget(nsIEventTarget* aEventTarget);
-
-  nsresult LabeledDispatch(TaskCategory aCategory,
-                           already_AddRefed<nsIRunnable>&& aRunnable,
-                           dom::DocGroup* aDocGroup);
-
-  void CreateEventTargets(bool aNeedValidation);
+  static nsresult LabeledDispatch(TaskCategory aCategory,
+                                  already_AddRefed<nsIRunnable>&& aRunnable,
+                                  dom::DocGroup* aDocGroup);
 
   // Shuts down this dispatcher. If aXPCOMShutdown is true, invalidates this
   // dispatcher.
   void Shutdown(bool aXPCOMShutdown);
-
-  static MOZ_THREAD_LOCAL(bool) sTlsValidatingAccess;
 
   bool mIsRunning;
 
   // Number of events that are currently enqueued for this SchedulerGroup
   // (across all queues).
   size_t mEventCount = 0;
-
-  nsCOMPtr<nsISerialEventTarget> mEventTargets[size_t(TaskCategory::Count)];
-  RefPtr<AbstractThread> mAbstractThreads[size_t(TaskCategory::Count)];
-  RunnableEpochQueue mEventQueues[size_t(mozilla::EventPriority::Count)];
 };
 
 NS_DEFINE_STATIC_IID_ACCESSOR(SchedulerGroup::Runnable,

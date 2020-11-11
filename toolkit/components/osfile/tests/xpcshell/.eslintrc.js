@@ -1,11 +1,7 @@
 "use strict";
 
 module.exports = {
-  "extends": [
-    "plugin:mozilla/xpcshell-test"
-  ],
-
-  "rules": {
+  rules: {
     "no-shadow": "off",
-  }
+  },
 };

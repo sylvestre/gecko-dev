@@ -1,5 +1,3 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 2 -*- */
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -22,12 +20,18 @@ async function viewSource() {
 
   assertSelectedLocationInDebugger(debuggerPanel, 2, undefined);
 
+  // See Bug 1637793 and Bug 1621337.
+  // Ideally the debugger should only resolve when the worker targets have been
+  // retrieved, which should be fixed by Bug 1621337 or a followup.
+  info("Wait for all pending requests to settle on the DevToolsClient");
+  await toolbox.target.client.waitForRequestsToSettle();
+
   await closeToolboxAndTab(toolbox);
   finish();
 }
 
 function test() {
-  viewSource().then(finish, (aError) => {
+  viewSource().then(finish, aError => {
     ok(false, "Got an error: " + aError.message + "\n" + aError.stack);
     finish();
   });

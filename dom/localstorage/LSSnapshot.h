@@ -7,6 +7,23 @@
 #ifndef mozilla_dom_localstorage_LSSnapshot_h
 #define mozilla_dom_localstorage_LSSnapshot_h
 
+#include <cstdint>
+#include <cstdlib>
+#include "ErrorList.h"
+#include "mozilla/Assertions.h"
+#include "mozilla/RefPtr.h"
+#include "mozilla/UniquePtr.h"
+#include "nsCOMPtr.h"
+#include "nsDataHashtable.h"
+#include "nsHashKeys.h"
+#include "nsIRunnable.h"
+#include "nsISupports.h"
+#include "nsStringFwd.h"
+#include "nsTArrayForwardDeclare.h"
+#include "nsTHashtable.h"
+
+class nsITimer;
+
 namespace mozilla {
 namespace dom {
 
@@ -14,7 +31,11 @@ class LSDatabase;
 class LSNotifyInfo;
 class LSSnapshotChild;
 class LSSnapshotInitInfo;
-class LSWriteInfo;
+class LSWriteAndNotifyInfo;
+class SnapshotWriteOptimizer;
+
+template <typename>
+class Optional;
 
 class LSSnapshot final : public nsIRunnable {
  public:
@@ -77,7 +98,8 @@ class LSSnapshot final : public nsIRunnable {
   nsTHashtable<nsStringHashKey> mLoadedItems;
   nsTHashtable<nsStringHashKey> mUnknownItems;
   nsDataHashtable<nsStringHashKey, nsString> mValues;
-  nsTArray<LSWriteInfo> mWriteInfos;
+  UniquePtr<SnapshotWriteOptimizer> mWriteOptimizer;
+  UniquePtr<nsTArray<LSWriteAndNotifyInfo>> mWriteAndNotifyInfos;
 
   uint32_t mInitLength;
   uint32_t mLength;
@@ -86,6 +108,7 @@ class LSSnapshot final : public nsIRunnable {
 
   LoadState mLoadState;
 
+  bool mHasOtherProcessObservers;
   bool mExplicit;
   bool mHasPendingStableStateCallback;
   bool mHasPendingTimerCallback;
@@ -112,7 +135,8 @@ class LSSnapshot final : public nsIRunnable {
 
   bool Explicit() const { return mExplicit; }
 
-  nsresult Init(const LSSnapshotInitInfo& aInitInfo, bool aExplicit);
+  nsresult Init(const nsAString& aKey, const LSSnapshotInitInfo& aInitInfo,
+                bool aExplicit);
 
   nsresult GetLength(uint32_t* aResult);
 

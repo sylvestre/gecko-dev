@@ -4,15 +4,15 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "mozilla/ArrayUtils.h"
-
 #include "SVGTransformListParser.h"
+
+#include "mozilla/ArrayUtils.h"
 #include "SVGContentUtils.h"
-#include "nsSVGTransform.h"
+#include "SVGTransform.h"
 #include "nsGkAtoms.h"
 #include "nsAtom.h"
 
-using namespace mozilla;
+namespace mozilla {
 
 //----------------------------------------------------------------------
 // private methods
@@ -133,9 +133,9 @@ bool SVGTransformListParser::ParseTranslate() {
   switch (count) {
     case 1:
       t[1] = 0.f;
-      MOZ_FALLTHROUGH;
+      [[fallthrough]];
     case 2: {
-      nsSVGTransform* transform = mTransforms.AppendElement(fallible);
+      SVGTransform* transform = mTransforms.AppendElement(fallible);
       if (!transform) {
         return false;
       }
@@ -158,9 +158,9 @@ bool SVGTransformListParser::ParseScale() {
   switch (count) {
     case 1:
       s[1] = s[0];
-      MOZ_FALLTHROUGH;
+      [[fallthrough]];
     case 2: {
-      nsSVGTransform* transform = mTransforms.AppendElement(fallible);
+      SVGTransform* transform = mTransforms.AppendElement(fallible);
       if (!transform) {
         return false;
       }
@@ -183,9 +183,9 @@ bool SVGTransformListParser::ParseRotate() {
   switch (count) {
     case 1:
       r[1] = r[2] = 0.f;
-      MOZ_FALLTHROUGH;
+      [[fallthrough]];
     case 3: {
-      nsSVGTransform* transform = mTransforms.AppendElement(fallible);
+      SVGTransform* transform = mTransforms.AppendElement(fallible);
       if (!transform) {
         return false;
       }
@@ -205,7 +205,7 @@ bool SVGTransformListParser::ParseSkewX() {
     return false;
   }
 
-  nsSVGTransform* transform = mTransforms.AppendElement(fallible);
+  SVGTransform* transform = mTransforms.AppendElement(fallible);
   if (!transform) {
     return false;
   }
@@ -222,7 +222,7 @@ bool SVGTransformListParser::ParseSkewY() {
     return false;
   }
 
-  nsSVGTransform* transform = mTransforms.AppendElement(fallible);
+  SVGTransform* transform = mTransforms.AppendElement(fallible);
   if (!transform) {
     return false;
   }
@@ -239,7 +239,7 @@ bool SVGTransformListParser::ParseMatrix() {
     return false;
   }
 
-  nsSVGTransform* transform = mTransforms.AppendElement(fallible);
+  SVGTransform* transform = mTransforms.AppendElement(fallible);
   if (!transform) {
     return false;
   }
@@ -247,3 +247,5 @@ bool SVGTransformListParser::ParseMatrix() {
 
   return true;
 }
+
+}  // namespace mozilla

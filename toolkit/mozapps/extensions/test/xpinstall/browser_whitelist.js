@@ -9,16 +9,29 @@ function test() {
   Harness.installsCompletedCallback = finish_test;
   Harness.setup();
 
-  var triggers = encodeURIComponent(JSON.stringify({
-    "Unsigned XPI": TESTROOT + "amosigned.xpi",
-  }));
+  var triggers = encodeURIComponent(
+    JSON.stringify({
+      "Unsigned XPI": TESTROOT + "amosigned.xpi",
+    })
+  );
   gBrowser.selectedTab = BrowserTestUtils.addTab(gBrowser);
-  BrowserTestUtils.loadURI(gBrowser, TESTROOT + "installtrigger.html?" + triggers);
+  BrowserTestUtils.loadURI(
+    gBrowser,
+    TESTROOT + "installtrigger.html?" + triggers
+  );
 }
 
 function allow_blocked(installInfo) {
-  is(installInfo.browser, gBrowser.selectedBrowser, "Install should have been triggered by the right browser");
-  is(installInfo.originatingURI.spec, gBrowser.currentURI.spec, "Install should have been triggered by the right uri");
+  is(
+    installInfo.browser,
+    gBrowser.selectedBrowser,
+    "Install should have been triggered by the right browser"
+  );
+  is(
+    installInfo.originatingURI.spec,
+    gBrowser.currentURI.spec,
+    "Install should have been triggered by the right uri"
+  );
   return true;
 }
 
@@ -28,18 +41,22 @@ function confirm_install(panel) {
 }
 
 function install_ended(install, addon) {
-  install.cancel();
+  return addon.uninstall();
 }
 
 const finish_test = async function(count) {
   is(count, 1, "1 Add-on should have been successfully installed");
 
-  const results = await ContentTask.spawn(gBrowser.selectedBrowser, null, () => {
-    return {
-      return: content.document.getElementById("return").textContent,
-      status: content.document.getElementById("status").textContent,
-    };
-  });
+  const results = await SpecialPowers.spawn(
+    gBrowser.selectedBrowser,
+    [],
+    () => {
+      return {
+        return: content.document.getElementById("return").textContent,
+        status: content.document.getElementById("status").textContent,
+      };
+    }
+  );
 
   is(results.return, "false", "installTrigger should seen a failure");
 

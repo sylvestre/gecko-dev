@@ -7,18 +7,72 @@
 const { Ci, Cu } = require("chrome");
 const { Actor, ActorClassWithSpec } = require("devtools/shared/protocol");
 const { accessibleSpec } = require("devtools/shared/specs/accessibility");
+const {
+  accessibility: { AUDIT_TYPE },
+} = require("devtools/shared/constants");
 
-loader.lazyRequireGetter(this, "getContrastRatioFor", "devtools/server/actors/utils/accessibility", true);
-loader.lazyRequireGetter(this, "isDefunct", "devtools/server/actors/utils/accessibility", true);
-loader.lazyRequireGetter(this, "findCssSelector", "devtools/shared/inspector/css-logic", true);
+loader.lazyRequireGetter(
+  this,
+  "getContrastRatioFor",
+  "devtools/server/actors/accessibility/audit/contrast",
+  true
+);
+loader.lazyRequireGetter(
+  this,
+  "auditKeyboard",
+  "devtools/server/actors/accessibility/audit/keyboard",
+  true
+);
+loader.lazyRequireGetter(
+  this,
+  "auditTextLabel",
+  "devtools/server/actors/accessibility/audit/text-label",
+  true
+);
+loader.lazyRequireGetter(
+  this,
+  "isDefunct",
+  "devtools/server/actors/utils/accessibility",
+  true
+);
+loader.lazyRequireGetter(
+  this,
+  "findCssSelector",
+  "devtools/shared/inspector/css-logic",
+  true
+);
+loader.lazyRequireGetter(this, "events", "devtools/shared/event-emitter");
+loader.lazyRequireGetter(
+  this,
+  "getBounds",
+  "devtools/server/actors/highlighters/utils/accessibility",
+  true
+);
+loader.lazyRequireGetter(
+  this,
+  "isRemoteFrame",
+  "devtools/shared/layout/utils",
+  true
+);
+loader.lazyRequireGetter(
+  this,
+  "ContentDOMReference",
+  "resource://gre/modules/ContentDOMReference.jsm",
+  true
+);
 
-const nsIAccessibleRelation = Ci.nsIAccessibleRelation;
 const RELATIONS_TO_IGNORE = new Set([
-  nsIAccessibleRelation.RELATION_CONTAINING_APPLICATION,
-  nsIAccessibleRelation.RELATION_CONTAINING_TAB_PANE,
-  nsIAccessibleRelation.RELATION_CONTAINING_WINDOW,
-  nsIAccessibleRelation.RELATION_PARENT_WINDOW_OF,
-  nsIAccessibleRelation.RELATION_SUBWINDOW_OF,
+  Ci.nsIAccessibleRelation.RELATION_CONTAINING_APPLICATION,
+  Ci.nsIAccessibleRelation.RELATION_CONTAINING_TAB_PANE,
+  Ci.nsIAccessibleRelation.RELATION_CONTAINING_WINDOW,
+  Ci.nsIAccessibleRelation.RELATION_PARENT_WINDOW_OF,
+  Ci.nsIAccessibleRelation.RELATION_SUBWINDOW_OF,
+]);
+
+const nsIAccessibleRole = Ci.nsIAccessibleRole;
+const TEXT_ROLES = new Set([
+  nsIAccessibleRole.ROLE_TEXT_LEAF,
+  nsIAccessibleRole.ROLE_STATICTEXT,
 ]);
 
 const STATE_DEFUNCT = Ci.nsIAccessibleStates.EXT_STATE_DEFUNCT;
@@ -41,9 +95,10 @@ function getNodeDescription(node) {
     nodeType,
     // If node is a text node, we find a unique CSS selector for its parent and add a
     // CSS_TEXT_SELECTOR postfix to indicate that it's a text node.
-    nodeCssSelector: nodeType === Node.TEXT_NODE ?
-      `${findCssSelector(node.parentNode)}${CSS_TEXT_SELECTOR}` :
-      findCssSelector(node),
+    nodeCssSelector:
+      nodeType === Node.TEXT_NODE
+        ? `${findCssSelector(node.parentNode)}${CSS_TEXT_SELECTOR}`
+        : findCssSelector(node),
   };
 }
 
@@ -61,7 +116,7 @@ function getNodeDescription(node) {
 function getSnapshot(acc, a11yService) {
   if (isDefunct(acc)) {
     return {
-      states: [ a11yService.getStringStates(0, STATE_DEFUNCT) ],
+      states: [a11yService.getStringStates(0, STATE_DEFUNCT)],
     };
   }
 
@@ -80,9 +135,7 @@ function getSnapshot(acc, a11yService) {
   const state = {};
   const extState = {};
   acc.getState(state, extState);
-  const states = [
-    ...a11yService.getStringStates(state.value, extState.value),
-  ];
+  const states = [...a11yService.getStringStates(state.value, extState.value)];
 
   const children = [];
   for (let child = acc.firstChild; child; child = child.nextSibling) {
@@ -90,7 +143,7 @@ function getSnapshot(acc, a11yService) {
   }
 
   const { nodeType, nodeCssSelector } = getNodeDescription(acc.DOMNode);
-  return {
+  const snapshot = {
     name: acc.name,
     role: a11yService.getStringRole(acc.role),
     actions,
@@ -105,6 +158,16 @@ function getSnapshot(acc, a11yService) {
     children,
     attributes,
   };
+  const remoteFrame =
+    acc.role === Ci.nsIAccessibleRole.ROLE_INTERNAL_FRAME &&
+    isRemoteFrame(acc.DOMNode);
+  if (remoteFrame) {
+    snapshot.remoteFrame = remoteFrame;
+    snapshot.childCount = 1;
+    snapshot.contentDOMReference = ContentDOMReference.get(acc.DOMNode);
+  }
+
+  return snapshot;
 }
 
 /**
@@ -113,7 +176,7 @@ function getSnapshot(acc, a11yService) {
  */
 const AccessibleActor = ActorClassWithSpec(accessibleSpec, {
   initialize(walker, rawAccessible) {
-    Actor.prototype.initialize.call(this, walker.conn);
+    Actor.prototype.initialize.call(this, null);
     this.walker = walker;
     this.rawAccessible = rawAccessible;
 
@@ -138,10 +201,11 @@ const AccessibleActor = ActorClassWithSpec(accessibleSpec, {
   },
 
   /**
-   * Items returned by this actor should belong to the parent walker.
+   * Instead of storing a connection object, the NodeActor gets its connection
+   * from its associated walker.
    */
-  marshallPool() {
-    return this.walker;
+  get conn() {
+    return this.walker.conn;
   },
 
   destroy() {
@@ -194,6 +258,12 @@ const AccessibleActor = ActorClassWithSpec(accessibleSpec, {
     if (this.isDefunct) {
       return 0;
     }
+    // In case of a remote frame declare at least one child (the #document
+    // element) so that they can be expanded.
+    if (this.remoteFrame) {
+      return 1;
+    }
+
     return this.rawAccessible.childCount;
   },
 
@@ -217,7 +287,11 @@ const AccessibleActor = ActorClassWithSpec(accessibleSpec, {
       return children;
     }
 
-    for (let child = this.rawAccessible.firstChild; child; child = child.nextSibling) {
+    for (
+      let child = this.rawAccessible.firstChild;
+      child;
+      child = child.nextSibling
+    ) {
       children.push(this.walker.addRef(child));
     }
     return children;
@@ -279,7 +353,10 @@ const AccessibleActor = ActorClassWithSpec(accessibleSpec, {
       return null;
     }
 
-    let x = {}, y = {}, w = {}, h = {};
+    let x = {},
+      y = {},
+      w = {},
+      h = {};
     try {
       this.rawAccessible.getBoundsInCSSPixels(x, y, w, h);
       x = x.value;
@@ -291,7 +368,10 @@ const AccessibleActor = ActorClassWithSpec(accessibleSpec, {
     }
 
     // Check if accessible bounds are invalid.
-    const left = x, right = x + w, top = y, bottom = y + h;
+    const left = x,
+      right = x + w,
+      top = y,
+      bottom = y + h;
     if (left === right || top === bottom) {
       return null;
     }
@@ -305,27 +385,29 @@ const AccessibleActor = ActorClassWithSpec(accessibleSpec, {
       return relationObjects;
     }
 
-    const relations =
-      [...this.rawAccessible.getRelations().enumerate(nsIAccessibleRelation)];
+    const relations = [
+      ...this.rawAccessible.getRelations().enumerate(Ci.nsIAccessibleRelation),
+    ];
     if (relations.length === 0) {
       return relationObjects;
     }
 
     const doc = await this.walker.getDocument();
+    if (this.isDestroyed()) {
+      // This accessible actor is destroyed.
+      return relationObjects;
+    }
     relations.forEach(relation => {
       if (RELATIONS_TO_IGNORE.has(relation.relationType)) {
         return;
       }
 
-      const type = this.walker.a11yService.getStringRelationType(relation.relationType);
+      const type = this.walker.a11yService.getStringRelationType(
+        relation.relationType
+      );
       const targets = [...relation.getTargets().enumerate(Ci.nsIAccessible)];
       let relationObject;
       for (const target of targets) {
-        // Target of the relation is not part of the current root document.
-        if (target.rootDocument !== doc.rawAccessible) {
-          continue;
-        }
-
         let targetAcc;
         try {
           targetAcc = this.walker.attachAccessible(target, doc.rawAccessible);
@@ -350,15 +432,41 @@ const AccessibleActor = ActorClassWithSpec(accessibleSpec, {
     return relationObjects;
   },
 
+  get remoteFrame() {
+    if (this.isDefunct) {
+      return false;
+    }
+
+    return (
+      this.rawAccessible.role === Ci.nsIAccessibleRole.ROLE_INTERNAL_FRAME &&
+      isRemoteFrame(this.rawAccessible.DOMNode)
+    );
+  },
+
   form() {
     return {
       actor: this.actorID,
       role: this.role,
       name: this.name,
+      remoteFrame: this.remoteFrame,
+      childCount: this.childCount,
+      checks: this._lastAudit,
+    };
+  },
+
+  /**
+   * Provide additional (full) information about the accessible object that is
+   * otherwise missing from the form.
+   *
+   * @return {Object}
+   *         Object that contains accessible object information such as states,
+   *         actions, attributes, etc.
+   */
+  hydrate() {
+    return {
       value: this.value,
       description: this.description,
       keyboardShortcut: this.keyboardShortcut,
-      childCount: this.childCount,
       domNodeType: this.domNodeType,
       indexInParent: this.indexInParent,
       states: this.states,
@@ -368,40 +476,153 @@ const AccessibleActor = ActorClassWithSpec(accessibleSpec, {
   },
 
   _isValidTextLeaf(rawAccessible) {
-    return !isDefunct(rawAccessible) &&
-           rawAccessible.role === Ci.nsIAccessibleRole.ROLE_TEXT_LEAF &&
-           rawAccessible.name && rawAccessible.name.trim().length > 0;
-  },
-
-  get _nonEmptyTextLeafs() {
-    return this.children().filter(child => this._isValidTextLeaf(child.rawAccessible));
+    return (
+      !isDefunct(rawAccessible) &&
+      TEXT_ROLES.has(rawAccessible.role) &&
+      rawAccessible.name &&
+      rawAccessible.name.trim().length > 0
+    );
   },
 
   /**
    * Calculate the contrast ratio of the given accessible.
    */
-  _getContrastRatio() {
+  async _getContrastRatio() {
     if (!this._isValidTextLeaf(this.rawAccessible)) {
       return null;
     }
 
+    const { bounds } = this;
+    if (!bounds) {
+      return null;
+    }
+
     const { DOMNode: rawNode } = this.rawAccessible;
-    return getContrastRatioFor(rawNode.parentNode, {
-      bounds: this.bounds,
-      win: rawNode.ownerGlobal,
+    const win = rawNode.ownerGlobal;
+
+    // Keep the reference to the walker actor in case the actor gets destroyed
+    // during the colour contrast ratio calculation.
+    const { walker } = this;
+    await walker.clearStyles(win);
+    const contrastRatio = await getContrastRatioFor(rawNode.parentNode, {
+      bounds: getBounds(win, bounds),
+      win,
+      appliedColorMatrix: this.walker.colorMatrix,
     });
+
+    if (this.isDestroyed()) {
+      // This accessible actor is destroyed.
+      return null;
+    }
+    await walker.restoreStyles(win);
+
+    return contrastRatio;
+  },
+
+  /**
+   * Run an accessibility audit for a given audit type.
+   * @param {String} type
+   *        Type of an audit (Check AUDIT_TYPE in devtools/shared/constants
+   *        to see available audit types).
+   *
+   * @return {null|Object}
+   *         Object that contains accessible audit data for a given type or null
+   *         if there's nothing to report for this accessible.
+   */
+  _getAuditByType(type) {
+    switch (type) {
+      case AUDIT_TYPE.CONTRAST:
+        return this._getContrastRatio();
+      case AUDIT_TYPE.KEYBOARD:
+        // Determine if keyboard accessibility is lacking where it is necessary.
+        return auditKeyboard(this.rawAccessible);
+      case AUDIT_TYPE.TEXT_LABEL:
+        // Determine if text alternative is missing for an accessible where it
+        // is necessary.
+        return auditTextLabel(this.rawAccessible);
+      default:
+        return null;
+    }
   },
 
   /**
    * Audit the state of the accessible object.
    *
+   * @param  {Object} options
+   *         Options for running audit, may include:
+   *         - types: Array of audit types to be performed during audit.
+   *
    * @return {Object|null}
    *         Audit results for the accessible object.
-  */
-  get audit() {
-    return this.isDefunct ? null : {
-      contrastRatio: this._getContrastRatio(),
-    };
+   */
+  audit(options = {}) {
+    if (this._auditing) {
+      return this._auditing;
+    }
+
+    const { types } = options;
+    let auditTypes = Object.values(AUDIT_TYPE);
+    if (types && types.length > 0) {
+      auditTypes = auditTypes.filter(auditType => types.includes(auditType));
+    }
+
+    // For some reason keyboard checks for focus styling affect values (that are
+    // used by other types of checks (text names and values)) returned by
+    // accessible objects. This happens only when multiple checks are run at the
+    // same time (asynchronously) and the audit might return unexpected
+    // failures. We thus split the execution of the checks into two parts, first
+    // performing keyboard checks and only after the rest of the checks. See bug
+    // 1594743 for more detail.
+    let keyboardAuditResult;
+    const keyboardAuditIndex = auditTypes.indexOf(AUDIT_TYPE.KEYBOARD);
+    if (keyboardAuditIndex > -1) {
+      // If we are performing a keyboard audit, remove its value from the
+      // complete list and run it.
+      auditTypes.splice(keyboardAuditIndex, 1);
+      keyboardAuditResult = this._getAuditByType(AUDIT_TYPE.KEYBOARD);
+    }
+
+    this._auditing = Promise.resolve(keyboardAuditResult)
+      .then(keyboardResult => {
+        const audits = auditTypes.map(auditType =>
+          this._getAuditByType(auditType)
+        );
+
+        // If we are also performing a keyboard audit, add its type and its
+        // result back to the complete list of audits.
+        if (keyboardAuditIndex > -1) {
+          auditTypes.splice(keyboardAuditIndex, 0, AUDIT_TYPE.KEYBOARD);
+          audits.splice(keyboardAuditIndex, 0, keyboardResult);
+        }
+
+        return Promise.all(audits);
+      })
+      .then(results => {
+        if (this.isDefunct || this.isDestroyed()) {
+          return null;
+        }
+
+        const audit = results.reduce((auditResults, result, index) => {
+          auditResults[auditTypes[index]] = result;
+          return auditResults;
+        }, {});
+        this._lastAudit = this._lastAudit || {};
+        Object.assign(this._lastAudit, audit);
+        events.emit(this, "audited", audit);
+
+        return audit;
+      })
+      .catch(error => {
+        if (!this.isDefunct && !this.isDestroyed()) {
+          throw error;
+        }
+        return null;
+      })
+      .finally(() => {
+        this._auditing = null;
+      });
+
+    return this._auditing;
   },
 
   snapshot() {

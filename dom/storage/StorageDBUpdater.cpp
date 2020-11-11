@@ -7,13 +7,14 @@
 #include "LocalStorageManager.h"
 #include "StorageUtils.h"
 
-#include "mozIStorageBindingParamsArray.h"
 #include "mozIStorageBindingParams.h"
 #include "mozIStorageValueArray.h"
 #include "mozIStorageFunction.h"
 #include "mozilla/BasePrincipal.h"
 #include "nsVariant.h"
 #include "mozilla/Tokenizer.h"
+#include "mozIStorageConnection.h"
+#include "mozStorageHelper.h"
 
 // Current version of the database schema
 #define CURRENT_SCHEMA_VERSION 2
@@ -26,7 +27,7 @@ using namespace StorageUtils;
 namespace {
 
 class nsReverseStringSQLFunction final : public mozIStorageFunction {
-  ~nsReverseStringSQLFunction() {}
+  ~nsReverseStringSQLFunction() = default;
 
   NS_DECL_ISUPPORTS
   NS_DECL_MOZISTORAGEFUNCTION
@@ -70,6 +71,7 @@ class ExtractOriginData : protected mozilla::Tokenizer {
     origin.Assign(scope);
 
     // Bail out if it isn't appId.
+    // AppId doesn't exist any more but we could have old storage data...
     uint32_t appId;
     if (!ReadInteger(&appId)) {
       return;
@@ -130,7 +132,7 @@ class ExtractOriginData : protected mozilla::Tokenizer {
         }
       }
     } else {
-      OriginAttributes attrs(appId, inIsolatedMozBrowser);
+      OriginAttributes attrs(inIsolatedMozBrowser);
       attrs.CreateSuffix(suffix);
     }
 
@@ -148,7 +150,7 @@ class GetOriginParticular final : public mozIStorageFunction {
 
  private:
   GetOriginParticular() = delete;
-  ~GetOriginParticular() {}
+  ~GetOriginParticular() = default;
 
   EParticular mParticular;
 
@@ -189,10 +191,10 @@ GetOriginParticular::OnFunctionCall(mozIStorageValueArray* aFunctionArguments,
 
 class StripOriginAddonId final : public mozIStorageFunction {
  public:
-  explicit StripOriginAddonId() {}
+  explicit StripOriginAddonId() = default;
 
  private:
-  ~StripOriginAddonId() {}
+  ~StripOriginAddonId() = default;
 
   NS_DECL_ISUPPORTS
   NS_DECL_MOZISTORAGEFUNCTION
@@ -233,7 +235,7 @@ namespace StorageDBUpdater {
 nsresult CreateSchema1Tables(mozIStorageConnection* aWorkerConnection) {
   nsresult rv;
 
-  rv = aWorkerConnection->ExecuteSimpleSQL(NS_LITERAL_CSTRING(
+  rv = aWorkerConnection->ExecuteSimpleSQL(nsLiteralCString(
       "CREATE TABLE IF NOT EXISTS webappsstore2 ("
       "originAttributes TEXT, "
       "originKey TEXT, "
@@ -242,9 +244,9 @@ nsresult CreateSchema1Tables(mozIStorageConnection* aWorkerConnection) {
       "value TEXT)"));
   NS_ENSURE_SUCCESS(rv, rv);
 
-  rv = aWorkerConnection->ExecuteSimpleSQL(NS_LITERAL_CSTRING(
-      "CREATE UNIQUE INDEX IF NOT EXISTS origin_key_index"
-      " ON webappsstore2(originAttributes, originKey, key)"));
+  rv = aWorkerConnection->ExecuteSimpleSQL(
+      nsLiteralCString("CREATE UNIQUE INDEX IF NOT EXISTS origin_key_index"
+                       " ON webappsstore2(originAttributes, originKey, key)"));
   NS_ENSURE_SUCCESS(rv, rv);
 
   return NS_OK;
@@ -264,7 +266,7 @@ nsresult Update(mozIStorageConnection* aWorkerConnection) {
   // downgrade (v0) -> upgrade (v1+) specific code
   if (schemaVer >= 1) {
     bool schema0IndexExists;
-    rv = aWorkerConnection->IndexExists(NS_LITERAL_CSTRING("scope_key_index"),
+    rv = aWorkerConnection->IndexExists("scope_key_index"_ns,
                                         &schema0IndexExists);
     NS_ENSURE_SUCCESS(rv, rv);
 
@@ -283,14 +285,14 @@ nsresult Update(mozIStorageConnection* aWorkerConnection) {
     case 0: {
       bool webappsstore2Exists, webappsstoreExists, moz_webappsstoreExists;
 
-      rv = aWorkerConnection->TableExists(NS_LITERAL_CSTRING("webappsstore2"),
+      rv = aWorkerConnection->TableExists("webappsstore2"_ns,
                                           &webappsstore2Exists);
       NS_ENSURE_SUCCESS(rv, rv);
-      rv = aWorkerConnection->TableExists(NS_LITERAL_CSTRING("webappsstore"),
+      rv = aWorkerConnection->TableExists("webappsstore"_ns,
                                           &webappsstoreExists);
       NS_ENSURE_SUCCESS(rv, rv);
-      rv = aWorkerConnection->TableExists(
-          NS_LITERAL_CSTRING("moz_webappsstore"), &moz_webappsstoreExists);
+      rv = aWorkerConnection->TableExists("moz_webappsstore"_ns,
+                                          &moz_webappsstoreExists);
       NS_ENSURE_SUCCESS(rv, rv);
 
       if (!webappsstore2Exists && !webappsstoreExists &&
@@ -312,24 +314,23 @@ nsresult Update(mozIStorageConnection* aWorkerConnection) {
 
       // Ensure Gecko 1.9.1 storage table
       rv = aWorkerConnection->ExecuteSimpleSQL(
-          NS_LITERAL_CSTRING("CREATE TABLE IF NOT EXISTS webappsstore2 ("
-                             "scope TEXT, "
-                             "key TEXT, "
-                             "value TEXT, "
-                             "secure INTEGER, "
-                             "owner TEXT)"));
+          nsLiteralCString("CREATE TABLE IF NOT EXISTS webappsstore2 ("
+                           "scope TEXT, "
+                           "key TEXT, "
+                           "value TEXT, "
+                           "secure INTEGER, "
+                           "owner TEXT)"));
       NS_ENSURE_SUCCESS(rv, rv);
 
       rv = aWorkerConnection->ExecuteSimpleSQL(
-          NS_LITERAL_CSTRING("CREATE UNIQUE INDEX IF NOT EXISTS scope_key_index"
-                             " ON webappsstore2(scope, key)"));
+          nsLiteralCString("CREATE UNIQUE INDEX IF NOT EXISTS scope_key_index"
+                           " ON webappsstore2(scope, key)"));
       NS_ENSURE_SUCCESS(rv, rv);
 
       nsCOMPtr<mozIStorageFunction> function1(new nsReverseStringSQLFunction());
       NS_ENSURE_TRUE(function1, NS_ERROR_OUT_OF_MEMORY);
 
-      rv = aWorkerConnection->CreateFunction(
-          NS_LITERAL_CSTRING("REVERSESTRING"), 1, function1);
+      rv = aWorkerConnection->CreateFunction("REVERSESTRING"_ns, 1, function1);
       NS_ENSURE_SUCCESS(rv, rv);
 
       // Check if there is storage of Gecko 1.9.0 and if so, upgrade that
@@ -337,15 +338,14 @@ nsresult Update(mozIStorageConnection* aWorkerConnection) {
       // First process this newer table upgrade to priority potential duplicates
       // from older storage table.
       if (webappsstoreExists) {
-        rv = aWorkerConnection->ExecuteSimpleSQL(NS_LITERAL_CSTRING(
+        rv = aWorkerConnection->ExecuteSimpleSQL(nsLiteralCString(
             "INSERT OR IGNORE INTO "
             "webappsstore2(scope, key, value, secure, owner) "
             "SELECT REVERSESTRING(domain) || '.:', key, value, secure, owner "
             "FROM webappsstore"));
         NS_ENSURE_SUCCESS(rv, rv);
 
-        rv = aWorkerConnection->ExecuteSimpleSQL(
-            NS_LITERAL_CSTRING("DROP TABLE webappsstore"));
+        rv = aWorkerConnection->ExecuteSimpleSQL("DROP TABLE webappsstore"_ns);
         NS_ENSURE_SUCCESS(rv, rv);
       }
 
@@ -353,7 +353,7 @@ nsresult Update(mozIStorageConnection* aWorkerConnection) {
       // to actual webappsstore2 table and drop the obsolete table. Potential
       // duplicates will be ignored.
       if (moz_webappsstoreExists) {
-        rv = aWorkerConnection->ExecuteSimpleSQL(NS_LITERAL_CSTRING(
+        rv = aWorkerConnection->ExecuteSimpleSQL(nsLiteralCString(
             "INSERT OR IGNORE INTO "
             "webappsstore2(scope, key, value, secure, owner) "
             "SELECT REVERSESTRING(domain) || '.:', key, value, secure, domain "
@@ -361,46 +361,46 @@ nsresult Update(mozIStorageConnection* aWorkerConnection) {
         NS_ENSURE_SUCCESS(rv, rv);
 
         rv = aWorkerConnection->ExecuteSimpleSQL(
-            NS_LITERAL_CSTRING("DROP TABLE moz_webappsstore"));
+            "DROP TABLE moz_webappsstore"_ns);
         NS_ENSURE_SUCCESS(rv, rv);
       }
 
-      aWorkerConnection->RemoveFunction(NS_LITERAL_CSTRING("REVERSESTRING"));
+      aWorkerConnection->RemoveFunction("REVERSESTRING"_ns);
 
       // Update the scoping to match the new implememntation: split to oa suffix
       // and origin key First rename the old table, we want to remove some
       // columns no longer needed, but even before that drop all indexes from it
       // (CREATE IF NOT EXISTS for index on the new table would falsely find the
       // index!)
-      rv = aWorkerConnection->ExecuteSimpleSQL(NS_LITERAL_CSTRING(
+      rv = aWorkerConnection->ExecuteSimpleSQL(nsLiteralCString(
           "DROP INDEX IF EXISTS webappsstore2.origin_key_index"));
       NS_ENSURE_SUCCESS(rv, rv);
 
-      rv = aWorkerConnection->ExecuteSimpleSQL(NS_LITERAL_CSTRING(
+      rv = aWorkerConnection->ExecuteSimpleSQL(nsLiteralCString(
           "DROP INDEX IF EXISTS webappsstore2.scope_key_index"));
       NS_ENSURE_SUCCESS(rv, rv);
 
-      rv = aWorkerConnection->ExecuteSimpleSQL(NS_LITERAL_CSTRING(
+      rv = aWorkerConnection->ExecuteSimpleSQL(nsLiteralCString(
           "ALTER TABLE webappsstore2 RENAME TO webappsstore2_old"));
       NS_ENSURE_SUCCESS(rv, rv);
 
       nsCOMPtr<mozIStorageFunction> oaSuffixFunc(new GetOriginParticular(
           GetOriginParticular::ORIGIN_ATTRIBUTES_SUFFIX));
-      rv = aWorkerConnection->CreateFunction(
-          NS_LITERAL_CSTRING("GET_ORIGIN_SUFFIX"), 1, oaSuffixFunc);
+      rv = aWorkerConnection->CreateFunction("GET_ORIGIN_SUFFIX"_ns, 1,
+                                             oaSuffixFunc);
       NS_ENSURE_SUCCESS(rv, rv);
 
       nsCOMPtr<mozIStorageFunction> originKeyFunc(
           new GetOriginParticular(GetOriginParticular::ORIGIN_KEY));
-      rv = aWorkerConnection->CreateFunction(
-          NS_LITERAL_CSTRING("GET_ORIGIN_KEY"), 1, originKeyFunc);
+      rv = aWorkerConnection->CreateFunction("GET_ORIGIN_KEY"_ns, 1,
+                                             originKeyFunc);
       NS_ENSURE_SUCCESS(rv, rv);
 
       // Here we ensure this schema tables when we are updating.
       rv = CreateSchema1Tables(aWorkerConnection);
       NS_ENSURE_SUCCESS(rv, rv);
 
-      rv = aWorkerConnection->ExecuteSimpleSQL(NS_LITERAL_CSTRING(
+      rv = aWorkerConnection->ExecuteSimpleSQL(nsLiteralCString(
           "INSERT OR IGNORE INTO "
           "webappsstore2 (originAttributes, originKey, scope, key, value) "
           "SELECT GET_ORIGIN_SUFFIX(scope), GET_ORIGIN_KEY(scope), scope, key, "
@@ -409,36 +409,35 @@ nsresult Update(mozIStorageConnection* aWorkerConnection) {
       NS_ENSURE_SUCCESS(rv, rv);
 
       rv = aWorkerConnection->ExecuteSimpleSQL(
-          NS_LITERAL_CSTRING("DROP TABLE webappsstore2_old"));
+          "DROP TABLE webappsstore2_old"_ns);
       NS_ENSURE_SUCCESS(rv, rv);
 
-      aWorkerConnection->RemoveFunction(
-          NS_LITERAL_CSTRING("GET_ORIGIN_SUFFIX"));
-      aWorkerConnection->RemoveFunction(NS_LITERAL_CSTRING("GET_ORIGIN_KEY"));
+      aWorkerConnection->RemoveFunction("GET_ORIGIN_SUFFIX"_ns);
+      aWorkerConnection->RemoveFunction("GET_ORIGIN_KEY"_ns);
 
       rv = aWorkerConnection->SetSchemaVersion(1);
       NS_ENSURE_SUCCESS(rv, rv);
 
-      MOZ_FALLTHROUGH;
+      [[fallthrough]];
     }
     case 1: {
       nsCOMPtr<mozIStorageFunction> oaStripAddonId(new StripOriginAddonId());
-      rv = aWorkerConnection->CreateFunction(
-          NS_LITERAL_CSTRING("STRIP_ADDON_ID"), 1, oaStripAddonId);
+      rv = aWorkerConnection->CreateFunction("STRIP_ADDON_ID"_ns, 1,
+                                             oaStripAddonId);
       NS_ENSURE_SUCCESS(rv, rv);
 
-      rv = aWorkerConnection->ExecuteSimpleSQL(NS_LITERAL_CSTRING(
+      rv = aWorkerConnection->ExecuteSimpleSQL(nsLiteralCString(
           "UPDATE webappsstore2 "
           "SET originAttributes = STRIP_ADDON_ID(originAttributes) "
           "WHERE originAttributes LIKE '^%'"));
       NS_ENSURE_SUCCESS(rv, rv);
 
-      aWorkerConnection->RemoveFunction(NS_LITERAL_CSTRING("STRIP_ADDON_ID"));
+      aWorkerConnection->RemoveFunction("STRIP_ADDON_ID"_ns);
 
       rv = aWorkerConnection->SetSchemaVersion(2);
       NS_ENSURE_SUCCESS(rv, rv);
 
-      MOZ_FALLTHROUGH;
+      [[fallthrough]];
     }
     case CURRENT_SCHEMA_VERSION:
       // Ensure the tables and indexes are up.  This is mostly a no-op
@@ -460,7 +459,7 @@ nsresult Update(mozIStorageConnection* aWorkerConnection) {
   if (doVacuum) {
     // In some cases this can make the disk file of the database significantly
     // smaller.  VACUUM cannot be executed inside a transaction.
-    rv = aWorkerConnection->ExecuteSimpleSQL(NS_LITERAL_CSTRING("VACUUM"));
+    rv = aWorkerConnection->ExecuteSimpleSQL("VACUUM"_ns);
     NS_ENSURE_SUCCESS(rv, rv);
   }
 

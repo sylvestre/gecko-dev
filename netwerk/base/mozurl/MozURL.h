@@ -7,6 +7,7 @@
 
 #include "mozilla/net/MozURL_ffi.h"
 #include "mozilla/RefPtr.h"
+#include "mozilla/Result.h"
 
 namespace mozilla {
 namespace net {
@@ -49,6 +50,7 @@ class MozURL final {
   nsDependentCSubstring Host() const { return mozurl_host(this); }
   // Will return the port number, if specified, or -1
   int32_t Port() const { return mozurl_port(this); }
+  int32_t RealPort() const { return mozurl_real_port(this); }
   // If the URL's port number is equal to the default port, will only return the
   // hostname, otherwise it will return a string of the form `{host}:{port}`
   // See: https://url.spec.whatwg.org/#default-port
@@ -58,11 +60,21 @@ class MozURL final {
   nsDependentCSubstring Query() const { return mozurl_query(this); }
   nsDependentCSubstring Ref() const { return mozurl_fragment(this); }
   bool HasFragment() const { return mozurl_has_fragment(this); }
+  nsDependentCSubstring Directory() const { return mozurl_directory(this); }
+  nsDependentCSubstring PrePath() const { return mozurl_prepath(this); }
+  nsDependentCSubstring SpecNoRef() const { return mozurl_spec_no_ref(this); }
 
-  // WARNING: This does not match the definition of origins in nsIPrincipal for
-  // all URIs.
-  // XXX: Consider bringing these implementations in sync with one-another?
+  // This matches the definition of origins and base domains in nsIPrincipal for
+  // almost all URIs (some rare file:// URIs don't match and it would be hard to
+  // fix them). It definitely matches nsIPrincipal for URIs used in quota
+  // manager and there are checks in quota manager and its clients that prevent
+  // different definitions (see QuotaManager::IsPrincipalInfoValid).
+  // See also TestMozURL.cpp which enumerates a huge pile of URIs and checks
+  // that origin and base domain definitions are in sync.
   void Origin(nsACString& aOrigin) const { mozurl_origin(this, &aOrigin); }
+  nsresult BaseDomain(nsACString& aBaseDomain) const {
+    return mozurl_base_domain(this, &aBaseDomain);
+  }
 
   nsresult GetCommonBase(const MozURL* aOther, MozURL** aCommon) const {
     return mozurl_common_base(this, aOther, aCommon);
@@ -71,7 +83,9 @@ class MozURL final {
     return mozurl_relative(this, aOther, aRelative);
   }
 
-  class MOZ_STACK_CLASS Mutator {
+  size_t SizeOf() { return mozurl_sizeof(this); }
+
+  class Mutator {
    public:
     // Calling this method will result in the creation of a new MozURL that
     // adopts the mutator's mURL.
@@ -92,8 +106,8 @@ class MozURL final {
     // chain setter operations as such:
     //
     // RefPtr<MozURL> url2;
-    // nsresult rv = url->Mutate().SetHostname(NS_LITERAL_CSTRING("newhost"))
-    //                            .SetFilePath(NS_LITERAL_CSTRING("new/file/path"))
+    // nsresult rv = url->Mutate().SetHostname("newhost"_ns)
+    //                            .SetFilePath("new/file/path"_ns)
     //                            .Finalize(getter_AddRefs(url2));
     // if (NS_SUCCEEDED(rv)) { /* use url2 */ }
     Mutator& SetScheme(const nsACString& aScheme) {
@@ -167,9 +181,29 @@ class MozURL final {
     // if (NS_SUCCEEDED(rv)) { /* use url2 */ }
     nsresult GetStatus() { return mURL ? mStatus : NS_ERROR_NOT_AVAILABLE; }
 
+    static Result<Mutator, nsresult> FromSpec(
+        const nsACString& aSpec, const MozURL* aBaseURL = nullptr) {
+      Mutator m = Mutator(aSpec, aBaseURL);
+      if (m.mURL) {
+        MOZ_ASSERT(NS_SUCCEEDED(m.mStatus));
+        return m;
+      }
+
+      MOZ_ASSERT(NS_FAILED(m.mStatus));
+      return Err(m.mStatus);
+    }
+
    private:
     explicit Mutator(MozURL* aUrl) : mStatus(NS_OK) {
       mozurl_clone(aUrl, getter_AddRefs(mURL));
+    }
+
+    // This is only used to create a mutator from a string without cloning it
+    // so we avoid a pointless copy in FromSpec. It is important that we
+    // check the value of mURL afterwards.
+    explicit Mutator(const nsACString& aSpec,
+                     const MozURL* aBaseURL = nullptr) {
+      mStatus = mozurl_new(getter_AddRefs(mURL), &aSpec, aBaseURL);
     }
     RefPtr<MozURL> mURL;
     nsresult mStatus;

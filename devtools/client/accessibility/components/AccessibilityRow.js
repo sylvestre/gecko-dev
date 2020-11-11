@@ -3,30 +3,57 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 "use strict";
 
-/* global gTelemetry, gToolbox, EVENTS */
+/* global gTelemetry, EVENTS */
 
 // React & Redux
-const { Component, createFactory } = require("devtools/client/shared/vendor/react");
+const {
+  Component,
+  createFactory,
+} = require("devtools/client/shared/vendor/react");
 const PropTypes = require("devtools/client/shared/vendor/react-prop-types");
 const { findDOMNode } = require("devtools/client/shared/vendor/react-dom");
 const { connect } = require("devtools/client/shared/vendor/react-redux");
 
 const TreeRow = require("devtools/client/shared/components/tree/TreeRow");
+const AuditFilter = createFactory(
+  require("devtools/client/accessibility/components/AuditFilter")
+);
+const AuditController = createFactory(
+  require("devtools/client/accessibility/components/AuditController")
+);
 
 // Utils
-const {flashElementOn, flashElementOff} =
-  require("devtools/client/inspector/markup/utils");
+const {
+  flashElementOn,
+  flashElementOff,
+} = require("devtools/client/inspector/markup/utils");
 const { openDocLink } = require("devtools/client/shared/link");
-const { VALUE_FLASHING_DURATION, VALUE_HIGHLIGHT_DURATION } = require("../constants");
+const {
+  PREFS,
+  VALUE_FLASHING_DURATION,
+  VALUE_HIGHLIGHT_DURATION,
+} = require("devtools/client/accessibility/constants");
+
+const nodeConstants = require("devtools/shared/dom-node-constants");
 
 // Actions
-const { updateDetails } = require("../actions/details");
-const { unhighlight } = require("../actions/accessibles");
+const {
+  updateDetails,
+} = require("devtools/client/accessibility/actions/details");
+const {
+  unhighlight,
+} = require("devtools/client/accessibility/actions/accessibles");
 
-const { L10N } = require("../utils/l10n");
+const { L10N } = require("devtools/client/accessibility/utils/l10n");
 
 loader.lazyRequireGetter(this, "Menu", "devtools/client/framework/menu");
-loader.lazyRequireGetter(this, "MenuItem", "devtools/client/framework/menu-item");
+loader.lazyRequireGetter(
+  this,
+  "MenuItem",
+  "devtools/client/framework/menu-item"
+);
+
+const { scrollIntoView } = require("devtools/client/shared/scroll");
 
 const JSON_URL_PREFIX = "data:application/json;charset=UTF-8,";
 
@@ -37,15 +64,15 @@ const TELEMETRY_ACCESSIBLE_CONTEXT_MENU_ITEM_ACTIVATED =
 
 class HighlightableTreeRowClass extends TreeRow {
   shouldComponentUpdate(nextProps) {
-    const props = ["name", "open", "value", "loading", "selected", "hasChildren"];
-
-    for (const p of props) {
-      if (nextProps.member[p] !== this.props.member[p]) {
-        return true;
-      }
+    const shouldTreeRowUpdate = super.shouldComponentUpdate(nextProps);
+    if (shouldTreeRowUpdate) {
+      return shouldTreeRowUpdate;
     }
 
-    if (nextProps.highlighted !== this.props.highlighted) {
+    if (
+      nextProps.highlighted !== this.props.highlighted ||
+      nextProps.filtered !== this.props.filtered
+    ) {
       return true;
     }
 
@@ -62,15 +89,26 @@ class AccessibilityRow extends Component {
     return {
       ...TreeRow.propTypes,
       dispatch: PropTypes.func.isRequired,
-      walker: PropTypes.object,
+      toolboxDoc: PropTypes.object.isRequired,
+      scrollContentNodeIntoView: PropTypes.bool.isRequired,
+      highlightAccessible: PropTypes.func.isRequired,
+      unhighlightAccessible: PropTypes.func.isRequired,
     };
   }
 
   componentDidMount() {
-    const { selected, object } = this.props.member;
+    const {
+      member: { selected, object },
+      scrollContentNodeIntoView,
+    } = this.props;
     if (selected) {
-      this.updateAndScrollIntoViewIfNeeded();
-      this.highlight(object, { duration: VALUE_HIGHLIGHT_DURATION });
+      this.unhighlight(object);
+      this.update();
+      this.highlight(
+        object,
+        { duration: VALUE_HIGHLIGHT_DURATION },
+        scrollContentNodeIntoView
+      );
     }
 
     if (this.props.highlighted) {
@@ -83,11 +121,19 @@ class AccessibilityRow extends Component {
    * accessible panel sidebar.
    */
   componentDidUpdate(prevProps) {
-    const { selected, object } = this.props.member;
+    const {
+      member: { selected, object },
+      scrollContentNodeIntoView,
+    } = this.props;
     // If row is selected, update corresponding accessible details.
     if (!prevProps.member.selected && selected) {
-      this.updateAndScrollIntoViewIfNeeded();
-      this.highlight(object, { duration: VALUE_HIGHLIGHT_DURATION });
+      this.unhighlight(object);
+      this.update();
+      this.highlight(
+        object,
+        { duration: VALUE_HIGHLIGHT_DURATION },
+        scrollContentNodeIntoView
+      );
     }
 
     if (this.props.highlighted) {
@@ -101,21 +147,36 @@ class AccessibilityRow extends Component {
 
   scrollIntoView() {
     const row = findDOMNode(this);
-    row.scrollIntoView({ block: "center" });
-  }
-
-  updateAndScrollIntoViewIfNeeded() {
-    const { dispatch, member, supports } = this.props;
-    if (gToolbox) {
-      dispatch(updateDetails(gToolbox.walker, member.object, supports));
+    // Row might not be rendered in the DOM tree if it is filtered out during
+    // audit.
+    if (!row) {
+      return;
     }
 
-    this.scrollIntoView();
-    window.emit(EVENTS.NEW_ACCESSIBLE_FRONT_SELECTED, member.object);
+    scrollIntoView(row);
+  }
+
+  update() {
+    const {
+      dispatch,
+      member: { object },
+    } = this.props;
+    if (!object.actorID) {
+      return;
+    }
+
+    dispatch(updateDetails(object));
+    window.emit(EVENTS.NEW_ACCESSIBLE_FRONT_SELECTED, object);
   }
 
   flashValue() {
     const row = findDOMNode(this);
+    // Row might not be rendered in the DOM tree if it is filtered out during
+    // audit.
+    if (!row) {
+      return;
+    }
+
     const value = row.querySelector(".objectBox");
 
     flashElementOn(value);
@@ -128,74 +189,97 @@ class AccessibilityRow extends Component {
     }, VALUE_FLASHING_DURATION);
   }
 
-  highlight(accessible, options) {
-    const { walker, dispatch } = this.props;
-    dispatch(unhighlight());
-
-    if (!accessible || !walker) {
+  /**
+   * Scroll the node that corresponds to a current accessible object into view.
+   * @param   {Object}
+   *          Accessible front that is rendered for this node.
+   *
+   * @returns {Promise}
+   *          Promise that resolves when the node is scrolled into view if
+   *          possible.
+   */
+  async scrollNodeIntoViewIfNeeded(accessibleFront) {
+    if (accessibleFront.isDestroyed()) {
       return;
     }
 
-    walker.highlightAccessible(accessible, options).catch(error =>
-      console.warn(error));
+    const domWalker = (await accessibleFront.targetFront.getFront("inspector"))
+      .walker;
+    if (accessibleFront.isDestroyed()) {
+      return;
+    }
+
+    const node = await domWalker.getNodeFromActor(accessibleFront.actorID, [
+      "rawAccessible",
+      "DOMNode",
+    ]);
+    if (!node) {
+      return;
+    }
+
+    if (node.nodeType == nodeConstants.ELEMENT_NODE) {
+      await node.scrollIntoView();
+    } else if (node.nodeType != nodeConstants.DOCUMENT_NODE) {
+      // scrollIntoView method is only part of the Element interface, in cases
+      // where node is a text node (and not a document node) scroll into view
+      // its parent.
+      await node.parentNode().scrollIntoView();
+    }
   }
 
-  unhighlight() {
-    const { walker, dispatch } = this.props;
-    dispatch(unhighlight());
-
-    if (!walker) {
-      return;
+  async highlight(accessibleFront, options, scrollContentNodeIntoView) {
+    this.props.dispatch(unhighlight());
+    // If necessary scroll the node into view before showing the accessibility
+    // highlighter.
+    if (scrollContentNodeIntoView) {
+      await this.scrollNodeIntoViewIfNeeded(accessibleFront);
     }
 
-    walker.unhighlight().catch(error => console.warn(error));
+    this.props.highlightAccessible(accessibleFront, options);
+  }
+
+  unhighlight(accessibleFront) {
+    this.props.dispatch(unhighlight());
+    this.props.unhighlightAccessible(accessibleFront);
   }
 
   async printToJSON() {
-    const { member, supports } = this.props;
-    if (!supports.snapshot) {
-      // Debugger server does not support Accessible actor snapshots.
-      return;
-    }
-
     if (gTelemetry) {
-      gTelemetry.keyedScalarAdd(TELEMETRY_ACCESSIBLE_CONTEXT_MENU_ITEM_ACTIVATED,
-                                "print-to-json", 1);
+      gTelemetry.keyedScalarAdd(
+        TELEMETRY_ACCESSIBLE_CONTEXT_MENU_ITEM_ACTIVATED,
+        "print-to-json",
+        1
+      );
     }
 
-    const snapshot = await member.object.snapshot();
-    openDocLink(`${JSON_URL_PREFIX}${encodeURIComponent(JSON.stringify(snapshot))}`);
+    const snapshot = await this.props.member.object.snapshot();
+    openDocLink(
+      `${JSON_URL_PREFIX}${encodeURIComponent(JSON.stringify(snapshot))}`
+    );
   }
 
   onContextMenu(e) {
     e.stopPropagation();
     e.preventDefault();
 
-    if (!gToolbox) {
+    if (!this.props.toolboxDoc) {
       return;
     }
 
     const menu = new Menu({ id: "accessibility-row-contextmenu" });
-    const { supports } = this.props;
-
-    if (supports.snapshot) {
-      menu.append(new MenuItem({
+    menu.append(
+      new MenuItem({
         id: "menu-printtojson",
         label: L10N.getStr("accessibility.tree.menu.printToJSON"),
         click: () => this.printToJSON(),
-      }));
-    }
+      })
+    );
 
-    menu.popup(e.screenX, e.screenY, gToolbox);
+    menu.popup(e.screenX, e.screenY, this.props.toolboxDoc);
 
     if (gTelemetry) {
       gTelemetry.scalarAdd(TELEMETRY_ACCESSIBLE_CONTEXT_MENU_OPENED, 1);
     }
-  }
-
-  get hasContextMenu() {
-    const { supports } = this.props;
-    return supports.snapshot;
   }
 
   /**
@@ -203,19 +287,30 @@ class AccessibilityRow extends Component {
    * @returns acecssible-row React component.
    */
   render() {
-    const { object } = this.props.member;
-    const props = Object.assign({}, this.props, {
-      onContextMenu: this.hasContextMenu && (e => this.onContextMenu(e)),
-      onMouseOver: () => this.highlight(object),
-      onMouseOut: () => this.unhighlight(),
-    });
+    const { member } = this.props;
+    const props = {
+      ...this.props,
+      onContextMenu: e => this.onContextMenu(e),
+      onMouseOver: () => this.highlight(member.object),
+      onMouseOut: () => this.unhighlight(member.object),
+      key: `${member.path}-${member.active ? "active" : "inactive"}`,
+    };
 
-    return (HighlightableTreeRow(props));
+    return AuditController(
+      {
+        accessibleFront: member.object,
+      },
+      AuditFilter({}, HighlightableTreeRow(props))
+    );
   }
 }
 
-const mapStateToProps = ({ ui }) => ({
-  supports: ui.supports,
+const mapStateToProps = ({
+  ui: { [PREFS.SCROLL_INTO_VIEW]: scrollContentNodeIntoView },
+}) => ({
+  scrollContentNodeIntoView,
 });
 
-module.exports = connect(mapStateToProps)(AccessibilityRow);
+module.exports = connect(mapStateToProps, null, null, { withRef: true })(
+  AccessibilityRow
+);

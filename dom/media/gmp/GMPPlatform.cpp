@@ -15,8 +15,7 @@
 
 #include <ctime>
 
-namespace mozilla {
-namespace gmp {
+namespace mozilla::gmp {
 
 static MessageLoop* sMainLoop = nullptr;
 static GMPChild* sChild = nullptr;
@@ -39,7 +38,7 @@ class GMPRunnable final {
   }
 
  private:
-  ~GMPRunnable() {}
+  ~GMPRunnable() = default;
 
   GMPTask* mTask;
 };
@@ -82,7 +81,7 @@ class GMPSyncRunnable final {
   }
 
  private:
-  ~GMPSyncRunnable() {}
+  ~GMPSyncRunnable() = default;
 
   bool mDone;
   GMPTask* mTask;
@@ -262,7 +261,7 @@ GMPTask* NewGMPTask(std::function<void()>&& aFunction) {
     explicit Task(std::function<void()>&& aFunction)
         : mFunction(std::move(aFunction)) {}
     void Destroy() override { delete this; }
-    ~Task() override {}
+    ~Task() override = default;
     void Run() override { mFunction(); }
 
    private:
@@ -271,5 +270,4 @@ GMPTask* NewGMPTask(std::function<void()>&& aFunction) {
   return new Task(std::move(aFunction));
 }
 
-}  // namespace gmp
-}  // namespace mozilla
+}  // namespace mozilla::gmp

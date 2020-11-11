@@ -1,19 +1,10 @@
 /* Any copyright is dedicated to the Public Domain.
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
-const PREF_MULTISELECT_TABS = "browser.tabs.multiselect";
-const PREF_ANIMATION = "toolkit.cosmeticAnimations.enabled";
-
-add_task(async function setPref() {
-  await SpecialPowers.pushPrefEnv({
-    set: [
-      [PREF_MULTISELECT_TABS, true],
-      [PREF_ANIMATION, false],
-    ],
-  });
-});
-
 add_task(async function() {
+  // Disable tab animations
+  gReduceMotionOverride = true;
+
   let tab0 = gBrowser.selectedTab;
   let tab1 = await addTab();
   let tab2 = await addTab();
@@ -54,13 +45,21 @@ add_task(async function() {
   is(tab0._tPos, 0, "Tab0 position (0) doesn't change");
 
   // Multiselected tabs gets grouped at the start of the slide.
-  is(tab1._tPos, tab3._tPos - 1, "Tab1 is located right at the left of the dragged tab (tab3)");
-  is(tab5._tPos, tab3._tPos + 1, "Tab5 is located right at the right of the dragged tab (tab3)");
+  is(
+    tab1._tPos,
+    tab3._tPos - 1,
+    "Tab1 is located right at the left of the dragged tab (tab3)"
+  );
+  is(
+    tab5._tPos,
+    tab3._tPos + 1,
+    "Tab5 is located right at the right of the dragged tab (tab3)"
+  );
   is(tab3._tPos, 4, "Dragged tab (tab3) position is 4");
 
   is(tab4._tPos, 2, "Drag target (tab4) has shifted to position 2");
 
-  for (let tab of tabs.filter(t => t != tab0))
+  for (let tab of tabs.filter(t => t != tab0)) {
     BrowserTestUtils.removeTab(tab);
+  }
 });
-

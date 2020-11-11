@@ -1,34 +1,56 @@
-/* vim:set ts=2 sw=2 sts=2 et: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 "use strict";
 
-this.EXPORTED_SYMBOLS = ["StyleEditorUI"];
+const EXPORTED_SYMBOLS = ["StyleEditorUI"];
 
-const {loader, require} = ChromeUtils.import("resource://devtools/shared/Loader.jsm", {});
+const { loader, require } = ChromeUtils.import(
+  "resource://devtools/shared/Loader.jsm"
+);
 const Services = require("Services");
-const {NetUtil} = require("resource://gre/modules/NetUtil.jsm");
-const {OS} = require("resource://gre/modules/osfile.jsm");
+const { FileUtils } = require("resource://gre/modules/FileUtils.jsm");
+const { NetUtil } = require("resource://gre/modules/NetUtil.jsm");
+const { OS } = require("resource://gre/modules/osfile.jsm");
 const EventEmitter = require("devtools/shared/event-emitter");
-const {gDevTools} = require("devtools/client/framework/devtools");
 const {
   getString,
   text,
   wire,
   showFilePicker,
+  optionsPopupMenu,
 } = require("resource://devtools/client/styleeditor/StyleEditorUtil.jsm");
-const {SplitView} = require("resource://devtools/client/shared/SplitView.jsm");
-const {StyleSheetEditor} = require("resource://devtools/client/styleeditor/StyleSheetEditor.jsm");
-const {PluralForm} = require("devtools/shared/plural-form");
-const {PrefObserver} = require("devtools/client/shared/prefs");
-const {KeyCodes} = require("devtools/client/shared/keycodes");
-const {OriginalSource} = require("devtools/client/styleeditor/original-source");
+const {
+  SplitView,
+} = require("resource://devtools/client/shared/SplitView.jsm");
+const {
+  StyleSheetEditor,
+} = require("resource://devtools/client/styleeditor/StyleSheetEditor.jsm");
+const { PluralForm } = require("devtools/shared/plural-form");
+const { PrefObserver } = require("devtools/client/shared/prefs");
+const { KeyCodes } = require("devtools/client/shared/keycodes");
+const {
+  OriginalSource,
+} = require("devtools/client/styleeditor/original-source");
 
-loader.lazyRequireGetter(this, "ResponsiveUIManager", "devtools/client/responsive.html/manager", true);
-loader.lazyRequireGetter(this, "openContentLink", "devtools/client/shared/link", true);
-loader.lazyRequireGetter(this, "copyString", "devtools/shared/platform/clipboard", true);
+loader.lazyRequireGetter(
+  this,
+  "ResponsiveUIManager",
+  "devtools/client/responsive/manager"
+);
+loader.lazyRequireGetter(
+  this,
+  "openContentLink",
+  "devtools/client/shared/link",
+  true
+);
+loader.lazyRequireGetter(
+  this,
+  "copyString",
+  "devtools/shared/platform/clipboard",
+  true
+);
 
 const LOAD_ERROR = "error-load";
 const STYLE_EDITOR_TEMPLATE = "stylesheet";
@@ -37,6 +59,8 @@ const PREF_MEDIA_SIDEBAR = "devtools.styleeditor.showMediaSidebar";
 const PREF_SIDEBAR_WIDTH = "devtools.styleeditor.mediaSidebarWidth";
 const PREF_NAV_WIDTH = "devtools.styleeditor.navSidebarWidth";
 const PREF_ORIG_SOURCES = "devtools.source-map.client-service.enabled";
+
+const HTML_NS = "http://www.w3.org/1999/xhtml";
 
 /**
  * StyleEditorUI is controls and builds the UI of the Style Editor, including
@@ -47,19 +71,15 @@ const PREF_ORIG_SOURCES = "devtools.source-map.client-service.enabled";
  *   'editor-selected': An editor was selected
  *   'error': An error occured
  *
- * @param {StyleEditorFront} debuggee
- *        Client-side front for interacting with the page's stylesheets
- * @param {Target} target
- *        Interface for the page we're debugging
+ * @param {Toolbox} toolbox
  * @param {Document} panelDoc
  *        Document of the toolbox panel to populate UI in.
  * @param {CssProperties} A css properties database.
  */
-function StyleEditorUI(debuggee, target, panelDoc, cssProperties) {
+function StyleEditorUI(toolbox, panelDoc, cssProperties) {
   EventEmitter.decorate(this);
 
-  this._debuggee = debuggee;
-  this._target = target;
+  this._toolbox = toolbox;
   this._panelDoc = panelDoc;
   this._cssProperties = cssProperties;
   this._window = this._panelDoc.defaultView;
@@ -70,17 +90,8 @@ function StyleEditorUI(debuggee, target, panelDoc, cssProperties) {
   this.savedLocations = {};
   this._seenSheets = new Map();
 
-  // Don't add any style sheets that might arrive via events, until
-  // the call to initialize.  Style sheets can arrive from the server
-  // at any time, for example if a new style sheet was added, or if
-  // the style sheet actor was just created and is walking the style
-  // sheets for the first time.  In any case, in |initialize| we're
-  // going to fetch the list of sheets anyway.
-  this._suppressAdd = true;
-
-  this._onOptionsPopupShowing = this._onOptionsPopupShowing.bind(this);
-  this._onOptionsPopupHiding = this._onOptionsPopupHiding.bind(this);
-  this._onNewDocument = this._onNewDocument.bind(this);
+  this._onOptionsButtonClick = this._onOptionsButtonClick.bind(this);
+  this._onOrigSourcesPrefChanged = this._onOrigSourcesPrefChanged.bind(this);
   this._onMediaPrefChanged = this._onMediaPrefChanged.bind(this);
   this._updateMediaList = this._updateMediaList.bind(this);
   this._clear = this._clear.bind(this);
@@ -88,58 +99,82 @@ function StyleEditorUI(debuggee, target, panelDoc, cssProperties) {
   this._updateContextMenuItems = this._updateContextMenuItems.bind(this);
   this._openLinkNewTab = this._openLinkNewTab.bind(this);
   this._copyUrl = this._copyUrl.bind(this);
-  this._addStyleSheet = this._addStyleSheet.bind(this);
+  this._onTargetAvailable = this._onTargetAvailable.bind(this);
+  this._onResourceAvailable = this._onResourceAvailable.bind(this);
+  this._onResourceUpdated = this._onResourceUpdated.bind(this);
 
   this._prefObserver = new PrefObserver("devtools.styleeditor.");
   this._prefObserver.on(PREF_MEDIA_SIDEBAR, this._onMediaPrefChanged);
-  this._sourceMapPrefObserver = new PrefObserver("devtools.source-map.client-service.");
-  this._sourceMapPrefObserver.on(PREF_ORIG_SOURCES, this._onNewDocument);
-
-  this._debuggee.on("stylesheet-added", this._addStyleSheet);
+  this._sourceMapPrefObserver = new PrefObserver(
+    "devtools.source-map.client-service."
+  );
+  this._sourceMapPrefObserver.on(
+    PREF_ORIG_SOURCES,
+    this._onOrigSourcesPrefChanged
+  );
 }
-this.StyleEditorUI = StyleEditorUI;
 
 StyleEditorUI.prototype = {
+  get cssProperties() {
+    return this._cssProperties;
+  },
+
+  get currentTarget() {
+    return this._toolbox.targetList.targetFront;
+  },
+
   /*
    * Index of selected stylesheet in document.styleSheets
    */
   get selectedStyleSheetIndex() {
-    return this.selectedEditor ?
-           this.selectedEditor.styleSheet.styleSheetIndex : -1;
+    return this.selectedEditor
+      ? this.selectedEditor.styleSheet.styleSheetIndex
+      : -1;
   },
 
   /**
-   * Initiates the style editor ui creation, the inspector front to get
-   * reference to the walker and the selector highlighter if available
+   * Initiates the style editor ui creation, and start to track TargetList updates.
    */
   async initialize() {
-    await this.initializeHighlighter();
-
     this.createUI();
 
-    const styleSheets = await this._debuggee.getStyleSheets();
-    await this._resetStyleSheetList(styleSheets);
+    await this._toolbox.targetList.watchTargets(
+      [this._toolbox.targetList.TYPES.FRAME],
+      this._onTargetAvailable
+    );
 
-    this._target.on("will-navigate", this._clear);
-    this._target.on("navigate", this._onNewDocument);
+    await this._toolbox.resourceWatcher.watchResources(
+      [this._toolbox.resourceWatcher.TYPES.DOCUMENT_EVENT],
+      { onAvailable: this._onResourceAvailable }
+    );
+
+    this._startLoadingStyleSheets();
+    await this._toolbox.resourceWatcher.watchResources(
+      [this._toolbox.resourceWatcher.TYPES.STYLESHEET],
+      {
+        onAvailable: this._onResourceAvailable,
+        onUpdated: this._onResourceUpdated,
+      }
+    );
+    await this._waitForLoadingStyleSheets();
   },
 
-  async initializeHighlighter() {
-    const toolbox = gDevTools.getToolbox(this._target);
-    await toolbox.initInspector();
-    this._walker = toolbox.walker;
-
-    const hUtils = toolbox.highlighterUtils;
+  async initializeHighlighter(targetFront) {
+    const inspectorFront = await targetFront.getFront("inspector");
+    this._walker = inspectorFront.walker;
 
     try {
-      this._highlighter =
-        await hUtils.getHighlighterByType(SELECTOR_HIGHLIGHTER_TYPE);
+      this._highlighter = await inspectorFront.getHighlighterByType(
+        SELECTOR_HIGHLIGHTER_TYPE
+      );
     } catch (e) {
       // The selectorHighlighter can't always be instantiated, for example
       // it doesn't work with XUL windows (until bug 1094959 gets fixed);
       // or the selectorHighlighter doesn't exist on the backend.
-      console.warn("The selectorHighlighter couldn't be instantiated, " +
-        "elements matching hovered selectors will not be highlighted");
+      console.warn(
+        "The selectorHighlighter couldn't be instantiated, " +
+          "elements matching hovered selectors will not be highlighted"
+      );
     }
   },
 
@@ -147,46 +182,41 @@ StyleEditorUI.prototype = {
    * Build the initial UI and wire buttons with event handlers.
    */
   createUI: function() {
-    const viewRoot = this._root.parentNode.querySelector(".splitview-root");
+    this._view = new SplitView(this._root);
 
-    this._view = new SplitView(viewRoot);
-
-    wire(this._view.rootElement, ".style-editor-newButton", () =>{
-      this._debuggee.addStyleSheet(null);
+    wire(this._view.rootElement, ".style-editor-newButton", async () => {
+      const stylesheetsFront = await this.currentTarget.getFront("stylesheets");
+      stylesheetsFront.addStyleSheet(null);
     });
 
-    wire(this._view.rootElement, ".style-editor-importButton", ()=> {
+    wire(this._view.rootElement, ".style-editor-importButton", () => {
       this._importFromFile(this._mockImportFile || null, this._window);
     });
 
+    wire(this._view.rootElement, "#style-editor-options", event => {
+      this._onOptionsButtonClick(event);
+    });
+
+    this._panelDoc.addEventListener(
+      "contextmenu",
+      () => {
+        this._contextMenuStyleSheet = null;
+      },
+      true
+    );
+
     this._optionsButton = this._panelDoc.getElementById("style-editor-options");
-    this._panelDoc.addEventListener("contextmenu", () => {
-      this._contextMenuStyleSheet = null;
-    }, true);
 
     this._contextMenu = this._panelDoc.getElementById("sidebar-context");
-    this._contextMenu.addEventListener("popupshowing",
-                                       this._updateContextMenuItems);
+    this._contextMenu.addEventListener(
+      "popupshowing",
+      this._updateContextMenuItems
+    );
 
-    this._optionsMenu =
-      this._panelDoc.getElementById("style-editor-options-popup");
-    this._optionsMenu.addEventListener("popupshowing",
-                                       this._onOptionsPopupShowing);
-    this._optionsMenu.addEventListener("popuphiding",
-                                       this._onOptionsPopupHiding);
-
-    this._sourcesItem = this._panelDoc.getElementById("options-origsources");
-    this._sourcesItem.addEventListener("command",
-                                       this._toggleOrigSources);
-
-    this._mediaItem = this._panelDoc.getElementById("options-show-media");
-    this._mediaItem.addEventListener("command",
-                                     this._toggleMediaSidebar);
-
-    this._openLinkNewTabItem =
-      this._panelDoc.getElementById("context-openlinknewtab");
-    this._openLinkNewTabItem.addEventListener("command",
-                                              this._openLinkNewTab);
+    this._openLinkNewTabItem = this._panelDoc.getElementById(
+      "context-openlinknewtab"
+    );
+    this._openLinkNewTabItem.addEventListener("command", this._openLinkNewTab);
 
     this._copyUrlItem = this._panelDoc.getElementById("context-copyurl");
     this._copyUrlItem.addEventListener("command", this._copyUrl);
@@ -196,61 +226,45 @@ StyleEditorUI.prototype = {
   },
 
   /**
-   * Listener handling the 'gear menu' popup showing event.
-   * Update options menu items to reflect current preference settings.
-   */
-  _onOptionsPopupShowing: function() {
-    this._optionsButton.setAttribute("open", "true");
-    this._sourcesItem.setAttribute("checked",
-      Services.prefs.getBoolPref(PREF_ORIG_SOURCES));
-    this._mediaItem.setAttribute("checked",
-      Services.prefs.getBoolPref(PREF_MEDIA_SIDEBAR));
-  },
-
-  /**
-   * Listener handling the 'gear menu' popup hiding event.
-   */
-  _onOptionsPopupHiding: function() {
-    this._optionsButton.removeAttribute("open");
-  },
-
-  /**
-   * Refresh editors to reflect the stylesheets in the document.
+   * Opens the Options Popup Menu
    *
-   * @param {string} event
-   *        Event name
-   * @param {StyleSheet} styleSheet
-   *        StyleSheet object for new sheet
+   * @params {number} screenX
+   * @params {number} screenY
+   *   Both obtained from the event object, used to position the popup
    */
-  _onNewDocument: function() {
-    this._suppressAdd = true;
-    this._debuggee.getStyleSheets().then((styleSheets) => {
-      return this._resetStyleSheetList(styleSheets);
-    }).catch(console.error);
+  _onOptionsButtonClick({ screenX, screenY }) {
+    this._optionsMenu = optionsPopupMenu(
+      this._toggleOrigSources,
+      this._toggleMediaSidebar
+    );
+
+    this._optionsMenu.once("open", () => {
+      this._optionsButton.setAttribute("open", true);
+    });
+    this._optionsMenu.once("close", () => {
+      this._optionsButton.removeAttribute("open");
+    });
+
+    this._optionsMenu.popup(screenX, screenY, this._toolbox.doc);
   },
 
   /**
-   * Add editors for all the given stylesheets to the UI.
-   *
-   * @param  {array} styleSheets
-   *         Array of StyleSheetFront
+   * Be called when changing the original sources pref.
    */
-  async _resetStyleSheetList(styleSheets) {
+  async _onOrigSourcesPrefChanged() {
     this._clear();
-    this._suppressAdd = false;
-
-    for (const sheet of styleSheets) {
-      try {
-        await this._addStyleSheet(sheet);
-      } catch (e) {
-        console.error(e);
-        this.emit("error", { key: LOAD_ERROR, level: "warning" });
-      }
+    // When we toggle the source-map preference, we clear the panel and re-fetch the exact
+    // same stylesheet resources from ResourceWatcher, but `_addStyleSheet` will trigger
+    // or ignore the additional source-map mapping.
+    this._root.classList.add("loading");
+    for (const resource of this._toolbox.resourceWatcher.getAllResources(
+      this._toolbox.resourceWatcher.TYPES.STYLESHEET
+    )) {
+      await this._handleStyleSheetResource(resource);
     }
-
     this._root.classList.remove("loading");
 
-    this.emit("stylesheets-reset");
+    this.emit("stylesheets-refreshed");
   },
 
   /**
@@ -260,7 +274,7 @@ StyleEditorUI.prototype = {
     // remember selected sheet and line number for next load
     if (this.selectedEditor && this.selectedEditor.sourceEditor) {
       const href = this.selectedEditor.styleSheet.href;
-      const {line, ch} = this.selectedEditor.sourceEditor.getCursor();
+      const { line, ch } = this.selectedEditor.sourceEditor.getCursor();
 
       this._styleSheetToSelect = {
         stylesheet: href,
@@ -284,46 +298,46 @@ StyleEditorUI.prototype = {
     // Here the keys are style sheet actors, and the values are
     // promises that resolve to the sheet's editor.  See |_addStyleSheet|.
     this._seenSheets = new Map();
-    this._suppressAdd = true;
 
-    this._root.classList.add("loading");
+    this.emit("stylesheets-clear");
   },
 
   /**
    * Add an editor for this stylesheet. Add editors for its original sources
    * instead (e.g. Sass sources), if applicable.
    *
-   * @param  {StyleSheetFront} styleSheet
-   *         Style sheet to add to style editor
-   * @param {Boolean} isNew
-   *        True if this style sheet was created by a call to the
-   *        style sheets actor's @see addStyleSheet method.
+   * @param  {Resource} resource
+   *         The STYLESHEET resource which is received from resource watcher.
    * @return {Promise}
    *         A promise that resolves to the style sheet's editor when the style sheet has
    *         been fully loaded.  If the style sheet has a source map, and source mapping
    *         is enabled, then the promise resolves to null.
    */
-  _addStyleSheet: function(styleSheet, isNew) {
-    if (this._suppressAdd) {
-      return null;
-    }
-
-    if (!this._seenSheets.has(styleSheet)) {
+  _addStyleSheet: function(resource) {
+    if (!this._seenSheets.has(resource)) {
       const promise = (async () => {
-        let editor = await this._addStyleSheetEditor(styleSheet, isNew);
+        let editor = await this._addStyleSheetEditor(resource);
 
-        const toolbox = gDevTools.getToolbox(this._target);
-        const sourceMapService = toolbox.sourceMapService;
+        const sourceMapService = this._toolbox.sourceMapService;
 
-        if (!sourceMapService || !Services.prefs.getBoolPref(PREF_ORIG_SOURCES)) {
+        if (
+          !sourceMapService ||
+          !Services.prefs.getBoolPref(PREF_ORIG_SOURCES)
+        ) {
           return editor;
         }
 
-        const {href, nodeHref, actorID: id, sourceMapURL} = styleSheet;
-        const url = href || nodeHref;
+        const {
+          href,
+          nodeHref,
+          resourceId: id,
+          sourceMapURL,
+          sourceMapBaseURL,
+        } = resource;
         const sources = await sourceMapService.getOriginalURLs({
           id,
-          url,
+          url: href || nodeHref,
+          sourceMapBaseURL,
           sourceMapURL,
         });
         // A single generated sheet might map to multiple original
@@ -333,46 +347,75 @@ StyleEditorUI.prototype = {
           this._removeStyleSheetEditor(editor);
           editor = null;
 
-          for (const source of sources) {
-            const generatedId = sourceMapService.generatedToOriginalId(id, source);
-            const original = new OriginalSource(source, generatedId, sourceMapService);
+          for (const { id: originalId, url: originalURL } of sources) {
+            const original = new OriginalSource(
+              originalURL,
+              originalId,
+              sourceMapService
+            );
 
             // set so the first sheet will be selected, even if it's a source
-            original.styleSheetIndex = styleSheet.styleSheetIndex;
-            original.relatedStyleSheet = styleSheet;
+            original.styleSheetIndex = resource.styleSheetIndex;
+            original.relatedStyleSheet = resource;
             original.relatedEditorName = parentEditorName;
+            original.resourceId = resource.resourceId;
+            original.targetFront = resource.targetFront;
+            original.mediaRules = resource.mediaRules;
             await this._addStyleSheetEditor(original);
           }
         }
 
         return editor;
       })();
-      this._seenSheets.set(styleSheet, promise);
+      this._seenSheets.set(resource, promise);
     }
-    return this._seenSheets.get(styleSheet);
+    return this._seenSheets.get(resource);
+  },
+
+  _getInlineStyleSheetsCount() {
+    return this.editors.filter(editor => !editor.styleSheet.href).length;
+  },
+
+  _getNewStyleSheetsCount() {
+    return this.editors.filter(editor => editor.isNew).length;
+  },
+
+  /**
+   * Finds the index to be shown in the Style Editor for inline or
+   * user-created style sheets, returns undefined if not of either type.
+   *
+   * @param {StyleSheet}  styleSheet
+   *        Object representing stylesheet
+   * @return {(Number|undefined)}
+   *         Optional Integer representing the index of the current stylesheet
+   *         among all stylesheets of its type (inline or user-created)
+   */
+  _getNextFriendlyIndex: function(styleSheet) {
+    if (styleSheet.href) {
+      return undefined;
+    }
+
+    return styleSheet.isNew
+      ? this._getNewStyleSheetsCount()
+      : this._getInlineStyleSheetsCount();
   },
 
   /**
    * Add a new editor to the UI for a source.
    *
-   * @param {StyleSheet}  styleSheet
-   *        Object representing stylesheet
-   * @param {Boolean} isNew
-   *         Optional if stylesheet is a new sheet created by user
+   * @param  {Resource} resource
+   *         The resource which is received from resource watcher.
    * @return {Promise} that is resolved with the created StyleSheetEditor when
    *                   the editor is fully initialized or rejected on error.
    */
-  async _addStyleSheetEditor(styleSheet, isNew) {
-    // recall location of saved file for this sheet after page reload
-    let file = null;
-    const identifier = this.getStyleSheetIdentifier(styleSheet);
-    const savedFile = this.savedLocations[identifier];
-    if (savedFile) {
-      file = savedFile;
-    }
-
-    const editor = new StyleSheetEditor(styleSheet, this._window, file, isNew,
-                                      this._walker, this._highlighter);
+  async _addStyleSheetEditor(resource) {
+    const editor = new StyleSheetEditor(
+      resource,
+      this._window,
+      this._walker,
+      this._highlighter,
+      this._getNextFriendlyIndex(resource)
+    );
 
     editor.on("property-change", this._summaryChange.bind(this, editor));
     editor.on("media-rules-changed", this._updateMediaList.bind(this, editor));
@@ -380,10 +423,18 @@ StyleEditorUI.prototype = {
     editor.on("linked-css-file-error", this._summaryChange.bind(this, editor));
     editor.on("error", this._onError);
 
+    // onMediaRulesChanged fires media-rules-changed, so call the function after
+    // registering the listener in order to ensure to get media-rules-changed event.
+    editor.onMediaRulesChanged(resource.mediaRules);
+
     this.editors.push(editor);
 
     await editor.fetchSource();
     this._sourceLoaded(editor);
+
+    if (resource.fileName) {
+      this.emit("test:editor-updated", editor);
+    }
 
     return editor;
   },
@@ -399,37 +450,50 @@ StyleEditorUI.prototype = {
    *        Optional parent window for the file picker.
    */
   _importFromFile: function(file, parentWindow) {
-    const onFileSelected = (selectedFile) => {
+    const onFileSelected = selectedFile => {
       if (!selectedFile) {
         // nothing selected
         return;
       }
-      NetUtil.asyncFetch({
-        uri: NetUtil.newURI(selectedFile),
-        loadingNode: this._window.document,
-        securityFlags: Ci.nsILoadInfo.SEC_ALLOW_CROSS_ORIGIN_DATA_INHERITS,
-        contentPolicyType: Ci.nsIContentPolicy.TYPE_OTHER,
-      }, (stream, status) => {
-        if (!Components.isSuccessCode(status)) {
-          this.emit("error", { key: LOAD_ERROR, level: "warning" });
-          return;
-        }
-        const source =
-            NetUtil.readInputStreamToString(stream, stream.available());
-        stream.close();
+      NetUtil.asyncFetch(
+        {
+          uri: NetUtil.newURI(selectedFile),
+          loadingNode: this._window.document,
+          securityFlags:
+            Ci.nsILoadInfo.SEC_ALLOW_CROSS_ORIGIN_INHERITS_SEC_CONTEXT,
+          contentPolicyType: Ci.nsIContentPolicy.TYPE_OTHER,
+        },
+        async (stream, status) => {
+          if (!Components.isSuccessCode(status)) {
+            this.emit("error", { key: LOAD_ERROR, level: "warning" });
+            return;
+          }
+          const source = NetUtil.readInputStreamToString(
+            stream,
+            stream.available()
+          );
+          stream.close();
 
-        this._suppressAdd = true;
-        this._debuggee.addStyleSheet(source).then((styleSheet) => {
-          this._suppressAdd = false;
-          this._addStyleSheet(styleSheet, true).then(editor => {
+          const stylesheetsFront = await this.currentTarget.getFront(
+            "stylesheets"
+          );
+
+          const traits = await stylesheetsFront.getTraits();
+          if (traits.isFileNameSupported) {
+            // FF81+ addStyleSheet of StyleSheetsFront supports file name parameter.
+            stylesheetsFront.addStyleSheet(source, selectedFile.path);
+          } else {
+            const styleSheet = await stylesheetsFront.addStyleSheet(source);
+            styleSheet.isNew = true;
+            const editor = await this._addStyleSheet({ styleSheet });
             if (editor) {
               editor.savedFile = selectedFile;
             }
             // Just for testing purposes.
             this.emit("test:editor-updated", editor);
-          });
-        });
-      });
+          }
+        }
+      );
     };
 
     showFilePicker(file, false, parentWindow, onFileSelected);
@@ -480,14 +544,21 @@ StyleEditorUI.prototype = {
    * below the list): hide the context menu
    */
   _updateContextMenuItems: function() {
-    this._openLinkNewTabItem.setAttribute("hidden",
-                                          !this._contextMenuStyleSheet);
+    this._openLinkNewTabItem.setAttribute(
+      "hidden",
+      !this._contextMenuStyleSheet
+    );
     this._copyUrlItem.setAttribute("hidden", !this._contextMenuStyleSheet);
 
     if (this._contextMenuStyleSheet) {
-      this._openLinkNewTabItem.setAttribute("disabled",
-                                            !this._contextMenuStyleSheet.href);
-      this._copyUrlItem.setAttribute("disabled", !this._contextMenuStyleSheet.href);
+      this._openLinkNewTabItem.setAttribute(
+        "disabled",
+        !this._contextMenuStyleSheet.href
+      );
+      this._copyUrlItem.setAttribute(
+        "disabled",
+        !this._contextMenuStyleSheet.href
+      );
     }
   },
 
@@ -573,7 +644,7 @@ StyleEditorUI.prototype = {
 
         wire(summary, ".stylesheet-name", {
           events: {
-            "keypress": (event) => {
+            keypress: event => {
               if (event.keyCode == KeyCodes.DOM_VK_RETURN) {
                 this._view.activeSummary = summary;
               }
@@ -602,8 +673,10 @@ StyleEditorUI.prototype = {
         });
 
         const sidebar = details.querySelector(".stylesheet-sidebar");
-        sidebar.setAttribute("width",
-            Services.prefs.getIntPref(PREF_SIDEBAR_WIDTH));
+        sidebar.setAttribute(
+          "width",
+          Services.prefs.getIntPref(PREF_SIDEBAR_WIDTH)
+        );
 
         const splitter = details.querySelector(".devtools-side-splitter");
         splitter.addEventListener("mousemove", () => {
@@ -611,8 +684,9 @@ StyleEditorUI.prototype = {
           Services.prefs.setIntPref(PREF_SIDEBAR_WIDTH, sidebarWidth);
 
           // update all @media sidebars for consistency
-          const sidebars =
-              [...this._panelDoc.querySelectorAll(".stylesheet-sidebar")];
+          const sidebars = [
+            ...this._panelDoc.querySelectorAll(".stylesheet-sidebar"),
+          ];
           for (const mediaSidebar of sidebars) {
             mediaSidebar.setAttribute("width", sidebarWidth);
           }
@@ -629,8 +703,11 @@ StyleEditorUI.prototype = {
 
         // If this is the first stylesheet and there is no pending request to
         // select a particular style sheet, select this sheet.
-        if (!this.selectedEditor && !this._styleSheetBoundToSelect
-            && createdEditor.styleSheet.styleSheetIndex == 0) {
+        if (
+          !this.selectedEditor &&
+          !this._styleSheetBoundToSelect &&
+          createdEditor.styleSheet.styleSheetIndex == 0
+        ) {
           this._selectEditor(createdEditor);
         }
         this.emit("editor-added", createdEditor);
@@ -643,39 +720,18 @@ StyleEditorUI.prototype = {
         (async function() {
           if (!showEditor.sourceEditor) {
             // only initialize source editor when we switch to this view
-            const inputElement =
-                details.querySelector(".stylesheet-editor-input");
+            const inputElement = details.querySelector(
+              ".stylesheet-editor-input"
+            );
             await showEditor.load(inputElement, this._cssProperties);
           }
 
           showEditor.onShow();
 
           this.emit("editor-selected", showEditor);
-
-          // Is there any CSS coverage markup to include?
-          const usage = await this._target.getFront("cssUsage");
-          if (usage == null) {
-            return;
-          }
-
-          const sheet = showEditor.styleSheet;
-          const {reports} = await usage.createEditorReportForSheet(sheet);
-
-          showEditor.removeAllUnusedRegions();
-
-          if (reports.length > 0) {
-            // Only apply if this file isn't compressed. We detect a
-            // compressed file if there are more rules than lines.
-            const editorText = showEditor.sourceEditor.getText();
-            const lineCount = editorText.split("\n").length;
-            const ruleCount = showEditor.styleSheet.ruleCount;
-            if (lineCount >= ruleCount) {
-              showEditor.addUnusedRegions(reports);
-            } else {
-              this.emit("error", { key: "error-compressed", level: "info" });
-            }
-          }
-        }.bind(this))().catch(console.error);
+        }
+          .bind(this)()
+          .catch(console.error));
       },
     });
   },
@@ -716,11 +772,13 @@ StyleEditorUI.prototype = {
     if (!toSelect) {
       return false;
     }
-    const isHref = toSelect.stylesheet === null ||
-                 typeof toSelect.stylesheet == "string";
+    const isHref =
+      toSelect.stylesheet === null || typeof toSelect.stylesheet == "string";
 
-    return (isHref && editor.styleSheet.href == toSelect.stylesheet) ||
-           (toSelect.stylesheet == editor.styleSheet);
+    return (
+      (isHref && editor.styleSheet.href == toSelect.stylesheet) ||
+      toSelect.stylesheet == editor.styleSheet
+    );
   },
 
   /**
@@ -741,11 +799,11 @@ StyleEditorUI.prototype = {
     col = col || 0;
 
     const editorPromise = editor.getSourceEditor().then(() => {
-      editor.sourceEditor.setCursor({line: line, ch: col});
+      editor.setCursor(line, col);
       this._styleSheetBoundToSelect = null;
     });
 
-    const summaryPromise = this.getEditorSummary(editor).then((summary) => {
+    const summaryPromise = this.getEditorSummary(editor).then(summary => {
       this._view.activeSummary = summary;
     });
 
@@ -795,8 +853,51 @@ StyleEditorUI.prototype = {
   getStyleSheetIdentifier: function(styleSheet) {
     // Identify inline style sheets by their host page URI and index
     // at the page.
-    return styleSheet.href ? styleSheet.href :
-      "inline-" + styleSheet.styleSheetIndex + "-at-" + styleSheet.nodeHref;
+    return styleSheet.href
+      ? styleSheet.href
+      : "inline-" + styleSheet.styleSheetIndex + "-at-" + styleSheet.nodeHref;
+  },
+
+  /**
+   * Get the OriginalSource object for a given original sourceId returned from
+   * the sourcemap worker service.
+   *
+   * @param {string} sourceId
+   *        The ID to search for from the sourcemap worker.
+   *
+   * @return {OriginalSource | null}
+   */
+  getOriginalSourceSheet: function(sourceId) {
+    for (const editor of this.editors) {
+      const { styleSheet } = editor;
+      if (styleSheet.isOriginalSource && styleSheet.sourceId === sourceId) {
+        return styleSheet;
+      }
+    }
+    return null;
+  },
+
+  /**
+   * Given an URL, find a stylesheet front with that URL, if one has been
+   * loaded into the editor.js
+   *
+   * Do not use this unless you have no other way to get a StyleSheetFront
+   * multiple sheets could share the same URL, so this will give you _one_
+   * of possibly many sheets with that URL.
+   *
+   * @param {string} url
+   *        An arbitrary URL to search for.
+   *
+   * @return {StyleSheetFront|null}
+   */
+  getStylesheetFrontForGeneratedURL: function(url) {
+    for (const styleSheet of this._seenSheets.keys()) {
+      const sheetURL = styleSheet.href || styleSheet.nodeHref;
+      if (!styleSheet.isOriginalSource && sheetURL === url) {
+        return styleSheet;
+      }
+    }
+    return null;
   },
 
   /**
@@ -883,9 +984,14 @@ StyleEditorUI.prototype = {
     }
     text(summary, ".stylesheet-linked-file", linkedCSSSource);
     text(summary, ".stylesheet-title", editor.styleSheet.title || "");
-    text(summary, ".stylesheet-rule-count",
-      PluralForm.get(ruleCount,
-                     getString("ruleCount.label")).replace("#1", ruleCount));
+    text(
+      summary,
+      ".stylesheet-rule-count",
+      PluralForm.get(ruleCount, getString("ruleCount.label")).replace(
+        "#1",
+        ruleCount
+      )
+    );
   },
 
   /**
@@ -912,7 +1018,7 @@ StyleEditorUI.prototype = {
       let inSource = false;
 
       for (const rule of rules) {
-        const {line, column, parentStyleSheet} = rule;
+        const { line, column, parentStyleSheet } = rule;
 
         let location = {
           line: line,
@@ -922,8 +1028,11 @@ StyleEditorUI.prototype = {
         };
         if (editor.styleSheet.isOriginalSource) {
           const styleSheet = editor.cssSheet;
-          location = await editor.styleSheet.getOriginalLocation(styleSheet, line,
-                                                                 column);
+          location = await editor.styleSheet.getOriginalLocation(
+            styleSheet,
+            line,
+            column
+          );
         }
 
         // this @media rule is from a different original source
@@ -932,24 +1041,26 @@ StyleEditorUI.prototype = {
         }
         inSource = true;
 
-        const div = this._panelDoc.createElement("div");
+        const div = this._panelDoc.createElementNS(HTML_NS, "div");
         div.className = "media-rule-label";
-        div.addEventListener("click",
-                             this._jumpToLocation.bind(this, location));
+        div.addEventListener(
+          "click",
+          this._jumpToLocation.bind(this, location)
+        );
 
-        const cond = this._panelDoc.createElement("div");
+        const cond = this._panelDoc.createElementNS(HTML_NS, "div");
         cond.className = "media-rule-condition";
         if (!rule.matches) {
           cond.classList.add("media-condition-unmatched");
         }
-        if (this._target.isLocalTab) {
+        if (this.currentTarget.isLocalTab) {
           this._setConditionContents(cond, rule.conditionText);
         } else {
           cond.textContent = rule.conditionText;
         }
         div.appendChild(cond);
 
-        const link = this._panelDoc.createElement("div");
+        const link = this._panelDoc.createElementNS(HTML_NS, "div");
         link.className = "media-rule-line theme-link";
         if (location.line != -1) {
           link.textContent = ":" + location.line;
@@ -962,7 +1073,9 @@ StyleEditorUI.prototype = {
       sidebar.hidden = !showSidebar || !inSource;
 
       this.emit("media-list-changed", editor);
-    }.bind(this))().catch(console.error);
+    }
+      .bind(this)()
+      .catch(console.error));
   },
 
   /**
@@ -974,7 +1087,7 @@ StyleEditorUI.prototype = {
    *        The raw condition text to parse
    */
   _setConditionContents(element, rawText) {
-    const minMaxPattern = /(min\-|max\-)(width|height):\s\d+(px)/ig;
+    const minMaxPattern = /(min\-|max\-)(width|height):\s\d+(px)/gi;
 
     let match = minMaxPattern.exec(rawText);
     let lastParsed = 0;
@@ -985,7 +1098,7 @@ StyleEditorUI.prototype = {
       );
       element.appendChild(node);
 
-      const link = this._panelDoc.createElement("a");
+      const link = this._panelDoc.createElementNS(HTML_NS, "a");
       link.href = "#";
       link.className = "media-responsive-mode-toggle";
       link.textContent = rawText.substring(match.index, matchEnd);
@@ -1014,23 +1127,27 @@ StyleEditorUI.prototype = {
     const isWidthCond = conditionText.toLowerCase().indexOf("width") > -1;
     const mediaVal = parseInt(/\d+/.exec(conditionText), 10);
 
-    const options = isWidthCond ? {width: mediaVal} : {height: mediaVal};
+    const options = isWidthCond ? { width: mediaVal } : { height: mediaVal };
     this._launchResponsiveMode(options);
     e.preventDefault();
     e.stopPropagation();
   },
 
   /**
-   * Launches the responsive mode with a specific width or height
+   * Launches the responsive mode with a specific width or height.
    *
    * @param  {object} options
    *         Object with width or/and height properties.
    */
   async _launchResponsiveMode(options = {}) {
-    const tab = this._target.tab;
-    const win = this._target.tab.ownerDocument.defaultView;
+    const tab = this.currentTarget.localTab;
+    const win = this.currentTarget.localTab.ownerDocument.defaultView;
 
-    await ResponsiveUIManager.openIfNeeded(win, tab, { trigger: "style_editor" });
+    await ResponsiveUIManager.openIfNeeded(win, tab, {
+      trigger: "style_editor",
+    });
+    this.emit("responsive-mode-opened");
+
     ResponsiveUIManager.getResponsiveUIForTab(tab).setViewportSize(options);
   },
 
@@ -1045,26 +1162,150 @@ StyleEditorUI.prototype = {
     this.selectStyleSheet(source, location.line - 1, location.column - 1);
   },
 
+  _startLoadingStyleSheets() {
+    this._root.classList.add("loading");
+    this._loadingStyleSheets = [];
+  },
+
+  async _waitForLoadingStyleSheets() {
+    while (this._loadingStyleSheets?.length > 0) {
+      const pending = this._loadingStyleSheets;
+      this._loadingStyleSheets = [];
+      await Promise.all(pending);
+    }
+
+    this._loadingStyleSheets = null;
+    this._root.classList.remove("loading");
+  },
+
+  async _handleStyleSheetResource(resource) {
+    try {
+      // The fileName is in resource means this stylesheet was imported from file by user.
+      const { fileName } = resource;
+      let file = fileName ? new FileUtils.File(fileName) : null;
+
+      // recall location of saved file for this sheet after page reload
+      if (!file) {
+        const identifier = this.getStyleSheetIdentifier(resource);
+        const savedFile = this.savedLocations[identifier];
+        if (savedFile) {
+          file = savedFile;
+        }
+      }
+      resource.file = file;
+
+      await this._addStyleSheet(resource);
+    } catch (e) {
+      console.error(e);
+      this.emit("error", { key: LOAD_ERROR, level: "warning" });
+    }
+  },
+
+  async _onResourceAvailable(resources) {
+    for (const resource of resources) {
+      if (
+        resource.resourceType === this._toolbox.resourceWatcher.TYPES.STYLESHEET
+      ) {
+        const onStyleSheetHandled = this._handleStyleSheetResource(resource);
+
+        if (this._loadingStyleSheets) {
+          // In case of reloading/navigating and panel's opening
+          this._loadingStyleSheets.push(onStyleSheetHandled);
+        }
+
+        await onStyleSheetHandled;
+        continue;
+      }
+
+      if (!resource.targetFront.isTopLevel) {
+        continue;
+      }
+
+      if (resource.name === "dom-loading") {
+        // will-navigate doesn't work when we navigate to a new process,
+        // and for now, onTargetAvailable/onTargetDestroyed doesn't fire on navigation and
+        // only when navigating to another process.
+        // So we fallback on DOCUMENT_EVENTS to be notified when we navigates. When we
+        // navigate within the same process as well as when we navigate to a new process.
+        // (We would probably revisit that in bug 1632141)
+        this._startLoadingStyleSheets();
+        this._clear();
+      } else if (resource.name === "dom-complete") {
+        await this._waitForLoadingStyleSheets();
+      }
+    }
+  },
+
+  async _onResourceUpdated(updates) {
+    for (const { resource, update } of updates) {
+      if (
+        update.resourceType === this._toolbox.resourceWatcher.TYPES.STYLESHEET
+      ) {
+        const editor = this.editors.find(
+          e => e.resourceId === update.resourceId
+        );
+
+        switch (update.updateType) {
+          case "style-applied": {
+            editor.onStyleApplied();
+            break;
+          }
+          case "property-change": {
+            for (const [property, value] of Object.entries(
+              update.resourceUpdates
+            )) {
+              editor.onPropertyChange(property, value);
+            }
+            break;
+          }
+          case "media-rules-changed":
+          case "matches-change": {
+            const { mediaRules } = resource;
+            editor.onMediaRulesChanged(mediaRules);
+            break;
+          }
+        }
+      }
+    }
+  },
+
+  async _onTargetAvailable({ targetFront }) {
+    if (targetFront.isTopLevel) {
+      await this.initializeHighlighter(targetFront);
+    }
+  },
+
   destroy: function() {
+    this._toolbox.targetList.unwatchTargets(
+      [this._toolbox.targetList.TYPES.FRAME],
+      this._onTargetAvailable
+    );
+
+    this._toolbox.resourceWatcher.unwatchResources(
+      [
+        this._toolbox.resourceWatcher.TYPES.DOCUMENT_EVENT,
+        this._toolbox.resourceWatcher.TYPES.STYLESHEET,
+      ],
+      {
+        onAvailable: this._onResourceAvailable,
+        onUpdated: this._onResourceUpdated,
+      }
+    );
+
     this._clearStyleSheetEditors();
 
     this._seenSheets = null;
-    this._suppressAdd = false;
 
     const sidebar = this._panelDoc.querySelector(".splitview-controller");
     const sidebarWidth = sidebar.getAttribute("width");
     Services.prefs.setIntPref(PREF_NAV_WIDTH, sidebarWidth);
 
-    this._optionsMenu.removeEventListener("popupshowing",
-                                          this._onOptionsPopupShowing);
-    this._optionsMenu.removeEventListener("popuphiding",
-                                          this._onOptionsPopupHiding);
-
-    this._sourceMapPrefObserver.off(PREF_ORIG_SOURCES, this._onNewDocument);
+    this._sourceMapPrefObserver.off(
+      PREF_ORIG_SOURCES,
+      this._onOrigSourcesPrefChanged
+    );
     this._sourceMapPrefObserver.destroy();
     this._prefObserver.off(PREF_MEDIA_SIDEBAR, this._onMediaPrefChanged);
     this._prefObserver.destroy();
-
-    this._debuggee.off("stylesheet-added", this._addStyleSheet);
   },
 };

@@ -9,15 +9,13 @@
 #include "mozilla/dom/cache/CacheOpParent.h"
 #include "nsCOMPtr.h"
 
-namespace mozilla {
-namespace dom {
-namespace cache {
+namespace mozilla::dom::cache {
 
 // Declared in ActorUtils.h
 void DeallocPCacheParent(PCacheParent* aActor) { delete aActor; }
 
-CacheParent::CacheParent(cache::Manager* aManager, CacheId aCacheId)
-    : mManager(aManager), mCacheId(aCacheId) {
+CacheParent::CacheParent(SafeRefPtr<cache::Manager> aManager, CacheId aCacheId)
+    : mManager(std::move(aManager)), mCacheId(aCacheId) {
   MOZ_COUNT_CTOR(cache::CacheParent);
   MOZ_DIAGNOSTIC_ASSERT(mManager);
   mManager->AddRefCacheId(mCacheId);
@@ -54,7 +52,7 @@ bool CacheParent::DeallocPCacheOpParent(PCacheOpParent* aActor) {
 mozilla::ipc::IPCResult CacheParent::RecvPCacheOpConstructor(
     PCacheOpParent* aActor, const CacheOpArgs& aOpArgs) {
   auto actor = static_cast<CacheOpParent*>(aActor);
-  actor->Execute(mManager);
+  actor->Execute(mManager.clonePtr());
   return IPC_OK();
 }
 
@@ -66,6 +64,4 @@ mozilla::ipc::IPCResult CacheParent::RecvTeardown() {
   return IPC_OK();
 }
 
-}  // namespace cache
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom::cache

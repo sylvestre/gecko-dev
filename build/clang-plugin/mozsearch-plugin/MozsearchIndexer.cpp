@@ -10,6 +10,7 @@
 #include "clang/AST/ExprCXX.h"
 #include "clang/AST/Mangle.h"
 #include "clang/AST/RecursiveASTVisitor.h"
+#include "clang/Basic/FileManager.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Basic/Version.h"
 #include "clang/Frontend/CompilerInstance.h"
@@ -34,10 +35,22 @@
 #include "JSONFormatter.h"
 #include "StringOperations.h"
 
-#if CLANG_VERSION_FULL < 800
+#if CLANG_VERSION_MAJOR < 8
 // Starting with Clang 8.0 some basic functions have been renamed
 #define getBeginLoc getLocStart
 #define getEndLoc getLocEnd
+#endif
+// We want std::make_unique, but that's only available in c++14.  In versions
+// prior to that, we need to fall back to llvm's make_unique.  It's also the
+// case that we expect clang 10 to build with c++14 and clang 9 and earlier to
+// build with c++11, at least as suggested by the llvm-config --cxxflags on
+// non-windows platforms.  mozilla-central seems to build with -std=c++17 on
+// windows so we need to make this decision based on __cplusplus instead of
+// the CLANG_VERSION_MAJOR.
+#if __cplusplus < 201402L
+using llvm::make_unique;
+#else
+using std::make_unique;
 #endif
 
 using namespace clang;
@@ -52,6 +65,35 @@ std::string Objdir;
 
 // Absolute path where analysis JSON output will be stored.
 std::string Outdir;
+
+enum class FileType {
+  // The file was either in the source tree nor objdir. It might be a system
+  // include, for example.
+  Unknown,
+  // A file from the source tree.
+  Source,
+  // A file from the objdir.
+  Generated,
+};
+
+// Takes an absolute path to a file, and returns the type of file it is. If
+// it's a Source or Generated file, the provided inout path argument is modified
+// in-place so that it is relative to the source dir or objdir, respectively.
+FileType relativizePath(std::string& path) {
+  if (path.compare(0, Objdir.length(), Objdir) == 0) {
+    path.replace(0, Objdir.length(), GENERATED);
+    return FileType::Generated;
+  }
+  // Empty filenames can get turned into Srcdir when they are resolved as
+  // absolute paths, so we should exclude files that are exactly equal to
+  // Srcdir or anything outside Srcdir.
+  if (path.length() > Srcdir.length() && path.compare(0, Srcdir.length(), Srcdir) == 0) {
+    // Remove the trailing `/' as well.
+    path.erase(0, Srcdir.length() + 1);
+    return FileType::Source;
+  }
+  return FileType::Unknown;
+}
 
 #if !defined(_WIN32) && !defined(_WIN64)
 #include <sys/time.h>
@@ -97,25 +139,19 @@ class IndexConsumer;
 // here.
 struct FileInfo {
   FileInfo(std::string &Rname) : Realname(Rname) {
-    if (Rname.compare(0, Objdir.length(), Objdir) == 0) {
-      // We're in the objdir, so we are probably a generated header
-      // We use the escape character to indicate the objdir nature.
-      // Note that output also has the `/' already placed
-      Interesting = true;
-      Generated = true;
-      Realname.replace(0, Objdir.length(), GENERATED);
-      return;
-    }
-
-    // Empty filenames can get turned into Srcdir when they are resolved as
-    // absolute paths, so we should exclude files that are exactly equal to
-    // Srcdir or anything outside Srcdir.
-    Interesting = (Rname.length() > Srcdir.length()) &&
-                  (Rname.compare(0, Srcdir.length(), Srcdir) == 0);
-    Generated = false;
-    if (Interesting) {
-      // Remove the trailing `/' as well.
-      Realname.erase(0, Srcdir.length() + 1);
+    switch (relativizePath(Realname)) {
+      case FileType::Generated:
+        Interesting = true;
+        Generated = true;
+        break;
+      case FileType::Source:
+        Interesting = true;
+        Generated = false;
+        break;
+      case FileType::Unknown:
+        Interesting = false;
+        Generated = false;
+        break;
     }
   }
   std::string Realname;
@@ -131,6 +167,21 @@ class PreprocessorHook : public PPCallbacks {
 
 public:
   PreprocessorHook(IndexConsumer *C) : Indexer(C) {}
+
+  virtual void FileChanged(SourceLocation Loc, FileChangeReason Reason,
+                           SrcMgr::CharacteristicKind FileType,
+                           FileID PrevFID) override;
+
+  virtual void InclusionDirective(SourceLocation HashLoc,
+                                  const Token &IncludeTok,
+                                  StringRef FileName,
+                                  bool IsAngled,
+                                  CharSourceRange FileNameRange,
+                                  const FileEntry *File,
+                                  StringRef SearchPath,
+                                  StringRef RelativePath,
+                                  const Module *Imported,
+                                  SrcMgr::CharacteristicKind FileType) override;
 
   virtual void MacroDefined(const Token &Tok,
                             const MacroDirective *Md) override;
@@ -153,6 +204,7 @@ class IndexConsumer : public ASTConsumer,
 private:
   CompilerInstance &CI;
   SourceManager &SM;
+  LangOptions &LO;
   std::map<FileID, std::unique_ptr<FileInfo>> FileMap;
   MangleContext *CurMangleContext;
   ASTContext *AstContext;
@@ -185,7 +237,7 @@ private:
     if (It == FileMap.end()) {
       // We haven't seen this file before. We need to make the FileInfo
       // structure information ourselves
-      std::string Filename = SM.getFilename(Loc);
+      std::string Filename = std::string(SM.getFilename(Loc));
       std::string Absolute;
       // If Loc is a macro id rather than a file id, it Filename might be
       // empty. Also for some types of file locations that are clang-internal
@@ -197,7 +249,7 @@ private:
           Absolute = Filename;
         }
       }
-      std::unique_ptr<FileInfo> Info = llvm::make_unique<FileInfo>(Absolute);
+      std::unique_ptr<FileInfo> Info = make_unique<FileInfo>(Absolute);
       It = FileMap.insert(std::make_pair(Id, std::move(Info))).first;
     }
     return It->second.get();
@@ -213,6 +265,9 @@ private:
     return getFileInfo(Loc)->Interesting;
   }
 
+  // Convert location to "line:column" or "line:column-column" given length.
+  // In resulting string rep, line is 1-based and zero-padded to 5 digits, while
+  // column is 0-based and unpadded.
   std::string locationToString(SourceLocation Loc, size_t Length = 0) {
     std::pair<FileID, unsigned> Pair = SM.getDecomposedLoc(Loc);
 
@@ -233,6 +288,8 @@ private:
     }
   }
 
+  // Convert SourceRange to "line-line".
+  // In the resulting string rep, line is 1-based.
   std::string lineRangeToString(SourceRange Range) {
     std::pair<FileID, unsigned> Begin = SM.getDecomposedLoc(Range.getBegin());
     std::pair<FileID, unsigned> End = SM.getDecomposedLoc(Range.getEnd());
@@ -248,6 +305,33 @@ private:
     }
 
     return stringFormat("%d-%d", Line1, Line2);
+  }
+
+  // Convert SourceRange to "line:column-line:column".
+  // In the resulting string rep, line is 1-based, column is 0-based.
+  std::string fullRangeToString(SourceRange Range) {
+    std::pair<FileID, unsigned> Begin = SM.getDecomposedLoc(Range.getBegin());
+    std::pair<FileID, unsigned> End = SM.getDecomposedLoc(Range.getEnd());
+
+    bool IsInvalid;
+    unsigned Line1 = SM.getLineNumber(Begin.first, Begin.second, &IsInvalid);
+    if (IsInvalid) {
+      return "";
+    }
+    unsigned Column1 = SM.getColumnNumber(Begin.first, Begin.second, &IsInvalid);
+    if (IsInvalid) {
+      return "";
+    }
+    unsigned Line2 = SM.getLineNumber(End.first, End.second, &IsInvalid);
+    if (IsInvalid) {
+      return "";
+    }
+    unsigned Column2 = SM.getColumnNumber(End.first, End.second, &IsInvalid);
+    if (IsInvalid) {
+      return "";
+    }
+
+    return stringFormat("%d:%d-%d:%d", Line1, Column1 - 1, Line2, Column2 - 1);
   }
 
   // Returns the qualified name of `d` without considering template parameters.
@@ -335,6 +419,48 @@ private:
     return hash(Filename + std::string("@") + locationToString(Loc));
   }
 
+  bool isAcceptableSymbolChar(char c) {
+    return isalpha(c) || isdigit(c) || c == '_' || c == '/';
+  }
+
+  std::string mangleFile(std::string Filename, FileType Type) {
+    // "Mangle" the file path, such that:
+    // 1. The majority of paths will still be mostly human-readable.
+    // 2. The sanitization algorithm doesn't produce collisions where two
+    //    different unsanitized paths can result in the same sanitized paths.
+    // 3. The produced symbol doesn't cause problems with downstream consumers.
+    // In order to accomplish this, we keep alphanumeric chars, underscores,
+    // and slashes, and replace everything else with an "@xx" hex encoding.
+    // The majority of path characters are letters and slashes which don't get
+    // encoded, so that satisifies (1). Since "@" characters in the unsanitized
+    // path get encoded, there should be no "@" characters in the sanitized path
+    // that got preserved from the unsanitized input, so that should satisfy (2).
+    // And (3) was done by trial-and-error. Note in particular the dot (.)
+    // character needs to be encoded, or the symbol-search feature of mozsearch
+    // doesn't work correctly, as all dot characters in the symbol query get
+    // replaced by #.
+    for (size_t i = 0; i < Filename.length(); i++) {
+      char c = Filename[i];
+      if (isAcceptableSymbolChar(c)) {
+        continue;
+      }
+      char hex[4];
+      sprintf(hex, "@%02X", ((int)c) & 0xFF);
+      Filename.replace(i, 1, hex);
+      i += 2;
+    }
+
+    if (Type == FileType::Generated) {
+      // Since generated files may be different on different platforms,
+      // we need to include a platform-specific thing in the hash. Otherwise
+      // we can end up with hash collisions where different symbols from
+      // different platforms map to the same thing.
+      char* Platform = getenv("MOZSEARCH_PLATFORM");
+      Filename = std::string(Platform ? Platform : "") + std::string("@") + Filename;
+    }
+    return Filename;
+  }
+
   std::string mangleQualifiedName(std::string Name) {
     std::replace(Name.begin(), Name.end(), ' ', '_');
     return Name;
@@ -354,6 +480,20 @@ private:
           isa<TagDecl>(DC)) {
         llvm::SmallVector<char, 512> Output;
         llvm::raw_svector_ostream Out(Output);
+#if CLANG_VERSION_MAJOR >= 11
+        // This code changed upstream in version 11:
+        // https://github.com/llvm/llvm-project/commit/29e1a16be8216066d1ed733a763a749aed13ff47
+        GlobalDecl GD;
+        if (const CXXConstructorDecl *D = dyn_cast<CXXConstructorDecl>(Decl)) {
+          GD = GlobalDecl(D, Ctor_Complete);
+        } else if (const CXXDestructorDecl *D =
+                       dyn_cast<CXXDestructorDecl>(Decl)) {
+          GD = GlobalDecl(D, Dtor_Complete);
+        } else {
+          GD = GlobalDecl(Decl);
+        }
+        Ctx->mangleName(GD, Out);
+#else
         if (const CXXConstructorDecl *D = dyn_cast<CXXConstructorDecl>(Decl)) {
           Ctx->mangleCXXCtor(D, CXXCtorType::Ctor_Complete, Out);
         } else if (const CXXDestructorDecl *D =
@@ -362,10 +502,11 @@ private:
         } else {
           Ctx->mangleName(Decl, Out);
         }
+#endif
         return Out.str().str();
       } else {
         return std::string("V_") + mangleLocation(Decl->getLocation()) +
-               std::string("_") + hash(Decl->getName());
+               std::string("_") + hash(std::string(Decl->getName()));
       }
     } else if (isa<TagDecl>(Decl) || isa<TypedefNameDecl>(Decl) ||
                isa<ObjCInterfaceDecl>(Decl)) {
@@ -416,10 +557,10 @@ private:
 
 public:
   IndexConsumer(CompilerInstance &CI)
-      : CI(CI), SM(CI.getSourceManager()), CurMangleContext(nullptr),
+      : CI(CI), SM(CI.getSourceManager()), LO(CI.getLangOpts()), CurMangleContext(nullptr),
         AstContext(nullptr), CurDeclContext(nullptr), TemplateStack(nullptr) {
     CI.getPreprocessor().addPPCallbacks(
-        llvm::make_unique<PreprocessorHook>(this));
+        make_unique<PreprocessorHook>(this));
   }
 
   virtual DiagnosticConsumer *clone(DiagnosticsEngine &Diags) const {
@@ -460,63 +601,97 @@ public:
 
       FileInfo &Info = *It->second;
 
-      std::string Filename = Outdir;
-      Filename += It->second->Realname;
+      std::string Filename = Outdir + Info.Realname;
+      std::string SrcFilename = Info.Generated
+        ? Objdir + Info.Realname.substr(GENERATED.length())
+        : Srcdir + PATHSEP_STRING + Info.Realname;
 
       ensurePath(Filename);
 
       // We lock the output file in case some other clang process is trying to
       // write to it at the same time.
-      AutoLockFile Lock(Filename);
+      AutoLockFile Lock(SrcFilename, Filename);
 
       if (!Lock.success()) {
         fprintf(stderr, "Unable to lock file %s\n", Filename.c_str());
         exit(1);
       }
 
-      std::vector<std::string> Lines;
-
-      // Read all the existing lines in from the output file. Rather than
-      // overwrite them, we want to merge our results with what was already
-      // there. This ensures that header files that are included multiple times
+      // Merge our results with the existing lines from the output file.
+      // This ensures that header files that are included multiple times
       // in different ways are analyzed completely.
-      char Buffer[65536];
-      FILE *Fp = Lock.openFile("rb");
+
+      FILE *Fp = Lock.openFile();
       if (!Fp) {
         fprintf(stderr, "Unable to open input file %s\n", Filename.c_str());
         exit(1);
       }
-      while (fgets(Buffer, sizeof(Buffer), Fp)) {
-        Lines.push_back(std::string(Buffer));
-      }
-      fclose(Fp);
-
-      // Insert the newly generated analysis data into what was read. Sort the
-      // results and then remove duplicates.
-      Lines.insert(Lines.end(), Info.Output.begin(), Info.Output.end());
-      std::sort(Lines.begin(), Lines.end());
-
-      std::vector<std::string> Nodupes;
-      std::unique_copy(Lines.begin(), Lines.end(), std::back_inserter(Nodupes));
-
-      // Overwrite the output file with the merged data. Since we have the lock,
-      // this will happen atomically.
-      Fp = Lock.openFile("wb");
-      if (!Fp) {
-        fprintf(stderr, "Unable to open output file %s\n", Filename.c_str());
+      FILE *OutFp = Lock.openTmp();
+      if (!OutFp) {
+        fprintf(stderr, "Unable to open tmp out file for %s\n", Filename.c_str());
         exit(1);
       }
-      size_t Length = 0;
-      for (std::string &Line : Nodupes) {
-        Length += Line.length();
-        if (fwrite(Line.c_str(), Line.length(), 1, Fp) != 1) {
-          fprintf(stderr, "Unable to write to output file %s\n", Filename.c_str());
+
+      // Sort our new results and get an iterator to them
+      std::sort(Info.Output.begin(), Info.Output.end());
+      std::vector<std::string>::const_iterator NewLinesIter = Info.Output.begin();
+      std::string LastNewWritten;
+
+      // Loop over the existing (sorted) lines in the analysis output file.
+      char Buffer[65536];
+      while (fgets(Buffer, sizeof(Buffer), Fp)) {
+        std::string OldLine(Buffer);
+
+        // Write any results from Info.Output that are lexicographically
+        // smaller than OldLine (read from the existing file), but make sure
+        // to skip duplicates. Keep advacing NewLinesIter until we reach an
+        // entry that is lexicographically greater than OldLine.
+        for (; NewLinesIter != Info.Output.end(); NewLinesIter++) {
+          if (*NewLinesIter > OldLine) {
+            break;
+          }
+          if (*NewLinesIter == OldLine) {
+            continue;
+          }
+          if (*NewLinesIter == LastNewWritten) {
+            // dedupe the new entries being written
+            continue;
+          }
+          if (fwrite(NewLinesIter->c_str(), NewLinesIter->length(), 1, OutFp) != 1) {
+            fprintf(stderr, "Unable to write to tmp output file for %s\n", Filename.c_str());
+            exit(1);
+          }
+          LastNewWritten = *NewLinesIter;
+        }
+
+        // Write the entry read from the existing file.
+        if (fwrite(OldLine.c_str(), OldLine.length(), 1, OutFp) != 1) {
+          fprintf(stderr, "Unable to write to tmp output file for %s\n", Filename.c_str());
+          exit(1);
         }
       }
+
+      // We finished reading from Fp
       fclose(Fp);
 
-      if (!Lock.truncateFile(Length)) {
-        return;
+      // Finish iterating our new results, discarding duplicates
+      for (; NewLinesIter != Info.Output.end(); NewLinesIter++) {
+        if (*NewLinesIter == LastNewWritten) {
+          continue;
+        }
+        if (fwrite(NewLinesIter->c_str(), NewLinesIter->length(), 1, OutFp) != 1) {
+          fprintf(stderr, "Unable to write to tmp output file for %s\n", Filename.c_str());
+          exit(1);
+        }
+        LastNewWritten = *NewLinesIter;
+      }
+
+      // Done writing all the things, close it and replace the old output file
+      // with the new one.
+      fclose(OutFp);
+      if (!Lock.moveTmp()) {
+        fprintf(stderr, "Unable to move tmp output file into place for %s (err %d)\n", Filename.c_str(), errno);
+        exit(1);
       }
     }
   }
@@ -711,10 +886,16 @@ public:
   // ignores all source locations except for the ones where we found dependent
   // scoped member expressions before. For these locations, we generate a
   // separate JSON result for each instantiation.
+  //
+  // We inherit our parent's mode if it is exists.  This is because if our
+  // parent is in analyze mode, it means we've already lived a full life in
+  // gather mode and we must not restart in gather mode or we'll cause the
+  // indexer to visit EVERY identifier, which is way too much data.
   struct AutoTemplateContext {
     AutoTemplateContext(IndexConsumer *Self)
-        : Self(Self), CurMode(Mode::GatherDependent),
-          Parent(Self->TemplateStack) {
+        : Self(Self)
+        , CurMode(Self->TemplateStack ? Self->TemplateStack->CurMode : Mode::GatherDependent)
+        , Parent(Self->TemplateStack) {
       Self->TemplateStack = this;
     }
 
@@ -743,6 +924,10 @@ public:
       if (Parent) {
         Parent->visitDependent(Loc);
       }
+    }
+
+    bool inGatherMode() {
+      return CurMode == Mode::GatherDependent;
     }
 
     // Do we need to perform the extra AnalyzeDependent passes (one per
@@ -834,7 +1019,9 @@ public:
 
   bool TraverseFunctionTemplateDecl(FunctionTemplateDecl *D) {
     AutoTemplateContext Atc(this);
-    Super::TraverseFunctionTemplateDecl(D);
+    if (Atc.inGatherMode()) {
+      Super::TraverseFunctionTemplateDecl(D);
+    }
 
     if (!Atc.needsAnalysis()) {
       return true;
@@ -863,31 +1050,43 @@ public:
   }
 
   enum {
+    // Flag to omit the identifier from being cross-referenced across files.
+    // This is usually desired for local variables.
     NoCrossref = 1 << 0,
-    OperatorToken = 1 << 1,
+    // Flag to indicate the token with analysis data is not an identifier. Indicates
+    // we want to skip the check that tries to ensure a sane identifier token.
+    NotIdentifierToken = 1 << 1,
+    // This indicates that the end of the provided SourceRange is valid and
+    // should be respected. If this flag is not set, the visitIdentifier
+    // function should use only the start of the SourceRange and auto-detect
+    // the end based on whatever token is found at the start.
+    LocRangeEndValid = 1 << 2
   };
 
   // This is the only function that emits analysis JSON data. It should be
   // called for each identifier that corresponds to a symbol.
   void visitIdentifier(const char *Kind, const char *SyntaxKind,
-                       std::string QualName, SourceLocation Loc,
+                       llvm::StringRef QualName, SourceRange LocRange,
                        const std::vector<std::string> &Symbols,
                        Context TokenContext = Context(), int Flags = 0,
-                       SourceRange PeekRange = SourceRange()) {
+                       SourceRange PeekRange = SourceRange(),
+                       SourceRange NestingRange = SourceRange()) {
+    SourceLocation Loc = LocRange.getBegin();
     if (!shouldVisit(Loc)) {
       return;
     }
 
     // Find the file positions corresponding to the token.
     unsigned StartOffset = SM.getFileOffset(Loc);
-    unsigned EndOffset =
-        StartOffset + Lexer::MeasureTokenLength(Loc, SM, CI.getLangOpts());
+    unsigned EndOffset = (Flags & LocRangeEndValid)
+        ? SM.getFileOffset(LocRange.getEnd())
+        : StartOffset + Lexer::MeasureTokenLength(Loc, SM, CI.getLangOpts());
 
     std::string LocStr = locationToString(Loc, EndOffset - StartOffset);
     std::string RangeStr = locationToString(Loc, EndOffset - StartOffset);
     std::string PeekRangeStr;
 
-    if (!(Flags & OperatorToken)) {
+    if (!(Flags & NotIdentifierToken)) {
       // Get the token's characters so we can make sure it's a valid token.
       const char *StartChars = SM.getCharacterData(Loc);
       std::string Text(StartChars, EndOffset - StartOffset);
@@ -922,7 +1121,7 @@ public:
         Fmt.add("loc", LocStr);
         Fmt.add("target", 1);
         Fmt.add("kind", Kind);
-        Fmt.add("pretty", QualName);
+        Fmt.add("pretty", QualName.data());
         Fmt.add("sym", Symbol);
         if (!TokenContext.Name.empty()) {
           Fmt.add("context", TokenContext.Name);
@@ -956,6 +1155,13 @@ public:
     Fmt.add("loc", RangeStr);
     Fmt.add("source", 1);
 
+    if (NestingRange.isValid()) {
+      std::string NestingRangeStr = fullRangeToString(NestingRange);
+      if (!NestingRangeStr.empty()) {
+        Fmt.add("nestingRange", NestingRangeStr);
+      }
+    }
+
     std::string Syntax;
     if (Flags & NoCrossref) {
       Fmt.add("syntax", "");
@@ -968,7 +1174,7 @@ public:
 
     std::string Pretty(SyntaxKind);
     Pretty.push_back(' ');
-    Pretty.append(QualName);
+    Pretty.append(QualName.data());
     Fmt.add("pretty", Pretty);
 
     Fmt.add("sym", SymbolList);
@@ -983,21 +1189,44 @@ public:
   }
 
   void visitIdentifier(const char *Kind, const char *SyntaxKind,
-                       std::string QualName, SourceLocation Loc, std::string Symbol,
+                       llvm::StringRef QualName, SourceLocation Loc, std::string Symbol,
                        Context TokenContext = Context(), int Flags = 0,
-                       SourceRange PeekRange = SourceRange()) {
+                       SourceRange PeekRange = SourceRange(),
+                       SourceRange NestingRange = SourceRange()) {
     std::vector<std::string> V = {Symbol};
-    visitIdentifier(Kind, SyntaxKind, QualName, Loc, V, TokenContext, Flags, PeekRange);
+    visitIdentifier(Kind, SyntaxKind, QualName, SourceRange(Loc), V, TokenContext, Flags,
+                    PeekRange, NestingRange);
   }
 
   void normalizeLocation(SourceLocation *Loc) {
     *Loc = SM.getSpellingLoc(*Loc);
   }
 
+  // For cases where the left-brace is not directly accessible from the AST,
+  // helper to use the lexer to find the brace.  Make sure you're picking the
+  // start location appropriately!
+  SourceLocation findLeftBraceFromLoc(SourceLocation Loc) {
+    return Lexer::findLocationAfterToken(Loc, tok::l_brace, SM, LO, false);
+  }
+
+  // If the provided statement is compound, return its range.
+  SourceRange getCompoundStmtRange(Stmt* D) {
+    if (!D) {
+      return SourceRange();
+    }
+
+    CompoundStmt *D2 = dyn_cast<CompoundStmt>(D);
+    if (D2) {
+      return D2->getSourceRange();
+    }
+
+    return SourceRange();
+  }
+
   SourceRange getFunctionPeekRange(FunctionDecl* D) {
     // We always start at the start of the function decl, which may include the
     // return type on a separate line.
-    SourceLocation Start = D->getLocStart();
+    SourceLocation Start = D->getBeginLoc();
 
     // By default, we end at the line containing the function's name.
     SourceLocation End = D->getLocation();
@@ -1020,7 +1249,7 @@ public:
   }
 
   SourceRange getTagPeekRange(TagDecl* D) {
-    SourceLocation Start = D->getLocStart();
+    SourceLocation Start = D->getBeginLoc();
 
     // By default, we end at the line containing the name.
     SourceLocation End = D->getLocation();
@@ -1054,6 +1283,8 @@ public:
     return RC->getSourceRange();
   }
 
+  // Sanity checks that all ranges are in the same file, returning the first if
+  // they're in different files.  Unions the ranges based on which is first.
   SourceRange combineRanges(SourceRange Range1, SourceRange Range2) {
     if (Range1.isInvalid()) {
       return Range2;
@@ -1081,6 +1312,10 @@ public:
     }
   }
 
+  // Given a location and a range, returns the range if:
+  // - The location and the range live in the same file.
+  // - The range is well ordered (end is not before begin).
+  // Returns an empty range otherwise.
   SourceRange validateRange(SourceLocation Loc, SourceRange Range) {
     std::pair<FileID, unsigned> Decomposed = SM.getDecomposedLoc(Loc);
     std::pair<FileID, unsigned> Begin = SM.getDecomposedLoc(Range.getBegin());
@@ -1102,6 +1337,7 @@ public:
 
     // If the token is from a macro expansion and the expansion location
     // is interesting, use that instead as it tends to be more useful.
+    SourceLocation expandedLoc = Loc;
     if (SM.isMacroBodyExpansion(Loc)) {
       Loc = SM.getFileLoc(Loc);
     }
@@ -1120,6 +1356,9 @@ public:
     const char *Kind = "def";
     const char *PrettyKind = "?";
     SourceRange PeekRange(D->getBeginLoc(), D->getEndLoc());
+    // The nesting range identifies the left brace and right brace, which
+    // heavily depends on the AST node type.
+    SourceRange NestingRange;
     if (FunctionDecl *D2 = dyn_cast<FunctionDecl>(D)) {
       if (D2->isTemplateInstantiation()) {
         D = D2->getTemplateInstantiationPattern();
@@ -1127,12 +1366,32 @@ public:
       Kind = D2->isThisDeclarationADefinition() ? "def" : "decl";
       PrettyKind = "function";
       PeekRange = getFunctionPeekRange(D2);
+
+      // Only emit the nesting range if:
+      // - This is a definition AND
+      // - This isn't a template instantiation.  Function templates'
+      //   instantiations can end up as a definition with a Loc at their point
+      //   of declaration but with the CompoundStmt of the template's
+      //   point of definition.  This really messes up the nesting range logic.
+      //   At the time of writing this, the test repo's `big_header.h`'s
+      //   `WhatsYourVector_impl::forwardDeclaredTemplateThingInlinedBelow` as
+      //   instantiated by `big_cpp.cpp` triggers this phenomenon.
+      //
+      // Note: As covered elsewhere, template processing is tricky and it's
+      // conceivable that we may change traversal patterns in the future,
+      // mooting this guard.
+      if (D2->isThisDeclarationADefinition() &&
+          !D2->isTemplateInstantiation()) {
+        // The CompoundStmt range is the brace range.
+        NestingRange = getCompoundStmtRange(D2->getBody());
+      }
     } else if (TagDecl *D2 = dyn_cast<TagDecl>(D)) {
       Kind = D2->isThisDeclarationADefinition() ? "def" : "decl";
       PrettyKind = "type";
 
       if (D2->isThisDeclarationADefinition() && D2->getDefinition() == D2) {
         PeekRange = getTagPeekRange(D2);
+        NestingRange = D2->getBraceRange();
       } else {
         PeekRange = SourceRange();
       }
@@ -1153,6 +1412,13 @@ public:
       Kind = "def";
       PrettyKind = "namespace";
       PeekRange = SourceRange(Loc, Loc);
+      NamespaceDecl *D2 = dyn_cast<NamespaceDecl>(D);
+      if (D2) {
+        // There's no exposure of the left brace so we have to find it.
+        NestingRange = SourceRange(
+          findLeftBraceFromLoc(D2->isAnonymousNamespace() ? D2->getBeginLoc() : Loc),
+          D2->getRBraceLoc());
+      }
     } else if (isa<FieldDecl>(D)) {
       Kind = "def";
       PrettyKind = "field";
@@ -1166,6 +1432,7 @@ public:
     SourceRange CommentRange = getCommentRange(D);
     PeekRange = combineRanges(PeekRange, CommentRange);
     PeekRange = validateRange(Loc, PeekRange);
+    NestingRange = validateRange(Loc, NestingRange);
 
     std::vector<std::string> Symbols = {getMangledName(CurMangleContext, D)};
     if (CXXMethodDecl::classof(D)) {
@@ -1173,32 +1440,46 @@ public:
       findOverriddenMethods(dyn_cast<CXXMethodDecl>(D), Symbols);
     }
 
-    // For destructors, loc points to the ~ character. We want to skip to the
-    // class name.
+    // In the case of destructors, Loc might point to the ~ character. In that
+    // case we want to skip to the name of the class. However, Loc might also
+    // point to other places that generate destructors, such as the use site of
+    // a macro that expands to generate a destructor, or a lambda (apparently
+    // clang 8 creates a destructor declaration for at least some lambdas). In
+    // the former case we'll use the macro use site as the location, and in the
+    // latter we'll just drop the declaration.
     if (isa<CXXDestructorDecl>(D)) {
-      const char *P = SM.getCharacterData(Loc);
-      assert(*p == '~');
-      P++;
-
-      unsigned Skipped = 1;
-      while (*P == ' ' || *P == '\t' || *P == '\r' || *P == '\n') {
-        P++;
-        Skipped++;
-      }
-
-      Loc = Loc.getLocWithOffset(Skipped);
-
       PrettyKind = "destructor";
+      const char *P = SM.getCharacterData(Loc);
+      if (*P == '~') {
+        // Advance Loc to the class name
+        P++;
+
+        unsigned Skipped = 1;
+        while (*P == ' ' || *P == '\t' || *P == '\r' || *P == '\n') {
+          P++;
+          Skipped++;
+        }
+
+        Loc = Loc.getLocWithOffset(Skipped);
+      } else {
+        // See if the destructor is coming from a macro expansion
+        P = SM.getCharacterData(expandedLoc);
+        if (*P != '~') {
+          // It's not
+          return true;
+        }
+        // It is, so just use Loc as-is
+      }
     }
 
-    visitIdentifier(Kind, PrettyKind, getQualifiedName(D), Loc, Symbols,
-                    getContext(D), Flags, PeekRange);
+    visitIdentifier(Kind, PrettyKind, getQualifiedName(D), SourceRange(Loc), Symbols,
+                    getContext(D), Flags, PeekRange, NestingRange);
 
     return true;
   }
 
   bool VisitCXXConstructExpr(CXXConstructExpr *E) {
-    SourceLocation Loc = E->getLocStart();
+    SourceLocation Loc = E->getBeginLoc();
     normalizeLocation(&Loc);
     if (!isInterestingLocation(Loc)) {
       return true;
@@ -1242,7 +1523,7 @@ public:
       // Just take the first token.
       CXXOperatorCallExpr *Op = dyn_cast<CXXOperatorCallExpr>(E);
       Loc = Op->getOperatorLoc();
-      Flags |= OperatorToken;
+      Flags |= NotIdentifierToken;
     } else if (MemberExpr::classof(CalleeExpr)) {
       MemberExpr *Member = dyn_cast<MemberExpr>(CalleeExpr);
       Loc = Member->getMemberLoc();
@@ -1425,6 +1706,36 @@ public:
     return true;
   }
 
+  void enterSourceFile(SourceLocation Loc) {
+    normalizeLocation(&Loc);
+    FileInfo* newFile = getFileInfo(Loc);
+    if (!newFile->Interesting) {
+      return;
+    }
+    FileType type = newFile->Generated ? FileType::Generated : FileType::Source;
+    std::vector<std::string> symbols = {
+        std::string("FILE_") + mangleFile(newFile->Realname, type)
+    };
+    // We use an explicit zero-length source range at the start of the file. If we
+    // don't set the LocRangeEndValid flag, the visitIdentifier code will use the
+    // entire first token, which could be e.g. a long multiline-comment.
+    visitIdentifier("def", "file", newFile->Realname, SourceRange(Loc),
+                    symbols, Context(), NotIdentifierToken | LocRangeEndValid);
+  }
+
+  void inclusionDirective(SourceRange FileNameRange, const FileEntry* File) {
+    std::string includedFile(File->tryGetRealPathName());
+    FileType type = relativizePath(includedFile);
+    if (type == FileType::Unknown) {
+      return;
+    }
+    std::vector<std::string> symbols = {
+        std::string("FILE_") + mangleFile(includedFile, type)
+    };
+    visitIdentifier("use", "file", includedFile, FileNameRange, symbols,
+                    Context(), NotIdentifierToken | LocRangeEndValid);
+  }
+
   void macroDefined(const Token &Tok, const MacroDirective *Macro) {
     if (Macro->getMacroInfo()->isBuiltinMacro()) {
       return;
@@ -1438,7 +1749,7 @@ public:
     IdentifierInfo *Ident = Tok.getIdentifierInfo();
     if (Ident) {
       std::string Mangled =
-          std::string("M_") + mangleLocation(Loc, Ident->getName());
+          std::string("M_") + mangleLocation(Loc, std::string(Ident->getName()));
       visitIdentifier("def", "macro", Ident->getName(), Loc, Mangled);
     }
   }
@@ -1460,11 +1771,41 @@ public:
     if (Ident) {
       std::string Mangled =
           std::string("M_") +
-          mangleLocation(Macro->getDefinitionLoc(), Ident->getName());
+          mangleLocation(Macro->getDefinitionLoc(), std::string(Ident->getName()));
       visitIdentifier("use", "macro", Ident->getName(), Loc, Mangled);
     }
   }
 };
+
+void PreprocessorHook::FileChanged(SourceLocation Loc, FileChangeReason Reason,
+                                   SrcMgr::CharacteristicKind FileType,
+                                   FileID PrevFID = FileID()) {
+  switch (Reason) {
+    case PPCallbacks::RenameFile:
+    case PPCallbacks::SystemHeaderPragma:
+      // Don't care about these, since we want the actual on-disk filenames
+      break;
+    case PPCallbacks::EnterFile:
+      Indexer->enterSourceFile(Loc);
+      break;
+    case PPCallbacks::ExitFile:
+      // Don't care about exiting files
+      break;
+  }
+}
+
+void PreprocessorHook::InclusionDirective(SourceLocation HashLoc,
+                                          const Token &IncludeTok,
+                                          StringRef FileName,
+                                          bool IsAngled,
+                                          CharSourceRange FileNameRange,
+                                          const FileEntry *File,
+                                          StringRef SearchPath,
+                                          StringRef RelativePath,
+                                          const Module *Imported,
+                                          SrcMgr::CharacteristicKind FileType) {
+  Indexer->inclusionDirective(FileNameRange.getAsRange(), File);
+}
 
 void PreprocessorHook::MacroDefined(const Token &Tok,
                                     const MacroDirective *Md) {
@@ -1502,7 +1843,7 @@ class IndexAction : public PluginASTAction {
 protected:
   std::unique_ptr<ASTConsumer> CreateASTConsumer(CompilerInstance &CI,
                                                  llvm::StringRef F) {
-    return llvm::make_unique<IndexConsumer>(CI);
+    return make_unique<IndexConsumer>(CI);
   }
 
   bool ParseArgs(const CompilerInstance &CI,

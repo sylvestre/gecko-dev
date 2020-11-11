@@ -4,12 +4,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef mozilla_dom_SVGAnimateTransformElement_h
-#define mozilla_dom_SVGAnimateTransformElement_h
+#ifndef DOM_SVG_SVGANIMATETRANSFORMELEMENT_H_
+#define DOM_SVG_SVGANIMATETRANSFORMELEMENT_H_
 
 #include "mozilla/Attributes.h"
 #include "mozilla/dom/SVGAnimationElement.h"
-#include "nsSMILAnimationFunction.h"
+#include "mozilla/SMILAnimationFunction.h"
 
 nsresult NS_NewSVGAnimateTransformElement(
     nsIContent** aResult, already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo);
@@ -22,7 +22,7 @@ class SVGAnimateTransformElement final : public SVGAnimationElement {
   explicit SVGAnimateTransformElement(
       already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo);
 
-  nsSMILAnimationFunction mAnimationFunction;
+  SMILAnimationFunction mAnimationFunction;
   friend nsresult(::NS_NewSVGAnimateTransformElement(
       nsIContent** aResult,
       already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo));
@@ -41,10 +41,10 @@ class SVGAnimateTransformElement final : public SVGAnimationElement {
                               nsAttrValue& aResult) override;
 
   // SVGAnimationElement
-  virtual nsSMILAnimationFunction& AnimationFunction() override;
+  virtual SMILAnimationFunction& AnimationFunction() override;
 };
 
 }  // namespace dom
 }  // namespace mozilla
 
-#endif  // mozilla_dom_SVGAnimateTransformElement_h
+#endif  // DOM_SVG_SVGANIMATETRANSFORMELEMENT_H_

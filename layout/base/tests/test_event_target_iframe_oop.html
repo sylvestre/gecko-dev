@@ -5,8 +5,8 @@ https://bugzilla.mozilla.org/show_bug.cgi?id=921928
 -->
 <head>
   <title>Test for bug 921928</title>
-  <script type="application/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
-  <script type="application/javascript" src="/tests/SimpleTest/EventUtils.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/EventUtils.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css"/>
   <style>
   #dialer {
@@ -49,7 +49,6 @@ var prefs = [
   ["ui.mouse.radius.rightmm", 4],
   ["ui.mouse.radius.bottommm", 4],
   ["ui.mouse.radius.visitedweight", 50],
-  ["dom.mozBrowserFramesEnabled", true]
 ];
 
 var eventTarget;

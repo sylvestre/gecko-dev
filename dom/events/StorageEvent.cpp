@@ -6,9 +6,9 @@
 
 #include "mozilla/dom/StorageEvent.h"
 #include "mozilla/dom/Storage.h"
+#include "mozilla/dom/StorageEventBinding.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_IMPL_CYCLE_COLLECTION_CLASS(StorageEvent)
 
@@ -32,7 +32,7 @@ NS_INTERFACE_MAP_END_INHERITING(Event)
 StorageEvent::StorageEvent(EventTarget* aOwner)
     : Event(aOwner, nullptr, nullptr) {}
 
-StorageEvent::~StorageEvent() {}
+StorageEvent::~StorageEvent() = default;
 
 StorageEvent* StorageEvent::AsStorageEvent() { return this; }
 
@@ -60,7 +60,7 @@ already_AddRefed<StorageEvent> StorageEvent::Constructor(
 
 already_AddRefed<StorageEvent> StorageEvent::Constructor(
     const GlobalObject& aGlobal, const nsAString& aType,
-    const StorageEventInit& aEventInitDict, ErrorResult& aRv) {
+    const StorageEventInit& aEventInitDict) {
   nsCOMPtr<EventTarget> owner = do_QueryInterface(aGlobal.GetAsSupports());
   return Constructor(owner, aType, aEventInitDict);
 }
@@ -81,5 +81,4 @@ void StorageEvent::InitStorageEvent(const nsAString& aType, bool aCanBubble,
   mStorageArea = aStorageArea;
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

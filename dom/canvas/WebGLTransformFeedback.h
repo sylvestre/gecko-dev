@@ -6,8 +6,7 @@
 #ifndef WEBGL_TRANSFORM_FEEDBACK_H_
 #define WEBGL_TRANSFORM_FEEDBACK_H_
 
-#include "mozilla/LinkedList.h"
-#include "nsWrapperCache.h"
+#include "WebGLContext.h"
 #include "WebGLObjectModel.h"
 
 namespace mozilla {
@@ -15,14 +14,13 @@ namespace webgl {
 struct CachedDrawFetchLimits;
 }
 
-class WebGLTransformFeedback final
-    : public nsWrapperCache,
-      public WebGLRefCountedObject<WebGLTransformFeedback>,
-      public LinkedListElement<WebGLTransformFeedback> {
+class WebGLTransformFeedback final : public WebGLContextBoundObject {
   friend class ScopedDrawWithTransformFeedback;
   friend class WebGLContext;
   friend class WebGL2Context;
   friend class WebGLProgram;
+
+  MOZ_DECLARE_REFCOUNTED_VIRTUAL_TYPENAME(WebGLTransformFeedback, override)
 
   friend const webgl::CachedDrawFetchLimits* ValidateDraw(WebGLContext*, GLenum,
                                                           uint32_t);
@@ -39,7 +37,7 @@ class WebGLTransformFeedback final
   bool mIsPaused;
   bool mIsActive;
   // Not in state tables:
-  WebGLRefPtr<WebGLProgram> mActive_Program;
+  RefPtr<WebGLProgram> mActive_Program;
   MOZ_INIT_OUTSIDE_CTOR GLenum mActive_PrimMode;
   MOZ_INIT_OUTSIDE_CTOR size_t mActive_VertPosition;
   MOZ_INIT_OUTSIDE_CTOR size_t mActive_VertCapacity;
@@ -48,19 +46,10 @@ class WebGLTransformFeedback final
   WebGLTransformFeedback(WebGLContext* webgl, GLuint tf);
 
  private:
-  ~WebGLTransformFeedback();
+  ~WebGLTransformFeedback() override;
 
  public:
-  NS_INLINE_DECL_CYCLE_COLLECTING_NATIVE_REFCOUNTING(WebGLTransformFeedback)
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_NATIVE_CLASS(WebGLTransformFeedback)
-
-  void Delete();
-  WebGLContext* GetParentObject() const { return mContext; }
-  virtual JSObject* WrapObject(JSContext*, JS::Handle<JSObject*>) override;
-
   bool IsActiveAndNotPaused() const { return mIsActive && !mIsPaused; }
-
-  void AddBufferBindCounts(int8_t addVal) const;
 
   // GL Funcs
   void BeginTransformFeedback(GLenum primMode);

@@ -4,185 +4,111 @@
 
 "use strict";
 
-/*
- * Target actor for any of the various kinds of workers.
- *
- * See devtools/docs/backend/actor-hierarchy.md for more details.
- */
-
-const { Ci } = require("chrome");
-const ChromeUtils = require("ChromeUtils");
-const { DebuggerServer } = require("devtools/server/main");
-const { XPCOMUtils } = require("resource://gre/modules/XPCOMUtils.jsm");
-const protocol = require("devtools/shared/protocol");
+const { Actor } = require("devtools/shared/protocol");
 const { workerTargetSpec } = require("devtools/shared/specs/targets/worker");
 
-loader.lazyRequireGetter(this, "ChromeUtils");
+const { ThreadActor } = require("devtools/server/actors/thread");
+const { WebConsoleActor } = require("devtools/server/actors/webconsole");
+const Targets = require("devtools/server/actors/targets/index");
 
-XPCOMUtils.defineLazyServiceGetter(
-  this, "swm",
-  "@mozilla.org/serviceworkers/manager;1",
-  "nsIServiceWorkerManager"
+const makeDebuggerUtil = require("devtools/server/actors/utils/make-debugger");
+const {
+  SourcesManager,
+} = require("devtools/server/actors/utils/sources-manager");
+
+const TargetActorMixin = require("devtools/server/actors/targets/target-actor-mixin");
+
+exports.WorkerTargetActor = TargetActorMixin(
+  Targets.TYPES.WORKER,
+  workerTargetSpec,
+  {
+    /**
+     * Target actor for a worker in the content process.
+     *
+     * @param {DevToolsServerConnection} connection: The connection to the client.
+     * @param {WorkerGlobalScope} workerGlobal: The worker global.
+     * @param {Object} workerDebuggerData: The worker debugger information
+     * @param {String} workerDebuggerData.id: The worker debugger id
+     * @param {String} workerDebuggerData.url: The worker debugger url
+     * @param {String} workerDebuggerData.type: The worker debugger type
+     */
+    initialize: function(connection, workerGlobal, workerDebuggerData) {
+      Actor.prototype.initialize.call(this, connection);
+
+      // workerGlobal is needed by the console actor for evaluations.
+      this.workerGlobal = workerGlobal;
+
+      this._workerDebuggerData = workerDebuggerData;
+      this._sourcesManager = null;
+
+      this.makeDebugger = makeDebuggerUtil.bind(null, {
+        findDebuggees: () => {
+          return [workerGlobal];
+        },
+        shouldAddNewGlobalAsDebuggee: () => true,
+      });
+    },
+
+    form() {
+      return {
+        actor: this.actorID,
+        threadActor: this.threadActor?.actorID,
+        consoleActor: this._consoleActor?.actorID,
+        id: this._workerDebuggerData.id,
+        type: this._workerDebuggerData.type,
+        url: this._workerDebuggerData.url,
+        traits: {},
+      };
+    },
+
+    attach() {
+      if (this.threadActor) {
+        return;
+      }
+
+      // needed by the console actor
+      this.threadActor = new ThreadActor(this, this.workerGlobal);
+
+      // needed by the thread actor to communicate with the console when evaluating logpoints.
+      this._consoleActor = new WebConsoleActor(this.conn, this);
+
+      this.manage(this.threadActor);
+      this.manage(this._consoleActor);
+    },
+
+    get dbg() {
+      if (!this._dbg) {
+        this._dbg = this.makeDebugger();
+      }
+      return this._dbg;
+    },
+
+    get sourcesManager() {
+      if (this._sourcesManager === null) {
+        this._sourcesManager = new SourcesManager(this.threadActor);
+      }
+
+      return this._sourcesManager;
+    },
+
+    // This is called from the ThreadActor#onAttach method
+    onThreadAttached() {
+      // This isn't an RDP event and is only listened to from startup/worker.js.
+      this.emit("worker-thread-attached");
+    },
+
+    destroy() {
+      Actor.prototype.destroy.call(this);
+
+      if (this._sourcesManager) {
+        this._sourcesManager.destroy();
+        this._sourcesManager = null;
+      }
+
+      this.workerGlobal = null;
+      this._dbg = null;
+      this._consoleActor = null;
+      this.threadActor = null;
+    },
+  }
 );
-
-const WorkerTargetActor = protocol.ActorClassWithSpec(workerTargetSpec, {
-  initialize(conn, dbg) {
-    protocol.Actor.prototype.initialize.call(this, conn);
-    this._dbg = dbg;
-    this._attached = false;
-    this._threadActor = null;
-    this._transport = null;
-  },
-
-  form(detail) {
-    if (detail === "actorid") {
-      return this.actorID;
-    }
-    const form = {
-      actor: this.actorID,
-      consoleActor: this._consoleActor,
-      url: this._dbg.url,
-      type: this._dbg.type,
-    };
-    if (this._dbg.type === Ci.nsIWorkerDebugger.TYPE_SERVICE) {
-      const registration = this._getServiceWorkerRegistrationInfo();
-      form.scope = registration.scope;
-      const newestWorker = (registration.activeWorker ||
-                          registration.waitingWorker ||
-                          registration.installingWorker);
-      form.fetch = newestWorker && newestWorker.handlesFetchEvents;
-    }
-    return form;
-  },
-
-  attach() {
-    if (this._dbg.isClosed) {
-      return { error: "closed" };
-    }
-
-    if (!this._attached) {
-      // Automatically disable their internal timeout that shut them down
-      // Should be refactored by having actors specific to service workers
-      if (this._dbg.type == Ci.nsIWorkerDebugger.TYPE_SERVICE) {
-        const worker = this._getServiceWorkerInfo();
-        if (worker) {
-          worker.attachDebugger();
-        }
-      }
-      this._dbg.addListener(this);
-      this._attached = true;
-    }
-
-    return {
-      type: "attached",
-      url: this._dbg.url,
-    };
-  },
-
-  detach() {
-    if (!this._attached) {
-      return { error: "wrongState" };
-    }
-
-    this._detach();
-
-    return { type: "detached" };
-  },
-
-  destroy() {
-    if (this._attached) {
-      this._detach();
-    }
-    protocol.Actor.prototype.destroy.call(this);
-  },
-
-  connect(options) {
-    if (!this._attached) {
-      return { error: "wrongState" };
-    }
-
-    if (this._threadActor !== null) {
-      return {
-        type: "connected",
-        threadActor: this._threadActor,
-      };
-    }
-
-    return DebuggerServer.connectToWorker(
-      this.conn, this._dbg, this.actorID, options
-    ).then(({ threadActor, transport, consoleActor }) => {
-      this._threadActor = threadActor;
-      this._transport = transport;
-      this._consoleActor = consoleActor;
-
-      return {
-        type: "connected",
-        threadActor: this._threadActor,
-        consoleActor: this._consoleActor,
-      };
-    }, (error) => {
-      return { error: error.toString() };
-    });
-  },
-
-  push() {
-    if (this._dbg.type !== Ci.nsIWorkerDebugger.TYPE_SERVICE) {
-      return { error: "wrongType" };
-    }
-    const registration = this._getServiceWorkerRegistrationInfo();
-    const originAttributes = ChromeUtils.originAttributesToSuffix(
-      this._dbg.principal.originAttributes);
-    swm.sendPushEvent(originAttributes, registration.scope);
-    return { type: "pushed" };
-  },
-
-  onClose() {
-    if (this._attached) {
-      this._detach();
-    }
-
-    this.conn.sendActorEvent(this.actorID, "close");
-  },
-
-  onError(filename, lineno, message) {
-    reportError("ERROR:" + filename + ":" + lineno + ":" + message + "\n");
-  },
-
-  _getServiceWorkerRegistrationInfo() {
-    return swm.getRegistrationByPrincipal(this._dbg.principal, this._dbg.url);
-  },
-
-  _getServiceWorkerInfo() {
-    const registration = this._getServiceWorkerRegistrationInfo();
-    return registration.getWorkerByID(this._dbg.serviceWorkerID);
-  },
-
-  _detach() {
-    if (this._threadActor !== null) {
-      this._transport.close();
-      this._transport = null;
-      this._threadActor = null;
-    }
-
-    // If the worker is already destroyed, nsIWorkerDebugger.type throws
-    // (_dbg.closed appears to be false when it throws)
-    let type;
-    try {
-      type = this._dbg.type;
-    } catch (e) {
-      // nothing
-    }
-
-    if (type == Ci.nsIWorkerDebugger.TYPE_SERVICE) {
-      const worker = this._getServiceWorkerInfo();
-      if (worker) {
-        worker.detachDebugger();
-      }
-    }
-
-    this._dbg.removeListener(this);
-    this._attached = false;
-  },
-});
-
-exports.WorkerTargetActor = WorkerTargetActor;

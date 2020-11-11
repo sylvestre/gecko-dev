@@ -16,15 +16,15 @@
 using namespace mozilla;
 using namespace dom;
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
-Comment::~Comment() {}
+Comment::~Comment() = default;
 
 already_AddRefed<CharacterData> Comment::CloneDataNode(
     mozilla::dom::NodeInfo* aNodeInfo, bool aCloneText) const {
   RefPtr<mozilla::dom::NodeInfo> ni = aNodeInfo;
-  RefPtr<Comment> it = new Comment(ni.forget());
+  auto* nim = ni->NodeInfoManager();
+  RefPtr<Comment> it = new (nim) Comment(ni.forget());
   if (aCloneText) {
     it->mText = mText;
   }
@@ -48,8 +48,10 @@ void Comment::List(FILE* out, int32_t aIndent) const {
 }
 #endif
 
-/* static */ already_AddRefed<Comment> Comment::Constructor(
-    const GlobalObject& aGlobal, const nsAString& aData, ErrorResult& aRv) {
+/* static */
+already_AddRefed<Comment> Comment::Constructor(const GlobalObject& aGlobal,
+                                               const nsAString& aData,
+                                               ErrorResult& aRv) {
   nsCOMPtr<nsPIDOMWindowInner> window =
       do_QueryInterface(aGlobal.GetAsSupports());
   if (!window || !window->GetDoc()) {
@@ -64,5 +66,4 @@ JSObject* Comment::WrapNode(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) {
   return Comment_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

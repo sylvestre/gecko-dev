@@ -27,8 +27,7 @@ static nsTArray<uint8_t> ToArray(const uint8_t* aData, uint32_t aDataSize) {
   return data;
 }
 
-namespace mozilla {
-namespace gmp {
+namespace mozilla::gmp {
 
 GMPRecordImpl::GMPRecordImpl(GMPStorageChild* aOwner, const nsCString& aName,
                              GMPRecordClient* aClient)
@@ -85,7 +84,7 @@ GMPErr GMPStorageChild::CreateRecord(const nsCString& aRecordName,
   }
 
   RefPtr<GMPRecordImpl> record(new GMPRecordImpl(this, aRecordName, aClient));
-  mRecords.Put(aRecordName, record);  // Addrefs
+  mRecords.Put(aRecordName, RefPtr{record});  // Addrefs
 
   // The GMPRecord holds a self reference until the GMP calls Close() on
   // it. This means the object is always valid (even if neutered) while
@@ -202,7 +201,7 @@ mozilla::ipc::IPCResult GMPStorageChild::RecvOpenComplete(
 
 mozilla::ipc::IPCResult GMPStorageChild::RecvReadComplete(
     const nsCString& aRecordName, const GMPErr& aStatus,
-    InfallibleTArray<uint8_t>&& aBytes) {
+    nsTArray<uint8_t>&& aBytes) {
   if (mShutdown) {
     return IPC_OK();
   }
@@ -238,8 +237,7 @@ mozilla::ipc::IPCResult GMPStorageChild::RecvShutdown() {
   return IPC_OK();
 }
 
-}  // namespace gmp
-}  // namespace mozilla
+}  // namespace mozilla::gmp
 
 // avoid redefined macro in unified build
 #undef ON_GMP_THREAD

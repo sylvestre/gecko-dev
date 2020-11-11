@@ -7,21 +7,19 @@
 #include "MediaDocument.h"
 #include "nsIPluginDocument.h"
 #include "nsGkAtoms.h"
-#include "nsIPresShell.h"
 #include "nsIObjectFrame.h"
 #include "nsNPAPIPluginInstance.h"
-#include "nsIDocumentInlines.h"
+#include "DocumentInlines.h"
 #include "nsIDocShellTreeItem.h"
 #include "nsNodeInfoManager.h"
 #include "nsContentCreatorFunctions.h"
 #include "nsContentPolicyUtils.h"
-#include "nsIPropertyBag2.h"
 #include "mozilla/dom/Element.h"
+#include "mozilla/PresShell.h"
 #include "nsObjectLoadingContent.h"
 #include "GeckoProfiler.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 class PluginDocument final : public MediaDocument, public nsIPluginDocument {
  public:
@@ -42,12 +40,11 @@ class PluginDocument final : public MediaDocument, public nsIPluginDocument {
 
   void SetScriptGlobalObject(
       nsIScriptGlobalObject* aScriptGlobalObject) override;
-  bool CanSavePresentation(nsIRequest* aNewRequest) override;
+  bool CanSavePresentation(nsIRequest* aNewRequest,
+                           uint16_t& aBFCacheStatus) override;
 
   const nsCString& GetType() const { return mMimeType; }
   Element* GetPluginContent() { return mPluginContent; }
-
-  void StartLayout() { MediaDocument::StartLayout(); }
 
   virtual void Destroy() override {
     if (mStreamListener) {
@@ -71,14 +68,14 @@ class PluginStreamListener : public MediaDocumentStreamListener {
  public:
   explicit PluginStreamListener(PluginDocument* aDoc)
       : MediaDocumentStreamListener(aDoc), mPluginDoc(aDoc) {}
-  NS_IMETHOD OnStartRequest(nsIRequest* request, nsISupports* ctxt) override;
+  NS_IMETHOD OnStartRequest(nsIRequest* request) override;
 
  private:
   RefPtr<PluginDocument> mPluginDoc;
 };
 
 NS_IMETHODIMP
-PluginStreamListener::OnStartRequest(nsIRequest* request, nsISupports* ctxt) {
+PluginStreamListener::OnStartRequest(nsIRequest* request) {
   AUTO_PROFILER_LABEL("PluginStreamListener::OnStartRequest", NETWORK);
 
   nsCOMPtr<nsIContent> embed = mPluginDoc->GetPluginContent();
@@ -104,10 +101,10 @@ PluginStreamListener::OnStartRequest(nsIRequest* request, nsISupports* ctxt) {
 
   // Note that because we're now hooked up to a plugin listener, this will
   // likely spawn a plugin, which may re-enter.
-  return MediaDocumentStreamListener::OnStartRequest(request, ctxt);
+  return MediaDocumentStreamListener::OnStartRequest(request);
 }
 
-PluginDocument::PluginDocument() {}
+PluginDocument::PluginDocument() = default;
 
 PluginDocument::~PluginDocument() = default;
 
@@ -138,7 +135,8 @@ void PluginDocument::SetScriptGlobalObject(
   }
 }
 
-bool PluginDocument::CanSavePresentation(nsIRequest* aNewRequest) {
+bool PluginDocument::CanSavePresentation(nsIRequest* aNewRequest,
+                                         uint16_t& aBFCacheStatus) {
   // Full-page plugins cannot be cached, currently, because we don't have
   // the stream listener data to feed to the plugin instance.
   return false;
@@ -155,7 +153,7 @@ nsresult PluginDocument::StartDocumentLoad(const char* aCommand,
   nsCOMPtr<nsIDocShellTreeItem> dsti(do_QueryInterface(aContainer));
   if (dsti) {
     bool isMsgPane = false;
-    dsti->NameEquals(NS_LITERAL_STRING("messagepane"), &isMsgPane);
+    dsti->NameEquals(u"messagepane"_ns, &isMsgPane);
     if (isMsgPane) {
       return NS_ERROR_FAILURE;
     }
@@ -182,7 +180,7 @@ nsresult PluginDocument::StartDocumentLoad(const char* aCommand,
 }
 
 nsresult PluginDocument::CreateSyntheticPluginDocument() {
-  NS_ASSERTION(!GetShell() || !GetShell()->DidInitialize(),
+  NS_ASSERTION(!GetPresShell() || !GetPresShell()->DidInitialize(),
                "Creating synthetic plugin document content too late");
 
   // make our generic document
@@ -190,14 +188,14 @@ nsresult PluginDocument::CreateSyntheticPluginDocument() {
   NS_ENSURE_SUCCESS(rv, rv);
   // then attach our plugin
 
-  Element* body = GetBodyElement();
+  RefPtr<Element> body = GetBodyElement();
   if (!body) {
     NS_WARNING("no body on plugin document!");
     return NS_ERROR_FAILURE;
   }
 
   // remove margins from body
-  NS_NAMED_LITERAL_STRING(zero, "0");
+  constexpr auto zero = u"0"_ns;
   body->SetAttr(kNameSpaceID_None, nsGkAtoms::marginwidth, zero, false);
   body->SetAttr(kNameSpaceID_None, nsGkAtoms::marginheight, zero, false);
 
@@ -210,11 +208,11 @@ nsresult PluginDocument::CreateSyntheticPluginDocument() {
   NS_ENSURE_SUCCESS(rv, rv);
 
   // make it a named element
-  mPluginContent->SetAttr(kNameSpaceID_None, nsGkAtoms::name,
-                          NS_LITERAL_STRING("plugin"), false);
+  mPluginContent->SetAttr(kNameSpaceID_None, nsGkAtoms::name, u"plugin"_ns,
+                          false);
 
   // fill viewport and auto-resize
-  NS_NAMED_LITERAL_STRING(percent100, "100%");
+  constexpr auto percent100 = u"100%"_ns;
   mPluginContent->SetAttr(kNameSpaceID_None, nsGkAtoms::width, percent100,
                           false);
   mPluginContent->SetAttr(kNameSpaceID_None, nsGkAtoms::height, percent100,
@@ -259,10 +257,9 @@ PluginDocument::Print() {
   return NS_OK;
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom
 
-nsresult NS_NewPluginDocument(nsIDocument** aResult) {
+nsresult NS_NewPluginDocument(mozilla::dom::Document** aResult) {
   auto* doc = new mozilla::dom::PluginDocument();
 
   NS_ADDREF(doc);

@@ -2,19 +2,20 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-extern crate app_units;
 extern crate euclid;
 extern crate gleam;
 extern crate glutin;
 extern crate webrender;
 extern crate winit;
 
-use app_units::Au;
 use gleam::gl;
-use glutin::GlContext;
+use glutin::NotCurrent;
 use std::fs::File;
 use std::io::Read;
 use webrender::api::*;
+use webrender::api::units::*;
+use webrender::render_api::*;
+use webrender::DebugFlags;
 use winit::dpi::LogicalSize;
 
 struct Notifier {
@@ -28,7 +29,7 @@ impl Notifier {
 }
 
 impl RenderNotifier for Notifier {
-    fn clone(&self) -> Box<RenderNotifier> {
+    fn clone(&self) -> Box<dyn RenderNotifier> {
         Box::new(Notifier {
             events_proxy: self.events_proxy.clone(),
         })
@@ -50,7 +51,7 @@ impl RenderNotifier for Notifier {
 
 struct Window {
     events_loop: winit::EventsLoop, //TODO: share events loop?
-    window: glutin::GlWindow,
+    context: Option<glutin::WindowedContext<NotCurrent>>,
     renderer: webrender::Renderer,
     name: &'static str,
     pipeline_id: PipelineId,
@@ -63,33 +64,31 @@ struct Window {
 impl Window {
     fn new(name: &'static str, clear_color: ColorF) -> Self {
         let events_loop = winit::EventsLoop::new();
-        let context_builder = glutin::ContextBuilder::new()
-            .with_gl(glutin::GlRequest::GlThenGles {
-                opengl_version: (3, 2),
-                opengles_version: (3, 0),
-            });
         let window_builder = winit::WindowBuilder::new()
             .with_title(name)
             .with_multitouch()
             .with_dimensions(LogicalSize::new(800., 600.));
-        let window = glutin::GlWindow::new(window_builder, context_builder, &events_loop)
+        let context = glutin::ContextBuilder::new()
+            .with_gl(glutin::GlRequest::GlThenGles {
+                opengl_version: (3, 2),
+                opengles_version: (3, 0),
+            })
+            .build_windowed(window_builder, &events_loop)
             .unwrap();
 
-        unsafe {
-            window.make_current().ok();
-        }
+        let context = unsafe { context.make_current().unwrap() };
 
-        let gl = match window.get_api() {
+        let gl = match context.get_api() {
             glutin::Api::OpenGl => unsafe {
-                gl::GlFns::load_with(|symbol| window.get_proc_address(symbol) as *const _)
+                gl::GlFns::load_with(|symbol| context.get_proc_address(symbol) as *const _)
             },
             glutin::Api::OpenGlEs => unsafe {
-                gl::GlesFns::load_with(|symbol| window.get_proc_address(symbol) as *const _)
+                gl::GlesFns::load_with(|symbol| context.get_proc_address(symbol) as *const _)
             },
             glutin::Api::WebGl => unimplemented!(),
         };
 
-        let device_pixel_ratio = window.get_hidpi_factor() as f32;
+        let device_pixel_ratio = context.window().get_hidpi_factor() as f32;
 
         let opts = webrender::RendererOptions {
             device_pixel_ratio,
@@ -97,8 +96,9 @@ impl Window {
             ..webrender::RendererOptions::default()
         };
 
-        let framebuffer_size = {
-            let size = window
+        let device_size = {
+            let size = context
+                .window()
                 .get_inner_size()
                 .unwrap()
                 .to_physical(device_pixel_ratio as f64);
@@ -106,8 +106,8 @@ impl Window {
         };
         let notifier = Box::new(Notifier::new(events_loop.create_proxy()));
         let (renderer, sender) = webrender::Renderer::new(gl.clone(), notifier, opts, None).unwrap();
-        let api = sender.create_api();
-        let document_id = api.add_document(framebuffer_size, 0);
+        let mut api = sender.create_api();
+        let document_id = api.add_document(device_size);
 
         let epoch = Epoch(0);
         let pipeline_id = PipelineId(0, 0);
@@ -118,13 +118,13 @@ impl Window {
         txn.add_raw_font(font_key, font_bytes, 0);
 
         let font_instance_key = api.generate_font_instance_key();
-        txn.add_font_instance(font_instance_key, font_key, Au::from_px(32), None, None, Vec::new());
+        txn.add_font_instance(font_instance_key, font_key, 32.0, None, None, Vec::new());
 
         api.send_transaction(document_id, txn);
 
         Window {
             events_loop,
-            window,
+            context: Some(unsafe { context.make_not_current().unwrap() }),
             renderer,
             name,
             epoch,
@@ -136,12 +136,10 @@ impl Window {
     }
 
     fn tick(&mut self) -> bool {
-        unsafe {
-            self.window.make_current().ok();
-        }
         let mut do_exit = false;
         let my_name = &self.name;
         let renderer = &mut self.renderer;
+        let api = &mut self.api;
 
         self.events_loop.poll_events(|global_event| match global_event {
             winit::Event::WindowEvent { event, .. } => match event {
@@ -163,8 +161,8 @@ impl Window {
                     },
                     ..
                 } => {
-                    println!("toggle flags {}", my_name);
-                    renderer.toggle_debug_flags(webrender::DebugFlags::PROFILER_DBG);
+                    println!("set flags {}", my_name);
+                    api.send_debug_cmd(DebugCommand::SetFlags(DebugFlags::PROFILER_DBG))
                 }
                 _ => {}
             }
@@ -174,34 +172,41 @@ impl Window {
             return true
         }
 
-        let device_pixel_ratio = self.window.get_hidpi_factor() as f32;
-        let framebuffer_size = {
-            let size = self.window
+        let context = unsafe { self.context.take().unwrap().make_current().unwrap() };
+        let device_pixel_ratio = context.window().get_hidpi_factor() as f32;
+        let device_size = {
+            let size = context
+                .window()
                 .get_inner_size()
                 .unwrap()
                 .to_physical(device_pixel_ratio as f64);
             DeviceIntSize::new(size.width as i32, size.height as i32)
         };
-        let layout_size = framebuffer_size.to_f32() / euclid::TypedScale::new(device_pixel_ratio);
+        let layout_size = device_size.to_f32() / euclid::Scale::new(device_pixel_ratio);
         let mut txn = Transaction::new();
-        let mut builder = DisplayListBuilder::new(self.pipeline_id, layout_size);
+        let mut builder = DisplayListBuilder::new(self.pipeline_id);
+        let space_and_clip = SpaceAndClipInfo::root_scroll(self.pipeline_id);
 
-        let bounds = LayoutRect::new(LayoutPoint::zero(), builder.content_size());
-        let info = LayoutPrimitiveInfo::new(bounds);
-        builder.push_stacking_context(
-            &info,
-            None,
-            TransformStyle::Flat,
-            MixBlendMode::Normal,
-            &[],
-            RasterSpace::Screen,
+        let bounds = LayoutRect::new(LayoutPoint::zero(), layout_size);
+        builder.push_simple_stacking_context(
+            bounds.origin,
+            space_and_clip.spatial_id,
+            PrimitiveFlags::IS_BACKFACE_VISIBLE,
         );
 
-        let info = LayoutPrimitiveInfo::new(LayoutRect::new(
-            LayoutPoint::new(100.0, 100.0),
-            LayoutSize::new(100.0, 200.0)
-        ));
-        builder.push_rect(&info, ColorF::new(0.0, 1.0, 0.0, 1.0));
+        builder.push_rect(
+            &CommonItemProperties::new(
+                LayoutRect::new(
+                    LayoutPoint::new(100.0, 200.0),
+                    LayoutSize::new(100.0, 200.0),
+                ),
+                space_and_clip,
+            ),
+            LayoutRect::new(
+                LayoutPoint::new(100.0, 200.0),
+                LayoutSize::new(100.0, 200.0),
+            ),
+            ColorF::new(0.0, 1.0, 0.0, 1.0));
 
         let text_bounds = LayoutRect::new(
             LayoutPoint::new(100.0, 50.0),
@@ -258,9 +263,12 @@ impl Window {
             },
         ];
 
-        let info = LayoutPrimitiveInfo::new(text_bounds);
         builder.push_text(
-            &info,
+            &CommonItemProperties::new(
+                text_bounds,
+                space_and_clip,
+            ),
+            text_bounds,
             &glyphs,
             self.font_instance_key,
             ColorF::new(1.0, 1.0, 0.0, 1.0),
@@ -278,11 +286,13 @@ impl Window {
         );
         txn.set_root_pipeline(self.pipeline_id);
         txn.generate_frame();
-        self.api.send_transaction(self.document_id, txn);
+        api.send_transaction(self.document_id, txn);
 
         renderer.update();
-        renderer.render(framebuffer_size).unwrap();
-        self.window.swap_buffers().ok();
+        renderer.render(device_size, 0).unwrap();
+        context.swap_buffers().ok();
+
+        self.context = Some(unsafe { context.make_not_current().unwrap() });
 
         false
     }

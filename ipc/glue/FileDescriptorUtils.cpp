@@ -12,27 +12,22 @@
 #include "nsDebug.h"
 #include "nsNetCID.h"
 #include "nsServiceManagerUtils.h"
-#include "nsThreadUtils.h"
 #include "prio.h"
 #include "private/pprio.h"
 
 #include <errno.h>
 #ifdef XP_WIN
-#include <io.h>
+#  include <io.h>
 #else
-#include <unistd.h>
+#  include <unistd.h>
 #endif
 
 using mozilla::ipc::CloseFileRunnable;
 
-#ifdef DEBUG
-
 CloseFileRunnable::CloseFileRunnable(const FileDescriptor& aFileDescriptor)
-    : mFileDescriptor(aFileDescriptor) {
+    : Runnable("CloseFileRunnable"), mFileDescriptor(aFileDescriptor) {
   MOZ_ASSERT(aFileDescriptor.IsValid());
 }
-
-#endif  // DEBUG
 
 CloseFileRunnable::~CloseFileRunnable() {
   if (mFileDescriptor.IsValid()) {
@@ -42,7 +37,7 @@ CloseFileRunnable::~CloseFileRunnable() {
   }
 }
 
-NS_IMPL_ISUPPORTS(CloseFileRunnable, nsIRunnable)
+NS_IMPL_ISUPPORTS_INHERITED0(CloseFileRunnable, Runnable)
 
 void CloseFileRunnable::Dispatch() {
   nsCOMPtr<nsIEventTarget> eventTarget =

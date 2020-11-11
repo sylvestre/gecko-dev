@@ -24,18 +24,17 @@
 
 #include <stdint.h>
 
-#include "nsDebug.h"
+#include <utility>
 
+#include "AnimationParams.h"
 #include "mozilla/Likely.h"
 #include "mozilla/Maybe.h"
-#include "mozilla/Move.h"
 #include "mozilla/Tuple.h"
 #include "mozilla/UniquePtr.h"
 #include "mozilla/Unused.h"
 #include "mozilla/Variant.h"
 #include "mozilla/gfx/2D.h"
-
-#include "AnimationParams.h"
+#include "nsDebug.h"
 
 namespace mozilla {
 namespace image {
@@ -124,6 +123,19 @@ class SurfaceFilter {
   uint8_t* AdvanceRow() {
     mCol = 0;
     mRowPointer = DoAdvanceRow();
+    return mRowPointer;
+  }
+
+  /**
+   * Called by WriteBuffer() to advance this filter to the next row, if the
+   * supplied row is a full row.
+   *
+   * @return a pointer to the buffer for the next row, or nullptr to indicate
+   *         that we've finished the entire surface.
+   */
+  uint8_t* AdvanceRow(const uint8_t* aInputRow) {
+    mCol = 0;
+    mRowPointer = DoAdvanceRowFromBuffer(aInputRow);
     return mRowPointer;
   }
 
@@ -269,7 +281,22 @@ class SurfaceFilter {
    */
   template <typename PixelType>
   WriteState WriteBuffer(const PixelType* aSource) {
-    return WriteBuffer(aSource, 0, mInputSize.width);
+    MOZ_ASSERT(mPixelSize == 1 || mPixelSize == 4);
+    MOZ_ASSERT_IF(mPixelSize == 1, sizeof(PixelType) == sizeof(uint8_t));
+    MOZ_ASSERT_IF(mPixelSize == 4, sizeof(PixelType) == sizeof(uint32_t));
+
+    if (IsSurfaceFinished()) {
+      return WriteState::FINISHED;  // Already done.
+    }
+
+    if (MOZ_UNLIKELY(!aSource)) {
+      NS_WARNING("Passed a null pointer to WriteBuffer");
+      return WriteState::FAILURE;
+    }
+
+    AdvanceRow(reinterpret_cast<const uint8_t*>(aSource));
+    return IsSurfaceFinished() ? WriteState::FINISHED
+                               : WriteState::NEED_MORE_DATA;
   }
 
   /**
@@ -424,9 +451,6 @@ class SurfaceFilter {
   // Methods Subclasses Should Override
   //////////////////////////////////////////////////////////////////////////////
 
-  /// @return true if this SurfaceFilter can be used with paletted surfaces.
-  virtual bool IsValidPalettedPipe() const { return false; }
-
   /**
    * @return a SurfaceInvalidRect representing the region of the surface that
    *         has been written to since the last time TakeInvalidRect() was
@@ -442,6 +466,16 @@ class SurfaceFilter {
    * written to on every pass.
    */
   virtual uint8_t* DoResetToFirstRow() = 0;
+
+  /**
+   * Called by AdvanceRow() to actually advance this filter to the next row.
+   *
+   * @param aInputRow The input row supplied by the decoder.
+   *
+   * @return a pointer to the buffer for the next row, or nullptr to indicate
+   *         that we've finished the entire surface.
+   */
+  virtual uint8_t* DoAdvanceRowFromBuffer(const uint8_t* aInputRow) = 0;
 
   /**
    * Called by AdvanceRow() to actually advance this filter to the next row.
@@ -471,6 +505,20 @@ class SurfaceFilter {
     mPixelSize = aPixelSize;
 
     ResetToFirstRow();
+  }
+
+  /**
+   * Called by subclasses' DoAdvanceRowFromBuffer() methods to copy a decoder
+   * supplied row buffer into its internal row pointer. Ideally filters at the
+   * top of the filter pipeline are able to consume the decoder row buffer
+   * directly without the extra copy prior to performing its transformation.
+   *
+   * @param aInputRow The input row supplied by the decoder.
+   */
+  void CopyInputRow(const uint8_t* aInputRow) {
+    MOZ_ASSERT(aInputRow);
+    MOZ_ASSERT(mCol == 0);
+    memcpy(mRowPointer, aInputRow, mPixelSize * mInputSize.width);
   }
 
  private:
@@ -722,6 +770,7 @@ class AbstractSurfaceSink : public SurfaceFilter {
 
  protected:
   uint8_t* DoResetToFirstRow() final;
+  uint8_t* DoAdvanceRowFromBuffer(const uint8_t* aInputRow) final;
   uint8_t* DoAdvanceRow() final;
   virtual uint8_t* GetRowPointer() const = 0;
 
@@ -747,9 +796,8 @@ struct SurfaceConfig {
 };
 
 /**
- * A sink for normal (i.e., non-paletted) surfaces. It handles the allocation of
- * the surface and protects against buffer overflow. This sink should be used
- * for all non-animated images and for the first frame of animated images.
+ * A sink for surfaces. It handles the allocation of the surface and protects
+ * against buffer overflow. This sink should be used for images.
  *
  * Sinks must always be at the end of the SurfaceFilter chain.
  */
@@ -759,47 +807,6 @@ class SurfaceSink final : public AbstractSurfaceSink {
 
  protected:
   uint8_t* GetRowPointer() const override;
-};
-
-class PalettedSurfaceSink;
-
-struct PalettedSurfaceConfig {
-  using Filter = PalettedSurfaceSink;
-  Decoder* mDecoder;           /// Which Decoder to use to allocate the surface.
-  gfx::IntSize mOutputSize;    /// The logical size of the surface.
-  gfx::IntRect mFrameRect;     /// The surface subrect which contains data.
-  gfx::SurfaceFormat mFormat;  /// The surface format (BGRA or BGRX).
-  uint8_t mPaletteDepth;       /// The palette depth of this surface.
-  bool mFlipVertically;        /// If true, write the rows from bottom to top.
-  Maybe<AnimationParams> mAnimParams;  /// Given for animated images.
-};
-
-/**
- * A sink for paletted surfaces. It handles the allocation of the surface and
- * protects against buffer overflow. This sink can be used for frames of
- * animated images except the first.
- *
- * Sinks must always be at the end of the SurfaceFilter chain.
- *
- * XXX(seth): We'll remove all support for paletted surfaces in bug 1247520,
- * which means we can remove PalettedSurfaceSink entirely.
- */
-class PalettedSurfaceSink final : public AbstractSurfaceSink {
- public:
-  bool IsValidPalettedPipe() const override { return true; }
-
-  nsresult Configure(const PalettedSurfaceConfig& aConfig);
-
- protected:
-  uint8_t* GetRowPointer() const override;
-
- private:
-  /**
-   * The surface subrect which contains data. Note that the surface size we
-   * actually allocate is the size of the frame rect, not the logical size of
-   * the surface.
-   */
-  gfx::IntRect mFrameRect;
 };
 
 }  // namespace image

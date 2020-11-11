@@ -15,22 +15,22 @@
 #include "XPCJSMemoryReporter.h"
 #include "WrapperFactory.h"
 #include "mozJSComponentLoader.h"
-#include "nsAutoPtr.h"
 #include "nsNetUtil.h"
 #include "nsThreadUtils.h"
 
-#include "nsIMemoryInfoDumper.h"
-#include "nsIMemoryReporter.h"
 #include "nsIObserverService.h"
 #include "nsIDebug2.h"
-#include "nsIDocShell.h"
-#include "nsIRunnable.h"
 #include "nsPIDOMWindow.h"
 #include "nsPrintfCString.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/Telemetry.h"
 #include "mozilla/Services.h"
-#include "mozilla/StaticPrefs.h"
+#ifdef FUZZING
+#  include "mozilla/StaticPrefs_fuzzing.h"
+#endif
+#include "mozilla/StaticPrefs_dom.h"
+#include "mozilla/StaticPrefs_browser.h"
+#include "mozilla/StaticPrefs_javascript.h"
 #include "mozilla/dom/ScriptSettings.h"
 
 #include "nsContentUtils.h"
@@ -38,13 +38,15 @@
 #include "nsCycleCollectionNoteRootCallback.h"
 #include "nsCycleCollector.h"
 #include "jsapi.h"
+#include "js/ContextOptions.h"
 #include "js/MemoryMetrics.h"
+#include "js/OffThreadScriptCompilation.h"
 #include "mozilla/dom/BindingUtils.h"
+#include "mozilla/dom/ContentChild.h"
 #include "mozilla/dom/Element.h"
 #include "mozilla/dom/ScriptLoader.h"
 #include "mozilla/dom/WindowBinding.h"
 #include "mozilla/extensions/WebExtensionPolicy.h"
-#include "mozilla/jsipc/CrossProcessObjectWrappers.h"
 #include "mozilla/Atomics.h"
 #include "mozilla/Attributes.h"
 #include "mozilla/ProcessHangMonitor.h"
@@ -58,22 +60,24 @@
 #include "nsAboutProtocolUtils.h"
 
 #include "GeckoProfiler.h"
-#include "nsIInputStream.h"
 #include "nsIXULRuntime.h"
 #include "nsJSPrincipals.h"
 #include "ExpandedPrincipal.h"
+#ifdef MOZ_GECKO_PROFILER
+#  include "ProfilerMarkerPayload.h"
+#endif
 
 #if defined(XP_LINUX) && !defined(ANDROID)
 // For getrlimit and min/max.
-#include <algorithm>
-#include <sys/resource.h>
+#  include <algorithm>
+#  include <sys/resource.h>
 #endif
 
 #ifdef XP_WIN
-#include <windows.h>
+// For min.
+#  include <algorithm>
+#  include <windows.h>
 #endif
-
-static MOZ_THREAD_LOCAL(XPCJSContext*) gTlsContext;
 
 using namespace mozilla;
 using namespace xpc;
@@ -83,7 +87,7 @@ using mozilla::dom::AutoEntryScript;
 // The watchdog thread loop is pretty trivial, and should not require much stack
 // space to do its job. So only give it 32KiB or the platform minimum.
 #if !defined(PTHREAD_STACK_MIN)
-#define PTHREAD_STACK_MIN 0
+#  define PTHREAD_STACK_MIN 0
 #endif
 static constexpr size_t kWatchdogStackSize =
     PTHREAD_STACK_MIN < 32 * 1024 ? 32 * 1024 : PTHREAD_STACK_MIN;
@@ -92,12 +96,10 @@ static void WatchdogMain(void* arg);
 class Watchdog;
 class WatchdogManager;
 class MOZ_RAII AutoLockWatchdog final {
-  MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
   Watchdog* const mWatchdog;
 
  public:
-  explicit AutoLockWatchdog(
-      Watchdog* aWatchdog MOZ_GUARD_OBJECT_NOTIFIER_PARAM);
+  explicit AutoLockWatchdog(Watchdog* aWatchdog);
   ~AutoLockWatchdog();
 };
 
@@ -140,6 +142,16 @@ class Watchdog {
     mWakeup = PR_NewCondVar(mLock);
     if (!mWakeup) {
       MOZ_CRASH("PR_NewCondVar failed.");
+    }
+
+    {
+      // Make sure the debug service is instantiated before we create the
+      // watchdog thread, since we intentionally try to keep the thread's stack
+      // segment as small as possible. It isn't always large enough to
+      // instantiate a new service, and even when it is, we don't want fault in
+      // extra pages if we can avoid it.
+      nsCOMPtr<nsIDebug2> dbg = do_GetService("@mozilla.org/xpcom/debug;1");
+      Unused << dbg;
     }
 
     {
@@ -261,8 +273,8 @@ class WatchdogManager {
   }
 
  private:
-  static void PrefsChanged(const char* aPref, WatchdogManager* aSelf) {
-    aSelf->RefreshWatchdog();
+  static void PrefsChanged(const char* aPref, void* aSelf) {
+    static_cast<WatchdogManager*>(aSelf)->RefreshWatchdog();
   }
 
  public:
@@ -272,7 +284,7 @@ class WatchdogManager {
 
   void RegisterContext(XPCJSContext* aContext) {
     MOZ_ASSERT(NS_IsMainThread());
-    AutoLockWatchdog lock(mWatchdog);
+    AutoLockWatchdog lock(mWatchdog.get());
 
     if (aContext->mActive == XPCJSContext::CONTEXT_ACTIVE) {
       mActiveContexts.insertBack(aContext);
@@ -286,7 +298,7 @@ class WatchdogManager {
 
   void UnregisterContext(XPCJSContext* aContext) {
     MOZ_ASSERT(NS_IsMainThread());
-    AutoLockWatchdog lock(mWatchdog);
+    AutoLockWatchdog lock(mWatchdog.get());
 
     // aContext must be in one of our two lists, simply remove it.
     aContext->LinkedListElement<XPCJSContext>::remove();
@@ -306,7 +318,7 @@ class WatchdogManager {
   void RecordContextActivity(XPCJSContext* aContext, bool active) {
     // The watchdog reads this state, so acquire the lock before writing it.
     MOZ_ASSERT(NS_IsMainThread());
-    AutoLockWatchdog lock(mWatchdog);
+    AutoLockWatchdog lock(mWatchdog.get());
 
     // Write state.
     aContext->mLastStateChange = PR_Now();
@@ -356,7 +368,7 @@ class WatchdogManager {
     return mTimestamps[aCategory];
   }
 
-  Watchdog* GetWatchdog() { return mWatchdog; }
+  Watchdog* GetWatchdog() { return mWatchdog.get(); }
 
   void RefreshWatchdog() {
     bool wantWatchdog = Preferences::GetBool("dom.use_watchdog", true);
@@ -369,18 +381,15 @@ class WatchdogManager {
     }
 
     if (mWatchdog) {
-      int32_t contentTime =
-          Preferences::GetInt(PREF_MAX_SCRIPT_RUN_TIME_CONTENT, 10);
+      int32_t contentTime = StaticPrefs::dom_max_script_run_time();
       if (contentTime <= 0) {
         contentTime = INT32_MAX;
       }
-      int32_t chromeTime =
-          Preferences::GetInt(PREF_MAX_SCRIPT_RUN_TIME_CHROME, 20);
+      int32_t chromeTime = StaticPrefs::dom_max_chrome_script_run_time();
       if (chromeTime <= 0) {
         chromeTime = INT32_MAX;
       }
-      int32_t extTime =
-          Preferences::GetInt(PREF_MAX_SCRIPT_RUN_TIME_EXT_CONTENT, 5);
+      int32_t extTime = StaticPrefs::dom_max_ext_content_script_run_time();
       if (extTime <= 0) {
         extTime = INT32_MAX;
       }
@@ -391,7 +400,7 @@ class WatchdogManager {
 
   void StartWatchdog() {
     MOZ_ASSERT(!mWatchdog);
-    mWatchdog = new Watchdog(this);
+    mWatchdog = mozilla::MakeUnique<Watchdog>(this);
     mWatchdog->Init();
   }
 
@@ -433,16 +442,13 @@ class WatchdogManager {
 
   LinkedList<XPCJSContext> mActiveContexts;
   LinkedList<XPCJSContext> mInactiveContexts;
-  nsAutoPtr<Watchdog> mWatchdog;
+  mozilla::UniquePtr<Watchdog> mWatchdog;
 
   // We store ContextStateChange on the contexts themselves.
   PRTime mTimestamps[kWatchdogTimestampCategoryCount - 1];
 };
 
-AutoLockWatchdog::AutoLockWatchdog(
-    Watchdog* aWatchdog MOZ_GUARD_OBJECT_NOTIFIER_PARAM_IN_IMPL)
-    : mWatchdog(aWatchdog) {
-  MOZ_GUARD_OBJECT_NOTIFIER_INIT;
+AutoLockWatchdog::AutoLockWatchdog(Watchdog* aWatchdog) : mWatchdog(aWatchdog) {
   if (mWatchdog) {
     PR_Lock(mWatchdog->GetLock());
   }
@@ -550,12 +556,6 @@ bool XPCJSContext::RecordScriptActivity(bool aActive) {
     return oldValue;
   }
 
-  // Since the slow script dialog never activates if we are recording or
-  // replaying, don't record/replay JS activity notifications.
-  if (recordreplay::IsRecordingOrReplaying()) {
-    return oldValue;
-  }
-
   if (!aActive) {
     ProcessHangMonitor::ClearHang();
   }
@@ -572,18 +572,30 @@ AutoScriptActivity::~AutoScriptActivity() {
   MOZ_ALWAYS_TRUE(mActive == XPCJSContext::RecordScriptActivity(mOldValue));
 }
 
+static const double sChromeSlowScriptTelemetryCutoff(10.0);
+static bool sTelemetryEventEnabled(false);
+
 // static
 bool XPCJSContext::InterruptCallback(JSContext* cx) {
-  // The slow script dialog never activates if we are recording or replaying,
-  // since the precise timing of the dialog cannot be replayed.
-  if (recordreplay::IsRecordingOrReplaying()) {
-    return true;
-  }
-
   XPCJSContext* self = XPCJSContext::Get();
 
   // Now is a good time to turn on profiling if it's pending.
   PROFILER_JS_INTERRUPT_CALLBACK();
+
+#ifdef MOZ_GECKO_PROFILER
+  nsDependentCString filename("unknown file");
+  JS::AutoFilename scriptFilename;
+  // Computing the line number can be very expensive (see bug 1330231 for
+  // example), so don't request it here.
+  if (JS::DescribeScriptedCaller(cx, &scriptFilename)) {
+    if (const char* file = scriptFilename.get()) {
+      filename.Assign(file, strlen(file));
+    }
+    PROFILER_ADD_MARKER_WITH_PAYLOAD("JS::InterruptCallback", JS,
+                                     TextMarkerPayload,
+                                     (filename, TimeStamp::Now()));
+  }
+#endif
 
   // Normally we record mSlowScriptCheckpoint when we start to process an
   // event. However, we can run JS outside of event handlers. This code takes
@@ -593,6 +605,7 @@ bool XPCJSContext::InterruptCallback(JSContext* cx) {
     self->mSlowScriptSecondHalf = false;
     self->mSlowScriptActualWait = mozilla::TimeDuration();
     self->mTimeoutAccumulated = false;
+    self->mExecutedChromeScript = false;
     return true;
   }
 
@@ -605,39 +618,83 @@ bool XPCJSContext::InterruptCallback(JSContext* cx) {
   // This is at least the second interrupt callback we've received since
   // returning to the event loop. See how long it's been, and what the limit
   // is.
-  TimeDuration duration = TimeStamp::NowLoRes() - self->mSlowScriptCheckpoint;
+  TimeStamp now = TimeStamp::NowLoRes();
+  TimeDuration duration = now - self->mSlowScriptCheckpoint;
   int32_t limit;
 
   nsString addonId;
   const char* prefName;
-
+  bool runningContentJS = false;
   auto principal = BasePrincipal::Cast(nsContentUtils::SubjectPrincipal(cx));
   bool chrome = principal->Is<SystemPrincipal>();
   if (chrome) {
     prefName = PREF_MAX_SCRIPT_RUN_TIME_CHROME;
-    limit = Preferences::GetInt(prefName, 20);
+    limit = StaticPrefs::dom_max_chrome_script_run_time();
+    self->mExecutedChromeScript = true;
   } else if (auto policy = principal->ContentScriptAddonPolicy()) {
     policy->GetId(addonId);
     prefName = PREF_MAX_SCRIPT_RUN_TIME_EXT_CONTENT;
-    limit = Preferences::GetInt(prefName, 5);
+    limit = StaticPrefs::dom_max_ext_content_script_run_time();
   } else {
     prefName = PREF_MAX_SCRIPT_RUN_TIME_CONTENT;
-    limit = Preferences::GetInt(prefName, 10);
+    limit = StaticPrefs::dom_max_script_run_time();
+    runningContentJS = true;
   }
 
+  // When the parent process slow script dialog is disabled, we still want
+  // to be able to track things for telemetry, so set `mSlowScriptSecondHalf`
+  // to true in that case:
+  if (limit == 0 && chrome &&
+      duration.ToSeconds() > sChromeSlowScriptTelemetryCutoff / 2.0) {
+    self->mSlowScriptSecondHalf = true;
+    return true;
+  }
   // If there's no limit, or we're within the limit, let it go.
   if (limit == 0 || duration.ToSeconds() < limit / 2.0) {
     return true;
   }
 
+  self->mSlowScriptCheckpoint = now;
   self->mSlowScriptActualWait += duration;
 
   // In order to guard against time changes or laptops going to sleep, we
   // don't trigger the slow script warning until (limit/2) seconds have
   // elapsed twice.
   if (!self->mSlowScriptSecondHalf) {
-    self->mSlowScriptCheckpoint = TimeStamp::NowLoRes();
     self->mSlowScriptSecondHalf = true;
+    return true;
+  }
+
+  int32_t limitWithoutImportantUserInput =
+      StaticPrefs::dom_max_script_run_time_without_important_user_input();
+  if (runningContentJS && XRE_IsContentProcess() && limit &&
+      limitWithoutImportantUserInput > limit &&
+      limitWithoutImportantUserInput >
+          self->mSlowScriptActualWait.ToSeconds()) {
+    // Call possibly slow PeekMessages after the other common early returns in
+    // this method.
+    ContentChild* contentChild = ContentChild::GetSingleton();
+    mozilla::ipc::MessageChannel* channel =
+        contentChild ? contentChild->GetIPCChannel() : nullptr;
+    if (channel) {
+      bool foundInputEvent = false;
+      channel->PeekMessages(
+          [&foundInputEvent](const IPC::Message& aMsg) -> bool {
+            if (nsContentUtils::IsMessageCriticalInputEvent(aMsg)) {
+              foundInputEvent = true;
+              return false;
+            }
+            return true;
+          });
+      if (!foundInputEvent) {
+        return true;
+      }
+    }
+  }
+
+  // We use a fixed value of 2 from browser_parent_process_hang_telemetry.js
+  // to check if the telemetry events work. Do not interrupt it with a dialog.
+  if (chrome && limit == 2 && xpc::IsInAutomation()) {
     return true;
   }
 
@@ -658,7 +715,8 @@ bool XPCJSContext::InterruptCallback(JSContext* cx) {
       return false;
     }
     if (proto && xpc::IsSandboxPrototypeProxy(proto) &&
-        (proto = js::CheckedUnwrap(proto, /* stopAtWindowProxy = */ false))) {
+        (proto = js::CheckedUnwrapDynamic(proto, cx,
+                                          /* stopAtWindowProxy = */ false))) {
       win = WindowGlobalOrNull(proto);
     }
   }
@@ -685,8 +743,8 @@ bool XPCJSContext::InterruptCallback(JSContext* cx) {
   }
 
   // Show the prompt to the user, and kill if requested.
-  nsGlobalWindowInner::SlowScriptResponse response =
-      win->ShowSlowScriptDialog(addonId);
+  nsGlobalWindowInner::SlowScriptResponse response = win->ShowSlowScriptDialog(
+      cx, addonId, self->mSlowScriptActualWait.ToMilliseconds());
   if (response == nsGlobalWindowInner::KillSlowScript) {
     if (Preferences::GetBool("dom.global_stop_script", true)) {
       xpc::Scriptability::Get(global).Block();
@@ -720,7 +778,7 @@ bool XPCJSContext::InterruptCallback(JSContext* cx) {
   }
 
   // The user chose to continue the script. Reset the timer, and disable this
-  // machinery with a pref of the user opted out of future slow-script dialogs.
+  // machinery with a pref if the user opted out of future slow-script dialogs.
   if (response != nsGlobalWindowInner::ContinueSlowScriptAndKeepNotifying) {
     self->mSlowScriptCheckpoint = TimeStamp::NowLoRes();
   }
@@ -738,52 +796,58 @@ static mozilla::Atomic<bool> sDiscardSystemSource(false);
 
 bool xpc::ShouldDiscardSystemSource() { return sDiscardSystemSource; }
 
-#ifdef DEBUG
-static mozilla::Atomic<bool> sExtraWarningsForSystemJS(false);
-bool xpc::ExtraWarningsForSystemJS() { return sExtraWarningsForSystemJS; }
-#else
-bool xpc::ExtraWarningsForSystemJS() { return false; }
-#endif
-
 static mozilla::Atomic<bool> sSharedMemoryEnabled(false);
 static mozilla::Atomic<bool> sStreamsEnabled(false);
-#ifdef ENABLE_BIGINT
-static mozilla::Atomic<bool> sBigIntEnabled(false);
-#endif
+
+static mozilla::Atomic<bool> sPropertyErrorMessageFixEnabled(false);
+static mozilla::Atomic<bool> sWeakRefsEnabled(false);
+static mozilla::Atomic<bool> sWeakRefsExposeCleanupSome(false);
+static mozilla::Atomic<bool> sIteratorHelpersEnabled(false);
+
+static JS::WeakRefSpecifier GetWeakRefsEnabled() {
+  if (!sWeakRefsEnabled) {
+    return JS::WeakRefSpecifier::Disabled;
+  }
+
+  if (sWeakRefsExposeCleanupSome) {
+    return JS::WeakRefSpecifier::EnabledWithCleanupSome;
+  }
+
+  return JS::WeakRefSpecifier::EnabledWithoutCleanupSome;
+}
 
 void xpc::SetPrefableRealmOptions(JS::RealmOptions& options) {
   options.creationOptions()
       .setSharedMemoryAndAtomicsEnabled(sSharedMemoryEnabled)
-#ifdef ENABLE_BIGINT
-      .setBigIntEnabled(sBigIntEnabled)
-#endif
-      .setStreamsEnabled(sStreamsEnabled);
+      .setCoopAndCoepEnabled(
+          StaticPrefs::browser_tabs_remote_useCrossOriginOpenerPolicy() &&
+          StaticPrefs::browser_tabs_remote_useCrossOriginEmbedderPolicy())
+      .setStreamsEnabled(sStreamsEnabled)
+      .setWritableStreamsEnabled(
+          StaticPrefs::javascript_options_writable_streams())
+      .setPropertyErrorMessageFixEnabled(sPropertyErrorMessageFixEnabled)
+      .setWeakRefsEnabled(GetWeakRefsEnabled())
+      .setIteratorHelpersEnabled(sIteratorHelpersEnabled);
 }
 
-static void ReloadPrefsCallback(const char* pref, XPCJSContext* xpccx) {
+static void LoadStartupJSPrefs(XPCJSContext* xpccx) {
+  // Prefs that require a restart are handled here. This includes the
+  // process-wide JIT options because toggling these at runtime can easily cause
+  // races or get us into an inconsistent state.
+  //
+  // 'Live' prefs are handled by ReloadPrefsCallback below.
+
   JSContext* cx = xpccx->Context();
 
-  bool useBaseline = Preferences::GetBool(JS_OPTIONS_DOT_STR "baselinejit");
+  bool useBaselineInterp = Preferences::GetBool(JS_OPTIONS_DOT_STR "blinterp");
+  bool useBaselineJit = Preferences::GetBool(JS_OPTIONS_DOT_STR "baselinejit");
   bool useIon = Preferences::GetBool(JS_OPTIONS_DOT_STR "ion");
-  bool useAsmJS = Preferences::GetBool(JS_OPTIONS_DOT_STR "asmjs");
-  bool useWasm = Preferences::GetBool(JS_OPTIONS_DOT_STR "wasm");
-  bool useWasmIon = Preferences::GetBool(JS_OPTIONS_DOT_STR "wasm_ionjit");
-  bool useWasmBaseline =
-      Preferences::GetBool(JS_OPTIONS_DOT_STR "wasm_baselinejit");
-#ifdef ENABLE_WASM_CRANELIFT
-  bool useWasmCranelift =
-      Preferences::GetBool(JS_OPTIONS_DOT_STR "wasm_cranelift");
-#endif
-#ifdef ENABLE_WASM_GC
-  bool useWasmGc = Preferences::GetBool(JS_OPTIONS_DOT_STR "wasm_gc");
-#endif
-  bool throwOnAsmJSValidationFailure = Preferences::GetBool(
-      JS_OPTIONS_DOT_STR "throw_on_asmjs_validation_failure");
+  bool useWarp = Preferences::GetBool(JS_OPTIONS_DOT_STR "warp");
+  bool useJitForTrustedPrincipals =
+      Preferences::GetBool(JS_OPTIONS_DOT_STR "jit_trustedprincipals");
   bool useNativeRegExp =
       Preferences::GetBool(JS_OPTIONS_DOT_STR "native_regexp");
 
-  bool parallelParsing =
-      Preferences::GetBool(JS_OPTIONS_DOT_STR "parallel_parsing");
   bool offthreadIonCompilation =
       Preferences::GetBool(JS_OPTIONS_DOT_STR "ion.offthread_compilation");
   bool useBaselineEager = Preferences::GetBool(
@@ -795,31 +859,16 @@ static void ReloadPrefsCallback(const char* pref, XPCJSContext* xpccx) {
       Preferences::GetBool(JS_OPTIONS_DOT_STR "jit.full_debug_checks");
 #endif
 
+  int32_t baselineInterpThreshold =
+      Preferences::GetInt(JS_OPTIONS_DOT_STR "blinterp.threshold", -1);
   int32_t baselineThreshold =
       Preferences::GetInt(JS_OPTIONS_DOT_STR "baselinejit.threshold", -1);
-  int32_t ionThreshold =
+  int32_t normalIonThreshold =
       Preferences::GetInt(JS_OPTIONS_DOT_STR "ion.threshold", -1);
+  int32_t fullIonThreshold =
+      Preferences::GetInt(JS_OPTIONS_DOT_STR "ion.full.threshold", -1);
   int32_t ionFrequentBailoutThreshold = Preferences::GetInt(
       JS_OPTIONS_DOT_STR "ion.frequent_bailout_threshold", -1);
-
-  sDiscardSystemSource =
-      Preferences::GetBool(JS_OPTIONS_DOT_STR "discardSystemSource");
-
-  bool useAsyncStack = Preferences::GetBool(JS_OPTIONS_DOT_STR "asyncstack");
-
-#ifdef ENABLE_BIGINT
-  sBigIntEnabled = Preferences::GetBool(JS_OPTIONS_DOT_STR "bigint");
-#endif
-
-  bool throwOnDebuggeeWouldRun =
-      Preferences::GetBool(JS_OPTIONS_DOT_STR "throw_on_debuggee_would_run");
-
-  bool dumpStackOnDebuggeeWouldRun = Preferences::GetBool(
-      JS_OPTIONS_DOT_STR "dump_stack_on_debuggee_would_run");
-
-  bool werror = Preferences::GetBool(JS_OPTIONS_DOT_STR "werror");
-
-  bool extraWarnings = Preferences::GetBool(JS_OPTIONS_DOT_STR "strict");
 
   bool spectreIndexMasking =
       Preferences::GetBool(JS_OPTIONS_DOT_STR "spectre.index_masking");
@@ -834,67 +883,46 @@ static void ReloadPrefsCallback(const char* pref, XPCJSContext* xpccx) {
   bool spectreJitToCxxCalls =
       Preferences::GetBool(JS_OPTIONS_DOT_STR "spectre.jit_to_C++_calls");
 
-  sSharedMemoryEnabled =
-      Preferences::GetBool(JS_OPTIONS_DOT_STR "shared_memory");
-  sStreamsEnabled = Preferences::GetBool(JS_OPTIONS_DOT_STR "streams");
+  bool disableWasmHugeMemory =
+      Preferences::GetBool(JS_OPTIONS_DOT_STR "wasm_disable_huge_memory");
 
-#ifdef DEBUG
-  sExtraWarningsForSystemJS =
-      Preferences::GetBool(JS_OPTIONS_DOT_STR "strict.debug");
-#endif
-
-#ifdef JS_GC_ZEAL
-  int32_t zeal = Preferences::GetInt(JS_OPTIONS_DOT_STR "gczeal", -1);
-  int32_t zeal_frequency = Preferences::GetInt(
-      JS_OPTIONS_DOT_STR "gczeal.frequency", JS_DEFAULT_ZEAL_FREQ);
-  if (zeal >= 0) {
-    JS_SetGCZeal(cx, (uint8_t)zeal, zeal_frequency);
-  }
-#endif  // JS_GC_ZEAL
-
-#ifdef FUZZING
-  bool fuzzingEnabled = StaticPrefs::fuzzing_enabled();
-#endif
-
-  JS::ContextOptionsRef(cx)
-      .setBaseline(useBaseline)
-      .setIon(useIon)
-      .setAsmJS(useAsmJS)
-      .setWasm(useWasm)
-      .setWasmIon(useWasmIon)
-      .setWasmBaseline(useWasmBaseline)
-#ifdef ENABLE_WASM_CRANELIFT
-      .setWasmForceCranelift(useWasmCranelift)
-#endif
-#ifdef ENABLE_WASM_GC
-      .setWasmGc(useWasmGc)
-#endif
-      .setThrowOnAsmJSValidationFailure(throwOnAsmJSValidationFailure)
-      .setNativeRegExp(useNativeRegExp)
-      .setAsyncStack(useAsyncStack)
-      .setThrowOnDebuggeeWouldRun(throwOnDebuggeeWouldRun)
-      .setDumpStackOnDebuggeeWouldRun(dumpStackOnDebuggeeWouldRun)
-      .setWerror(werror)
-#ifdef FUZZING
-      .setFuzzing(fuzzingEnabled)
-#endif
-      .setExtraWarnings(extraWarnings);
+  bool useOffThreadParseGlobal =
+      Preferences::GetBool(JS_OPTIONS_DOT_STR "off_thread_parse_global");
 
   nsCOMPtr<nsIXULRuntime> xr = do_GetService("@mozilla.org/xre/runtime;1");
   if (xr) {
     bool safeMode = false;
     xr->GetInSafeMode(&safeMode);
     if (safeMode) {
-      JS::ContextOptionsRef(cx).disableOptionsForSafeMode();
+      useBaselineJit = false;
+      useIon = false;
+      useJitForTrustedPrincipals = false;
+      useNativeRegExp = false;
     }
   }
 
-  JS_SetParallelParsingEnabled(cx, parallelParsing);
+  JS_SetGlobalJitCompilerOption(cx, JSJITCOMPILER_BASELINE_INTERPRETER_ENABLE,
+                                useBaselineInterp);
+  JS_SetGlobalJitCompilerOption(cx, JSJITCOMPILER_BASELINE_ENABLE,
+                                useBaselineJit);
+  JS_SetGlobalJitCompilerOption(cx, JSJITCOMPILER_ION_ENABLE, useIon);
+  JS_SetGlobalJitCompilerOption(cx, JSJITCOMPILER_WARP_ENABLE, useWarp);
+  JS_SetGlobalJitCompilerOption(cx, JSJITCOMPILER_JIT_TRUSTEDPRINCIPALS_ENABLE,
+                                useJitForTrustedPrincipals);
+  JS_SetGlobalJitCompilerOption(cx, JSJITCOMPILER_NATIVE_REGEXP_ENABLE,
+                                useNativeRegExp);
+
   JS_SetOffthreadIonCompilationEnabled(cx, offthreadIonCompilation);
+
+  JS_SetGlobalJitCompilerOption(
+      cx, JSJITCOMPILER_BASELINE_INTERPRETER_WARMUP_TRIGGER,
+      baselineInterpThreshold);
   JS_SetGlobalJitCompilerOption(cx, JSJITCOMPILER_BASELINE_WARMUP_TRIGGER,
                                 useBaselineEager ? 0 : baselineThreshold);
-  JS_SetGlobalJitCompilerOption(cx, JSJITCOMPILER_ION_WARMUP_TRIGGER,
-                                useIonEager ? 0 : ionThreshold);
+  JS_SetGlobalJitCompilerOption(cx, JSJITCOMPILER_ION_NORMAL_WARMUP_TRIGGER,
+                                useIonEager ? 0 : normalIonThreshold);
+  JS_SetGlobalJitCompilerOption(cx, JSJITCOMPILER_ION_FULL_WARMUP_TRIGGER,
+                                useIonEager ? 0 : fullIonThreshold);
   JS_SetGlobalJitCompilerOption(cx,
                                 JSJITCOMPILER_ION_FREQUENT_BAILOUT_THRESHOLD,
                                 ionFrequentBailoutThreshold);
@@ -918,6 +946,146 @@ static void ReloadPrefsCallback(const char* pref, XPCJSContext* xpccx) {
                                 spectreValueMasking);
   JS_SetGlobalJitCompilerOption(cx, JSJITCOMPILER_SPECTRE_JIT_TO_CXX_CALLS,
                                 spectreJitToCxxCalls);
+  if (disableWasmHugeMemory) {
+    bool disabledHugeMemory = JS::DisableWasmHugeMemory();
+    MOZ_RELEASE_ASSERT(disabledHugeMemory);
+  }
+
+  JS::SetUseOffThreadParseGlobal(useOffThreadParseGlobal);
+}
+
+static void ReloadPrefsCallback(const char* pref, void* aXpccx) {
+  // Note: Prefs that require a restart are handled in LoadStartupJSPrefs above.
+
+  auto xpccx = static_cast<XPCJSContext*>(aXpccx);
+  JSContext* cx = xpccx->Context();
+
+  bool useAsmJS = Preferences::GetBool(JS_OPTIONS_DOT_STR "asmjs");
+  bool useWasm = Preferences::GetBool(JS_OPTIONS_DOT_STR "wasm");
+  bool useWasmTrustedPrincipals =
+      Preferences::GetBool(JS_OPTIONS_DOT_STR "wasm_trustedprincipals");
+  bool useWasmOptimizing =
+      Preferences::GetBool(JS_OPTIONS_DOT_STR "wasm_optimizingjit");
+  bool useWasmBaseline =
+      Preferences::GetBool(JS_OPTIONS_DOT_STR "wasm_baselinejit");
+  bool useWasmReftypes =
+      Preferences::GetBool(JS_OPTIONS_DOT_STR "wasm_reftypes");
+#ifdef ENABLE_WASM_FUNCTION_REFERENCES
+  bool useWasmFunctionReferences =
+      Preferences::GetBool(JS_OPTIONS_DOT_STR "wasm_function_references");
+#endif
+#ifdef ENABLE_WASM_GC
+  bool useWasmGc = Preferences::GetBool(JS_OPTIONS_DOT_STR "wasm_gc");
+#endif
+#ifdef ENABLE_WASM_MULTI_VALUE
+  bool useWasmMultiValue =
+      Preferences::GetBool(JS_OPTIONS_DOT_STR "wasm_multi_value");
+#endif
+#ifdef ENABLE_WASM_SIMD
+  bool useWasmSimd = Preferences::GetBool(JS_OPTIONS_DOT_STR "wasm_simd");
+#endif
+  bool useWasmVerbose = Preferences::GetBool(JS_OPTIONS_DOT_STR "wasm_verbose");
+  bool throwOnAsmJSValidationFailure = Preferences::GetBool(
+      JS_OPTIONS_DOT_STR "throw_on_asmjs_validation_failure");
+
+  bool parallelParsing =
+      Preferences::GetBool(JS_OPTIONS_DOT_STR "parallel_parsing");
+
+  sDiscardSystemSource =
+      Preferences::GetBool(JS_OPTIONS_DOT_STR "discardSystemSource");
+
+  bool useSourcePragmas =
+      Preferences::GetBool(JS_OPTIONS_DOT_STR "source_pragmas");
+  bool useAsyncStack = Preferences::GetBool(JS_OPTIONS_DOT_STR "asyncstack");
+  bool useAsyncStackCaptureDebuggeeOnly = Preferences::GetBool(
+      JS_OPTIONS_DOT_STR "asyncstack_capture_debuggee_only");
+
+  bool throwOnDebuggeeWouldRun =
+      Preferences::GetBool(JS_OPTIONS_DOT_STR "throw_on_debuggee_would_run");
+
+  bool dumpStackOnDebuggeeWouldRun = Preferences::GetBool(
+      JS_OPTIONS_DOT_STR "dump_stack_on_debuggee_would_run");
+
+  sSharedMemoryEnabled =
+      Preferences::GetBool(JS_OPTIONS_DOT_STR "shared_memory");
+  sStreamsEnabled = Preferences::GetBool(JS_OPTIONS_DOT_STR "streams");
+  sPropertyErrorMessageFixEnabled =
+      Preferences::GetBool(JS_OPTIONS_DOT_STR "property_error_message_fix");
+  sWeakRefsEnabled = Preferences::GetBool(JS_OPTIONS_DOT_STR "weakrefs");
+  sWeakRefsExposeCleanupSome = Preferences::GetBool(
+      JS_OPTIONS_DOT_STR "experimental.weakrefs.expose_cleanupSome");
+
+  // Require private fields disabled outside of nightly.
+  bool privateFieldsEnabled = false;
+  bool privateMethodsEnabled = false;
+#ifdef NIGHTLY_BUILD
+  sIteratorHelpersEnabled =
+      Preferences::GetBool(JS_OPTIONS_DOT_STR "experimental.iterator_helpers");
+  privateFieldsEnabled =
+      Preferences::GetBool(JS_OPTIONS_DOT_STR "experimental.private_fields");
+  privateMethodsEnabled =
+      Preferences::GetBool(JS_OPTIONS_DOT_STR "experimental.private_methods");
+#endif
+
+#ifdef JS_GC_ZEAL
+  int32_t zeal = Preferences::GetInt(JS_OPTIONS_DOT_STR "gczeal", -1);
+  int32_t zeal_frequency = Preferences::GetInt(
+      JS_OPTIONS_DOT_STR "gczeal.frequency", JS_DEFAULT_ZEAL_FREQ);
+  if (zeal >= 0) {
+    JS_SetGCZeal(cx, (uint8_t)zeal, zeal_frequency);
+  }
+#endif  // JS_GC_ZEAL
+
+#ifdef FUZZING
+  bool fuzzingEnabled = StaticPrefs::fuzzing_enabled();
+#endif
+
+  JS::ContextOptionsRef(cx)
+      .setAsmJS(useAsmJS)
+#ifdef FUZZING
+      .setFuzzing(fuzzingEnabled)
+#endif
+      .setWasm(useWasm)
+      .setWasmForTrustedPrinciples(useWasmTrustedPrincipals)
+#ifdef ENABLE_WASM_CRANELIFT
+      .setWasmCranelift(useWasmOptimizing)
+#else
+      .setWasmIon(useWasmOptimizing)
+#endif
+      .setWasmBaseline(useWasmBaseline)
+      .setWasmReftypes(useWasmReftypes)
+#ifdef ENABLE_WASM_FUNCTION_REFERENCES
+      .setWasmFunctionReferences(useWasmFunctionReferences)
+#endif
+#ifdef ENABLE_WASM_GC
+      .setWasmGc(useWasmGc)
+#endif
+#ifdef ENABLE_WASM_MULTI_VALUE
+      .setWasmMultiValue(useWasmMultiValue)
+#endif
+#ifdef ENABLE_WASM_SIMD
+      .setWasmSimd(useWasmSimd)
+#endif
+      .setWasmVerbose(useWasmVerbose)
+      .setThrowOnAsmJSValidationFailure(throwOnAsmJSValidationFailure)
+      .setSourcePragmas(useSourcePragmas)
+      .setAsyncStack(useAsyncStack)
+      .setAsyncStackCaptureDebuggeeOnly(useAsyncStackCaptureDebuggeeOnly)
+      .setThrowOnDebuggeeWouldRun(throwOnDebuggeeWouldRun)
+      .setDumpStackOnDebuggeeWouldRun(dumpStackOnDebuggeeWouldRun)
+      .setPrivateClassFields(privateFieldsEnabled)
+      .setPrivateClassMethods(privateMethodsEnabled);
+
+  nsCOMPtr<nsIXULRuntime> xr = do_GetService("@mozilla.org/xre/runtime;1");
+  if (xr) {
+    bool safeMode = false;
+    xr->GetInSafeMode(&safeMode);
+    if (safeMode) {
+      JS::ContextOptionsRef(cx).disableOptionsForSafeMode();
+    }
+  }
+
+  JS_SetParallelParsingEnabled(cx, parallelParsing);
 }
 
 XPCJSContext::~XPCJSContext() {
@@ -956,8 +1124,6 @@ XPCJSContext::~XPCJSContext() {
   }
 
   PROFILER_CLEAR_JS_CONTEXT();
-
-  gTlsContext.set(nullptr);
 }
 
 XPCJSContext::XPCJSContext()
@@ -968,32 +1134,37 @@ XPCJSContext::XPCJSContext()
       mWatchdogManager(GetWatchdogManager()),
       mSlowScriptSecondHalf(false),
       mTimeoutAccumulated(false),
+      mExecutedChromeScript(false),
       mHasScriptActivity(false),
       mPendingResult(NS_OK),
       mActive(CONTEXT_INACTIVE),
       mLastStateChange(PR_Now()) {
   MOZ_COUNT_CTOR_INHERITED(XPCJSContext, CycleCollectedJSContext);
-  MOZ_RELEASE_ASSERT(!gTlsContext.get());
   MOZ_ASSERT(mWatchdogManager);
   ++sInstanceCount;
   mWatchdogManager->RegisterContext(this);
-  gTlsContext.set(this);
 }
 
-/* static */ XPCJSContext* XPCJSContext::Get() { return gTlsContext.get(); }
+/* static */
+XPCJSContext* XPCJSContext::Get() {
+  // Do an explicit null check, because this can get called from a process that
+  // does not run JS.
+  nsXPConnect* xpc = static_cast<nsXPConnect*>(nsXPConnect::XPConnect());
+  return xpc ? xpc->GetContext() : nullptr;
+}
 
 #ifdef XP_WIN
 static size_t GetWindowsStackSize() {
   // First, get the stack base. Because the stack grows down, this is the top
   // of the stack.
   const uint8_t* stackTop;
-#ifdef _WIN64
+#  ifdef _WIN64
   PNT_TIB64 pTib = reinterpret_cast<PNT_TIB64>(NtCurrentTeb());
   stackTop = reinterpret_cast<const uint8_t*>(pTib->StackBase);
-#else
+#  else
   PNT_TIB pTib = reinterpret_cast<PNT_TIB>(NtCurrentTeb());
   stackTop = reinterpret_cast<const uint8_t*>(pTib->StackBase);
-#endif
+#  endif
 
   // Now determine the stack bottom. Note that we can't use tib->StackLimit,
   // because that's the size of the committed area and we're also interested
@@ -1025,14 +1196,9 @@ CycleCollectedJSRuntime* XPCJSContext::CreateRuntime(JSContext* aCx) {
   return new XPCJSRuntime(aCx);
 }
 
-nsresult XPCJSContext::Initialize(XPCJSContext* aPrimaryContext) {
-  nsresult rv;
-  if (aPrimaryContext) {
-    rv = CycleCollectedJSContext::InitializeNonPrimary(aPrimaryContext);
-  } else {
-    rv = CycleCollectedJSContext::Initialize(nullptr, JS::DefaultHeapMaxBytes,
-                                             JS::DefaultNurseryBytes);
-  }
+nsresult XPCJSContext::Initialize() {
+  nsresult rv =
+      CycleCollectedJSContext::Initialize(nullptr, JS::DefaultHeapMaxBytes);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -1080,57 +1246,56 @@ nsresult XPCJSContext::Initialize(XPCJSContext* aPrimaryContext) {
   // on 32-bit platforms and 1MB on 64-bit platforms.
   const size_t kDefaultStackQuota = 128 * sizeof(size_t) * 1024;
 
-  // Set stack sizes for different configurations. It's probably not great for
-  // the web to base this decision primarily on the default stack size that the
-  // underlying platform makes available, but that seems to be what we do. :-(
+  // Set maximum stack size for different configurations. This value is then
+  // capped below because huge stacks are not web-compatible.
 
 #if defined(XP_MACOSX) || defined(DARWIN)
   // MacOS has a gargantuan default stack size of 8MB. Go wild with 7MB,
   // and give trusted script 180k extra. The stack is huge on mac anyway.
-  const size_t kStackQuota = 7 * 1024 * 1024;
+  const size_t kUncappedStackQuota = 7 * 1024 * 1024;
   const size_t kTrustedScriptBuffer = 180 * 1024;
 #elif defined(XP_LINUX) && !defined(ANDROID)
   // Most Linux distributions set default stack size to 8MB.  Use it as the
   // maximum value.
   const size_t kStackQuotaMax = 8 * 1024 * 1024;
-#if defined(MOZ_ASAN) || defined(DEBUG)
+#  if defined(MOZ_ASAN) || defined(DEBUG)
   // Bug 803182: account for the 4x difference in the size of js::Interpret
   // between optimized and debug builds.  We use 2x since the JIT part
   // doesn't increase much.
   // See the standalone MOZ_ASAN branch below for the ASan case.
   const size_t kStackQuotaMin = 2 * kDefaultStackQuota;
-#else
+#  else
   const size_t kStackQuotaMin = kDefaultStackQuota;
-#endif
+#  endif
   // Allocate 128kB margin for the safe space.
   const size_t kStackSafeMargin = 128 * 1024;
 
   struct rlimit rlim;
-  const size_t kStackQuota =
+  const size_t kUncappedStackQuota =
       getrlimit(RLIMIT_STACK, &rlim) == 0
           ? std::max(std::min(size_t(rlim.rlim_cur - kStackSafeMargin),
                               kStackQuotaMax - kStackSafeMargin),
                      kStackQuotaMin)
           : kStackQuotaMin;
-#if defined(MOZ_ASAN)
+#  if defined(MOZ_ASAN)
   // See the standalone MOZ_ASAN branch below for the ASan case.
   const size_t kTrustedScriptBuffer = 450 * 1024;
-#else
+#  else
   const size_t kTrustedScriptBuffer = 180 * 1024;
-#endif
+#  endif
 #elif defined(XP_WIN)
   // 1MB is the default stack size on Windows. We use the -STACK linker flag
-  // (see WIN32_EXE_LDFLAGS in config/config.mk) to request a larger stack,
-  // so we determine the stack size at runtime.
-  const size_t kStackQuota = GetWindowsStackSize();
-#if defined(MOZ_ASAN)
+  // (see WIN32_EXE_LDFLAGS in config/config.mk) to request a larger stack, so
+  // we determine the stack size at runtime.
+  const size_t kUncappedStackQuota = GetWindowsStackSize();
+#  if defined(MOZ_ASAN)
   // See the standalone MOZ_ASAN branch below for the ASan case.
   const size_t kTrustedScriptBuffer = 450 * 1024;
-#else
+#  else
   const size_t kTrustedScriptBuffer = (sizeof(size_t) == 8)
                                           ? 180 * 1024   // win64
                                           : 120 * 1024;  // win32
-#endif
+#  endif
 #elif defined(MOZ_ASAN)
   // ASan requires more stack space due to red-zones, so give it double the
   // default (1MB on 32-bit, 2MB on 64-bit). ASAN stack frame measurements
@@ -1141,21 +1306,22 @@ nsresult XPCJSContext::Initialize(XPCJSContext* aPrimaryContext) {
   //
   // FIXME: Does this branch make sense for Windows and Android?
   // (See bug 1415195)
-  const size_t kStackQuota = 2 * kDefaultStackQuota;
+  const size_t kUncappedStackQuota = 2 * kDefaultStackQuota;
   const size_t kTrustedScriptBuffer = 450 * 1024;
 #elif defined(ANDROID)
   // Android appears to have 1MB stacks. Allow the use of 3/4 of that size
   // (768KB on 32-bit), since otherwise we can crash with a stack overflow
   // when nearing the 1MB limit.
-  const size_t kStackQuota = kDefaultStackQuota + kDefaultStackQuota / 2;
+  const size_t kUncappedStackQuota =
+      kDefaultStackQuota + kDefaultStackQuota / 2;
   const size_t kTrustedScriptBuffer = sizeof(size_t) * 12800;
 #else
   // Catch-all configuration for other environments.
-#if defined(DEBUG)
-  const size_t kStackQuota = 2 * kDefaultStackQuota;
-#else
-  const size_t kStackQuota = kDefaultStackQuota;
-#endif
+#  if defined(DEBUG)
+  const size_t kUncappedStackQuota = 2 * kDefaultStackQuota;
+#  else
+  const size_t kUncappedStackQuota = kDefaultStackQuota;
+#  endif
   // Given the numbers above, we use 50k and 100k trusted buffers on 32-bit
   // and 64-bit respectively.
   const size_t kTrustedScriptBuffer = sizeof(size_t) * 12800;
@@ -1165,6 +1331,12 @@ nsresult XPCJSContext::Initialize(XPCJSContext* aPrimaryContext) {
   // default.
   (void)kDefaultStackQuota;
 
+  // Large stacks are not web-compatible so cap to a smaller value.
+  // See bug 1537609 and bug 1562700.
+  const size_t kStackQuotaCap =
+      StaticPrefs::javascript_options_main_thread_stack_quota_cap();
+  const size_t kStackQuota = std::min(kUncappedStackQuota, kStackQuotaCap);
+
   JS_SetNativeStackQuota(
       cx, kStackQuota, kStackQuota - kSystemCodeBuffer,
       kStackQuota - kSystemCodeBuffer - kTrustedScriptBuffer);
@@ -1173,9 +1345,9 @@ nsresult XPCJSContext::Initialize(XPCJSContext* aPrimaryContext) {
 
   JS_AddInterruptCallback(cx, InterruptCallback);
 
-  if (!aPrimaryContext) {
-    Runtime()->Initialize(cx);
-  }
+  Runtime()->Initialize(cx);
+
+  LoadStartupJSPrefs(this);
 
   // Watch for the JS boolean options.
   ReloadPrefsCallback(nullptr, this);
@@ -1185,6 +1357,25 @@ nsresult XPCJSContext::Initialize(XPCJSContext* aPrimaryContext) {
 #ifdef FUZZING
   Preferences::RegisterCallback(ReloadPrefsCallback, "fuzzing.enabled", this);
 #endif
+
+  // Initialize the MIME type used for the bytecode cache, after calling
+  // SetProcessBuildIdOp and loading JS prefs.
+  if (!nsContentUtils::InitJSBytecodeMimeType()) {
+    NS_ABORT_OOM(0);  // Size is unknown.
+  }
+
+  if (!JS::InitSelfHostedCode(cx)) {
+    // Note: If no exception is pending, failure is due to OOM.
+    if (!JS_IsExceptionPending(cx) || JS_IsThrowingOutOfMemory(cx)) {
+      NS_ABORT_OOM(0);  // Size is unknown.
+    }
+
+    // Failed to execute self-hosted JavaScript! Uh oh.
+    MOZ_CRASH("InitSelfHostedCode failed");
+  }
+
+  MOZ_RELEASE_ASSERT(Runtime()->InitializeStrings(cx),
+                     "InitializeStrings failed");
 
   return NS_OK;
 }
@@ -1207,12 +1398,9 @@ WatchdogManager* XPCJSContext::GetWatchdogManager() {
 }
 
 // static
-void XPCJSContext::InitTLS() { MOZ_RELEASE_ASSERT(gTlsContext.init()); }
-
-// static
-XPCJSContext* XPCJSContext::NewXPCJSContext(XPCJSContext* aPrimaryContext) {
+XPCJSContext* XPCJSContext::NewXPCJSContext() {
   XPCJSContext* self = new XPCJSContext();
-  nsresult rv = self->Initialize(aPrimaryContext);
+  nsresult rv = self->Initialize();
   if (NS_FAILED(rv)) {
     MOZ_CRASH("new XPCJSContext failed to initialize.");
   }
@@ -1232,15 +1420,41 @@ void XPCJSContext::BeforeProcessTask(bool aMightBlock) {
   mSlowScriptSecondHalf = false;
   mSlowScriptActualWait = mozilla::TimeDuration();
   mTimeoutAccumulated = false;
-
-  // As we may be entering a nested event loop, we need to
-  // cancel any ongoing performance measurement.
-  js::ResetPerformanceMonitoring(Context());
-
+  mExecutedChromeScript = false;
   CycleCollectedJSContext::BeforeProcessTask(aMightBlock);
 }
 
 void XPCJSContext::AfterProcessTask(uint32_t aNewRecursionDepth) {
+  // Record hangs in the parent process for telemetry.
+  if (mSlowScriptSecondHalf && XRE_IsE10sParentProcess()) {
+    double hangDuration = (mozilla::TimeStamp::NowLoRes() -
+                           mSlowScriptCheckpoint + mSlowScriptActualWait)
+                              .ToSeconds();
+    // We use the pref to test this code.
+    double limit = sChromeSlowScriptTelemetryCutoff;
+    if (xpc::IsInAutomation()) {
+      double prefLimit = StaticPrefs::dom_max_chrome_script_run_time();
+      if (prefLimit > 0) {
+        limit = std::min(prefLimit, sChromeSlowScriptTelemetryCutoff);
+      }
+    }
+    if (hangDuration > limit) {
+      if (!sTelemetryEventEnabled) {
+        sTelemetryEventEnabled = true;
+        Telemetry::SetEventRecordingEnabled("slow_script_warning"_ns, true);
+      }
+
+      auto uriType = mExecutedChromeScript ? "browser"_ns : "content"_ns;
+      auto extra = Some<nsTArray<Telemetry::EventExtraEntry>>(
+          {Telemetry::EventExtraEntry{"hang_duration"_ns,
+                                      nsPrintfCString("%.2f", hangDuration)},
+           Telemetry::EventExtraEntry{"uri_type"_ns, uriType}});
+      Telemetry::RecordEvent(
+          Telemetry::EventID::Slow_script_warning_Shown_Browser, Nothing(),
+          extra);
+    }
+  }
+
   // Now that we're back to the event loop, reset the slow script checkpoint.
   mSlowScriptCheckpoint = mozilla::TimeStamp();
   mSlowScriptSecondHalf = false;
@@ -1248,14 +1462,12 @@ void XPCJSContext::AfterProcessTask(uint32_t aNewRecursionDepth) {
   // Call cycle collector occasionally.
   MOZ_ASSERT(NS_IsMainThread());
   nsJSContext::MaybePokeCC();
-
   CycleCollectedJSContext::AfterProcessTask(aNewRecursionDepth);
 
-  // Now that we are certain that the event is complete,
-  // we can flush any ongoing performance measurement.
-  js::FlushPerformanceMonitoring(Context());
-
-  mozilla::jsipc::AfterProcessTask();
+  // This exception might have been set if we called an XPCWrappedJS that threw,
+  // but now we're returning to the event loop, so nothing is going to look at
+  // this value again. Clear it to prevent leaks.
+  SetPendingException(nullptr);
 }
 
 bool XPCJSContext::IsSystemCaller() const {

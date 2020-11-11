@@ -11,17 +11,16 @@
 #include "nsCOMArray.h"
 #include "nsTArray.h"
 #include "nsCOMPtr.h"
-#include "nsITimer.h"
 #include "mozilla/dom/DeviceMotionEvent.h"
 #include "mozilla/TimeStamp.h"
 #include "mozilla/HalSensor.h"
 #include "nsDataHashtable.h"
 
 class nsIDOMWindow;
-class nsIDocument;
 
 namespace mozilla {
 namespace dom {
+class Document;
 class EventTarget;
 }  // namespace dom
 }  // namespace mozilla
@@ -56,7 +55,7 @@ class nsDeviceSensors : public nsIDeviceSensors,
   void FireDOMOrientationEvent(mozilla::dom::EventTarget* target, double aAlpha,
                                double aBeta, double aGamma, bool aIsAbsolute);
 
-  void FireDOMMotionEvent(nsIDocument* domDoc,
+  void FireDOMMotionEvent(mozilla::dom::Document* domDoc,
                           mozilla::dom::EventTarget* target, uint32_t type,
                           PRTime timestamp, double x, double y, double z);
 

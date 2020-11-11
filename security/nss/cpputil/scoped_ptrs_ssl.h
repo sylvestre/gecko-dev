@@ -11,6 +11,11 @@
 #include "sslexp.h"
 
 struct ScopedDeleteSSL {
+  void operator()(SSLAeadContext* ctx) { SSL_DestroyAead(ctx); }
+  void operator()(SSLMaskingContext* ctx) { SSL_DestroyMaskingContext(ctx); }
+  void operator()(SSLAntiReplayContext* ctx) {
+    SSL_ReleaseAntiReplayContext(ctx);
+  }
   void operator()(SSLResumptionTokenInfo* token) {
     SSL_DestroyResumptionTokenInfo(token);
   }
@@ -28,6 +33,9 @@ struct ScopedMaybeDeleteSSL {
 
 #define SCOPED(x) typedef std::unique_ptr<x, ScopedMaybeDeleteSSL<x> > Scoped##x
 
+SCOPED(SSLAeadContext);
+SCOPED(SSLAntiReplayContext);
+SCOPED(SSLMaskingContext);
 SCOPED(SSLResumptionTokenInfo);
 
 #undef SCOPED

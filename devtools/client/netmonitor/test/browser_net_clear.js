@@ -8,7 +8,9 @@
  */
 
 add_task(async function() {
-  const { tab, monitor } = await initNetMonitor(SIMPLE_URL);
+  const { tab, monitor } = await initNetMonitor(SIMPLE_URL, {
+    requestCount: 1,
+  });
   info("Starting test... ");
 
   const { document, store, windowRequire } = monitor.panelWin;
@@ -21,9 +23,9 @@ add_task(async function() {
   assertNoRequestState();
 
   // Load one request and assert it shows up in the list
-  let onMonitorUpdated = waitForAllRequestsFinished(monitor);
+  let wait = waitForNetworkEvents(monitor, 1);
   tab.linkedBrowser.reload();
-  await onMonitorUpdated;
+  await wait;
 
   assertSingleRequestState();
 
@@ -32,25 +34,29 @@ add_task(async function() {
   assertNoRequestState();
 
   // Load a second request and make sure they still show up
-  onMonitorUpdated = waitForAllRequestsFinished(monitor);
+  wait = waitForNetworkEvents(monitor, 1);
   tab.linkedBrowser.reload();
-  await onMonitorUpdated;
+  await wait;
 
   assertSingleRequestState();
 
   // Make sure we can now open the network details panel
   store.dispatch(Actions.toggleNetworkDetails());
   const detailsPanelToggleButton = document.querySelector(".sidebar-toggle");
-  ok(detailsPanelToggleButton &&
-    !detailsPanelToggleButton.classList.contains("pane-collapsed"),
-    "The details pane should be visible.");
+  ok(
+    detailsPanelToggleButton &&
+      !detailsPanelToggleButton.classList.contains("pane-collapsed"),
+    "The details pane should be visible."
+  );
 
   // Click clear and make sure the details pane closes
   EventUtils.sendMouseEvent({ type: "click" }, clearButton);
 
   assertNoRequestState();
-  ok(!document.querySelector(".network-details-panel"),
-    "The details pane should not be visible clicking 'clear'.");
+  ok(
+    !document.querySelector(".network-details-bar"),
+    "The details pane should not be visible clicking 'clear'."
+  );
 
   return teardown(monitor);
 
@@ -58,15 +64,21 @@ add_task(async function() {
    * Asserts the state of the network monitor when one request has loaded
    */
   function assertSingleRequestState() {
-    is(store.getState().requests.requests.size, 1,
-      "The request menu should have one item at this point.");
+    is(
+      store.getState().requests.requests.length,
+      1,
+      "The request menu should have one item at this point."
+    );
   }
 
   /**
    * Asserts the state of the network monitor when no requests have loaded
    */
   function assertNoRequestState() {
-    is(store.getState().requests.requests.size, 0,
-      "The request menu should be empty at this point.");
+    is(
+      store.getState().requests.requests.length,
+      0,
+      "The request menu should be empty at this point."
+    );
   }
 });

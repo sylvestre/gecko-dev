@@ -11,7 +11,6 @@
 #include "nsTArray.h"
 #include "nsITimer.h"
 #include "nsCOMPtr.h"
-#include "nsAutoPtr.h"
 #include "nsComponentManagerUtils.h"
 #include "nsIEventTarget.h"
 #include "nsIObserver.h"
@@ -163,9 +162,9 @@ class ExpirationTrackerImpl {
         return rv;
       }
     }
-    if (!generation.AppendElement(aObj)) {
-      return NS_ERROR_OUT_OF_MEMORY;
-    }
+    // XXX(Bug 1631371) Check if this should use a fallible operation as it
+    // pretended earlier.
+    generation.AppendElement(aObj);
     state->mGeneration = mNewestGeneration;
     state->mIndexInGeneration = index;
     return NS_OK;
@@ -190,12 +189,13 @@ class ExpirationTrackerImpl {
     MOZ_ASSERT(generation.Length() > index && generation[index] == aObj,
                "Object is lying about its index");
     // Move the last object to fill the hole created by removing aObj
-    uint32_t last = generation.Length() - 1;
-    T* lastObj = generation[last];
-    generation[index] = lastObj;
+    T* lastObj = generation.PopLastElement();
+    // XXX It looks weird that index might point to the element that was just
+    // removed. Is that really correct?
+    if (index < generation.Length()) {
+      generation[index] = lastObj;
+    }
     lastObj->GetExpirationState()->mIndexInGeneration = index;
-    generation.RemoveElementAt(last);
-    MOZ_ASSERT(generation.Length() == last);
     state->mGeneration = nsExpirationState::NOT_TRACKED;
     // We do not check whether we need to stop the timer here. The timer
     // will check that itself next time it fires. Checking here would not
@@ -304,13 +304,33 @@ class ExpirationTrackerImpl {
 
   friend class Iterator;
 
-  bool IsEmptyLocked(const AutoLock& aAutoLock) {
+  bool IsEmptyLocked(const AutoLock& aAutoLock) const {
     for (uint32_t i = 0; i < K; ++i) {
       if (!mGenerations[i].IsEmpty()) {
         return false;
       }
     }
     return true;
+  }
+
+  size_t Length(const AutoLock& aAutoLock) const {
+    size_t len = 0;
+    for (uint32_t i = 0; i < K; ++i) {
+      len += mGenerations[i].Length();
+    }
+    return len;
+  }
+
+  // @return The amount of memory used by this ExpirationTrackerImpl, excluding
+  // sizeof(*this). If you want to measure anything hanging off the mGenerations
+  // array, you must iterate over the elements and measure them individually;
+  // hence the "Shallow" prefix.
+  size_t ShallowSizeOfExcludingThis(mozilla::MallocSizeOf aMallocSizeOf) const {
+    size_t bytes = 0;
+    for (uint32_t i = 0; i < K; ++i) {
+      bytes += mGenerations[i].ShallowSizeOfExcludingThis(aMallocSizeOf);
+    }
+    return bytes;
   }
 
  protected:
@@ -503,7 +523,7 @@ class nsExpirationTracker
       : ::detail::SingleThreadedExpirationTracker<T, K>(aTimerPeriod, aName,
                                                         aEventTarget) {}
 
-  virtual ~nsExpirationTracker() {}
+  virtual ~nsExpirationTracker() = default;
 
   nsresult AddObject(T* aObj) {
     return this->AddObjectLocked(aObj, FakeLock());

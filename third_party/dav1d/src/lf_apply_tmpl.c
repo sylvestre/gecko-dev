@@ -27,7 +27,6 @@
 
 #include "config.h"
 
-#include <assert.h>
 #include <string.h>
 
 #include "common/intops.h"
@@ -66,7 +65,7 @@ static inline void filter_plane_cols_y(const Dav1dFrameContext *const f,
         hmask[3] = 0;
         dsp->lf.loop_filter_sb[0][0](&dst[x * 4], ls, hmask,
                                      (const uint8_t(*)[4]) &lvl[x][0], b4_stride,
-                                     &f->lf.lim_lut, endy4 - starty4);
+                                     &f->lf.lim_lut, endy4 - starty4 HIGHBD_CALL_SUFFIX);
     }
 }
 
@@ -96,7 +95,7 @@ static inline void filter_plane_rows_y(const Dav1dFrameContext *const f,
         };
         dsp->lf.loop_filter_sb[0][1](dst, ls, vmask,
                                      (const uint8_t(*)[4]) &lvl[0][1], b4_stride,
-                                     &f->lf.lim_lut, w);
+                                     &f->lf.lim_lut, w HIGHBD_CALL_SUFFIX);
     }
 }
 
@@ -130,10 +129,10 @@ static inline void filter_plane_cols_uv(const Dav1dFrameContext *const f,
         hmask[2] = 0;
         dsp->lf.loop_filter_sb[1][0](&u[x * 4], ls, hmask,
                                      (const uint8_t(*)[4]) &lvl[x][2], b4_stride,
-                                     &f->lf.lim_lut, endy4 - starty4);
+                                     &f->lf.lim_lut, endy4 - starty4 HIGHBD_CALL_SUFFIX);
         dsp->lf.loop_filter_sb[1][0](&v[x * 4], ls, hmask,
                                      (const uint8_t(*)[4]) &lvl[x][3], b4_stride,
-                                     &f->lf.lim_lut, endy4 - starty4);
+                                     &f->lf.lim_lut, endy4 - starty4 HIGHBD_CALL_SUFFIX);
     }
 }
 
@@ -164,10 +163,10 @@ static inline void filter_plane_rows_uv(const Dav1dFrameContext *const f,
         };
         dsp->lf.loop_filter_sb[1][1](&u[off_l], ls, vmask,
                                      (const uint8_t(*)[4]) &lvl[0][2], b4_stride,
-                                     &f->lf.lim_lut, w);
+                                     &f->lf.lim_lut, w HIGHBD_CALL_SUFFIX);
         dsp->lf.loop_filter_sb[1][1](&v[off_l], ls, vmask,
                                      (const uint8_t(*)[4]) &lvl[0][3], b4_stride,
-                                     &f->lf.lim_lut, w);
+                                     &f->lf.lim_lut, w HIGHBD_CALL_SUFFIX);
     }
 }
 

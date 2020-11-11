@@ -1,5 +1,4 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 2; fill-column: 80 -*- */
-/* vim:set ts=2 sw=2 sts=2 et tw=80:
+/*
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -26,7 +25,7 @@ const DETECT_INDENT_MAX_LINES = 500;
 function getTabPrefs() {
   const indentWithTabs = !Services.prefs.getBoolPref(EXPAND_TAB);
   const indentUnit = Services.prefs.getIntPref(TAB_SIZE);
-  return {indentUnit, indentWithTabs};
+  return { indentUnit, indentWithTabs };
 }
 
 /**
@@ -75,7 +74,7 @@ function getIndentationFromIteration(iterFunc) {
     }
   }
 
-  return {indentUnit, indentWithTabs};
+  return { indentUnit, indentWithTabs };
 }
 
 /**
@@ -109,7 +108,7 @@ function detectIndentation(textIteratorFn) {
   // # of indented lines (non-zero indent)
   let total = 0;
 
-  textIteratorFn(0, DETECT_INDENT_MAX_LINES, (text) => {
+  textIteratorFn(0, DETECT_INDENT_MAX_LINES, text => {
     if (text.startsWith("\t")) {
       tabs++;
       total++;
@@ -147,7 +146,8 @@ function detectIndentation(textIteratorFn) {
   }
 
   // find most frequent non-zero width difference between adjacent lines
-  let freqIndent = null, max = 1;
+  let freqIndent = null,
+    max = 1;
   for (let width in spaces) {
     width = parseInt(width, 10);
     const tally = spaces[width];

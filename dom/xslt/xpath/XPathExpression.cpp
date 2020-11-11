@@ -3,19 +3,21 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "mozilla/Move.h"
 #include "XPathExpression.h"
-#include "txExpr.h"
-#include "txExprResult.h"
-#include "txIXPathContext.h"
-#include "nsError.h"
-#include "nsINode.h"
+
+#include <utility>
+
 #include "XPathResult.h"
-#include "txURIUtils.h"
-#include "txXPathTreeWalker.h"
 #include "mozilla/dom/BindingUtils.h"
 #include "mozilla/dom/Text.h"
 #include "mozilla/dom/XPathResultBinding.h"
+#include "nsError.h"
+#include "nsINode.h"
+#include "txExpr.h"
+#include "txExprResult.h"
+#include "txIXPathContext.h"
+#include "txURIUtils.h"
+#include "txXPathTreeWalker.h"
 
 namespace mozilla {
 namespace dom {
@@ -42,15 +44,15 @@ class EvalContextImpl : public txIEvalContext {
   RefPtr<txResultRecycler> mRecycler;
 };
 
-XPathExpression::XPathExpression(nsAutoPtr<Expr>&& aExpression,
+XPathExpression::XPathExpression(UniquePtr<Expr>&& aExpression,
                                  txResultRecycler* aRecycler,
-                                 nsIDocument* aDocument)
+                                 Document* aDocument)
     : mExpression(std::move(aExpression)),
       mRecycler(aRecycler),
       mDocument(do_GetWeakReference(aDocument)),
       mCheckDocument(aDocument != nullptr) {}
 
-XPathExpression::~XPathExpression() {}
+XPathExpression::~XPathExpression() = default;
 
 already_AddRefed<XPathResult> XPathExpression::EvaluateWithContext(
     JSContext* aCx, nsINode& aContextNode, uint32_t aContextPosition,
@@ -89,7 +91,7 @@ already_AddRefed<XPathResult> XPathExpression::EvaluateWithContext(
   }
 
   if (mCheckDocument) {
-    nsCOMPtr<nsIDocument> doc = do_QueryReferent(mDocument);
+    nsCOMPtr<Document> doc = do_QueryReferent(mDocument);
     if (doc != aContextNode.OwnerDoc()) {
       aRv.Throw(NS_ERROR_DOM_WRONG_DOCUMENT_ERR);
       return nullptr;
@@ -120,7 +122,7 @@ already_AddRefed<XPathResult> XPathExpression::EvaluateWithContext(
     return nullptr;
   }
 
-  nsAutoPtr<txXPathNode> contextNode(
+  UniquePtr<txXPathNode> contextNode(
       txXPathNativeNode::createXPathNode(&aContextNode));
   if (!contextNode) {
     aRv.Throw(NS_ERROR_FAILURE);
@@ -162,7 +164,10 @@ already_AddRefed<XPathResult> XPathExpression::EvaluateWithContext(
     xpathResult = new XPathResult(&aContextNode);
   }
 
-  aRv = xpathResult->SetExprResult(exprResult, resultType, &aContextNode);
+  xpathResult->SetExprResult(exprResult, resultType, &aContextNode, aRv);
+  if (aRv.Failed()) {
+    return nullptr;
+  }
 
   return xpathResult.forget();
 }

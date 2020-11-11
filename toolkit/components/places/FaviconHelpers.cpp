@@ -16,13 +16,13 @@
 #include "nsFaviconService.h"
 #include "mozilla/storage.h"
 #include "mozilla/Telemetry.h"
+#include "mozilla/StaticPrefs_network.h"
 #include "nsNetUtil.h"
 #include "nsPrintfCString.h"
 #include "nsStreamUtils.h"
 #include "nsStringStream.h"
 #include "nsIPrivateBrowsingChannel.h"
 #include "nsISupportsPriority.h"
-#include "nsContentUtils.h"
 #include <algorithm>
 #include <deque>
 #include "mozilla/gfx/2D.h"
@@ -88,8 +88,7 @@ nsresult FetchPageInfo(const RefPtr<Database>& aDB, PageData& _page) {
   NS_ENSURE_STATE(stmt);
   mozStorageStatementScoper scoper(stmt);
 
-  nsresult rv =
-      URIBinder::Bind(stmt, NS_LITERAL_CSTRING("page_url"), _page.spec);
+  nsresult rv = URIBinder::Bind(stmt, "page_url"_ns, _page.spec);
   NS_ENSURE_SUCCESS(rv, rv);
 
   bool hasResult;
@@ -185,8 +184,7 @@ nsresult SetIconInfo(const RefPtr<Database>& aDB, IconData& aIcon,
       "AND icon_url = :url ");
   NS_ENSURE_STATE(selectStmt);
   mozStorageStatementScoper scoper(selectStmt);
-  nsresult rv =
-      URIBinder::Bind(selectStmt, NS_LITERAL_CSTRING("url"), aIcon.spec);
+  nsresult rv = URIBinder::Bind(selectStmt, "url"_ns, aIcon.spec);
   NS_ENSURE_SUCCESS(rv, rv);
   std::deque<int64_t> ids;
   bool hasResult = false;
@@ -204,11 +202,14 @@ nsresult SetIconInfo(const RefPtr<Database>& aDB, IconData& aIcon,
       "(icon_url, fixed_icon_url_hash, width, root, expire_ms, data) "
       "VALUES (:url, hash(fixup_url(:url)), :width, :root, :expire, :data) ");
   NS_ENSURE_STATE(insertStmt);
+  // ReplaceFaviconData may replace data for an already existing icon, and in
+  // that case it won't have the page uri at hand, thus it can't tell if the
+  // icon is a root icon or not. For that reason, never overwrite a root = 1.
   nsCOMPtr<mozIStorageStatement> updateStmt = aDB->GetStatement(
       "UPDATE moz_icons SET width = :width, "
       "expire_ms = :expire, "
       "data = :data, "
-      "root = :root "
+      "root = (root  OR :root) "
       "WHERE id = :id ");
   NS_ENSURE_STATE(updateStmt);
 
@@ -230,19 +231,15 @@ nsresult SetIconInfo(const RefPtr<Database>& aDB, IconData& aIcon,
       int64_t id = ids.front();
       ids.pop_front();
       mozStorageStatementScoper scoper(updateStmt);
-      rv = updateStmt->BindInt64ByName(NS_LITERAL_CSTRING("id"), id);
+      rv = updateStmt->BindInt64ByName("id"_ns, id);
       NS_ENSURE_SUCCESS(rv, rv);
-      rv = updateStmt->BindInt32ByName(NS_LITERAL_CSTRING("width"),
-                                       payload.width);
+      rv = updateStmt->BindInt32ByName("width"_ns, payload.width);
       NS_ENSURE_SUCCESS(rv, rv);
-      rv = updateStmt->BindInt64ByName(NS_LITERAL_CSTRING("expire"),
-                                       aIcon.expiration / 1000);
+      rv = updateStmt->BindInt64ByName("expire"_ns, aIcon.expiration / 1000);
       NS_ENSURE_SUCCESS(rv, rv);
-      rv = updateStmt->BindInt32ByName(NS_LITERAL_CSTRING("root"),
-                                       aIcon.rootIcon);
+      rv = updateStmt->BindInt32ByName("root"_ns, aIcon.rootIcon);
       NS_ENSURE_SUCCESS(rv, rv);
-      rv = updateStmt->BindBlobByName(NS_LITERAL_CSTRING("data"),
-                                      TO_INTBUFFER(payload.data),
+      rv = updateStmt->BindBlobByName("data"_ns, TO_INTBUFFER(payload.data),
                                       payload.data.Length());
       NS_ENSURE_SUCCESS(rv, rv);
       rv = updateStmt->Execute();
@@ -252,20 +249,16 @@ nsresult SetIconInfo(const RefPtr<Database>& aDB, IconData& aIcon,
     } else {
       // Insert a new entry.
       mozStorageStatementScoper scoper(insertStmt);
-      rv = URIBinder::Bind(insertStmt, NS_LITERAL_CSTRING("url"), aIcon.spec);
+      rv = URIBinder::Bind(insertStmt, "url"_ns, aIcon.spec);
       NS_ENSURE_SUCCESS(rv, rv);
-      rv = insertStmt->BindInt32ByName(NS_LITERAL_CSTRING("width"),
-                                       payload.width);
+      rv = insertStmt->BindInt32ByName("width"_ns, payload.width);
       NS_ENSURE_SUCCESS(rv, rv);
 
-      rv = insertStmt->BindInt32ByName(NS_LITERAL_CSTRING("root"),
-                                       aIcon.rootIcon);
+      rv = insertStmt->BindInt32ByName("root"_ns, aIcon.rootIcon);
       NS_ENSURE_SUCCESS(rv, rv);
-      rv = insertStmt->BindInt64ByName(NS_LITERAL_CSTRING("expire"),
-                                       aIcon.expiration / 1000);
+      rv = insertStmt->BindInt64ByName("expire"_ns, aIcon.expiration / 1000);
       NS_ENSURE_SUCCESS(rv, rv);
-      rv = insertStmt->BindBlobByName(NS_LITERAL_CSTRING("data"),
-                                      TO_INTBUFFER(payload.data),
+      rv = insertStmt->BindBlobByName("data"_ns, TO_INTBUFFER(payload.data),
                                       payload.data.Length());
       NS_ENSURE_SUCCESS(rv, rv);
       rv = insertStmt->Execute();
@@ -324,8 +317,7 @@ nsresult FetchIconInfo(const RefPtr<Database>& aDB, uint16_t aPreferredWidth,
   NS_ENSURE_STATE(stmt);
   mozStorageStatementScoper scoper(stmt);
 
-  DebugOnly<nsresult> rv =
-      URIBinder::Bind(stmt, NS_LITERAL_CSTRING("url"), _icon.spec);
+  DebugOnly<nsresult> rv = URIBinder::Bind(stmt, "url"_ns, _icon.spec);
   MOZ_ASSERT(NS_SUCCEEDED(rv));
 
   bool hasResult = false;
@@ -408,17 +400,16 @@ nsresult FetchIconPerSpec(const RefPtr<Database>& aDB,
   NS_ENSURE_STATE(stmt);
   mozStorageStatementScoper scoper(stmt);
 
-  nsresult rv = URIBinder::Bind(stmt, NS_LITERAL_CSTRING("url"), aPageSpec);
+  nsresult rv = URIBinder::Bind(stmt, "url"_ns, aPageSpec);
   NS_ENSURE_SUCCESS(rv, rv);
   nsAutoCString rootIconFixedUrl(aPageHost);
   if (!rootIconFixedUrl.IsEmpty()) {
     rootIconFixedUrl.AppendLiteral("/favicon.ico");
   }
-  rv = stmt->BindUTF8StringByName(NS_LITERAL_CSTRING("root_icon_url"),
-                                  rootIconFixedUrl);
+  rv = stmt->BindUTF8StringByName("root_icon_url"_ns, rootIconFixedUrl);
   NS_ENSURE_SUCCESS(rv, rv);
   int32_t hashIdx = PromiseFlatCString(aPageSpec).RFind("#");
-  rv = stmt->BindInt32ByName(NS_LITERAL_CSTRING("hash_idx"), hashIdx + 1);
+  rv = stmt->BindInt32ByName("hash_idx"_ns, hashIdx + 1);
   NS_ENSURE_SUCCESS(rv, rv);
 
   // Return the biggest icon close to the preferred width. It may be bigger
@@ -458,6 +449,7 @@ PRTime GetExpirationTimeFromChannel(nsIChannel* aChannel) {
 
   // Attempt to get an expiration time from the cache.  If this fails, we'll
   // make one up.
+  PRTime now = PR_Now();
   PRTime expiration = -1;
   nsCOMPtr<nsICachingChannel> cachingChannel = do_QueryInterface(aChannel);
   if (cachingChannel) {
@@ -469,13 +461,15 @@ PRTime GetExpirationTimeFromChannel(nsIChannel* aChannel) {
       rv = cacheEntry->GetExpirationTime(&seconds);
       if (NS_SUCCEEDED(rv)) {
         // Set the expiration, but make sure we honor our cap.
-        expiration = PR_Now() + std::min((PRTime)seconds * PR_USEC_PER_SEC,
-                                         MAX_FAVICON_EXPIRATION);
+        expiration = now + std::min((PRTime)seconds * PR_USEC_PER_SEC,
+                                    MAX_FAVICON_EXPIRATION);
       }
     }
   }
   // If we did not obtain a time from the cache, use the cap value.
-  return expiration < 0 ? PR_Now() + MAX_FAVICON_EXPIRATION : expiration;
+  return expiration < now + MIN_FAVICON_EXPIRATION
+             ? now + MAX_FAVICON_EXPIRATION
+             : expiration;
 }
 
 }  // namespace
@@ -567,7 +561,7 @@ nsresult AsyncFetchAndSetIconForPage::FetchFromNetwork() {
   NS_ENSURE_SUCCESS(rv, rv);
   nsCOMPtr<nsIChannel> channel;
   rv = NS_NewChannel(getter_AddRefs(channel), iconURI, mLoadingPrincipal,
-                     nsILoadInfo::SEC_ALLOW_CROSS_ORIGIN_DATA_INHERITS |
+                     nsILoadInfo::SEC_ALLOW_CROSS_ORIGIN_INHERITS_SEC_CONTEXT |
                          nsILoadInfo::SEC_ALLOW_CHROME |
                          nsILoadInfo::SEC_DISALLOW_SCRIPT,
                      nsIContentPolicy::TYPE_INTERNAL_IMAGE_FAVICON);
@@ -589,7 +583,7 @@ nsresult AsyncFetchAndSetIconForPage::FetchFromNetwork() {
     priorityChannel->AdjustPriority(nsISupportsPriority::PRIORITY_LOWEST);
   }
 
-  if (nsContentUtils::IsTailingEnabled()) {
+  if (StaticPrefs::network_http_tailing_enabled()) {
     nsCOMPtr<nsIClassOfService> cos = do_QueryInterface(channel);
     if (cos) {
       cos->AddClassFlags(nsIClassOfService::Tail |
@@ -602,7 +596,7 @@ nsresult AsyncFetchAndSetIconForPage::FetchFromNetwork() {
     }
   }
 
-  rv = channel->AsyncOpen2(this);
+  rv = channel->AsyncOpen(this);
   if (NS_SUCCEEDED(rv)) {
     mRequest = channel;
   }
@@ -623,8 +617,7 @@ AsyncFetchAndSetIconForPage::Cancel() {
 }
 
 NS_IMETHODIMP
-AsyncFetchAndSetIconForPage::OnStartRequest(nsIRequest* aRequest,
-                                            nsISupports* aContext) {
+AsyncFetchAndSetIconForPage::OnStartRequest(nsIRequest* aRequest) {
   // mRequest should already be set from ::FetchFromNetwork, but in the case of
   // a redirect we might get a new request, and we should make sure we keep a
   // reference to the most current request.
@@ -632,12 +625,26 @@ AsyncFetchAndSetIconForPage::OnStartRequest(nsIRequest* aRequest,
   if (mCanceled) {
     mRequest->Cancel(NS_BINDING_ABORTED);
   }
+  // Don't store icons responding with Cache-Control: no-store, but always
+  // allow root domain icons.
+  nsCOMPtr<nsIHttpChannel> httpChannel = do_QueryInterface(aRequest);
+  if (httpChannel) {
+    bool isNoStore;
+    nsAutoCString path;
+    nsCOMPtr<nsIURI> uri;
+    if (NS_SUCCEEDED(httpChannel->GetURI(getter_AddRefs(uri))) &&
+        NS_SUCCEEDED(uri->GetFilePath(path)) &&
+        !path.EqualsLiteral("/favicon.ico") &&
+        NS_SUCCEEDED(httpChannel->IsNoStoreResponse(&isNoStore)) && isNoStore) {
+      // Abandon the network fetch.
+      mRequest->Cancel(NS_BINDING_ABORTED);
+    }
+  }
   return NS_OK;
 }
 
 NS_IMETHODIMP
 AsyncFetchAndSetIconForPage::OnDataAvailable(nsIRequest* aRequest,
-                                             nsISupports* aContext,
                                              nsIInputStream* aInputStream,
                                              uint64_t aOffset,
                                              uint32_t aCount) {
@@ -680,7 +687,6 @@ AsyncFetchAndSetIconForPage::AsyncOnChannelRedirect(
 
 NS_IMETHODIMP
 AsyncFetchAndSetIconForPage::OnStopRequest(nsIRequest* aRequest,
-                                           nsISupports* aContext,
                                            nsresult aStatusCode) {
   MOZ_ASSERT(NS_IsMainThread());
 
@@ -814,7 +820,10 @@ AsyncAssociateIconToPage::Run() {
   nsresult rv;
   if (shouldUpdateIcon) {
     rv = SetIconInfo(DB, mIcon);
-    NS_ENSURE_SUCCESS(rv, rv);
+    if (NS_FAILED(rv)) {
+      (void)transaction.Commit();
+      return rv;
+    }
 
     mIcon.status = (mIcon.status & ~(ICON_STATUS_CACHED)) | ICON_STATUS_SAVED;
   }
@@ -826,6 +835,29 @@ AsyncAssociateIconToPage::Run() {
     rv = transaction.Commit();
     NS_ENSURE_SUCCESS(rv, rv);
     return NS_OK;
+  }
+
+  // Expire old favicons to keep up with website changes. Associated icons must
+  // be expired also when storing a root favicon, because a page may change to
+  // only have a root favicon.
+  // Note that here we could also be in the process of adding further payloads
+  // to a page, and we don't want to expire just added payloads. For this
+  // reason we only remove expired payloads.
+  // Oprhan icons are not removed at this time because it'd be expensive. The
+  // privacy implications are limited, since history removal methods also expire
+  // orphan icons.
+  if (mPage.id > 0) {
+    nsCOMPtr<mozIStorageStatement> stmt;
+    stmt = DB->GetStatement(
+        "DELETE FROM moz_icons_to_pages "
+        "WHERE page_id = :page_id "
+        "AND expire_ms < strftime('%s','now','localtime','utc') * 1000 ");
+    NS_ENSURE_STATE(stmt);
+    mozStorageStatementScoper scoper(stmt);
+    rv = stmt->BindInt64ByName("page_id"_ns, mPage.id);
+    NS_ENSURE_SUCCESS(rv, rv);
+    rv = stmt->Execute();
+    NS_ENSURE_SUCCESS(rv, rv);
   }
 
   // Don't associate pages to root domain icons, since those will be returned
@@ -843,24 +875,7 @@ AsyncAssociateIconToPage::Run() {
     // it being elapsed. We don't remove orphan icons at this time since it
     // would have a cost. The privacy hit is limited since history removal
     // methods already expire orphan icons.
-    if (mPage.id != 0) {
-      nsCOMPtr<mozIStorageStatement> stmt;
-      stmt = DB->GetStatement(
-          "DELETE FROM moz_icons_to_pages "
-          "WHERE icon_id IN ( "
-          "SELECT icon_id FROM moz_icons_to_pages "
-          "JOIN moz_icons i ON icon_id = i.id "
-          "WHERE page_id = :page_id "
-          "AND expire_ms < strftime('%s','now','localtime','start of day','-7 "
-          "days','utc') * 1000 "
-          ") AND page_id = :page_id ");
-      NS_ENSURE_STATE(stmt);
-      mozStorageStatementScoper scoper(stmt);
-      rv = stmt->BindInt64ByName(NS_LITERAL_CSTRING("page_id"), mPage.id);
-      NS_ENSURE_SUCCESS(rv, rv);
-      rv = stmt->Execute();
-      NS_ENSURE_SUCCESS(rv, rv);
-    } else {
+    if (mPage.id == 0) {
       // We need to create the page entry.
       nsCOMPtr<mozIStorageStatement> stmt;
       stmt = DB->GetStatement(
@@ -868,7 +883,7 @@ AsyncAssociateIconToPage::Run() {
           "VALUES (:page_url, hash(:page_url)) ");
       NS_ENSURE_STATE(stmt);
       mozStorageStatementScoper scoper(stmt);
-      rv = URIBinder::Bind(stmt, NS_LITERAL_CSTRING("page_url"), mPage.spec);
+      rv = URIBinder::Bind(stmt, "page_url"_ns, mPage.spec);
       NS_ENSURE_SUCCESS(rv, rv);
       rv = stmt->Execute();
       NS_ENSURE_SUCCESS(rv, rv);
@@ -877,10 +892,12 @@ AsyncAssociateIconToPage::Run() {
     // Then we can create the relations.
     nsCOMPtr<mozIStorageStatement> stmt;
     stmt = DB->GetStatement(
-        "INSERT OR IGNORE INTO moz_icons_to_pages (page_id, icon_id) "
+        "INSERT INTO moz_icons_to_pages (page_id, icon_id, expire_ms) "
         "VALUES ((SELECT id from moz_pages_w_icons WHERE page_url_hash = "
         "hash(:page_url) AND page_url = :page_url), "
-        ":icon_id) ");
+        ":icon_id, :expire) "
+        "ON CONFLICT(page_id, icon_id) DO "
+        "UPDATE SET expire_ms = :expire ");
     NS_ENSURE_STATE(stmt);
 
     // For some reason using BindingParamsArray here fails execution, so we must
@@ -890,9 +907,11 @@ AsyncAssociateIconToPage::Run() {
     for (const auto& payload : mIcon.payloads) {
       mozStorageStatementScoper scoper(stmt);
       nsCOMPtr<mozIStorageBindingParams> params;
-      rv = URIBinder::Bind(stmt, NS_LITERAL_CSTRING("page_url"), mPage.spec);
+      rv = URIBinder::Bind(stmt, "page_url"_ns, mPage.spec);
       NS_ENSURE_SUCCESS(rv, rv);
-      rv = stmt->BindInt64ByName(NS_LITERAL_CSTRING("icon_id"), payload.id);
+      rv = stmt->BindInt64ByName("icon_id"_ns, payload.id);
+      NS_ENSURE_SUCCESS(rv, rv);
+      rv = stmt->BindInt64ByName("expire"_ns, mIcon.expiration / 1000);
       NS_ENSURE_SUCCESS(rv, rv);
       rv = stmt->Execute();
       NS_ENSURE_SUCCESS(rv, rv);
@@ -1031,6 +1050,7 @@ AsyncReplaceFaviconData::Run() {
   nsresult rv = SetIconInfo(DB, mIcon, true);
   if (rv == NS_ERROR_NOT_AVAILABLE) {
     // There's no previous icon to replace, we don't need to do anything.
+    (void)transaction.Commit();
     return NS_OK;
   }
   NS_ENSURE_SUCCESS(rv, rv);
@@ -1107,8 +1127,8 @@ NotifyIconObservers::Run() {
                                  TO_INTBUFFER(payload.data), payload.mimeType,
                                  payload.width);
   }
-  return mCallback->OnComplete(iconURI, 0, TO_INTBUFFER(EmptyCString()),
-                               EmptyCString(), 0);
+  return mCallback->OnComplete(iconURI, 0, TO_INTBUFFER(EmptyCString()), ""_ns,
+                               0);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1130,7 +1150,7 @@ FetchAndConvertUnsupportedPayloads::Run() {
 
   nsCOMPtr<mozIStorageStatement> stmt;
   nsresult rv = mDB->CreateStatement(
-      NS_LITERAL_CSTRING(
+      nsLiteralCString(
           "SELECT id, width, data FROM moz_icons WHERE typeof(width) = 'text' "
           "ORDER BY id ASC "
           "LIMIT 200 "),
@@ -1183,11 +1203,11 @@ FetchAndConvertUnsupportedPayloads::Run() {
 
   // We're done. Remove any leftovers.
   rv = mDB->ExecuteSimpleSQL(
-      NS_LITERAL_CSTRING("DELETE FROM moz_icons WHERE typeof(width) = 'text'"));
+      "DELETE FROM moz_icons WHERE typeof(width) = 'text'"_ns);
   NS_ENSURE_SUCCESS(rv, rv);
   // Run a one-time VACUUM of places.sqlite, since we removed a lot from it.
   // It may cause jank, but not doing it could cause dataloss due to expiration.
-  rv = mDB->ExecuteSimpleSQL(NS_LITERAL_CSTRING("VACUUM"));
+  rv = mDB->ExecuteSimpleSQL("VACUUM"_ns);
   NS_ENSURE_SUCCESS(rv, rv);
 
   // Re-dispatch to the main-thread to flip the conversion pref.
@@ -1217,8 +1237,8 @@ nsresult FetchAndConvertUnsupportedPayloads::ConvertPayload(
 
   // Convert the payload to an input stream.
   nsCOMPtr<nsIInputStream> stream;
-  nsresult rv = NS_NewByteInputStream(getter_AddRefs(stream), aPayload.get(),
-                                      aPayload.Length(), NS_ASSIGNMENT_DEPEND);
+  nsresult rv = NS_NewByteInputStream(getter_AddRefs(stream), aPayload,
+                                      NS_ASSIGNMENT_DEPEND);
   NS_ENSURE_SUCCESS(rv, rv);
 
   // Decode the input stream to a surface.
@@ -1234,7 +1254,7 @@ nsresult FetchAndConvertUnsupportedPayloads::ConvertPayload(
   // For non-square images, pick the largest side.
   int32_t originalSize = std::max(width, height);
   int32_t size = originalSize;
-  for (uint16_t supportedSize : sFaviconSizes) {
+  for (uint16_t supportedSize : gFaviconSizes) {
     if (supportedSize <= originalSize) {
       size = supportedSize;
       break;
@@ -1284,7 +1304,7 @@ nsresult FetchAndConvertUnsupportedPayloads::ConvertPayload(
   }
   rv = encoder->InitFromData(map.mData, map.mStride * size, size, size,
                              map.mStride, imgIEncoder::INPUT_FORMAT_HOSTARGB,
-                             EmptyString());
+                             u""_ns);
   targetDataSurface->Unmap();
   NS_ENSURE_SUCCESS(rv, rv);
 
@@ -1304,16 +1324,16 @@ nsresult FetchAndConvertUnsupportedPayloads::StorePayload(
   NS_ENSURE_STATE(mDB);
   nsCOMPtr<mozIStorageStatement> stmt;
   nsresult rv = mDB->CreateStatement(
-      NS_LITERAL_CSTRING(
+      nsLiteralCString(
           "UPDATE moz_icons SET data = :data, width = :width WHERE id = :id"),
       getter_AddRefs(stmt));
   NS_ENSURE_SUCCESS(rv, rv);
 
-  rv = stmt->BindInt64ByName(NS_LITERAL_CSTRING("id"), aId);
+  rv = stmt->BindInt64ByName("id"_ns, aId);
   NS_ENSURE_SUCCESS(rv, rv);
-  rv = stmt->BindInt32ByName(NS_LITERAL_CSTRING("width"), aWidth);
+  rv = stmt->BindInt32ByName("width"_ns, aWidth);
   NS_ENSURE_SUCCESS(rv, rv);
-  rv = stmt->BindBlobByName(NS_LITERAL_CSTRING("data"), TO_INTBUFFER(aPayload),
+  rv = stmt->BindBlobByName("data"_ns, TO_INTBUFFER(aPayload),
                             aPayload.Length());
   NS_ENSURE_SUCCESS(rv, rv);
 
@@ -1366,7 +1386,7 @@ AsyncCopyFavicons::Run() {
   NS_ENSURE_SUCCESS(rv, rv);
 
   // Get just one icon, to check whether the page has any, and to notify later.
-  rv = FetchIconPerSpec(DB, mFromPage.spec, EmptyCString(), icon, UINT16_MAX);
+  rv = FetchIconPerSpec(DB, mFromPage.spec, ""_ns, icon, UINT16_MAX);
   NS_ENSURE_SUCCESS(rv, rv);
 
   if (icon.spec.IsEmpty()) {
@@ -1383,7 +1403,7 @@ AsyncCopyFavicons::Run() {
         "VALUES (:page_url, hash(:page_url)) ");
     NS_ENSURE_STATE(stmt);
     mozStorageStatementScoper scoper(stmt);
-    rv = URIBinder::Bind(stmt, NS_LITERAL_CSTRING("page_url"), mToPage.spec);
+    rv = URIBinder::Bind(stmt, "page_url"_ns, mToPage.spec);
     NS_ENSURE_SUCCESS(rv, rv);
     rv = stmt->Execute();
     NS_ENSURE_SUCCESS(rv, rv);
@@ -1394,16 +1414,16 @@ AsyncCopyFavicons::Run() {
 
   // Create the relations.
   nsCOMPtr<mozIStorageStatement> stmt = DB->GetStatement(
-      "INSERT OR IGNORE INTO moz_icons_to_pages (page_id, icon_id) "
-      "SELECT :id, icon_id "
+      "INSERT OR IGNORE INTO moz_icons_to_pages (page_id, icon_id, expire_ms) "
+      "SELECT :id, icon_id, expire_ms "
       "FROM moz_icons_to_pages "
       "WHERE page_id = (SELECT id FROM moz_pages_w_icons WHERE page_url_hash = "
       "hash(:url) AND page_url = :url) ");
   NS_ENSURE_STATE(stmt);
   mozStorageStatementScoper scoper(stmt);
-  rv = stmt->BindInt64ByName(NS_LITERAL_CSTRING("id"), mToPage.id);
+  rv = stmt->BindInt64ByName("id"_ns, mToPage.id);
   NS_ENSURE_SUCCESS(rv, rv);
-  rv = URIBinder::Bind(stmt, NS_LITERAL_CSTRING("url"), mFromPage.spec);
+  rv = URIBinder::Bind(stmt, "url"_ns, mFromPage.spec);
   NS_ENSURE_SUCCESS(rv, rv);
   rv = stmt->Execute();
   NS_ENSURE_SUCCESS(rv, rv);

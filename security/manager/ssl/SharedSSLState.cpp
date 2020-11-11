@@ -44,8 +44,7 @@ class MainThreadClearer : public SyncRunnableBase {
       nsCOMPtr<nsICertOverrideService> icos =
           do_GetService(NS_CERTOVERRIDE_CONTRACTID);
       if (icos) {
-        icos->ClearValidityOverride(
-            NS_LITERAL_CSTRING("all:temporary-certificates"), 0);
+        icos->ClearValidityOverride("all:temporary-certificates"_ns, 0);
       }
     }
 
@@ -81,7 +80,7 @@ void ClearPrivateSSLState() {
   // If NSS isn't initialized, this throws an assertion. We guard it by checking
   // if the session cache might even have anything worth clearing.
   if (runnable->mShouldClearSessionCache) {
-    SSL_ClearSessionCache();
+    nsNSSComponent::DoClearSSLExternalAndInternalSessionCache();
   }
 }
 
@@ -95,7 +94,7 @@ class PrivateBrowsingObserver : public nsIObserver {
   explicit PrivateBrowsingObserver(SharedSSLState* aOwner) : mOwner(aOwner) {}
 
  protected:
-  virtual ~PrivateBrowsingObserver() {}
+  virtual ~PrivateBrowsingObserver() = default;
 
  private:
   SharedSSLState* mOwner;
@@ -124,13 +123,9 @@ SharedSSLState::SharedSSLState(uint32_t aTlsFlags)
       mOCSPMustStapleEnabled(false),
       mSignedCertTimestampsEnabled(false) {
   mIOLayerHelpers.Init();
-  if (!aTlsFlags) {  // the per socket flags don't need memory
-    mClientAuthRemember = new nsClientAuthRememberService();
-    mClientAuthRemember->Init();
-  }
 }
 
-SharedSSLState::~SharedSSLState() {}
+SharedSSLState::~SharedSSLState() = default;
 
 void SharedSSLState::NotePrivateBrowsingStatus() {
   MOZ_ASSERT(NS_IsMainThread(), "Not on main thread");
@@ -140,11 +135,7 @@ void SharedSSLState::NotePrivateBrowsingStatus() {
 }
 
 void SharedSSLState::ResetStoredData() {
-  if (!mClientAuthRemember) {
-    return;
-  }
   MOZ_ASSERT(NS_IsMainThread(), "Not on main thread");
-  mClientAuthRemember->ClearRememberedDecisions();
   mIOLayerHelpers.clearStoredData();
 }
 
@@ -158,14 +149,16 @@ bool SharedSSLState::SocketCreated() {
   return mSocketCreated;
 }
 
-/*static*/ void SharedSSLState::GlobalInit() {
+/*static*/
+void SharedSSLState::GlobalInit() {
   MOZ_ASSERT(NS_IsMainThread(), "Not on main thread");
   gPublicState = new SharedSSLState();
   gPrivateState = new SharedSSLState();
   gPrivateState->NotePrivateBrowsingStatus();
 }
 
-/*static*/ void SharedSSLState::GlobalCleanup() {
+/*static*/
+void SharedSSLState::GlobalCleanup() {
   MOZ_ASSERT(NS_IsMainThread(), "Not on main thread");
 
   if (gPrivateState) {
@@ -181,7 +174,8 @@ bool SharedSSLState::SocketCreated() {
   }
 }
 
-/*static*/ void SharedSSLState::NoteCertOverrideServiceInstantiated() {
+/*static*/
+void SharedSSLState::NoteCertOverrideServiceInstantiated() {
   sCertOverrideSvcExists = true;
 }
 

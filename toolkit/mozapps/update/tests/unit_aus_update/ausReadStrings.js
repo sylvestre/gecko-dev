@@ -2,8 +2,9 @@
  * http://creativecommons.org/publicdomain/zero/1.0/
  */
 
-const BIN_DIR = (IS_WIN ? "test_bug473417-ó" : "test_bug473417");
-const BIN_EXE = "TestAUSReadStrings" + BIN_SUFFIX;
+const BIN_DIR =
+  AppConstants.platform == "win" ? "test_bug473417-ó" : "test_bug473417";
+const BIN_EXE = "TestAUSReadStrings" + mozinfo.bin_suffix;
 const tempdir = do_get_tempdir();
 
 function run_test() {
@@ -15,6 +16,7 @@ function run_test() {
     "TestAUSReadStrings1.ini",
     "TestAUSReadStrings2.ini",
     "TestAUSReadStrings3.ini",
+    "TestAUSReadStrings4.ini",
   ];
   for (let i = 0; i < paths.length; i++) {
     let file = do_get_file("../data/" + paths[i]);

@@ -2811,13 +2811,22 @@ PKIX_PL_Cert_VerifySignature(
         PKIX_PL_Cert *cachedCert = NULL;
         PKIX_Error *verifySig = NULL;
         PKIX_Error *cachedSig = NULL;
+        PKIX_Error *checkSig = NULL;
         SECStatus status;
         PKIX_Boolean certEqual = PKIX_FALSE;
         PKIX_Boolean certInHash = PKIX_FALSE;
+        PKIX_Boolean checkCertSig = PKIX_TRUE;
         void* wincx = NULL;
 
         PKIX_ENTER(CERT, "PKIX_PL_Cert_VerifySignature");
         PKIX_NULLCHECK_THREE(cert, cert->nssCert, pubKey);
+
+        /* if the cert check flag is off, skip the check */
+        checkSig = pkix_pl_NssContext_GetCertSignatureCheck(
+                   (PKIX_PL_NssContext *)plContext, &checkCertSig);
+        if ((checkCertSig == PKIX_FALSE) && (checkSig == NULL)) {
+            goto cleanup;
+        }
 
         verifySig = PKIX_PL_HashTable_Lookup
                         (cachedCertSigTable,
@@ -2879,6 +2888,7 @@ cleanup:
         }
 
         PKIX_DECREF(cachedCert);
+        PKIX_DECREF(checkSig);
         PKIX_DECREF(verifySig);
         PKIX_DECREF(cachedSig);
 
@@ -3002,17 +3012,8 @@ PKIX_PL_Cert_VerifyCertAndKeyType(
     if (CERT_CheckKeyUsage(cert->nssCert, requiredKeyUsage) != SECSuccess) {
         PKIX_ERROR(PKIX_CERTCHECKKEYUSAGEFAILED);
     }
-    if (certUsage != certUsageIPsec) {
-        if (!(certType & requiredCertType)) {
-            PKIX_ERROR(PKIX_CERTCHECKCERTTYPEFAILED);
-        }
-    } else {
-        PRBool isCritical;
-        PRBool allowed = cert_EKUAllowsIPsecIKE(cert->nssCert, &isCritical);
-        /* If the extension isn't critical, we allow any EKU value. */
-        if (isCritical && !allowed) {
-            PKIX_ERROR(PKIX_CERTCHECKCERTTYPEFAILED);
-        }
+    if (!(certType & requiredCertType)) {
+        PKIX_ERROR(PKIX_CERTCHECKCERTTYPEFAILED);
     }
 cleanup:
     PKIX_DECREF(basicConstraints);
@@ -3158,6 +3159,15 @@ PKIX_PL_Cert_CheckNameConstraints(
                 arena = PORT_NewArena(DER_DEFAULT_CHUNKSIZE);
                 if (arena == NULL) {
                         PKIX_ERROR(PKIX_OUTOFMEMORY);
+                }
+                /* only check common Name if the usage requires it */
+                if (treatCommonNameAsDNSName) {
+                    SECCertificateUsage certificateUsage;
+                    certificateUsage = ((PKIX_PL_NssContext*)plContext)->certificateUsage;
+                    if ((certificateUsage != certificateUsageSSLServer) &&
+                        (certificateUsage != certificateUsageIPsec)) {
+                        treatCommonNameAsDNSName = PKIX_FALSE;
+                    }
                 }
 
                 /* This NSS call returns Subject Alt Names. If

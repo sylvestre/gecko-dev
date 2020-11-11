@@ -1,8 +1,9 @@
 ChromeUtils.import("resource:///modules/SitePermissions.jsm", this);
+const { PermissionTestUtils } = ChromeUtils.import(
+  "resource://testing-common/PermissionTestUtils.jsm"
+);
 
-async function openTabContextMenu() {
-  let contextMenu = document.getElementById("tabContextMenu");
-  let popupShownPromise = BrowserTestUtils.waitForEvent(contextMenu, "popupshown");
-  EventUtils.synthesizeMouseAtCenter(gBrowser.selectedTab, {type: "contextmenu", button: 2});
-  await popupShownPromise;
-}
+SpecialPowers.addTaskImport(
+  "E10SUtils",
+  "resource://gre/modules/E10SUtils.jsm"
+);

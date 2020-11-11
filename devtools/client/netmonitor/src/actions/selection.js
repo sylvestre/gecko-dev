@@ -4,21 +4,22 @@
 
 "use strict";
 
-const { SELECT_REQUEST } = require("../constants");
+const { SELECT_REQUEST } = require("devtools/client/netmonitor/src/constants");
 const {
   getDisplayedRequests,
   getSortedRequests,
-} = require("../selectors/index");
+} = require("devtools/client/netmonitor/src/selectors/index");
 
 const PAGE_SIZE_ITEM_COUNT_RATIO = 5;
 
 /**
  * Select request with a given id.
  */
-function selectRequest(id) {
+function selectRequest(id, request) {
   return {
     type: SELECT_REQUEST,
     id,
+    request,
   };
 }
 
@@ -26,11 +27,11 @@ function selectRequest(id) {
  * Select request with a given index (sorted order)
  */
 function selectRequestByIndex(index) {
-  return (dispatch, getState) => {
+  return ({ dispatch, getState }) => {
     const requests = getSortedRequests(getState());
     let itemId;
-    if (index >= 0 && index < requests.size) {
-      itemId = requests.get(index).id;
+    if (index >= 0 && index < requests.length) {
+      itemId = requests[index].id;
     }
     dispatch(selectRequest(itemId));
   };
@@ -43,25 +44,30 @@ function selectRequestByIndex(index) {
  * - +Infinity | -Infinity: move to the start or end of the list
  */
 function selectDelta(delta) {
-  return (dispatch, getState) => {
+  return ({ dispatch, getState }) => {
     const state = getState();
     const requests = getDisplayedRequests(state);
 
-    if (requests.isEmpty()) {
+    if (!requests.length) {
       return;
     }
 
-    const selIndex = requests.findIndex(r => r.id === state.requests.selectedId);
+    const selIndex = requests.findIndex(
+      r => r.id === state.requests.selectedId
+    );
 
     if (delta === "PAGE_DOWN") {
-      delta = Math.ceil(requests.size / PAGE_SIZE_ITEM_COUNT_RATIO);
+      delta = Math.ceil(requests.length / PAGE_SIZE_ITEM_COUNT_RATIO);
     } else if (delta === "PAGE_UP") {
-      delta = -Math.ceil(requests.size / PAGE_SIZE_ITEM_COUNT_RATIO);
+      delta = -Math.ceil(requests.length / PAGE_SIZE_ITEM_COUNT_RATIO);
     }
 
-    const newIndex = Math.min(Math.max(0, selIndex + delta), requests.size - 1);
-    const newItem = requests.get(newIndex);
-    dispatch(selectRequest(newItem.id));
+    const newIndex = Math.min(
+      Math.max(0, selIndex + delta),
+      requests.length - 1
+    );
+    const newItem = requests[newIndex];
+    dispatch(selectRequest(newItem.id, newItem));
   };
 }
 

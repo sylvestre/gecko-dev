@@ -10,7 +10,10 @@
 add_task(async function() {
   requestLongerTimeout(4);
 
-  const { tab, monitor } = await initNetMonitor(INFINITE_GET_URL, true);
+  const { tab, monitor } = await initNetMonitor(INFINITE_GET_URL, {
+    enableCache: true,
+    requestCount: 1,
+  });
   const { document, windowRequire, store } = monitor.panelWin;
   const Actions = windowRequire("devtools/client/netmonitor/src/actions/index");
 
@@ -19,7 +22,7 @@ add_task(async function() {
   // Wait until the first request makes the empty notice disappear
   await waitForRequestListToAppear();
 
-  const requestsContainer = document.querySelector(".requests-list-contents");
+  const requestsContainer = document.querySelector(".requests-list-scroll");
   ok(requestsContainer, "Container element exists as expected.");
 
   // (1) Check that the scroll position is maintained at the bottom
@@ -34,8 +37,10 @@ add_task(async function() {
   await waitSomeTime();
   ok(!scrolledToBottom(requestsContainer), "Not scrolled to bottom.");
   // save for comparison later
-  const scrollTop = requestsContainer.scrollTop;
-  await waitForNetworkEvents(monitor, 8);
+  const { scrollTop } = requestsContainer;
+  // As we are scrolled top, new request appended won't be fetching their event timings,
+  // so do not wait for them
+  await waitForNetworkEvents(monitor, 8, { expectedEventTimings: 0 });
   await waitSomeTime();
   is(requestsContainer.scrollTop, scrollTop, "Did not scroll.");
 
@@ -53,12 +58,16 @@ add_task(async function() {
   store.dispatch(Actions.selectRequestByIndex(0));
   await waitForNetworkEvents(monitor, 8);
   await waitSomeTime();
-  const requestsContainerHeaders = requestsContainer.firstChild;
-  const headersHeight = requestsContainerHeaders.offsetHeight;
+  const requestsContainerHeaders = document.querySelector(
+    ".requests-list-headers"
+  );
+  const headersHeight = Math.floor(
+    requestsContainerHeaders.getBoundingClientRect().height
+  );
   is(requestsContainer.scrollTop, headersHeight, "Did not scroll.");
 
   // Stop doing requests.
-  await ContentTask.spawn(tab.linkedBrowser, {}, function() {
+  await SpecialPowers.spawn(tab.linkedBrowser, [], function() {
     content.wrappedJSObject.stopRequests();
   });
 
@@ -66,8 +75,12 @@ add_task(async function() {
   return teardown(monitor);
 
   function waitForRequestListToAppear() {
-    info("Waiting until the empty notice disappears and is replaced with the list");
-    return waitUntil(() => !!document.querySelector(".requests-list-contents"));
+    info(
+      "Waiting until the empty notice disappears and is replaced with the list"
+    );
+    return waitUntil(
+      () => !!document.querySelector(".requests-list-row-group")
+    );
   }
 
   async function waitForRequestsToOverflowContainer() {
@@ -75,7 +88,10 @@ add_task(async function() {
     while (true) {
       info("Waiting for one network request");
       await waitForNetworkEvents(monitor, 1);
-      if (requestsContainer.scrollHeight > requestsContainer.clientHeight) {
+      if (
+        requestsContainer.scrollHeight >
+        requestsContainer.clientHeight + 50
+      ) {
         info("The list is long enough, returning");
         return;
       }

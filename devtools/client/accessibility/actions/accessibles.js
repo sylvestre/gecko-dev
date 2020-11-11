@@ -3,26 +3,57 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 "use strict";
 
-const { FETCH_CHILDREN, SELECT, HIGHLIGHT, UNHIGHLIGHT } = require("../constants");
+const {
+  FETCH_CHILDREN,
+  SELECT,
+  HIGHLIGHT,
+  UNHIGHLIGHT,
+} = require("devtools/client/accessibility/constants");
 
 /**
  * Fetch child accessibles for a given accessible object.
  * @param {Object} accessible front
  */
-exports.fetchChildren = accessible =>
-  dispatch => accessible.children()
+exports.fetchChildren = accessible => ({ dispatch }) =>
+  accessible
+    .children()
     .then(response => dispatch({ accessible, type: FETCH_CHILDREN, response }))
     .catch(error => dispatch({ accessible, type: FETCH_CHILDREN, error }));
 
-exports.select = (walker, accessible) =>
-  dispatch => walker.getAncestry(accessible)
+exports.select = accessible => ({ dispatch }) => {
+  const accessibleWalkerFront = accessible.getParent();
+  if (!accessibleWalkerFront) {
+    dispatch({
+      accessible,
+      type: SELECT,
+      error: new Error("AccessibleWalker front is not available."),
+    });
+
+    return Promise.reject();
+  }
+
+  return accessibleWalkerFront
+    .getAncestry(accessible)
     .then(response => dispatch({ accessible, type: SELECT, response }))
     .catch(error => dispatch({ accessible, type: SELECT, error }));
+};
 
-exports.highlight = (walker, accessible) =>
-  dispatch => walker.getAncestry(accessible)
+exports.highlight = accessible => ({ dispatch }) => {
+  const accessibleWalkerFront = accessible.getParent();
+  if (!accessibleWalkerFront) {
+    dispatch({
+      accessible,
+      type: SELECT,
+      error: new Error("AccessibleWalker front is not available."),
+    });
+
+    return Promise.reject();
+  }
+
+  return accessibleWalkerFront
+    .getAncestry(accessible)
     .then(response => dispatch({ accessible, type: HIGHLIGHT, response }))
     .catch(error => dispatch({ accessible, type: HIGHLIGHT, error }));
+};
 
-exports.unhighlight = () =>
-  dispatch => dispatch({ type: UNHIGHLIGHT });
+exports.unhighlight = () => ({ dispatch }) => dispatch({ type: UNHIGHLIGHT });

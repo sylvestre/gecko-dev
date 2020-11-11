@@ -1,5 +1,5 @@
-commit 6a8e28db3cbff837570f93881e6e4f7ff4d5fb25
-Author: Yoshito Umaoka <yoshito_umaoka@us.ibm.com>
-Date:   Tue Oct 30 08:52:31 2018 -0400
+commit 3ad70644b1a16452c60e0aa5a7e241e7ce87c98f
+Author: Yoshito Umaoka <yumaoka@users.noreply.github.com>
+Date:   Sat Apr 25 14:17:09 2020 -0400
 
-    ICU-20245: tzdata2018g updates. Also added tzdata2018f release files missed previously.
+    ICU-21094 ICU data updates for tzdata2020a. (#11)

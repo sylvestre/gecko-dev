@@ -89,8 +89,7 @@
 }
 </style>
 
-<script type="application/javascript"
-        src="chrome://mochikit/content/tests/SimpleTest/SimpleTest.js"></script>
+<script src="chrome://mochikit/content/tests/SimpleTest/SimpleTest.js"></script>
 
 <script type="application/javascript"
         src="../common.js"></script>
@@ -106,7 +105,7 @@ const ROWHEADER = ROLE_ROWHEADER;
 const CELL = ROLE_CELL;
 const STATICTEXT = ROLE_STATICTEXT;
 const TEXT_LEAF = ROLE_TEXT_LEAF;
-const TEXT_CONTAINER = ROLE_TEXT_CONTAINER;
+const GROUPING = ROLE_GROUPING;
 
 function doTest() {
   let accTree =
@@ -129,60 +128,58 @@ function doTest() {
       { ROW: [
         { role: CELL },
       ] },
-      { TEXT_CONTAINER: [
-        { ROW: [
-          { CELL: [ { role: TEXT_LEAF, name: "Toy Story 3" } ] },
-          { CELL: [
-            { role: STATICTEXT, name: "Released" },
-            { role: TEXT_LEAF, name: "2010" },
-          ] },
-          { CELL: [
-            { role: STATICTEXT, name: "Studio" },
-            { role: TEXT_LEAF, name: "Disney Pixar" },
-          ] },
-          { CELL: [
-            { role: STATICTEXT, name: "Worldwide Gross" },
-            { role: TEXT_LEAF, name: "$1,063,171,911" },
-          ] },
-          { CELL: [
-            { role: STATICTEXT, name: "Domestic Gross" },
-            { role: TEXT_LEAF, name: "$415,004,880" },
-          ] },
-          { CELL: [
-            { role: STATICTEXT, name: "Foreign Gross" },
-            { role: TEXT_LEAF, name: "$648,167,031" },
-          ] },
-          { CELL: [
-            { role: STATICTEXT, name: "Budget" },
-            { role: TEXT_LEAF, name: "$200,000,000" },
-          ]},
+      { ROW: [
+        { CELL: [ { role: TEXT_LEAF, name: "Toy Story 3" } ] },
+        { CELL: [
+          { role: STATICTEXT, name: "Released" },
+          { role: TEXT_LEAF, name: "2010" },
         ] },
-        { ROW: [
-          { CELL: [ { role: TEXT_LEAF, name: "Shrek Forever After" } ] },
-          { CELL: [
-            { role: STATICTEXT, name: "Released" },
-            { role: TEXT_LEAF, name: "2010" },
-          ] },
-          { CELL: [
-            { role: STATICTEXT, name: "Studio" },
-            { role: TEXT_LEAF, name: "Dreamworks" },
-          ] },
-          { CELL: [
-            { role: STATICTEXT, name: "Worldwide Gross" },
-            { role: TEXT_LEAF, name: "$752,600,867" },
-          ] },
-          { CELL: [
-            { role: STATICTEXT, name: "Domestic Gross" },
-            { role: TEXT_LEAF, name: "$238,736,787" },
-          ] },
-          { CELL: [
-            { role: STATICTEXT, name: "Foreign Gross" },
-            { role: TEXT_LEAF, name: "$513,864,080" },
-          ] },
-          { CELL: [
-            { role: STATICTEXT, name: "Budget" },
-            { role: TEXT_LEAF, name: "$165,000,000" },
-          ] },
+        { CELL: [
+          { role: STATICTEXT, name: "Studio" },
+          { role: TEXT_LEAF, name: "Disney Pixar" },
+        ] },
+        { CELL: [
+          { role: STATICTEXT, name: "Worldwide Gross" },
+          { role: TEXT_LEAF, name: "$1,063,171,911" },
+        ] },
+        { CELL: [
+          { role: STATICTEXT, name: "Domestic Gross" },
+          { role: TEXT_LEAF, name: "$415,004,880" },
+        ] },
+        { CELL: [
+          { role: STATICTEXT, name: "Foreign Gross" },
+          { role: TEXT_LEAF, name: "$648,167,031" },
+        ] },
+        { CELL: [
+          { role: STATICTEXT, name: "Budget" },
+          { role: TEXT_LEAF, name: "$200,000,000" },
+        ]},
+      ] },
+      { ROW: [
+        { CELL: [ { role: TEXT_LEAF, name: "Shrek Forever After" } ] },
+        { CELL: [
+          { role: STATICTEXT, name: "Released" },
+          { role: TEXT_LEAF, name: "2010" },
+        ] },
+        { CELL: [
+          { role: STATICTEXT, name: "Studio" },
+          { role: TEXT_LEAF, name: "Dreamworks" },
+        ] },
+        { CELL: [
+          { role: STATICTEXT, name: "Worldwide Gross" },
+          { role: TEXT_LEAF, name: "$752,600,867" },
+        ] },
+        { CELL: [
+          { role: STATICTEXT, name: "Domestic Gross" },
+          { role: TEXT_LEAF, name: "$238,736,787" },
+        ] },
+        { CELL: [
+          { role: STATICTEXT, name: "Foreign Gross" },
+          { role: TEXT_LEAF, name: "$513,864,080" },
+        ] },
+        { CELL: [
+          { role: STATICTEXT, name: "Budget" },
+          { role: TEXT_LEAF, name: "$165,000,000" },
         ] },
       ] },
     ] };

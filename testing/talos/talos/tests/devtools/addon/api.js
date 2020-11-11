@@ -1,7 +1,10 @@
 "use strict";
 
-ChromeUtils.defineModuleGetter(this, "Services",
-                               "resource://gre/modules/Services.jsm");
+ChromeUtils.defineModuleGetter(
+  this,
+  "Services",
+  "resource://gre/modules/Services.jsm"
+);
 
 /* globals ExtensionAPI */
 this.damp = class extends ExtensionAPI {
@@ -9,8 +12,8 @@ this.damp = class extends ExtensionAPI {
     return {
       damp: {
         startTest() {
-          let {rootURI} = context.extension;
-          let window = context.xulWindow;
+          let { rootURI } = context.extension;
+          let window = context.appWindow;
           if (!("Damp" in window)) {
             let script = rootURI.resolve("content/damp.js");
             Services.scriptloader.loadSubScript(script, window);

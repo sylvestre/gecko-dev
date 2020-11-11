@@ -16,6 +16,7 @@
 #include "nsIOutputStream.h"
 #include "nsISafeOutputStream.h"
 #include "nsIServiceWorkerManager.h"
+#include "nsIWritablePropertyBag2.h"
 
 #include "MainThreadUtils.h"
 #include "mozilla/ClearOnShutdown.h"
@@ -26,6 +27,8 @@
 #include "mozilla/ipc/BackgroundParent.h"
 #include "mozilla/ipc/PBackgroundChild.h"
 #include "mozilla/ModuleUtils.h"
+#include "mozilla/Result.h"
+#include "mozilla/ResultExtensions.h"
 #include "mozilla/Services.h"
 #include "mozilla/StaticPtr.h"
 #include "mozJSComponentLoader.h"
@@ -53,7 +56,8 @@ static const uint32_t kInvalidGeneration = static_cast<uint32_t>(-1);
 
 StaticRefPtr<ServiceWorkerRegistrar> gServiceWorkerRegistrar;
 
-nsresult GetOrigin(const nsACString& aURL, nsACString& aOrigin) {
+nsresult GetOriginAndBaseDomain(const nsACString& aURL, nsACString& aOrigin,
+                                nsACString& aBaseDomain) {
   RefPtr<net::MozURL> url;
   nsresult rv = net::MozURL::Init(getter_AddRefs(url), aURL);
   if (NS_WARN_IF(NS_FAILED(rv))) {
@@ -61,6 +65,12 @@ nsresult GetOrigin(const nsACString& aURL, nsACString& aOrigin) {
   }
 
   url->Origin(aOrigin);
+
+  rv = url->BaseDomain(aBaseDomain);
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return rv;
+  }
+
   return NS_OK;
 }
 
@@ -106,13 +116,14 @@ nsresult CreatePrincipalInfo(nsILineInputStream* aStream,
   }
 
   nsCString origin;
-  rv = GetOrigin(aEntry->scope(), origin);
+  nsCString baseDomain;
+  rv = GetOriginAndBaseDomain(aEntry->scope(), origin, baseDomain);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
 
-  aEntry->principal() =
-      mozilla::ipc::ContentPrincipalInfo(attrs, origin, aEntry->scope());
+  aEntry->principal() = mozilla::ipc::ContentPrincipalInfo(
+      attrs, origin, aEntry->scope(), Nothing(), baseDomain);
 
   return NS_OK;
 }
@@ -139,8 +150,8 @@ void ServiceWorkerRegistrar::Initialize() {
   }
 }
 
-/* static */ already_AddRefed<ServiceWorkerRegistrar>
-ServiceWorkerRegistrar::Get() {
+/* static */
+already_AddRefed<ServiceWorkerRegistrar> ServiceWorkerRegistrar::Get() {
   MOZ_ASSERT(XRE_IsParentProcess());
 
   MOZ_ASSERT(gServiceWorkerRegistrar);
@@ -296,7 +307,7 @@ void ServiceWorkerRegistrar::RemoveAll() {
     MOZ_ASSERT(mDataLoaded);
 
     // Let's take a copy in order to inform StorageActivityService.
-    data = mData;
+    data = mData.Clone();
 
     deleted = !mData.IsEmpty();
     mData.Clear();
@@ -351,7 +362,7 @@ nsresult ServiceWorkerRegistrar::ReadData() {
     }
   }
 
-  nsresult rv = file->Append(NS_LITERAL_STRING(SERVICEWORKERREGISTRAR_FILE));
+  nsresult rv = file->Append(nsLiteralString(SERVICEWORKERREGISTRAR_FILE));
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -752,7 +763,7 @@ void ServiceWorkerRegistrar::DeleteData() {
     }
   }
 
-  nsresult rv = file->Append(NS_LITERAL_STRING(SERVICEWORKERREGISTRAR_FILE));
+  nsresult rv = file->Append(nsLiteralString(SERVICEWORKERREGISTRAR_FILE));
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return;
   }
@@ -795,7 +806,7 @@ class ServiceWorkerRegistrarSaveDataRunnable final : public Runnable {
   ServiceWorkerRegistrarSaveDataRunnable(
       nsTArray<ServiceWorkerRegistrationData>&& aData, uint32_t aGeneration)
       : Runnable("dom::ServiceWorkerRegistrarSaveDataRunnable"),
-        mEventTarget(GetCurrentThreadEventTarget()),
+        mEventTarget(GetCurrentEventTarget()),
         mData(std::move(aData)),
         mGeneration(aGeneration) {
     AssertIsOnBackgroundThread();
@@ -977,7 +988,7 @@ nsresult ServiceWorkerRegistrar::WriteData(
     }
   }
 
-  nsresult rv = file->Append(NS_LITERAL_STRING(SERVICEWORKERREGISTRAR_FILE));
+  nsresult rv = file->Append(nsLiteralString(SERVICEWORKERREGISTRAR_FILE));
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -1098,9 +1109,11 @@ void ServiceWorkerRegistrar::ProfileStarted() {
     return;
   }
 
+  nsAutoString blockerName;
+  MOZ_ALWAYS_SUCCEEDS(GetName(blockerName));
+
   rv = GetShutdownPhase()->AddBlocker(
-      this, NS_LITERAL_STRING(__FILE__), __LINE__,
-      NS_LITERAL_STRING("ServiceWorkerRegistrar: Flushing data"));
+      this, NS_LITERAL_STRING_FROM_CSTRING(__FILE__), __LINE__, blockerName);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return;
   }
@@ -1177,12 +1190,24 @@ ServiceWorkerRegistrar::BlockShutdown(nsIAsyncShutdownClient* aClient) {
 
 NS_IMETHODIMP
 ServiceWorkerRegistrar::GetName(nsAString& aName) {
-  aName = NS_LITERAL_STRING("ServiceWorkerRegistrar: Flushing data");
+  aName = u"ServiceWorkerRegistrar: Flushing data"_ns;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-ServiceWorkerRegistrar::GetState(nsIPropertyBag**) { return NS_OK; }
+ServiceWorkerRegistrar::GetState(nsIPropertyBag** aBagOut) {
+  nsCOMPtr<nsIWritablePropertyBag2> propertyBag =
+      do_CreateInstance("@mozilla.org/hash-property-bag;1");
+
+  MOZ_TRY(propertyBag->SetPropertyAsBool(u"shuttingDown"_ns, mShuttingDown));
+
+  MOZ_TRY(propertyBag->SetPropertyAsBool(u"saveDataRunnableDispatched"_ns,
+                                         mRunnableDispatched));
+
+  propertyBag.forget(aBagOut);
+
+  return NS_OK;
+}
 
 #define RELEASE_ASSERT_SUCCEEDED(rv, name)                                    \
   do {                                                                        \

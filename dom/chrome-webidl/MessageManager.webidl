@@ -188,21 +188,12 @@ dictionary ReceiveMessageArgument
    */
   any json = null;
 
-  /**
-   * Named table of jsvals/objects, or null.
-   */
-  required object objects;
-
   sequence<MessagePort> ports;
-
-  /**
-   * Principal for the window app.
-   */
-  required Principal? principal;
 
   FrameLoader targetFrameLoader;
 };
 
+[Exposed=Window]
 callback interface MessageListener
 {
   /**
@@ -217,11 +208,17 @@ callback interface MessageListener
    * listener's return value is sent back as an array.  |undefined|
    * return values show up as undefined values in the array.
    */
-  any receiveMessage(optional ReceiveMessageArgument argument);
+  any receiveMessage(ReceiveMessageArgument argument);
 };
 
-[ChromeOnly]
+[ChromeOnly, Exposed=Window]
 interface MessageListenerManager
+{
+  // All the methods are pulled in via mixin.
+};
+MessageListenerManager includes MessageListenerManagerMixin;
+
+interface mixin MessageListenerManagerMixin
 {
   /**
    * Register |listener| to receive |messageName|.  All listener
@@ -280,9 +277,17 @@ interface MessageListenerManager
  * messages that are only delivered to its one parent-process message
  * manager.
  */
-[ChromeOnly]
+[ChromeOnly, Exposed=Window]
 interface MessageSender : MessageListenerManager
 {
+  // All the methods are pulled in via mixin.
+};
+MessageSender includes MessageSenderMixin;
+
+/**
+ * Anyone including this MUST also incude MessageListenerManagerMixin.
+ */
+interface mixin MessageSenderMixin {
   /**
    * Send |messageName| and |obj| to the "other side" of this message
    * manager.  This invokes listeners who registered for
@@ -300,8 +305,6 @@ interface MessageSender : MessageListenerManager
   [Throws]
   void sendAsyncMessage(optional DOMString? messageName = null,
                         optional any obj,
-                        optional object? objects = null,
-                        optional Principal? principal = null,
                         optional any transfers);
 
   /**
@@ -319,11 +322,20 @@ interface MessageSender : MessageListenerManager
    * Otherwise, it is empty.
    */
   [Throws]
-  readonly attribute DOMString remoteType;
+  readonly attribute UTF8String remoteType;
 };
 
-[ChromeOnly]
+[ChromeOnly, Exposed=Window]
 interface SyncMessageSender : MessageSender
+{
+  // All the methods are pulled in via mixin.
+};
+SyncMessageSender includes SyncMessageSenderMixin;
+
+/**
+ * Anyone including this MUST also incude MessageSenderMixin.
+ */
+interface mixin SyncMessageSenderMixin
 {
   /**
    * Like |sendAsyncMessage()|, except blocks the sender until all
@@ -332,49 +344,28 @@ interface SyncMessageSender : MessageSender
    */
   [Throws]
   sequence<any> sendSyncMessage(optional DOMString? messageName = null,
-                                optional any obj,
-                                optional object? objects = null,
-                                optional Principal? principal = null);
-
-  /**
-   * Like |sendSyncMessage()|, except re-entrant. New RPC messages may be
-   * issued even if, earlier on the call stack, we are waiting for a reply
-   * to an earlier sendRpcMessage() call.
-   *
-   * Both sendSyncMessage and sendRpcMessage will block until a reply is
-   * received, but they may be temporarily interrupted to process an urgent
-   * incoming message (such as a CPOW request).
-   */
-  [Throws]
-  sequence<any> sendRpcMessage(optional DOMString? messageName = null,
-                               optional any obj,
-                               optional object? objects = null,
-                               optional Principal? principal = null);
+                                optional any obj);
 };
 
 /**
  * ChildProcessMessageManager is used in a child process to communicate with the parent
  * process.
  */
-[ChromeOnly]
+[ChromeOnly, Exposed=Window]
 interface ChildProcessMessageManager : SyncMessageSender
 {
 };
 
-[NoInterfaceObject]
-interface MessageManagerGlobal : SyncMessageSender
+/**
+ * Mixin for message manager globals.  Anyone including this MUST also
+ * include SyncMessageSenderMixin.
+ */
+interface mixin MessageManagerGlobal
 {
   /**
    * Print a string to stdout.
    */
   void dump(DOMString str);
-
-  /**
-   * If leak detection is enabled, print a note to the leak log that this
-   * process will intentionally crash.
-   */
-  [Throws]
-  void privateNoteIntentionalCrash();
 
   /**
    * Ascii base64 data to binary data and vice versa
@@ -385,8 +376,7 @@ interface MessageManagerGlobal : SyncMessageSender
   DOMString btoa(DOMString base64Data);
 };
 
-[NoInterfaceObject]
-interface FrameScriptLoader
+interface mixin FrameScriptLoader
 {
   /**
    * Load a script in the (remote) frame. |url| must be the absolute URL.
@@ -413,8 +403,7 @@ interface FrameScriptLoader
   sequence<sequence<any>> getDelayedFrameScripts();
 };
 
-[NoInterfaceObject]
-interface ProcessScriptLoader
+interface mixin ProcessScriptLoader
 {
   /**
    * Load a script in the (possibly remote) process. |url| must be the absolute
@@ -440,8 +429,10 @@ interface ProcessScriptLoader
   sequence<sequence<any>> getDelayedProcessScripts();
 };
 
-[NoInterfaceObject]
-interface GlobalProcessScriptLoader : ProcessScriptLoader
+/**
+ * Anyone including GlobalProcessScriptLoader MUST also include ProcessScriptLoader.
+ */
+interface mixin GlobalProcessScriptLoader
 {
   /**
    * Allows the parent process to set the initial process data for
@@ -461,7 +452,7 @@ interface GlobalProcessScriptLoader : ProcessScriptLoader
   readonly attribute MozWritableSharedMap sharedData;
 };
 
-[ChromeOnly]
+[ChromeOnly, Exposed=Window]
 interface ContentFrameMessageManager : EventTarget
 {
   /**
@@ -482,20 +473,13 @@ interface ContentFrameMessageManager : EventTarget
    */
   readonly attribute nsIEventTarget? tabEventTarget;
 
-  /**
-   * Returns the outerWindowID of the browser window hosting the frame.
-   * If, for some reason, the frameloader can't be resolved to a browser
-   * window, this will return 0.
-   */
-  readonly attribute long long chromeOuterWindowID;
-
 };
-// MessageManagerGlobal inherits from SyncMessageSender, which is a real interface, not a
-// mixin. This will need to change when we implement mixins according to the current
-// WebIDL spec.
-ContentFrameMessageManager implements MessageManagerGlobal;
+ContentFrameMessageManager includes MessageManagerGlobal;
+ContentFrameMessageManager includes SyncMessageSenderMixin;
+ContentFrameMessageManager includes MessageSenderMixin;
+ContentFrameMessageManager includes MessageListenerManagerMixin;
 
-[ChromeOnly]
+[ChromeOnly, Exposed=Window]
 interface ContentProcessMessageManager
 {
   /**
@@ -505,12 +489,12 @@ interface ContentProcessMessageManager
   [Throws]
   readonly attribute any initialProcessData;
 
-  readonly attribute MozSharedMap sharedData;
+  readonly attribute MozSharedMap? sharedData;
 };
-// MessageManagerGlobal inherits from SyncMessageSender, which is a real interface, not a
-// mixin. This will need to change when we implement mixins according to the current
-// WebIDL spec.
-ContentProcessMessageManager implements MessageManagerGlobal;
+ContentProcessMessageManager includes MessageManagerGlobal;
+ContentProcessMessageManager includes SyncMessageSenderMixin;
+ContentProcessMessageManager includes MessageSenderMixin;
+ContentProcessMessageManager includes MessageListenerManagerMixin;
 
 /**
  * Message "broadcasters" don't have a single "other side" that they send messages to, but
@@ -518,7 +502,7 @@ ContentProcessMessageManager implements MessageManagerGlobal;
  * through a window message manager will broadcast the message to all frame message
  * managers within its window.
  */
-[ChromeOnly]
+[ChromeOnly, Exposed=Window]
 interface MessageBroadcaster : MessageListenerManager
 {
   /**
@@ -531,8 +515,7 @@ interface MessageBroadcaster : MessageListenerManager
    */
   [Throws]
   void broadcastAsyncMessage(optional DOMString? messageName = null,
-                             optional any obj,
-                             optional object? objects = null);
+                             optional any obj);
 
   /**
    * Number of subordinate message managers.
@@ -542,7 +525,7 @@ interface MessageBroadcaster : MessageListenerManager
   /**
    * Return a single subordinate message manager.
    */
-  MessageListenerManager getChildAt(unsigned long aIndex);
+  MessageListenerManager? getChildAt(unsigned long aIndex);
 
   /**
    * Some processes are kept alive after their last tab/window are closed for testing
@@ -554,34 +537,40 @@ interface MessageBroadcaster : MessageListenerManager
 /**
  * ChromeMessageBroadcaster is used for window and group message managers.
  */
-[ChromeOnly]
+[ChromeOnly, Exposed=Window]
 interface ChromeMessageBroadcaster : MessageBroadcaster
 {
 };
-ChromeMessageBroadcaster implements FrameScriptLoader;
+ChromeMessageBroadcaster includes FrameScriptLoader;
 
 /**
  * ParentProcessMessageManager is used in a parent process to communicate with all the
  * child processes.
  */
-[ChromeOnly]
+[ChromeOnly, Exposed=Window]
 interface ParentProcessMessageManager : MessageBroadcaster
 {
 };
-ParentProcessMessageManager implements GlobalProcessScriptLoader;
+ParentProcessMessageManager includes ProcessScriptLoader;
+ParentProcessMessageManager includes GlobalProcessScriptLoader;
 
-[ChromeOnly]
+[ChromeOnly, Exposed=Window]
 interface ChromeMessageSender : MessageSender
 {
 };
-ChromeMessageSender implements FrameScriptLoader;
+ChromeMessageSender includes FrameScriptLoader;
 
 /**
  * ProcessMessageManager is used in a parent process to communicate with a child process
  * (or with the process itself in a single-process scenario).
  */
-[ChromeOnly]
+[ChromeOnly, Exposed=Window]
 interface ProcessMessageManager : MessageSender
 {
+  // PID of the process being communicated with.
+  readonly attribute long osPid;
+
+  // Whether this is message manager for the current process.
+  readonly attribute boolean isInProcess;
 };
-ProcessMessageManager implements ProcessScriptLoader;
+ProcessMessageManager includes ProcessScriptLoader;

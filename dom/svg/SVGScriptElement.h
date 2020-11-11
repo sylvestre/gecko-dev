@@ -4,15 +4,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef mozilla_dom_SVGScriptElement_h
-#define mozilla_dom_SVGScriptElement_h
+#ifndef DOM_SVG_SVGSCRIPTELEMENT_H_
+#define DOM_SVG_SVGSCRIPTELEMENT_H_
 
-#include "nsSVGElement.h"
-#include "nsCOMPtr.h"
-#include "nsSVGString.h"
+#include "SVGAnimatedString.h"
+#include "mozilla/AlreadyAddRefed.h"
 #include "mozilla/dom/ScriptElement.h"
-
-class nsIDocument;
+#include "mozilla/dom/SVGElement.h"
 
 nsresult NS_NewSVGScriptElement(
     nsIContent** aResult, already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo,
@@ -21,7 +19,7 @@ nsresult NS_NewSVGScriptElement(
 namespace mozilla {
 namespace dom {
 
-typedef nsSVGElement SVGScriptElementBase;
+using SVGScriptElementBase = SVGElement;
 
 class SVGScriptElement final : public SVGScriptElementBase,
                                public ScriptElement {
@@ -45,15 +43,14 @@ class SVGScriptElement final : public SVGScriptElementBase,
   virtual bool GetScriptType(nsAString& type) override;
   virtual void GetScriptText(nsAString& text) override;
   virtual void GetScriptCharset(nsAString& charset) override;
-  virtual void FreezeExecutionAttrs(nsIDocument* aOwnerDoc) override;
+  virtual void FreezeExecutionAttrs(Document* aOwnerDoc) override;
   virtual CORSMode GetCORSMode() const override;
 
   // ScriptElement
   virtual bool HasScriptContent() override;
 
   // nsIContent specializations:
-  virtual nsresult BindToTree(nsIDocument* aDocument, nsIContent* aParent,
-                              nsIContent* aBindingParent) override;
+  virtual nsresult BindToTree(BindContext&, nsINode& aParent) override;
   virtual nsresult AfterSetAttr(int32_t aNamespaceID, nsAtom* aName,
                                 const nsAttrValue* aValue,
                                 const nsAttrValue* aOldValue,
@@ -71,10 +68,10 @@ class SVGScriptElement final : public SVGScriptElementBase,
   void SetType(const nsAString& aType, ErrorResult& rv);
   void GetCrossOrigin(nsAString& aCrossOrigin);
   void SetCrossOrigin(const nsAString& aCrossOrigin, ErrorResult& aError);
-  already_AddRefed<SVGAnimatedString> Href();
+  already_AddRefed<DOMSVGAnimatedString> Href();
 
  protected:
-  ~SVGScriptElement();
+  ~SVGScriptElement() = default;
 
   virtual StringAttributesInfo GetStringInfo() override;
 
@@ -83,11 +80,11 @@ class SVGScriptElement final : public SVGScriptElementBase,
   virtual bool GetAsyncState() override { return false; }
 
   enum { HREF, XLINK_HREF };
-  nsSVGString mStringAttributes[2];
+  SVGAnimatedString mStringAttributes[2];
   static StringInfo sStringInfo[2];
 };
 
 }  // namespace dom
 }  // namespace mozilla
 
-#endif  // mozilla_dom_SVGScriptElement_h
+#endif  // DOM_SVG_SVGSCRIPTELEMENT_H_

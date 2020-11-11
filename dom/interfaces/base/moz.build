@@ -5,28 +5,29 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 with Files("**"):
-    BUG_COMPONENT = ("Core", "DOM")
+    BUG_COMPONENT = ("Core", "DOM: Core & HTML")
 
 XPIDL_SOURCES += [
-    'domstubs.idl',
-    'nsIBrowser.idl',
-    'nsIBrowserDOMWindow.idl',
-    'nsIContentPermissionPrompt.idl',
-    'nsIContentPrefService2.idl',
-    'nsIContentProcess.idl',
-    'nsIDOMChromeWindow.idl',
-    'nsIDOMGlobalPropertyInitializer.idl',
-    'nsIDOMWindow.idl',
-    'nsIDOMWindowUtils.idl',
-    'nsIFocusManager.idl',
-    'nsIQueryContentEventResult.idl',
-    'nsIServiceWorkerManager.idl',
-    'nsIStructuredCloneContainer.idl',
-    'nsITabChild.idl',
-    'nsITabParent.idl',
-    'nsITextInputProcessor.idl',
-    'nsITextInputProcessorCallback.idl',
+    "domstubs.idl",
+    "nsIBrowser.idl",
+    "nsIBrowserChild.idl",
+    "nsIBrowserDOMWindow.idl",
+    "nsIBrowserUsage.idl",
+    "nsIContentPermissionPrompt.idl",
+    "nsIContentPrefService2.idl",
+    "nsIContentProcess.idl",
+    "nsIDOMChromeWindow.idl",
+    "nsIDOMGlobalPropertyInitializer.idl",
+    "nsIDOMWindow.idl",
+    "nsIDOMWindowUtils.idl",
+    "nsIFocusManager.idl",
+    "nsIPermissionDelegateHandler.idl",
+    "nsIQueryContentEventResult.idl",
+    "nsIRemoteTab.idl",
+    "nsIServiceWorkerManager.idl",
+    "nsIStructuredCloneContainer.idl",
+    "nsITextInputProcessor.idl",
+    "nsITextInputProcessorCallback.idl",
 ]
 
-XPIDL_MODULE = 'dom_base'
-
+XPIDL_MODULE = "dom_base"

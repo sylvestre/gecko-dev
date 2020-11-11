@@ -8,8 +8,8 @@
 
 #include "nsIUDPSocket.h"
 #include "mozilla/Mutex.h"
+#include "mozilla/net/DNS.h"
 #include "nsIOutputStream.h"
-#include "nsAutoPtr.h"
 #include "nsCycleCollectionParticipant.h"
 
 //-----------------------------------------------------------------------------
@@ -77,7 +77,7 @@ class nsUDPMessage : public nsIUDPMessage {
   NS_DECL_NSIUDPMESSAGE
 
   nsUDPMessage(NetAddr* aAddr, nsIOutputStream* aOutputStream,
-               FallibleTArray<uint8_t>& aData);
+               FallibleTArray<uint8_t>&& aData);
 
  private:
   virtual ~nsUDPMessage();

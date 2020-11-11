@@ -15,16 +15,18 @@ include protocol PCompositorBridge;
 include protocol PTexture;
 
 using mozilla::layers::APZTestData from "mozilla/layers/APZTestData.h";
-using mozilla::layers::ScrollUpdatesMap from "FrameMetrics.h";
-using struct mozilla::layers::ScrollableLayerGuid from "mozilla/layers/ScrollableLayerGuid.h";
+using mozilla::layers::FrameUniformityData from "mozilla/layers/FrameUniformityData.h";
+using mozilla::layers::ScrollableLayerGuid from "mozilla/layers/ScrollableLayerGuid.h";
 using struct mozilla::layers::TextureFactoryIdentifier from "mozilla/layers/CompositorTypes.h";
 using struct mozilla::layers::TextureInfo from "mozilla/layers/CompositorTypes.h";
+using mozilla::layers::CompositionPayload from "mozilla/layers/LayersTypes.h";
 using mozilla::layers::CompositableHandle from "mozilla/layers/LayersTypes.h";
 using mozilla::wr::BuiltDisplayListDescriptor from "mozilla/webrender/webrender_ffi.h";
 using mozilla::wr::IdNamespace from "mozilla/webrender/WebRenderTypes.h";
 using mozilla::wr::MaybeIdNamespace from "mozilla/webrender/WebRenderTypes.h";
 using mozilla::wr::ExternalImageKeyPair from "mozilla/webrender/WebRenderTypes.h";
-using mozilla::layers::WebRenderScrollData from "mozilla/layers/WebRenderScrollData.h";
+using moveonly mozilla::layers::DisplayListData from "mozilla/layers/RenderRootTypes.h";
+using moveonly mozilla::layers::MaybeTransactionData from "mozilla/layers/RenderRootTypes.h";
 using mozilla::layers::FocusTarget from "mozilla/layers/FocusTarget.h";
 using mozilla::layers::LayersObserverEpoch from "mozilla/layers/LayersTypes.h";
 using mozilla::layers::TransactionId from "mozilla/layers/LayersTypes.h";
@@ -39,31 +41,40 @@ sync protocol PWebRenderBridge
 
 parent:
   sync EnsureConnected()
-    returns (TextureFactoryIdentifier textureFactoryIdentifier, MaybeIdNamespace maybeIdNamespace);
+    returns (TextureFactoryIdentifier textureFactoryIdentifier, MaybeIdNamespace maybeIdNamespace, nsCString error);
 
   async NewCompositable(CompositableHandle handle, TextureInfo info);
   async ReleaseCompositable(CompositableHandle compositable);
 
   async DeleteCompositorAnimations(uint64_t[] aIds);
-  async SetDisplayList(IntSize aSize, WebRenderParentCommand[] commands, OpDestroy[] toDestroy, uint64_t fwdTransactionId, TransactionId transactionId,
-                       LayoutSize aContentSize, ByteBuf aDL, BuiltDisplayListDescriptor aDLDesc,
-                       WebRenderScrollData aScrollData,
-                       OpUpdateResource[] aResourceUpdates, RefCountedShmem[] aSmallShmems, Shmem[] aLargeShmems,
-                       IdNamespace aIdNamespace, bool containsSVGGroup, VsyncId vsyncId, TimeStamp refreshStartTime, TimeStamp txnStartTime, nsCString txnURL, TimeStamp fwdTime);
-  async EmptyTransaction(FocusTarget focusTarget, ScrollUpdatesMap scrollUpdates, uint32_t aPaintSequenceNumber,
-                         WebRenderParentCommand[] commands, OpDestroy[] toDestroy, uint64_t fwdTransactionId, TransactionId transactionId,
-                         OpUpdateResource[] aResourceUpdates, RefCountedShmem[] aSmallShmems, Shmem[] aLargeShmems,
-                         IdNamespace aIdNamespace, VsyncId vsyncId, TimeStamp refreshStartTime, TimeStamp txnStartTime, nsCString txnURL, TimeStamp fwdTime);
+  async SetDisplayList(DisplayListData displayList,
+                       OpDestroy[] toDestroy, uint64_t fwdTransactionId, TransactionId transactionId,
+                       bool containsSVGGroup,
+                       VsyncId vsyncId, TimeStamp vsyncStartTime,
+                       TimeStamp refreshStartTime, TimeStamp txnStartTime, nsCString txnURL, TimeStamp fwdTime,
+                       CompositionPayload[] payloads);
+  async EmptyTransaction(FocusTarget focusTarget,
+                         MaybeTransactionData transationData,
+                         OpDestroy[] toDestroy, uint64_t fwdTransactionId, TransactionId transactionId,
+                         VsyncId vsyncId, TimeStamp vsyncStartTime,
+                         TimeStamp refreshStartTime, TimeStamp txnStartTime,
+                         nsCString txnURL, TimeStamp fwdTime,
+                         CompositionPayload[] payloads);
   async SetFocusTarget(FocusTarget focusTarget);
-  async UpdateResources(OpUpdateResource[] aResourceUpdates, RefCountedShmem[] aSmallShmems, Shmem[] aLargeShmems);
+  async UpdateResources(OpUpdateResource[] aResourceUpdates,
+                        RefCountedShmem[] aSmallShmems, Shmem[] aLargeShmems);
   async ParentCommands(WebRenderParentCommand[] commands);
-  sync GetSnapshot(PTexture texture);
+  sync GetSnapshot(PTexture texture) returns (bool aNeedsYFlip);
   async SetLayersObserverEpoch(LayersObserverEpoch childEpoch);
   async ClearCachedResources();
+  // Invalidate rendered frame
+  async InvalidateRenderedFrame();
   // Schedule a composite if one isn't already scheduled.
   async ScheduleComposite();
   // Save the frame capture to disk
   async Capture();
+  // Start capturing each frame and save to disk, and if already started, stop.
+  async ToggleCaptureSequence();
 
   // Replacement for PCompositorBridge::SyncWithCompositor, but for WR. We need
   // it on PWebRenderBridge because it associated with a particular top-level
@@ -81,9 +92,7 @@ parent:
   sync SetAsyncZoom(ViewID scrollId, float zoom);
   async FlushApzRepaints();
   sync GetAPZTestData() returns (APZTestData data);
-
-  // Debugging routine for bug 1455848.
-  async ValidateFontDescriptor(uint8_t[] desc);
+  sync GetFrameUniformity() returns (FrameUniformityData data);
 
   async Shutdown();
   sync ShutdownSync();

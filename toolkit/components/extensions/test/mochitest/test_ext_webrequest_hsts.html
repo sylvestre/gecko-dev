@@ -3,9 +3,8 @@
 <html>
 <head>
 <meta charset="utf-8">
-  <script type="text/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
-  <script type="text/javascript" src="/tests/SimpleTest/AddTask.js"></script>
-  <script type="text/javascript" src="/tests/SimpleTest/ExtensionTestUtils.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/ExtensionTestUtils.js"></script>
   <script type="text/javascript" src="head.js"></script>
   <script type="text/javascript" src="head_webrequest.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css"/>
@@ -45,7 +44,7 @@ function getExtension() {
       browser.test.assertTrue(now < cert.validity.end, "cert end validity is correct");
       if (options.rawDER) {
         for (let cert of securityInfo.certificates) {
-          browser.test.assertTrue(cert.rawDER.length > 0, "have rawDER");
+          browser.test.assertTrue(!!cert.rawDER.length, "have rawDER");
         }
       }
     }
@@ -88,7 +87,7 @@ function getExtension() {
     }, {urls});
 
     async function onUpdated(tabId, tabInfo, tab) {
-      if (tabInfo.status !== "complete") {
+      if (tabInfo.status !== "complete" || tab.url === "about:blank") {
         return;
       }
       browser.tabs.remove(tabId);

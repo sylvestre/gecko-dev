@@ -5,10 +5,10 @@
 #ifndef nsPrefetchService_h__
 #define nsPrefetchService_h__
 
-#include "nsCPrefetchService.h"
 #include "nsIObserver.h"
 #include "nsIInterfaceRequestor.h"
 #include "nsIChannelEventSink.h"
+#include "nsIPrefetchService.h"
 #include "nsIRedirectResultListener.h"
 #include "nsIWebProgressListener.h"
 #include "nsIStreamListener.h"
@@ -16,12 +16,12 @@
 #include "nsIURI.h"
 #include "nsWeakReference.h"
 #include "nsCOMPtr.h"
-#include "nsAutoPtr.h"
 #include "mozilla/Attributes.h"
 #include <deque>
 
 class nsPrefetchService;
 class nsPrefetchNode;
+class nsIReferrerInfo;
 
 //-----------------------------------------------------------------------------
 // nsPrefetchService
@@ -40,33 +40,33 @@ class nsPrefetchService final : public nsIPrefetchService,
   nsPrefetchService();
 
   nsresult Init();
-  void RemoveNodeAndMaybeStartNextPrefetchURI(nsPrefetchNode *aFinished);
+  void RemoveNodeAndMaybeStartNextPrefetchURI(nsPrefetchNode* aFinished);
   void ProcessNextPrefetchURI();
 
-  void NotifyLoadRequested(nsPrefetchNode *node);
-  void NotifyLoadCompleted(nsPrefetchNode *node);
-  void DispatchEvent(nsPrefetchNode *node, bool aSuccess);
+  void NotifyLoadRequested(nsPrefetchNode* node);
+  void NotifyLoadCompleted(nsPrefetchNode* node);
+  void DispatchEvent(nsPrefetchNode* node, bool aSuccess);
 
  private:
   ~nsPrefetchService();
 
-  nsresult Prefetch(nsIURI *aURI, nsIURI *aReferrerURI, nsINode *aSource,
-                    bool aExplicit);
+  nsresult Prefetch(nsIURI* aURI, nsIReferrerInfo* aReferrerInfo,
+                    nsINode* aSource, bool aExplicit);
 
-  nsresult Preload(nsIURI *aURI, nsIURI *aReferrerURI, nsINode *aSource,
-                   nsContentPolicyType aPolicyType);
+  nsresult Preload(nsIURI* aURI, nsIReferrerInfo* aReferrerInfo,
+                   nsINode* aSource, nsContentPolicyType aPolicyType);
 
   void AddProgressListener();
   void RemoveProgressListener();
-  nsresult EnqueueURI(nsIURI *aURI, nsIURI *aReferrerURI, nsINode *aSource,
-                      nsPrefetchNode **node);
+  nsresult EnqueueURI(nsIURI* aURI, nsIReferrerInfo* aReferrerInfo,
+                      nsINode* aSource, nsPrefetchNode** node);
   void EmptyPrefetchQueue();
 
   void StartPrefetching();
   void StopPrefetching();
   void StopCurrentPrefetchsPreloads(bool aPreload);
   void StopAll();
-  nsresult CheckURIScheme(nsIURI *aURI, nsIURI *aReferrerURI);
+  nsresult CheckURIScheme(nsIURI* aURI, nsIReferrerInfo* aReferrerInfo);
 
   std::deque<RefPtr<nsPrefetchNode>> mPrefetchQueue;
   nsTArray<RefPtr<nsPrefetchNode>> mCurrentNodes;
@@ -74,7 +74,6 @@ class nsPrefetchService final : public nsIPrefetchService,
   int32_t mStopCount;
   bool mHaveProcessed;
   bool mPrefetchDisabled;
-  bool mPreloadDisabled;
 
   // In usual case prefetch does not start until all normal loads are done.
   // Aggressive mode ignores normal loads and just start prefetch ASAP.
@@ -99,15 +98,15 @@ class nsPrefetchNode final : public nsIStreamListener,
   NS_DECL_NSICHANNELEVENTSINK
   NS_DECL_NSIREDIRECTRESULTLISTENER
 
-  nsPrefetchNode(nsPrefetchService *aPrefetchService, nsIURI *aURI,
-                 nsIURI *aReferrerURI, nsINode *aSource,
+  nsPrefetchNode(nsPrefetchService* aPrefetchService, nsIURI* aURI,
+                 nsIReferrerInfo* aReferrerInfo, nsINode* aSource,
                  nsContentPolicyType aPolicyType, bool aPreload);
 
   nsresult OpenChannel();
   nsresult CancelChannel(nsresult error);
 
   nsCOMPtr<nsIURI> mURI;
-  nsCOMPtr<nsIURI> mReferrerURI;
+  nsCOMPtr<nsIReferrerInfo> mReferrerInfo;
   nsTArray<nsWeakPtr> mSources;
 
   // The policy type to be used for fetching the resource.

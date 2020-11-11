@@ -8,6 +8,12 @@ const {
   FILTER_TEXT_SET,
   FILTER_TOGGLE,
   DEFAULT_FILTERS_RESET,
+  EVALUATE_EXPRESSION,
+  MESSAGES_ADD,
+  PERSIST_TOGGLE,
+  REVERSE_SEARCH_INPUT_TOGGLE,
+  REVERSE_SEARCH_NEXT,
+  REVERSE_SEARCH_BACK,
 } = require("devtools/client/webconsole/constants");
 
 /**
@@ -37,13 +43,58 @@ function eventTelemetryMiddleware(telemetry, sessionId, store) {
         telemetry,
         sessionId,
       });
+    } else if (action.type === MESSAGES_ADD) {
+      messagesAdd({ action, telemetry });
+    } else if (action.type === PERSIST_TOGGLE) {
+      telemetry.recordEvent(
+        "persist_changed",
+        "webconsole",
+        String(state.ui.persistLogs),
+        {
+          session_id: sessionId,
+        }
+      );
+    } else if (action.type === EVALUATE_EXPRESSION) {
+      // Send telemetry event. If we are in the browser toolbox we send -1 as the
+      // toolbox session id.
+
+      telemetry.recordEvent("execute_js", "webconsole", null, {
+        lines: action.expression.split(/\n/).length,
+        input: state.ui.editor ? "multiline" : "inline",
+        session_id: sessionId,
+      });
+
+      if (action.from === "reverse-search") {
+        telemetry.recordEvent("reverse_search", "webconsole", null, {
+          functionality: "evaluate expression",
+          session_id: sessionId,
+        });
+      }
+    } else if (
+      action.type === REVERSE_SEARCH_INPUT_TOGGLE &&
+      state.ui.reverseSearchInputVisible
+    ) {
+      telemetry.recordEvent("reverse_search", "webconsole", action.access, {
+        functionality: "open",
+        session_id: sessionId,
+      });
+    } else if (action.type === REVERSE_SEARCH_NEXT) {
+      telemetry.recordEvent("reverse_search", "webconsole", action.access, {
+        functionality: "navigate next",
+        session_id: sessionId,
+      });
+    } else if (action.type === REVERSE_SEARCH_BACK) {
+      telemetry.recordEvent("reverse_search", "webconsole", action.access, {
+        functionality: "navigate previous",
+        session_id: sessionId,
+      });
     }
 
     return res;
   };
 }
 
-function filterChange({action, state, oldState, telemetry, sessionId}) {
+function filterChange({ action, state, oldState, telemetry, sessionId }) {
   const oldFilterState = oldState.filters;
   const filterState = state.filters;
   const activeFilters = [];
@@ -70,11 +121,22 @@ function filterChange({action, state, oldState, telemetry, sessionId}) {
   }
 
   telemetry.recordEvent("filters_changed", "webconsole", null, {
-    "trigger": trigger,
-    "active": activeFilters.join(","),
-    "inactive": inactiveFilters.join(","),
-    "session_id": sessionId,
+    trigger: trigger,
+    active: activeFilters.join(","),
+    inactive: inactiveFilters.join(","),
+    session_id: sessionId,
   });
+}
+
+function messagesAdd({ action, telemetry }) {
+  const { messages } = action;
+  for (const message of messages) {
+    if (message.level === "error" && message.source === "javascript") {
+      telemetry
+        .getKeyedHistogramById("DEVTOOLS_JAVASCRIPT_ERROR_DISPLAYED")
+        .add(message.errorMessageName || "Unknown", true);
+    }
+  }
 }
 
 module.exports = eventTelemetryMiddleware;

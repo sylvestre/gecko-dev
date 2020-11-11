@@ -4,16 +4,20 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #if !defined(BackgroundVideoDecodingPermissionObserver_h_)
-#define BackgroundVideoDecodingPermissionObserver_h_
+#  define BackgroundVideoDecodingPermissionObserver_h_
 
-#include "nsIObserver.h"
-#include "nsISupportsImpl.h"
+#  include "nsIObserver.h"
+#  include "nsISupportsImpl.h"
 
-class nsIDocument;
 class nsISupports;
 class nsPIDOMWindowOuter;
 
 namespace mozilla {
+
+namespace dom {
+class Document;
+class BrowsingContext;
+}  // namespace dom
 
 class MediaDecoder;
 
@@ -32,8 +36,8 @@ class BackgroundVideoDecodingPermissionObserver final : public nsIObserver {
   ~BackgroundVideoDecodingPermissionObserver();
   void EnableEvent() const;
   void DisableEvent() const;
-  already_AddRefed<nsPIDOMWindowOuter> GetOwnerWindow() const;
-  nsIDocument* GetOwnerDoc() const;
+  dom::BrowsingContext* GetOwnerBC() const;
+  dom::Document* GetOwnerDoc() const;
   bool IsValidEventSender(nsISupports* aSubject) const;
 
   // The life cycle of observer would always be shorter than decoder, so we

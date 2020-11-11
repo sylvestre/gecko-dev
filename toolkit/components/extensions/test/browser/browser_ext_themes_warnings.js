@@ -1,12 +1,19 @@
 "use strict";
 
+const { AddonSettings } = ChromeUtils.import(
+  "resource://gre/modules/addons/AddonSettings.jsm"
+);
+
 // This test checks that theme warnings are properly emitted.
 
 function waitForConsole(task, message) {
+  // eslint-disable-next-line no-async-promise-executor
   return new Promise(async resolve => {
-    SimpleTest.monitorConsole(resolve, [{
-      message: new RegExp(message),
-    }]);
+    SimpleTest.monitorConsole(resolve, [
+      {
+        message: new RegExp(message),
+      },
+    ]);
     await task();
     SimpleTest.endMonitorConsole();
   });
@@ -29,7 +36,7 @@ add_task(async function test_static_theme() {
     });
     await waitForConsole(
       extension.startup,
-      `Unrecognized theme property found: ${property}.such_property`,
+      `Unrecognized theme property found: ${property}.such_property`
     );
     await extension.unload();
   }
@@ -72,12 +79,10 @@ add_task(async function test_dynamic_theme() {
   await extension.unload();
 });
 
-add_task(async function test_experiment() {
-  Services.prefs.setBoolPref("extensions.legacy.enabled", true);
+add_task(async function test_experiments_enabled() {
+  info("Testing that experiments are handled correctly on nightly and deved");
 
-  info("Testing that experiments are handled correctly when legacy pref is enabled");
-
-  let extension = ExtensionTestUtils.loadExtension({
+  const extension = ExtensionTestUtils.loadExtension({
     manifest: {
       theme: {
         properties: {
@@ -92,7 +97,7 @@ add_task(async function test_experiment() {
       },
     },
   });
-  if (!AppConstants.MOZ_ALLOW_LEGACY_EXTENSIONS) {
+  if (!AddonSettings.EXPERIMENTS_ENABLED) {
     await waitForConsole(
       extension.startup,
       "This extension is not allowed to run theme experiments"
@@ -104,12 +109,18 @@ add_task(async function test_experiment() {
     );
   }
   await extension.unload();
+});
 
-  info("Testing that experiments are handled correctly when legacy pref is disabled");
+add_task(async function test_experiments_disabled() {
+  await SpecialPowers.pushPrefEnv({
+    set: [["extensions.experiments.enabled", false]],
+  });
 
-  Services.prefs.setBoolPref("extensions.legacy.enabled", false);
+  info(
+    "Testing that experiments are handled correctly when experiements pref is disabled"
+  );
 
-  extension = ExtensionTestUtils.loadExtension({
+  const extension = ExtensionTestUtils.loadExtension({
     manifest: {
       theme: {
         properties: {
@@ -128,4 +139,5 @@ add_task(async function test_experiment() {
     "This extension is not allowed to run theme experiments"
   );
   await extension.unload();
+  await SpecialPowers.popPrefEnv();
 });

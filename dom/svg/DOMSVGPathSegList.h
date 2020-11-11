@@ -4,22 +4,52 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef MOZILLA_DOMSVGPATHSEGLIST_H__
-#define MOZILLA_DOMSVGPATHSEGLIST_H__
+#ifndef DOM_SVG_DOMSVGPATHSEGLIST_H_
+#define DOM_SVG_DOMSVGPATHSEGLIST_H_
 
-#include "nsCOMPtr.h"
+#include "mozAutoDocUpdate.h"
 #include "nsCycleCollectionParticipant.h"
 #include "nsDebug.h"
-#include "nsSVGElement.h"
 #include "nsTArray.h"
 #include "SVGPathData.h"  // IWYU pragma: keep
 #include "mozilla/Attributes.h"
 #include "mozilla/ErrorResult.h"
+#include "mozilla/RefPtr.h"
+#include "mozilla/dom/SVGElement.h"
 
 namespace mozilla {
 
-class DOMSVGPathSeg;
 class SVGAnimatedPathSegList;
+
+namespace dom {
+
+class DOMSVGPathSeg;
+
+//----------------------------------------------------------------------
+// Helper class: AutoChangePathSegListNotifier
+// Stack-based helper class to pair calls to WillChangePathSegList and
+// DidChangePathSegList. Used by DOMSVGPathSeg and DOMSVGPathSegList.
+template <class T>
+class MOZ_RAII AutoChangePathSegListNotifier : public mozAutoDocUpdate {
+ public:
+  explicit AutoChangePathSegListNotifier(T* aValue)
+      : mozAutoDocUpdate(aValue->Element()->GetComposedDoc(), true),
+        mValue(aValue) {
+    MOZ_ASSERT(mValue, "Expecting non-null value");
+    mEmptyOrOldValue = mValue->Element()->WillChangePathSegList(*this);
+  }
+
+  ~AutoChangePathSegListNotifier() {
+    mValue->Element()->DidChangePathSegList(mEmptyOrOldValue, *this);
+    if (mValue->AttrIsAnimating()) {
+      mValue->Element()->AnimationNeedsResample();
+    }
+  }
+
+ private:
+  T* const mValue;
+  nsAttrValue mEmptyOrOldValue;
+};
 
 /**
  * Class DOMSVGPathSegList
@@ -47,6 +77,7 @@ class SVGAnimatedPathSegList;
  * Our DOM items are created lazily on demand as and when script requests them.
  */
 class DOMSVGPathSegList final : public nsISupports, public nsWrapperCache {
+  template <class T>
   friend class AutoChangePathSegListNotifier;
   friend class DOMSVGPathSeg;
 
@@ -77,7 +108,7 @@ class DOMSVGPathSegList final : public nsISupports, public nsWrapperCache {
    * clearly SVGPathData* and a SVGPathData** are not the same type.
    */
   static already_AddRefed<DOMSVGPathSegList> GetDOMWrapper(
-      void* aList, nsSVGElement* aElement, bool aIsAnimValList);
+      void* aList, dom::SVGElement* aElement, bool aIsAnimValList);
 
   /**
    * This method returns the DOMSVGPathSegList wrapper for an internal
@@ -156,14 +187,14 @@ class DOMSVGPathSegList final : public nsISupports, public nsWrapperCache {
    * Only our static GetDOMWrapper() factory method may create objects of our
    * type.
    */
-  DOMSVGPathSegList(nsSVGElement* aElement, bool aIsAnimValList)
+  DOMSVGPathSegList(dom::SVGElement* aElement, bool aIsAnimValList)
       : mElement(aElement), mIsAnimValList(aIsAnimValList) {
     InternalListWillChangeTo(InternalList());  // Sync mItems
   }
 
   ~DOMSVGPathSegList();
 
-  nsSVGElement* Element() const { return mElement.get(); }
+  dom::SVGElement* Element() const { return mElement.get(); }
 
   /// Used to determine if this list is the baseVal or animVal list.
   bool IsAnimValList() const { return mIsAnimValList; }
@@ -197,6 +228,8 @@ class DOMSVGPathSegList final : public nsISupports, public nsWrapperCache {
 
   DOMSVGPathSeg*& ItemAt(uint32_t aIndex) { return mItems[aIndex].mItem; }
 
+  void RemoveFromTearoffTable();
+
   /**
    * This struct is used in our array of mItems to provide us with somewhere to
    * store the indexes into the internal SVGPathData of the internal seg data
@@ -221,11 +254,12 @@ class DOMSVGPathSegList final : public nsISupports, public nsWrapperCache {
 
   // Strong ref to our element to keep it alive. We hold this not only for
   // ourself, but also for our DOMSVGPathSeg items too.
-  RefPtr<nsSVGElement> mElement;
+  RefPtr<dom::SVGElement> mElement;
 
   bool mIsAnimValList;
 };
 
+}  // namespace dom
 }  // namespace mozilla
 
-#endif  // MOZILLA_DOMSVGPATHSEGLIST_H__
+#endif  // DOM_SVG_DOMSVGPATHSEGLIST_H_

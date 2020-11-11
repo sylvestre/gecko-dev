@@ -11,7 +11,7 @@
 #include "mozilla/plugins/PluginModuleChild.h"
 
 #if defined(XP_WIN)
-#include "mozilla/mscom/MainThreadRuntime.h"
+#  include "mozilla/mscom/ProcessRuntime.h"
 #endif
 
 namespace mozilla {
@@ -26,7 +26,7 @@ class PluginProcessChild : public mozilla::ipc::ProcessChild {
   explicit PluginProcessChild(ProcessId aParentPid)
       : ProcessChild(aParentPid), mPlugin(true) {}
 
-  virtual ~PluginProcessChild() {}
+  virtual ~PluginProcessChild() = default;
 
   virtual bool Init(int aArgc, char* aArgv[]) override;
   virtual void CleanUp() override;
@@ -40,7 +40,7 @@ class PluginProcessChild : public mozilla::ipc::ProcessChild {
 #if defined(XP_WIN)
   /* Drag-and-drop depends on the host initializing COM.
    * This object initializes and configures COM. */
-  mozilla::mscom::MainThreadRuntime mCOMRuntime;
+  mozilla::mscom::ProcessRuntime mCOMRuntime;
 #endif
   PluginModuleChild mPlugin;
 

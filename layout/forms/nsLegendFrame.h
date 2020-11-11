@@ -8,6 +8,7 @@
 #define nsLegendFrame_h___
 
 #include "mozilla/Attributes.h"
+#include "mozilla/dom/HTMLLegendElement.h"
 #include "nsBlockFrame.h"
 
 class nsLegendFrame final : public nsBlockFrame {
@@ -15,8 +16,8 @@ class nsLegendFrame final : public nsBlockFrame {
   NS_DECL_QUERYFRAME
   NS_DECL_FRAMEARENA_HELPERS(nsLegendFrame)
 
-  explicit nsLegendFrame(ComputedStyle* aStyle)
-      : nsBlockFrame(aStyle, kClassID) {}
+  explicit nsLegendFrame(ComputedStyle* aStyle, nsPresContext* aPresContext)
+      : nsBlockFrame(aStyle, aPresContext, kClassID) {}
 
   virtual void Reflow(nsPresContext* aPresContext, ReflowOutput& aDesiredSize,
                       const ReflowInput& aReflowInput,
@@ -29,7 +30,8 @@ class nsLegendFrame final : public nsBlockFrame {
   virtual nsresult GetFrameName(nsAString& aResult) const override;
 #endif
 
-  int32_t GetLogicalAlign(mozilla::WritingMode aCBWM);
+  mozilla::dom::HTMLLegendElement::LegendAlignValue GetLogicalAlign(
+      mozilla::WritingMode aCBWM);
 };
 
 #endif  // guard

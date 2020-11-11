@@ -9,9 +9,11 @@
 #ifndef BlockReflowInput_h
 #define BlockReflowInput_h
 
+#include <tuple>
+
+#include "mozilla/ReflowInput.h"
 #include "nsFloatManager.h"
 #include "nsLineBox.h"
-#include "mozilla/ReflowInput.h"
 
 class nsBlockFrame;
 class nsFrameList;
@@ -29,24 +31,14 @@ class BlockReflowInput {
   // Block reflow input flags.
   struct Flags {
     Flags()
-        : mHasUnconstrainedBSize(false),
-          mIsBStartMarginRoot(false),
+        : mIsBStartMarginRoot(false),
           mIsBEndMarginRoot(false),
           mShouldApplyBStartMargin(false),
-          mIsFirstInflow(false),
           mHasLineAdjacentToTop(false),
           mBlockNeedsFloatManager(false),
           mIsLineLayoutEmpty(false),
-          mIsOverflowContainer(false),
           mIsFloatListInBlockPropertyTable(false),
-          mFloatFragmentsInsideColumnEnabled(false),
-          mCanHaveTextOverflow(false) {}
-
-    // Set in the BlockReflowInput constructor when the frame being reflowed has
-    // been given NS_UNCONSTRAINEDSIZE as its available BSize in the
-    // ReflowInput. If set, NS_UNCONSTRAINEDSIZE is passed to nsLineLayout as
-    // the available BSize.
-    bool mHasUnconstrainedBSize : 1;
+          mCanHaveOverflowMarkers(false) {}
 
     // Set in the BlockReflowInput constructor when reflowing a "block margin
     // root" frame (i.e. a frame with the NS_BLOCK_MARGIN_ROOT flag set, for
@@ -84,8 +76,6 @@ class BlockReflowInput {
     // root by default.
     bool mShouldApplyBStartMargin : 1;
 
-    bool mIsFirstInflow : 1;
-
     // Set when mLineAdjacentToTop is valid.
     bool mHasLineAdjacentToTop : 1;
 
@@ -96,23 +86,18 @@ class BlockReflowInput {
     // the current line.
     bool mIsLineLayoutEmpty : 1;
 
-    bool mIsOverflowContainer : 1;
-
     // Set when our mPushedFloats list is stored on the block's property table.
     bool mIsFloatListInBlockPropertyTable : 1;
 
-    // Set when the pref layout.float-fragments-inside-column.enabled is true.
-    bool mFloatFragmentsInsideColumnEnabled : 1;
-
-    // Set when we need text-overflow processing.
-    bool mCanHaveTextOverflow : 1;
+    // Set when we need text-overflow or -webkit-line-clamp processing.
+    bool mCanHaveOverflowMarkers : 1;
   };
 
  public:
   BlockReflowInput(const ReflowInput& aReflowInput, nsPresContext* aPresContext,
                    nsBlockFrame* aFrame, bool aBStartMarginRoot,
                    bool aBEndMarginRoot, bool aBlockNeedsFloatManager,
-                   nscoord aConsumedBSize = NS_INTRINSICSIZE);
+                   nscoord aConsumedBSize = NS_UNCONSTRAINEDSIZE);
 
   /**
    * Get the available reflow space (the area not occupied by floats)
@@ -157,8 +142,14 @@ class BlockReflowInput {
   // Returns the first coordinate >= aBCoord that clears the
   // floats indicated by aBreakType and has enough inline size between floats
   // (or no floats remaining) to accomodate aReplacedBlock.
-  nscoord ClearFloats(nscoord aBCoord, mozilla::StyleClear aBreakType,
-                      nsIFrame* aReplacedBlock = nullptr, uint32_t aFlags = 0);
+  enum class ClearFloatsResult : uint8_t {
+    BCoordNoChange,
+    BCoordAdvanced,
+    FloatsPushedOrSplit,
+  };
+  std::tuple<nscoord, ClearFloatsResult> ClearFloats(
+      nscoord aBCoord, mozilla::StyleClear aBreakType,
+      nsIFrame* aReplacedBlock = nullptr);
 
   nsFloatManager* FloatManager() const {
     MOZ_ASSERT(mReflowInput.mFloatManager,
@@ -203,22 +194,16 @@ class BlockReflowInput {
    */
   const mozilla::LogicalMargin& BorderPadding() const { return mBorderPadding; }
 
-  /**
-   * Retrieve the block-axis content size "consumed" by any prev-in-flows.
-   * @note the value is cached so subsequent calls will return the same value
-   */
-  nscoord ConsumedBSize();
-
   // Reconstruct the previous block-end margin that goes before |aLine|.
   void ReconstructMarginBefore(nsLineList::iterator aLine);
 
-  // Caller must have called GetAvailableSpace for the correct position
+  // Caller must have called GetFloatAvailableSpace for the correct position
   // (which need not be the current mBCoord).
   void ComputeReplacedBlockOffsetsForFloats(
       nsIFrame* aFrame, const mozilla::LogicalRect& aFloatAvailableSpace,
       nscoord& aIStartResult, nscoord& aIEndResult) const;
 
-  // Caller must have called GetAvailableSpace for the current mBCoord
+  // Caller must have called GetFloatAvailableSpace for the current mBCoord
   void ComputeBlockAvailSpace(nsIFrame* aFrame,
                               const nsFlowAreaRect& aFloatAvailableSpace,
                               bool aBlockAvoidsFloats,
@@ -262,8 +247,6 @@ class BlockReflowInput {
   // block, not floats inside of it.
   nsFloatManager::SavedState mFloatManagerStateBefore;
 
-  nscoord mBEndEdge;
-
   // The content area to reflow child frames within.  This is within
   // this frame's coordinate system and writing mode, which means
   // mContentArea.IStart == BorderPadding().IStart and
@@ -290,6 +273,9 @@ class BlockReflowInput {
     return mContentArea.BSize(mReflowInput.GetWritingMode());
   }
   nscoord ContentBEnd() const {
+    NS_ASSERTION(
+        ContentBSize() != NS_UNCONSTRAINEDSIZE,
+        "ContentBSize() is unconstrained, so ContentBEnd() may overflow.");
     return mContentArea.BEnd(mReflowInput.GetWritingMode());
   }
   mozilla::LogicalSize ContentSize(mozilla::WritingMode aWM) const {
@@ -362,7 +348,7 @@ class BlockReflowInput {
 
   //----------------------------------------
 
-  // Temporary line-reflow state. This state is used during the reflow
+  // Temporary state, for line-reflow. This state is used during the reflow
   // of a given line, but doesn't have meaning before or after.
 
   // The list of floats that are "current-line" floats. These are
@@ -388,9 +374,9 @@ class BlockReflowInput {
 
   StyleClear mFloatBreakType;
 
-  // The amount of computed block-direction size "consumed" by
-  // previous-in-flows.
-  nscoord mConsumedBSize;
+  // The amount of computed content block-size "consumed" by our previous
+  // continuations.
+  const nscoord mConsumedBSize;
 
   // Cache the current line's BSize if nsBlockFrame::PlaceLine() fails to
   // place the line. When redoing the line, it will be used to query the

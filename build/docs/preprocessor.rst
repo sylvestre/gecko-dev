@@ -55,12 +55,11 @@ if
 
    #if variable
    #if !variable
-   #if variable==string
-   #if variable!=string
+   #if variable == string
+   #if variable != string
 
 Disables output if the conditional is false. This can be nested to arbitrary
-depths. Note that in the equality checks, the variable must come first, and
-the comparison operator must not be surrounded by any whitespace.
+depths. Note that in the equality checks, the variable must come first.
 
 else
 ^^^^
@@ -72,22 +71,6 @@ else
 Reverses the state of the previous conditional block; for example, if the
 last ``#if`` was true (output was enabled), an ``#else`` makes it off
 (output gets disabled).
-
-.. warning:: An ``#else`` is relative to the last conditional block only,
-   unlike the C preprocessor.
-
-   It does not matter whether any blocks before it were true. This behavior
-   changed on trunk (Gecko 1.9) on 2006-12-07; see Bug 277122 for details.
-
-::
-
-   #if 1
-     always included
-   #elif 1
-     never included
-   #else
-     always included
-   #endif
 
 endif
 ^^^^^
@@ -139,12 +122,6 @@ The following two blocks are equivalent::
      block 2
    #endif
    #endif
-
-.. warning:: An ``#elif``, ``#elifdef``, or ``#elifndef`` is relative to
-   the last conditional block only (as well as the condition it implies),
-   unlike the C preprocessor. It does not matter whether any blocks before
-   it were true. This behavior changed on trunk (Gecko 1.9) on 2006-12-07.
-   See Bug 277122 for details.
 
 File Inclusion
 --------------
@@ -205,12 +182,10 @@ Filters are run in alphabetical order on a per-line basis.
 
 emptyLines
    strips blank lines from the output
-slashslash
-   strips everything from the first two consecutive slash (``/``)
-   characters until the end of the line
-spaces
-   collapses consecutive sequences of spaces into a single space,
-   and strips leading and trailing spaces
+dumbComments
+    dumbComments: empties out any line that consists of optional whitespace
+    followed by a ``//``. Good for getting rid of comments that are on their
+    own lines, and being smarter with a simple regexp filter is impossible
 substitution
    all variables wrapped in @ are replaced with their value. If the
    variable is not defined, it is a fatal error. Similar to ``#expand``

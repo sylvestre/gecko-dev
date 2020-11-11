@@ -4,19 +4,22 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef mozilla_dom_SVGRectElement_h
-#define mozilla_dom_SVGRectElement_h
+#ifndef DOM_SVG_SVGRECTELEMENT_H_
+#define DOM_SVG_SVGRECTELEMENT_H_
 
-#include "nsSVGLength2.h"
+#include "nsCSSPropertyID.h"
+#include "SVGAnimatedLength.h"
 #include "SVGGeometryElement.h"
 
 nsresult NS_NewSVGRectElement(
     nsIContent** aResult, already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo);
 
 namespace mozilla {
+class ComputedStyle;
+
 namespace dom {
 
-typedef SVGGeometryElement SVGRectElementBase;
+using SVGRectElementBase = SVGGeometryElement;
 
 class SVGRectElement final : public SVGRectElementBase {
  protected:
@@ -28,7 +31,9 @@ class SVGRectElement final : public SVGRectElementBase {
       already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo));
 
  public:
-  // nsSVGSVGElement methods:
+  NS_IMETHOD_(bool) IsAttributeMapped(const nsAtom* aAttribute) const override;
+
+  // SVGSVGElement methods:
   virtual bool HasValidDimensions() const override;
 
   // SVGGeometryElement methods:
@@ -42,23 +47,27 @@ class SVGRectElement final : public SVGRectElementBase {
 
   virtual nsresult Clone(dom::NodeInfo*, nsINode** aResult) const override;
 
+  static bool IsLengthChangedViaCSS(const ComputedStyle& aNewStyle,
+                                    const ComputedStyle& aOldStyle);
+  static nsCSSPropertyID GetCSSPropertyIdForAttrEnum(uint8_t aAttrEnum);
+
   // WebIDL
-  already_AddRefed<SVGAnimatedLength> X();
-  already_AddRefed<SVGAnimatedLength> Y();
-  already_AddRefed<SVGAnimatedLength> Height();
-  already_AddRefed<SVGAnimatedLength> Width();
-  already_AddRefed<SVGAnimatedLength> Rx();
-  already_AddRefed<SVGAnimatedLength> Ry();
+  already_AddRefed<DOMSVGAnimatedLength> X();
+  already_AddRefed<DOMSVGAnimatedLength> Y();
+  already_AddRefed<DOMSVGAnimatedLength> Height();
+  already_AddRefed<DOMSVGAnimatedLength> Width();
+  already_AddRefed<DOMSVGAnimatedLength> Rx();
+  already_AddRefed<DOMSVGAnimatedLength> Ry();
 
  protected:
   virtual LengthAttributesInfo GetLengthInfo() override;
 
   enum { ATTR_X, ATTR_Y, ATTR_WIDTH, ATTR_HEIGHT, ATTR_RX, ATTR_RY };
-  nsSVGLength2 mLengthAttributes[6];
+  SVGAnimatedLength mLengthAttributes[6];
   static LengthInfo sLengthInfo[6];
 };
 
 }  // namespace dom
 }  // namespace mozilla
 
-#endif  // mozilla_dom_SVGRectElement_h
+#endif  // DOM_SVG_SVGRECTELEMENT_H_

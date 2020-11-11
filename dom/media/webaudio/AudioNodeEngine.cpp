@@ -7,14 +7,14 @@
 #include "AudioNodeEngine.h"
 
 #include "mozilla/AbstractThread.h"
-#ifdef BUILD_ARM_NEON
-#include "mozilla/arm.h"
-#include "AudioNodeEngineNEON.h"
+#ifdef USE_NEON
+#  include "mozilla/arm.h"
+#  include "AudioNodeEngineNEON.h"
 #endif
 #ifdef USE_SSE2
-#include "mozilla/SSE.h"
-#include "AlignmentUtils.h"
-#include "AudioNodeEngineSSE2.h"
+#  include "mozilla/SSE.h"
+#  include "AlignmentUtils.h"
+#  include "AudioNodeEngineSSE2.h"
 #endif
 #include "AudioBlock.h"
 
@@ -42,7 +42,9 @@ void WriteZeroesToAudioBlock(AudioBlock* aChunk, uint32_t aStart,
                              uint32_t aLength) {
   MOZ_ASSERT(aStart + aLength <= WEBAUDIO_BLOCK_SIZE);
   MOZ_ASSERT(!aChunk->IsNull(), "You should pass a non-null chunk");
-  if (aLength == 0) return;
+  if (aLength == 0) {
+    return;
+  }
 
   for (uint32_t i = 0; i < aChunk->ChannelCount(); ++i) {
     PodZero(aChunk->ChannelFloatsForWrite(i) + aStart, aLength);
@@ -62,7 +64,7 @@ void AudioBufferCopyWithScale(const float* aInput, float aScale, float* aOutput,
 
 void AudioBufferAddWithScale(const float* aInput, float aScale, float* aOutput,
                              uint32_t aSize) {
-#ifdef BUILD_ARM_NEON
+#ifdef USE_NEON
   if (mozilla::supports_neon()) {
     AudioBufferAddWithScale_NEON(aInput, aScale, aOutput, aSize);
     return;
@@ -122,7 +124,7 @@ void AudioBlockCopyChannelWithScale(const float* aInput, float aScale,
   if (aScale == 1.0f) {
     memcpy(aOutput, aInput, WEBAUDIO_BLOCK_SIZE * sizeof(float));
   } else {
-#ifdef BUILD_ARM_NEON
+#ifdef USE_NEON
     if (mozilla::supports_neon()) {
       AudioBlockCopyChannelWithScale_NEON(aInput, aScale, aOutput);
       return;
@@ -177,7 +179,7 @@ float AudioBufferPeakValue(const float* aInput, uint32_t aSize) {
 void AudioBlockCopyChannelWithScale(const float aInput[WEBAUDIO_BLOCK_SIZE],
                                     const float aScale[WEBAUDIO_BLOCK_SIZE],
                                     float aOutput[WEBAUDIO_BLOCK_SIZE]) {
-#ifdef BUILD_ARM_NEON
+#ifdef USE_NEON
   if (mozilla::supports_neon()) {
     AudioBlockCopyChannelWithScale_NEON(aInput, aScale, aOutput);
     return;
@@ -209,7 +211,7 @@ void AudioBufferInPlaceScale(float* aBlock, float aScale, uint32_t aSize) {
   if (aScale == 1.0f) {
     return;
   }
-#ifdef BUILD_ARM_NEON
+#ifdef USE_NEON
   if (mozilla::supports_neon()) {
     AudioBufferInPlaceScale_NEON(aBlock, aScale, aSize);
     return;
@@ -229,7 +231,7 @@ void AudioBufferInPlaceScale(float* aBlock, float aScale, uint32_t aSize) {
 }
 
 void AudioBufferInPlaceScale(float* aBlock, float* aScale, uint32_t aSize) {
-#ifdef BUILD_ARM_NEON
+#ifdef USE_NEON
   if (mozilla::supports_neon()) {
     AudioBufferInPlaceScale_NEON(aBlock, aScale, aSize);
     return;
@@ -270,7 +272,7 @@ void AudioBlockPanStereoToStereo(const float aInputL[WEBAUDIO_BLOCK_SIZE],
                                  float aGainL, float aGainR, bool aIsOnTheLeft,
                                  float aOutputL[WEBAUDIO_BLOCK_SIZE],
                                  float aOutputR[WEBAUDIO_BLOCK_SIZE]) {
-#ifdef BUILD_ARM_NEON
+#ifdef USE_NEON
   if (mozilla::supports_neon()) {
     AudioBlockPanStereoToStereo_NEON(aInputL, aInputR, aGainL, aGainR,
                                      aIsOnTheLeft, aOutputL, aOutputR);
@@ -303,12 +305,12 @@ void AudioBlockPanStereoToStereo(const float aInputL[WEBAUDIO_BLOCK_SIZE],
 
 void AudioBlockPanStereoToStereo(const float aInputL[WEBAUDIO_BLOCK_SIZE],
                                  const float aInputR[WEBAUDIO_BLOCK_SIZE],
-                                 float aGainL[WEBAUDIO_BLOCK_SIZE],
-                                 float aGainR[WEBAUDIO_BLOCK_SIZE],
-                                 bool aIsOnTheLeft[WEBAUDIO_BLOCK_SIZE],
+                                 const float aGainL[WEBAUDIO_BLOCK_SIZE],
+                                 const float aGainR[WEBAUDIO_BLOCK_SIZE],
+                                 const bool aIsOnTheLeft[WEBAUDIO_BLOCK_SIZE],
                                  float aOutputL[WEBAUDIO_BLOCK_SIZE],
                                  float aOutputR[WEBAUDIO_BLOCK_SIZE]) {
-#ifdef BUILD_ARM_NEON
+#ifdef USE_NEON
   if (mozilla::supports_neon()) {
     AudioBlockPanStereoToStereo_NEON(aInputL, aInputR, aGainL, aGainR,
                                      aIsOnTheLeft, aOutputL, aOutputR);
@@ -362,27 +364,43 @@ float AudioBufferSumOfSquares(const float* aInput, uint32_t aLength) {
   return sum;
 }
 
+void NaNToZeroInPlace(float* aSamples, size_t aCount) {
+#ifdef USE_SSE2
+  if (mozilla::supports_sse2()) {
+    NaNToZeroInPlace_SSE(aSamples, aCount);
+    return;
+  }
+#endif
+  for (size_t i = 0; i < aCount; i++) {
+    if (aSamples[i] != aSamples[i]) {
+      aSamples[i] = 0.0;
+    }
+  }
+}
+
 AudioNodeEngine::AudioNodeEngine(dom::AudioNode* aNode)
     : mNode(aNode),
       mNodeType(aNode ? aNode->NodeType() : nullptr),
       mInputCount(aNode ? aNode->NumberOfInputs() : 1),
       mOutputCount(aNode ? aNode->NumberOfOutputs() : 0),
-      mAbstractMainThread(aNode ? aNode->AbstractMainThread()
-                                : AbstractThread::MainThread()) {
+      mAbstractMainThread(aNode && aNode->GetAbstractMainThread()
+                              ? aNode->GetAbstractMainThread()
+                              : AbstractThread::MainThread()) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_COUNT_CTOR(AudioNodeEngine);
 }
 
-void AudioNodeEngine::ProcessBlock(AudioNodeStream* aStream, GraphTime aFrom,
+void AudioNodeEngine::ProcessBlock(AudioNodeTrack* aTrack, GraphTime aFrom,
                                    const AudioBlock& aInput,
                                    AudioBlock* aOutput, bool* aFinished) {
   MOZ_ASSERT(mInputCount <= 1 && mOutputCount <= 1);
   *aOutput = aInput;
 }
 
-void AudioNodeEngine::ProcessBlocksOnPorts(AudioNodeStream* aStream,
-                                           const OutputChunks& aInput,
-                                           OutputChunks& aOutput,
+void AudioNodeEngine::ProcessBlocksOnPorts(AudioNodeTrack* aTrack,
+                                           GraphTime aFrom,
+                                           Span<const AudioBlock> aInput,
+                                           Span<AudioBlock> aOutput,
                                            bool* aFinished) {
   MOZ_ASSERT(mInputCount > 1 || mOutputCount > 1);
   // Only produce one output port, and drop all other input ports.

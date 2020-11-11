@@ -82,35 +82,74 @@ class LDivI : public LBinaryMath<1> {
 
 class LDivPowTwoI : public LInstructionHelper<1, 1, 0> {
   const int32_t shift_;
+  const bool negativeDivisor_;
 
  public:
   LIR_HEADER(DivPowTwoI)
 
-  LDivPowTwoI(const LAllocation& lhs, int32_t shift)
-      : LInstructionHelper(classOpcode), shift_(shift) {
+  LDivPowTwoI(const LAllocation& lhs, int32_t shift, bool negativeDivisor)
+      : LInstructionHelper(classOpcode),
+        shift_(shift),
+        negativeDivisor_(negativeDivisor) {
     setOperand(0, lhs);
   }
 
   const LAllocation* numerator() { return getOperand(0); }
 
   int32_t shift() { return shift_; }
+  bool negativeDivisor() { return negativeDivisor_; }
 
   MDiv* mir() const { return mir_->toDiv(); }
 };
 
-class LModI : public LBinaryMath<1> {
+class LDivConstantI : public LInstructionHelper<1, 1, 1> {
+  const int32_t denominator_;
+
+ public:
+  LIR_HEADER(DivConstantI)
+
+  LDivConstantI(const LAllocation& lhs, int32_t denominator,
+                const LDefinition& temp)
+      : LInstructionHelper(classOpcode), denominator_(denominator) {
+    setOperand(0, lhs);
+    setTemp(0, temp);
+  }
+
+  const LAllocation* numerator() { return getOperand(0); }
+  const LDefinition* temp() { return getTemp(0); }
+  int32_t denominator() const { return denominator_; }
+  MDiv* mir() const { return mir_->toDiv(); }
+  bool canBeNegativeDividend() const { return mir()->canBeNegativeDividend(); }
+};
+
+class LUDivConstantI : public LInstructionHelper<1, 1, 1> {
+  const int32_t denominator_;
+
+ public:
+  LIR_HEADER(UDivConstantI)
+
+  LUDivConstantI(const LAllocation& lhs, int32_t denominator,
+                 const LDefinition& temp)
+      : LInstructionHelper(classOpcode), denominator_(denominator) {
+    setOperand(0, lhs);
+    setTemp(0, temp);
+  }
+
+  const LAllocation* numerator() { return getOperand(0); }
+  const LDefinition* temp() { return getTemp(0); }
+  int32_t denominator() const { return denominator_; }
+  MDiv* mir() const { return mir_->toDiv(); }
+};
+
+class LModI : public LBinaryMath<0> {
  public:
   LIR_HEADER(ModI);
 
-  LModI(const LAllocation& lhs, const LAllocation& rhs,
-        const LDefinition& callTemp)
+  LModI(const LAllocation& lhs, const LAllocation& rhs)
       : LBinaryMath(classOpcode) {
     setOperand(0, lhs);
     setOperand(1, rhs);
-    setTemp(0, callTemp);
   }
-
-  const LDefinition* callTemp() { return getTemp(0); }
 
   MMod* mir() const { return mir_->toMod(); }
 };
@@ -150,15 +189,16 @@ class LModMaskI : public LInstructionHelper<1, 1, 2> {
 };
 
 // Takes a tableswitch with an integer to decide
-class LTableSwitch : public LInstructionHelper<0, 1, 1> {
+class LTableSwitch : public LInstructionHelper<0, 1, 2> {
  public:
   LIR_HEADER(TableSwitch);
 
   LTableSwitch(const LAllocation& in, const LDefinition& inputCopy,
-               MTableSwitch* ins)
+               const LDefinition& jumpTablePointer, MTableSwitch* ins)
       : LInstructionHelper(classOpcode) {
     setOperand(0, in);
     setTemp(0, inputCopy);
+    setTemp(1, jumpTablePointer);
     setMir(ins);
   }
 
@@ -167,20 +207,22 @@ class LTableSwitch : public LInstructionHelper<0, 1, 1> {
   const LAllocation* index() { return getOperand(0); }
   const LDefinition* tempInt() { return getTemp(0); }
   // This is added to share the same CodeGenerator prefixes.
-  const LDefinition* tempPointer() { return nullptr; }
+  const LDefinition* tempPointer() { return getTemp(1); }
 };
 
 // Takes a tableswitch with an integer to decide
-class LTableSwitchV : public LInstructionHelper<0, BOX_PIECES, 2> {
+class LTableSwitchV : public LInstructionHelper<0, BOX_PIECES, 3> {
  public:
   LIR_HEADER(TableSwitchV);
 
   LTableSwitchV(const LBoxAllocation& input, const LDefinition& inputCopy,
-                const LDefinition& floatCopy, MTableSwitch* ins)
+                const LDefinition& floatCopy,
+                const LDefinition& jumpTablePointer, MTableSwitch* ins)
       : LInstructionHelper(classOpcode) {
     setBoxOperand(InputValue, input);
     setTemp(0, inputCopy);
     setTemp(1, floatCopy);
+    setTemp(2, jumpTablePointer);
     setMir(ins);
   }
 
@@ -190,7 +232,7 @@ class LTableSwitchV : public LInstructionHelper<0, BOX_PIECES, 2> {
 
   const LDefinition* tempInt() { return getTemp(0); }
   const LDefinition* tempFloat() { return getTemp(1); }
-  const LDefinition* tempPointer() { return nullptr; }
+  const LDefinition* tempPointer() { return getTemp(2); }
 };
 
 class LMulI : public LBinaryMath<0> {
@@ -202,9 +244,19 @@ class LMulI : public LBinaryMath<0> {
   MMul* mir() { return mir_->toMul(); }
 };
 
-class LUDiv : public LBinaryMath<0> {
+class LUDiv : public LBinaryMath<1> {
  public:
   LIR_HEADER(UDiv);
+
+  LUDiv(const LAllocation& lhs, const LAllocation& rhs,
+        const LDefinition& remainder)
+      : LBinaryMath(classOpcode) {
+    setOperand(0, lhs);
+    setOperand(1, rhs);
+    setTemp(0, remainder);
+  }
+
+  const LDefinition* remainder() { return getTemp(0); }
 
   MDiv* mir() { return mir_->toDiv(); }
 };

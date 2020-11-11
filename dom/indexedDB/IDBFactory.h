@@ -10,7 +10,7 @@
 #include "mozilla/Attributes.h"
 #include "mozilla/dom/BindingDeclarations.h"
 #include "mozilla/dom/StorageTypeBinding.h"
-#include "nsAutoPtr.h"
+#include "mozilla/UniquePtr.h"
 #include "nsCOMPtr.h"
 #include "nsCycleCollectionParticipant.h"
 #include "nsISupports.h"
@@ -18,8 +18,9 @@
 #include "nsTArray.h"
 #include "nsWrapperCache.h"
 
-class nsIEventTarget;
+class nsIGlobalObject;
 class nsIPrincipal;
+class nsISerialEventTarget;
 class nsPIDOMWindowInner;
 
 namespace mozilla {
@@ -39,7 +40,7 @@ struct IDBOpenDBOptions;
 class IDBOpenDBRequest;
 template <typename>
 class Optional;
-class TabChild;
+class BrowserChild;
 enum class CallerType : uint32_t;
 
 namespace indexedDB {
@@ -55,23 +56,21 @@ class IDBFactory final : public nsISupports, public nsWrapperCache {
 
   class BackgroundCreateCallback;
   struct PendingRequestInfo;
+  struct IDBFactoryGuard {};
 
-  nsAutoPtr<PrincipalInfo> mPrincipalInfo;
+  UniquePtr<PrincipalInfo> mPrincipalInfo;
 
-  // If this factory lives on a window then mWindow must be non-null. Otherwise
-  // mOwningObject must be non-null.
-  nsCOMPtr<nsPIDOMWindowInner> mWindow;
-  JS::Heap<JSObject*> mOwningObject;
+  nsCOMPtr<nsIGlobalObject> mGlobal;
 
   // This will only be set if the factory belongs to a window in a child
   // process.
-  RefPtr<TabChild> mTabChild;
+  RefPtr<BrowserChild> mBrowserChild;
 
   indexedDB::BackgroundFactoryChild* mBackgroundActor;
 
   // It is either set to a DocGroup-specific EventTarget if created by
-  // CreateForWindow() or set to GetCurrentThreadEventTarget() otherwise.
-  nsCOMPtr<nsIEventTarget> mEventTarget;
+  // CreateForWindow() or set to GetCurrentSerialEventTarget() otherwise.
+  nsCOMPtr<nsISerialEventTarget> mEventTarget;
 
   uint64_t mInnerWindowID;
   uint32_t mActiveTransactionCount;
@@ -81,18 +80,17 @@ class IDBFactory final : public nsISupports, public nsWrapperCache {
   bool mPrivateBrowsingMode;
 
  public:
-  static nsresult CreateForWindow(nsPIDOMWindowInner* aWindow,
-                                  IDBFactory** aFactory);
+  explicit IDBFactory(const IDBFactoryGuard&);
 
-  static nsresult CreateForMainThreadJS(JSContext* aCx,
-                                        JS::Handle<JSObject*> aOwningObject,
-                                        IDBFactory** aFactory);
+  static Result<RefPtr<IDBFactory>, nsresult> CreateForWindow(
+      nsPIDOMWindowInner* aWindow);
 
-  static nsresult CreateForWorker(JSContext* aCx,
-                                  JS::Handle<JSObject*> aOwningObject,
-                                  const PrincipalInfo& aPrincipalInfo,
-                                  uint64_t aInnerWindowID,
-                                  IDBFactory** aFactory);
+  static Result<RefPtr<IDBFactory>, nsresult> CreateForMainThreadJS(
+      nsIGlobalObject* aGlobal);
+
+  static Result<RefPtr<IDBFactory>, nsresult> CreateForWorker(
+      nsIGlobalObject* aGlobal, const PrincipalInfo& aPrincipalInfo,
+      uint64_t aInnerWindowID);
 
   static bool AllowedForWindow(nsPIDOMWindowInner* aWindow);
 
@@ -101,7 +99,7 @@ class IDBFactory final : public nsISupports, public nsWrapperCache {
 
   void AssertIsOnOwningThread() const { NS_ASSERT_OWNINGTHREAD(IDBFactory); }
 
-  nsIEventTarget* EventTarget() const {
+  nsISerialEventTarget* EventTarget() const {
     AssertIsOnOwningThread();
     MOZ_RELEASE_ASSERT(mEventTarget);
     return mEventTarget;
@@ -125,16 +123,14 @@ class IDBFactory final : public nsISupports, public nsWrapperCache {
   // IDB operations in other window.
   void UpdateActiveDatabaseCount(int32_t aDelta);
 
-  void IncrementParentLoggingRequestSerialNumber();
+  nsIGlobalObject* GetParentObject() const { return mGlobal; }
 
-  nsPIDOMWindowInner* GetParentObject() const { return mWindow; }
-
-  TabChild* GetTabChild() const { return mTabChild; }
+  BrowserChild* GetBrowserChild() const { return mBrowserChild; }
 
   PrincipalInfo* GetPrincipalInfo() const {
     AssertIsOnOwningThread();
 
-    return mPrincipalInfo;
+    return mPrincipalInfo.get();
   }
 
   uint64_t InnerWindowID() const {
@@ -145,42 +141,40 @@ class IDBFactory final : public nsISupports, public nsWrapperCache {
 
   bool IsChrome() const;
 
-  already_AddRefed<IDBOpenDBRequest> Open(JSContext* aCx,
-                                          const nsAString& aName,
-                                          uint64_t aVersion,
-                                          CallerType aCallerType,
-                                          ErrorResult& aRv);
+  [[nodiscard]] RefPtr<IDBOpenDBRequest> Open(JSContext* aCx,
+                                              const nsAString& aName,
+                                              uint64_t aVersion,
+                                              CallerType aCallerType,
+                                              ErrorResult& aRv);
 
-  already_AddRefed<IDBOpenDBRequest> Open(JSContext* aCx,
-                                          const nsAString& aName,
-                                          const IDBOpenDBOptions& aOptions,
-                                          CallerType aCallerType,
-                                          ErrorResult& aRv);
+  [[nodiscard]] RefPtr<IDBOpenDBRequest> Open(JSContext* aCx,
+                                              const nsAString& aName,
+                                              const IDBOpenDBOptions& aOptions,
+                                              CallerType aCallerType,
+                                              ErrorResult& aRv);
 
-  already_AddRefed<IDBOpenDBRequest> DeleteDatabase(
+  [[nodiscard]] RefPtr<IDBOpenDBRequest> DeleteDatabase(
       JSContext* aCx, const nsAString& aName, const IDBOpenDBOptions& aOptions,
       CallerType aCallerType, ErrorResult& aRv);
 
   int16_t Cmp(JSContext* aCx, JS::Handle<JS::Value> aFirst,
               JS::Handle<JS::Value> aSecond, ErrorResult& aRv);
 
-  already_AddRefed<IDBOpenDBRequest> OpenForPrincipal(
+  [[nodiscard]] RefPtr<IDBOpenDBRequest> OpenForPrincipal(
       JSContext* aCx, nsIPrincipal* aPrincipal, const nsAString& aName,
       uint64_t aVersion, SystemCallerGuarantee, ErrorResult& aRv);
 
-  already_AddRefed<IDBOpenDBRequest> OpenForPrincipal(
+  [[nodiscard]] RefPtr<IDBOpenDBRequest> OpenForPrincipal(
       JSContext* aCx, nsIPrincipal* aPrincipal, const nsAString& aName,
       const IDBOpenDBOptions& aOptions, SystemCallerGuarantee,
       ErrorResult& aRv);
 
-  already_AddRefed<IDBOpenDBRequest> DeleteForPrincipal(
+  [[nodiscard]] RefPtr<IDBOpenDBRequest> DeleteForPrincipal(
       JSContext* aCx, nsIPrincipal* aPrincipal, const nsAString& aName,
       const IDBOpenDBOptions& aOptions, SystemCallerGuarantee,
       ErrorResult& aRv);
 
-  void RebindToNewWindow(nsPIDOMWindowInner* aNewWindow);
-
-  void DisconnectFromWindow(nsPIDOMWindowInner* aOldWindow);
+  void DisconnectFromGlobal(nsIGlobalObject* aOldGlobal);
 
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(IDBFactory)
@@ -190,29 +184,25 @@ class IDBFactory final : public nsISupports, public nsWrapperCache {
                                JS::Handle<JSObject*> aGivenProto) override;
 
  private:
-  IDBFactory();
   ~IDBFactory();
 
-  static nsresult CreateForMainThreadJSInternal(
-      JSContext* aCx, JS::Handle<JSObject*> aOwningObject,
-      nsAutoPtr<PrincipalInfo>& aPrincipalInfo, IDBFactory** aFactory);
+  static Result<RefPtr<IDBFactory>, nsresult> CreateForMainThreadJSInternal(
+      nsIGlobalObject* aGlobal, UniquePtr<PrincipalInfo> aPrincipalInfo);
 
-  static nsresult CreateForJSInternal(JSContext* aCx,
-                                      JS::Handle<JSObject*> aOwningObject,
-                                      nsAutoPtr<PrincipalInfo>& aPrincipalInfo,
-                                      uint64_t aInnerWindowID,
-                                      IDBFactory** aFactory);
+  static Result<RefPtr<IDBFactory>, nsresult> CreateInternal(
+      nsIGlobalObject* aGlobal, UniquePtr<PrincipalInfo> aPrincipalInfo,
+      uint64_t aInnerWindowID);
 
   static nsresult AllowedForWindowInternal(nsPIDOMWindowInner* aWindow,
-                                           nsIPrincipal** aPrincipal);
+                                           nsCOMPtr<nsIPrincipal>* aPrincipal);
 
-  already_AddRefed<IDBOpenDBRequest> OpenInternal(
+  [[nodiscard]] RefPtr<IDBOpenDBRequest> OpenInternal(
       JSContext* aCx, nsIPrincipal* aPrincipal, const nsAString& aName,
       const Optional<uint64_t>& aVersion,
       const Optional<StorageType>& aStorageType, bool aDeleting,
       CallerType aCallerType, ErrorResult& aRv);
 
-  nsresult InitiateRequest(IDBOpenDBRequest* aRequest,
+  nsresult InitiateRequest(const NotNull<RefPtr<IDBOpenDBRequest>>& aRequest,
                            const indexedDB::FactoryRequestParams& aParams);
 };
 

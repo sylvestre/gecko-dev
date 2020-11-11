@@ -4,15 +4,26 @@
 
 "use strict";
 
-const { createFactory, PureComponent } = require("devtools/client/shared/vendor/react");
+const {
+  createFactory,
+  PureComponent,
+} = require("devtools/client/shared/vendor/react");
 const dom = require("devtools/client/shared/vendor/react-dom-factories");
 const PropTypes = require("devtools/client/shared/vendor/react-prop-types");
 
-const AnimatedPropertyList = createFactory(require("./AnimatedPropertyList"));
-const KeyframesProgressBar = createFactory(require("./KeyframesProgressBar"));
-const ProgressInspectionPanel = createFactory(require("./ProgressInspectionPanel"));
+const AnimatedPropertyList = createFactory(
+  require("devtools/client/inspector/animation/components/AnimatedPropertyList")
+);
+const KeyframesProgressBar = createFactory(
+  require("devtools/client/inspector/animation/components/KeyframesProgressBar")
+);
+const ProgressInspectionPanel = createFactory(
+  require("devtools/client/inspector/animation/components/ProgressInspectionPanel")
+);
 
-const { getFormatStr } = require("../utils/l10n");
+const {
+  getFormatStr,
+} = require("devtools/client/inspector/animation/utils/l10n");
 
 class AnimatedPropertyListContainer extends PureComponent {
   static get propTypes() {
@@ -46,35 +57,32 @@ class AnimatedPropertyListContainer extends PureComponent {
 
     return dom.div(
       {
-        className: `animated-property-list-container ${ animation.state.type }`,
+        className: `animated-property-list-container ${animation.state.type}`,
       },
-      ProgressInspectionPanel(
-        {
-          indicator: KeyframesProgressBar(
-            {
-              addAnimationsCurrentTimeListener,
-              animation,
-              getAnimationsCurrentTime,
-              removeAnimationsCurrentTimeListener,
-              simulateAnimationForKeyframesProgressBar,
-              timeScale,
-            }
-          ),
-          list: AnimatedPropertyList(
-            {
-              animation,
-              emitEventForTest,
-              getAnimatedPropertyMap,
-              getComputedStyle,
-              simulateAnimation,
-            }
-          ),
-          ticks: [0, 50, 100].map(position => {
-            const label = getFormatStr("detail.propertiesHeader.percentage", position);
-            return { position, label };
-          }),
-        }
-      )
+      ProgressInspectionPanel({
+        indicator: KeyframesProgressBar({
+          addAnimationsCurrentTimeListener,
+          animation,
+          getAnimationsCurrentTime,
+          removeAnimationsCurrentTimeListener,
+          simulateAnimationForKeyframesProgressBar,
+          timeScale,
+        }),
+        list: AnimatedPropertyList({
+          animation,
+          emitEventForTest,
+          getAnimatedPropertyMap,
+          getComputedStyle,
+          simulateAnimation,
+        }),
+        ticks: [0, 50, 100].map(position => {
+          const label = getFormatStr(
+            "detail.propertiesHeader.percentage",
+            position
+          );
+          return { position, label };
+        }),
+      })
     );
   }
 }

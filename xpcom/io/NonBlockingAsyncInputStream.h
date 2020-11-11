@@ -8,6 +8,7 @@
 
 #include "mozilla/Attributes.h"
 #include "mozilla/Maybe.h"
+#include "mozilla/Mutex.h"
 #include "nsCOMPtr.h"
 #include "nsIAsyncInputStream.h"
 #include "nsICloneableInputStream.h"
@@ -43,6 +44,12 @@ class NonBlockingAsyncInputStream final : public nsIAsyncInputStream,
   explicit NonBlockingAsyncInputStream(
       already_AddRefed<nsIInputStream> aInputStream);
   ~NonBlockingAsyncInputStream();
+
+  template <typename M>
+  void SerializeInternal(mozilla::ipc::InputStreamParams& aParams,
+                         FileDescriptorArray& aFileDescriptors,
+                         bool aDelayedStart, uint32_t aMaxSize,
+                         uint32_t* aSizeUsed, M* aManager);
 
   class AsyncWaitRunnable;
 

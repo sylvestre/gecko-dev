@@ -1,7 +1,6 @@
 "use strict";
 
-const BASE_URI =
-  "http://mochi.test:8888/browser/dom/serviceworkers/test/";
+const BASE_URI = "http://mochi.test:8888/browser/dom/serviceworkers/test/";
 const emptyDoc = BASE_URI + "empty.html";
 const fakeDoc = BASE_URI + "fake.html";
 const helloDoc = BASE_URI + "hello.html";
@@ -12,9 +11,11 @@ const crossHelloDoc = CROSS_URI + "hello.html";
 
 const sw = BASE_URI + "fetch.js";
 
-// XXXtt: We should be able to move this check to chrome process after we move
-// the interception logic to chrome process.
-async function checkObserverInContent(aInput) {
+const gIsParentInterceptEnabled = Cc["@mozilla.org/serviceworkers/manager;1"]
+  .getService(Ci.nsIServiceWorkerManager)
+  .isParentInterceptEnabled();
+
+async function checkObserver({ aInput, isParentInterceptEnabled }) {
   let interceptedChannel = null;
 
   // We always get two channels which receive the "http-on-stop-request"
@@ -45,34 +46,51 @@ async function checkObserverInContent(aInput) {
     if (aInput.intercepted && interceptedChannel === null) {
       return;
     } else if (interceptedChannel) {
-      ok(aInput.intercepted,
-         "Service worker intercepted the channel as expected");
+      ok(
+        aInput.intercepted,
+        "Service worker intercepted the channel as expected"
+      );
     } else {
       ok(!aInput.intercepted, "The channel doesn't be intercepted");
     }
 
     var tc = interceptedChannel
-               ? interceptedChannel.QueryInterface(Ci.nsITimedChannel)
-               : aSubject.QueryInterface(Ci.nsITimedChannel);
+      ? interceptedChannel.QueryInterface(Ci.nsITimedChannel)
+      : aSubject.QueryInterface(Ci.nsITimedChannel);
 
     // Check service worker related timings.
-    var serviceWorkerTimings = [{start: tc.launchServiceWorkerStartTime,
-                                 end:   tc.launchServiceWorkerEndTime},
-                                {start: tc.dispatchFetchEventStartTime,
-                                 end:   tc.dispatchFetchEventEndTime},
-                                {start: tc.handleFetchEventStartTime,
-                                 end:   tc.handleFetchEventEndTime}];
+    var serviceWorkerTimings = [
+      {
+        start: tc.launchServiceWorkerStartTime,
+        end: tc.launchServiceWorkerEndTime,
+      },
+      {
+        start: tc.dispatchFetchEventStartTime,
+        end: tc.dispatchFetchEventEndTime,
+      },
+      { start: tc.handleFetchEventStartTime, end: tc.handleFetchEventEndTime },
+    ];
     if (aInput.swPresent) {
-      serviceWorkerTimings.reduce((aPreviousTimings, aCurrentTimings) => {
-        ok(aPreviousTimings.start !== 0, "Start time check.");
-        ok(aPreviousTimings.start <= aCurrentTimings.start,
-           "Start time order check.");
-        ok(aPreviousTimings.end <= aCurrentTimings.end,
-           "End time order check.");
-        ok(aCurrentTimings.start <= aCurrentTimings.end,
-           "Start time should be smaller than end time.");
-        return aCurrentTimings;
-      });
+      // TODO: remove this condition (but keep the if statement's body) when
+      // bug 1577829 is resolved.
+      if (!isParentInterceptEnabled) {
+        serviceWorkerTimings.reduce((aPreviousTimings, aCurrentTimings) => {
+          ok(aPreviousTimings.start !== 0, "Start time check.");
+          ok(
+            aPreviousTimings.start <= aCurrentTimings.start,
+            "Start time order check."
+          );
+          ok(
+            aPreviousTimings.end <= aCurrentTimings.end,
+            "End time order check."
+          );
+          ok(
+            aCurrentTimings.start <= aCurrentTimings.end,
+            "Start time should be smaller than end time."
+          );
+          return aCurrentTimings;
+        });
+      }
     } else {
       serviceWorkerTimings.forEach(aTimings => {
         is(aTimings.start, 0, "SW timings should be 0.");
@@ -81,21 +99,24 @@ async function checkObserverInContent(aInput) {
     }
 
     // Check network related timings.
-    var networkTimings = [tc.domainLookupStartTime,
-                          tc.domainLookupEndTime,
-                          tc.connectStartTime,
-                          tc.connectEndTime,
-                          tc.requestStartTime,
-                          tc.responseStartTime,
-                          tc.responseEndTime];
+    var networkTimings = [
+      tc.domainLookupStartTime,
+      tc.domainLookupEndTime,
+      tc.connectStartTime,
+      tc.connectEndTime,
+      tc.requestStartTime,
+      tc.responseStartTime,
+      tc.responseEndTime,
+    ];
     if (aInput.fetch) {
       networkTimings.reduce((aPreviousTiming, aCurrentTiming) => {
         ok(aPreviousTiming <= aCurrentTiming, "Checking network timings");
         return aCurrentTiming;
       });
     } else {
-      networkTimings.forEach(aTiming => is(aTiming, 0,
-                                           "Network timings should be 0."));
+      networkTimings.forEach(aTiming =>
+        is(aTiming, 0, "Network timings should be 0.")
+      );
     }
 
     interceptedChannel = null;
@@ -123,7 +144,9 @@ async function checkObserverInContent(aInput) {
     Services.obs.addObserver(addInterceptedChannel, topic_SW);
   }
 
-  await new Promise(resolve => { promiseResolve = resolve; });
+  await new Promise(resolve => {
+    promiseResolve = resolve;
+  });
 }
 
 async function contentFetch(aURL) {
@@ -134,32 +157,58 @@ async function contentFetch(aURL) {
   await content.window.fetch(aURL);
 }
 
+// The observer topics are fired in the parent process in parent-intercept
+// and the content process in child-intercept. This function will handle running
+// the check in the correct process. Note that it will block until the observers
+// are notified.
+async function fetchAndCheckObservers(
+  aFetchBrowser,
+  aObserverBrowser,
+  aTestCase
+) {
+  let promise = null;
+
+  let checkArgs = {
+    aInput: aTestCase,
+    isParentInterceptEnabled: gIsParentInterceptEnabled,
+  };
+  if (gIsParentInterceptEnabled) {
+    promise = checkObserver(checkArgs);
+  } else {
+    promise = SpecialPowers.spawn(aObserverBrowser, [checkArgs], checkObserver);
+  }
+
+  await SpecialPowers.spawn(aFetchBrowser, [aTestCase.url], contentFetch);
+  await promise;
+}
+
 async function registerSWAndWaitForActive(aServiceWorker) {
-  let swr =
-    await content.navigator.serviceWorker.register(aServiceWorker,
-                                                   { scope:"empty.html" });
+  let swr = await content.navigator.serviceWorker.register(aServiceWorker, {
+    scope: "empty.html",
+  });
   await new Promise(resolve => {
     let worker = swr.installing || swr.waiting || swr.active;
-    if (worker.state === 'activated') {
+    if (worker.state === "activated") {
       return resolve();
     }
 
-    worker.addEventListener('statechange', () => {
-      if (worker.state === 'activated') {
+    worker.addEventListener("statechange", () => {
+      if (worker.state === "activated") {
         return resolve();
       }
     });
   });
-
-  await swr.active.postMessage('claim');
 
   await new Promise(resolve => {
     if (content.navigator.serviceWorker.controller) {
       return resolve();
     }
 
-    content.navigator.serviceWorker.addEventListener('controllerchange',
-                                                     resolve, { once: true });
+    content.navigator.serviceWorker.addEventListener(
+      "controllerchange",
+      resolve,
+      { once: true }
+    );
   });
 }
 
@@ -170,12 +219,14 @@ async function unregisterSW() {
 
 add_task(async function test_serivce_worker_interception() {
   info("Setting the prefs to having e10s enabled");
-  await SpecialPowers.pushPrefEnv({"set": [
-    // Make sure observer and testing function run in the same process
-    ["dom.ipc.processCount", 1],
-    ["dom.serviceWorkers.enabled", true],
-    ["dom.serviceWorkers.testing.enabled", true],
-  ]});
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      // Make sure observer and testing function run in the same process
+      ["dom.ipc.processCount", 1],
+      ["dom.serviceWorkers.enabled", true],
+      ["dom.serviceWorkers.testing.enabled", true],
+    ],
+  });
 
   waitForExplicitFinish();
 
@@ -195,67 +246,52 @@ add_task(async function test_serivce_worker_interception() {
       expectedURL: helloDoc,
       swPresent: false,
       intercepted: false,
-      fetch: true
+      fetch: true,
     },
     {
       url: fakeDoc,
       expectedURL: helloDoc,
       swPresent: true,
       intercepted: true,
-      fetch: false // should use HTTP cache
+      fetch: false, // should use HTTP cache
     },
-    { // Bypass http cache
+    {
+      // Bypass http cache
       url: helloDoc + "?ForBypassingHttpCache=" + Date.now(),
       expectedURL: helloDoc,
       swPresent: true,
       intercepted: false,
-      fetch: true
+      fetch: true,
     },
-    { // no-cors mode redirect to no-cors mode (trigger internal redirect)
+    {
+      // no-cors mode redirect to no-cors mode (trigger internal redirect)
       url: crossRedirect + "?url=" + crossHelloDoc + "&mode=no-cors",
       expectedURL: crossHelloDoc,
       swPresent: true,
       redirect: "hello.html",
       intercepted: true,
-      fetch: true
-    }
+      fetch: true,
+    },
   ];
 
   info("Test 1: Verify simple fetch");
-  let promise = ContentTask.spawn(tabBrowser_observer,
-                                  testcases[0],
-                                  checkObserverInContent);
-  await ContentTask.spawn(tabBrowser, testcases[0].url, contentFetch);
-  await promise;
+  await fetchAndCheckObservers(tabBrowser, tabBrowser_observer, testcases[0]);
 
   info("Register a service worker");
-  await ContentTask.spawn(tabBrowser, sw, registerSWAndWaitForActive);
+  await SpecialPowers.spawn(tabBrowser, [sw], registerSWAndWaitForActive);
 
   info("Test 2: Verify simple hijack");
-  promise = ContentTask.spawn(tabBrowser_observer,
-                              testcases[1],
-                              checkObserverInContent);
-  await ContentTask.spawn(tabBrowser, testcases[1].url, contentFetch);
-  await promise;
+  await fetchAndCheckObservers(tabBrowser, tabBrowser_observer, testcases[1]);
 
   info("Test 3: Verify fetch without using http cache");
-  promise = ContentTask.spawn(tabBrowser_observer,
-                              testcases[2],
-                              checkObserverInContent);
-  await ContentTask.spawn(tabBrowser, testcases[2].url, contentFetch);
-  await promise;
+  await fetchAndCheckObservers(tabBrowser, tabBrowser_observer, testcases[2]);
 
   info("Test 4: make a internal redirect");
-  promise = ContentTask.spawn(tabBrowser_observer,
-                              testcases[3],
-                              checkObserverInContent);
-  await ContentTask.spawn(tabBrowser, testcases[3].url, contentFetch);
-  await promise;
+  await fetchAndCheckObservers(tabBrowser, tabBrowser_observer, testcases[3]);
 
   info("Clean up");
-  await ContentTask.spawn(tabBrowser, undefined, unregisterSW);
+  await SpecialPowers.spawn(tabBrowser, [undefined], unregisterSW);
 
   gBrowser.removeTab(tab);
   gBrowser.removeTab(tab_observer);
 });
-

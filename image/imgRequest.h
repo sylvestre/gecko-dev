@@ -19,7 +19,6 @@
 #include "nsError.h"
 #include "nsIAsyncVerifyRedirectCallback.h"
 #include "mozilla/Mutex.h"
-#include "mozilla/net/ReferrerPolicy.h"
 #include "ImageCacheKey.h"
 
 class imgCacheValidator;
@@ -31,6 +30,7 @@ class nsIProperties;
 class nsIRequest;
 class nsITimedChannel;
 class nsIURI;
+class nsIReferrerInfo;
 
 namespace mozilla {
 namespace image {
@@ -49,7 +49,7 @@ class imgRequest final : public nsIStreamListener,
   typedef mozilla::image::Image Image;
   typedef mozilla::image::ImageCacheKey ImageCacheKey;
   typedef mozilla::image::ProgressTracker ProgressTracker;
-  typedef mozilla::net::ReferrerPolicy ReferrerPolicy;
+  typedef mozilla::dom::ReferrerPolicy ReferrerPolicy;
 
  public:
   imgRequest(imgLoader* aLoader, const ImageCacheKey& aCacheKey);
@@ -62,17 +62,21 @@ class imgRequest final : public nsIStreamListener,
   NS_DECL_NSIINTERFACEREQUESTOR
   NS_DECL_NSIASYNCVERIFYREDIRECTCALLBACK
 
-  MOZ_MUST_USE nsresult Init(nsIURI* aURI, nsIURI* aFinalURI,
-                             bool aHadInsecureRedirect, nsIRequest* aRequest,
-                             nsIChannel* aChannel, imgCacheEntry* aCacheEntry,
-                             nsISupports* aCX,
-                             nsIPrincipal* aTriggeringPrincipal,
-                             int32_t aCORSMode, ReferrerPolicy aReferrerPolicy);
+      [[nodiscard]] nsresult
+      Init(nsIURI* aURI, nsIURI* aFinalURI, bool aHadInsecureRedirect,
+           nsIRequest* aRequest, nsIChannel* aChannel,
+           imgCacheEntry* aCacheEntry, mozilla::dom::Document* aLoadingDocument,
+           nsIPrincipal* aTriggeringPrincipal, int32_t aCORSMode,
+           nsIReferrerInfo* aReferrerInfo);
 
   void ClearLoader();
 
   // Callers must call imgRequestProxy::Notify later.
   void AddProxy(imgRequestProxy* proxy);
+
+  // Whether a given document is allowed to reuse this request without any
+  // revalidation.
+  bool CanReuseWithoutValidation(mozilla::dom::Document*) const;
 
   nsresult RemoveProxy(imgRequestProxy* proxy, nsresult aStatus);
 
@@ -91,6 +95,9 @@ class imgRequest final : public nsIStreamListener,
   void StartDecoding();
 
   inline uint64_t InnerWindowID() const { return mInnerWindowId; }
+  void SetInnerWindowID(uint64_t aInnerWindowId) {
+    mInnerWindowId = aInnerWindowId;
+  }
 
   // Set the cache validation information (expiry time, whether we must
   // validate, etc) on the cache entry based on the request information.
@@ -113,8 +120,8 @@ class imgRequest final : public nsIStreamListener,
   // The CORS mode for which we loaded this image.
   int32_t GetCORSMode() const { return mCORSMode; }
 
-  // The Referrer Policy in effect when loading this image.
-  ReferrerPolicy GetReferrerPolicy() const { return mReferrerPolicy; }
+  // The ReferrerInfo in effect when loading this image.
+  nsIReferrerInfo* GetReferrerInfo() const { return mReferrerInfo; }
 
   // The principal for the document that loaded this image. Used when trying to
   // validate a CORS image load.
@@ -143,7 +150,6 @@ class imgRequest final : public nsIStreamListener,
   // OK to use on any thread.
   nsresult GetURI(nsIURI** aURI);
   nsresult GetFinalURI(nsIURI** aURI);
-  bool IsScheme(const char* aScheme) const;
   bool IsChrome() const;
   bool IsData() const;
 
@@ -196,6 +202,14 @@ class imgRequest final : public nsIStreamListener,
   nsIProperties* Properties() const { return mProperties; }
 
   bool HasConsumers() const;
+
+  bool ImageAvailable() const;
+
+  bool IsDeniedCrossSiteCORSRequest() const {
+    return mIsDeniedCrossSiteCORSRequest;
+  }
+
+  bool IsCrossSiteNoCORSRequest() const { return mIsCrossSiteNoCORSRequest; }
 
  private:
   friend class FinishPreparingForNewPartRunnable;
@@ -262,13 +276,18 @@ class imgRequest final : public nsIStreamListener,
   // default, imgIRequest::CORS_NONE.
   int32_t mCORSMode;
 
-  // The Referrer Policy (defined in ReferrerPolicy.h) used for this image.
-  ReferrerPolicy mReferrerPolicy;
+  // The ReferrerInfo used for this image.
+  nsCOMPtr<nsIReferrerInfo> mReferrerInfo;
 
   nsresult mImageErrorCode;
 
   // The categories of prioritization strategy that have been requested.
   uint32_t mBoostCategoriesRequested = 0;
+
+  // If we've called OnImageAvailable.
+  bool mImageAvailable;
+  bool mIsDeniedCrossSiteCORSRequest;
+  bool mIsCrossSiteNoCORSRequest;
 
   mutable mozilla::Mutex mMutex;
 

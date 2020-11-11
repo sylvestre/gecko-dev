@@ -1,13 +1,13 @@
 // Test basic usage of drainAllocationsLog()
 
-const root = newGlobal();
+const root = newGlobal({newCompartment: true});
 const dbg = new Debugger();
 const wrappedRoot = dbg.addDebuggee(root)
 dbg.memory.trackingAllocationSites = true;
 
 root.eval("(" + function immediate() {
   this.tests = [
-    ({}),
+    {x: 1},
     [],
     /(two|2)\s*problems/,
     new function Ctor(){},

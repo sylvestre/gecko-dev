@@ -39,6 +39,10 @@
 #include "windows/handler/exception_handler.h"
 #include "common/windows/guid_string.h"
 
+#ifdef MOZ_PHC
+#include "replace_malloc_bridge.h"
+#endif
+
 namespace google_breakpad {
 
 // This define is new to Windows 10.
@@ -158,6 +162,7 @@ void ExceptionHandler::Initialize(
   previous_iph_ = NULL;
 #endif  // _MSC_VER >= 1400
   previous_pch_ = NULL;
+  heap_corruption_veh_ = NULL;
   handler_thread_ = NULL;
   is_shutdown_ = false;
   handler_start_semaphore_ = NULL;
@@ -165,7 +170,7 @@ void ExceptionHandler::Initialize(
   requesting_thread_id_ = 0;
   exception_info_ = NULL;
   assertion_ = NULL;
-  handler_return_value_ = false;
+  handler_return_value_ = MinidumpResult::Failure;
   handle_debug_exceptions_ = false;
   consume_invalid_handle_exceptions_ = false;
 
@@ -283,6 +288,18 @@ void ExceptionHandler::Initialize(
     if (handler_types & HANDLER_PURECALL)
       previous_pch_ = _set_purecall_handler(HandlePureVirtualCall);
 
+    if (handler_types & HANDLER_HEAP_CORRUPTION) {
+      // Under ASan we need to let the ASan runtime's ShadowExceptionHandler stay
+      // in the first handler position.
+#ifdef MOZ_ASAN
+      const bool first = false;
+#else
+      const bool first = true;
+#endif // MOZ_ASAN
+      heap_corruption_veh_ =
+          AddVectoredExceptionHandler(first, HandleHeapCorruption);
+    }
+
     LeaveCriticalSection(&handler_stack_critical_section_);
   }
 
@@ -311,6 +328,9 @@ ExceptionHandler::~ExceptionHandler() {
 
     if (handler_types_ & HANDLER_PURECALL)
       _set_purecall_handler(previous_pch_);
+
+    if (handler_types_ & HANDLER_HEAP_CORRUPTION)
+      RemoveVectoredExceptionHandler(heap_corruption_veh_);
 
     if (handler_stack_->back() == this) {
       handler_stack_->pop_back();
@@ -385,7 +405,7 @@ DWORD ExceptionHandler::ExceptionHandlerThreadMain(void* lpParameter) {
   assert(self->handler_start_semaphore_ != NULL);
   assert(self->handler_finish_semaphore_ != NULL);
 
-  while (true) {
+  for (;;) {
     if (WaitForSingleObject(self->handler_start_semaphore_, INFINITE) ==
         WAIT_OBJECT_0) {
       // Perform the requested action.
@@ -487,7 +507,7 @@ LONG ExceptionHandler::HandleException(EXCEPTION_POINTERS* exinfo) {
     return EXCEPTION_CONTINUE_EXECUTION;
   }
 
-  bool success = false;
+  MinidumpResult result = MinidumpResult::Failure;
 
   if (!is_debug_exception ||
       current_handler->get_handle_debug_exceptions()) {
@@ -498,12 +518,13 @@ LONG ExceptionHandler::HandleException(EXCEPTION_POINTERS* exinfo) {
     // In case of out-of-process dump generation, directly call
     // WriteMinidumpWithException since there is no separate thread running.
     if (current_handler->IsOutOfProcess()) {
-      success = current_handler->WriteMinidumpWithException(
+      result = current_handler->WriteMinidumpWithException(
           GetCurrentThreadId(),
           exinfo,
           NULL);
     } else {
-      success = current_handler->WriteMinidumpOnHandlerThread(exinfo, NULL);
+      result = current_handler->WriteMinidumpOnHandlerThread(exinfo, NULL)
+             ? MinidumpResult::Success : MinidumpResult::Failure;
     }
   }
 
@@ -514,7 +535,8 @@ LONG ExceptionHandler::HandleException(EXCEPTION_POINTERS* exinfo) {
   // Note: If the application was launched from within the Cygwin
   // environment, returning EXCEPTION_EXECUTE_HANDLER seems to cause the
   // application to be restarted.
-  if (success) {
+  if ((result == MinidumpResult::Success) ||
+      (result == MinidumpResult::Ignored)) {
     action = EXCEPTION_EXECUTE_HANDLER;
   } else {
     // There was an exception, it was a breakpoint or something else ignored
@@ -590,7 +612,7 @@ void ExceptionHandler::HandleInvalidParameter(const wchar_t* expression,
     success = current_handler->WriteMinidumpWithException(
         GetCurrentThreadId(),
         &exception_ptrs,
-        &assertion);
+        &assertion) == MinidumpResult::Success;
   } else {
     success = current_handler->WriteMinidumpOnHandlerThread(&exception_ptrs,
                                                             &assertion);
@@ -671,7 +693,7 @@ void ExceptionHandler::HandlePureVirtualCall() {
     success = current_handler->WriteMinidumpWithException(
         GetCurrentThreadId(),
         &exception_ptrs,
-        &assertion);
+        &assertion) == MinidumpResult::Success;
   } else {
     success = current_handler->WriteMinidumpOnHandlerThread(&exception_ptrs,
                                                             &assertion);
@@ -693,6 +715,29 @@ void ExceptionHandler::HandlePureVirtualCall() {
   // or passed it on to another handler.  "Swallow" it by exiting, paralleling
   // the behavior of "swallowing" exceptions.
   exit(0);
+}
+
+// static
+LONG ExceptionHandler::HandleHeapCorruption(EXCEPTION_POINTERS* exinfo) {
+  if (exinfo->ExceptionRecord->ExceptionCode != STATUS_HEAP_CORRUPTION) {
+    return EXCEPTION_CONTINUE_SEARCH;
+  }
+
+  AutoExceptionHandler auto_exception_handler;
+  ExceptionHandler* current_handler = auto_exception_handler.get_handler();
+
+  bool result = false;
+
+  // In case of out-of-process dump generation, directly call
+  // WriteMinidumpWithException since there is no separate thread running.
+  if (current_handler->IsOutOfProcess()) {
+    result = current_handler->WriteMinidumpWithException(
+                 GetCurrentThreadId(), exinfo, NULL) == MinidumpResult::Success;
+  } else {
+    result = current_handler->WriteMinidumpOnHandlerThread(exinfo, NULL);
+  }
+
+  return result ? EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH;
 }
 
 bool ExceptionHandler::WriteMinidumpOnHandlerThread(
@@ -720,7 +765,7 @@ bool ExceptionHandler::WriteMinidumpOnHandlerThread(
 
   // Wait until WriteMinidumpWithException is done and collect its return value.
   WaitForSingleObject(handler_finish_semaphore_, INFINITE);
-  bool status = handler_return_value_;
+  bool status = (handler_return_value_ == MinidumpResult::Success);
 
   // Clean up.
   requesting_thread_id_ = 0;
@@ -753,7 +798,7 @@ bool ExceptionHandler::WriteMinidumpForException(EXCEPTION_POINTERS* exinfo) {
   if (IsOutOfProcess()) {
     return WriteMinidumpWithException(GetCurrentThreadId(),
                                       exinfo,
-                                      NULL);
+                                      NULL) == MinidumpResult::Success;
   }
 
   bool success = WriteMinidumpOnHandlerThread(exinfo, NULL);
@@ -823,25 +868,51 @@ bool ExceptionHandler::WriteMinidumpForChild(HANDLE child,
   CloseHandle(child_thread_handle);
 
   if (callback) {
+    // nullptr here for phc::AddrInfo* is ok because this is not a crash.
     success = callback(handler.dump_path_c_, handler.next_minidump_id_c_,
-                       callback_context, NULL, NULL, success);
+                       callback_context, NULL, NULL, nullptr, success);
   }
 
   return success;
 }
 
-bool ExceptionHandler::WriteMinidumpWithException(
+#ifdef MOZ_PHC
+static void GetPHCAddrInfo(EXCEPTION_POINTERS* exinfo,
+                           mozilla::phc::AddrInfo* addr_info) {
+  // Is this a crash involving a PHC allocation?
+  PEXCEPTION_RECORD rec = exinfo->ExceptionRecord;
+  if (rec->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
+    // rec->ExceptionInformation[0] contains a value indicating what type of
+    // operation it what, and rec->ExceptionInformation[1] contains the
+    // virtual address of the inaccessible data.
+    char* crashAddr = reinterpret_cast<char*>(rec->ExceptionInformation[1]);
+    ReplaceMalloc::IsPHCAllocation(crashAddr, addr_info);
+  }
+}
+#endif
+
+ExceptionHandler::MinidumpResult ExceptionHandler::WriteMinidumpWithException(
     DWORD requesting_thread_id,
     EXCEPTION_POINTERS* exinfo,
     MDRawAssertionInfo* assertion) {
+    mozilla::phc::AddrInfo addr_info;
+#ifdef MOZ_PHC
+    GetPHCAddrInfo(exinfo, &addr_info);
+#endif
+
   // Give user code a chance to approve or prevent writing a minidump.  If the
-  // filter returns false, don't handle the exception at all.  If this method
-  // was called as a result of an exception, returning false will cause
-  // HandleException to call any previous handler or return
-  // EXCEPTION_CONTINUE_SEARCH on the exception thread, allowing it to appear
-  // as though this handler were not present at all.
-  if (filter_ && !filter_(callback_context_, exinfo, assertion)) {
-    return false;
+  // filter returns Failure or Ignored , don't handle the exception and return
+  // the result for further handling downstream. If this method was called as a
+  // result of an exception, returning Failure will cause HandleException to
+  // call any previous handler or return EXCEPTION_CONTINUE_SEARCH on the
+  // exception thread, allowing it to appear as though this handler were not
+  // present at all.
+  if (filter_) {
+    switch (filter_(callback_context_, exinfo, assertion)) {
+      case FilterResult::HandleException:      break;
+      case FilterResult::AbortWithoutMinidump: return MinidumpResult::Ignored;
+      case FilterResult::ContinueSearch:       return MinidumpResult::Failure;
+    }
   }
 
   bool success = false;
@@ -861,10 +932,10 @@ bool ExceptionHandler::WriteMinidumpWithException(
     // scenario, the server process ends up creating the dump path and dump
     // id so they are not known to the client.
     success = callback_(dump_path_c_, next_minidump_id_c_, callback_context_,
-                        exinfo, assertion, success);
+                        exinfo, assertion, &addr_info, success);
   }
 
-  return success;
+  return success ? MinidumpResult::Success : MinidumpResult::Failure;
 }
 
 // static

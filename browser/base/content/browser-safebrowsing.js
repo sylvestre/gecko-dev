@@ -6,7 +6,6 @@
 /* eslint-env mozilla/browser-window */
 
 var gSafeBrowsing = {
-
   setReportPhishingMenu() {
     // In order to detect whether or not we're at the phishing warning
     // page, we have to check the documentURI instead of the currentURI.
@@ -18,15 +17,20 @@ var gSafeBrowsing = {
       docURI && docURI.spec.startsWith("about:blocked?e=deceptiveBlocked");
 
     // Show/hide the appropriate menu item.
-    const reportMenu = document.getElementById("menu_HelpPopup_reportPhishingtoolmenu");
+    const reportMenu = document.getElementById(
+      "menu_HelpPopup_reportPhishingtoolmenu"
+    );
     reportMenu.hidden = isPhishingPage;
-    const reportErrorMenu = document.getElementById("menu_HelpPopup_reportPhishingErrortoolmenu");
+    const reportErrorMenu = document.getElementById(
+      "menu_HelpPopup_reportPhishingErrortoolmenu"
+    );
     reportErrorMenu.hidden = !isPhishingPage;
 
     // Now look at the currentURI to learn which page we were trying
     // to browse to.
     const uri = gBrowser.currentURI;
-    const isReportablePage = uri && (uri.schemeIs("http") || uri.schemeIs("https"));
+    const isReportablePage =
+      uri && (uri.schemeIs("http") || uri.schemeIs("https"));
 
     const disabledByPolicy = !Services.policies.isAllowed("feedbackCommands");
 
@@ -61,9 +65,10 @@ var gSafeBrowsing = {
 
       // Remove the query to avoid including potentially sensitive data
       if (pageUri instanceof Ci.nsIURL) {
-        pageUri = pageUri.mutate()
-                         .setQuery("")
-                         .finalize();
+        pageUri = pageUri
+          .mutate()
+          .setQuery("")
+          .finalize();
       }
 
       reportInfo = { uri: pageUri.asciiSpec };

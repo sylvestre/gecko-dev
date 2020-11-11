@@ -32,13 +32,13 @@ class CompletionRunnable final : public Runnable {
 
 // Can only run in optimized builds, or it would assert.
 #ifndef DEBUG
-TEST(storage_spinningSynchronousClose, CloseOnAsync) {
+TEST(storage_spinningSynchronousClose, CloseOnAsync)
+{
   nsCOMPtr<mozIStorageConnection> db(getMemoryDatabase());
   // Run an async statement.
   nsCOMPtr<mozIStorageAsyncStatement> stmt;
   do_check_success(db->CreateAsyncStatement(
-      NS_LITERAL_CSTRING("CREATE TABLE test (id INTEGER PRIMARY KEY)"),
-      getter_AddRefs(stmt)));
+      "CREATE TABLE test (id INTEGER PRIMARY KEY)"_ns, getter_AddRefs(stmt)));
   nsCOMPtr<mozIStoragePendingStatement> p;
   do_check_success(stmt->ExecuteAsync(nullptr, getter_AddRefs(p)));
   do_check_success(stmt->Finalize());
@@ -51,13 +51,13 @@ TEST(storage_spinningSynchronousClose, CloseOnAsync) {
 }
 #endif
 
-TEST(storage_spinningSynchronousClose, spinningSynchronousCloseOnAsync) {
+TEST(storage_spinningSynchronousClose, spinningSynchronousCloseOnAsync)
+{
   nsCOMPtr<mozIStorageConnection> db(getMemoryDatabase());
   // Run an async statement.
   nsCOMPtr<mozIStorageAsyncStatement> stmt;
   do_check_success(db->CreateAsyncStatement(
-      NS_LITERAL_CSTRING("CREATE TABLE test (id INTEGER PRIMARY KEY)"),
-      getter_AddRefs(stmt)));
+      "CREATE TABLE test (id INTEGER PRIMARY KEY)"_ns, getter_AddRefs(stmt)));
   nsCOMPtr<mozIStoragePendingStatement> p;
   do_check_success(stmt->ExecuteAsync(nullptr, getter_AddRefs(p)));
   do_check_success(stmt->Finalize());

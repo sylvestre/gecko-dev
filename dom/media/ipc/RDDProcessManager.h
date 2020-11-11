@@ -6,7 +6,6 @@
 #ifndef _include_dom_media_ipc_RDDProcessManager_h_
 #define _include_dom_media_ipc_RDDProcessManager_h_
 #include "mozilla/RDDProcessHost.h"
-
 #include "mozilla/ipc/TaskFactory.h"
 
 namespace mozilla {
@@ -19,6 +18,8 @@ class RDDChild;
 // objects that may live in another process. Currently, it provides access
 // to the RDD process via ContentParent.
 class RDDProcessManager final : public RDDProcessHost::Listener {
+  friend class RDDChild;
+
  public:
   static void Initialize();
   static void Shutdown();
@@ -26,17 +27,18 @@ class RDDProcessManager final : public RDDProcessHost::Listener {
 
   ~RDDProcessManager();
 
-  // If not using a RDD process, launch a new RDD process asynchronously.
-  void LaunchRDDProcess();
+  // If not using a RDD process, launch a new RDD process asynchronously and
+  // create a RemoteDecoderManager bridge
+  bool EnsureRDDProcessAndCreateBridge(
+      base::ProcessId aOtherProcess,
+      mozilla::ipc::Endpoint<PRemoteDecoderManagerChild>*
+          aOutRemoteDecoderManager);
+  bool IsRDDProcessLaunching();
 
   // Ensure that RDD-bound methods can be used. If no RDD process is being
   // used, or one is launched and ready, this function returns immediately.
   // Otherwise it blocks until the RDD process has finished launching.
   bool EnsureRDDReady();
-
-  bool CreateContentBridge(base::ProcessId aOtherProcess,
-                           mozilla::ipc::Endpoint<PRemoteDecoderManagerChild>*
-                               aOutRemoteDecoderManager);
 
   void OnProcessLaunchComplete(RDDProcessHost* aHost) override;
   void OnProcessUnexpectedShutdown(RDDProcessHost* aHost) override;
@@ -61,9 +63,15 @@ class RDDProcessManager final : public RDDProcessHost::Listener {
   // Returns whether or not a RDD process was ever launched.
   bool AttemptedRDDProcess() const { return mNumProcessAttempts > 0; }
 
+  // Returns the RDD Process
+  RDDProcessHost* Process() { return mProcess; }
+
  private:
+  bool CreateVideoBridge();
+
   // Called from our xpcom-shutdown observer.
   void OnXPCOMShutdown();
+  void OnPreferenceChange(const char16_t* aData);
 
   RDDProcessManager();
 
@@ -80,21 +88,29 @@ class RDDProcessManager final : public RDDProcessHost::Listener {
     explicit Observer(RDDProcessManager* aManager);
 
    protected:
-    ~Observer() {}
+    ~Observer() = default;
 
     RDDProcessManager* mManager;
   };
   friend class Observer;
 
  private:
-  RefPtr<Observer> mObserver;
+  bool CreateContentBridge(base::ProcessId aOtherProcess,
+                           mozilla::ipc::Endpoint<PRemoteDecoderManagerChild>*
+                               aOutRemoteDecoderManager);
+
+  const RefPtr<Observer> mObserver;
   mozilla::ipc::TaskFactory<RDDProcessManager> mTaskFactory;
-  uint32_t mNumProcessAttempts;
+  uint32_t mNumProcessAttempts = 0;
 
   // Fields that are associated with the current RDD process.
-  RDDProcessHost* mProcess;
-  uint64_t mProcessToken;
-  RDDChild* mRDDChild;
+  RDDProcessHost* mProcess = nullptr;
+  uint64_t mProcessToken = 0;
+  RDDChild* mRDDChild = nullptr;
+  // Collects any pref changes that occur during process launch (after
+  // the initial map is passed in command-line arguments) to be sent
+  // when the process can receive IPC messages.
+  nsTArray<mozilla::dom::Pref> mQueuedPrefs;
 };
 
 }  // namespace mozilla

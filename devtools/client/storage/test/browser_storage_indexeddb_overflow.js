@@ -17,17 +17,17 @@ add_task(async function() {
   info("Close Toolbox");
   const target = await TargetFactory.forTab(gBrowser.selectedTab);
   await gDevTools.closeToolbox(target);
-
-  await finishTests();
 });
 
 async function runTests() {
   gUI.tree.expandAll();
 
-  await selectTreeItem(["indexedDB",
-                        "http://test1.example.org",
-                        "database (default)",
-                        "store"]);
+  await selectTreeItem([
+    "indexedDB",
+    "http://test1.example.org",
+    "database (default)",
+    "store",
+  ]);
   checkCellLength(ITEMS_PER_PAGE);
 
   await scroll();

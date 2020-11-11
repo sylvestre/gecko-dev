@@ -1,235 +1,422 @@
 /* Any copyright is dedicated to the Public Domain.
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
-ChromeUtils.import("resource://gre/modules/Preferences.jsm", this);
-
-const PAGE_URL = "chrome://browser/content/aboutconfig/aboutconfig.html";
+const PREF_MODIFY_PREFIX = "test.aboutconfig.modify";
+const PREF_MODIFY_BOOLEAN = "test.aboutconfig.modify.boolean";
+const PREF_MODIFY_NUMBER = "test.aboutconfig.modify.number";
+const PREF_MODIFY_STRING = "test.aboutconfig.modify.string";
 
 add_task(async function setup() {
   await SpecialPowers.pushPrefEnv({
     set: [
-      ["test.aboutconfig.modify.boolean", true],
-      ["test.aboutconfig.modify.number", 1337],
-      ["test.aboutconfig.modify.string", "the answer to the life the universe and everything"],
+      [PREF_MODIFY_BOOLEAN, true],
+      [PREF_MODIFY_NUMBER, 1337],
+      [
+        PREF_MODIFY_STRING,
+        "the answer to the life the universe and everything",
+      ],
     ],
   });
 
   registerCleanupFunction(() => {
-    Services.prefs.clearUserPref("accessibility.typeaheadfind.autostart");
-    Services.prefs.clearUserPref("accessibility.typeaheadfind.soundURL");
-    Services.prefs.clearUserPref("accessibility.typeaheadfind.casesensitive");
+    Services.prefs.clearUserPref(PREF_BOOLEAN_DEFAULT_TRUE);
+    Services.prefs.clearUserPref(PREF_NUMBER_DEFAULT_ZERO);
+    Services.prefs.clearUserPref(PREF_STRING_DEFAULT_EMPTY);
   });
 });
 
 add_task(async function test_add_user_pref() {
-  await BrowserTestUtils.withNewTab({
-    gBrowser,
-    url: PAGE_URL,
-  }, async browser => {
-    await content.document.querySelector("button").click();
+  Assert.equal(
+    Services.prefs.getPrefType(PREF_NEW),
+    Ci.nsIPrefBranch.PREF_INVALID
+  );
 
-    await ContentTask.spawn(browser, null, () => {
-      Assert.ok(!Services.prefs.getChildList("").find(pref => pref == "testPref"));
-      let search = content.document.getElementById("search");
-      search.value = "testPref";
-      search.focus();
-    });
+  await AboutConfigTest.withNewTab(async function() {
+    // The row for a new preference appears when searching for its name.
+    Assert.ok(!this.getRow(PREF_NEW));
 
-    for (let [buttonSelector, expectedValue] of [
-      [".add-true", true],
-      [".add-false", false],
-      [".add-Number", 0],
-      [".add-String", ""],
+    for (let [radioIndex, expectedValue, expectedEditingMode] of [
+      [0, true, false],
+      [1, 0, true],
+      [2, "", true],
     ]) {
-      EventUtils.sendKey("return");
-      await ContentTask.spawn(browser, [buttonSelector, expectedValue],
-                                      // eslint-disable-next-line no-shadow
-                                      ([buttonSelector, expectedValue]) => {
-        ChromeUtils.import("resource://gre/modules/Preferences.jsm");
+      this.search(PREF_NEW);
+      let row = this.getRow(PREF_NEW);
+      Assert.ok(row.hasClass("deleted"));
+      Assert.ok(row.hasClass("add"));
 
-        content.document.querySelector("#prefs button" + buttonSelector).click();
-        Assert.ok(Services.prefs.getChildList("").find(pref => pref == "testPref"));
-        Assert.ok(Preferences.get("testPref") === expectedValue);
-        content.document.querySelector("#prefs button[data-l10n-id='about-config-pref-delete']").click();
-        let search = content.document.getElementById("search");
-        search.value = "testPref";
-        search.focus();
-      });
+      // Adding the preference should set the default for the data type.
+      row.element.querySelectorAll("input")[radioIndex].click();
+      row.editColumnButton.click();
+      Assert.ok(!row.hasClass("deleted"));
+      Assert.ok(!row.hasClass("add"));
+      Assert.ok(Preferences.get(PREF_NEW) === expectedValue);
+
+      // Number and String preferences should be in edit mode.
+      Assert.equal(!!row.valueInput, expectedEditingMode);
+
+      // Repeat the search to verify that the preference remains.
+      this.search(PREF_NEW);
+      row = this.getRow(PREF_NEW);
+      Assert.ok(!row.hasClass("deleted"));
+      Assert.ok(!row.hasClass("add"));
+      Assert.ok(!row.valueInput);
+
+      // Reset the preference, then continue by adding a different type.
+      row.resetColumnButton.click();
+      Assert.equal(
+        Services.prefs.getPrefType(PREF_NEW),
+        Ci.nsIPrefBranch.PREF_INVALID
+      );
     }
   });
 });
 
 add_task(async function test_delete_user_pref() {
-  Services.prefs.setBoolPref("userAddedPref", true);
-  await BrowserTestUtils.withNewTab({
-    gBrowser,
-    url: PAGE_URL,
-  }, async browser => {
-    await content.document.querySelector("button").click();
+  for (let [radioIndex, testValue] of [
+    [0, false],
+    [1, -1],
+    [2, "value"],
+  ]) {
+    Preferences.set(PREF_NEW, testValue);
+    await AboutConfigTest.withNewTab(async function() {
+      // Deleting the preference should keep the row.
+      let row = this.getRow(PREF_NEW);
+      row.resetColumnButton.click();
+      Assert.ok(row.hasClass("deleted"));
+      Assert.equal(
+        Services.prefs.getPrefType(PREF_NEW),
+        Ci.nsIPrefBranch.PREF_INVALID
+      );
 
-    await ContentTask.spawn(browser, null, () => {
-      let list = [...content.document.getElementById("prefs")
-        .getElementsByTagName("tr")];
-      function getRow(name) {
-        return list.find(row => row.querySelector("td").textContent == name);
-      }
-      Assert.ok(getRow("userAddedPref"));
-      getRow("userAddedPref").lastChild.lastChild.click();
-      list = [...content.document.getElementById("prefs")
-        .getElementsByTagName("tr")];
-      Assert.ok(!getRow("userAddedPref"));
-      Assert.ok(!Services.prefs.getChildList("").includes("userAddedPref"));
+      // Re-adding the preference should keep the same value.
+      Assert.ok(row.element.querySelectorAll("input")[radioIndex].checked);
+      row.editColumnButton.click();
+      Assert.ok(!row.hasClass("deleted"));
+      Assert.ok(Preferences.get(PREF_NEW) === testValue);
 
-      // Search for nothing to test gPrefArray
-      let search = content.document.getElementById("search");
-      search.focus();
+      // Filtering again after deleting should remove the row.
+      row.resetColumnButton.click();
+      this.showAll();
+      Assert.ok(!this.getRow(PREF_NEW));
     });
+  }
+});
 
-    EventUtils.sendKey("return");
-    await ContentTask.spawn(browser, null, () => {
-      let list = [...content.document.getElementById("prefs")
-        .getElementsByTagName("tr")];
-      function getRow(name) {
-        return list.find(row => row.querySelector("td").textContent == name);
-      }
-      Assert.ok(!getRow("userAddedPref"));
-    });
+add_task(async function test_click_type_label_multiple_forms() {
+  // This test displays the row to add a preference while other preferences are
+  // also displayed, and tries to select the type of the new preference by
+  // clicking the label next to the radio button. This should work even if the
+  // user has deleted a different preference, and multiple forms are displayed.
+  const PREF_TO_DELETE = "test.aboutconfig.modify.boolean";
+  const PREF_NEW_WHILE_DELETED = "test.aboutconfig.modify.";
+
+  await AboutConfigTest.withNewTab(async function() {
+    this.search(PREF_NEW_WHILE_DELETED);
+
+    // This preference will remain deleted during the test.
+    let existingRow = this.getRow(PREF_TO_DELETE);
+    existingRow.resetColumnButton.click();
+
+    let newRow = this.getRow(PREF_NEW_WHILE_DELETED);
+
+    for (let [radioIndex, expectedValue] of [
+      [0, true],
+      [1, 0],
+      [2, ""],
+    ]) {
+      let radioLabels = newRow.element.querySelectorAll("label > span");
+      await this.document.l10n.translateElements(radioLabels);
+
+      // Even if this is the second form on the page, the click should select
+      // the radio button next to the label, not the one on the first form.
+      EventUtils.synthesizeMouseAtCenter(
+        radioLabels[radioIndex],
+        {},
+        this.browser.contentWindow
+      );
+
+      // Adding the preference should set the default for the data type.
+      newRow.editColumnButton.click();
+      Assert.ok(Preferences.get(PREF_NEW_WHILE_DELETED) === expectedValue);
+
+      // Reset the preference, then continue by adding a different type.
+      newRow.resetColumnButton.click();
+    }
+
+    // Re-adding the deleted preference should restore the value.
+    existingRow.editColumnButton.click();
+    Assert.ok(Preferences.get(PREF_TO_DELETE) === true);
   });
 });
 
 add_task(async function test_reset_user_pref() {
-  await SpecialPowers.pushPrefEnv({"set": [["browser.autofocus", false]]});
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      [PREF_BOOLEAN_DEFAULT_TRUE, false],
+      [PREF_STRING_LOCALIZED_MISSING, "user-value"],
+    ],
+  });
 
-  await BrowserTestUtils.withNewTab({
-    gBrowser,
-    url: PAGE_URL,
-  }, async browser => {
-    await content.document.querySelector("button").click();
+  await AboutConfigTest.withNewTab(async function() {
+    // Click reset.
+    let row = this.getRow(PREF_BOOLEAN_DEFAULT_TRUE);
+    row.resetColumnButton.click();
+    // Check new layout and reset.
+    Assert.ok(!row.hasClass("has-user-value"));
+    Assert.ok(!row.resetColumnButton);
+    Assert.ok(!Services.prefs.prefHasUserValue(PREF_BOOLEAN_DEFAULT_TRUE));
+    Assert.equal(this.getRow(PREF_BOOLEAN_DEFAULT_TRUE).value, "true");
 
-    await ContentTask.spawn(browser, null, () => {
-      ChromeUtils.import("resource://gre/modules/Preferences.jsm");
+    // Filter again to test the preference cache.
+    this.showAll();
+    row = this.getRow(PREF_BOOLEAN_DEFAULT_TRUE);
+    Assert.ok(!row.hasClass("has-user-value"));
+    Assert.ok(!row.resetColumnButton);
+    Assert.equal(this.getRow(PREF_BOOLEAN_DEFAULT_TRUE).value, "true");
 
-      function getRow(name) {
-        return list.find(row => row.querySelector("td").textContent == name);
-      }
-      function getValue(name) {
-        return getRow(name).querySelector("td.cell-value").textContent;
-      }
-      let testPref = "browser.autofocus";
-      // Click reset.
-      let list = [...content.document.getElementById("prefs")
-        .getElementsByTagName("tr")];
-      let row = getRow(testPref);
-      row.lastChild.lastChild.click();
-      // Check new layout and reset.
-      list = [...content.document.getElementById("prefs")
-        .getElementsByTagName("tr")];
-      Assert.ok(!row.classList.contains("has-user-value"));
-      Assert.equal(row.lastChild.childNodes.length, 0);
-      Assert.ok(!Services.prefs.prefHasUserValue(testPref));
-      Assert.equal(getValue(testPref), "" + Preferences.get(testPref));
-
-      // Search for nothing to test gPrefArray
-      let search = content.document.getElementById("search");
-      search.focus();
-    });
-
-    EventUtils.sendKey("return");
-    await ContentTask.spawn(browser, null, () => {
-      function getRow(name) {
-        return list.find(row => row.querySelector("td").textContent == name);
-      }
-      function getValue(name) {
-        return getRow(name).querySelector("td.cell-value").textContent;
-      }
-      let testPref = "browser.autofocus";
-      // Check new layout and reset.
-      let list = [...content.document.getElementById("prefs")
-        .getElementsByTagName("tr")];
-      let row = getRow(testPref);
-      Assert.ok(!row.classList.contains("has-user-value"));
-      Assert.equal(row.lastChild.childNodes.length, 0);
-      Assert.equal(getValue(testPref), "" + Preferences.get(testPref));
-    });
+    // Clicking reset on a localized preference without a corresponding value.
+    row = this.getRow(PREF_STRING_LOCALIZED_MISSING);
+    Assert.equal(row.value, "user-value");
+    row.resetColumnButton.click();
+    // Check new layout and reset.
+    Assert.ok(!row.hasClass("has-user-value"));
+    Assert.ok(!row.resetColumnButton);
+    Assert.ok(!Services.prefs.prefHasUserValue(PREF_STRING_LOCALIZED_MISSING));
+    Assert.equal(this.getRow(PREF_STRING_LOCALIZED_MISSING).value, "");
   });
 });
 
 add_task(async function test_modify() {
-  await BrowserTestUtils.withNewTab({
-    gBrowser,
-    url: PAGE_URL,
-  }, browser => {
-    content.document.querySelector("button").click();
-
-    return ContentTask.spawn(browser, null, () => {
-      ChromeUtils.import("resource://gre/modules/Preferences.jsm");
-
-      function getRow(name, list) {
-        return list.find(row => row.querySelector("td").textContent == name);
+  await AboutConfigTest.withNewTab(async function() {
+    // Test toggle for boolean prefs.
+    for (let nameOfBoolPref of [
+      PREF_MODIFY_BOOLEAN,
+      PREF_BOOLEAN_DEFAULT_TRUE,
+    ]) {
+      let row = this.getRow(nameOfBoolPref);
+      // Do this a two times to reset the pref.
+      for (let i = 0; i < 2; i++) {
+        row.editColumnButton.click();
+        // Check new layout and saving in backend.
+        Assert.equal(
+          this.getRow(nameOfBoolPref).value,
+          "" + Preferences.get(nameOfBoolPref)
+        );
+        let prefHasUserValue = Services.prefs.prefHasUserValue(nameOfBoolPref);
+        Assert.equal(row.hasClass("has-user-value"), prefHasUserValue);
+        Assert.equal(!!row.resetColumnButton, prefHasUserValue);
       }
-      function getValue(name, list) {
-        return getRow(name, list).querySelector("td.cell-value").textContent;
+    }
+
+    // Test abort of edit by starting with string and continuing with editing Int pref.
+    let row = this.getRow(PREF_MODIFY_STRING);
+    row.editColumnButton.click();
+    row.valueInput.value = "test";
+    let intRow = this.getRow(PREF_MODIFY_NUMBER);
+    intRow.editColumnButton.click();
+    Assert.equal(intRow.valueInput.value, Preferences.get(PREF_MODIFY_NUMBER));
+    Assert.ok(!row.valueInput);
+    Assert.equal(row.value, Preferences.get(PREF_MODIFY_STRING));
+
+    // Test validation of integer values.
+    for (let invalidValue of [
+      "",
+      " ",
+      "a",
+      "1.5",
+      "-2147483649",
+      "2147483648",
+    ]) {
+      intRow.valueInput.value = invalidValue;
+      intRow.editColumnButton.click();
+      // We should still be in edit mode.
+      Assert.ok(intRow.valueInput);
+    }
+
+    // Test correct saving and DOM-update.
+    for (let [prefName, willDelete] of [
+      [PREF_MODIFY_STRING, true],
+      [PREF_MODIFY_NUMBER, true],
+      [PREF_NUMBER_DEFAULT_ZERO, false],
+      [PREF_STRING_DEFAULT_EMPTY, false],
+    ]) {
+      row = this.getRow(prefName);
+      // Activate edit and check displaying.
+      row.editColumnButton.click();
+      Assert.equal(row.valueInput.value, Preferences.get(prefName));
+      row.valueInput.value = "42";
+      // Save and check saving.
+      row.editColumnButton.click();
+      Assert.equal(Preferences.get(prefName), "42");
+      Assert.equal(row.value, "42");
+      Assert.ok(row.hasClass("has-user-value"));
+      // Reset or delete the preference while editing.
+      row.editColumnButton.click();
+      Assert.equal(row.valueInput.value, Preferences.get(prefName));
+      row.resetColumnButton.click();
+      Assert.ok(!row.hasClass("has-user-value"));
+      Assert.equal(row.hasClass("deleted"), willDelete);
+    }
+  });
+});
+
+add_task(async function test_edit_field_selected() {
+  let prefsToCheck = [
+    [PREF_MODIFY_STRING, "A string", "A new string"],
+    [PREF_MODIFY_NUMBER, "100", "500"],
+  ];
+  await AboutConfigTest.withNewTab(async function() {
+    for (let [prefName, startValue, endValue] of prefsToCheck) {
+      Preferences.set(prefName, startValue);
+      let row = this.getRow(prefName);
+
+      Assert.equal(row.value, startValue);
+      row.editColumnButton.click();
+      Assert.equal(row.valueInput.value, startValue);
+
+      EventUtils.sendString(endValue, this.window);
+
+      row.editColumnButton.click();
+      Assert.equal(row.value, endValue);
+      Assert.equal(Preferences.get(prefName), endValue);
+    }
+  });
+});
+
+add_task(async function test_escape_cancels_edit() {
+  await AboutConfigTest.withNewTab(async function() {
+    let row = this.getRow(PREF_MODIFY_STRING);
+    Preferences.set(PREF_MODIFY_STRING, "Edit me, maybe");
+
+    for (let blurInput of [false, true]) {
+      Assert.ok(!row.valueInput);
+      row.editColumnButton.click();
+
+      Assert.ok(row.valueInput);
+
+      Assert.equal(row.valueInput.value, "Edit me, maybe");
+      row.valueInput.value = "Edited";
+
+      // Test both cases of the input being focused and not being focused.
+      if (blurInput) {
+        row.valueInput.blur();
+        Assert.notEqual(this.document.activeElement, row.valueInput);
+      } else {
+        Assert.equal(this.document.activeElement, row.valueInput);
       }
 
-      // Test toggle for boolean prefs.
-      let list = [...content.document.getElementById("prefs")
-        .getElementsByTagName("tr")];
-      for (let nameOfBoolPref of [
-        "test.aboutconfig.modify.boolean",
-        "accessibility.typeaheadfind.autostart",
-      ]) {
-        let row = getRow(nameOfBoolPref, list);
-        // Do this a two times to reset the pref.
-        for (let i = 0; i < 2; i++) {
-          row.querySelector("td.cell-edit").firstChild.click();
-          // Check new layout and saving in backend.
-          Assert.equal(getValue(nameOfBoolPref, list),
-            "" + Preferences.get(nameOfBoolPref));
-          let prefHasUserValue = Services.prefs.prefHasUserValue(nameOfBoolPref);
-          Assert.equal(row.classList.contains("has-user-value"), prefHasUserValue);
-          Assert.equal(row.lastChild.childNodes.length > 0, prefHasUserValue);
-        }
-      }
+      EventUtils.synthesizeKey("KEY_Escape", {}, this.window);
 
-      // Test abort of edit by starting with string and continuing with editing Int pref.
-      let row = getRow("test.aboutconfig.modify.string", list);
-      row.querySelector("td.cell-edit").firstChild.click();
-      row.querySelector("td.cell-value").firstChild.firstChild.value = "test";
-      let intRow = getRow("test.aboutconfig.modify.number", list);
-      intRow.querySelector("td.cell-edit").firstChild.click();
-      Assert.equal(intRow.querySelector("td.cell-value").firstChild.firstChild.value,
-        Preferences.get("test.aboutconfig.modify.number"));
-      Assert.equal(getValue("test.aboutconfig.modify.string", list),
-        "" + Preferences.get("test.aboutconfig.modify.string"));
-      Assert.equal(row.querySelector("td.cell-value").textContent,
-        Preferences.get("test.aboutconfig.modify.string"));
+      Assert.ok(!row.valueInput);
+      Assert.equal(row.value, "Edit me, maybe");
+      Assert.equal(row.value, Preferences.get(PREF_MODIFY_STRING));
+    }
+  });
+});
 
-      // Test regex check for Int pref.
-      intRow.querySelector("td.cell-value").firstChild.firstChild.value += "a";
-      intRow.querySelector("td.cell-edit").firstChild.click();
-      Assert.ok(!intRow.querySelector("td.cell-value").firstChild.firstChild.checkValidity());
+add_task(async function test_double_click_modify() {
+  Preferences.set(PREF_MODIFY_BOOLEAN, true);
+  Preferences.set(PREF_MODIFY_NUMBER, 10);
+  Preferences.set(PREF_MODIFY_STRING, "Hello!");
 
-      // Test correct saving and DOM-update.
-      for (let prefName of [
-        "test.aboutconfig.modify.string",
-        "test.aboutconfig.modify.number",
-        "accessibility.typeaheadfind.soundURL",
-        "accessibility.typeaheadfind.casesensitive",
-      ]) {
-        row = getRow(prefName, list);
-        // Activate edit and check displaying.
-        row.querySelector("td.cell-edit").firstChild.click();
-        Assert.equal(row.querySelector("td.cell-value").firstChild.firstChild.value,
-          Preferences.get(prefName));
-        row.querySelector("td.cell-value").firstChild.firstChild.value = "42";
-        // Save and check saving.
-        row.querySelector("td.cell-edit").firstChild.click();
-        Assert.equal(getValue(prefName, list),
-          "" + Preferences.get(prefName));
-        let prefHasUserValue = Services.prefs.prefHasUserValue(prefName);
-        Assert.equal(row.lastChild.childNodes.length > 0, prefHasUserValue);
-        Assert.equal(row.classList.contains("has-user-value"), prefHasUserValue);
-      }
-    });
+  await AboutConfigTest.withNewTab(async function() {
+    this.search(PREF_MODIFY_PREFIX);
+
+    let click = (target, opts) =>
+      EventUtils.synthesizeMouseAtCenter(target, opts, this.window);
+    let doubleClick = target => {
+      // Trigger two mouse events to simulate the first then second click.
+      click(target, { clickCount: 1 });
+      click(target, { clickCount: 2 });
+    };
+    let tripleClick = target => {
+      // Trigger all 3 mouse events to simulate the three mouse events we'd see.
+      click(target, { clickCount: 1 });
+      click(target, { clickCount: 2 });
+      click(target, { clickCount: 3 });
+    };
+
+    // Check double-click to edit a boolean.
+    let boolRow = this.getRow(PREF_MODIFY_BOOLEAN);
+    Assert.equal(boolRow.value, "true");
+    doubleClick(boolRow.valueCell);
+    Assert.equal(boolRow.value, "false");
+    doubleClick(boolRow.nameCell);
+    Assert.equal(boolRow.value, "true");
+
+    // Check double-click to edit a number.
+    let intRow = this.getRow(PREF_MODIFY_NUMBER);
+    Assert.equal(intRow.value, 10);
+    doubleClick(intRow.valueCell);
+    Assert.equal(this.document.activeElement, intRow.valueInput);
+    EventUtils.sendString("75");
+    EventUtils.synthesizeKey("KEY_Enter");
+    Assert.equal(intRow.value, 75);
+
+    // Check double-click focuses input when already editing.
+    Assert.equal(intRow.value, 75);
+    doubleClick(intRow.nameCell);
+    Assert.equal(this.document.activeElement, intRow.valueInput);
+    intRow.valueInput.blur();
+    Assert.notEqual(this.document.activeElement, intRow.valueInput);
+    doubleClick(intRow.nameCell);
+    Assert.equal(this.document.activeElement, intRow.valueInput);
+    EventUtils.sendString("20");
+    EventUtils.synthesizeKey("KEY_Enter");
+    Assert.equal(intRow.value, 20);
+
+    // Check double-click to edit a string.
+    let stringRow = this.getRow(PREF_MODIFY_STRING);
+    Assert.equal(stringRow.value, "Hello!");
+    doubleClick(stringRow.valueCell);
+    Assert.equal(
+      this.document.activeElement,
+      stringRow.valueInput,
+      "The input is focused"
+    );
+    EventUtils.sendString("New String!");
+    EventUtils.synthesizeKey("KEY_Enter");
+    Assert.equal(stringRow.value, "New String!");
+
+    // Check triple-click also edits the pref and selects the text inside.
+    tripleClick(stringRow.nameCell);
+    Assert.equal(
+      this.document.activeElement,
+      stringRow.valueInput,
+      "The input is focused"
+    );
+
+    // Check double-click inside input selects a word.
+    let newString = "Another string...";
+    EventUtils.sendString(newString);
+    Assert.equal(this.window.getSelection().toString(), "");
+    let stringInput = stringRow.valueInput;
+    doubleClick(stringInput);
+    let selectionLength = stringInput.selectionEnd - stringInput.selectionStart;
+    Assert.greater(selectionLength, 0);
+    Assert.less(selectionLength, newString.length);
+    EventUtils.synthesizeKey("KEY_Enter");
+    Assert.equal(stringRow.value, newString);
+
+    // Check that double/triple-click on the add row selects text as usual.
+    let addRow = this.getRow(PREF_MODIFY_PREFIX);
+    Assert.ok(addRow.hasClass("deleted"));
+    doubleClick(addRow.nameCell);
+    Assert.ok(PREF_MODIFY_PREFIX.includes(this.window.getSelection()));
+    tripleClick(addRow.nameCell);
+    Assert.equal(this.window.getSelection().toString(), PREF_MODIFY_PREFIX);
+    // Make sure the localized text is set in the value cell.
+    let labels = Array.from(addRow.valueCell.querySelectorAll("label > span"));
+    await this.document.l10n.translateElements(labels);
+    Assert.ok(labels.every(label => !!label.textContent));
+    // Double-click the first input label text.
+    doubleClick(labels[0]);
+    Assert.equal(this.window.getSelection().toString(), labels[0].textContent);
+    tripleClick(addRow.valueCell.querySelector("label > span"));
+    Assert.equal(
+      this.window.getSelection().toString(),
+      labels.map(l => l.textContent).join("")
+    );
   });
 });

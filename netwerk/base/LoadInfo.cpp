@@ -6,43 +6,85 @@
 
 #include "mozilla/LoadInfo.h"
 
+#include "js/Array.h"  // JS::NewArrayObject
 #include "mozilla/Assertions.h"
+#include "mozilla/ExpandedPrincipal.h"
+#include "mozilla/dom/CanonicalBrowsingContext.h"
 #include "mozilla/dom/ClientIPCTypes.h"
 #include "mozilla/dom/ClientSource.h"
+#include "mozilla/dom/Performance.h"
 #include "mozilla/dom/PerformanceStorage.h"
-#include "mozilla/dom/TabChild.h"
+#include "mozilla/dom/BrowserChild.h"
 #include "mozilla/dom/ToJSValue.h"
+#include "mozilla/dom/BrowsingContext.h"
+#include "mozilla/net/CookieJarSettings.h"
 #include "mozilla/NullPrincipal.h"
+#include "mozilla/StaticPrefs_network.h"
+#include "mozilla/StaticPrefs_security.h"
 #include "mozIThirdPartyUtil.h"
+#include "ThirdPartyUtil.h"
 #include "nsFrameLoader.h"
+#include "nsFrameLoaderOwner.h"
 #include "nsIContentSecurityPolicy.h"
 #include "nsIDocShell.h"
-#include "nsIDocument.h"
-#include "nsIFrameLoaderOwner.h"
+#include "mozilla/dom/Document.h"
 #include "nsIInterfaceRequestorUtils.h"
+#include "nsIScriptElement.h"
 #include "nsISupportsImpl.h"
 #include "nsISupportsUtils.h"
 #include "nsIXPConnect.h"
-#include "nsContentUtils.h"
 #include "nsDocShell.h"
 #include "nsGlobalWindow.h"
 #include "nsMixedContentBlocker.h"
+#include "nsQueryObject.h"
 #include "nsRedirectHistoryEntry.h"
 #include "nsSandboxFlags.h"
-#include "LoadInfo.h"
+#include "nsICookieService.h"
 
 using namespace mozilla::dom;
 
 namespace mozilla {
 namespace net {
 
-static uint64_t FindTopOuterWindowID(nsPIDOMWindowOuter* aOuter) {
-  nsCOMPtr<nsPIDOMWindowOuter> outer = aOuter;
-  while (nsCOMPtr<nsPIDOMWindowOuter> parent =
-             outer->GetScriptableParentOrNull()) {
-    outer = parent;
-  }
-  return outer->WindowID();
+static nsContentPolicyType InternalContentPolicyTypeForFrame(
+    CanonicalBrowsingContext* aBrowsingContext) {
+  const auto& maybeEmbedderElementType =
+      aBrowsingContext->GetEmbedderElementType();
+  MOZ_ASSERT(maybeEmbedderElementType.isSome());
+  auto embedderElementType = maybeEmbedderElementType.value();
+
+  // Assign same type as in nsDocShell::DetermineContentType.
+  // N.B. internal content policy type will never be TYPE_DOCUMENT
+  return embedderElementType.EqualsLiteral("iframe")
+             ? nsIContentPolicy::TYPE_INTERNAL_IFRAME
+             : nsIContentPolicy::TYPE_INTERNAL_FRAME;
+}
+
+/* static */ already_AddRefed<LoadInfo> LoadInfo::CreateForDocument(
+    dom::CanonicalBrowsingContext* aBrowsingContext,
+    nsIPrincipal* aTriggeringPrincipal,
+    const OriginAttributes& aOriginAttributes, nsSecurityFlags aSecurityFlags,
+    uint32_t aSandboxFlags) {
+  return MakeAndAddRef<LoadInfo>(aBrowsingContext, aTriggeringPrincipal,
+                                 aOriginAttributes, aSecurityFlags,
+                                 aSandboxFlags);
+}
+
+/* static */ already_AddRefed<LoadInfo> LoadInfo::CreateForFrame(
+    dom::CanonicalBrowsingContext* aBrowsingContext,
+    nsIPrincipal* aTriggeringPrincipal, nsSecurityFlags aSecurityFlags,
+    uint32_t aSandboxFlags) {
+  return MakeAndAddRef<LoadInfo>(aBrowsingContext, aTriggeringPrincipal,
+                                 aSecurityFlags, aSandboxFlags);
+}
+
+/* static */ already_AddRefed<LoadInfo> LoadInfo::CreateForNonDocument(
+    dom::WindowGlobalParent* aParentWGP, nsIPrincipal* aTriggeringPrincipal,
+    nsContentPolicyType aContentPolicyType, nsSecurityFlags aSecurityFlags,
+    uint32_t aSandboxFlags) {
+  return MakeAndAddRef<LoadInfo>(aParentWGP, aTriggeringPrincipal,
+                                 aContentPolicyType, aSecurityFlags,
+                                 aSandboxFlags);
 }
 
 LoadInfo::LoadInfo(
@@ -50,46 +92,19 @@ LoadInfo::LoadInfo(
     nsINode* aLoadingContext, nsSecurityFlags aSecurityFlags,
     nsContentPolicyType aContentPolicyType,
     const Maybe<mozilla::dom::ClientInfo>& aLoadingClientInfo,
-    const Maybe<mozilla::dom::ServiceWorkerDescriptor>& aController)
+    const Maybe<mozilla::dom::ServiceWorkerDescriptor>& aController,
+    uint32_t aSandboxFlags)
     : mLoadingPrincipal(aLoadingContext ? aLoadingContext->NodePrincipal()
                                         : aLoadingPrincipal),
       mTriggeringPrincipal(aTriggeringPrincipal ? aTriggeringPrincipal
                                                 : mLoadingPrincipal.get()),
-      mPrincipalToInherit(nullptr),
       mClientInfo(aLoadingClientInfo),
       mController(aController),
       mLoadingContext(do_GetWeakReference(aLoadingContext)),
-      mContextForTopLevelLoad(nullptr),
       mSecurityFlags(aSecurityFlags),
-      mInternalContentPolicyType(aContentPolicyType),
-      mTainting(LoadTainting::Basic),
-      mUpgradeInsecureRequests(false),
-      mBrowserUpgradeInsecureRequests(false),
-      mBrowserWouldUpgradeInsecureRequests(false),
-      mVerifySignedContent(false),
-      mEnforceSRI(false),
-      mForceAllowDataURI(false),
-      mAllowInsecureRedirectToDataURI(false),
-      mSkipContentPolicyCheckForWebRequest(false),
-      mOriginalFrameSrcLoad(false),
-      mForceInheritPrincipalDropped(false),
-      mInnerWindowID(0),
-      mOuterWindowID(0),
-      mParentOuterWindowID(0),
-      mTopOuterWindowID(0),
-      mFrameOuterWindowID(0),
-      mEnforceSecurity(false),
-      mInitialSecurityCheckDone(false),
-      mIsThirdPartyContext(false),
-      mIsDocshellReload(false),
-      mSendCSPViolationEvents(true),
-      mForcePreflight(false),
-      mIsPreflight(false),
-      mLoadTriggeredFromExternal(false),
-      mServiceWorkerTaintingSynthesized(false),
-      mDocumentHasUserInteracted(false),
-      mDocumentHasLoaded(false),
-      mIsFromProcessingFrameAttributes(false) {
+      mSandboxFlags(aSandboxFlags),
+      mTriggeringSandboxFlags(0),
+      mInternalContentPolicyType(aContentPolicyType) {
   MOZ_ASSERT(mLoadingPrincipal);
   MOZ_ASSERT(mTriggeringPrincipal);
 
@@ -124,7 +139,7 @@ LoadInfo::LoadInfo(
              aLoadingContext->NodePrincipal() == aLoadingPrincipal);
 
   // if the load is sandboxed, we can not also inherit the principal
-  if (mSecurityFlags & nsILoadInfo::SEC_SANDBOXED) {
+  if (mSandboxFlags & SANDBOXED_ORIGIN) {
     mForceInheritPrincipalDropped =
         (mSecurityFlags & nsILoadInfo::SEC_FORCE_INHERIT_PRINCIPAL);
     mSecurityFlags &= ~nsILoadInfo::SEC_FORCE_INHERIT_PRINCIPAL;
@@ -156,15 +171,14 @@ LoadInfo::LoadInfo(
         aLoadingContext->OwnerDoc()->GetWindow();
     if (contextOuter) {
       ComputeIsThirdPartyContext(contextOuter);
-      mOuterWindowID = contextOuter->WindowID();
-      nsCOMPtr<nsPIDOMWindowOuter> parent = contextOuter->GetScriptableParent();
-      mParentOuterWindowID = parent ? parent->WindowID() : mOuterWindowID;
-      mTopOuterWindowID = FindTopOuterWindowID(contextOuter);
+      RefPtr<dom::BrowsingContext> bc = contextOuter->GetBrowsingContext();
+      MOZ_ASSERT(bc);
+      mBrowsingContextID = bc->Id();
 
       nsGlobalWindowInner* innerWindow =
           nsGlobalWindowInner::Cast(contextOuter->GetCurrentInnerWindow());
       if (innerWindow) {
-        mTopLevelPrincipal = innerWindow->GetTopLevelPrincipal();
+        mTopLevelPrincipal = innerWindow->GetTopLevelAntiTrackingPrincipal();
 
         // The top-level-storage-area-principal is not null only for the first
         // level of iframes (null for top-level contexts, and null for
@@ -174,42 +188,35 @@ LoadInfo::LoadInfo(
         if (externalType != nsIContentPolicy::TYPE_SUBDOCUMENT) {
           mTopLevelStorageAreaPrincipal =
               innerWindow->GetTopLevelStorageAreaPrincipal();
-        } else if (contextOuter->IsTopLevelWindow()) {
-          nsIDocument* doc = innerWindow->GetExtantDoc();
-          if (!doc ||
-              ((doc->GetSandboxFlags() & SANDBOXED_STORAGE_ACCESS) == 0 &&
-               !nsContentUtils::IsInPrivateBrowsing(doc))) {
+        } else if (bc->IsTop()) {
+          Document* doc = innerWindow->GetExtantDoc();
+          if (!doc || (!doc->StorageAccessSandboxed())) {
             mTopLevelStorageAreaPrincipal = innerWindow->GetPrincipal();
           }
-        }
 
-        mDocumentHasLoaded = innerWindow->IsDocumentLoaded();
-
-        if (innerWindow->IsFrame()) {
-          // For resources within iframes, we actually want the
-          // top-level document's flag, not the iframe document's.
-          mDocumentHasLoaded = false;
-          nsGlobalWindowOuter* topOuter =
-              innerWindow->GetScriptableTopInternal();
-          if (topOuter) {
-            nsGlobalWindowInner* topInner =
-                nsGlobalWindowInner::Cast(topOuter->GetCurrentInnerWindow());
-            if (topInner) {
-              mDocumentHasLoaded = topInner->IsDocumentLoaded();
-            }
+          // If this is the first level iframe, innerWindow is our top-level
+          // principal.
+          if (!mTopLevelPrincipal) {
+            mTopLevelPrincipal = innerWindow->GetPrincipal();
           }
         }
       }
+
+      // Let's inherit the cookie behavior and permission from the parent
+      // document.
+      mCookieJarSettings = aLoadingContext->OwnerDoc()->CookieJarSettings();
     }
 
     mInnerWindowID = aLoadingContext->OwnerDoc()->InnerWindowID();
-    mAncestorPrincipals = aLoadingContext->OwnerDoc()->AncestorPrincipals();
-    mAncestorOuterWindowIDs =
-        aLoadingContext->OwnerDoc()->AncestorOuterWindowIDs();
-    MOZ_DIAGNOSTIC_ASSERT(mAncestorPrincipals.Length() ==
-                          mAncestorOuterWindowIDs.Length());
+    RefPtr<WindowContext> ctx = WindowContext::GetById(mInnerWindowID);
+    if (ctx) {
+      mLoadingEmbedderPolicy = ctx->GetEmbedderPolicy();
+    }
     mDocumentHasUserInteracted =
         aLoadingContext->OwnerDoc()->UserHasInteracted();
+
+    // Inherit HTTPS-Only Mode flags from parent document
+    mHttpsOnlyStatus |= aLoadingContext->OwnerDoc()->HttpsOnlyStatus();
 
     // When the element being loaded is a frame, we choose the frame's window
     // for the window ID and the frame element's window as the parent
@@ -218,8 +225,8 @@ LoadInfo::LoadInfo(
     // must be coming from an object (such as a plugin) that's loaded into it
     // instead of a document being loaded. In that case, treat this object like
     // any other non-document-loading element.
-    nsCOMPtr<nsIFrameLoaderOwner> frameLoaderOwner =
-        do_QueryInterface(aLoadingContext);
+    RefPtr<nsFrameLoaderOwner> frameLoaderOwner =
+        do_QueryObject(aLoadingContext);
     RefPtr<nsFrameLoader> fl =
         frameLoaderOwner ? frameLoaderOwner->GetFrameLoader() : nullptr;
     if (fl) {
@@ -227,10 +234,18 @@ LoadInfo::LoadInfo(
       if (docShell) {
         nsCOMPtr<nsPIDOMWindowOuter> outerWindow = do_GetInterface(docShell);
         if (outerWindow) {
-          mFrameOuterWindowID = outerWindow->WindowID();
+          RefPtr<dom::BrowsingContext> bc = outerWindow->GetBrowsingContext();
+          mFrameBrowsingContextID = bc ? bc->Id() : 0;
         }
       }
     }
+
+    // if the document forces all mixed content to be blocked, then we
+    // store that bit for all requests on the loadinfo.
+    mBlockAllMixedContent =
+        aLoadingContext->OwnerDoc()->GetBlockAllMixedContent(false) ||
+        (nsContentUtils::IsPreloadType(mInternalContentPolicyType) &&
+         aLoadingContext->OwnerDoc()->GetBlockAllMixedContent(true));
 
     // if the document forces all requests to be upgraded from http to https,
     // then we should do that for all requests. If it only forces preloads to be
@@ -242,61 +257,15 @@ LoadInfo::LoadInfo(
          aLoadingContext->OwnerDoc()->GetUpgradeInsecureRequests(true));
 
     if (nsContentUtils::IsUpgradableDisplayType(externalType)) {
-      nsCOMPtr<nsIURI> uri;
-      mLoadingPrincipal->GetURI(getter_AddRefs(uri));
-      if (uri) {
-        // Checking https not secure context as http://localhost can't be
-        // upgraded
-        bool isHttpsScheme;
-        nsresult rv = uri->SchemeIs("https", &isHttpsScheme);
-        if (NS_SUCCEEDED(rv) && isHttpsScheme) {
-          if (nsMixedContentBlocker::ShouldUpgradeMixedDisplayContent()) {
-            mBrowserUpgradeInsecureRequests = true;
-          } else {
-            mBrowserWouldUpgradeInsecureRequests = true;
-          }
-        }
-      }
-    }
-    // if owner doc has content signature, we enforce SRI
-    nsCOMPtr<nsIChannel> channel = aLoadingContext->OwnerDoc()->GetChannel();
-    if (channel) {
-      nsCOMPtr<nsILoadInfo> loadInfo = channel->GetLoadInfo();
-      if (loadInfo) {
-        mEnforceSRI = loadInfo->GetVerifySignedContent();
-      }
-    }
-  }
-
-  // If CSP requires SRI (require-sri-for), then store that information
-  // in the loadInfo so we can enforce SRI before loading the subresource.
-  if (!mEnforceSRI) {
-    // do not look into the CSP if already true:
-    // a CSP saying that SRI isn't needed should not
-    // overrule GetVerifySignedContent
-    if (aLoadingPrincipal) {
-      nsCOMPtr<nsIContentSecurityPolicy> csp;
-      aLoadingPrincipal->GetCsp(getter_AddRefs(csp));
-      uint32_t externalType =
-          nsContentUtils::InternalContentPolicyTypeToExternal(
-              aContentPolicyType);
-      // csp could be null if loading principal is system principal
-      if (csp) {
-        csp->RequireSRIForType(externalType, &mEnforceSRI);
-      }
-      // if CSP is delivered via a meta tag, it's speculatively available
-      // as 'preloadCSP'. If we are preloading a script or style, we have
-      // to apply that speculative 'preloadCSP' for such loads.
-      if (!mEnforceSRI && nsContentUtils::IsPreloadType(aContentPolicyType)) {
-        nsCOMPtr<nsIContentSecurityPolicy> preloadCSP;
-        aLoadingPrincipal->GetPreloadCsp(getter_AddRefs(preloadCSP));
-        if (preloadCSP) {
-          preloadCSP->RequireSRIForType(externalType, &mEnforceSRI);
+      if (mLoadingPrincipal->SchemeIs("https")) {
+        if (StaticPrefs::security_mixed_content_upgrade_display_content()) {
+          mBrowserUpgradeInsecureRequests = true;
+        } else {
+          mBrowserWouldUpgradeInsecureRequests = true;
         }
       }
     }
   }
-
   mOriginAttributes = mLoadingPrincipal->OriginAttributesRef();
 
   // We need to do this after inheriting the document's origin attributes
@@ -306,7 +275,7 @@ LoadInfo::LoadInfo(
         aLoadingContext->OwnerDoc()->GetLoadContext();
     nsCOMPtr<nsIDocShell> docShell = aLoadingContext->OwnerDoc()->GetDocShell();
     if (loadContext && docShell &&
-        docShell->ItemType() == nsIDocShellTreeItem::typeContent) {
+        docShell->GetBrowsingContext()->IsContent()) {
       bool usePrivateBrowsing;
       nsresult rv = loadContext->GetUsePrivateBrowsing(&usePrivateBrowsing);
       if (NS_SUCCEEDED(rv)) {
@@ -321,10 +290,19 @@ LoadInfo::LoadInfo(
   if (aLoadingContext) {
     nsCOMPtr<nsIDocShell> docShell = aLoadingContext->OwnerDoc()->GetDocShell();
     if (docShell) {
-      if (docShell->ItemType() == nsIDocShellTreeItem::typeChrome) {
+      if (docShell->GetBrowsingContext()->IsChrome()) {
         MOZ_ASSERT(mOriginAttributes.mPrivateBrowsingId == 0,
                    "chrome docshell shouldn't have mPrivateBrowsingId set.");
       }
+    }
+  }
+
+  // in case this is a loadinfo for a parser generated script, then we store
+  // that bit of information so CSP strict-dynamic can query it.
+  if (!nsContentUtils::IsPreloadType(mInternalContentPolicyType)) {
+    nsCOMPtr<nsIScriptElement> script = do_QueryInterface(aLoadingContext);
+    if (script && script->GetParserCreated() != mozilla::dom::NOT_FROM_PARSER) {
+      mParserCreatedScript = true;
     }
   }
 }
@@ -336,67 +314,33 @@ LoadInfo::LoadInfo(
 LoadInfo::LoadInfo(nsPIDOMWindowOuter* aOuterWindow,
                    nsIPrincipal* aTriggeringPrincipal,
                    nsISupports* aContextForTopLevelLoad,
-                   nsSecurityFlags aSecurityFlags)
-    : mLoadingPrincipal(nullptr),
-      mTriggeringPrincipal(aTriggeringPrincipal),
-      mPrincipalToInherit(nullptr),
+                   nsSecurityFlags aSecurityFlags, uint32_t aSandboxFlags)
+    : mTriggeringPrincipal(aTriggeringPrincipal),
       mContextForTopLevelLoad(do_GetWeakReference(aContextForTopLevelLoad)),
       mSecurityFlags(aSecurityFlags),
-      mInternalContentPolicyType(nsIContentPolicy::TYPE_DOCUMENT),
-      mTainting(LoadTainting::Basic),
-      mUpgradeInsecureRequests(false),
-      mBrowserUpgradeInsecureRequests(false),
-      mBrowserWouldUpgradeInsecureRequests(false),
-      mVerifySignedContent(false),
-      mEnforceSRI(false),
-      mForceAllowDataURI(false),
-      mAllowInsecureRedirectToDataURI(false),
-      mSkipContentPolicyCheckForWebRequest(false),
-      mOriginalFrameSrcLoad(false),
-      mForceInheritPrincipalDropped(false),
-      mInnerWindowID(0),
-      mOuterWindowID(0),
-      mParentOuterWindowID(0),
-      mTopOuterWindowID(0),
-      mFrameOuterWindowID(0),
-      mEnforceSecurity(false),
-      mInitialSecurityCheckDone(false),
-      mIsThirdPartyContext(false)  // NB: TYPE_DOCUMENT implies not third-party.
-      ,
-      mIsDocshellReload(false),
-      mSendCSPViolationEvents(true),
-      mForcePreflight(false),
-      mIsPreflight(false),
-      mLoadTriggeredFromExternal(false),
-      mServiceWorkerTaintingSynthesized(false),
-      mDocumentHasUserInteracted(false),
-      mDocumentHasLoaded(false),
-      mIsFromProcessingFrameAttributes(false) {
+      mSandboxFlags(aSandboxFlags),
+      mTriggeringSandboxFlags(0),
+      mInternalContentPolicyType(nsIContentPolicy::TYPE_DOCUMENT) {
   // Top-level loads are never third-party
   // Grab the information we can out of the window.
   MOZ_ASSERT(aOuterWindow);
   MOZ_ASSERT(mTriggeringPrincipal);
 
   // if the load is sandboxed, we can not also inherit the principal
-  if (mSecurityFlags & nsILoadInfo::SEC_SANDBOXED) {
+  if (mSandboxFlags & SANDBOXED_ORIGIN) {
     mForceInheritPrincipalDropped =
         (mSecurityFlags & nsILoadInfo::SEC_FORCE_INHERIT_PRINCIPAL);
     mSecurityFlags &= ~nsILoadInfo::SEC_FORCE_INHERIT_PRINCIPAL;
   }
 
-  // NB: Ignore the current inner window since we're navigating away from it.
-  mOuterWindowID = aOuterWindow->WindowID();
+  RefPtr<BrowsingContext> bc = aOuterWindow->GetBrowsingContext();
+  mBrowsingContextID = bc ? bc->Id() : 0;
 
-  // TODO We can have a parent without a frame element in some cases dealing
-  // with the hidden window.
-  nsCOMPtr<nsPIDOMWindowOuter> parent = aOuterWindow->GetScriptableParent();
-  mParentOuterWindowID = parent ? parent->WindowID() : 0;
-  mTopOuterWindowID = FindTopOuterWindowID(aOuterWindow);
-
+  // This should be removed in bug 1618557
   nsGlobalWindowInner* innerWindow =
       nsGlobalWindowInner::Cast(aOuterWindow->GetCurrentInnerWindow());
   if (innerWindow) {
-    mTopLevelPrincipal = innerWindow->GetTopLevelPrincipal();
+    mTopLevelPrincipal = innerWindow->GetTopLevelAntiTrackingPrincipal();
     // mTopLevelStorageAreaPrincipal is always null for top-level document
     // loading.
   }
@@ -405,18 +349,170 @@ LoadInfo::LoadInfo(nsPIDOMWindowOuter* aOuterWindow,
   nsCOMPtr<nsIDocShell> docShell = aOuterWindow->GetDocShell();
   MOZ_ASSERT(docShell);
   mOriginAttributes = nsDocShell::Cast(docShell)->GetOriginAttributes();
-  mAncestorPrincipals = nsDocShell::Cast(docShell)->AncestorPrincipals();
-  mAncestorOuterWindowIDs =
-      nsDocShell::Cast(docShell)->AncestorOuterWindowIDs();
-  MOZ_DIAGNOSTIC_ASSERT(mAncestorPrincipals.Length() ==
-                        mAncestorOuterWindowIDs.Length());
+
+  // We sometimes use this constructor for security checks for outer windows
+  // that aren't top level.
+  if (aSecurityFlags != nsILoadInfo::SEC_ONLY_FOR_EXPLICIT_CONTENTSEC_CHECK) {
+    MOZ_ASSERT(aOuterWindow->GetBrowsingContext()->IsTop());
+  }
 
 #ifdef DEBUG
-  if (docShell->ItemType() == nsIDocShellTreeItem::typeChrome) {
+  if (docShell->GetBrowsingContext()->IsChrome()) {
     MOZ_ASSERT(mOriginAttributes.mPrivateBrowsingId == 0,
                "chrome docshell shouldn't have mPrivateBrowsingId set.");
   }
 #endif
+
+  // Let's take the current cookie behavior and current cookie permission
+  // for the documents' loadInfo. Note that for any other loadInfos,
+  // cookieBehavior will be BEHAVIOR_REJECT for security reasons.
+  mCookieJarSettings = CookieJarSettings::Create();
+}
+
+LoadInfo::LoadInfo(dom::CanonicalBrowsingContext* aBrowsingContext,
+                   nsIPrincipal* aTriggeringPrincipal,
+                   const OriginAttributes& aOriginAttributes,
+                   nsSecurityFlags aSecurityFlags, uint32_t aSandboxFlags)
+    : mTriggeringPrincipal(aTriggeringPrincipal),
+      mSecurityFlags(aSecurityFlags),
+      mSandboxFlags(aSandboxFlags),
+      mTriggeringSandboxFlags(0),
+      mInternalContentPolicyType(nsIContentPolicy::TYPE_DOCUMENT) {
+  // Top-level loads are never third-party
+  // Grab the information we can out of the window.
+  MOZ_ASSERT(aBrowsingContext);
+  MOZ_ASSERT(mTriggeringPrincipal);
+  MOZ_ASSERT(aSecurityFlags !=
+             nsILoadInfo::SEC_ONLY_FOR_EXPLICIT_CONTENTSEC_CHECK);
+
+  // if the load is sandboxed, we can not also inherit the principal
+  if (mSandboxFlags & SANDBOXED_ORIGIN) {
+    mForceInheritPrincipalDropped =
+        (mSecurityFlags & nsILoadInfo::SEC_FORCE_INHERIT_PRINCIPAL);
+    mSecurityFlags &= ~nsILoadInfo::SEC_FORCE_INHERIT_PRINCIPAL;
+  }
+
+  mBrowsingContextID = aBrowsingContext->Id();
+  mOriginAttributes = aOriginAttributes;
+
+#ifdef DEBUG
+  if (aBrowsingContext->IsChrome()) {
+    MOZ_ASSERT(mOriginAttributes.mPrivateBrowsingId == 0,
+               "chrome docshell shouldn't have mPrivateBrowsingId set.");
+  }
+#endif
+
+  // Let's take the current cookie behavior and current cookie permission
+  // for the documents' loadInfo. Note that for any other loadInfos,
+  // cookieBehavior will be BEHAVIOR_REJECT for security reasons.
+  mCookieJarSettings = CookieJarSettings::Create();
+}
+
+LoadInfo::LoadInfo(dom::WindowGlobalParent* aParentWGP,
+                   nsIPrincipal* aTriggeringPrincipal,
+                   nsContentPolicyType aContentPolicyType,
+                   nsSecurityFlags aSecurityFlags, uint32_t aSandboxFlags)
+    : mTriggeringPrincipal(aTriggeringPrincipal),
+      mSecurityFlags(aSecurityFlags),
+      mSandboxFlags(aSandboxFlags),
+      mInternalContentPolicyType(aContentPolicyType) {
+  CanonicalBrowsingContext* parentBC = aParentWGP->BrowsingContext();
+  MOZ_ASSERT(parentBC);
+  ComputeAncestors(parentBC, mAncestorPrincipals, mAncestorBrowsingContextIDs);
+
+  RefPtr<WindowGlobalParent> topLevelWGP = aParentWGP->TopWindowContext();
+
+  // if the load is sandboxed, we can not also inherit the principal
+  if (mSandboxFlags & SANDBOXED_ORIGIN) {
+    mForceInheritPrincipalDropped =
+        (mSecurityFlags & nsILoadInfo::SEC_FORCE_INHERIT_PRINCIPAL);
+    mSecurityFlags &= ~nsILoadInfo::SEC_FORCE_INHERIT_PRINCIPAL;
+  }
+
+  // Ensure that all network requests for a window client have the ClientInfo
+  // properly set.
+  mClientInfo = aParentWGP->GetClientInfo();
+  mLoadingPrincipal = aParentWGP->DocumentPrincipal();
+  ComputeIsThirdPartyContext(aParentWGP);
+
+  mBrowsingContextID = parentBC->Id();
+
+  // Let's inherit the cookie behavior and permission from the embedder
+  // document.
+  mCookieJarSettings = aParentWGP->CookieJarSettings();
+  if (topLevelWGP->BrowsingContext()->IsTop()) {
+    if (mCookieJarSettings) {
+      bool stopAtOurLevel = mCookieJarSettings->GetCookieBehavior() ==
+                            nsICookieService::BEHAVIOR_REJECT_TRACKER;
+      if (!stopAtOurLevel ||
+          topLevelWGP->OuterWindowId() != aParentWGP->OuterWindowId()) {
+        mTopLevelPrincipal = topLevelWGP->DocumentPrincipal();
+      }
+    }
+  }
+
+  // The top-level-storage-area-principal is not null only for the first
+  // level of iframes (null for top-level contexts, and null for
+  // sub-iframes). If we are loading a sub-document resource, we must
+  // calculate what the top-level-storage-area-principal will be for the
+  // new context.
+  if (parentBC->IsTop()) {
+    if (!Document::StorageAccessSandboxed(aParentWGP->SandboxFlags())) {
+      mTopLevelStorageAreaPrincipal = aParentWGP->DocumentPrincipal();
+    }
+
+    // If this is the first level iframe, embedder WindowGlobalParent's document
+    // principal is our top-level principal.
+    if (!mTopLevelPrincipal) {
+      mTopLevelPrincipal = aParentWGP->DocumentPrincipal();
+    }
+  }
+
+  mInnerWindowID = aParentWGP->InnerWindowId();
+  mDocumentHasUserInteracted = aParentWGP->DocumentHasUserInteracted();
+
+  // if the document forces all mixed content to be blocked, then we
+  // store that bit for all requests on the loadinfo.
+  mBlockAllMixedContent = aParentWGP->GetDocumentBlockAllMixedContent();
+
+  // if the document forces all requests to be upgraded from http to https,
+  // then we should do that for all requests. If it only forces preloads to be
+  // upgraded then we should enforce upgrade insecure requests only for
+  // preloads.
+  mUpgradeInsecureRequests = aParentWGP->GetDocumentUpgradeInsecureRequests();
+  mOriginAttributes = mLoadingPrincipal->OriginAttributesRef();
+
+  // We need to do this after inheriting the document's origin attributes
+  // above, in case the loading principal ends up being the system principal.
+  if (parentBC->IsContent()) {
+    mOriginAttributes.SyncAttributesWithPrivateBrowsing(
+        parentBC->UsePrivateBrowsing());
+  }
+
+  mHttpsOnlyStatus |= aParentWGP->HttpsOnlyStatus();
+
+  // For chrome BC, the mPrivateBrowsingId remains 0 even its
+  // UsePrivateBrowsing() is true, so we only update the mPrivateBrowsingId in
+  // origin attributes if the type of the BC is content.
+  if (parentBC->IsChrome()) {
+    MOZ_ASSERT(mOriginAttributes.mPrivateBrowsingId == 0,
+               "chrome docshell shouldn't have mPrivateBrowsingId set.");
+  }
+
+  RefPtr<WindowContext> ctx = WindowContext::GetById(mInnerWindowID);
+  if (ctx) {
+    mLoadingEmbedderPolicy = ctx->GetEmbedderPolicy();
+  }
+}
+
+// Used for TYPE_FRAME or TYPE_IFRAME load.
+LoadInfo::LoadInfo(dom::CanonicalBrowsingContext* aBrowsingContext,
+                   nsIPrincipal* aTriggeringPrincipal,
+                   nsSecurityFlags aSecurityFlags, uint32_t aSandboxFlags)
+    : LoadInfo(aBrowsingContext->GetParentWindowContext(), aTriggeringPrincipal,
+               InternalContentPolicyTypeForFrame(aBrowsingContext),
+               aSecurityFlags, aSandboxFlags) {
+  mFrameBrowsingContextID = aBrowsingContext->Id();
 }
 
 LoadInfo::LoadInfo(const LoadInfo& rhs)
@@ -427,145 +523,199 @@ LoadInfo::LoadInfo(const LoadInfo& rhs)
       mTopLevelPrincipal(rhs.mTopLevelPrincipal),
       mTopLevelStorageAreaPrincipal(rhs.mTopLevelStorageAreaPrincipal),
       mResultPrincipalURI(rhs.mResultPrincipalURI),
-      mClientInfo(rhs.mClientInfo)
+      mCookieJarSettings(rhs.mCookieJarSettings),
+      mCspToInherit(rhs.mCspToInherit),
+      mClientInfo(rhs.mClientInfo),
       // mReservedClientSource must be handled specially during redirect
       // mReservedClientInfo must be handled specially during redirect
       // mInitialClientInfo must be handled specially during redirect
-      ,
       mController(rhs.mController),
       mPerformanceStorage(rhs.mPerformanceStorage),
       mLoadingContext(rhs.mLoadingContext),
       mContextForTopLevelLoad(rhs.mContextForTopLevelLoad),
       mSecurityFlags(rhs.mSecurityFlags),
+      mSandboxFlags(rhs.mSandboxFlags),
+      mTriggeringSandboxFlags(rhs.mTriggeringSandboxFlags),
       mInternalContentPolicyType(rhs.mInternalContentPolicyType),
       mTainting(rhs.mTainting),
+      mBlockAllMixedContent(rhs.mBlockAllMixedContent),
       mUpgradeInsecureRequests(rhs.mUpgradeInsecureRequests),
       mBrowserUpgradeInsecureRequests(rhs.mBrowserUpgradeInsecureRequests),
+      mBrowserDidUpgradeInsecureRequests(
+          rhs.mBrowserDidUpgradeInsecureRequests),
       mBrowserWouldUpgradeInsecureRequests(
           rhs.mBrowserWouldUpgradeInsecureRequests),
-      mVerifySignedContent(rhs.mVerifySignedContent),
-      mEnforceSRI(rhs.mEnforceSRI),
       mForceAllowDataURI(rhs.mForceAllowDataURI),
       mAllowInsecureRedirectToDataURI(rhs.mAllowInsecureRedirectToDataURI),
+      mBypassCORSChecks(rhs.mBypassCORSChecks),
       mSkipContentPolicyCheckForWebRequest(
           rhs.mSkipContentPolicyCheckForWebRequest),
       mOriginalFrameSrcLoad(rhs.mOriginalFrameSrcLoad),
       mForceInheritPrincipalDropped(rhs.mForceInheritPrincipalDropped),
       mInnerWindowID(rhs.mInnerWindowID),
-      mOuterWindowID(rhs.mOuterWindowID),
-      mParentOuterWindowID(rhs.mParentOuterWindowID),
-      mTopOuterWindowID(rhs.mTopOuterWindowID),
-      mFrameOuterWindowID(rhs.mFrameOuterWindowID),
-      mEnforceSecurity(rhs.mEnforceSecurity),
+      mBrowsingContextID(rhs.mBrowsingContextID),
+      mFrameBrowsingContextID(rhs.mFrameBrowsingContextID),
       mInitialSecurityCheckDone(rhs.mInitialSecurityCheckDone),
       mIsThirdPartyContext(rhs.mIsThirdPartyContext),
-      mIsDocshellReload(rhs.mIsDocshellReload),
+      mIsThirdPartyContextToTopWindow(rhs.mIsThirdPartyContextToTopWindow),
+      mIsFormSubmission(rhs.mIsFormSubmission),
       mSendCSPViolationEvents(rhs.mSendCSPViolationEvents),
       mOriginAttributes(rhs.mOriginAttributes),
       mRedirectChainIncludingInternalRedirects(
-          rhs.mRedirectChainIncludingInternalRedirects),
-      mRedirectChain(rhs.mRedirectChain),
-      mAncestorPrincipals(rhs.mAncestorPrincipals),
-      mAncestorOuterWindowIDs(rhs.mAncestorOuterWindowIDs),
-      mCorsUnsafeHeaders(rhs.mCorsUnsafeHeaders),
+          rhs.mRedirectChainIncludingInternalRedirects.Clone()),
+      mRedirectChain(rhs.mRedirectChain.Clone()),
+      mAncestorPrincipals(rhs.mAncestorPrincipals.Clone()),
+      mAncestorBrowsingContextIDs(rhs.mAncestorBrowsingContextIDs.Clone()),
+      mCorsUnsafeHeaders(rhs.mCorsUnsafeHeaders.Clone()),
+      mRequestBlockingReason(rhs.mRequestBlockingReason),
       mForcePreflight(rhs.mForcePreflight),
       mIsPreflight(rhs.mIsPreflight),
-      mLoadTriggeredFromExternal(rhs.mLoadTriggeredFromExternal)
+      mLoadTriggeredFromExternal(rhs.mLoadTriggeredFromExternal),
       // mServiceWorkerTaintingSynthesized must be handled specially during
       // redirect
-      ,
       mServiceWorkerTaintingSynthesized(false),
       mDocumentHasUserInteracted(rhs.mDocumentHasUserInteracted),
-      mDocumentHasLoaded(rhs.mDocumentHasLoaded),
-      mIsFromProcessingFrameAttributes(rhs.mIsFromProcessingFrameAttributes) {}
+      mAllowListFutureDocumentsCreatedFromThisRedirectChain(
+          rhs.mAllowListFutureDocumentsCreatedFromThisRedirectChain),
+      mCspNonce(rhs.mCspNonce),
+      mSkipContentSniffing(rhs.mSkipContentSniffing),
+      mHttpsOnlyStatus(rhs.mHttpsOnlyStatus),
+      mHasValidUserGestureActivation(rhs.mHasValidUserGestureActivation),
+      mAllowDeprecatedSystemRequests(rhs.mAllowDeprecatedSystemRequests),
+      mIsInDevToolsContext(rhs.mIsInDevToolsContext),
+      mParserCreatedScript(rhs.mParserCreatedScript),
+      mHasStoragePermission(rhs.mHasStoragePermission),
+      mIsFromProcessingFrameAttributes(rhs.mIsFromProcessingFrameAttributes),
+      mLoadingEmbedderPolicy(rhs.mLoadingEmbedderPolicy) {}
 
 LoadInfo::LoadInfo(
     nsIPrincipal* aLoadingPrincipal, nsIPrincipal* aTriggeringPrincipal,
     nsIPrincipal* aPrincipalToInherit, nsIPrincipal* aSandboxedLoadingPrincipal,
     nsIPrincipal* aTopLevelPrincipal,
     nsIPrincipal* aTopLevelStorageAreaPrincipal, nsIURI* aResultPrincipalURI,
+    nsICookieJarSettings* aCookieJarSettings,
+    nsIContentSecurityPolicy* aCspToInherit,
     const Maybe<ClientInfo>& aClientInfo,
     const Maybe<ClientInfo>& aReservedClientInfo,
     const Maybe<ClientInfo>& aInitialClientInfo,
     const Maybe<ServiceWorkerDescriptor>& aController,
-    nsSecurityFlags aSecurityFlags, nsContentPolicyType aContentPolicyType,
-    LoadTainting aTainting, bool aUpgradeInsecureRequests,
-    bool aBrowserUpgradeInsecureRequests,
-    bool aBrowserWouldUpgradeInsecureRequests, bool aVerifySignedContent,
-    bool aEnforceSRI, bool aForceAllowDataURI,
-    bool aAllowInsecureRedirectToDataURI,
-    bool aSkipContentPolicyCheckForWebRequest,
+    nsSecurityFlags aSecurityFlags, uint32_t aSandboxFlags,
+    uint32_t aTriggeringSandboxFlags, nsContentPolicyType aContentPolicyType,
+    LoadTainting aTainting, bool aBlockAllMixedContent,
+    bool aUpgradeInsecureRequests, bool aBrowserUpgradeInsecureRequests,
+    bool aBrowserDidUpgradeInsecureRequests,
+    bool aBrowserWouldUpgradeInsecureRequests, bool aForceAllowDataURI,
+    bool aAllowInsecureRedirectToDataURI, bool aBypassCORSChecks,
+    bool aSkipContentPolicyCheckForWebRequest, bool aOriginalFrameSrcLoad,
     bool aForceInheritPrincipalDropped, uint64_t aInnerWindowID,
-    uint64_t aOuterWindowID, uint64_t aParentOuterWindowID,
-    uint64_t aTopOuterWindowID, uint64_t aFrameOuterWindowID,
-    bool aEnforceSecurity, bool aInitialSecurityCheckDone,
-    bool aIsThirdPartyContext, bool aIsDocshellReload,
+    uint64_t aBrowsingContextID, uint64_t aFrameBrowsingContextID,
+    bool aInitialSecurityCheckDone, bool aIsThirdPartyContext,
+    bool aIsThirdPartyContextToTopWindow, bool aIsFormSubmission,
     bool aSendCSPViolationEvents, const OriginAttributes& aOriginAttributes,
-    RedirectHistoryArray& aRedirectChainIncludingInternalRedirects,
-    RedirectHistoryArray& aRedirectChain,
+    RedirectHistoryArray&& aRedirectChainIncludingInternalRedirects,
+    RedirectHistoryArray&& aRedirectChain,
     nsTArray<nsCOMPtr<nsIPrincipal>>&& aAncestorPrincipals,
-    const nsTArray<uint64_t>& aAncestorOuterWindowIDs,
+    const nsTArray<uint64_t>& aAncestorBrowsingContextIDs,
     const nsTArray<nsCString>& aCorsUnsafeHeaders, bool aForcePreflight,
     bool aIsPreflight, bool aLoadTriggeredFromExternal,
     bool aServiceWorkerTaintingSynthesized, bool aDocumentHasUserInteracted,
-    bool aDocumentHasLoaded)
+    bool aAllowListFutureDocumentsCreatedFromThisRedirectChain,
+    const nsAString& aCspNonce, bool aSkipContentSniffing,
+    uint32_t aHttpsOnlyStatus, bool aHasValidUserGestureActivation,
+    bool aAllowDeprecatedSystemRequests, bool aIsInDevToolsContext,
+    bool aParserCreatedScript, bool aHasStoragePermission,
+    uint32_t aRequestBlockingReason, nsINode* aLoadingContext,
+    nsILoadInfo::CrossOriginEmbedderPolicy aLoadingEmbedderPolicy)
     : mLoadingPrincipal(aLoadingPrincipal),
       mTriggeringPrincipal(aTriggeringPrincipal),
       mPrincipalToInherit(aPrincipalToInherit),
       mTopLevelPrincipal(aTopLevelPrincipal),
       mTopLevelStorageAreaPrincipal(aTopLevelStorageAreaPrincipal),
       mResultPrincipalURI(aResultPrincipalURI),
+      mCookieJarSettings(aCookieJarSettings),
+      mCspToInherit(aCspToInherit),
       mClientInfo(aClientInfo),
       mReservedClientInfo(aReservedClientInfo),
       mInitialClientInfo(aInitialClientInfo),
       mController(aController),
+      mLoadingContext(do_GetWeakReference(aLoadingContext)),
       mSecurityFlags(aSecurityFlags),
+      mSandboxFlags(aSandboxFlags),
+      mTriggeringSandboxFlags(aTriggeringSandboxFlags),
       mInternalContentPolicyType(aContentPolicyType),
       mTainting(aTainting),
+      mBlockAllMixedContent(aBlockAllMixedContent),
       mUpgradeInsecureRequests(aUpgradeInsecureRequests),
       mBrowserUpgradeInsecureRequests(aBrowserUpgradeInsecureRequests),
+      mBrowserDidUpgradeInsecureRequests(aBrowserDidUpgradeInsecureRequests),
       mBrowserWouldUpgradeInsecureRequests(
           aBrowserWouldUpgradeInsecureRequests),
-      mVerifySignedContent(aVerifySignedContent),
-      mEnforceSRI(aEnforceSRI),
       mForceAllowDataURI(aForceAllowDataURI),
       mAllowInsecureRedirectToDataURI(aAllowInsecureRedirectToDataURI),
+      mBypassCORSChecks(aBypassCORSChecks),
       mSkipContentPolicyCheckForWebRequest(
           aSkipContentPolicyCheckForWebRequest),
-      mOriginalFrameSrcLoad(false),
+      mOriginalFrameSrcLoad(aOriginalFrameSrcLoad),
       mForceInheritPrincipalDropped(aForceInheritPrincipalDropped),
       mInnerWindowID(aInnerWindowID),
-      mOuterWindowID(aOuterWindowID),
-      mParentOuterWindowID(aParentOuterWindowID),
-      mTopOuterWindowID(aTopOuterWindowID),
-      mFrameOuterWindowID(aFrameOuterWindowID),
-      mEnforceSecurity(aEnforceSecurity),
+      mBrowsingContextID(aBrowsingContextID),
+      mFrameBrowsingContextID(aFrameBrowsingContextID),
       mInitialSecurityCheckDone(aInitialSecurityCheckDone),
       mIsThirdPartyContext(aIsThirdPartyContext),
-      mIsDocshellReload(aIsDocshellReload),
+      mIsThirdPartyContextToTopWindow(aIsThirdPartyContextToTopWindow),
+      mIsFormSubmission(aIsFormSubmission),
       mSendCSPViolationEvents(aSendCSPViolationEvents),
       mOriginAttributes(aOriginAttributes),
+      mRedirectChainIncludingInternalRedirects(
+          std::move(aRedirectChainIncludingInternalRedirects)),
+      mRedirectChain(std::move(aRedirectChain)),
       mAncestorPrincipals(std::move(aAncestorPrincipals)),
-      mAncestorOuterWindowIDs(aAncestorOuterWindowIDs),
-      mCorsUnsafeHeaders(aCorsUnsafeHeaders),
+      mAncestorBrowsingContextIDs(aAncestorBrowsingContextIDs.Clone()),
+      mCorsUnsafeHeaders(aCorsUnsafeHeaders.Clone()),
+      mRequestBlockingReason(aRequestBlockingReason),
       mForcePreflight(aForcePreflight),
       mIsPreflight(aIsPreflight),
       mLoadTriggeredFromExternal(aLoadTriggeredFromExternal),
       mServiceWorkerTaintingSynthesized(aServiceWorkerTaintingSynthesized),
       mDocumentHasUserInteracted(aDocumentHasUserInteracted),
-      mDocumentHasLoaded(aDocumentHasLoaded),
-      mIsFromProcessingFrameAttributes(false) {
+      mAllowListFutureDocumentsCreatedFromThisRedirectChain(
+          aAllowListFutureDocumentsCreatedFromThisRedirectChain),
+      mCspNonce(aCspNonce),
+      mSkipContentSniffing(aSkipContentSniffing),
+      mHttpsOnlyStatus(aHttpsOnlyStatus),
+      mHasValidUserGestureActivation(aHasValidUserGestureActivation),
+      mAllowDeprecatedSystemRequests(aAllowDeprecatedSystemRequests),
+      mIsInDevToolsContext(aIsInDevToolsContext),
+      mParserCreatedScript(aParserCreatedScript),
+      mHasStoragePermission(aHasStoragePermission),
+      mIsFromProcessingFrameAttributes(false),
+      mLoadingEmbedderPolicy(aLoadingEmbedderPolicy) {
   // Only top level TYPE_DOCUMENT loads can have a null loadingPrincipal
   MOZ_ASSERT(mLoadingPrincipal ||
              aContentPolicyType == nsIContentPolicy::TYPE_DOCUMENT);
   MOZ_ASSERT(mTriggeringPrincipal);
-
-  mRedirectChainIncludingInternalRedirects.SwapElements(
-      aRedirectChainIncludingInternalRedirects);
-
-  mRedirectChain.SwapElements(aRedirectChain);
 }
 
+// static
+void LoadInfo::ComputeAncestors(
+    CanonicalBrowsingContext* aBC,
+    nsTArray<nsCOMPtr<nsIPrincipal>>& aAncestorPrincipals,
+    nsTArray<uint64_t>& aBrowsingContextIDs) {
+  MOZ_ASSERT(aAncestorPrincipals.IsEmpty());
+  MOZ_ASSERT(aBrowsingContextIDs.IsEmpty());
+  CanonicalBrowsingContext* ancestorBC = aBC;
+  // Iterate over ancestor WindowGlobalParents, collecting principals and outer
+  // window IDs.
+  while (WindowGlobalParent* ancestorWGP =
+             ancestorBC->GetParentWindowContext()) {
+    ancestorBC = ancestorWGP->BrowsingContext();
+
+    nsCOMPtr<nsIPrincipal> parentPrincipal = ancestorWGP->DocumentPrincipal();
+    MOZ_ASSERT(parentPrincipal, "Ancestor principal is null");
+    aAncestorPrincipals.AppendElement(parentPrincipal.forget());
+    aBrowsingContextIDs.AppendElement(ancestorBC->Id());
+  }
+}
 void LoadInfo::ComputeIsThirdPartyContext(nsPIDOMWindowOuter* aOuterWindow) {
   nsContentPolicyType type =
       nsContentUtils::InternalContentPolicyTypeToExternal(
@@ -584,6 +734,21 @@ void LoadInfo::ComputeIsThirdPartyContext(nsPIDOMWindowOuter* aOuterWindow) {
   util->IsThirdPartyWindow(aOuterWindow, nullptr, &mIsThirdPartyContext);
 }
 
+void LoadInfo::ComputeIsThirdPartyContext(dom::WindowGlobalParent* aGlobal) {
+  if (nsILoadInfo::GetExternalContentPolicyType() ==
+      nsIContentPolicy::TYPE_DOCUMENT) {
+    // Top-level loads are never third-party.
+    mIsThirdPartyContext = false;
+    return;
+  }
+
+  ThirdPartyUtil* thirdPartyUtil = ThirdPartyUtil::GetInstance();
+  if (!thirdPartyUtil) {
+    return;
+  }
+  thirdPartyUtil->IsThirdPartyGlobal(aGlobal, &mIsThirdPartyContext);
+}
+
 NS_IMPL_ISUPPORTS(LoadInfo, nsILoadInfo)
 
 already_AddRefed<nsILoadInfo> LoadInfo::Clone() const {
@@ -600,7 +765,6 @@ already_AddRefed<nsILoadInfo> LoadInfo::CloneWithNewSecFlags(
 
 already_AddRefed<nsILoadInfo> LoadInfo::CloneForNewRequest() const {
   RefPtr<LoadInfo> copy(new LoadInfo(*this));
-  copy->mEnforceSecurity = false;
   copy->mInitialSecurityCheckDone = false;
   copy->mRedirectChainIncludingInternalRedirects.Clear();
   copy->mRedirectChain.Clear();
@@ -614,11 +778,13 @@ LoadInfo::GetLoadingPrincipal(nsIPrincipal** aLoadingPrincipal) {
   return NS_OK;
 }
 
-nsIPrincipal* LoadInfo::LoadingPrincipal() { return mLoadingPrincipal; }
+nsIPrincipal* LoadInfo::VirtualGetLoadingPrincipal() {
+  return mLoadingPrincipal;
+}
 
 NS_IMETHODIMP
 LoadInfo::GetTriggeringPrincipal(nsIPrincipal** aTriggeringPrincipal) {
-  NS_ADDREF(*aTriggeringPrincipal = mTriggeringPrincipal);
+  *aTriggeringPrincipal = do_AddRef(mTriggeringPrincipal).take();
   return NS_OK;
 }
 
@@ -654,7 +820,7 @@ nsIPrincipal* LoadInfo::FindPrincipalToInherit(nsIChannel* aChannel) {
 }
 
 nsIPrincipal* LoadInfo::GetSandboxedLoadingPrincipal() {
-  if (!(mSecurityFlags & nsILoadInfo::SEC_SANDBOXED)) {
+  if (!(mSandboxFlags & SANDBOXED_ORIGIN)) {
     return nullptr;
   }
 
@@ -679,10 +845,9 @@ nsIPrincipal* LoadInfo::GetTopLevelStorageAreaPrincipal() {
 }
 
 NS_IMETHODIMP
-LoadInfo::GetLoadingDocument(nsIDocument** aResult) {
-  nsCOMPtr<nsINode> node = do_QueryReferent(mLoadingContext);
-  if (node) {
-    nsCOMPtr<nsIDocument> context = node->OwnerDoc();
+LoadInfo::GetLoadingDocument(Document** aResult) {
+  if (nsCOMPtr<nsINode> node = do_QueryReferent(mLoadingContext)) {
+    RefPtr<Document> context = node->OwnerDoc();
     context.forget(aResult);
   }
   return NS_OK;
@@ -726,19 +891,57 @@ LoadInfo::GetSecurityFlags(nsSecurityFlags* aResult) {
 }
 
 NS_IMETHODIMP
+LoadInfo::GetSandboxFlags(uint32_t* aResult) {
+  *aResult = mSandboxFlags;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+LoadInfo::GetTriggeringSandboxFlags(uint32_t* aResult) {
+  *aResult = mTriggeringSandboxFlags;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+LoadInfo::SetTriggeringSandboxFlags(uint32_t aFlags) {
+  mTriggeringSandboxFlags = aFlags;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
 LoadInfo::GetSecurityMode(uint32_t* aFlags) {
-  *aFlags =
-      (mSecurityFlags & (nsILoadInfo::SEC_REQUIRE_SAME_ORIGIN_DATA_INHERITS |
-                         nsILoadInfo::SEC_REQUIRE_SAME_ORIGIN_DATA_IS_BLOCKED |
-                         nsILoadInfo::SEC_ALLOW_CROSS_ORIGIN_DATA_INHERITS |
-                         nsILoadInfo::SEC_ALLOW_CROSS_ORIGIN_DATA_IS_NULL |
-                         nsILoadInfo::SEC_REQUIRE_CORS_DATA_INHERITS));
+  *aFlags = (mSecurityFlags &
+             (nsILoadInfo::SEC_REQUIRE_SAME_ORIGIN_INHERITS_SEC_CONTEXT |
+              nsILoadInfo::SEC_REQUIRE_SAME_ORIGIN_DATA_IS_BLOCKED |
+              nsILoadInfo::SEC_ALLOW_CROSS_ORIGIN_INHERITS_SEC_CONTEXT |
+              nsILoadInfo::SEC_ALLOW_CROSS_ORIGIN_SEC_CONTEXT_IS_NULL |
+              nsILoadInfo::SEC_REQUIRE_CORS_INHERITS_SEC_CONTEXT));
   return NS_OK;
 }
 
 NS_IMETHODIMP
 LoadInfo::GetIsInThirdPartyContext(bool* aIsInThirdPartyContext) {
   *aIsInThirdPartyContext = mIsThirdPartyContext;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+LoadInfo::SetIsInThirdPartyContext(bool aIsInThirdPartyContext) {
+  mIsThirdPartyContext = aIsInThirdPartyContext;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+LoadInfo::GetIsThirdPartyContextToTopWindow(
+    bool* aIsThirdPartyContextToTopWindow) {
+  *aIsThirdPartyContextToTopWindow = mIsThirdPartyContextToTopWindow;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+LoadInfo::SetIsThirdPartyContextToTopWindow(
+    bool aIsThirdPartyContextToTopWindow) {
+  mIsThirdPartyContextToTopWindow = aIsThirdPartyContextToTopWindow;
   return NS_OK;
 }
 
@@ -750,7 +953,7 @@ NS_IMETHODIMP
 LoadInfo::GetCookiePolicy(uint32_t* aResult) {
   uint32_t policy = mSecurityFlags & sCookiePolicyMask;
   if (policy == nsILoadInfo::SEC_COOKIES_DEFAULT) {
-    policy = (mSecurityFlags & SEC_REQUIRE_CORS_DATA_INHERITS)
+    policy = (mSecurityFlags & SEC_REQUIRE_CORS_INHERITS_SEC_CONTEXT)
                  ? nsILoadInfo::SEC_COOKIES_SAME_ORIGIN
                  : nsILoadInfo::SEC_COOKIES_INCLUDE;
   }
@@ -759,8 +962,59 @@ LoadInfo::GetCookiePolicy(uint32_t* aResult) {
   return NS_OK;
 }
 
+namespace {
+
+already_AddRefed<nsICookieJarSettings> CreateCookieJarSettings(
+    nsContentPolicyType aContentPolicyType) {
+  if (StaticPrefs::network_cookieJarSettings_unblocked_for_testing()) {
+    return CookieJarSettings::Create();
+  }
+
+  // These contentPolictTypes require a real CookieJarSettings because favicon
+  // and save-as requests must send cookies. Anything else should not
+  // send/receive cookies.
+  if (aContentPolicyType == nsIContentPolicy::TYPE_INTERNAL_IMAGE_FAVICON ||
+      aContentPolicyType == nsIContentPolicy::TYPE_SAVEAS_DOWNLOAD) {
+    return CookieJarSettings::Create();
+  }
+
+  return CookieJarSettings::GetBlockingAll();
+}
+
+}  // namespace
+
+NS_IMETHODIMP
+LoadInfo::GetCookieJarSettings(nsICookieJarSettings** aCookieJarSettings) {
+  if (!mCookieJarSettings) {
+    mCookieJarSettings = CreateCookieJarSettings(mInternalContentPolicyType);
+  }
+
+  nsCOMPtr<nsICookieJarSettings> cookieJarSettings = mCookieJarSettings;
+  cookieJarSettings.forget(aCookieJarSettings);
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+LoadInfo::SetCookieJarSettings(nsICookieJarSettings* aCookieJarSettings) {
+  MOZ_ASSERT(aCookieJarSettings);
+  // We allow the overwrite of CookieJarSettings.
+  mCookieJarSettings = aCookieJarSettings;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+LoadInfo::GetHasStoragePermission(bool* aHasStoragePermission) {
+  *aHasStoragePermission = mHasStoragePermission;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+LoadInfo::SetHasStoragePermission(bool aHasStoragePermission) {
+  mHasStoragePermission = aHasStoragePermission;
+  return NS_OK;
+}
+
 void LoadInfo::SetIncludeCookiesSecFlag() {
-  MOZ_ASSERT(!mEnforceSecurity, "Request should not have been opened yet");
   MOZ_ASSERT((mSecurityFlags & sCookiePolicyMask) ==
              nsILoadInfo::SEC_COOKIES_DEFAULT);
   mSecurityFlags =
@@ -784,7 +1038,7 @@ LoadInfo::GetForceInheritPrincipalOverruleOwner(bool* aInheritPrincipal) {
 
 NS_IMETHODIMP
 LoadInfo::GetLoadingSandboxed(bool* aLoadingSandboxed) {
-  *aLoadingSandboxed = (mSecurityFlags & nsILoadInfo::SEC_SANDBOXED);
+  *aLoadingSandboxed = (mSandboxFlags & SANDBOXED_ORIGIN);
   return NS_OK;
 }
 
@@ -819,14 +1073,14 @@ LoadInfo::GetLoadErrorPage(bool* aResult) {
 }
 
 NS_IMETHODIMP
-LoadInfo::GetIsDocshellReload(bool* aResult) {
-  *aResult = mIsDocshellReload;
+LoadInfo::GetIsFormSubmission(bool* aResult) {
+  *aResult = mIsFormSubmission;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-LoadInfo::SetIsDocshellReload(bool aValue) {
-  mIsDocshellReload = aValue;
+LoadInfo::SetIsFormSubmission(bool aValue) {
+  mIsFormSubmission = aValue;
   return NS_OK;
 }
 
@@ -854,6 +1108,12 @@ nsContentPolicyType LoadInfo::InternalContentPolicyType() {
 }
 
 NS_IMETHODIMP
+LoadInfo::GetBlockAllMixedContent(bool* aResult) {
+  *aResult = mBlockAllMixedContent;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
 LoadInfo::GetUpgradeInsecureRequests(bool* aResult) {
   *aResult = mUpgradeInsecureRequests;
   return NS_OK;
@@ -866,34 +1126,14 @@ LoadInfo::GetBrowserUpgradeInsecureRequests(bool* aResult) {
 }
 
 NS_IMETHODIMP
+LoadInfo::GetBrowserDidUpgradeInsecureRequests(bool* aResult) {
+  *aResult = mBrowserDidUpgradeInsecureRequests;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
 LoadInfo::GetBrowserWouldUpgradeInsecureRequests(bool* aResult) {
   *aResult = mBrowserWouldUpgradeInsecureRequests;
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-LoadInfo::SetVerifySignedContent(bool aVerifySignedContent) {
-  MOZ_ASSERT(mInternalContentPolicyType == nsIContentPolicy::TYPE_DOCUMENT,
-             "can only verify content for TYPE_DOCUMENT");
-  mVerifySignedContent = aVerifySignedContent;
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-LoadInfo::GetVerifySignedContent(bool* aResult) {
-  *aResult = mVerifySignedContent;
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-LoadInfo::SetEnforceSRI(bool aEnforceSRI) {
-  mEnforceSRI = aEnforceSRI;
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-LoadInfo::GetEnforceSRI(bool* aResult) {
-  *aResult = mEnforceSRI;
   return NS_OK;
 }
 
@@ -923,6 +1163,18 @@ NS_IMETHODIMP
 LoadInfo::GetAllowInsecureRedirectToDataURI(
     bool* aAllowInsecureRedirectToDataURI) {
   *aAllowInsecureRedirectToDataURI = mAllowInsecureRedirectToDataURI;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+LoadInfo::SetBypassCORSChecks(bool aBypassCORSChecks) {
+  mBypassCORSChecks = aBypassCORSChecks;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+LoadInfo::GetBypassCORSChecks(bool* aBypassCORSChecks) {
+  *aBypassCORSChecks = mBypassCORSChecks;
   return NS_OK;
 }
 
@@ -963,26 +1215,42 @@ LoadInfo::GetInnerWindowID(uint64_t* aResult) {
 }
 
 NS_IMETHODIMP
-LoadInfo::GetOuterWindowID(uint64_t* aResult) {
-  *aResult = mOuterWindowID;
+LoadInfo::GetBrowsingContextID(uint64_t* aResult) {
+  *aResult = mBrowsingContextID;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-LoadInfo::GetParentOuterWindowID(uint64_t* aResult) {
-  *aResult = mParentOuterWindowID;
+LoadInfo::GetFrameBrowsingContextID(uint64_t* aResult) {
+  *aResult = mFrameBrowsingContextID;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-LoadInfo::GetTopOuterWindowID(uint64_t* aResult) {
-  *aResult = mTopOuterWindowID;
+LoadInfo::GetTargetBrowsingContextID(uint64_t* aResult) {
+  return (nsILoadInfo::GetExternalContentPolicyType() ==
+          nsIContentPolicy::TYPE_SUBDOCUMENT)
+             ? GetFrameBrowsingContextID(aResult)
+             : GetBrowsingContextID(aResult);
+}
+
+NS_IMETHODIMP
+LoadInfo::GetBrowsingContext(dom::BrowsingContext** aResult) {
+  *aResult = BrowsingContext::Get(mBrowsingContextID).take();
   return NS_OK;
 }
 
 NS_IMETHODIMP
-LoadInfo::GetFrameOuterWindowID(uint64_t* aResult) {
-  *aResult = mFrameOuterWindowID;
+LoadInfo::GetFrameBrowsingContext(dom::BrowsingContext** aResult) {
+  *aResult = BrowsingContext::Get(mFrameBrowsingContextID).take();
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+LoadInfo::GetTargetBrowsingContext(dom::BrowsingContext** aResult) {
+  uint64_t targetBrowsingContextID = 0;
+  MOZ_ALWAYS_SUCCEEDS(GetTargetBrowsingContextID(&targetBrowsingContextID));
+  *aResult = BrowsingContext::Get(targetBrowsingContextID).take();
   return NS_OK;
 }
 
@@ -1038,22 +1306,6 @@ nsresult LoadInfo::SetOriginAttributes(
 }
 
 NS_IMETHODIMP
-LoadInfo::SetEnforceSecurity(bool aEnforceSecurity) {
-  // Indicates whether the channel was openend using AsyncOpen2. Once set
-  // to true, it must remain true throughout the lifetime of the channel.
-  // Setting it to anything else than true will be discarded.
-  MOZ_ASSERT(aEnforceSecurity, "aEnforceSecurity must be true");
-  mEnforceSecurity = mEnforceSecurity || aEnforceSecurity;
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-LoadInfo::GetEnforceSecurity(bool* aResult) {
-  *aResult = mEnforceSecurity;
-  return NS_OK;
-}
-
-NS_IMETHODIMP
 LoadInfo::SetInitialSecurityCheckDone(bool aInitialSecurityCheckDone) {
   // Indicates whether the channel was ever evaluated by the
   // ContentSecurityManager. Once set to true, this flag must
@@ -1088,7 +1340,8 @@ LoadInfo::AppendRedirectHistoryEntry(nsIRedirectHistoryEntry* aEntry,
 NS_IMETHODIMP
 LoadInfo::GetRedirects(JSContext* aCx, JS::MutableHandle<JS::Value> aRedirects,
                        const RedirectHistoryArray& aArray) {
-  JS::Rooted<JSObject*> redirects(aCx, JS_NewArrayObject(aCx, aArray.Length()));
+  JS::Rooted<JSObject*> redirects(aCx,
+                                  JS::NewArrayObject(aCx, aArray.Length()));
   NS_ENSURE_TRUE(redirects, NS_ERROR_OUT_OF_MEMORY);
 
   JS::Rooted<JSObject*> global(aCx, JS::CurrentGlobalOrNull(aCx));
@@ -1135,15 +1388,16 @@ const nsTArray<nsCOMPtr<nsIPrincipal>>& LoadInfo::AncestorPrincipals() {
   return mAncestorPrincipals;
 }
 
-const nsTArray<uint64_t>& LoadInfo::AncestorOuterWindowIDs() {
-  return mAncestorOuterWindowIDs;
+const nsTArray<uint64_t>& LoadInfo::AncestorBrowsingContextIDs() {
+  return mAncestorBrowsingContextIDs;
 }
 
 void LoadInfo::SetCorsPreflightInfo(const nsTArray<nsCString>& aHeaders,
                                     bool aForcePreflight) {
-  MOZ_ASSERT(GetSecurityMode() == nsILoadInfo::SEC_REQUIRE_CORS_DATA_INHERITS);
+  MOZ_ASSERT(GetSecurityMode() ==
+             nsILoadInfo::SEC_REQUIRE_CORS_INHERITS_SEC_CONTEXT);
   MOZ_ASSERT(!mInitialSecurityCheckDone);
-  mCorsUnsafeHeaders = aHeaders;
+  mCorsUnsafeHeaders = aHeaders.Clone();
   mForcePreflight = aForcePreflight;
 }
 
@@ -1158,15 +1412,25 @@ LoadInfo::GetForcePreflight(bool* aForcePreflight) {
 }
 
 void LoadInfo::SetIsPreflight() {
-  MOZ_ASSERT(GetSecurityMode() == nsILoadInfo::SEC_REQUIRE_CORS_DATA_INHERITS);
+  MOZ_ASSERT(GetSecurityMode() ==
+             nsILoadInfo::SEC_REQUIRE_CORS_INHERITS_SEC_CONTEXT);
   MOZ_ASSERT(!mInitialSecurityCheckDone);
   mIsPreflight = true;
 }
 
-void LoadInfo::SetUpgradeInsecureRequests() { mUpgradeInsecureRequests = true; }
+void LoadInfo::SetUpgradeInsecureRequests(bool aValue) {
+  mUpgradeInsecureRequests = aValue;
+}
 
 void LoadInfo::SetBrowserUpgradeInsecureRequests() {
   mBrowserUpgradeInsecureRequests = true;
+}
+
+NS_IMETHODIMP
+LoadInfo::SetBrowserDidUpgradeInsecureRequests(
+    bool aBrowserDidUpgradeInsecureRequests) {
+  mBrowserDidUpgradeInsecureRequests = aBrowserDidUpgradeInsecureRequests;
+  return NS_OK;
 }
 
 void LoadInfo::SetBrowserWouldUpgradeInsecureRequests() {
@@ -1247,22 +1511,114 @@ LoadInfo::SetDocumentHasUserInteracted(bool aDocumentHasUserInteracted) {
 }
 
 NS_IMETHODIMP
-LoadInfo::GetDocumentHasLoaded(bool* aDocumentHasLoaded) {
-  MOZ_ASSERT(aDocumentHasLoaded);
-  *aDocumentHasLoaded = mDocumentHasLoaded;
+LoadInfo::GetAllowListFutureDocumentsCreatedFromThisRedirectChain(
+    bool* aValue) {
+  MOZ_ASSERT(aValue);
+  *aValue = mAllowListFutureDocumentsCreatedFromThisRedirectChain;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-LoadInfo::SetDocumentHasLoaded(bool aDocumentHasLoaded) {
-  mDocumentHasLoaded = aDocumentHasLoaded;
+LoadInfo::SetAllowListFutureDocumentsCreatedFromThisRedirectChain(bool aValue) {
+  mAllowListFutureDocumentsCreatedFromThisRedirectChain = aValue;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+LoadInfo::GetCspNonce(nsAString& aCspNonce) {
+  aCspNonce = mCspNonce;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+LoadInfo::SetCspNonce(const nsAString& aCspNonce) {
+  MOZ_ASSERT(!mInitialSecurityCheckDone,
+             "setting the nonce is only allowed before any sec checks");
+  mCspNonce = aCspNonce;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+LoadInfo::GetSkipContentSniffing(bool* aSkipContentSniffing) {
+  *aSkipContentSniffing = mSkipContentSniffing;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+LoadInfo::SetSkipContentSniffing(bool aSkipContentSniffing) {
+  mSkipContentSniffing = aSkipContentSniffing;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+LoadInfo::GetHttpsOnlyStatus(uint32_t* aHttpsOnlyStatus) {
+  *aHttpsOnlyStatus = mHttpsOnlyStatus;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+LoadInfo::SetHttpsOnlyStatus(uint32_t aHttpsOnlyStatus) {
+  mHttpsOnlyStatus = aHttpsOnlyStatus;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+LoadInfo::GetHasValidUserGestureActivation(
+    bool* aHasValidUserGestureActivation) {
+  *aHasValidUserGestureActivation = mHasValidUserGestureActivation;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+LoadInfo::SetHasValidUserGestureActivation(
+    bool aHasValidUserGestureActivation) {
+  mHasValidUserGestureActivation = aHasValidUserGestureActivation;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+LoadInfo::GetAllowDeprecatedSystemRequests(
+    bool* aAllowDeprecatedSystemRequests) {
+  *aAllowDeprecatedSystemRequests = mAllowDeprecatedSystemRequests;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+LoadInfo::SetAllowDeprecatedSystemRequests(
+    bool aAllowDeprecatedSystemRequests) {
+  mAllowDeprecatedSystemRequests = aAllowDeprecatedSystemRequests;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+LoadInfo::GetIsInDevToolsContext(bool* aIsInDevToolsContext) {
+  *aIsInDevToolsContext = mIsInDevToolsContext;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+LoadInfo::SetIsInDevToolsContext(bool aIsInDevToolsContext) {
+  mIsInDevToolsContext = aIsInDevToolsContext;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+LoadInfo::GetParserCreatedScript(bool* aParserCreatedScript) {
+  *aParserCreatedScript = mParserCreatedScript;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+LoadInfo::SetParserCreatedScript(bool aParserCreatedScript) {
+  mParserCreatedScript = aParserCreatedScript;
   return NS_OK;
 }
 
 NS_IMETHODIMP
 LoadInfo::GetIsTopLevelLoad(bool* aResult) {
-  *aResult = mFrameOuterWindowID ? mFrameOuterWindowID == mOuterWindowID
-                                 : mParentOuterWindowID == mOuterWindowID;
+  RefPtr<dom::BrowsingContext> bc;
+  GetTargetBrowsingContext(getter_AddRefs(bc));
+  *aResult = !bc || bc->IsTop();
   return NS_OK;
 }
 
@@ -1287,6 +1643,17 @@ LoadInfo::GetResultPrincipalURI(nsIURI** aURI) {
 NS_IMETHODIMP
 LoadInfo::SetResultPrincipalURI(nsIURI* aURI) {
   mResultPrincipalURI = aURI;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+LoadInfo::SetRequestBlockingReason(uint32_t aReason) {
+  mRequestBlockingReason = aReason;
+  return NS_OK;
+}
+NS_IMETHODIMP
+LoadInfo::GetRequestBlockingReason(uint32_t* aReason) {
+  *aReason = mRequestBlockingReason;
   return NS_OK;
 }
 
@@ -1367,7 +1734,33 @@ void LoadInfo::SetPerformanceStorage(PerformanceStorage* aPerformanceStorage) {
 }
 
 PerformanceStorage* LoadInfo::GetPerformanceStorage() {
-  return mPerformanceStorage;
+  if (mPerformanceStorage) {
+    return mPerformanceStorage;
+  }
+
+  auto* innerWindow = nsGlobalWindowInner::GetInnerWindowWithId(mInnerWindowID);
+  if (!innerWindow) {
+    return nullptr;
+  }
+
+  if (!TriggeringPrincipal()->Equals(innerWindow->GetPrincipal())) {
+    return nullptr;
+  }
+
+  if (nsILoadInfo::GetExternalContentPolicyType() ==
+          nsIContentPolicy::TYPE_SUBDOCUMENT &&
+      !GetIsFromProcessingFrameAttributes()) {
+    // We only report loads caused by processing the attributes of the
+    // browsing context container.
+    return nullptr;
+  }
+
+  mozilla::dom::Performance* performance = innerWindow->GetPerformance();
+  if (!performance) {
+    return nullptr;
+  }
+
+  return performance->AsPerformanceStorage();
 }
 
 NS_IMETHODIMP
@@ -1380,6 +1773,94 @@ NS_IMETHODIMP
 LoadInfo::SetCspEventListener(nsICSPEventListener* aCSPEventListener) {
   mCSPEventListener = aCSPEventListener;
   return NS_OK;
+}
+
+NS_IMETHODIMP
+LoadInfo::GetInternalContentPolicyType(nsContentPolicyType* aResult) {
+  *aResult = mInternalContentPolicyType;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+LoadInfo::GetLoadingEmbedderPolicy(
+    nsILoadInfo::CrossOriginEmbedderPolicy* aOutPolicy) {
+  *aOutPolicy = mLoadingEmbedderPolicy;
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+LoadInfo::SetLoadingEmbedderPolicy(
+    nsILoadInfo::CrossOriginEmbedderPolicy aPolicy) {
+  mLoadingEmbedderPolicy = aPolicy;
+  return NS_OK;
+}
+
+already_AddRefed<nsIContentSecurityPolicy> LoadInfo::GetCsp() {
+  // Before querying the CSP from the client we have to check if the
+  // triggeringPrincipal originates from an addon and potentially
+  // overrides the CSP stored within the client.
+  if (mLoadingPrincipal && BasePrincipal::Cast(mTriggeringPrincipal)
+                               ->OverridesCSP(mLoadingPrincipal)) {
+    nsCOMPtr<nsIExpandedPrincipal> ep = do_QueryInterface(mTriggeringPrincipal);
+    nsCOMPtr<nsIContentSecurityPolicy> addonCSP;
+    if (ep) {
+      addonCSP = ep->GetCsp();
+    }
+    return addonCSP.forget();
+  }
+
+  if (mClientInfo.isNothing()) {
+    return nullptr;
+  }
+
+  nsCOMPtr<nsINode> node = do_QueryReferent(mLoadingContext);
+  RefPtr<Document> doc = node ? node->OwnerDoc() : nullptr;
+
+  // If the client is of type window, then we return the cached CSP
+  // stored on the document instead of having to deserialize the CSP
+  // from the ClientInfo.
+  if (doc && mClientInfo->Type() == ClientType::Window) {
+    nsCOMPtr<nsIContentSecurityPolicy> docCSP = doc->GetCsp();
+    return docCSP.forget();
+  }
+
+  Maybe<mozilla::ipc::CSPInfo> cspInfo = mClientInfo->GetCspInfo();
+  if (cspInfo.isNothing()) {
+    return nullptr;
+  }
+  nsCOMPtr<nsIContentSecurityPolicy> clientCSP =
+      CSPInfoToCSP(cspInfo.ref(), doc);
+  return clientCSP.forget();
+}
+
+already_AddRefed<nsIContentSecurityPolicy> LoadInfo::GetPreloadCsp() {
+  if (mClientInfo.isNothing()) {
+    return nullptr;
+  }
+
+  nsCOMPtr<nsINode> node = do_QueryReferent(mLoadingContext);
+  RefPtr<Document> doc = node ? node->OwnerDoc() : nullptr;
+
+  // If the client is of type window, then we return the cached CSP
+  // stored on the document instead of having to deserialize the CSP
+  // from the ClientInfo.
+  if (doc && mClientInfo->Type() == ClientType::Window) {
+    nsCOMPtr<nsIContentSecurityPolicy> preloadCsp = doc->GetPreloadCsp();
+    return preloadCsp.forget();
+  }
+
+  Maybe<mozilla::ipc::CSPInfo> cspInfo = mClientInfo->GetPreloadCspInfo();
+  if (cspInfo.isNothing()) {
+    return nullptr;
+  }
+  nsCOMPtr<nsIContentSecurityPolicy> preloadCSP =
+      CSPInfoToCSP(cspInfo.ref(), doc);
+  return preloadCSP.forget();
+}
+
+already_AddRefed<nsIContentSecurityPolicy> LoadInfo::GetCspToInherit() {
+  nsCOMPtr<nsIContentSecurityPolicy> cspToInherit = mCspToInherit;
+  return cspToInherit.forget();
 }
 
 }  // namespace net

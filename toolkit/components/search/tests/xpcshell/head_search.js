@@ -1,197 +1,119 @@
 /* -*- indent-tabs-mode: nil; js-indent-level: 2 -*- */
 /* vim:set ts=2 sw=2 sts=2 et: */
 
-ChromeUtils.import("resource://gre/modules/FileUtils.jsm");
-ChromeUtils.import("resource://gre/modules/osfile.jsm");
-ChromeUtils.import("resource://gre/modules/NetUtil.jsm");
-ChromeUtils.import("resource://gre/modules/Services.jsm");
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
-ChromeUtils.import("resource://testing-common/AppInfo.jsm");
-ChromeUtils.import("resource://testing-common/httpd.js");
-ChromeUtils.defineModuleGetter(this, "TestUtils",
-                               "resource://testing-common/TestUtils.jsm");
-ChromeUtils.defineModuleGetter(this, "NetUtil",
-                               "resource://gre/modules/NetUtil.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
 
-const BROWSER_SEARCH_PREF = "browser.search.";
-const NS_APP_SEARCH_DIR = "SrchPlugns";
+XPCOMUtils.defineLazyModuleGetters(this, {
+  FileUtils: "resource://gre/modules/FileUtils.jsm",
+  PromiseUtils: "resource://gre/modules/PromiseUtils.jsm",
+  Region: "resource://gre/modules/Region.jsm",
+  RemoteSettings: "resource://services-settings/remote-settings.js",
+  RemoteSettingsClient: "resource://services-settings/RemoteSettingsClient.jsm",
+  SearchSettings: "resource://gre/modules/SearchSettings.jsm",
+  SearchEngineSelector: "resource://gre/modules/SearchEngineSelector.jsm",
+  SearchService: "resource://gre/modules/SearchService.jsm",
+  SearchTestUtils: "resource://testing-common/SearchTestUtils.jsm",
+  Services: "resource://gre/modules/Services.jsm",
+  setTimeout: "resource://gre/modules/Timer.jsm",
+  TestUtils: "resource://testing-common/TestUtils.jsm",
+  SearchUtils: "resource://gre/modules/SearchUtils.jsm",
+  sinon: "resource://testing-common/Sinon.jsm",
+});
 
-const MODE_RDONLY = FileUtils.MODE_RDONLY;
-const MODE_WRONLY = FileUtils.MODE_WRONLY;
-const MODE_CREATE = FileUtils.MODE_CREATE;
-const MODE_TRUNCATE = FileUtils.MODE_TRUNCATE;
+var { OS } = ChromeUtils.import("resource://gre/modules/osfile.jsm");
+var { HttpServer } = ChromeUtils.import("resource://testing-common/httpd.js");
+var { AddonTestUtils } = ChromeUtils.import(
+  "resource://testing-common/AddonTestUtils.jsm"
+);
+const { ExtensionTestUtils } = ChromeUtils.import(
+  "resource://testing-common/ExtensionXPCShellUtils.jsm"
+);
 
-const CACHE_FILENAME = "search.json.mozlz4";
+SearchTestUtils.init(Assert, registerCleanupFunction);
+
+const SETTINGS_FILENAME = "search.json.mozlz4";
 
 // nsSearchService.js uses Services.appinfo.name to build a salt for a hash.
 // eslint-disable-next-line mozilla/use-services
 var XULRuntime = Cc["@mozilla.org/xre/runtime;1"].getService(Ci.nsIXULRuntime);
 
-var isChild = XULRuntime.processType == XULRuntime.PROCESS_TYPE_CONTENT;
+// Expand the amount of information available in error logs
+Services.prefs.setBoolPref("browser.search.log", true);
+Services.prefs.setBoolPref("browser.region.log", true);
 
-updateAppInfo({
-  name: "XPCShell",
-  ID: "xpcshell@test.mozilla.org",
-  version: "5",
-  platformVersion: "1.9",
-  // mirror OS from the base impl as some of the "location" tests rely on it
-  OS: XULRuntime.OS,
-  // mirror processType from the base implementation
-  extraProps: {
-    processType: XULRuntime.processType,
-  },
-});
+Services.prefs.setBoolPref("browser.search.modernConfig", true);
 
-var gProfD;
-if (!isChild) {
-  // Need to create and register a profile folder.
-  gProfD = do_get_profile();
+AddonTestUtils.init(this, false);
+AddonTestUtils.createAppInfo(
+  "xpcshell@tests.mozilla.org",
+  "XPCShell",
+  "42",
+  "42"
+);
+
+// Allow telemetry probes which may otherwise be disabled for some applications (e.g. Thunderbird)
+Services.prefs.setBoolPref(
+  "toolkit.telemetry.testing.overrideProductsCheck",
+  true
+);
+
+// For tests, allow the settings to write sooner than it would do normally so that
+// the tests that need to wait for it can run a bit faster.
+SearchSettings.SETTNGS_INVALIDATION_DELAY = 250;
+
+async function promiseSettingsData() {
+  let path = OS.Path.join(OS.Constants.Path.profileDir, SETTINGS_FILENAME);
+  let bytes = await OS.File.read(path, { compression: "lz4" });
+  return JSON.parse(new TextDecoder().decode(bytes));
 }
 
-function dumpn(text) {
-  dump("search test: " + text + "\n");
+function promiseSaveSettingsData(data) {
+  return OS.File.writeAtomic(
+    OS.Path.join(OS.Constants.Path.profileDir, SETTINGS_FILENAME),
+    new TextEncoder().encode(JSON.stringify(data)),
+    { compression: "lz4" }
+  );
 }
 
-/**
- * Configure preferences to load engines from
- * chrome://testsearchplugin/locale/searchplugins/
- */
-function configureToLoadJarEngines() {
-  let url = "chrome://testsearchplugin/locale/searchplugins/";
-  let resProt = Services.io.getProtocolHandler("resource")
-                        .QueryInterface(Ci.nsIResProtocolHandler);
-  resProt.setSubstitution("search-plugins",
-                          Services.io.newURI(url));
+async function promiseEngineMetadata() {
+  let settings = await promiseSettingsData();
+  let data = {};
+  for (let engine of settings.engines) {
+    data[engine._name] = engine._metaData;
+  }
+  return data;
 }
 
-/**
- * Fake the installation of an add-on in the profile, by creating the
- * directory and registering it with the directory service.
- */
-function installAddonEngine(name = "engine-addon") {
-  const XRE_EXTENSIONS_DIR_LIST = "XREExtDL";
-  const profD = do_get_profile().QueryInterface(Ci.nsIFile);
+async function promiseGlobalMetadata() {
+  return (await promiseSettingsData()).metaData;
+}
 
-  let dir = profD.clone();
-  dir.append("extensions");
-  if (!dir.exists())
-    dir.create(dir.DIRECTORY_TYPE, FileUtils.PERMS_DIRECTORY);
+async function promiseSaveGlobalMetadata(globalData) {
+  let data = await promiseSettingsData();
+  data.metaData = globalData;
+  await promiseSaveSettingsData(data);
+}
 
-  dir.append("search-engine@tests.mozilla.org");
-  dir.create(dir.DIRECTORY_TYPE, FileUtils.PERMS_DIRECTORY);
-
-  do_get_file("data/install.rdf").copyTo(dir, "install.rdf");
-  let addonDir = dir.clone();
-  dir.append("searchplugins");
-  dir.create(dir.DIRECTORY_TYPE, FileUtils.PERMS_DIRECTORY);
-  do_get_file("data/" + name + ".xml").copyTo(dir, "bug645970.xml");
-
-  Services.dirsvc.registerProvider({
-    QueryInterface: ChromeUtils.generateQI([Ci.nsIDirectoryServiceProvider,
-                                            Ci.nsIDirectoryServiceProvider2]),
-
-    getFile(prop, persistant) {
-      throw Cr.NS_ERROR_FAILURE;
-    },
-
-    getFiles(prop) {
-      if (prop == XRE_EXTENSIONS_DIR_LIST) {
-        return [addonDir].values();
-      }
-
-      throw Cr.NS_ERROR_FAILURE;
-    },
-  });
+function promiseDefaultNotification(type = "normal") {
+  return SearchTestUtils.promiseSearchNotification(
+    SearchUtils.MODIFIED_TYPE[
+      type == "private" ? "DEFAULT_PRIVATE" : "DEFAULT"
+    ],
+    SearchUtils.TOPIC_ENGINE_MODIFIED
+  );
 }
 
 /**
- * Copy the engine-distribution.xml engine to a fake distribution
- * created in the profile, and registered with the directory service.
+ * Clean the profile of any settings file left from a previous run.
+ *
+ * @returns {boolean}
+ *   Indicates if the settings file existed.
  */
-function installDistributionEngine() {
-  const XRE_APP_DISTRIBUTION_DIR = "XREAppDist";
-
-  const profD = do_get_profile().QueryInterface(Ci.nsIFile);
-
-  let dir = profD.clone();
-  dir.append("distribution");
-  dir.create(dir.DIRECTORY_TYPE, FileUtils.PERMS_DIRECTORY);
-  let distDir = dir.clone();
-
-  dir.append("searchplugins");
-  dir.create(dir.DIRECTORY_TYPE, FileUtils.PERMS_DIRECTORY);
-
-  dir.append("common");
-  dir.create(dir.DIRECTORY_TYPE, FileUtils.PERMS_DIRECTORY);
-
-  do_get_file("data/engine-override.xml").copyTo(dir, "bug645970.xml");
-
-  Services.dirsvc.registerProvider({
-    getFile(aProp, aPersistent) {
-      aPersistent.value = true;
-      if (aProp == XRE_APP_DISTRIBUTION_DIR)
-        return distDir.clone();
-      return null;
-    },
-  });
-}
-
-function promiseCacheData() {
-  return new Promise(resolve => (async function() {
-    let path = OS.Path.join(OS.Constants.Path.profileDir, CACHE_FILENAME);
-    let bytes = await OS.File.read(path, {compression: "lz4"});
-    resolve(JSON.parse(new TextDecoder().decode(bytes)));
-  })());
-}
-
-function promiseSaveCacheData(data) {
-  return OS.File.writeAtomic(OS.Path.join(OS.Constants.Path.profileDir, CACHE_FILENAME),
-                             new TextEncoder().encode(JSON.stringify(data)),
-                             {compression: "lz4"});
-}
-
-function promiseEngineMetadata() {
-  return new Promise(resolve => (async function() {
-    let cache = await promiseCacheData();
-    let data = {};
-    for (let engine of cache.engines) {
-      data[engine._shortName] = engine._metaData;
-    }
-    resolve(data);
-  })());
-}
-
-function promiseGlobalMetadata() {
-  return new Promise(resolve => (async function() {
-    let cache = await promiseCacheData();
-    resolve(cache.metaData);
-  })());
-}
-
-function promiseSaveGlobalMetadata(globalData) {
-  return new Promise(resolve => (async function() {
-    let data = await promiseCacheData();
-    data.metaData = globalData;
-    await promiseSaveCacheData(data);
-    resolve();
-  })());
-}
-
-var forceExpiration = async function() {
-  let metadata = await promiseGlobalMetadata();
-
-  // Make the current geodefaults expire 1s ago.
-  metadata.searchDefaultExpir = Date.now() - 1000;
-  await promiseSaveGlobalMetadata(metadata);
-};
-
-/**
- * Clean the profile of any cache file left from a previous run.
- * Returns a boolean indicating if the cache file existed.
- */
-function removeCacheFile() {
-  let file = gProfD.clone();
-  file.append(CACHE_FILENAME);
+function removeSettingsFile() {
+  let file = do_get_profile().clone();
+  file.append(SETTINGS_FILENAME);
   if (file.exists()) {
     file.remove(false);
     return true;
@@ -201,6 +123,8 @@ function removeCacheFile() {
 
 /**
  * isUSTimezone taken from nsSearchService.js
+ *
+ * @returns {boolean}
  */
 function isUSTimezone() {
   // Timezone assumptions! We assume that if the system clock's timezone is
@@ -215,128 +139,97 @@ function isUSTimezone() {
   // 600 minutes = 10 hours (UTC-10), which is
   // Hawaii-Aleutian Standard Time (http://www.timeanddate.com/time/zones/hast)
 
-  let UTCOffset = (new Date()).getTimezoneOffset();
+  let UTCOffset = new Date().getTimezoneOffset();
   return UTCOffset >= 150 && UTCOffset <= 600;
 }
 
-const kDefaultenginenamePref = "browser.search.defaultenginename";
 const kTestEngineName = "Test search engine";
-const TOPIC_LOCALES_CHANGE = "intl:app-locales-changed";
 
-function getDefaultEngineName(isUS) {
-  // The list of visibleDefaultEngines needs to match or the cache will be ignored.
-  let chan = NetUtil.newChannel({
-    uri: "resource://search-plugins/list.json",
-    loadUsingSystemPrincipal: true,
-  });
-  let searchSettings = parseJsonFromStream(chan.open2());
-  let defaultEngineName = searchSettings.default.searchDefault;
-
-  if (isUS === undefined)
-    isUS = Services.locale.requestedLocale == "en-US" && isUSTimezone();
-
-  if (isUS && ("US" in searchSettings &&
-               "searchDefault" in searchSettings.US)) {
-    defaultEngineName = searchSettings.US.searchDefault;
-  }
-  return defaultEngineName;
-}
-
-function getDefaultEngineList(isUS) {
-  // The list of visibleDefaultEngines needs to match or the cache will be ignored.
-  let chan = NetUtil.newChannel({
-    uri: "resource://search-plugins/list.json",
-    loadUsingSystemPrincipal: true,
-  });
-  let json = parseJsonFromStream(chan.open2());
-  let visibleDefaultEngines = json.default.visibleDefaultEngines;
-
-  if (isUS === undefined)
-    isUS = Services.locale.requestedLocale == "en-US" && isUSTimezone();
-
-  if (isUS) {
-    let searchSettings = json.locales["en-US"];
-    if ("US" in searchSettings &&
-        "visibleDefaultEngines" in searchSettings.US) {
-      visibleDefaultEngines = searchSettings.US.visibleDefaultEngines;
-    }
-    // From nsSearchService.js
-    let searchRegion = "US";
-    if ("regionOverrides" in json &&
-        searchRegion in json.regionOverrides) {
-      for (let engine in json.regionOverrides[searchRegion]) {
-        let index = visibleDefaultEngines.indexOf(engine);
-        if (index > -1) {
-          visibleDefaultEngines[index] = json.regionOverrides[searchRegion][engine];
-        }
-      }
-    }
-  }
-
-  return visibleDefaultEngines;
+/**
+ * Waits for the settings file to be saved.
+ * @returns {Promise} Resolved when the settings file is saved.
+ */
+function promiseAfterSettings() {
+  return SearchTestUtils.promiseSearchNotification(
+    "write-settings-to-disk-complete"
+  );
 }
 
 /**
- * Waits for the cache file to be saved.
- * @return {Promise} Resolved when the cache file is saved.
+ * Sets the home region, and waits for the search service to reload the engines.
+ *
+ * @param {string} region
+ *   The region to set.
  */
-function promiseAfterCache() {
-  return waitForSearchNotification("write-cache-to-disk-complete");
+async function promiseSetHomeRegion(region) {
+  let promise = SearchTestUtils.promiseSearchNotification("engines-reloaded");
+  Region._setHomeRegion(region);
+  await promise;
 }
 
-function parseJsonFromStream(aInputStream) {
-  let bytes = NetUtil.readInputStream(aInputStream, aInputStream.available());
-  return JSON.parse((new TextDecoder()).decode(bytes));
+/**
+ * Sets the requested/available locales and waits for the search service to
+ * reload the engines.
+ *
+ * @param {string} locale
+ *   The locale to set.
+ */
+async function promiseSetLocale(locale) {
+  if (!Services.locale.availableLocales.includes(locale)) {
+    throw new Error(
+      `"${locale}" needs to be included in Services.locales.availableLocales at the start of the test.`
+    );
+  }
+
+  let promise = SearchTestUtils.promiseSearchNotification("engines-reloaded");
+  Services.locale.requestedLocales = [locale];
+  await promise;
 }
 
 /**
  * Read a JSON file and return the JS object
+ *
+ * @param {nsIFile} file
+ *   The file to read.
+ * @returns {object}
+ *   Returns the JSON object if the file was successfully read,
+ *   false otherwise.
  */
-function readJSONFile(aFile) {
-  let stream = Cc["@mozilla.org/network/file-input-stream;1"].
-               createInstance(Ci.nsIFileInputStream);
-  try {
-    stream.init(aFile, MODE_RDONLY, FileUtils.PERMS_FILE, 0);
-    return parseJsonFromStream(stream, stream.available());
-  } catch (ex) {
-    dumpn("readJSONFile: Error reading JSON file: " + ex);
-  } finally {
-    stream.close();
-  }
-  return false;
+async function readJSONFile(file) {
+  let bytes = await OS.File.read(file.path);
+  return JSON.parse(new TextDecoder().decode(bytes));
 }
 
 /**
  * Recursively compare two objects and check that every property of expectedObj has the same value
  * on actualObj.
+ *
+ * @param {object} expectedObj
+ * @param {object} actualObj
+ * @param {function} skipProp
+ *   A function that is called with the property name and its value, to see if
+ *   testing that property should be skipped or not.
  */
-function isSubObjectOf(expectedObj, actualObj) {
+function isSubObjectOf(expectedObj, actualObj, skipProp) {
   for (let prop in expectedObj) {
+    if (skipProp && skipProp(prop, expectedObj[prop])) {
+      continue;
+    }
     if (expectedObj[prop] instanceof Object) {
-      Assert.equal(expectedObj[prop].length, actualObj[prop].length);
-      isSubObjectOf(expectedObj[prop], actualObj[prop]);
+      Assert.equal(
+        actualObj[prop]?.length,
+        expectedObj[prop].length,
+        `Should have the correct length for property ${prop}`
+      );
+      isSubObjectOf(expectedObj[prop], actualObj[prop], skipProp);
     } else {
-      if (expectedObj[prop] != actualObj[prop])
-        info("comparing property " + prop);
-      Assert.equal(expectedObj[prop], actualObj[prop]);
+      Assert.equal(
+        actualObj[prop],
+        expectedObj[prop],
+        `Should have the correct value for property ${prop}`
+      );
     }
   }
-}
-
-// Can't set prefs if we're running in a child process, but the search  service
-// doesn't run in child processes anyways.
-if (!isChild) {
-  // Expand the amount of information available in error logs
-  Services.prefs.setBoolPref("browser.search.log", true);
-
-  // The geo-specific search tests assume certain prefs are already setup, which
-  // might not be true when run in comm-central etc.  So create them here.
-  Services.prefs.setBoolPref("browser.search.geoSpecificDefaults", true);
-  Services.prefs.setIntPref("browser.search.geoip.timeout", 3000);
-  // But still disable geoip lookups - tests that need it will re-configure this.
-  Services.prefs.setCharPref("browser.search.geoip.url", "");
-  // Also disable region defaults - tests using it will also re-configure it.
-  Services.prefs.getDefaultBranch(BROWSER_SEARCH_PREF).setCharPref("geoSpecificDefaults.url", "");
 }
 
 /**
@@ -348,13 +241,16 @@ var gDataUrl;
 /**
  * Initializes the HTTP server and ensures that it is terminated when tests end.
  *
- * @return The HttpServer object in case further customization is needed.
+ * @param {string} dir
+ *   The test sub-directory to use for the engines.
+ * @returns {HttpServer}
+ *   The HttpServer object in case further customization is needed.
  */
-function useHttpServer() {
+function useHttpServer(dir = "data") {
   let httpServer = new HttpServer();
   httpServer.start(-1);
   httpServer.registerDirectory("/", do_get_cwd());
-  gDataUrl = "http://localhost:" + httpServer.identity.primaryPort + "/data/";
+  gDataUrl = `http://localhost:${httpServer.identity.primaryPort}/${dir}/`;
   registerCleanupFunction(async function cleanup_httpServer() {
     await new Promise(resolve => {
       httpServer.stop(resolve);
@@ -368,14 +264,14 @@ function useHttpServer() {
  *
  * The engines are added in the given order.
  *
- * @param aItems
- *        Array of objects with the following properties:
- *        {
- *          name: Engine name, used to wait for it to be loaded.
- *          xmlFileName: Name of the XML file in the "data" folder.
- *          details: Array containing the parameters of addEngineWithDetails,
- *                   except for the engine name.  Alternative to xmlFileName.
- *        }
+ * @param {Array<object>} aItems
+ *   Array of objects with the following properties:
+ *   {
+ *     name: Engine name, used to wait for it to be loaded.
+ *     xmlFileName: Name of the XML file in the "data" folder.
+ *     details: Object containing the parameters of addEngineWithDetails,
+ *              except for the engine name.  Alternative to xmlFileName.
+ *   }
  */
 var addTestEngines = async function(aItems) {
   if (!gDataUrl) {
@@ -404,9 +300,9 @@ var addTestEngines = async function(aItems) {
       }, "browser-search-engine-modified");
 
       if (item.xmlFileName) {
-        Services.search.addEngine(gDataUrl + item.xmlFileName, null, false);
+        Services.search.addOpenSearchEngine(gDataUrl + item.xmlFileName, null);
       } else {
-        Services.search.addEngineWithDetails(item.name, ...item.details);
+        Services.search.addEngineWithDetails(item.name, item.details);
       }
     });
   }
@@ -416,71 +312,34 @@ var addTestEngines = async function(aItems) {
 
 /**
  * Installs a test engine into the test profile.
+ *
+ * @returns {Array<SearchEngine>}
  */
 function installTestEngine() {
   useHttpServer();
-  return addTestEngines([
-    { name: kTestEngineName, xmlFileName: "engine.xml" },
-  ]);
-}
-
-/**
- * Returns a promise that is resolved when an observer notification from the
- * search service fires with the specified data.
- *
- * @param aExpectedData
- *        The value the observer notification sends that causes us to resolve
- *        the promise.
- */
-function waitForSearchNotification(aExpectedData) {
-  return new Promise(resolve => {
-    const SEARCH_SERVICE_TOPIC = "browser-search-service";
-    Services.obs.addObserver(function observer(aSubject, aTopic, aData) {
-      if (aData != aExpectedData)
-        return;
-
-      Services.obs.removeObserver(observer, SEARCH_SERVICE_TOPIC);
-      resolve(aSubject);
-    }, SEARCH_SERVICE_TOPIC);
-  });
-}
-
-function asyncInit() {
-  return new Promise(resolve => {
-    Services.search.init(function() {
-      Assert.ok(Services.search.isInitialized);
-      resolve();
-    });
-  });
-}
-
-function asyncReInit() {
-  let promise = waitForSearchNotification("reinit-complete");
-
-  Services.search.QueryInterface(Ci.nsIObserver)
-          .observe(null, TOPIC_LOCALES_CHANGE, null);
-
-  return promise;
+  return addTestEngines([{ name: kTestEngineName, xmlFileName: "engine.xml" }]);
 }
 
 // This "enum" from nsSearchService.js
 const TELEMETRY_RESULT_ENUM = {
   SUCCESS: 0,
   SUCCESS_WITHOUT_DATA: 1,
-  XHRTIMEOUT: 2,
+  TIMEOUT: 2,
   ERROR: 3,
 };
 
 /**
  * Checks the value of the SEARCH_SERVICE_COUNTRY_FETCH_RESULT probe.
  *
- * @param aExpectedValue
- *        If a value from TELEMETRY_RESULT_ENUM, we expect to see this value
- *        recorded exactly once in the probe.  If |null|, we expect to see
- *        nothing recorded in the probe at all.
+ * @param {string|null} aExpectedValue
+ *   If a value from TELEMETRY_RESULT_ENUM, we expect to see this value
+ *   recorded exactly once in the probe.  If |null|, we expect to see
+ *   nothing recorded in the probe at all.
  */
 function checkCountryResultTelemetry(aExpectedValue) {
-  let histogram = Services.telemetry.getHistogramById("SEARCH_SERVICE_COUNTRY_FETCH_RESULT");
+  let histogram = Services.telemetry.getHistogramById(
+    "SEARCH_SERVICE_COUNTRY_FETCH_RESULT"
+  );
   let snapshot = histogram.snapshot();
   if (aExpectedValue != null) {
     equal(snapshot.values[aExpectedValue], 1);
@@ -488,3 +347,86 @@ function checkCountryResultTelemetry(aExpectedValue) {
     deepEqual(snapshot.values, {});
   }
 }
+
+/**
+ * Provides a basic set of remote settings for use in tests.
+ */
+async function setupRemoteSettings() {
+  const settings = await RemoteSettings("hijack-blocklists");
+  sinon.stub(settings, "get").returns([
+    {
+      id: "load-paths",
+      matches: ["[other]addEngineWithDetails:searchignore@mozilla.com"],
+      _status: "synced",
+    },
+    {
+      id: "submission-urls",
+      matches: ["ignore=true"],
+      _status: "synced",
+    },
+  ]);
+}
+
+/**
+ * Helper function that sets up a server and respnds to region
+ * fetch requests.
+ * @param {string} region
+ *   The region that the server will respond with.
+ * @param {Promise|null} waitToRespond
+ *   A promise that the server will await on to delay responding
+ *   to the request.
+ */
+function useCustomGeoServer(region, waitToRespond = Promise.resolve()) {
+  let srv = useHttpServer();
+  srv.registerPathHandler("/fetch_region", async (req, res) => {
+    res.processAsync();
+    await waitToRespond;
+    res.setStatusLine("1.1", 200, "OK");
+    res.write(JSON.stringify({ country_code: region }));
+    res.finish();
+  });
+
+  Services.prefs.setCharPref(
+    "browser.region.network.url",
+    `http://localhost:${srv.identity.primaryPort}/fetch_region`
+  );
+}
+
+/**
+ * Some tests might trigger initialisation which will trigger the search settings
+ * update. We need to make sure we wait for that to finish before we exit, otherwise
+ * it may cause shutdown issues.
+ */
+let updatePromise = SearchTestUtils.promiseSearchNotification(
+  "settings-update-complete"
+);
+
+registerCleanupFunction(async () => {
+  if (Services.search.isInitialized) {
+    await updatePromise;
+  }
+});
+
+let consoleAllowList = [
+  'property "localProfileDir" is non-configurable and can\'t be deleted',
+  'property "profileDir" is non-configurable and can\'t be deleted',
+];
+
+let consoleListener = {
+  observe(subject, topic, data) {
+    let msg = subject.wrappedJSObject;
+    let messageContents = msg.arguments[0]?.message || msg.arguments[0];
+    if (
+      msg.level == "error" &&
+      !consoleAllowList.some(e => messageContents.includes(e))
+    ) {
+      Assert.ok(false, "Unexpected console message: " + messageContents);
+    }
+  },
+};
+
+Services.obs.addObserver(consoleListener, "console-api-log-event");
+
+registerCleanupFunction(async () => {
+  Services.obs.removeObserver(consoleListener, "console-api-log-event");
+});

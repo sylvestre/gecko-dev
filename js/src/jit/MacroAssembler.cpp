@@ -6,26 +6,43 @@
 
 #include "jit/MacroAssembler-inl.h"
 
-#include "mozilla/CheckedInt.h"
+#include "mozilla/FloatingPoint.h"
 #include "mozilla/MathAlgorithms.h"
+#include "mozilla/XorShift128PlusRNG.h"
+
+#include <algorithm>
 
 #include "jsfriendapi.h"
 
-#include "builtin/TypedObject.h"
-#include "gc/GCTrace.h"
+#include "gc/GCProbes.h"
+#include "jit/ABIFunctions.h"
 #include "jit/AtomicOp.h"
+#include "jit/AtomicOperations.h"
 #include "jit/Bailouts.h"
 #include "jit/BaselineFrame.h"
 #include "jit/BaselineIC.h"
 #include "jit/BaselineJIT.h"
+#include "jit/JitFrames.h"
 #include "jit/JitOptions.h"
+#include "jit/JitRuntime.h"
 #include "jit/Lowering.h"
 #include "jit/MIR.h"
+#include "jit/MoveEmitter.h"
+#include "jit/SharedICHelpers.h"
+#include "jit/Simulator.h"
 #include "js/Conversions.h"
-#include "js/Printf.h"
+#include "js/friend/DOMProxy.h"  // JS::ExpandoAndGeneration
+#include "js/ScalarType.h"       // js::Scalar::Type
+#include "vm/ArgumentsObject.h"
+#include "vm/ArrayBufferViewObject.h"
+#include "vm/FunctionFlags.h"  // js::FunctionFlags
+#include "vm/JSContext.h"
 #include "vm/TraceLogging.h"
+#include "vm/TypedArrayObject.h"
+#include "wasm/WasmTypes.h"
 
 #include "gc/Nursery-inl.h"
+#include "jit/ABIFunctionList-inl.h"
 #include "jit/shared/Lowering-shared-inl.h"
 #include "jit/TemplateObject-inl.h"
 #include "vm/Interpreter-inl.h"
@@ -38,7 +55,7 @@ using namespace js::jit;
 using JS::GenericNaN;
 using JS::ToInt32;
 
-using mozilla::CheckedUint32;
+using mozilla::CheckedInt;
 
 template <typename T>
 static void EmitTypeCheck(MacroAssembler& masm, Assembler::Condition cond,
@@ -48,32 +65,36 @@ static void EmitTypeCheck(MacroAssembler& masm, Assembler::Condition cond,
     return;
   }
   switch (type.primitive()) {
-    case JSVAL_TYPE_DOUBLE:
+    case ValueType::Double:
       // TI double type includes int32.
       masm.branchTestNumber(cond, src, label);
       break;
-    case JSVAL_TYPE_INT32:
+    case ValueType::Int32:
       masm.branchTestInt32(cond, src, label);
       break;
-    case JSVAL_TYPE_BOOLEAN:
+    case ValueType::Boolean:
       masm.branchTestBoolean(cond, src, label);
       break;
-    case JSVAL_TYPE_STRING:
+    case ValueType::String:
       masm.branchTestString(cond, src, label);
       break;
-    case JSVAL_TYPE_SYMBOL:
+    case ValueType::Symbol:
       masm.branchTestSymbol(cond, src, label);
       break;
-    case JSVAL_TYPE_NULL:
+    case ValueType::BigInt:
+      masm.branchTestBigInt(cond, src, label);
+      break;
+    case ValueType::Null:
       masm.branchTestNull(cond, src, label);
       break;
-    case JSVAL_TYPE_UNDEFINED:
+    case ValueType::Undefined:
       masm.branchTestUndefined(cond, src, label);
       break;
-    case JSVAL_TYPE_MAGIC:
+    case ValueType::Magic:
       masm.branchTestMagic(cond, src, label);
       break;
-    default:
+    case ValueType::PrivateGCThing:
+    case ValueType::Object:
       MOZ_CRASH("Unexpected type");
   }
 }
@@ -96,10 +117,11 @@ void MacroAssembler::guardTypeSet(const Source& address, const TypeSet* types,
   MOZ_ASSERT(!types->unknown());
 
   Label matched;
-  TypeSet::Type tests[8] = {TypeSet::Int32Type(),    TypeSet::UndefinedType(),
-                            TypeSet::BooleanType(),  TypeSet::StringType(),
-                            TypeSet::SymbolType(),   TypeSet::NullType(),
-                            TypeSet::MagicArgType(), TypeSet::AnyObjectType()};
+  TypeSet::Type tests[] = {TypeSet::Int32Type(),    TypeSet::UndefinedType(),
+                           TypeSet::BooleanType(),  TypeSet::StringType(),
+                           TypeSet::SymbolType(),   TypeSet::BigIntType(),
+                           TypeSet::NullType(),     TypeSet::MagicArgType(),
+                           TypeSet::AnyObjectType()};
 
   // The double type also implies Int32.
   // So replace the int32 test with the double one.
@@ -173,6 +195,70 @@ void MacroAssembler::guardTypeSet(const Source& address, const TypeSet* types,
   bind(&matched);
 }
 
+template <>
+void MacroAssembler::guardTypeSet(const TypedOrValueRegister& reg,
+                                  const TypeSet* types, BarrierKind kind,
+                                  Register unboxScratch, Register objScratch,
+                                  Register spectreRegToZero, Label* miss) {
+  // See guardTypeSet comments above. This is a specialization for
+  // TypedOrValueRegister.
+
+  MOZ_ASSERT(kind == BarrierKind::TypeTagOnly || kind == BarrierKind::TypeSet);
+  MOZ_ASSERT(!types->unknown());
+
+  if (reg.hasValue()) {
+    guardTypeSet(reg.valueReg(), types, kind, unboxScratch, objScratch,
+                 spectreRegToZero, miss);
+    return;
+  }
+
+  MIRType valType = reg.type();
+  MOZ_ASSERT(valType != MIRType::Value);
+
+  if (valType != MIRType::Object) {
+    // Barrier always either succeeds or fails.
+    if (!types->hasType(TypeSet::PrimitiveType(valType))) {
+      jump(miss);
+    }
+    return;
+  }
+
+  if (types->unknownObject()) {
+    // Barrier always succeeds.
+    return;
+  }
+
+  if (types->getObjectCount() == 0) {
+    // Barrier always fails.
+    jump(miss);
+    return;
+  }
+
+  if (kind == BarrierKind::TypeTagOnly) {
+    // Barrier always succeeds. Assert the type matches in DEBUG builds.
+#ifdef DEBUG
+    Label fail, matched;
+    Register obj = reg.typedReg().gpr();
+    guardObjectType(obj, types, objScratch, spectreRegToZero, &fail);
+    jump(&matched);
+
+    bind(&fail);
+    guardTypeSetMightBeIncomplete(types, obj, objScratch, &matched);
+    assumeUnreachable("Unexpected object type");
+
+    bind(&matched);
+#endif
+    return;
+  }
+
+  MOZ_ASSERT(kind == BarrierKind::TypeSet);
+  MOZ_ASSERT(objScratch != InvalidReg);
+
+  // Test specific objects.
+  Register obj = reg.typedReg().gpr();
+  guardObjectType(obj, types, objScratch, spectreRegToZero, miss);
+}
+
 #ifdef DEBUG
 // guardTypeSetMightBeIncomplete is only used in DEBUG builds. If this ever
 // changes, we need to make sure it's Spectre-safe.
@@ -189,12 +275,6 @@ void MacroAssembler::guardTypeSetMightBeIncomplete(const TypeSet* types,
     jump(label);
     return;
   }
-
-  loadPtr(Address(obj, JSObject::offsetOfGroup()), scratch);
-  load32(Address(scratch, ObjectGroup::offsetOfFlags()), scratch);
-  and32(Imm32(OBJECT_FLAG_ADDENDUM_MASK), scratch);
-  branch32(Assembler::Equal, scratch,
-           Imm32(ObjectGroup::addendumOriginalUnboxedGroupValue()), label);
 
   for (size_t i = 0; i < types->getObjectCount(); i++) {
     if (JSObject* singleton = getSingletonAndDelayBarrier(types, i)) {
@@ -335,10 +415,11 @@ template void MacroAssembler::guardTypeSet(
     const ValueOperand& value, const TypeSet* types, BarrierKind kind,
     Register unboxScratch, Register objScratch, Register spectreRegToZero,
     Label* miss);
-template void MacroAssembler::guardTypeSet(
-    const TypedOrValueRegister& value, const TypeSet* types, BarrierKind kind,
-    Register unboxScratch, Register objScratch, Register spectreRegToZero,
-    Label* miss);
+
+TrampolinePtr MacroAssembler::preBarrierTrampoline(MIRType type) {
+  const JitRuntime* rt = GetJitContext()->runtime->jitRuntime();
+  return rt->preBarrier(type);
+}
 
 template <typename S, typename T>
 static void StoreToTypedFloatArray(MacroAssembler& masm, int arrayType,
@@ -366,10 +447,54 @@ void MacroAssembler::storeToTypedFloatArray(Scalar::Type arrayType,
   StoreToTypedFloatArray(*this, arrayType, value, dest);
 }
 
+template <typename S, typename T>
+static void StoreToTypedBigIntArray(MacroAssembler& masm,
+                                    Scalar::Type arrayType, const S& value,
+                                    const T& dest) {
+  MOZ_ASSERT(Scalar::isBigIntType(arrayType));
+  masm.store64(value, dest);
+}
+
+void MacroAssembler::storeToTypedBigIntArray(Scalar::Type arrayType,
+                                             Register64 value,
+                                             const BaseIndex& dest) {
+  StoreToTypedBigIntArray(*this, arrayType, value, dest);
+}
+void MacroAssembler::storeToTypedBigIntArray(Scalar::Type arrayType,
+                                             Register64 value,
+                                             const Address& dest) {
+  StoreToTypedBigIntArray(*this, arrayType, value, dest);
+}
+
+void MacroAssembler::boxUint32(Register source, ValueOperand dest,
+                               bool allowDouble, Label* fail) {
+  if (allowDouble) {
+    // If the value fits in an int32, store an int32 type tag.
+    // Else, convert the value to double and box it.
+    Label done, isDouble;
+    branchTest32(Assembler::Signed, source, source, &isDouble);
+    {
+      tagValue(JSVAL_TYPE_INT32, source, dest);
+      jump(&done);
+    }
+    bind(&isDouble);
+    {
+      ScratchDoubleScope fpscratch(*this);
+      convertUInt32ToDouble(source, fpscratch);
+      boxDouble(fpscratch, dest, fpscratch);
+    }
+    bind(&done);
+  } else {
+    // Fail if the value does not fit in an int32.
+    branchTest32(Assembler::Signed, source, source, fail);
+    tagValue(JSVAL_TYPE_INT32, source, dest);
+  }
+}
+
 template <typename T>
 void MacroAssembler::loadFromTypedArray(Scalar::Type arrayType, const T& src,
                                         AnyRegister dest, Register temp,
-                                        Label* fail, bool canonicalizeDoubles) {
+                                        Label* fail) {
   switch (arrayType) {
     case Scalar::Int8:
       load8SignExtend(src, dest.gpr());
@@ -406,10 +531,10 @@ void MacroAssembler::loadFromTypedArray(Scalar::Type arrayType, const T& src,
       break;
     case Scalar::Float64:
       loadDouble(src, dest.fpu());
-      if (canonicalizeDoubles) {
-        canonicalizeDouble(dest.fpu());
-      }
+      canonicalizeDouble(dest.fpu());
       break;
+    case Scalar::BigInt64:
+    case Scalar::BigUint64:
     default:
       MOZ_CRASH("Invalid typed array type");
   }
@@ -418,13 +543,11 @@ void MacroAssembler::loadFromTypedArray(Scalar::Type arrayType, const T& src,
 template void MacroAssembler::loadFromTypedArray(Scalar::Type arrayType,
                                                  const Address& src,
                                                  AnyRegister dest,
-                                                 Register temp, Label* fail,
-                                                 bool canonicalizeDoubles);
+                                                 Register temp, Label* fail);
 template void MacroAssembler::loadFromTypedArray(Scalar::Type arrayType,
                                                  const BaseIndex& src,
                                                  AnyRegister dest,
-                                                 Register temp, Label* fail,
-                                                 bool canonicalizeDoubles);
+                                                 Register temp, Label* fail);
 
 template <typename T>
 void MacroAssembler::loadFromTypedArray(Scalar::Type arrayType, const T& src,
@@ -445,38 +568,26 @@ void MacroAssembler::loadFromTypedArray(Scalar::Type arrayType, const T& src,
     case Scalar::Uint32:
       // Don't clobber dest when we could fail, instead use temp.
       load32(src, temp);
-      if (allowDouble) {
-        // If the value fits in an int32, store an int32 type tag.
-        // Else, convert the value to double and box it.
-        Label done, isDouble;
-        branchTest32(Assembler::Signed, temp, temp, &isDouble);
-        {
-          tagValue(JSVAL_TYPE_INT32, temp, dest);
-          jump(&done);
-        }
-        bind(&isDouble);
-        {
-          convertUInt32ToDouble(temp, ScratchDoubleReg);
-          boxDouble(ScratchDoubleReg, dest, ScratchDoubleReg);
-        }
-        bind(&done);
-      } else {
-        // Bailout if the value does not fit in an int32.
-        branchTest32(Assembler::Signed, temp, temp, fail);
-        tagValue(JSVAL_TYPE_INT32, temp, dest);
-      }
+      boxUint32(temp, dest, allowDouble, fail);
       break;
-    case Scalar::Float32:
-      loadFromTypedArray(arrayType, src, AnyRegister(ScratchFloat32Reg),
+    case Scalar::Float32: {
+      ScratchDoubleScope dscratch(*this);
+      FloatRegister fscratch = dscratch.asSingle();
+      loadFromTypedArray(arrayType, src, AnyRegister(fscratch),
                          dest.scratchReg(), nullptr);
-      convertFloat32ToDouble(ScratchFloat32Reg, ScratchDoubleReg);
-      boxDouble(ScratchDoubleReg, dest, ScratchDoubleReg);
+      convertFloat32ToDouble(fscratch, dscratch);
+      boxDouble(dscratch, dest, dscratch);
       break;
-    case Scalar::Float64:
-      loadFromTypedArray(arrayType, src, AnyRegister(ScratchDoubleReg),
+    }
+    case Scalar::Float64: {
+      ScratchDoubleScope fpscratch(*this);
+      loadFromTypedArray(arrayType, src, AnyRegister(fpscratch),
                          dest.scratchReg(), nullptr);
-      boxDouble(ScratchDoubleReg, dest, ScratchDoubleReg);
+      boxDouble(fpscratch, dest, fpscratch);
       break;
+    }
+    case Scalar::BigInt64:
+    case Scalar::BigUint64:
     default:
       MOZ_CRASH("Invalid typed array type");
   }
@@ -494,267 +605,31 @@ template void MacroAssembler::loadFromTypedArray(Scalar::Type arrayType,
                                                  Register temp, Label* fail);
 
 template <typename T>
-void MacroAssembler::loadUnboxedProperty(T address, JSValueType type,
-                                         TypedOrValueRegister output) {
-  switch (type) {
-    case JSVAL_TYPE_INT32: {
-      // Handle loading an int32 into a double reg.
-      if (output.type() == MIRType::Double) {
-        convertInt32ToDouble(address, output.typedReg().fpu());
-        break;
-      }
-      MOZ_FALLTHROUGH;
-    }
+void MacroAssembler::loadFromTypedBigIntArray(Scalar::Type arrayType,
+                                              const T& src, Register bigInt,
+                                              Register64 temp) {
+  MOZ_ASSERT(Scalar::isBigIntType(arrayType));
 
-    case JSVAL_TYPE_BOOLEAN:
-    case JSVAL_TYPE_STRING: {
-      Register outReg;
-      if (output.hasValue()) {
-        outReg = output.valueReg().scratchReg();
-      } else {
-        MOZ_ASSERT(output.type() == MIRTypeFromValueType(type));
-        outReg = output.typedReg().gpr();
-      }
-
-      switch (type) {
-        case JSVAL_TYPE_BOOLEAN:
-          load8ZeroExtend(address, outReg);
-          break;
-        case JSVAL_TYPE_INT32:
-          load32(address, outReg);
-          break;
-        case JSVAL_TYPE_STRING:
-          loadPtr(address, outReg);
-          break;
-        default:
-          MOZ_CRASH();
-      }
-
-      if (output.hasValue()) {
-        tagValue(type, outReg, output.valueReg());
-      }
-      break;
-    }
-
-    case JSVAL_TYPE_OBJECT:
-      if (output.hasValue()) {
-        Register scratch = output.valueReg().scratchReg();
-        loadPtr(address, scratch);
-
-        Label notNull, done;
-        branchPtr(Assembler::NotEqual, scratch, ImmWord(0), &notNull);
-
-        moveValue(NullValue(), output.valueReg());
-        jump(&done);
-
-        bind(&notNull);
-        tagValue(JSVAL_TYPE_OBJECT, scratch, output.valueReg());
-
-        bind(&done);
-      } else {
-        // Reading null can't be possible here, as otherwise the result
-        // would be a value (either because null has been read before or
-        // because there is a barrier).
-        Register reg = output.typedReg().gpr();
-        loadPtr(address, reg);
-#ifdef DEBUG
-        Label ok;
-        branchTestPtr(Assembler::NonZero, reg, reg, &ok);
-        assumeUnreachable("Null not possible");
-        bind(&ok);
-#endif
-      }
-      break;
-
-    case JSVAL_TYPE_DOUBLE:
-      // Note: doubles in unboxed objects are not accessed through other
-      // views and do not need canonicalization.
-      if (output.hasValue()) {
-        loadValue(address, output.valueReg());
-      } else {
-        loadDouble(address, output.typedReg().fpu());
-      }
-      break;
-
-    default:
-      MOZ_CRASH();
-  }
+  load64(src, temp);
+  initializeBigInt64(arrayType, bigInt, temp);
 }
 
-template void MacroAssembler::loadUnboxedProperty(Address address,
-                                                  JSValueType type,
-                                                  TypedOrValueRegister output);
-
-template void MacroAssembler::loadUnboxedProperty(BaseIndex address,
-                                                  JSValueType type,
-                                                  TypedOrValueRegister output);
-
-static void StoreUnboxedFailure(MacroAssembler& masm, Label* failure) {
-  // Storing a value to an unboxed property is a fallible operation and
-  // the caller must provide a failure label if a particular unboxed store
-  // might fail. Sometimes, however, a store that cannot succeed (such as
-  // storing a string to an int32 property) will be marked as infallible.
-  // This can only happen if the code involved is unreachable.
-  if (failure) {
-    masm.jump(failure);
-  } else {
-    masm.assumeUnreachable("Incompatible write to unboxed property");
-  }
-}
-
-template <typename T>
-void MacroAssembler::storeUnboxedProperty(T address, JSValueType type,
-                                          const ConstantOrRegister& value,
-                                          Label* failure) {
-  switch (type) {
-    case JSVAL_TYPE_BOOLEAN:
-      if (value.constant()) {
-        if (value.value().isBoolean()) {
-          store8(Imm32(value.value().toBoolean()), address);
-        } else {
-          StoreUnboxedFailure(*this, failure);
-        }
-      } else if (value.reg().hasTyped()) {
-        if (value.reg().type() == MIRType::Boolean) {
-          store8(value.reg().typedReg().gpr(), address);
-        } else {
-          StoreUnboxedFailure(*this, failure);
-        }
-      } else {
-        if (failure) {
-          branchTestBoolean(Assembler::NotEqual, value.reg().valueReg(),
-                            failure);
-        }
-        storeUnboxedPayload(value.reg().valueReg(), address, /* width = */ 1,
-                            type);
-      }
-      break;
-
-    case JSVAL_TYPE_INT32:
-      if (value.constant()) {
-        if (value.value().isInt32()) {
-          store32(Imm32(value.value().toInt32()), address);
-        } else {
-          StoreUnboxedFailure(*this, failure);
-        }
-      } else if (value.reg().hasTyped()) {
-        if (value.reg().type() == MIRType::Int32) {
-          store32(value.reg().typedReg().gpr(), address);
-        } else {
-          StoreUnboxedFailure(*this, failure);
-        }
-      } else {
-        if (failure) {
-          branchTestInt32(Assembler::NotEqual, value.reg().valueReg(), failure);
-        }
-        storeUnboxedPayload(value.reg().valueReg(), address, /* width = */ 4,
-                            type);
-      }
-      break;
-
-    case JSVAL_TYPE_DOUBLE:
-      if (value.constant()) {
-        if (value.value().isNumber()) {
-          loadConstantDouble(value.value().toNumber(), ScratchDoubleReg);
-          storeDouble(ScratchDoubleReg, address);
-        } else {
-          StoreUnboxedFailure(*this, failure);
-        }
-      } else if (value.reg().hasTyped()) {
-        if (value.reg().type() == MIRType::Int32) {
-          convertInt32ToDouble(value.reg().typedReg().gpr(), ScratchDoubleReg);
-          storeDouble(ScratchDoubleReg, address);
-        } else if (value.reg().type() == MIRType::Double) {
-          storeDouble(value.reg().typedReg().fpu(), address);
-        } else {
-          StoreUnboxedFailure(*this, failure);
-        }
-      } else {
-        ValueOperand reg = value.reg().valueReg();
-        Label notInt32, end;
-        branchTestInt32(Assembler::NotEqual, reg, &notInt32);
-        int32ValueToDouble(reg, ScratchDoubleReg);
-        storeDouble(ScratchDoubleReg, address);
-        jump(&end);
-        bind(&notInt32);
-        if (failure) {
-          branchTestDouble(Assembler::NotEqual, reg, failure);
-        }
-        storeValue(reg, address);
-        bind(&end);
-      }
-      break;
-
-    case JSVAL_TYPE_OBJECT:
-      if (value.constant()) {
-        if (value.value().isObjectOrNull()) {
-          storePtr(ImmGCPtr(value.value().toObjectOrNull()), address);
-        } else {
-          StoreUnboxedFailure(*this, failure);
-        }
-      } else if (value.reg().hasTyped()) {
-        MOZ_ASSERT(value.reg().type() != MIRType::Null);
-        if (value.reg().type() == MIRType::Object) {
-          storePtr(value.reg().typedReg().gpr(), address);
-        } else {
-          StoreUnboxedFailure(*this, failure);
-        }
-      } else {
-        if (failure) {
-          Label ok;
-          branchTestNull(Assembler::Equal, value.reg().valueReg(), &ok);
-          branchTestObject(Assembler::NotEqual, value.reg().valueReg(),
-                           failure);
-          bind(&ok);
-        }
-        storeUnboxedPayload(value.reg().valueReg(), address,
-                            /* width = */ sizeof(uintptr_t), type);
-      }
-      break;
-
-    case JSVAL_TYPE_STRING:
-      if (value.constant()) {
-        if (value.value().isString()) {
-          storePtr(ImmGCPtr(value.value().toString()), address);
-        } else {
-          StoreUnboxedFailure(*this, failure);
-        }
-      } else if (value.reg().hasTyped()) {
-        if (value.reg().type() == MIRType::String) {
-          storePtr(value.reg().typedReg().gpr(), address);
-        } else {
-          StoreUnboxedFailure(*this, failure);
-        }
-      } else {
-        if (failure) {
-          branchTestString(Assembler::NotEqual, value.reg().valueReg(),
-                           failure);
-        }
-        storeUnboxedPayload(value.reg().valueReg(), address,
-                            /* width = */ sizeof(uintptr_t), type);
-      }
-      break;
-
-    default:
-      MOZ_CRASH();
-  }
-}
-
-template void MacroAssembler::storeUnboxedProperty(
-    Address address, JSValueType type, const ConstantOrRegister& value,
-    Label* failure);
-
-template void MacroAssembler::storeUnboxedProperty(
-    BaseIndex address, JSValueType type, const ConstantOrRegister& value,
-    Label* failure);
+template void MacroAssembler::loadFromTypedBigIntArray(Scalar::Type arrayType,
+                                                       const Address& src,
+                                                       Register bigInt,
+                                                       Register64 temp);
+template void MacroAssembler::loadFromTypedBigIntArray(Scalar::Type arrayType,
+                                                       const BaseIndex& src,
+                                                       Register bigInt,
+                                                       Register64 temp);
 
 // Inlined version of gc::CheckAllocatorState that checks the bare essentials
 // and bails for anything that cannot be handled with our jit allocators.
 void MacroAssembler::checkAllocatorState(Label* fail) {
-  // Don't execute the inline path if we are tracing allocations.
-  if (js::gc::gcTracer.traceEnabled()) {
-    jump(fail);
-  }
+  // Don't execute the inline path if GC probes are built in.
+#ifdef JS_GC_PROBES
+  jump(fail);
+#endif
 
 #ifdef JS_GC_ZEAL
   // Don't execute the inline path if gc zeal or tracing are active.
@@ -767,7 +642,7 @@ void MacroAssembler::checkAllocatorState(Label* fail) {
   // Don't execute the inline path if the realm has an object metadata callback,
   // as the metadata to use for the object may vary between executions of the
   // op.
-  if (GetJitContext()->realm->hasAllocationMetadataBuilder()) {
+  if (GetJitContext()->realm()->hasAllocationMetadataBuilder()) {
     jump(fail);
   }
 }
@@ -800,17 +675,24 @@ void MacroAssembler::nurseryAllocateObject(Register result, Register temp,
 
   // No explicit check for nursery.isEnabled() is needed, as the comparison
   // with the nursery's end will always fail in such cases.
-  CompileZone* zone = GetJitContext()->realm->zone();
+  CompileZone* zone = GetJitContext()->realm()->zone();
   size_t thingSize = gc::Arena::thingSize(allocKind);
-  size_t totalSize = thingSize + nDynamicSlots * sizeof(HeapSlot);
+  size_t totalSize = thingSize + ObjectSlots::allocSize(nDynamicSlots);
   MOZ_ASSERT(totalSize < INT32_MAX);
   MOZ_ASSERT(totalSize % gc::CellAlignBytes == 0);
 
-  bumpPointerAllocate(result, temp, fail, zone->addressOfNurseryPosition(),
-                      zone->addressOfNurseryCurrentEnd(), totalSize, totalSize);
+  bumpPointerAllocate(
+      result, temp, fail, zone, zone->addressOfNurseryPosition(),
+      zone->addressOfNurseryCurrentEnd(), JS::TraceKind::Object, totalSize);
 
   if (nDynamicSlots) {
-    computeEffectiveAddress(Address(result, thingSize), temp);
+    store32(Imm32(nDynamicSlots),
+            Address(result, thingSize + ObjectSlots::offsetOfCapacity()));
+    store32(
+        Imm32(0),
+        Address(result, thingSize + ObjectSlots::offsetOfDictionarySlotSpan()));
+    computeEffectiveAddress(
+        Address(result, thingSize + ObjectSlots::offsetOfSlots()), temp);
     storePtr(temp, Address(result, NativeObject::offsetOfSlots()));
   }
 }
@@ -818,7 +700,7 @@ void MacroAssembler::nurseryAllocateObject(Register result, Register temp,
 // Inlined version of FreeSpan::allocate. This does not fill in slots_.
 void MacroAssembler::freeListAllocate(Register result, Register temp,
                                       gc::AllocKind allocKind, Label* fail) {
-  CompileZone* zone = GetJitContext()->realm->zone();
+  CompileZone* zone = GetJitContext()->realm()->zone();
   int thingSize = int(gc::Arena::thingSize(allocKind));
 
   Label fallback;
@@ -863,40 +745,6 @@ void MacroAssembler::freeListAllocate(Register result, Register temp,
   }
 }
 
-void MacroAssembler::callMallocStub(size_t nbytes, Register result,
-                                    Label* fail) {
-  // These registers must match the ones in JitRuntime::generateMallocStub.
-  const Register regReturn = CallTempReg0;
-  const Register regZone = CallTempReg0;
-  const Register regNBytes = CallTempReg1;
-
-  MOZ_ASSERT(nbytes > 0);
-  MOZ_ASSERT(nbytes <= INT32_MAX);
-
-  if (regZone != result) {
-    push(regZone);
-  }
-  if (regNBytes != result) {
-    push(regNBytes);
-  }
-
-  move32(Imm32(nbytes), regNBytes);
-  movePtr(ImmPtr(GetJitContext()->realm->zone()), regZone);
-  call(GetJitContext()->runtime->jitRuntime()->mallocStub());
-  if (regReturn != result) {
-    movePtr(regReturn, result);
-  }
-
-  if (regNBytes != result) {
-    pop(regNBytes);
-  }
-  if (regZone != result) {
-    pop(regZone);
-  }
-
-  branchTest32(Assembler::Zero, result, result, fail);
-}
-
 void MacroAssembler::callFreeStub(Register slots) {
   // This register must match the one in JitRuntime::generateFreeStub.
   const Register regSlots = CallTempReg0;
@@ -921,31 +769,14 @@ void MacroAssembler::allocateObject(Register result, Register temp,
     return nurseryAllocateObject(result, temp, allocKind, nDynamicSlots, fail);
   }
 
-  if (!nDynamicSlots) {
-    return freeListAllocate(result, temp, allocKind, fail);
+  // Fall back to calling into the VM to allocate objects in the tenured heap
+  // that have dynamic slots.
+  if (nDynamicSlots) {
+    jump(fail);
+    return;
   }
 
-  // Only NativeObject can have nDynamicSlots > 0 and reach here.
-
-  callMallocStub(nDynamicSlots * sizeof(GCPtrValue), temp, fail);
-
-  Label failAlloc;
-  Label success;
-
-  push(temp);
-  freeListAllocate(result, temp, allocKind, &failAlloc);
-
-  pop(temp);
-  storePtr(temp, Address(result, NativeObject::offsetOfSlots()));
-
-  jump(&success);
-
-  bind(&failAlloc);
-  pop(temp);
-  callFreeStub(temp);
-  jump(fail);
-
-  bind(&success);
+  return freeListAllocate(result, temp, allocKind, fail);
 }
 
 void MacroAssembler::createGCObject(Register obj, Register temp,
@@ -991,22 +822,43 @@ void MacroAssembler::nurseryAllocateString(Register result, Register temp,
   // No explicit check for nursery.isEnabled() is needed, as the comparison
   // with the nursery's end will always fail in such cases.
 
-  CompileZone* zone = GetJitContext()->realm->zone();
+  CompileZone* zone = GetJitContext()->realm()->zone();
+  uint64_t* allocStrsPtr = &zone->zone()->nurseryAllocatedStrings.ref();
+  inc64(AbsoluteAddress(allocStrsPtr));
   size_t thingSize = gc::Arena::thingSize(allocKind);
-  size_t totalSize = js::Nursery::stringHeaderSize() + thingSize;
-  MOZ_ASSERT(totalSize < INT32_MAX, "Nursery allocation too large");
-  MOZ_ASSERT(totalSize % gc::CellAlignBytes == 0);
 
-  bumpPointerAllocate(
-      result, temp, fail, zone->addressOfStringNurseryPosition(),
-      zone->addressOfStringNurseryCurrentEnd(), totalSize, thingSize);
-  storePtr(ImmPtr(zone), Address(result, -js::Nursery::stringHeaderSize()));
+  bumpPointerAllocate(result, temp, fail, zone,
+                      zone->addressOfStringNurseryPosition(),
+                      zone->addressOfStringNurseryCurrentEnd(),
+                      JS::TraceKind::String, thingSize);
+}
+
+// Inline version of Nursery::allocateBigInt.
+void MacroAssembler::nurseryAllocateBigInt(Register result, Register temp,
+                                           Label* fail) {
+  MOZ_ASSERT(IsNurseryAllocable(gc::AllocKind::BIGINT));
+
+  // No explicit check for nursery.isEnabled() is needed, as the comparison
+  // with the nursery's end will always fail in such cases.
+
+  CompileZone* zone = GetJitContext()->realm()->zone();
+  size_t thingSize = gc::Arena::thingSize(gc::AllocKind::BIGINT);
+
+  bumpPointerAllocate(result, temp, fail, zone,
+                      zone->addressOfBigIntNurseryPosition(),
+                      zone->addressOfBigIntNurseryCurrentEnd(),
+                      JS::TraceKind::BigInt, thingSize);
 }
 
 void MacroAssembler::bumpPointerAllocate(Register result, Register temp,
-                                         Label* fail, void* posAddr,
-                                         const void* curEndAddr,
-                                         uint32_t totalSize, uint32_t size) {
+                                         Label* fail, CompileZone* zone,
+                                         void* posAddr, const void* curEndAddr,
+                                         JS::TraceKind traceKind,
+                                         uint32_t size) {
+  uint32_t totalSize = size + Nursery::nurseryCellHeaderSize();
+  MOZ_ASSERT(totalSize < INT32_MAX, "Nursery allocation too large");
+  MOZ_ASSERT(totalSize % gc::CellAlignBytes == 0);
+
   // The position (allocation pointer) and the end pointer are stored
   // very close to each other -- specifically, easily within a 32 bit offset.
   // Use relative offsets between them, to avoid 64-bit immediate loads.
@@ -1025,9 +877,10 @@ void MacroAssembler::bumpPointerAllocate(Register result, Register temp,
   branchPtr(Assembler::Below, Address(temp, endOffset.value()), result, fail);
   storePtr(result, Address(temp, 0));
   subPtr(Imm32(size), result);
+  storePtr(ImmWord(zone->nurseryCellHeader(traceKind)),
+           Address(result, -js::Nursery::nurseryCellHeaderSize()));
 
   if (GetJitContext()->runtime->geckoProfiler().enabled()) {
-    CompileZone* zone = GetJitContext()->realm->zone();
     uint32_t* countAddress = zone->addressOfNurseryAllocCount();
     CheckedInt<int32_t> counterOffset =
         (CheckedInt<uintptr_t>(uintptr_t(countAddress)) -
@@ -1072,10 +925,24 @@ void MacroAssembler::newGCFatInlineString(Register result, Register temp,
                  attemptNursery ? gc::DefaultHeap : gc::TenuredHeap, fail);
 }
 
+void MacroAssembler::newGCBigInt(Register result, Register temp, Label* fail,
+                                 bool attemptNursery) {
+  checkAllocatorState(fail);
+
+  gc::InitialHeap initialHeap =
+      attemptNursery ? gc::DefaultHeap : gc::TenuredHeap;
+  if (shouldNurseryAllocate(gc::AllocKind::BIGINT, initialHeap)) {
+    MOZ_ASSERT(initialHeap == gc::DefaultHeap);
+    return nurseryAllocateBigInt(result, temp, fail);
+  }
+
+  freeListAllocate(result, temp, gc::AllocKind::BIGINT, fail);
+}
+
 void MacroAssembler::copySlotsFromTemplate(
     Register obj, const NativeTemplateObject& templateObj, uint32_t start,
     uint32_t end) {
-  uint32_t nfixed = Min(templateObj.numFixedSlots(), end);
+  uint32_t nfixed = std::min(templateObj.numFixedSlots(), end);
   for (unsigned i = start; i < nfixed; i++) {
     // Template objects are not exposed to script and therefore immutable.
     // However, regexp template objects are sometimes used directly (when
@@ -1160,42 +1027,16 @@ static void FindStartOfUninitializedAndUndefinedSlots(
   }
 }
 
-static void AllocateObjectBufferWithInit(JSContext* cx, TypedArrayObject* obj,
-                                         int32_t count) {
-  AutoUnsafeCallWithABI unsafe;
-
-  obj->initPrivate(nullptr);
-
-  // Negative numbers or zero will bail out to the slow path, which in turn will
-  // raise an invalid argument exception or create a correct object with zero
-  // elements.
-  if (count <= 0 || uint32_t(count) >= INT32_MAX / obj->bytesPerElement()) {
-    obj->setFixedSlot(TypedArrayObject::LENGTH_SLOT, Int32Value(0));
-    return;
-  }
-
-  obj->setFixedSlot(TypedArrayObject::LENGTH_SLOT, Int32Value(count));
-  size_t nbytes;
-
-  switch (obj->type()) {
-#define CREATE_TYPED_ARRAY(T, N)                                \
-  case Scalar::N:                                               \
-    MOZ_ALWAYS_TRUE(js::CalculateAllocSize<T>(count, &nbytes)); \
-    break;
-    JS_FOR_EACH_TYPED_ARRAY(CREATE_TYPED_ARRAY)
-#undef CREATE_TYPED_ARRAY
-    default:
-      MOZ_CRASH("Unsupported TypedArray type");
-  }
-
-  MOZ_ASSERT((CheckedUint32(nbytes) + sizeof(Value)).isValid());
-
-  nbytes = JS_ROUNDUP(nbytes, sizeof(Value));
-  void* buf = cx->nursery().allocateBuffer(obj, nbytes);
-  if (buf) {
-    obj->initPrivate(buf);
-    memset(buf, 0, nbytes);
-  }
+template <typename Src>
+inline void MacroAssembler::storeObjPrivate(Src ptr, const Address& address) {
+  // The private pointer is stored as a PrivateValue in a JS::Value, so on 32
+  // bit systems we also need to zero the top word.
+#ifdef JS_PUNBOX64
+  storePtr(ptr, address);
+#else
+  storePtr(ptr, LowWord(address));
+  store32(Imm32(0), HighWord(address));
+#endif
 }
 
 void MacroAssembler::initTypedArraySlots(Register obj, Register temp,
@@ -1206,24 +1047,29 @@ void MacroAssembler::initTypedArraySlots(Register obj, Register temp,
   MOZ_ASSERT(templateObj->hasPrivate());
   MOZ_ASSERT(!templateObj->hasBuffer());
 
-  size_t dataSlotOffset = TypedArrayObject::dataOffset();
-  size_t dataOffset = TypedArrayObject::dataOffset() + sizeof(HeapSlot);
+  constexpr size_t dataSlotOffset = ArrayBufferViewObject::dataOffset();
+  constexpr size_t dataOffset = dataSlotOffset + sizeof(HeapSlot);
 
   static_assert(
       TypedArrayObject::FIXED_DATA_START == TypedArrayObject::DATA_SLOT + 1,
       "fixed inline element data assumed to begin after the data slot");
 
+  static_assert(
+      TypedArrayObject::INLINE_BUFFER_LIMIT ==
+          JSObject::MAX_BYTE_SIZE - dataOffset,
+      "typed array inline buffer is limited by the maximum object byte size");
+
   // Initialise data elements to zero.
-  int32_t length = templateObj->length();
+  int32_t length = templateObj->length().deprecatedGetUint32();
   size_t nbytes = length * templateObj->bytesPerElement();
 
   if (lengthKind == TypedArrayLength::Fixed &&
-      dataOffset + nbytes <= JSObject::MAX_BYTE_SIZE) {
+      nbytes <= TypedArrayObject::INLINE_BUFFER_LIMIT) {
     MOZ_ASSERT(dataOffset + nbytes <= templateObj->tenuredSizeOfThis());
 
     // Store data elements inside the remaining JSObject slots.
     computeEffectiveAddress(Address(obj, dataOffset), temp);
-    storePtr(temp, Address(obj, dataSlotOffset));
+    storeObjPrivate(temp, Address(obj, dataSlotOffset));
 
     // Write enough zero pointers into fixed data to zero every
     // element.  (This zeroes past the end of a byte count that's
@@ -1237,12 +1083,7 @@ void MacroAssembler::initTypedArraySlots(Register obj, Register temp,
     for (size_t i = 0; i < numZeroPointers; i++) {
       storePtr(ImmWord(0), Address(obj, dataOffset + i * sizeof(char*)));
     }
-#ifdef DEBUG
-    if (nbytes == 0) {
-      store8(Imm32(TypedArrayObject::ZeroLengthArrayData),
-             Address(obj, dataSlotOffset));
-    }
-#endif
+    MOZ_ASSERT(nbytes > 0, "Zero-length TypedArrays need ZeroLengthArrayData");
   } else {
     if (lengthKind == TypedArrayLength::Fixed) {
       move32(Imm32(length), lengthReg);
@@ -1253,12 +1094,13 @@ void MacroAssembler::initTypedArraySlots(Register obj, Register temp,
     liveRegs.addUnchecked(obj);
     liveRegs.addUnchecked(lengthReg);
     PushRegsInMask(liveRegs);
+    using Fn = void (*)(JSContext * cx, TypedArrayObject * obj, int32_t count);
     setupUnalignedABICall(temp);
     loadJSContext(temp);
     passABIArg(temp);
     passABIArg(obj);
     passABIArg(lengthReg);
-    callWithABI(JS_FUNC_TO_DATA_PTR(void*, AllocateObjectBufferWithInit));
+    callWithABI<Fn, AllocateAndInitTypedArrayBuffer>();
     PopRegsInMask(liveRegs);
 
     // Fail when data elements is set to NULL.
@@ -1308,11 +1150,13 @@ void MacroAssembler::initGCSlots(Register obj, Register temp,
   if (initContents) {
     size_t offset = NativeObject::getFixedSlotOffset(startOfUninitialized);
     fillSlotsWithUninitialized(Address(obj, offset), temp, startOfUninitialized,
-                               Min(startOfUndefined, nfixed));
+                               std::min(startOfUndefined, nfixed));
 
-    offset = NativeObject::getFixedSlotOffset(startOfUndefined);
-    fillSlotsWithUndefined(Address(obj, offset), temp, startOfUndefined,
-                           nfixed);
+    if (startOfUndefined < nfixed) {
+      offset = NativeObject::getFixedSlotOffset(startOfUndefined);
+      fillSlotsWithUndefined(Address(obj, offset), temp, startOfUndefined,
+                             nfixed);
+    }
   }
 
   if (ndynamic) {
@@ -1338,13 +1182,6 @@ void MacroAssembler::initGCSlots(Register obj, Register temp,
   }
 }
 
-#ifdef JS_GC_TRACE
-static void TraceCreateObject(JSObject* obj) {
-  AutoUnsafeCallWithABI unsafe;
-  js::gc::gcTracer.traceCreateObject(obj);
-}
-#endif
-
 void MacroAssembler::initGCThing(Register obj, Register temp,
                                  const TemplateObject& templateObj,
                                  bool initContents) {
@@ -1353,9 +1190,8 @@ void MacroAssembler::initGCThing(Register obj, Register temp,
   storePtr(ImmGCPtr(templateObj.group()),
            Address(obj, JSObject::offsetOfGroup()));
 
-  if (gc::Cell* shape = templateObj.maybeShape()) {
-    storePtr(ImmGCPtr(shape), Address(obj, ShapedObject::offsetOfShape()));
-  }
+  storePtr(ImmGCPtr(templateObj.shape()),
+           Address(obj, JSObject::offsetOfShape()));
 
   if (templateObj.isNative()) {
     const NativeTemplateObject& ntemplate =
@@ -1367,7 +1203,8 @@ void MacroAssembler::initGCThing(Register obj, Register temp,
     // If the object has dynamic slots, the slots member has already been
     // filled in.
     if (!ntemplate.hasDynamicSlots()) {
-      storePtr(ImmPtr(nullptr), Address(obj, NativeObject::offsetOfSlots()));
+      storePtr(ImmPtr(emptyObjectSlots),
+               Address(obj, NativeObject::offsetOfSlots()));
     }
 
     if (ntemplate.denseElementsAreCopyOnWrite()) {
@@ -1412,41 +1249,14 @@ void MacroAssembler::initGCThing(Register obj, Register temp,
       if (ntemplate.hasPrivate() && !ntemplate.isTypedArrayObject()) {
         uint32_t nfixed = ntemplate.numFixedSlots();
         Address privateSlot(obj, NativeObject::getPrivateDataOffset(nfixed));
-        if (ntemplate.isRegExpObject()) {
-          // RegExpObject stores a GC thing (RegExpShared*) in its
-          // private slot, so we have to use ImmGCPtr.
-          storePtr(ImmGCPtr(ntemplate.regExpShared()), privateSlot);
-        } else {
-          storePtr(ImmPtr(ntemplate.getPrivate()), privateSlot);
-        }
+        storeObjPrivate(ImmPtr(ntemplate.getPrivate()), privateSlot);
       }
-    }
-  } else if (templateObj.isInlineTypedObject()) {
-    JS::AutoAssertNoGC nogc;  // off-thread, so cannot GC
-    size_t nbytes = templateObj.getInlineTypedObjectSize();
-    const uint8_t* memory = templateObj.getInlineTypedObjectMem(nogc);
-
-    // Memcpy the contents of the template object to the new object.
-    size_t offset = 0;
-    while (nbytes) {
-      uintptr_t value = *(uintptr_t*)(memory + offset);
-      storePtr(ImmWord(value),
-               Address(obj, InlineTypedObject::offsetOfDataStart() + offset));
-      nbytes = (nbytes < sizeof(uintptr_t)) ? 0 : nbytes - sizeof(uintptr_t);
-      offset += sizeof(uintptr_t);
-    }
-  } else if (templateObj.isUnboxedPlainObject()) {
-    MOZ_ASSERT(!templateObj.unboxedObjectHasExpando());
-    storePtr(ImmPtr(nullptr),
-             Address(obj, UnboxedPlainObject::offsetOfExpando()));
-    if (initContents) {
-      initUnboxedObjectContents(obj, templateObj.unboxedObjectLayout());
     }
   } else {
     MOZ_CRASH("Unknown object");
   }
 
-#ifdef JS_GC_TRACE
+#ifdef JS_GC_PROBES
   AllocatableRegisterSet regs(RegisterSet::Volatile());
   LiveRegisterSet save(regs.asLiveSet());
   PushRegsInMask(save);
@@ -1454,68 +1264,55 @@ void MacroAssembler::initGCThing(Register obj, Register temp,
   regs.takeUnchecked(obj);
   Register temp2 = regs.takeAnyGeneral();
 
+  using Fn = void (*)(JSObject * obj);
   setupUnalignedABICall(temp2);
   passABIArg(obj);
-  callWithABI(JS_FUNC_TO_DATA_PTR(void*, TraceCreateObject));
+  callWithABI<Fn, TraceCreateObject>();
 
   PopRegsInMask(save);
 #endif
-}
-
-void MacroAssembler::initUnboxedObjectContents(Register object,
-                                               const UnboxedLayout& layout) {
-  // Initialize reference fields of the object, per UnboxedPlainObject::create.
-  if (const int32_t* list = layout.traceList()) {
-    while (*list != -1) {
-      storePtr(ImmGCPtr(GetJitContext()->runtime->names().empty),
-               Address(object, UnboxedPlainObject::offsetOfData() + *list));
-      list++;
-    }
-    list++;
-    while (*list != -1) {
-      storePtr(ImmWord(0),
-               Address(object, UnboxedPlainObject::offsetOfData() + *list));
-      list++;
-    }
-    // Unboxed objects don't have Values to initialize.
-    MOZ_ASSERT(*(list + 1) == -1);
-  }
 }
 
 void MacroAssembler::compareStrings(JSOp op, Register left, Register right,
                                     Register result, Label* fail) {
   MOZ_ASSERT(left != result);
   MOZ_ASSERT(right != result);
-  MOZ_ASSERT(IsEqualityOp(op));
+  MOZ_ASSERT(IsEqualityOp(op) || IsRelationalOp(op));
 
-  Label done;
   Label notPointerEqual;
   // If operands point to the same instance, the strings are trivially equal.
-  branchPtr(Assembler::NotEqual, left, right, &notPointerEqual);
-  move32(Imm32(op == JSOP_EQ || op == JSOP_STRICTEQ), result);
-  jump(&done);
+  branchPtr(Assembler::NotEqual, left, right,
+            IsEqualityOp(op) ? &notPointerEqual : fail);
+  move32(Imm32(op == JSOp::Eq || op == JSOp::StrictEq || op == JSOp::Le ||
+               op == JSOp::Ge),
+         result);
 
-  bind(&notPointerEqual);
+  if (IsEqualityOp(op)) {
+    Label done;
+    jump(&done);
 
-  Label leftIsNotAtom;
-  Label setNotEqualResult;
-  // Atoms cannot be equal to each other if they point to different strings.
-  Imm32 nonAtomBit(JSString::NON_ATOM_BIT);
-  branchTest32(Assembler::NonZero, Address(left, JSString::offsetOfFlags()),
-               nonAtomBit, &leftIsNotAtom);
-  branchTest32(Assembler::Zero, Address(right, JSString::offsetOfFlags()),
-               nonAtomBit, &setNotEqualResult);
+    bind(&notPointerEqual);
 
-  bind(&leftIsNotAtom);
-  // Strings of different length can never be equal.
-  loadStringLength(left, result);
-  branch32(Assembler::Equal, Address(right, JSString::offsetOfLength()), result,
-           fail);
+    Label leftIsNotAtom;
+    Label setNotEqualResult;
+    // Atoms cannot be equal to each other if they point to different strings.
+    Imm32 atomBit(JSString::ATOM_BIT);
+    branchTest32(Assembler::Zero, Address(left, JSString::offsetOfFlags()),
+                 atomBit, &leftIsNotAtom);
+    branchTest32(Assembler::NonZero, Address(right, JSString::offsetOfFlags()),
+                 atomBit, &setNotEqualResult);
 
-  bind(&setNotEqualResult);
-  move32(Imm32(op == JSOP_NE || op == JSOP_STRICTNE), result);
+    bind(&leftIsNotAtom);
+    // Strings of different length can never be equal.
+    loadStringLength(left, result);
+    branch32(Assembler::Equal, Address(right, JSString::offsetOfLength()),
+             result, fail);
 
-  bind(&done);
+    bind(&setNotEqualResult);
+    move32(Imm32(op == JSOp::Ne || op == JSOp::StrictNe), result);
+
+    bind(&done);
+  }
 }
 
 void MacroAssembler::loadStringChars(Register str, Register dest,
@@ -1643,12 +1440,12 @@ void MacroAssembler::loadDependentStringBase(Register str, Register dest) {
   MOZ_ASSERT(str != dest);
 
   if (JitOptions.spectreStringMitigations) {
-    // If the string does not have a base-string, zero the |str| register.
+    // If the string is not a dependent string, zero the |str| register.
     // The code below loads str->base so this should block speculative
     // execution.
     movePtr(ImmWord(0), dest);
     test32MovePtr(Assembler::Zero, Address(str, JSString::offsetOfFlags()),
-                  Imm32(JSString::HAS_BASE_BIT), dest, str);
+                  Imm32(JSString::DEPENDENT_BIT), dest, str);
   }
 
   loadPtr(Address(str, JSDependentString::offsetOfBase()), dest);
@@ -1732,6 +1529,143 @@ void MacroAssembler::addToCharPtr(Register chars, Register index,
   }
 }
 
+void MacroAssembler::loadBigIntDigits(Register bigInt, Register digits) {
+  MOZ_ASSERT(digits != bigInt);
+
+  // Load the inline digits.
+  computeEffectiveAddress(Address(bigInt, BigInt::offsetOfInlineDigits()),
+                          digits);
+
+  // If inline digits aren't used, load the heap digits. Use a conditional move
+  // to prevent speculative execution.
+  cmp32LoadPtr(Assembler::GreaterThan,
+               Address(bigInt, BigInt::offsetOfLength()),
+               Imm32(int32_t(BigInt::inlineDigitsLength())),
+               Address(bigInt, BigInt::offsetOfHeapDigits()), digits);
+}
+
+void MacroAssembler::loadBigInt64(Register bigInt, Register64 dest) {
+  // This code follows the implementation of |BigInt::toUint64()|. We're also
+  // using it for inline callers of |BigInt::toInt64()|, which works, because
+  // all supported Jit architectures use a two's complement representation for
+  // int64 values, which means the WrapToSigned call in toInt64() is a no-op.
+
+  Label done, nonZero;
+
+  branch32(Assembler::NotEqual, Address(bigInt, BigInt::offsetOfLength()),
+           Imm32(0), &nonZero);
+  {
+    move64(Imm64(0), dest);
+    jump(&done);
+  }
+  bind(&nonZero);
+
+#ifdef JS_PUNBOX64
+  Register digits = dest.reg;
+#else
+  Register digits = dest.high;
+#endif
+
+  loadBigIntDigits(bigInt, digits);
+
+#if JS_PUNBOX64
+  // Load the first digit into the destination register.
+  load64(Address(digits, 0), dest);
+#else
+  // Load the first digit into the destination register's low value.
+  load32(Address(digits, 0), dest.low);
+
+  // And conditionally load the second digit into the high value register.
+  Label twoDigits, digitsDone;
+  branch32(Assembler::GreaterThan, Address(bigInt, BigInt::offsetOfLength()),
+           Imm32(1), &twoDigits);
+  {
+    move32(Imm32(0), dest.high);
+    jump(&digitsDone);
+  }
+  {
+    bind(&twoDigits);
+    load32(Address(digits, sizeof(BigInt::Digit)), dest.high);
+  }
+  bind(&digitsDone);
+#endif
+
+  branchTest32(Assembler::Zero, Address(bigInt, BigInt::offsetOfFlags()),
+               Imm32(BigInt::signBitMask()), &done);
+  neg64(dest);
+
+  bind(&done);
+}
+
+void MacroAssembler::loadFirstBigIntDigitOrZero(Register bigInt,
+                                                Register dest) {
+  Label done, nonZero;
+  branch32(Assembler::NotEqual, Address(bigInt, BigInt::offsetOfLength()),
+           Imm32(0), &nonZero);
+  {
+    movePtr(ImmWord(0), dest);
+    jump(&done);
+  }
+  bind(&nonZero);
+
+  loadBigIntDigits(bigInt, dest);
+
+  // Load the first digit into the destination register.
+  loadPtr(Address(dest, 0), dest);
+
+  bind(&done);
+}
+
+void MacroAssembler::initializeBigInt64(Scalar::Type type, Register bigInt,
+                                        Register64 val) {
+  MOZ_ASSERT(Scalar::isBigIntType(type));
+
+  store32(Imm32(0), Address(bigInt, BigInt::offsetOfFlags()));
+
+  Label done, nonZero;
+  branch64(Assembler::NotEqual, val, Imm64(0), &nonZero);
+  {
+    store32(Imm32(0), Address(bigInt, BigInt::offsetOfLength()));
+    jump(&done);
+  }
+  bind(&nonZero);
+
+  if (type == Scalar::BigInt64) {
+    // Set the sign-bit for negative values and then continue with the two's
+    // complement.
+    Label isPositive;
+    branch64(Assembler::GreaterThan, val, Imm64(0), &isPositive);
+    {
+      store32(Imm32(BigInt::signBitMask()),
+              Address(bigInt, BigInt::offsetOfFlags()));
+      neg64(val);
+    }
+    bind(&isPositive);
+  }
+
+  store32(Imm32(1), Address(bigInt, BigInt::offsetOfLength()));
+
+  static_assert(sizeof(BigInt::Digit) == sizeof(uintptr_t),
+                "BigInt Digit size matches uintptr_t, so there's a single "
+                "store on 64-bit and up to two stores on 32-bit");
+
+#ifndef JS_PUNBOX64
+  Label singleDigit;
+  branchTest32(Assembler::Zero, val.high, val.high, &singleDigit);
+  store32(Imm32(2), Address(bigInt, BigInt::offsetOfLength()));
+  bind(&singleDigit);
+
+  // We can perform a single store64 on 32-bit platforms, because inline
+  // storage can store at least two 32-bit integers.
+  static_assert(BigInt::inlineDigitsLength() >= 2,
+                "BigInt inline storage can store at least two digits");
+#endif
+
+  store64(val, Address(bigInt, js::BigInt::offsetOfInlineDigits()));
+
+  bind(&done);
+}
+
 void MacroAssembler::typeOfObject(Register obj, Register scratch, Label* slow,
                                   Label* isObject, Label* isCallable,
                                   Label* isUndefined) {
@@ -1744,19 +1678,65 @@ void MacroAssembler::typeOfObject(Register obj, Register scratch, Label* slow,
   branchPtr(Assembler::Equal, scratch, ImmPtr(&JSFunction::class_), isCallable);
 
   // Objects that emulate undefined.
-  Address flags(scratch, Class::offsetOfFlags());
+  Address flags(scratch, JSClass::offsetOfFlags());
   branchTest32(Assembler::NonZero, flags, Imm32(JSCLASS_EMULATES_UNDEFINED),
                isUndefined);
 
   // Handle classes with a call hook.
-  branchPtr(Assembler::Equal, Address(scratch, offsetof(js::Class, cOps)),
+  branchPtr(Assembler::Equal, Address(scratch, offsetof(JSClass, cOps)),
             ImmPtr(nullptr), isObject);
 
-  loadPtr(Address(scratch, offsetof(js::Class, cOps)), scratch);
-  branchPtr(Assembler::Equal, Address(scratch, offsetof(js::ClassOps, call)),
+  loadPtr(Address(scratch, offsetof(JSClass, cOps)), scratch);
+  branchPtr(Assembler::Equal, Address(scratch, offsetof(JSClassOps, call)),
             ImmPtr(nullptr), isObject);
 
   jump(isCallable);
+}
+
+void MacroAssembler::isCallableOrConstructor(bool isCallable, Register obj,
+                                             Register output, Label* isProxy) {
+  Label notFunction, hasCOps, done;
+  loadObjClassUnsafe(obj, output);
+
+  // An object is callable iff:
+  //   is<JSFunction>() || (getClass()->cOps && getClass()->cOps->call).
+  // An object is constructor iff:
+  //  ((is<JSFunction>() && as<JSFunction>().isConstructor) ||
+  //   (getClass()->cOps && getClass()->cOps->construct)).
+  branchPtr(Assembler::NotEqual, output, ImmPtr(&JSFunction::class_),
+            &notFunction);
+  if (isCallable) {
+    move32(Imm32(1), output);
+  } else {
+    static_assert(mozilla::IsPowerOfTwo(uint32_t(FunctionFlags::CONSTRUCTOR)),
+                  "FunctionFlags::CONSTRUCTOR has only one bit set");
+
+    load16ZeroExtend(Address(obj, JSFunction::offsetOfFlags()), output);
+    rshift32(Imm32(mozilla::FloorLog2(uint32_t(FunctionFlags::CONSTRUCTOR))),
+             output);
+    and32(Imm32(1), output);
+  }
+  jump(&done);
+
+  bind(&notFunction);
+
+  // Just skim proxies off. Their notion of isCallable()/isConstructor() is
+  // more complicated.
+  branchTestClassIsProxy(true, output, isProxy);
+
+  branchPtr(Assembler::NonZero, Address(output, offsetof(JSClass, cOps)),
+            ImmPtr(nullptr), &hasCOps);
+  move32(Imm32(0), output);
+  jump(&done);
+
+  bind(&hasCOps);
+  loadPtr(Address(output, offsetof(JSClass, cOps)), output);
+  size_t opsOffset =
+      isCallable ? offsetof(JSClassOps, call) : offsetof(JSClassOps, construct);
+  cmpPtrSet(Assembler::NonZero, Address(output, opsOffset), ImmPtr(nullptr),
+            output);
+
+  bind(&done);
 }
 
 void MacroAssembler::loadJSContext(Register dest) {
@@ -1812,6 +1792,143 @@ void MacroAssembler::debugAssertContextRealm(const void* realm,
 #endif
 }
 
+void MacroAssembler::setIsCrossRealmArrayConstructor(Register obj,
+                                                     Register output) {
+#ifdef DEBUG
+  Label notProxy;
+  branchTestObjectIsProxy(false, obj, output, &notProxy);
+  assumeUnreachable("Unexpected proxy in setIsCrossRealmArrayConstructor");
+  bind(&notProxy);
+#endif
+
+  // The object's realm must not be cx->realm.
+  Label isFalse, done;
+  loadPtr(Address(obj, JSObject::offsetOfGroup()), output);
+  loadPtr(Address(output, ObjectGroup::offsetOfRealm()), output);
+  branchPtr(Assembler::Equal, AbsoluteAddress(ContextRealmPtr()), output,
+            &isFalse);
+
+  // The object must be a function.
+  branchTestObjClass(Assembler::NotEqual, obj, &JSFunction::class_, output, obj,
+                     &isFalse);
+
+  // The function must be the ArrayConstructor native.
+  branchPtr(Assembler::NotEqual,
+            Address(obj, JSFunction::offsetOfNativeOrEnv()),
+            ImmPtr(js::ArrayConstructor), &isFalse);
+
+  move32(Imm32(1), output);
+  jump(&done);
+
+  bind(&isFalse);
+  move32(Imm32(0), output);
+
+  bind(&done);
+}
+
+void MacroAssembler::setIsDefinitelyTypedArrayConstructor(Register obj,
+                                                          Register output) {
+  Label isFalse, isTrue, done;
+
+  // The object must be a function. (Wrappers are not supported.)
+  branchTestObjClass(Assembler::NotEqual, obj, &JSFunction::class_, output, obj,
+                     &isFalse);
+
+  // Load the native into |output|.
+  loadPtr(Address(obj, JSFunction::offsetOfNativeOrEnv()), output);
+
+  auto branchIsTypedArrayCtor = [&](Scalar::Type type) {
+    // The function must be a TypedArrayConstructor native (from any realm).
+    JSNative constructor = TypedArrayConstructorNative(type);
+    branchPtr(Assembler::Equal, output, ImmPtr(constructor), &isTrue);
+  };
+
+#define TYPED_ARRAY_CONSTRUCTOR_NATIVE(T, N) branchIsTypedArrayCtor(Scalar::N);
+  JS_FOR_EACH_TYPED_ARRAY(TYPED_ARRAY_CONSTRUCTOR_NATIVE)
+#undef TYPED_ARRAY_CONSTRUCTOR_NATIVE
+
+  // Falls through to the false case.
+
+  bind(&isFalse);
+  move32(Imm32(0), output);
+  jump(&done);
+
+  bind(&isTrue);
+  move32(Imm32(1), output);
+
+  bind(&done);
+}
+
+void MacroAssembler::loadArrayBufferByteLengthInt32(Register obj,
+                                                    Register output) {
+  Address slotAddr(obj, ArrayBufferObject::offsetOfByteLengthSlot());
+  loadPrivate(slotAddr, output);
+
+#ifdef DEBUG
+  Label ok;
+  branchPtr(Assembler::BelowOrEqual, output, Imm32(INT32_MAX), &ok);
+  assumeUnreachable("Expecting length to fit in int32");
+  bind(&ok);
+#endif
+}
+
+void MacroAssembler::loadArrayBufferViewByteOffsetInt32(Register obj,
+                                                        Register output) {
+  Address slotAddr(obj, ArrayBufferViewObject::byteOffsetOffset());
+  loadPrivate(slotAddr, output);
+
+#ifdef DEBUG
+  Label ok;
+  branchPtr(Assembler::BelowOrEqual, output, Imm32(INT32_MAX), &ok);
+  assumeUnreachable("Expecting offset to fit in int32");
+  bind(&ok);
+#endif
+}
+
+void MacroAssembler::loadArrayBufferViewLengthInt32(Register obj,
+                                                    Register output) {
+  Address slotAddr(obj, ArrayBufferViewObject::lengthOffset());
+  loadPrivate(slotAddr, output);
+
+#ifdef DEBUG
+  Label ok;
+  branchPtr(Assembler::BelowOrEqual, output, Imm32(INT32_MAX), &ok);
+  assumeUnreachable("Expecting length to fit in int32");
+  bind(&ok);
+#endif
+}
+
+void MacroAssembler::loadDOMExpandoValueGuardGeneration(
+    Register obj, ValueOperand output,
+    JS::ExpandoAndGeneration* expandoAndGeneration, uint64_t generation,
+    Label* fail) {
+  loadPtr(Address(obj, ProxyObject::offsetOfReservedSlots()),
+          output.scratchReg());
+  loadValue(Address(output.scratchReg(),
+                    js::detail::ProxyReservedSlots::offsetOfPrivateSlot()),
+            output);
+
+  // Guard the ExpandoAndGeneration* matches the proxy's ExpandoAndGeneration
+  // privateSlot.
+  branchTestValue(Assembler::NotEqual, output,
+                  PrivateValue(expandoAndGeneration), fail);
+
+  // Guard expandoAndGeneration->generation matches the expected generation.
+  Address generationAddr(output.payloadOrValueReg(),
+                         JS::ExpandoAndGeneration::offsetOfGeneration());
+  branch64(Assembler::NotEqual, generationAddr, Imm64(generation), fail);
+
+  // Load expandoAndGeneration->expando into the output Value register.
+  loadValue(Address(output.payloadOrValueReg(),
+                    JS::ExpandoAndGeneration::offsetOfExpando()),
+            output);
+}
+
+void MacroAssembler::loadJitActivation(Register dest) {
+  loadJSContext(dest);
+  loadPtr(Address(dest, offsetof(JSContext, activation_)), dest);
+}
+
 void MacroAssembler::guardGroupHasUnanalyzedNewScript(Register group,
                                                       Register scratch,
                                                       Label* fail) {
@@ -1830,6 +1947,92 @@ void MacroAssembler::guardGroupHasUnanalyzedNewScript(Register group,
             ImmWord(0), fail);
 
   bind(&noNewScript);
+}
+
+void MacroAssembler::guardSpecificAtom(Register str, JSAtom* atom,
+                                       Register scratch,
+                                       const LiveRegisterSet& volatileRegs,
+                                       Label* fail) {
+  Label done;
+  branchPtr(Assembler::Equal, str, ImmGCPtr(atom), &done);
+
+  // The pointers are not equal, so if the input string is also an atom it
+  // must be a different string.
+  branchTest32(Assembler::NonZero, Address(str, JSString::offsetOfFlags()),
+               Imm32(JSString::ATOM_BIT), fail);
+
+  // Check the length.
+  branch32(Assembler::NotEqual, Address(str, JSString::offsetOfLength()),
+           Imm32(atom->length()), fail);
+
+  // We have a non-atomized string with the same length. Call a helper
+  // function to do the comparison.
+  PushRegsInMask(volatileRegs);
+
+  using Fn = bool (*)(JSString * str1, JSString * str2);
+  setupUnalignedABICall(scratch);
+  movePtr(ImmGCPtr(atom), scratch);
+  passABIArg(scratch);
+  passABIArg(str);
+  callWithABI<Fn, EqualStringsHelperPure>();
+  mov(ReturnReg, scratch);
+
+  MOZ_ASSERT(!volatileRegs.has(scratch));
+  PopRegsInMask(volatileRegs);
+  branchIfFalseBool(scratch, fail);
+
+  bind(&done);
+}
+
+void MacroAssembler::guardStringToInt32(Register str, Register output,
+                                        Register scratch,
+                                        LiveRegisterSet volatileRegs,
+                                        Label* fail) {
+  Label vmCall, done;
+  // Use indexed value as fast path if possible.
+  loadStringIndexValue(str, output, &vmCall);
+  jump(&done);
+  {
+    bind(&vmCall);
+
+    // Reserve space for holding the result int32_t of the call. Use
+    // pointer-size to avoid misaligning the stack on 64-bit platforms.
+    reserveStack(sizeof(uintptr_t));
+    moveStackPtrTo(output);
+
+    volatileRegs.takeUnchecked(scratch);
+    if (output.volatile_()) {
+      volatileRegs.addUnchecked(output);
+    }
+    PushRegsInMask(volatileRegs);
+
+    using Fn = bool (*)(JSContext * cx, JSString * str, int32_t * result);
+    setupUnalignedABICall(scratch);
+    loadJSContext(scratch);
+    passABIArg(scratch);
+    passABIArg(str);
+    passABIArg(output);
+    callWithABI<Fn, GetInt32FromStringPure>();
+    mov(ReturnReg, scratch);
+
+    PopRegsInMask(volatileRegs);
+
+    Label ok;
+    branchIfTrueBool(scratch, &ok);
+    {
+      // OOM path, recovered by GetInt32FromStringPure.
+      //
+      // Use addToStackPtr instead of freeStack as freeStack tracks stack height
+      // flow-insensitively, and using it twice would confuse the stack height
+      // tracking.
+      addToStackPtr(Imm32(sizeof(uintptr_t)));
+      jump(fail);
+    }
+    bind(&ok);
+    load32(Address(output, 0), output);
+    freeStack(sizeof(uintptr_t));
+  }
+  bind(&done);
 }
 
 void MacroAssembler::generateBailoutTail(Register scratch,
@@ -1875,9 +2078,9 @@ void MacroAssembler::generateBailoutTail(Register scratch,
     }
 
     // Enter exit frame for the FinishBailoutToBaseline call.
-    loadPtr(Address(bailoutInfo, offsetof(BaselineBailoutInfo, resumeFramePtr)),
-            temp);
-    load32(Address(temp, BaselineFrame::reverseOffsetOfFrameSize()), temp);
+    load32(Address(bailoutInfo,
+                   offsetof(BaselineBailoutInfo, frameSizeOfInnerMostFrame)),
+           temp);
     makeFrameDescriptor(temp, FrameType::BaselineJS, ExitFrameLayout::Size());
     push(temp);
     push(Address(bailoutInfo, offsetof(BaselineBailoutInfo, resumeAddr)));
@@ -1885,88 +2088,30 @@ void MacroAssembler::generateBailoutTail(Register scratch,
     loadJSContext(scratch);
     enterFakeExitFrame(scratch, scratch, ExitFrameType::Bare);
 
-    // If monitorStub is non-null, handle resumeAddr appropriately.
-    Label noMonitor;
-    Label done;
-    branchPtr(Assembler::Equal,
-              Address(bailoutInfo, offsetof(BaselineBailoutInfo, monitorStub)),
-              ImmPtr(nullptr), &noMonitor);
+    // Save needed values onto stack temporarily.
+    push(Address(bailoutInfo, offsetof(BaselineBailoutInfo, resumeFramePtr)));
+    push(Address(bailoutInfo, offsetof(BaselineBailoutInfo, resumeAddr)));
 
-    //
-    // Resuming into a monitoring stub chain.
-    //
-    {
-      // Save needed values onto stack temporarily.
-      pushValue(Address(bailoutInfo, offsetof(BaselineBailoutInfo, valueR0)));
-      push(Address(bailoutInfo, offsetof(BaselineBailoutInfo, resumeFramePtr)));
-      push(Address(bailoutInfo, offsetof(BaselineBailoutInfo, resumeAddr)));
-      push(Address(bailoutInfo, offsetof(BaselineBailoutInfo, monitorStub)));
+    // Call a stub to free allocated memory and create arguments objects.
+    using Fn = bool (*)(BaselineBailoutInfo * bailoutInfoArg);
+    setupUnalignedABICall(temp);
+    passABIArg(bailoutInfo);
+    callWithABI<Fn, FinishBailoutToBaseline>(
+        MoveOp::GENERAL, CheckUnsafeCallWithABI::DontCheckHasExitFrame);
+    branchIfFalseBool(ReturnReg, exceptionLabel());
 
-      // Call a stub to free allocated memory and create arguments objects.
-      setupUnalignedABICall(temp);
-      passABIArg(bailoutInfo);
-      callWithABI(JS_FUNC_TO_DATA_PTR(void*, FinishBailoutToBaseline),
-                  MoveOp::GENERAL,
-                  CheckUnsafeCallWithABI::DontCheckHasExitFrame);
-      branchIfFalseBool(ReturnReg, exceptionLabel());
+    // Restore values where they need to be and resume execution.
+    AllocatableGeneralRegisterSet enterRegs(GeneralRegisterSet::All());
+    enterRegs.take(BaselineFrameReg);
+    Register jitcodeReg = enterRegs.takeAny();
 
-      // Restore values where they need to be and resume execution.
-      AllocatableGeneralRegisterSet enterMonRegs(GeneralRegisterSet::All());
-      enterMonRegs.take(R0);
-      enterMonRegs.take(ICStubReg);
-      enterMonRegs.take(BaselineFrameReg);
-      enterMonRegs.takeUnchecked(ICTailCallReg);
+    pop(jitcodeReg);
+    pop(BaselineFrameReg);
 
-      pop(ICStubReg);
-      pop(ICTailCallReg);
-      pop(BaselineFrameReg);
-      popValue(R0);
+    // Discard exit frame.
+    addToStackPtr(Imm32(ExitFrameLayout::SizeWithFooter()));
 
-      // Discard exit frame.
-      addToStackPtr(Imm32(ExitFrameLayout::SizeWithFooter()));
-
-#if defined(JS_CODEGEN_X86) || defined(JS_CODEGEN_X64)
-      push(ICTailCallReg);
-#endif
-      jump(Address(ICStubReg, ICStub::offsetOfStubCode()));
-    }
-
-    //
-    // Resuming into main jitcode.
-    //
-    bind(&noMonitor);
-    {
-      // Save needed values onto stack temporarily.
-      pushValue(Address(bailoutInfo, offsetof(BaselineBailoutInfo, valueR0)));
-      pushValue(Address(bailoutInfo, offsetof(BaselineBailoutInfo, valueR1)));
-      push(Address(bailoutInfo, offsetof(BaselineBailoutInfo, resumeFramePtr)));
-      push(Address(bailoutInfo, offsetof(BaselineBailoutInfo, resumeAddr)));
-
-      // Call a stub to free allocated memory and create arguments objects.
-      setupUnalignedABICall(temp);
-      passABIArg(bailoutInfo);
-      callWithABI(JS_FUNC_TO_DATA_PTR(void*, FinishBailoutToBaseline),
-                  MoveOp::GENERAL,
-                  CheckUnsafeCallWithABI::DontCheckHasExitFrame);
-      branchIfFalseBool(ReturnReg, exceptionLabel());
-
-      // Restore values where they need to be and resume execution.
-      AllocatableGeneralRegisterSet enterRegs(GeneralRegisterSet::All());
-      enterRegs.take(R0);
-      enterRegs.take(R1);
-      enterRegs.take(BaselineFrameReg);
-      Register jitcodeReg = enterRegs.takeAny();
-
-      pop(jitcodeReg);
-      pop(BaselineFrameReg);
-      popValue(R1);
-      popValue(R0);
-
-      // Discard exit frame.
-      addToStackPtr(Imm32(ExitFrameLayout::SizeWithFooter()));
-
-      jump(jitcodeReg);
-    }
+    jump(jitcodeReg);
   }
 }
 
@@ -1989,13 +2134,63 @@ void MacroAssembler::assertRectifierFrameParentType(Register frameType) {
 }
 
 void MacroAssembler::loadJitCodeRaw(Register func, Register dest) {
+  static_assert(BaseScript::offsetOfJitCodeRaw() ==
+                    SelfHostedLazyScript::offsetOfJitCodeRaw(),
+                "SelfHostedLazyScript and BaseScript must use same layout for "
+                "jitCodeRaw_");
   loadPtr(Address(func, JSFunction::offsetOfScript()), dest);
-  loadPtr(Address(dest, JSScript::offsetOfJitCodeRaw()), dest);
+  loadPtr(Address(dest, BaseScript::offsetOfJitCodeRaw()), dest);
 }
 
 void MacroAssembler::loadJitCodeNoArgCheck(Register func, Register dest) {
+#ifdef DEBUG
+  {
+    Label ok;
+    int32_t flags = FunctionFlags::BASESCRIPT;
+    branchTestFunctionFlags(func, flags, Assembler::NonZero, &ok);
+    assumeUnreachable("Function has no BaseScript!");
+    bind(&ok);
+  }
+#endif
+
+  static_assert(ScriptWarmUpData::JitScriptTag == 0,
+                "Code below depends on tag value");
+  Imm32 tagMask(ScriptWarmUpData::TagMask);
+
+  // Read jitCodeSkipArgCheck.
   loadPtr(Address(func, JSFunction::offsetOfScript()), dest);
-  loadPtr(Address(dest, JSScript::offsetOfJitCodeSkipArgCheck()), dest);
+  loadPtr(Address(dest, BaseScript::offsetOfWarmUpData()), dest);
+#ifdef DEBUG
+  {
+    Label ok;
+    branchTestPtr(Assembler::Zero, dest, tagMask, &ok);
+    assumeUnreachable("Function has no JitScript!");
+    bind(&ok);
+  }
+#endif
+  loadPtr(Address(dest, JitScript::offsetOfJitCodeSkipArgCheck()), dest);
+}
+
+void MacroAssembler::loadBaselineJitCodeRaw(Register func, Register dest,
+                                            Label* failure) {
+  // Load JitScript
+  loadPtr(Address(func, JSFunction::offsetOfScript()), dest);
+  if (failure) {
+    branchIfScriptHasNoJitScript(dest, failure);
+  }
+  loadJitScript(dest, dest);
+
+  // Load BaselineScript
+  loadPtr(Address(dest, JitScript::offsetOfBaselineScript()), dest);
+  if (failure) {
+    static_assert(BaselineDisabledScript == 0x1);
+    branchPtr(Assembler::BelowOrEqual, dest, ImmWord(BaselineDisabledScript),
+              failure);
+  }
+
+  // Load Baseline jitcode
+  loadPtr(Address(dest, BaselineScript::offsetOfMethod()), dest);
+  loadPtr(Address(dest, JitCode::offsetOfCode()), dest);
 }
 
 void MacroAssembler::loadBaselineFramePtr(Register framePtr, Register dest) {
@@ -2003,6 +2198,16 @@ void MacroAssembler::loadBaselineFramePtr(Register framePtr, Register dest) {
     movePtr(framePtr, dest);
   }
   subPtr(Imm32(BaselineFrame::Size()), dest);
+}
+
+static const uint8_t* ContextInlinedICScriptPtr() {
+  return (
+      static_cast<const uint8_t*>(GetJitContext()->runtime->mainContextPtr()) +
+      JSContext::offsetOfInlinedICScript());
+}
+
+void MacroAssembler::storeICScriptInJSContext(Register icScript) {
+  storePtr(icScript, AbsoluteAddress(ContextInlinedICScriptPtr()));
 }
 
 void MacroAssembler::handleFailure() {
@@ -2013,12 +2218,6 @@ void MacroAssembler::handleFailure() {
   jump(excTail);
 }
 
-#ifdef JS_MASM_VERBOSE
-static void AssumeUnreachable_(const char* output) {
-  MOZ_ReportAssertionFailure(output, __FILE__, __LINE__);
-}
-#endif
-
 void MacroAssembler::assumeUnreachable(const char* output) {
 #ifdef JS_MASM_VERBOSE
   if (!IsCompilingWasm()) {
@@ -2027,11 +2226,12 @@ void MacroAssembler::assumeUnreachable(const char* output) {
     PushRegsInMask(save);
     Register temp = regs.takeAnyGeneral();
 
+    using Fn = void (*)(const char* output);
     setupUnalignedABICall(temp);
     movePtr(ImmPtr(output), temp);
     passABIArg(temp);
-    callWithABI(JS_FUNC_TO_DATA_PTR(void*, AssumeUnreachable_), MoveOp::GENERAL,
-                CheckUnsafeCallWithABI::DontCheckOther);
+    callWithABI<Fn, AssumeUnreachable>(MoveOp::GENERAL,
+                                       CheckUnsafeCallWithABI::DontCheckOther);
 
     PopRegsInMask(save);
   }
@@ -2054,17 +2254,6 @@ void MacroAssembler::assertTestInt32(Condition cond, const T& value,
 template void MacroAssembler::assertTestInt32(Condition, const Address&,
                                               const char*);
 
-#ifdef JS_MASM_VERBOSE
-static void Printf0_(const char* output) {
-  AutoUnsafeCallWithABI unsafe;
-
-  // Use stderr instead of stdout because this is only used for debug
-  // output. stderr is less likely to interfere with the program's normal
-  // output, and it's always unbuffered.
-  fprintf(stderr, "%s", output);
-}
-#endif
-
 void MacroAssembler::printf(const char* output) {
 #ifdef JS_MASM_VERBOSE
   AllocatableRegisterSet regs(RegisterSet::Volatile());
@@ -2073,26 +2262,15 @@ void MacroAssembler::printf(const char* output) {
 
   Register temp = regs.takeAnyGeneral();
 
+  using Fn = void (*)(const char* output);
   setupUnalignedABICall(temp);
   movePtr(ImmPtr(output), temp);
   passABIArg(temp);
-  callWithABI(JS_FUNC_TO_DATA_PTR(void*, Printf0_));
+  callWithABI<Fn, Printf0>();
 
   PopRegsInMask(save);
 #endif
 }
-
-#ifdef JS_MASM_VERBOSE
-static void Printf1_(const char* output, uintptr_t value) {
-  AutoUnsafeCallWithABI unsafe;
-  AutoEnterOOMUnsafeRegion oomUnsafe;
-  js::UniqueChars line = JS_sprintf_append(nullptr, output, value);
-  if (!line) {
-    oomUnsafe.crash("OOM at masm.printf");
-  }
-  fprintf(stderr, "%s", line.get());
-}
-#endif
 
 void MacroAssembler::printf(const char* output, Register value) {
 #ifdef JS_MASM_VERBOSE
@@ -2104,17 +2282,23 @@ void MacroAssembler::printf(const char* output, Register value) {
 
   Register temp = regs.takeAnyGeneral();
 
+  using Fn = void (*)(const char* output, uintptr_t value);
   setupUnalignedABICall(temp);
   movePtr(ImmPtr(output), temp);
   passABIArg(temp);
   passABIArg(value);
-  callWithABI(JS_FUNC_TO_DATA_PTR(void*, Printf1_));
+  callWithABI<Fn, Printf1>();
 
   PopRegsInMask(save);
 #endif
 }
 
 #ifdef JS_TRACE_LOGGING
+void MacroAssembler::loadTraceLogger(Register logger) {
+  loadJSContext(logger);
+  loadPtr(Address(logger, offsetof(JSContext, traceLogger)), logger);
+}
+
 void MacroAssembler::tracelogStartId(Register logger, uint32_t textId,
                                      bool force) {
   if (!force && !TraceLogTextIdEnabled(textId)) {
@@ -2128,12 +2312,13 @@ void MacroAssembler::tracelogStartId(Register logger, uint32_t textId,
 
   Register temp = regs.takeAnyGeneral();
 
+  using Fn = void (*)(TraceLoggerThread * logger, uint32_t id);
   setupUnalignedABICall(temp);
   passABIArg(logger);
   move32(Imm32(textId), temp);
   passABIArg(temp);
-  callWithABI(JS_FUNC_TO_DATA_PTR(void*, TraceLogStartEventPrivate),
-              MoveOp::GENERAL, CheckUnsafeCallWithABI::DontCheckOther);
+  callWithABI<Fn, TraceLogStartEventPrivate>(
+      MoveOp::GENERAL, CheckUnsafeCallWithABI::DontCheckOther);
 
   PopRegsInMask(save);
 }
@@ -2147,19 +2332,17 @@ void MacroAssembler::tracelogStartId(Register logger, Register textId) {
 
   Register temp = regs.takeAnyGeneral();
 
+  using Fn = void (*)(TraceLoggerThread * logger, uint32_t id);
   setupUnalignedABICall(temp);
   passABIArg(logger);
   passABIArg(textId);
-  callWithABI(JS_FUNC_TO_DATA_PTR(void*, TraceLogStartEventPrivate),
-              MoveOp::GENERAL, CheckUnsafeCallWithABI::DontCheckOther);
+  callWithABI<Fn, TraceLogStartEventPrivate>(
+      MoveOp::GENERAL, CheckUnsafeCallWithABI::DontCheckOther);
 
   PopRegsInMask(save);
 }
 
 void MacroAssembler::tracelogStartEvent(Register logger, Register event) {
-  void (&TraceLogFunc)(TraceLoggerThread*, const TraceLoggerEvent&) =
-      TraceLogStartEvent;
-
   AllocatableRegisterSet regs(RegisterSet::Volatile());
   LiveRegisterSet save(regs.asLiveSet());
   PushRegsInMask(save);
@@ -2168,11 +2351,12 @@ void MacroAssembler::tracelogStartEvent(Register logger, Register event) {
 
   Register temp = regs.takeAnyGeneral();
 
+  using Fn = void (*)(TraceLoggerThread*, const TraceLoggerEvent&);
   setupUnalignedABICall(temp);
   passABIArg(logger);
   passABIArg(event);
-  callWithABI(JS_FUNC_TO_DATA_PTR(void*, TraceLogFunc), MoveOp::GENERAL,
-              CheckUnsafeCallWithABI::DontCheckOther);
+  callWithABI<Fn, TraceLogStartEvent>(MoveOp::GENERAL,
+                                      CheckUnsafeCallWithABI::DontCheckOther);
 
   PopRegsInMask(save);
 }
@@ -2190,13 +2374,14 @@ void MacroAssembler::tracelogStopId(Register logger, uint32_t textId,
 
   Register temp = regs.takeAnyGeneral();
 
+  using Fn = void (*)(TraceLoggerThread * logger, uint32_t id);
   setupUnalignedABICall(temp);
   passABIArg(logger);
   move32(Imm32(textId), temp);
   passABIArg(temp);
 
-  callWithABI(JS_FUNC_TO_DATA_PTR(void*, TraceLogStopEventPrivate),
-              MoveOp::GENERAL, CheckUnsafeCallWithABI::DontCheckOther);
+  callWithABI<Fn, TraceLogStopEventPrivate>(
+      MoveOp::GENERAL, CheckUnsafeCallWithABI::DontCheckOther);
 
   PopRegsInMask(save);
 }
@@ -2210,11 +2395,12 @@ void MacroAssembler::tracelogStopId(Register logger, Register textId) {
 
   Register temp = regs.takeAnyGeneral();
 
+  using Fn = void (*)(TraceLoggerThread * logger, uint32_t id);
   setupUnalignedABICall(temp);
   passABIArg(logger);
   passABIArg(textId);
-  callWithABI(JS_FUNC_TO_DATA_PTR(void*, TraceLogStopEventPrivate),
-              MoveOp::GENERAL, CheckUnsafeCallWithABI::DontCheckOther);
+  callWithABI<Fn, TraceLogStopEventPrivate>(
+      MoveOp::GENERAL, CheckUnsafeCallWithABI::DontCheckOther);
 
   PopRegsInMask(save);
 }
@@ -2224,16 +2410,18 @@ void MacroAssembler::convertInt32ValueToDouble(const Address& address,
                                                Register scratch, Label* done) {
   branchTestInt32(Assembler::NotEqual, address, done);
   unboxInt32(address, scratch);
-  convertInt32ToDouble(scratch, ScratchDoubleReg);
-  storeDouble(ScratchDoubleReg, address);
+  ScratchDoubleScope fpscratch(*this);
+  convertInt32ToDouble(scratch, fpscratch);
+  storeDouble(fpscratch, address);
 }
 
 void MacroAssembler::convertInt32ValueToDouble(ValueOperand val) {
   Label done;
   branchTestInt32(Assembler::NotEqual, val, &done);
   unboxInt32(val, val.scratchReg());
-  convertInt32ToDouble(val.scratchReg(), ScratchDoubleReg);
-  boxDouble(ScratchDoubleReg, val, ScratchDoubleReg);
+  ScratchDoubleScope fpscratch(*this);
+  convertInt32ToDouble(val.scratchReg(), fpscratch);
+  boxDouble(fpscratch, val, fpscratch);
   bind(&done);
 }
 
@@ -2271,133 +2459,39 @@ void MacroAssembler::convertValueToFloatingPoint(ValueOperand value,
   int32ValueToFloatingPoint(value, output, outputType);
   jump(&done);
 
+  // On some non-multiAlias platforms, unboxDouble may use the scratch register,
+  // so do not merge code paths here.
   bind(&isDouble);
-  FloatRegister tmp = output.asDouble();
   if (outputType == MIRType::Float32 && hasMultiAlias()) {
-    tmp = ScratchDoubleReg;
-  }
-
-  unboxDouble(value, tmp);
-  if (outputType == MIRType::Float32) {
+    ScratchDoubleScope tmp(*this);
+    unboxDouble(value, tmp);
     convertDoubleToFloat32(tmp, output);
+  } else {
+    FloatRegister tmp = output.asDouble();
+    unboxDouble(value, tmp);
+    if (outputType == MIRType::Float32) {
+      convertDoubleToFloat32(tmp, output);
+    }
   }
 
   bind(&done);
-}
-
-bool MacroAssembler::convertValueToFloatingPoint(JSContext* cx, const Value& v,
-                                                 FloatRegister output,
-                                                 Label* fail,
-                                                 MIRType outputType) {
-  if (v.isNumber() || v.isString()) {
-    double d;
-    if (v.isNumber()) {
-      d = v.toNumber();
-    } else if (!StringToNumber(cx, v.toString(), &d)) {
-      return false;
-    }
-
-    loadConstantFloatingPoint(d, (float)d, output, outputType);
-    return true;
-  }
-
-  if (v.isBoolean()) {
-    if (v.toBoolean()) {
-      loadConstantFloatingPoint(1.0, 1.0f, output, outputType);
-    } else {
-      loadConstantFloatingPoint(0.0, 0.0f, output, outputType);
-    }
-    return true;
-  }
-
-  if (v.isNull()) {
-    loadConstantFloatingPoint(0.0, 0.0f, output, outputType);
-    return true;
-  }
-
-  if (v.isUndefined()) {
-    loadConstantFloatingPoint(GenericNaN(), float(GenericNaN()), output,
-                              outputType);
-    return true;
-  }
-
-  MOZ_ASSERT(v.isObject() || v.isSymbol());
-  jump(fail);
-  return true;
-}
-
-bool MacroAssembler::convertConstantOrRegisterToFloatingPoint(
-    JSContext* cx, const ConstantOrRegister& src, FloatRegister output,
-    Label* fail, MIRType outputType) {
-  if (src.constant()) {
-    return convertValueToFloatingPoint(cx, src.value(), output, fail,
-                                       outputType);
-  }
-
-  convertTypedOrValueToFloatingPoint(src.reg(), output, fail, outputType);
-  return true;
-}
-
-void MacroAssembler::convertTypedOrValueToFloatingPoint(
-    TypedOrValueRegister src, FloatRegister output, Label* fail,
-    MIRType outputType) {
-  MOZ_ASSERT(IsFloatingPointType(outputType));
-
-  if (src.hasValue()) {
-    convertValueToFloatingPoint(src.valueReg(), output, fail, outputType);
-    return;
-  }
-
-  bool outputIsDouble = outputType == MIRType::Double;
-  switch (src.type()) {
-    case MIRType::Null:
-      loadConstantFloatingPoint(0.0, 0.0f, output, outputType);
-      break;
-    case MIRType::Boolean:
-    case MIRType::Int32:
-      convertInt32ToFloatingPoint(src.typedReg().gpr(), output, outputType);
-      break;
-    case MIRType::Float32:
-      if (outputIsDouble) {
-        convertFloat32ToDouble(src.typedReg().fpu(), output);
-      } else {
-        if (src.typedReg().fpu() != output) {
-          moveFloat32(src.typedReg().fpu(), output);
-        }
-      }
-      break;
-    case MIRType::Double:
-      if (outputIsDouble) {
-        if (src.typedReg().fpu() != output) {
-          moveDouble(src.typedReg().fpu(), output);
-        }
-      } else {
-        convertDoubleToFloat32(src.typedReg().fpu(), output);
-      }
-      break;
-    case MIRType::Object:
-    case MIRType::String:
-    case MIRType::Symbol:
-      jump(fail);
-      break;
-    case MIRType::Undefined:
-      loadConstantFloatingPoint(GenericNaN(), float(GenericNaN()), output,
-                                outputType);
-      break;
-    default:
-      MOZ_CRASH("Bad MIRType");
-  }
 }
 
 void MacroAssembler::outOfLineTruncateSlow(FloatRegister src, Register dest,
                                            bool widenFloatToDouble,
                                            bool compilingWasm,
                                            wasm::BytecodeOffset callOffset) {
+  if (compilingWasm) {
+    Push(WasmTlsReg);
+  }
+  int32_t framePushedAfterTls = framePushed();
+
 #if defined(JS_CODEGEN_ARM) || defined(JS_CODEGEN_ARM64) || \
     defined(JS_CODEGEN_MIPS32) || defined(JS_CODEGEN_MIPS64)
+  ScratchDoubleScope fpscratch(*this);
   if (widenFloatToDouble) {
-    convertFloat32ToDouble(src, ScratchDoubleReg);
-    src = ScratchDoubleReg;
+    convertFloat32ToDouble(src, fpscratch);
+    src = fpscratch;
   }
 #elif defined(JS_CODEGEN_X86) || defined(JS_CODEGEN_X64)
   FloatRegister srcSingle;
@@ -2416,14 +2510,17 @@ void MacroAssembler::outOfLineTruncateSlow(FloatRegister src, Register dest,
   MOZ_ASSERT(src.isDouble());
 
   if (compilingWasm) {
+    int32_t tlsOffset = framePushed() - framePushedAfterTls;
     setupWasmABICall();
     passABIArg(src, MoveOp::DOUBLE);
-    callWithABI(callOffset, wasm::SymbolicAddress::ToInt32);
+    callWithABI(callOffset, wasm::SymbolicAddress::ToInt32,
+                mozilla::Some(tlsOffset));
   } else {
+    using Fn = int32_t (*)(double);
     setupUnalignedABICall(dest);
     passABIArg(src, MoveOp::DOUBLE);
-    callWithABI(mozilla::BitwiseCast<void*, int32_t (*)(double)>(JS::ToInt32),
-                MoveOp::GENERAL, CheckUnsafeCallWithABI::DontCheckOther);
+    callWithABI<Fn, JS::ToInt32>(MoveOp::GENERAL,
+                                 CheckUnsafeCallWithABI::DontCheckOther);
   }
   storeCallInt32Result(dest);
 
@@ -2437,6 +2534,10 @@ void MacroAssembler::outOfLineTruncateSlow(FloatRegister src, Register dest,
 #else
   MOZ_CRASH("MacroAssembler platform hook: outOfLineTruncateSlow");
 #endif
+
+  if (compilingWasm) {
+    Pop(WasmTlsReg);
+  }
 }
 
 void MacroAssembler::convertDoubleToInt(FloatRegister src, Register output,
@@ -2454,9 +2555,15 @@ void MacroAssembler::convertDoubleToInt(FloatRegister src, Register output,
       branchTruncateDoubleMaybeModUint32(src, output,
                                          truncateFail ? truncateFail : fail);
       break;
+    case IntConversionBehavior::TruncateNoWrap:
+      branchTruncateDoubleToInt32(src, output,
+                                  truncateFail ? truncateFail : fail);
+      break;
     case IntConversionBehavior::ClampToUint8:
       // Clamping clobbers the input register, so use a temp.
-      moveDouble(src, temp);
+      if (src != temp) {
+        moveDouble(src, temp);
+      }
       clampDoubleToUint8(temp, output);
       break;
   }
@@ -2488,7 +2595,7 @@ void MacroAssembler::convertValueToInt(
 
     if (conversion == IntConversionInputKind::Any) {
       // If we are not truncating, we fail for anything that's not
-      // null. Otherwise we might be able to handle strings and objects.
+      // null. Otherwise we might be able to handle strings and undefined.
       switch (behavior) {
         case IntConversionBehavior::Normal:
         case IntConversionBehavior::NegativeZeroCheck:
@@ -2496,12 +2603,12 @@ void MacroAssembler::convertValueToInt(
           break;
 
         case IntConversionBehavior::Truncate:
+        case IntConversionBehavior::TruncateNoWrap:
         case IntConversionBehavior::ClampToUint8:
           maybeBranchTestType(MIRType::Null, maybeInput, tag, &isNull);
           if (handleStrings) {
             maybeBranchTestType(MIRType::String, maybeInput, tag, &isString);
           }
-          maybeBranchTestType(MIRType::Object, maybeInput, tag, fail);
           branchTestUndefined(Assembler::NotEqual, tag, fail);
           break;
       }
@@ -2517,11 +2624,21 @@ void MacroAssembler::convertValueToInt(
   mov(ImmWord(0), output);
   jump(&done);
 
-  // Try converting a string into a double, then jump to the double case.
+  // |output| needs to be different from |stringReg| to load string indices.
+  bool handleStringIndices = handleStrings && output != stringReg;
+
+  // First try loading a string index. If that fails, try converting a string
+  // into a double, then jump to the double case.
+  Label handleStringIndex;
   if (handleStrings) {
     bind(&isString);
     unboxString(value, stringReg);
-    jump(handleStringEntry);
+    if (handleStringIndices) {
+      loadStringIndexValue(stringReg, output, handleStringEntry);
+      jump(&handleStringIndex);
+    } else {
+      jump(handleStringEntry);
+    }
   }
 
   // Try converting double into integer.
@@ -2547,123 +2664,22 @@ void MacroAssembler::convertValueToInt(
   }
 
   // Integers can be unboxed.
-  if (isInt32.used()) {
-    bind(&isInt32);
-    unboxInt32(value, output);
+  if (isInt32.used() || handleStringIndices) {
+    if (isInt32.used()) {
+      bind(&isInt32);
+      unboxInt32(value, output);
+    }
+
+    if (handleStringIndices) {
+      bind(&handleStringIndex);
+    }
+
     if (behavior == IntConversionBehavior::ClampToUint8) {
       clampIntToUint8(output);
     }
   }
 
   bind(&done);
-}
-
-bool MacroAssembler::convertValueToInt(JSContext* cx, const Value& v,
-                                       Register output, Label* fail,
-                                       IntConversionBehavior behavior) {
-  bool handleStrings = (behavior == IntConversionBehavior::Truncate ||
-                        behavior == IntConversionBehavior::ClampToUint8);
-
-  if (v.isNumber() || (handleStrings && v.isString())) {
-    double d;
-    if (v.isNumber()) {
-      d = v.toNumber();
-    } else if (!StringToNumber(cx, v.toString(), &d)) {
-      return false;
-    }
-
-    switch (behavior) {
-      case IntConversionBehavior::Normal:
-      case IntConversionBehavior::NegativeZeroCheck: {
-        // -0 is checked anyways if we have a constant value.
-        int i;
-        if (mozilla::NumberIsInt32(d, &i)) {
-          move32(Imm32(i), output);
-        } else {
-          jump(fail);
-        }
-        break;
-      }
-      case IntConversionBehavior::Truncate:
-        move32(Imm32(ToInt32(d)), output);
-        break;
-      case IntConversionBehavior::ClampToUint8:
-        move32(Imm32(ClampDoubleToUint8(d)), output);
-        break;
-    }
-
-    return true;
-  }
-
-  if (v.isBoolean()) {
-    move32(Imm32(v.toBoolean() ? 1 : 0), output);
-    return true;
-  }
-
-  if (v.isNull() || v.isUndefined()) {
-    move32(Imm32(0), output);
-    return true;
-  }
-
-  MOZ_ASSERT(v.isObject() || v.isSymbol());
-
-  jump(fail);
-  return true;
-}
-
-bool MacroAssembler::convertConstantOrRegisterToInt(
-    JSContext* cx, const ConstantOrRegister& src, FloatRegister temp,
-    Register output, Label* fail, IntConversionBehavior behavior) {
-  if (src.constant()) {
-    return convertValueToInt(cx, src.value(), output, fail, behavior);
-  }
-
-  convertTypedOrValueToInt(src.reg(), temp, output, fail, behavior);
-  return true;
-}
-
-void MacroAssembler::convertTypedOrValueToInt(TypedOrValueRegister src,
-                                              FloatRegister temp,
-                                              Register output, Label* fail,
-                                              IntConversionBehavior behavior) {
-  if (src.hasValue()) {
-    convertValueToInt(src.valueReg(), temp, output, fail, behavior);
-    return;
-  }
-
-  switch (src.type()) {
-    case MIRType::Undefined:
-    case MIRType::Null:
-      move32(Imm32(0), output);
-      break;
-    case MIRType::Boolean:
-    case MIRType::Int32:
-      if (src.typedReg().gpr() != output) {
-        move32(src.typedReg().gpr(), output);
-      }
-      if (src.type() == MIRType::Int32 &&
-          behavior == IntConversionBehavior::ClampToUint8) {
-        clampIntToUint8(output);
-      }
-      break;
-    case MIRType::Double:
-      convertDoubleToInt(src.typedReg().fpu(), output, temp, nullptr, fail,
-                         behavior);
-      break;
-    case MIRType::Float32:
-      // Conversion to Double simplifies implementation at the expense of
-      // performance.
-      convertFloat32ToDouble(src.typedReg().fpu(), temp);
-      convertDoubleToInt(temp, output, temp, nullptr, fail, behavior);
-      break;
-    case MIRType::String:
-    case MIRType::Symbol:
-    case MIRType::Object:
-      jump(fail);
-      break;
-    default:
-      MOZ_CRASH("Bad MIRType");
-  }
 }
 
 void MacroAssembler::finish() {
@@ -2689,9 +2705,7 @@ void MacroAssembler::link(JitCode* code) {
 }
 
 MacroAssembler::AutoProfilerCallInstrumentation::
-    AutoProfilerCallInstrumentation(
-        MacroAssembler& masm MOZ_GUARD_OBJECT_NOTIFIER_PARAM_IN_IMPL) {
-  MOZ_GUARD_OBJECT_NOTIFIER_INIT;
+    AutoProfilerCallInstrumentation(MacroAssembler& masm) {
   if (!masm.emitProfilingInstrumentation_) {
     return;
   }
@@ -2722,87 +2736,82 @@ void MacroAssembler::linkProfilerCallSites(JitCode* code) {
   }
 }
 
-void MacroAssembler::alignJitStackBasedOnNArgs(Register nargs) {
+void MacroAssembler::alignJitStackBasedOnNArgs(Register nargs,
+                                               bool countIncludesThis) {
+  // The stack should already be aligned to the size of a value.
+  assertStackAlignment(sizeof(Value), 0);
+
+  static_assert(JitStackValueAlignment == 1 || JitStackValueAlignment == 2,
+                "JitStackValueAlignment is either 1 or 2.");
   if (JitStackValueAlignment == 1) {
     return;
   }
-
-  // A JitFrameLayout is composed of the following:
-  // [padding?] [argN] .. [arg1] [this] [[argc] [callee] [descr] [raddr]]
+  // A jit frame is composed of the following:
   //
-  // We want to ensure that the |raddr| address is aligned.
-  // Which implies that we want to ensure that |this| is aligned.
-  static_assert(
-      sizeof(JitFrameLayout) % JitStackAlignment == 0,
-      "No need to consider the JitFrameLayout for aligning the stack");
+  // [padding?] [argN] .. [arg1] [this] [[argc] [callee] [descr] [raddr]]
+  //                                    \________JitFrameLayout_________/
+  // (The stack grows this way --->)
+  //
+  // We want to ensure that |raddr|, the return address, is 16-byte aligned.
+  // (Note: if 8-byte alignment was sufficient, we would have already
+  // returned above.)
 
-  // Which implies that |argN| is aligned if |nargs| is even, and offset by
-  // |sizeof(Value)| if |nargs| is odd.
-  MOZ_ASSERT(JitStackValueAlignment == 2);
+  // JitFrameLayout does not affect the alignment, so we can ignore it.
+  static_assert(sizeof(JitFrameLayout) % JitStackAlignment == 0,
+                "JitFrameLayout doesn't affect stack alignment");
 
-  // Thus the |padding| is offset by |sizeof(Value)| if |nargs| is even, and
-  // aligned if |nargs| is odd.
+  // Therefore, we need to ensure that |this| is aligned.
+  // This implies that |argN| must be aligned if N is even,
+  // and offset by |sizeof(Value)| if N is odd.
 
-  // if (nargs % 2 == 0) {
-  //     if (sp % JitStackAlignment == 0) {
-  //         sp -= sizeof(Value);
-  //     }
-  //     MOZ_ASSERT(sp % JitStackAlignment == JitStackAlignment -
-  //     sizeof(Value));
-  // } else {
-  //     sp = sp & ~(JitStackAlignment - 1);
-  // }
-  Label odd, end;
-  Label* maybeAssert = &end;
-#ifdef DEBUG
-  Label assert;
-  maybeAssert = &assert;
-#endif
-  assertStackAlignment(sizeof(Value), 0);
-  branchTestPtr(Assembler::NonZero, nargs, Imm32(1), &odd);
-  branchTestStackPtr(Assembler::NonZero, Imm32(JitStackAlignment - 1),
-                     maybeAssert);
-  subFromStackPtr(Imm32(sizeof(Value)));
-#ifdef DEBUG
-  bind(&assert);
-#endif
-  assertStackAlignment(JitStackAlignment, sizeof(Value));
-  jump(&end);
-  bind(&odd);
+  // Depending on the context of the caller, it may be easier to pass in a
+  // register that has already been modified to include |this|. If that is the
+  // case, we want to flip the direction of the test.
+  Assembler::Condition condition =
+      countIncludesThis ? Assembler::NonZero : Assembler::Zero;
+
+  Label alignmentIsOffset, end;
+  branchTestPtr(condition, nargs, Imm32(1), &alignmentIsOffset);
+
+  // |argN| should be aligned to 16 bytes.
   andToStackPtr(Imm32(~(JitStackAlignment - 1)));
+  jump(&end);
+
+  // |argN| should be offset by 8 bytes from 16-byte alignment.
+  // We already know that it is 8-byte aligned, so the only possibilities are:
+  // a) It is 16-byte aligned, and we must offset it by 8 bytes.
+  // b) It is not 16-byte aligned, and therefore already has the right offset.
+  // Therefore, we test to see if it is 16-byte aligned, and adjust it if it is.
+  bind(&alignmentIsOffset);
+  branchTestStackPtr(Assembler::NonZero, Imm32(JitStackAlignment - 1), &end);
+  subFromStackPtr(Imm32(sizeof(Value)));
+
   bind(&end);
 }
 
-void MacroAssembler::alignJitStackBasedOnNArgs(uint32_t nargs) {
+void MacroAssembler::alignJitStackBasedOnNArgs(uint32_t argc) {
+  // The stack should already be aligned to the size of a value.
+  assertStackAlignment(sizeof(Value), 0);
+
+  static_assert(JitStackValueAlignment == 1 || JitStackValueAlignment == 2,
+                "JitStackValueAlignment is either 1 or 2.");
   if (JitStackValueAlignment == 1) {
     return;
   }
 
-  // A JitFrameLayout is composed of the following:
-  // [padding?] [argN] .. [arg1] [this] [[argc] [callee] [descr] [raddr]]
-  //
-  // We want to ensure that the |raddr| address is aligned.
-  // Which implies that we want to ensure that |this| is aligned.
-  static_assert(
-      sizeof(JitFrameLayout) % JitStackAlignment == 0,
-      "No need to consider the JitFrameLayout for aligning the stack");
-
-  // Which implies that |argN| is aligned if |nargs| is even, and offset by
-  // |sizeof(Value)| if |nargs| is odd.
-  MOZ_ASSERT(JitStackValueAlignment == 2);
-
-  // Thus the |padding| is offset by |sizeof(Value)| if |nargs| is even, and
-  // aligned if |nargs| is odd.
-
-  assertStackAlignment(sizeof(Value), 0);
-  if (nargs % 2 == 0) {
+  // See above for full explanation.
+  uint32_t nArgs = argc + 1;
+  if (nArgs % 2 == 0) {
+    // |argN| should be 16-byte aligned
+    andToStackPtr(Imm32(~(JitStackAlignment - 1)));
+  } else {
+    // |argN| must be 16-byte aligned if argc is even,
+    // and offset by 8 if argc is odd.
     Label end;
     branchTestStackPtr(Assembler::NonZero, Imm32(JitStackAlignment - 1), &end);
     subFromStackPtr(Imm32(sizeof(Value)));
     bind(&end);
     assertStackAlignment(JitStackAlignment, sizeof(Value));
-  } else {
-    andToStackPtr(Imm32(~(JitStackAlignment - 1)));
   }
 }
 
@@ -2816,7 +2825,7 @@ MacroAssembler::MacroAssembler(JSContext* cx)
       dynamicAlignment_(false),
       emitProfilingInstrumentation_(false) {
   jitContext_.emplace(cx, (js::jit::TempAllocator*)nullptr);
-  alloc_.emplace(cx);
+  alloc_.emplace(&cx->tempLifoAlloc());
   moveResolver_.setAllocator(*jitContext_->temp);
 #if defined(JS_CODEGEN_ARM)
   initWithAllocator();
@@ -2839,7 +2848,7 @@ MacroAssembler::MacroAssembler()
   if (!jcx->temp) {
     JSContext* cx = jcx->cx;
     MOZ_ASSERT(cx);
-    alloc_.emplace(cx);
+    alloc_.emplace(&cx->tempLifoAlloc());
   }
 
   moveResolver_.setAllocator(*jcx->temp);
@@ -2902,7 +2911,7 @@ void MacroAssembler::PopRegsInMask(LiveGeneralRegisterSet set) {
 }
 
 void MacroAssembler::Push(jsid id, Register scratchReg) {
-  if (JSID_IS_GCTHING(id)) {
+  if (id.isGCThing()) {
     // If we're pushing a gcthing, then we can't just push the tagged jsid
     // value since the GC won't have any idea that the push instruction
     // carries a reference to a gcthing.  Need to unpack the pointer,
@@ -2932,10 +2941,12 @@ void MacroAssembler::Push(TypedOrValueRegister v) {
   } else if (IsFloatingPointType(v.type())) {
     FloatRegister reg = v.typedReg().fpu();
     if (v.type() == MIRType::Float32) {
-      convertFloat32ToDouble(reg, ScratchDoubleReg);
-      reg = ScratchDoubleReg;
+      ScratchDoubleScope fpscratch(*this);
+      convertFloat32ToDouble(reg, fpscratch);
+      PushBoxed(fpscratch);
+    } else {
+      PushBoxed(reg);
     }
-    Push(reg);
   } else {
     Push(ValueTypeFromMIRType(v.type()), v.typedReg().gpr());
   }
@@ -2947,6 +2958,11 @@ void MacroAssembler::Push(const ConstantOrRegister& v) {
   } else {
     Push(v.reg());
   }
+}
+
+void MacroAssembler::Push(const Address& addr) {
+  push(addr);
+  framePushed_ += sizeof(uintptr_t);
 }
 
 void MacroAssembler::Push(const ValueOperand& val) {
@@ -2964,44 +2980,56 @@ void MacroAssembler::Push(JSValueType type, Register reg) {
   framePushed_ += sizeof(Value);
 }
 
+void MacroAssembler::Push(const Register64 reg) {
+#if JS_BITS_PER_WORD == 64
+  Push(reg.reg);
+#else
+  MOZ_ASSERT(MOZ_LITTLE_ENDIAN(), "Big-endian not supported.");
+  Push(reg.high);
+  Push(reg.low);
+#endif
+}
+
 void MacroAssembler::PushValue(const Address& addr) {
   MOZ_ASSERT(addr.base != getStackPointer());
   pushValue(addr);
   framePushed_ += sizeof(Value);
 }
 
-void MacroAssembler::PushEmptyRooted(VMFunction::RootType rootType) {
+void MacroAssembler::PushEmptyRooted(VMFunctionData::RootType rootType) {
   switch (rootType) {
-    case VMFunction::RootNone:
+    case VMFunctionData::RootNone:
       MOZ_CRASH("Handle must have root type");
-    case VMFunction::RootObject:
-    case VMFunction::RootString:
-    case VMFunction::RootFunction:
-    case VMFunction::RootCell:
+    case VMFunctionData::RootObject:
+    case VMFunctionData::RootString:
+    case VMFunctionData::RootFunction:
+    case VMFunctionData::RootCell:
+    case VMFunctionData::RootBigInt:
       Push(ImmPtr(nullptr));
       break;
-    case VMFunction::RootValue:
+    case VMFunctionData::RootValue:
       Push(UndefinedValue());
       break;
-    case VMFunction::RootId:
+    case VMFunctionData::RootId:
       Push(ImmWord(JSID_BITS(JSID_VOID)));
       break;
   }
 }
 
-void MacroAssembler::popRooted(VMFunction::RootType rootType, Register cellReg,
-                               const ValueOperand& valueReg) {
+void MacroAssembler::popRooted(VMFunctionData::RootType rootType,
+                               Register cellReg, const ValueOperand& valueReg) {
   switch (rootType) {
-    case VMFunction::RootNone:
+    case VMFunctionData::RootNone:
       MOZ_CRASH("Handle must have root type");
-    case VMFunction::RootObject:
-    case VMFunction::RootString:
-    case VMFunction::RootFunction:
-    case VMFunction::RootCell:
-    case VMFunction::RootId:
+    case VMFunctionData::RootObject:
+    case VMFunctionData::RootString:
+    case VMFunctionData::RootFunction:
+    case VMFunctionData::RootCell:
+    case VMFunctionData::RootId:
+    case VMFunctionData::RootBigInt:
       Pop(cellReg);
       break;
-    case VMFunction::RootValue:
+    case VMFunctionData::RootValue:
       Pop(valueReg);
       break;
   }
@@ -3027,8 +3055,8 @@ void MacroAssembler::freeStack(Register amount) { addToStackPtr(amount); }
 
 // ===============================================================
 // ABI function calls.
-
-void MacroAssembler::setupABICall() {
+template <class ABIArgGeneratorT>
+void MacroAssembler::setupABICallHelper() {
 #ifdef DEBUG
   MOZ_ASSERT(!inCall_);
   inCall_ = true;
@@ -3039,18 +3067,18 @@ void MacroAssembler::setupABICall() {
 #endif
 
   // Reinitialize the ABIArg generator.
-  abiArgs_ = ABIArgGenerator();
+  abiArgs_ = ABIArgGeneratorT();
 
 #if defined(JS_CODEGEN_ARM)
   // On ARM, we need to know what ABI we are using, either in the
   // simulator, or based on the configure flags.
-#if defined(JS_SIMULATOR_ARM)
+#  if defined(JS_SIMULATOR_ARM)
   abiArgs_.setUseHardFp(UseHardFpABI());
-#elif defined(JS_CODEGEN_ARM_HARDFP)
+#  elif defined(JS_CODEGEN_ARM_HARDFP)
   abiArgs_.setUseHardFp(true);
-#else
+#  else
   abiArgs_.setUseHardFp(false);
-#endif
+#  endif
 #endif
 
 #if defined(JS_CODEGEN_MIPS32)
@@ -3062,9 +3090,13 @@ void MacroAssembler::setupABICall() {
 #endif
 }
 
+void MacroAssembler::setupNativeABICall() {
+  setupABICallHelper<ABIArgGenerator>();
+}
+
 void MacroAssembler::setupWasmABICall() {
   MOZ_ASSERT(IsCompilingWasm(), "non-wasm should use setupAlignedABICall");
-  setupABICall();
+  setupABICallHelper<WasmABIArgGenerator>();
 
 #if defined(JS_CODEGEN_ARM)
   // The builtin thunk does the FP -> GPR moving on soft-FP, so
@@ -3076,7 +3108,7 @@ void MacroAssembler::setupWasmABICall() {
 
 void MacroAssembler::setupAlignedABICall() {
   MOZ_ASSERT(!IsCompilingWasm(), "wasm should use setupWasmABICall");
-  setupABICall();
+  setupNativeABICall();
   dynamicAlignment_ = false;
 
 #if defined(JS_CODEGEN_ARM64)
@@ -3154,29 +3186,34 @@ void MacroAssembler::callWithABINoProfiler(void* fun, MoveOp::Type result,
 
 CodeOffset MacroAssembler::callWithABI(wasm::BytecodeOffset bytecode,
                                        wasm::SymbolicAddress imm,
+                                       mozilla::Maybe<int32_t> tlsOffset,
                                        MoveOp::Type result) {
   MOZ_ASSERT(wasm::NeedsBuiltinThunk(imm));
-
-  // We clobber WasmTlsReg below in the loadWasmTlsRegFromFrame(), but Ion
-  // assumes it is non-volatile, so preserve it manually.
-  Push(WasmTlsReg);
 
   uint32_t stackAdjust;
   callWithABIPre(&stackAdjust, /* callFromWasm = */ true);
 
-  // The TLS register is used in builtin thunks and must be set, by ABI:
-  // reload it after passing arguments, which might have used it at spill
-  // points when placing arguments.
-  loadWasmTlsRegFromFrame();
-
+  // The TLS register is used in builtin thunks and must be set.
+  if (tlsOffset) {
+    loadPtr(Address(getStackPointer(), *tlsOffset + stackAdjust), WasmTlsReg);
+  } else {
+    MOZ_CRASH("tlsOffset is Nothing only for unsupported abi calls.");
+  }
   CodeOffset raOffset = call(
       wasm::CallSiteDesc(bytecode.offset(), wasm::CallSite::Symbolic), imm);
 
   callWithABIPost(stackAdjust, result, /* callFromWasm = */ true);
 
-  Pop(WasmTlsReg);
-
   return raOffset;
+}
+
+void MacroAssembler::callDebugWithABI(wasm::SymbolicAddress imm,
+                                      MoveOp::Type result) {
+  MOZ_ASSERT(!wasm::NeedsBuiltinThunk(imm));
+  uint32_t stackAdjust;
+  callWithABIPre(&stackAdjust, /* callFromWasm = */ false);
+  call(imm);
+  callWithABIPost(stackAdjust, result, /* callFromWasm = */ false);
 }
 
 // ===============================================================
@@ -3188,26 +3225,364 @@ void MacroAssembler::linkExitFrame(Register cxreg, Register scratch) {
 }
 
 // ===============================================================
+// Simple value-shuffling helpers, to hide MoveResolver verbosity
+// in common cases.
+
+void MacroAssembler::moveRegPair(Register src0, Register src1, Register dst0,
+                                 Register dst1, MoveOp::Type type) {
+  MoveResolver& moves = moveResolver();
+  if (src0 != dst0) {
+    propagateOOM(moves.addMove(MoveOperand(src0), MoveOperand(dst0), type));
+  }
+  if (src1 != dst1) {
+    propagateOOM(moves.addMove(MoveOperand(src1), MoveOperand(dst1), type));
+  }
+  propagateOOM(moves.resolve());
+  if (oom()) {
+    return;
+  }
+
+  MoveEmitter emitter(*this);
+  emitter.emit(moves);
+  emitter.finish();
+}
+
+// ===============================================================
+// Arithmetic functions
+
+void MacroAssembler::pow32(Register base, Register power, Register dest,
+                           Register temp1, Register temp2, Label* onOver) {
+  // Inline int32-specialized implementation of js::powi with overflow
+  // detection.
+
+  move32(Imm32(1), dest);  // p = 1
+
+  // x^y where x == 1 returns 1 for any y.
+  Label done;
+  branch32(Assembler::Equal, base, Imm32(1), &done);
+
+  move32(base, temp1);   // m = x
+  move32(power, temp2);  // n = y
+
+  // x^y where y < 0 returns a non-int32 value for any x != 1. Except when y is
+  // large enough so that the result is no longer representable as a double with
+  // fractional parts. We can't easily determine when y is too large, so we bail
+  // here.
+  // Note: it's important for this condition to match the code in CacheIR.cpp
+  // (CanAttachInt32Pow) to prevent failure loops.
+  Label start;
+  branchTest32(Assembler::NotSigned, power, power, &start);
+  jump(onOver);
+
+  Label loop;
+  bind(&loop);
+
+  // m *= m
+  branchMul32(Assembler::Overflow, temp1, temp1, onOver);
+
+  bind(&start);
+
+  // if ((n & 1) != 0) p *= m
+  Label even;
+  branchTest32(Assembler::Zero, temp2, Imm32(1), &even);
+  branchMul32(Assembler::Overflow, temp1, dest, onOver);
+  bind(&even);
+
+  // n >>= 1
+  // if (n == 0) return p
+  branchRshift32(Assembler::NonZero, Imm32(1), temp2, &loop);
+
+  bind(&done);
+}
+
+void MacroAssembler::signInt32(Register input, Register output) {
+  MOZ_ASSERT(input != output);
+
+  Label done;
+  move32(input, output);
+  rshift32Arithmetic(Imm32(31), output);
+  branch32(Assembler::LessThanOrEqual, input, Imm32(0), &done);
+  move32(Imm32(1), output);
+  bind(&done);
+}
+
+void MacroAssembler::signDouble(FloatRegister input, FloatRegister output) {
+  MOZ_ASSERT(input != output);
+
+  Label done, zeroOrNaN, negative;
+  loadConstantDouble(0.0, output);
+  branchDouble(Assembler::DoubleEqualOrUnordered, input, output, &zeroOrNaN);
+  branchDouble(Assembler::DoubleLessThan, input, output, &negative);
+
+  loadConstantDouble(1.0, output);
+  jump(&done);
+
+  bind(&negative);
+  loadConstantDouble(-1.0, output);
+  jump(&done);
+
+  bind(&zeroOrNaN);
+  moveDouble(input, output);
+
+  bind(&done);
+}
+
+void MacroAssembler::signDoubleToInt32(FloatRegister input, Register output,
+                                       FloatRegister temp, Label* fail) {
+  MOZ_ASSERT(input != temp);
+
+  Label done, zeroOrNaN, negative;
+  loadConstantDouble(0.0, temp);
+  branchDouble(Assembler::DoubleEqualOrUnordered, input, temp, &zeroOrNaN);
+  branchDouble(Assembler::DoubleLessThan, input, temp, &negative);
+
+  move32(Imm32(1), output);
+  jump(&done);
+
+  bind(&negative);
+  move32(Imm32(-1), output);
+  jump(&done);
+
+  // Fail for NaN and negative zero.
+  bind(&zeroOrNaN);
+  branchDouble(Assembler::DoubleUnordered, input, input, fail);
+
+  // The easiest way to distinguish -0.0 from 0.0 is that 1.0/-0.0
+  // is -Infinity instead of Infinity.
+  loadConstantDouble(1.0, temp);
+  divDouble(input, temp);
+  branchDouble(Assembler::DoubleLessThan, temp, input, fail);
+  move32(Imm32(0), output);
+
+  bind(&done);
+}
+
+void MacroAssembler::randomDouble(Register rng, FloatRegister dest,
+                                  Register64 temp0, Register64 temp1) {
+  using mozilla::non_crypto::XorShift128PlusRNG;
+
+  static_assert(
+      sizeof(XorShift128PlusRNG) == 2 * sizeof(uint64_t),
+      "Code below assumes XorShift128PlusRNG contains two uint64_t values");
+
+  Address state0Addr(rng, XorShift128PlusRNG::offsetOfState0());
+  Address state1Addr(rng, XorShift128PlusRNG::offsetOfState1());
+
+  Register64 s0Reg = temp0;
+  Register64 s1Reg = temp1;
+
+  // uint64_t s1 = mState[0];
+  load64(state0Addr, s1Reg);
+
+  // s1 ^= s1 << 23;
+  move64(s1Reg, s0Reg);
+  lshift64(Imm32(23), s1Reg);
+  xor64(s0Reg, s1Reg);
+
+  // s1 ^= s1 >> 17
+  move64(s1Reg, s0Reg);
+  rshift64(Imm32(17), s1Reg);
+  xor64(s0Reg, s1Reg);
+
+  // const uint64_t s0 = mState[1];
+  load64(state1Addr, s0Reg);
+
+  // mState[0] = s0;
+  store64(s0Reg, state0Addr);
+
+  // s1 ^= s0
+  xor64(s0Reg, s1Reg);
+
+  // s1 ^= s0 >> 26
+  rshift64(Imm32(26), s0Reg);
+  xor64(s0Reg, s1Reg);
+
+  // mState[1] = s1
+  store64(s1Reg, state1Addr);
+
+  // s1 += mState[0]
+  load64(state0Addr, s0Reg);
+  add64(s0Reg, s1Reg);
+
+  // See comment in XorShift128PlusRNG::nextDouble().
+  static constexpr int MantissaBits =
+      mozilla::FloatingPoint<double>::kExponentShift + 1;
+  static constexpr double ScaleInv = double(1) / (1ULL << MantissaBits);
+
+  and64(Imm64((1ULL << MantissaBits) - 1), s1Reg);
+
+  // Note: we know s1Reg isn't signed after the and64 so we can use the faster
+  // convertInt64ToDouble instead of convertUInt64ToDouble.
+  convertInt64ToDouble(s1Reg, dest);
+
+  // dest *= ScaleInv
+  mulDoublePtr(ImmPtr(&ScaleInv), s0Reg.scratchReg(), dest);
+}
+
+void MacroAssembler::sameValueDouble(FloatRegister left, FloatRegister right,
+                                     FloatRegister temp, Register dest) {
+  Label nonEqual, isSameValue, isNotSameValue;
+  branchDouble(Assembler::DoubleNotEqualOrUnordered, left, right, &nonEqual);
+  {
+    // First, test for being equal to 0.0, which also includes -0.0.
+    loadConstantDouble(0.0, temp);
+    branchDouble(Assembler::DoubleNotEqual, left, temp, &isSameValue);
+
+    // The easiest way to distinguish -0.0 from 0.0 is that 1.0/-0.0
+    // is -Infinity instead of Infinity.
+    Label isNegInf;
+    loadConstantDouble(1.0, temp);
+    divDouble(left, temp);
+    branchDouble(Assembler::DoubleLessThan, temp, left, &isNegInf);
+    {
+      loadConstantDouble(1.0, temp);
+      divDouble(right, temp);
+      branchDouble(Assembler::DoubleGreaterThan, temp, right, &isSameValue);
+      jump(&isNotSameValue);
+    }
+    bind(&isNegInf);
+    {
+      loadConstantDouble(1.0, temp);
+      divDouble(right, temp);
+      branchDouble(Assembler::DoubleLessThan, temp, right, &isSameValue);
+      jump(&isNotSameValue);
+    }
+  }
+  bind(&nonEqual);
+  {
+    // Test if both values are NaN.
+    branchDouble(Assembler::DoubleOrdered, left, left, &isNotSameValue);
+    branchDouble(Assembler::DoubleOrdered, right, right, &isNotSameValue);
+  }
+
+  Label done;
+  bind(&isSameValue);
+  move32(Imm32(1), dest);
+  jump(&done);
+
+  bind(&isNotSameValue);
+  move32(Imm32(0), dest);
+
+  bind(&done);
+}
+
+void MacroAssembler::branchIfNotRegExpPrototypeOptimizable(Register proto,
+                                                           Register temp,
+                                                           Label* fail) {
+  loadJSContext(temp);
+  loadPtr(Address(temp, JSContext::offsetOfRealm()), temp);
+  size_t offset = Realm::offsetOfRegExps() +
+                  RegExpRealm::offsetOfOptimizableRegExpPrototypeShape();
+  loadPtr(Address(temp, offset), temp);
+  branchTestObjShapeUnsafe(Assembler::NotEqual, proto, temp, fail);
+}
+
+void MacroAssembler::branchIfNotRegExpInstanceOptimizable(Register regexp,
+                                                          Register temp,
+                                                          Label* label) {
+  loadJSContext(temp);
+  loadPtr(Address(temp, JSContext::offsetOfRealm()), temp);
+  size_t offset = Realm::offsetOfRegExps() +
+                  RegExpRealm::offsetOfOptimizableRegExpInstanceShape();
+  loadPtr(Address(temp, offset), temp);
+  branchTestObjShapeUnsafe(Assembler::NotEqual, regexp, temp, label);
+}
+
+// ===============================================================
 // Branch functions
 
-void MacroAssembler::branchIfNotInterpretedConstructor(Register fun,
-                                                       Register scratch,
-                                                       Label* label) {
-  // 16-bit loads are slow and unaligned 32-bit loads may be too so
-  // perform an aligned 32-bit load and adjust the bitmask accordingly.
-  static_assert(JSFunction::offsetOfNargs() % sizeof(uint32_t) == 0,
-                "JSFunction nargs are aligned to uint32_t");
-  static_assert(JSFunction::offsetOfFlags() == JSFunction::offsetOfNargs() + 2,
-                "JSFunction nargs and flags are stored next to each other");
+void MacroAssembler::loadFunctionLength(Register func, Register funFlags,
+                                        Register output, Label* slowPath) {
+#ifdef DEBUG
+  {
+    // These flags should already have been checked by caller.
+    Label ok;
+    uint32_t FlagsToCheck =
+        FunctionFlags::SELFHOSTLAZY | FunctionFlags::RESOLVED_LENGTH;
+    branchTest32(Assembler::Zero, funFlags, Imm32(FlagsToCheck), &ok);
+    assumeUnreachable("The function flags should already have been checked.");
+    bind(&ok);
+  }
+#endif  // DEBUG
 
-  // First, ensure it's a scripted function.
-  load32(Address(fun, JSFunction::offsetOfNargs()), scratch);
-  int32_t bits = IMM32_16ADJ(JSFunction::INTERPRETED);
-  branchTest32(Assembler::Zero, scratch, Imm32(bits), label);
+  // NOTE: `funFlags` and `output` must be allowed to alias.
 
-  // Check if the CONSTRUCTOR bit is set.
-  bits = IMM32_16ADJ(JSFunction::CONSTRUCTOR);
-  branchTest32(Assembler::Zero, scratch, Imm32(bits), label);
+  // Load the target function's length.
+  Label isInterpreted, isBound, lengthLoaded;
+  branchTest32(Assembler::NonZero, funFlags, Imm32(FunctionFlags::BOUND_FUN),
+               &isBound);
+  branchTest32(Assembler::NonZero, funFlags, Imm32(FunctionFlags::BASESCRIPT),
+               &isInterpreted);
+  {
+    // Load the length property of a native function.
+    load16ZeroExtend(Address(func, JSFunction::offsetOfNargs()), output);
+    jump(&lengthLoaded);
+  }
+  bind(&isBound);
+  {
+    // Load the length property of a bound function.
+    Address boundLength(func,
+                        FunctionExtended::offsetOfBoundFunctionLengthSlot());
+    fallibleUnboxInt32(boundLength, output, slowPath);
+    jump(&lengthLoaded);
+  }
+  bind(&isInterpreted);
+  {
+    // Load the length property of an interpreted function.
+    loadPtr(Address(func, JSFunction::offsetOfScript()), output);
+    loadPtr(Address(output, JSScript::offsetOfSharedData()), output);
+    branchTestPtr(Assembler::Zero, output, output, slowPath);
+    loadPtr(Address(output, SharedImmutableScriptData::offsetOfISD()), output);
+    load16ZeroExtend(Address(output, ImmutableScriptData::offsetOfFunLength()),
+                     output);
+  }
+  bind(&lengthLoaded);
+}
+
+void MacroAssembler::loadFunctionName(Register func, Register output,
+                                      ImmGCPtr emptyString, Label* slowPath) {
+  MOZ_ASSERT(func != output);
+
+  // Get the JSFunction flags.
+  load16ZeroExtend(Address(func, JSFunction::offsetOfFlags()), output);
+
+  // If the name was previously resolved, the name property may be shadowed.
+  branchTest32(Assembler::NonZero, output, Imm32(FunctionFlags::RESOLVED_NAME),
+               slowPath);
+
+  Label notBoundTarget, loadName;
+  branchTest32(Assembler::Zero, output, Imm32(FunctionFlags::BOUND_FUN),
+               &notBoundTarget);
+  {
+    // Call into the VM if the target's name atom doesn't contain the bound
+    // function prefix.
+    branchTest32(Assembler::Zero, output,
+                 Imm32(FunctionFlags::HAS_BOUND_FUNCTION_NAME_PREFIX),
+                 slowPath);
+
+    // Bound functions reuse HAS_GUESSED_ATOM for
+    // HAS_BOUND_FUNCTION_NAME_PREFIX, so skip the guessed atom check below.
+    static_assert(
+        FunctionFlags::HAS_BOUND_FUNCTION_NAME_PREFIX ==
+            FunctionFlags::HAS_GUESSED_ATOM,
+        "HAS_BOUND_FUNCTION_NAME_PREFIX is shared with HAS_GUESSED_ATOM");
+    jump(&loadName);
+  }
+  bind(&notBoundTarget);
+
+  Label guessed, hasName;
+  branchTest32(Assembler::NonZero, output,
+               Imm32(FunctionFlags::HAS_GUESSED_ATOM), &guessed);
+  bind(&loadName);
+  loadPtr(Address(func, JSFunction::offsetOfAtom()), output);
+  branchTestPtr(Assembler::NonZero, output, output, &hasName);
+  {
+    bind(&guessed);
+
+    // An absent name property defaults to the empty string.
+    movePtr(emptyString, output);
+  }
+  bind(&hasName);
 }
 
 void MacroAssembler::branchTestObjGroupNoSpectreMitigations(
@@ -3288,17 +3663,8 @@ void MacroAssembler::branchIfPretenuredGroup(Register group, Label* label) {
 void MacroAssembler::branchIfNonNativeObj(Register obj, Register scratch,
                                           Label* label) {
   loadObjClassUnsafe(obj, scratch);
-  branchTest32(Assembler::NonZero, Address(scratch, Class::offsetOfFlags()),
-               Imm32(Class::NON_NATIVE), label);
-}
-
-void MacroAssembler::branchIfInlineTypedObject(Register obj, Register scratch,
-                                               Label* label) {
-  loadObjClassUnsafe(obj, scratch);
-  branchPtr(Assembler::Equal, scratch, ImmPtr(&InlineOpaqueTypedObject::class_),
-            label);
-  branchPtr(Assembler::Equal, scratch,
-            ImmPtr(&InlineTransparentTypedObject::class_), label);
+  branchTest32(Assembler::NonZero, Address(scratch, JSClass::offsetOfFlags()),
+               Imm32(JSClass::NON_NATIVE), label);
 }
 
 void MacroAssembler::copyObjGroupNoPreBarrier(Register sourceObj,
@@ -3306,16 +3672,6 @@ void MacroAssembler::copyObjGroupNoPreBarrier(Register sourceObj,
                                               Register scratch) {
   loadPtr(Address(sourceObj, JSObject::offsetOfGroup()), scratch);
   storePtr(scratch, Address(destObj, JSObject::offsetOfGroup()));
-}
-
-void MacroAssembler::loadTypedObjectDescr(Register obj, Register dest) {
-  loadPtr(Address(obj, JSObject::offsetOfGroup()), dest);
-  loadPtr(Address(dest, ObjectGroup::offsetOfAddendum()), dest);
-}
-
-void MacroAssembler::loadTypedObjectLength(Register obj, Register dest) {
-  loadTypedObjectDescr(obj, dest);
-  unboxInt32(Address(dest, ArrayTypeDescr::offsetOfLength()), dest);
 }
 
 void MacroAssembler::maybeBranchTestType(MIRType type, MDefinition* maybeDef,
@@ -3339,6 +3695,9 @@ void MacroAssembler::maybeBranchTestType(MIRType type, MDefinition* maybeDef,
         break;
       case MIRType::Symbol:
         branchTestSymbol(Equal, tag, label);
+        break;
+      case MIRType::BigInt:
+        branchTestBigInt(Equal, tag, label);
         break;
       case MIRType::Object:
         branchTestObject(Equal, tag, label);
@@ -3367,39 +3726,47 @@ void MacroAssembler::wasmInterruptCheck(Register tls,
   bind(&ok);
 }
 
-void MacroAssembler::wasmReserveStackChecked(uint32_t amount,
-                                             wasm::BytecodeOffset trapOffset) {
-  if (!amount) {
-    return;
-  }
-
-  // If the frame is large, don't bump sp until after the stack limit check so
-  // that the trap handler isn't called with a wild sp.
-
+std::pair<CodeOffset, uint32_t> MacroAssembler::wasmReserveStackChecked(
+    uint32_t amount, wasm::BytecodeOffset trapOffset) {
   if (amount > MAX_UNCHECKED_LEAF_FRAME_SIZE) {
+    // The frame is large.  Don't bump sp until after the stack limit check so
+    // that the trap handler isn't called with a wild sp.
     Label ok;
     Register scratch = ABINonArgReg0;
     moveStackPtrTo(scratch);
-    subPtr(Address(WasmTlsReg, offsetof(wasm::TlsData, stackLimit)), scratch);
-    branchPtr(Assembler::GreaterThan, scratch, Imm32(amount), &ok);
+
+    Label trap;
+    branchPtr(Assembler::Below, scratch, Imm32(amount), &trap);
+    subPtr(Imm32(amount), scratch);
+    branchPtr(Assembler::Below,
+              Address(WasmTlsReg, offsetof(wasm::TlsData, stackLimit)), scratch,
+              &ok);
+
+    bind(&trap);
     wasmTrap(wasm::Trap::StackOverflow, trapOffset);
+    CodeOffset trapInsnOffset = CodeOffset(currentOffset());
+
     bind(&ok);
+    reserveStack(amount);
+    return std::pair<CodeOffset, uint32_t>(trapInsnOffset, 0);
   }
 
   reserveStack(amount);
-
-  if (amount <= MAX_UNCHECKED_LEAF_FRAME_SIZE) {
-    Label ok;
-    branchStackPtrRhs(Assembler::Below,
-                      Address(WasmTlsReg, offsetof(wasm::TlsData, stackLimit)),
-                      &ok);
-    wasmTrap(wasm::Trap::StackOverflow, trapOffset);
-    bind(&ok);
-  }
+  Label ok;
+  branchStackPtrRhs(Assembler::Below,
+                    Address(WasmTlsReg, offsetof(wasm::TlsData, stackLimit)),
+                    &ok);
+  wasmTrap(wasm::Trap::StackOverflow, trapOffset);
+  CodeOffset trapInsnOffset = CodeOffset(currentOffset());
+  bind(&ok);
+  return std::pair<CodeOffset, uint32_t>(trapInsnOffset, amount);
 }
 
 CodeOffset MacroAssembler::wasmCallImport(const wasm::CallSiteDesc& desc,
                                           const wasm::CalleeDesc& callee) {
+  storePtr(WasmTlsReg,
+           Address(getStackPointer(), WasmCallerTLSOffsetBeforeCall));
+
   // Load the callee, before the caller's registers are clobbered.
   uint32_t globalDataOffset = callee.importGlobalDataOffset();
   loadWasmGlobalPtr(globalDataOffset + offsetof(wasm::FuncImportTls, code),
@@ -3418,6 +3785,9 @@ CodeOffset MacroAssembler::wasmCallImport(const wasm::CallSiteDesc& desc,
   // Switch to the callee's TLS and pinned registers and make the call.
   loadWasmGlobalPtr(globalDataOffset + offsetof(wasm::FuncImportTls, tls),
                     WasmTlsReg);
+
+  storePtr(WasmTlsReg,
+           Address(getStackPointer(), WasmCalleeTLSOffsetBeforeCall));
   loadWasmPinnedRegsFromTls();
 
   return call(desc, ABINonArgReg0);
@@ -3425,8 +3795,13 @@ CodeOffset MacroAssembler::wasmCallImport(const wasm::CallSiteDesc& desc,
 
 CodeOffset MacroAssembler::wasmCallBuiltinInstanceMethod(
     const wasm::CallSiteDesc& desc, const ABIArg& instanceArg,
-    wasm::SymbolicAddress builtin) {
+    wasm::SymbolicAddress builtin, wasm::FailureMode failureMode) {
   MOZ_ASSERT(instanceArg != ABIArg());
+
+  storePtr(WasmTlsReg,
+           Address(getStackPointer(), WasmCallerTLSOffsetBeforeCall));
+  storePtr(WasmTlsReg,
+           Address(getStackPointer(), WasmCalleeTLSOffsetBeforeCall));
 
   if (instanceArg.kind() == ABIArg::GPR) {
     loadPtr(Address(WasmTlsReg, offsetof(wasm::TlsData, instance)),
@@ -3441,7 +3816,31 @@ CodeOffset MacroAssembler::wasmCallBuiltinInstanceMethod(
     MOZ_CRASH("Unknown abi passing style for pointer");
   }
 
-  return call(desc, builtin);
+  CodeOffset ret = call(desc, builtin);
+
+  if (failureMode != wasm::FailureMode::Infallible) {
+    Label noTrap;
+    switch (failureMode) {
+      case wasm::FailureMode::Infallible:
+        MOZ_MAKE_COMPILER_ASSUME_IS_UNREACHABLE();
+      case wasm::FailureMode::FailOnNegI32:
+        branchTest32(Assembler::NotSigned, ReturnReg, ReturnReg, &noTrap);
+        break;
+      case wasm::FailureMode::FailOnNullPtr:
+        branchTestPtr(Assembler::NonZero, ReturnReg, ReturnReg, &noTrap);
+        break;
+      case wasm::FailureMode::FailOnInvalidRef:
+        branchPtr(Assembler::NotEqual, ReturnReg,
+                  ImmWord(uintptr_t(wasm::AnyRef::invalid().forCompiledCode())),
+                  &noTrap);
+        break;
+    }
+    wasmTrap(wasm::Trap::ThrowReported,
+             wasm::BytecodeOffset(desc.lineOrBytecode()));
+    bind(&noTrap);
+  }
+
+  return ret;
 }
 
 CodeOffset MacroAssembler::wasmCallIndirect(const wasm::CallSiteDesc& desc,
@@ -3469,6 +3868,10 @@ CodeOffset MacroAssembler::wasmCallIndirect(const wasm::CallSiteDesc& desc,
       addPtr(index, scratch);
     }
     loadPtr(Address(scratch, offsetof(wasm::FunctionTableElem, code)), scratch);
+    storePtr(WasmTlsReg,
+             Address(getStackPointer(), WasmCallerTLSOffsetBeforeCall));
+    storePtr(WasmTlsReg,
+             Address(getStackPointer(), WasmCalleeTLSOffsetBeforeCall));
     return call(desc, scratch);
   }
 
@@ -3510,7 +3913,11 @@ CodeOffset MacroAssembler::wasmCallIndirect(const wasm::CallSiteDesc& desc,
     addPtr(index, scratch);
   }
 
+  storePtr(WasmTlsReg,
+           Address(getStackPointer(), WasmCallerTLSOffsetBeforeCall));
   loadPtr(Address(scratch, offsetof(wasm::FunctionTableElem, tls)), WasmTlsReg);
+  storePtr(WasmTlsReg,
+           Address(getStackPointer(), WasmCalleeTLSOffsetBeforeCall));
 
   Label nonNull;
   branchTest32(Assembler::NonZero, WasmTlsReg, WasmTlsReg, &nonNull);
@@ -3525,6 +3932,11 @@ CodeOffset MacroAssembler::wasmCallIndirect(const wasm::CallSiteDesc& desc,
   return call(desc, scratch);
 }
 
+void MacroAssembler::nopPatchableToCall(const wasm::CallSiteDesc& desc) {
+  CodeOffset offset = nopPatchableToCall();
+  append(desc, offset);
+}
+
 void MacroAssembler::emitPreBarrierFastPath(JSRuntime* rt, MIRType type,
                                             Register temp1, Register temp2,
                                             Register temp3, Label* noBarrier) {
@@ -3534,7 +3946,7 @@ void MacroAssembler::emitPreBarrierFastPath(JSRuntime* rt, MIRType type,
 
   // Load the GC thing in temp1.
   if (type == MIRType::Value) {
-    unboxGCThingForPreBarrierTrampoline(Address(PreBarrierReg, 0), temp1);
+    unboxGCThingForGCBarrier(Address(PreBarrierReg, 0), temp1);
   } else {
     MOZ_ASSERT(type == MIRType::Object || type == MIRType::String ||
                type == MIRType::Shape || type == MIRType::ObjectGroup);
@@ -3632,11 +4044,31 @@ void MacroAssembler::emitPreBarrierFastPath(JSRuntime* rt, MIRType type,
 #elif JS_CODEGEN_NONE
   MOZ_CRASH();
 #else
-#error "Unknown architecture"
+#  error "Unknown architecture"
 #endif
 
   // No barrier is needed if the bit is set, |word & mask != 0|.
   branchTestPtr(Assembler::NonZero, temp2, temp1, noBarrier);
+}
+
+// ========================================================================
+// JS atomic operations.
+
+void MacroAssembler::atomicIsLockFreeJS(Register value, Register output) {
+  // Keep this in sync with isLockfreeJS() in jit/AtomicOperations.h.
+  MOZ_ASSERT(AtomicOperations::isLockfreeJS(1));  // Implementation artifact
+  MOZ_ASSERT(AtomicOperations::isLockfreeJS(2));  // Implementation artifact
+  MOZ_ASSERT(AtomicOperations::isLockfreeJS(4));  // Spec requirement
+  MOZ_ASSERT(
+      !AtomicOperations::isLockfreeJS(8));  // Implementation invariant, for now
+
+  Label done;
+  move32(Imm32(1), output);
+  branch32(Assembler::Equal, value, Imm32(4), &done);
+  branch32(Assembler::Equal, value, Imm32(2), &done);
+  branch32(Assembler::Equal, value, Imm32(1), &done);
+  move32(Imm32(0), output);
+  bind(&done);
 }
 
 // ========================================================================
@@ -3685,12 +4117,6 @@ void MacroAssembler::memoryBarrierAfter(const Synchronization& sync) {
   memoryBarrier(sync.barrierAfter);
 }
 
-void MacroAssembler::loadWasmTlsRegFromFrame(Register dest) {
-  loadPtr(
-      Address(getStackPointer(), framePushed() + offsetof(wasm::Frame, tls)),
-      dest);
-}
-
 void MacroAssembler::BranchGCPtr::emit(MacroAssembler& masm) {
   MOZ_ASSERT(isInitialized());
   masm.branchPtr(cond(), reg(), ptr_, jump());
@@ -3709,7 +4135,7 @@ void MacroAssembler::debugAssertObjHasFixedSlots(Register obj,
                                                  Register scratch) {
 #ifdef DEBUG
   Label hasFixedSlots;
-  loadPtr(Address(obj, ShapedObject::offsetOfShape()), scratch);
+  loadPtr(Address(obj, JSObject::offsetOfShape()), scratch);
   branchTest32(Assembler::NonZero,
                Address(scratch, Shape::offsetOfImmutableFlags()),
                Imm32(Shape::fixedSlotsMask()), &hasFixedSlots);
@@ -3718,10 +4144,302 @@ void MacroAssembler::debugAssertObjHasFixedSlots(Register obj,
 #endif
 }
 
+void MacroAssembler::branchArrayIsNotPacked(Register array, Register temp1,
+                                            Register temp2, Label* label) {
+  loadPtr(Address(array, NativeObject::offsetOfElements()), temp1);
+
+  // Test length == initializedLength.
+  Label done;
+  Address initLength(temp1, ObjectElements::offsetOfInitializedLength());
+  load32(Address(temp1, ObjectElements::offsetOfLength()), temp2);
+  branch32(Assembler::NotEqual, initLength, temp2, label);
+
+  // Test the NON_PACKED flag.
+  Address flags(temp1, ObjectElements::offsetOfFlags());
+  branchTest32(Assembler::NonZero, flags, Imm32(ObjectElements::NON_PACKED),
+               label);
+}
+
+void MacroAssembler::setIsPackedArray(Register obj, Register output,
+                                      Register temp) {
+  // Ensure it's an ArrayObject.
+  Label notPackedArray;
+  branchTestObjClass(Assembler::NotEqual, obj, &ArrayObject::class_, temp, obj,
+                     &notPackedArray);
+
+  branchArrayIsNotPacked(obj, temp, output, &notPackedArray);
+
+  Label done;
+  move32(Imm32(1), output);
+  jump(&done);
+
+  bind(&notPackedArray);
+  move32(Imm32(0), output);
+
+  bind(&done);
+}
+
+void MacroAssembler::packedArrayPop(Register array, ValueOperand output,
+                                    Register temp1, Register temp2,
+                                    Label* fail) {
+  // Load obj->elements in temp1.
+  loadPtr(Address(array, NativeObject::offsetOfElements()), temp1);
+
+  // Check flags.
+  static constexpr uint32_t UnhandledFlags =
+      ObjectElements::Flags::NON_PACKED | ObjectElements::Flags::COPY_ON_WRITE |
+      ObjectElements::Flags::NONWRITABLE_ARRAY_LENGTH |
+      ObjectElements::Flags::NOT_EXTENSIBLE |
+      ObjectElements::Flags::MAYBE_IN_ITERATION;
+  Address flags(temp1, ObjectElements::offsetOfFlags());
+  branchTest32(Assembler::NonZero, flags, Imm32(UnhandledFlags), fail);
+
+  // Load length in temp2. Ensure length == initializedLength.
+  Address lengthAddr(temp1, ObjectElements::offsetOfLength());
+  Address initLengthAddr(temp1, ObjectElements::offsetOfInitializedLength());
+  load32(lengthAddr, temp2);
+  branch32(Assembler::NotEqual, initLengthAddr, temp2, fail);
+
+  // Result is |undefined| if length == 0.
+  Label notEmpty, done;
+  branchTest32(Assembler::NonZero, temp2, temp2, &notEmpty);
+  {
+    moveValue(UndefinedValue(), output);
+    jump(&done);
+  }
+
+  bind(&notEmpty);
+
+  // Load the last element.
+  sub32(Imm32(1), temp2);
+  BaseObjectElementIndex elementAddr(temp1, temp2);
+  loadValue(elementAddr, output);
+
+  // Pre-barrier the element because we're removing it from the array.
+  EmitPreBarrier(*this, elementAddr, MIRType::Value);
+
+  // Update length and initializedLength.
+  store32(temp2, lengthAddr);
+  store32(temp2, initLengthAddr);
+
+  bind(&done);
+}
+
+void MacroAssembler::packedArrayShift(Register array, ValueOperand output,
+                                      Register temp1, Register temp2,
+                                      LiveRegisterSet volatileRegs,
+                                      Label* fail) {
+  // Load obj->elements in temp1.
+  loadPtr(Address(array, NativeObject::offsetOfElements()), temp1);
+
+  // Check flags.
+  static constexpr uint32_t UnhandledFlags =
+      ObjectElements::Flags::NON_PACKED | ObjectElements::Flags::COPY_ON_WRITE |
+      ObjectElements::Flags::NONWRITABLE_ARRAY_LENGTH |
+      ObjectElements::Flags::NOT_EXTENSIBLE |
+      ObjectElements::Flags::MAYBE_IN_ITERATION;
+  Address flags(temp1, ObjectElements::offsetOfFlags());
+  branchTest32(Assembler::NonZero, flags, Imm32(UnhandledFlags), fail);
+
+  // Load length in temp2. Ensure length == initializedLength.
+  Address lengthAddr(temp1, ObjectElements::offsetOfLength());
+  Address initLengthAddr(temp1, ObjectElements::offsetOfInitializedLength());
+  load32(lengthAddr, temp2);
+  branch32(Assembler::NotEqual, initLengthAddr, temp2, fail);
+
+  // Result is |undefined| if length == 0.
+  Label notEmpty, done;
+  branchTest32(Assembler::NonZero, temp2, temp2, &notEmpty);
+  {
+    moveValue(UndefinedValue(), output);
+    jump(&done);
+  }
+
+  bind(&notEmpty);
+
+  // Load the first element.
+  Address elementAddr(temp1, 0);
+  loadValue(elementAddr, output);
+
+  // Pre-barrier the element because we're removing it from the array.
+  EmitPreBarrier(*this, elementAddr, MIRType::Value);
+
+  // Move the other elements.
+  {
+    // Ensure output and temp2 are in volatileRegs. Don't preserve temp1.
+    volatileRegs.takeUnchecked(temp1);
+    if (output.hasVolatileReg()) {
+      volatileRegs.addUnchecked(output);
+    }
+    if (temp2.volatile_()) {
+      volatileRegs.addUnchecked(temp2);
+    }
+
+    PushRegsInMask(volatileRegs);
+
+    using Fn = void (*)(ArrayObject * arr);
+    setupUnalignedABICall(temp1);
+    passABIArg(array);
+    callWithABI<Fn, ArrayShiftMoveElements>();
+
+    PopRegsInMask(volatileRegs);
+
+    // Reload the elements. The call may have updated it.
+    loadPtr(Address(array, NativeObject::offsetOfElements()), temp1);
+  }
+
+  // Update length and initializedLength.
+  sub32(Imm32(1), temp2);
+  store32(temp2, lengthAddr);
+  store32(temp2, initLengthAddr);
+
+  bind(&done);
+}
+
+void MacroAssembler::loadArgumentsObjectElement(Register obj, Register index,
+                                                ValueOperand output,
+                                                Register temp, Label* fail) {
+  Register temp2 = output.scratchReg();
+
+  // Get initial length value.
+  unboxInt32(Address(obj, ArgumentsObject::getInitialLengthSlotOffset()), temp);
+
+  // Ensure no overridden elements.
+  branchTest32(Assembler::NonZero, temp,
+               Imm32(ArgumentsObject::ELEMENT_OVERRIDDEN_BIT), fail);
+
+  // Bounds check.
+  rshift32(Imm32(ArgumentsObject::PACKED_BITS_COUNT), temp);
+  spectreBoundsCheck32(index, temp, temp2, fail);
+
+  // Load ArgumentsData.
+  loadPrivate(Address(obj, ArgumentsObject::getDataSlotOffset()), temp);
+
+  // Fail if we have a RareArgumentsData (elements were deleted).
+  branchPtr(Assembler::NotEqual,
+            Address(temp, offsetof(ArgumentsData, rareData)), ImmWord(0), fail);
+
+  // Guard the argument is not a FORWARD_TO_CALL_SLOT MagicValue.
+  BaseValueIndex argValue(temp, index, ArgumentsData::offsetOfArgs());
+  branchTestMagic(Assembler::Equal, argValue, fail);
+  loadValue(argValue, output);
+}
+
+void MacroAssembler::loadArgumentsObjectLength(Register obj, Register output,
+                                               Label* fail) {
+  // Get initial length value.
+  unboxInt32(Address(obj, ArgumentsObject::getInitialLengthSlotOffset()),
+             output);
+
+  // Test if length has been overridden.
+  branchTest32(Assembler::NonZero, output,
+               Imm32(ArgumentsObject::LENGTH_OVERRIDDEN_BIT), fail);
+
+  // Shift out arguments length and return it.
+  rshift32(Imm32(ArgumentsObject::PACKED_BITS_COUNT), output);
+}
+
+void MacroAssembler::branchArgumentsObjectHasOverridenIterator(Register obj,
+                                                               Register temp,
+                                                               Label* label) {
+  // Get initial length value.
+  unboxInt32(Address(obj, ArgumentsObject::getInitialLengthSlotOffset()), temp);
+
+  // Ensure no overridden iterator.
+  branchTest32(Assembler::NonZero, temp,
+               Imm32(ArgumentsObject::ITERATOR_OVERRIDDEN_BIT), label);
+}
+
+static constexpr bool ValidateShiftRange(Scalar::Type from, Scalar::Type to) {
+  for (Scalar::Type type = from; type < to; type = Scalar::Type(type + 1)) {
+    if (TypedArrayShift(type) != TypedArrayShift(from)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+void MacroAssembler::typedArrayElementShift(Register obj, Register output) {
+  static_assert(Scalar::Int8 == 0, "Int8 is the first typed array class");
+  static_assert(
+      (Scalar::BigUint64 - Scalar::Int8) == Scalar::MaxTypedArrayViewType - 1,
+      "BigUint64 is the last typed array class");
+
+  Label zero, one, two, three, done;
+
+  loadObjClassUnsafe(obj, output);
+
+  static_assert(ValidateShiftRange(Scalar::Int8, Scalar::Int16),
+                "shift amount is zero in [Int8, Int16)");
+  branchPtr(Assembler::Below, output,
+            ImmPtr(TypedArrayObject::classForType(Scalar::Int16)), &zero);
+
+  static_assert(ValidateShiftRange(Scalar::Int16, Scalar::Int32),
+                "shift amount is one in [Int16, Int32)");
+  branchPtr(Assembler::Below, output,
+            ImmPtr(TypedArrayObject::classForType(Scalar::Int32)), &one);
+
+  static_assert(ValidateShiftRange(Scalar::Int32, Scalar::Float64),
+                "shift amount is two in [Int32, Float64)");
+  branchPtr(Assembler::Below, output,
+            ImmPtr(TypedArrayObject::classForType(Scalar::Float64)), &two);
+
+  static_assert(ValidateShiftRange(Scalar::Float64, Scalar::Uint8Clamped),
+                "shift amount is three in [Float64, Uint8Clamped)");
+  branchPtr(Assembler::Below, output,
+            ImmPtr(TypedArrayObject::classForType(Scalar::Uint8Clamped)),
+            &three);
+
+  static_assert(ValidateShiftRange(Scalar::Uint8Clamped, Scalar::BigInt64),
+                "shift amount is zero in [Uint8Clamped, BigInt64)");
+  branchPtr(Assembler::Below, output,
+            ImmPtr(TypedArrayObject::classForType(Scalar::BigInt64)), &zero);
+
+  static_assert(
+      ValidateShiftRange(Scalar::BigInt64, Scalar::MaxTypedArrayViewType),
+      "shift amount is three in [BigInt64, MaxTypedArrayViewType)");
+  // Fall through for BigInt64 and BigUint64
+
+  bind(&three);
+  move32(Imm32(3), output);
+  jump(&done);
+
+  bind(&two);
+  move32(Imm32(2), output);
+  jump(&done);
+
+  bind(&one);
+  move32(Imm32(1), output);
+  jump(&done);
+
+  bind(&zero);
+  move32(Imm32(0), output);
+
+  bind(&done);
+}
+
+void MacroAssembler::branchIfClassIsNotTypedArray(Register clasp,
+                                                  Label* notTypedArray) {
+  static_assert(Scalar::Int8 == 0, "Int8 is the first typed array class");
+  const JSClass* firstTypedArrayClass =
+      TypedArrayObject::classForType(Scalar::Int8);
+
+  static_assert(
+      (Scalar::BigUint64 - Scalar::Int8) == Scalar::MaxTypedArrayViewType - 1,
+      "BigUint64 is the last typed array class");
+  const JSClass* lastTypedArrayClass =
+      TypedArrayObject::classForType(Scalar::BigUint64);
+
+  branchPtr(Assembler::Below, clasp, ImmPtr(firstTypedArrayClass),
+            notTypedArray);
+  branchPtr(Assembler::Above, clasp, ImmPtr(lastTypedArrayClass),
+            notTypedArray);
+}
+
 void MacroAssembler::branchIfNativeIteratorNotReusable(Register ni,
                                                        Label* notReusable) {
   // See NativeIterator::isReusable.
-  Address flagsAddr(ni, NativeIterator::offsetOfFlags());
+  Address flagsAddr(ni, NativeIterator::offsetOfFlagsAndCount());
 
 #ifdef DEBUG
   Label niIsInitialized;
@@ -3737,6 +4455,77 @@ void MacroAssembler::branchIfNativeIteratorNotReusable(Register ni,
                Imm32(NativeIterator::Flags::NotReusable), notReusable);
 }
 
+static void LoadNativeIterator(MacroAssembler& masm, Register obj,
+                               Register dest) {
+  MOZ_ASSERT(obj != dest);
+
+#ifdef DEBUG
+  // Assert we have a PropertyIteratorObject.
+  Label ok;
+  masm.branchTestObjClass(Assembler::Equal, obj,
+                          &PropertyIteratorObject::class_, dest, obj, &ok);
+  masm.assumeUnreachable("Expected PropertyIteratorObject!");
+  masm.bind(&ok);
+#endif
+
+  // Load NativeIterator object.
+  masm.loadObjPrivate(obj, PropertyIteratorObject::NUM_FIXED_SLOTS, dest);
+}
+
+void MacroAssembler::iteratorMore(Register obj, ValueOperand output,
+                                  Register temp) {
+  Label done;
+  Register outputScratch = output.scratchReg();
+  LoadNativeIterator(*this, obj, outputScratch);
+
+  // If propertyCursor_ < propertiesEnd_, load the next string and advance
+  // the cursor.  Otherwise return MagicValue(JS_NO_ITER_VALUE).
+  Label iterDone;
+  Address cursorAddr(outputScratch, NativeIterator::offsetOfPropertyCursor());
+  Address cursorEndAddr(outputScratch, NativeIterator::offsetOfPropertiesEnd());
+  loadPtr(cursorAddr, temp);
+  branchPtr(Assembler::BelowOrEqual, cursorEndAddr, temp, &iterDone);
+
+  // Get next string.
+  loadPtr(Address(temp, 0), temp);
+
+  // Increase the cursor.
+  addPtr(Imm32(sizeof(GCPtrLinearString)), cursorAddr);
+
+  tagValue(JSVAL_TYPE_STRING, temp, output);
+  jump(&done);
+
+  bind(&iterDone);
+  moveValue(MagicValue(JS_NO_ITER_VALUE), output);
+
+  bind(&done);
+}
+
+void MacroAssembler::iteratorClose(Register obj, Register temp1, Register temp2,
+                                   Register temp3) {
+  LoadNativeIterator(*this, obj, temp1);
+
+  // Clear active bit.
+  and32(Imm32(~NativeIterator::Flags::Active),
+        Address(temp1, NativeIterator::offsetOfFlagsAndCount()));
+
+  // Reset property cursor.
+  loadPtr(Address(temp1, NativeIterator::offsetOfGuardsEnd()), temp2);
+  storePtr(temp2, Address(temp1, NativeIterator::offsetOfPropertyCursor()));
+
+  // Unlink from the iterator list.
+  const Register next = temp2;
+  const Register prev = temp3;
+  loadPtr(Address(temp1, NativeIterator::offsetOfNext()), next);
+  loadPtr(Address(temp1, NativeIterator::offsetOfPrev()), prev);
+  storePtr(prev, Address(next, NativeIterator::offsetOfPrev()));
+  storePtr(next, Address(prev, NativeIterator::offsetOfNext()));
+#ifdef DEBUG
+  storePtr(ImmPtr(nullptr), Address(temp1, NativeIterator::offsetOfNext()));
+  storePtr(ImmPtr(nullptr), Address(temp1, NativeIterator::offsetOfPrev()));
+#endif
+}
+
 template <typename T, size_t N, typename P>
 static bool AddPendingReadBarrier(Vector<T*, N, P>& list, T* value) {
   // Check if value is already present in tail of list.
@@ -3744,7 +4533,7 @@ static bool AddPendingReadBarrier(Vector<T*, N, P>& list, T* value) {
   const size_t TailWindow = 4;
 
   size_t len = list.length();
-  for (size_t i = 0; i < Min(len, TailWindow); i++) {
+  for (size_t i = 0; i < std::min(len, TailWindow); i++) {
     if (list[len - i - 1] == value) {
       return true;
     }
@@ -3783,10 +4572,10 @@ ObjectGroup* MacroAssembler::getGroupAndDelayBarrier(const TypeSet* types,
 
 void MacroAssembler::performPendingReadBarriers() {
   for (JSObject* object : pendingObjectReadBarriers_) {
-    JSObject::readBarrier(object);
+    gc::ReadBarrier(object);
   }
   for (ObjectGroup* group : pendingObjectGroupReadBarriers_) {
-    ObjectGroup::readBarrier(group);
+    gc::ReadBarrier(group);
   }
 }
 
@@ -3872,4 +4661,19 @@ template void AutoGenericRegisterScope<FloatRegister>::reacquire();
 #endif  // DEBUG
 
 }  // namespace jit
+
+namespace wasm {
+const TlsData* ExtractCallerTlsFromFrameWithTls(const Frame* fp) {
+  return *reinterpret_cast<TlsData* const*>(
+      reinterpret_cast<const uint8_t*>(fp) + sizeof(Frame) + ShadowStackSpace +
+      FrameWithTls::callerTLSOffset());
+}
+
+const TlsData* ExtractCalleeTlsFromFrameWithTls(const Frame* fp) {
+  return *reinterpret_cast<TlsData* const*>(
+      reinterpret_cast<const uint8_t*>(fp) + sizeof(Frame) + ShadowStackSpace +
+      FrameWithTls::calleeTLSOffset());
+}
+}  // namespace wasm
+
 }  // namespace js

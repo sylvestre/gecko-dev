@@ -13,12 +13,14 @@ namespace gfx {
 
 using namespace ipc;
 
-VRGPUParent::VRGPUParent(ProcessId aChildProcessId) {
+VRGPUParent::VRGPUParent(ProcessId aChildProcessId) : mClosed(false) {
   MOZ_COUNT_CTOR(VRGPUParent);
   MOZ_ASSERT(NS_IsMainThread());
 
   SetOtherProcessId(aChildProcessId);
 }
+
+VRGPUParent::~VRGPUParent() { MOZ_COUNT_DTOR(VRGPUParent); }
 
 void VRGPUParent::ActorDestroy(ActorDestroyReason aWhy) {
 #if !defined(MOZ_WIDGET_ANDROID)
@@ -28,18 +30,22 @@ void VRGPUParent::ActorDestroy(ActorDestroyReason aWhy) {
   }
 #endif
 
-  MessageLoop::current()->PostTask(
+  mClosed = true;
+  GetCurrentSerialEventTarget()->Dispatch(
       NewRunnableMethod("gfx::VRGPUParent::DeferredDestroy", this,
                         &VRGPUParent::DeferredDestroy));
 }
 
 void VRGPUParent::DeferredDestroy() { mSelfRef = nullptr; }
 
-/* static */ RefPtr<VRGPUParent> VRGPUParent::CreateForGPU(
+/* static */
+RefPtr<VRGPUParent> VRGPUParent::CreateForGPU(
     Endpoint<PVRGPUParent>&& aEndpoint) {
   RefPtr<VRGPUParent> vcp = new VRGPUParent(aEndpoint.OtherPid());
-  MessageLoop::current()->PostTask(NewRunnableMethod<Endpoint<PVRGPUParent>&&>(
-      "gfx::VRGPUParent::Bind", vcp, &VRGPUParent::Bind, std::move(aEndpoint)));
+  GetCurrentSerialEventTarget()->Dispatch(
+      NewRunnableMethod<Endpoint<PVRGPUParent>&&>("gfx::VRGPUParent::Bind", vcp,
+                                                  &VRGPUParent::Bind,
+                                                  std::move(aEndpoint)));
 
   return vcp;
 }
@@ -73,6 +79,32 @@ mozilla::ipc::IPCResult VRGPUParent::RecvStopVRService() {
 
   return IPC_OK();
 }
+
+mozilla::ipc::IPCResult VRGPUParent::RecvPuppetReset() {
+#if !defined(MOZ_WIDGET_ANDROID)
+  VRPuppetCommandBuffer::Get().Reset();
+#endif
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult VRGPUParent::RecvPuppetSubmit(
+    const nsTArray<uint64_t>& aBuffer) {
+#if !defined(MOZ_WIDGET_ANDROID)
+  VRPuppetCommandBuffer::Get().Submit(aBuffer);
+#endif
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult VRGPUParent::RecvPuppetCheckForCompletion() {
+#if !defined(MOZ_WIDGET_ANDROID)
+  if (VRPuppetCommandBuffer::Get().HasEnded()) {
+    Unused << SendNotifyPuppetComplete();
+  }
+#endif
+  return IPC_OK();
+}
+
+bool VRGPUParent::IsClosed() { return mClosed; }
 
 }  // namespace gfx
 }  // namespace mozilla

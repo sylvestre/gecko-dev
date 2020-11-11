@@ -4,6 +4,13 @@
 
 "use strict";
 
+loader.lazyRequireGetter(
+  this,
+  "isWhitespaceTextNode",
+  "devtools/server/actors/inspector/utils",
+  true
+);
+
 /**
  * The walker-search module provides a simple API to index and search strings
  * and elements inside a given document.
@@ -93,7 +100,10 @@ WalkerIndex.prototype = {
         // For each element node, we get the tagname and all attributes names
         // and values
         const localName = node.localName;
-        if (localName === "_moz_generated_content_before") {
+        if (localName === "_moz_generated_content_marker") {
+          this._addToIndex("tag", node, "::marker");
+          this._addToIndex("text", node, node.textContent.trim());
+        } else if (localName === "_moz_generated_content_before") {
           this._addToIndex("tag", node, "::before");
           this._addToIndex("text", node, node.textContent.trim());
         } else if (localName === "_moz_generated_content_after") {
@@ -103,7 +113,7 @@ WalkerIndex.prototype = {
           this._addToIndex("tag", node, node.localName);
         }
 
-        for (const {name, value} of node.attributes) {
+        for (const { name, value } of node.attributes) {
           this._addToIndex("attributeName", node, name);
           this._addToIndex("attributeValue", node, value);
         }
@@ -164,7 +174,7 @@ WalkerSearch.prototype = {
     }
 
     if (!isKnown) {
-      matches.push({type});
+      matches.push({ type });
     }
   },
 
@@ -175,11 +185,13 @@ WalkerSearch.prototype = {
       }
 
       // Add any relevant results (skipping non-requested options).
-      res.filter(entry => {
-        return options.types.includes(entry.type);
-      }).forEach(({node, type}) => {
-        this._addResult(node, type, results);
-      });
+      res
+        .filter(entry => {
+          return options.types.includes(entry.type);
+        })
+        .forEach(({ node, type }) => {
+          this._addResult(node, type, results);
+        });
     }
   },
 
@@ -197,13 +209,28 @@ WalkerSearch.prototype = {
     }
   },
 
+  _searchXPath: function(query, options, results) {
+    if (!options.types.includes("xpath")) {
+      return;
+    }
+
+    const nodes = this.walker._multiFrameXPath(query);
+    for (const node of nodes) {
+      // Exclude text nodes that only contain whitespace
+      // because they are not displayed in the Inspector.
+      if (!isWhitespaceTextNode(node)) {
+        this._addResult(node, "xpath", results);
+      }
+    }
+  },
+
   /**
    * Search the document
    * @param {String} query What to search for
    * @param {Object} options The following options are accepted:
    * - searchMethod {String} one of WalkerSearch.SEARCH_METHOD_*
    *   defaults to WalkerSearch.SEARCH_METHOD_CONTAINS (does not apply to
-   *   selector search type)
+   *   selector and XPath search types)
    * - types {Array} a list of things to search for (tag, text, attributes, etc)
    *   defaults to WalkerSearch.ALL_RESULTS_TYPES
    * @return {Array} An array is returned with each item being an object like:
@@ -213,7 +240,8 @@ WalkerSearch.prototype = {
    * }
    */
   search: function(query, options = {}) {
-    options.searchMethod = options.searchMethod || WalkerSearch.SEARCH_METHOD_CONTAINS;
+    options.searchMethod =
+      options.searchMethod || WalkerSearch.SEARCH_METHOD_CONTAINS;
     options.types = options.types || WalkerSearch.ALL_RESULTS_TYPES;
 
     // Empty strings will return no results, as will non-string input
@@ -230,10 +258,13 @@ WalkerSearch.prototype = {
     // Search with querySelectorAll
     this._searchSelectors(query, options, results);
 
+    // Search with XPath
+    this._searchXPath(query, options, results);
+
     // Concatenate all results into an Array to return
     const resultList = [];
     for (const [node, matches] of results) {
-      for (const {type} of matches) {
+      for (const { type } of matches) {
         resultList.push({
           node: node,
           type: type,
@@ -246,7 +277,7 @@ WalkerSearch.prototype = {
       }
     }
 
-    const documents = this.walker.targetActor.windows.map(win=>win.document);
+    const documents = this.walker.targetActor.windows.map(win => win.document);
 
     // Sort the resulting nodes by order of appearance in the DOM
     resultList.sort((a, b) => {
@@ -270,7 +301,13 @@ WalkerSearch.SEARCH_METHOD_CONTAINS = (query, candidate) => {
   return query && candidate.toLowerCase().includes(query.toLowerCase());
 };
 
-WalkerSearch.ALL_RESULTS_TYPES = ["tag", "text", "attributeName",
-                                  "attributeValue", "selector"];
+WalkerSearch.ALL_RESULTS_TYPES = [
+  "tag",
+  "text",
+  "attributeName",
+  "attributeValue",
+  "selector",
+  "xpath",
+];
 
 exports.WalkerSearch = WalkerSearch;

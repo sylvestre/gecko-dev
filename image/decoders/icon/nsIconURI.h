@@ -10,23 +10,29 @@
 #include "nsIIconURI.h"
 #include "nsCOMPtr.h"
 #include "nsString.h"
-#include "nsIIPCSerializableURI.h"
 #include "nsINestedURI.h"
 #include "nsIURIMutator.h"
+
+#define NS_THIS_ICONURI_IMPLEMENTATION_CID           \
+  { /* 0b9bb0c2-fee6-470b-b9b9-9fd9462b5e19 */       \
+    0x5c3e417f, 0xb686, 0x4105, {                    \
+      0x86, 0xe7, 0xf9, 0x1b, 0xac, 0x97, 0x4d, 0x5c \
+    }                                                \
+  }
 
 namespace mozilla {
 class Encoding;
 }
 
 class nsMozIconURI final : public nsIMozIconURI,
-                           public nsIIPCSerializableURI,
-                           public nsINestedURI {
+                           public nsINestedURI,
+                           public nsISerializable {
  public:
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIURI
   NS_DECL_NSIMOZICONURI
-  NS_DECL_NSIIPCSERIALIZABLEURI
   NS_DECL_NSINESTEDURI
+  NS_DECL_NSISERIALIZABLE
 
  protected:
   nsMozIconURI();
@@ -45,40 +51,51 @@ class nsMozIconURI final : public nsIMozIconURI,
                        // kStateStrings
 
  private:
-  nsresult Clone(nsIURI **aURI);
-  nsresult SetSpecInternal(const nsACString &input);
-  nsresult SetScheme(const nsACString &input);
-  nsresult SetUserPass(const nsACString &input);
-  nsresult SetUsername(const nsACString &input);
-  nsresult SetPassword(const nsACString &input);
-  nsresult SetHostPort(const nsACString &aValue);
-  nsresult SetHost(const nsACString &input);
+  nsresult Clone(nsIURI** aURI);
+  nsresult SetSpecInternal(const nsACString& input);
+  nsresult SetScheme(const nsACString& input);
+  nsresult SetUserPass(const nsACString& input);
+  nsresult SetUsername(const nsACString& input);
+  nsresult SetPassword(const nsACString& input);
+  nsresult SetHostPort(const nsACString& aValue);
+  nsresult SetHost(const nsACString& input);
   nsresult SetPort(int32_t port);
-  nsresult SetPathQueryRef(const nsACString &input);
-  nsresult SetRef(const nsACString &input);
-  nsresult SetFilePath(const nsACString &input);
-  nsresult SetQuery(const nsACString &input);
-  nsresult SetQueryWithEncoding(const nsACString &input,
-                                const mozilla::Encoding *encoding);
-  bool Deserialize(const mozilla::ipc::URIParams &);
+  nsresult SetPathQueryRef(const nsACString& input);
+  nsresult SetRef(const nsACString& input);
+  nsresult SetFilePath(const nsACString& input);
+  nsresult SetQuery(const nsACString& input);
+  nsresult SetQueryWithEncoding(const nsACString& input,
+                                const mozilla::Encoding* encoding);
+  nsresult ReadPrivate(nsIObjectInputStream* stream);
+  bool Deserialize(const mozilla::ipc::URIParams&);
 
  public:
   class Mutator final : public nsIURIMutator,
-                        public BaseURIMutator<nsMozIconURI> {
+                        public BaseURIMutator<nsMozIconURI>,
+                        public nsISerializable {
     NS_DECL_ISUPPORTS
     NS_FORWARD_SAFE_NSIURISETTERS_RET(mURI)
 
-    NS_IMETHOD Deserialize(const mozilla::ipc::URIParams &aParams) override {
+    NS_IMETHOD
+    Write(nsIObjectOutputStream* aOutputStream) override {
+      return NS_ERROR_NOT_IMPLEMENTED;
+    }
+
+    [[nodiscard]] NS_IMETHOD Read(nsIObjectInputStream* aStream) override {
+      return InitFromInputStream(aStream);
+    }
+
+    NS_IMETHOD Deserialize(const mozilla::ipc::URIParams& aParams) override {
       return InitFromIPCParams(aParams);
     }
 
-    NS_IMETHOD Finalize(nsIURI **aURI) override {
+    NS_IMETHOD Finalize(nsIURI** aURI) override {
       mURI.forget(aURI);
       return NS_OK;
     }
 
-    NS_IMETHOD SetSpec(const nsACString &aSpec,
-                       nsIURIMutator **aMutator) override {
+    NS_IMETHOD SetSpec(const nsACString& aSpec,
+                       nsIURIMutator** aMutator) override {
       if (aMutator) {
         nsCOMPtr<nsIURIMutator> mutator = this;
         mutator.forget(aMutator);

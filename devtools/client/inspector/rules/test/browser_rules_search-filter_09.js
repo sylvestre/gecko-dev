@@ -1,4 +1,3 @@
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -21,7 +20,7 @@ const TEST_URI = `
 
 add_task(async function() {
   await addTab("data:text/html;charset=utf-8," + encodeURIComponent(TEST_URI));
-  const {inspector, view} = await openRuleView();
+  const { inspector, view } = await openRuleView();
   await selectNode("#testid", inspector);
 
   info("Enter the test value in the search filter");
@@ -30,17 +29,22 @@ add_task(async function() {
   info("Start entering a new property in the rule");
   const ruleEditor = getRuleViewRuleEditor(view, 1);
   const rule = ruleEditor.rule;
+  const prop = getTextProperty(view, 1, { width: "100%" });
   let editor = await focusNewRuleViewProperty(ruleEditor);
 
   info("Check that the correct rules are visible");
   is(view.element.children.length, 2, "Should have 2 rules.");
   is(rule.selectorText, "#testid", "Second rule is #testid.");
-  ok(rule.textProps[0].editor.container.classList
-    .contains("ruleview-highlight"),
-    "width text property is correctly highlighted.");
-  ok(!rule.textProps[1].editor.container.classList
-    .contains("ruleview-highlight"),
-    "height text property is not highlighted.");
+  ok(
+    prop.editor.container.classList.contains("ruleview-highlight"),
+    "width text property is correctly highlighted."
+  );
+  ok(
+    !getTextProperty(view, 1, {
+      height: "50%",
+    }).editor.container.classList.contains("ruleview-highlight"),
+    "height text property is not highlighted."
+  );
 
   info("Test creating a new property");
 
@@ -68,6 +72,8 @@ add_task(async function() {
   editor.input.blur();
   await onRuleViewChanged;
 
-  ok(propEditor.container.classList.contains("ruleview-highlight"),
-    "margin-left text property is correctly highlighted.");
+  ok(
+    propEditor.container.classList.contains("ruleview-highlight"),
+    "margin-left text property is correctly highlighted."
+  );
 });

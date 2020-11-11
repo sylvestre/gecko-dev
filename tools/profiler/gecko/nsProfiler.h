@@ -7,14 +7,17 @@
 #ifndef nsProfiler_h
 #define nsProfiler_h
 
-#include "nsIProfiler.h"
-#include "nsIObserver.h"
 #include "mozilla/Attributes.h"
 #include "mozilla/Maybe.h"
 #include "mozilla/MozPromise.h"
+#include "mozilla/ProfileJSONWriter.h"
 #include "mozilla/TimeStamp.h"
+#include "mozilla/Vector.h"
+#include "nsIObserver.h"
+#include "nsIProfiler.h"
+#include "nsITimer.h"
 #include "nsServiceManagerUtils.h"
-#include "ProfileJSONWriter.h"
+#include "ProfilerCodeAddressService.h"
 
 class nsProfiler final : public nsIProfiler, public nsIObserver {
  public:
@@ -34,30 +37,17 @@ class nsProfiler final : public nsIProfiler, public nsIObserver {
 
   void GatheredOOPProfile(const nsACString& aProfile);
 
-  // This SymbolTable struct, and the CompactSymbolTable struct in the
-  // profiler rust module, have the exact same memory layout.
-  // nsTArray and ThinVec are FFI-compatible, because the thin-vec crate is
-  // being compiled with the "gecko-ffi" feature enabled.
-  struct SymbolTable {
-    SymbolTable() = default;
-    SymbolTable(SymbolTable&& aOther) = default;
-
-    nsTArray<uint32_t> mAddrs;
-    nsTArray<uint32_t> mIndex;
-    nsTArray<uint8_t> mBuffer;
-  };
-
  private:
   ~nsProfiler();
 
   typedef mozilla::MozPromise<nsCString, nsresult, false> GatheringPromise;
-  typedef mozilla::MozPromise<SymbolTable, nsresult, true> SymbolTablePromise;
+  typedef mozilla::MozPromise<mozilla::SymbolTable, nsresult, true>
+      SymbolTablePromise;
 
   RefPtr<GatheringPromise> StartGathering(double aSinceTime);
   void FinishGathering();
   void ResetGathering();
-
-  void ClearExpiredExitProfiles();
+  static void GatheringTimerCallback(nsITimer* aTimer, void* aClosure);
 
   RefPtr<SymbolTablePromise> GetSymbolTableMozPromise(
       const nsACString& aDebugPath, const nsACString& aBreakpadID);
@@ -70,12 +60,13 @@ class nsProfiler final : public nsIProfiler, public nsIObserver {
   };
 
   // These fields are all related to profile gathering.
-  nsTArray<ExitProfile> mExitProfiles;
+  mozilla::Vector<ExitProfile> mExitProfiles;
   mozilla::Maybe<mozilla::MozPromiseHolder<GatheringPromise>> mPromiseHolder;
   nsCOMPtr<nsIThread> mSymbolTableThread;
   mozilla::Maybe<SpliceableChunkedJSONWriter> mWriter;
   uint32_t mPendingProfiles;
   bool mGathering;
+  nsCOMPtr<nsITimer> mGatheringTimer;
 };
 
 #endif  // nsProfiler_h

@@ -10,8 +10,12 @@
 #include "mozilla/gfx/Point.h"
 #include "Units.h"
 
+class nsIWidget;
+
 namespace mozilla {
 namespace layers {
+
+class APZCTreeManagerChild;
 
 class RemoteCompositorSession final : public CompositorSession {
  public:
@@ -19,7 +23,7 @@ class RemoteCompositorSession final : public CompositorSession {
                           CompositorWidgetDelegate* aWidgetDelegate,
                           APZCTreeManagerChild* aAPZ,
                           const LayersId& aRootLayerTreeId);
-  ~RemoteCompositorSession() override;
+  virtual ~RemoteCompositorSession();
 
   CompositorBridgeParent* GetInProcessBridge() const override;
   void SetContentController(GeckoContentController* aController) override;
@@ -31,7 +35,6 @@ class RemoteCompositorSession final : public CompositorSession {
   void NotifySessionLost();
 
  private:
-  nsBaseWidget* mWidget;
   RefPtr<APZCTreeManagerChild> mAPZ;
   RefPtr<GeckoContentController> mContentController;
 };

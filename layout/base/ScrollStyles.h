@@ -8,76 +8,35 @@
 #define mozilla_ScrollStyles_h
 
 #include <stdint.h>
-#include "nsStyleConsts.h"
-#include "nsStyleCoord.h"  // for nsStyleCoord
-#include "mozilla/dom/WindowBinding.h"
 
 // Forward declarations
 struct nsStyleDisplay;
 
 namespace mozilla {
 
+enum class StyleOverflow : uint8_t;
+
 struct ScrollStyles {
-  // Always one of Scroll, Hidden, or Auto
+  // Always one of Scroll, Hidden, or Auto.
   StyleOverflow mHorizontal;
   StyleOverflow mVertical;
-  // Always one of NS_STYLE_SCROLL_BEHAVIOR_AUTO or
-  // NS_STYLE_SCROLL_BEHAVIOR_SMOOTH
-  uint8_t mScrollBehavior;
-  StyleOverscrollBehavior mOverscrollBehaviorX;
-  StyleOverscrollBehavior mOverscrollBehaviorY;
-  StyleScrollSnapType mScrollSnapTypeX;
-  StyleScrollSnapType mScrollSnapTypeY;
-  nsStyleCoord mScrollSnapPointsX;
-  nsStyleCoord mScrollSnapPointsY;
-  nsStyleCoord::CalcValue mScrollSnapDestinationX;
-  nsStyleCoord::CalcValue mScrollSnapDestinationY;
 
-  ScrollStyles(StyleOverflow aH, StyleOverflow aV)
-      : mHorizontal(aH),
-        mVertical(aV),
-        mScrollBehavior(NS_STYLE_SCROLL_BEHAVIOR_AUTO),
-        mOverscrollBehaviorX(StyleOverscrollBehavior::Auto),
-        mOverscrollBehaviorY(StyleOverscrollBehavior::Auto),
-        mScrollSnapTypeX(StyleScrollSnapType::None),
-        mScrollSnapTypeY(StyleScrollSnapType::None),
-        mScrollSnapPointsX(nsStyleCoord(eStyleUnit_None)),
-        mScrollSnapPointsY(nsStyleCoord(eStyleUnit_None)) {
-    mScrollSnapDestinationX.mPercent = 0;
-    mScrollSnapDestinationX.mLength = nscoord(0.0f);
-    mScrollSnapDestinationX.mHasPercent = false;
-    mScrollSnapDestinationY.mPercent = 0;
-    mScrollSnapDestinationY.mLength = nscoord(0.0f);
-    mScrollSnapDestinationY.mHasPercent = false;
-  }
+  ScrollStyles(StyleOverflow aH, StyleOverflow aV);
 
-  explicit ScrollStyles(const nsStyleDisplay* aDisplay);
-  ScrollStyles(StyleOverflow aH, StyleOverflow aV, const nsStyleDisplay*);
+  // NOTE: This ctor maps `visible` to `auto` and `clip` to `hidden`.
+  // It's used for styles that are propagated from the <body> and for
+  // scroll frames (which we create also for overflow:clip/visible in
+  // some cases, e.g. form controls).
+  enum MapOverflowToValidScrollStyleTag { MapOverflowToValidScrollStyle };
+  ScrollStyles(const nsStyleDisplay&, MapOverflowToValidScrollStyleTag);
+
   bool operator==(const ScrollStyles& aStyles) const {
-    return aStyles.mHorizontal == mHorizontal &&
-           aStyles.mVertical == mVertical &&
-           aStyles.mScrollBehavior == mScrollBehavior &&
-           aStyles.mOverscrollBehaviorX == mOverscrollBehaviorX &&
-           aStyles.mOverscrollBehaviorY == mOverscrollBehaviorY &&
-           aStyles.mScrollSnapTypeX == mScrollSnapTypeX &&
-           aStyles.mScrollSnapTypeY == mScrollSnapTypeY &&
-           aStyles.mScrollSnapPointsX == mScrollSnapPointsX &&
-           aStyles.mScrollSnapPointsY == mScrollSnapPointsY &&
-           aStyles.mScrollSnapDestinationX == mScrollSnapDestinationX &&
-           aStyles.mScrollSnapDestinationY == mScrollSnapDestinationY;
+    return aStyles.mHorizontal == mHorizontal && aStyles.mVertical == mVertical;
   }
   bool operator!=(const ScrollStyles& aStyles) const {
     return !(*this == aStyles);
   }
-  bool IsHiddenInBothDirections() const {
-    return mHorizontal == StyleOverflow::Hidden &&
-           mVertical == StyleOverflow::Hidden;
-  }
-  bool IsSmoothScroll(dom::ScrollBehavior aBehavior) const {
-    return aBehavior == dom::ScrollBehavior::Smooth ||
-           (aBehavior == dom::ScrollBehavior::Auto &&
-            mScrollBehavior == NS_STYLE_SCROLL_BEHAVIOR_SMOOTH);
-  }
+  bool IsHiddenInBothDirections() const;
 };
 
 }  // namespace mozilla

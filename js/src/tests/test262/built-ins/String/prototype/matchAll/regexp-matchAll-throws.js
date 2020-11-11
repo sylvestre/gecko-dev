@@ -1,4 +1,3 @@
-// |reftest| skip-if(!Symbol.hasOwnProperty('matchAll')||!String.prototype.hasOwnProperty('matchAll')) -- Symbol.matchAll,String.prototype.matchAll is not enabled unconditionally
 // Copyright (C) 2018 Peter Wong. All rights reserved.
 // This code is governed by the BSD license found in the LICENSE file.
 /*---
@@ -12,7 +11,7 @@ info: |
 features: [Symbol.matchAll, String.prototype.matchAll]
 ---*/
 
-var regexp = /./;
+var regexp = /./g;
 regexp[Symbol.matchAll] = function() {
   throw new Test262Error();
 };

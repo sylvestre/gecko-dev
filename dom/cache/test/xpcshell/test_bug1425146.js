@@ -20,9 +20,7 @@
 //    the computation happens before any real DOM cache operation, the database
 //    is not upgraded to schema version 26, so the padding column is missing.
 
-async function run_test() {
-  do_test_pending();
-
+async function testSteps() {
   // The profile contains one cache storage, a script for cache creation and
   // the storage database:
   // - storage/default/http+++www.mozilla.org/cache
@@ -42,14 +40,12 @@ async function run_test() {
   // 5. Add "create_cache.js".
   // 6. Replace the "storage.sqlite" created by FF56 (storage v2.0) with the
   //    "storage.sqlite" created by FF57 (storage v2.1)
-  create_test_profile('bug1425146_profile.zip');
+  create_test_profile("bug1425146_profile.zip");
 
   try {
     await caches.open("test");
     ok(true, "Should not have thrown");
-  } catch(ex) {
+  } catch (ex) {
     ok(false, "Should not have thrown");
   }
-
-  do_test_finished();
 }

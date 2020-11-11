@@ -20,16 +20,16 @@ interface nsILocalStorageManager : nsISupports
 
   /**
    * Trigger preload of LocalStorage for the given principal.  For use by
-   * ContentParent::AboutToLoadHttpFtpWyciwygDocumentForChild to maximize the
+   * ContentParent::AboutToLoadHttpFtpDocumentForChild to maximize the
    * amount of time we have to load the data off disk before the page might
    * attempt to touch LocalStorage.
    *
    * This method will not create a QuotaManager-managed directory on disk if
    * one does not already exist for the principal.
    */
-  [implicit_jscontext] nsISupports
-  preload(in nsIPrincipal aPrincipal);
+  [implicit_jscontext]
+  Promise preload(in nsIPrincipal aPrincipal);
 
-  [implicit_jscontext] nsISupports
-  isPreloaded(in nsIPrincipal aPrincipal);
+  [implicit_jscontext]
+  Promise isPreloaded(in nsIPrincipal aPrincipal);
 };

@@ -24,7 +24,7 @@
 
 class nsIChannel;
 class nsIObserverService;
-class nsIDocument;
+
 class nsIPIDOMWindowInner;
 class nsIPIDOMWindowOuter;
 
@@ -84,9 +84,6 @@ class ExtensionPolicyService final : public nsIAddonPolicyService,
   bool RegisterObserver(extensions::DocumentObserver& aPolicy);
   bool UnregisterObserver(extensions::DocumentObserver& aPolicy);
 
-  void BaseCSP(nsAString& aDefaultCSP) const;
-  void DefaultCSP(nsAString& aDefaultCSP) const;
-
   bool UseRemoteExtensions() const;
   bool IsExtensionProcess() const;
 
@@ -102,8 +99,7 @@ class ExtensionPolicyService final : public nsIAddonPolicyService,
   void UnregisterObservers();
 
   void CheckRequest(nsIChannel* aChannel);
-  void CheckDocument(nsIDocument* aDocument);
-  void CheckWindow(nsPIDOMWindowOuter* aWindow);
+  void CheckDocument(dom::Document* aDocument);
 
   void CheckContentScripts(const DocInfo& aDocInfo, bool aIsPreload);
 
@@ -127,7 +123,8 @@ class ExtensionPolicyService final : public nsIAddonPolicyService,
 
   nsCOMPtr<nsIObserverService> mObs;
 
-  static bool sRemoteExtensions;
+  nsString mBaseCSP;
+  nsString mDefaultCSP;
 };
 
 }  // namespace mozilla

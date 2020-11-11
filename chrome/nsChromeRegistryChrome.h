@@ -6,11 +6,12 @@
 #ifndef nsChromeRegistryChrome_h
 #define nsChromeRegistryChrome_h
 
+#include <utility>
+
 #include "nsCOMArray.h"
 #include "nsChromeRegistry.h"
-#include "nsTArray.h"
-#include "mozilla/Move.h"
 #include "nsClassHashtable.h"
+#include "nsTArray.h"
 
 namespace mozilla {
 namespace dom {
@@ -29,12 +30,10 @@ class nsChromeRegistryChrome : public nsChromeRegistry {
   nsresult Init() override;
 
   NS_IMETHOD CheckForNewChrome() override;
-  NS_IMETHOD CheckForOSAccessibility() override;
   NS_IMETHOD GetLocalesForPackage(const nsACString& aPackage,
                                   nsIUTF8StringEnumerator** aResult) override;
   NS_IMETHOD IsLocaleRTL(const nsACString& package, bool* aResult) override;
-  NS_IMETHOD GetSelectedLocale(const nsACString& aPackage, bool aAsBCP47,
-                               nsACString& aLocale) override;
+  nsresult GetSelectedLocale(const nsACString& aPackage, nsACString& aLocale);
   NS_IMETHOD Observe(nsISupports* aSubject, const char* aTopic,
                      const char16_t* someData) override;
 
@@ -103,8 +102,6 @@ class nsChromeRegistryChrome : public nsChromeRegistry {
 
   bool mProfileLoaded;
   bool mDynamicRegistration;
-
-  nsCString mSelectedSkin;
 
   // Hash of package names ("global") to PackageEntry objects
   nsClassHashtable<nsCStringHashKey, PackageEntry> mPackagesHash;

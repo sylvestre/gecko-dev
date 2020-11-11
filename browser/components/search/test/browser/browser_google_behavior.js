@@ -5,29 +5,44 @@
  * Test Google search plugin URLs
  * TODO: This test is a near duplicate of browser_searchEngine_behaviors.js but
  * specific to Google. This is required due to bug 1315953.
+ *
+ * Note: Although we have tests for codes in
+ * toolkit/components/tests/xpcshell/searchconfigs, we also need this test as an
+ * integration test to check the search service to selector integration is
+ * working correctly (especially the ESR codes).
  */
 
 "use strict";
 
-let searchEngineDetails = [{
-  alias: "g",
-  codes: {
-    context: "",
-    keyword: "",
-    newTab: "",
-    submission: "",
+let searchEngineDetails = [
+  {
+    alias: "g",
+    codes: {
+      context: "",
+      keyword: "",
+      newTab: "",
+      submission: "",
+    },
+    name: "Google",
   },
-  name: "Google",
-}];
+];
 
 let region = Services.prefs.getCharPref("browser.search.region");
 let code = "";
 switch (region) {
   case "US":
-    code = "firefox-b-1";
+    if (AppConstants.MOZ_APP_VERSION_DISPLAY.endsWith("esr")) {
+      code = "firefox-b-1-e";
+    } else {
+      code = "firefox-b-1-d";
+    }
     break;
   case "DE":
-    code = "firefox-b";
+    if (AppConstants.MOZ_APP_VERSION_DISPLAY.endsWith("esr")) {
+      code = "firefox-b-e";
+    } else {
+      code = "firefox-b-d";
+    }
     break;
 }
 
@@ -36,11 +51,11 @@ if (code) {
   codes.context = code;
   codes.newTab = code;
   codes.submission = code;
-  codes.keyword = `${code}-ab`;
+  codes.keyword = code;
 }
 
 function promiseContentSearchReady(browser) {
-  return ContentTask.spawn(browser, {}, async function(args) {
+  return SpecialPowers.spawn(browser, [], async function(args) {
     return new Promise(resolve => {
       if (content.wrappedJSObject.gContentSearchController) {
         let searchController = content.wrappedJSObject.gContentSearchController;
@@ -49,7 +64,9 @@ function promiseContentSearchReady(browser) {
         }
       }
 
-      content.addEventListener("ContentSearchService", function listener(aEvent) {
+      content.addEventListener("ContentSearchService", function listener(
+        aEvent
+      ) {
         if (aEvent.detail.type == "State") {
           content.removeEventListener("ContentSearchService", listener);
           resolve();
@@ -58,6 +75,10 @@ function promiseContentSearchReady(browser) {
     });
   });
 }
+
+add_task(async function setup() {
+  await Services.search.init();
+});
 
 for (let engine of searchEngineDetails) {
   add_task(async function() {
@@ -90,7 +111,13 @@ async function testSearchEngine(engineDetails) {
       run() {
         // Simulate a contextmenu search
         // FIXME: This is a bit "low-level"...
-        BrowserSearch._loadSearch("foo", false, "contextmenu", Services.scriptSecurityManager.getSystemPrincipal());
+        BrowserSearch._loadSearch(
+          "foo",
+          false,
+          false,
+          "contextmenu",
+          Services.scriptSecurityManager.getSystemPrincipal()
+        );
       },
     },
     {
@@ -133,13 +160,13 @@ async function testSearchEngine(engineDetails) {
       code: engineDetails.codes.newTab,
       async preTest(tab) {
         let browser = tab.linkedBrowser;
-        await BrowserTestUtils.loadURI(browser, "about:newtab");
-        await BrowserTestUtils.browserLoaded(browser);
+        BrowserTestUtils.loadURI(browser, "about:newtab");
+        await BrowserTestUtils.browserLoaded(browser, false, "about:newtab");
 
         await promiseContentSearchReady(browser);
       },
       async run(tab) {
-        await ContentTask.spawn(tab.linkedBrowser, {}, async function(args) {
+        await SpecialPowers.spawn(tab.linkedBrowser, [], async function(args) {
           let input = content.document.querySelector("input[id*=search-]");
           input.focus();
           input.value = "foo";
@@ -158,15 +185,17 @@ async function testSearchEngine(engineDetails) {
       await test.preTest(tab);
     }
 
-    let stateChangePromise = promiseStateChangeURI();
+    let promises = [
+      BrowserTestUtils.waitForDocLoadAndStopIt(
+        "https://www.google.com/search?client=" + test.code + "&q=foo",
+        tab
+      ),
+      BrowserTestUtils.browserStopped(tab.linkedBrowser, null, true),
+    ];
 
     await test.run(tab);
 
-    let receivedURI = await stateChangePromise;
-
-    let receivedURLParams = new URLSearchParams(receivedURI.split("?")[1]);
-
-    Assert.equal(receivedURLParams.get("client"), test.code);
+    await Promise.all(promises);
 
     if (test.postTest) {
       await test.postTest(tab);

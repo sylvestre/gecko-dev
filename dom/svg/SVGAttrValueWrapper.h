@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef MOZILLA_SVGATTRVALUEWRAPPER_H__
-#define MOZILLA_SVGATTRVALUEWRAPPER_H__
+#ifndef DOM_SVG_SVGATTRVALUEWRAPPER_H_
+#define DOM_SVG_SVGATTRVALUEWRAPPER_H_
 
 /**
  * Utility wrapper for handling SVG types used inside nsAttrValue so that these
@@ -14,49 +14,41 @@
 
 #include "nsString.h"
 
-class nsSVGAngle;
-class nsSVGIntegerPair;
-class nsSVGLength2;
-class nsSVGNumberPair;
-class nsSVGViewBox;
-
 namespace mozilla {
+class SVGAnimatedIntegerPair;
+class SVGAnimatedLength;
+class SVGAnimatedNumberPair;
+class SVGAnimatedOrient;
+class SVGAnimatedPreserveAspectRatio;
+class SVGAnimatedViewBox;
 class SVGLengthList;
 class SVGNumberList;
 class SVGPathData;
 class SVGPointList;
-class SVGAnimatedPreserveAspectRatio;
 class SVGStringList;
 class SVGTransformList;
-}  // namespace mozilla
-
-namespace mozilla {
 
 class SVGAttrValueWrapper {
  public:
-  static void ToString(const nsSVGAngle* aAngle, nsAString& aResult);
-  static void ToString(const nsSVGIntegerPair* aIntegerPair,
+  static void ToString(const SVGAnimatedIntegerPair* aIntegerPair,
                        nsAString& aResult);
-  static void ToString(const nsSVGLength2* aLength, nsAString& aResult);
-  static void ToString(const mozilla::SVGLengthList* aLengthList,
+  static void ToString(const SVGAnimatedLength* aLength, nsAString& aResult);
+  static void ToString(const SVGAnimatedNumberPair* aNumberPair,
                        nsAString& aResult);
-  static void ToString(const mozilla::SVGNumberList* aNumberList,
-                       nsAString& aResult);
-  static void ToString(const nsSVGNumberPair* aNumberPair, nsAString& aResult);
-  static void ToString(const mozilla::SVGPathData* aPathData,
-                       nsAString& aResult);
-  static void ToString(const mozilla::SVGPointList* aPointList,
-                       nsAString& aResult);
+  static void ToString(const SVGAnimatedOrient* aOrient, nsAString& aResult);
   static void ToString(
-      const mozilla::SVGAnimatedPreserveAspectRatio* aPreserveAspectRatio,
+      const SVGAnimatedPreserveAspectRatio* aPreserveAspectRatio,
       nsAString& aResult);
-  static void ToString(const mozilla::SVGStringList* aStringList,
+  static void ToString(const SVGAnimatedViewBox* aViewBox, nsAString& aResult);
+  static void ToString(const SVGLengthList* aLengthList, nsAString& aResult);
+  static void ToString(const SVGNumberList* aNumberList, nsAString& aResult);
+  static void ToString(const SVGPathData* aPathData, nsAString& aResult);
+  static void ToString(const SVGPointList* aPointList, nsAString& aResult);
+  static void ToString(const SVGStringList* aStringList, nsAString& aResult);
+  static void ToString(const SVGTransformList* aTransformList,
                        nsAString& aResult);
-  static void ToString(const mozilla::SVGTransformList* aTransformList,
-                       nsAString& aResult);
-  static void ToString(const nsSVGViewBox* aViewBox, nsAString& aResult);
 };
 
 } /* namespace mozilla */
 
-#endif  // MOZILLA_SVGATTRVALUEWRAPPER_H__
+#endif  // DOM_SVG_SVGATTRVALUEWRAPPER_H_

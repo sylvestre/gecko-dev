@@ -5,7 +5,7 @@ https://bugzilla.mozilla.org/show_bug.cgi?id=636737
 -->
 <head>
   <title>Test for Bug input.valueAsNumber</title>
-  <script type="application/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css"/>
 </head>
 <body>
@@ -412,7 +412,7 @@ function checkTimeSet()
     // Some NaN values (should set to empty string).
     { value: NaN, result: "" },
     { value: "foobar", result: "" },
-    { value: function() {}, result: "" },
+    { value() {}, result: "" },
     // Inifinity (should throw).
     { value: Infinity, throw: true },
     { value: -Infinity, throw: true },

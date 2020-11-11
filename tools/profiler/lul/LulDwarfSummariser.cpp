@@ -6,7 +6,10 @@
 
 #include "LulDwarfSummariser.h"
 
+#include "LulDwarfExt.h"
+
 #include "mozilla/Assertions.h"
+#include "mozilla/Sprintf.h"
 
 // Set this to 1 for verbose logging
 #define DEBUG_SUMMARISER 0
@@ -93,12 +96,10 @@ void Summariser::Rule(uintptr_t aAddress, int aNewReg, LExprHow how,
 
   if (mCurrAddr < aAddress) {
     // Flush the existing summary first.
-    mCurrRules.mAddr = mCurrAddr;
-    mCurrRules.mLen = aAddress - mCurrAddr;
-    mSecMap->AddRuleSet(&mCurrRules);
+    mSecMap->AddRuleSet(&mCurrRules, mCurrAddr, aAddress - mCurrAddr);
     if (DEBUG_SUMMARISER) {
       mLog("LUL  ");
-      mCurrRules.Print(mLog);
+      mCurrRules.Print(mCurrAddr, aAddress - mCurrAddr, mLog);
       mLog("\n");
     }
     mCurrAddr = aAddress;
@@ -508,7 +509,7 @@ void Summariser::Rule(uintptr_t aAddress, int aNewReg, LExprHow how,
 
 #else
 
-#error "Unsupported arch"
+#  error "Unsupported arch"
 #endif
 
   return;
@@ -536,12 +537,10 @@ void Summariser::End() {
     mLog("LUL End\n");
   }
   if (mCurrAddr < mMax1Addr) {
-    mCurrRules.mAddr = mCurrAddr;
-    mCurrRules.mLen = mMax1Addr - mCurrAddr;
-    mSecMap->AddRuleSet(&mCurrRules);
+    mSecMap->AddRuleSet(&mCurrRules, mCurrAddr, mMax1Addr - mCurrAddr);
     if (DEBUG_SUMMARISER) {
       mLog("LUL  ");
-      mCurrRules.Print(mLog);
+      mCurrRules.Print(mCurrAddr, mMax1Addr - mCurrAddr, mLog);
       mLog("\n");
     }
   }

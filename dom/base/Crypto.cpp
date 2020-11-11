@@ -5,6 +5,7 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 #include "Crypto.h"
 #include "jsfriendapi.h"
+#include "js/experimental/TypedData.h"  // JS_GetArrayBufferViewType
 #include "nsCOMPtr.h"
 #include "nsIRandomGenerator.h"
 #include "MainThreadUtils.h"
@@ -16,8 +17,7 @@
 
 using mozilla::dom::ContentChild;
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(Crypto)
   NS_WRAPPERCACHE_INTERFACE_MAP_ENTRY
@@ -31,10 +31,11 @@ NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(Crypto, mParent, mSubtle)
 
 Crypto::Crypto(nsIGlobalObject* aParent) : mParent(aParent) {}
 
-Crypto::~Crypto() {}
+Crypto::~Crypto() = default;
 
-/* virtual */ JSObject* Crypto::WrapObject(JSContext* aCx,
-                                           JS::Handle<JSObject*> aGivenProto) {
+/* virtual */
+JSObject* Crypto::WrapObject(JSContext* aCx,
+                             JS::Handle<JSObject*> aGivenProto) {
   return Crypto_Binding::Wrap(aCx, this, aGivenProto);
 }
 
@@ -42,13 +43,6 @@ void Crypto::GetRandomValues(JSContext* aCx, const ArrayBufferView& aArray,
                              JS::MutableHandle<JSObject*> aRetval,
                              ErrorResult& aRv) {
   JS::Rooted<JSObject*> view(aCx, aArray.Obj());
-
-  if (JS_IsTypedArrayObject(view) && JS_GetTypedArraySharedness(view)) {
-    // Throw if the object is mapping shared memory (must opt in).
-    aRv.ThrowTypeError<MSG_TYPEDARRAY_IS_SHARED>(
-        NS_LITERAL_STRING("Argument of Crypto.getRandomValues"));
-    return;
-  }
 
   // Throw if the wrong type of ArrayBufferView is passed in
   // (Part of the Web Crypto API spec)
@@ -66,7 +60,7 @@ void Crypto::GetRandomValues(JSContext* aCx, const ArrayBufferView& aArray,
       return;
   }
 
-  aArray.ComputeLengthAndData();
+  aArray.ComputeState();
   uint32_t dataLen = aArray.Length();
   if (dataLen == 0) {
     NS_WARNING("ArrayBufferView length is 0, cannot continue");
@@ -105,5 +99,4 @@ SubtleCrypto* Crypto::Subtle() {
   return mSubtle;
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

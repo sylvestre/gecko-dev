@@ -1,4 +1,3 @@
-/* vim: set ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
    http://creativecommons.org/publicdomain/zero/1.0/ */
 "use strict";
@@ -17,32 +16,36 @@ add_task(async function() {
 
   await saveFirstInlineStyleSheet(ui);
   await testFriendlyNamesAfterSave(ui);
-  await reloadPageAndWaitForStyleSheets(ui);
+  await reloadPageAndWaitForStyleSheets(ui, 2);
   await testFriendlyNamesAfterSave(ui);
-  await navigateToAndWaitForStyleSheets(SECOND_TEST_PAGE, ui);
+  await navigateToAndWaitForStyleSheets(SECOND_TEST_PAGE, ui, 2);
   await testFriendlyNamesAfterNavigation(ui);
 });
 
 function testIndentifierGeneration(ui) {
   const fakeStyleSheetFile = {
-    "href": "http://example.com/test.css",
-    "nodeHref": "http://example.com/",
-    "styleSheetIndex": 1,
+    href: "http://example.com/test.css",
+    nodeHref: "http://example.com/",
+    styleSheetIndex: 1,
   };
 
   const fakeInlineStyleSheet = {
-    "href": null,
-    "nodeHref": "http://example.com/",
-    "styleSheetIndex": 2,
+    href: null,
+    nodeHref: "http://example.com/",
+    styleSheetIndex: 2,
   };
 
-  is(ui.getStyleSheetIdentifier(fakeStyleSheetFile),
+  is(
+    ui.getStyleSheetIdentifier(fakeStyleSheetFile),
     "http://example.com/test.css",
-    "URI is the identifier of style sheet file.");
+    "URI is the identifier of style sheet file."
+  );
 
-  is(ui.getStyleSheetIdentifier(fakeInlineStyleSheet),
+  is(
+    ui.getStyleSheetIdentifier(fakeInlineStyleSheet),
     "inline-2-at-http://example.com/",
-    "Inline sheets are identified by their page and position in the page.");
+    "Inline sheets are identified by their page and position in the page."
+  );
 }
 
 function saveFirstInlineStyleSheet(ui) {
@@ -63,10 +66,16 @@ function testFriendlyNamesAfterSave(ui) {
 
   // The friendly name of first sheet should've been remembered, the second
   // should not be the same (bug 969900).
-  is(firstEditor.friendlyName, SAVE_PATH,
-    "Friendly name is correct for the saved inline style sheet.");
-  isnot(secondEditor.friendlyName, SAVE_PATH,
-    "Friendly name for the second inline sheet isn't the same as the first.");
+  is(
+    firstEditor.friendlyName,
+    SAVE_PATH,
+    "Friendly name is correct for the saved inline style sheet."
+  );
+  isnot(
+    secondEditor.friendlyName,
+    SAVE_PATH,
+    "Friendly name for the second inline sheet isn't the same as the first."
+  );
 
   return promise.resolve(null);
 }
@@ -77,10 +86,16 @@ function testFriendlyNamesAfterNavigation(ui) {
 
   // Inline style sheets shouldn't have the name of previously saved file as the
   // page is different.
-  isnot(firstEditor.friendlyName, SAVE_PATH,
-    "The first editor doesn't have the save path as a friendly name.");
-  isnot(secondEditor.friendlyName, SAVE_PATH,
-    "The second editor doesn't have the save path as a friendly name.");
+  isnot(
+    firstEditor.friendlyName,
+    SAVE_PATH,
+    "The first editor doesn't have the save path as a friendly name."
+  );
+  isnot(
+    secondEditor.friendlyName,
+    SAVE_PATH,
+    "The second editor doesn't have the save path as a friendly name."
+  );
 
   return promise.resolve(null);
 }

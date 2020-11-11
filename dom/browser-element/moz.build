@@ -5,50 +5,33 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 with Files("**"):
-    BUG_COMPONENT = ("Core", "DOM")
-
-EXPORTS.mozilla += [
-    'BrowserElementParent.h',
-]
-
-SOURCES += [
-    'BrowserElementParent.cpp',
-]
+    BUG_COMPONENT = ("Core", "DOM: Core & HTML")
 
 XPIDL_SOURCES += [
-    'nsIBrowserElementAPI.idl',
+    "nsIBrowserElementAPI.idl",
 ]
 
-XPIDL_MODULE = 'browser-element'
-
-EXTRA_COMPONENTS += [
-    'BrowserElementParent.js',
-    'BrowserElementParent.manifest',
-]
+XPIDL_MODULE = "browser-element"
 
 EXTRA_JS_MODULES += [
-    'BrowserElementPromptService.jsm',
+    "BrowserElementParent.jsm",
+    "BrowserElementPromptService.jsm",
+]
+
+XPCOM_MANIFESTS += [
+    "components.conf",
 ]
 
 LOCAL_INCLUDES += [
-    '/dom/html',
+    "/dom/html",
 ]
 
-include('/ipc/chromium/chromium-config.mozbuild')
+include("/ipc/chromium/chromium-config.mozbuild")
 
-FINAL_LIBRARY = 'xul'
+FINAL_LIBRARY = "xul"
 
 LOCAL_INCLUDES += [
-    '/dom/',
-    '/dom/base',
-    '/dom/ipc',
-]
-
-MOCHITEST_MANIFESTS += [
-    'mochitest/mochitest-oop.ini',
-    'mochitest/mochitest.ini',
-]
-
-MOCHITEST_CHROME_MANIFESTS += [
-    'mochitest/chrome.ini',
+    "/dom/",
+    "/dom/base",
+    "/dom/ipc",
 ]

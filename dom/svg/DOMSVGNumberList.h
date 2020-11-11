@@ -4,22 +4,52 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef MOZILLA_DOMSVGNUMBERLIST_H__
-#define MOZILLA_DOMSVGNUMBERLIST_H__
+#ifndef DOM_SVG_DOMSVGNUMBERLIST_H_
+#define DOM_SVG_DOMSVGNUMBERLIST_H_
 
 #include "DOMSVGAnimatedNumberList.h"
+#include "mozAutoDocUpdate.h"
 #include "nsCycleCollectionParticipant.h"
 #include "nsDebug.h"
 #include "nsTArray.h"
 #include "SVGNumberList.h"
 #include "mozilla/Attributes.h"
 #include "mozilla/ErrorResult.h"
-
-class nsSVGElement;
+#include "mozilla/RefPtr.h"
 
 namespace mozilla {
 
+namespace dom {
 class DOMSVGNumber;
+class SVGElement;
+
+//----------------------------------------------------------------------
+// Helper class: AutoChangeNumberListNotifier
+// Stack-based helper class to pair calls to WillChangeNumberList and
+// DidChangeNumberList. Used by DOMSVGNumber and DOMSVGNumberList.
+template <class T>
+class MOZ_RAII AutoChangeNumberListNotifier : public mozAutoDocUpdate {
+ public:
+  explicit AutoChangeNumberListNotifier(T* aValue)
+      : mozAutoDocUpdate(aValue->Element()->GetComposedDoc(), true),
+        mValue(aValue) {
+    MOZ_ASSERT(mValue, "Expecting non-null value");
+    mEmptyOrOldValue =
+        mValue->Element()->WillChangeNumberList(mValue->AttrEnum(), *this);
+  }
+
+  ~AutoChangeNumberListNotifier() {
+    mValue->Element()->DidChangeNumberList(mValue->AttrEnum(), mEmptyOrOldValue,
+                                           *this);
+    if (mValue->IsAnimating()) {
+      mValue->Element()->AnimationNeedsResample();
+    }
+  }
+
+ private:
+  T* const mValue;
+  nsAttrValue mEmptyOrOldValue;
+};
 
 /**
  * Class DOMSVGNumberList
@@ -39,6 +69,7 @@ class DOMSVGNumber;
  * Our DOM items are created lazily on demand as and when script requests them.
  */
 class DOMSVGNumberList final : public nsISupports, public nsWrapperCache {
+  template <class T>
   friend class AutoChangeNumberListNotifier;
   friend class DOMSVGNumber;
 
@@ -104,15 +135,15 @@ class DOMSVGNumberList final : public nsISupports, public nsWrapperCache {
     return LengthNoFlush();
   }
   void Clear(ErrorResult& error);
-  already_AddRefed<DOMSVGNumber> Initialize(DOMSVGNumber& newItem,
+  already_AddRefed<DOMSVGNumber> Initialize(DOMSVGNumber& aItem,
                                             ErrorResult& error);
   already_AddRefed<DOMSVGNumber> GetItem(uint32_t index, ErrorResult& error);
   already_AddRefed<DOMSVGNumber> IndexedGetter(uint32_t index, bool& found,
                                                ErrorResult& error);
-  already_AddRefed<DOMSVGNumber> InsertItemBefore(DOMSVGNumber& newItem,
+  already_AddRefed<DOMSVGNumber> InsertItemBefore(DOMSVGNumber& aItem,
                                                   uint32_t index,
                                                   ErrorResult& error);
-  already_AddRefed<DOMSVGNumber> ReplaceItem(DOMSVGNumber& newItem,
+  already_AddRefed<DOMSVGNumber> ReplaceItem(DOMSVGNumber& aItem,
                                              uint32_t index,
                                              ErrorResult& error);
   already_AddRefed<DOMSVGNumber> RemoveItem(uint32_t index, ErrorResult& error);
@@ -123,7 +154,7 @@ class DOMSVGNumberList final : public nsISupports, public nsWrapperCache {
   uint32_t Length() const { return NumberOfItems(); }
 
  private:
-  nsSVGElement* Element() const { return mAList->mElement; }
+  dom::SVGElement* Element() const { return mAList->mElement; }
 
   uint8_t AttrEnum() const { return mAList->mAttrEnum; }
 
@@ -157,6 +188,7 @@ class DOMSVGNumberList final : public nsISupports, public nsWrapperCache {
   RefPtr<DOMSVGAnimatedNumberList> mAList;
 };
 
+}  // namespace dom
 }  // namespace mozilla
 
-#endif  // MOZILLA_DOMSVGNUMBERLIST_H__
+#endif  // DOM_SVG_DOMSVGNUMBERLIST_H_

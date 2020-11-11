@@ -4,9 +4,7 @@
 
 "use strict";
 
-// Until DER.jsm is actually used in production code, this is where we have to
-// import it from.
-var { DER } = ChromeUtils.import("resource://testing-common/psm/DER.jsm", {});
+var { DER } = ChromeUtils.import("resource://gre/modules/psm/DER.jsm");
 
 const ERROR_UNSUPPORTED_ASN1 = "unsupported asn.1";
 const ERROR_TIME_NOT_VALID = "Time not valid";
@@ -68,7 +66,7 @@ class OID {
       let value = bytes.shift();
       accumulator *= 128;
       if (value > 128) {
-        accumulator += (value - 128);
+        accumulator += value - 128;
       } else {
         accumulator += value;
         this._values.push(accumulator);
@@ -120,7 +118,7 @@ class DecodedDER {
    * @param {Number[]} bytes encoded DER to be decoded
    */
   parse(bytes) {
-    this._der = new DER.DER(bytes);
+    this._der = new DER.DERDecoder(bytes);
     try {
       this.parseOverride();
     } catch (e) {
@@ -136,7 +134,7 @@ class DecodedDER {
  * @return {DER} the contents of the SEQUENCE
  */
 function readSEQUENCEAndMakeDER(der) {
-  return new DER.DER(der.readTagAndGetContents(DER.SEQUENCE));
+  return new DER.DERDecoder(der.readTagAndGetContents(DER.SEQUENCE));
 }
 
 /**
@@ -147,7 +145,7 @@ function readSEQUENCEAndMakeDER(der) {
  * @return {DER} the contents of the tag
  */
 function readTagAndMakeDER(der, tag) {
-  return new DER.DER(der.readTagAndGetContents(tag));
+  return new DER.DERDecoder(der.readTagAndGetContents(tag));
 }
 
 // Certificate  ::=  SEQUENCE  {
@@ -414,10 +412,14 @@ class AttributeTypeAndValue extends DecodedDER {
     // We don't support universalString or bmpString.
     // IA5String is supported because it is valid if `type == id-emailaddress`.
     // Lint TODO: validate that the type of string is valid given `type`.
-    this._value.parse(contents.readTLVChoice([ DER.UTF8String,
-                                               DER.PrintableString,
-                                               DER.TeletexString,
-                                               DER.IA5String ]));
+    this._value.parse(
+      contents.readTLVChoice([
+        DER.UTF8String,
+        DER.PrintableString,
+        DER.TeletexString,
+        DER.IA5String,
+      ])
+    );
     contents.assertAtEnd();
     this._der.assertAtEnd();
   }
@@ -536,7 +538,8 @@ class Time extends DecodedDER {
     let s1 = this._validateDigit(contents.readByte());
     let s2 = this._validateDigit(contents.readByte());
     let second = s1 * 10 + s2;
-    if (second > 60) { // leap-seconds mean this can be as much as 60
+    if (second > 60) {
+      // leap-seconds mean this can be as much as 60
       throw new Error(ERROR_TIME_NOT_VALID);
     }
 
@@ -547,8 +550,7 @@ class Time extends DecodedDER {
     // Lint TODO: verify that the Time doesn't specify a nonsensical
     // month/day/etc.
     // months are zero-indexed in JS
-    this._time = new Date(Date.UTC(year, month - 1, day, hour, minute,
-                                   second));
+    this._time = new Date(Date.UTC(year, month - 1, day, hour, minute, second));
 
     contents.assertAtEnd();
     this._der.assertAtEnd();
@@ -588,10 +590,12 @@ class Validity extends DecodedDER {
 
   parseOverride() {
     let contents = readSEQUENCEAndMakeDER(this._der);
-    this._notBefore.parse(contents.readTLVChoice(
-      [DER.UTCTime, DER.GeneralizedTime]));
-    this._notAfter.parse(contents.readTLVChoice(
-      [DER.UTCTime, DER.GeneralizedTime]));
+    this._notBefore.parse(
+      contents.readTLVChoice([DER.UTCTime, DER.GeneralizedTime])
+    );
+    this._notAfter.parse(
+      contents.readTLVChoice([DER.UTCTime, DER.GeneralizedTime])
+    );
     contents.assertAtEnd();
     this._der.assertAtEnd();
   }

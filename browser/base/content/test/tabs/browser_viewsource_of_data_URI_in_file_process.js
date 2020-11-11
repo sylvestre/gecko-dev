@@ -13,17 +13,20 @@ add_task(async function() {
   const uriString = Services.io.newFileURI(dir).spec;
 
   await BrowserTestUtils.withNewTab(uriString, async function(fileBrowser) {
-    let filePid = await ContentTask.spawn(fileBrowser, null, () => {
+    let filePid = await SpecialPowers.spawn(fileBrowser, [], () => {
       return Services.appinfo.processID;
     });
 
     // Navigate to data URI.
-    let promiseLoad = BrowserTestUtils.browserLoaded(fileBrowser, false,
-                                                     DATA_URI);
+    let promiseLoad = BrowserTestUtils.browserLoaded(
+      fileBrowser,
+      false,
+      DATA_URI
+    );
     BrowserTestUtils.loadURI(fileBrowser, DATA_URI);
     let href = await promiseLoad;
     is(href, DATA_URI, "Check data URI loaded.");
-    let dataPid = await ContentTask.spawn(fileBrowser, null, () => {
+    let dataPid = await SpecialPowers.spawn(fileBrowser, [], () => {
       return Services.appinfo.processID;
     });
     is(dataPid, filePid, "Check that data URI loaded in file content process.");
@@ -35,9 +38,16 @@ add_task(async function() {
     registerCleanupFunction(async function() {
       BrowserTestUtils.removeTab(viewSourceTab);
     });
-    await ContentTask.spawn(viewSourceTab.linkedBrowser, DATA_URI_SOURCE, uri => {
-      is(content.document.documentURI, uri,
-         "Check that a view-source page was loaded.");
-    });
+    await SpecialPowers.spawn(
+      viewSourceTab.linkedBrowser,
+      [DATA_URI_SOURCE],
+      uri => {
+        is(
+          content.document.documentURI,
+          uri,
+          "Check that a view-source page was loaded."
+        );
+      }
+    );
   });
 });

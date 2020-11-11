@@ -10,11 +10,11 @@
 
 #include <map>
 #include <memory>
+#include <string>
 #include <vector>
 
-#include "base/macros.h"
 #include "base/numerics/safe_math.h"
-#include "base/strings/string16.h"
+#include "base/stl_util.h"
 #include "base/strings/string_util.h"
 #include "base/win/pe_image.h"
 #include "sandbox/win/src/internal_types.h"
@@ -26,7 +26,7 @@ namespace {
 const size_t kDriveLetterLen = 3;
 
 constexpr wchar_t kNTDotPrefix[] = L"\\\\.\\";
-const size_t kNTDotPrefixLen = arraysize(kNTDotPrefix) - 1;
+const size_t kNTDotPrefixLen = base::size(kNTDotPrefix) - 1;
 
 // Holds the information about a known registry key.
 struct KnownReservedKey {
@@ -36,41 +36,45 @@ struct KnownReservedKey {
 
 // Contains all the known registry key by name and by handle.
 const KnownReservedKey kKnownKey[] = {
-    { L"HKEY_CLASSES_ROOT", HKEY_CLASSES_ROOT },
-    { L"HKEY_CURRENT_USER", HKEY_CURRENT_USER },
-    { L"HKEY_LOCAL_MACHINE", HKEY_LOCAL_MACHINE},
-    { L"HKEY_USERS", HKEY_USERS},
-    { L"HKEY_PERFORMANCE_DATA", HKEY_PERFORMANCE_DATA},
-    { L"HKEY_PERFORMANCE_TEXT", HKEY_PERFORMANCE_TEXT},
-    { L"HKEY_PERFORMANCE_NLSTEXT", HKEY_PERFORMANCE_NLSTEXT},
-    { L"HKEY_CURRENT_CONFIG", HKEY_CURRENT_CONFIG},
-    { L"HKEY_DYN_DATA", HKEY_DYN_DATA}
-};
+    {L"HKEY_CLASSES_ROOT", HKEY_CLASSES_ROOT},
+    {L"HKEY_CURRENT_USER", HKEY_CURRENT_USER},
+    {L"HKEY_LOCAL_MACHINE", HKEY_LOCAL_MACHINE},
+    {L"HKEY_USERS", HKEY_USERS},
+    {L"HKEY_PERFORMANCE_DATA", HKEY_PERFORMANCE_DATA},
+    {L"HKEY_PERFORMANCE_TEXT", HKEY_PERFORMANCE_TEXT},
+    {L"HKEY_PERFORMANCE_NLSTEXT", HKEY_PERFORMANCE_NLSTEXT},
+    {L"HKEY_CURRENT_CONFIG", HKEY_CURRENT_CONFIG},
+    {L"HKEY_DYN_DATA", HKEY_DYN_DATA}};
 
 // These functions perform case independent path comparisons.
-bool EqualPath(const base::string16& first, const base::string16& second) {
+bool EqualPath(const std::wstring& first, const std::wstring& second) {
   return _wcsicmp(first.c_str(), second.c_str()) == 0;
 }
 
-bool EqualPath(const base::string16& first, size_t first_offset,
-               const base::string16& second, size_t second_offset) {
+bool EqualPath(const std::wstring& first,
+               size_t first_offset,
+               const std::wstring& second,
+               size_t second_offset) {
   return _wcsicmp(first.c_str() + first_offset,
                   second.c_str() + second_offset) == 0;
 }
 
-bool EqualPath(const base::string16& first,
-               const wchar_t* second, size_t second_len) {
+bool EqualPath(const std::wstring& first,
+               const wchar_t* second,
+               size_t second_len) {
   return _wcsnicmp(first.c_str(), second, second_len) == 0;
 }
 
-bool EqualPath(const base::string16& first, size_t first_offset,
-               const wchar_t* second, size_t second_len) {
+bool EqualPath(const std::wstring& first,
+               size_t first_offset,
+               const wchar_t* second,
+               size_t second_len) {
   return _wcsnicmp(first.c_str() + first_offset, second, second_len) == 0;
 }
 
 // Returns true if |path| starts with "\??\" and returns a path without that
 // component.
-bool IsNTPath(const base::string16& path, base::string16* trimmed_path) {
+bool IsNTPath(const std::wstring& path, std::wstring* trimmed_path) {
   if ((path.size() < sandbox::kNTPrefixLen) ||
       !EqualPath(path, sandbox::kNTPrefix, sandbox::kNTPrefixLen)) {
     *trimmed_path = path;
@@ -83,7 +87,7 @@ bool IsNTPath(const base::string16& path, base::string16* trimmed_path) {
 
 // Returns true if |path| starts with "\Device\" and returns a path without that
 // component.
-bool IsDevicePath(const base::string16& path, base::string16* trimmed_path) {
+bool IsDevicePath(const std::wstring& path, std::wstring* trimmed_path) {
   if ((path.size() < sandbox::kNTDevicePrefixLen) ||
       (!EqualPath(path, sandbox::kNTDevicePrefix,
                   sandbox::kNTDevicePrefixLen))) {
@@ -97,13 +101,13 @@ bool IsDevicePath(const base::string16& path, base::string16* trimmed_path) {
 
 // Returns the offset to the path seperator following
 // "\Device\HarddiskVolumeX" in |path|.
-size_t PassHarddiskVolume(const base::string16& path) {
+size_t PassHarddiskVolume(const std::wstring& path) {
   static constexpr wchar_t pattern[] = L"\\Device\\HarddiskVolume";
-  const size_t patternLen = arraysize(pattern) - 1;
+  const size_t patternLen = base::size(pattern) - 1;
 
   // First, check for |pattern|.
   if ((path.size() < patternLen) || (!EqualPath(path, pattern, patternLen)))
-    return base::string16::npos;
+    return std::wstring::npos;
 
   // Find the next path separator, after the pattern match.
   return path.find_first_of(L'\\', patternLen - 1);
@@ -111,11 +115,11 @@ size_t PassHarddiskVolume(const base::string16& path) {
 
 // Returns true if |path| starts with "\Device\HarddiskVolumeX\" and returns a
 // path without that component.  |removed| will hold the prefix removed.
-bool IsDeviceHarddiskPath(const base::string16& path,
-                          base::string16* trimmed_path,
-                          base::string16* removed) {
+bool IsDeviceHarddiskPath(const std::wstring& path,
+                          std::wstring* trimmed_path,
+                          std::wstring* removed) {
   size_t offset = PassHarddiskVolume(path);
-  if (offset == base::string16::npos)
+  if (offset == std::wstring::npos)
     return false;
 
   // Remove up to and including the path separator.
@@ -125,7 +129,7 @@ bool IsDeviceHarddiskPath(const base::string16& path,
   return true;
 }
 
-bool StartsWithDriveLetter(const base::string16& path) {
+bool StartsWithDriveLetter(const std::wstring& path) {
   if (path.size() < kDriveLetterLen)
     return false;
 
@@ -136,7 +140,7 @@ bool StartsWithDriveLetter(const base::string16& path) {
 }
 
 // Removes "\\\\.\\" from the path.
-void RemoveImpliedDevice(base::string16* path) {
+void RemoveImpliedDevice(std::wstring* path) {
   if (EqualPath(*path, kNTDotPrefix, kNTDotPrefixLen))
     *path = path->substr(kNTDotPrefixLen);
 }
@@ -146,34 +150,34 @@ void RemoveImpliedDevice(base::string16* path) {
 namespace sandbox {
 
 // Returns true if the provided path points to a pipe.
-bool IsPipe(const base::string16& path) {
+bool IsPipe(const std::wstring& path) {
   size_t start = 0;
   if (EqualPath(path, sandbox::kNTPrefix, sandbox::kNTPrefixLen))
     start = sandbox::kNTPrefixLen;
 
   const wchar_t kPipe[] = L"pipe\\";
-  if (path.size() < start + arraysize(kPipe) - 1)
+  if (path.size() < start + base::size(kPipe) - 1)
     return false;
 
-  return EqualPath(path, start, kPipe, arraysize(kPipe) - 1);
+  return EqualPath(path, start, kPipe, base::size(kPipe) - 1);
 }
 
-HKEY GetReservedKeyFromName(const base::string16& name) {
-  for (size_t i = 0; i < arraysize(kKnownKey); ++i) {
+HKEY GetReservedKeyFromName(const std::wstring& name) {
+  for (size_t i = 0; i < base::size(kKnownKey); ++i) {
     if (name == kKnownKey[i].name)
       return kKnownKey[i].key;
   }
 
-  return NULL;
+  return nullptr;
 }
 
-bool ResolveRegistryName(base::string16 name, base::string16* resolved_name) {
-  for (size_t i = 0; i < arraysize(kKnownKey); ++i) {
+bool ResolveRegistryName(std::wstring name, std::wstring* resolved_name) {
+  for (size_t i = 0; i < base::size(kKnownKey); ++i) {
     if (name.find(kKnownKey[i].name) == 0) {
       HKEY key;
       DWORD disposition;
-      if (ERROR_SUCCESS != ::RegCreateKeyEx(kKnownKey[i].key, L"", 0, NULL, 0,
-                                            MAXIMUM_ALLOWED, NULL, &key,
+      if (ERROR_SUCCESS != ::RegCreateKeyEx(kKnownKey[i].key, L"", 0, nullptr,
+                                            0, MAXIMUM_ALLOWED, nullptr, &key,
                                             &disposition))
         return false;
 
@@ -196,12 +200,12 @@ bool ResolveRegistryName(base::string16 name, base::string16* resolved_name) {
 //    \Device\HarddiskVolume0\some\foo\bar
 //    \??\HarddiskVolume0\some\foo\bar
 //    \??\UNC\SERVER\Share\some\foo\bar
-DWORD IsReparsePoint(const base::string16& full_path) {
+DWORD IsReparsePoint(const std::wstring& full_path) {
   // Check if it's a pipe. We can't query the attributes of a pipe.
   if (IsPipe(full_path))
     return ERROR_NOT_A_REPARSE_POINT;
 
-  base::string16 path;
+  std::wstring path;
   bool nt_path = IsNTPath(full_path, &path);
   bool has_drive = StartsWithDriveLetter(path);
   bool is_device_path = IsDevicePath(path, &path);
@@ -232,12 +236,10 @@ DWORD IsReparsePoint(const base::string16& full_path) {
     DWORD attributes = ::GetFileAttributes(path.c_str());
     if (INVALID_FILE_ATTRIBUTES == attributes) {
       DWORD error = ::GetLastError();
-      if (error != ERROR_FILE_NOT_FOUND &&
-          error != ERROR_PATH_NOT_FOUND &&
+      if (error != ERROR_FILE_NOT_FOUND && error != ERROR_PATH_NOT_FOUND &&
           error != ERROR_INVALID_FUNCTION &&
           error != ERROR_INVALID_NAME) {
         // Unexpected error.
-        NOTREACHED_NT();
         return error;
       }
     } else if (FILE_ATTRIBUTE_REPARSE_POINT & attributes) {
@@ -258,11 +260,11 @@ bool SameObject(HANDLE handle, const wchar_t* full_path) {
   if (IsPipe(full_path))
     return true;
 
-  base::string16 actual_path;
+  std::wstring actual_path;
   if (!GetPathFromHandle(handle, &actual_path))
     return false;
 
-  base::string16 path(full_path);
+  std::wstring path(full_path);
   DCHECK_NT(!path.empty());
 
   // This may end with a backslash.
@@ -278,7 +280,7 @@ bool SameObject(HANDLE handle, const wchar_t* full_path) {
   bool has_drive = StartsWithDriveLetter(path);
 
   if (!has_drive && nt_path) {
-    base::string16 simple_actual_path;
+    std::wstring simple_actual_path;
     if (IsDevicePath(path, &path)) {
       if (IsDevicePath(actual_path, &simple_actual_path)) {
         // Perfect match (case-insensitive check).
@@ -323,23 +325,23 @@ bool SameObject(HANDLE handle, const wchar_t* full_path) {
 
 // Just make a best effort here.  There are lots of corner cases that we're
 // not expecting - and will fail to make long.
-bool ConvertToLongPath(base::string16* native_path,
-                       const base::string16* drive_letter) {
+bool ConvertToLongPath(std::wstring* native_path,
+                       const std::wstring* drive_letter) {
   if (IsPipe(*native_path))
     return true;
 
   bool is_device_harddisk_path = false;
   bool is_nt_path = false;
   bool added_implied_device = false;
-  base::string16 temp_path;
-  base::string16 to_restore;
+  std::wstring temp_path;
+  std::wstring to_restore;
 
   // Process a few prefix types.
   if (IsNTPath(*native_path, &temp_path)) {
     // "\??\"
     if (!StartsWithDriveLetter(temp_path)) {
       // Prepend with "\\.\".
-      temp_path = base::string16(kNTDotPrefix) + temp_path;
+      temp_path = std::wstring(kNTDotPrefix) + temp_path;
       added_implied_device = true;
     }
     is_nt_path = true;
@@ -362,13 +364,13 @@ bool ConvertToLongPath(base::string16* native_path,
   DWORD size = MAX_PATH;
   std::unique_ptr<wchar_t[]> long_path_buf(new wchar_t[size]);
 
-  DWORD return_value = ::GetLongPathName(temp_path.c_str(), long_path_buf.get(),
-                                         size);
+  DWORD return_value =
+      ::GetLongPathName(temp_path.c_str(), long_path_buf.get(), size);
   while (return_value >= size) {
     size *= 2;
     long_path_buf.reset(new wchar_t[size]);
-    return_value = ::GetLongPathName(temp_path.c_str(), long_path_buf.get(),
-                                     size);
+    return_value =
+        ::GetLongPathName(temp_path.c_str(), long_path_buf.get(), size);
   }
 
   DWORD last_error = ::GetLastError();
@@ -376,12 +378,12 @@ bool ConvertToLongPath(base::string16* native_path,
                             ERROR_PATH_NOT_FOUND == last_error ||
                             ERROR_INVALID_NAME == last_error)) {
     // The file does not exist, but maybe a sub path needs to be expanded.
-    base::string16::size_type last_slash = temp_path.rfind(L'\\');
-    if (base::string16::npos == last_slash)
+    std::wstring::size_type last_slash = temp_path.rfind(L'\\');
+    if (std::wstring::npos == last_slash)
       return false;
 
-    base::string16 begin = temp_path.substr(0, last_slash);
-    base::string16 end = temp_path.substr(last_slash);
+    std::wstring begin = temp_path.substr(0, last_slash);
+    std::wstring end = temp_path.substr(last_slash);
     if (!ConvertToLongPath(&begin))
       return false;
 
@@ -415,8 +417,8 @@ bool ConvertToLongPath(base::string16* native_path,
   return false;
 }
 
-bool GetPathFromHandle(HANDLE handle, base::string16* path) {
-  NtQueryObjectFunction NtQueryObject = NULL;
+bool GetPathFromHandle(HANDLE handle, std::wstring* path) {
+  NtQueryObjectFunction NtQueryObject = nullptr;
   ResolveNTFunctionPtr("NtQueryObject", &NtQueryObject);
 
   OBJECT_NAME_INFORMATION initial_buffer;
@@ -424,8 +426,8 @@ bool GetPathFromHandle(HANDLE handle, base::string16* path) {
   ULONG size = sizeof(initial_buffer);
   // Query the name information a first time to get the size of the name.
   // Windows XP requires that the size of the buffer passed in here be != 0.
-  NTSTATUS status = NtQueryObject(handle, ObjectNameInformation, name, size,
-                                  &size);
+  NTSTATUS status =
+      NtQueryObject(handle, ObjectNameInformation, name, size, &size);
 
   std::unique_ptr<BYTE[]> name_ptr;
   if (size) {
@@ -440,16 +442,15 @@ bool GetPathFromHandle(HANDLE handle, base::string16* path) {
   if (STATUS_SUCCESS != status)
     return false;
 
-  path->assign(name->ObjectName.Buffer, name->ObjectName.Length /
-                                        sizeof(name->ObjectName.Buffer[0]));
+  path->assign(name->ObjectName.Buffer,
+               name->ObjectName.Length / sizeof(name->ObjectName.Buffer[0]));
   return true;
 }
 
-bool GetNtPathFromWin32Path(const base::string16& path,
-                            base::string16* nt_path) {
-  HANDLE file = ::CreateFileW(path.c_str(), 0,
-    FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL,
-    OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL);
+bool GetNtPathFromWin32Path(const std::wstring& path, std::wstring* nt_path) {
+  HANDLE file = ::CreateFileW(
+      path.c_str(), 0, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+      nullptr, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr);
   if (file == INVALID_HANDLE_VALUE)
     return false;
   bool rv = GetPathFromHandle(file, nt_path);
@@ -457,24 +458,57 @@ bool GetNtPathFromWin32Path(const base::string16& path,
   return rv;
 }
 
-bool WriteProtectedChildMemory(HANDLE child_process, void* address,
-                               const void* buffer, size_t length) {
+bool WriteProtectedChildMemory(HANDLE child_process,
+                               void* address,
+                               const void* buffer,
+                               size_t length,
+                               DWORD writeProtection) {
   // First, remove the protections.
   DWORD old_protection;
-  if (!::VirtualProtectEx(child_process, address, length,
-                          PAGE_WRITECOPY, &old_protection))
+  if (!::VirtualProtectEx(child_process, address, length, writeProtection,
+                          &old_protection))
     return false;
 
   SIZE_T written;
-  bool ok = ::WriteProcessMemory(child_process, address, buffer, length,
-                                 &written) && (length == written);
+  bool ok =
+      ::WriteProcessMemory(child_process, address, buffer, length, &written) &&
+      (length == written);
 
   // Always attempt to restore the original protection.
-  if (!::VirtualProtectEx(child_process, address, length,
-                          old_protection, &old_protection))
+  if (!::VirtualProtectEx(child_process, address, length, old_protection,
+                          &old_protection))
     return false;
 
   return ok;
+}
+
+bool CopyToChildMemory(HANDLE child,
+                       const void* local_buffer,
+                       size_t buffer_bytes,
+                       void** remote_buffer) {
+  DCHECK(remote_buffer);
+  if (0 == buffer_bytes) {
+    *remote_buffer = nullptr;
+    return true;
+  }
+
+  // Allocate memory in the target process without specifying the address
+  void* remote_data = ::VirtualAllocEx(child, nullptr, buffer_bytes, MEM_COMMIT,
+                                       PAGE_READWRITE);
+  if (!remote_data)
+    return false;
+
+  SIZE_T bytes_written;
+  bool success = ::WriteProcessMemory(child, remote_data, local_buffer,
+                                      buffer_bytes, &bytes_written);
+  if (!success || bytes_written != buffer_bytes) {
+    ::VirtualFreeEx(child, remote_data, 0, MEM_RELEASE);
+    return false;
+  }
+
+  *remote_buffer = remote_data;
+
+  return true;
 }
 
 DWORD GetLastErrorFromNtStatus(NTSTATUS status) {
@@ -486,7 +520,7 @@ DWORD GetLastErrorFromNtStatus(NTSTATUS status) {
 // This function uses the undocumented PEB ImageBaseAddress field to extract
 // the base address of the new process.
 void* GetProcessBaseAddress(HANDLE process) {
-  NtQueryInformationProcessFunction query_information_process = NULL;
+  NtQueryInformationProcessFunction query_information_process = nullptr;
   ResolveNTFunctionPtr("NtQueryInformationProcess", &query_information_process);
   if (!query_information_process)
     return nullptr;
@@ -516,13 +550,57 @@ void* GetProcessBaseAddress(HANDLE process) {
   if (magic[0] != 'M' || magic[1] != 'Z')
     return nullptr;
 
+#if defined(_M_ARM64)
+  // Windows 10 on ARM64 has multi-threaded DLL loading that does not work with
+  // the sandbox. (On x86 this gets disabled by hook detection code that was not
+  // ported to ARM64). This overwrites the LoaderThreads value in the process
+  // parameters part of the PEB, if it is set to the default of 0 (which
+  // actually means it defaults to 4 loading threads). This is an undocumented
+  // field so there is a, probably small, risk that it might change or move in
+  // the future. In order to slightly guard against that we only update if the
+  // value is currently 0.
+  auto processParameters = reinterpret_cast<uint8_t*>(peb.ProcessParameters);
+  const uint32_t loaderThreadsOffset = 0x40c;
+  uint32_t maxLoaderThreads = 0;
+  BOOL memoryRead = ::ReadProcessMemory(
+      process, processParameters + loaderThreadsOffset, &maxLoaderThreads,
+      sizeof(maxLoaderThreads), &bytes_read);
+  if (memoryRead && (sizeof(maxLoaderThreads) == bytes_read) &&
+      (maxLoaderThreads == 0)) {
+    maxLoaderThreads = 1;
+    WriteProtectedChildMemory(process, processParameters + loaderThreadsOffset,
+                              &maxLoaderThreads, sizeof(maxLoaderThreads),
+                              PAGE_READWRITE);
+  }
+#endif
+
   return base_address;
 }
 
-};  // namespace sandbox
+DWORD GetTokenInformation(HANDLE token,
+                          TOKEN_INFORMATION_CLASS info_class,
+                          std::unique_ptr<BYTE[]>* buffer) {
+  // Get the required buffer size.
+  DWORD size = 0;
+  ::GetTokenInformation(token, info_class, nullptr, 0, &size);
+  if (!size) {
+    return ::GetLastError();
+  }
+
+  auto temp_buffer = std::make_unique<BYTE[]>(size);
+  if (!::GetTokenInformation(token, info_class, temp_buffer.get(), size,
+                             &size)) {
+    return ::GetLastError();
+  }
+
+  *buffer = std::move(temp_buffer);
+  return ERROR_SUCCESS;
+}
+
+}  // namespace sandbox
 
 void ResolveNTFunctionPtr(const char* name, void* ptr) {
-  static volatile HMODULE ntdll = NULL;
+  static volatile HMODULE ntdll = nullptr;
 
   if (!ntdll) {
     HMODULE ntdll_local = ::GetModuleHandle(sandbox::kNtdllName);
@@ -531,7 +609,7 @@ void ResolveNTFunctionPtr(const char* name, void* ptr) {
     CHECK_NT(ntdll_peimage.VerifyMagic());
     // Race-safe way to set static ntdll.
     ::InterlockedCompareExchangePointer(
-        reinterpret_cast<PVOID volatile*>(&ntdll), ntdll_local, NULL);
+        reinterpret_cast<PVOID volatile*>(&ntdll), ntdll_local, nullptr);
   }
 
   CHECK_NT(ntdll);

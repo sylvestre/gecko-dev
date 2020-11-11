@@ -4,17 +4,19 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+// NB: This code may be used from non-XPCOM code, in particular, the
+// standalone updater executable.
+
 #ifndef nsVersionComparator_h__
 #define nsVersionComparator_h__
 
 #include "mozilla/Char16.h"
-#include "nscore.h"
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
 #if defined(XP_WIN) && !defined(UPDATER_NO_STRING_GLUE_STL)
-#include <wchar.h>
-#include "nsString.h"
+#  include <wchar.h>
+#  include "nsString.h"
 #endif
 
 /**
@@ -36,17 +38,22 @@
  * bool IsVersionValid(const char* version) {
  *   return mozilla::Version("15.a2") <= version;
  * }
- *
- * On Windows, if your version strings are wide characters, you should use the
- * mozilla::VersionW variant instead.  The semantics of that class is the same
- * as Version.
  */
 
 namespace mozilla {
 
+/**
+ * Compares the version strings provided.
+ *
+ * Returns 0 if the versions match, < 0 if aStrB > aStrA and > 0 if
+ * aStrA > aStrB.
+ */
 int32_t CompareVersions(const char* aStrA, const char* aStrB);
 
 #ifdef XP_WIN
+/**
+ * As above but for wide character strings.
+ */
 int32_t CompareVersions(const char16_t* aStrA, const char16_t* aStrB);
 #endif
 
@@ -60,13 +67,13 @@ struct Version {
   ~Version() { free(versionContent); }
 
   bool operator<(const Version& aRhs) const {
-    return CompareVersions(versionContent, aRhs.ReadContent()) == -1;
+    return CompareVersions(versionContent, aRhs.ReadContent()) < 0;
   }
   bool operator<=(const Version& aRhs) const {
     return CompareVersions(versionContent, aRhs.ReadContent()) < 1;
   }
   bool operator>(const Version& aRhs) const {
-    return CompareVersions(versionContent, aRhs.ReadContent()) == 1;
+    return CompareVersions(versionContent, aRhs.ReadContent()) > 0;
   }
   bool operator>=(const Version& aRhs) const {
     return CompareVersions(versionContent, aRhs.ReadContent()) > -1;
@@ -78,13 +85,13 @@ struct Version {
     return CompareVersions(versionContent, aRhs.ReadContent()) != 0;
   }
   bool operator<(const char* aRhs) const {
-    return CompareVersions(versionContent, aRhs) == -1;
+    return CompareVersions(versionContent, aRhs) < 0;
   }
   bool operator<=(const char* aRhs) const {
     return CompareVersions(versionContent, aRhs) < 1;
   }
   bool operator>(const char* aRhs) const {
-    return CompareVersions(versionContent, aRhs) == 1;
+    return CompareVersions(versionContent, aRhs) > 0;
   }
   bool operator>=(const char* aRhs) const {
     return CompareVersions(versionContent, aRhs) > -1;
@@ -99,41 +106,6 @@ struct Version {
  private:
   char* versionContent;
 };
-
-#ifdef XP_WIN
-struct VersionW {
-  explicit VersionW(const char16_t* aVersionStringW) {
-    versionContentW =
-        reinterpret_cast<char16_t*>(wcsdup(char16ptr_t(aVersionStringW)));
-  }
-
-  const char16_t* ReadContentW() const { return versionContentW; }
-
-  ~VersionW() { free(versionContentW); }
-
-  bool operator<(const VersionW& aRhs) const {
-    return CompareVersions(versionContentW, aRhs.ReadContentW()) == -1;
-  }
-  bool operator<=(const VersionW& aRhs) const {
-    return CompareVersions(versionContentW, aRhs.ReadContentW()) < 1;
-  }
-  bool operator>(const VersionW& aRhs) const {
-    return CompareVersions(versionContentW, aRhs.ReadContentW()) == 1;
-  }
-  bool operator>=(const VersionW& aRhs) const {
-    return CompareVersions(versionContentW, aRhs.ReadContentW()) > -1;
-  }
-  bool operator==(const VersionW& aRhs) const {
-    return CompareVersions(versionContentW, aRhs.ReadContentW()) == 0;
-  }
-  bool operator!=(const VersionW& aRhs) const {
-    return CompareVersions(versionContentW, aRhs.ReadContentW()) != 0;
-  }
-
- private:
-  char16_t* versionContentW;
-};
-#endif
 
 }  // namespace mozilla
 

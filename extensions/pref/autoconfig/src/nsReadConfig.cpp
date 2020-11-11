@@ -6,24 +6,24 @@
 #include "nsReadConfig.h"
 #include "nsJSConfigTriggers.h"
 
+#include "mozilla/Components.h"
 #include "nsAppDirectoryServiceDefs.h"
 #include "nsIAppStartup.h"
 #include "nsContentUtils.h"
 #include "nsDirectoryServiceDefs.h"
-#include "nsIComponentManager.h"
 #include "nsIFile.h"
 #include "nsIObserverService.h"
 #include "nsIPrefBranch.h"
 #include "nsIPrefService.h"
 #include "nsIPromptService.h"
-#include "nsIServiceManager.h"
 #include "nsIStringBundle.h"
-#include "nsToolkitCompsCID.h"
 #include "nsNetUtil.h"
 #include "nsString.h"
 #include "nsCRT.h"
 #include "nspr.h"
 #include "nsXULAppAPI.h"
+
+using namespace mozilla;
 
 extern bool sandboxEnabled;
 
@@ -81,8 +81,8 @@ nsresult nsReadConfig::Init() {
 
 nsReadConfig::~nsReadConfig() { CentralizedAdminPrefManagerFinish(); }
 
-NS_IMETHODIMP nsReadConfig::Observe(nsISupports *aSubject, const char *aTopic,
-                                    const char16_t *someData) {
+NS_IMETHODIMP nsReadConfig::Observe(nsISupports* aSubject, const char* aTopic,
+                                    const char16_t* someData) {
   nsresult rv = NS_OK;
 
   if (!nsCRT::strcmp(aTopic, NS_PREFSERVICE_READ_TOPIC_ID)) {
@@ -92,17 +92,19 @@ NS_IMETHODIMP nsReadConfig::Observe(nsISupports *aSubject, const char *aTopic,
     if (NS_FAILED(rv)) {
       if (sandboxEnabled) {
         nsContentUtils::ReportToConsoleNonLocalized(
-            NS_LITERAL_STRING("Autoconfig is sandboxed by default. See "
-                              "https://support.mozilla.org/products/"
-                              "firefox-enterprise for more information."),
-            nsIScriptError::warningFlag, NS_LITERAL_CSTRING("autoconfig"),
-            nullptr);
+            u"Autoconfig is sandboxed by default. See "
+            "https://support.mozilla.org/products/"
+            "firefox-enterprise for more information."_ns,
+            nsIScriptError::warningFlag, "autoconfig"_ns, nullptr);
       } else {
         rv = DisplayError();
         if (NS_FAILED(rv)) {
           nsCOMPtr<nsIAppStartup> appStartup =
-              do_GetService(NS_APPSTARTUP_CONTRACTID);
-          if (appStartup) appStartup->Quit(nsIAppStartup::eAttemptQuit);
+              components::AppStartup::Service();
+          if (appStartup) {
+            bool userAllowedQuit = true;
+            appStartup->Quit(nsIAppStartup::eAttemptQuit, &userAllowedQuit);
+          }
         }
       }
     }
@@ -113,7 +115,7 @@ NS_IMETHODIMP nsReadConfig::Observe(nsISupports *aSubject, const char *aTopic,
 /**
  * This is the blocklist for known bad autoconfig files.
  */
-static const char *gBlockedConfigs[] = {"dsengine.cfg"};
+static const char* gBlockedConfigs[] = {"dsengine.cfg"};
 
 nsresult nsReadConfig::readConfigFile() {
   nsresult rv = NS_OK;
@@ -130,7 +132,7 @@ nsresult nsReadConfig::readConfigFile() {
       prefService->GetDefaultBranch(nullptr, getter_AddRefs(defaultPrefBranch));
   if (NS_FAILED(rv)) return rv;
 
-  NS_NAMED_LITERAL_CSTRING(channel, NS_STRINGIFY(MOZ_UPDATE_CHANNEL));
+  constexpr auto channel = nsLiteralCString{MOZ_STRINGIFY(MOZ_UPDATE_CHANNEL)};
 
   bool sandboxEnabled =
       channel.EqualsLiteral("beta") || channel.EqualsLiteral("release");
@@ -229,7 +231,7 @@ nsresult nsReadConfig::readConfigFile() {
   return NS_OK;
 }  // ReadConfigFile
 
-nsresult nsReadConfig::openAndEvaluateJSFile(const char *aFileName,
+nsresult nsReadConfig::openAndEvaluateJSFile(const char* aFileName,
                                              int32_t obscureValue,
                                              bool isEncoded, bool isBinDir) {
   nsresult rv;
@@ -257,11 +259,11 @@ nsresult nsReadConfig::openAndEvaluateJSFile(const char *aFileName,
     nsCOMPtr<nsIChannel> channel;
     rv = NS_NewChannel(getter_AddRefs(channel), uri,
                        nsContentUtils::GetSystemPrincipal(),
-                       nsILoadInfo::SEC_ALLOW_CROSS_ORIGIN_DATA_IS_NULL,
+                       nsILoadInfo::SEC_ALLOW_CROSS_ORIGIN_SEC_CONTEXT_IS_NULL,
                        nsIContentPolicy::TYPE_OTHER);
     NS_ENSURE_SUCCESS(rv, rv);
 
-    rv = channel->Open2(getter_AddRefs(inStr));
+    rv = channel->Open(getter_AddRefs(inStr));
     NS_ENSURE_SUCCESS(rv, rv);
   }
 
@@ -273,7 +275,7 @@ nsresult nsReadConfig::openAndEvaluateJSFile(const char *aFileName,
   if (fs64 > UINT32_MAX) return NS_ERROR_FILE_TOO_BIG;
   uint32_t fs = (uint32_t)fs64;
 
-  char *buf = (char *)malloc(fs * sizeof(char));
+  char* buf = (char*)malloc(fs * sizeof(char));
   if (!buf) return NS_ERROR_OUT_OF_MEMORY;
 
   rv = inStr->Read(buf, (uint32_t)fs, &amt);

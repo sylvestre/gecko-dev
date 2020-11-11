@@ -9,10 +9,11 @@
 
 #include "nsISupports.h"
 
+#include "mozilla/Assertions.h"
+
 class nsAttrValue;
 class nsAtom;
 class nsIContent;
-class nsIDocument;
 class nsINode;
 
 namespace mozilla {
@@ -46,10 +47,16 @@ struct CharacterDataChangeInfo {
 
   /**
    * The offset such that mChangeEnd - mChangeStart is equal to the length of
-   * the text we removed. If this was a pure insert or append, this is equal to
-   * mChangeStart.
+   * the text we removed. If this was a pure insert, append or a result of
+   * `splitText()` this is equal to mChangeStart.
    */
   uint32_t mChangeEnd;
+
+  uint32_t LengthOfRemovedText() const {
+    MOZ_ASSERT(mChangeStart <= mChangeEnd);
+
+    return mChangeEnd - mChangeStart;
+  }
 
   /**
    * The length of the text that was inserted in place of the removed text.  If
@@ -93,7 +100,7 @@ struct CharacterDataChangeInfo {
  * any mutations to the current or any other document, or start a
  * network load.  If you need to perform such operations do that
  * during the _last_ nsIDocumentObserver::EndUpdate notification.  The
- * expection for this is ParentChainChanged, where mutations should be
+ * exception for this is ParentChainChanged, where mutations should be
  * done from an async event, as the notification might not be
  * surrounded by BeginUpdate/EndUpdate calls.
  */
@@ -165,8 +172,7 @@ class nsIMutationObserver : public nsISupports {
    */
   virtual void AttributeWillChange(mozilla::dom::Element* aElement,
                                    int32_t aNameSpaceID, nsAtom* aAttribute,
-                                   int32_t aModType,
-                                   const nsAttrValue* aNewValue) = 0;
+                                   int32_t aModType) = 0;
 
   /**
    * Notification that an attribute of an element has changed.
@@ -309,8 +315,7 @@ NS_DEFINE_STATIC_IID_ACCESSOR(nsIMutationObserver, NS_IMUTATION_OBSERVER_IID)
 #define NS_DECL_NSIMUTATIONOBSERVER_ATTRIBUTEWILLCHANGE                      \
   virtual void AttributeWillChange(mozilla::dom::Element* aElement,          \
                                    int32_t aNameSpaceID, nsAtom* aAttribute, \
-                                   int32_t aModType,                         \
-                                   const nsAttrValue* aNewValue) override;
+                                   int32_t aModType) override;
 
 #define NS_DECL_NSIMUTATIONOBSERVER_NATIVEANONYMOUSCHILDLISTCHANGE  \
   virtual void NativeAnonymousChildListChange(nsIContent* aContent, \
@@ -358,9 +363,9 @@ NS_DEFINE_STATIC_IID_ACCESSOR(nsIMutationObserver, NS_IMUTATION_OBSERVER_IID)
       nsIContent* aContent, const CharacterDataChangeInfo& aInfo) {}         \
   void _class::CharacterDataChanged(nsIContent* aContent,                    \
                                     const CharacterDataChangeInfo& aInfo) {} \
-  void _class::AttributeWillChange(                                          \
-      mozilla::dom::Element* aElement, int32_t aNameSpaceID,                 \
-      nsAtom* aAttribute, int32_t aModType, const nsAttrValue* aNewValue) {} \
+  void _class::AttributeWillChange(mozilla::dom::Element* aElement,          \
+                                   int32_t aNameSpaceID, nsAtom* aAttribute, \
+                                   int32_t aModType) {}                      \
   void _class::NativeAnonymousChildListChange(nsIContent* aContent,          \
                                               bool aIsRemove) {}             \
   void _class::AttributeChanged(                                             \

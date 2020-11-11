@@ -7,35 +7,43 @@
 #ifndef MOZILLA_GFX_RENDERCOMPOSITOR_OGL_H
 #define MOZILLA_GFX_RENDERCOMPOSITOR_OGL_H
 
+#include "GLTypes.h"
 #include "mozilla/webrender/RenderCompositor.h"
 
 namespace mozilla {
-
 namespace wr {
 
 class RenderCompositorOGL : public RenderCompositor {
  public:
   static UniquePtr<RenderCompositor> Create(
-      RefPtr<widget::CompositorWidget>&& aWidget);
+      RefPtr<widget::CompositorWidget>&& aWidget, nsACString& aError);
 
   RenderCompositorOGL(RefPtr<gl::GLContext>&& aGL,
                       RefPtr<widget::CompositorWidget>&& aWidget);
   virtual ~RenderCompositorOGL();
 
   bool BeginFrame() override;
-  void EndFrame() override;
-  void WaitForGPU() override;
+  RenderedFrameId EndFrame(const nsTArray<DeviceIntRect>& aDirtyRects) final;
   void Pause() override;
   bool Resume() override;
 
   gl::GLContext* gl() const override { return mGL; }
 
-  bool UseANGLE() const override { return false; }
-
   LayoutDeviceIntSize GetBufferSize() override;
+
+  // Interface for wr::Compositor
+  CompositorCapabilities GetCompositorCapabilities() override;
+
+  // Interface for partial present
+  bool UsePartialPresent() override;
+  bool RequestFullRender() override;
+  uint32_t GetMaxPartialPresentRects() override;
+  bool ShouldDrawPreviousPartialPresentRegions() override;
+  size_t GetBufferAge() const override;
 
  protected:
   RefPtr<gl::GLContext> mGL;
+  bool mIsEGL;
 };
 
 }  // namespace wr

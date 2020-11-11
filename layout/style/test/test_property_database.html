@@ -4,7 +4,7 @@
 -->
 <head>
   <title>Test that property_database.js contains all supported CSS properties</title>
-  <script type="text/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
   <script type="text/javascript" src="css_properties.js"></script>
   <script type="text/javascript" src="property_database.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css" />
@@ -33,7 +33,10 @@
 
 for (var idx in gLonghandProperties) {
   var prop = gLonghandProperties[idx];
+  const webRenderEnabled = IsWebRenderEnabled();
   if (prop.pref && !IsCSSPropertyPrefEnabled(prop.pref)) {
+    continue;
+  } else if (prop.name === "backdrop-filter" && !webRenderEnabled) {
     continue;
   }
   var present = prop.name in gCSSProperties;
@@ -49,6 +52,8 @@ for (var idx in gLonghandProperties) {
 for (var idx in gShorthandProperties) {
   var prop = gShorthandProperties[idx];
   if (prop.pref && !IsCSSPropertyPrefEnabled(prop.pref)) {
+    continue;
+  } else if (prop.name === "backdrop-filter" && !webRenderEnabled) {
     continue;
   }
   if (prop.name == "all") {
@@ -70,6 +75,8 @@ for (var idx in gShorthandProperties) {
 for (var idx in gShorthandPropertiesLikeLonghand) {
   var prop = gShorthandPropertiesLikeLonghand[idx];
   if (prop.pref && !IsCSSPropertyPrefEnabled(prop.pref)) {
+    continue;
+  } else if (prop.name === "backdrop-filter" && !webRenderEnabled) {
     continue;
   }
   var present = prop.name in gCSSProperties;

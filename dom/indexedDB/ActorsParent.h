@@ -7,8 +7,11 @@
 #ifndef mozilla_dom_indexeddb_actorsparent_h__
 #define mozilla_dom_indexeddb_actorsparent_h__
 
-template <class>
-struct already_AddRefed;
+#include "mozilla/AlreadyAddRefed.h"
+#include "mozilla/dom/indexedDB/PermissionRequestBase.h"
+#include "mozilla/dom/PBrowserParent.h"
+#include "mozilla/RefPtr.h"
+
 class nsIPrincipal;
 
 namespace mozilla {
@@ -25,12 +28,12 @@ class Client;
 
 namespace indexedDB {
 
+class FileManager;
 class LoggingInfo;
 class PBackgroundIDBFactoryParent;
 class PBackgroundIndexedDBUtilsParent;
-class PIndexedDBPermissionRequestParent;
 
-PBackgroundIDBFactoryParent* AllocPBackgroundIDBFactoryParent(
+already_AddRefed<PBackgroundIDBFactoryParent> AllocPBackgroundIDBFactoryParent(
     const LoggingInfo& aLoggingInfo);
 
 bool RecvPBackgroundIDBFactoryConstructor(PBackgroundIDBFactoryParent* aActor,
@@ -45,18 +48,26 @@ bool DeallocPBackgroundIndexedDBUtilsParent(
 
 bool RecvFlushPendingFileDeletions();
 
-PIndexedDBPermissionRequestParent* AllocPIndexedDBPermissionRequestParent(
-    Element* aOwnerElement, nsIPrincipal* aPrincipal);
-
-bool RecvPIndexedDBPermissionRequestConstructor(
-    PIndexedDBPermissionRequestParent* aActor);
-
-bool DeallocPIndexedDBPermissionRequestParent(
-    PIndexedDBPermissionRequestParent* aActor);
-
-already_AddRefed<mozilla::dom::quota::Client> CreateQuotaClient();
+RefPtr<mozilla::dom::quota::Client> CreateQuotaClient();
 
 FileHandleThreadPool* GetFileHandleThreadPool();
+
+class PermissionRequestHelper final : public PermissionRequestBase {
+ public:
+  PermissionRequestHelper(
+      Element* aOwnerElement, nsIPrincipal* aPrincipal,
+      PBrowserParent::IndexedDBPermissionRequestResolver& aResolver)
+      : PermissionRequestBase(aOwnerElement, aPrincipal),
+        mResolver(aResolver) {}
+
+ protected:
+  ~PermissionRequestHelper() override = default;
+
+ private:
+  PBrowserParent::IndexedDBPermissionRequestResolver mResolver;
+
+  void OnPromptComplete(PermissionValue aPermissionValue) override;
+};
 
 }  // namespace indexedDB
 }  // namespace dom

@@ -7,8 +7,7 @@
 #include "FunctionBrokerChild.h"
 #include "FunctionBrokerThread.h"
 
-namespace mozilla {
-namespace plugins {
+namespace mozilla::plugins {
 
 FunctionBrokerChild* FunctionBrokerChild::sInstance = nullptr;
 
@@ -19,7 +18,8 @@ void FunctionBrokerChild::PostToDispatchThread(
   mThread->Dispatch(std::move(runnable));
 }
 
-/* static */ bool FunctionBrokerChild::Initialize(
+/* static */
+bool FunctionBrokerChild::Initialize(
     Endpoint<PFunctionBrokerChild>&& aBrokerEndpoint) {
   MOZ_RELEASE_ASSERT(
       XRE_IsPluginProcess(),
@@ -34,7 +34,8 @@ void FunctionBrokerChild::PostToDispatchThread(
   return true;
 }
 
-/* static */ FunctionBrokerChild* FunctionBrokerChild::GetInstance() {
+/* static */
+FunctionBrokerChild* FunctionBrokerChild::GetInstance() {
   MOZ_RELEASE_ASSERT(
       XRE_IsPluginProcess(),
       "FunctionBrokerChild can only be used in plugin processes");
@@ -105,5 +106,4 @@ void FunctionBrokerChild::Destroy() {
   sInstance = nullptr;
 }
 
-}  // namespace plugins
-}  // namespace mozilla
+}  // namespace mozilla::plugins

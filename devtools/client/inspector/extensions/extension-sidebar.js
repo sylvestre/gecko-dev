@@ -4,18 +4,28 @@
 
 "use strict";
 
-const { createElement, createFactory } = require("devtools/client/shared/vendor/react");
+const {
+  createElement,
+  createFactory,
+} = require("devtools/client/shared/vendor/react");
 const EventEmitter = require("devtools/shared/event-emitter");
 const { Provider } = require("devtools/client/shared/vendor/react-redux");
-const ObjectClient = require("devtools/shared/client/object-client");
-const ExtensionSidebarComponent = createFactory(require("./components/ExtensionSidebar"));
+
+const extensionsSidebarReducer = require("devtools/client/inspector/extensions/reducers/sidebar");
+const {
+  default: objectInspectorReducer,
+} = require("devtools/client/shared/components/object-inspector/reducer");
+
+const ExtensionSidebarComponent = createFactory(
+  require("devtools/client/inspector/extensions/components/ExtensionSidebar")
+);
 
 const {
   updateExtensionPage,
   updateObjectTreeView,
-  updateObjectValueGripView,
+  updateExpressionResultView,
   removeExtensionSidebar,
-} = require("./actions/sidebar");
+} = require("devtools/client/inspector/extensions/actions/sidebar");
 
 /**
  * ExtensionSidebar instances represents Inspector sidebars installed by add-ons
@@ -35,14 +45,16 @@ const {
  *        The title of the sidebar.
  */
 class ExtensionSidebar {
-  constructor(inspector, {id, title}) {
+  constructor(inspector, { id, title }) {
     EventEmitter.decorate(this);
     this.inspector = inspector;
     this.store = inspector.store;
     this.id = id;
     this.title = title;
-
     this.destroyed = false;
+
+    this.store.injectReducer("extensionsSidebar", extensionsSidebarReducer);
+    this.store.injectReducer("objectInspector", objectInspectorReducer);
   }
 
   /**
@@ -50,49 +62,56 @@ class ExtensionSidebar {
    */
   get provider() {
     if (!this._provider) {
-      this._provider = createElement(Provider, {
-        store: this.store,
-        key: this.id,
-        title: this.title,
-      }, ExtensionSidebarComponent({
-        id: this.id,
-        onExtensionPageMount: (containerEl) => {
-          this.emit("extension-page-mount", containerEl);
+      this._provider = createElement(
+        Provider,
+        {
+          store: this.store,
+          key: this.id,
+          title: this.title,
         },
-        onExtensionPageUnmount: (containerEl) => {
-          this.emit("extension-page-unmount", containerEl);
-        },
-        serviceContainer: {
-          createObjectClient: (object) => {
-            return new ObjectClient(this.inspector.toolbox.target.client, object);
+        ExtensionSidebarComponent({
+          id: this.id,
+          onExtensionPageMount: containerEl => {
+            this.emit("extension-page-mount", containerEl);
           },
-          releaseActor: (actor) => {
-            if (!actor) {
-              return;
-            }
-            this.inspector.toolbox.target.client.release(actor);
+          onExtensionPageUnmount: containerEl => {
+            this.emit("extension-page-unmount", containerEl);
           },
-          highlightDomElement: async (grip, options = {}) => {
-            const { highlighter } = this.inspector;
-            const nodeFront = await this.inspector.walker.gripToNodeFront(grip);
-            return highlighter.highlight(nodeFront, options);
-          },
-          unHighlightDomElement: (forceHide = false) => {
-            const { highlighter } = this.inspector;
-            return highlighter.unhighlight(forceHide);
-          },
-          openNodeInInspector: async (grip) => {
-            const { walker } = this.inspector;
-            const front = await walker.gripToNodeFront(grip);
-            const onInspectorUpdated = this.inspector.once("inspector-updated");
-            const onNodeFrontSet = this.inspector.toolbox.selection.setNodeFront(front, {
-              reason: "inspector-extension-sidebar",
-            });
+          serviceContainer: {
+            highlightDomElement: async (grip, options = {}) => {
+              const nodeFront = await this.inspector.inspectorFront.getNodeFrontFromNodeGrip(
+                grip
+              );
+              return this.inspector.highlighters.showHighlighterTypeForNode(
+                this.inspector.highlighters.TYPES.BOXMODEL,
+                nodeFront,
+                options
+              );
+            },
+            unHighlightDomElement: async () => {
+              return this.inspector.highlighters.hideHighlighterType(
+                this.inspector.highlighters.TYPES.BOXMODEL
+              );
+            },
+            openNodeInInspector: async grip => {
+              const nodeFront = await this.inspector.inspectorFront.getNodeFrontFromNodeGrip(
+                grip
+              );
+              const onInspectorUpdated = this.inspector.once(
+                "inspector-updated"
+              );
+              const onNodeFrontSet = this.inspector.toolbox.selection.setNodeFront(
+                nodeFront,
+                {
+                  reason: "inspector-extension-sidebar",
+                }
+              );
 
-            return Promise.all([onNodeFrontSet, onInspectorUpdated]);
+              return Promise.all([onNodeFrontSet, onInspectorUpdated]);
+            },
           },
-        },
-      }));
+        })
+      );
     }
 
     return this._provider;
@@ -108,7 +127,9 @@ class ExtensionSidebar {
    */
   destroy() {
     if (this.destroyed) {
-      throw new Error(`ExtensionSidebar instances cannot be destroyed more than once`);
+      throw new Error(
+        `ExtensionSidebar instances cannot be destroyed more than once`
+      );
     }
 
     // Remove the data related to this extension from the inspector store.
@@ -128,7 +149,9 @@ class ExtensionSidebar {
    */
   setObject(object) {
     if (this.removed) {
-      throw new Error("Unable to set an object preview on a removed ExtensionSidebar");
+      throw new Error(
+        "Unable to set an object preview on a removed ExtensionSidebar"
+      );
     }
 
     this.store.dispatch(updateObjectTreeView(this.id, object));
@@ -139,17 +162,23 @@ class ExtensionSidebar {
    * ObjectPreview React Component, which shows the passed value grip
    * in the sidebar.
    */
-  setObjectValueGrip(objectValueGrip, rootTitle) {
+  setExpressionResult(expressionResult, rootTitle) {
     if (this.removed) {
-      throw new Error("Unable to set an object preview on a removed ExtensionSidebar");
+      throw new Error(
+        "Unable to set an object preview on a removed ExtensionSidebar"
+      );
     }
 
-    this.store.dispatch(updateObjectValueGripView(this.id, objectValueGrip, rootTitle));
+    this.store.dispatch(
+      updateExpressionResultView(this.id, expressionResult, rootTitle)
+    );
   }
 
   setExtensionPage(iframeURL) {
     if (this.removed) {
-      throw new Error("Unable to set an object preview on a removed ExtensionSidebar");
+      throw new Error(
+        "Unable to set an object preview on a removed ExtensionSidebar"
+      );
     }
 
     this.store.dispatch(updateExtensionPage(this.id, iframeURL));

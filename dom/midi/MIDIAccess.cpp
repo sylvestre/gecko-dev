@@ -19,15 +19,13 @@
 #include "mozilla/dom/MIDITypes.h"
 #include "mozilla/dom/Promise.h"
 #include "mozilla/dom/PContent.h"
-#include "nsIRunnable.h"
-#include "nsIDocument.h"
+#include "mozilla/dom/Document.h"
 #include "nsPIDOMWindow.h"
 #include "nsContentPermissionHelper.h"
 #include "nsISupportsImpl.h"  // for MOZ_COUNT_CTOR, MOZ_COUNT_DTOR
 #include "IPCMessageUtils.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_IMPL_CYCLE_COLLECTION_CLASS(MIDIAccess)
 NS_IMPL_CYCLE_COLLECTION_TRACE_BEGIN_INHERITED(MIDIAccess, DOMEventTargetHelper)
@@ -127,8 +125,8 @@ void MIDIAccess::FireConnectionEvent(MIDIPort* aPort) {
       }
     }
   }
-  RefPtr<MIDIConnectionEvent> event = MIDIConnectionEvent::Constructor(
-      this, NS_LITERAL_STRING("statechange"), init);
+  RefPtr<MIDIConnectionEvent> event =
+      MIDIConnectionEvent::Constructor(this, u"statechange"_ns, init);
   DispatchTrustedEvent(event);
 }
 
@@ -192,15 +190,15 @@ void MIDIAccess::MaybeCreateMIDIPort(const MIDIPortInfo& aInfo,
 // received, that will be handled by the MIDIPort object itself, and it will
 // request removal from MIDIAccess's maps.
 void MIDIAccess::Notify(const MIDIPortList& aEvent) {
-  ErrorResult rv;
   for (auto& port : aEvent.ports()) {
     // Something went very wrong. Warn and return.
+    ErrorResult rv;
     MaybeCreateMIDIPort(port, rv);
     if (rv.Failed()) {
       if (!mAccessPromise) {
         return;
       }
-      mAccessPromise->MaybeReject(rv);
+      mAccessPromise->MaybeReject(std::move(rv));
       mAccessPromise = nullptr;
     }
   }
@@ -220,5 +218,4 @@ void MIDIAccess::RemovePortListener(MIDIAccessDestructionObserver* aObs) {
   mDestructionObservers.RemoveObserver(aObs);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

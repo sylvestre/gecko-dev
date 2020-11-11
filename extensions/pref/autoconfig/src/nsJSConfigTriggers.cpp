@@ -8,30 +8,27 @@
 #include "jsapi.h"
 #include "nsIXPConnect.h"
 #include "nsCOMPtr.h"
-#include "nsIServiceManager.h"
-#include "nsIComponentManager.h"
 #include "nsString.h"
-#include "nsIPrefBranch.h"
-#include "nsIPrefService.h"
 #include "nspr.h"
 #include "mozilla/Attributes.h"
 #include "mozilla/Maybe.h"
 #include "mozilla/NullPrincipal.h"
 #include "nsContentUtils.h"
-#include "nsIScriptSecurityManager.h"
 #include "nsJSPrincipals.h"
 #include "nsIScriptError.h"
 #include "js/Wrapper.h"
+#include "mozilla/Utf8.h"
 
 extern mozilla::LazyLogModule MCD;
 using mozilla::AutoSafeJSContext;
+using mozilla::IsUtf8;
 using mozilla::NullPrincipal;
 using mozilla::dom::AutoJSAPI;
 
 //*****************************************************************************
 
-static JS::PersistentRooted<JSObject *> autoconfigSystemSb;
-static JS::PersistentRooted<JSObject *> autoconfigSb;
+static JS::PersistentRooted<JSObject*> autoconfigSystemSb;
+static JS::PersistentRooted<JSObject*> autoconfigSb;
 static bool sandboxEnabled;
 
 nsresult CentralizedAdminPrefManagerInit(bool aSandboxEnabled) {
@@ -50,7 +47,7 @@ nsresult CentralizedAdminPrefManagerInit(bool aSandboxEnabled) {
 
   // Create a sandbox.
   AutoSafeJSContext cx;
-  JS::Rooted<JSObject *> sandbox(cx);
+  JS::Rooted<JSObject*> sandbox(cx);
   nsresult rv = xpc->CreateSandbox(cx, principal, sandbox.address());
   NS_ENSURE_SUCCESS(rv, rv);
 
@@ -89,8 +86,8 @@ nsresult CentralizedAdminPrefManagerFinish() {
   return NS_OK;
 }
 
-nsresult EvaluateAdminConfigScript(const char *js_buffer, size_t length,
-                                   const char *filename, bool globalContext,
+nsresult EvaluateAdminConfigScript(const char* js_buffer, size_t length,
+                                   const char* filename, bool globalContext,
                                    bool callbacks, bool skipFirstLine,
                                    bool isPrivileged) {
   if (!sandboxEnabled) {
@@ -102,8 +99,8 @@ nsresult EvaluateAdminConfigScript(const char *js_buffer, size_t length,
 }
 
 nsresult EvaluateAdminConfigScript(JS::HandleObject sandbox,
-                                   const char *js_buffer, size_t length,
-                                   const char *filename, bool globalContext,
+                                   const char* js_buffer, size_t length,
+                                   const char* filename, bool globalContext,
                                    bool callbacks, bool skipFirstLine) {
   if (skipFirstLine) {
     /* In order to protect the privacy of the JavaScript preferences file
@@ -132,20 +129,20 @@ nsresult EvaluateAdminConfigScript(JS::HandleObject sandbox,
   if (!jsapi.Init(sandbox)) {
     return NS_ERROR_UNEXPECTED;
   }
-  JSContext *cx = jsapi.cx();
+  JSContext* cx = jsapi.cx();
 
   nsAutoCString script(js_buffer, length);
   JS::RootedValue v(cx);
 
   nsString convertedScript;
-  bool isUTF8 = IsUTF8(script);
+  bool isUTF8 = IsUtf8(script);
   if (isUTF8) {
-    convertedScript = NS_ConvertUTF8toUTF16(script);
+    CopyUTF8toUTF16(script, convertedScript);
   } else {
     nsContentUtils::ReportToConsoleNonLocalized(
-        NS_LITERAL_STRING(
-            "Your AutoConfig file is ASCII. Please convert it to UTF-8."),
-        nsIScriptError::warningFlag, NS_LITERAL_CSTRING("autoconfig"), nullptr);
+        nsLiteralString(
+            u"Your AutoConfig file is ASCII. Please convert it to UTF-8."),
+        nsIScriptError::warningFlag, "autoconfig"_ns, nullptr);
     /* If the length is 0, the conversion failed. Fallback to ASCII */
     convertedScript = NS_ConvertASCIItoUTF16(script);
   }

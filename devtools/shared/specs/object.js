@@ -29,12 +29,6 @@ types.addDictType("object.completion", {
   throw: "nullable:json",
 });
 
-types.addDictType("object.definitionSite", {
-  source: "source",
-  line: "number",
-  column: "number",
-});
-
 types.addDictType("object.prototypeproperties", {
   prototype: "object.descriptor",
   ownProperties: "nullable:json",
@@ -61,10 +55,6 @@ types.addDictType("object.apply", {
 types.addDictType("object.bindings", {
   arguments: "array:json",
   variables: "json",
-});
-
-types.addDictType("object.scope", {
-  scope: "environment",
 });
 
 types.addDictType("object.enumProperties.Options", {
@@ -102,9 +92,13 @@ types.addDictType("object.originalSourceLocation", {
   functionDisplayName: "string",
 });
 
+types.addDictType("object.proxySlots", {
+  proxyTarget: "object.descriptor",
+  proxyHandler: "object.descriptor",
+});
+
 const objectSpec = generateActorSpec({
   typeName: "obj",
-
   methods: {
     allocationStack: {
       request: {},
@@ -117,10 +111,6 @@ const objectSpec = generateActorSpec({
         pretty: Arg(0, "boolean"),
       },
       response: RetVal("object.decompile"),
-    },
-    definitionSite: {
-      request: {},
-      response: RetVal("object.definitionSite"),
     },
     dependentPromises: {
       request: {},
@@ -181,6 +171,7 @@ const objectSpec = generateActorSpec({
     propertyValue: {
       request: {
         name: Arg(0, "string"),
+        receiverId: Arg(1, "nullable:string"),
       },
       response: RetVal("object.propertyValue"),
     },
@@ -197,11 +188,29 @@ const objectSpec = generateActorSpec({
         rejectionStack: RetVal("array:object.originalSourceLocation"),
       },
     },
-    release: { release: true },
-    scope: {
+    proxySlots: {
       request: {},
-      response: RetVal("object.scope"),
+      response: RetVal("object.proxySlots"),
     },
+    addWatchpoint: {
+      request: {
+        property: Arg(0, "string"),
+        label: Arg(1, "string"),
+        watchpointType: Arg(2, "string"),
+      },
+      oneway: true,
+    },
+    removeWatchpoint: {
+      request: {
+        property: Arg(0, "string"),
+      },
+      oneway: true,
+    },
+    removeWatchpoints: {
+      request: {},
+      oneway: true,
+    },
+    release: { release: true },
     // Needed for the PauseScopedObjectActor which extends the ObjectActor.
     threadGrip: {
       request: {},

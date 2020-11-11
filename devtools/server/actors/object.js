@@ -1,5 +1,3 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 2; js-indent-level: 2 -*- */
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -13,10 +11,38 @@ const { assert } = DevToolsUtils;
 const protocol = require("devtools/shared/protocol");
 const { objectSpec } = require("devtools/shared/specs/object");
 
-loader.lazyRequireGetter(this, "PropertyIteratorActor", "devtools/server/actors/object/property-iterator", true);
-loader.lazyRequireGetter(this, "SymbolIteratorActor", "devtools/server/actors/object/symbol-iterator", true);
-loader.lazyRequireGetter(this, "previewers", "devtools/server/actors/object/previewers");
-loader.lazyRequireGetter(this, "stringify", "devtools/server/actors/object/stringifiers");
+loader.lazyRequireGetter(
+  this,
+  "PropertyIteratorActor",
+  "devtools/server/actors/object/property-iterator",
+  true
+);
+loader.lazyRequireGetter(
+  this,
+  "SymbolIteratorActor",
+  "devtools/server/actors/object/symbol-iterator",
+  true
+);
+loader.lazyRequireGetter(
+  this,
+  "previewers",
+  "devtools/server/actors/object/previewers"
+);
+loader.lazyRequireGetter(
+  this,
+  "stringify",
+  "devtools/server/actors/object/stringifiers"
+);
+
+// ContentDOMReference requires ChromeUtils, which isn't available in worker context.
+if (!isWorker) {
+  loader.lazyRequireGetter(
+    this,
+    "ContentDOMReference",
+    "resource://gre/modules/ContentDOMReference.jsm",
+    true
+  );
+}
 
 const {
   getArrayLength,
@@ -39,8 +65,6 @@ const proto = {
    *        the caller:
    *          - createValueGrip
    *              Creates a value grip for the given object
-   *          - sources
-   *              TabSources getter that manages the sources of a thread
    *          - createEnvironmentActor
    *              Creates and return an environment actor
    *          - getGripDepth
@@ -49,32 +73,34 @@ const proto = {
    *              Increment the actor's grip depth
    *          - decrementGripDepth
    *              Decrement the actor's grip depth
-   *          - globalDebugObject
-   *              The Debuggee Global Object as given by the ThreadActor
    */
-  initialize(obj, {
-    createValueGrip: createValueGripHook,
-    sources,
-    createEnvironmentActor,
-    getGripDepth,
-    incrementGripDepth,
-    decrementGripDepth,
-    getGlobalDebugObject,
-  }, conn) {
-    assert(!obj.optimizedOut,
-          "Should not create object actors for optimized out values!");
-    protocol.Actor.prototype.initialize.call(this, conn);
-
-    this.conn = conn;
-    this.obj = obj;
-    this.hooks = {
+  initialize(
+    obj,
+    {
+      thread,
       createValueGrip: createValueGripHook,
-      sources,
       createEnvironmentActor,
       getGripDepth,
       incrementGripDepth,
       decrementGripDepth,
-      getGlobalDebugObject,
+    },
+    conn
+  ) {
+    assert(
+      !obj.optimizedOut,
+      "Should not create object actors for optimized out values!"
+    );
+    protocol.Actor.prototype.initialize.call(this, conn);
+
+    this.conn = conn;
+    this.obj = obj;
+    this.thread = thread;
+    this.hooks = {
+      createValueGrip: createValueGripHook,
+      createEnvironmentActor,
+      getGripDepth,
+      incrementGripDepth,
+      decrementGripDepth,
     };
   },
 
@@ -82,76 +108,116 @@ const proto = {
     return this.obj.unsafeDereference();
   },
 
+  addWatchpoint(property, label, watchpointType) {
+    this.thread.addWatchpoint(this, { property, label, watchpointType });
+  },
+
+  removeWatchpoint(property) {
+    this.thread.removeWatchpoint(this, property);
+  },
+
+  removeWatchpoints() {
+    this.thread.removeWatchpoint(this);
+  },
+
   /**
    * Returns a grip for this actor for returning in a protocol message.
    */
   form: function() {
     const g = {
-      "type": "object",
-      "actor": this.actorID,
-      "class": this.obj.class,
+      type: "object",
+      actor: this.actorID,
     };
 
     const unwrapped = DevToolsUtils.unwrap(this.obj);
-
-    // Unsafe objects must be treated carefully.
-    if (!DevToolsUtils.isSafeDebuggerObject(this.obj)) {
-      if (DevToolsUtils.isCPOW(this.obj)) {
-        // Cross-process object wrappers can't be accessed.
-        g.class = "CPOW: " + g.class;
-      } else if (unwrapped === undefined) {
-        // Objects belonging to an invisible-to-debugger compartment might be proxies,
-        // so just in case they shouldn't be accessed.
-        g.class = "InvisibleToDebugger: " + g.class;
-      } else if (unwrapped.isProxy) {
-        // Proxy objects can run traps when accessed, so just create a preview with
-        // the target and the handler.
-        g.class = "Proxy";
-        this.hooks.incrementGripDepth();
-        previewers.Proxy[0](this, g, null);
-        this.hooks.decrementGripDepth();
-      }
+    if (unwrapped === undefined) {
+      // Objects belonging to an invisible-to-debugger compartment might be proxies,
+      // so just in case they shouldn't be accessed.
+      g.class = "InvisibleToDebugger: " + this.obj.class;
       return g;
     }
 
-    // If the debuggee does not subsume the object's compartment, most properties won't
-    // be accessible. Cross-orgin Window and Location objects might expose some, though.
-    // Change the displayed class, but when creating the preview use the original one.
-    if (unwrapped === null) {
-      g.class = "Restricted";
+    if (unwrapped?.isProxy) {
+      // Proxy objects can run traps when accessed, so just create a preview with
+      // the target and the handler.
+      g.class = "Proxy";
+      this.hooks.incrementGripDepth();
+      previewers.Proxy[0](this, g, null);
+      this.hooks.decrementGripDepth();
+      return g;
     }
 
-    this.hooks.incrementGripDepth();
+    const ownPropertyLength = this._getOwnPropertyLength();
 
-    g.extensible = this.obj.isExtensible();
-    g.frozen = this.obj.isFrozen();
-    g.sealed = this.obj.isSealed();
+    Object.assign(g, {
+      // If the debuggee does not subsume the object's compartment, most properties won't
+      // be accessible. Cross-orgin Window and Location objects might expose some, though.
+      // Change the displayed class, but when creating the preview use the original one.
+      class: unwrapped === null ? "Restricted" : this.obj.class,
+      ownPropertyLength: Number.isFinite(ownPropertyLength)
+        ? ownPropertyLength
+        : undefined,
+      extensible: this.obj.isExtensible(),
+      frozen: this.obj.isFrozen(),
+      sealed: this.obj.isSealed(),
+      isError: this.obj.isError,
+    });
+
+    this.hooks.incrementGripDepth();
 
     if (g.class == "Promise") {
       g.promiseState = this._createPromiseState();
     }
 
-    // FF40+: Allow to know how many properties an object has to lazily display them
-    // when there is a bunch.
-    if (isTypedArray(g)) {
-      // Bug 1348761: getOwnPropertyNames is unnecessary slow on TypedArrays
-      g.ownPropertyLength = getArrayLength(this.obj);
-    } else if (isStorage(g)) {
-      g.ownPropertyLength = getStorageLength(this.obj);
-    } else {
-      try {
-        g.ownPropertyLength = this.obj.getOwnPropertyNames().length;
-      } catch (err) {
-        // The above can throw when the debuggee does not subsume the object's
-        // compartment, or for some WrappedNatives like Cu.Sandbox.
-      }
+    if (g.class == "Function") {
+      g.isClassConstructor = this.obj.isClassConstructor;
     }
 
+    const raw = this.getRawObject();
+    this._populateGripPreview(g, raw);
+    this.hooks.decrementGripDepth();
+
+    if (raw && Node.isInstance(raw) && ContentDOMReference) {
+      // ContentDOMReference.get takes a DOM element and returns an object with
+      // its browsing context id, as well as a unique identifier. We are putting it in
+      // the grip here in order to be able to retrieve the node later, potentially from a
+      // different DevToolsServer running in the same process.
+      // If ContentDOMReference.get throws, we simply don't add the property to the grip.
+      try {
+        g.contentDomReference = ContentDOMReference.get(raw);
+      } catch (e) {}
+    }
+
+    return g;
+  },
+
+  _getOwnPropertyLength: function() {
+    // FF40+: Allow to know how many properties an object has to lazily display them
+    // when there is a bunch.
+    if (isTypedArray(this.obj)) {
+      // Bug 1348761: getOwnPropertyNames is unnecessary slow on TypedArrays
+      return getArrayLength(this.obj);
+    }
+
+    if (isStorage(this.obj)) {
+      return getStorageLength(this.obj);
+    }
+
+    try {
+      return this.obj.getOwnPropertyNames().length;
+    } catch (err) {
+      // The above can throw when the debuggee does not subsume the object's
+      // compartment, or for some WrappedNatives like Cu.Sandbox.
+    }
+
+    return null;
+  },
+
+  getRawObject: function() {
     let raw = this.obj.unsafeDereference();
 
     // If Cu is not defined, we are running on a worker thread, where xrays
-    // don't exist. The raw object will be null/unavailable when interacting
-    // with a replaying execution.
+    // don't exist.
     if (raw && Cu) {
       raw = Cu.unwaiveXrays(raw);
     }
@@ -160,19 +226,25 @@ const proto = {
       raw = null;
     }
 
-    for (const fn of previewers[this.obj.class] || previewers.Object) {
+    return raw;
+  },
+
+  /**
+   * Populate the `preview` property on `grip` given its type.
+   */
+  _populateGripPreview: function(grip, raw) {
+    for (const previewer of previewers[this.obj.class] || previewers.Object) {
       try {
-        if (fn(this, g, raw)) {
-          break;
+        const previewerResult = previewer(this, grip, raw);
+        if (previewerResult) {
+          return;
         }
       } catch (e) {
-        const msg = "ObjectActor.prototype.grip previewer function";
+        const msg =
+          "ObjectActor.prototype._populateGripPreview previewer function";
         DevToolsUtils.reportException(msg, e);
       }
     }
-
-    this.hooks.decrementGripDepth();
-    return g;
   },
 
   /**
@@ -196,26 +268,6 @@ const proto = {
     }
 
     return promiseState;
-  },
-
-  /**
-   * Handle a protocol request to provide the definition site of this function
-   * object.
-   */
-  definitionSite: function() {
-    if (this.obj.class != "Function") {
-      return this.throwError("objectNotFunction", this.actorID + " is not a function.");
-    }
-
-    if (!this.obj.script) {
-      return this.throwError("noScript", this.actorID + " has no Debugger.Script");
-    }
-
-    return {
-      source: this.hooks.sources().createSourceActor(this.obj.script.source),
-      line: this.obj.script.startLine,
-      column: 0, // TODO bug 901138: use Debugger.Script.prototype.startColumn
-    };
   },
 
   /**
@@ -325,10 +377,12 @@ const proto = {
    *         An object that maps property names to safe getter descriptors as
    *         defined by the remote debugging protocol.
    */
+  // eslint-disable-next-line complexity
   _findSafeGetterValues: function(ownProperties, limit = 0) {
     const safeGetterValues = Object.create(null);
     let obj = this.obj;
-    let level = 0, i = 0;
+    let level = 0,
+      i = 0;
 
     // Do not search safe getters in unsafe objects.
     if (!DevToolsUtils.isSafeDebuggerObject(obj)) {
@@ -350,8 +404,10 @@ const proto = {
         // Avoid overwriting properties from prototypes closer to this.obj. Also
         // avoid providing safeGetterValues from prototypes if property |name|
         // is already defined as an own property.
-        if (name in safeGetterValues ||
-            (obj != this.obj && ownProperties.includes(name))) {
+        if (
+          name in safeGetterValues ||
+          (obj != this.obj && ownProperties.includes(name))
+        ) {
           continue;
         }
 
@@ -360,7 +416,8 @@ const proto = {
           continue;
         }
 
-        let desc = null, getter = null;
+        let desc = null,
+          getter = null;
         try {
           desc = obj.getOwnPropertyDescriptor(name);
           getter = desc.get;
@@ -386,13 +443,16 @@ const proto = {
 
         // Treat an already-rejected Promise as we would a thrown exception
         // by not including it as a safe getter value (see Bug 1477765).
-        if (getterValue && (getterValue.class == "Promise" &&
-                            getterValue.promiseState == "rejected")) {
+        if (
+          getterValue &&
+          getterValue.class == "Promise" &&
+          getterValue.promiseState == "rejected"
+        ) {
           // Until we have a good way to handle Promise rejections through the
           // debugger API (Bug 1478076), call `catch` when it's safe to do so.
           const raw = getterValue.unsafeDereference();
           if (DevToolsUtils.isSafeJSObject(raw)) {
-            raw.catch(e=>e);
+            raw.catch(e => e);
           }
           continue;
         }
@@ -494,7 +554,10 @@ const proto = {
    */
   property: function(name) {
     if (!name) {
-      return this.throwError("missingParameter", "no property name was specified");
+      return this.throwError(
+        "missingParameter",
+        "no property name was specified"
+      );
     }
 
     return { descriptor: this._propertyDescriptor(name) };
@@ -511,13 +574,29 @@ const proto = {
    *
    * @param {string} name
    *        The property we want the value of.
+   * @param {string|null} receiverId
+   *        The actorId of the receiver to be used if the property is a getter.
+   *        If null or invalid, the receiver will be the referent.
    */
-  propertyValue: function(name) {
+  propertyValue: function(name, receiverId) {
     if (!name) {
-      return this.throwError("missingParameter", "no property name was specified");
+      return this.throwError(
+        "missingParameter",
+        "no property name was specified"
+      );
     }
 
-    const value = this.obj.getProperty(name);
+    let receiver;
+    if (receiverId) {
+      const receiverActor = this.conn.getActor(receiverId);
+      if (receiverActor) {
+        receiver = receiverActor.obj;
+      }
+    }
+
+    const value = receiver
+      ? this.obj.getProperty(name, receiver)
+      : this.obj.getProperty(name);
 
     return { value: this._buildCompletion(value) };
   },
@@ -555,13 +634,19 @@ const proto = {
     }
 
     if (typeof grip.actor !== "string") {
-      return this.throwError("invalidGrip", "grip argument did not include actor ID");
+      return this.throwError(
+        "invalidGrip",
+        "grip argument did not include actor ID"
+      );
     }
 
     const actor = this.conn.getActor(grip.actor);
 
     if (!actor) {
-      return this.throwError("unknownActor", "grip actor did not match a known object");
+      return this.throwError(
+        "unknownActor",
+        "grip actor did not match a known object"
+      );
     }
 
     return actor.obj;
@@ -641,7 +726,7 @@ const proto = {
       return desc;
     }
 
-    if (!desc || onlyEnumerable && !desc.enumerable) {
+    if (!desc || (onlyEnumerable && !desc.enumerable)) {
       return undefined;
     }
 
@@ -649,14 +734,20 @@ const proto = {
       configurable: desc.configurable,
       enumerable: desc.enumerable,
     };
+    const obj = this.rawValue();
 
     if ("value" in desc) {
       retval.writable = desc.writable;
       retval.value = this.hooks.createValueGrip(desc.value);
+    } else if (this.thread.getWatchpoint(obj, name.toString())) {
+      const watchpoint = this.thread.getWatchpoint(obj, name.toString());
+      retval.value = this.hooks.createValueGrip(watchpoint.desc.value);
+      retval.watchpoint = watchpoint.watchpointType;
     } else {
       if ("get" in desc) {
         retval.get = this.hooks.createValueGrip(desc.get);
       }
+
       if ("set" in desc) {
         retval.set = this.hooks.createValueGrip(desc.set);
       }
@@ -671,8 +762,10 @@ const proto = {
    */
   decompile: function(pretty) {
     if (this.obj.class !== "Function") {
-      return this.throwError("objectNotFunction",
-        "decompile request is only valid for grips  with a 'Function' class.");
+      return this.throwError(
+        "objectNotFunction",
+        "decompile request is only valid for grips  with a 'Function' class."
+      );
     }
 
     return { decompiledCode: this.obj.decompile(!!pretty) };
@@ -683,161 +776,32 @@ const proto = {
    */
   parameterNames: function() {
     if (this.obj.class !== "Function") {
-      return this.throwError("objectNotFunction",
-        "'parameterNames' request is only valid for grips with a 'Function' class.");
+      return this.throwError(
+        "objectNotFunction",
+        "'parameterNames' request is only valid for grips with a 'Function' class."
+      );
     }
 
     return { parameterNames: this.obj.parameterNames };
   },
 
   /**
-   * Handle a protocol request to provide the lexical scope of a function.
+   * Handle a protocol request to get the target and handler internal slots of a proxy.
    */
-  scope: function() {
-    if (this.obj.class !== "Function") {
-      return this.throwError("objectNotFunction",
-        "scope request is only valid for grips with a 'Function' class.");
+  proxySlots: function() {
+    // There could be transparent security wrappers, unwrap to check if it's a proxy.
+    // However, retrieve proxyTarget and proxyHandler from `this.obj` to avoid exposing
+    // the unwrapped target and handler.
+    const unwrapped = DevToolsUtils.unwrap(this.obj);
+    if (!unwrapped || !unwrapped.isProxy) {
+      return this.throwError(
+        "objectNotProxy",
+        "'proxySlots' request is only valid for grips with a 'Proxy' class."
+      );
     }
-
-    const { createEnvironmentActor } = this.hooks;
-    const envActor = createEnvironmentActor(this.obj.environment, this.registeredPool);
-
-    if (!envActor) {
-      return this.throwError("notDebuggee",
-        "cannot access the environment of this function.");
-    }
-
     return {
-      scope: envActor,
-    };
-  },
-
-  /**
-   * Handle a protocol request to get the list of dependent promises of a
-   * promise.
-   *
-   * @return object
-   *         Returns an object containing an array of object grips of the
-   *         dependent promises
-   */
-  dependentPromises: function() {
-    if (this.obj.class != "Promise") {
-      return this.throwError("objectNotPromise",
-        "'dependentPromises' request is only valid for grips with a 'Promise' class.");
-    }
-
-    const promises = this.obj.promiseDependentPromises
-                           .map(p => this.hooks.createValueGrip(p));
-
-    return { promises };
-  },
-
-  /**
-   * Handle a protocol request to get the allocation stack of a promise.
-   */
-  allocationStack: function() {
-    if (this.obj.class != "Promise") {
-      return this.throwError("objectNotPromise",
-        "'allocationStack' request is only valid for grips with a 'Promise' class.");
-    }
-
-    let stack = this.obj.promiseAllocationSite;
-    const allocationStacks = [];
-
-    while (stack) {
-      if (stack.source) {
-        const source = this._getSourceOriginalLocation(stack);
-
-        if (source) {
-          allocationStacks.push(source);
-        }
-      }
-      stack = stack.parent;
-    }
-
-    return Promise.all(allocationStacks);
-  },
-
-  /**
-   * Handle a protocol request to get the fulfillment stack of a promise.
-   */
-  fulfillmentStack: function() {
-    if (this.obj.class != "Promise") {
-      return this.throwError("objectNotPromise",
-        "'fulfillmentStack' request is only valid for grips with a 'Promise' class.");
-    }
-
-    let stack = this.obj.promiseResolutionSite;
-    const fulfillmentStacks = [];
-
-    while (stack) {
-      if (stack.source) {
-        const source = this._getSourceOriginalLocation(stack);
-
-        if (source) {
-          fulfillmentStacks.push(source);
-        }
-      }
-      stack = stack.parent;
-    }
-
-    return Promise.all(fulfillmentStacks);
-  },
-
-  /**
-   * Handle a protocol request to get the rejection stack of a promise.
-   */
-  rejectionStack: function() {
-    if (this.obj.class != "Promise") {
-      return this.throwError("objectNotPromise",
-        "'rejectionStack' request is only valid for grips with a 'Promise' class.");
-    }
-
-    let stack = this.obj.promiseResolutionSite;
-    const rejectionStacks = [];
-
-    while (stack) {
-      if (stack.source) {
-        const source = this._getSourceOriginalLocation(stack);
-
-        if (source) {
-          rejectionStacks.push(source);
-        }
-      }
-      stack = stack.parent;
-    }
-
-    return Promise.all(rejectionStacks);
-  },
-
-  /**
-   * Helper function for fetching the source location of a SavedFrame stack.
-   *
-   * @param SavedFrame stack
-   *        The promise allocation stack frame
-   * @return object
-   *         Returns an object containing the source location of the SavedFrame
-   *         stack.
-   */
-  _getSourceOriginalLocation: function(stack) {
-    let source;
-
-    // Catch any errors if the source actor cannot be found
-    try {
-      source = this.hooks.sources().getSourceActorByURL(stack.source);
-    } catch (e) {
-      // ignored
-    }
-
-    if (!source) {
-      return null;
-    }
-
-    return {
-      source,
-      line: stack.line,
-      column: stack.column,
-      functionDisplayName: stack.functionDisplayName,
+      proxyTarget: this.hooks.createValueGrip(this.obj.proxyTarget),
+      proxyHandler: this.hooks.createValueGrip(this.obj.proxyHandler),
     };
   },
 

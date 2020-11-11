@@ -1,4 +1,3 @@
-/* vim: set ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
    http://creativecommons.org/publicdomain/zero/1.0/ */
 "use strict";
@@ -15,7 +14,9 @@ add_task(async function() {
   await selectNode(".empty", inspector);
 
   info("Test the warning message for no fonts found on empty element");
-  const warning = viewDoc.querySelector("#font-editor .devtools-sidepanel-no-result");
+  const warning = viewDoc.querySelector(
+    "#font-editor .devtools-sidepanel-no-result"
+  );
   ok(warning, "The warning for no fonts found is shown for the empty element");
 
   info("Test that no fonts are listed for the empty element");

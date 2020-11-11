@@ -1,10 +1,10 @@
-// |jit-test| test-also-no-wasm-baseline; error: TestComplete
+// |jit-test| test-also=--wasm-compiler=optimizing; error: TestComplete
 
-if (!wasmDebuggingIsSupported())
+if (!wasmDebuggingEnabled())
      throw "TestComplete";
 
 (function createShortLivedDebugger() {
-    var g = newGlobal();
+    var g = newGlobal({newCompartment: true});
     g.debuggeeGlobal = this;
     g.eval("(" + function () {
         dbg = new Debugger(debuggeeGlobal);

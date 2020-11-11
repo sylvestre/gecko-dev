@@ -19,15 +19,14 @@
 #include "nsComponentManagerUtils.h"
 #include "nsServiceManagerUtils.h"
 #include "nsCOMPtr.h"
-#include "nsAutoPtr.h"
 #include "nsString.h"
 #include "nsAppDirectoryServiceDefs.h"
 #include "nsDirectoryServiceDefs.h"
 #include "nsDirectoryServiceUtils.h"
 #include "nsIDirectoryService.h"
 #include "nsIFile.h"
-#include "nsIProperties.h"
 #include "nsIObserverService.h"
+#include "nsIServiceManager.h"
 #include "nsXULAppAPI.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -82,9 +81,9 @@ class ScopedXPCOM : public nsIDirectoryServiceProvider2 {
     mTestName = testName;
     printf("Running %s tests...\n", mTestName);
 
-    nsresult rv = NS_InitXPCOM2(&mServMgr, nullptr, this);
+    nsresult rv = NS_InitXPCOM(&mServMgr, nullptr, this);
     if (NS_FAILED(rv)) {
-      fail("NS_InitXPCOM2 returned failure code 0x%" PRIx32,
+      fail("NS_InitXPCOM returned failure code 0x%" PRIx32,
            static_cast<uint32_t>(rv));
       mServMgr = nullptr;
       return;
@@ -144,7 +143,7 @@ class ScopedXPCOM : public nsIDirectoryServiceProvider2 {
                                          getter_AddRefs(profD));
     NS_ENSURE_SUCCESS(rv, nullptr);
 
-    rv = profD->Append(NS_LITERAL_STRING("cpp-unit-profd"));
+    rv = profD->Append(u"cpp-unit-profd"_ns);
     NS_ENSURE_SUCCESS(rv, nullptr);
 
     rv = profD->CreateUnique(nsIFile::DIRECTORY_TYPE, 0755);
@@ -186,7 +185,7 @@ class ScopedXPCOM : public nsIDirectoryServiceProvider2 {
     nsAutoCString leafName;
     mGREBinD->GetNativeLeafName(leafName);
     if (leafName.EqualsLiteral("Resources")) {
-      mGREBinD->SetNativeLeafName(NS_LITERAL_CSTRING("MacOS"));
+      mGREBinD->SetNativeLeafName("MacOS"_ns);
     }
 #endif
 

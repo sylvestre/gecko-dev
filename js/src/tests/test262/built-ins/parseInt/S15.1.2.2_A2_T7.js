@@ -3,23 +3,14 @@
 
 /*---
 info: Operator remove leading StrWhiteSpaceChar
-es5id: 15.1.2.2_A2_T7
-es6id: 18.2.5
 esid: sec-parseint-string-radix
 description: "StrWhiteSpaceChar :: LF (U+000A)"
 ---*/
 
-//CHECK#1
-if (parseInt("\u000A1") !== parseInt("1")) {
-  $ERROR('#1: parseInt("\\u000A1") === parseInt("1"). Actual: ' + (parseInt("\u000A1")));
-}
-
-//CHECK#2
-if (parseInt("\u000A\u000A-1") !== parseInt("-1")) {
-  $ERROR('#2: parseInt("\\u000A\\u000A-1") === parseInt("-1"). Actual: ' + (parseInt("\u000A\u000A-1")));
-}
+assert.sameValue(parseInt("\u000A1"), parseInt("1"), 'parseInt("\\u000A1") must return the same value returned by parseInt("1")');
+assert.sameValue(parseInt("\u000A\u000A-1"), parseInt("-1"), 'parseInt("\\u000A\\u000A-1") must return the same value returned by parseInt("-1")');
 
 //CHECK#3
-assert.sameValue(parseInt("\u000A"), NaN);
+assert.sameValue(parseInt("\u000A"), NaN, 'parseInt("\\u000A") must return NaN');
 
 reportCompare(0, 0);

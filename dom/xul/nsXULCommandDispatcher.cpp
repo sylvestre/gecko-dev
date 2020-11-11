@@ -13,10 +13,8 @@
 #include "nsIContent.h"
 #include "nsFocusManager.h"
 #include "nsIControllers.h"
-#include "nsIDOMWindow.h"
-#include "nsIDocument.h"
+#include "mozilla/dom/Document.h"
 #include "nsPresContext.h"
-#include "nsIPresShell.h"
 #include "nsIScriptGlobalObject.h"
 #include "nsPIDOMWindow.h"
 #include "nsPIWindowRoot.h"
@@ -31,13 +29,14 @@
 #include "mozilla/dom/Element.h"
 
 using namespace mozilla;
+using mozilla::dom::Document;
 using mozilla::dom::Element;
 
 static LazyLogModule gCommandLog("nsXULCommandDispatcher");
 
 ////////////////////////////////////////////////////////////////////////
 
-nsXULCommandDispatcher::nsXULCommandDispatcher(nsIDocument* aDocument)
+nsXULCommandDispatcher::nsXULCommandDispatcher(Document* aDocument)
     : mDocument(aDocument), mUpdaters(nullptr), mLocked(false) {}
 
 nsXULCommandDispatcher::~nsXULCommandDispatcher() { Disconnect(); }
@@ -57,6 +56,7 @@ NS_IMPL_CYCLE_COLLECTION_CLASS(nsXULCommandDispatcher)
 
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(nsXULCommandDispatcher)
   tmp->Disconnect();
+  NS_IMPL_CYCLE_COLLECTION_UNLINK_WEAK_REFERENCE
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN(nsXULCommandDispatcher)
@@ -137,7 +137,7 @@ nsXULCommandDispatcher::GetFocusedWindow(mozIDOMWindowProxy** aWindow) {
 
   // Make sure the caller can access this window. The caller can access this
   // window iff it can access the document.
-  nsCOMPtr<nsIDocument> doc = window->GetDoc();
+  nsCOMPtr<Document> doc = window->GetDoc();
 
   // Note: If there is no document, then this window has been cleared and
   // there's nothing left to protect, so let the window pass through.
@@ -150,7 +150,7 @@ nsXULCommandDispatcher::GetFocusedWindow(mozIDOMWindowProxy** aWindow) {
 
 NS_IMETHODIMP
 nsXULCommandDispatcher::SetFocusedElement(Element* aElement) {
-  nsIFocusManager* fm = nsFocusManager::GetFocusManager();
+  nsFocusManager* fm = nsFocusManager::GetFocusManager();
   NS_ENSURE_TRUE(fm, NS_ERROR_FAILURE);
 
   if (aElement) {
@@ -170,7 +170,7 @@ nsXULCommandDispatcher::SetFocusedWindow(mozIDOMWindowProxy* aWindow) {
   nsCOMPtr<nsPIDOMWindowOuter> window = nsPIDOMWindowOuter::From(aWindow);
   NS_ENSURE_TRUE(window, NS_ERROR_FAILURE);
 
-  nsIFocusManager* fm = nsFocusManager::GetFocusManager();
+  nsFocusManager* fm = nsFocusManager::GetFocusManager();
   NS_ENSURE_TRUE(fm, NS_ERROR_FAILURE);
 
   // get the containing frame for the window, and set it as focused. This will
@@ -196,7 +196,7 @@ nsXULCommandDispatcher::RewindFocus() {
   GetRootFocusedContentAndWindow(getter_AddRefs(win));
 
   RefPtr<Element> result;
-  nsIFocusManager* fm = nsFocusManager::GetFocusManager();
+  nsFocusManager* fm = nsFocusManager::GetFocusManager();
   if (fm)
     return fm->MoveFocus(win, nullptr, nsIFocusManager::MOVEFOCUS_BACKWARD, 0,
                          getter_AddRefs(result));
@@ -209,7 +209,7 @@ nsXULCommandDispatcher::AdvanceFocusIntoSubtree(Element* aElt) {
   GetRootFocusedContentAndWindow(getter_AddRefs(win));
 
   RefPtr<Element> result;
-  nsIFocusManager* fm = nsFocusManager::GetFocusManager();
+  nsFocusManager* fm = nsFocusManager::GetFocusManager();
   if (fm)
     return fm->MoveFocus(win, aElt, nsIFocusManager::MOVEFOCUS_FORWARD, 0,
                          getter_AddRefs(result));
@@ -327,7 +327,7 @@ nsXULCommandDispatcher::UpdateCommands(const nsAString& aEventName) {
   RefPtr<Element> element;
   GetFocusedElement(getter_AddRefs(element));
   if (element) {
-    element->GetAttribute(NS_LITERAL_STRING("id"), id);
+    element->GetAttr(nsGkAtoms::id, id);
   }
 
   nsCOMArray<nsIContent> updaters;

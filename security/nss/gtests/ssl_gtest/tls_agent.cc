@@ -47,6 +47,9 @@ const std::string TlsAgent::kServerEcdsa521 = "ecdsa521";
 const std::string TlsAgent::kServerEcdhRsa = "ecdh_rsa";
 const std::string TlsAgent::kServerEcdhEcdsa = "ecdh_ecdsa";
 const std::string TlsAgent::kServerDsa = "dsa";
+const std::string TlsAgent::kDelegatorEcdsa256 = "delegator_ecdsa256";
+const std::string TlsAgent::kDelegatorRsae2048 = "delegator_rsae2048";
+const std::string TlsAgent::kDelegatorRsaPss2048 = "delegator_rsa_pss2048";
 
 static const uint8_t kCannedTls13ServerHello[] = {
     0x03, 0x03, 0x9c, 0xbc, 0x14, 0x9b, 0x0e, 0x2e, 0xfa, 0x0d, 0xf3,
@@ -70,8 +73,8 @@ TlsAgent::TlsAgent(const std::string& nm, Role rl, SSLProtocolVariant var)
       falsestart_enabled_(false),
       expected_version_(0),
       expected_cipher_suite_(0),
-      expect_resumption_(false),
       expect_client_auth_(false),
+      expect_psk_(ssl_psk_none),
       can_falsestart_hook_called_(false),
       sni_hook_called_(false),
       auth_certificate_hook_called_(false),
@@ -127,14 +130,74 @@ void TlsAgent::SetState(State s) {
                                           ScopedCERTCertificate* cert,
                                           ScopedSECKEYPrivateKey* priv) {
   cert->reset(PK11_FindCertFromNickname(name.c_str(), nullptr));
+  EXPECT_NE(nullptr, cert);
+  if (!cert) return false;
   EXPECT_NE(nullptr, cert->get());
   if (!cert->get()) return false;
 
   priv->reset(PK11_FindKeyByAnyCert(cert->get(), nullptr));
+  EXPECT_NE(nullptr, priv);
+  if (!priv) return false;
   EXPECT_NE(nullptr, priv->get());
   if (!priv->get()) return false;
 
   return true;
+}
+
+// Loads a key pair from the certificate identified by |id|.
+/*static*/ bool TlsAgent::LoadKeyPairFromCert(const std::string& name,
+                                              ScopedSECKEYPublicKey* pub,
+                                              ScopedSECKEYPrivateKey* priv) {
+  ScopedCERTCertificate cert;
+  if (!TlsAgent::LoadCertificate(name, &cert, priv)) {
+    return false;
+  }
+
+  pub->reset(SECKEY_ExtractPublicKey(&cert->subjectPublicKeyInfo));
+  if (!pub->get()) {
+    return false;
+  }
+
+  return true;
+}
+
+void TlsAgent::DelegateCredential(const std::string& name,
+                                  const ScopedSECKEYPublicKey& dc_pub,
+                                  SSLSignatureScheme dc_cert_verify_alg,
+                                  PRUint32 dc_valid_for, PRTime now,
+                                  SECItem* dc) {
+  ScopedCERTCertificate cert;
+  ScopedSECKEYPrivateKey cert_priv;
+  EXPECT_TRUE(TlsAgent::LoadCertificate(name, &cert, &cert_priv))
+      << "Could not load delegate certificate: " << name
+      << "; test db corrupt?";
+
+  EXPECT_EQ(SECSuccess,
+            SSL_DelegateCredential(cert.get(), cert_priv.get(), dc_pub.get(),
+                                   dc_cert_verify_alg, dc_valid_for, now, dc));
+}
+
+void TlsAgent::EnableDelegatedCredentials() {
+  ASSERT_TRUE(EnsureTlsSetup());
+  SetOption(SSL_ENABLE_DELEGATED_CREDENTIALS, PR_TRUE);
+}
+
+void TlsAgent::AddDelegatedCredential(const std::string& dc_name,
+                                      SSLSignatureScheme dc_cert_verify_alg,
+                                      PRUint32 dc_valid_for, PRTime now) {
+  ASSERT_TRUE(EnsureTlsSetup());
+
+  ScopedSECKEYPublicKey pub;
+  ScopedSECKEYPrivateKey priv;
+  EXPECT_TRUE(TlsAgent::LoadKeyPairFromCert(dc_name, &pub, &priv));
+
+  StackSECItem dc;
+  TlsAgent::DelegateCredential(name_, pub, dc_cert_verify_alg, dc_valid_for,
+                               now, &dc);
+
+  SSLExtraServerCertData extra_data = {ssl_auth_null, nullptr, nullptr,
+                                       nullptr,       &dc,     priv.get()};
+  EXPECT_TRUE(ConfigServerCert(name_, true, &extra_data));
 }
 
 bool TlsAgent::ConfigServerCert(const std::string& id, bool updateKeyBits,
@@ -224,6 +287,9 @@ bool TlsAgent::EnsureTlsSetup(PRFileDesc* modelSocket) {
   EXPECT_EQ(SECSuccess, rv);
   if (rv != SECSuccess) return false;
 
+  // All these tests depend on having this disabled to start with.
+  SetOption(SSL_ENABLE_EXTENDED_MASTER_SECRET, PR_FALSE);
+
   return true;
 }
 
@@ -235,7 +301,7 @@ bool TlsAgent::MaybeSetResumptionToken() {
 
     // rv is SECFailure with error set to SSL_ERROR_BAD_RESUMPTION_TOKEN_ERROR
     // if the resumption token was bad (expired/malformed/etc.).
-    if (expect_resumption_) {
+    if (expect_psk_ == ssl_psk_resume) {
       // Only in case we expect resumption this has to be successful. We might
       // not expect resumption due to some reason but the token is totally fine.
       EXPECT_EQ(SECSuccess, rv);
@@ -243,12 +309,16 @@ bool TlsAgent::MaybeSetResumptionToken() {
     if (rv != SECSuccess) {
       EXPECT_EQ(SSL_ERROR_BAD_RESUMPTION_TOKEN_ERROR, PORT_GetError());
       resumption_token_.clear();
-      EXPECT_FALSE(expect_resumption_);
-      if (expect_resumption_) return false;
+      EXPECT_FALSE(expect_psk_ == ssl_psk_resume);
+      if (expect_psk_ == ssl_psk_resume) return false;
     }
   }
 
   return true;
+}
+
+void TlsAgent::SetAntiReplayContext(ScopedSSLAntiReplayContext& ctx) {
+  EXPECT_EQ(SECSuccess, SSL_SetAntiReplayContext(ssl_fd_.get(), ctx.get()));
 }
 
 void TlsAgent::SetupClientAuth() {
@@ -279,7 +349,7 @@ SECStatus TlsAgent::GetClientAuthDataHook(void* self, PRFileDesc* fd,
   ScopedCERTCertificate peerCert(SSL_PeerCertificate(agent->ssl_fd()));
   EXPECT_TRUE(peerCert) << "Client should be able to see the server cert";
 
-  // See bug 1457716
+  // See bug 1573945
   // CheckCertReqAgainstDefaultCAs(caNames);
 
   ScopedCERTCertificate cert;
@@ -564,7 +634,9 @@ void TlsAgent::CheckAuthType(SSLAuthType auth,
                              SSLSignatureScheme sig_scheme) const {
   EXPECT_EQ(STATE_CONNECTED, state_);
   EXPECT_EQ(auth, info_.authType);
-  EXPECT_EQ(server_key_bits_, info_.authKeyBits);
+  if (auth != ssl_auth_psk) {
+    EXPECT_EQ(server_key_bits_, info_.authKeyBits);
+  }
   if (expected_version_ < SSL_LIBRARY_VERSION_TLS_1_2) {
     switch (auth) {
       case ssl_auth_rsa_sign:
@@ -615,11 +687,29 @@ void TlsAgent::EnableFalseStart() {
   SetOption(SSL_ENABLE_FALSE_START, PR_TRUE);
 }
 
-void TlsAgent::ExpectResumption() { expect_resumption_ = true; }
+void TlsAgent::ExpectPsk() { expect_psk_ = ssl_psk_external; }
+
+void TlsAgent::ExpectResumption() { expect_psk_ = ssl_psk_resume; }
 
 void TlsAgent::EnableAlpn(const uint8_t* val, size_t len) {
   EXPECT_TRUE(EnsureTlsSetup());
   EXPECT_EQ(SECSuccess, SSL_SetNextProtoNego(ssl_fd(), val, len));
+}
+
+void TlsAgent::AddPsk(const ScopedPK11SymKey& psk, std::string label,
+                      SSLHashType hash, uint16_t zeroRttSuite) {
+  EXPECT_TRUE(EnsureTlsSetup());
+  EXPECT_EQ(SECSuccess, SSL_AddExternalPsk0Rtt(
+                            ssl_fd(), psk.get(),
+                            reinterpret_cast<const uint8_t*>(label.data()),
+                            label.length(), hash, zeroRttSuite, 1000));
+}
+
+void TlsAgent::RemovePsk(std::string label) {
+  EXPECT_EQ(SECSuccess,
+            SSL_RemoveExternalPsk(
+                ssl_fd(), reinterpret_cast<const uint8_t*>(label.data()),
+                label.length()));
 }
 
 void TlsAgent::CheckAlpn(SSLNextProtoState expected_state,
@@ -638,6 +728,16 @@ void TlsAgent::CheckAlpn(SSLNextProtoState expected_state,
     EXPECT_NE("", expected);
     EXPECT_EQ(expected, std::string(chosen, chosen_len));
   }
+}
+
+void TlsAgent::CheckEpochs(uint16_t expected_read,
+                           uint16_t expected_write) const {
+  uint16_t read_epoch = 0;
+  uint16_t write_epoch = 0;
+  EXPECT_EQ(SECSuccess,
+            SSL_GetCurrentEpoch(ssl_fd(), &read_epoch, &write_epoch));
+  EXPECT_EQ(expected_read, read_epoch) << role_str() << " read epoch";
+  EXPECT_EQ(expected_write, write_epoch) << role_str() << " write epoch";
 }
 
 void TlsAgent::EnableSrtp() {
@@ -715,48 +815,48 @@ void TlsAgent::WaitForErrorCode(int32_t expected, uint32_t delay) const {
 }
 
 void TlsAgent::CheckPreliminaryInfo() {
-  SSLPreliminaryChannelInfo info;
+  SSLPreliminaryChannelInfo preinfo;
   EXPECT_EQ(SECSuccess,
-            SSL_GetPreliminaryChannelInfo(ssl_fd(), &info, sizeof(info)));
-  EXPECT_EQ(sizeof(info), info.length);
-  EXPECT_TRUE(info.valuesSet & ssl_preinfo_version);
-  EXPECT_TRUE(info.valuesSet & ssl_preinfo_cipher_suite);
+            SSL_GetPreliminaryChannelInfo(ssl_fd(), &preinfo, sizeof(preinfo)));
+  EXPECT_EQ(sizeof(preinfo), preinfo.length);
+  EXPECT_TRUE(preinfo.valuesSet & ssl_preinfo_version);
+  EXPECT_TRUE(preinfo.valuesSet & ssl_preinfo_cipher_suite);
 
   // A version of 0 is invalid and indicates no expectation.  This value is
   // initialized to 0 so that tests that don't explicitly set an expected
   // version can negotiate a version.
   if (!expected_version_) {
-    expected_version_ = info.protocolVersion;
+    expected_version_ = preinfo.protocolVersion;
   }
-  EXPECT_EQ(expected_version_, info.protocolVersion);
+  EXPECT_EQ(expected_version_, preinfo.protocolVersion);
 
   // As with the version; 0 is the null cipher suite (and also invalid).
   if (!expected_cipher_suite_) {
-    expected_cipher_suite_ = info.cipherSuite;
+    expected_cipher_suite_ = preinfo.cipherSuite;
   }
-  EXPECT_EQ(expected_cipher_suite_, info.cipherSuite);
+  EXPECT_EQ(expected_cipher_suite_, preinfo.cipherSuite);
 }
 
 // Check that all the expected callbacks have been called.
 void TlsAgent::CheckCallbacks() const {
   // If false start happens, the handshake is reported as being complete at the
   // point that false start happens.
-  if (expect_resumption_ || !falsestart_enabled_) {
+  if (expect_psk_ == ssl_psk_resume || !falsestart_enabled_) {
     EXPECT_TRUE(handshake_callback_called_);
   }
 
   // These callbacks shouldn't fire if we are resuming, except on TLS 1.3.
   if (role_ == SERVER) {
     PRBool have_sni = SSLInt_ExtensionNegotiated(ssl_fd(), ssl_server_name_xtn);
-    EXPECT_EQ(((!expect_resumption_ && have_sni) ||
+    EXPECT_EQ(((expect_psk_ != ssl_psk_resume && have_sni) ||
                expected_version_ >= SSL_LIBRARY_VERSION_TLS_1_3),
               sni_hook_called_);
   } else {
-    EXPECT_EQ(!expect_resumption_, auth_certificate_hook_called_);
+    EXPECT_EQ(expect_psk_ == ssl_psk_none, auth_certificate_hook_called_);
     // Note that this isn't unconditionally called, even with false start on.
     // But the callback is only skipped if a cipher that is ridiculously weak
     // (80 bits) is chosen.  Don't test that: plan to remove bad ciphers.
-    EXPECT_EQ(falsestart_enabled_ && !expect_resumption_,
+    EXPECT_EQ(falsestart_enabled_ && expect_psk_ != ssl_psk_resume,
               can_falsestart_hook_called_);
   }
 }
@@ -764,6 +864,13 @@ void TlsAgent::CheckCallbacks() const {
 void TlsAgent::ResetPreliminaryInfo() {
   expected_version_ = 0;
   expected_cipher_suite_ = 0;
+}
+
+void TlsAgent::UpdatePreliminaryChannelInfo() {
+  SECStatus rv = SSL_GetPreliminaryChannelInfo(ssl_fd_.get(), &pre_info_,
+                                               sizeof(pre_info_));
+  EXPECT_EQ(SECSuccess, rv);
+  EXPECT_EQ(sizeof(pre_info_), pre_info_.length);
 }
 
 void TlsAgent::ValidateCipherSpecs() {
@@ -785,7 +892,7 @@ void TlsAgent::ValidateCipherSpecs() {
     } else {
       // For DTLS 1.1 and 1.2, the last endpoint to send maintains a cipher spec
       // until the holddown timer runs down.
-      if (expect_resumption_) {
+      if (expect_psk_ == ssl_psk_resume) {
         if (role_ == CLIENT) {
           expected = 3;
         }
@@ -823,11 +930,13 @@ void TlsAgent::Connected() {
   EXPECT_EQ(SECSuccess, rv);
   EXPECT_EQ(sizeof(info_), info_.length);
 
-  EXPECT_EQ(expect_resumption_, info_.resumed == PR_TRUE);
+  EXPECT_EQ(expect_psk_ == ssl_psk_resume, info_.resumed == PR_TRUE);
+  EXPECT_EQ(expect_psk_, info_.pskType);
 
   // Preliminary values are exposed through callbacks during the handshake.
   // If either expected values were set or the callbacks were called, check
   // that the final values are correct.
+  UpdatePreliminaryChannelInfo();
   EXPECT_EQ(expected_version_, info_.protocolVersion);
   EXPECT_EQ(expected_cipher_suite_, info_.cipherSuite);
 
@@ -977,21 +1086,28 @@ void TlsAgent::SendBuffer(const DataBuffer& buf) {
 bool TlsAgent::SendEncryptedRecord(const std::shared_ptr<TlsCipherSpec>& spec,
                                    uint64_t seq, uint8_t ct,
                                    const DataBuffer& buf) {
-  LOGV("Encrypting " << buf.len() << " bytes");
   // Ensure that we are doing TLS 1.3.
   EXPECT_GE(expected_version_, SSL_LIBRARY_VERSION_TLS_1_3);
-  TlsRecordHeader header(variant_, expected_version_, ssl_ct_application_data,
-                         seq);
+  if (variant_ != ssl_variant_datagram) {
+    ADD_FAILURE();
+    return false;
+  }
+
+  LOGV("Encrypting " << buf.len() << " bytes");
+  uint8_t dtls13_ct = kCtDtlsCiphertext | kCtDtlsCiphertext16bSeqno |
+                      kCtDtlsCiphertextLengthPresent;
+  TlsRecordHeader header(variant_, expected_version_, dtls13_ct, seq);
+  TlsRecordHeader out_header(header);
   DataBuffer padded = buf;
   padded.Write(padded.len(), ct, 1);
   DataBuffer ciphertext;
-  if (!spec->Protect(header, padded, &ciphertext)) {
+  if (!spec->Protect(header, padded, &ciphertext, &out_header)) {
     return false;
   }
 
   DataBuffer record;
-  auto rv = header.Write(&record, 0, ciphertext);
-  EXPECT_EQ(header.header_length() + ciphertext.len(), rv);
+  auto rv = out_header.Write(&record, 0, ciphertext);
+  EXPECT_EQ(out_header.header_length() + ciphertext.len(), rv);
   SendDirect(record);
   return true;
 }
@@ -1038,7 +1154,7 @@ void TlsAgent::ReadBytes(size_t amount) {
   }
 }
 
-void TlsAgent::ResetSentBytes() { send_ctr_ = 0; }
+void TlsAgent::ResetSentBytes(size_t bytes) { send_ctr_ = bytes; }
 
 void TlsAgent::SetOption(int32_t option, int value) {
   ASSERT_TRUE(EnsureTlsSetup());
@@ -1115,16 +1231,26 @@ void TlsAgentTestBase::MakeRecord(SSLProtocolVariant variant, uint8_t type,
                                   uint16_t version, const uint8_t* buf,
                                   size_t len, DataBuffer* out,
                                   uint64_t sequence_number) {
+  // Fixup the content type for DTLSCiphertext
+  if (variant == ssl_variant_datagram &&
+      version >= SSL_LIBRARY_VERSION_TLS_1_3 &&
+      type == ssl_ct_application_data) {
+    type = kCtDtlsCiphertext | kCtDtlsCiphertext16bSeqno |
+           kCtDtlsCiphertextLengthPresent;
+  }
+
   size_t index = 0;
-  index = out->Write(index, type, 1);
   if (variant == ssl_variant_stream) {
+    index = out->Write(index, type, 1);
     index = out->Write(index, version, 2);
   } else if (version >= SSL_LIBRARY_VERSION_TLS_1_3 &&
-             type == ssl_ct_application_data) {
+             (type & kCtDtlsCiphertextMask) == kCtDtlsCiphertext) {
     uint32_t epoch = (sequence_number >> 48) & 0x3;
-    uint32_t seqno = sequence_number & ((1ULL << 30) - 1);
-    index = out->Write(index, (epoch << 30) | seqno, 4);
+    index = out->Write(index, type | epoch, 1);
+    uint32_t seqno = sequence_number & ((1ULL << 16) - 1);
+    index = out->Write(index, seqno, 2);
   } else {
+    index = out->Write(index, type, 1);
     index = out->Write(index, TlsVersionToDtlsVersion(version), 2);
     index = out->Write(index, sequence_number >> 32, 4);
     index = out->Write(index, sequence_number & PR_UINT32_MAX, 4);

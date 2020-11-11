@@ -20,6 +20,9 @@
 //! U+00FF, inclusive, and does not refer to the windows-1252 range. This
 //! in-memory encoding is sometimes used as a storage optimization of text
 //! when UTF-16 indexing and length semantics are exposed.
+//!
+//! The FFI binding for this module are in the
+//! [encoding_c_mem crate](https://github.com/hsivonen/encoding_c_mem).
 
 use std::borrow::Cow;
 
@@ -29,7 +32,6 @@ use super::in_inclusive_range8;
 use super::in_range16;
 use super::in_range32;
 use super::DecoderResult;
-use super::EncoderResult;
 use ascii::*;
 use utf_8::*;
 
@@ -37,10 +39,16 @@ macro_rules! non_fuzz_debug_assert {
     ($($arg:tt)*) => (if !cfg!(fuzzing) { debug_assert!($($arg)*); })
 }
 
-cfg_if!{
+cfg_if! {
     if #[cfg(feature = "simd-accel")] {
+        use ::std::intrinsics::likely;
         use ::std::intrinsics::unlikely;
     } else {
+        #[inline(always)]
+        // Unsafe to match the intrinsic, which is needlessly unsafe.
+        unsafe fn likely(b: bool) -> bool {
+            b
+        }
         #[inline(always)]
         // Unsafe to match the intrinsic, which is needlessly unsafe.
         unsafe fn unlikely(b: bool) -> bool {
@@ -220,11 +228,11 @@ macro_rules! by_unit_check_simd {
     };
 }
 
-cfg_if!{
+cfg_if! {
     if #[cfg(all(feature = "simd-accel", any(target_feature = "sse2", all(target_endian = "little", target_arch = "aarch64"), all(target_endian = "little", target_feature = "neon"))))] {
         use simd_funcs::*;
-        use simd::u8x16;
-        use simd::u16x8;
+        use packed_simd::u8x16;
+        use packed_simd::u16x8;
 
         const SIMD_ALIGNMENT: usize = 16;
 
@@ -352,7 +360,7 @@ fn utf16_valid_up_to_alu(buffer: &[u16]) -> (usize, bool) {
     }
 }
 
-cfg_if!{
+cfg_if! {
     if #[cfg(all(feature = "simd-accel", any(target_feature = "sse2", all(target_endian = "little", target_arch = "aarch64"), all(target_endian = "little", target_feature = "neon"))))] {
         #[inline(always)]
         fn is_str_latin1_impl(buffer: &str) -> Option<usize> {
@@ -441,7 +449,7 @@ fn is_utf8_latin1_impl(buffer: &[u8]) -> Option<usize> {
     }
 }
 
-cfg_if!{
+cfg_if! {
     if #[cfg(all(feature = "simd-accel", any(target_feature = "sse2", all(target_endian = "little", target_arch = "aarch64"), all(target_endian = "little", target_feature = "neon"))))] {
         #[inline(always)]
         fn is_utf16_bidi_impl(buffer: &[u16]) -> bool {
@@ -491,7 +499,7 @@ cfg_if!{
     }
 }
 
-cfg_if!{
+cfg_if! {
     if #[cfg(all(feature = "simd-accel", any(target_feature = "sse2", all(target_endian = "little", target_arch = "aarch64"), all(target_endian = "little", target_feature = "neon"))))] {
         #[inline(always)]
         fn check_utf16_for_latin1_and_bidi_impl(buffer: &[u16]) -> Latin1Bidi {
@@ -626,7 +634,6 @@ cfg_if!{
 ///
 /// May read the entire buffer even if it isn't all-ASCII. (I.e. the function
 /// is not guaranteed to fail fast.)
-#[inline]
 pub fn is_ascii(buffer: &[u8]) -> bool {
     is_ascii_impl(buffer)
 }
@@ -636,7 +643,6 @@ pub fn is_ascii(buffer: &[u8]) -> bool {
 ///
 /// May read the entire buffer even if it isn't all-ASCII. (I.e. the function
 /// is not guaranteed to fail fast.)
-#[inline]
 pub fn is_basic_latin(buffer: &[u16]) -> bool {
     is_basic_latin_impl(buffer)
 }
@@ -646,17 +652,15 @@ pub fn is_basic_latin(buffer: &[u16]) -> bool {
 ///
 /// Fails fast. (I.e. returns before having read the whole buffer if UTF-8
 /// invalidity or code points above U+00FF are discovered.
-#[inline]
 pub fn is_utf8_latin1(buffer: &[u8]) -> bool {
     is_utf8_latin1_impl(buffer).is_none()
 }
 
-/// Checks whether the buffer represents only code point less than or equal
+/// Checks whether the buffer represents only code points less than or equal
 /// to U+00FF.
 ///
 /// Fails fast. (I.e. returns before having read the whole buffer if code
 /// points above U+00FF are discovered.
-#[inline]
 pub fn is_str_latin1(buffer: &str) -> bool {
     is_str_latin1_impl(buffer).is_none()
 }
@@ -666,7 +670,6 @@ pub fn is_str_latin1(buffer: &str) -> bool {
 ///
 /// May read the entire buffer even if it isn't all-Latin1. (I.e. the function
 /// is not guaranteed to fail fast.)
-#[inline]
 pub fn is_utf16_latin1(buffer: &[u16]) -> bool {
     is_utf16_latin1_impl(buffer)
 }
@@ -687,10 +690,7 @@ pub fn is_utf16_latin1(buffer: &[u16]) -> bool {
 /// Returns `true` if the input is invalid UTF-8 or the input contains an
 /// RTL character. Returns `false` if the input is valid UTF-8 and contains
 /// no RTL characters.
-#[cfg_attr(
-    feature = "cargo-clippy",
-    allow(collapsible_if, cyclomatic_complexity)
-)]
+#[cfg_attr(feature = "cargo-clippy", allow(collapsible_if, cyclomatic_complexity))]
 #[inline]
 pub fn is_utf8_bidi(buffer: &[u8]) -> bool {
     // As of rustc 1.25.0-nightly (73ac5d6a8 2018-01-11), this is faster
@@ -771,9 +771,11 @@ pub fn is_utf8_bidi(buffer: &[u8]) -> bool {
                             // Three-byte normal
                             let second = unsafe { *(src.get_unchecked(read + 1)) };
                             let third = unsafe { *(src.get_unchecked(read + 2)) };
-                            if ((UTF8_DATA.table[usize::from(second)] & unsafe {
-                                *(UTF8_DATA.table.get_unchecked(byte as usize + 0x80))
-                            }) | (third >> 6))
+                            if ((UTF8_DATA.table[usize::from(second)]
+                                & unsafe {
+                                    *(UTF8_DATA.table.get_unchecked(byte as usize + 0x80))
+                                })
+                                | (third >> 6))
                                 != 2
                             {
                                 return true;
@@ -784,9 +786,11 @@ pub fn is_utf8_bidi(buffer: &[u8]) -> bool {
                             // Three-byte normal, potentially bidi
                             let second = unsafe { *(src.get_unchecked(read + 1)) };
                             let third = unsafe { *(src.get_unchecked(read + 2)) };
-                            if ((UTF8_DATA.table[usize::from(second)] & unsafe {
-                                *(UTF8_DATA.table.get_unchecked(byte as usize + 0x80))
-                            }) | (third >> 6))
+                            if ((UTF8_DATA.table[usize::from(second)]
+                                & unsafe {
+                                    *(UTF8_DATA.table.get_unchecked(byte as usize + 0x80))
+                                })
+                                | (third >> 6))
                                 != 2
                             {
                                 return true;
@@ -806,9 +810,11 @@ pub fn is_utf8_bidi(buffer: &[u8]) -> bool {
                             // Three-byte normal, potentially bidi
                             let second = unsafe { *(src.get_unchecked(read + 1)) };
                             let third = unsafe { *(src.get_unchecked(read + 2)) };
-                            if ((UTF8_DATA.table[usize::from(second)] & unsafe {
-                                *(UTF8_DATA.table.get_unchecked(byte as usize + 0x80))
-                            }) | (third >> 6))
+                            if ((UTF8_DATA.table[usize::from(second)]
+                                & unsafe {
+                                    *(UTF8_DATA.table.get_unchecked(byte as usize + 0x80))
+                                })
+                                | (third >> 6))
                                 != 2
                             {
                                 return true;
@@ -840,9 +846,11 @@ pub fn is_utf8_bidi(buffer: &[u8]) -> bool {
                             // Three-byte special lower bound, potentially bidi
                             let second = unsafe { *(src.get_unchecked(read + 1)) };
                             let third = unsafe { *(src.get_unchecked(read + 2)) };
-                            if ((UTF8_DATA.table[usize::from(second)] & unsafe {
-                                *(UTF8_DATA.table.get_unchecked(byte as usize + 0x80))
-                            }) | (third >> 6))
+                            if ((UTF8_DATA.table[usize::from(second)]
+                                & unsafe {
+                                    *(UTF8_DATA.table.get_unchecked(byte as usize + 0x80))
+                                })
+                                | (third >> 6))
                                 != 2
                             {
                                 return true;
@@ -857,9 +865,11 @@ pub fn is_utf8_bidi(buffer: &[u8]) -> bool {
                             // Three-byte special upper bound
                             let second = unsafe { *(src.get_unchecked(read + 1)) };
                             let third = unsafe { *(src.get_unchecked(read + 2)) };
-                            if ((UTF8_DATA.table[usize::from(second)] & unsafe {
-                                *(UTF8_DATA.table.get_unchecked(byte as usize + 0x80))
-                            }) | (third >> 6))
+                            if ((UTF8_DATA.table[usize::from(second)]
+                                & unsafe {
+                                    *(UTF8_DATA.table.get_unchecked(byte as usize + 0x80))
+                                })
+                                | (third >> 6))
                                 != 2
                             {
                                 return true;
@@ -1271,12 +1281,11 @@ pub fn is_str_bidi(buffer: &str) -> bool {
 /// high surrogate that could be the high half of an RTL character.
 /// Returns `false` if the input contains neither RTL characters nor
 /// unpaired high surrogates that could be higher halves of RTL characters.
-#[inline]
 pub fn is_utf16_bidi(buffer: &[u16]) -> bool {
     is_utf16_bidi_impl(buffer)
 }
 
-/// Checks whether a code point triggers right-to-left processing.
+/// Checks whether a scalar value triggers right-to-left processing.
 ///
 /// The check is done on a Unicode block basis without regard to assigned
 /// vs. unassigned code points in the block. Hebrew presentation forms in
@@ -1404,7 +1413,6 @@ pub fn is_utf16_code_unit_bidi(u: u16) -> bool {
 /// Returns `Latin1Bidi::Latin1` if `is_utf8_latin1()` would return `true`.
 /// Otherwise, returns `Latin1Bidi::Bidi` if `is_utf8_bidi()` would return
 /// `true`. Otherwise, returns `Latin1Bidi::LeftToRight`.
-#[inline]
 pub fn check_utf8_for_latin1_and_bidi(buffer: &[u8]) -> Latin1Bidi {
     if let Some(offset) = is_utf8_latin1_impl(buffer) {
         if is_utf8_bidi(&buffer[offset..]) {
@@ -1425,7 +1433,6 @@ pub fn check_utf8_for_latin1_and_bidi(buffer: &[u8]) -> Latin1Bidi {
 /// Returns `Latin1Bidi::Latin1` if `is_str_latin1()` would return `true`.
 /// Otherwise, returns `Latin1Bidi::Bidi` if `is_str_bidi()` would return
 /// `true`. Otherwise, returns `Latin1Bidi::LeftToRight`.
-#[inline]
 pub fn check_str_for_latin1_and_bidi(buffer: &str) -> Latin1Bidi {
     // The transition from the latin1 check to the bidi check isn't
     // optimal but not tweaking it to perfection today.
@@ -1448,7 +1455,6 @@ pub fn check_str_for_latin1_and_bidi(buffer: &str) -> Latin1Bidi {
 /// Returns `Latin1Bidi::Latin1` if `is_utf16_latin1()` would return `true`.
 /// Otherwise, returns `Latin1Bidi::Bidi` if `is_utf16_bidi()` would return
 /// `true`. Otherwise, returns `Latin1Bidi::LeftToRight`.
-#[inline]
 pub fn check_utf16_for_latin1_and_bidi(buffer: &[u16]) -> Latin1Bidi {
     check_utf16_for_latin1_and_bidi_impl(buffer)
 }
@@ -1464,7 +1470,6 @@ pub fn check_utf16_for_latin1_and_bidi(buffer: &[u16]) -> Latin1Bidi {
 /// # Panics
 ///
 /// Panics if the destination buffer is shorter than stated above.
-#[inline]
 pub fn convert_utf8_to_utf16(src: &[u8], dst: &mut [u16]) -> usize {
     // TODO: Can the requirement for dst to be at least one unit longer
     // be eliminated?
@@ -1504,7 +1509,6 @@ pub fn convert_utf8_to_utf16(src: &[u8], dst: &mut [u16]) -> usize {
 /// # Panics
 ///
 /// Panics if the destination buffer is shorter than stated above.
-#[inline]
 pub fn convert_str_to_utf16(src: &str, dst: &mut [u16]) -> usize {
     assert!(
         dst.len() >= src.len(),
@@ -1537,14 +1541,14 @@ pub fn convert_str_to_utf16(src: &str, dst: &mut [u16]) -> usize {
             if byte < 0xE0 {
                 if byte >= 0x80 {
                     // Two-byte
-                    let second = bytes[read + 1];
+                    let second = unsafe { *(bytes.get_unchecked(read + 1)) };
                     let point = ((u16::from(byte) & 0x1F) << 6) | (u16::from(second) & 0x3F);
-                    dst[written] = point;
+                    unsafe { *(dst.get_unchecked_mut(written)) = point };
                     read += 2;
                     written += 1;
                 } else {
                     // ASCII: write and go back to SIMD.
-                    dst[written] = u16::from(byte);
+                    unsafe { *(dst.get_unchecked_mut(written)) = u16::from(byte) };
                     read += 1;
                     written += 1;
                     // Intuitively, we should go back to the outer loop only
@@ -1556,25 +1560,27 @@ pub fn convert_str_to_utf16(src: &str, dst: &mut [u16]) -> usize {
                 }
             } else if byte < 0xF0 {
                 // Three-byte
-                let second = bytes[read + 1];
-                let third = bytes[read + 2];
+                let second = unsafe { *(bytes.get_unchecked(read + 1)) };
+                let third = unsafe { *(bytes.get_unchecked(read + 2)) };
                 let point = ((u16::from(byte) & 0xF) << 12)
                     | ((u16::from(second) & 0x3F) << 6)
                     | (u16::from(third) & 0x3F);
-                dst[written] = point;
+                unsafe { *(dst.get_unchecked_mut(written)) = point };
                 read += 3;
                 written += 1;
             } else {
                 // Four-byte
-                let second = bytes[read + 1];
-                let third = bytes[read + 2];
-                let fourth = bytes[read + 3];
+                let second = unsafe { *(bytes.get_unchecked(read + 1)) };
+                let third = unsafe { *(bytes.get_unchecked(read + 2)) };
+                let fourth = unsafe { *(bytes.get_unchecked(read + 3)) };
                 let point = ((u32::from(byte) & 0x7) << 18)
                     | ((u32::from(second) & 0x3F) << 12)
                     | ((u32::from(third) & 0x3F) << 6)
                     | (u32::from(fourth) & 0x3F);
-                dst[written] = (0xD7C0 + (point >> 10)) as u16;
-                dst[written + 1] = (0xDC00 + (point & 0x3FF)) as u16;
+                unsafe { *(dst.get_unchecked_mut(written)) = (0xD7C0 + (point >> 10)) as u16 };
+                unsafe {
+                    *(dst.get_unchecked_mut(written + 1)) = (0xDC00 + (point & 0x3FF)) as u16
+                };
                 read += 4;
                 written += 2;
             }
@@ -1590,11 +1596,39 @@ pub fn convert_str_to_utf16(src: &str, dst: &mut [u16]) -> usize {
     }
 }
 
+/// Converts potentially-invalid UTF-8 to valid UTF-16 signaling on error.
+///
+/// The length of the destination buffer must be at least the length of the
+/// source buffer.
+///
+/// Returns the number of `u16`s written or `None` if the input was invalid.
+///
+/// When the input was invalid, some output may have been written.
+///
+/// # Panics
+///
+/// Panics if the destination buffer is shorter than stated above.
+pub fn convert_utf8_to_utf16_without_replacement(src: &[u8], dst: &mut [u16]) -> Option<usize> {
+    assert!(
+        dst.len() >= src.len(),
+        "Destination must not be shorter than the source."
+    );
+    let (read, written) = convert_utf8_to_utf16_up_to_invalid(src, dst);
+    if read == src.len() {
+        return Some(written);
+    }
+    None
+}
+
 /// Converts potentially-invalid UTF-16 to valid UTF-8 with errors replaced
 /// with the REPLACEMENT CHARACTER with potentially insufficient output
 /// space.
 ///
 /// Returns the number of code units read and the number of bytes written.
+///
+/// Guarantees that the bytes in the destination beyond the number of
+/// bytes claimed as written by the second item of the return tuple
+/// are left unmodified.
 ///
 /// Not all code units are read if there isn't enough output space.
 ///
@@ -1603,25 +1637,37 @@ pub fn convert_str_to_utf16(src: &str, dst: &mut [u16]) -> usize {
 /// if the input starts with or ends with an unpaired surrogate, those are
 /// replaced with the REPLACEMENT CHARACTER.
 ///
+/// Matches the semantics of `TextEncoder.encodeInto()` from the
+/// Encoding Standard.
+///
 /// # Safety
 ///
-/// Note that this function may write garbage beyond the number of bytes
-/// indicated by the return value, so using a `&mut str` interpreted as
-/// `&mut [u8]` as the destination is not safe. If you want to convert into
-/// a `&mut str`, use `convert_utf16_to_str()` instead of this function.
-#[inline]
+/// If you want to convert into a `&mut str`, use
+/// `convert_utf16_to_str_partial()` instead of using this function
+/// together with the `unsafe` method `as_bytes_mut()` on `&mut str`.
+#[inline(always)]
 pub fn convert_utf16_to_utf8_partial(src: &[u16], dst: &mut [u8]) -> (usize, usize) {
-    let mut encoder = Utf8Encoder;
-    let (result, read, written) = encoder.encode_from_utf16_raw(src, dst, true);
-    debug_assert!(result == EncoderResult::OutputFull || read == src.len());
-    (read, written)
+    // The two functions called below are marked `inline(never)` to make
+    // transitions from the hot part (first function) into the cold part
+    // (second function) go through a return and another call to discouge
+    // the CPU from speculating from the hot code into the cold code.
+    // Letting the transitions be mere intra-function jumps, even to
+    // basic blocks out-of-lined to the end of the function would wipe
+    // away a quarter of Arabic encode performance on Haswell!
+    let (read, written) = convert_utf16_to_utf8_partial_inner(src, dst);
+    if unsafe { likely(read == src.len()) } {
+        return (read, written);
+    }
+    let (tail_read, tail_written) =
+        convert_utf16_to_utf8_partial_tail(&src[read..], &mut dst[written..]);
+    (read + tail_read, written + tail_written)
 }
 
 /// Converts potentially-invalid UTF-16 to valid UTF-8 with errors replaced
 /// with the REPLACEMENT CHARACTER.
 ///
 /// The length of the destination buffer must be at least the length of the
-/// source buffer times three _plus one_.
+/// source buffer times three.
 ///
 /// Returns the number of bytes written.
 ///
@@ -1631,13 +1677,12 @@ pub fn convert_utf16_to_utf8_partial(src: &[u16], dst: &mut [u8]) -> (usize, usi
 ///
 /// # Safety
 ///
-/// Note that this function may write garbage beyond the number of bytes
-/// indicated by the return value, so using a `&mut str` interpreted as
-/// `&mut [u8]` as the destination is not safe. If you want to convert into
-/// a `&mut str`, use `convert_utf16_to_str()` instead of this function.
-#[inline]
+/// If you want to convert into a `&mut str`, use `convert_utf16_to_str()`
+/// instead of using this function together with the `unsafe` method
+/// `as_bytes_mut()` on `&mut str`.
+#[inline(always)]
 pub fn convert_utf16_to_utf8(src: &[u16], dst: &mut [u8]) -> usize {
-    assert!(dst.len() > src.len() * 3);
+    assert!(dst.len() >= src.len() * 3);
     let (read, written) = convert_utf16_to_utf8_partial(src, dst);
     debug_assert_eq!(read, src.len());
     written
@@ -1656,17 +1701,11 @@ pub fn convert_utf16_to_utf8(src: &[u16], dst: &mut [u8]) -> usize {
 /// not allocating memory for the worst case up front. Specifically,
 /// if the input starts with or ends with an unpaired surrogate, those are
 /// replaced with the REPLACEMENT CHARACTER.
-#[inline]
 pub fn convert_utf16_to_str_partial(src: &[u16], dst: &mut str) -> (usize, usize) {
     let bytes: &mut [u8] = unsafe { dst.as_bytes_mut() };
     let (read, written) = convert_utf16_to_utf8_partial(src, bytes);
     let len = bytes.len();
     let mut trail = written;
-    let max = ::std::cmp::min(len, trail + MAX_STRIDE_SIZE);
-    while trail < max {
-        bytes[trail] = 0;
-        trail += 1;
-    }
     while trail < len && ((bytes[trail] & 0xC0) == 0x80) {
         bytes[trail] = 0;
         trail += 1;
@@ -1679,16 +1718,16 @@ pub fn convert_utf16_to_str_partial(src: &[u16], dst: &mut str) -> (usize, usize
 /// signaled using the Rust type system.
 ///
 /// The length of the destination buffer must be at least the length of the
-/// source buffer times three _plus one_.
+/// source buffer times three.
 ///
 /// Returns the number of bytes written.
 ///
 /// # Panics
 ///
 /// Panics if the destination buffer is shorter than stated above.
-#[inline]
+#[inline(always)]
 pub fn convert_utf16_to_str(src: &[u16], dst: &mut str) -> usize {
-    assert!(dst.len() > src.len() * 3);
+    assert!(dst.len() >= src.len() * 3);
     let (read, written) = convert_utf16_to_str_partial(src, dst);
     debug_assert_eq!(read, src.len());
     written
@@ -1705,7 +1744,6 @@ pub fn convert_utf16_to_str(src: &[u16], dst: &mut str) -> usize {
 /// # Panics
 ///
 /// Panics if the destination buffer is shorter than stated above.
-#[inline]
 pub fn convert_latin1_to_utf16(src: &[u8], dst: &mut [u16]) {
     assert!(
         dst.len() >= src.len(),
@@ -1729,11 +1767,9 @@ pub fn convert_latin1_to_utf16(src: &[u8], dst: &mut [u16]) {
 ///
 /// # Safety
 ///
-/// Note that this function may write garbage beyond the number of bytes
-/// indicated by the return value, so using a `&mut str` interpreted as
-/// `&mut [u8]` as the destination is not safe. If you want to convert into
-/// a `&mut str`, use `convert_utf16_to_str()` instead of this function.
-#[inline]
+/// If you want to convert into a `&mut str`, use
+/// `convert_utf16_to_str_partial()` instead of using this function
+/// together with the `unsafe` method `as_bytes_mut()` on `&mut str`.
 pub fn convert_latin1_to_utf8_partial(src: &[u8], dst: &mut [u8]) -> (usize, usize) {
     let src_len = src.len();
     let src_ptr = src.as_ptr();
@@ -1872,7 +1908,6 @@ pub fn convert_latin1_to_str(src: &[u8], dst: &mut str) -> usize {
 ///
 /// If debug assertions are enabled (and not fuzzing) and the input is
 /// not in the range U+0000 to U+00FF, inclusive.
-#[inline]
 pub fn convert_utf8_to_latin1_lossy(src: &[u8], dst: &mut [u8]) -> usize {
     assert!(
         dst.len() >= src.len(),
@@ -1935,7 +1970,6 @@ pub fn convert_utf8_to_latin1_lossy(src: &[u8], dst: &mut [u8]) -> usize {
 ///
 /// (Probably in future versions if debug assertions are enabled (and not
 /// fuzzing) and the input is not in the range U+0000 to U+00FF, inclusive.)
-#[inline]
 pub fn convert_utf16_to_latin1_lossy(src: &[u16], dst: &mut [u8]) {
     assert!(
         dst.len() >= src.len(),
@@ -2008,9 +2042,21 @@ pub fn encode_latin1_lossy<'a>(string: &'a str) -> Cow<'a, [u8]> {
 
 /// Returns the index of the first unpaired surrogate or, if the input is
 /// valid UTF-16 in its entirety, the length of the input.
-#[inline]
 pub fn utf16_valid_up_to(buffer: &[u16]) -> usize {
     utf16_valid_up_to_impl(buffer)
+}
+
+/// Returns the index of first byte that starts an invalid byte
+/// sequence or a non-Latin1 byte sequence, or the length of the
+/// string if there are neither.
+pub fn utf8_latin1_up_to(buffer: &[u8]) -> usize {
+    is_utf8_latin1_impl(buffer).unwrap_or(buffer.len())
+}
+
+/// Returns the index of first byte that starts a non-Latin1 byte
+/// sequence, or the length of the string if there are none.
+pub fn str_latin1_up_to(buffer: &str) -> usize {
+    is_str_latin1_impl(buffer).unwrap_or(buffer.len())
 }
 
 /// Replaces unpaired surrogates in the input with the REPLACEMENT CHARACTER.
@@ -2038,7 +2084,6 @@ pub fn ensure_utf16_validity(buffer: &mut [u16]) {
 /// # Panics
 ///
 /// Panics if the destination buffer is shorter than stated above.
-#[inline]
 pub fn copy_ascii_to_ascii(src: &[u8], dst: &mut [u8]) -> usize {
     assert!(
         dst.len() >= src.len(),
@@ -2065,7 +2110,6 @@ pub fn copy_ascii_to_ascii(src: &[u8], dst: &mut [u8]) -> usize {
 /// # Panics
 ///
 /// Panics if the destination buffer is shorter than stated above.
-#[inline]
 pub fn copy_ascii_to_basic_latin(src: &[u8], dst: &mut [u16]) -> usize {
     assert!(
         dst.len() >= src.len(),
@@ -2092,7 +2136,6 @@ pub fn copy_ascii_to_basic_latin(src: &[u8], dst: &mut [u16]) -> usize {
 /// # Panics
 ///
 /// Panics if the destination buffer is shorter than stated above.
-#[inline]
 pub fn copy_basic_latin_to_ascii(src: &[u16], dst: &mut [u8]) -> usize {
     assert!(
         dst.len() >= src.len(),
@@ -2425,22 +2468,22 @@ mod tests {
             0u16, 0u16, 0u16, 0u16, 0u16, 0u16, 0u16, 0u16, 0u16, 0u16, 0u16, 0u16, 0x2603u16,
             0xD83Du16, 0xDCA9u16, 0x00B6u16,
         ];
-        assert_eq!(utf16_valid_up_to(&valid[..]), 16);;
+        assert_eq!(utf16_valid_up_to(&valid[..]), 16);
         let lone_high = vec![
             0u16, 0u16, 0u16, 0u16, 0u16, 0u16, 0u16, 0u16, 0u16, 0u16, 0u16, 0u16, 0u16,
             0x2603u16, 0xD83Du16, 0x00B6u16,
         ];
-        assert_eq!(utf16_valid_up_to(&lone_high[..]), 14);;
+        assert_eq!(utf16_valid_up_to(&lone_high[..]), 14);
         let lone_low = vec![
             0u16, 0u16, 0u16, 0u16, 0u16, 0u16, 0u16, 0u16, 0u16, 0u16, 0u16, 0u16, 0u16,
             0x2603u16, 0xDCA9u16, 0x00B6u16,
         ];
-        assert_eq!(utf16_valid_up_to(&lone_low[..]), 14);;
+        assert_eq!(utf16_valid_up_to(&lone_low[..]), 14);
         let lone_high_at_end = vec![
             0u16, 0u16, 0u16, 0u16, 0u16, 0u16, 0u16, 0u16, 0u16, 0u16, 0u16, 0u16, 0u16,
             0x2603u16, 0x00B6u16, 0xD83Du16,
         ];
-        assert_eq!(utf16_valid_up_to(&lone_high_at_end[..]), 15);;
+        assert_eq!(utf16_valid_up_to(&lone_high_at_end[..]), 15);
     }
 
     #[test]
@@ -3232,4 +3275,61 @@ mod tests {
         assert_eq!(encode_latin1_lossy("a\u{E4}"), &(b"a\xE4")[..]);
     }
 
+    #[test]
+    fn test_convert_utf8_to_utf16_without_replacement() {
+        let mut buf = [0u16; 5];
+        assert_eq!(
+            convert_utf8_to_utf16_without_replacement(b"ab", &mut buf[..2]),
+            Some(2)
+        );
+        assert_eq!(buf[0], u16::from(b'a'));
+        assert_eq!(buf[1], u16::from(b'b'));
+        assert_eq!(buf[2], 0);
+        assert_eq!(
+            convert_utf8_to_utf16_without_replacement(b"\xC3\xA4c", &mut buf[..3]),
+            Some(2)
+        );
+        assert_eq!(buf[0], 0xE4);
+        assert_eq!(buf[1], u16::from(b'c'));
+        assert_eq!(buf[2], 0);
+        assert_eq!(
+            convert_utf8_to_utf16_without_replacement(b"\xE2\x98\x83", &mut buf[..3]),
+            Some(1)
+        );
+        assert_eq!(buf[0], 0x2603);
+        assert_eq!(buf[1], u16::from(b'c'));
+        assert_eq!(buf[2], 0);
+        assert_eq!(
+            convert_utf8_to_utf16_without_replacement(b"\xE2\x98\x83d", &mut buf[..4]),
+            Some(2)
+        );
+        assert_eq!(buf[0], 0x2603);
+        assert_eq!(buf[1], u16::from(b'd'));
+        assert_eq!(buf[2], 0);
+        assert_eq!(
+            convert_utf8_to_utf16_without_replacement(b"\xE2\x98\x83\xC3\xA4", &mut buf[..5]),
+            Some(2)
+        );
+        assert_eq!(buf[0], 0x2603);
+        assert_eq!(buf[1], 0xE4);
+        assert_eq!(buf[2], 0);
+        assert_eq!(
+            convert_utf8_to_utf16_without_replacement(b"\xF0\x9F\x93\x8E", &mut buf[..4]),
+            Some(2)
+        );
+        assert_eq!(buf[0], 0xD83D);
+        assert_eq!(buf[1], 0xDCCE);
+        assert_eq!(buf[2], 0);
+        assert_eq!(
+            convert_utf8_to_utf16_without_replacement(b"\xF0\x9F\x93\x8Ee", &mut buf[..5]),
+            Some(3)
+        );
+        assert_eq!(buf[0], 0xD83D);
+        assert_eq!(buf[1], 0xDCCE);
+        assert_eq!(buf[2], u16::from(b'e'));
+        assert_eq!(
+            convert_utf8_to_utf16_without_replacement(b"\xF0\x9F\x93", &mut buf[..5]),
+            None
+        );
+    }
 }

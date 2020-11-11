@@ -8,7 +8,6 @@
 #include "nsIAsyncInputStream.h"
 #include "nsISeekableStream.h"
 #include "nsCOMPtr.h"
-#include "nsAutoPtr.h"
 #include "CacheFileChunk.h"
 
 namespace mozilla {
@@ -26,14 +25,14 @@ class CacheFileInputStream : public nsIAsyncInputStream,
   NS_DECL_NSITELLABLESTREAM
 
  public:
-  explicit CacheFileInputStream(CacheFile *aFile, nsISupports *aEntry,
+  explicit CacheFileInputStream(CacheFile* aFile, nsISupports* aEntry,
                                 bool aAlternativeData);
 
-  NS_IMETHOD OnChunkRead(nsresult aResult, CacheFileChunk *aChunk) override;
-  NS_IMETHOD OnChunkWritten(nsresult aResult, CacheFileChunk *aChunk) override;
+  NS_IMETHOD OnChunkRead(nsresult aResult, CacheFileChunk* aChunk) override;
+  NS_IMETHOD OnChunkWritten(nsresult aResult, CacheFileChunk* aChunk) override;
   NS_IMETHOD OnChunkAvailable(nsresult aResult, uint32_t aChunkIdx,
-                              CacheFileChunk *aChunk) override;
-  NS_IMETHOD OnChunkUpdated(CacheFileChunk *aChunk) override;
+                              CacheFileChunk* aChunk) override;
+  NS_IMETHOD OnChunkUpdated(CacheFileChunk* aChunk) override;
 
   // Memory reporting
   size_t SizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf) const;
@@ -47,14 +46,14 @@ class CacheFileInputStream : public nsIAsyncInputStream,
  private:
   virtual ~CacheFileInputStream();
 
-  nsresult CloseWithStatusLocked(nsresult aStatus);
+  void CloseWithStatusLocked(nsresult aStatus);
   void CleanUp();
   void ReleaseChunk();
   void EnsureCorrectChunk(bool aReleaseOnly);
 
   // CanRead returns negative value when output stream truncates the data before
   // the input stream's mPos.
-  int64_t CanRead(CacheFileChunkReadHandle *aHandle);
+  int64_t CanRead(CacheFileChunkReadHandle* aHandle);
   void NotifyListener();
   void MaybeNotifyListener();
 

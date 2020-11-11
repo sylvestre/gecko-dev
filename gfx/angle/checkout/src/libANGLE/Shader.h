@@ -22,6 +22,7 @@
 
 #include "common/Optional.h"
 #include "common/angleutils.h"
+#include "libANGLE/Compiler.h"
 #include "libANGLE/Debug.h"
 #include "libANGLE/angletypes.h"
 
@@ -30,15 +31,22 @@ namespace rx
 class GLImplFactory;
 class ShaderImpl;
 class ShaderSh;
-}
+class WaitableCompileEvent;
+}  // namespace rx
+
+namespace angle
+{
+class WaitableEvent;
+class WorkerThreadPool;
+}  // namespace angle
 
 namespace gl
 {
-class Compiler;
-class ContextState;
+class CompileTask;
+class Context;
 struct Limitations;
 class ShaderProgramManager;
-class Context;
+class State;
 
 // We defer the compile until link time, or until properties are queried.
 enum class CompileStatus
@@ -124,7 +132,7 @@ class Shader final : angle::NonCopyable, public LabeledObject
 
     void onDestroy(const Context *context);
 
-    void setLabel(const std::string &label) override;
+    void setLabel(const Context *context, const std::string &label) override;
     const std::string &getLabel() const override;
 
     ShaderType getType() const { return mType; }
@@ -146,6 +154,7 @@ class Shader final : angle::NonCopyable, public LabeledObject
 
     void compile(const Context *context);
     bool isCompiled();
+    bool isCompleted();
 
     void addRef();
     void release(const Context *context);
@@ -181,6 +190,8 @@ class Shader final : angle::NonCopyable, public LabeledObject
     const std::string &getCompilerResourcesString() const;
 
   private:
+    struct CompilingState;
+
     ~Shader() override;
     static void GetSourceImpl(const std::string &source,
                               GLsizei bufSize,
@@ -190,9 +201,6 @@ class Shader final : angle::NonCopyable, public LabeledObject
     void resolveCompile();
 
     ShaderState mState;
-    std::string mLastCompiledSource;
-    std::string mLastCompiledSourcePath;
-    ShCompileOptions mLastCompileOptions;
     std::unique_ptr<rx::ShaderImpl> mImplementation;
     const gl::Limitations &mRendererLimitations;
     const GLuint mHandle;
@@ -203,6 +211,8 @@ class Shader final : angle::NonCopyable, public LabeledObject
 
     // We keep a reference to the translator in order to defer compiles while preserving settings.
     BindingPointer<Compiler> mBoundCompiler;
+    std::unique_ptr<CompilingState> mCompilingState;
+    std::string mCompilerResourcesString;
 
     ShaderProgramManager *mResourceManager;
 

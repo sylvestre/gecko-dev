@@ -7,7 +7,6 @@
 #ifndef mozilla_storage_mozStorageAsyncStatement_h_
 #define mozilla_storage_mozStorageAsyncStatement_h_
 
-#include "nsAutoPtr.h"
 #include "nsString.h"
 
 #include "nsTArray.h"
@@ -47,8 +46,8 @@ class AsyncStatement final : public mozIStorageAsyncStatement,
    * @param aSQLStatement
    *        The SQL statement to prepare that this object will represent.
    */
-  nsresult initialize(Connection *aDBConnection, sqlite3 *aNativeConnection,
-                      const nsACString &aSQLStatement);
+  nsresult initialize(Connection* aDBConnection, sqlite3* aNativeConnection,
+                      const nsACString& aSQLStatement);
 
   /**
    * Obtains and transfers ownership of the array of parameters that are bound
@@ -65,7 +64,7 @@ class AsyncStatement final : public mozIStorageAsyncStatement,
    * @return a pointer to the BindingParams object to use with our Bind*
    *         method.
    */
-  mozIStorageBindingParams *getParams();
+  mozIStorageBindingParams* getParams();
 
   /**
    * The SQL string as passed by the user.  We store it because we create the

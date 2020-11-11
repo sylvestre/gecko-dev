@@ -11,6 +11,7 @@
 
 #include "mozilla/Poison.h"
 #include "nsDebug.h"
+#include "nsDisplayList.h"
 #include "nsPrintfCString.h"
 #include "FrameLayerBuilder.h"
 #include "mozilla/ArrayUtils.h"
@@ -22,71 +23,29 @@
 
 using namespace mozilla;
 
-template <size_t ArenaSize>
-nsPresArena<ArenaSize>::~nsPresArena<ArenaSize>() {
-  ClearArenaRefPtrs();
-
+template <size_t ArenaSize, typename ObjectId, size_t ObjectIdCount>
+nsPresArena<ArenaSize, ObjectId, ObjectIdCount>::~nsPresArena() {
 #if defined(MOZ_HAVE_MEM_CHECKS)
   for (FreeList* entry = mFreeLists; entry != ArrayEnd(mFreeLists); ++entry) {
-    nsTArray<void*>::index_type len;
-    while ((len = entry->mEntries.Length())) {
-      void* result = entry->mEntries.ElementAt(len - 1);
-      entry->mEntries.RemoveElementAt(len - 1);
+    for (void* result : entry->mEntries) {
       MOZ_MAKE_MEM_UNDEFINED(result, entry->mEntrySize);
     }
+    entry->mEntries.Clear();
   }
 #endif
 }
 
-template <size_t ArenaSize>
-/* inline */ void nsPresArena<ArenaSize>::ClearArenaRefPtrWithoutDeregistering(
-    void* aPtr, ArenaObjectID aObjectID) {
-  switch (aObjectID) {
-    // We use ArenaRefPtr<ComputedStyle>, which can be ComputedStyle
-    // or GeckoComputedStyle. GeckoComputedStyle is actually arena managed,
-    // but ComputedStyle isn't.
-    case eArenaObjectID_GeckoComputedStyle:
-      static_cast<ArenaRefPtr<ComputedStyle>*>(aPtr)
-          ->ClearWithoutDeregistering();
-      return;
-    default:
-      MOZ_ASSERT(false, "unexpected ArenaObjectID value");
-      break;
-  }
-}
-
-template <size_t ArenaSize>
-void nsPresArena<ArenaSize>::ClearArenaRefPtrs() {
-  for (auto iter = mArenaRefPtrs.Iter(); !iter.Done(); iter.Next()) {
-    void* ptr = iter.Key();
-    ArenaObjectID id = iter.UserData();
-    ClearArenaRefPtrWithoutDeregistering(ptr, id);
-  }
-  mArenaRefPtrs.Clear();
-}
-
-template <size_t ArenaSize>
-void nsPresArena<ArenaSize>::ClearArenaRefPtrs(ArenaObjectID aObjectID) {
-  for (auto iter = mArenaRefPtrs.Iter(); !iter.Done(); iter.Next()) {
-    void* ptr = iter.Key();
-    ArenaObjectID id = iter.UserData();
-    if (id == aObjectID) {
-      ClearArenaRefPtrWithoutDeregistering(ptr, id);
-      iter.Remove();
-    }
-  }
-}
-
-template <size_t ArenaSize>
-void* nsPresArena<ArenaSize>::Allocate(uint32_t aCode, size_t aSize) {
+template <size_t ArenaSize, typename ObjectId, size_t ObjectIdCount>
+void* nsPresArena<ArenaSize, ObjectId, ObjectIdCount>::Allocate(ObjectId aCode,
+                                                                size_t aSize) {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(aSize > 0, "PresArena cannot allocate zero bytes");
-  MOZ_ASSERT(aCode < ArrayLength(mFreeLists));
+  MOZ_ASSERT(size_t(aCode) < ArrayLength(mFreeLists));
 
   // We only hand out aligned sizes
   aSize = mPool.AlignedSize(aSize);
 
-  FreeList* list = &mFreeLists[aCode];
+  FreeList* list = &mFreeLists[size_t(aCode)];
 
   nsTArray<void*>::index_type len = list->mEntries.Length();
   if (list->mEntrySize == 0) {
@@ -141,13 +100,14 @@ void* nsPresArena<ArenaSize>::Allocate(uint32_t aCode, size_t aSize) {
   return mPool.Allocate(aSize);
 }
 
-template <size_t ArenaSize>
-void nsPresArena<ArenaSize>::Free(uint32_t aCode, void* aPtr) {
+template <size_t ArenaSize, typename ObjectId, size_t ObjectIdCount>
+void nsPresArena<ArenaSize, ObjectId, ObjectIdCount>::Free(ObjectId aCode,
+                                                           void* aPtr) {
   MOZ_ASSERT(NS_IsMainThread());
-  MOZ_ASSERT(aCode < ArrayLength(mFreeLists));
+  MOZ_ASSERT(size_t(aCode) < ArrayLength(mFreeLists));
 
   // Try to recycle this entry.
-  FreeList* list = &mFreeLists[aCode];
+  FreeList* list = &mFreeLists[size_t(aCode)];
   MOZ_ASSERT(list->mEntrySize > 0, "object of this type was never allocated");
 
   mozWritePoison(aPtr, list->mEntrySize);
@@ -156,9 +116,9 @@ void nsPresArena<ArenaSize>::Free(uint32_t aCode, void* aPtr) {
   list->mEntries.AppendElement(aPtr);
 }
 
-template <size_t ArenaSize>
-void nsPresArena<ArenaSize>::AddSizeOfExcludingThis(
-    nsWindowSizes& aSizes) const {
+template <size_t ArenaSize, typename ObjectId, size_t ObjectIdCount>
+void nsPresArena<ArenaSize, ObjectId, ObjectIdCount>::AddSizeOfExcludingThis(
+    nsWindowSizes& aSizes, ArenaKind aKind) const {
   // We do a complicated dance here because we want to measure the
   // space taken up by the different kinds of objects in the arena,
   // but we don't have pointers to those objects.  And even if we did,
@@ -184,29 +144,43 @@ void nsPresArena<ArenaSize>::AddSizeOfExcludingThis(
     // total size of objects allocated with a given ID.
     size_t totalSize = entry->mEntrySize * entry->mEntriesEverAllocated;
 
-    switch (entry - mFreeLists) {
-#define FRAME_ID(classname, ...)                                     \
-  case nsQueryFrame::classname##_id:                                 \
-    aSizes.mArenaSizes.NS_ARENA_SIZES_FIELD(classname) += totalSize; \
+    if (aKind == ArenaKind::PresShell) {
+      switch (entry - mFreeLists) {
+#define PRES_ARENA_OBJECT(name_)                                 \
+  case eArenaObjectID_##name_:                                   \
+    aSizes.mArenaSizes.NS_ARENA_SIZES_FIELD(name_) += totalSize; \
     break;
-#define ABSTRACT_FRAME_ID(...)
-#include "nsFrameIdList.h"
-#undef FRAME_ID
-#undef ABSTRACT_FRAME_ID
-      case eArenaObjectID_nsLineBox:
-        aSizes.mArenaSizes.mLineBoxes += totalSize;
-        break;
-      default:
-        continue;
+#include "nsPresArenaObjectList.h"
+#undef PRES_ARENA_OBJECT
+        default:
+          MOZ_ASSERT_UNREACHABLE("Unknown arena object type");
+      }
+    } else {
+      MOZ_ASSERT(aKind == ArenaKind::DisplayList);
+      switch (DisplayListArenaObjectId(entry - mFreeLists)) {
+#define DISPLAY_LIST_ARENA_OBJECT(name_)                         \
+  case DisplayListArenaObjectId::name_:                          \
+    aSizes.mArenaSizes.NS_ARENA_SIZES_FIELD(name_) += totalSize; \
+    break;
+#include "nsDisplayListArenaTypes.h"
+#undef DISPLAY_LIST_ARENA_OBJECT
+        default:
+          MOZ_ASSERT_UNREACHABLE("Unknown display item arena type");
+      }
     }
 
     totalSizeInFreeLists += totalSize;
   }
 
-  aSizes.mLayoutPresShellSize += mallocSize - totalSizeInFreeLists;
+  auto& field = aKind == ArenaKind::PresShell
+                    ? aSizes.mLayoutPresShellSize
+                    : aSizes.mLayoutRetainedDisplayListSize;
+
+  field += mallocSize - totalSizeInFreeLists;
 }
 
 // Explicitly instantiate templates for the used nsPresArena allocator sizes.
 // This is needed because nsPresArena definition is split across multiple files.
-template class nsPresArena<8192>;
-template class nsPresArena<32768>;
+template class nsPresArena<8192, ArenaObjectID, eArenaObjectID_COUNT>;
+template class nsPresArena<32768, DisplayListArenaObjectId,
+                           size_t(DisplayListArenaObjectId::COUNT)>;

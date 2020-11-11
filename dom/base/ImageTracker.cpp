@@ -9,12 +9,12 @@
 
 #include "ImageTracker.h"
 
+#include "imgIContainer.h"
 #include "imgIRequest.h"
 #include "mozilla/Preferences.h"
 #include "nsXULAppAPI.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 ImageTracker::ImageTracker() : mLocking(false), mAnimating(true) {}
 
@@ -140,5 +140,28 @@ void ImageTracker::RequestDiscardAll() {
   }
 }
 
-}  // namespace dom
-}  // namespace mozilla
+void ImageTracker::MediaFeatureValuesChangedAllDocuments(
+    const MediaFeatureChange& aChange) {
+  // Inform every content image used in the document that media feature values
+  // have changed.  If the same image is used in multiple places, then we can
+  // end up informing them multiple times.  Theme changes are rare though and we
+  // don't bother trying to ensure we only do this once per image.
+  //
+  // Pull the images out into an array and iterate over them, in case the
+  // image notifications do something that ends up modifying the table.
+  nsTArray<nsCOMPtr<imgIContainer>> images;
+  for (auto iter = mImages.Iter(); !iter.Done(); iter.Next()) {
+    imgIRequest* req = iter.Key();
+    nsCOMPtr<imgIContainer> image;
+    req->GetImage(getter_AddRefs(image));
+    if (!image) {
+      continue;
+    }
+    images.AppendElement(image->Unwrap());
+  }
+  for (imgIContainer* image : images) {
+    image->MediaFeatureValuesChangedAllDocuments(aChange);
+  }
+}
+
+}  // namespace mozilla::dom

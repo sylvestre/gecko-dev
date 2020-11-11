@@ -9,14 +9,13 @@
 #include "nscore.h"
 #include "nsCOMPtr.h"
 #include "nsIFile.h"
-#include "nsILocalFileMac.h"
 #include "nsIOutputStream.h"
 
 /*
 ** applefile definitions used
 */
 #if PRAGMA_STRUCT_ALIGN
-#pragma options align = mac68k
+#  pragma options align = mac68k
 #endif
 
 #define APPLESINGLE_MAGIC 0x00051600L
@@ -58,7 +57,7 @@ typedef struct ap_dates {
 } ap_dates;
 
 #if PRAGMA_STRUCT_ALIGN
-#pragma options align = reset
+#  pragma options align = reset
 #endif
 
 /*
@@ -74,7 +73,7 @@ class nsDecodeAppleFile : public nsIOutputStream {
   nsDecodeAppleFile();
   virtual ~nsDecodeAppleFile();
 
-  MOZ_MUST_USE nsresult Initialize(nsIOutputStream *output, nsIFile *file);
+  [[nodiscard]] nsresult Initialize(nsIOutputStream* output, nsIFile* file);
 
  private:
 #define MAX_BUFFERSIZE 1024
@@ -93,11 +92,11 @@ class nsDecodeAppleFile : public nsIOutputStream {
   FSSpec m_fsFileSpec;
   SInt16 m_rfRefNum;
 
-  unsigned char *m_dataBuffer;
+  unsigned char* m_dataBuffer;
   int32_t m_dataBufferLength;
   ParserState m_state;
   ap_header m_headers;
-  ap_entry *m_entries;
+  ap_entry* m_entries;
   int32_t m_offset;
   int32_t m_dataForkOffset;
   int32_t m_totalDataForkWritten;

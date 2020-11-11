@@ -9,11 +9,10 @@
 
 #include "nscore.h"
 #include "nsTArray.h"
-#include "nsAutoPtr.h"
 #include "mozilla/Mutex.h"
 #include "mozilla/TimeStamp.h"
 #include "mozilla/Attributes.h"
-#include "nsIRunnable.h"
+#include "nsThreadUtils.h"
 
 #include "SQLiteMutex.h"
 #include "mozIStoragePendingStatement.h"
@@ -28,11 +27,14 @@ namespace storage {
 class Connection;
 class ResultSet;
 class StatementData;
+}  // namespace storage
+}  // namespace mozilla
 
-class AsyncExecuteStatements final : public nsIRunnable,
+namespace mozilla::storage {
+class AsyncExecuteStatements final : public Runnable,
                                      public mozIStoragePendingStatement {
  public:
-  NS_DECL_THREADSAFE_ISUPPORTS
+  NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_NSIRUNNABLE
   NS_DECL_MOZISTORAGEPENDINGSTATEMENT
 
@@ -64,10 +66,10 @@ class AsyncExecuteStatements final : public nsIRunnable,
    * @param _stmt
    *        The handle to control the execution of the statements.
    */
-  static nsresult execute(StatementDataArray &aStatements,
-                          Connection *aConnection, sqlite3 *aNativeConnection,
-                          mozIStorageStatementCallback *aCallback,
-                          mozIStoragePendingStatement **_stmt);
+  static nsresult execute(StatementDataArray&& aStatements,
+                          Connection* aConnection, sqlite3* aNativeConnection,
+                          mozIStorageStatementCallback* aCallback,
+                          mozIStoragePendingStatement** _stmt);
 
   /**
    * Indicates when events on the calling thread should run or not.  Certain
@@ -85,13 +87,13 @@ class AsyncExecuteStatements final : public nsIRunnable,
    * the calling thread.
    */
   nsresult notifyCompleteOnCallingThread();
-  nsresult notifyErrorOnCallingThread(mozIStorageError *aError);
-  nsresult notifyResultsOnCallingThread(ResultSet *aResultSet);
+  nsresult notifyErrorOnCallingThread(mozIStorageError* aError);
+  nsresult notifyResultsOnCallingThread(ResultSet* aResultSet);
 
  private:
-  AsyncExecuteStatements(StatementDataArray &aStatements,
-                         Connection *aConnection, sqlite3 *aNativeConnection,
-                         mozIStorageStatementCallback *aCallback);
+  AsyncExecuteStatements(StatementDataArray&& aStatements,
+                         Connection* aConnection, sqlite3* aNativeConnection,
+                         mozIStorageStatementCallback* aCallback);
   ~AsyncExecuteStatements();
 
   /**
@@ -108,7 +110,7 @@ class AsyncExecuteStatements final : public nsIRunnable,
    *        to set the proper state.
    * @returns true if we should continue to process statements, false otherwise.
    */
-  bool bindExecuteAndProcessStatement(StatementData &aData,
+  bool bindExecuteAndProcessStatement(StatementData& aData,
                                       bool aLastStatement);
 
   /**
@@ -117,26 +119,25 @@ class AsyncExecuteStatements final : public nsIRunnable,
    *
    * @pre mMutex is not held
    *
-   * @param aStatement
-   *        The statement to execute and then process.
+   * @param aData
+   *        The StatementData to execute, and then process.
    * @param aLastStatement
    *        Indicates if this is the last statement or not.  If it is, we have
    *        to set the proper state.
    * @returns true if we should continue to process statements, false otherwise.
    */
-  bool executeAndProcessStatement(sqlite3_stmt *aStatement,
-                                  bool aLastStatement);
+  bool executeAndProcessStatement(StatementData& aData, bool aLastStatement);
 
   /**
    * Executes a statement to completion, properly handling any error conditions.
    *
    * @pre mMutex is not held
    *
-   * @param aStatement
-   *        The statement to execute to completion.
+   * @param aData
+   *        The StatementData to execute to completion.
    * @returns true if results were obtained, false otherwise.
    */
-  bool executeStatement(sqlite3_stmt *aStatement);
+  bool executeStatement(StatementData& aData);
 
   /**
    * Builds a result set up with a row from a given statement.  If we meet the
@@ -147,7 +148,7 @@ class AsyncExecuteStatements final : public nsIRunnable,
    * @param aStatement
    *        The statement to get the row data from.
    */
-  nsresult buildAndNotifyResults(sqlite3_stmt *aStatement);
+  nsresult buildAndNotifyResults(sqlite3_stmt* aStatement);
 
   /**
    * Notifies callback about completion, and does any necessary cleanup.
@@ -169,8 +170,8 @@ class AsyncExecuteStatements final : public nsIRunnable,
    * @param aError
    *        The error object to notify the caller with.
    */
-  nsresult notifyError(int32_t aErrorCode, const char *aMessage);
-  nsresult notifyError(mozIStorageError *aError);
+  nsresult notifyError(int32_t aErrorCode, const char* aMessage);
+  nsresult notifyError(mozIStorageError* aError);
 
   /**
    * Notifies the callback about a result set.
@@ -189,7 +190,7 @@ class AsyncExecuteStatements final : public nsIRunnable,
 
   StatementDataArray mStatements;
   RefPtr<Connection> mConnection;
-  sqlite3 *mNativeConnection;
+  sqlite3* mNativeConnection;
   bool mHasTransaction;
   // Note, this may not be a threadsafe object - never addref/release off
   // the calling thread.  We take a reference when this is created, and
@@ -226,7 +227,7 @@ class AsyncExecuteStatements final : public nsIRunnable,
    *     held.  It is always read from within the lock on the background thread,
    *     but not on the calling thread (see shouldNotify for why).
    */
-  Mutex &mMutex;
+  Mutex& mMutex;
 
   /**
    * The wrapped SQLite recursive connection mutex.  We use it whenever we call
@@ -234,17 +235,9 @@ class AsyncExecuteStatements final : public nsIRunnable,
    * prior to the call and holding it until the point where we no longer care
    * about the error message, the user gets reliable error messages.
    */
-  SQLiteMutex &mDBMutex;
-
-  /**
-   * The instant at which the request was started.
-   *
-   * Used by telemetry.
-   */
-  TimeStamp mRequestStartDate;
+  SQLiteMutex& mDBMutex;
 };
 
-}  // namespace storage
-}  // namespace mozilla
+}  // namespace mozilla::storage
 
 #endif  // mozStorageAsyncStatementExecution_h

@@ -22,9 +22,8 @@ class GLContextEAGL : public GLContext {
 
  public:
   MOZ_DECLARE_REFCOUNTED_VIRTUAL_TYPENAME(GLContextEAGL, override)
-  GLContextEAGL(CreateContextFlags flags, const SurfaceCaps& caps,
-                EAGLContext* context, GLContext* sharedContext,
-                bool isOffscreen, ContextProfile profile);
+  GLContextEAGL(const GLContextDesc&, EAGLContext* context,
+                GLContext* sharedContext, ContextProfile profile);
 
   ~GLContextEAGL();
 
@@ -37,8 +36,6 @@ class GLContextEAGL : public GLContext {
     return static_cast<GLContextEAGL*>(gl);
   }
 
-  bool Init() override;
-
   bool AttachToWindow(nsIWidget* aWidget);
 
   EAGLContext* GetEAGLContext() const { return mContext; }
@@ -47,7 +44,7 @@ class GLContextEAGL : public GLContext {
 
   virtual bool IsCurrentImpl() const override;
 
-  virtual bool SetupLookupFunction() override;
+  Maybe<SymbolLoader> GetSymbolLoader() const override;
 
   virtual bool IsDoubleBuffered() const override;
 

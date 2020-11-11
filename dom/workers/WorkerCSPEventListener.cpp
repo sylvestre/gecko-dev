@@ -28,8 +28,8 @@ class WorkerCSPEventRunnable final : public MainThreadWorkerRunnable {
 
     RefPtr<mozilla::dom::Event> event =
         mozilla::dom::SecurityPolicyViolationEvent::Constructor(
-            aWorkerPrivate->GlobalScope(),
-            NS_LITERAL_STRING("securitypolicyviolation"), violationEventInit);
+            aWorkerPrivate->GlobalScope(), u"securitypolicyviolation"_ns,
+            violationEventInit);
     event->SetTrusted(true);
 
     aWorkerPrivate->GlobalScope()->DispatchEvent(*event);
@@ -43,8 +43,9 @@ class WorkerCSPEventRunnable final : public MainThreadWorkerRunnable {
 
 NS_IMPL_ISUPPORTS(WorkerCSPEventListener, nsICSPEventListener)
 
-/* static */ already_AddRefed<WorkerCSPEventListener>
-WorkerCSPEventListener::Create(WorkerPrivate* aWorkerPrivate) {
+/* static */
+already_AddRefed<WorkerCSPEventListener> WorkerCSPEventListener::Create(
+    WorkerPrivate* aWorkerPrivate) {
   MOZ_ASSERT(aWorkerPrivate);
   aWorkerPrivate->AssertIsOnWorkerThread();
 

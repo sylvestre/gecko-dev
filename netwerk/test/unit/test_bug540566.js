@@ -2,6 +2,8 @@
  * http://creativecommons.org/publicdomain/zero/1.0/
  */
 
+"use strict";
+
 function continue_test(status, entry) {
   Assert.equal(status, Cr.NS_OK);
   // TODO - mayhemer: remove this tests completely
@@ -11,8 +13,12 @@ function continue_test(status, entry) {
 }
 
 function run_test() {
-  asyncOpenCacheEntry("http://some.key/",
-                      "disk", Ci.nsICacheStorage.OPEN_NORMALLY, null,
-                      continue_test);
+  asyncOpenCacheEntry(
+    "http://some.key/",
+    "disk",
+    Ci.nsICacheStorage.OPEN_NORMALLY,
+    null,
+    continue_test
+  );
   do_test_pending();
 }

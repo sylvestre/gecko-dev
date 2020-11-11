@@ -1,9 +1,9 @@
 //! # Configs
 //!
 //! There isn't just one type of Base64; that would be too simple. You need to choose a character
-//! set (standard or URL-safe), padding suffix (yes/no), and line wrap (line length, line ending).
+//! set (standard, URL-safe, etc) and padding suffix (yes/no).
 //! The `Config` struct encapsulates this info. There are some common configs included: `STANDARD`,
-//! `MIME`, etc. You can also make your own `Config` if needed.
+//! `URL_SAFE`, etc. You can also make your own `Config` if needed.
 //!
 //! The functions that don't have `config` in the name (e.g. `encode()` and `decode()`) use the
 //! `STANDARD` config .
@@ -25,15 +25,11 @@
 //! | `encode_config_buf`     | Appends to provided `String` | Only if `String` needs to grow |
 //! | `encode_config_slice`   | Writes to provided `&[u8]`   | Never                          |
 //!
-//! All of the encoding functions that take a `Config` will pad, line wrap, etc, as per the config.
+//! All of the encoding functions that take a `Config` will pad as per the config.
 //!
 //! # Decoding
 //!
 //! Just as for encoding, there are different decoding functions available.
-//!
-//! Note that all decode functions that take a config will allocate a copy of the input if you
-//! specify a config that requires whitespace to be stripped. If you care about speed, don't use
-//! formats that line wrap and then require whitespace stripping.
 //!
 //! | Function                | Output                        | Allocates                      |
 //! | ----------------------- | ----------------------------- | ------------------------------ |
@@ -45,9 +41,15 @@
 //! Unlike encoding, where all possible input is valid, decoding can fail (see `DecodeError`).
 //!
 //! Input can be invalid because it has invalid characters or invalid padding. (No padding at all is
-//! valid, but excess padding is not.)
+//! valid, but excess padding is not.) Whitespace in the input is invalid.
 //!
-//! Whitespace in the input is invalid unless `strip_whitespace` is enabled in the `Config` used.
+//! # `Read` and `Write`
+//!
+//! To map a `Read` of b64 bytes to the decoded bytes, wrap a reader (file, network socket, etc)
+//! with `base64::read::DecoderReader`. To write raw bytes and have them b64 encoded on the fly,
+//! wrap a writer with `base64::write::EncoderWriter`. There is some performance overhead (15% or
+//! so) because of the necessary buffer shuffling -- still fast enough that almost nobody cares.
+//! Also, these implementations do not heap allocate.
 //!
 //! # Panics
 //!
@@ -55,25 +57,49 @@
 //!
 //! The `_slice` flavors of encode or decode will panic if the provided output slice is too small,
 
+#![cfg_attr(feature = "cargo-clippy", allow(clippy::cast_lossless))]
 #![deny(
-    missing_docs, trivial_casts, trivial_numeric_casts, unused_extern_crates, unused_import_braces,
-    unused_results, variant_size_differences, warnings
+    missing_docs,
+    trivial_casts,
+    trivial_numeric_casts,
+    unused_extern_crates,
+    unused_import_braces,
+    unused_results,
+    variant_size_differences,
+    warnings
 )]
+#![forbid(unsafe_code)]
+#![cfg_attr(not(any(feature = "std", test)), no_std)]
 
-extern crate byteorder;
+#[cfg(all(feature = "alloc", not(any(feature = "std", test))))]
+extern crate alloc;
+#[cfg(any(feature = "std", test))]
+extern crate std as alloc;
+
+#[cfg(test)]
+#[macro_use]
+extern crate doc_comment;
+
+#[cfg(test)]
+doctest!("../README.md");
 
 mod chunked_encoder;
 pub mod display;
-mod line_wrap;
+#[cfg(any(feature = "std", test))]
+pub mod read;
 mod tables;
-
-use line_wrap::{line_wrap, line_wrap_parameters};
+#[cfg(any(feature = "std", test))]
+pub mod write;
 
 mod encode;
-pub use encode::{encode, encode_config, encode_config_buf, encode_config_slice};
+pub use crate::encode::encode_config_slice;
+#[cfg(any(feature = "alloc", feature = "std", test))]
+pub use crate::encode::{encode, encode_config, encode_config_buf};
 
 mod decode;
-pub use decode::{decode, decode_config, decode_config_buf, decode_config_slice, DecodeError};
+#[cfg(any(feature = "alloc", feature = "std", test))]
+pub use crate::decode::{decode, decode_config, decode_config_buf};
+pub use crate::decode::{decode_config_slice, DecodeError};
 
 #[cfg(test)]
 mod tests;
@@ -81,57 +107,42 @@ mod tests;
 /// Available encoding character sets
 #[derive(Clone, Copy, Debug)]
 pub enum CharacterSet {
-    /// The standard character set (uses `+` and `/`)
+    /// The standard character set (uses `+` and `/`).
+    ///
+    /// See [RFC 3548](https://tools.ietf.org/html/rfc3548#section-3).
     Standard,
-    /// The URL safe character set (uses `-` and `_`)
+    /// The URL safe character set (uses `-` and `_`).
+    ///
+    /// See [RFC 3548](https://tools.ietf.org/html/rfc3548#section-4).
     UrlSafe,
-    /// The `crypt(3)` character set (uses `./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz`)
+    /// The `crypt(3)` character set (uses `./0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz`).
+    ///
+    /// Not standardized, but folk wisdom on the net asserts that this alphabet is what crypt uses.
     Crypt,
+    /// The character set used in IMAP-modified UTF-7 (uses `+` and `,`).
+    ///
+    /// See [RFC 3501](https://tools.ietf.org/html/rfc3501#section-5.1.3)
+    ImapMutf7,
 }
 
 impl CharacterSet {
-    fn encode_table(&self) -> &'static [u8; 64] {
-        match *self {
+    fn encode_table(self) -> &'static [u8; 64] {
+        match self {
             CharacterSet::Standard => tables::STANDARD_ENCODE,
             CharacterSet::UrlSafe => tables::URL_SAFE_ENCODE,
             CharacterSet::Crypt => tables::CRYPT_ENCODE,
+            CharacterSet::ImapMutf7 => tables::IMAP_MUTF7_ENCODE,
         }
     }
 
-    fn decode_table(&self) -> &'static [u8; 256] {
-        match *self {
+    fn decode_table(self) -> &'static [u8; 256] {
+        match self {
             CharacterSet::Standard => tables::STANDARD_DECODE,
             CharacterSet::UrlSafe => tables::URL_SAFE_DECODE,
             CharacterSet::Crypt => tables::CRYPT_DECODE,
+            CharacterSet::ImapMutf7 => tables::IMAP_MUTF7_DECODE,
         }
     }
-}
-
-/// Line ending used in optional line wrapping.
-#[derive(Clone, Copy, Debug)]
-pub enum LineEnding {
-    /// Unix-style \n
-    LF,
-    /// Windows-style \r\n
-    CRLF,
-}
-
-impl LineEnding {
-    fn len(&self) -> usize {
-        match *self {
-            LineEnding::LF => 1,
-            LineEnding::CRLF => 2,
-        }
-    }
-}
-
-/// Line wrap configuration.
-#[derive(Clone, Copy, Debug)]
-pub enum LineWrap {
-    /// Don't wrap.
-    NoWrap,
-    /// Wrap lines with the specified length and line ending. The length must be > 0.
-    Wrap(usize, LineEnding),
 }
 
 /// Contains configuration parameters for base64 encoding
@@ -141,32 +152,33 @@ pub struct Config {
     char_set: CharacterSet,
     /// True to pad output with `=` characters
     pad: bool,
-    /// Remove whitespace before decoding, at the cost of an allocation. Whitespace is defined
-    /// according to POSIX-locale `isspace`, meaning \n \r \f \t \v and space.
-    strip_whitespace: bool,
-    /// ADT signifying whether to linewrap output, and if so by how many characters and with what
-    /// ending
-    line_wrap: LineWrap,
+    /// True to ignore excess nonzero bits in the last few symbols, otherwise an error is returned.
+    decode_allow_trailing_bits: bool,
 }
 
 impl Config {
     /// Create a new `Config`.
-    pub fn new(
-        char_set: CharacterSet,
-        pad: bool,
-        strip_whitespace: bool,
-        input_line_wrap: LineWrap,
-    ) -> Config {
-        let line_wrap = match input_line_wrap {
-            LineWrap::Wrap(0, _) => LineWrap::NoWrap,
-            _ => input_line_wrap,
-        };
-
+    pub fn new(char_set: CharacterSet, pad: bool) -> Config {
         Config {
             char_set,
             pad,
-            strip_whitespace,
-            line_wrap,
+            decode_allow_trailing_bits: false,
+        }
+    }
+
+    /// Sets whether to pad output with `=` characters.
+    pub fn pad(self, pad: bool) -> Config {
+        Config { pad, ..self }
+    }
+
+    /// Sets whether to emit errors for nonzero trailing bits.
+    ///
+    /// This is useful when implementing
+    /// [forgiving-base64 decode](https://infra.spec.whatwg.org/#forgiving-base64-decode).
+    pub fn decode_allow_trailing_bits(self, allow: bool) -> Config {
+        Config {
+            decode_allow_trailing_bits: allow,
+            ..self
         }
     }
 }
@@ -175,46 +187,40 @@ impl Config {
 pub const STANDARD: Config = Config {
     char_set: CharacterSet::Standard,
     pad: true,
-    strip_whitespace: false,
-    line_wrap: LineWrap::NoWrap,
+    decode_allow_trailing_bits: false,
 };
 
 /// Standard character set without padding.
 pub const STANDARD_NO_PAD: Config = Config {
     char_set: CharacterSet::Standard,
     pad: false,
-    strip_whitespace: false,
-    line_wrap: LineWrap::NoWrap,
-};
-
-/// As per standards for MIME encoded messages
-pub const MIME: Config = Config {
-    char_set: CharacterSet::Standard,
-    pad: true,
-    strip_whitespace: true,
-    line_wrap: LineWrap::Wrap(76, LineEnding::CRLF),
+    decode_allow_trailing_bits: false,
 };
 
 /// URL-safe character set with padding
 pub const URL_SAFE: Config = Config {
     char_set: CharacterSet::UrlSafe,
     pad: true,
-    strip_whitespace: false,
-    line_wrap: LineWrap::NoWrap,
+    decode_allow_trailing_bits: false,
 };
 
 /// URL-safe character set without padding
 pub const URL_SAFE_NO_PAD: Config = Config {
     char_set: CharacterSet::UrlSafe,
     pad: false,
-    strip_whitespace: false,
-    line_wrap: LineWrap::NoWrap,
+    decode_allow_trailing_bits: false,
 };
 
 /// As per `crypt(3)` requirements
 pub const CRYPT: Config = Config {
     char_set: CharacterSet::Crypt,
     pad: false,
-    strip_whitespace: false,
-    line_wrap: LineWrap::NoWrap,
+    decode_allow_trailing_bits: false,
+};
+
+/// IMAP modified UTF-7 requirements
+pub const IMAP_MUTF7: Config = Config {
+    char_set: CharacterSet::ImapMutf7,
+    pad: false,
+    decode_allow_trailing_bits: false,
 };

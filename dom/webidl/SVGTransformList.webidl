@@ -10,6 +10,7 @@
  * liability, trademark and document use rules apply.
  */
 
+[Exposed=Window]
 interface SVGTransformList {
   readonly attribute unsigned long numberOfItems;
   [Throws]
@@ -26,7 +27,8 @@ interface SVGTransformList {
   SVGTransform removeItem(unsigned long index);
   [Throws]
   SVGTransform appendItem(SVGTransform newItem);
-  SVGTransform createSVGTransformFromMatrix(SVGMatrix matrix);
+  [Throws]
+  SVGTransform createSVGTransformFromMatrix(optional DOMMatrix2DInit matrix = {});
   [Throws]
   SVGTransform? consolidate();
 

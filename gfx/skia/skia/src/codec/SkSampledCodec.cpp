@@ -5,13 +5,13 @@
  * found in the LICENSE file.
  */
 
-#include "SkCodec.h"
-#include "SkCodecPriv.h"
-#include "SkMath.h"
-#include "SkMathPriv.h"
-#include "SkSampledCodec.h"
-#include "SkSampler.h"
-#include "SkTemplates.h"
+#include "include/codec/SkCodec.h"
+#include "include/core/SkMath.h"
+#include "include/private/SkTemplates.h"
+#include "src/codec/SkCodecPriv.h"
+#include "src/codec/SkSampledCodec.h"
+#include "src/codec/SkSampler.h"
+#include "src/core/SkMathPriv.h"
 
 SkSampledCodec::SkSampledCodec(SkCodec* codec, ExifOrientationBehavior behavior)
     : INHERITED(codec, behavior)
@@ -101,7 +101,7 @@ SkCodec::Result SkSampledCodec::onGetAndroidPixels(const SkImageInfo& info, void
     int scaledSubsetWidth = info.width();
     int scaledSubsetHeight = info.height();
 
-    const SkImageInfo scaledInfo = info.makeWH(scaledSize.width(), scaledSize.height());
+    const SkImageInfo scaledInfo = info.makeDimensions(scaledSize);
 
     {
         // Although startScanlineDecode expects the bottom and top to match the
@@ -113,17 +113,17 @@ SkCodec::Result SkSampledCodec::onGetAndroidPixels(const SkImageInfo& info, void
         const SkCodec::Result startResult = this->codec()->startIncrementalDecode(
                 scaledInfo, pixels, rowBytes, &codecOptions);
         if (SkCodec::kSuccess == startResult) {
-            int rowsDecoded;
+            int rowsDecoded = 0;
             const SkCodec::Result incResult = this->codec()->incrementalDecode(&rowsDecoded);
             if (incResult == SkCodec::kSuccess) {
                 return SkCodec::kSuccess;
             }
-            SkASSERT(SkCodec::kIncompleteInput == incResult);
+            SkASSERT(incResult == SkCodec::kIncompleteInput || incResult == SkCodec::kErrorInInput);
 
             // FIXME: Can zero initialized be read from SkCodec::fOptions?
             this->codec()->fillIncompleteImage(scaledInfo, pixels, rowBytes,
                     options.fZeroInitialized, scaledSubsetHeight, rowsDecoded);
-            return SkCodec::kIncompleteInput;
+            return incResult;
         } else if (startResult != SkCodec::kUnimplemented) {
             return startResult;
         }
@@ -211,7 +211,7 @@ SkCodec::Result SkSampledCodec::sampledDecode(const SkImageInfo& info, void* pix
     const int startY = samplingOffsetY + subsetY;
     const int dstHeight = info.height();
 
-    const SkImageInfo nativeInfo = info.makeWH(nativeSize.width(), nativeSize.height());
+    const SkImageInfo nativeInfo = info.makeDimensions(nativeSize);
 
     {
         // Although startScanlineDecode expects the bottom and top to match the
@@ -243,7 +243,7 @@ SkCodec::Result SkSampledCodec::sampledDecode(const SkImageInfo& info, void* pix
 
             sampler->setSampleY(sampleY);
 
-            int rowsDecoded;
+            int rowsDecoded = 0;
             const SkCodec::Result incResult = this->codec()->incrementalDecode(&rowsDecoded);
             if (incResult == SkCodec::kSuccess) {
                 return SkCodec::kSuccess;
@@ -254,6 +254,9 @@ SkCodec::Result SkSampledCodec::sampledDecode(const SkImageInfo& info, void* pix
             this->codec()->fillIncompleteImage(info, pixels, rowBytes, options.fZeroInitialized,
                                                info.height(), rowsDecoded);
             return incResult;
+        } else if (startResult == SkCodec::kIncompleteInput
+                || startResult == SkCodec::kErrorInInput) {
+            return SkCodec::kInvalidInput;
         } else if (startResult != SkCodec::kUnimplemented) {
             return startResult;
         } // kUnimplemented means use the old method.
@@ -262,7 +265,9 @@ SkCodec::Result SkSampledCodec::sampledDecode(const SkImageInfo& info, void* pix
     // Start the scanline decode.
     SkCodec::Result result = this->codec()->startScanlineDecode(nativeInfo,
             &sampledOptions);
-    if (SkCodec::kSuccess != result) {
+    if (SkCodec::kIncompleteInput == result || SkCodec::kErrorInInput == result) {
+        return SkCodec::kInvalidInput;
+    } else if (SkCodec::kSuccess != result) {
         return result;
     }
 

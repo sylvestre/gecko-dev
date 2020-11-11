@@ -8,12 +8,22 @@ Transform the signing task into an actual task description.
 from __future__ import absolute_import, print_function, unicode_literals
 
 from taskgraph.transforms.base import TransformSequence
-from taskgraph.util.partners import (get_partner_config_by_kind, check_if_partners_enabled)
+from taskgraph.util.attributes import copy_attributes_from_dependent_job
+from taskgraph.util.partners import get_partner_config_by_kind
 from taskgraph.util.signed_artifacts import generate_specifications_of_artifacts_to_sign
 
 transforms = TransformSequence()
 
-transforms.add(check_if_partners_enabled)
+
+@transforms.add
+def set_mac_label(config, jobs):
+    for job in jobs:
+        dep_job = job["primary-dependency"]
+        job.setdefault("label", dep_job.label.replace("notarization-part-1", "signing"))
+        assert job["label"] != dep_job.label, "Unable to determine label for {}".format(
+            config.kind
+        )
+        yield job
 
 
 @transforms.add
@@ -23,21 +33,32 @@ def define_upstream_artifacts(config, jobs):
         return
 
     for job in jobs:
-        dep_job = job['primary-dependency']
-        repack_id = job['extra']['repack_id']
+        dep_job = job["primary-dependency"]
+        job["depname"] = dep_job.label
+        job["attributes"] = copy_attributes_from_dependent_job(dep_job)
+
+        repack_ids = job["extra"]["repack_ids"]
         artifacts_specifications = generate_specifications_of_artifacts_to_sign(
-            dep_job,
+            config,
+            job,
             keep_locale_template=True,
             kind=config.kind,
         )
-        job['upstream-artifacts'] = [{
-            'taskId': {'task-reference': '<{}>'.format(job['depname'])},
-            'taskType': 'build',
-            'paths': [
-                path_template.format(locale=repack_id)
-                for path_template in spec['artifacts']
-            ],
-            'formats': spec['formats'],
-        } for spec in artifacts_specifications]
+        task_type = "build"
+        if "notarization" in job["depname"]:
+            task_type = "scriptworker"
+        job["upstream-artifacts"] = [
+            {
+                "taskId": {"task-reference": "<{}>".format(dep_job.kind)},
+                "taskType": task_type,
+                "paths": [
+                    path_template.format(locale=repack_id)
+                    for path_template in spec["artifacts"]
+                    for repack_id in repack_ids
+                ],
+                "formats": spec["formats"],
+            }
+            for spec in artifacts_specifications
+        ]
 
         yield job

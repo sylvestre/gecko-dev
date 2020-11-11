@@ -10,7 +10,9 @@
 const HTML_LONG_URL = CONTENT_TYPE_SJS + "?fmt=html-long";
 
 add_task(async function() {
-  const { tab, monitor } = await initNetMonitor(CUSTOM_GET_URL);
+  const { tab, monitor } = await initNetMonitor(CUSTOM_GET_URL, {
+    requestCount: 1,
+  });
   info("Starting test... ");
 
   // This test could potentially be slow because over 100 KB of stuff
@@ -19,15 +21,16 @@ add_task(async function() {
 
   const { document, store, windowRequire } = monitor.panelWin;
   const Actions = windowRequire("devtools/client/netmonitor/src/actions/index");
-  const {
-    getDisplayedRequests,
-    getSortedRequests,
-  } = windowRequire("devtools/client/netmonitor/src/selectors/index");
+  const { getDisplayedRequests, getSortedRequests } = windowRequire(
+    "devtools/client/netmonitor/src/selectors/index"
+  );
 
   store.dispatch(Actions.batchEnable(false));
 
   let wait = waitForNetworkEvents(monitor, 1);
-  await ContentTask.spawn(tab.linkedBrowser, HTML_LONG_URL, async function(url) {
+  await SpecialPowers.spawn(tab.linkedBrowser, [HTML_LONG_URL], async function(
+    url
+  ) {
     content.wrappedJSObject.performRequests(1, url);
   });
   await wait;
@@ -37,27 +40,39 @@ add_task(async function() {
   const requestsListStatus = requestItem.querySelector(".status-code");
   EventUtils.sendMouseEvent({ type: "mouseover" }, requestsListStatus);
   await waitUntil(() => requestsListStatus.title);
+  await waitForDOMIfNeeded(requestItem, ".requests-list-timings-total");
 
   verifyRequestItemTarget(
     document,
     getDisplayedRequests(store.getState()),
-    getSortedRequests(store.getState()).get(0),
+    getSortedRequests(store.getState())[0],
     "GET",
     CONTENT_TYPE_SJS + "?fmt=html-long",
     {
       status: 200,
       statusText: "OK",
-    });
+    }
+  );
 
-  wait = waitForDOM(document, "#response-panel .CodeMirror-code");
+  wait = waitForDOM(document, "#response-panel .accordion-item", 2);
   store.dispatch(Actions.toggleNetworkDetails());
-  EventUtils.sendMouseEvent({ type: "click" },
-    document.querySelector("#response-tab"));
+  EventUtils.sendMouseEvent(
+    { type: "click" },
+    document.querySelector("#response-tab")
+  );
   await wait;
 
-  const text = document.querySelector(".CodeMirror-line").textContent;
+  wait = waitForDOM(document, "#response-panel .CodeMirror-code");
+  const payloadHeader = document.querySelector(
+    "#response-panel .accordion-item:last-child .accordion-header"
+  );
+  clickElement(payloadHeader, monitor);
+  await wait;
 
-  ok(text.match(/^<p>/), "The text shown in the source editor is incorrect.");
+  ok(
+    getCodeMirrorValue(monitor).match(/^<p>/),
+    "The text shown in the source editor is incorrect."
+  );
 
   await teardown(monitor);
 

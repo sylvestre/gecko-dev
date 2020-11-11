@@ -60,87 +60,51 @@ def method(prop):
         return prop.camel_case[1:]
     return prop.camel_case
 
-# Colors, integers and lengths are easy as well.
-#
-# TODO(emilio): This will go away once the rest of the longhands have been
-# moved or perhaps using a blacklist for the ones with non-layout-dependence
-# but other non-trivial dependence like scrollbar colors.
-SERIALIZED_PREDEFINED_TYPES = [
-    "Appearance",
-    "AlignContent",
-    "AlignItems",
-    "AlignSelf",
-    "BackgroundRepeat",
-    "BackgroundSize",
-    "BorderImageRepeat",
-    "BorderStyle",
-    "BreakBetween",
-    "BreakWithin",
-    "Clear",
-    "ClipRectOrAuto",
-    "Color",
-    "Content",
-    "CounterIncrement",
-    "CounterReset",
-    "FillRule",
-    "Float",
-    "FontFamily",
-    "FontFeatureSettings",
-    "FontLanguageOverride",
-    "FontSize",
-    "FontSizeAdjust",
-    "FontStretch",
-    "FontStyle",
-    "FontSynthesis",
-    "FontVariant",
-    "FontVariantAlternates",
-    "FontVariantEastAsian",
-    "FontVariantLigatures",
-    "FontVariantNumeric",
-    "FontVariationSettings",
-    "FontWeight",
-    "Integer",
-    "ImageLayer",
-    "JustifyContent",
-    "JustifyItems",
-    "JustifySelf",
-    "Length",
-    "LengthOrPercentage",
-    "NonNegativeLength",
-    "NonNegativeLengthOrPercentage",
-    "ListStyleType",
-    "OffsetPath",
-    "Opacity",
-    "OutlineStyle",
-    "OverflowWrap",
-    "Position",
-    "Quotes",
-    "Resize",
-    "Rotate",
-    "Scale",
-    "TextAlign",
-    "Translate",
-    "TimingFunction",
-    "TransformStyle",
-    "UserSelect",
-    "background::BackgroundSize",
-    "basic_shape::ClippingShape",
-    "basic_shape::FloatAreaShape",
-    "position::HorizontalPosition",
-    "position::VerticalPosition",
-    "url::ImageUrlOrNone",
-    "Appearance",
-    "OverscrollBehavior",
-    "OverflowClipBox",
-    "ScrollSnapType",
-    "Float",
-    "Overflow",
+# TODO(emilio): Get this to zero.
+LONGHANDS_NOT_SERIALIZED_WITH_SERVO = [
+    # Servo serializes one value when both are the same, a few tests expect two.
+    "border-spacing",
+
+    # Resolved value should be zero when the column-rule-style is none.
+    "column-rule-width",
+
+    # These resolve auto to zero in a few cases, but not all.
+    "max-height",
+    "max-width",
+    "min-height",
+    "min-width",
+
+    # resistfingerprinting stuff.
+    "-moz-osx-font-smoothing",
+
+    # Layout dependent.
+    "width",
+    "height",
+    "line-height",
+    "grid-template-rows",
+    "grid-template-columns",
+    "perspective-origin",
+    "transform-origin",
+    "transform",
+    "top",
+    "right",
+    "bottom",
+    "left",
+    "border-top-width",
+    "border-right-width",
+    "border-bottom-width",
+    "border-left-width",
+    "margin-top",
+    "margin-right",
+    "margin-bottom",
+    "margin-left",
+    "padding-top",
+    "padding-right",
+    "padding-bottom",
+    "padding-left",
 ]
 
 def serialized_by_servo(prop):
-    # If the property requires layout information, no such luck.
-    if "GETCS_NEEDS_LAYOUT_FLUSH" in prop.flags:
-        return False
     if prop.type() == "shorthand":
         # FIXME: Need to serialize a value interpolated with currentcolor
         # properly to be able to use text-decoration, and figure out what to do
@@ -150,10 +114,7 @@ def serialized_by_servo(prop):
     # resistfingerprinting stuff.
     if prop.keyword and prop.name != "-moz-osx-font-smoothing":
         return True
-    if prop.predefined_type in SERIALIZED_PREDEFINED_TYPES:
-        return True
-    # TODO(emilio): Enable the rest of the longhands.
-    return False
+    return prop.name not in LONGHANDS_NOT_SERIALIZED_WITH_SERVO
 
 def exposed_on_getcs(prop):
     if prop.type() == "longhand":
@@ -172,8 +133,6 @@ def flags(prop):
         result.append("Internal")
     if prop.enabled_in == "":
         result.append("Inaccessible")
-    if "GETCS_NEEDS_LAYOUT_FLUSH" in prop.flags:
-        result.append("GetCSNeedsLayoutFlush")
     if "CAN_ANIMATE_ON_COMPOSITOR" in prop.flags:
         result.append("CanAnimateOnCompositor")
     if exposed_on_getcs(prop):

@@ -10,14 +10,14 @@ use crate::str::CssStringWriter;
 use crate::stylesheets::loader::StylesheetLoader;
 use crate::stylesheets::rule_parser::{InsertRuleContext, State};
 use crate::stylesheets::stylesheet::StylesheetContents;
-use crate::stylesheets::{CssRule, RulesMutateError};
+use crate::stylesheets::{AllowImportRules, CssRule, RulesMutateError};
 #[cfg(feature = "gecko")]
 use malloc_size_of::{MallocShallowSizeOf, MallocSizeOfOps};
 use servo_arc::{Arc, RawOffsetArc};
 use std::fmt::{self, Write};
 
 /// A list of CSS rules.
-#[derive(Debug)]
+#[derive(Debug, ToShmem)]
 pub struct CssRules(pub Vec<CssRule>);
 
 impl CssRules {
@@ -127,7 +127,8 @@ pub trait CssRulesHelpers {
         parent_stylesheet_contents: &StylesheetContents,
         index: usize,
         nested: bool,
-        loader: Option<&StylesheetLoader>,
+        loader: Option<&dyn StylesheetLoader>,
+        allow_import_rules: AllowImportRules,
     ) -> Result<CssRule, RulesMutateError>;
 }
 
@@ -139,7 +140,8 @@ impl CssRulesHelpers for RawOffsetArc<Locked<CssRules>> {
         parent_stylesheet_contents: &StylesheetContents,
         index: usize,
         nested: bool,
-        loader: Option<&StylesheetLoader>,
+        loader: Option<&dyn StylesheetLoader>,
+        allow_import_rules: AllowImportRules,
     ) -> Result<CssRule, RulesMutateError> {
         let new_rule = {
             let read_guard = lock.read();
@@ -176,6 +178,7 @@ impl CssRulesHelpers for RawOffsetArc<Locked<CssRules>> {
                 lock,
                 state,
                 loader,
+                allow_import_rules,
             )?
         };
 

@@ -6,8 +6,7 @@ https://bugzilla.mozilla.org/show_bug.cgi?id=1322273
 <head>
   <meta charset="utf-8">
   <title>Test for Bug 1322273</title>
-  <script type="application/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
-  <script type="application/javascript" src="/tests/SimpleTest/AddTask.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css"/>
 </head>
 <body>
@@ -38,7 +37,7 @@ add_task(async function() {
   await new Promise(resolve => frame.addEventListener("load", resolve, {once: true}));
 
   let win = frame.contentWindow;
-  let winID = SpecialPowers.getDOMWindowUtils(win).outerWindowID;
+  let winID = SpecialPowers.wrap(win).docShell.outerWindowID;
 
   win.eval("obj = {}");
   win.obj.foo = {bar: "baz"};

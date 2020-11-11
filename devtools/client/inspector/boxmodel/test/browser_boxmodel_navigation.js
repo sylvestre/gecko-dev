@@ -1,4 +1,3 @@
-/* vim: set ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -17,7 +16,7 @@ const TEST_URI = `
 
 add_task(async function() {
   await addTab("data:text/html," + encodeURIComponent(TEST_URI));
-  const {inspector, boxmodel} = await openLayoutView();
+  const { inspector, boxmodel } = await openLayoutView();
   await selectNode("div", inspector);
 
   await testInitialFocus(inspector, boxmodel);
@@ -33,8 +32,11 @@ function testInitialFocus(inspector, boxmodel) {
   container.focus();
   EventUtils.synthesizeKey("KEY_Enter");
 
-  is(container.getAttribute("activedescendant"), "boxmodel-main devtools-monospace",
-    "Should be set to the position layout.");
+  is(
+    container.getAttribute("activedescendant"),
+    "boxmodel-main devtools-monospace",
+    "Should be set to the position layout."
+  );
 }
 
 function testChangingLevels(inspector, boxmodel) {
@@ -46,36 +48,60 @@ function testChangingLevels(inspector, boxmodel) {
   EventUtils.synthesizeKey("KEY_Escape");
 
   EventUtils.synthesizeKey("KEY_ArrowDown");
-  is(container.getAttribute("activedescendant"), "boxmodel-margins",
-    "Should be set to the margin layout.");
+  is(
+    container.getAttribute("activedescendant"),
+    "boxmodel-margins",
+    "Should be set to the margin layout."
+  );
 
   EventUtils.synthesizeKey("KEY_ArrowDown");
-  is(container.getAttribute("activedescendant"), "boxmodel-borders",
-    "Should be set to the border layout.");
+  is(
+    container.getAttribute("activedescendant"),
+    "boxmodel-borders",
+    "Should be set to the border layout."
+  );
 
   EventUtils.synthesizeKey("KEY_ArrowDown");
-  is(container.getAttribute("activedescendant"), "boxmodel-paddings",
-    "Should be set to the padding layout.");
+  is(
+    container.getAttribute("activedescendant"),
+    "boxmodel-paddings",
+    "Should be set to the padding layout."
+  );
 
   EventUtils.synthesizeKey("KEY_ArrowDown");
-  is(container.getAttribute("activedescendant"), "boxmodel-contents",
-    "Should be set to the content layout.");
+  is(
+    container.getAttribute("activedescendant"),
+    "boxmodel-contents",
+    "Should be set to the content layout."
+  );
 
   EventUtils.synthesizeKey("KEY_ArrowUp");
-  is(container.getAttribute("activedescendant"), "boxmodel-paddings",
-    "Should be set to the padding layout.");
+  is(
+    container.getAttribute("activedescendant"),
+    "boxmodel-paddings",
+    "Should be set to the padding layout."
+  );
 
   EventUtils.synthesizeKey("KEY_ArrowUp");
-  is(container.getAttribute("activedescendant"), "boxmodel-borders",
-    "Should be set to the border layout.");
+  is(
+    container.getAttribute("activedescendant"),
+    "boxmodel-borders",
+    "Should be set to the border layout."
+  );
 
   EventUtils.synthesizeKey("KEY_ArrowUp");
-  is(container.getAttribute("activedescendant"), "boxmodel-margins",
-    "Should be set to the margin layout.");
+  is(
+    container.getAttribute("activedescendant"),
+    "boxmodel-margins",
+    "Should be set to the margin layout."
+  );
 
   EventUtils.synthesizeKey("KEY_ArrowUp");
-  is(container.getAttribute("activedescendant"), "boxmodel-main devtools-monospace",
-    "Should be set to the position layout.");
+  is(
+    container.getAttribute("activedescendant"),
+    "boxmodel-main devtools-monospace",
+    "Should be set to the position layout."
+  );
 }
 
 function testTabbingWrapAround(inspector, boxmodel) {
@@ -87,8 +113,9 @@ function testTabbingWrapAround(inspector, boxmodel) {
 
   const editLevel = container.getAttribute("activedescendant").split(" ")[0];
   const dataLevel = doc.querySelector(`.${editLevel}`).getAttribute("data-box");
-  const editBoxes = [...doc.querySelectorAll(
-    `[data-box="${dataLevel}"].boxmodel-editable`)];
+  const editBoxes = [
+    ...doc.querySelectorAll(`[data-box="${dataLevel}"].boxmodel-editable`),
+  ];
 
   EventUtils.synthesizeKey("KEY_Escape");
   editBoxes[3].focus();
@@ -96,7 +123,7 @@ function testTabbingWrapAround(inspector, boxmodel) {
   is(editBoxes[0], doc.activeElement, "Top edit box should have focus.");
 
   editBoxes[0].focus();
-  EventUtils.synthesizeKey("KEY_Tab", {shiftKey: true});
+  EventUtils.synthesizeKey("KEY_Tab", { shiftKey: true });
   is(editBoxes[3], doc.activeElement, "Left edit box should have focus.");
 }
 
@@ -114,7 +141,10 @@ function testChangingLevelsByClicking(inspector, boxmodel) {
 
   layouts.forEach(layout => {
     layout.click();
-    is(container.getAttribute("activedescendant"), layout.className,
-      "Should be set to" + layout.getAttribute("data-box") + "layout.");
+    is(
+      container.getAttribute("activedescendant"),
+      layout.className,
+      "Should be set to" + layout.getAttribute("data-box") + "layout."
+    );
   });
 }

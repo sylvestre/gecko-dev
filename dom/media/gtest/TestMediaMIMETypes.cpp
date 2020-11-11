@@ -9,7 +9,8 @@
 
 using namespace mozilla;
 
-TEST(MediaMIMETypes, DependentMIMEType) {
+TEST(MediaMIMETypes, DependentMIMEType)
+{
   static const struct {
     const char* mString;
     DependentMediaMIMEType mDependentMediaMIMEType;
@@ -27,7 +28,8 @@ TEST(MediaMIMETypes, DependentMIMEType) {
   }
 }
 
-TEST(MediaMIMETypes, MakeMediaMIMEType_bad) {
+TEST(MediaMIMETypes, MakeMediaMIMEType_bad)
+{
   static const char* tests[] = {"",       " ",   "/",    "audio",
                                 "audio/", "mp4", "/mp4", "a/b"};
 
@@ -38,7 +40,8 @@ TEST(MediaMIMETypes, MakeMediaMIMEType_bad) {
   }
 }
 
-TEST(MediaMIMETypes, MediaMIMEType) {
+TEST(MediaMIMETypes, MediaMIMEType)
+{
   static const struct {
     const char* mTypeString;
     const char* mAsString;
@@ -78,14 +81,15 @@ TEST(MediaMIMETypes, MediaMIMEType) {
   }
 }
 
-TEST(MediaMIMETypes, MediaCodecs) {
+TEST(MediaMIMETypes, MediaCodecs)
+{
   MediaCodecs empty("");
   EXPECT_TRUE(empty.IsEmpty());
   EXPECT_TRUE(empty.AsString().EqualsLiteral(""));
-  EXPECT_FALSE(empty.Contains(NS_LITERAL_STRING("")));
-  EXPECT_FALSE(empty.Contains(NS_LITERAL_STRING("c1")));
-  EXPECT_FALSE(empty.ContainsPrefix(NS_LITERAL_STRING("")));
-  EXPECT_FALSE(empty.ContainsPrefix(NS_LITERAL_STRING("c1")));
+  EXPECT_FALSE(empty.Contains(u""_ns));
+  EXPECT_FALSE(empty.Contains(u"c1"_ns));
+  EXPECT_FALSE(empty.ContainsPrefix(u""_ns));
+  EXPECT_FALSE(empty.ContainsPrefix(u"c1"_ns));
   int iterations = 0;
   for (const auto& codec : empty.Range()) {
     ++iterations;
@@ -96,11 +100,11 @@ TEST(MediaMIMETypes, MediaCodecs) {
   MediaCodecs space(" ");
   EXPECT_FALSE(space.IsEmpty());
   EXPECT_TRUE(space.AsString().EqualsLiteral(" "));
-  EXPECT_TRUE(space.Contains(NS_LITERAL_STRING("")));
-  EXPECT_FALSE(space.Contains(NS_LITERAL_STRING("c1")));
-  EXPECT_TRUE(space.ContainsPrefix(NS_LITERAL_STRING("")));
-  EXPECT_FALSE(space.ContainsPrefix(NS_LITERAL_STRING("c")));
-  EXPECT_FALSE(space.ContainsPrefix(NS_LITERAL_STRING("c1")));
+  EXPECT_TRUE(space.Contains(u""_ns));
+  EXPECT_FALSE(space.Contains(u"c1"_ns));
+  EXPECT_TRUE(space.ContainsPrefix(u""_ns));
+  EXPECT_FALSE(space.ContainsPrefix(u"c"_ns));
+  EXPECT_FALSE(space.ContainsPrefix(u"c1"_ns));
   iterations = 0;
   for (const auto& codec : space.Range()) {
     ++iterations;
@@ -111,13 +115,13 @@ TEST(MediaMIMETypes, MediaCodecs) {
   MediaCodecs one(" c1 ");
   EXPECT_FALSE(one.IsEmpty());
   EXPECT_TRUE(one.AsString().EqualsLiteral(" c1 "));
-  EXPECT_FALSE(one.Contains(NS_LITERAL_STRING("")));
-  EXPECT_TRUE(one.Contains(NS_LITERAL_STRING("c1")));
-  EXPECT_TRUE(one.ContainsPrefix(NS_LITERAL_STRING("")));
-  EXPECT_TRUE(one.ContainsPrefix(NS_LITERAL_STRING("c")));
-  EXPECT_TRUE(one.ContainsPrefix(NS_LITERAL_STRING("c1")));
-  EXPECT_FALSE(one.ContainsPrefix(NS_LITERAL_STRING("c1x")));
-  EXPECT_FALSE(one.ContainsPrefix(NS_LITERAL_STRING("c1 ")));
+  EXPECT_FALSE(one.Contains(u""_ns));
+  EXPECT_TRUE(one.Contains(u"c1"_ns));
+  EXPECT_TRUE(one.ContainsPrefix(u""_ns));
+  EXPECT_TRUE(one.ContainsPrefix(u"c"_ns));
+  EXPECT_TRUE(one.ContainsPrefix(u"c1"_ns));
+  EXPECT_FALSE(one.ContainsPrefix(u"c1x"_ns));
+  EXPECT_FALSE(one.ContainsPrefix(u"c1 "_ns));
   iterations = 0;
   for (const auto& codec : one.Range()) {
     ++iterations;
@@ -128,16 +132,16 @@ TEST(MediaMIMETypes, MediaCodecs) {
   MediaCodecs two(" c1 , c2 ");
   EXPECT_FALSE(two.IsEmpty());
   EXPECT_TRUE(two.AsString().EqualsLiteral(" c1 , c2 "));
-  EXPECT_FALSE(two.Contains(NS_LITERAL_STRING("")));
-  EXPECT_TRUE(two.Contains(NS_LITERAL_STRING("c1")));
-  EXPECT_TRUE(two.Contains(NS_LITERAL_STRING("c2")));
-  EXPECT_TRUE(two.ContainsPrefix(NS_LITERAL_STRING("")));
-  EXPECT_TRUE(two.ContainsPrefix(NS_LITERAL_STRING("c")));
-  EXPECT_FALSE(two.ContainsPrefix(NS_LITERAL_STRING("1")));
-  EXPECT_TRUE(two.ContainsPrefix(NS_LITERAL_STRING("c1")));
-  EXPECT_TRUE(two.ContainsPrefix(NS_LITERAL_STRING("c2")));
-  EXPECT_FALSE(two.ContainsPrefix(NS_LITERAL_STRING("c1x")));
-  EXPECT_FALSE(two.ContainsPrefix(NS_LITERAL_STRING("c2x")));
+  EXPECT_FALSE(two.Contains(u""_ns));
+  EXPECT_TRUE(two.Contains(u"c1"_ns));
+  EXPECT_TRUE(two.Contains(u"c2"_ns));
+  EXPECT_TRUE(two.ContainsPrefix(u""_ns));
+  EXPECT_TRUE(two.ContainsPrefix(u"c"_ns));
+  EXPECT_FALSE(two.ContainsPrefix(u"1"_ns));
+  EXPECT_TRUE(two.ContainsPrefix(u"c1"_ns));
+  EXPECT_TRUE(two.ContainsPrefix(u"c2"_ns));
+  EXPECT_FALSE(two.ContainsPrefix(u"c1x"_ns));
+  EXPECT_FALSE(two.ContainsPrefix(u"c2x"_ns));
   iterations = 0;
   for (const auto& codec : two.Range()) {
     ++iterations;
@@ -150,9 +154,34 @@ TEST(MediaMIMETypes, MediaCodecs) {
   EXPECT_TRUE(two.ContainsAll(two));
   EXPECT_TRUE(two.ContainsAll(one));
   EXPECT_FALSE(one.ContainsAll(two));
+
+  // Check wide char case where both octets/bytes are relevant. Note we don't
+  // use `EqualsLiteral` here because at the time of writing it will place the
+  // literal into a narrow string which then doesn't compare correctly with
+  // the wide representation from MediaCodecs.
+  MediaCodecs euroSign(" € ");  // U+20AC
+  EXPECT_FALSE(euroSign.IsEmpty());
+  EXPECT_TRUE(euroSign.AsString().Equals(u" € "_ns));
+  EXPECT_FALSE(euroSign.Contains(u""_ns));
+  EXPECT_TRUE(euroSign.Contains(u"€"_ns));
+  EXPECT_FALSE(euroSign.Contains(u"€€"_ns));
+  EXPECT_TRUE(euroSign.ContainsPrefix(u""_ns));
+  EXPECT_TRUE(euroSign.ContainsPrefix(u"€"_ns));
+  EXPECT_FALSE(euroSign.ContainsPrefix(
+      u"₭"_ns));  // U+20AD -- ensure second octet is compared
+  EXPECT_FALSE(euroSign.ContainsPrefix(
+      u"↬"_ns));  // U+21AC -- ensure first octet is compared
+  EXPECT_FALSE(euroSign.ContainsPrefix(u"€ "_ns));
+  iterations = 0;
+  for (const auto& codec : euroSign.Range()) {
+    ++iterations;
+    EXPECT_TRUE(codec.Equals(u"€"_ns));
+  }
+  EXPECT_EQ(1, iterations);
 }
 
-TEST(MediaMIMETypes, MakeMediaExtendedMIMEType_bad) {
+TEST(MediaMIMETypes, MakeMediaExtendedMIMEType_bad)
+{
   static const char* tests[] = {"",       " ",   "/",    "audio",
                                 "audio/", "mp4", "/mp4", "a/b"};
 
@@ -163,7 +192,8 @@ TEST(MediaMIMETypes, MakeMediaExtendedMIMEType_bad) {
   }
 }
 
-TEST(MediaMIMETypes, MediaExtendedMIMEType) {
+TEST(MediaMIMETypes, MediaExtendedMIMEType)
+{
   // Some generic tests first.
   static const struct {
     const char* mTypeString;
@@ -236,13 +266,13 @@ TEST(MediaMIMETypes, MediaExtendedMIMEType) {
   EXPECT_FALSE(type->Codecs().IsEmpty());
   EXPECT_TRUE(type->Codecs().AsString().EqualsASCII("a,b"));
   EXPECT_TRUE(type->Codecs() == "a,b");
-  EXPECT_TRUE(type->Codecs().Contains(NS_LITERAL_STRING("a")));
-  EXPECT_TRUE(type->Codecs().Contains(NS_LITERAL_STRING("b")));
-  EXPECT_TRUE(type->Codecs().ContainsPrefix(NS_LITERAL_STRING("a")));
-  EXPECT_TRUE(type->Codecs().ContainsPrefix(NS_LITERAL_STRING("b")));
-  EXPECT_FALSE(type->Codecs().ContainsPrefix(NS_LITERAL_STRING("ab")));
-  EXPECT_FALSE(type->Codecs().ContainsPrefix(NS_LITERAL_STRING("ba")));
-  EXPECT_FALSE(type->Codecs().ContainsPrefix(NS_LITERAL_STRING("a,b")));
+  EXPECT_TRUE(type->Codecs().Contains(u"a"_ns));
+  EXPECT_TRUE(type->Codecs().Contains(u"b"_ns));
+  EXPECT_TRUE(type->Codecs().ContainsPrefix(u"a"_ns));
+  EXPECT_TRUE(type->Codecs().ContainsPrefix(u"b"_ns));
+  EXPECT_FALSE(type->Codecs().ContainsPrefix(u"ab"_ns));
+  EXPECT_FALSE(type->Codecs().ContainsPrefix(u"ba"_ns));
+  EXPECT_FALSE(type->Codecs().ContainsPrefix(u"a,b"_ns));
   EXPECT_TRUE(!!type->GetWidth());
   EXPECT_EQ(1024, *type->GetWidth());
   EXPECT_TRUE(!!type->GetHeight());

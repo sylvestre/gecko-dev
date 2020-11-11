@@ -22,6 +22,10 @@ namespace ipc {
 class URIParams;
 }  // namespace ipc
 
+namespace net {
+class CookieJarSettingsArgs;
+}
+
 namespace docshell {
 
 class OfflineCacheUpdateParent : public POfflineCacheUpdateParent,
@@ -35,9 +39,10 @@ class OfflineCacheUpdateParent : public POfflineCacheUpdateParent,
   NS_DECL_NSIOFFLINECACHEUPDATEOBSERVER
   NS_DECL_NSILOADCONTEXT
 
-  nsresult Schedule(const URIParams& manifestURI, const URIParams& documentURI,
+  nsresult Schedule(nsIURI* manifestURI, nsIURI* documentURI,
                     const PrincipalInfo& loadingPrincipalInfo,
-                    const bool& stickDocument);
+                    const bool& stickDocument,
+                    const net::CookieJarSettingsArgs& aCookieJarSettingsArgs);
 
   void StopSendingMessagesToChild() { mIPCClosed = true; }
 

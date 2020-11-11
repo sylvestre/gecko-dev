@@ -12,19 +12,23 @@
  * getDefaultFileName, getNormalizedLeafName and getDefaultExtension
  */
 
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
-ChromeUtils.defineModuleGetter(this, "ViewSourceBrowser",
-  "resource://gre/modules/ViewSourceBrowser.jsm");
-ChromeUtils.defineModuleGetter(this, "PrivateBrowsingUtils",
-  "resource://gre/modules/PrivateBrowsingUtils.jsm");
-ChromeUtils.defineModuleGetter(this, "Services",
-  "resource://gre/modules/Services.jsm");
+var { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+
+ChromeUtils.defineModuleGetter(
+  this,
+  "PrivateBrowsingUtils",
+  "resource://gre/modules/PrivateBrowsingUtils.jsm"
+);
 
 var gViewSourceUtils = {
-
   mnsIWebBrowserPersist: Ci.nsIWebBrowserPersist,
   mnsIWebProgress: Ci.nsIWebProgress,
   mnsIWebPageDescriptor: Ci.nsIWebPageDescriptor,
+
+  // Get the ViewSource actor for a browsing context.
+  getViewSourceActor(aBrowsingContext) {
+    return aBrowsingContext.currentWindowGlobal.getActor("ViewSource");
+  },
 
   /**
    * Opens the view source window.
@@ -61,18 +65,22 @@ var gViewSourceUtils = {
     }
     // No browser window created yet, try to create one.
     let utils = this;
-    Services.ww.registerNotification(function onOpen(subj, topic) {
-      if (subj.document.documentURI !== "about:blank" ||
-          topic !== "domwindowopened") {
+    Services.ww.registerNotification(function onOpen(win, topic) {
+      if (
+        win.document.documentURI !== "about:blank" ||
+        topic !== "domwindowopened"
+      ) {
         return;
       }
       Services.ww.unregisterNotification(onOpen);
-      let win = subj.QueryInterface(Ci.nsIInterfaceRequestor)
-                    .getInterface(Ci.nsIDOMWindow);
-      win.addEventListener("load", () => {
-        aArgs.viewSourceBrowser = win.gBrowser.selectedTab.linkedBrowser;
-        utils.viewSourceInBrowser(aArgs);
-      }, { once: true });
+      win.addEventListener(
+        "load",
+        () => {
+          aArgs.viewSourceBrowser = win.gBrowser.selectedTab.linkedBrowser;
+          utils.viewSourceInBrowser(aArgs);
+        },
+        { once: true }
+      );
     });
     window.top.openWebLinkIn("about:blank", "current");
   },
@@ -98,9 +106,39 @@ var gViewSourceUtils = {
    *        lineNumber (optional):
    *          The line number to focus on once the source is loaded.
    */
-  viewSourceInBrowser(aArgs) {
-    let viewSourceBrowser = new ViewSourceBrowser(aArgs.viewSourceBrowser);
-    viewSourceBrowser.loadViewSource(aArgs);
+  viewSourceInBrowser({
+    URL,
+    viewSourceBrowser,
+    browser,
+    outerWindowID,
+    lineNumber,
+  }) {
+    if (!URL) {
+      throw new Error("Must supply a URL when opening view source.");
+    }
+
+    if (browser) {
+      // If we're dealing with a remote browser, then the browser
+      // for view source needs to be remote as well.
+      if (viewSourceBrowser.remoteType != browser.remoteType) {
+        // In this base case, where we are handed a <browser> someone else is
+        // managing, we don't know for sure that it's safe to toggle remoteness.
+        // For view source in a window, this is overridden to actually do the
+        // flip if needed.
+        throw new Error("View source browser's remoteness mismatch");
+      }
+    } else if (outerWindowID) {
+      throw new Error("Must supply the browser if passing the outerWindowID");
+    }
+
+    let viewSourceActor = this.getViewSourceActor(
+      viewSourceBrowser.browsingContext
+    );
+    viewSourceActor.sendAsyncMessage("ViewSource:LoadSource", {
+      URL,
+      outerWindowID,
+      lineNumber,
+    });
   },
 
   /**
@@ -108,25 +146,21 @@ var gViewSourceUtils = {
    * <browser>.  This allows for non-window display methods, such as a tab from
    * Firefox.
    *
-   * @param aViewSourceInBrowser
-   *        The browser containing the page to view the source of.
+   * @param aBrowsingContext:
+   *        The child browsing context containing the document to view the source of.
    * @param aGetBrowserFn
    *        A function that will return a browser to open the source in.
    */
-  viewPartialSourceInBrowser(aViewSourceInBrowser, aGetBrowserFn) {
-    let mm = aViewSourceInBrowser.messageManager;
-    mm.addMessageListener("ViewSource:GetSelectionDone", function gotSelection(message) {
-      mm.removeMessageListener("ViewSource:GetSelectionDone", gotSelection);
+  async viewPartialSourceInBrowser(aBrowsingContext, aGetBrowserFn) {
+    let sourceActor = this.getViewSourceActor(aBrowsingContext);
+    if (sourceActor) {
+      let data = await sourceActor.sendQuery("ViewSource:GetSelection", {});
 
-      if (!message.data)
-        return;
-
-      let viewSourceBrowser = new ViewSourceBrowser(aGetBrowserFn());
-      viewSourceBrowser.loadViewSourceFromSelection(message.data.uri, message.data.drawSelection,
-                                                    message.data.baseURI);
-    });
-
-    mm.sendAsyncMessage("ViewSource:GetSelection");
+      let targetActor = this.getViewSourceActor(
+        aGetBrowserFn().browsingContext
+      );
+      targetActor.sendAsyncMessage("ViewSource:LoadSourceWithSelection", data);
+    }
   },
 
   buildEditorArgs(aPath, aLineNumber) {
@@ -139,8 +173,9 @@ var gViewSourceUtils = {
       args = args.replace("%LINE%", aLineNumber || "0");
       // add the arguments to the array (keeping quoted strings intact)
       const argumentRE = /"([^"]+)"|(\S+)/g;
-      while (argumentRE.test(args))
+      while (argumentRE.test(args)) {
         editorArgs.push(RegExp.$1 || RegExp.$2);
+      }
     }
     editorArgs.push(aPath);
     return editorArgs;
@@ -220,20 +255,32 @@ var gViewSourceUtils = {
           var file = this.getTemporaryFile(uri, data.doc, contentType);
           this.viewSourceProgressListener.file = file;
 
-          var webBrowserPersist = Cc["@mozilla.org/embedding/browser/nsWebBrowserPersist;1"]
-            .createInstance(this.mnsIWebBrowserPersist);
+          var webBrowserPersist = Cc[
+            "@mozilla.org/embedding/browser/nsWebBrowserPersist;1"
+          ].createInstance(this.mnsIWebBrowserPersist);
           // the default setting is to not decode. we need to decode.
           webBrowserPersist.persistFlags = this.mnsIWebBrowserPersist.PERSIST_FLAGS_REPLACE_EXISTING_FILES;
           webBrowserPersist.progressListener = this.viewSourceProgressListener;
-          let referrerPolicy = Ci.nsIHttpChannel.REFERRER_POLICY_NO_REFERRER;
           let ssm = Services.scriptSecurityManager;
-          let principal = ssm.createCodebasePrincipal(data.uri,
-            browser.contentPrincipal.originAttributes);
-          webBrowserPersist.savePrivacyAwareURI(uri, principal, null, null,
-            referrerPolicy, null, null, file, data.isPrivate);
+          let principal = ssm.createContentPrincipal(
+            data.uri,
+            browser.contentPrincipal.originAttributes
+          );
+          webBrowserPersist.savePrivacyAwareURI(
+            uri,
+            principal,
+            null,
+            null,
+            null,
+            null,
+            file,
+            Ci.nsIContentPolicy.TYPE_SAVEAS_DOWNLOAD,
+            data.isPrivate
+          );
 
-          let helperService = Cc["@mozilla.org/uriloader/external-helper-app-service;1"]
-            .getService(Ci.nsPIExternalAppLauncher);
+          let helperService = Cc[
+            "@mozilla.org/uriloader/external-helper-app-service;1"
+          ].getService(Ci.nsPIExternalAppLauncher);
           if (data.isPrivate) {
             // register the file to be deleted when possible
             helperService.deleteTemporaryPrivateFileWhenPossible(file);
@@ -253,11 +300,13 @@ var gViewSourceUtils = {
   // Returns nsIProcess of the external view source editor or null
   getExternalViewSourceEditor() {
     try {
-      let viewSourceAppPath =
-        Services.prefs.getComplexValue("view_source.editor.path",
-                                       Ci.nsIFile);
-      let editor = Cc["@mozilla.org/process/util;1"]
-                     .createInstance(Ci.nsIProcess);
+      let viewSourceAppPath = Services.prefs.getComplexValue(
+        "view_source.editor.path",
+        Ci.nsIFile
+      );
+      let editor = Cc["@mozilla.org/process/util;1"].createInstance(
+        Ci.nsIProcess
+      );
       editor.init(viewSourceAppPath);
 
       return editor;
@@ -269,11 +318,12 @@ var gViewSourceUtils = {
   },
 
   viewSourceProgressListener: {
-
     mnsIWebProgressListener: Ci.nsIWebProgressListener,
 
-    QueryInterface: ChromeUtils.generateQI(["nsIWebProgressListener",
-                                            "nsISupportsWeakReference"]),
+    QueryInterface: ChromeUtils.generateQI([
+      "nsIWebProgressListener",
+      "nsISupportsWeakReference",
+    ]),
 
     destroy() {
       if (this.webShell) {
@@ -292,7 +342,7 @@ var gViewSourceUtils = {
     // another case.
     onStateChange(aProgress, aRequest, aFlag, aStatus) {
       // once it's done loading...
-      if ((aFlag & this.mnsIWebProgressListener.STATE_STOP) && aStatus == 0) {
+      if (aFlag & this.mnsIWebProgressListener.STATE_STOP && aStatus == 0) {
         if (!this.webShell) {
           // We aren't waiting for the parser. Instead, we are waiting for
           // an nsIWebBrowserPersist.
@@ -304,8 +354,10 @@ var gViewSourceUtils = {
           // This branch is probably never taken. Including it for completeness.
           this.onContentLoaded();
         } else {
-          webNavigation.document.addEventListener("DOMContentLoaded",
-                                                  this.onContentLoaded.bind(this));
+          webNavigation.document.addEventListener(
+            "DOMContentLoaded",
+            this.onContentLoaded.bind(this)
+          );
         }
       }
       return 0;
@@ -323,16 +375,21 @@ var gViewSourceUtils = {
 
           // get a temporary filename using the attributes from the data object that
           // openInExternalEditor gave us
-          this.file = gViewSourceUtils.getTemporaryFile(this.data.uri, this.data.doc,
-                                                        this.data.doc.contentType);
+          this.file = gViewSourceUtils.getTemporaryFile(
+            this.data.uri,
+            this.data.doc,
+            this.data.doc.contentType
+          );
 
           // we have to convert from the source charset.
           var webNavigation = this.webShell.QueryInterface(Ci.nsIWebNavigation);
-          var foStream = Cc["@mozilla.org/network/file-output-stream;1"]
-                           .createInstance(Ci.nsIFileOutputStream);
+          var foStream = Cc[
+            "@mozilla.org/network/file-output-stream;1"
+          ].createInstance(Ci.nsIFileOutputStream);
           foStream.init(this.file, 0x02 | 0x08 | 0x20, -1, 0); // write | create | truncate
-          var coStream = Cc["@mozilla.org/intl/converter-output-stream;1"]
-                           .createInstance(Ci.nsIConverterOutputStream);
+          var coStream = Cc[
+            "@mozilla.org/intl/converter-output-stream;1"
+          ].createInstance(Ci.nsIConverterOutputStream);
           coStream.init(foStream, this.data.doc.characterSet);
 
           // write the source to the file
@@ -342,8 +399,9 @@ var gViewSourceUtils = {
           coStream.close();
           foStream.close();
 
-          let helperService = Cc["@mozilla.org/uriloader/external-helper-app-service;1"]
-                              .getService(Ci.nsPIExternalAppLauncher);
+          let helperService = Cc[
+            "@mozilla.org/uriloader/external-helper-app-service;1"
+          ].getService(Ci.nsPIExternalAppLauncher);
           if (this.data.isPrivate) {
             // register the file to be deleted when possible
             helperService.deleteTemporaryPrivateFileWhenPossible(this.file);
@@ -353,8 +411,10 @@ var gViewSourceUtils = {
           }
         }
 
-        var editorArgs = gViewSourceUtils.buildEditorArgs(this.file.path,
-                                                          this.data.lineNumber);
+        var editorArgs = gViewSourceUtils.buildEditorArgs(
+          this.file.path,
+          this.data.lineNumber
+        );
         this.editor.runw(false, editorArgs, editorArgs.length);
 
         this.contentLoaded = true;
@@ -381,12 +441,24 @@ var gViewSourceUtils = {
     // include contentAreaUtils.js in our own context when we first need it
     if (!this._caUtils) {
       this._caUtils = {};
-      Services.scriptloader.loadSubScript("chrome://global/content/contentAreaUtils.js", this._caUtils);
+      Services.scriptloader.loadSubScript(
+        "chrome://global/content/contentAreaUtils.js",
+        this._caUtils
+      );
     }
 
     var tempFile = Services.dirsvc.get("TmpD", Ci.nsIFile);
-    var fileName = this._caUtils.getDefaultFileName(null, aURI, aDocument, aContentType);
-    var extension = this._caUtils.getDefaultExtension(fileName, aURI, aContentType);
+    var fileName = this._caUtils.getDefaultFileName(
+      null,
+      aURI,
+      aDocument,
+      aContentType
+    );
+    var extension = this._caUtils.getDefaultExtension(
+      fileName,
+      aURI,
+      aContentType
+    );
     var leafName = this._caUtils.getNormalizedLeafName(fileName, extension);
     tempFile.append(leafName);
     return tempFile;

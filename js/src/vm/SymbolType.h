@@ -19,6 +19,7 @@
 #include "js/GCHashTable.h"
 #include "js/HeapAPI.h"
 #include "js/RootingAPI.h"
+#include "js/shadow/Symbol.h"  // JS::shadow::Symbol
 #include "js/Symbol.h"
 #include "js/TypeDecls.h"
 #include "js/Utility.h"
@@ -31,11 +32,13 @@ class AutoAccessAtomsZone;
 
 namespace JS {
 
-class Symbol : public js::gc::TenuredCell {
- private:
-  // User description of symbol. Also meets gc::Cell requirements.
-  JSAtom* description_;
+class Symbol
+    : public js::gc::CellWithTenuredGCPointer<js::gc::TenuredCell, JSAtom> {
+ public:
+  // User description of symbol, stored in the cell header.
+  JSAtom* description() const { return headerPtr(); }
 
+ private:
   SymbolCode code_;
 
   // Each Symbol gets its own hash code so that we don't have to use
@@ -43,13 +46,13 @@ class Symbol : public js::gc::TenuredCell {
   js::HashNumber hash_;
 
   Symbol(SymbolCode code, js::HashNumber hash, JSAtom* desc)
-      : description_(desc), code_(code), hash_(hash) {}
+      : CellWithTenuredGCPointer(desc), code_(code), hash_(hash) {}
 
   Symbol(const Symbol&) = delete;
   void operator=(const Symbol&) = delete;
 
   static Symbol* newInternal(JSContext* cx, SymbolCode code,
-                             js::HashNumber hash, JSAtom* description);
+                             js::HashNumber hash, js::HandleAtom description);
 
   static void staticAsserts() {
     static_assert(uint32_t(SymbolCode::WellKnownAPILimit) ==
@@ -62,10 +65,10 @@ class Symbol : public js::gc::TenuredCell {
   }
 
  public:
-  static Symbol* new_(JSContext* cx, SymbolCode code, JSString* description);
+  static Symbol* new_(JSContext* cx, SymbolCode code,
+                      js::HandleString description);
   static Symbol* for_(JSContext* cx, js::HandleString description);
 
-  JSAtom* description() const { return description_; }
   SymbolCode code() const { return code_; }
   js::HashNumber hash() const { return hash_; }
 
@@ -82,19 +85,18 @@ class Symbol : public js::gc::TenuredCell {
     return code_ == SymbolCode::toStringTag || code_ == SymbolCode::toPrimitive;
   }
 
-  static const JS::TraceKind TraceKind = JS::TraceKind::Symbol;
-  inline void traceChildren(JSTracer* trc) {
-    if (description_) {
-      js::TraceManuallyBarrieredEdge(trc, &description_, "description");
-    }
-  }
-  inline void finalize(js::FreeOp*) {}
+  // Symbol created for the #PrivateName syntax.
+  bool isPrivateName() const { return code_ == SymbolCode::PrivateNameSymbol; }
 
-  static MOZ_ALWAYS_INLINE void writeBarrierPre(Symbol* thing) {
-    if (thing && !thing->isWellKnownSymbol()) {
-      thing->asTenured().writeBarrierPre(thing);
-    }
+  static const JS::TraceKind TraceKind = JS::TraceKind::Symbol;
+
+  inline void traceChildren(JSTracer* trc) {
+    js::TraceNullableCellHeaderEdge(trc, this, "symbol description");
   }
+  inline void finalize(JSFreeOp*) {}
+
+  // Override base class implementation to tell GC about well-known symbols.
+  bool isPermanentAndMayBeShared() const { return isWellKnownSymbol(); }
 
   size_t sizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf) const {
     return mallocSizeOf(this);
@@ -112,8 +114,8 @@ namespace js {
 
 /* Hash policy used by the SymbolRegistry. */
 struct HashSymbolsByDescription {
-  typedef JS::Symbol* Key;
-  typedef JSAtom* Lookup;
+  using Key = JS::Symbol*;
+  using Lookup = JSAtom*;
 
   static HashNumber hash(Lookup l) { return HashNumber(l->hash()); }
   static bool match(Key sym, Lookup l) { return sym->description() == l; }
@@ -137,10 +139,10 @@ struct HashSymbolsByDescription {
  * enumerating the symbol registry, querying its size, etc.
  */
 class SymbolRegistry
-    : public GCHashSet<ReadBarrieredSymbol, HashSymbolsByDescription,
+    : public GCHashSet<WeakHeapPtrSymbol, HashSymbolsByDescription,
                        SystemAllocPolicy> {
  public:
-  SymbolRegistry() {}
+  SymbolRegistry() = default;
 };
 
 // ES6 rev 27 (2014 Aug 24) 19.4.3.3

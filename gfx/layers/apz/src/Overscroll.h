@@ -18,13 +18,13 @@ namespace layers {
 // Animation used by GenericOverscrollEffect.
 class OverscrollAnimation : public AsyncPanZoomAnimation {
  public:
-  explicit OverscrollAnimation(AsyncPanZoomController& aApzc,
-                               const ParentLayerPoint& aVelocity)
+  OverscrollAnimation(AsyncPanZoomController& aApzc,
+                      const ParentLayerPoint& aVelocity)
       : mApzc(aApzc) {
     mApzc.mX.StartOverscrollAnimation(aVelocity.x);
     mApzc.mY.StartOverscrollAnimation(aVelocity.y);
   }
-  ~OverscrollAnimation() {
+  virtual ~OverscrollAnimation() {
     mApzc.mX.EndOverscrollAnimation();
     mApzc.mY.EndOverscrollAnimation();
   }
@@ -112,8 +112,8 @@ class WidgetOverscrollEffect : public OverscrollEffectBase {
     RefPtr<GeckoContentController> controller =
         mApzc.GetGeckoContentController();
     if (controller && (aShouldOverscrollX || aShouldOverscrollY)) {
-      controller->UpdateOverscrollOffset(aOverscroll.x, aOverscroll.y,
-                                         mApzc.IsRootContent());
+      controller->UpdateOverscrollOffset(mApzc.GetGuid(), aOverscroll.x,
+                                         aOverscroll.y, mApzc.IsRootContent());
       aOverscroll = ParentLayerPoint();
     }
   }
@@ -122,8 +122,8 @@ class WidgetOverscrollEffect : public OverscrollEffectBase {
     RefPtr<GeckoContentController> controller =
         mApzc.GetGeckoContentController();
     if (controller) {
-      controller->UpdateOverscrollVelocity(aVelocity.x, aVelocity.y,
-                                           mApzc.IsRootContent());
+      controller->UpdateOverscrollVelocity(mApzc.GetGuid(), aVelocity.x,
+                                           aVelocity.y, mApzc.IsRootContent());
     }
   }
 

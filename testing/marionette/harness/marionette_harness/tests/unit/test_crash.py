@@ -2,20 +2,25 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-from __future__ import absolute_import
+from __future__ import absolute_import, print_function
 
 import glob
 import os
 import shutil
+import sys
+import unittest
+from io import StringIO
+
+import six
 
 from marionette_driver import Wait
 from marionette_driver.errors import (
     InvalidSessionIdException,
     NoSuchWindowException,
-    TimeoutException
+    TimeoutException,
 )
 
-from marionette_harness import MarionetteTestCase, expectedFailure, run_if_e10s
+from marionette_harness import MarionetteTestCase, expectedFailure
 
 # Import runner module to monkey patch mozcrash module
 from mozrunner.base import runner
@@ -27,11 +32,13 @@ class MockMozCrash(object):
     def __init__(self, marionette):
         self.marionette = marionette
 
-        with self.marionette.using_context('chrome'):
-            self.crash_reporter_enabled = self.marionette.execute_script("""
+        with self.marionette.using_context("chrome"):
+            self.crash_reporter_enabled = self.marionette.execute_script(
+                """
                 Cu.import("resource://gre/modules/AppConstants.jsm");
                 return AppConstants.MOZ_CRASHREPORTER;
-            """)
+            """
+            )
 
     def check_for_crashes(self, dump_directory, *args, **kwargs):
         if self.crash_reporter_enabled:
@@ -40,7 +47,7 @@ class MockMozCrash(object):
             # minidump_files = glob.glob('{}/*.dmp'.format(dump_directory))
             try:
                 minidump_files = Wait(None, timeout=5).until(
-                    lambda _: glob.glob('{}/*.dmp'.format(dump_directory))
+                    lambda _: glob.glob("{}/*.dmp".format(dump_directory))
                 )
             except TimeoutException:
                 minidump_files = []
@@ -67,7 +74,7 @@ class BaseCrashTestCase(MarionetteTestCase):
         # Monkey patch mozcrash to avoid crash info output only for our triggered crashes.
         mozcrash_mock = MockMozCrash(self.marionette)
         if not mozcrash_mock.crash_reporter_enabled:
-            self.skipTest('Crash reporter disabled')
+            self.skipTest("Crash reporter disabled")
             return
 
         self.mozcrash = runner.mozcrash
@@ -90,23 +97,46 @@ class BaseCrashTestCase(MarionetteTestCase):
 
         self.marionette.set_context("content")
         try:
-            self.marionette.navigate("about:crash{}".format("parent" if parent else "content"))
+            self.marionette.navigate(
+                "about:crash{}".format("parent" if parent else "content")
+            )
         finally:
             self.marionette.client.socket_timeout = socket_timeout
 
 
 class TestCrash(BaseCrashTestCase):
+    def setUp(self):
+        if os.environ.get("MOZ_AUTOMATION"):
+            # Capture stdout, otherwise the Gecko output causes mozharness to fail
+            # the task due to "A content process has crashed" appearing in the log.
+            # To view stdout for debugging, use `print(self.new_out.getvalue())`
+            print(
+                "Suppressing GECKO output. To view, add `print(self.new_out.getvalue())` "
+                "to the end of this test."
+            )
+            self.new_out, self.new_err = StringIO(), StringIO()
+            self.old_out, self.old_err = sys.stdout, sys.stderr
+            sys.stdout, sys.stderr = self.new_out, self.new_err
+
+        super(TestCrash, self).setUp()
+
+    def tearDown(self):
+        super(TestCrash, self).tearDown()
+
+        if os.environ.get("MOZ_AUTOMATION"):
+            sys.stdout, sys.stderr = self.old_out, self.old_err
 
     def test_crash_chrome_process(self):
-        self.assertRaisesRegexp(IOError, "Process crashed",
-                                self.crash, parent=True)
+        self.assertRaisesRegexp(IOError, "Process crashed", self.crash, parent=True)
 
         # A crash results in a non zero exit code
         self.assertNotIn(self.marionette.instance.runner.returncode, (None, 0))
 
         self.assertEqual(self.marionette.crashed, 1)
         self.assertIsNone(self.marionette.session)
-        with self.assertRaisesRegexp(InvalidSessionIdException, 'Please start a session'):
+        with self.assertRaisesRegexp(
+            InvalidSessionIdException, "Please start a session"
+        ):
             self.marionette.get_url()
 
         self.marionette.start_session()
@@ -114,7 +144,6 @@ class TestCrash(BaseCrashTestCase):
 
         self.marionette.get_url()
 
-    @run_if_e10s("Content crashes only exist in e10s mode")
     def test_crash_content_process(self):
         # For a content process crash and MOZ_CRASHREPORTER_SHUTDOWN set the top
         # browsing context will be gone first. As such the raised NoSuchWindowException
@@ -122,10 +151,13 @@ class TestCrash(BaseCrashTestCase):
         # be executed until the process is gone.
         with self.assertRaisesRegexp(IOError, "Content process crashed"):
             self.crash(parent=False)
-            Wait(self.marionette, timeout=self.socket_timeout,
-                 ignored_exceptions=NoSuchWindowException).until(
+            Wait(
+                self.marionette,
+                timeout=self.socket_timeout,
+                ignored_exceptions=NoSuchWindowException,
+            ).until(
                 lambda _: self.marionette.get_url(),
-                message="Expected IOError exception for content crash not raised."
+                message="Expected IOError exception for content crash not raised.",
             )
 
         # In the case of a content crash Firefox will be closed and its
@@ -134,25 +166,26 @@ class TestCrash(BaseCrashTestCase):
 
         self.assertEqual(self.marionette.crashed, 1)
         self.assertIsNone(self.marionette.session)
-        with self.assertRaisesRegexp(InvalidSessionIdException, 'Please start a session'):
+        with self.assertRaisesRegexp(
+            InvalidSessionIdException, "Please start a session"
+        ):
             self.marionette.get_url()
 
         self.marionette.start_session()
         self.assertNotEqual(self.marionette.process_id, self.pid)
         self.marionette.get_url()
 
-    @expectedFailure
+    @unittest.expectedFailure
+    @unittest.skipIf(six.PY3, "Bug 1641226 - Not supported in Python3.")
     def test_unexpected_crash(self):
         self.crash(parent=True)
 
 
 class TestCrashInSetUp(BaseCrashTestCase):
-
     def setUp(self):
         super(TestCrashInSetUp, self).setUp()
 
-        self.assertRaisesRegexp(IOError, "Process crashed",
-                                self.crash, parent=True)
+        self.assertRaisesRegexp(IOError, "Process crashed", self.crash, parent=True)
 
         # A crash results in a non zero exit code
         self.assertNotIn(self.marionette.instance.runner.returncode, (None, 0))
@@ -166,11 +199,9 @@ class TestCrashInSetUp(BaseCrashTestCase):
 
 
 class TestCrashInTearDown(BaseCrashTestCase):
-
     def tearDown(self):
         try:
-            self.assertRaisesRegexp(IOError, "Process crashed",
-                                    self.crash, parent=True)
+            self.assertRaisesRegexp(IOError, "Process crashed", self.crash, parent=True)
 
             # A crash results in a non zero exit code
             self.assertNotIn(self.marionette.instance.runner.returncode, (None, 0))

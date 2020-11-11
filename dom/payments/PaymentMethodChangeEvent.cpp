@@ -9,8 +9,7 @@
 #include "mozilla/dom/PaymentRequestUpdateEvent.h"
 #include "PaymentRequestUtils.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_IMPL_CYCLE_COLLECTION_CLASS(PaymentMethodChangeEvent)
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(PaymentMethodChangeEvent,
@@ -52,7 +51,7 @@ PaymentMethodChangeEvent::Constructor(
 already_AddRefed<PaymentMethodChangeEvent>
 PaymentMethodChangeEvent::Constructor(
     const GlobalObject& aGlobal, const nsAString& aType,
-    const PaymentMethodChangeEventInit& aEventInitDict, ErrorResult& aRv) {
+    const PaymentMethodChangeEventInit& aEventInitDict) {
   nsCOMPtr<mozilla::dom::EventTarget> owner =
       do_QueryInterface(aGlobal.GetAsSupports());
   RefPtr<PaymentMethodChangeEvent> e = new PaymentMethodChangeEvent(owner);
@@ -121,8 +120,7 @@ void PaymentMethodChangeEvent::GetMethodDetails(
             !rawDetails.billingAddress.phone.IsEmpty()) {
           nsCOMPtr<nsPIDOMWindowInner> window =
               do_QueryInterface(GetParentObject());
-          basicCardDetails.mBillingAddress.Construct();
-          basicCardDetails.mBillingAddress.Value() =
+          basicCardDetails.mBillingAddress =
               new PaymentAddress(window, rawDetails.billingAddress.country,
                                  rawDetails.billingAddress.addressLine,
                                  rawDetails.billingAddress.region,
@@ -144,7 +142,9 @@ void PaymentMethodChangeEvent::GetMethodDetails(
       aRetVal.set(&value.toObject());
       break;
     }
-    default: { break; }
+    default: {
+      break;
+    }
   }
 }
 
@@ -162,5 +162,4 @@ JSObject* PaymentMethodChangeEvent::WrapObjectInternal(
   return PaymentMethodChangeEvent_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

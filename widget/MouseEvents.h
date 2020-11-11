@@ -18,16 +18,20 @@ namespace mozilla {
 namespace dom {
 class PBrowserParent;
 class PBrowserChild;
+class PBrowserBridgeParent;
 }  // namespace dom
 
 class WidgetPointerEvent;
+}  // namespace mozilla
+
+namespace mozilla {
 class WidgetPointerEventHolder final {
  public:
   nsTArray<WidgetPointerEvent> mEvents;
   NS_INLINE_DECL_REFCOUNTING(WidgetPointerEventHolder)
 
  private:
-  virtual ~WidgetPointerEventHolder() {}
+  virtual ~WidgetPointerEventHolder() = default;
 };
 
 /******************************************************************************
@@ -61,14 +65,7 @@ class WidgetPointerHelper {
         tangentialPressure(aTangentialPressure),
         convertToPointer(true) {}
 
-  explicit WidgetPointerHelper(const WidgetPointerHelper& aHelper)
-      : pointerId(aHelper.pointerId),
-        tiltX(aHelper.tiltX),
-        tiltY(aHelper.tiltY),
-        twist(aHelper.twist),
-        tangentialPressure(aHelper.tangentialPressure),
-        convertToPointer(aHelper.convertToPointer),
-        mCoalescedWidgetEvents(aHelper.mCoalescedWidgetEvents) {}
+  explicit WidgetPointerHelper(const WidgetPointerHelper& aHelper) = default;
 
   void AssignPointerHelperData(const WidgetPointerHelper& aEvent,
                                bool aCopyCoalescedEvents = false) {
@@ -92,29 +89,26 @@ class WidgetMouseEventBase : public WidgetInputEvent {
  private:
   friend class dom::PBrowserParent;
   friend class dom::PBrowserChild;
+  friend class dom::PBrowserBridgeParent;
 
  protected:
   WidgetMouseEventBase()
-      : button(0),
-        buttons(0),
-        pressure(0),
-        hitCluster(false)
-        // Including MouseEventBinding.h here leads to an include loop, so
-        // we have to hardcode MouseEvent_Binding::MOZ_SOURCE_MOUSE.
-        ,
-        inputSource(/* MouseEvent_Binding::MOZ_SOURCE_MOUSE = */ 1) {}
+      : mPressure(0),
+        mButton(0),
+        mButtons(0),
+        mInputSource(/* MouseEvent_Binding::MOZ_SOURCE_MOUSE = */ 1) {}
+  // Including MouseEventBinding.h here leads to an include loop, so
+  // we have to hardcode MouseEvent_Binding::MOZ_SOURCE_MOUSE.
 
   WidgetMouseEventBase(bool aIsTrusted, EventMessage aMessage,
                        nsIWidget* aWidget, EventClassID aEventClassID)
       : WidgetInputEvent(aIsTrusted, aMessage, aWidget, aEventClassID),
-        button(0),
-        buttons(0),
-        pressure(0),
-        hitCluster(false)
-        // Including MouseEventBinding.h here leads to an include loop, so
-        // we have to hardcode MouseEvent_Binding::MOZ_SOURCE_MOUSE.
-        ,
-        inputSource(/* MouseEvent_Binding::MOZ_SOURCE_MOUSE = */ 1) {}
+        mPressure(0),
+        mButton(0),
+        mButtons(0),
+        mInputSource(/* MouseEvent_Binding::MOZ_SOURCE_MOUSE = */ 1) {}
+  // Including MouseEventBinding.h here leads to an include loop, so
+  // we have to hardcode MouseEvent_Binding::MOZ_SOURCE_MOUSE.
 
  public:
   virtual WidgetMouseEventBase* AsMouseEventBase() override { return this; }
@@ -123,66 +117,54 @@ class WidgetMouseEventBase : public WidgetInputEvent {
     MOZ_CRASH("WidgetMouseEventBase must not be most-subclass");
   }
 
-  enum buttonType {
-    eNoButton = -1,
-    eLeftButton = 0,
-    eMiddleButton = 1,
-    eRightButton = 2
-  };
-  // Pressed button ID of mousedown or mouseup event.
-  // This is set only when pressing a button causes the event.
-  int16_t button;
-
-  enum buttonsFlag {
-    eNoButtonFlag = 0x00,
-    eLeftButtonFlag = 0x01,
-    eRightButtonFlag = 0x02,
-    eMiddleButtonFlag = 0x04,
-    // typicall, "back" button being left side of 5-button
-    // mice, see "buttons" attribute document of DOM3 Events.
-    e4thButtonFlag = 0x08,
-    // typicall, "forward" button being right side of 5-button
-    // mice, see "buttons" attribute document of DOM3 Events.
-    e5thButtonFlag = 0x10
-  };
-
-  // Flags of all pressed buttons at the event fired.
-  // This is set at any mouse event, don't be confused with |button|.
-  int16_t buttons;
+  // ID of the canvas HitRegion
+  nsString mRegion;
 
   // Finger or touch pressure of event. It ranges between 0.0 and 1.0.
-  float pressure;
-  // Touch near a cluster of links (true)
-  bool hitCluster;
+  float mPressure;
+
+  // Pressed button ID of mousedown or mouseup event.
+  // This is set only when pressing a button causes the event.
+  int16_t mButton;
+
+  // Flags of all pressed buttons at the event fired.
+  // This is set at any mouse event, don't be confused with |mButton|.
+  int16_t mButtons;
 
   // Possible values a in MouseEvent
-  uint16_t inputSource;
+  uint16_t mInputSource;
 
-  // ID of the canvas HitRegion
-  nsString region;
-
-  bool IsLeftButtonPressed() const { return !!(buttons & eLeftButtonFlag); }
-  bool IsRightButtonPressed() const { return !!(buttons & eRightButtonFlag); }
-  bool IsMiddleButtonPressed() const { return !!(buttons & eMiddleButtonFlag); }
-  bool Is4thButtonPressed() const { return !!(buttons & e4thButtonFlag); }
-  bool Is5thButtonPressed() const { return !!(buttons & e5thButtonFlag); }
+  bool IsLeftButtonPressed() const {
+    return !!(mButtons & MouseButtonsFlag::ePrimaryFlag);
+  }
+  bool IsRightButtonPressed() const {
+    return !!(mButtons & MouseButtonsFlag::eSecondaryFlag);
+  }
+  bool IsMiddleButtonPressed() const {
+    return !!(mButtons & MouseButtonsFlag::eMiddleFlag);
+  }
+  bool Is4thButtonPressed() const {
+    return !!(mButtons & MouseButtonsFlag::e4thFlag);
+  }
+  bool Is5thButtonPressed() const {
+    return !!(mButtons & MouseButtonsFlag::e5thFlag);
+  }
 
   void AssignMouseEventBaseData(const WidgetMouseEventBase& aEvent,
                                 bool aCopyTargets) {
     AssignInputEventData(aEvent, aCopyTargets);
 
-    button = aEvent.button;
-    buttons = aEvent.buttons;
-    pressure = aEvent.pressure;
-    hitCluster = aEvent.hitCluster;
-    inputSource = aEvent.inputSource;
+    mButton = aEvent.mButton;
+    mButtons = aEvent.mButtons;
+    mPressure = aEvent.mPressure;
+    mInputSource = aEvent.mInputSource;
   }
 
   /**
    * Returns true if left click event.
    */
   bool IsLeftClickEvent() const {
-    return mMessage == eMouseClick && button == eLeftButton;
+    return mMessage == eMouseClick && mButton == MouseButton::ePrimary;
   }
 };
 
@@ -195,33 +177,43 @@ class WidgetMouseEvent : public WidgetMouseEventBase,
  private:
   friend class dom::PBrowserParent;
   friend class dom::PBrowserChild;
+  friend class dom::PBrowserBridgeParent;
 
  public:
   typedef bool ReasonType;
   enum Reason : ReasonType { eReal, eSynthesized };
 
-  typedef bool ContextMenuTriggerType;
-  enum ContextMenuTrigger : ContextMenuTriggerType { eNormal, eContextMenuKey };
+  typedef uint8_t ContextMenuTriggerType;
+  enum ContextMenuTrigger : ContextMenuTriggerType {
+    eNormal,
+    eContextMenuKey,
+    eControlClick
+  };
 
-  typedef bool ExitFromType;
-  enum ExitFrom : ExitFromType { eChild, eTopLevel };
+  typedef uint8_t ExitFromType;
+  enum ExitFrom : ExitFromType {
+    eChild,
+    eTopLevel,
+    ePuppet,
+    ePuppetParentToPuppetChild
+  };
 
  protected:
   WidgetMouseEvent()
       : mReason(eReal),
         mContextMenuTrigger(eNormal),
-        mExitFrom(eChild),
         mIgnoreRootScrollFrame(false),
-        mClickCount(0) {}
+        mClickCount(0),
+        mUseLegacyNonPrimaryDispatch(false) {}
 
   WidgetMouseEvent(bool aIsTrusted, EventMessage aMessage, nsIWidget* aWidget,
                    EventClassID aEventClassID, Reason aReason)
       : WidgetMouseEventBase(aIsTrusted, aMessage, aWidget, aEventClassID),
         mReason(aReason),
         mContextMenuTrigger(eNormal),
-        mExitFrom(eChild),
         mIgnoreRootScrollFrame(false),
-        mClickCount(0) {}
+        mClickCount(0),
+        mUseLegacyNonPrimaryDispatch(false) {}
 
  public:
   virtual WidgetMouseEvent* AsMouseEvent() override { return this; }
@@ -232,11 +224,12 @@ class WidgetMouseEvent : public WidgetMouseEventBase,
       : WidgetMouseEventBase(aIsTrusted, aMessage, aWidget, eMouseEventClass),
         mReason(aReason),
         mContextMenuTrigger(aContextMenuTrigger),
-        mExitFrom(eChild),
         mIgnoreRootScrollFrame(false),
-        mClickCount(0) {
+        mClickCount(0),
+        mUseLegacyNonPrimaryDispatch(false) {
     if (aMessage == eContextMenu) {
-      button = (mContextMenuTrigger == eNormal) ? eRightButton : eLeftButton;
+      mButton = (mContextMenuTrigger == eNormal) ? MouseButton::eSecondary
+                                                 : MouseButton::ePrimary;
     }
   }
 
@@ -244,8 +237,10 @@ class WidgetMouseEvent : public WidgetMouseEventBase,
   virtual ~WidgetMouseEvent() {
     NS_WARNING_ASSERTION(
         mMessage != eContextMenu ||
-            button ==
-                ((mContextMenuTrigger == eNormal) ? eRightButton : eLeftButton),
+            (mButton == ((mContextMenuTrigger == eNormal)
+                             ? MouseButton::eSecondary
+                             : MouseButton::ePrimary) &&
+             (mContextMenuTrigger != eControlClick || IsControl())),
         "Wrong button set to eContextMenu event?");
   }
 #endif
@@ -276,10 +271,10 @@ class WidgetMouseEvent : public WidgetMouseEventBase,
   // other reasons (typically, a click of right mouse button).
   ContextMenuTrigger mContextMenuTrigger;
 
-  // mExitFrom is valid only when mMessage is eMouseExitFromWidget.
-  // This indicates if the mouse cursor exits from a top level widget or
-  // a child widget.
-  ExitFrom mExitFrom;
+  // mExitFrom contains a value only when mMessage is eMouseExitFromWidget.
+  // This indicates if the mouse cursor exits from a top level platform widget,
+  // a child widget or a puppet widget.
+  Maybe<ExitFrom> mExitFrom;
 
   // Whether the event should ignore scroll frame bounds during dispatch.
   bool mIgnoreRootScrollFrame;
@@ -289,12 +284,18 @@ class WidgetMouseEvent : public WidgetMouseEventBase,
   // Otherwise, this must be 0.
   uint32_t mClickCount;
 
+  // Indicates whether the event should dispatch click events for non-primary
+  // mouse buttons on window and document.
+  bool mUseLegacyNonPrimaryDispatch;
+
   void AssignMouseEventData(const WidgetMouseEvent& aEvent, bool aCopyTargets) {
     AssignMouseEventBaseData(aEvent, aCopyTargets);
     AssignPointerHelperData(aEvent, /* aCopyCoalescedEvents */ true);
 
+    mExitFrom = aEvent.mExitFrom;
     mIgnoreRootScrollFrame = aEvent.mIgnoreRootScrollFrame;
     mClickCount = aEvent.mClickCount;
+    mUseLegacyNonPrimaryDispatch = aEvent.mUseLegacyNonPrimaryDispatch;
   }
 
   /**
@@ -364,6 +365,14 @@ class WidgetDragEvent : public WidgetMouseEvent {
     mUserCancelled = false;
     mDefaultPreventedOnContent = aEvent.mDefaultPreventedOnContent;
   }
+
+  /**
+   * Should be called before dispatching the DOM tree if this event is
+   * synthesized for tests because drop effect is initialized before
+   * dispatching from widget if it's not synthesized event, but synthesized
+   * events are not initialized in the path.
+   */
+  void InitDropEffectForTests();
 };
 
 /******************************************************************************

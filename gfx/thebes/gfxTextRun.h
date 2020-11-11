@@ -15,6 +15,8 @@
 #include "gfxFontConstants.h"
 #include "gfxSkipChars.h"
 #include "gfxPlatform.h"
+#include "gfxPlatformFontList.h"
+#include "gfxUserFontSet.h"
 #include "mozilla/MemoryReporting.h"
 #include "mozilla/RefPtr.h"
 #include "nsPoint.h"
@@ -25,21 +27,21 @@
 #include "harfbuzz/hb.h"
 #include "nsUnicodeScriptCodes.h"
 #include "nsColor.h"
+#include "nsFrameList.h"
 #include "X11UndefineNone.h"
 
-#ifdef DEBUG
-#include <stdio.h>
+#ifdef DEBUG_FRAME_DUMP
+#  include <stdio.h>
 #endif
 
 class gfxContext;
 class gfxFontGroup;
-class gfxUserFontEntry;
-class gfxUserFontSet;
 class nsAtom;
 class nsLanguageAtomService;
 class gfxMissingFontRecorder;
 
 namespace mozilla {
+class PostTraversalTask;
 class SVGContextPaint;
 enum class StyleHyphens : uint8_t;
 };  // namespace mozilla
@@ -178,6 +180,7 @@ class gfxTextRun : public gfxShapedText {
                                       const uint8_t* aBreakBefore);
 
   enum class HyphenType : uint8_t {
+    // Code in BreakAndMeasureText depends on the ordering of these values!
     None,
     Explicit,
     Soft,
@@ -272,7 +275,7 @@ class gfxTextRun : public gfxShapedText {
    * Glyphs should be drawn in logical content order, which can be significant
    * if they overlap (perhaps due to negative spacing).
    */
-  void Draw(Range aRange, mozilla::gfx::Point aPt,
+  void Draw(const Range aRange, const mozilla::gfx::Point aPt,
             const DrawParams& aParams) const;
 
   /**
@@ -441,7 +444,7 @@ class gfxTextRun : public gfxShapedText {
                                gfxFont::BoundingBoxType aBoundingBoxType,
                                DrawTarget* aDrawTargetForTightBoundingBox,
                                bool* aUsedHyphenation, uint32_t* aLastBreak,
-                               bool aCanWordWrap,
+                               bool aCanWordWrap, bool aCanWhitespaceWrap,
                                gfxBreakPriority* aBreakPriority);
 
   // Utility getters
@@ -468,16 +471,66 @@ class gfxTextRun : public gfxShapedText {
     uint32_t mCharacterOffset;  // into original UTF16 string
     mozilla::gfx::ShapedTextFlags
         mOrientation;  // gfxTextRunFactory::TEXT_ORIENT_* value
-    gfxTextRange::MatchType mMatchType;
+    FontMatchType mMatchType;
+    bool mIsCJK;  // Whether the text was a CJK script run (used to decide if
+                  // text-decoration-skip-ink should not be applied)
+
+    // Set up the properties (but NOT offset) of the GlyphRun.
+    void SetProperties(gfxFont* aFont,
+                       mozilla::gfx::ShapedTextFlags aOrientation, bool aIsCJK,
+                       FontMatchType aMatchType) {
+      mFont = aFont;
+      mOrientation = aOrientation;
+      mIsCJK = aIsCJK;
+      mMatchType = aMatchType;
+    }
+
+    // Return whether the GlyphRun matches the given properties;
+    // the given FontMatchType will be added to the run if not present.
+    bool Matches(gfxFont* aFont, mozilla::gfx::ShapedTextFlags aOrientation,
+                 bool aIsCJK, FontMatchType aMatchType) {
+      if (mFont == aFont && mOrientation == aOrientation && mIsCJK == aIsCJK) {
+        mMatchType.kind |= aMatchType.kind;
+        if (mMatchType.generic == mozilla::StyleGenericFontFamily::None) {
+          mMatchType.generic = aMatchType.generic;
+        }
+        return true;
+      }
+      return false;
+    }
   };
+
+  // Script run codes that we will mark as CJK to suppress skip-ink behavior.
+  static inline bool IsCJKScript(Script aScript) {
+    switch (aScript) {
+      case Script::BOPOMOFO:
+      case Script::HAN:
+      case Script::HANGUL:
+      case Script::HIRAGANA:
+      case Script::KATAKANA:
+      case Script::KATAKANA_OR_HIRAGANA:
+      case Script::SIMPLIFIED_HAN:
+      case Script::TRADITIONAL_HAN:
+      case Script::JAPANESE:
+      case Script::KOREAN:
+      case Script::HAN_WITH_BOPOMOFO:
+      case Script::JAMO:
+        return true;
+      default:
+        return false;
+    }
+  }
 
   class MOZ_STACK_CLASS GlyphRunIterator {
    public:
-    GlyphRunIterator(const gfxTextRun* aTextRun, Range aRange)
+    GlyphRunIterator(const gfxTextRun* aTextRun, Range aRange,
+                     bool aReverse = false)
         : mTextRun(aTextRun),
+          mDirection(aReverse ? -1 : 1),
           mStartOffset(aRange.start),
           mEndOffset(aRange.end) {
-      mNextIndex = mTextRun->FindFirstGlyphRunContaining(aRange.start);
+      mNextIndex = mTextRun->FindFirstGlyphRunContaining(
+          aReverse ? aRange.end - 1 : aRange.start);
     }
     bool NextRun();
     const GlyphRun* GetGlyphRun() const { return mGlyphRun; }
@@ -489,7 +542,8 @@ class gfxTextRun : public gfxShapedText {
     MOZ_INIT_OUTSIDE_CTOR const GlyphRun* mGlyphRun;
     MOZ_INIT_OUTSIDE_CTOR uint32_t mStringStart;
     MOZ_INIT_OUTSIDE_CTOR uint32_t mStringEnd;
-    uint32_t mNextIndex;
+    const int32_t mDirection;
+    int32_t mNextIndex;
     uint32_t mStartOffset;
     uint32_t mEndOffset;
   };
@@ -523,9 +577,9 @@ class gfxTextRun : public gfxShapedText {
    * are added before any further operations are performed with this
    * TextRun.
    */
-  nsresult AddGlyphRun(gfxFont* aFont, gfxTextRange::MatchType aMatchType,
-                       uint32_t aStartCharIndex, bool aForceNewRun,
-                       mozilla::gfx::ShapedTextFlags aOrientation);
+  void AddGlyphRun(gfxFont* aFont, FontMatchType aMatchType,
+                   uint32_t aUTF16Offset, bool aForceNewRun,
+                   mozilla::gfx::ShapedTextFlags aOrientation, bool aIsCJK);
   void ResetGlyphRuns() {
     if (mHasGlyphRunArray) {
       MOZ_ASSERT(mGlyphRunArray.Length() > 1);
@@ -598,8 +652,6 @@ class gfxTextRun : public gfxShapedText {
    */
   void FetchGlyphExtents(DrawTarget* aRefDrawTarget);
 
-  uint32_t CountMissingGlyphs() const;
-
   const GlyphRun* GetGlyphRuns(uint32_t* aNumGlyphRuns) const {
     if (mHasGlyphRunArray) {
       *aNumGlyphRuns = mGlyphRunArray.Length();
@@ -609,6 +661,13 @@ class gfxTextRun : public gfxShapedText {
       return &mSingleGlyphRun;
     }
   }
+
+  const GlyphRun* TrailingGlyphRun() const {
+    uint32_t count;
+    const GlyphRun* runs = GetGlyphRuns(&count);
+    return count ? runs + count - 1 : nullptr;
+  }
+
   // Returns the index of the GlyphRun containing the given offset.
   // Returns mGlyphRuns.Length() when aOffset is mCharacterCount.
   uint32_t FindFirstGlyphRunContaining(uint32_t aOffset) const;
@@ -654,14 +713,14 @@ class gfxTextRun : public gfxShapedText {
 
   // Get the size, if it hasn't already been gotten, marking as it goes.
   size_t MaybeSizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf) {
-    if (mFlags2 & nsTextFrameUtils::Flags::TEXT_RUN_SIZE_ACCOUNTED) {
+    if (mFlags2 & nsTextFrameUtils::Flags::RunSizeAccounted) {
       return 0;
     }
-    mFlags2 |= nsTextFrameUtils::Flags::TEXT_RUN_SIZE_ACCOUNTED;
+    mFlags2 |= nsTextFrameUtils::Flags::RunSizeAccounted;
     return SizeOfIncludingThis(aMallocSizeOf);
   }
   void ResetSizeOfAccountingFlags() {
-    mFlags2 &= ~nsTextFrameUtils::Flags::TEXT_RUN_SIZE_ACCOUNTED;
+    mFlags2 &= ~nsTextFrameUtils::Flags::RunSizeAccounted;
   }
 
   // shaping state - for some font features, fallback is required that
@@ -698,8 +757,8 @@ class gfxTextRun : public gfxShapedText {
     return advance;
   }
 
-#ifdef DEBUG
-  void Dump(FILE* aOutput);
+#ifdef DEBUG_FRAME_DUMP
+  void Dump(FILE* aOutput = stderr);
 #endif
 
  protected:
@@ -819,17 +878,49 @@ class gfxTextRun : public gfxShapedText {
   nsTextFrameUtils::Flags
       mFlags2;  // additional flags (see also gfxShapedText::mFlags)
 
-  bool mSkipDrawing;  // true if the font group we used had a user font
-                      // download that's in progress, so we should hide text
-                      // until the download completes (or timeout fires)
-  bool mReleasedFontGroup;  // we already called NS_RELEASE on
-                            // mFontGroup, so don't do it again
-  bool mHasGlyphRunArray;   // whether we're using an array or
-                            // just storing a single glyphrun
+  bool mDontSkipDrawing;  // true if the text run must not skip drawing, even if
+                          // waiting for a user font download, e.g. because we
+                          // are using it to draw canvas text
+  bool mReleasedFontGroup;                // we already called NS_RELEASE on
+                                          // mFontGroup, so don't do it again
+  bool mReleasedFontGroupSkippedDrawing;  // whether our old mFontGroup value
+                                          // was set to skip drawing
+  bool mHasGlyphRunArray;                 // whether we're using an array or
+                                          // just storing a single glyphrun
 
   // shaping state for handling variant fallback features
   // such as subscript/superscript variant glyphs
   ShapingState mShapingState;
+};
+
+enum class FallbackTypes : uint8_t {
+  // Font fallback used a font configured in Preferences
+  FallbackToPrefsFont = 1 << 0,
+  // Font fallback used a font with FontVisibility::Base
+  FallbackToBaseFont = 1 << 1,
+  // Font fallback used a font with FontVisibility::LangPack
+  FallbackToLangPackFont = 1 << 2,
+  // Font fallback used a font with FontVisibility::User
+  FallbackToUserFont = 1 << 3,
+  // Rendered missing-glyph because no font available for the character
+  MissingFont = 1 << 4,
+  // Rendered missing-glyph but a LangPack font could have been used
+  MissingFontLangPack = 1 << 5,
+  // Rendered missing-glyph but a User font could have been used
+  MissingFontUser = 1 << 6,
+};
+
+MOZ_MAKE_ENUM_CLASS_BITWISE_OPERATORS(FallbackTypes)
+
+struct FontMatchingStats {
+  // Set of names that have been looked up (whether successfully or not).
+  nsTHashtable<nsCStringHashKey> mFamilyNames;
+  // Number of font-family names resolved at each level of visibility.
+  uint32_t mBaseFonts = 0;
+  uint32_t mLangPackFonts = 0;
+  uint32_t mUserFonts = 0;
+  uint32_t mWebFonts = 0;
+  FallbackTypes mFallbacks = FallbackTypes(0);
 };
 
 class gfxFontGroup final : public gfxTextRunFactory {
@@ -842,16 +933,19 @@ class gfxFontGroup final : public gfxTextRunFactory {
 
   gfxFontGroup(const mozilla::FontFamilyList& aFontFamilyList,
                const gfxFontStyle* aStyle, gfxTextPerfMetrics* aTextPerf,
+               FontMatchingStats* aFontMatchingStats,
                gfxUserFontSet* aUserFontSet, gfxFloat aDevToCssSize);
 
   virtual ~gfxFontGroup();
+
+  gfxFontGroup(const gfxFontGroup& aOther) = delete;
 
   // Returns first valid font in the fontlist or default font.
   // Initiates userfont loads if userfont not loaded.
   // aGeneric: if non-null, returns the CSS generic type that was mapped to
   //           this font
-  gfxFont* GetFirstValidFont(uint32_t aCh = 0x20,
-                             mozilla::FontFamilyType* aGeneric = nullptr);
+  gfxFont* GetFirstValidFont(
+      uint32_t aCh = 0x20, mozilla::StyleGenericFontFamily* aGeneric = nullptr);
 
   // Returns the first font in the font-group that has an OpenType MATH table,
   // or null if no such font is available. The GetMathConstant methods may be
@@ -859,8 +953,6 @@ class gfxFontGroup final : public gfxTextRunFactory {
   gfxFont* GetFirstMathFont();
 
   const gfxFontStyle* GetStyle() const { return &mStyle; }
-
-  gfxFontGroup* Copy(const gfxFontStyle* aStyle);
 
   /**
    * The listed characters should be treated as invisible and zero-width
@@ -940,7 +1032,7 @@ class gfxFontGroup final : public gfxTextRunFactory {
 
   gfxFont* FindFontForChar(uint32_t ch, uint32_t prevCh, uint32_t aNextCh,
                            Script aRunScript, gfxFont* aPrevMatchedFont,
-                           gfxTextRange::MatchType* aMatchType);
+                           FontMatchType* aMatchType);
 
   gfxUserFontSet* GetUserFontSet();
 
@@ -989,119 +1081,232 @@ class gfxFontGroup final : public gfxTextRunFactory {
       int32_t aAppUnitsPerDevPixel, mozilla::gfx::ShapedTextFlags aFlags,
       LazyReferenceDrawTargetGetter& aRefDrawTargetGetter);
 
+  void CheckForUpdatedPlatformList() {
+    auto* pfl = gfxPlatformFontList::PlatformFontList();
+    if (mFontListGeneration != pfl->GetGeneration()) {
+      // Forget cached fonts that may no longer be valid.
+      mLastPrefFamily = FontFamily();
+      mLastPrefFont = nullptr;
+      mFonts.Clear();
+      BuildFontList();
+    }
+  }
+
  protected:
+  friend class mozilla::PostTraversalTask;
+
+  struct TextRange {
+    TextRange(uint32_t aStart, uint32_t aEnd, gfxFont* aFont,
+              FontMatchType aMatchType,
+              mozilla::gfx::ShapedTextFlags aOrientation)
+        : start(aStart),
+          end(aEnd),
+          font(aFont),
+          matchType(aMatchType),
+          orientation(aOrientation) {}
+    uint32_t Length() const { return end - start; }
+    uint32_t start, end;
+    RefPtr<gfxFont> font;
+    FontMatchType matchType;
+    mozilla::gfx::ShapedTextFlags orientation;
+  };
+
   // search through pref fonts for a character, return nullptr if no matching
   // pref font
-  gfxFont* WhichPrefFontSupportsChar(uint32_t aCh, uint32_t aNextCh);
+  gfxFont* WhichPrefFontSupportsChar(uint32_t aCh, uint32_t aNextCh,
+                                     eFontPresentation aPresentation);
 
   gfxFont* WhichSystemFontSupportsChar(uint32_t aCh, uint32_t aNextCh,
-                                       Script aRunScript);
+                                       Script aRunScript,
+                                       eFontPresentation aPresentation);
 
   template <typename T>
-  void ComputeRanges(nsTArray<gfxTextRange>& mRanges, const T* aString,
+  void ComputeRanges(nsTArray<TextRange>& aRanges, const T* aString,
                      uint32_t aLength, Script aRunScript,
                      mozilla::gfx::ShapedTextFlags aOrientation);
 
   class FamilyFace {
    public:
     FamilyFace()
-        : mFamily(nullptr),
+        : mOwnedFamily(nullptr),
           mFontEntry(nullptr),
-          mGeneric(mozilla::eFamily_none),
+          mGeneric(mozilla::StyleGenericFontFamily::None),
           mFontCreated(false),
           mLoading(false),
           mInvalid(false),
-          mCheckForFallbackFaces(false) {}
+          mCheckForFallbackFaces(false),
+          mIsSharedFamily(false),
+          mHasFontEntry(false) {}
 
     FamilyFace(gfxFontFamily* aFamily, gfxFont* aFont,
-               mozilla::FontFamilyType aGeneric)
-        : mFamily(aFamily),
+               mozilla::StyleGenericFontFamily aGeneric)
+        : mOwnedFamily(aFamily),
           mGeneric(aGeneric),
           mFontCreated(true),
           mLoading(false),
           mInvalid(false),
-          mCheckForFallbackFaces(false) {
+          mCheckForFallbackFaces(false),
+          mIsSharedFamily(false),
+          mHasFontEntry(false) {
       NS_ASSERTION(aFont, "font pointer must not be null");
       NS_ASSERTION(!aFamily || aFamily->ContainsFace(aFont->GetFontEntry()),
                    "font is not a member of the given family");
+      NS_IF_ADDREF(aFamily);
       mFont = aFont;
       NS_ADDREF(aFont);
     }
 
     FamilyFace(gfxFontFamily* aFamily, gfxFontEntry* aFontEntry,
-               mozilla::FontFamilyType aGeneric)
-        : mFamily(aFamily),
+               mozilla::StyleGenericFontFamily aGeneric)
+        : mOwnedFamily(aFamily),
           mGeneric(aGeneric),
           mFontCreated(false),
           mLoading(false),
           mInvalid(false),
-          mCheckForFallbackFaces(false) {
+          mCheckForFallbackFaces(false),
+          mIsSharedFamily(false),
+          mHasFontEntry(true) {
       NS_ASSERTION(aFontEntry, "font entry pointer must not be null");
       NS_ASSERTION(!aFamily || aFamily->ContainsFace(aFontEntry),
                    "font is not a member of the given family");
+      NS_IF_ADDREF(aFamily);
+      mFontEntry = aFontEntry;
+      NS_ADDREF(aFontEntry);
+    }
+
+    FamilyFace(mozilla::fontlist::Family* aFamily, gfxFontEntry* aFontEntry,
+               mozilla::StyleGenericFontFamily aGeneric)
+        : mSharedFamily(aFamily),
+          mGeneric(aGeneric),
+          mFontCreated(false),
+          mLoading(false),
+          mInvalid(false),
+          mCheckForFallbackFaces(false),
+          mIsSharedFamily(true),
+          mHasFontEntry(true) {
+      MOZ_ASSERT(aFamily && aFontEntry && aFontEntry->mShmemFace);
       mFontEntry = aFontEntry;
       NS_ADDREF(aFontEntry);
     }
 
     FamilyFace(const FamilyFace& aOtherFamilyFace)
-        : mFamily(aOtherFamilyFace.mFamily),
-          mGeneric(aOtherFamilyFace.mGeneric),
+        : mGeneric(aOtherFamilyFace.mGeneric),
           mFontCreated(aOtherFamilyFace.mFontCreated),
           mLoading(aOtherFamilyFace.mLoading),
           mInvalid(aOtherFamilyFace.mInvalid),
-          mCheckForFallbackFaces(aOtherFamilyFace.mCheckForFallbackFaces) {
-      if (mFontCreated) {
-        mFont = aOtherFamilyFace.mFont;
-        NS_ADDREF(mFont);
+          mCheckForFallbackFaces(aOtherFamilyFace.mCheckForFallbackFaces),
+          mIsSharedFamily(aOtherFamilyFace.mIsSharedFamily),
+          mHasFontEntry(aOtherFamilyFace.mHasFontEntry) {
+      if (mIsSharedFamily) {
+        mSharedFamily = aOtherFamilyFace.mSharedFamily;
+        if (mFontCreated) {
+          mFont = aOtherFamilyFace.mFont;
+          NS_ADDREF(mFont);
+        } else if (mHasFontEntry) {
+          mFontEntry = aOtherFamilyFace.mFontEntry;
+          NS_ADDREF(mFontEntry);
+        } else {
+          mSharedFace = aOtherFamilyFace.mSharedFace;
+        }
       } else {
-        mFontEntry = aOtherFamilyFace.mFontEntry;
-        NS_IF_ADDREF(mFontEntry);
+        mOwnedFamily = aOtherFamilyFace.mOwnedFamily;
+        NS_IF_ADDREF(mOwnedFamily);
+        if (mFontCreated) {
+          mFont = aOtherFamilyFace.mFont;
+          NS_ADDREF(mFont);
+        } else {
+          mFontEntry = aOtherFamilyFace.mFontEntry;
+          NS_IF_ADDREF(mFontEntry);
+        }
       }
     }
 
     ~FamilyFace() {
       if (mFontCreated) {
         NS_RELEASE(mFont);
-      } else {
-        NS_IF_RELEASE(mFontEntry);
+      }
+      if (!mIsSharedFamily) {
+        NS_IF_RELEASE(mOwnedFamily);
+      }
+      if (mHasFontEntry) {
+        NS_RELEASE(mFontEntry);
       }
     }
 
     FamilyFace& operator=(const FamilyFace& aOther) {
       if (mFontCreated) {
         NS_RELEASE(mFont);
-      } else {
-        NS_IF_RELEASE(mFontEntry);
+      }
+      if (!mIsSharedFamily) {
+        NS_IF_RELEASE(mOwnedFamily);
+      }
+      if (mHasFontEntry) {
+        NS_RELEASE(mFontEntry);
       }
 
-      mFamily = aOther.mFamily;
       mGeneric = aOther.mGeneric;
       mFontCreated = aOther.mFontCreated;
       mLoading = aOther.mLoading;
       mInvalid = aOther.mInvalid;
+      mIsSharedFamily = aOther.mIsSharedFamily;
+      mHasFontEntry = aOther.mHasFontEntry;
 
-      if (mFontCreated) {
-        mFont = aOther.mFont;
-        NS_ADDREF(mFont);
+      if (mIsSharedFamily) {
+        mSharedFamily = aOther.mSharedFamily;
+        if (mFontCreated) {
+          mFont = aOther.mFont;
+          NS_ADDREF(mFont);
+        } else if (mHasFontEntry) {
+          mFontEntry = aOther.mFontEntry;
+          NS_ADDREF(mFontEntry);
+        } else {
+          mSharedFace = aOther.mSharedFace;
+        }
       } else {
-        mFontEntry = aOther.mFontEntry;
-        NS_IF_ADDREF(mFontEntry);
+        mOwnedFamily = aOther.mOwnedFamily;
+        NS_IF_ADDREF(mOwnedFamily);
+        if (mFontCreated) {
+          mFont = aOther.mFont;
+          NS_ADDREF(mFont);
+        } else {
+          mFontEntry = aOther.mFontEntry;
+          NS_IF_ADDREF(mFontEntry);
+        }
       }
 
       return *this;
     }
 
-    gfxFontFamily* Family() const { return mFamily.get(); }
+    gfxFontFamily* OwnedFamily() const {
+      MOZ_ASSERT(!mIsSharedFamily);
+      return mOwnedFamily;
+    }
+    mozilla::fontlist::Family* SharedFamily() const {
+      MOZ_ASSERT(mIsSharedFamily);
+      return mSharedFamily;
+    }
     gfxFont* Font() const { return mFontCreated ? mFont : nullptr; }
 
     gfxFontEntry* FontEntry() const {
-      return mFontCreated ? mFont->GetFontEntry() : mFontEntry;
+      if (mFontCreated) {
+        return mFont->GetFontEntry();
+      }
+      if (mHasFontEntry) {
+        return mFontEntry;
+      }
+      if (mIsSharedFamily) {
+        return gfxPlatformFontList::PlatformFontList()->GetOrCreateFontEntry(
+            mSharedFace, SharedFamily());
+      }
+      return nullptr;
     }
 
-    mozilla::FontFamilyType Generic() const { return mGeneric; }
+    mozilla::StyleGenericFontFamily Generic() const { return mGeneric; }
 
+    bool IsSharedFamily() const { return mIsSharedFamily; }
     bool IsUserFontContainer() const {
-      return FontEntry()->mIsUserFontContainer;
+      gfxFontEntry* fe = FontEntry();
+      return fe && fe->mIsUserFontContainer;
     }
     bool IsLoading() const { return mLoading; }
     bool IsInvalid() const { return mInvalid; }
@@ -1111,13 +1316,25 @@ class gfxFontGroup final : public gfxTextRunFactory {
     bool CheckForFallbackFaces() const { return mCheckForFallbackFaces; }
     void SetCheckForFallbackFaces() { mCheckForFallbackFaces = true; }
 
+    // Return true if we're currently loading (or waiting for) a resource that
+    // may support the given character.
+    bool IsLoadingFor(uint32_t aCh) {
+      if (!IsLoading()) {
+        return false;
+      }
+      MOZ_ASSERT(IsUserFontContainer());
+      auto* ufe = static_cast<gfxUserFontEntry*>(FontEntry());
+      return ufe && ufe->CharacterInUnicodeRange(aCh);
+    }
+
     void SetFont(gfxFont* aFont) {
       NS_ASSERTION(aFont, "font pointer must not be null");
       NS_ADDREF(aFont);
       if (mFontCreated) {
         NS_RELEASE(mFont);
-      } else {
-        NS_IF_RELEASE(mFontEntry);
+      } else if (mHasFontEntry) {
+        NS_RELEASE(mFontEntry);
+        mHasFontEntry = false;
       }
       mFont = aFont;
       mFontCreated = true;
@@ -1127,19 +1344,25 @@ class gfxFontGroup final : public gfxTextRunFactory {
     bool EqualsUserFont(const gfxUserFontEntry* aUserFont) const;
 
    private:
-    RefPtr<gfxFontFamily> mFamily;
+    union {
+      gfxFontFamily* MOZ_OWNING_REF mOwnedFamily;
+      mozilla::fontlist::Family* MOZ_NON_OWNING_REF mSharedFamily;
+    };
     // either a font or a font entry exists
     union {
       // Whichever of these fields is actually present will be a strong
       // reference, with refcounting handled manually.
       gfxFont* MOZ_OWNING_REF mFont;
       gfxFontEntry* MOZ_OWNING_REF mFontEntry;
+      mozilla::fontlist::Face* MOZ_NON_OWNING_REF mSharedFace;
     };
-    mozilla::FontFamilyType mGeneric;
+    mozilla::StyleGenericFontFamily mGeneric;
     bool mFontCreated : 1;
     bool mLoading : 1;
     bool mInvalid : 1;
     bool mCheckForFallbackFaces : 1;
+    bool mIsSharedFamily : 1;
+    bool mHasFontEntry : 1;
   };
 
   // List of font families, either named or generic.
@@ -1164,12 +1387,14 @@ class gfxFontGroup final : public gfxTextRunFactory {
 
   gfxTextPerfMetrics* mTextPerf;
 
+  FontMatchingStats* mFontMatchingStats;
+
   // Cache a textrun representing an ellipsis (useful for CSS text-overflow)
   // at a specific appUnitsPerDevPixel size and orientation
   RefPtr<gfxTextRun> mCachedEllipsisTextRun;
 
   // cache the most recent pref font to avoid general pref font lookup
-  RefPtr<gfxFontFamily> mLastPrefFamily;
+  FontFamily mLastPrefFamily;
   RefPtr<gfxFont> mLastPrefFont;
   eFontPrefLang mLastPrefLang;  // lang group for last pref font
   eFontPrefLang mPageLang;
@@ -1179,6 +1404,9 @@ class gfxFontGroup final : public gfxTextRunFactory {
   bool mSkipDrawing;  // hide text while waiting for a font
                       // download to complete (or fallback
                       // timer to fire)
+
+  uint32_t mFontListGeneration = 0;  // platform font list generation for this
+                                     // fontgroup
 
   /**
    * Textrun creation short-cuts for special cases where we don't need to
@@ -1192,21 +1420,29 @@ class gfxFontGroup final : public gfxTextRunFactory {
       const Parameters* aParams, mozilla::gfx::ShapedTextFlags aFlags,
       nsTextFrameUtils::Flags aFlags2);
 
+  template <typename T>
   already_AddRefed<gfxTextRun> MakeBlankTextRun(
-      uint32_t aLength, const Parameters* aParams,
+      const T* aString, uint32_t aLength, const Parameters* aParams,
       mozilla::gfx::ShapedTextFlags aFlags, nsTextFrameUtils::Flags aFlags2);
 
   // Initialize the list of fonts
   void BuildFontList();
 
-  // Get the font at index i within the fontlist.
+  // Get the font at index i within the fontlist, for character aCh (in case
+  // of fonts with multiple resources and unicode-range partitioning).
   // Will initiate userfont load if not already loaded.
-  // May return null if userfont not loaded or if font invalid
-  gfxFont* GetFontAt(int32_t i, uint32_t aCh = 0x20);
+  // May return null if userfont not loaded or if font invalid.
+  // If *aLoading is true, a relevant resource is already being loaded so no
+  // new download will be initiated; if a download is started, *aLoading will
+  // be set to true on return.
+  gfxFont* GetFontAt(int32_t i, uint32_t aCh, bool* aLoading);
 
-  // Whether there's a font loading for a given family in the fontlist
-  // for a given character
-  bool FontLoadingForFamily(gfxFontFamily* aFamily, uint32_t aCh) const;
+  // Simplified version of GetFontAt() for use where we just need a font for
+  // metrics, math layout tables, etc.
+  gfxFont* GetFontAt(int32_t i, uint32_t aCh = 0x20) {
+    bool loading = false;
+    return GetFontAt(i, aCh, &loading);
+  }
 
   // will always return a font or force a shutdown
   gfxFont* GetDefaultFont();
@@ -1234,17 +1470,29 @@ class gfxFontGroup final : public gfxTextRunFactory {
   // Helper for font-matching:
   // search all faces in a family for a fallback in cases where it's unclear
   // whether the family might have a font for a given character
-  gfxFont* FindFallbackFaceForChar(gfxFontFamily* aFamily, uint32_t aCh);
+  gfxFont* FindFallbackFaceForChar(const FamilyFace& aFamily, uint32_t aCh,
+                                   uint32_t aNextCh,
+                                   eFontPresentation aPresentation);
+
+  gfxFont* FindFallbackFaceForChar(mozilla::fontlist::Family* aFamily,
+                                   uint32_t aCh, uint32_t aNextCh,
+                                   eFontPresentation aPresentation);
+
+  gfxFont* FindFallbackFaceForChar(gfxFontFamily* aFamily, uint32_t aCh,
+                                   uint32_t aNextCh,
+                                   eFontPresentation aPresentation);
 
   // helper methods for looking up fonts
 
   // lookup and add a font with a given name (i.e. *not* a generic!)
-  void AddPlatformFont(const nsACString& aName,
+  void AddPlatformFont(const nsACString& aName, bool aQuotedName,
                        nsTArray<FamilyAndGeneric>& aFamilyList);
 
   // do style selection and add entries to list
   void AddFamilyToFontList(gfxFontFamily* aFamily,
-                           mozilla::FontFamilyType aGeneric);
+                           mozilla::StyleGenericFontFamily aGeneric);
+  void AddFamilyToFontList(mozilla::fontlist::Family* aFamily,
+                           mozilla::StyleGenericFontFamily aGeneric);
 };
 
 // A "missing font recorder" is to be used during text-run creation to keep

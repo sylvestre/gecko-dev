@@ -5,15 +5,21 @@
 
 var EXPORTED_SYMBOLS = ["PlacesUIUtils"];
 
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
-ChromeUtils.import("resource://gre/modules/Services.jsm");
-ChromeUtils.import("resource://gre/modules/Timer.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { clearTimeout, setTimeout } = ChromeUtils.import(
+  "resource://gre/modules/Timer.jsm"
+);
 
 XPCOMUtils.defineLazyGlobalGetters(this, ["Element"]);
 
 XPCOMUtils.defineLazyModuleGetters(this, {
   AppConstants: "resource://gre/modules/AppConstants.jsm",
   BrowserWindowTracker: "resource:///modules/BrowserWindowTracker.jsm",
+  CustomizableUI: "resource:///modules/CustomizableUI.jsm",
+  MigrationUtils: "resource:///modules/MigrationUtils.jsm",
   OpenInTabsUtils: "resource:///modules/OpenInTabsUtils.jsm",
   PlacesTransactions: "resource://gre/modules/PlacesTransactions.jsm",
   PlacesUtils: "resource://gre/modules/PlacesUtils.jsm",
@@ -24,10 +30,13 @@ XPCOMUtils.defineLazyModuleGetters(this, {
 });
 
 XPCOMUtils.defineLazyGetter(this, "bundle", function() {
-  return Services.strings.createBundle("chrome://browser/locale/places/places.properties");
+  return Services.strings.createBundle(
+    "chrome://browser/locale/places/places.properties"
+  );
 });
 
-const gInContentProcess = Services.appinfo.processType == Ci.nsIXULRuntime.PROCESS_TYPE_CONTENT;
+const gInContentProcess =
+  Services.appinfo.processType == Ci.nsIXULRuntime.PROCESS_TYPE_CONTENT;
 const FAVICON_REQUEST_TIMEOUT = 60 * 1000;
 // Map from windows to arrays of data about pending favicon loads.
 let gFaviconLoadDataMap = new Map();
@@ -36,24 +45,15 @@ const ITEM_CHANGED_BATCH_NOTIFICATION_THRESHOLD = 10;
 
 // copied from utilityOverlay.js
 const TAB_DROP_TYPE = "application/x-moz-tabbrowser-tab";
-const PREF_LOAD_BOOKMARKS_IN_BACKGROUND = "browser.tabs.loadBookmarksInBackground";
+const PREF_LOAD_BOOKMARKS_IN_BACKGROUND =
+  "browser.tabs.loadBookmarksInBackground";
 const PREF_LOAD_BOOKMARKS_IN_TABS = "browser.tabs.loadBookmarksInTabs";
 
 let InternalFaviconLoader = {
   /**
-   * This gets called for every inner window that is destroyed.
-   * In the parent process, we process the destruction ourselves. In the child process,
-   * we notify the parent which will then process it based on that message.
-   */
-  observe(subject, topic, data) {
-    let innerWindowID = subject.QueryInterface(Ci.nsISupportsPRUint64).data;
-    this.removeRequestsForInner(innerWindowID);
-  },
-
-  /**
    * Actually cancel the request, and clear the timeout for cancelling it.
    */
-  _cancelRequest({uri, innerWindowID, timerID, callback}, reason) {
+  _cancelRequest({ uri, innerWindowID, timerID, callback }, reason) {
     // Break cycle
     let request = callback.request;
     delete callback.request;
@@ -62,7 +62,13 @@ let InternalFaviconLoader = {
     try {
       request.cancel();
     } catch (ex) {
-      Cu.reportError("When cancelling a request for " + uri.spec + " because " + reason + ", it was already canceled!");
+      Cu.reportError(
+        "When cancelling a request for " +
+          uri.spec +
+          " because " +
+          reason +
+          ", it was already canceled!"
+      );
     }
   },
 
@@ -74,7 +80,10 @@ let InternalFaviconLoader = {
       let newLoadDataForWindow = loadDataForWindow.filter(loadData => {
         let innerWasDestroyed = loadData.innerWindowID == innerID;
         if (innerWasDestroyed) {
-          this._cancelRequest(loadData, "the inner window was destroyed or a new favicon was loaded for it");
+          this._cancelRequest(
+            loadData,
+            "the inner window was destroyed or a new favicon was loaded for it"
+          );
         }
         // Keep the items whose inner is still alive.
         return !innerWasDestroyed;
@@ -111,13 +120,15 @@ let InternalFaviconLoader = {
    *
    * @return the loadData object we removed, or null if we didn't find any.
    */
-  _removeLoadDataFromWindowMap(win, {innerWindowID, uri, callback}) {
+  _removeLoadDataFromWindowMap(win, { innerWindowID, uri, callback }) {
     let loadDataForWindow = gFaviconLoadDataMap.get(win);
     if (loadDataForWindow) {
       let itemIndex = loadDataForWindow.findIndex(loadData => {
-        return loadData.innerWindowID == innerWindowID &&
-               loadData.uri.equals(uri) &&
-               loadData.callback.request == callback.request;
+        return (
+          loadData.innerWindowID == innerWindowID &&
+          loadData.uri.equals(uri) &&
+          loadData.callback.request == callback.request
+        );
       });
       if (itemIndex != -1) {
         let loadData = loadDataForWindow[itemIndex];
@@ -157,15 +168,14 @@ let InternalFaviconLoader = {
     }
     this._initialized = true;
 
-    Services.obs.addObserver(this, "inner-window-destroyed");
-    Services.ppmm.addMessageListener("Toolkit:inner-window-destroyed", msg => {
-      this.removeRequestsForInner(msg.data);
-    });
+    Services.obs.addObserver(windowGlobal => {
+      this.removeRequestsForInner(windowGlobal.innerWindowId);
+    }, "window-global-destroyed");
   },
 
   loadFavicon(browser, principal, pageURI, uri, expiration, iconURI) {
     this.ensureInitialized();
-    let {ownerGlobal: win, innerWindowID} = browser;
+    let { ownerGlobal: win, innerWindowID } = browser;
     if (!gFaviconLoadDataMap.has(win)) {
       gFaviconLoadDataMap.set(win, []);
       let unloadHandler = event => {
@@ -187,12 +197,22 @@ let InternalFaviconLoader = {
 
     if (iconURI && iconURI.schemeIs("data")) {
       expiration = PlacesUtils.toPRTime(expiration);
-      PlacesUtils.favicons.replaceFaviconDataFromDataURL(uri, iconURI.spec,
-                                                         expiration, principal);
+      PlacesUtils.favicons.replaceFaviconDataFromDataURL(
+        uri,
+        iconURI.spec,
+        expiration,
+        principal
+      );
     }
 
     let request = PlacesUtils.favicons.setAndFetchFaviconForPage(
-      pageURI, uri, false, loadType, callback, principal);
+      pageURI,
+      uri,
+      false,
+      loadType,
+      callback,
+      principal
+    );
 
     // Now register the result so we can cancel it if/when necessary.
     if (!request) {
@@ -202,7 +222,7 @@ let InternalFaviconLoader = {
       return;
     }
     callback.request = request;
-    let loadData = {innerWindowID, uri, callback};
+    let loadData = { innerWindowID, uri, callback };
     loadData.timerID = setTimeout(() => {
       this._cancelRequest(loadData, "it timed out");
       this._removeLoadDataFromWindowMap(win, loadData);
@@ -215,18 +235,8 @@ let InternalFaviconLoader = {
 var PlacesUIUtils = {
   LAST_USED_FOLDERS_META_KEY: "bookmarks/lastusedfolders",
 
-  /**
-   * Makes a URI from a spec, and do fixup
-   * @param   aSpec
-   *          The string spec of the URI
-   * @return A URI object for the spec.
-   */
-  createFixedURI: function PUIU_createFixedURI(aSpec) {
-    return Services.uriFixup.createFixupURI(aSpec, Ci.nsIURIFixup.FIXUP_FLAG_NONE);
-  },
-
   getFormattedString: function PUIU_getFormattedString(key, params) {
-    return bundle.formatStringFromName(key, params, params.length);
+    return bundle.formatStringFromName(key, params);
   },
 
   /**
@@ -261,25 +271,25 @@ var PlacesUIUtils = {
   /**
    * Shows the bookmark dialog corresponding to the specified info.
    *
-   * @param aInfo
+   * @param {object} aInfo
    *        Describes the item to be edited/added in the dialog.
    *        See documentation at the top of bookmarkProperties.js
-   * @param aWindow
+   * @param {DOMWindow} [aParentWindow]
    *        Owner window for the new dialog.
    *
    * @see documentation at the top of bookmarkProperties.js
    * @return The guid of the item that was created or edited, undefined otherwise.
    */
-  showBookmarkDialog(aInfo, aParentWindow) {
+  showBookmarkDialog(aInfo, aParentWindow = null) {
     // Preserve size attributes differently based on the fact the dialog has
     // a folder picker or not, since it needs more horizontal space than the
     // other controls.
-    let hasFolderPicker = !("hiddenRows" in aInfo) ||
-                          !aInfo.hiddenRows.includes("folderPicker");
+    let hasFolderPicker =
+      !("hiddenRows" in aInfo) || !aInfo.hiddenRows.includes("folderPicker");
     // Use a different chrome url to persist different sizes.
-    let dialogURL = hasFolderPicker ?
-                    "chrome://browser/content/places/bookmarkProperties2.xul" :
-                    "chrome://browser/content/places/bookmarkProperties.xul";
+    let dialogURL = hasFolderPicker
+      ? "chrome://browser/content/places/bookmarkProperties2.xhtml"
+      : "chrome://browser/content/places/bookmarkProperties.xhtml";
 
     let features = "centerscreen,chrome,modal,resizable=yes";
 
@@ -293,18 +303,51 @@ var PlacesUIUtils = {
       await batchBlockingDeferred.promise;
     });
 
+    if (!aParentWindow) {
+      aParentWindow = Services.wm.getMostRecentWindow(null);
+    }
+
     aParentWindow.openDialog(dialogURL, "", features, aInfo);
 
-    let bookmarkGuid = ("bookmarkGuid" in aInfo && aInfo.bookmarkGuid) || undefined;
+    let bookmarkGuid =
+      ("bookmarkGuid" in aInfo && aInfo.bookmarkGuid) || undefined;
 
     batchBlockingDeferred.resolve();
 
-    if (!bookmarkGuid &&
-        topUndoEntry != PlacesTransactions.topUndoEntry) {
+    if (!bookmarkGuid && topUndoEntry != PlacesTransactions.topUndoEntry) {
       PlacesTransactions.undo().catch(Cu.reportError);
     }
 
     return bookmarkGuid;
+  },
+
+  /**
+   * Bookmarks one or more pages. If there is more than one, this will create
+   * the bookmarks in a new folder.
+   *
+   * @param {array.<nsIURI>} URIList
+   *   The list of URIs to bookmark.
+   * @param {array.<string>} [hiddenRows]
+   *   An array of rows to be hidden.
+   * @param {DOMWindow} [window]
+   *   The window to use as the parent to display the bookmark dialog.
+   */
+  showBookmarkPagesDialog(URIList, hiddenRows = [], win = null) {
+    if (!URIList.length) {
+      return;
+    }
+
+    const bookmarkDialogInfo = { action: "add", hiddenRows };
+    if (URIList.length > 1) {
+      bookmarkDialogInfo.type = "folder";
+      bookmarkDialogInfo.URIList = URIList;
+    } else {
+      bookmarkDialogInfo.type = "bookmark";
+      bookmarkDialogInfo.title = URIList[0].title;
+      bookmarkDialogInfo.uri = URIList[0].uri;
+    }
+
+    PlacesUIUtils.showBookmarkDialog(bookmarkDialogInfo, win);
   },
 
   /**
@@ -316,11 +359,25 @@ var PlacesUIUtils = {
    * @param expiration {Number}    An optional expiration time.
    * @param iconURI    {URI}       An optional data: URI holding the icon's data.
    */
-  loadFavicon(browser, principal, pageURI, uri, expiration = 0, iconURI = null) {
+  loadFavicon(
+    browser,
+    principal,
+    pageURI,
+    uri,
+    expiration = 0,
+    iconURI = null
+  ) {
     if (gInContentProcess) {
       throw new Error("Can't track loads from within the child process!");
     }
-    InternalFaviconLoader.loadFavicon(browser, principal, pageURI, uri, expiration, iconURI);
+    InternalFaviconLoader.loadFavicon(
+      browser,
+      principal,
+      pageURI,
+      uri,
+      expiration,
+      iconURI
+    );
   },
 
   /**
@@ -332,21 +389,34 @@ var PlacesUIUtils = {
   getViewForNode: function PUIU_getViewForNode(aNode) {
     let node = aNode;
 
+    if (Cu.isDeadWrapper(node)) {
+      return null;
+    }
+
     if (node.localName == "panelview" && node._placesView) {
       return node._placesView;
     }
 
     // The view for a <menu> of which its associated menupopup is a places
     // view, is the menupopup.
-    if (node.localName == "menu" && !node._placesNode &&
-        node.lastChild._placesView)
-      return node.lastChild._placesView;
+    if (
+      node.localName == "menu" &&
+      !node._placesNode &&
+      node.menupopup._placesView
+    ) {
+      return node.menupopup._placesView;
+    }
 
     while (Element.isInstance(node)) {
-      if (node._placesView)
+      if (node._placesView) {
         return node._placesView;
-      if (node.localName == "tree" && node.getAttribute("type") == "places")
+      }
+      if (
+        node.localName == "tree" &&
+        node.getAttribute("is") == "places-tree"
+      ) {
         return node;
+      }
 
       node = node.parentNode;
     }
@@ -372,15 +442,21 @@ var PlacesUIUtils = {
       return null;
     }
     if (popupNode) {
+      let isManaged = !!popupNode.closest("#managed-bookmarks");
+      if (isManaged) {
+        return this.managedBookmarksController;
+      }
       let view = this.getViewForNode(popupNode);
-      if (view && view._contextMenuShown)
+      if (view && view._contextMenuShown) {
         return view.controllers.getControllerForCommand(command);
+      }
     }
 
     // When we're not building a context menu, only focusable views
     // are possible.  Thus, we can safely use the command dispatcher.
-    let controller = win.top.document.commandDispatcher
-                        .getControllerForCommand(command);
+    let controller = win.top.document.commandDispatcher.getControllerForCommand(
+      command
+    );
     return controller || null;
   },
 
@@ -408,8 +484,10 @@ var PlacesUIUtils = {
       "placesCmd_paste",
       "placesCmd_delete",
     ]) {
-      win.goSetCommandEnabled(command,
-                              controller && controller.isCommandEnabled(command));
+      win.goSetCommandEnabled(
+        command,
+        controller && controller.isCommandEnabled(command)
+      );
     }
   },
 
@@ -421,8 +499,9 @@ var PlacesUIUtils = {
    */
   doCommand(win, command) {
     let controller = this.getControllerForCommand(win, command);
-    if (controller && controller.isCommandEnabled(command))
+    if (controller && controller.isCommandEnabled(command)) {
       controller.doCommand(command);
+    }
   },
 
   /**
@@ -434,7 +513,9 @@ var PlacesUIUtils = {
    * TRANSITION_LINK.
    */
   markPageAsTyped: function PUIU_markPageAsTyped(aURL) {
-    PlacesUtils.history.markPageAsTyped(this.createFixedURI(aURL));
+    PlacesUtils.history.markPageAsTyped(
+      Services.uriFixup.getFixupURIInfo(aURL).preferredURI
+    );
   },
 
   /**
@@ -445,7 +526,9 @@ var PlacesUIUtils = {
    * If this is not called visits will be marked as TRANSITION_LINK.
    */
   markPageAsFollowedBookmark: function PUIU_markPageAsFollowedBookmark(aURL) {
-    PlacesUtils.history.markPageAsFollowedBookmark(this.createFixedURI(aURL));
+    PlacesUtils.history.markPageAsFollowedBookmark(
+      Services.uriFixup.getFixupURIInfo(aURL).preferredURI
+    );
   },
 
   /**
@@ -455,7 +538,9 @@ var PlacesUIUtils = {
    * so automatic visits can be correctly ignored.
    */
   markPageAsFollowedLink: function PUIU_markPageAsFollowedLink(aURL) {
-    PlacesUtils.history.markPageAsFollowedLink(this.createFixedURI(aURL));
+    PlacesUtils.history.markPageAsFollowedLink(
+      Services.uriFixup.getFixupURIInfo(aURL).preferredURI
+    );
   },
 
   /**
@@ -495,15 +580,16 @@ var PlacesUIUtils = {
    *
    */
   checkURLSecurity: function PUIU_checkURLSecurity(aURINode, aWindow) {
-    if (PlacesUtils.nodeIsBookmark(aURINode))
+    if (PlacesUtils.nodeIsBookmark(aURINode)) {
       return true;
+    }
 
     var uri = Services.io.newURI(aURINode.uri);
     if (uri.schemeIs("javascript") || uri.schemeIs("data")) {
       const BRANDING_BUNDLE_URI = "chrome://branding/locale/brand.properties";
-      var brandShortName = Services.strings.
-                           createBundle(BRANDING_BUNDLE_URI).
-                           GetStringFromName("brandShortName");
+      var brandShortName = Services.strings
+        .createBundle(BRANDING_BUNDLE_URI)
+        .GetStringFromName("brandShortName");
 
       var errorStr = this.getString("load-js-data-url-error");
       Services.prompt.alert(aWindow, brandShortName, errorStr);
@@ -570,48 +656,66 @@ var PlacesUIUtils = {
    * @return true if placesNode is a read-only folder, false otherwise.
    */
   isFolderReadOnly(placesNode) {
-    if (typeof placesNode != "object" || !PlacesUtils.nodeIsFolder(placesNode)) {
+    if (
+      typeof placesNode != "object" ||
+      !PlacesUtils.nodeIsFolder(placesNode)
+    ) {
       throw new Error("invalid value for placesNode");
     }
 
-    return PlacesUtils.getConcreteItemId(placesNode) == PlacesUtils.placesRootId;
+    return (
+      PlacesUtils.getConcreteItemId(placesNode) == PlacesUtils.placesRootId
+    );
   },
 
   /** aItemsToOpen needs to be an array of objects of the form:
-    * {uri: string, isBookmark: boolean}
-    */
-  _openTabset: function PUIU__openTabset(aItemsToOpen, aEvent, aWindow) {
-    if (!aItemsToOpen.length)
+   * {uri: string, isBookmark: boolean}
+   */
+  openTabset(aItemsToOpen, aEvent, aWindow) {
+    if (!aItemsToOpen.length) {
       return;
+    }
 
     let browserWindow = getBrowserWindow(aWindow);
     var urls = [];
-    let skipMarking = browserWindow && PrivateBrowsingUtils.isWindowPrivate(browserWindow);
+    let skipMarking =
+      browserWindow && PrivateBrowsingUtils.isWindowPrivate(browserWindow);
     for (let item of aItemsToOpen) {
       urls.push(item.uri);
       if (skipMarking) {
         continue;
       }
 
-      if (item.isBookmark)
+      if (item.isBookmark) {
         this.markPageAsFollowedBookmark(item.uri);
-      else
+      } else {
         this.markPageAsTyped(item.uri);
+      }
     }
 
     // whereToOpenLink doesn't return "window" when there's no browser window
     // open (Bug 630255).
-    var where = browserWindow ?
-                browserWindow.whereToOpenLink(aEvent, false, true) : "window";
+    var where = browserWindow
+      ? browserWindow.whereToOpenLink(aEvent, false, true)
+      : "window";
     if (where == "window") {
       // There is no browser window open, thus open a new one.
-      var uriList = PlacesUtils.toISupportsString(urls.join("|"));
-      var args = Cc["@mozilla.org/array;1"].
-                  createInstance(Ci.nsIMutableArray);
-      args.appendElement(uriList);
-      browserWindow = Services.ww.openWindow(aWindow,
-                                             AppConstants.BROWSER_CHROME_URL,
-                                             null, "chrome,dialog=no,all", args);
+      let args = Cc["@mozilla.org/array;1"].createInstance(Ci.nsIMutableArray);
+      let stringsToLoad = Cc["@mozilla.org/array;1"].createInstance(
+        Ci.nsIMutableArray
+      );
+      urls.forEach(url =>
+        stringsToLoad.appendElement(PlacesUtils.toISupportsString(url))
+      );
+      args.appendElement(stringsToLoad);
+
+      browserWindow = Services.ww.openWindow(
+        aWindow,
+        AppConstants.BROWSER_CHROME_URL,
+        null,
+        "chrome,dialog=no,all",
+        args
+      );
       return;
     }
 
@@ -649,12 +753,15 @@ var PlacesUIUtils = {
       for (var i = 0; i < nodeOrNodes.length; i++) {
         // Skip over separators and folders.
         if (PlacesUtils.nodeIsURI(nodeOrNodes[i])) {
-          urlsToOpen.push({uri: nodeOrNodes[i].uri, isBookmark: PlacesUtils.nodeIsBookmark(nodeOrNodes[i])});
+          urlsToOpen.push({
+            uri: nodeOrNodes[i].uri,
+            isBookmark: PlacesUtils.nodeIsBookmark(nodeOrNodes[i]),
+          });
         }
       }
     }
     if (OpenInTabsUtils.confirmOpenInTabs(urlsToOpen.length, window)) {
-      this._openTabset(urlsToOpen, event, window);
+      this.openTabset(urlsToOpen, event, window);
     }
   },
 
@@ -668,8 +775,7 @@ var PlacesUIUtils = {
    *          The DOM mouse/key event with modifier keys set that track the
    *          user's preferred destination window or tab.
    */
-  openNodeWithEvent:
-  function PUIU_openNodeWithEvent(aNode, aEvent) {
+  openNodeWithEvent: function PUIU_openNodeWithEvent(aNode, aEvent) {
     let window = aEvent.target.ownerGlobal;
 
     let browserWindow = getBrowserWindow(window);
@@ -696,23 +802,32 @@ var PlacesUIUtils = {
     this._openNodeIn(aNode, aWhere, window, aPrivate);
   },
 
-  _openNodeIn: function PUIU__openNodeIn(aNode, aWhere, aWindow, aPrivate = false) {
-    if (aNode && PlacesUtils.nodeIsURI(aNode) &&
-        this.checkURLSecurity(aNode, aWindow)) {
+  _openNodeIn: function PUIU__openNodeIn(
+    aNode,
+    aWhere,
+    aWindow,
+    aPrivate = false
+  ) {
+    if (
+      aNode &&
+      PlacesUtils.nodeIsURI(aNode) &&
+      this.checkURLSecurity(aNode, aWindow)
+    ) {
       let isBookmark = PlacesUtils.nodeIsBookmark(aNode);
 
       if (!PrivateBrowsingUtils.isWindowPrivate(aWindow)) {
-        if (isBookmark)
+        if (isBookmark) {
           this.markPageAsFollowedBookmark(aNode.uri);
-        else
+        } else {
           this.markPageAsTyped(aNode.uri);
+        }
       }
 
       const isJavaScriptURL = aNode.uri.startsWith("javascript:");
       aWindow.openTrustedLinkIn(aNode.uri, aWhere, {
         allowPopups: isJavaScriptURL,
         inBackground: this.loadBookmarksInBackground,
-        allowInheritPrincipal: isJavaScriptURL && aWhere == "current",
+        allowInheritPrincipal: isJavaScriptURL,
         private: aPrivate,
       });
     }
@@ -743,23 +858,27 @@ var PlacesUIUtils = {
         if (aDoNotCutTitle) {
           title = host + uri.pathQueryRef;
         } else {
-          title = host + (fileName ?
-                           (host ? "/" + this.ellipsis + "/" : "") + fileName :
-                           uri.pathQueryRef);
+          title =
+            host +
+            (fileName
+              ? (host ? "/" + this.ellipsis + "/" : "") + fileName
+              : uri.pathQueryRef);
         }
       } catch (e) {
         // Use (no title) for non-standard URIs (data:, javascript:, ...)
         title = "";
       }
-    } else
+    } else {
       title = aNode.title;
+    }
 
     return title || this.getString("noTitle");
   },
 
   shouldShowTabsFromOtherComputersMenuitem() {
-    let weaveOK = Weave.Status.checkSetup() != Weave.CLIENT_NOT_CONFIGURED &&
-                  Weave.Svc.Prefs.get("firstSync", "") != "notReady";
+    let weaveOK =
+      Weave.Status.checkSetup() != Weave.CLIENT_NOT_CONFIGURED &&
+      Weave.Svc.Prefs.get("firstSync", "") != "notReady";
     return weaveOK;
   },
 
@@ -777,18 +896,21 @@ var PlacesUIUtils = {
   isFolderShortcutQueryString(queryString) {
     // Based on GetSimpleBookmarksQueryFolder in nsNavHistory.cpp.
 
-    let query = {}, options = {};
+    let query = {},
+      options = {};
     PlacesUtils.history.queryStringToQuery(queryString, query, options);
     query = query.value;
     options = options.value;
-    return query.folderCount == 1 &&
-           !query.hasBeginTime &&
-           !query.hasEndTime &&
-           !query.hasDomain &&
-           !query.hasURI &&
-           !query.hasSearchTerms &&
-           !query.tags.length == 0 &&
-           options.maxResults == 0;
+    return (
+      query.folderCount == 1 &&
+      !query.hasBeginTime &&
+      !query.hasEndTime &&
+      !query.hasDomain &&
+      !query.hasURI &&
+      !query.hasSearchTerms &&
+      !query.tags.length == 0 &&
+      options.maxResults == 0
+    );
   },
 
   /**
@@ -804,8 +926,9 @@ var PlacesUIUtils = {
    * @throws if aFetchInfo is representing a separator.
    */
   async promiseNodeLikeFromFetchInfo(aFetchInfo) {
-    if (aFetchInfo.itemType == PlacesUtils.bookmarks.TYPE_SEPARATOR)
+    if (aFetchInfo.itemType == PlacesUtils.bookmarks.TYPE_SEPARATOR) {
       throw new Error("promiseNodeLike doesn't support separators");
+    }
 
     let parent = {
       itemId: await PlacesUtils.promiseItemId(aFetchInfo.parentGuid),
@@ -820,15 +943,18 @@ var PlacesUIUtils = {
       uri: aFetchInfo.url !== undefined ? aFetchInfo.url.href : "",
 
       get type() {
-        if (aFetchInfo.itemType == PlacesUtils.bookmarks.TYPE_FOLDER)
+        if (aFetchInfo.itemType == PlacesUtils.bookmarks.TYPE_FOLDER) {
           return Ci.nsINavHistoryResultNode.RESULT_TYPE_FOLDER;
+        }
 
-        if (this.uri.length == 0)
+        if (!this.uri.length) {
           throw new Error("Unexpected item type");
+        }
 
         if (/^place:/.test(this.uri)) {
-          if (this.isFolderShortcutQueryString(this.uri))
+          if (this.isFolderShortcutQueryString(this.uri)) {
             return Ci.nsINavHistoryResultNode.RESULT_TYPE_FOLDER_SHORTCUT;
+          }
 
           return Ci.nsINavHistoryResultNode.RESULT_TYPE_QUERY;
         }
@@ -894,12 +1020,18 @@ var PlacesUIUtils = {
     if (insertionPoint.isTag) {
       let urls = items.filter(item => "uri" in item).map(item => item.uri);
       itemsCount = urls.length;
-      transactions = [PlacesTransactions.Tag({ urls, tag: insertionPoint.tagName })];
+      transactions = [
+        PlacesTransactions.Tag({ urls, tag: insertionPoint.tagName }),
+      ];
     } else {
       let insertionIndex = await insertionPoint.getIndex();
       itemsCount = items.length;
       transactions = getTransactionsForTransferItems(
-        items, insertionIndex, insertionPoint.guid, !doCopy);
+        items,
+        insertionIndex,
+        insertionPoint.guid,
+        !doCopy
+      );
     }
 
     // Check if we actually have something to add, if we don't it probably wasn't
@@ -933,14 +1065,15 @@ var PlacesUIUtils = {
 
   onSidebarTreeClick(event) {
     // right-clicks are not handled here
-    if (event.button == 2)
+    if (event.button == 2) {
       return;
+    }
 
     let tree = event.target.parentNode;
-    let tbo = tree.treeBoxObject;
-    let cell = tbo.getCellAt(event.clientX, event.clientY);
-    if (cell.row == -1 || cell.childElt == "twisty")
+    let cell = tree.getCellAt(event.clientX, event.clientY);
+    if (cell.row == -1 || cell.childElt == "twisty") {
       return;
+    }
 
     // getCoordsForCellItem returns the x coordinate in logical coordinates
     // (i.e., starting from the left and right sides in LTR and RTL modes,
@@ -948,31 +1081,37 @@ var PlacesUIUtils = {
     // before the tree item icon (that is, to the left or right of it in
     // LTR and RTL modes, respectively) from the click target area.
     let win = tree.ownerGlobal;
-    let rect = tbo.getCoordsForCellItem(cell.row, cell.col, "image");
+    let rect = tree.getCoordsForCellItem(cell.row, cell.col, "image");
     let isRTL = win.getComputedStyle(tree).direction == "rtl";
-    let mouseInGutter = isRTL ? event.clientX > rect.x
-                              : event.clientX < rect.x;
+    let mouseInGutter = isRTL ? event.clientX > rect.x : event.clientX < rect.x;
 
-    let metaKey = AppConstants.platform === "macosx" ? event.metaKey
-                                                     : event.ctrlKey;
+    let metaKey =
+      AppConstants.platform === "macosx" ? event.metaKey : event.ctrlKey;
     let modifKey = metaKey || event.shiftKey;
-    let isContainer = tbo.view.isContainer(cell.row);
-    let openInTabs = isContainer &&
-                     (event.button == 1 || (event.button == 0 && modifKey)) &&
-                     PlacesUtils.hasChildURIs(tree.view.nodeForTreeIndex(cell.row));
+    let isContainer = tree.view.isContainer(cell.row);
+    let openInTabs =
+      isContainer &&
+      (event.button == 1 || (event.button == 0 && modifKey)) &&
+      PlacesUtils.hasChildURIs(tree.view.nodeForTreeIndex(cell.row));
 
     if (event.button == 0 && isContainer && !openInTabs) {
-      tbo.view.toggleOpenState(cell.row);
-    } else if (!mouseInGutter && openInTabs &&
-               event.originalTarget.localName == "treechildren") {
-      tbo.view.selection.select(cell.row);
+      tree.view.toggleOpenState(cell.row);
+    } else if (
+      !mouseInGutter &&
+      openInTabs &&
+      event.originalTarget.localName == "treechildren"
+    ) {
+      tree.view.selection.select(cell.row);
       this.openMultipleLinksInTabs(tree.selectedNode, event, tree);
-    } else if (!mouseInGutter && !isContainer &&
-               event.originalTarget.localName == "treechildren") {
+    } else if (
+      !mouseInGutter &&
+      !isContainer &&
+      event.originalTarget.localName == "treechildren"
+    ) {
       // Clear all other selection since we're loading a link now. We must
       // do this *before* attempting to load the link since openURL uses
       // selection as an indication of which link to load.
-      tbo.view.selection.select(cell.row);
+      tree.view.selection.select(cell.row);
       this.openNodeWithEvent(tree.selectedNode, event);
     }
   },
@@ -980,8 +1119,9 @@ var PlacesUIUtils = {
   onSidebarTreeKeyPress(event) {
     let node = event.target.selectedNode;
     if (node) {
-      if (event.keyCode == event.DOM_VK_RETURN)
+      if (event.keyCode == event.DOM_VK_RETURN) {
         this.openNodeWithEvent(node, event);
+      }
     }
   },
 
@@ -991,11 +1131,12 @@ var PlacesUIUtils = {
    */
   onSidebarTreeMouseMove(event) {
     let treechildren = event.target;
-    if (treechildren.localName != "treechildren")
+    if (treechildren.localName != "treechildren") {
       return;
+    }
 
     let tree = treechildren.parentNode;
-    let cell = tree.treeBoxObject.getCellAt(event.clientX, event.clientY);
+    let cell = tree.getCellAt(event.clientX, event.clientY);
 
     // cell.row is -1 when the mouse is hovering an empty area within the tree.
     // To avoid showing a URL from a previously hovered node for a currently
@@ -1015,38 +1156,407 @@ var PlacesUIUtils = {
     // unload event happens after the browser's one.  In this case
     // top.XULBrowserWindow has been nullified already.
     if (win.top.XULBrowserWindow) {
-      win.top.XULBrowserWindow.setOverLink(url, null);
+      win.top.XULBrowserWindow.setOverLink(url);
     }
+  },
+
+  /**
+   * Uncollapses PersonalToolbar if its collapsed status is not
+   * persisted, and user customized it or changed default bookmarks.
+   *
+   * If the user does not have a persisted value for the toolbar's
+   * "collapsed" attribute, try to determine whether it's customized.
+   *
+   * @param {Boolean} aForceVisible Set to true to ignore if the user had
+   * previously collapsed the toolbar manually.
+   */
+  NUM_TOOLBAR_BOOKMARKS_TO_UNHIDE: 3,
+  maybeToggleBookmarkToolbarVisibility(aForceVisible = false) {
+    const BROWSER_DOCURL = AppConstants.BROWSER_CHROME_URL;
+    let xulStore = Services.xulStore;
+
+    if (
+      aForceVisible ||
+      !xulStore.hasValue(BROWSER_DOCURL, "PersonalToolbar", "collapsed")
+    ) {
+      // We consider the toolbar customized if it has more than NUM_TOOLBAR_BOOKMARKS_TO_UNHIDE
+      // children, or if it has a persisted currentset value.
+      let toolbarIsCustomized = xulStore.hasValue(
+        BROWSER_DOCURL,
+        "PersonalToolbar",
+        "currentset"
+      );
+
+      if (
+        aForceVisible ||
+        toolbarIsCustomized ||
+        PlacesUtils.getChildCountForFolder(PlacesUtils.bookmarks.toolbarGuid) >
+          this.NUM_TOOLBAR_BOOKMARKS_TO_UNHIDE
+      ) {
+        Services.obs.notifyObservers(
+          null,
+          "browser-set-toolbar-visibility",
+          JSON.stringify([CustomizableUI.AREA_BOOKMARKS, "true"])
+        );
+      }
+    }
+  },
+
+  maybeToggleBookmarkToolbarVisibilityAfterMigration() {
+    if (
+      Services.prefs.getBoolPref(
+        "browser.migrate.showBookmarksToolbarAfterMigration"
+      )
+    ) {
+      this.maybeToggleBookmarkToolbarVisibility(true);
+    }
+  },
+
+  async managedPlacesContextShowing(event) {
+    let menupopup = event.target;
+    let document = menupopup.ownerDocument;
+    let window = menupopup.ownerGlobal;
+    // We need to populate the submenus in order to have information
+    // to show the context menu.
+    if (
+      menupopup.triggerNode.id == "managed-bookmarks" &&
+      !menupopup.triggerNode.menupopup.hasAttribute("hasbeenopened")
+    ) {
+      await window.PlacesToolbarHelper.populateManagedBookmarks(
+        menupopup.triggerNode.menupopup
+      );
+    }
+    let linkItems = [
+      "placesContext_open:newtab",
+      "placesContext_open:newwindow",
+      "placesContext_open:newprivatewindow",
+      "placesContext_openSeparator",
+      "placesContext_copy",
+    ];
+    Array.from(menupopup.children).forEach(function(child) {
+      if (!(child.id in linkItems)) {
+        child.hidden = true;
+      }
+    });
+    // Store triggerNode in controller for checking if commands are enabled
+    this.managedBookmarksController.triggerNode = menupopup.triggerNode;
+    // Container in this context means a folder.
+    let isFolder = menupopup.triggerNode.hasAttribute("container");
+    let openContainerInTabs_menuitem = document.getElementById(
+      "placesContext_openContainer:tabs"
+    );
+    if (isFolder) {
+      // Disable the openContainerInTabs menuitem if there
+      // are no children of the menu that have links.
+      let menuitems = menupopup.triggerNode.menupopup.children;
+      let openContainerInTabs = Array.from(menuitems).some(
+        menuitem => menuitem.link
+      );
+      openContainerInTabs_menuitem.disabled = !openContainerInTabs;
+    } else {
+      document.getElementById(
+        "placesContext_open:newprivatewindow"
+      ).hidden = PrivateBrowsingUtils.isWindowPrivate(window);
+    }
+    openContainerInTabs_menuitem.hidden = !isFolder;
+    linkItems.forEach(id => (document.getElementById(id).hidden = isFolder));
+
+    event.target.ownerGlobal.updateCommands("places");
+  },
+
+  placesContextShowing(event) {
+    let menupopup = event.target;
+    if (menupopup.id != "placesContext") {
+      // Ignore any popupshowing events from submenus
+      return true;
+    }
+
+    let isManaged = !!menupopup.triggerNode.closest("#managed-bookmarks");
+    if (isManaged) {
+      this.managedPlacesContextShowing(event);
+      return true;
+    }
+    let document = menupopup.ownerDocument;
+    menupopup._view = this.getViewForNode(document.popupNode);
+    if (!this.openInTabClosesMenu) {
+      document
+        .getElementById("placesContext_open:newtab")
+        .setAttribute("closemenu", "single");
+    }
+    return menupopup._view.buildContextMenu(menupopup);
+  },
+
+  placesContextHiding(event) {
+    let menupopup = event.target;
+    if (menupopup._view) {
+      menupopup._view.destroyContextMenu();
+    }
+  },
+
+  openSelectionInTabs(event) {
+    let isManaged = !!event.target.parentNode.triggerNode.closest(
+      "#managed-bookmarks"
+    );
+    let controller;
+    if (isManaged) {
+      controller = this.managedBookmarksController;
+    } else {
+      let document = event.target.ownerDocument;
+      controller = PlacesUIUtils.getViewForNode(document.popupNode).controller;
+    }
+    controller.openSelectionInTabs(event);
+  },
+
+  managedBookmarksController: {
+    triggerNode: null,
+
+    openSelectionInTabs(event) {
+      let window = event.target.ownerGlobal;
+      let menuitems = event.target.parentNode.triggerNode.menupopup.children;
+      let items = [];
+      for (let i = 0; i < menuitems.length; i++) {
+        if (menuitems[i].link) {
+          let item = {};
+          item.uri = menuitems[i].link;
+          item.isBookmark = true;
+          items.push(item);
+        }
+      }
+      PlacesUIUtils.openTabset(items, event, window);
+    },
+
+    isCommandEnabled(command) {
+      switch (command) {
+        case "placesCmd_copy":
+        case "placesCmd_open:window":
+        case "placesCmd_open:privatewindow":
+        case "placesCmd_open:tab": {
+          return true;
+        }
+      }
+      return false;
+    },
+
+    doCommand(command) {
+      let window = this.triggerNode.ownerGlobal;
+      switch (command) {
+        case "placesCmd_copy":
+          // This is a little hacky, but there is a lot of code in Places that handles
+          // clipboard stuff, so it's easier to reuse.
+          let node = {};
+          node.type = 0;
+          node.title = this.triggerNode.label;
+          node.uri = this.triggerNode.link;
+
+          // Copied from _populateClipboard in controller.js
+
+          // This order is _important_! It controls how this and other applications
+          // select data to be inserted based on type.
+          let contents = [
+            { type: PlacesUtils.TYPE_X_MOZ_URL, entries: [] },
+            { type: PlacesUtils.TYPE_HTML, entries: [] },
+            { type: PlacesUtils.TYPE_UNICODE, entries: [] },
+          ];
+
+          contents.forEach(function(content) {
+            content.entries.push(PlacesUtils.wrapNode(node, content.type));
+          });
+
+          let xferable = Cc[
+            "@mozilla.org/widget/transferable;1"
+          ].createInstance(Ci.nsITransferable);
+          xferable.init(null);
+
+          function addData(type, data) {
+            xferable.addDataFlavor(type);
+            xferable.setTransferData(
+              type,
+              PlacesUtils.toISupportsString(data),
+              data.length * 2
+            );
+          }
+
+          contents.forEach(function(content) {
+            addData(content.type, content.entries.join(PlacesUtils.endl));
+          });
+
+          Services.clipboard.setData(
+            xferable,
+            null,
+            Ci.nsIClipboard.kGlobalClipboard
+          );
+          break;
+        case "placesCmd_open:privatewindow":
+          window.openUILinkIn(this.triggerNode.link, "window", {
+            triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
+            private: true,
+          });
+          break;
+        case "placesCmd_open:window":
+          window.openUILinkIn(this.triggerNode.link, "window", {
+            triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
+            private: false,
+          });
+          break;
+        case "placesCmd_open:tab": {
+          window.openUILinkIn(this.triggerNode.link, "tab", {
+            triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
+          });
+        }
+      }
+    },
+  },
+
+  async maybeAddImportButton() {
+    if (!Services.policies.isAllowed("profileImport")) {
+      return;
+    }
+    let numberOfBookmarks = await PlacesUtils.withConnectionWrapper(
+      "PlacesUIUtils: maybeAddImportButton",
+      async db => {
+        let rows = await db.execute(
+          `SELECT COUNT(*) as n FROM moz_bookmarks b
+           WHERE b.parent = :parentId`,
+          { parentId: PlacesUtils.toolbarFolderId }
+        );
+        return rows[0].getResultByName("n");
+      }
+    ).catch(e => {
+      // We want to report errors, but we still want to add the button then:
+      Cu.reportError(e);
+      return 0;
+    });
+
+    if (numberOfBookmarks < 3) {
+      CustomizableUI.addWidgetToArea(
+        "import-button",
+        CustomizableUI.AREA_BOOKMARKS,
+        0
+      );
+      Services.prefs.setBoolPref("browser.bookmarks.addedImportButton", true);
+    }
+  },
+
+  removeImportButtonWhenImportSucceeds() {
+    // If the user (re)moved the button, clear the pref and stop worrying about
+    // moving the item.
+    let placement = CustomizableUI.getPlacementOfWidget("import-button");
+    if (placement?.area != CustomizableUI.AREA_BOOKMARKS) {
+      Services.prefs.clearUserPref("browser.bookmarks.addedImportButton");
+      return;
+    }
+    // Otherwise, wait for a successful migration:
+    let obs = (subject, topic, data) => {
+      if (
+        data == Ci.nsIBrowserProfileMigrator.BOOKMARKS &&
+        MigrationUtils.getImportedCount("bookmarks") > 0
+      ) {
+        CustomizableUI.removeWidgetFromArea("import-button");
+        Services.prefs.clearUserPref("browser.bookmarks.addedImportButton");
+        Services.obs.removeObserver(obs, "Migration:ItemAfterMigrate");
+        Services.obs.removeObserver(obs, "Migration:ItemError");
+      }
+    };
+    Services.obs.addObserver(obs, "Migration:ItemAfterMigrate");
+    Services.obs.addObserver(obs, "Migration:ItemError");
+  },
+
+  get _nonPrefDefaultParentGuid() {
+    let { unfiledGuid, toolbarGuid } = PlacesUtils.bookmarks;
+    return this._2020h2bookmarks ? toolbarGuid : unfiledGuid;
+  },
+
+  get defaultParentGuid() {
+    if (!PlacesUIUtils._2020h2bookmarks) {
+      return PlacesUtils.bookmarks.unfiledGuid;
+    }
+    // Defined via a lazy pref getter below, see the comment there about the
+    // reason for this (temporary) setup.
+    return this._defaultParentGuid;
   },
 };
 
 // These are lazy getters to avoid importing PlacesUtils immediately.
 XPCOMUtils.defineLazyGetter(PlacesUIUtils, "PLACES_FLAVORS", () => {
-  return [PlacesUtils.TYPE_X_MOZ_PLACE_CONTAINER,
-          PlacesUtils.TYPE_X_MOZ_PLACE_SEPARATOR,
-          PlacesUtils.TYPE_X_MOZ_PLACE];
+  return [
+    PlacesUtils.TYPE_X_MOZ_PLACE_CONTAINER,
+    PlacesUtils.TYPE_X_MOZ_PLACE_SEPARATOR,
+    PlacesUtils.TYPE_X_MOZ_PLACE,
+  ];
 });
 XPCOMUtils.defineLazyGetter(PlacesUIUtils, "URI_FLAVORS", () => {
-  return [PlacesUtils.TYPE_X_MOZ_URL,
-          TAB_DROP_TYPE,
-          PlacesUtils.TYPE_UNICODE];
+  return [PlacesUtils.TYPE_X_MOZ_URL, TAB_DROP_TYPE, PlacesUtils.TYPE_UNICODE];
 });
 XPCOMUtils.defineLazyGetter(PlacesUIUtils, "SUPPORTED_FLAVORS", () => {
-  return [...PlacesUIUtils.PLACES_FLAVORS,
-          ...PlacesUIUtils.URI_FLAVORS];
+  return [...PlacesUIUtils.PLACES_FLAVORS, ...PlacesUIUtils.URI_FLAVORS];
 });
 
 XPCOMUtils.defineLazyGetter(PlacesUIUtils, "ellipsis", function() {
-  return Services.prefs.getComplexValue("intl.ellipsis",
-                                        Ci.nsIPrefLocalizedString).data;
+  return Services.prefs.getComplexValue(
+    "intl.ellipsis",
+    Ci.nsIPrefLocalizedString
+  ).data;
 });
 
-XPCOMUtils.defineLazyPreferenceGetter(PlacesUIUtils, "loadBookmarksInBackground",
-                                      PREF_LOAD_BOOKMARKS_IN_BACKGROUND, false);
-XPCOMUtils.defineLazyPreferenceGetter(PlacesUIUtils, "loadBookmarksInTabs",
-                                      PREF_LOAD_BOOKMARKS_IN_TABS, false);
-XPCOMUtils.defineLazyPreferenceGetter(PlacesUIUtils, "openInTabClosesMenu",
-  "browser.bookmarks.openInTabClosesMenu", false);
+XPCOMUtils.defineLazyPreferenceGetter(
+  PlacesUIUtils,
+  "loadBookmarksInBackground",
+  PREF_LOAD_BOOKMARKS_IN_BACKGROUND,
+  false
+);
+XPCOMUtils.defineLazyPreferenceGetter(
+  PlacesUIUtils,
+  "loadBookmarksInTabs",
+  PREF_LOAD_BOOKMARKS_IN_TABS,
+  false
+);
+XPCOMUtils.defineLazyPreferenceGetter(
+  PlacesUIUtils,
+  "openInTabClosesMenu",
+  "browser.bookmarks.openInTabClosesMenu",
+  false
+);
+XPCOMUtils.defineLazyPreferenceGetter(
+  PlacesUIUtils,
+  "maxRecentFolders",
+  "browser.bookmarks.editDialog.maxRecentFolders",
+  7
+);
+
+XPCOMUtils.defineLazyPreferenceGetter(
+  PlacesUIUtils,
+  "_2020h2bookmarks",
+  "browser.toolbars.bookmarks.2h2020",
+  false
+);
+
+/**
+ * This value should be accessed through the defaultParentGuid getter,
+ * which will only access this pref if the browser.toolbars.bookmarks.2h2020
+ * pref is true. We can't put that check directly in the pref transformation
+ * callback below, because then the resulting value doesn't update if the
+ * 2h2020 pref updates, breaking tests and potentially real-world behaviour
+ * if the 2h2020 pref is flipped at runtime.
+ */
+XPCOMUtils.defineLazyPreferenceGetter(
+  PlacesUIUtils,
+  "_defaultParentGuid",
+  "browser.bookmarks.defaultLocation",
+  "", // Avoid eagerly loading PlacesUtils.
+  null,
+  prefValue => {
+    if (!prefValue) {
+      return PlacesUIUtils._nonPrefDefaultParentGuid;
+    }
+    if (["toolbar", "menu", "unfiled"].includes(prefValue)) {
+      return PlacesUtils.bookmarks[prefValue + "Guid"];
+    }
+    return PlacesUtils.bookmarks
+      .fetch({ guid: prefValue })
+      .then(bm => bm.guid)
+      .catch(() => PlacesUIUtils._nonPrefDefaultParentGuid);
+  }
+);
 
 /**
  * Determines if an unwrapped node can be moved.
@@ -1056,16 +1566,16 @@ XPCOMUtils.defineLazyPreferenceGetter(PlacesUIUtils, "openInTabClosesMenu",
  * @return True if the node can be moved, false otherwise.
  */
 function canMoveUnwrappedNode(unwrappedNode) {
-  if ((unwrappedNode.concreteGuid && PlacesUtils.isRootItem(unwrappedNode.concreteGuid)) ||
-      (unwrappedNode.guid && PlacesUtils.isRootItem(unwrappedNode.guid))) {
+  if (
+    (unwrappedNode.concreteGuid &&
+      PlacesUtils.isRootItem(unwrappedNode.concreteGuid)) ||
+    (unwrappedNode.guid && PlacesUtils.isRootItem(unwrappedNode.guid))
+  ) {
     return false;
   }
 
   let parentGuid = unwrappedNode.parentGuid;
-  // If there's no parent Guid, this was likely a virtual query that returns
-  // bookmarks, such as a tags query.
-  if (!parentGuid ||
-      parentGuid == PlacesUtils.bookmarks.rootGuid) {
+  if (parentGuid == PlacesUtils.bookmarks.rootGuid) {
     return false;
   }
 
@@ -1083,10 +1593,15 @@ function canMoveUnwrappedNode(unwrappedNode) {
  *                  if one could not be found.
  */
 function getResultForBatching(viewOrElement) {
-  if (viewOrElement && Element.isInstance(viewOrElement) &&
-      viewOrElement.id === "placesList") {
+  if (
+    viewOrElement &&
+    Element.isInstance(viewOrElement) &&
+    viewOrElement.id === "placesList"
+  ) {
     // Note: fall back to the existing item if we can't find the right-hane pane.
-    viewOrElement = viewOrElement.ownerDocument.getElementById("placeContent") || viewOrElement;
+    viewOrElement =
+      viewOrElement.ownerDocument.getElementById("placeContent") ||
+      viewOrElement;
   }
 
   if (viewOrElement && viewOrElement.result) {
@@ -1095,7 +1610,6 @@ function getResultForBatching(viewOrElement) {
 
   return null;
 }
-
 
 /**
  * Processes a set of transfer items and returns transactions to insert or
@@ -1109,8 +1623,12 @@ function getResultForBatching(viewOrElement) {
  *                         copy them.
  * @return {Array} Returns an array of created PlacesTransactions.
  */
-function getTransactionsForTransferItems(items, insertionIndex,
-                                         insertionParentGuid, doMove) {
+function getTransactionsForTransferItems(
+  items,
+  insertionIndex,
+  insertionParentGuid,
+  doMove
+) {
   let canMove = true;
   for (let item of items) {
     if (!PlacesUIUtils.SUPPORTED_FLAVORS.includes(item.type)) {
@@ -1120,13 +1638,17 @@ function getTransactionsForTransferItems(items, insertionIndex,
     // Work out if this is data from the same app session we're running in.
     if (!("instanceId" in item) || item.instanceId != PlacesUtils.instanceId) {
       if (item.type == PlacesUtils.TYPE_X_MOZ_PLACE_CONTAINER) {
-        throw new Error("Can't copy a container from a legacy-transactions build");
+        throw new Error(
+          "Can't copy a container from a legacy-transactions build"
+        );
       }
       // Only log if this is one of "our" types as external items, e.g. drag from
       // url bar to toolbar, shouldn't complain.
       if (PlacesUIUtils.PLACES_FLAVORS.includes(item.type)) {
-        Cu.reportError("Tried to move an unmovable Places " +
-                       "node, reverting to a copy operation.");
+        Cu.reportError(
+          "Tried to move an unmovable Places " +
+            "node, reverting to a copy operation."
+        );
       }
 
       // We can never move from an external copy.
@@ -1145,11 +1667,13 @@ function getTransactionsForTransferItems(items, insertionIndex,
   if (doMove) {
     // Move is simple, we pass the transaction a list of GUIDs and where to move
     // them to.
-    return [PlacesTransactions.Move({
-      guids: items.map(item => item.itemGuid),
-      newParentGuid: insertionParentGuid,
-      newIndex: insertionIndex,
-    })];
+    return [
+      PlacesTransactions.Move({
+        guids: items.map(item => item.itemGuid),
+        newParentGuid: insertionParentGuid,
+        newIndex: insertionIndex,
+      }),
+    ];
   }
 
   return getTransactionsForCopy(items, insertionIndex, insertionParentGuid);
@@ -1164,8 +1688,7 @@ function getTransactionsForTransferItems(items, insertionIndex,
  *                                     or move the items to.
  * @return {Array} Returns an array of created PlacesTransactions.
  */
-function getTransactionsForCopy(items, insertionIndex,
-                                insertionParentGuid) {
+function getTransactionsForCopy(items, insertionIndex, insertionParentGuid) {
   let transactions = [];
   let index = insertionIndex;
 
@@ -1173,19 +1696,21 @@ function getTransactionsForCopy(items, insertionIndex,
     let transaction;
     let guid = item.itemGuid;
 
-    if (PlacesUIUtils.PLACES_FLAVORS.includes(item.type) &&
-        // For anything that is comming from within this session, we do a
-        // direct copy, otherwise we fallback and form a new item below.
-        "instanceId" in item && item.instanceId == PlacesUtils.instanceId &&
-        // If the Item doesn't have a guid, this could be a virtual tag query or
-        // other item, so fallback to inserting a new bookmark with the URI.
-        guid &&
-        // For virtual root items, we fallback to creating a new bookmark, as
-        // we want a shortcut to be created, not a full tree copy.
-        !PlacesUtils.bookmarks.isVirtualRootItem(guid) &&
-        !PlacesUtils.isVirtualLeftPaneItem(guid)) {
+    if (
+      PlacesUIUtils.PLACES_FLAVORS.includes(item.type) &&
+      // For anything that is comming from within this session, we do a
+      // direct copy, otherwise we fallback and form a new item below.
+      "instanceId" in item &&
+      item.instanceId == PlacesUtils.instanceId &&
+      // If the Item doesn't have a guid, this could be a virtual tag query or
+      // other item, so fallback to inserting a new bookmark with the URI.
+      guid &&
+      // For virtual root items, we fallback to creating a new bookmark, as
+      // we want a shortcut to be created, not a full tree copy.
+      !PlacesUtils.bookmarks.isVirtualRootItem(guid) &&
+      !PlacesUtils.isVirtualLeftPaneItem(guid)
+    ) {
       transaction = PlacesTransactions.Copy({
-        excludingAnnotation: "Places/SmartBookmark",
         guid,
         newIndex: index,
         newParentGuid: insertionParentGuid,
@@ -1217,6 +1742,9 @@ function getTransactionsForCopy(items, insertionIndex,
 function getBrowserWindow(aWindow) {
   // Prefer the caller window if it's a browser window, otherwise use
   // the top browser window.
-  return aWindow && aWindow.document.documentElement.getAttribute("windowtype") == "navigator:browser" ?
-    aWindow : BrowserWindowTracker.getTopWindow();
+  return aWindow &&
+    aWindow.document.documentElement.getAttribute("windowtype") ==
+      "navigator:browser"
+    ? aWindow
+    : BrowserWindowTracker.getTopWindow();
 }

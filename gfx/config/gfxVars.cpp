@@ -30,7 +30,7 @@ void gfxVars::SetValuesForInitialize(
     }
   } else {
     // Save the values for Initialize call
-    gGfxVarInitUpdates = new nsTArray<GfxVarUpdate>(aInitUpdates);
+    gGfxVarInitUpdates = new nsTArray<GfxVarUpdate>(aInitUpdates.Clone());
   }
 }
 
@@ -54,7 +54,7 @@ void gfxVars::Initialize() {
                "Initial updates should be provided in content process");
     if (!gGfxVarInitUpdates) {
       // No provided initial updates, sync-request them from parent.
-      InfallibleTArray<GfxVarUpdate> initUpdates;
+      nsTArray<GfxVarUpdate> initUpdates;
       dom::ContentChild::GetSingleton()->SendGetGfxVars(&initUpdates);
       gGfxVarInitUpdates = new nsTArray<GfxVarUpdate>(std::move(initUpdates));
     }
@@ -65,7 +65,7 @@ void gfxVars::Initialize() {
   }
 }
 
-gfxVars::gfxVars() {}
+gfxVars::gfxVars() = default;
 
 void gfxVars::Shutdown() {
   sInstance = nullptr;
@@ -73,7 +73,8 @@ void gfxVars::Shutdown() {
   gGfxVarInitUpdates = nullptr;
 }
 
-/* static */ void gfxVars::ApplyUpdate(const GfxVarUpdate& aUpdate) {
+/* static */
+void gfxVars::ApplyUpdate(const GfxVarUpdate& aUpdate) {
   // Only subprocesses receive updates and apply them locally.
   MOZ_ASSERT(!XRE_IsParentProcess());
   MOZ_DIAGNOSTIC_ASSERT(sVarList || gGfxVarInitUpdates);
@@ -86,7 +87,8 @@ void gfxVars::Shutdown() {
   }
 }
 
-/* static */ void gfxVars::AddReceiver(gfxVarReceiver* aReceiver) {
+/* static */
+void gfxVars::AddReceiver(gfxVarReceiver* aReceiver) {
   MOZ_ASSERT(NS_IsMainThread());
 
   // Don't double-add receivers, in case a broken content process sends two
@@ -96,7 +98,8 @@ void gfxVars::Shutdown() {
   }
 }
 
-/* static */ void gfxVars::RemoveReceiver(gfxVarReceiver* aReceiver) {
+/* static */
+void gfxVars::RemoveReceiver(gfxVarReceiver* aReceiver) {
   MOZ_ASSERT(NS_IsMainThread());
 
   if (sInstance) {
@@ -104,7 +107,8 @@ void gfxVars::Shutdown() {
   }
 }
 
-/* static */ nsTArray<GfxVarUpdate> gfxVars::FetchNonDefaultVars() {
+/* static */
+nsTArray<GfxVarUpdate> gfxVars::FetchNonDefaultVars() {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(sVarList);
 

@@ -60,8 +60,6 @@ class CodeGeneratorARM64 : public CodeGeneratorShared {
 
   bool generateOutOfLineCode();
 
-  void emitRoundDouble(FloatRegister src, Register dest, Label* fail);
-
   // Emits a branch that directs control flow to the true block if |cond| is
   // true, and the false block if |cond| is false.
   void emitBranch(Assembler::Condition cond, MBasicBlock* ifTrue,
@@ -96,15 +94,6 @@ class CodeGeneratorARM64 : public CodeGeneratorShared {
 
   ValueOperand ToValue(LInstruction* ins, size_t pos);
   ValueOperand ToTempValue(LInstruction* ins, size_t pos);
-
-  void storeElementTyped(const LAllocation* value, MIRType valueType,
-                         MIRType elementType, Register elements,
-                         const LAllocation* index);
-
-  void divICommon(MDiv* mir, Register lhs, Register rhs, Register output,
-                  LSnapshot* snapshot, Label& done);
-  void modICommon(MMod* mir, Register lhs, Register rhs, Register output,
-                  LSnapshot* snapshot, Label& done);
 
   void generateInvalidateEpilogue();
 

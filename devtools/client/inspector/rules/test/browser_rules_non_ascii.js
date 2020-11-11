@@ -1,4 +1,3 @@
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -17,21 +16,22 @@ const TEST_URI = "data:text/html;charset=utf-8," + encodeURIComponent(HTML);
 add_task(async function() {
   await addTab(TEST_URI);
 
-  const {inspector, view} = await openRuleView();
+  const { inspector, view } = await openRuleView();
   await selectNode("#q", inspector);
 
   const elementStyle = view._elementStyle;
 
-  const expected = [
-    {name: "color", overridden: false},
-  ];
+  const expected = [{ name: "color", overridden: false }];
 
   const rule = elementStyle.rules[1];
 
   for (let i = 0; i < expected.length; ++i) {
     const prop = rule.textProps[i];
     is(prop.name, expected[i].name, `Got expected property name ${prop.name}`);
-    is(prop.overridden, expected[i].overridden,
-       `Got expected overridden value ${prop.overridden}`);
+    is(
+      prop.overridden,
+      expected[i].overridden,
+      `Got expected overridden value ${prop.overridden}`
+    );
   }
 });

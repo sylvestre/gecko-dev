@@ -8,6 +8,7 @@
 
 #include "nsHttpAuthCache.h"
 
+#include <algorithm>
 #include <stdlib.h>
 
 #include "mozilla/Attributes.h"
@@ -21,9 +22,9 @@
 namespace mozilla {
 namespace net {
 
-static inline void GetAuthKey(const char *scheme, const char *host,
-                              int32_t port, nsACString const &originSuffix,
-                              nsCString &key) {
+static inline void GetAuthKey(const char* scheme, const char* host,
+                              int32_t port, nsACString const& originSuffix,
+                              nsCString& key) {
   key.Truncate();
   key.Append(originSuffix);
   key.Append(':');
@@ -36,7 +37,7 @@ static inline void GetAuthKey(const char *scheme, const char *host,
 
 // return true if the two strings are equal or both empty.  an empty string
 // is either null or zero length.
-static bool StrEquivalent(const char16_t *a, const char16_t *b) {
+static bool StrEquivalent(const char16_t* a, const char16_t* b) {
   static const char16_t emptyStr[] = {0};
 
   if (!a) a = emptyStr;
@@ -51,6 +52,8 @@ static bool StrEquivalent(const char16_t *a, const char16_t *b) {
 
 nsHttpAuthCache::nsHttpAuthCache()
     : mDB(128), mObserver(new OriginClearObserver(this)) {
+  LOG(("nsHttpAuthCache::nsHttpAuthCache %p", this));
+
   nsCOMPtr<nsIObserverService> obsSvc = services::GetObserverService();
   if (obsSvc) {
     obsSvc->AddObserver(mObserver, "clear-origin-attributes-data", false);
@@ -58,8 +61,9 @@ nsHttpAuthCache::nsHttpAuthCache()
 }
 
 nsHttpAuthCache::~nsHttpAuthCache() {
-  DebugOnly<nsresult> rv = ClearAll();
-  MOZ_ASSERT(NS_SUCCEEDED(rv));
+  LOG(("nsHttpAuthCache::~nsHttpAuthCache %p", this));
+
+  ClearAll();
   nsCOMPtr<nsIObserverService> obsSvc = services::GetObserverService();
   if (obsSvc) {
     obsSvc->RemoveObserver(mObserver, "clear-origin-attributes-data");
@@ -67,60 +71,59 @@ nsHttpAuthCache::~nsHttpAuthCache() {
   }
 }
 
-nsresult nsHttpAuthCache::GetAuthEntryForPath(const char *scheme,
-                                              const char *host, int32_t port,
-                                              const char *path,
-                                              nsACString const &originSuffix,
-                                              nsHttpAuthEntry **entry) {
-  LOG(("nsHttpAuthCache::GetAuthEntryForPath [key=%s://%s:%d path=%s]\n",
-       scheme, host, port, path));
+nsresult nsHttpAuthCache::GetAuthEntryForPath(const char* scheme,
+                                              const char* host, int32_t port,
+                                              const char* path,
+                                              nsACString const& originSuffix,
+                                              nsHttpAuthEntry** entry) {
+  LOG(("nsHttpAuthCache::GetAuthEntryForPath %p [path=%s]\n", this, path));
 
   nsAutoCString key;
-  nsHttpAuthNode *node = LookupAuthNode(scheme, host, port, originSuffix, key);
+  nsHttpAuthNode* node = LookupAuthNode(scheme, host, port, originSuffix, key);
   if (!node) return NS_ERROR_NOT_AVAILABLE;
 
   *entry = node->LookupEntryByPath(path);
+  LOG(("  returning %p", *entry));
   return *entry ? NS_OK : NS_ERROR_NOT_AVAILABLE;
 }
 
-nsresult nsHttpAuthCache::GetAuthEntryForDomain(const char *scheme,
-                                                const char *host, int32_t port,
-                                                const char *realm,
-                                                nsACString const &originSuffix,
-                                                nsHttpAuthEntry **entry)
+nsresult nsHttpAuthCache::GetAuthEntryForDomain(const char* scheme,
+                                                const char* host, int32_t port,
+                                                const char* realm,
+                                                nsACString const& originSuffix,
+                                                nsHttpAuthEntry** entry)
 
 {
-  LOG(("nsHttpAuthCache::GetAuthEntryForDomain [key=%s://%s:%d realm=%s]\n",
-       scheme, host, port, realm));
+  LOG(("nsHttpAuthCache::GetAuthEntryForDomain %p [realm=%s]\n", this, realm));
 
   nsAutoCString key;
-  nsHttpAuthNode *node = LookupAuthNode(scheme, host, port, originSuffix, key);
+  nsHttpAuthNode* node = LookupAuthNode(scheme, host, port, originSuffix, key);
   if (!node) return NS_ERROR_NOT_AVAILABLE;
 
   *entry = node->LookupEntryByRealm(realm);
+  LOG(("  returning %p", *entry));
   return *entry ? NS_OK : NS_ERROR_NOT_AVAILABLE;
 }
 
-nsresult nsHttpAuthCache::SetAuthEntry(const char *scheme, const char *host,
-                                       int32_t port, const char *path,
-                                       const char *realm, const char *creds,
-                                       const char *challenge,
-                                       nsACString const &originSuffix,
-                                       const nsHttpAuthIdentity *ident,
-                                       nsISupports *metadata) {
+nsresult nsHttpAuthCache::SetAuthEntry(const char* scheme, const char* host,
+                                       int32_t port, const char* path,
+                                       const char* realm, const char* creds,
+                                       const char* challenge,
+                                       nsACString const& originSuffix,
+                                       const nsHttpAuthIdentity* ident,
+                                       nsISupports* metadata) {
   nsresult rv;
 
-  LOG(
-      ("nsHttpAuthCache::SetAuthEntry [key=%s://%s:%d realm=%s path=%s "
-       "metadata=%p]\n",
-       scheme, host, port, realm, path, metadata));
+  LOG(("nsHttpAuthCache::SetAuthEntry %p [realm=%s path=%s metadata=%p]\n",
+       this, realm, path, metadata));
 
   nsAutoCString key;
-  nsHttpAuthNode *node = LookupAuthNode(scheme, host, port, originSuffix, key);
+  nsHttpAuthNode* node = LookupAuthNode(scheme, host, port, originSuffix, key);
 
   if (!node) {
     // create a new entry node and set the given entry
     node = new nsHttpAuthNode();
+    LOG(("  new nsHttpAuthNode %p for key='%s'", node, key.get()));
     rv = node->SetAuthEntry(path, realm, creds, challenge, ident, metadata);
     if (NS_FAILED(rv))
       delete node;
@@ -132,38 +135,42 @@ nsresult nsHttpAuthCache::SetAuthEntry(const char *scheme, const char *host,
   return node->SetAuthEntry(path, realm, creds, challenge, ident, metadata);
 }
 
-void nsHttpAuthCache::ClearAuthEntry(const char *scheme, const char *host,
-                                     int32_t port, const char *realm,
-                                     nsACString const &originSuffix) {
+void nsHttpAuthCache::ClearAuthEntry(const char* scheme, const char* host,
+                                     int32_t port, const char* realm,
+                                     nsACString const& originSuffix) {
   nsAutoCString key;
   GetAuthKey(scheme, host, port, originSuffix, key);
+  LOG(("nsHttpAuthCache::ClearAuthEntry %p key='%s'\n", this, key.get()));
   mDB.Remove(key);
 }
 
-nsresult nsHttpAuthCache::ClearAll() {
-  LOG(("nsHttpAuthCache::ClearAll\n"));
+void nsHttpAuthCache::ClearAll() {
+  LOG(("nsHttpAuthCache::ClearAll %p\n", this));
   mDB.Clear();
-  return NS_OK;
 }
 
 //-----------------------------------------------------------------------------
 // nsHttpAuthCache <private>
 //-----------------------------------------------------------------------------
 
-nsHttpAuthNode *nsHttpAuthCache::LookupAuthNode(const char *scheme,
-                                                const char *host, int32_t port,
-                                                nsACString const &originSuffix,
-                                                nsCString &key) {
+nsHttpAuthNode* nsHttpAuthCache::LookupAuthNode(const char* scheme,
+                                                const char* host, int32_t port,
+                                                nsACString const& originSuffix,
+                                                nsCString& key) {
   GetAuthKey(scheme, host, port, originSuffix, key);
-  return mDB.Get(key);
+  nsHttpAuthNode* result = mDB.Get(key);
+
+  LOG(("nsHttpAuthCache::LookupAuthNode %p key='%s' found node=%p", this,
+       key.get(), result));
+  return result;
 }
 
 NS_IMPL_ISUPPORTS(nsHttpAuthCache::OriginClearObserver, nsIObserver)
 
 NS_IMETHODIMP
-nsHttpAuthCache::OriginClearObserver::Observe(nsISupports *subject,
-                                              const char *topic,
-                                              const char16_t *data_unicode) {
+nsHttpAuthCache::OriginClearObserver::Observe(nsISupports* subject,
+                                              const char* topic,
+                                              const char16_t* data_unicode) {
   NS_ENSURE_TRUE(mOwner, NS_ERROR_NOT_AVAILABLE);
 
   OriginAttributesPattern pattern;
@@ -176,9 +183,11 @@ nsHttpAuthCache::OriginClearObserver::Observe(nsISupports *subject,
   return NS_OK;
 }
 
-void nsHttpAuthCache::ClearOriginData(OriginAttributesPattern const &pattern) {
+void nsHttpAuthCache::ClearOriginData(OriginAttributesPattern const& pattern) {
+  LOG(("nsHttpAuthCache::ClearOriginData %p", this));
+
   for (auto iter = mDB.Iter(); !iter.Done(); iter.Next()) {
-    const nsACString &key = iter.Key();
+    const nsACString& key = iter.Key();
 
     // Extract the origin attributes suffix from the key.
     int32_t colon = key.FindChar(':');
@@ -197,12 +206,18 @@ void nsHttpAuthCache::ClearOriginData(OriginAttributesPattern const &pattern) {
   }
 }
 
+void nsHttpAuthCache::CollectKeys(nsTArray<nsCString>& aValue) {
+  for (auto iter = mDB.Iter(); !iter.Done(); iter.Next()) {
+    aValue.AppendElement(iter.Key());
+  }
+}
+
 //-----------------------------------------------------------------------------
 // nsHttpAuthIdentity
 //-----------------------------------------------------------------------------
 
-nsresult nsHttpAuthIdentity::Set(const char16_t *domain, const char16_t *user,
-                                 const char16_t *pass) {
+nsresult nsHttpAuthIdentity::Set(const char16_t* domain, const char16_t* user,
+                                 const char16_t* pass) {
   char16_t *newUser, *newPass, *newDomain;
 
   int domainLen = domain ? NS_strlen(domain) : 0;
@@ -210,7 +225,7 @@ nsresult nsHttpAuthIdentity::Set(const char16_t *domain, const char16_t *user,
   int passLen = pass ? NS_strlen(pass) : 0;
 
   int len = userLen + 1 + passLen + 1 + domainLen + 1;
-  newUser = (char16_t *)malloc(len * sizeof(char16_t));
+  newUser = (char16_t*)malloc(len * sizeof(char16_t));
   if (!newUser) return NS_ERROR_OUT_OF_MEMORY;
 
   if (user) memcpy(newUser, user, userLen * sizeof(char16_t));
@@ -242,7 +257,7 @@ void nsHttpAuthIdentity::Clear() {
   }
 }
 
-bool nsHttpAuthIdentity::Equals(const nsHttpAuthIdentity &ident) const {
+bool nsHttpAuthIdentity::Equals(const nsHttpAuthIdentity& ident) const {
   // we could probably optimize this with a single loop, but why bother?
   return StrEquivalent(mUser, ident.mUser) &&
          StrEquivalent(mPass, ident.mPass) &&
@@ -257,19 +272,19 @@ nsHttpAuthEntry::~nsHttpAuthEntry() {
   if (mRealm) free(mRealm);
 
   while (mRoot) {
-    nsHttpAuthPath *ap = mRoot;
+    nsHttpAuthPath* ap = mRoot;
     mRoot = mRoot->mNext;
     free(ap);
   }
 }
 
-nsresult nsHttpAuthEntry::AddPath(const char *aPath) {
+nsresult nsHttpAuthEntry::AddPath(const char* aPath) {
   // null path matches empty path
   if (!aPath) aPath = "";
 
-  nsHttpAuthPath *tempPtr = mRoot;
+  nsHttpAuthPath* tempPtr = mRoot;
   while (tempPtr) {
-    const char *curpath = tempPtr->mPath;
+    const char* curpath = tempPtr->mPath;
     if (strncmp(aPath, curpath, strlen(curpath)) == 0)
       return NS_OK;  // subpath already exists in the list
 
@@ -277,9 +292,9 @@ nsresult nsHttpAuthEntry::AddPath(const char *aPath) {
   }
 
   // Append the aPath
-  nsHttpAuthPath *newAuthPath;
+  nsHttpAuthPath* newAuthPath;
   int newpathLen = strlen(aPath);
-  newAuthPath = (nsHttpAuthPath *)malloc(sizeof(nsHttpAuthPath) + newpathLen);
+  newAuthPath = (nsHttpAuthPath*)malloc(sizeof(nsHttpAuthPath) + newpathLen);
   if (!newAuthPath) return NS_ERROR_OUT_OF_MEMORY;
 
   memcpy(newAuthPath->mPath, aPath, newpathLen + 1);
@@ -295,10 +310,10 @@ nsresult nsHttpAuthEntry::AddPath(const char *aPath) {
   return NS_OK;
 }
 
-nsresult nsHttpAuthEntry::Set(const char *path, const char *realm,
-                              const char *creds, const char *chall,
-                              const nsHttpAuthIdentity *ident,
-                              nsISupports *metadata) {
+nsresult nsHttpAuthEntry::Set(const char* path, const char* realm,
+                              const char* creds, const char* chall,
+                              const nsHttpAuthIdentity* ident,
+                              nsISupports* metadata) {
   char *newRealm, *newCreds, *newChall;
 
   int realmLen = realm ? strlen(realm) : 0;
@@ -306,7 +321,7 @@ nsresult nsHttpAuthEntry::Set(const char *path, const char *realm,
   int challLen = chall ? strlen(chall) : 0;
 
   int len = realmLen + 1 + credsLen + 1 + challLen + 1;
-  newRealm = (char *)malloc(len);
+  newRealm = (char*)malloc(len);
   if (!newRealm) return NS_ERROR_OUT_OF_MEMORY;
 
   if (realm) memcpy(newRealm, realm, realmLen);
@@ -367,9 +382,7 @@ nsHttpAuthNode::~nsHttpAuthNode() {
   mList.Clear();
 }
 
-nsHttpAuthEntry *nsHttpAuthNode::LookupEntryByPath(const char *path) {
-  nsHttpAuthEntry *entry;
-
+nsHttpAuthEntry* nsHttpAuthNode::LookupEntryByPath(const char* path) {
   // null path matches empty path
   if (!path) path = "";
 
@@ -377,16 +390,19 @@ nsHttpAuthEntry *nsHttpAuthNode::LookupEntryByPath(const char *path) {
   // ie. we'll give out credentials if the given directory is a sub-
   // directory of an existing entry.
   for (uint32_t i = 0; i < mList.Length(); ++i) {
-    entry = mList[i];
-    nsHttpAuthPath *authPath = entry->RootPath();
+    const auto& entry = mList[i];
+    nsHttpAuthPath* authPath = entry->RootPath();
     while (authPath) {
-      const char *entryPath = authPath->mPath;
+      const char* entryPath = authPath->mPath;
       // proxy auth entries have no path, so require exact match on
       // empty path string.
       if (entryPath[0] == '\0') {
-        if (path[0] == '\0') return entry;
-      } else if (strncmp(path, entryPath, strlen(entryPath)) == 0)
-        return entry;
+        if (path[0] == '\0') {
+          return entry.get();
+        }
+      } else if (strncmp(path, entryPath, strlen(entryPath)) == 0) {
+        return entry.get();
+      }
 
       authPath = authPath->mNext;
     }
@@ -394,35 +410,38 @@ nsHttpAuthEntry *nsHttpAuthNode::LookupEntryByPath(const char *path) {
   return nullptr;
 }
 
-nsHttpAuthEntry *nsHttpAuthNode::LookupEntryByRealm(const char *realm) {
-  nsHttpAuthEntry *entry;
-
+nsHttpAuthNode::EntryList::const_iterator nsHttpAuthNode::LookupEntryItrByRealm(
+    const char* realm) const {
   // null realm matches empty realm
   if (!realm) realm = "";
 
-  // look for an entry that matches this realm
-  uint32_t i;
-  for (i = 0; i < mList.Length(); ++i) {
-    entry = mList[i];
-    if (strcmp(realm, entry->Realm()) == 0) return entry;
+  return std::find_if(mList.cbegin(), mList.cend(), [&realm](const auto& val) {
+    return strcmp(realm, val->Realm()) == 0;
+  });
+}
+
+nsHttpAuthEntry* nsHttpAuthNode::LookupEntryByRealm(const char* realm) {
+  auto itr = LookupEntryItrByRealm(realm);
+  if (itr != mList.cend()) {
+    return itr->get();
   }
+
   return nullptr;
 }
 
-nsresult nsHttpAuthNode::SetAuthEntry(const char *path, const char *realm,
-                                      const char *creds, const char *challenge,
-                                      const nsHttpAuthIdentity *ident,
-                                      nsISupports *metadata) {
+nsresult nsHttpAuthNode::SetAuthEntry(const char* path, const char* realm,
+                                      const char* creds, const char* challenge,
+                                      const nsHttpAuthIdentity* ident,
+                                      nsISupports* metadata) {
   // look for an entry with a matching realm
-  nsHttpAuthEntry *entry = LookupEntryByRealm(realm);
+  nsHttpAuthEntry* entry = LookupEntryByRealm(realm);
   if (!entry) {
-    entry = new nsHttpAuthEntry(path, realm, creds, challenge, ident, metadata);
-    if (!entry) return NS_ERROR_OUT_OF_MEMORY;
-
     // We want the latest identity be at the begining of the list so that
     // the newest working credentials are sent first on new requests.
     // Changing a realm is sometimes used to "timeout" authrozization.
-    mList.InsertElementAt(0, entry);
+    mList.InsertElementAt(
+        0, WrapUnique(new nsHttpAuthEntry(path, realm, creds, challenge, ident,
+                                          metadata)));
   } else {
     // update the entry...
     nsresult rv = entry->Set(path, realm, creds, challenge, ident, metadata);
@@ -432,10 +451,10 @@ nsresult nsHttpAuthNode::SetAuthEntry(const char *path, const char *realm,
   return NS_OK;
 }
 
-void nsHttpAuthNode::ClearAuthEntry(const char *realm) {
-  nsHttpAuthEntry *entry = LookupEntryByRealm(realm);
-  if (entry) {
-    mList.RemoveElement(entry);  // double search OK
+void nsHttpAuthNode::ClearAuthEntry(const char* realm) {
+  auto idx = LookupEntryItrByRealm(realm);
+  if (idx != mList.cend()) {
+    mList.RemoveElementAt(idx);
   }
 }
 

@@ -22,7 +22,7 @@ const CLASSES_TO_PRESERVE = [
   "caption",
   "emoji",
   "hidden",
-  "invisble",
+  "invisible",
   "sr-only",
   "visually-hidden",
   "visuallyhidden",
@@ -31,19 +31,42 @@ const CLASSES_TO_PRESERVE = [
   "wp-smiley",
 ];
 
-ChromeUtils.import("resource://gre/modules/Services.jsm");
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
 
 XPCOMUtils.defineLazyGlobalGetters(this, ["XMLHttpRequest", "XMLSerializer"]);
 
-ChromeUtils.defineModuleGetter(this, "CommonUtils", "resource://services-common/utils.js");
-ChromeUtils.defineModuleGetter(this, "EventDispatcher", "resource://gre/modules/Messaging.jsm");
+ChromeUtils.defineModuleGetter(
+  this,
+  "CommonUtils",
+  "resource://services-common/utils.js"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "EventDispatcher",
+  "resource://gre/modules/Messaging.jsm"
+);
 ChromeUtils.defineModuleGetter(this, "OS", "resource://gre/modules/osfile.jsm");
-ChromeUtils.defineModuleGetter(this, "ReaderWorker", "resource://gre/modules/reader/ReaderWorker.jsm");
-ChromeUtils.defineModuleGetter(this, "LanguageDetector", "resource:///modules/translation/LanguageDetector.jsm");
-ChromeUtils.defineModuleGetter(this, "Readerable", "resource://gre/modules/Readerable.jsm");
+ChromeUtils.defineModuleGetter(
+  this,
+  "ReaderWorker",
+  "resource://gre/modules/reader/ReaderWorker.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "LanguageDetector",
+  "resource:///modules/translation/LanguageDetector.jsm"
+);
+ChromeUtils.defineModuleGetter(
+  this,
+  "Readerable",
+  "resource://gre/modules/Readerable.jsm"
+);
 
-const gIsFirefoxDesktop = Services.appinfo.ID == "{ec8030f7-c20a-464f-9b0e-13a3a9e97384}";
+const gIsFirefoxDesktop =
+  Services.appinfo.ID == "{ec8030f7-c20a-464f-9b0e-13a3a9e97384}";
 
 var ReaderMode = {
   // Version of the cache schema.
@@ -58,17 +81,21 @@ var ReaderMode = {
   enterReaderMode(docShell, win) {
     let url = win.document.location.href;
     let readerURL = "about:reader?url=" + encodeURIComponent(url);
-    let webNav = docShell.QueryInterface(Ci.nsIWebNavigation);
-    let sh = webNav.sessionHistory;
-    if (webNav.canGoForward) {
-      let forwardEntry = sh.legacySHistory.getEntryAtIndex(sh.index + 1);
-      let forwardURL = forwardEntry.URI.spec;
-      if (forwardURL && (forwardURL == readerURL || !readerURL)) {
-        webNav.goForward();
-        return;
+
+    if (!Services.appinfo.sessionHistoryInParent) {
+      let webNav = docShell.QueryInterface(Ci.nsIWebNavigation);
+      let sh = webNav.sessionHistory;
+      if (webNav.canGoForward) {
+        let forwardEntry = sh.legacySHistory.getEntryAtIndex(sh.index + 1);
+        let forwardURL = forwardEntry.URI.spec;
+        if (forwardURL && (forwardURL == readerURL || !readerURL)) {
+          webNav.goForward();
+          return;
+        }
       }
     }
 
+    // This could possibly move to the parent. See bug 1664982.
     win.document.location = readerURL;
   },
 
@@ -78,29 +105,49 @@ var ReaderMode = {
    */
   leaveReaderMode(docShell, win) {
     let url = win.document.location.href;
-    let originalURL = this.getOriginalUrl(url);
+    let originalURL = ReaderMode.getOriginalUrl(url);
     let webNav = docShell.QueryInterface(Ci.nsIWebNavigation);
-    let sh = webNav.sessionHistory;
-    if (webNav.canGoBack) {
-      let prevEntry = sh.legacySHistory.getEntryAtIndex(sh.index - 1);
-      let prevURL = prevEntry.URI.spec;
-      if (prevURL && (prevURL == originalURL || !originalURL)) {
-        webNav.goBack();
-        return;
+
+    if (!Services.appinfo.sessionHistoryInParent) {
+      let sh = webNav.sessionHistory;
+      if (webNav.canGoBack) {
+        let prevEntry = sh.legacySHistory.getEntryAtIndex(sh.index - 1);
+        let prevURL = prevEntry.URI.spec;
+        if (prevURL && (prevURL == originalURL || !originalURL)) {
+          webNav.goBack();
+          return;
+        }
       }
     }
 
     let referrerURI, principal;
     try {
       referrerURI = Services.io.newURI(url);
-      principal = Services.scriptSecurityManager.createCodebasePrincipal(
-        referrerURI, win.document.nodePrincipal.originAttributes);
+      principal = Services.scriptSecurityManager.createContentPrincipal(
+        referrerURI,
+        win.document.nodePrincipal.originAttributes
+      );
     } catch (e) {
       Cu.reportError(e);
       return;
     }
-    let flags = webNav.LOAD_FLAGS_DISALLOW_INHERIT_PRINCIPAL;
-    webNav.loadURI(originalURL, flags, referrerURI, null, null, principal);
+    let loadFlags = webNav.LOAD_FLAGS_DISALLOW_INHERIT_PRINCIPAL;
+    let ReferrerInfo = Components.Constructor(
+      "@mozilla.org/referrer-info;1",
+      "nsIReferrerInfo",
+      "init"
+    );
+    let loadURIOptions = {
+      triggeringPrincipal: principal,
+      loadFlags,
+      referrerInfo: new ReferrerInfo(
+        Ci.nsIReferrerInfo.EMPTY,
+        true,
+        referrerURI
+      ),
+    };
+    // This could possibly move to the parent. See bug 1664982.
+    webNav.loadURI(originalURL, loadURIOptions);
   },
 
   /**
@@ -120,9 +167,13 @@ var ReaderMode = {
       let uriObj = Services.io.newURI(url);
       url = uriObj.specIgnoringRef;
       outerHash = uriObj.ref;
-    } catch (ex) { /* ignore, use the raw string */ }
+    } catch (ex) {
+      /* ignore, use the raw string */
+    }
 
-    let searchParams = new URLSearchParams(url.substring("about:reader?".length));
+    let searchParams = new URLSearchParams(
+      url.substring("about:reader?".length)
+    );
     if (!searchParams.has("url")) {
       return null;
     }
@@ -138,16 +189,16 @@ var ReaderMode = {
   },
 
   getOriginalUrlObjectForDisplay(url) {
-    let originalUrl = this.getOriginalUrl(url);
+    let originalUrl = ReaderMode.getOriginalUrl(url);
     if (originalUrl) {
       let uriObj;
       try {
-        uriObj = Services.uriFixup.createFixupURI(originalUrl, Services.uriFixup.FIXUP_FLAG_NONE);
+        uriObj = Services.uriFixup.getFixupURIInfo(originalUrl).preferredURI;
       } catch (ex) {
         return null;
       }
       try {
-        return Services.uriFixup.createExposableURI(uriObj);
+        return Services.io.createExposableURI(uriObj);
       } catch (ex) {
         return null;
       }
@@ -164,8 +215,10 @@ var ReaderMode = {
    * @resolves JS object representing the article, or null if no article is found.
    */
   parseDocument(doc) {
-    if (!Readerable.shouldCheckUri(doc.documentURIObject) ||
-        !Readerable.shouldCheckUri(doc.baseURIObject, true)) {
+    if (
+      !Readerable.shouldCheckUri(doc.documentURIObject) ||
+      !Readerable.shouldCheckUri(doc.baseURIObject, true)
+    ) {
       this.log("Reader mode disabled for URI");
       return null;
     }
@@ -185,8 +238,10 @@ var ReaderMode = {
     if (!doc) {
       return null;
     }
-    if (!Readerable.shouldCheckUri(doc.documentURIObject) ||
-        !Readerable.shouldCheckUri(doc.baseURIObject, true)) {
+    if (
+      !Readerable.shouldCheckUri(doc.documentURIObject) ||
+      !Readerable.shouldCheckUri(doc.baseURIObject, true)
+    ) {
       this.log("Reader mode disabled for URI");
       return null;
     }
@@ -200,10 +255,14 @@ var ReaderMode = {
         return null;
       }
     } catch (ex) {
-      Cu.reportError(new Error(`Couldn't create URI from ${url} to download: ${ex}`));
+      Cu.reportError(
+        new Error(`Couldn't create URI from ${url} to download: ${ex}`)
+      );
       return null;
     }
-    let histogram = Services.telemetry.getHistogramById("READER_MODE_DOWNLOAD_RESULT");
+    let histogram = Services.telemetry.getHistogramById(
+      "READER_MODE_DOWNLOAD_RESULT"
+    );
     return new Promise((resolve, reject) => {
       let xhr = new XMLHttpRequest();
       xhr.open("GET", url, true);
@@ -231,24 +290,35 @@ var ReaderMode = {
             let urlIndex = content.toUpperCase().indexOf("URL=");
             if (urlIndex > -1) {
               let baseURI = Services.io.newURI(url);
-              let newURI = Services.io.newURI(content.substring(urlIndex + 4), null, baseURI);
+              let newURI = Services.io.newURI(
+                content.substring(urlIndex + 4),
+                null,
+                baseURI
+              );
               let newURL = newURI.spec;
               let ssm = Services.scriptSecurityManager;
-              let flags = ssm.LOAD_IS_AUTOMATIC_DOCUMENT_REPLACEMENT |
-                          ssm.DISALLOW_INHERIT_PRINCIPAL;
+              let flags =
+                ssm.LOAD_IS_AUTOMATIC_DOCUMENT_REPLACEMENT |
+                ssm.DISALLOW_INHERIT_PRINCIPAL;
               try {
-                ssm.checkLoadURIStrWithPrincipal(doc.nodePrincipal, newURL, flags);
+                ssm.checkLoadURIStrWithPrincipal(
+                  doc.nodePrincipal,
+                  newURL,
+                  flags
+                );
               } catch (ex) {
-                let errorMsg = "Reader mode disallowed meta refresh (reason: " + ex + ").";
+                let errorMsg =
+                  "Reader mode disallowed meta refresh (reason: " + ex + ").";
 
-                if (Services.prefs.getBoolPref("reader.errors.includeURLs"))
+                if (Services.prefs.getBoolPref("reader.errors.includeURLs")) {
                   errorMsg += " Refresh target URI: '" + newURL + "'.";
+                }
                 reject(errorMsg);
                 return;
               }
               // Otherwise, pass an object indicating our new URL:
               if (!baseURI.equalsExceptRef(newURI)) {
-                reject({newURL});
+                reject({ newURL });
                 return;
               }
             }
@@ -260,15 +330,19 @@ var ReaderMode = {
         // thereof) is identical:
         try {
           responseURL = Services.io.newURI(responseURL).specIgnoringRef;
-        } catch (ex) { /* Ignore errors - we'll use what we had before */ }
+        } catch (ex) {
+          /* Ignore errors - we'll use what we had before */
+        }
         try {
           givenURL = Services.io.newURI(givenURL).specIgnoringRef;
-        } catch (ex) { /* Ignore errors - we'll use what we had before */ }
+        } catch (ex) {
+          /* Ignore errors - we'll use what we had before */
+        }
 
         if (responseURL != givenURL) {
           // We were redirected without a meta refresh tag.
           // Force redirect to the correct place:
-          reject({newURL: xhr.responseURL});
+          reject({ newURL: xhr.responseURL });
           return;
         }
         resolve(doc);
@@ -277,7 +351,6 @@ var ReaderMode = {
       xhr.send();
     });
   },
-
 
   /**
    * Retrieves an article from the cache given an article URI.
@@ -293,8 +366,9 @@ var ReaderMode = {
       let array = await OS.File.read(path);
       return JSON.parse(new TextDecoder().decode(array));
     } catch (e) {
-      if (!(e instanceof OS.File.Error) || !e.becauseNoSuchFile)
+      if (!(e instanceof OS.File.Error) || !e.becauseNoSuchFile) {
         throw e;
+      }
       return null;
     }
   },
@@ -311,8 +385,8 @@ var ReaderMode = {
     let array = new TextEncoder().encode(JSON.stringify(article));
     let path = this._toHashedPath(article.url);
     await this._ensureCacheDir();
-    return OS.File.writeAtomic(path, array, { tmpPath: path + ".tmp" })
-      .then(success => {
+    return OS.File.writeAtomic(path, array, { tmpPath: path + ".tmp" }).then(
+      success => {
         OS.File.stat(path).then(info => {
           return EventDispatcher.instance.sendRequest({
             type: "Reader:AddedToCache",
@@ -321,7 +395,8 @@ var ReaderMode = {
             path,
           });
         });
-      });
+      }
+    );
   },
 
   /**
@@ -338,8 +413,9 @@ var ReaderMode = {
   },
 
   log(msg) {
-    if (this.DEBUG)
+    if (this.DEBUG) {
       dump("Reader: " + msg);
+    }
   },
 
   /**
@@ -351,11 +427,19 @@ var ReaderMode = {
    * @resolves JS object representing the article, or null if no article is found.
    */
   async _readerParse(doc) {
-    let histogram = Services.telemetry.getHistogramById("READER_MODE_PARSE_RESULT");
+    let histogram = Services.telemetry.getHistogramById(
+      "READER_MODE_PARSE_RESULT"
+    );
     if (this.parseNodeLimit) {
       let numTags = doc.getElementsByTagName("*").length;
       if (numTags > this.parseNodeLimit) {
-        this.log("Aborting parse for " + doc.baseURIObject.spec + "; " + numTags + " elements found");
+        this.log(
+          "Aborting parse for " +
+            doc.baseURIObject.spec +
+            "; " +
+            numTags +
+            " elements found"
+        );
         histogram.add(PARSE_ERROR_TOO_MANY_ELEMENTS);
         return null;
       }
@@ -363,7 +447,7 @@ var ReaderMode = {
 
     // Fetch this here before we send `doc` off to the worker thread, as later on the
     // document might be nuked but we will still want the URI.
-    let {documentURI} = doc;
+    let { documentURI } = doc;
 
     let uriParam = {
       spec: doc.baseURIObject.spec,
@@ -373,8 +457,16 @@ var ReaderMode = {
       pathBase: Services.io.newURI(".", null, doc.baseURIObject).spec,
     };
 
+    // convert text/plain document, if any, to XHTML format
+    if (this._isDocumentPlainText(doc)) {
+      doc = this._convertPlainTextDocument(doc);
+    }
+
     let serializer = new XMLSerializer();
     let serializedDoc = serializer.serializeToString(doc);
+    // Explicitly null out doc to make it clear it might not be available from this
+    // point on.
+    doc = null;
 
     let options = {
       classesToPreserve: CLASSES_TO_PRESERVE,
@@ -382,15 +474,15 @@ var ReaderMode = {
 
     let article = null;
     try {
-      article = await ReaderWorker.post("parseDocument", [uriParam, serializedDoc, options]);
+      article = await ReaderWorker.post("parseDocument", [
+        uriParam,
+        serializedDoc,
+        options,
+      ]);
     } catch (e) {
       Cu.reportError("Error in ReaderWorker: " + e);
       histogram.add(PARSE_ERROR_WORKER);
     }
-
-    // Explicitly null out doc to make it clear it might not be available from this
-    // point on.
-    doc = null;
 
     if (!article) {
       this.log("Worker did not return an article");
@@ -404,9 +496,12 @@ var ReaderMode = {
     article.url = documentURI;
     delete article.uri;
 
-    let flags = Ci.nsIDocumentEncoder.OutputSelectionOnly | Ci.nsIDocumentEncoder.OutputAbsoluteLinks;
-    article.title = Cc["@mozilla.org/parserutils;1"].getService(Ci.nsIParserUtils)
-                                                    .convertToPlainText(article.title, flags, 0);
+    let flags =
+      Ci.nsIDocumentEncoder.OutputSelectionOnly |
+      Ci.nsIDocumentEncoder.OutputAbsoluteLinks;
+    article.title = Cc["@mozilla.org/parserutils;1"]
+      .getService(Ci.nsIParserUtils)
+      .convertToPlainText(article.title, flags, 0);
     if (gIsFirefoxDesktop) {
       await this._assignLanguage(article);
       this._maybeAssignTextDirection(article);
@@ -420,13 +515,16 @@ var ReaderMode = {
 
   get _cryptoHash() {
     delete this._cryptoHash;
-    return this._cryptoHash = Cc["@mozilla.org/security/hash;1"].createInstance(Ci.nsICryptoHash);
+    return (this._cryptoHash = Cc[
+      "@mozilla.org/security/hash;1"
+    ].createInstance(Ci.nsICryptoHash));
   },
 
   get _unicodeConverter() {
     delete this._unicodeConverter;
-    this._unicodeConverter = Cc["@mozilla.org/intl/scriptableunicodeconverter"]
-                              .createInstance(Ci.nsIScriptableUnicodeConverter);
+    this._unicodeConverter = Cc[
+      "@mozilla.org/intl/scriptableunicodeconverter"
+    ].createInstance(Ci.nsIScriptableUnicodeConverter);
     this._unicodeConverter.charset = "utf8";
     return this._unicodeConverter;
   },
@@ -478,7 +576,10 @@ var ReaderMode = {
 
   _maybeAssignTextDirection(article) {
     // TODO: Remove the hardcoded language codes below once bug 1320265 is resolved.
-    if (!article.dir && ["ar", "fa", "he", "ug", "ur"].includes(article.language)) {
+    if (
+      !article.dir &&
+      ["ar", "fa", "he", "ug", "ur"].includes(article.language)
+    ) {
       article.dir = "rtl";
     }
   },
@@ -496,7 +597,7 @@ var ReaderMode = {
     const length = article.length;
 
     article.readingTimeMinsSlow = Math.ceil(length / charactersPerMinuteLow);
-    article.readingTimeMinsFast  = Math.ceil(length / charactersPerMinuteHigh);
+    article.readingTimeMinsFast = Math.ceil(length / charactersPerMinuteHigh);
   },
 
   /**
@@ -510,28 +611,70 @@ var ReaderMode = {
    */
   _getReadingSpeedForLanguage(lang) {
     const readingSpeed = new Map([
-      [ "en", {cpm: 987,  variance: 118 } ],
-      [ "ar", {cpm: 612,  variance: 88 } ],
-      [ "de", {cpm: 920,  variance: 86 } ],
-      [ "es", {cpm: 1025, variance: 127 } ],
-      [ "fi", {cpm: 1078, variance: 121 } ],
-      [ "fr", {cpm: 998,  variance: 126 } ],
-      [ "he", {cpm: 833,  variance: 130 } ],
-      [ "it", {cpm: 950,  variance: 140 } ],
-      [ "jw", {cpm: 357,  variance: 56 } ],
-      [ "nl", {cpm: 978,  variance: 143 } ],
-      [ "pl", {cpm: 916,  variance: 126 } ],
-      [ "pt", {cpm: 913,  variance: 145 } ],
-      [ "ru", {cpm: 986,  variance: 175 } ],
-      [ "sk", {cpm: 885,  variance: 145 } ],
-      [ "sv", {cpm: 917,  variance: 156 } ],
-      [ "tr", {cpm: 1054, variance: 156 } ],
-      [ "zh", {cpm: 255,  variance: 29 } ],
+      ["en", { cpm: 987, variance: 118 }],
+      ["ar", { cpm: 612, variance: 88 }],
+      ["de", { cpm: 920, variance: 86 }],
+      ["es", { cpm: 1025, variance: 127 }],
+      ["fi", { cpm: 1078, variance: 121 }],
+      ["fr", { cpm: 998, variance: 126 }],
+      ["he", { cpm: 833, variance: 130 }],
+      ["it", { cpm: 950, variance: 140 }],
+      ["jw", { cpm: 357, variance: 56 }],
+      ["nl", { cpm: 978, variance: 143 }],
+      ["pl", { cpm: 916, variance: 126 }],
+      ["pt", { cpm: 913, variance: 145 }],
+      ["ru", { cpm: 986, variance: 175 }],
+      ["sk", { cpm: 885, variance: 145 }],
+      ["sv", { cpm: 917, variance: 156 }],
+      ["tr", { cpm: 1054, variance: 156 }],
+      ["zh", { cpm: 255, variance: 29 }],
     ]);
 
     return readingSpeed.get(lang) || readingSpeed.get("en");
   },
+  /**
+   *
+   * Check if the document to be parsed is text document.
+   * @param doc the doc object to be parsed.
+   * @return boolean
+   *
+   */
+  _isDocumentPlainText(doc) {
+    return doc.contentType == "text/plain";
+  },
+  /**
+   *
+   * The document to be parsed is text document and is converted to HTML format.
+   * @param doc the doc object to be parsed.
+   * @return doc
+   *
+   */
+  _convertPlainTextDocument(doc) {
+    let preTag = doc.querySelector("pre");
+    let docFrag = doc.createDocumentFragment();
+    let content = preTag.textContent;
+    let paragraphs = content.split(/\r?\n\r?\n/);
+    for (let para of paragraphs) {
+      let pElem = doc.createElement("p");
+      let lines = para.split(/\n/);
+      for (let line of lines) {
+        pElem.append(line);
+        let brElem = doc.createElement("br");
+        pElem.append(brElem);
+      }
+      docFrag.append(pElem);
+    }
+    // Clone the document to avoid the original document being affected
+    // (which shows up when exiting reader mode again).
+    let clone = doc.documentElement.cloneNode(true);
+    clone.querySelector("pre").replaceWith(docFrag);
+    return clone;
+  },
 };
 
 XPCOMUtils.defineLazyPreferenceGetter(
-  ReaderMode, "maxElemsToParse", "reader.parse-node-limit", 0);
+  ReaderMode,
+  "maxElemsToParse",
+  "reader.parse-node-limit",
+  0
+);

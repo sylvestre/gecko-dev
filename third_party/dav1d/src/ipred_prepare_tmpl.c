@@ -27,7 +27,6 @@
 
 #include "config.h"
 
-#include <assert.h>
 #include <stdint.h>
 #include <string.h>
 
@@ -82,9 +81,10 @@ bytefn(dav1d_prepare_intra_edges)(const int x, const int have_left,
                                   const ptrdiff_t stride,
                                   const pixel *prefilter_toplevel_sb_edge,
                                   enum IntraPredMode mode, int *const angle,
-                                  const int tw, const int th,
-                                  pixel *const topleft_out)
+                                  const int tw, const int th, const int filter_edge,
+                                  pixel *const topleft_out HIGHBD_DECL_SUFFIX)
 {
+    const int bitdepth = bitdepth_from_max(bitdepth_max);
     assert(y < h && x < w);
 
     switch (mode) {
@@ -98,17 +98,12 @@ bytefn(dav1d_prepare_intra_edges)(const int x, const int have_left,
     case VERT_LEFT_PRED: {
         *angle = av1_mode_to_angle_map[mode - VERT_PRED] + 3 * *angle;
 
-        if (*angle < 90) {
-            mode = have_top ? Z1_PRED : VERT_PRED;
-        } else if (*angle == 90) {
-            mode = VERT_PRED;
-        } else if (*angle < 180) {
+        if (*angle <= 90)
+            mode = *angle < 90 && have_top ? Z1_PRED : VERT_PRED;
+        else if (*angle < 180)
             mode = Z2_PRED;
-        } else if (*angle == 180) {
-            mode = HOR_PRED;
-        } else {
-            mode = have_left ? Z3_PRED : HOR_PRED;
-        }
+        else
+            mode = *angle > 180 && have_left ? Z3_PRED : HOR_PRED;
         break;
     }
     case DC_PRED:
@@ -144,7 +139,7 @@ bytefn(dav1d_prepare_intra_edges)(const int x, const int have_left,
             if (px_have < sz)
                 pixel_set(left, left[sz - px_have], sz - px_have);
         } else {
-            pixel_set(left, have_top ? *dst_top : ((1 << BITDEPTH) >> 1) + 1, sz);
+            pixel_set(left, have_top ? *dst_top : ((1 << bitdepth) >> 1) + 1, sz);
         }
 
         if (av1_intra_prediction_edges[mode].needs_bottomleft) {
@@ -174,7 +169,7 @@ bytefn(dav1d_prepare_intra_edges)(const int x, const int have_left,
             if (px_have < sz)
                 pixel_set(top + px_have, top[px_have - 1], sz - px_have);
         } else {
-            pixel_set(top, have_left ? dst[-1] : ((1 << BITDEPTH) >> 1) - 1, sz);
+            pixel_set(top, have_left ? dst[-1] : ((1 << bitdepth) >> 1) - 1, sz);
         }
 
         if (av1_intra_prediction_edges[mode].needs_topright) {
@@ -195,14 +190,14 @@ bytefn(dav1d_prepare_intra_edges)(const int x, const int have_left,
     }
 
     if (av1_intra_prediction_edges[mode].needs_topleft) {
-        if (have_left) {
+        if (have_left)
             *topleft_out = have_top ? dst_top[-1] : dst[-1];
-        } else {
-            *topleft_out = have_top ? *dst_top : (1 << BITDEPTH) >> 1;
-        }
-        if (mode == Z2_PRED && tw + th >= 6)
-            *topleft_out = (topleft_out[-1] * 5 + topleft_out[0] * 6 +
-                            topleft_out[1] * 5 + 8) >> 4;
+        else
+            *topleft_out = have_top ? *dst_top : (1 << bitdepth) >> 1;
+
+        if (mode == Z2_PRED && tw + th >= 6 && filter_edge)
+            *topleft_out = ((topleft_out[-1] + topleft_out[1]) * 5 +
+                            topleft_out[0] * 6 + 8) >> 4;
     }
 
     return mode;

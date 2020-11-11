@@ -9,7 +9,9 @@
 
 add_task(async function() {
   const { L10N } = require("devtools/client/netmonitor/src/utils/l10n");
-  const { tab, monitor } = await initNetMonitor(JSON_B64_URL);
+  const { tab, monitor } = await initNetMonitor(JSON_B64_URL, {
+    requestCount: 1,
+  });
   info("Starting test... ");
 
   const { document, store, windowRequire } = monitor.panelWin;
@@ -20,40 +22,84 @@ add_task(async function() {
   // Execute requests.
   await performRequests(monitor, tab, 1);
 
-  wait = waitForDOM(document, "#response-panel .CodeMirror-code");
+  let wait = waitForDOM(document, "#response-panel .accordion-item", 2);
+  const waitForPropsView = waitForDOM(
+    document,
+    "#response-panel .properties-view",
+    1
+  );
+
   store.dispatch(Actions.toggleNetworkDetails());
-  EventUtils.sendMouseEvent({ type: "click" },
-    document.querySelector("#response-tab"));
-  await wait;
+
+  EventUtils.sendMouseEvent(
+    { type: "click" },
+    document.querySelector("#response-tab")
+  );
+
+  await Promise.all([wait, waitForPropsView]);
 
   const tabpanel = document.querySelector("#response-panel");
+  is(
+    tabpanel.querySelectorAll(".treeRow").length,
+    1,
+    "There should be 1 json properties displayed in this tabpanel."
+  );
 
-  is(tabpanel.querySelector(".response-error-header") === null, true,
-    "The response error header doesn't have the intended visibility.");
-  const jsonView = tabpanel.querySelector(".tree-section .treeLabel") || {};
-  is(jsonView.textContent === L10N.getStr("jsonScopeName"), true,
-    "The response json view has the intended visibility.");
-  is(tabpanel.querySelector(".CodeMirror-code") === null, false,
-    "The response editor has the intended visibility.");
-  is(tabpanel.querySelector(".response-image-box") === null, true,
-    "The response image box doesn't have the intended visibility.");
+  const labels = tabpanel.querySelectorAll("tr .treeLabelCell .treeLabel");
+  const values = tabpanel.querySelectorAll("tr .treeValueCell .objectBox");
 
-  is(tabpanel.querySelectorAll(".tree-section").length, 2,
-    "There should be 2 tree sections displayed in this tabpanel.");
-  is(tabpanel.querySelectorAll(".treeRow:not(.tree-section)").length, 1,
-    "There should be 1 json properties displayed in this tabpanel.");
-  is(tabpanel.querySelectorAll(".empty-notice").length, 0,
-    "The empty notice should not be displayed in this tabpanel.");
+  is(
+    labels[0].textContent,
+    "greeting",
+    "The first json property name was incorrect."
+  );
+  is(
+    values[0].textContent,
+    `"This is a base 64 string."`,
+    "The first json property value was incorrect."
+  );
 
-  const labels = tabpanel
-    .querySelectorAll("tr:not(.tree-section) .treeLabelCell .treeLabel");
-  const values = tabpanel
-    .querySelectorAll("tr:not(.tree-section) .treeValueCell .objectBox");
+  // Open the response payload section, it should hide the json section
+  wait = waitForDOM(document, "#response-panel .CodeMirror-code");
+  const header = document.querySelector(
+    "#response-panel .accordion-item:last-child .accordion-header"
+  );
+  clickElement(header, monitor);
+  await wait;
 
-  is(labels[0].textContent, "greeting",
-    "The first json property name was incorrect.");
-  is(values[0].textContent, "This is a base 64 string.",
-    "The first json property value was incorrect.");
+  is(
+    tabpanel.querySelector(".response-error-header") === null,
+    true,
+    "The response error header doesn't have the intended visibility."
+  );
+  const jsonView =
+    tabpanel.querySelector(".accordion-item .accordion-header-label") || {};
+  is(
+    jsonView.textContent === L10N.getStr("jsonScopeName"),
+    true,
+    "The response json view has the intended visibility."
+  );
+  is(
+    tabpanel.querySelector(".CodeMirror-code") === null,
+    false,
+    "The response editor has the intended visibility."
+  );
+  is(
+    tabpanel.querySelector(".response-image-box") === null,
+    true,
+    "The response image box doesn't have the intended visibility."
+  );
+
+  is(
+    tabpanel.querySelectorAll(".accordion-item").length,
+    2,
+    "There should be 2 tree sections displayed in this tabpanel."
+  );
+  is(
+    tabpanel.querySelectorAll(".empty-notice").length,
+    0,
+    "The empty notice should not be displayed in this tabpanel."
+  );
 
   await teardown(monitor);
 });

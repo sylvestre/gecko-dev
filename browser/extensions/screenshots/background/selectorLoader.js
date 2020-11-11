@@ -1,4 +1,8 @@
-/* globals catcher, communication, log */
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+/* globals catcher, communication, log, main */
 
 "use strict";
 
@@ -8,7 +12,7 @@ var global = this;
 this.selectorLoader = (function() {
   const exports = {};
 
-  // These modules are loaded in order, first standardScripts, then optionally onboardingScripts, and then selectorScripts
+  // These modules are loaded in order, first standardScripts and then selectorScripts
   // The order is important due to dependencies
   const standardScripts = [
     "build/buildSettings.js",
@@ -36,13 +40,6 @@ this.selectorLoader = (function() {
     "selector/uicontrol.js",
   ];
 
-  // These are loaded on request (by the selector worker) to activate the onboarding:
-  const onboardingScripts = [
-    "build/onboardingCss.js",
-    "build/onboardingHtml.js",
-    "onboarding/slides.js",
-  ];
-
   exports.unloadIfLoaded = function(tabId) {
     return browser.tabs.executeScript(tabId, {
       code: "this.selectorLoader && this.selectorLoader.unloadModules()",
@@ -66,47 +63,17 @@ this.selectorLoader = (function() {
 
   const loadingTabs = new Set();
 
-  exports.loadModules = function(tabId, hasSeenOnboarding) {
-    catcher.watchPromise(hasSeenOnboarding.then(onboarded => {
-      loadingTabs.add(tabId);
-      let promise = downloadOnlyCheck(tabId);
-      if (onboarded) {
-        promise = promise.then(() => {
-          return executeModules(tabId, standardScripts.concat(selectorScripts));
-        });
-      } else {
-        promise = promise.then(() => {
-          return executeModules(tabId, standardScripts.concat(onboardingScripts).concat(selectorScripts));
-        });
-      }
-      return promise.then((result) => {
-        loadingTabs.delete(tabId);
-        return result;
-      }, (error) => {
-        loadingTabs.delete(tabId);
-        throw error;
-      });
+  exports.loadModules = function(tabId) {
+    loadingTabs.add(tabId);
+    catcher.watchPromise(browser.tabs.executeScript(tabId, {
+      code: `window.hasAnyShots = ${!!main.hasAnyShots()};`,
+      runAt: "document_start",
+    }).then(() => {
+      return executeModules(tabId, standardScripts.concat(selectorScripts));
+    }).finally(() => {
+      loadingTabs.delete(tabId);
     }));
   };
-
-  function downloadOnlyCheck(tabId) {
-    return browser.experiments.screenshots.isHistoryEnabled().then((historyEnabled) => {
-      return browser.experiments.screenshots.isUploadDisabled().then((uploadDisabled) => {
-        return browser.experiments.screenshots.getUpdateChannel().then((channel) => {
-          return browser.tabs.get(tabId).then(tab => {
-            const downloadOnly = !historyEnabled || uploadDisabled || channel === "esr" || tab.incognito;
-            return browser.tabs.executeScript(tabId, {
-              // Note: `window` here refers to a global accessible to content
-              // scripts, but not the scripts in the underlying page. For more
-              // details, see https://mdn.io/WebExtensions/Content_scripts#Content_script_environment
-              code: `window.downloadOnly = ${downloadOnly}`,
-              runAt: "document_start",
-            });
-          });
-        });
-      });
-    });
-  }
 
   function executeModules(tabId, scripts) {
     let lastPromise = Promise.resolve(null);
@@ -134,7 +101,7 @@ this.selectorLoader = (function() {
 
   exports.unloadModules = function() {
     const watchFunction = catcher.watchFunction;
-    const allScripts = standardScripts.concat(onboardingScripts).concat(selectorScripts);
+    const allScripts = standardScripts.concat(selectorScripts);
     const moduleNames = allScripts.map((filename) =>
       filename.replace(/^.*\//, "").replace(/\.js$/, ""));
     moduleNames.reverse();
@@ -152,11 +119,11 @@ this.selectorLoader = (function() {
     return true;
   };
 
-  exports.toggle = function(tabId, hasSeenOnboarding) {
+  exports.toggle = function(tabId) {
     return exports.unloadIfLoaded(tabId)
       .then(wasLoaded => {
         if (!wasLoaded) {
-          exports.loadModules(tabId, hasSeenOnboarding);
+          exports.loadModules(tabId);
         }
         return !wasLoaded;
       });

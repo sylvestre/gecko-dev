@@ -9,7 +9,7 @@
 
 #include "mozilla/EventForwards.h"
 #include "mozilla/StaticPtr.h"
-#include "mozilla/dom/TabParent.h"
+#include "mozilla/dom/BrowserParent.h"
 #include "nsIWidget.h"
 
 class nsIContent;
@@ -35,7 +35,7 @@ class Selection;
  */
 
 class IMEStateManager {
-  typedef dom::TabParent TabParent;
+  typedef dom::BrowserParent BrowserParent;
   typedef widget::IMEMessage IMEMessage;
   typedef widget::IMENotification IMENotification;
   typedef widget::IMEState IMEState;
@@ -47,40 +47,68 @@ class IMEStateManager {
   static void Shutdown();
 
   /**
-   * GetActiveTabParent() returns a pointer to a TabParent instance which is
-   * managed by the focused content (sContent).  If the focused content isn't
-   * managing another process, this returns nullptr.
+   * GetActiveBrowserParent() returns a pointer to a BrowserParent instance
+   * which is managed by the focused content (sContent).  If the focused content
+   * isn't managing another process, this returns nullptr.
    */
-  static TabParent* GetActiveTabParent() {
+  static BrowserParent* GetActiveBrowserParent() {
     // If menu has pseudo focus, we should ignore active child process.
     if (sInstalledMenuKeyboardListener) {
       return nullptr;
     }
-    return sActiveTabParent.get();
+    // If we know focused browser parent, use it for making any events related
+    // to composition go to same content process.
+    if (sFocusedIMEBrowserParent) {
+      return sFocusedIMEBrowserParent;
+    }
+    return BrowserParent::GetFocused();
   }
 
   /**
-   * DoesTabParentHaveIMEFocus() returns true when aTabParent has IME focus,
-   * i.e., the TabParent sent "focus" notification but not yet sends "blur".
-   * Note that this doesn't check if the remote processes are same because
-   * if another TabParent has focus, committing composition causes firing
-   * composition events in different TabParent.  (Anyway, such case shouldn't
-   * occur.)
+   * DoesBrowserParentHaveIMEFocus() returns true when aBrowserParent has IME
+   * focus, i.e., the BrowserParent sent "focus" notification but not yet sends
+   * "blur". Note that this doesn't check if the remote processes are same
+   * because if another BrowserParent has focus, committing composition causes
+   * firing composition events in different BrowserParent.  (Anyway, such case
+   * shouldn't occur.)
    */
-  static bool DoesTabParentHaveIMEFocus(const TabParent* aTabParent) {
-    MOZ_ASSERT(aTabParent);
-    return sFocusedIMETabParent == aTabParent;
+  static bool DoesBrowserParentHaveIMEFocus(
+      const BrowserParent* aBrowserParent) {
+    MOZ_ASSERT(aBrowserParent);
+    return sFocusedIMEBrowserParent == aBrowserParent;
   }
 
   /**
-   * OnTabParentDestroying() is called when aTabParent is being destroyed.
+   * If CanSendNotificationToWidget() returns false (it should occur
+   * only in a content process), we shouldn't notify the widget of
+   * any focused editor changes since the content process was blurred.
+   * Also, even if content process, widget has native text event dispatcher such
+   * as Android, it still notify it.
    */
-  static void OnTabParentDestroying(TabParent* aTabParent);
+  static bool CanSendNotificationToWidget() {
+#ifdef MOZ_WIDGET_ANDROID
+    return true;
+#else
+    return !sCleaningUpForStoppingIMEStateManagement;
+#endif
+  }
+
+  /**
+   * Focus moved between browsers from aBlur to aFocus. (nullptr means the
+   * chrome process.)
+   */
+  static void OnFocusMovedBetweenBrowsers(BrowserParent* aBlur,
+                                          BrowserParent* aFocus);
 
   /**
    * Called when aWidget is being deleted.
    */
   static void WidgetDestroyed(nsIWidget* aWidget);
+
+  /**
+   * Called when a widget exists when the app is quitting
+   */
+  static void WidgetOnQuit(nsIWidget* aWidget);
 
   /**
    * GetWidgetForActiveInputContext() returns a widget which IMEStateManager
@@ -96,10 +124,10 @@ class IMEStateManager {
   }
 
   /**
-   * SetIMEContextForChildProcess() is called when aTabParent receives
+   * SetIMEContextForChildProcess() is called when aBrowserParent receives
    * SetInputContext() from the remote process.
    */
-  static void SetInputContextForChildProcess(TabParent* aTabParent,
+  static void SetInputContextForChildProcess(BrowserParent* aBrowserParent,
                                              const InputContext& aInputContext,
                                              const InputContextAction& aAction);
 
@@ -156,15 +184,19 @@ class IMEStateManager {
   // isn't changed by the new state, this method does nothing.
   // Note that this method changes the IME state of the active element in the
   // widget.  So, the caller must have focus.
-  static void UpdateIMEState(const IMEState& aNewIMEState, nsIContent* aContent,
-                             EditorBase* aEditorBase);
+  // XXX Changing this to MOZ_CAN_RUN_SCRIPT requires too many callers to be
+  //     marked too.  Probably, we should initialize IMEContentObserver
+  //     asynchronously.
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY static void UpdateIMEState(
+      const IMEState& aNewIMEState, nsIContent* aContent,
+      EditorBase* aEditorBase);
 
   // This method is called when user operates mouse button in focused editor
   // and before the editor handles it.
   // Returns true if IME consumes the event.  Otherwise, false.
-  static bool OnMouseButtonEventInEditor(nsPresContext* aPresContext,
-                                         nsIContent* aContent,
-                                         WidgetMouseEvent* aMouseEvent);
+  MOZ_CAN_RUN_SCRIPT static bool OnMouseButtonEventInEditor(
+      nsPresContext* aPresContext, nsIContent* aContent,
+      WidgetMouseEvent* aMouseEvent);
 
   // This method is called when user clicked in an editor.
   // aContent must be:
@@ -189,22 +221,27 @@ class IMEStateManager {
   // destroyed.
   static void OnEditorDestroying(EditorBase& aEditorBase);
 
+  // This method is called when focus is set to same content again.
+  static void OnReFocus(nsPresContext* aPresContext, nsIContent& aContent);
+
   /**
    * All composition events must be dispatched via DispatchCompositionEvent()
    * for storing the composition target and ensuring a set of composition
    * events must be fired the stored target.  If the stored composition event
    * target is destroying, this removes the stored composition automatically.
    */
-  static void DispatchCompositionEvent(
+  MOZ_CAN_RUN_SCRIPT static void DispatchCompositionEvent(
       nsINode* aEventTargetNode, nsPresContext* aPresContext,
-      WidgetCompositionEvent* aCompositionEvent, nsEventStatus* aStatus,
-      EventDispatchingCallback* aCallBack, bool aIsSynthesized = false);
+      BrowserParent* aBrowserParent, WidgetCompositionEvent* aCompositionEvent,
+      nsEventStatus* aStatus, EventDispatchingCallback* aCallBack,
+      bool aIsSynthesized = false);
 
   /**
    * All selection events must be handled via HandleSelectionEvent()
    * because they must be handled by same target as composition events when
    * there is a composition.
    */
+  MOZ_CAN_RUN_SCRIPT
   static void HandleSelectionEvent(nsPresContext* aPresContext,
                                    nsIContent* aEventTargetContent,
                                    WidgetSelectionEvent* aSelectionEvent);
@@ -242,11 +279,11 @@ class IMEStateManager {
    */
   static nsresult NotifyIME(const IMENotification& aNotification,
                             nsIWidget* aWidget,
-                            TabParent* aTabParent = nullptr);
+                            BrowserParent* aBrowserParent = nullptr);
   static nsresult NotifyIME(IMEMessage aMessage, nsIWidget* aWidget,
-                            TabParent* aTabParent = nullptr);
+                            BrowserParent* aBrowserParent = nullptr);
   static nsresult NotifyIME(IMEMessage aMessage, nsPresContext* aPresContext,
-                            TabParent* aTabParent = nullptr);
+                            BrowserParent* aBrowserParent = nullptr);
 
   static nsINode* GetRootEditableNode(nsPresContext* aPresContext,
                                       nsIContent* aContent);
@@ -272,14 +309,14 @@ class IMEStateManager {
                                  nsIContent* aContent);
 
   static void EnsureTextCompositionArray();
-  static void CreateIMEContentObserver(EditorBase* aEditorBase);
-  static void DestroyIMEContentObserver();
 
-  /**
-   * NotifyIMEOfBlurForChildProcess() tries to send blur notification when
-   * a remote process has IME focus.  Otherwise, do nothing.
-   */
-  static void NotifyIMEOfBlurForChildProcess();
+  // XXX Changing this to MOZ_CAN_RUN_SCRIPT requires too many callers to be
+  //     marked too.  Probably, we should initialize IMEContentObserver
+  //     asynchronously.
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY static void CreateIMEContentObserver(
+      EditorBase* aEditorBase);
+
+  static void DestroyIMEContentObserver();
 
   static bool IsEditable(nsINode* node);
 
@@ -314,16 +351,15 @@ class IMEStateManager {
   // sPresContext has gone, we need to clean up some IME state on the widget
   // if the widget is available.
   static nsIWidget* sWidget;
-  // sFocusedIMETabParent is the tab parent, which send "focus" notification to
-  // sFocusedIMEWidget (and didn't yet sent "blur" notification).
+  // sFocusedIMEBrowserParent is the tab parent, which send "focus" notification
+  // to sFocusedIMEWidget (and didn't yet sent "blur" notification).
   static nsIWidget* sFocusedIMEWidget;
-  static StaticRefPtr<TabParent> sFocusedIMETabParent;
+  static StaticRefPtr<BrowserParent> sFocusedIMEBrowserParent;
   // sActiveInputContextWidget is the last widget whose SetInputContext() is
   // called.  This is important to reduce sync IPC cost with parent process.
   // If IMEStateManager set input context to different widget, PuppetWidget can
   // return cached input context safely.
   static nsIWidget* sActiveInputContextWidget;
-  static StaticRefPtr<TabParent> sActiveTabParent;
   // sActiveIMEContentObserver points to the currently active
   // IMEContentObserver.  This is null if there is no focused editor.
   static StaticRefPtr<IMEContentObserver> sActiveIMEContentObserver;
@@ -337,9 +373,9 @@ class IMEStateManager {
   // Origin type of current process.
   static InputContext::Origin sOrigin;
 
-  // sActiveChildInputContext is valid only when sActiveTabParent is not
-  // nullptr.  This stores last information of input context in the remote
-  // process of sActiveTabParent.  I.e., they are set when
+  // sActiveChildInputContext is valid only when BrowserParent::GetFocused() is
+  // not nullptr.  This stores last information of input context in the remote
+  // process of BrowserParent::GetFocused().  I.e., they are set when
   // SetInputContextForChildProcess() is called.  This is necessary for
   // restoring IME state when menu keyboard listener is uninstalled.
   static InputContext sActiveChildInputContext;
@@ -350,7 +386,10 @@ class IMEStateManager {
 
   static bool sIsGettingNewIMEState;
   static bool sCheckForIMEUnawareWebApps;
-  static bool sInputModeSupported;
+
+  // Set to true only if this is an instance in a content process and
+  // only while `IMEStateManager::StopIMEStateManagement()`.
+  static bool sCleaningUpForStoppingIMEStateManagement;
 
   class MOZ_STACK_CLASS GettingNewIMEStateBlocker final {
    public:

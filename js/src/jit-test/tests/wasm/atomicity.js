@@ -1,8 +1,3 @@
-// |jit-test| slow;
-//
-// Temporarily marked as slow - they time out on the build systems even with
-// reduced iteration count.
-//
 // Test that wasm atomic operations implement correct mutual exclusion.
 //
 // We have several agents that attempt to hammer on a shared location with rmw
@@ -20,9 +15,22 @@ const ITERATIONS = 100000;
 const NUMWORKERS = 2;
 const NUMAGENTS = NUMWORKERS + 1;
 
-if (!wasmThreadsSupported() || helperThreadCount() < NUMWORKERS) {
+// Need at least one thread per agent.
+
+if (!wasmThreadsEnabled() || helperThreadCount() < NUMWORKERS) {
     if (DEBUG > 0)
         print("Threads not supported");
+    quit(0);
+}
+
+// Unless there are enough actual cores the spinning threads will not interact
+// in the desired way (we'll be waiting on preemption to advance), and this
+// makes the test pointless and also will usually make it time out.  So bail out
+// if we can't have one core per agent.
+
+if (getCoreCount() < NUMAGENTS) {
+    if (DEBUG > 0)
+        print("Fake or feeble hardware");
     quit(0);
 }
 
@@ -148,10 +156,10 @@ function makeModule(id) {
         let BARRIER = "(i32.const 0)";
         let barrier = `
   ;; Barrier
-  (set_local $barrierValue (i32.add (get_local $barrierValue) (i32.const ${NUMAGENTS})))
+  (local.set $barrierValue (i32.add (local.get $barrierValue) (i32.const ${NUMAGENTS})))
   (drop (i32.atomic.rmw.add ${BARRIER} (i32.const 1)))
   (loop $c1
-   (if (i32.lt_s (i32.atomic.load ${BARRIER}) (get_local $barrierValue))
+   (if (i32.lt_s (i32.atomic.load ${BARRIER}) (local.get $barrierValue))
        (br $c1)))
   ;; End barrier
 `;
@@ -186,18 +194,19 @@ function makeModule(id) {
             return ((val << (pos * VALSHIFT)) + 0x100000000).toString(16).substring(1);
         }
 
-        let tag = bits < 32 ? bits + '_u' : '';
+        let width = bits < 32 ? '' + bits : '';
+        let view = bits < 32 ? '_u' : '';
         let prefix = bits == 64 ? 'i64' : 'i32';
         return `
  (func ${name} (param $barrierValue i32) (result i32)
    (local $n i32)
    (local $tmp ${prefix})
-   (set_local $n (i32.const ${ITERATIONS}))
+   (local.set $n (i32.const ${ITERATIONS}))
    (loop $outer
-    (if (get_local $n)
+    (if (local.get $n)
         (block
          ${isMaster ? `;; Init
-(${prefix}.atomic.store${tag} ${loc} (${prefix}.const ${distribute(initial)}))` : ``}
+(${prefix}.atomic.store${width} ${loc} (${prefix}.const ${distribute(initial)}))` : ``}
          ${barrier}
 
 ${(() => {
@@ -208,11 +217,11 @@ ${(() => {
         // we would avoid fences in that case.
         if (op.match(/cmpxchg/)) {
             s += `(loop $doit
-                   (set_local $tmp (${prefix}.atomic.load${tag} ${loc}))
+                   (local.set $tmp (${prefix}.atomic.load${width}${view} ${loc}))
                    (br_if $doit (i32.eqz
                                  (${prefix}.eq
-                                  (get_local $tmp)
-                                  (${op} ${loc} (get_local $tmp) (${prefix}.or (get_local $tmp) ${bitval}))))))
+                                  (local.get $tmp)
+                                  (${op} ${loc} (local.get $tmp) (${prefix}.or (local.get $tmp) ${bitval}))))))
             `;
         } else {
             s += `(drop (${op} ${loc} ${bitval}))
@@ -222,11 +231,11 @@ ${(() => {
     return s
 })()}
          (loop $wait_done
-          (br_if $wait_done (${prefix}.ne (${prefix}.atomic.load${tag} ${loc}) (${prefix}.const ${distribute(expected)}))))
+          (br_if $wait_done (${prefix}.ne (${prefix}.atomic.load${width}${view} ${loc}) (${prefix}.const ${distribute(expected)}))))
          ${barrier}
-         (set_local $n (i32.sub (get_local $n) (i32.const 1)))
+         (local.set $n (i32.sub (local.get $n) (i32.const 1)))
          (br $outer))))
-  (get_local $barrierValue))`;
+  (local.get $barrierValue))`;
     }
 
     const ADDLOC = "(i32.const 256)";
@@ -262,21 +271,21 @@ ${(() => {
     return `
 (module
  (import "" "memory" (memory 1 1 shared))
- (import $print "" "print" (param i32))
+ (import "" "print" (func $print (param i32)))
 
- ${makeLoop(8, "$test_add8", "i32.atomic.rmw8_u.add", ADDLOC, ADDINIT, ADDVAL[id], ADDRESULT)}
- ${makeLoop(8, "$test_sub8", "i32.atomic.rmw8_u.sub", SUBLOC, SUBINIT, SUBVAL[id], SUBRESULT)}
- ${makeLoop(8, "$test_and8", "i32.atomic.rmw8_u.and", ANDLOC, ANDINIT, ANDVAL[id], ANDRESULT)}
- ${makeLoop(8, "$test_or8", "i32.atomic.rmw8_u.or",   ORLOC, ORINIT, ORVAL[id], ORRESULT)}
- ${makeLoop(8, "$test_xor8", "i32.atomic.rmw8_u.xor", XORLOC, XORINIT, XORVAL[id], XORRESULT)}
- ${makeLoop(8, "$test_cmpxchg8", "i32.atomic.rmw8_u.cmpxchg", CMPXCHGLOC, CMPXCHGINIT, CMPXCHGVAL[id], CMPXCHGRESULT)}
+ ${makeLoop(8, "$test_add8", "i32.atomic.rmw8.add_u", ADDLOC, ADDINIT, ADDVAL[id], ADDRESULT)}
+ ${makeLoop(8, "$test_sub8", "i32.atomic.rmw8.sub_u", SUBLOC, SUBINIT, SUBVAL[id], SUBRESULT)}
+ ${makeLoop(8, "$test_and8", "i32.atomic.rmw8.and_u", ANDLOC, ANDINIT, ANDVAL[id], ANDRESULT)}
+ ${makeLoop(8, "$test_or8", "i32.atomic.rmw8.or_u",   ORLOC, ORINIT, ORVAL[id], ORRESULT)}
+ ${makeLoop(8, "$test_xor8", "i32.atomic.rmw8.xor_u", XORLOC, XORINIT, XORVAL[id], XORRESULT)}
+ ${makeLoop(8, "$test_cmpxchg8", "i32.atomic.rmw8.cmpxchg_u", CMPXCHGLOC, CMPXCHGINIT, CMPXCHGVAL[id], CMPXCHGRESULT)}
 
- ${makeLoop(16, "$test_add16", "i32.atomic.rmw16_u.add", ADDLOC, ADDINIT, ADDVAL[id], ADDRESULT)}
- ${makeLoop(16, "$test_sub16", "i32.atomic.rmw16_u.sub", SUBLOC, SUBINIT, SUBVAL[id], SUBRESULT)}
- ${makeLoop(16, "$test_and16", "i32.atomic.rmw16_u.and", ANDLOC, ANDINIT, ANDVAL[id], ANDRESULT)}
- ${makeLoop(16, "$test_or16", "i32.atomic.rmw16_u.or",   ORLOC, ORINIT, ORVAL[id], ORRESULT)}
- ${makeLoop(16, "$test_xor16", "i32.atomic.rmw16_u.xor", XORLOC, XORINIT, XORVAL[id], XORRESULT)}
- ${makeLoop(16, "$test_cmpxchg16", "i32.atomic.rmw16_u.cmpxchg", CMPXCHGLOC, CMPXCHGINIT, CMPXCHGVAL[id], CMPXCHGRESULT)}
+ ${makeLoop(16, "$test_add16", "i32.atomic.rmw16.add_u", ADDLOC, ADDINIT, ADDVAL[id], ADDRESULT)}
+ ${makeLoop(16, "$test_sub16", "i32.atomic.rmw16.sub_u", SUBLOC, SUBINIT, SUBVAL[id], SUBRESULT)}
+ ${makeLoop(16, "$test_and16", "i32.atomic.rmw16.and_u", ANDLOC, ANDINIT, ANDVAL[id], ANDRESULT)}
+ ${makeLoop(16, "$test_or16", "i32.atomic.rmw16.or_u",   ORLOC, ORINIT, ORVAL[id], ORRESULT)}
+ ${makeLoop(16, "$test_xor16", "i32.atomic.rmw16.xor_u", XORLOC, XORINIT, XORVAL[id], XORRESULT)}
+ ${makeLoop(16, "$test_cmpxchg16", "i32.atomic.rmw16.cmpxchg_u", CMPXCHGLOC, CMPXCHGINIT, CMPXCHGVAL[id], CMPXCHGRESULT)}
 
  ${makeLoop(32, "$test_add", "i32.atomic.rmw.add", ADDLOC, ADDINIT, ADDVAL[id], ADDRESULT)}
  ${makeLoop(32, "$test_sub", "i32.atomic.rmw.sub", SUBLOC, SUBINIT, SUBVAL[id], SUBRESULT)}
@@ -295,33 +304,33 @@ ${(() => {
  (func (export "test")
   (local $barrierValue i32)
   (call $print (i32.const ${10 + id}))
-  (set_local $barrierValue (call $test_add8 (get_local $barrierValue)))
-  (set_local $barrierValue (call $test_sub8 (get_local $barrierValue)))
-  (set_local $barrierValue (call $test_and8 (get_local $barrierValue)))
-  (set_local $barrierValue (call $test_or8 (get_local $barrierValue)))
-  (set_local $barrierValue (call $test_xor8 (get_local $barrierValue)))
-  (set_local $barrierValue (call $test_cmpxchg8 (get_local $barrierValue)))
+  (local.set $barrierValue (call $test_add8 (local.get $barrierValue)))
+  (local.set $barrierValue (call $test_sub8 (local.get $barrierValue)))
+  (local.set $barrierValue (call $test_and8 (local.get $barrierValue)))
+  (local.set $barrierValue (call $test_or8 (local.get $barrierValue)))
+  (local.set $barrierValue (call $test_xor8 (local.get $barrierValue)))
+  (local.set $barrierValue (call $test_cmpxchg8 (local.get $barrierValue)))
   (call $print (i32.const ${20 + id}))
-  (set_local $barrierValue (call $test_add16 (get_local $barrierValue)))
-  (set_local $barrierValue (call $test_sub16 (get_local $barrierValue)))
-  (set_local $barrierValue (call $test_and16 (get_local $barrierValue)))
-  (set_local $barrierValue (call $test_or16 (get_local $barrierValue)))
-  (set_local $barrierValue (call $test_xor16 (get_local $barrierValue)))
-  (set_local $barrierValue (call $test_cmpxchg16 (get_local $barrierValue)))
+  (local.set $barrierValue (call $test_add16 (local.get $barrierValue)))
+  (local.set $barrierValue (call $test_sub16 (local.get $barrierValue)))
+  (local.set $barrierValue (call $test_and16 (local.get $barrierValue)))
+  (local.set $barrierValue (call $test_or16 (local.get $barrierValue)))
+  (local.set $barrierValue (call $test_xor16 (local.get $barrierValue)))
+  (local.set $barrierValue (call $test_cmpxchg16 (local.get $barrierValue)))
   (call $print (i32.const ${30 + id}))
-  (set_local $barrierValue (call $test_add (get_local $barrierValue)))
-  (set_local $barrierValue (call $test_sub (get_local $barrierValue)))
-  (set_local $barrierValue (call $test_and (get_local $barrierValue)))
-  (set_local $barrierValue (call $test_or (get_local $barrierValue)))
-  (set_local $barrierValue (call $test_xor (get_local $barrierValue)))
-  (set_local $barrierValue (call $test_cmpxchg (get_local $barrierValue)))
+  (local.set $barrierValue (call $test_add (local.get $barrierValue)))
+  (local.set $barrierValue (call $test_sub (local.get $barrierValue)))
+  (local.set $barrierValue (call $test_and (local.get $barrierValue)))
+  (local.set $barrierValue (call $test_or (local.get $barrierValue)))
+  (local.set $barrierValue (call $test_xor (local.get $barrierValue)))
+  (local.set $barrierValue (call $test_cmpxchg (local.get $barrierValue)))
   (call $print (i32.const ${40 + id}))
-  (set_local $barrierValue (call $test_add64 (get_local $barrierValue)))
-  (set_local $barrierValue (call $test_sub64 (get_local $barrierValue)))
-  (set_local $barrierValue (call $test_and64 (get_local $barrierValue)))
-  (set_local $barrierValue (call $test_or64 (get_local $barrierValue)))
-  (set_local $barrierValue (call $test_xor64 (get_local $barrierValue)))
-  (set_local $barrierValue (call $test_cmpxchg64 (get_local $barrierValue)))
+  (local.set $barrierValue (call $test_add64 (local.get $barrierValue)))
+  (local.set $barrierValue (call $test_sub64 (local.get $barrierValue)))
+  (local.set $barrierValue (call $test_and64 (local.get $barrierValue)))
+  (local.set $barrierValue (call $test_or64 (local.get $barrierValue)))
+  (local.set $barrierValue (call $test_xor64 (local.get $barrierValue)))
+  (local.set $barrierValue (call $test_cmpxchg64 (local.get $barrierValue)))
  ))
 `;
 }

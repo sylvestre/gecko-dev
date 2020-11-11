@@ -7,33 +7,30 @@
 #include <stdlib.h>
 #include <errno.h>
 #ifdef HAVE_IO_H
-#include <io.h> /* for isatty() */
+#  include <io.h> /* for isatty() */
 #endif
 #ifdef HAVE_UNISTD_H
-#include <unistd.h> /* for isatty() */
+#  include <unistd.h> /* for isatty() */
 #endif
 
 #include "base/basictypes.h"
 
 #include "jsapi.h"
 #include "js/CharacterEncoding.h"
-#include "js/CompilationAndEvaluation.h"
-#include "js/SourceText.h"
+#include "js/CompilationAndEvaluation.h"  // JS::Compile{,Utf8File}
+#include "js/PropertySpec.h"
+#include "js/SourceText.h"  // JS::Source{Ownership,Text}
 
 #include "xpcpublic.h"
 
 #include "XPCShellEnvironment.h"
 
+#include "mozilla/Utf8.h"  // mozilla::Utf8Unit
 #include "mozilla/XPCOM.h"
 
-#include "nsIChannel.h"
-#include "nsIClassInfo.h"
-#include "nsIDirectoryService.h"
 #include "nsIPrincipal.h"
 #include "nsIScriptSecurityManager.h"
-#include "nsIURI.h"
 #include "nsIXPConnect.h"
-#include "nsIXPCScriptable.h"
 
 #include "nsJSUtils.h"
 #include "nsJSPrincipals.h"
@@ -48,8 +45,6 @@
 using mozilla::AutoSafeJSContext;
 using mozilla::dom::AutoEntryScript;
 using mozilla::dom::AutoJSAPI;
-using mozilla::ipc::TestShellChild;
-using mozilla::ipc::TestShellParent;
 using mozilla::ipc::XPCShellEnvironment;
 using namespace JS;
 
@@ -57,25 +52,25 @@ namespace {
 
 static const char kDefaultRuntimeScriptFilename[] = "xpcshell.js";
 
-inline XPCShellEnvironment *Environment(Handle<JSObject *> global) {
+inline XPCShellEnvironment* Environment(JS::Handle<JSObject*> global) {
   AutoJSAPI jsapi;
   if (!jsapi.Init(global)) {
     return nullptr;
   }
-  JSContext *cx = jsapi.cx();
+  JSContext* cx = jsapi.cx();
   Rooted<Value> v(cx);
   if (!JS_GetProperty(cx, global, "__XPCShellEnvironment", &v) ||
       !v.get().isDouble()) {
     return nullptr;
   }
-  return static_cast<XPCShellEnvironment *>(v.get().toPrivate());
+  return static_cast<XPCShellEnvironment*>(v.get().toPrivate());
 }
 
-static bool Print(JSContext *cx, unsigned argc, JS::Value *vp) {
+static bool Print(JSContext* cx, unsigned argc, JS::Value* vp) {
   JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
 
   for (unsigned i = 0; i < args.length(); i++) {
-    JSString *str = JS::ToString(cx, args[i]);
+    JSString* str = JS::ToString(cx, args[i]);
     if (!str) return false;
     JS::UniqueChars bytes = JS_EncodeStringToLatin1(cx, str);
     if (!bytes) return false;
@@ -87,7 +82,7 @@ static bool Print(JSContext *cx, unsigned argc, JS::Value *vp) {
   return true;
 }
 
-static bool GetLine(char *bufp, FILE *file, const char *prompt) {
+static bool GetLine(char* bufp, FILE* file, const char* prompt) {
   char line[256];
   fputs(prompt, stdout);
   fflush(stdout);
@@ -96,12 +91,12 @@ static bool GetLine(char *bufp, FILE *file, const char *prompt) {
   return true;
 }
 
-static bool Dump(JSContext *cx, unsigned argc, JS::Value *vp) {
+static bool Dump(JSContext* cx, unsigned argc, JS::Value* vp) {
   JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
 
   if (!args.length()) return true;
 
-  JSString *str = JS::ToString(cx, args[0]);
+  JSString* str = JS::ToString(cx, args[0]);
   if (!str) return false;
   JS::UniqueChars bytes = JS_EncodeStringToLatin1(cx, str);
   if (!bytes) return false;
@@ -111,7 +106,7 @@ static bool Dump(JSContext *cx, unsigned argc, JS::Value *vp) {
   return true;
 }
 
-static bool Load(JSContext *cx, unsigned argc, JS::Value *vp) {
+static bool Load(JSContext* cx, unsigned argc, JS::Value* vp) {
   JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
 
   JS::RootedObject thisObject(cx);
@@ -122,11 +117,11 @@ static bool Load(JSContext *cx, unsigned argc, JS::Value *vp) {
   }
 
   for (unsigned i = 0; i < args.length(); i++) {
-    JS::Rooted<JSString *> str(cx, JS::ToString(cx, args[i]));
+    JS::Rooted<JSString*> str(cx, JS::ToString(cx, args[i]));
     if (!str) return false;
     JS::UniqueChars filename = JS_EncodeStringToLatin1(cx, str);
     if (!filename) return false;
-    FILE *file = fopen(filename.get(), "r");
+    FILE* file = fopen(filename.get(), "r");
     if (!file) {
       filename = JS_EncodeStringToUTF8(cx, str);
       if (!filename) return false;
@@ -138,10 +133,9 @@ static bool Load(JSContext *cx, unsigned argc, JS::Value *vp) {
     JS::CompileOptions options(cx);
     options.setFileAndLine(filename.get(), 1);
 
-    JS::Rooted<JSScript *> script(cx);
-    bool ok = JS::CompileUtf8File(cx, options, file, &script);
+    JS::Rooted<JSScript*> script(cx, JS::CompileUtf8File(cx, options, file));
     fclose(file);
-    if (!ok) return false;
+    if (!script) return false;
 
     if (!JS_ExecuteScript(cx, script)) {
       return false;
@@ -151,15 +145,15 @@ static bool Load(JSContext *cx, unsigned argc, JS::Value *vp) {
   return true;
 }
 
-static bool Quit(JSContext *cx, unsigned argc, JS::Value *vp) {
-  Rooted<JSObject *> global(cx, JS::CurrentGlobalOrNull(cx));
-  XPCShellEnvironment *env = Environment(global);
+static bool Quit(JSContext* cx, unsigned argc, JS::Value* vp) {
+  Rooted<JSObject*> global(cx, JS::CurrentGlobalOrNull(cx));
+  XPCShellEnvironment* env = Environment(global);
   env->SetIsQuitting();
 
   return false;
 }
 
-static bool DumpXPC(JSContext *cx, unsigned argc, JS::Value *vp) {
+static bool DumpXPC(JSContext* cx, unsigned argc, JS::Value* vp) {
   JS::CallArgs args = CallArgsFromVp(argc, vp);
 
   uint16_t depth = 2;
@@ -173,7 +167,7 @@ static bool DumpXPC(JSContext *cx, unsigned argc, JS::Value *vp) {
   return true;
 }
 
-static bool GC(JSContext *cx, unsigned argc, JS::Value *vp) {
+static bool GC(JSContext* cx, unsigned argc, JS::Value* vp) {
   JS::CallArgs args = JS::CallArgsFromVp(argc, vp);
 
   JS_GC(cx);
@@ -183,7 +177,7 @@ static bool GC(JSContext *cx, unsigned argc, JS::Value *vp) {
 }
 
 #ifdef JS_GC_ZEAL
-static bool GCZeal(JSContext *cx, unsigned argc, JS::Value *vp) {
+static bool GCZeal(JSContext* cx, unsigned argc, JS::Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
 
   uint32_t zeal;
@@ -215,17 +209,17 @@ typedef enum JSShellErrNum {
 
 } /* anonymous namespace */
 
-void XPCShellEnvironment::ProcessFile(JSContext *cx, const char *filename,
-                                      FILE *file, bool forceTTY) {
-  XPCShellEnvironment *env = this;
+void XPCShellEnvironment::ProcessFile(JSContext* cx, const char* filename,
+                                      FILE* file, bool forceTTY) {
+  XPCShellEnvironment* env = this;
 
   JS::Rooted<JS::Value> result(cx);
   int lineno, startline;
   bool ok, hitEOF;
   char *bufp, buffer[4096];
-  JSString *str;
+  JSString* str;
 
-  JS::Rooted<JSObject *> global(cx, JS::CurrentGlobalOrNull(cx));
+  JS::Rooted<JSObject*> global(cx, JS::CurrentGlobalOrNull(cx));
   MOZ_ASSERT(global);
 
   if (forceTTY) {
@@ -250,9 +244,10 @@ void XPCShellEnvironment::ProcessFile(JSContext *cx, const char *filename,
     JS::CompileOptions options(cx);
     options.setFileAndLine(filename, 1);
 
-    JS::Rooted<JSScript *> script(cx);
-    if (JS::CompileUtf8File(cx, options, file, &script))
+    JS::Rooted<JSScript*> script(cx, JS::CompileUtf8File(cx, options, file));
+    if (script) {
       (void)JS_ExecuteScript(cx, script, &result);
+    }
 
     return;
   }
@@ -287,8 +282,12 @@ void XPCShellEnvironment::ProcessFile(JSContext *cx, const char *filename,
     JS::CompileOptions options(cx);
     options.setFileAndLine("typein", startline);
 
-    JS::Rooted<JSScript *> script(cx);
-    if (JS::CompileUtf8(cx, options, buffer, strlen(buffer), &script)) {
+    JS::SourceText<mozilla::Utf8Unit> srcBuf;
+    JS::Rooted<JSScript*> script(cx);
+
+    if (srcBuf.init(cx, buffer, strlen(buffer),
+                    JS::SourceOwnership::Borrowed) &&
+        (script = JS::Compile(cx, options, srcBuf))) {
       ok = JS_ExecuteScript(cx, script, &result);
       if (ok && !result.isUndefined()) {
         /* Suppress warnings from JS::ToString(). */
@@ -309,8 +308,8 @@ void XPCShellEnvironment::ProcessFile(JSContext *cx, const char *filename,
 }
 
 // static
-XPCShellEnvironment *XPCShellEnvironment::CreateEnvironment() {
-  auto *env = new XPCShellEnvironment();
+XPCShellEnvironment* XPCShellEnvironment::CreateEnvironment() {
+  auto* env = new XPCShellEnvironment();
   if (env && !env->Init()) {
     delete env;
     env = nullptr;
@@ -326,16 +325,10 @@ XPCShellEnvironment::~XPCShellEnvironment() {
     if (!jsapi.Init(GetGlobalObject())) {
       return;
     }
-    JSContext *cx = jsapi.cx();
-    Rooted<JSObject *> global(cx, GetGlobalObject());
-
-    {
-      JSAutoRealm ar(cx, global);
-      JS_SetAllNonReservedSlotsToUndefined(cx, global);
-    }
+    JS_SetAllNonReservedSlotsToUndefined(mGlobalHolder);
     mGlobalHolder.reset();
 
-    JS_GC(cx);
+    JS_GC(jsapi.cx());
   }
 }
 
@@ -366,20 +359,15 @@ bool XPCShellEnvironment::Init() {
             "principals");
   }
 
-  RefPtr<BackstagePass> backstagePass;
-  rv = NS_NewBackstagePass(getter_AddRefs(backstagePass));
-  if (NS_FAILED(rv)) {
-    NS_ERROR("Failed to create backstage pass!");
-    return false;
-  }
+  auto backstagePass = MakeRefPtr<BackstagePass>();
 
   JS::RealmOptions options;
   options.creationOptions().setNewCompartmentInSystemZone();
   xpc::SetPrefableRealmOptions(options);
 
-  JS::Rooted<JSObject *> globalObj(cx);
+  JS::Rooted<JSObject*> globalObj(cx);
   rv = xpc::InitClassesWithNewWrappedGlobal(
-      cx, static_cast<nsIGlobalObject *>(backstagePass), principal, 0, options,
+      cx, static_cast<nsIGlobalObject*>(backstagePass), principal, 0, options,
       &globalObj);
   if (NS_FAILED(rv)) {
     NS_ERROR("InitClassesWithNewWrappedGlobal failed!");
@@ -397,15 +385,14 @@ bool XPCShellEnvironment::Init() {
   JS::Rooted<Value> privateVal(cx, PrivateValue(this));
   if (!JS_DefineProperty(cx, globalObj, "__XPCShellEnvironment", privateVal,
                          JSPROP_READONLY | JSPROP_PERMANENT) ||
-      !JS_DefineFunctions(cx, globalObj, gGlobalFunctions) ||
-      !JS_DefineProfilingFunctions(cx, globalObj)) {
+      !JS_DefineFunctions(cx, globalObj, gGlobalFunctions)) {
     NS_ERROR("JS_DefineFunctions failed!");
     return false;
   }
 
   mGlobalHolder = globalObj;
 
-  FILE *runtimeScriptFile = fopen(kDefaultRuntimeScriptFilename, "r");
+  FILE* runtimeScriptFile = fopen(kDefaultRuntimeScriptFilename, "r");
   if (runtimeScriptFile) {
     fprintf(stdout, "[loading '%s'...]\n", kDefaultRuntimeScriptFilename);
     ProcessFile(cx, kDefaultRuntimeScriptFilename, runtimeScriptFile, false);
@@ -415,11 +402,11 @@ bool XPCShellEnvironment::Init() {
   return true;
 }
 
-bool XPCShellEnvironment::EvaluateString(const nsString &aString,
-                                         nsString *aResult) {
+bool XPCShellEnvironment::EvaluateString(const nsString& aString,
+                                         nsString* aResult) {
   AutoEntryScript aes(GetGlobalObject(),
                       "ipc XPCShellEnvironment::EvaluateString");
-  JSContext *cx = aes.cx();
+  JSContext* cx = aes.cx();
 
   JS::CompileOptions options(cx);
   options.setFileAndLine("typein", 0);
@@ -430,8 +417,8 @@ bool XPCShellEnvironment::EvaluateString(const nsString &aString,
     return false;
   }
 
-  JS::Rooted<JSScript *> script(cx);
-  if (!JS::Compile(cx, options, srcBuf, &script)) {
+  JS::Rooted<JSScript*> script(cx, JS::Compile(cx, options, srcBuf));
+  if (!script) {
     return false;
   }
 
@@ -444,7 +431,7 @@ bool XPCShellEnvironment::EvaluateString(const nsString &aString,
   if (ok && !result.isUndefined()) {
     /* Suppress warnings from JS::ToString(). */
     JS::AutoSuppressWarningReporter suppressWarnings(cx);
-    JSString *str = JS::ToString(cx, result);
+    JSString* str = JS::ToString(cx, result);
     nsAutoJSString autoStr;
     if (str) autoStr.init(cx, str);
 

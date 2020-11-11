@@ -6,20 +6,20 @@
 
 #include <string.h>
 #ifdef __GNUC__
-#include <unistd.h>
+#  include <unistd.h>
 #endif
 
-#include "FFmpegLog.h"
 #include "FFmpegDataDecoder.h"
+#include "FFmpegLog.h"
 #include "mozilla/TaskQueue.h"
 #include "prsystem.h"
+#include "VideoUtils.h"
 
 namespace mozilla {
 
 StaticMutex FFmpegDataDecoder<LIBAV_VER>::sMonitor;
 
 FFmpegDataDecoder<LIBAV_VER>::FFmpegDataDecoder(FFmpegLibWrapper* aLib,
-                                                TaskQueue* aTaskQueue,
                                                 AVCodecID aCodecID)
     : mLib(aLib),
       mCodecContext(nullptr),
@@ -27,8 +27,10 @@ FFmpegDataDecoder<LIBAV_VER>::FFmpegDataDecoder(FFmpegLibWrapper* aLib,
       mFrame(NULL),
       mExtraData(nullptr),
       mCodecID(aCodecID),
-      mTaskQueue(aTaskQueue),
-      mLastInputDts(media::TimeUnit::FromMicroseconds(INT64_MIN)) {
+      mTaskQueue(
+          new TaskQueue(GetMediaThreadPool(MediaThreadType::PLATFORM_DECODER),
+                        "FFmpegDataDecoder")),
+      mLastInputDts(media::TimeUnit::FromNegativeInfinity()) {
   MOZ_ASSERT(aLib);
   MOZ_COUNT_CTOR(FFmpegDataDecoder);
 }
@@ -39,6 +41,32 @@ FFmpegDataDecoder<LIBAV_VER>::~FFmpegDataDecoder() {
     mLib->av_parser_close(mCodecParser);
     mCodecParser = nullptr;
   }
+}
+
+MediaResult FFmpegDataDecoder<LIBAV_VER>::AllocateExtraData() {
+  if (mExtraData) {
+    mCodecContext->extradata_size = mExtraData->Length();
+    // FFmpeg may use SIMD instructions to access the data which reads the
+    // data in 32 bytes block. Must ensure we have enough data to read.
+    uint32_t padding_size =
+#if LIBAVCODEC_VERSION_MAJOR >= 58
+        AV_INPUT_BUFFER_PADDING_SIZE;
+#else
+        FF_INPUT_BUFFER_PADDING_SIZE;
+#endif
+    mCodecContext->extradata = static_cast<uint8_t*>(
+        mLib->av_malloc(mExtraData->Length() + padding_size));
+    if (!mCodecContext->extradata) {
+      return MediaResult(NS_ERROR_OUT_OF_MEMORY,
+                         RESULT_DETAIL("Couldn't init ffmpeg extradata"));
+    }
+    memcpy(mCodecContext->extradata, mExtraData->Elements(),
+           mExtraData->Length());
+  } else {
+    mCodecContext->extradata_size = 0;
+  }
+
+  return NS_OK;
 }
 
 MediaResult FFmpegDataDecoder<LIBAV_VER>::InitDecoder() {
@@ -67,27 +95,10 @@ MediaResult FFmpegDataDecoder<LIBAV_VER>::InitDecoder() {
   mCodecContext->opaque = this;
 
   InitCodecContext();
-
-  if (mExtraData) {
-    mCodecContext->extradata_size = mExtraData->Length();
-    // FFmpeg may use SIMD instructions to access the data which reads the
-    // data in 32 bytes block. Must ensure we have enough data to read.
-    uint32_t padding_size =
-#if LIBAVCODEC_VERSION_MAJOR >= 58
-        AV_INPUT_BUFFER_PADDING_SIZE;
-#else
-        FF_INPUT_BUFFER_PADDING_SIZE;
-#endif
-    mCodecContext->extradata = static_cast<uint8_t*>(
-        mLib->av_malloc(mExtraData->Length() + padding_size));
-    if (!mCodecContext->extradata) {
-      return MediaResult(NS_ERROR_OUT_OF_MEMORY,
-                         RESULT_DETAIL("Couldn't init ffmpeg extradata"));
-    }
-    memcpy(mCodecContext->extradata, mExtraData->Elements(),
-           mExtraData->Length());
-  } else {
-    mCodecContext->extradata_size = 0;
+  MediaResult ret = AllocateExtraData();
+  if (NS_FAILED(ret)) {
+    mLib->av_freep(&mCodecContext);
+    return ret;
   }
 
 #if LIBAVCODEC_VERSION_MAJOR < 57
@@ -97,7 +108,6 @@ MediaResult FFmpegDataDecoder<LIBAV_VER>::InitDecoder() {
 #endif
 
   if (mLib->avcodec_open2(mCodecContext, codec, nullptr) < 0) {
-    mLib->avcodec_close(mCodecContext);
     mLib->av_freep(&mCodecContext);
     return MediaResult(NS_ERROR_DOM_MEDIA_FATAL_ERR,
                        RESULT_DETAIL("Couldn't initialise ffmpeg decoder"));
@@ -108,15 +118,11 @@ MediaResult FFmpegDataDecoder<LIBAV_VER>::InitDecoder() {
 }
 
 RefPtr<ShutdownPromise> FFmpegDataDecoder<LIBAV_VER>::Shutdown() {
-  if (mTaskQueue) {
-    RefPtr<FFmpegDataDecoder<LIBAV_VER>> self = this;
-    return InvokeAsync(mTaskQueue, __func__, [self]() {
-      self->ProcessShutdown();
-      return ShutdownPromise::CreateAndResolve(true, __func__);
-    });
-  }
-  ProcessShutdown();
-  return ShutdownPromise::CreateAndResolve(true, __func__);
+  RefPtr<FFmpegDataDecoder<LIBAV_VER>> self = this;
+  return InvokeAsync(mTaskQueue, __func__, [self]() {
+    self->ProcessShutdown();
+    return self->mTaskQueue->BeginShutdown();
+  });
 }
 
 RefPtr<MediaDataDecoder::DecodePromise> FFmpegDataDecoder<LIBAV_VER>::Decode(
@@ -192,6 +198,9 @@ FFmpegDataDecoder<LIBAV_VER>::ProcessDrain() {
   empty->mTimecode = mLastInputDts;
   bool gotFrame = false;
   DecodedData results;
+  // When draining the FFmpeg decoder will return either a single frame at a
+  // time until gotFrame is set to false; or return a block of frames with
+  // NS_ERROR_DOM_MEDIA_END_OF_STREAM
   while (NS_SUCCEEDED(DoDecode(empty, &gotFrame, results)) && gotFrame) {
   }
   return DecodePromise::CreateAndResolve(std::move(results), __func__);
@@ -199,7 +208,7 @@ FFmpegDataDecoder<LIBAV_VER>::ProcessDrain() {
 
 RefPtr<MediaDataDecoder::FlushPromise>
 FFmpegDataDecoder<LIBAV_VER>::ProcessFlush() {
-  MOZ_ASSERT(mTaskQueue->IsCurrentThreadIn());
+  MOZ_ASSERT(mTaskQueue->IsOnCurrentThread());
   if (mCodecContext) {
     mLib->avcodec_flush_buffers(mCodecContext);
   }
@@ -230,7 +239,7 @@ void FFmpegDataDecoder<LIBAV_VER>::ProcessShutdown() {
 }
 
 AVFrame* FFmpegDataDecoder<LIBAV_VER>::PrepareFrame() {
-  MOZ_ASSERT(mTaskQueue->IsCurrentThreadIn());
+  MOZ_ASSERT(mTaskQueue->IsOnCurrentThread());
 #if LIBAVCODEC_VERSION_MAJOR >= 55
   if (mFrame) {
     mLib->av_frame_unref(mFrame);

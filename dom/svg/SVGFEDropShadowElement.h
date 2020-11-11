@@ -4,13 +4,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef mozilla_dom_SVGFEDropShadowElement_h
-#define mozilla_dom_SVGFEDropShadowElement_h
+#ifndef DOM_SVG_SVGFEDROPSHADOWELEMENT_H_
+#define DOM_SVG_SVGFEDROPSHADOWELEMENT_H_
 
-#include "nsSVGFilters.h"
-#include "nsSVGNumber2.h"
-#include "nsSVGNumberPair.h"
-#include "nsSVGString.h"
+#include "SVGAnimatedNumber.h"
+#include "SVGAnimatedNumberPair.h"
+#include "SVGAnimatedString.h"
+#include "mozilla/dom/SVGFilters.h"
 
 nsresult NS_NewSVGFEDropShadowElement(
     nsIContent** aResult, already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo);
@@ -18,7 +18,7 @@ nsresult NS_NewSVGFEDropShadowElement(
 namespace mozilla {
 namespace dom {
 
-typedef nsSVGFE SVGFEDropShadowElementBase;
+using SVGFEDropShadowElementBase = SVGFE;
 
 class SVGFEDropShadowElement : public SVGFEDropShadowElementBase {
   friend nsresult(::NS_NewSVGFEDropShadowElement(
@@ -34,16 +34,15 @@ class SVGFEDropShadowElement : public SVGFEDropShadowElementBase {
 
  public:
   virtual FilterPrimitiveDescription GetPrimitiveDescription(
-      nsSVGFilterInstance* aInstance, const IntRect& aFilterSubregion,
+      SVGFilterInstance* aInstance, const IntRect& aFilterSubregion,
       const nsTArray<bool>& aInputsAreTainted,
       nsTArray<RefPtr<SourceSurface>>& aInputImages) override;
   virtual bool AttributeAffectsRendering(int32_t aNameSpaceID,
                                          nsAtom* aAttribute) const override;
-  virtual nsSVGString& GetResultImageName() override {
+  virtual SVGAnimatedString& GetResultImageName() override {
     return mStringAttributes[RESULT];
   }
-  virtual void GetSourceImageNames(
-      nsTArray<nsSVGStringInfo>& aSources) override;
+  virtual void GetSourceImageNames(nsTArray<SVGStringInfo>& aSources) override;
 
   // nsIContent interface
   NS_IMETHOD_(bool) IsAttributeMapped(const nsAtom* aAttribute) const override;
@@ -51,11 +50,11 @@ class SVGFEDropShadowElement : public SVGFEDropShadowElementBase {
   virtual nsresult Clone(dom::NodeInfo*, nsINode** aResult) const override;
 
   // WebIDL
-  already_AddRefed<SVGAnimatedString> In1();
-  already_AddRefed<SVGAnimatedNumber> Dx();
-  already_AddRefed<SVGAnimatedNumber> Dy();
-  already_AddRefed<SVGAnimatedNumber> StdDeviationX();
-  already_AddRefed<SVGAnimatedNumber> StdDeviationY();
+  already_AddRefed<DOMSVGAnimatedString> In1();
+  already_AddRefed<DOMSVGAnimatedNumber> Dx();
+  already_AddRefed<DOMSVGAnimatedNumber> Dy();
+  already_AddRefed<DOMSVGAnimatedNumber> StdDeviationX();
+  already_AddRefed<DOMSVGAnimatedNumber> StdDeviationY();
   void SetStdDeviation(float stdDeviationX, float stdDeviationY);
 
  protected:
@@ -64,19 +63,19 @@ class SVGFEDropShadowElement : public SVGFEDropShadowElementBase {
   virtual StringAttributesInfo GetStringInfo() override;
 
   enum { DX, DY };
-  nsSVGNumber2 mNumberAttributes[2];
+  SVGAnimatedNumber mNumberAttributes[2];
   static NumberInfo sNumberInfo[2];
 
   enum { STD_DEV };
-  nsSVGNumberPair mNumberPairAttributes[1];
+  SVGAnimatedNumberPair mNumberPairAttributes[1];
   static NumberPairInfo sNumberPairInfo[1];
 
   enum { RESULT, IN1 };
-  nsSVGString mStringAttributes[2];
+  SVGAnimatedString mStringAttributes[2];
   static StringInfo sStringInfo[2];
 };
 
 }  // namespace dom
 }  // namespace mozilla
 
-#endif  // mozilla_dom_SVGFEDropShadowElement_h
+#endif  // DOM_SVG_SVGFEDROPSHADOWELEMENT_H_

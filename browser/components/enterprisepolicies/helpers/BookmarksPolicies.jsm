@@ -39,16 +39,21 @@
  * The schema for this object is defined in policies-schema.json.
  */
 
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
-ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
-ChromeUtils.defineModuleGetter(this, "PlacesUtils",
-  "resource://gre/modules/PlacesUtils.jsm");
+ChromeUtils.defineModuleGetter(
+  this,
+  "PlacesUtils",
+  "resource://gre/modules/PlacesUtils.jsm"
+);
 
 const PREF_LOGLEVEL = "browser.policies.loglevel";
 
 XPCOMUtils.defineLazyGetter(this, "log", () => {
-  let { ConsoleAPI } = ChromeUtils.import("resource://gre/modules/Console.jsm", {});
+  let { ConsoleAPI } = ChromeUtils.import("resource://gre/modules/Console.jsm");
   return new ConsoleAPI({
     prefix: "BookmarksPolicies.jsm",
     // tip: set maxLogLevel to "debug" and use log.debug() to create detailed
@@ -58,7 +63,7 @@ XPCOMUtils.defineLazyGetter(this, "log", () => {
   });
 });
 
-this.EXPORTED_SYMBOLS = [ "BookmarksPolicies" ];
+this.EXPORTED_SYMBOLS = ["BookmarksPolicies"];
 
 this.BookmarksPolicies = {
   // These prefixes must only contain characters
@@ -117,7 +122,7 @@ async function calculateLists(specifiedBookmarks) {
   let existingBookmarksMap = new Map();
   await PlacesUtils.bookmarks.fetch(
     { guidPrefix: BookmarksPolicies.BOOKMARK_GUID_PREFIX },
-    (bookmark) => existingBookmarksMap.set(bookmark.url.href, bookmark)
+    bookmark => existingBookmarksMap.set(bookmark.url.href, bookmark)
   );
 
   // --------- STEP 2 ---------
@@ -172,7 +177,7 @@ async function calculateLists(specifiedBookmarks) {
   if (existingBookmarksMap.size > 0) {
     await PlacesUtils.bookmarks.fetch(
       { guidPrefix: BookmarksPolicies.FOLDER_GUID_PREFIX },
-      (folder) => {
+      folder => {
         if (!foldersSeen.has(folder.title)) {
           log.debug(`Folder to remove: ${folder.title}`);
           foldersToRemove.add(folder);
@@ -189,23 +194,23 @@ async function calculateLists(specifiedBookmarks) {
 }
 
 async function insertBookmark(bookmark) {
-  let parentGuid = await getParentGuid(bookmark.Placement,
-                                       bookmark.Folder);
+  let parentGuid = await getParentGuid(bookmark.Placement, bookmark.Folder);
 
   await PlacesUtils.bookmarks.insert({
     url: Services.io.newURI(bookmark.URL.href),
     title: bookmark.Title,
-    guid: generateGuidWithPrefix(BookmarksPolicies.BOOKMARK_GUID_PREFIX),
+    guid: PlacesUtils.generateGuidWithPrefix(
+      BookmarksPolicies.BOOKMARK_GUID_PREFIX
+    ),
     parentGuid,
   });
 
   if (bookmark.Favicon) {
-    await setFaviconForBookmark(bookmark).catch(
-      () => log.error(`Error setting favicon for ${bookmark.Title}`));
+    setFaviconForBookmark(bookmark);
   }
 }
 
-async function setFaviconForBookmark(bookmark) {
+function setFaviconForBookmark(bookmark) {
   let faviconURI;
   let nullPrincipal = Services.scriptSecurityManager.createNullPrincipal({});
 
@@ -219,7 +224,7 @@ async function setFaviconForBookmark(bookmark) {
       PlacesUtils.favicons.replaceFaviconDataFromDataURL(
         faviconURI,
         bookmark.Favicon.href,
-        0, /* max expiration length */
+        0 /* max expiration length */,
         nullPrincipal
       );
       break;
@@ -231,26 +236,17 @@ async function setFaviconForBookmark(bookmark) {
 
     default:
       log.error(`Bad URL given for favicon on bookmark "${bookmark.Title}"`);
-      return Promise.resolve();
+      return;
   }
 
-  return new Promise(resolve => {
-    PlacesUtils.favicons.setAndFetchFaviconForPage(
-      Services.io.newURI(bookmark.URL.href),
-      faviconURI,
-      false, /* forceReload */
-      PlacesUtils.favicons.FAVICON_LOAD_NON_PRIVATE,
-      resolve,
-      nullPrincipal
-    );
-  });
-}
-
-function generateGuidWithPrefix(prefix) {
-  // Generates a random GUID and replace its beginning with the given
-  // prefix. We do this instead of just prepending the prefix to keep
-  // the correct character length.
-  return prefix + PlacesUtils.history.makeGuid().substring(prefix.length);
+  PlacesUtils.favicons.setAndFetchFaviconForPage(
+    Services.io.newURI(bookmark.URL.href),
+    faviconURI,
+    false /* forceReload */,
+    PlacesUtils.favicons.FAVICON_LOAD_NON_PRIVATE,
+    null,
+    nullPrincipal
+  );
 }
 
 // Cache of folder names to guids to be used by the getParentGuid
@@ -260,22 +256,25 @@ function generateGuidWithPrefix(prefix) {
 XPCOMUtils.defineLazyGetter(this, "gFoldersMapPromise", () => {
   return new Promise(resolve => {
     let foldersMap = new Map();
-    return PlacesUtils.bookmarks.fetch(
-      {
-        guidPrefix: BookmarksPolicies.FOLDER_GUID_PREFIX,
-      },
-      (result) => {
-        foldersMap.set(`${result.parentGuid}|${result.title}`, result.guid);
-      }
-    ).then(() => resolve(foldersMap));
+    return PlacesUtils.bookmarks
+      .fetch(
+        {
+          guidPrefix: BookmarksPolicies.FOLDER_GUID_PREFIX,
+        },
+        result => {
+          foldersMap.set(`${result.parentGuid}|${result.title}`, result.guid);
+        }
+      )
+      .then(() => resolve(foldersMap));
   });
 });
 
 async function getParentGuid(placement, folderTitle) {
   // Defaults to toolbar if no placement was given.
-  let parentGuid = (placement == "menu") ?
-                   PlacesUtils.bookmarks.menuGuid :
-                   PlacesUtils.bookmarks.toolbarGuid;
+  let parentGuid =
+    placement == "menu"
+      ? PlacesUtils.bookmarks.menuGuid
+      : PlacesUtils.bookmarks.toolbarGuid;
 
   if (!folderTitle) {
     // If no folderTitle is given, this bookmark is to be placed directly
@@ -290,7 +289,9 @@ async function getParentGuid(placement, folderTitle) {
     return foldersMap.get(folderName);
   }
 
-  let guid = generateGuidWithPrefix(BookmarksPolicies.FOLDER_GUID_PREFIX);
+  let guid = PlacesUtils.generateGuidWithPrefix(
+    BookmarksPolicies.FOLDER_GUID_PREFIX
+  );
   await PlacesUtils.bookmarks.insert({
     type: PlacesUtils.bookmarks.TYPE_FOLDER,
     title: folderTitle,

@@ -3,25 +3,22 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+#include "mozilla/PresShell.h"
+#include "mozilla/dom/Document.h"
+#include "mozilla/dom/Element.h"
+#include "mozilla/dom/FromParser.h"
+#include "mozilla/dom/NodeInfo.h"
 #include "nsHTMLParts.h"
 #include "nsContainerFrame.h"
 #include "nsCSSRendering.h"
-#include "nsIDocument.h"
 #include "nsPageFrame.h"
 #include "nsStyleConsts.h"
 #include "nsGkAtoms.h"
-#include "nsIPresShell.h"
 #include "nsBoxFrame.h"
 #include "nsStackLayout.h"
 #include "nsIAnonymousContentCreator.h"
-#include "mozilla/dom/NodeInfo.h"
-#include "nsIServiceManager.h"
 #include "nsNodeInfoManager.h"
 #include "nsContentCreatorFunctions.h"
-#include "mozilla/dom/Element.h"
-#include "mozilla/dom/FromParser.h"
-
-//#define DEBUG_REFLOW
 
 using namespace mozilla;
 using namespace mozilla::dom;
@@ -32,11 +29,12 @@ class nsDocElementBoxFrame final : public nsBoxFrame,
   virtual void DestroyFrom(nsIFrame* aDestructRoot,
                            PostDestroyData& aPostDestroyData) override;
 
-  friend nsIFrame* NS_NewBoxFrame(nsIPresShell* aPresShell,
+  friend nsIFrame* NS_NewBoxFrame(mozilla::PresShell* aPresShell,
                                   ComputedStyle* aStyle);
 
-  explicit nsDocElementBoxFrame(ComputedStyle* aStyle)
-      : nsBoxFrame(aStyle, kClassID, true) {}
+  explicit nsDocElementBoxFrame(ComputedStyle* aStyle,
+                                nsPresContext* aPresContext)
+      : nsBoxFrame(aStyle, aPresContext, kClassID, true) {}
 
   NS_DECL_QUERYFRAME
   NS_DECL_FRAMEARENA_HELPERS(nsDocElementBoxFrame)
@@ -64,9 +62,10 @@ class nsDocElementBoxFrame final : public nsBoxFrame,
 
 //----------------------------------------------------------------------
 
-nsContainerFrame* NS_NewDocElementBoxFrame(nsIPresShell* aPresShell,
+nsContainerFrame* NS_NewDocElementBoxFrame(PresShell* aPresShell,
                                            ComputedStyle* aStyle) {
-  return new (aPresShell) nsDocElementBoxFrame(aStyle);
+  return new (aPresShell)
+      nsDocElementBoxFrame(aStyle, aPresShell->GetPresContext());
 }
 
 NS_IMPL_FRAMEARENA_HELPERS(nsDocElementBoxFrame)
@@ -80,7 +79,7 @@ void nsDocElementBoxFrame::DestroyFrom(nsIFrame* aDestructRoot,
 
 nsresult nsDocElementBoxFrame::CreateAnonymousContent(
     nsTArray<ContentInfo>& aElements) {
-  nsIDocument* doc = mContent->GetComposedDoc();
+  Document* doc = mContent->GetComposedDoc();
   if (!doc) {
     // The page is currently being torn down.  Why bother.
     return NS_ERROR_FAILURE;
@@ -97,8 +96,9 @@ nsresult nsDocElementBoxFrame::CreateAnonymousContent(
                                  nodeInfo.forget(), dom::NOT_FROM_PARSER);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  if (!aElements.AppendElement(mPopupgroupContent))
-    return NS_ERROR_OUT_OF_MEMORY;
+  // XXX(Bug 1631371) Check if this should use a fallible operation as it
+  // pretended earlier.
+  aElements.AppendElement(mPopupgroupContent);
 
   // create the top-secret default tooltip node. shhhhh!
   nodeInfo = nodeInfoManager->GetNodeInfo(
@@ -109,10 +109,12 @@ nsresult nsDocElementBoxFrame::CreateAnonymousContent(
                         dom::NOT_FROM_PARSER);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  mTooltipContent->SetAttr(kNameSpaceID_None, nsGkAtoms::_default,
-                           NS_LITERAL_STRING("true"), false);
+  mTooltipContent->SetAttr(kNameSpaceID_None, nsGkAtoms::_default, u"true"_ns,
+                           false);
 
-  if (!aElements.AppendElement(mTooltipContent)) return NS_ERROR_OUT_OF_MEMORY;
+  // XXX(Bug 1631371) Check if this should use a fallible operation as it
+  // pretended earlier.
+  aElements.AppendElement(mTooltipContent);
 
   return NS_OK;
 }
@@ -134,6 +136,6 @@ NS_QUERYFRAME_TAIL_INHERITING(nsBoxFrame)
 
 #ifdef DEBUG_FRAME_DUMP
 nsresult nsDocElementBoxFrame::GetFrameName(nsAString& aResult) const {
-  return MakeFrameName(NS_LITERAL_STRING("DocElementBox"), aResult);
+  return MakeFrameName(u"DocElementBox"_ns, aResult);
 }
 #endif

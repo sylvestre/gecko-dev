@@ -16,7 +16,7 @@
 #include "nsAlgorithm.h"
 #include "nsExceptionHandler.h"
 #include "nsGkAtoms.h"
-#include "nsIIdleServiceInternal.h"
+#include "nsIUserIdleServiceInternal.h"
 #include "nsIWindowsRegKey.h"
 #include "nsMemory.h"
 #include "nsPrintfCString.h"
@@ -37,12 +37,12 @@
 #include <algorithm>
 
 #ifndef WINABLEAPI
-#include <winable.h>
+#  include <winable.h>
 #endif
 
 // In WinUser.h, MAPVK_VK_TO_VSC_EX is defined only when WINVER >= 0x0600
 #ifndef MAPVK_VK_TO_VSC_EX
-#define MAPVK_VK_TO_VSC_EX (4)
+#  define MAPVK_VK_TO_VSC_EX (4)
 #endif
 
 namespace mozilla {
@@ -329,87 +329,87 @@ static const char* GetBoolName(bool aBool) { return aBool ? "true" : "false"; }
 static const nsCString GetCharacterCodeName(WPARAM aCharCode) {
   switch (aCharCode) {
     case 0x0000:
-      return NS_LITERAL_CSTRING("NULL (0x0000)");
+      return "NULL (0x0000)"_ns;
     case 0x0008:
-      return NS_LITERAL_CSTRING("BACKSPACE (0x0008)");
+      return "BACKSPACE (0x0008)"_ns;
     case 0x0009:
-      return NS_LITERAL_CSTRING("CHARACTER TABULATION (0x0009)");
+      return "CHARACTER TABULATION (0x0009)"_ns;
     case 0x000A:
-      return NS_LITERAL_CSTRING("LINE FEED (0x000A)");
+      return "LINE FEED (0x000A)"_ns;
     case 0x000B:
-      return NS_LITERAL_CSTRING("LINE TABULATION (0x000B)");
+      return "LINE TABULATION (0x000B)"_ns;
     case 0x000C:
-      return NS_LITERAL_CSTRING("FORM FEED (0x000C)");
+      return "FORM FEED (0x000C)"_ns;
     case 0x000D:
-      return NS_LITERAL_CSTRING("CARRIAGE RETURN (0x000D)");
+      return "CARRIAGE RETURN (0x000D)"_ns;
     case 0x0018:
-      return NS_LITERAL_CSTRING("CANCEL (0x0018)");
+      return "CANCEL (0x0018)"_ns;
     case 0x001B:
-      return NS_LITERAL_CSTRING("ESCAPE (0x001B)");
+      return "ESCAPE (0x001B)"_ns;
     case 0x0020:
-      return NS_LITERAL_CSTRING("SPACE (0x0020)");
+      return "SPACE (0x0020)"_ns;
     case 0x007F:
-      return NS_LITERAL_CSTRING("DELETE (0x007F)");
+      return "DELETE (0x007F)"_ns;
     case 0x00A0:
-      return NS_LITERAL_CSTRING("NO-BREAK SPACE (0x00A0)");
+      return "NO-BREAK SPACE (0x00A0)"_ns;
     case 0x00AD:
-      return NS_LITERAL_CSTRING("SOFT HYPHEN (0x00AD)");
+      return "SOFT HYPHEN (0x00AD)"_ns;
     case 0x2000:
-      return NS_LITERAL_CSTRING("EN QUAD (0x2000)");
+      return "EN QUAD (0x2000)"_ns;
     case 0x2001:
-      return NS_LITERAL_CSTRING("EM QUAD (0x2001)");
+      return "EM QUAD (0x2001)"_ns;
     case 0x2002:
-      return NS_LITERAL_CSTRING("EN SPACE (0x2002)");
+      return "EN SPACE (0x2002)"_ns;
     case 0x2003:
-      return NS_LITERAL_CSTRING("EM SPACE (0x2003)");
+      return "EM SPACE (0x2003)"_ns;
     case 0x2004:
-      return NS_LITERAL_CSTRING("THREE-PER-EM SPACE (0x2004)");
+      return "THREE-PER-EM SPACE (0x2004)"_ns;
     case 0x2005:
-      return NS_LITERAL_CSTRING("FOUR-PER-EM SPACE (0x2005)");
+      return "FOUR-PER-EM SPACE (0x2005)"_ns;
     case 0x2006:
-      return NS_LITERAL_CSTRING("SIX-PER-EM SPACE (0x2006)");
+      return "SIX-PER-EM SPACE (0x2006)"_ns;
     case 0x2007:
-      return NS_LITERAL_CSTRING("FIGURE SPACE (0x2007)");
+      return "FIGURE SPACE (0x2007)"_ns;
     case 0x2008:
-      return NS_LITERAL_CSTRING("PUNCTUATION SPACE (0x2008)");
+      return "PUNCTUATION SPACE (0x2008)"_ns;
     case 0x2009:
-      return NS_LITERAL_CSTRING("THIN SPACE (0x2009)");
+      return "THIN SPACE (0x2009)"_ns;
     case 0x200A:
-      return NS_LITERAL_CSTRING("HAIR SPACE (0x200A)");
+      return "HAIR SPACE (0x200A)"_ns;
     case 0x200B:
-      return NS_LITERAL_CSTRING("ZERO WIDTH SPACE (0x200B)");
+      return "ZERO WIDTH SPACE (0x200B)"_ns;
     case 0x200C:
-      return NS_LITERAL_CSTRING("ZERO WIDTH NON-JOINER (0x200C)");
+      return "ZERO WIDTH NON-JOINER (0x200C)"_ns;
     case 0x200D:
-      return NS_LITERAL_CSTRING("ZERO WIDTH JOINER (0x200D)");
+      return "ZERO WIDTH JOINER (0x200D)"_ns;
     case 0x200E:
-      return NS_LITERAL_CSTRING("LEFT-TO-RIGHT MARK (0x200E)");
+      return "LEFT-TO-RIGHT MARK (0x200E)"_ns;
     case 0x200F:
-      return NS_LITERAL_CSTRING("RIGHT-TO-LEFT MARK (0x200F)");
+      return "RIGHT-TO-LEFT MARK (0x200F)"_ns;
     case 0x2029:
-      return NS_LITERAL_CSTRING("PARAGRAPH SEPARATOR (0x2029)");
+      return "PARAGRAPH SEPARATOR (0x2029)"_ns;
     case 0x202A:
-      return NS_LITERAL_CSTRING("LEFT-TO-RIGHT EMBEDDING (0x202A)");
+      return "LEFT-TO-RIGHT EMBEDDING (0x202A)"_ns;
     case 0x202B:
-      return NS_LITERAL_CSTRING("RIGHT-TO-LEFT EMBEDDING (0x202B)");
+      return "RIGHT-TO-LEFT EMBEDDING (0x202B)"_ns;
     case 0x202D:
-      return NS_LITERAL_CSTRING("LEFT-TO-RIGHT OVERRIDE (0x202D)");
+      return "LEFT-TO-RIGHT OVERRIDE (0x202D)"_ns;
     case 0x202E:
-      return NS_LITERAL_CSTRING("RIGHT-TO-LEFT OVERRIDE (0x202E)");
+      return "RIGHT-TO-LEFT OVERRIDE (0x202E)"_ns;
     case 0x202F:
-      return NS_LITERAL_CSTRING("NARROW NO-BREAK SPACE (0x202F)");
+      return "NARROW NO-BREAK SPACE (0x202F)"_ns;
     case 0x205F:
-      return NS_LITERAL_CSTRING("MEDIUM MATHEMATICAL SPACE (0x205F)");
+      return "MEDIUM MATHEMATICAL SPACE (0x205F)"_ns;
     case 0x2060:
-      return NS_LITERAL_CSTRING("WORD JOINER (0x2060)");
+      return "WORD JOINER (0x2060)"_ns;
     case 0x2066:
-      return NS_LITERAL_CSTRING("LEFT-TO-RIGHT ISOLATE (0x2066)");
+      return "LEFT-TO-RIGHT ISOLATE (0x2066)"_ns;
     case 0x2067:
-      return NS_LITERAL_CSTRING("RIGHT-TO-LEFT ISOLATE (0x2067)");
+      return "RIGHT-TO-LEFT ISOLATE (0x2067)"_ns;
     case 0x3000:
-      return NS_LITERAL_CSTRING("IDEOGRAPHIC SPACE (0x3000)");
+      return "IDEOGRAPHIC SPACE (0x3000)"_ns;
     case 0xFEFF:
-      return NS_LITERAL_CSTRING("ZERO WIDTH NO-BREAK SPACE (0xFEFF)");
+      return "ZERO WIDTH NO-BREAK SPACE (0xFEFF)"_ns;
     default: {
       if (aCharCode < ' ' || (aCharCode >= 0x80 && aCharCode < 0xA0)) {
         return nsPrintfCString("control (0x%04X)", aCharCode);
@@ -436,13 +436,13 @@ static const nsCString GetCharacterCodeName(WPARAM aCharCode) {
 static const nsCString GetKeyLocationName(uint32_t aLocation) {
   switch (aLocation) {
     case eKeyLocationLeft:
-      return NS_LITERAL_CSTRING("KEY_LOCATION_LEFT");
+      return "KEY_LOCATION_LEFT"_ns;
     case eKeyLocationRight:
-      return NS_LITERAL_CSTRING("KEY_LOCATION_RIGHT");
+      return "KEY_LOCATION_RIGHT"_ns;
     case eKeyLocationStandard:
-      return NS_LITERAL_CSTRING("KEY_LOCATION_STANDARD");
+      return "KEY_LOCATION_STANDARD"_ns;
     case eKeyLocationNumpad:
-      return NS_LITERAL_CSTRING("KEY_LOCATION_NUMPAD");
+      return "KEY_LOCATION_NUMPAD"_ns;
     default:
       return nsPrintfCString("Unknown (0x%04X)", aLocation);
   }
@@ -451,7 +451,7 @@ static const nsCString GetKeyLocationName(uint32_t aLocation) {
 static const nsCString GetCharacterCodeName(const char16_t* aChars,
                                             uint32_t aLength) {
   if (!aLength) {
-    return EmptyCString();
+    return ""_ns;
   }
   nsCString result;
   for (uint32_t i = 0; i < aLength; ++i) {
@@ -469,7 +469,7 @@ static const nsCString GetCharacterCodeName(const char16_t* aChars,
 static const nsCString GetCharacterCodeName(
     const UniCharsAndModifiers& aUniCharsAndModifiers) {
   if (aUniCharsAndModifiers.IsEmpty()) {
-    return EmptyCString();
+    return ""_ns;
   }
   nsCString result;
   for (uint32_t i = 0; i < aUniCharsAndModifiers.Length(); i++) {
@@ -524,33 +524,33 @@ class MOZ_STACK_CLASS GetShiftStateName final : public nsAutoCString {
 static const nsCString GetMessageName(UINT aMessage) {
   switch (aMessage) {
     case WM_NULL:
-      return NS_LITERAL_CSTRING("WM_NULL");
+      return "WM_NULL"_ns;
     case WM_KEYDOWN:
-      return NS_LITERAL_CSTRING("WM_KEYDOWN");
+      return "WM_KEYDOWN"_ns;
     case WM_KEYUP:
-      return NS_LITERAL_CSTRING("WM_KEYUP");
+      return "WM_KEYUP"_ns;
     case WM_SYSKEYDOWN:
-      return NS_LITERAL_CSTRING("WM_SYSKEYDOWN");
+      return "WM_SYSKEYDOWN"_ns;
     case WM_SYSKEYUP:
-      return NS_LITERAL_CSTRING("WM_SYSKEYUP");
+      return "WM_SYSKEYUP"_ns;
     case WM_CHAR:
-      return NS_LITERAL_CSTRING("WM_CHAR");
+      return "WM_CHAR"_ns;
     case WM_UNICHAR:
-      return NS_LITERAL_CSTRING("WM_UNICHAR");
+      return "WM_UNICHAR"_ns;
     case WM_SYSCHAR:
-      return NS_LITERAL_CSTRING("WM_SYSCHAR");
+      return "WM_SYSCHAR"_ns;
     case WM_DEADCHAR:
-      return NS_LITERAL_CSTRING("WM_DEADCHAR");
+      return "WM_DEADCHAR"_ns;
     case WM_SYSDEADCHAR:
-      return NS_LITERAL_CSTRING("WM_SYSDEADCHAR");
+      return "WM_SYSDEADCHAR"_ns;
     case MOZ_WM_KEYDOWN:
-      return NS_LITERAL_CSTRING("MOZ_WM_KEYDOWN");
+      return "MOZ_WM_KEYDOWN"_ns;
     case MOZ_WM_KEYUP:
-      return NS_LITERAL_CSTRING("MOZ_WM_KEYUP");
+      return "MOZ_WM_KEYUP"_ns;
     case WM_APPCOMMAND:
-      return NS_LITERAL_CSTRING("WM_APPCOMMAND");
+      return "WM_APPCOMMAND"_ns;
     case WM_QUIT:
-      return NS_LITERAL_CSTRING("WM_QUIT");
+      return "WM_QUIT"_ns;
     default:
       return nsPrintfCString("Unknown Message (0x%04X)", aMessage);
   }
@@ -566,109 +566,109 @@ static const nsCString GetVirtualKeyCodeName(WPARAM aVK) {
 static const nsCString GetAppCommandName(WPARAM aCommand) {
   switch (aCommand) {
     case APPCOMMAND_BASS_BOOST:
-      return NS_LITERAL_CSTRING("APPCOMMAND_BASS_BOOST");
+      return "APPCOMMAND_BASS_BOOST"_ns;
     case APPCOMMAND_BASS_DOWN:
-      return NS_LITERAL_CSTRING("APPCOMMAND_BASS_DOWN");
+      return "APPCOMMAND_BASS_DOWN"_ns;
     case APPCOMMAND_BASS_UP:
-      return NS_LITERAL_CSTRING("APPCOMMAND_BASS_UP");
+      return "APPCOMMAND_BASS_UP"_ns;
     case APPCOMMAND_BROWSER_BACKWARD:
-      return NS_LITERAL_CSTRING("APPCOMMAND_BROWSER_BACKWARD");
+      return "APPCOMMAND_BROWSER_BACKWARD"_ns;
     case APPCOMMAND_BROWSER_FAVORITES:
-      return NS_LITERAL_CSTRING("APPCOMMAND_BROWSER_FAVORITES");
+      return "APPCOMMAND_BROWSER_FAVORITES"_ns;
     case APPCOMMAND_BROWSER_FORWARD:
-      return NS_LITERAL_CSTRING("APPCOMMAND_BROWSER_FORWARD");
+      return "APPCOMMAND_BROWSER_FORWARD"_ns;
     case APPCOMMAND_BROWSER_HOME:
-      return NS_LITERAL_CSTRING("APPCOMMAND_BROWSER_HOME");
+      return "APPCOMMAND_BROWSER_HOME"_ns;
     case APPCOMMAND_BROWSER_REFRESH:
-      return NS_LITERAL_CSTRING("APPCOMMAND_BROWSER_REFRESH");
+      return "APPCOMMAND_BROWSER_REFRESH"_ns;
     case APPCOMMAND_BROWSER_SEARCH:
-      return NS_LITERAL_CSTRING("APPCOMMAND_BROWSER_SEARCH");
+      return "APPCOMMAND_BROWSER_SEARCH"_ns;
     case APPCOMMAND_BROWSER_STOP:
-      return NS_LITERAL_CSTRING("APPCOMMAND_BROWSER_STOP");
+      return "APPCOMMAND_BROWSER_STOP"_ns;
     case APPCOMMAND_CLOSE:
-      return NS_LITERAL_CSTRING("APPCOMMAND_CLOSE");
+      return "APPCOMMAND_CLOSE"_ns;
     case APPCOMMAND_COPY:
-      return NS_LITERAL_CSTRING("APPCOMMAND_COPY");
+      return "APPCOMMAND_COPY"_ns;
     case APPCOMMAND_CORRECTION_LIST:
-      return NS_LITERAL_CSTRING("APPCOMMAND_CORRECTION_LIST");
+      return "APPCOMMAND_CORRECTION_LIST"_ns;
     case APPCOMMAND_CUT:
-      return NS_LITERAL_CSTRING("APPCOMMAND_CUT");
+      return "APPCOMMAND_CUT"_ns;
     case APPCOMMAND_DICTATE_OR_COMMAND_CONTROL_TOGGLE:
-      return NS_LITERAL_CSTRING("APPCOMMAND_DICTATE_OR_COMMAND_CONTROL_TOGGLE");
+      return "APPCOMMAND_DICTATE_OR_COMMAND_CONTROL_TOGGLE"_ns;
     case APPCOMMAND_FIND:
-      return NS_LITERAL_CSTRING("APPCOMMAND_FIND");
+      return "APPCOMMAND_FIND"_ns;
     case APPCOMMAND_FORWARD_MAIL:
-      return NS_LITERAL_CSTRING("APPCOMMAND_FORWARD_MAIL");
+      return "APPCOMMAND_FORWARD_MAIL"_ns;
     case APPCOMMAND_HELP:
-      return NS_LITERAL_CSTRING("APPCOMMAND_HELP");
+      return "APPCOMMAND_HELP"_ns;
     case APPCOMMAND_LAUNCH_APP1:
-      return NS_LITERAL_CSTRING("APPCOMMAND_LAUNCH_APP1");
+      return "APPCOMMAND_LAUNCH_APP1"_ns;
     case APPCOMMAND_LAUNCH_APP2:
-      return NS_LITERAL_CSTRING("APPCOMMAND_LAUNCH_APP2");
+      return "APPCOMMAND_LAUNCH_APP2"_ns;
     case APPCOMMAND_LAUNCH_MAIL:
-      return NS_LITERAL_CSTRING("APPCOMMAND_LAUNCH_MAIL");
+      return "APPCOMMAND_LAUNCH_MAIL"_ns;
     case APPCOMMAND_LAUNCH_MEDIA_SELECT:
-      return NS_LITERAL_CSTRING("APPCOMMAND_LAUNCH_MEDIA_SELECT");
+      return "APPCOMMAND_LAUNCH_MEDIA_SELECT"_ns;
     case APPCOMMAND_MEDIA_CHANNEL_DOWN:
-      return NS_LITERAL_CSTRING("APPCOMMAND_MEDIA_CHANNEL_DOWN");
+      return "APPCOMMAND_MEDIA_CHANNEL_DOWN"_ns;
     case APPCOMMAND_MEDIA_CHANNEL_UP:
-      return NS_LITERAL_CSTRING("APPCOMMAND_MEDIA_CHANNEL_UP");
+      return "APPCOMMAND_MEDIA_CHANNEL_UP"_ns;
     case APPCOMMAND_MEDIA_FAST_FORWARD:
-      return NS_LITERAL_CSTRING("APPCOMMAND_MEDIA_FAST_FORWARD");
+      return "APPCOMMAND_MEDIA_FAST_FORWARD"_ns;
     case APPCOMMAND_MEDIA_NEXTTRACK:
-      return NS_LITERAL_CSTRING("APPCOMMAND_MEDIA_NEXTTRACK");
+      return "APPCOMMAND_MEDIA_NEXTTRACK"_ns;
     case APPCOMMAND_MEDIA_PAUSE:
-      return NS_LITERAL_CSTRING("APPCOMMAND_MEDIA_PAUSE");
+      return "APPCOMMAND_MEDIA_PAUSE"_ns;
     case APPCOMMAND_MEDIA_PLAY:
-      return NS_LITERAL_CSTRING("APPCOMMAND_MEDIA_PLAY");
+      return "APPCOMMAND_MEDIA_PLAY"_ns;
     case APPCOMMAND_MEDIA_PLAY_PAUSE:
-      return NS_LITERAL_CSTRING("APPCOMMAND_MEDIA_PLAY_PAUSE");
+      return "APPCOMMAND_MEDIA_PLAY_PAUSE"_ns;
     case APPCOMMAND_MEDIA_PREVIOUSTRACK:
-      return NS_LITERAL_CSTRING("APPCOMMAND_MEDIA_PREVIOUSTRACK");
+      return "APPCOMMAND_MEDIA_PREVIOUSTRACK"_ns;
     case APPCOMMAND_MEDIA_RECORD:
-      return NS_LITERAL_CSTRING("APPCOMMAND_MEDIA_RECORD");
+      return "APPCOMMAND_MEDIA_RECORD"_ns;
     case APPCOMMAND_MEDIA_REWIND:
-      return NS_LITERAL_CSTRING("APPCOMMAND_MEDIA_REWIND");
+      return "APPCOMMAND_MEDIA_REWIND"_ns;
     case APPCOMMAND_MEDIA_STOP:
-      return NS_LITERAL_CSTRING("APPCOMMAND_MEDIA_STOP");
+      return "APPCOMMAND_MEDIA_STOP"_ns;
     case APPCOMMAND_MIC_ON_OFF_TOGGLE:
-      return NS_LITERAL_CSTRING("APPCOMMAND_MIC_ON_OFF_TOGGLE");
+      return "APPCOMMAND_MIC_ON_OFF_TOGGLE"_ns;
     case APPCOMMAND_MICROPHONE_VOLUME_DOWN:
-      return NS_LITERAL_CSTRING("APPCOMMAND_MICROPHONE_VOLUME_DOWN");
+      return "APPCOMMAND_MICROPHONE_VOLUME_DOWN"_ns;
     case APPCOMMAND_MICROPHONE_VOLUME_MUTE:
-      return NS_LITERAL_CSTRING("APPCOMMAND_MICROPHONE_VOLUME_MUTE");
+      return "APPCOMMAND_MICROPHONE_VOLUME_MUTE"_ns;
     case APPCOMMAND_MICROPHONE_VOLUME_UP:
-      return NS_LITERAL_CSTRING("APPCOMMAND_MICROPHONE_VOLUME_UP");
+      return "APPCOMMAND_MICROPHONE_VOLUME_UP"_ns;
     case APPCOMMAND_NEW:
-      return NS_LITERAL_CSTRING("APPCOMMAND_NEW");
+      return "APPCOMMAND_NEW"_ns;
     case APPCOMMAND_OPEN:
-      return NS_LITERAL_CSTRING("APPCOMMAND_OPEN");
+      return "APPCOMMAND_OPEN"_ns;
     case APPCOMMAND_PASTE:
-      return NS_LITERAL_CSTRING("APPCOMMAND_PASTE");
+      return "APPCOMMAND_PASTE"_ns;
     case APPCOMMAND_PRINT:
-      return NS_LITERAL_CSTRING("APPCOMMAND_PRINT");
+      return "APPCOMMAND_PRINT"_ns;
     case APPCOMMAND_REDO:
-      return NS_LITERAL_CSTRING("APPCOMMAND_REDO");
+      return "APPCOMMAND_REDO"_ns;
     case APPCOMMAND_REPLY_TO_MAIL:
-      return NS_LITERAL_CSTRING("APPCOMMAND_REPLY_TO_MAIL");
+      return "APPCOMMAND_REPLY_TO_MAIL"_ns;
     case APPCOMMAND_SAVE:
-      return NS_LITERAL_CSTRING("APPCOMMAND_SAVE");
+      return "APPCOMMAND_SAVE"_ns;
     case APPCOMMAND_SEND_MAIL:
-      return NS_LITERAL_CSTRING("APPCOMMAND_SEND_MAIL");
+      return "APPCOMMAND_SEND_MAIL"_ns;
     case APPCOMMAND_SPELL_CHECK:
-      return NS_LITERAL_CSTRING("APPCOMMAND_SPELL_CHECK");
+      return "APPCOMMAND_SPELL_CHECK"_ns;
     case APPCOMMAND_TREBLE_DOWN:
-      return NS_LITERAL_CSTRING("APPCOMMAND_TREBLE_DOWN");
+      return "APPCOMMAND_TREBLE_DOWN"_ns;
     case APPCOMMAND_TREBLE_UP:
-      return NS_LITERAL_CSTRING("APPCOMMAND_TREBLE_UP");
+      return "APPCOMMAND_TREBLE_UP"_ns;
     case APPCOMMAND_UNDO:
-      return NS_LITERAL_CSTRING("APPCOMMAND_UNDO");
+      return "APPCOMMAND_UNDO"_ns;
     case APPCOMMAND_VOLUME_DOWN:
-      return NS_LITERAL_CSTRING("APPCOMMAND_VOLUME_DOWN");
+      return "APPCOMMAND_VOLUME_DOWN"_ns;
     case APPCOMMAND_VOLUME_MUTE:
-      return NS_LITERAL_CSTRING("APPCOMMAND_VOLUME_MUTE");
+      return "APPCOMMAND_VOLUME_MUTE"_ns;
     case APPCOMMAND_VOLUME_UP:
-      return NS_LITERAL_CSTRING("APPCOMMAND_VOLUME_UP");
+      return "APPCOMMAND_VOLUME_UP"_ns;
     default:
       return nsPrintfCString("Unknown app command (0x%08X)", aCommand);
   }
@@ -677,11 +677,11 @@ static const nsCString GetAppCommandName(WPARAM aCommand) {
 static const nsCString GetAppCommandDeviceName(LPARAM aDevice) {
   switch (aDevice) {
     case FAPPCOMMAND_KEY:
-      return NS_LITERAL_CSTRING("FAPPCOMMAND_KEY");
+      return "FAPPCOMMAND_KEY"_ns;
     case FAPPCOMMAND_MOUSE:
-      return NS_LITERAL_CSTRING("FAPPCOMMAND_MOUSE");
+      return "FAPPCOMMAND_MOUSE"_ns;
     case FAPPCOMMAND_OEM:
-      return NS_LITERAL_CSTRING("FAPPCOMMAND_OEM");
+      return "FAPPCOMMAND_OEM"_ns;
     default:
       return nsPrintfCString("Unknown app command device (0x%04X)", aDevice);
   }
@@ -800,7 +800,7 @@ static const nsCString ToString(const MSG& aMSG) {
 static const nsCString ToString(
     const UniCharsAndModifiers& aUniCharsAndModifiers) {
   if (aUniCharsAndModifiers.IsEmpty()) {
-    return NS_LITERAL_CSTRING("{}");
+    return "{}"_ns;
   }
   nsCString result;
   result.AssignLiteral("{ ");
@@ -916,21 +916,21 @@ void ModifierKeyState::InitMouseEvent(WidgetInputEvent& aMouseEvent) const {
                "called with non-mouse event");
 
   WidgetMouseEventBase& mouseEvent = *aMouseEvent.AsMouseEventBase();
-  mouseEvent.buttons = 0;
+  mouseEvent.mButtons = 0;
   if (::GetKeyState(VK_LBUTTON) < 0) {
-    mouseEvent.buttons |= WidgetMouseEvent::eLeftButtonFlag;
+    mouseEvent.mButtons |= MouseButtonsFlag::ePrimaryFlag;
   }
   if (::GetKeyState(VK_RBUTTON) < 0) {
-    mouseEvent.buttons |= WidgetMouseEvent::eRightButtonFlag;
+    mouseEvent.mButtons |= MouseButtonsFlag::eSecondaryFlag;
   }
   if (::GetKeyState(VK_MBUTTON) < 0) {
-    mouseEvent.buttons |= WidgetMouseEvent::eMiddleButtonFlag;
+    mouseEvent.mButtons |= MouseButtonsFlag::eMiddleFlag;
   }
   if (::GetKeyState(VK_XBUTTON1) < 0) {
-    mouseEvent.buttons |= WidgetMouseEvent::e4thButtonFlag;
+    mouseEvent.mButtons |= MouseButtonsFlag::e4thFlag;
   }
   if (::GetKeyState(VK_XBUTTON2) < 0) {
-    mouseEvent.buttons |= WidgetMouseEvent::e5thButtonFlag;
+    mouseEvent.mButtons |= MouseButtonsFlag::e5thFlag;
   }
 }
 
@@ -1010,8 +1010,7 @@ bool UniCharsAndModifiers::UniCharsEqual(
 
 bool UniCharsAndModifiers::UniCharsCaseInsensitiveEqual(
     const UniCharsAndModifiers& aOther) const {
-  nsCaseInsensitiveStringComparator comp;
-  return mChars.Equals(aOther.mChars, comp);
+  return mChars.Equals(aOther.mChars, nsCaseInsensitiveStringComparator);
 }
 
 bool UniCharsAndModifiers::BeginsWith(
@@ -1306,7 +1305,7 @@ NativeKey::NativeKey(nsWindowBase* aWidget, const MSG& aMessage,
 
   MOZ_LOG(sNativeKeyLogger, LogLevel::Info,
           ("%p   NativeKey::NativeKey(), mKeyboardLayout=0x%08X, "
-           "mFocusedWndBeforeDispatch=0x%p, mDOMKeyCode=0x%04X, "
+           "mFocusedWndBeforeDispatch=0x%p, mDOMKeyCode=%s, "
            "mKeyNameIndex=%s, mCodeNameIndex=%s, mModKeyState=%s, "
            "mVirtualKeyCode=%s, mOriginalVirtualKeyCode=%s, "
            "mCommittedCharsAndModifiers=%s, mInputtingStringAndModifiers=%s, "
@@ -1360,7 +1359,7 @@ void NativeKey::InitIsSkippableForKeyOrChar(const MSG& aLastKeyMSG) {
   if (mCodeNameIndex == CODE_NAME_INDEX_UNKNOWN) {
     // If current event is not caused by physical key operation, it may be
     // caused by a keyboard utility.  If so, the event shouldn't be ignored by
-    // TabChild since it want to insert the character, delete a character or
+    // BrowserChild since it want to insert the character, delete a character or
     // move caret.
     return;
   }
@@ -1381,7 +1380,7 @@ void NativeKey::InitIsSkippableForKeyOrChar(const MSG& aLastKeyMSG) {
     case WM_SYSDEADCHAR:
       // However, some keyboard layouts may send some keyboard messages with
       // activating the bit.  If we dispatch repeated keyboard events, they
-      // may be ignored by TabChild due to performance reason.  So, we need
+      // may be ignored by BrowserChild due to performance reason.  So, we need
       // to check if actually a physical key is repeated by the auto-repeat
       // feature.
       switch (aLastKeyMSG.message) {
@@ -1432,14 +1431,11 @@ void NativeKey::InitWithKeyOrChar() {
       // cause sending another key message if odd tool hooks GetMessage(),
       // PeekMessage().
       sLastKeyMSG = mMsg;
-      // First, resolve the IME converted virtual keycode to its original
-      // keycode.
-      if (mMsg.wParam == VK_PROCESSKEY) {
-        mOriginalVirtualKeyCode =
-            static_cast<uint8_t>(::ImmGetVirtualKey(mMsg.hwnd));
-      } else {
-        mOriginalVirtualKeyCode = static_cast<uint8_t>(mMsg.wParam);
-      }
+
+      // Note that we don't need to compute raw virtual keycode here even when
+      // it's VK_PROCESS (i.e., already handled by IME) because we need to
+      // export it as DOM_VK_PROCESS and KEY_NAME_INDEX_Process.
+      mOriginalVirtualKeyCode = static_cast<uint8_t>(mMsg.wParam);
 
       // If the key message is sent from other application like a11y tools, the
       // scancode value might not be set proper value.  Then, probably the value
@@ -1563,8 +1559,10 @@ void NativeKey::InitWithKeyOrChar() {
           ComputeVirtualKeyCodeFromScanCodeEx();
       NS_ASSERTION(mVirtualKeyCode, "Failed to compute virtual keycode");
       break;
-    default:
-      MOZ_CRASH("Unsupported message");
+    default: {
+      MOZ_CRASH_UNSAFE_PRINTF("Unsupported message: 0x%04X", mMsg.message);
+      break;
+    }
   }
 
   if (!mVirtualKeyCode) {
@@ -2037,7 +2035,7 @@ nsEventStatus NativeKey::InitKeyEvent(WidgetKeyboardEvent& aKeyEvent,
       if (mCharMessageHasGone) {
         aKeyEvent.PreventDefaultBeforeDispatch(CrossProcessForwarding::eAllow);
       }
-      MOZ_FALLTHROUGH;
+      [[fallthrough]];
     case eKeyDownOnPlugin:
       aKeyEvent.mKeyCode = mDOMKeyCode;
       // Unique id for this keydown event and its associated keypress.
@@ -2646,7 +2644,6 @@ bool NativeKey::HandleKeyDownMessage(bool* aEventDispatched) const {
   }
 
   if (!mModKeyState.IsControl() && !mModKeyState.IsAlt() &&
-      !(mModKeyState.GetModifiers() & MODIFIER_ALTGRAPH) &&
       !mModKeyState.IsWin() && mIsPrintableKey) {
     // If this is simple KeyDown event but next message is not WM_CHAR,
     // this event may not input text, so we should ignore this event.
@@ -2910,10 +2907,12 @@ bool NativeKey::NeedsToHandleWithoutFollowingCharMessages() const {
 
   // If any modifier keys which may cause printable keys becoming non-printable
   // are not pressed, we don't need special handling for the key.
-  // Note that AltGraph may map a printable key to input no character.
-  // In such case, we need to eKeyPress event for backward compatibility.
+  // Note that if the key does not produce a character with AltGr and when
+  // AltGr key is pressed, we don't need to dispatch eKeyPress event for it
+  // because AltGr shouldn't be used for a modifier for a shortcut without
+  // Ctrl, Alt or Win.  That means that we should treat it in same path for
+  // Shift key.
   if (!mModKeyState.IsControl() && !mModKeyState.IsAlt() &&
-      !(mModKeyState.GetModifiers() & MODIFIER_ALTGRAPH) &&
       !mModKeyState.IsWin()) {
     return false;
   }
@@ -2932,7 +2931,7 @@ bool NativeKey::NeedsToHandleWithoutFollowingCharMessages() const {
 static nsCString GetResultOfInSendMessageEx() {
   DWORD ret = ::InSendMessageEx(nullptr);
   if (!ret) {
-    return NS_LITERAL_CSTRING("ISMEX_NOSEND");
+    return "ISMEX_NOSEND"_ns;
   }
   nsCString result;
   if (ret & ISMEX_CALLBACK) {
@@ -3226,7 +3225,7 @@ bool NativeKey::GetFollowingCharMessage(MSG& aCharMsg) {
         CrashReporter::AppendAppNotesToCrashReport(info);
       } else {
         CrashReporter::AppendAppNotesToCrashReport(
-            NS_LITERAL_CSTRING("\nThere is no message in any window"));
+            "\nThere is no message in any window"_ns);
       }
 
       MOZ_CRASH("We lost the following char message");
@@ -3375,8 +3374,8 @@ bool NativeKey::GetFollowingCharMessage(MSG& aCharMsg) {
       CrashReporter::AppendAppNotesToCrashReport(info);
     } else {
       CrashReporter::AppendAppNotesToCrashReport(
-          NS_LITERAL_CSTRING("\nThere is no key message after unexpected char "
-                             "message removed, "));
+          nsLiteralCString("\nThere is no key message after unexpected char "
+                           "message removed, "));
     }
     // Another window has a key message?
     if (WinUtils::PeekMessage(&nextKeyMsgInAllWindows, 0, WM_KEYFIRST,
@@ -3386,7 +3385,7 @@ bool NativeKey::GetFollowingCharMessage(MSG& aCharMsg) {
       CrashReporter::AppendAppNotesToCrashReport(info);
     } else {
       CrashReporter::AppendAppNotesToCrashReport(
-          NS_LITERAL_CSTRING("\nThere is no key message in any windows."));
+          "\nThere is no key message in any windows."_ns);
     }
 
     MOZ_CRASH("PeekMessage() removed unexpected message");
@@ -3489,6 +3488,27 @@ void NativeKey::ComputeInputtingStringWithKeyboardLayout() {
 
   // XXX How about when Win key is pressed?
   if (mModKeyState.IsControl() == mModKeyState.IsAlt()) {
+    return;
+  }
+
+  // If user is inputting a Unicode character with typing Alt + Numpad
+  // keys, we shouldn't set alternative key codes because the key event
+  // shouldn't match with a mnemonic.  However, we should set only
+  // mUnshiftedString for keeping traditional behavior at WM_SYSKEYDOWN.
+  // FYI: I guess that it's okay that mUnshiftedString stays empty.  So,
+  //      if its value breaks something, you must be able to just return here.
+  if (MaybeTypingUnicodeScalarValue()) {
+    if (!mCommittedCharsAndModifiers.IsEmpty()) {
+      MOZ_ASSERT(mMsg.message == WM_SYSKEYDOWN);
+      char16_t num = mCommittedCharsAndModifiers.CharAt(0);
+      MOZ_ASSERT(num >= '0' && num <= '9');
+      mUnshiftedString.Append(num, MODIFIER_NONE);
+      return;
+    }
+    // If user presses a function key without NumLock or 3rd party utility
+    // synthesizes a function key on numpad, we should handle it as-is because
+    // the user's intention may be performing `Alt` + foo.
+    MOZ_ASSERT(!KeyboardLayout::IsPrintableCharKey(mVirtualKeyCode));
     return;
   }
 
@@ -3846,7 +3866,7 @@ void NativeKey::WillDispatchKeyboardEvent(WidgetKeyboardEvent& aKeyboardEvent,
  *****************************************************************************/
 
 KeyboardLayout* KeyboardLayout::sInstance = nullptr;
-nsIIdleServiceInternal* KeyboardLayout::sIdleService = nullptr;
+nsIUserIdleServiceInternal* KeyboardLayout::sIdleService = nullptr;
 
 // This log is very noisy if you don't want to retrieve the mapping table
 // of specific keyboard layout.  LogLevel::Debug and LogLevel::Verbose are
@@ -3858,8 +3878,8 @@ LazyLogModule sKeyboardLayoutLogger("KeyboardLayoutWidgets");
 KeyboardLayout* KeyboardLayout::GetInstance() {
   if (!sInstance) {
     sInstance = new KeyboardLayout();
-    nsCOMPtr<nsIIdleServiceInternal> idleService =
-        do_GetService("@mozilla.org/widget/idleservice;1");
+    nsCOMPtr<nsIUserIdleServiceInternal> idleService =
+        do_GetService("@mozilla.org/widget/useridleservice;1");
     // The refcount will be decreased at shut down.
     sIdleService = idleService.forget().take();
   }
@@ -3965,6 +3985,77 @@ void KeyboardLayout::InitNativeKey(NativeKey& aNativeKey) {
       aNativeKey.mCommittedCharsAndModifiers.Append(ch, modifiers);
       return;
     }
+  }
+
+  // If the aNativeKey is in a sequence to input a Unicode character with
+  // Alt + numpad keys, we should just set the number as the inputting charcter.
+  // Note that we should compute the key value from the virtual key code
+  // because they may be mapped to alphabets, but they should be treated as
+  // Alt + [0-9] even by web apps.
+  // However, we shouldn't touch the key value if given virtual key code is
+  // not a printable key because it may be synthesized by 3rd party utility
+  // or just NumLock is unlocked and user tries to use shortcut key.  In the
+  // latter case, we cannot solve the conflict issue with Alt+foo shortcut key
+  // and inputting a Unicode scalar value like reported to bug 1606655, though,
+  // I have no better idea.  Perhaps, `Alt` shouldn't be used for shortcut key
+  // combination on Windows.
+  if (aNativeKey.MaybeTypingUnicodeScalarValue() &&
+      KeyboardLayout::IsPrintableCharKey(aNativeKey.mVirtualKeyCode)) {
+    // If the key code value is mapped to a Numpad key, let's compute the key
+    // value with it.  This is same behavior as Chrome.  In strictly speaking,
+    // I think that the else block's computation is better because it seems
+    // that Windows does not refer virtual key code value, but we should avoid
+    // web-compat issues.
+    char16_t num = '0';
+    if (aNativeKey.mVirtualKeyCode >= VK_NUMPAD0 &&
+        aNativeKey.mVirtualKeyCode <= VK_NUMPAD9) {
+      num = '0' + aNativeKey.mVirtualKeyCode - VK_NUMPAD0;
+    }
+    // Otherwise, let's use fake key value for making never match with
+    // mnemonic.
+    else {
+      switch (aNativeKey.mScanCode) {
+        case 0x0052:  // Numpad0
+          num = '0';
+          break;
+        case 0x004F:  // Numpad1
+          num = '1';
+          break;
+        case 0x0050:  // Numpad2
+          num = '2';
+          break;
+        case 0x0051:  // Numpad3
+          num = '3';
+          break;
+        case 0x004B:  // Numpad4
+          num = '4';
+          break;
+        case 0x004C:  // Numpad5
+          num = '5';
+          break;
+        case 0x004D:  // Numpad6
+          num = '6';
+          break;
+        case 0x0047:  // Numpad7
+          num = '7';
+          break;
+        case 0x0048:  // Numpad8
+          num = '8';
+          break;
+        case 0x0049:  // Numpad9
+          num = '9';
+          break;
+        default:
+          MOZ_ASSERT_UNREACHABLE(
+              "IsTypingUnicodeScalarValue() must have returned true for wrong "
+              "scancode");
+          break;
+      }
+    }
+    aNativeKey.mCommittedCharsAndModifiers.Append(num,
+                                                  aNativeKey.GetModifiers());
+    aNativeKey.mKeyNameIndex = KEY_NAME_INDEX_USE_STRING;
+    return;
   }
 
   // When it's followed by non-dead char message(s) for printable character(s),
@@ -4250,7 +4341,7 @@ nsCString KeyboardLayout::GetLayoutName(HKL aLayout) const {
     wchar_t buf[256];
     if (NS_WARN_IF(!WinUtils::GetRegistryKey(
             HKEY_LOCAL_MACHINE, key.get(), L"Layout Text", buf, sizeof(buf)))) {
-      return NS_LITERAL_CSTRING("No name or too long name");
+      return "No name or too long name"_ns;
     }
     return NS_ConvertUTF16toUTF8(buf);
   }
@@ -4266,18 +4357,18 @@ nsCString KeyboardLayout::GetLayoutName(HKL aLayout) const {
   nsCOMPtr<nsIWindowsRegKey> regKey =
       do_CreateInstance("@mozilla.org/windows-registry-key;1");
   if (NS_WARN_IF(!regKey)) {
-    return EmptyCString();
+    return ""_ns;
   }
   nsresult rv =
       regKey->Open(nsIWindowsRegKey::ROOT_KEY_LOCAL_MACHINE,
                    nsString(kKeyboardLayouts), nsIWindowsRegKey::ACCESS_READ);
   if (NS_WARN_IF(NS_FAILED(rv))) {
-    return EmptyCString();
+    return ""_ns;
   }
   uint32_t childCount = 0;
   if (NS_WARN_IF(NS_FAILED(regKey->GetChildCount(&childCount))) ||
       NS_WARN_IF(!childCount)) {
-    return EmptyCString();
+    return ""_ns;
   }
   for (uint32_t i = 0; i < childCount; i++) {
     nsAutoString childName;
@@ -4316,7 +4407,7 @@ nsCString KeyboardLayout::GetLayoutName(HKL aLayout) const {
     }
     return NS_ConvertUTF16toUTF8(buf);
   }
-  return EmptyCString();
+  return ""_ns;
 }
 
 void KeyboardLayout::LoadLayout(HKL aLayout) {

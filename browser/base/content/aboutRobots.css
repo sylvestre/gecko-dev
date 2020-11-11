@@ -1,26 +1,7 @@
-#errorPageContainer {
-  background-image: none;
-}
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#errorPageContainer:before {
-  content: url('chrome://browser/content/aboutRobots-icon.png');
-  position: absolute;
-}
-
-body[dir=rtl] #icon,
-body[dir=rtl] #errorPageContainer:before {
-  transform: scaleX(-1);
-}
-
-#widget1 {
-  position: absolute;
-  bottom: -12px;
-  left: -10px;
-}
-
-#widget2 {
-  position: absolute;
-  bottom: -12px;
-  right: -10px;
-  transform: scaleX(-1);
+.title {
+  background-image: url("chrome://browser/content/aboutRobots-icon.png");
 }

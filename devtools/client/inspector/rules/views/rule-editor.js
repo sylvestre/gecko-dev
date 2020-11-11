@@ -4,16 +4,18 @@
 
 "use strict";
 
-const {l10n} = require("devtools/shared/inspector/css-logic");
-const {ELEMENT_STYLE} = require("devtools/shared/specs/styles");
+const { l10n } = require("devtools/shared/inspector/css-logic");
+const { PSEUDO_CLASSES } = require("devtools/shared/css/constants");
+const {
+  style: { ELEMENT_STYLE },
+} = require("devtools/shared/constants");
 const Rule = require("devtools/client/inspector/rules/models/rule");
 const {
   InplaceEditor,
   editableField,
   editableItem,
 } = require("devtools/client/shared/inplace-editor");
-const TextPropertyEditor =
-  require("devtools/client/inspector/rules/views/text-property-editor");
+const TextPropertyEditor = require("devtools/client/inspector/rules/views/text-property-editor");
 const {
   createChild,
   blurOnMultipleProperties,
@@ -32,10 +34,10 @@ const EventEmitter = require("devtools/shared/event-emitter");
 const CssLogic = require("devtools/shared/inspector/css-logic");
 
 loader.lazyRequireGetter(this, "Tools", "devtools/client/definitions", true);
-loader.lazyRequireGetter(this, "gDevTools", "devtools/client/framework/devtools", true);
 
-const STYLE_INSPECTOR_PROPERTIES = "devtools/shared/locales/styleinspector.properties";
-const {LocalizationHelper} = require("devtools/shared/l10n");
+const STYLE_INSPECTOR_PROPERTIES =
+  "devtools/shared/locales/styleinspector.properties";
+const { LocalizationHelper } = require("devtools/shared/l10n");
 const STYLE_INSPECTOR_L10N = new LocalizationHelper(STYLE_INSPECTOR_PROPERTIES);
 
 /**
@@ -85,20 +87,8 @@ RuleEditor.prototype = {
     this.toolbox.off("tool-registered", this._onToolChanged);
     this.toolbox.off("tool-unregistered", this._onToolChanged);
 
-    let url = null;
-    if (this.rule.sheet) {
-      url = this.rule.sheet.href || this.rule.sheet.nodeHref;
-    }
-    if (url && !this.rule.isSystem && this.rule.domRule.type !== ELEMENT_STYLE) {
-      // Only get the original source link if the rule isn't a system
-      // rule and if it isn't an inline rule.
-      const sourceLine = this.rule.ruleLine;
-      const sourceColumn = this.rule.ruleColumn;
-
-      if (this._sourceMapURLService) {
-        this._sourceMapURLService.unsubscribe(url, sourceLine, sourceColumn,
-          this._updateLocation);
-      }
+    if (this._unsubscribeSourceMap) {
+      this._unsubscribeSourceMap();
     }
   },
 
@@ -112,7 +102,8 @@ RuleEditor.prototype = {
   },
 
   get isSelectorEditable() {
-    const trait = this.isEditable &&
+    const trait =
+      this.isEditable &&
       this.rule.domRule.type !== ELEMENT_STYLE &&
       this.rule.domRule.type !== CSSRule.KEYFRAME_RULE;
 
@@ -124,6 +115,7 @@ RuleEditor.prototype = {
   _create: function() {
     this.element = this.doc.createElement("div");
     this.element.className = "ruleview-rule devtools-monospace";
+    this.element.dataset.ruleId = this.rule.domRule.actorID;
     this.element.setAttribute("uneditable", !this.isEditable);
     this.element.setAttribute("unmatched", this.rule.isUnmatched);
     this.element._ruleEditor = this;
@@ -169,6 +161,7 @@ RuleEditor.prototype = {
     }
 
     if (this.rule.domRule.type !== CSSRule.KEYFRAME_RULE) {
+      // FIXME: Avoid having this as a nested async operation. (Bug 1664511)
       (async function() {
         let selector;
 
@@ -184,22 +177,20 @@ RuleEditor.prototype = {
           selector = this.ruleView.inspector.selectionCssSelector;
         }
 
-        const isHighlighted = this.ruleView._highlighters &&
-          this.ruleView.highlighters.selectorHighlighterShown === selector;
-        const selectorHighlighter = createChild(header, "span", {
-          class: "ruleview-selectorhighlighter" +
-                 (isHighlighted ? " highlighted" : ""),
+        const isHighlighted = this.ruleView.isSelectorHighlighted(selector);
+        // Handling of click events is delegated to CssRuleView.handleEvent()
+        createChild(header, "span", {
+          class:
+            "ruleview-selectorhighlighter js-toggle-selector-highlighter" +
+            (isHighlighted ? " highlighted" : ""),
+          "data-selector": selector,
           title: l10n("rule.selectorHighlighter.tooltip"),
         });
-        selectorHighlighter.addEventListener("click", () => {
-          this.ruleView.toggleSelectorHighlighter(selectorHighlighter, selector);
-        });
-
-        this.uniqueSelector = selector;
-        this.emit("selector-icon-created");
-      }.bind(this))().catch(error => {
-        console.error("Exception while getting unique selector", error);
-      });
+      }
+        .bind(this)()
+        .catch(error => {
+          console.error("Exception while getting unique selector", error);
+        }));
     }
 
     this.openBrace = createChild(header, "span", {
@@ -229,7 +220,7 @@ RuleEditor.prototype = {
         this._ruleViewIsEditing = this.ruleView.isEditing;
       });
 
-      code.addEventListener("click", () => {
+      code.addEventListener("click", event => {
         const selection = this.doc.defaultView.getSelection();
         if (selection.isCollapsed && !this._ruleViewIsEditing) {
           this.newProperty();
@@ -275,61 +266,38 @@ RuleEditor.prototype = {
   },
 
   _onSourceClick: function() {
-    if (this.source.hasAttribute("unselectable") || !this._currentLocation) {
+    if (this.source.hasAttribute("unselectable")) {
       return;
     }
 
-    const target = this.ruleView.inspector.target;
+    const { inspector } = this.ruleView;
+    const target = inspector.currentTarget;
     if (Tools.styleEditor.isTargetSupported(target)) {
-      gDevTools.showToolbox(target, "styleeditor").then(toolbox => {
-        const {url, line, column} = this._currentLocation;
-
-        if (!this.rule.sheet.href && this.rule.sheet.nodeHref) {
-          toolbox.getCurrentPanel().selectStyleSheet(this.rule.sheet, line, column);
-        } else {
-          toolbox.getCurrentPanel().selectStyleSheet(url, line, column);
-        }
-      });
+      inspector.toolbox.viewSourceInStyleEditorByFront(
+        this.rule.sheet,
+        this.rule.ruleLine,
+        this.rule.ruleColumn
+      );
     }
   },
 
   /**
    * Update the text of the source link to reflect whether we're showing
    * original sources or not.  This is a callback for
-   * SourceMapURLService.subscribe, which see.
+   * SourceMapURLService.subscribeByID, which see.
    *
-   * @param {Boolean} enabled
-   *        True if the passed-in location should be used; this means
-   *        that source mapping is in use and the remaining arguments
-   *        are the original location.  False if the already-known
-   *        (stored) location should be used.
-   * @param {String} url
-   *        The original URL
-   * @param {Number} line
-   *        The original line number
-   * @param {number} column
-   *        The original column number
+   * @param {Object | null} originalLocation
+   *        The original position object (url/line/column) or null.
    */
-  _updateLocation: function(enabled, url, line, column) {
-    let displayURL = url;
-    if (!enabled) {
-      url = null;
-      displayURL = null;
-      if (this.rule.sheet) {
-        url = this.rule.sheet.href || this.rule.sheet.nodeHref;
-        displayURL = this.rule.sheet.href;
-      }
-      line = this.rule.ruleLine;
-      column = this.rule.ruleColumn;
+  _updateLocation: function(originalLocation) {
+    let displayURL = this.rule.sheet ? this.rule.sheet.href : null;
+    let line = this.rule.ruleLine;
+    if (originalLocation) {
+      displayURL = originalLocation.url;
+      line = originalLocation.line;
     }
 
-    this._currentLocation = {
-      url,
-      line,
-      column,
-    };
-
-    let sourceTextContent = CssLogic.shortSource({href: displayURL});
+    let sourceTextContent = CssLogic.shortSource({ href: displayURL });
     let title = displayURL ? displayURL : sourceTextContent;
     if (line > 0) {
       sourceTextContent += ":" + line;
@@ -340,17 +308,21 @@ RuleEditor.prototype = {
       title += " @" + this.rule.mediaText;
     }
 
-    const sourceLabel = this.element.querySelector(".ruleview-rule-source-label");
+    const sourceLabel = this.element.querySelector(
+      ".ruleview-rule-source-label"
+    );
     sourceLabel.setAttribute("title", title);
     sourceLabel.textContent = sourceTextContent;
   },
 
   updateSourceLink: function() {
     if (this.rule.isSystem) {
-      const sourceLabel = this.element.querySelector(".ruleview-rule-source-label");
+      const sourceLabel = this.element.querySelector(
+        ".ruleview-rule-source-label"
+      );
       const title = this.rule.title;
-      const sourceHref = (this.rule.sheet && this.rule.sheet.href) ?
-          this.rule.sheet.href : title;
+      const sourceHref =
+        this.rule.sheet && this.rule.sheet.href ? this.rule.sheet.href : title;
 
       const uaLabel = STYLE_INSPECTOR_L10N.getStr("rule.userAgentStyles");
       sourceLabel.textContent = uaLabel + " " + title;
@@ -364,20 +336,25 @@ RuleEditor.prototype = {
         sourceLabel.removeAttribute("title");
       }
     } else {
-      this._updateLocation(false);
+      this._updateLocation(null);
     }
 
-    let url = null;
-    if (this.rule.sheet) {
-      url = this.rule.sheet.href || this.rule.sheet.nodeHref;
-    }
-    if (url && !this.rule.isSystem && this.rule.domRule.type !== ELEMENT_STYLE) {
+    if (
+      this.rule.sheet &&
+      !this.rule.isSystem &&
+      this.rule.domRule.type !== ELEMENT_STYLE
+    ) {
       // Only get the original source link if the rule isn't a system
       // rule and if it isn't an inline rule.
-      const sourceLine = this.rule.ruleLine;
-      const sourceColumn = this.rule.ruleColumn;
-      this.sourceMapURLService.subscribe(url, sourceLine, sourceColumn,
-                                         this._updateLocation);
+      if (this._unsubscribeSourceMap) {
+        this._unsubscribeSourceMap();
+      }
+      this._unsubscribeSourceMap = this.sourceMapURLService.subscribeByID(
+        this.rule.sheet.resourceId || this.rule.sheet.actorID,
+        this.rule.ruleLine,
+        this.rule.ruleColumn,
+        this._updateLocation
+      );
       // Set "unselectable" appropriately.
       this._onToolChanged();
     } else if (this.rule.domRule.type === ELEMENT_STYLE) {
@@ -421,8 +398,9 @@ RuleEditor.prototype = {
         }
 
         const containerClass =
-          (this.rule.matchedSelectors.indexOf(selector) > -1) ?
-          "ruleview-selector-matched" : "ruleview-selector-unmatched";
+          this.rule.matchedSelectors.indexOf(selector) > -1
+            ? "ruleview-selector-matched"
+            : "ruleview-selector-unmatched";
         const selectorContainer = createChild(this.selectorText, "span", {
           class: containerClass,
         });
@@ -440,10 +418,11 @@ RuleEditor.prototype = {
               selectorClass = "ruleview-selector";
               break;
             case SELECTOR_PSEUDO_CLASS:
-              selectorClass = [":active", ":focus", ":focus-within", ":hover"].some(
-                  pseudo => selectorText.value === pseudo) ?
-                "ruleview-selector-pseudo-class-lock" :
-                "ruleview-selector-pseudo-class";
+              selectorClass = PSEUDO_CLASSES.some(
+                pseudo => selectorText.value === pseudo
+              )
+                ? "ruleview-selector-pseudo-class-lock"
+                : "ruleview-selector-pseudo-class";
               break;
             default:
               break;
@@ -492,8 +471,13 @@ RuleEditor.prototype = {
    *        The new property
    */
   addProperty: function(name, value, priority, enabled, siblingProp) {
-    const prop = this.rule.createProperty(name, value, priority, enabled,
-      siblingProp);
+    const prop = this.rule.createProperty(
+      name,
+      value,
+      priority,
+      enabled,
+      siblingProp
+    );
     const index = this.rule.textProps.indexOf(prop);
     const editor = new TextPropertyEditor(this, prop);
 
@@ -502,8 +486,10 @@ RuleEditor.prototype = {
     // in the property list, so this causes it to appear after siblingProp.
     // If there is no node at its index, as is the case where this is the last
     // node being inserted, then this behaves as appendChild.
-    this.propertyList.insertBefore(editor.element,
-      this.propertyList.children[index]);
+    this.propertyList.insertBefore(
+      editor.element,
+      this.propertyList.children[index]
+    );
 
     return prop;
   },
@@ -532,8 +518,13 @@ RuleEditor.prototype = {
     for (const p of properties) {
       const isCommented = Boolean(p.commentOffsets);
       const enabled = !isCommented;
-      lastProp = this.addProperty(p.name, p.value, p.priority, enabled,
-        lastProp);
+      lastProp = this.addProperty(
+        p.name,
+        p.value,
+        p.priority,
+        enabled,
+        lastProp
+      );
     }
 
     // Either focus on the last value if incomplete, or start a new one.
@@ -582,8 +573,10 @@ RuleEditor.prototype = {
     });
 
     // Auto-close the input if multiple rules get pasted into new property.
-    this.editor.input.addEventListener("paste",
-      blurOnMultipleProperties(this.rule.cssProperties));
+    this.editor.input.addEventListener(
+      "paste",
+      blurOnMultipleProperties(this.rule.cssProperties)
+    );
   },
 
   /**
@@ -602,15 +595,18 @@ RuleEditor.prototype = {
     // parseDeclarations allows for name-less declarations, but in the present
     // case, we're creating a new declaration, it doesn't make sense to accept
     // these entries
-    this.multipleAddedProperties =
-      parseNamedDeclarations(this.rule.cssProperties.isKnown, value, true);
+    this.multipleAddedProperties = parseNamedDeclarations(
+      this.rule.cssProperties.isKnown,
+      value,
+      true
+    );
 
     // Blur the editor field now and deal with adding declarations later when
     // the field gets destroyed (see _newPropertyDestroy)
     this.editor.input.blur();
 
     this.telemetry.recordEvent("edit_rule", "ruleview", null, {
-      "session_id": this.toolbox.sessionId,
+      session_id: this.toolbox.sessionId,
     });
   },
 
@@ -649,8 +645,12 @@ RuleEditor.prototype = {
    *        The move focus direction number.
    */
   async _onSelectorDone(value, commit, direction) {
-    if (!commit || this.isEditing || value === "" ||
-        value === this.rule.selectorText) {
+    if (
+      !commit ||
+      this.isEditing ||
+      value === "" ||
+      value === this.rule.selectorText
+    ) {
       return;
     }
 
@@ -659,6 +659,11 @@ RuleEditor.prototype = {
     const element = elementStyle.element;
 
     this.isEditing = true;
+
+    // Remove highlighter for the previous selector.
+    if (this.ruleView.isSelectorHighlighted(this.rule.selectorText)) {
+      await this.ruleView.toggleSelectorHighlighter(this.rule.selectorText);
+    }
 
     try {
       const response = await this.rule.domRule.modifySelector(element, value);
@@ -673,7 +678,7 @@ RuleEditor.prototype = {
 
       this.isEditing = false;
 
-      const {ruleProps, isMatching} = response;
+      const { ruleProps, isMatching } = response;
       if (!ruleProps) {
         // Notify for changes, even when nothing changes,
         // just to allow tests being able to track end of this request.
@@ -686,7 +691,7 @@ RuleEditor.prototype = {
       const editor = new RuleEditor(ruleView, newRule);
       const rules = elementStyle.rules;
 
-      let newRuleIndex = applied.findIndex((r) => r.rule == ruleProps.rule);
+      let newRuleIndex = applied.findIndex(r => r.rule == ruleProps.rule);
       const oldIndex = rules.indexOf(this.rule);
 
       // If the selector no longer matches, then we leave the rule in
@@ -699,19 +704,13 @@ RuleEditor.prototype = {
       rules.splice(oldIndex, 1);
       rules.splice(newRuleIndex, 0, newRule);
       elementStyle._changed();
-      elementStyle.markOverriddenAll();
+      elementStyle.onRuleUpdated();
 
       // We install the new editor in place of the old -- you might
       // think we would replicate the list-modification logic above,
       // but that is complicated due to the way the UI installs
       // pseudo-element rules and the like.
       this.element.parentNode.replaceChild(editor.element, this.element);
-
-      // Remove highlight for modified selector
-      if (ruleView.highlighters.selectorHighlighterShown) {
-        ruleView.toggleSelectorHighlighter(ruleView.lastSelectorIcon,
-          ruleView.highlighters.selectorHighlighterShown);
-      }
 
       editor._moveSelectorFocus(direction);
     } catch (err) {

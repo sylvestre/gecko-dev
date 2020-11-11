@@ -8,7 +8,9 @@
 
 #include "mozilla/Base64.h"
 #include "mozilla/SyncRunnable.h"
+#include "nsNSSComponent.h"
 #include "nsPK11TokenDB.h"
+#include "nsXULAppAPI.h"
 
 /* Implementing OSKeyStore when there is no platform specific one.
  * This key store instead puts the keys into the NSS DB.
@@ -29,7 +31,7 @@ NSSKeyStore::NSSKeyStore() {
   Unused << EnsureNSSInitializedChromeOrContent();
   Unused << InitToken();
 }
-NSSKeyStore::~NSSKeyStore() {}
+NSSKeyStore::~NSSKeyStore() = default;
 
 nsresult NSSKeyStore::InitToken() {
   if (!mSlot) {
@@ -73,7 +75,7 @@ nsresult NSSKeyStore::Lock() {
 
 nsresult NSSKeyStoreMainThreadUnlock(PK11SlotInfo* aSlot) {
   nsCOMPtr<nsIPK11Token> token = new nsPK11Token(aSlot);
-  return token->Login(false /* force */);
+  return NS_FAILED(token->Login(false /* force */)) ? NS_ERROR_FAILURE : NS_OK;
 }
 
 nsresult NSSKeyStore::Unlock() {
@@ -87,13 +89,15 @@ nsresult NSSKeyStore::Unlock() {
     }
 
     // Forward to the main thread synchronously.
+    nsresult result = NS_ERROR_FAILURE;
     SyncRunnable::DispatchToThread(
         mainThread, new SyncRunnable(NS_NewRunnableFunction(
-                        "NSSKeyStoreMainThreadUnlock", [slot = mSlot.get()]() {
-                          NSSKeyStoreMainThreadUnlock(slot);
+                        "NSSKeyStoreMainThreadUnlock",
+                        [slot = mSlot.get(), result = &result]() {
+                          *result = NSSKeyStoreMainThreadUnlock(slot);
                         })));
 
-    return NS_OK;
+    return result;
   }
 
   return NSSKeyStoreMainThreadUnlock(mSlot.get());
@@ -105,6 +109,16 @@ nsresult NSSKeyStore::StoreSecret(const nsACString& aSecret,
   if (NS_FAILED(Unlock())) {
     MOZ_LOG(gNSSKeyStoreLog, LogLevel::Debug, ("Error unlocking NSS key db"));
     return NS_ERROR_FAILURE;
+  }
+
+  // It is possible for multiple keys to have the same nickname in NSS. To
+  // prevent the problem of not knowing which key to use in the future, simply
+  // delete all keys with this nickname before storing a new one.
+  nsresult rv = DeleteSecret(aLabel);
+  if (NS_FAILED(rv)) {
+    MOZ_LOG(gNSSKeyStoreLog, LogLevel::Debug,
+            ("DeleteSecret before StoreSecret failed"));
+    return rv;
   }
 
   uint8_t* p = BitwiseCast<uint8_t*, const char*>(aSecret.BeginReading());

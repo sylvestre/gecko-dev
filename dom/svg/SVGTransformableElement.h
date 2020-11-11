@@ -4,40 +4,39 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef SVGTransformableElement_h
-#define SVGTransformableElement_h
+#ifndef DOM_SVG_SVGTRANSFORMABLEELEMENT_H_
+#define DOM_SVG_SVGTRANSFORMABLEELEMENT_H_
 
-#include "mozilla/Attributes.h"
-#include "nsAutoPtr.h"
-#include "nsSVGAnimatedTransformList.h"
-#include "nsSVGElement.h"
+#include "SVGAnimatedTransformList.h"
 #include "gfxMatrix.h"
+#include "mozilla/Attributes.h"
+#include "mozilla/dom/SVGElement.h"
 #include "mozilla/gfx/Matrix.h"
+#include "mozilla/UniquePtr.h"
 
 namespace mozilla {
 namespace dom {
 
-class SVGAnimatedTransformList;
+class DOMSVGAnimatedTransformList;
 class SVGGraphicsElement;
 class SVGMatrix;
-class SVGIRect;
+class SVGRect;
 struct SVGBoundingBoxOptions;
 
-class SVGTransformableElement : public nsSVGElement {
+class SVGTransformableElement : public SVGElement {
  public:
   explicit SVGTransformableElement(already_AddRefed<dom::NodeInfo>&& aNodeInfo)
-      : nsSVGElement(std::move(aNodeInfo)) {}
-  virtual ~SVGTransformableElement() {}
+      : SVGElement(std::move(aNodeInfo)) {}
+  virtual ~SVGTransformableElement() = default;
 
   virtual nsresult Clone(dom::NodeInfo*, nsINode** aResult) const override = 0;
 
   // WebIDL
-  already_AddRefed<SVGAnimatedTransformList> Transform();
-  nsSVGElement* GetNearestViewportElement();
-  nsSVGElement* GetFarthestViewportElement();
+  already_AddRefed<DOMSVGAnimatedTransformList> Transform();
+  SVGElement* GetNearestViewportElement();
+  SVGElement* GetFarthestViewportElement();
   MOZ_CAN_RUN_SCRIPT
-  already_AddRefed<SVGIRect> GetBBox(const SVGBoundingBoxOptions& aOptions,
-                                     ErrorResult& rv);
+  already_AddRefed<SVGRect> GetBBox(const SVGBoundingBoxOptions&);
   already_AddRefed<SVGMatrix> GetCTM();
   already_AddRefed<SVGMatrix> GetScreenCTM();
   already_AddRefed<SVGMatrix> GetTransformToElement(
@@ -49,7 +48,7 @@ class SVGTransformableElement : public nsSVGElement {
   nsChangeHint GetAttributeChangeHint(const nsAtom* aAttribute,
                                       int32_t aModType) const override;
 
-  // nsSVGElement overrides
+  // SVGElement overrides
   virtual bool IsEventAttributeNameInternal(nsAtom* aName) override;
 
   virtual gfxMatrix PrependLocalTransformsTo(
@@ -58,7 +57,7 @@ class SVGTransformableElement : public nsSVGElement {
   virtual const gfx::Matrix* GetAnimateMotionTransform() const override;
   virtual void SetAnimateMotionTransform(const gfx::Matrix* aMatrix) override;
 
-  virtual nsSVGAnimatedTransformList* GetAnimatedTransformList(
+  virtual SVGAnimatedTransformList* GetAnimatedTransformList(
       uint32_t aFlags = 0) override;
   virtual nsStaticAtom* GetTransformListAttrName() const override {
     return nsGkAtoms::transform;
@@ -76,15 +75,15 @@ class SVGTransformableElement : public nsSVGElement {
    */
   static gfxMatrix GetUserToParentTransform(
       const gfx::Matrix* aAnimateMotionTransform,
-      const nsSVGAnimatedTransformList* aTransforms);
+      const SVGAnimatedTransformList* aTransforms);
 
-  nsAutoPtr<nsSVGAnimatedTransformList> mTransforms;
+  UniquePtr<SVGAnimatedTransformList> mTransforms;
 
   // XXX maybe move this to property table, to save space on un-animated elems?
-  nsAutoPtr<gfx::Matrix> mAnimateMotionTransform;
+  UniquePtr<gfx::Matrix> mAnimateMotionTransform;
 };
 
 }  // namespace dom
 }  // namespace mozilla
 
-#endif  // SVGTransformableElement_h
+#endif  // DOM_SVG_SVGTRANSFORMABLEELEMENT_H_

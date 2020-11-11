@@ -8,10 +8,11 @@
  */
 
 typedef object JSON;
-typedef (Blob or BufferSource or FormData or URLSearchParams or USVString) BodyInit;
+typedef (Blob or BufferSource or FormData or URLSearchParams or USVString) XMLHttpRequestBodyInit;
+/* no support for request body streams yet */
+typedef XMLHttpRequestBodyInit BodyInit;
 
-[NoInterfaceObject, Exposed=(Window,Worker)]
-interface Body {
+interface mixin Body {
   [Throws]
   readonly attribute boolean bodyUsed;
   [Throws]
@@ -30,10 +31,12 @@ interface Body {
 // getReader().read().then(data) parsing.
 // See more about how these 2 helpers are used in
 // dom/fetch/FetchStreamReader.cpp
+[GenerateInit]
 dictionary FetchReadableStreamReadDataDone {
   boolean done = false;
 };
 
+[GenerateInit]
 dictionary FetchReadableStreamReadDataArray {
   Uint8Array value;
 };

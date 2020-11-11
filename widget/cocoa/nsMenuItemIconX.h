@@ -10,11 +10,9 @@
 #ifndef nsMenuItemIconX_h_
 #define nsMenuItemIconX_h_
 
-#include "mozilla/RefPtr.h"
-#include "nsCOMPtr.h"
-#include "imgINotificationObserver.h"
-#include "nsIContentPolicy.h"
+#include "IconLoaderHelperCocoa.h"
 
+class nsIconLoaderService;
 class nsIURI;
 class nsIContent;
 class nsIPrincipal;
@@ -23,7 +21,7 @@ class nsMenuObjectX;
 
 #import <Cocoa/Cocoa.h>
 
-class nsMenuItemIconX : public imgINotificationObserver {
+class nsMenuItemIconX : public mozilla::widget::IconLoaderListenerCocoa {
  public:
   nsMenuItemIconX(nsMenuObjectX* aMenuItem, nsIContent* aContent,
                   NSMenuItem* aNativeMenuItem);
@@ -32,9 +30,6 @@ class nsMenuItemIconX : public imgINotificationObserver {
   virtual ~nsMenuItemIconX();
 
  public:
-  NS_DECL_ISUPPORTS
-  NS_DECL_IMGINOTIFICATIONOBSERVER
-
   // SetupIcon succeeds if it was able to set up the icon, or if there should
   // be no icon, in which case it clears any existing icon but still succeeds.
   nsresult SetupIcon();
@@ -42,28 +37,27 @@ class nsMenuItemIconX : public imgINotificationObserver {
   // GetIconURI fails if the item should not have any icon.
   nsresult GetIconURI(nsIURI** aIconURI);
 
-  // LoadIcon will set a placeholder image and start a load request for the
-  // icon.  The request may not complete until after LoadIcon returns.
-  nsresult LoadIcon(nsIURI* aIconURI);
-
   // Unless we take precautions, we may outlive the object that created us
   // (mMenuObject, which owns our native menu item (mNativeMenuItem)).
   // Destroy() should be called from mMenuObject's destructor to prevent
   // this from happening.  See bug 499600.
   void Destroy();
 
- protected:
-  nsresult OnFrameComplete(imgIRequest* aRequest);
+  // Implements this method for mozilla::widget::IconLoaderListenerCocoa.
+  // Called once the icon load is complete.
+  nsresult OnComplete();
 
+ protected:
   nsCOMPtr<nsIContent> mContent;
-  nsCOMPtr<nsIPrincipal> mTriggeringPrincipal;
   nsContentPolicyType mContentType;
-  RefPtr<imgRequestProxy> mIconRequest;
   nsMenuObjectX* mMenuObject;  // [weak]
   nsIntRect mImageRegionRect;
-  bool mLoadedIcon;
   bool mSetIcon;
   NSMenuItem* mNativeMenuItem;  // [weak]
+  // The icon loader object should never outlive its creating nsMenuItemIconX
+  // object.
+  RefPtr<mozilla::widget::IconLoader> mIconLoader;
+  RefPtr<mozilla::widget::IconLoaderHelperCocoa> mIconLoaderHelper;
 };
 
 #endif  // nsMenuItemIconX_h_

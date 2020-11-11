@@ -22,12 +22,15 @@
 #include "nsHashKeys.h"
 #include "mozilla/LinkedList.h"
 #include "nsHtml5DocumentBuilder.h"
-#include "mozilla/net/ReferrerPolicy.h"
 
 class nsHtml5Parser;
 class nsHtml5StreamParser;
 class nsIContent;
-class nsIDocument;
+namespace mozilla {
+namespace dom {
+class Document;
+}
+}  // namespace mozilla
 
 class nsHtml5TreeOpExecutor final
     : public nsHtml5DocumentBuilder,
@@ -35,7 +38,7 @@ class nsHtml5TreeOpExecutor final
       public nsAHtml5TreeOpSink,
       public mozilla::LinkedListElement<nsHtml5TreeOpExecutor> {
   friend class nsHtml5FlushLoopGuard;
-  typedef mozilla::net::ReferrerPolicy ReferrerPolicy;
+  typedef mozilla::dom::ReferrerPolicy ReferrerPolicy;
   using Encoding = mozilla::Encoding;
   template <typename T>
   using NotNull = mozilla::NotNull<T>;
@@ -68,11 +71,6 @@ class nsHtml5TreeOpExecutor final
 
   nsCOMPtr<nsIURI> mSpeculationBaseURI;
 
-  /**
-   * Speculative referrer policy
-   */
-  ReferrerPolicy mSpeculationReferrerPolicy;
-
   nsCOMPtr<nsIURI> mViewSourceBaseURI;
 
   /**
@@ -91,6 +89,12 @@ class nsHtml5TreeOpExecutor final
    * to character encoding declarations.
    */
   bool mAlreadyComplainedAboutCharset;
+
+  /**
+   * Whether this executor has already complained about the tree being too
+   * deep.
+   */
+  bool mAlreadyComplainedAboutDeepTree;
 
  public:
   nsHtml5TreeOpExecutor();
@@ -125,6 +129,8 @@ class nsHtml5TreeOpExecutor final
    * Unimplemented. For interface compat only.
    */
   NS_IMETHOD WillResume() override;
+
+  virtual void InitialTranslationCompleted() override;
 
   /**
    * Sets the parser.
@@ -185,7 +191,9 @@ class nsHtml5TreeOpExecutor final
   void MaybeComplainAboutCharset(const char* aMsgId, bool aError,
                                  uint32_t aLineNumber);
 
-  void ComplainAboutBogusProtocolCharset(nsIDocument* aDoc);
+  void ComplainAboutBogusProtocolCharset(mozilla::dom::Document*);
+
+  void MaybeComplainAboutDeepTree(uint32_t aLineNumber);
 
   bool HasStarted() { return mStarted; }
 
@@ -225,16 +233,17 @@ class nsHtml5TreeOpExecutor final
                      const nsAString& aType, const nsAString& aCrossOrigin,
                      const nsAString& aIntegrity,
                      ReferrerPolicy aReferrerPolicy, bool aScriptFromHead,
-                     bool aAsync, bool aDefer, bool aNoModule);
+                     bool aAsync, bool aDefer, bool aNoModule,
+                     bool aLinkPreload);
 
   void PreloadStyle(const nsAString& aURL, const nsAString& aCharset,
                     const nsAString& aCrossOrigin,
                     const nsAString& aReferrerPolicy,
-                    const nsAString& aIntegrity);
+                    const nsAString& aIntegrity, bool aLinkPreload);
 
   void PreloadImage(const nsAString& aURL, const nsAString& aCrossOrigin,
                     const nsAString& aSrcset, const nsAString& aSizes,
-                    const nsAString& aImageReferrerPolicy);
+                    const nsAString& aImageReferrerPolicy, bool aLinkPreload);
 
   void PreloadOpenPicture();
 
@@ -243,10 +252,15 @@ class nsHtml5TreeOpExecutor final
   void PreloadPictureSource(const nsAString& aSrcset, const nsAString& aSizes,
                             const nsAString& aType, const nsAString& aMedia);
 
+  void PreloadFont(const nsAString& aURL, const nsAString& aCrossOrigin,
+                   const nsAString& aReferrerPolicy);
+
+  void PreloadFetch(const nsAString& aURL, const nsAString& aCrossOrigin,
+                    const nsAString& aReferrerPolicy);
+
   void SetSpeculationBase(const nsAString& aURL);
 
-  void SetSpeculationReferrerPolicy(ReferrerPolicy aReferrerPolicy);
-  void SetSpeculationReferrerPolicy(const nsAString& aReferrerPolicy);
+  void UpdateReferrerInfoFromMeta(const nsAString& aMetaReferrer);
 
   void AddSpeculationCSP(const nsAString& aCSP);
 
@@ -274,6 +288,8 @@ class nsHtml5TreeOpExecutor final
   bool ShouldPreloadURI(nsIURI* aURI);
 
   ReferrerPolicy GetPreloadReferrerPolicy(const nsAString& aReferrerPolicy);
+
+  ReferrerPolicy GetPreloadReferrerPolicy(ReferrerPolicy aReferrerPolicy);
 };
 
 #endif  // nsHtml5TreeOpExecutor_h

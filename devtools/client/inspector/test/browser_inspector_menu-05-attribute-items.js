@@ -1,4 +1,3 @@
-/* vim: set ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
 http://creativecommons.org/publicdomain/zero/1.0/ */
 "use strict";
@@ -32,11 +31,15 @@ add_task(async function() {
   }
 
   async function testCopyAttributeValue() {
-    info("Testing 'Copy Attribute Value' and waiting for clipboard promise to resolve");
+    info(
+      "Testing 'Copy Attribute Value' and waiting for clipboard promise to resolve"
+    );
     const copyAttributeValue = getMenuItem("node-menu-copy-attribute");
 
-    info("Triggering 'Copy Attribute Value' and waiting for clipboard to copy the value");
-    inspector.nodeMenuTriggerInfo = {
+    info(
+      "Triggering 'Copy Attribute Value' and waiting for clipboard to copy the value"
+    );
+    inspector.markup.contextMenu.nodeMenuTriggerInfo = {
       type: "attribute",
       name: "data-edit",
       value: "the",
@@ -48,18 +51,22 @@ add_task(async function() {
   async function testCopyLongAttributeValue() {
     info("Testing 'Copy Attribute Value' copies very long attribute values");
     const copyAttributeValue = getMenuItem("node-menu-copy-attribute");
-    const longAttribute = "#01234567890123456789012345678901234567890123456789" +
-    "12345678901234567890123456789012345678901234567890123456789012345678901" +
-    "23456789012345678901234567890123456789012345678901234567890123456789012" +
-    "34567890123456789012345678901234567890123456789012345678901234567890123";
+    const longAttribute =
+      "#01234567890123456789012345678901234567890123456789" +
+      "12345678901234567890123456789012345678901234567890123456789012345678901" +
+      "23456789012345678901234567890123456789012345678901234567890123456789012" +
+      "34567890123456789012345678901234567890123456789012345678901234567890123";
 
-    inspector.nodeMenuTriggerInfo = {
+    inspector.markup.contextMenu.nodeMenuTriggerInfo = {
       type: "attribute",
       name: "data-edit",
       value: longAttribute,
     };
 
-    await waitForClipboardPromise(() => copyAttributeValue.click(), longAttribute);
+    await waitForClipboardPromise(
+      () => copyAttributeValue.click(),
+      longAttribute
+    );
   }
 
   async function testEditAttribute() {
@@ -67,7 +74,7 @@ add_task(async function() {
     const editAttribute = getMenuItem("node-menu-edit-attribute");
 
     info("Triggering 'Edit Attribute' and waiting for mutation to occur");
-    inspector.nodeMenuTriggerInfo = {
+    inspector.markup.contextMenu.nodeMenuTriggerInfo = {
       type: "attribute",
       name: "data-edit",
     };
@@ -77,8 +84,9 @@ add_task(async function() {
     EventUtils.synthesizeKey("KEY_Enter");
     await onMutation;
 
-    const isAttributeChanged =
-      await testActor.hasNode("#attributes[data-edit='edited']");
+    const isAttributeChanged = await testActor.hasNode(
+      "#attributes[data-edit='edited']"
+    );
     ok(isAttributeChanged, "attribute was successfully edited");
   }
 
@@ -87,7 +95,7 @@ add_task(async function() {
     const removeAttribute = getMenuItem("node-menu-remove-attribute");
 
     info("Triggering 'Remove Attribute' and waiting for mutation to occur");
-    inspector.nodeMenuTriggerInfo = {
+    inspector.markup.contextMenu.nodeMenuTriggerInfo = {
       type: "attribute",
       name: "data-remove",
     };

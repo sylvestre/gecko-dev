@@ -5,15 +5,15 @@
  * found in the LICENSE file.
  */
 
-#include "SkWbmpCodec.h"
+#include "src/codec/SkWbmpCodec.h"
 
-#include "SkCodec.h"
-#include "SkCodecPriv.h"
-#include "SkColorData.h"
-#include "SkColorTable.h"
-#include "SkData.h"
-#include "SkStream.h"
-#include "SkTo.h"
+#include "include/codec/SkCodec.h"
+#include "include/core/SkData.h"
+#include "include/core/SkStream.h"
+#include "include/private/SkColorData.h"
+#include "include/private/SkTo.h"
+#include "src/codec/SkCodecPriv.h"
+#include "src/codec/SkColorTable.h"
 
 // Each bit represents a pixel, so width is actually a number of bits.
 // A row will always be stored in bytes, so we round width up to the
@@ -89,10 +89,6 @@ bool SkWbmpCodec::onRewind() {
     return read_header(this->stream(), nullptr);
 }
 
-SkSwizzler* SkWbmpCodec::initializeSwizzler(const SkImageInfo& info, const Options& opts) {
-    return SkSwizzler::CreateSwizzler(this->getEncodedInfo(), nullptr, info, opts);
-}
-
 bool SkWbmpCodec::readRow(uint8_t* row) {
     return this->stream()->read(row, fSrcRowBytes) == fSrcRowBytes;
 }
@@ -125,7 +121,8 @@ SkCodec::Result SkWbmpCodec::onGetPixels(const SkImageInfo& info,
     }
 
     // Initialize the swizzler
-    std::unique_ptr<SkSwizzler> swizzler(this->initializeSwizzler(info, options));
+    std::unique_ptr<SkSwizzler> swizzler = SkSwizzler::Make(this->getEncodedInfo(), nullptr, info,
+                                                            options);
     SkASSERT(swizzler);
 
     // Perform the decode
@@ -187,8 +184,7 @@ SkCodec::Result SkWbmpCodec::onStartScanlineDecode(const SkImageInfo& dstInfo,
         return kUnimplemented;
     }
 
-    // Initialize the swizzler
-    fSwizzler.reset(this->initializeSwizzler(dstInfo, options));
+    fSwizzler = SkSwizzler::Make(this->getEncodedInfo(), nullptr, dstInfo, options);
     SkASSERT(fSwizzler);
 
     fSrcBuffer.reset(fSrcRowBytes);

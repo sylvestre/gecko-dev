@@ -26,9 +26,12 @@ class nsITreeView;
 
 namespace mozilla {
 
+class PresShell;
+
 namespace dom {
 class DOMStringList;
-}
+class Element;
+}  // namespace dom
 
 namespace a11y {
 
@@ -51,7 +54,8 @@ SelectionManager* SelectionMgr();
 ApplicationAccessible* ApplicationAcc();
 xpcAccessibleApplication* XPCApplicationAcc();
 
-typedef Accessible*(New_Accessible)(Element* aElement, Accessible* aContext);
+typedef Accessible*(New_Accessible)(mozilla::dom::Element* aElement,
+                                    Accessible* aContext);
 
 // These fields are not `nsStaticAtom* const` because MSVC doesn't like it.
 struct MarkupAttrInfo {
@@ -108,7 +112,7 @@ class nsAccessibilityService final : public mozilla::a11y::DocManager,
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_NSIOBSERVER
 
-  Accessible* GetRootDocumentAccessible(nsIPresShell* aPresShell,
+  Accessible* GetRootDocumentAccessible(mozilla::PresShell* aPresShell,
                                         bool aCanCreate);
   already_AddRefed<Accessible> CreatePluginAccessible(nsPluginFrame* aFrame,
                                                       nsIContent* aContent,
@@ -156,38 +160,38 @@ class nsAccessibilityService final : public mozilla::a11y::DocManager,
    * Notification used to update the accessible tree when deck panel is
    * switched.
    */
-  void DeckPanelSwitched(nsIPresShell* aPresShell, nsIContent* aDeckNode,
+  void DeckPanelSwitched(mozilla::PresShell* aPresShell, nsIContent* aDeckNode,
                          nsIFrame* aPrevBoxFrame, nsIFrame* aCurrentBoxFrame);
 
   /**
    * Notification used to update the accessible tree when new content is
    * inserted.
    */
-  void ContentRangeInserted(nsIPresShell* aPresShell, nsIContent* aStartChild,
-                            nsIContent* aEndChild);
+  void ContentRangeInserted(mozilla::PresShell* aPresShell,
+                            nsIContent* aStartChild, nsIContent* aEndChild);
 
   /**
    * Notification used to update the accessible tree when content is removed.
    */
-  void ContentRemoved(nsIPresShell* aPresShell, nsIContent* aChild);
+  void ContentRemoved(mozilla::PresShell* aPresShell, nsIContent* aChild);
 
-  void UpdateText(nsIPresShell* aPresShell, nsIContent* aContent);
+  void UpdateText(mozilla::PresShell* aPresShell, nsIContent* aContent);
 
   /**
    * Update XUL:tree accessible tree when treeview is changed.
    */
-  void TreeViewChanged(nsIPresShell* aPresShell, nsIContent* aContent,
+  void TreeViewChanged(mozilla::PresShell* aPresShell, nsIContent* aContent,
                        nsITreeView* aView);
 
   /**
    * Notify of input@type="element" value change.
    */
-  void RangeValueChanged(nsIPresShell* aPresShell, nsIContent* aContent);
+  void RangeValueChanged(mozilla::PresShell* aPresShell, nsIContent* aContent);
 
   /**
    * Update list bullet accessible.
    */
-  void UpdateListBullet(nsIPresShell* aPresShell,
+  void UpdateListBullet(mozilla::PresShell* aPresShell,
                         nsIContent* aHTMLListItemContent, bool aHasBullet);
 
   /**
@@ -198,7 +202,7 @@ class nsAccessibilityService final : public mozilla::a11y::DocManager,
   /**
    * Update the label accessible tree when rendered @value is changed.
    */
-  void UpdateLabelValue(nsIPresShell* aPresShell, nsIContent* aLabelElm,
+  void UpdateLabelValue(mozilla::PresShell* aPresShell, nsIContent* aLabelElm,
                         const nsString& aNewValue);
 
   /**
@@ -210,14 +214,23 @@ class nsAccessibilityService final : public mozilla::a11y::DocManager,
   /**
    * Notify that presshell is activated.
    */
-  void PresShellActivated(nsIPresShell* aPresShell);
+  void PresShellActivated(mozilla::PresShell* aPresShell);
 
   /**
    * Recreate an accessible for the given content node in the presshell.
    */
-  void RecreateAccessible(nsIPresShell* aPresShell, nsIContent* aContent);
+  void RecreateAccessible(mozilla::PresShell* aPresShell, nsIContent* aContent);
 
   void FireAccessibleEvent(uint32_t aEvent, Accessible* aTarget);
+
+  /**
+   * Notify accessibility that the size has become available for an image.
+   * This occurs when the size of an image is initially not known, but we've
+   * now loaded enough data to know the size.
+   * Called by layout.
+   */
+  void NotifyOfImageSizeAvailable(mozilla::PresShell* aPresShell,
+                                  nsIContent* aContent);
 
   // nsAccessibiltiyService
 
@@ -241,6 +254,25 @@ class nsAccessibilityService final : public mozilla::a11y::DocManager,
     const mozilla::a11y::HTMLMarkupMapInfo* markupMap =
         mHTMLMarkupMap.Get(aContent->NodeInfo()->NameAtom());
     return markupMap ? markupMap->role : mozilla::a11y::roles::NOTHING;
+  }
+
+  /**
+   * Return the associated value for a given attribute if
+   * it appears in the MarkupMap. Otherwise, it returns null.
+   */
+  nsStaticAtom* MarkupAttribute(const nsIContent* aContent,
+                                nsStaticAtom* aAtom) const {
+    const mozilla::a11y::HTMLMarkupMapInfo* markupMap =
+        mHTMLMarkupMap.Get(aContent->NodeInfo()->NameAtom());
+    if (markupMap) {
+      for (size_t i = 0; i < mozilla::ArrayLength(markupMap->attrs); i++) {
+        const mozilla::a11y::MarkupAttrInfo* info = markupMap->attrs + i;
+        if (info->name == aAtom) {
+          return info->value;
+        }
+      }
+    }
+    return nullptr;
   }
 
   /**
@@ -465,6 +497,7 @@ static const char kEventTypeNames[][40] = {
     "virtual cursor changed",           // EVENT_VIRTUALCURSOR_CHANGED
     "text value change",                // EVENT_TEXT_VALUE_CHANGE
     "scrolling",                        // EVENT_SCROLLING
+    "announcement",                     // EVENT_ANNOUNCEMENT
 };
 
 #endif

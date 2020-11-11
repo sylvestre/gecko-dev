@@ -13,14 +13,15 @@
 namespace mozilla {
 namespace dom {
 
-/* static */ already_AddRefed<ChromeWorker> ChromeWorker::Constructor(
+/* static */
+already_AddRefed<ChromeWorker> ChromeWorker::Constructor(
     const GlobalObject& aGlobal, const nsAString& aScriptURL,
     ErrorResult& aRv) {
   JSContext* cx = aGlobal.Context();
 
   RefPtr<WorkerPrivate> workerPrivate = WorkerPrivate::Constructor(
-      cx, aScriptURL, true /* aIsChromeWorker */, WorkerTypeDedicated,
-      EmptyString(), VoidCString(), nullptr /*aLoadInfo */, aRv);
+      cx, aScriptURL, true /* aIsChromeWorker */, WorkerTypeDedicated, u""_ns,
+      VoidCString(), nullptr /*aLoadInfo */, aRv);
   if (NS_WARN_IF(aRv.Failed())) {
     return nullptr;
   }
@@ -33,8 +34,8 @@ namespace dom {
   return worker.forget();
 }
 
-/* static */ bool ChromeWorker::WorkerAvailable(JSContext* aCx,
-                                                JSObject* /* unused */) {
+/* static */
+bool ChromeWorker::WorkerAvailable(JSContext* aCx, JSObject* /* unused */) {
   // Chrome is always allowed to use workers, and content is never
   // allowed to use ChromeWorker, so all we have to check is the
   // caller.  However, chrome workers apparently might not have a

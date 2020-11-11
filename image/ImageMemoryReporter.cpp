@@ -7,6 +7,7 @@
 #include "ImageMemoryReporter.h"
 #include "Image.h"
 #include "mozilla/layers/SharedSurfacesParent.h"
+#include "mozilla/StaticPrefs_image.h"
 #include "nsIMemoryReporter.h"
 #include "nsISupportsImpl.h"
 
@@ -36,7 +37,8 @@ class ImageMemoryReporter::WebRenderReporter final : public nsIMemoryReporter {
 
 NS_IMPL_ISUPPORTS(ImageMemoryReporter::WebRenderReporter, nsIMemoryReporter)
 
-/* static */ void ImageMemoryReporter::InitForWebRender() {
+/* static */
+void ImageMemoryReporter::InitForWebRender() {
   MOZ_ASSERT(XRE_IsParentProcess() || XRE_IsGPUProcess());
   if (!sWrReporter) {
     sWrReporter = new WebRenderReporter();
@@ -44,7 +46,8 @@ NS_IMPL_ISUPPORTS(ImageMemoryReporter::WebRenderReporter, nsIMemoryReporter)
   }
 }
 
-/* static */ void ImageMemoryReporter::ShutdownForWebRender() {
+/* static */
+void ImageMemoryReporter::ShutdownForWebRender() {
   MOZ_ASSERT(XRE_IsParentProcess() || XRE_IsGPUProcess());
   if (sWrReporter) {
     UnregisterStrongMemoryReporter(sWrReporter);
@@ -52,14 +55,16 @@ NS_IMPL_ISUPPORTS(ImageMemoryReporter::WebRenderReporter, nsIMemoryReporter)
   }
 }
 
-/* static */ void ImageMemoryReporter::ReportSharedSurfaces(
+/* static */
+void ImageMemoryReporter::ReportSharedSurfaces(
     nsIHandleReportCallback* aHandleReport, nsISupports* aData,
     const layers::SharedSurfacesMemoryReport& aSharedSurfaces) {
   ReportSharedSurfaces(aHandleReport, aData,
                        /* aIsForCompositor */ false, aSharedSurfaces);
 }
 
-/* static */ void ImageMemoryReporter::ReportSharedSurfaces(
+/* static */
+void ImageMemoryReporter::ReportSharedSurfaces(
     nsIHandleReportCallback* aHandleReport, nsISupports* aData,
     bool aIsForCompositor,
     const layers::SharedSurfacesMemoryReport& aSharedSurfaces) {
@@ -74,7 +79,8 @@ NS_IMPL_ISUPPORTS(ImageMemoryReporter::WebRenderReporter, nsIMemoryReporter)
   }
 }
 
-/* static */ void ImageMemoryReporter::ReportSharedSurface(
+/* static */
+void ImageMemoryReporter::ReportSharedSurface(
     nsIHandleReportCallback* aHandleReport, nsISupports* aData,
     bool aIsForCompositor, uint64_t aExternalId,
     const layers::SharedSurfacesMemoryReport::SurfaceEntry& aEntry) {
@@ -91,7 +97,7 @@ NS_IMPL_ISUPPORTS(ImageMemoryReporter::WebRenderReporter, nsIMemoryReporter)
     path.AppendLiteral("/");
   }
 
-  if (gfxPrefs::ImageMemDebugReporting()) {
+  if (StaticPrefs::image_mem_debug_reporting()) {
     path.AppendInt(aExternalId, 16);
     path.AppendLiteral("/");
   }
@@ -104,33 +110,39 @@ NS_IMPL_ISUPPORTS(ImageMemoryReporter::WebRenderReporter, nsIMemoryReporter)
   path.AppendInt(aEntry.mConsumers);
   path.AppendLiteral(", creator_ref:");
   path.AppendInt(aEntry.mCreatorRef);
-  path.AppendLiteral(")/decoded-nonheap");
+  path.AppendLiteral(")/decoded-");
 
   size_t surfaceSize = mozilla::ipc::SharedMemory::PageAlignedSize(
       aEntry.mSize.height * aEntry.mStride);
 
   // If this memory has already been reported elsewhere (e.g. as part of our
   // explicit section in the surface cache), we don't want report it again as
-  // KIND_NONHEAP and have it counted again.
+  // KIND_NONHEAP and have it counted again. The paths must be different if the
+  // kinds are different to avoid problems when diffing memory reports.
   bool sameProcess = aEntry.mCreatorPid == base::GetCurrentProcId();
-  int32_t kind = aIsForCompositor && !sameProcess
-                     ? nsIMemoryReporter::KIND_NONHEAP
-                     : nsIMemoryReporter::KIND_OTHER;
+  int32_t kind;
+  if (aIsForCompositor && !sameProcess) {
+    path.AppendLiteral("nonheap");
+    kind = nsIMemoryReporter::KIND_NONHEAP;
+  } else {
+    path.AppendLiteral("other");
+    kind = nsIMemoryReporter::KIND_OTHER;
+  }
 
-  NS_NAMED_LITERAL_CSTRING(desc, "Decoded image data stored in shared memory.");
-  aHandleReport->Callback(EmptyCString(), path, kind,
-                          nsIMemoryReporter::UNITS_BYTES, surfaceSize, desc,
-                          aData);
+  constexpr auto desc = "Decoded image data stored in shared memory."_ns;
+  aHandleReport->Callback(""_ns, path, kind, nsIMemoryReporter::UNITS_BYTES,
+                          surfaceSize, desc, aData);
 }
 
-/* static */ void ImageMemoryReporter::AppendSharedSurfacePrefix(
+/* static */
+void ImageMemoryReporter::AppendSharedSurfacePrefix(
     nsACString& aPathPrefix, const SurfaceMemoryCounter& aCounter,
     layers::SharedSurfacesMemoryReport& aSharedSurfaces) {
   uint64_t extId = aCounter.Values().ExternalId();
   if (extId) {
     auto gpuEntry = aSharedSurfaces.mSurfaces.find(extId);
 
-    if (gfxPrefs::ImageMemDebugReporting()) {
+    if (StaticPrefs::image_mem_debug_reporting()) {
       aPathPrefix.AppendLiteral(", external_id:");
       aPathPrefix.AppendInt(extId, 16);
       if (gpuEntry != aSharedSurfaces.mSurfaces.end()) {
@@ -148,7 +160,8 @@ NS_IMPL_ISUPPORTS(ImageMemoryReporter::WebRenderReporter, nsIMemoryReporter)
   }
 }
 
-/* static */ void ImageMemoryReporter::TrimSharedSurfaces(
+/* static */
+void ImageMemoryReporter::TrimSharedSurfaces(
     const ImageMemoryCounter& aCounter,
     layers::SharedSurfacesMemoryReport& aSharedSurfaces) {
   if (aSharedSurfaces.mSurfaces.empty()) {

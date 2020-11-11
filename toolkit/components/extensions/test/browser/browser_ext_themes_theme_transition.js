@@ -10,11 +10,11 @@ add_task(async function test_theme_transition_effects() {
 
   let extension = ExtensionTestUtils.loadExtension({
     manifest: {
-      "theme": {
-        "colors": {
-          "tab_background_text": TEXT_COLOR,
-          "toolbar": TOOLBAR,
-          "bookmark_text": TEXT_COLOR,
+      theme: {
+        colors: {
+          tab_background_text: TEXT_COLOR,
+          toolbar: TOOLBAR,
+          bookmark_text: TEXT_COLOR,
         },
       },
     },
@@ -27,16 +27,20 @@ add_task(async function test_theme_transition_effects() {
   let navbarCS = window.getComputedStyle(navbar);
 
   Assert.ok(
-    navbarCS.getPropertyValue("transition-property").includes(TRANSITION_PROPERTY),
+    navbarCS
+      .getPropertyValue("transition-property")
+      .includes(TRANSITION_PROPERTY),
     "Transition property set for #nav-bar"
   );
 
   let bookmarksBar = document.querySelector("#PersonalToolbar");
-  bookmarksBar.setAttribute("collapsed", "false");
+  setToolbarVisibility(bookmarksBar, true, false, true);
   let bookmarksBarCS = window.getComputedStyle(bookmarksBar);
 
   Assert.ok(
-    bookmarksBarCS.getPropertyValue("transition-property").includes(TRANSITION_PROPERTY),
+    bookmarksBarCS
+      .getPropertyValue("transition-property")
+      .includes(TRANSITION_PROPERTY),
     "Transition property set for #PersonalToolbar"
   );
 

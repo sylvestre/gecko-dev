@@ -26,8 +26,12 @@ class GMPVideoDecoderParent final : public PGMPVideoDecoderParent,
                                     public GMPVideoDecoderProxy,
                                     public GMPSharedMemManager,
                                     public GMPCrashHelperHolder {
+  friend class PGMPVideoDecoderParent;
+
  public:
-  NS_INLINE_DECL_REFCOUNTING(GMPVideoDecoderParent)
+  // Mark AddRef and Release as `final`, as they overload pure virtual
+  // implementations in PGMPVideoDecoderParent.
+  NS_INLINE_DECL_REFCOUNTING(GMPVideoDecoderParent, final)
 
   explicit GMPVideoDecoderParent(GMPContentParent* aPlugin);
 
@@ -58,7 +62,7 @@ class GMPVideoDecoderParent final : public PGMPVideoDecoderParent,
     return AllocUnsafeShmem(aSize, aType, aMem);
 #endif
   }
-  void Dealloc(Shmem& aMem) override { DeallocShmem(aMem); }
+  void Dealloc(Shmem&& aMem) override { DeallocShmem(aMem); }
 
  private:
   ~GMPVideoDecoderParent();

@@ -14,6 +14,7 @@
 #include "nsITimedChannel.h"
 #include "nsCOMPtr.h"
 #include "nsThreadUtils.h"
+#include "mozilla/PreloaderBase.h"
 #include "mozilla/TimeStamp.h"
 #include "mozilla/UniquePtr.h"
 #include "mozilla/gfx/Rect.h"
@@ -34,17 +35,14 @@ class imgStatusNotifyRunnable;
 class ProxyBehaviour;
 
 namespace mozilla {
-namespace dom {
-class TabGroup;
-}
-
 namespace image {
 class Image;
 class ProgressTracker;
 }  // namespace image
 }  // namespace mozilla
 
-class imgRequestProxy : public imgIRequest,
+class imgRequestProxy : public mozilla::PreloaderBase,
+                        public imgIRequest,
                         public mozilla::image::IProgressObserver,
                         public nsISupportsPriority,
                         public nsITimedChannel {
@@ -52,9 +50,11 @@ class imgRequestProxy : public imgIRequest,
   virtual ~imgRequestProxy();
 
  public:
+  typedef mozilla::dom::Document Document;
   typedef mozilla::image::Image Image;
   typedef mozilla::image::ProgressTracker ProgressTracker;
 
+  NS_DECLARE_STATIC_IID_ACCESSOR(NS_IMGREQUESTPROXY_CID)
   MOZ_DECLARE_REFCOUNTED_TYPENAME(imgRequestProxy)
   NS_DECL_ISUPPORTS
   NS_DECL_IMGIREQUEST
@@ -67,7 +67,7 @@ class imgRequestProxy : public imgIRequest,
   // Callers to Init or ChangeOwner are required to call NotifyListener after
   // (although not immediately after) doing so.
   nsresult Init(imgRequest* aOwner, nsILoadGroup* aLoadGroup,
-                nsIDocument* aLoadingDocument, nsIURI* aURI,
+                Document* aLoadingDocument, nsIURI* aURI,
                 imgINotificationObserver* aObserver);
 
   nsresult ChangeOwner(imgRequest* aNewOwner);  // this will change mOwner.
@@ -111,7 +111,6 @@ class imgRequestProxy : public imgIRequest,
   void MarkValidating();
   void ClearValidating();
 
-  bool IsOnEventTarget() const;
   already_AddRefed<nsIEventTarget> GetEventTarget() const override;
 
   // Removes all animation consumers that were created with
@@ -121,11 +120,17 @@ class imgRequestProxy : public imgIRequest,
   void ClearAnimationConsumers();
 
   nsresult SyncClone(imgINotificationObserver* aObserver,
-                     nsIDocument* aLoadingDocument, imgRequestProxy** aClone);
+                     Document* aLoadingDocument, imgRequestProxy** aClone);
   nsresult Clone(imgINotificationObserver* aObserver,
-                 nsIDocument* aLoadingDocument, imgRequestProxy** aClone);
-  nsresult GetStaticRequest(nsIDocument* aLoadingDocument,
-                            imgRequestProxy** aReturn);
+                 Document* aLoadingDocument, imgRequestProxy** aClone);
+  already_AddRefed<imgRequestProxy> GetStaticRequest(
+      Document* aLoadingDocument);
+
+  imgRequest* GetOwner() const;
+
+  // PreloaderBase
+  // We are using the default image loader prioritization for preloads.
+  virtual void PrioritizeAsPreload() override {}
 
  protected:
   friend class mozilla::image::ProgressTracker;
@@ -152,7 +157,7 @@ class imgRequestProxy : public imgIRequest,
   /* Remove from and forget the load group. */
   void RemoveFromLoadGroup();
 
-  /* Remove from the load group and readd as a background request. */
+  /* Remove from the load group and re-add as a background request. */
   void MoveToBackgroundInLoadGroup();
 
   /* Finish up canceling ourselves */
@@ -176,11 +181,10 @@ class imgRequestProxy : public imgIRequest,
 
   already_AddRefed<Image> GetImage() const;
   bool HasImage() const;
-  imgRequest* GetOwner() const;
   imgCacheValidator* GetValidator() const;
 
   nsresult PerformClone(imgINotificationObserver* aObserver,
-                        nsIDocument* aLoadingDocument, bool aSyncNotify,
+                        Document* aLoadingDocument, bool aSyncNotify,
                         imgRequestProxy** aClone);
 
   virtual imgRequestProxy* NewClonedProxy();
@@ -194,11 +198,10 @@ class imgRequestProxy : public imgIRequest,
  private:
   friend class imgCacheValidator;
 
-  void AddToOwner(nsIDocument* aLoadingDocument);
+  void AddToOwner(Document* aLoadingDocument);
   void RemoveFromOwner(nsresult aStatus);
 
   nsresult DispatchWithTargetIfAvailable(already_AddRefed<nsIRunnable> aEvent);
-  void DispatchWithTarget(already_AddRefed<nsIRunnable> aEvent);
 
   // The URI of our request.
   nsCOMPtr<nsIURI> mURI;
@@ -212,7 +215,6 @@ class imgRequestProxy : public imgIRequest,
       "they are destroyed") mListener;
 
   nsCOMPtr<nsILoadGroup> mLoadGroup;
-  RefPtr<mozilla::dom::TabGroup> mTabGroup;
   nsCOMPtr<nsIEventTarget> mEventTarget;
 
   nsLoadFlags mLoadFlags;
@@ -232,13 +234,19 @@ class imgRequestProxy : public imgIRequest,
   bool mHadDispatch : 1;
 };
 
+NS_DEFINE_STATIC_IID_ACCESSOR(imgRequestProxy, NS_IMGREQUESTPROXY_CID)
+
 // Used for static image proxies for which no requests are available, so
 // certain behaviours must be overridden to compensate.
 class imgRequestProxyStatic : public imgRequestProxy {
  public:
-  imgRequestProxyStatic(Image* aImage, nsIPrincipal* aPrincipal);
+  imgRequestProxyStatic(Image* aImage, nsIPrincipal* aPrincipal,
+                        bool hadCrossOriginRedirects);
 
   NS_IMETHOD GetImagePrincipal(nsIPrincipal** aPrincipal) override;
+
+  NS_IMETHOD GetHadCrossOriginRedirects(
+      bool* aHadCrossOriginRedirects) override;
 
  protected:
   imgRequestProxy* NewClonedProxy() override;
@@ -246,6 +254,7 @@ class imgRequestProxyStatic : public imgRequestProxy {
   // Our principal. We have to cache it, rather than accessing the underlying
   // request on-demand, because static proxies don't have an underlying request.
   nsCOMPtr<nsIPrincipal> mPrincipal;
+  const bool mHadCrossOriginRedirects;
 };
 
 #endif  // mozilla_image_imgRequestProxy_h

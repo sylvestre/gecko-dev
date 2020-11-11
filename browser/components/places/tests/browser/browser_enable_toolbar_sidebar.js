@@ -19,32 +19,41 @@ async function selectAppMenuView(buttonId, viewId) {
     btn = document.getElementById(buttonId);
     return btn;
   }, "Should have the " + buttonId + "button");
+  btn.click();
   let view = document.getElementById(viewId);
   let viewPromise = BrowserTestUtils.waitForEvent(view, "ViewShown");
-  btn.click();
   await viewPromise;
 }
 
 async function openBookmarkingToolsPanelInLibraryToolbarButton() {
   await selectAppMenuView("library-button", "appMenu-libraryView");
-  await selectAppMenuView("appMenu-library-bookmarks-button", "PanelUI-bookmarks");
-  await selectAppMenuView("panelMenu_bookmarkingTools", "PanelUI-bookmarkingTools");
+  await selectAppMenuView(
+    "appMenu-library-bookmarks-button",
+    "PanelUI-bookmarks"
+  );
+  await selectAppMenuView(
+    "panelMenu_bookmarkingTools",
+    "PanelUI-bookmarkingTools"
+  );
 }
 
 add_task(async function test_enable_toolbar() {
   await openBookmarkingToolsPanelInLibraryToolbarButton();
+  let toolbar = document.getElementById("PersonalToolbar");
+  Assert.ok(toolbar.collapsed, "Bookmarks Toolbar is hidden");
 
   let viewBookmarksToolbarBtn;
   await BrowserTestUtils.waitForCondition(() => {
-    viewBookmarksToolbarBtn = document.getElementById("panelMenu_viewBookmarksToolbar");
+    viewBookmarksToolbarBtn = document.getElementById(
+      "panelMenu_viewBookmarksToolbar"
+    );
     return viewBookmarksToolbarBtn;
   }, "Should have the library 'View Bookmarks Toolbar' button.");
   viewBookmarksToolbarBtn.click();
-  let toolbar;
-  await BrowserTestUtils.waitForCondition(() => {
-    toolbar = document.getElementById("PersonalToolbar");
-    return !toolbar.collapsed;
-  }, "Should have the Bookmarks Toolbar enabled.");
+  await BrowserTestUtils.waitForCondition(
+    () => !toolbar.collapsed,
+    "Should have the Bookmarks Toolbar enabled."
+  );
   Assert.ok(!toolbar.collapsed, "Bookmarks Toolbar is enabled");
 });
 
@@ -53,7 +62,9 @@ add_task(async function test_enable_sidebar() {
 
   let viewBookmarksSidebarBtn;
   await BrowserTestUtils.waitForCondition(() => {
-    viewBookmarksSidebarBtn = document.getElementById("panelMenu_viewBookmarksSidebar");
+    viewBookmarksSidebarBtn = document.getElementById(
+      "panelMenu_viewBookmarksSidebar"
+    );
     return viewBookmarksSidebarBtn;
   }, "Should have the library 'View Bookmarks Sidebar' button.");
   viewBookmarksSidebarBtn.click();

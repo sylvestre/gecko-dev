@@ -1,7 +1,7 @@
 "use strict";
 
 const STATE = {
-  entries: [{url: "about:robots"}, {url: "about:mozilla"}],
+  entries: [{ url: "about:robots" }, { url: "about:mozilla" }],
   selected: 2,
 };
 
@@ -13,8 +13,10 @@ const STATE = {
  * restored history around.
  */
 add_task(async function() {
-  await testSwitchToTab("about:mozilla#fooobar", {ignoreFragment: "whenComparingAndReplace"});
-  await testSwitchToTab("about:mozilla?foo=bar", {replaceQueryString: true});
+  await testSwitchToTab("about:mozilla#fooobar", {
+    ignoreFragment: "whenComparingAndReplace",
+  });
+  await testSwitchToTab("about:mozilla?foo=bar", { replaceQueryString: true });
 });
 
 var testSwitchToTab = async function(url, options) {
@@ -42,7 +44,7 @@ var testSwitchToTab = async function(url, options) {
   is(browser.currentURI.spec, url, "correct URL loaded");
 
   // Check that we didn't lose any history entries.
-  await ContentTask.spawn(browser, null, async function() {
+  await SpecialPowers.spawn(browser, [], async function() {
     let webNavigation = docShell.QueryInterface(Ci.nsIWebNavigation);
     let history = webNavigation.sessionHistory;
     Assert.equal(history && history.count, 3, "three history entries");

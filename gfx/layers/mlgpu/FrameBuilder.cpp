@@ -33,7 +33,7 @@ FrameBuilder::FrameBuilder(LayerManagerMLGPU* aManager,
   mRoot = mManager->GetRoot()->AsHostLayer()->AsLayerMLGPU();
 }
 
-FrameBuilder::~FrameBuilder() {}
+FrameBuilder::~FrameBuilder() = default;
 
 bool FrameBuilder::Build() {
   AUTO_PROFILER_LABEL("FrameBuilder::Build", GRAPHICS);
@@ -309,7 +309,7 @@ MaskOperation* FrameBuilder::AddMaskOperation(LayerMLGPU* aLayer) {
   RefPtr<MLGTexture> wrapped = mDevice->CreateTexture(texture);
 
   op = new MaskOperation(this, wrapped);
-  mSingleTextureMasks.Put(texture, op);
+  mSingleTextureMasks.Put(texture, RefPtr{op});
   return op;
 }
 
@@ -318,6 +318,10 @@ void FrameBuilder::RetainTemporaryLayer(LayerMLGPU* aLayer) {
   // have parents.
   MOZ_ASSERT(!aLayer->GetLayer()->GetParent());
   mTemporaryLayers.push_back(aLayer->GetLayer());
+}
+
+MLGRenderTarget* FrameBuilder::GetWidgetRT() {
+  return mWidgetRenderView->GetRenderTarget();
 }
 
 LayerConstants* FrameBuilder::AllocateLayerInfo(ItemInfo& aItem) {

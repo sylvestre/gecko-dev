@@ -5,17 +5,20 @@
 
 #include "nsPrintProgress.h"
 
+#include "mozilla/dom/BrowsingContext.h"
 #include "nsArray.h"
-#include "nsIBaseWindow.h"
 #include "nsIDocShell.h"
 #include "nsIDocShellTreeOwner.h"
 #include "nsIInterfaceRequestorUtils.h"
-#include "nsIXULWindow.h"
+#include "nsIPrintSettings.h"
+#include "nsIAppWindow.h"
 #include "nsXPCOM.h"
 #include "nsISupportsPrimitives.h"
 #include "nsIComponentManager.h"
 #include "nsPIDOMWindow.h"
 #include "nsXULAppAPI.h"
+
+using mozilla::dom::BrowsingContext;
 
 NS_IMPL_ADDREF(nsPrintProgress)
 NS_IMPL_RELEASE(nsPrintProgress)
@@ -26,7 +29,7 @@ NS_INTERFACE_MAP_BEGIN(nsPrintProgress)
   NS_INTERFACE_MAP_ENTRY(nsIWebProgressListener)
 NS_INTERFACE_MAP_END
 
-nsPrintProgress::nsPrintProgress(nsIPrintSettings *aPrintSettings) {
+nsPrintProgress::nsPrintProgress(nsIPrintSettings* aPrintSettings) {
   m_closeProgress = false;
   m_processCanceled = false;
   m_pendingStateFlags = -1;
@@ -37,8 +40,8 @@ nsPrintProgress::nsPrintProgress(nsIPrintSettings *aPrintSettings) {
 nsPrintProgress::~nsPrintProgress() { (void)ReleaseListeners(); }
 
 NS_IMETHODIMP nsPrintProgress::OpenProgressDialog(
-    mozIDOMWindowProxy *parent, const char *dialogURL, nsISupports *parameters,
-    nsIObserver *openDialogObserver, bool *notifyOnOpen) {
+    mozIDOMWindowProxy* parent, const char* dialogURL, nsISupports* parameters,
+    nsIObserver* openDialogObserver, bool* notifyOnOpen) {
   *notifyOnOpen = true;
   m_observer = openDialogObserver;
   nsresult rv = NS_ERROR_FAILURE;
@@ -55,7 +58,7 @@ NS_IMETHODIMP nsPrintProgress::OpenProgressDialog(
         do_CreateInstance(NS_SUPPORTS_INTERFACE_POINTER_CONTRACTID, &rv);
     NS_ENSURE_SUCCESS(rv, rv);
 
-    ifptr->SetData(static_cast<nsIPrintProgress *>(this));
+    ifptr->SetData(static_cast<nsIPrintProgress*>(this));
     ifptr->SetDataIID(&NS_GET_IID(nsIPrintProgress));
 
     array->AppendElement(ifptr);
@@ -74,20 +77,20 @@ NS_IMETHODIMP nsPrintProgress::OpenProgressDialog(
     nsCOMPtr<nsIDocShellTreeOwner> owner;
     docShell->GetTreeOwner(getter_AddRefs(owner));
 
-    nsCOMPtr<nsIXULWindow> ownerXULWindow = do_GetInterface(owner);
-    nsCOMPtr<mozIDOMWindowProxy> ownerWindow = do_GetInterface(ownerXULWindow);
+    nsCOMPtr<nsIAppWindow> ownerAppWindow = do_GetInterface(owner);
+    nsCOMPtr<mozIDOMWindowProxy> ownerWindow = do_GetInterface(ownerAppWindow);
     NS_ENSURE_STATE(ownerWindow);
 
     nsCOMPtr<nsPIDOMWindowOuter> piOwnerWindow =
         nsPIDOMWindowOuter::From(ownerWindow);
 
     // Open the dialog.
-    nsCOMPtr<nsPIDOMWindowOuter> newWindow;
+    RefPtr<BrowsingContext> newBC;
 
-    rv = piOwnerWindow->OpenDialog(
-        NS_ConvertASCIItoUTF16(dialogURL), NS_LITERAL_STRING("_blank"),
-        NS_LITERAL_STRING("chrome,titlebar,dependent,centerscreen"), array,
-        getter_AddRefs(newWindow));
+    rv = piOwnerWindow->OpenDialog(NS_ConvertASCIItoUTF16(dialogURL),
+                                   u"_blank"_ns,
+                                   u"chrome,titlebar,dependent,centerscreen"_ns,
+                                   array, getter_AddRefs(newBC));
   }
 
   return rv;
@@ -100,7 +103,7 @@ NS_IMETHODIMP nsPrintProgress::CloseProgressDialog(bool forceClose) {
                        (nsresult)forceClose);
 }
 
-NS_IMETHODIMP nsPrintProgress::GetPrompter(nsIPrompt **_retval) {
+NS_IMETHODIMP nsPrintProgress::GetPrompter(nsIPrompt** _retval) {
   NS_ENSURE_ARG_POINTER(_retval);
   *_retval = nullptr;
 
@@ -114,7 +117,7 @@ NS_IMETHODIMP nsPrintProgress::GetPrompter(nsIPrompt **_retval) {
 }
 
 NS_IMETHODIMP nsPrintProgress::GetProcessCanceledByUser(
-    bool *aProcessCanceledByUser) {
+    bool* aProcessCanceledByUser) {
   NS_ENSURE_ARG_POINTER(aProcessCanceledByUser);
   *aProcessCanceledByUser = m_processCanceled;
   return NS_OK;
@@ -132,7 +135,7 @@ NS_IMETHODIMP nsPrintProgress::SetProcessCanceledByUser(
 }
 
 NS_IMETHODIMP nsPrintProgress::RegisterListener(
-    nsIWebProgressListener *listener) {
+    nsIWebProgressListener* listener) {
   if (!listener)  // Nothing to do with a null listener!
     return NS_OK;
 
@@ -151,7 +154,7 @@ NS_IMETHODIMP nsPrintProgress::RegisterListener(
 }
 
 NS_IMETHODIMP nsPrintProgress::UnregisterListener(
-    nsIWebProgressListener *listener) {
+    nsIWebProgressListener* listener) {
   if (listener) m_listenerList.RemoveObject(listener);
 
   return NS_OK;
@@ -164,8 +167,8 @@ NS_IMETHODIMP nsPrintProgress::DoneIniting() {
   return NS_OK;
 }
 
-NS_IMETHODIMP nsPrintProgress::OnStateChange(nsIWebProgress *aWebProgress,
-                                             nsIRequest *aRequest,
+NS_IMETHODIMP nsPrintProgress::OnStateChange(nsIWebProgress* aWebProgress,
+                                             nsIRequest* aRequest,
                                              uint32_t aStateFlags,
                                              nsresult aStatus) {
   if (XRE_IsE10sParentProcess() &&
@@ -191,8 +194,8 @@ NS_IMETHODIMP nsPrintProgress::OnStateChange(nsIWebProgress *aWebProgress,
   return NS_OK;
 }
 
-NS_IMETHODIMP nsPrintProgress::OnProgressChange(nsIWebProgress *aWebProgress,
-                                                nsIRequest *aRequest,
+NS_IMETHODIMP nsPrintProgress::OnProgressChange(nsIWebProgress* aWebProgress,
+                                                nsIRequest* aRequest,
                                                 int32_t aCurSelfProgress,
                                                 int32_t aMaxSelfProgress,
                                                 int32_t aCurTotalProgress,
@@ -218,17 +221,17 @@ NS_IMETHODIMP nsPrintProgress::OnProgressChange(nsIWebProgress *aWebProgress,
   return NS_OK;
 }
 
-NS_IMETHODIMP nsPrintProgress::OnLocationChange(nsIWebProgress *aWebProgress,
-                                                nsIRequest *aRequest,
-                                                nsIURI *location,
+NS_IMETHODIMP nsPrintProgress::OnLocationChange(nsIWebProgress* aWebProgress,
+                                                nsIRequest* aRequest,
+                                                nsIURI* location,
                                                 uint32_t aFlags) {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
-NS_IMETHODIMP nsPrintProgress::OnStatusChange(nsIWebProgress *aWebProgress,
-                                              nsIRequest *aRequest,
+NS_IMETHODIMP nsPrintProgress::OnStatusChange(nsIWebProgress* aWebProgress,
+                                              nsIRequest* aRequest,
                                               nsresult aStatus,
-                                              const char16_t *aMessage) {
+                                              const char16_t* aMessage) {
   if (aMessage && *aMessage) m_pendingStatus = aMessage;
 
   uint32_t count = m_listenerList.Count();
@@ -243,9 +246,14 @@ NS_IMETHODIMP nsPrintProgress::OnStatusChange(nsIWebProgress *aWebProgress,
   return NS_OK;
 }
 
-NS_IMETHODIMP nsPrintProgress::OnSecurityChange(nsIWebProgress *aWebProgress,
-                                                nsIRequest *aRequest,
-                                                uint32_t state) {
+NS_IMETHODIMP nsPrintProgress::OnSecurityChange(nsIWebProgress* aWebProgress,
+                                                nsIRequest* aRequest,
+                                                uint32_t aState) {
+  return NS_OK;
+}
+
+NS_IMETHODIMP nsPrintProgress::OnContentBlockingEvent(
+    nsIWebProgress* aWebProgress, nsIRequest* aRequest, uint32_t aEvent) {
   return NS_OK;
 }
 

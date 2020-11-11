@@ -8,14 +8,12 @@
 
 #include "osx_wifi.h"
 
-#include "nsAutoPtr.h"
 #include "nsCOMArray.h"
 #include "nsWifiMonitor.h"
 #include "nsWifiAccessPoint.h"
 
 #include "nsServiceManagerUtils.h"
 #include "nsComponentManagerUtils.h"
-#include "nsIMutableArray.h"
 
 using namespace mozilla;
 
@@ -23,7 +21,7 @@ using namespace mozilla;
 // basically replaces accesspoints in the passed reference
 // it lives in a separate file so that we can use objective c.
 extern nsresult GetAccessPointsFromWLAN(
-    nsCOMArray<nsWifiAccessPoint> &accessPoints);
+    nsCOMArray<nsWifiAccessPoint>& accessPoints);
 
 nsresult nsWifiMonitor::DoScan() {
   // Regularly get the access point data.

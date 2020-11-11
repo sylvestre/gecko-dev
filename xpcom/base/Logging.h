@@ -14,7 +14,7 @@
 #include "mozilla/Atomics.h"
 #include "mozilla/Attributes.h"
 #include "mozilla/Likely.h"
-#include "mozilla/Poison.h"
+#include "mozilla/TimeStamp.h"
 
 // We normally have logging enabled everywhere, but measurements showed that
 // having logging enabled on Android is quite expensive (hundreds of kilobytes
@@ -26,10 +26,17 @@
 // Android.  Given that logging can still be useful for development purposes,
 // however, we leave logging enabled on Android developer builds.
 #if !defined(ANDROID) || !defined(RELEASE_OR_BETA)
-#define MOZ_LOGGING_ENABLED 1
+#  define MOZ_LOGGING_ENABLED 1
 #else
-#define MOZ_LOGGING_ENABLED 0
+#  define MOZ_LOGGING_ENABLED 0
 #endif
+
+// The mandatory extension we add to log files.  Note that rotate will append
+// the file piece number still at the end.
+#define MOZ_LOG_FILE_EXTENSION ".moz_log"
+
+// Token for Process ID substitution.
+#define MOZ_LOG_PID_TOKEN "%PID"
 
 namespace mozilla {
 
@@ -122,13 +129,16 @@ class LogModule {
   /**
    * Sets the log module's level.
    */
-  void SetLevel(LogLevel level) { mLevel = level; }
+  void SetLevel(LogLevel level);
 
   /**
    * Print a log message for this module.
    */
   void Printv(LogLevel aLevel, const char* aFmt, va_list aArgs) const
       MOZ_FORMAT_PRINTF(3, 0);
+
+  void Printv(LogLevel aLevel, const TimeStamp* aStart, const char* aFmt,
+              va_list aArgs) const MOZ_FORMAT_PRINTF(4, 0);
 
   /**
    * Retrieves the module name.
@@ -146,10 +156,7 @@ class LogModule {
 
   char* mName;
 
-  // Logging atomics and other state are not preserved by web replay, as they
-  // may be accessed during the GC and other areas where recorded events are
-  // not allowed.
-  Atomic<LogLevel, Relaxed, recordreplay::Behavior::DontPreserve> mLevel;
+  Atomic<LogLevel, Relaxed> mLevel;
 };
 
 /**
@@ -169,15 +176,24 @@ class LazyLogModule final {
   explicit constexpr LazyLogModule(const char* aLogName)
       : mLogName(aLogName), mLog(nullptr) {}
 
-  operator LogModule*();
+  MOZ_NEVER_INLINE_DEBUG operator LogModule*() {
+    // NB: The use of an atomic makes the reading and assignment of mLog
+    //     thread-safe. There is a small chance that mLog will be set more
+    //     than once, but that's okay as it will be set to the same LogModule
+    //     instance each time. Also note LogModule::Get is thread-safe.
+    LogModule* tmp = mLog;
+    if (MOZ_UNLIKELY(!tmp)) {
+      tmp = LogModule::Get(mLogName);
+      mLog = tmp;
+    }
+
+    return tmp;
+  }
 
  private:
   const char* const mLogName;
-  const CorruptionCanaryForStatics mCanary;
 
-  // As for LogModule::mLevel, don't preserve behavior for this atomic when
-  // recording/replaying.
-  Atomic<LogModule*, ReleaseAcquire, recordreplay::Behavior::DontPreserve> mLog;
+  Atomic<LogModule*, ReleaseAcquire> mLog;
 };
 
 namespace detail {
@@ -189,6 +205,9 @@ inline bool log_test(const LogModule* module, LogLevel level) {
 
 void log_print(const LogModule* aModule, LogLevel aLevel, const char* aFmt, ...)
     MOZ_FORMAT_PRINTF(3, 4);
+
+void log_print(const LogModule* aModule, LogLevel aLevel, TimeStamp* aStart,
+               const char* aFmt, ...) MOZ_FORMAT_PRINTF(4, 5);
 }  // namespace detail
 
 }  // namespace mozilla
@@ -199,7 +218,8 @@ void log_print(const LogModule* aModule, LogLevel aLevel, const char* aFmt, ...)
 #define MOZ_LOG_EXPAND_ARGS(...) __VA_ARGS__
 
 #if MOZ_LOGGING_ENABLED
-#define MOZ_LOG_TEST(_module, _level) mozilla::detail::log_test(_module, _level)
+#  define MOZ_LOG_TEST(_module, _level) \
+    MOZ_UNLIKELY(mozilla::detail::log_test(_module, _level))
 #else
 // Define away MOZ_LOG_TEST here so the compiler will fold away entire
 // logging blocks via dead code elimination, e.g.:
@@ -207,7 +227,7 @@ void log_print(const LogModule* aModule, LogLevel aLevel, const char* aFmt, ...)
 //   if (MOZ_LOG_TEST(...)) {
 //     ...compute things to log and log them...
 //   }
-#define MOZ_LOG_TEST(_module, _level) false
+#  define MOZ_LOG_TEST(_module, _level) false
 #endif
 
 // The natural definition of the MOZ_LOG macro would expand to:
@@ -247,22 +267,43 @@ void log_print(const LogModule* aModule, LogLevel aLevel, const char* aFmt, ...)
 // MOZ_LOG even when logging is disabled to ensure the compiler sees that
 // variables only used during logging code are actually used, even if the
 // code will never be executed.)  Hence, the following code.
+//
+// MOZ_LOG_DURATION takes a start time, and will generate a time range
+// in the logs.  Also, if 'profilermarkers' is used in the env var
+// MOZ_LOG, MOZ_LOG_DURATION will generate a marker with a time
+// duration instead of a single point in time.
 #if MOZ_LOGGING_ENABLED
-#define MOZ_LOG(_module, _level, _args)                      \
-  do {                                                       \
-    const ::mozilla::LogModule* moz_real_module = _module;   \
-    if (MOZ_LOG_TEST(moz_real_module, _level)) {             \
-      mozilla::detail::log_print(moz_real_module, _level,    \
-                                 MOZ_LOG_EXPAND_ARGS _args); \
-    }                                                        \
-  } while (0)
+#  define MOZ_LOG(_module, _level, _args)                      \
+    do {                                                       \
+      const ::mozilla::LogModule* moz_real_module = _module;   \
+      if (MOZ_LOG_TEST(moz_real_module, _level)) {             \
+        mozilla::detail::log_print(moz_real_module, _level,    \
+                                   MOZ_LOG_EXPAND_ARGS _args); \
+      }                                                        \
+    } while (0)
+#  define MOZ_LOG_DURATION(_module, _level, start, _args)          \
+    do {                                                           \
+      const ::mozilla::LogModule* moz_real_module = _module;       \
+      if (MOZ_LOG_TEST(moz_real_module, _level)) {                 \
+        mozilla::detail::log_print(moz_real_module, _level, start, \
+                                   MOZ_LOG_EXPAND_ARGS _args);     \
+      }                                                            \
+    } while (0)
 #else
-#define MOZ_LOG(_module, _level, _args)                                       \
-  do {                                                                        \
-    if (MOZ_LOG_TEST(_module, _level)) {                                      \
-      mozilla::detail::log_print(_module, _level, MOZ_LOG_EXPAND_ARGS _args); \
-    }                                                                         \
-  } while (0)
+#  define MOZ_LOG(_module, _level, _args)                      \
+    do {                                                       \
+      if (MOZ_LOG_TEST(_module, _level)) {                     \
+        mozilla::detail::log_print(_module, _level,            \
+                                   MOZ_LOG_EXPAND_ARGS _args); \
+      }                                                        \
+    } while (0)
+#  define MOZ_LOG_DURATION(_module, _level, start, _args)      \
+    do {                                                       \
+      if (MOZ_LOG_TEST(_module, _level)) {                     \
+        mozilla::detail::log_print(_module, _level, start,     \
+                                   MOZ_LOG_EXPAND_ARGS _args); \
+      }                                                        \
+    } while (0)
 #endif
 
 // This #define is a Logging.h-only knob!  Don't encourage people to get fancy

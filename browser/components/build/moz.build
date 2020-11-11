@@ -7,21 +7,16 @@
 with Files("**"):
     BUG_COMPONENT = ("Firefox Build System", "General")
 
-EXPORTS += [
-    'nsBrowserCompsCID.h',
+XPCOM_MANIFESTS += [
+    "components.conf",
 ]
 
-SOURCES += [
-    'nsModule.cpp',
-]
-
-Library('browsercomps')
-FINAL_LIBRARY = 'xul'
+Library("browsercomps")
+FINAL_LIBRARY = "xul"
 
 LOCAL_INCLUDES += [
-    '../about',
-    '../dirprovider',
-    '../migration',
-    '../sessionstore',
-    '../shell',
+    "../about",
+    "../migration",
+    "../sessionstore",
+    "../shell",
 ]

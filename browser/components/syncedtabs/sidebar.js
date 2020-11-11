@@ -4,32 +4,44 @@
 
 "use strict";
 
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
-ChromeUtils.import("resource://services-sync/SyncedTabs.jsm");
-ChromeUtils.import("resource:///modules/syncedtabs/SyncedTabsDeckComponent.js");
-ChromeUtils.import("resource:///actors/LightweightThemeChild.jsm");
+const { SyncedTabs } = ChromeUtils.import(
+  "resource://services-sync/SyncedTabs.jsm"
+);
+const { SyncedTabsDeckComponent } = ChromeUtils.import(
+  "resource:///modules/syncedtabs/SyncedTabsDeckComponent.js"
+);
 
-ChromeUtils.defineModuleGetter(this, "fxAccounts",
-                               "resource://gre/modules/FxAccounts.jsm");
-
-var syncedTabsDeckComponent = new SyncedTabsDeckComponent({window, SyncedTabs, fxAccounts});
-
-let themeListener;
+var syncedTabsDeckComponent = new SyncedTabsDeckComponent({
+  window,
+  SyncedTabs,
+});
 
 let onLoaded = () => {
-  themeListener = new LightweightThemeChild({
-    content: window,
-    chromeOuterWindowID: window.top.windowUtils.outerWindowID,
-    docShell: window.docShell,
-  });
+  window.top.MozXULElement.insertFTLIfNeeded("browser/syncedTabs.ftl");
+  window.top.document
+    .getElementById("SyncedTabsSidebarContext")
+    .querySelectorAll("[data-lazy-l10n-id]")
+    .forEach(el => {
+      el.setAttribute("data-l10n-id", el.getAttribute("data-lazy-l10n-id"));
+      el.removeAttribute("data-lazy-l10n-id");
+    });
   syncedTabsDeckComponent.init();
-  document.getElementById("template-container").appendChild(syncedTabsDeckComponent.container);
+  document
+    .getElementById("template-container")
+    .appendChild(syncedTabsDeckComponent.container);
+
+  // Needed due to Bug 1596852.
+  // Should be removed once this bug is resolved.
+  window.addEventListener(
+    "pageshow",
+    e => {
+      window.windowGlobalChild.getActor("LightweightTheme").handleEvent(e);
+    },
+    { once: true }
+  );
 };
 
 let onUnloaded = () => {
-  if (themeListener) {
-    themeListener.cleanup();
-  }
   removeEventListener("DOMContentLoaded", onLoaded);
   removeEventListener("unload", onUnloaded);
   syncedTabsDeckComponent.uninit();

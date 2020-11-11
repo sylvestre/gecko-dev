@@ -9,8 +9,7 @@
 #include "nsContentUtils.h"
 #include "prtime.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 KeyboardEvent::KeyboardEvent(EventTarget* aOwner, nsPresContext* aPresContext,
                              WidgetKeyboardEvent* aEvent)
@@ -84,7 +83,7 @@ void KeyboardEvent::GetCode(nsAString& aCodeName, CallerType aCallerType) {
 
   // When fingerprinting resistance is enabled, we will give a spoofed code
   // according to the content-language of the document.
-  nsCOMPtr<nsIDocument> doc = GetDocument();
+  nsCOMPtr<Document> doc = GetDocument();
 
   nsRFPService::GetSpoofedCode(doc, mEvent->AsKeyboardEvent(), aCodeName);
 }
@@ -227,7 +226,7 @@ uint32_t KeyboardEvent::ComputeTraditionalKeyCode(
 
   // When fingerprinting resistance is enabled, we will give a spoofed keyCode
   // according to the content-language of the document.
-  nsCOMPtr<nsIDocument> doc = GetDocument();
+  nsCOMPtr<Document> doc = GetDocument();
   uint32_t spoofedKeyCode;
 
   if (nsRFPService::GetSpoofedKeyCode(doc, &aKeyboardEvent, spoofedKeyCode)) {
@@ -273,18 +272,17 @@ uint32_t KeyboardEvent::Location() {
 // static
 already_AddRefed<KeyboardEvent> KeyboardEvent::ConstructorJS(
     const GlobalObject& aGlobal, const nsAString& aType,
-    const KeyboardEventInit& aParam, ErrorResult& aRv) {
+    const KeyboardEventInit& aParam) {
   nsCOMPtr<EventTarget> target = do_QueryInterface(aGlobal.GetAsSupports());
   RefPtr<KeyboardEvent> newEvent = new KeyboardEvent(target, nullptr, nullptr);
-  newEvent->InitWithKeyboardEventInit(target, aType, aParam, aRv);
+  newEvent->InitWithKeyboardEventInit(target, aType, aParam);
 
   return newEvent.forget();
 }
 
 void KeyboardEvent::InitWithKeyboardEventInit(EventTarget* aOwner,
                                               const nsAString& aType,
-                                              const KeyboardEventInit& aParam,
-                                              ErrorResult& aRv) {
+                                              const KeyboardEventInit& aParam) {
   bool trusted = Init(aOwner);
   InitKeyEventJS(aType, aParam.mBubbles, aParam.mCancelable, aParam.mView,
                  false, false, false, false, aParam.mKeyCode, aParam.mCharCode);
@@ -328,13 +326,10 @@ void KeyboardEvent::InitKeyEventJS(const nsAString& aType, bool aCanBubble,
   keyEvent->mCharCode = aCharCode;
 }
 
-void KeyboardEvent::InitKeyboardEventJS(const nsAString& aType, bool aCanBubble,
-                                        bool aCancelable,
-                                        nsGlobalWindowInner* aView,
-                                        const nsAString& aKey,
-                                        uint32_t aLocation, bool aCtrlKey,
-                                        bool aAltKey, bool aShiftKey,
-                                        bool aMetaKey, ErrorResult& aRv) {
+void KeyboardEvent::InitKeyboardEventJS(
+    const nsAString& aType, bool aCanBubble, bool aCancelable,
+    nsGlobalWindowInner* aView, const nsAString& aKey, uint32_t aLocation,
+    bool aCtrlKey, bool aAltKey, bool aShiftKey, bool aMetaKey) {
   NS_ENSURE_TRUE_VOID(!mEvent->mFlags.mIsBeingDispatched);
   mInitializedByJS = true;
   mInitializedByCtor = false;
@@ -364,7 +359,7 @@ bool KeyboardEvent::ShouldResistFingerprinting(CallerType aCallerType) {
     return false;
   }
 
-  nsCOMPtr<nsIDocument> doc = GetDocument();
+  nsCOMPtr<Document> doc = GetDocument();
 
   return doc && !nsContentUtils::IsChromeDoc(doc);
 }
@@ -372,7 +367,7 @@ bool KeyboardEvent::ShouldResistFingerprinting(CallerType aCallerType) {
 bool KeyboardEvent::GetSpoofedModifierStates(const Modifiers aModifierKey,
                                              const bool aRawModifierState) {
   bool spoofedState;
-  nsCOMPtr<nsIDocument> doc = GetDocument();
+  nsCOMPtr<Document> doc = GetDocument();
 
   if (nsRFPService::GetSpoofedModifierStates(doc, mEvent->AsKeyboardEvent(),
                                              aModifierKey, spoofedState)) {
@@ -382,8 +377,7 @@ bool KeyboardEvent::GetSpoofedModifierStates(const Modifiers aModifierKey,
   return aRawModifierState;
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom
 
 using namespace mozilla;
 using namespace mozilla::dom;

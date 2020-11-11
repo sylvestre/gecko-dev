@@ -15,18 +15,15 @@
 #include "nsCOMArray.h"
 #include "nsCycleCollectionParticipant.h"
 #include "mozilla/TimeStamp.h"
-#include "mozilla/layers/APZUtils.h"
-#include "nsIFrame.h"
+#include "mozilla/layers/APZPublicUtils.h"
 #include "Units.h"
 #include "WheelHandlingHelper.h"  // for WheelDeltaAdjustmentStrategy
 
-#define NS_USER_INTERACTION_INTERVAL 5000  // ms
-
 class nsFrameLoader;
 class nsIContent;
-class nsIDocument;
 class nsIDocShell;
 class nsIDocShellTreeItem;
+class nsIFrame;
 class imgIContainer;
 class nsIContentViewer;
 class nsIScrollableFrame;
@@ -43,9 +40,12 @@ class WheelTransaction;
 
 namespace dom {
 class DataTransfer;
+class Document;
 class Element;
 class Selection;
-class TabParent;
+class BrowserParent;
+class RemoteDragStartData;
+
 }  // namespace dom
 
 class OverOutElementsWrapper final : public nsISupports {
@@ -97,6 +97,7 @@ class EventStateManager : public nsSupportsWeakReference, public nsIObserver {
    * used as the *up target when deciding whether to send click event.
    * This is used when releasing pointer capture. Otherwise null.
    */
+  MOZ_CAN_RUN_SCRIPT
   nsresult PreHandleEvent(nsPresContext* aPresContext, WidgetEvent* aEvent,
                           nsIFrame* aTargetFrame, nsIContent* aTargetContent,
                           nsEventStatus* aStatus,
@@ -107,7 +108,7 @@ class EventStateManager : public nsSupportsWeakReference, public nsIObserver {
    * also contain any centralized event processing which must occur after
    * DOM and frame processing.
    */
-  MOZ_CAN_RUN_SCRIPT_BOUNDARY
+  MOZ_CAN_RUN_SCRIPT
   nsresult PostHandleEvent(nsPresContext* aPresContext, WidgetEvent* aEvent,
                            nsIFrame* aTargetFrame, nsEventStatus* aStatus,
                            nsIContent* aOverrideClickTarget);
@@ -130,6 +131,13 @@ class EventStateManager : public nsSupportsWeakReference, public nsIObserver {
   nsIFrame* GetEventTarget();
   already_AddRefed<nsIContent> GetEventTargetContent(WidgetEvent* aEvent);
 
+  // We manage 4 states here: ACTIVE, HOVER, DRAGOVER, URLTARGET
+  static bool ManagesState(EventStates aState) {
+    return aState == NS_EVENT_STATE_ACTIVE || aState == NS_EVENT_STATE_HOVER ||
+           aState == NS_EVENT_STATE_DRAGOVER ||
+           aState == NS_EVENT_STATE_URLTARGET;
+  }
+
   /**
    * Notify that the given NS_EVENT_STATE_* bit has changed for this content.
    * @param aContent Content which has changed states
@@ -144,7 +152,7 @@ class EventStateManager : public nsSupportsWeakReference, public nsIObserver {
   bool SetContentState(nsIContent* aContent, EventStates aState);
 
   void NativeAnonymousContentRemoved(nsIContent* aAnonContent);
-  void ContentRemoved(nsIDocument* aDocument, nsIContent* aContent);
+  void ContentRemoved(dom::Document* aDocument, nsIContent* aContent);
 
   bool EventStatusOK(WidgetGUIEvent* aEvent);
 
@@ -231,55 +239,24 @@ class EventStateManager : public nsSupportsWeakReference, public nsIObserver {
   bool CheckIfEventMatchesAccessKey(WidgetKeyboardEvent* aEvent,
                                     nsPresContext* aPresContext);
 
-  nsresult SetCursor(int32_t aCursor, imgIContainer* aContainer,
-                     bool aHaveHotspot, float aHotspotX, float aHotspotY,
-                     nsIWidget* aWidget, bool aLockCursor);
+  nsresult SetCursor(StyleCursorKind aCursor, imgIContainer* aContainer,
+                     const Maybe<gfx::IntPoint>& aHotspot, nsIWidget* aWidget,
+                     bool aLockCursor);
 
   /**
-   * StartHandlingUserInput() is called when we start to handle a user input.
-   * StopHandlingUserInput() is called when we finish handling a user input.
-   * If the caller knows which input event caused that, it should set
-   * aMessage to the event message.  Otherwise, set eVoidEvent.
-   * Note that StopHandlingUserInput() caller should call it with exactly same
-   * event message as its corresponding StartHandlingUserInput() call because
-   * these methods may count the number of specific event message.
+   * Checks if the current mouse over element matches the given
+   * Element (which has a remote frame), and if so, notifies
+   * the BrowserParent of the mouse enter.
+   * Called when we reconstruct the BrowserParent and need to
+   * recompute state on the new object.
    */
-  static void StartHandlingUserInput(EventMessage aMessage);
-  static void StopHandlingUserInput(EventMessage aMessage);
-
-  static TimeStamp GetHandlingInputStart() { return sHandlingInputStart; }
-
-  /**
-   * Returns true if the current code is being executed as a result of
-   * user input or keyboard input.  The former includes anything that is
-   * initiated by user, with the exception of page load events or mouse
-   * over events.  And the latter returns true when one of the user inputs
-   * is an input from keyboard.  If these methods are called from asynchronously
-   * executed code, such as during layout reflows, it will return false.
-   */
-  static bool IsHandlingUserInput();
-  static bool IsHandlingKeyboardInput();
-
-  /**
-   * Get the number of user inputs handled since process start. This
-   * includes anything that is initiated by user, with the exception
-   * of page load events or mouse over events.
-   */
-  static uint64_t UserInputCount() { return sUserInputCounter; }
-
-  /**
-   * Get the timestamp at which the latest user input was handled.
-   *
-   * Guaranteed to be monotonic. Until the first user input, return
-   * the epoch.
-   */
-  static TimeStamp LatestUserInputStart() { return sLatestUserInputStart; }
+  void RecomputeMouseEnterStateForRemoteFrame(dom::Element& aElement);
 
   nsPresContext* GetPresContext() { return mPresContext; }
 
   NS_DECL_CYCLE_COLLECTION_CLASS_AMBIGUOUS(EventStateManager, nsIObserver)
 
-  static nsIDocument* sMouseOverDocument;
+  static dom::Document* sMouseOverDocument;
 
   static EventStateManager* GetActiveEventStateManager() { return sActiveESM; }
 
@@ -291,7 +268,9 @@ class EventStateManager : public nsSupportsWeakReference, public nsIObserver {
   // Sets the fullscreen event state on aElement to aIsFullscreen.
   static void SetFullscreenState(dom::Element* aElement, bool aIsFullscreen);
 
-  static bool IsRemoteTarget(nsIContent* aTarget);
+  static bool IsRemoteTarget(nsIContent* target);
+
+  static bool IsTopLevelRemoteTarget(nsIContent* aTarget);
 
   // Returns the kind of APZ action the given WidgetWheelEvent will perform.
   static Maybe<layers::APZWheelAction> APZWheelActionFor(
@@ -362,29 +341,12 @@ class EventStateManager : public nsSupportsWeakReference, public nsIObserver {
    *                                set nullptr.
    */
   MOZ_CAN_RUN_SCRIPT
-  nsresult HandleMiddleClickPaste(nsIPresShell* aPresShell,
+  nsresult HandleMiddleClickPaste(PresShell* aPresShell,
                                   WidgetMouseEvent* aMouseEvent,
                                   nsEventStatus* aStatus,
                                   TextEditor* aTextEditor);
 
  protected:
-  /**
-   * Prefs class capsules preference management.
-   */
-  class Prefs {
-   public:
-    static bool KeyCausesActivation() { return sKeyCausesActivation; }
-    static bool ClickHoldContextMenu() { return sClickHoldContextMenu; }
-
-    static void Init();
-
-   private:
-    static bool sKeyCausesActivation;
-    static bool sClickHoldContextMenu;
-
-    static int32_t GetAccessModifierMask(int32_t aItemType);
-  };
-
   /*
    * If aTargetFrame's widget has a cached cursor value, resets the cursor
    * such that the next call to SetCursor on the widget will force an update
@@ -484,9 +446,9 @@ class EventStateManager : public nsSupportsWeakReference, public nsIObserver {
   MOZ_CAN_RUN_SCRIPT
   static nsresult InitAndDispatchClickEvent(
       WidgetMouseEvent* aMouseUpEvent, nsEventStatus* aStatus,
-      EventMessage aMessage, nsIPresShell* aPresShell,
-      nsIContent* aMouseUpContent, AutoWeakFrame aCurrentTarget,
-      bool aNoContentDispatch, nsIContent* aOverrideClickTarget);
+      EventMessage aMessage, PresShell* aPresShell, nsIContent* aMouseUpContent,
+      AutoWeakFrame aCurrentTarget, bool aNoContentDispatch,
+      nsIContent* aOverrideClickTarget);
 
   nsresult SetClickCount(WidgetMouseEvent* aEvent, nsEventStatus* aStatus,
                          nsIContent* aOverrideClickTarget = nullptr);
@@ -537,14 +499,15 @@ class EventStateManager : public nsSupportsWeakReference, public nsIObserver {
    *                                current target frame of the ESM are ignored.
    */
   MOZ_CAN_RUN_SCRIPT
-  nsresult DispatchClickEvents(nsIPresShell* aPresShell,
+  nsresult DispatchClickEvents(PresShell* aPresShell,
                                WidgetMouseEvent* aMouseUpEvent,
                                nsEventStatus* aStatus,
                                nsIContent* aMouseUpContent,
                                nsIContent* aOverrideClickTarget);
 
   void EnsureDocument(nsPresContext* aPresContext);
-  void FlushPendingEvents(nsPresContext* aPresContext);
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY
+  void FlushLayout(nsPresContext* aPresContext);
 
   /**
    * The phases of WalkESMTreeToHandleAccessKey processing. See below.
@@ -603,7 +566,8 @@ class EventStateManager : public nsSupportsWeakReference, public nsIObserver {
    *                    is true, a target is executed or focused.
    */
   bool LookForAccessKeyAndExecute(nsTArray<uint32_t>& aAccessCharCodes,
-                                  bool aIsTrustedEvent, bool aExecute);
+                                  bool aIsTrustedEvent, bool aIsRepeat,
+                                  bool aExecute);
 
   //---------------------------------------------
   // DocShell Focus Traversal Methods
@@ -674,26 +638,6 @@ class EventStateManager : public nsSupportsWeakReference, public nsIObserver {
      */
     bool IsOverOnePageScrollAllowedX(const WidgetWheelEvent* aEvent);
     bool IsOverOnePageScrollAllowedY(const WidgetWheelEvent* aEvent);
-
-    /**
-     * WheelEventsEnabledOnPlugins() returns true if user wants to use mouse
-     * wheel on plugins.
-     */
-    static bool WheelEventsEnabledOnPlugins();
-
-    /**
-     * Returns whether the auto-dir feature is enabled for wheel scrolling. For
-     * detailed information on auto-dir,
-     * @see mozilla::WheelDeltaAdjustmentStrategy.
-     */
-    static bool IsAutoDirEnabled();
-
-    /**
-     * Returns whether auto-dir scrolling honours root elements instead of the
-     * scrolling targets. For detailed information on auto-dir,
-     * @see mozilla::WheelDeltaAdjustmentStrategy.
-     */
-    static bool HonoursRootForAutoDir();
 
    private:
     WheelPrefs();
@@ -769,9 +713,6 @@ class EventStateManager : public nsSupportsWeakReference, public nsIObserver {
     Action mOverriddenActionsX[COUNT_OF_MULTIPLIERS];
 
     static WheelPrefs* sInstance;
-    static bool sWheelEventsEnabledOnPlugins;
-    static bool sIsAutoDirEnabled;
-    static bool sHonoursRootForAutoDir;
   };
 
   /**
@@ -946,9 +887,7 @@ class EventStateManager : public nsSupportsWeakReference, public nsIObserver {
 
   void DoScrollHistory(int32_t direction);
   void DoScrollZoom(nsIFrame* aTargetFrame, int32_t adjustment);
-  nsresult GetContentViewer(nsIContentViewer** aCv);
-  nsresult ChangeTextSize(int32_t change);
-  nsresult ChangeFullZoom(int32_t change);
+  void ChangeZoom(bool aIncrease);
 
   /**
    * DeltaAccumulator class manages delta values for dispatching DOMMouseScroll
@@ -1040,9 +979,16 @@ class EventStateManager : public nsSupportsWeakReference, public nsIObserver {
 
   LayoutDeviceIntPoint GetEventRefPoint(WidgetEvent* aEvent) const;
 
-  friend class mozilla::dom::TabParent;
-  void BeginTrackingRemoteDragGesture(nsIContent* aContent);
-  void StopTrackingDragGesture();
+  friend class mozilla::dom::BrowserParent;
+  void BeginTrackingRemoteDragGesture(nsIContent* aContent,
+                                      dom::RemoteDragStartData* aDragStartData);
+
+  // Stop tracking a possible drag. If aClearInChildProcesses is true, send
+  // a notification to any child processes that are in the drag service that
+  // tried to start a drag.
+  void StopTrackingDragGesture(bool aClearInChildProcesses);
+
+  MOZ_CAN_RUN_SCRIPT
   void GenerateDragGesture(nsPresContext* aPresContext,
                            WidgetInputEvent* aEvent);
 
@@ -1050,6 +996,7 @@ class EventStateManager : public nsSupportsWeakReference, public nsIObserver {
    * When starting a dnd session, UA must fire a pointercancel event and stop
    * firing the subsequent pointer events.
    */
+  MOZ_CAN_RUN_SCRIPT
   void MaybeFirePointerCancel(WidgetInputEvent* aEvent);
 
   /**
@@ -1059,18 +1006,19 @@ class EventStateManager : public nsSupportsWeakReference, public nsIObserver {
    *
    * aSelectionTarget - target to check for selection
    * aDataTransfer - data transfer object that will contain the data to drag
+   * aAllowEmptyDataTransfer - [out] set to true, if dnd operation can be
+   *                           started even if DataTransfer is empty
    * aSelection - [out] set to the selection to be dragged
    * aTargetNode - [out] the draggable node, or null if there isn't one
-   * aPrincipalURISpec - [out] set to the URI of the triggering principal of
-   *                           the drag, or an empty string if it's from
-   *                           browser chrome or OS
+   * aPrincipal - [out] set to the triggering principal of the drag, or null
+   *                    if it's from browser chrome or OS
    */
-  void DetermineDragTargetAndDefaultData(nsPIDOMWindowOuter* aWindow,
-                                         nsIContent* aSelectionTarget,
-                                         dom::DataTransfer* aDataTransfer,
-                                         dom::Selection** aSelection,
-                                         nsIContent** aTargetNode,
-                                         nsACString& aPrincipalURISpec);
+  void DetermineDragTargetAndDefaultData(
+      nsPIDOMWindowOuter* aWindow, nsIContent* aSelectionTarget,
+      dom::DataTransfer* aDataTransfer, bool* aAllowEmptyDataTransfer,
+      dom::Selection** aSelection,
+      dom::RemoteDragStartData** aRemoteDragStartData, nsIContent** aTargetNode,
+      nsIPrincipal** aPrincipal, nsIContentSecurityPolicy** aCsp);
 
   /*
    * Perform the default handling for the dragstart event and set up a
@@ -1079,16 +1027,23 @@ class EventStateManager : public nsSupportsWeakReference, public nsIObserver {
    *
    * aDragEvent - the dragstart event
    * aDataTransfer - the data transfer that holds the data to be dragged
+   * aAllowEmptyDataTransfer - if true, dnd can be started even if there is no
+   *                           data to drag
    * aDragTarget - the target of the drag
    * aSelection - the selection to be dragged
-   * aPrincipalURISpec - the URI of the triggering principal of the drag,
-   *                     or an empty string if it's from browser chrome or OS
+   * aData - information pertaining to a drag started in a child process
+   * aPrincipal - the triggering principal of the drag, or null if it's from
+   *              browser chrome or OS
    */
+  MOZ_CAN_RUN_SCRIPT
   bool DoDefaultDragStart(nsPresContext* aPresContext,
                           WidgetDragEvent* aDragEvent,
                           dom::DataTransfer* aDataTransfer,
-                          nsIContent* aDragTarget, dom::Selection* aSelection,
-                          const nsACString& aPrincipalURISpec);
+                          bool aAllowEmptyDataTransfer, nsIContent* aDragTarget,
+                          dom::Selection* aSelection,
+                          dom::RemoteDragStartData* aDragStartData,
+                          nsIPrincipal* aPrincipal,
+                          nsIContentSecurityPolicy* aCsp);
 
   bool IsTrackingDragGesture() const { return mGestureDownContent != nullptr; }
   /**
@@ -1099,10 +1054,11 @@ class EventStateManager : public nsSupportsWeakReference, public nsIObserver {
    */
   void FillInEventFromGestureDown(WidgetMouseEvent* aEvent);
 
+  MOZ_CAN_RUN_SCRIPT
   nsresult DoContentCommandEvent(WidgetContentCommandEvent* aEvent);
   nsresult DoContentCommandScrollEvent(WidgetContentCommandEvent* aEvent);
 
-  dom::TabParent* GetCrossProcessTarget();
+  dom::BrowserParent* GetCrossProcessTarget();
   bool IsTargetCrossProcess(WidgetGUIEvent* aEvent);
 
   /**
@@ -1110,7 +1066,8 @@ class EventStateManager : public nsSupportsWeakReference, public nsIObserver {
    * If you need to check if the event is posted to a remote process, you
    * can use aEvent->HasBeenPostedToRemoteProcess().
    */
-  void DispatchCrossProcessEvent(WidgetEvent* aEvent, nsFrameLoader* aRemote,
+  void DispatchCrossProcessEvent(WidgetEvent* aEvent,
+                                 dom::BrowserParent* aRemoteTarget,
                                  nsEventStatus* aStatus);
   /**
    * HandleCrossProcessEvent() may post aEvent to target remote processes.
@@ -1124,7 +1081,8 @@ class EventStateManager : public nsSupportsWeakReference, public nsIObserver {
 
   void ReleaseCurrentIMEContentObserver();
 
-  void HandleQueryContentEvent(WidgetQueryContentEvent* aEvent);
+  MOZ_CAN_RUN_SCRIPT void HandleQueryContentEvent(
+      WidgetQueryContentEvent* aEvent);
 
  private:
   // Removes a node from the :hover / :active chain if needed, notifying if the
@@ -1172,7 +1130,7 @@ class EventStateManager : public nsSupportsWeakReference, public nsIObserver {
   already_AddRefed<EventStateManager> ESMFromContentOrThis(
       nsIContent* aContent);
 
-  int32_t mLockCursor;
+  StyleCursorKind mLockCursor;
   bool mLastFrameConsumedSetCursor;
 
   // Last mouse event mRefPoint (the offset from the widget's origin in
@@ -1203,6 +1161,8 @@ class EventStateManager : public nsSupportsWeakReference, public nsIObserver {
   // as the target in most cases but not always - for example when dragging
   // an <area> of an image map this is the image. (bug 289667)
   nsCOMPtr<nsIContent> mGestureDownFrameOwner;
+  // Data associated with a drag started in a content process.
+  RefPtr<dom::RemoteDragStartData> mGestureDownDragStartData;
   // State of keys when the original gesture-down happened
   Modifiers mGestureModifiers;
   uint16_t mGestureDownButtons;
@@ -1217,7 +1177,7 @@ class EventStateManager : public nsSupportsWeakReference, public nsIObserver {
   nsCOMPtr<nsIContent> mURLTargetContent;
 
   nsPresContext* mPresContext;      // Not refcnted
-  nsCOMPtr<nsIDocument> mDocument;  // Doesn't necessarily need to be owner
+  RefPtr<dom::Document> mDocument;  // Doesn't necessarily need to be owner
 
   RefPtr<IMEContentObserver> mIMEContentObserver;
 
@@ -1229,14 +1189,6 @@ class EventStateManager : public nsSupportsWeakReference, public nsIObserver {
 
   bool m_haveShutdown;
 
-  // Time at which we began handling user input. Reset to the epoch
-  // once we have finished handling user input.
-  static TimeStamp sHandlingInputStart;
-
-  // Time at which we began handling the latest user input. Not reset
-  // at the end of the input.
-  static TimeStamp sLatestUserInputStart;
-
   RefPtr<OverOutElementsWrapper> mMouseEnterLeaveHelper;
   nsRefPtrHashtable<nsUint32HashKey, OverOutElementsWrapper>
       mPointersEnterLeaveHelper;
@@ -1246,21 +1198,8 @@ class EventStateManager : public nsSupportsWeakReference, public nsIObserver {
   // Array for accesskey support
   nsCOMArray<nsIContent> mAccessKeys;
 
-  // The number of user inputs handled since process start. This
-  // includes anything that is initiated by user, with the exception
-  // of page load events or mouse over events.
-  static uint64_t sUserInputCounter;
-
-  // The current depth of user and keyboard inputs. sUserInputEventDepth
-  // is the number of any user input events, page load events and mouse over
-  // events.  sUserKeyboardEventDepth is the number of keyboard input events.
-  // Incremented whenever we start handling a user input, decremented when we
-  // have finished handling a user input. This depth is *not* reset in case
-  // of nested event loops.
-  static int32_t sUserInputEventDepth;
-  static int32_t sUserKeyboardEventDepth;
-
   static bool sNormalLMouseEventInProcess;
+  static int16_t sCurrentMouseBtn;
 
   static EventStateManager* sActiveESM;
 
@@ -1273,33 +1212,9 @@ class EventStateManager : public nsSupportsWeakReference, public nsIObserver {
   void KillClickHoldTimer();
   void FireContextClick();
 
-  static void SetPointerLock(nsIWidget* aWidget, nsIContent* aElement);
+  MOZ_CAN_RUN_SCRIPT static void SetPointerLock(nsIWidget* aWidget,
+                                                nsIContent* aElement);
   static void sClickHoldCallback(nsITimer* aTimer, void* aESM);
-};
-
-/**
- * This class is used while processing real user input. During this time, popups
- * are allowed. For mousedown events, mouse capturing is also permitted.
- */
-class AutoHandlingUserInputStatePusher {
- public:
-  AutoHandlingUserInputStatePusher(bool aIsHandlingUserInput,
-                                   WidgetEvent* aEvent, nsIDocument* aDocument);
-  ~AutoHandlingUserInputStatePusher();
-
- protected:
-  nsCOMPtr<nsIDocument> mMouseButtonEventHandlingDocument;
-  EventMessage mMessage;
-  bool mIsHandlingUserInput;
-
-  bool NeedsToResetFocusManagerMouseButtonHandlingState() const {
-    return mMessage == eMouseDown || mMessage == eMouseUp;
-  }
-
- private:
-  // Hide so that this class can only be stack-allocated
-  static void* operator new(size_t /*size*/) CPP_THROW_NEW { return nullptr; }
-  static void operator delete(void* /*memory*/) {}
 };
 
 }  // namespace mozilla

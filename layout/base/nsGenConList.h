@@ -10,15 +10,15 @@
 #define nsGenConList_h___
 
 #include "mozilla/LinkedList.h"
-#include "nsIFrame.h"
 #include "nsStyleStruct.h"
 #include "nsCSSPseudoElements.h"
 #include "nsTextNode.h"
 
 class nsGenConList;
+class nsIFrame;
 
 struct nsGenConNode : public mozilla::LinkedListElement<nsGenConNode> {
-  using StyleContentType = mozilla::StyleContentType;
+  using StyleContentType = mozilla::StyleContentItem::Tag;
 
   // The wrapper frame for all of the pseudo-element's content.  This
   // frame generally has useful style data and has the
@@ -31,8 +31,10 @@ struct nsGenConNode : public mozilla::LinkedListElement<nsGenConNode> {
   // and needed for similar cases for counters.
   const int32_t mContentIndex;
 
-  // null for 'content:no-open-quote', 'content:no-close-quote' and for
-  // counter nodes for increments and resets (rather than uses)
+  // null for:
+  //  * content: no-open-quote / content: no-close-quote
+  //  * counter nodes for increments and resets
+  //  * counter nodes for bullets (mPseudoFrame->IsBulletFrame()).
   RefPtr<nsTextNode> mText;
 
   explicit nsGenConNode(int32_t aContentIndex)
@@ -57,24 +59,32 @@ struct nsGenConNode : public mozilla::LinkedListElement<nsGenConNode> {
     return false;
   }
 
-  virtual ~nsGenConNode() {}  // XXX Avoid, perhaps?
+  virtual ~nsGenConNode() = default;  // XXX Avoid, perhaps?
 
  protected:
   void CheckFrameAssertions() {
     NS_ASSERTION(
-        mContentIndex < int32_t(mPseudoFrame->StyleContent()->ContentCount()),
+        mContentIndex < int32_t(mPseudoFrame->StyleContent()->ContentCount()) ||
+            // Special-case for the use node created for the legacy markers,
+            // which don't use the content property.
+            (mPseudoFrame->IsBulletFrame() && mContentIndex == 0 &&
+             mPseudoFrame->Style()->GetPseudoType() ==
+                 mozilla::PseudoStyleType::marker &&
+             !mPseudoFrame->StyleContent()->ContentCount()),
         "index out of range");
     // We allow negative values of mContentIndex for 'counter-reset' and
     // 'counter-increment'.
 
-    NS_ASSERTION(
-        mContentIndex < 0 ||
-            mPseudoFrame->Style()->GetPseudo() ==
-                nsCSSPseudoElements::before() ||
-            mPseudoFrame->Style()->GetPseudo() == nsCSSPseudoElements::after(),
-        "not :before/:after generated content and not counter change");
     NS_ASSERTION(mContentIndex < 0 ||
-                     mPseudoFrame->GetStateBits() & NS_FRAME_GENERATED_CONTENT,
+                     mPseudoFrame->Style()->GetPseudoType() ==
+                         mozilla::PseudoStyleType::before ||
+                     mPseudoFrame->Style()->GetPseudoType() ==
+                         mozilla::PseudoStyleType::after ||
+                     mPseudoFrame->Style()->GetPseudoType() ==
+                         mozilla::PseudoStyleType::marker,
+                 "not CSS generated content and not counter change");
+    NS_ASSERTION(mContentIndex < 0 ||
+                     mPseudoFrame->HasAnyStateBits(NS_FRAME_GENERATED_CONTENT),
                  "not generated content and not counter change");
   }
 };

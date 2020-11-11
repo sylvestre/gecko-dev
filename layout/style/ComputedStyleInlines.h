@@ -17,68 +17,34 @@
 #include "mozilla/ComputedStyle.h"
 #include "mozilla/ServoComputedDataInlines.h"
 #include "mozilla/ServoUtils.h"
+#include "nsPresContext.h"
 
 namespace mozilla {
 
-#define STYLE_STRUCT(name_)                                       \
-  const nsStyle##name_* ComputedStyle::Style##name_() {           \
-    return DoGetStyle##name_<true>();                             \
-  }                                                               \
-  const nsStyle##name_* ComputedStyle::ThreadsafeStyle##name_() { \
-    if (mozilla::IsInServoTraversal()) {                          \
-      return ComputedData()->GetStyle##name_();                   \
-    }                                                             \
-    return Style##name_();                                        \
-  }                                                               \
-  const nsStyle##name_* ComputedStyle::PeekStyle##name_() {       \
-    return DoGetStyle##name_<false>();                            \
+namespace detail {
+template <typename T, const T* (ComputedStyle::*Method)() const>
+void TriggerImageLoads(dom::Document& aDocument, const ComputedStyle* aOldStyle,
+                       ComputedStyle* aStyle) {
+  if constexpr (T::kHasTriggerImageLoads) {
+    auto* old = aOldStyle ? (aOldStyle->*Method)() : nullptr;
+    auto* current = const_cast<T*>((aStyle->*Method)());
+    current->TriggerImageLoads(aDocument, old);
+  } else {
+    Unused << aOldStyle;
+    Unused << aStyle;
   }
-#include "nsStyleStructList.h"
-#undef STYLE_STRUCT
-
-// Helper functions for GetStyle* and PeekStyle*
-#define STYLE_STRUCT(name_)                                                  \
-  template <bool aComputeData>                                               \
-  const nsStyle##name_* ComputedStyle::DoGetStyle##name_() {                 \
-    const auto kStructID = StyleStructID::name_;                             \
-    const bool needToCompute = !HasRequestedStruct(kStructID);               \
-    if (!aComputeData && needToCompute) {                                    \
-      return nullptr;                                                        \
-    }                                                                        \
-    const nsStyle##name_* data = ComputedData()->GetStyle##name_();          \
-    /* perform any remaining main thread work on the struct */               \
-    if (needToCompute) {                                                     \
-      MOZ_ASSERT(NS_IsMainThread());                                         \
-      MOZ_ASSERT(!mozilla::IsInServoTraversal());                            \
-      const_cast<nsStyle##name_*>(data)->FinishStyle(mPresContext, nullptr); \
-      /* the ComputedStyle owns the struct */                                \
-      SetRequestedStruct(kStructID);                                         \
-    }                                                                        \
-    return data;                                                             \
-  }
-#include "nsStyleStructList.h"
-#undef STYLE_STRUCT
-
-void ComputedStyle::StartBackgroundImageLoads() {
-  // Just get our background struct; that should do the trick
-  StyleBackground();
 }
+}  // namespace detail
 
-void ComputedStyle::ResolveSameStructsAs(const ComputedStyle* aOther) {
-  // Only resolve structs that are not already resolved in this struct.
-  auto newBits = aOther->mRequestedStructs & ~mRequestedStructs;
+void ComputedStyle::StartImageLoads(dom::Document& aDocument,
+                                    const ComputedStyle* aOldStyle) {
+  MOZ_ASSERT(NS_IsMainThread());
 
-#define STYLE_STRUCT(name_)                                                    \
-  if (nsStyle##name_::kHasFinishStyle &&                                       \
-      (newBits & StyleStructConstants::BitFor(StyleStructID::name_))) {        \
-    const nsStyle##name_* data = ComputedData()->GetStyle##name_();            \
-    const nsStyle##name_* oldData = aOther->ComputedData()->GetStyle##name_(); \
-    const_cast<nsStyle##name_*>(data)->FinishStyle(mPresContext, oldData);     \
-  }
+#define STYLE_STRUCT(name_)                                                \
+  detail::TriggerImageLoads<nsStyle##name_, &ComputedStyle::Style##name_>( \
+      aDocument, aOldStyle, this);
 #include "nsStyleStructList.h"
 #undef STYLE_STRUCT
-
-  mRequestedStructs |= newBits;
 }
 
 }  // namespace mozilla

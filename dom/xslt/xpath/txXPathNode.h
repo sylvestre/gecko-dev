@@ -6,9 +6,8 @@
 #ifndef txXPathNode_h__
 #define txXPathNode_h__
 
-#include "nsAutoPtr.h"
 #include "nsIContent.h"
-#include "nsIDocument.h"
+#include "mozilla/dom/Document.h"
 #include "nsINode.h"
 #include "nsNameSpaceManager.h"
 #include "nsContentUtils.h"  // For NameSpaceManager().
@@ -29,7 +28,7 @@ class txXPathNode {
 
   txXPathNode(const txXPathNode& aNode);
 
-  explicit txXPathNode(nsIDocument* aDocument)
+  explicit txXPathNode(mozilla::dom::Document* aDocument)
       : mNode(aDocument), mRefCountRoot(0), mIndex(eDocument) {
     MOZ_COUNT_CTOR(txXPathNode);
   }
@@ -41,13 +40,7 @@ class txXPathNode {
     }
   }
 
-  static nsINode* RootOf(nsINode* aNode) {
-    nsINode *ancestor, *root = aNode;
-    while ((ancestor = root->GetParentNode())) {
-      root = ancestor;
-    }
-    return root;
-  }
+  static nsINode* RootOf(nsINode* aNode) { return aNode->SubtreeRoot(); }
   nsINode* Root() const { return RootOf(mNode); }
   nsINode* GetRootToAddRef() const { return mRefCountRoot ? Root() : nullptr; }
 
@@ -59,9 +52,9 @@ class txXPathNode {
     NS_ASSERTION(isContent() || isAttribute(), "wrong type");
     return static_cast<nsIContent*>(mNode);
   }
-  nsIDocument* Document() const {
+  mozilla::dom::Document* Document() const {
     NS_ASSERTION(isDocument(), "wrong type");
-    return static_cast<nsIDocument*>(mNode);
+    return static_cast<mozilla::dom::Document*>(mNode);
   }
 
   enum PositionType { eDocument = (1 << 30), eContent = eDocument - 1 };

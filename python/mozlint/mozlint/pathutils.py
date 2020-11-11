@@ -2,8 +2,6 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-from __future__ import unicode_literals, absolute_import
-
 import os
 
 from mozpack import path as mozpath
@@ -12,6 +10,7 @@ from mozpack.files import FileFinder
 
 class FilterPath(object):
     """Helper class to make comparing and matching file paths easier."""
+
     def __init__(self, path):
         self.path = os.path.normpath(path)
         self._finder = None
@@ -25,7 +24,7 @@ class FilterPath(object):
 
     @property
     def ext(self):
-        return os.path.splitext(self.path)[1].strip('.')
+        return os.path.splitext(self.path)[1].strip(".")
 
     @property
     def exists(self):
@@ -59,9 +58,16 @@ class FilterPath(object):
         a = os.path.abspath(self.path)
         b = os.path.normpath(os.path.abspath(other))
 
-        if b.startswith(a):
-            return True
-        return False
+        parts_a = a.split(os.sep)
+        parts_b = b.split(os.sep)
+
+        if len(parts_a) > len(parts_b):
+            return False
+
+        for i, part in enumerate(parts_a):
+            if part != parts_b[i]:
+                return False
+        return True
 
     def __repr__(self):
         return repr(self.path)
@@ -94,11 +100,17 @@ def collapse(paths, base=None, dotfiles=False):
         return [base]
 
     if not base:
-        paths = map(mozpath.abspath, paths)
-        base = mozpath.commonprefix(paths)
+        paths = list(map(mozpath.abspath, paths))
+        base = mozpath.commonprefix(paths).rstrip("/")
 
-        if not os.path.isdir(base):
-            base = os.path.dirname(base)
+        # Make sure `commonprefix` factors in sibling directories that have the
+        # same prefix in their basenames.
+        parent = mozpath.dirname(base)
+        same_prefix = [
+            p for p in os.listdir(parent) if p.startswith(mozpath.basename(base))
+        ]
+        if not os.path.isdir(base) or len(same_prefix) > 1:
+            base = parent
 
     if base in paths:
         return [base]
@@ -106,7 +118,7 @@ def collapse(paths, base=None, dotfiles=False):
     covered = set()
     full = set()
     for name in os.listdir(base):
-        if not dotfiles and name[0] == '.':
+        if not dotfiles and name[0] == ".":
             continue
 
         path = mozpath.join(base, name)
@@ -124,7 +136,7 @@ def collapse(paths, base=None, dotfiles=False):
         # Every file under this base was covered, so we can collapse them all
         # up into the base path.
         return [base]
-    return covered
+    return list(covered)
 
 
 def filterpaths(root, paths, include, exclude=None, extensions=None):
@@ -140,23 +152,24 @@ def filterpaths(root, paths, include, exclude=None, extensions=None):
     :returns: A tuple containing a list of file paths to lint and a list of
               paths to exclude.
     """
+
     def normalize(path):
-        if '*' not in path and not os.path.isabs(path):
+        if "*" not in path and not os.path.isabs(path):
             path = os.path.join(root, path)
         return FilterPath(path)
 
     # Includes are always paths and should always exist.
-    include = map(normalize, include)
+    include = list(map(normalize, include))
 
     # Exclude paths with and without globs will be handled separately,
     # pull them apart now.
-    exclude = map(normalize, exclude or [])
+    exclude = list(map(normalize, exclude or []))
     excludepaths = [p for p in exclude if p.exists]
     excludeglobs = [p.path for p in exclude if not p.exists]
 
     keep = set()
     discard = set()
-    for path in map(normalize, paths):
+    for path in list(map(normalize, paths)):
         # Exclude bad file extensions
         if extensions and path.isfile and path.ext not in extensions:
             continue
@@ -196,7 +209,10 @@ def filterpaths(root, paths, include, exclude=None, extensions=None):
             for p, f in path.finder.find(pattern):
                 discard.add(path.join(p))
 
-    return [f.path for f in keep], collapse([f.path for f in discard])
+    return (
+        [f.path for f in keep if f.exists],
+        collapse([f.path for f in discard if f.exists]),
+    )
 
 
 def findobject(path):
@@ -208,15 +224,16 @@ def findobject(path):
             import <modulepath> as mod
             return mod.<objectpath>
     """
-    if path.count(':') != 1:
+    if path.count(":") != 1:
         raise ValueError(
-            'python path {!r} does not have the form "module:object"'.format(path))
+            'python path {!r} does not have the form "module:object"'.format(path)
+        )
 
-    modulepath, objectpath = path.split(':')
+    modulepath, objectpath = path.split(":")
     obj = __import__(modulepath)
-    for a in modulepath.split('.')[1:]:
+    for a in modulepath.split(".")[1:]:
         obj = getattr(obj, a)
-    for a in objectpath.split('.'):
+    for a in objectpath.split("."):
         obj = getattr(obj, a)
     return obj
 
@@ -242,3 +259,55 @@ def get_ancestors_by_name(name, path, root):
         if path == root:
             break
     return configs
+
+
+def expand_exclusions(paths, config, root):
+    """Returns all files that match patterns and aren't excluded.
+
+    This is used by some external linters who receive 'batch' files (e.g dirs)
+    but aren't capable of applying their own exclusions. There is an argument
+    to be made that this step should just apply to all linters no matter what.
+
+    Args:
+        paths (list): List of candidate paths to lint.
+        config (dict): Linter's config object.
+        root (str): Root of the repository.
+
+    Returns:
+        Generator which generates list of paths that weren't excluded.
+    """
+    extensions = [e.lstrip(".") for e in config.get("extensions", [])]
+    find_dotfiles = config.get("find-dotfiles", False)
+
+    def normalize(path):
+        path = mozpath.normpath(path)
+        if os.path.isabs(path):
+            return path
+        return mozpath.join(root, path)
+
+    exclude = list(map(normalize, config.get("exclude", [])))
+    for path in paths:
+        path = mozpath.normsep(path)
+        if os.path.isfile(path):
+            if any(path.startswith(e) for e in exclude if "*" not in e):
+                continue
+
+            if any(mozpath.match(path, e) for e in exclude if "*" in e):
+                continue
+
+            yield path
+            continue
+
+        ignore = [
+            e[len(path) :].lstrip("/")
+            for e in exclude
+            if mozpath.commonprefix((path, e)) == path
+        ]
+        finder = FileFinder(path, ignore=ignore, find_dotfiles=find_dotfiles)
+
+        _, ext = os.path.splitext(path)
+        ext.lstrip(".")
+
+        for ext in extensions:
+            for p, f in finder.find("**/*.{}".format(ext)):
+                yield os.path.join(path, p)

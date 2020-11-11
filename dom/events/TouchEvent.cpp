@@ -8,15 +8,15 @@
 #include "mozilla/dom/TouchEvent.h"
 #include "mozilla/dom/Touch.h"
 #include "mozilla/dom/TouchListBinding.h"
+#include "mozilla/BasePrincipal.h"
 #include "mozilla/Preferences.h"
+#include "mozilla/StaticPrefs_dom.h"
 #include "mozilla/TouchEvents.h"
 #include "nsContentUtils.h"
 #include "nsIDocShell.h"
 #include "mozilla/WidgetUtils.h"
 
-namespace mozilla {
-
-namespace dom {
+namespace mozilla::dom {
 
 /******************************************************************************
  * TouchList
@@ -205,7 +205,8 @@ bool TouchEvent::PlatformSupportsTouch() {
   // On Windows and GTK3 we auto-detect based on device support.
   if (!sDidCheckTouchDeviceSupport) {
     sDidCheckTouchDeviceSupport = true;
-    sIsTouchDeviceSupportPresent = WidgetUtils::IsTouchDeviceSupportPresent();
+    sIsTouchDeviceSupportPresent =
+        widget::WidgetUtils::IsTouchDeviceSupportPresent();
     // But touch events are only actually supported if APZ is enabled. If
     // APZ is disabled globally, we can check that once and incorporate that
     // into the cached state. If APZ is enabled, we need to further check
@@ -220,28 +221,24 @@ bool TouchEvent::PlatformSupportsTouch() {
 
 // static
 bool TouchEvent::PrefEnabled(nsIDocShell* aDocShell) {
-  static bool sPrefCached = false;
-  static int32_t sPrefCacheValue = 0;
+  MOZ_DIAGNOSTIC_ASSERT(NS_IsMainThread());
 
-  auto touchEventsOverride = nsIDocShell::TOUCHEVENTS_OVERRIDE_NONE;
+  auto touchEventsOverride = mozilla::dom::TouchEventsOverride::None;
   if (aDocShell) {
-    touchEventsOverride = aDocShell->GetTouchEventsOverride();
-  }
-
-  if (!sPrefCached) {
-    sPrefCached = true;
-    Preferences::AddIntVarCache(&sPrefCacheValue,
-                                "dom.w3c_touch_events.enabled");
+    if (BrowsingContext* bc = aDocShell->GetBrowsingContext()) {
+      touchEventsOverride = bc->TouchEventsOverride();
+    }
   }
 
   bool enabled = false;
-  if (touchEventsOverride == nsIDocShell::TOUCHEVENTS_OVERRIDE_ENABLED) {
+  if (touchEventsOverride == mozilla::dom::TouchEventsOverride::Enabled) {
     enabled = true;
   } else if (touchEventsOverride ==
-             nsIDocShell::TOUCHEVENTS_OVERRIDE_DISABLED) {
+             mozilla::dom::TouchEventsOverride::Disabled) {
     enabled = false;
   } else {
-    if (sPrefCacheValue == 2) {
+    const int32_t prefValue = StaticPrefs::dom_w3c_touch_events_enabled();
+    if (prefValue == 2) {
       enabled = PlatformSupportsTouch();
 
       static bool firstTime = true;
@@ -264,7 +261,7 @@ bool TouchEvent::PrefEnabled(nsIDocShell* aDocShell) {
       }
 #endif
     } else {
-      enabled = !!sPrefCacheValue;
+      enabled = !!prefValue;
     }
   }
 
@@ -275,9 +272,35 @@ bool TouchEvent::PrefEnabled(nsIDocShell* aDocShell) {
 }
 
 // static
+bool TouchEvent::LegacyAPIEnabled(JSContext* aCx, JSObject* aGlobal) {
+  nsIPrincipal* principal = nsContentUtils::SubjectPrincipal(aCx);
+  bool isSystem = principal && principal->IsSystemPrincipal();
+
+  nsIDocShell* docShell = nullptr;
+  if (aGlobal) {
+    nsGlobalWindowInner* win = xpc::WindowOrNull(aGlobal);
+    if (win) {
+      docShell = win->GetDocShell();
+    }
+  }
+  return LegacyAPIEnabled(docShell, isSystem);
+}
+
+// static
+bool TouchEvent::LegacyAPIEnabled(nsIDocShell* aDocShell,
+                                  bool aCallerIsSystem) {
+  return (aCallerIsSystem ||
+          StaticPrefs::dom_w3c_touch_events_legacy_apis_enabled() ||
+          (aDocShell && aDocShell->GetBrowsingContext() &&
+           aDocShell->GetBrowsingContext()->TouchEventsOverride() ==
+               mozilla::dom::TouchEventsOverride::Enabled)) &&
+         PrefEnabled(aDocShell);
+}
+
+// static
 already_AddRefed<TouchEvent> TouchEvent::Constructor(
     const GlobalObject& aGlobal, const nsAString& aType,
-    const TouchEventInit& aParam, ErrorResult& aRv) {
+    const TouchEventInit& aParam) {
   nsCOMPtr<EventTarget> t = do_QueryInterface(aGlobal.GetAsSupports());
   RefPtr<TouchEvent> e = new TouchEvent(t, nullptr, nullptr);
   bool trusted = e->Init(t);
@@ -311,8 +334,7 @@ bool TouchEvent::CtrlKey() { return mEvent->AsTouchEvent()->IsControl(); }
 
 bool TouchEvent::ShiftKey() { return mEvent->AsTouchEvent()->IsShift(); }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom
 
 using namespace mozilla;
 using namespace mozilla::dom;

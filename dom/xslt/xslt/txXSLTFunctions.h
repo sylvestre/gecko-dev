@@ -6,9 +6,9 @@
 #ifndef TRANSFRMX_XSLT_FUNCTIONS_H
 #define TRANSFRMX_XSLT_FUNCTIONS_H
 
+#include "mozilla/UniquePtr.h"
 #include "txExpr.h"
 #include "txXMLUtils.h"
-#include "nsAutoPtr.h"
 #include "txNamespaceMap.h"
 
 class txStylesheet;
@@ -70,6 +70,9 @@ class txFormatNumberFunctionCall : public FunctionCall {
     Suffix,
     Finished
   };
+
+  // Helper that reports and invalid arg to the provided context.
+  void ReportInvalidArg(txIEvalContext* aContext);
 
   txStylesheet* mStylesheet;
   RefPtr<txNamespaceMap> mMappings;

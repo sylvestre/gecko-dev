@@ -12,9 +12,9 @@
 //#define GFX_TILEDLAYER_PREF_WARNINGS
 //#define GFX_TILEDLAYER_RETAINING_LOG
 
-#include <stdint.h>         // for uint16_t, uint32_t
-#include <sys/types.h>      // for int32_t
-#include "LayersLogging.h"  // for print_stderr
+#include <stdint.h>     // for uint16_t, uint32_t
+#include <sys/types.h>  // for int32_t
+#include <type_traits>
 #include "mozilla/gfx/gfxVars.h"
 #include "mozilla/gfx/Logging.h"         // for gfxCriticalError
 #include "mozilla/layers/LayersTypes.h"  // for TextureDumpMode
@@ -28,7 +28,7 @@ namespace mozilla {
 
 struct TileCoordUnit {};
 template <>
-struct IsPixel<TileCoordUnit> : mozilla::TrueType {};
+struct IsPixel<TileCoordUnit> : std::true_type {};
 
 namespace layers {
 
@@ -37,9 +37,9 @@ namespace layers {
 #define ENABLE_TILING_LOG 0
 
 #if ENABLE_TILING_LOG
-#define TILING_LOG(...) printf_stderr(__VA_ARGS__);
+#  define TILING_LOG(...) printf_stderr(__VA_ARGS__);
 #else
-#define TILING_LOG(...)
+#  define TILING_LOG(...)
 #endif
 
 // Normal integer division truncates towards zero,
@@ -137,7 +137,7 @@ class TiledLayerBuffer {
         mResolution(1),
         mTileSize(mozilla::gfx::gfxVars::TileSize()) {}
 
-  ~TiledLayerBuffer() {}
+  ~TiledLayerBuffer() = default;
 
   gfx::IntPoint GetTileOffset(TileCoordIntPoint aPosition) const {
     gfx::IntSize scaledTileSize = GetScaledTileSize();

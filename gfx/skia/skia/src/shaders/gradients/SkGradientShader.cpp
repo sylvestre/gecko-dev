@@ -6,22 +6,19 @@
  */
 
 #include <algorithm>
-#include "Sk4fLinearGradient.h"
-#include "SkColorSpacePriv.h"
-#include "SkColorSpaceXformer.h"
-#include "SkFlattenablePriv.h"
-#include "SkFloatBits.h"
-#include "SkGradientShaderPriv.h"
-#include "SkHalf.h"
-#include "SkLinearGradient.h"
-#include "SkMallocPixelRef.h"
-#include "SkRadialGradient.h"
-#include "SkReadBuffer.h"
-#include "SkSweepGradient.h"
-#include "SkTwoPointConicalGradient.h"
-#include "SkWriteBuffer.h"
-#include "../../jumper/SkJumper.h"
-#include "../../third_party/skcms/skcms.h"
+#include "include/core/SkMallocPixelRef.h"
+#include "include/private/SkFloatBits.h"
+#include "include/private/SkHalf.h"
+#include "src/core/SkColorSpacePriv.h"
+#include "src/core/SkConvertPixels.h"
+#include "src/core/SkReadBuffer.h"
+#include "src/core/SkWriteBuffer.h"
+#include "src/shaders/gradients/Sk4fLinearGradient.h"
+#include "src/shaders/gradients/SkGradientShaderPriv.h"
+#include "src/shaders/gradients/SkLinearGradient.h"
+#include "src/shaders/gradients/SkRadialGradient.h"
+#include "src/shaders/gradients/SkSweepGradient.h"
+#include "src/shaders/gradients/SkTwoPointConicalGradient.h"
 
 enum GradientSerializationFlags {
     // Bits 29:31 used for various boolean flags
@@ -53,7 +50,7 @@ void SkGradientShaderBase::Descriptor::flatten(SkWriteBuffer& buffer) const {
         flags |= kHasColorSpace_GSF;
     }
     SkASSERT(static_cast<uint32_t>(fTileMode) <= kTileModeMask_GSF);
-    flags |= (fTileMode << kTileModeShift_GSF);
+    flags |= ((unsigned)fTileMode << kTileModeShift_GSF);
     SkASSERT(fGradFlags <= kGradFlagsMask_GSF);
     flags |= (fGradFlags << kGradFlagsShift_GSF);
 
@@ -85,7 +82,7 @@ bool SkGradientShaderBase::DescriptorScope::unflatten(SkReadBuffer& buffer) {
     // New gradient format. Includes floating point color, color space, densely packed flags
     uint32_t flags = buffer.readUInt();
 
-    fTileMode = (SkShader::TileMode)((flags >> kTileModeShift_GSF) & kTileModeMask_GSF);
+    fTileMode = (SkTileMode)((flags >> kTileModeShift_GSF) & kTileModeMask_GSF);
     fGradFlags = (flags >> kGradFlagsShift_GSF) & kGradFlagsMask_GSF;
 
     fCount = buffer.getArrayCount();
@@ -133,7 +130,7 @@ SkGradientShaderBase::SkGradientShaderBase(const Descriptor& desc, const SkMatri
 
     fGradFlags = static_cast<uint8_t>(desc.fGradFlags);
 
-    SkASSERT((unsigned)desc.fTileMode < SkShader::kTileModeCount);
+    SkASSERT((unsigned)desc.fTileMode < kSkTileModeCount);
     fTileMode = desc.fTileMode;
 
     /*  Note: we let the caller skip the first and/or last position.
@@ -217,7 +214,7 @@ void SkGradientShaderBase::flatten(SkWriteBuffer& buffer) const {
     desc.flatten(buffer);
 }
 
-static void add_stop_color(SkJumper_GradientCtx* ctx, size_t stop, SkPMColor4f Fs, SkPMColor4f Bs) {
+static void add_stop_color(SkRasterPipeline_GradientCtx* ctx, size_t stop, SkPMColor4f Fs, SkPMColor4f Bs) {
     (ctx->fs[0])[stop] = Fs.fR;
     (ctx->fs[1])[stop] = Fs.fG;
     (ctx->fs[2])[stop] = Fs.fB;
@@ -228,14 +225,14 @@ static void add_stop_color(SkJumper_GradientCtx* ctx, size_t stop, SkPMColor4f F
     (ctx->bs[3])[stop] = Bs.fA;
 }
 
-static void add_const_color(SkJumper_GradientCtx* ctx, size_t stop, SkPMColor4f color) {
+static void add_const_color(SkRasterPipeline_GradientCtx* ctx, size_t stop, SkPMColor4f color) {
     add_stop_color(ctx, stop, { 0, 0, 0, 0 }, color);
 }
 
 // Calculate a factor F and a bias B so that color = F*t + B when t is in range of
 // the stop. Assume that the distance between stops is 1/gapCount.
 static void init_stop_evenly(
-    SkJumper_GradientCtx* ctx, float gapCount, size_t stop, SkPMColor4f c_l, SkPMColor4f c_r) {
+    SkRasterPipeline_GradientCtx* ctx, float gapCount, size_t stop, SkPMColor4f c_l, SkPMColor4f c_r) {
     // Clankium's GCC 4.9 targeting ARMv7 is barfing when we use Sk4f math here, so go scalar...
     SkPMColor4f Fs = {
         (c_r.fR - c_l.fR) * gapCount,
@@ -255,7 +252,7 @@ static void init_stop_evenly(
 // For each stop we calculate a bias B and a scale factor F, such that
 // for any t between stops n and n+1, the color we want is B[n] + F[n]*t.
 static void init_stop_pos(
-    SkJumper_GradientCtx* ctx, size_t stop, float t_l, float t_r, SkPMColor4f c_l, SkPMColor4f c_r) {
+    SkRasterPipeline_GradientCtx* ctx, size_t stop, float t_l, float t_r, SkPMColor4f c_l, SkPMColor4f c_r) {
     // See note about Clankium's old compiler in init_stop_evenly().
     SkPMColor4f Fs = {
         (c_r.fR - c_l.fR) / (t_r - t_l),
@@ -273,10 +270,10 @@ static void init_stop_pos(
     add_stop_color(ctx, stop, Fs, Bs);
 }
 
-bool SkGradientShaderBase::onAppendStages(const StageRec& rec) const {
+bool SkGradientShaderBase::onAppendStages(const SkStageRec& rec) const {
     SkRasterPipeline* p = rec.fPipeline;
     SkArenaAlloc* alloc = rec.fAlloc;
-    SkJumper_DecalTileCtx* decal_ctx = nullptr;
+    SkRasterPipeline_DecalTileCtx* decal_ctx = nullptr;
 
     SkMatrix matrix;
     if (!this->computeTotalInverse(rec.fCTM, rec.fLocalM, &matrix)) {
@@ -291,15 +288,15 @@ bool SkGradientShaderBase::onAppendStages(const StageRec& rec) const {
     this->appendGradientStages(alloc, p, &postPipeline);
 
     switch(fTileMode) {
-        case kMirror_TileMode: p->append(SkRasterPipeline::mirror_x_1); break;
-        case kRepeat_TileMode: p->append(SkRasterPipeline::repeat_x_1); break;
-        case kDecal_TileMode:
-            decal_ctx = alloc->make<SkJumper_DecalTileCtx>();
+        case SkTileMode::kMirror: p->append(SkRasterPipeline::mirror_x_1); break;
+        case SkTileMode::kRepeat: p->append(SkRasterPipeline::repeat_x_1); break;
+        case SkTileMode::kDecal:
+            decal_ctx = alloc->make<SkRasterPipeline_DecalTileCtx>();
             decal_ctx->limit_x = SkBits2Float(SkFloat2Bits(1.0f) + 1);
             // reuse mask + limit_x stage, or create a custom decal_1 that just stores the mask
             p->append(SkRasterPipeline::decal_x, decal_ctx);
             // fall-through to clamp
-        case kClamp_TileMode:
+        case SkTileMode::kClamp:
             if (!fOrigPos) {
                 // We clamp only when the stops are evenly spaced.
                 // If not, there may be hard stops, and clamping ruins hard stops at 0 and/or 1.
@@ -327,14 +324,14 @@ bool SkGradientShaderBase::onAppendStages(const StageRec& rec) const {
                           c_r = prepareColor(1);
 
         // See F and B below.
-        auto ctx = alloc->make<SkJumper_EvenlySpaced2StopGradientCtx>();
+        auto ctx = alloc->make<SkRasterPipeline_EvenlySpaced2StopGradientCtx>();
         (Sk4f::Load(c_r.vec()) - Sk4f::Load(c_l.vec())).store(ctx->f);
         (                        Sk4f::Load(c_l.vec())).store(ctx->b);
         ctx->interpolatedInPremul = premulGrad;
 
         p->append(SkRasterPipeline::evenly_spaced_2_stop_gradient, ctx);
     } else {
-        auto* ctx = alloc->make<SkJumper_GradientCtx>();
+        auto* ctx = alloc->make<SkRasterPipeline_GradientCtx>();
         ctx->interpolatedInPremul = premulGrad;
 
         // Note: In order to handle clamps in search, the search assumes a stop conceptully placed
@@ -419,7 +416,7 @@ bool SkGradientShaderBase::onAppendStages(const StageRec& rec) const {
 
 
 bool SkGradientShaderBase::isOpaque() const {
-    return fColorsAreOpaque && (this->getTileMode() != SkShader::kDecal_TileMode);
+    return fColorsAreOpaque && (this->getTileMode() != SkTileMode::kDecal);
 }
 
 static unsigned rounded_divide(unsigned numer, unsigned denom) {
@@ -445,44 +442,18 @@ bool SkGradientShaderBase::onAsLuminanceColor(SkColor* lum) const {
     return true;
 }
 
-SkGradientShaderBase::AutoXformColors::AutoXformColors(const SkGradientShaderBase& grad,
-                                                       SkColorSpaceXformer* xformer)
-    : fColors(grad.fColorCount) {
-    // TODO: stay in 4f to preserve precision?
-
-    SkAutoSTMalloc<8, SkColor> origColors(grad.fColorCount);
-    for (int i = 0; i < grad.fColorCount; ++i) {
-        origColors[i] = grad.getLegacyColor(i);
-    }
-
-    xformer->apply(fColors.get(), origColors.get(), grad.fColorCount);
-}
-
 SkColor4fXformer::SkColor4fXformer(const SkColor4f* colors, int colorCount,
                                    SkColorSpace* src, SkColorSpace* dst) {
-    // Transform all of the colors to destination color space
     fColors = colors;
 
-    // Treat null destinations as sRGB.
-    if (!dst) {
-        dst = sk_srgb_singleton();
-    }
-
-    // Treat null sources as sRGB.
-    if (!src) {
-        src = sk_srgb_singleton();
-    }
-
-    if (!SkColorSpace::Equals(src, dst)) {
-        skcms_ICCProfile srcProfile, dstProfile;
-        src->toProfile(&srcProfile);
-        dst->toProfile(&dstProfile);
+    if (dst && !SkColorSpace::Equals(src, dst)) {
         fStorage.reset(colorCount);
-        const skcms_PixelFormat rgba_f32 = skcms_PixelFormat_RGBA_ffff;
-        const skcms_AlphaFormat unpremul = skcms_AlphaFormat_Unpremul;
-        SkAssertResult(skcms_Transform(colors,           rgba_f32, unpremul, &srcProfile,
-                                       fStorage.begin(), rgba_f32, unpremul, &dstProfile,
-                                       colorCount));
+
+        auto info = SkImageInfo::Make(colorCount,1, kRGBA_F32_SkColorType, kUnpremul_SkAlphaType);
+
+        SkConvertPixels(info.makeColorSpace(sk_ref_sp(dst)), fStorage.begin(), info.minRowBytes(),
+                        info.makeColorSpace(sk_ref_sp(src)), fColors         , info.minRowBytes());
+
         fColors = fStorage.begin();
     }
 }
@@ -513,14 +484,14 @@ void SkGradientShaderBase::commonAsAGradient(GradientInfo* info) const {
 // Return true if these parameters are valid/legal/safe to construct a gradient
 //
 static bool valid_grad(const SkColor4f colors[], const SkScalar pos[], int count,
-                       unsigned tileMode) {
-    return nullptr != colors && count >= 1 && tileMode < (unsigned)SkShader::kTileModeCount;
+                       SkTileMode tileMode) {
+    return nullptr != colors && count >= 1 && (unsigned)tileMode < kSkTileModeCount;
 }
 
 static void desc_init(SkGradientShaderBase::Descriptor* desc,
                       const SkColor4f colors[], sk_sp<SkColorSpace> colorSpace,
                       const SkScalar pos[], int colorCount,
-                      SkShader::TileMode mode, uint32_t flags, const SkMatrix* localMatrix) {
+                      SkTileMode mode, uint32_t flags, const SkMatrix* localMatrix) {
     SkASSERT(colorCount > 1);
 
     desc->fColors       = colors;
@@ -530,6 +501,77 @@ static void desc_init(SkGradientShaderBase::Descriptor* desc,
     desc->fTileMode     = mode;
     desc->fGradFlags    = flags;
     desc->fLocalMatrix  = localMatrix;
+}
+
+static SkColor4f average_gradient_color(const SkColor4f colors[], const SkScalar pos[],
+                                        int colorCount) {
+    // The gradient is a piecewise linear interpolation between colors. For a given interval,
+    // the integral between the two endpoints is 0.5 * (ci + cj) * (pj - pi), which provides that
+    // intervals average color. The overall average color is thus the sum of each piece. The thing
+    // to keep in mind is that the provided gradient definition may implicitly use p=0 and p=1.
+    Sk4f blend(0.0);
+    // Bake 1/(colorCount - 1) uniform stop difference into this scale factor
+    SkScalar wScale = pos ? 0.5 : 0.5 / (colorCount - 1);
+    for (int i = 0; i < colorCount - 1; ++i) {
+        // Calculate the average color for the interval between pos(i) and pos(i+1)
+        Sk4f c0 = Sk4f::Load(&colors[i]);
+        Sk4f c1 = Sk4f::Load(&colors[i + 1]);
+        // when pos == null, there are colorCount uniformly distributed stops, going from 0 to 1,
+        // so pos[i + 1] - pos[i] = 1/(colorCount-1)
+        SkScalar w = pos ? (pos[i + 1] - pos[i]) : SK_Scalar1;
+        blend += wScale * w * (c1 + c0);
+    }
+
+    // Now account for any implicit intervals at the start or end of the stop definitions
+    if (pos) {
+        if (pos[0] > 0.0) {
+            // The first color is fixed between p = 0 to pos[0], so 0.5 * (ci + cj) * (pj - pi)
+            // becomes 0.5 * (c + c) * (pj - 0) = c * pj
+            Sk4f c = Sk4f::Load(&colors[0]);
+            blend += pos[0] * c;
+        }
+        if (pos[colorCount - 1] < SK_Scalar1) {
+            // The last color is fixed between pos[n-1] to p = 1, so 0.5 * (ci + cj) * (pj - pi)
+            // becomes 0.5 * (c + c) * (1 - pi) = c * (1 - pi)
+            Sk4f c = Sk4f::Load(&colors[colorCount - 1]);
+            blend += (1 - pos[colorCount - 1]) * c;
+        }
+    }
+
+    SkColor4f avg;
+    blend.store(&avg);
+    return avg;
+}
+
+// The default SkScalarNearlyZero threshold of .0024 is too big and causes regressions for svg
+// gradients defined in the wild.
+static constexpr SkScalar kDegenerateThreshold = SK_Scalar1 / (1 << 15);
+
+// Except for special circumstances of clamped gradients, every gradient shape--when degenerate--
+// can be mapped to the same fallbacks. The specific shape factories must account for special
+// clamped conditions separately, this will always return the last color for clamped gradients.
+static sk_sp<SkShader> make_degenerate_gradient(const SkColor4f colors[], const SkScalar pos[],
+                                                int colorCount, sk_sp<SkColorSpace> colorSpace,
+                                                SkTileMode mode) {
+    switch(mode) {
+        case SkTileMode::kDecal:
+            // normally this would reject the area outside of the interpolation region, so since
+            // inside region is empty when the radii are equal, the entire draw region is empty
+            return SkShaders::Empty();
+        case SkTileMode::kRepeat:
+        case SkTileMode::kMirror:
+            // repeat and mirror are treated the same: the border colors are never visible,
+            // but approximate the final color as infinite repetitions of the colors, so
+            // it can be represented as the average color of the gradient.
+            return SkShaders::Color(
+                    average_gradient_color(colors, pos, colorCount), std::move(colorSpace));
+        case SkTileMode::kClamp:
+            // Depending on how the gradient shape degenerates, there may be a more specialized
+            // fallback representation for the factories to use, but this is a reasonable default.
+            return SkShaders::Color(colors[colorCount - 1], std::move(colorSpace));
+    }
+    SkDEBUGFAIL("Should not be reached");
+    return nullptr;
 }
 
 // assumes colors is SkColor4f* and pos is SkScalar*
@@ -545,8 +587,7 @@ static void desc_init(SkGradientShaderBase::Descriptor* desc,
      } while (0)
 
 struct ColorStopOptimizer {
-    ColorStopOptimizer(const SkColor4f* colors, const SkScalar* pos,
-                       int count, SkShader::TileMode mode)
+    ColorStopOptimizer(const SkColor4f* colors, const SkScalar* pos, int count, SkTileMode mode)
         : fColors(colors)
         , fPos(pos)
         , fCount(count) {
@@ -559,8 +600,7 @@ struct ColorStopOptimizer {
                 SkScalarNearlyEqual(pos[1], 0.0f) &&
                 SkScalarNearlyEqual(pos[2], 1.0f)) {
 
-                if (SkShader::kRepeat_TileMode == mode ||
-                    SkShader::kMirror_TileMode == mode ||
+                if (SkTileMode::kRepeat == mode || SkTileMode::kMirror == mode ||
                     colors[0] == colors[1]) {
 
                     // Ignore the leftmost color/pos.
@@ -572,8 +612,7 @@ struct ColorStopOptimizer {
                        SkScalarNearlyEqual(pos[1], 1.0f) &&
                        SkScalarNearlyEqual(pos[2], 1.0f)) {
 
-                if (SkShader::kRepeat_TileMode == mode ||
-                    SkShader::kMirror_TileMode == mode ||
+                if (SkTileMode::kRepeat == mode || SkTileMode::kMirror == mode ||
                     colors[1] == colors[2]) {
 
                     // Ignore the rightmost color/pos.
@@ -605,7 +644,7 @@ struct ColorConverter {
 sk_sp<SkShader> SkGradientShader::MakeLinear(const SkPoint pts[2],
                                              const SkColor colors[],
                                              const SkScalar pos[], int colorCount,
-                                             SkShader::TileMode mode,
+                                             SkTileMode mode,
                                              uint32_t flags,
                                              const SkMatrix* localMatrix) {
     ColorConverter converter(colors, colorCount);
@@ -617,7 +656,7 @@ sk_sp<SkShader> SkGradientShader::MakeLinear(const SkPoint pts[2],
                                              const SkColor4f colors[],
                                              sk_sp<SkColorSpace> colorSpace,
                                              const SkScalar pos[], int colorCount,
-                                             SkShader::TileMode mode,
+                                             SkTileMode mode,
                                              uint32_t flags,
                                              const SkMatrix* localMatrix) {
     if (!pts || !SkScalarIsFinite((pts[1] - pts[0]).length())) {
@@ -627,10 +666,18 @@ sk_sp<SkShader> SkGradientShader::MakeLinear(const SkPoint pts[2],
         return nullptr;
     }
     if (1 == colorCount) {
-        return SkShader::MakeColorShader(colors[0], std::move(colorSpace));
+        return SkShaders::Color(colors[0], std::move(colorSpace));
     }
     if (localMatrix && !localMatrix->invert(nullptr)) {
         return nullptr;
+    }
+
+    if (SkScalarNearlyZero((pts[1] - pts[0]).length(), kDegenerateThreshold)) {
+        // Degenerate gradient, the only tricky complication is when in clamp mode, the limit of
+        // the gradient approaches two half planes of solid color (first and last). However, they
+        // are divided by the line perpendicular to the start and end point, which becomes undefined
+        // once start and end are exactly the same, so just use the end color for a stable solution.
+        return make_degenerate_gradient(colors, pos, colorCount, std::move(colorSpace), mode);
     }
 
     ColorStopOptimizer opt(colors, pos, colorCount, mode);
@@ -644,7 +691,7 @@ sk_sp<SkShader> SkGradientShader::MakeLinear(const SkPoint pts[2],
 sk_sp<SkShader> SkGradientShader::MakeRadial(const SkPoint& center, SkScalar radius,
                                              const SkColor colors[],
                                              const SkScalar pos[], int colorCount,
-                                             SkShader::TileMode mode,
+                                             SkTileMode mode,
                                              uint32_t flags,
                                              const SkMatrix* localMatrix) {
     ColorConverter converter(colors, colorCount);
@@ -656,20 +703,25 @@ sk_sp<SkShader> SkGradientShader::MakeRadial(const SkPoint& center, SkScalar rad
                                              const SkColor4f colors[],
                                              sk_sp<SkColorSpace> colorSpace,
                                              const SkScalar pos[], int colorCount,
-                                             SkShader::TileMode mode,
+                                             SkTileMode mode,
                                              uint32_t flags,
                                              const SkMatrix* localMatrix) {
-    if (radius <= 0) {
+    if (radius < 0) {
         return nullptr;
     }
     if (!valid_grad(colors, pos, colorCount, mode)) {
         return nullptr;
     }
     if (1 == colorCount) {
-        return SkShader::MakeColorShader(colors[0], std::move(colorSpace));
+        return SkShaders::Color(colors[0], std::move(colorSpace));
     }
     if (localMatrix && !localMatrix->invert(nullptr)) {
         return nullptr;
+    }
+
+    if (SkScalarNearlyZero(radius, kDegenerateThreshold)) {
+        // Degenerate gradient optimization, and no special logic needed for clamped radial gradient
+        return make_degenerate_gradient(colors, pos, colorCount, std::move(colorSpace), mode);
     }
 
     ColorStopOptimizer opt(colors, pos, colorCount, mode);
@@ -687,7 +739,7 @@ sk_sp<SkShader> SkGradientShader::MakeTwoPointConical(const SkPoint& start,
                                                       const SkColor colors[],
                                                       const SkScalar pos[],
                                                       int colorCount,
-                                                      SkShader::TileMode mode,
+                                                      SkTileMode mode,
                                                       uint32_t flags,
                                                       const SkMatrix* localMatrix) {
     ColorConverter converter(colors, colorCount);
@@ -703,25 +755,46 @@ sk_sp<SkShader> SkGradientShader::MakeTwoPointConical(const SkPoint& start,
                                                       sk_sp<SkColorSpace> colorSpace,
                                                       const SkScalar pos[],
                                                       int colorCount,
-                                                      SkShader::TileMode mode,
+                                                      SkTileMode mode,
                                                       uint32_t flags,
                                                       const SkMatrix* localMatrix) {
     if (startRadius < 0 || endRadius < 0) {
         return nullptr;
     }
-    if (SkScalarNearlyZero((start - end).length()) && SkScalarNearlyZero(startRadius)) {
-        // We can treat this gradient as radial, which is faster.
-        return MakeRadial(start, endRadius, colors, std::move(colorSpace), pos, colorCount,
-                          mode, flags, localMatrix);
-    }
     if (!valid_grad(colors, pos, colorCount, mode)) {
         return nullptr;
     }
-    if (startRadius == endRadius) {
-        if (start == end || startRadius == 0) {
-            return SkShader::MakeEmptyShader();
+    if (SkScalarNearlyZero((start - end).length(), kDegenerateThreshold)) {
+        // If the center positions are the same, then the gradient is the radial variant of a 2 pt
+        // conical gradient, an actual radial gradient (startRadius == 0), or it is fully degenerate
+        // (startRadius == endRadius).
+        if (SkScalarNearlyEqual(startRadius, endRadius, kDegenerateThreshold)) {
+            // Degenerate case, where the interpolation region area approaches zero. The proper
+            // behavior depends on the tile mode, which is consistent with the default degenerate
+            // gradient behavior, except when mode = clamp and the radii > 0.
+            if (mode == SkTileMode::kClamp && endRadius > kDegenerateThreshold) {
+                // The interpolation region becomes an infinitely thin ring at the radius, so the
+                // final gradient will be the first color repeated from p=0 to 1, and then a hard
+                // stop switching to the last color at p=1.
+                static constexpr SkScalar circlePos[3] = {0, 1, 1};
+                SkColor4f reColors[3] = {colors[0], colors[0], colors[colorCount - 1]};
+                return MakeRadial(start, endRadius, reColors, std::move(colorSpace),
+                                  circlePos, 3, mode, flags, localMatrix);
+            } else {
+                // Otherwise use the default degenerate case
+                return make_degenerate_gradient(
+                        colors, pos, colorCount, std::move(colorSpace), mode);
+            }
+        } else if (SkScalarNearlyZero(startRadius, kDegenerateThreshold)) {
+            // We can treat this gradient as radial, which is faster. If we got here, we know
+            // that endRadius is not equal to 0, so this produces a meaningful gradient
+            return MakeRadial(start, endRadius, colors, std::move(colorSpace), pos, colorCount,
+                              mode, flags, localMatrix);
         }
+        // Else it's the 2pt conical radial variant with no degenerate radii, so fall through to the
+        // regular 2pt constructor.
     }
+
     if (localMatrix && !localMatrix->invert(nullptr)) {
         return nullptr;
     }
@@ -739,7 +812,7 @@ sk_sp<SkShader> SkGradientShader::MakeSweep(SkScalar cx, SkScalar cy,
                                             const SkColor colors[],
                                             const SkScalar pos[],
                                             int colorCount,
-                                            SkShader::TileMode mode,
+                                            SkTileMode mode,
                                             SkScalar startAngle,
                                             SkScalar endAngle,
                                             uint32_t flags,
@@ -754,7 +827,7 @@ sk_sp<SkShader> SkGradientShader::MakeSweep(SkScalar cx, SkScalar cy,
                                             sk_sp<SkColorSpace> colorSpace,
                                             const SkScalar pos[],
                                             int colorCount,
-                                            SkShader::TileMode mode,
+                                            SkTileMode mode,
                                             SkScalar startAngle,
                                             SkScalar endAngle,
                                             uint32_t flags,
@@ -763,18 +836,34 @@ sk_sp<SkShader> SkGradientShader::MakeSweep(SkScalar cx, SkScalar cy,
         return nullptr;
     }
     if (1 == colorCount) {
-        return SkShader::MakeColorShader(colors[0], std::move(colorSpace));
+        return SkShaders::Color(colors[0], std::move(colorSpace));
     }
-    if (!SkScalarIsFinite(startAngle) || !SkScalarIsFinite(endAngle) || startAngle >= endAngle) {
+    if (!SkScalarIsFinite(startAngle) || !SkScalarIsFinite(endAngle) || startAngle > endAngle) {
         return nullptr;
     }
     if (localMatrix && !localMatrix->invert(nullptr)) {
         return nullptr;
     }
 
+    if (SkScalarNearlyEqual(startAngle, endAngle, kDegenerateThreshold)) {
+        // Degenerate gradient, which should follow default degenerate behavior unless it is
+        // clamped and the angle is greater than 0.
+        if (mode == SkTileMode::kClamp && endAngle > kDegenerateThreshold) {
+            // In this case, the first color is repeated from 0 to the angle, then a hardstop
+            // switches to the last color (all other colors are compressed to the infinitely thin
+            // interpolation region).
+            static constexpr SkScalar clampPos[3] = {0, 1, 1};
+            SkColor4f reColors[3] = {colors[0], colors[0], colors[colorCount - 1]};
+            return MakeSweep(cx, cy, reColors, std::move(colorSpace), clampPos, 3, mode, 0,
+                             endAngle, flags, localMatrix);
+        } else {
+            return make_degenerate_gradient(colors, pos, colorCount, std::move(colorSpace), mode);
+        }
+    }
+
     if (startAngle <= 0 && endAngle >= 360) {
         // If the t-range includes [0,1], then we can always use clamping (presumably faster).
-        mode = SkShader::kClamp_TileMode;
+        mode = SkTileMode::kClamp;
     }
 
     ColorStopOptimizer opt(colors, pos, colorCount, mode);
@@ -789,9 +878,9 @@ sk_sp<SkShader> SkGradientShader::MakeSweep(SkScalar cx, SkScalar cy,
     return sk_make_sp<SkSweepGradient>(SkPoint::Make(cx, cy), t0, t1, desc);
 }
 
-SK_DEFINE_FLATTENABLE_REGISTRAR_GROUP_START(SkGradientShader)
-    SK_DEFINE_FLATTENABLE_REGISTRAR_ENTRY(SkLinearGradient)
-    SK_DEFINE_FLATTENABLE_REGISTRAR_ENTRY(SkRadialGradient)
-    SK_DEFINE_FLATTENABLE_REGISTRAR_ENTRY(SkSweepGradient)
-    SK_DEFINE_FLATTENABLE_REGISTRAR_ENTRY(SkTwoPointConicalGradient)
-SK_DEFINE_FLATTENABLE_REGISTRAR_GROUP_END
+void SkGradientShader::RegisterFlattenables() {
+    SK_REGISTER_FLATTENABLE(SkLinearGradient);
+    SK_REGISTER_FLATTENABLE(SkRadialGradient);
+    SK_REGISTER_FLATTENABLE(SkSweepGradient);
+    SK_REGISTER_FLATTENABLE(SkTwoPointConicalGradient);
+}

@@ -12,12 +12,12 @@
 
 #if MOZ_STRING_WITH_OBSOLETE_API
 
-#include "nsDependentString.h"
-#include "nsDependentSubstring.h"
-#include "nsReadableUtils.h"
-#include "nsCRT.h"
-#include "nsUTF8Utils.h"
-#include "prdtoa.h"
+#  include "nsDependentString.h"
+#  include "nsDependentSubstring.h"
+#  include "nsReadableUtils.h"
+#  include "nsCRT.h"
+#  include "nsUTF8Utils.h"
+#  include "prdtoa.h"
 
 /* ***** BEGIN RICKG BLOCK *****
  *
@@ -217,9 +217,9 @@ static int32_t RFindChar2(const char16_t* aDest, uint32_t aDestLength,
  * @return  -1,0,1 depending on <,==,>
  */
 static
-#ifdef __SUNPRO_CC
+#  ifdef __SUNPRO_CC
     inline
-#endif /* __SUNPRO_CC */
+#  endif /* __SUNPRO_CC */
     int32_t
     Compare1To1(const char* aStr1, const char* aStr2, uint32_t aCount,
                 bool aIgnoreCase) {
@@ -248,9 +248,9 @@ static
  * @return  -1,0,1 depending on <,==,>
  */
 static
-#ifdef __SUNPRO_CC
+#  ifdef __SUNPRO_CC
     inline
-#endif /* __SUNPRO_CC */
+#  endif /* __SUNPRO_CC */
     int32_t
     Compare2To2(const char16_t* aStr1, const char16_t* aStr2, uint32_t aCount) {
   int32_t result;
@@ -287,9 +287,9 @@ static
  * @return  -1,0,1 depending on <,==,>
  */
 static
-#ifdef __SUNPRO_CC
+#  ifdef __SUNPRO_CC
     inline
-#endif /* __SUNPRO_CC */
+#  endif /* __SUNPRO_CC */
     int32_t
     Compare2To1(const char16_t* aStr1, const char* aStr2, uint32_t aCount,
                 bool aIgnoreCase) {
@@ -303,7 +303,7 @@ static
         char16_t c2 = char16_t((unsigned char)*s2++);
 
         if (c1 != c2) {
-#ifdef DEBUG
+#  ifdef DEBUG
           // we won't warn on c1>=128 (the 2-byte value) because often
           // it is just fine to compare an constant, ascii value (i.e. "body")
           // against some non-ascii value (i.e. a unicode string that
@@ -312,7 +312,7 @@ static
             NS_WARNING(
                 "got a non-ASCII string, but we can't do an accurate case "
                 "conversion!");
-#endif
+#  endif
 
           // can't do case conversion on characters out of our range
           if (aIgnoreCase && c1 < 128 && c2 < 128) {
@@ -514,9 +514,9 @@ static int32_t StripChars2(char16_t* aString, uint32_t aLength,
 
 // This function is used to implement FindCharInSet and friends
 template <class CharT>
-#ifndef __SUNPRO_CC
+#  ifndef __SUNPRO_CC
 static
-#endif /* !__SUNPRO_CC */
+#  endif /* !__SUNPRO_CC */
     CharT
     GetFindInSetFilter(const CharT* set) {
   CharT filter = ~CharT(0);  // All bits set
@@ -608,9 +608,9 @@ struct nsBufferRoutines<char16_t> {
 //-----------------------------------------------------------------------------
 
 template <class L, class R>
-#ifndef __SUNPRO_CC
+#  ifndef __SUNPRO_CC
 static
-#endif /* !__SUNPRO_CC */
+#  endif /* !__SUNPRO_CC */
     int32_t
     FindSubstring(const L* big, uint32_t bigLen, const R* little,
                   uint32_t littleLen, bool ignoreCase) {
@@ -626,9 +626,9 @@ static
 }
 
 template <class L, class R>
-#ifndef __SUNPRO_CC
+#  ifndef __SUNPRO_CC
 static
-#endif /* !__SUNPRO_CC */
+#  endif /* !__SUNPRO_CC */
     int32_t
     RFindSubstring(const L* big, uint32_t bigLen, const R* little,
                    uint32_t littleLen, bool ignoreCase) {
@@ -646,9 +646,9 @@ static
 }
 
 template <class CharT, class SetCharT>
-#ifndef __SUNPRO_CC
+#  ifndef __SUNPRO_CC
 static
-#endif /* !__SUNPRO_CC */
+#  endif /* !__SUNPRO_CC */
     int32_t
     FindCharInSet(const CharT* data, uint32_t dataLen, const SetCharT* set) {
   CharT filter = nsBufferRoutines<CharT>::get_find_in_set_filter(set);
@@ -673,9 +673,9 @@ static
 }
 
 template <class CharT, class SetCharT>
-#ifndef __SUNPRO_CC
+#  ifndef __SUNPRO_CC
 static
-#endif /* !__SUNPRO_CC */
+#  endif /* !__SUNPRO_CC */
     int32_t
     RFindCharInSet(const CharT* data, uint32_t dataLen, const SetCharT* set) {
   CharT filter = nsBufferRoutines<CharT>::get_find_in_set_filter(set);
@@ -769,7 +769,7 @@ static void RFind_ComputeSearchRange(uint32_t bigLen, uint32_t littleLen,
 
 //-----------------------------------------------------------------------------
 
-#include "nsTStringObsolete.cpp"
+#  include "nsTStringObsolete.cpp"
 
 //-----------------------------------------------------------------------------
 
@@ -790,12 +790,18 @@ int32_t nsTString<T>::Find(const self_type& aString, int32_t aOffset,
   return result;
 }
 
+template int32_t nsTString<char16_t>::Find(const self_type&, int32_t,
+                                           int32_t) const;
+
 template <typename T>
 template <typename Q, typename EnableIfChar16>
 int32_t nsTString<T>::Find(const char_type* aString, int32_t aOffset,
                            int32_t aCount) const {
   return Find(nsTDependentString<T>(aString), aOffset, aCount);
 }
+
+template int32_t nsTString<char16_t>::Find(const char_type*, int32_t,
+                                           int32_t) const;
 
 template <typename T>
 template <typename Q, typename EnableIfChar16>
@@ -812,12 +818,18 @@ int32_t nsTString<T>::RFind(const self_type& aString, int32_t aOffset,
   return result;
 }
 
+template int32_t nsTString<char16_t>::RFind(const self_type&, int32_t,
+                                            int32_t) const;
+
 template <typename T>
 template <typename Q, typename EnableIfChar16>
 int32_t nsTString<T>::RFind(const char_type* aString, int32_t aOffset,
                             int32_t aCount) const {
   return RFind(nsTDependentString<T>(aString), aOffset, aCount);
 }
+
+template int32_t nsTString<char16_t>::RFind(const char_type*, int32_t,
+                                            int32_t) const;
 
 template <typename T>
 template <typename Q, typename EnableIfChar16>
@@ -832,6 +844,8 @@ int32_t nsTString<T>::FindCharInSet(const char* aSet, int32_t aOffset) const {
   if (result != kNotFound) result += aOffset;
   return result;
 }
+
+template int32_t nsTString<char16_t>::FindCharInSet(const char*, int32_t) const;
 
 template <typename T>
 template <typename Q, typename EnableIfChar16>
@@ -852,14 +866,13 @@ void nsTString<T>::ReplaceChar(const char* aSet, char16_t aNewChar) {
   }
 }
 
-/**
- * nsTString::Compare,CompareWithConversion,etc.
- */
+namespace mozilla {
+namespace detail {
 
 template <typename T>
 template <typename Q, typename EnableIfChar>
-int32_t nsTString<T>::Compare(const char_type* aString, bool aIgnoreCase,
-                              int32_t aCount) const {
+int32_t nsTStringRepr<T>::Compare(const char_type* aString, bool aIgnoreCase,
+                                  int32_t aCount) const {
   uint32_t strLen = char_traits::length(aString);
 
   int32_t maxCount = int32_t(XPCOM_MIN(this->mLength, strLen));
@@ -884,10 +897,13 @@ int32_t nsTString<T>::Compare(const char_type* aString, bool aIgnoreCase,
   return result;
 }
 
+template int32_t nsTStringRepr<char>::Compare(const char_type*, bool,
+                                              int32_t) const;
+
 template <typename T>
 template <typename Q, typename EnableIfChar16>
-bool nsTString<T>::EqualsIgnoreCase(const incompatible_char_type* aString,
-                                    int32_t aCount) const {
+bool nsTStringRepr<T>::EqualsIgnoreCase(const incompatible_char_type* aString,
+                                        int32_t aCount) const {
   uint32_t strLen = nsCharTraits<char>::length(aString);
 
   int32_t maxCount = int32_t(XPCOM_MIN(this->mLength, strLen));
@@ -913,27 +929,44 @@ bool nsTString<T>::EqualsIgnoreCase(const incompatible_char_type* aString,
   return result == 0;
 }
 
+template bool nsTStringRepr<char16_t>::EqualsIgnoreCase(
+    const incompatible_char_type*, int32_t) const;
+
+}  // namespace detail
+}  // namespace mozilla
+
 /**
  * nsTString::ToDouble
  */
 
 template <>
-double nsTString<char>::ToDouble(nsresult* aErrorCode) const {
+double nsTString<char>::ToDouble(TrailingCharsPolicy aTrailingCharsPolicy,
+                                 nsresult* aErrorCode) const {
   double res = 0.0;
   if (this->mLength > 0) {
     char* conv_stopped;
     const char* str = this->mData;
     // Use PR_strtod, not strtod, since we don't want locale involved.
     res = PR_strtod(str, &conv_stopped);
-    if (conv_stopped == str + this->mLength)
+    if (aTrailingCharsPolicy == TrailingCharsPolicy::Allow &&
+        conv_stopped != str) {
       *aErrorCode = NS_OK;
-    else  // Not all the string was scanned
+    } else if (aTrailingCharsPolicy == TrailingCharsPolicy::Disallow &&
+               conv_stopped == str + this->mLength) {
+      *aErrorCode = NS_OK;
+    } else {
       *aErrorCode = NS_ERROR_ILLEGAL_VALUE;
+    }
   } else {
     // The string was too short (0 characters)
     *aErrorCode = NS_ERROR_ILLEGAL_VALUE;
   }
   return res;
+}
+
+template <>
+double nsTString<char>::ToDouble(nsresult* aErrorCode) const {
+  return ToDouble(TrailingCharsPolicy::Disallow, aErrorCode);
 }
 
 template <>
@@ -944,6 +977,23 @@ double nsTString<char16_t>::ToDouble(nsresult* aErrorCode) const {
 template <typename T>
 float nsTString<T>::ToFloat(nsresult* aErrorCode) const {
   return (float)ToDouble(aErrorCode);
+}
+
+template <>
+double nsTString<char>::ToDoubleAllowTrailingChars(nsresult* aErrorCode) const {
+  return ToDouble(TrailingCharsPolicy::Allow, aErrorCode);
+}
+
+template <>
+double nsTString<char16_t>::ToDoubleAllowTrailingChars(
+    nsresult* aErrorCode) const {
+  return NS_LossyConvertUTF16toASCII(*this).ToDoubleAllowTrailingChars(
+      aErrorCode);
+}
+
+template <typename T>
+float nsTString<T>::ToFloatAllowTrailingChars(nsresult* aErrorCode) const {
+  return (float)ToDoubleAllowTrailingChars(aErrorCode);
 }
 
 template class nsTString<char>;

@@ -2,9 +2,11 @@
   <head>
     <meta charset="utf-8">
     <script>
-      addEventListener('load', function() {
+    if (opener) {
+      addEventListener("load", function() {
         opener.postMessage("load", "*");
       });
+    }
     </script>
   </head>
   <body>

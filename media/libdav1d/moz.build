@@ -13,61 +13,66 @@ LOCAL_INCLUDES += [
     '/third_party/dav1d/src',
 ]
 
-if CONFIG['CPU_ARCH'] == 'x86':
-    if CONFIG['OS_TARGET'] == 'Android':
-        LOCAL_INCLUDES += ['/media/libdav1d/config/x86_32/android/']
-        EXPORTS.dav1d += ['config/x86_32/android/config.h']
-    else:
-        LOCAL_INCLUDES += ['/media/libdav1d/config/x86_32/']
-        EXPORTS.dav1d += ['config/x86_32/config.h']
-elif CONFIG['CPU_ARCH'] == 'x86_64':
-    if CONFIG['MOZ_ASAN'] and CONFIG['OS_TARGET'] == 'WINNT':
-        LOCAL_INCLUDES += ['/media/libdav1d/config/x86_64/win_asan/']
-        EXPORTS.dav1d += ['config/x86_64/win_asan/config.h']
-    else:
-        LOCAL_INCLUDES += ['/media/libdav1d/config/x86_64/']
-        EXPORTS.dav1d += ['config/x86_64/config.h']
-elif CONFIG['CPU_ARCH'] == 'arm':
-    LOCAL_INCLUDES += ['/media/libdav1d/config/arm/']
-    EXPORTS.dav1d += ['config/arm/config.h']
-elif CONFIG['CPU_ARCH'] == 'aarch64':
-    LOCAL_INCLUDES += ['/media/libdav1d/config/aarch64/']
-    EXPORTS.dav1d += ['config/aarch64/config.h']
-else:
-    LOCAL_INCLUDES += ['/media/libdav1d/config/other/']
-    EXPORTS.dav1d += ['config/other/config.h']
-
 EXPORTS.dav1d += [
+    'config.h',
     'version.h',
 ]
 
 # entrypoint source files
-SOURCES += [
+entrypoint_source_files = [
     '../../third_party/dav1d/src/lib.c',
     '../../third_party/dav1d/src/thread_task.c',
 ]
+SOURCES += [f for f in entrypoint_source_files]
+
+# Don't export DAV1D_API symbols from libxul
+# see: third_party/dav1d/include/dav1d/common.h
+DEFINES['DAV1D_API'] = ''
+
+if CONFIG['MOZ_DAV1D_ASM']:
+    DIRS += ['asm']
+
+    # Store the stack alignment that will be used.
+    stack_alignment = 0
+
+    # Default stack alignment can be 4 bytes on x86.
+    if CONFIG['CPU_ARCH'] == 'x86':
+        if CONFIG['OS_TARGET'] == 'WINNT':
+            # Allow the default to avoid crashes
+            stack_alignment = 4
+        else:
+            # Update stack alignment to 16 bytes.
+            stack_alignment = 16
+            if CONFIG['CC_TYPE'] == 'clang':
+                CFLAGS += ['-mstack-alignment=16']
+                for ep in entrypoint_source_files:
+                    SOURCES[ep].flags += ['-mstackrealign']
+            elif CONFIG['CC_TYPE'] == 'gcc':
+                CFLAGS += ['-mpreferred-stack-boundary=4']
+                for ep in entrypoint_source_files:
+                    SOURCES[ep].flags += ['-mincoming-stack-boundary=2']
+    elif CONFIG['CPU_ARCH'] in ('x86_64', 'aarch64'):
+        # The default stack alignment is 16 bytes.
+        stack_alignment = 16
+    else:
+        error('Cpu arch %s is not expected' % CONFIG['CPU_ARCH'])
+
+    # Set the macro here instead of config.h
+    if stack_alignment == 0:
+        error('Stack alignment cannot be zero.')
+    DEFINES['STACK_ALIGNMENT'] = stack_alignment
+
+if CONFIG['OS_TARGET'] == 'Linux':
+    # For fuzzing, We only support building on Linux currently.
+    include('/tools/fuzzing/libfuzzer-config.mozbuild')
+    if CONFIG['FUZZING_INTERFACES']:
+        TEST_DIRS += [
+            'test/fuzztest'
+        ]
 
 # common sources
-SOURCES += [
-    '../../third_party/dav1d/src/cdf.c',
-    '../../third_party/dav1d/src/cpu.c',
-    '../../third_party/dav1d/src/data.c',
-    '../../third_party/dav1d/src/decode.c',
-    '../../third_party/dav1d/src/dequant_tables.c',
-    '../../third_party/dav1d/src/getbits.c',
-    '../../third_party/dav1d/src/intra_edge.c',
-    '../../third_party/dav1d/src/lf_mask.c',
-    '../../third_party/dav1d/src/msac.c',
-    '../../third_party/dav1d/src/obu.c',
-    '../../third_party/dav1d/src/picture.c',
-    '../../third_party/dav1d/src/qm.c',
-    '../../third_party/dav1d/src/ref.c',
-    '../../third_party/dav1d/src/ref_mvs.c',
-    '../../third_party/dav1d/src/scan.c',
-    '../../third_party/dav1d/src/tables.c',
-    '../../third_party/dav1d/src/warpmv.c',
-    '../../third_party/dav1d/src/wedge.c',
-]
+include('autovendored_sources.mozbuild')
+SOURCES += sources
 
 # includes src
 EXPORTS.dav1d.src += [
@@ -81,12 +86,13 @@ EXPORTS.dav1d.src += [
     '../../third_party/dav1d/src/getbits.h',
     '../../third_party/dav1d/src/intra_edge.h',
     '../../third_party/dav1d/src/lf_mask.h',
+    '../../third_party/dav1d/src/log.h',
     '../../third_party/dav1d/src/msac.h',
     '../../third_party/dav1d/src/obu.h',
     '../../third_party/dav1d/src/picture.h',
     '../../third_party/dav1d/src/qm.h',
     '../../third_party/dav1d/src/ref.h',
-    '../../third_party/dav1d/src/ref_mvs.h',
+    '../../third_party/dav1d/src/refmvs.h',
     '../../third_party/dav1d/src/scan.h',
     '../../third_party/dav1d/src/tables.h',
     '../../third_party/dav1d/src/thread.h',
@@ -94,11 +100,12 @@ EXPORTS.dav1d.src += [
     '../../third_party/dav1d/src/wedge.h',
 ]
 
-# common BITDEPTH 8, 10
+# common BITDEPTH 8, 16
 relative_path = '../../third_party/dav1d/src/'
 bitdepth_basenames = [
     'cdef_apply_tmpl.c',
     'cdef_tmpl.c',
+    'fg_apply_tmpl.c',
     'film_grain_tmpl.c',
     'ipred_prepare_tmpl.c',
     'ipred_tmpl.c',
@@ -111,36 +118,37 @@ bitdepth_basenames = [
     'recon_tmpl.c'
 ]
 
-GENERATED_FILES += [
-    '10bd_%s' % p for p in bitdepth_basenames
-]
+generated_files = []
 
 for f in bitdepth_basenames:
-    a = GENERATED_FILES['10bd_%s' % f]
-    a.script = 'generate_source.py:add_define'
-    a.inputs = [relative_path + f]
-    a.flags = ['BITDEPTH', '10']
+    file_bd16 = '16bd_%s' % f
+    file_bd8 = '8bd_%s' % f
 
-GENERATED_FILES += [
-    '8bd_%s' % p for p in bitdepth_basenames
-]
+    GeneratedFile(file_bd16,
+                  script='generate_source.py',
+                  entry_point='add_define',
+                  inputs=[relative_path + f],
+                  flags=['BITDEPTH', '16'])
+    GeneratedFile(file_bd8,
+                  script='generate_source.py',
+                  entry_point='add_define',
+                  inputs=[relative_path + f],
+                  flags=['BITDEPTH', '8'])
 
-for f in bitdepth_basenames:
-    a = GENERATED_FILES['8bd_%s' % f]
-    a.script = 'generate_source.py:add_define'
-    a.inputs = [relative_path + f]
-    a.flags = ['BITDEPTH', '8']
+    generated_files += [file_bd16, file_bd8]
 
-SOURCES += [
-    '!%s' % p for p in GENERATED_FILES if p.endswith('.c')
-]
+for p in generated_files:
+    if p.endswith('.c'):
+        SOURCES += ['!%s' % p]
 
 EXPORTS.dav1d.src += [
     '../../third_party/dav1d/src/cdef.h',
     '../../third_party/dav1d/src/cdef_apply.h',
+    '../../third_party/dav1d/src/fg_apply.h',
     '../../third_party/dav1d/src/ipred.h',
     '../../third_party/dav1d/src/ipred_prepare.h',
     '../../third_party/dav1d/src/itx.h',
+    '../../third_party/dav1d/src/itx_1d.h',
     '../../third_party/dav1d/src/lf_apply.h',
     '../../third_party/dav1d/src/loopfilter.h',
     '../../third_party/dav1d/src/looprestoration.h',
@@ -169,14 +177,9 @@ EXPORTS.dav1d += [
 ]
 
 if CONFIG['OS_TARGET'] == 'WINNT':
-    RCFILE = 'dav1d.rc'
     SOURCES += [
         '../../third_party/dav1d/src/win32/thread.c'
     ]
-
-if CONFIG['CC_TYPE'] == 'msvc':
-    LOCAL_INCLUDES += ['../../third_party/dav1d/include/compat/msvc/']
-    EXPORTS.dav1d += ['../../third_party/dav1d/include/compat/msvc/stdatomic.h']
 
 if CONFIG['CC_TYPE'] == 'gcc':
     LOCAL_INCLUDES += ['../../third_party/dav1d/include/compat/gcc/']
@@ -186,6 +189,3 @@ FINAL_LIBRARY = 'gkmedias'
 
 # We allow warnings for third-party code that can be updated from upstream.
 AllowCompilerWarnings()
-
-# And furthermore, don't show warnings.
-DisableCompilerWarnings()

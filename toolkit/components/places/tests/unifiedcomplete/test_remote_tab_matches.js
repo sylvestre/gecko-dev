@@ -1,9 +1,9 @@
 /* -*- indent-tabs-mode: nil; js-indent-level: 2 -*-
  * vim:set ts=2 sw=2 sts=2 et:
-*/
+ */
 "use strict";
 
-ChromeUtils.import("resource://services-sync/main.js");
+const { Weave } = ChromeUtils.import("resource://services-sync/main.js");
 
 Services.prefs.setCharPref("services.sync.username", "someone@somewhere.com");
 Services.prefs.setCharPref("services.sync.registerEngines", "");
@@ -41,9 +41,9 @@ let MockClientsEngine = {
 Weave.Service.engineManager.register(MockTabsEngine);
 
 // Tell the Sync XPCOM service it is initialized.
-let weaveXPCService = Cc["@mozilla.org/weave/service;1"]
-                        .getService(Ci.nsISupports)
-                        .wrappedJSObject;
+let weaveXPCService = Cc["@mozilla.org/weave/service;1"].getService(
+  Ci.nsISupports
+).wrappedJSObject;
 weaveXPCService.ready = true;
 
 // Configure the singleton engine for a test.
@@ -59,49 +59,30 @@ function configureEngine(clients) {
 // Make a match object suitable for passing to check_autocomplete.
 function makeRemoteTabMatch(url, deviceName, extra = {}) {
   return {
-    uri: makeActionURI("remotetab", {url, deviceName}),
+    uri: makeActionURI("remotetab", { url, deviceName }),
     title: extra.title || url,
-    style: [ "action", "remotetab" ],
+    style: ["action", "remotetab"],
     icon: extra.icon,
   };
 }
-
-// The tests.
-add_task(async function test_nomatch() {
-  // Nothing matches.
-  configureEngine({
-    guid_desktop: {
-      id: "desktop",
-      tabs: [{
-        urlHistory: ["http://foo.com/"],
-      }],
-    },
-  });
-
-  // No remote tabs match here, so we only expect search results.
-  await check_autocomplete({
-    search: "ex",
-    searchParam: "enable-actions",
-    matches: [ makeSearchMatch("ex", { heuristic: true }) ],
-  });
-});
 
 add_task(async function test_minimal() {
   // The minimal client and tabs info we can get away with.
   configureEngine({
     guid_desktop: {
       id: "desktop",
-      tabs: [{
-        urlHistory: ["http://example.com/"],
-      }],
+      tabs: [
+        {
+          urlHistory: ["http://example.com/"],
+        },
+      ],
     },
   });
 
   await check_autocomplete({
     search: "ex",
     searchParam: "enable-actions",
-    matches: [ makeSearchMatch("ex", { heuristic: true }),
-               makeRemoteTabMatch("http://example.com/", "My Desktop") ],
+    matches: [makeRemoteTabMatch("http://example.com/", "My Desktop")],
   });
 });
 
@@ -110,23 +91,25 @@ add_task(async function test_maximal() {
   configureEngine({
     guid_mobile: {
       id: "mobile",
-      tabs: [{
-        urlHistory: ["http://example.com/"],
-        title: "An Example",
-        icon: "http://favicon",
-      }],
+      tabs: [
+        {
+          urlHistory: ["http://example.com/"],
+          title: "An Example",
+          icon: "http://favicon",
+        },
+      ],
     },
   });
 
   await check_autocomplete({
     search: "ex",
     searchParam: "enable-actions",
-    matches: [ makeSearchMatch("ex", { heuristic: true }),
-               makeRemoteTabMatch("http://example.com/", "My Phone",
-                                  { title: "An Example",
-                                    icon: "moz-anno:favicon:http://favicon/",
-                                  }),
-             ],
+    matches: [
+      makeRemoteTabMatch("http://example.com/", "My Phone", {
+        title: "An Example",
+        icon: "moz-anno:favicon:http://favicon/",
+      }),
+    ],
   });
 });
 
@@ -135,24 +118,26 @@ add_task(async function test_noShowIcons() {
   configureEngine({
     guid_mobile: {
       id: "mobile",
-      tabs: [{
-        urlHistory: ["http://example.com/"],
-        title: "An Example",
-        icon: "http://favicon",
-      }],
+      tabs: [
+        {
+          urlHistory: ["http://example.com/"],
+          title: "An Example",
+          icon: "http://favicon",
+        },
+      ],
     },
   });
 
   await check_autocomplete({
     search: "ex",
     searchParam: "enable-actions",
-    matches: [ makeSearchMatch("ex", { heuristic: true }),
-               makeRemoteTabMatch("http://example.com/", "My Phone",
-                                  { title: "An Example",
-                                    // expecting the default favicon due to that pref.
-                                    icon: "",
-                                  }),
-             ],
+    matches: [
+      makeRemoteTabMatch("http://example.com/", "My Phone", {
+        title: "An Example",
+        // expecting the default favicon due to that pref.
+        icon: "",
+      }),
+    ],
   });
   Services.prefs.clearUserPref("services.sync.syncedTabs.showRemoteIcons");
 });
@@ -162,18 +147,20 @@ add_task(async function test_dontMatchSyncedTabs() {
   configureEngine({
     guid_mobile: {
       id: "mobile",
-      tabs: [{
-        urlHistory: ["http://example.com/"],
-        title: "An Example",
-        icon: "http://favicon",
-      }],
+      tabs: [
+        {
+          urlHistory: ["http://example.com/"],
+          title: "An Example",
+          icon: "http://favicon",
+        },
+      ],
     },
   });
 
   await check_autocomplete({
     search: "ex",
     searchParam: "enable-actions",
-    matches: [ makeSearchMatch("ex", { heuristic: true }) ],
+    matches: [],
   });
   Services.prefs.clearUserPref("services.sync.syncedTabs.showRemoteTabs");
 });
@@ -183,20 +170,23 @@ add_task(async function test_matches_title() {
   configureEngine({
     guid_mobile: {
       id: "mobile",
-      tabs: [{
-        urlHistory: ["http://foo.com/"],
-        title: "An Example",
-      }],
+      tabs: [
+        {
+          urlHistory: ["http://foo.com/"],
+          title: "An Example",
+        },
+      ],
     },
   });
 
   await check_autocomplete({
     search: "ex",
     searchParam: "enable-actions",
-    matches: [ makeSearchMatch("ex", { heuristic: true }),
-               makeRemoteTabMatch("http://foo.com/", "My Phone",
-                                  { title: "An Example" }),
-             ],
+    matches: [
+      makeRemoteTabMatch("http://foo.com/", "My Phone", {
+        title: "An Example",
+      }),
+    ],
   });
 });
 
@@ -208,27 +198,26 @@ add_task(async function test_localtab_matches_override() {
   configureEngine({
     guid_mobile: {
       id: "mobile",
-      tabs: [{
-        urlHistory: ["http://foo.com/"],
-        title: "An Example",
-      }],
+      tabs: [
+        {
+          urlHistory: ["http://foo.com/"],
+          title: "An Example",
+        },
+      ],
     },
   });
 
   // Setup Places to think the tab is open locally.
   let uri = NetUtil.newURI("http://foo.com/");
-  await PlacesTestUtils.addVisits([
-    { uri, title: "An Example" },
-  ]);
-  addOpenPages(uri, 1);
+  await PlacesTestUtils.addVisits([{ uri, title: "An Example" }]);
+  await addOpenPages(uri, 1);
 
   await check_autocomplete({
     search: "ex",
     searchParam: "enable-actions",
-    matches: [ makeSearchMatch("ex", { heuristic: true }),
-               makeSwitchToTabMatch("http://foo.com/", { title: "An Example" }),
-             ],
+    matches: [makeSwitchToTabMatch("http://foo.com/", { title: "An Example" })],
   });
+  await removeOpenPages(uri, 1);
 });
 
 add_task(async function test_remotetab_matches_override() {
@@ -239,10 +228,12 @@ add_task(async function test_remotetab_matches_override() {
   configureEngine({
     guid_mobile: {
       id: "mobile",
-      tabs: [{
-        urlHistory: [url],
-        title: "An Example",
-      }],
+      tabs: [
+        {
+          urlHistory: [url],
+          title: "An Example",
+        },
+      ],
     },
   });
 
@@ -252,10 +243,11 @@ add_task(async function test_remotetab_matches_override() {
   await check_autocomplete({
     search: "rem",
     searchParam: "enable-actions",
-    matches: [ makeSearchMatch("rem", { heuristic: true }),
-               makeRemoteTabMatch("http://foo.remote.com/", "My Phone",
-                                  { title: "An Example" }),
-             ],
+    matches: [
+      makeRemoteTabMatch("http://foo.remote.com/", "My Phone", {
+        title: "An Example",
+      }),
+    ],
   });
 });
 
@@ -269,11 +261,13 @@ add_task(async function test_many_remotetab_matches() {
   configureEngine({
     guid_mobile: {
       id: "mobile",
-      tabs: Array(5).fill(0).map((e, i) => ({
-        urlHistory: [`${url}${i}`],
-        title: "A title",
-        lastUsed: (Date.now() / 1000) - (i * 86400), // i days ago.
-      })),
+      tabs: Array(5)
+        .fill(0)
+        .map((e, i) => ({
+          urlHistory: [`${url}${i}`],
+          title: "A title",
+          lastUsed: Date.now() / 1000 - i * 86400, // i days ago.
+        })),
     },
   });
 
@@ -286,19 +280,129 @@ add_task(async function test_many_remotetab_matches() {
     searchParam: "enable-actions",
     checkSorting: true,
     matches: [
-      makeSearchMatch("rem", { heuristic: true }),
-      makeRemoteTabMatch("http://foo.remote.com/0", "My Phone",
-                        { title: "A title" }),
-      makeRemoteTabMatch("http://foo.remote.com/1", "My Phone",
-                        { title: "A title" }),
-      makeRemoteTabMatch("http://foo.remote.com/2", "My Phone",
-                        { title: "A title" }),
-      { uri: Services.io.newURI(historyUrl),
-        title: "test visit for " + historyUrl },
-      makeRemoteTabMatch("http://foo.remote.com/3", "My Phone",
-                        { title: "A title" }),
-      makeRemoteTabMatch("http://foo.remote.com/4", "My Phone",
-                        { title: "A title" }),
+      makeRemoteTabMatch("http://foo.remote.com/0", "My Phone", {
+        title: "A title",
+      }),
+      makeRemoteTabMatch("http://foo.remote.com/1", "My Phone", {
+        title: "A title",
+      }),
+      makeRemoteTabMatch("http://foo.remote.com/2", "My Phone", {
+        title: "A title",
+      }),
+      {
+        uri: Services.io.newURI(historyUrl),
+        title: "test visit for " + historyUrl,
+      },
+      makeRemoteTabMatch("http://foo.remote.com/3", "My Phone", {
+        title: "A title",
+      }),
+      makeRemoteTabMatch("http://foo.remote.com/4", "My Phone", {
+        title: "A title",
+      }),
     ],
   });
+});
+
+add_task(async function test_maxResults() {
+  await PlacesUtils.history.clear();
+
+  let url = "http://foo.remote.com/";
+
+  // Add 10 mock remote tabs.  Important: We set `lastUsed` so that these tabs
+  // are newer than RECENT_REMOTE_TAB_THRESHOLD_MS in UnifiedComplete.  That way
+  // they are added immediately in _matchRemoteTabs rather than being pushed
+  // onto _extraRemoteTabRows and then added later in execute().  The former
+  // does not check maxResults, but the latter does, and in this test, we want
+  // to verify that PlacesRemoteTabsAutocompleteProvider.getMatches returns at
+  // most ceil(maxResults / 2) tabs.
+  configureEngine({
+    guid_mobile: {
+      id: "mobile",
+      tabs: Array(10)
+        .fill(0)
+        .map((e, i) => ({
+          urlHistory: [`${url}${i}`],
+          title: "A title",
+          lastUsed: Date.now() - i,
+        })),
+    },
+  });
+
+  // Set maxResults to 4 in our search.
+  await check_autocomplete({
+    search: "rem",
+    searchParam: "enable-actions max-results:4",
+    checkSorting: true,
+    matches: [
+      makeRemoteTabMatch("http://foo.remote.com/0", "My Phone", {
+        title: "A title",
+      }),
+      makeRemoteTabMatch("http://foo.remote.com/1", "My Phone", {
+        title: "A title",
+      }),
+      makeRemoteTabMatch("http://foo.remote.com/2", "My Phone", {
+        title: "A title",
+      }),
+      makeRemoteTabMatch("http://foo.remote.com/3", "My Phone", {
+        title: "A title",
+      }),
+    ],
+  });
+});
+
+add_task(async function test_restrictionCharacter() {
+  await PlacesUtils.history.clear();
+
+  let url = "http://foo.remote.com/";
+
+  configureEngine({
+    guid_mobile: {
+      id: "mobile",
+      tabs: Array(10)
+        .fill(0)
+        .map((e, i) => ({
+          urlHistory: [`${url}${i}`],
+          title: "A title",
+          lastUsed: Date.now() - i,
+        })),
+    },
+  });
+
+  // Also add an open page.
+  let uri = Services.io.newURI(`${url}openpage/`);
+  await PlacesTestUtils.addVisits([{ uri, title: "An Example" }]);
+  await addOpenPages(uri, 1);
+
+  // Set maxResults to 7 in our search.  7 results should be returned:
+  // ceil(maxResults / 2) remote tabs, then the open tab, then 2 more remote tab
+  // results to get to 7 total.
+  await check_autocomplete({
+    search: UrlbarTokenizer.RESTRICT.OPENPAGE,
+    searchParam: "enable-actions max-results:7",
+    checkSorting: true,
+    matches: [
+      makeRemoteTabMatch("http://foo.remote.com/0", "My Phone", {
+        title: "A title",
+      }),
+      makeRemoteTabMatch("http://foo.remote.com/1", "My Phone", {
+        title: "A title",
+      }),
+      makeRemoteTabMatch("http://foo.remote.com/2", "My Phone", {
+        title: "A title",
+      }),
+      makeRemoteTabMatch("http://foo.remote.com/3", "My Phone", {
+        title: "A title",
+      }),
+      makeSwitchToTabMatch("http://foo.remote.com/openpage/", {
+        title: "An Example",
+      }),
+      makeRemoteTabMatch("http://foo.remote.com/4", "My Phone", {
+        title: "A title",
+      }),
+      makeRemoteTabMatch("http://foo.remote.com/5", "My Phone", {
+        title: "A title",
+      }),
+    ],
+  });
+  await removeOpenPages(uri, 1);
 });

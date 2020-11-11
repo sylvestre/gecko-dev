@@ -10,19 +10,20 @@
 #include "mozilla/UniquePtr.h"
 #include "mozilla/net/NeckoChild.h"
 #include "mozilla/dom/PBrowserChild.h"
-#include "mozilla/dom/TabChild.h"
+#include "mozilla/dom/BrowserChild.h"
 #include "nsITCPSocketCallback.h"
 #include "TCPSocket.h"
 #include "nsContentUtils.h"
-#include "jsapi.h"
-#include "jsfriendapi.h"
+#include "js/ArrayBuffer.h"  // JS::NewArrayBufferWithContents
+#include "js/RootingAPI.h"   // JS::MutableHandle
+#include "js/Utility.h"  // js::ArrayBufferContentsArena, JS::FreePolicy, js_pod_arena_malloc
+#include "js/Value.h"  // JS::Value
 
 using mozilla::net::gNeckoChild;
 
 namespace IPC {
 
-bool DeserializeArrayBuffer(JSContext* cx,
-                            const InfallibleTArray<uint8_t>& aBuffer,
+bool DeserializeArrayBuffer(JSContext* cx, const nsTArray<uint8_t>& aBuffer,
                             JS::MutableHandle<JS::Value> aVal) {
   mozilla::UniquePtr<uint8_t[], JS::FreePolicy> data(
       js_pod_arena_malloc<uint8_t>(js::ArrayBufferContentsArena,
@@ -31,9 +32,9 @@ bool DeserializeArrayBuffer(JSContext* cx,
   memcpy(data.get(), aBuffer.Elements(), aBuffer.Length());
 
   JSObject* obj =
-      JS_NewArrayBufferWithContents(cx, aBuffer.Length(), data.get());
+      JS::NewArrayBufferWithContents(cx, aBuffer.Length(), data.get());
   if (!obj) return false;
-  // If JS_NewArrayBufferWithContents returns non-null, the ownership of
+  // If JS::NewArrayBufferWithContents returns non-null, the ownership of
   // the data is transfered to obj, so we release the ownership here.
   mozilla::Unused << data.release();
 
@@ -43,8 +44,7 @@ bool DeserializeArrayBuffer(JSContext* cx,
 
 }  // namespace IPC
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_IMPL_CYCLE_COLLECTION_CLASS(TCPSocketChildBase)
 
@@ -82,7 +82,7 @@ NS_IMETHODIMP_(MozExternalRefCountType) TCPSocketChild::Release(void) {
 }
 
 TCPSocketChild::TCPSocketChild(const nsAString& aHost, const uint16_t& aPort,
-                               nsIEventTarget* aTarget)
+                               nsISerialEventTarget* aTarget)
     : mHost(aHost), mPort(aPort), mIPCEventTarget(aTarget) {}
 
 void TCPSocketChild::SendOpen(nsITCPSocketCallback* aSocket, bool aUseSSL,
@@ -95,28 +95,7 @@ void TCPSocketChild::SendOpen(nsITCPSocketCallback* aSocket, bool aUseSSL,
 
   AddIPDLReference();
   gNeckoChild->SendPTCPSocketConstructor(this, mHost, mPort);
-  MOZ_ASSERT(mFilterName.IsEmpty());  // Currently nobody should use this
   PTCPSocketChild::SendOpen(mHost, mPort, aUseSSL, aUseArrayBuffers);
-}
-
-void TCPSocketChild::SendWindowlessOpenBind(nsITCPSocketCallback* aSocket,
-                                            const nsACString& aRemoteHost,
-                                            uint16_t aRemotePort,
-                                            const nsACString& aLocalHost,
-                                            uint16_t aLocalPort, bool aUseSSL,
-                                            bool aReuseAddrPort) {
-  mSocket = aSocket;
-
-  if (mIPCEventTarget) {
-    gNeckoChild->SetEventTargetForActor(this, mIPCEventTarget);
-  }
-
-  AddIPDLReference();
-  gNeckoChild->SendPTCPSocketConstructor(
-      this, NS_ConvertUTF8toUTF16(aRemoteHost), aRemotePort);
-  PTCPSocketChild::SendOpenBind(nsCString(aRemoteHost), aRemotePort,
-                                nsCString(aLocalHost), aLocalPort, aUseSSL,
-                                aReuseAddrPort, true, mFilterName);
 }
 
 void TCPSocketChildBase::ReleaseIPDLReference() {
@@ -132,7 +111,7 @@ void TCPSocketChildBase::AddIPDLReference() {
   this->AddRef();
 }
 
-TCPSocketChild::~TCPSocketChild() {}
+TCPSocketChild::~TCPSocketChild() = default;
 
 mozilla::ipc::IPCResult TCPSocketChild::RecvUpdateBufferedAmount(
     const uint32_t& aBuffered, const uint32_t& aTrackingNumber) {
@@ -168,14 +147,12 @@ mozilla::ipc::IPCResult TCPSocketChild::RecvCallback(
   return IPC_OK();
 }
 
-void TCPSocketChild::SendSend(const nsACString& aData,
-                              uint32_t aTrackingNumber) {
-  SendData(nsCString(aData), aTrackingNumber);
+void TCPSocketChild::SendSend(const nsACString& aData) {
+  SendData(nsCString(aData));
 }
 
 nsresult TCPSocketChild::SendSend(const ArrayBuffer& aData,
-                                  uint32_t aByteOffset, uint32_t aByteLength,
-                                  uint32_t aTrackingNumber) {
+                                  uint32_t aByteOffset, uint32_t aByteLength) {
   uint32_t buflen = aData.Length();
   uint32_t offset = std::min(buflen, aByteOffset);
   uint32_t nbytes = std::min(buflen - aByteOffset, aByteLength);
@@ -185,16 +162,7 @@ nsresult TCPSocketChild::SendSend(const ArrayBuffer& aData,
     return NS_ERROR_OUT_OF_MEMORY;
   }
 
-  InfallibleTArray<uint8_t> arr;
-  arr.SwapElements(fallibleArr);
-  SendData(arr, aTrackingNumber);
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-TCPSocketChild::SendSendArray(nsTArray<uint8_t>& aArray,
-                              uint32_t aTrackingNumber) {
-  SendData(aArray, aTrackingNumber);
+  SendData(SendableData{std::move(fallibleArr)});
   return NS_OK;
 }
 
@@ -204,19 +172,9 @@ void TCPSocketChild::GetHost(nsAString& aHost) { aHost = mHost; }
 
 void TCPSocketChild::GetPort(uint16_t* aPort) { *aPort = mPort; }
 
-nsresult TCPSocketChild::SetFilterName(const nsACString& aFilterName) {
-  if (!mFilterName.IsEmpty()) {
-    // filter name can only be set once.
-    return NS_ERROR_FAILURE;
-  }
-  mFilterName = aFilterName;
-  return NS_OK;
-}
-
 mozilla::ipc::IPCResult TCPSocketChild::RecvRequestDelete() {
   mozilla::Unused << Send__delete__(this);
   return IPC_OK();
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

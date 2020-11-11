@@ -15,13 +15,12 @@ namespace net {
 
 NS_IMPL_ISUPPORTS_INHERITED(FileChannelChild, nsFileChannel, nsIChildChannel)
 
-FileChannelChild::FileChannelChild(nsIURI *uri)
-    : nsFileChannel(uri), mIPCOpen(false) {}
+FileChannelChild::FileChannelChild(nsIURI* uri) : nsFileChannel(uri) {}
 
 NS_IMETHODIMP
 FileChannelChild::ConnectParent(uint32_t id) {
-  mozilla::dom::ContentChild *cc =
-      static_cast<mozilla::dom::ContentChild *>(gNeckoChild->Manager());
+  mozilla::dom::ContentChild* cc =
+      static_cast<mozilla::dom::ContentChild*>(gNeckoChild->Manager());
   if (cc->IsShuttingDown()) {
     return NS_ERROR_FAILURE;
   }
@@ -29,43 +28,24 @@ FileChannelChild::ConnectParent(uint32_t id) {
   if (!gNeckoChild->SendPFileChannelConstructor(this, id)) {
     return NS_ERROR_FAILURE;
   }
-
-  AddIPDLReference();
   return NS_OK;
 }
 
 NS_IMETHODIMP
-FileChannelChild::CompleteRedirectSetup(nsIStreamListener *listener,
-                                        nsISupports *ctx) {
+FileChannelChild::CompleteRedirectSetup(nsIStreamListener* listener) {
   nsresult rv;
 
-  if (mLoadInfo && mLoadInfo->GetEnforceSecurity()) {
-    MOZ_ASSERT(!ctx, "Context should be null");
-    rv = AsyncOpen2(listener);
-  } else {
-    rv = AsyncOpen(listener, ctx);
-  }
+  rv = AsyncOpen(listener);
 
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
 
-  if (mIPCOpen) {
+  if (CanSend()) {
     Unused << Send__delete__(this);
   }
 
   return NS_OK;
-}
-
-void FileChannelChild::AddIPDLReference() {
-  AddRef();
-  mIPCOpen = true;
-}
-
-void FileChannelChild::ActorDestroy(ActorDestroyReason why) {
-  MOZ_ASSERT(mIPCOpen);
-  mIPCOpen = false;
-  Release();
 }
 
 }  // namespace net

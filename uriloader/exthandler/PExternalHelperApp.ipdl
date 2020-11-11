@@ -5,21 +5,18 @@
 
 include protocol PBrowser;
 include protocol PContent;
-include protocol PChannelDiverter;
 
 namespace mozilla {
 namespace dom {
 
-protocol PExternalHelperApp
+refcounted protocol PExternalHelperApp
 {
   manager PContent;
 
 parent:
-  async OnStartRequest(nsCString entityID, PBrowser windowContext);
+  async OnStartRequest(nsCString entityID);
   async OnDataAvailable(nsCString data, uint64_t offset, uint32_t count);
   async OnStopRequest(nsresult code);
-
-  async DivertToParentUsing(PChannelDiverter diverter, PBrowser windowContext);
 
 child:
   async Cancel(nsresult aStatus);

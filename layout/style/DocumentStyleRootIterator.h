@@ -10,7 +10,7 @@
 #include "nsTArray.h"
 
 class nsIContent;
-class nsIDocument;
+
 class nsINode;
 
 namespace mozilla {
@@ -31,7 +31,7 @@ class Element;
 class DocumentStyleRootIterator {
  public:
   explicit DocumentStyleRootIterator(nsINode* aStyleRoot);
-  ~DocumentStyleRootIterator() { MOZ_COUNT_DTOR(DocumentStyleRootIterator); }
+  MOZ_COUNTED_DTOR(DocumentStyleRootIterator)
 
   dom::Element* GetNextStyleRoot();
 

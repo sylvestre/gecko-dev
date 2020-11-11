@@ -7,21 +7,20 @@
 
 #include "nsArray.h"
 #include "nsCRT.h"
-#include "nsIComponentManager.h"
 #include "nsCOMPtr.h"
+#include "nsITransferable.h"
+#include "nsLiteralString.h"
 #include "nsXPCOM.h"
 #include "nsISupportsPrimitives.h"
-
-#include "nsITransferable.h"  // for mime defs, this is BAD
 
 // HTML convertor stuff
 #include "nsPrimitiveHelpers.h"
 #include "nsIDocumentEncoder.h"
 #include "nsContentUtils.h"
 
-nsHTMLFormatConverter::nsHTMLFormatConverter() {}
+nsHTMLFormatConverter::nsHTMLFormatConverter() = default;
 
-nsHTMLFormatConverter::~nsHTMLFormatConverter() {}
+nsHTMLFormatConverter::~nsHTMLFormatConverter() = default;
 
 NS_IMPL_ISUPPORTS(nsHTMLFormatConverter, nsIFormatConverter)
 
@@ -32,8 +31,8 @@ NS_IMPL_ISUPPORTS(nsHTMLFormatConverter, nsIFormatConverter)
 // knows how to import. In this case, it's just HTML.
 //
 NS_IMETHODIMP
-nsHTMLFormatConverter::GetInputDataFlavors(nsTArray<nsCString> &aFlavors) {
-  aFlavors.AppendElement(NS_LITERAL_CSTRING(kHTMLMime));
+nsHTMLFormatConverter::GetInputDataFlavors(nsTArray<nsCString>& aFlavors) {
+  aFlavors.AppendElement(nsLiteralCString(kHTMLMime));
   return NS_OK;
 }
 
@@ -45,9 +44,9 @@ nsHTMLFormatConverter::GetInputDataFlavors(nsTArray<nsCString> &aFlavors) {
 // HTML can be converted to.
 //
 NS_IMETHODIMP
-nsHTMLFormatConverter::GetOutputDataFlavors(nsTArray<nsCString> &aFlavors) {
-  aFlavors.AppendElement(NS_LITERAL_CSTRING(kHTMLMime));
-  aFlavors.AppendElement(NS_LITERAL_CSTRING(kUnicodeMime));
+nsHTMLFormatConverter::GetOutputDataFlavors(nsTArray<nsCString>& aFlavors) {
+  aFlavors.AppendElement(nsLiteralCString(kHTMLMime));
+  aFlavors.AppendElement(nsLiteralCString(kUnicodeMime));
   return NS_OK;
 }
 
@@ -58,8 +57,8 @@ nsHTMLFormatConverter::GetOutputDataFlavors(nsTArray<nsCString> &aFlavors) {
 // converts from HTML to others.
 //
 NS_IMETHODIMP
-nsHTMLFormatConverter::CanConvert(const char *aFromDataFlavor,
-                                  const char *aToDataFlavor, bool *_retval) {
+nsHTMLFormatConverter::CanConvert(const char* aFromDataFlavor,
+                                  const char* aToDataFlavor, bool* _retval) {
   if (!_retval) return NS_ERROR_INVALID_ARG;
 
   *_retval = false;
@@ -96,10 +95,10 @@ nsHTMLFormatConverter::CanConvert(const char *aFromDataFlavor,
 // XXX unicode out of the string. Lame lame lame.
 //
 NS_IMETHODIMP
-nsHTMLFormatConverter::Convert(const char *aFromDataFlavor,
-                               nsISupports *aFromData,
-                               const char *aToDataFlavor,
-                               nsISupports **aToData) {
+nsHTMLFormatConverter::Convert(const char* aFromDataFlavor,
+                               nsISupports* aFromData,
+                               const char* aToDataFlavor,
+                               nsISupports** aToData) {
   if (!aToData) return NS_ERROR_INVALID_ARG;
 
   nsresult rv = NS_OK;
@@ -162,8 +161,8 @@ nsHTMLFormatConverter::Convert(const char *aFromDataFlavor,
 // Takes HTML and converts it to plain text but in unicode.
 //
 NS_IMETHODIMP
-nsHTMLFormatConverter::ConvertFromHTMLToUnicode(const nsAutoString &aFromStr,
-                                                nsAutoString &aToStr) {
+nsHTMLFormatConverter::ConvertFromHTMLToUnicode(const nsAutoString& aFromStr,
+                                                nsAutoString& aToStr) {
   return nsContentUtils::ConvertToPlainText(
       aFromStr, aToStr,
       nsIDocumentEncoder::OutputSelectionOnly |
@@ -174,8 +173,8 @@ nsHTMLFormatConverter::ConvertFromHTMLToUnicode(const nsAutoString &aFromStr,
 }  // ConvertFromHTMLToUnicode
 
 NS_IMETHODIMP
-nsHTMLFormatConverter::ConvertFromHTMLToAOLMail(const nsAutoString &aFromStr,
-                                                nsAutoString &aToStr) {
+nsHTMLFormatConverter::ConvertFromHTMLToAOLMail(const nsAutoString& aFromStr,
+                                                nsAutoString& aToStr) {
   aToStr.AssignLiteral("<HTML>");
   aToStr.Append(aFromStr);
   aToStr.AppendLiteral("</HTML>");

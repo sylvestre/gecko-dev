@@ -13,7 +13,7 @@
 namespace mozilla {
 
 namespace dom {
-class TabParent;
+class BrowserParent;
 }
 
 namespace layers {
@@ -38,57 +38,58 @@ class RemoteContentController : public GeckoContentController,
 
   virtual ~RemoteContentController();
 
-  virtual void RequestContentRepaint(const RepaintRequest& aRequest) override;
+  void NotifyLayerTransforms(nsTArray<MatrixMessage>&& aTransforms) override;
 
-  virtual void HandleTap(TapType aTapType, const LayoutDevicePoint& aPoint,
-                         Modifiers aModifiers, const ScrollableLayerGuid& aGuid,
-                         uint64_t aInputBlockId) override;
+  void RequestContentRepaint(const RepaintRequest& aRequest) override;
 
-  virtual void NotifyPinchGesture(PinchGestureInput::PinchGestureType aType,
-                                  const ScrollableLayerGuid& aGuid,
-                                  LayoutDeviceCoord aSpanChange,
-                                  Modifiers aModifiers) override;
+  void HandleTap(TapType aTapType, const LayoutDevicePoint& aPoint,
+                 Modifiers aModifiers, const ScrollableLayerGuid& aGuid,
+                 uint64_t aInputBlockId) override;
 
-  virtual void PostDelayedTask(already_AddRefed<Runnable> aTask,
-                               int aDelayMs) override;
+  void NotifyPinchGesture(PinchGestureInput::PinchGestureType aType,
+                          const ScrollableLayerGuid& aGuid,
+                          const LayoutDevicePoint& aFocusPoint,
+                          LayoutDeviceCoord aSpanChange,
+                          Modifiers aModifiers) override;
 
-  virtual bool IsRepaintThread() override;
+  bool IsRepaintThread() override;
 
-  virtual void DispatchToRepaintThread(
-      already_AddRefed<Runnable> aTask) override;
+  void DispatchToRepaintThread(already_AddRefed<Runnable> aTask) override;
 
-  virtual void NotifyAPZStateChange(const ScrollableLayerGuid& aGuid,
-                                    APZStateChange aChange, int aArg) override;
+  void NotifyAPZStateChange(const ScrollableLayerGuid& aGuid,
+                            APZStateChange aChange, int aArg) override;
 
-  virtual void UpdateOverscrollVelocity(float aX, float aY,
-                                        bool aIsRootContent) override;
+  void UpdateOverscrollVelocity(const ScrollableLayerGuid& aGuid, float aX,
+                                float aY, bool aIsRootContent) override;
 
-  virtual void UpdateOverscrollOffset(float aX, float aY,
-                                      bool aIsRootContent) override;
+  void UpdateOverscrollOffset(const ScrollableLayerGuid& aGuid, float aX,
+                              float aY, bool aIsRootContent) override;
 
-  virtual void NotifyMozMouseScrollEvent(
-      const ScrollableLayerGuid::ViewID& aScrollId,
-      const nsString& aEvent) override;
+  void NotifyMozMouseScrollEvent(const ScrollableLayerGuid::ViewID& aScrollId,
+                                 const nsString& aEvent) override;
 
-  virtual void NotifyFlushComplete() override;
+  void NotifyFlushComplete() override;
 
-  virtual void NotifyAsyncScrollbarDragInitiated(
+  void NotifyAsyncScrollbarDragInitiated(
       uint64_t aDragBlockId, const ScrollableLayerGuid::ViewID& aScrollId,
       ScrollDirection aDirection) override;
-  virtual void NotifyAsyncScrollbarDragRejected(
+  void NotifyAsyncScrollbarDragRejected(
       const ScrollableLayerGuid::ViewID& aScrollId) override;
 
-  virtual void NotifyAsyncAutoscrollRejected(
+  void NotifyAsyncAutoscrollRejected(
       const ScrollableLayerGuid::ViewID& aScrollId) override;
 
-  virtual void CancelAutoscroll(const ScrollableLayerGuid& aScrollId) override;
+  void CancelAutoscroll(const ScrollableLayerGuid& aScrollId) override;
 
-  virtual void ActorDestroy(ActorDestroyReason aWhy) override;
+  void ActorDestroy(ActorDestroyReason aWhy) override;
 
-  virtual void Destroy() override;
+  void Destroy() override;
+  mozilla::ipc::IPCResult RecvDestroy();
+
+  bool IsRemote() override;
 
  private:
-  MessageLoop* mCompositorThread;
+  nsCOMPtr<nsISerialEventTarget> mCompositorThread;
   bool mCanSend;
 
   void HandleTapOnMainThread(TapType aType, LayoutDevicePoint aPoint,
@@ -100,8 +101,8 @@ class RemoteContentController : public GeckoContentController,
                                    uint64_t aInputBlockId);
   void NotifyPinchGestureOnCompositorThread(
       PinchGestureInput::PinchGestureType aType,
-      const ScrollableLayerGuid& aGuid, LayoutDeviceCoord aSpanChange,
-      Modifiers aModifiers);
+      const ScrollableLayerGuid& aGuid, const LayoutDevicePoint& aFocusPoint,
+      LayoutDeviceCoord aSpanChange, Modifiers aModifiers);
 
   void CancelAutoscrollInProcess(const ScrollableLayerGuid& aScrollId);
   void CancelAutoscrollCrossProcess(const ScrollableLayerGuid& aScrollId);

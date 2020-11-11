@@ -5,10 +5,20 @@
 include $(topsrcdir)/toolkit/mozapps/installer/package-name.mk
 
 CONFIG_DIR = instgen
-SFX_MODULE = $(topsrcdir)/other-licenses/7zstub/firefox/7zSD.sfx
+ifeq ($(CPU_ARCH), aarch64)
+SFX_MODULE = $(topsrcdir)/other-licenses/7zstub/firefox/7zSD.ARM64.sfx
+else
+SFX_MODULE = $(topsrcdir)/other-licenses/7zstub/firefox/7zSD.Win32.sfx
+endif
 
 INSTALLER_FILES = \
 	app.tag \
+	nsis/content/installing.html \
+	nsis/content/installing.js \
+	nsis/content/profile_cleanup.html \
+	nsis/content/profile_cleanup.js \
+	nsis/content/stub_common.css \
+	nsis/content/stub_common.js \
 	nsis/installer.nsi \
 	nsis/uninstaller.nsi \
 	nsis/stub.nsi \
@@ -23,10 +33,11 @@ INSTALLER_FILES += \
 endif
 
 BRANDING_FILES = \
-	bgstub.jpg \
-	bgstub_2x.jpg \
 	branding.nsi \
 	firefox64.ico \
+	stubinstaller/bgstub.jpg \
+	stubinstaller/installing_page.css \
+	stubinstaller/profile_cleanup_page.css \
 	wizHeader.bmp \
 	wizHeaderRTL.bmp \
 	wizWatermark.bmp \
@@ -44,17 +55,6 @@ else
 PPL_LOCALE_ARGS=$(call EXPAND_LOCALE_SRCDIR,browser/locales)/installer
 endif
 
-# For building the maintenanceservice installer
-ifdef MOZ_MAINTENANCE_SERVICE
-maintenanceservice_installer::
-	$(INSTALL) $(addprefix $(srcdir)/,$(INSTALLER_FILES)) $(CONFIG_DIR)
-	$(call py_action,preprocessor,-Fsubstitution $(DEFINES) $(ACDEFINES) \
-	  $(srcdir)/nsis/defines.nsi.in -o $(CONFIG_DIR)/defines.nsi)
-	$(PYTHON) $(topsrcdir)/toolkit/mozapps/installer/windows/nsis/preprocess-locale.py \
-	  --preprocess-locale $(topsrcdir) \
-	  $(PPL_LOCALE_ARGS) $(AB_CD) $(CONFIG_DIR)
-endif
-
 $(CONFIG_DIR)/setup.exe::
 	$(RM) -r $(CONFIG_DIR)
 	$(MKDIR) $(CONFIG_DIR)
@@ -62,18 +62,16 @@ $(CONFIG_DIR)/setup.exe::
 	$(INSTALL) $(addprefix $(topsrcdir)/$(MOZ_BRANDING_DIRECTORY)/,$(BRANDING_FILES)) $(CONFIG_DIR)
 	$(call py_action,preprocessor,-Fsubstitution $(DEFINES) $(ACDEFINES) \
 	  $(srcdir)/nsis/defines.nsi.in -o $(CONFIG_DIR)/defines.nsi)
-	$(PYTHON) $(topsrcdir)/toolkit/mozapps/installer/windows/nsis/preprocess-locale.py \
+	$(PYTHON3) $(topsrcdir)/toolkit/mozapps/installer/windows/nsis/preprocess-locale.py \
 	  --preprocess-locale $(topsrcdir) \
 	  $(PPL_LOCALE_ARGS) $(AB_CD) $(CONFIG_DIR)
-	$(PYTHON) $(topsrcdir)/toolkit/mozapps/installer/windows/nsis/preprocess-locale.py \
+	$(PYTHON3) $(topsrcdir)/toolkit/mozapps/installer/windows/nsis/preprocess-locale.py \
 	  --preprocess-single-file $(topsrcdir) \
 	  $(PPL_LOCALE_ARGS) $(CONFIG_DIR) \
 	  nsisstrings.properties nsisstrings.nlf
-	$(PYTHON) $(topsrcdir)/toolkit/mozapps/installer/windows/nsis/preprocess-locale.py \
+	$(PYTHON3) $(topsrcdir)/toolkit/mozapps/installer/windows/nsis/preprocess-locale.py \
 	  --convert-utf8-utf16le \
 	  $(srcdir)/nsis/extensionsLocale.nsh $(CONFIG_DIR)/extensionsLocale.nsh
-
-GARBARGE_DIRS += instgen
 
 include $(topsrcdir)/config/rules.mk
 include $(topsrcdir)/toolkit/mozapps/installer/windows/nsis/makensis.mk

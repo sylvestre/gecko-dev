@@ -7,10 +7,9 @@
 const {
   RESET_CHANGES,
   TRACK_CHANGE,
-} = require("./index");
+} = require("devtools/client/inspector/changes/actions/index");
 
 module.exports = {
-
   resetChanges() {
     return {
       type: RESET_CHANGES,
@@ -23,5 +22,4 @@ module.exports = {
       change,
     };
   },
-
 };

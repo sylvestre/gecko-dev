@@ -13,8 +13,7 @@
 #include "nsIPermission.h"
 #include "PermissionUtils.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 namespace {
 PermissionObserver* gInstance = nullptr;
@@ -31,8 +30,8 @@ PermissionObserver::~PermissionObserver() {
   gInstance = nullptr;
 }
 
-/* static */ already_AddRefed<PermissionObserver>
-PermissionObserver::GetInstance() {
+/* static */
+already_AddRefed<PermissionObserver> PermissionObserver::GetInstance() {
   RefPtr<PermissionObserver> instance = gInstance;
   if (!instance) {
     instance = new PermissionObserver();
@@ -105,7 +104,7 @@ PermissionObserver::Observe(nsISupports* aSubject, const char* aTopic,
 
   nsAutoCString type;
   perm->GetType(type);
-  Maybe<PermissionName> permission = TypeToPermissionName(type.get());
+  Maybe<PermissionName> permission = TypeToPermissionName(type);
   if (permission) {
     Notify(permission.value(), *principal);
   }
@@ -113,5 +112,4 @@ PermissionObserver::Observe(nsISupports* aSubject, const char* aTopic,
   return NS_OK;
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

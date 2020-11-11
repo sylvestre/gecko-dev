@@ -9,9 +9,9 @@
 #ifndef nsBlockReflowContext_h___
 #define nsBlockReflowContext_h___
 
-#include "nsIFrame.h"
 #include "mozilla/ReflowOutput.h"
 
+class nsIFrame;
 class nsLineBox;
 class nsPresContext;
 namespace mozilla {
@@ -29,7 +29,7 @@ class nsBlockReflowContext {
  public:
   nsBlockReflowContext(nsPresContext* aPresContext,
                        const ReflowInput& aParentRI);
-  ~nsBlockReflowContext() {}
+  ~nsBlockReflowContext() = default;
 
   void ReflowBlock(const mozilla::LogicalRect& aSpace, bool aApplyBStartMargin,
                    nsCollapsingMargin& aPrevMargin, nscoord aClearance,
@@ -51,7 +51,7 @@ class nsBlockReflowContext {
 
   /**
    * Computes the collapsed block-start margin (in the context's parent's
-   * writing mode) for a block whose reflow state is in aRI.
+   * writing mode) for a block whose reflow input is in aRI.
    * The computed margin is added into aMargin, whose writing mode is the
    * parent's mode as found in mMetrics.GetWritingMode(); note this may not be
    * the block's own writing mode as found in aRI.

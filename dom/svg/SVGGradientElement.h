@@ -4,19 +4,15 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef __NS_SVGGRADIENTELEMENT_H__
-#define __NS_SVGGRADIENTELEMENT_H__
+#ifndef DOM_SVG_SVGGRADIENTELEMENT_H_
+#define DOM_SVG_SVGGRADIENTELEMENT_H_
 
-#include "nsAutoPtr.h"
-#include "nsSVGAnimatedTransformList.h"
-#include "nsSVGElement.h"
-#include "nsSVGLength2.h"
-#include "nsSVGEnum.h"
-#include "nsSVGString.h"
-
-class nsSVGGradientFrame;
-class nsSVGLinearGradientFrame;
-class nsSVGRadialGradientFrame;
+#include "SVGAnimatedEnumeration.h"
+#include "SVGAnimatedLength.h"
+#include "SVGAnimatedString.h"
+#include "SVGAnimatedTransformList.h"
+#include "mozilla/dom/SVGElement.h"
+#include "mozilla/UniquePtr.h"
 
 nsresult NS_NewSVGLinearGradientElement(
     nsIContent** aResult, already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo);
@@ -24,16 +20,20 @@ nsresult NS_NewSVGRadialGradientElement(
     nsIContent** aResult, already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo);
 
 namespace mozilla {
+class SVGGradientFrame;
+class SVGLinearGradientFrame;
+class SVGRadialGradientFrame;
+
 namespace dom {
 
-class SVGAnimatedTransformList;
+class DOMSVGAnimatedTransformList;
 
 //--------------------- Gradients------------------------
 
-typedef nsSVGElement SVGGradientElementBase;
+using SVGGradientElementBase = SVGElement;
 
 class SVGGradientElement : public SVGGradientElementBase {
-  friend class ::nsSVGGradientFrame;
+  friend class mozilla::SVGGradientFrame;
 
  protected:
   explicit SVGGradientElement(
@@ -47,41 +47,41 @@ class SVGGradientElement : public SVGGradientElementBase {
   // nsIContent
   NS_IMETHOD_(bool) IsAttributeMapped(const nsAtom* aAttribute) const override;
 
-  virtual nsSVGAnimatedTransformList* GetAnimatedTransformList(
+  virtual SVGAnimatedTransformList* GetAnimatedTransformList(
       uint32_t aFlags = 0) override;
   virtual nsStaticAtom* GetTransformListAttrName() const override {
     return nsGkAtoms::gradientTransform;
   }
 
   // WebIDL
-  already_AddRefed<SVGAnimatedEnumeration> GradientUnits();
-  already_AddRefed<SVGAnimatedTransformList> GradientTransform();
-  already_AddRefed<SVGAnimatedEnumeration> SpreadMethod();
-  already_AddRefed<SVGAnimatedString> Href();
+  already_AddRefed<DOMSVGAnimatedEnumeration> GradientUnits();
+  already_AddRefed<DOMSVGAnimatedTransformList> GradientTransform();
+  already_AddRefed<DOMSVGAnimatedEnumeration> SpreadMethod();
+  already_AddRefed<DOMSVGAnimatedString> Href();
 
  protected:
   virtual EnumAttributesInfo GetEnumInfo() override;
   virtual StringAttributesInfo GetStringInfo() override;
 
   enum { GRADIENTUNITS, SPREADMETHOD };
-  nsSVGEnum mEnumAttributes[2];
-  static nsSVGEnumMapping sSpreadMethodMap[];
+  SVGAnimatedEnumeration mEnumAttributes[2];
+  static SVGEnumMapping sSpreadMethodMap[];
   static EnumInfo sEnumInfo[2];
 
   enum { HREF, XLINK_HREF };
-  nsSVGString mStringAttributes[2];
+  SVGAnimatedString mStringAttributes[2];
   static StringInfo sStringInfo[2];
 
   // SVGGradientElement values
-  nsAutoPtr<nsSVGAnimatedTransformList> mGradientTransform;
+  UniquePtr<SVGAnimatedTransformList> mGradientTransform;
 };
 
 //---------------------Linear Gradients------------------------
 
-typedef SVGGradientElement SVGLinearGradientElementBase;
+using SVGLinearGradientElementBase = SVGGradientElement;
 
 class SVGLinearGradientElement : public SVGLinearGradientElementBase {
-  friend class ::nsSVGLinearGradientFrame;
+  friend class mozilla::SVGLinearGradientFrame;
   friend nsresult(::NS_NewSVGLinearGradientElement(
       nsIContent** aResult,
       already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo));
@@ -96,25 +96,25 @@ class SVGLinearGradientElement : public SVGLinearGradientElementBase {
   virtual nsresult Clone(dom::NodeInfo*, nsINode** aResult) const override;
 
   // WebIDL
-  already_AddRefed<SVGAnimatedLength> X1();
-  already_AddRefed<SVGAnimatedLength> Y1();
-  already_AddRefed<SVGAnimatedLength> X2();
-  already_AddRefed<SVGAnimatedLength> Y2();
+  already_AddRefed<DOMSVGAnimatedLength> X1();
+  already_AddRefed<DOMSVGAnimatedLength> Y1();
+  already_AddRefed<DOMSVGAnimatedLength> X2();
+  already_AddRefed<DOMSVGAnimatedLength> Y2();
 
  protected:
   virtual LengthAttributesInfo GetLengthInfo() override;
 
   enum { ATTR_X1, ATTR_Y1, ATTR_X2, ATTR_Y2 };
-  nsSVGLength2 mLengthAttributes[4];
+  SVGAnimatedLength mLengthAttributes[4];
   static LengthInfo sLengthInfo[4];
 };
 
 //-------------------------- Radial Gradients ----------------------------
 
-typedef SVGGradientElement SVGRadialGradientElementBase;
+using SVGRadialGradientElementBase = SVGGradientElement;
 
 class SVGRadialGradientElement : public SVGRadialGradientElementBase {
-  friend class ::nsSVGRadialGradientFrame;
+  friend class mozilla::SVGRadialGradientFrame;
   friend nsresult(::NS_NewSVGRadialGradientElement(
       nsIContent** aResult,
       already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo));
@@ -129,22 +129,22 @@ class SVGRadialGradientElement : public SVGRadialGradientElementBase {
   virtual nsresult Clone(dom::NodeInfo*, nsINode** aResult) const override;
 
   // WebIDL
-  already_AddRefed<SVGAnimatedLength> Cx();
-  already_AddRefed<SVGAnimatedLength> Cy();
-  already_AddRefed<SVGAnimatedLength> R();
-  already_AddRefed<SVGAnimatedLength> Fx();
-  already_AddRefed<SVGAnimatedLength> Fy();
-  already_AddRefed<SVGAnimatedLength> Fr();
+  already_AddRefed<DOMSVGAnimatedLength> Cx();
+  already_AddRefed<DOMSVGAnimatedLength> Cy();
+  already_AddRefed<DOMSVGAnimatedLength> R();
+  already_AddRefed<DOMSVGAnimatedLength> Fx();
+  already_AddRefed<DOMSVGAnimatedLength> Fy();
+  already_AddRefed<DOMSVGAnimatedLength> Fr();
 
  protected:
   virtual LengthAttributesInfo GetLengthInfo() override;
 
   enum { ATTR_CX, ATTR_CY, ATTR_R, ATTR_FX, ATTR_FY, ATTR_FR };
-  nsSVGLength2 mLengthAttributes[6];
+  SVGAnimatedLength mLengthAttributes[6];
   static LengthInfo sLengthInfo[6];
 };
 
 }  // namespace dom
 }  // namespace mozilla
 
-#endif
+#endif  // DOM_SVG_SVGGRADIENTELEMENT_H_

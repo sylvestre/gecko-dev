@@ -11,10 +11,11 @@
 
 // Globals
 
-ChromeUtils.defineModuleGetter(this, "DownloadStore",
-                               "resource://gre/modules/DownloadStore.jsm");
-ChromeUtils.defineModuleGetter(this, "OS",
-                               "resource://gre/modules/osfile.jsm");
+ChromeUtils.defineModuleGetter(
+  this,
+  "DownloadStore",
+  "resource://gre/modules/DownloadStore.jsm"
+);
 
 /**
  * Returns a new DownloadList object with an associated DownloadStore.
@@ -44,29 +45,29 @@ function promiseNewListAndStore(aStorePath) {
 add_task(async function test_save_reload() {
   let [listForSave, storeForSave] = await promiseNewListAndStore();
   let [listForLoad, storeForLoad] = await promiseNewListAndStore(
-                                                 storeForSave.path);
+    storeForSave.path
+  );
+  let referrerInfo = new ReferrerInfo(
+    Ci.nsIReferrerInfo.EMPTY,
+    true,
+    NetUtil.newURI(TEST_REFERRER_URL)
+  );
 
   listForSave.add(await promiseNewDownload(httpUrl("source.txt")));
-  listForSave.add(await Downloads.createDownload({
-    source: { url: httpUrl("empty.txt"),
-              referrer: TEST_REFERRER_URL },
-    target: getTempFile(TEST_TARGET_FILE_NAME),
-  }));
-
-  // This PDF download should not be serialized because it never succeeds.
-  let pdfDownload = await Downloads.createDownload({
-    source: { url: httpUrl("empty.txt"),
-              referrer: TEST_REFERRER_URL },
-    target: getTempFile(TEST_TARGET_FILE_NAME),
-    saver: "pdf",
-  });
-  listForSave.add(pdfDownload);
+  listForSave.add(
+    await Downloads.createDownload({
+      source: { url: httpUrl("empty.txt"), referrerInfo },
+      target: getTempFile(TEST_TARGET_FILE_NAME),
+    })
+  );
 
   // If we used a callback to adjust the channel, the download should
   // not be serialized because we can't recreate it across sessions.
   let adjustedDownload = await Downloads.createDownload({
-    source: { url: httpUrl("empty.txt"),
-              adjustChannel: () => Promise.resolve() },
+    source: {
+      url: httpUrl("empty.txt"),
+      adjustChannel: () => Promise.resolve(),
+    },
     target: getTempFile(TEST_TARGET_FILE_NAME),
   });
   listForSave.add(adjustedDownload);
@@ -78,9 +79,8 @@ add_task(async function test_save_reload() {
   await storeForSave.save();
   await storeForLoad.load();
 
-  // Remove the PDF and adjusted downloads because they should not appear here.
+  // Remove the adjusted download because it should not appear here.
   listForSave.remove(adjustedDownload);
-  listForSave.remove(pdfDownload);
 
   let itemsForSave = await listForSave.getAll();
   let itemsForLoad = await listForLoad.getAll();
@@ -93,14 +93,26 @@ add_task(async function test_save_reload() {
     Assert.notEqual(itemsForSave[i], itemsForLoad[i]);
 
     // The reloaded downloads have the same properties.
-    Assert.equal(itemsForSave[i].source.url,
-                 itemsForLoad[i].source.url);
-    Assert.equal(itemsForSave[i].source.referrer,
-                 itemsForLoad[i].source.referrer);
-    Assert.equal(itemsForSave[i].target.path,
-                 itemsForLoad[i].target.path);
-    Assert.equal(itemsForSave[i].saver.toSerializable(),
-                 itemsForLoad[i].saver.toSerializable());
+    Assert.equal(itemsForSave[i].source.url, itemsForLoad[i].source.url);
+    Assert.equal(
+      !!itemsForSave[i].source.referrerInfo,
+      !!itemsForLoad[i].source.referrerInfo
+    );
+    if (
+      itemsForSave[i].source.referrerInfo &&
+      itemsForLoad[i].source.referrerInfo
+    ) {
+      Assert.ok(
+        itemsForSave[i].source.referrerInfo.equals(
+          itemsForLoad[i].source.referrerInfo
+        )
+      );
+    }
+    Assert.equal(itemsForSave[i].target.path, itemsForLoad[i].target.path);
+    Assert.equal(
+      itemsForSave[i].saver.toSerializable(),
+      itemsForLoad[i].saver.toSerializable()
+    );
   }
 });
 
@@ -110,12 +122,19 @@ add_task(async function test_save_reload() {
 add_task(async function test_save_empty() {
   let [, store] = await promiseNewListAndStore();
 
-  let createdFile = await OS.File.open(store.path, { create: true });
-  await createdFile.close();
+  await IOUtils.writeAtomic(store.path, new Uint8Array());
 
   await store.save();
 
-  Assert.equal(false, await OS.File.exists(store.path));
+  let successful;
+  try {
+    await IOUtils.read(store.path);
+    successful = true;
+  } catch (ex) {
+    successful = ex.name != "NotFoundError";
+  }
+
+  ok(!successful, "File should not exist");
 
   // If the file does not exist, saving should not generate exceptions.
   await store.save();
@@ -127,9 +146,15 @@ add_task(async function test_save_empty() {
 add_task(async function test_load_empty() {
   let [list, store] = await promiseNewListAndStore();
 
-  Assert.equal(false, await OS.File.exists(store.path));
+  let succeesful;
+  try {
+    await IOUtils.read(store.path);
+    succeesful = true;
+  } catch (ex) {
+    succeesful = ex.name != "NotFoundError";
+  }
 
-  await store.load();
+  ok(!succeesful, "File should not exist");
 
   let items = await list.getAll();
   Assert.equal(items.length, 0);
@@ -148,17 +173,35 @@ add_task(async function test_load_string_predefined() {
   let filePathLiteral = JSON.stringify(targetPath);
   let sourceUriLiteral = JSON.stringify(httpUrl("source.txt"));
   let emptyUriLiteral = JSON.stringify(httpUrl("empty.txt"));
-  let referrerUriLiteral = JSON.stringify(TEST_REFERRER_URL);
+  let referrerInfo = new ReferrerInfo(
+    Ci.nsIReferrerInfo.EMPTY,
+    true,
+    NetUtil.newURI(TEST_REFERRER_URL)
+  );
+  let referrerInfoLiteral = JSON.stringify(
+    E10SUtils.serializeReferrerInfo(referrerInfo)
+  );
 
-  let string = "{\"list\":[{\"source\":" + sourceUriLiteral + "," +
-                "\"target\":" + filePathLiteral + "}," +
-                "{\"source\":{\"url\":" + emptyUriLiteral + "," +
-                "\"referrer\":" + referrerUriLiteral + "}," +
-                "\"target\":" + filePathLiteral + "}]}";
+  let string =
+    '{"list":[{"source":' +
+    sourceUriLiteral +
+    "," +
+    '"target":' +
+    filePathLiteral +
+    "}," +
+    '{"source":{"url":' +
+    emptyUriLiteral +
+    "," +
+    '"referrerInfo":' +
+    referrerInfoLiteral +
+    "}," +
+    '"target":' +
+    filePathLiteral +
+    "}]}";
 
-  await OS.File.writeAtomic(store.path,
-                            new TextEncoder().encode(string),
-                            { tmpPath: store.path + ".tmp" });
+  await IOUtils.writeAtomic(store.path, new TextEncoder().encode(string), {
+    tmpPath: store.path + ".tmp",
+  });
 
   await store.load();
 
@@ -170,7 +213,8 @@ add_task(async function test_load_string_predefined() {
   Assert.equal(items[0].target.path, targetPath);
 
   Assert.equal(items[1].source.url, httpUrl("empty.txt"));
-  Assert.equal(items[1].source.referrer, TEST_REFERRER_URL);
+
+  checkEqualReferrerInfos(items[1].source.referrerInfo, referrerInfo);
   Assert.equal(items[1].target.path, targetPath);
 });
 
@@ -185,15 +229,20 @@ add_task(async function test_load_string_unrecognized() {
   let filePathLiteral = JSON.stringify(targetPath);
   let sourceUriLiteral = JSON.stringify(httpUrl("source.txt"));
 
-  let string = "{\"list\":[{\"source\":null," +
-                "\"target\":null}," +
-                "{\"source\":{\"url\":" + sourceUriLiteral + "}," +
-                "\"target\":{\"path\":" + filePathLiteral + "}," +
-                "\"saver\":{\"type\":\"copy\"}}]}";
+  let string =
+    '{"list":[{"source":null,' +
+    '"target":null},' +
+    '{"source":{"url":' +
+    sourceUriLiteral +
+    "}," +
+    '"target":{"path":' +
+    filePathLiteral +
+    "}," +
+    '"saver":{"type":"copy"}}]}';
 
-  await OS.File.writeAtomic(store.path,
-                            new TextEncoder().encode(string),
-                            { tmpPath: store.path + ".tmp" });
+  await IOUtils.writeAtomic(store.path, new TextEncoder().encode(string), {
+    tmpPath: store.path + ".tmp",
+  });
 
   await store.load();
 
@@ -211,11 +260,13 @@ add_task(async function test_load_string_unrecognized() {
 add_task(async function test_load_string_malformed() {
   let [list, store] = await promiseNewListAndStore();
 
-  let string = "{\"list\":[{\"source\":null,\"target\":null}," +
-                "{\"source\":{\"url\":\"about:blank\"}}}";
+  let string =
+    '{"list":[{"source":null,"target":null},' +
+    '{"source":{"url":"about:blank"}}}';
 
-  await OS.File.writeAtomic(store.path, new TextEncoder().encode(string),
-                            { tmpPath: store.path + ".tmp" });
+  await IOUtils.writeAtomic(store.path, new TextEncoder().encode(string), {
+    tmpPath: store.path + ".tmp",
+  });
 
   try {
     await store.load();
@@ -239,15 +290,18 @@ add_task(async function test_load_string_malformed() {
 add_task(async function test_save_reload_unknownProperties() {
   let [listForSave, storeForSave] = await promiseNewListAndStore();
   let [listForLoad, storeForLoad] = await promiseNewListAndStore(
-                                                 storeForSave.path);
+    storeForSave.path
+  );
 
   let download1 = await promiseNewDownload(httpUrl("source.txt"));
   // startTime should be ignored as it is a known property, and error
   // is ignored by serialization
-  download1._unknownProperties = { peanut: "butter",
-                                   orange: "marmalade",
-                                   startTime: 77,
-                                   error: { message: "Passed" } };
+  download1._unknownProperties = {
+    peanut: "butter",
+    orange: "marmalade",
+    startTime: 77,
+    error: { message: "Passed" },
+  };
   listForSave.add(download1);
 
   let download2 = await promiseStartLegacyDownload();
@@ -255,17 +309,28 @@ add_task(async function test_save_reload_unknownProperties() {
   download2._unknownProperties = { number: 5, object: { test: "string" } };
   listForSave.add(download2);
 
+  let referrerInfo = new ReferrerInfo(
+    Ci.nsIReferrerInfo.EMPTY,
+    true,
+    NetUtil.newURI(TEST_REFERRER_URL)
+  );
   let download3 = await Downloads.createDownload({
-    source: { url: httpUrl("empty.txt"),
-              referrer: TEST_REFERRER_URL,
-              source1: "download3source1",
-              source2: "download3source2" },
-    target: { path: getTempFile(TEST_TARGET_FILE_NAME).path,
-              target1: "download3target1",
-              target2: "download3target2" },
-    saver: { type: "copy",
-             saver1: "download3saver1",
-             saver2: "download3saver2" },
+    source: {
+      url: httpUrl("empty.txt"),
+      referrerInfo,
+      source1: "download3source1",
+      source2: "download3source2",
+    },
+    target: {
+      path: getTempFile(TEST_TARGET_FILE_NAME).path,
+      target1: "download3target1",
+      target2: "download3target2",
+    },
+    saver: {
+      type: "copy",
+      saver1: "download3saver1",
+      saver2: "download3saver2",
+    },
   });
   listForSave.add(download3);
 
@@ -287,21 +352,39 @@ add_task(async function test_save_reload_unknownProperties() {
   Assert.equal(itemsForLoad[1]._unknownProperties.number, 5);
   Assert.equal(itemsForLoad[1]._unknownProperties.object.test, "string");
 
-  Assert.equal(Object.keys(itemsForLoad[2].source._unknownProperties).length, 2);
-  Assert.equal(itemsForLoad[2].source._unknownProperties.source1,
-               "download3source1");
-  Assert.equal(itemsForLoad[2].source._unknownProperties.source2,
-               "download3source2");
+  Assert.equal(
+    Object.keys(itemsForLoad[2].source._unknownProperties).length,
+    2
+  );
+  Assert.equal(
+    itemsForLoad[2].source._unknownProperties.source1,
+    "download3source1"
+  );
+  Assert.equal(
+    itemsForLoad[2].source._unknownProperties.source2,
+    "download3source2"
+  );
 
-  Assert.equal(Object.keys(itemsForLoad[2].target._unknownProperties).length, 2);
-  Assert.equal(itemsForLoad[2].target._unknownProperties.target1,
-               "download3target1");
-  Assert.equal(itemsForLoad[2].target._unknownProperties.target2,
-               "download3target2");
+  Assert.equal(
+    Object.keys(itemsForLoad[2].target._unknownProperties).length,
+    2
+  );
+  Assert.equal(
+    itemsForLoad[2].target._unknownProperties.target1,
+    "download3target1"
+  );
+  Assert.equal(
+    itemsForLoad[2].target._unknownProperties.target2,
+    "download3target2"
+  );
 
   Assert.equal(Object.keys(itemsForLoad[2].saver._unknownProperties).length, 2);
-  Assert.equal(itemsForLoad[2].saver._unknownProperties.saver1,
-               "download3saver1");
-  Assert.equal(itemsForLoad[2].saver._unknownProperties.saver2,
-               "download3saver2");
+  Assert.equal(
+    itemsForLoad[2].saver._unknownProperties.saver1,
+    "download3saver1"
+  );
+  Assert.equal(
+    itemsForLoad[2].saver._unknownProperties.saver2,
+    "download3saver2"
+  );
 });

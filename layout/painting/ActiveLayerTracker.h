@@ -11,6 +11,7 @@
 
 class nsIFrame;
 class nsIContent;
+class nsCSSPropertyIDSet;
 class nsDisplayListBuilder;
 class nsDOMCSSDeclaration;
 
@@ -28,7 +29,10 @@ class ActiveLayerTracker {
 
   /*
    * We track style changes to selected styles:
-   *   eCSSProperty_transform
+   *   eCSSProperty_transform, eCSSProperty_translate,
+   *   eCSSProperty_rotate, eCSSProperty_scale
+   *   eCSSProperty_offset_path, eCSSProperty_offset_distance,
+   *   eCSSProperty_offset_rotate, eCSSProperty_offset_anchor,
    *   eCSSProperty_opacity
    *   eCSSProperty_left, eCSSProperty_top,
    *   eCSSProperty_right, eCSSProperty_bottom
@@ -55,7 +59,7 @@ class ActiveLayerTracker {
    * value has changed.
    */
   static void NotifyAnimated(nsIFrame* aFrame, nsCSSPropertyID aProperty,
-                             const nsAString& aNewValue,
+                             const nsACString& aNewValue,
                              nsDOMCSSDeclaration* aDOMCSSDecl);
   /**
    * Notify aFrame as being known to have an animation of aProperty through an
@@ -74,7 +78,7 @@ class ActiveLayerTracker {
    */
   static void NotifyInlineStyleRuleModified(nsIFrame* aFrame,
                                             nsCSSPropertyID aProperty,
-                                            const nsAString& aNewValue,
+                                            const nsACString& aNewValue,
                                             nsDOMCSSDeclaration* aDOMCSSDecl);
   /**
    * Notify that a frame needs to be repainted. This is important for layering
@@ -84,16 +88,11 @@ class ActiveLayerTracker {
    */
   static void NotifyNeedsRepaint(nsIFrame* aFrame);
   /**
-   * Return true if aFrame's aProperty style should be considered as being
-   * animated for pre-rendering.
-   */
-  static bool IsStyleMaybeAnimated(nsIFrame* aFrame, nsCSSPropertyID aProperty);
-  /**
-   * Return true if aFrame's aProperty style should be considered as being
-   * animated for constructing active layers.
+   * Return true if aFrame's property style in |aPropertySet| should be
+   * considered as being animated for constructing active layers.
    */
   static bool IsStyleAnimated(nsDisplayListBuilder* aBuilder, nsIFrame* aFrame,
-                              nsCSSPropertyID aProperty);
+                              const nsCSSPropertyIDSet& aPropertySet);
   /**
    * Return true if any of aFrame's offset property styles should be considered
    * as being animated for constructing active layers.
@@ -105,6 +104,17 @@ class ActiveLayerTracker {
    */
   static bool IsBackgroundPositionAnimated(nsDisplayListBuilder* aBuilder,
                                            nsIFrame* aFrame);
+  /**
+   * Return true if aFrame's transform-like property,
+   * i.e. transform/translate/rotate/scale, is animated.
+   */
+  static bool IsTransformAnimated(nsDisplayListBuilder* aBuilder,
+                                  nsIFrame* aFrame);
+  /**
+   * Return true if aFrame's transform style should be considered as being
+   * animated for pre-rendering.
+   */
+  static bool IsTransformMaybeAnimated(nsIFrame* aFrame);
   /**
    * Return true if aFrame either has an animated scale now, or is likely to
    * have one in the future because it has a CSS animation or transition

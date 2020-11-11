@@ -1,8 +1,5 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
-/**
- * ICU <specials> source: <path>/common/main/root.xml
- */
 root{
     AuxExemplarCharacters{"[]"}
     Ellipsis{
@@ -14,8 +11,8 @@ root{
         word-medial{"{0} … {1}"}
     }
     ExemplarCharacters{"[]"}
-    ExemplarCharactersNumbers{"[\\- , . % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
-    ExemplarCharactersPunctuation{"[\\- , ; \\: ! ? . ( ) \\[ \\] \\{ \\}]"}
+    ExemplarCharactersNumbers{"[\\- ‑ , . % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
+    ExemplarCharactersPunctuation{"[\\- ‑ , ; \\: ! ? . ( ) \\[ \\] \\{ \\}]"}
     MoreInformation{"?"}
     NumberElements{
         arab{
@@ -174,7 +171,7 @@ root{
         minimumGroupingDigits{"1"}
         native{"latn"}
     }
-    Version{"2.1.44.91"}
+    Version{"37"}
     calendar{
         buddhist{
             AmPmMarkers:alias{"/LOCALE/calendar/gregorian/AmPmMarkers"}
@@ -218,6 +215,7 @@ root{
             NoonMarkerNarrow:alias{"/LOCALE/calendar/gregorian/NoonMarkerNarrow"}
             appendItems{
                 Day{"{0} ({2}: {1})"}
+                DayPeriod{"{0} ({2}: {1})"}
                 Day-Of-Week{"{0} {1}"}
                 Era{"{1} {0}"}
                 Hour{"{0} ({2}: {1})"}
@@ -225,6 +223,7 @@ root{
                 Month{"{0} ({2}: {1})"}
                 Quarter{"{0} ({2}: {1})"}
                 Second{"{0} ({2}: {1})"}
+                FractionalSecond{"{0} ({2}: {1})"}
                 Timezone{"{0} {1}"}
                 Week{"{0} ({2}: {1})"}
                 Year{"{1} {0}"}
@@ -412,6 +411,15 @@ root{
             }
             dayNames:alias{"/LOCALE/calendar/gregorian/dayNames"}
             intervalFormats{
+                Bh{
+                    B{"h B – h B"}
+                    h{"h–h B"}
+                }
+                Bhm{
+                    B{"h:mm B – h:mm B"}
+                    h{"h:mm–h:mm B"}
+                    m{"h:mm–h:mm B"}
+                }
                 H{
                     H{"HH–HH"}
                 }
@@ -745,6 +753,7 @@ root{
             NoonMarkerNarrow:alias{"/LOCALE/calendar/gregorian/NoonMarkerNarrow"}
             appendItems{
                 Day{"{0} ({2}: {1})"}
+                DayPeriod{"{0} ({2}: {1})"}
                 Day-Of-Week{"{0} {1}"}
                 Era{"{1} {0}"}
                 Hour{"{0} ({2}: {1})"}
@@ -752,6 +761,7 @@ root{
                 Month{"{0} ({2}: {1})"}
                 Quarter{"{0} ({2}: {1})"}
                 Second{"{0} ({2}: {1})"}
+                FractionalSecond{"{0} ({2}: {1})"}
                 Timezone{"{0} {1}"}
                 Week{"{0} ({2}: {1})"}
                 Year{"{1} {0}"}
@@ -809,6 +819,15 @@ root{
                 wide:alias{"/LOCALE/calendar/generic/eras/abbreviated"}
             }
             intervalFormats{
+                Bh{
+                    B{"h B – h B"}
+                    h{"h–h B"}
+                }
+                Bhm{
+                    B{"h:mm B – h:mm B"}
+                    h{"h:mm–h:mm B"}
+                    m{"h:mm–h:mm B"}
+                }
                 Gy{
                     G{"G y – G y"}
                     y{"G y–y"}
@@ -1005,6 +1024,7 @@ root{
             }
             appendItems{
                 Day{"{0} ({2}: {1})"}
+                DayPeriod{"{0} ({2}: {1})"}
                 Day-Of-Week{"{0} {1}"}
                 Era{"{1} {0}"}
                 Hour{"{0} ({2}: {1})"}
@@ -1012,6 +1032,7 @@ root{
                 Month{"{0} ({2}: {1})"}
                 Quarter{"{0} ({2}: {1})"}
                 Second{"{0} ({2}: {1})"}
+                FractionalSecond{"{0} ({2}: {1})"}
                 Timezone{"{0} {1}"}
                 Week{"{0} ({2}: {1})"}
                 Year{"{1} {0}"}
@@ -1107,6 +1128,15 @@ root{
                 wide:alias{"/LOCALE/calendar/gregorian/eras/abbreviated"}
             }
             intervalFormats{
+                Bh{
+                    B{"h B – h B"}
+                    h{"h–h B"}
+                }
+                Bhm{
+                    B{"h:mm B – h:mm B"}
+                    h{"h:mm–h:mm B"}
+                    m{"h:mm–h:mm B"}
+                }
                 Gy{
                     G{"G y – G y"}
                     y{"G y–y"}
@@ -1791,7 +1821,7 @@ root{
                     "Taishō",
                     "Shōwa",
                     "Heisei",
-                    "Qqqq",
+                    "Reiwa",
                 }
                 narrow{
                     "Taika (645–650)",
@@ -2030,7 +2060,7 @@ root{
                     "T",
                     "S",
                     "H",
-                    "Q",
+                    "R",
                 }
                 wide:alias{"/LOCALE/calendar/japanese/eras/abbreviated"}
             }
@@ -2505,6 +2535,11 @@ root{
         }
         zone-narrow:alias{"/LOCALE/fields/zone-short"}
         zone-short:alias{"/LOCALE/fields/zone"}
+        fractionalSecond{
+            dn{"Fractional Second"}
+        }
+        fractionalSecond-narrow:alias{"/LOCALE/fields/fractionalSecond-short"}
+        fractionalSecond-short:alias{"/LOCALE/fields/fractionalSecond"}
     }
     layout{
         characters{"left-to-right"}

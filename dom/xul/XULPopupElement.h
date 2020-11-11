@@ -72,6 +72,8 @@ class XULPopupElement : public nsXULElement {
 
   nsINode* GetTriggerNode() const;
 
+  bool IsAnchored() const;
+
   Element* GetAnchorNode() const;
 
   already_AddRefed<DOMRect> GetOuterScreenRect();
@@ -83,14 +85,10 @@ class XULPopupElement : public nsXULElement {
 
   void SizeTo(int32_t aWidth, int32_t aHeight);
 
-  void GetAlignmentPosition(nsString& positionStr);
-
-  int32_t AlignmentOffset();
-
   void SetConstraintRect(DOMRectReadOnly& aRect);
 
  protected:
-  virtual ~XULPopupElement() {}
+  virtual ~XULPopupElement() = default;
 
   JSObject* WrapNode(JSContext* aCx,
                      JS::Handle<JSObject*> aGivenProto) override;

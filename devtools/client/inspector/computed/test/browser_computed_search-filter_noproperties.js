@@ -1,4 +1,3 @@
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -23,7 +22,7 @@ const TEST_URI = `
 
 add_task(async function() {
   await addTab("data:text/html;charset=utf-8," + encodeURIComponent(TEST_URI));
-  const {inspector, view} = await openComputedView();
+  const { inspector, view } = await openComputedView();
   const propertyViews = view.propertyViews;
 
   info("Select the #matches node");
@@ -32,7 +31,10 @@ add_task(async function() {
   await selectNode(matchesNode, inspector);
   await onRefresh;
 
-  ok(propertyViews.filter(p => p.visible).length > 0, "CSS properties are displayed");
+  ok(
+    propertyViews.filter(p => p.visible).length > 0,
+    "CSS properties are displayed"
+  );
   ok(view.noResults.hasAttribute("hidden"), "no-results message is hidden");
 
   info("Select a comment node");
@@ -47,10 +49,15 @@ add_task(async function() {
   await selectNode(matchesNode, inspector);
   await onRefresh;
 
-  ok(propertyViews.filter(p => p.visible).length > 0, "CSS properties are displayed");
+  ok(
+    propertyViews.filter(p => p.visible).length > 0,
+    "CSS properties are displayed"
+  );
   ok(view.noResults.hasAttribute("hidden"), "no-results message is hidden");
 
-  info("Filter by 'will-not-match' and check the no-results message is displayed");
+  info(
+    "Filter by 'will-not-match' and check the no-results message is displayed"
+  );
   const searchField = view.searchField;
   searchField.focus();
   synthesizeKeys("will-not-match", view.styleWindow);

@@ -2,13 +2,13 @@
 //! instructions that may return a NaN result with a sequence of operations
 //! that will replace nondeterministic NaN's with a single canonical NaN value.
 
-use cursor::{Cursor, FuncCursor};
-use ir::condcodes::FloatCC;
-use ir::immediates::{Ieee32, Ieee64};
-use ir::types;
-use ir::types::Type;
-use ir::{Function, Inst, InstBuilder, InstructionData, Opcode, Value};
-use timing;
+use crate::cursor::{Cursor, FuncCursor};
+use crate::ir::condcodes::FloatCC;
+use crate::ir::immediates::{Ieee32, Ieee64};
+use crate::ir::types;
+use crate::ir::types::Type;
+use crate::ir::{Function, Inst, InstBuilder, InstructionData, Opcode, Value};
+use crate::timing;
 
 // Canonical 32-bit and 64-bit NaN values.
 static CANON_32BIT_NAN: u32 = 0b01111111110000000000000000000000;
@@ -18,7 +18,7 @@ static CANON_64BIT_NAN: u64 = 0b011111111111100000000000000000000000000000000000
 pub fn do_nan_canonicalization(func: &mut Function) {
     let _tt = timing::canonicalize_nans();
     let mut pos = FuncCursor::new(func);
-    while let Some(_ebb) = pos.next_ebb() {
+    while let Some(_block) = pos.next_block() {
         while let Some(inst) = pos.next_inst() {
             if is_fp_arith(&mut pos, inst) {
                 add_nan_canon_seq(&mut pos, inst);
@@ -59,7 +59,7 @@ fn add_nan_canon_seq(pos: &mut FuncCursor, inst: Inst) {
     let val = pos.func.dfg.first_result(inst);
     let val_type = pos.func.dfg.value_type(val);
     let new_res = pos.func.dfg.replace_result(val, val_type);
-    let _next_inst = pos.next_inst().expect("EBB missing terminator!");
+    let _next_inst = pos.next_inst().expect("block missing terminator!");
 
     // Insert a comparison instruction, to check if `inst_res` is NaN. Select
     // the canonical NaN value if `val` is NaN, assign the result to `inst`.

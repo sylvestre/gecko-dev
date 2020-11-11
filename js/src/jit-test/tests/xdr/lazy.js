@@ -16,7 +16,7 @@ test = (function () {
     else return ifFalse();
   }
 
-  return f.toSource() + "; f(true)";
+  return f.toString() + "; f(true)";
 })();
 evalWithCache(test, { assertEqBytecode: true, assertEqResult : true });
 
@@ -34,7 +34,7 @@ test = (function () {
     else return ifFalse();
   }
 
-  return f.toSource() + "; f((generation % 2) == 0)";
+  return f.toString() + "; f((generation % 2) == 0)";
 })();
 evalWithCache(test, { });
 
@@ -46,7 +46,7 @@ test = (function () {
     return g;
   }
 
-  return f.toSource() + "; f()();";
+  return f.toString() + "; f()();";
 })();
 evalWithCache(test, { assertEqBytecode: true, assertEqResult : true });
 
@@ -58,7 +58,7 @@ test = (function () {
     return g;
   }
 
-  return f.toSource() + "; f();";
+  return f.toString() + "; f();";
 })();
 evalWithCache(test, { assertEqBytecode: true });
 
@@ -76,7 +76,7 @@ test = (function () {
         }
       } (x)
     }
-  }).toSource() + ")()";
+  }).toString() + ")()";
 })();
 evalWithCache(test, { assertEqBytecode: true });
 
@@ -87,7 +87,7 @@ test = (function () {
     return g;
   }
 
-  return f.toSource() + "; f()(1);";
+  return f.toString() + "; f()(1);";
 })();
 evalWithCache(test, { assertEqBytecode: true, assertEqResult : true });
 
@@ -98,7 +98,7 @@ test = (function () {
     return g;
   }
 
-  return f.toSource() + "; f();";
+  return f.toString() + "; f();";
 })();
 evalWithCache(test, { assertEqBytecode: true });
 
@@ -111,7 +111,7 @@ test = "function f() { }; f();"
      + "assertEq(isLazyFunction(f), false);"
      + "var expect = isRelazifiableFunction(f);";
 checkAfter = function (ctx) {
-  gc(ctx.global.f, "shrinking"); // relazify f, if possible.
+  relazifyFunctions(); // relazify f, if possible.
   evaluate("assertEq(isLazyFunction(f), expect);", ctx);
 };
 evalWithCache(test, {
@@ -128,7 +128,7 @@ test = "function f() { return isRelazifiableFunction(f) }; var expect = f();"
      + "assertEq(isLazyFunction(f), false);"
      + "expect";
 checkAfter = function (ctx) {
-  gc(ctx.global.f, "shrinking"); // relazify f, if possible.
+  relazifyFunctions(); // relazify f, if possible.
   evaluate("assertEq(isLazyFunction(f), expect);", ctx);
 };
 evalWithCache(test, {

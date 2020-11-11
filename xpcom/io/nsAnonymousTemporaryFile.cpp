@@ -5,25 +5,22 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "nsAnonymousTemporaryFile.h"
-#include "nsDirectoryServiceUtils.h"
-#include "nsDirectoryServiceDefs.h"
 #include "nsXULAppAPI.h"
 #include "nsCOMPtr.h"
 #include "nsString.h"
-#include "nsAppDirectoryServiceDefs.h"
 #include "prio.h"
+#include "SpecialSystemDirectory.h"
 
 #ifdef XP_WIN
-#include "nsIObserver.h"
-#include "nsIObserverService.h"
-#include "mozilla/ResultExtensions.h"
-#include "mozilla/Services.h"
-#include "nsIIdleService.h"
-#include "nsISimpleEnumerator.h"
-#include "nsIFile.h"
-#include "nsAutoPtr.h"
-#include "nsITimer.h"
-#include "nsCRT.h"
+#  include "nsIObserver.h"
+#  include "nsIObserverService.h"
+#  include "mozilla/ResultExtensions.h"
+#  include "mozilla/Services.h"
+#  include "nsIUserIdleService.h"
+#  include "nsISimpleEnumerator.h"
+#  include "nsIFile.h"
+#  include "nsITimer.h"
+#  include "nsCRT.h"
 
 #endif
 
@@ -54,7 +51,8 @@ static nsresult GetTempDir(nsIFile** aTempDir) {
     return NS_ERROR_INVALID_ARG;
   }
   nsCOMPtr<nsIFile> tmpFile;
-  nsresult rv = NS_GetSpecialDirectory(NS_OS_TEMP_DIR, getter_AddRefs(tmpFile));
+  nsresult rv =
+      GetSpecialSystemDirectory(OS_TemporaryDirectory, getter_AddRefs(tmpFile));
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -135,13 +133,13 @@ nsresult NS_OpenAnonymousTemporaryFile(PRFileDesc** aOutFileDesc) {
 
 // Duration of idle time before we'll get a callback whereupon we attempt to
 // remove any stray and unused anonymous temp files.
-#define TEMP_FILE_IDLE_TIME_S 30
+#  define TEMP_FILE_IDLE_TIME_S 30
 
 // The nsAnonTempFileRemover is created in a timer, which sets an idle observer.
 // This is expiration time (in ms) which initial timer is set for (3 minutes).
-#define SCHEDULE_TIMEOUT_MS 3 * 60 * 1000
+#  define SCHEDULE_TIMEOUT_MS 3 * 60 * 1000
 
-#define XPCOM_SHUTDOWN_TOPIC "xpcom-shutdown"
+#  define XPCOM_SHUTDOWN_TOPIC "xpcom-shutdown"
 
 // This class adds itself as an idle observer. When the application has
 // been idle for about 30 seconds we'll get a notification, whereupon we'll
@@ -185,8 +183,8 @@ class nsAnonTempFileRemover final : public nsIObserver {
       mTimer = nullptr;
     }
     // Remove idle service observer.
-    nsCOMPtr<nsIIdleService> idleSvc =
-        do_GetService("@mozilla.org/widget/idleservice;1");
+    nsCOMPtr<nsIUserIdleService> idleSvc =
+        do_GetService("@mozilla.org/widget/useridleservice;1");
     if (idleSvc) {
       idleSvc->RemoveIdleObserver(this, TEMP_FILE_IDLE_TIME_S);
     }
@@ -218,8 +216,8 @@ class nsAnonTempFileRemover final : public nsIObserver {
     // Add this as an idle observer. When we've been idle for
     // TEMP_FILE_IDLE_TIME_S seconds, we'll get a notification, and we'll then
     // try to delete any stray temp files.
-    nsCOMPtr<nsIIdleService> idleSvc =
-        do_GetService("@mozilla.org/widget/idleservice;1");
+    nsCOMPtr<nsIUserIdleService> idleSvc =
+        do_GetService("@mozilla.org/widget/useridleservice;1");
     if (!idleSvc) {
       return NS_ERROR_FAILURE;
     }

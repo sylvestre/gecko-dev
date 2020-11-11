@@ -8,8 +8,7 @@
 #include "mozilla/ContentEvents.h"
 #include "prtime.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 FocusEvent::FocusEvent(EventTarget* aOwner, nsPresContext* aPresContext,
                        InternalFocusEvent* aEvent)
@@ -39,7 +38,7 @@ void FocusEvent::InitFocusEvent(const nsAString& aType, bool aCanBubble,
 
 already_AddRefed<FocusEvent> FocusEvent::Constructor(
     const GlobalObject& aGlobal, const nsAString& aType,
-    const FocusEventInit& aParam, ErrorResult& aRv) {
+    const FocusEventInit& aParam) {
   nsCOMPtr<EventTarget> t = do_QueryInterface(aGlobal.GetAsSupports());
   RefPtr<FocusEvent> e = new FocusEvent(t, nullptr, nullptr);
   bool trusted = e->Init(t);
@@ -50,8 +49,7 @@ already_AddRefed<FocusEvent> FocusEvent::Constructor(
   return e.forget();
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom
 
 using namespace mozilla;
 using namespace mozilla::dom;

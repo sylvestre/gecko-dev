@@ -8,16 +8,19 @@
 
 const { Ci } = require("chrome");
 const Services = require("Services");
-const { HarCollector } = require("./har-collector");
-const { HarExporter } = require("./har-exporter");
-const { HarUtils } = require("./har-utils");
+const {
+  HarCollector,
+} = require("devtools/client/netmonitor/src/har/har-collector");
+const {
+  HarExporter,
+} = require("devtools/client/netmonitor/src/har/har-exporter");
+const { HarUtils } = require("devtools/client/netmonitor/src/har/har-utils");
 
 const prefDomain = "devtools.netmonitor.har.";
 
 // Helper tracer. Should be generic sharable by other modules (bug 1171927)
 const trace = {
-  log: function(...args) {
-  },
+  log: function(...args) {},
 };
 
 /**
@@ -44,8 +47,8 @@ HarAutomation.prototype = {
   initialize: function(toolbox) {
     this.toolbox = toolbox;
 
-    const target = toolbox.target;
-    this.startMonitoring(target.client, target.form);
+    const { target } = toolbox;
+    this.startMonitoring(target.client);
   },
 
   destroy: function() {
@@ -60,18 +63,13 @@ HarAutomation.prototype = {
 
   // Automation
 
-  startMonitoring: function(client, tabGrip, callback) {
+  startMonitoring: async function(client, callback) {
     if (!client) {
       return;
     }
 
-    if (!tabGrip) {
-      return;
-    }
-
-    this.debuggerClient = client;
-    this.targetFront = this.toolbox.target.activeTab;
-    this.webConsoleClient = this.toolbox.target.activeConsole;
+    this.devToolsClient = client;
+    this.webConsoleFront = await this.toolbox.target.getFront("console");
 
     this.tabWatcher = new TabWatcher(this.toolbox, this);
     this.tabWatcher.connect();
@@ -89,8 +87,8 @@ HarAutomation.prototype = {
     // A page is about to be loaded, start collecting HTTP
     // data from events sent from the backend.
     this.collector = new HarCollector({
-      webConsoleClient: this.webConsoleClient,
-      debuggerClient: this.debuggerClient,
+      webConsoleFront: this.webConsoleFront,
+      resourceWatcher: this.toolbox.resourceWatcher,
     });
 
     this.collector.start();
@@ -117,8 +115,9 @@ HarAutomation.prototype = {
   },
 
   autoExport: function() {
-    const autoExport = Services.prefs.getBoolPref(prefDomain +
-      "enableAutoExportToFile");
+    const autoExport = Services.prefs.getBoolPref(
+      prefDomain + "enableAutoExportToFile"
+    );
 
     if (!autoExport) {
       return Promise.resolve();
@@ -140,8 +139,9 @@ HarAutomation.prototype = {
    */
   triggerExport: function(data) {
     if (!data.fileName) {
-      data.fileName = Services.prefs.getCharPref(prefDomain +
-        "defaultFileName");
+      data.fileName = Services.prefs.getCharPref(
+        prefDomain + "defaultFileName"
+      );
     }
 
     return this.executeExport(data);
@@ -160,12 +160,15 @@ HarAutomation.prototype = {
    * Execute HAR export. This method fetches all data from the
    * Network panel (asynchronously) and saves it into a file.
    */
-  executeExport: function(data) {
+  executeExport: async function(data) {
     const items = this.collector.getItems();
-    const form = this.toolbox.target.form;
-    const title = form.title || form.url;
+    const { title } = this.toolbox.target;
+
+    const netMonitor = await this.toolbox.getNetMonitorAPI();
+    const connector = await netMonitor.getHarExportConnector();
 
     const options = {
+      connector,
       requestData: null,
       getTimingMarker: null,
       getString: this.getString.bind(this),
@@ -184,24 +187,24 @@ HarAutomation.prototype = {
 
     trace.log("HarAutomation.executeExport; " + data.fileName, options);
 
-    return HarExporter.fetchHarData(options).then(jsonString => {
-      // Save the HAR file if the file name is provided.
-      if (jsonString && options.defaultFileName) {
-        const file = getDefaultTargetFile(options);
-        if (file) {
-          HarUtils.saveToFile(file, jsonString, options.compress);
-        }
-      }
+    const jsonString = await HarExporter.fetchHarData(options);
 
-      return jsonString;
-    });
+    // Save the HAR file if the file name is provided.
+    if (jsonString && options.defaultFileName) {
+      const file = getDefaultTargetFile(options);
+      if (file) {
+        HarUtils.saveToFile(file, jsonString, options.compress);
+      }
+    }
+
+    return jsonString;
   },
 
   /**
    * Fetches the full text of a string.
    */
   getString: function(stringGrip) {
-    return this.webConsoleClient.getString(stringGrip);
+    return this.webConsoleFront.getString(stringGrip);
   },
 };
 
@@ -211,15 +214,16 @@ function TabWatcher(toolbox, listener) {
   this.target = toolbox.target;
   this.listener = listener;
 
-  this.onTabNavigated = this.onTabNavigated.bind(this);
+  this.onNavigate = this.onNavigate.bind(this);
+  this.onWillNavigate = this.onWillNavigate.bind(this);
 }
 
 TabWatcher.prototype = {
   // Connection
 
   connect: function() {
-    this.target.on("navigate", this.onTabNavigated);
-    this.target.on("will-navigate", this.onTabNavigated);
+    this.target.on("navigate", this.onNavigate);
+    this.target.on("will-navigate", this.onWillNavigate);
   },
 
   disconnect: function() {
@@ -227,31 +231,18 @@ TabWatcher.prototype = {
       return;
     }
 
-    this.target.off("navigate", this.onTabNavigated);
-    this.target.off("will-navigate", this.onTabNavigated);
+    this.target.off("navigate", this.onNavigate);
+    this.target.off("will-navigate", this.onWillNavigate);
   },
 
   // Event Handlers
 
-  /**
-   * Called for each location change in the monitored tab.
-   *
-   * @param string aType
-   *        Packet type.
-   * @param object aPacket
-   *        Packet received from the server.
-   */
-  onTabNavigated: function(type, packet) {
-    switch (type) {
-      case "will-navigate": {
-        this.listener.pageLoadBegin(packet);
-        break;
-      }
-      case "navigate": {
-        this.listener.pageLoadDone(packet);
-        break;
-      }
-    }
+  onNavigate: function(packet) {
+    this.listener.pageLoadDone(packet);
+  },
+
+  onWillNavigate: function(packet) {
+    this.listener.pageLoadBegin(packet);
   },
 };
 
@@ -261,11 +252,19 @@ TabWatcher.prototype = {
  * Returns target file for exported HAR data.
  */
 function getDefaultTargetFile(options) {
-  const path = options.defaultLogDir ||
+  const path =
+    options.defaultLogDir ||
     Services.prefs.getCharPref("devtools.netmonitor.har.defaultLogDir");
   const folder = HarUtils.getLocalDirectory(path);
-  const fileName = HarUtils.getHarFileName(options.defaultFileName,
-    options.jsonp, options.compress);
+
+  const tabTarget = options.connector.getTabTarget();
+  const host = new URL(tabTarget.url);
+  const fileName = HarUtils.getHarFileName(
+    options.defaultFileName,
+    options.jsonp,
+    options.compress,
+    host.hostname
+  );
 
   folder.append(fileName);
   folder.createUnique(Ci.nsIFile.NORMAL_FILE_TYPE, parseInt("0666", 8));

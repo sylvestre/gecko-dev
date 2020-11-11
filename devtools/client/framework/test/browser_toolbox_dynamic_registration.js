@@ -1,9 +1,8 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 2 -*- */
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
-const TEST_URL = "data:text/html,test for dynamically registering and unregistering tools";
+const TEST_URL =
+  "data:text/html,test for dynamically registering and unregistering tools";
 
 var toolbox;
 
@@ -34,7 +33,7 @@ function toolRegistered(toolId) {
 
   // test that it appeared in the UI
   const doc = toolbox.doc;
-  const tab = doc.getElementById("toolbox-tab-" + toolId);
+  const tab = getToolboxTab(doc, toolId);
   ok(tab, "new tool's tab exists in toolbox UI");
 
   const panel = doc.getElementById("toolbox-panel-" + toolId);
@@ -66,7 +65,7 @@ function toolUnregistered(toolId) {
 
   // test that it disappeared from the UI
   const doc = toolbox.doc;
-  const tab = doc.getElementById("toolbox-tab-" + toolId);
+  const tab = getToolboxTab(doc, toolId);
   ok(!tab, "tool's tab was removed from the toolbox UI");
 
   const panel = doc.getElementById("toolbox-panel-" + toolId);

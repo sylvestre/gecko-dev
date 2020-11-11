@@ -18,11 +18,11 @@
 #include "js/Utility.h"
 
 #include "mozilla/Attributes.h"
+#include "mozilla/SchedulerGroup.h"
 #include "mozilla/dom/ChromeUtils.h"
 #include "mozilla/dom/Promise.h"
 #include "mozilla/dom/ScriptLoader.h"
 #include "mozilla/HoldDropJSObjects.h"
-#include "mozilla/SystemGroup.h"
 #include "nsCCUncollectableMarker.h"
 #include "nsCycleCollectionParticipant.h"
 
@@ -91,10 +91,14 @@ nsresult AsyncScriptCompiler::Start(
     nsIPrincipal* aPrincipal) {
   mCharset = aOptions.mCharset;
 
-  mOptions.setNoScriptRval(!aOptions.mHasReturnValue)
-      .setCanLazilyParse(aOptions.mLazilyParse);
+  CompileOptions options(aCx);
+  options.setFile(mURL.get()).setNoScriptRval(!aOptions.mHasReturnValue);
 
-  if (NS_WARN_IF(!mOptions.setFile(aCx, mURL.get()))) {
+  if (!aOptions.mLazilyParse) {
+    options.setForceFullParse();
+  }
+
+  if (NS_WARN_IF(!mOptions.copy(aCx, options))) {
     return NS_ERROR_OUT_OF_MEMORY;
   }
 
@@ -103,16 +107,20 @@ nsresult AsyncScriptCompiler::Start(
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsCOMPtr<nsIChannel> channel;
-  rv = NS_NewChannel(getter_AddRefs(channel), uri, aPrincipal,
-                     nsILoadInfo::SEC_ALLOW_CROSS_ORIGIN_DATA_IS_NULL,
-                     nsIContentPolicy::TYPE_OTHER);
+  rv = NS_NewChannel(
+      getter_AddRefs(channel), uri, aPrincipal,
+      nsILoadInfo::SEC_ALLOW_CROSS_ORIGIN_SEC_CONTEXT_IS_NULL,
+      nsIContentPolicy::TYPE_INTERNAL_CHROMEUTILS_COMPILED_SCRIPT);
   NS_ENSURE_SUCCESS(rv, rv);
 
+  // allow deprecated HTTP request from SystemPrincipal
+  nsCOMPtr<nsILoadInfo> loadInfo = channel->LoadInfo();
+  loadInfo->SetAllowDeprecatedSystemRequests(true);
   nsCOMPtr<nsIIncrementalStreamLoader> loader;
   rv = NS_NewIncrementalStreamLoader(getter_AddRefs(loader), this);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  return channel->AsyncOpen2(loader);
+  return channel->AsyncOpen(loader);
 }
 
 static void OffThreadScriptLoaderCallback(JS::OffThreadToken* aToken,
@@ -122,7 +130,7 @@ static void OffThreadScriptLoaderCallback(JS::OffThreadToken* aToken,
 
   scriptCompiler->SetToken(aToken);
 
-  SystemGroup::Dispatch(TaskCategory::Other, scriptCompiler.forget());
+  SchedulerGroup::Dispatch(TaskCategory::Other, scriptCompiler.forget());
 }
 
 bool AsyncScriptCompiler::StartCompile(JSContext* aCx) {
@@ -144,8 +152,8 @@ bool AsyncScriptCompiler::StartCompile(JSContext* aCx) {
     return true;
   }
 
-  Rooted<JSScript*> script(aCx);
-  if (!JS::Compile(aCx, mOptions, srcBuf, &script)) {
+  Rooted<JSScript*> script(aCx, JS::Compile(aCx, mOptions, srcBuf));
+  if (!script) {
     return false;
   }
 
@@ -189,7 +197,7 @@ void AsyncScriptCompiler::Reject(JSContext* aCx) {
   if (JS_GetPendingException(aCx, &value)) {
     JS_ClearPendingException(aCx);
   }
-  mPromise->MaybeReject(aCx, value);
+  mPromise->MaybeReject(value);
 }
 
 void AsyncScriptCompiler::Reject(JSContext* aCx, const char* aMsg) {
@@ -249,7 +257,8 @@ AsyncScriptCompiler::OnStreamComplete(nsIIncrementalStreamLoader* aLoader,
 namespace mozilla {
 namespace dom {
 
-/* static */ already_AddRefed<Promise> ChromeUtils::CompileScript(
+/* static */
+already_AddRefed<Promise> ChromeUtils::CompileScript(
     GlobalObject& aGlobal, const nsAString& aURL,
     const CompileScriptOptionsDictionary& aOptions, ErrorResult& aRv) {
   nsCOMPtr<nsIGlobalObject> global = do_QueryInterface(aGlobal.GetAsSupports());

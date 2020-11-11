@@ -15,11 +15,15 @@ from mozpack.files import FileFinder
 class MachCommands(MachCommandBase):
     """TPS tests for Sync."""
 
-    @Command('tps-build', category='testing', description='Build TPS add-on.')
-    @CommandArgument('--dest', default=None, help='Where to write add-on.')
+    @Command("tps-build", category="testing", description="Build TPS add-on.")
+    @CommandArgument("--dest", default=None, help="Where to write add-on.")
     def build(self, dest):
-        src = os.path.join(self.topsrcdir, 'services', 'sync', 'tps', 'extensions', 'tps')
-        dest = os.path.join(dest or os.path.join(self.topobjdir, 'services', 'sync'), 'tps.xpi')
+        src = os.path.join(
+            self.topsrcdir, "services", "sync", "tps", "extensions", "tps"
+        )
+        dest = os.path.join(
+            dest or os.path.join(self.topobjdir, "services", "sync"), "tps.xpi"
+        )
 
         if not os.path.exists(os.path.dirname(dest)):
             os.makedirs(os.path.dirname(dest))
@@ -27,9 +31,9 @@ class MachCommands(MachCommandBase):
         if os.path.isfile(dest):
             os.unlink(dest)
 
-        jarrer = Jarrer(optimize=False)
-        for p, f in FileFinder(src).find('*'):
+        jarrer = Jarrer()
+        for p, f in FileFinder(src).find("*"):
             jarrer.add(p, f)
         jarrer.copy(dest)
 
-        print('Built TPS add-on as %s' % dest)
+        print("Built TPS add-on as %s" % dest)

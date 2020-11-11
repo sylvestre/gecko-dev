@@ -4,13 +4,6 @@
 
 -keepattributes *Annotation*
 
-# Preserve all public classes, and their public and protected fields and
-# methods.
-
--keep public class * {
-    static public protected *;
-}
-
 # Preserve all .class method names.
 
 -keepclassmembernames class * {
@@ -20,7 +13,7 @@
 
 # Preserve all native method names and the names of their classes.
 
--keepclasseswithmembernames class * {
+-keepclasseswithmembernames,includedescriptorclasses class * {
     native <methods>;
 }
 
@@ -86,7 +79,18 @@
 
 # GeckoView specific rules.
 
+# Keep everthing in org.mozilla.geckoview
+-keep class org.mozilla.geckoview.** { *; }
+
 -keep class org.mozilla.gecko.SysInfo {
+    *;
+}
+
+-keep class org.mozilla.gecko.mozglue.JNIObject {
+    *;
+}
+
+-keep class * extends org.mozilla.gecko.mozglue.JNIObject {
     *;
 }
 
@@ -136,18 +140,18 @@
 # Keep generator-targeted entry points.
 -keep @interface org.mozilla.gecko.annotation.WrapForJNI
 -keep @org.mozilla.gecko.annotation.WrapForJNI class *
--keepclassmembers class * {
+-keepclassmembers,includedescriptorclasses class * {
     @org.mozilla.gecko.annotation.WrapForJNI *;
 }
--keepclasseswithmembers class * {
+-keepclasseswithmembers,includedescriptorclasses class * {
     @org.mozilla.gecko.annotation.WrapForJNI <methods>;
 }
--keepclasseswithmembers class * {
+-keepclasseswithmembers,includedescriptorclasses class * {
     @org.mozilla.gecko.annotation.WrapForJNI <fields>;
 }
 
 # Keep all members of an annotated class.
--keepclassmembers @org.mozilla.gecko.annotation.WrapForJNI class * {
+-keepclassmembers,includedescriptorclasses @org.mozilla.gecko.annotation.WrapForJNI class * {
     *;
 }
 
@@ -166,3 +170,11 @@
 -keepclasseswithmembers class * {
     @org.mozilla.gecko.annotation.ReflectionTarget <fields>;
 }
+
+# Avoid "Warning: org.yaml.snakeyaml.scanner.ScannerImpl: can't find
+# referenced method 'java.nio.ByteBuffer flip()' in library class
+# java.nio.ByteBuffer".
+# Between Java 1.8 and 1.9, the signature of `flip()` changed, which
+# trips up proguard.
+
+-dontwarn org.yaml.snakeyaml.scanner.ScannerImpl

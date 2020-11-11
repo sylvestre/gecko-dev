@@ -5,43 +5,38 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "mozilla/dom/MediaKeySystemAccess.h"
-#include "mozilla/dom/MediaKeySystemAccessBinding.h"
-#include "mozilla/dom/MediaKeySession.h"
-#include "mozilla/Preferences.h"
-#include "mozilla/StaticPrefs.h"
-#include "MediaContainerType.h"
-#include "nsMimeTypes.h"
-#ifdef XP_WIN
-#include "WMFDecoderModule.h"
-#endif
-#include "nsContentCID.h"
-#include "nsServiceManagerUtils.h"
-#include "mozIGeckoMediaPluginService.h"
-#include "VideoUtils.h"
-#include "mozilla/Services.h"
-#include "nsIObserverService.h"
-#include "mozilla/EMEUtils.h"
-#include "GMPUtils.h"
-#include "nsAppDirectoryServiceDefs.h"
-#include "nsDirectoryServiceUtils.h"
-#include "nsDirectoryServiceDefs.h"
-#include "nsXULAppAPI.h"
-#include "DecoderDoctorDiagnostics.h"
-#include "WebMDecoder.h"
-#include "mozilla/StaticPtr.h"
-#include "mozilla/ClearOnShutdown.h"
-#include "nsUnicharUtils.h"
-#include "mozilla/dom/MediaSource.h"
-#include "DecoderTraits.h"
-#ifdef MOZ_WIDGET_ANDROID
-#include "AndroidDecoderModule.h"
-#include "FennecJNIWrappers.h"
-#include "GeneratedJNIWrappers.h"
-#endif
+
 #include <functional>
 
-namespace mozilla {
-namespace dom {
+#include "DecoderDoctorDiagnostics.h"
+#include "DecoderTraits.h"
+#include "GMPUtils.h"
+#include "MediaContainerType.h"
+#include "mozilla/ClearOnShutdown.h"
+#include "mozilla/dom/MediaKeySystemAccessBinding.h"
+#include "mozilla/dom/MediaKeySession.h"
+#include "mozilla/dom/MediaSource.h"
+#include "mozilla/EMEUtils.h"
+#include "mozilla/Preferences.h"
+#include "mozilla/Services.h"
+#include "mozilla/StaticPrefs_media.h"
+#include "nsDOMString.h"
+#include "nsIObserverService.h"
+#include "nsMimeTypes.h"
+#include "nsServiceManagerUtils.h"
+#include "nsUnicharUtils.h"
+#include "VideoUtils.h"
+#include "WebMDecoder.h"
+
+#ifdef XP_WIN
+#  include "WMFDecoderModule.h"
+#endif
+#ifdef MOZ_WIDGET_ANDROID
+#  include "AndroidDecoderModule.h"
+#  include "mozilla/java/MediaDrmProxyWrappers.h"
+#endif
+
+namespace mozilla::dom {
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(MediaKeySystemAccess, mParent)
 NS_IMPL_CYCLE_COLLECTING_ADDREF(MediaKeySystemAccess)
@@ -62,7 +57,7 @@ MediaKeySystemAccess::MediaKeySystemAccess(
           mozilla::dom::ToCString(mConfig).get());
 }
 
-MediaKeySystemAccess::~MediaKeySystemAccess() {}
+MediaKeySystemAccess::~MediaKeySystemAccess() = default;
 
 JSObject* MediaKeySystemAccess::WrapObject(JSContext* aCx,
                                            JS::Handle<JSObject*> aGivenProto) {
@@ -89,7 +84,7 @@ already_AddRefed<Promise> MediaKeySystemAccess::CreateMediaKeys(
 }
 
 static bool HavePluginForKeySystem(const nsCString& aKeySystem) {
-  nsCString api = NS_LITERAL_CSTRING(CHROMIUM_CDM_API);
+  nsCString api = nsLiteralCString(CHROMIUM_CDM_API);
 
   bool havePlugin = HaveGMPFor(api, {aKeySystem});
 #ifdef MOZ_WIDGET_ANDROID
@@ -104,7 +99,7 @@ static bool HavePluginForKeySystem(const nsCString& aKeySystem) {
 static MediaKeySystemStatus EnsureCDMInstalled(const nsAString& aKeySystem,
                                                nsACString& aOutMessage) {
   if (!HavePluginForKeySystem(NS_ConvertUTF16toUTF8(aKeySystem))) {
-    aOutMessage = NS_LITERAL_CSTRING("CDM is not installed");
+    aOutMessage = "CDM is not installed"_ns;
     return MediaKeySystemStatus::Cdm_not_installed;
   }
 
@@ -114,7 +109,8 @@ static MediaKeySystemStatus EnsureCDMInstalled(const nsAString& aKeySystem,
 /* static */
 MediaKeySystemStatus MediaKeySystemAccess::GetKeySystemStatus(
     const nsAString& aKeySystem, nsACString& aOutMessage) {
-  MOZ_ASSERT(StaticPrefs::MediaEmeEnabled() || IsClearkeyKeySystem(aKeySystem));
+  MOZ_ASSERT(StaticPrefs::media_eme_enabled() ||
+             IsClearkeyKeySystem(aKeySystem));
 
   if (IsClearkeyKeySystem(aKeySystem)) {
     return EnsureCDMInstalled(aKeySystem, aOutMessage);
@@ -123,7 +119,7 @@ MediaKeySystemStatus MediaKeySystemAccess::GetKeySystemStatus(
   if (IsWidevineKeySystem(aKeySystem)) {
     if (Preferences::GetBool("media.gmp-widevinecdm.visible", false)) {
       if (!Preferences::GetBool("media.gmp-widevinecdm.enabled", false)) {
-        aOutMessage = NS_LITERAL_CSTRING("Widevine EME disabled");
+        aOutMessage = "Widevine EME disabled"_ns;
         return MediaKeySystemStatus::Cdm_disabled;
       }
       return EnsureCDMInstalled(aKeySystem, aOutMessage);
@@ -134,7 +130,7 @@ MediaKeySystemStatus MediaKeySystemAccess::GetKeySystemStatus(
       bool supported =
           mozilla::java::MediaDrmProxy::IsSchemeSupported(keySystem);
       if (!supported) {
-        aOutMessage = NS_LITERAL_CSTRING(
+        aOutMessage = nsLiteralCString(
             "KeySystem or Minimum API level not met for Widevine EME");
         return MediaKeySystemStatus::Cdm_not_supported;
       }
@@ -148,13 +144,13 @@ MediaKeySystemStatus MediaKeySystemAccess::GetKeySystemStatus(
 
 typedef nsCString EMECodecString;
 
-static NS_NAMED_LITERAL_CSTRING(EME_CODEC_AAC, "aac");
-static NS_NAMED_LITERAL_CSTRING(EME_CODEC_OPUS, "opus");
-static NS_NAMED_LITERAL_CSTRING(EME_CODEC_VORBIS, "vorbis");
-static NS_NAMED_LITERAL_CSTRING(EME_CODEC_FLAC, "flac");
-static NS_NAMED_LITERAL_CSTRING(EME_CODEC_H264, "h264");
-static NS_NAMED_LITERAL_CSTRING(EME_CODEC_VP8, "vp8");
-static NS_NAMED_LITERAL_CSTRING(EME_CODEC_VP9, "vp9");
+static constexpr auto EME_CODEC_AAC = "aac"_ns;
+static constexpr auto EME_CODEC_OPUS = "opus"_ns;
+static constexpr auto EME_CODEC_VORBIS = "vorbis"_ns;
+static constexpr auto EME_CODEC_FLAC = "flac"_ns;
+static constexpr auto EME_CODEC_H264 = "h264"_ns;
+static constexpr auto EME_CODEC_VP8 = "vp8"_ns;
+static constexpr auto EME_CODEC_VP9 = "vp9"_ns;
 
 EMECodecString ToEMEAPICodecString(const nsString& aCodec) {
   if (IsAACCodecString(aCodec)) {
@@ -178,7 +174,7 @@ EMECodecString ToEMEAPICodecString(const nsString& aCodec) {
   if (IsVP9CodecString(aCodec)) {
     return EME_CODEC_VP9;
   }
-  return EmptyCString();
+  return ""_ns;
 }
 
 // A codec can be decrypted-and-decoded by the CDM, or only decrypted
@@ -236,6 +232,7 @@ struct KeySystemConfig {
   nsTArray<MediaKeySessionType> mSessionTypes;
   nsTArray<nsString> mVideoRobustness;
   nsTArray<nsString> mAudioRobustness;
+  nsTArray<nsString> mEncryptionSchemes;
   KeySystemContainerSupport mMP4;
   KeySystemContainerSupport mWebM;
 };
@@ -244,16 +241,19 @@ static nsTArray<KeySystemConfig> GetSupportedKeySystems() {
   nsTArray<KeySystemConfig> keySystemConfigs;
 
   {
-    if (HavePluginForKeySystem(kEMEKeySystemClearkey)) {
+    const nsCString keySystem = nsLiteralCString(EME_KEY_SYSTEM_CLEARKEY);
+    if (HavePluginForKeySystem(keySystem)) {
       KeySystemConfig clearkey;
-      clearkey.mKeySystem = NS_ConvertUTF8toUTF16(kEMEKeySystemClearkey);
-      clearkey.mInitDataTypes.AppendElement(NS_LITERAL_STRING("cenc"));
-      clearkey.mInitDataTypes.AppendElement(NS_LITERAL_STRING("keyids"));
-      clearkey.mInitDataTypes.AppendElement(NS_LITERAL_STRING("webm"));
+      clearkey.mKeySystem.AssignLiteral(EME_KEY_SYSTEM_CLEARKEY);
+      clearkey.mInitDataTypes.AppendElement(u"cenc"_ns);
+      clearkey.mInitDataTypes.AppendElement(u"keyids"_ns);
+      clearkey.mInitDataTypes.AppendElement(u"webm"_ns);
       clearkey.mPersistentState = KeySystemFeatureSupport::Requestable;
       clearkey.mDistinctiveIdentifier = KeySystemFeatureSupport::Prohibited;
       clearkey.mSessionTypes.AppendElement(MediaKeySessionType::Temporary);
-      if (StaticPrefs::MediaClearkeyPersistentLicenseEnabled()) {
+      clearkey.mEncryptionSchemes.AppendElement(u"cenc"_ns);
+      // We do not have support for cbcs in clearkey yet. See bug 1516673.
+      if (StaticPrefs::media_clearkey_persistent_license_enabled()) {
         clearkey.mSessionTypes.AppendElement(
             MediaKeySessionType::Persistent_license);
       }
@@ -270,9 +270,7 @@ static nsTArray<KeySystemConfig> GetSupportedKeySystems() {
       clearkey.mMP4.SetCanDecrypt(EME_CODEC_AAC);
       clearkey.mMP4.SetCanDecrypt(EME_CODEC_FLAC);
       clearkey.mMP4.SetCanDecrypt(EME_CODEC_OPUS);
-      if (Preferences::GetBool("media.eme.vp9-in-mp4.enabled", false)) {
-        clearkey.mMP4.SetCanDecrypt(EME_CODEC_VP9);
-      }
+      clearkey.mMP4.SetCanDecrypt(EME_CODEC_VP9);
       clearkey.mWebM.SetCanDecrypt(EME_CODEC_VORBIS);
       clearkey.mWebM.SetCanDecrypt(EME_CODEC_OPUS);
       clearkey.mWebM.SetCanDecrypt(EME_CODEC_VP8);
@@ -281,12 +279,13 @@ static nsTArray<KeySystemConfig> GetSupportedKeySystems() {
     }
   }
   {
-    if (HavePluginForKeySystem(kEMEKeySystemWidevine)) {
+    const nsCString keySystem = nsLiteralCString(EME_KEY_SYSTEM_WIDEVINE);
+    if (HavePluginForKeySystem(keySystem)) {
       KeySystemConfig widevine;
-      widevine.mKeySystem = NS_ConvertUTF8toUTF16(kEMEKeySystemWidevine);
-      widevine.mInitDataTypes.AppendElement(NS_LITERAL_STRING("cenc"));
-      widevine.mInitDataTypes.AppendElement(NS_LITERAL_STRING("keyids"));
-      widevine.mInitDataTypes.AppendElement(NS_LITERAL_STRING("webm"));
+      widevine.mKeySystem.AssignLiteral(EME_KEY_SYSTEM_WIDEVINE);
+      widevine.mInitDataTypes.AppendElement(u"cenc"_ns);
+      widevine.mInitDataTypes.AppendElement(u"keyids"_ns);
+      widevine.mInitDataTypes.AppendElement(u"webm"_ns);
       widevine.mPersistentState = KeySystemFeatureSupport::Requestable;
       widevine.mDistinctiveIdentifier = KeySystemFeatureSupport::Prohibited;
       widevine.mSessionTypes.AppendElement(MediaKeySessionType::Temporary);
@@ -294,28 +293,13 @@ static nsTArray<KeySystemConfig> GetSupportedKeySystems() {
       widevine.mSessionTypes.AppendElement(
           MediaKeySessionType::Persistent_license);
 #endif
-      widevine.mAudioRobustness.AppendElement(
-          NS_LITERAL_STRING("SW_SECURE_CRYPTO"));
-      widevine.mVideoRobustness.AppendElement(
-          NS_LITERAL_STRING("SW_SECURE_CRYPTO"));
-      widevine.mVideoRobustness.AppendElement(
-          NS_LITERAL_STRING("SW_SECURE_DECODE"));
-#if defined(XP_WIN)
-      // Widevine CDM doesn't include an AAC decoder. So if WMF can't
-      // decode AAC, and a codec wasn't specified, be conservative
-      // and reject the MediaKeys request, since we assume Widevine
-      // will be used with AAC.
-      if (WMFDecoderModule::HasAAC()) {
-        widevine.mMP4.SetCanDecrypt(EME_CODEC_AAC);
-      }
-#elif !defined(MOZ_WIDGET_ANDROID)
-      widevine.mMP4.SetCanDecrypt(EME_CODEC_AAC);
-      widevine.mMP4.SetCanDecrypt(EME_CODEC_FLAC);
-      widevine.mMP4.SetCanDecrypt(EME_CODEC_OPUS);
-#endif
+      widevine.mAudioRobustness.AppendElement(u"SW_SECURE_CRYPTO"_ns);
+      widevine.mVideoRobustness.AppendElement(u"SW_SECURE_CRYPTO"_ns);
+      widevine.mVideoRobustness.AppendElement(u"SW_SECURE_DECODE"_ns);
+      widevine.mEncryptionSchemes.AppendElement(u"cenc"_ns);
+      widevine.mEncryptionSchemes.AppendElement(u"cbcs"_ns);
 
 #if defined(MOZ_WIDGET_ANDROID)
-      using namespace mozilla::java;
       // MediaDrm.isCryptoSchemeSupported only allows passing
       // "video/mp4" or "video/webm" for mimetype string.
       // See
@@ -329,29 +313,29 @@ static nsTArray<KeySystemConfig> GetSupportedKeySystems() {
       } DataForValidation;
 
       DataForValidation validationList[] = {
-          {nsCString(VIDEO_MP4), EME_CODEC_H264, MediaDrmProxy::AVC,
+          {nsCString(VIDEO_MP4), EME_CODEC_H264, java::MediaDrmProxy::AVC,
            &widevine.mMP4},
-          {nsCString(VIDEO_MP4), EME_CODEC_VP9, MediaDrmProxy::AVC,
+          {nsCString(VIDEO_MP4), EME_CODEC_VP9, java::MediaDrmProxy::AVC,
            &widevine.mMP4},
-          {nsCString(AUDIO_MP4), EME_CODEC_AAC, MediaDrmProxy::AAC,
+          {nsCString(AUDIO_MP4), EME_CODEC_AAC, java::MediaDrmProxy::AAC,
            &widevine.mMP4},
-          {nsCString(AUDIO_MP4), EME_CODEC_FLAC, MediaDrmProxy::FLAC,
+          {nsCString(AUDIO_MP4), EME_CODEC_FLAC, java::MediaDrmProxy::FLAC,
            &widevine.mMP4},
-          {nsCString(AUDIO_MP4), EME_CODEC_OPUS, MediaDrmProxy::OPUS,
+          {nsCString(AUDIO_MP4), EME_CODEC_OPUS, java::MediaDrmProxy::OPUS,
            &widevine.mMP4},
-          {nsCString(VIDEO_WEBM), EME_CODEC_VP8, MediaDrmProxy::VP8,
+          {nsCString(VIDEO_WEBM), EME_CODEC_VP8, java::MediaDrmProxy::VP8,
            &widevine.mWebM},
-          {nsCString(VIDEO_WEBM), EME_CODEC_VP9, MediaDrmProxy::VP9,
+          {nsCString(VIDEO_WEBM), EME_CODEC_VP9, java::MediaDrmProxy::VP9,
            &widevine.mWebM},
-          {nsCString(AUDIO_WEBM), EME_CODEC_VORBIS, MediaDrmProxy::VORBIS,
+          {nsCString(AUDIO_WEBM), EME_CODEC_VORBIS, java::MediaDrmProxy::VORBIS,
            &widevine.mWebM},
-          {nsCString(AUDIO_WEBM), EME_CODEC_OPUS, MediaDrmProxy::OPUS,
+          {nsCString(AUDIO_WEBM), EME_CODEC_OPUS, java::MediaDrmProxy::OPUS,
            &widevine.mWebM},
       };
 
       for (const auto& data : validationList) {
-        if (MediaDrmProxy::IsCryptoSchemeSupported(kEMEKeySystemWidevine,
-                                                   data.mMimeType)) {
+        if (java::MediaDrmProxy::IsCryptoSchemeSupported(
+                EME_KEY_SYSTEM_WIDEVINE, data.mMimeType)) {
           if (AndroidDecoderModule::SupportsMimeType(data.mMimeType)) {
             data.mSupportType->SetCanDecryptAndDecode(data.mEMECodecType);
           } else {
@@ -360,10 +344,21 @@ static nsTArray<KeySystemConfig> GetSupportedKeySystems() {
         }
       }
 #else
-      widevine.mMP4.SetCanDecryptAndDecode(EME_CODEC_H264);
-      if (Preferences::GetBool("media.eme.vp9-in-mp4.enabled", false)) {
-        widevine.mMP4.SetCanDecryptAndDecode(EME_CODEC_VP9);
+#  if defined(XP_WIN)
+      // Widevine CDM doesn't include an AAC decoder. So if WMF can't
+      // decode AAC, and a codec wasn't specified, be conservative
+      // and reject the MediaKeys request, since we assume Widevine
+      // will be used with AAC.
+      if (WMFDecoderModule::HasAAC()) {
+        widevine.mMP4.SetCanDecrypt(EME_CODEC_AAC);
       }
+#  else
+      widevine.mMP4.SetCanDecrypt(EME_CODEC_AAC);
+#  endif
+      widevine.mMP4.SetCanDecrypt(EME_CODEC_FLAC);
+      widevine.mMP4.SetCanDecrypt(EME_CODEC_OPUS);
+      widevine.mMP4.SetCanDecryptAndDecode(EME_CODEC_H264);
+      widevine.mMP4.SetCanDecryptAndDecode(EME_CODEC_VP9);
       widevine.mWebM.SetCanDecrypt(EME_CODEC_VORBIS);
       widevine.mWebM.SetCanDecrypt(EME_CODEC_OPUS);
       widevine.mWebM.SetCanDecryptAndDecode(EME_CODEC_VP8);
@@ -412,12 +407,14 @@ static bool CanDecryptAndDecode(
       continue;
     }
 
-    if (aContainerSupport.Decrypts(codec) &&
-        NS_SUCCEEDED(
-            MediaSource::IsTypeSupported(aContentType, aDiagnostics))) {
-      // GMP can decrypt and is allowed to return compressed samples to
-      // Gecko to decode, and Gecko has a decoder.
-      continue;
+    if (aContainerSupport.Decrypts(codec)) {
+      IgnoredErrorResult rv;
+      MediaSource::IsTypeSupported(aContentType, aDiagnostics, rv);
+      if (!rv.Failed()) {
+        // GMP can decrypt and is allowed to return compressed samples to
+        // Gecko to decode, and Gecko has a decoder.
+        continue;
+      }
     }
 
     // Neither the GMP nor Gecko can both decrypt and decode. We don't
@@ -441,6 +438,31 @@ static bool CanDecryptAndDecode(
   return true;
 }
 
+// Returns if an encryption scheme is supported per:
+// https://github.com/WICG/encrypted-media-encryption-scheme/blob/master/explainer.md
+// To be supported the scheme should be one of:
+// - null
+// - missing (which will result in the nsString being set to void and thus null)
+// - one of the schemes supported by the CDM
+// If the pref to enable this behavior is not set, then the value should be
+// empty/null, as the dict member will not be exposed. In this case we will
+// always report support as we would before this feature was implemented.
+static bool SupportsEncryptionScheme(
+    const nsString& aEncryptionScheme,
+    const nsTArray<nsString>& aSupportedEncryptionSchemes) {
+  MOZ_ASSERT(
+      DOMStringIsNull(aEncryptionScheme) ||
+          StaticPrefs::media_eme_encrypted_media_encryption_scheme_enabled(),
+      "Encryption scheme checking support must be preffed on for "
+      "encryptionScheme to be a non-null string");
+  if (DOMStringIsNull(aEncryptionScheme)) {
+    // "A missing or null value indicates that any encryption scheme is
+    // acceptable."
+    return true;
+  }
+  return aSupportedEncryptionSchemes.Contains(aEncryptionScheme);
+}
+
 static bool ToSessionType(const nsAString& aSessionType,
                           MediaKeySessionType& aOutType) {
   if (aSessionType.Equals(ToString(MediaKeySessionType::Temporary))) {
@@ -454,7 +476,7 @@ static bool ToSessionType(const nsAString& aSessionType,
   return false;
 }
 
-// 5.2.1 Is persistent session type?
+// 5.1.1 Is persistent session type?
 static bool IsPersistentSessionType(MediaKeySessionType aSessionType) {
   return aSessionType == MediaKeySessionType::Persistent_license;
 }
@@ -520,7 +542,7 @@ static bool IsParameterUnrecognized(const nsAString& aContentType) {
   return false;
 }
 
-// 3.1.2.3 Get Supported Capabilities for Audio/Video Type
+// 3.1.1.3 Get Supported Capabilities for Audio/Video Type
 static Sequence<MediaKeySystemMediaCapability> GetSupportedCapabilities(
     const CodecType aCodecType,
     const nsTArray<MediaKeySystemMediaCapability>& aRequestedCapabilities,
@@ -544,15 +566,21 @@ static Sequence<MediaKeySystemMediaCapability> GetSupportedCapabilities(
     const nsString& contentTypeString = capabilities.mContentType;
     // Let robustness be requested media capability's robustness member.
     const nsString& robustness = capabilities.mRobustness;
+    // Optional encryption scheme extension, see
+    // https://github.com/WICG/encrypted-media-encryption-scheme/blob/master/explainer.md
+    // This will only be exposed to JS if
+    // media.eme.encrypted-media-encryption-scheme.enabled is preffed on.
+    const nsString encryptionScheme = capabilities.mEncryptionScheme;
     // If content type is the empty string, return null.
     if (contentTypeString.IsEmpty()) {
       EME_LOG(
           "MediaKeySystemConfiguration (label='%s') "
-          "MediaKeySystemMediaCapability('%s','%s') rejected; "
+          "MediaKeySystemMediaCapability('%s','%s','%s') rejected; "
           "audio or video capability has empty contentType.",
           NS_ConvertUTF16toUTF8(aPartialConfig.mLabel).get(),
           NS_ConvertUTF16toUTF8(contentTypeString).get(),
-          NS_ConvertUTF16toUTF8(robustness).get());
+          NS_ConvertUTF16toUTF8(robustness).get(),
+          NS_ConvertUTF16toUTF8(encryptionScheme).get());
       return Sequence<MediaKeySystemMediaCapability>();
     }
     // If content type is an invalid or unrecognized MIME type, continue
@@ -562,11 +590,12 @@ static Sequence<MediaKeySystemMediaCapability> GetSupportedCapabilities(
     if (!maybeContainerType) {
       EME_LOG(
           "MediaKeySystemConfiguration (label='%s') "
-          "MediaKeySystemMediaCapability('%s','%s') unsupported; "
+          "MediaKeySystemMediaCapability('%s','%s','%s') unsupported; "
           "failed to parse contentTypeString as MIME type.",
           NS_ConvertUTF16toUTF8(aPartialConfig.mLabel).get(),
           NS_ConvertUTF16toUTF8(contentTypeString).get(),
-          NS_ConvertUTF16toUTF8(robustness).get());
+          NS_ConvertUTF16toUTF8(robustness).get(),
+          NS_ConvertUTF16toUTF8(encryptionScheme).get());
       continue;
     }
     const MediaContainerType& containerType = *maybeContainerType;
@@ -579,11 +608,12 @@ static Sequence<MediaKeySystemMediaCapability> GetSupportedCapabilities(
         invalid = true;
         EME_LOG(
             "MediaKeySystemConfiguration (label='%s') "
-            "MediaKeySystemMediaCapability('%s','%s') unsupported; "
+            "MediaKeySystemMediaCapability('%s','%s','%s') unsupported; "
             "'%s' is an invalid codec string.",
             NS_ConvertUTF16toUTF8(aPartialConfig.mLabel).get(),
             NS_ConvertUTF16toUTF8(contentTypeString).get(),
             NS_ConvertUTF16toUTF8(robustness).get(),
+            NS_ConvertUTF16toUTF8(encryptionScheme).get(),
             NS_ConvertUTF16toUTF8(codecString).get());
         break;
       }
@@ -604,32 +634,35 @@ static Sequence<MediaKeySystemMediaCapability> GetSupportedCapabilities(
     if (isMP4 && !aKeySystem.mMP4.IsSupported()) {
       EME_LOG(
           "MediaKeySystemConfiguration (label='%s') "
-          "MediaKeySystemMediaCapability('%s','%s') unsupported; "
+          "MediaKeySystemMediaCapability('%s','%s','%s') unsupported; "
           "MP4 requested but unsupported.",
           NS_ConvertUTF16toUTF8(aPartialConfig.mLabel).get(),
           NS_ConvertUTF16toUTF8(contentTypeString).get(),
-          NS_ConvertUTF16toUTF8(robustness).get());
+          NS_ConvertUTF16toUTF8(robustness).get(),
+          NS_ConvertUTF16toUTF8(encryptionScheme).get());
       continue;
     }
     const bool isWebM = WebMDecoder::IsSupportedType(containerType);
     if (isWebM && !aKeySystem.mWebM.IsSupported()) {
       EME_LOG(
           "MediaKeySystemConfiguration (label='%s') "
-          "MediaKeySystemMediaCapability('%s','%s') unsupported; "
+          "MediaKeySystemMediaCapability('%s','%s,'%s') unsupported; "
           "WebM requested but unsupported.",
           NS_ConvertUTF16toUTF8(aPartialConfig.mLabel).get(),
           NS_ConvertUTF16toUTF8(contentTypeString).get(),
-          NS_ConvertUTF16toUTF8(robustness).get());
+          NS_ConvertUTF16toUTF8(robustness).get(),
+          NS_ConvertUTF16toUTF8(encryptionScheme).get());
       continue;
     }
     if (!isMP4 && !isWebM) {
       EME_LOG(
           "MediaKeySystemConfiguration (label='%s') "
-          "MediaKeySystemMediaCapability('%s','%s') unsupported; "
+          "MediaKeySystemMediaCapability('%s','%s','%s') unsupported; "
           "Unsupported or unrecognized container requested.",
           NS_ConvertUTF16toUTF8(aPartialConfig.mLabel).get(),
           NS_ConvertUTF16toUTF8(contentTypeString).get(),
-          NS_ConvertUTF16toUTF8(robustness).get());
+          NS_ConvertUTF16toUTF8(robustness).get(),
+          NS_ConvertUTF16toUTF8(encryptionScheme).get());
       continue;
     }
 
@@ -677,22 +710,24 @@ static Sequence<MediaKeySystemMediaCapability> GetSupportedCapabilities(
     if (majorType == Invalid) {
       EME_LOG(
           "MediaKeySystemConfiguration (label='%s') "
-          "MediaKeySystemMediaCapability('%s','%s') unsupported; "
+          "MediaKeySystemMediaCapability('%s','%s','%s') unsupported; "
           "MIME type is not an audio or video MIME type.",
           NS_ConvertUTF16toUTF8(aPartialConfig.mLabel).get(),
           NS_ConvertUTF16toUTF8(contentTypeString).get(),
-          NS_ConvertUTF16toUTF8(robustness).get());
+          NS_ConvertUTF16toUTF8(robustness).get(),
+          NS_ConvertUTF16toUTF8(encryptionScheme).get());
       continue;
     }
     if (majorType != aCodecType || !AllCodecsOfType(codecs, aCodecType)) {
       EME_LOG(
           "MediaKeySystemConfiguration (label='%s') "
-          "MediaKeySystemMediaCapability('%s','%s') unsupported; "
+          "MediaKeySystemMediaCapability('%s','%s','%s') unsupported; "
           "MIME type mixes audio codecs in video capabilities "
           "or video codecs in audio capabilities.",
           NS_ConvertUTF16toUTF8(aPartialConfig.mLabel).get(),
           NS_ConvertUTF16toUTF8(contentTypeString).get(),
-          NS_ConvertUTF16toUTF8(robustness).get());
+          NS_ConvertUTF16toUTF8(robustness).get(),
+          NS_ConvertUTF16toUTF8(encryptionScheme).get());
       continue;
     }
     // If robustness is not the empty string and contains an unrecognized
@@ -703,25 +738,43 @@ static Sequence<MediaKeySystemMediaCapability> GetSupportedCapabilities(
           !aKeySystem.mAudioRobustness.Contains(robustness)) {
         EME_LOG(
             "MediaKeySystemConfiguration (label='%s') "
-            "MediaKeySystemMediaCapability('%s','%s') unsupported; "
+            "MediaKeySystemMediaCapability('%s','%s','%s') unsupported; "
             "unsupported robustness string.",
             NS_ConvertUTF16toUTF8(aPartialConfig.mLabel).get(),
             NS_ConvertUTF16toUTF8(contentTypeString).get(),
-            NS_ConvertUTF16toUTF8(robustness).get());
+            NS_ConvertUTF16toUTF8(robustness).get(),
+            NS_ConvertUTF16toUTF8(encryptionScheme).get());
         continue;
       }
       if (majorType == Video &&
           !aKeySystem.mVideoRobustness.Contains(robustness)) {
         EME_LOG(
             "MediaKeySystemConfiguration (label='%s') "
-            "MediaKeySystemMediaCapability('%s','%s') unsupported; "
+            "MediaKeySystemMediaCapability('%s','%s','%s') unsupported; "
             "unsupported robustness string.",
             NS_ConvertUTF16toUTF8(aPartialConfig.mLabel).get(),
             NS_ConvertUTF16toUTF8(contentTypeString).get(),
-            NS_ConvertUTF16toUTF8(robustness).get());
+            NS_ConvertUTF16toUTF8(robustness).get(),
+            NS_ConvertUTF16toUTF8(encryptionScheme).get());
         continue;
       }
       // Note: specified robustness requirements are satisfied.
+    }
+
+    // If preffed on: "In the Get Supported Capabilities for Audio/Video Type
+    // algorithm, implementations must skip capabilities specifying unsupported
+    // encryption schemes."
+    if (!SupportsEncryptionScheme(encryptionScheme,
+                                  aKeySystem.mEncryptionSchemes)) {
+      EME_LOG(
+          "MediaKeySystemConfiguration (label='%s') "
+          "MediaKeySystemMediaCapability('%s','%s','%s') unsupported; "
+          "encryption scheme unsupported by CDM requested.",
+          NS_ConvertUTF16toUTF8(aPartialConfig.mLabel).get(),
+          NS_ConvertUTF16toUTF8(contentTypeString).get(),
+          NS_ConvertUTF16toUTF8(robustness).get(),
+          NS_ConvertUTF16toUTF8(encryptionScheme).get());
+      continue;
     }
 
     // If the user agent and implementation definitely support playback of
@@ -734,11 +787,12 @@ static Sequence<MediaKeySystemMediaCapability> GetSupportedCapabilities(
                              aDiagnostics)) {
       EME_LOG(
           "MediaKeySystemConfiguration (label='%s') "
-          "MediaKeySystemMediaCapability('%s','%s') unsupported; "
+          "MediaKeySystemMediaCapability('%s','%s','%s') unsupported; "
           "codec unsupported by CDM requested.",
           NS_ConvertUTF16toUTF8(aPartialConfig.mLabel).get(),
           NS_ConvertUTF16toUTF8(contentTypeString).get(),
-          NS_ConvertUTF16toUTF8(robustness).get());
+          NS_ConvertUTF16toUTF8(robustness).get(),
+          NS_ConvertUTF16toUTF8(encryptionScheme).get());
       continue;
     }
 
@@ -793,7 +847,9 @@ static bool CheckRequirement(const MediaKeysRequirement aRequirement,
       }
       break;
     }
-    default: { return false; }
+    default: {
+      return false;
+    }
   }
 
   // Set the requirement member of accumulated configuration to equal
@@ -803,7 +859,7 @@ static bool CheckRequirement(const MediaKeysRequirement aRequirement,
   return true;
 }
 
-// 3.1.2.2, step 12
+// 3.1.1.2, step 12
 // Follow the steps for the first matching condition from the following list:
 // If the sessionTypes member is present in candidate configuration.
 // Let session types be candidate configuration's sessionTypes member.
@@ -816,13 +872,13 @@ static Sequence<nsString> UnboxSessionTypes(
     sessionTypes = aSessionTypes.Value();
   } else {
     // Note: fallible. Results in an empty array.
-    sessionTypes.AppendElement(ToString(MediaKeySessionType::Temporary),
-                               mozilla::fallible);
+    (void)sessionTypes.AppendElement(ToString(MediaKeySessionType::Temporary),
+                                     mozilla::fallible);
   }
   return sessionTypes;
 }
 
-// 3.1.2.2 Get Supported Configuration and Consent
+// 3.1.1.2 Get Supported Configuration and Consent
 static bool GetSupportedConfig(
     const KeySystemConfig& aKeySystem,
     const MediaKeySystemConfiguration& aCandidate,
@@ -1117,9 +1173,7 @@ static nsCString ToCString(const nsString& aString) {
 
 static nsCString ToCString(const MediaKeysRequirement aValue) {
   nsCString str("'");
-  str.Append(nsDependentCString(
-      MediaKeysRequirementValues::strings[static_cast<uint32_t>(aValue)]
-          .value));
+  str.AppendASCII(MediaKeysRequirementValues::GetString(aValue));
   str.AppendLiteral("'");
   return str;
 }
@@ -1130,6 +1184,8 @@ static nsCString ToCString(const MediaKeySystemMediaCapability& aValue) {
   str.Append(ToCString(aValue.mContentType));
   str.AppendLiteral(", robustness=");
   str.Append(ToCString(aValue.mRobustness));
+  str.AppendLiteral(", encryptionScheme=");
+  str.Append(ToCString(aValue.mEncryptionScheme));
   str.AppendLiteral("}");
   return str;
 }
@@ -1193,5 +1249,4 @@ nsCString MediaKeySystemAccess::ToCString(
   return mozilla::dom::ToCString(aConfig);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

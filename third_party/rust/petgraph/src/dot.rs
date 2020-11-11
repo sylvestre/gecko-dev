@@ -2,7 +2,10 @@
 
 use std::fmt::{self, Display, Write};
 
-use visit::{GraphRef};
+use crate::visit::{
+    Data, EdgeRef, GraphBase, GraphProp, GraphRef, IntoEdgeReferences, IntoNodeReferences,
+    NodeIndexable, NodeRef,
+};
 
 /// `Dot` implements output to graphviz .dot format for a graph.
 ///
@@ -29,7 +32,7 @@ use visit::{GraphRef};
 /// println!("{:?}", Dot::with_config(&graph, &[Config::EdgeNoLabel]));
 ///
 /// // In this case the output looks like this:
-/// // 
+/// //
 /// // digraph {
 /// //     0 [label="\"A\""]
 /// //     1 [label="\"B\""]
@@ -45,16 +48,24 @@ use visit::{GraphRef};
 ///
 /// // If you need multiple config options, just list them all in the slice.
 /// ```
-pub struct Dot<'a, G> {
+pub struct Dot<'a, G>
+where
+    G: IntoEdgeReferences + IntoNodeReferences,
+{
     graph: G,
     config: &'a [Config],
+    get_edge_attributes: &'a dyn Fn(G, G::EdgeRef) -> String,
+    get_node_attributes: &'a dyn Fn(G, G::NodeRef) -> String,
 }
 
-static TYPE: [&'static str; 2] = ["graph", "digraph"];
-static EDGE: [&'static str; 2] = ["--", "->"];
-static INDENT: &'static str = "    ";
+static TYPE: [&str; 2] = ["graph", "digraph"];
+static EDGE: [&str; 2] = ["--", "->"];
+static INDENT: &str = "    ";
 
-impl<'a, G> Dot<'a, G> where G: GraphRef {
+impl<'a, G> Dot<'a, G>
+where
+    G: GraphRef + IntoEdgeReferences + IntoNodeReferences,
+{
     /// Create a `Dot` formatting wrapper with default configuration.
     pub fn new(graph: G) -> Self {
         Self::with_config(graph, &[])
@@ -62,9 +73,22 @@ impl<'a, G> Dot<'a, G> where G: GraphRef {
 
     /// Create a `Dot` formatting wrapper with custom configuration.
     pub fn with_config(graph: G, config: &'a [Config]) -> Self {
+        Self::with_attr_getters(graph, config, &|_, _| "".to_string(), &|_, _| {
+            "".to_string()
+        })
+    }
+
+    pub fn with_attr_getters(
+        graph: G,
+        config: &'a [Config],
+        get_edge_attributes: &'a dyn Fn(G, G::EdgeRef) -> String,
+        get_node_attributes: &'a dyn Fn(G, G::NodeRef) -> String,
+    ) -> Self {
         Dot {
-            graph: graph,
-            config: config,
+            graph,
+            config,
+            get_edge_attributes,
+            get_node_attributes,
         }
     }
 }
@@ -80,64 +104,84 @@ pub enum Config {
     EdgeIndexLabel,
     /// Use no edge labels.
     EdgeNoLabel,
+    /// Use no node labels.
+    NodeNoLabel,
+    /// Do not print the graph/digraph string.
+    GraphContentOnly,
     #[doc(hidden)]
     _Incomplete(()),
 }
 
-use visit::{ IntoNodeReferences, NodeIndexable, IntoEdgeReferences, EdgeRef};
-use visit::{ Data, NodeRef, GraphProp, };
-
 impl<'a, G> Dot<'a, G>
+where
+    G: GraphBase + IntoNodeReferences + IntoEdgeReferences,
 {
-    fn graph_fmt<NF, EF, NW, EW>(&self, g: G, f: &mut fmt::Formatter,
-                    mut node_fmt: NF, mut edge_fmt: EF) -> fmt::Result
-        where G: NodeIndexable + IntoNodeReferences + IntoEdgeReferences,
-              G: GraphProp,
-              G: Data<NodeWeight=NW, EdgeWeight=EW>,
-              NF: FnMut(&NW, &mut FnMut(&Display) -> fmt::Result) -> fmt::Result,
-              EF: FnMut(&EW, &mut FnMut(&Display) -> fmt::Result) -> fmt::Result,
+    fn graph_fmt<NF, EF, NW, EW>(
+        &self,
+        g: G,
+        f: &mut fmt::Formatter,
+        mut node_fmt: NF,
+        mut edge_fmt: EF,
+    ) -> fmt::Result
+    where
+        G: NodeIndexable + IntoNodeReferences + IntoEdgeReferences,
+        G: GraphProp + GraphBase,
+        G: Data<NodeWeight = NW, EdgeWeight = EW>,
+        NF: FnMut(&NW, &mut dyn FnMut(&dyn Display) -> fmt::Result) -> fmt::Result,
+        EF: FnMut(&EW, &mut dyn FnMut(&dyn Display) -> fmt::Result) -> fmt::Result,
     {
-        try!(writeln!(f, "{} {{", TYPE[g.is_directed() as usize]));
+        if !self.config.contains(&Config::GraphContentOnly) {
+            writeln!(f, "{} {{", TYPE[g.is_directed() as usize])?;
+        }
 
         // output all labels
         for node in g.node_references() {
-            try!(write!(f, "{}{}", INDENT, g.to_index(node.id())));
-            if self.config.contains(&Config::NodeIndexLabel) {
-                try!(writeln!(f, ""));
-            } else {
-                try!(write!(f, " [label=\""));
-                try!(node_fmt(node.weight(), &mut |d| Escaped(d).fmt(f)));
-                try!(writeln!(f, "\"]"));
+            write!(f, "{}{} [ ", INDENT, g.to_index(node.id()),)?;
+            if !self.config.contains(&Config::NodeNoLabel) {
+                write!(f, "label = \"")?;
+                if self.config.contains(&Config::NodeIndexLabel) {
+                    write!(f, "{}", g.to_index(node.id()))?;
+                } else {
+                    node_fmt(node.weight(), &mut |d| Escaped(d).fmt(f))?;
+                }
+                write!(f, "\" ")?;
             }
-
+            writeln!(f, "{}]", (self.get_node_attributes)(g, node))?;
         }
         // output all edges
         for (i, edge) in g.edge_references().enumerate() {
-            try!(write!(f, "{}{} {} {}",
-                        INDENT,
-                        g.to_index(edge.source()),
-                        EDGE[g.is_directed() as usize],
-                        g.to_index(edge.target())));
-            if self.config.contains(&Config::EdgeNoLabel) {
-                try!(writeln!(f, ""));
-            } else if self.config.contains(&Config::EdgeIndexLabel) {
-                try!(writeln!(f, " [label=\"{}\"]", i));
-            } else {
-                try!(write!(f, " [label=\""));
-                try!(edge_fmt(edge.weight(), &mut |d| Escaped(d).fmt(f)));
-                try!(writeln!(f, "\"]"));
+            write!(
+                f,
+                "{}{} {} {} [ ",
+                INDENT,
+                g.to_index(edge.source()),
+                EDGE[g.is_directed() as usize],
+                g.to_index(edge.target()),
+            )?;
+            if !self.config.contains(&Config::EdgeNoLabel) {
+                write!(f, "label = \"")?;
+                if self.config.contains(&Config::EdgeIndexLabel) {
+                    write!(f, "{}", i)?;
+                } else {
+                    edge_fmt(edge.weight(), &mut |d| Escaped(d).fmt(f))?;
+                }
+                write!(f, "\" ")?;
             }
+            writeln!(f, "{}]", (self.get_edge_attributes)(g, edge))?;
         }
 
-        try!(writeln!(f, "}}"));
+        if !self.config.contains(&Config::GraphContentOnly) {
+            writeln!(f, "}}")?;
+        }
         Ok(())
     }
 }
 
 impl<'a, G> fmt::Display for Dot<'a, G>
-    where G: IntoEdgeReferences + IntoNodeReferences + NodeIndexable + GraphProp,
-          G::EdgeWeight: fmt::Display,
-          G::NodeWeight: fmt::Display,
+where
+    G: IntoEdgeReferences + IntoNodeReferences + NodeIndexable + GraphProp,
+    G::EdgeWeight: fmt::Display,
+    G::NodeWeight: fmt::Display,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.graph_fmt(self.graph, f, |n, cb| cb(n), |e, cb| cb(e))
@@ -145,14 +189,18 @@ impl<'a, G> fmt::Display for Dot<'a, G>
 }
 
 impl<'a, G> fmt::Debug for Dot<'a, G>
-    where G: IntoEdgeReferences + IntoNodeReferences + NodeIndexable + GraphProp,
-          G::EdgeWeight: fmt::Debug,
-          G::NodeWeight: fmt::Debug,
+where
+    G: IntoEdgeReferences + IntoNodeReferences + NodeIndexable + GraphProp,
+    G::EdgeWeight: fmt::Debug,
+    G::NodeWeight: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.graph_fmt(self.graph, f,
-                       |n, cb| cb(&DebugFmt(n)),
-                       |e, cb| cb(&DebugFmt(e)))
+        self.graph_fmt(
+            self.graph,
+            f,
+            |n, cb| cb(&DebugFmt(n)),
+            |e, cb| cb(&DebugFmt(e)),
+        )
     }
 }
 
@@ -160,21 +208,22 @@ impl<'a, G> fmt::Debug for Dot<'a, G>
 struct Escaper<W>(W);
 
 impl<W> fmt::Write for Escaper<W>
-    where W: fmt::Write
+where
+    W: fmt::Write,
 {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         for c in s.chars() {
-            try!(self.write_char(c));
+            self.write_char(c)?;
         }
         Ok(())
     }
 
     fn write_char(&mut self, c: char) -> fmt::Result {
         match c {
-            '"' => try!(self.0.write_char('\\')),
+            '"' | '\\' => self.0.write_char('\\')?,
             // \l is for left justified linebreak
-            '\n' => return self.0.write_str(r#"\l"#),
-            _   => { }
+            '\n' => return self.0.write_str("\\l"),
+            _ => {}
         }
         self.0.write_char(c)
     }
@@ -184,11 +233,12 @@ impl<W> fmt::Write for Escaper<W>
 struct Escaped<T>(T);
 
 impl<T> fmt::Display for Escaped<T>
-    where T: fmt::Display
+where
+    T: fmt::Display,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if f.alternate() {
-            write!(&mut Escaper(f), "{:#}\\l", &self.0)
+            writeln!(&mut Escaper(f), "{:#}", &self.0)
         } else {
             write!(&mut Escaper(f), "{}", &self.0)
         }
@@ -199,9 +249,82 @@ impl<T> fmt::Display for Escaped<T>
 struct DebugFmt<T>(T);
 
 impl<T> fmt::Display for DebugFmt<T>
-    where T: fmt::Debug
+where
+    T: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.0.fmt(f)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::{Config, Dot, Escaper};
+    use crate::prelude::Graph;
+    use crate::visit::NodeRef;
+    use std::fmt::Write;
+
+    #[test]
+    fn test_escape() {
+        let mut buff = String::new();
+        {
+            let mut e = Escaper(&mut buff);
+            let _ = e.write_str("\" \\ \n");
+        }
+        assert_eq!(buff, "\\\" \\\\ \\l");
+    }
+
+    fn simple_graph() -> Graph<&'static str, &'static str> {
+        let mut graph = Graph::<&str, &str>::new();
+        let a = graph.add_node("A");
+        let b = graph.add_node("B");
+        graph.add_edge(a, b, "edge_label");
+        graph
+    }
+
+    #[test]
+    fn test_nodeindexlable_option() {
+        let graph = simple_graph();
+        let dot = format!("{:?}", Dot::with_config(&graph, &[Config::NodeIndexLabel]));
+        assert_eq!(dot, "digraph {\n    0 [ label = \"0\" ]\n    1 [ label = \"1\" ]\n    0 -> 1 [ label = \"\\\"edge_label\\\"\" ]\n}\n");
+    }
+
+    #[test]
+    fn test_edgeindexlable_option() {
+        let graph = simple_graph();
+        let dot = format!("{:?}", Dot::with_config(&graph, &[Config::EdgeIndexLabel]));
+        assert_eq!(dot, "digraph {\n    0 [ label = \"\\\"A\\\"\" ]\n    1 [ label = \"\\\"B\\\"\" ]\n    0 -> 1 [ label = \"0\" ]\n}\n");
+    }
+
+    #[test]
+    fn test_edgenolable_option() {
+        let graph = simple_graph();
+        let dot = format!("{:?}", Dot::with_config(&graph, &[Config::EdgeNoLabel]));
+        assert_eq!(dot, "digraph {\n    0 [ label = \"\\\"A\\\"\" ]\n    1 [ label = \"\\\"B\\\"\" ]\n    0 -> 1 [ ]\n}\n");
+    }
+
+    #[test]
+    fn test_nodenolable_option() {
+        let graph = simple_graph();
+        let dot = format!("{:?}", Dot::with_config(&graph, &[Config::NodeNoLabel]));
+        assert_eq!(
+            dot,
+            "digraph {\n    0 [ ]\n    1 [ ]\n    0 -> 1 [ label = \"\\\"edge_label\\\"\" ]\n}\n"
+        );
+    }
+
+    #[test]
+    fn test_with_attr_getters() {
+        let graph = simple_graph();
+        let dot = format!(
+            "{:?}",
+            Dot::with_attr_getters(
+                &graph,
+                &[Config::NodeNoLabel, Config::EdgeNoLabel],
+                &|_, er| format!("label = \"{}\"", er.weight().to_uppercase()),
+                &|_, nr| format!("label = \"{}\"", nr.weight().to_lowercase()),
+            ),
+        );
+        assert_eq!(dot, "digraph {\n    0 [ label = \"a\"]\n    1 [ label = \"b\"]\n    0 -> 1 [ label = \"EDGE_LABEL\"]\n}\n");
     }
 }

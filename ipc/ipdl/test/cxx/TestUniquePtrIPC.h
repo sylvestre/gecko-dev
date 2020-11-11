@@ -16,8 +16,8 @@ namespace _ipdltest {
 
 class TestUniquePtrIPCParent : public PTestUniquePtrIPCParent {
  public:
-  TestUniquePtrIPCParent() { MOZ_COUNT_CTOR(TestUniquePtrIPCParent); }
-  virtual ~TestUniquePtrIPCParent() { MOZ_COUNT_DTOR(TestUniquePtrIPCParent); }
+  MOZ_COUNTED_DEFAULT_CTOR(TestUniquePtrIPCParent)
+  MOZ_COUNTED_DTOR_OVERRIDE(TestUniquePtrIPCParent)
 
   static bool RunTestInProcesses() { return true; }
   static bool RunTestInThreads() { return false; }
@@ -37,16 +37,15 @@ class TestUniquePtrIPCParent : public PTestUniquePtrIPCParent {
 
 class TestUniquePtrIPCChild : public PTestUniquePtrIPCChild {
  public:
-  TestUniquePtrIPCChild() { MOZ_COUNT_CTOR(TestUniquePtrIPCChild); }
-  virtual ~TestUniquePtrIPCChild() { MOZ_COUNT_DTOR(TestUniquePtrIPCChild); }
+  MOZ_COUNTED_DEFAULT_CTOR(TestUniquePtrIPCChild)
+  MOZ_COUNTED_DTOR_OVERRIDE(TestUniquePtrIPCChild)
 
   mozilla::ipc::IPCResult RecvTestMessage(UniquePtr<int>&& aA1,
                                           UniquePtr<DummyStruct>&& aA2,
                                           const DummyStruct& aA3,
-                                          UniquePtr<int>&& aA4) override;
+                                          UniquePtr<int>&& aA4);
 
-  mozilla::ipc::IPCResult RecvTestSendReference(
-      UniquePtr<DummyStruct>&& aA) override;
+  mozilla::ipc::IPCResult RecvTestSendReference(UniquePtr<DummyStruct>&& aA);
 
   virtual void ActorDestroy(ActorDestroyReason why) override {
     if (NormalShutdown != why) {

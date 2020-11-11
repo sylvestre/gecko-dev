@@ -18,7 +18,7 @@ if toolkit == 'cocoa':
     UNIFIED_SOURCES += [
         'nptest_macosx.mm'
     ]
-elif toolkit == 'gtk3':
+elif toolkit == 'gtk':
     UNIFIED_SOURCES += [
         'nptest_gtk2.cpp',
     ]
@@ -41,24 +41,18 @@ NO_PGO = True
 
 if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'windows':
     RCFILE  = 'nptest.rc'
-    RESFILE = 'nptest.res'
     DEFFILE = 'nptest.def'
 
-if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'cocoa' and '64' in CONFIG['OS_TEST']:
+if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'cocoa' and CONFIG['TARGET_CPU'] == 'x86_64':
     OS_LIBS += ['-framework Carbon']
 
-if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gtk3':
+if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'gtk':
     CXXFLAGS += CONFIG['MOZ_GTK2_CFLAGS']
     CFLAGS += CONFIG['MOZ_GTK2_CFLAGS']
     OS_LIBS += CONFIG['MOZ_GTK2_LIBS']
     OS_LIBS += CONFIG['XLDFLAGS']
     OS_LIBS += CONFIG['XLIBS']
     OS_LIBS += CONFIG['XEXT_LIBS']
-
-if CONFIG['CC_TYPE'] in ('msvc', 'clang-cl'):
-    # This is intended as a temporary hack to support building with VS2015.
-    # conversion from 'X' to 'Y' requires a narrowing conversion
-    CXXFLAGS += ['-wd4838']
 
 if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'cocoa':
     FINAL_TARGET = 'dist/plugins/%s.plugin/Contents/MacOS' % cocoa_name
@@ -68,6 +62,3 @@ else:
 
 if CONFIG['CC_TYPE'] in ('clang', 'gcc'):
     CXXFLAGS += ['-Wno-error=shadow']
-
-if CONFIG['CC_TYPE'] == 'clang-cl':
-    AllowCompilerWarnings()  # workaround for bug 1090497

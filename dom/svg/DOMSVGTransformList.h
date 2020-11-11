@@ -4,25 +4,58 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef MOZILLA_DOMSVGTRANSFORMLIST_H__
-#define MOZILLA_DOMSVGTRANSFORMLIST_H__
+#ifndef DOM_SVG_DOMSVGTRANSFORMLIST_H_
+#define DOM_SVG_DOMSVGTRANSFORMLIST_H_
 
-#include "mozilla/dom/SVGAnimatedTransformList.h"
+#include "DOMSVGAnimatedTransformList.h"
+#include "mozAutoDocUpdate.h"
 #include "nsCycleCollectionParticipant.h"
 #include "nsDebug.h"
-#include "nsTArray.h"
 #include "SVGTransformList.h"
+#include "nsTArray.h"
 #include "mozilla/Attributes.h"
 #include "mozilla/ErrorResult.h"
-
-class nsSVGElement;
 
 namespace mozilla {
 
 namespace dom {
+struct DOMMatrix2DInit;
+class DOMSVGTransform;
+class SVGElement;
 class SVGMatrix;
-class SVGTransform;
-}  // namespace dom
+
+//----------------------------------------------------------------------
+// Helper class: AutoChangeTransformListNotifier
+// Stack-based helper class to pair calls to WillChangeTransformList and
+// DidChangeTransformList. Used by DOMSVGTransform and DOMSVGTransformList.
+template <class T>
+class MOZ_RAII AutoChangeTransformListNotifier {
+ public:
+  explicit AutoChangeTransformListNotifier(T* aValue) : mValue(aValue) {
+    MOZ_ASSERT(mValue, "Expecting non-null value");
+    // If we don't have an owner then changes don't affect anything else.
+    if (mValue->HasOwner()) {
+      mUpdateBatch.emplace(mValue->Element()->GetComposedDoc(), true);
+      mEmptyOrOldValue =
+          mValue->Element()->WillChangeTransformList(mUpdateBatch.ref());
+    }
+  }
+
+  ~AutoChangeTransformListNotifier() {
+    if (mValue->HasOwner()) {
+      mValue->Element()->DidChangeTransformList(mEmptyOrOldValue,
+                                                mUpdateBatch.ref());
+      if (mValue->IsAnimating()) {
+        mValue->Element()->AnimationNeedsResample();
+      }
+    }
+  }
+
+ private:
+  T* const mValue;
+  Maybe<mozAutoDocUpdate> mUpdateBatch;
+  nsAttrValue mEmptyOrOldValue;
+};
 
 /**
  * Class DOMSVGTransformList
@@ -30,11 +63,12 @@ class SVGTransform;
  * This class is used to create the DOM tearoff objects that wrap internal
  * SVGTransformList objects.
  *
- * See the architecture comment in SVGAnimatedTransformList.h.
+ * See the architecture comment in DOMSVGAnimatedTransformList.h.
  */
 class DOMSVGTransformList final : public nsISupports, public nsWrapperCache {
+  template <class T>
   friend class AutoChangeTransformListNotifier;
-  friend class dom::SVGTransform;
+  friend class dom::DOMSVGTransform;
 
   ~DOMSVGTransformList() {
     // Our mAList's weak ref to us must be nulled out when we die. If GC has
@@ -49,7 +83,7 @@ class DOMSVGTransformList final : public nsISupports, public nsWrapperCache {
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(DOMSVGTransformList)
 
-  DOMSVGTransformList(dom::SVGAnimatedTransformList* aAList,
+  DOMSVGTransformList(dom::DOMSVGAnimatedTransformList* aAList,
                       const SVGTransformList& aInternalList)
       : mAList(aAList) {
     // aInternalList must be passed in explicitly because we can't use
@@ -78,6 +112,12 @@ class DOMSVGTransformList final : public nsISupports, public nsWrapperCache {
   /// Called to notify us to synchronize our length and detach excess items.
   void InternalListLengthWillChange(uint32_t aNewLength);
 
+  /*
+   * List classes always have an owner. We need this so that templates that work
+   * on lists and elements can check ownership where elements may be unowned.
+   */
+  bool HasOwner() const { return true; }
+
   /**
    * Returns true if our attribute is animating (in which case our animVal is
    * not simply a mirror of our baseVal).
@@ -97,30 +137,30 @@ class DOMSVGTransformList final : public nsISupports, public nsWrapperCache {
     return LengthNoFlush();
   }
   void Clear(ErrorResult& error);
-  already_AddRefed<dom::SVGTransform> Initialize(dom::SVGTransform& newItem,
+  already_AddRefed<dom::DOMSVGTransform> Initialize(
+      dom::DOMSVGTransform& newItem, ErrorResult& error);
+  already_AddRefed<dom::DOMSVGTransform> GetItem(uint32_t index,
                                                  ErrorResult& error);
-  already_AddRefed<dom::SVGTransform> GetItem(uint32_t index,
-                                              ErrorResult& error);
-  already_AddRefed<dom::SVGTransform> IndexedGetter(uint32_t index, bool& found,
+  already_AddRefed<dom::DOMSVGTransform> IndexedGetter(uint32_t index,
+                                                       bool& found,
+                                                       ErrorResult& error);
+  already_AddRefed<dom::DOMSVGTransform> InsertItemBefore(
+      dom::DOMSVGTransform& newItem, uint32_t index, ErrorResult& error);
+  already_AddRefed<dom::DOMSVGTransform> ReplaceItem(
+      dom::DOMSVGTransform& newItem, uint32_t index, ErrorResult& error);
+  already_AddRefed<dom::DOMSVGTransform> RemoveItem(uint32_t index,
                                                     ErrorResult& error);
-  already_AddRefed<dom::SVGTransform> InsertItemBefore(
-      dom::SVGTransform& newItem, uint32_t index, ErrorResult& error);
-  already_AddRefed<dom::SVGTransform> ReplaceItem(dom::SVGTransform& newItem,
-                                                  uint32_t index,
-                                                  ErrorResult& error);
-  already_AddRefed<dom::SVGTransform> RemoveItem(uint32_t index,
-                                                 ErrorResult& error);
-  already_AddRefed<dom::SVGTransform> AppendItem(dom::SVGTransform& newItem,
-                                                 ErrorResult& error) {
+  already_AddRefed<dom::DOMSVGTransform> AppendItem(
+      dom::DOMSVGTransform& newItem, ErrorResult& error) {
     return InsertItemBefore(newItem, LengthNoFlush(), error);
   }
-  already_AddRefed<dom::SVGTransform> CreateSVGTransformFromMatrix(
-      dom::SVGMatrix& matrix);
-  already_AddRefed<dom::SVGTransform> Consolidate(ErrorResult& error);
+  already_AddRefed<dom::DOMSVGTransform> CreateSVGTransformFromMatrix(
+      const DOMMatrix2DInit& aMatrix, ErrorResult& aRv);
+  already_AddRefed<dom::DOMSVGTransform> Consolidate(ErrorResult& error);
   uint32_t Length() const { return NumberOfItems(); }
 
  private:
-  nsSVGElement* Element() const { return mAList->mElement; }
+  dom::SVGElement* Element() const { return mAList->mElement; }
 
   /// Used to determine if this list is the baseVal or animVal list.
   bool IsAnimValList() const {
@@ -139,19 +179,20 @@ class DOMSVGTransformList final : public nsISupports, public nsWrapperCache {
    */
   SVGTransformList& InternalList() const;
 
-  /// Returns the SVGTransform at aIndex, creating it if necessary.
-  already_AddRefed<dom::SVGTransform> GetItemAt(uint32_t aIndex);
+  /// Returns the DOMSVGTransform at aIndex, creating it if necessary.
+  already_AddRefed<dom::DOMSVGTransform> GetItemAt(uint32_t aIndex);
 
   void MaybeInsertNullInAnimValListAt(uint32_t aIndex);
   void MaybeRemoveItemFromAnimValListAt(uint32_t aIndex);
 
-  // Weak refs to our SVGTransform items. The items are friends and take care
+  // Weak refs to our DOMSVGTransform items. The items are friends and take care
   // of clearing our pointer to them when they die.
-  FallibleTArray<dom::SVGTransform*> mItems;
+  FallibleTArray<dom::DOMSVGTransform*> mItems;
 
-  RefPtr<dom::SVGAnimatedTransformList> mAList;
+  RefPtr<dom::DOMSVGAnimatedTransformList> mAList;
 };
 
+}  // namespace dom
 }  // namespace mozilla
 
-#endif  // MOZILLA_DOMSVGTRANSFORMLIST_H__
+#endif  // DOM_SVG_DOMSVGTRANSFORMLIST_H_

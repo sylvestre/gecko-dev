@@ -6,25 +6,29 @@
 
 #include <vector>
 
+#include "Types.h"
 #include "gfxImageSurface.h"
 #include "gfxPlatform.h"
+#include "mozilla/RefPtr.h"
+#include "mozilla/gfx/Point.h"
 #include "mozilla/layers/BufferTexture.h"
 #include "mozilla/layers/LayersTypes.h"
 #include "mozilla/layers/TextureClient.h"
 #include "mozilla/layers/TextureHost.h"
-#include "mozilla/RefPtr.h"
 #ifdef XP_WIN
-#include "IMFYCbCrImage.h"
-#include "mozilla/gfx/DeviceManagerDx.h"
-#include "mozilla/layers/D3D11YCbCrImage.h"
-#include "mozilla/layers/TextureD3D11.h"
-#include "mozilla/layers/TextureDIB.h"
+#  include "IMFYCbCrImage.h"
+#  include "mozilla/gfx/DeviceManagerDx.h"
+#  include "mozilla/layers/D3D11YCbCrImage.h"
+#  include "mozilla/layers/TextureD3D11.h"
+#  include "mozilla/layers/TextureDIB.h"
 #endif
-
-using mozilla::gfx::SurfaceFormat;
 
 namespace mozilla {
 namespace layers {
+
+using gfx::BackendType;
+using gfx::IntSize;
+using gfx::SurfaceFormat;
 
 /**
  * Create a YCbCrTextureClient according to the given backend.
@@ -62,9 +66,10 @@ static already_AddRefed<TextureClient> CreateYCbCrTextureClientWithBackend(
   // Create YCbCrTexture for basic backend.
   if (aLayersBackend == LayersBackend::LAYERS_BASIC) {
     return TextureClient::CreateForYCbCr(
-        nullptr, clientData.mYSize, clientData.mYStride, clientData.mCbCrSize,
-        clientData.mCbCrStride, StereoMode::MONO, gfx::ColorDepth::COLOR_8,
-        YUVColorSpace::BT601, TextureFlags::DEALLOCATE_CLIENT);
+        nullptr, clientData.GetPictureRect(), clientData.mYSize,
+        clientData.mYStride, clientData.mCbCrSize, clientData.mCbCrStride,
+        StereoMode::MONO, gfx::ColorDepth::COLOR_8, gfx::YUVColorSpace::BT601,
+        gfx::ColorRange::LIMITED, TextureFlags::DEALLOCATE_CLIENT);
   }
 
 #ifdef XP_WIN
@@ -108,8 +113,8 @@ static already_AddRefed<TextureClient> CreateTextureClientWithBackend(
   if (aLayersBackend == LayersBackend::LAYERS_D3D11 &&
       (moz2DBackend == BackendType::DIRECT2D ||
        moz2DBackend == BackendType::DIRECT2D1_1)) {
-    // Create DXGITextureData.
-    data = DXGITextureData::Create(size, format, allocFlags);
+    // Create D3D11TextureData.
+    data = D3D11TextureData::Create(size, format, allocFlags);
   } else if (!data && format == SurfaceFormat::B8G8R8X8 &&
              moz2DBackend == BackendType::CAIRO) {
     // Create DIBTextureData.

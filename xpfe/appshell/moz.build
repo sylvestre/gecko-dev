@@ -7,40 +7,42 @@
 with Files("**"):
     BUG_COMPONENT = ("Core", "Window Management")
 
-MOCHITEST_CHROME_MANIFESTS += ['test/chrome.ini']
+MOCHITEST_CHROME_MANIFESTS += ["test/chrome.ini"]
 
 XPIDL_SOURCES += [
-    'nsIAppShellService.idl',
-    'nsIWindowlessBrowser.idl',
-    'nsIWindowMediator.idl',
-    'nsIWindowMediatorListener.idl',
-    'nsIXULBrowserWindow.idl',
-    'nsIXULWindow.idl',
+    "nsIAppShellService.idl",
+    "nsIAppWindow.idl",
+    "nsIWindowlessBrowser.idl",
+    "nsIWindowMediator.idl",
+    "nsIWindowMediatorListener.idl",
+    "nsIXULBrowserWindow.idl",
 ]
 
-XPIDL_MODULE = 'appshell'
+XPIDL_MODULE = "appshell"
 
 EXPORTS += [
-    'LiveResizeListener.h',
-    'nsAppShellCID.h',
+    "LiveResizeListener.h",
+    "nsAppShellCID.h",
 ]
 
 UNIFIED_SOURCES += [
-    'nsAppShellFactory.cpp',
-    'nsAppShellService.cpp',
-    'nsAppShellWindowEnumerator.cpp',
-    'nsChromeTreeOwner.cpp',
-    'nsContentTreeOwner.cpp',
-    'nsWebShellWindow.cpp',
-    'nsWindowMediator.cpp',
-    'nsXULWindow.cpp',
+    "AppWindow.cpp",
+    "nsAppShellService.cpp",
+    "nsAppShellWindowEnumerator.cpp",
+    "nsChromeTreeOwner.cpp",
+    "nsContentTreeOwner.cpp",
+    "nsWindowMediator.cpp",
+]
+
+XPCOM_MANIFESTS += [
+    "components.conf",
 ]
 
 LOCAL_INCLUDES += [
-    '/dom/base',
-    '/dom/xul',
+    "/dom/base",
+    "/dom/xul",
 ]
 
-FINAL_LIBRARY = 'xul'
+FINAL_LIBRARY = "xul"
 
-include('/ipc/chromium/chromium-config.mozbuild')
+include("/ipc/chromium/chromium-config.mozbuild")

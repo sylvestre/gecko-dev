@@ -8,40 +8,37 @@
 
 /* General utilities used throughout devtools. */
 
-var { Ci, Cu, components } = require("chrome");
+var { Ci, Cc, Cu, components } = require("chrome");
 var Services = require("Services");
-var promise = require("promise");
-var defer = require("devtools/shared/defer");
-var flags = require("./flags");
-var {getStack, callFunctionWithAsyncStack} = require("devtools/shared/platform/stack");
+var flags = require("devtools/shared/flags");
+var {
+  getStack,
+  callFunctionWithAsyncStack,
+} = require("devtools/shared/platform/stack");
 
-loader.lazyRequireGetter(this, "FileUtils",
-                         "resource://gre/modules/FileUtils.jsm", true);
+loader.lazyRequireGetter(
+  this,
+  "FileUtils",
+  "resource://gre/modules/FileUtils.jsm",
+  true
+);
+
+loader.lazyRequireGetter(
+  this,
+  "ObjectUtils",
+  "resource://gre/modules/ObjectUtils.jsm",
+  true
+);
 
 // Using this name lets the eslint plugin know about lazy defines in
 // this file.
 var DevToolsUtils = exports;
 
 // Re-export the thread-safe utils.
-const ThreadSafeDevToolsUtils = require("./ThreadSafeDevToolsUtils.js");
+const ThreadSafeDevToolsUtils = require("devtools/shared/ThreadSafeDevToolsUtils.js");
 for (const key of Object.keys(ThreadSafeDevToolsUtils)) {
   exports[key] = ThreadSafeDevToolsUtils[key];
 }
-
-/**
- * Helper for Cu.isCrossProcessWrapper that works with Debugger.Objects.
- * This will always return false in workers (see the implementation in
- * ThreadSafeDevToolsUtils.js).
- *
- * @param Debugger.Object debuggerObject
- * @return bool
- */
-exports.isCPOW = function(debuggerObject) {
-  try {
-    return Cu.isCrossProcessWrapper(debuggerObject.unsafeDereference());
-  } catch (e) { }
-  return false;
-};
 
 /**
  * Waits for the next tick in the event loop to execute a callback.
@@ -74,9 +71,9 @@ exports.executeSoon = function(fn) {
  *         A promise that is resolved after the next tick in the event loop.
  */
 exports.waitForTick = function() {
-  const deferred = defer();
-  exports.executeSoon(deferred.resolve);
-  return deferred.promise;
+  return new Promise(resolve => {
+    exports.executeSoon(resolve);
+  });
 };
 
 /**
@@ -88,58 +85,7 @@ exports.waitForTick = function() {
  *         A promise that is resolved after the specified amount of time passes.
  */
 exports.waitForTime = function(delay) {
-  const deferred = defer();
-  setTimeout(deferred.resolve, delay);
-  return deferred.promise;
-};
-
-/**
- * Like Array.prototype.forEach, but doesn't cause jankiness when iterating over
- * very large arrays by yielding to the browser and continuing execution on the
- * next tick.
- *
- * @param Array array
- *        The array being iterated over.
- * @param Function fn
- *        The function called on each item in the array. If a promise is
- *        returned by this function, iterating over the array will be paused
- *        until the respective promise is resolved.
- * @returns Promise
- *          A promise that is resolved once the whole array has been iterated
- *          over, and all promises returned by the fn callback are resolved.
- */
-exports.yieldingEach = function(array, fn) {
-  const deferred = defer();
-
-  let i = 0;
-  const len = array.length;
-  const outstanding = [deferred.promise];
-
-  (function loop() {
-    const start = Date.now();
-
-    while (i < len) {
-      // Don't block the main thread for longer than 16 ms at a time. To
-      // maintain 60fps, you have to render every frame in at least 16ms; we
-      // aren't including time spent in non-JS here, but this is Good
-      // Enough(tm).
-      if (Date.now() - start > 16) {
-        exports.executeSoon(loop);
-        return;
-      }
-
-      try {
-        outstanding.push(fn(array[i], i++));
-      } catch (e) {
-        deferred.reject(e);
-        return;
-      }
-    }
-
-    deferred.resolve();
-  }());
-
-  return promise.all(outstanding);
+  return new Promise(resolve => setTimeout(resolve, delay));
 };
 
 /**
@@ -228,7 +174,7 @@ exports.getProperty = function(object, key, invokeUnsafeGetters = false) {
  *        objects belong to this case.
  *      - Otherwise, if the debuggee doesn't subsume object's compartment, returns `null`.
  *      - Otherwise, if the object belongs to an invisible-to-debugger compartment,
- *        returns `undefined`. Note CPOW objects belong to this case.
+ *        returns `undefined`.
  *      - Otherwise, returns the unwrapped object.
  */
 exports.unwrap = function unwrap(obj) {
@@ -240,7 +186,6 @@ exports.unwrap = function unwrap(obj) {
   // Attempt to unwrap via `obj.unwrap()`. Note that:
   // - This will return `null` if the debuggee does not subsume object's compartment.
   // - This will throw if the object belongs to an invisible-to-debugger compartment.
-  //   This case includes CPOWs (see bug 1391449).
   // - This will return `obj` if there is no wrapper.
   let unwrapped;
   try {
@@ -262,7 +207,7 @@ exports.unwrap = function unwrap(obj) {
  * Checks whether a debuggee object is safe. Unsafe objects may run proxy traps or throw
  * when using `proto`, `isExtensible`, `isFrozen` or `isSealed`. Note that safe objects
  * may still throw when calling `getOwnPropertyNames`, `getOwnPropertyDescriptor`, etc.
- * Also note CPOW objects are considered to be unsafe, and DeadObject objects to be safe.
+ * Also note DeadObject objects are considered safe.
  *
  * @param obj Debugger.Object
  *        The debuggee object to be checked.
@@ -272,7 +217,7 @@ exports.isSafeDebuggerObject = function(obj) {
   const unwrapped = exports.unwrap(obj);
 
   // Objects belonging to an invisible-to-debugger compartment might be proxies,
-  // so just in case consider them unsafe. CPOWs are included in this case.
+  // so just in case consider them unsafe.
   if (unwrapped === undefined) {
     return false;
   }
@@ -307,7 +252,7 @@ exports.hasSafeGetter = function(desc) {
   // unwrapping.
   let fn = desc.get;
   fn = fn && exports.unwrap(fn);
-  return fn && fn.callable && fn.class == "Function" && fn.script === undefined;
+  return fn?.callable && fn?.class == "Function" && fn?.script === undefined;
 };
 
 /**
@@ -363,8 +308,9 @@ exports.isSafeJSObject = function(obj) {
     return false;
   }
 
-  if (Cu.getGlobalForObject(obj) ==
-      Cu.getGlobalForObject(exports.isSafeJSObject)) {
+  if (
+    Cu.getGlobalForObject(obj) == Cu.getGlobalForObject(exports.isSafeJSObject)
+  ) {
     // obj is not a cross-compartment wrapper.
     return true;
   }
@@ -376,7 +322,7 @@ exports.isSafeJSObject = function(obj) {
 
   // If there aren't Xrays, only allow chrome objects.
   const principal = Cu.getObjectPrincipal(obj);
-  if (!Services.scriptSecurityManager.isSystemPrincipal(principal)) {
+  if (!principal.isSystemPrincipal) {
     return false;
   }
 
@@ -452,7 +398,7 @@ DevToolsUtils.defineLazyGetter(this, "AppConstants", () => {
 /**
  * No operation. The empty function.
  */
-exports.noop = function() { };
+exports.noop = function() {};
 
 let assertionFailureCount = 0;
 
@@ -487,9 +433,10 @@ function reallyAssert(condition, message) {
  * If assertions are not enabled, then this function is a no-op.
  */
 Object.defineProperty(exports, "assert", {
-  get: () => (AppConstants.DEBUG_JS_MODULES || flags.testing)
-    ? reallyAssert
-    : exports.noop,
+  get: () =>
+    AppConstants.DEBUG_JS_MODULES || flags.testing
+      ? reallyAssert
+      : exports.noop,
 });
 
 /**
@@ -508,8 +455,7 @@ Object.defineProperty(exports, "assert", {
  */
 exports.defineLazyModuleGetter = function(object, name, resource, symbol) {
   this.defineLazyGetter(object, name, function() {
-    const temp = {};
-    ChromeUtils.import(resource, temp);
+    const temp = ChromeUtils.import(resource);
     return temp[symbol || name];
   });
 };
@@ -540,7 +486,7 @@ DevToolsUtils.defineLazyGetter(this, "NetworkHelper", () => {
  *        - window: the window to get the loadGroup from
  *        - charset: the charset to use if the channel doesn't provide one
  *        - principal: the principal to use, if omitted, the request is loaded
- *                     with a codebase principal corresponding to the url being
+ *                     with a content principal corresponding to the url being
  *                     loaded, using the origin attributes of the window, if any.
  *        - cacheKey: when loading from cache, use this key to retrieve a cache
  *                    specific to a given SHEntry. (Allows loading POST
@@ -556,136 +502,174 @@ DevToolsUtils.defineLazyGetter(this, "NetworkHelper", () => {
  * without relying on caching when we can (not for eval, etc.):
  * http://www.softwareishard.com/blog/firebug/nsitraceablechannel-intercept-http-traffic/
  */
-function mainThreadFetch(urlIn, aOptions = { loadFromCache: true,
-                                             policy: Ci.nsIContentPolicy.TYPE_OTHER,
-                                             window: null,
-                                             charset: null,
-                                             principal: null,
-                                             cacheKey: 0 }) {
-  // Create a channel.
-  const url = urlIn.split(" -> ").pop();
-  let channel;
-  try {
-    channel = newChannelForURL(url, aOptions);
-  } catch (ex) {
-    return promise.reject(ex);
+function mainThreadFetch(
+  urlIn,
+  aOptions = {
+    loadFromCache: true,
+    policy: Ci.nsIContentPolicy.TYPE_OTHER,
+    window: null,
+    charset: null,
+    principal: null,
+    cacheKey: 0,
   }
-
-  // Set the channel options.
-  channel.loadFlags = aOptions.loadFromCache
-    ? channel.LOAD_FROM_CACHE
-    : channel.LOAD_BYPASS_CACHE;
-
-  // When loading from cache, the cacheKey allows us to target a specific
-  // SHEntry and offer ways to restore POST requests from cache.
-  if (aOptions.loadFromCache &&
-      aOptions.cacheKey != 0 && channel instanceof Ci.nsICacheInfoChannel) {
-    channel.cacheKey = aOptions.cacheKey;
-  }
-
-  if (aOptions.window) {
-    // Respect private browsing.
-    channel.loadGroup = aOptions.window.docShell
-                          .QueryInterface(Ci.nsIDocumentLoader)
-                          .loadGroup;
-  }
-
-  const deferred = defer();
-  const onResponse = (stream, status, request) => {
-    if (!components.isSuccessCode(status)) {
-      deferred.reject(new Error(`Failed to fetch ${url}. Code ${status}.`));
+) {
+  return new Promise((resolve, reject) => {
+    // Create a channel.
+    const url = urlIn.split(" -> ").pop();
+    let channel;
+    try {
+      channel = newChannelForURL(url, aOptions);
+    } catch (ex) {
+      reject(ex);
       return;
     }
 
-    try {
-      // We cannot use NetUtil to do the charset conversion as if charset
-      // information is not available and our default guess is wrong the method
-      // might fail and we lose the stream data. This means we can't fall back
-      // to using the locale default encoding (bug 1181345).
+    channel.loadInfo.isInDevToolsContext = true;
 
-      // Read and decode the data according to the locale default encoding.
-      const available = stream.available();
-      let source = NetUtil.readInputStreamToString(stream, available);
-      stream.close();
+    // Set the channel options.
+    channel.loadFlags = aOptions.loadFromCache
+      ? channel.LOAD_FROM_CACHE
+      : channel.LOAD_BYPASS_CACHE;
 
-      // We do our own BOM sniffing here because there's no convenient
-      // implementation of the "decode" algorithm
-      // (https://encoding.spec.whatwg.org/#decode) exposed to JS.
-      let bomCharset = null;
-      if (available >= 3 && source.codePointAt(0) == 0xef &&
-          source.codePointAt(1) == 0xbb && source.codePointAt(2) == 0xbf) {
-        bomCharset = "UTF-8";
-        source = source.slice(3);
-      } else if (available >= 2 && source.codePointAt(0) == 0xfe &&
-                 source.codePointAt(1) == 0xff) {
-        bomCharset = "UTF-16BE";
-        source = source.slice(2);
-      } else if (available >= 2 && source.codePointAt(0) == 0xff &&
-                 source.codePointAt(1) == 0xfe) {
-        bomCharset = "UTF-16LE";
-        source = source.slice(2);
-      }
+    if (aOptions.loadFromCache && channel instanceof Ci.nsICacheInfoChannel) {
+      // If DevTools intents to load the content from the cache,
+      // we make the LOAD_FROM_CACHE flag preferred over LOAD_BYPASS_CACHE.
+      channel.preferCacheLoadOverBypass = true;
 
-      // If the channel or the caller has correct charset information, the
-      // content will be decoded correctly. If we have to fall back to UTF-8 and
-      // the guess is wrong, the conversion fails and convertToUnicode returns
-      // the input unmodified. Essentially we try to decode the data as UTF-8
-      // and if that fails, we use the locale specific default encoding. This is
-      // the best we can do if the source does not provide charset info.
-      let charset = bomCharset;
-      if (!charset) {
-        try {
-          charset = channel.contentCharset;
-        } catch (e) {
-          // Accessing `contentCharset` on content served by a service worker in
-          // non-e10s may throw.
-        }
-      }
-      if (!charset) {
-        charset = aOptions.charset || "UTF-8";
-      }
-      const unicodeSource = NetworkHelper.convertToUnicode(source, charset);
-
-      deferred.resolve({
-        content: unicodeSource,
-        contentType: request.contentType,
-      });
-    } catch (ex) {
-      const uri = request.originalURI;
-      if (ex.name === "NS_BASE_STREAM_CLOSED" && uri instanceof Ci.nsIFileURL) {
-        // Empty files cause NS_BASE_STREAM_CLOSED exception. Use OS.File to
-        // differentiate between empty files and other errors (bug 1170864).
-        // This can be removed when bug 982654 is fixed.
-
-        uri.QueryInterface(Ci.nsIFileURL);
-        const result = OS.File.read(uri.file.path).then(bytes => {
-          // Convert the bytearray to a String.
-          const decoder = new TextDecoder();
-          const content = decoder.decode(bytes);
-
-          // We can't detect the contentType without opening a channel
-          // and that failed already. This is the best we can do here.
-          return {
-            content,
-            contentType: "text/plain",
-          };
-        });
-
-        deferred.resolve(result);
-      } else {
-        deferred.reject(ex);
+      // When loading from cache, the cacheKey allows us to target a specific
+      // SHEntry and offer ways to restore POST requests from cache.
+      if (aOptions.cacheKey != 0) {
+        channel.cacheKey = aOptions.cacheKey;
       }
     }
-  };
 
-  // Open the channel
-  try {
-    NetUtil.asyncFetch(channel, onResponse);
-  } catch (ex) {
-    return promise.reject(ex);
-  }
+    if (aOptions.window) {
+      // Respect private browsing.
+      channel.loadGroup = aOptions.window.docShell.QueryInterface(
+        Ci.nsIDocumentLoader
+      ).loadGroup;
+    }
 
-  return deferred.promise;
+    // eslint-disable-next-line complexity
+    const onResponse = (stream, status, request) => {
+      if (!components.isSuccessCode(status)) {
+        reject(new Error(`Failed to fetch ${url}. Code ${status}.`));
+        return;
+      }
+
+      try {
+        // We cannot use NetUtil to do the charset conversion as if charset
+        // information is not available and our default guess is wrong the method
+        // might fail and we lose the stream data. This means we can't fall back
+        // to using the locale default encoding (bug 1181345).
+
+        // Read and decode the data according to the locale default encoding.
+        const available = stream.available();
+        let source = NetUtil.readInputStreamToString(stream, available);
+        stream.close();
+
+        // We do our own BOM sniffing here because there's no convenient
+        // implementation of the "decode" algorithm
+        // (https://encoding.spec.whatwg.org/#decode) exposed to JS.
+        let bomCharset = null;
+        if (
+          available >= 3 &&
+          source.codePointAt(0) == 0xef &&
+          source.codePointAt(1) == 0xbb &&
+          source.codePointAt(2) == 0xbf
+        ) {
+          bomCharset = "UTF-8";
+          source = source.slice(3);
+        } else if (
+          available >= 2 &&
+          source.codePointAt(0) == 0xfe &&
+          source.codePointAt(1) == 0xff
+        ) {
+          bomCharset = "UTF-16BE";
+          source = source.slice(2);
+        } else if (
+          available >= 2 &&
+          source.codePointAt(0) == 0xff &&
+          source.codePointAt(1) == 0xfe
+        ) {
+          bomCharset = "UTF-16LE";
+          source = source.slice(2);
+        }
+
+        // If the channel or the caller has correct charset information, the
+        // content will be decoded correctly. If we have to fall back to UTF-8 and
+        // the guess is wrong, the conversion fails and convertToUnicode returns
+        // the input unmodified. Essentially we try to decode the data as UTF-8
+        // and if that fails, we use the locale specific default encoding. This is
+        // the best we can do if the source does not provide charset info.
+        let charset = bomCharset;
+        if (!charset) {
+          try {
+            charset = channel.contentCharset;
+          } catch (e) {
+            // Accessing `contentCharset` on content served by a service worker in
+            // non-e10s may throw.
+          }
+        }
+        if (!charset) {
+          charset = aOptions.charset || "UTF-8";
+        }
+        const unicodeSource = NetworkHelper.convertToUnicode(source, charset);
+
+        // Look for any source map URL in the response.
+        let sourceMapURL;
+        try {
+          sourceMapURL = request.getResponseHeader("SourceMap");
+        } catch (e) {}
+        if (!sourceMapURL) {
+          try {
+            sourceMapURL = request.getResponseHeader("X-SourceMap");
+          } catch (e) {}
+        }
+
+        resolve({
+          content: unicodeSource,
+          contentType: request.contentType,
+          sourceMapURL,
+        });
+      } catch (ex) {
+        const uri = request.originalURI;
+        if (
+          ex.name === "NS_BASE_STREAM_CLOSED" &&
+          uri instanceof Ci.nsIFileURL
+        ) {
+          // Empty files cause NS_BASE_STREAM_CLOSED exception. Use OS.File to
+          // differentiate between empty files and other errors (bug 1170864).
+          // This can be removed when bug 982654 is fixed.
+
+          uri.QueryInterface(Ci.nsIFileURL);
+          const result = OS.File.read(uri.file.path).then(bytes => {
+            // Convert the bytearray to a String.
+            const decoder = new TextDecoder();
+            const content = decoder.decode(bytes);
+
+            // We can't detect the contentType without opening a channel
+            // and that failed already. This is the best we can do here.
+            return {
+              content,
+              contentType: "text/plain",
+            };
+          });
+
+          resolve(result);
+        } else {
+          reject(ex);
+        }
+      }
+    };
+
+    // Open the channel
+    try {
+      NetUtil.asyncFetch(channel, onResponse);
+    } catch (ex) {
+      reject(ex);
+    }
+  });
 }
 
 /**
@@ -695,8 +679,13 @@ function mainThreadFetch(urlIn, aOptions = { loadFromCache: true,
  * @param {Object} options - The options object passed to @method fetch.
  * @return {nsIChannel} - The newly created channel. Throws on failure.
  */
-function newChannelForURL(url, { policy, window, principal }) {
-  const securityFlags = Ci.nsILoadInfo.SEC_ALLOW_CROSS_ORIGIN_DATA_IS_NULL;
+function newChannelForURL(
+  url,
+  { policy, window, principal },
+  recursing = false
+) {
+  const securityFlags =
+    Ci.nsILoadInfo.SEC_ALLOW_CROSS_ORIGIN_SEC_CONTEXT_IS_NULL;
 
   let uri;
   try {
@@ -732,8 +721,7 @@ function newChannelForURL(url, { policy, window, principal }) {
     // and it may not be correct.
     let prin = principal;
     if (!prin) {
-      prin = Services.scriptSecurityManager
-                     .createCodebasePrincipal(uri, {});
+      prin = Services.scriptSecurityManager.createContentPrincipal(uri, {});
     }
 
     channelOptions.loadingPrincipal = prin;
@@ -742,11 +730,20 @@ function newChannelForURL(url, { policy, window, principal }) {
   try {
     return NetUtil.newChannel(channelOptions);
   } catch (e) {
+    // Don't infinitely recurse if newChannel keeps throwing.
+    if (recursing) {
+      throw e;
+    }
+
     // In xpcshell tests on Windows, nsExternalProtocolHandler::NewChannel()
     // can throw NS_ERROR_UNKNOWN_PROTOCOL if the external protocol isn't
     // supported by Windows, so we also need to handle the exception here if
     // parsing the URL above doesn't throw.
-    return newChannelForURL("file://" + url, { policy, window, principal });
+    return newChannelForURL(
+      "file://" + url,
+      { policy, window, principal },
+      /* recursing */ true
+    );
   }
 }
 
@@ -787,6 +784,88 @@ exports.openFileStream = function(filePath) {
   });
 };
 
+/**
+ * Save the given data to disk after asking the user where to do so.
+ *
+ * @param {Window} parentWindow
+ *        The parent window to use to display the filepicker.
+ * @param {UInt8Array} dataArray
+ *        The data to write to the file.
+ * @param {String} fileName
+ *        The suggested filename.
+ * @param {Array} filters
+ *        An array of object of the following shape:
+ *          - pattern: A pattern for accepted files (example: "*.js")
+ *          - label: The label that will be displayed in the save file dialog.
+ */
+exports.saveAs = async function(
+  parentWindow,
+  dataArray,
+  fileName = "",
+  filters = []
+) {
+  let returnFile;
+  try {
+    returnFile = await exports.showSaveFileDialog(
+      parentWindow,
+      fileName,
+      filters
+    );
+  } catch (ex) {
+    return;
+  }
+
+  await OS.File.writeAtomic(returnFile.path, dataArray, {
+    tmpPath: returnFile.path + ".tmp",
+  });
+};
+
+/**
+ * Show file picker and return the file user selected.
+ *
+ * @param {nsIWindow} parentWindow
+ *        Optional parent window. If null the parent window of the file picker
+ *        will be the window of the attached input element.
+ * @param {String} suggestedFilename
+ *        The suggested filename.
+ * @param {Array} filters
+ *        An array of object of the following shape:
+ *          - pattern: A pattern for accepted files (example: "*.js")
+ *          - label: The label that will be displayed in the save file dialog.
+ * @return {Promise}
+ *         A promise that is resolved after the file is selected by the file picker
+ */
+exports.showSaveFileDialog = function(
+  parentWindow,
+  suggestedFilename,
+  filters = []
+) {
+  const fp = Cc["@mozilla.org/filepicker;1"].createInstance(Ci.nsIFilePicker);
+
+  if (suggestedFilename) {
+    fp.defaultString = suggestedFilename;
+  }
+
+  fp.init(parentWindow, null, fp.modeSave);
+  if (Array.isArray(filters) && filters.length > 0) {
+    for (const { pattern, label } of filters) {
+      fp.appendFilter(label, pattern);
+    }
+  } else {
+    fp.appendFilters(fp.filterAll);
+  }
+
+  return new Promise((resolve, reject) => {
+    fp.open(result => {
+      if (result == Ci.nsIFilePicker.returnCancel) {
+        reject();
+      } else {
+        resolve(fp.file);
+      }
+    });
+  });
+};
+
 /*
  * All of the flags have been moved to a different module. Make sure
  * nobody is accessing them anymore, and don't write new code using
@@ -795,14 +874,16 @@ exports.openFileStream = function(filePath) {
 function errorOnFlag(exports, name) {
   Object.defineProperty(exports, name, {
     get: () => {
-      const msg = `Cannot get the flag ${name}. ` +
-            `Use the "devtools/shared/flags" module instead`;
+      const msg =
+        `Cannot get the flag ${name}. ` +
+        `Use the "devtools/shared/flags" module instead`;
       console.error(msg);
       throw new Error(msg);
     },
     set: () => {
-      const msg = `Cannot set the flag ${name}. ` +
-            `Use the "devtools/shared/flags" module instead`;
+      const msg =
+        `Cannot set the flag ${name}. ` +
+        `Use the "devtools/shared/flags" module instead`;
       console.error(msg);
       throw new Error(msg);
     },
@@ -820,7 +901,7 @@ errorOnFlag(exports, "wantVerbose");
 // avoids the use of unsafeDeference. This is useful for example in workers,
 // where unsafeDereference will return an opaque security wrapper to the
 // referent.
-function callPropertyOnObject(object, name) {
+function callPropertyOnObject(object, name, ...args) {
   // Find the property.
   let descriptor;
   let proto = object;
@@ -840,7 +921,7 @@ function callPropertyOnObject(object, name) {
   }
 
   // Call the property.
-  const result = value.call(object);
+  const result = value.call(object, ...args);
   if (result === null) {
     throw new Error("Code was terminated.");
   }
@@ -851,3 +932,49 @@ function callPropertyOnObject(object, name) {
 }
 
 exports.callPropertyOnObject = callPropertyOnObject;
+
+// Convert a Debugger.Object wrapping an iterator into an iterator in the
+// debugger's realm.
+function* makeDebuggeeIterator(object) {
+  while (true) {
+    const nextValue = callPropertyOnObject(object, "next");
+    if (exports.getProperty(nextValue, "done")) {
+      break;
+    }
+    yield exports.getProperty(nextValue, "value");
+  }
+}
+
+exports.makeDebuggeeIterator = makeDebuggeeIterator;
+
+/**
+ * Shared helper to retrieve the topmost window. This can be used to retrieve the chrome
+ * window embedding the DevTools frame.
+ */
+function getTopWindow(win) {
+  return win.windowRoot ? win.windowRoot.ownerGlobal : win.top;
+}
+
+exports.getTopWindow = getTopWindow;
+
+/**
+ * Check whether two objects are identical by performing
+ * a deep equality check on their properties and values.
+ * See toolkit/modules/ObjectUtils.jsm for implementation.
+ *
+ * @param {Object} a
+ * @param {Object} b
+ * @return {Boolean}
+ */
+exports.deepEqual = (a, b) => {
+  return ObjectUtils.deepEqual(a, b);
+};
+
+function isWorkerDebuggerAlive(dbg) {
+  // Some workers are zombies. `isClosed` is false, but nothing works.
+  // `postMessage` is a noop, `addListener`'s `onClosed` doesn't work.
+  // (Ignore dbg without `window` as they aren't related to docShell
+  //  and probably do not suffer form this issue)
+  return !dbg.isClosed && (!dbg.window || dbg.window.docShell);
+}
+exports.isWorkerDebuggerAlive = isWorkerDebuggerAlive;

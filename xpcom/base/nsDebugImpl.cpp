@@ -8,6 +8,7 @@
 #include "base/process_util.h"
 
 #include "mozilla/Atomics.h"
+#include "mozilla/IntentionalCrash.h"
 #include "mozilla/Printf.h"
 
 #include "MainThreadUtils.h"
@@ -23,60 +24,60 @@
 #include "prenv.h"
 
 #ifdef ANDROID
-#include <android/log.h>
+#  include <android/log.h>
 #endif
 
 #ifdef _WIN32
 /* for getenv() */
-#include <stdlib.h>
+#  include <stdlib.h>
 #endif
 
 #include "nsTraceRefcnt.h"
 
 #if defined(XP_UNIX)
-#include <signal.h>
+#  include <signal.h>
 #endif
 
 #if defined(XP_WIN)
-#include <tchar.h>
-#include "nsString.h"
+#  include <tchar.h>
+#  include "nsString.h"
 #endif
 
 #if defined(XP_MACOSX) || defined(__DragonFly__) || defined(__FreeBSD__) || \
     defined(__NetBSD__) || defined(__OpenBSD__)
-#include <stdbool.h>
-#include <unistd.h>
-#include <sys/param.h>
-#include <sys/sysctl.h>
+#  include <stdbool.h>
+#  include <unistd.h>
+#  include <sys/param.h>
+#  include <sys/sysctl.h>
 #endif
 
 #if defined(__OpenBSD__)
-#include <sys/proc.h>
+#  include <sys/proc.h>
 #endif
 
 #if defined(__DragonFly__) || defined(__FreeBSD__)
-#include <sys/user.h>
+#  include <sys/user.h>
 #endif
 
 #if defined(__NetBSD__)
-#undef KERN_PROC
-#define KERN_PROC KERN_PROC2
-#define KINFO_PROC struct kinfo_proc2
+#  undef KERN_PROC
+#  define KERN_PROC KERN_PROC2
+#  define KINFO_PROC struct kinfo_proc2
 #else
-#define KINFO_PROC struct kinfo_proc
+#  define KINFO_PROC struct kinfo_proc
 #endif
 
 #if defined(XP_MACOSX)
-#define KP_FLAGS kp_proc.p_flag
+#  define KP_FLAGS kp_proc.p_flag
 #elif defined(__DragonFly__)
-#define KP_FLAGS kp_flags
+#  define KP_FLAGS kp_flags
 #elif defined(__FreeBSD__)
-#define KP_FLAGS ki_flag
+#  define KP_FLAGS ki_flag
 #elif defined(__OpenBSD__) && !defined(_P_TRACED)
-#define KP_FLAGS p_psflags
-#define P_TRACED PS_TRACED
+#  define KP_FLAGS p_psflags
+#  define P_TRACED PS_TRACED
 #else
-#define KP_FLAGS p_flag
+#  define KP_FLAGS p_flag
 #endif
 
 #include "mozilla/mozalloc_abort.h"
@@ -88,11 +89,11 @@ static void RealBreak();
 static void Break(const char* aMsg);
 
 #if defined(_WIN32)
-#include <windows.h>
-#include <signal.h>
-#include <malloc.h>  // for _alloca
+#  include <windows.h>
+#  include <signal.h>
+#  include <malloc.h>  // for _alloca
 #elif defined(XP_UNIX)
-#include <stdlib.h>
+#  include <stdlib.h>
 #endif
 
 using namespace mozilla;
@@ -134,12 +135,27 @@ nsDebugImpl::Abort(const char* aFile, int32_t aLine) {
   return NS_OK;
 }
 
+NS_IMETHODIMP
+nsDebugImpl::CrashWithOOM() {
+  NS_ABORT_OOM(-1);
+  return NS_OK;
+}
+
 // From toolkit/library/rust/lib.rs
 extern "C" void intentional_panic(const char* message);
 
 NS_IMETHODIMP
 nsDebugImpl::RustPanic(const char* aMessage) {
   intentional_panic(aMessage);
+  return NS_OK;
+}
+
+// From toolkit/library/rust/lib.rs
+extern "C" void debug_log(const char* target, const char* message);
+
+NS_IMETHODIMP
+nsDebugImpl::RustLog(const char* aTarget, const char* aMessage) {
+  debug_log(aTarget, aMessage);
   return NS_OK;
 }
 
@@ -177,10 +193,10 @@ nsDebugImpl::GetIsDebuggerAttached(bool* aResult) {
     KERN_PROC,
     KERN_PROC_PID,
     getpid(),
-#if defined(__NetBSD__) || defined(__OpenBSD__)
+#  if defined(__NetBSD__) || defined(__OpenBSD__)
     sizeof(KINFO_PROC),
     1,
-#endif
+#  endif
   };
   u_int mibSize = sizeof(mib) / sizeof(int);
 
@@ -202,7 +218,8 @@ nsDebugImpl::GetIsDebuggerAttached(bool* aResult) {
   return NS_OK;
 }
 
-/* static */ void nsDebugImpl::SetMultiprocessMode(const char* aDesc) {
+/* static */
+void nsDebugImpl::SetMultiprocessMode(const char* aDesc) {
   sMultiprocessDescription = aDesc;
 }
 
@@ -263,7 +280,7 @@ static nsAssertBehavior GetAssertBehavior() {
 struct FixedBuffer final : public mozilla::PrintfTarget {
   FixedBuffer() : curlen(0) { buffer[0] = '\0'; }
 
-  char buffer[500];
+  char buffer[764];
   uint32_t curlen;
 
   bool append(const char* sp, size_t len) override;
@@ -290,9 +307,6 @@ bool FixedBuffer::append(const char* aBuf, size_t aLen) {
 EXPORT_XPCOM_API(void)
 NS_DebugBreak(uint32_t aSeverity, const char* aStr, const char* aExpr,
               const char* aFile, int32_t aLine) {
-  // Allow messages to be printed during GC if we are recording or replaying.
-  recordreplay::AutoEnsurePassThroughThreadEvents pt;
-
   FixedBuffer nonPIDBuf;
   FixedBuffer buf;
   const char* sevString = "WARNING";
@@ -321,11 +335,9 @@ NS_DebugBreak(uint32_t aSeverity, const char* aStr, const char* aExpr,
   if (aExpr) {
     nonPIDBuf.print("'%s', ", aExpr);
   }
-  if (aFile) {
-    nonPIDBuf.print("file %s, ", aFile);
-  }
-  if (aLine != -1) {
-    nonPIDBuf.print("line %d", aLine);
+  if (aFile || aLine != -1) {
+    nonPIDBuf.print("file %s:%d", aFile ? aFile : "<unknown>",
+                    aLine != -1 ? aLine : 0);
   }
 
   // Print "[PID]" or "[Desc PID]" at the beginning of the message.
@@ -422,7 +434,7 @@ NS_DebugBreak(uint32_t aSeverity, const char* aStr, const char* aExpr,
     case NS_ASSERT_STACK_AND_ABORT:
       nsTraceRefcnt::WalkTheStack(stderr);
       // Fall through to abort
-      MOZ_FALLTHROUGH;
+      [[fallthrough]];
 
     case NS_ASSERT_ABORT:
       Abort(buf.buffer);
@@ -435,7 +447,10 @@ NS_DebugBreak(uint32_t aSeverity, const char* aStr, const char* aExpr,
   }
 }
 
-static void Abort(const char* aMsg) { mozalloc_abort(aMsg); }
+static void Abort(const char* aMsg) {
+  NoteIntentionalCrash(XRE_GetProcessTypeString());
+  mozalloc_abort(aMsg);
+}
 
 static void RealBreak() {
 #if defined(_WIN32)
@@ -447,25 +462,25 @@ static void RealBreak() {
   asm("int $3");
 #elif defined(__arm__)
   asm(
-#ifdef __ARM_ARCH_4T__
+#  ifdef __ARM_ARCH_4T__
       /* ARMv4T doesn't support the BKPT instruction, so if the compiler target
        * is ARMv4T, we want to ensure the assembler will understand that ARMv5T
        * instruction, while keeping the resulting object tagged as ARMv4T.
        */
       ".arch armv5t\n"
       ".object_arch armv4t\n"
-#endif
+#  endif
       "BKPT #0");
 #elif defined(__aarch64__)
   asm("brk #0");
 #elif defined(SOLARIS)
-#if defined(__i386__) || defined(__i386) || defined(__x86_64__)
+#  if defined(__i386__) || defined(__i386) || defined(__x86_64__)
   asm("int $3");
-#else
+#  else
   raise(SIGTRAP);
-#endif
+#  endif
 #else
-#warning do not know how to break on this platform
+#  warning do not know how to break on this platform
 #endif
 }
 
@@ -541,7 +556,7 @@ static void Break(const char* aMsg) {
 #elif defined(SOLARIS)
   RealBreak();
 #else
-#warning do not know how to break on this platform
+#  warning do not know how to break on this platform
 #endif
 }
 

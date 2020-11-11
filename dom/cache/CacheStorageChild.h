@@ -22,12 +22,15 @@ namespace cache {
 
 class CacheOpArgs;
 class CacheStorage;
-class CacheWorkerHolder;
+class CacheWorkerRef;
 class PCacheChild;
 
 class CacheStorageChild final : public PCacheStorageChild, public ActorChild {
+  friend class PCacheStorageChild;
+
  public:
-  CacheStorageChild(CacheStorage* aListener, CacheWorkerHolder* aWorkerHolder);
+  CacheStorageChild(CacheStorage* aListener,
+                    SafeRefPtr<CacheWorkerRef> aWorkerRef);
   ~CacheStorageChild();
 
   // Must be called by the associated CacheStorage listener in its
@@ -45,16 +48,15 @@ class CacheStorageChild final : public PCacheStorageChild, public ActorChild {
  private:
   // ActorChild methods
 
-  // CacheWorkerHolder is trying to destroy due to worker shutdown.
+  // CacheWorkerRef is trying to destroy due to worker shutdown.
   virtual void StartDestroy() override;
 
   // PCacheStorageChild methods
   virtual void ActorDestroy(ActorDestroyReason aReason) override;
 
-  virtual PCacheOpChild* AllocPCacheOpChild(
-      const CacheOpArgs& aOpArgs) override;
+  PCacheOpChild* AllocPCacheOpChild(const CacheOpArgs& aOpArgs);
 
-  virtual bool DeallocPCacheOpChild(PCacheOpChild* aActor) override;
+  bool DeallocPCacheOpChild(PCacheOpChild* aActor);
 
   // utility methods
   void NoteDeletedActor();

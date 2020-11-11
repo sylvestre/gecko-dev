@@ -1,4 +1,3 @@
-/* vim: set ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -17,7 +16,10 @@ add_task(async function() {
   const { document: doc } = flexboxInspector;
 
   // Select the flex container in the inspector.
-  const onItemsListRendered = waitForDOM(doc, ".layout-flexbox-wrapper .flex-item-list");
+  const onItemsListRendered = waitForDOM(
+    doc,
+    ".layout-flexbox-wrapper .flex-item-list"
+  );
   await selectNode(".container.single-child", inspector);
   const [flexItemList] = await onItemsListRendered;
 
@@ -29,12 +31,22 @@ add_task(async function() {
   const onFlexItemOutlineRendered = waitForDOM(doc, ".flex-outline-container");
   items[0].closest("button").click();
   const [flexOutlineContainer] = await onFlexItemOutlineRendered;
-  ok(flexOutlineContainer,
-     "The flex outline is displayed for a single child short text node too");
+  ok(
+    flexOutlineContainer,
+    "The flex outline is displayed for a single child short text node too"
+  );
 
-  ok(inspector.selection.isTextNode(),
-     "The current inspector selection is the text node");
+  ok(
+    inspector.selection.isTextNode(),
+    "The current inspector selection is the text node"
+  );
 
-  const markupContainer = inspector.markup.getContainer(inspector.selection.nodeFront);
-  is(markupContainer.elt.textContent, "short text", "This is the right text node");
+  const markupContainer = inspector.markup.getContainer(
+    inspector.selection.nodeFront
+  );
+  is(
+    markupContainer.elt.textContent,
+    "short text",
+    "This is the right text node"
+  );
 });

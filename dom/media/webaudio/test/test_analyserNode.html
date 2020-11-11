@@ -2,7 +2,7 @@
 <html>
 <head>
   <title>Test AnalyserNode</title>
-  <script type="text/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
   <script type="text/javascript" src="webaudio.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css" />
 </head>
@@ -28,7 +28,7 @@ function testNode() {
   source.connect(analyser);
   analyser.connect(destination);
 
-  is(analyser.channelCount, 1, "analyser node has 1 input channels by default");
+  is(analyser.channelCount, 2, "analyser node has 2 input channels by default");
   is(analyser.channelCountMode, "max", "Correct channelCountMode for the analyser node");
   is(analyser.channelInterpretation, "speakers", "Correct channelCountInterpretation for the analyser node");
 
@@ -97,7 +97,7 @@ function testConstructor() {
   var context = new AudioContext();
 
   var analyser = new AnalyserNode(context);
-  is(analyser.channelCount, 1, "analyser node has 1 input channels by default");
+  is(analyser.channelCount, 2, "analyser node has 2 input channels by default");
   is(analyser.channelCountMode, "max", "Correct channelCountMode for the analyser node");
   is(analyser.channelInterpretation, "speakers", "Correct channelCountInterpretation for the analyser node");
 

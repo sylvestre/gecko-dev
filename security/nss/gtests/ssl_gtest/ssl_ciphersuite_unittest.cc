@@ -56,6 +56,9 @@ class TlsCipherSuiteTestBase : public TlsConnectTestBase {
 
     if (version_ >= SSL_LIBRARY_VERSION_TLS_1_3) {
       std::vector<SSLNamedGroup> groups = {group_};
+      if (cert_group_ != ssl_grp_none) {
+        groups.push_back(cert_group_);
+      }
       client_->ConfigNamedGroups(groups);
       server_->ConfigNamedGroups(groups);
       kea_type_ = SSLInt_GetKEAType(group_);
@@ -68,41 +71,48 @@ class TlsCipherSuiteTestBase : public TlsConnectTestBase {
   virtual void SetupCertificate() {
     if (version_ >= SSL_LIBRARY_VERSION_TLS_1_3) {
       switch (sig_scheme_) {
-        case ssl_sig_rsa_pkcs1_sha256:
-        case ssl_sig_rsa_pkcs1_sha384:
-        case ssl_sig_rsa_pkcs1_sha512:
+        case ssl_sig_rsa_pss_rsae_sha256:
+          std::cerr << "Signature scheme: rsa_pss_rsae_sha256" << std::endl;
           Reset(TlsAgent::kServerRsaSign);
           auth_type_ = ssl_auth_rsa_sign;
           break;
-        case ssl_sig_rsa_pss_rsae_sha256:
         case ssl_sig_rsa_pss_rsae_sha384:
+          std::cerr << "Signature scheme: rsa_pss_rsae_sha384" << std::endl;
           Reset(TlsAgent::kServerRsaSign);
           auth_type_ = ssl_auth_rsa_sign;
           break;
         case ssl_sig_rsa_pss_rsae_sha512:
           // You can't fit SHA-512 PSS in a 1024-bit key.
+          std::cerr << "Signature scheme: rsa_pss_rsae_sha512" << std::endl;
           Reset(TlsAgent::kRsa2048);
           auth_type_ = ssl_auth_rsa_sign;
           break;
         case ssl_sig_rsa_pss_pss_sha256:
+          std::cerr << "Signature scheme: rsa_pss_pss_sha256" << std::endl;
           Reset(TlsAgent::kServerRsaPss);
           auth_type_ = ssl_auth_rsa_pss;
           break;
         case ssl_sig_rsa_pss_pss_sha384:
+          std::cerr << "Signature scheme: rsa_pss_pss_sha384" << std::endl;
           Reset("rsa_pss384");
           auth_type_ = ssl_auth_rsa_pss;
           break;
         case ssl_sig_rsa_pss_pss_sha512:
+          std::cerr << "Signature scheme: rsa_pss_pss_sha512" << std::endl;
           Reset("rsa_pss512");
           auth_type_ = ssl_auth_rsa_pss;
           break;
         case ssl_sig_ecdsa_secp256r1_sha256:
+          std::cerr << "Signature scheme: ecdsa_secp256r1_sha256" << std::endl;
           Reset(TlsAgent::kServerEcdsa256);
           auth_type_ = ssl_auth_ecdsa;
+          cert_group_ = ssl_grp_ec_secp256r1;
           break;
         case ssl_sig_ecdsa_secp384r1_sha384:
+          std::cerr << "Signature scheme: ecdsa_secp384r1_sha384" << std::endl;
           Reset(TlsAgent::kServerEcdsa384);
           auth_type_ = ssl_auth_ecdsa;
+          cert_group_ = ssl_grp_ec_secp384r1;
           break;
         default:
           ADD_FAILURE() << "Unsupported signature scheme: " << sig_scheme_;
@@ -118,9 +128,11 @@ class TlsCipherSuiteTestBase : public TlsConnectTestBase {
           break;
         case ssl_auth_ecdsa:
           Reset(TlsAgent::kServerEcdsa256);
+          cert_group_ = ssl_grp_ec_secp256r1;
           break;
         case ssl_auth_ecdh_ecdsa:
           Reset(TlsAgent::kServerEcdhEcdsa);
+          cert_group_ = ssl_grp_ec_secp256r1;
           break;
         case ssl_auth_ecdh_rsa:
           Reset(TlsAgent::kServerEcdhRsa);
@@ -198,6 +210,7 @@ class TlsCipherSuiteTestBase : public TlsConnectTestBase {
   SSLAuthType auth_type_;
   SSLKEAType kea_type_;
   SSLNamedGroup group_;
+  SSLNamedGroup cert_group_ = ssl_grp_none;
   SSLSignatureScheme sig_scheme_;
   SSLCipherSuiteInfo csinfo_;
 };
@@ -250,6 +263,7 @@ TEST_P(TlsCipherSuiteTest, ResumeCipherSuite) {
 TEST_P(TlsCipherSuiteTest, ReadLimit) {
   SetupCertificate();
   EnableSingleCipher();
+  TlsSendCipherSpecCapturer capturer(client_);
   ConnectAndCheckCipherSuite();
   if (version_ < SSL_LIBRARY_VERSION_TLS_1_3) {
     uint64_t last = last_safe_write();
@@ -282,9 +296,31 @@ TEST_P(TlsCipherSuiteTest, ReadLimit) {
   } else {
     epoch = 0;
   }
-  TlsAgentTestBase::MakeRecord(variant_, ssl_ct_application_data, version_,
-                               payload, sizeof(payload), &record,
-                               (epoch << 48) | record_limit());
+
+  uint64_t seqno = (epoch << 48) | record_limit();
+
+  // DTLS 1.3 masks the sequence number
+  if (variant_ == ssl_variant_datagram &&
+      version_ >= SSL_LIBRARY_VERSION_TLS_1_3) {
+    auto spec = capturer.spec(1);
+    ASSERT_NE(nullptr, spec.get());
+    ASSERT_EQ(3, spec->epoch());
+
+    DataBuffer pt, ct;
+    uint8_t dtls13_ctype = kCtDtlsCiphertext | kCtDtlsCiphertext16bSeqno |
+                           kCtDtlsCiphertextLengthPresent;
+    TlsRecordHeader hdr(variant_, version_, dtls13_ctype, seqno);
+    pt.Assign(payload, sizeof(payload));
+    TlsRecordHeader out_hdr;
+    spec->Protect(hdr, pt, &ct, &out_hdr);
+
+    auto rv = out_hdr.Write(&record, 0, ct);
+    EXPECT_EQ(out_hdr.header_length() + ct.len(), rv);
+  } else {
+    TlsAgentTestBase::MakeRecord(variant_, ssl_ct_application_data, version_,
+                                 payload, sizeof(payload), &record, seqno);
+  }
+
   client_->SendDirect(record);
   server_->ExpectReadWriteError();
   server_->ReadBytes();
@@ -329,6 +365,12 @@ static SSLSignatureScheme kSignatureSchemesParamsArr[] = {
     ssl_sig_rsa_pss_rsae_sha384,    ssl_sig_rsa_pss_rsae_sha512,
     ssl_sig_rsa_pss_pss_sha256,     ssl_sig_rsa_pss_pss_sha384,
     ssl_sig_rsa_pss_pss_sha512};
+
+static SSLSignatureScheme kSignatureSchemesParamsArrTls13[] = {
+    ssl_sig_ecdsa_secp256r1_sha256, ssl_sig_ecdsa_secp384r1_sha384,
+    ssl_sig_rsa_pss_rsae_sha256,    ssl_sig_rsa_pss_rsae_sha384,
+    ssl_sig_rsa_pss_rsae_sha512,    ssl_sig_rsa_pss_pss_sha256,
+    ssl_sig_rsa_pss_pss_sha384,     ssl_sig_rsa_pss_pss_sha512};
 
 INSTANTIATE_CIPHER_TEST_P(RC4, Stream, V10ToV12, kDummyNamedGroupParams,
                           kDummySignatureSchemesParams,
@@ -394,7 +436,7 @@ INSTANTIATE_CIPHER_TEST_P(
 #ifndef NSS_DISABLE_TLS_1_3
 INSTANTIATE_CIPHER_TEST_P(TLS13, All, V13,
                           ::testing::ValuesIn(kFasterDHEGroups),
-                          ::testing::ValuesIn(kSignatureSchemesParamsArr),
+                          ::testing::ValuesIn(kSignatureSchemesParamsArrTls13),
                           TLS_AES_128_GCM_SHA256, TLS_CHACHA20_POLY1305_SHA256,
                           TLS_AES_256_GCM_SHA384);
 INSTANTIATE_CIPHER_TEST_P(TLS13AllGroups, All, V13,

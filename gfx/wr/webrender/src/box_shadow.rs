@@ -2,17 +2,17 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use api::{BorderRadius, BoxShadowClipMode, ClipMode, ColorF, DeviceIntSize, LayoutPrimitiveInfo};
-use api::{LayoutRect, LayoutSize, LayoutVector2D, MAX_BLUR_RADIUS};
-use clip::ClipItemKey;
-use display_list_flattener::DisplayListFlattener;
-use gpu_cache::GpuCacheHandle;
-use gpu_types::BoxShadowStretchMode;
-use prim_store::{ScrollNodeAndClipChain, PrimitiveKeyKind};
-use render_task::RenderTaskCacheEntryHandle;
-use util::RectHelpers;
+use api::{BorderRadius, BoxShadowClipMode, ClipMode, ColorF, PrimitiveKeyKind};
+use api::PropertyBinding;
+use api::units::*;
+use crate::clip::{ClipItemKey, ClipItemKeyKind, ClipChainId};
+use crate::scene_building::SceneBuilder;
+use crate::spatial_tree::SpatialNodeIndex;
+use crate::gpu_types::BoxShadowStretchMode;
+use crate::render_task_cache::RenderTaskCacheEntryHandle;
+use crate::internal_types::LayoutPrimitiveInfo;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, MallocSizeOf)]
 #[cfg_attr(feature = "capture", derive(Serialize))]
 #[cfg_attr(feature = "replay", derive(Deserialize))]
 pub struct BoxShadowClipSource {
@@ -27,7 +27,6 @@ pub struct BoxShadowClipSource {
     // to the cached clip region and blurred texture.
     pub cache_key: Option<(DeviceIntSize, BoxShadowCacheKey)>,
     pub cache_handle: Option<RenderTaskCacheEntryHandle>,
-    pub clip_data_handle: GpuCacheHandle,
 
     // Local-space size of the required render task size.
     pub shadow_rect_alloc_size: LayoutSize,
@@ -48,10 +47,14 @@ pub struct BoxShadowClipSource {
 // The blur shader samples BLUR_SAMPLE_SCALE * blur_radius surrounding texels.
 pub const BLUR_SAMPLE_SCALE: f32 = 3.0;
 
+// Maximum blur radius for box-shadows (different than blur filters).
+// Taken from nsCSSRendering.cpp in Gecko.
+pub const MAX_BLUR_RADIUS: f32 = 300.;
+
 // A cache key that uniquely identifies a minimally sized
 // and blurred box-shadow rect that can be stored in the
 // texture cache and applied to clip-masks.
-#[derive(Debug, Clone, Eq, Hash, PartialEq)]
+#[derive(Debug, Clone, Eq, Hash, MallocSizeOf, PartialEq)]
 #[cfg_attr(feature = "capture", derive(Serialize))]
 #[cfg_attr(feature = "replay", derive(Deserialize))]
 pub struct BoxShadowCacheKey {
@@ -64,12 +67,14 @@ pub struct BoxShadowCacheKey {
     pub br_top_right: DeviceIntSize,
     pub br_bottom_right: DeviceIntSize,
     pub br_bottom_left: DeviceIntSize,
+    pub device_pixel_scale: Au,
 }
 
-impl<'a> DisplayListFlattener<'a> {
+impl<'a> SceneBuilder<'a> {
     pub fn add_box_shadow(
         &mut self,
-        clip_and_scroll: ScrollNodeAndClipChain,
+        spatial_node_index: SpatialNodeIndex,
+        clip_chain_id: ClipChainId,
         prim_info: &LayoutPrimitiveInfo,
         box_offset: &LayoutVector2D,
         color: ColorF,
@@ -96,10 +101,13 @@ impl<'a> DisplayListFlattener<'a> {
 
         // Apply parameters that affect where the shadow rect
         // exists in the local space of the primitive.
-        let shadow_rect = prim_info
-            .rect
-            .translate(box_offset)
-            .inflate(spread_amount, spread_amount);
+        let shadow_rect = self.snap_rect(
+            &prim_info
+                .rect
+                .translate(*box_offset)
+                .inflate(spread_amount, spread_amount),
+            spatial_node_index,
+        );
 
         // If blur radius is zero, we can use a fast path with
         // no blur applied.
@@ -112,78 +120,67 @@ impl<'a> DisplayListFlattener<'a> {
             let mut clips = Vec::with_capacity(2);
             let (final_prim_rect, clip_radius) = match clip_mode {
                 BoxShadowClipMode::Outset => {
-                    if !shadow_rect.is_well_formed_and_nonempty() {
+                    if shadow_rect.is_empty() {
                         return;
                     }
 
                     // TODO(gw): Add a fast path for ClipOut + zero border radius!
-                    clips.push(
-                        (
-                            prim_info.rect.origin,
-                            ClipItemKey::rounded_rect(
-                                prim_info.rect.size,
-                                border_radius,
-                                ClipMode::ClipOut,
-                            ),
-                        )
-                    );
+                    clips.push(ClipItemKey {
+                        kind: ClipItemKeyKind::rounded_rect(
+                            prim_info.rect,
+                            border_radius,
+                            ClipMode::ClipOut,
+                        ),
+                    });
 
                     (shadow_rect, shadow_radius)
                 }
                 BoxShadowClipMode::Inset => {
-                    if shadow_rect.is_well_formed_and_nonempty() {
-                        clips.push(
-                            (
-                                shadow_rect.origin,
-                                ClipItemKey::rounded_rect(
-                                    shadow_rect.size,
-                                    shadow_radius,
-                                    ClipMode::ClipOut,
-                                ),
-                            )
-                        );
+                    if !shadow_rect.is_empty() {
+                        clips.push(ClipItemKey {
+                            kind: ClipItemKeyKind::rounded_rect(
+                                shadow_rect,
+                                shadow_radius,
+                                ClipMode::ClipOut,
+                            ),
+                        });
                     }
 
                     (prim_info.rect, border_radius)
                 }
             };
 
-            clips.push(
-                (
-                    final_prim_rect.origin,
-                    ClipItemKey::rounded_rect(
-                        final_prim_rect.size,
-                        clip_radius,
-                        ClipMode::Clip,
-                    ),
-                )
-            );
+            clips.push(ClipItemKey {
+                kind: ClipItemKeyKind::rounded_rect(
+                    final_prim_rect,
+                    clip_radius,
+                    ClipMode::Clip,
+                ),
+            });
 
             self.add_primitive(
-                clip_and_scroll,
+                spatial_node_index,
+                clip_chain_id,
                 &LayoutPrimitiveInfo::with_clip_rect(final_prim_rect, prim_info.clip_rect),
                 clips,
                 PrimitiveKeyKind::Rectangle {
-                    color: color.into(),
+                    color: PropertyBinding::Value(color.into()),
                 },
             );
         } else {
             // Normal path for box-shadows with a valid blur radius.
-            let blur_offset = BLUR_SAMPLE_SCALE * blur_radius;
+            let blur_offset = (BLUR_SAMPLE_SCALE * blur_radius).ceil();
             let mut extra_clips = vec![];
 
             // Add a normal clip mask to clip out the contents
             // of the surrounding primitive.
-            extra_clips.push(
-                (
-                    prim_info.rect.origin,
-                    ClipItemKey::rounded_rect(
-                        prim_info.rect.size,
-                        border_radius,
-                        prim_clip_mode,
-                    ),
-                )
-            );
+            extra_clips.push(ClipItemKey {
+                kind: ClipItemKeyKind::rounded_rect(
+                    prim_info.rect,
+                    border_radius,
+                    prim_clip_mode,
+                ),
+            });
 
             // Get the local rect of where the shadow will be drawn,
             // expanded to include room for the blurred region.
@@ -192,32 +189,29 @@ impl<'a> DisplayListFlattener<'a> {
             // Draw the box-shadow as a solid rect, using a box-shadow
             // clip mask item.
             let prim = PrimitiveKeyKind::Rectangle {
-                color: color.into(),
+                color: PropertyBinding::Value(color.into()),
             };
 
             // Create the box-shadow clip item.
-            let shadow_clip_source = ClipItemKey::box_shadow(
-                shadow_rect,
-                shadow_radius,
-                dest_rect.translate(&LayoutVector2D::new(-prim_info.rect.origin.x, -prim_info.rect.origin.y)),
-                blur_radius,
-                clip_mode,
-            );
+            let shadow_clip_source = ClipItemKey {
+                kind: ClipItemKeyKind::box_shadow(
+                    shadow_rect,
+                    shadow_radius,
+                    dest_rect,
+                    blur_radius,
+                    clip_mode,
+                ),
+            };
 
             let prim_info = match clip_mode {
                 BoxShadowClipMode::Outset => {
                     // Certain spread-radii make the shadow invalid.
-                    if !shadow_rect.is_well_formed_and_nonempty() {
+                    if shadow_rect.is_empty() {
                         return;
                     }
 
                     // Add the box-shadow clip source.
-                    extra_clips.push(
-                        (
-                            prim_info.rect.origin,
-                            shadow_clip_source,
-                        ),
-                    );
+                    extra_clips.push(shadow_clip_source);
 
                     // Outset shadows are expanded by the shadow
                     // region from the original primitive.
@@ -236,13 +230,8 @@ impl<'a> DisplayListFlattener<'a> {
                     // Inset shadows are still visible, even if the
                     // inset shadow rect becomes invalid (they will
                     // just look like a solid rectangle).
-                    if shadow_rect.is_well_formed_and_nonempty() {
-                        extra_clips.push(
-                            (
-                                prim_info.rect.origin,
-                                shadow_clip_source,
-                            ),
-                        );
+                    if !shadow_rect.is_empty() {
+                        extra_clips.push(shadow_clip_source);
                     }
 
                     // Inset shadows draw inside the original primitive.
@@ -251,7 +240,8 @@ impl<'a> DisplayListFlattener<'a> {
             };
 
             self.add_primitive(
-                clip_and_scroll,
+                spatial_node_index,
+                clip_chain_id,
                 &prim_info,
                 extra_clips,
                 prim,

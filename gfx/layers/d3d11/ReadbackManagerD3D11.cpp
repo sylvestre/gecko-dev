@@ -36,7 +36,8 @@ class ReadbackResultWriterD3D11 final : public nsIRunnable {
   ~ReadbackResultWriterD3D11() {}
   NS_DECL_THREADSAFE_ISUPPORTS
  public:
-  explicit ReadbackResultWriterD3D11(ReadbackTask *aTask) : mTask(aTask) {}
+  explicit ReadbackResultWriterD3D11(UniquePtr<ReadbackTask>&& aTask)
+      : mTask(std::move(aTask)) {}
 
   NS_IMETHOD Run() override {
     D3D10_TEXTURE2D_DESC desc;
@@ -54,7 +55,7 @@ class ReadbackResultWriterD3D11 final : public nsIRunnable {
 
     {
       RefPtr<DataSourceSurface> surf = Factory::CreateWrappingDataSourceSurface(
-          (uint8_t *)mappedTex.pData, mappedTex.RowPitch,
+          (uint8_t*)mappedTex.pData, mappedTex.RowPitch,
           IntSize(desc.Width, desc.Height), SurfaceFormat::B8G8R8A8);
 
       mTask->mSink->ProcessReadback(surf);
@@ -68,13 +69,13 @@ class ReadbackResultWriterD3D11 final : public nsIRunnable {
   }
 
  private:
-  nsAutoPtr<ReadbackTask> mTask;
+  UniquePtr<ReadbackTask> mTask;
 };
 
 NS_IMPL_ISUPPORTS(ReadbackResultWriterD3D11, nsIRunnable)
 
-DWORD WINAPI ReadbackManagerD3D11::StartTaskThread(void *aManager) {
-  static_cast<ReadbackManagerD3D11 *>(aManager)->ProcessTasks();
+DWORD WINAPI ReadbackManagerD3D11::StartTaskThread(void* aManager) {
+  static_cast<ReadbackManagerD3D11*>(aManager)->ProcessTasks();
 
   return 0;
 }
@@ -102,14 +103,14 @@ ReadbackManagerD3D11::~ReadbackManagerD3D11() {
   }
 }
 
-void ReadbackManagerD3D11::PostTask(ID3D10Texture2D *aTexture,
-                                    TextureReadbackSink *aSink) {
-  ReadbackTask *task = new ReadbackTask;
+void ReadbackManagerD3D11::PostTask(ID3D10Texture2D* aTexture,
+                                    TextureReadbackSink* aSink) {
+  auto task = MakeUnique<ReadbackTask>();
   task->mReadbackTexture = aTexture;
   task->mSink = aSink;
 
   ::EnterCriticalSection(&mTaskMutex);
-  mPendingReadbackTasks.AppendElement(task);
+  mPendingReadbackTasks.AppendElement(std::move(task));
   ::LeaveCriticalSection(&mTaskMutex);
 
   ::ReleaseSemaphore(mTaskSemaphore, 1, nullptr);
@@ -128,7 +129,8 @@ void ReadbackManagerD3D11::ProcessTasks() {
     if (mPendingReadbackTasks.Length() == 0) {
       MOZ_CRASH("Trying to read from an empty array, bad bad bad");
     }
-    ReadbackTask *nextReadbackTask = mPendingReadbackTasks[0].forget();
+    UniquePtr<ReadbackTask> nextReadbackTask =
+        std::move(mPendingReadbackTasks[0]);
     mPendingReadbackTasks.RemoveElementAt(0);
     ::LeaveCriticalSection(&mTaskMutex);
 
@@ -142,7 +144,7 @@ void ReadbackManagerD3D11::ProcessTasks() {
     // event there to do so. Ownership of the task is passed from
     // mPendingReadbackTasks to ReadbackResultWriter here.
     nsCOMPtr<nsIThread> thread = do_GetMainThread();
-    thread->Dispatch(new ReadbackResultWriterD3D11(nextReadbackTask),
+    thread->Dispatch(new ReadbackResultWriterD3D11(std::move(nextReadbackTask)),
                      nsIEventTarget::DISPATCH_NORMAL);
   }
 }

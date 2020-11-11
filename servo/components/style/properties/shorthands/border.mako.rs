@@ -5,19 +5,28 @@
 <%namespace name="helpers" file="/helpers.mako.rs" />
 <% from data import to_rust_ident, ALL_SIDES, PHYSICAL_SIDES, maybe_moz_logical_alias %>
 
-${helpers.four_sides_shorthand("border-color", "border-%s-color", "specified::Color::parse",
-                               spec="https://drafts.csswg.org/css-backgrounds/#border-color",
-                               allow_quirks=True)}
+${helpers.four_sides_shorthand(
+    "border-color",
+    "border-%s-color",
+    "specified::Color::parse",
+    engines="gecko servo-2013 servo-2020",
+    spec="https://drafts.csswg.org/css-backgrounds/#border-color",
+    allow_quirks="Yes",
+)}
 
 ${helpers.four_sides_shorthand(
     "border-style",
     "border-%s-style",
     "specified::BorderStyle::parse",
+    engines="gecko servo-2013 servo-2020",
     needs_context=False,
     spec="https://drafts.csswg.org/css-backgrounds/#border-style",
 )}
 
-<%helpers:shorthand name="border-width" sub_properties="${
+<%helpers:shorthand
+    name="border-width"
+    engines="gecko servo-2013 servo-2020"
+    sub_properties="${
         ' '.join('border-%s-width' % side
                  for side in PHYSICAL_SIDES)}"
     spec="https://drafts.csswg.org/css-backgrounds/#border-width">
@@ -61,23 +70,22 @@ pub fn parse_border<'i, 't>(
     let mut width = None;
     let mut any = false;
     loop {
-        if color.is_none() {
-            if let Ok(value) = input.try(|i| Color::parse(context, i)) {
-                color = Some(value);
+        if width.is_none() {
+            if let Ok(value) = input.try_parse(|i| BorderSideWidth::parse(context, i)) {
+                width = Some(value);
                 any = true;
-                continue
             }
         }
         if style.is_none() {
-            if let Ok(value) = input.try(BorderStyle::parse) {
+            if let Ok(value) = input.try_parse(BorderStyle::parse) {
                 style = Some(value);
                 any = true;
                 continue
             }
         }
-        if width.is_none() {
-            if let Ok(value) = input.try(|i| BorderSideWidth::parse(context, i)) {
-                width = Some(value);
+        if color.is_none() {
+            if let Ok(value) = input.try_parse(|i| Color::parse(context, i)) {
+                color = Some(value);
                 any = true;
                 continue
             }
@@ -101,11 +109,12 @@ pub fn parse_border<'i, 't>(
     %>
     <%helpers:shorthand
         name="border-${side}"
+        engines="gecko servo-2013 servo-2020"
         sub_properties="${' '.join(
             'border-%s-%s' % (side, prop)
             for prop in ['color', 'style', 'width']
         )}"
-        alias="${maybe_moz_logical_alias(product, (side, logical), '-moz-border-%s')}"
+        alias="${maybe_moz_logical_alias(engine, (side, logical), '-moz-border-%s')}"
         spec="${spec}">
 
     pub fn parse_value<'i, 't>(
@@ -135,6 +144,7 @@ pub fn parse_border<'i, 't>(
 % endfor
 
 <%helpers:shorthand name="border"
+    engines="gecko servo-2013 servo-2020"
     sub_properties="${' '.join('border-%s-%s' % (side, prop)
         for side in PHYSICAL_SIDES
         for prop in ['color', 'style', 'width'])}
@@ -168,6 +178,16 @@ pub fn parse_border<'i, 't>(
 
     impl<'a> ToCss for LonghandsToSerialize<'a>  {
         fn to_css<W>(&self, dest: &mut CssWriter<W>) -> fmt::Result where W: fmt::Write {
+            use crate::properties::longhands;
+
+            // If any of the border-image longhands differ from their initial specified values we should not
+            // invoke serialize_directional_border(), so there is no point in continuing on to compute all_equal.
+            % for name in "outset repeat slice source width".split():
+                if *self.border_image_${name} != longhands::border_image_${name}::get_initial_specified_value() {
+                    return Ok(());
+                }
+            % endfor
+
             let all_equal = {
                 % for side in PHYSICAL_SIDES:
                   let border_${side}_width = self.border_${side}_width;
@@ -216,10 +236,16 @@ pub fn parse_border<'i, 't>(
     }
 </%helpers:shorthand>
 
-<%helpers:shorthand name="border-radius" sub_properties="${' '.join(
-    'border-%s-radius' % (corner)
-     for corner in ['top-left', 'top-right', 'bottom-right', 'bottom-left']
-)}" extra_prefixes="webkit" spec="https://drafts.csswg.org/css-backgrounds/#border-radius">
+<%helpers:shorthand
+    name="border-radius"
+    engines="gecko servo-2013 servo-2020"
+    sub_properties="${' '.join(
+        'border-%s-radius' % (corner)
+         for corner in ['top-left', 'top-right', 'bottom-right', 'bottom-left']
+    )}"
+    extra_prefixes="webkit"
+    spec="https://drafts.csswg.org/css-backgrounds/#border-radius"
+>
     use crate::values::generics::rect::Rect;
     use crate::values::generics::border::BorderCornerRadius;
     use crate::values::specified::border::BorderRadius;
@@ -256,10 +282,14 @@ pub fn parse_border<'i, 't>(
     }
 </%helpers:shorthand>
 
-<%helpers:shorthand name="border-image" sub_properties="border-image-outset
-    border-image-repeat border-image-slice border-image-source border-image-width"
+<%helpers:shorthand
+    name="border-image"
+    engines="gecko servo-2013"
+    sub_properties="border-image-outset
+        border-image-repeat border-image-slice border-image-source border-image-width"
     extra_prefixes="moz:layout.css.prefixes.border-image webkit"
-    spec="https://drafts.csswg.org/css-backgrounds-3/#border-image">
+    spec="https://drafts.csswg.org/css-backgrounds-3/#border-image"
+>
     use crate::properties::longhands::{border_image_outset, border_image_repeat, border_image_slice};
     use crate::properties::longhands::{border_image_source, border_image_width};
 
@@ -271,24 +301,24 @@ pub fn parse_border<'i, 't>(
             let mut border_image_${name} = border_image_${name}::get_initial_specified_value();
         % endfor
 
-        let result: Result<_, ParseError> = input.try(|input| {
+        let result: Result<_, ParseError> = input.try_parse(|input| {
             % for name in "outset repeat slice source width".split():
                 let mut ${name} = None;
             % endfor
             loop {
                 if slice.is_none() {
-                    if let Ok(value) = input.try(|input| border_image_slice::parse(context, input)) {
+                    if let Ok(value) = input.try_parse(|input| border_image_slice::parse(context, input)) {
                         slice = Some(value);
                         // Parse border image width and outset, if applicable.
-                        let maybe_width_outset: Result<_, ParseError> = input.try(|input| {
+                        let maybe_width_outset: Result<_, ParseError> = input.try_parse(|input| {
                             input.expect_delim('/')?;
 
                             // Parse border image width, if applicable.
-                            let w = input.try(|input|
+                            let w = input.try_parse(|input|
                                 border_image_width::parse(context, input)).ok();
 
                             // Parse border image outset if applicable.
-                            let o = input.try(|input| {
+                            let o = input.try_parse(|input| {
                                 input.expect_delim('/')?;
                                 border_image_outset::parse(context, input)
                             }).ok();
@@ -309,7 +339,7 @@ pub fn parse_border<'i, 't>(
                 }
                 % for name in "source repeat".split():
                     if ${name}.is_none() {
-                        if let Ok(value) = input.try(|input| border_image_${name}::parse(context, input)) {
+                        if let Ok(value) = input.try_parse(|input| border_image_${name}::parse(context, input)) {
                             ${name} = Some(value);
                             continue
                         }
@@ -355,3 +385,97 @@ pub fn parse_border<'i, 't>(
         }
     }
 </%helpers:shorthand>
+
+% for axis in ["block", "inline"]:
+    % for prop in ["width", "style", "color"]:
+        <%
+            spec = "https://drafts.csswg.org/css-logical/#propdef-border-%s-%s" % (axis, prop)
+        %>
+        <%helpers:shorthand
+            engines="gecko servo-2013 servo-2020"
+            name="border-${axis}-${prop}"
+            sub_properties="${' '.join(
+                'border-%s-%s-%s' % (axis, side, prop)
+                for side in ['start', 'end']
+            )}"
+            spec="${spec}">
+
+            use crate::properties::longhands::border_${axis}_start_${prop};
+            pub fn parse_value<'i, 't>(
+                context: &ParserContext,
+                input: &mut Parser<'i, 't>,
+            ) -> Result<Longhands, ParseError<'i>> {
+                let start_value = border_${axis}_start_${prop}::parse(context, input)?;
+                let end_value =
+                    input.try_parse(|input| border_${axis}_start_${prop}::parse(context, input))
+                        .unwrap_or_else(|_| start_value.clone());
+
+                Ok(expanded! {
+                    border_${axis}_start_${prop}: start_value,
+                    border_${axis}_end_${prop}: end_value,
+                })
+            }
+
+            impl<'a> ToCss for LonghandsToSerialize<'a>  {
+                fn to_css<W>(&self, dest: &mut CssWriter<W>) -> fmt::Result where W: fmt::Write {
+                    self.border_${axis}_start_${prop}.to_css(dest)?;
+
+                    if self.border_${axis}_end_${prop} != self.border_${axis}_start_${prop} {
+                        dest.write_str(" ")?;
+                        self.border_${axis}_end_${prop}.to_css(dest)?;
+                    }
+
+                    Ok(())
+                }
+            }
+        </%helpers:shorthand>
+    % endfor
+% endfor
+
+% for axis in ["block", "inline"]:
+    <%
+        spec = "https://drafts.csswg.org/css-logical/#propdef-border-%s" % (axis)
+    %>
+    <%helpers:shorthand
+        name="border-${axis}"
+        engines="gecko servo-2013 servo-2020"
+        sub_properties="${' '.join(
+            'border-%s-%s-width' % (axis, side)
+            for side in ['start', 'end']
+        )} ${' '.join(
+            'border-%s-%s-style' % (axis, side)
+            for side in ['start', 'end']
+        )} ${' '.join(
+            'border-%s-%s-color' % (axis, side)
+            for side in ['start', 'end']
+        )}"
+        spec="${spec}">
+
+        use crate::properties::shorthands::border_${axis}_start;
+        pub fn parse_value<'i, 't>(
+            context: &ParserContext,
+            input: &mut Parser<'i, 't>,
+        ) -> Result<Longhands, ParseError<'i>> {
+            let start_value = border_${axis}_start::parse_value(context, input)?;
+            Ok(expanded! {
+                border_${axis}_start_width: start_value.border_${axis}_start_width.clone(),
+                border_${axis}_end_width: start_value.border_${axis}_start_width,
+                border_${axis}_start_style: start_value.border_${axis}_start_style.clone(),
+                border_${axis}_end_style: start_value.border_${axis}_start_style,
+                border_${axis}_start_color: start_value.border_${axis}_start_color.clone(),
+                border_${axis}_end_color: start_value.border_${axis}_start_color,
+            })
+        }
+
+        impl<'a> ToCss for LonghandsToSerialize<'a>  {
+            fn to_css<W>(&self, dest: &mut CssWriter<W>) -> fmt::Result where W: fmt::Write {
+                super::serialize_directional_border(
+                    dest,
+                    self.border_${axis}_start_width,
+                    self.border_${axis}_start_style,
+                    self.border_${axis}_start_color
+                )
+            }
+        }
+    </%helpers:shorthand>
+% endfor

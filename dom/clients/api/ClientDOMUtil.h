@@ -9,8 +9,8 @@
 #include "mozilla/dom/ClientIPCTypes.h"
 #include "mozilla/dom/ClientOpPromise.h"
 #include "mozilla/dom/DOMMozPromiseRequestHolder.h"
-#include "mozilla/dom/WorkerHolderToken.h"
 #include "mozilla/dom/WorkerPrivate.h"
+#include "mozilla/ErrorResult.h"
 
 class nsIGlobalObject;
 
@@ -32,15 +32,16 @@ void StartClientManagerOp(Func aFunc, const Arg& aArg, nsIGlobalObject* aGlobal,
       MakeRefPtr<DOMMozPromiseRequestHolder<ClientOpPromise>>(aGlobal);
 
   aFunc(aArg, target)
-      ->Then(target, __func__,
-             [aResolve, holder](const ClientOpResult& aResult) {
-               holder->Complete();
-               aResolve(aResult);
-             },
-             [aReject, holder](nsresult aResult) {
-               holder->Complete();
-               aReject(aResult);
-             })
+      ->Then(
+          target, __func__,
+          [aResolve, holder](const ClientOpResult& aResult) {
+            holder->Complete();
+            aResolve(aResult);
+          },
+          [aReject, holder](const CopyableErrorResult& aResult) {
+            holder->Complete();
+            aReject(aResult);
+          })
       ->Track(*holder);
 }
 

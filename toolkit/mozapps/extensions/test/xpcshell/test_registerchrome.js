@@ -7,7 +7,9 @@ function getFileURI(path) {
 }
 
 add_task(async function() {
-  const registry = Cc["@mozilla.org/chrome/chrome-registry;1"].getService(Ci.nsIChromeRegistry);
+  const registry = Cc["@mozilla.org/chrome/chrome-registry;1"].getService(
+    Ci.nsIChromeRegistry
+  );
 
   let file1 = getFileURI("file1");
   let file2 = getFileURI("file2");
@@ -22,7 +24,6 @@ add_task(async function() {
   let origOverrideURL = registry.convertChromeURL(overrideURL);
   let origLocaleURL = registry.convertChromeURL(localeURL);
 
-  // eslint-disable-next-line no-unused-vars
   let entry1 = aomStartup.registerChrome(uri1, [
     ["override", "chrome://global/content/foo", file1.spec],
     ["content", "test", file2.spec + "/"],
@@ -51,14 +52,16 @@ add_task(async function() {
 
   // After dropping the reference to the first entry and allowing it to
   // be GCed, we should be back to the original entries.
-  entry1 = null;
+  entry1 = null; // eslint-disable-line no-unused-vars
   Cu.forceGC();
   Cu.forceCC();
   equal(registry.convertChromeURL(overrideURL).spec, origOverrideURL.spec);
   equal(registry.convertChromeURL(localeURL).spec, origLocaleURL.spec);
-  Assert.throws(() => registry.convertChromeURL(contentURL),
-                e => e.result == Cr.NS_ERROR_FILE_NOT_FOUND,
-                "chrome://test/ should no longer be registered");
+  Assert.throws(
+    () => registry.convertChromeURL(contentURL),
+    e => e.result == Cr.NS_ERROR_FILE_NOT_FOUND,
+    "chrome://test/ should no longer be registered"
+  );
 });
 
 add_task(async function() {
@@ -76,8 +79,10 @@ add_task(async function() {
 
   let uri = getFileURI("chrome.manifest");
   for (let arg of INVALID_VALUES) {
-    Assert.throws(() => aomStartup.registerChrome(uri, arg),
-                  e => e.result == Cr.NS_ERROR_INVALID_ARG,
-                  `Arg ${uneval(arg)} should throw`);
+    Assert.throws(
+      () => aomStartup.registerChrome(uri, arg),
+      e => e.result == Cr.NS_ERROR_INVALID_ARG,
+      `Arg ${uneval(arg)} should throw`
+    );
   }
 });

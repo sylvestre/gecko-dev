@@ -24,16 +24,23 @@ const REQUESTS_WITH_MEDIA_AND_FLASH = REQUESTS_WITH_MEDIA.concat([
   { url: "sjs_content-type-test-server.sjs?fmt=flash" },
 ]);
 
-const REQUESTS_WITH_MEDIA_AND_FLASH_AND_WS = REQUESTS_WITH_MEDIA_AND_FLASH.concat([
-  /* "Upgrade" is a reserved header and can not be set on XMLHttpRequest */
-  { url: "sjs_content-type-test-server.sjs?fmt=ws" },
-]);
+const REQUESTS_WITH_MEDIA_AND_FLASH_AND_WS = REQUESTS_WITH_MEDIA_AND_FLASH.concat(
+  [
+    /* "Upgrade" is a reserved header and can not be set on XMLHttpRequest */
+    { url: "sjs_content-type-test-server.sjs?fmt=ws" },
+  ]
+);
 
 add_task(async function() {
-  Services.prefs.setCharPref("devtools.netmonitor.filters",
-                             '["bogus", "js", "alsobogus"]');
+  Services.prefs.setCharPref(
+    "devtools.netmonitor.filters",
+    '["bogus", "js", "alsobogus"]'
+  );
 
-  const { monitor } = await initNetMonitor(FILTERING_URL);
+  const { monitor } = await initNetMonitor(FILTERING_URL, {
+    requestCount: 1,
+    expectedEventTimings: 0,
+  });
   info("Starting test... ");
 
   const { document, store, windowRequire } = monitor.panelWin;
@@ -42,26 +49,33 @@ add_task(async function() {
 
   store.dispatch(Actions.batchEnable(false));
 
-  is(Prefs.filters.length, 3,
-    "All the filter types should be loaded.");
-  is(Prefs.filters[0], "bogus",
-    "The first filter type is invalid, but loaded anyway.");
+  is(Prefs.filters.length, 3, "All the filter types should be loaded.");
+  is(
+    Prefs.filters[0],
+    "bogus",
+    "The first filter type is invalid, but loaded anyway."
+  );
 
-  const wait = waitForNetworkEvents(monitor, 9);
-  loadFrameScriptUtils();
+  // As the view is filtered and there is only one request for which we fetch event timings
+  const wait = waitForNetworkEvents(monitor, 9, { expectedEventTimings: 1 });
   await performRequestsInContent(REQUESTS_WITH_MEDIA_AND_FLASH_AND_WS);
   await wait;
 
   testFilterButtons(monitor, "js");
   ok(true, "Only the correct filter type was taken into consideration.");
 
-  EventUtils.sendMouseEvent({ type: "click" },
-    document.querySelector(".requests-list-filter-html-button"));
+  EventUtils.sendMouseEvent(
+    { type: "click" },
+    document.querySelector(".requests-list-filter-html-button")
+  );
 
   const filters = Services.prefs.getCharPref("devtools.netmonitor.filters");
-  is(filters, '["html","js"]',
+  is(
+    filters,
+    '["html","js"]',
     "The filters preferences were saved directly after the click and only" +
-    " with the valid.");
+      " with the valid."
+  );
 
   await teardown(monitor);
 });

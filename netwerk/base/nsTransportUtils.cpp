@@ -7,7 +7,6 @@
 #include "nsITransport.h"
 #include "nsProxyRelease.h"
 #include "nsThreadUtils.h"
-#include "nsAutoPtr.h"
 #include "nsCOMPtr.h"
 
 using namespace mozilla;
@@ -21,7 +20,7 @@ class nsTransportEventSinkProxy : public nsITransportEventSink {
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSITRANSPORTEVENTSINK
 
-  nsTransportEventSinkProxy(nsITransportEventSink *sink, nsIEventTarget *target)
+  nsTransportEventSinkProxy(nsITransportEventSink* sink, nsIEventTarget* target)
       : mSink(sink),
         mTarget(target),
         mLock("nsTransportEventSinkProxy.mLock"),
@@ -38,16 +37,16 @@ class nsTransportEventSinkProxy : public nsITransportEventSink {
   }
 
  public:
-  nsITransportEventSink *mSink;
+  nsITransportEventSink* mSink;
   nsCOMPtr<nsIEventTarget> mTarget;
   Mutex mLock;
-  nsTransportStatusEvent *mLastEvent;
+  nsTransportStatusEvent* mLastEvent;
 };
 
 class nsTransportStatusEvent : public Runnable {
  public:
-  nsTransportStatusEvent(nsTransportEventSinkProxy *proxy,
-                         nsITransport *transport, nsresult status,
+  nsTransportStatusEvent(nsTransportEventSinkProxy* proxy,
+                         nsITransport* transport, nsresult status,
                          int64_t progress, int64_t progressMax)
       : Runnable("nsTransportStatusEvent"),
         mProxy(proxy),
@@ -83,7 +82,7 @@ class nsTransportStatusEvent : public Runnable {
 NS_IMPL_ISUPPORTS(nsTransportEventSinkProxy, nsITransportEventSink)
 
 NS_IMETHODIMP
-nsTransportEventSinkProxy::OnTransportStatus(nsITransport *transport,
+nsTransportEventSinkProxy::OnTransportStatus(nsITransport* transport,
                                              nsresult status, int64_t progress,
                                              int64_t progressMax) {
   nsresult rv = NS_OK;
@@ -117,11 +116,11 @@ nsTransportEventSinkProxy::OnTransportStatus(nsITransport *transport,
 
 //-----------------------------------------------------------------------------
 
-nsresult net_NewTransportEventSinkProxy(nsITransportEventSink **result,
-                                        nsITransportEventSink *sink,
-                                        nsIEventTarget *target) {
-  *result = new nsTransportEventSinkProxy(sink, target);
-  if (!*result) return NS_ERROR_OUT_OF_MEMORY;
-  NS_ADDREF(*result);
+nsresult net_NewTransportEventSinkProxy(nsITransportEventSink** result,
+                                        nsITransportEventSink* sink,
+                                        nsIEventTarget* target) {
+  RefPtr<nsTransportEventSinkProxy> res =
+      new nsTransportEventSinkProxy(sink, target);
+  res.forget(result);
   return NS_OK;
 }

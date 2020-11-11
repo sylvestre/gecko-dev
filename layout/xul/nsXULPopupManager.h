@@ -30,7 +30,7 @@
 
 // X.h defines KeyPress
 #ifdef KeyPress
-#undef KeyPress
+#  undef KeyPress
 #endif
 
 /**
@@ -58,6 +58,7 @@ class nsPIDOMWindowOuter;
 class nsRefreshDriver;
 
 namespace mozilla {
+class PresShell;
 namespace dom {
 class Event;
 class KeyboardEvent;
@@ -120,7 +121,8 @@ enum nsIgnoreKeys {
 #define NS_DIRECTION_IS_BLOCK_TO_EDGE(dir) \
   (dir == eNavigationDirection_First || dir == eNavigationDirection_Last)
 
-static_assert(NS_STYLE_DIRECTION_LTR == 0 && NS_STYLE_DIRECTION_RTL == 1,
+static_assert(static_cast<uint8_t>(mozilla::StyleDirection::Ltr) == 0 &&
+                  static_cast<uint8_t>(mozilla::StyleDirection::Rtl) == 1,
               "Left to Right should be 0 and Right to Left should be 1");
 
 /**
@@ -130,10 +132,10 @@ static_assert(NS_STYLE_DIRECTION_LTR == 0 && NS_STYLE_DIRECTION_RTL == 1,
  */
 extern const nsNavigationDirection DirectionFromKeyCodeTable[2][6];
 
-#define NS_DIRECTION_FROM_KEY_CODE(frame, keycode)                 \
-  (DirectionFromKeyCodeTable[frame->StyleVisibility()->mDirection] \
-                            [keycode -                             \
-                             mozilla::dom::KeyboardEvent_Binding::DOM_VK_END])
+#define NS_DIRECTION_FROM_KEY_CODE(frame, keycode) \
+  (DirectionFromKeyCodeTable[static_cast<uint8_t>( \
+      (frame)->StyleVisibility()->mDirection)][(   \
+      keycode)-mozilla::dom::KeyboardEvent_Binding::DOM_VK_END])
 
 // nsMenuChainItem holds info about an open popup. Items are stored in a
 // doubly linked list. Note that the linked list is stored beginning from
@@ -173,7 +175,7 @@ class nsMenuChainItem {
     MOZ_COUNT_CTOR(nsMenuChainItem);
   }
 
-  ~nsMenuChainItem() { MOZ_COUNT_DTOR(nsMenuChainItem); }
+  MOZ_COUNTED_DTOR(nsMenuChainItem)
 
   nsIContent* Content();
   nsMenuPopupFrame* Frame() { return mFrame; }
@@ -256,12 +258,8 @@ class nsXULPopupHidingEvent : public mozilla::Runnable {
 // this class is used for dispatching popuppositioned events asynchronously.
 class nsXULPopupPositionedEvent : public mozilla::Runnable {
  public:
-  explicit nsXULPopupPositionedEvent(nsIContent* aPopup, bool aIsContextMenu,
-                                     bool aSelectFirstItem)
-      : mozilla::Runnable("nsXULPopupPositionedEvent"),
-        mPopup(aPopup),
-        mIsContextMenu(aIsContextMenu),
-        mSelectFirstItem(aSelectFirstItem) {
+  explicit nsXULPopupPositionedEvent(nsIContent* aPopup)
+      : mozilla::Runnable("nsXULPopupPositionedEvent"), mPopup(aPopup) {
     NS_ASSERTION(aPopup,
                  "null popup supplied to nsXULPopupShowingEvent constructor");
   }
@@ -270,13 +268,10 @@ class nsXULPopupPositionedEvent : public mozilla::Runnable {
 
   // Asynchronously dispatch a popuppositioned event at aPopup if this is a
   // panel that should receieve such events. Return true if the event was sent.
-  static bool DispatchIfNeeded(nsIContent* aPopup, bool aIsContextMenu,
-                               bool aSelectFirstItem);
+  static bool DispatchIfNeeded(nsIContent* aPopup);
 
  private:
   nsCOMPtr<nsIContent> mPopup;
-  bool mIsContextMenu;
-  bool mSelectFirstItem;
 };
 
 // this class is used for dispatching menu command events asynchronously.
@@ -299,7 +294,7 @@ class nsXULMenuCommandEvent : public mozilla::Runnable {
                  "null menu supplied to nsXULMenuCommandEvent constructor");
   }
 
-  NS_IMETHOD Run() override;
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY NS_IMETHOD Run() override;
 
   void SetCloseMenuMode(CloseMenuMode aCloseMenuMode) {
     mCloseMenuMode = aCloseMenuMode;
@@ -332,6 +327,7 @@ class nsXULPopupManager final : public nsIDOMEventListener,
   NS_DECL_NSIDOMEVENTLISTENER
 
   // nsIRollupListener
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY
   virtual bool Rollup(uint32_t aCount, bool aFlush, const nsIntPoint* pos,
                       nsIContent** aLastRolledUp) override;
   virtual bool ShouldRollupOnMouseWheelEvent() override;
@@ -362,7 +358,7 @@ class nsXULPopupManager final : public nsIDOMEventListener,
   // This should be called when a window is moved or resized to adjust the
   // popups accordingly.
   void AdjustPopupsOnWindowChange(nsPIDOMWindowOuter* aWindow);
-  void AdjustPopupsOnWindowChange(nsIPresShell* aPresShell);
+  void AdjustPopupsOnWindowChange(mozilla::PresShell* aPresShell);
 
   // given a menu frame, find the prevous or next menu frame. If aPopup is
   // true then navigate a menupopup, from one item on the menu to the previous
@@ -410,10 +406,10 @@ class nsXULPopupManager final : public nsIDOMEventListener,
   // retrieve the node and offset of the last mouse event used to open a
   // context menu. This information is determined from the rangeParent and
   // the rangeOffset of the event supplied to ShowPopup or ShowPopupAtScreen.
-  // This is used by the implementation of XULDocument::GetPopupRangeParent
-  // and XULDocument::GetPopupRangeOffset.
-  nsINode* GetMouseLocationParent();
-  int32_t MouseLocationOffset();
+  // This is used by the implementation of Document::GetPopupRangeParent
+  // and Document::GetPopupRangeOffset.
+  nsIContent* GetMouseLocationParent() const { return mRangeParentContent; }
+  int32_t MouseLocationOffset() const { return mRangeOffset; }
 
   /**
    * Open a <menu> given its content node. If aSelectFirstItem is
@@ -561,11 +557,13 @@ class nsXULPopupManager final : public nsIDOMEventListener,
    * aDocument. aDocument must be non-null and be a document contained within
    * the same window hierarchy as the popup to retrieve.
    */
-  already_AddRefed<nsINode> GetLastTriggerPopupNode(nsIDocument* aDocument) {
+  already_AddRefed<nsINode> GetLastTriggerPopupNode(
+      mozilla::dom::Document* aDocument) {
     return GetLastTriggerNode(aDocument, false);
   }
 
-  already_AddRefed<nsINode> GetLastTriggerTooltipNode(nsIDocument* aDocument) {
+  already_AddRefed<nsINode> GetLastTriggerTooltipNode(
+      mozilla::dom::Document* aDocument) {
     return GetLastTriggerNode(aDocument, true);
   }
 
@@ -670,6 +668,7 @@ class nsXULPopupManager final : public nsIDOMEventListener,
   ~nsXULPopupManager();
 
   // get the nsMenuPopupFrame, if any, for the given content node
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY
   nsMenuPopupFrame* GetPopupFrameForContent(nsIContent* aContent,
                                             bool aShouldFlush);
 
@@ -727,6 +726,7 @@ class nsXULPopupManager final : public nsIDOMEventListener,
    * aDeselectMenu - true to unhighlight the menu when hiding it
    * aIsCancel - true if this popup is hiding due to being cancelled.
    */
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY
   void FirePopupHidingEvent(nsIContent* aPopup, nsIContent* aNextPopup,
                             nsIContent* aLastPopup, nsPresContext* aPresContext,
                             nsPopupType aPopupType, bool aDeselectMenu,
@@ -753,8 +753,8 @@ class nsXULPopupManager final : public nsIDOMEventListener,
                                        nsNavigationDirection aDir);
 
  protected:
-  already_AddRefed<nsINode> GetLastTriggerNode(nsIDocument* aDocument,
-                                               bool aIsTooltip);
+  already_AddRefed<nsINode> GetLastTriggerNode(
+      mozilla::dom::Document* aDocument, bool aIsTooltip);
 
   /**
    * Set mouse capturing for the current popup. This traps mouse clicks that
@@ -779,7 +779,8 @@ class nsXULPopupManager final : public nsIDOMEventListener,
   /*
    * Returns true if the docshell for aDoc is aExpected or a child of aExpected.
    */
-  bool IsChildOfDocShell(nsIDocument* aDoc, nsIDocShellTreeItem* aExpected);
+  bool IsChildOfDocShell(mozilla::dom::Document* aDoc,
+                         nsIDocShellTreeItem* aExpected);
 
   // the document the key event listener is attached to
   nsCOMPtr<mozilla::dom::EventTarget> mKeyListener;
@@ -788,7 +789,7 @@ class nsXULPopupManager final : public nsIDOMEventListener,
   nsCOMPtr<nsIWidget> mWidget;
 
   // range parent and offset set in SetTriggerEvent
-  nsCOMPtr<nsINode> mRangeParent;
+  nsCOMPtr<nsIContent> mRangeParentContent;
   int32_t mRangeOffset;
   // Device pixels relative to the showing popup's presshell's
   // root prescontext's root frame.
@@ -812,9 +813,6 @@ class nsXULPopupManager final : public nsIDOMEventListener,
   // the popup that is currently being opened, stored only during the
   // popupshowing event
   nsCOMPtr<nsIContent> mOpeningPopup;
-
-  // If true, all popups won't hide automatically on blur
-  static bool sDevtoolsDisableAutoHide;
 };
 
 #endif

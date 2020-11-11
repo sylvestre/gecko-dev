@@ -17,6 +17,7 @@
 #include "DrawCommand.h"
 #include "FilterNodeCapture.h"
 #include "Logging.h"
+#include "nsRegion.h"
 
 namespace mozilla {
 namespace gfx {
@@ -38,7 +39,7 @@ class StrokeOptionsCommand : public DrawingCommand {
     }
   }
 
-  virtual ~StrokeOptionsCommand() {}
+  virtual ~StrokeOptionsCommand() = default;
 
  protected:
   StrokeOptions mStrokeOptions;
@@ -67,6 +68,10 @@ class StoredPattern {
       case PatternType::RADIAL_GRADIENT:
         new (mRadial) RadialGradientPattern(
             *static_cast<const RadialGradientPattern*>(&aPattern));
+        return;
+      case PatternType::CONIC_GRADIENT:
+        new (mConic) ConicGradientPattern(
+            *static_cast<const ConicGradientPattern*>(&aPattern));
         return;
     }
   }
@@ -98,6 +103,7 @@ class StoredPattern {
     char mColor[sizeof(ColorPattern)];
     char mLinear[sizeof(LinearGradientPattern)];
     char mRadial[sizeof(RadialGradientPattern)];
+    char mConic[sizeof(ConicGradientPattern)];
     char mSurface[sizeof(SurfacePattern)];
   };
 };
@@ -125,7 +131,7 @@ class DrawSurfaceCommand : public DrawingCommand {
     aDT->DrawSurface(mSurface, mDest, mSource, mSurfOptions, mOptions);
   }
 
-  void Log(TreeLog& aStream) const override {
+  void Log(TreeLog<>& aStream) const override {
     aStream << "[DrawSurface surf=" << mSurface;
     aStream << " dest=" << mDest;
     aStream << " src=" << mSource;
@@ -148,7 +154,7 @@ class DrawSurfaceCommand : public DrawingCommand {
 class DrawSurfaceWithShadowCommand : public DrawingCommand {
  public:
   DrawSurfaceWithShadowCommand(SourceSurface* aSurface, const Point& aDest,
-                               const Color& aColor, const Point& aOffset,
+                               const DeviceColor& aColor, const Point& aOffset,
                                Float aSigma, CompositionOp aOperator)
       : mSurface(aSurface),
         mDest(aDest),
@@ -171,7 +177,7 @@ class DrawSurfaceWithShadowCommand : public DrawingCommand {
                                mOperator);
   }
 
-  void Log(TreeLog& aStream) const override {
+  void Log(TreeLog<>& aStream) const override {
     aStream << "[DrawSurfaceWithShadow surf=" << mSurface;
     aStream << " dest=" << mDest;
     aStream << " color=" << mColor;
@@ -187,7 +193,7 @@ class DrawSurfaceWithShadowCommand : public DrawingCommand {
  private:
   RefPtr<SourceSurface> mSurface;
   Point mDest;
-  Color mColor;
+  DeviceColor mColor;
   Point mOffset;
   Float mSigma;
   CompositionOp mOperator;
@@ -223,7 +229,7 @@ class DrawFilterCommand : public DrawingCommand {
     aDT->DrawFilter(filter, mSourceRect, mDestPoint, mOptions);
   }
 
-  void Log(TreeLog& aStream) const override {
+  void Log(TreeLog<>& aStream) const override {
     aStream << "[DrawFilter surf=" << mFilter;
     aStream << " src=" << mSourceRect;
     aStream << " dest=" << mDestPoint;
@@ -255,7 +261,7 @@ class ClearRectCommand : public DrawingCommand {
     aDT->ClearRect(mRect);
   }
 
-  void Log(TreeLog& aStream) const override {
+  void Log(TreeLog<>& aStream) const override {
     aStream << "[ClearRect rect=" << mRect << "]";
   }
 
@@ -291,7 +297,7 @@ class CopySurfaceCommand : public DrawingCommand {
                      IntPoint(uint32_t(dest.x), uint32_t(dest.y)));
   }
 
-  void Log(TreeLog& aStream) const override {
+  void Log(TreeLog<>& aStream) const override {
     aStream << "[CopySurface surf=" << mSurface;
     aStream << " src=" << mSourceRect;
     aStream << " dest=" << mDestination;
@@ -323,7 +329,7 @@ class CopyRectCommand : public DrawingCommand {
     aDT->CopyRect(mSourceRect, mDestination);
   }
 
-  void Log(TreeLog& aStream) const override {
+  void Log(TreeLog<>& aStream) const override {
     aStream << "[CopyRect src=" << mSourceRect;
     aStream << " dest=" << mDestination;
     aStream << "]";
@@ -353,7 +359,7 @@ class FillRectCommand : public DrawingCommand {
     aDT->FillRect(mRect, mPattern, mOptions);
   }
 
-  void Log(TreeLog& aStream) const override {
+  void Log(TreeLog<>& aStream) const override {
     aStream << "[FillRect rect=" << mRect;
     aStream << " pattern=" << mPattern.Get();
     aStream << " opt=" << mOptions;
@@ -365,6 +371,38 @@ class FillRectCommand : public DrawingCommand {
 
  private:
   Rect mRect;
+  StoredPattern mPattern;
+  DrawOptions mOptions;
+};
+
+class FillRoundedRectCommand : public DrawingCommand {
+ public:
+  FillRoundedRectCommand(const RoundedRect& aRect, const Pattern& aPattern,
+                         const DrawOptions& aOptions)
+      : mRect(aRect), mPattern(aPattern), mOptions(aOptions) {}
+
+  CommandType GetType() const override { return FillRoundedRectCommand::Type; }
+
+  void CloneInto(CaptureCommandList* aList) override {
+    CLONE_INTO(FillRoundedRectCommand)(mRect, mPattern, mOptions);
+  }
+
+  void ExecuteOnDT(DrawTarget* aDT, const Matrix*) const override {
+    aDT->FillRoundedRect(mRect, mPattern, mOptions);
+  }
+
+  void Log(TreeLog<>& aStream) const override {
+    aStream << "[FillRoundedRect rect=" << mRect.rect;
+    aStream << " pattern=" << mPattern.Get();
+    aStream << " opt=" << mOptions;
+    aStream << "]";
+  }
+
+  static const bool AffectsSnapshot = true;
+  static const CommandType Type = CommandType::FILLROUNDEDRECT;
+
+ private:
+  RoundedRect mRect;
   StoredPattern mPattern;
   DrawOptions mOptions;
 };
@@ -389,7 +427,7 @@ class StrokeRectCommand : public StrokeOptionsCommand {
     aDT->StrokeRect(mRect, mPattern, mStrokeOptions, mOptions);
   }
 
-  void Log(TreeLog& aStream) const override {
+  void Log(TreeLog<>& aStream) const override {
     aStream << "[StrokeRect rect=" << mRect;
     aStream << " pattern=" << mPattern.Get();
     aStream << " opt=" << mOptions;
@@ -428,7 +466,7 @@ class StrokeLineCommand : public StrokeOptionsCommand {
     aDT->StrokeLine(mStart, mEnd, mPattern, mStrokeOptions, mOptions);
   }
 
-  void Log(TreeLog& aStream) const override {
+  void Log(TreeLog<>& aStream) const override {
     aStream << "[StrokeLine start=" << mStart;
     aStream << " end=" << mEnd;
     aStream << " pattern=" << mPattern.Get();
@@ -464,7 +502,7 @@ class FillCommand : public DrawingCommand {
     aDT->Fill(mPath, mPattern, mOptions);
   }
 
-  void Log(TreeLog& aStream) const override {
+  void Log(TreeLog<>& aStream) const override {
     aStream << "[FillCommand path=" << mPath;
     aStream << " pattern=" << mPattern.Get();
     aStream << " opt=" << mOptions;
@@ -500,7 +538,7 @@ class StrokeCommand : public StrokeOptionsCommand {
     aDT->Stroke(mPath, mPattern, mStrokeOptions, mOptions);
   }
 
-  void Log(TreeLog& aStream) const override {
+  void Log(TreeLog<>& aStream) const override {
     aStream << "[Stroke path=" << mPath;
     aStream << " pattern=" << mPattern.Get();
     aStream << " opt=" << mOptions;
@@ -545,7 +583,7 @@ class FillGlyphsCommand : public DrawingCommand {
     aDT->FillGlyphs(mFont, buf, mPattern, mOptions);
   }
 
-  void Log(TreeLog& aStream) const override {
+  void Log(TreeLog<>& aStream) const override {
     aStream << "[FillGlyphs font=" << mFont;
     aStream << " glyphCount=" << mGlyphs.size();
     aStream << " pattern=" << mPattern.Get();
@@ -598,7 +636,7 @@ class StrokeGlyphsCommand : public StrokeOptionsCommand {
     aDT->StrokeGlyphs(mFont, buf, mPattern, mStrokeOptions, mOptions);
   }
 
-  void Log(TreeLog& aStream) const override {
+  void Log(TreeLog<>& aStream) const override {
     aStream << "[StrokeGlyphs font=" << mFont;
     aStream << " glyphCount=" << mGlyphs.size();
     aStream << " pattern=" << mPattern.Get();
@@ -632,7 +670,7 @@ class MaskCommand : public DrawingCommand {
     aDT->Mask(mSource, mMask, mOptions);
   }
 
-  void Log(TreeLog& aStream) const override {
+  void Log(TreeLog<>& aStream) const override {
     aStream << "[Mask source=" << mSource.Get();
     aStream << " mask=" << mMask.Get();
     aStream << " opt=" << mOptions;
@@ -667,7 +705,7 @@ class MaskSurfaceCommand : public DrawingCommand {
     aDT->MaskSurface(mSource, mMask, mOffset, mOptions);
   }
 
-  void Log(TreeLog& aStream) const override {
+  void Log(TreeLog<>& aStream) const override {
     aStream << "[Mask source=" << mSource.Get();
     aStream << " mask=" << mMask;
     aStream << " offset=" << &mOffset;
@@ -700,7 +738,7 @@ class PushClipCommand : public DrawingCommand {
     aDT->PushClip(mPath);
   }
 
-  void Log(TreeLog& aStream) const override {
+  void Log(TreeLog<>& aStream) const override {
     aStream << "[PushClip path=" << mPath << "]";
   }
 
@@ -725,7 +763,7 @@ class PushClipRectCommand : public DrawingCommand {
     aDT->PushClipRect(mRect);
   }
 
-  void Log(TreeLog& aStream) const override {
+  void Log(TreeLog<>& aStream) const override {
     aStream << "[PushClipRect rect=" << mRect << "]";
   }
 
@@ -760,7 +798,7 @@ class PushLayerCommand : public DrawingCommand {
                    mCopyBackground);
   }
 
-  void Log(TreeLog& aStream) const override {
+  void Log(TreeLog<>& aStream) const override {
     aStream << "[PushLayer opaque=" << mOpaque;
     aStream << " opacity=" << mOpacity;
     aStream << " mask=" << mMask;
@@ -784,7 +822,7 @@ class PushLayerCommand : public DrawingCommand {
 
 class PopClipCommand : public DrawingCommand {
  public:
-  PopClipCommand() {}
+  PopClipCommand() = default;
 
   CommandType GetType() const override { return PopClipCommand::Type; }
 
@@ -796,7 +834,7 @@ class PopClipCommand : public DrawingCommand {
     aDT->PopClip();
   }
 
-  void Log(TreeLog& aStream) const override { aStream << "[PopClip]"; }
+  void Log(TreeLog<>& aStream) const override { aStream << "[PopClip]"; }
 
   static const bool AffectsSnapshot = false;
   static const CommandType Type = CommandType::POPCLIP;
@@ -804,7 +842,7 @@ class PopClipCommand : public DrawingCommand {
 
 class PopLayerCommand : public DrawingCommand {
  public:
-  PopLayerCommand() {}
+  PopLayerCommand() = default;
 
   CommandType GetType() const override { return PopLayerCommand::Type; }
 
@@ -816,7 +854,7 @@ class PopLayerCommand : public DrawingCommand {
     aDT->PopLayer();
   }
 
-  void Log(TreeLog& aStream) const override { aStream << "[PopLayer]"; }
+  void Log(TreeLog<>& aStream) const override { aStream << "[PopLayer]"; }
 
   static const bool AffectsSnapshot = true;
   static const CommandType Type = CommandType::POPLAYER;
@@ -835,8 +873,7 @@ class SetTransformCommand : public DrawingCommand {
     CLONE_INTO(SetTransformCommand)(mTransform);
   }
 
-  virtual void ExecuteOnDT(DrawTarget* aDT,
-                           const Matrix* aMatrix) const override {
+  void ExecuteOnDT(DrawTarget* aDT, const Matrix* aMatrix) const override {
     if (aMatrix) {
       aDT->SetTransform(mTransform * (*aMatrix));
     } else {
@@ -844,7 +881,7 @@ class SetTransformCommand : public DrawingCommand {
     }
   }
 
-  void Log(TreeLog& aStream) const override {
+  void Log(TreeLog<>& aStream) const override {
     aStream << "[SetTransform transform=" << mTransform << "]";
   }
 
@@ -870,12 +907,11 @@ class SetPermitSubpixelAACommand : public DrawingCommand {
     CLONE_INTO(SetPermitSubpixelAACommand)(mPermitSubpixelAA);
   }
 
-  virtual void ExecuteOnDT(DrawTarget* aDT,
-                           const Matrix* aMatrix) const override {
+  void ExecuteOnDT(DrawTarget* aDT, const Matrix* aMatrix) const override {
     aDT->SetPermitSubpixelAA(mPermitSubpixelAA);
   }
 
-  void Log(TreeLog& aStream) const override {
+  void Log(TreeLog<>& aStream) const override {
     aStream << "[SetPermitSubpixelAA permitSubpixelAA=" << mPermitSubpixelAA
             << "]";
   }
@@ -889,7 +925,7 @@ class SetPermitSubpixelAACommand : public DrawingCommand {
 
 class FlushCommand : public DrawingCommand {
  public:
-  explicit FlushCommand() {}
+  FlushCommand() = default;
 
   CommandType GetType() const override { return FlushCommand::Type; }
 
@@ -901,7 +937,7 @@ class FlushCommand : public DrawingCommand {
     aDT->Flush();
   }
 
-  void Log(TreeLog& aStream) const override { aStream << "[Flush]"; }
+  void Log(TreeLog<>& aStream) const override { aStream << "[Flush]"; }
 
   static const bool AffectsSnapshot = false;
   static const CommandType Type = CommandType::FLUSH;
@@ -921,7 +957,7 @@ class BlurCommand : public DrawingCommand {
     aDT->Blur(mBlur);
   }
 
-  void Log(TreeLog& aStream) const override { aStream << "[Blur]"; }
+  void Log(TreeLog<>& aStream) const override { aStream << "[Blur]"; }
 
   static const bool AffectsSnapshot = true;
   static const CommandType Type = CommandType::BLUR;
@@ -944,7 +980,7 @@ class PadEdgesCommand : public DrawingCommand {
     aDT->PadEdges(mRegion);
   }
 
-  void Log(TreeLog& aStream) const override { aStream << "[PADEDGES]"; }
+  void Log(TreeLog<>& aStream) const override { aStream << "[PADEDGES]"; }
 
   static const bool AffectsSnapshot = true;
   static const CommandType Type = CommandType::PADEDGES;

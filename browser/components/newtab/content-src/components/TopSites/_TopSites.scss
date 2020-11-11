@@ -1,6 +1,5 @@
 $top-sites-size: $grid-unit;
-$top-sites-border-radius: 6px;
-$top-sites-title-height: 30px;
+$top-sites-border-radius: 4px;
 $top-sites-vertical-space: 8px;
 $screenshot-size: cover;
 $rich-icon-size: 96px;
@@ -10,12 +9,6 @@ $default-icon-offset: 6px;
 $half-base-gutter: $base-gutter / 2;
 $hover-transition-duration: 150ms;
 
-.top-sites {
-  // Take back the margin from the bottom row of vertical spacing as well as the
-  // extra whitespace below the title text as it's vertically centered.
-  margin-bottom: $section-spacing - ($top-sites-vertical-space + $top-sites-title-height / 3);
-}
-
 .top-sites-list {
   list-style: none;
   margin: 0 (-$half-base-gutter);
@@ -23,11 +16,11 @@ $hover-transition-duration: 150ms;
 
   // Two columns
   @media (max-width: $break-point-medium) {
-    :nth-child(2n+1) {
+    > :nth-child(2n+1) {
       @include context-menu-open-middle;
     }
 
-    :nth-child(2n) {
+    > :nth-child(2n) {
       @include context-menu-open-left;
     }
   }
@@ -95,7 +88,7 @@ $hover-transition-duration: 150ms;
   }
 
   &:not(.dnd-active) {
-    .top-site-outer:-moz-any(.active, :focus, :hover) {
+    .top-site-outer:is(.active, :focus, :hover) {
       .tile {
         @include fade-in;
       }
@@ -119,7 +112,7 @@ $hover-transition-duration: 150ms;
       display: block;
       outline: none;
 
-      &:-moz-any(.active, :focus) {
+      &:is(.active, :focus) {
         .tile {
           @include fade-in;
         }
@@ -242,8 +235,7 @@ $hover-transition-duration: 150ms;
   .title {
     color: var(--newtab-topsites-label-color);
     font: message-box;
-    height: $top-sites-title-height;
-    line-height: $top-sites-title-height;
+    padding-top: 4px;
     text-align: center;
     width: $top-sites-size;
     position: relative;
@@ -252,21 +244,29 @@ $hover-transition-duration: 150ms;
       fill: var(--newtab-icon-tertiary-color);
       inset-inline-start: 0;
       position: absolute;
-      top: 10px;
+      top: 0.5em;
     }
 
     span {
-      height: $top-sites-title-height;
       display: block;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
 
-    &.pinned {
+    &.has-icon {
       span {
         padding: 0 13px;
       }
+    }
+
+    .sponsored-label {
+      color: $grey-50;
+      font-size: 0.9em;
+    }
+
+    &:not(.sponsored) > .sponsored-label {
+      visibility: hidden;
     }
   }
 
@@ -307,8 +307,6 @@ $hover-transition-duration: 150ms;
     left: 0;
     margin: 0 auto;
     max-height: calc(100% - 40px);
-    overflow-y: auto;
-    overflow-x: hidden;
     position: fixed;
     right: 0;
     top: 40px;
@@ -406,10 +404,6 @@ $hover-transition-duration: 150ms;
       font-size: 13px;
       margin-top: 4px;
       cursor: pointer;
-
-      &:hover {
-        text-decoration: underline;
-      }
     }
 
     .custom-image-input-container {
@@ -531,7 +525,7 @@ $hover-transition-duration: 150ms;
 
   // prevent text selection of keyword label when clicking to select
   .title {
-    -moz-user-select: none;
+    user-select: none;
   }
 
   // CSS styled checkbox

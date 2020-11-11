@@ -12,8 +12,6 @@ const LATEST_STORAGE_VERSION = 3;
 const EXPIRATION_MIN_CHUNK_SIZE = 50;
 const EXPIRATION_INTERVAL_SECS = 3600;
 
-var gRemoteThumbId = 0;
-
 // If a request for a thumbnail comes in and we find one that is "stale"
 // (or don't find one at all) we automatically queue a request to generate a
 // new one.
@@ -32,22 +30,28 @@ XPCOMUtils.defineLazyGlobalGetters(this, ["FileReader"]);
 
 XPCOMUtils.defineLazyModuleGetters(this, {
   Services: "resource://gre/modules/Services.jsm",
-  FileUtils: "resource://gre/modules/FileUtils.jsm",
   PlacesUtils: "resource://gre/modules/PlacesUtils.jsm",
-  Deprecated: "resource://gre/modules/Deprecated.jsm",
   AsyncShutdown: "resource://gre/modules/AsyncShutdown.jsm",
   PageThumbUtils: "resource://gre/modules/PageThumbUtils.jsm",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.jsm",
 });
 
-XPCOMUtils.defineLazyServiceGetter(this, "gUpdateTimerManager",
-  "@mozilla.org/updates/timer-manager;1", "nsIUpdateTimerManager");
+XPCOMUtils.defineLazyServiceGetter(
+  this,
+  "gUpdateTimerManager",
+  "@mozilla.org/updates/timer-manager;1",
+  "nsIUpdateTimerManager"
+);
 
-XPCOMUtils.defineLazyServiceGetter(this, "PageThumbsStorageService",
-  "@mozilla.org/thumbnails/pagethumbs-service;1", "nsIPageThumbsStorageService");
+XPCOMUtils.defineLazyServiceGetter(
+  this,
+  "PageThumbsStorageService",
+  "@mozilla.org/thumbnails/pagethumbs-service;1",
+  "nsIPageThumbsStorageService"
+);
 
 /**
- * Utilities for dealing with promises and Task.jsm
+ * Utilities for dealing with promises.
  */
 const TaskUtils = {
   /**
@@ -71,9 +75,6 @@ const TaskUtils = {
     });
   },
 };
-
-
-
 
 /**
  * Singleton providing functionality for capturing web page thumbnails and for
@@ -99,7 +100,7 @@ var PageThumbs = {
    * The static host to use for thumbnail urls.
    */
   get staticHost() {
-    return "thumbnail";
+    return "thumbnails";
   },
 
   /**
@@ -132,22 +133,28 @@ var PageThumbs = {
    * @return The thumbnail image's url.
    */
   getThumbnailURL: function PageThumbs_getThumbnailURL(aUrl) {
-    return this.scheme + "://" + this.staticHost +
-           "/?url=" + encodeURIComponent(aUrl) +
-           "&revision=" + PageThumbsStorage.getRevision(aUrl);
+    return (
+      this.scheme +
+      "://" +
+      this.staticHost +
+      "/?url=" +
+      encodeURIComponent(aUrl) +
+      "&revision=" +
+      PageThumbsStorage.getRevision(aUrl)
+    );
   },
 
-   /**
-    * Gets the path of the thumbnail file for a given web page's
-    * url. This file may or may not exist depending on whether the
-    * thumbnail has been captured or not.
-    *
-    * @param aUrl The web page's url.
-    * @return The path of the thumbnail file.
-    */
-   getThumbnailPath: function PageThumbs_getThumbnailPath(aUrl) {
-     return PageThumbsStorageService.getFilePathForURL(aUrl);
-   },
+  /**
+   * Gets the path of the thumbnail file for a given web page's
+   * url. This file may or may not exist depending on whether the
+   * thumbnail has been captured or not.
+   *
+   * @param aUrl The web page's url.
+   * @return The path of the thumbnail file.
+   */
+  getThumbnailPath: function PageThumbs_getThumbnailPath(aUrl) {
+    return PageThumbsStorageService.getFilePathForURL(aUrl);
+  },
 
   /**
    * Asynchronously returns a thumbnail as a blob for the given
@@ -163,14 +170,14 @@ var PageThumbs = {
     }
 
     return new Promise(resolve => {
-
-      let canvas = this.createCanvas(aBrowser.contentWindow);
-      this.captureToCanvas(aBrowser, canvas, () => {
-        canvas.toBlob(blob => {
-          resolve(blob, this.contentType);
-        });
-      });
-
+      let canvas = this.createCanvas(aBrowser.ownerGlobal);
+      this.captureToCanvas(aBrowser, canvas)
+        .then(() => {
+          canvas.toBlob(blob => {
+            resolve(blob, this.contentType);
+          });
+        })
+        .catch(e => Cu.reportError(e));
     });
   },
 
@@ -183,23 +190,32 @@ var PageThumbs = {
    * @param aCanvas The canvas to draw to. The thumbnail will be scaled to match
    *   the dimensions of this canvas. If callers pass a 0x0 canvas, the canvas
    *   will be resized to default thumbnail dimensions just prior to painting.
-   * @param aCallback (optional) A callback invoked once the thumbnail has been
-   *   rendered to aCanvas.
    * @param aArgs (optional) Additional named parameters:
    *   fullScale - request that a non-downscaled image be returned.
+   *   isImage - indicate that this should be treated as an image url.
+   *   backgroundColor - background color to draw behind images.
+   *   targetWidth - desired width for images.
+   *   isBackgroundThumb - true if request is from the background thumb service.
+   * @param aSkipTelemetry skip recording telemetry
    */
-  captureToCanvas(aBrowser, aCanvas, aCallback, aArgs) {
+  async captureToCanvas(aBrowser, aCanvas, aArgs, aSkipTelemetry = false) {
     let telemetryCaptureTime = new Date();
     let args = {
       fullScale: aArgs ? aArgs.fullScale : false,
+      isImage: aArgs ? aArgs.isImage : false,
+      backgroundColor:
+        aArgs?.backgroundColor ?? PageThumbUtils.THUMBNAIL_BG_COLOR,
+      targetWidth: aArgs?.targetWidth ?? PageThumbUtils.THUMBNAIL_DEFAULT_SIZE,
+      isBackgroundThumb: aArgs ? aArgs.isBackgroundThumb : false,
     };
-    this._captureToCanvas(aBrowser, aCanvas, args, (aCanvas) => {
-      Services.telemetry
-              .getHistogramById("FX_THUMBNAILS_CAPTURE_TIME_MS")
-              .add(new Date() - telemetryCaptureTime);
-      if (aCallback) {
-        aCallback(aCanvas);
+
+    return this._captureToCanvas(aBrowser, aCanvas, args).then(() => {
+      if (!aSkipTelemetry) {
+        Services.telemetry
+          .getHistogramById("FX_THUMBNAILS_CAPTURE_TIME_MS")
+          .add(new Date() - telemetryCaptureTime);
       }
+      return aCanvas;
     });
   },
 
@@ -211,65 +227,61 @@ var PageThumbs = {
    * content being displayed.
    *
    * @param aBrowser The target browser
-   * @param aCallback(aResult) A callback invoked once security checks have
-   *   completed. aResult is a boolean indicating the combined result of the
-   *   security checks performed.
    */
-  shouldStoreThumbnail(aBrowser, aCallback) {
+  async shouldStoreThumbnail(aBrowser) {
     // Don't capture in private browsing mode.
     if (PrivateBrowsingUtils.isBrowserPrivate(aBrowser)) {
-      aCallback(false);
-      return;
+      return false;
     }
     if (aBrowser.isRemoteBrowser) {
-      let mm = aBrowser.messageManager;
-      let resultFunc = function(aMsg) {
-        mm.removeMessageListener("Browser:Thumbnail:CheckState:Response", resultFunc);
-        aCallback(aMsg.data.result);
-      };
-      mm.addMessageListener("Browser:Thumbnail:CheckState:Response", resultFunc);
-      try {
-        mm.sendAsyncMessage("Browser:Thumbnail:CheckState");
-      } catch (ex) {
-        Cu.reportError(ex);
-        // If the message manager is not able send our message, taking a content
-        // screenshot is also not going to work: return false.
-        resultFunc({ data: { result: false } });
+      if (aBrowser.browsingContext.currentWindowGlobal) {
+        let thumbnailsActor = aBrowser.browsingContext.currentWindowGlobal.getActor(
+          "Thumbnails"
+        );
+        return thumbnailsActor
+          .sendQuery("Browser:Thumbnail:CheckState")
+          .catch(err => {
+            return false;
+          });
       }
-    } else {
-      aCallback(PageThumbUtils.shouldStoreContentThumbnail(aBrowser.contentDocument,
-                                                           aBrowser.docShell));
+      return false;
     }
+    return PageThumbUtils.shouldStoreContentThumbnail(
+      aBrowser.contentDocument,
+      aBrowser.docShell
+    );
   },
 
   // The background thumbnail service captures to canvas but doesn't want to
   // participate in this service's telemetry, which is why this method exists.
-  _captureToCanvas(aBrowser, aCanvas, aArgs, aCallback) {
+  async _captureToCanvas(aBrowser, aCanvas, aArgs) {
     if (aBrowser.isRemoteBrowser) {
-      (async () => {
-        let data =
-          await this._captureRemoteThumbnail(aBrowser, aCanvas.width,
-                                             aCanvas.height, aArgs);
-        let canvas = data.thumbnail;
-        let ctx = canvas.getContext("2d");
-        let imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        aCanvas.width = canvas.width;
-        aCanvas.height = canvas.height;
+      let thumbnail = await this._captureRemoteThumbnail(
+        aBrowser,
+        aCanvas.width,
+        aCanvas.height,
+        aArgs
+      );
+
+      // 'thumbnail' can be null if the browser has navigated away after starting
+      // the thumbnail request, so we check it here.
+      if (thumbnail) {
+        let ctx = thumbnail.getContext("2d");
+        let imgData = ctx.getImageData(0, 0, thumbnail.width, thumbnail.height);
+        aCanvas.width = thumbnail.width;
+        aCanvas.height = thumbnail.height;
         aCanvas.getContext("2d").putImageData(imgData, 0, 0);
-        if (aCallback) {
-          aCallback(aCanvas);
-        }
-      })();
-      return;
+      }
+
+      return aCanvas;
     }
     // The content is a local page, grab a thumbnail sync.
-    PageThumbUtils.createSnapshotThumbnail(aBrowser.contentWindow,
-                                           aCanvas,
-                                           aArgs);
-
-    if (aCallback) {
-      aCallback(aCanvas);
-    }
+    PageThumbUtils.createSnapshotThumbnail(
+      aBrowser.contentWindow,
+      aCanvas,
+      aArgs
+    );
+    return aCanvas;
   },
 
   /**
@@ -280,66 +292,80 @@ var PageThumbs = {
    * @param aHeight The desired canvas height.
    * @param aArgs (optional) Additional named parameters:
    *   fullScale - request that a non-downscaled image be returned.
+   *   isImage - indicate that this should be treated as an image url.
+   *   backgroundColor - background color to draw behind images.
+   *   targetWidth - desired width for images.
+   *   isBackgroundThumb - true if request is from the background thumb service.
    * @return a promise
    */
-  _captureRemoteThumbnail(aBrowser, aWidth, aHeight, aArgs) {
-    return new Promise(resolve => {
+  async _captureRemoteThumbnail(aBrowser, aWidth, aHeight, aArgs) {
+    if (!aBrowser.browsingContext || !aBrowser.parentElement) {
+      return null;
+    }
 
-      // The index we send with the request so we can identify the
-      // correct response.
-      let index = gRemoteThumbId++;
+    let thumbnailsActor = aBrowser.browsingContext.currentWindowGlobal.getActor(
+      aArgs.isBackgroundThumb ? "BackgroundThumbnails" : "Thumbnails"
+    );
+    let contentInfo = await thumbnailsActor.sendQuery(
+      "Browser:Thumbnail:ContentInfo",
+      {
+        isImage: aArgs.isImage,
+        targetWidth: aArgs.targetWidth,
+        backgroundColor: aArgs.backgroundColor,
+      }
+    );
 
-      // Thumbnail request response handler
-      let mm = aBrowser.messageManager;
+    let contentWidth = contentInfo.width;
+    let contentHeight = contentInfo.height;
+    if (contentWidth == 0 || contentHeight == 0) {
+      throw new Error("IMAGE_ZERO_DIMENSION");
+    }
 
-      // Browser:Thumbnail:Response handler
-      let thumbFunc = function(aMsg) {
-        // Ignore events unrelated to our request
-        if (aMsg.data.id != index) {
-          return;
-        }
+    let doc = aBrowser.parentElement.ownerDocument;
+    let thumbnail = doc.createElementNS(
+      PageThumbUtils.HTML_NAMESPACE,
+      "canvas"
+    );
 
-        mm.removeMessageListener("Browser:Thumbnail:Response", thumbFunc);
-        let imageBlob = aMsg.data.thumbnail;
-        let doc = aBrowser.parentElement.ownerDocument;
-        let reader = new FileReader();
-        reader.addEventListener("loadend", function() {
-          let image = doc.createElementNS(PageThumbUtils.HTML_NAMESPACE, "img");
-          image.onload = function() {
-            let thumbnail = doc.createElementNS(PageThumbUtils.HTML_NAMESPACE, "canvas");
-            thumbnail.width = image.naturalWidth;
-            thumbnail.height = image.naturalHeight;
-            let ctx = thumbnail.getContext("2d");
-            ctx.drawImage(image, 0, 0);
-            resolve({
-              thumbnail,
-            });
-          };
-          image.src = reader.result;
-        });
-        // xxx wish there was a way to skip this encoding step
-        reader.readAsDataURL(imageBlob);
-      };
+    let image;
+    if (contentInfo.imageData) {
+      thumbnail.width = contentWidth;
+      thumbnail.height = contentHeight;
 
-      // Send a thumbnail request
-      mm.addMessageListener("Browser:Thumbnail:Response", thumbFunc);
-      mm.sendAsyncMessage("Browser:Thumbnail:Request", {
-        canvasWidth: aWidth,
-        canvasHeight: aHeight,
-        background: PageThumbUtils.THUMBNAIL_BG_COLOR,
-        id: index,
-        additionalArgs: aArgs,
+      image = new aBrowser.ownerGlobal.Image();
+      await new Promise(resolve => {
+        image.onload = resolve;
+        image.src = contentInfo.imageData;
       });
+    } else {
+      let fullScale = aArgs ? aArgs.fullScale : false;
+      let scale = fullScale
+        ? 1
+        : Math.min(Math.max(aWidth / contentWidth, aHeight / contentHeight), 1);
 
-    });
+      image = await aBrowser.drawSnapshot(
+        0,
+        0,
+        contentWidth,
+        contentHeight,
+        scale,
+        aArgs.backgroundColor
+      );
+
+      thumbnail.width = fullScale ? contentWidth : aWidth;
+      thumbnail.height = fullScale ? contentHeight : aHeight;
+    }
+
+    thumbnail.getContext("2d").drawImage(image, 0, 0);
+
+    return thumbnail;
   },
 
   /**
    * Captures a thumbnail for the given browser and stores it to the cache.
    * @param aBrowser The browser to capture a thumbnail for.
-   * @param aCallback The function to be called when finished (optional).
    */
-  captureAndStore: function PageThumbs_captureAndStore(aBrowser, aCallback) {
+  captureAndStore: async function PageThumbs_captureAndStore(aBrowser) {
     if (!this._prefEnabled()) {
       return;
     }
@@ -348,39 +374,30 @@ var PageThumbs = {
     let originalURL;
     let channelError = false;
 
-    (async () => {
-      if (!aBrowser.isRemoteBrowser) {
-        let channel = aBrowser.docShell.currentDocumentChannel;
-        originalURL = channel.originalURI.spec;
-        // see if this was an error response.
-        channelError = PageThumbUtils.isChannelErrorResponse(channel);
-      } else {
-        let resp = await new Promise(resolve => {
-          let mm = aBrowser.messageManager;
-          let respName = "Browser:Thumbnail:GetOriginalURL:Response";
-          mm.addMessageListener(respName, function onResp(msg) {
-            mm.removeMessageListener(respName, onResp);
-            resolve(msg.data);
-          });
-          mm.sendAsyncMessage("Browser:Thumbnail:GetOriginalURL");
-        });
-        originalURL = resp.originalURL || url;
-        channelError = resp.channelError;
-      }
+    if (!aBrowser.isRemoteBrowser) {
+      let channel = aBrowser.docShell.currentDocumentChannel;
+      originalURL = channel.originalURI.spec;
+      // see if this was an error response.
+      channelError = PageThumbUtils.isChannelErrorResponse(channel);
+    } else {
+      let thumbnailsActor = aBrowser.browsingContext.currentWindowGlobal.getActor(
+        "Thumbnails"
+      );
+      let resp = await thumbnailsActor.sendQuery(
+        "Browser:Thumbnail:GetOriginalURL"
+      );
 
-      let isSuccess = true;
-      try {
-        let blob = await this.captureToBlob(aBrowser);
-        let buffer = await TaskUtils.readBlob(blob);
-        await this._store(originalURL, url, buffer, channelError);
-      } catch (ex) {
-        Cu.reportError("Exception thrown during thumbnail capture: '" + ex + "'");
-        isSuccess = false;
-      }
-      if (aCallback) {
-        aCallback(isSuccess);
-      }
-    })();
+      originalURL = resp.originalURL || url;
+      channelError = resp.channelError;
+    }
+
+    try {
+      let blob = await this.captureToBlob(aBrowser);
+      let buffer = await TaskUtils.readBlob(blob);
+      await this._store(originalURL, url, buffer, channelError);
+    } catch (ex) {
+      Cu.reportError("Exception thrown during thumbnail capture: '" + ex + "'");
+    }
   },
 
   /**
@@ -390,24 +407,30 @@ var PageThumbs = {
    * such notifications if they want to be notified of an updated thumbnail.
    *
    * @param aBrowser The content window of this browser will be captured.
-   * @param aCallback The function to be called when finished (optional).
    */
-  captureAndStoreIfStale: function PageThumbs_captureAndStoreIfStale(aBrowser, aCallback) {
+  captureAndStoreIfStale: async function PageThumbs_captureAndStoreIfStale(
+    aBrowser
+  ) {
+    if (!aBrowser.currentURI) {
+      return false;
+    }
     let url = aBrowser.currentURI.spec;
-    PageThumbsStorage.isFileRecentForURL(url).then(recent => {
-      if (!recent &&
-          // Careful, the call to PageThumbsStorage is async, so the browser may
-          // have navigated away from the URL or even closed.
-          aBrowser.currentURI &&
-          aBrowser.currentURI.spec == url) {
-        this.captureAndStore(aBrowser, aCallback);
-      } else if (aCallback) {
-        aCallback(true);
-      }
-    }, err => {
-      if (aCallback)
-        aCallback(false);
-    });
+    let recent;
+    try {
+      recent = await PageThumbsStorage.isFileRecentForURL(url);
+    } catch {
+      return false;
+    }
+    if (
+      !recent &&
+      // Careful, the call to PageThumbsStorage is async, so the browser may
+      // have navigated away from the URL or even closed.
+      aBrowser.currentURI &&
+      aBrowser.currentURI.spec == url
+    ) {
+      await this.captureAndStore(aBrowser);
+    }
+    return true;
   },
 
   /**
@@ -420,32 +443,35 @@ var PageThumbs = {
    * @param aData An ArrayBuffer containing the image data.
    * @param aNoOverwrite If true and files for the URLs already exist, the files
    *                     will not be overwritten.
-   * @return {Promise}
    */
-  _store: function PageThumbs__store(aOriginalURL, aFinalURL, aData, aNoOverwrite) {
-    return (async function() {
-      let telemetryStoreTime = new Date();
-      await PageThumbsStorage.writeData(aFinalURL, aData, aNoOverwrite);
-      Services.telemetry.getHistogramById("FX_THUMBNAILS_STORE_TIME_MS")
-        .add(new Date() - telemetryStoreTime);
+  _store: async function PageThumbs__store(
+    aOriginalURL,
+    aFinalURL,
+    aData,
+    aNoOverwrite
+  ) {
+    let telemetryStoreTime = new Date();
+    await PageThumbsStorage.writeData(aFinalURL, aData, aNoOverwrite);
+    Services.telemetry
+      .getHistogramById("FX_THUMBNAILS_STORE_TIME_MS")
+      .add(new Date() - telemetryStoreTime);
 
-      Services.obs.notifyObservers(null, "page-thumbnail:create", aFinalURL);
-      // We've been redirected. Create a copy of the current thumbnail for
-      // the redirect source. We need to do this because:
-      //
-      // 1) Users can drag any kind of links onto the newtab page. If those
-      //    links redirect to a different URL then we want to be able to
-      //    provide thumbnails for both of them.
-      //
-      // 2) The newtab page should actually display redirect targets, only.
-      //    Because of bug 559175 this information can get lost when using
-      //    Sync and therefore also redirect sources appear on the newtab
-      //    page. We also want thumbnails for those.
-      if (aFinalURL != aOriginalURL) {
-        await PageThumbsStorage.copy(aFinalURL, aOriginalURL, aNoOverwrite);
-        Services.obs.notifyObservers(null, "page-thumbnail:create", aOriginalURL);
-      }
-    })();
+    Services.obs.notifyObservers(null, "page-thumbnail:create", aFinalURL);
+    // We've been redirected. Create a copy of the current thumbnail for
+    // the redirect source. We need to do this because:
+    //
+    // 1) Users can drag any kind of links onto the newtab page. If those
+    //    links redirect to a different URL then we want to be able to
+    //    provide thumbnails for both of them.
+    //
+    // 2) The newtab page should actually display redirect targets, only.
+    //    Because of bug 559175 this information can get lost when using
+    //    Sync and therefore also redirect sources appear on the newtab
+    //    page. We also want thumbnails for those.
+    if (aFinalURL != aOriginalURL) {
+      await PageThumbsStorage.copy(aFinalURL, aOriginalURL, aNoOverwrite);
+      Services.obs.notifyObservers(null, "page-thumbnail:create", aOriginalURL);
+    }
   },
 
   /**
@@ -486,7 +512,9 @@ var PageThumbs = {
 
   _prefEnabled: function PageThumbs_prefEnabled() {
     try {
-      return !Services.prefs.getBoolPref("browser.pagethumbnails.capturing_disabled");
+      return !Services.prefs.getBoolPref(
+        "browser.pagethumbnails.capturing_disabled"
+      );
     } catch (e) {
       return true;
     }
@@ -494,17 +522,18 @@ var PageThumbs = {
 };
 
 var PageThumbsStorage = {
-
   ensurePath: function Storage_ensurePath() {
     // Create the directory (ignore any error if the directory
     // already exists). As all writes are done from the PageThumbsWorker
     // thread, which serializes its operations, this ensures that
     // future operations can proceed without having to check whether
     // the directory exists.
-    return PageThumbsWorker.post("makeDir",
-      [PageThumbsStorageService.path, {ignoreExisting: true}]).catch(function onError(aReason) {
-          Cu.reportError("Could not create thumbnails directory" + aReason);
-        });
+    return PageThumbsWorker.post("makeDir", [
+      PageThumbsStorageService.path,
+      { ignoreExisting: true },
+    ]).catch(function onError(aReason) {
+      Cu.reportError("Could not create thumbnails directory" + aReason);
+    });
   },
 
   _revisionTable: {},
@@ -515,8 +544,9 @@ var PageThumbsStorage = {
     // Initialize with a random value and increment on each update. Wrap around
     // modulo _revisionRange, so that even small values carry no meaning.
     let rev = this._revisionTable[aURL];
-    if (rev == null)
+    if (rev == null) {
       rev = Math.floor(Math.random() * this._revisionRange);
+    }
     this._revisionTable[aURL] = (rev + 1) % this._revisionRange;
   },
 
@@ -530,12 +560,12 @@ var PageThumbsStorage = {
   _revisionRange: 8192,
 
   /**
-  * Return a revision tag for the thumbnail stored for a given URL.
-  *
-  * @param aURL The URL spec string
-  * @return A revision tag for the corresponding thumbnail. Returns a changed
-  * value whenever the stored thumbnail changes.
-  */
+   * Return a revision tag for the thumbnail stored for a given URL.
+   *
+   * @param aURL The URL spec string
+   * @return A revision tag for the corresponding thumbnail. Returns a changed
+   * value whenever the stored thumbnail changes.
+   */
   getRevision(aURL) {
     let rev = this._revisionTable[aURL];
     if (rev == null) {
@@ -568,13 +598,19 @@ var PageThumbsStorage = {
         tmpPath: path + ".tmp",
         bytes: aData.byteLength,
         noOverwrite: aNoOverwrite,
-        flush: false, /* thumbnails do not require the level of guarantee provided by flush*/
-      }];
-    return PageThumbsWorker.post("writeAtomic", msg,
+        flush: false /* thumbnails do not require the level of guarantee provided by flush*/,
+      },
+    ];
+    return PageThumbsWorker.post(
+      "writeAtomic",
+      msg,
       msg /* we don't want that message garbage-collected,
            as OS.Shared.Type.void_t.in_ptr.toMsg uses C-level
-           memory tricks to enforce zero-copy*/).
-      then(() => this._updateRevision(aURL), this._eatNoOverwriteError(aNoOverwrite));
+           memory tricks to enforce zero-copy*/
+    ).then(
+      () => this._updateRevision(aURL),
+      this._eatNoOverwriteError(aNoOverwrite)
+    );
   },
 
   /**
@@ -592,8 +628,14 @@ var PageThumbsStorage = {
     let sourceFile = PageThumbsStorageService.getFilePathForURL(aSourceURL);
     let targetFile = PageThumbsStorageService.getFilePathForURL(aTargetURL);
     let options = { noOverwrite: aNoOverwrite };
-    return PageThumbsWorker.post("copy", [sourceFile, targetFile, options]).
-      then(() => this._updateRevision(aTargetURL), this._eatNoOverwriteError(aNoOverwrite));
+    return PageThumbsWorker.post("copy", [
+      sourceFile,
+      targetFile,
+      options,
+    ]).then(
+      () => this._updateRevision(aTargetURL),
+      this._eatNoOverwriteError(aNoOverwrite)
+    );
   },
 
   /**
@@ -602,7 +644,9 @@ var PageThumbsStorage = {
    * @return {Promise}
    */
   remove: function Storage_remove(aURL) {
-    return PageThumbsWorker.post("remove", [PageThumbsStorageService.getFilePathForURL(aURL)]);
+    return PageThumbsWorker.post("remove", [
+      PageThumbsStorageService.getFilePathForURL(aURL),
+    ]);
   },
 
   /**
@@ -629,34 +673,40 @@ var PageThumbsStorage = {
     // to clear the thumbnail wipe.
     AsyncShutdown.profileBeforeChange.addBlocker(
       "PageThumbs: removing all thumbnails",
-      blocker);
+      blocker
+    );
 
     // Start the work only now that `profileBeforeChange` has had
     // a chance to throw an error.
 
-    let promise = PageThumbsWorker.post("wipe", [PageThumbsStorageService.path]);
+    let promise = PageThumbsWorker.post("wipe", [
+      PageThumbsStorageService.path,
+    ]);
     try {
       await promise;
     } finally {
-       // Generally, we will be done much before profileBeforeChange,
-       // so let's not hoard blockers.
-       if ("removeBlocker" in AsyncShutdown.profileBeforeChange) {
-         // `removeBlocker` was added with bug 985655. In the interest
-         // of backporting, let's degrade gracefully if `removeBlocker`
-         // doesn't exist.
-         AsyncShutdown.profileBeforeChange.removeBlocker(blocker);
-       }
+      // Generally, we will be done much before profileBeforeChange,
+      // so let's not hoard blockers.
+      if ("removeBlocker" in AsyncShutdown.profileBeforeChange) {
+        // `removeBlocker` was added with bug 985655. In the interest
+        // of backporting, let's degrade gracefully if `removeBlocker`
+        // doesn't exist.
+        AsyncShutdown.profileBeforeChange.removeBlocker(blocker);
+      }
     }
   },
 
   fileExistsForURL: function Storage_fileExistsForURL(aURL) {
-    return PageThumbsWorker.post("exists", [PageThumbsStorageService.getFilePathForURL(aURL)]);
+    return PageThumbsWorker.post("exists", [
+      PageThumbsStorageService.getFilePathForURL(aURL),
+    ]);
   },
 
   isFileRecentForURL: function Storage_isFileRecentForURL(aURL) {
-    return PageThumbsWorker.post("isFileRecent",
-                                 [PageThumbsStorageService.getFilePathForURL(aURL),
-                                  MAX_THUMBNAIL_AGE_SECS]);
+    return PageThumbsWorker.post("isFileRecent", [
+      PageThumbsStorageService.getFilePathForURL(aURL),
+      MAX_THUMBNAIL_AGE_SECS,
+    ]);
   },
 
   /**
@@ -671,20 +721,14 @@ var PageThumbsStorage = {
    */
   _eatNoOverwriteError: function Storage__eatNoOverwriteError(aNoOverwrite) {
     return function onError(err) {
-      if (!aNoOverwrite ||
-          !(err instanceof OS.File.Error) ||
-          !err.becauseExists) {
+      if (
+        !aNoOverwrite ||
+        !(err instanceof OS.File.Error) ||
+        !err.becauseExists
+      ) {
         throw err;
       }
     };
-  },
-
-  // Deprecated, please do not use
-  getFileForURL: function Storage_getFileForURL_DEPRECATED(aURL) {
-    Deprecated.warning("PageThumbs.getFileForURL is deprecated. Please use PageThumbs.getFilePathForURL and OS.File",
-                       "https://developer.mozilla.org/docs/JavaScript_OS.File");
-    // Note: Once this method has been removed, we can get rid of the dependency towards FileUtils
-    return new FileUtils.File(PageThumbsStorageService.getFilePathForURL(aURL));
   },
 };
 
@@ -737,12 +781,12 @@ var PageThumbsStorageMigrator = {
    */
   migrateToVersion3: function Migrator_migrateToVersion3(
     local = OS.Constants.Path.localProfileDir,
-    roaming = OS.Constants.Path.profileDir) {
-    PageThumbsWorker.post(
-      "moveOrDeleteAllThumbnails",
-      [OS.Path.join(roaming, THUMBNAIL_DIRECTORY),
-       OS.Path.join(local, THUMBNAIL_DIRECTORY)]
-    );
+    roaming = OS.Constants.Path.profileDir
+  ) {
+    PageThumbsWorker.post("moveOrDeleteAllThumbnails", [
+      OS.Path.join(roaming, THUMBNAIL_DIRECTORY),
+      OS.Path.join(local, THUMBNAIL_DIRECTORY),
+    ]);
   },
 };
 
@@ -750,8 +794,11 @@ var PageThumbsExpiration = {
   _filters: [],
 
   init: function Expiration_init() {
-    gUpdateTimerManager.registerTimer("browser-cleanup-thumbnails", this,
-                                      EXPIRATION_INTERVAL_SECS);
+    gUpdateTimerManager.registerTimer(
+      "browser-cleanup-thumbnails",
+      this,
+      EXPIRATION_INTERVAL_SECS
+    );
   },
 
   addFilter: function Expiration_addFilter(aFilter) {
@@ -760,8 +807,9 @@ var PageThumbsExpiration = {
 
   removeFilter: function Expiration_removeFilter(aFilter) {
     let index = this._filters.indexOf(aFilter);
-    if (index > -1)
+    if (index > -1) {
       this._filters.splice(index, 1);
+    }
   },
 
   notify: function Expiration_notify(aTimer) {
@@ -780,37 +828,36 @@ var PageThumbsExpiration = {
 
     function filterCallback(aURLs) {
       urls = urls.concat(aURLs);
-      if (--filtersToWaitFor == 0)
+      if (--filtersToWaitFor == 0) {
         expire();
+      }
     }
 
     for (let filter of this._filters) {
-      if (typeof filter == "function")
+      if (typeof filter == "function") {
         filter(filterCallback);
-      else
+      } else {
         filter.filterForThumbnailExpiration(filterCallback);
+      }
     }
   },
 
   expireThumbnails: function Expiration_expireThumbnails(aURLsToKeep) {
-    let keep = aURLsToKeep.map(url => PageThumbsStorageService.getLeafNameForURL(url));
-    let msg = [
-      PageThumbsStorageService.path,
-      keep,
-      EXPIRATION_MIN_CHUNK_SIZE,
-    ];
-
-    return PageThumbsWorker.post(
-      "expireFilesInDirectory",
-      msg
+    let keep = aURLsToKeep.map(url =>
+      PageThumbsStorageService.getLeafNameForURL(url)
     );
+    let msg = [PageThumbsStorageService.path, keep, EXPIRATION_MIN_CHUNK_SIZE];
+
+    return PageThumbsWorker.post("expireFilesInDirectory", msg);
   },
 };
 
 /**
  * Interface to a dedicated thread handling I/O
  */
-var PageThumbsWorker = new BasePromiseWorker("resource://gre/modules/PageThumbsWorker.js");
+var PageThumbsWorker = new BasePromiseWorker(
+  "resource://gre/modules/PageThumbsWorker.js"
+);
 // As the PageThumbsWorker performs I/O, we can receive instances of
 // OS.File.Error, so we need to install a decoder.
 PageThumbsWorker.ExceptionHandlers["OS.File.Error"] = OS.File.Error.fromMsg;
@@ -830,6 +877,8 @@ var PageThumbsHistoryObserver = {
   onPageChanged() {},
   onDeleteVisits() {},
 
-  QueryInterface: ChromeUtils.generateQI([Ci.nsINavHistoryObserver,
-                                          Ci.nsISupportsWeakReference]),
+  QueryInterface: ChromeUtils.generateQI([
+    "nsINavHistoryObserver",
+    "nsISupportsWeakReference",
+  ]),
 };

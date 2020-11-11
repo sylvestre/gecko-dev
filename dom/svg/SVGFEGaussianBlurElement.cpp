@@ -6,10 +6,9 @@
 
 #include "mozilla/dom/SVGFEGaussianBlurElement.h"
 #include "mozilla/dom/SVGFEGaussianBlurElementBinding.h"
-#include "nsSVGFilterInstance.h"
-#include "nsSVGUtils.h"
+#include "mozilla/SVGFilterInstance.h"
 
-NS_IMPL_NS_NEW_NAMESPACED_SVG_ELEMENT(FEGaussianBlur)
+NS_IMPL_NS_NEW_SVG_ELEMENT(FEGaussianBlur)
 
 using namespace mozilla::gfx;
 
@@ -21,10 +20,10 @@ JSObject* SVGFEGaussianBlurElement::WrapNode(
   return SVGFEGaussianBlurElement_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-nsSVGElement::NumberPairInfo SVGFEGaussianBlurElement::sNumberPairInfo[1] = {
+SVGElement::NumberPairInfo SVGFEGaussianBlurElement::sNumberPairInfo[1] = {
     {nsGkAtoms::stdDeviation, 0, 0}};
 
-nsSVGElement::StringInfo SVGFEGaussianBlurElement::sStringInfo[2] = {
+SVGElement::StringInfo SVGFEGaussianBlurElement::sStringInfo[2] = {
     {nsGkAtoms::result, kNameSpaceID_None, true},
     {nsGkAtoms::in, kNameSpaceID_None, true}};
 
@@ -35,18 +34,20 @@ NS_IMPL_ELEMENT_CLONE_WITH_INIT(SVGFEGaussianBlurElement)
 
 //----------------------------------------------------------------------
 
-already_AddRefed<SVGAnimatedString> SVGFEGaussianBlurElement::In1() {
+already_AddRefed<DOMSVGAnimatedString> SVGFEGaussianBlurElement::In1() {
   return mStringAttributes[IN1].ToDOMAnimatedString(this);
 }
 
-already_AddRefed<SVGAnimatedNumber> SVGFEGaussianBlurElement::StdDeviationX() {
+already_AddRefed<DOMSVGAnimatedNumber>
+SVGFEGaussianBlurElement::StdDeviationX() {
   return mNumberPairAttributes[STD_DEV].ToDOMAnimatedNumber(
-      nsSVGNumberPair::eFirst, this);
+      SVGAnimatedNumberPair::eFirst, this);
 }
 
-already_AddRefed<SVGAnimatedNumber> SVGFEGaussianBlurElement::StdDeviationY() {
+already_AddRefed<DOMSVGAnimatedNumber>
+SVGFEGaussianBlurElement::StdDeviationY() {
   return mNumberPairAttributes[STD_DEV].ToDOMAnimatedNumber(
-      nsSVGNumberPair::eSecond, this);
+      SVGAnimatedNumberPair::eSecond, this);
 }
 
 void SVGFEGaussianBlurElement::SetStdDeviation(float stdDeviationX,
@@ -56,15 +57,15 @@ void SVGFEGaussianBlurElement::SetStdDeviation(float stdDeviationX,
 }
 
 FilterPrimitiveDescription SVGFEGaussianBlurElement::GetPrimitiveDescription(
-    nsSVGFilterInstance* aInstance, const IntRect& aFilterSubregion,
+    SVGFilterInstance* aInstance, const IntRect& aFilterSubregion,
     const nsTArray<bool>& aInputsAreTainted,
     nsTArray<RefPtr<SourceSurface>>& aInputImages) {
   float stdX = aInstance->GetPrimitiveNumber(SVGContentUtils::X,
                                              &mNumberPairAttributes[STD_DEV],
-                                             nsSVGNumberPair::eFirst);
+                                             SVGAnimatedNumberPair::eFirst);
   float stdY = aInstance->GetPrimitiveNumber(SVGContentUtils::Y,
                                              &mNumberPairAttributes[STD_DEV],
-                                             nsSVGNumberPair::eSecond);
+                                             SVGAnimatedNumberPair::eSecond);
   if (stdX < 0 || stdY < 0) {
     return FilterPrimitiveDescription();
   }
@@ -84,20 +85,20 @@ bool SVGFEGaussianBlurElement::AttributeAffectsRendering(
 }
 
 void SVGFEGaussianBlurElement::GetSourceImageNames(
-    nsTArray<nsSVGStringInfo>& aSources) {
-  aSources.AppendElement(nsSVGStringInfo(&mStringAttributes[IN1], this));
+    nsTArray<SVGStringInfo>& aSources) {
+  aSources.AppendElement(SVGStringInfo(&mStringAttributes[IN1], this));
 }
 
 //----------------------------------------------------------------------
-// nsSVGElement methods
+// SVGElement methods
 
-nsSVGElement::NumberPairAttributesInfo
+SVGElement::NumberPairAttributesInfo
 SVGFEGaussianBlurElement::GetNumberPairInfo() {
   return NumberPairAttributesInfo(mNumberPairAttributes, sNumberPairInfo,
                                   ArrayLength(sNumberPairInfo));
 }
 
-nsSVGElement::StringAttributesInfo SVGFEGaussianBlurElement::GetStringInfo() {
+SVGElement::StringAttributesInfo SVGFEGaussianBlurElement::GetStringInfo() {
   return StringAttributesInfo(mStringAttributes, sStringInfo,
                               ArrayLength(sStringInfo));
 }

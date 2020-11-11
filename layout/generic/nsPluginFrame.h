@@ -13,7 +13,7 @@
 #include "mozilla/EventForwards.h"
 #include "mozilla/UniquePtr.h"
 #include "nsIObjectFrame.h"
-#include "nsFrame.h"
+#include "nsIFrame.h"
 #include "nsRegion.h"
 #include "nsDisplayList.h"
 #include "nsIReflowCallback.h"
@@ -22,16 +22,16 @@
 #include "mozilla/webrender/WebRenderAPI.h"
 
 #ifdef XP_WIN
-#include <windows.h>  // For HWND :(
+#  include <windows.h>  // For HWND :(
 // Undo the windows.h damage
-#undef GetMessage
-#undef CreateEvent
-#undef GetClassName
-#undef GetBinaryType
-#undef RemoveDirectory
-#undef LoadIcon
-#undef LoadImage
-#undef GetObject
+#  undef GetMessage
+#  undef CreateEvent
+#  undef GetClassName
+#  undef GetBinaryType
+#  undef RemoveDirectory
+#  undef LoadIcon
+#  undef LoadImage
+#  undef GetObject
 #endif
 
 class nsPresContext;
@@ -41,6 +41,7 @@ class PluginBackgroundSink;
 class nsPluginInstanceOwner;
 
 namespace mozilla {
+class PresShell;
 namespace layers {
 class ImageContainer;
 class Layer;
@@ -50,7 +51,7 @@ class LayerManager;
 
 class PluginFrameDidCompositeObserver;
 
-class nsPluginFrame final : public nsFrame,
+class nsPluginFrame final : public nsIFrame,
                             public nsIObjectFrame,
                             public nsIReflowCallback {
  public:
@@ -62,14 +63,14 @@ class nsPluginFrame final : public nsFrame,
   typedef mozilla::layers::LayerManager LayerManager;
   typedef mozilla::layers::ImageContainer ImageContainer;
   typedef mozilla::layers::StackingContextHelper StackingContextHelper;
-  typedef mozilla::layers::WebRenderLayerManager WebRenderLayerManager;
+  typedef mozilla::layers::RenderRootStateManager RenderRootStateManager;
   typedef mozilla::layers::WebRenderParentCommand WebRenderParentCommand;
   typedef mozilla::ContainerLayerParameters ContainerLayerParameters;
 
   NS_DECL_FRAMEARENA_HELPERS(nsPluginFrame)
   NS_DECL_QUERYFRAME
 
-  friend nsIFrame* NS_NewObjectFrame(nsIPresShell* aPresShell,
+  friend nsIFrame* NS_NewObjectFrame(mozilla::PresShell* aPresShell,
                                      ComputedStyle* aStyle);
 
   virtual void Init(nsIContent* aContent, nsContainerFrame* aParent,
@@ -89,7 +90,7 @@ class nsPluginFrame final : public nsFrame,
                                nsEventStatus* aEventStatus) override;
 
   virtual bool IsFrameOfType(uint32_t aFlags) const override {
-    return nsFrame::IsFrameOfType(
+    return nsIFrame::IsFrameOfType(
         aFlags & ~(nsIFrame::eReplaced | nsIFrame::eReplacedSizing));
   }
 
@@ -106,8 +107,7 @@ class nsPluginFrame final : public nsFrame,
 
   virtual void SetIsDocumentActive(bool aIsActive) override;
 
-  virtual nsresult GetCursor(const nsPoint& aPoint,
-                             nsIFrame::Cursor& aCursor) override;
+  mozilla::Maybe<Cursor> GetCursor(const nsPoint&) override;
 
   // APIs used by nsRootPresContext to set up the widget position/size/clip
   // region.
@@ -142,9 +142,9 @@ class nsPluginFrame final : public nsFrame,
   // accessibility support
 #ifdef ACCESSIBILITY
   virtual mozilla::a11y::AccType AccessibleType() override;
-#ifdef XP_WIN
+#  ifdef XP_WIN
   NS_IMETHOD GetPluginPort(HWND* aPort);
-#endif
+#  endif
 #endif
 
   // local methods
@@ -183,12 +183,12 @@ class nsPluginFrame final : public nsFrame,
    * There will be a call to EndSwapDocShells after we were moved to the
    * new view tree.
    */
-  static void BeginSwapDocShells(nsISupports* aSupports, void*);
+  static void BeginSwapDocShells(nsISupports* aSupports);
   /**
    * If aSupports has a nsPluginFrame, then set it up after a DocShell swap.
    * @see nsSubDocumentFrame::EndSwapDocShells.
    */
-  static void EndSwapDocShells(nsISupports* aSupports, void*);
+  static void EndSwapDocShells(nsISupports* aSupports);
 
   nsIWidget* GetWidget() override {
     if (!mInnerView) {
@@ -223,15 +223,15 @@ class nsPluginFrame final : public nsFrame,
    */
   bool WantsToHandleWheelEventAsDefaultAction() const;
 
-  bool CreateWebRenderCommands(nsDisplayItem* aItem,
-                               mozilla::wr::DisplayListBuilder& aBuilder,
-                               mozilla::wr::IpcResourceUpdateQueue& aResources,
-                               const StackingContextHelper& aSc,
-                               mozilla::layers::WebRenderLayerManager* aManager,
-                               nsDisplayListBuilder* aDisplayListBuilder);
+  bool CreateWebRenderCommands(
+      nsDisplayItem* aItem, mozilla::wr::DisplayListBuilder& aBuilder,
+      mozilla::wr::IpcResourceUpdateQueue& aResources,
+      const StackingContextHelper& aSc,
+      mozilla::layers::RenderRootStateManager* aManager,
+      nsDisplayListBuilder* aDisplayListBuilder);
 
  protected:
-  explicit nsPluginFrame(ComputedStyle* aStyle);
+  explicit nsPluginFrame(ComputedStyle* aStyle, nsPresContext* aPresContext);
   virtual ~nsPluginFrame();
 
   // NOTE:  This frame class does not inherit from |nsLeafFrame|, so
@@ -353,16 +353,14 @@ class nsDisplayPluginGeometry : public nsDisplayItemGenericGeometry {
   virtual bool InvalidateForSyncDecodeImages() const override { return true; }
 };
 
-class nsDisplayPlugin final : public nsDisplayItem {
+class nsDisplayPlugin final : public nsPaintedDisplayItem {
  public:
   nsDisplayPlugin(nsDisplayListBuilder* aBuilder, nsIFrame* aFrame)
-      : nsDisplayItem(aBuilder, aFrame) {
+      : nsPaintedDisplayItem(aBuilder, aFrame) {
     MOZ_COUNT_CTOR(nsDisplayPlugin);
     aBuilder->SetContainsPluginItem();
   }
-#ifdef NS_BUILD_REFCNT_LOGGING
-  virtual ~nsDisplayPlugin() { MOZ_COUNT_DTOR(nsDisplayPlugin); }
-#endif
+  MOZ_COUNTED_DTOR_OVERRIDE(nsDisplayPlugin)
 
   virtual nsRect GetBounds(nsDisplayListBuilder* aBuilder,
                            bool* aSnap) const override;
@@ -397,7 +395,7 @@ class nsDisplayPlugin final : public nsDisplayItem {
       mozilla::wr::DisplayListBuilder& aBuilder,
       mozilla::wr::IpcResourceUpdateQueue& aResources,
       const StackingContextHelper& aSc,
-      mozilla::layers::WebRenderLayerManager* aManager,
+      mozilla::layers::RenderRootStateManager* aManager,
       nsDisplayListBuilder* aDisplayListBuilder) override;
 };
 

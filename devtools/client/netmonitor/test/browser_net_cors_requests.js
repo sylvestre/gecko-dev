@@ -8,14 +8,13 @@
  */
 
 add_task(async function() {
-  const { tab, monitor } = await initNetMonitor(CORS_URL);
+  const { tab, monitor } = await initNetMonitor(CORS_URL, { requestCount: 1 });
 
   const { document, store, windowRequire } = monitor.panelWin;
   const Actions = windowRequire("devtools/client/netmonitor/src/actions/index");
-  const {
-    getDisplayedRequests,
-    getSortedRequests,
-  } = windowRequire("devtools/client/netmonitor/src/selectors/index");
+  const { getDisplayedRequests, getSortedRequests } = windowRequire(
+    "devtools/client/netmonitor/src/selectors/index"
+  );
 
   store.dispatch(Actions.batchEnable(false));
 
@@ -23,8 +22,14 @@ add_task(async function() {
 
   info("Performing a CORS request");
   const requestUrl = "http://test1.example.com" + CORS_SJS_PATH;
-  await ContentTask.spawn(tab.linkedBrowser, requestUrl, async function(url) {
-    content.wrappedJSObject.performRequests(url, "triggering/preflight", "post-data");
+  await SpecialPowers.spawn(tab.linkedBrowser, [requestUrl], async function(
+    url
+  ) {
+    content.wrappedJSObject.performRequests(
+      url,
+      "triggering/preflight",
+      "post-data"
+    );
   });
 
   info("Waiting until the requests appear in netmonitor");
@@ -35,7 +40,7 @@ add_task(async function() {
     verifyRequestItemTarget(
       document,
       getDisplayedRequests(store.getState()),
-      getSortedRequests(store.getState()).get(index),
+      getSortedRequests(store.getState())[index],
       method,
       requestUrl
     );

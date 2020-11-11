@@ -19,7 +19,6 @@
 #include "mozilla/ipc/TaskFactory.h"
 #include "mozilla/UniquePtr.h"
 #include "nsCOMPtr.h"
-#include "nsIRunnable.h"
 #include "nsTHashtable.h"
 #include "nsHashKeys.h"
 
@@ -37,10 +36,9 @@ class LaunchCompleteTask : public Runnable {
   bool mLaunchSucceeded;
 };
 
-class PluginProcessParent : public mozilla::ipc::GeckoChildProcessHost {
+class PluginProcessParent final : public mozilla::ipc::GeckoChildProcessHost {
  public:
   explicit PluginProcessParent(const std::string& aPluginFilePath);
-  ~PluginProcessParent();
 
   /**
    * Launch the plugin process. If the process fails to launch,
@@ -56,8 +54,6 @@ class PluginProcessParent : public mozilla::ipc::GeckoChildProcessHost {
   bool Launch(UniquePtr<LaunchCompleteTask> aLaunchCompleteTask =
                   UniquePtr<LaunchCompleteTask>(),
               int32_t aSandboxLevel = 0, bool aIsSandboxLoggingEnabled = false);
-
-  void Delete();
 
   virtual bool CanShutdown() override { return true; }
 
@@ -75,6 +71,8 @@ class PluginProcessParent : public mozilla::ipc::GeckoChildProcessHost {
   static bool IsPluginProcessId(base::ProcessId procId);
 
  private:
+  ~PluginProcessParent();
+
   void RunLaunchCompleteTask();
 
   std::string mPluginFilePath;

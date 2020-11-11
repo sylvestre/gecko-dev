@@ -4,21 +4,7 @@
 
 "use strict";
 
-ChromeUtils.import("resource://gre/modules/Preferences.jsm");
-ChromeUtils.import("resource://gre/modules/Services.jsm");
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
-
-ChromeUtils.import("chrome://marionette/content/assert.js");
-const {
-  InvalidArgumentError,
-} = ChromeUtils.import("chrome://marionette/content/error.js", {});
-const {
-  pprint,
-} = ChromeUtils.import("chrome://marionette/content/format.js", {});
-
-XPCOMUtils.defineLazyGlobalGetters(this, ["URL"]);
-
-this.EXPORTED_SYMBOLS = [
+const EXPORTED_SYMBOLS = [
   "Capabilities",
   "PageLoadStrategy",
   "Proxy",
@@ -26,11 +12,48 @@ this.EXPORTED_SYMBOLS = [
   "UnhandledPromptBehavior",
 ];
 
-// Enable testing this module, as Services.appinfo.* is not available
-// in xpcshell tests.
-const appinfo = {name: "<missing>", version: "<missing>"};
-try { appinfo.name = Services.appinfo.name.toLowerCase(); } catch (e) {}
-try { appinfo.version = Services.appinfo.version; } catch (e) {}
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+
+XPCOMUtils.defineLazyModuleGetters(this, {
+  Preferences: "resource://gre/modules/Preferences.jsm",
+
+  assert: "chrome://marionette/content/assert.js",
+  error: "chrome://marionette/content/error.js",
+  Log: "chrome://marionette/content/log.js",
+  pprint: "chrome://marionette/content/format.js",
+});
+
+XPCOMUtils.defineLazyGlobalGetters(this, ["URL"]);
+
+XPCOMUtils.defineLazyGetter(this, "appinfo", () => {
+  // Enable testing this module, as Services.appinfo.* is not available
+  // in xpcshell tests.
+  const appinfo = { name: "<missing>", version: "<missing>" };
+  try {
+    appinfo.name = Services.appinfo.name.toLowerCase();
+  } catch (e) {}
+  try {
+    appinfo.version = Services.appinfo.version;
+  } catch (e) {}
+
+  return appinfo;
+});
+
+XPCOMUtils.defineLazyGetter(this, "logger", () => Log.get());
+
+XPCOMUtils.defineLazyGetter(this, "remoteAgent", () => {
+  // The Remote Agent is currently not available on Android, and all
+  // release channels (bug 1606604),
+  try {
+    return Cc["@mozilla.org/remote/agent;1"].createInstance(Ci.nsIRemoteAgent);
+  } catch (e) {
+    logger.debug("Remote agent not available for this build and platform");
+    return null;
+  }
+});
 
 /** Representation of WebDriver session timeouts. */
 class Timeouts {
@@ -43,7 +66,9 @@ class Timeouts {
     this.script = 30000;
   }
 
-  toString() { return "[object Timeouts]"; }
+  toString() {
+    return "[object Timeouts]";
+  }
 
   /** Marshals timeout durations to a JSON Object. */
   toJSON() {
@@ -55,29 +80,40 @@ class Timeouts {
   }
 
   static fromJSON(json) {
-    assert.object(json,
-        pprint`Expected "timeouts" to be an object, got ${json}`);
+    assert.object(
+      json,
+      pprint`Expected "timeouts" to be an object, got ${json}`
+    );
     let t = new Timeouts();
 
     for (let [type, ms] of Object.entries(json)) {
       switch (type) {
         case "implicit":
-          t.implicit = assert.positiveInteger(ms,
-              pprint`Expected ${type} to be a positive integer, got ${ms}`);
+          t.implicit = assert.positiveInteger(
+            ms,
+            pprint`Expected ${type} to be a positive integer, got ${ms}`
+          );
           break;
 
         case "script":
-          t.script = assert.positiveInteger(ms,
-              pprint`Expected ${type} to be a positive integer, got ${ms}`);
+          if (ms !== null) {
+            assert.positiveInteger(
+              ms,
+              pprint`Expected ${type} to be a positive integer, got ${ms}`
+            );
+          }
+          t.script = ms;
           break;
 
         case "pageLoad":
-          t.pageLoad = assert.positiveInteger(ms,
-              pprint`Expected ${type} to be a positive integer, got ${ms}`);
+          t.pageLoad = assert.positiveInteger(
+            ms,
+            pprint`Expected ${type} to be a positive integer, got ${ms}`
+          );
           break;
 
         default:
-          throw new InvalidArgumentError("Unrecognised timeout: " + type);
+          throw new error.InvalidArgumentError("Unrecognised timeout: " + type);
       }
     }
 
@@ -176,14 +212,19 @@ class Proxy {
         }
 
         if (this.noProxy) {
-          Preferences.set("network.proxy.no_proxies_on", this.noProxy.join(", "));
+          Preferences.set(
+            "network.proxy.no_proxies_on",
+            this.noProxy.join(", ")
+          );
         }
         return true;
 
       case "pac":
         Preferences.set("network.proxy.type", 2);
         Preferences.set(
-            "network.proxy.autoconfig_url", this.proxyAutoconfigUrl);
+          "network.proxy.autoconfig_url",
+          this.proxyAutoconfigUrl
+        );
         return true;
 
       case "system":
@@ -204,16 +245,20 @@ class Proxy {
    */
   static fromJSON(json) {
     function stripBracketsFromIpv6Hostname(hostname) {
-      return hostname.includes(":") ? hostname.replace(/[\[\]]/g, "") : hostname;
+      return hostname.includes(":")
+        ? hostname.replace(/[\[\]]/g, "")
+        : hostname;
     }
 
     // Parse hostname and optional port from host
     function fromHost(scheme, host) {
-      assert.string(host,
-          pprint`Expected proxy "host" to be a string, got ${host}`);
+      assert.string(
+        host,
+        pprint`Expected proxy "host" to be a string, got ${host}`
+      );
 
       if (host.includes("://")) {
-        throw new InvalidArgumentError(`${host} contains a scheme`);
+        throw new error.InvalidArgumentError(`${host} contains a scheme`);
       }
 
       let url;
@@ -228,7 +273,7 @@ class Proxy {
           url = new URL("https://" + host);
         }
       } catch (e) {
-        throw new InvalidArgumentError(e.message);
+        throw new error.InvalidArgumentError(e.message);
       }
 
       let hostname = stripBracketsFromIpv6Hostname(url.hostname);
@@ -244,13 +289,16 @@ class Proxy {
         }
       }
 
-      if (url.username != "" ||
-          url.password != "" ||
-          url.pathname != "/" ||
-          url.search != "" ||
-          url.hash != "") {
-        throw new InvalidArgumentError(
-            `${host} was not of the form host[:port]`);
+      if (
+        url.username != "" ||
+        url.password != "" ||
+        url.pathname != "/" ||
+        url.search != "" ||
+        url.hash != ""
+      ) {
+        throw new error.InvalidArgumentError(
+          `${host} was not of the form host[:port]`
+        );
       }
 
       return [hostname, port];
@@ -263,10 +311,15 @@ class Proxy {
 
     assert.object(json, pprint`Expected "proxy" to be an object, got ${json}`);
 
-    assert.in("proxyType", json,
-        pprint`Expected "proxyType" in "proxy" object, got ${json}`);
-    p.proxyType = assert.string(json.proxyType,
-        pprint`Expected "proxyType" to be a string, got ${json.proxyType}`);
+    assert.in(
+      "proxyType",
+      json,
+      pprint`Expected "proxyType" in "proxy" object, got ${json}`
+    );
+    p.proxyType = assert.string(
+      json.proxyType,
+      pprint`Expected "proxyType" to be a string, got ${json.proxyType}`
+    );
 
     switch (p.proxyType) {
       case "autodetect":
@@ -275,9 +328,11 @@ class Proxy {
         break;
 
       case "pac":
-        p.proxyAutoconfigUrl = assert.string(json.proxyAutoconfigUrl,
-            `Expected "proxyAutoconfigUrl" to be a string, ` +
-            pprint`got ${json.proxyAutoconfigUrl}`);
+        p.proxyAutoconfigUrl = assert.string(
+          json.proxyAutoconfigUrl,
+          `Expected "proxyAutoconfigUrl" to be a string, ` +
+            pprint`got ${json.proxyAutoconfigUrl}`
+        );
         break;
 
       case "manual":
@@ -292,23 +347,30 @@ class Proxy {
         }
         if (typeof json.socksProxy != "undefined") {
           [p.socksProxy, p.socksProxyPort] = fromHost("socks", json.socksProxy);
-          p.socksVersion = assert.positiveInteger(json.socksVersion,
-              pprint`Expected "socksVersion" to be a positive integer, got ${json.socksVersion}`);
+          p.socksVersion = assert.positiveInteger(
+            json.socksVersion,
+            pprint`Expected "socksVersion" to be a positive integer, got ${json.socksVersion}`
+          );
         }
         if (typeof json.noProxy != "undefined") {
-          let entries = assert.array(json.noProxy,
-              pprint`Expected "noProxy" to be an array, got ${json.noProxy}`);
+          let entries = assert.array(
+            json.noProxy,
+            pprint`Expected "noProxy" to be an array, got ${json.noProxy}`
+          );
           p.noProxy = entries.map(entry => {
-            assert.string(entry,
-                pprint`Expected "noProxy" entry to be a string, got ${entry}`);
+            assert.string(
+              entry,
+              pprint`Expected "noProxy" entry to be a string, got ${entry}`
+            );
             return stripBracketsFromIpv6Hostname(entry);
           });
         }
         break;
 
       default:
-        throw new InvalidArgumentError(
-            `Invalid type of proxy: ${p.proxyType}`);
+        throw new error.InvalidArgumentError(
+          `Invalid type of proxy: ${p.proxyType}`
+        );
     }
 
     return p;
@@ -355,7 +417,9 @@ class Proxy {
     });
   }
 
-  toString() { return "[object Proxy]"; }
+  toString() {
+    return "[object Proxy]";
+  }
 }
 
 /**
@@ -388,14 +452,14 @@ class Capabilities extends Map {
   constructor() {
     super([
       // webdriver
-      ["browserName", appinfo.name],
+      ["browserName", getWebDriverBrowserName()],
       ["browserVersion", appinfo.version],
       ["platformName", getWebDriverPlatformName()],
       ["platformVersion", Services.sysinfo.getProperty("version")],
       ["acceptInsecureCerts", false],
       ["pageLoadStrategy", PageLoadStrategy.Normal],
       ["proxy", new Proxy()],
-      ["setWindowRect", appinfo.name == "firefox"],
+      ["setWindowRect", !Services.androidBridge],
       ["timeouts", new Timeouts()],
       ["strictFileInteractability", false],
       ["unhandledPromptBehavior", UnhandledPromptBehavior.DismissAndNotify],
@@ -405,10 +469,18 @@ class Capabilities extends Map {
 
       // proprietary
       ["moz:accessibilityChecks", false],
-      ["moz:headless", Cc["@mozilla.org/gfx/info;1"].getService(Ci.nsIGfxInfo).isHeadless],
+      ["moz:buildID", Services.appinfo.appBuildID],
+      ["moz:debuggerAddress", remoteAgent?.debuggerAddress || null],
+      [
+        "moz:headless",
+        Cc["@mozilla.org/gfx/info;1"].getService(Ci.nsIGfxInfo).isHeadless,
+      ],
       ["moz:processID", Services.appinfo.processID],
       ["moz:profile", maybeProfile()],
-      ["moz:shutdownTimeout", Services.prefs.getIntPref("toolkit.asyncshutdown.crash_timeout")],
+      [
+        "moz:shutdownTimeout",
+        Services.prefs.getIntPref("toolkit.asyncshutdown.crash_timeout"),
+      ],
       ["moz:useNonSpecCompliantPointerOrigin", false],
       ["moz:webdriverClick", true],
     ]);
@@ -430,7 +502,9 @@ class Capabilities extends Map {
     return super.set(key, value);
   }
 
-  toString() { return "[object Capabilities]"; }
+  toString() {
+    return "[object Capabilities]";
+  }
 
   /**
    * JSON serialisation of capabilities object.
@@ -438,7 +512,9 @@ class Capabilities extends Map {
    * @return {Object.<string, ?>}
    */
   toJSON() {
-    return marshal(this);
+    let marshalled = marshal(this);
+    marshalled.timeouts = super.get("timeouts");
+    return marshalled;
   }
 
   /**
@@ -454,8 +530,10 @@ class Capabilities extends Map {
     if (typeof json == "undefined" || json === null) {
       json = {};
     }
-    assert.object(json,
-        pprint`Expected "capabilities" to be an object, got ${json}"`);
+    assert.object(
+      json,
+      pprint`Expected "capabilities" to be an object, got ${json}"`
+    );
 
     return Capabilities.match_(json);
   }
@@ -473,7 +551,9 @@ class Capabilities extends Map {
         case "pageLoadStrategy":
           assert.string(v, pprint`Expected ${k} to be a string, got ${v}`);
           if (!Object.values(PageLoadStrategy).includes(v)) {
-            throw new InvalidArgumentError("Unknown page load strategy: " + v);
+            throw new error.InvalidArgumentError(
+              "Unknown page load strategy: " + v
+            );
           }
           break;
 
@@ -483,10 +563,14 @@ class Capabilities extends Map {
 
         case "setWindowRect":
           assert.boolean(v, pprint`Expected ${k} to be boolean, got ${v}`);
-          if (appinfo.name == "firefox" && !v) {
-            throw new InvalidArgumentError("setWindowRect cannot be disabled");
-          } else if (appinfo.name != "firefox" && v) {
-            throw new InvalidArgumentError("setWindowRect is only supported in Firefox desktop");
+          if (!Services.androidBridge && !v) {
+            throw new error.InvalidArgumentError(
+              "setWindowRect cannot be disabled"
+            );
+          } else if (Services.androidBridge && v) {
+            throw new error.InvalidArgumentError(
+              "setWindowRect is only supported on desktop"
+            );
           }
           break;
 
@@ -501,8 +585,9 @@ class Capabilities extends Map {
         case "unhandledPromptBehavior":
           assert.string(v, pprint`Expected ${k} to be a string, got ${v}`);
           if (!Object.values(UnhandledPromptBehavior).includes(v)) {
-            throw new InvalidArgumentError(
-                `Unknown unhandled prompt behavior: ${v}`);
+            throw new error.InvalidArgumentError(
+              `Unknown unhandled prompt behavior: ${v}`
+            );
           }
           break;
 
@@ -517,6 +602,11 @@ class Capabilities extends Map {
         case "moz:webdriverClick":
           assert.boolean(v, pprint`Expected ${k} to be boolean, got ${v}`);
           break;
+
+        // Don't set the value because it's only used to return the address
+        // of the Remote Agent's debugger (HTTP server).
+        case "moz:debuggerAddress":
+          continue;
       }
 
       matched.set(k, v);
@@ -532,8 +622,22 @@ this.Proxy = Proxy;
 this.Timeouts = Timeouts;
 this.UnhandledPromptBehavior = UnhandledPromptBehavior;
 
+function getWebDriverBrowserName() {
+  // Similar to chromedriver which reports "chrome" as browser name for all
+  // WebView apps, we will report "firefox" for all GeckoView apps.
+  if (Services.androidBridge) {
+    return "firefox";
+  }
+
+  return appinfo.name;
+}
+
 function getWebDriverPlatformName() {
   let name = Services.sysinfo.getProperty("name");
+
+  if (Services.androidBridge) {
+    return "android";
+  }
 
   switch (name) {
     case "Windows_NT":
@@ -549,7 +653,7 @@ function getWebDriverPlatformName() {
 
 // Specialisation of |JSON.stringify| that produces JSON-safe object
 // literals, dropping empty objects and entries which values are undefined
-// or null.  Objects are allowed to produce their own JSON representations
+// or null. Objects are allowed to produce their own JSON representations
 // by implementing a |toJSON| function.
 function marshal(obj) {
   let rv = Object.create(null);
@@ -577,7 +681,7 @@ function marshal(obj) {
     if (typeof v.toJSON == "function") {
       v = marshal(v.toJSON());
 
-    // Or do the same for object literals.
+      // Or do the same for object literals.
     } else if (isObject(v)) {
       v = marshal(v);
     }

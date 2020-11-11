@@ -12,6 +12,7 @@
 #include "mozilla/dom/TextTrackCueList.h"
 #include "mozilla/StaticPtr.h"
 #include "nsContentUtils.h"
+#include "TimeUnits.h"
 
 class nsIWebVTTParserWrapper;
 
@@ -118,14 +119,12 @@ class TextTrackManager final : public nsIDOMEventListener {
 
   // Contain all cues for a MediaElement. Not sorted.
   RefPtr<TextTrackCueList> mNewCues;
-  // The active cues for the last TimeMarchesOn iteration.
-  RefPtr<TextTrackCueList> mLastActiveCues;
 
   // True if the media player playback changed due to seeking prior to and
   // during running the "Time Marches On" algorithm.
   bool mHasSeeked;
   // Playback position at the time of last "Time Marches On" call
-  double mLastTimeMarchesOnCalled;
+  media::TimeUnit mLastTimeMarchesOnCalled;
 
   bool mTimeMarchesOnDispatched;
   bool mUpdateCueDisplayDispatched;
@@ -148,13 +147,12 @@ class TextTrackManager final : public nsIDOMEventListener {
   bool TrackIsDefault(TextTrack* aTextTrack);
 
   void ReportTelemetryForTrack(TextTrack* aTextTrack) const;
-  void ReportTelemetryForCue();
 
   bool IsShutdown() const;
 
-  // If there is at least one cue has been added to the cue list once, we would
-  // report the usage of cue to Telemetry.
-  bool mCueTelemetryReported;
+  // This function will check media element's show poster flag to decide whether
+  // we need to run `TimeMarchesOn`.
+  void MaybeRunTimeMarchesOn();
 
   class ShutdownObserverProxy final : public nsIObserver {
     NS_DECL_ISUPPORTS
@@ -180,7 +178,8 @@ class TextTrackManager final : public nsIDOMEventListener {
     void Unregister();
 
    private:
-    ~ShutdownObserverProxy(){};
+    ~ShutdownObserverProxy() = default;
+
     TextTrackManager* mManager;
   };
 

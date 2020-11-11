@@ -1,4 +1,4 @@
-// Copyright 2018 Mozilla
+// Copyright 2018-2019 Mozilla
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you may not use
 // this file except in compliance with the License. You may obtain a copy of the
@@ -8,12 +8,19 @@
 // CONDITIONS OF ANY KIND, either express or implied. See the License for the
 // specific language governing permissions and limitations under the License.
 
-use std::path::PathBuf;
+use std::{
+    io,
+    path::PathBuf,
+    str,
+    sync,
+    thread,
+    thread::ThreadId,
+};
 
-use bincode;
-use lmdb;
+use failure::Fail;
 
-use value::Type;
+pub use crate::backend::SafeModeError;
+use crate::value::Type;
 
 #[derive(Debug, Fail)]
 pub enum DataError {
@@ -50,37 +57,59 @@ impl From<Box<bincode::ErrorKind>> for DataError {
 
 #[derive(Debug, Fail)]
 pub enum StoreError {
-    #[fail(display = "I/O error: {:?}", _0)]
-    IoError(::std::io::Error),
+    #[fail(display = "manager poisoned")]
+    ManagerPoisonError,
 
-    #[fail(display = "directory does not exist or not a directory: {:?}", _0)]
-    DirectoryDoesNotExistError(PathBuf),
+    #[fail(display = "database corrupted")]
+    DatabaseCorrupted,
+
+    #[fail(display = "key/value pair not found")]
+    KeyValuePairNotFound,
+
+    #[fail(display = "unsupported size of key/DB name/data")]
+    KeyValuePairBadSize,
+
+    #[fail(display = "file is not a valid database")]
+    FileInvalid,
+
+    #[fail(display = "environment mapsize reached")]
+    MapFull,
+
+    #[fail(display = "environment maxdbs reached")]
+    DbsFull,
+
+    #[fail(display = "environment maxreaders reached")]
+    ReadersFull,
+
+    #[fail(display = "I/O error: {:?}", _0)]
+    IoError(io::Error),
+
+    #[fail(display = "environment path does not exist or not the right type: {:?}", _0)]
+    UnsuitableEnvironmentPath(PathBuf),
 
     #[fail(display = "data error: {:?}", _0)]
     DataError(DataError),
 
-    #[fail(display = "lmdb error: {}", _0)]
+    #[fail(display = "lmdb backend error: {}", _0)]
     LmdbError(lmdb::Error),
 
+    #[fail(display = "safe mode backend error: {}", _0)]
+    SafeModeError(SafeModeError),
+
     #[fail(display = "read transaction already exists in thread {:?}", _0)]
-    ReadTransactionAlreadyExists(::std::thread::ThreadId),
+    ReadTransactionAlreadyExists(ThreadId),
 
     #[fail(display = "attempted to open DB during transaction in thread {:?}", _0)]
-    OpenAttemptedDuringTransaction(::std::thread::ThreadId),
+    OpenAttemptedDuringTransaction(ThreadId),
 }
 
 impl StoreError {
     pub fn open_during_transaction() -> StoreError {
-        StoreError::OpenAttemptedDuringTransaction(::std::thread::current().id())
+        StoreError::OpenAttemptedDuringTransaction(thread::current().id())
     }
-}
 
-impl From<lmdb::Error> for StoreError {
-    fn from(e: lmdb::Error) -> StoreError {
-        match e {
-            lmdb::Error::BadRslot => StoreError::ReadTransactionAlreadyExists(::std::thread::current().id()),
-            e => StoreError::LmdbError(e),
-        }
+    pub fn read_transaction_already_exists() -> StoreError {
+        StoreError::ReadTransactionAlreadyExists(thread::current().id())
     }
 }
 
@@ -90,8 +119,41 @@ impl From<DataError> for StoreError {
     }
 }
 
-impl From<::std::io::Error> for StoreError {
-    fn from(e: ::std::io::Error) -> StoreError {
+impl From<io::Error> for StoreError {
+    fn from(e: io::Error) -> StoreError {
         StoreError::IoError(e)
+    }
+}
+
+impl<T> From<sync::PoisonError<T>> for StoreError {
+    fn from(_: sync::PoisonError<T>) -> StoreError {
+        StoreError::ManagerPoisonError
+    }
+}
+
+#[derive(Debug, Fail)]
+pub enum MigrateError {
+    #[fail(display = "store error: {}", _0)]
+    StoreError(StoreError),
+
+    #[fail(display = "manager poisoned")]
+    ManagerPoisonError,
+
+    #[fail(display = "source is empty")]
+    SourceEmpty,
+
+    #[fail(display = "destination is not empty")]
+    DestinationNotEmpty,
+}
+
+impl From<StoreError> for MigrateError {
+    fn from(e: StoreError) -> MigrateError {
+        MigrateError::StoreError(e)
+    }
+}
+
+impl<T> From<sync::PoisonError<T>> for MigrateError {
+    fn from(_: sync::PoisonError<T>) -> MigrateError {
+        MigrateError::ManagerPoisonError
     }
 }

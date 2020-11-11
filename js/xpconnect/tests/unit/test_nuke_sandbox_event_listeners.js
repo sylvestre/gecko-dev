@@ -4,7 +4,7 @@
 
 // See https://bugzilla.mozilla.org/show_bug.cgi?id=1273251
 
-ChromeUtils.import("resource://gre/modules/Services.jsm");
+const {Services} = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 function promiseEvent(target, event) {
   return new Promise(resolve => {
@@ -14,13 +14,13 @@ function promiseEvent(target, event) {
 
 add_task(async function() {
   let principal = Services.scriptSecurityManager
-    .createCodebasePrincipalFromOrigin("http://example.com/");
+    .createContentPrincipalFromOrigin("http://example.com/");
 
   let webnav = Services.appShell.createWindowlessBrowser(false);
 
   let docShell = webnav.docShell;
 
-  docShell.createAboutBlankContentViewer(principal);
+  docShell.createAboutBlankContentViewer(principal, principal);
 
   let window = webnav.document.defaultView;
   let sandbox = Cu.Sandbox(window, {sandboxPrototype: window});

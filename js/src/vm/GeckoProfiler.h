@@ -7,15 +7,21 @@
 #ifndef vm_GeckoProfiler_h
 #define vm_GeckoProfiler_h
 
+#include "mozilla/Assertions.h"
+#include "mozilla/Attributes.h"
 #include "mozilla/DebugOnly.h"
-#include "mozilla/GuardObjects.h"
 
 #include <stddef.h>
+#include <stdint.h>
 
-#include "js/ProfilingStack.h"
-#include "threading/ExclusiveData.h"
-#include "vm/JSScript.h"
-#include "vm/MutexIDs.h"
+#include "jspubtd.h"
+
+#include "js/AllocPolicy.h"
+#include "js/HashTable.h"
+#include "js/ProfilingCategory.h"
+#include "js/TypeDecls.h"
+#include "js/Utility.h"
+#include "threading/ProtectedData.h"
 
 /*
  * Gecko Profiler integration with the JS Engine
@@ -101,20 +107,21 @@
 
 namespace js {
 
-// The `ProfileStringMap` weakly holds its `JSScript*` keys and owns its string
-// values. Entries are removed when the `JSScript` is finalized; see
+class BaseScript;
+class GeckoProfilerThread;
+
+// The `ProfileStringMap` weakly holds its `BaseScript*` keys and owns its
+// string values. Entries are removed when the `BaseScript` is finalized; see
 // `GeckoProfiler::onScriptFinalized`.
-using ProfileStringMap = HashMap<JSScript*, UniqueChars,
-                                 DefaultHasher<JSScript*>, SystemAllocPolicy>;
+using ProfileStringMap = HashMap<BaseScript*, JS::UniqueChars,
+                                 DefaultHasher<BaseScript*>, SystemAllocPolicy>;
 
 class GeckoProfilerRuntime {
   JSRuntime* rt;
-  ExclusiveData<ProfileStringMap> strings;
+  MainThreadData<ProfileStringMap> strings_;
   bool slowAssertions;
   uint32_t enabled_;
-  void (*eventMarker_)(const char*);
-
-  UniqueChars allocProfileString(JSScript* script, JSFunction* function);
+  void (*eventMarker_)(const char*, const char*);
 
  public:
   explicit GeckoProfilerRuntime(JSRuntime* rt);
@@ -125,11 +132,16 @@ class GeckoProfilerRuntime {
   void enableSlowAssertions(bool enabled) { slowAssertions = enabled; }
   bool slowAssertionsEnabled() { return slowAssertions; }
 
-  void setEventMarker(void (*fn)(const char*));
-  const char* profileString(JSScript* script, JSFunction* maybeFun);
-  void onScriptFinalized(JSScript* script);
+  void setEventMarker(void (*fn)(const char*, const char*));
 
-  void markEvent(const char* event);
+  static JS::UniqueChars allocProfileString(JSContext* cx, BaseScript* script);
+  const char* profileString(JSContext* cx, BaseScript* script);
+
+  void onScriptFinalized(BaseScript* script);
+
+  void markEvent(const char* event, const char* details);
+
+  ProfileStringMap& strings() { return strings_.ref(); }
 
   /* meant to be used for testing, not recommended to call in normal code */
   size_t stringsCount();
@@ -143,11 +155,9 @@ class GeckoProfilerRuntime {
 #endif
 };
 
-inline size_t GeckoProfilerRuntime::stringsCount() {
-  return strings.lock()->count();
-}
+inline size_t GeckoProfilerRuntime::stringsCount() { return strings().count(); }
 
-inline void GeckoProfilerRuntime::stringsReset() { strings.lock()->clear(); }
+inline void GeckoProfilerRuntime::stringsReset() { strings().clear(); }
 
 /*
  * This class is used in RunScript() to push the marker onto the sampling stack
@@ -156,8 +166,8 @@ inline void GeckoProfilerRuntime::stringsReset() { strings.lock()->clear(); }
  */
 class MOZ_RAII GeckoProfilerEntryMarker {
  public:
-  explicit MOZ_ALWAYS_INLINE GeckoProfilerEntryMarker(
-      JSContext* cx, JSScript* script MOZ_GUARD_OBJECT_NOTIFIER_PARAM);
+  explicit MOZ_ALWAYS_INLINE GeckoProfilerEntryMarker(JSContext* cx,
+                                                      JSScript* script);
   MOZ_ALWAYS_INLINE ~GeckoProfilerEntryMarker();
 
  private:
@@ -165,7 +175,6 @@ class MOZ_RAII GeckoProfilerEntryMarker {
 #ifdef DEBUG
   uint32_t spBefore_;
 #endif
-  MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
 };
 
 /*
@@ -177,9 +186,8 @@ class MOZ_NONHEAP_CLASS AutoGeckoProfilerEntry {
  public:
   explicit MOZ_ALWAYS_INLINE AutoGeckoProfilerEntry(
       JSContext* cx, const char* label,
-      ProfilingStackFrame::Category category =
-          ProfilingStackFrame::Category::JS,
-      uint32_t flags = 0 MOZ_GUARD_OBJECT_NOTIFIER_PARAM);
+      JS::ProfilingCategoryPair categoryPair = JS::ProfilingCategoryPair::JS,
+      uint32_t flags = 0);
   MOZ_ALWAYS_INLINE ~AutoGeckoProfilerEntry();
 
  private:
@@ -187,7 +195,6 @@ class MOZ_NONHEAP_CLASS AutoGeckoProfilerEntry {
 #ifdef DEBUG
   uint32_t spBefore_;
 #endif
-  MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
 };
 
 /*
@@ -197,47 +204,12 @@ class MOZ_NONHEAP_CLASS AutoGeckoProfilerEntry {
  */
 class MOZ_RAII GeckoProfilerBaselineOSRMarker {
  public:
-  explicit GeckoProfilerBaselineOSRMarker(
-      JSContext* cx, bool hasProfilerFrame MOZ_GUARD_OBJECT_NOTIFIER_PARAM);
+  explicit GeckoProfilerBaselineOSRMarker(JSContext* cx, bool hasProfilerFrame);
   ~GeckoProfilerBaselineOSRMarker();
 
  private:
   GeckoProfilerThread* profiler;
   mozilla::DebugOnly<uint32_t> spBefore_;
-  MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
-};
-
-/*
- * This class manages the instrumentation portion of the profiling for JIT
- * code.
- *
- * The instrumentation tracks entry into functions, leaving those functions via
- * a function call, reentering the functions from a function call, and exiting
- * the functions from returning. This class also handles inline frames and
- * manages the instrumentation which needs to be attached to them as well.
- *
- * The basic methods which emit instrumentation are at the end of this class,
- * and the management functions are all described in the middle.
- */
-template <class Assembler, class Register>
-class GeckoProfilerInstrumentation {
-  GeckoProfilerRuntime* profiler_;  // Instrumentation location management
-
- public:
-  /*
-   * Creates instrumentation which writes information out the the specified
-   * profiler's stack and constituent fields.
-   */
-  explicit GeckoProfilerInstrumentation(GeckoProfilerRuntime* profiler)
-      : profiler_(profiler) {}
-
-  /* Small proxies around GeckoProfiler */
-  bool enabled() { return profiler_ && profiler_->enabled(); }
-  GeckoProfilerRuntime* profiler() {
-    MOZ_ASSERT(enabled());
-    return profiler_;
-  }
-  void disable() { profiler_ = nullptr; }
 };
 
 } /* namespace js */

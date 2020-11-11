@@ -1,41 +1,53 @@
 /* Any copyright is dedicated to the Public Domain.
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
+const { TabStateFlusher } = ChromeUtils.import(
+  "resource:///modules/sessionstore/TabStateFlusher.jsm"
+);
+
 add_task(async function test_blank() {
-  await BrowserTestUtils.withNewTab({ gBrowser, url: "about:blank" },
-                                    async function(browser) {
-    BrowserTestUtils.loadURI(browser, "http://example.com");
-    await BrowserTestUtils.browserLoaded(browser);
-    ok(!gBrowser.canGoBack, "about:blank wasn't added to session history");
-  });
+  await BrowserTestUtils.withNewTab(
+    { gBrowser, url: "about:blank" },
+    async function(browser) {
+      BrowserTestUtils.loadURI(browser, "http://example.com");
+      await BrowserTestUtils.browserLoaded(browser);
+      ok(!gBrowser.canGoBack, "about:blank wasn't added to session history");
+    }
+  );
 });
 
 add_task(async function test_newtab() {
-  await BrowserTestUtils.withNewTab({ gBrowser, url: "about:blank" },
-                                    async function(browser) {
-    let tab = gBrowser.getTabForBrowser(browser);
+  await BrowserTestUtils.withNewTab(
+    { gBrowser, url: "about:blank" },
+    async function(browser) {
+      // Can't load it directly because that'll use a preloaded tab if present.
+      let stopped = BrowserTestUtils.browserStopped(browser, "about:newtab");
+      await BrowserTestUtils.loadURI(browser, "about:newtab");
+      await stopped;
 
-    // Can't load it directly because that'll use a preloaded tab if present.
-    BrowserTestUtils.loadURI(browser, "about:newtab");
-    // We will need to wait for about:newtab to be loaded so that it goes into
-    // the session history.
-    await BrowserTestUtils.browserStopped(browser, "about:newtab");
+      stopped = BrowserTestUtils.browserStopped(browser, "http://example.com/");
+      await BrowserTestUtils.loadURI(browser, "http://example.com/");
+      await stopped;
 
-    let { mustChangeProcess } =
-      E10SUtils.shouldLoadURIInBrowser(browser, "http://example.com");
+      // This makes sure the parent process has the most up-to-date notion
+      // of the tab's session history.
+      await TabStateFlusher.flush(browser);
 
-    BrowserTestUtils.loadURI(browser, "http://example.com");
+      let tab = gBrowser.getTabForBrowser(browser);
+      let tabState = JSON.parse(SessionStore.getTabState(tab));
+      Assert.equal(
+        tabState.entries.length,
+        2,
+        "We should have 2 entries in the session history."
+      );
 
-    let stopped = BrowserTestUtils.browserStopped(browser);
+      Assert.equal(
+        tabState.entries[0].url,
+        "about:newtab",
+        "about:newtab should be the first entry."
+      );
 
-    if (mustChangeProcess) {
-      // If we did a process flip, we will need to ensure that the restoration has
-      // completed before we check gBrowser.canGoBack.
-      await BrowserTestUtils.waitForEvent(tab, "SSTabRestored");
+      Assert.ok(gBrowser.canGoBack, "Should be able to browse back.");
     }
-
-    await stopped;
-
-    is(gBrowser.canGoBack, true, "about:newtab was added to the session history when AS was enabled.");
-  });
+  );
 });

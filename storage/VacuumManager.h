@@ -9,7 +9,6 @@
 
 #include "nsCOMPtr.h"
 #include "nsIObserver.h"
-#include "mozIStorageStatementCallback.h"
 #include "mozIStorageVacuumParticipant.h"
 #include "nsCategoryCache.h"
 #include "mozilla/Attributes.h"
@@ -32,7 +31,7 @@ class VacuumManager final : public nsIObserver {
  private:
   ~VacuumManager();
 
-  static VacuumManager *gVacuumManager;
+  static VacuumManager* gVacuumManager;
 
   // Cache of components registered in "vacuum-participant" category.
   nsCategoryCache<mozIStorageVacuumParticipant> mParticipants;

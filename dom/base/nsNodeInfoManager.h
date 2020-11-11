@@ -13,19 +13,24 @@
 
 #include "mozilla/Attributes.h"  // for final
 #include "mozilla/dom/NodeInfo.h"
+#include "mozilla/dom/DOMArena.h"
 #include "mozilla/MruCache.h"
 #include "nsCOMPtr.h"                      // for member
 #include "nsCycleCollectionParticipant.h"  // for NS_DECL_CYCLE_*
 #include "nsDataHashtable.h"
 #include "nsStringFwd.h"
 
-class nsBindingManager;
 class nsAtom;
-class nsIDocument;
 class nsIPrincipal;
 class nsWindowSizes;
 template <class T>
 struct already_AddRefed;
+
+namespace mozilla {
+namespace dom {
+class Document;
+}  // namespace dom
+}  // namespace mozilla
 
 class nsNodeInfoManager final {
  private:
@@ -41,7 +46,7 @@ class nsNodeInfoManager final {
   /**
    * Initialize the nodeinfo manager with a document.
    */
-  nsresult Init(nsIDocument* aDocument);
+  nsresult Init(mozilla::dom::Document*);
 
   /**
    * Release the reference to the document, this will be called when
@@ -81,7 +86,7 @@ class nsNodeInfoManager final {
    * Retrieve a pointer to the document that owns this node info
    * manager.
    */
-  nsIDocument* GetDocument() const { return mDocument; }
+  mozilla::dom::Document* GetDocument() const { return mDocument; }
 
   /**
    * Gets the principal of the document this nodeinfo manager belongs to.
@@ -93,32 +98,31 @@ class nsNodeInfoManager final {
 
   void RemoveNodeInfo(mozilla::dom::NodeInfo* aNodeInfo);
 
-  nsBindingManager* GetBindingManager() const { return mBindingManager; }
-
-  enum Tri { eTriUnset = 0, eTriFalse, eTriTrue };
-
   /**
    * Returns true if SVG nodes in this document have real SVG semantics.
    */
-  bool SVGEnabled() {
-    return mSVGEnabled == eTriTrue
-               ? true
-               : mSVGEnabled == eTriFalse ? false : InternalSVGEnabled();
-  }
+  bool SVGEnabled() { return mSVGEnabled.valueOr(InternalSVGEnabled()); }
 
   /**
    * Returns true if MathML nodes in this document have real MathML semantics.
    */
   bool MathMLEnabled() {
-    return mMathMLEnabled == eTriTrue
-               ? true
-               : mMathMLEnabled == eTriFalse ? false : InternalMathMLEnabled();
+    return mMathMLEnabled.valueOr(InternalMathMLEnabled());
   }
+
+  mozilla::dom::DOMArena* GetArenaAllocator() { return mArena; }
+  void SetArenaAllocator(mozilla::dom::DOMArena* aArena);
+
+  void* Allocate(size_t aSize);
+
+  void Free(void* aPtr) { free(aPtr); }
+
+  bool HasAllocated() { return mHasAllocated; }
 
   void AddSizeOfIncludingThis(nsWindowSizes& aSizes) const;
 
  protected:
-  friend class nsIDocument;
+  friend class mozilla::dom::Document;
   friend class nsXULPrototypeDocument;
 
   /**
@@ -154,7 +158,7 @@ class nsNodeInfoManager final {
   };
 
   nsDataHashtable<NodeInfoInnerKey, mozilla::dom::NodeInfo*> mNodeInfoHash;
-  nsIDocument* MOZ_NON_OWNING_REF mDocument;  // WEAK
+  mozilla::dom::Document* MOZ_NON_OWNING_REF mDocument;  // WEAK
   uint32_t mNonDocumentNodeInfos;
   nsCOMPtr<nsIPrincipal> mPrincipal;  // Never null after Init() succeeds.
   nsCOMPtr<nsIPrincipal> mDefaultPrincipal;  // Never null after Init() succeeds
@@ -164,10 +168,13 @@ class nsNodeInfoManager final {
       mCommentNodeInfo;  // WEAK to avoid circular ownership
   mozilla::dom::NodeInfo* MOZ_NON_OWNING_REF
       mDocumentNodeInfo;  // WEAK to avoid circular ownership
-  RefPtr<nsBindingManager> mBindingManager;
   NodeInfoCache mRecentlyUsedNodeInfos;
-  Tri mSVGEnabled;
-  Tri mMathMLEnabled;
+  mozilla::Maybe<bool> mSVGEnabled;     // Lazily initialized.
+  mozilla::Maybe<bool> mMathMLEnabled;  // Lazily initialized.
+
+  // For dom_arena_allocator_enabled
+  RefPtr<mozilla::dom::DOMArena> mArena;
+  bool mHasAllocated = false;
 };
 
 #endif /* nsNodeInfoManager_h___ */

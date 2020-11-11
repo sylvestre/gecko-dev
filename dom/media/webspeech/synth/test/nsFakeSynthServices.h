@@ -9,7 +9,6 @@
 
 #include "nsTArray.h"
 #include "nsIObserver.h"
-#include "nsIThread.h"
 #include "nsISpeechService.h"
 #include "nsRefPtrHashtable.h"
 #include "mozilla/StaticPtr.h"
@@ -28,8 +27,6 @@ class nsFakeSynthServices : public nsIObserver {
   static nsFakeSynthServices* GetInstance();
 
   static already_AddRefed<nsFakeSynthServices> GetInstanceForService();
-
-  static void Shutdown();
 
  private:
   virtual ~nsFakeSynthServices() = default;

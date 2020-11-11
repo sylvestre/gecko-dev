@@ -10,27 +10,29 @@
 #include "nsScriptSecurityManager.h"
 #include "jsfriendapi.h"
 #ifdef MOZ_THREADSTACKHELPER_PROFILING_STACK
-#include "js/ProfilingStack.h"
+#  include "js/ProfilingStack.h"
 #endif
+
+#include <utility>
 
 #include "mozilla/Assertions.h"
 #include "mozilla/Attributes.h"
-#include "mozilla/IntegerPrintfMacros.h"
-#include "mozilla/Move.h"
-#include "mozilla/Scoped.h"
-#include "mozilla/UniquePtr.h"
-#include "mozilla/MemoryChecking.h"
-#include "mozilla/Sprintf.h"
-#include "nsThread.h"
+#include "mozilla/BasePrincipal.h"
 #include "mozilla/HangTypes.h"
+#include "mozilla/IntegerPrintfMacros.h"
+#include "mozilla/MemoryChecking.h"
+#include "mozilla/Scoped.h"
+#include "mozilla/Sprintf.h"
+#include "mozilla/UniquePtr.h"
+#include "nsThread.h"
 
 #ifdef __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wshadow"
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wshadow"
 #endif
 
 #if defined(MOZ_VALGRIND)
-#include <valgrind/valgrind.h>
+#  include <valgrind/valgrind.h>
 #endif
 
 #include <string.h>
@@ -38,33 +40,39 @@
 #include <cstdlib>
 
 #ifdef XP_LINUX
-#include <ucontext.h>
-#include <unistd.h>
-#include <sys/syscall.h>
+#  include <ucontext.h>
+#  include <unistd.h>
+#  include <sys/syscall.h>
 #endif
 
 #ifdef __GNUC__
-#pragma GCC diagnostic pop  // -Wshadow
+#  pragma GCC diagnostic pop  // -Wshadow
 #endif
 
 #if defined(XP_LINUX) || defined(XP_MACOSX)
-#include <pthread.h>
+#  include <pthread.h>
 #endif
 
 #ifdef ANDROID
-#ifndef SYS_gettid
-#define SYS_gettid __NR_gettid
-#endif
-#if defined(__arm__) && !defined(__NR_rt_tgsigqueueinfo)
+#  ifndef SYS_gettid
+#    define SYS_gettid __NR_gettid
+#  endif
+#  if defined(__arm__) && !defined(__NR_rt_tgsigqueueinfo)
 // Some NDKs don't define this constant even though the kernel supports it.
-#define __NR_rt_tgsigqueueinfo (__NR_SYSCALL_BASE + 363)
-#endif
-#ifndef SYS_rt_tgsigqueueinfo
-#define SYS_rt_tgsigqueueinfo __NR_rt_tgsigqueueinfo
-#endif
+#    define __NR_rt_tgsigqueueinfo (__NR_SYSCALL_BASE + 363)
+#  endif
+#  ifndef SYS_rt_tgsigqueueinfo
+#    define SYS_rt_tgsigqueueinfo __NR_rt_tgsigqueueinfo
+#  endif
 #endif
 
 namespace mozilla {
+
+// A character which we append to any string which gets truncated as a a
+// result of trying to write it into a statically allocated buffer. This just
+// makes it a little easier to know that the buffer was truncated during
+// analysis.
+const char kTruncationIndicator = '$';
 
 ThreadStackHelper::ThreadStackHelper()
     : mStackToFill(nullptr),
@@ -134,8 +142,7 @@ void ThreadStackHelper::GetStack(HangStack& aStack, nsACString& aRunnableName,
 
   // XXX: We don't need to pass in ProfilerFeature::StackWalk to trigger
   // stackwalking, as that is instead controlled by the last argument.
-  profiler_suspend_and_sample_thread(mThreadId, ProfilerFeature::Privacy, *this,
-                                     aStackWalk);
+  profiler_suspend_and_sample_thread(mThreadId, 0, *this, aStackWalk);
 
   // Copy the name buffer allocation into the output string. We explicitly set
   // the last byte to null in case we read in some corrupted data without a null
@@ -210,12 +217,9 @@ namespace {
 bool IsChromeJSScript(JSScript* aScript) {
   // May be called from another thread or inside a signal handler.
   // We assume querying the script is safe but we must not manipulate it.
-  nsIScriptSecurityManager* const secman =
-      nsScriptSecurityManager::GetScriptSecurityManager();
-  NS_ENSURE_TRUE(secman, false);
 
   JSPrincipals* const principals = JS_GetScriptPrincipals(aScript);
-  return secman->IsSystemPrincipal(nsJSPrincipals::get(principals));
+  return nsJSPrincipals::get(principals)->IsSystemPrincipal();
 }
 
 // Get the full path after the URI scheme, if the URI matches the scheme.
@@ -249,11 +253,41 @@ const char* GetPathAfterComponent(const char* filename,
 
 }  // namespace
 
+bool ThreadStackHelper::MaybeAppendDynamicStackFrame(Span<const char> aBuf) {
+  mDesiredBufferSize += aBuf.Length() + 1;
+
+  if (mStackToFill->stack().Capacity() > mStackToFill->stack().Length() &&
+      (mStackToFill->strbuffer().Capacity() -
+       mStackToFill->strbuffer().Length()) > aBuf.Length() + 1) {
+    // NOTE: We only increment this if we're going to successfully append.
+    mDesiredStackSize += 1;
+    uint32_t start = mStackToFill->strbuffer().Length();
+    mStackToFill->strbuffer().AppendElements(aBuf.Elements(), aBuf.Length());
+    mStackToFill->strbuffer().AppendElement('\0');
+    mStackToFill->stack().AppendElement(HangEntryBufOffset(start));
+    return true;
+  }
+  return false;
+}
+
 void ThreadStackHelper::CollectProfilingStackFrame(
     const js::ProfilingStackFrame& aFrame) {
-  // For non-js frames we just include the raw label.
+  // For non-js frames, first try to get the dynamic string and fit it in,
+  // otherwise just get the label.
   if (!aFrame.isJsFrame()) {
     const char* frameLabel = aFrame.label();
+    if (aFrame.isNonsensitive() && aFrame.dynamicString()) {
+      const char* dynamicString = aFrame.dynamicString();
+      char buffer[128];
+      size_t len = SprintfLiteral(buffer, "%s %s", frameLabel, dynamicString);
+      if (len > sizeof(buffer)) {
+        buffer[sizeof(buffer) - 1] = kTruncationIndicator;
+        len = sizeof(buffer);
+      }
+      if (MaybeAppendDynamicStackFrame(Span(buffer, len))) {
+        return;
+      }
+    }
 
     // frameLabel is a statically allocated string, so we want to store a
     // reference to it without performing any allocations. This is important, as
@@ -327,20 +361,12 @@ void ThreadStackHelper::CollectProfilingStackFrame(
 
   char buffer[128];  // Enough to fit longest js file name from the tree
   size_t len = SprintfLiteral(buffer, "%s:%u", basename, lineno);
-  if (len < sizeof(buffer)) {
-    mDesiredBufferSize += len + 1;
-
-    if (mStackToFill->stack().Capacity() > mStackToFill->stack().Length() &&
-        (mStackToFill->strbuffer().Capacity() -
-         mStackToFill->strbuffer().Length()) > len + 1) {
-      // NOTE: We only increment this if we're going to successfully append.
-      mDesiredStackSize += 1;
-      uint32_t start = mStackToFill->strbuffer().Length();
-      mStackToFill->strbuffer().AppendElements(buffer, len);
-      mStackToFill->strbuffer().AppendElement('\0');
-      mStackToFill->stack().AppendElement(HangEntryBufOffset(start));
-      return;
-    }
+  if (len > sizeof(buffer)) {
+    buffer[sizeof(buffer) - 1] = kTruncationIndicator;
+    len = sizeof(buffer);
+  }
+  if (MaybeAppendDynamicStackFrame(Span(buffer, len))) {
+    return;
   }
 
   TryAppendFrame(HangEntryChromeScript());

@@ -8,7 +8,8 @@
 
 // Tests for inspect node in browser context menu
 
-const FRAME_URI = "data:text/html;charset=utf-8," +
+const FRAME_URI =
+  "data:text/html;charset=utf-8," +
   encodeURI(`<div id="in-frame">div in the iframe</div>`);
 const HTML = `
   <div id="salutation">Salution in top document</div>
@@ -18,10 +19,7 @@ const HTML = `
 const TEST_URI = "data:text/html;charset=utf-8," + encodeURI(HTML);
 
 add_task(async function() {
-  Services.prefs.setBoolPref("devtools.command-button-frames.enabled", true);
-  registerCleanupFunction(() => {
-    Services.prefs.clearUserPref("devtools.command-button-frames.enabled");
-  });
+  await pushPref("devtools.command-button-frames.enabled", true);
 
   const tab = await addTab(TEST_URI);
   const testActor = await getTestActorWithoutToolbox(tab);
@@ -39,7 +37,9 @@ add_task(async function() {
 });
 
 async function testContextMenuWithinIframe(testActor, nodeFrontGetter) {
-  info("Opening inspector via 'Inspect Element' context menu item within an iframe");
+  info(
+    "Opening inspector via 'Inspect Element' context menu item within an iframe"
+  );
   const selector = ["iframe", "#in-frame"];
   await clickOnInspectMenuItem(testActor, selector);
 
@@ -47,8 +47,11 @@ async function testContextMenuWithinIframe(testActor, nodeFrontGetter) {
   const inspector = await getActiveInspector();
   const nodeFront = await nodeFrontGetter(inspector);
 
-  is(inspector.selection.nodeFront, nodeFront,
-     "Right node is selected in the markup view");
+  is(
+    inspector.selection.nodeFront,
+    nodeFront,
+    "Right node is selected in the markup view"
+  );
 }
 
 async function changeToolboxToInnerFrame() {
@@ -65,8 +68,9 @@ async function changeToolboxToInnerFrame() {
   const frames = Array.from(menuList.querySelectorAll(".command"));
   is(frames.length, 2, "Two frames shown in the switcher");
 
-  const innerFrameButton =
-        frames.filter(b => b.querySelector(".label").textContent === FRAME_URI)[0];
+  const innerFrameButton = frames.filter(
+    b => b.querySelector(".label").textContent === FRAME_URI
+  )[0];
   ok(innerFrameButton, "Found frame button for inner frame");
 
   const newRoot = toolbox.getPanel("inspector").once("new-root");

@@ -1,4 +1,5 @@
 from .base import Browser, ExecutorBrowser, require_arg
+from .base import get_timeout_multiplier   # noqa: F401
 from ..webdriver_server import OperaDriverServer
 from ..executors import executor_kwargs as base_executor_kwargs
 from ..executors.executorselenium import (SeleniumTestharnessExecutor,  # noqa: F401
@@ -15,7 +16,8 @@ __wptrunner__ = {"product": "opera",
                  "browser_kwargs": "browser_kwargs",
                  "executor_kwargs": "executor_kwargs",
                  "env_extras": "env_extras",
-                 "env_options": "env_options"}
+                 "env_options": "env_options",
+                 "timeout_multiplier": "get_timeout_multiplier"}
 
 
 def check_args(**kwargs):
@@ -30,6 +32,8 @@ def browser_kwargs(test_type, run_info_data, config, **kwargs):
 
 def executor_kwargs(test_type, server_config, cache_manager, run_info_data,
                     **kwargs):
+    from selenium.webdriver import DesiredCapabilities
+
     executor_kwargs = base_executor_kwargs(test_type, server_config,
                                            cache_manager, run_info_data, **kwargs)
     executor_kwargs["close_after_done"] = True

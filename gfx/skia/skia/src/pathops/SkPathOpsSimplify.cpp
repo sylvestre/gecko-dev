@@ -4,11 +4,11 @@
  * Use of this source code is governed by a BSD-style license that can be
  * found in the LICENSE file.
  */
-#include "SkAddIntersections.h"
-#include "SkOpCoincidence.h"
-#include "SkOpEdgeBuilder.h"
-#include "SkPathOpsCommon.h"
-#include "SkPathWriter.h"
+#include "src/pathops/SkAddIntersections.h"
+#include "src/pathops/SkOpCoincidence.h"
+#include "src/pathops/SkOpEdgeBuilder.h"
+#include "src/pathops/SkPathOpsCommon.h"
+#include "src/pathops/SkPathWriter.h"
 
 static bool bridgeWinding(SkOpContourHead* contourList, SkPathWriter* writer) {
     bool unsortable = false;
@@ -59,7 +59,7 @@ static bool bridgeWinding(SkOpContourHead* contourList, SkPathWriter* writer) {
                 writer->finishContour();
             } else {
                 SkOpSpanBase* last;
-                if (!current->markAndChaseDone(start, end, &last)) {
+                 if (!current->markAndChaseDone(start, end, &last)) {
                     return false;
                 }
                 if (last && !last->chased()) {
@@ -127,10 +127,7 @@ static bool bridgeXor(SkOpContourHead* contourList, SkPathWriter* writer) {
         if (!writer->isClosed()) {
             SkOpSpan* spanStart = start->starter(end);
             if (!spanStart->done()) {
-                if (!current->addCurveTo(start, end, writer)) {
-                    return false;
-                }
-                current->markDone(spanStart);
+                return false;
             }
         }
         writer->finishContour();

@@ -4,10 +4,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef mozilla_dom_SVGFEMergeElement_h
-#define mozilla_dom_SVGFEMergeElement_h
+#ifndef DOM_SVG_SVGFEMERGEELEMENT_H_
+#define DOM_SVG_SVGFEMERGEELEMENT_H_
 
-#include "nsSVGFilters.h"
+#include "mozilla/dom/SVGFilters.h"
 
 nsresult NS_NewSVGFEMergeElement(
     nsIContent** aResult, already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo);
@@ -15,7 +15,7 @@ nsresult NS_NewSVGFEMergeElement(
 namespace mozilla {
 namespace dom {
 
-typedef nsSVGFE SVGFEMergeElementBase;
+using SVGFEMergeElementBase = SVGFE;
 
 class SVGFEMergeElement : public SVGFEMergeElementBase {
   friend nsresult(::NS_NewSVGFEMergeElement(
@@ -31,14 +31,13 @@ class SVGFEMergeElement : public SVGFEMergeElementBase {
 
  public:
   virtual FilterPrimitiveDescription GetPrimitiveDescription(
-      nsSVGFilterInstance* aInstance, const IntRect& aFilterSubregion,
+      SVGFilterInstance* aInstance, const IntRect& aFilterSubregion,
       const nsTArray<bool>& aInputsAreTainted,
       nsTArray<RefPtr<SourceSurface>>& aInputImages) override;
-  virtual nsSVGString& GetResultImageName() override {
+  virtual SVGAnimatedString& GetResultImageName() override {
     return mStringAttributes[RESULT];
   }
-  virtual void GetSourceImageNames(
-      nsTArray<nsSVGStringInfo>& aSources) override;
+  virtual void GetSourceImageNames(nsTArray<SVGStringInfo>& aSources) override;
 
   // nsIContent
   virtual nsresult Clone(dom::NodeInfo*, nsINode** aResult) const override;
@@ -47,11 +46,11 @@ class SVGFEMergeElement : public SVGFEMergeElementBase {
   virtual StringAttributesInfo GetStringInfo() override;
 
   enum { RESULT };
-  nsSVGString mStringAttributes[1];
+  SVGAnimatedString mStringAttributes[1];
   static StringInfo sStringInfo[1];
 };
 
 }  // namespace dom
 }  // namespace mozilla
 
-#endif  // mozilla_dom_SVGFEMergeElement_h
+#endif  // DOM_SVG_SVGFEMERGEELEMENT_H_

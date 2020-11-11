@@ -15,7 +15,7 @@ use style_traits::values::specified::AllowedNumericType;
 use style_traits::{CssWriter, ParseError, SpecifiedValueInfo, StyleParseErrorKind, ToCss};
 
 /// A time value according to CSS-VALUES § 6.2.
-#[derive(Clone, Copy, Debug, MallocSizeOf, PartialEq)]
+#[derive(Clone, Copy, Debug, MallocSizeOf, PartialEq, ToShmem)]
 pub struct Time {
     seconds: CSSFloat,
     unit: TimeUnit,
@@ -23,7 +23,7 @@ pub struct Time {
 }
 
 /// A time unit.
-#[derive(Clone, Copy, Debug, Eq, MallocSizeOf, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, MallocSizeOf, PartialEq, ToShmem)]
 pub enum TimeUnit {
     /// `s`
     Second,
@@ -69,7 +69,7 @@ impl Time {
     /// Returns a `Time` value from a CSS `calc()` expression.
     pub fn from_calc(seconds: CSSFloat) -> Self {
         Time {
-            seconds: seconds,
+            seconds,
             unit: TimeUnit::Second,
             was_calc: true,
         }
@@ -83,28 +83,34 @@ impl Time {
         use style_traits::ParsingMode;
 
         let location = input.current_source_location();
-        // FIXME: remove early returns when lifetimes are non-lexical
-        match input.next() {
+        match *input.next()? {
             // Note that we generally pass ParserContext to is_ok() to check
             // that the ParserMode of the ParserContext allows all numeric
             // values for SMIL regardless of clamping_mode, but in this Time
             // value case, the value does not animate for SMIL at all, so we use
             // ParsingMode::DEFAULT directly.
-            Ok(&Token::Dimension {
+            Token::Dimension {
                 value, ref unit, ..
-            })
-                if clamping_mode.is_ok(ParsingMode::DEFAULT, value) =>
-            {
-                return Time::parse_dimension(value, unit, /* from_calc = */ false)
-                    .map_err(|()| location.new_custom_error(StyleParseErrorKind::UnspecifiedError));
-            }
-            Ok(&Token::Function(ref name)) if name.eq_ignore_ascii_case("calc") => {},
-            Ok(t) => return Err(location.new_unexpected_token_error(t.clone())),
-            Err(e) => return Err(e.into()),
-        }
-        match input.parse_nested_block(|i| CalcNode::parse_time(context, i)) {
-            Ok(time) if clamping_mode.is_ok(ParsingMode::DEFAULT, time.seconds) => Ok(time),
-            _ => Err(input.new_custom_error(StyleParseErrorKind::UnspecifiedError)),
+            } if clamping_mode.is_ok(ParsingMode::DEFAULT, value) => {
+                Time::parse_dimension(value, unit, /* from_calc = */ false)
+                    .map_err(|()| location.new_custom_error(StyleParseErrorKind::UnspecifiedError))
+            },
+            Token::Function(ref name) => {
+                let function = CalcNode::math_function(name, location)?;
+                let time = CalcNode::parse_time(context, input, function)?;
+
+                // FIXME(emilio): Rejecting calc() at parse time is wrong,
+                // was_calc should probably be replaced by calc_clamping_mode or
+                // something like we do for numbers, or we should do the
+                // clamping here instead (simpler, but technically incorrect,
+                // though still more correct than this!).
+                if !clamping_mode.is_ok(ParsingMode::DEFAULT, time.seconds) {
+                    return Err(input.new_custom_error(StyleParseErrorKind::UnspecifiedError));
+                }
+
+                Ok(time)
+            },
+            ref t => return Err(location.new_unexpected_token_error(t.clone())),
         }
     }
 

@@ -12,6 +12,7 @@
 #include <set>
 #include <vector>
 #include "sslt.h"
+#include "sslproto.h"
 #include "test_io.h"
 #include "tls_agent.h"
 #include "tls_parser.h"
@@ -24,6 +25,59 @@ extern "C" {
 namespace nss_test {
 
 class TlsCipherSpec;
+
+class TlsSendCipherSpecCapturer {
+ public:
+  TlsSendCipherSpecCapturer(const std::shared_ptr<TlsAgent>& agent)
+      : agent_(agent), send_cipher_specs_() {
+    EXPECT_EQ(SECSuccess,
+              SSL_SecretCallback(agent_->ssl_fd(), SecretCallback, this));
+  }
+
+  std::shared_ptr<TlsCipherSpec> spec(size_t i) {
+    if (i >= send_cipher_specs_.size()) {
+      return nullptr;
+    }
+    return send_cipher_specs_[i];
+  }
+
+ private:
+  static void SecretCallback(PRFileDesc* fd, PRUint16 epoch,
+                             SSLSecretDirection dir, PK11SymKey* secret,
+                             void* arg) {
+    auto self = static_cast<TlsSendCipherSpecCapturer*>(arg);
+    std::cerr << self->agent_->role_str() << ": capture " << dir
+              << " secret for epoch " << epoch << std::endl;
+
+    if (dir == ssl_secret_read) {
+      return;
+    }
+
+    SSLPreliminaryChannelInfo preinfo;
+    EXPECT_EQ(SECSuccess,
+              SSL_GetPreliminaryChannelInfo(self->agent_->ssl_fd(), &preinfo,
+                                            sizeof(preinfo)));
+    EXPECT_EQ(sizeof(preinfo), preinfo.length);
+    EXPECT_TRUE(preinfo.valuesSet & ssl_preinfo_cipher_suite);
+
+    // Check the version:
+    EXPECT_TRUE(preinfo.valuesSet & ssl_preinfo_version);
+    ASSERT_GE(SSL_LIBRARY_VERSION_TLS_1_3, preinfo.protocolVersion);
+
+    SSLCipherSuiteInfo cipherinfo;
+    EXPECT_EQ(SECSuccess,
+              SSL_GetCipherSuiteInfo(preinfo.cipherSuite, &cipherinfo,
+                                     sizeof(cipherinfo)));
+    EXPECT_EQ(sizeof(cipherinfo), cipherinfo.length);
+
+    auto spec = std::make_shared<TlsCipherSpec>(true, epoch);
+    EXPECT_TRUE(spec->SetKeys(&cipherinfo, secret));
+    self->send_cipher_specs_.push_back(spec);
+  }
+
+  std::shared_ptr<TlsAgent> agent_;
+  std::vector<std::shared_ptr<TlsCipherSpec>> send_cipher_specs_;
+};
 
 class TlsVersioned {
  public:
@@ -45,21 +99,56 @@ class TlsVersioned {
 class TlsRecordHeader : public TlsVersioned {
  public:
   TlsRecordHeader()
-      : TlsVersioned(), content_type_(0), sequence_number_(0), header_() {}
+      : TlsVersioned(),
+        content_type_(0),
+        guess_seqno_(0),
+        seqno_is_masked_(false),
+        sequence_number_(0),
+        header_() {}
   TlsRecordHeader(SSLProtocolVariant var, uint16_t ver, uint8_t ct,
                   uint64_t seqno)
       : TlsVersioned(var, ver),
         content_type_(ct),
+        guess_seqno_(0),
+        seqno_is_masked_(false),
         sequence_number_(seqno),
-        header_() {}
+        header_(),
+        sn_mask_() {}
+
+  bool is_protected() const {
+    // *TLS < 1.3
+    if (version() < SSL_LIBRARY_VERSION_TLS_1_3 &&
+        content_type() == ssl_ct_application_data) {
+      return true;
+    }
+
+    // TLS 1.3
+    if (!is_dtls() && version() >= SSL_LIBRARY_VERSION_TLS_1_3 &&
+        content_type() == ssl_ct_application_data) {
+      return true;
+    }
+
+    // DTLS 1.3
+    return is_dtls13_ciphertext();
+  }
 
   uint8_t content_type() const { return content_type_; }
-  uint64_t sequence_number() const { return sequence_number_; }
   uint16_t epoch() const {
     return static_cast<uint16_t>(sequence_number_ >> 48);
   }
+  uint64_t sequence_number() const { return sequence_number_; }
+  void sequence_number(uint64_t seqno) { sequence_number_ = seqno; }
+  const DataBuffer& sn_mask() const { return sn_mask_; }
+  bool is_dtls13_ciphertext() const {
+    return is_dtls() && (version() >= SSL_LIBRARY_VERSION_TLS_1_3) &&
+           (content_type() & kCtDtlsCiphertextMask) == kCtDtlsCiphertext;
+  }
+
   size_t header_length() const;
   const DataBuffer& header() const { return header_; }
+
+  bool MaskSequenceNumber();
+  bool MaskSequenceNumber(const DataBuffer& mask_buf);
 
   // Parse the header; return true if successful; body in an outparam if OK.
   bool Parse(bool is_dtls13, uint64_t sequence_number, TlsParser* parser,
@@ -70,14 +159,17 @@ class TlsRecordHeader : public TlsVersioned {
   size_t WriteHeader(DataBuffer* buffer, size_t offset, size_t body_len) const;
 
  private:
-  static uint64_t RecoverSequenceNumber(uint64_t expected, uint32_t partial,
+  static uint64_t RecoverSequenceNumber(uint64_t guess_seqno, uint32_t partial,
                                         size_t partial_bits);
-  static uint64_t ParseSequenceNumber(uint64_t expected, uint32_t raw,
-                                      size_t seq_no_bits, size_t epoch_bits);
+  uint64_t ParseSequenceNumber(uint64_t expected, uint64_t raw,
+                               size_t seq_no_bits, size_t epoch_bits);
 
   uint8_t content_type_;
+  uint64_t guess_seqno_;
+  bool seqno_is_masked_;
   uint64_t sequence_number_;
   DataBuffer header_;
+  DataBuffer sn_mask_;
 };
 
 struct TlsRecord {
@@ -97,13 +189,7 @@ inline std::shared_ptr<T> MakeTlsFilter(const std::shared_ptr<TlsAgent>& agent,
 // Abstract filter that operates on entire (D)TLS records.
 class TlsRecordFilter : public PacketFilter {
  public:
-  TlsRecordFilter(const std::shared_ptr<TlsAgent>& a)
-      : agent_(a),
-        count_(0),
-        cipher_spec_(),
-        dropped_record_(false),
-        in_sequence_number_(0),
-        out_sequence_number_(0) {}
+  TlsRecordFilter(const std::shared_ptr<TlsAgent>& a);
 
   std::shared_ptr<TlsAgent> agent() const { return agent_.lock(); }
 
@@ -117,10 +203,13 @@ class TlsRecordFilter : public PacketFilter {
   // Enabling it for lower version tests will cause undefined
   // behavior.
   void EnableDecryption();
+  bool decrypting() const { return decrypting_; };
   bool Unprotect(const TlsRecordHeader& header, const DataBuffer& cipherText,
-                 uint8_t* inner_content_type, DataBuffer* plaintext);
-  bool Protect(const TlsRecordHeader& header, uint8_t inner_content_type,
-               const DataBuffer& plaintext, DataBuffer* ciphertext,
+                 uint16_t* protection_epoch, uint8_t* inner_content_type,
+                 DataBuffer* plaintext, TlsRecordHeader* out_header);
+  bool Protect(TlsCipherSpec& protection_spec, const TlsRecordHeader& header,
+               uint8_t inner_content_type, const DataBuffer& plaintext,
+               DataBuffer* ciphertext, TlsRecordHeader* out_header,
                size_t padding = 0);
 
  protected:
@@ -146,20 +235,18 @@ class TlsRecordFilter : public PacketFilter {
   }
 
   bool is_dtls13() const;
+  bool is_dtls13_ciphertext(uint8_t ct) const;
+  TlsCipherSpec& spec(uint16_t epoch);
 
  private:
-  static void CipherSpecChanged(void* arg, PRBool sending,
-                                ssl3CipherSpec* newSpec);
+  static void SecretCallback(PRFileDesc* fd, PRUint16 epoch,
+                             SSLSecretDirection dir, PK11SymKey* secret,
+                             void* arg);
 
   std::weak_ptr<TlsAgent> agent_;
-  size_t count_;
-  std::unique_ptr<TlsCipherSpec> cipher_spec_;
-  // Whether we dropped a record since the cipher spec changed.
-  bool dropped_record_;
-  // The sequence number we use for reading records as they are written.
-  uint64_t in_sequence_number_;
-  // The sequence number we use for writing modified records.
-  uint64_t out_sequence_number_;
+  size_t count_ = 0;
+  std::vector<TlsCipherSpec> cipher_specs_;
+  bool decrypting_ = false;
 };
 
 inline std::ostream& operator<<(std::ostream& stream, const TlsVersioned& v) {
@@ -449,6 +536,81 @@ class TlsExtensionDropper : public TlsExtensionFilter {
   uint16_t extension_;
 };
 
+class TlsHandshakeDropper : public TlsHandshakeFilter {
+ public:
+  TlsHandshakeDropper(const std::shared_ptr<TlsAgent>& a)
+      : TlsHandshakeFilter(a) {}
+
+ protected:
+  PacketFilter::Action FilterHandshake(const HandshakeHeader& header,
+                                       const DataBuffer& input,
+                                       DataBuffer* output) override {
+    return DROP;
+  }
+};
+
+class TlsEncryptedHandshakeMessageReplacer : public TlsRecordFilter {
+ public:
+  TlsEncryptedHandshakeMessageReplacer(const std::shared_ptr<TlsAgent>& a,
+                                       uint8_t old_ct, uint8_t new_ct)
+      : TlsRecordFilter(a), old_ct_(old_ct), new_ct_(new_ct) {}
+
+ protected:
+  PacketFilter::Action FilterRecord(const TlsRecordHeader& header,
+                                    const DataBuffer& record, size_t* offset,
+                                    DataBuffer* output) override {
+    if (header.content_type() != ssl_ct_application_data) {
+      return KEEP;
+    }
+
+    uint16_t protection_epoch = 0;
+    uint8_t inner_content_type;
+    DataBuffer plaintext;
+    TlsRecordHeader out_header;
+    if (!Unprotect(header, record, &protection_epoch, &inner_content_type,
+                   &plaintext, &out_header) ||
+        !plaintext.len()) {
+      return KEEP;
+    }
+
+    if (inner_content_type != ssl_ct_handshake) {
+      return KEEP;
+    }
+
+    size_t off = 0;
+    uint32_t msg_len = 0;
+    uint32_t msg_type = 255;  // Not a real message
+    do {
+      if (!plaintext.Read(off, 1, &msg_type) || msg_type == old_ct_) {
+        break;
+      }
+
+      // Increment and check next messages
+      if (!plaintext.Read(++off, 3, &msg_len)) {
+        break;
+      }
+      off += 3 + msg_len;
+    } while (msg_type != old_ct_);
+
+    if (msg_type == old_ct_) {
+      plaintext.Write(off, new_ct_, 1);
+    }
+
+    DataBuffer ciphertext;
+    bool ok = Protect(spec(protection_epoch), out_header, inner_content_type,
+                      plaintext, &ciphertext, &out_header);
+    if (!ok) {
+      return KEEP;
+    }
+    *offset = out_header.Write(output, *offset, ciphertext);
+    return CHANGE;
+  }
+
+ private:
+  uint8_t old_ct_;
+  uint8_t new_ct_;
+};
+
 class TlsExtensionInjector : public TlsHandshakeFilter {
  public:
   TlsExtensionInjector(const std::shared_ptr<TlsAgent>& a, uint16_t ext,
@@ -557,9 +719,9 @@ class SelectiveDropFilter : public PacketFilter {
 class SelectiveRecordDropFilter : public TlsRecordFilter {
  public:
   SelectiveRecordDropFilter(const std::shared_ptr<TlsAgent>& a,
-                            uint32_t pattern, bool enabled = true)
+                            uint32_t pattern, bool on = true)
       : TlsRecordFilter(a), pattern_(pattern), counter_(0) {
-    if (!enabled) {
+    if (!on) {
       Disable();
     }
   }

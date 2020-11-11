@@ -18,9 +18,7 @@ namespace a11y {
 static StaticAutoPtr<PlatformChild> sPlatformChild;
 
 DocAccessibleChild::DocAccessibleChild(DocAccessible* aDoc, IProtocol* aManager)
-    : DocAccessibleChildBase(aDoc),
-      mIsRemoteConstructed(false),
-      mEmulatedWindowHandle(nullptr) {
+    : DocAccessibleChildBase(aDoc), mEmulatedWindowHandle(nullptr) {
   MOZ_COUNT_CTOR_INHERITED(DocAccessibleChild, DocAccessibleChildBase);
   if (!sPlatformChild) {
     sPlatformChild = new PlatformChild();
@@ -46,7 +44,7 @@ void DocAccessibleChild::Shutdown() {
 
 ipc::IPCResult DocAccessibleChild::RecvParentCOMProxy(
     const IDispatchHolder& aParentCOMProxy) {
-  MOZ_ASSERT(!mParentProxy && !aParentCOMProxy.IsNull());
+  MOZ_ASSERT(!aParentCOMProxy.IsNull());
   mParentProxy.reset(const_cast<IDispatchHolder&>(aParentCOMProxy).Release());
   SetConstructedInParentProcess();
 
@@ -72,14 +70,29 @@ ipc::IPCResult DocAccessibleChild::RecvEmulatedWindow(
   return IPC_OK();
 }
 
+ipc::IPCResult DocAccessibleChild::RecvTopLevelDocCOMProxy(
+    const IAccessibleHolder& aCOMProxy) {
+  MOZ_ASSERT(!aCOMProxy.IsNull());
+  mTopLevelDocProxy.reset(const_cast<IAccessibleHolder&>(aCOMProxy).Release());
+  return IPC_OK();
+}
+
 HWND DocAccessibleChild::GetNativeWindowHandle() const {
   if (mEmulatedWindowHandle) {
     return mEmulatedWindowHandle;
   }
 
-  auto tab = static_cast<dom::TabChild*>(Manager());
-  MOZ_ASSERT(tab);
-  return reinterpret_cast<HWND>(tab->GetNativeWindowHandle());
+  auto browser = static_cast<dom::BrowserChild*>(Manager());
+  MOZ_ASSERT(browser);
+  // Iframe documents use the same window handle as their top level document.
+  auto topDoc = static_cast<DocAccessibleChild*>(
+      browser->GetTopLevelDocAccessibleChild());
+  MOZ_ASSERT(topDoc);
+  if (topDoc != this && topDoc->mEmulatedWindowHandle) {
+    return topDoc->mEmulatedWindowHandle;
+  }
+
+  return reinterpret_cast<HWND>(browser->GetNativeWindowHandle());
 }
 
 void DocAccessibleChild::PushDeferredEvent(UniquePtr<DeferredEvent> aEvent) {
@@ -88,13 +101,13 @@ void DocAccessibleChild::PushDeferredEvent(UniquePtr<DeferredEvent> aEvent) {
   if (mDoc && mDoc->IsRoot()) {
     topLevelIPCDoc = this;
   } else {
-    auto tabChild = static_cast<dom::TabChild*>(Manager());
-    if (!tabChild) {
+    auto browserChild = static_cast<dom::BrowserChild*>(Manager());
+    if (!browserChild) {
       return;
     }
 
     topLevelIPCDoc = static_cast<DocAccessibleChild*>(
-        tabChild->GetTopLevelDocAccessibleChild());
+        browserChild->GetTopLevelDocAccessibleChild());
   }
 
   if (topLevelIPCDoc) {
@@ -178,28 +191,31 @@ bool DocAccessibleChild::SendFocusEvent(const uint64_t& aID,
 }
 
 bool DocAccessibleChild::SendCaretMoveEvent(const uint64_t& aID,
-                                            const int32_t& aOffset) {
-  return SendCaretMoveEvent(aID, GetCaretRectFor(aID), aOffset);
+                                            const int32_t& aOffset,
+                                            const bool& aIsSelectionCollapsed) {
+  return SendCaretMoveEvent(aID, GetCaretRectFor(aID), aOffset,
+                            aIsSelectionCollapsed);
 }
 
 bool DocAccessibleChild::SendCaretMoveEvent(
     const uint64_t& aID, const LayoutDeviceIntRect& aCaretRect,
-    const int32_t& aOffset) {
+    const int32_t& aOffset, const bool& aIsSelectionCollapsed) {
   if (IsConstructedInParentProcess()) {
-    return PDocAccessibleChild::SendCaretMoveEvent(aID, aCaretRect, aOffset);
+    return PDocAccessibleChild::SendCaretMoveEvent(aID, aCaretRect, aOffset,
+                                                   aIsSelectionCollapsed);
   }
 
-  PushDeferredEvent(
-      MakeUnique<SerializedCaretMove>(this, aID, aCaretRect, aOffset));
+  PushDeferredEvent(MakeUnique<SerializedCaretMove>(
+      this, aID, aCaretRect, aOffset, aIsSelectionCollapsed));
   return true;
 }
 
 bool DocAccessibleChild::SendTextChangeEvent(
     const uint64_t& aID, const nsString& aStr, const int32_t& aStart,
     const uint32_t& aLen, const bool& aIsInsert, const bool& aFromUser,
-    const bool aDoSyncCheck) {
+    const bool aDoSync) {
   if (IsConstructedInParentProcess()) {
-    if (aDoSyncCheck && aStr.Contains(L'\xfffc')) {
+    if (aDoSync) {
       // The AT is going to need to reenter content while the event is being
       // dispatched synchronously.
       return PDocAccessibleChild::SendSyncTextChangeEvent(
@@ -255,9 +271,9 @@ bool DocAccessibleChild::ConstructChildDocInParentProcess(
     DocAccessibleChild* aNewChildDoc, uint64_t aUniqueID, uint32_t aMsaaID) {
   if (IsConstructedInParentProcess()) {
     // We may send the constructor immediately
-    auto tabChild = static_cast<dom::TabChild*>(Manager());
-    MOZ_ASSERT(tabChild);
-    bool result = tabChild->SendPDocAccessibleConstructor(
+    auto browserChild = static_cast<dom::BrowserChild*>(Manager());
+    MOZ_ASSERT(browserChild);
+    bool result = browserChild->SendPDocAccessibleConstructor(
         aNewChildDoc, this, aUniqueID, aMsaaID, IAccessibleHolder());
     if (result) {
       aNewChildDoc->SetConstructedInParentProcess();
@@ -284,6 +300,20 @@ bool DocAccessibleChild::SendBindChildDoc(DocAccessibleChild* aChildDoc,
 ipc::IPCResult DocAccessibleChild::RecvRestoreFocus() {
   FocusMgr()->ForceFocusEvent();
   return IPC_OK();
+}
+
+void DocAccessibleChild::SetEmbedderOnBridge(dom::BrowserBridgeChild* aBridge,
+                                             uint64_t aID) {
+  if (CanSend()) {
+    aBridge->SendSetEmbedderAccessible(this, aID);
+  } else {
+    // This DocAccessibleChild hasn't sent the constructor to the parent
+    // process yet. This happens if the top level document hasn't received its
+    // parent COM proxy yet, in which case sending constructors for child
+    // documents gets deferred. We must also defer sending this as an embedder.
+    MOZ_ASSERT(!IsConstructedInParentProcess());
+    PushDeferredEvent(MakeUnique<SerializedSetEmbedder>(aBridge, this, aID));
+  }
 }
 
 }  // namespace a11y

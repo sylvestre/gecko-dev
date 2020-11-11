@@ -7,7 +7,7 @@
 #include "nsError.h"
 #include "MediaResource.h"
 #ifdef MOZ_AV1
-#include "AOMDecoder.h"
+#  include "AOMDecoder.h"
 #endif
 #include "OpusDecoder.h"
 #include "VPXDecoder.h"
@@ -23,6 +23,7 @@
 #include "prprf.h"  // leaving it for PR_vsnprintf()
 #include "mozilla/IntegerPrintfMacros.h"
 #include "mozilla/Sprintf.h"
+#include "VideoUtils.h"
 
 #include <algorithm>
 #include <numeric>
@@ -232,13 +233,12 @@ already_AddRefed<MediaTrackDemuxer> WebMDemuxer::GetTrackDemuxer(
   return e.forget();
 }
 
-nsresult WebMDemuxer::Reset(TrackInfo::TrackType aType) {
+void WebMDemuxer::Reset(TrackInfo::TrackType aType) {
   if (aType == TrackInfo::kVideoTrack) {
     mVideoPackets.Reset();
   } else {
     mAudioPackets.Reset();
   }
-  return NS_OK;
 }
 
 nsresult WebMDemuxer::ReadMetadata() {
@@ -361,15 +361,20 @@ nsresult WebMDemuxer::ReadMetadata() {
         mInfo.mVideo.mDuration = TimeUnit::FromNanoseconds(duration);
       }
       mInfo.mVideo.mCrypto = GetTrackCrypto(TrackInfo::kVideoTrack, track);
-      if (mInfo.mVideo.mCrypto.mValid) {
-        mCrypto.AddInitData(NS_LITERAL_STRING("webm"),
-                            mInfo.mVideo.mCrypto.mKeyId);
+      if (mInfo.mVideo.mCrypto.IsEncrypted()) {
+        MOZ_ASSERT(mInfo.mVideo.mCrypto.mCryptoScheme == CryptoScheme::Cenc,
+                   "WebM should only use cenc scheme");
+        mCrypto.AddInitData(u"webm"_ns, mInfo.mVideo.mCrypto.mKeyId);
       }
     } else if (type == NESTEGG_TRACK_AUDIO && !mHasAudio) {
       nestegg_audio_params params;
       r = nestegg_track_audio_params(context, track, &params);
       if (r == -1) {
         return NS_ERROR_FAILURE;
+      }
+      if (params.rate > AudioInfo::MAX_RATE ||
+          params.channels > AudioConfig::ChannelLayout::MAX_CHANNELS) {
+        return NS_ERROR_DOM_MEDIA_METADATA_ERR;
       }
 
       mAudioTrack = track;
@@ -426,9 +431,10 @@ nsresult WebMDemuxer::ReadMetadata() {
         mInfo.mAudio.mDuration = TimeUnit::FromNanoseconds(duration);
       }
       mInfo.mAudio.mCrypto = GetTrackCrypto(TrackInfo::kAudioTrack, track);
-      if (mInfo.mAudio.mCrypto.mValid) {
-        mCrypto.AddInitData(NS_LITERAL_STRING("webm"),
-                            mInfo.mAudio.mCrypto.mKeyId);
+      if (mInfo.mAudio.mCrypto.IsEncrypted()) {
+        MOZ_ASSERT(mInfo.mAudio.mCrypto.mCryptoScheme == CryptoScheme::Cenc,
+                   "WebM should only use cenc scheme");
+        mCrypto.AddInitData(u"webm"_ns, mInfo.mAudio.mCrypto.mKeyId);
       }
     }
   }
@@ -453,7 +459,7 @@ void WebMDemuxer::EnsureUpToDateIndex() {
       Resource(TrackInfo::kVideoTrack).GetResource());
   MediaByteRangeSet byteRanges;
   nsresult rv = resource->GetCachedRanges(byteRanges);
-  if (NS_FAILED(rv) || !byteRanges.Length()) {
+  if (NS_FAILED(rv) || byteRanges.IsEmpty()) {
     return;
   }
   mBufferedState->UpdateIndex(byteRanges, resource);
@@ -508,8 +514,8 @@ CryptoTrack WebMDemuxer::GetTrackCrypto(TrackInfo::TrackType aType,
   }
 
   if (!initData.IsEmpty()) {
-    crypto.mValid = true;
-    // crypto.mMode is not used for WebMs
+    // Webm only uses a cenc style scheme.
+    crypto.mCryptoScheme = CryptoScheme::Cenc;
     crypto.mIVSize = WEBM_IV_SIZE;
     crypto.mKeyId = std::move(initData);
   }
@@ -552,7 +558,7 @@ nsresult WebMDemuxer::GetNextPacket(TrackInfo::TrackType aType,
 
   int64_t next_tstamp = INT64_MIN;
   auto calculateNextTimestamp = [&](auto&& pushPacket, auto&& lastFrameTime,
-                                    auto&& trackEndTime) {
+                                    int64_t trackEndTime) {
     if (next_holder) {
       next_tstamp = next_holder->Timestamp();
       (this->*pushPacket)(next_holder);
@@ -566,8 +572,15 @@ nsresult WebMDemuxer::GetNextPacket(TrackInfo::TrackType aType,
       // If we can't get frame's duration, it means either we need to wait for
       // more data for MSE case or this is the last frame for file resource
       // case.
-      MOZ_ASSERT(trackEndTime >= tstamp);
-      next_tstamp = trackEndTime;
+      if (tstamp > trackEndTime) {
+        // This shouldn't happen, but some muxers give incorrect durations to
+        // segments, then have samples appear beyond those durations.
+        WEBM_DEBUG("Found tstamp=%" PRIi64 " > trackEndTime=%" PRIi64
+                   " while calculating next timestamp! Indicates a bad mux! "
+                   "Will use tstamp value.",
+                   tstamp, trackEndTime);
+      }
+      next_tstamp = std::max<int64_t>(tstamp, trackEndTime);
     }
     lastFrameTime = Some(tstamp);
   };
@@ -626,8 +639,8 @@ nsresult WebMDemuxer::GetNextPacket(TrackInfo::TrackType aType,
             packetEncryption == NESTEGG_PACKET_HAS_SIGNAL_BYTE_UNENCRYPTED ||
                 packetEncryption == NESTEGG_PACKET_HAS_SIGNAL_BYTE_FALSE,
             "Unencrypted packet expected");
-        auto sample = MakeSpan(data, length);
-        auto alphaSample = MakeSpan(alphaData, alphaLength);
+        auto sample = Span(data, length);
+        auto alphaSample = Span(alphaData, alphaLength);
 
         switch (mVideoCodec) {
           case NESTEGG_CODEC_VP8:
@@ -679,7 +692,9 @@ nsresult WebMDemuxer::GetNextPacket(TrackInfo::TrackType aType,
     }
     sample->mTimecode = TimeUnit::FromMicroseconds(tstamp);
     sample->mTime = TimeUnit::FromMicroseconds(tstamp);
-    sample->mDuration = TimeUnit::FromMicroseconds(next_tstamp - tstamp);
+    if (next_tstamp > tstamp) {
+      sample->mDuration = TimeUnit::FromMicroseconds(next_tstamp - tstamp);
+    }
     sample->mOffset = holder->Offset();
     sample->mKeyframe = isKeyframe;
     if (discardPadding && i == count - 1) {
@@ -705,7 +720,7 @@ nsresult WebMDemuxer::GetNextPacket(TrackInfo::TrackType aType,
       unsigned char const* iv;
       size_t ivLength;
       nestegg_packet_iv(holder->Packet(), &iv, &ivLength);
-      writer->mCrypto.mValid = true;
+      writer->mCrypto.mCryptoScheme = CryptoScheme::Cenc;
       writer->mCrypto.mIVSize = ivLength;
       if (ivLength == 0) {
         // Frame is not encrypted. This shouldn't happen as it means the
@@ -882,9 +897,7 @@ nsresult WebMDemuxer::SeekInternal(TrackInfo::TrackType aType,
   uint32_t trackToSeek = mHasVideo ? mVideoTrack : mAudioTrack;
   uint64_t target = aTarget.ToNanoseconds();
 
-  if (NS_FAILED(Reset(aType))) {
-    return NS_ERROR_FAILURE;
-  }
+  Reset(aType);
 
   if (mSeekPreroll) {
     uint64_t startTime = 0;
@@ -1076,18 +1089,28 @@ RefPtr<WebMTrackDemuxer::SamplesPromise> WebMTrackDemuxer::GetSamples(
     if (NS_FAILED(rv)) {
       break;
     }
+    // Ignore empty samples.
+    if (sample->Size() == 0) {
+      WEBM_DEBUG(
+          "0 sized sample encountered while getting samples, skipping it");
+      continue;
+    }
     if (mNeedKeyframe && !sample->mKeyframe) {
       continue;
     }
+    if (!sample->HasValidTime()) {
+      return SamplesPromise::CreateAndReject(NS_ERROR_DOM_MEDIA_DEMUXER_ERR,
+                                             __func__);
+    }
     mNeedKeyframe = false;
-    samples->mSamples.AppendElement(sample);
+    samples->AppendSample(sample);
     aNumSamples--;
   }
 
-  if (samples->mSamples.IsEmpty()) {
+  if (samples->GetSamples().IsEmpty()) {
     return SamplesPromise::CreateAndReject(rv, __func__);
   } else {
-    UpdateSamples(samples->mSamples);
+    UpdateSamples(samples->GetSamples());
     return SamplesPromise::CreateAndResolve(samples, __func__);
   }
 }
@@ -1154,7 +1177,7 @@ void WebMTrackDemuxer::Reset() {
   mSamples.Reset();
   media::TimeIntervals buffered = GetBuffered();
   mNeedKeyframe = true;
-  if (buffered.Length()) {
+  if (!buffered.IsEmpty()) {
     WEBM_DEBUG("Seek to start point: %f", buffered.Start(0).ToSeconds());
     mParent->SeekInternal(mType, buffered.Start(0));
     SetNextKeyFrameTime();
@@ -1163,11 +1186,11 @@ void WebMTrackDemuxer::Reset() {
   }
 }
 
-void WebMTrackDemuxer::UpdateSamples(nsTArray<RefPtr<MediaRawData>>& aSamples) {
+void WebMTrackDemuxer::UpdateSamples(
+    const nsTArray<RefPtr<MediaRawData>>& aSamples) {
   for (const auto& sample : aSamples) {
-    if (sample->mCrypto.mValid) {
+    if (sample->mCrypto.IsEncrypted()) {
       UniquePtr<MediaRawDataWriter> writer(sample->CreateWriter());
-      writer->mCrypto.mMode = mInfo->mCrypto.mMode;
       writer->mCrypto.mIVSize = mInfo->mCrypto.mIVSize;
       writer->mCrypto.mKeyId.AppendElements(mInfo->mCrypto.mKeyId);
     }
@@ -1232,6 +1255,6 @@ int64_t WebMTrackDemuxer::GetEvictionOffset(const TimeUnit& aTime) {
 
   return offset;
 }
+}  // namespace mozilla
 
 #undef WEBM_DEBUG
-}  // namespace mozilla

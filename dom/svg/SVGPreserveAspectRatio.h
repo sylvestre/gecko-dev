@@ -4,8 +4,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef MOZILLA_CONTENT_SVGPRESERVEASPECTRATIO_H_
-#define MOZILLA_CONTENT_SVGPRESERVEASPECTRATIO_H_
+#ifndef DOM_SVG_SVGPRESERVEASPECTRATIO_H_
+#define DOM_SVG_SVGPRESERVEASPECTRATIO_H_
 
 #include "mozilla/dom/SVGPreserveAspectRatioBinding.h"
 #include "mozilla/HashFunctions.h"  // for HashGeneric
@@ -13,7 +13,7 @@
 #include "nsWrapperCache.h"
 #include "nsCycleCollectionParticipant.h"
 #include "mozilla/ErrorResult.h"
-#include "nsSVGElement.h"
+#include "mozilla/dom/SVGElement.h"
 
 namespace mozilla {
 
@@ -43,7 +43,7 @@ class SVGPreserveAspectRatio final {
         mMeetOrSlice(
             dom::SVGPreserveAspectRatio_Binding::SVG_MEETORSLICE_UNKNOWN) {}
 
-  SVGPreserveAspectRatio(uint16_t aAlign, uint16_t aMeetOrSlice)
+  SVGPreserveAspectRatio(uint8_t aAlign, uint8_t aMeetOrSlice)
       : mAlign(aAlign), mMeetOrSlice(aMeetOrSlice) {}
 
   static nsresult FromString(const nsAString& aString,
@@ -59,7 +59,7 @@ class SVGPreserveAspectRatio final {
     return NS_OK;
   }
 
-  uint16_t GetAlign() const { return mAlign; }
+  auto GetAlign() const { return mAlign; }
 
   nsresult SetMeetOrSlice(uint16_t aMeetOrSlice) {
     if (aMeetOrSlice < SVG_MEETORSLICE_MIN_VALID ||
@@ -69,7 +69,7 @@ class SVGPreserveAspectRatio final {
     return NS_OK;
   }
 
-  uint16_t GetMeetOrSlice() const { return mMeetOrSlice; }
+  auto GetMeetOrSlice() const { return mMeetOrSlice; }
 
   PLDHashNumber Hash() const { return HashGeneric(mAlign, mMeetOrSlice); }
 
@@ -81,18 +81,17 @@ class SVGPreserveAspectRatio final {
 
 namespace dom {
 
-class DOMSVGPreserveAspectRatio final : public nsISupports,
-                                        public nsWrapperCache {
+class DOMSVGPreserveAspectRatio final : public nsWrapperCache {
  public:
-  NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_CLASS(DOMSVGPreserveAspectRatio)
+  NS_INLINE_DECL_CYCLE_COLLECTING_NATIVE_REFCOUNTING(DOMSVGPreserveAspectRatio)
+  NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_NATIVE_CLASS(DOMSVGPreserveAspectRatio)
 
   DOMSVGPreserveAspectRatio(SVGAnimatedPreserveAspectRatio* aVal,
-                            nsSVGElement* aSVGElement, bool aIsBaseValue)
+                            SVGElement* aSVGElement, bool aIsBaseValue)
       : mVal(aVal), mSVGElement(aSVGElement), mIsBaseValue(aIsBaseValue) {}
 
   // WebIDL
-  nsSVGElement* GetParentObject() const { return mSVGElement; }
+  SVGElement* GetParentObject() const { return mSVGElement; }
   virtual JSObject* WrapObject(JSContext* aCx,
                                JS::Handle<JSObject*> aGivenProto) override;
 
@@ -106,11 +105,11 @@ class DOMSVGPreserveAspectRatio final : public nsISupports,
 
   SVGAnimatedPreserveAspectRatio*
       mVal;  // kept alive because it belongs to mSVGElement
-  RefPtr<nsSVGElement> mSVGElement;
+  RefPtr<SVGElement> mSVGElement;
   const bool mIsBaseValue;
 };
 
 }  // namespace dom
 }  // namespace mozilla
 
-#endif  // MOZILLA_CONTENT_SVGPRESERVEASPECTRATIO_H_
+#endif  // DOM_SVG_SVGPRESERVEASPECTRATIO_H_

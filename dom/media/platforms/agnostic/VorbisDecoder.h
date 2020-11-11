@@ -4,17 +4,17 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 #if !defined(VorbisDecoder_h_)
-#define VorbisDecoder_h_
+#  define VorbisDecoder_h_
 
-#include "AudioConverter.h"
-#include "PlatformDecoderModule.h"
-#include "mozilla/Maybe.h"
+#  include "AudioConverter.h"
+#  include "PlatformDecoderModule.h"
+#  include "mozilla/Maybe.h"
 
-#ifdef MOZ_TREMOR
-#include "tremor/ivorbiscodec.h"
-#else
-#include "vorbis/codec.h"
-#endif
+#  ifdef MOZ_TREMOR
+#    include "tremor/ivorbiscodec.h"
+#  else
+#    include "vorbis/codec.h"
+#  endif
 
 namespace mozilla {
 
@@ -32,7 +32,7 @@ class VorbisDataDecoder : public MediaDataDecoder,
   RefPtr<FlushPromise> Flush() override;
   RefPtr<ShutdownPromise> Shutdown() override;
   nsCString GetDescriptionName() const override {
-    return NS_LITERAL_CSTRING("vorbis audio decoder");
+    return "vorbis audio decoder"_ns;
   }
 
   // Return true if mimetype is Vorbis
@@ -41,10 +41,9 @@ class VorbisDataDecoder : public MediaDataDecoder,
 
  private:
   nsresult DecodeHeader(const unsigned char* aData, size_t aLength);
-  RefPtr<DecodePromise> ProcessDecode(MediaRawData* aSample);
 
   const AudioInfo& mInfo;
-  const RefPtr<TaskQueue> mTaskQueue;
+  nsCOMPtr<nsISerialEventTarget> mThread;
 
   // Vorbis decoder state
   vorbis_info mVorbisInfo;

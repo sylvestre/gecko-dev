@@ -7,10 +7,13 @@
 #include "MemoryBlobImpl.h"
 #include "mozilla/IntegerPrintfMacros.h"
 #include "mozilla/SHA1.h"
+#include "nsMemory.h"
 #include "nsPrintfCString.h"
+#include "nsRFPService.h"
+#include "nsStringStream.h"
+#include "prtime.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_IMPL_ADDREF(MemoryBlobImpl::DataOwnerAdapter)
 NS_IMPL_RELEASE(MemoryBlobImpl::DataOwnerAdapter)
@@ -25,6 +28,26 @@ NS_INTERFACE_MAP_BEGIN(MemoryBlobImpl::DataOwnerAdapter)
   NS_INTERFACE_MAP_ENTRY_AMBIGUOUS(nsISupports, nsIInputStream)
 NS_INTERFACE_MAP_END
 
+// static
+already_AddRefed<MemoryBlobImpl> MemoryBlobImpl::CreateWithCustomLastModified(
+    void* aMemoryBuffer, uint64_t aLength, const nsAString& aName,
+    const nsAString& aContentType, int64_t aLastModifiedDate) {
+  RefPtr<MemoryBlobImpl> blobImpl = new MemoryBlobImpl(
+      aMemoryBuffer, aLength, aName, aContentType, aLastModifiedDate);
+  return blobImpl.forget();
+}
+
+// static
+already_AddRefed<MemoryBlobImpl> MemoryBlobImpl::CreateWithLastModifiedNow(
+    void* aMemoryBuffer, uint64_t aLength, const nsAString& aName,
+    const nsAString& aContentType, bool aCrossOriginIsolated) {
+  int64_t lastModificationDate = nsRFPService::ReduceTimePrecisionAsUSecs(
+      PR_Now(), 0,
+      /* aIsSystemPrincipal */ false, aCrossOriginIsolated);
+  return CreateWithCustomLastModified(aMemoryBuffer, aLength, aName,
+                                      aContentType, lastModificationDate);
+}
+
 nsresult MemoryBlobImpl::DataOwnerAdapter::Create(DataOwner* aDataOwner,
                                                   uint32_t aStart,
                                                   uint32_t aLength,
@@ -36,7 +59,7 @@ nsresult MemoryBlobImpl::DataOwnerAdapter::Create(DataOwner* aDataOwner,
 
   rv = NS_NewByteInputStream(
       getter_AddRefs(stream),
-      static_cast<const char*>(aDataOwner->mData) + aStart, (int32_t)aLength,
+      Span(static_cast<const char*>(aDataOwner->mData) + aStart, aLength),
       NS_ASSIGNMENT_DEPEND);
   NS_ENSURE_SUCCESS(rv, rv);
 
@@ -65,17 +88,19 @@ void MemoryBlobImpl::CreateInputStream(nsIInputStream** aStream,
                                                  aStream);
 }
 
-/* static */ StaticMutex MemoryBlobImpl::DataOwner::sDataOwnerMutex;
+/* static */
+StaticMutex MemoryBlobImpl::DataOwner::sDataOwnerMutex;
 
 /* static */ StaticAutoPtr<LinkedList<MemoryBlobImpl::DataOwner>>
     MemoryBlobImpl::DataOwner::sDataOwners;
 
-/* static */ bool MemoryBlobImpl::DataOwner::sMemoryReporterRegistered = false;
+/* static */
+bool MemoryBlobImpl::DataOwner::sMemoryReporterRegistered = false;
 
 MOZ_DEFINE_MALLOC_SIZE_OF(MemoryFileDataOwnerMallocSizeOf)
 
 class MemoryBlobImplDataOwnerMemoryReporter final : public nsIMemoryReporter {
-  ~MemoryBlobImplDataOwnerMemoryReporter() {}
+  ~MemoryBlobImplDataOwnerMemoryReporter() = default;
 
  public:
   NS_DECL_THREADSAFE_ISUPPORTS
@@ -111,7 +136,7 @@ class MemoryBlobImplDataOwnerMemoryReporter final : public nsIMemoryReporter {
         }
 
         aHandleReport->Callback(
-            /* process */ NS_LITERAL_CSTRING(""),
+            /* process */ ""_ns,
             nsPrintfCString(
                 "explicit/dom/memory-file-data/large/file(length=%" PRIu64
                 ", sha1=%s)",
@@ -134,9 +159,8 @@ class MemoryBlobImplDataOwnerMemoryReporter final : public nsIMemoryReporter {
 
     if (smallObjectsTotal > 0) {
       aHandleReport->Callback(
-          /* process */ NS_LITERAL_CSTRING(""),
-          NS_LITERAL_CSTRING("explicit/dom/memory-file-data/small"), KIND_HEAP,
-          UNITS_BYTES, smallObjectsTotal,
+          /* process */ ""_ns, "explicit/dom/memory-file-data/small"_ns,
+          KIND_HEAP, UNITS_BYTES, smallObjectsTotal,
           nsPrintfCString(
               "Memory used to back small memory files (i.e. those taking up "
               "less "
@@ -154,7 +178,8 @@ class MemoryBlobImplDataOwnerMemoryReporter final : public nsIMemoryReporter {
 
 NS_IMPL_ISUPPORTS(MemoryBlobImplDataOwnerMemoryReporter, nsIMemoryReporter)
 
-/* static */ void MemoryBlobImpl::DataOwner::EnsureMemoryReporterRegistered() {
+/* static */
+void MemoryBlobImpl::DataOwner::EnsureMemoryReporterRegistered() {
   sDataOwnerMutex.AssertCurrentThreadOwns();
   if (sMemoryReporterRegistered) {
     return;
@@ -165,5 +190,4 @@ NS_IMPL_ISUPPORTS(MemoryBlobImplDataOwnerMemoryReporter, nsIMemoryReporter)
   sMemoryReporterRegistered = true;
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

@@ -107,11 +107,11 @@ namespace jit {
   _(NewArray)                  \
   _(NewArrayCopyOnWrite)       \
   _(NewIterator)               \
-  _(NewDerivedTypedObject)     \
   _(NewCallObject)             \
   _(CreateThisWithTemplate)    \
   _(Lambda)                    \
   _(LambdaArrow)               \
+  _(FunctionWithProto)         \
   _(ObjectState)               \
   _(ArrayState)                \
   _(SetArrayLength)            \
@@ -175,14 +175,15 @@ class MOZ_NON_PARAM RInstruction {
   uint32_t numOperands() const override { return numOp; }
 
 #ifdef DEBUG
-#define RINSTRUCTION_HEADER_NUM_OP_(op, numOp)                                \
-  RINSTRUCTION_HEADER_NUM_OP_MAIN(op, numOp)                                  \
-  static_assert(M##op::staticNumOperands == numOp,                            \
-                "The recover instructions's numOperands should equal to the " \
-                "MIR's numOperands");
+#  define RINSTRUCTION_HEADER_NUM_OP_(op, numOp)                      \
+    RINSTRUCTION_HEADER_NUM_OP_MAIN(op, numOp)                        \
+    static_assert(                                                    \
+        M##op::staticNumOperands == numOp,                            \
+        "The recover instructions's numOperands should equal to the " \
+        "MIR's numOperands");
 #else
-#define RINSTRUCTION_HEADER_NUM_OP_(op, numOp) \
-  RINSTRUCTION_HEADER_NUM_OP_MAIN(op, numOp)
+#  define RINSTRUCTION_HEADER_NUM_OP_(op, numOp) \
+    RINSTRUCTION_HEADER_NUM_OP_MAIN(op, numOp)
 #endif
 
 class RResumePoint final : public RInstruction {
@@ -487,7 +488,7 @@ class RSign final : public RInstruction {
 
 class RMathFunction final : public RInstruction {
  private:
-  uint8_t function_;
+  UnaryMathFunction function_;
 
  public:
   RINSTRUCTION_HEADER_NUM_OP_(MathFunction, 1)
@@ -607,6 +608,7 @@ class RNewTypedArray final : public RInstruction {
 class RNewArray final : public RInstruction {
  private:
   uint32_t count_;
+  bool convertDoubleElements_;
 
  public:
   RINSTRUCTION_HEADER_NUM_OP_(NewArray, 1)
@@ -616,9 +618,6 @@ class RNewArray final : public RInstruction {
 };
 
 class RNewArrayCopyOnWrite final : public RInstruction {
- private:
-  gc::InitialHeap initialHeap_;
-
  public:
   RINSTRUCTION_HEADER_NUM_OP_(NewArrayCopyOnWrite, 1)
 
@@ -632,14 +631,6 @@ class RNewIterator final : public RInstruction {
 
  public:
   RINSTRUCTION_HEADER_NUM_OP_(NewIterator, 1)
-
-  MOZ_MUST_USE bool recover(JSContext* cx,
-                            SnapshotIterator& iter) const override;
-};
-
-class RNewDerivedTypedObject final : public RInstruction {
- public:
-  RINSTRUCTION_HEADER_NUM_OP_(NewDerivedTypedObject, 3)
 
   MOZ_MUST_USE bool recover(JSContext* cx,
                             SnapshotIterator& iter) const override;
@@ -664,6 +655,14 @@ class RLambda final : public RInstruction {
 class RLambdaArrow final : public RInstruction {
  public:
   RINSTRUCTION_HEADER_NUM_OP_(LambdaArrow, 3)
+
+  MOZ_MUST_USE bool recover(JSContext* cx,
+                            SnapshotIterator& iter) const override;
+};
+
+class RFunctionWithProto final : public RInstruction {
+ public:
+  RINSTRUCTION_HEADER_NUM_OP_(FunctionWithProto, 3)
 
   MOZ_MUST_USE bool recover(JSContext* cx,
                             SnapshotIterator& iter) const override;

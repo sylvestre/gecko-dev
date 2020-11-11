@@ -9,9 +9,8 @@
 
 #include "jit/TemplateObject.h"
 
+#include "vm/PlainObject.h"  // js::PlainObject
 #include "vm/RegExpObject.h"
-
-#include "vm/ShapedObject-inl.h"
 
 namespace js {
 namespace jit {
@@ -38,14 +37,6 @@ inline bool TemplateObject::isRegExpObject() const {
   return obj_->is<RegExpObject>();
 }
 
-inline bool TemplateObject::isInlineTypedObject() const {
-  return obj_->is<InlineTypedObject>();
-}
-
-inline bool TemplateObject::isUnboxedPlainObject() const {
-  return obj_->is<UnboxedPlainObject>();
-}
-
 inline bool TemplateObject::isCallObject() const {
   return obj_->is<CallObject>();
 }
@@ -59,33 +50,11 @@ inline gc::Cell* TemplateObject::group() const {
   return obj_->group();
 }
 
-inline gc::Cell* TemplateObject::maybeShape() const {
-  if (obj_->is<ShapedObject>()) {
-    Shape* shape = obj_->maybeShape();
-    MOZ_ASSERT(!shape->inDictionary());
-    return shape;
-  }
-  return nullptr;
+inline gc::Cell* TemplateObject::shape() const {
+  Shape* shape = obj_->shape();
+  MOZ_ASSERT(!shape->inDictionary());
+  return shape;
 }
-
-inline uint32_t TemplateObject::getInlineTypedObjectSize() const {
-  return obj_->as<InlineTypedObject>().size();
-}
-
-inline uint8_t* TemplateObject::getInlineTypedObjectMem(
-    const JS::AutoRequireNoGC& nogc) const {
-  return obj_->as<InlineTypedObject>().inlineTypedMem(nogc);
-}
-
-inline const UnboxedLayout& TemplateObject::unboxedObjectLayout() const {
-  return obj_->as<UnboxedPlainObject>().layoutDontCheckGeneration();
-}
-
-#ifdef DEBUG
-inline bool TemplateObject::unboxedObjectHasExpando() const {
-  return obj_->as<UnboxedPlainObject>().maybeExpando();
-}
-#endif
 
 inline const NativeTemplateObject& TemplateObject::asNativeTemplateObject()
     const {
@@ -98,10 +67,7 @@ inline bool NativeTemplateObject::hasDynamicSlots() const {
 }
 
 inline uint32_t NativeTemplateObject::numDynamicSlots() const {
-  // We can't call numDynamicSlots because that uses shape->base->clasp and
-  // shape->base can change when we create a ShapeTable.
-  return NativeObject::dynamicSlotsCount(numFixedSlots(), slotSpan(),
-                                         obj_->getClass());
+  return asNative().numDynamicSlots();
 }
 
 inline uint32_t NativeTemplateObject::numUsedFixedSlots() const {
@@ -155,8 +121,7 @@ inline bool NativeTemplateObject::hasPrivate() const {
 inline gc::Cell* NativeTemplateObject::regExpShared() const {
   RegExpObject* regexp = &obj_->as<RegExpObject>();
   MOZ_ASSERT(regexp->hasShared());
-  MOZ_ASSERT(regexp->getPrivate() == regexp->sharedRef().get());
-  return regexp->sharedRef().get();
+  return regexp->getShared();
 }
 
 inline void* NativeTemplateObject::getPrivate() const {

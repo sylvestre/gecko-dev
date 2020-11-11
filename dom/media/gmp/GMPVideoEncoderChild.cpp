@@ -11,8 +11,7 @@
 #include "GMPVideoi420FrameImpl.h"
 #include "runnable_utils.h"
 
-namespace mozilla {
-namespace gmp {
+namespace mozilla::gmp {
 
 GMPVideoEncoderChild::GMPVideoEncoderChild(GMPContentChild* aPlugin)
     : GMPSharedMemManager(aPlugin),
@@ -60,9 +59,8 @@ void GMPVideoEncoderChild::Error(GMPErr aError) {
 }
 
 mozilla::ipc::IPCResult GMPVideoEncoderChild::RecvInitEncode(
-    const GMPVideoCodec& aCodecSettings,
-    InfallibleTArray<uint8_t>&& aCodecSpecific, const int32_t& aNumberOfCores,
-    const uint32_t& aMaxPayloadSize) {
+    const GMPVideoCodec& aCodecSettings, nsTArray<uint8_t>&& aCodecSpecific,
+    const int32_t& aNumberOfCores, const uint32_t& aMaxPayloadSize) {
   if (!mVideoEncoder) {
     return IPC_FAIL_NO_REASON(this);
   }
@@ -78,8 +76,8 @@ mozilla::ipc::IPCResult GMPVideoEncoderChild::RecvInitEncode(
 
 mozilla::ipc::IPCResult GMPVideoEncoderChild::RecvEncode(
     const GMPVideoi420FrameData& aInputFrame,
-    InfallibleTArray<uint8_t>&& aCodecSpecificInfo,
-    InfallibleTArray<GMPVideoFrameType>&& aFrameTypes) {
+    nsTArray<uint8_t>&& aCodecSpecificInfo,
+    nsTArray<GMPVideoFrameType>&& aFrameTypes) {
   if (!mVideoEncoder) {
     return IPC_FAIL_NO_REASON(this);
   }
@@ -190,22 +188,21 @@ bool GMPVideoEncoderChild::Alloc(size_t aSize,
                           this, &GMPVideoEncoderChild::RecvEncodingComplete));
   }
 #else
-#ifdef GMP_SAFE_SHMEM
+#  ifdef GMP_SAFE_SHMEM
   rv = AllocShmem(aSize, aType, aMem);
-#else
+#  else
   rv = AllocUnsafeShmem(aSize, aType, aMem);
-#endif
+#  endif
 #endif
   return rv;
 }
 
-void GMPVideoEncoderChild::Dealloc(Shmem& aMem) {
+void GMPVideoEncoderChild::Dealloc(Shmem&& aMem) {
 #ifndef SHMEM_ALLOC_IN_CHILD
-  SendParentShmemForPool(aMem);
+  SendParentShmemForPool(std::move(aMem));
 #else
   DeallocShmem(aMem);
 #endif
 }
 
-}  // namespace gmp
-}  // namespace mozilla
+}  // namespace mozilla::gmp

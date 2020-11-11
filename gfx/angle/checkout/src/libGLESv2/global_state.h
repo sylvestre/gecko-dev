@@ -9,23 +9,53 @@
 #ifndef LIBGLESV2_GLOBALSTATE_H_
 #define LIBGLESV2_GLOBALSTATE_H_
 
-namespace gl
-{
-class Context;
+#include "libANGLE/Context.h"
+#include "libANGLE/Debug.h"
+#include "libANGLE/Thread.h"
+#include "libANGLE/features.h"
 
-Context *GetGlobalContext();
-Context *GetValidGlobalContext();
-
-}  // namespace gl
+#include <mutex>
 
 namespace egl
 {
 class Debug;
 class Thread;
 
+std::mutex &GetGlobalMutex();
 Thread *GetCurrentThread();
 Debug *GetDebug();
-
+void SetContextCurrent(Thread *thread, gl::Context *context);
 }  // namespace egl
+
+#define ANGLE_SCOPED_GLOBAL_LOCK() \
+    std::lock_guard<std::mutex> globalMutexLock(egl::GetGlobalMutex())
+
+namespace gl
+{
+extern Context *gSingleThreadedContext;
+
+ANGLE_INLINE Context *GetGlobalContext()
+{
+    if (gSingleThreadedContext)
+    {
+        return gSingleThreadedContext;
+    }
+
+    egl::Thread *thread = egl::GetCurrentThread();
+    return thread->getContext();
+}
+
+ANGLE_INLINE Context *GetValidGlobalContext()
+{
+    if (gSingleThreadedContext && !gSingleThreadedContext->isContextLost())
+    {
+        return gSingleThreadedContext;
+    }
+
+    egl::Thread *thread = egl::GetCurrentThread();
+    return thread->getValidContext();
+}
+
+}  // namespace gl
 
 #endif  // LIBGLESV2_GLOBALSTATE_H_

@@ -7,14 +7,13 @@
 #ifndef mozilla_ServoStyleSet_h
 #define mozilla_ServoStyleSet_h
 
+#include "mozilla/AnonymousContentKey.h"
 #include "mozilla/AtomArray.h"
 #include "mozilla/EnumeratedArray.h"
 #include "mozilla/EventStates.h"
-#include "mozilla/MediaFeatureChange.h"
 #include "mozilla/PostTraversalTask.h"
 #include "mozilla/ServoBindingTypes.h"
 #include "mozilla/ServoUtils.h"
-#include "mozilla/SheetType.h"
 #include "mozilla/UniquePtr.h"
 #include "MainThreadUtils.h"
 #include "nsCSSPseudoElements.h"
@@ -24,12 +23,16 @@
 #include "nsAtom.h"
 #include "nsIMemoryReporter.h"
 #include "nsTArray.h"
+#include "nsIMemoryReporter.h"
 
 namespace mozilla {
+enum class MediaFeatureChangeReason : uint16_t;
+enum class StyleRuleChangeKind : uint32_t;
 namespace css {
 class Rule;
 }  // namespace css
 namespace dom {
+class CSSImportRule;
 class Element;
 class ShadowRoot;
 }  // namespace dom
@@ -42,10 +45,10 @@ class StyleSheet;
 }  // namespace mozilla
 class gfxFontFeatureValueSet;
 class nsIContent;
-class nsIDocument;
+
 class nsPresContext;
+class nsWindowSizes;
 struct nsTimingFunction;
-struct RawServoRuleNode;
 struct TreeMatchContext;
 
 namespace mozilla {
@@ -59,12 +62,14 @@ enum class StylistState : uint8_t {
   // The style sheets have changed, so we need to update the style data.
   StyleSheetsDirty = 1 << 0,
 
-  // Some of the style sheets of the bound elements in binding manager have
-  // changed, so we need to tell the binding manager to update style data.
-  XBLStyleSheetsDirty = 1 << 1,
+  // Some of the style sheets of the shadow trees in the document have
+  // changed.
+  ShadowDOMStyleSheetsDirty = 1 << 1,
 };
 
 MOZ_MAKE_ENUM_CLASS_BITWISE_OPERATORS(StylistState)
+
+enum class StyleOrigin : uint8_t;
 
 // Bitfield type to represent Servo stylesheet origins.
 enum class OriginFlags : uint8_t {
@@ -82,7 +87,15 @@ MOZ_MAKE_ENUM_CLASS_BITWISE_OPERATORS(OriginFlags)
  */
 class ServoStyleSet {
   friend class RestyleManager;
-  typedef ServoElementSnapshotTable SnapshotTable;
+  using SnapshotTable = ServoElementSnapshotTable;
+  using Origin = StyleOrigin;
+
+  // We assert that these match the Servo ones in the definition of this array.
+  static constexpr Origin kOrigins[] = {
+      Origin(static_cast<uint8_t>(OriginFlags::UserAgent)),
+      Origin(static_cast<uint8_t>(OriginFlags::User)),
+      Origin(static_cast<uint8_t>(OriginFlags::Author)),
+  };
 
  public:
   static bool IsInServoTraversal() { return mozilla::IsInServoTraversal(); }
@@ -96,18 +109,18 @@ class ServoStyleSet {
 
   static ServoStyleSet* Current() { return sInServoTraversal; }
 
-  ServoStyleSet();
+  explicit ServoStyleSet(dom::Document&);
   ~ServoStyleSet();
 
-  void Init(nsPresContext* aPresContext);
-  void BeginShutdown() {}
-  void Shutdown();
+  void ShellDetachedFromDocument();
 
   // Called when a rules in a stylesheet in this set, or a child sheet of that,
   // are mutated from CSSOM.
   void RuleAdded(StyleSheet&, css::Rule&);
   void RuleRemoved(StyleSheet&, css::Rule&);
-  void RuleChanged(StyleSheet& aSheet, css::Rule* aRule);
+  void RuleChanged(StyleSheet&, css::Rule*, StyleRuleChangeKind);
+  void SheetCloned(StyleSheet&) { mNeedsRestyleAfterEnsureUniqueInner = true; }
+  void ImportRuleLoaded(dom::CSSImportRule&, StyleSheet&);
 
   // Runs style invalidation due to document state changes.
   void InvalidateStyleForDocumentStateChanges(EventStates aStatesChanged);
@@ -116,7 +129,7 @@ class ServoStyleSet {
 
   bool StyleSheetsHaveChanged() const { return StylistNeedsUpdate(); }
 
-  nsRestyleHint MediumFeaturesChanged(MediaFeatureChangeReason);
+  RestyleHint MediumFeaturesChanged(MediaFeatureChangeReason);
 
   // Evaluates a given SourceSizeList, returning the optimal viewport width in
   // app units.
@@ -133,10 +146,6 @@ class ServoStyleSet {
 
   void SetAuthorStyleDisabled(bool aStyleDisabled);
 
-  // FIXME(emilio): All the callers pass Allow here
-  already_AddRefed<ComputedStyle> ResolveStyleFor(
-      dom::Element* aElement, LazyComputeBehavior aMayCompute);
-
   // Get a CopmutedStyle for a text node (which no rules will match).
   //
   // The returned ComputedStyle will have nsCSSAnonBoxes::mozText() as its
@@ -146,7 +155,7 @@ class ServoStyleSet {
   // contexts for such content nodes, when text-combine-upright is not
   // present.  However, not doing any rule matching for them is a first step.)
   already_AddRefed<ComputedStyle> ResolveStyleForText(
-      nsIContent* aTextNode, ComputedStyle* aParentContext);
+      nsIContent* aTextNode, ComputedStyle* aParentStyle);
 
   // Get a ComputedStyle for a first-letter continuation (which no rules will
   // match).
@@ -159,7 +168,7 @@ class ServoStyleSet {
   // any rule matching for them is a first step.  And right now we do use this
   // ComputedStyle for some things)
   already_AddRefed<ComputedStyle> ResolveStyleForFirstLetterContinuation(
-      ComputedStyle* aParentContext);
+      ComputedStyle* aParentStyle);
 
   // Get a ComputedStyle for a placeholder frame (which no rules will match).
   //
@@ -171,69 +180,68 @@ class ServoStyleSet {
   // matching for them is a first step.)
   already_AddRefed<ComputedStyle> ResolveStyleForPlaceholder();
 
-  // Get a ComputedStyle for a pseudo-element.  aParentElement must be
-  // non-null.  aPseudoID is the CSSPseudoElementType for the
-  // pseudo-element.  aPseudoElement must be non-null if the pseudo-element
-  // type is one that allows user action pseudo-classes after it or allows
-  // style attributes; otherwise, it is ignored.
+  // Returns whether a given pseudo-element should exist or not.
+  static bool GeneratedContentPseudoExists(const ComputedStyle& aParentStyle,
+                                           const ComputedStyle& aPseudoStyle);
+
+  enum class IsProbe {
+    No,
+    Yes,
+  };
+
+  // Get a style for a pseudo-element.
+  //
+  // If IsProbe is Yes, then no style is returned if there are no rules matching
+  // for the pseudo-element, or GeneratedContentPseudoExists returns false.
+  //
+  // If IsProbe is No, then the style is guaranteed to be non-null.
   already_AddRefed<ComputedStyle> ResolvePseudoElementStyle(
-      dom::Element* aOriginatingElement, CSSPseudoElementType aType,
-      ComputedStyle* aParentContext, dom::Element* aPseudoElement);
+      const dom::Element& aOriginatingElement, PseudoStyleType,
+      ComputedStyle* aParentStyle, IsProbe = IsProbe::No);
+
+  already_AddRefed<ComputedStyle> ProbePseudoElementStyle(
+      const dom::Element& aOriginatingElement, PseudoStyleType aType,
+      ComputedStyle* aParentStyle) {
+    return ResolvePseudoElementStyle(aOriginatingElement, aType, aParentStyle,
+                                     IsProbe::Yes);
+  }
 
   // Resolves style for a (possibly-pseudo) Element without assuming that the
   // style has been resolved. If the element was unstyled and a new style
-  // context was resolved, it is not stored in the DOM. (That is, the element
-  // remains unstyled.)
+  // was resolved, it is not stored in the DOM. (That is, the element remains
+  // unstyled.)
+  //
+  // TODO(emilio): Element argument should be `const`.
   already_AddRefed<ComputedStyle> ResolveStyleLazily(
-      dom::Element* aElement, CSSPseudoElementType aPseudoType,
-      StyleRuleInclusion aRules = StyleRuleInclusion::All);
+      dom::Element&, PseudoStyleType = PseudoStyleType::NotPseudo,
+      StyleRuleInclusion = StyleRuleInclusion::All);
 
-  // Get a ComputedStyle for an anonymous box.  aPseudoTag is the pseudo-tag to
-  // use and must be non-null.  It must be an anon box, and must be one that
-  // inherits style from the given aParentContext.
+  // Get a ComputedStyle for an anonymous box. The pseudo type must be an
+  // inheriting anon box.
   already_AddRefed<ComputedStyle> ResolveInheritingAnonymousBoxStyle(
-      nsAtom* aPseudoTag, ComputedStyle* aParentContext);
+      PseudoStyleType, ComputedStyle* aParentStyle);
 
-  // Get a ComputedStyle for an anonymous box that does not inherit style from
-  // anything.  aPseudoTag is the pseudo-tag to use and must be non-null.  It
-  // must be an anon box, and must be a non-inheriting one.
+  // Get a ComputedStyle for an anonymous box. The pseudo type must be
+  // a non-inheriting anon box.
   already_AddRefed<ComputedStyle> ResolveNonInheritingAnonymousBoxStyle(
-      nsAtom* aPseudoTag);
+      PseudoStyleType);
 
 #ifdef MOZ_XUL
   already_AddRefed<ComputedStyle> ResolveXULTreePseudoStyle(
       dom::Element* aParentElement, nsCSSAnonBoxPseudoStaticAtom* aPseudoTag,
-      ComputedStyle* aParentContext, const AtomArray& aInputWord);
+      ComputedStyle* aParentStyle, const AtomArray& aInputWord);
 #endif
 
-  // manage the set of style sheets in the style set
-  nsresult AppendStyleSheet(SheetType aType, StyleSheet* aSheet);
-  nsresult PrependStyleSheet(SheetType aType, StyleSheet* aSheet);
-  nsresult RemoveStyleSheet(SheetType aType, StyleSheet* aSheet);
-  nsresult ReplaceSheets(SheetType aType,
-                         const nsTArray<RefPtr<StyleSheet>>& aNewSheets);
-  nsresult InsertStyleSheetBefore(SheetType aType, StyleSheet* aNewSheet,
-                                  StyleSheet* aReferenceSheet);
-
-  int32_t SheetCount(SheetType aType) const;
-  StyleSheet* StyleSheetAt(SheetType aType, int32_t aIndex) const;
+  size_t SheetCount(Origin) const;
+  StyleSheet* SheetAt(Origin, size_t aIndex) const;
 
   void AppendAllNonDocumentAuthorSheets(nsTArray<StyleSheet*>& aArray) const;
 
-  template <typename Func>
-  void EnumerateStyleSheetArrays(Func aCallback) const {
-    for (const auto& sheetArray : mSheets) {
-      aCallback(sheetArray);
-    }
-  }
-
-  nsresult RemoveDocStyleSheet(StyleSheet* aSheet);
-  nsresult AddDocStyleSheet(StyleSheet* aSheet, nsIDocument* aDocument);
-
-  // check whether there is ::before/::after style for an element
-  already_AddRefed<ComputedStyle> ProbePseudoElementStyle(
-      const dom::Element& aOriginatingElement, CSSPseudoElementType aType,
-      ComputedStyle* aParentStyle);
+  // Manage the set of style sheets in the style set
+  void AppendStyleSheet(StyleSheet&);
+  void InsertStyleSheetBefore(StyleSheet&, StyleSheet& aReferenceSheet);
+  void RemoveStyleSheet(StyleSheet&);
+  void AddDocStyleSheet(StyleSheet&);
 
   /**
    * Performs a Servo traversal to compute style for all dirty nodes in the
@@ -292,8 +300,8 @@ class ServoStyleSet {
    * Clears any cached style data that may depend on all sorts of computed
    * values.
    *
-   * Right now this clears the non-inheriting ComputedStyle cache, and resets
-   * the default computed values.
+   * Right now this clears the non-inheriting ComputedStyle cache, resets the
+   * default computed values, and clears cached anonymous content style.
    *
    * This does _not_, however, clear the stylist.
    */
@@ -305,13 +313,23 @@ class ServoStyleSet {
    */
   void CompatibilityModeChanged();
 
+  template <typename T>
+  void EnumerateStyleSheets(T aCb) {
+    for (auto origin : kOrigins) {
+      for (size_t i = 0, count = SheetCount(origin); i < count; ++i) {
+        aCb(*SheetAt(origin, i));
+      }
+    }
+  }
+
   /**
    * Resolve style for the given element, and return it as a
    * ComputedStyle.
    *
    * FIXME(emilio): Is there a point in this after bug 1367904?
    */
-  inline already_AddRefed<ComputedStyle> ResolveServoStyle(const dom::Element&);
+  static inline already_AddRefed<ComputedStyle> ResolveServoStyle(
+      const dom::Element&);
 
   bool GetKeyframesForName(const dom::Element&, const ComputedStyle&,
                            nsAtom* aName,
@@ -320,14 +338,14 @@ class ServoStyleSet {
 
   nsTArray<ComputedKeyframeValues> GetComputedKeyframeValuesFor(
       const nsTArray<Keyframe>& aKeyframes, dom::Element* aElement,
-      const ComputedStyle* aStyle);
+      PseudoStyleType aPseudoType, const ComputedStyle* aStyle);
 
   void GetAnimationValues(
       RawServoDeclarationBlock* aDeclarations, dom::Element* aElement,
       const mozilla::ComputedStyle* aStyle,
       nsTArray<RefPtr<RawServoAnimationValue>>& aAnimationValues);
 
-  bool AppendFontFaceRules(nsTArray<nsFontFaceRuleContainer>& aArray);
+  void AppendFontFaceRules(nsTArray<nsFontFaceRuleContainer>& aArray);
 
   const RawServoCounterStyleRule* CounterStyleRuleForName(nsAtom* aName);
 
@@ -359,7 +377,7 @@ class ServoStyleSet {
    */
   already_AddRefed<ComputedStyle> ResolveForDeclarations(
       const ComputedStyle* aParentOrNull,
-      RawServoDeclarationBlockBorrowed aDeclarations);
+      const RawServoDeclarationBlock* aDeclarations);
 
   already_AddRefed<RawServoAnimationValue> ComputeAnimationValue(
       dom::Element* aElement, RawServoDeclarationBlock* aDeclaration,
@@ -380,12 +398,6 @@ class ServoStyleSet {
   // Returns true if a restyle of the document is needed due to cloning
   // sheet inners.
   bool EnsureUniqueInnerOnCSSSheets();
-
-  // Called by StyleSheet::EnsureUniqueInner to let us know it cloned
-  // its inner.
-  void SetNeedsRestyleAfterEnsureUniqueInner() {
-    mNeedsRestyleAfterEnsureUniqueInner = true;
-  }
 
   // Returns the style rule map.
   ServoStyleRuleMap* StyleRuleMap();
@@ -433,8 +445,24 @@ class ServoStyleSet {
  private:
   friend class AutoSetInServoTraversal;
   friend class AutoPrepareTraversal;
+  friend class PostTraversalTask;
 
   bool ShouldTraverseInParallel() const;
+
+  void RuleChangedInternal(StyleSheet&, css::Rule&, StyleRuleChangeKind);
+
+  /**
+   * Forces all the ShadowRoot styles to be dirty.
+   *
+   * Only to be used for:
+   *
+   *  * Devtools (dealing with sheet cloning).
+   *  * Compatibility-mode changes.
+   *
+   * Try to do something more incremental for other callers that are exposed to
+   * the web.
+   */
+  void ForceDirtyAllShadowStyles();
 
   /**
    * Gets the pending snapshots to handle from the restyle manager.
@@ -481,7 +509,7 @@ class ServoStyleSet {
    */
   void SetStylistStyleSheetsDirty();
 
-  void SetStylistXBLStyleSheetsDirty();
+  void SetStylistShadowDOMStyleSheetsDirty();
 
   bool StylistNeedsUpdate() const {
     return mStylistState != StylistState::NotDirty;
@@ -494,26 +522,12 @@ class ServoStyleSet {
    */
   void UpdateStylist();
 
-  already_AddRefed<ComputedStyle> ResolveStyleLazilyInternal(
-      dom::Element* aElement, CSSPseudoElementType aPseudoType,
-      StyleRuleInclusion aRules = StyleRuleInclusion::All);
-
   void RunPostTraversalTasks();
 
-  void PrependSheetOfType(SheetType aType, StyleSheet* aSheet);
-
-  void AppendSheetOfType(SheetType aType, StyleSheet* aSheet);
-
-  void InsertSheetOfType(SheetType aType, StyleSheet* aSheet,
-                         StyleSheet* aBeforeSheet);
-
-  void RemoveSheetOfType(SheetType aType, StyleSheet* aSheet);
-
-  // The owner document of this style set. Null if this is an XBL style set.
-  //
-  // TODO(emilio): This should become a DocumentOrShadowRoot, and be owned by it
-  // directly instead of the shell, eventually.
-  nsIDocument* mDocument;
+  void PrependSheetOfType(Origin, StyleSheet*);
+  void AppendSheetOfType(Origin, StyleSheet*);
+  void InsertSheetOfType(Origin, StyleSheet*, StyleSheet* aBeforeSheet);
+  void RemoveSheetOfType(Origin, StyleSheet*);
 
   const nsPresContext* GetPresContext() const {
     return const_cast<ServoStyleSet*>(this)->GetPresContext();
@@ -525,20 +539,15 @@ class ServoStyleSet {
    */
   nsPresContext* GetPresContext();
 
+  // The owner document of this style set. Never null, and always outlives the
+  // StyleSet.
+  dom::Document* mDocument;
   UniquePtr<RawServoStyleSet> mRawSet;
-  EnumeratedArray<SheetType, SheetType::Count, nsTArray<RefPtr<StyleSheet>>>
-      mSheets;
-  bool mAuthorStyleDisabled;
-  StylistState mStylistState;
-  uint64_t mUserFontSetUpdateGeneration;
 
-  bool mNeedsRestyleAfterEnsureUniqueInner;
-
-  // Stores pointers to our cached ComputedStyles for non-inheriting anonymous
-  // boxes.
-  EnumeratedArray<nsCSSAnonBoxes::NonInheriting,
-                  nsCSSAnonBoxes::NonInheriting::_Count, RefPtr<ComputedStyle>>
-      mNonInheritingComputedStyles;
+  // Map from raw Servo style rule to Gecko's wrapper object.
+  // Constructed lazily when requested by devtools.
+  UniquePtr<ServoStyleRuleMap> mStyleRuleMap;
+  uint64_t mUserFontSetUpdateGeneration = 0;
 
   // Tasks to perform after a traversal, back on the main thread.
   //
@@ -546,9 +555,50 @@ class ServoStyleSet {
   // posted by C++ code running on style worker threads.
   nsTArray<PostTraversalTask> mPostTraversalTasks;
 
-  // Map from raw Servo style rule to Gecko's wrapper object.
-  // Constructed lazily when requested by devtools.
-  UniquePtr<ServoStyleRuleMap> mStyleRuleMap;
+  // Stores pointers to our cached ComputedStyles for non-inheriting anonymous
+  // boxes.
+  EnumeratedArray<nsCSSAnonBoxes::NonInheriting,
+                  nsCSSAnonBoxes::NonInheriting::_Count, RefPtr<ComputedStyle>>
+      mNonInheritingComputedStyles;
+
+ public:
+  void PutCachedAnonymousContentStyles(
+      AnonymousContentKey aKey, nsTArray<RefPtr<ComputedStyle>>&& aStyles) {
+    auto index = static_cast<size_t>(aKey);
+
+    MOZ_ASSERT(mCachedAnonymousContentStyles.Length() + aStyles.Length() < 256,
+               "(index, length) pairs must be bigger");
+    MOZ_ASSERT(mCachedAnonymousContentStyleIndexes[index].second == 0,
+               "shouldn't need to overwrite existing cached styles");
+    MOZ_ASSERT(!aStyles.IsEmpty(), "should have some styles to cache");
+
+    mCachedAnonymousContentStyleIndexes[index] = std::make_pair(
+        mCachedAnonymousContentStyles.Length(), aStyles.Length());
+    mCachedAnonymousContentStyles.AppendElements(std::move(aStyles));
+  }
+
+  void GetCachedAnonymousContentStyles(
+      AnonymousContentKey aKey, nsTArray<RefPtr<ComputedStyle>>& aStyles) {
+    auto index = static_cast<size_t>(aKey);
+    auto loc = mCachedAnonymousContentStyleIndexes[index];
+    aStyles.AppendElements(mCachedAnonymousContentStyles.Elements() + loc.first,
+                           loc.second);
+  }
+
+ private:
+  // Map of AnonymousContentKey values to an (index, length) pair pointing into
+  // mCachedAnonymousContentStyles.
+  //
+  // We assert that the index and length values fit into uint8_ts.
+  Array<std::pair<uint8_t, uint8_t>, 1 << sizeof(AnonymousContentKey) * 8>
+      mCachedAnonymousContentStyleIndexes;
+
+  // Stores cached ComputedStyles for certain native anonymous content.
+  nsTArray<RefPtr<ComputedStyle>> mCachedAnonymousContentStyles;
+
+  StylistState mStylistState = StylistState::NotDirty;
+  bool mAuthorStyleDisabled = false;
+  bool mNeedsRestyleAfterEnsureUniqueInner = false;
 };
 
 class UACacheReporter final : public nsIMemoryReporter {
@@ -556,7 +606,7 @@ class UACacheReporter final : public nsIMemoryReporter {
   NS_DECL_NSIMEMORYREPORTER
 
  private:
-  ~UACacheReporter() {}
+  ~UACacheReporter() = default;
 };
 
 }  // namespace mozilla

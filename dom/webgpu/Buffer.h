@@ -3,34 +3,69 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef WEBGPU_BUFFER_H_
-#define WEBGPU_BUFFER_H_
+#ifndef GPU_BUFFER_H_
+#define GPU_BUFFER_H_
 
+#include "js/RootingAPI.h"
 #include "mozilla/dom/Nullable.h"
-#include "mozilla/dom/TypedArray.h"
+#include "mozilla/ipc/Shmem.h"
+#include "mozilla/webgpu/WebGPUTypes.h"
 #include "ObjectModel.h"
 
 namespace mozilla {
+namespace ipc {
+class Shmem;
+}  // namespace ipc
 namespace webgpu {
 
 class Device;
 
-class Buffer final : public ChildOf<Device> {
- public:
-  JS::Heap<JSObject*> mMapping;
+struct MappedInfo {
+  ipc::Shmem mShmem;
+  // True if mapping is requested for writing.
+  bool mWritable = false;
+  // Populated by `GetMappedRange`.
+  nsTArray<JS::Heap<JSObject*>> mArrayBuffers;
 
-  WEBGPU_DECL_GOOP(Buffer)
+  MappedInfo() = default;
+  MappedInfo(const MappedInfo&) = delete;
+  bool IsReady() const { return mShmem.IsReadable(); }
+};
+
+class Buffer final : public ObjectBase, public ChildOf<Device> {
+ public:
+  GPU_DECL_CYCLE_COLLECTION(Buffer)
+  GPU_DECL_JS_WRAP(Buffer)
+
+  Buffer(Device* const aParent, RawId aId, BufferAddress aSize);
+  void SetMapped(ipc::Shmem&& aShmem, bool aWritable);
+
+  const RawId mId;
 
  private:
-  explicit Buffer(Device* parent);
   virtual ~Buffer();
+  void Cleanup();
+
+  // Note: we can't map a buffer with the size that don't fit into `size_t`
+  // (which may be smaller than `BufferAddress`), but general not all buffers
+  // are mapped.
+  const BufferAddress mSize;
+  nsString mLabel;
+  // Information about the currently active mapping.
+  Maybe<MappedInfo> mMapped;
 
  public:
-  void GetMapping(JSContext* cx, JS::MutableHandle<JSObject*> out) const;
-  void Unmap() const;
+  already_AddRefed<dom::Promise> MapAsync(uint32_t aMode, uint64_t aOffset,
+                                          const dom::Optional<uint64_t>& aSize,
+                                          ErrorResult& aRv);
+  void GetMappedRange(JSContext* aCx, uint64_t aOffset,
+                      const dom::Optional<uint64_t>& aSize,
+                      JS::Rooted<JSObject*>* aObject, ErrorResult& aRv);
+  void Unmap(JSContext* aCx, ErrorResult& aRv);
+  void Destroy();
 };
 
 }  // namespace webgpu
 }  // namespace mozilla
 
-#endif  // WEBGPU_BUFFER_H_
+#endif  // GPU_BUFFER_H_

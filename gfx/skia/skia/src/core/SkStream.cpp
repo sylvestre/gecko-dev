@@ -5,18 +5,18 @@
  * found in the LICENSE file.
  */
 
-#include "SkStream.h"
+#include "include/core/SkStream.h"
 
-#include "SkData.h"
-#include "SkFixed.h"
-#include "SkMakeUnique.h"
-#include "SkOSFile.h"
-#include "SkSafeMath.h"
-#include "SkStreamPriv.h"
-#include "SkString.h"
-#include "SkTFitsIn.h"
-#include "SkTo.h"
-#include "SkTypes.h"
+#include "include/core/SkData.h"
+#include "include/core/SkString.h"
+#include "include/core/SkTypes.h"
+#include "include/private/SkFixed.h"
+#include "include/private/SkTFitsIn.h"
+#include "include/private/SkTo.h"
+#include "src/core/SkMakeUnique.h"
+#include "src/core/SkOSFile.h"
+#include "src/core/SkSafeMath.h"
+#include "src/core/SkStreamPriv.h"
 
 #include <limits>
 
@@ -860,6 +860,17 @@ private:
 };
 
 std::unique_ptr<SkStreamAsset> SkDynamicMemoryWStream::detachAsStream() {
+    if (nullptr == fHead) {
+        // no need to reset.
+        return SkMemoryStream::Make(nullptr);
+    }
+    if (fHead == fTail) {  // one block, may be worth shrinking.
+        ptrdiff_t used = fTail->fCurr - (char*)fTail;
+        fHead = fTail = (SkDynamicMemoryWStream::Block*)sk_realloc_throw(fTail, SkToSizeT(used));
+        fTail->fStop = fTail->fCurr = (char*)fTail + used;  // Update pointers.
+        SkASSERT(nullptr == fTail->fNext);
+        SkASSERT(0 == fBytesWrittenBeforeTail);
+    }
     std::unique_ptr<SkStreamAsset> stream
             = skstd::make_unique<SkBlockMemoryStream>(sk_make_sp<SkBlockMemoryRefCnt>(fHead),
                                                       this->bytesWritten());
@@ -893,7 +904,7 @@ std::unique_ptr<SkStreamAsset> SkStream::MakeFromFile(const char path[]) {
     if (!stream->isValid()) {
         return nullptr;
     }
-    return std::move(stream);
+    return stream;
 }
 
 // Declared in SkStreamPriv.h:

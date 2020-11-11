@@ -7,50 +7,191 @@
 //! [images]: https://drafts.csswg.org/css-images/#image-values
 
 use crate::custom_properties;
+use crate::values::generics::position::PositionComponent;
 use crate::values::serialize_atom_identifier;
 use crate::Atom;
+use crate::Zero;
 use servo_arc::Arc;
 use std::fmt::{self, Write};
 use style_traits::{CssWriter, ToCss};
 
-/// An [image].
+/// An `<image> | none` value.
 ///
-/// [image]: https://drafts.csswg.org/css-images/#image-values
-#[derive(Clone, MallocSizeOf, PartialEq, SpecifiedValueInfo, ToComputedValue)]
-pub enum Image<Gradient, MozImageRect, ImageUrl> {
+/// https://drafts.csswg.org/css-images/#image-values
+#[derive(
+    Clone, MallocSizeOf, PartialEq, SpecifiedValueInfo, ToComputedValue, ToResolvedValue, ToShmem,
+)]
+#[repr(C, u8)]
+pub enum GenericImage<G, MozImageRect, ImageUrl, Color, Percentage> {
+    /// `none` variant.
+    None,
     /// A `<url()>` image.
     Url(ImageUrl),
+
     /// A `<gradient>` image.  Gradients are rather large, and not nearly as
     /// common as urls, so we box them here to keep the size of this enum sane.
-    Gradient(Box<Gradient>),
+    Gradient(Box<G>),
     /// A `-moz-image-rect` image.  Also fairly large and rare.
+    // not cfg’ed out on non-Gecko to avoid `error[E0392]: parameter `MozImageRect` is never used`
+    // Instead we make MozImageRect an empty enum
     Rect(Box<MozImageRect>),
+
     /// A `-moz-element(# <element-id>)`
+    #[cfg(feature = "gecko")]
     #[css(function = "-moz-element")]
     Element(Atom),
+
     /// A paint worklet image.
     /// <https://drafts.css-houdini.org/css-paint-api/>
-    #[cfg(feature = "servo")]
+    #[cfg(feature = "servo-layout-2013")]
     PaintWorklet(PaintWorklet),
+
+    /// A `<cross-fade()>` image. Storing this directly inside of
+    /// GenericImage increases the size by 8 bytes so we box it here
+    /// and store images directly inside of cross-fade instead of
+    /// boxing them there.
+    CrossFade(Box<GenericCrossFade<Self, Color, Percentage>>),
 }
+
+pub use self::GenericImage as Image;
+
+/// <https://drafts.csswg.org/css-images-4/#cross-fade-function>
+#[css(comma, function = "cross-fade")]
+#[derive(
+    Clone, Debug, MallocSizeOf, PartialEq, ToResolvedValue, ToShmem, ToCss, ToComputedValue,
+)]
+#[repr(C)]
+pub struct GenericCrossFade<Image, Color, Percentage> {
+    /// All of the image percent pairings passed as arguments to
+    /// cross-fade.
+    #[css(iterable)]
+    pub elements: crate::OwnedSlice<GenericCrossFadeElement<Image, Color, Percentage>>,
+}
+
+/// A `<percent> | none` value. Represents optional percentage values
+/// assosicated with cross-fade images.
+#[derive(
+    Clone,
+    Debug,
+    MallocSizeOf,
+    PartialEq,
+    ToComputedValue,
+    ToResolvedValue,
+    ToShmem,
+    ToCss,
+)]
+#[repr(C, u8)]
+pub enum PercentOrNone<Percentage> {
+    /// `none` variant.
+    #[css(skip)]
+    None,
+    /// A percentage variant.
+    Percent(Percentage),
+}
+
+/// An optional percent and a cross fade image.
+#[derive(
+    Clone,
+    Debug,
+    MallocSizeOf,
+    PartialEq,
+    ToComputedValue,
+    ToResolvedValue,
+    ToShmem,
+    ToCss,
+)]
+#[repr(C)]
+pub struct GenericCrossFadeElement<Image, Color, Percentage> {
+    /// The percent of the final image that `image` will be.
+    pub percent: PercentOrNone<Percentage>,
+    /// A color or image that will be blended when cross-fade is
+    /// evaluated.
+    pub image: GenericCrossFadeImage<Image, Color>,
+}
+
+/// An image or a color. `cross-fade` takes either when blending
+/// images together.
+#[derive(
+    Clone,
+    Debug,
+    MallocSizeOf,
+    PartialEq,
+    ToComputedValue,
+    ToResolvedValue,
+    ToShmem,
+    ToCss,
+    Parse,
+)]
+#[repr(C, u8)]
+pub enum GenericCrossFadeImage<I, C> {
+    /// A boxed image value. Boxing provides indirection so images can
+    /// be cross-fades and cross-fades can be images.
+    Image(I),
+    /// A color value.
+    Color(C),
+}
+
+pub use self::GenericCrossFade as CrossFade;
+pub use self::GenericCrossFadeElement as CrossFadeElement;
+pub use self::GenericCrossFadeImage as CrossFadeImage;
 
 /// A CSS gradient.
 /// <https://drafts.csswg.org/css-images/#gradients>
-#[derive(Clone, Debug, MallocSizeOf, PartialEq, ToComputedValue)]
-pub struct Gradient<LineDirection, Length, LengthOrPercentage, Position, Color, Angle> {
-    /// Gradients can be linear or radial.
-    pub kind: GradientKind<LineDirection, Length, LengthOrPercentage, Position, Angle>,
-    /// The color stops and interpolation hints.
-    pub items: Vec<GradientItem<Color, LengthOrPercentage>>,
-    /// True if this is a repeating gradient.
-    pub repeating: bool,
-    /// Compatibility mode.
-    pub compat_mode: CompatMode,
+#[derive(Clone, Debug, MallocSizeOf, PartialEq, ToComputedValue, ToResolvedValue, ToShmem)]
+#[repr(C)]
+pub enum GenericGradient<
+    LineDirection,
+    LengthPercentage,
+    NonNegativeLength,
+    NonNegativeLengthPercentage,
+    Position,
+    Angle,
+    AngleOrPercentage,
+    Color,
+> {
+    /// A linear gradient.
+    Linear {
+        /// Line direction
+        direction: LineDirection,
+        /// The color stops and interpolation hints.
+        items: crate::OwnedSlice<GenericGradientItem<Color, LengthPercentage>>,
+        /// True if this is a repeating gradient.
+        repeating: bool,
+        /// Compatibility mode.
+        compat_mode: GradientCompatMode,
+    },
+    /// A radial gradient.
+    Radial {
+        /// Shape of gradient
+        shape: GenericEndingShape<NonNegativeLength, NonNegativeLengthPercentage>,
+        /// Center of gradient
+        position: Position,
+        /// The color stops and interpolation hints.
+        items: crate::OwnedSlice<GenericGradientItem<Color, LengthPercentage>>,
+        /// True if this is a repeating gradient.
+        repeating: bool,
+        /// Compatibility mode.
+        compat_mode: GradientCompatMode,
+    },
+    /// A conic gradient.
+    Conic {
+        /// Start angle of gradient
+        angle: Angle,
+        /// Center of gradient
+        position: Position,
+        /// The color stops and interpolation hints.
+        items: crate::OwnedSlice<GenericGradientItem<Color, AngleOrPercentage>>,
+        /// True if this is a repeating gradient.
+        repeating: bool,
+    },
 }
 
-#[derive(Clone, Copy, Debug, MallocSizeOf, PartialEq, ToComputedValue)]
+pub use self::GenericGradient as Gradient;
+
+#[derive(Clone, Copy, Debug, MallocSizeOf, PartialEq, ToComputedValue, ToResolvedValue, ToShmem)]
+#[repr(u8)]
 /// Whether we used the modern notation or the compatibility `-webkit`, `-moz` prefixes.
-pub enum CompatMode {
+pub enum GradientCompatMode {
     /// Modern syntax.
     Modern,
     /// `-webkit` prefix.
@@ -59,50 +200,63 @@ pub enum CompatMode {
     Moz,
 }
 
-/// A gradient kind.
-#[derive(Clone, Copy, Debug, MallocSizeOf, PartialEq, ToComputedValue)]
-pub enum GradientKind<LineDirection, Length, LengthOrPercentage, Position, Angle> {
-    /// A linear gradient.
-    Linear(LineDirection),
-    /// A radial gradient.
-    Radial(
-        EndingShape<Length, LengthOrPercentage>,
-        Position,
-        Option<Angle>,
-    ),
+/// A radial gradient's ending shape.
+#[derive(
+    Clone, Copy, Debug, MallocSizeOf, PartialEq, ToComputedValue, ToCss, ToResolvedValue, ToShmem,
+)]
+#[repr(C, u8)]
+pub enum GenericEndingShape<NonNegativeLength, NonNegativeLengthPercentage> {
+    /// A circular gradient.
+    Circle(GenericCircle<NonNegativeLength>),
+    /// An elliptic gradient.
+    Ellipse(GenericEllipse<NonNegativeLengthPercentage>),
 }
 
-/// A radial gradient's ending shape.
-#[derive(Clone, Copy, Debug, MallocSizeOf, PartialEq, ToComputedValue, ToCss)]
-pub enum EndingShape<Length, LengthOrPercentage> {
-    /// A circular gradient.
-    Circle(Circle<Length>),
-    /// An elliptic gradient.
-    Ellipse(Ellipse<LengthOrPercentage>),
-}
+pub use self::GenericEndingShape as EndingShape;
 
 /// A circle shape.
-#[derive(Clone, Copy, Debug, MallocSizeOf, PartialEq, ToComputedValue)]
-pub enum Circle<Length> {
+#[derive(Clone, Copy, Debug, MallocSizeOf, PartialEq, ToComputedValue, ToResolvedValue, ToShmem)]
+#[repr(C, u8)]
+pub enum GenericCircle<NonNegativeLength> {
     /// A circle radius.
-    Radius(Length),
+    Radius(NonNegativeLength),
     /// A circle extent.
     Extent(ShapeExtent),
 }
 
+pub use self::GenericCircle as Circle;
+
 /// An ellipse shape.
-#[derive(Clone, Copy, Debug, MallocSizeOf, PartialEq, ToComputedValue, ToCss)]
-pub enum Ellipse<LengthOrPercentage> {
+#[derive(
+    Clone, Copy, Debug, MallocSizeOf, PartialEq, ToComputedValue, ToCss, ToResolvedValue, ToShmem,
+)]
+#[repr(C, u8)]
+pub enum GenericEllipse<NonNegativeLengthPercentage> {
     /// An ellipse pair of radii.
-    Radii(LengthOrPercentage, LengthOrPercentage),
+    Radii(NonNegativeLengthPercentage, NonNegativeLengthPercentage),
     /// An ellipse extent.
     Extent(ShapeExtent),
 }
 
+pub use self::GenericEllipse as Ellipse;
+
 /// <https://drafts.csswg.org/css-images/#typedef-extent-keyword>
 #[allow(missing_docs)]
 #[cfg_attr(feature = "servo", derive(Deserialize, Serialize))]
-#[derive(Clone, Copy, Debug, Eq, MallocSizeOf, Parse, PartialEq, ToComputedValue, ToCss)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    MallocSizeOf,
+    Parse,
+    PartialEq,
+    ToComputedValue,
+    ToCss,
+    ToResolvedValue,
+    ToShmem,
+)]
+#[repr(u8)]
 pub enum ShapeExtent {
     ClosestSide,
     FarthestSide,
@@ -114,34 +268,64 @@ pub enum ShapeExtent {
 
 /// A gradient item.
 /// <https://drafts.csswg.org/css-images-4/#color-stop-syntax>
-#[derive(Clone, Copy, Debug, MallocSizeOf, PartialEq, ToComputedValue, ToCss)]
-pub enum GradientItem<Color, LengthOrPercentage> {
-    /// A color stop.
-    ColorStop(ColorStop<Color, LengthOrPercentage>),
+#[derive(
+    Clone, Copy, Debug, MallocSizeOf, PartialEq, ToComputedValue, ToCss, ToResolvedValue, ToShmem,
+)]
+#[repr(C, u8)]
+pub enum GenericGradientItem<Color, T> {
+    /// A simple color stop, without position.
+    SimpleColorStop(Color),
+    /// A complex color stop, with a position.
+    ComplexColorStop {
+        /// The color for the stop.
+        color: Color,
+        /// The position for the stop.
+        position: T,
+    },
     /// An interpolation hint.
-    InterpolationHint(LengthOrPercentage),
+    InterpolationHint(T),
 }
+
+pub use self::GenericGradientItem as GradientItem;
 
 /// A color stop.
 /// <https://drafts.csswg.org/css-images/#typedef-color-stop-list>
-#[derive(Clone, Copy, Debug, MallocSizeOf, PartialEq, ToComputedValue, ToCss)]
-pub struct ColorStop<Color, LengthOrPercentage> {
+#[derive(
+    Clone, Copy, Debug, MallocSizeOf, PartialEq, ToComputedValue, ToCss, ToResolvedValue, ToShmem,
+)]
+pub struct ColorStop<Color, T> {
     /// The color of this stop.
     pub color: Color,
     /// The position of this stop.
-    pub position: Option<LengthOrPercentage>,
+    pub position: Option<T>,
+}
+
+impl<Color, T> ColorStop<Color, T> {
+    /// Convert the color stop into an appropriate `GradientItem`.
+    #[inline]
+    pub fn into_item(self) -> GradientItem<Color, T> {
+        match self.position {
+            Some(position) => GradientItem::ComplexColorStop {
+                color: self.color,
+                position,
+            },
+            None => GradientItem::SimpleColorStop(self.color),
+        }
+    }
 }
 
 /// Specified values for a paint worklet.
 /// <https://drafts.css-houdini.org/css-paint-api/>
 #[cfg_attr(feature = "servo", derive(MallocSizeOf))]
-#[derive(Clone, Debug, PartialEq, ToComputedValue)]
+#[derive(Clone, Debug, PartialEq, ToComputedValue, ToResolvedValue, ToShmem)]
 pub struct PaintWorklet {
     /// The name the worklet was registered with.
     pub name: Atom,
     /// The arguments for the worklet.
     /// TODO: store a parsed representation of the arguments.
     #[cfg_attr(feature = "servo", ignore_malloc_size_of = "Arc")]
+    #[compute(no_field_bound)]
+    #[resolve(no_field_bound)]
     pub arguments: Vec<Arc<custom_properties::SpecifiedValue>>,
 }
 
@@ -166,9 +350,20 @@ impl ToCss for PaintWorklet {
 ///
 /// `-moz-image-rect(<uri>, top, right, bottom, left);`
 #[allow(missing_docs)]
-#[css(comma, function)]
-#[derive(Clone, Debug, MallocSizeOf, PartialEq, SpecifiedValueInfo, ToComputedValue, ToCss)]
-pub struct MozImageRect<NumberOrPercentage, MozImageRectUrl> {
+#[css(comma, function = "-moz-image-rect")]
+#[derive(
+    Clone,
+    Debug,
+    MallocSizeOf,
+    PartialEq,
+    SpecifiedValueInfo,
+    ToComputedValue,
+    ToCss,
+    ToResolvedValue,
+    ToShmem,
+)]
+#[repr(C)]
+pub struct GenericMozImageRect<NumberOrPercentage, MozImageRectUrl> {
     pub url: MozImageRectUrl,
     pub top: NumberOrPercentage,
     pub right: NumberOrPercentage,
@@ -176,128 +371,198 @@ pub struct MozImageRect<NumberOrPercentage, MozImageRectUrl> {
     pub left: NumberOrPercentage,
 }
 
-impl<G, R, U> fmt::Debug for Image<G, R, U>
+pub use self::GenericMozImageRect as MozImageRect;
+
+impl<G, R, U, C, P> fmt::Debug for Image<G, R, U, C, P>
 where
     G: ToCss,
     R: ToCss,
     U: ToCss,
+    C: ToCss,
+    P: ToCss,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.to_css(&mut CssWriter::new(f))
     }
 }
 
-impl<G, R, U> ToCss for Image<G, R, U>
+impl<G, R, U, C, P> ToCss for Image<G, R, U, C, P>
 where
     G: ToCss,
     R: ToCss,
     U: ToCss,
+    C: ToCss,
+    P: ToCss,
 {
     fn to_css<W>(&self, dest: &mut CssWriter<W>) -> fmt::Result
     where
         W: Write,
     {
         match *self {
+            Image::None => dest.write_str("none"),
             Image::Url(ref url) => url.to_css(dest),
             Image::Gradient(ref gradient) => gradient.to_css(dest),
             Image::Rect(ref rect) => rect.to_css(dest),
-            #[cfg(feature = "servo")]
+            #[cfg(feature = "servo-layout-2013")]
             Image::PaintWorklet(ref paint_worklet) => paint_worklet.to_css(dest),
+            #[cfg(feature = "gecko")]
             Image::Element(ref selector) => {
                 dest.write_str("-moz-element(#")?;
                 serialize_atom_identifier(selector, dest)?;
                 dest.write_str(")")
             },
+            Image::CrossFade(ref cf) => cf.to_css(dest),
         }
     }
 }
 
-impl<D, L, LoP, P, C, A> ToCss for Gradient<D, L, LoP, P, C, A>
+impl<D, LP, NL, NLP, P, A: Zero, AoP, C> ToCss for Gradient<D, LP, NL, NLP, P, A, AoP, C>
 where
     D: LineDirection,
-    L: ToCss,
-    LoP: ToCss,
-    P: ToCss,
-    C: ToCss,
+    LP: ToCss,
+    NL: ToCss,
+    NLP: ToCss,
+    P: PositionComponent + ToCss,
     A: ToCss,
+    AoP: ToCss,
+    C: ToCss,
 {
     fn to_css<W>(&self, dest: &mut CssWriter<W>) -> fmt::Result
     where
         W: Write,
     {
-        match self.compat_mode {
-            CompatMode::WebKit => dest.write_str("-webkit-")?,
-            CompatMode::Moz => dest.write_str("-moz-")?,
+        let (compat_mode, repeating) = match *self {
+            Gradient::Linear {
+                compat_mode,
+                repeating,
+                ..
+            } => (compat_mode, repeating),
+            Gradient::Radial {
+                compat_mode,
+                repeating,
+                ..
+            } => (compat_mode, repeating),
+            Gradient::Conic { repeating, .. } => (GradientCompatMode::Modern, repeating),
+        };
+
+        match compat_mode {
+            GradientCompatMode::WebKit => dest.write_str("-webkit-")?,
+            GradientCompatMode::Moz => dest.write_str("-moz-")?,
             _ => {},
         }
 
-        if self.repeating {
+        if repeating {
             dest.write_str("repeating-")?;
         }
-        dest.write_str(self.kind.label())?;
-        dest.write_str("-gradient(")?;
-        let mut skip_comma = match self.kind {
-            GradientKind::Linear(ref direction) if direction.points_downwards(self.compat_mode) => {
-                true
+
+        match *self {
+            Gradient::Linear {
+                ref direction,
+                ref items,
+                compat_mode,
+                ..
+            } => {
+                dest.write_str("linear-gradient(")?;
+                let mut skip_comma = if !direction.points_downwards(compat_mode) {
+                    direction.to_css(dest, compat_mode)?;
+                    false
+                } else {
+                    true
+                };
+                for item in &**items {
+                    if !skip_comma {
+                        dest.write_str(", ")?;
+                    }
+                    skip_comma = false;
+                    item.to_css(dest)?;
+                }
             },
-            GradientKind::Linear(ref direction) => {
-                direction.to_css(dest, self.compat_mode)?;
-                false
-            },
-            GradientKind::Radial(ref shape, ref position, ref angle) => {
+            Gradient::Radial {
+                ref shape,
+                ref position,
+                ref items,
+                compat_mode,
+                ..
+            } => {
+                dest.write_str("radial-gradient(")?;
                 let omit_shape = match *shape {
                     EndingShape::Ellipse(Ellipse::Extent(ShapeExtent::Cover)) |
                     EndingShape::Ellipse(Ellipse::Extent(ShapeExtent::FarthestCorner)) => true,
                     _ => false,
                 };
-                if self.compat_mode == CompatMode::Modern {
+                let omit_position = position.is_center();
+                if compat_mode == GradientCompatMode::Modern {
                     if !omit_shape {
                         shape.to_css(dest)?;
-                        dest.write_str(" ")?;
+                        if !omit_position {
+                            dest.write_str(" ")?;
+                        }
                     }
-                    dest.write_str("at ")?;
-                    position.to_css(dest)?;
+                    if !omit_position {
+                        dest.write_str("at ")?;
+                        position.to_css(dest)?;
+                    }
                 } else {
-                    position.to_css(dest)?;
-                    if let Some(ref a) = *angle {
-                        dest.write_str(" ")?;
-                        a.to_css(dest)?;
+                    if !omit_position {
+                        position.to_css(dest)?;
+                        if !omit_shape {
+                            dest.write_str(", ")?;
+                        }
                     }
                     if !omit_shape {
-                        dest.write_str(", ")?;
                         shape.to_css(dest)?;
                     }
                 }
-                false
+                let mut skip_comma = omit_shape && omit_position;
+                for item in &**items {
+                    if !skip_comma {
+                        dest.write_str(", ")?;
+                    }
+                    skip_comma = false;
+                    item.to_css(dest)?;
+                }
             },
-        };
-        for item in &self.items {
-            if !skip_comma {
-                dest.write_str(", ")?;
-            }
-            skip_comma = false;
-            item.to_css(dest)?;
+            Gradient::Conic {
+                ref angle,
+                ref position,
+                ref items,
+                ..
+            } => {
+                dest.write_str("conic-gradient(")?;
+                let omit_angle = angle.is_zero();
+                let omit_position = position.is_center();
+                if !omit_angle {
+                    dest.write_str("from ")?;
+                    angle.to_css(dest)?;
+                    if !omit_position {
+                        dest.write_str(" ")?;
+                    }
+                }
+                if !omit_position {
+                    dest.write_str("at ")?;
+                    position.to_css(dest)?;
+                }
+                let mut skip_comma = omit_angle && omit_position;
+                for item in &**items {
+                    if !skip_comma {
+                        dest.write_str(", ")?;
+                    }
+                    skip_comma = false;
+                    item.to_css(dest)?;
+                }
+            },
         }
         dest.write_str(")")
-    }
-}
-
-impl<D, L, LoP, P, A> GradientKind<D, L, LoP, P, A> {
-    fn label(&self) -> &str {
-        match *self {
-            GradientKind::Linear(..) => "linear",
-            GradientKind::Radial(..) => "radial",
-        }
     }
 }
 
 /// The direction of a linear gradient.
 pub trait LineDirection {
     /// Whether this direction points towards, and thus can be omitted.
-    fn points_downwards(&self, compat_mode: CompatMode) -> bool;
+    fn points_downwards(&self, compat_mode: GradientCompatMode) -> bool;
 
     /// Serialises this direction according to the compatibility mode.
-    fn to_css<W>(&self, dest: &mut CssWriter<W>, compat_mode: CompatMode) -> fmt::Result
+    fn to_css<W>(&self, dest: &mut CssWriter<W>, compat_mode: GradientCompatMode) -> fmt::Result
     where
         W: Write;
 }

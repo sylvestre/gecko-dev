@@ -12,6 +12,7 @@
 #include "js/GCHashTable.h"
 #include "js/UbiNode.h"
 #include "js/Wrapper.h"
+#include "vm/NativeObject.h"
 
 namespace js {
 
@@ -22,8 +23,8 @@ class SavedFrame : public NativeObject {
   static const ClassSpec classSpec_;
 
  public:
-  static const Class class_;
-  static const Class protoClass_;
+  static const JSClass class_;
+  static const JSClass protoClass_;
   static const JSPropertySpec protoAccessors[];
   static const JSFunctionSpec protoFunctions[];
   static const JSFunctionSpec staticFunctions[];
@@ -31,6 +32,7 @@ class SavedFrame : public NativeObject {
   // Prototype methods and properties to be exposed to JS.
   static bool construct(JSContext* cx, unsigned argc, Value* vp);
   static bool sourceProperty(JSContext* cx, unsigned argc, Value* vp);
+  static bool sourceIdProperty(JSContext* cx, unsigned argc, Value* vp);
   static bool lineProperty(JSContext* cx, unsigned argc, Value* vp);
   static bool columnProperty(JSContext* cx, unsigned argc, Value* vp);
   static bool functionDisplayNameProperty(JSContext* cx, unsigned argc,
@@ -40,16 +42,18 @@ class SavedFrame : public NativeObject {
   static bool parentProperty(JSContext* cx, unsigned argc, Value* vp);
   static bool toStringMethod(JSContext* cx, unsigned argc, Value* vp);
 
-  static void finalize(FreeOp* fop, JSObject* obj);
+  static void finalize(JSFreeOp* fop, JSObject* obj);
 
   // Convenient getters for SavedFrame's reserved slots for use from C++.
   JSAtom* getSource();
+  uint32_t getSourceId();
   uint32_t getLine();
   uint32_t getColumn();
   JSAtom* getFunctionDisplayName();
   JSAtom* getAsyncCause();
   SavedFrame* getParent() const;
   JSPrincipals* getPrincipals();
+  bool getMutedErrors();
   bool isSelfHosted(JSContext* cx);
   bool isWasm();
 
@@ -104,42 +108,30 @@ class SavedFrame : public NativeObject {
   struct Lookup;
   struct HashPolicy;
 
-  typedef JS::GCHashSet<ReadBarriered<SavedFrame*>, HashPolicy,
-                        SystemAllocPolicy>
+  typedef JS::GCHashSet<WeakHeapPtr<SavedFrame*>, HashPolicy, SystemAllocPolicy>
       Set;
-
-  class AutoLookupVector;
-
-  class MOZ_STACK_CLASS HandleLookup {
-    friend class AutoLookupVector;
-
-    Lookup& lookup;
-
-    explicit HandleLookup(Lookup& lookup) : lookup(lookup) {}
-
-   public:
-    inline Lookup& get() { return lookup; }
-    inline Lookup* operator->() { return &lookup; }
-  };
 
  private:
   static SavedFrame* create(JSContext* cx);
   static MOZ_MUST_USE bool finishSavedFrameInit(JSContext* cx,
                                                 HandleObject ctor,
                                                 HandleObject proto);
-  void initFromLookup(JSContext* cx, HandleLookup lookup);
+  void initFromLookup(JSContext* cx, Handle<Lookup> lookup);
   void initSource(JSAtom* source);
+  void initSourceId(uint32_t id);
   void initLine(uint32_t line);
   void initColumn(uint32_t column);
   void initFunctionDisplayName(JSAtom* maybeName);
   void initAsyncCause(JSAtom* maybeCause);
   void initParent(SavedFrame* maybeParent);
-  void initPrincipalsAlreadyHeld(JSPrincipals* principals);
-  void initPrincipals(JSPrincipals* principals);
+  void initPrincipalsAlreadyHeldAndMutedErrors(JSPrincipals* principals,
+                                               bool mutedErrors);
+  void initPrincipalsAndMutedErrors(JSPrincipals* principals, bool mutedErrors);
 
   enum {
     // The reserved slots in the SavedFrame class.
     JSSLOT_SOURCE,
+    JSSLOT_SOURCEID,
     JSSLOT_LINE,
     JSSLOT_COLUMN,
     JSSLOT_FUNCTIONDISPLAYNAME,
@@ -153,16 +145,16 @@ class SavedFrame : public NativeObject {
 };
 
 struct SavedFrame::HashPolicy {
-  typedef SavedFrame::Lookup Lookup;
-  typedef MovableCellHasher<SavedFrame*> SavedFramePtrHasher;
-  typedef PointerHasher<JSPrincipals*> JSPrincipalsPtrHasher;
+  using Lookup = SavedFrame::Lookup;
+  using SavedFramePtrHasher = MovableCellHasher<SavedFrame*>;
+  using JSPrincipalsPtrHasher = PointerHasher<JSPrincipals*>;
 
   static bool hasHash(const Lookup& l);
   static bool ensureHash(const Lookup& l);
   static HashNumber hash(const Lookup& lookup);
   static bool match(SavedFrame* existing, const Lookup& lookup);
 
-  typedef ReadBarriered<SavedFrame*> Key;
+  using Key = WeakHeapPtr<SavedFrame*>;
   static void rekey(Key& key, const Key& newKey);
 };
 
@@ -205,6 +197,13 @@ struct ReconstructedSavedFramePrincipals : public JSPrincipals {
 
   MOZ_MUST_USE bool write(JSContext* cx,
                           JSStructuredCloneWriter* writer) override {
+    MOZ_ASSERT(false,
+               "ReconstructedSavedFramePrincipals should never be exposed to "
+               "embedders");
+    return false;
+  }
+
+  bool isSystemOrAddonPrincipal() override {
     MOZ_ASSERT(false,
                "ReconstructedSavedFramePrincipals should never be exposed to "
                "embedders");
@@ -259,6 +258,8 @@ class ConcreteStackFrame<SavedFrame> : public BaseStackFrame {
     auto source = get().getSource();
     return AtomOrTwoByteChars(source);
   }
+
+  uint32_t sourceId() const override { return get().getSourceId(); }
 
   AtomOrTwoByteChars functionDisplayName() const override {
     auto name = get().getFunctionDisplayName();

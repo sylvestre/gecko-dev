@@ -1,4 +1,3 @@
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
    http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -14,10 +13,13 @@ const TEST_URL_2 =
 
 add_task(async function() {
   const browser = await addTab(TEST_URL_1);
-  await injectEventUtilsInContentTask(browser);
-  await ContentTask.spawn(browser, TEST_URL_2, async function(url2) {
-    const {require} = ChromeUtils.import("resource://devtools/shared/Loader.jsm", {});
-    const {HighlighterEnvironment} = require("devtools/server/actors/highlighters");
+  await SpecialPowers.spawn(browser, [TEST_URL_2], async function(url2) {
+    const { require } = ChromeUtils.import(
+      "resource://devtools/shared/Loader.jsm"
+    );
+    const {
+      HighlighterEnvironment,
+    } = require("devtools/server/actors/highlighters");
     const {
       CanvasFrameAnonymousContentHelper,
     } = require("devtools/server/actors/highlighters/utils/markup");
@@ -26,7 +28,8 @@ add_task(async function() {
     const nodeBuilder = () => {
       const root = doc.createElement("div");
       const child = doc.createElement("div");
-      child.style = "pointer-events:auto;width:200px;height:200px;background:red;";
+      child.style =
+        "pointer-events:auto;width:200px;height:200px;background:red;";
       child.id = "child-element";
       child.className = "child-element";
       child.textContent = "test content";
@@ -38,20 +41,31 @@ add_task(async function() {
     const env = new HighlighterEnvironment();
     env.initFromWindow(doc.defaultView);
     const helper = new CanvasFrameAnonymousContentHelper(env, nodeBuilder);
+    await helper.initialize();
 
     info("Get an element from the helper");
     const el = helper.getElement("child-element");
 
     info("Try to access the element");
-    is(el.getAttribute("class"), "child-element",
-      "The attribute is correct before navigation");
-    is(el.getTextContent(), "test content",
-      "The text content is correct before navigation");
+    is(
+      el.getAttribute("class"),
+      "child-element",
+      "The attribute is correct before navigation"
+    );
+    is(
+      el.getTextContent(),
+      "test content",
+      "The text content is correct before navigation"
+    );
 
     info("Add an event listener on the element");
     let mouseDownHandled = 0;
     const onMouseDown = (e, id) => {
-      is(id, "child-element", "The mousedown event was triggered on the element");
+      is(
+        id,
+        "child-element",
+        "The mousedown event was triggered on the element"
+      );
       mouseDownHandled++;
     };
     el.addEventListener("mousedown", onMouseDown);
@@ -67,14 +81,18 @@ add_task(async function() {
       // event right after having been inserted, and so we need to force a sync
       // reflow.
       win.document.documentElement.offsetWidth;
-      EventUtils.synthesizeMouseAtPoint(x, y, {type: "mousedown"}, win);
+      EventUtils.synthesizeMouseAtPoint(x, y, { type: "mousedown" }, win);
     };
 
     info("Synthesizing an event on the element");
     let onDocMouseDown = once(doc, "mousedown");
     synthesizeMouseDown(100, 100, doc.defaultView);
     await onDocMouseDown;
-    is(mouseDownHandled, 1, "The mousedown event was handled once before navigation");
+    is(
+      mouseDownHandled,
+      1,
+      "The mousedown event was handled once before navigation"
+    );
 
     info("Navigating to a new page");
     const loaded = once(this, "load");
@@ -84,22 +102,32 @@ add_task(async function() {
     // Wait for the next event tick to make sure the remaining part of the
     // test is not executed in the microtask checkpoint for load event
     // itself.  Otherwise the synthesizeMouseDown doesn't work.
-    await new Promise(r => setTimeout(r, 0));
+    await new Promise(r => content.setTimeout(r, 0));
 
     // Update to the new document we just loaded
     doc = content.document;
 
     info("Try to access the element again");
-    is(el.getAttribute("class"), "child-element",
-      "The attribute is correct after navigation");
-    is(el.getTextContent(), "test content",
-      "The text content is correct after navigation");
+    is(
+      el.getAttribute("class"),
+      "child-element",
+      "The attribute is correct after navigation"
+    );
+    is(
+      el.getTextContent(),
+      "test content",
+      "The text content is correct after navigation"
+    );
 
     info("Synthesizing an event on the element again");
     onDocMouseDown = once(doc, "mousedown");
     synthesizeMouseDown(100, 100, doc.defaultView);
     await onDocMouseDown;
-    is(mouseDownHandled, 1, "The mousedown event was not handled after navigation");
+    is(
+      mouseDownHandled,
+      1,
+      "The mousedown event was not handled after navigation"
+    );
 
     info("Destroying the helper");
     env.destroy();

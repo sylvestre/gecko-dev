@@ -6,11 +6,11 @@
 
 #include "MessagePortParent.h"
 #include "MessagePortService.h"
-#include "SharedMessagePortMessage.h"
+#include "mozilla/dom/RefMessageBodyService.h"
+#include "mozilla/dom/SharedMessageBody.h"
 #include "mozilla/Unused.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 MessagePortParent::MessagePortParent(const nsID& aUUID)
     : mService(MessagePortService::GetOrCreate()),
@@ -38,11 +38,11 @@ bool MessagePortParent::Entangle(const nsID& aDestinationUUID,
 }
 
 mozilla::ipc::IPCResult MessagePortParent::RecvPostMessages(
-    nsTArray<ClonedMessageData>&& aMessages) {
+    nsTArray<MessageData>&& aMessages) {
   // This converts the object in a data struct where we have BlobImpls.
-  FallibleTArray<RefPtr<SharedMessagePortMessage>> messages;
-  if (NS_WARN_IF(!SharedMessagePortMessage::FromMessagesToSharedParent(
-          aMessages, messages))) {
+  FallibleTArray<RefPtr<SharedMessageBody>> messages;
+  if (NS_WARN_IF(!SharedMessageBody::FromMessagesToSharedParent(aMessages,
+                                                                messages))) {
     return IPC_FAIL_NO_REASON(this);
   }
 
@@ -66,11 +66,11 @@ mozilla::ipc::IPCResult MessagePortParent::RecvPostMessages(
 }
 
 mozilla::ipc::IPCResult MessagePortParent::RecvDisentangle(
-    nsTArray<ClonedMessageData>&& aMessages) {
+    nsTArray<MessageData>&& aMessages) {
   // This converts the object in a data struct where we have BlobImpls.
-  FallibleTArray<RefPtr<SharedMessagePortMessage>> messages;
-  if (NS_WARN_IF(!SharedMessagePortMessage::FromMessagesToSharedParent(
-          aMessages, messages))) {
+  FallibleTArray<RefPtr<SharedMessageBody>> messages;
+  if (NS_WARN_IF(!SharedMessageBody::FromMessagesToSharedParent(aMessages,
+                                                                messages))) {
     return IPC_FAIL_NO_REASON(this);
   }
 
@@ -127,8 +127,7 @@ void MessagePortParent::ActorDestroy(ActorDestroyReason aWhy) {
   }
 }
 
-bool MessagePortParent::Entangled(
-    const nsTArray<ClonedMessageData>& aMessages) {
+bool MessagePortParent::Entangled(nsTArray<MessageData>&& aMessages) {
   MOZ_ASSERT(!mEntangled);
   mEntangled = true;
   return SendEntangled(aMessages);
@@ -144,9 +143,10 @@ void MessagePortParent::Close() {
   mEntangled = false;
 }
 
-/* static */ bool MessagePortParent::ForceClose(const nsID& aUUID,
-                                                const nsID& aDestinationUUID,
-                                                const uint32_t& aSequenceID) {
+/* static */
+bool MessagePortParent::ForceClose(const nsID& aUUID,
+                                   const nsID& aDestinationUUID,
+                                   const uint32_t& aSequenceID) {
   MessagePortService* service = MessagePortService::Get();
   if (!service) {
     NS_WARNING(
@@ -157,5 +157,4 @@ void MessagePortParent::Close() {
   return service->ForceClose(aUUID, aDestinationUUID, aSequenceID);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

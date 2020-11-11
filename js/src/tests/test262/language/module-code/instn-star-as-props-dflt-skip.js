@@ -1,4 +1,4 @@
-// |reftest| skip module -- export-star-as-namespace-from-module is not supported
+// |reftest| module
 // Copyright (C) 2018 Valerie Young. All rights reserved.
 // This code is governed by the BSD license found in the LICENSE file.
 /*---
@@ -43,7 +43,7 @@ info: |
   [...]
 flags: [module]
 features: [export-star-as-namespace-from-module]
-  ---*/
+ ---*/
 
 import {named} from './instn-star-props-dflt-skip-star-as-named_FIXTURE.js';
 import {production} from './instn-star-props-dflt-skip-star-as-prod_FIXTURE.js';

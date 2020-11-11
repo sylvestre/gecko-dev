@@ -1,4 +1,3 @@
-/* vim: set ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -23,9 +22,8 @@ add_task(async function() {
   const { document: doc, store } = selectChangesView(inspector);
 
   await selectNode("div", inspector);
-  const rule = getRuleViewRuleEditor(ruleView, 1).rule;
-  const prop1 = rule.textProps[0];
-  const prop2 = rule.textProps[1];
+  const prop1 = getTextProperty(ruleView, 1, { color: "red" });
+  const prop2 = getTextProperty(ruleView, 1, { display: "block" });
 
   let onTrackChange = waitUntilAction(store, "TRACK_CHANGE");
   info("Change the second declaration");
@@ -43,12 +41,13 @@ add_task(async function() {
   info("Wait for change to be tracked");
   await onTrackChange;
 
-  const removeDecl = getRemovedDeclarations(doc);
-  const addDecl = getAddedDeclarations(doc);
-
-  is(removeDecl.length, 2, "Two declarations tracked as removed");
-  is(addDecl.length, 1, "One declaration tracked as added");
   // Ensure changes to the second declaration were tracked after removing the first one.
-  is(addDecl[0].property, "display", "Added declaration has updated property name");
-  is(addDecl[0].value, "flex", "Added declaration has updated property value");
+  await waitFor(
+    () => getRemovedDeclarations(doc).length == 2,
+    "Two declarations should have been tracked as removed"
+  );
+  await waitFor(() => {
+    const addDecl = getAddedDeclarations(doc);
+    return addDecl.length == 1 && addDecl[0].value == "flex";
+  }, "One declaration should have been tracked as added, and the added declaration to have updated property value");
 });

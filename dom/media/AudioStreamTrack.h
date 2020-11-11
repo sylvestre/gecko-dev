@@ -8,6 +8,7 @@
 
 #include "MediaStreamTrack.h"
 #include "DOMMediaStream.h"
+#include "CrossGraphPort.h"
 
 namespace mozilla {
 namespace dom {
@@ -15,14 +16,22 @@ namespace dom {
 class AudioStreamTrack : public MediaStreamTrack {
  public:
   AudioStreamTrack(
-      DOMMediaStream* aStream, TrackID aTrackID, TrackID aInputTrackID,
+      nsPIDOMWindowInner* aWindow, mozilla::MediaTrack* aInputTrack,
       MediaStreamTrackSource* aSource,
+      MediaStreamTrackState aReadyState = MediaStreamTrackState::Live,
+      bool aMuted = false,
       const MediaTrackConstraints& aConstraints = MediaTrackConstraints())
-      : MediaStreamTrack(aStream, aTrackID, aInputTrackID, aSource,
+      : MediaStreamTrack(aWindow, aInputTrack, aSource, aReadyState, aMuted,
                          aConstraints) {}
 
   AudioStreamTrack* AsAudioStreamTrack() override { return this; }
   const AudioStreamTrack* AsAudioStreamTrack() const override { return this; }
+
+  void AddAudioOutput(void* aKey);
+  void RemoveAudioOutput(void* aKey);
+  void SetAudioOutputVolume(void* aKey, float aVolume);
+  RefPtr<GenericPromise> SetAudioOutputDevice(void* key,
+                                              AudioDeviceInfo* aSink);
 
   // WebIDL
   void GetKind(nsAString& aKind) override { aKind.AssignLiteral("audio"); }
@@ -30,11 +39,14 @@ class AudioStreamTrack : public MediaStreamTrack {
   void GetLabel(nsAString& aLabel, CallerType aCallerType) override;
 
  protected:
-  already_AddRefed<MediaStreamTrack> CloneInternal(
-      DOMMediaStream* aOwningStream, TrackID aTrackID) override {
-    return do_AddRef(new AudioStreamTrack(
-        aOwningStream, aTrackID, mInputTrackID, mSource, mConstraints));
-  }
+  already_AddRefed<MediaStreamTrack> CloneInternal() override;
+  void SetReadyState(MediaStreamTrackState aState) override;
+
+ private:
+  // Track CrossGraphPort per AudioOutput key. This is required in order to
+  // redirect all AudioOutput requests (add, remove, set volume) to the
+  // receiver track which, belonging to the remote graph. MainThread only.
+  nsClassHashtable<nsPtrHashKey<void>, UniquePtr<CrossGraphPort>> mCrossGraphs;
 };
 
 }  // namespace dom

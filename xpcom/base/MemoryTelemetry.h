@@ -35,7 +35,8 @@ class MemoryTelemetry final : public nsIObserver,
 
   static MemoryTelemetry& Get();
 
-  nsresult GatherReports(const std::function<void()>& aCompletionCallback = nullptr);
+  nsresult GatherReports(
+      const std::function<void()>& aCompletionCallback = nullptr);
 
   void GetUniqueSetSize(std::function<void(const int64_t&)>&& aCallback);
 
@@ -61,7 +62,7 @@ class MemoryTelemetry final : public nsIObserver,
     NS_DECL_THREADSAFE_ISUPPORTS
     NS_DECL_NSITIMERCALLBACK
 
-    TotalMemoryGatherer() {}
+    TotalMemoryGatherer() = default;
 
     void CollectParentSize(int64_t aResident);
     void CollectResult(int64_t aChildUSS);

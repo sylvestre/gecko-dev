@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 #ifndef crc32c_h
 #define crc32c_h
 
@@ -13,7 +17,7 @@ extern "C" {
 //
 //    ComputeCrc32c(~0, buffer, bufferLength);
 //
-uint32_t ComputeCrc32c(uint32_t aCrc, const void *aBuf, size_t aSize);
+uint32_t ComputeCrc32c(uint32_t aCrc, const void* aBuf, size_t aSize);
 
 #ifdef __cplusplus
 }  // extern "C"

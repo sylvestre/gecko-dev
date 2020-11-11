@@ -17,8 +17,9 @@ class nsFirstLetterFrame final : public nsContainerFrame {
   NS_DECL_QUERYFRAME
   NS_DECL_FRAMEARENA_HELPERS(nsFirstLetterFrame)
 
-  explicit nsFirstLetterFrame(ComputedStyle* aStyle)
-      : nsContainerFrame(aStyle, kClassID) {}
+  explicit nsFirstLetterFrame(ComputedStyle* aStyle,
+                              nsPresContext* aPresContext)
+      : nsContainerFrame(aStyle, aPresContext, kClassID) {}
 
   virtual void BuildDisplayList(nsDisplayListBuilder* aBuilder,
                                 const nsDisplayListSet& aLists) override;
@@ -31,7 +32,7 @@ class nsFirstLetterFrame final : public nsContainerFrame {
   virtual nsresult GetFrameName(nsAString& aResult) const override;
 #endif
 
-  bool IsFloating() const { return GetStateBits() & NS_FRAME_OUT_OF_FLOW; }
+  bool IsFloating() const { return HasAnyStateBits(NS_FRAME_OUT_OF_FLOW); }
 
   virtual bool IsFrameOfType(uint32_t aFlags) const override {
     if (!IsFloating()) aFlags = aFlags & ~(nsIFrame::eLineParticipant);
@@ -46,11 +47,13 @@ class nsFirstLetterFrame final : public nsContainerFrame {
   virtual void AddInlinePrefISize(gfxContext* aRenderingContext,
                                   InlinePrefISizeData* aData) override;
 
-  virtual mozilla::LogicalSize ComputeSize(
-      gfxContext* aRenderingContext, mozilla::WritingMode aWritingMode,
-      const mozilla::LogicalSize& aCBSize, nscoord aAvailableISize,
-      const mozilla::LogicalSize& aMargin, const mozilla::LogicalSize& aBorder,
-      const mozilla::LogicalSize& aPadding, ComputeSizeFlags aFlags) override;
+  SizeComputationResult ComputeSize(gfxContext* aRenderingContext,
+                                    mozilla::WritingMode aWM,
+                                    const mozilla::LogicalSize& aCBSize,
+                                    nscoord aAvailableISize,
+                                    const mozilla::LogicalSize& aMargin,
+                                    const mozilla::LogicalSize& aBorderPadding,
+                                    mozilla::ComputeSizeFlags aFlags) override;
 
   virtual void Reflow(nsPresContext* aPresContext, ReflowOutput& aDesiredSize,
                       const ReflowInput& aReflowInput,
@@ -73,10 +76,9 @@ class nsFirstLetterFrame final : public nsContainerFrame {
   // place it in the correct place. aContinuation is an outparam for the
   // continuation that is created. aIsFluid determines if the continuation is
   // fluid or not.
-  nsresult CreateContinuationForFloatingParent(nsPresContext* aPresContext,
-                                               nsIFrame* aChild,
-                                               nsIFrame** aContinuation,
-                                               bool aIsFluid);
+  void CreateContinuationForFloatingParent(nsIFrame* aChild,
+                                           nsIFrame** aContinuation,
+                                           bool aIsFluid);
 
  protected:
   nscoord mBaseline;

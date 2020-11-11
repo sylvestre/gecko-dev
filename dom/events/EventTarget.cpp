@@ -8,11 +8,12 @@
 #include "mozilla/dom/EventTarget.h"
 #include "mozilla/dom/EventTargetBinding.h"
 #include "mozilla/dom/ConstructibleEventTarget.h"
+#include "mozilla/dom/Nullable.h"
+#include "mozilla/dom/WindowProxyHolder.h"
 #include "nsIGlobalObject.h"
 #include "nsThreadUtils.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 /* static */
 already_AddRefed<EventTarget> EventTarget::Constructor(
@@ -140,7 +141,7 @@ EventHandlerNonNull* EventTarget::GetEventHandler(nsAtom* aType) {
 void EventTarget::SetEventHandler(const nsAString& aType,
                                   EventHandlerNonNull* aHandler,
                                   ErrorResult& aRv) {
-  if (!StringBeginsWith(aType, NS_LITERAL_STRING("on"))) {
+  if (!StringBeginsWith(aType, u"on"_ns)) {
     aRv.Throw(NS_ERROR_INVALID_ARG);
     return;
   }
@@ -182,5 +183,13 @@ void EventTarget::DispatchEvent(Event& aEvent, ErrorResult& aRv) {
   Unused << DispatchEvent(aEvent, CallerType::NonSystem, IgnoreErrors());
 }
 
-}  // namespace dom
-}  // namespace mozilla
+Nullable<WindowProxyHolder> EventTarget::GetOwnerGlobalForBindings() {
+  nsPIDOMWindowOuter* win = GetOwnerGlobalForBindingsInternal();
+  if (!win) {
+    return nullptr;
+  }
+
+  return WindowProxyHolder(win->GetBrowsingContext());
+}
+
+}  // namespace mozilla::dom

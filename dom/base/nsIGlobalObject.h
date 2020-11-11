@@ -34,6 +34,11 @@ class nsPIDOMWindowInner;
 namespace mozilla {
 class DOMEventTargetHelper;
 namespace dom {
+class VoidFunction;
+class DebuggerNotificationManager;
+class Report;
+class ReportBody;
+class ReportingObserver;
 class ServiceWorker;
 class ServiceWorkerRegistration;
 class ServiceWorkerRegistrationDescriptor;
@@ -49,11 +54,12 @@ class nsIGlobalObject : public nsISupports,
   mozilla::LinkedList<mozilla::DOMEventTargetHelper> mEventTargetObjects;
 
   bool mIsDying;
+  bool mIsScriptForbidden;
 
  protected:
   bool mIsInnerWindow;
 
-  nsIGlobalObject() : mIsDying(false), mIsInnerWindow(false) {}
+  nsIGlobalObject();
 
  public:
   NS_DECLARE_STATIC_IID_ACCESSOR(NS_IGLOBALOBJECT_IID)
@@ -74,13 +80,42 @@ class nsIGlobalObject : public nsISupports,
    */
   bool IsDying() const { return mIsDying; }
 
-  // GetGlobalJSObject may return a gray object.  If this ever changes so that
-  // it stops doing that, please simplify the code in FindAssociatedGlobal in
-  // BindingUtils.h that does JS::ExposeObjectToActiveJS on the return value of
-  // GetGlobalJSObject.  Also, in that case the JS::ExposeObjectToActiveJS in
-  // AutoJSAPI::InitInternal can probably be removed.  And also the similar
-  // calls in XrayWrapper and nsGlobalWindow.
+  /**
+   * Is it currently forbidden to call into script?  JS-implemented WebIDL is
+   * a special case that's always allowed because it has the system principal,
+   * and callers should indicate this.
+   */
+  bool IsScriptForbidden(JSObject* aCallback,
+                         bool aIsJSImplementedWebIDL = false) const;
+
+  /**
+   * Return the JSObject for this global, if it still has one.  Otherwise return
+   * null.
+   *
+   * If non-null is returned, then the returned object will have been already
+   * exposed to active JS, so callers do not need to do it.
+   */
   virtual JSObject* GetGlobalJSObject() = 0;
+
+  /**
+   * Return the JSObject for this global _without_ exposing it to active JS.
+   * This may return a gray object.
+   *
+   * This method is appropriate to use in assertions (so there is less of a
+   * difference in GC/CC marking between debug and optimized builds) and in
+   * situations where we are sure no CC activity can happen while the return
+   * value is used and the return value does not end up escaping to the heap in
+   * any way.  In all other cases, and in particular in cases where the return
+   * value is held in a JS::Rooted or passed to the JSAutoRealm constructor, use
+   * GetGlobalJSObject.
+   */
+  virtual JSObject* GetGlobalJSObjectPreserveColor() const = 0;
+
+  /**
+   * Check whether this nsIGlobalObject still has a JSObject associated with it,
+   * or whether it's torn-down enough that the JSObject is gone.
+   */
+  bool HasJSGlobal() const { return GetGlobalJSObjectPreserveColor(); }
 
   // This method is not meant to be overridden.
   nsIPrincipal* PrincipalOrNull();
@@ -89,10 +124,10 @@ class nsIGlobalObject : public nsISupports,
 
   void UnregisterHostObjectURI(const nsACString& aURI);
 
-  // Any CC class inheriting nsIGlobalObject should call these 2 methods if it
-  // exposes the URL API.
-  void UnlinkHostObjectURIs();
-  void TraverseHostObjectURIs(nsCycleCollectionTraversalCallback& aCb);
+  // Any CC class inheriting nsIGlobalObject should call these 2 methods to
+  // cleanup objects stored in nsIGlobalObject such as blobURLs and Reports.
+  void UnlinkObjectsInGlobal();
+  void TraverseObjectsInGlobal(nsCycleCollectionTraversalCallback& aCb);
 
   // DETH objects must register themselves on the global when they
   // bind to it in order to get the DisconnectFromOwner() method
@@ -109,7 +144,23 @@ class nsIGlobalObject : public nsISupports,
 
   virtual bool IsInSyncOperation() { return false; }
 
+  virtual mozilla::dom::DebuggerNotificationManager*
+  GetOrCreateDebuggerNotificationManager() {
+    return nullptr;
+  }
+
+  virtual mozilla::dom::DebuggerNotificationManager*
+  GetExistingDebuggerNotificationManager() {
+    return nullptr;
+  }
+
   virtual mozilla::Maybe<mozilla::dom::ClientInfo> GetClientInfo() const;
+
+  virtual mozilla::Maybe<nsID> GetAgentClusterId() const;
+
+  virtual bool CrossOriginIsolated() const { return false; }
+
+  virtual bool IsSharedMemoryAllowed() const { return false; }
 
   virtual mozilla::Maybe<mozilla::dom::ServiceWorkerDescriptor> GetController()
       const;
@@ -136,14 +187,35 @@ class nsIGlobalObject : public nsISupports,
   // nullptr otherwise.
   nsPIDOMWindowInner* AsInnerWindow();
 
+  void QueueMicrotask(mozilla::dom::VoidFunction& aCallback);
+
+  void RegisterReportingObserver(mozilla::dom::ReportingObserver* aObserver,
+                                 bool aBuffered);
+
+  void UnregisterReportingObserver(mozilla::dom::ReportingObserver* aObserver);
+
+  void BroadcastReport(mozilla::dom::Report* aReport);
+
+  MOZ_CAN_RUN_SCRIPT void NotifyReportingObservers();
+
+  void RemoveReportRecords();
+
  protected:
   virtual ~nsIGlobalObject();
 
   void StartDying() { mIsDying = true; }
 
+  void StartForbiddingScript() { mIsScriptForbidden = true; }
+  void StopForbiddingScript() { mIsScriptForbidden = false; }
+
   void DisconnectEventTargetObjects();
 
   size_t ShallowSizeOfExcludingThis(mozilla::MallocSizeOf aSizeOf) const;
+
+ private:
+  // List of Report objects for ReportingObservers.
+  nsTArray<RefPtr<mozilla::dom::ReportingObserver>> mReportingObservers;
+  nsTArray<RefPtr<mozilla::dom::Report>> mReportRecords;
 };
 
 NS_DEFINE_STATIC_IID_ACCESSOR(nsIGlobalObject, NS_IGLOBALOBJECT_IID)

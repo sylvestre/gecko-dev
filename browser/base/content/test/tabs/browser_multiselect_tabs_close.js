@@ -1,12 +1,22 @@
-const PREF_MULTISELECT_TABS = "browser.tabs.multiselect";
 const PREF_WARN_ON_CLOSE = "browser.tabs.warnOnCloseOtherTabs";
+
+async function openTabMenuFor(tab) {
+  let tabMenu = tab.ownerDocument.getElementById("tabContextMenu");
+
+  let tabMenuShown = BrowserTestUtils.waitForEvent(tabMenu, "popupshown");
+  EventUtils.synthesizeMouseAtCenter(
+    tab,
+    { type: "contextmenu" },
+    tab.ownerGlobal
+  );
+  await tabMenuShown;
+
+  return tabMenu;
+}
 
 add_task(async function setPref() {
   await SpecialPowers.pushPrefEnv({
-    set: [
-      [PREF_MULTISELECT_TABS, true],
-      [PREF_WARN_ON_CLOSE, false],
-    ],
+    set: [[PREF_WARN_ON_CLOSE, false]],
   });
 });
 
@@ -29,7 +39,7 @@ add_task(async function usingTabCloseButton() {
   is(gBrowser.selectedTab, tab1, "Tab1 is active");
 
   // Closing a tab which is not multiselected
-  let tab4CloseBtn = document.getAnonymousElementByAttribute(tab4, "anonid", "close-button");
+  let tab4CloseBtn = tab4.closeButton;
   let tab4Closing = BrowserTestUtils.waitForTabClosing(tab4);
 
   tab4.mOverCloseButton = true;
@@ -48,7 +58,7 @@ add_task(async function usingTabCloseButton() {
   is(gBrowser.multiSelectedTabsCount, 2, "Two multiselected tabs");
 
   // Closing a selected tab
-  let tab2CloseBtn = document.getAnonymousElementByAttribute(tab2, "anonid", "close-button");
+  let tab2CloseBtn = tab2.closeButton;
   tab2.mOverCloseButton = true;
   let tab1Closing = BrowserTestUtils.waitForTabClosing(tab1);
   let tab2Closing = BrowserTestUtils.waitForTabClosing(tab2);
@@ -71,8 +81,6 @@ add_task(async function usingTabContextMenu() {
   let tab4 = await addTab();
 
   let menuItemCloseTab = document.getElementById("context_closeTab");
-  let menuItemCloseSelectedTabs = document.getElementById("context_closeSelectedTabs");
-
   is(gBrowser.multiSelectedTabsCount, 0, "Zero multiselected tabs");
 
   await BrowserTestUtils.switchTab(gBrowser, tab1);
@@ -86,17 +94,20 @@ add_task(async function usingTabContextMenu() {
 
   // Check the context menu with a non-multiselected tab
   updateTabContextMenu(tab4);
-  is(menuItemCloseTab.hidden, false, "Close Tab is visible");
-  is(menuItemCloseSelectedTabs.hidden, true, "Close Selected Tabs is hidden");
+  let { args } = document.l10n.getAttributes(menuItemCloseTab);
+  is(args.tabCount, 1, "Close Tab item lists a single tab");
 
-  // Check the context menu with a multiselected tab
-  updateTabContextMenu(tab2);
-  is(menuItemCloseTab.hidden, true, "Close Tab is hidden");
-  is(menuItemCloseSelectedTabs.hidden, false, "Close Selected Tabs is visible");
+  // Check the context menu with a multiselected tab. We have to actually open
+  // it (not just call `updateTabContextMenu`) in order for
+  // `TabContextMenu.contextTab` to stay non-null when we click an item.
+  let menu = await openTabMenuFor(tab2);
+  ({ args } = document.l10n.getAttributes(menuItemCloseTab));
+  is(args.tabCount, 2, "Close Tab item lists more than one tab");
 
   let tab1Closing = BrowserTestUtils.waitForTabClosing(tab1);
   let tab2Closing = BrowserTestUtils.waitForTabClosing(tab2);
-  menuItemCloseSelectedTabs.click();
+  menuItemCloseTab.click();
+  menu.hidePopup();
   await tab1Closing;
   await tab2Closing;
 
@@ -109,4 +120,3 @@ add_task(async function usingTabContextMenu() {
   BrowserTestUtils.removeTab(tab3);
   BrowserTestUtils.removeTab(tab4);
 });
-

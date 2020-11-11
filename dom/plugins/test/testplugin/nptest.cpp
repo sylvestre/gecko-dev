@@ -50,17 +50,19 @@
 #include <ctime>
 
 #ifdef XP_WIN
-#include <process.h>
-#include <float.h>
-#include <windows.h>
-#define getpid _getpid
-#define strcasecmp _stricmp
+#  include <process.h>
+#  include <float.h>
+#  include <windows.h>
+#  define getpid _getpid
+#  define strcasecmp _stricmp
 #else
-#include <unistd.h>
-#include <pthread.h>
+#  include <unistd.h>
+#  include <pthread.h>
 #endif
 
-using namespace std;
+using std::list;
+using std::ostringstream;
+using std::string;
 
 #define PLUGIN_VERSION "1.0.0.0"
 
@@ -1058,7 +1060,7 @@ NPError NPP_New(NPMIMEType pluginType, NPP instance, uint16_t mode,
   }
 
   if ((instanceData->bugMode == 813906) && instanceData->frame.length()) {
-    bug813906(instance, "f", "browser.xul", instanceData->frame.c_str());
+    bug813906(instance, "f", "browser.xhtml", instanceData->frame.c_str());
   }
 
   return NPERR_NO_ERROR;

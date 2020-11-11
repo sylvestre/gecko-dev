@@ -2,15 +2,16 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include <stdio.h>
 #include <ctype.h>
+#include <stdio.h>
 
 #include <mozilla/RefPtr.h>
-#include "nsString.h"
 #include "nsEscape.h"
+#include "nsString.h"
 #include "nsUrlClassifierUtils.h"
 #include "stdlib.h"
-#include "gtest/gtest.h"
+
+#include "Common.h"
 
 static char int_to_hex_digit(int32_t i) {
   NS_ASSERTION((i >= 0) && (i <= 15), "int too big in int_to_hex_digit");
@@ -21,15 +22,42 @@ static void CheckEquals(nsCString& expected, nsCString& actual) {
   ASSERT_TRUE((expected).Equals((actual)));
 }
 
-void TestUnescapeHelper(const char* in, const char* expected) {
+static void TestUnescapeHelper(const char* in, const char* expected) {
   nsCString out, strIn(in), strExp(expected);
 
   NS_UnescapeURL(strIn.get(), strIn.Length(), esc_AlwaysCopy, out);
   CheckEquals(strExp, out);
 }
 
+static void TestEncodeHelper(const char* in, const char* expected) {
+  nsCString out, strIn(in), strExp(expected);
+  nsUrlClassifierUtils::GetInstance()->SpecialEncode(strIn, true, out);
+  CheckEquals(strExp, out);
+}
+
+static void TestCanonicalizeHelper(const char* in, const char* expected) {
+  nsCString out, strIn(in), strExp(expected);
+  nsUrlClassifierUtils::GetInstance()->CanonicalizePath(strIn, out);
+  CheckEquals(strExp, out);
+}
+
+static void TestCanonicalNumHelper(const char* in, uint32_t bytes,
+                                   bool allowOctal, const char* expected) {
+  nsCString out, strIn(in), strExp(expected);
+  nsUrlClassifierUtils::GetInstance()->CanonicalNum(strIn, bytes, allowOctal,
+                                                    out);
+  CheckEquals(strExp, out);
+}
+
+void TestHostnameHelper(const char* in, const char* expected) {
+  nsCString out, strIn(in), strExp(expected);
+  nsUrlClassifierUtils::GetInstance()->CanonicalizeHostname(strIn, out);
+  CheckEquals(strExp, out);
+}
+
 // Make sure Unescape from nsEncode.h's unescape does what the server does.
-TEST(UrlClassifierUtils, Unescape) {
+TEST(UrlClassifierUtils, Unescape)
+{
   // test empty string
   TestUnescapeHelper("\0", "\0");
 
@@ -74,16 +102,8 @@ TEST(UrlClassifierUtils, Unescape) {
   TestUnescapeHelper("%25%32%35", "%25");
 }
 
-void TestEncodeHelper(const char* in, const char* expected) {
-  nsCString out, strIn(in), strExp(expected);
-  RefPtr<nsUrlClassifierUtils> utils = new nsUrlClassifierUtils;
-  utils->Init();
-
-  utils->SpecialEncode(strIn, true, out);
-  CheckEquals(strExp, out);
-}
-
-TEST(UrlClassifierUtils, Enc) {
+TEST(UrlClassifierUtils, Enc)
+{
   // Test empty string
   TestEncodeHelper("", "");
 
@@ -94,10 +114,8 @@ TEST(UrlClassifierUtils, Enc) {
       noenc.Append(static_cast<char>(i));
     }
   }
-  RefPtr<nsUrlClassifierUtils> utils = new nsUrlClassifierUtils;
-  utils->Init();
   nsCString out;
-  utils->SpecialEncode(noenc, false, out);
+  nsUrlClassifierUtils::GetInstance()->SpecialEncode(noenc, false, out);
   CheckEquals(noenc, out);
 
   // Test that all the chars that we should encode [0,32],37,[127,255] are
@@ -112,22 +130,14 @@ TEST(UrlClassifierUtils, Enc) {
   }
 
   out.Truncate();
-  utils->SpecialEncode(yesAsString, false, out);
+  nsUrlClassifierUtils::GetInstance()->SpecialEncode(yesAsString, false, out);
   CheckEquals(yesExpectedString, out);
 
   TestEncodeHelper("blah//blah", "blah/blah");
 }
 
-void TestCanonicalizeHelper(const char* in, const char* expected) {
-  nsCString out, strIn(in), strExp(expected);
-  RefPtr<nsUrlClassifierUtils> utils = new nsUrlClassifierUtils;
-  utils->Init();
-
-  utils->CanonicalizePath(strIn, out);
-  CheckEquals(strExp, out);
-}
-
-TEST(UrlClassifierUtils, Canonicalize) {
+TEST(UrlClassifierUtils, Canonicalize)
+{
   // Test repeated %-decoding. Note: %25 --> %, %32 --> 2, %35 --> 5
   TestCanonicalizeHelper("%25", "%25");
   TestCanonicalizeHelper("%25%32%35", "%25");
@@ -156,14 +166,12 @@ TEST(UrlClassifierUtils, Canonicalize) {
 
 void TestParseIPAddressHelper(const char* in, const char* expected) {
   nsCString out, strIn(in), strExp(expected);
-  RefPtr<nsUrlClassifierUtils> utils = new nsUrlClassifierUtils;
-  utils->Init();
-
-  utils->ParseIPAddress(strIn, out);
+  nsUrlClassifierUtils::GetInstance()->ParseIPAddress(strIn, out);
   CheckEquals(strExp, out);
 }
 
-TEST(UrlClassifierUtils, ParseIPAddress) {
+TEST(UrlClassifierUtils, ParseIPAddress)
+{
   TestParseIPAddressHelper("123.123.0.0.1", "");
   TestParseIPAddressHelper("255.0.0.1", "255.0.0.1");
   TestParseIPAddressHelper("12.0x12.01234", "12.18.2.156");
@@ -184,17 +192,8 @@ TEST(UrlClassifierUtils, ParseIPAddress) {
   TestParseIPAddressHelper("1.2.3.4", "1.2.3.4");
 }
 
-void TestCanonicalNumHelper(const char* in, uint32_t bytes, bool allowOctal,
-                            const char* expected) {
-  nsCString out, strIn(in), strExp(expected);
-  RefPtr<nsUrlClassifierUtils> utils = new nsUrlClassifierUtils;
-  utils->Init();
-
-  utils->CanonicalNum(strIn, bytes, allowOctal, out);
-  CheckEquals(strExp, out);
-}
-
-TEST(UrlClassifierUtils, CanonicalNum) {
+TEST(UrlClassifierUtils, CanonicalNum)
+{
   TestCanonicalNumHelper("", 1, true, "");
   TestCanonicalNumHelper("10", 0, true, "");
   TestCanonicalNumHelper("45", 1, true, "45");
@@ -211,16 +210,8 @@ TEST(UrlClassifierUtils, CanonicalNum) {
   TestCanonicalNumHelper("0x0000067", 1, true, "103");
 }
 
-void TestHostnameHelper(const char* in, const char* expected) {
-  nsCString out, strIn(in), strExp(expected);
-  RefPtr<nsUrlClassifierUtils> utils = new nsUrlClassifierUtils;
-  utils->Init();
-
-  utils->CanonicalizeHostname(strIn, out);
-  CheckEquals(strExp, out);
-}
-
-TEST(UrlClassifierUtils, Hostname) {
+TEST(UrlClassifierUtils, Hostname)
+{
   TestHostnameHelper("abcd123;[]", "abcd123;[]");
   TestHostnameHelper("abc.123", "abc.123");
   TestHostnameHelper("abc..123", "abc.123");
@@ -243,19 +234,17 @@ TEST(UrlClassifierUtils, Hostname) {
   TestHostnameHelper("%00", "%00");
 }
 
-TEST(UrlClassifierUtils, LongHostname) {
+TEST(UrlClassifierUtils, LongHostname)
+{
   static const int kTestSize = 1024 * 150;
   char* str = static_cast<char*>(malloc(kTestSize + 1));
   memset(str, 'x', kTestSize);
   str[kTestSize] = '\0';
 
-  RefPtr<nsUrlClassifierUtils> utils = new nsUrlClassifierUtils;
-  utils->Init();
-
   nsAutoCString out;
   nsDependentCString in(str);
   PRIntervalTime clockStart = PR_IntervalNow();
-  utils->CanonicalizeHostname(in, out);
+  nsUrlClassifierUtils::GetInstance()->CanonicalizeHostname(in, out);
   PRIntervalTime clockEnd = PR_IntervalNow();
 
   CheckEquals(in, out);

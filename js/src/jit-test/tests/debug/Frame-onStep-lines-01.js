@@ -1,6 +1,6 @@
 // Test that a frame's onStep handler gets called at least once on each line of a function.
 
-var g = newGlobal();
+var g = newGlobal({newCompartment: true});
 var dbg = new Debugger(g);
 
 // When we hit a 'debugger' statement, set offsets to the frame's script's
@@ -14,7 +14,7 @@ dbg.onDebuggerStatement = function (frame) {
     var script = frame.script;
     offsets = script.getAllOffsets();
     print("debugger line: " + script.getOffsetLocation(frame.offset).lineNumber);
-    print("original lines: " + uneval(Object.keys(offsets)));
+    print("original lines: " + JSON.stringify(Object.keys(offsets)));
     if (doSingleStep) {
 	frame.onStep = function onStepHandler() {
 	    var line = script.getOffsetLocation(this.offset).lineNumber;
@@ -61,7 +61,7 @@ g.eval(
        'if (x < 10)                      \n' +
        '    x -= c;                      \n'
        );
-print("final lines: " + uneval(Object.keys(offsets)));
+print("final lines: " + JSON.stringify(Object.keys(offsets)));
 assertEq(Object.keys(offsets).length, 1);
 
 // Single-step in a global code frame. This should reach every line but the
@@ -74,5 +74,5 @@ g.evaluate(
            'if (x < 10)                      \n' +
            '    x -= c;                      \n'
            );
-print("final lines: " + uneval(Object.keys(offsets)));
+print("final lines: " + JSON.stringify(Object.keys(offsets)));
 assertEq(Object.keys(offsets).length, 1);

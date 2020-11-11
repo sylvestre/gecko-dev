@@ -13,19 +13,19 @@
 #include <vector>
 #include <map>
 
-#include "base/lock.h"
 #include "base/message_pump.h"
 #include "base/observer_list.h"
+
+#include "mozilla/Mutex.h"
 
 #if defined(OS_WIN)
 // We need this to declare base::MessagePumpWin::Dispatcher, which we should
 // really just eliminate.
-#include "base/message_pump_win.h"
+#  include "base/message_pump_win.h"
 #elif defined(OS_POSIX)
-#include "base/message_pump_libevent.h"
+#  include "base/message_pump_libevent.h"
 #endif
 
-#include "nsAutoPtr.h"
 #include "nsCOMPtr.h"
 #include "nsIRunnable.h"
 #include "nsThreadUtils.h"
@@ -300,7 +300,7 @@ class MessageLoop : public base::MessagePump::Delegate {
         : task(aTask), sequence_num(0), nestable(aNestable) {}
 
     PendingTask(PendingTask&& aOther)
-        : task(aOther.task.forget()),
+        : task(std::move(aOther.task)),
           delayed_run_time(aOther.delayed_run_time),
           sequence_num(aOther.sequence_num),
           nestable(aOther.nestable) {}
@@ -423,7 +423,7 @@ class MessageLoop : public base::MessagePump::Delegate {
   // will be handled by the TimerManager.
   TaskQueue incoming_queue_;
   // Protect access to incoming_queue_.
-  Lock incoming_queue_lock_;
+  mozilla::Mutex incoming_queue_lock_;
 
   RunState* state_;
   int run_depth_base_;

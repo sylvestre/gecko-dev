@@ -10,10 +10,9 @@
 
 # ChunkingMixin {{{1
 class ChunkingMixin(object):
-    """Generic Chunking helper methods.
-    """
-    def query_chunked_list(self, possible_list, this_chunk, total_chunks,
-                           sort=False):
+    """Generic Chunking helper methods."""
+
+    def query_chunked_list(self, possible_list, this_chunk, total_chunks, sort=False):
         """Split a list of items into a certain number of chunks and
         return the subset of that will occur in this chunk.
 
@@ -26,7 +25,7 @@ class ChunkingMixin(object):
             possible_list = possible_list[:]
         length = len(possible_list)
         for c in range(1, total_chunks + 1):
-            n = length / total_chunks
+            n = length // total_chunks
             # If the total number of items isn't evenly divisible by the
             # number of chunks, we need to append one more onto some chunks
             if c <= (length % total_chunks):

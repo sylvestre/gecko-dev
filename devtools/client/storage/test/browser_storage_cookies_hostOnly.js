@@ -6,8 +6,9 @@
 
 // Test that the HostOnly values displayed in the table are correct.
 
-SpecialPowers.pushPrefEnv({"set": [["security.allow_eval_with_system_principal",
-                                    true]]});
+SpecialPowers.pushPrefEnv({
+  set: [["security.allow_eval_with_system_principal", true]],
+});
 
 add_task(async function() {
   await openTabAndSetupStorage(MAIN_DOMAIN + "storage-complex-values.html");
@@ -23,7 +24,4 @@ add_task(async function() {
   const c2id = getCookieId("cs2", ".example.org", "/");
   await selectTableItem(c2id);
   checkCell(c2id, "hostOnly", "false");
-
-  await finishTests();
 });
-

@@ -26,7 +26,7 @@ function test(code, importObj, expectedStacks)
 test(
 `(module
     (func (result i32) (i32.const 42))
-    (export "" 0)
+    (export "" (func 0))
 )`,
 {},
 ["", ">", "0,>", ">", ""]);
@@ -35,17 +35,17 @@ test(
 `(module
     (func (result i32) (i32.add (call 1) (i32.const 1)))
     (func (result i32) (i32.const 42))
-    (export "" 0)
+    (export "" (func 0))
 )`,
 {},
 ["", ">", "0,>", "1,0,>", "0,>", ">", ""]);
 
 test(
 `(module
-    (func $foo (call_indirect 0 (i32.const 0)))
+    (func $foo (call_indirect (type 0) (i32.const 0)))
     (func $bar)
-    (table anyfunc (elem $bar))
-    (export "" $foo)
+    (table funcref (elem $bar))
+    (export "" (func $foo))
 )`,
 {},
 ["", ">", "0,>", "1,0,>", "0,>", ">", ""]);
@@ -53,9 +53,9 @@ test(
 test(
 `(module
     (import $foo "" "foo")
-    (table anyfunc (elem $foo))
-    (func $bar (call_indirect 0 (i32.const 0)))
-    (export "" $bar)
+    (table funcref (elem $foo))
+    (func $bar (call_indirect (type 0) (i32.const 0)))
+    (export "" (func $bar))
 )`,
 {"":{foo:()=>{}}},
 ["", ">", "1,>", "0,1,>", "<,0,1,>", "0,1,>", "1,>", ">", ""]);
@@ -63,7 +63,7 @@ test(
 test(`(module
     (import $f32 "Math" "sin" (param f32) (result f32))
     (func (export "") (param f32) (result f32)
-        get_local 0
+        local.get 0
         call $f32
     )
 )`,
@@ -75,7 +75,7 @@ if (getBuildConfiguration()["arm-simulator"]) {
     for (let op of ['div_s', 'rem_s', 'div_u', 'rem_u']) {
         test(`(module
             (func (export "") (param i32) (result i32)
-                get_local 0
+                local.get 0
                 i64.extend_s/i32
                 i64.const 0x1a2b3c4d5e6f
                 i64.${op}
@@ -88,27 +88,27 @@ if (getBuildConfiguration()["arm-simulator"]) {
     }
 }
 
-// current_memory is a callout.
+// memory.size is a callout.
 test(`(module
     (memory 1)
     (func (export "") (result i32)
-         current_memory
+         memory.size
     )
 )`,
 this,
-["", ">", "0,>", "<,0,>", "current_memory,0,>", "<,0,>", "0,>", ">", ""],
+["", ">", "0,>", "<,0,>", "memory.size,0,>", "<,0,>", "0,>", ">", ""],
 );
 
-// grow_memory is a callout.
+// memory.grow is a callout.
 test(`(module
     (memory 1)
     (func (export "") (result i32)
          i32.const 1
-         grow_memory
+         memory.grow
     )
 )`,
 this,
-["", ">", "0,>", "<,0,>", "grow_memory,0,>", "<,0,>", "0,>", ">", ""],
+["", ">", "0,>", "<,0,>", "memory.grow,0,>", "<,0,>", "0,>", ">", ""],
 );
 
 // A few math builtins.
@@ -116,7 +116,7 @@ for (let type of ['f32', 'f64']) {
     for (let func of ['ceil', 'floor', 'nearest', 'trunc']) {
         test(`(module
             (func (export "") (param ${type}) (result ${type})
-                get_local 0
+                local.get 0
                 ${type}.${func}
             )
         )`,
@@ -149,10 +149,10 @@ for (let type of ['f32', 'f64']) {
     `(module
         (type $good (func))
         (type $bad (func (param i32)))
-        (func $foo (call_indirect $bad (i32.const 1) (i32.const 0)))
+        (func $foo (call_indirect (type $bad) (i32.const 1) (i32.const 0)))
         (func $bar (type $good))
-        (table anyfunc (elem $bar))
-        (export "" $foo)
+        (table funcref (elem $bar))
+        (export "" (func $foo))
     )`,
     WebAssembly.RuntimeError,
     ["", ">", "0,>", "1,0,>", ">", "", ">", ""]);
@@ -163,11 +163,11 @@ for (let type of ['f32', 'f64']) {
     var e = wasmEvalText(`
     (module
         (func $foo (result i32) (i32.const 42))
-        (export "foo" $foo)
+        (export "foo" (func $foo))
         (func $bar (result i32) (i32.const 13))
-        (table 10 anyfunc)
+        (table 10 funcref)
         (elem (i32.const 0) $foo $bar)
-        (export "tbl" table)
+        (export "tbl" (table 0))
     )`).exports;
     assertEq(e.foo(), 42);
     assertEq(e.tbl.get(0)(), 42);
@@ -203,11 +203,11 @@ for (let type of ['f32', 'f64']) {
     var e2 = wasmEvalText(`
     (module
         (type $v2i (func (result i32)))
-        (import "a" "b" (table 10 anyfunc))
+        (import "a" "b" (table 10 funcref))
         (elem (i32.const 2) $bar)
         (func $bar (result i32) (i32.const 99))
-        (func $baz (param $i i32) (result i32) (call_indirect $v2i (get_local $i)))
-        (export "baz" $baz)
+        (func $baz (param $i i32) (result i32) (call_indirect (type $v2i) (local.get $i)))
+        (export "baz" (func $baz))
     )`, {a:{b:e.tbl}}).exports;
 
     enableGeckoProfiling();
@@ -233,12 +233,12 @@ for (let type of ['f32', 'f64']) {
     // Optimized wasm->wasm import.
     var m1 = new Module(wasmTextToBinary(`(module
         (func $foo (result i32) (i32.const 42))
-        (export "foo" $foo)
+        (export "foo" (func $foo))
     )`));
     var m2 = new Module(wasmTextToBinary(`(module
         (import $foo "a" "foo" (result i32))
         (func $bar (result i32) (call $foo))
-        (export "bar" $bar)
+        (export "bar" (func $bar))
     )`));
 
     // Instantiate while not active:
@@ -281,11 +281,11 @@ for (let type of ['f32', 'f64']) {
         (import $missingOneArg "a" "sumTwo" (param i32) (result i32))
 
         (func (export "foo") (param i32) (result i32)
-         get_local 0
+         local.get 0
          call $ffi)
 
         (func (export "id") (param i32) (result i32)
-         get_local 0
+         local.get 0
          call $missingOneArg
         )
     )`));
@@ -388,13 +388,13 @@ for (let type of ['f32', 'f64']) {
 // Ion->wasm calls.
 let func = wasmEvalText(`(module
     (func $inner (result i32) (param i32) (param i32)
-        get_local 0
-        get_local 1
+        local.get 0
+        local.get 1
         i32.add
     )
     (func (export "add") (result i32) (param i32) (param i32)
-     get_local 0
-     get_local 1
+     local.get 0
+     local.get 1
      call $inner
     )
 )`).exports.add;

@@ -19,14 +19,13 @@
 #include "nsError.h"
 #include "nsLiteralString.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 using namespace mozilla::dom::indexedDB;
 
 IDBFileRequest::IDBFileRequest(IDBFileHandle* aFileHandle,
                                bool aWrapAsDOMRequest)
-    : DOMRequest(aFileHandle->GetOwner()),
+    : DOMRequest(aFileHandle->GetOwnerGlobal()),
       mFileHandle(aFileHandle),
       mWrapAsDOMRequest(aWrapAsDOMRequest),
       mHasEncoding(false) {
@@ -37,21 +36,18 @@ IDBFileRequest::IDBFileRequest(IDBFileHandle* aFileHandle,
 IDBFileRequest::~IDBFileRequest() { AssertIsOnOwningThread(); }
 
 // static
-already_AddRefed<IDBFileRequest> IDBFileRequest::Create(
-    IDBFileHandle* aFileHandle, bool aWrapAsDOMRequest) {
+RefPtr<IDBFileRequest> IDBFileRequest::Create(IDBFileHandle* aFileHandle,
+                                              bool aWrapAsDOMRequest) {
   MOZ_ASSERT(aFileHandle);
   aFileHandle->AssertIsOnOwningThread();
 
-  RefPtr<IDBFileRequest> request =
-      new IDBFileRequest(aFileHandle, aWrapAsDOMRequest);
-
-  return request.forget();
+  return new IDBFileRequest(aFileHandle, aWrapAsDOMRequest);
 }
 
 void IDBFileRequest::FireProgressEvent(uint64_t aLoaded, uint64_t aTotal) {
   AssertIsOnOwningThread();
 
-  if (NS_FAILED(CheckInnerWindowCorrectness())) {
+  if (NS_FAILED(CheckCurrentGlobalCorrectness())) {
     return;
   }
 
@@ -63,29 +59,8 @@ void IDBFileRequest::FireProgressEvent(uint64_t aLoaded, uint64_t aTotal) {
   init.mTotal = aTotal;
 
   RefPtr<ProgressEvent> event =
-      ProgressEvent::Constructor(this, NS_LITERAL_STRING("progress"), init);
+      ProgressEvent::Constructor(this, u"progress"_ns, init);
   DispatchTrustedEvent(event);
-}
-
-void IDBFileRequest::SetResultCallback(ResultCallback* aCallback) {
-  AssertIsOnOwningThread();
-  MOZ_ASSERT(aCallback);
-
-  AutoJSAPI autoJS;
-  if (NS_WARN_IF(!autoJS.Init(GetOwner()))) {
-    FireError(NS_ERROR_DOM_FILEHANDLE_UNKNOWN_ERR);
-    return;
-  }
-
-  JSContext* cx = autoJS.cx();
-
-  JS::Rooted<JS::Value> result(cx);
-  nsresult rv = aCallback->GetResult(cx, &result);
-  if (NS_WARN_IF(NS_FAILED(rv))) {
-    FireError(rv);
-  } else {
-    FireSuccess(result);
-  }
 }
 
 NS_IMPL_ADDREF_INHERITED(IDBFileRequest, DOMRequest)
@@ -114,5 +89,4 @@ JSObject* IDBFileRequest::WrapObject(JSContext* aCx,
   return IDBFileRequest_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

@@ -12,13 +12,11 @@
 #include "nsContentUtils.h"
 #include "nsIContent.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 // static
 already_AddRefed<Touch> Touch::Constructor(const GlobalObject& aGlobal,
-                                           const TouchInit& aParam,
-                                           ErrorResult& aRv) {
+                                           const TouchInit& aParam) {
   // Annoyingly many parameters, make sure the ordering is the same as in the
   // Touch constructor.
   RefPtr<Touch> touch = new Touch(
@@ -87,7 +85,7 @@ Touch::Touch(const Touch& aOther)
   nsJSContext::LikelyShortLivingObjectCreated();
 }
 
-Touch::~Touch() {}
+Touch::~Touch() = default;
 
 // static
 bool Touch::PrefEnabled(JSContext* aCx, JSObject* aGlobal) {
@@ -180,7 +178,7 @@ void Touch::SetTouchTarget(EventTarget* aTarget) {
   mTarget = aTarget;
 }
 
-bool Touch::Equals(Touch* aTouch) {
+bool Touch::Equals(Touch* aTouch) const {
   return mRefPoint == aTouch->mRefPoint && mForce == aTouch->mForce &&
          mRotationAngle == aTouch->mRotationAngle &&
          mRadius.x == aTouch->mRadius.x && mRadius.y == aTouch->mRadius.y;
@@ -200,5 +198,4 @@ nsIGlobalObject* Touch::GetParentObject() {
   return mOriginalTarget->GetOwnerGlobal();
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

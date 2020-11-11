@@ -10,12 +10,13 @@
 #include "BroadcastChannelChild.h"
 #include "FileDescriptorSetChild.h"
 #ifdef MOZ_WEBRTC
-#include "CamerasChild.h"
+#  include "CamerasChild.h"
 #endif
 #include "mozilla/media/MediaChild.h"
 #include "mozilla/Assertions.h"
 #include "mozilla/SchedulerGroup.h"
 #include "mozilla/dom/ClientManagerActors.h"
+#include "mozilla/dom/FileCreatorChild.h"
 #include "mozilla/dom/PBackgroundLSDatabaseChild.h"
 #include "mozilla/dom/PBackgroundLSObserverChild.h"
 #include "mozilla/dom/PBackgroundLSRequestChild.h"
@@ -24,16 +25,17 @@
 #include "mozilla/dom/PFileSystemRequestChild.h"
 #include "mozilla/dom/EndpointForReportChild.h"
 #include "mozilla/dom/FileSystemTaskBase.h"
-#include "mozilla/dom/asmjscache/AsmJSCache.h"
+#include "mozilla/dom/PMediaTransportChild.h"
+#include "mozilla/dom/TemporaryIPCBlobChild.h"
 #include "mozilla/dom/cache/ActorUtils.h"
 #include "mozilla/dom/indexedDB/PBackgroundIDBFactoryChild.h"
 #include "mozilla/dom/indexedDB/PBackgroundIndexedDBUtilsChild.h"
-#include "mozilla/dom/ipc/IPCBlobInputStreamChild.h"
-#include "mozilla/dom/ipc/PendingIPCBlobChild.h"
-#include "mozilla/dom/ipc/TemporaryIPCBlobChild.h"
+#include "mozilla/dom/indexedDB/ThreadLocal.h"
 #include "mozilla/dom/quota/PQuotaChild.h"
 #include "mozilla/dom/RemoteWorkerChild.h"
+#include "mozilla/dom/RemoteWorkerControllerChild.h"
 #include "mozilla/dom/RemoteWorkerServiceChild.h"
+#include "mozilla/dom/ServiceWorkerChild.h"
 #include "mozilla/dom/SharedWorkerChild.h"
 #include "mozilla/dom/StorageIPC.h"
 #include "mozilla/dom/GamepadEventChannelChild.h"
@@ -41,9 +43,9 @@
 #include "mozilla/dom/LocalStorage.h"
 #include "mozilla/dom/MessagePortChild.h"
 #include "mozilla/dom/ServiceWorkerActors.h"
+#include "mozilla/dom/ServiceWorkerContainerChild.h"
 #include "mozilla/dom/ServiceWorkerManagerChild.h"
-#include "mozilla/dom/TabChild.h"
-#include "mozilla/dom/TabGroup.h"
+#include "mozilla/dom/BrowserChild.h"
 #include "mozilla/ipc/IPCStreamAlloc.h"
 #include "mozilla/ipc/PBackgroundTestChild.h"
 #include "mozilla/ipc/PChildToParentStreamChild.h"
@@ -55,6 +57,7 @@
 #include "mozilla/dom/WebAuthnTransactionChild.h"
 #include "mozilla/dom/MIDIPortChild.h"
 #include "mozilla/dom/MIDIManagerChild.h"
+#include "mozilla/RemoteLazyInputStreamChild.h"
 #include "nsID.h"
 #include "nsTraceRefcnt.h"
 
@@ -78,18 +81,15 @@ class TestChild final : public mozilla::ipc::PBackgroundTestChild {
 
 }  // namespace
 
-namespace mozilla {
-namespace ipc {
+namespace mozilla::ipc {
 
 using mozilla::dom::UDPSocketChild;
 using mozilla::net::PUDPSocketChild;
 
-using mozilla::dom::LocalStorage;
 using mozilla::dom::PServiceWorkerChild;
 using mozilla::dom::PServiceWorkerContainerChild;
 using mozilla::dom::PServiceWorkerRegistrationChild;
 using mozilla::dom::StorageDBChild;
-using mozilla::dom::asmjscache::PAsmJSCacheEntryChild;
 using mozilla::dom::cache::PCacheChild;
 using mozilla::dom::cache::PCacheStorageChild;
 using mozilla::dom::cache::PCacheStreamControlChild;
@@ -133,18 +133,20 @@ void BackgroundChildImpl::ProcessingError(Result aCode, const char* aReason) {
   nsAutoCString abortMessage;
 
   switch (aCode) {
+    case MsgDropped:
+      return;
+
 #define HANDLE_CASE(_result)              \
   case _result:                           \
     abortMessage.AssignLiteral(#_result); \
     break
 
-    HANDLE_CASE(MsgDropped);
-    HANDLE_CASE(MsgNotKnown);
-    HANDLE_CASE(MsgNotAllowed);
-    HANDLE_CASE(MsgPayloadError);
-    HANDLE_CASE(MsgProcessingError);
-    HANDLE_CASE(MsgRouteError);
-    HANDLE_CASE(MsgValueError);
+      HANDLE_CASE(MsgNotKnown);
+      HANDLE_CASE(MsgNotAllowed);
+      HANDLE_CASE(MsgPayloadError);
+      HANDLE_CASE(MsgProcessingError);
+      HANDLE_CASE(MsgRouteError);
+      HANDLE_CASE(MsgValueError);
 
 #undef HANDLE_CASE
 
@@ -172,22 +174,6 @@ bool BackgroundChildImpl::DeallocPBackgroundTestChild(
   return true;
 }
 
-BackgroundChildImpl::PBackgroundIDBFactoryChild*
-BackgroundChildImpl::AllocPBackgroundIDBFactoryChild(
-    const LoggingInfo& aLoggingInfo) {
-  MOZ_CRASH(
-      "PBackgroundIDBFactoryChild actors should be manually "
-      "constructed!");
-}
-
-bool BackgroundChildImpl::DeallocPBackgroundIDBFactoryChild(
-    PBackgroundIDBFactoryChild* aActor) {
-  MOZ_ASSERT(aActor);
-
-  delete aActor;
-  return true;
-}
-
 BackgroundChildImpl::PBackgroundIndexedDBUtilsChild*
 BackgroundChildImpl::AllocPBackgroundIndexedDBUtilsChild() {
   MOZ_CRASH(
@@ -205,6 +191,7 @@ bool BackgroundChildImpl::DeallocPBackgroundIndexedDBUtilsChild(
 
 BackgroundChildImpl::PBackgroundSDBConnectionChild*
 BackgroundChildImpl::AllocPBackgroundSDBConnectionChild(
+    const PersistenceType& aPersistenceType,
     const PrincipalInfo& aPrincipalInfo) {
   MOZ_CRASH(
       "PBackgroundSDBConnectionChild actor should be manually "
@@ -297,7 +284,7 @@ bool BackgroundChildImpl::DeallocPBackgroundLSSimpleRequestChild(
 
 BackgroundChildImpl::PBackgroundStorageChild*
 BackgroundChildImpl::AllocPBackgroundStorageChild(
-    const nsString& aProfilePath) {
+    const nsString& aProfilePath, const uint32_t& aPrivateBrowsingId) {
   MOZ_CRASH("PBackgroundStorageChild actors should be manually constructed!");
 }
 
@@ -310,20 +297,9 @@ bool BackgroundChildImpl::DeallocPBackgroundStorageChild(
   return true;
 }
 
-PPendingIPCBlobChild* BackgroundChildImpl::AllocPPendingIPCBlobChild(
-    const IPCBlob& aBlob) {
-  return new mozilla::dom::PendingIPCBlobChild(aBlob);
-}
-
-bool BackgroundChildImpl::DeallocPPendingIPCBlobChild(
-    PPendingIPCBlobChild* aActor) {
-  delete aActor;
-  return true;
-}
-
 dom::PRemoteWorkerChild* BackgroundChildImpl::AllocPRemoteWorkerChild(
     const RemoteWorkerData& aData) {
-  RefPtr<dom::RemoteWorkerChild> agent = new dom::RemoteWorkerChild();
+  RefPtr<dom::RemoteWorkerChild> agent = new dom::RemoteWorkerChild(aData);
   return agent.forget().take();
 }
 
@@ -338,6 +314,23 @@ bool BackgroundChildImpl::DeallocPRemoteWorkerChild(
     dom::PRemoteWorkerChild* aActor) {
   RefPtr<dom::RemoteWorkerChild> actor =
       dont_AddRef(static_cast<dom::RemoteWorkerChild*>(aActor));
+  return true;
+}
+
+dom::PRemoteWorkerControllerChild*
+BackgroundChildImpl::AllocPRemoteWorkerControllerChild(
+    const dom::RemoteWorkerData& aRemoteWorkerData) {
+  MOZ_CRASH(
+      "PRemoteWorkerControllerChild actors must be manually constructed!");
+  return nullptr;
+}
+
+bool BackgroundChildImpl::DeallocPRemoteWorkerControllerChild(
+    dom::PRemoteWorkerControllerChild* aActor) {
+  MOZ_ASSERT(aActor);
+
+  RefPtr<dom::RemoteWorkerControllerChild> actor =
+      dont_AddRef(static_cast<dom::RemoteWorkerControllerChild*>(aActor));
   return true;
 }
 
@@ -369,33 +362,37 @@ bool BackgroundChildImpl::DeallocPSharedWorkerChild(
   return true;
 }
 
-PTemporaryIPCBlobChild* BackgroundChildImpl::AllocPTemporaryIPCBlobChild() {
+dom::PTemporaryIPCBlobChild*
+BackgroundChildImpl::AllocPTemporaryIPCBlobChild() {
   MOZ_CRASH("This is not supposed to be called.");
   return nullptr;
 }
 
 bool BackgroundChildImpl::DeallocPTemporaryIPCBlobChild(
-    PTemporaryIPCBlobChild* aActor) {
-  RefPtr<mozilla::dom::TemporaryIPCBlobChild> actor =
-      dont_AddRef(static_cast<mozilla::dom::TemporaryIPCBlobChild*>(aActor));
+    dom::PTemporaryIPCBlobChild* aActor) {
+  RefPtr<dom::TemporaryIPCBlobChild> actor =
+      dont_AddRef(static_cast<dom::TemporaryIPCBlobChild*>(aActor));
   return true;
 }
 
-PIPCBlobInputStreamChild* BackgroundChildImpl::AllocPIPCBlobInputStreamChild(
-    const nsID& aID, const uint64_t& aSize) {
-  // IPCBlobInputStreamChild is refcounted. Here it's created and in
-  // DeallocPIPCBlobInputStreamChild is released.
-
-  RefPtr<mozilla::dom::IPCBlobInputStreamChild> actor =
-      new mozilla::dom::IPCBlobInputStreamChild(aID, aSize);
-  return actor.forget().take();
+dom::PFileCreatorChild* BackgroundChildImpl::AllocPFileCreatorChild(
+    const nsString& aFullPath, const nsString& aType, const nsString& aName,
+    const Maybe<int64_t>& aLastModified, const bool& aExistenceCheck,
+    const bool& aIsFromNsIFile) {
+  return new dom::FileCreatorChild();
 }
 
-bool BackgroundChildImpl::DeallocPIPCBlobInputStreamChild(
-    PIPCBlobInputStreamChild* aActor) {
-  RefPtr<mozilla::dom::IPCBlobInputStreamChild> actor =
-      dont_AddRef(static_cast<mozilla::dom::IPCBlobInputStreamChild*>(aActor));
+bool BackgroundChildImpl::DeallocPFileCreatorChild(PFileCreatorChild* aActor) {
+  delete static_cast<dom::FileCreatorChild*>(aActor);
   return true;
+}
+
+already_AddRefed<PRemoteLazyInputStreamChild>
+BackgroundChildImpl::AllocPRemoteLazyInputStreamChild(const nsID& aID,
+                                                      const uint64_t& aSize) {
+  RefPtr<RemoteLazyInputStreamChild> actor =
+      new RemoteLazyInputStreamChild(aID, aSize);
+  return actor.forget();
 }
 
 PFileDescriptorSetChild* BackgroundChildImpl::AllocPFileDescriptorSetChild(
@@ -428,7 +425,7 @@ bool BackgroundChildImpl::DeallocPVsyncChild(PVsyncChild* aActor) {
 }
 
 PUDPSocketChild* BackgroundChildImpl::AllocPUDPSocketChild(
-    const OptionalPrincipalInfo& aPrincipalInfo, const nsCString& aFilter) {
+    const Maybe<PrincipalInfo>& aPrincipalInfo, const nsCString& aFilter) {
   MOZ_CRASH("AllocPUDPSocket should not be called");
   return nullptr;
 }
@@ -446,8 +443,7 @@ bool BackgroundChildImpl::DeallocPUDPSocketChild(PUDPSocketChild* child) {
 dom::PBroadcastChannelChild* BackgroundChildImpl::AllocPBroadcastChannelChild(
     const PrincipalInfo& aPrincipalInfo, const nsCString& aOrigin,
     const nsString& aChannel) {
-  RefPtr<dom::BroadcastChannelChild> agent =
-      new dom::BroadcastChannelChild(aOrigin);
+  RefPtr<dom::BroadcastChannelChild> agent = new dom::BroadcastChannelChild();
   return agent.forget().take();
 }
 
@@ -522,14 +518,9 @@ bool BackgroundChildImpl::DeallocPCacheChild(PCacheChild* aActor) {
   return true;
 }
 
-PCacheStreamControlChild* BackgroundChildImpl::AllocPCacheStreamControlChild() {
+already_AddRefed<PCacheStreamControlChild>
+BackgroundChildImpl::AllocPCacheStreamControlChild() {
   return dom::cache::AllocPCacheStreamControlChild();
-}
-
-bool BackgroundChildImpl::DeallocPCacheStreamControlChild(
-    PCacheStreamControlChild* aActor) {
-  dom::cache::DeallocPCacheStreamControlChild(aActor);
-  return true;
 }
 
 // -----------------------------------------------------------------------------
@@ -569,21 +560,6 @@ BackgroundChildImpl::AllocPParentToChildStreamChild() {
 bool BackgroundChildImpl::DeallocPParentToChildStreamChild(
     PParentToChildStreamChild* aActor) {
   delete aActor;
-  return true;
-}
-
-PAsmJSCacheEntryChild* BackgroundChildImpl::AllocPAsmJSCacheEntryChild(
-    const dom::asmjscache::OpenMode& aOpenMode,
-    const dom::asmjscache::WriteParams& aWriteParams,
-    const PrincipalInfo& aPrincipalInfo) {
-  MOZ_CRASH("PAsmJSCacheEntryChild actors should be manually constructed!");
-}
-
-bool BackgroundChildImpl::DeallocPAsmJSCacheEntryChild(
-    PAsmJSCacheEntryChild* aActor) {
-  MOZ_ASSERT(aActor);
-
-  dom::asmjscache::DeallocEntryChild(aActor);
   return true;
 }
 
@@ -631,48 +607,6 @@ bool BackgroundChildImpl::DeallocPMIDIManagerChild(PMIDIManagerChild* aActor) {
   return true;
 }
 
-dom::PFileSystemRequestChild* BackgroundChildImpl::AllocPFileSystemRequestChild(
-    const FileSystemParams& aParams) {
-  MOZ_CRASH("Should never get here!");
-  return nullptr;
-}
-
-bool BackgroundChildImpl::DeallocPFileSystemRequestChild(
-    PFileSystemRequestChild* aActor) {
-  // The reference is increased in FileSystemTaskBase::Start of
-  // FileSystemTaskBase.cpp. We should decrease it after IPC.
-  RefPtr<dom::FileSystemTaskChildBase> child =
-      dont_AddRef(static_cast<dom::FileSystemTaskChildBase*>(aActor));
-  return true;
-}
-
-// Gamepad API Background IPC
-dom::PGamepadEventChannelChild*
-BackgroundChildImpl::AllocPGamepadEventChannelChild() {
-  MOZ_CRASH("PGamepadEventChannelChild actor should be manually constructed!");
-  return nullptr;
-}
-
-bool BackgroundChildImpl::DeallocPGamepadEventChannelChild(
-    PGamepadEventChannelChild* aActor) {
-  MOZ_ASSERT(aActor);
-  delete static_cast<dom::GamepadEventChannelChild*>(aActor);
-  return true;
-}
-
-dom::PGamepadTestChannelChild*
-BackgroundChildImpl::AllocPGamepadTestChannelChild() {
-  MOZ_CRASH("PGamepadTestChannelChild actor should be manually constructed!");
-  return nullptr;
-}
-
-bool BackgroundChildImpl::DeallocPGamepadTestChannelChild(
-    PGamepadTestChannelChild* aActor) {
-  MOZ_ASSERT(aActor);
-  delete static_cast<dom::GamepadTestChannelChild*>(aActor);
-  return true;
-}
-
 mozilla::dom::PClientManagerChild*
 BackgroundChildImpl::AllocPClientManagerChild() {
   return mozilla::dom::AllocClientManagerChild();
@@ -707,70 +641,23 @@ bool BackgroundChildImpl::DeallocPWebAuthnTransactionChild(
   return true;
 }
 
-net::PHttpBackgroundChannelChild*
-BackgroundChildImpl::AllocPHttpBackgroundChannelChild(
-    const uint64_t& aChannelId) {
-  MOZ_CRASH(
-      "PHttpBackgroundChannelChild actor should be manually constructed!");
-  return nullptr;
-}
-
-bool BackgroundChildImpl::DeallocPHttpBackgroundChannelChild(
-    PHttpBackgroundChannelChild* aActor) {
-  // The reference is increased in BackgroundChannelCreateCallback::ActorCreated
-  // of HttpBackgroundChannelChild.cpp. We should decrease it after IPC
-  // destroyed.
-  RefPtr<net::HttpBackgroundChannelChild> child =
-      dont_AddRef(static_cast<net::HttpBackgroundChannelChild*>(aActor));
-  return true;
-}
-
-PServiceWorkerChild* BackgroundChildImpl::AllocPServiceWorkerChild(
+already_AddRefed<PServiceWorkerChild>
+BackgroundChildImpl::AllocPServiceWorkerChild(
     const IPCServiceWorkerDescriptor&) {
-  return dom::AllocServiceWorkerChild();
+  MOZ_CRASH("Shouldn't be called.");
+  return {};
 }
 
-bool BackgroundChildImpl::DeallocPServiceWorkerChild(
-    PServiceWorkerChild* aActor) {
-  return dom::DeallocServiceWorkerChild(aActor);
-}
-
-PServiceWorkerContainerChild*
+already_AddRefed<PServiceWorkerContainerChild>
 BackgroundChildImpl::AllocPServiceWorkerContainerChild() {
-  return dom::AllocServiceWorkerContainerChild();
+  return mozilla::dom::ServiceWorkerContainerChild::Create();
 }
 
-bool BackgroundChildImpl::DeallocPServiceWorkerContainerChild(
-    PServiceWorkerContainerChild* aActor) {
-  return dom::DeallocServiceWorkerContainerChild(aActor);
-}
-
-PServiceWorkerRegistrationChild*
+already_AddRefed<PServiceWorkerRegistrationChild>
 BackgroundChildImpl::AllocPServiceWorkerRegistrationChild(
     const IPCServiceWorkerRegistrationDescriptor&) {
-  return dom::AllocServiceWorkerRegistrationChild();
-}
-
-bool BackgroundChildImpl::DeallocPServiceWorkerRegistrationChild(
-    PServiceWorkerRegistrationChild* aActor) {
-  return dom::DeallocServiceWorkerRegistrationChild(aActor);
-}
-
-bool BackgroundChildImpl::GetMessageSchedulerGroups(
-    const Message& aMsg, SchedulerGroupSet& aGroups) {
-  if (aMsg.type() == layout::PVsync::MessageType::Msg_Notify__ID) {
-    MOZ_ASSERT(NS_IsMainThread());
-    aGroups.Clear();
-    if (dom::TabChild::HasVisibleTabs()) {
-      for (auto iter = dom::TabChild::GetVisibleTabs().ConstIter();
-           !iter.Done(); iter.Next()) {
-        aGroups.Put(iter.Get()->GetKey()->TabGroup());
-      }
-    }
-    return true;
-  }
-
-  return false;
+  MOZ_CRASH("Shouldn't be called.");
+  return {};
 }
 
 dom::PEndpointForReportChild* BackgroundChildImpl::AllocPEndpointForReportChild(
@@ -785,8 +672,33 @@ bool BackgroundChildImpl::DeallocPEndpointForReportChild(
   return true;
 }
 
-}  // namespace ipc
-}  // namespace mozilla
+dom::PMediaTransportChild* BackgroundChildImpl::AllocPMediaTransportChild() {
+  // We don't allocate here: MediaTransportHandlerIPC is in charge of that,
+  // so we don't need to know the implementation particulars here.
+  MOZ_ASSERT_UNREACHABLE(
+      "The only thing that ought to be creating a PMediaTransportChild is "
+      "MediaTransportHandlerIPC!");
+  return nullptr;
+}
+
+bool BackgroundChildImpl::DeallocPMediaTransportChild(
+    dom::PMediaTransportChild* aActor) {
+  delete aActor;
+  return true;
+}
+
+PChildToParentStreamChild*
+BackgroundChildImpl::SendPChildToParentStreamConstructor(
+    PChildToParentStreamChild* aActor) {
+  return PBackgroundChild::SendPChildToParentStreamConstructor(aActor);
+}
+
+PFileDescriptorSetChild* BackgroundChildImpl::SendPFileDescriptorSetConstructor(
+    const FileDescriptor& aFD) {
+  return PBackgroundChild::SendPFileDescriptorSetConstructor(aFD);
+}
+
+}  // namespace mozilla::ipc
 
 mozilla::ipc::IPCResult TestChild::Recv__delete__(const nsCString& aTestArg) {
   MOZ_RELEASE_ASSERT(aTestArg == mTestArg,

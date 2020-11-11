@@ -7,18 +7,21 @@
 #include "nsGfxButtonControlFrame.h"
 #include "nsIFormControl.h"
 #include "nsGkAtoms.h"
+#include "mozilla/PresShell.h"
 #include "mozilla/dom/HTMLInputElement.h"
 #include "nsContentUtils.h"
 #include "nsTextNode.h"
 
 using namespace mozilla;
 
-nsGfxButtonControlFrame::nsGfxButtonControlFrame(ComputedStyle* aStyle)
-    : nsHTMLButtonControlFrame(aStyle, kClassID) {}
+nsGfxButtonControlFrame::nsGfxButtonControlFrame(ComputedStyle* aStyle,
+                                                 nsPresContext* aPresContext)
+    : nsHTMLButtonControlFrame(aStyle, aPresContext, kClassID) {}
 
-nsContainerFrame* NS_NewGfxButtonControlFrame(nsIPresShell* aPresShell,
+nsContainerFrame* NS_NewGfxButtonControlFrame(PresShell* aPresShell,
                                               ComputedStyle* aStyle) {
-  return new (aPresShell) nsGfxButtonControlFrame(aStyle);
+  return new (aPresShell)
+      nsGfxButtonControlFrame(aStyle, aPresShell->GetPresContext());
 }
 
 NS_IMPL_FRAMEARENA_HELPERS(nsGfxButtonControlFrame)
@@ -31,7 +34,7 @@ void nsGfxButtonControlFrame::DestroyFrom(nsIFrame* aDestructRoot,
 
 #ifdef DEBUG_FRAME_DUMP
 nsresult nsGfxButtonControlFrame::GetFrameName(nsAString& aResult) const {
-  return MakeFrameName(NS_LITERAL_STRING("ButtonControl"), aResult);
+  return MakeFrameName(u"ButtonControl"_ns, aResult);
 }
 #endif
 
@@ -44,7 +47,8 @@ nsresult nsGfxButtonControlFrame::CreateAnonymousContent(
   NS_ENSURE_SUCCESS(rv, rv);
 
   // Add a child text content node for the label
-  mTextContent = new nsTextNode(mContent->NodeInfo()->NodeInfoManager());
+  mTextContent = new (mContent->NodeInfo()->NodeInfoManager())
+      nsTextNode(mContent->NodeInfo()->NodeInfoManager());
 
   // set the value of the text node and add it to the child list
   mTextContent->SetText(label, false);
@@ -85,15 +89,15 @@ nsresult nsGfxButtonControlFrame::GetDefaultLabel(nsAString& aString) const {
     return NS_OK;
   }
 
-  return nsContentUtils::GetLocalizedString(nsContentUtils::eFORMS_PROPERTIES,
-                                            prop, aString);
+  return nsContentUtils::GetMaybeLocalizedString(
+      nsContentUtils::eFORMS_PROPERTIES, prop, mContent->OwnerDoc(), aString);
 }
 
 nsresult nsGfxButtonControlFrame::GetLabel(nsString& aLabel) {
   // Get the text from the "value" property on our content if there is
   // one; otherwise set it to a default value (localized).
-  dom::HTMLInputElement* elt = dom::HTMLInputElement::FromNode(mContent);
-  if (elt && elt->HasAttr(kNameSpaceID_None, nsGkAtoms::value)) {
+  auto* elt = dom::HTMLInputElement::FromNode(mContent);
+  if (elt && elt->HasAttr(nsGkAtoms::value)) {
     elt->GetValue(aLabel, dom::CallerType::System);
   } else {
     // Generate localized label.
@@ -123,8 +127,8 @@ nsresult nsGfxButtonControlFrame::GetLabel(nsString& aLabel) {
     // this, even if the whitespace is significant, single leading and trailing
     // _spaces_ (and not other whitespace) are removed.  The proper solution,
     // of course, is to not have the focus rect painting taking up 6px of
-    // horizontal space. We should do that instead (via XBL form controls or
-    // changing the renderer) and remove this.
+    // horizontal space. We should do that instead (changing the renderer) and
+    // remove this.
     aLabel.Cut(0, 1);
     aLabel.Truncate(aLabel.Length() - 1);
   }
@@ -164,12 +168,12 @@ nsContainerFrame* nsGfxButtonControlFrame::GetContentInsertionFrame() {
 nsresult nsGfxButtonControlFrame::HandleEvent(nsPresContext* aPresContext,
                                               WidgetGUIEvent* aEvent,
                                               nsEventStatus* aEventStatus) {
-  // Override the HandleEvent to prevent the nsFrame::HandleEvent
-  // from being called. The nsFrame::HandleEvent causes the button label
+  // Override the HandleEvent to prevent the nsIFrame::HandleEvent
+  // from being called. The nsIFrame::HandleEvent causes the button label
   // to be selected (Drawn with an XOR rectangle over the label)
 
   if (IsContentDisabled()) {
-    return nsFrame::HandleEvent(aPresContext, aEvent, aEventStatus);
+    return nsIFrame::HandleEvent(aPresContext, aEvent, aEventStatus);
   }
   return NS_OK;
 }

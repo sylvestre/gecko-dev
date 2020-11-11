@@ -21,76 +21,19 @@
 namespace mozilla {
 namespace net {
 
-CacheObserver* CacheObserver::sSelf = nullptr;
+StaticRefPtr<CacheObserver> CacheObserver::sSelf;
 
 static float const kDefaultHalfLifeHours = 24.0F;  // 24 hours
 float CacheObserver::sHalfLifeHours = kDefaultHalfLifeHours;
 
-static bool const kDefaultUseDiskCache = true;
-bool CacheObserver::sUseDiskCache = kDefaultUseDiskCache;
-
-static bool const kDefaultUseMemoryCache = true;
-bool CacheObserver::sUseMemoryCache = kDefaultUseMemoryCache;
-
-static uint32_t const kDefaultMetadataMemoryLimit = 250;  // 0.25 MB
-uint32_t CacheObserver::sMetadataMemoryLimit = kDefaultMetadataMemoryLimit;
-
-static int32_t const kDefaultMemoryCacheCapacity = -1;  // autodetect
-int32_t CacheObserver::sMemoryCacheCapacity = kDefaultMemoryCacheCapacity;
-// Cache of the calculated memory capacity based on the system memory size
+// Cache of the calculated memory capacity based on the system memory size in KB
 int32_t CacheObserver::sAutoMemoryCacheCapacity = -1;
 
-static uint32_t const kDefaultDiskCacheCapacity = 250 * 1024;  // 250 MB
-Atomic<uint32_t, Relaxed> CacheObserver::sDiskCacheCapacity(
-    kDefaultDiskCacheCapacity);
-
-static uint32_t const kDefaultDiskFreeSpaceSoftLimit = 5 * 1024;  // 5MB
-uint32_t CacheObserver::sDiskFreeSpaceSoftLimit =
-    kDefaultDiskFreeSpaceSoftLimit;
-
-static uint32_t const kDefaultDiskFreeSpaceHardLimit = 1024;  // 1MB
-uint32_t CacheObserver::sDiskFreeSpaceHardLimit =
-    kDefaultDiskFreeSpaceHardLimit;
-
-static bool const kDefaultSmartCacheSizeEnabled = false;
-bool CacheObserver::sSmartCacheSizeEnabled = kDefaultSmartCacheSizeEnabled;
-
-static uint32_t const kDefaultPreloadChunkCount = 4;
-uint32_t CacheObserver::sPreloadChunkCount = kDefaultPreloadChunkCount;
-
-static int32_t const kDefaultMaxMemoryEntrySize = 4 * 1024;  // 4 MB
-int32_t CacheObserver::sMaxMemoryEntrySize = kDefaultMaxMemoryEntrySize;
-
-static int32_t const kDefaultMaxDiskEntrySize = 50 * 1024;  // 50 MB
-int32_t CacheObserver::sMaxDiskEntrySize = kDefaultMaxDiskEntrySize;
-
-static uint32_t const kDefaultMaxDiskChunksMemoryUsage = 40 * 1024;  // 40MB
-uint32_t CacheObserver::sMaxDiskChunksMemoryUsage =
-    kDefaultMaxDiskChunksMemoryUsage;
-
-static uint32_t const kDefaultMaxDiskPriorityChunksMemoryUsage =
-    40 * 1024;  // 40MB
-uint32_t CacheObserver::sMaxDiskPriorityChunksMemoryUsage =
-    kDefaultMaxDiskPriorityChunksMemoryUsage;
-
-static uint32_t const kDefaultCompressionLevel = 1;
-uint32_t CacheObserver::sCompressionLevel = kDefaultCompressionLevel;
-
-static bool kDefaultSanitizeOnShutdown = false;
-bool CacheObserver::sSanitizeOnShutdown = kDefaultSanitizeOnShutdown;
-
-static bool kDefaultClearCacheOnShutdown = false;
-bool CacheObserver::sClearCacheOnShutdown = kDefaultClearCacheOnShutdown;
-
-static bool kDefaultCacheFSReported = false;
-bool CacheObserver::sCacheFSReported = kDefaultCacheFSReported;
-
-static bool kDefaultHashStatsReported = false;
-bool CacheObserver::sHashStatsReported = kDefaultHashStatsReported;
-
-static uint32_t const kDefaultMaxShutdownIOLag = 2;  // seconds
-Atomic<uint32_t, Relaxed> CacheObserver::sMaxShutdownIOLag(
-    kDefaultMaxShutdownIOLag);
+// The default value will be overwritten as soon as the correct smart size is
+// calculated by CacheFileIOManager::UpdateSmartCacheSize(). It's limited to 1GB
+// just for case the size is never calculated which might in theory happen if
+// GetDiskSpaceAvailable() always fails.
+Atomic<uint32_t, Relaxed> CacheObserver::sSmartDiskCacheCapacity(1024 * 1024);
 
 Atomic<PRIntervalTime> CacheObserver::sShutdownDemandedTime(
     PR_INTERVAL_NO_TIMEOUT);
@@ -113,7 +56,6 @@ nsresult CacheObserver::Init() {
   }
 
   sSelf = new CacheObserver();
-  NS_ADDREF(sSelf);
 
   obs->AddObserver(sSelf, "prefservice:after-app-defaults", true);
   obs->AddObserver(sSelf, "profile-do-change", true);
@@ -121,7 +63,6 @@ nsresult CacheObserver::Init() {
   obs->AddObserver(sSelf, "profile-before-change", true);
   obs->AddObserver(sSelf, "xpcom-shutdown", true);
   obs->AddObserver(sSelf, "last-pb-context-exited", true);
-  obs->AddObserver(sSelf, "clear-origin-attributes-data", true);
   obs->AddObserver(sSelf, "memory-pressure", true);
 
   return NS_OK;
@@ -133,61 +74,11 @@ nsresult CacheObserver::Shutdown() {
     return NS_ERROR_NOT_INITIALIZED;
   }
 
-  NS_RELEASE(sSelf);
+  sSelf = nullptr;
   return NS_OK;
 }
 
 void CacheObserver::AttachToPreferences() {
-  mozilla::Preferences::AddBoolVarCache(
-      &sUseDiskCache, "browser.cache.disk.enable", kDefaultUseDiskCache);
-  mozilla::Preferences::AddBoolVarCache(
-      &sUseMemoryCache, "browser.cache.memory.enable", kDefaultUseMemoryCache);
-
-  mozilla::Preferences::AddUintVarCache(
-      &sMetadataMemoryLimit, "browser.cache.disk.metadata_memory_limit",
-      kDefaultMetadataMemoryLimit);
-
-  mozilla::Preferences::AddAtomicUintVarCache(&sDiskCacheCapacity,
-                                              "browser.cache.disk.capacity",
-                                              kDefaultDiskCacheCapacity);
-  mozilla::Preferences::AddBoolVarCache(&sSmartCacheSizeEnabled,
-                                        "browser.cache.disk.smart_size.enabled",
-                                        kDefaultSmartCacheSizeEnabled);
-  mozilla::Preferences::AddIntVarCache(&sMemoryCacheCapacity,
-                                       "browser.cache.memory.capacity",
-                                       kDefaultMemoryCacheCapacity);
-
-  mozilla::Preferences::AddUintVarCache(
-      &sDiskFreeSpaceSoftLimit, "browser.cache.disk.free_space_soft_limit",
-      kDefaultDiskFreeSpaceSoftLimit);
-  mozilla::Preferences::AddUintVarCache(
-      &sDiskFreeSpaceHardLimit, "browser.cache.disk.free_space_hard_limit",
-      kDefaultDiskFreeSpaceHardLimit);
-
-  mozilla::Preferences::AddUintVarCache(
-      &sPreloadChunkCount, "browser.cache.disk.preload_chunk_count",
-      kDefaultPreloadChunkCount);
-
-  mozilla::Preferences::AddIntVarCache(&sMaxDiskEntrySize,
-                                       "browser.cache.disk.max_entry_size",
-                                       kDefaultMaxDiskEntrySize);
-  mozilla::Preferences::AddIntVarCache(&sMaxMemoryEntrySize,
-                                       "browser.cache.memory.max_entry_size",
-                                       kDefaultMaxMemoryEntrySize);
-
-  mozilla::Preferences::AddUintVarCache(
-      &sMaxDiskChunksMemoryUsage, "browser.cache.disk.max_chunks_memory_usage",
-      kDefaultMaxDiskChunksMemoryUsage);
-  mozilla::Preferences::AddUintVarCache(
-      &sMaxDiskPriorityChunksMemoryUsage,
-      "browser.cache.disk.max_priority_chunks_memory_usage",
-      kDefaultMaxDiskPriorityChunksMemoryUsage);
-
-  // http://mxr.mozilla.org/mozilla-central/source/netwerk/cache/nsCacheEntryDescriptor.cpp#367
-  mozilla::Preferences::AddUintVarCache(&sCompressionLevel,
-                                        "browser.cache.compression_level",
-                                        kDefaultCompressionLevel);
-
   mozilla::Preferences::GetComplex(
       "browser.cache.disk.parent_directory", NS_GET_IID(nsIFile),
       getter_AddRefs(mCacheParentDirectoryOverride));
@@ -196,22 +87,13 @@ void CacheObserver::AttachToPreferences() {
       0.01F, std::min(1440.0F, mozilla::Preferences::GetFloat(
                                    "browser.cache.frecency_half_life_hours",
                                    kDefaultHalfLifeHours)));
-
-  mozilla::Preferences::AddBoolVarCache(&sSanitizeOnShutdown,
-                                        "privacy.sanitize.sanitizeOnShutdown",
-                                        kDefaultSanitizeOnShutdown);
-  mozilla::Preferences::AddBoolVarCache(&sClearCacheOnShutdown,
-                                        "privacy.clearOnShutdown.cache",
-                                        kDefaultClearCacheOnShutdown);
-
-  mozilla::Preferences::AddAtomicUintVarCache(
-      &sMaxShutdownIOLag, "browser.cache.max_shutdown_io_lag",
-      kDefaultMaxShutdownIOLag);
 }
 
 // static
 uint32_t CacheObserver::MemoryCacheCapacity() {
-  if (sMemoryCacheCapacity >= 0) return sMemoryCacheCapacity << 10;
+  if (StaticPrefs::browser_cache_memory_capacity() >= 0) {
+    return StaticPrefs::browser_cache_memory_capacity();
+  }
 
   if (sAutoMemoryCacheCapacity != -1) return sAutoMemoryCacheCapacity;
 
@@ -234,80 +116,22 @@ uint32_t CacheObserver::MemoryCacheCapacity() {
   if (x > 0) {
     capacity = (int32_t)(x * x / 3.0 + x + 2.0 / 3 + 0.1);  // 0.1 for rounding
     if (capacity > 32) capacity = 32;
-    capacity <<= 20;
+    capacity <<= 10;
   }
 
-  // Result is in bytes.
+  // Result is in kilobytes.
   return sAutoMemoryCacheCapacity = capacity;
 }
 
 // static
-void CacheObserver::SetDiskCacheCapacity(uint32_t aCapacity) {
-  sDiskCacheCapacity = aCapacity >> 10;
-
-  if (!sSelf) {
-    return;
-  }
-
-  if (NS_IsMainThread()) {
-    sSelf->StoreDiskCacheCapacity();
-  } else {
-    nsCOMPtr<nsIRunnable> event =
-        NewRunnableMethod("net::CacheObserver::StoreDiskCacheCapacity", sSelf,
-                          &CacheObserver::StoreDiskCacheCapacity);
-    NS_DispatchToMainThread(event);
-  }
-}
-
-void CacheObserver::StoreDiskCacheCapacity() {
-  mozilla::Preferences::SetInt("browser.cache.disk.capacity",
-                               sDiskCacheCapacity);
+void CacheObserver::SetSmartDiskCacheCapacity(uint32_t aCapacity) {
+  sSmartDiskCacheCapacity = aCapacity;
 }
 
 // static
-void CacheObserver::SetCacheFSReported() {
-  sCacheFSReported = true;
-
-  if (!sSelf) {
-    return;
-  }
-
-  if (NS_IsMainThread()) {
-    sSelf->StoreCacheFSReported();
-  } else {
-    nsCOMPtr<nsIRunnable> event =
-        NewRunnableMethod("net::CacheObserver::StoreCacheFSReported", sSelf,
-                          &CacheObserver::StoreCacheFSReported);
-    NS_DispatchToMainThread(event);
-  }
-}
-
-void CacheObserver::StoreCacheFSReported() {
-  mozilla::Preferences::SetInt("browser.cache.disk.filesystem_reported",
-                               sCacheFSReported);
-}
-
-// static
-void CacheObserver::SetHashStatsReported() {
-  sHashStatsReported = true;
-
-  if (!sSelf) {
-    return;
-  }
-
-  if (NS_IsMainThread()) {
-    sSelf->StoreHashStatsReported();
-  } else {
-    nsCOMPtr<nsIRunnable> event =
-        NewRunnableMethod("net::CacheObserver::StoreHashStatsReported", sSelf,
-                          &CacheObserver::StoreHashStatsReported);
-    NS_DispatchToMainThread(event);
-  }
-}
-
-void CacheObserver::StoreHashStatsReported() {
-  mozilla::Preferences::SetInt("browser.cache.disk.hashstats_reported",
-                               sHashStatsReported);
+uint32_t CacheObserver::DiskCacheCapacity() {
+  return SmartCacheSizeEnabled() ? sSmartDiskCacheCapacity
+                                 : StaticPrefs::browser_cache_disk_capacity();
 }
 
 // static
@@ -322,58 +146,11 @@ void CacheObserver::ParentDirOverride(nsIFile** aDir) {
   sSelf->mCacheParentDirectoryOverride->Clone(aDir);
 }
 
-namespace {
-namespace CacheStorageEvictHelper {
-
-nsresult ClearStorage(bool const aPrivate, bool const aAnonymous,
-                      OriginAttributes& aOa) {
-  nsresult rv;
-
-  aOa.SyncAttributesWithPrivateBrowsing(aPrivate);
-  RefPtr<LoadContextInfo> info = GetLoadContextInfo(aAnonymous, aOa);
-
-  nsCOMPtr<nsICacheStorage> storage;
-  RefPtr<CacheStorageService> service = CacheStorageService::Self();
-  NS_ENSURE_TRUE(service, NS_ERROR_FAILURE);
-
-  // Clear disk storage
-  rv = service->DiskCacheStorage(info, false, getter_AddRefs(storage));
-  NS_ENSURE_SUCCESS(rv, rv);
-  rv = storage->AsyncEvictStorage(nullptr);
-  NS_ENSURE_SUCCESS(rv, rv);
-
-  // Clear memory storage
-  rv = service->MemoryCacheStorage(info, getter_AddRefs(storage));
-  NS_ENSURE_SUCCESS(rv, rv);
-  rv = storage->AsyncEvictStorage(nullptr);
-  NS_ENSURE_SUCCESS(rv, rv);
-
-  return NS_OK;
-}
-
-nsresult Run(OriginAttributes& aOa) {
-  nsresult rv;
-
-  // Clear all [private X anonymous] combinations
-  rv = ClearStorage(false, false, aOa);
-  NS_ENSURE_SUCCESS(rv, rv);
-  rv = ClearStorage(false, true, aOa);
-  NS_ENSURE_SUCCESS(rv, rv);
-  rv = ClearStorage(true, false, aOa);
-  NS_ENSURE_SUCCESS(rv, rv);
-  rv = ClearStorage(true, true, aOa);
-  NS_ENSURE_SUCCESS(rv, rv);
-
-  return NS_OK;
-}
-
-}  // namespace CacheStorageEvictHelper
-}  // namespace
-
 // static
 bool CacheObserver::EntryIsTooBig(int64_t aSize, bool aUsingDisk) {
   // If custom limit is set, check it.
-  int64_t preferredLimit = aUsingDisk ? sMaxDiskEntrySize : sMaxMemoryEntrySize;
+  int64_t preferredLimit =
+      aUsingDisk ? MaxDiskEntrySize() : MaxMemoryEntrySize();
 
   // do not convert to bytes when the limit is -1, which means no limit
   if (preferredLimit > 0) {
@@ -383,10 +160,10 @@ bool CacheObserver::EntryIsTooBig(int64_t aSize, bool aUsingDisk) {
   if (preferredLimit != -1 && aSize > preferredLimit) return true;
 
   // Otherwise (or when in the custom limit), check limit based on the global
-  // limit.  It's 1/8 (>> 3) of the respective capacity.
+  // limit. It's 1/8 of the respective capacity.
   int64_t derivedLimit =
-      aUsingDisk ? (static_cast<int64_t>(DiskCacheCapacity() >> 3))
-                 : (static_cast<int64_t>(MemoryCacheCapacity() >> 3));
+      aUsingDisk ? DiskCacheCapacity() : MemoryCacheCapacity();
+  derivedLimit <<= (10 - 3);
 
   if (aSize > derivedLimit) return true;
 
@@ -400,12 +177,12 @@ bool CacheObserver::IsPastShutdownIOLag() {
 #endif
 
   if (sShutdownDemandedTime == PR_INTERVAL_NO_TIMEOUT ||
-      sMaxShutdownIOLag == UINT32_MAX) {
+      MaxShutdownIOLag() == UINT32_MAX) {
     return false;
   }
 
   static const PRIntervalTime kMaxShutdownIOLag =
-      PR_SecondsToInterval(sMaxShutdownIOLag);
+      PR_SecondsToInterval(MaxShutdownIOLag());
 
   if ((PR_IntervalNow() - sShutdownDemandedTime) > kMaxShutdownIOLag) {
     return true;
@@ -455,21 +232,6 @@ CacheObserver::Observe(nsISupports* aSubject, const char* aTopic,
     if (service) {
       service->DropPrivateBrowsingEntries();
     }
-
-    return NS_OK;
-  }
-
-  if (!strcmp(aTopic, "clear-origin-attributes-data")) {
-    OriginAttributes oa;
-    if (!oa.Init(nsDependentString(aData))) {
-      NS_ERROR(
-          "Could not parse OriginAttributes JSON in "
-          "clear-origin-attributes-data notification");
-      return NS_OK;
-    }
-
-    nsresult rv = CacheStorageEvictHelper::Run(oa);
-    NS_ENSURE_SUCCESS(rv, rv);
 
     return NS_OK;
   }

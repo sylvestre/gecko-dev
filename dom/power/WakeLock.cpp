@@ -10,15 +10,13 @@
 #include "mozilla/Hal.h"
 #include "mozilla/HalWakeLock.h"
 #include "nsError.h"
-#include "nsIDocument.h"
-#include "nsIDOMWindow.h"
+#include "mozilla/dom/Document.h"
 #include "nsPIDOMWindow.h"
 #include "nsIPropertyBag2.h"
 
 using namespace mozilla::hal;
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_INTERFACE_MAP_BEGIN(WakeLock)
   NS_INTERFACE_MAP_ENTRY_AMBIGUOUS(nsISupports, nsIDOMEventListener)
@@ -58,7 +56,7 @@ nsresult WakeLock::Init(const nsAString& aTopic, nsPIDOMWindowInner* aWindow) {
    * is always considered invisible.
    */
   if (aWindow) {
-    nsCOMPtr<nsIDocument> doc = aWindow->GetExtantDoc();
+    nsCOMPtr<Document> doc = aWindow->GetExtantDoc();
     NS_ENSURE_STATE(doc);
     mHidden = doc->Hidden();
   }
@@ -112,8 +110,7 @@ WakeLock::Observe(nsISupports* aSubject, const char* aTopic,
   }
 
   uint64_t childID = 0;
-  nsresult rv =
-      props->GetPropertyAsUint64(NS_LITERAL_STRING("childID"), &childID);
+  nsresult rv = props->GetPropertyAsUint64(u"childID"_ns, &childID);
   if (NS_SUCCEEDED(rv)) {
     if (childID == mContentParentID) {
       mLocked = false;
@@ -150,17 +147,17 @@ void WakeLock::DoUnlock() {
 
 void WakeLock::AttachEventListener() {
   if (nsCOMPtr<nsPIDOMWindowInner> window = do_QueryReferent(mWindow)) {
-    nsCOMPtr<nsIDocument> doc = window->GetExtantDoc();
+    nsCOMPtr<Document> doc = window->GetExtantDoc();
     if (doc) {
-      doc->AddSystemEventListener(NS_LITERAL_STRING("visibilitychange"), this,
+      doc->AddSystemEventListener(u"visibilitychange"_ns, this,
                                   /* useCapture = */ true,
                                   /* wantsUntrusted = */ false);
 
       nsCOMPtr<EventTarget> target = do_QueryInterface(window);
-      target->AddSystemEventListener(NS_LITERAL_STRING("pagehide"), this,
+      target->AddSystemEventListener(u"pagehide"_ns, this,
                                      /* useCapture = */ true,
                                      /* wantsUntrusted = */ false);
-      target->AddSystemEventListener(NS_LITERAL_STRING("pageshow"), this,
+      target->AddSystemEventListener(u"pageshow"_ns, this,
                                      /* useCapture = */ true,
                                      /* wantsUntrusted = */ false);
     }
@@ -169,15 +166,14 @@ void WakeLock::AttachEventListener() {
 
 void WakeLock::DetachEventListener() {
   if (nsCOMPtr<nsPIDOMWindowInner> window = do_QueryReferent(mWindow)) {
-    nsCOMPtr<nsIDocument> doc = window->GetExtantDoc();
+    nsCOMPtr<Document> doc = window->GetExtantDoc();
     if (doc) {
-      doc->RemoveSystemEventListener(NS_LITERAL_STRING("visibilitychange"),
-                                     this,
+      doc->RemoveSystemEventListener(u"visibilitychange"_ns, this,
                                      /* useCapture = */ true);
       nsCOMPtr<EventTarget> target = do_QueryInterface(window);
-      target->RemoveSystemEventListener(NS_LITERAL_STRING("pagehide"), this,
+      target->RemoveSystemEventListener(u"pagehide"_ns, this,
                                         /* useCapture = */ true);
-      target->RemoveSystemEventListener(NS_LITERAL_STRING("pageshow"), this,
+      target->RemoveSystemEventListener(u"pageshow"_ns, this,
                                         /* useCapture = */ true);
     }
   }
@@ -204,11 +200,14 @@ WakeLock::HandleEvent(Event* aEvent) {
   aEvent->GetType(type);
 
   if (type.EqualsLiteral("visibilitychange")) {
-    nsCOMPtr<nsIDocument> doc = do_QueryInterface(aEvent->GetTarget());
+    nsCOMPtr<Document> doc = do_QueryInterface(aEvent->GetTarget());
     NS_ENSURE_STATE(doc);
 
     bool oldHidden = mHidden;
-    mHidden = doc->Hidden();
+    // If document has a child element being used in the picture in picture
+    // mode, which is always visible to users, then we would consider the
+    // document as visible as well.
+    mHidden = doc->Hidden() && !doc->HasPictureInPictureChildElement();
 
     if (mLocked && oldHidden != mHidden) {
       hal::ModifyWakeLock(
@@ -245,5 +244,4 @@ nsPIDOMWindowInner* WakeLock::GetParentObject() const {
   return window;
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

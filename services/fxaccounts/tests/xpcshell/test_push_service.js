@@ -8,15 +8,33 @@
 /* eslint-disable no-shadow */
 /* eslint-disable mozilla/use-chromeutils-generateqi */
 
-ChromeUtils.import("resource://gre/modules/FxAccountsCommon.js");
-ChromeUtils.import("resource://gre/modules/Log.jsm");
+const {
+  FXA_PUSH_SCOPE_ACCOUNT_UPDATE,
+  ONLOGOUT_NOTIFICATION,
+  ON_ACCOUNT_DESTROYED_NOTIFICATION,
+  ON_DEVICE_CONNECTED_NOTIFICATION,
+  ON_DEVICE_DISCONNECTED_NOTIFICATION,
+  ON_PASSWORD_CHANGED_NOTIFICATION,
+  ON_PASSWORD_RESET_NOTIFICATION,
+  ON_PROFILE_CHANGE_NOTIFICATION,
+  ON_PROFILE_UPDATED_NOTIFICATION,
+  ON_VERIFY_LOGIN_NOTIFICATION,
+  log,
+} = ChromeUtils.import("resource://gre/modules/FxAccountsCommon.js");
 
 let importScope = {};
-Services.scriptloader.loadSubScript("resource://gre/components/FxAccountsPush.js", importScope);
+Services.scriptloader.loadSubScript(
+  "resource://gre/modules/FxAccountsPush.jsm",
+  importScope
+);
 const FxAccountsPushService = importScope.FxAccountsPushService;
 
-XPCOMUtils.defineLazyServiceGetter(this, "pushService",
-  "@mozilla.org/push/Service;1", "nsIPushService");
+XPCOMUtils.defineLazyServiceGetter(
+  this,
+  "pushService",
+  "@mozilla.org/push/Service;1",
+  "nsIPushService"
+);
 
 initTestLogging("Trace");
 log.level = Log.Level.Trace;
@@ -49,7 +67,6 @@ let mockLog = {
   error() {},
 };
 
-
 add_task(async function initialize() {
   let pushService = new FxAccountsPushService();
   equal(pushService.initialize(), false);
@@ -58,7 +75,7 @@ add_task(async function initialize() {
 add_task(async function registerPushEndpointSuccess() {
   let pushService = new FxAccountsPushService({
     pushService: mockPushService,
-    fxAccounts: mockFxAccounts,
+    fxai: mockFxAccounts,
   });
 
   let subscription = await pushService.registerPushEndpoint();
@@ -74,7 +91,7 @@ add_task(async function registerPushEndpointFailure() {
 
   let pushService = new FxAccountsPushService({
     pushService: failPushService,
-    fxAccounts: mockFxAccounts,
+    fxai: mockFxAccounts,
   });
 
   let subscription = await pushService.registerPushEndpoint();
@@ -84,7 +101,7 @@ add_task(async function registerPushEndpointFailure() {
 add_task(async function unsubscribeSuccess() {
   let pushService = new FxAccountsPushService({
     pushService: mockPushService,
-    fxAccounts: mockFxAccounts,
+    fxai: mockFxAccounts,
   });
 
   let result = await pushService.unsubscribe();
@@ -100,7 +117,7 @@ add_task(async function unsubscribeFailure() {
 
   let pushService = new FxAccountsPushService({
     pushService: failPushService,
-    fxAccounts: mockFxAccounts,
+    fxai: mockFxAccounts,
   });
 
   let result = await pushService.unsubscribe();
@@ -140,10 +157,14 @@ add_test(function observePushTopicVerify() {
 
   let pushService = new FxAccountsPushService({
     pushService: mockPushService,
-    fxAccounts: customAccounts,
+    fxai: customAccounts,
   });
 
-  pushService.observe(emptyMsg, mockPushService.pushTopic, FXA_PUSH_SCOPE_ACCOUNT_UPDATE);
+  pushService.observe(
+    emptyMsg,
+    mockPushService.pushTopic,
+    FXA_PUSH_SCOPE_ACCOUNT_UPDATE
+  );
 });
 
 add_test(function observePushTopicDeviceConnected() {
@@ -168,10 +189,14 @@ add_test(function observePushTopicDeviceConnected() {
 
   let pushService = new FxAccountsPushService({
     pushService: mockPushService,
-    fxAccounts: mockFxAccounts,
+    fxai: mockFxAccounts,
   });
 
-  pushService.observe(msg, mockPushService.pushTopic, FXA_PUSH_SCOPE_ACCOUNT_UPDATE);
+  pushService.observe(
+    msg,
+    mockPushService.pushTopic,
+    FXA_PUSH_SCOPE_ACCOUNT_UPDATE
+  );
 });
 
 add_task(async function observePushTopicDeviceDisconnected_current_device() {
@@ -191,19 +216,21 @@ add_task(async function observePushTopicDeviceDisconnected_current_device() {
   };
 
   let signoutCalled = false;
-  let { FxAccounts } = ChromeUtils.import("resource://gre/modules/FxAccounts.jsm", {});
+  let { FxAccounts } = ChromeUtils.import(
+    "resource://gre/modules/FxAccounts.jsm"
+  );
   const fxAccountsMock = new FxAccounts({
     newAccountState() {
       return {
         async getUserAccountData() {
-          return {device: {id: deviceId}};
+          return { device: { id: deviceId } };
         },
       };
     },
     signOut() {
       signoutCalled = true;
     },
-  });
+  })._internal;
 
   const deviceDisconnectedNotificationObserved = new Promise(resolve => {
     Services.obs.addObserver(function obs(subject, topic, data) {
@@ -215,10 +242,14 @@ add_task(async function observePushTopicDeviceDisconnected_current_device() {
 
   let pushService = new FxAccountsPushService({
     pushService: mockPushService,
-    fxAccounts: fxAccountsMock,
+    fxai: fxAccountsMock,
   });
 
-  pushService.observe(msg, mockPushService.pushTopic, FXA_PUSH_SCOPE_ACCOUNT_UPDATE);
+  pushService.observe(
+    msg,
+    mockPushService.pushTopic,
+    FXA_PUSH_SCOPE_ACCOUNT_UPDATE
+  );
 
   await deviceDisconnectedNotificationObserved;
   ok(signoutCalled);
@@ -241,19 +272,21 @@ add_task(async function observePushTopicDeviceDisconnected_another_device() {
   };
 
   let signoutCalled = false;
-  let { FxAccounts } = ChromeUtils.import("resource://gre/modules/FxAccounts.jsm", {});
+  let { FxAccounts } = ChromeUtils.import(
+    "resource://gre/modules/FxAccounts.jsm"
+  );
   const fxAccountsMock = new FxAccounts({
     newAccountState() {
       return {
         async getUserAccountData() {
-          return {device: {id: "thelocaldevice"}};
+          return { device: { id: "thelocaldevice" } };
         },
       };
     },
     signOut() {
       signoutCalled = true;
     },
-  });
+  })._internal;
 
   const deviceDisconnectedNotificationObserved = new Promise(resolve => {
     Services.obs.addObserver(function obs(subject, topic, data) {
@@ -265,10 +298,14 @@ add_task(async function observePushTopicDeviceDisconnected_another_device() {
 
   let pushService = new FxAccountsPushService({
     pushService: mockPushService,
-    fxAccounts: fxAccountsMock,
+    fxai: fxAccountsMock,
   });
 
-  pushService.observe(msg, mockPushService.pushTopic, FXA_PUSH_SCOPE_ACCOUNT_UPDATE);
+  pushService.observe(
+    msg,
+    mockPushService.pushTopic,
+    FXA_PUSH_SCOPE_ACCOUNT_UPDATE
+  );
 
   await deviceDisconnectedNotificationObserved;
   ok(!signoutCalled);
@@ -290,7 +327,7 @@ add_test(function observePushTopicAccountDestroyed() {
     },
   };
   let customAccounts = Object.assign(mockFxAccounts, {
-    handleAccountDestroyed() {
+    _handleAccountDestroyed() {
       // checking verification status on push messages without data
       run_next_test();
     },
@@ -298,10 +335,14 @@ add_test(function observePushTopicAccountDestroyed() {
 
   let pushService = new FxAccountsPushService({
     pushService: mockPushService,
-    fxAccounts: customAccounts,
+    fxai: customAccounts,
   });
 
-  pushService.observe(msg, mockPushService.pushTopic, FXA_PUSH_SCOPE_ACCOUNT_UPDATE);
+  pushService.observe(
+    msg,
+    mockPushService.pushTopic,
+    FXA_PUSH_SCOPE_ACCOUNT_UPDATE
+  );
 });
 
 add_test(function observePushTopicVerifyLogin() {
@@ -332,10 +373,14 @@ add_test(function observePushTopicVerifyLogin() {
 
   let pushService = new FxAccountsPushService({
     pushService: mockPushService,
-    fxAccounts: mockFxAccounts,
+    fxai: mockFxAccounts,
   });
 
-  pushService.observe(msg, mockPushService.pushTopic, FXA_PUSH_SCOPE_ACCOUNT_UPDATE);
+  pushService.observe(
+    msg,
+    mockPushService.pushTopic,
+    FXA_PUSH_SCOPE_ACCOUNT_UPDATE
+  );
 });
 
 add_test(function observePushTopicProfileUpdated() {
@@ -357,10 +402,14 @@ add_test(function observePushTopicProfileUpdated() {
 
   let pushService = new FxAccountsPushService({
     pushService: mockPushService,
-    fxAccounts: mockFxAccounts,
+    fxai: mockFxAccounts,
   });
 
-  pushService.observe(msg, mockPushService.pushTopic, FXA_PUSH_SCOPE_ACCOUNT_UPDATE);
+  pushService.observe(
+    msg,
+    mockPushService.pushTopic,
+    FXA_PUSH_SCOPE_ACCOUNT_UPDATE
+  );
 });
 
 add_test(function observePushTopicPasswordChanged() {
@@ -383,7 +432,11 @@ add_test(function observePushTopicPasswordChanged() {
     run_next_test();
   };
 
-  pushService.observe(msg, mockPushService.pushTopic, FXA_PUSH_SCOPE_ACCOUNT_UPDATE);
+  pushService.observe(
+    msg,
+    mockPushService.pushTopic,
+    FXA_PUSH_SCOPE_ACCOUNT_UPDATE
+  );
 });
 
 add_test(function observePushTopicPasswordReset() {
@@ -406,7 +459,11 @@ add_test(function observePushTopicPasswordReset() {
     run_next_test();
   };
 
-  pushService.observe(msg, mockPushService.pushTopic, FXA_PUSH_SCOPE_ACCOUNT_UPDATE);
+  pushService.observe(
+    msg,
+    mockPushService.pushTopic,
+    FXA_PUSH_SCOPE_ACCOUNT_UPDATE
+  );
 });
 
 add_task(async function commandReceived() {
@@ -415,7 +472,8 @@ add_task(async function commandReceived() {
       json: () => ({
         command: "fxaccounts:command_received",
         data: {
-          url: "https://api.accounts.firefox.com/auth/v1/account/device/commands?index=42&limit=1",
+          url:
+            "https://api.accounts.firefox.com/auth/v1/account/device/commands?index=42&limit=1",
         },
       }),
     },
@@ -427,7 +485,7 @@ add_task(async function commandReceived() {
   let fxAccountsMock = {};
   const promiseConsumeRemoteMessagesCalled = new Promise(res => {
     fxAccountsMock.commands = {
-      consumeRemoteCommand() {
+      pollDeviceCommands() {
         res();
       },
     };
@@ -435,10 +493,14 @@ add_task(async function commandReceived() {
 
   let pushService = new FxAccountsPushService({
     pushService: mockPushService,
-    fxAccounts: fxAccountsMock,
+    fxai: fxAccountsMock,
   });
 
-  pushService.observe(msg, mockPushService.pushTopic, FXA_PUSH_SCOPE_ACCOUNT_UPDATE);
+  pushService.observe(
+    msg,
+    mockPushService.pushTopic,
+    FXA_PUSH_SCOPE_ACCOUNT_UPDATE
+  );
   await promiseConsumeRemoteMessagesCalled;
 });
 
@@ -452,8 +514,12 @@ add_test(function observeSubscriptionChangeTopic() {
 
   let pushService = new FxAccountsPushService({
     pushService: mockPushService,
-    fxAccounts: customAccounts,
+    fxai: customAccounts,
   });
 
-  pushService.observe(null, mockPushService.subscriptionChangeTopic, FXA_PUSH_SCOPE_ACCOUNT_UPDATE);
+  pushService.observe(
+    null,
+    mockPushService.subscriptionChangeTopic,
+    FXA_PUSH_SCOPE_ACCOUNT_UPDATE
+  );
 });

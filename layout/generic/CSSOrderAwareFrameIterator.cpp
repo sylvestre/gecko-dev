@@ -7,19 +7,36 @@
 /* Iterator class for frame lists that respect CSS "order" during layout */
 
 #include "CSSOrderAwareFrameIterator.h"
+#include "nsIFrameInlines.h"
+
+static bool CanUse(const nsIFrame* aFrame) {
+  return aFrame->IsFlexOrGridContainer() || aFrame->IsXULBoxFrame() ||
+         (aFrame->GetContent() &&
+          aFrame->GetContent()->IsXULElement(nsGkAtoms::treecols));
+}
 
 namespace mozilla {
 
 template <>
-bool CSSOrderAwareFrameIterator::CSSOrderComparator(nsIFrame* const& a,
-                                                    nsIFrame* const& b) {
-  return a->StylePosition()->mOrder < b->StylePosition()->mOrder;
+bool CSSOrderAwareFrameIterator::CanUse(const nsIFrame* aFrame) {
+  return ::CanUse(aFrame);
 }
 
 template <>
-bool CSSOrderAwareFrameIterator::CSSBoxOrdinalGroupComparator(
+bool ReverseCSSOrderAwareFrameIterator::CanUse(const nsIFrame* aFrame) {
+  return ::CanUse(aFrame);
+}
+
+template <>
+int CSSOrderAwareFrameIterator::CSSOrderComparator(nsIFrame* const& a,
+                                                   nsIFrame* const& b) {
+  return a->StylePosition()->mOrder - b->StylePosition()->mOrder;
+}
+
+template <>
+int CSSOrderAwareFrameIterator::CSSBoxOrdinalGroupComparator(
     nsIFrame* const& a, nsIFrame* const& b) {
-  return a->StyleXUL()->mBoxOrdinal < b->StyleXUL()->mBoxOrdinal;
+  return a->StyleXUL()->mBoxOrdinal - b->StyleXUL()->mBoxOrdinal;
 }
 
 template <>
@@ -40,15 +57,15 @@ nsFrameList::iterator CSSOrderAwareFrameIterator::end(
 }
 
 template <>
-bool ReverseCSSOrderAwareFrameIterator::CSSOrderComparator(nsIFrame* const& a,
-                                                           nsIFrame* const& b) {
-  return a->StylePosition()->mOrder > b->StylePosition()->mOrder;
+int ReverseCSSOrderAwareFrameIterator::CSSOrderComparator(nsIFrame* const& a,
+                                                          nsIFrame* const& b) {
+  return b->StylePosition()->mOrder - a->StylePosition()->mOrder;
 }
 
 template <>
-bool ReverseCSSOrderAwareFrameIterator::CSSBoxOrdinalGroupComparator(
+int ReverseCSSOrderAwareFrameIterator::CSSBoxOrdinalGroupComparator(
     nsIFrame* const& a, nsIFrame* const& b) {
-  return a->StyleXUL()->mBoxOrdinal > b->StyleXUL()->mBoxOrdinal;
+  return b->StyleXUL()->mBoxOrdinal - a->StyleXUL()->mBoxOrdinal;
 }
 
 template <>

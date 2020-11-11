@@ -3,19 +3,31 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 include ClientIPCTypes;
+include IPCServiceWorkerDescriptor;
+include IPCServiceWorkerRegistrationDescriptor;
 include PBackgroundSharedTypes;
 include URIParams;
+include DOMTypes;
+include NeckoChannelParams;
+include ProtocolTypes;
 
 using struct mozilla::void_t from "ipc/IPCMessageUtils.h";
+using mozilla::StorageAccess from "mozilla/dom/ClientIPCUtils.h";
 
 namespace mozilla {
 namespace dom {
 
-struct ContentSecurityPolicy
-{
-  nsString policy;
-  bool reportOnlyFlag;
-  bool deliveredViaMetaTagFlag;
+struct ServiceWorkerData {
+  IPCServiceWorkerDescriptor descriptor;
+  IPCServiceWorkerRegistrationDescriptor registrationDescriptor;
+  nsString cacheName;
+  uint32_t loadFlags;
+  nsString id;
+};
+
+union OptionalServiceWorkerData {
+  void_t;
+  ServiceWorkerData;
 };
 
 struct RemoteWorkerData
@@ -37,20 +49,30 @@ struct RemoteWorkerData
   nsString name;
 
   PrincipalInfo loadingPrincipalInfo;
-  ContentSecurityPolicy[] loadingPrincipalCsp;
-  ContentSecurityPolicy[] loadingPrincipalPreloadCsp;
-
   PrincipalInfo principalInfo;
-  ContentSecurityPolicy[] principalCsp;
-  ContentSecurityPolicy[] principalPreloadCsp;
+  PrincipalInfo partitionedPrincipalInfo;
+
+  bool useRegularPrincipal;
+  bool hasStorageAccessPermissionGranted;
+
+  CookieJarSettingsArgs cookieJarSettings;
 
   nsCString domain;
 
   bool isSecureContext;
 
-  OptionalIPCClientInfo clientInfo;
+  IPCClientInfo? clientInfo;
 
-  bool isSharedWorker;
+  nsIReferrerInfo referrerInfo;
+
+  StorageAccess storageAccess;
+
+  OptionalServiceWorkerData serviceWorkerData;
+
+  nsID agentClusterId;
+
+  // Child process remote type where the worker should only run on.
+  nsCString remoteType;
 };
 
 // ErrorData/ErrorDataNote correspond to WorkerErrorReport/WorkerErrorNote
@@ -67,9 +89,9 @@ struct ErrorDataNote {
 };
 
 struct ErrorData {
+  bool isWarning;
   uint32_t lineNumber;
   uint32_t columnNumber;
-  uint32_t flags;
   nsString message;
   nsString filename;
   nsString line;

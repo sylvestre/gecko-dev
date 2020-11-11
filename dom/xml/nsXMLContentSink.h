@@ -19,7 +19,6 @@
 #include "nsIDTD.h"
 #include "mozilla/dom/FromParser.h"
 
-class nsIDocument;
 class nsIURI;
 class nsIContent;
 class nsIParser;
@@ -50,8 +49,8 @@ class nsXMLContentSink : public nsContentSink,
  public:
   nsXMLContentSink();
 
-  nsresult Init(nsIDocument* aDoc, nsIURI* aURL, nsISupports* aContainer,
-                nsIChannel* aChannel);
+  nsresult Init(mozilla::dom::Document* aDoc, nsIURI* aURL,
+                nsISupports* aContainer, nsIChannel* aChannel);
 
   // nsISupports
   NS_DECL_ISUPPORTS_INHERITED
@@ -68,19 +67,25 @@ class nsXMLContentSink : public nsContentSink,
   NS_IMETHOD WillInterrupt(void) override;
   NS_IMETHOD WillResume(void) override;
   NS_IMETHOD SetParser(nsParserBase* aParser) override;
+  virtual void InitialTranslationCompleted() override;
   virtual void FlushPendingNotifications(mozilla::FlushType aType) override;
   virtual void SetDocumentCharset(NotNull<const Encoding*> aEncoding) override;
   virtual nsISupports* GetTarget() override;
   virtual bool IsScriptExecuting() override;
   virtual void ContinueInterruptedParsingAsync() override;
+  bool IsPrettyPrintXML() const override { return mPrettyPrintXML; }
+  bool IsPrettyPrintHasSpecialRoot() const override {
+    return mPrettyPrintHasSpecialRoot;
+  }
 
   // nsITransformObserver
-  NS_IMETHOD OnDocumentCreated(nsIDocument* aResultDocument) override;
+  NS_IMETHOD OnDocumentCreated(
+      mozilla::dom::Document* aResultDocument) override;
   NS_IMETHOD OnTransformDone(nsresult aResult,
-                             nsIDocument* aResultDocument) override;
+                             mozilla::dom::Document* aResultDocument) override;
 
   // nsICSSLoaderObserver
-  NS_IMETHOD StyleSheetLoaded(mozilla::StyleSheet* aSheet, bool aWasAlternate,
+  NS_IMETHOD StyleSheetLoaded(mozilla::StyleSheet* aSheet, bool aWasDeferred,
                               nsresult aStatus) override;
   static bool ParsePIData(const nsString& aData, nsString& aHref,
                           nsString& aTitle, nsString& aMedia,
@@ -145,8 +150,8 @@ class nsXMLContentSink : public nsContentSink,
   // nsContentSink override
   virtual nsresult ProcessStyleLinkFromHeader(
       const nsAString& aHref, bool aAlternate, const nsAString& aTitle,
-      const nsAString& aType, const nsAString& aMedia,
-      const nsAString& aReferrerPolicy) override;
+      const nsAString& aIntegrity, const nsAString& aType,
+      const nsAString& aMedia, const nsAString& aReferrerPolicy) override;
 
   // Try to handle an XSLT style link.  If NS_OK is returned and aWasXSLT is not
   // null, *aWasXSLT will be set to whether we processed this link as XSLT.

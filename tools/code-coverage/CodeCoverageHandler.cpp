@@ -5,12 +5,13 @@
 
 #include <stdio.h>
 #ifdef XP_WIN
-#include <process.h>
-#define getpid _getpid
+#  include <process.h>
+#  define getpid _getpid
 #else
-#include <signal.h>
-#include <unistd.h>
+#  include <signal.h>
+#  include <unistd.h>
 #endif
+#include "js/experimental/CodeCoverage.h"
 #include "mozilla/dom/ScriptSettings.h"  // for AutoJSAPI
 #include "mozilla/CodeCoverageHandler.h"
 #include "mozilla/ClearOnShutdown.h"
@@ -33,11 +34,16 @@ using namespace mozilla;
 // Linux, to avoid naming clashes in builds which mix GCC and LLVM. So, when we
 // are building with LLVM exclusively, we need to use __custom_llvm_gcov_flush
 // instead.
-#if defined(XP_LINUX) && defined(__clang__)
-#define __gcov_flush __custom_llvm_gcov_flush
+#if !defined(XP_WIN) && defined(__clang__)
+#  define __gcov_flush __custom_llvm_gcov_flush
+// In clang 12, __gcov_flush was split into __gcov_dump and __gcov_reset.
+#  define __gcov_dump __custom_llvm_gcov_dump
+#  define __gcov_reset __custom_llvm_gcov_reset
 #endif
 
 extern "C" void __gcov_flush();
+extern "C" void __gcov_dump();
+extern "C" void __gcov_reset();
 
 StaticAutoPtr<CodeCoverageHandler> CodeCoverageHandler::instance;
 
@@ -46,7 +52,12 @@ void CodeCoverageHandler::FlushCounters() {
 
   CrossProcessMutexAutoLock lock(*CodeCoverageHandler::Get()->GetMutex());
 
+#if defined(__clang__) && __clang_major__ >= 12
+  __gcov_dump();
+  __gcov_reset();
+#else
   __gcov_flush();
+#endif
 
   printf_stderr("[CodeCoverage] flush completed.\n");
 
@@ -58,7 +69,7 @@ void CodeCoverageHandler::FlushCounters() {
   dom::AutoJSAPI jsapi;
   jsapi.Init();
   size_t length;
-  char* result = js::GetCodeCoverageSummary(jsapi.cx(), &length);
+  JS::UniqueChars result = js::GetCodeCoverageSummaryAll(jsapi.cx(), &length);
   if (!result) {
     return;
   }
@@ -79,7 +90,7 @@ void CodeCoverageHandler::FlushCounters() {
   rv = NS_NewLocalFileOutputStream(getter_AddRefs(outputStream), file);
   MOZ_ASSERT(NS_SUCCEEDED(rv));
 
-  char* data = result;
+  char* data = result.get();
   while (length) {
     uint32_t n = 0;
     rv = outputStream->Write(data, length, &n);
@@ -90,8 +101,6 @@ void CodeCoverageHandler::FlushCounters() {
 
   rv = outputStream->Close();
   MOZ_ASSERT(NS_SUCCEEDED(rv));
-
-  free(result);
 
   printf_stderr("[CodeCoverage] JS flush completed.\n");
 }

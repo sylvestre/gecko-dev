@@ -8,8 +8,6 @@
 #include "mozilla/ClearOnShutdown.h"
 #include "mozilla/RefPtr.h"
 #include "mozilla/StaticPtr.h"
-#include "nsIDOMWindow.h"
-#include "nsIServiceManager.h"
 #include "nsISupportsUtils.h"
 #include "nsString.h"
 #include "nsIPrintDialogService.h"
@@ -18,13 +16,13 @@
 
 // Printing Progress Includes
 #if !defined(XP_MACOSX)
-#include "nsPrintProgress.h"
-#include "nsPrintProgressParams.h"
+#  include "nsPrintProgress.h"
+#  include "nsPrintProgressParams.h"
 
 static const char* kPrintProgressDialogURL =
-    "chrome://global/content/printProgress.xul";
+    "chrome://global/content/printProgress.xhtml";
 static const char* kPrtPrvProgressDialogURL =
-    "chrome://global/content/printPreviewProgress.xul";
+    "chrome://global/content/printPreviewProgress.xhtml";
 #endif
 
 using namespace mozilla;
@@ -34,7 +32,8 @@ NS_IMPL_ISUPPORTS(nsPrintingPromptService, nsIPrintingPromptService,
 
 StaticRefPtr<nsPrintingPromptService> sSingleton;
 
-/* static */ already_AddRefed<nsPrintingPromptService>
+/* static */
+already_AddRefed<nsPrintingPromptService>
 nsPrintingPromptService::GetSingleton() {
   MOZ_ASSERT(XRE_IsParentProcess(),
              "The content process must use nsPrintingProxy");
@@ -64,26 +63,22 @@ nsresult nsPrintingPromptService::Init() {
 
 NS_IMETHODIMP
 nsPrintingPromptService::ShowPrintDialog(mozIDOMWindowProxy* parent,
-                                         nsIWebBrowserPrint* webBrowserPrint,
                                          nsIPrintSettings* printSettings) {
-  NS_ENSURE_ARG(webBrowserPrint);
   NS_ENSURE_ARG(printSettings);
 
   nsCOMPtr<nsIPrintDialogService> dlgPrint(
       do_GetService(NS_PRINTDIALOGSERVICE_CONTRACTID));
   if (dlgPrint)
-    return dlgPrint->Show(nsPIDOMWindowOuter::From(parent), printSettings,
-                          webBrowserPrint);
+    return dlgPrint->Show(nsPIDOMWindowOuter::From(parent), printSettings);
 
   return NS_ERROR_FAILURE;
 }
 
 NS_IMETHODIMP
-nsPrintingPromptService::ShowProgress(
+nsPrintingPromptService::ShowPrintProgressDialog(
     mozIDOMWindowProxy* parent,
-    nsIWebBrowserPrint* webBrowserPrint,  // ok to be null
-    nsIPrintSettings* printSettings,      // ok to be null
-    nsIObserver* openDialogObserver,      // ok to be null
+    nsIPrintSettings* printSettings,  // ok to be null
+    nsIObserver* openDialogObserver,  // ok to be null
     bool isForPrinting, nsIWebProgressListener** webProgressListener,
     nsIPrintProgressParams** printProgressParams, bool* notifyOnOpen) {
 #if !defined(XP_MACOSX)
@@ -128,8 +123,8 @@ nsPrintingPromptService::ShowProgress(
 }
 
 NS_IMETHODIMP
-nsPrintingPromptService::ShowPageSetup(mozIDOMWindowProxy* parent,
-                                       nsIPrintSettings* printSettings) {
+nsPrintingPromptService::ShowPageSetupDialog(mozIDOMWindowProxy* parent,
+                                             nsIPrintSettings* printSettings) {
   NS_ENSURE_ARG(printSettings);
 
   nsCOMPtr<nsIPrintDialogService> dlgPrint(
@@ -205,11 +200,24 @@ nsPrintingPromptService::OnStatusChange(nsIWebProgress* aWebProgress,
 NS_IMETHODIMP
 nsPrintingPromptService::OnSecurityChange(nsIWebProgress* aWebProgress,
                                           nsIRequest* aRequest,
-                                          uint32_t state) {
+                                          uint32_t aState) {
 #if !defined(XP_MACOSX)
   if (mWebProgressListener) {
     return mWebProgressListener->OnSecurityChange(aWebProgress, aRequest,
-                                                  state);
+                                                  aState);
+  }
+#endif
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+nsPrintingPromptService::OnContentBlockingEvent(nsIWebProgress* aWebProgress,
+                                                nsIRequest* aRequest,
+                                                uint32_t aEvent) {
+#if !defined(XP_MACOSX)
+  if (mWebProgressListener) {
+    return mWebProgressListener->OnContentBlockingEvent(aWebProgress, aRequest,
+                                                        aEvent);
   }
 #endif
   return NS_OK;

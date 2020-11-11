@@ -10,8 +10,10 @@
 #include "mozilla/Mutex.h"
 #include "mozilla/RefPtr.h"
 #include "nsCycleCollectionTraversalCallback.h"
+#include "nsHashKeys.h"
 #include "nsTArray.h"
 #include "nsTHashtable.h"
+#include "nsThreadUtils.h"
 
 class nsIGlobalObject;
 
@@ -30,10 +32,10 @@ class GetFilesCallback {
   NS_INLINE_DECL_REFCOUNTING(GetFilesCallback);
 
   virtual void Callback(nsresult aStatus,
-                        const Sequence<RefPtr<File>>& aFiles) = 0;
+                        const FallibleTArray<RefPtr<BlobImpl>>& aBlobImpls) = 0;
 
  protected:
-  virtual ~GetFilesCallback() {}
+  virtual ~GetFilesCallback() = default;
 };
 
 class GetFilesHelperBase {
@@ -41,7 +43,7 @@ class GetFilesHelperBase {
   explicit GetFilesHelperBase(bool aRecursiveFlag)
       : mRecursiveFlag(aRecursiveFlag) {}
 
-  virtual ~GetFilesHelperBase() {}
+  virtual ~GetFilesHelperBase() = default;
 
   virtual bool IsCanceled() { return false; }
 
@@ -65,7 +67,6 @@ class GetFilesHelper : public Runnable, public GetFilesHelperBase {
 
  public:
   static already_AddRefed<GetFilesHelper> Create(
-      nsIGlobalObject* aGlobal,
       const nsTArray<OwningFileOrDirectory>& aFilesOrDirectory,
       bool aRecursiveFlag, ErrorResult& aRv);
 
@@ -78,7 +79,7 @@ class GetFilesHelper : public Runnable, public GetFilesHelperBase {
   void Traverse(nsCycleCollectionTraversalCallback& cb);
 
  protected:
-  GetFilesHelper(nsIGlobalObject* aGlobal, bool aRecursiveFlag);
+  explicit GetFilesHelper(bool aRecursiveFlag);
 
   virtual ~GetFilesHelper();
 
@@ -100,21 +101,14 @@ class GetFilesHelper : public Runnable, public GetFilesHelperBase {
 
   void RunIO();
 
-  void RunMainThread();
-
   void OperationCompleted();
 
   void ResolveOrRejectPromise(Promise* aPromise);
 
   void RunCallback(GetFilesCallback* aCallback);
 
-  nsCOMPtr<nsIGlobalObject> mGlobal;
-
   bool mListingCompleted;
   nsString mDirectoryPath;
-
-  // This is the real File sequence that we expose via Promises.
-  Sequence<RefPtr<File>> mFiles;
 
   // Error code to propagate.
   nsresult mErrorResult;
@@ -130,8 +124,8 @@ class GetFilesHelper : public Runnable, public GetFilesHelperBase {
 
 class GetFilesHelperChild final : public GetFilesHelper {
  public:
-  GetFilesHelperChild(nsIGlobalObject* aGlobal, bool aRecursiveFlag)
-      : GetFilesHelper(aGlobal, aRecursiveFlag), mPendingOperation(false) {}
+  explicit GetFilesHelperChild(bool aRecursiveFlag)
+      : GetFilesHelper(aRecursiveFlag), mPendingOperation(false) {}
 
   virtual void Work(ErrorResult& aRv) override;
 

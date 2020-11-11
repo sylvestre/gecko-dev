@@ -12,9 +12,10 @@
 #include "nsCycleCollectionParticipant.h"
 #include "nsTArray.h"
 #include "AudioContext.h"
-#include "MediaStreamGraph.h"
+#include "MediaTrackGraph.h"
 #include "WebAudioUtils.h"
 #include "mozilla/MemoryReporting.h"
+#include "nsPrintfCString.h"
 #include "nsWeakReference.h"
 #include "SelfRef.h"
 
@@ -33,7 +34,7 @@ struct ThreeDPoint;
 /**
  * The DOM object representing a Web Audio AudioNode.
  *
- * Each AudioNode has a MediaStream representing the actual
+ * Each AudioNode has a MediaTrack representing the actual
  * real-time processing and output of this AudioNode.
  *
  * We track the incoming and outgoing connections to other AudioNodes.
@@ -66,7 +67,7 @@ class AudioNode : public DOMEventTargetHelper, public nsSupportsWeakReference {
             ChannelInterpretation aChannelInterpretation);
 
   // This should be idempotent (safe to call multiple times).
-  virtual void DestroyMediaStream();
+  virtual void DestroyMediaTrack();
 
   NS_DECL_ISUPPORTS_INHERITED
   NS_DECL_CYCLE_COLLECTION_CLASS_INHERITED(AudioNode, DOMEventTargetHelper)
@@ -117,17 +118,20 @@ class AudioNode : public DOMEventTargetHelper, public nsSupportsWeakReference {
   uint32_t ChannelCount() const { return mChannelCount; }
   virtual void SetChannelCount(uint32_t aChannelCount, ErrorResult& aRv) {
     if (aChannelCount == 0 || aChannelCount > WebAudioUtils::MaxChannelCount) {
-      aRv.Throw(NS_ERROR_DOM_NOT_SUPPORTED_ERR);
+      aRv.ThrowNotSupportedError(
+          nsPrintfCString("Channel count (%u) must be in the range [1, max "
+                          "supported channel count]",
+                          aChannelCount));
       return;
     }
     mChannelCount = aChannelCount;
-    SendChannelMixingParametersToStream();
+    SendChannelMixingParametersToTrack();
   }
   ChannelCountMode ChannelCountModeValue() const { return mChannelCountMode; }
   virtual void SetChannelCountModeValue(ChannelCountMode aMode,
                                         ErrorResult& aRv) {
     mChannelCountMode = aMode;
-    SendChannelMixingParametersToStream();
+    SendChannelMixingParametersToTrack();
   }
   ChannelInterpretation ChannelInterpretationValue() const {
     return mChannelInterpretation;
@@ -135,20 +139,24 @@ class AudioNode : public DOMEventTargetHelper, public nsSupportsWeakReference {
   virtual void SetChannelInterpretationValue(ChannelInterpretation aMode,
                                              ErrorResult& aRv) {
     mChannelInterpretation = aMode;
-    SendChannelMixingParametersToStream();
+    SendChannelMixingParametersToTrack();
   }
 
   struct InputNode final {
+    InputNode() = default;
+    InputNode(const InputNode&) = delete;
+    InputNode(InputNode&&) = default;
+
     ~InputNode() {
-      if (mStreamPort) {
-        mStreamPort->Destroy();
+      if (mTrackPort) {
+        mTrackPort->Destroy();
       }
     }
 
     size_t SizeOfExcludingThis(MallocSizeOf aMallocSizeOf) const {
       size_t amount = 0;
-      if (mStreamPort) {
-        amount += mStreamPort->SizeOfIncludingThis(aMallocSizeOf);
+      if (mTrackPort) {
+        amount += mTrackPort->SizeOfIncludingThis(aMallocSizeOf);
       }
 
       return amount;
@@ -156,7 +164,7 @@ class AudioNode : public DOMEventTargetHelper, public nsSupportsWeakReference {
 
     // The InputNode is destroyed when mInputNode is disconnected.
     AudioNode* MOZ_NON_OWNING_REF mInputNode;
-    RefPtr<MediaInputPort> mStreamPort;
+    RefPtr<MediaInputPort> mTrackPort;
     // The index of the input port this node feeds into.
     // This is not used for connections to AudioParams.
     uint32_t mInputPort;
@@ -164,14 +172,14 @@ class AudioNode : public DOMEventTargetHelper, public nsSupportsWeakReference {
     uint32_t mOutputPort;
   };
 
-  // Returns the stream, if any.
-  AudioNodeStream* GetStream() const { return mStream; }
+  // Returns the track, if any.
+  AudioNodeTrack* GetTrack() const { return mTrack; }
 
   const nsTArray<InputNode>& InputNodes() const { return mInputNodes; }
-  const nsTArray<RefPtr<AudioNode> >& OutputNodes() const {
+  const nsTArray<RefPtr<AudioNode>>& OutputNodes() const {
     return mOutputNodes;
   }
-  const nsTArray<RefPtr<AudioParam> >& OutputParams() const {
+  const nsTArray<RefPtr<AudioParam>>& OutputParams() const {
     return mOutputParams;
   }
 
@@ -198,7 +206,11 @@ class AudioNode : public DOMEventTargetHelper, public nsSupportsWeakReference {
   // type.
   virtual const char* NodeType() const = 0;
 
-  AbstractThread* AbstractMainThread() const { return mAbstractMainThread; }
+  // This can return nullptr, but only when the AudioNode has been created
+  // during document shutdown.
+  AbstractThread* GetAbstractMainThread() const { return mAbstractMainThread; }
+
+  const nsTArray<RefPtr<AudioParam>>& GetAudioParams() const { return mParams; }
 
  private:
   // Given:
@@ -229,12 +241,10 @@ class AudioNode : public DOMEventTargetHelper, public nsSupportsWeakReference {
   // Helper for the Constructors for nodes.
   void Initialize(const AudioNodeOptions& aOptions, ErrorResult& aRv);
 
-  // Helpers for sending different value types to streams
-  void SendDoubleParameterToStream(uint32_t aIndex, double aValue);
-  void SendInt32ParameterToStream(uint32_t aIndex, int32_t aValue);
-  void SendThreeDPointParameterToStream(uint32_t aIndex,
-                                        const ThreeDPoint& aValue);
-  void SendChannelMixingParametersToStream();
+  // Helpers for sending different value types to tracks
+  void SendDoubleParameterToTrack(uint32_t aIndex, double aValue);
+  void SendInt32ParameterToTrack(uint32_t aIndex, int32_t aValue);
+  void SendChannelMixingParametersToTrack();
 
  private:
   RefPtr<AudioContext> mContext;
@@ -242,7 +252,16 @@ class AudioNode : public DOMEventTargetHelper, public nsSupportsWeakReference {
  protected:
   // Set in the constructor of all nodes except offline AudioDestinationNode.
   // Must not become null until finished.
-  RefPtr<AudioNodeStream> mStream;
+  RefPtr<AudioNodeTrack> mTrack;
+
+  // The reference pointing out all audio params which belong to this node.
+  nsTArray<RefPtr<AudioParam>> mParams;
+  // Use this function to create an AudioParam, so as to automatically add
+  // the new AudioParam to `mParams`.
+  AudioParam* CreateAudioParam(
+      uint32_t aIndex, const nsAString& aName, float aDefaultValue,
+      float aMinValue = std::numeric_limits<float>::lowest(),
+      float aMaxValue = std::numeric_limits<float>::max());
 
  private:
   // For every InputNode, there is a corresponding entry in mOutputNodes of the
@@ -252,13 +271,13 @@ class AudioNode : public DOMEventTargetHelper, public nsSupportsWeakReference {
   // of the mOutputNode entry. We won't necessarily be able to identify the
   // exact matching entry, since mOutputNodes doesn't include the port
   // identifiers and the same node could be connected on multiple ports.
-  nsTArray<RefPtr<AudioNode> > mOutputNodes;
+  nsTArray<RefPtr<AudioNode>> mOutputNodes;
   // For every mOutputParams entry, there is a corresponding entry in
   // AudioParam::mInputNodes of the mOutputParams entry. We won't necessarily be
   // able to identify the exact matching entry, since mOutputParams doesn't
   // include the port identifiers and the same node could be connected on
   // multiple ports.
-  nsTArray<RefPtr<AudioParam> > mOutputParams;
+  nsTArray<RefPtr<AudioParam>> mOutputParams;
   uint32_t mChannelCount;
   ChannelCountMode mChannelCountMode;
   ChannelInterpretation mChannelInterpretation;
@@ -266,7 +285,7 @@ class AudioNode : public DOMEventTargetHelper, public nsSupportsWeakReference {
   // Whether the node just passes through its input.  This is a devtools API
   // that only works for some node types.
   bool mPassThrough;
-  // DocGroup-specifc AbstractThread::MainThread() for MediaStreamGraph
+  // DocGroup-specifc AbstractThread::MainThread() for MediaTrackGraph
   // operations.
   const RefPtr<AbstractThread> mAbstractMainThread;
 };

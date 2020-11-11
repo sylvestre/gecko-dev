@@ -5,6 +5,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "StorageNotifierService.h"
+#include "StorageUtils.h"
+#include "mozilla/dom/StorageEvent.h"
 #include "mozilla/ClearOnShutdown.h"
 #include "mozilla/StaticPtr.h"
 
@@ -21,7 +23,8 @@ StaticRefPtr<StorageNotifierService> gStorageNotifierService;
 
 }  // namespace
 
-/* static */ StorageNotifierService* StorageNotifierService::GetOrCreate() {
+/* static */
+StorageNotifierService* StorageNotifierService::GetOrCreate() {
   MOZ_ASSERT(NS_IsMainThread());
   if (!gStorageNotifierService && !gStorageShuttingDown) {
     gStorageNotifierService = new StorageNotifierService();
@@ -42,9 +45,11 @@ StorageNotifierService::~StorageNotifierService() {
   gStorageShuttingDown = true;
 }
 
-/* static */ void StorageNotifierService::Broadcast(
-    StorageEvent* aEvent, const char16_t* aStorageType, bool aPrivateBrowsing,
-    bool aImmediateDispatch) {
+/* static */
+void StorageNotifierService::Broadcast(StorageEvent* aEvent,
+                                       const char16_t* aStorageType,
+                                       bool aPrivateBrowsing,
+                                       bool aImmediateDispatch) {
   MOZ_ASSERT(NS_IsMainThread());
 
   RefPtr<StorageNotifierService> service = gStorageNotifierService;
@@ -54,12 +59,7 @@ StorageNotifierService::~StorageNotifierService() {
 
   RefPtr<StorageEvent> event = aEvent;
 
-  nsTObserverArray<RefPtr<StorageNotificationObserver>>::ForwardIterator iter(
-      service->mObservers);
-
-  while (iter.HasMore()) {
-    RefPtr<StorageNotificationObserver> observer = iter.GetNext();
-
+  for (const auto& observer : service->mObservers.ForwardRange()) {
     // Enforce that the source storage area's private browsing state matches
     // this window's state.  These flag checks and their maintenance independent
     // from the principal's OriginAttributes matter because chrome docshells
@@ -72,22 +72,34 @@ StorageNotifierService::~StorageNotifierService() {
 
     // No reasons to continue if the principal of the event doesn't match with
     // the window's one.
-    if (!StorageUtils::PrincipalsEqual(aEvent->GetPrincipal(),
-                                       observer->GetPrincipal())) {
+    if (!StorageUtils::PrincipalsEqual(
+            aEvent->GetPrincipal(), observer->GetEffectiveStoragePrincipal())) {
       continue;
     }
 
+    const auto pinnedObserver = observer;
+
     RefPtr<Runnable> r = NS_NewRunnableFunction(
         "StorageNotifierService::Broadcast",
-        [observer, event, aStorageType, aPrivateBrowsing]() {
-          observer->ObserveStorageNotification(event, aStorageType,
-                                               aPrivateBrowsing);
+        [pinnedObserver, event, aStorageType, aPrivateBrowsing,
+         aImmediateDispatch]() {
+          // Check principals again. EffectiveStoragePrincipal may be changed
+          // when relaxed.
+          if (!aImmediateDispatch &&
+              !StorageUtils::PrincipalsEqual(
+                  event->GetPrincipal(),
+                  pinnedObserver->GetEffectiveStoragePrincipal())) {
+            return;
+          }
+
+          pinnedObserver->ObserveStorageNotification(event, aStorageType,
+                                                     aPrivateBrowsing);
         });
 
     if (aImmediateDispatch) {
       r->Run();
     } else {
-      nsCOMPtr<nsIEventTarget> et = observer->GetEventTarget();
+      nsCOMPtr<nsIEventTarget> et = pinnedObserver->GetEventTarget();
       if (et) {
         et->Dispatch(r.forget());
       }

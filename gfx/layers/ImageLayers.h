@@ -11,8 +11,7 @@
 #include "mozilla/gfx/BaseSize.h"  // for BaseSize
 #include "mozilla/gfx/Point.h"     // for IntSize
 #include "mozilla/layers/LayersTypes.h"
-#include "nsAutoPtr.h"  // for nsRefPtr
-#include "nscore.h"     // for nsACString
+#include "nscore.h"  // for nsACString
 
 namespace mozilla {
 namespace layers {
@@ -66,23 +65,21 @@ class ImageLayer : public Layer {
 
   MOZ_LAYER_DECL_NAME("ImageLayer", TYPE_IMAGE)
 
-  virtual void ComputeEffectiveTransforms(
+  void ComputeEffectiveTransforms(
       const gfx::Matrix4x4& aTransformToSurface) override;
 
-  virtual const gfx::Matrix4x4& GetEffectiveTransformForBuffer()
-      const override {
+  const gfx::Matrix4x4& GetEffectiveTransformForBuffer() const override {
     return mEffectiveTransformForBuffer;
   }
 
-  virtual ImageLayer* AsImageLayer() override { return this; }
+  ImageLayer* AsImageLayer() override { return this; }
 
  protected:
   ImageLayer(LayerManager* aManager, void* aImplData);
-  ~ImageLayer();
-  virtual void PrintInfo(std::stringstream& aStream,
-                         const char* aPrefix) override;
-  virtual void DumpPacket(layerscope::LayersPacket* aPacket,
-                          const void* aParent) override;
+  virtual ~ImageLayer();
+  void PrintInfo(std::stringstream& aStream, const char* aPrefix) override;
+  void DumpPacket(layerscope::LayersPacket* aPacket,
+                  const void* aParent) override;
 
   RefPtr<ImageContainer> mContainer;
   gfx::SamplingFilter mSamplingFilter;

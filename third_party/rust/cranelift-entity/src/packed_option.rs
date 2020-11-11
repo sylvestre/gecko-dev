@@ -7,13 +7,15 @@
 //! This module provides a `PackedOption<T>` for types that have a reserved value that can be used
 //! to represent `None`.
 
-use std::fmt;
-use std::mem;
+use core::fmt;
+use core::mem;
 
 /// Types that have a reserved value which can't be created any other way.
-pub trait ReservedValue: Eq {
+pub trait ReservedValue {
     /// Create an instance of the reserved value.
     fn reserved_value() -> Self;
+    /// Checks whether value is the reserved one.
+    fn is_reserved_value(&self) -> bool;
 }
 
 /// Packed representation of `Option<T>`.
@@ -23,12 +25,12 @@ pub struct PackedOption<T: ReservedValue>(T);
 impl<T: ReservedValue> PackedOption<T> {
     /// Returns `true` if the packed option is a `None` value.
     pub fn is_none(&self) -> bool {
-        self.0 == T::reserved_value()
+        self.0.is_reserved_value()
     }
 
     /// Returns `true` if the packed option is a `Some` value.
     pub fn is_some(&self) -> bool {
-        self.0 != T::reserved_value()
+        !self.0.is_reserved_value()
     }
 
     /// Expand the packed option into a normal `Option`.
@@ -67,7 +69,7 @@ impl<T: ReservedValue> PackedOption<T> {
 impl<T: ReservedValue> Default for PackedOption<T> {
     /// Create a default packed option representing `None`.
     fn default() -> Self {
-        PackedOption(T::reserved_value())
+        Self(T::reserved_value())
     }
 }
 
@@ -75,10 +77,10 @@ impl<T: ReservedValue> From<T> for PackedOption<T> {
     /// Convert `t` into a packed `Some(x)`.
     fn from(t: T) -> Self {
         debug_assert!(
-            t != T::reserved_value(),
+            !t.is_reserved_value(),
             "Can't make a PackedOption from the reserved value."
         );
-        PackedOption(t)
+        Self(t)
     }
 }
 
@@ -123,6 +125,10 @@ mod tests {
         fn reserved_value() -> Self {
             NoC(13)
         }
+
+        fn is_reserved_value(&self) -> bool {
+            self.0 == 13
+        }
     }
 
     #[test]
@@ -144,6 +150,10 @@ mod tests {
     impl ReservedValue for Ent {
         fn reserved_value() -> Self {
             Ent(13)
+        }
+
+        fn is_reserved_value(&self) -> bool {
+            self.0 == 13
         }
     }
 

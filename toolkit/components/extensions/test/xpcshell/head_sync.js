@@ -9,19 +9,15 @@
 ChromeUtils.import("resource://gre/modules/Services.jsm", this);
 ChromeUtils.import("resource://gre/modules/ExtensionCommon.jsm", this);
 
-var {
-  BaseContext,
-} = ExtensionCommon;
-
-class Context extends BaseContext {
+class KintoExtContext extends ExtensionCommon.BaseContext {
   constructor(principal) {
     super();
     Object.defineProperty(this, "principal", {
       value: principal,
       configurable: true,
     });
-    this.sandbox = Cu.Sandbox(principal, {wantXrays: false});
-    this.extension = {id: "test@web.extension"};
+    this.sandbox = Cu.Sandbox(principal, { wantXrays: false });
+    this.extension = { id: "test@web.extension" };
   }
 
   get cloneScope() {
@@ -37,8 +33,10 @@ class Context extends BaseContext {
  */
 async function withContext(f) {
   const ssm = Services.scriptSecurityManager;
-  const PRINCIPAL1 = ssm.createCodebasePrincipalFromOrigin("http://www.example.org");
-  const context = new Context(PRINCIPAL1);
+  const PRINCIPAL1 = ssm.createContentPrincipalFromOrigin(
+    "http://www.example.org"
+  );
+  const context = new KintoExtContext(PRINCIPAL1);
   try {
     await f(context);
   } finally {

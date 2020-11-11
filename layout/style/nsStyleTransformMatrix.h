@@ -11,12 +11,11 @@
 #ifndef nsStyleTransformMatrix_h_
 #define nsStyleTransformMatrix_h_
 
-#include "gfxPoint.h"
 #include "mozilla/gfx/Matrix.h"
 #include "mozilla/EnumeratedArray.h"
-#include "nsCSSValue.h"
+#include "mozilla/ServoStyleConsts.h"
 #include "nsSize.h"
-
+#include "Units.h"  // for CSSPoint
 #include <limits>
 
 class nsIFrame;
@@ -25,7 +24,7 @@ struct gfxQuaternion;
 struct nsRect;
 
 namespace mozilla {
-struct MotionPathData;
+struct ResolvedMotionPathData;
 }
 
 /**
@@ -86,7 +85,7 @@ class MOZ_STACK_CLASS TransformReferenceBox final {
   }
 
   explicit TransformReferenceBox(const nsIFrame* aFrame,
-                                 const nsSize& aFallbackDimensions)
+                                 const nsRect& aFallbackDimensions)
       : mX(0), mY(0), mWidth(0), mHeight(0) {
     mFrame = aFrame;
     mIsCached = false;
@@ -100,7 +99,7 @@ class MOZ_STACK_CLASS TransformReferenceBox final {
     mFrame = aFrame;
   }
 
-  void Init(const nsSize& aDimensions);
+  void Init(const nsRect& aDimensions);
 
   /**
    * The offset of the reference box from the nsIFrame's TopLeft(). This
@@ -144,58 +143,66 @@ class MOZ_STACK_CLASS TransformReferenceBox final {
   bool mIsCached;
 };
 
-/**
- * Return the transform function, as an nsCSSKeyword, for the given
- * nsCSSValue::Array from a transform list.
- */
-nsCSSKeyword TransformFunctionOf(const nsCSSValue::Array* aData);
-
-void SetIdentityMatrix(nsCSSValue::Array* aMatrix);
-
 float ProcessTranslatePart(
-    const nsCSSValue& aValue, TransformReferenceBox* aRefBox,
+    const mozilla::LengthPercentage& aValue, TransformReferenceBox* aRefBox,
     TransformReferenceBox::DimensionGetter aDimensionGetter = nullptr);
 
 void ProcessInterpolateMatrix(mozilla::gfx::Matrix4x4& aMatrix,
-                              const nsCSSValue::Array* aData,
+                              const mozilla::StyleTransformOperation& aOp,
                               TransformReferenceBox& aBounds);
 
 void ProcessAccumulateMatrix(mozilla::gfx::Matrix4x4& aMatrix,
-                             const nsCSSValue::Array* aData,
+                             const mozilla::StyleTransformOperation& aOp,
                              TransformReferenceBox& aBounds);
 
 /**
- * Given an nsCSSValueList containing -moz-transform functions,
- * returns a matrix containing the value of those functions.
+ * Given a StyleTransform containing transform functions, returns a matrix
+ * containing the value of those functions.
  *
- * @param aData The nsCSSValueList containing the transform functions
+ * @param aList the transform operation list.
  * @param aBounds The frame's bounding rectangle.
  * @param aAppUnitsPerMatrixUnit The number of app units per device pixel.
- *
- * eCSSUnit_Pixel (as they are in an StyleAnimationValue)
  */
-mozilla::gfx::Matrix4x4 ReadTransforms(const nsCSSValueList* aList,
+mozilla::gfx::Matrix4x4 ReadTransforms(const mozilla::StyleTransform& aList,
                                        TransformReferenceBox& aBounds,
                                        float aAppUnitsPerMatrixUnit);
 
 // Generate the gfx::Matrix for CSS Transform Module Level 2.
 // https://drafts.csswg.org/css-transforms-2/#ctm
 mozilla::gfx::Matrix4x4 ReadTransforms(
-    const nsCSSValueList* aIndividualTransforms,
-    const mozilla::Maybe<mozilla::MotionPathData>& aMotion,
-    const nsCSSValueList* aTransform, TransformReferenceBox& aRefBox,
+    const mozilla::StyleTranslate&, const mozilla::StyleRotate&,
+    const mozilla::StyleScale&,
+    const mozilla::Maybe<mozilla::ResolvedMotionPathData>& aMotion,
+    const mozilla::StyleTransform&, TransformReferenceBox& aRefBox,
     float aAppUnitsPerMatrixUnit);
 
 /**
- * Given two nsStyleCoord values, compute the 2d position with respect to the
- * given TransformReferenceBox that these values describe, in device pixels.
+ * Given the x and y values, compute the 2d position with respect to the given
+ * a reference box size that these values describe, in CSS pixels.
  */
-mozilla::gfx::Point Convert2DPosition(nsStyleCoord const (&aValue)[2],
+mozilla::CSSPoint Convert2DPosition(const mozilla::LengthPercentage& aX,
+                                    const mozilla::LengthPercentage& aY,
+                                    const mozilla::CSSSize& aSize);
+
+/**
+ * Given the x and y values, compute the 2d position with respect to the given
+ * TransformReferenceBox that these values describe, in CSS pixels.
+ */
+mozilla::CSSPoint Convert2DPosition(const mozilla::LengthPercentage& aX,
+                                    const mozilla::LengthPercentage& aY,
+                                    TransformReferenceBox& aRefBox);
+
+/**
+ * Given the x and y values, compute the 2d position with respect to the given
+ * TransformReferenceBox that these values describe, in device pixels.
+ */
+mozilla::gfx::Point Convert2DPosition(const mozilla::LengthPercentage& aX,
+                                      const mozilla::LengthPercentage& aY,
                                       TransformReferenceBox& aRefBox,
                                       int32_t aAppUnitsPerDevPixel);
 
 // Shear type for decomposition.
-enum class ShearType { XYSHEAR, XZSHEAR, YZSHEAR, Count };
+enum class ShearType { XY, XZ, YZ, Count };
 using ShearArray = mozilla::EnumeratedArray<ShearType, ShearType::Count, float>;
 
 /*
@@ -214,11 +221,6 @@ bool Decompose3DMatrix(const mozilla::gfx::Matrix4x4& aMatrix,
                        mozilla::gfx::Point3D& aTranslate,
                        mozilla::gfx::Point4D& aPerspective);
 
-mozilla::gfx::Matrix CSSValueArrayTo2DMatrix(nsCSSValue::Array* aArray);
-mozilla::gfx::Matrix4x4 CSSValueArrayTo3DMatrix(nsCSSValue::Array* aArray);
-
-mozilla::gfx::Size GetScaleValue(const nsCSSValueSharedList* aList,
-                                 const nsIFrame* aForFrame);
 }  // namespace nsStyleTransformMatrix
 
 #endif

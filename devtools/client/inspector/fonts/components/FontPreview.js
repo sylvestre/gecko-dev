@@ -8,7 +8,7 @@ const { PureComponent } = require("devtools/client/shared/vendor/react");
 const dom = require("devtools/client/shared/vendor/react-dom-factories");
 const PropTypes = require("devtools/client/shared/vendor/react-prop-types");
 
-const Types = require("../types");
+const Types = require("devtools/client/inspector/fonts/types");
 
 class FontPreview extends PureComponent {
   static get propTypes() {
@@ -25,18 +25,13 @@ class FontPreview extends PureComponent {
   }
 
   render() {
-    const {
-      onPreviewClick,
-      previewUrl,
-    } = this.props;
+    const { onPreviewClick, previewUrl } = this.props;
 
-    return dom.img(
-      {
-        className: "font-preview",
-        onClick: onPreviewClick,
-        src: previewUrl,
-      }
-    );
+    return dom.img({
+      className: "font-preview",
+      onClick: onPreviewClick,
+      src: previewUrl,
+    });
   }
 }
 

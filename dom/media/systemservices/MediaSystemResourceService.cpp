@@ -14,10 +14,11 @@ using namespace mozilla::layers;
 
 namespace mozilla {
 
-/* static */ StaticRefPtr<MediaSystemResourceService>
-    MediaSystemResourceService::sSingleton;
+/* static */
+StaticRefPtr<MediaSystemResourceService> MediaSystemResourceService::sSingleton;
 
-/* static */ MediaSystemResourceService* MediaSystemResourceService::Get() {
+/* static */
+MediaSystemResourceService* MediaSystemResourceService::Get() {
   if (sSingleton) {
     return sSingleton;
   }
@@ -25,13 +26,15 @@ namespace mozilla {
   return sSingleton;
 }
 
-/* static */ void MediaSystemResourceService::Init() {
+/* static */
+void MediaSystemResourceService::Init() {
   if (!sSingleton) {
     sSingleton = new MediaSystemResourceService();
   }
 }
 
-/* static */ void MediaSystemResourceService::Shutdown() {
+/* static */
+void MediaSystemResourceService::Shutdown() {
   if (sSingleton) {
     sSingleton->Destroy();
     sSingleton = nullptr;
@@ -42,7 +45,7 @@ MediaSystemResourceService::MediaSystemResourceService() : mDestroyed(false) {
   MOZ_ASSERT(CompositorThreadHolder::IsInCompositorThread());
 }
 
-MediaSystemResourceService::~MediaSystemResourceService() {}
+MediaSystemResourceService::~MediaSystemResourceService() = default;
 
 void MediaSystemResourceService::Destroy() { mDestroyed = true; }
 
@@ -74,7 +77,9 @@ void MediaSystemResourceService::Acquire(
     // Send success response
     mozilla::Unused << aParent->SendResponse(aId, true /* success */);
     return;
-  } else if (!aWillWait) {
+  }
+
+  if (!aWillWait) {
     // Resource is not available and do not wait.
     // Send fail response
     mozilla::Unused << aParent->SendResponse(aId, false /* fail */);

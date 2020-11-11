@@ -4,15 +4,16 @@
   <!-- Any copyright is dedicated to the Public Domain.
     - http://creativecommons.org/publicdomain/zero/1.0/ -->
 <head>
-  <script type="application/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
 </head>
 <body>
   <iframe id="f" src="about:blank"></iframe>
   <script type="text/javascript">
 SimpleTest.waitForExplicitFinish();
 
+/* eslint-env mozilla/frame-script */
 var script = SpecialPowers.loadChromeScript(() => {
-  ChromeUtils.import('resource://gre/modules/Services.jsm');
+  const {Services} = ChromeUtils.import('resource://gre/modules/Services.jsm');
 
   Services.obs.addObserver(function onExamResp(subject, topic, data) {
     let channel = subject.QueryInterface(Ci.nsIHttpChannel);
@@ -34,7 +35,7 @@ script.addMessageListener('start-test', () => {
 
   iframe.contentWindow.onunload = function () {
     info('initiate sync XHR during the page loading');
-    xhr = new XMLHttpRequest();
+    let xhr = new XMLHttpRequest();
     xhr.open('GET', window.location, false);
     xhr.send(null);
     ok(true, 'complete without crash');

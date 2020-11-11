@@ -1,7 +1,7 @@
 /* Any copyright is dedicated to the Public Domain.
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 /* global Services, requestLongerTimeout, TestUtils, BrowserTestUtils,
- ok, info, dump, is, Ci, Cu, Components, ctypes, privateNoteIntentionalCrash,
+ ok, info, dump, is, Ci, Cu, Components, ctypes,
  gBrowser, add_task, addEventListener, removeEventListener, ContentTask */
 
 "use strict";
@@ -41,33 +41,38 @@ function getMinidumpDirectory() {
  * Checks that the URL is correctly annotated on a content process crash.
  */
 add_task(async function test_content_url_annotation() {
-  let url = "https://example.com/browser/toolkit/content/tests/browser/file_redirect.html";
-  let redirect_url = "https://example.com/browser/toolkit/content/tests/browser/file_redirect_to.html";
+  let url =
+    "https://example.com/browser/toolkit/content/tests/browser/file_redirect.html";
+  let redirect_url =
+    "https://example.com/browser/toolkit/content/tests/browser/file_redirect_to.html";
 
-  await BrowserTestUtils.withNewTab({
-    gBrowser,
-  }, async function(browser) {
-    ok(browser.isRemoteBrowser, "Should be a remote browser");
+  await BrowserTestUtils.withNewTab(
+    {
+      gBrowser,
+    },
+    async function(browser) {
+      ok(browser.isRemoteBrowser, "Should be a remote browser");
 
-    // file_redirect.html should send us to file_redirect_to.html
-    let promise = ContentTask.spawn(browser, {}, async function() {
-      dump("ContentTask starting...\n");
-      await new Promise((resolve) => {
-        addEventListener("RedirectDone", function listener() {
-          dump("Got RedirectDone\n");
-          removeEventListener("RedirectDone", listener);
-          resolve();
-        }, true, true);
-      });
-    });
-    BrowserTestUtils.loadURI(browser, url);
-    await promise;
+      // file_redirect.html should send us to file_redirect_to.html
+      let promise = BrowserTestUtils.waitForContentEvent(
+        browser,
+        "RedirectDone",
+        true,
+        null,
+        true
+      );
+      BrowserTestUtils.loadURI(browser, url);
+      await promise;
 
-    // Crash the tab
-    let annotations = await BrowserTestUtils.crashBrowser(browser);
+      // Crash the tab
+      let annotations = await BrowserTestUtils.crashFrame(browser);
 
-    ok("URL" in annotations, "annotated a URL");
-    is(annotations.URL, redirect_url,
-       "Should have annotated the URL after redirect");
-  });
+      ok("URL" in annotations, "annotated a URL");
+      is(
+        annotations.URL,
+        redirect_url,
+        "Should have annotated the URL after redirect"
+      );
+    }
+  );
 });

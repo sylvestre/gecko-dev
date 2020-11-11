@@ -9,8 +9,10 @@
 
 var EXPORTED_SYMBOLS = ["BrowserWindowTracker"];
 
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
-ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
 // Lazy getters
 XPCOMUtils.defineLazyModuleGetters(this, {
@@ -19,7 +21,7 @@ XPCOMUtils.defineLazyModuleGetters(this, {
 
 // Constants
 const TAB_EVENTS = ["TabBrowserInserted", "TabSelect"];
-const WINDOW_EVENTS = ["activate", "sizemodechange", "unload"];
+const WINDOW_EVENTS = ["activate", "unload"];
 const DEBUG = false;
 
 // Variables
@@ -34,27 +36,39 @@ function debug(s) {
 }
 
 function _updateCurrentContentOuterWindowID(browser) {
-  if (!browser.outerWindowID ||
-      browser.outerWindowID === _lastTopLevelWindowID ||
-      browser.ownerGlobal != _trackedWindows[0]) {
+  if (
+    !browser.outerWindowID ||
+    browser.outerWindowID === _lastTopLevelWindowID ||
+    browser.ownerGlobal != _trackedWindows[0]
+  ) {
     return;
   }
 
-  debug("Current window uri=" + (browser.currentURI && browser.currentURI.spec) +
-        " id=" + browser.outerWindowID);
+  debug(
+    "Current window uri=" +
+      (browser.currentURI && browser.currentURI.spec) +
+      " id=" +
+      browser.outerWindowID
+  );
 
   _lastTopLevelWindowID = browser.outerWindowID;
-  let windowIDWrapper = Cc["@mozilla.org/supports-PRUint64;1"]
-                          .createInstance(Ci.nsISupportsPRUint64);
+  let windowIDWrapper = Cc["@mozilla.org/supports-PRUint64;1"].createInstance(
+    Ci.nsISupportsPRUint64
+  );
   windowIDWrapper.data = _lastTopLevelWindowID;
-  Services.obs.notifyObservers(windowIDWrapper,
-                               "net:current-toplevel-outer-content-windowid");
+  Services.obs.notifyObservers(
+    windowIDWrapper,
+    "net:current-toplevel-outer-content-windowid"
+  );
 }
 
 function _handleEvent(event) {
   switch (event.type) {
     case "TabBrowserInserted":
-      if (event.target.ownerGlobal.gBrowser.selectedBrowser === event.target.linkedBrowser) {
+      if (
+        event.target.ownerGlobal.gBrowser.selectedBrowser ===
+        event.target.linkedBrowser
+      ) {
         _updateCurrentContentOuterWindowID(event.target.linkedBrowser);
       }
       break;
@@ -64,32 +78,31 @@ function _handleEvent(event) {
     case "activate":
       WindowHelper.onActivate(event.target);
       break;
-    case "sizemodechange":
-      WindowHelper.onSizemodeChange(event.target);
-      break;
     case "unload":
       WindowHelper.removeWindow(event.currentTarget);
       break;
   }
 }
 
-function _handleMessage(message) {
-  let browser = message.target;
-  if (message.name === "Browser:Init" &&
-      browser === browser.ownerGlobal.gBrowser.selectedBrowser) {
-    _updateCurrentContentOuterWindowID(browser);
-  }
-}
-
 function _trackWindowOrder(window) {
-  _trackedWindows.splice(window.windowState == window.STATE_MINIMIZED ?
-    _trackedWindows.length - 1 : 0, 0, window);
+  if (window.windowState == window.STATE_MINIMIZED) {
+    let firstMinimizedWindow = _trackedWindows.findIndex(
+      w => w.windowState == w.STATE_MINIMIZED
+    );
+    if (firstMinimizedWindow == -1) {
+      firstMinimizedWindow = _trackedWindows.length;
+    }
+    _trackedWindows.splice(firstMinimizedWindow, 0, window);
+  } else {
+    _trackedWindows.unshift(window);
+  }
 }
 
 function _untrackWindowOrder(window) {
   let idx = _trackedWindows.indexOf(window);
-  if (idx >= 0)
+  if (idx >= 0) {
     _trackedWindows.splice(idx, 1);
+  }
 }
 
 // Methods that impact a window. Put into single object for organization.
@@ -102,9 +115,6 @@ var WindowHelper = {
     WINDOW_EVENTS.forEach(function(event) {
       window.addEventListener(event, _handleEvent);
     });
-
-    let messageManager = window.getGroupMessageManager("browsers");
-    messageManager.addMessageListener("Browser:Init", _handleMessage);
 
     _trackWindowOrder(window);
 
@@ -122,28 +132,18 @@ var WindowHelper = {
     WINDOW_EVENTS.forEach(function(event) {
       window.removeEventListener(event, _handleEvent);
     });
-
-    let messageManager = window.getGroupMessageManager("browsers");
-    messageManager.removeMessageListener("Browser:Init", _handleMessage);
   },
 
   onActivate(window) {
     // If this window was the last focused window, we don't need to do anything
-    if (window == _trackedWindows[0])
+    if (window == _trackedWindows[0]) {
       return;
+    }
 
     _untrackWindowOrder(window);
     _trackWindowOrder(window);
 
     _updateCurrentContentOuterWindowID(window.gBrowser.selectedBrowser);
-  },
-
-  onSizemodeChange(window) {
-    if (window.windowState == window.STATE_MINIMIZED) {
-      // Make sure to have the minimized window at the end of the list.
-      _untrackWindowOrder(window);
-      _trackedWindows.push(window);
-    }
   },
 };
 
@@ -159,15 +159,23 @@ this.BrowserWindowTracker = {
    */
   getTopWindow(options = {}) {
     for (let win of _trackedWindows) {
-      if (!win.closed &&
-          (options.allowPopups || win.toolbar.visible) &&
-          (!("private" in options) ||
-           PrivateBrowsingUtils.permanentPrivateBrowsing ||
-           PrivateBrowsingUtils.isWindowPrivate(win) == options.private)) {
+      if (
+        !win.closed &&
+        (options.allowPopups || win.toolbar.visible) &&
+        (!("private" in options) ||
+          PrivateBrowsingUtils.permanentPrivateBrowsing ||
+          PrivateBrowsingUtils.isWindowPrivate(win) == options.private)
+      ) {
         return win;
       }
     }
     return null;
+  },
+
+  windowCreated(browser) {
+    if (browser === browser.ownerGlobal.gBrowser.selectedBrowser) {
+      _updateCurrentContentOuterWindowID(browser);
+    }
   },
 
   /**
@@ -185,6 +193,20 @@ this.BrowserWindowTracker = {
     // Clone the windows array immediately as it may change during iteration,
     // we'd rather have an outdated order than skip/revisit windows.
     return [..._trackedWindows];
+  },
+
+  getAllVisibleTabs() {
+    let tabs = [];
+    for (let win of BrowserWindowTracker.orderedWindows) {
+      for (let tab of win.gBrowser.visibleTabs) {
+        // Only use tabs which are not discarded / unrestored
+        if (tab.linkedPanel) {
+          let { contentTitle, browserId } = tab.linkedBrowser;
+          tabs.push({ contentTitle, browserId });
+        }
+      }
+    }
+    return tabs;
   },
 
   track(window) {

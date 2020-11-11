@@ -6,7 +6,6 @@
 
 #include <string.h>
 #include "mozilla/Telemetry.h"
-#include "mozilla/Preferences.h"
 #include "sqlite3.h"
 #include "nsThreadUtils.h"
 #include "mozilla/dom/quota/PersistenceType.h"
@@ -14,29 +13,18 @@
 #include "mozilla/dom/quota/QuotaObject.h"
 #include "mozilla/net/IOActivityMonitor.h"
 #include "mozilla/IOInterposer.h"
+#include "nsEscape.h"
+#include "mozilla/StaticPrefs_storage.h"
+
+#ifdef XP_WIN
+#  include "mozilla/StaticPrefs_dom.h"
+#endif
 
 // The last VFS version for which this file has been updated.
 #define LAST_KNOWN_VFS_VERSION 3
 
 // The last io_methods version for which this file has been updated.
 #define LAST_KNOWN_IOMETHODS_VERSION 3
-
-/**
- * By default use the unix-excl VFS, for the following reasons:
- * 1. It improves compatibility with NFS shares, whose implementation
- *    is incompatible with SQLite's locking requirements.
- *    Bug 433129 attempted to automatically identify such file-systems,
- *    but a reliable way was not found and the fallback locking is slower than
- *    POSIX locking, so we do not want to do it by default.
- * 2. It allows wal mode to avoid the memory mapped -shm file, reducing the
- *    likelihood of SIGBUS failures when disk space is exhausted.
- * 3. It provides some protection from third party database tampering while a
- *    connection is open.
- * This preference allows to revert to the "unix" VFS, that is not exclusive,
- * thus it can be used by developers to query a database through the Sqlite
- * command line while it's already in use.
- */
-#define PREF_MULTI_PROCESS_ACCESS "storage.multiProcessAccess.enabled"
 
 namespace {
 
@@ -45,7 +33,7 @@ using namespace mozilla::dom::quota;
 using namespace mozilla::net;
 
 struct Histograms {
-  const char *name;
+  const char* name;
   const Telemetry::HistogramID readB;
   const Telemetry::HistogramID writeB;
   const Telemetry::HistogramID readMS;
@@ -125,8 +113,8 @@ class IOThreadAutoTimer {
     // of the data captured here.
 #if defined(MOZ_GECKO_PROFILER) && !defined(XP_WIN)
     if (IOInterposer::IsObservedOperation(op)) {
-      const char *main_ref = "sqlite-mainthread";
-      const char *other_ref = "sqlite-otherthread";
+      const char* main_ref = "sqlite-mainthread";
+      const char* other_ref = "sqlite-otherthread";
 
       // Create observation
       IOInterposeObserver::Observation ob(op, start, end,
@@ -150,7 +138,7 @@ struct telemetry_file {
   sqlite3_file base;
 
   // histograms pertaining to this file
-  Histograms *histograms;
+  Histograms* histograms;
 
   // quota object for this file
   RefPtr<QuotaObject> quotaObject;
@@ -160,174 +148,34 @@ struct telemetry_file {
   int fileChunkSize;
 
   // The filename
-  char *location;
+  char* location;
 
   // This contains the vfs that actually does work
   sqlite3_file pReal[1];
 };
 
-const char *DatabasePathFromWALPath(const char *zWALName) {
-  /**
-   * Do some sketchy pointer arithmetic to find the parameter key. The WAL
-   * filename is in the middle of a big allocated block that contains:
-   *
-   *   - Random Values
-   *   - Main Database Path
-   *   - \0
-   *   - Multiple URI components consisting of:
-   *     - Key
-   *     - \0
-   *     - Value
-   *     - \0
-   *   - \0
-   *   - Journal Path
-   *   - \0
-   *   - WAL Path (zWALName)
-   *   - \0
-   *
-   * Because the main database path is preceded by a random value we have to be
-   * careful when trying to figure out when we should terminate this loop.
-   */
-  MOZ_ASSERT(zWALName);
-
-  nsDependentCSubstring dbPath(zWALName, strlen(zWALName));
-
-  // Chop off the "-wal" suffix.
-  NS_NAMED_LITERAL_CSTRING(kWALSuffix, "-wal");
-  MOZ_ASSERT(StringEndsWith(dbPath, kWALSuffix));
-
-  dbPath.Rebind(zWALName, dbPath.Length() - kWALSuffix.Length());
-  MOZ_ASSERT(!dbPath.IsEmpty());
-
-  // We want to scan to the end of the key/value URI pairs. Skip the preceding
-  // null and go to the last char of the journal path.
-  const char *cursor = zWALName - 2;
-
-  // Make sure we just skipped a null.
-  MOZ_ASSERT(!*(cursor + 1));
-
-  // Walk backwards over the journal path.
-  while (*cursor) {
-    cursor--;
-  }
-
-  // There should be another null here.
-  cursor--;
-  MOZ_ASSERT(!*cursor);
-
-  // Back up one more char to the last char of the previous string. It may be
-  // the database path or it may be a key/value URI pair.
-  cursor--;
-
-#ifdef DEBUG
-  {
-    // Verify that we just walked over the journal path. Account for the two
-    // nulls we just skipped.
-    const char *journalStart = cursor + 3;
-
-    nsDependentCSubstring journalPath(journalStart, strlen(journalStart));
-
-    // Chop off the "-journal" suffix.
-    NS_NAMED_LITERAL_CSTRING(kJournalSuffix, "-journal");
-    MOZ_ASSERT(StringEndsWith(journalPath, kJournalSuffix));
-
-    journalPath.Rebind(journalStart,
-                       journalPath.Length() - kJournalSuffix.Length());
-    MOZ_ASSERT(!journalPath.IsEmpty());
-
-    // Make sure that the database name is a substring of the journal name.
-    MOZ_ASSERT(journalPath == dbPath);
-  }
-#endif
-
-  // Now we're either at the end of the key/value URI pairs or we're at the
-  // end of the database path. Carefully walk backwards one character at a
-  // time to do this safely without running past the beginning of the database
-  // path.
-  const char *const dbPathStart = dbPath.BeginReading();
-  const char *dbPathCursor = dbPath.EndReading() - 1;
-  bool isDBPath = true;
-
-  while (true) {
-    MOZ_ASSERT(*dbPathCursor, "dbPathCursor should never see a null char!");
-
-    if (isDBPath) {
-      isDBPath =
-          dbPathStart <= dbPathCursor && *dbPathCursor == *cursor && *cursor;
-    }
-
-    if (!isDBPath) {
-      // This isn't the database path so it must be a value. Scan past it and
-      // the key also.
-      for (size_t stringCount = 0; stringCount < 2; stringCount++) {
-        // Scan past the string to the preceding null character.
-        while (*cursor) {
-          cursor--;
-        }
-
-        // Back up one more char to the last char of preceding string.
-        cursor--;
-      }
-
-      // Reset and start again.
-      dbPathCursor = dbPath.EndReading() - 1;
-      isDBPath = true;
-
-      continue;
-    }
-
-    MOZ_ASSERT(isDBPath);
-    MOZ_ASSERT(*cursor);
-
-    if (dbPathStart == dbPathCursor) {
-      // Found the full database path, we're all done.
-      MOZ_ASSERT(nsDependentCString(cursor) == dbPath);
-      return cursor;
-    }
-
-    // Change the cursors and go through the loop again.
-    cursor--;
-    dbPathCursor--;
-  }
-
-  MOZ_CRASH("Should never get here!");
-}
-
-already_AddRefed<QuotaObject> GetQuotaObjectFromNameAndParameters(
-    const char *zName, const char *zURIParameterKey) {
+already_AddRefed<QuotaObject> GetQuotaObjectFromName(const char* zName) {
   MOZ_ASSERT(zName);
-  MOZ_ASSERT(zURIParameterKey);
 
-  const char *persistenceType =
-      sqlite3_uri_parameter(zURIParameterKey, "persistenceType");
-  if (!persistenceType) {
+  const char* directoryLockIdParam =
+      sqlite3_uri_parameter(zName, "directoryLockId");
+  if (!directoryLockIdParam) {
     return nullptr;
   }
 
-  const char *group = sqlite3_uri_parameter(zURIParameterKey, "group");
-  if (!group) {
-    NS_WARNING("SQLite URI had 'persistenceType' but not 'group'?!");
-    return nullptr;
-  }
+  nsresult rv;
+  const int64_t directoryLockId =
+      nsDependentCString(directoryLockIdParam).ToInteger64(&rv);
+  MOZ_RELEASE_ASSERT(NS_SUCCEEDED(rv));
 
-  const char *origin = sqlite3_uri_parameter(zURIParameterKey, "origin");
-  if (!origin) {
-    NS_WARNING(
-        "SQLite URI had 'persistenceType' and 'group' but not "
-        "'origin'?!");
-    return nullptr;
-  }
-
-  QuotaManager *quotaManager = QuotaManager::Get();
+  QuotaManager* quotaManager = QuotaManager::Get();
   MOZ_ASSERT(quotaManager);
 
-  return quotaManager->GetQuotaObject(
-      PersistenceTypeFromText(nsDependentCString(persistenceType)),
-      nsDependentCString(group), nsDependentCString(origin),
-      NS_ConvertUTF8toUTF16(zName));
+  return quotaManager->GetQuotaObject(directoryLockId,
+                                      NS_ConvertUTF8toUTF16(zName));
 }
 
-void MaybeEstablishQuotaControl(const char *zName, telemetry_file *pFile,
+void MaybeEstablishQuotaControl(const char* zName, telemetry_file* pFile,
                                 int flags) {
   MOZ_ASSERT(pFile);
   MOZ_ASSERT(!pFile->quotaObject);
@@ -335,23 +183,14 @@ void MaybeEstablishQuotaControl(const char *zName, telemetry_file *pFile,
   if (!(flags & (SQLITE_OPEN_URI | SQLITE_OPEN_WAL))) {
     return;
   }
-
-  MOZ_ASSERT(zName);
-
-  const char *zURIParameterKey =
-      (flags & SQLITE_OPEN_WAL) ? DatabasePathFromWALPath(zName) : zName;
-
-  MOZ_ASSERT(zURIParameterKey);
-
-  pFile->quotaObject =
-      GetQuotaObjectFromNameAndParameters(zName, zURIParameterKey);
+  pFile->quotaObject = GetQuotaObjectFromName(zName);
 }
 
 /*
 ** Close a telemetry_file.
 */
-int xClose(sqlite3_file *pFile) {
-  telemetry_file *p = (telemetry_file *)pFile;
+int xClose(sqlite3_file* pFile) {
+  telemetry_file* p = (telemetry_file*)pFile;
   int rc;
   {  // Scope for IOThreadAutoTimer
     IOThreadAutoTimer ioTimer(IOInterposeObserver::OpClose);
@@ -372,8 +211,8 @@ int xClose(sqlite3_file *pFile) {
 /*
 ** Read data from a telemetry_file.
 */
-int xRead(sqlite3_file *pFile, void *zBuf, int iAmt, sqlite_int64 iOfst) {
-  telemetry_file *p = (telemetry_file *)pFile;
+int xRead(sqlite3_file* pFile, void* zBuf, int iAmt, sqlite_int64 iOfst) {
+  telemetry_file* p = (telemetry_file*)pFile;
   IOThreadAutoTimer ioTimer(p->histograms->readMS, IOInterposeObserver::OpRead);
   int rc;
   rc = p->pReal->pMethods->xRead(p->pReal, zBuf, iAmt, iOfst);
@@ -389,9 +228,9 @@ int xRead(sqlite3_file *pFile, void *zBuf, int iAmt, sqlite_int64 iOfst) {
 /*
 ** Return the current file-size of a telemetry_file.
 */
-int xFileSize(sqlite3_file *pFile, sqlite_int64 *pSize) {
+int xFileSize(sqlite3_file* pFile, sqlite_int64* pSize) {
   IOThreadAutoTimer ioTimer(IOInterposeObserver::OpStat);
-  telemetry_file *p = (telemetry_file *)pFile;
+  telemetry_file* p = (telemetry_file*)pFile;
   int rc;
   rc = p->pReal->pMethods->xFileSize(p->pReal, pSize);
   return rc;
@@ -400,9 +239,9 @@ int xFileSize(sqlite3_file *pFile, sqlite_int64 *pSize) {
 /*
 ** Write data to a telemetry_file.
 */
-int xWrite(sqlite3_file *pFile, const void *zBuf, int iAmt,
+int xWrite(sqlite3_file* pFile, const void* zBuf, int iAmt,
            sqlite_int64 iOfst) {
-  telemetry_file *p = (telemetry_file *)pFile;
+  telemetry_file* p = (telemetry_file*)pFile;
   IOThreadAutoTimer ioTimer(p->histograms->writeMS,
                             IOInterposeObserver::OpWrite);
   int rc;
@@ -424,7 +263,9 @@ int xWrite(sqlite3_file *pFile, const void *zBuf, int iAmt,
         "update its current size...");
     sqlite_int64 currentSize;
     if (xFileSize(pFile, &currentSize) == SQLITE_OK) {
-      p->quotaObject->MaybeUpdateSize(currentSize, /* aTruncate */ true);
+      DebugOnly<bool> res =
+          p->quotaObject->MaybeUpdateSize(currentSize, /* aTruncate */ true);
+      MOZ_ASSERT(res);
     }
   }
   return rc;
@@ -433,9 +274,9 @@ int xWrite(sqlite3_file *pFile, const void *zBuf, int iAmt,
 /*
 ** Truncate a telemetry_file.
 */
-int xTruncate(sqlite3_file *pFile, sqlite_int64 size) {
+int xTruncate(sqlite3_file* pFile, sqlite_int64 size) {
   IOThreadAutoTimer ioTimer(Telemetry::MOZ_SQLITE_TRUNCATE_MS);
-  telemetry_file *p = (telemetry_file *)pFile;
+  telemetry_file* p = (telemetry_file*)pFile;
   int rc;
   Telemetry::AutoTimer<Telemetry::MOZ_SQLITE_TRUNCATE_MS> timer;
   if (p->quotaObject) {
@@ -463,7 +304,9 @@ int xTruncate(sqlite3_file *pFile, sqlite_int64 size) {
           "xTruncate failed on a quota-controlled file, attempting to "
           "update its current size...");
       if (xFileSize(pFile, &size) == SQLITE_OK) {
-        p->quotaObject->MaybeUpdateSize(size, /* aTruncate */ true);
+        DebugOnly<bool> res =
+            p->quotaObject->MaybeUpdateSize(size, /* aTruncate */ true);
+        MOZ_ASSERT(res);
       }
     }
   }
@@ -473,8 +316,8 @@ int xTruncate(sqlite3_file *pFile, sqlite_int64 size) {
 /*
 ** Sync a telemetry_file.
 */
-int xSync(sqlite3_file *pFile, int flags) {
-  telemetry_file *p = (telemetry_file *)pFile;
+int xSync(sqlite3_file* pFile, int flags) {
+  telemetry_file* p = (telemetry_file*)pFile;
   IOThreadAutoTimer ioTimer(p->histograms->syncMS,
                             IOInterposeObserver::OpFSync);
   return p->pReal->pMethods->xSync(p->pReal, flags);
@@ -483,8 +326,8 @@ int xSync(sqlite3_file *pFile, int flags) {
 /*
 ** Lock a telemetry_file.
 */
-int xLock(sqlite3_file *pFile, int eLock) {
-  telemetry_file *p = (telemetry_file *)pFile;
+int xLock(sqlite3_file* pFile, int eLock) {
+  telemetry_file* p = (telemetry_file*)pFile;
   int rc;
   rc = p->pReal->pMethods->xLock(p->pReal, eLock);
   return rc;
@@ -493,8 +336,8 @@ int xLock(sqlite3_file *pFile, int eLock) {
 /*
 ** Unlock a telemetry_file.
 */
-int xUnlock(sqlite3_file *pFile, int eLock) {
-  telemetry_file *p = (telemetry_file *)pFile;
+int xUnlock(sqlite3_file* pFile, int eLock) {
+  telemetry_file* p = (telemetry_file*)pFile;
   int rc;
   rc = p->pReal->pMethods->xUnlock(p->pReal, eLock);
   return rc;
@@ -503,8 +346,8 @@ int xUnlock(sqlite3_file *pFile, int eLock) {
 /*
 ** Check if another file-handle holds a RESERVED lock on a telemetry_file.
 */
-int xCheckReservedLock(sqlite3_file *pFile, int *pResOut) {
-  telemetry_file *p = (telemetry_file *)pFile;
+int xCheckReservedLock(sqlite3_file* pFile, int* pResOut) {
+  telemetry_file* p = (telemetry_file*)pFile;
   int rc = p->pReal->pMethods->xCheckReservedLock(p->pReal, pResOut);
   return rc;
 }
@@ -512,13 +355,13 @@ int xCheckReservedLock(sqlite3_file *pFile, int *pResOut) {
 /*
 ** File control method. For custom operations on a telemetry_file.
 */
-int xFileControl(sqlite3_file *pFile, int op, void *pArg) {
-  telemetry_file *p = (telemetry_file *)pFile;
+int xFileControl(sqlite3_file* pFile, int op, void* pArg) {
+  telemetry_file* p = (telemetry_file*)pFile;
   int rc;
   // Hook SQLITE_FCNTL_SIZE_HINT for quota-controlled files and do the necessary
   // work before passing to the SQLite VFS.
   if (op == SQLITE_FCNTL_SIZE_HINT && p->quotaObject) {
-    sqlite3_int64 hintSize = *static_cast<sqlite3_int64 *>(pArg);
+    sqlite3_int64 hintSize = *static_cast<sqlite3_int64*>(pArg);
     sqlite3_int64 currentSize;
     rc = xFileSize(pFile, &currentSize);
     if (rc != SQLITE_OK) {
@@ -534,11 +377,11 @@ int xFileControl(sqlite3_file *pFile, int op, void *pArg) {
   rc = p->pReal->pMethods->xFileControl(p->pReal, op, pArg);
   // Grab the file chunk size after the SQLite VFS has approved.
   if (op == SQLITE_FCNTL_CHUNK_SIZE && rc == SQLITE_OK) {
-    p->fileChunkSize = *static_cast<int *>(pArg);
+    p->fileChunkSize = *static_cast<int*>(pArg);
   }
 #ifdef DEBUG
   if (op == SQLITE_FCNTL_SIZE_HINT && p->quotaObject && rc == SQLITE_OK) {
-    sqlite3_int64 hintSize = *static_cast<sqlite3_int64 *>(pArg);
+    sqlite3_int64 hintSize = *static_cast<sqlite3_int64*>(pArg);
     if (p->fileChunkSize > 0) {
       hintSize = ((hintSize + p->fileChunkSize - 1) / p->fileChunkSize) *
                  p->fileChunkSize;
@@ -554,8 +397,8 @@ int xFileControl(sqlite3_file *pFile, int op, void *pArg) {
 /*
 ** Return the sector-size in bytes for a telemetry_file.
 */
-int xSectorSize(sqlite3_file *pFile) {
-  telemetry_file *p = (telemetry_file *)pFile;
+int xSectorSize(sqlite3_file* pFile) {
+  telemetry_file* p = (telemetry_file*)pFile;
   int rc;
   rc = p->pReal->pMethods->xSectorSize(p->pReal);
   return rc;
@@ -564,8 +407,8 @@ int xSectorSize(sqlite3_file *pFile) {
 /*
 ** Return the device characteristic flags supported by a telemetry_file.
 */
-int xDeviceCharacteristics(sqlite3_file *pFile) {
-  telemetry_file *p = (telemetry_file *)pFile;
+int xDeviceCharacteristics(sqlite3_file* pFile) {
+  telemetry_file* p = (telemetry_file*)pFile;
   int rc;
   rc = p->pReal->pMethods->xDeviceCharacteristics(p->pReal);
   return rc;
@@ -574,59 +417,59 @@ int xDeviceCharacteristics(sqlite3_file *pFile) {
 /*
 ** Shared-memory operations.
 */
-int xShmLock(sqlite3_file *pFile, int ofst, int n, int flags) {
-  telemetry_file *p = (telemetry_file *)pFile;
+int xShmLock(sqlite3_file* pFile, int ofst, int n, int flags) {
+  telemetry_file* p = (telemetry_file*)pFile;
   return p->pReal->pMethods->xShmLock(p->pReal, ofst, n, flags);
 }
 
-int xShmMap(sqlite3_file *pFile, int iRegion, int szRegion, int isWrite,
-            void volatile **pp) {
-  telemetry_file *p = (telemetry_file *)pFile;
+int xShmMap(sqlite3_file* pFile, int iRegion, int szRegion, int isWrite,
+            void volatile** pp) {
+  telemetry_file* p = (telemetry_file*)pFile;
   int rc;
   rc = p->pReal->pMethods->xShmMap(p->pReal, iRegion, szRegion, isWrite, pp);
   return rc;
 }
 
-void xShmBarrier(sqlite3_file *pFile) {
-  telemetry_file *p = (telemetry_file *)pFile;
+void xShmBarrier(sqlite3_file* pFile) {
+  telemetry_file* p = (telemetry_file*)pFile;
   p->pReal->pMethods->xShmBarrier(p->pReal);
 }
 
-int xShmUnmap(sqlite3_file *pFile, int delFlag) {
-  telemetry_file *p = (telemetry_file *)pFile;
+int xShmUnmap(sqlite3_file* pFile, int delFlag) {
+  telemetry_file* p = (telemetry_file*)pFile;
   int rc;
   rc = p->pReal->pMethods->xShmUnmap(p->pReal, delFlag);
   return rc;
 }
 
-int xFetch(sqlite3_file *pFile, sqlite3_int64 iOff, int iAmt, void **pp) {
-  telemetry_file *p = (telemetry_file *)pFile;
+int xFetch(sqlite3_file* pFile, sqlite3_int64 iOff, int iAmt, void** pp) {
+  telemetry_file* p = (telemetry_file*)pFile;
   MOZ_ASSERT(p->pReal->pMethods->iVersion >= 3);
   return p->pReal->pMethods->xFetch(p->pReal, iOff, iAmt, pp);
 }
 
-int xUnfetch(sqlite3_file *pFile, sqlite3_int64 iOff, void *pResOut) {
-  telemetry_file *p = (telemetry_file *)pFile;
+int xUnfetch(sqlite3_file* pFile, sqlite3_int64 iOff, void* pResOut) {
+  telemetry_file* p = (telemetry_file*)pFile;
   MOZ_ASSERT(p->pReal->pMethods->iVersion >= 3);
   return p->pReal->pMethods->xUnfetch(p->pReal, iOff, pResOut);
 }
 
-int xOpen(sqlite3_vfs *vfs, const char *zName, sqlite3_file *pFile, int flags,
-          int *pOutFlags) {
+int xOpen(sqlite3_vfs* vfs, const char* zName, sqlite3_file* pFile, int flags,
+          int* pOutFlags) {
   IOThreadAutoTimer ioTimer(Telemetry::MOZ_SQLITE_OPEN_MS,
                             IOInterposeObserver::OpCreateOrOpen);
   Telemetry::AutoTimer<Telemetry::MOZ_SQLITE_OPEN_MS> timer;
-  sqlite3_vfs *orig_vfs = static_cast<sqlite3_vfs *>(vfs->pAppData);
+  sqlite3_vfs* orig_vfs = static_cast<sqlite3_vfs*>(vfs->pAppData);
   int rc;
-  telemetry_file *p = (telemetry_file *)pFile;
-  Histograms *h = nullptr;
+  telemetry_file* p = (telemetry_file*)pFile;
+  Histograms* h = nullptr;
   // check if the filename is one we are probing for
   for (size_t i = 0; i < sizeof(gHistograms) / sizeof(gHistograms[0]); i++) {
     h = &gHistograms[i];
     // last probe is the fallback probe
     if (!h->name) break;
     if (!zName) continue;
-    const char *match = strstr(zName, h->name);
+    const char* match = strstr(zName, h->name);
     if (!match) continue;
     char c = match[strlen(h->name)];
     // include -wal/-journal too
@@ -649,8 +492,8 @@ int xOpen(sqlite3_vfs *vfs, const char *zName, sqlite3_file *pFile, int flags,
   }
 
   if (p->pReal->pMethods) {
-    sqlite3_io_methods *pNew = new sqlite3_io_methods;
-    const sqlite3_io_methods *pSub = p->pReal->pMethods;
+    sqlite3_io_methods* pNew = new sqlite3_io_methods;
+    const sqlite3_io_methods* pSub = p->pReal->pMethods;
     memset(pNew, 0, sizeof(*pNew));
     // If the io_methods version is higher than the last known one, you should
     // update this VFS adding appropriate IO methods for any methods added in
@@ -691,16 +534,13 @@ int xOpen(sqlite3_vfs *vfs, const char *zName, sqlite3_file *pFile, int flags,
   return rc;
 }
 
-int xDelete(sqlite3_vfs *vfs, const char *zName, int syncDir) {
-  sqlite3_vfs *orig_vfs = static_cast<sqlite3_vfs *>(vfs->pAppData);
+int xDelete(sqlite3_vfs* vfs, const char* zName, int syncDir) {
+  sqlite3_vfs* orig_vfs = static_cast<sqlite3_vfs*>(vfs->pAppData);
   int rc;
   RefPtr<QuotaObject> quotaObject;
 
-  if (StringEndsWith(nsDependentCString(zName), NS_LITERAL_CSTRING("-wal"))) {
-    const char *zURIParameterKey = DatabasePathFromWALPath(zName);
-    MOZ_ASSERT(zURIParameterKey);
-
-    quotaObject = GetQuotaObjectFromNameAndParameters(zName, zURIParameterKey);
+  if (StringEndsWith(nsDependentCString(zName), "-wal"_ns)) {
+    quotaObject = GetQuotaObjectFromName(zName);
   }
 
   rc = orig_vfs->xDelete(orig_vfs, zName, syncDir);
@@ -711,74 +551,111 @@ int xDelete(sqlite3_vfs *vfs, const char *zName, int syncDir) {
   return rc;
 }
 
-int xAccess(sqlite3_vfs *vfs, const char *zName, int flags, int *pResOut) {
-  sqlite3_vfs *orig_vfs = static_cast<sqlite3_vfs *>(vfs->pAppData);
+int xAccess(sqlite3_vfs* vfs, const char* zName, int flags, int* pResOut) {
+  sqlite3_vfs* orig_vfs = static_cast<sqlite3_vfs*>(vfs->pAppData);
   return orig_vfs->xAccess(orig_vfs, zName, flags, pResOut);
 }
 
-int xFullPathname(sqlite3_vfs *vfs, const char *zName, int nOut, char *zOut) {
-  sqlite3_vfs *orig_vfs = static_cast<sqlite3_vfs *>(vfs->pAppData);
+int xFullPathname(sqlite3_vfs* vfs, const char* zName, int nOut, char* zOut) {
+#if defined(XP_WIN)
+  // SQLite uses GetFullPathnameW which also normailizes file path. If a file
+  // component ends with a dot, it would be removed. However, it's not desired.
+  //
+  // And that would result SQLite uses wrong database and quotaObject.
+  // Note that we are safe to avoid the GetFullPathnameW call for \\?\ prefixed
+  // paths.
+  // And note that this hack will be removed once the issue is fixed directly in
+  // SQLite.
+
+  // zName that starts with "//?/" is the case when a file URI was passed and
+  // zName that starts with "\\?\" is the case when a normal path was passed
+  // (not file URI).
+  if (StaticPrefs::dom_quotaManager_overrideXFullPathname() &&
+      ((zName[0] == '/' && zName[1] == '/' && zName[2] == '?' &&
+        zName[3] == '/') ||
+       (zName[0] == '\\' && zName[1] == '\\' && zName[2] == '?' &&
+        zName[3] == '\\'))) {
+    MOZ_ASSERT(nOut >= vfs->mxPathname);
+    MOZ_ASSERT(nOut > strlen(zName));
+
+    size_t index = 0;
+    while (zName[index] != '\0') {
+      if (zName[index] == '/') {
+        zOut[index] = '\\';
+      } else {
+        zOut[index] = zName[index];
+      }
+
+      index++;
+    }
+    zOut[index] = '\0';
+
+    return SQLITE_OK;
+  }
+#endif
+
+  sqlite3_vfs* orig_vfs = static_cast<sqlite3_vfs*>(vfs->pAppData);
   return orig_vfs->xFullPathname(orig_vfs, zName, nOut, zOut);
 }
 
-void *xDlOpen(sqlite3_vfs *vfs, const char *zFilename) {
-  sqlite3_vfs *orig_vfs = static_cast<sqlite3_vfs *>(vfs->pAppData);
+void* xDlOpen(sqlite3_vfs* vfs, const char* zFilename) {
+  sqlite3_vfs* orig_vfs = static_cast<sqlite3_vfs*>(vfs->pAppData);
   return orig_vfs->xDlOpen(orig_vfs, zFilename);
 }
 
-void xDlError(sqlite3_vfs *vfs, int nByte, char *zErrMsg) {
-  sqlite3_vfs *orig_vfs = static_cast<sqlite3_vfs *>(vfs->pAppData);
+void xDlError(sqlite3_vfs* vfs, int nByte, char* zErrMsg) {
+  sqlite3_vfs* orig_vfs = static_cast<sqlite3_vfs*>(vfs->pAppData);
   orig_vfs->xDlError(orig_vfs, nByte, zErrMsg);
 }
 
-void (*xDlSym(sqlite3_vfs *vfs, void *pHdle, const char *zSym))(void) {
-  sqlite3_vfs *orig_vfs = static_cast<sqlite3_vfs *>(vfs->pAppData);
+void (*xDlSym(sqlite3_vfs* vfs, void* pHdle, const char* zSym))(void) {
+  sqlite3_vfs* orig_vfs = static_cast<sqlite3_vfs*>(vfs->pAppData);
   return orig_vfs->xDlSym(orig_vfs, pHdle, zSym);
 }
 
-void xDlClose(sqlite3_vfs *vfs, void *pHandle) {
-  sqlite3_vfs *orig_vfs = static_cast<sqlite3_vfs *>(vfs->pAppData);
+void xDlClose(sqlite3_vfs* vfs, void* pHandle) {
+  sqlite3_vfs* orig_vfs = static_cast<sqlite3_vfs*>(vfs->pAppData);
   orig_vfs->xDlClose(orig_vfs, pHandle);
 }
 
-int xRandomness(sqlite3_vfs *vfs, int nByte, char *zOut) {
-  sqlite3_vfs *orig_vfs = static_cast<sqlite3_vfs *>(vfs->pAppData);
+int xRandomness(sqlite3_vfs* vfs, int nByte, char* zOut) {
+  sqlite3_vfs* orig_vfs = static_cast<sqlite3_vfs*>(vfs->pAppData);
   return orig_vfs->xRandomness(orig_vfs, nByte, zOut);
 }
 
-int xSleep(sqlite3_vfs *vfs, int microseconds) {
-  sqlite3_vfs *orig_vfs = static_cast<sqlite3_vfs *>(vfs->pAppData);
+int xSleep(sqlite3_vfs* vfs, int microseconds) {
+  sqlite3_vfs* orig_vfs = static_cast<sqlite3_vfs*>(vfs->pAppData);
   return orig_vfs->xSleep(orig_vfs, microseconds);
 }
 
-int xCurrentTime(sqlite3_vfs *vfs, double *prNow) {
-  sqlite3_vfs *orig_vfs = static_cast<sqlite3_vfs *>(vfs->pAppData);
+int xCurrentTime(sqlite3_vfs* vfs, double* prNow) {
+  sqlite3_vfs* orig_vfs = static_cast<sqlite3_vfs*>(vfs->pAppData);
   return orig_vfs->xCurrentTime(orig_vfs, prNow);
 }
 
-int xGetLastError(sqlite3_vfs *vfs, int nBuf, char *zBuf) {
-  sqlite3_vfs *orig_vfs = static_cast<sqlite3_vfs *>(vfs->pAppData);
+int xGetLastError(sqlite3_vfs* vfs, int nBuf, char* zBuf) {
+  sqlite3_vfs* orig_vfs = static_cast<sqlite3_vfs*>(vfs->pAppData);
   return orig_vfs->xGetLastError(orig_vfs, nBuf, zBuf);
 }
 
-int xCurrentTimeInt64(sqlite3_vfs *vfs, sqlite3_int64 *piNow) {
-  sqlite3_vfs *orig_vfs = static_cast<sqlite3_vfs *>(vfs->pAppData);
+int xCurrentTimeInt64(sqlite3_vfs* vfs, sqlite3_int64* piNow) {
+  sqlite3_vfs* orig_vfs = static_cast<sqlite3_vfs*>(vfs->pAppData);
   return orig_vfs->xCurrentTimeInt64(orig_vfs, piNow);
 }
 
-static int xSetSystemCall(sqlite3_vfs *vfs, const char *zName,
+static int xSetSystemCall(sqlite3_vfs* vfs, const char* zName,
                           sqlite3_syscall_ptr pFunc) {
-  sqlite3_vfs *orig_vfs = static_cast<sqlite3_vfs *>(vfs->pAppData);
+  sqlite3_vfs* orig_vfs = static_cast<sqlite3_vfs*>(vfs->pAppData);
   return orig_vfs->xSetSystemCall(orig_vfs, zName, pFunc);
 }
 
-static sqlite3_syscall_ptr xGetSystemCall(sqlite3_vfs *vfs, const char *zName) {
-  sqlite3_vfs *orig_vfs = static_cast<sqlite3_vfs *>(vfs->pAppData);
+static sqlite3_syscall_ptr xGetSystemCall(sqlite3_vfs* vfs, const char* zName) {
+  sqlite3_vfs* orig_vfs = static_cast<sqlite3_vfs*>(vfs->pAppData);
   return orig_vfs->xGetSystemCall(orig_vfs, zName);
 }
 
-static const char *xNextSystemCall(sqlite3_vfs *vfs, const char *zName) {
-  sqlite3_vfs *orig_vfs = static_cast<sqlite3_vfs *>(vfs->pAppData);
+static const char* xNextSystemCall(sqlite3_vfs* vfs, const char* zName) {
+  sqlite3_vfs* orig_vfs = static_cast<sqlite3_vfs*>(vfs->pAppData);
   return orig_vfs->xNextSystemCall(orig_vfs, zName);
 }
 
@@ -787,20 +664,22 @@ static const char *xNextSystemCall(sqlite3_vfs *vfs, const char *zName) {
 namespace mozilla {
 namespace storage {
 
-const char *GetVFSName() { return "telemetry-vfs"; }
+const char* GetTelemetryVFSName(bool exclusive) {
+  return exclusive ? "telemetry-vfs-excl" : "telemetry-vfs";
+}
 
-sqlite3_vfs *ConstructTelemetryVFS() {
+UniquePtr<sqlite3_vfs> ConstructTelemetryVFS(bool exclusive) {
 #if defined(XP_WIN)
-#define EXPECTED_VFS "win32"
-#define EXPECTED_VFS_EXCL "win32"
+#  define EXPECTED_VFS "win32"
+#  define EXPECTED_VFS_EXCL "win32"
 #else
-#define EXPECTED_VFS "unix"
-#define EXPECTED_VFS_EXCL "unix-excl"
+#  define EXPECTED_VFS "unix"
+#  define EXPECTED_VFS_EXCL "unix-excl"
 #endif
 
   bool expected_vfs;
-  sqlite3_vfs *vfs;
-  if (Preferences::GetBool(PREF_MULTI_PROCESS_ACCESS, false)) {
+  sqlite3_vfs* vfs;
+  if (!exclusive) {
     // Use the non-exclusive VFS.
     vfs = sqlite3_vfs_find(nullptr);
     expected_vfs = vfs->zName && !strcmp(vfs->zName, EXPECTED_VFS);
@@ -812,8 +691,8 @@ sqlite3_vfs *ConstructTelemetryVFS() {
     return nullptr;
   }
 
-  sqlite3_vfs *tvfs = new ::sqlite3_vfs;
-  memset(tvfs, 0, sizeof(::sqlite3_vfs));
+  auto tvfs = MakeUnique<::sqlite3_vfs>();
+  memset(tvfs.get(), 0, sizeof(::sqlite3_vfs));
   // If the VFS version is higher than the last known one, you should update
   // this VFS adding appropriate methods for any methods added in the version
   // change.
@@ -822,7 +701,7 @@ sqlite3_vfs *ConstructTelemetryVFS() {
   tvfs->szOsFile =
       sizeof(telemetry_file) - sizeof(sqlite3_file) + vfs->szOsFile;
   tvfs->mxPathname = vfs->mxPathname;
-  tvfs->zName = GetVFSName();
+  tvfs->zName = GetTelemetryVFSName(exclusive);
   tvfs->pAppData = vfs;
   tvfs->xOpen = xOpen;
   tvfs->xDelete = xDelete;
@@ -849,10 +728,10 @@ sqlite3_vfs *ConstructTelemetryVFS() {
   return tvfs;
 }
 
-already_AddRefed<QuotaObject> GetQuotaObjectForFile(sqlite3_file *pFile) {
+already_AddRefed<QuotaObject> GetQuotaObjectForFile(sqlite3_file* pFile) {
   MOZ_ASSERT(pFile);
 
-  telemetry_file *p = (telemetry_file *)pFile;
+  telemetry_file* p = (telemetry_file*)pFile;
   RefPtr<QuotaObject> result = p->quotaObject;
   return result.forget();
 }

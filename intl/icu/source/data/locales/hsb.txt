@@ -10,10 +10,10 @@ hsb{
         " z ž]"
     }
     ExemplarCharactersIndex{"[A B C Č Ć D {DŹ} E F G H {CH} I J K Ł L M N O P Q R S Š T U V W X Y Z Ž]"}
-    ExemplarCharactersNumbers{"[\\- , . % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
+    ExemplarCharactersNumbers{"[\\- ‑ , . % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
     ExemplarCharactersPunctuation{
-        "[\\- ‐ – — , ; \\: ! ? . … ' ‘ ’ ‚ \u0022 “ „ « » ( ) \\[ \\] \\{ \\} § @ * "
-        "/ \\& #]"
+        "[\\- ‐ ‑ – — , ; \\: ! ? . … ' ‘ ’ ‚ \u0022 “ „ « » ( ) \\[ \\] \\{ \\} § @ "
+        "* / \\& #]"
     }
     NumberElements{
         latn{
@@ -196,7 +196,7 @@ hsb{
         }
         minimumGroupingDigits{"1"}
     }
-    Version{"2.1.41.34"}
+    Version{"37"}
     calendar{
         generic{
             DateTimePatterns{
@@ -351,7 +351,10 @@ hsb{
                 MEd{"E, d.M."}
                 MMM{"LLL"}
                 MMMEd{"E, d. MMM"}
+                MMMMd{"d. MMMM"}
                 MMMd{"d. MMM"}
+                MMd{"d. MM"}
+                MMdd{"dd. MM"}
                 Md{"d.M."}
                 d{"d"}
                 h{"h a"}
@@ -361,9 +364,12 @@ hsb{
                 y{"y"}
                 yM{"M.y"}
                 yMEd{"E, d.M.y"}
+                yMM{"MM y"}
                 yMMM{"MMM y"}
                 yMMMEd{"E, d. MMM y"}
+                yMMMM{"MMMM y"}
                 yMMMd{"d. MMM y"}
+                yMMdd{"dd. MM y"}
                 yMd{"d.M.y"}
                 yQQQ{"QQQ y"}
                 yQQQQ{"QQQQ y"}

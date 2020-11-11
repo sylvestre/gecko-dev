@@ -4,14 +4,25 @@
 
 "use strict";
 
-const { createFactory, PureComponent } = require("devtools/client/shared/vendor/react");
+const {
+  createFactory,
+  PureComponent,
+} = require("devtools/client/shared/vendor/react");
 const dom = require("devtools/client/shared/vendor/react-dom-factories");
 const PropTypes = require("devtools/client/shared/vendor/react-prop-types");
 
-const CurrentTimeLabel = createFactory(require("./CurrentTimeLabel"));
-const PauseResumeButton = createFactory(require("./PauseResumeButton"));
-const PlaybackRateSelector = createFactory(require("./PlaybackRateSelector"));
-const RewindButton = createFactory(require("./RewindButton"));
+const CurrentTimeLabel = createFactory(
+  require("devtools/client/inspector/animation/components/CurrentTimeLabel")
+);
+const PauseResumeButton = createFactory(
+  require("devtools/client/inspector/animation/components/PauseResumeButton")
+);
+const PlaybackRateSelector = createFactory(
+  require("devtools/client/inspector/animation/components/PlaybackRateSelector")
+);
+const RewindButton = createFactory(
+  require("devtools/client/inspector/animation/components/RewindButton")
+);
 
 class AnimationToolbar extends PureComponent {
   static get propTypes() {
@@ -41,30 +52,22 @@ class AnimationToolbar extends PureComponent {
       {
         className: "animation-toolbar devtools-toolbar",
       },
-      RewindButton(
-        {
-          rewindAnimationsCurrentTime,
-        }
-      ),
-      PauseResumeButton(
-        {
-          animations,
-          setAnimationsPlayState,
-        }
-      ),
-      PlaybackRateSelector(
-        {
-          animations,
-          setAnimationsPlaybackRate,
-        }
-      ),
-      CurrentTimeLabel(
-        {
-          addAnimationsCurrentTimeListener,
-          removeAnimationsCurrentTimeListener,
-          timeScale,
-        }
-      )
+      RewindButton({
+        rewindAnimationsCurrentTime,
+      }),
+      PauseResumeButton({
+        animations,
+        setAnimationsPlayState,
+      }),
+      PlaybackRateSelector({
+        animations,
+        setAnimationsPlaybackRate,
+      }),
+      CurrentTimeLabel({
+        addAnimationsCurrentTimeListener,
+        removeAnimationsCurrentTimeListener,
+        timeScale,
+      })
     );
   }
 }

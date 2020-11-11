@@ -13,7 +13,9 @@
 #include "nsCOMPtr.h"
 #include "nscore.h"
 
+class nsIContentSecurityPolicy;
 class nsILoadInfo;
+class nsINode;
 class nsIPrincipal;
 class nsIRedirectHistoryEntry;
 
@@ -48,22 +50,25 @@ struct ParamTraits<mozilla::OriginAttributes>
 namespace mozilla {
 namespace net {
 class ChildLoadInfoForwarderArgs;
-class OptionalLoadInfoArgs;
+class LoadInfoArgs;
+class LoadInfo;
 class ParentLoadInfoForwarderArgs;
 class RedirectHistoryEntryInfo;
 }  // namespace net
 
 namespace ipc {
 
+class ContentSecurityPolicy;
+class CSPInfo;
 class PrincipalInfo;
 
 /**
  * Convert a PrincipalInfo to an nsIPrincipal.
  *
- * MUST be called on the main thread only.
+ * MUST be called on the main thread.
  */
-already_AddRefed<nsIPrincipal> PrincipalInfoToPrincipal(
-    const PrincipalInfo& aPrincipalInfo, nsresult* aOptionalResult = nullptr);
+Result<nsCOMPtr<nsIPrincipal>, nsresult> PrincipalInfoToPrincipal(
+    const PrincipalInfo& aPrincipalInfo);
 
 /**
  * Convert an nsIPrincipal to a PrincipalInfo.
@@ -71,13 +76,35 @@ already_AddRefed<nsIPrincipal> PrincipalInfoToPrincipal(
  * MUST be called on the main thread only.
  */
 nsresult PrincipalToPrincipalInfo(nsIPrincipal* aPrincipal,
-                                  PrincipalInfo* aPrincipalInfo);
+                                  PrincipalInfo* aPrincipalInfo,
+                                  bool aSkipBaseDomain = false);
+
+/**
+ * Convert a CSPInfo to an nsIContentSecurityPolicy.
+ *
+ * MUST be called on the main thread only.
+ *
+ * If possible, provide a requesting doc, so policy violation events can
+ * be dispatched correctly. If aRequestingDoc is null, then the CSPInfo holds
+ * the necessary fallback information, like a serialized requestPrincipal,
+ * to generate a valid nsIContentSecurityPolicy.
+ */
+already_AddRefed<nsIContentSecurityPolicy> CSPInfoToCSP(
+    const CSPInfo& aCSPInfo, mozilla::dom::Document* aRequestingDoc,
+    nsresult* aOptionalResult = nullptr);
+
+/**
+ * Convert an nsIContentSecurityPolicy to a CSPInfo.
+ *
+ * MUST be called on the main thread only.
+ */
+nsresult CSPToCSPInfo(nsIContentSecurityPolicy* aCSP, CSPInfo* aCSPInfo);
 
 /**
  * Return true if this PrincipalInfo is a content principal and it has
  * a privateBrowsing id in its OriginAttributes
  */
-bool IsPincipalInfoPrivate(const PrincipalInfo& aPrincipalInfo);
+bool IsPrincipalInfoPrivate(const PrincipalInfo& aPrincipalInfo);
 
 /**
  * Convert an RedirectHistoryEntryInfo to a nsIRedirectHistoryEntry.
@@ -99,14 +126,23 @@ nsresult RHEntryToRHEntryInfo(
  */
 nsresult LoadInfoToLoadInfoArgs(
     nsILoadInfo* aLoadInfo,
-    mozilla::net::OptionalLoadInfoArgs* outOptionalLoadInfoArgs);
+    Maybe<mozilla::net::LoadInfoArgs>* outOptionalLoadInfoArgs);
 
 /**
  * Convert LoadInfoArgs to a LoadInfo.
  */
 nsresult LoadInfoArgsToLoadInfo(
-    const mozilla::net::OptionalLoadInfoArgs& aOptionalLoadInfoArgs,
+    const Maybe<mozilla::net::LoadInfoArgs>& aOptionalLoadInfoArgs,
     nsILoadInfo** outLoadInfo);
+nsresult LoadInfoArgsToLoadInfo(
+    const Maybe<mozilla::net::LoadInfoArgs>& aOptionalLoadInfoArgs,
+    nsINode* aCspToInheritLoadingContext, nsILoadInfo** outLoadInfo);
+nsresult LoadInfoArgsToLoadInfo(
+    const Maybe<net::LoadInfoArgs>& aOptionalLoadInfoArgs,
+    mozilla::net::LoadInfo** outLoadInfo);
+nsresult LoadInfoArgsToLoadInfo(
+    const Maybe<net::LoadInfoArgs>& aOptionalLoadInfoArgs,
+    nsINode* aCspToInheritLoadingContext, mozilla::net::LoadInfo** outLoadInfo);
 
 /**
  * Fills ParentLoadInfoForwarderArgs with properties we want to carry to child

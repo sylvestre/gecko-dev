@@ -6,15 +6,17 @@
 
 var EXPORTED_SYMBOLS = ["GeckoViewChildModule"];
 
-ChromeUtils.import("resource://gre/modules/GeckoViewUtils.jsm");
+const { GeckoViewUtils } = ChromeUtils.import(
+  "resource://gre/modules/GeckoViewUtils.jsm"
+);
 
-GeckoViewUtils.initLogging("Module[C]", this);
+const { debug, warn } = GeckoViewUtils.initLogging("Module[C]");
 
 class GeckoViewChildModule {
   static initLogging(aModuleName) {
     this._moduleName = aModuleName;
     const tag = aModuleName.replace("GeckoView", "") + "[C]";
-    return GeckoViewUtils.initLogging(tag, {});
+    return GeckoViewUtils.initLogging(tag);
   }
 
   static create(aGlobal, aModuleName) {
@@ -25,28 +27,24 @@ class GeckoViewChildModule {
     this.moduleName = aModuleName;
     this.messageManager = aGlobal;
     this.enabled = false;
-    this.settings = {};
 
     if (!aGlobal._gvEventDispatcher) {
-      aGlobal._gvEventDispatcher =
-          GeckoViewUtils.getDispatcherForWindow(aGlobal.content);
-      aGlobal.addEventListener("unload", event => {
-        if (event.target === this.messageManager) {
-          aGlobal._gvEventDispatcher.finalize();
+      aGlobal._gvEventDispatcher = GeckoViewUtils.getDispatcherForWindow(
+        aGlobal.content
+      );
+      aGlobal.addEventListener(
+        "unload",
+        event => {
+          if (event.target === this.messageManager) {
+            aGlobal._gvEventDispatcher.finalize();
+          }
+        },
+        {
+          mozSystemGroup: true,
         }
-      }, {
-        mozSystemGroup: true,
-      });
+      );
     }
     this.eventDispatcher = aGlobal._gvEventDispatcher;
-
-    this.messageManager.addMessageListener(
-      "GeckoView:UpdateSettings",
-      aMsg => {
-        Object.assign(this.settings, aMsg.data);
-        this.onSettingsUpdate();
-      }
-    );
 
     this.messageManager.addMessageListener(
       "GeckoView:UpdateModuleState",
@@ -55,11 +53,7 @@ class GeckoViewChildModule {
           return;
         }
 
-        const {enabled, settings} = aMsg.data;
-
-        if (settings) {
-          Object.assign(this.settings, settings);
-        }
+        const { enabled } = aMsg.data;
 
         if (enabled !== this.enabled) {
           if (!enabled) {
@@ -71,10 +65,6 @@ class GeckoViewChildModule {
           if (enabled) {
             this.onEnable();
           }
-        }
-
-        if (settings) {
-          this.onSettingsUpdate();
         }
       }
     );
@@ -88,9 +78,6 @@ class GeckoViewChildModule {
 
   // Override to initialize module.
   onInit() {}
-
-  // Override to detect settings change. Access settings via this.settings.
-  onSettingsUpdate() {}
 
   // Override to enable module after setting a Java delegate.
   onEnable() {}

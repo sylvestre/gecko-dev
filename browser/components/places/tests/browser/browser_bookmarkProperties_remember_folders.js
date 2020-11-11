@@ -8,6 +8,7 @@
  * Tests that multiple tags can be added to a bookmark using the star-shaped button, the library and the sidebar.
  */
 
+StarUI._createPanelIfNeeded();
 const bookmarkPanel = document.getElementById("editBookmarkPanel");
 let folders;
 
@@ -16,9 +17,20 @@ async function openPopupAndSelectFolder(guid, newBookmark = false) {
 
   let notificationPromise;
   if (!newBookmark) {
-    notificationPromise = PlacesTestUtils.waitForNotification("onItemMoved",
-      (id, oldParentId, oldIndex, newParentId, newIndex, type,
-       itemGuid, oldParentGuid, newParentGuid) => guid == newParentGuid);
+    notificationPromise = PlacesTestUtils.waitForNotification(
+      "onItemMoved",
+      (
+        id,
+        oldParentId,
+        oldIndex,
+        newParentId,
+        newIndex,
+        type,
+        itemGuid,
+        oldParentGuid,
+        newParentGuid
+      ) => guid == newParentGuid
+    );
   }
 
   // Expand the folder tree.
@@ -32,22 +44,14 @@ async function openPopupAndSelectFolder(guid, newBookmark = false) {
 }
 
 async function assertRecentFolders(expectedGuids, msg) {
-  // Give the metadata chance to be written to the database before we attempt
-  // to open the dialog again.
-  let diskGuids = [];
-  await TestUtils.waitForCondition(async () => {
-    diskGuids = await PlacesUtils.metadata.get(PlacesUIUtils.LAST_USED_FOLDERS_META_KEY, []);
-    return diskGuids.length == expectedGuids.length;
-  }, `Should have written data to disk for: ${msg}`);
-
-  Assert.deepEqual(diskGuids, expectedGuids, `Should match the disk GUIDS for ${msg}`);
-
   await clickBookmarkStar();
 
   let actualGuids = [];
   function getGuids() {
     actualGuids = [];
-    const folderMenuPopup = document.getElementById("editBMPanel_folderMenuList").children[0];
+    const folderMenuPopup = document.getElementById(
+      "editBMPanel_folderMenuList"
+    ).menupopup;
 
     let separatorFound = false;
     // The list of folders goes from editBMPanel_foldersSeparator to the end.
@@ -70,6 +74,23 @@ async function assertRecentFolders(expectedGuids, msg) {
   Assert.deepEqual(actualGuids, expectedGuids, msg);
 
   await hideBookmarksPanel();
+
+  // Give the metadata chance to be written to the database before we attempt
+  // to open the dialog again.
+  let diskGuids = [];
+  await TestUtils.waitForCondition(async () => {
+    diskGuids = await PlacesUtils.metadata.get(
+      PlacesUIUtils.LAST_USED_FOLDERS_META_KEY,
+      []
+    );
+    return diskGuids.length == expectedGuids.length;
+  }, `Should have written data to disk for: ${msg}`);
+
+  Assert.deepEqual(
+    diskGuids,
+    expectedGuids,
+    `Should match the disk GUIDS for ${msg}`
+  );
 }
 
 add_task(async function setup() {
@@ -90,25 +111,40 @@ add_task(async function setup() {
 
   folders = await PlacesUtils.bookmarks.insertTree({
     guid: PlacesUtils.bookmarks.unfiledGuid,
-    children: [{
-      title: "Bob",
-      type: PlacesUtils.bookmarks.TYPE_FOLDER,
-    }, {
-      title: "Place",
-      type: PlacesUtils.bookmarks.TYPE_FOLDER,
-    }, {
-      title: "Delight",
-      type: PlacesUtils.bookmarks.TYPE_FOLDER,
-    }, {
-      title: "Surprise",
-      type: PlacesUtils.bookmarks.TYPE_FOLDER,
-    }, {
-      title: "Treble Bob",
-      type: PlacesUtils.bookmarks.TYPE_FOLDER,
-    }, {
-      title: "Principal",
-      type: PlacesUtils.bookmarks.TYPE_FOLDER,
-    }],
+    children: [
+      {
+        title: "Bob",
+        type: PlacesUtils.bookmarks.TYPE_FOLDER,
+      },
+      {
+        title: "Place",
+        type: PlacesUtils.bookmarks.TYPE_FOLDER,
+      },
+      {
+        title: "Delight",
+        type: PlacesUtils.bookmarks.TYPE_FOLDER,
+      },
+      {
+        title: "Surprise",
+        type: PlacesUtils.bookmarks.TYPE_FOLDER,
+      },
+      {
+        title: "Treble Bob",
+        type: PlacesUtils.bookmarks.TYPE_FOLDER,
+      },
+      {
+        title: "Principal",
+        type: PlacesUtils.bookmarks.TYPE_FOLDER,
+      },
+      {
+        title: "Max Default Recent Folders",
+        type: PlacesUtils.bookmarks.TYPE_FOLDER,
+      },
+      {
+        title: "One Over Default Maximum Recent Folders",
+        type: PlacesUtils.bookmarks.TYPE_FOLDER,
+      },
+    ],
   });
 
   registerCleanupFunction(async () => {
@@ -125,31 +161,40 @@ add_task(async function test_remember_last_folder() {
 
   await openPopupAndSelectFolder(folders[0].guid, true);
 
-  await assertRecentFolders([folders[0].guid], "Should have one folder in the list.");
+  await assertRecentFolders(
+    [folders[0].guid],
+    "Should have one folder in the list."
+  );
 });
 
 add_task(async function test_forget_oldest_folder() {
   // Add some more folders.
   let expectedFolders = [folders[0].guid];
   for (let i = 1; i < folders.length; i++) {
-    await assertRecentFolders(expectedFolders,
-      "Should have only the expected folders in the list");
+    await assertRecentFolders(
+      expectedFolders,
+      "Should have only the expected folders in the list"
+    );
 
     await openPopupAndSelectFolder(folders[i].guid);
 
     expectedFolders.unshift(folders[i].guid);
-    if (expectedFolders.length > 5) {
+    if (expectedFolders.length > PlacesUIUtils.maxRecentFolders) {
       expectedFolders.pop();
     }
   }
 
-  await assertRecentFolders(expectedFolders,
-    "Should have expired the original folder");
+  await assertRecentFolders(
+    expectedFolders,
+    "Should have expired the original folder"
+  );
 });
 
 add_task(async function test_reorder_folders() {
   let expectedFolders = [
     folders[2].guid,
+    folders[7].guid,
+    folders[6].guid,
     folders[5].guid,
     folders[4].guid,
     folders[3].guid,
@@ -159,6 +204,28 @@ add_task(async function test_reorder_folders() {
   // Take an old one and put it at the front.
   await openPopupAndSelectFolder(folders[2].guid);
 
-  await assertRecentFolders(expectedFolders,
-    "Should have correctly re-ordered the list");
+  await assertRecentFolders(
+    expectedFolders,
+    "Should have correctly re-ordered the list"
+  );
+});
+
+add_task(async function test_change_max_recent_folders_pref() {
+  let expectedFolders = [folders[0].guid];
+
+  Services.prefs.setIntPref("browser.bookmarks.editDialog.maxRecentFolders", 1);
+
+  await openPopupAndSelectFolder(folders[1].guid);
+  await openPopupAndSelectFolder(folders[0].guid);
+
+  await assertRecentFolders(
+    expectedFolders,
+    "Should have only one recent folder in the bookmark edit panel"
+  );
+
+  registerCleanupFunction(async () => {
+    Services.prefs.clearUserPref(
+      "browser.bookmarks.editDialog.maxRecentFolders"
+    );
+  });
 });

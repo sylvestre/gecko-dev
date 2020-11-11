@@ -12,8 +12,6 @@
 #include <nsError.h>
 #include <nsCOMPtr.h>
 #include <nsIWidget.h>
-#include <nsIBaseWindow.h>
-#include <nsIObserverService.h>
 #include <nsServiceManagerUtils.h>
 
 #include "nsUXThemeData.h"
@@ -25,11 +23,12 @@
 #include "mozilla/dom/HTMLCanvasElement.h"
 #include "mozilla/gfx/2D.h"
 #include "mozilla/gfx/DataSurfaceHelpers.h"
+#include "mozilla/StaticPrefs_layout.h"
 #include "mozilla/Telemetry.h"
 
 // Defined in dwmapi in a header that needs a higher numbered _WINNT #define
 #ifndef DWM_SIT_DISPLAYFRAME
-#define DWM_SIT_DISPLAYFRAME 0x1
+#  define DWM_SIT_DISPLAYFRAME 0x1
 #endif
 
 namespace mozilla {
@@ -38,20 +37,14 @@ namespace widget {
 ///////////////////////////////////////////////////////////////////////////////
 // TaskbarPreview
 
-TaskbarPreview::TaskbarPreview(ITaskbarList4 *aTaskbar,
-                               nsITaskbarPreviewController *aController,
-                               HWND aHWND, nsIDocShell *aShell)
+TaskbarPreview::TaskbarPreview(ITaskbarList4* aTaskbar,
+                               nsITaskbarPreviewController* aController,
+                               HWND aHWND, nsIDocShell* aShell)
     : mTaskbar(aTaskbar),
       mController(aController),
       mWnd(aHWND),
       mVisible(false),
-      mDocShell(do_GetWeakReference(aShell)) {
-  // TaskbarPreview may outlive the WinTaskbar that created it
-  ::CoInitialize(nullptr);
-
-  WindowHook &hook = GetWindowHook();
-  hook.AddMonitor(WM_DESTROY, MainWindowHook, this);
-}
+      mDocShell(do_GetWeakReference(aShell)) {}
 
 TaskbarPreview::~TaskbarPreview() {
   // Avoid dangling pointer
@@ -68,8 +61,21 @@ TaskbarPreview::~TaskbarPreview() {
   ::CoUninitialize();
 }
 
+nsresult TaskbarPreview::Init() {
+  // TaskbarPreview may outlive the WinTaskbar that created it
+  if (FAILED(::CoInitialize(nullptr))) {
+    return NS_ERROR_NOT_INITIALIZED;
+  }
+
+  WindowHook* hook = GetWindowHook();
+  if (!hook) {
+    return NS_ERROR_NOT_AVAILABLE;
+  }
+  return hook->AddMonitor(WM_DESTROY, MainWindowHook, this);
+}
+
 NS_IMETHODIMP
-TaskbarPreview::SetController(nsITaskbarPreviewController *aController) {
+TaskbarPreview::SetController(nsITaskbarPreviewController* aController) {
   NS_ENSURE_ARG(aController);
 
   mController = aController;
@@ -77,19 +83,19 @@ TaskbarPreview::SetController(nsITaskbarPreviewController *aController) {
 }
 
 NS_IMETHODIMP
-TaskbarPreview::GetController(nsITaskbarPreviewController **aController) {
+TaskbarPreview::GetController(nsITaskbarPreviewController** aController) {
   NS_ADDREF(*aController = mController);
   return NS_OK;
 }
 
 NS_IMETHODIMP
-TaskbarPreview::GetTooltip(nsAString &aTooltip) {
+TaskbarPreview::GetTooltip(nsAString& aTooltip) {
   aTooltip = mTooltip;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-TaskbarPreview::SetTooltip(const nsAString &aTooltip) {
+TaskbarPreview::SetTooltip(const nsAString& aTooltip) {
   mTooltip = aTooltip;
   return CanMakeTaskbarCalls() ? UpdateTooltip() : NS_OK;
 }
@@ -109,7 +115,7 @@ TaskbarPreview::SetVisible(bool visible) {
 }
 
 NS_IMETHODIMP
-TaskbarPreview::GetVisible(bool *visible) {
+TaskbarPreview::GetVisible(bool* visible) {
   *visible = mVisible;
   return NS_OK;
 }
@@ -125,7 +131,7 @@ TaskbarPreview::SetActive(bool active) {
 }
 
 NS_IMETHODIMP
-TaskbarPreview::GetActive(bool *active) {
+TaskbarPreview::GetActive(bool* active) {
   *active = sActivePreview == this;
   return NS_OK;
 }
@@ -135,7 +141,7 @@ TaskbarPreview::Invalidate() {
   if (!mVisible) return NS_OK;
 
   // DWM Composition is required for previews
-  if (!nsUXThemeData::CheckForCompositor()) return NS_OK;
+  if (!gfxWindowsPlatform::GetPlatform()->DwmCompositionEnabled()) return NS_OK;
 
   HWND previewWindow = PreviewWindow();
   return FAILED(DwmInvalidateIconicBitmaps(previewWindow)) ? NS_ERROR_FAILURE
@@ -164,9 +170,11 @@ nsresult TaskbarPreview::Enable() {
   if (CanMakeTaskbarCalls()) {
     rv = UpdateTaskbarProperties();
   } else if (IsWindowAvailable()) {
-    WindowHook &hook = GetWindowHook();
-    hook.AddMonitor(nsAppShell::GetTaskbarButtonCreatedMessage(),
-                    MainWindowHook, this);
+    WindowHook* hook = GetWindowHook();
+    MOZ_ASSERT(hook,
+               "IsWindowAvailable() should have eliminated the null case.");
+    hook->AddMonitor(nsAppShell::GetTaskbarButtonCreatedMessage(),
+                     MainWindowHook, this);
   }
   return rv;
 }
@@ -177,16 +185,17 @@ nsresult TaskbarPreview::Disable() {
     return NS_OK;
   }
 
-  WindowHook &hook = GetWindowHook();
-  (void)hook.RemoveMonitor(nsAppShell::GetTaskbarButtonCreatedMessage(),
-                           MainWindowHook, this);
+  WindowHook* hook = GetWindowHook();
+  MOZ_ASSERT(hook, "IsWindowAvailable() should have eliminated the null case.");
+  (void)hook->RemoveMonitor(nsAppShell::GetTaskbarButtonCreatedMessage(),
+                            MainWindowHook, this);
 
   return NS_OK;
 }
 
 bool TaskbarPreview::IsWindowAvailable() const {
   if (mWnd) {
-    nsWindow *win = WinUtils::GetNSWindowPtr(mWnd);
+    nsWindow* win = WinUtils::GetNSWindowPtr(mWnd);
     if (win && !win->Destroyed()) {
       return true;
     }
@@ -195,8 +204,9 @@ bool TaskbarPreview::IsWindowAvailable() const {
 }
 
 void TaskbarPreview::DetachFromNSWindow() {
-  WindowHook &hook = GetWindowHook();
-  hook.RemoveMonitor(WM_DESTROY, MainWindowHook, this);
+  if (WindowHook* hook = GetWindowHook()) {
+    hook->RemoveMonitor(WM_DESTROY, MainWindowHook, this);
+  }
   mWnd = nullptr;
 }
 
@@ -232,7 +242,7 @@ TaskbarPreview::WndProc(UINT nMsg, WPARAM wParam, LPARAM lParam) {
       rv = mController->GetHeight(&height);
       if (NS_FAILED(rv)) break;
 
-      double scale = nsIWidget::DefaultScaleOverride();
+      double scale = StaticPrefs::layout_css_devPixelsPerPx();
       if (scale <= 0.0) {
         scale = WinUtils::LogToPhysFactor(PreviewWindow());
       }
@@ -251,18 +261,18 @@ bool TaskbarPreview::CanMakeTaskbarCalls() {
   // window close, the window seems to be hidden before being destroyed.
   if (!::IsWindowVisible(mWnd)) return false;
   if (mVisible) {
-    nsWindow *window = WinUtils::GetNSWindowPtr(mWnd);
+    nsWindow* window = WinUtils::GetNSWindowPtr(mWnd);
     NS_ASSERTION(window, "Could not get nsWindow from HWND");
-    return window->HasTaskbarIconBeenCreated();
+    return window ? window->HasTaskbarIconBeenCreated() : false;
   }
   return false;
 }
 
-WindowHook &TaskbarPreview::GetWindowHook() {
-  nsWindow *window = WinUtils::GetNSWindowPtr(mWnd);
+WindowHook* TaskbarPreview::GetWindowHook() {
+  nsWindow* window = WinUtils::GetNSWindowPtr(mWnd);
   NS_ASSERTION(window, "Cannot use taskbar previews in an embedded context!");
 
-  return window->GetWindowHook();
+  return window ? &window->GetWindowHook() : nullptr;
 }
 
 void TaskbarPreview::EnableCustomDrawing(HWND aHWND, bool aEnable) {
@@ -292,10 +302,10 @@ void TaskbarPreview::DrawBitmap(uint32_t width, uint32_t height,
     return;
   }
 
-  ((TaskbarPreviewCallback *)callback.get())->SetPreview(this);
+  ((TaskbarPreviewCallback*)callback.get())->SetPreview(this);
 
   if (isPreview) {
-    ((TaskbarPreviewCallback *)callback.get())->SetIsPreview();
+    ((TaskbarPreviewCallback*)callback.get())->SetIsPreview();
     mController->RequestPreview(callback);
   } else {
     mController->RequestThumbnail(callback, width, height);
@@ -309,7 +319,7 @@ NS_IMPL_ISUPPORTS(TaskbarPreviewCallback, nsITaskbarPreviewCallback)
 
 /* void done (in nsISupports aCanvas, in boolean aDrawBorder); */
 NS_IMETHODIMP
-TaskbarPreviewCallback::Done(nsISupports *aCanvas, bool aDrawBorder) {
+TaskbarPreviewCallback::Done(nsISupports* aCanvas, bool aDrawBorder) {
   // We create and destroy TaskbarTabPreviews from front end code in response
   // to TabOpen and TabClose events. Each TaskbarTabPreview creates and owns a
   // proxy HWND which it hands to Windows as a tab identifier. When a tab
@@ -369,21 +379,21 @@ TaskbarPreviewCallback::Done(nsISupports *aCanvas, bool aDrawBorder) {
 }
 
 /* static */
-bool TaskbarPreview::MainWindowHook(void *aContext, HWND hWnd, UINT nMsg,
+bool TaskbarPreview::MainWindowHook(void* aContext, HWND hWnd, UINT nMsg,
                                     WPARAM wParam, LPARAM lParam,
-                                    LRESULT *aResult) {
+                                    LRESULT* aResult) {
   NS_ASSERTION(nMsg == nsAppShell::GetTaskbarButtonCreatedMessage() ||
                    nMsg == WM_DESTROY,
                "Window hook proc called with wrong message");
   NS_ASSERTION(aContext, "Null context in MainWindowHook");
   if (!aContext) return false;
-  TaskbarPreview *preview = reinterpret_cast<TaskbarPreview *>(aContext);
+  TaskbarPreview* preview = reinterpret_cast<TaskbarPreview*>(aContext);
   if (nMsg == WM_DESTROY) {
     // nsWindow is being destroyed
     // We can't really do anything at this point including removing hooks
     return false;
   } else {
-    nsWindow *window = WinUtils::GetNSWindowPtr(preview->mWnd);
+    nsWindow* window = WinUtils::GetNSWindowPtr(preview->mWnd);
     if (window) {
       window->SetHasTaskbarIconBeenCreated();
 
@@ -393,7 +403,7 @@ bool TaskbarPreview::MainWindowHook(void *aContext, HWND hWnd, UINT nMsg,
   return false;
 }
 
-TaskbarPreview *TaskbarPreview::sActivePreview = nullptr;
+TaskbarPreview* TaskbarPreview::sActivePreview = nullptr;
 
 }  // namespace widget
 }  // namespace mozilla

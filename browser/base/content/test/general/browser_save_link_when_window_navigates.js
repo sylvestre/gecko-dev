@@ -6,11 +6,13 @@ MockFilePicker.init(window);
 
 const SAVE_PER_SITE_PREF = "browser.download.lastDir.savePerSite";
 const ALWAYS_DOWNLOAD_DIR_PREF = "browser.download.useDownloadDir";
-const UCT_URI = "chrome://mozapps/content/downloads/unknownContentType.xul";
+const UCT_URI = "chrome://mozapps/content/downloads/unknownContentType.xhtml";
 
 /* import-globals-from ../../../../../toolkit/content/tests/browser/common/mockTransfer.js */
-Services.scriptloader.loadSubScript("chrome://mochitests/content/browser/toolkit/content/tests/browser/common/mockTransfer.js",
-                 this);
+Services.scriptloader.loadSubScript(
+  "chrome://mochitests/content/browser/toolkit/content/tests/browser/common/mockTransfer.js",
+  this
+);
 
 function createTemporarySaveDirectory() {
   var saveDir = Services.dirsvc.get("TmpD", Ci.nsIFile);
@@ -24,10 +26,14 @@ function createTemporarySaveDirectory() {
 }
 
 function triggerSave(aWindow, aCallback) {
-  info("started triggerSave, persite downloads: " + (Services.prefs.getBoolPref(SAVE_PER_SITE_PREF) ? "on" : "off"));
+  info(
+    "started triggerSave, persite downloads: " +
+      (Services.prefs.getBoolPref(SAVE_PER_SITE_PREF) ? "on" : "off")
+  );
   var fileName;
   let testBrowser = aWindow.gBrowser.selectedBrowser;
-  let testURI = "http://mochi.test:8888/browser/browser/base/content/test/general/navigating_window_with_download.html";
+  let testURI =
+    "http://mochi.test:8888/browser/browser/base/content/test/general/navigating_window_with_download.html";
   windowObserver.setCallback(onUCTDialog);
   BrowserTestUtils.loadURI(testBrowser, testURI);
 
@@ -57,17 +63,17 @@ function triggerSave(aWindow, aCallback) {
   };
 
   function onUCTDialog(dialog) {
-    function doLoad() {
+    SpecialPowers.spawn(testBrowser, [], async () => {
       content.document.querySelector("iframe").remove();
-    }
-    testBrowser.messageManager.loadFrameScript("data:,(" + doLoad.toString() + ")()", false);
-    executeSoon(continueDownloading);
+    }).then(() => executeSoon(continueDownloading));
   }
 
   function continueDownloading() {
     for (let win of Services.wm.getEnumerator("")) {
       if (win.location && win.location.href == UCT_URI) {
-        win.document.documentElement._fireButtonEvent("accept");
+        win.document
+          .getElementById("unknownContentType")
+          ._fireButtonEvent("accept");
         win.close();
         return;
       }
@@ -83,7 +89,6 @@ function triggerSave(aWindow, aCallback) {
   }
 }
 
-
 var windowObserver = {
   setCallback(aCallback) {
     if (this._callback) {
@@ -98,18 +103,22 @@ var windowObserver = {
 
     let win = aSubject;
 
-    win.addEventListener("load", function(event) {
-      if (win.location == UCT_URI) {
-        SimpleTest.executeSoon(function() {
-          if (windowObserver._callback) {
-            windowObserver._callback(win);
-            delete windowObserver._callback;
-          } else {
-            ok(false, "Unexpected UCT dialog!");
-          }
-        });
-      }
-    }, {once: true});
+    win.addEventListener(
+      "load",
+      function(event) {
+        if (win.location == UCT_URI) {
+          SimpleTest.executeSoon(function() {
+            if (windowObserver._callback) {
+              windowObserver._callback(win);
+              delete windowObserver._callback;
+            } else {
+              ok(false, "Unexpected UCT dialog!");
+            }
+          });
+        }
+      },
+      { once: true }
+    );
   },
 };
 
@@ -128,7 +137,14 @@ function test() {
   function whenDelayedStartupFinished(aWindow, aCallback) {
     info("whenDelayedStartupFinished");
     Services.obs.addObserver(function observer(aSubject, aTopic) {
-      info("whenDelayedStartupFinished, got topic: " + aTopic + ", got subject: " + aSubject + ", waiting for " + aWindow);
+      info(
+        "whenDelayedStartupFinished, got topic: " +
+          aTopic +
+          ", got subject: " +
+          aSubject +
+          ", waiting for " +
+          aWindow
+      );
       if (aWindow == aSubject) {
         Services.obs.removeObserver(observer, aTopic);
         executeSoon(aCallback);

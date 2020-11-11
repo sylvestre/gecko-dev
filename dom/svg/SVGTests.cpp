@@ -6,7 +6,8 @@
 
 #include "mozilla/dom/SVGTests.h"
 #include "DOMSVGStringList.h"
-#include "nsSVGFeatures.h"
+#include "nsIContent.h"
+#include "nsIContentInlines.h"
 #include "mozilla/dom/SVGSwitchElement.h"
 #include "nsCharSeparatedTokenizer.h"
 #include "nsStyleUtil.h"
@@ -15,19 +16,13 @@
 namespace mozilla {
 namespace dom {
 
-nsStaticAtom* const SVGTests::sStringListNames[3] = {
-    nsGkAtoms::requiredFeatures,
+nsStaticAtom* const SVGTests::sStringListNames[2] = {
     nsGkAtoms::requiredExtensions,
     nsGkAtoms::systemLanguage,
 };
 
 SVGTests::SVGTests() {
   mStringListAttributes[LANGUAGE].SetIsCommaSeparated(true);
-}
-
-already_AddRefed<DOMSVGStringList> SVGTests::RequiredFeatures() {
-  return DOMSVGStringList::GetDOMWrapper(&mStringListAttributes[FEATURES],
-                                         AsSVGElement(), true, FEATURES);
 }
 
 already_AddRefed<DOMSVGStringList> SVGTests::RequiredExtensions() {
@@ -40,9 +35,18 @@ already_AddRefed<DOMSVGStringList> SVGTests::SystemLanguage() {
                                          AsSVGElement(), true, LANGUAGE);
 }
 
-bool SVGTests::HasExtension(const nsAString& aExtension) {
-  return nsSVGFeatures::HasExtension(aExtension,
-                                     AsSVGElement()->IsInChromeDocument());
+bool SVGTests::HasExtension(const nsAString& aExtension) const {
+#define SVG_SUPPORTED_EXTENSION(str) \
+  if (aExtension.EqualsLiteral(str)) return true;
+  SVG_SUPPORTED_EXTENSION("http://www.w3.org/1999/xhtml")
+  nsNameSpaceManager* nameSpaceManager = nsNameSpaceManager::GetInstance();
+  if (AsSVGElement()->IsInChromeDocument() ||
+      !nameSpaceManager->mMathMLDisabled) {
+    SVG_SUPPORTED_EXTENSION("http://www.w3.org/1998/Math/MathML")
+  }
+#undef SVG_SUPPORTED_EXTENSION
+
+  return false;
 }
 
 bool SVGTests::IsConditionalProcessingAttribute(
@@ -57,8 +61,6 @@ bool SVGTests::IsConditionalProcessingAttribute(
 
 int32_t SVGTests::GetBestLanguagePreferenceRank(
     const nsAString& aAcceptLangs) const {
-  const nsCaseInsensitiveStringComparator caseInsensitiveComparator;
-
   if (!mStringListAttributes[LANGUAGE].IsExplicitlySet()) {
     return -2;
   }
@@ -71,12 +73,11 @@ int32_t SVGTests::GetBestLanguagePreferenceRank(
     while (languageTokenizer.hasMoreTokens()) {
       const nsAString& languageToken = languageTokenizer.nextToken();
       bool exactMatch = languageToken.Equals(mStringListAttributes[LANGUAGE][i],
-                                             caseInsensitiveComparator);
+                                             nsCaseInsensitiveStringComparator);
       bool prefixOnlyMatch =
-          !exactMatch &&
-          nsStyleUtil::DashMatchCompare(mStringListAttributes[LANGUAGE][i],
-                                        languageTokenizer.nextToken(),
-                                        caseInsensitiveComparator);
+          !exactMatch && nsStyleUtil::DashMatchCompare(
+                             mStringListAttributes[LANGUAGE][i], languageToken,
+                             nsCaseInsensitiveStringComparator);
       if (index == 0 && exactMatch) {
         // best possible match
         return 0;
@@ -91,10 +92,7 @@ int32_t SVGTests::GetBestLanguagePreferenceRank(
   return lowestRank;
 }
 
-const nsString* const SVGTests::kIgnoreSystemLanguage = (nsString*)0x01;
-
-bool SVGTests::PassesConditionalProcessingTests(
-    const nsString* aAcceptLangs) const {
+bool SVGTests::PassesConditionalProcessingTestsIgnoringSystemLanguage() const {
   // Required Extensions
   //
   // The requiredExtensions  attribute defines a list of required language
@@ -107,15 +105,17 @@ bool SVGTests::PassesConditionalProcessingTests(
       return false;
     }
     for (uint32_t i = 0; i < mStringListAttributes[EXTENSIONS].Length(); i++) {
-      if (!nsSVGFeatures::HasExtension(mStringListAttributes[EXTENSIONS][i],
-                                       AsSVGElement()->IsInChromeDocument())) {
+      if (!HasExtension(mStringListAttributes[EXTENSIONS][i])) {
         return false;
       }
     }
   }
+  return true;
+}
 
-  if (aAcceptLangs == kIgnoreSystemLanguage) {
-    return true;
+bool SVGTests::PassesConditionalProcessingTests() const {
+  if (!PassesConditionalProcessingTestsIgnoringSystemLanguage()) {
+    return false;
   }
 
   // systemLanguage
@@ -132,11 +132,7 @@ bool SVGTests::PassesConditionalProcessingTests(
 
     // Get our language preferences
     nsAutoString acceptLangs;
-    if (aAcceptLangs) {
-      acceptLangs.Assign(*aAcceptLangs);
-    } else {
-      Preferences::GetLocalizedString("intl.accept_languages", acceptLangs);
-    }
+    Preferences::GetLocalizedString("intl.accept_languages", acceptLangs);
 
     if (acceptLangs.IsEmpty()) {
       NS_WARNING(
@@ -144,14 +140,12 @@ bool SVGTests::PassesConditionalProcessingTests(
       return false;
     }
 
-    const nsCaseInsensitiveStringComparator caseInsensitiveComparator;
-
     for (uint32_t i = 0; i < mStringListAttributes[LANGUAGE].Length(); i++) {
       nsCharSeparatedTokenizer languageTokenizer(acceptLangs, ',');
       while (languageTokenizer.hasMoreTokens()) {
         if (nsStyleUtil::DashMatchCompare(mStringListAttributes[LANGUAGE][i],
                                           languageTokenizer.nextToken(),
-                                          caseInsensitiveComparator)) {
+                                          nsCaseInsensitiveStringComparator)) {
           return true;
         }
       }

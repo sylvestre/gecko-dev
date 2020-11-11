@@ -7,10 +7,10 @@
 #include "nsHtml5DocumentBuilder.h"
 
 #include "mozilla/dom/ScriptLoader.h"
-#include "nsIHTMLDocument.h"
-#include "nsIStyleSheetLinkingElement.h"
+#include "mozilla/dom/LinkStyle.h"
 #include "nsNameSpaceManager.h"
-#include "nsStyleLinkElement.h"
+
+using mozilla::dom::LinkStyle;
 
 NS_IMPL_CYCLE_COLLECTION_INHERITED(nsHtml5DocumentBuilder, nsContentSink,
                                    mOwnedElements)
@@ -26,8 +26,8 @@ nsHtml5DocumentBuilder::nsHtml5DocumentBuilder(bool aRunsToCompletion)
   mRunsToCompletion = aRunsToCompletion;
 }
 
-nsresult nsHtml5DocumentBuilder::Init(nsIDocument* aDoc, nsIURI* aURI,
-                                      nsISupports* aContainer,
+nsresult nsHtml5DocumentBuilder::Init(mozilla::dom::Document* aDoc,
+                                      nsIURI* aURI, nsISupports* aContainer,
                                       nsIChannel* aChannel) {
   return nsContentSink::Init(aDoc, aURI, aContainer, aChannel);
 }
@@ -48,8 +48,8 @@ void nsHtml5DocumentBuilder::SetDocumentCharsetAndSource(
 }
 
 void nsHtml5DocumentBuilder::UpdateStyleSheet(nsIContent* aElement) {
-  nsCOMPtr<nsIStyleSheetLinkingElement> ssle(do_QueryInterface(aElement));
-  if (!ssle) {
+  auto* linkStyle = LinkStyle::FromNode(*aElement);
+  if (!linkStyle) {
     MOZ_ASSERT(nsNameSpaceManager::GetInstance()->mSVGDisabled,
                "Node didn't QI to style, but SVG wasn't disabled.");
     return;
@@ -64,10 +64,10 @@ void nsHtml5DocumentBuilder::UpdateStyleSheet(nsIContent* aElement) {
     return;
   }
 
-  ssle->SetEnableUpdates(true);
+  linkStyle->SetEnableUpdates(true);
 
   auto updateOrError =
-      ssle->UpdateStyleSheet(mRunsToCompletion ? nullptr : this);
+      linkStyle->UpdateStyleSheet(mRunsToCompletion ? nullptr : this);
 
   if (updateOrError.isOk() && updateOrError.unwrap().ShouldBlock() &&
       !mRunsToCompletion) {
@@ -92,9 +92,7 @@ void nsHtml5DocumentBuilder::SetDocumentMode(nsHtml5DocumentMode m) {
       mode = eCompatibility_NavQuirks;
       break;
   }
-  nsCOMPtr<nsIHTMLDocument> htmlDocument = do_QueryInterface(mDocument);
-  NS_ASSERTION(htmlDocument, "Document didn't QI into HTML document.");
-  htmlDocument->SetCompatibilityMode(mode);
+  mDocument->SetCompatibilityMode(mode);
 }
 
 // nsContentSink overrides

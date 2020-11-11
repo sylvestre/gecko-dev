@@ -14,7 +14,7 @@
  *       "id": 2,
  *       "hostname": "http://www.example.com",
  *       "httpRealm": null,
- *       "formSubmitURL": "http://www.example.com/submit-url",
+ *       "formSubmitURL": "http://www.example.com",
  *       "usernameField": "username_field",
  *       "passwordField": "password_field",
  *       "encryptedUsername": "...",
@@ -31,10 +31,6 @@
  *       (...)
  *     }
  *   ],
- *   "disabledHosts": [
- *     "http://www.example.org",
- *     "http://www.example.net"
- *   ],
  *   "nextId": 10,
  *   "version": 1
  * }
@@ -42,17 +38,25 @@
 
 "use strict";
 
-var EXPORTED_SYMBOLS = [
-  "LoginStore",
-];
+const EXPORTED_SYMBOLS = ["LoginStore"];
 
 // Globals
 
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
-ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+ChromeUtils.defineModuleGetter(this, "OS", "resource://gre/modules/osfile.jsm");
+ChromeUtils.defineModuleGetter(
+  this,
+  "JSONFile",
+  "resource://gre/modules/JSONFile.jsm"
+);
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
 
-ChromeUtils.defineModuleGetter(this, "JSONFile",
-                               "resource://gre/modules/JSONFile.jsm");
+XPCOMUtils.defineLazyModuleGetters(this, {
+  FXA_PWDMGR_HOST: "resource://gre/modules/FxAccountsCommon.js",
+  FXA_PWDMGR_REALM: "resource://gre/modules/FxAccountsCommon.js",
+});
 
 /**
  * Current data version assigned by the code that last touched the data.
@@ -65,10 +69,12 @@ ChromeUtils.defineModuleGetter(this, "JSONFile",
  * For example, this number should NOT be changed when a new optional field is
  * added to a login entry.
  */
-const kDataVersion = 2;
+const kDataVersion = 3;
 
 // The permission type we store in the permission manager.
 const PERMISSION_SAVE_LOGINS = "login-saving";
+
+const MAX_DATE_MS = 8640000000000000;
 
 // LoginStore
 
@@ -79,15 +85,63 @@ const PERMISSION_SAVE_LOGINS = "login-saving";
  * @param aPath
  *        String containing the file path where data should be saved.
  */
-function LoginStore(aPath) {
+function LoginStore(aPath, aBackupPath = "") {
   JSONFile.call(this, {
     path: aPath,
     dataPostProcessor: this._dataPostProcessor.bind(this),
+    backupTo: aBackupPath,
   });
 }
 
 LoginStore.prototype = Object.create(JSONFile.prototype);
 LoginStore.prototype.constructor = LoginStore;
+
+LoginStore.prototype._save = async function() {
+  await JSONFile.prototype._save.call(this);
+  // Notify tests that writes to the login store is complete.
+  Services.obs.notifyObservers(null, "password-storage-updated");
+
+  if (this._options.backupTo) {
+    await this._backupHandler();
+  }
+};
+
+/**
+ * Delete logins backup file if the last saved login was removed using
+ * removeLogin() or if all logins were removed at once using removeAllLogins().
+ * Note that if the user has a fxa key stored as a login, we just update the
+ * backup to only store the key when the last saved user facing login is removed.
+ */
+LoginStore.prototype._backupHandler = async function() {
+  const logins = this._data.logins;
+  // Return early if more than one login is stored because the backup won't need
+  // updating in this case.
+  if (logins.length > 1) {
+    return;
+  }
+
+  // If one login is stored and it's a fxa sync key, we update the backup to store the
+  // key only.
+  if (
+    logins.length &&
+    logins[0].hostname == FXA_PWDMGR_HOST &&
+    logins[0].httpRealm == FXA_PWDMGR_REALM
+  ) {
+    try {
+      await OS.File.copy(this.path, this._options.backupTo);
+
+      // This notification is specifically sent out for a test.
+      Services.obs.notifyObservers(null, "logins-backup-updated");
+    } catch (ex) {
+      Cu.reportError(ex);
+    }
+  } else if (!logins.length) {
+    // If no logins are stored anymore, delete backup.
+    await OS.File.remove(this._options.backupTo, {
+      ignoreAbsent: true,
+    });
+  }
+};
 
 /**
  * Synchronously work on the data just loaded into memory.
@@ -102,33 +156,38 @@ LoginStore.prototype._dataPostProcessor = function(data) {
     data.logins = [];
   }
 
-  // Stub needed for login imports before data has been migrated.
-  if (!data.disabledHosts) {
-    data.disabledHosts = [];
+  if (!data.potentiallyVulnerablePasswords) {
+    data.potentiallyVulnerablePasswords = [];
   }
 
-  if (data.version === 1) {
-    this._migrateDisabledHosts(data);
+  if (!data.dismissedBreachAlertsByLoginGUID) {
+    data.dismissedBreachAlertsByLoginGUID = {};
+  }
+
+  // sanitize dates in logins
+  if (!("version" in data) || data.version < 3) {
+    let dateProperties = ["timeCreated", "timeLastUsed", "timePasswordChanged"];
+    let now = Date.now();
+    function getEarliestDate(login, defaultDate) {
+      let earliestDate = dateProperties.reduce((earliest, pname) => {
+        let ts = login[pname];
+        return !ts ? earliest : Math.min(ts, earliest);
+      }, defaultDate);
+      return earliestDate;
+    }
+    for (let login of data.logins) {
+      for (let pname of dateProperties) {
+        let earliestDate;
+        if (!login[pname] || login[pname] > MAX_DATE_MS) {
+          login[pname] =
+            earliestDate || (earliestDate = getEarliestDate(login, now));
+        }
+      }
+    }
   }
 
   // Indicate that the current version of the code has touched the file.
   data.version = kDataVersion;
 
   return data;
-};
-
-/**
- * Migrates disabled hosts to the permission manager.
- */
-LoginStore.prototype._migrateDisabledHosts = function(data) {
-  for (let host of data.disabledHosts) {
-    try {
-      let uri = Services.io.newURI(host);
-      Services.perms.add(uri, PERMISSION_SAVE_LOGINS, Services.perms.DENY_ACTION);
-    } catch (e) {
-      Cu.reportError(e);
-    }
-  }
-
-  delete data.disabledHosts;
 };

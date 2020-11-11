@@ -4,22 +4,24 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "mozilla/ArrayUtils.h"  // MOZ_ARRAY_LENGTH
-
 #include "SVGPathSegUtils.h"
 
+#include "mozilla/ArrayUtils.h"  // MOZ_ARRAY_LENGTH
 #include "gfx2DGlue.h"
-#include "nsSVGPathDataParser.h"
+#include "SVGPathDataParser.h"
+#include "nsMathUtils.h"
 #include "nsTextFormatter.h"
 
-using namespace mozilla;
+using namespace mozilla::dom::SVGPathSeg_Binding;
 using namespace mozilla::gfx;
+
+namespace mozilla {
 
 static const float PATH_SEG_LENGTH_TOLERANCE = 0.0000001f;
 static const uint32_t MAX_RECURSION = 10;
 
-/* static */ void SVGPathSegUtils::GetValueAsString(const float* aSeg,
-                                                    nsAString& aValue) {
+/* static */
+void SVGPathSegUtils::GetValueAsString(const float* aSeg, nsAString& aValue) {
   // Adding new seg type? Is the formatting below acceptable for the new types?
   static_assert(
       NS_SVG_PATH_SEG_LAST_VALID_TYPE == PATHSEG_CURVETO_QUADRATIC_SMOOTH_REL,
@@ -195,7 +197,7 @@ static void TraverseLinetoHorizontalAbs(const float* aArgs,
                                         SVGPathTraversalState& aState) {
   Point to(aArgs[0], aState.pos.y);
   if (aState.ShouldUpdateLengthAndControlPoints()) {
-    aState.length += fabs(to.x - aState.pos.x);
+    aState.length += std::fabs(to.x - aState.pos.x);
     aState.cp1 = aState.cp2 = to;
   }
   aState.pos = to;
@@ -205,7 +207,7 @@ static void TraverseLinetoHorizontalRel(const float* aArgs,
                                         SVGPathTraversalState& aState) {
   aState.pos.x += aArgs[0];
   if (aState.ShouldUpdateLengthAndControlPoints()) {
-    aState.length += fabs(aArgs[0]);
+    aState.length += std::fabs(aArgs[0]);
     aState.cp1 = aState.cp2 = aState.pos;
   }
 }
@@ -214,7 +216,7 @@ static void TraverseLinetoVerticalAbs(const float* aArgs,
                                       SVGPathTraversalState& aState) {
   Point to(aState.pos.x, aArgs[0]);
   if (aState.ShouldUpdateLengthAndControlPoints()) {
-    aState.length += fabs(to.y - aState.pos.y);
+    aState.length += std::fabs(to.y - aState.pos.y);
     aState.cp1 = aState.cp2 = to;
   }
   aState.pos = to;
@@ -224,7 +226,7 @@ static void TraverseLinetoVerticalRel(const float* aArgs,
                                       SVGPathTraversalState& aState) {
   aState.pos.y += aArgs[0];
   if (aState.ShouldUpdateLengthAndControlPoints()) {
-    aState.length += fabs(aArgs[0]);
+    aState.length += std::fabs(aArgs[0]);
     aState.cp1 = aState.cp2 = aState.pos;
   }
 }
@@ -338,8 +340,8 @@ static void TraverseArcAbs(const float* aArgs, SVGPathTraversalState& aState) {
       dist = CalcDistanceBetweenPoints(aState.pos, to);
     } else {
       Point bez[4] = {aState.pos, Point(0, 0), Point(0, 0), Point(0, 0)};
-      nsSVGArcConverter converter(aState.pos, to, radii, aArgs[2],
-                                  aArgs[3] != 0, aArgs[4] != 0);
+      SVGArcConverter converter(aState.pos, to, radii, aArgs[2], aArgs[3] != 0,
+                                aArgs[4] != 0);
       while (converter.GetNextSegment(&bez[1], &bez[2], &bez[3])) {
         dist += CalcBezLengthHelper(bez, 4, 0, SplitCubicBezier);
         bez[0] = bez[3];
@@ -360,8 +362,8 @@ static void TraverseArcRel(const float* aArgs, SVGPathTraversalState& aState) {
       dist = CalcDistanceBetweenPoints(aState.pos, to);
     } else {
       Point bez[4] = {aState.pos, Point(0, 0), Point(0, 0), Point(0, 0)};
-      nsSVGArcConverter converter(aState.pos, to, radii, aArgs[2],
-                                  aArgs[3] != 0, aArgs[4] != 0);
+      SVGArcConverter converter(aState.pos, to, radii, aArgs[2], aArgs[3] != 0,
+                                aArgs[4] != 0);
       while (converter.GetNextSegment(&bez[1], &bez[2], &bez[3])) {
         dist += CalcBezLengthHelper(bez, 4, 0, SplitCubicBezier);
         bez[0] = bez[3];
@@ -373,7 +375,7 @@ static void TraverseArcRel(const float* aArgs, SVGPathTraversalState& aState) {
   aState.pos = to;
 }
 
-typedef void (*TraverseFunc)(const float*, SVGPathTraversalState&);
+using TraverseFunc = void (*)(const float*, SVGPathTraversalState&);
 
 static TraverseFunc gTraverseFuncTable[NS_SVG_PATH_SEG_TYPE_COUNT] = {
     nullptr,  //  0 == PATHSEG_UNKNOWN
@@ -397,11 +399,14 @@ static TraverseFunc gTraverseFuncTable[NS_SVG_PATH_SEG_TYPE_COUNT] = {
     TraverseCurvetoQuadraticSmoothAbs,
     TraverseCurvetoQuadraticSmoothRel};
 
-/* static */ void SVGPathSegUtils::TraversePathSegment(
-    const float* aData, SVGPathTraversalState& aState) {
+/* static */
+void SVGPathSegUtils::TraversePathSegment(const float* aData,
+                                          SVGPathTraversalState& aState) {
   static_assert(
       MOZ_ARRAY_LENGTH(gTraverseFuncTable) == NS_SVG_PATH_SEG_TYPE_COUNT,
       "gTraverseFuncTable is out of date");
   uint32_t type = DecodeType(aData[0]);
   gTraverseFuncTable[type](aData + 1, aState);
 }
+
+}  // namespace mozilla

@@ -8,8 +8,7 @@
 #include "mozilla/dom/HTMLElementBinding.h"
 #include "nsContentUtils.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 class HTMLElement final : public nsGenericHTMLElement {
  public:
@@ -30,7 +29,7 @@ HTMLElement::HTMLElement(already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo)
   }
 }
 
-HTMLElement::~HTMLElement() {}
+HTMLElement::~HTMLElement() = default;
 
 NS_IMPL_ELEMENT_CLONE(HTMLElement)
 
@@ -39,15 +38,16 @@ JSObject* HTMLElement::WrapNode(JSContext* aCx,
   return dom::HTMLElement_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom
 
 // Here, we expand 'NS_IMPL_NS_NEW_HTML_ELEMENT()' by hand.
 // (Calling the macro directly (with no args) produces compiler warnings.)
 nsGenericHTMLElement* NS_NewHTMLElement(
     already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo,
     mozilla::dom::FromParser aFromParser) {
-  return new mozilla::dom::HTMLElement(std::move(aNodeInfo));
+  RefPtr<mozilla::dom::NodeInfo> nodeInfo(aNodeInfo);
+  auto* nim = nodeInfo->NodeInfoManager();
+  return new (nim) mozilla::dom::HTMLElement(nodeInfo.forget());
 }
 
 // Distinct from the above in order to have function pointer that compared
@@ -55,5 +55,7 @@ nsGenericHTMLElement* NS_NewHTMLElement(
 nsGenericHTMLElement* NS_NewCustomElement(
     already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo,
     mozilla::dom::FromParser aFromParser) {
-  return new mozilla::dom::HTMLElement(std::move(aNodeInfo));
+  RefPtr<mozilla::dom::NodeInfo> nodeInfo(aNodeInfo);
+  auto* nim = nodeInfo->NodeInfoManager();
+  return new (nim) mozilla::dom::HTMLElement(nodeInfo.forget());
 }

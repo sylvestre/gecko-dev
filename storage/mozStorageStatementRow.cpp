@@ -12,6 +12,7 @@
 #include "mozStorageStatement.h"
 
 #include "jsapi.h"
+#include "js/Array.h"  // JS::NewArrayObject
 
 #include "xpc_make_class.h"
 
@@ -85,7 +86,8 @@ void StatementRow::NamedGetter(JSContext* aCx, const nsAString& aName,
       const char16_t* sval = reinterpret_cast<const char16_t*>(
           static_cast<mozIStorageStatement*>(mStatement)
               ->AsSharedWString(idx, &bytes));
-      JSString* str = ::JS_NewUCStringCopyN(aCx, sval, bytes / 2);
+      JSString* str =
+          ::JS_NewUCStringCopyN(aCx, sval, bytes / sizeof(char16_t));
       if (!str) {
         aRv.Throw(NS_ERROR_UNEXPECTED);
         return;
@@ -97,7 +99,7 @@ void StatementRow::NamedGetter(JSContext* aCx, const nsAString& aName,
       uint32_t length;
       const uint8_t* blob = static_cast<mozIStorageStatement*>(mStatement)
                                 ->AsSharedBlob(idx, &length);
-      JS::Rooted<JSObject*> obj(aCx, ::JS_NewArrayObject(aCx, length));
+      JS::Rooted<JSObject*> obj(aCx, JS::NewArrayObject(aCx, length));
       if (!obj) {
         aRv.Throw(NS_ERROR_UNEXPECTED);
         return;

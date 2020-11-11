@@ -21,12 +21,14 @@ using mozilla::ipc::FileDescriptor;
 using mozilla::ipc::IPCResult;
 
 class ScriptCacheParent final : public PScriptCacheParent {
+  friend class PScriptCacheParent;
+
  public:
   explicit ScriptCacheParent(bool wantCacheData)
       : mWantCacheData(wantCacheData) {}
 
  protected:
-  virtual IPCResult Recv__delete__(nsTArray<ScriptData>&& scripts) override;
+  IPCResult Recv__delete__(nsTArray<ScriptData>&& scripts);
 
   virtual void ActorDestroy(ActorDestroyReason aWhy) override;
 

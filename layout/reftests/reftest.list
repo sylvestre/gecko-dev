@@ -11,10 +11,6 @@ include reftest-sanity/reftest.list
 # images (if ImageLib is busted, could result in weird failures in other tests)
 include ../../image/test/reftest/reftest.list
 
-# CSSWG tests
-include w3c-css/submitted/reftest.list
-include w3c-css/received/reftest.list
-
 # relative and absolute positioning
 include abs-pos/reftest.list
 include position-relative/reftest.list
@@ -23,9 +19,6 @@ include position-relative/reftest.list
 include apng-mime/reftest.list
 
 include async-scrolling/reftest.list
-
-# backgrounds/
-include backgrounds/reftest.list
 
 # bidi/
 include bidi/reftest.list
@@ -106,6 +99,9 @@ include css-ruby/reftest.list
 # css required
 include css-required/reftest.list
 
+# css scroll snap
+include css-scroll-snap/reftest.list
+
 # css shapes
 include css-shapes/reftest.list
 
@@ -159,6 +155,9 @@ include cssom/reftest.list
 
 # columns/
 include columns/reftest.list
+
+# conditional/
+include conditional/reftest.list
 
 # content/
 include ../../dom/tests/reftest/reftest.list
@@ -222,6 +221,9 @@ include frameset/reftest.list
 
 # gfx
 include ../../gfx/tests/reftest/reftest.list
+
+# high contrast
+include high-contrast/reftest.list
 
 # block-inside-inline splits
 include ib-split/reftest.list
@@ -305,8 +307,9 @@ include ../../dom/plugins/test/reftest/reftest.list
 include position-dynamic-changes/reftest.list
 
 # printing
-# SkiaPDF is required for printing tests to control printing to PDF files.
-skip-if(!skiaPdf) include printing/reftest.list
+# Disabled on Linux for frequent failures, bug 1634335
+# Diasbled on Android because pdf.js load fails.
+skip-if(!winWidget&&!cocoaWidget) include printing/reftest.list
 
 # pagination
 include pagination/reftest.list
@@ -454,3 +457,4 @@ include display-list/reftest.list
 
 # Media
 include ../../dom/media/test/reftest/reftest.list
+include ../../dom/media/webvtt/test/reftest/reftest.list

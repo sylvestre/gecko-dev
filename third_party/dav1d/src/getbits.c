@@ -27,7 +27,7 @@
 
 #include "config.h"
 
-#include <assert.h>
+#include <limits.h>
 
 #include "common/intops.h"
 
@@ -36,6 +36,8 @@
 void dav1d_init_get_bits(GetBits *const c, const uint8_t *const data,
                          const size_t sz)
 {
+    // If sz were 0, c->eof would need to be initialized to 1.
+    assert(sz);
     c->ptr = c->ptr_start = data;
     c->ptr_end = &c->ptr_start[sz];
     c->bits_left = 0;
@@ -70,13 +72,32 @@ unsigned dav1d_get_bits(GetBits *const c, const unsigned n) {
     c->bits_left -= n;
     c->state <<= n;
 
-    return state >> (64 - n);
+    return (unsigned) (state >> (64 - n));
 }
 
 int dav1d_get_sbits(GetBits *const c, const unsigned n) {
     const int shift = 31 - n;
     const int res = dav1d_get_bits(c, n + 1) << shift;
     return res >> shift;
+}
+
+unsigned dav1d_get_uleb128(GetBits *const c) {
+    uint64_t val = 0;
+    unsigned i = 0, more;
+
+    do {
+        const int v = dav1d_get_bits(c, 8);
+        more = v & 0x80;
+        val |= ((uint64_t) (v & 0x7F)) << i;
+        i += 7;
+    } while (more && i < 56);
+
+    if (val > UINT_MAX || more) {
+        c->error = 1;
+        return 0;
+    }
+
+    return (unsigned) val;
 }
 
 unsigned dav1d_get_uniform(GetBits *const c, const unsigned max) {

@@ -1,4 +1,3 @@
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -23,7 +22,7 @@ const TEST_URI = `
 
 add_task(async function() {
   await addTab("data:text/html;charset=utf-8," + encodeURIComponent(TEST_URI));
-  const {inspector, view} = await openRuleView();
+  const { inspector, view } = await openRuleView();
   await selectNode("#testid", inspector);
   await testOpenExpanderAndAddTextInFilter(inspector, view);
   await testClearSearchFilter(inspector, view);
@@ -31,7 +30,7 @@ add_task(async function() {
 
 async function testOpenExpanderAndAddTextInFilter(inspector, view) {
   const rule = getRuleViewRuleEditor(view, 1).rule;
-  const ruleEditor = rule.textProps[0].editor;
+  const ruleEditor = getTextProperty(view, 1, { margin: "4px 0px" }).editor;
   const computed = ruleEditor.computed;
 
   info("Opening the computed list of margin property");
@@ -41,26 +40,43 @@ async function testOpenExpanderAndAddTextInFilter(inspector, view) {
 
   info("Check that the correct rules are visible");
   is(view.element.children.length, 2, "Should have 2 rules.");
-  is(getRuleViewRuleEditor(view, 0).rule.selectorText, "element",
-    "First rule is inline element.");
+  is(
+    getRuleViewRuleEditor(view, 0).rule.selectorText,
+    "element",
+    "First rule is inline element."
+  );
 
   is(rule.selectorText, "#testid", "Second rule is #testid.");
   ok(ruleEditor.expander.getAttribute("open"), "Expander is open.");
-  ok(ruleEditor.container.classList.contains("ruleview-highlight"),
-    "margin text property is correctly highlighted.");
-  ok(!computed.hasAttribute("filter-open"),
-    "margin computed list does not contain filter-open class.");
-  ok(computed.hasAttribute("user-open"),
-    "margin computed list contains user-open attribute.");
+  ok(
+    ruleEditor.container.classList.contains("ruleview-highlight"),
+    "margin text property is correctly highlighted."
+  );
+  ok(
+    !computed.hasAttribute("filter-open"),
+    "margin computed list does not contain filter-open class."
+  );
+  ok(
+    computed.hasAttribute("user-open"),
+    "margin computed list contains user-open attribute."
+  );
 
-  ok(!computed.children[0].classList.contains("ruleview-highlight"),
-    "margin-top computed property is not highlighted.");
-  ok(computed.children[1].classList.contains("ruleview-highlight"),
-    "margin-right computed property is correctly highlighted.");
-  ok(!computed.children[2].classList.contains("ruleview-highlight"),
-    "margin-bottom computed property is not highlighted.");
-  ok(computed.children[3].classList.contains("ruleview-highlight"),
-    "margin-left computed property is correctly highlighted.");
+  ok(
+    !computed.children[0].classList.contains("ruleview-highlight"),
+    "margin-top computed property is not highlighted."
+  );
+  ok(
+    computed.children[1].classList.contains("ruleview-highlight"),
+    "margin-right computed property is correctly highlighted."
+  );
+  ok(
+    !computed.children[2].classList.contains("ruleview-highlight"),
+    "margin-bottom computed property is not highlighted."
+  );
+  ok(
+    computed.children[3].classList.contains("ruleview-highlight"),
+    "margin-left computed property is correctly highlighted."
+  );
 }
 
 async function testClearSearchFilter(inspector, view) {
@@ -70,23 +86,28 @@ async function testClearSearchFilter(inspector, view) {
   const searchClearButton = view.searchClearButton;
   const onRuleViewFiltered = inspector.once("ruleview-filtered");
 
-  EventUtils.synthesizeMouseAtCenter(searchClearButton, {},
-    view.styleWindow);
+  EventUtils.synthesizeMouseAtCenter(searchClearButton, {}, view.styleWindow);
 
   await onRuleViewFiltered;
 
   info("Check the search filter is cleared and no rules are highlighted");
   is(view.element.children.length, 3, "Should have 3 rules.");
   ok(!searchField.value, "Search filter is cleared");
-  ok(!view.styleDocument.querySelectorAll(".ruleview-highlight").length,
-    "No rules are higlighted");
+  ok(
+    !view.styleDocument.querySelectorAll(".ruleview-highlight").length,
+    "No rules are higlighted"
+  );
 
   const ruleEditor = getRuleViewRuleEditor(view, 1).rule.textProps[0].editor;
   const computed = ruleEditor.computed;
 
   ok(ruleEditor.expander.getAttribute("open"), "Expander is open.");
-  ok(!computed.hasAttribute("filter-open"),
-    "margin computed list does not contain filter-open class.");
-  ok(computed.hasAttribute("user-open"),
-    "margin computed list contains user-open attribute.");
+  ok(
+    !computed.hasAttribute("filter-open"),
+    "margin computed list does not contain filter-open class."
+  );
+  ok(
+    computed.hasAttribute("user-open"),
+    "margin computed list contains user-open attribute."
+  );
 }

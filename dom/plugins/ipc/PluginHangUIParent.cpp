@@ -140,10 +140,9 @@ bool PluginHangUIParent::Init(const nsString& aPluginName) {
   CommandLine commandLine(exePath.value());
 
   nsAutoString localizedStr;
-  const char16_t* formatParams[] = {aPluginName.get()};
-  rv = nsContentUtils::FormatLocalizedString(nsContentUtils::eDOM_PROPERTIES,
-                                             "PluginHangUIMessage",
-                                             formatParams, localizedStr);
+  rv = nsContentUtils::FormatLocalizedString(
+      localizedStr, nsContentUtils::eDOM_PROPERTIES, "PluginHangUIMessage",
+      aPluginName);
   if (NS_FAILED(rv)) {
     return false;
   }
@@ -317,9 +316,9 @@ bool PluginHangUIParent::RecvUserResponse(const unsigned int& aResponse) {
   int responseCode;
   if (aResponse & HANGUI_USER_RESPONSE_STOP) {
     // User clicked Stop
-    mModule->TerminateChildProcess(
-        mMainThreadMessageLoop, mozilla::ipc::kInvalidProcessId,
-        NS_LITERAL_CSTRING("ModalHangUI"), EmptyString());
+    mModule->TerminateChildProcess(mMainThreadMessageLoop,
+                                   mozilla::ipc::kInvalidProcessId,
+                                   "ModalHangUI"_ns, u""_ns);
     responseCode = 1;
   } else if (aResponse & HANGUI_USER_RESPONSE_CONTINUE) {
     mModule->OnHangUIContinue();

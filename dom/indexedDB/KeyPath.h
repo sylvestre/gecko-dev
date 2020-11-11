@@ -37,19 +37,26 @@ class KeyPath {
 
   explicit KeyPath(int aDummy) : mType(NONEXISTENT) { MOZ_COUNT_CTOR(KeyPath); }
 
+  KeyPath(KeyPath&& aOther) {
+    MOZ_COUNT_CTOR(KeyPath);
+    *this = std::move(aOther);
+  }
+  KeyPath& operator=(KeyPath&&) = default;
+
   KeyPath(const KeyPath& aOther) {
     MOZ_COUNT_CTOR(KeyPath);
     *this = aOther;
   }
+  KeyPath& operator=(const KeyPath&) = default;
 
-  ~KeyPath() { MOZ_COUNT_DTOR(KeyPath); }
+  MOZ_COUNTED_DTOR(KeyPath)
 
-  static nsresult Parse(const nsAString& aString, KeyPath* aKeyPath);
+  static Result<KeyPath, nsresult> Parse(const nsAString& aString);
 
-  static nsresult Parse(const Sequence<nsString>& aStrings, KeyPath* aKeyPath);
+  static Result<KeyPath, nsresult> Parse(const Sequence<nsString>& aStrings);
 
-  static nsresult Parse(const Nullable<OwningStringOrStringSequence>& aValue,
-                        KeyPath* aKeyPath);
+  static Result<KeyPath, nsresult> Parse(
+      const Nullable<OwningStringOrStringSequence>& aValue);
 
   nsresult ExtractKey(JSContext* aCx, const JS::Value& aValue, Key& aKey) const;
 
@@ -77,7 +84,7 @@ class KeyPath {
     return mType == aOther.mType && mStrings == aOther.mStrings;
   }
 
-  void SerializeToString(nsAString& aString) const;
+  nsAutoString SerializeToString() const;
   static KeyPath DeserializeFromString(const nsAString& aString);
 
   nsresult ToJSVal(JSContext* aCx, JS::MutableHandle<JS::Value> aValue) const;
@@ -87,7 +94,7 @@ class KeyPath {
 
   KeyPathType mType;
 
-  nsTArray<nsString> mStrings;
+  CopyableTArray<nsString> mStrings;
 };
 
 }  // namespace indexedDB

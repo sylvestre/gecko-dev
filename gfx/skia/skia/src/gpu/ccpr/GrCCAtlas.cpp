@@ -5,17 +5,21 @@
  * found in the LICENSE file.
  */
 
-#include "GrCCAtlas.h"
+#include "src/gpu/ccpr/GrCCAtlas.h"
 
-#include "GrCaps.h"
-#include "GrOnFlushResourceProvider.h"
-#include "GrProxyProvider.h"
-#include "GrRectanizer_skyline.h"
-#include "GrRenderTargetContext.h"
-#include "GrTexture.h"
-#include "GrTextureProxy.h"
-#include "SkMakeUnique.h"
-#include "SkMathPriv.h"
+#include "include/gpu/GrTexture.h"
+#include "src/core/SkIPoint16.h"
+#include "src/core/SkMakeUnique.h"
+#include "src/core/SkMathPriv.h"
+#include "src/gpu/GrCaps.h"
+#include "src/gpu/GrOnFlushResourceProvider.h"
+#include "src/gpu/GrProxyProvider.h"
+#include "src/gpu/GrRectanizer_skyline.h"
+#include "src/gpu/GrRenderTarget.h"
+#include "src/gpu/GrRenderTargetContext.h"
+#include "src/gpu/GrTextureProxy.h"
+#include "src/gpu/ccpr/GrCCPathCache.h"
+#include <atomic>
 
 class GrCCAtlas::Node {
 public:
@@ -46,8 +50,45 @@ private:
     GrRectanizerSkyline fRectanizer;
 };
 
-GrCCAtlas::GrCCAtlas(GrPixelConfig pixelConfig, const Specs& specs, const GrCaps& caps)
-        : fMaxTextureSize(SkTMax(SkTMax(specs.fMinHeight, specs.fMinWidth),
+sk_sp<GrTextureProxy> GrCCAtlas::MakeLazyAtlasProxy(const LazyInstantiateAtlasCallback& callback,
+                                                    CoverageType coverageType,
+                                                    const GrCaps& caps,
+                                                    GrSurfaceProxy::UseAllocator useAllocator) {
+    GrPixelConfig pixelConfig;
+    int sampleCount;
+
+    auto colorType = CoverageTypeToColorType(coverageType);
+    GrBackendFormat format = caps.getDefaultBackendFormat(colorType, GrRenderable::kYes);
+    switch (coverageType) {
+        case CoverageType::kFP16_CoverageCount:
+            pixelConfig = kAlpha_half_GrPixelConfig;
+            sampleCount = 1;
+            break;
+        case CoverageType::kA8_Multisample:
+            SkASSERT(caps.internalMultisampleCount(format) > 1);
+            pixelConfig = kAlpha_8_GrPixelConfig;
+            sampleCount = (caps.mixedSamplesSupport()) ? 1 : caps.internalMultisampleCount(format);
+            break;
+        case CoverageType::kA8_LiteralCoverage:
+            pixelConfig = kAlpha_8_GrPixelConfig;
+            sampleCount = 1;
+            break;
+    }
+
+    auto instantiate = [cb = std::move(callback), pixelConfig, format,
+                        sampleCount](GrResourceProvider* rp) {
+        return cb(rp, pixelConfig, format, sampleCount);
+    };
+    sk_sp<GrTextureProxy> proxy = GrProxyProvider::MakeFullyLazyProxy(
+            std::move(instantiate), format, GrRenderable::kYes, sampleCount, GrProtected::kNo,
+            kTextureOrigin, pixelConfig, caps, useAllocator);
+
+    return proxy;
+}
+
+GrCCAtlas::GrCCAtlas(CoverageType coverageType, const Specs& specs, const GrCaps& caps)
+        : fCoverageType(coverageType)
+        , fMaxTextureSize(SkTMax(SkTMax(specs.fMinHeight, specs.fMinWidth),
                                  specs.fMaxPreferredTextureSize)) {
     // Caller should have cropped any paths to the destination render target instead of asking for
     // an atlas larger than maxRenderTargetSize.
@@ -72,22 +113,21 @@ GrCCAtlas::GrCCAtlas(GrPixelConfig pixelConfig, const Specs& specs, const GrCaps
 
     fTopNode = skstd::make_unique<Node>(nullptr, 0, 0, fWidth, fHeight);
 
-    fTextureProxy = GrProxyProvider::MakeFullyLazyProxy(
-            [this, pixelConfig](GrResourceProvider* resourceProvider) {
-                    if (!resourceProvider) {
-                        return sk_sp<GrTexture>();
-                    }
-                    if (!fBackingTexture) {
-                        GrSurfaceDesc desc;
-                        desc.fFlags = kRenderTarget_GrSurfaceFlag;
-                        desc.fWidth = fWidth;
-                        desc.fHeight = fHeight;
-                        desc.fConfig = pixelConfig;
-                        fBackingTexture = resourceProvider->createTexture(desc, SkBudgeted::kYes);
-                    }
-                    return fBackingTexture;
+    fTextureProxy = MakeLazyAtlasProxy(
+            [this](GrResourceProvider* resourceProvider, GrPixelConfig pixelConfig,
+                   const GrBackendFormat& format, int sampleCount) {
+                if (!fBackingTexture) {
+                    GrSurfaceDesc desc;
+                    desc.fWidth = fWidth;
+                    desc.fHeight = fHeight;
+                    desc.fConfig = pixelConfig;
+                    fBackingTexture = resourceProvider->createTexture(
+                            desc, format, GrRenderable::kYes, sampleCount, GrMipMapped::kNo,
+                            SkBudgeted::kYes, GrProtected::kNo);
+                }
+                return fBackingTexture;
             },
-            GrProxyProvider::Renderable::kYes, kTextureOrigin, pixelConfig, caps);
+            fCoverageType, caps, GrSurfaceProxy::UseAllocator::kNo);
 }
 
 GrCCAtlas::~GrCCAtlas() {
@@ -146,34 +186,37 @@ void GrCCAtlas::setStrokeBatchID(int id) {
     fStrokeBatchID = id;
 }
 
-static uint32_t next_atlas_unique_id() {
-    static int32_t nextID;
-    return sk_atomic_inc(&nextID);
+void GrCCAtlas::setEndStencilResolveInstance(int idx) {
+    // This can't be called anymore once makeRenderTargetContext() has been called.
+    SkASSERT(!fTextureProxy->isInstantiated());
+    fEndStencilResolveInstance = idx;
 }
 
-const GrUniqueKey& GrCCAtlas::getOrAssignUniqueKey(GrOnFlushResourceProvider* onFlushRP) {
-    static const GrUniqueKey::Domain kAtlasDomain = GrUniqueKey::GenerateDomain();
+static uint32_t next_atlas_unique_id() {
+    static std::atomic<uint32_t> nextID;
+    return nextID++;
+}
 
-    if (!fUniqueKey.isValid()) {
-        GrUniqueKey::Builder builder(&fUniqueKey, kAtlasDomain, 1, "CCPR Atlas");
+sk_sp<GrCCCachedAtlas> GrCCAtlas::refOrMakeCachedAtlas(GrOnFlushResourceProvider* onFlushRP) {
+    if (!fCachedAtlas) {
+        static const GrUniqueKey::Domain kAtlasDomain = GrUniqueKey::GenerateDomain();
+
+        GrUniqueKey atlasUniqueKey;
+        GrUniqueKey::Builder builder(&atlasUniqueKey, kAtlasDomain, 1, "CCPR Atlas");
         builder[0] = next_atlas_unique_id();
         builder.finish();
 
-        if (fTextureProxy->isInstantiated()) {
-            onFlushRP->assignUniqueKeyToProxy(fUniqueKey, fTextureProxy.get());
-        }
+        onFlushRP->assignUniqueKeyToProxy(atlasUniqueKey, fTextureProxy.get());
+
+        fCachedAtlas = sk_make_sp<GrCCCachedAtlas>(fCoverageType, atlasUniqueKey, fTextureProxy);
     }
-    return fUniqueKey;
+
+    SkASSERT(fCachedAtlas->coverageType() == fCoverageType);
+    SkASSERT(fCachedAtlas->getOnFlushProxy() == fTextureProxy.get());
+    return fCachedAtlas;
 }
 
-sk_sp<GrCCAtlas::CachedAtlasInfo> GrCCAtlas::refOrMakeCachedAtlasInfo() {
-    if (!fCachedAtlasInfo) {
-        fCachedAtlasInfo = sk_make_sp<CachedAtlasInfo>();
-    }
-    return fCachedAtlasInfo;
-}
-
-sk_sp<GrRenderTargetContext> GrCCAtlas::makeRenderTargetContext(
+std::unique_ptr<GrRenderTargetContext> GrCCAtlas::makeRenderTargetContext(
         GrOnFlushResourceProvider* onFlushRP, sk_sp<GrTexture> backingTexture) {
     SkASSERT(!fTextureProxy->isInstantiated());  // This method should only be called once.
     // Caller should have cropped any paths to the destination render target instead of asking for
@@ -181,27 +224,33 @@ sk_sp<GrRenderTargetContext> GrCCAtlas::makeRenderTargetContext(
     SkASSERT(SkTMax(fHeight, fWidth) <= fMaxTextureSize);
     SkASSERT(fMaxTextureSize <= onFlushRP->caps()->maxRenderTargetSize());
 
+    // Finalize the content size of our proxy. The GPU can potentially make optimizations if it
+    // knows we only intend to write out a smaller sub-rectangle of the backing texture.
+    fTextureProxy->priv().setLazySize(fDrawBounds.width(), fDrawBounds.height());
+
     if (backingTexture) {
-        SkASSERT(backingTexture->config() == kAlpha_half_GrPixelConfig);
-        SkASSERT(backingTexture->width() == fWidth);
-        SkASSERT(backingTexture->height() == fHeight);
+#ifdef SK_DEBUG
+        auto backingRT = backingTexture->asRenderTarget();
+        SkASSERT(backingRT);
+        SkASSERT(backingRT->config() == fTextureProxy->config());
+        SkASSERT(backingRT->numSamples() == fTextureProxy->asRenderTargetProxy()->numSamples());
+        SkASSERT(backingRT->width() == fWidth);
+        SkASSERT(backingRT->height() == fHeight);
+#endif
         fBackingTexture = std::move(backingTexture);
     }
-
-    sk_sp<GrRenderTargetContext> rtc =
-            onFlushRP->makeRenderTargetContext(fTextureProxy, nullptr, nullptr);
+    auto colorType = (CoverageType::kFP16_CoverageCount == fCoverageType)
+            ? GrColorType::kAlpha_F16 : GrColorType::kAlpha_8;
+    auto rtc = onFlushRP->makeRenderTargetContext(fTextureProxy, colorType, nullptr, nullptr);
     if (!rtc) {
         SkDebugf("WARNING: failed to allocate a %ix%i atlas. Some paths will not be drawn.\n",
                  fWidth, fHeight);
         return nullptr;
     }
 
-    if (fUniqueKey.isValid()) {
-        onFlushRP->assignUniqueKeyToProxy(fUniqueKey, fTextureProxy.get());
-    }
-
     SkIRect clearRect = SkIRect::MakeSize(fDrawBounds);
-    rtc->clear(&clearRect, 0, GrRenderTargetContext::CanClearFullscreen::kYes);
+    rtc->clear(&clearRect, SK_PMColor4fTRANSPARENT,
+               GrRenderTargetContext::CanClearFullscreen::kYes);
     return rtc;
 }
 
@@ -210,7 +259,7 @@ GrCCAtlas* GrCCAtlasStack::addRect(const SkIRect& devIBounds, SkIVector* devToAt
     if (fAtlases.empty() || !fAtlases.back().addRect(devIBounds, devToAtlasOffset)) {
         // The retired atlas is out of room and can't grow any bigger.
         retiredAtlas = !fAtlases.empty() ? &fAtlases.back() : nullptr;
-        fAtlases.emplace_back(fPixelConfig, fSpecs, *fCaps);
+        fAtlases.emplace_back(fCoverageType, fSpecs, *fCaps);
         SkASSERT(devIBounds.width() <= fSpecs.fMinWidth);
         SkASSERT(devIBounds.height() <= fSpecs.fMinHeight);
         SkAssertResult(fAtlases.back().addRect(devIBounds, devToAtlasOffset));

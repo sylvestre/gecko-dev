@@ -8,26 +8,30 @@
 #define mozilla_dom_serviceworkercontainerchild_h__
 
 #include "mozilla/dom/PServiceWorkerContainerChild.h"
-#include "mozilla/dom/WorkerHolderToken.h"
 
 namespace mozilla {
 namespace dom {
 
-class ServiceWorkerContainerChild final : public PServiceWorkerContainerChild,
-                                          public WorkerHolderToken::Listener {
-  RefPtr<WorkerHolderToken> mWorkerHolderToken;
+class RemoteServiceWorkerContainerImpl;
+
+class IPCWorkerRef;
+
+class ServiceWorkerContainerChild final : public PServiceWorkerContainerChild {
+  RefPtr<IPCWorkerRef> mIPCWorkerRef;
   RemoteServiceWorkerContainerImpl* mOwner;
   bool mTeardownStarted;
+
+  ServiceWorkerContainerChild();
+
+  ~ServiceWorkerContainerChild() = default;
 
   // PServiceWorkerContainerChild
   void ActorDestroy(ActorDestroyReason aReason) override;
 
-  // WorkerHolderToken::Listener
-  void WorkerShuttingDown() override;
-
  public:
-  explicit ServiceWorkerContainerChild(WorkerHolderToken* aWorkerHolderToken);
-  ~ServiceWorkerContainerChild() = default;
+  NS_INLINE_DECL_REFCOUNTING(ServiceWorkerContainerChild, override);
+
+  static already_AddRefed<ServiceWorkerContainerChild> Create();
 
   void SetOwner(RemoteServiceWorkerContainerImpl* aOwner);
 

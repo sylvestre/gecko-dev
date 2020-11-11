@@ -29,34 +29,27 @@ class gfxPlatformMac : public gfxPlatform {
   bool UsesTiling() const override;
   bool ContentUsesTiling() const override;
 
-  virtual already_AddRefed<gfxASurface> CreateOffscreenSurface(
+  already_AddRefed<gfxASurface> CreateOffscreenSurface(
       const IntSize& aSize, gfxImageFormat aFormat) override;
 
-  gfxFontGroup* CreateFontGroup(const mozilla::FontFamilyList& aFontFamilyList,
-                                const gfxFontStyle* aStyle,
-                                gfxTextPerfMetrics* aTextPerf,
-                                gfxUserFontSet* aUserFontSet,
-                                gfxFloat aDevToCssSize) override;
-
-  virtual gfxPlatformFontList* CreatePlatformFontList() override;
+  gfxPlatformFontList* CreatePlatformFontList() override;
 
   void ReadSystemFontList(
-      InfallibleTArray<mozilla::dom::SystemFontListEntry>* aFontList) override;
+      nsTArray<mozilla::dom::SystemFontListEntry>* aFontList) override;
 
   bool IsFontFormatSupported(uint32_t aFormatFlags) override;
 
-  virtual void GetCommonFallbackFonts(
-      uint32_t aCh, uint32_t aNextCh, Script aRunScript,
-      nsTArray<const char*>& aFontList) override;
+  void GetCommonFallbackFonts(uint32_t aCh, Script aRunScript,
+                              eFontPresentation aPresentation,
+                              nsTArray<const char*>& aFontList) override;
 
   // lookup the system font for a particular system font type and set
   // the name and style characteristics
   static void LookupSystemFont(mozilla::LookAndFeel::FontID aSystemFontID,
                                nsACString& aSystemFontName,
-                               gfxFontStyle& aFontStyle,
-                               float aDevPixPerCSSPixel);
+                               gfxFontStyle& aFontStyle);
 
-  virtual bool SupportsApzWheelInput() const override { return true; }
+  bool SupportsApzWheelInput() const override { return true; }
 
   bool RespectsFontStyleSmoothing() const override {
     // gfxMacFont respects the font smoothing hint.
@@ -70,8 +63,8 @@ class gfxPlatformMac : public gfxPlatform {
     return true;
   }
 
-  virtual already_AddRefed<mozilla::gfx::VsyncSource>
-  CreateHardwareVsyncSource() override;
+  already_AddRefed<mozilla::gfx::VsyncSource> CreateHardwareVsyncSource()
+      override;
 
   // lower threshold on font anti-aliasing
   uint32_t GetAntiAliasingThreshold() { return mFontAntiAliasingThreshold; }
@@ -83,8 +76,10 @@ class gfxPlatformMac : public gfxPlatform {
 
   bool CheckVariationFontSupport() override;
 
+  void InitPlatformGPUProcessPrefs() override;
+
  private:
-  virtual void GetPlatformCMSOutputProfile(void*& mem, size_t& size) override;
+  nsTArray<uint8_t> GetPlatformCMSOutputProfileData() override;
 
   // read in the pref value for the lower threshold on font anti-aliasing
   static uint32_t ReadAntiAliasingThreshold();

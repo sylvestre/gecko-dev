@@ -8,33 +8,80 @@ const { Cu } = require("chrome");
 const Services = require("Services");
 const InspectorUtils = require("InspectorUtils");
 const protocol = require("devtools/shared/protocol");
+const { PSEUDO_CLASSES } = require("devtools/shared/css/constants");
 const { nodeSpec, nodeListSpec } = require("devtools/shared/specs/node");
+loader.lazyRequireGetter(
+  this,
+  ["getCssPath", "getXPath", "findCssSelector", "findAllCssSelectors"],
+  "devtools/shared/inspector/css-logic",
+  true
+);
 
-loader.lazyRequireGetter(this, "getCssPath", "devtools/shared/inspector/css-logic", true);
-loader.lazyRequireGetter(this, "getXPath", "devtools/shared/inspector/css-logic", true);
-loader.lazyRequireGetter(this, "findCssSelector", "devtools/shared/inspector/css-logic", true);
+loader.lazyRequireGetter(
+  this,
+  [
+    "isAfterPseudoElement",
+    "isAnonymous",
+    "isBeforePseudoElement",
+    "isDirectShadowHostChild",
+    "isMarkerPseudoElement",
+    "isNativeAnonymous",
+    "isShadowHost",
+    "isShadowRoot",
+    "getShadowRootMode",
+    "isRemoteFrame",
+  ],
+  "devtools/shared/layout/utils",
+  true
+);
 
-loader.lazyRequireGetter(this, "isAfterPseudoElement", "devtools/shared/layout/utils", true);
-loader.lazyRequireGetter(this, "isAnonymous", "devtools/shared/layout/utils", true);
-loader.lazyRequireGetter(this, "isBeforePseudoElement", "devtools/shared/layout/utils", true);
-loader.lazyRequireGetter(this, "isDirectShadowHostChild", "devtools/shared/layout/utils", true);
-loader.lazyRequireGetter(this, "isNativeAnonymous", "devtools/shared/layout/utils", true);
-loader.lazyRequireGetter(this, "isShadowAnonymous", "devtools/shared/layout/utils", true);
-loader.lazyRequireGetter(this, "isShadowHost", "devtools/shared/layout/utils", true);
-loader.lazyRequireGetter(this, "isShadowRoot", "devtools/shared/layout/utils", true);
-loader.lazyRequireGetter(this, "getShadowRootMode", "devtools/shared/layout/utils", true);
-loader.lazyRequireGetter(this, "isXBLAnonymous", "devtools/shared/layout/utils", true);
+loader.lazyRequireGetter(
+  this,
+  [
+    "getBackgroundColor",
+    "getClosestBackgroundColor",
+    "getNodeDisplayName",
+    "imageToImageData",
+    "isNodeDead",
+  ],
+  "devtools/server/actors/inspector/utils",
+  true
+);
+loader.lazyRequireGetter(
+  this,
+  "LongStringActor",
+  "devtools/server/actors/string",
+  true
+);
+loader.lazyRequireGetter(
+  this,
+  "getFontPreviewData",
+  "devtools/server/actors/utils/style-utils",
+  true
+);
+loader.lazyRequireGetter(
+  this,
+  "CssLogic",
+  "devtools/server/actors/inspector/css-logic",
+  true
+);
+loader.lazyRequireGetter(
+  this,
+  "EventCollector",
+  "devtools/server/actors/inspector/event-collector",
+  true
+);
+loader.lazyRequireGetter(
+  this,
+  "DOMHelpers",
+  "devtools/shared/dom-helpers",
+  true
+);
 
-loader.lazyRequireGetter(this, "InspectorActorUtils", "devtools/server/actors/inspector/utils");
-loader.lazyRequireGetter(this, "LongStringActor", "devtools/server/actors/string", true);
-loader.lazyRequireGetter(this, "getFontPreviewData", "devtools/server/actors/styles", true);
-loader.lazyRequireGetter(this, "CssLogic", "devtools/server/actors/inspector/css-logic", true);
-loader.lazyRequireGetter(this, "EventParsers", "devtools/server/actors/inspector/event-parsers", true);
+const SUBGRID_ENABLED = Services.prefs.getBoolPref(
+  "layout.css.grid-template-subgrid-value.enabled"
+);
 
-const SUBGRID_ENABLED =
-  Services.prefs.getBoolPref("layout.css.grid-template-subgrid-value.enabled");
-
-const PSEUDO_CLASSES = [":hover", ":active", ":focus", ":focus-within"];
 const FONT_FAMILY_PREVIEW_TEXT = "The quick brown fox jumps over the lazy dog";
 const FONT_FAMILY_PREVIEW_TEXT_SIZE = 20;
 
@@ -46,17 +93,28 @@ const NodeActor = protocol.ActorClassWithSpec(nodeSpec, {
     protocol.Actor.prototype.initialize.call(this, null);
     this.walker = walker;
     this.rawNode = node;
-    this._eventParsers = new EventParsers().parsers;
+    this._eventCollector = new EventCollector(this.walker.targetActor);
 
-    // Store the original display type and whether or not the node is displayed to
-    // track changes when reflows occur.
+    // Store the original display type and scrollable state and whether or not the node is
+    // displayed to track changes when reflows occur.
+    const wasScrollable = this.isScrollable;
+
     this.currentDisplayType = this.displayType;
     this.wasDisplayed = this.isDisplayed;
+    this.wasScrollable = wasScrollable;
+
+    if (wasScrollable) {
+      this.walker.updateOverflowCausingElements(
+        this,
+        this.walker.overflowCausingElementsMap
+      );
+    }
   },
 
   toString: function() {
-    return "[NodeActor " + this.actorID + " for " +
-      this.rawNode.toString() + "]";
+    return (
+      "[NodeActor " + this.actorID + " for " + this.rawNode.toString() + "]"
+    );
   },
 
   /**
@@ -68,8 +126,10 @@ const NodeActor = protocol.ActorClassWithSpec(nodeSpec, {
   },
 
   isDocumentElement: function() {
-    return this.rawNode.ownerDocument &&
-           this.rawNode.ownerDocument.documentElement === this.rawNode;
+    return (
+      this.rawNode.ownerDocument &&
+      this.rawNode.ownerDocument.documentElement === this.rawNode
+    );
   },
 
   destroy: function() {
@@ -83,26 +143,26 @@ const NodeActor = protocol.ActorClassWithSpec(nodeSpec, {
     }
 
     if (this.slotchangeListener) {
-      if (!InspectorActorUtils.isNodeDead(this)) {
+      if (!isNodeDead(this)) {
         this.rawNode.removeEventListener("slotchange", this.slotchangeListener);
       }
       this.slotchangeListener = null;
     }
 
+    this._eventCollector.destroy();
+    this._eventCollector = null;
     this.rawNode = null;
     this.walker = null;
   },
 
   // Returns the JSON representation of this object over the wire.
-  form: function(detail) {
-    if (detail === "actorid") {
-      return this.actorID;
-    }
-
+  form: function() {
     const parentNode = this.walker.parentNode(this);
     const inlineTextChild = this.walker.inlineTextChild(this);
     const shadowRoot = isShadowRoot(this.rawNode);
-    const hostActor = shadowRoot ? this.walker.getNode(this.rawNode.host) : null;
+    const hostActor = shadowRoot
+      ? this.walker.getNode(this.rawNode.host)
+      : null;
 
     const form = {
       actor: this.actorID,
@@ -113,10 +173,13 @@ const NodeActor = protocol.ActorClassWithSpec(nodeSpec, {
       namespaceURI: this.rawNode.namespaceURI,
       nodeName: this.rawNode.nodeName,
       nodeValue: this.rawNode.nodeValue,
-      displayName: InspectorActorUtils.getNodeDisplayName(this.rawNode),
+      displayName: getNodeDisplayName(this.rawNode),
       numChildren: this.numChildren,
       inlineTextChild: inlineTextChild ? inlineTextChild.form() : undefined,
       displayType: this.displayType,
+      isScrollable: this.isScrollable,
+      isTopLevelDocument: this.isTopLevelDocument,
+      causesOverflow: this.walker.overflowCausingElementsMap.has(this.rawNode),
 
       // doctype attributes
       name: this.rawNode.name,
@@ -125,26 +188,38 @@ const NodeActor = protocol.ActorClassWithSpec(nodeSpec, {
 
       attrs: this.writeAttrs(),
       customElementLocation: this.getCustomElementLocation(),
+      isMarkerPseudoElement: isMarkerPseudoElement(this.rawNode),
       isBeforePseudoElement: isBeforePseudoElement(this.rawNode),
       isAfterPseudoElement: isAfterPseudoElement(this.rawNode),
       isAnonymous: isAnonymous(this.rawNode),
       isNativeAnonymous: isNativeAnonymous(this.rawNode),
-      isXBLAnonymous: isXBLAnonymous(this.rawNode),
-      isShadowAnonymous: isShadowAnonymous(this.rawNode),
       isShadowRoot: shadowRoot,
       shadowRootMode: getShadowRootMode(this.rawNode),
       isShadowHost: isShadowHost(this.rawNode),
       isDirectShadowHostChild: isDirectShadowHostChild(this.rawNode),
       pseudoClassLocks: this.writePseudoClassLocks(),
+      mutationBreakpoints: this.walker.getMutationBreakpoints(this),
 
       isDisplayed: this.isDisplayed,
-      isInHTMLDocument: this.rawNode.ownerDocument &&
+      isInHTMLDocument:
+        this.rawNode.ownerDocument &&
         this.rawNode.ownerDocument.contentType === "text/html",
       hasEventListeners: this._hasEventListeners,
+      traits: {
+        supportsIsTopLevelDocument: true,
+      },
     };
 
     if (this.isDocumentElement()) {
       form.isDocumentElement = true;
+    }
+
+    // Flag the remote frame and declare at least one child (the #document element) so
+    // that they can be expanded.
+    if (this.isRemoteFrame) {
+      form.remoteFrame = true;
+      form.numChildren = 1;
+      form.browsingContextID = this.rawNode.browsingContext.id;
     }
 
     return form;
@@ -179,20 +254,36 @@ const NodeActor = protocol.ActorClassWithSpec(nodeSpec, {
     this.rawNode.addEventListener("slotchange", this.slotchangeListener);
   },
 
+  /**
+   * Check if the current node is representing a remote frame.
+   * In the context of the browser toolbox, a remote frame can be the <browser remote>
+   * element found inside each tab.
+   * In the context of the content toolbox, a remote frame can be a <iframe> that contains
+   * a different origin document.
+   */
+  get isRemoteFrame() {
+    return isRemoteFrame(this.rawNode);
+  },
+
+  get isTopLevelDocument() {
+    return this.rawNode === this.walker.rootDoc;
+  },
+
   // Estimate the number of children that the walker will return without making
   // a call to children() if possible.
   get numChildren() {
     // For pseudo elements, childNodes.length returns 1, but the walker
     // will return 0.
-    if (isBeforePseudoElement(this.rawNode) || isAfterPseudoElement(this.rawNode)) {
+    if (
+      isMarkerPseudoElement(this.rawNode) ||
+      isBeforePseudoElement(this.rawNode) ||
+      isAfterPseudoElement(this.rawNode)
+    ) {
       return 0;
     }
 
     const rawNode = this.rawNode;
     let numChildren = rawNode.childNodes.length;
-    const hasAnonChildren = rawNode.nodeType === Node.ELEMENT_NODE &&
-                          rawNode.ownerDocument.getAnonymousNodes(rawNode);
-
     const hasContentDocument = rawNode.contentDocument;
     const hasSVGDocument = rawNode.getSVGDocument && rawNode.getSVGDocument();
     if (numChildren === 0 && (hasContentDocument || hasSVGDocument)) {
@@ -202,8 +293,14 @@ const NodeActor = protocol.ActorClassWithSpec(nodeSpec, {
 
     // Normal counting misses ::before/::after.  Also, some anonymous children
     // may ultimately be skipped, so we have to consult with the walker.
-    if (numChildren === 0 || hasAnonChildren || isShadowHost(this.rawNode) ||
-      isShadowAnonymous(this.rawNode)) {
+    //
+    // FIXME: We should be able to just check <slot> rather than
+    // containingShadowRoot.
+    if (
+      numChildren === 0 ||
+      isShadowHost(this.rawNode) ||
+      this.rawNode.containingShadowRoot
+    ) {
       numChildren = this.walker.countChildren(this);
     }
 
@@ -222,8 +319,7 @@ const NodeActor = protocol.ActorClassWithSpec(nodeSpec, {
    */
   get displayType() {
     // Consider all non-element nodes as displayed.
-    if (InspectorActorUtils.isNodeDead(this) ||
-        this.rawNode.nodeType !== Node.ELEMENT_NODE) {
+    if (isNodeDead(this) || this.rawNode.nodeType !== Node.ELEMENT_NODE) {
       return null;
     }
 
@@ -239,14 +335,26 @@ const NodeActor = protocol.ActorClassWithSpec(nodeSpec, {
       // Fails for <scrollbar> elements.
     }
 
-    if (SUBGRID_ENABLED &&
-        (display === "grid" || display === "inline-grid") &&
-        (style.gridTemplateRows === "subgrid" ||
-         style.gridTemplateColumns === "subgrid")) {
+    if (
+      SUBGRID_ENABLED &&
+      (display === "grid" || display === "inline-grid") &&
+      (style.gridTemplateRows.startsWith("subgrid") ||
+        style.gridTemplateColumns.startsWith("subgrid"))
+    ) {
       display = "subgrid";
     }
 
     return display;
+  },
+
+  /**
+   * Check whether the node currently has scrollbars and is scrollable.
+   */
+  get isScrollable() {
+    return (
+      this.rawNode.nodeType === Node.ELEMENT_NODE &&
+      this.rawNode.hasVisibleScrollbars
+    );
   },
 
   /**
@@ -271,27 +379,24 @@ const NodeActor = protocol.ActorClassWithSpec(nodeSpec, {
    * check if there are any event listeners.
    */
   get _hasEventListeners() {
-    const parsers = this._eventParsers;
-    for (const [, {hasListeners}] of parsers) {
-      try {
-        if (hasListeners && hasListeners(this.rawNode)) {
-          return true;
-        }
-      } catch (e) {
-        // An object attached to the node looked like a listener but wasn't...
-        // do nothing.
-      }
-    }
-    return false;
+    // We need to pass a debugger instance from this compartment because
+    // otherwise we can't make use of it inside the event-collector module.
+    const dbg = this.getParent().targetActor.makeDebugger();
+    return this._eventCollector.hasEventListeners(this.rawNode, dbg);
   },
 
   writeAttrs: function() {
-    if (!this.rawNode.attributes) {
+    // If the node has no attributes or this.rawNode is the document node and a
+    // node with `name="attributes"` exists in the DOM we need to bail.
+    if (
+      !this.rawNode.attributes ||
+      !(this.rawNode.attributes instanceof NamedNodeMap)
+    ) {
       return undefined;
     }
 
     return [...this.rawNode.attributes].map(attr => {
-      return {namespace: attr.namespace, name: attr.name, value: attr.value };
+      return { namespace: attr.namespace, name: attr.name, value: attr.value };
     });
   },
 
@@ -316,36 +421,7 @@ const NodeActor = protocol.ActorClassWithSpec(nodeSpec, {
    *         Node for which we are to get listeners.
    */
   getEventListeners: function(node) {
-    const parsers = this._eventParsers;
-    const dbg = this.parent().targetActor.makeDebugger();
-    const listenerArray = [];
-
-    for (const [, {getListeners, normalizeListener}] of parsers) {
-      try {
-        const listeners = getListeners(node);
-
-        if (!listeners) {
-          continue;
-        }
-
-        for (const listener of listeners) {
-          if (normalizeListener) {
-            listener.normalizeListener = normalizeListener;
-          }
-
-          this.processHandlerForEvent(node, listenerArray, dbg, listener);
-        }
-      } catch (e) {
-        // An object attached to the node looked like a listener but wasn't...
-        // do nothing.
-      }
-    }
-
-    listenerArray.sort((a, b) => {
-      return a.type.localeCompare(b.type);
-    });
-
-    return listenerArray;
+    return this._eventCollector.getEventListeners(node);
   },
 
   /**
@@ -356,14 +432,37 @@ const NodeActor = protocol.ActorClassWithSpec(nodeSpec, {
     // Get a reference to the custom element definition function.
     const name = this.rawNode.localName;
 
+    if (!this.rawNode.ownerGlobal) {
+      return undefined;
+    }
+
     const customElementsRegistry = this.rawNode.ownerGlobal.customElements;
-    const customElement = customElementsRegistry && customElementsRegistry.get(name);
+    const customElement =
+      customElementsRegistry && customElementsRegistry.get(name);
     if (!customElement) {
       return undefined;
     }
     // Create debugger object for the customElement function.
     const global = Cu.getGlobalForObject(customElement);
-    const dbg = this.parent().targetActor.makeDebugger();
+
+    const dbg = this.getParent().targetActor.makeDebugger();
+
+    // If we hit a <browser> element of Firefox, its global will be the chrome window
+    // which is system principal and will be in the same compartment as the debuggee.
+    // For some reason, this happens when we run the content toolbox. As for the content
+    // toolboxes, the modules are loaded in the same compartment as the <browser> element,
+    // this throws as the debugger can _not_ be in the same compartment as the debugger.
+    // This happens when we toggle fission for content toolbox because we try to reparent
+    // the Walker of the tab. This happens because we do not detect in Walker.reparentRemoteFrame
+    // that the target of the tab is the top level. That's because the target is a FrameTargetActor
+    // which is retrieved via Node.getEmbedderElement and doesn't return the LocalTabTargetActor.
+    // We should probably work on TabDescriptor so that the LocalTabTargetActor has a descriptor,
+    // and see if we can possibly move the local tab specific out of the TargetActor and have
+    // the TabDescriptor expose a pure FrameTargetActor?? (See bug 1579042)
+    if (Cu.getObjectPrincipal(global) == Cu.getObjectPrincipal(dbg)) {
+      return undefined;
+    }
+
     const globalDO = dbg.addDebuggee(global);
     const customElementDO = globalDO.makeDebuggeeValue(customElement);
 
@@ -375,166 +474,8 @@ const NodeActor = protocol.ActorClassWithSpec(nodeSpec, {
     return {
       url: customElementDO.script.url,
       line: customElementDO.script.startLine,
+      column: customElementDO.script.startColumn,
     };
-  },
-
-  /**
-   * Process a handler
-   *
-   * @param  {Node} node
-   *         The node for which we want information.
-   * @param  {Array} listenerArray
-   *         listenerArray contains all event objects that we have gathered
-   *         so far.
-   * @param  {Debugger} dbg
-   *         JSDebugger instance.
-   * @param  {Object} eventInfo
-   *         See event-parsers.js.registerEventParser() for a description of the
-   *         eventInfo object.
-   *
-   * @return {Array}
-   *         An array of objects where a typical object looks like this:
-   *           {
-   *             type: "click",
-   *             handler: function() { doSomething() },
-   *             origin: "http://www.mozilla.com",
-   *             searchString: 'onclick="doSomething()"',
-   *             tags: tags,
-   *             DOM0: true,
-   *             capturing: true,
-   *             hide: {
-   *               DOM0: true
-   *             },
-   *             native: false
-   *           }
-   */
-  processHandlerForEvent: function(node, listenerArray, dbg, listener) {
-    const { handler } = listener;
-    const global = Cu.getGlobalForObject(handler);
-    const globalDO = dbg.addDebuggee(global);
-    let listenerDO = globalDO.makeDebuggeeValue(handler);
-
-    const { normalizeListener } = listener;
-
-    if (normalizeListener) {
-      listenerDO = normalizeListener(listenerDO, listener);
-    }
-
-    const { capturing } = listener;
-    let dom0 = false;
-    let functionSource = handler.toString();
-    const hide = listener.hide || {};
-    let line = 0;
-    let native = false;
-    const override = listener.override || {};
-    const tags = listener.tags || "";
-    const type = listener.type || "";
-    let url = "";
-
-    // If the listener is an object with a 'handleEvent' method, use that.
-    if (listenerDO.class === "Object" || /^XUL\w*Element$/.test(listenerDO.class)) {
-      let desc;
-
-      while (!desc && listenerDO) {
-        desc = listenerDO.getOwnPropertyDescriptor("handleEvent");
-        listenerDO = listenerDO.proto;
-      }
-
-      if (desc && desc.value) {
-        listenerDO = desc.value;
-      }
-    }
-
-    // If the listener is bound to a different context then we need to switch
-    // to the bound function.
-    if (listenerDO.isBoundFunction) {
-      listenerDO = listenerDO.boundTargetFunction;
-    }
-
-    const { isArrowFunction, name, script, parameterNames } = listenerDO;
-
-    if (script) {
-      const scriptSource = script.source.text;
-
-      // Scripts are provided via script tags. If it wasn't provided by a
-      // script tag it must be a DOM0 event.
-      if (script.source.element) {
-        dom0 = script.source.element.class !== "HTMLScriptElement";
-      } else {
-        dom0 = false;
-      }
-
-      line = script.startLine;
-      url = script.url;
-
-      // Checking for the string "[native code]" is the only way at this point
-      // to check for native code. Even if this provides a false positive then
-      // grabbing the source code a second time is harmless.
-      if (functionSource === "[object Object]" ||
-          functionSource === "[object XULElement]" ||
-          functionSource.includes("[native code]")) {
-        functionSource =
-          scriptSource.substr(script.sourceStart, script.sourceLength);
-
-        // At this point the script looks like this:
-        // () { ... }
-        // We prefix this with "function" if it is not a fat arrow function.
-        if (!isArrowFunction) {
-          functionSource = "function " + functionSource;
-        }
-      }
-    } else {
-      // If the listener is a native one (provided by C++ code) then we have no
-      // access to the script. We use the native flag to prevent showing the
-      // debugger button because the script is not available.
-      native = true;
-    }
-
-    // Fat arrow function text always contains the parameters. Function
-    // parameters are often missing e.g. if Array.sort is used as a handler.
-    // If they are missing we provide the parameters ourselves.
-    if (parameterNames && parameterNames.length > 0) {
-      const prefix = "function " + name + "()";
-      const paramString = parameterNames.join(", ");
-
-      if (functionSource.startsWith(prefix)) {
-        functionSource = functionSource.substr(prefix.length);
-
-        functionSource = `function ${name} (${paramString})${functionSource}`;
-      }
-    }
-
-    // If the listener is native code we display the filename "[native code]."
-    // This is the official string and should *not* be translated.
-    let origin;
-    if (native) {
-      origin = "[native code]";
-    } else {
-      origin = url + ((dom0 || line === 0) ? "" : ":" + line);
-    }
-
-    const eventObj = {
-      type: override.type || type,
-      handler: override.handler || functionSource.trim(),
-      origin: override.origin || origin,
-      tags: override.tags || tags,
-      DOM0: typeof override.dom0 !== "undefined" ? override.dom0 : dom0,
-      capturing: typeof override.capturing !== "undefined" ?
-                 override.capturing : capturing,
-      hide: typeof override.hide !== "undefined" ? override.hide : hide,
-      native,
-    };
-
-    // Hide the debugger icon for DOM0 and native listeners. DOM0 listeners are
-    // generated dynamically from e.g. an onclick="" attribute so the script
-    // doesn't actually exist.
-    if (native || dom0) {
-      eventObj.hide.debugger = true;
-    }
-
-    listenerArray.push(eventObj);
-
-    dbg.removeDebuggee(globalDO);
   },
 
   /**
@@ -556,9 +497,20 @@ const NodeActor = protocol.ActorClassWithSpec(nodeSpec, {
    */
   getUniqueSelector: function() {
     if (Cu.isDeadWrapper(this.rawNode)) {
-      return "";
+      return [];
     }
     return findCssSelector(this.rawNode);
+  },
+
+  /**
+   * Get the full array of selectors from the topmost document, going through
+   * iframes.
+   */
+  getAllSelectors: function() {
+    if (Cu.isDeadWrapper(this.rawNode)) {
+      return "";
+    }
+    return findAllCssSelectors(this.rawNode);
   },
 
   /**
@@ -604,7 +556,7 @@ const NodeActor = protocol.ActorClassWithSpec(nodeSpec, {
    * transfered in the longstring back to the client will be that much smaller
    */
   getImageData: function(maxDim) {
-    return InspectorActorUtils.imageToImageData(this.rawNode, maxDim).then(imageData => {
+    return imageToImageData(this.rawNode, maxDim).then(imageData => {
       return {
         data: LongStringActor(this.conn, imageData.data),
         size: imageData.size,
@@ -616,18 +568,7 @@ const NodeActor = protocol.ActorClassWithSpec(nodeSpec, {
    * Get all event listeners that are listening on this node.
    */
   getEventListenerInfo: function() {
-    const node = this.rawNode;
-
-    if (this.rawNode.nodeName.toLowerCase() === "html") {
-      const winListeners = this.getEventListeners(node.ownerGlobal) || [];
-      const docElementListeners = this.getEventListeners(node) || [];
-      const docListeners = this.getEventListeners(node.parentNode) || [];
-
-      return [...winListeners, ...docElementListeners, ...docListeners].sort((a, b) => {
-        return a.type.localeCompare(b.type);
-      });
-    }
-    return this.getEventListeners(node);
+    return this.getEventListeners(this.rawNode);
   },
 
   /**
@@ -648,16 +589,21 @@ const NodeActor = protocol.ActorClassWithSpec(nodeSpec, {
     for (const change of modifications) {
       if (change.newValue == null) {
         if (change.attributeNamespace) {
-          rawNode.removeAttributeNS(change.attributeNamespace,
-                                    change.attributeName);
+          rawNode.removeAttributeNS(
+            change.attributeNamespace,
+            change.attributeName
+          );
         } else {
           rawNode.removeAttribute(change.attributeName);
         }
       } else if (change.attributeNamespace) {
-        rawNode.setAttributeNS(change.attributeNamespace, change.attributeName,
-                               change.newValue);
+        rawNode.setAttributeDevtoolsNS(
+          change.attributeNamespace,
+          change.attributeName,
+          change.newValue
+        );
       } else {
-        rawNode.setAttribute(change.attributeName, change.newValue);
+        rawNode.setAttributeDevtools(change.attributeName, change.newValue);
       }
     }
   },
@@ -690,7 +636,20 @@ const NodeActor = protocol.ActorClassWithSpec(nodeSpec, {
    *         rgba(255, 255, 255, 1) if no background color is found.
    */
   getClosestBackgroundColor: function() {
-    return InspectorActorUtils.getClosestBackgroundColor(this.rawNode);
+    return getClosestBackgroundColor(this.rawNode);
+  },
+
+  /**
+   * Finds the background color range for the parent of a single text node
+   * (i.e. for multi-colored backgrounds with gradients, images) or a single
+   * background color for single-colored backgrounds. Defaults to the closest
+   * background color if an error is encountered.
+   *
+   * @return {Object}
+   *         Object with one or more of the following properties: value, min, max
+   */
+  getBackgroundColor: function() {
+    return getBackgroundColor(this);
   },
 
   /**
@@ -705,14 +664,28 @@ const NodeActor = protocol.ActorClassWithSpec(nodeSpec, {
       innerHeight: win.innerHeight,
     };
   },
+
+  /**
+   * If the current node is an iframe, wait for the content window to be loaded.
+   */
+  async waitForFrameLoad() {
+    if (Cu.isDeadWrapper(this.rawNode)) {
+      return;
+    }
+
+    const { contentDocument, contentWindow } = this.rawNode;
+    if (contentDocument && contentDocument.readyState !== "complete") {
+      await new Promise(resolve => {
+        DOMHelpers.onceDOMReady(contentWindow, resolve);
+      });
+    }
+  },
 });
 
 /**
  * Server side of a node list as returned by querySelectorAll()
  */
 const NodeListActor = protocol.ActorClassWithSpec(nodeListSpec, {
-  typeName: "domnodelist",
-
   initialize: function(walker, nodeList) {
     protocol.Actor.prototype.initialize.call(this);
     this.walker = walker;
@@ -757,8 +730,9 @@ const NodeListActor = protocol.ActorClassWithSpec(nodeListSpec, {
    * Get a range of the items from the node list.
    */
   items: function(start = 0, end = this.nodeList.length) {
-    const items = Array.prototype.slice.call(this.nodeList, start, end)
-      .map(item => this.walker._ref(item));
+    const items = Array.prototype.slice
+      .call(this.nodeList, start, end)
+      .map(item => this.walker._getOrCreateNodeActor(item));
     return this.walker.attachElements(items);
   },
 

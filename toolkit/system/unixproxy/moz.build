@@ -4,17 +4,21 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-with Files('**'):
-    BUG_COMPONENT = ('Core', 'Networking')
+with Files("**"):
+    BUG_COMPONENT = ("Core", "Networking")
 
-if CONFIG['MOZ_ENABLE_LIBPROXY']:
-    CXXFLAGS += CONFIG['MOZ_LIBPROXY_CFLAGS']
+if CONFIG["MOZ_ENABLE_LIBPROXY"]:
+    CXXFLAGS += CONFIG["MOZ_LIBPROXY_CFLAGS"]
     SOURCES += [
-        'nsLibProxySettings.cpp',
+        "nsLibProxySettings.cpp",
     ]
 else:
     SOURCES += [
-        'nsUnixSystemProxySettings.cpp',
+        "nsUnixSystemProxySettings.cpp",
     ]
 
-FINAL_LIBRARY = 'xul'
+XPCOM_MANIFESTS += [
+    "components.conf",
+]
+
+FINAL_LIBRARY = "xul"

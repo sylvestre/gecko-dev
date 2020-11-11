@@ -2,7 +2,7 @@
 <html>
 <head>
   <title>Test for geolocation + featurePolicy</title>
-  <script type="text/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css" />
 </head>
 <body>
@@ -45,11 +45,7 @@ function nextTest() {
   document.body.appendChild(iframe);
 }
 
-SpecialPowers.pushPrefEnv({"set": [
-  ["dom.security.featurePolicy.enabled", true],
-  ["dom.security.featurePolicy.header.enabled", true],
-  ["dom.security.featurePolicy.webidl.enabled", true],
-]}).then(nextTest);
+nextTest();
 </script>
 </body>
 </html>

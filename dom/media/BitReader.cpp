@@ -22,7 +22,7 @@ BitReader::BitReader(const uint8_t* aBuffer, size_t aBits)
       mReservoir(0),
       mNumBitsLeft(0) {}
 
-BitReader::~BitReader() {}
+BitReader::~BitReader() = default;
 
 uint32_t BitReader::ReadBits(size_t aNum) {
   MOZ_ASSERT(aNum <= 32);
@@ -41,8 +41,13 @@ uint32_t BitReader::ReadBits(size_t aNum) {
       m = mNumBitsLeft;
     }
 
-    result = (result << m) | (mReservoir >> (32 - m));
-    mReservoir <<= m;
+    if (m == 32) {
+      result = mReservoir;
+      mReservoir = 0;
+    } else {
+      result = (result << m) | (mReservoir >> (32 - m));
+      mReservoir <<= m;
+    }
     mNumBitsLeft -= m;
     mTotalBitsLeft -= m;
 
@@ -67,7 +72,8 @@ uint32_t BitReader::ReadUE() {
     return 0;
   }
   uint32_t r = ReadBits(i);
-  r += (1 << i) - 1;
+  r += (uint32_t(1) << i) - 1;
+
   return r;
 }
 
@@ -130,8 +136,8 @@ void BitReader::FillReservoir() {
   mReservoir <<= 32 - mNumBitsLeft;
 }
 
-/* static */ uint32_t BitReader::GetBitLength(
-    const mozilla::MediaByteBuffer* aNAL) {
+/* static */
+uint32_t BitReader::GetBitLength(const mozilla::MediaByteBuffer* aNAL) {
   size_t size = aNAL->Length();
 
   while (size > 0 && aNAL->ElementAt(size - 1) == 0) {

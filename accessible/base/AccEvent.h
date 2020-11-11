@@ -20,6 +20,8 @@ class Selection;
 namespace a11y {
 
 class DocAccessible;
+class EventQueue;
+class TextRange;
 
 // Constants used to point whether the event is from user input.
 enum EIsFromUserInput {
@@ -104,6 +106,7 @@ class AccEvent {
     eVirtualCursorChangeEvent,
     eObjectAttrChangedEvent,
     eScrollingEvent,
+    eAnnouncementEvent,
   };
 
   static const EventGroup kEventGroup = eGenericEvent;
@@ -337,10 +340,12 @@ class AccReorderEvent : public AccTreeMutationEvent {
 class AccCaretMoveEvent : public AccEvent {
  public:
   AccCaretMoveEvent(Accessible* aAccessible, int32_t aCaretOffset,
+                    bool aIsSelectionCollapsed,
                     EIsFromUserInput aIsFromUserInput = eAutoDetect)
       : AccEvent(::nsIAccessibleEvent::EVENT_TEXT_CARET_MOVED, aAccessible,
                  aIsFromUserInput),
-        mCaretOffset(aCaretOffset) {}
+        mCaretOffset(aCaretOffset),
+        mIsSelectionCollapsed(aIsSelectionCollapsed) {}
   virtual ~AccCaretMoveEvent() {}
 
   // AccEvent
@@ -352,8 +357,12 @@ class AccCaretMoveEvent : public AccEvent {
   // AccCaretMoveEvent
   int32_t GetCaretOffset() const { return mCaretOffset; }
 
+  bool IsSelectionCollapsed() const { return mIsSelectionCollapsed; }
+
  private:
   int32_t mCaretOffset;
+
+  bool mIsSelectionCollapsed;
 };
 
 /**
@@ -377,6 +386,11 @@ class AccTextSelChangeEvent : public AccEvent {
    * Return true if the text selection change wasn't caused by pure caret move.
    */
   bool IsCaretMoveOnly() const;
+
+  /**
+   * Return selection ranges in document/control.
+   */
+  void SelectionRanges(nsTArray<a11y::TextRange>* aRanges) const;
 
  private:
   RefPtr<dom::Selection> mSel;
@@ -542,6 +556,34 @@ class AccScrollingEvent : public AccEvent {
   uint32_t mScrollY;
   uint32_t mMaxScrollX;
   uint32_t mMaxScrollY;
+};
+
+/**
+ * Accessible announcement event.
+ */
+class AccAnnouncementEvent : public AccEvent {
+ public:
+  AccAnnouncementEvent(Accessible* aAccessible, const nsAString& aAnnouncement,
+                       uint16_t aPriority)
+      : AccEvent(nsIAccessibleEvent::EVENT_ANNOUNCEMENT, aAccessible),
+        mAnnouncement(aAnnouncement),
+        mPriority(aPriority) {}
+
+  virtual ~AccAnnouncementEvent() {}
+
+  // AccEvent
+  static const EventGroup kEventGroup = eAnnouncementEvent;
+  virtual unsigned int GetEventGroups() const override {
+    return AccEvent::GetEventGroups() | (1U << eAnnouncementEvent);
+  }
+
+  const nsString& Announcement() const { return mAnnouncement; }
+
+  uint16_t Priority() { return mPriority; }
+
+ private:
+  nsString mAnnouncement;
+  uint16_t mPriority;
 };
 
 /**

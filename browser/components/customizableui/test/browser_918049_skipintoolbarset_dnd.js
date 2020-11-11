@@ -20,15 +20,22 @@ add_task(async function() {
   await startCustomizing();
   await waitForElementShown(skippedItem);
   ok(CustomizableUI.inDefaultState, "Should still be in default state");
-  simulateItemDrag(skippedItem, libraryButton, "start");
+  simulateItemDrag(skippedItem, libraryButton, "start", 0);
   ok(CustomizableUI.inDefaultState, "Should still be in default state");
   let skippedItemWrapper = skippedItem.parentNode;
-  is(skippedItemWrapper.nextElementSibling && skippedItemWrapper.nextElementSibling.id,
-     libraryButton.parentNode.id, "Should be next to library button");
-  simulateItemDrag(libraryButton, skippedItem, "start");
+  is(
+    skippedItemWrapper.nextElementSibling &&
+      skippedItemWrapper.nextElementSibling.id,
+    libraryButton.parentNode.id,
+    "Should be next to library button"
+  );
+  simulateItemDrag(libraryButton, skippedItem, "start", 0);
   let libraryWrapper = libraryButton.parentNode;
-  is(libraryWrapper.nextElementSibling && libraryWrapper.nextElementSibling.id,
-     skippedItem.parentNode.id, "Should be next to skipintoolbarset item");
+  is(
+    libraryWrapper.nextElementSibling && libraryWrapper.nextElementSibling.id,
+    skippedItem.parentNode.id,
+    "Should be next to skipintoolbarset item"
+  );
   ok(CustomizableUI.inDefaultState, "Should still be in default state");
 });
 

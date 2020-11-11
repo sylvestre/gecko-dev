@@ -5,7 +5,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "IPCStreamSource.h"
+
 #include "BackgroundParent.h"  // for AssertIsOnBackgroundThread
+#include "mozilla/UniquePtr.h"
+#include "mozilla/dom/RemoteWorkerService.h"
 #include "mozilla/webrender/WebRenderTypes.h"
 #include "nsIAsyncInputStream.h"
 #include "nsICancelableRunnable.h"
@@ -24,8 +27,7 @@ class IPCStreamSource::Callback final : public nsIInputStreamCallback,
                                         public nsICancelableRunnable {
  public:
   explicit Callback(IPCStreamSource* aSource)
-      : mSource(aSource),
-        mOwningEventTarget(GetCurrentThreadSerialEventTarget()) {
+      : mSource(aSource), mOwningEventTarget(GetCurrentSerialEventTarget()) {
     MOZ_ASSERT(mSource);
   }
 
@@ -113,25 +115,26 @@ bool IPCStreamSource::Initialize() {
   }
 
   // A source can be used on any thread, but we only support IPCStream on
-  // main thread, Workers and PBackground thread right now.  This is due
-  // to the requirement  that the thread be guaranteed to live long enough to
-  // receive messages. We can enforce this guarantee with a StrongWorkerRef on
-  // worker threads, but not other threads. Main-thread and PBackground thread
-  // do not need anything special in order to be kept alive.
+  // main thread, Workers, Worker Launcher, and PBackground thread right now.
+  // This is due to the requirement  that the thread be guaranteed to live long
+  // enough to receive messages. We can enforce this guarantee with a
+  // StrongWorkerRef on worker threads, but not other threads. Main-thread,
+  // PBackground, and Worker Launcher threads do not need anything special in
+  // order to be kept alive.
   if (!NS_IsMainThread()) {
-    mozilla::dom::WorkerPrivate* workerPrivate =
-        mozilla::dom::GetCurrentThreadWorkerPrivate();
-    if (workerPrivate) {
-      RefPtr<mozilla::dom::StrongWorkerRef> workerRef =
-          mozilla::dom::StrongWorkerRef::Create(workerPrivate,
-                                                "IPCStreamSource");
+    if (const auto workerPrivate = dom::GetCurrentThreadWorkerPrivate()) {
+      RefPtr<dom::StrongWorkerRef> workerRef =
+          dom::StrongWorkerRef::CreateForcibly(workerPrivate,
+                                               "IPCStreamSource");
       if (NS_WARN_IF(!workerRef)) {
         return false;
       }
 
       mWorkerRef = std::move(workerRef);
     } else {
-      AssertIsOnBackgroundThread();
+      MOZ_DIAGNOSTIC_ASSERT(
+          IsOnBackgroundThread() ||
+          dom::RemoteWorkerService::Thread()->IsOnCurrentThread());
     }
   }
 
@@ -179,7 +182,7 @@ void IPCStreamSource::DoRead() {
   static_assert(kMaxBytesPerMessage <= static_cast<uint64_t>(UINT32_MAX),
                 "kMaxBytesPerMessage must cleanly cast to uint32_t");
 
-  char buffer[kMaxBytesPerMessage];
+  UniquePtr<char[]> buffer(new char[kMaxBytesPerMessage]);
 
   while (true) {
     // It should not be possible to transition to closed state without
@@ -195,7 +198,7 @@ void IPCStreamSource::DoRead() {
     }
 
     uint32_t bytesRead = 0;
-    rv = mStream->Read(buffer, kMaxBytesPerMessage, &bytesRead);
+    rv = mStream->Read(buffer.get(), kMaxBytesPerMessage, &bytesRead);
 
     if (rv == NS_BASE_STREAM_WOULD_BLOCK) {
       MOZ_ASSERT(bytesRead == 0);
@@ -216,7 +219,7 @@ void IPCStreamSource::DoRead() {
     }
 
     // We read some data from the stream, send it across.
-    SendData(ByteBuffer(bytesRead, reinterpret_cast<uint8_t*>(buffer)));
+    SendData(ByteBuffer(bytesRead, reinterpret_cast<uint8_t*>(buffer.get())));
   }
 }
 
@@ -241,6 +244,13 @@ void IPCStreamSource::OnStreamReady(Callback* aCallback) {
   MOZ_ASSERT(aCallback == mCallback);
   mCallback->ClearSource();
   mCallback = nullptr;
+
+  // Possibly closed if this callback is (indirectly) called by
+  // IPCStreamSourceParent::RecvRequestClose().
+  if (mState == eClosed) {
+    return;
+  }
+
   DoRead();
 }
 

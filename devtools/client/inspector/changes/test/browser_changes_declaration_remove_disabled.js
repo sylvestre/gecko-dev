@@ -1,4 +1,3 @@
-/* vim: set ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -24,14 +23,15 @@ add_task(async function() {
   const { document: doc, store } = selectChangesView(inspector);
 
   await selectNode("div", inspector);
-  const rule = getRuleViewRuleEditor(ruleView, 1).rule;
+  const prop1 = getTextProperty(ruleView, 1, { color: "red" });
+  const prop2 = getTextProperty(ruleView, 1, { background: "black" });
 
   info("Using the second declaration");
-  await testRemoveValue(ruleView, store, doc, rule.textProps[1]);
+  await testRemoveValue(ruleView, store, doc, prop2);
   info("Using the first declaration");
-  await testToggle(ruleView, store, doc, rule.textProps[0]);
+  await testToggle(ruleView, store, doc, prop1);
   info("Using the first declaration");
-  await testRemoveName(ruleView, store, doc, rule.textProps[0]);
+  await testRemoveName(ruleView, store, doc, prop1);
 });
 
 async function testRemoveValue(ruleView, store, doc, prop) {
@@ -54,7 +54,9 @@ async function testRemoveValue(ruleView, store, doc, prop) {
 }
 
 async function testToggle(ruleView, store, doc, prop) {
-  info("Test toggling leftover declaration off and on will not track extra changes.");
+  info(
+    "Test toggling leftover declaration off and on will not track extra changes."
+  );
   let onTrackChange;
 
   onTrackChange = waitUntilAction(store, "TRACK_CHANGE");
@@ -67,8 +69,10 @@ async function testToggle(ruleView, store, doc, prop) {
   await togglePropStatus(ruleView, prop);
   await onTrackChange;
 
-  const removeDecl = getRemovedDeclarations(doc);
-  is(removeDecl.length, 1, "Still just one declaration tracked as removed");
+  await waitFor(
+    () => getRemovedDeclarations(doc).length == 1,
+    "Still just one declaration tracked as removed"
+  );
 }
 
 async function testRemoveName(ruleView, store, doc, prop) {
@@ -90,8 +94,11 @@ async function testRemoveName(ruleView, store, doc, prop) {
   - one removed by its name from this test
   `);
 
+  await waitFor(
+    () => getRemovedDeclarations(doc).length == 2,
+    "Two declarations tracked as removed"
+  );
   const removeDecl = getRemovedDeclarations(doc);
-  is(removeDecl.length, 2, "Two declarations tracked as removed");
   is(removeDecl[0].property, "background", "First declaration name correct");
   is(removeDecl[0].value, "black", "First declaration value correct");
   is(removeDecl[1].property, "color", "Second declaration name correct");

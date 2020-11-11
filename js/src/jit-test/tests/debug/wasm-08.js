@@ -1,4 +1,4 @@
-// |jit-test| test-also-no-wasm-baseline; skip-if: !wasmDebuggingIsSupported()
+// |jit-test| test-also=--wasm-compiler=optimizing; skip-if: !wasmDebuggingEnabled()
 // Checking if we destroying work registers by breakpoint/step handler.
 
 load(libdir + "wasm.js");

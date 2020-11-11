@@ -8,13 +8,13 @@
 #define Mutex_h
 
 #if defined(XP_WIN)
-#include <windows.h>
+#  include <windows.h>
 #elif defined(XP_DARWIN)
-#include <libkern/OSAtomic.h>
+#  include <libkern/OSAtomic.h>
 #else
-#include <pthread.h>
+#  include <pthread.h>
 #endif
-#include "mozilla/GuardObjects.h"
+#include "mozilla/Attributes.h"
 
 // Mutexes based on spinlocks.  We can't use normal pthread spinlocks in all
 // places, because they require malloc()ed memory, which causes bootstrapping
@@ -95,33 +95,28 @@ struct StaticMutex {
 
 // Normally, we'd use a constexpr constructor, but MSVC likes to create
 // static initializers anyways.
-#define STATIC_MUTEX_INIT SRWLOCK_INIT
+#  define STATIC_MUTEX_INIT SRWLOCK_INIT
 
 #else
 typedef Mutex StaticMutex;
 
-#if defined(XP_DARWIN)
-#define STATIC_MUTEX_INIT OS_SPINLOCK_INIT
-#elif defined(XP_LINUX) && !defined(ANDROID)
-#define STATIC_MUTEX_INIT PTHREAD_ADAPTIVE_MUTEX_INITIALIZER_NP
-#else
-#define STATIC_MUTEX_INIT PTHREAD_MUTEX_INITIALIZER
-#endif
+#  if defined(XP_DARWIN)
+#    define STATIC_MUTEX_INIT OS_SPINLOCK_INIT
+#  elif defined(XP_LINUX) && !defined(ANDROID)
+#    define STATIC_MUTEX_INIT PTHREAD_ADAPTIVE_MUTEX_INITIALIZER_NP
+#  else
+#    define STATIC_MUTEX_INIT PTHREAD_MUTEX_INITIALIZER
+#  endif
 
 #endif
 
 template <typename T>
 struct MOZ_RAII AutoLock {
-  explicit AutoLock(T& aMutex MOZ_GUARD_OBJECT_NOTIFIER_PARAM)
-      : mMutex(aMutex) {
-    MOZ_GUARD_OBJECT_NOTIFIER_INIT;
-    mMutex.Lock();
-  }
+  explicit AutoLock(T& aMutex) : mMutex(aMutex) { mMutex.Lock(); }
 
   ~AutoLock() { mMutex.Unlock(); }
 
  private:
-  MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER;
   T& mMutex;
 };
 

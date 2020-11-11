@@ -8,15 +8,15 @@
 #ifndef SkPixelRef_DEFINED
 #define SkPixelRef_DEFINED
 
-#include "../private/SkMutex.h"
-#include "../private/SkTDArray.h"
-#include "SkBitmap.h"
-#include "SkFilterQuality.h"
-#include "SkImageInfo.h"
-#include "SkPixmap.h"
-#include "SkRefCnt.h"
-#include "SkSize.h"
-#include "SkString.h"
+#include "include/core/SkBitmap.h"
+#include "include/core/SkFilterQuality.h"
+#include "include/core/SkImageInfo.h"
+#include "include/core/SkPixmap.h"
+#include "include/core/SkRefCnt.h"
+#include "include/core/SkSize.h"
+#include "include/core/SkString.h"
+#include "include/private/SkMutex.h"
+#include "include/private/SkTDArray.h"
 
 #include <atomic>
 
@@ -120,13 +120,7 @@ private:
     void restoreMutability();
     friend class SkSurface_Raster;   // For the two methods above.
 
-    friend class SkImage_Raster;
-    friend class SkSpecialImage_Raster;
-
     void setImmutableWithID(uint32_t genID);
-    friend class SkImage_Gpu;
-    friend class SkImage_Lazy;
-    friend class SkSpecialImage_Gpu;
     friend void SkBitmapCache_setImmutableWithID(SkPixelRef*, uint32_t);
 
     typedef SkRefCnt INHERITED;

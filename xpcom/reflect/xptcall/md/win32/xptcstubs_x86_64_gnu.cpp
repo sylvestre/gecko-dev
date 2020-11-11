@@ -19,7 +19,6 @@ extern "C" nsresult __attribute__((__used__))
 PrepareAndDispatch(nsXPTCStubBase * self, uint32_t methodIndex,
                    uint64_t * args, uint64_t * gprData, double *fprData)
 {
-#define PARAM_BUFFER_COUNT  16
 //
 // "this" pointer is first parameter, so parameter count is 3.
 //
@@ -27,7 +26,6 @@ PrepareAndDispatch(nsXPTCStubBase * self, uint32_t methodIndex,
 #define PARAM_FPR_COUNT   3
 
     nsXPTCMiniVariant paramBuffer[PARAM_BUFFER_COUNT];
-    nsXPTCMiniVariant* dispatchParams = nullptr;
     const nsXPTMethodInfo* info = nullptr;
     uint8_t paramCount;
     uint8_t i;
@@ -43,13 +41,6 @@ PrepareAndDispatch(nsXPTCStubBase * self, uint32_t methodIndex,
     // setup variant array pointer
     //
 
-    if(paramCount > PARAM_BUFFER_COUNT)
-        dispatchParams = new nsXPTCMiniVariant[paramCount];
-    else
-        dispatchParams = paramBuffer;
-
-    NS_ASSERTION(dispatchParams,"no place for params");
-
     const uint8_t indexOfJSContext = info->IndexOfJSContext();
 
     uint64_t* ap = args;
@@ -59,7 +50,7 @@ PrepareAndDispatch(nsXPTCStubBase * self, uint32_t methodIndex,
     {
         const nsXPTParamInfo& param = info->GetParam(i);
         const nsXPTType& type = param.GetType();
-        nsXPTCMiniVariant* dp = &dispatchParams[i];
+        nsXPTCMiniVariant* dp = &paramBuffer[i];
 
         if (i == indexOfJSContext) {
             if (iCount < PARAM_GPR_COUNT)
@@ -138,7 +129,10 @@ PrepareAndDispatch(nsXPTCStubBase * self, uint32_t methodIndex,
 
         case nsXPTType::T_FLOAT:
              if (iCount < PARAM_FPR_COUNT)
-                dp->val.f  = (float)fprData[iCount++];
+                // The value in xmm register is already prepared to
+                // be retrieved as a float. Therefore, we pass the
+                // value verbatim, as a double without conversion.
+                dp->val.d  = (double)fprData[iCount++];
              else
                 dp->val.f  = *((float*)ap++);
              break;
@@ -152,7 +146,9 @@ PrepareAndDispatch(nsXPTCStubBase * self, uint32_t methodIndex,
 
         case nsXPTType::T_BOOL:
            if (iCount < PARAM_GPR_COUNT)
-              dp->val.b  = (bool)gprData[iCount++];
+              // We need the cast to uint8_t to remove garbage on upper 56-bit
+              // at first.
+              dp->val.b  = (bool)(uint8_t)gprData[iCount++];
            else
               dp->val.b  = *((bool*)ap++);
            break;
@@ -178,10 +174,7 @@ PrepareAndDispatch(nsXPTCStubBase * self, uint32_t methodIndex,
     }
 
     nsresult result = self->mOuter->CallMethod((uint16_t)methodIndex, info,
-                                               dispatchParams);
-
-    if(dispatchParams != paramBuffer)
-        delete [] dispatchParams;
+                                               paramBuffer);
 
     return result;
 }

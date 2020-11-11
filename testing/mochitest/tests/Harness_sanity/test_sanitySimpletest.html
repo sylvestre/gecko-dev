@@ -6,7 +6,7 @@
   <script type="text/javascript">
   var start = new Date();
   </script>
-  <script type="text/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css" />
   <script type="text/javascript">
   var loadTime = new Date();
@@ -84,6 +84,7 @@ function starttest() {
             //expect and throw exception here. Otherwise, any code that follows the throw call will never be executed
             SimpleTest.expectUncaughtException();
             //make sure we catch this error
+            // eslint-disable-next-line no-throw-literal
             throw "i am an uncaught exception"
           }
         );

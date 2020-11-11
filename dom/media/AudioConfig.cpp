@@ -135,8 +135,8 @@ AudioConfig::ChannelLayout::SMPTEDefault(const ChannelLayout& aChannelLayout) {
   return SMPTEDefault(aChannelLayout.Map());
 }
 
-/* static */ ChannelLayout AudioConfig::ChannelLayout::SMPTEDefault(
-    ChannelMap aMap) {
+/* static */
+ChannelLayout AudioConfig::ChannelLayout::SMPTEDefault(ChannelMap aMap) {
   // First handle the most common cases.
   switch (aMap) {
     case LMONO_MAP:
@@ -272,19 +272,19 @@ bool AudioConfig::ChannelLayout::MappingTable(const ChannelLayout& aOther,
       return "unknown";
   }
 }
-/* static */ uint32_t AudioConfig::SampleSize(
-    AudioConfig::SampleFormat aFormat) {
+/* static */
+uint32_t AudioConfig::SampleSize(AudioConfig::SampleFormat aFormat) {
   switch (aFormat) {
     case FORMAT_U8:
       return 1;
     case FORMAT_S16:
       return 2;
     case FORMAT_S24:
-      MOZ_FALLTHROUGH;
+      [[fallthrough]];
     case FORMAT_S24LSB:
-      MOZ_FALLTHROUGH;
+      [[fallthrough]];
     case FORMAT_S32:
-      MOZ_FALLTHROUGH;
+      [[fallthrough]];
     case FORMAT_FLT:
       return 4;
     case FORMAT_NONE:
@@ -293,23 +293,23 @@ bool AudioConfig::ChannelLayout::MappingTable(const ChannelLayout& aOther,
   }
 }
 
-/* static */ uint32_t AudioConfig::FormatToBits(
-    AudioConfig::SampleFormat aFormat) {
+/* static */
+uint32_t AudioConfig::FormatToBits(AudioConfig::SampleFormat aFormat) {
   switch (aFormat) {
     case FORMAT_U8:
       return 8;
     case FORMAT_S16:
       return 16;
     case FORMAT_S24LSB:
-      MOZ_FALLTHROUGH;
+      [[fallthrough]];
     case FORMAT_S24:
       return 24;
     case FORMAT_S32:
-      MOZ_FALLTHROUGH;
+      [[fallthrough]];
     case FORMAT_FLT:
       return 32;
     case FORMAT_NONE:
-      MOZ_FALLTHROUGH;
+      [[fallthrough]];
     default:
       return 0;
   }

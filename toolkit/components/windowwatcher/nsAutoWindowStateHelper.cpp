@@ -7,8 +7,7 @@
 #include "nsAutoWindowStateHelper.h"
 
 #include "mozilla/dom/Event.h"
-#include "nsIDocument.h"
-#include "nsIDOMWindow.h"
+#include "mozilla/dom/Document.h"
 #include "nsPIDOMWindow.h"
 #include "nsString.h"
 
@@ -46,14 +45,13 @@ bool nsAutoWindowStateHelper::DispatchEventToChrome(const char* aEventName) {
 
   // The functions of nsContentUtils do not provide the required behavior,
   // so the following is inlined.
-  nsIDocument* doc = mWindow->GetExtantDoc();
+  Document* doc = mWindow->GetExtantDoc();
   if (!doc) {
     return true;
   }
 
   ErrorResult rv;
-  RefPtr<Event> event =
-      doc->CreateEvent(NS_LITERAL_STRING("Events"), CallerType::System, rv);
+  RefPtr<Event> event = doc->CreateEvent(u"Events"_ns, CallerType::System, rv);
   if (rv.Failed()) {
     rv.SuppressException();
     return false;

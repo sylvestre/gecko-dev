@@ -5,8 +5,12 @@
   min-height: 100vh;
   padding: ($section-spacing + $section-vertical-padding) $base-gutter $base-gutter;
 
-  &.fixed-to-top {
-    display: block;
+  &.ds-outer-wrapper-breakpoint-override {
+    padding: 30px 0 32px;
+
+    @media(min-width: $break-point-medium) {
+      padding: 30px 32px 32px;
+    }
   }
 
   &.only-search {
@@ -21,10 +25,19 @@
 
 main {
   margin: auto;
+  width: $wrapper-default-width;
   // Offset the snippets container so things at the bottom of the page are still
   // visible when snippets are visible. Adjust for other spacing.
   padding-bottom: $snippets-container-height - $section-spacing - $base-gutter;
-  width: $wrapper-default-width;
+
+  section {
+    margin-bottom: $section-spacing;
+    position: relative;
+  }
+
+  .hide-main & {
+    visibility: hidden;
+  }
 
   @media (min-width: $break-point-medium) {
     width: $wrapper-max-width-medium;
@@ -38,15 +51,38 @@ main {
     width: $wrapper-max-width-widest;
   }
 
-  section {
-    margin-bottom: $section-spacing;
-    position: relative;
-  }
+}
 
-  .hide-main & {
-    visibility: hidden;
-  }
+.below-search-snippet.withButton {
+  margin: auto;
+  width: 100%;
+}
 
+.ds-outer-wrapper-search-alignment {
+  main {
+    // This override is to ensure while Discovery Stream loads,
+    // the search bar does not jump around. (it sticks to the top)
+    margin: 0 auto;
+  }
+}
+
+.ds-outer-wrapper-breakpoint-override {
+  main {
+    width: 266px;
+    padding-bottom: 68px;
+
+    @media (min-width: $break-point-medium) {
+      width: 510px;
+    }
+
+    @media (min-width: $break-point-large) {
+      width: 746px;
+    }
+
+    @media (min-width: $break-point-widest) {
+      width: 986px;
+    }
+  }
 }
 
 .base-content-fallback {
@@ -82,8 +118,8 @@ main {
   button {
     background-color: transparent;
     border: 0;
+    border-radius: 2px;
     cursor: pointer;
-    fill: var(--newtab-icon-primary-color);
     inset-inline-end: 15px;
     padding: 15px;
     position: fixed;

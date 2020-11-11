@@ -1,4 +1,3 @@
-/* vim: set ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
    http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -18,8 +17,10 @@ add_task(async function() {
   const iframes = ui.selectedEditor.details.querySelectorAll("iframe");
 
   is(iframes.length, 1, "There is only one editor iframe");
-  ok(ui.selectedEditor.summary.classList.contains("splitview-active"),
-    "The editor is selected");
+  ok(
+    ui.selectedEditor.summary.classList.contains("splitview-active"),
+    "The editor is selected"
+  );
 });
 
 function openEditor(editor) {

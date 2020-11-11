@@ -63,6 +63,13 @@ types.addDictType("netevent.timings", {
   timings: "netevent.timings.data",
   totalTime: "number",
   offsets: "netevent.timings.data",
+  serverTimings: "array:netevent.timings.serverTiming",
+});
+
+types.addDictType("netevent.timings.serverTiming", {
+  name: "string",
+  description: "string",
+  duration: "number",
 });
 
 // See NetworkHelper.parseCertificateInfo for more details
@@ -115,7 +122,6 @@ const networkEventSpec = generateActorSpec({
       updateType: Arg(0, "string"),
 
       dataSize: Option(1, "number"),
-      discardRequestBody: Option(1, "boolean"),
     },
 
     "network-event-update:response-start": {
@@ -130,6 +136,7 @@ const networkEventSpec = generateActorSpec({
       updateType: Arg(0, "string"),
 
       state: Option(1, "string"),
+      isRacing: Option(1, "boolean"),
     },
 
     "network-event-update:response-content": {
@@ -140,7 +147,8 @@ const networkEventSpec = generateActorSpec({
       contentSize: Option(1, "number"),
       encoding: Option(1, "string"),
       transferredSize: Option(1, "number"),
-      discardResponseBody: Option(1, "boolean"),
+      blockedReason: Option(1, "number"),
+      blockingExtension: Option(1, "string"),
     },
 
     "network-event-update:event-timings": {

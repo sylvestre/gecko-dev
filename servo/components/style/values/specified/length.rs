@@ -7,26 +7,30 @@
 //! [length]: https://drafts.csswg.org/css-values/#lengths
 
 use super::{AllowQuirks, Number, Percentage, ToComputedValue};
-use app_units::Au;
-use crate::font_metrics::FontMetricsQueryResult;
+use crate::computed_value_flags::ComputedValueFlags;
+use crate::font_metrics::{FontMetrics, FontMetricsOrientation};
 use crate::parser::{Parse, ParserContext};
-use crate::values::computed::{self, CSSPixelLength, Context, ExtremumLength};
-use crate::values::generics::length::MaxLength as GenericMaxLength;
-use crate::values::generics::length::MozLength as GenericMozLength;
-use crate::values::generics::transform::IsZeroLength;
+use crate::values::computed::{self, CSSPixelLength, Context};
+use crate::values::generics::length as generics;
+use crate::values::generics::length::{
+    GenericLengthOrNumber, GenericLengthPercentageOrNormal, GenericMaxSize, GenericSize,
+};
 use crate::values::generics::NonNegative;
-use crate::values::specified::calc::CalcNode;
-use crate::values::{Auto, CSSFloat, Either, IsAuto, Normal};
+use crate::values::specified::calc::{self, CalcNode};
+use crate::values::specified::NonNegativeNumber;
+use crate::values::CSSFloat;
+use crate::Zero;
+use app_units::Au;
 use cssparser::{Parser, Token};
-use euclid::Size2D;
+use euclid::default::Size2D;
 use std::cmp;
 use std::ops::{Add, Mul};
 use style_traits::values::specified::AllowedNumericType;
 use style_traits::{ParseError, SpecifiedValueInfo, StyleParseErrorKind};
 
-pub use super::image::{ColorStop, EndingShape as GradientEndingShape, Gradient};
-pub use super::image::{GradientKind, Image};
-pub use crate::values::specified::calc::CalcLengthOrPercentage;
+pub use super::image::Image;
+pub use super::image::{EndingShape as GradientEndingShape, Gradient};
+pub use crate::values::specified::calc::CalcLengthPercentage;
 
 /// Number of app units per pixel
 pub const AU_PER_PX: CSSFloat = 60.;
@@ -43,16 +47,8 @@ pub const AU_PER_PT: CSSFloat = AU_PER_IN / 72.;
 /// Number of app units per pica
 pub const AU_PER_PC: CSSFloat = AU_PER_PT * 12.;
 
-/// Same as Gecko's AppUnitsToIntCSSPixels
-///
-/// Converts app units to integer pixel values,
-/// rounding during the conversion
-pub fn au_to_int_px(au: f32) -> i32 {
-    (au / AU_PER_PX).round() as i32
-}
-
 /// A font relative length.
-#[derive(Clone, Copy, Debug, MallocSizeOf, PartialEq, ToCss)]
+#[derive(Clone, Copy, Debug, MallocSizeOf, PartialEq, ToCss, ToShmem)]
 pub enum FontRelativeLength {
     /// A "em" value: https://drafts.csswg.org/css-values/#em
     #[css(dimension)]
@@ -75,23 +71,14 @@ pub enum FontBaseSize {
     CurrentStyle,
     /// Use the inherited font-size.
     InheritedStyle,
-    /// Use the inherited font-size, but strip em units.
-    ///
-    /// FIXME(emilio): This is very complex, and should go away.
-    InheritedStyleButStripEmUnits,
-    /// Use a custom base size.
-    ///
-    /// FIXME(emilio): This is very dubious, and only used for MathML.
-    Custom(Au),
 }
 
 impl FontBaseSize {
     /// Calculate the actual size for a given context
-    pub fn resolve(&self, context: &Context) -> Au {
+    pub fn resolve(&self, context: &Context) -> computed::Length {
         match *self {
-            FontBaseSize::Custom(size) => size,
             FontBaseSize::CurrentStyle => context.style().get_font().clone_font_size().size(),
-            FontBaseSize::InheritedStyleButStripEmUnits | FontBaseSize::InheritedStyle => {
+            FontBaseSize::InheritedStyle => {
                 context.style().get_parent_font().clone_font_size().size()
             },
         }
@@ -105,18 +92,50 @@ impl FontRelativeLength {
             FontRelativeLength::Em(v) |
             FontRelativeLength::Ex(v) |
             FontRelativeLength::Ch(v) |
-            FontRelativeLength::Rem(v) => v == 0.0,
+            FontRelativeLength::Rem(v) => v == 0.,
         }
     }
 
+    fn is_negative(&self) -> bool {
+        match *self {
+            FontRelativeLength::Em(v) |
+            FontRelativeLength::Ex(v) |
+            FontRelativeLength::Ch(v) |
+            FontRelativeLength::Rem(v) => v < 0.,
+        }
+    }
+
+    fn try_sum(&self, other: &Self) -> Result<Self, ()> {
+        use self::FontRelativeLength::*;
+
+        if std::mem::discriminant(self) != std::mem::discriminant(other) {
+            return Err(());
+        }
+
+        Ok(match (self, other) {
+            (&Em(one), &Em(other)) => Em(one + other),
+            (&Ex(one), &Ex(other)) => Ex(one + other),
+            (&Ch(one), &Ch(other)) => Ch(one + other),
+            (&Rem(one), &Rem(other)) => Rem(one + other),
+            // See https://github.com/rust-lang/rust/issues/68867. rustc isn't
+            // able to figure it own on its own so we help.
+            _ => unsafe {
+                match *self {
+                    Em(..) | Ex(..) | Ch(..) | Rem(..) => {},
+                }
+                debug_unreachable!("Forgot to handle unit in try_sum()")
+            },
+        })
+    }
+
     /// Computes the font-relative length.
-    pub fn to_computed_value(&self, context: &Context, base_size: FontBaseSize) -> CSSPixelLength {
-        use std::f32;
+    pub fn to_computed_value(
+        &self,
+        context: &Context,
+        base_size: FontBaseSize,
+    ) -> computed::Length {
         let (reference_size, length) = self.reference_font_size_and_length(context, base_size);
-        let pixel = (length * reference_size.to_f32_px())
-            .min(f32::MAX)
-            .max(f32::MIN);
-        CSSPixelLength::new(pixel)
+        reference_size * length
     }
 
     /// Return reference font size.
@@ -130,21 +149,22 @@ impl FontRelativeLength {
         &self,
         context: &Context,
         base_size: FontBaseSize,
-    ) -> (Au, CSSFloat) {
+    ) -> (computed::Length, CSSFloat) {
         fn query_font_metrics(
             context: &Context,
-            reference_font_size: Au,
-        ) -> FontMetricsQueryResult {
-            context.font_metrics_provider.query(
-                context.style().get_font(),
-                reference_font_size,
-                context.style().writing_mode,
-                context.in_media_query,
-                context.device(),
-            )
+            base_size: FontBaseSize,
+            orientation: FontMetricsOrientation,
+        ) -> FontMetrics {
+            context
+                .font_metrics_provider
+                .query(context, base_size, orientation)
         }
 
         let reference_font_size = base_size.resolve(context);
+        let font_metrics_flag = match base_size {
+            FontBaseSize::CurrentStyle => ComputedValueFlags::DEPENDS_ON_SELF_FONT_METRICS,
+            FontBaseSize::InheritedStyle => ComputedValueFlags::DEPENDS_ON_INHERITED_FONT_METRICS,
+        };
         match *self {
             FontRelativeLength::Em(length) => {
                 if context.for_non_inherited_property.is_some() {
@@ -156,34 +176,42 @@ impl FontRelativeLength {
                     }
                 }
 
-                if base_size == FontBaseSize::InheritedStyleButStripEmUnits {
-                    (Au(0), length)
-                } else {
-                    (reference_font_size, length)
-                }
+                (reference_font_size, length)
             },
             FontRelativeLength::Ex(length) => {
                 if context.for_non_inherited_property.is_some() {
                     context.rule_cache_conditions.borrow_mut().set_uncacheable();
                 }
-                let reference_size = match query_font_metrics(context, reference_font_size) {
-                    FontMetricsQueryResult::Available(metrics) => metrics.x_height,
+                context.builder.add_flags(font_metrics_flag);
+                // The x-height is an intrinsically horizontal metric.
+                let metrics =
+                    query_font_metrics(context, base_size, FontMetricsOrientation::Horizontal);
+                let reference_size = metrics.x_height.unwrap_or_else(|| {
                     // https://drafts.csswg.org/css-values/#ex
                     //
                     //     In the cases where it is impossible or impractical to
                     //     determine the x-height, a value of 0.5em must be
                     //     assumed.
                     //
-                    FontMetricsQueryResult::NotAvailable => reference_font_size.scale_by(0.5),
-                };
+                    reference_font_size * 0.5
+                });
                 (reference_size, length)
             },
             FontRelativeLength::Ch(length) => {
                 if context.for_non_inherited_property.is_some() {
                     context.rule_cache_conditions.borrow_mut().set_uncacheable();
                 }
-                let reference_size = match query_font_metrics(context, reference_font_size) {
-                    FontMetricsQueryResult::Available(metrics) => metrics.zero_advance_measure,
+                context.builder.add_flags(font_metrics_flag);
+                // https://drafts.csswg.org/css-values/#ch:
+                //
+                //     Equal to the used advance measure of the “0” (ZERO,
+                //     U+0030) glyph in the font used to render it. (The advance
+                //     measure of a glyph is its advance width or height,
+                //     whichever is in the inline axis of the element.)
+                //
+                let metrics =
+                    query_font_metrics(context, base_size, FontMetricsOrientation::MatchContext);
+                let reference_size = metrics.zero_advance_measure.unwrap_or_else(|| {
                     // https://drafts.csswg.org/css-values/#ch
                     //
                     //     In the cases where it is impossible or impractical to
@@ -194,14 +222,13 @@ impl FontRelativeLength {
                     //     writing-mode is vertical-rl or vertical-lr and
                     //     text-orientation is upright).
                     //
-                    FontMetricsQueryResult::NotAvailable => {
-                        if context.style().writing_mode.is_vertical() {
-                            reference_font_size
-                        } else {
-                            reference_font_size.scale_by(0.5)
-                        }
-                    },
-                };
+                    let wm = context.style().writing_mode;
+                    if wm.is_vertical() && wm.is_upright() {
+                        reference_font_size
+                    } else {
+                        reference_font_size * 0.5
+                    }
+                });
                 (reference_size, length)
             },
             FontRelativeLength::Rem(length) => {
@@ -211,7 +238,7 @@ impl FontRelativeLength {
                 //     element, the rem units refer to the property's initial
                 //     value.
                 //
-                let reference_size = if context.is_root_element || context.in_media_query {
+                let reference_size = if context.builder.is_root_element || context.in_media_query {
                     reference_font_size
                 } else {
                     context.device().root_font_size()
@@ -225,7 +252,7 @@ impl FontRelativeLength {
 /// A viewport-relative length.
 ///
 /// <https://drafts.csswg.org/css-values/#viewport-relative-lengths>
-#[derive(Clone, Copy, Debug, MallocSizeOf, PartialEq, ToCss)]
+#[derive(Clone, Copy, Debug, MallocSizeOf, PartialEq, ToCss, ToShmem)]
 pub enum ViewportPercentageLength {
     /// A vw unit: https://drafts.csswg.org/css-values/#vw
     #[css(dimension)]
@@ -248,8 +275,40 @@ impl ViewportPercentageLength {
             ViewportPercentageLength::Vw(v) |
             ViewportPercentageLength::Vh(v) |
             ViewportPercentageLength::Vmin(v) |
-            ViewportPercentageLength::Vmax(v) => v == 0.0,
+            ViewportPercentageLength::Vmax(v) => v == 0.,
         }
+    }
+
+    fn is_negative(&self) -> bool {
+        match *self {
+            ViewportPercentageLength::Vw(v) |
+            ViewportPercentageLength::Vh(v) |
+            ViewportPercentageLength::Vmin(v) |
+            ViewportPercentageLength::Vmax(v) => v < 0.,
+        }
+    }
+
+    fn try_sum(&self, other: &Self) -> Result<Self, ()> {
+        use self::ViewportPercentageLength::*;
+
+        if std::mem::discriminant(self) != std::mem::discriminant(other) {
+            return Err(());
+        }
+
+        Ok(match (self, other) {
+            (&Vw(one), &Vw(other)) => Vw(one + other),
+            (&Vh(one), &Vh(other)) => Vh(one + other),
+            (&Vmin(one), &Vmin(other)) => Vmin(one + other),
+            (&Vmax(one), &Vmax(other)) => Vmax(one + other),
+            // See https://github.com/rust-lang/rust/issues/68867. rustc isn't
+            // able to figure it own on its own so we help.
+            _ => unsafe {
+                match *self {
+                    Vw(..) | Vh(..) | Vmin(..) | Vmax(..) => {},
+                }
+                debug_unreachable!("Forgot to handle unit in try_sum()")
+            },
+        })
     }
 
     /// Computes the given viewport-relative length for the given viewport size.
@@ -274,25 +333,24 @@ impl ViewportPercentageLength {
 }
 
 /// HTML5 "character width", as defined in HTML5 § 14.5.4.
-#[derive(Clone, Copy, Debug, MallocSizeOf, PartialEq, ToCss)]
+#[derive(Clone, Copy, Debug, MallocSizeOf, PartialEq, ToCss, ToShmem)]
 pub struct CharacterWidth(pub i32);
 
 impl CharacterWidth {
     /// Computes the given character width.
-    pub fn to_computed_value(&self, reference_font_size: Au) -> CSSPixelLength {
-        // This applies the *converting a character width to pixels* algorithm as specified
-        // in HTML5 § 14.5.4.
+    pub fn to_computed_value(&self, reference_font_size: computed::Length) -> computed::Length {
+        // This applies the *converting a character width to pixels* algorithm
+        // as specified in HTML5 § 14.5.4.
         //
         // TODO(pcwalton): Find these from the font.
-        let average_advance = reference_font_size.scale_by(0.5);
+        let average_advance = reference_font_size * 0.5;
         let max_advance = reference_font_size;
-        let au = average_advance.scale_by(self.0 as CSSFloat - 1.0) + max_advance;
-        au.into()
+        average_advance * (self.0 as CSSFloat - 1.0) + max_advance
     }
 }
 
 /// Represents an absolute length with its unit
-#[derive(Clone, Copy, Debug, MallocSizeOf, PartialEq, ToCss)]
+#[derive(Clone, Copy, Debug, MallocSizeOf, PartialEq, ToCss, ToShmem)]
 pub enum AbsoluteLength {
     /// An absolute length in pixels (px)
     #[css(dimension)]
@@ -330,6 +388,18 @@ impl AbsoluteLength {
         }
     }
 
+    fn is_negative(&self) -> bool {
+        match *self {
+            AbsoluteLength::Px(v) |
+            AbsoluteLength::In(v) |
+            AbsoluteLength::Cm(v) |
+            AbsoluteLength::Mm(v) |
+            AbsoluteLength::Q(v) |
+            AbsoluteLength::Pt(v) |
+            AbsoluteLength::Pc(v) => v < 0.,
+        }
+    }
+
     /// Convert this into a pixel value.
     #[inline]
     pub fn to_px(&self) -> CSSFloat {
@@ -357,6 +427,12 @@ impl ToComputedValue for AbsoluteLength {
 
     fn from_computed_value(computed: &Self::ComputedValue) -> Self {
         AbsoluteLength::Px(computed.px())
+    }
+}
+
+impl PartialOrd for AbsoluteLength {
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
+        self.to_px().partial_cmp(&other.to_px())
     }
 }
 
@@ -398,7 +474,7 @@ impl Add<AbsoluteLength> for AbsoluteLength {
 /// A `<length>` without taking `calc` expressions into account
 ///
 /// <https://drafts.csswg.org/css-values/#lengths>
-#[derive(Clone, Copy, Debug, MallocSizeOf, PartialEq, ToCss)]
+#[derive(Clone, Copy, Debug, MallocSizeOf, PartialEq, ToCss, ToShmem)]
 pub enum NoCalcLength {
     /// An absolute length
     ///
@@ -438,6 +514,16 @@ impl Mul<CSSFloat> for NoCalcLength {
 }
 
 impl NoCalcLength {
+    /// Returns whether the value of this length without unit is less than zero.
+    pub fn is_negative(&self) -> bool {
+        match *self {
+            NoCalcLength::Absolute(v) => v.is_negative(),
+            NoCalcLength::FontRelative(v) => v.is_negative(),
+            NoCalcLength::ViewportPercentage(v) => v.is_negative(),
+            NoCalcLength::ServoCharacterWidth(c) => c.0 < 0,
+        }
+    }
+
     /// Parse a given absolute or relative dimension.
     pub fn parse_dimension(
         context: &ParserContext,
@@ -460,33 +546,49 @@ impl NoCalcLength {
             // viewport percentages
             "vw" if !context.in_page_rule() => {
                 NoCalcLength::ViewportPercentage(ViewportPercentageLength::Vw(value))
-            }
+            },
             "vh" if !context.in_page_rule() => {
                 NoCalcLength::ViewportPercentage(ViewportPercentageLength::Vh(value))
-            }
+            },
             "vmin" if !context.in_page_rule() => {
                 NoCalcLength::ViewportPercentage(ViewportPercentageLength::Vmin(value))
-            }
+            },
             "vmax" if !context.in_page_rule() => {
                 NoCalcLength::ViewportPercentage(ViewportPercentageLength::Vmax(value))
-            }
-            _ => return Err(())
+            },
+            _ => return Err(()),
         })
     }
 
-    #[inline]
-    /// Returns a `zero` length.
-    pub fn zero() -> NoCalcLength {
-        NoCalcLength::Absolute(AbsoluteLength::Px(0.))
-    }
+    /// Try to sume two lengths if compatible into the left hand side.
+    pub(crate) fn try_sum(&self, other: &Self) -> Result<Self, ()> {
+        use self::NoCalcLength::*;
 
-    #[inline]
-    /// Checks whether the length value is zero.
-    pub fn is_zero(&self) -> bool {
-        match *self {
-            NoCalcLength::Absolute(length) => length.is_zero(),
-            _ => false,
+        if std::mem::discriminant(self) != std::mem::discriminant(other) {
+            return Err(());
         }
+
+        Ok(match (self, other) {
+            (&Absolute(ref one), &Absolute(ref other)) => Absolute(*one + *other),
+            (&FontRelative(ref one), &FontRelative(ref other)) => FontRelative(one.try_sum(other)?),
+            (&ViewportPercentage(ref one), &ViewportPercentage(ref other)) => {
+                ViewportPercentage(one.try_sum(other)?)
+            },
+            (&ServoCharacterWidth(ref one), &ServoCharacterWidth(ref other)) => {
+                ServoCharacterWidth(CharacterWidth(one.0 + other.0))
+            },
+            // See https://github.com/rust-lang/rust/issues/68867. rustc isn't
+            // able to figure it own on its own so we help.
+            _ => unsafe {
+                match *self {
+                    Absolute(..) |
+                    FontRelative(..) |
+                    ViewportPercentage(..) |
+                    ServoCharacterWidth(..) => {},
+                }
+                debug_unreachable!("Forgot to handle unit in try_sum()")
+            },
+        })
     }
 
     /// Get a px value without context.
@@ -507,9 +609,44 @@ impl NoCalcLength {
 
 impl SpecifiedValueInfo for NoCalcLength {}
 
-impl IsZeroLength for NoCalcLength {
-    #[inline]
-    fn is_zero_length(&self) -> bool {
+impl PartialOrd for NoCalcLength {
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
+        use self::NoCalcLength::*;
+
+        if std::mem::discriminant(self) != std::mem::discriminant(other) {
+            return None;
+        }
+
+        match (self, other) {
+            (&Absolute(ref one), &Absolute(ref other)) => one.to_px().partial_cmp(&other.to_px()),
+            (&FontRelative(ref one), &FontRelative(ref other)) => one.partial_cmp(other),
+            (&ViewportPercentage(ref one), &ViewportPercentage(ref other)) => {
+                one.partial_cmp(other)
+            },
+            (&ServoCharacterWidth(ref one), &ServoCharacterWidth(ref other)) => {
+                one.0.partial_cmp(&other.0)
+            },
+            // See https://github.com/rust-lang/rust/issues/68867. rustc isn't
+            // able to figure it own on its own so we help.
+            _ => unsafe {
+                match *self {
+                    Absolute(..) |
+                    FontRelative(..) |
+                    ViewportPercentage(..) |
+                    ServoCharacterWidth(..) => {},
+                }
+                debug_unreachable!("Forgot an arm in partial_cmp?")
+            },
+        }
+    }
+}
+
+impl Zero for NoCalcLength {
+    fn zero() -> Self {
+        NoCalcLength::Absolute(AbsoluteLength::Px(0.))
+    }
+
+    fn is_zero(&self) -> bool {
         match *self {
             NoCalcLength::Absolute(v) => v.is_zero(),
             NoCalcLength::FontRelative(v) => v.is_zero(),
@@ -523,14 +660,14 @@ impl IsZeroLength for NoCalcLength {
 /// This is commonly used for the `<length>` values.
 ///
 /// <https://drafts.csswg.org/css-values/#lengths>
-#[derive(Clone, Debug, MallocSizeOf, PartialEq, SpecifiedValueInfo, ToCss)]
+#[derive(Clone, Debug, MallocSizeOf, PartialEq, SpecifiedValueInfo, ToCss, ToShmem)]
 pub enum Length {
     /// The internal length type that cannot parse `calc`
     NoCalc(NoCalcLength),
     /// A calc expression.
     ///
     /// <https://drafts.csswg.org/css-values/#calc-notation>
-    Calc(Box<CalcLengthOrPercentage>),
+    Calc(Box<CalcLengthPercentage>),
 }
 
 impl From<NoCalcLength> for Length {
@@ -548,6 +685,31 @@ impl Mul<CSSFloat> for Length {
         match self {
             Length::NoCalc(inner) => Length::NoCalc(inner * scalar),
             Length::Calc(..) => panic!("Can't multiply Calc!"),
+        }
+    }
+}
+
+impl PartialOrd for FontRelativeLength {
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
+        use self::FontRelativeLength::*;
+
+        if std::mem::discriminant(self) != std::mem::discriminant(other) {
+            return None;
+        }
+
+        match (self, other) {
+            (&Em(ref one), &Em(ref other)) => one.partial_cmp(other),
+            (&Ex(ref one), &Ex(ref other)) => one.partial_cmp(other),
+            (&Ch(ref one), &Ch(ref other)) => one.partial_cmp(other),
+            (&Rem(ref one), &Rem(ref other)) => one.partial_cmp(other),
+            // See https://github.com/rust-lang/rust/issues/68867. rustc isn't
+            // able to figure it own on its own so we help.
+            _ => unsafe {
+                match *self {
+                    Em(..) | Ex(..) | Ch(..) | Rem(..) => {},
+                }
+                debug_unreachable!("Forgot an arm in partial_cmp?")
+            },
         }
     }
 }
@@ -580,13 +742,32 @@ impl Mul<CSSFloat> for ViewportPercentageLength {
     }
 }
 
-impl Length {
-    #[inline]
-    /// Returns a `zero` length.
-    pub fn zero() -> Length {
-        Length::NoCalc(NoCalcLength::zero())
-    }
+impl PartialOrd for ViewportPercentageLength {
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
+        use self::ViewportPercentageLength::*;
 
+        if std::mem::discriminant(self) != std::mem::discriminant(other) {
+            return None;
+        }
+
+        match (self, other) {
+            (&Vw(ref one), &Vw(ref other)) => one.partial_cmp(other),
+            (&Vh(ref one), &Vh(ref other)) => one.partial_cmp(other),
+            (&Vmin(ref one), &Vmin(ref other)) => one.partial_cmp(other),
+            (&Vmax(ref one), &Vmax(ref other)) => one.partial_cmp(other),
+            // See https://github.com/rust-lang/rust/issues/68867. rustc isn't
+            // able to figure it own on its own so we help.
+            _ => unsafe {
+                match *self {
+                    Vw(..) | Vh(..) | Vmin(..) | Vmax(..) => {},
+                }
+                debug_unreachable!("Forgot an arm in partial_cmp?")
+            },
+        }
+    }
+}
+
+impl Length {
     #[inline]
     fn parse_internal<'i, 't>(
         context: &ParserContext,
@@ -594,39 +775,34 @@ impl Length {
         num_context: AllowedNumericType,
         allow_quirks: AllowQuirks,
     ) -> Result<Self, ParseError<'i>> {
-        // FIXME: remove early returns when lifetimes are non-lexical
-        {
-            let location = input.current_source_location();
-            let token = input.next()?;
-            match *token {
-                Token::Dimension {
-                    value, ref unit, ..
-                }
-                    if num_context.is_ok(context.parsing_mode, value) =>
+        let location = input.current_source_location();
+        let token = input.next()?;
+        match *token {
+            Token::Dimension {
+                value, ref unit, ..
+            } if num_context.is_ok(context.parsing_mode, value) => {
+                NoCalcLength::parse_dimension(context, value, unit)
+                    .map(Length::NoCalc)
+                    .map_err(|()| location.new_unexpected_token_error(token.clone()))
+            },
+            Token::Number { value, .. } if num_context.is_ok(context.parsing_mode, value) => {
+                if value != 0. &&
+                    !context.parsing_mode.allows_unitless_lengths() &&
+                    !allow_quirks.allowed(context.quirks_mode)
                 {
-                    return NoCalcLength::parse_dimension(context, value, unit)
-                        .map(Length::NoCalc)
-                        .map_err(|()| location.new_unexpected_token_error(token.clone()))
-                },
-                Token::Number { value, .. } if num_context.is_ok(context.parsing_mode, value) => {
-                    if value != 0. &&
-                        !context.parsing_mode.allows_unitless_lengths() &&
-                        !allow_quirks.allowed(context.quirks_mode)
-                    {
-                        return Err(location.new_custom_error(StyleParseErrorKind::UnspecifiedError));
-                    }
-                    return Ok(Length::NoCalc(NoCalcLength::Absolute(AbsoluteLength::Px(
-                        value,
-                    ))));
-                },
-                Token::Function(ref name) if name.eq_ignore_ascii_case("calc") => {},
-                ref token => return Err(location.new_unexpected_token_error(token.clone())),
-            }
+                    return Err(location.new_custom_error(StyleParseErrorKind::UnspecifiedError));
+                }
+                Ok(Length::NoCalc(NoCalcLength::Absolute(AbsoluteLength::Px(
+                    value,
+                ))))
+            },
+            Token::Function(ref name) => {
+                let function = CalcNode::math_function(name, location)?;
+                let calc = CalcNode::parse_length(context, input, num_context, function)?;
+                Ok(Length::Calc(Box::new(calc)))
+            },
+            ref token => return Err(location.new_unexpected_token_error(token.clone())),
         }
-        input.parse_nested_block(|input| {
-            CalcNode::parse_length(context, input, num_context)
-                .map(|calc| Length::Calc(Box::new(calc)))
-        })
     }
 
     /// Parse a non-negative length
@@ -669,6 +845,21 @@ impl Parse for Length {
     }
 }
 
+impl Zero for Length {
+    fn zero() -> Self {
+        Length::NoCalc(NoCalcLength::zero())
+    }
+
+    fn is_zero(&self) -> bool {
+        // FIXME(emilio): Seems a bit weird to treat calc() unconditionally as
+        // non-zero here?
+        match *self {
+            Length::NoCalc(ref l) => l.is_zero(),
+            Length::Calc(..) => false,
+        }
+    }
+}
+
 impl Length {
     /// Parses a length, with quirks.
     pub fn parse_quirky<'i, 't>(
@@ -696,85 +887,104 @@ impl Parse for NonNegativeLength {
 impl From<NoCalcLength> for NonNegativeLength {
     #[inline]
     fn from(len: NoCalcLength) -> Self {
-        NonNegative::<Length>(Length::NoCalc(len))
+        NonNegative(Length::NoCalc(len))
     }
 }
 
 impl From<Length> for NonNegativeLength {
     #[inline]
     fn from(len: Length) -> Self {
-        NonNegative::<Length>(len)
+        NonNegative(len)
     }
 }
 
 impl NonNegativeLength {
-    /// Returns a `zero` length.
-    #[inline]
-    pub fn zero() -> Self {
-        Length::zero().into()
-    }
-
     /// Get an absolute length from a px value.
     #[inline]
     pub fn from_px(px_value: CSSFloat) -> Self {
         Length::from_px(px_value.max(0.)).into()
     }
+
+    /// Parses a non-negative length, optionally with quirks.
+    #[inline]
+    pub fn parse_quirky<'i, 't>(
+        context: &ParserContext,
+        input: &mut Parser<'i, 't>,
+        allow_quirks: AllowQuirks,
+    ) -> Result<Self, ParseError<'i>> {
+        Ok(NonNegative(Length::parse_non_negative_quirky(
+            context,
+            input,
+            allow_quirks,
+        )?))
+    }
 }
 
-/// Either a NonNegativeLength or the `auto` keyword.
-pub type NonNegativeLengthOrAuto = Either<NonNegativeLength, Auto>;
-
-/// A length or a percentage value.
+/// A `<length-percentage>` value. This can be either a `<length>`, a
+/// `<percentage>`, or a combination of both via `calc()`.
+///
+/// https://drafts.csswg.org/css-values-4/#typedef-length-percentage
 #[allow(missing_docs)]
-#[derive(Clone, Debug, MallocSizeOf, PartialEq, SpecifiedValueInfo, ToCss)]
-pub enum LengthOrPercentage {
+#[derive(Clone, Debug, MallocSizeOf, PartialEq, SpecifiedValueInfo, ToCss, ToShmem)]
+pub enum LengthPercentage {
     Length(NoCalcLength),
     Percentage(computed::Percentage),
-    Calc(Box<CalcLengthOrPercentage>),
+    Calc(Box<CalcLengthPercentage>),
 }
 
-impl From<Length> for LengthOrPercentage {
-    fn from(len: Length) -> LengthOrPercentage {
+impl From<Length> for LengthPercentage {
+    fn from(len: Length) -> LengthPercentage {
         match len {
-            Length::NoCalc(l) => LengthOrPercentage::Length(l),
-            Length::Calc(l) => LengthOrPercentage::Calc(l),
+            Length::NoCalc(l) => LengthPercentage::Length(l),
+            Length::Calc(l) => LengthPercentage::Calc(l),
         }
     }
 }
 
-impl From<NoCalcLength> for LengthOrPercentage {
+impl From<NoCalcLength> for LengthPercentage {
     #[inline]
     fn from(len: NoCalcLength) -> Self {
-        LengthOrPercentage::Length(len)
+        LengthPercentage::Length(len)
     }
 }
 
-impl From<Percentage> for LengthOrPercentage {
+impl From<Percentage> for LengthPercentage {
     #[inline]
     fn from(pc: Percentage) -> Self {
         if pc.is_calc() {
-            LengthOrPercentage::Calc(Box::new(CalcLengthOrPercentage {
-                percentage: Some(computed::Percentage(pc.get())),
-                ..Default::default()
+            // FIXME(emilio): Hard-coding the clamping mode is suspect.
+            LengthPercentage::Calc(Box::new(CalcLengthPercentage {
+                clamping_mode: AllowedNumericType::All,
+                node: CalcNode::Leaf(calc::Leaf::Percentage(pc.get())),
             }))
         } else {
-            LengthOrPercentage::Percentage(computed::Percentage(pc.get()))
+            LengthPercentage::Percentage(computed::Percentage(pc.get()))
         }
     }
 }
 
-impl From<computed::Percentage> for LengthOrPercentage {
+impl From<computed::Percentage> for LengthPercentage {
     #[inline]
     fn from(pc: computed::Percentage) -> Self {
-        LengthOrPercentage::Percentage(pc)
+        LengthPercentage::Percentage(pc)
     }
 }
 
-impl LengthOrPercentage {
+impl Parse for LengthPercentage {
     #[inline]
-    /// Returns a `zero` length.
-    pub fn zero() -> LengthOrPercentage {
-        LengthOrPercentage::Length(NoCalcLength::zero())
+    fn parse<'i, 't>(
+        context: &ParserContext,
+        input: &mut Parser<'i, 't>,
+    ) -> Result<Self, ParseError<'i>> {
+        Self::parse_quirky(context, input, AllowQuirks::No)
+    }
+}
+
+impl LengthPercentage {
+    #[inline]
+    /// Returns a `0%` value.
+    pub fn zero_percent() -> LengthPercentage {
+        LengthPercentage::Percentage(computed::Percentage::zero())
     }
 
     fn parse_internal<'i, 't>(
@@ -783,54 +993,63 @@ impl LengthOrPercentage {
         num_context: AllowedNumericType,
         allow_quirks: AllowQuirks,
     ) -> Result<Self, ParseError<'i>> {
-        // FIXME: remove early returns when lifetimes are non-lexical
-        {
-            let location = input.current_source_location();
-            let token = input.next()?;
-            match *token {
-                Token::Dimension {
-                    value, ref unit, ..
-                }
-                    if num_context.is_ok(context.parsing_mode, value) =>
-                {
-                    return NoCalcLength::parse_dimension(context, value, unit)
-                        .map(LengthOrPercentage::Length)
-                        .map_err(|()| location.new_unexpected_token_error(token.clone()))
-                },
-                Token::Percentage { unit_value, .. }
-                    if num_context.is_ok(context.parsing_mode, unit_value) =>
-                {
-                    return Ok(LengthOrPercentage::Percentage(computed::Percentage(
-                        unit_value,
-                    )))
-                },
-                Token::Number { value, .. } if num_context.is_ok(context.parsing_mode, value) => {
-                    if value != 0. &&
-                        !context.parsing_mode.allows_unitless_lengths() &&
-                        !allow_quirks.allowed(context.quirks_mode)
-                    {
-                        return Err(location.new_unexpected_token_error(token.clone()));
-                    } else {
-                        return Ok(LengthOrPercentage::Length(NoCalcLength::from_px(value)));
-                    }
-                },
-                Token::Function(ref name) if name.eq_ignore_ascii_case("calc") => {},
-                _ => return Err(location.new_unexpected_token_error(token.clone())),
+        let location = input.current_source_location();
+        let token = input.next()?;
+        match *token {
+            Token::Dimension {
+                value, ref unit, ..
+            } if num_context.is_ok(context.parsing_mode, value) => {
+                return NoCalcLength::parse_dimension(context, value, unit)
+                    .map(LengthPercentage::Length)
+                    .map_err(|()| location.new_unexpected_token_error(token.clone()));
+            },
+            Token::Percentage { unit_value, .. }
+                if num_context.is_ok(context.parsing_mode, unit_value) =>
+            {
+                return Ok(LengthPercentage::Percentage(computed::Percentage(
+                    unit_value,
+                )));
             }
+            Token::Number { value, .. } if num_context.is_ok(context.parsing_mode, value) => {
+                if value != 0. &&
+                    !context.parsing_mode.allows_unitless_lengths() &&
+                    !allow_quirks.allowed(context.quirks_mode)
+                {
+                    return Err(location.new_unexpected_token_error(token.clone()));
+                } else {
+                    return Ok(LengthPercentage::Length(NoCalcLength::from_px(value)));
+                }
+            },
+            Token::Function(ref name) => {
+                let function = CalcNode::math_function(name, location)?;
+                let calc =
+                    CalcNode::parse_length_or_percentage(context, input, num_context, function)?;
+                Ok(LengthPercentage::Calc(Box::new(calc)))
+            },
+            _ => return Err(location.new_unexpected_token_error(token.clone())),
         }
+    }
 
-        let calc = input.parse_nested_block(|i| {
-            CalcNode::parse_length_or_percentage(context, i, num_context)
-        })?;
-        Ok(LengthOrPercentage::Calc(Box::new(calc)))
+    /// Parses allowing the unitless length quirk.
+    /// <https://quirks.spec.whatwg.org/#the-unitless-length-quirk>
+    #[inline]
+    pub fn parse_quirky<'i, 't>(
+        context: &ParserContext,
+        input: &mut Parser<'i, 't>,
+        allow_quirks: AllowQuirks,
+    ) -> Result<Self, ParseError<'i>> {
+        Self::parse_internal(context, input, AllowedNumericType::All, allow_quirks)
     }
 
     /// Parse a non-negative length.
+    ///
+    /// FIXME(emilio): This should be not public and we should use
+    /// NonNegativeLengthPercentage instead.
     #[inline]
     pub fn parse_non_negative<'i, 't>(
         context: &ParserContext,
         input: &mut Parser<'i, 't>,
-    ) -> Result<LengthOrPercentage, ParseError<'i>> {
+    ) -> Result<Self, ParseError<'i>> {
         Self::parse_non_negative_quirky(context, input, AllowQuirks::No)
     }
 
@@ -840,7 +1059,7 @@ impl LengthOrPercentage {
         context: &ParserContext,
         input: &mut Parser<'i, 't>,
         allow_quirks: AllowQuirks,
-    ) -> Result<LengthOrPercentage, ParseError<'i>> {
+    ) -> Result<Self, ParseError<'i>> {
         Self::parse_internal(
             context,
             input,
@@ -850,350 +1069,28 @@ impl LengthOrPercentage {
     }
 }
 
-impl Parse for LengthOrPercentage {
-    #[inline]
-    fn parse<'i, 't>(
-        context: &ParserContext,
-        input: &mut Parser<'i, 't>,
-    ) -> Result<Self, ParseError<'i>> {
-        Self::parse_quirky(context, input, AllowQuirks::No)
+impl Zero for LengthPercentage {
+    fn zero() -> Self {
+        LengthPercentage::Length(NoCalcLength::zero())
     }
-}
 
-impl LengthOrPercentage {
-    /// Parses a length or a percentage, allowing the unitless length quirk.
-    /// <https://quirks.spec.whatwg.org/#the-unitless-length-quirk>
-    #[inline]
-    pub fn parse_quirky<'i, 't>(
-        context: &ParserContext,
-        input: &mut Parser<'i, 't>,
-        allow_quirks: AllowQuirks,
-    ) -> Result<Self, ParseError<'i>> {
-        Self::parse_internal(context, input, AllowedNumericType::All, allow_quirks)
-    }
-}
-
-impl IsZeroLength for LengthOrPercentage {
-    #[inline]
-    fn is_zero_length(&self) -> bool {
+    fn is_zero(&self) -> bool {
         match *self {
-            LengthOrPercentage::Length(l) => l.is_zero_length(),
-            LengthOrPercentage::Percentage(p) => p.0 == 0.0,
-            LengthOrPercentage::Calc(_) => false,
+            LengthPercentage::Length(l) => l.is_zero(),
+            LengthPercentage::Percentage(p) => p.0 == 0.0,
+            LengthPercentage::Calc(_) => false,
         }
     }
 }
 
-/// Either a `<length>`, a `<percentage>`, or the `auto` keyword.
-#[allow(missing_docs)]
-#[derive(Clone, Debug, MallocSizeOf, PartialEq, SpecifiedValueInfo, ToCss)]
-pub enum LengthOrPercentageOrAuto {
-    Length(NoCalcLength),
-    Percentage(computed::Percentage),
-    Auto,
-    Calc(Box<CalcLengthOrPercentage>),
-}
+/// A specified type for `<length-percentage> | auto`.
+pub type LengthPercentageOrAuto = generics::LengthPercentageOrAuto<LengthPercentage>;
 
-impl From<NoCalcLength> for LengthOrPercentageOrAuto {
-    #[inline]
-    fn from(len: NoCalcLength) -> Self {
-        LengthOrPercentageOrAuto::Length(len)
-    }
-}
-
-impl From<computed::Percentage> for LengthOrPercentageOrAuto {
-    #[inline]
-    fn from(pc: computed::Percentage) -> Self {
-        LengthOrPercentageOrAuto::Percentage(pc)
-    }
-}
-
-impl LengthOrPercentageOrAuto {
-    fn parse_internal<'i, 't>(
-        context: &ParserContext,
-        input: &mut Parser<'i, 't>,
-        num_context: AllowedNumericType,
-        allow_quirks: AllowQuirks,
-    ) -> Result<Self, ParseError<'i>> {
-        // FIXME: remove early returns when lifetimes are non-lexical
-        {
-            let location = input.current_source_location();
-            let token = input.next()?;
-            match *token {
-                Token::Dimension {
-                    value, ref unit, ..
-                }
-                    if num_context.is_ok(context.parsing_mode, value) =>
-                {
-                    return NoCalcLength::parse_dimension(context, value, unit)
-                        .map(LengthOrPercentageOrAuto::Length)
-                        .map_err(|()| location.new_unexpected_token_error(token.clone()))
-                },
-                Token::Percentage { unit_value, .. }
-                    if num_context.is_ok(context.parsing_mode, unit_value) =>
-                {
-                    return Ok(LengthOrPercentageOrAuto::Percentage(computed::Percentage(
-                        unit_value,
-                    )))
-                },
-                Token::Number { value, .. } if num_context.is_ok(context.parsing_mode, value) => {
-                    if value != 0. &&
-                        !context.parsing_mode.allows_unitless_lengths() &&
-                        !allow_quirks.allowed(context.quirks_mode)
-                    {
-                        return Err(location.new_custom_error(StyleParseErrorKind::UnspecifiedError));
-                    }
-                    return Ok(LengthOrPercentageOrAuto::Length(NoCalcLength::Absolute(
-                        AbsoluteLength::Px(value),
-                    )));
-                },
-                Token::Ident(ref value) if value.eq_ignore_ascii_case("auto") => {
-                    return Ok(LengthOrPercentageOrAuto::Auto)
-                },
-                Token::Function(ref name) if name.eq_ignore_ascii_case("calc") => {},
-                _ => return Err(location.new_unexpected_token_error(token.clone())),
-            }
-        }
-
-        let calc = input.parse_nested_block(|i| {
-            CalcNode::parse_length_or_percentage(context, i, num_context)
-        })?;
-        Ok(LengthOrPercentageOrAuto::Calc(Box::new(calc)))
-    }
-
-    /// Parse a non-negative length, percentage, or auto.
-    #[inline]
-    pub fn parse_non_negative<'i, 't>(
-        context: &ParserContext,
-        input: &mut Parser<'i, 't>,
-    ) -> Result<LengthOrPercentageOrAuto, ParseError<'i>> {
-        Self::parse_non_negative_quirky(context, input, AllowQuirks::No)
-    }
-
-    /// Parse a non-negative length, percentage, or auto.
-    #[inline]
-    pub fn parse_non_negative_quirky<'i, 't>(
-        context: &ParserContext,
-        input: &mut Parser<'i, 't>,
-        allow_quirks: AllowQuirks,
-    ) -> Result<Self, ParseError<'i>> {
-        Self::parse_internal(
-            context,
-            input,
-            AllowedNumericType::NonNegative,
-            allow_quirks,
-        )
-    }
-
-    /// Returns the `auto` value.
-    pub fn auto() -> Self {
-        LengthOrPercentageOrAuto::Auto
-    }
-
-    /// Returns a value representing a `0` length.
-    pub fn zero() -> Self {
-        LengthOrPercentageOrAuto::Length(NoCalcLength::zero())
-    }
-
+impl LengthPercentageOrAuto {
     /// Returns a value representing `0%`.
     #[inline]
     pub fn zero_percent() -> Self {
-        LengthOrPercentageOrAuto::Percentage(computed::Percentage::zero())
-    }
-
-    /// Parses, with quirks.
-    #[inline]
-    pub fn parse_quirky<'i, 't>(
-        context: &ParserContext,
-        input: &mut Parser<'i, 't>,
-        allow_quirks: AllowQuirks,
-    ) -> Result<Self, ParseError<'i>> {
-        Self::parse_internal(context, input, AllowedNumericType::All, allow_quirks)
-    }
-}
-
-impl Parse for LengthOrPercentageOrAuto {
-    #[inline]
-    fn parse<'i, 't>(
-        context: &ParserContext,
-        input: &mut Parser<'i, 't>,
-    ) -> Result<Self, ParseError<'i>> {
-        Self::parse_quirky(context, input, AllowQuirks::No)
-    }
-}
-
-/// A wrapper of LengthOrPercentageOrAuto, whose value must be >= 0.
-pub type NonNegativeLengthOrPercentageOrAuto = NonNegative<LengthOrPercentageOrAuto>;
-
-impl IsAuto for NonNegativeLengthOrPercentageOrAuto {
-    #[inline]
-    fn is_auto(&self) -> bool {
-        *self == Self::auto()
-    }
-}
-
-impl NonNegativeLengthOrPercentageOrAuto {
-    /// 0
-    #[inline]
-    pub fn zero() -> Self {
-        NonNegative(LengthOrPercentageOrAuto::zero())
-    }
-
-    /// 0%
-    #[inline]
-    pub fn zero_percent() -> Self {
-        NonNegative(LengthOrPercentageOrAuto::zero_percent())
-    }
-
-    /// `auto`
-    #[inline]
-    pub fn auto() -> Self {
-        NonNegative(LengthOrPercentageOrAuto::Auto)
-    }
-}
-
-impl Parse for NonNegativeLengthOrPercentageOrAuto {
-    #[inline]
-    fn parse<'i, 't>(
-        context: &ParserContext,
-        input: &mut Parser<'i, 't>,
-    ) -> Result<Self, ParseError<'i>> {
-        Ok(NonNegative(LengthOrPercentageOrAuto::parse_non_negative(
-            context, input,
-        )?))
-    }
-}
-
-/// Either a `<length>`, a `<percentage>`, or the `none` keyword.
-#[derive(Clone, Debug, MallocSizeOf, PartialEq, SpecifiedValueInfo, ToCss)]
-#[allow(missing_docs)]
-pub enum LengthOrPercentageOrNone {
-    Length(NoCalcLength),
-    Percentage(computed::Percentage),
-    Calc(Box<CalcLengthOrPercentage>),
-    None,
-}
-
-impl LengthOrPercentageOrNone {
-    fn parse_internal<'i, 't>(
-        context: &ParserContext,
-        input: &mut Parser<'i, 't>,
-        num_context: AllowedNumericType,
-        allow_quirks: AllowQuirks,
-    ) -> Result<Self, ParseError<'i>> {
-        // FIXME: remove early returns when lifetimes are non-lexical
-        {
-            let location = input.current_source_location();
-            let token = input.next()?;
-            match *token {
-                Token::Dimension {
-                    value, ref unit, ..
-                }
-                    if num_context.is_ok(context.parsing_mode, value) =>
-                {
-                    return NoCalcLength::parse_dimension(context, value, unit)
-                        .map(LengthOrPercentageOrNone::Length)
-                        .map_err(|()| location.new_unexpected_token_error(token.clone()))
-                },
-                Token::Percentage { unit_value, .. }
-                    if num_context.is_ok(context.parsing_mode, unit_value) =>
-                {
-                    return Ok(LengthOrPercentageOrNone::Percentage(computed::Percentage(
-                        unit_value,
-                    )))
-                },
-                Token::Number { value, .. } if num_context.is_ok(context.parsing_mode, value) => {
-                    if value != 0. &&
-                        !context.parsing_mode.allows_unitless_lengths() &&
-                        !allow_quirks.allowed(context.quirks_mode)
-                    {
-                        return Err(location.new_custom_error(StyleParseErrorKind::UnspecifiedError));
-                    }
-                    return Ok(LengthOrPercentageOrNone::Length(NoCalcLength::Absolute(
-                        AbsoluteLength::Px(value),
-                    )));
-                },
-                Token::Function(ref name) if name.eq_ignore_ascii_case("calc") => {},
-                Token::Ident(ref value) if value.eq_ignore_ascii_case("none") => {
-                    return Ok(LengthOrPercentageOrNone::None)
-                },
-                _ => return Err(location.new_unexpected_token_error(token.clone())),
-            }
-        }
-
-        let calc = input.parse_nested_block(|i| {
-            CalcNode::parse_length_or_percentage(context, i, num_context)
-        })?;
-        Ok(LengthOrPercentageOrNone::Calc(Box::new(calc)))
-    }
-
-    /// Parse a non-negative LengthOrPercentageOrNone.
-    #[inline]
-    pub fn parse_non_negative<'i, 't>(
-        context: &ParserContext,
-        input: &mut Parser<'i, 't>,
-    ) -> Result<Self, ParseError<'i>> {
-        Self::parse_non_negative_quirky(context, input, AllowQuirks::No)
-    }
-
-    /// Parse a non-negative LengthOrPercentageOrNone, with quirks.
-    #[inline]
-    pub fn parse_non_negative_quirky<'i, 't>(
-        context: &ParserContext,
-        input: &mut Parser<'i, 't>,
-        allow_quirks: AllowQuirks,
-    ) -> Result<Self, ParseError<'i>> {
-        Self::parse_internal(
-            context,
-            input,
-            AllowedNumericType::NonNegative,
-            allow_quirks,
-        )
-    }
-}
-
-impl Parse for LengthOrPercentageOrNone {
-    #[inline]
-    fn parse<'i, 't>(
-        context: &ParserContext,
-        input: &mut Parser<'i, 't>,
-    ) -> Result<Self, ParseError<'i>> {
-        Self::parse_internal(context, input, AllowedNumericType::All, AllowQuirks::No)
-    }
-}
-
-/// A wrapper of LengthOrPercentage, whose value must be >= 0.
-pub type NonNegativeLengthOrPercentage = NonNegative<LengthOrPercentage>;
-
-/// Either a computed NonNegativeLength or the `normal` keyword.
-pub type NonNegativeLengthOrNormal = Either<NonNegativeLength, Normal>;
-
-/// Either a NonNegativeLengthOrPercentage or the `normal` keyword.
-pub type NonNegativeLengthOrPercentageOrNormal = Either<NonNegativeLengthOrPercentage, Normal>;
-
-impl From<NoCalcLength> for NonNegativeLengthOrPercentage {
-    #[inline]
-    fn from(len: NoCalcLength) -> Self {
-        NonNegative::<LengthOrPercentage>(LengthOrPercentage::from(len))
-    }
-}
-
-impl Parse for NonNegativeLengthOrPercentage {
-    #[inline]
-    fn parse<'i, 't>(
-        context: &ParserContext,
-        input: &mut Parser<'i, 't>,
-    ) -> Result<Self, ParseError<'i>> {
-        LengthOrPercentage::parse_non_negative(context, input)
-            .map(NonNegative::<LengthOrPercentage>)
-    }
-}
-
-impl NonNegativeLengthOrPercentage {
-    #[inline]
-    /// Returns a `zero` length.
-    pub fn zero() -> Self {
-        NonNegative::<LengthOrPercentage>(LengthOrPercentage::zero())
+        generics::LengthPercentageOrAuto::LengthPercentage(LengthPercentage::zero_percent())
     }
 
     /// Parses a length or a percentage, allowing the unitless length quirk.
@@ -1204,131 +1101,185 @@ impl NonNegativeLengthOrPercentage {
         input: &mut Parser<'i, 't>,
         allow_quirks: AllowQuirks,
     ) -> Result<Self, ParseError<'i>> {
-        LengthOrPercentage::parse_non_negative_quirky(context, input, allow_quirks)
-            .map(NonNegative::<LengthOrPercentage>)
+        Self::parse_with(context, input, |context, input| {
+            LengthPercentage::parse_quirky(context, input, allow_quirks)
+        })
     }
 }
 
-/// Either a `<length>` or the `normal` keyword.
-pub type LengthOrNormal = Either<Length, Normal>;
+/// A wrapper of LengthPercentageOrAuto, whose value must be >= 0.
+pub type NonNegativeLengthPercentageOrAuto =
+    generics::LengthPercentageOrAuto<NonNegativeLengthPercentage>;
 
-/// Either a `<length>` or the `auto` keyword.
-pub type LengthOrAuto = Either<Length, Auto>;
+impl NonNegativeLengthPercentageOrAuto {
+    /// Returns a value representing `0%`.
+    #[inline]
+    pub fn zero_percent() -> Self {
+        generics::LengthPercentageOrAuto::LengthPercentage(
+            NonNegativeLengthPercentage::zero_percent(),
+        )
+    }
 
-/// Either a `<length>` or a `<number>`.
-pub type LengthOrNumber = Either<Length, Number>;
-
-impl LengthOrNumber {
-    /// Parse a non-negative LengthOrNumber.
-    pub fn parse_non_negative<'i, 't>(
+    /// Parses a non-negative length-percentage, allowing the unitless length
+    /// quirk.
+    #[inline]
+    pub fn parse_quirky<'i, 't>(
         context: &ParserContext,
         input: &mut Parser<'i, 't>,
+        allow_quirks: AllowQuirks,
     ) -> Result<Self, ParseError<'i>> {
-        // We try to parse as a Number first because, for cases like
-        // LengthOrNumber, we want "0" to be parsed as a plain Number rather
-        // than a Length (0px); this matches the behaviour of all major browsers
-        if let Ok(v) = input.try(|i| Number::parse_non_negative(context, i)) {
-            return Ok(Either::Second(v));
-        }
-
-        Length::parse_non_negative(context, input).map(Either::First)
-    }
-
-    /// Returns `0`.
-    #[inline]
-    pub fn zero() -> Self {
-        Either::Second(Number::new(0.))
+        Self::parse_with(context, input, |context, input| {
+            NonNegativeLengthPercentage::parse_quirky(context, input, allow_quirks)
+        })
     }
 }
 
-/// A specified value for `min-width`, `min-height`, `width` or `height` property.
-pub type MozLength = GenericMozLength<LengthOrPercentageOrAuto>;
+/// A wrapper of LengthPercentage, whose value must be >= 0.
+pub type NonNegativeLengthPercentage = NonNegative<LengthPercentage>;
 
-impl Parse for MozLength {
+/// Either a NonNegativeLengthPercentage or the `normal` keyword.
+pub type NonNegativeLengthPercentageOrNormal =
+    GenericLengthPercentageOrNormal<NonNegativeLengthPercentage>;
+
+impl From<NoCalcLength> for NonNegativeLengthPercentage {
+    #[inline]
+    fn from(len: NoCalcLength) -> Self {
+        NonNegative(LengthPercentage::from(len))
+    }
+}
+
+impl Parse for NonNegativeLengthPercentage {
+    #[inline]
     fn parse<'i, 't>(
         context: &ParserContext,
         input: &mut Parser<'i, 't>,
     ) -> Result<Self, ParseError<'i>> {
-        MozLength::parse_quirky(context, input, AllowQuirks::No)
+        Self::parse_quirky(context, input, AllowQuirks::No)
     }
 }
 
-impl MozLength {
-    /// Parses, without quirks, and disallowing ExtremumLength values.
-    ///
-    /// Used for logical props in the block direction.
-    pub fn parse_disallow_keyword<'i, 't>(
+impl NonNegativeLengthPercentage {
+    #[inline]
+    /// Returns a `0%` value.
+    pub fn zero_percent() -> Self {
+        NonNegative(LengthPercentage::zero_percent())
+    }
+
+    /// Parses a length or a percentage, allowing the unitless length quirk.
+    /// <https://quirks.spec.whatwg.org/#the-unitless-length-quirk>
+    #[inline]
+    pub fn parse_quirky<'i, 't>(
+        context: &ParserContext,
+        input: &mut Parser<'i, 't>,
+        allow_quirks: AllowQuirks,
+    ) -> Result<Self, ParseError<'i>> {
+        LengthPercentage::parse_non_negative_quirky(context, input, allow_quirks).map(NonNegative)
+    }
+}
+
+/// Either a `<length>` or the `auto` keyword.
+///
+/// Note that we use LengthPercentage just for convenience, since it pretty much
+/// is everything we care about, but we could just add a similar LengthOrAuto
+/// instead if we think getting rid of this weirdness is worth it.
+pub type LengthOrAuto = generics::LengthPercentageOrAuto<Length>;
+
+impl LengthOrAuto {
+    /// Parses a length, allowing the unitless length quirk.
+    /// <https://quirks.spec.whatwg.org/#the-unitless-length-quirk>
+    #[inline]
+    pub fn parse_quirky<'i, 't>(
+        context: &ParserContext,
+        input: &mut Parser<'i, 't>,
+        allow_quirks: AllowQuirks,
+    ) -> Result<Self, ParseError<'i>> {
+        Self::parse_with(context, input, |context, input| {
+            Length::parse_quirky(context, input, allow_quirks)
+        })
+    }
+}
+
+/// Either a non-negative `<length>` or the `auto` keyword.
+pub type NonNegativeLengthOrAuto = generics::LengthPercentageOrAuto<NonNegativeLength>;
+
+/// Either a `<length>` or a `<number>`.
+pub type LengthOrNumber = GenericLengthOrNumber<Length, Number>;
+
+/// A specified value for `min-width`, `min-height`, `width` or `height` property.
+pub type Size = GenericSize<NonNegativeLengthPercentage>;
+
+impl Parse for Size {
+    fn parse<'i, 't>(
         context: &ParserContext,
         input: &mut Parser<'i, 't>,
     ) -> Result<Self, ParseError<'i>> {
-        let length = LengthOrPercentageOrAuto::parse_non_negative(context, input)?;
-        Ok(GenericMozLength::LengthOrPercentageOrAuto(length))
+        Size::parse_quirky(context, input, AllowQuirks::No)
     }
+}
 
+impl Size {
     /// Parses, with quirks.
     pub fn parse_quirky<'i, 't>(
         context: &ParserContext,
         input: &mut Parser<'i, 't>,
         allow_quirks: AllowQuirks,
     ) -> Result<Self, ParseError<'i>> {
-        if let Ok(l) = input.try(ExtremumLength::parse) {
-            return Ok(GenericMozLength::ExtremumLength(l));
+        #[cfg(feature = "gecko")]
+        {
+            if let Ok(l) = input.try_parse(computed::ExtremumLength::parse) {
+                return Ok(GenericSize::ExtremumLength(l));
+            }
         }
 
-        let length =
-            LengthOrPercentageOrAuto::parse_non_negative_quirky(context, input, allow_quirks)?;
-        Ok(GenericMozLength::LengthOrPercentageOrAuto(length))
-    }
+        if input.try_parse(|i| i.expect_ident_matching("auto")).is_ok() {
+            return Ok(GenericSize::Auto);
+        }
 
-    /// Returns `auto`.
-    #[inline]
-    pub fn auto() -> Self {
-        GenericMozLength::LengthOrPercentageOrAuto(LengthOrPercentageOrAuto::auto())
+        let length = NonNegativeLengthPercentage::parse_quirky(context, input, allow_quirks)?;
+        Ok(GenericSize::LengthPercentage(length))
     }
 
     /// Returns `0%`.
     #[inline]
     pub fn zero_percent() -> Self {
-        GenericMozLength::LengthOrPercentageOrAuto(LengthOrPercentageOrAuto::zero_percent())
+        GenericSize::LengthPercentage(NonNegativeLengthPercentage::zero_percent())
     }
 }
 
 /// A specified value for `max-width` or `max-height` property.
-pub type MaxLength = GenericMaxLength<LengthOrPercentageOrNone>;
+pub type MaxSize = GenericMaxSize<NonNegativeLengthPercentage>;
 
-impl Parse for MaxLength {
+impl Parse for MaxSize {
     fn parse<'i, 't>(
         context: &ParserContext,
         input: &mut Parser<'i, 't>,
     ) -> Result<Self, ParseError<'i>> {
-        MaxLength::parse_quirky(context, input, AllowQuirks::No)
+        MaxSize::parse_quirky(context, input, AllowQuirks::No)
     }
 }
 
-impl MaxLength {
-    /// Parses, without quirks, and disallowing ExtremumLength values.
-    ///
-    /// Used for logical props in the block direction.
-    pub fn parse_disallow_keyword<'i, 't>(
-        context: &ParserContext,
-        input: &mut Parser<'i, 't>,
-    ) -> Result<Self, ParseError<'i>> {
-        let length = LengthOrPercentageOrNone::parse_non_negative(context, input)?;
-        Ok(GenericMaxLength::LengthOrPercentageOrNone(length))
-    }
-
+impl MaxSize {
     /// Parses, with quirks.
     pub fn parse_quirky<'i, 't>(
         context: &ParserContext,
         input: &mut Parser<'i, 't>,
         allow_quirks: AllowQuirks,
     ) -> Result<Self, ParseError<'i>> {
-        if let Ok(l) = input.try(ExtremumLength::parse) {
-            return Ok(GenericMaxLength::ExtremumLength(l));
+        #[cfg(feature = "gecko")]
+        {
+            if let Ok(l) = input.try_parse(computed::ExtremumLength::parse) {
+                return Ok(GenericMaxSize::ExtremumLength(l));
+            }
         }
 
-        let length =
-            LengthOrPercentageOrNone::parse_non_negative_quirky(context, input, allow_quirks)?;
-        Ok(GenericMaxLength::LengthOrPercentageOrNone(length))
+        if input.try_parse(|i| i.expect_ident_matching("none")).is_ok() {
+            return Ok(GenericMaxSize::None);
+        }
+
+        let length = NonNegativeLengthPercentage::parse_quirky(context, input, allow_quirks)?;
+        Ok(GenericMaxSize::LengthPercentage(length))
     }
 }
+
+/// A specified non-negative `<length>` | `<number>`.
+pub type NonNegativeLengthOrNumber = GenericLengthOrNumber<NonNegativeLength, NonNegativeNumber>;

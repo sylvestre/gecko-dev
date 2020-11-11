@@ -6,17 +6,16 @@
 
 #include "DocumentTimeline.h"
 #include "mozilla/ScopeExit.h"
+#include "mozilla/dom/DocumentInlines.h"
 #include "mozilla/dom/DocumentTimelineBinding.h"
 #include "AnimationUtils.h"
 #include "nsContentUtils.h"
 #include "nsDOMMutationObserver.h"
 #include "nsDOMNavigationTiming.h"
-#include "nsIPresShell.h"
 #include "nsPresContext.h"
 #include "nsRefreshDriver.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_IMPL_CYCLE_COLLECTION_CLASS(DocumentTimeline)
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(DocumentTimeline,
@@ -47,10 +46,11 @@ JSObject* DocumentTimeline::WrapObject(JSContext* aCx,
   return DocumentTimeline_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-/* static */ already_AddRefed<DocumentTimeline> DocumentTimeline::Constructor(
+/* static */
+already_AddRefed<DocumentTimeline> DocumentTimeline::Constructor(
     const GlobalObject& aGlobal, const DocumentTimelineOptions& aOptions,
     ErrorResult& aRv) {
-  nsIDocument* doc = AnimationUtils::GetCurrentRealmDocument(aGlobal.Context());
+  Document* doc = AnimationUtils::GetCurrentRealmDocument(aGlobal.Context());
   if (!doc) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
@@ -60,8 +60,7 @@ JSObject* DocumentTimeline::WrapObject(JSContext* aCx,
 
   if (originTime == TimeDuration::Forever() ||
       originTime == -TimeDuration::Forever()) {
-    aRv.ThrowTypeError<dom::MSG_TIME_VALUE_OUT_OF_RANGE>(
-        NS_LITERAL_STRING("Origin time"));
+    aRv.ThrowTypeError<dom::MSG_TIME_VALUE_OUT_OF_RANGE>("Origin time");
     return nullptr;
   }
   RefPtr<DocumentTimeline> timeline = new DocumentTimeline(doc, originTime);
@@ -71,6 +70,11 @@ JSObject* DocumentTimeline::WrapObject(JSContext* aCx,
 
 Nullable<TimeDuration> DocumentTimeline::GetCurrentTimeAsDuration() const {
   return ToTimelineTime(GetCurrentTimeStamp());
+}
+
+bool DocumentTimeline::TracksWallclockTime() const {
+  nsRefreshDriver* refreshDriver = GetRefreshDriver();
+  return !refreshDriver || !refreshDriver->IsTestControllingRefreshesEnabled();
 }
 
 TimeStamp DocumentTimeline::GetCurrentTimeStamp() const {
@@ -166,7 +170,7 @@ void DocumentTimeline::MostRecentRefreshTimeUpdated() {
     // order to dispatch events.
     animation->Tick();
 
-    if (!animation->IsRelevant() && !animation->NeedsTicks()) {
+    if (!animation->NeedsTicks()) {
       animationsToRemove.AppendElement(animation);
     }
   }
@@ -188,13 +192,6 @@ void DocumentTimeline::MostRecentRefreshTimeUpdated() {
 }
 
 void DocumentTimeline::WillRefresh(mozilla::TimeStamp aTime) {
-  // https://drafts.csswg.org/web-animations-1/#update-animations-and-send-events,
-  // step2.
-  // Note that this should be done before nsAutoAnimationMutationBatch which is
-  // inside MostRecentRefreshTimeUpdated().  If PerformMicroTaskCheckpoint was
-  // called before nsAutoAnimationMutationBatch is destroyed, some mutation
-  // records might not be delivered in this checkpoint.
-  nsAutoMicroTask mt;
   MostRecentRefreshTimeUpdated();
 }
 
@@ -209,7 +206,8 @@ void DocumentTimeline::ObserveRefreshDriver(nsRefreshDriver* aDriver) {
   // MostRecentRefreshTimeUpdated which has an assertion for
   // mIsObserveingRefreshDriver check.
   mIsObservingRefreshDriver = true;
-  aDriver->AddRefreshObserver(this, FlushType::Style);
+  aDriver->AddRefreshObserver(this, FlushType::Style,
+                              "DocumentTimeline animations");
   aDriver->AddTimerAdjustmentObserver(this);
 }
 
@@ -289,5 +287,4 @@ void DocumentTimeline::UnregisterFromRefreshDriver() {
   DisconnectRefreshDriver(refreshDriver);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

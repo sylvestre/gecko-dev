@@ -10,6 +10,7 @@
 #include "mozilla/dom/nsSynthVoiceRegistry.h"
 #include "mozilla/ClearOnShutdown.h"
 #include "mozilla/Preferences.h"
+#include "mozilla/StaticPrefs_media.h"
 #include "nsEscape.h"
 #include "nsISupports.h"
 #include "nsPrintfCString.h"
@@ -120,8 +121,7 @@ struct nsSpeechDispatcherDynamicFunction {
   nsSpeechDispatcherFunc* function;
 };
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 StaticRefPtr<SpeechDispatcherService> SpeechDispatcherService::sSingleton;
 
@@ -139,7 +139,7 @@ class SpeechDispatcherVoice {
   nsString mLanguage;
 
  private:
-  ~SpeechDispatcherVoice() {}
+  ~SpeechDispatcherVoice() = default;
 };
 
 class SpeechDispatcherCallback final : public nsISpeechTaskCallback {
@@ -157,7 +157,7 @@ class SpeechDispatcherCallback final : public nsISpeechTaskCallback {
   bool OnSpeechEvent(SPDNotificationType state);
 
  private:
-  ~SpeechDispatcherCallback() {}
+  ~SpeechDispatcherCallback() = default;
 
   // This pointer is used to dispatch events
   nsCOMPtr<nsISpeechTask> mTask;
@@ -281,7 +281,7 @@ SpeechDispatcherService::SpeechDispatcherService()
     : mInitialized(false), mSpeechdClient(nullptr) {}
 
 void SpeechDispatcherService::Init() {
-  if (!Preferences::GetBool("media.webspeech.synth.enabled") ||
+  if (!StaticPrefs::media_webspeech_synth_enabled() ||
       Preferences::GetBool("media.webspeech.synth.test")) {
     return;
   }
@@ -397,9 +397,9 @@ void SpeechDispatcherService::Setup() {
 
       uri.Append(NS_ConvertUTF8toUTF16(lang));
 
-      mVoices.Put(
-          uri, new SpeechDispatcherVoice(NS_ConvertUTF8toUTF16(list[i]->name),
-                                         NS_ConvertUTF8toUTF16(lang)));
+      mVoices.Put(uri, MakeRefPtr<SpeechDispatcherVoice>(
+                           NS_ConvertUTF8toUTF16(list[i]->name),
+                           NS_ConvertUTF8toUTF16(lang)));
     }
   }
 
@@ -501,7 +501,7 @@ SpeechDispatcherService::Speak(const nsAString& aText, const nsAString& aUri,
       return NS_ERROR_FAILURE;
     }
 
-    mCallbacks.Put(msg_id, callback);
+    mCallbacks.Put(msg_id, std::move(callback));
   } else {
     // Speech dispatcher does not work well with empty strings.
     // In that case, don't send empty string to speechd,
@@ -552,5 +552,4 @@ void SpeechDispatcherService::EventNotify(uint32_t aMsgId, uint32_t aState) {
   }
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

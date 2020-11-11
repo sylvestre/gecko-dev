@@ -5,4 +5,5 @@ authors = ["Jeff Hemphill <jthemphill@mozilla.com>"]
 
 [dependencies]
 nserror = { path = "../../../xpcom/rust/nserror" }
-nsstring = { path = "../../../servo/support/gecko/nsstring" }
+nsstring = { path = "../../../xpcom/rust/nsstring" }
+thin-vec = { version = "0.2.1", features = ["gecko-ffi"] }

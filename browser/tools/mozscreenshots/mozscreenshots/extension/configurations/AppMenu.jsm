@@ -6,18 +6,21 @@
 
 var EXPORTED_SYMBOLS = ["AppMenu"];
 
-ChromeUtils.import("resource://gre/modules/Services.jsm");
-ChromeUtils.import("resource://testing-common/BrowserTestUtils.jsm");
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { BrowserTestUtils } = ChromeUtils.import(
+  "resource://testing-common/BrowserTestUtils.jsm"
+);
 
 var AppMenu = {
-
   init(libDir) {},
 
   configurations: {
     appMenuMainView: {
       selectors: ["#appMenu-popup"],
       async applyConfig() {
-        let browserWindow = Services.wm.getMostRecentWindow("navigator:browser");
+        let browserWindow = Services.wm.getMostRecentWindow(
+          "navigator:browser"
+        );
         await reopenAppMenu(browserWindow);
       },
     },
@@ -25,12 +28,14 @@ var AppMenu = {
     appMenuHistorySubview: {
       selectors: ["#appMenu-popup"],
       async applyConfig() {
-        let browserWindow = Services.wm.getMostRecentWindow("navigator:browser");
+        let browserWindow = Services.wm.getMostRecentWindow(
+          "navigator:browser"
+        );
         await reopenAppMenu(browserWindow);
 
+        browserWindow.document.getElementById("appMenu-library-button").click();
         let view = browserWindow.document.getElementById("appMenu-libraryView");
         let promiseViewShown = BrowserTestUtils.waitForEvent(view, "ViewShown");
-        browserWindow.document.getElementById("appMenu-library-button").click();
         await promiseViewShown;
       },
 
@@ -40,25 +45,28 @@ var AppMenu = {
     appMenuHelpSubview: {
       selectors: ["#appMenu-popup"],
       async applyConfig() {
-        let browserWindow = Services.wm.getMostRecentWindow("navigator:browser");
+        let browserWindow = Services.wm.getMostRecentWindow(
+          "navigator:browser"
+        );
         await reopenAppMenu(browserWindow);
 
+        browserWindow.document.getElementById("appMenu-help-button").click();
         let view = browserWindow.document.getElementById("PanelUI-helpView");
         let promiseViewShown = BrowserTestUtils.waitForEvent(view, "ViewShown");
-        browserWindow.document.getElementById("appMenu-help-button").click();
         await promiseViewShown;
       },
 
       verifyConfig: verifyConfigHelper,
     },
-
   },
 };
 
 async function reopenAppMenu(browserWindow) {
   browserWindow.PanelUI.hide();
-  let view = browserWindow.document.getElementById("appMenu-mainView");
-  let promiseViewShown = BrowserTestUtils.waitForEvent(view, "ViewShown");
+  let promiseViewShown = BrowserTestUtils.waitForEvent(
+    PanelUI.panel,
+    "ViewShown"
+  );
   browserWindow.PanelUI.show();
   await promiseViewShown;
 }

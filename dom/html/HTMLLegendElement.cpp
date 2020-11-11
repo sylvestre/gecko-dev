@@ -5,16 +5,16 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "mozilla/dom/HTMLLegendElement.h"
+#include "mozilla/dom/ElementBinding.h"
 #include "mozilla/dom/HTMLLegendElementBinding.h"
 #include "nsFocusManager.h"
 #include "nsIFrame.h"
 
 NS_IMPL_NS_NEW_HTML_ELEMENT(Legend)
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
-HTMLLegendElement::~HTMLLegendElement() {}
+HTMLLegendElement::~HTMLLegendElement() = default;
 
 NS_IMPL_ELEMENT_CLONE(HTMLLegendElement)
 
@@ -34,11 +34,9 @@ bool HTMLLegendElement::ParseAttribute(int32_t aNamespaceID, nsAtom* aAttribute,
                                        nsAttrValue& aResult) {
   // this contains center, because IE4 does
   static const nsAttrValue::EnumTable kAlignTable[] = {
-      {"left", NS_STYLE_TEXT_ALIGN_LEFT},
-      {"right", NS_STYLE_TEXT_ALIGN_RIGHT},
-      {"center", NS_STYLE_TEXT_ALIGN_CENTER},
-      {"bottom", NS_STYLE_VERTICAL_ALIGN_BOTTOM},
-      {"top", NS_STYLE_VERTICAL_ALIGN_TOP},
+      {"left", LegendAlignValue::Left},
+      {"right", LegendAlignValue::Right},
+      {"center", LegendAlignValue::Center},
       {nullptr, 0}};
 
   if (aAttribute == nsGkAtoms::align && aNamespaceID == kNameSpaceID_None) {
@@ -59,17 +57,18 @@ nsChangeHint HTMLLegendElement::GetAttributeChangeHint(const nsAtom* aAttribute,
   return retval;
 }
 
-nsresult HTMLLegendElement::BindToTree(nsIDocument* aDocument,
-                                       nsIContent* aParent,
-                                       nsIContent* aBindingParent) {
-  return nsGenericHTMLElement::BindToTree(aDocument, aParent, aBindingParent);
+nsresult HTMLLegendElement::BindToTree(BindContext& aContext,
+                                       nsINode& aParent) {
+  return nsGenericHTMLElement::BindToTree(aContext, aParent);
 }
 
-void HTMLLegendElement::UnbindFromTree(bool aDeep, bool aNullParent) {
-  nsGenericHTMLElement::UnbindFromTree(aDeep, aNullParent);
+void HTMLLegendElement::UnbindFromTree(bool aNullParent) {
+  nsGenericHTMLElement::UnbindFromTree(aNullParent);
 }
 
-void HTMLLegendElement::Focus(ErrorResult& aError) {
+void HTMLLegendElement::Focus(const FocusOptions& aOptions,
+                              const mozilla::dom::CallerType aCallerType,
+                              ErrorResult& aError) {
   nsIFrame* frame = GetPrimaryFrame();
   if (!frame) {
     return;
@@ -77,36 +76,36 @@ void HTMLLegendElement::Focus(ErrorResult& aError) {
 
   int32_t tabIndex;
   if (frame->IsFocusable(&tabIndex, false)) {
-    nsGenericHTMLElement::Focus(aError);
+    nsGenericHTMLElement::Focus(aOptions, aCallerType, aError);
     return;
   }
 
   // If the legend isn't focusable, focus whatever is focusable following
   // the legend instead, bug 81481.
-  nsIFocusManager* fm = nsFocusManager::GetFocusManager();
+  nsFocusManager* fm = nsFocusManager::GetFocusManager();
   if (!fm) {
     return;
   }
 
   RefPtr<Element> result;
-  aError = fm->MoveFocus(nullptr, this, nsIFocusManager::MOVEFOCUS_FORWARD,
-                         nsIFocusManager::FLAG_NOPARENTFRAME,
-                         getter_AddRefs(result));
+  aError = fm->MoveFocus(
+      nullptr, this, nsIFocusManager::MOVEFOCUS_FORWARD,
+      nsIFocusManager::FLAG_NOPARENTFRAME |
+          nsFocusManager::FocusOptionsToFocusManagerFlags(aOptions),
+      getter_AddRefs(result));
 }
 
 bool HTMLLegendElement::PerformAccesskey(bool aKeyCausesActivation,
                                          bool aIsTrustedEvent) {
-  // just use the same behaviour as the focus method
+  FocusOptions options;
   ErrorResult rv;
-  Focus(rv);
+
+  Focus(options, CallerType::System, rv);
   return NS_SUCCEEDED(rv.StealNSResult());
 }
 
 already_AddRefed<HTMLFormElement> HTMLLegendElement::GetForm() {
-  Element* form = GetFormElement();
-  MOZ_ASSERT_IF(form, form->IsHTMLElement(nsGkAtoms::form));
-  RefPtr<HTMLFormElement> ret = static_cast<HTMLFormElement*>(form);
-  return ret.forget();
+  return do_AddRef(GetFormElement());
 }
 
 JSObject* HTMLLegendElement::WrapNode(JSContext* aCx,
@@ -114,5 +113,4 @@ JSObject* HTMLLegendElement::WrapNode(JSContext* aCx,
   return HTMLLegendElement_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

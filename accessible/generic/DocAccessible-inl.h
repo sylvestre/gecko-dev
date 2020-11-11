@@ -13,20 +13,20 @@
 #include "NotificationController.h"
 #include "States.h"
 #include "nsIScrollableFrame.h"
-#include "nsIDocumentInlines.h"
+#include "mozilla/dom/DocumentInlines.h"
 
 #ifdef A11Y_LOG
-#include "Logging.h"
+#  include "Logging.h"
 #endif
 
 namespace mozilla {
 namespace a11y {
 
 inline Accessible* DocAccessible::AccessibleOrTrueContainer(
-    nsINode* aNode, int aIgnoreARIAHidden) const {
+    nsINode* aNode, bool aNoContainerIfPruned) const {
   // HTML comboboxes have no-content list accessible as an intermediate
   // containing all options.
-  Accessible* container = GetAccessibleOrContainer(aNode, aIgnoreARIAHidden);
+  Accessible* container = GetAccessibleOrContainer(aNode, aNoContainerIfPruned);
   if (container && container->IsHTMLCombobox()) {
     return container->FirstChild();
   }
@@ -59,13 +59,13 @@ inline void DocAccessible::BindChildDocument(DocAccessible* aDocument) {
   mNotificationController->ScheduleChildDocBinding(aDocument);
 }
 
-template <class Class, class Arg>
+template <class Class, class... Args>
 inline void DocAccessible::HandleNotification(
-    Class* aInstance, typename TNotification<Class, Arg>::Callback aMethod,
-    Arg* aArg) {
+    Class* aInstance, typename TNotification<Class, Args...>::Callback aMethod,
+    Args*... aArgs) {
   if (mNotificationController) {
-    mNotificationController->HandleNotification<Class, Arg>(aInstance, aMethod,
-                                                            aArg);
+    mNotificationController->HandleNotification<Class, Args...>(
+        aInstance, aMethod, aArgs...);
   }
 }
 
@@ -75,27 +75,6 @@ inline void DocAccessible::UpdateText(nsIContent* aTextNode) {
   // Ignore the notification if initial tree construction hasn't been done yet.
   if (mNotificationController && HasLoadState(eTreeConstructed))
     mNotificationController->ScheduleTextUpdate(aTextNode);
-}
-
-inline void DocAccessible::AddScrollListener() {
-  // Delay scroll initializing until the document has a root frame.
-  if (!mPresShell->GetRootFrame()) return;
-
-  mDocFlags |= eScrollInitialized;
-  nsIScrollableFrame* sf = mPresShell->GetRootScrollFrameAsScrollable();
-  if (sf) {
-    sf->AddScrollPositionListener(this);
-
-#ifdef A11Y_LOG
-    if (logging::IsEnabled(logging::eDocCreate))
-      logging::Text("add scroll listener");
-#endif
-  }
-}
-
-inline void DocAccessible::RemoveScrollListener() {
-  nsIScrollableFrame* sf = mPresShell->GetRootScrollFrameAsScrollable();
-  if (sf) sf->RemoveScrollPositionListener(this);
 }
 
 inline void DocAccessible::NotifyOfLoad(uint32_t aLoadEventType) {
@@ -112,8 +91,10 @@ inline void DocAccessible::NotifyOfLoad(uint32_t aLoadEventType) {
 }
 
 inline void DocAccessible::MaybeNotifyOfValueChange(Accessible* aAccessible) {
-  if (aAccessible->IsCombobox() || aAccessible->Role() == roles::ENTRY)
+  if (aAccessible->IsCombobox() || aAccessible->Role() == roles::ENTRY ||
+      aAccessible->Role() == roles::SPINBUTTON) {
     FireDelayedEvent(nsIAccessibleEvent::EVENT_TEXT_VALUE_CHANGE, aAccessible);
+  }
 }
 
 inline Accessible* DocAccessible::GetAccessibleEvenIfNotInMapOrContainer(

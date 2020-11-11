@@ -4,35 +4,37 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "nsCOMPtr.h"
 #include "nsTreeColFrame.h"
+
+#include "mozilla/ComputedStyle.h"
+#include "mozilla/ErrorResult.h"
+#include "mozilla/PresShell.h"
+#include "mozilla/dom/XULTreeElement.h"
+#include "nsCOMPtr.h"
 #include "nsGkAtoms.h"
 #include "nsIContent.h"
-#include "mozilla/ComputedStyle.h"
 #include "nsNameSpaceManager.h"
-#include "nsIBoxObject.h"
-#include "mozilla/ErrorResult.h"
-#include "mozilla/dom/TreeBoxObject.h"
 #include "nsTreeColumns.h"
 #include "nsDisplayList.h"
 #include "nsTreeBodyFrame.h"
 #include "nsXULElement.h"
 
 using namespace mozilla;
+using namespace mozilla::dom;
 
 //
 // NS_NewTreeColFrame
 //
 // Creates a new col frame
 //
-nsIFrame* NS_NewTreeColFrame(nsIPresShell* aPresShell, ComputedStyle* aStyle) {
-  return new (aPresShell) nsTreeColFrame(aStyle);
+nsIFrame* NS_NewTreeColFrame(PresShell* aPresShell, ComputedStyle* aStyle) {
+  return new (aPresShell) nsTreeColFrame(aStyle, aPresShell->GetPresContext());
 }
 
 NS_IMPL_FRAMEARENA_HELPERS(nsTreeColFrame)
 
 // Destructor
-nsTreeColFrame::~nsTreeColFrame() {}
+nsTreeColFrame::~nsTreeColFrame() = default;
 
 void nsTreeColFrame::Init(nsIContent* aContent, nsContainerFrame* aParent,
                           nsIFrame* aPrevInFlow) {
@@ -53,11 +55,7 @@ class nsDisplayXULTreeColSplitterTarget final : public nsDisplayItem {
       : nsDisplayItem(aBuilder, aFrame) {
     MOZ_COUNT_CTOR(nsDisplayXULTreeColSplitterTarget);
   }
-#ifdef NS_BUILD_REFCNT_LOGGING
-  virtual ~nsDisplayXULTreeColSplitterTarget() {
-    MOZ_COUNT_DTOR(nsDisplayXULTreeColSplitterTarget);
-  }
-#endif
+  MOZ_COUNTED_DTOR_OVERRIDE(nsDisplayXULTreeColSplitterTarget)
 
   virtual void HitTest(nsDisplayListBuilder* aBuilder, const nsRect& aRect,
                        HitTestState* aState,
@@ -82,7 +80,7 @@ void nsDisplayXULTreeColSplitterTarget::HitTest(
   }
 
   // Swap left and right for RTL trees in order to find the correct splitter
-  if (mFrame->StyleVisibility()->mDirection == NS_STYLE_DIRECTION_RTL) {
+  if (mFrame->StyleVisibility()->mDirection == StyleDirection::Rtl) {
     bool tmp = left;
     left = right;
     right = tmp;
@@ -115,8 +113,8 @@ void nsTreeColFrame::BuildDisplayListForChildren(
 
   WrapListsInRedirector(aBuilder, set, aLists);
 
-  aLists.Content()->AppendToTop(
-      MakeDisplayItem<nsDisplayXULTreeColSplitterTarget>(aBuilder, this));
+  aLists.Content()->AppendNewToTop<nsDisplayXULTreeColSplitterTarget>(aBuilder,
+                                                                      this);
 }
 
 nsresult nsTreeColFrame::AttributeChanged(int32_t aNameSpaceID,
@@ -125,7 +123,7 @@ nsresult nsTreeColFrame::AttributeChanged(int32_t aNameSpaceID,
   nsresult rv =
       nsBoxFrame::AttributeChanged(aNameSpaceID, aAttribute, aModType);
 
-  if (aAttribute == nsGkAtoms::ordinal || aAttribute == nsGkAtoms::primary) {
+  if (aAttribute == nsGkAtoms::primary) {
     InvalidateColumns();
   }
 
@@ -139,48 +137,36 @@ void nsTreeColFrame::SetXULBounds(nsBoxLayoutState& aBoxLayoutState,
 
   nsBoxFrame::SetXULBounds(aBoxLayoutState, aRect, aRemoveOverflowArea);
   if (mRect.width != oldWidth) {
-    nsITreeBoxObject* treeBoxObject = GetTreeBoxObject();
-    if (treeBoxObject) {
-      treeBoxObject->Invalidate();
+    RefPtr<XULTreeElement> tree = GetTree();
+    if (tree) {
+      tree->Invalidate();
     }
   }
 }
 
-nsITreeBoxObject* nsTreeColFrame::GetTreeBoxObject() {
-  nsITreeBoxObject* result = nullptr;
-
+XULTreeElement* nsTreeColFrame::GetTree() {
   nsIContent* parent = mContent->GetParent();
-  if (parent) {
-    nsIContent* grandParent = parent->GetParent();
-    RefPtr<nsXULElement> treeElement =
-        nsXULElement::FromNodeOrNull(grandParent);
-    if (treeElement) {
-      nsCOMPtr<nsIBoxObject> boxObject =
-          treeElement->GetBoxObject(IgnoreErrors());
-
-      nsCOMPtr<nsITreeBoxObject> treeBoxObject = do_QueryInterface(boxObject);
-      result = treeBoxObject.get();
-    }
-  }
-  return result;
+  return parent ? XULTreeElement::FromNodeOrNull(parent->GetParent()) : nullptr;
 }
 
 void nsTreeColFrame::InvalidateColumns(bool aCanWalkFrameTree) {
-  nsITreeBoxObject* treeBoxObject = GetTreeBoxObject();
-  if (treeBoxObject) {
-    RefPtr<nsTreeColumns> columns;
-
-    if (aCanWalkFrameTree) {
-      treeBoxObject->GetColumns(getter_AddRefs(columns));
-    } else {
-      nsTreeBodyFrame* body =
-          static_cast<mozilla::dom::TreeBoxObject*>(treeBoxObject)
-              ->GetCachedTreeBodyFrame();
-      if (body) {
-        columns = body->Columns();
-      }
-    }
-
-    if (columns) columns->InvalidateColumns();
+  RefPtr<XULTreeElement> tree = GetTree();
+  if (!tree) {
+    return;
   }
+
+  nsTreeBodyFrame* body = aCanWalkFrameTree
+                              ? tree->GetTreeBodyFrame(FlushType::None)
+                              : tree->GetCachedTreeBodyFrame();
+
+  if (!body) {
+    return;
+  }
+
+  RefPtr<nsTreeColumns> columns = body->Columns();
+  if (!columns) {
+    return;
+  }
+
+  columns->InvalidateColumns();
 }

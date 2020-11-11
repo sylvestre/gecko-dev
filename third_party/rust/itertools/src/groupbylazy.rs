@@ -19,6 +19,7 @@ impl<'a, A, K, F: ?Sized> KeyFunction<A> for F
 
 
 /// ChunkIndex acts like the grouping key function for IntoChunks
+#[derive(Debug)]
 struct ChunkIndex {
     size: usize,
     index: usize,
@@ -29,7 +30,7 @@ impl ChunkIndex {
     #[inline(always)]
     fn new(size: usize) -> Self {
         ChunkIndex {
-            size: size,
+            size,
             index: 0,
             key: 0,
         }
@@ -379,7 +380,7 @@ impl<'a, K, I, F> Iterator for Groups<'a, K, I, F>
             let key = inner.group_key(index);
             (key, Group {
                 parent: self.parent,
-                index: index,
+                index,
                 first: Some(elt),
             })
         })
@@ -527,7 +528,7 @@ impl<'a, I> Iterator for Chunks<'a, I>
         inner.step(index).map(|elt| {
             Chunk {
                 parent: self.parent,
-                index: index,
+                index,
                 first: Some(elt),
             }
         })

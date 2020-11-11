@@ -4,7 +4,7 @@
 -->
 <head>
   <title>Basic websocket frame interception test</title>
-  <script type="application/javascript" src="chrome://mochikit/content/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="chrome://mochikit/content/tests/SimpleTest/SimpleTest.js"></script>
   <link rel="stylesheet" type="text/css" href="chrome://mochikit/content/tests/SimpleTest/test.css"?>
 </head>
 <body>
@@ -26,7 +26,7 @@ var tests = [
   { payload: (function() { var buffer = ""; for (var i = 0; i < 120; ++i) buffer += i; return buffer; }()) },
 ]
 
-var innerId = window.top.windowUtils.currentInnerWindowID;
+var innerId = window.top.windowGlobalChild.innerWindowId;
 ok(innerId, "We have a valid innerWindowID: " + innerId);
 
 var service = Cc["@mozilla.org/websocketevent/service;1"]
@@ -34,9 +34,9 @@ var service = Cc["@mozilla.org/websocketevent/service;1"]
 ok(!!service, "We have the nsIWebSocketEventService");
 
 var listener = {
-  QueryInterface: ChromeUtils.generateQI([Ci.nsIWebSocketEventListener]),
+  QueryInterface: ChromeUtils.generateQI(["nsIWebSocketEventListener"]),
 
-  webSocketCreated: function(aWebSocketSerialID, aURI, aProtocols) {
+  webSocketCreated(aWebSocketSerialID, aURI, aProtocols) {
     info("WebSocketCreated");
 
     is(aURI, URI, "URI matches");
@@ -45,17 +45,18 @@ var listener = {
     webSocketCreatedCounter++;
   },
 
-  webSocketOpened: function(aWebSocketSerialID, aEffectiveURI, aProtocols, aExtensions) {
+  webSocketOpened(aWebSocketSerialID, aEffectiveURI, aProtocols, aExtensions, httpChannelId) {
     info("WebSocketOpened");
 
     is(aEffectiveURI, URI, "EffectiveURI matches");
     is(aProtocols, "frame", "Protocol matches");
     is(aExtensions, "permessage-deflate", "No extensions");
+    ok(httpChannelId > 0, "Channel ID received");
 
     webSocketOpenedCounter++;
   },
 
-  webSocketMessageAvailable: function(aWebSocketSerialID, aData, aMessageType) {
+  webSocketMessageAvailable(aWebSocketSerialID, aData, aMessageType) {
     info("WebSocketMessageAvailable");
 
     if (tests.length) {
@@ -73,7 +74,7 @@ var listener = {
     }
   },
 
-  webSocketClosed: function(aWebSocketSerialID, aWasClean,
+  webSocketClosed(aWebSocketSerialID, aWasClean,
                             aCode, aReason) {
     info("WebSocketClosed");
 
@@ -85,7 +86,7 @@ var listener = {
     checkListener();
   },
 
-  frameReceived: function(aWebSocketSerialID, aFrame) {
+  frameReceived(aWebSocketSerialID, aFrame) {
     ok(!!aFrame, "We have received a frame");
 
     if (tests.length) {
@@ -103,7 +104,7 @@ var listener = {
     frameReceivedCounter++;
   },
 
-  frameSent: function(aWebSocketSerialID, aFrame) {
+  frameSent(aWebSocketSerialID, aFrame) {
     ok(!!aFrame, "We have sent a frame");
 
     if (tests.length) {

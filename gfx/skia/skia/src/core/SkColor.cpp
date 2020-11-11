@@ -5,9 +5,9 @@
  * found in the LICENSE file.
  */
 
-#include "SkColor.h"
-#include "SkColorData.h"
-#include "SkFixed.h"
+#include "include/core/SkColor.h"
+#include "include/private/SkColorData.h"
+#include "include/private/SkFixed.h"
 
 SkPMColor SkPreMultiplyARGB(U8CPU a, U8CPU r, U8CPU g, U8CPU b) {
     return SkPremultiplyARGBInline(a, r, g, b);
@@ -105,8 +105,6 @@ SkColor SkHSVToColor(U8CPU a, const SkScalar hsv[3]) {
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-#include "SkPM4f.h"
-
 template <>
 SkColor4f SkColor4f::FromColor(SkColor bgra) {
     SkColor4f rgba;
@@ -136,6 +134,18 @@ SkColor SkColor4f::toSkColor() const {
 }
 
 template <>
+uint32_t SkColor4f::toBytes_RGBA() const {
+    return Sk4f_toL32(Sk4f::Load(this->vec()));
+}
+
+template <>
+SkColor4f SkColor4f::FromBytes_RGBA(uint32_t c) {
+    SkColor4f color;
+    Sk4f_fromL32(c).store(&color);
+    return color;
+}
+
+template <>
 SkPMColor4f SkPMColor4f::FromPMColor(SkPMColor c) {
     SkPMColor4f color;
     swizzle_rb_if_bgra(Sk4f_fromL32(c)).store(&color);
@@ -143,8 +153,13 @@ SkPMColor4f SkPMColor4f::FromPMColor(SkPMColor c) {
 }
 
 template <>
-SkColor4f SkColor4f::Pin(float r, float g, float b, float a) {
-    SkColor4f c4;
-    Sk4f::Min(Sk4f::Max(Sk4f(r, g, b, a), Sk4f(0)), Sk4f(1)).store(c4.vec());
-    return c4;
+uint32_t SkPMColor4f::toBytes_RGBA() const {
+    return Sk4f_toL32(Sk4f::Load(this->vec()));
+}
+
+template <>
+SkPMColor4f SkPMColor4f::FromBytes_RGBA(uint32_t c) {
+    SkPMColor4f color;
+    Sk4f_fromL32(c).store(&color);
+    return color;
 }

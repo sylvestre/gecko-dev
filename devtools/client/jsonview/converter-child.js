@@ -1,33 +1,41 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 2 -*- */
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 "use strict";
 
-const {Ci, Cu, CC} = require("chrome");
+const { components, Ci, Cr, Cu, CC } = require("chrome");
 const ChromeUtils = require("ChromeUtils");
 const Services = require("Services");
 
-loader.lazyRequireGetter(this, "NetworkHelper",
-                               "devtools/shared/webconsole/network-helper");
+loader.lazyRequireGetter(
+  this,
+  "NetworkHelper",
+  "devtools/shared/webconsole/network-helper"
+);
 loader.lazyGetter(this, "debugJsModules", function() {
-  const {AppConstants} = require("resource://gre/modules/AppConstants.jsm");
-  return !!(AppConstants.DEBUG_JS_MODULES);
+  const { AppConstants } = require("resource://gre/modules/AppConstants.jsm");
+  return !!AppConstants.DEBUG_JS_MODULES;
 });
 
-const BinaryInput = CC("@mozilla.org/binaryinputstream;1",
-                       "nsIBinaryInputStream", "setInputStream");
-const BufferStream = CC("@mozilla.org/io/arraybuffer-input-stream;1",
-                       "nsIArrayBufferInputStream", "setData");
+const BinaryInput = CC(
+  "@mozilla.org/binaryinputstream;1",
+  "nsIBinaryInputStream",
+  "setInputStream"
+);
+const BufferStream = CC(
+  "@mozilla.org/io/arraybuffer-input-stream;1",
+  "nsIArrayBufferInputStream",
+  "setData"
+);
 
 const kCSP = "default-src 'none' ; script-src resource:; ";
 
 // Localization
 loader.lazyGetter(this, "jsonViewStrings", () => {
   return Services.strings.createBundle(
-    "chrome://devtools/locale/jsonview.properties");
+    "chrome://devtools/locale/jsonview.properties"
+  );
 });
 
 /**
@@ -41,9 +49,9 @@ function Converter() {}
 
 Converter.prototype = {
   QueryInterface: ChromeUtils.generateQI([
-    Ci.nsIStreamConverter,
-    Ci.nsIStreamListener,
-    Ci.nsIRequestObserver,
+    "nsIStreamConverter",
+    "nsIStreamListener",
+    "nsIRequestObserver",
   ]),
 
   get wrappedJSObject() {
@@ -67,15 +75,18 @@ Converter.prototype = {
   asyncConvertData: function(fromType, toType, listener, ctx) {
     this.listener = listener;
   },
+  getConvertedType: function(fromType, channel) {
+    return "text/html";
+  },
 
-  onDataAvailable: function(request, context, inputStream, offset, count) {
+  onDataAvailable: function(request, inputStream, offset, count) {
     // Decode and insert data.
     const buffer = new ArrayBuffer(count);
     new BinaryInput(inputStream).readArrayBuffer(count, buffer);
     this.decodeAndInsertBuffer(buffer);
   },
 
-  onStartRequest: function(request, context) {
+  onStartRequest: function(request) {
     // Set the content type to HTML in order to parse the doctype, styles
     // and scripts. The JSON will be manually inserted as text.
     request.QueryInterface(Ci.nsIChannel);
@@ -87,7 +98,11 @@ Converter.prototype = {
     try {
       request.QueryInterface(Ci.nsIHttpChannel);
       request.setResponseHeader("Content-Security-Policy", kCSP, false);
-      request.setResponseHeader("Content-Security-Policy-Report-Only", "", false);
+      request.setResponseHeader(
+        "Content-Security-Policy-Report-Only",
+        "",
+        false
+      );
     } catch (ex) {
       // If this is not an HTTP channel we can't and won't do anything.
     }
@@ -105,10 +120,23 @@ Converter.prototype = {
     request.loadInfo.resetPrincipalToInheritToNullPrincipal();
 
     // Start the request.
-    this.listener.onStartRequest(request, context);
+    this.listener.onStartRequest(request);
 
     // Initialize stuff.
     const win = NetworkHelper.getWindowForRequest(request);
+    if (!win || !components.isSuccessCode(request.status)) {
+      return;
+    }
+
+    // We compare actual pointer identities here rather than using .equals(),
+    // because if things went correctly then the document must have exactly
+    // the principal we reset it to above. If not, something went wrong.
+    if (win.document.nodePrincipal != request.loadInfo.principalToInherit) {
+      // Whatever that document is, it's not ours.
+      request.cancel(Cr.NS_BINDING_ABORTED);
+      return;
+    }
+
     this.data = exportData(win, headers);
     insertJsonData(win, this.data.json);
     win.addEventListener("contentMessage", onContentMessage, false, true);
@@ -117,15 +145,17 @@ Converter.prototype = {
     // Send the initial HTML code.
     const buffer = new TextEncoder().encode(initialHTML(win.document)).buffer;
     const stream = new BufferStream(buffer, 0, buffer.byteLength);
-    this.listener.onDataAvailable(request, context, stream, 0, stream.available());
+    this.listener.onDataAvailable(request, stream, 0, stream.available());
   },
 
-  onStopRequest: function(request, context, statusCode) {
-    // Flush data.
-    this.decodeAndInsertBuffer(new ArrayBuffer(0), true);
+  onStopRequest: function(request, statusCode) {
+    // Flush data if we haven't been canceled.
+    if (components.isSuccessCode(statusCode)) {
+      this.decodeAndInsertBuffer(new ArrayBuffer(0), true);
+    }
 
     // Stop the request.
-    this.listener.onStopRequest(request, context, statusCode);
+    this.listener.onStopRequest(request, statusCode);
     this.listener = null;
     this.decoder = null;
     this.data = null;
@@ -134,7 +164,7 @@ Converter.prototype = {
   // Decodes an ArrayBuffer into a string and inserts it into the page.
   decodeAndInsertBuffer: function(buffer, flush = false) {
     // Decode the buffer into a string.
-    const data = this.decoder.decode(buffer, {stream: !flush});
+    const data = this.decoder.decode(buffer, { stream: !flush });
 
     // Using `appendData` instead of `textContent +=` is important to avoid
     // repainting previous data.
@@ -178,40 +208,45 @@ function getHttpHeaders(request) {
   if (request instanceof Ci.nsIHttpChannel) {
     request.visitResponseHeaders({
       visitHeader: function(name, value) {
-        headers.response.push({name: name, value: value});
+        headers.response.push({ name: name, value: value });
       },
     });
     request.visitRequestHeaders({
       visitHeader: function(name, value) {
-        headers.request.push({name: name, value: value});
+        headers.request.push({ name: name, value: value });
       },
     });
   }
   return headers;
 }
 
+let jsonViewStringDict = null;
+function getAllStrings() {
+  if (!jsonViewStringDict) {
+    jsonViewStringDict = {};
+    for (const string of jsonViewStrings.getSimpleEnumeration()) {
+      jsonViewStringDict[string.key] = string.value;
+    }
+  }
+  return jsonViewStringDict;
+}
+
 // Exports variables that will be accessed by the non-privileged scripts.
 function exportData(win, headers) {
   const json = new win.Text();
-  const JSONView = Cu.cloneInto({
-    debugJsModules,
-    headers,
-    json,
-    readyState: "uninitialized",
-    Locale: {
-      $STR: key => {
-        try {
-          return jsonViewStrings.GetStringFromName(key);
-        } catch (err) {
-          console.error(err);
-          return undefined;
-        }
-      },
+  const JSONView = Cu.cloneInto(
+    {
+      debugJsModules,
+      headers,
+      json,
+      readyState: "uninitialized",
+      Locale: getAllStrings(),
     },
-  }, win, {
-    cloneFunctions: true,
-    wrapReflectors: true,
-  });
+    win,
+    {
+      wrapReflectors: true,
+    }
+  );
   try {
     Object.defineProperty(Cu.waiveXrays(win), "JSONView", {
       value: JSONView,
@@ -222,7 +257,7 @@ function exportData(win, headers) {
   } catch (error) {
     Cu.reportError(error);
   }
-  return {json};
+  return { json };
 }
 
 // Builds an HTML string that will be used to load stylesheets and scripts.
@@ -249,33 +284,37 @@ function initialHTML(doc) {
 
   const baseURI = "resource://devtools-client-jsonview/";
 
-  return "<!DOCTYPE html>\n" +
-    element("html", {
-      "platform": os,
-      "class": "theme-" + Services.prefs.getCharPref("devtools.theme"),
-      "dir": Services.locale.isAppLocaleRTL ? "rtl" : "ltr",
-    }, [
-      element("head", {}, [
-        element("meta", {
-          "http-equiv": "Content-Security-Policy",
-          content: kCSP,
-        }),
-        element("link", {
-          rel: "stylesheet",
-          type: "text/css",
-          href: baseURI + "css/main.css",
-        }),
-      ]),
-      element("body", {}, [
-        element("div", {"id": "content"}, [
-          element("div", {"id": "json"}),
+  return (
+    "<!DOCTYPE html>\n" +
+    element(
+      "html",
+      {
+        platform: os,
+        class: "theme-" + Services.prefs.getCharPref("devtools.theme"),
+        dir: Services.locale.isAppLocaleRTL ? "rtl" : "ltr",
+      },
+      [
+        element("head", {}, [
+          element("meta", {
+            "http-equiv": "Content-Security-Policy",
+            content: kCSP,
+          }),
+          element("link", {
+            rel: "stylesheet",
+            type: "text/css",
+            href: "chrome://devtools-jsonview-styles/content/main.css",
+          }),
         ]),
-        element("script", {
-          src: baseURI + "lib/require.js",
-          "data-main": baseURI + "viewer-config.js",
-        }),
-      ]),
-    ]).outerHTML;
+        element("body", {}, [
+          element("div", { id: "content" }, [element("div", { id: "json" })]),
+          element("script", {
+            src: baseURI + "lib/require.js",
+            "data-main": baseURI + "viewer-config.js",
+          }),
+        ]),
+      ]
+    ).outerHTML
+  );
 }
 
 // We insert the received data into a text node, which should be appended into
@@ -284,7 +323,7 @@ function initialHTML(doc) {
 // observer to detect the creation of the element. Then the text node is appended.
 function insertJsonData(win, json) {
   new win.MutationObserver(function(mutations, observer) {
-    for (const {target, addedNodes} of mutations) {
+    for (const { target, addedNodes } of mutations) {
       if (target.nodeType == 1 && target.id == "content") {
         for (const node of addedNodes) {
           if (node.nodeType == 1 && node.id == "json") {
@@ -307,10 +346,14 @@ function keepThemeUpdated(win) {
     win.document.documentElement.className = "theme-" + theme;
   };
   Services.prefs.addObserver("devtools.theme", listener);
-  win.addEventListener("unload", function(event) {
-    Services.prefs.removeObserver("devtools.theme", listener);
-    win = null;
-  }, {once: true});
+  win.addEventListener(
+    "unload",
+    function(event) {
+      Services.prefs.removeObserver("devtools.theme", listener);
+      win = null;
+    },
+    { once: true }
+  );
 }
 
 // Chrome <-> Content communication
@@ -324,8 +367,10 @@ function onContentMessage(e) {
   const value = e.detail.value;
   switch (e.detail.type) {
     case "save":
-      Services.cpmm.sendAsyncMessage(
-        "devtools:jsonview:save", value);
+      win.docShell.messageManager.sendAsyncMessage(
+        "devtools:jsonview:save",
+        value
+      );
   }
 }
 

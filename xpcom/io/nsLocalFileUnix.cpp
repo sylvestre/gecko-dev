@@ -13,9 +13,13 @@
 #include "mozilla/DebugOnly.h"
 #include "mozilla/Sprintf.h"
 #include "mozilla/FilePreferences.h"
+#include "prtime.h"
 
-#include <sys/types.h>
+#include <sys/fcntl.h>
+#include <sys/select.h>
 #include <sys/stat.h>
+#include <sys/time.h>
+#include <sys/types.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -25,16 +29,15 @@
 #include <locale.h>
 
 #if defined(HAVE_SYS_QUOTA_H) && defined(HAVE_LINUX_QUOTA_H)
-#define USE_LINUX_QUOTACTL
-#include <sys/mount.h>
-#include <sys/quota.h>
-#include <sys/sysmacros.h>
-#ifndef BLOCK_SIZE
-#define BLOCK_SIZE 1024 /* kernel block size */
-#endif
+#  define USE_LINUX_QUOTACTL
+#  include <sys/mount.h>
+#  include <sys/quota.h>
+#  include <sys/sysmacros.h>
+#  ifndef BLOCK_SIZE
+#    define BLOCK_SIZE 1024 /* kernel block size */
+#  endif
 #endif
 
-#include "xpcom-private.h"
 #include "nsDirectoryServiceDefs.h"
 #include "nsCRT.h"
 #include "nsCOMPtr.h"
@@ -43,7 +46,6 @@
 #include "nsString.h"
 #include "nsReadableUtils.h"
 #include "nsLocalFile.h"
-#include "nsIComponentManager.h"
 #include "prproces.h"
 #include "nsIDirectoryEnumerator.h"
 #include "nsSimpleEnumerator.h"
@@ -51,27 +53,64 @@
 #include "prlink.h"
 
 #ifdef MOZ_WIDGET_GTK
-#include "nsIGIOService.h"
+#  include "nsIGIOService.h"
 #endif
 
 #ifdef MOZ_WIDGET_COCOA
-#include <Carbon/Carbon.h>
-#include "CocoaFileUtils.h"
-#include "prmem.h"
-#include "plbase64.h"
+#  include <Carbon/Carbon.h>
+#  include "CocoaFileUtils.h"
+#  include "prmem.h"
+#  include "plbase64.h"
 
 static nsresult MacErrorMapper(OSErr inErr);
 #endif
 
 #ifdef MOZ_WIDGET_ANDROID
-#include "GeneratedJNIWrappers.h"
-#include "nsIMIMEService.h"
-#include <linux/magic.h>
+#  include "mozilla/java/GeckoAppShellWrappers.h"
+#  include "nsIMIMEService.h"
+#  include <linux/magic.h>
 #endif
 
 #include "nsNativeCharsetUtils.h"
 #include "nsTraceRefcnt.h"
 #include "nsHashKeys.h"
+
+/**
+ *  we need these for statfs()
+ */
+#ifdef HAVE_SYS_STATVFS_H
+#  if defined(__osf__) && defined(__DECCXX)
+extern "C" int statvfs(const char*, struct statvfs*);
+#  endif
+#  include <sys/statvfs.h>
+#endif
+
+#ifdef HAVE_SYS_STATFS_H
+#  include <sys/statfs.h>
+#endif
+
+#ifdef HAVE_SYS_VFS_H
+#  include <sys/vfs.h>
+#endif
+
+#ifdef HAVE_SYS_MOUNT_H
+#  include <sys/param.h>
+#  include <sys/mount.h>
+#endif
+
+#if defined(HAVE_STATVFS64) && (!defined(LINUX) && !defined(__osf__))
+#  define STATFS statvfs64
+#  define F_BSIZE f_frsize
+#elif defined(HAVE_STATVFS) && (!defined(LINUX) && !defined(__osf__))
+#  define STATFS statvfs
+#  define F_BSIZE f_frsize
+#elif defined(HAVE_STATFS64)
+#  define STATFS statfs64
+#  define F_BSIZE f_bsize
+#elif defined(HAVE_STATFS)
+#  define STATFS statfs
+#  define F_BSIZE f_bsize
+#endif
 
 using namespace mozilla;
 
@@ -230,9 +269,9 @@ nsLocalFile::nsLocalFile(const nsACString& aFilePath) : mCachedStat() {
 nsLocalFile::nsLocalFile(const nsLocalFile& aOther) : mPath(aOther.mPath) {}
 
 #ifdef MOZ_WIDGET_COCOA
-NS_IMPL_ISUPPORTS(nsLocalFile, nsILocalFileMac, nsIFile, nsIHashable)
+NS_IMPL_ISUPPORTS(nsLocalFile, nsILocalFileMac, nsIFile)
 #else
-NS_IMPL_ISUPPORTS(nsLocalFile, nsIFile, nsIHashable)
+NS_IMPL_ISUPPORTS(nsLocalFile, nsIFile)
 #endif
 
 nsresult nsLocalFile::nsLocalFileConstructor(nsISupports* aOuter,
@@ -657,7 +696,7 @@ nsresult nsLocalFile::GetNativeTargetPathName(nsIFile* aNewParent,
     return rv;
   }
 
-  aResult = dirName + NS_LITERAL_CSTRING("/") + Substring(nameBegin, nameEnd);
+  aResult = dirName + "/"_ns + Substring(nameBegin, nameEnd);
   return NS_OK;
 }
 
@@ -674,7 +713,7 @@ nsresult nsLocalFile::CopyDirectoryTo(nsIFile* aNewParent) {
     return rv;
   }
   if (!dirCheck) {
-    return CopyToNative(aNewParent, EmptyCString());
+    return CopyToNative(aNewParent, ""_ns);
   }
 
   if (NS_FAILED(rv = Equals(aNewParent, &dirCheck))) {
@@ -733,7 +772,7 @@ nsresult nsLocalFile::CopyDirectoryTo(nsIFile* aNewParent) {
       nsCOMPtr<nsIFile> destClone;
       rv = aNewParent->Clone(getter_AddRefs(destClone));
       if (NS_SUCCEEDED(rv)) {
-        if (NS_FAILED(rv = entry->CopyToNative(destClone, EmptyCString()))) {
+        if (NS_FAILED(rv = entry->CopyToNative(destClone, ""_ns))) {
 #ifdef DEBUG
           nsresult rv2;
           nsAutoCString pathName;
@@ -749,7 +788,7 @@ nsresult nsLocalFile::CopyDirectoryTo(nsIFile* aNewParent) {
         }
       }
     } else {
-      if (NS_FAILED(rv = entry->CopyToNative(aNewParent, EmptyCString()))) {
+      if (NS_FAILED(rv = entry->CopyToNative(aNewParent, ""_ns))) {
 #ifdef DEBUG
         nsresult rv2;
         nsAutoCString pathName;
@@ -830,7 +869,10 @@ nsLocalFile::CopyToNative(nsIFile* aNewParent, const nsACString& aNewName) {
 
     // get the old permissions
     uint32_t myPerms;
-    GetPermissions(&myPerms);
+    rv = GetPermissions(&myPerms);
+    if (NS_FAILED(rv)) {
+      return rv;
+    }
 
     // Create the new file with the old file's permissions, even if write
     // permission is missing.  We can't create with write permission and
@@ -1017,6 +1059,12 @@ nsLocalFile::MoveToNative(nsIFile* aNewParent, const nsACString& aNewName) {
 }
 
 NS_IMETHODIMP
+nsLocalFile::MoveToFollowingLinksNative(nsIFile* aNewParent,
+                                        const nsACString& aNewName) {
+  return MoveToNative(aNewParent, aNewName);
+}
+
+NS_IMETHODIMP
 nsLocalFile::Remove(bool aRecursive) {
   CHECK_mPath();
   ENSURE_STAT_CACHE();
@@ -1071,68 +1119,92 @@ nsLocalFile::Remove(bool aRecursive) {
   return NSRESULT_FOR_RETURN(rmdir(mPath.get()));
 }
 
-NS_IMETHODIMP
-nsLocalFile::GetLastModifiedTime(PRTime* aLastModTime) {
+nsresult nsLocalFile::GetLastModifiedTimeImpl(PRTime* aLastModTime,
+                                              bool aFollowLinks) {
   CHECK_mPath();
   if (NS_WARN_IF(!aLastModTime)) {
     return NS_ERROR_INVALID_ARG;
   }
 
-  PRFileInfo64 info;
-  if (PR_GetFileInfo64(mPath.get(), &info) != PR_SUCCESS) {
+  using StatFn = int (*)(const char*, struct STAT*);
+  StatFn statFn = aFollowLinks ? &STAT : &LSTAT;
+
+  struct STAT fileStats {};
+  if (statFn(mPath.get(), &fileStats) < 0) {
     return NSRESULT_FOR_ERRNO();
   }
-  PRTime modTime = info.modifyTime;
-  if (modTime == 0) {
-    *aLastModTime = 0;
-  } else {
-    *aLastModTime = modTime / PR_USEC_PER_MSEC;
-  }
+
+  int64_t modSec = 0;
+  int64_t modNSec = 0;
+#if (defined(__APPLE__) && defined(__MACH__))
+  modSec = fileStats.st_mtimespec.tv_sec;
+  modNSec = fileStats.st_mtimespec.tv_nsec;
+#else
+  modSec = fileStats.st_mtim.tv_sec;
+  modNSec = fileStats.st_mtim.tv_nsec;
+#endif
+  *aLastModTime =
+      PRTime(modSec * PR_MSEC_PER_SEC) + PRTime(modNSec / PR_NSEC_PER_MSEC);
 
   return NS_OK;
 }
 
-NS_IMETHODIMP
-nsLocalFile::SetLastModifiedTime(PRTime aLastModTime) {
+nsresult nsLocalFile::SetLastModifiedTimeImpl(PRTime aLastModTime,
+                                              bool aFollowLinks) {
   CHECK_mPath();
+
+  using UtimesFn = int (*)(const char*, const timeval*);
+  UtimesFn utimesFn = &utimes;
+
+#if HAVE_LUTIMES
+  if (!aFollowLinks) {
+    utimesFn = &lutimes;
+  }
+#endif
 
   int result;
   if (aLastModTime != 0) {
     ENSURE_STAT_CACHE();
-    struct utimbuf ut;
-    ut.actime = mCachedStat.st_atime;
+    timeval access{};
+#if (defined(__APPLE__) && defined(__MACH__))
+    access.tv_sec = mCachedStat.st_atimespec.tv_sec;
+    access.tv_usec = mCachedStat.st_atimespec.tv_nsec / 1000;
+#else
+    access.tv_sec = mCachedStat.st_atim.tv_sec;
+    access.tv_usec = mCachedStat.st_atim.tv_nsec / 1000;
+#endif
+    timeval modification{};
+    modification.tv_sec = aLastModTime / PR_MSEC_PER_SEC;
+    modification.tv_usec = (aLastModTime % PR_MSEC_PER_SEC) * PR_USEC_PER_MSEC;
 
-    // convert milliseconds to seconds since the unix epoch
-    ut.modtime = (time_t)(aLastModTime / PR_MSEC_PER_SEC);
-    result = utime(mPath.get(), &ut);
+    timeval times[2];
+    times[0] = access;
+    times[1] = modification;
+    result = utimesFn(mPath.get(), times);
   } else {
-    result = utime(mPath.get(), nullptr);
+    result = utimesFn(mPath.get(), nullptr);
   }
   return NSRESULT_FOR_RETURN(result);
 }
 
 NS_IMETHODIMP
-nsLocalFile::GetLastModifiedTimeOfLink(PRTime* aLastModTimeOfLink) {
-  CHECK_mPath();
-  if (NS_WARN_IF(!aLastModTimeOfLink)) {
-    return NS_ERROR_INVALID_ARG;
-  }
-
-  struct STAT sbuf;
-  if (LSTAT(mPath.get(), &sbuf) == -1) {
-    return NSRESULT_FOR_ERRNO();
-  }
-  *aLastModTimeOfLink = PRTime(sbuf.st_mtime) * PR_MSEC_PER_SEC;
-
-  return NS_OK;
+nsLocalFile::GetLastModifiedTime(PRTime* aLastModTime) {
+  return GetLastModifiedTimeImpl(aLastModTime, /* follow links? */ true);
 }
 
-/*
- * utime(2) may or may not dereference symlinks, joy.
- */
+NS_IMETHODIMP
+nsLocalFile::SetLastModifiedTime(PRTime aLastModTime) {
+  return SetLastModifiedTimeImpl(aLastModTime, /* follow links ? */ true);
+}
+
+NS_IMETHODIMP
+nsLocalFile::GetLastModifiedTimeOfLink(PRTime* aLastModTimeOfLink) {
+  return GetLastModifiedTimeImpl(aLastModTimeOfLink, /* follow link? */ false);
+}
+
 NS_IMETHODIMP
 nsLocalFile::SetLastModifiedTimeOfLink(PRTime aLastModTimeOfLink) {
-  return SetLastModifiedTime(aLastModTimeOfLink);
+  return SetLastModifiedTimeImpl(aLastModTimeOfLink, /* follow links? */ false);
 }
 
 /*
@@ -1337,19 +1409,19 @@ nsLocalFile::GetDiskSpaceAvailable(int64_t* aDiskSpaceAvailable) {
 
   if (STATFS(mPath.get(), &fs_buf) < 0) {
     // The call to STATFS failed.
-#ifdef DEBUG
+#  ifdef DEBUG
     printf("ERROR: GetDiskSpaceAvailable: STATFS call FAILED. \n");
-#endif
+#  endif
     return NS_ERROR_FAILURE;
   }
 
   *aDiskSpaceAvailable = (int64_t)fs_buf.F_BSIZE * fs_buf.f_bavail;
 
-#ifdef DEBUG_DISK_SPACE
+#  ifdef DEBUG_DISK_SPACE
   printf("DiskSpaceAvailable: %lu bytes\n", *aDiskSpaceAvailable);
-#endif
+#  endif
 
-#if defined(USE_LINUX_QUOTACTL)
+#  if defined(USE_LINUX_QUOTACTL)
 
   if (!FillStatCache()) {
     // Return available size from statfs
@@ -1365,9 +1437,9 @@ nsLocalFile::GetDiskSpaceAvailable(int64_t* aDiskSpaceAvailable) {
   struct dqblk dq;
   if (!quotactl(QCMD(Q_GETQUOTA, USRQUOTA), deviceName.get(), getuid(),
                 (caddr_t)&dq)
-#ifdef QIF_BLIMITS
+#    ifdef QIF_BLIMITS
       && dq.dqb_valid & QIF_BLIMITS
-#endif
+#    endif
       && dq.dqb_bhardlimit) {
     int64_t QuotaSpaceAvailable = 0;
     // dqb_bhardlimit is count of BLOCK_SIZE blocks, dqb_curspace is bytes
@@ -1378,7 +1450,7 @@ nsLocalFile::GetDiskSpaceAvailable(int64_t* aDiskSpaceAvailable) {
       *aDiskSpaceAvailable = QuotaSpaceAvailable;
     }
   }
-#endif
+#  endif
 
   return NS_OK;
 
@@ -1391,11 +1463,11 @@ nsLocalFile::GetDiskSpaceAvailable(int64_t* aDiskSpaceAvailable) {
    * Until we figure out how to do that, lets be honest and say that this
    * command isn't implemented properly for these platforms yet.
    */
-#ifdef DEBUG
+#  ifdef DEBUG
   printf(
       "ERROR: GetDiskSpaceAvailable: Not implemented for plaforms without "
       "statfs.\n");
-#endif
+#  endif
   return NS_ERROR_NOT_IMPLEMENTED;
 
 #endif /* STATFS */
@@ -1527,7 +1599,10 @@ nsLocalFile::IsExecutable(bool* aResult) {
     // Search for any of the set of executable extensions.
     static const char* const executableExts[] = {
         "air",  // Adobe AIR installer
-        "jar"   // java application bundle
+#ifdef MOZ_WIDGET_COCOA
+        "fileloc",  // File location files can be used to point to other files.
+#endif
+        "jar"  // java application bundle
     };
     nsDependentSubstring ext = Substring(path, dotIdx + 1);
     for (auto executableExt : executableExts) {
@@ -1787,15 +1862,6 @@ nsLocalFile::GetNativeTarget(nsACString& aResult) {
 }
 
 NS_IMETHODIMP
-nsLocalFile::GetFollowLinks(bool* aFollowLinks) {
-  *aFollowLinks = true;
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-nsLocalFile::SetFollowLinks(bool aFollowLinks) { return NS_OK; }
-
-NS_IMETHODIMP
 nsLocalFile::GetDirectoryEntriesImpl(nsIDirectoryEnumerator** aEntries) {
   RefPtr<nsDirEnumeratorUnix> dir = new nsDirEnumeratorUnix();
 
@@ -1969,10 +2035,10 @@ nsLocalFile::Launch() {
     rv = mimeService->GetTypeFromFile(this, type);
   }
 
-  nsAutoCString fileUri = NS_LITERAL_CSTRING("file://") + mPath;
-  return java::GeckoAppShell::OpenUriExternal(
-             NS_ConvertUTF8toUTF16(fileUri), NS_ConvertUTF8toUTF16(type),
-             EmptyString(), EmptyString(), EmptyString(), EmptyString())
+  nsAutoCString fileUri = "file://"_ns + mPath;
+  return java::GeckoAppShell::OpenUriExternal(NS_ConvertUTF8toUTF16(fileUri),
+                                              NS_ConvertUTF8toUTF16(type),
+                                              u""_ns, u""_ns, u""_ns, u""_ns)
              ? NS_OK
              : NS_ERROR_FAILURE;
 #elif defined(MOZ_WIDGET_COCOA)
@@ -1991,8 +2057,6 @@ nsLocalFile::Launch() {
 nsresult NS_NewNativeLocalFile(const nsACString& aPath, bool aFollowSymlinks,
                                nsIFile** aResult) {
   RefPtr<nsLocalFile> file = new nsLocalFile();
-
-  file->SetFollowLinks(aFollowSymlinks);
 
   if (!aPath.IsEmpty()) {
     nsresult rv = file->InitWithNativePath(aPath);
@@ -2063,6 +2127,11 @@ nsresult nsLocalFile::MoveTo(nsIFile* aNewParentDir,
                              const nsAString& aNewName) {
   SET_UCS_2ARGS_2(MoveToNative, aNewParentDir, aNewName);
 }
+NS_IMETHODIMP
+nsLocalFile::MoveToFollowingLinks(nsIFile* aNewParentDir,
+                                  const nsAString& aNewName) {
+  SET_UCS_2ARGS_2(MoveToFollowingLinksNative, aNewParentDir, aNewName);
+}
 
 NS_IMETHODIMP
 nsLocalFile::RenameTo(nsIFile* aNewParentDir, const nsAString& aNewName) {
@@ -2102,25 +2171,6 @@ nsLocalFile::RenameToNative(nsIFile* aNewParentDir,
 
 nsresult nsLocalFile::GetTarget(nsAString& aResult) {
   GET_UCS(GetNativeTarget, aResult);
-}
-
-// nsIHashable
-
-NS_IMETHODIMP
-nsLocalFile::Equals(nsIHashable* aOther, bool* aResult) {
-  nsCOMPtr<nsIFile> otherFile(do_QueryInterface(aOther));
-  if (!otherFile) {
-    *aResult = false;
-    return NS_OK;
-  }
-
-  return Equals(otherFile, aResult);
-}
-
-NS_IMETHODIMP
-nsLocalFile::GetHashCode(uint32_t* aResult) {
-  *aResult = HashString(mPath);
-  return NS_OK;
 }
 
 nsresult NS_NewLocalFile(const nsAString& aPath, bool aFollowLinks,
@@ -2575,8 +2625,6 @@ nsresult NS_NewLocalFileWithFSRef(const FSRef* aFSRef, bool aFollowLinks,
                                   nsILocalFileMac** aResult) {
   RefPtr<nsLocalFile> file = new nsLocalFile();
 
-  file->SetFollowLinks(aFollowLinks);
-
   nsresult rv = file->InitWithFSRef(aFSRef);
   if (NS_FAILED(rv)) {
     return rv;
@@ -2588,8 +2636,6 @@ nsresult NS_NewLocalFileWithFSRef(const FSRef* aFSRef, bool aFollowLinks,
 nsresult NS_NewLocalFileWithCFURL(const CFURLRef aURL, bool aFollowLinks,
                                   nsILocalFileMac** aResult) {
   RefPtr<nsLocalFile> file = new nsLocalFile();
-
-  file->SetFollowLinks(aFollowLinks);
 
   nsresult rv = file->InitWithCFURL(aURL);
   if (NS_FAILED(rv)) {

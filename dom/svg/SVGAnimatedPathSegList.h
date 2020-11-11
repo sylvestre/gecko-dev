@@ -4,23 +4,22 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef MOZILLA_SVGANIMATEDPATHSEGLIST_H__
-#define MOZILLA_SVGANIMATEDPATHSEGLIST_H__
+#ifndef DOM_SVG_SVGANIMATEDPATHSEGLIST_H_
+#define DOM_SVG_SVGANIMATEDPATHSEGLIST_H_
 
 #include "mozilla/Attributes.h"
 #include "mozilla/MemoryReporting.h"
+#include "mozilla/SMILAttr.h"
 #include "mozilla/UniquePtr.h"
-#include "nsAutoPtr.h"
-#include "nsISMILAttr.h"
 #include "SVGPathData.h"
-
-class nsSMILValue;
-class nsSVGElement;
 
 namespace mozilla {
 
+class SMILValue;
+
 namespace dom {
 class SVGAnimationElement;
+class SVGElement;
 }  // namespace dom
 
 /**
@@ -40,11 +39,11 @@ class SVGAnimationElement;
  */
 class SVGAnimatedPathSegList final {
   // friends so that they can get write access to mBaseVal and mAnimVal
-  friend class DOMSVGPathSeg;
-  friend class DOMSVGPathSegList;
+  friend class dom::DOMSVGPathSeg;
+  friend class dom::DOMSVGPathSegList;
 
  public:
-  SVGAnimatedPathSegList() {}
+  SVGAnimatedPathSegList() = default;
 
   /**
    * Because it's so important that mBaseVal and its DOMSVGPathSegList wrapper
@@ -65,9 +64,10 @@ class SVGAnimatedPathSegList final {
     return mAnimVal ? *mAnimVal : mBaseVal;
   }
 
-  nsresult SetAnimValue(const SVGPathData& aValue, nsSVGElement* aElement);
+  nsresult SetAnimValue(const SVGPathData& aNewAnimValue,
+                        dom::SVGElement* aElement);
 
-  void ClearAnimValue(nsSVGElement* aElement);
+  void ClearAnimValue(dom::SVGElement* aElement);
 
   /**
    * Empty paths are not rendered.
@@ -83,7 +83,7 @@ class SVGAnimatedPathSegList final {
 
   bool IsAnimating() const { return !!mAnimVal; }
 
-  UniquePtr<nsISMILAttr> ToSMILAttr(nsSVGElement* aElement);
+  UniquePtr<SMILAttr> ToSMILAttr(dom::SVGElement* aElement);
 
   size_t SizeOfExcludingThis(MallocSizeOf aMallocSizeOf) const;
 
@@ -94,30 +94,30 @@ class SVGAnimatedPathSegList final {
   // the empty string (<set to="">).
 
   SVGPathData mBaseVal;
-  nsAutoPtr<SVGPathData> mAnimVal;
+  UniquePtr<SVGPathData> mAnimVal;
 
-  struct SMILAnimatedPathSegList : public nsISMILAttr {
+  struct SMILAnimatedPathSegList : public SMILAttr {
    public:
     SMILAnimatedPathSegList(SVGAnimatedPathSegList* aVal,
-                            nsSVGElement* aElement)
+                            dom::SVGElement* aElement)
         : mVal(aVal), mElement(aElement) {}
 
-    // These will stay alive because a nsISMILAttr only lives as long
+    // These will stay alive because a SMILAttr only lives as long
     // as the Compositing step, and DOM elements don't get a chance to
     // die during that.
     SVGAnimatedPathSegList* mVal;
-    nsSVGElement* mElement;
+    dom::SVGElement* mElement;
 
-    // nsISMILAttr methods
+    // SMILAttr methods
     virtual nsresult ValueFromString(
         const nsAString& aStr, const dom::SVGAnimationElement* aSrcElement,
-        nsSMILValue& aValue, bool& aPreventCachingOfSandwich) const override;
-    virtual nsSMILValue GetBaseValue() const override;
+        SMILValue& aValue, bool& aPreventCachingOfSandwich) const override;
+    virtual SMILValue GetBaseValue() const override;
     virtual void ClearAnimValue() override;
-    virtual nsresult SetAnimValue(const nsSMILValue& aValue) override;
+    virtual nsresult SetAnimValue(const SMILValue& aValue) override;
   };
 };
 
 }  // namespace mozilla
 
-#endif  // MOZILLA_SVGANIMATEDPATHSEGLIST_H__
+#endif  // DOM_SVG_SVGANIMATEDPATHSEGLIST_H_

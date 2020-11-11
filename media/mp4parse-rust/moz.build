@@ -8,4 +8,12 @@ EXPORTS += [
     'mp4parse.h',
 ]
 
+if CONFIG['COMPILE_ENVIRONMENT']:
+    CbindgenHeader('mp4parse_ffi_generated.h',
+                   inputs=['/third_party/rust/mp4parse_capi'])
+
+    EXPORTS += [ # Should this be namespaced? EXPORTS.mozilla.media
+        '!mp4parse_ffi_generated.h',
+    ]
+
 FINAL_LIBRARY = 'xul'

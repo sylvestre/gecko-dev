@@ -9,7 +9,7 @@
 
 #include "mozilla/plugins/PFunctionBrokerParent.h"
 #if defined(XP_WIN) && defined(MOZ_SANDBOX)
-#include "sandboxPermissions.h"
+#  include "sandboxPermissions.h"
 #endif
 
 namespace mozilla {
@@ -56,7 +56,7 @@ class FunctionBrokerParent : public PFunctionBrokerParent {
   static mozilla::SandboxPermissions sSandboxPermissions;
 #endif  // defined(XP_WIN) && defined(MOZ_SANDBOX)
 
-  nsAutoPtr<FunctionBrokerThread> mThread;
+  UniquePtr<FunctionBrokerThread> mThread;
   Monitor mMonitor;
   bool mShutdownDone;
 };

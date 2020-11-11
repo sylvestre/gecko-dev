@@ -21,7 +21,8 @@ already_AddRefed<nsBufferedInputStream> CreateStream(uint32_t aSize,
 }
 
 // Simple reading.
-TEST(TestBufferedInputStream, SimpleRead) {
+TEST(TestBufferedInputStream, SimpleRead)
+{
   const size_t kBufSize = 10;
 
   nsCString buf;
@@ -39,7 +40,8 @@ TEST(TestBufferedInputStream, SimpleRead) {
 }
 
 // Simple segment reading.
-TEST(TestBufferedInputStream, SimpleReadSegments) {
+TEST(TestBufferedInputStream, SimpleReadSegments)
+{
   const size_t kBufSize = 10;
 
   nsCString buf;
@@ -54,7 +56,8 @@ TEST(TestBufferedInputStream, SimpleReadSegments) {
 }
 
 // AsyncWait - sync
-TEST(TestBufferedInputStream, AsyncWait_sync) {
+TEST(TestBufferedInputStream, AsyncWait_sync)
+{
   const size_t kBufSize = 10;
 
   nsCString buf;
@@ -69,7 +72,8 @@ TEST(TestBufferedInputStream, AsyncWait_sync) {
 }
 
 // AsyncWait - async
-TEST(TestBufferedInputStream, AsyncWait_async) {
+TEST(TestBufferedInputStream, AsyncWait_async)
+{
   const size_t kBufSize = 10;
 
   nsCString buf;
@@ -88,7 +92,8 @@ TEST(TestBufferedInputStream, AsyncWait_async) {
 }
 
 // AsyncWait - sync - closureOnly
-TEST(TestBufferedInputStream, AsyncWait_sync_closureOnly) {
+TEST(TestBufferedInputStream, AsyncWait_sync_closureOnly)
+{
   const size_t kBufSize = 10;
 
   nsCString buf;
@@ -107,7 +112,8 @@ TEST(TestBufferedInputStream, AsyncWait_sync_closureOnly) {
 }
 
 // AsyncWait - async
-TEST(TestBufferedInputStream, AsyncWait_async_closureOnly) {
+TEST(TestBufferedInputStream, AsyncWait_async_closureOnly)
+{
   const size_t kBufSize = 10;
 
   nsCString buf;
@@ -124,6 +130,52 @@ TEST(TestBufferedInputStream, AsyncWait_async_closureOnly) {
   ASSERT_FALSE(cb->Called());
 
   // Eventually it is called.
+  MOZ_ALWAYS_TRUE(mozilla::SpinEventLoopUntil([&]() { return cb->Called(); }));
+  ASSERT_TRUE(cb->Called());
+}
+
+TEST(TestBufferedInputStream, AsyncWait_after_close)
+{
+  const size_t kBufSize = 10;
+
+  nsCString buf;
+  RefPtr<nsBufferedInputStream> bis = CreateStream(kBufSize, buf);
+
+  nsCOMPtr<nsIThread> eventTarget = do_GetCurrentThread();
+
+  auto cb = mozilla::MakeRefPtr<testing::InputStreamCallback>();
+  ASSERT_EQ(NS_OK, bis->AsyncWait(cb, 0, 0, eventTarget));
+  MOZ_ALWAYS_TRUE(mozilla::SpinEventLoopUntil([&]() { return cb->Called(); }));
+  ASSERT_TRUE(cb->Called());
+
+  ASSERT_EQ(NS_OK, bis->Close());
+
+  cb = mozilla::MakeRefPtr<testing::InputStreamCallback>();
+  ASSERT_EQ(NS_OK, bis->AsyncWait(cb, 0, 0, eventTarget));
+  MOZ_ALWAYS_TRUE(mozilla::SpinEventLoopUntil([&]() { return cb->Called(); }));
+  ASSERT_TRUE(cb->Called());
+}
+
+TEST(TestBufferedInputStream, AsyncLengthWait_after_close)
+{
+  nsCString buf{"The Quick Brown Fox Jumps over the Lazy Dog"};
+  const size_t kBufSize = 44;
+
+  RefPtr<nsBufferedInputStream> bis = CreateStream(kBufSize, buf);
+
+  nsCOMPtr<nsIThread> eventTarget = do_GetCurrentThread();
+
+  auto cb = mozilla::MakeRefPtr<testing::LengthCallback>();
+  ASSERT_EQ(NS_OK, bis->AsyncLengthWait(cb, eventTarget));
+  MOZ_ALWAYS_TRUE(mozilla::SpinEventLoopUntil([&]() { return cb->Called(); }));
+  ASSERT_TRUE(cb->Called());
+
+  uint64_t length;
+  ASSERT_EQ(NS_OK, bis->Available(&length));
+  ASSERT_EQ((uint64_t)kBufSize, length);
+
+  cb = mozilla::MakeRefPtr<testing::LengthCallback>();
+  ASSERT_EQ(NS_OK, bis->AsyncLengthWait(cb, eventTarget));
   MOZ_ALWAYS_TRUE(mozilla::SpinEventLoopUntil([&]() { return cb->Called(); }));
   ASSERT_TRUE(cb->Called());
 }

@@ -9,22 +9,29 @@ package org.mozilla.geckoview;
 import org.mozilla.gecko.annotation.WrapForJNI;
 
 import android.annotation.SuppressLint;
-import android.support.annotation.IntDef;
+import androidx.annotation.AnyThread;
+import androidx.annotation.IntDef;
+import androidx.annotation.Nullable;
 
+import java.io.ByteArrayInputStream;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.security.cert.CertificateException;
+import java.security.cert.CertificateFactory;
+import java.security.cert.X509Certificate;
 
 /**
  * WebRequestError is simply a container for error codes and categories used by
  * {@link GeckoSession.NavigationDelegate#onLoadError(GeckoSession, String, WebRequestError)}.
  */
+@AnyThread
 public class WebRequestError extends Exception {
     @Retention(RetentionPolicy.SOURCE)
     @IntDef({ERROR_CATEGORY_UNKNOWN, ERROR_CATEGORY_SECURITY,
             ERROR_CATEGORY_NETWORK, ERROR_CATEGORY_CONTENT,
             ERROR_CATEGORY_URI, ERROR_CATEGORY_PROXY,
             ERROR_CATEGORY_SAFEBROWSING})
-    public @interface ErrorCategory {}
+    /* package */ @interface ErrorCategory {}
 
     @Retention(RetentionPolicy.SOURCE)
     @IntDef({ERROR_UNKNOWN, ERROR_SECURITY_SSL, ERROR_SECURITY_BAD_CERT,
@@ -39,7 +46,7 @@ public class WebRequestError extends Exception {
             ERROR_PROXY_CONNECTION_REFUSED, ERROR_FILE_NOT_FOUND,
             ERROR_FILE_ACCESS_DENIED, ERROR_INVALID_CONTENT_ENCODING,
             ERROR_UNSAFE_CONTENT_TYPE, ERROR_CORRUPTED_CONTENT})
-    public @interface Error {}
+    /* package */ @interface Error {}
 
     /**
      * This is normally used for error codes that don't
@@ -216,24 +223,42 @@ public class WebRequestError extends Exception {
     public final int category;
 
     /**
+     * The server certificate used. This can be useful if the error code is
+     * is e.g. {@link #ERROR_SECURITY_BAD_CERT}.
+     */
+    public final @Nullable X509Certificate certificate;
+
+    /**
      * Construct a new WebRequestError with the specified code and category.
      * @param code An error code, e.g. {@link #ERROR_MALFORMED_URI}
      * @param category An error category, e.g. {@link #ERROR_CATEGORY_URI}
      */
-    public WebRequestError(@Error int code, @ErrorCategory int category) {
-        super(String.format("Request failed, error=%d, category=%d", code, category));
+    public WebRequestError(final @Error int code, final @ErrorCategory int category) {
+        this(code, category, null);
+    }
+
+    /**
+     * Construct a new WebRequestError with the specified code and category.
+     * @param code An error code, e.g. {@link #ERROR_MALFORMED_URI}
+     * @param category An error category, e.g. {@link #ERROR_CATEGORY_URI}
+     * @param certificate The X509Certificate server certificate used, if applicable.
+     */
+    public WebRequestError(final @Error int code, final @ErrorCategory int category, final X509Certificate certificate) {
+        super(String.format("Request failed, error=0x%x, category=0x%x", code, category));
         this.code = code;
         this.category = category;
+        this.certificate = certificate;
     }
 
     @Override
-    public boolean equals(Object other) {
+    public boolean equals(final Object other) {
         if (other == null || !(other instanceof WebRequestError)) {
             return false;
         }
 
         final WebRequestError otherError = (WebRequestError)other;
 
+        // We don't compare the certificate here because it's almost never what you want.
         return otherError.code == this.code &&
                 otherError.category == this.category;
     }
@@ -244,17 +269,29 @@ public class WebRequestError extends Exception {
     }
 
     @WrapForJNI
-    /* package */ static WebRequestError fromGeckoError(long geckoError, int geckoErrorModule,
-                                                        int geckoErrorClass) {
+    /* package */ static WebRequestError fromGeckoError(final long geckoError,
+                                                        final int geckoErrorModule,
+                                                        final int geckoErrorClass,
+                                                        final byte[] certificateBytes) {
         int code = convertGeckoError(geckoError, geckoErrorModule, geckoErrorClass);
         int category = getErrorCategory(geckoErrorModule, code);
-        return new WebRequestError(code, category);
+        X509Certificate certificate = null;
+        if (certificateBytes != null) {
+            try {
+                final CertificateFactory factory = CertificateFactory.getInstance("X.509");
+                certificate = (X509Certificate) factory.generateCertificate(new ByteArrayInputStream(certificateBytes));
+            } catch (CertificateException e) {
+                throw new IllegalArgumentException("Unable to parse DER certificate");
+            }
+        }
+
+        return new WebRequestError(code, category, certificate);
     }
 
     @SuppressLint("WrongConstant")
     @WrapForJNI
     /* package */ static @ErrorCategory int getErrorCategory(
-            long errorModule, @Error int error) {
+            final long errorModule, final @Error int error) {
         // Match flags with XPCOM ErrorList.h.
         if (errorModule == 21) {
             return ERROR_CATEGORY_SECURITY;
@@ -264,7 +301,7 @@ public class WebRequestError extends Exception {
 
     @WrapForJNI
     /* package */ static @Error int convertGeckoError(
-            long geckoError, int geckoErrorModule, int geckoErrorClass) {
+            final long geckoError, final int geckoErrorModule, final int geckoErrorClass) {
         // Match flags with XPCOM ErrorList.h.
         // safebrowsing
         if (geckoError == 0x805D001FL) {

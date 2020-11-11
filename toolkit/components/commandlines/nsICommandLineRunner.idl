@@ -29,15 +29,12 @@ interface nsICommandLineRunner : nsICommandLine
    * On Windows, the "native" character set is UTF-8, not the native codepage.
    *
    * @param workingDir The working directory for resolving file and URI paths.
+   *                   Can be null, in which case resolving files will not
+   *                   work, and only absolute URIs will be resolvable.
    * @param state      The nsICommandLine.state flag.
    */
   void init(in long argc, in nsArgvArray argv,
             in nsIFile workingDir, in unsigned long state);
-
-  /**
-   * Set the windowContext parameter.
-   */
-  void setWindowContext(in nsIDOMWindow aWindow);
 
   /**
    * Process the command-line handlers in the proper order, calling "handle()" on

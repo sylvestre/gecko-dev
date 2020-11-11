@@ -4,12 +4,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 #if !defined(TheoraDecoder_h_)
-#define TheoraDecoder_h_
+#  define TheoraDecoder_h_
 
-#include "PlatformDecoderModule.h"
-#include "ogg/ogg.h"
-#include "theora/theoradec.h"
-#include <stdint.h>
+#  include <stdint.h>
+
+#  include "PlatformDecoderModule.h"
+#  include "ogg/ogg.h"
+#  include "theora/theoradec.h"
 
 namespace mozilla {
 
@@ -30,7 +31,7 @@ class TheoraDecoder : public MediaDataDecoder,
   static bool IsTheora(const nsACString& aMimeType);
 
   nsCString GetDescriptionName() const override {
-    return NS_LITERAL_CSTRING("theora video decoder");
+    return "theora video decoder"_ns;
   }
 
  private:
@@ -39,9 +40,9 @@ class TheoraDecoder : public MediaDataDecoder,
 
   RefPtr<DecodePromise> ProcessDecode(MediaRawData* aSample);
 
-  RefPtr<layers::KnowsCompositor> mImageAllocator;
-  RefPtr<layers::ImageContainer> mImageContainer;
-  RefPtr<TaskQueue> mTaskQueue;
+  const RefPtr<layers::KnowsCompositor> mImageAllocator;
+  const RefPtr<layers::ImageContainer> mImageContainer;
+  const RefPtr<TaskQueue> mTaskQueue;
 
   // Theora header & decoder state
   th_info mTheoraInfo;

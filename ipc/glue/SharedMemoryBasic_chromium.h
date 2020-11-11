@@ -11,7 +11,7 @@
 #include "SharedMemory.h"
 
 #ifdef FUZZING
-#include "SharedMemoryFuzzer.h"
+#  include "SharedMemoryFuzzer.h"
 #endif
 
 #include "nsDebug.h"
@@ -27,7 +27,7 @@ namespace ipc {
 class SharedMemoryBasic final
     : public SharedMemoryCommon<base::SharedMemoryHandle> {
  public:
-  SharedMemoryBasic() {}
+  SharedMemoryBasic() = default;
 
   virtual bool SetHandle(const Handle& aHandle, OpenRights aRights) override {
     return mSharedMemory.SetHandle(aHandle, aRights == RightsReadOnly);
@@ -41,8 +41,8 @@ class SharedMemoryBasic final
     return ok;
   }
 
-  virtual bool Map(size_t nBytes) override {
-    bool ok = mSharedMemory.Map(nBytes);
+  virtual bool Map(size_t nBytes, void* fixed_address = nullptr) override {
+    bool ok = mSharedMemory.Map(nBytes, fixed_address);
     if (ok) {
       Mapped(nBytes);
     }
@@ -76,8 +76,12 @@ class SharedMemoryBasic final
     return ret;
   }
 
+  static void* FindFreeAddressSpace(size_t size) {
+    return base::SharedMemory::FindFreeAddressSpace(size);
+  }
+
  private:
-  ~SharedMemoryBasic() {}
+  ~SharedMemoryBasic() = default;
 
   base::SharedMemory mSharedMemory;
 };

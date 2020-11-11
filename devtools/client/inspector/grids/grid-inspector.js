@@ -8,19 +8,31 @@ const Services = require("Services");
 const flags = require("devtools/shared/flags");
 const { throttle } = require("devtools/shared/throttle");
 
+const gridsReducer = require("devtools/client/inspector/grids/reducers/grids");
+const highlighterSettingsReducer = require("devtools/client/inspector/grids/reducers/highlighter-settings");
 const {
   updateGridColor,
   updateGridHighlighted,
   updateGrids,
-} = require("./actions/grids");
+} = require("devtools/client/inspector/grids/actions/grids");
 const {
   updateShowGridAreas,
   updateShowGridLineNumbers,
   updateShowInfiniteLines,
-} = require("./actions/highlighter-settings");
+} = require("devtools/client/inspector/grids/actions/highlighter-settings");
 
-loader.lazyRequireGetter(this, "compareFragmentsGeometry", "devtools/client/inspector/grids/utils/utils", true);
-loader.lazyRequireGetter(this, "parseURL", "devtools/client/shared/source-utils", true);
+loader.lazyRequireGetter(
+  this,
+  "compareFragmentsGeometry",
+  "devtools/client/inspector/grids/utils/utils",
+  true
+);
+loader.lazyRequireGetter(
+  this,
+  "parseURL",
+  "devtools/client/shared/source-utils",
+  true
+);
 loader.lazyRequireGetter(this, "asyncStorage", "devtools/shared/async-storage");
 
 const CSS_GRID_COUNT_HISTOGRAM_ID = "DEVTOOLS_NUMBER_OF_CSS_GRIDS_IN_A_PAGE";
@@ -29,9 +41,12 @@ const SHOW_GRID_AREAS = "devtools.gridinspector.showGridAreas";
 const SHOW_GRID_LINE_NUMBERS = "devtools.gridinspector.showGridLineNumbers";
 const SHOW_INFINITE_LINES_PREF = "devtools.gridinspector.showInfiniteLines";
 
-const TELEMETRY_GRID_AREAS_OVERLAY_CHECKED = "devtools.grid.showGridAreasOverlay.checked";
-const TELEMETRY_GRID_LINE_NUMBERS_CHECKED = "devtools.grid.showGridLineNumbers.checked";
-const TELEMETRY_INFINITE_LINES_CHECKED = "devtools.grid.showInfiniteLines.checked";
+const TELEMETRY_GRID_AREAS_OVERLAY_CHECKED =
+  "devtools.grid.showGridAreasOverlay.checked";
+const TELEMETRY_GRID_LINE_NUMBERS_CHECKED =
+  "devtools.grid.showGridLineNumbers.checked";
+const TELEMETRY_INFINITE_LINES_CHECKED =
+  "devtools.grid.showInfiniteLines.checked";
 
 // Default grid colors.
 const GRID_COLORS = [
@@ -55,21 +70,29 @@ class GridInspector {
     this.inspector = inspector;
     this.store = inspector.store;
     this.telemetry = inspector.telemetry;
-    this.walker = this.inspector.walker;
+
     // Maximum number of grid highlighters that can be displayed.
-    this.maxHighlighters =
-      Services.prefs.getIntPref("devtools.gridinspector.maxHighlighters");
+    this.maxHighlighters = Services.prefs.getIntPref(
+      "devtools.gridinspector.maxHighlighters"
+    );
+
+    this.store.injectReducer("grids", gridsReducer);
+    this.store.injectReducer("highlighterSettings", highlighterSettingsReducer);
 
     this.onHighlighterShown = this.onHighlighterShown.bind(this);
     this.onHighlighterHidden = this.onHighlighterHidden.bind(this);
     this.onNavigate = this.onNavigate.bind(this);
     this.onReflow = throttle(this.onReflow, 500, this);
     this.onSetGridOverlayColor = this.onSetGridOverlayColor.bind(this);
-    this.onShowGridOutlineHighlight = this.onShowGridOutlineHighlight.bind(this);
+    this.onShowGridOutlineHighlight = this.onShowGridOutlineHighlight.bind(
+      this
+    );
     this.onSidebarSelect = this.onSidebarSelect.bind(this);
     this.onToggleGridHighlighter = this.onToggleGridHighlighter.bind(this);
     this.onToggleShowGridAreas = this.onToggleShowGridAreas.bind(this);
-    this.onToggleShowGridLineNumbers = this.onToggleShowGridLineNumbers.bind(this);
+    this.onToggleShowGridLineNumbers = this.onToggleShowGridLineNumbers.bind(
+      this
+    );
     this.onToggleShowInfiniteLines = this.onToggleShowInfiniteLines.bind(this);
     this.updateGridPanel = this.updateGridPanel.bind(this);
 
@@ -94,7 +117,8 @@ class GridInspector {
     }
 
     try {
-      this.layoutInspector = await this.inspector.walker.getLayoutInspector();
+      // TODO: Call this again whenever targets are added or removed.
+      this.layoutFronts = await this.getLayoutFronts();
     } catch (e) {
       // This call might fail if called asynchrously after the toolbox is finished
       // closing.
@@ -106,10 +130,20 @@ class GridInspector {
       this.highlighters.on("grid-highlighter-hidden", this.onHighlighterHidden);
       this.highlighters.on("grid-highlighter-shown", this.onHighlighterShown);
     } else {
-      this.document.addEventListener("mousemove", () => {
-        this.highlighters.on("grid-highlighter-hidden", this.onHighlighterHidden);
-        this.highlighters.on("grid-highlighter-shown", this.onHighlighterShown);
-      }, { once: true });
+      this.document.addEventListener(
+        "mousemove",
+        () => {
+          this.highlighters.on(
+            "grid-highlighter-hidden",
+            this.onHighlighterHidden
+          );
+          this.highlighters.on(
+            "grid-highlighter-shown",
+            this.onHighlighterShown
+          );
+        },
+        { once: true }
+      );
     }
 
     this.inspector.sidebar.on("select", this.onSidebarSelect);
@@ -119,26 +153,45 @@ class GridInspector {
   }
 
   /**
+   * Get the LayoutActor fronts for all interesting targets where we have inspectors.
+   *
+   * @return {Array} The list of LayoutActor fronts
+   */
+  async getLayoutFronts() {
+    const inspectorFronts = await this.inspector.getAllInspectorFronts();
+
+    const layoutFronts = [];
+    for (const { walker } of inspectorFronts) {
+      const layoutFront = await walker.getLayoutInspector();
+      layoutFronts.push(layoutFront);
+    }
+
+    return layoutFronts;
+  }
+
+  /**
    * Destruction function called when the inspector is destroyed. Removes event listeners
    * and cleans up references.
    */
   destroy() {
     if (this._highlighters) {
-      this.highlighters.off("grid-highlighter-hidden", this.onHighlighterHidden);
+      this.highlighters.off(
+        "grid-highlighter-hidden",
+        this.onHighlighterHidden
+      );
       this.highlighters.off("grid-highlighter-shown", this.onHighlighterShown);
     }
 
     this.inspector.sidebar.off("select", this.onSidebarSelect);
     this.inspector.off("new-root", this.onNavigate);
 
-    this.inspector.reflowTracker.untrackReflows(this, this.onReflow);
+    this.inspector.off("reflow-in-selected-target", this.onReflow);
 
     this._highlighters = null;
     this.document = null;
     this.inspector = null;
-    this.layoutInspector = null;
+    this.layoutFronts = null;
     this.store = null;
-    this.walker = null;
   }
 
   getComponentProps() {
@@ -171,10 +224,14 @@ class GridInspector {
     let color;
     if (customColor) {
       color = customColor;
-    } else if (highlighted && this.highlighters.state.grids.has(nodeFront.actorID)) {
+    } else if (
+      highlighted &&
+      this.highlighters.state.grids.has(nodeFront.actorID)
+    ) {
       // If the node front is currently highlighted, use the color from the highlighter
       // options.
-      color = this.highlighters.state.grids.get(nodeFront.actorID).options.color;
+      color = this.highlighters.state.grids.get(nodeFront.actorID).options
+        .color;
     } else {
       // Otherwise use the color defined in the store for this node front.
       color = this.getGridColorForNodeFront(nodeFront);
@@ -218,7 +275,8 @@ class GridInspector {
     }
 
     const gridFronts = newGridFronts.filter(g =>
-      gridHighlighters.has(g.containerNodeFront));
+      gridHighlighters.has(g.containerNodeFront)
+    );
     if (!gridFronts.length) {
       return false;
     }
@@ -226,10 +284,10 @@ class GridInspector {
     const { grids } = this.store.getState();
 
     for (const node of gridHighlighters.keys()) {
-      const oldFragments = grids
-        .find(g => g.nodeFront === node).gridFragments;
-      const newFragments = newGridFronts
-        .find(g => g.containerNodeFront === node).gridFragments;
+      const oldFragments = grids.find(g => g.nodeFront === node).gridFragments;
+      const newFragments = newGridFronts.find(
+        g => g.containerNodeFront === node
+      ).gridFragments;
 
       if (!compareFragmentsGeometry(oldFragments, newFragments)) {
         return true;
@@ -243,9 +301,13 @@ class GridInspector {
    * Returns true if the layout panel is visible, and false otherwise.
    */
   isPanelVisible() {
-    return this.inspector && this.inspector.toolbox && this.inspector.sidebar &&
-           this.inspector.toolbox.currentToolId === "inspector" &&
-           this.inspector.sidebar.getCurrentTabID() === "layoutview";
+    return (
+      this.inspector &&
+      this.inspector.toolbox &&
+      this.inspector.sidebar &&
+      this.inspector.toolbox.currentToolId === "inspector" &&
+      this.inspector.sidebar.getCurrentTabID() === "layoutview"
+    );
   }
 
   /**
@@ -258,15 +320,18 @@ class GridInspector {
       return;
     }
 
-    // Get all the GridFront from the server if no gridFronts were provided.
-    let gridFronts;
     try {
-      gridFronts = await this.layoutInspector.getGrids(this.walker.rootNode);
+      await this._updateGridPanel();
     } catch (e) {
-      // This call might fail if called asynchrously after the toolbox is finished
-      // closing.
-      return;
+      this._throwUnlessDestroyed(
+        e,
+        "Inspector destroyed while executing updateGridPanel"
+      );
     }
+  }
+
+  async _updateGridPanel() {
+    const gridFronts = await this.getGrids();
 
     if (!gridFronts.length) {
       try {
@@ -280,18 +345,22 @@ class GridInspector {
       }
     }
 
-    const currentUrl = this.inspector.target.url;
+    const currentUrl = this.inspector.currentTarget.url;
 
     // Log how many CSS Grid elements DevTools sees.
     if (currentUrl != this.inspector.previousURL) {
-      this.telemetry.getHistogramById(CSS_GRID_COUNT_HISTOGRAM_ID).add(gridFronts.length);
+      this.telemetry
+        .getHistogramById(CSS_GRID_COUNT_HISTOGRAM_ID)
+        .add(gridFronts.length);
       this.inspector.previousURL = currentUrl;
     }
 
     // Get the hostname, if there is no hostname, fall back on protocol
     // ex: `data:` uri, and `about:` pages
-    const hostname = parseURL(currentUrl).hostname || parseURL(currentUrl).protocol;
-    const customColors = await asyncStorage.getItem("gridInspectorHostColors") || {};
+    const hostname =
+      parseURL(currentUrl).hostname || parseURL(currentUrl).protocol;
+    const customColors =
+      (await asyncStorage.getItem("gridInspectorHostColors")) || {};
 
     const grids = [];
     for (let i = 0; i < gridFronts.length; i++) {
@@ -303,7 +372,9 @@ class GridInspector {
       // particular DOM Node in the tree yet, or when we are connected to an older server.
       if (!nodeFront) {
         try {
-          nodeFront = await this.walker.getNodeFromActor(grid.actorID, ["containerEl"]);
+          nodeFront = await grid.walkerFront.getNodeFromActor(grid.actorID, [
+            "containerEl",
+          ]);
         } catch (e) {
           // This call might fail if called asynchrously after the toolbox is finished
           // closing.
@@ -311,15 +382,22 @@ class GridInspector {
         }
       }
 
-      const colorForHost = customColors[hostname] ? customColors[hostname][i] : null;
+      const colorForHost = customColors[hostname]
+        ? customColors[hostname][i]
+        : null;
       const fallbackColor = GRID_COLORS[i % GRID_COLORS.length];
-      const color = this.getInitialGridColor(nodeFront, colorForHost, fallbackColor);
+      const color = this.getInitialGridColor(
+        nodeFront,
+        colorForHost,
+        fallbackColor
+      );
       const highlighted = this.highlighters.gridHighlighters.has(nodeFront);
-      const disabled = !highlighted &&
-                       this.maxHighlighters > 1 &&
-                       this.highlighters.gridHighlighters.size === this.maxHighlighters;
-
-      grids.push({
+      const disabled =
+        !highlighted &&
+        this.maxHighlighters > 1 &&
+        this.highlighters.gridHighlighters.size === this.maxHighlighters;
+      const isSubgrid = grid.isSubgrid;
+      const gridData = {
         id: i,
         actorID: grid.actorID,
         color,
@@ -327,14 +405,70 @@ class GridInspector {
         direction: grid.direction,
         gridFragments: grid.gridFragments,
         highlighted,
+        isSubgrid,
         nodeFront,
+        parentNodeActorID: null,
+        subgrids: [],
         writingMode: grid.writingMode,
-      });
+      };
+
+      if (isSubgrid) {
+        let parentGridNodeFront;
+
+        try {
+          parentGridNodeFront = await nodeFront.walkerFront.getParentGridNode(
+            nodeFront
+          );
+        } catch (e) {
+          // This call might fail if called asynchrously after the toolbox is finished
+          // closing.
+          return;
+        }
+
+        if (!parentGridNodeFront) {
+          return;
+        }
+
+        const parentIndex = grids.findIndex(
+          g => g.nodeFront.actorID === parentGridNodeFront.actorID
+        );
+        gridData.parentNodeActorID = parentGridNodeFront.actorID;
+        grids[parentIndex].subgrids.push(gridData.id);
+      }
+
+      grids.push(gridData);
+    }
+
+    // We need to make sure that nested subgrids are displayed above their parent grid
+    // containers, so update the z-index of each grid before rendering them.
+    for (const root of grids.filter(g => !g.parentNodeActorID)) {
+      this._updateZOrder(grids, root);
     }
 
     this.store.dispatch(updateGrids(grids));
     this.inspector.emit("grid-panel-updated");
   }
+
+  /**
+   * Get all GridFront instances from the server(s).
+   *
+   *
+   * @return {Array} The list of GridFronts
+   */
+  async getGrids() {
+    let gridFronts = [];
+
+    try {
+      for (const layoutFront of this.layoutFronts) {
+        gridFronts = gridFronts.concat(await layoutFront.getAllGrids());
+      }
+    } catch (e) {
+      // This call might fail if called asynchrously after the toolbox is finished closing
+    }
+
+    return gridFronts;
+  }
+
   /**
    * Handler for "grid-highlighter-shown" events emitted from the
    * HighlightersOverlay. Passes nodefront and event name to handleHighlighterChange.
@@ -397,7 +531,7 @@ class GridInspector {
   }
 
   /**
-   * Handler for the "reflow" event fired by the inspector's reflow tracker. On reflows,
+   * Handler for reflow events fired by the inspector when a node is selected. On reflows,
    * update the grid panel content, because the shape or number of grids on the page may
    * have changed.
    *
@@ -410,46 +544,49 @@ class GridInspector {
    * grid.
    */
   async onReflow() {
-    if (!this.isPanelVisible()) {
-      return;
-    }
-
-    // The list of grids currently displayed.
-    const { grids } = this.store.getState();
-
-    // The new list of grids from the server.
-    let newGridFronts;
     try {
-      newGridFronts = await this.layoutInspector.getGrids(this.walker.rootNode);
-    } catch (e) {
-      // This call might fail if called asynchrously after the toolbox is finished
-      // closing.
-      return;
-    }
+      if (!this.isPanelVisible()) {
+        return;
+      }
 
-    // In some cases, the nodes for current grids may have been removed from the DOM in
-    // which case we need to update.
-    if (grids.length && grids.some(grid => !grid.nodeFront.actorID)) {
-      this.updateGridPanel(newGridFronts);
-      return;
-    }
+      // The list of grids currently displayed.
+      const { grids } = this.store.getState();
 
-    // Get the node front(s) from the current grid(s) so we can compare them to them to
-    // the node(s) of the new grids.
-    const oldNodeFronts = grids.map(grid => grid.nodeFront.actorID);
-    const newNodeFronts = newGridFronts.filter(grid => grid.containerNode)
-                                       .map(grid => grid.containerNodeFront.actorID);
+      // The new list of grids from the server.
+      const newGridFronts = await this.getGrids();
 
-    if (grids.length === newGridFronts.length &&
+      // In some cases, the nodes for current grids may have been removed from the DOM in
+      // which case we need to update.
+      if (grids.length && grids.some(grid => !grid.nodeFront.actorID)) {
+        await this.updateGridPanel(newGridFronts);
+        return;
+      }
+
+      // Get the node front(s) from the current grid(s) so we can compare them to them to
+      // the node(s) of the new grids.
+      const oldNodeFronts = grids.map(grid => grid.nodeFront.actorID);
+      const newNodeFronts = newGridFronts
+        .filter(grid => grid.containerNode)
+        .map(grid => grid.containerNodeFront.actorID);
+
+      if (
+        grids.length === newGridFronts.length &&
         oldNodeFronts.sort().join(",") == newNodeFronts.sort().join(",") &&
-        !this.haveCurrentFragmentsChanged(newGridFronts)) {
-      // Same list of containers and the geometry of all the displayed grids remained the
-      // same, we can safely abort.
-      return;
-    }
+        !this.haveCurrentFragmentsChanged(newGridFronts)
+      ) {
+        // Same list of containers and the geometry of all the displayed grids remained the
+        // same, we can safely abort.
+        return;
+      }
 
-    // Either the list of containers or the current fragments have changed, do update.
-    this.updateGridPanel(newGridFronts);
+      // Either the list of containers or the current fragments have changed, do update.
+      await this.updateGridPanel(newGridFronts);
+    } catch (e) {
+      this._throwUnlessDestroyed(
+        e,
+        "Inspector destroyed while executing onReflow callback"
+      );
+    }
   }
 
   /**
@@ -465,11 +602,13 @@ class GridInspector {
     this.store.dispatch(updateGridColor(node, color));
 
     const { grids } = this.store.getState();
-    const currentUrl = this.inspector.target.url;
+    const currentUrl = this.inspector.currentTarget.url;
     // Get the hostname, if there is no hostname, fall back on protocol
     // ex: `data:` uri, and `about:` pages
-    const hostname = parseURL(currentUrl).hostname || parseURL(currentUrl).protocol;
-    const customGridColors = await asyncStorage.getItem("gridInspectorHostColors") || {};
+    const hostname =
+      parseURL(currentUrl).hostname || parseURL(currentUrl).protocol;
+    const customGridColors =
+      (await asyncStorage.getItem("gridInspectorHostColors")) || {};
 
     for (const grid of grids) {
       if (grid.nodeFront === node) {
@@ -480,10 +619,18 @@ class GridInspector {
         customGridColors[hostname][grid.id] = color;
         await asyncStorage.setItem("gridInspectorHostColors", customGridColors);
 
+        if (!this.isPanelVisible()) {
+          // This call might fail if called asynchrously after the toolbox is finished
+          // closing.
+          return;
+        }
+
         // If the grid for which the color was updated currently has a highlighter, update
         // the color.
-        if (grid.highlighted) {
+        if (this.highlighters.gridHighlighters.has(node)) {
           this.highlighters.showGridHighlighter(node);
+        } else if (this.highlighters.parentGridHighlighters.has(node)) {
+          this.highlighters.showParentGridHighlighter(node);
         }
       }
     }
@@ -520,11 +667,11 @@ class GridInspector {
    */
   onSidebarSelect() {
     if (!this.isPanelVisible()) {
-      this.inspector.reflowTracker.untrackReflows(this, this.onReflow);
+      this.inspector.off("reflow-in-selected-target", this.onReflow);
       return;
     }
 
-    this.inspector.reflowTracker.trackReflows(this, this.onReflow);
+    this.inspector.on("reflow-in-selected-target", this.onReflow);
     this.updateGridPanel();
   }
 
@@ -544,13 +691,13 @@ class GridInspector {
   }
 
   /**
-    * Handler for a change in the show grid areas checkbox in the GridDisplaySettings
-    * component. Toggles on/off the option to show the grid areas in the grid highlighter.
-    * Refreshes the shown grid highlighter for the grids currently highlighted.
-    *
-    * @param  {Boolean} enabled
-    *         Whether or not the grid highlighter should show the grid areas.
-    */
+   * Handler for a change in the show grid areas checkbox in the GridDisplaySettings
+   * component. Toggles on/off the option to show the grid areas in the grid highlighter.
+   * Refreshes the shown grid highlighter for the grids currently highlighted.
+   *
+   * @param  {Boolean} enabled
+   *         Whether or not the grid highlighter should show the grid areas.
+   */
   onToggleShowGridAreas(enabled) {
     this.store.dispatch(updateShowGridAreas(enabled));
     Services.prefs.setBoolPref(SHOW_GRID_AREAS, enabled);
@@ -617,6 +764,46 @@ class GridInspector {
       if (grid.highlighted) {
         this.highlighters.showGridHighlighter(grid.nodeFront);
       }
+    }
+  }
+
+  /**
+   * Some grid-inspector methods are highly asynchronous and might still run
+   * after the inspector was destroyed. Swallow errors if the grid inspector is
+   * already destroyed, throw otherwise.
+   *
+   * @param {Error} error
+   *        The original error object.
+   * @param {String} message
+   *        The message to log in case the inspector is already destroyed and
+   *        the error is swallowed.
+   */
+  _throwUnlessDestroyed(error, message) {
+    if (!this.inspector) {
+      console.warn(message);
+    } else {
+      // If the grid inspector was not destroyed, this is an unexpected error.
+      throw error;
+    }
+  }
+
+  /**
+   * Set z-index of each grids so that nested subgrids are always above their parent grid
+   * container.
+   *
+   * @param {Array} grids
+   *        A list of grid data.
+   * @param {Object} parent
+   *        A grid data of parent.
+   * @param {Number} zIndex
+   *        z-index for the parent.
+   */
+  _updateZOrder(grids, parent, zIndex = 0) {
+    parent.zIndex = zIndex;
+
+    for (const childIndex of parent.subgrids) {
+      // Recurse into children grids.
+      this._updateZOrder(grids, grids[childIndex], zIndex + 1);
     }
   }
 }

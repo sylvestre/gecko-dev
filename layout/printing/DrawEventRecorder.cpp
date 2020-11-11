@@ -11,8 +11,6 @@ namespace layout {
 
 void DrawEventRecorderPRFileDesc::RecordEvent(
     const gfx::RecordedEvent& aEvent) {
-  WriteElement(mOutputStream, aEvent.GetType());
-
   aEvent.RecordToStream(mOutputStream);
 
   Flush();
@@ -39,6 +37,14 @@ void DrawEventRecorderPRFileDesc::Close() {
   MOZ_DIAGNOSTIC_ASSERT(IsOpen());
 
   mOutputStream.Close();
+}
+
+void DrawEventRecorderPRFileDesc::AddDependentSurface(uint64_t aDependencyId) {
+  mDependentSurfaces.AppendElement(aDependencyId);
+}
+
+nsTArray<uint64_t>&& DrawEventRecorderPRFileDesc::TakeDependentSurfaces() {
+  return std::move(mDependentSurfaces);
 }
 
 }  // namespace layout

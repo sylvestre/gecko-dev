@@ -13,9 +13,9 @@
 #include "nsContentUtils.h"
 #include "nsIScriptError.h"
 #include "jsapi.h"
+#include "js/Warnings.h"  // JS::WarnASCII
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 NS_IMPL_CYCLE_COLLECTION_WRAPPERCACHE(MediaError, mParent)
 NS_IMPL_CYCLE_COLLECTING_ADDREF(MediaError)
@@ -44,30 +44,31 @@ void MediaError::GetMessage(nsAString& aResult) const {
     // Print a warning message to JavaScript console to alert developers of
     // a non-whitelisted error message.
     nsAutoCString message =
-        NS_LITERAL_CSTRING(
+        nsLiteralCString(
             "This error message will be blank when "
             "privacy.resistFingerprinting = true."
             "  If it is really necessary, please add it to the whitelist in"
             " MediaError::GetMessage: ") +
         mMessage;
-    nsIDocument* ownerDoc = mParent->OwnerDoc();
+    Document* ownerDoc = mParent->OwnerDoc();
     AutoJSAPI api;
     if (api.Init(ownerDoc->GetScopeObject())) {
       // We prefer this API because it can also print to our debug log and
       // try server's log viewer.
-      JS_ReportWarningASCII(api.cx(), "%s", message.get());
+      JS::WarnASCII(api.cx(), "%s", message.get());
     } else {
-      // If failed to use JS_ReportWarningASCII, fall back to
+      // If failed to use JS::WarnASCII, fall back to
       // nsContentUtils::ReportToConsoleNonLocalized, which can only print to
       // JavaScript console.
       nsContentUtils::ReportToConsoleNonLocalized(
           NS_ConvertASCIItoUTF16(message), nsIScriptError::warningFlag,
-          NS_LITERAL_CSTRING("MediaError"), ownerDoc);
+          "MediaError"_ns, ownerDoc);
     }
   }
 
   if (!nsContentUtils::IsCallerChrome() &&
-      nsContentUtils::ShouldResistFingerprinting() && shouldBlank) {
+      nsContentUtils::ShouldResistFingerprinting(mParent->OwnerDoc()) &&
+      shouldBlank) {
     aResult.Truncate();
     return;
   }
@@ -80,5 +81,4 @@ JSObject* MediaError::WrapObject(JSContext* aCx,
   return MediaError_Binding::Wrap(aCx, this, aGivenProto);
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

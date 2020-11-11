@@ -8,24 +8,23 @@
 #define _nsPROCESSWIN_H_
 
 #if defined(XP_WIN)
-#define PROCESSMODEL_WINAPI
+#  define PROCESSMODEL_WINAPI
 #endif
 
 #include "mozilla/Attributes.h"
 #include "mozilla/Mutex.h"
 #include "nsIProcess.h"
 #include "nsIFile.h"
-#include "nsIThread.h"
 #include "nsIObserver.h"
-#include "nsIWeakReferenceUtils.h"
 #include "nsIObserver.h"
+#include "nsMaybeWeakPtr.h"
 #include "nsString.h"
 #ifndef XP_UNIX
-#include "prproces.h"
+#  include "prproces.h"
 #endif
 #if defined(PROCESSMODEL_WINAPI)
-#include <windows.h>
-#include <shellapi.h>
+#  include <windows.h>
+#  include <shellapi.h>
 #endif
 
 #define NS_PROCESS_CID                               \
@@ -67,8 +66,7 @@ class nsProcess final : public nsIProcess, public nsIObserver {
   nsCOMPtr<nsIFile> mExecutable;
   nsString mTargetPath;
   int32_t mPid;
-  nsCOMPtr<nsIObserver> mObserver;
-  nsWeakPtr mWeakObserver;
+  nsMaybeWeakPtr<nsIObserver> mObserver;
 
   // These members are modified by multiple threads, any accesses should be
   // protected with mLock.

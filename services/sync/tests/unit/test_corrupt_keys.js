@@ -1,17 +1,14 @@
 /* Any copyright is dedicated to the Public Domain.
    http://creativecommons.org/publicdomain/zero/1.0/ */
 
-ChromeUtils.import("resource://gre/modules/Log.jsm");
-ChromeUtils.import("resource://services-common/utils.js");
-ChromeUtils.import("resource://services-sync/constants.js");
-ChromeUtils.import("resource://services-sync/engines.js");
-ChromeUtils.import("resource://services-sync/main.js");
-ChromeUtils.import("resource://services-sync/engines/tabs.js");
-ChromeUtils.import("resource://services-sync/engines/history.js");
-ChromeUtils.import("resource://services-sync/record.js");
-ChromeUtils.import("resource://services-sync/service.js");
-ChromeUtils.import("resource://services-sync/status.js");
-ChromeUtils.import("resource://services-sync/util.js");
+const { Weave } = ChromeUtils.import("resource://services-sync/main.js");
+const { HistoryEngine } = ChromeUtils.import(
+  "resource://services-sync/engines/history.js"
+);
+const { CryptoWrapper, WBORecord } = ChromeUtils.import(
+  "resource://services-sync/record.js"
+);
+const { Service } = ChromeUtils.import("resource://services-sync/service.js");
 
 add_task(async function test_locally_changed_keys() {
   enableValidationPrefs();
@@ -26,7 +23,7 @@ add_task(async function test_locally_changed_keys() {
 
   Service.handleHMACEvent = counting(Service.handleHMACEvent);
 
-  let server  = new SyncServer();
+  let server = new SyncServer();
   let johndoe = server.registerUser("johndoe", "password");
   johndoe.createContents({
     meta: {},
@@ -43,7 +40,9 @@ add_task(async function test_locally_changed_keys() {
     Service.clusterURL = Service.identity._token.endpoint;
 
     await Service.engineManager.register(HistoryEngine);
+    // Disable addon sync because AddonManager won't be initialized here.
     await Service.engineManager.unregister("addons");
+    await Service.engineManager.unregister("extension-storage");
 
     async function corrupt_local_keys() {
       Service.collectionKeys._default.keyPair = [
@@ -56,20 +55,27 @@ add_task(async function test_locally_changed_keys() {
 
     // Bump version on the server.
     let m = new WBORecord("meta", "global");
-    m.payload = {"syncID": "foooooooooooooooooooooooooo",
-                 "storageVersion": STORAGE_VERSION};
+    m.payload = {
+      syncID: "foooooooooooooooooooooooooo",
+      storageVersion: STORAGE_VERSION,
+    };
     await m.upload(Service.resource(Service.metaURL));
 
-    _("New meta/global: " + JSON.stringify(johndoe.collection("meta").wbo("global")));
+    _(
+      "New meta/global: " +
+        JSON.stringify(johndoe.collection("meta").wbo("global"))
+    );
 
     // Upload keys.
     await generateNewKeys(Service.collectionKeys);
     let serverKeys = Service.collectionKeys.asWBO("crypto", "keys");
     await serverKeys.encrypt(Service.identity.syncKeyBundle);
-    Assert.ok((await serverKeys.upload(Service.resource(Service.cryptoKeysURL))).success);
+    Assert.ok(
+      (await serverKeys.upload(Service.resource(Service.cryptoKeysURL))).success
+    );
 
     // Check that login works.
-    Assert.ok((await Service.login()));
+    Assert.ok(await Service.login());
     Assert.ok(Service.isLoggedIn);
 
     // Sync should upload records.
@@ -83,7 +89,7 @@ add_task(async function test_locally_changed_keys() {
     let liveKeys = Service.collectionKeys.keyForCollection("history");
     _("Keys now: " + liveKeys.keyPair);
     let visitType = Ci.nsINavHistoryService.TRANSITION_LINK;
-    let history   = johndoe.createCollection("history");
+    let history = johndoe.createCollection("history");
     for (let i = 0; i < 5; i++) {
       let id = "record-no--" + i;
       let modified = Date.now() / 1000 - 60 * (i + 10);
@@ -94,13 +100,12 @@ add_task(async function test_locally_changed_keys() {
         histUri: "http://foo/bar?" + id,
         title: id,
         sortindex: i,
-        visits: [{date: (modified - 5) * 1000000, type: visitType}],
-        deleted: false};
+        visits: [{ date: (modified - 5) * 1000000, type: visitType }],
+        deleted: false,
+      };
       await w.encrypt(liveKeys);
 
-      let payload = {ciphertext: w.ciphertext,
-                     IV:         w.IV,
-                     hmac:       w.hmac};
+      let payload = { ciphertext: w.ciphertext, IV: w.IV, hmac: w.hmac };
       history.insert(id, payload, modified);
     }
 
@@ -110,39 +115,59 @@ add_task(async function test_locally_changed_keys() {
 
     // Check that we can decrypt one.
     let rec = new CryptoWrapper("history", "record-no--0");
-    await rec.fetch(Service.resource(Service.storageURL + "history/record-no--0"));
+    await rec.fetch(
+      Service.resource(Service.storageURL + "history/record-no--0")
+    );
     _(JSON.stringify(rec));
-    Assert.ok(!!await rec.decrypt(liveKeys));
+    Assert.ok(!!(await rec.decrypt(liveKeys)));
 
     Assert.equal(hmacErrorCount, 0);
 
     // Fill local key cache with bad data.
     await corrupt_local_keys();
-    _("Keys now: " + Service.collectionKeys.keyForCollection("history").keyPair);
+    _(
+      "Keys now: " + Service.collectionKeys.keyForCollection("history").keyPair
+    );
 
     Assert.equal(hmacErrorCount, 0);
 
     _("HMAC error count: " + hmacErrorCount);
     // Now syncing should succeed, after one HMAC error.
-    let ping = await wait_for_ping(() => Service.sync(), true);
-    equal(ping.engines.find(e => e.name == "history").incoming.applied, 5);
+    await sync_and_validate_telem(ping => {
+      Assert.equal(
+        ping.engines.find(e => e.name == "history").incoming.applied,
+        5
+      );
+    });
 
     Assert.equal(hmacErrorCount, 1);
-    _("Keys now: " + Service.collectionKeys.keyForCollection("history").keyPair);
+    _(
+      "Keys now: " + Service.collectionKeys.keyForCollection("history").keyPair
+    );
 
     // And look! We downloaded history!
-    Assert.ok(await PlacesUtils.history.hasVisits("http://foo/bar?record-no--0"));
-    Assert.ok(await PlacesUtils.history.hasVisits("http://foo/bar?record-no--1"));
-    Assert.ok(await PlacesUtils.history.hasVisits("http://foo/bar?record-no--2"));
-    Assert.ok(await PlacesUtils.history.hasVisits("http://foo/bar?record-no--3"));
-    Assert.ok(await PlacesUtils.history.hasVisits("http://foo/bar?record-no--4"));
+    Assert.ok(
+      await PlacesUtils.history.hasVisits("http://foo/bar?record-no--0")
+    );
+    Assert.ok(
+      await PlacesUtils.history.hasVisits("http://foo/bar?record-no--1")
+    );
+    Assert.ok(
+      await PlacesUtils.history.hasVisits("http://foo/bar?record-no--2")
+    );
+    Assert.ok(
+      await PlacesUtils.history.hasVisits("http://foo/bar?record-no--3")
+    );
+    Assert.ok(
+      await PlacesUtils.history.hasVisits("http://foo/bar?record-no--4")
+    );
     Assert.equal(hmacErrorCount, 1);
 
     _("Busting some new server values.");
     // Now what happens if we corrupt the HMAC on the server?
     for (let i = 5; i < 10; i++) {
       let id = "record-no--" + i;
-      let modified = 1 + (Date.now() / 1000);
+      let modified = 1 + Date.now() / 1000;
 
       let w = new CryptoWrapper("history", "id");
       w.cleartext = {
@@ -150,14 +175,13 @@ add_task(async function test_locally_changed_keys() {
         histUri: "http://foo/bar?" + id,
         title: id,
         sortindex: i,
-        visits: [{date: (modified - 5 ) * 1000000, type: visitType}],
-        deleted: false};
+        visits: [{ date: (modified - 5) * 1000000, type: visitType }],
+        deleted: false,
+      };
       await w.encrypt(Service.collectionKeys.keyForCollection("history"));
       w.hmac = w.hmac.toUpperCase();
 
-      let payload = {ciphertext: w.ciphertext,
-                     IV:         w.IV,
-                     hmac:       w.hmac};
+      let payload = { ciphertext: w.ciphertext, IV: w.IV, hmac: w.hmac };
       history.insert(id, payload, modified);
     }
     history.timestamp = Date.now() / 1000;
@@ -169,18 +193,41 @@ add_task(async function test_locally_changed_keys() {
     Service.lastHMACEvent = 0;
 
     _("Syncing...");
-    ping = await sync_and_validate_telem(true);
+    await sync_and_validate_telem(ping => {
+      Assert.equal(
+        ping.engines.find(e => e.name == "history").incoming.failed,
+        5
+      );
+    });
 
-    Assert.equal(ping.engines.find(e => e.name == "history").incoming.failed, 5);
-    _("Keys now: " + Service.collectionKeys.keyForCollection("history").keyPair);
-    _("Server keys have been updated, and we skipped over 5 more HMAC errors without adjusting history.");
+    _(
+      "Keys now: " + Service.collectionKeys.keyForCollection("history").keyPair
+    );
+    _(
+      "Server keys have been updated, and we skipped over 5 more HMAC errors without adjusting history."
+    );
     Assert.ok(johndoe.modified("crypto") > old_key_time);
     Assert.equal(hmacErrorCount, 6);
-    Assert.equal(false, await PlacesUtils.history.hasVisits("http://foo/bar?record-no--5"));
-    Assert.equal(false, await PlacesUtils.history.hasVisits("http://foo/bar?record-no--6"));
-    Assert.equal(false, await PlacesUtils.history.hasVisits("http://foo/bar?record-no--7"));
-    Assert.equal(false, await PlacesUtils.history.hasVisits("http://foo/bar?record-no--8"));
-    Assert.equal(false, await PlacesUtils.history.hasVisits("http://foo/bar?record-no--9"));
+    Assert.equal(
+      false,
+      await PlacesUtils.history.hasVisits("http://foo/bar?record-no--5")
+    );
+    Assert.equal(
+      false,
+      await PlacesUtils.history.hasVisits("http://foo/bar?record-no--6")
+    );
+    Assert.equal(
+      false,
+      await PlacesUtils.history.hasVisits("http://foo/bar?record-no--7")
+    );
+    Assert.equal(
+      false,
+      await PlacesUtils.history.hasVisits("http://foo/bar?record-no--8")
+    );
+    Assert.equal(
+      false,
+      await PlacesUtils.history.hasVisits("http://foo/bar?record-no--9")
+    );
   } finally {
     Svc.Prefs.resetBranch("");
     await promiseStopServer(server);

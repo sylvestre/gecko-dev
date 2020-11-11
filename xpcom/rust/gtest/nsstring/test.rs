@@ -2,17 +2,18 @@
 
 extern crate nsstring;
 
-use std::fmt::Write;
-use std::ffi::CString;
-use std::os::raw::c_char;
 use nsstring::*;
+use std::ffi::CString;
+use std::fmt::Write;
+use std::os::raw::c_char;
 
 fn nonfatal_fail(msg: String) {
     extern "C" {
         fn GTest_ExpectFailure(message: *const c_char);
     }
     unsafe {
-        GTest_ExpectFailure(CString::new(msg).unwrap().as_ptr());
+        let msg = CString::new(msg).unwrap();
+        GTest_ExpectFailure(msg.as_ptr());
     }
 }
 
@@ -21,16 +22,23 @@ fn nonfatal_fail(msg: String) {
 macro_rules! expect_eq {
     ($x:expr, $y:expr) => {
         match (&$x, &$y) {
-            (x, y) => if *x != *y {
-                nonfatal_fail(format!("check failed: (`{:?}` == `{:?}`) at {}:{}",
-                                      x, y, file!(), line!()))
+            (x, y) => {
+                if *x != *y {
+                    nonfatal_fail(format!(
+                        "check failed: (`{:?}` == `{:?}`) at {}:{}",
+                        x,
+                        y,
+                        file!(),
+                        line!()
+                    ))
+                }
             }
         }
-    }
+    };
 }
 
 #[no_mangle]
-pub extern fn Rust_StringFromCpp(cs: *const nsACString, s: *const nsAString) {
+pub extern "C" fn Rust_StringFromCpp(cs: *const nsACString, s: *const nsAString) {
     unsafe {
         expect_eq!(&*cs, "Hello, World!");
         expect_eq!(&*s, "Hello, World!");
@@ -38,7 +46,7 @@ pub extern fn Rust_StringFromCpp(cs: *const nsACString, s: *const nsAString) {
 }
 
 #[no_mangle]
-pub extern fn Rust_AssignFromRust(cs: *mut nsACString, s: *mut nsAString) {
+pub extern "C" fn Rust_AssignFromRust(cs: *mut nsACString, s: *mut nsAString) {
     unsafe {
         (*cs).assign(&nsCString::from("Hello, World!"));
         expect_eq!(&*cs, "Hello, World!");
@@ -52,7 +60,7 @@ extern "C" {
 }
 
 #[no_mangle]
-pub extern fn Rust_AssignFromCpp() {
+pub extern "C" fn Rust_AssignFromCpp() {
     let mut cs = nsCString::new();
     let mut s = nsString::new();
     unsafe {
@@ -63,7 +71,7 @@ pub extern fn Rust_AssignFromCpp() {
 }
 
 #[no_mangle]
-pub extern fn Rust_StringWrite() {
+pub extern "C" fn Rust_StringWrite() {
     let mut cs = nsCString::new();
     let mut s = nsString::new();
 
@@ -82,14 +90,19 @@ pub extern fn Rust_StringWrite() {
 }
 
 #[no_mangle]
-pub extern fn Rust_FromEmptyRustString() {
+pub extern "C" fn Rust_FromEmptyRustString() {
     let mut test = nsString::from("Blah");
     test.assign_utf8(&nsCString::from(String::new()));
     assert!(test.is_empty());
 }
 
 #[no_mangle]
-pub extern fn Rust_WriteToBufferFromRust(cs: *mut nsACString, s: *mut nsAString, fallible_cs: *mut nsACString, fallible_s: *mut nsAString) {
+pub extern "C" fn Rust_WriteToBufferFromRust(
+    cs: *mut nsACString,
+    s: *mut nsAString,
+    fallible_cs: *mut nsACString,
+    fallible_s: *mut nsAString,
+) {
     unsafe {
         let cs_buf = (*cs).to_mut();
         let s_buf = (*s).to_mut();

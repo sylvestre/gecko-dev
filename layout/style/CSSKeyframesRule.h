@@ -33,6 +33,8 @@ class CSSKeyframesRule final : public css::Rule {
 
   // WebIDL interface
   uint16_t Type() const final { return CSSRule_Binding::KEYFRAMES_RULE; }
+  const RawServoKeyframesRule* Raw() const { return mRawRule.get(); }
+
   void GetCssText(nsAString& aCssText) const final;
   void GetName(nsAString& aName) const;
   void SetName(const nsAString& aName);
@@ -49,7 +51,7 @@ class CSSKeyframesRule final : public css::Rule {
   uint32_t FindRuleIndexForKey(const nsAString& aKey);
 
   template <typename Func>
-  void UpdateRule(Func aCallback);
+  nsresult UpdateRule(Func aCallback);
 
   virtual ~CSSKeyframesRule();
 

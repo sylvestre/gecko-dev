@@ -10,6 +10,7 @@ ${helpers.predefined_type(
     "cursor",
     "Cursor",
     "computed::Cursor::auto()",
+    engines="gecko servo-2013 servo-2020",
     initial_specified_value="specified::Cursor::auto()",
     animation_value_type="discrete",
     spec="https://drafts.csswg.org/css-ui/#cursor",
@@ -21,16 +22,28 @@ ${helpers.predefined_type(
 ${helpers.single_keyword(
     "pointer-events",
     "auto none",
+    engines="gecko servo-2013 servo-2020",
     animation_value_type="discrete",
     extra_gecko_values="visiblepainted visiblefill visiblestroke visible painted fill stroke all",
-    flags="APPLIES_TO_PLACEHOLDER",
     spec="https://www.w3.org/TR/SVG11/interact.html#PointerEventsProperty",
+    gecko_enum_prefix="StylePointerEvents",
+)}
+
+${helpers.single_keyword(
+    "-moz-inert",
+    "none inert",
+    engines="gecko",
+    gecko_ffi_name="mInert",
+    gecko_enum_prefix="StyleInert",
+    animation_value_type="discrete",
+    enabled_in="ua",
+    spec="Nonstandard (https://html.spec.whatwg.org/multipage/interaction.html#inert-subtrees)",
 )}
 
 ${helpers.single_keyword(
     "-moz-user-input",
     "auto none",
-    products="gecko",
+    engines="gecko",
     gecko_ffi_name="mUserInput",
     gecko_enum_prefix="StyleUserInput",
     animation_value_type="discrete",
@@ -40,7 +53,7 @@ ${helpers.single_keyword(
 ${helpers.single_keyword(
     "-moz-user-modify",
     "read-only read-write write-only",
-    products="gecko",
+    engines="gecko",
     gecko_ffi_name="mUserModify",
     gecko_enum_prefix="StyleUserModify",
     needs_conversion=True,
@@ -51,7 +64,8 @@ ${helpers.single_keyword(
 ${helpers.single_keyword(
     "-moz-user-focus",
     "none ignore normal select-after select-before select-menu select-same select-all",
-    products="gecko", gecko_ffi_name="mUserFocus",
+    engines="gecko",
+    gecko_ffi_name="mUserFocus",
     gecko_enum_prefix="StyleUserFocus",
     animation_value_type="discrete",
     spec="Nonstandard (https://developer.mozilla.org/en-US/docs/Web/CSS/-moz-user-focus)",
@@ -60,22 +74,21 @@ ${helpers.single_keyword(
 ${helpers.predefined_type(
     "caret-color",
     "ColorOrAuto",
-    "Either::Second(Auto)",
+    "generics::color::ColorOrAuto::Auto",
+    engines="gecko",
     spec="https://drafts.csswg.org/css-ui/#caret-color",
     animation_value_type="AnimatedCaretColor",
+    boxed=True,
     ignored_when_colors_disabled=True,
-    products="gecko",
 )}
 
 ${helpers.predefined_type(
     "scrollbar-color",
     "ui::ScrollbarColor",
     "Default::default()",
+    engines="gecko",
     spec="https://drafts.csswg.org/css-scrollbars-1/#scrollbar-color",
-    gecko_pref="layout.css.scrollbar-color.enabled",
     animation_value_type="ScrollbarColor",
     boxed=True,
     ignored_when_colors_disabled=True,
-    enabled_in="chrome",
-    products="gecko",
 )}

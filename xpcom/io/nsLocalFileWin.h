@@ -12,9 +12,7 @@
 #include "nsString.h"
 #include "nsCRT.h"
 #include "nsIFile.h"
-#include "nsIFactory.h"
 #include "nsILocalFileWin.h"
-#include "nsIHashable.h"
 #include "nsIClassInfoImpl.h"
 #include "prio.h"
 
@@ -25,7 +23,7 @@
 
 #include <sys/stat.h>
 
-class nsLocalFile final : public nsILocalFileWin, public nsIHashable {
+class nsLocalFile final : public nsILocalFileWin {
  public:
   NS_DEFINE_STATIC_CID_ACCESSOR(NS_LOCAL_FILE_CID)
 
@@ -44,13 +42,12 @@ class nsLocalFile final : public nsILocalFileWin, public nsIHashable {
   // nsILocalFileWin interface
   NS_DECL_NSILOCALFILEWIN
 
-  // nsIHashable interface
-  NS_DECL_NSIHASHABLE
-
  public:
   // Removes registry command handler parameters, quotes, and expands
   // environment strings.
   static bool CleanupCmdHandlerPath(nsAString& aCommandHandler);
+  // Called off the main thread to open the window revealing the file
+  static nsresult RevealFile(const nsString& aResolvedPath);
 
  private:
   // CopyMove and CopySingleFile constants for |options| parameter:
@@ -66,7 +63,8 @@ class nsLocalFile final : public nsILocalFileWin, public nsIHashable {
 
   bool mDirty;  // cached information can only be used when this is false
   bool mResolveDirty;
-  bool mFollowSymlinks;  // should we follow symlinks when working on this file
+
+  bool mUseDOSDevicePathSyntax;
 
   // this string will always be in native format!
   nsString mWorkingPath;
@@ -87,9 +85,12 @@ class nsLocalFile final : public nsILocalFileWin, public nsIHashable {
     mShortWorkingPath.Truncate();
   }
 
+  nsresult LookupExtensionIn(const char* const* aExtensionsArray,
+                             size_t aArrayLength, bool* aResult);
+
   nsresult ResolveAndStat();
   nsresult Resolve();
-  nsresult ResolveShortcut();
+  nsresult ResolveSymlink();
 
   void EnsureShortPath();
 

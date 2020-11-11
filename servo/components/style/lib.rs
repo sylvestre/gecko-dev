@@ -25,35 +25,20 @@
 
 #![deny(missing_docs)]
 
-extern crate app_units;
-extern crate arrayvec;
-extern crate atomic_refcell;
 #[macro_use]
 extern crate bitflags;
-#[allow(unused_extern_crates)]
-extern crate byteorder;
-#[cfg(feature = "gecko")]
-#[macro_use]
-#[no_link]
-extern crate cfg_if;
-#[cfg(feature = "servo")]
-extern crate crossbeam_channel;
 #[macro_use]
 extern crate cssparser;
 #[macro_use]
 extern crate debug_unreachable;
-extern crate euclid;
-extern crate fallible;
-extern crate fxhash;
+#[macro_use]
+extern crate derive_more;
 #[cfg(feature = "gecko")]
 #[macro_use]
 pub mod gecko_string_cache;
-extern crate hashglobe;
 #[cfg(feature = "servo")]
 #[macro_use]
 extern crate html5ever;
-extern crate itertools;
-extern crate itoa;
 #[macro_use]
 extern crate lazy_static;
 #[macro_use]
@@ -66,45 +51,21 @@ extern crate malloc_size_of_derive;
 #[macro_use]
 extern crate matches;
 #[cfg(feature = "gecko")]
-pub extern crate nsstring;
+pub use nsstring;
 #[cfg(feature = "gecko")]
 extern crate num_cpus;
 #[macro_use]
 extern crate num_derive;
-extern crate num_integer;
-extern crate num_traits;
-extern crate ordered_float;
-extern crate owning_ref;
-extern crate parking_lot;
-extern crate precomputed_hash;
-extern crate rayon;
-extern crate selectors;
-#[cfg(feature = "servo")]
 #[macro_use]
 extern crate serde;
-pub extern crate servo_arc;
+pub use servo_arc;
 #[cfg(feature = "servo")]
 #[macro_use]
 extern crate servo_atoms;
-#[cfg(feature = "servo")]
-extern crate servo_config;
-#[cfg(feature = "servo")]
-extern crate servo_url;
-extern crate smallbitvec;
-extern crate smallvec;
-#[cfg(feature = "servo")]
-extern crate string_cache;
 #[macro_use]
 extern crate style_derive;
-extern crate style_traits;
-#[cfg(feature = "gecko")]
-extern crate thin_slice;
-extern crate time;
-extern crate uluru;
-extern crate unicode_bidi;
-#[allow(unused_extern_crates)]
-extern crate unicode_segmentation;
-extern crate void;
+#[macro_use]
+extern crate to_shmem_derive;
 
 #[macro_use]
 mod macros;
@@ -117,6 +78,8 @@ pub mod attr;
 pub mod author_styles;
 pub mod bezier;
 pub mod bloom;
+#[path = "properties/computed_value_flags.rs"]
+pub mod computed_value_flags;
 pub mod context;
 pub mod counter_style;
 pub mod custom_properties;
@@ -133,6 +96,7 @@ pub mod font_metrics;
 #[cfg(feature = "gecko")]
 #[allow(unsafe_code)]
 pub mod gecko_bindings;
+pub mod global_style_data;
 pub mod hash;
 pub mod invalidation;
 #[allow(missing_docs)] // TODO.
@@ -157,7 +121,6 @@ pub mod stylesheet_set;
 pub mod stylesheets;
 pub mod stylist;
 pub mod thread_state;
-pub mod timer;
 pub mod traversal;
 pub mod traversal_flags;
 pub mod use_counters;
@@ -169,10 +132,12 @@ pub mod values;
 pub use crate::gecko_string_cache as string_cache;
 #[cfg(feature = "gecko")]
 pub use crate::gecko_string_cache::Atom;
+/// The namespace prefix type for Gecko, which is just an atom.
 #[cfg(feature = "gecko")]
-pub use crate::gecko_string_cache::Atom as Prefix;
+pub type Prefix = crate::gecko_string_cache::Atom;
+/// The local name of an element for Gecko, which is just an atom.
 #[cfg(feature = "gecko")]
-pub use crate::gecko_string_cache::Atom as LocalName;
+pub type LocalName = crate::gecko_string_cache::Atom;
 #[cfg(feature = "gecko")]
 pub use crate::gecko_string_cache::Namespace;
 
@@ -184,6 +149,10 @@ pub use html5ever::Namespace;
 pub use html5ever::Prefix;
 #[cfg(feature = "servo")]
 pub use servo_atoms::Atom;
+
+pub use style_traits::arc_slice::ArcSlice;
+pub use style_traits::owned_slice::OwnedSlice;
+pub use style_traits::owned_str::OwnedStr;
 
 /// The CSS properties supported by the style system.
 /// Generated from the properties.mako.rs template by build.rs
@@ -242,5 +211,51 @@ impl CaseSensitivityExt for selectors::attr::CaseSensitivity {
             selectors::attr::CaseSensitivity::CaseSensitive => a == b,
             selectors::attr::CaseSensitivity::AsciiCaseInsensitive => a.eq_ignore_ascii_case(b),
         }
+    }
+}
+
+/// A trait pretty much similar to num_traits::Zero, but without the need of
+/// implementing `Add`.
+pub trait Zero {
+    /// Returns the zero value.
+    fn zero() -> Self;
+
+    /// Returns whether this value is zero.
+    fn is_zero(&self) -> bool;
+}
+
+impl<T> Zero for T
+where
+    T: num_traits::Zero,
+{
+    fn zero() -> Self {
+        <Self as num_traits::Zero>::zero()
+    }
+
+    fn is_zero(&self) -> bool {
+        <Self as num_traits::Zero>::is_zero(self)
+    }
+}
+
+/// A trait pretty much similar to num_traits::One, but without the need of
+/// implementing `Mul`.
+pub trait One {
+    /// Reutrns the one value.
+    fn one() -> Self;
+
+    /// Returns whether this value is one.
+    fn is_one(&self) -> bool;
+}
+
+impl<T> One for T
+where
+    T: num_traits::One + PartialEq,
+{
+    fn one() -> Self {
+        <Self as num_traits::One>::one()
+    }
+
+    fn is_one(&self) -> bool {
+        *self == One::one()
     }
 }

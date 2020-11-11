@@ -1,4 +1,15 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 "use strict";
+
+XPCOMUtils.defineLazyGetter(this, "isXpcshell", function() {
+  let env = Cc["@mozilla.org/process/environment;1"].getService(
+    Ci.nsIEnvironment
+  );
+  return env.exists("XPCSHELL_TEST_PROFILE_DIR");
+});
 
 /**
  * Checks whether the given error matches the given expectations.
@@ -19,8 +30,11 @@
  *        True if the error matches the expected error.
  */
 const errorMatches = (error, expectedError, context) => {
-  if (typeof error === "object" && error !== null &&
-      !context.principal.subsumes(Cu.getObjectPrincipal(error))) {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    !context.principal.subsumes(Cu.getObjectPrincipal(error))
+  ) {
     Cu.reportError("Error object belongs to the wrong scope.");
     return false;
   }
@@ -32,8 +46,11 @@ const errorMatches = (error, expectedError, context) => {
     return context.runSafeWithoutClone(expectedError, error);
   }
 
-  if (typeof error !== "object" || error == null ||
-      typeof error.message !== "string") {
+  if (
+    typeof error !== "object" ||
+    error == null ||
+    typeof error.message !== "string"
+  ) {
     return false;
   }
 
@@ -69,7 +86,7 @@ const toSource = value => {
   }
 
   try {
-    return String(value.toSource());
+    return String(value);
   } catch (e) {
     return "<unknown>";
   }
@@ -77,7 +94,7 @@ const toSource = value => {
 
 this.test = class extends ExtensionAPI {
   getAPI(context) {
-    const {extension} = context;
+    const { extension } = context;
 
     function getStack() {
       return new context.Error().stack.replace(/^/gm, "    ");
@@ -99,8 +116,28 @@ this.test = class extends ExtensionAPI {
       }
     }
 
+    if (!Cu.isInAutomation && !isXpcshell) {
+      return { test: {} };
+    }
+
     return {
       test: {
+        withHandlingUserInput(callback) {
+          // TODO(Bug 1598804): remove this once we don't expose anymore the
+          // entire test API namespace based on an environment variable.
+          if (!Cu.isInAutomation) {
+            // This dangerous method should only be available if the
+            // automation pref is set, which is the case in browser tests.
+            throw new ExtensionUtils.ExtensionError(
+              "withHandlingUserInput can only be called in automation"
+            );
+          }
+          ExtensionCommon.withHandlingUserInput(
+            context.contentWindow,
+            callback
+          );
+        },
+
         sendMessage(...args) {
           extension.emit("test-message", ...args);
         },
@@ -142,7 +179,14 @@ this.test = class extends ExtensionAPI {
           if (!equal && expected === actual) {
             actual += " (different)";
           }
-          extension.emit("test-eq", equal, String(msg), expected, actual, getStack());
+          extension.emit(
+            "test-eq",
+            equal,
+            String(msg),
+            expected,
+            actual,
+            getStack()
+          );
         },
 
         assertRejects(promise, expectedError, msg) {
@@ -153,15 +197,21 @@ this.test = class extends ExtensionAPI {
             msg = `: ${msg}`;
           }
 
-          return promise.then(result => {
-            assertTrue(false, `Promise resolved, expected rejection${msg}`);
-          }, error => {
-            let errorMessage = toSource(error && error.message);
+          return promise.then(
+            result => {
+              assertTrue(false, `Promise resolved, expected rejection${msg}`);
+            },
+            error => {
+              let errorMessage = toSource(error && error.message);
 
-            assertTrue(errorMatches(error, expectedError, context),
-                       `Promise rejected, expecting rejection to match ${toSource(expectedError)}, ` +
-                       `got ${errorMessage}${msg}`);
-          });
+              assertTrue(
+                errorMatches(error, expectedError, context),
+                `Promise rejected, expecting rejection to match ${toSource(
+                  expectedError
+                )}, got ${errorMessage}${msg}`
+              );
+            }
+          );
         },
 
         assertThrows(func, expectedError, msg) {
@@ -176,9 +226,12 @@ this.test = class extends ExtensionAPI {
           } catch (error) {
             let errorMessage = toSource(error && error.message);
 
-            assertTrue(errorMatches(error, expectedError, context),
-                       `Function threw, expecting error to match ${toSource(expectedError)}` +
-                       `got ${errorMessage}${msg}`);
+            assertTrue(
+              errorMatches(error, expectedError, context),
+              `Function threw, expecting error to match ${toSource(
+                expectedError
+              )}, got ${errorMessage}${msg}`
+            );
           }
         },
 

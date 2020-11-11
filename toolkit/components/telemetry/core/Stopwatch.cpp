@@ -7,14 +7,16 @@
 #include "mozilla/telemetry/Stopwatch.h"
 
 #include "TelemetryHistogram.h"
+#include "TelemetryUserInteraction.h"
 
 #include "mozilla/dom/ScriptSettings.h"
+#include "mozilla/BackgroundHangMonitor.h"
 #include "mozilla/ClearOnShutdown.h"
+#include "mozilla/HangAnnotations.h"
 #include "mozilla/TimeStamp.h"
+#include "GeckoProfiler.h"
 #include "nsHashKeys.h"
 #include "nsContentUtils.h"
-#include "nsIConsoleService.h"
-#include "nsIScriptError.h"
 #include "nsPrintfCString.h"
 #include "nsQueryObject.h"
 #include "nsRefPtrHashtable.h"
@@ -23,9 +25,12 @@
 
 using mozilla::dom::AutoJSAPI;
 
+#define USER_INTERACTION_VALUE_MAX_LENGTH 50  // bytes
+
 static inline nsQueryObject<nsISupports> do_QueryReflector(
     JSObject* aReflector) {
-  nsCOMPtr<nsISupports> reflector = xpc::UnwrapReflectorToISupports(aReflector);
+  // None of the types we query to are implemented by Window or Location.
+  nsCOMPtr<nsISupports> reflector = xpc::ReflectorToISupportsStatic(aReflector);
   return do_QueryObject(reflector);
 }
 
@@ -50,10 +55,9 @@ static void LogError(JSContext* aCx, const nsCString& aMessage) {
   }
 }
 
-namespace mozilla {
-namespace telemetry {
+namespace mozilla::telemetry {
 
-class Timer final {
+class Timer final : public mozilla::LinkedListElement<Timer> {
  public:
   NS_INLINE_DECL_REFCOUNTING(Timer)
 
@@ -71,12 +75,24 @@ class Timer final {
     return mInSeconds ? delta.ToSeconds() : delta.ToMilliseconds();
   }
 
+  TimeStamp& StartTime() { return mStartTime; }
+
   bool& InSeconds() { return mInSeconds; }
+
+  void SetBHRAnnotation(const nsAString& aBHRAnnotationKey,
+                        const nsACString& aBHRAnnotationValue) {
+    mBHRAnnotationKey = aBHRAnnotationKey;
+    mBHRAnnotationValue = aBHRAnnotationValue;
+  }
+
+  const nsString& GetBHRAnnotationKey() const { return mBHRAnnotationKey; }
+  const nsCString& GetBHRAnnotationValue() const { return mBHRAnnotationValue; }
 
  private:
   ~Timer() = default;
-
   TimeStamp mStartTime{};
+  nsString mBHRAnnotationKey;
+  nsCString mBHRAnnotationValue;
   bool mInSeconds;
 };
 
@@ -123,7 +139,7 @@ Timer* TimerKeys::Get(const nsAString& aKey, bool aCreate) {
   return mTimers.GetWeak(aKey);
 }
 
-class Timers final {
+class Timers final : public BackgroundHangAnnotator {
  public:
   Timers();
 
@@ -150,7 +166,7 @@ class Timers final {
 
   int32_t TimeElapsed(JSContext* aCx, const nsAString& aHistogram,
                       JS::HandleObject aObj, const nsAString& aKey,
-                      bool aCanceledOkay = false, bool aDelete = false);
+                      bool aCanceledOkay = false);
 
   bool Start(JSContext* aCx, const nsAString& aHistogram, JS::HandleObject aObj,
              const nsAString& aKey, bool aInSeconds = false);
@@ -161,10 +177,23 @@ class Timers final {
 
   bool& SuppressErrors() { return mSuppressErrors; }
 
+  bool StartUserInteraction(JSContext* aCx, const nsAString& aUserInteraction,
+                            const nsACString& aValue, JS::HandleObject aObj);
+  bool RunningUserInteraction(JSContext* aCx, const nsAString& aUserInteraction,
+                              JS::HandleObject aObj);
+  bool UpdateUserInteraction(JSContext* aCx, const nsAString& aUserInteraction,
+                             const nsACString& aValue, JS::HandleObject aObj);
+  bool FinishUserInteraction(JSContext* aCx, const nsAString& aUserInteraction,
+                             JS::HandleObject aObj,
+                             const dom::Optional<nsACString>& aAdditionalText);
+
+  void AnnotateHang(BackgroundHangAnnotations& aAnnotations) final;
+
  private:
-  ~Timers() = default;
+  ~Timers();
 
   JS::PersistentRooted<JSObject*> mTimers;
+  mozilla::LinkedList<Timer> mBHRAnnotationTimers;
   bool mSuppressErrors = false;
 
   static StaticRefPtr<Timers> sSingleton;
@@ -187,11 +216,12 @@ Timers::Timers() : mTimers(dom::RootingCx()) {
   mTimers = JS::NewMapObject(jsapi.cx());
   MOZ_RELEASE_ASSERT(mTimers);
 
-  // Telemetry is disabled when recording/replaying, so don't report errors
-  // when it is used.
-  if (recordreplay::IsRecordingOrReplaying()) {
-    mSuppressErrors = true;
-  }
+  BackgroundHangMonitor::RegisterAnnotator(*this);
+}
+
+Timers::~Timers() {
+  mBHRAnnotationTimers.clear();
+  BackgroundHangMonitor::UnregisterAnnotator(*this);
 }
 
 JSObject* Timers::Get(JSContext* aCx, const nsAString& aHistogram,
@@ -280,13 +310,8 @@ bool Timers::Delete(JSContext* aCx, const nsAString& aHistogram,
 
 int32_t Timers::TimeElapsed(JSContext* aCx, const nsAString& aHistogram,
                             JS::HandleObject aObj, const nsAString& aKey,
-                            bool aCanceledOkay, bool aDelete) {
-  RefPtr<Timer> timer;
-  if (aDelete) {
-    timer = GetAndDelete(aCx, aHistogram, aObj, aKey);
-  } else {
-    timer = Get(aCx, aHistogram, aObj, aKey, false);
-  }
+                            bool aCanceledOkay) {
+  RefPtr<Timer> timer = Get(aCx, aHistogram, aObj, aKey, false);
   if (!timer) {
     if (!aCanceledOkay && !mSuppressErrors) {
       LogError(aCx, nsPrintfCString(
@@ -324,11 +349,19 @@ bool Timers::Start(JSContext* aCx, const nsAString& aHistogram,
 int32_t Timers::Finish(JSContext* aCx, const nsAString& aHistogram,
                        JS::HandleObject aObj, const nsAString& aKey,
                        bool aCanceledOkay) {
-  int32_t delta = TimeElapsed(aCx, aHistogram, aObj, aKey, aCanceledOkay, true);
-  if (delta == -1) {
-    return delta;
+  RefPtr<Timer> timer = GetAndDelete(aCx, aHistogram, aObj, aKey);
+  if (!timer) {
+    if (!aCanceledOkay && !mSuppressErrors) {
+      LogError(aCx, nsPrintfCString(
+                        "TelemetryStopwatch: finishing nonexisting stopwatch. "
+                        "Histogram: \"%s\", key: \"%s\"",
+                        NS_ConvertUTF16toUTF8(aHistogram).get(),
+                        NS_ConvertUTF16toUTF8(aKey).get()));
+    }
+    return -1;
   }
 
+  int32_t delta = timer->Elapsed();
   NS_ConvertUTF16toUTF8 histogram(aHistogram);
   nsresult rv;
   if (!aKey.IsVoid()) {
@@ -337,6 +370,16 @@ int32_t Timers::Finish(JSContext* aCx, const nsAString& aHistogram,
   } else {
     rv = TelemetryHistogram::Accumulate(histogram.get(), delta);
   }
+#ifdef MOZ_GECKO_PROFILER
+  nsCString markerText = histogram;
+  if (!aKey.IsVoid()) {
+    markerText.AppendLiteral(":");
+    markerText.Append(NS_ConvertUTF16toUTF8(aKey));
+  }
+  PROFILER_MARKER_TEXT("TelemetryStopwatch", OTHER,
+                       MarkerTiming::IntervalUntilNowFrom(timer->StartTime()),
+                       markerText);
+#endif
   if (NS_FAILED(rv) && rv != NS_ERROR_NOT_AVAILABLE && !mSuppressErrors) {
     LogError(aCx, nsPrintfCString(
                       "TelemetryStopwatch: failed to update the Histogram "
@@ -347,81 +390,298 @@ int32_t Timers::Finish(JSContext* aCx, const nsAString& aHistogram,
   return NS_SUCCEEDED(rv) ? delta : -1;
 }
 
-/* static */ bool Stopwatch::Start(
-    const dom::GlobalObject& aGlobal, const nsAString& aHistogram,
-    JS::Handle<JSObject*> aObj,
-    const dom::TelemetryStopwatchOptions& aOptions) {
+bool Timers::StartUserInteraction(JSContext* aCx,
+                                  const nsAString& aUserInteraction,
+                                  const nsACString& aValue,
+                                  JS::HandleObject aObj) {
+  MOZ_ASSERT(NS_IsMainThread());
+
+  // Ensure that this ID maps to a UserInteraction that can be recorded
+  // for this product.
+  if (!TelemetryUserInteraction::CanRecord(aUserInteraction)) {
+    if (!mSuppressErrors) {
+      LogError(aCx, nsPrintfCString(
+                        "UserInteraction with name \"%s\" cannot be recorded.",
+                        NS_ConvertUTF16toUTF8(aUserInteraction).get()));
+    }
+    return false;
+  }
+
+  if (aValue.Length() > USER_INTERACTION_VALUE_MAX_LENGTH) {
+    if (!mSuppressErrors) {
+      LogError(aCx,
+               nsPrintfCString(
+                   "UserInteraction with name \"%s\" cannot be recorded with"
+                   "a value of length greater than %d (%s)",
+                   NS_ConvertUTF16toUTF8(aUserInteraction).get(),
+                   USER_INTERACTION_VALUE_MAX_LENGTH,
+                   PromiseFlatCString(aValue).get()));
+    }
+    return false;
+  }
+
+  if (RefPtr<Timer> timer = Get(aCx, aUserInteraction, aObj, VoidString())) {
+    if (timer->Started()) {
+      if (!mSuppressErrors) {
+        LogError(aCx,
+                 nsPrintfCString(
+                     "UserInteraction with name \"%s\" was already initialized",
+                     NS_ConvertUTF16toUTF8(aUserInteraction).get()));
+      }
+      Delete(aCx, aUserInteraction, aObj, VoidString());
+      timer = Get(aCx, aUserInteraction, aObj, VoidString());
+
+      nsAutoString clobberText(aUserInteraction);
+      clobberText.AppendLiteral(u" (clobbered)");
+      timer->SetBHRAnnotation(clobberText, aValue);
+    } else {
+      timer->SetBHRAnnotation(aUserInteraction, aValue);
+    }
+
+    mBHRAnnotationTimers.insertBack(timer);
+
+    timer->Start(false);
+    return true;
+  }
+  return false;
+}
+
+bool Timers::RunningUserInteraction(JSContext* aCx,
+                                    const nsAString& aUserInteraction,
+                                    JS::HandleObject aObj) {
+  if (RefPtr<Timer> timer =
+          Get(aCx, aUserInteraction, aObj, VoidString(), false /* aCreate */)) {
+    return timer->Started();
+  }
+  return false;
+}
+
+bool Timers::UpdateUserInteraction(JSContext* aCx,
+                                   const nsAString& aUserInteraction,
+                                   const nsACString& aValue,
+                                   JS::HandleObject aObj) {
+  MOZ_ASSERT(NS_IsMainThread());
+
+  // Ensure that this ID maps to a UserInteraction that can be recorded
+  // for this product.
+  if (!TelemetryUserInteraction::CanRecord(aUserInteraction)) {
+    if (!mSuppressErrors) {
+      LogError(aCx, nsPrintfCString(
+                        "UserInteraction with name \"%s\" cannot be recorded.",
+                        NS_ConvertUTF16toUTF8(aUserInteraction).get()));
+    }
+    return false;
+  }
+
+  if (RefPtr<Timer> timer = Get(aCx, aUserInteraction, aObj, VoidString())) {
+    if (!timer->Started()) {
+      if (!mSuppressErrors) {
+        LogError(aCx, nsPrintfCString(
+                          "UserInteraction with id \"%s\" was not initialized",
+                          NS_ConvertUTF16toUTF8(aUserInteraction).get()));
+      }
+      return false;
+    }
+    timer->SetBHRAnnotation(aUserInteraction, aValue);
+    return true;
+  }
+  return false;
+}
+
+bool Timers::FinishUserInteraction(
+    JSContext* aCx, const nsAString& aUserInteraction, JS::HandleObject aObj,
+    const dom::Optional<nsACString>& aAdditionalText) {
+  MOZ_ASSERT(NS_IsMainThread());
+
+  // Ensure that this ID maps to a UserInteraction that can be recorded
+  // for this product.
+  if (!TelemetryUserInteraction::CanRecord(aUserInteraction)) {
+    if (!mSuppressErrors) {
+      LogError(aCx, nsPrintfCString(
+                        "UserInteraction with id \"%s\" cannot be recorded.",
+                        NS_ConvertUTF16toUTF8(aUserInteraction).get()));
+    }
+    return false;
+  }
+
+  RefPtr<Timer> timer = GetAndDelete(aCx, aUserInteraction, aObj, VoidString());
+  if (!timer) {
+    if (!mSuppressErrors) {
+      LogError(aCx, nsPrintfCString(
+                        "UserInteraction: finishing nonexisting stopwatch. "
+                        "name: \"%s\"",
+                        NS_ConvertUTF16toUTF8(aUserInteraction).get()));
+    }
+    return false;
+  }
+
+#ifdef MOZ_GECKO_PROFILER
+  if (profiler_can_accept_markers()) {
+    nsAutoCString markerText(timer->GetBHRAnnotationValue());
+    if (aAdditionalText.WasPassed()) {
+      markerText.Append(",");
+      markerText.Append(aAdditionalText.Value());
+    }
+
+    PROFILER_MARKER_TEXT(NS_ConvertUTF16toUTF8(aUserInteraction), OTHER,
+                         MarkerTiming::IntervalUntilNowFrom(timer->StartTime()),
+                         markerText);
+  }
+#endif
+
+  // The Timer _should_ get automatically get removed from the LinkedList
+  // when it runs its destructor, but let's remove it manually just in
+  // case something happens to be keeping the Timer alive.
+  timer->removeFrom(mBHRAnnotationTimers);
+
+  return true;
+}
+
+void Timers::AnnotateHang(mozilla::BackgroundHangAnnotations& aAnnotations) {
+  for (Timer* bhrAnnotationTimer : mBHRAnnotationTimers) {
+    aAnnotations.AddAnnotation(bhrAnnotationTimer->GetBHRAnnotationKey(),
+                               bhrAnnotationTimer->GetBHRAnnotationValue());
+  }
+}
+
+/* static */
+bool Stopwatch::Start(const dom::GlobalObject& aGlobal,
+                      const nsAString& aHistogram, JS::Handle<JSObject*> aObj,
+                      const dom::TelemetryStopwatchOptions& aOptions) {
   return StartKeyed(aGlobal, aHistogram, VoidString(), aObj, aOptions);
 }
-/* static */ bool Stopwatch::StartKeyed(
-    const dom::GlobalObject& aGlobal, const nsAString& aHistogram,
-    const nsAString& aKey, JS::Handle<JSObject*> aObj,
-    const dom::TelemetryStopwatchOptions& aOptions) {
+/* static */
+bool Stopwatch::StartKeyed(const dom::GlobalObject& aGlobal,
+                           const nsAString& aHistogram, const nsAString& aKey,
+                           JS::Handle<JSObject*> aObj,
+                           const dom::TelemetryStopwatchOptions& aOptions) {
   return Timers::Singleton().Start(aGlobal.Context(), aHistogram, aObj, aKey,
                                    aOptions.mInSeconds);
 }
 
-/* static */ bool Stopwatch::Running(const dom::GlobalObject& aGlobal,
-                                     const nsAString& aHistogram,
-                                     JS::Handle<JSObject*> aObj) {
+/* static */
+bool Stopwatch::Running(const dom::GlobalObject& aGlobal,
+                        const nsAString& aHistogram,
+                        JS::Handle<JSObject*> aObj) {
   return RunningKeyed(aGlobal, aHistogram, VoidString(), aObj);
 }
 
-/* static */ bool Stopwatch::RunningKeyed(const dom::GlobalObject& aGlobal,
-                                          const nsAString& aHistogram,
-                                          const nsAString& aKey,
-                                          JS::Handle<JSObject*> aObj) {
+/* static */
+bool Stopwatch::RunningKeyed(const dom::GlobalObject& aGlobal,
+                             const nsAString& aHistogram, const nsAString& aKey,
+                             JS::Handle<JSObject*> aObj) {
   return TimeElapsedKeyed(aGlobal, aHistogram, aKey, aObj, true) != -1;
 }
 
-/* static */ int32_t Stopwatch::TimeElapsed(const dom::GlobalObject& aGlobal,
-                                            const nsAString& aHistogram,
-                                            JS::Handle<JSObject*> aObj,
-                                            bool aCanceledOkay) {
+/* static */
+int32_t Stopwatch::TimeElapsed(const dom::GlobalObject& aGlobal,
+                               const nsAString& aHistogram,
+                               JS::Handle<JSObject*> aObj, bool aCanceledOkay) {
   return TimeElapsedKeyed(aGlobal, aHistogram, VoidString(), aObj,
                           aCanceledOkay);
 }
 
-/* static */ int32_t Stopwatch::TimeElapsedKeyed(
-    const dom::GlobalObject& aGlobal, const nsAString& aHistogram,
-    const nsAString& aKey, JS::Handle<JSObject*> aObj, bool aCanceledOkay) {
+/* static */
+int32_t Stopwatch::TimeElapsedKeyed(const dom::GlobalObject& aGlobal,
+                                    const nsAString& aHistogram,
+                                    const nsAString& aKey,
+                                    JS::Handle<JSObject*> aObj,
+                                    bool aCanceledOkay) {
   return Timers::Singleton().TimeElapsed(aGlobal.Context(), aHistogram, aObj,
                                          aKey, aCanceledOkay);
 }
 
-/* static */ bool Stopwatch::Finish(const dom::GlobalObject& aGlobal,
-                                    const nsAString& aHistogram,
-                                    JS::Handle<JSObject*> aObj,
-                                    bool aCanceledOkay) {
+/* static */
+bool Stopwatch::Finish(const dom::GlobalObject& aGlobal,
+                       const nsAString& aHistogram, JS::Handle<JSObject*> aObj,
+                       bool aCanceledOkay) {
   return FinishKeyed(aGlobal, aHistogram, VoidString(), aObj, aCanceledOkay);
 }
 
-/* static */ bool Stopwatch::FinishKeyed(const dom::GlobalObject& aGlobal,
-                                         const nsAString& aHistogram,
-                                         const nsAString& aKey,
-                                         JS::Handle<JSObject*> aObj,
-                                         bool aCanceledOkay) {
+/* static */
+bool Stopwatch::FinishKeyed(const dom::GlobalObject& aGlobal,
+                            const nsAString& aHistogram, const nsAString& aKey,
+                            JS::Handle<JSObject*> aObj, bool aCanceledOkay) {
   return Timers::Singleton().Finish(aGlobal.Context(), aHistogram, aObj, aKey,
                                     aCanceledOkay) != -1;
 }
 
-/* static */ bool Stopwatch::Cancel(const dom::GlobalObject& aGlobal,
-                                    const nsAString& aHistogram,
-                                    JS::Handle<JSObject*> aObj) {
+/* static */
+bool Stopwatch::Cancel(const dom::GlobalObject& aGlobal,
+                       const nsAString& aHistogram,
+                       JS::Handle<JSObject*> aObj) {
   return CancelKeyed(aGlobal, aHistogram, VoidString(), aObj);
 }
 
-/* static */ bool Stopwatch::CancelKeyed(const dom::GlobalObject& aGlobal,
-                                         const nsAString& aHistogram,
-                                         const nsAString& aKey,
-                                         JS::Handle<JSObject*> aObj) {
+/* static */
+bool Stopwatch::CancelKeyed(const dom::GlobalObject& aGlobal,
+                            const nsAString& aHistogram, const nsAString& aKey,
+                            JS::Handle<JSObject*> aObj) {
   return Timers::Singleton().Delete(aGlobal.Context(), aHistogram, aObj, aKey);
 }
 
-/* static */ void Stopwatch::SetTestModeEnabled(
-    const dom::GlobalObject& aGlobal, bool aTesting) {
+/* static */
+void Stopwatch::SetTestModeEnabled(const dom::GlobalObject& aGlobal,
+                                   bool aTesting) {
   Timers::Singleton().SuppressErrors() = aTesting;
 }
 
-}  // namespace telemetry
-}  // namespace mozilla
+/* static */
+bool UserInteractionStopwatch::Start(const dom::GlobalObject& aGlobal,
+                                     const nsAString& aUserInteraction,
+                                     const nsACString& aValue,
+                                     JS::Handle<JSObject*> aObj) {
+  if (!NS_IsMainThread()) {
+    return false;
+  }
+  return Timers::Singleton().StartUserInteraction(
+      aGlobal.Context(), aUserInteraction, aValue, aObj);
+}
+
+/* static */
+bool UserInteractionStopwatch::Running(const dom::GlobalObject& aGlobal,
+                                       const nsAString& aUserInteraction,
+                                       JS::Handle<JSObject*> aObj) {
+  if (!NS_IsMainThread()) {
+    return false;
+  }
+  return Timers::Singleton().RunningUserInteraction(aGlobal.Context(),
+                                                    aUserInteraction, aObj);
+}
+
+/* static */
+bool UserInteractionStopwatch::Update(const dom::GlobalObject& aGlobal,
+                                      const nsAString& aUserInteraction,
+                                      const nsACString& aValue,
+                                      JS::Handle<JSObject*> aObj) {
+  if (!NS_IsMainThread()) {
+    return false;
+  }
+  return Timers::Singleton().UpdateUserInteraction(
+      aGlobal.Context(), aUserInteraction, aValue, aObj);
+}
+
+/* static */
+bool UserInteractionStopwatch::Cancel(const dom::GlobalObject& aGlobal,
+                                      const nsAString& aUserInteraction,
+                                      JS::Handle<JSObject*> aObj) {
+  if (!NS_IsMainThread()) {
+    return false;
+  }
+  return Timers::Singleton().Delete(aGlobal.Context(), aUserInteraction, aObj,
+                                    VoidString());
+}
+
+/* static */
+bool UserInteractionStopwatch::Finish(
+    const dom::GlobalObject& aGlobal, const nsAString& aUserInteraction,
+    JS::Handle<JSObject*> aObj,
+    const dom::Optional<nsACString>& aAdditionalText) {
+  if (!NS_IsMainThread()) {
+    return false;
+  }
+  return Timers::Singleton().FinishUserInteraction(
+      aGlobal.Context(), aUserInteraction, aObj, aAdditionalText);
+}
+
+}  // namespace mozilla::telemetry

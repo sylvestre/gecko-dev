@@ -12,14 +12,17 @@
 
 #include <cstdint>
 
+#include <atomic>
 #include <limits>
 #include <map>
 
 #include "common/angleutils.h"
+#include "common/utilities.h"
 #include "libANGLE/angletypes.h"
 
 namespace angle
 {
+struct FeatureSetBase;
 struct Format;
 enum class FormatID;
 }  // namespace angle
@@ -28,15 +31,18 @@ namespace gl
 {
 struct FormatType;
 struct InternalFormat;
+class State;
 }  // namespace gl
 
 namespace egl
 {
 class AttributeMap;
+struct DisplayState;
 }  // namespace egl
 
 namespace rx
 {
+class ContextImpl;
 
 class ResourceSerial
 {
@@ -58,8 +64,6 @@ class ResourceSerial
 
     uintptr_t mValue;
 };
-
-class SerialFactory;
 
 class Serial final
 {
@@ -91,26 +95,31 @@ class Serial final
     constexpr uint64_t getValue() const { return mValue; }
 
   private:
-    friend class SerialFactory;
+    template <typename T>
+    friend class SerialFactoryBase;
     constexpr explicit Serial(uint64_t value) : mValue(value) {}
     uint64_t mValue;
     static constexpr uint64_t kInvalid = 0;
 };
 
-class SerialFactory final : angle::NonCopyable
+template <typename SerialBaseType>
+class SerialFactoryBase final : angle::NonCopyable
 {
   public:
-    SerialFactory() : mSerial(1) {}
+    SerialFactoryBase() : mSerial(1) {}
 
     Serial generate()
     {
-        ASSERT(mSerial != std::numeric_limits<uint64_t>::max());
+        ASSERT(mSerial + 1 > mSerial);
         return Serial(mSerial++);
     }
 
   private:
-    uint64_t mSerial;
+    SerialBaseType mSerial;
 };
+
+using SerialFactory       = SerialFactoryBase<uint64_t>;
+using AtomicSerialFactory = SerialFactoryBase<std::atomic<uint64_t>>;
 
 using MipGenerationFunction = void (*)(size_t sourceWidth,
                                        size_t sourceHeight,
@@ -153,7 +162,7 @@ struct PackPixelsParams
     PackPixelsParams(const gl::Rectangle &area,
                      const angle::Format &destFormat,
                      GLuint outputPitch,
-                     const gl::PixelPackState &pack,
+                     bool reverseRowOrderIn,
                      gl::Buffer *packBufferIn,
                      ptrdiff_t offset);
 
@@ -161,7 +170,7 @@ struct PackPixelsParams
     const angle::Format *destFormat;
     GLuint outputPitch;
     gl::Buffer *packBuffer;
-    gl::PixelPackState pack;
+    bool reverseRowOrder;
     ptrdiff_t offset;
 };
 
@@ -193,8 +202,7 @@ struct LoadImageFunctionInfo
     LoadImageFunctionInfo() : loadFunction(nullptr), requiresConversion(false) {}
     LoadImageFunctionInfo(LoadImageFunction loadFunction, bool requiresConversion)
         : loadFunction(loadFunction), requiresConversion(requiresConversion)
-    {
-    }
+    {}
 
     LoadImageFunction loadFunction;
     bool requiresConversion;
@@ -208,15 +216,18 @@ bool ShouldUseVirtualizedContexts(const egl::AttributeMap &attribs, bool default
 void CopyImageCHROMIUM(const uint8_t *sourceData,
                        size_t sourceRowPitch,
                        size_t sourcePixelBytes,
+                       size_t sourceDepthPitch,
                        PixelReadFunction pixelReadFunction,
                        uint8_t *destData,
                        size_t destRowPitch,
                        size_t destPixelBytes,
+                       size_t destDepthPitch,
                        PixelWriteFunction pixelWriteFunction,
                        GLenum destUnsizedFormat,
                        GLenum destComponentType,
                        size_t width,
                        size_t height,
+                       size_t depth,
                        bool unpackFlipY,
                        bool unpackPremultiplyAlpha,
                        bool unpackUnmultiplyAlpha);
@@ -232,8 +243,8 @@ class MultisampleTextureInitializer
 {
   public:
     virtual ~MultisampleTextureInitializer() {}
-    virtual gl::Error initializeMultisampleTextureToBlack(const gl::Context *context,
-                                                          gl::Texture *glTexture) = 0;
+    virtual angle::Result initializeMultisampleTextureToBlack(const gl::Context *context,
+                                                              gl::Texture *glTexture) = 0;
 };
 
 class IncompleteTextureSet final : angle::NonCopyable
@@ -244,23 +255,38 @@ class IncompleteTextureSet final : angle::NonCopyable
 
     void onDestroy(const gl::Context *context);
 
-    gl::Error getIncompleteTexture(const gl::Context *context,
-                                   gl::TextureType type,
-                                   MultisampleTextureInitializer *multisampleInitializer,
-                                   gl::Texture **textureOut);
+    angle::Result getIncompleteTexture(const gl::Context *context,
+                                       gl::TextureType type,
+                                       MultisampleTextureInitializer *multisampleInitializer,
+                                       gl::Texture **textureOut);
 
   private:
     gl::TextureMap mIncompleteTextures;
 };
 
+// Helpers to set a matrix uniform value based on GLSL or HLSL semantics.
 // The return value indicate if the data was updated or not.
 template <int cols, int rows>
-bool SetFloatUniformMatrix(unsigned int arrayElementOffset,
-                           unsigned int elementCount,
-                           GLsizei countIn,
-                           GLboolean transpose,
-                           const GLfloat *value,
-                           uint8_t *targetData);
+struct SetFloatUniformMatrixGLSL
+{
+    static bool Run(unsigned int arrayElementOffset,
+                    unsigned int elementCount,
+                    GLsizei countIn,
+                    GLboolean transpose,
+                    const GLfloat *value,
+                    uint8_t *targetData);
+};
+
+template <int cols, int rows>
+struct SetFloatUniformMatrixHLSL
+{
+    static bool Run(unsigned int arrayElementOffset,
+                    unsigned int elementCount,
+                    GLsizei countIn,
+                    GLboolean transpose,
+                    const GLfloat *value,
+                    uint8_t *targetData);
+};
 
 // Helper method to de-tranpose a matrix uniform for an API query.
 void GetMatrixUniform(GLenum type, GLfloat *dataOut, const GLfloat *source, bool transpose);
@@ -269,6 +295,112 @@ template <typename NonFloatT>
 void GetMatrixUniform(GLenum type, NonFloatT *dataOut, const NonFloatT *source, bool transpose);
 
 const angle::Format &GetFormatFromFormatType(GLenum format, GLenum type);
+
+angle::Result ComputeStartVertex(ContextImpl *contextImpl,
+                                 const gl::IndexRange &indexRange,
+                                 GLint baseVertex,
+                                 GLint *firstVertexOut);
+
+angle::Result GetVertexRangeInfo(const gl::Context *context,
+                                 GLint firstVertex,
+                                 GLsizei vertexOrIndexCount,
+                                 gl::DrawElementsType indexTypeOrInvalid,
+                                 const void *indices,
+                                 GLint baseVertex,
+                                 GLint *startVertexOut,
+                                 size_t *vertexCountOut);
+
+gl::Rectangle ClipRectToScissor(const gl::State &glState, const gl::Rectangle &rect, bool invertY);
+
+// Helper method to intialize a FeatureSet with overrides from the DisplayState
+void OverrideFeaturesWithDisplayState(angle::FeatureSetBase *features,
+                                      const egl::DisplayState &state);
+
+template <typename In>
+size_t LineLoopRestartIndexCountHelper(GLsizei indexCount, const uint8_t *srcPtr)
+{
+    constexpr In restartIndex = gl::GetPrimitiveRestartIndexFromType<In>();
+    const In *inIndices       = reinterpret_cast<const In *>(srcPtr);
+    size_t numIndices         = 0;
+    // See CopyLineLoopIndicesWithRestart() below for more info on how
+    // numIndices is calculated.
+    GLsizei loopStartIndex = 0;
+    for (GLsizei curIndex = 0; curIndex < indexCount; curIndex++)
+    {
+        In vertex = inIndices[curIndex];
+        if (vertex != restartIndex)
+        {
+            numIndices++;
+        }
+        else
+        {
+            if (curIndex > loopStartIndex)
+            {
+                numIndices += 2;
+            }
+            loopStartIndex = curIndex + 1;
+        }
+    }
+    if (indexCount > loopStartIndex)
+    {
+        numIndices++;
+    }
+    return numIndices;
+}
+
+inline size_t GetLineLoopWithRestartIndexCount(gl::DrawElementsType glIndexType,
+                                               GLsizei indexCount,
+                                               const uint8_t *srcPtr)
+{
+    switch (glIndexType)
+    {
+        case gl::DrawElementsType::UnsignedByte:
+            return LineLoopRestartIndexCountHelper<uint8_t>(indexCount, srcPtr);
+        case gl::DrawElementsType::UnsignedShort:
+            return LineLoopRestartIndexCountHelper<uint16_t>(indexCount, srcPtr);
+        case gl::DrawElementsType::UnsignedInt:
+            return LineLoopRestartIndexCountHelper<uint32_t>(indexCount, srcPtr);
+        default:
+            UNREACHABLE();
+            return 0;
+    }
+}
+
+// Writes the line-strip vertices for a line loop to outPtr,
+// where outLimit is calculated as in GetPrimitiveRestartIndexCount.
+template <typename In, typename Out>
+void CopyLineLoopIndicesWithRestart(GLsizei indexCount, const uint8_t *srcPtr, uint8_t *outPtr)
+{
+    constexpr In restartIndex     = gl::GetPrimitiveRestartIndexFromType<In>();
+    constexpr Out outRestartIndex = gl::GetPrimitiveRestartIndexFromType<Out>();
+    const In *inIndices           = reinterpret_cast<const In *>(srcPtr);
+    Out *outIndices               = reinterpret_cast<Out *>(outPtr);
+    GLsizei loopStartIndex        = 0;
+    for (GLsizei curIndex = 0; curIndex < indexCount; curIndex++)
+    {
+        In vertex = inIndices[curIndex];
+        if (vertex != restartIndex)
+        {
+            *(outIndices++) = static_cast<Out>(vertex);
+        }
+        else
+        {
+            if (curIndex > loopStartIndex)
+            {
+                // Emit an extra vertex only if the loop is not empty.
+                *(outIndices++) = inIndices[loopStartIndex];
+                // Then restart the strip.
+                *(outIndices++) = outRestartIndex;
+            }
+            loopStartIndex = curIndex + 1;
+        }
+    }
+    if (indexCount > loopStartIndex)
+    {
+        // Close the last loop if not empty.
+        *(outIndices++) = inIndices[loopStartIndex];
+    }
+}
 }  // namespace rx
 
 #endif  // LIBANGLE_RENDERER_RENDERER_UTILS_H_

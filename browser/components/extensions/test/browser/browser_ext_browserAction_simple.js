@@ -5,11 +5,11 @@
 add_task(async function() {
   let extension = ExtensionTestUtils.loadExtension({
     manifest: {
-      "browser_action": {
-        "default_popup": "popup.html",
-        "unrecognized_property": "with-a-random-value",
+      browser_action: {
+        default_popup: "popup.html",
+        unrecognized_property: "with-a-random-value",
       },
-      icons: {32: "icon.png"},
+      icons: { 32: "icon.png" },
     },
 
     files: {
@@ -38,12 +38,16 @@ add_task(async function() {
 
   SimpleTest.waitForExplicitFinish();
   let waitForConsole = new Promise(resolve => {
-    SimpleTest.monitorConsole(resolve, [{
-      message: /Reading manifest: Error processing browser_action.unrecognized_property: An unexpected property was found/,
-    }]);
+    SimpleTest.monitorConsole(resolve, [
+      {
+        message: /Reading manifest: Warning processing browser_action.unrecognized_property: An unexpected property was found/,
+      },
+    ]);
   });
 
+  ExtensionTestUtils.failOnSchemaWarnings(false);
   await extension.startup();
+  ExtensionTestUtils.failOnSchemaWarnings(true);
 
   // Do this a few times to make sure the pop-up is reloaded each time.
   for (let i = 0; i < 3; i++) {

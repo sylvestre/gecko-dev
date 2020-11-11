@@ -17,7 +17,6 @@
 // Local Includes
 // Helper Classes
 #include "nsCOMPtr.h"
-#include "nsAutoPtr.h"
 #include "nsWeakReference.h"
 #include "nsDataHashtable.h"
 #include "nsJSThingHashtable.h"
@@ -27,10 +26,8 @@
 #include "nsIBrowserDOMWindow.h"
 #include "nsIInterfaceRequestor.h"
 #include "nsIDOMChromeWindow.h"
-#include "nsIObserver.h"
 #include "nsIScriptGlobalObject.h"
 #include "nsIScriptObjectPrincipal.h"
-#include "nsITimer.h"
 #include "mozilla/EventListenerManager.h"
 #include "nsIPrincipal.h"
 #include "nsSize.h"
@@ -44,10 +41,9 @@
 #include "mozilla/dom/UnionTypes.h"
 #include "mozilla/ErrorResult.h"
 #include "mozilla/Attributes.h"
-#include "mozilla/GuardObjects.h"
 #include "mozilla/LinkedList.h"
 #include "nsWrapperCacheInlines.h"
-#include "nsIDocument.h"
+#include "mozilla/dom/Document.h"
 #include "mozilla/dom/EventTarget.h"
 #include "mozilla/dom/WindowBinding.h"
 #include "Units.h"
@@ -56,7 +52,9 @@
 #include "nsCheapSets.h"
 #include "mozilla/dom/ImageBitmapSource.h"
 #include "mozilla/UniquePtr.h"
+#include "mozilla/dom/BrowsingContext.h"
 
+class nsDocShell;
 class nsIArray;
 class nsIBaseWindow;
 class nsIContent;
@@ -67,30 +65,26 @@ class nsIScrollableFrame;
 class nsIControllers;
 class nsIScriptContext;
 class nsIScriptTimeoutHandler;
-class nsITabChild;
+class nsIBrowserChild;
 class nsITimeoutHandler;
 class nsIWebBrowserChrome;
+class nsIWebProgressListener;
 class mozIDOMWindowProxy;
 
 class nsDocShellLoadState;
-class nsDOMWindowList;
 class nsScreen;
 class nsHistory;
 class nsGlobalWindowObserver;
 class nsGlobalWindowInner;
 class nsDOMWindowUtils;
-class nsIIdleService;
 struct nsRect;
 
 class nsWindowSizes;
 
-class IdleRequestExecutor;
-
-struct IdleObserverHolder;
-
 namespace mozilla {
 class AbstractThread;
 class DOMEventTargetHelper;
+class ThrottledEventQueue;
 namespace dom {
 class BarProp;
 struct ChannelPixelLayout;
@@ -102,8 +96,6 @@ class External;
 class Function;
 class Gamepad;
 enum class ImageBitmapFormat : uint8_t;
-class IdleRequest;
-class IdleRequestCallback;
 class IncrementalRunnable;
 class IntlUtils;
 class Location;
@@ -111,12 +103,13 @@ class MediaQueryList;
 class Navigator;
 class OwningExternalOrWindowProxy;
 class Promise;
+class PostMessageData;
 class PostMessageEvent;
+class PrintPreviewResultInfo;
 struct RequestInit;
 class RequestOrUSVString;
 class Selection;
 class SpeechSynthesis;
-class TabGroup;
 class Timeout;
 class U2F;
 class VRDisplay;
@@ -144,7 +137,7 @@ extern already_AddRefed<nsIScriptTimeoutHandler> NS_CreateJSTimeoutHandler(
     JSContext* aCx, nsGlobalWindowInner* aWindow, const nsAString& aExpression,
     mozilla::ErrorResult& aError);
 
-extern const js::Class OuterWindowProxyClass;
+extern const JSClass OuterWindowProxyClass;
 
 //*****************************************************************************
 // nsGlobalWindowOuter
@@ -170,11 +163,13 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
                                   public nsIScriptObjectPrincipal,
                                   public nsSupportsWeakReference,
                                   public nsIInterfaceRequestor,
-                                  public PRCListStr,
-                                  public nsIObserver {
+                                  public PRCListStr {
  public:
   typedef nsDataHashtable<nsUint64HashKey, nsGlobalWindowOuter*>
       OuterWindowByIdTable;
+
+  using PrintPreviewResolver =
+      std::function<void(const mozilla::dom::PrintPreviewResultInfo&)>;
 
   static void AssertIsOnMainThread()
 #ifdef DEBUG
@@ -216,7 +211,7 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
     return (nsGlobalWindowOuter*)(mozilla::dom::EventTarget*)supports;
   }
 
-  static already_AddRefed<nsGlobalWindowOuter> Create(nsIDocShell* aDocShell,
+  static already_AddRefed<nsGlobalWindowOuter> Create(nsDocShell* aDocShell,
                                                       bool aIsChrome);
 
   // public methods
@@ -235,10 +230,10 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
   }
 
   // nsIGlobalJSObjectHolder
-  virtual JSObject* GetGlobalJSObject() override;
-
-  // nsIScriptGlobalObject
-  JSObject* FastGetGlobalJSObject() const { return GetWrapperPreserveColor(); }
+  JSObject* GetGlobalJSObject() final { return GetWrapper(); }
+  JSObject* GetGlobalJSObjectPreserveColor() const final {
+    return GetWrapperPreserveColor();
+  }
 
   virtual nsresult EnsureScriptEnvironment() override;
 
@@ -251,6 +246,10 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
   // nsIScriptObjectPrincipal
   virtual nsIPrincipal* GetPrincipal() override;
 
+  virtual nsIPrincipal* GetEffectiveStoragePrincipal() override;
+
+  virtual nsIPrincipal* PartitionedPrincipal() override;
+
   // nsIDOMWindow
   NS_DECL_NSIDOMWINDOW
 
@@ -262,7 +261,8 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
       const nsAString& aGroup);
 
   nsresult OpenJS(const nsAString& aUrl, const nsAString& aName,
-                  const nsAString& aOptions, nsPIDOMWindowOuter** _retval);
+                  const nsAString& aOptions,
+                  mozilla::dom::BrowsingContext** _retval);
 
   virtual mozilla::EventListenerManager* GetExistingListenerManager()
       const override;
@@ -271,7 +271,7 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
 
   bool ComputeDefaultWantsUntrusted(mozilla::ErrorResult& aRv) final;
 
-  virtual nsPIDOMWindowOuter* GetOwnerGlobalForBindings() override;
+  virtual nsPIDOMWindowOuter* GetOwnerGlobalForBindingsInternal() override;
 
   virtual nsIGlobalObject* GetOwnerGlobal() const override;
 
@@ -298,7 +298,9 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
       mozilla::dom::EventTarget* aChromeEventHandler) override;
 
   // Outer windows only.
-  virtual void SetInitialPrincipalToSubject() override;
+  virtual void SetInitialPrincipalToSubject(
+      nsIContentSecurityPolicy* aCSP,
+      const Maybe<nsILoadInfo::CrossOriginEmbedderPolicy>& aCoep) override;
 
   virtual already_AddRefed<nsISupports> SaveWindowState() override;
   virtual nsresult RestoreWindowState(nsISupports* aState) override;
@@ -309,23 +311,24 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
   virtual nsresult FireDelayedDOMEvents() override;
 
   // Outer windows only.
-  bool WouldReuseInnerWindow(nsIDocument* aNewDocument);
+  bool WouldReuseInnerWindow(Document* aNewDocument);
 
-  void DetachFromDocShell();
+  void DetachFromDocShell(bool aIsBeingDiscarded);
 
-  virtual nsresult SetNewDocument(nsIDocument* aDocument, nsISupports* aState,
-                                  bool aForceReuseInnerWindow) override;
+  virtual nsresult SetNewDocument(
+      Document* aDocument, nsISupports* aState, bool aForceReuseInnerWindow,
+      mozilla::dom::WindowGlobalChild* aActor = nullptr) override;
+
+  // Outer windows only.
+  static void PrepareForProcessChange(JSObject* aProxy);
 
   // Outer windows only.
   void DispatchDOMWindowCreated();
 
-  virtual void SetOpenerWindow(nsPIDOMWindowOuter* aOpener,
-                               bool aOriginalOpener) override;
-
   // Outer windows only.
   virtual void EnsureSizeAndPositionUpToDate() override;
 
-  virtual void EnterModalState() override;
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY virtual void EnterModalState() override;
   virtual void LeaveModalState() override;
 
   // Outer windows only.
@@ -333,7 +336,9 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
   virtual void ForceClose() override;
 
   // Outer windows only.
-  virtual bool DispatchCustomEvent(const nsAString& aEventName) override;
+  virtual bool DispatchCustomEvent(
+      const nsAString& aEventName,
+      mozilla::ChromeOnlyDispatch aChromeOnlyDispatch) override;
   bool DispatchResizeEvent(const mozilla::CSSIntSize& aSize);
 
   // For accessing protected field mFullscreen
@@ -344,6 +349,7 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
                                  bool aIsFullscreen) final;
   void FullscreenWillChange(bool aIsFullscreen) final;
   void FinishFullscreenChange(bool aIsFullscreen) final;
+  void ForceFullScreenInWidget() final;
   bool SetWidgetFullscreen(FullscreenReason aReason, bool aIsFullscreen,
                            nsIWidget* aWidget, nsIScreen* aScreen);
   bool Fullscreen() const;
@@ -351,18 +357,23 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
   // nsIInterfaceRequestor
   NS_DECL_NSIINTERFACEREQUESTOR
 
-  // nsIObserver
-  NS_DECL_NSIOBSERVER
+  mozilla::dom::Nullable<mozilla::dom::WindowProxyHolder> IndexedGetterOuter(
+      uint32_t aIndex);
 
-  already_AddRefed<nsPIDOMWindowOuter> IndexedGetterOuter(uint32_t aIndex);
+  already_AddRefed<nsPIDOMWindowOuter> GetInProcessTop() override;
+  // Similar to GetInProcessTop() except that it stops at content frames that
+  // an extension has permission to access.  This is used by the third-party
+  // util service in order to determine the top window for a channel which is
+  // used in third-partiness checks.
+  already_AddRefed<nsPIDOMWindowOuter>
+  GetTopExcludingExtensionAccessibleContentFrames(nsIURI* aURIBeingLoaded);
+  nsPIDOMWindowOuter* GetInProcessScriptableTop() override;
+  inline nsGlobalWindowOuter* GetInProcessTopInternal();
 
-  already_AddRefed<nsPIDOMWindowOuter> GetTop() override;
-  nsPIDOMWindowOuter* GetScriptableTop() override;
-  inline nsGlobalWindowOuter* GetTopInternal();
+  inline nsGlobalWindowOuter* GetInProcessScriptableTopInternal();
 
-  inline nsGlobalWindowOuter* GetScriptableTopInternal();
-
-  nsPIDOMWindowOuter* GetChildWindow(const nsAString& aName);
+  already_AddRefed<mozilla::dom::BrowsingContext> GetChildWindow(
+      const nsAString& aName);
 
   // These return true if we've reached the state in this top level window
   // where we ask the user if further dialogs should be blocked.
@@ -387,13 +398,10 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
 
   class MOZ_RAII TemporarilyDisableDialogs {
    public:
-    explicit TemporarilyDisableDialogs(
-        nsGlobalWindowOuter* aWindow MOZ_GUARD_OBJECT_NOTIFIER_PARAM);
+    explicit TemporarilyDisableDialogs(nsGlobalWindowOuter* aWindow);
     ~TemporarilyDisableDialogs();
 
    private:
-    MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
-
     // Always an inner window; this is the window whose dialog state we messed
     // with.  We just want to keep it alive, because we plan to poke at its
     // members in our destructor.
@@ -406,8 +414,6 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
   friend class TemporarilyDisableDialogs;
 
   nsIScriptContext* GetContextInternal();
-
-  nsGlobalWindowOuter* GetOuterWindowInternal();
 
   nsGlobalWindowInner* GetCurrentInnerWindowInternal() const;
 
@@ -437,26 +443,29 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
   virtual void SetReadyForFocus() override;
   virtual void PageHidden() override;
 
-  virtual nsresult SetArguments(nsIArray* aArguments) override;
+  /**
+   * Set a arguments for this window. This will be set on the window
+   * right away (if there's an existing document) and it will also be
+   * installed on the window when the next document is loaded.
+   *
+   * This function passes |arguments| back from nsWindowWatcher to
+   * nsGlobalWindow.
+   */
+  nsresult SetArguments(nsIArray* aArguments);
 
-  void MaybeForgiveSpamCount();
   bool IsClosedOrClosing() {
     return (mIsClosed || mInClose || mHavePendingClose || mCleanedUp);
   }
 
   bool IsCleanedUp() const { return mCleanedUp; }
 
-  bool HadOriginalOpener() const { return mHadOriginalOpener; }
-
-  bool IsTopLevelWindow();
+  bool HadOriginalOpener() const {
+    return GetBrowsingContext()->HadOriginalOpener();
+  }
 
   virtual void FirePopupBlockedEvent(
-      nsIDocument* aDoc, nsIURI* aPopupURI, const nsAString& aPopupWindowName,
+      Document* aDoc, nsIURI* aPopupURI, const nsAString& aPopupWindowName,
       const nsAString& aPopupWindowFeatures) override;
-
-  virtual void NotifyContentBlockingState(unsigned aState, nsIChannel* aChannel,
-                                          bool aBlocked,
-                                          nsIURI* aURIHint) override;
 
   void AddSizeOfIncludingThis(nsWindowSizes& aWindowSizes) const;
 
@@ -512,7 +521,7 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
 
   nsISupports* GetParentObject() { return nullptr; }
 
-  nsIDocument* GetDocument() { return GetDoc(); }
+  Document* GetDocument() { return GetDoc(); }
   void GetNameOuter(nsAString& aName);
   void SetNameOuter(const nsAString& aName, mozilla::ErrorResult& aError);
   mozilla::dom::Location* GetLocation() override;
@@ -523,38 +532,38 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
   bool GetClosedOuter();
   bool Closed() override;
   void StopOuter(mozilla::ErrorResult& aError);
-  void FocusOuter(mozilla::ErrorResult& aError);
-  nsresult Focus() override;
+  void FocusOuter(mozilla::dom::CallerType aCallerType);
+  nsresult Focus(mozilla::dom::CallerType aCallerType) override;
   void BlurOuter();
-  already_AddRefed<nsPIDOMWindowOuter> GetFramesOuter();
-  nsDOMWindowList* GetFrames() final;
+  mozilla::dom::WindowProxyHolder GetFramesOuter();
   uint32_t Length();
-  already_AddRefed<nsPIDOMWindowOuter> GetTopOuter();
+  mozilla::dom::Nullable<mozilla::dom::WindowProxyHolder> GetTopOuter();
 
   nsresult GetPrompter(nsIPrompt** aPrompt) override;
 
  protected:
-  nsPIDOMWindowOuter* GetOpenerWindowOuter();
+  mozilla::dom::Nullable<mozilla::dom::WindowProxyHolder>
+  GetOpenerWindowOuter();
   // Initializes the mWasOffline member variable
   void InitWasOffline();
 
  public:
-  nsPIDOMWindowOuter* GetSanitizedOpener(nsPIDOMWindowOuter* aOpener);
-
-  already_AddRefed<nsPIDOMWindowOuter> GetOpener() override;
-  already_AddRefed<nsPIDOMWindowOuter> GetParentOuter();
-  already_AddRefed<nsPIDOMWindowOuter> GetParent() override;
-  nsPIDOMWindowOuter* GetScriptableParent() override;
-  nsPIDOMWindowOuter* GetScriptableParentOrNull() override;
-  mozilla::dom::Element* GetFrameElementOuter(nsIPrincipal& aSubjectPrincipal);
+  nsPIDOMWindowOuter* GetSameProcessOpener();
+  already_AddRefed<mozilla::dom::BrowsingContext> GetOpenerBrowsingContext();
+  mozilla::dom::Nullable<mozilla::dom::WindowProxyHolder> GetOpener() override;
+  mozilla::dom::Nullable<mozilla::dom::WindowProxyHolder> GetParentOuter();
+  already_AddRefed<nsPIDOMWindowOuter> GetInProcessParent() override;
+  nsPIDOMWindowOuter* GetInProcessScriptableParent() override;
+  nsPIDOMWindowOuter* GetInProcessScriptableParentOrNull() override;
+  mozilla::dom::Element* GetFrameElement(nsIPrincipal& aSubjectPrincipal);
   mozilla::dom::Element* GetFrameElement() override;
-  already_AddRefed<nsPIDOMWindowOuter> OpenOuter(const nsAString& aUrl,
-                                                 const nsAString& aName,
-                                                 const nsAString& aOptions,
-                                                 mozilla::ErrorResult& aError);
+  mozilla::dom::Nullable<mozilla::dom::WindowProxyHolder> OpenOuter(
+      const nsAString& aUrl, const nsAString& aName, const nsAString& aOptions,
+      mozilla::ErrorResult& aError);
   nsresult Open(const nsAString& aUrl, const nsAString& aName,
                 const nsAString& aOptions, nsDocShellLoadState* aLoadState,
-                bool aForceNoOpener, nsPIDOMWindowOuter** _retval) override;
+                bool aForceNoOpener,
+                mozilla::dom::BrowsingContext** _retval) override;
   mozilla::dom::Navigator* GetNavigator() override;
 
 #if defined(MOZ_WIDGET_ANDROID)
@@ -574,11 +583,16 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
   void PromptOuter(const nsAString& aMessage, const nsAString& aInitial,
                    nsAString& aReturn, nsIPrincipal& aSubjectPrincipal,
                    mozilla::ErrorResult& aError);
+
   void PrintOuter(mozilla::ErrorResult& aError);
+
+  enum class IsPreview : bool { No, Yes };
+  enum class IsForWindowDotPrint : bool { No, Yes };
+  mozilla::dom::Nullable<mozilla::dom::WindowProxyHolder> Print(
+      nsIPrintSettings*, nsIWebProgressListener*, nsIDocShell*, IsPreview,
+      IsForWindowDotPrint, PrintPreviewResolver&&, mozilla::ErrorResult&);
   mozilla::dom::Selection* GetSelectionOuter();
   already_AddRefed<mozilla::dom::Selection> GetSelection() override;
-  already_AddRefed<mozilla::dom::MediaQueryList> MatchMediaOuter(
-      const nsAString& aQuery, mozilla::dom::CallerType aCallerType);
   nsScreen* GetScreen();
   void MoveToOuter(int32_t aXPos, int32_t aYPos,
                    mozilla::dom::CallerType aCallerType,
@@ -596,11 +610,11 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
   double GetScrollXOuter();
   double GetScrollYOuter();
 
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY
   void SizeToContentOuter(mozilla::dom::CallerType aCallerType,
                           mozilla::ErrorResult& aError);
   nsIControllers* GetControllersOuter(mozilla::ErrorResult& aError);
   nsresult GetControllers(nsIControllers** aControllers) override;
-  mozilla::dom::Element* GetRealFrameElementOuter();
   float GetMozInnerScreenXOuter(mozilla::dom::CallerType aCallerType);
   float GetMozInnerScreenYOuter(mozilla::dom::CallerType aCallerType);
   double GetDevicePixelRatioOuter(mozilla::dom::CallerType aCallerType);
@@ -615,14 +629,14 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
 
   bool ShouldResistFingerprinting();
 
-  already_AddRefed<nsPIDOMWindowOuter> OpenDialogOuter(
+  mozilla::dom::Nullable<mozilla::dom::WindowProxyHolder> OpenDialogOuter(
       JSContext* aCx, const nsAString& aUrl, const nsAString& aName,
       const nsAString& aOptions,
       const mozilla::dom::Sequence<JS::Value>& aExtraArgument,
       mozilla::ErrorResult& aError);
   nsresult OpenDialog(const nsAString& aUrl, const nsAString& aName,
                       const nsAString& aOptions, nsISupports* aExtraArgument,
-                      nsPIDOMWindowOuter** _retval) override;
+                      mozilla::dom::BrowsingContext** _retval) override;
   void UpdateCommands(const nsAString& anAction, mozilla::dom::Selection* aSel,
                       int16_t aReason) override;
 
@@ -641,15 +655,8 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
   // fact chrome.
   nsIBrowserDOMWindow* GetBrowserDOMWindowOuter();
   void SetBrowserDOMWindowOuter(nsIBrowserDOMWindow* aBrowserWindow);
-  void SetCursorOuter(const nsAString& aCursor, mozilla::ErrorResult& aError);
+  void SetCursorOuter(const nsACString& aCursor, mozilla::ErrorResult& aError);
 
-  void GetDialogArgumentsOuter(JSContext* aCx,
-                               JS::MutableHandle<JS::Value> aRetval,
-                               nsIPrincipal& aSubjectPrincipal,
-                               mozilla::ErrorResult& aError);
-  void GetDialogArguments(JSContext* aCx, JS::MutableHandle<JS::Value> aRetval,
-                          nsIPrincipal& aSubjectPrincipal,
-                          mozilla::ErrorResult& aError);
   void GetReturnValueOuter(JSContext* aCx,
                            JS::MutableHandle<JS::Value> aReturnValue,
                            nsIPrincipal& aSubjectPrincipal,
@@ -667,17 +674,14 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
   already_AddRefed<nsWindowRoot> GetWindowRootOuter();
 
   nsIDOMWindowUtils* WindowUtils();
-  bool HasOpenerForInitialContentBrowser() {
-    return !!mOpenerForInitialContentBrowser;
-  }
 
   virtual bool IsInSyncOperation() override {
     return GetExtantDoc() && GetExtantDoc()->IsInSyncOperation();
   }
 
   void ParentWindowChanged() {
-    // Reset our storage access flag when we get reparented.
-    mHasStorageAccess = false;
+    // Reset our storage access permission flag when we get reparented.
+    mStorageAccessPermissionGranted = false;
   }
 
  public:
@@ -716,31 +720,6 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
                            mozilla::dom::CallerType aCallerType,
                            mozilla::ErrorResult& aError);
 
-  // Array of idle observers that are notified of idle events.
-  nsTObserverArray<IdleObserverHolder> mIdleObservers;
-
-  // Idle timer used for function callbacks to notify idle observers.
-  nsCOMPtr<nsITimer> mIdleTimer;
-
-  // Idle fuzz time added to idle timer callbacks.
-  uint32_t mIdleFuzzFactor;
-
-  // Index in mArrayIdleObservers
-  // Next idle observer to notify user idle status
-  int32_t mIdleCallbackIndex;
-
-  // If false then the topic is "active"
-  // If true then the topic is "idle"
-  bool mCurrentlyIdle;
-
-  // Set to true when a fuzz time needs to be applied
-  // to active notifications to the idle observer.
-  bool mAddActiveEventFuzzTime;
-
-  nsCOMPtr<nsIIdleService> mIdleService;
-
-  RefPtr<mozilla::dom::WakeLock> mWakeLock;
-
   friend class HashchangeCallback;
   friend class mozilla::dom::BarProp;
 
@@ -754,29 +733,21 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
 
   inline void MaybeClearInnerWindow(nsGlobalWindowInner* aExpectedInner);
 
-  // We need a JSContext to get prototypes inside CallerInnerWindow.
-  nsGlobalWindowInner* CallerInnerWindow(JSContext* aCx);
-
   // Get the parent, returns null if this is a toplevel window
-  nsPIDOMWindowOuter* GetParentInternal();
-
- public:
-  // popup tracking
-  bool IsPopupSpamWindow();
-
-  // Outer windows only.
-  void SetIsPopupSpamWindow(bool aIsPopupSpam);
+  nsPIDOMWindowOuter* GetInProcessParentInternal();
 
  protected:
   // Window Control Functions
 
   // Outer windows only.
-  virtual nsresult OpenNoNavigate(const nsAString& aUrl, const nsAString& aName,
-                                  const nsAString& aOptions,
-                                  nsPIDOMWindowOuter** _retval) override;
+  virtual nsresult OpenNoNavigate(
+      const nsAString& aUrl, const nsAString& aName, const nsAString& aOptions,
+      mozilla::dom::BrowsingContext** _retval) override;
 
  private:
   explicit nsGlobalWindowOuter(uint64_t aWindowID);
+
+  enum class PrintKind : uint8_t { None, InternalPrint, WindowDotPrint };
 
   /**
    * @param aUrl the URL we intend to load into the window.  If aNavigate is
@@ -821,6 +792,9 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
    *                       aOptions, but without affecting any other window
    *                       features.
    *
+   * @param aPrintKind     Whether this is a browser created for printing, and
+   *                       if so for which kind of print.
+   *
    * @param aReturn [out] The window that was opened, if any.  Will be null if
    *                      aForceNoOpener is true of if aOptions contains
    *                      "noopener".
@@ -833,29 +807,18 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
                         bool aDoJSFixups, bool aNavigate, nsIArray* argv,
                         nsISupports* aExtraArgument,
                         nsDocShellLoadState* aLoadState, bool aForceNoOpener,
-                        nsPIDOMWindowOuter** aReturn);
-
-  // Checks that the channel was loaded by the URI currently loaded in aDoc
-  static bool SameLoadingURI(nsIDocument* aDoc, nsIChannel* aChannel);
+                        PrintKind aPrintKind,
+                        mozilla::dom::BrowsingContext** aReturn);
 
  public:
-  // Helper Functions
-  already_AddRefed<nsIDocShellTreeOwner> GetTreeOwner();
-  already_AddRefed<nsIBaseWindow> GetTreeOwnerWindow();
-  already_AddRefed<nsIWebBrowserChrome> GetWebBrowserChrome();
   nsresult SecurityCheckURL(const char* aURL, nsIURI** aURI);
 
-  bool PopupWhitelisted();
   mozilla::dom::PopupBlocker::PopupControlState RevisePopupAbuseLevel(
       mozilla::dom::PopupBlocker::PopupControlState aState);
   void FireAbuseEvents(const nsAString& aPopupURL,
                        const nsAString& aPopupWindowName,
                        const nsAString& aPopupWindowFeatures);
 
- private:
-  void ReportLargeAllocStatus();
-
- public:
   void FlushPendingNotifications(mozilla::FlushType aType);
 
   // Outer windows only.
@@ -869,6 +832,7 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
   // Arguments to this function should have values in app units
   void SetCSSViewportWidthAndHeight(nscoord width, nscoord height);
   // Arguments to this function should have values in device pixels
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY
   nsresult SetDocShellWidthAndHeight(int32_t width, int32_t height);
 
   static bool CanSetProperty(const char* aPrefName);
@@ -877,6 +841,7 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
                                     nsIPrincipal* aSubjectPrincipal);
 
   // Outer windows only.
+  MOZ_CAN_RUN_SCRIPT_BOUNDARY
   bool CanMoveResizeWindows(mozilla::dom::CallerType aCallerType);
 
   // If aDoFlush is true, we'll flush our own layout; otherwise we'll try to
@@ -894,8 +859,7 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
                     mozilla::dom::CallerType aCallerType,
                     mozilla::ErrorResult& aError);
   nsRect GetInnerScreenRect();
-
-  bool IsFrame();
+  static Maybe<mozilla::CSSIntSize> GetRDMDeviceSize(const Document& aDocument);
 
   // Outer windows only.
   // If aLookForCallerOnJSStack is true, this method will look at the JS stack
@@ -909,18 +873,32 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
 
   bool IsInModalState();
 
-  bool HasStorageAccess() const { return mHasStorageAccess; }
-  void SetHasStorageAccess(bool aHasStorageAccess) {
-    mHasStorageAccess = aHasStorageAccess;
+  bool IsStorageAccessPermissionGranted() const {
+    return mStorageAccessPermissionGranted;
+  }
+  void SetStorageAccessPermissionGranted(bool aStorageAccessPermissionGranted) {
+    mStorageAccessPermissionGranted = aStorageAccessPermissionGranted;
   }
 
   // Convenience functions for the many methods that need to scale
-  // from device to CSS pixels or vice versa.  Note: if a presentation
-  // context is not available, they will assume a 1:1 ratio.
+  // from device to CSS pixels.  This computes it with cached scale in
+  // PresContext which may be not recent information of the widget.
+  // Note: if PresContext is not available, they will assume a 1:1 ratio.
   int32_t DevToCSSIntPixels(int32_t px);
-  int32_t CSSToDevIntPixels(int32_t px);
   nsIntSize DevToCSSIntPixels(nsIntSize px);
-  nsIntSize CSSToDevIntPixels(nsIntSize px);
+
+  // Convenience functions for the methods which call methods of nsIBaseWindow
+  // because it takes/returns device pixels.  Unfortunately, mPresContext may
+  // have older scale value for the corresponding widget.  Therefore, these
+  // helper methods convert between CSS pixels and device pixels with aWindow.
+  int32_t DevToCSSIntPixelsForBaseWindow(int32_t aDevicePixels,
+                                         nsIBaseWindow* aWindow);
+  nsIntSize DevToCSSIntPixelsForBaseWindow(nsIntSize aDeviceSize,
+                                           nsIBaseWindow* aWindow);
+  int32_t CSSToDevIntPixelsForBaseWindow(int32_t aCSSPixels,
+                                         nsIBaseWindow* aWindow);
+  nsIntSize CSSToDevIntPixelsForBaseWindow(nsIntSize aCSSSize,
+                                           nsIBaseWindow* aWindow);
 
   virtual void SetFocusedElement(mozilla::dom::Element* aElement,
                                  uint32_t aFocusMethod = 0,
@@ -931,7 +909,6 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
   virtual bool ShouldShowFocusRing() override;
 
   virtual void SetKeyboardIndicators(
-      UIStateChangeType aShowAccelerators,
       UIStateChangeType aShowFocusRings) override;
 
  public:
@@ -965,6 +942,77 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
                            nsIPrincipal& aSubjectPrincipal,
                            mozilla::ErrorResult& aError);
 
+ public:
+  /**
+   * Compute the principal to use for checking against the target principal in a
+   * postMessage call.
+   *
+   * @param aTargetOrigin The value passed as the targetOrigin argument to the
+   * postMessage call.
+   *
+   * @param aTargetOriginURI The origin of the URI contained in aTargetOrigin
+   * (see GatherPostMessageData).
+   *
+   * @param aCallerPrincipal The principal of the incumbent global of the
+   * postMessage call (see GatherPostMessageData).
+   *
+   * @param aSubjectPrincipal The subject principal for the postMessage call.
+   *
+   * @param aProvidedPrincipal [out] The principal to use for checking against
+   * the target's principal.
+   *
+   * @return Whether the postMessage call should continue or return now.
+   */
+  bool GetPrincipalForPostMessage(const nsAString& aTargetOrigin,
+                                  nsIURI* aTargetOriginURI,
+                                  nsIPrincipal* aCallerPrincipal,
+                                  nsIPrincipal& aSubjectPrincipal,
+                                  nsIPrincipal** aProvidedPrincipal);
+
+ private:
+  /**
+   * Gather the necessary data from the caller for a postMessage call.
+   *
+   * @param aCx The JSContext.
+   *
+   * @param aTargetOrigin The value passed as the targetOrigin argument to the
+   * postMessage call.
+   *
+   * @param aSource [out] The browsing context for the incumbent global.
+   *
+   * @param aOrigin [out] The value to use for the origin property of the
+   * MessageEvent object.
+   *
+   * @param aTargetOriginURI [out] The origin of the URI contained in
+   * aTargetOrigin, null if aTargetOrigin is "/" or "*".
+   *
+   * @param aCallerPrincipal [out] The principal of the incumbent global of the
+   *                               postMessage call.
+   *
+   * @param aCallerInnerWindow [out] Inner window of the caller of
+   * postMessage, or null if the incumbent global is not a Window.
+   *
+   * @param aCallerURI [out] The URI of the document of the incumbent
+   * global if it's a Window, null otherwise.
+   *
+   * @param aCallerAgentCluterId [out] If a non-nullptr is passed, it would
+   * return the caller's agent cluster id.
+   *
+   * @param aScriptLocation [out] If we do not have a caller's URI, then
+   * use script location as a sourcename for creating an error object.
+   *
+   * @param aError [out] The error, if any.
+   *
+   * @return Whether the postMessage call should continue or return now.
+   */
+  static bool GatherPostMessageData(
+      JSContext* aCx, const nsAString& aTargetOrigin,
+      mozilla::dom::BrowsingContext** aSource, nsAString& aOrigin,
+      nsIURI** aTargetOriginURI, nsIPrincipal** aCallerPrincipal,
+      nsGlobalWindowInner** aCallerInnerWindow, nsIURI** aCallerURI,
+      Maybe<nsID>* aCallerAgentClusterId, nsACString* aScriptLocation,
+      mozilla::ErrorResult& aError);
+
   // Ask the user if further dialogs should be blocked, if dialogs are currently
   // being abused. This is used in the cases where we have no modifiable UI to
   // show, in that case we show a separate dialog to ask this question.
@@ -979,16 +1027,14 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
   // Called only on outer windows to compute the value that will be returned by
   // IsSecureContext() for the inner window that corresponds to aDocument.
   bool ComputeIsSecureContext(
-      nsIDocument* aDocument,
+      Document* aDocument,
       SecureContextFlags aFlags = SecureContextFlags::eDefault);
 
-  void SetDocShell(nsIDocShell* aDocShell);
+  void SetDocShell(nsDocShell* aDocShell);
 
   // nsPIDOMWindow{Inner,Outer} should be able to see these helper methods.
   friend class nsPIDOMWindowInner;
   friend class nsPIDOMWindowOuter;
-
-  mozilla::dom::TabGroup* TabGroupOuter();
 
   void SetIsBackgroundInternal(bool aIsBackground);
 
@@ -996,7 +1042,21 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
 
   void MaybeAllowStorageForOpenedWindow(nsIURI* aURI);
 
+  bool IsOnlyTopLevelDocumentInSHistory();
+
+  void MaybeResetWindowName(Document* aNewDocument);
+
  public:
+  bool DelayedPrintUntilAfterLoad() const {
+    return mDelayedPrintUntilAfterLoad;
+  }
+
+  bool DelayedCloseForPrinting() const { return mDelayedCloseForPrinting; }
+
+  void StopDelayingPrintingUntilAfterLoad() {
+    mShouldDelayPrintUntilAfterLoad = false;
+  }
+
   // Dispatch a runnable related to the global.
   virtual nsresult Dispatch(mozilla::TaskCategory aCategory,
                             already_AddRefed<nsIRunnable>&& aRunnable) override;
@@ -1007,16 +1067,19 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
   virtual mozilla::AbstractThread* AbstractMainThreadFor(
       mozilla::TaskCategory aCategory) override;
 
+ private:
+  bool IsPopupAllowed();
+
  protected:
   bool mFullscreen : 1;
   bool mFullscreenMode : 1;
+  bool mForceFullScreenInWidget : 1;
   bool mIsClosed : 1;
   bool mInClose : 1;
   // mHavePendingClose means we've got a termination function set to
   // close us when the JS stops executing or that we have a close
   // event posted.  If this is set, just ignore window.close() calls.
   bool mHavePendingClose : 1;
-  bool mHadOriginalOpener : 1;
   bool mIsPopupSpam : 1;
 
   // Indicates whether scripts are allowed to close this window.
@@ -1039,22 +1102,30 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
   bool mTopLevelOuterContentWindow : 1;
 
   // whether storage access has been granted to this frame.
-  bool mHasStorageAccess : 1;
+  bool mStorageAccessPermissionGranted : 1;
+
+  // Whether we've delayed a print until after load.
+  bool mDelayedPrintUntilAfterLoad : 1;
+  // Whether we've delayed a close() operation because there was a pending
+  // print() operation.
+  bool mDelayedCloseForPrinting : 1;
+  // Whether we should delay printing until after load.
+  bool mShouldDelayPrintUntilAfterLoad : 1;
 
   nsCOMPtr<nsIScriptContext> mContext;
-  nsWeakPtr mOpener;
   nsCOMPtr<nsIControllers> mControllers;
 
   // For |window.arguments|, via |openDialog|.
   nsCOMPtr<nsIArray> mArguments;
 
-  RefPtr<nsDOMWindowList> mFrames;
   RefPtr<nsDOMWindowUtils> mWindowUtils;
   nsString mStatus;
 
   RefPtr<mozilla::dom::Storage> mLocalStorage;
 
   nsCOMPtr<nsIPrincipal> mDocumentPrincipal;
+  nsCOMPtr<nsIPrincipal> mDocumentStoragePrincipal;
+  nsCOMPtr<nsIPrincipal> mDocumentPartitionedPrincipal;
 
 #ifdef DEBUG
   uint32_t mSerial;
@@ -1070,13 +1141,7 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
   // document. If we don't (for example, if the outer window is closed before
   // the LeaveModalState call), then the inner window whose mDoc is our
   // mSuspendedDoc is responsible for unsuspending it.
-  nsCOMPtr<nsIDocument> mSuspendedDoc;
-
-#ifdef DEBUG
-  // This member is used in the debug only assertions in TabGroup()
-  // to catch cyclic parent/opener trees and not overflow the stack.
-  bool mIsValidatingTabGroup;
-#endif
+  RefPtr<Document> mSuspendedDoc;
 
   // This is the CC generation the last time we called CanSkip.
   uint32_t mCanSkipCCGeneration;
@@ -1092,7 +1157,7 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
   // All accesses to this field should be guarded by a check of mIsChrome.
   struct ChromeFields {
     nsCOMPtr<nsIBrowserDOMWindow> mBrowserDOMWindow;
-    // A weak pointer to the nsPresShell that we are doing fullscreen for.
+    // A weak pointer to the PresShell that we are doing fullscreen for.
     // The pointer being set indicates we've set the IsInFullscreenChange
     // flag on this pres shell.
     nsWeakPtr mFullscreenPresShell;
@@ -1100,10 +1165,10 @@ class nsGlobalWindowOuter final : public mozilla::dom::EventTarget,
 
   friend class nsDOMScriptableHelper;
   friend class nsDOMWindowUtils;
+  friend class mozilla::dom::BrowsingContext;
   friend class mozilla::dom::PostMessageEvent;
   friend class DesktopNotification;
   friend class mozilla::dom::TimeoutManager;
-  friend class IdleRequestExecutor;
   friend class nsGlobalWindowInner;
 };
 
@@ -1122,25 +1187,22 @@ inline nsIGlobalObject* nsGlobalWindowOuter::GetOwnerGlobal() const {
   return GetCurrentInnerWindowInternal();
 }
 
-inline nsGlobalWindowOuter* nsGlobalWindowOuter::GetTopInternal() {
-  nsCOMPtr<nsPIDOMWindowOuter> top = GetTop();
+inline nsGlobalWindowOuter* nsGlobalWindowOuter::GetInProcessTopInternal() {
+  nsCOMPtr<nsPIDOMWindowOuter> top = GetInProcessTop();
   if (top) {
     return nsGlobalWindowOuter::Cast(top);
   }
   return nullptr;
 }
 
-inline nsGlobalWindowOuter* nsGlobalWindowOuter::GetScriptableTopInternal() {
-  nsPIDOMWindowOuter* top = GetScriptableTop();
+inline nsGlobalWindowOuter*
+nsGlobalWindowOuter::GetInProcessScriptableTopInternal() {
+  nsPIDOMWindowOuter* top = GetInProcessScriptableTop();
   return nsGlobalWindowOuter::Cast(top);
 }
 
 inline nsIScriptContext* nsGlobalWindowOuter::GetContextInternal() {
   return mContext;
-}
-
-inline nsGlobalWindowOuter* nsGlobalWindowOuter::GetOuterWindowInternal() {
-  return nsGlobalWindowOuter::Cast(GetOuterWindow());
 }
 
 inline nsGlobalWindowInner* nsGlobalWindowOuter::GetCurrentInnerWindowInternal()
@@ -1149,23 +1211,12 @@ inline nsGlobalWindowInner* nsGlobalWindowOuter::GetCurrentInnerWindowInternal()
 }
 
 inline nsGlobalWindowInner* nsGlobalWindowOuter::EnsureInnerWindowInternal() {
-  return nsGlobalWindowInner::Cast(AsOuter()->EnsureInnerWindow());
-}
-
-inline bool nsGlobalWindowOuter::IsTopLevelWindow() {
-  nsPIDOMWindowOuter* parentWindow = GetScriptableTop();
-  return parentWindow == this->AsOuter();
-}
-
-inline bool nsGlobalWindowOuter::IsPopupSpamWindow() { return mIsPopupSpam; }
-
-inline bool nsGlobalWindowOuter::IsFrame() {
-  return GetParentInternal() != nullptr;
+  return nsGlobalWindowInner::Cast(EnsureInnerWindow());
 }
 
 inline void nsGlobalWindowOuter::MaybeClearInnerWindow(
     nsGlobalWindowInner* aExpectedInner) {
-  if (mInnerWindow == aExpectedInner->AsInner()) {
+  if (mInnerWindow == aExpectedInner) {
     mInnerWindow = nullptr;
   }
 }

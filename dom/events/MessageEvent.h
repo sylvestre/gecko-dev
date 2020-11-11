@@ -7,13 +7,22 @@
 #ifndef mozilla_dom_MessageEvent_h_
 #define mozilla_dom_MessageEvent_h_
 
+#include "js/RootingAPI.h"
+#include "js/Value.h"
+#include "mozilla/AlreadyAddRefed.h"
+#include "mozilla/Assertions.h"
+#include "mozilla/BasicEvents.h"
+#include "mozilla/RefPtr.h"
 #include "mozilla/dom/Event.h"
-#include "mozilla/dom/BindingUtils.h"
 #include "nsCycleCollectionParticipant.h"
+#include "nsISupports.h"
+#include "nsStringFwd.h"
+#include "nsTArray.h"
 
 namespace mozilla {
 namespace dom {
 
+class BrowsingContext;
 struct MessageEventInit;
 class MessagePort;
 class OwningWindowProxyOrMessagePortOrServiceWorker;
@@ -49,7 +58,7 @@ class MessageEvent final : public Event {
 
   static already_AddRefed<MessageEvent> Constructor(
       const GlobalObject& aGlobal, const nsAString& aType,
-      const MessageEventInit& aEventInit, ErrorResult& aRv);
+      const MessageEventInit& aEventInit);
 
   static already_AddRefed<MessageEvent> Constructor(
       EventTarget* aEventTarget, const nsAString& aType,
@@ -80,7 +89,7 @@ class MessageEvent final : public Event {
   JS::Heap<JS::Value> mData;
   nsString mOrigin;
   nsString mLastEventId;
-  RefPtr<nsPIDOMWindowOuter> mWindowSource;
+  RefPtr<BrowsingContext> mWindowSource;
   RefPtr<MessagePort> mPortSource;
   RefPtr<ServiceWorker> mServiceWorkerSource;
 

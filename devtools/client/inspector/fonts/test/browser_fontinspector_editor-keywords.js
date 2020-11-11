@@ -1,4 +1,3 @@
-/* vim: set ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
    http://creativecommons.org/publicdomain/zero/1.0/ */
 /* global getPropertyValue */
@@ -20,14 +19,26 @@ add_task(async function() {
 async function testKeywordValues(inspector, viewDoc) {
   await selectNode(".bold-text", inspector);
 
-  info("Check font-weight shows its computed style instead of the bold keyword value.");
+  info(
+    "Check font-weight shows its computed style instead of the bold keyword value."
+  );
   const fontWeight = getPropertyValue(viewDoc, "font-weight");
   isnot(fontWeight.value, "bold", "Font weight is not shown as keyword");
-  is(fontWeight.value, "700", "Font weight is shown as computed style");
+  is(
+    parseInt(fontWeight.value, 10),
+    700,
+    "Font weight is shown as computed style"
+  );
 
-  info("Check font-size shows its computed style instead of the inherit keyword value.");
+  info(
+    "Check font-size shows its computed style instead of the inherit keyword value."
+  );
   const fontSize = getPropertyValue(viewDoc, "font-size");
   isnot(fontSize.unit, "inherit", "Font size unit is not shown as keyword");
   is(fontSize.unit, "px", "Font size unit is shown as computed style");
-  is(fontSize.value + fontSize.unit, "36px", "Font size is read as computed style");
+  is(
+    fontSize.value + fontSize.unit,
+    "36px",
+    "Font size is read as computed style"
+  );
 }

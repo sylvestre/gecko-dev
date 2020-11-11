@@ -9,6 +9,8 @@
 
 #include "jit/mips32/MacroAssembler-mips32.h"
 
+#include "vm/BigIntType.h"  // JS::BigInt
+
 #include "jit/mips-shared/MacroAssembler-mips-shared-inl.h"
 
 namespace js {
@@ -64,6 +66,17 @@ void MacroAssembler::move32To64SignExtend(Register src, Register64 dest) {
     move32(src, dest.low);
   }
   ma_sra(dest.high, dest.low, Imm32(31));
+}
+
+void MacroAssembler::move32ZeroExtendToPtr(Register src, Register dest) {
+  move32(src, dest);
+}
+
+// ===============================================================
+// Load instructions
+
+void MacroAssembler::load32SignExtendToPtr(const Address& src, Register dest) {
+  load32(src, dest);
 }
 
 // ===============================================================
@@ -122,6 +135,19 @@ void MacroAssembler::xor64(Register64 src, Register64 dest) {
 void MacroAssembler::xorPtr(Register src, Register dest) { ma_xor(dest, src); }
 
 void MacroAssembler::xorPtr(Imm32 imm, Register dest) { ma_xor(dest, imm); }
+
+// ===============================================================
+// Swap instructions
+
+void MacroAssembler::byteSwap64(Register64 reg) {
+  byteSwap32(reg.high);
+  byteSwap32(reg.low);
+
+  // swap reg.high and reg.low.
+  ma_xor(reg.high, reg.low);
+  ma_xor(reg.low, reg.high);
+  ma_xor(reg.high, reg.low);
+}
 
 // ===============================================================
 // Arithmetic functions
@@ -300,6 +326,8 @@ void MacroAssembler::neg64(Register64 reg) {
   as_subu(reg.high, zero, reg.high);
   as_subu(reg.high, reg.high, ScratchRegister);
 }
+
+void MacroAssembler::negPtr(Register reg) { as_subu(reg, zero, reg); }
 
 void MacroAssembler::mulBy3(Register src, Register dest) {
   MOZ_ASSERT(src != ScratchRegister);
@@ -812,6 +840,26 @@ void MacroAssembler::branchTestStringTruthy(bool b, const ValueOperand& value,
 void MacroAssembler::branchTestSymbol(Condition cond, const ValueOperand& value,
                                       Label* label) {
   branchTestSymbol(cond, value.typeReg(), label);
+}
+
+void MacroAssembler::branchTestBigInt(Condition cond, const BaseIndex& address,
+                                      Label* label) {
+  SecondScratchRegisterScope scratch2(*this);
+  Register tag = extractTag(address, scratch2);
+  branchTestBigInt(cond, tag, label);
+}
+
+void MacroAssembler::branchTestBigInt(Condition cond, const ValueOperand& value,
+                                      Label* label) {
+  branchTestBigInt(cond, value.typeReg(), label);
+}
+
+void MacroAssembler::branchTestBigIntTruthy(bool b, const ValueOperand& value,
+                                            Label* label) {
+  Register bi = value.payloadReg();
+  SecondScratchRegisterScope scratch2(*this);
+  ma_lw(scratch2, Address(bi, BigInt::offsetOfDigitLength()));
+  ma_b(scratch2, Imm32(0), label, b ? NotEqual : Equal);
 }
 
 void MacroAssembler::branchTestNull(Condition cond, const ValueOperand& value,

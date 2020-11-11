@@ -1,4 +1,3 @@
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -11,7 +10,7 @@ const TEST_URI = "<div>Test Element</div>";
 
 add_task(async function() {
   await addTab("data:text/html;charset=utf-8," + encodeURIComponent(TEST_URI));
-  const {inspector, view} = await openRuleView();
+  const { inspector, view } = await openRuleView();
   await selectNode("div", inspector);
 
   const ruleEditor = getRuleViewRuleEditor(view, 0);
@@ -20,28 +19,54 @@ add_task(async function() {
   // (we also wait for the rule-view to refresh).
   const onMutation = inspector.once("markupmutation");
   const onRuleViewChanged = view.once("ruleview-changed");
-  await createNewRuleViewProperty(ruleEditor,
-    "color:red;width:100px;height: 100px;");
+  await createNewRuleViewProperty(
+    ruleEditor,
+    "color:red;width:100px;height: 100px;"
+  );
   await onMutation;
   await onRuleViewChanged;
 
-  is(ruleEditor.rule.textProps.length, 3,
-    "Should have created new text properties.");
-  is(ruleEditor.propertyList.children.length, 4,
-    "Should have created new property editors.");
+  is(
+    ruleEditor.rule.textProps.length,
+    3,
+    "Should have created new text properties."
+  );
+  is(
+    ruleEditor.propertyList.children.length,
+    4,
+    "Should have created new property editors."
+  );
 
-  is(ruleEditor.rule.textProps[0].name, "color",
-    "Should have correct property name");
-  is(ruleEditor.rule.textProps[0].value, "red",
-    "Should have correct property value");
+  is(
+    getTextProperty(view, 0, { color: "red" }).name,
+    "color",
+    "Should have correct property name"
+  );
+  is(
+    getTextProperty(view, 0, { color: "red" }).value,
+    "red",
+    "Should have correct property value"
+  );
 
-  is(ruleEditor.rule.textProps[1].name, "width",
-    "Should have correct property name");
-  is(ruleEditor.rule.textProps[1].value, "100px",
-    "Should have correct property value");
+  is(
+    getTextProperty(view, 0, { width: "100px" }).name,
+    "width",
+    "Should have correct property name"
+  );
+  is(
+    getTextProperty(view, 0, { width: "100px" }).value,
+    "100px",
+    "Should have correct property value"
+  );
 
-  is(ruleEditor.rule.textProps[2].name, "height",
-    "Should have correct property name");
-  is(ruleEditor.rule.textProps[2].value, "100px",
-    "Should have correct property value");
+  is(
+    getTextProperty(view, 0, { height: "100px" }).name,
+    "height",
+    "Should have correct property name"
+  );
+  is(
+    getTextProperty(view, 0, { height: "100px" }).value,
+    "100px",
+    "Should have correct property value"
+  );
 });

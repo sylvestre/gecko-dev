@@ -5,8 +5,29 @@
 "use strict";
 
 const {
+  START_WORKER,
+  UNREGISTER_WORKER,
+  UPDATE_CAN_DEBUG_WORKERS,
   UPDATE_WORKERS,
-} = require("../constants");
+} = require("devtools/client/application/src/constants");
+
+function startWorker(worker) {
+  const { registrationFront } = worker;
+  registrationFront.start();
+
+  return {
+    type: START_WORKER,
+  };
+}
+
+function unregisterWorker(registration) {
+  const { registrationFront } = registration;
+  registrationFront.unregister();
+
+  return {
+    type: UNREGISTER_WORKER,
+  };
+}
 
 function updateWorkers(workers) {
   return {
@@ -15,6 +36,16 @@ function updateWorkers(workers) {
   };
 }
 
+function updateCanDebugWorkers(canDebugWorkers) {
+  return {
+    type: UPDATE_CAN_DEBUG_WORKERS,
+    canDebugWorkers,
+  };
+}
+
 module.exports = {
+  startWorker,
+  unregisterWorker,
+  updateCanDebugWorkers,
   updateWorkers,
 };

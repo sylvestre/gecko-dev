@@ -25,11 +25,13 @@ namespace js {
  * All values except ropes are hashable as-is.
  */
 class HashableValue {
+  // This is used for map and set keys. We use OrderedHashTableRef to update all
+  // nursery keys on minor GC, so a post barrier is not required here.
   PreBarrieredValue value;
 
  public:
   struct Hasher {
-    typedef HashableValue Lookup;
+    using Lookup = HashableValue;
     static HashNumber hash(const Lookup& v,
                            const mozilla::HashCodeScrambler& hcs) {
       return v.hash(hcs);
@@ -54,6 +56,9 @@ class HashableValue {
   Value get() const { return value.get(); }
 
   void trace(JSTracer* trc) { TraceEdge(trc, &value, "HashableValue"); }
+
+  // Clear the value without invoking the pre-barrier.
+  void unbarrieredClear() { value.unbarrieredSet(UndefinedValue()); }
 };
 
 template <typename Wrapper>
@@ -103,15 +108,14 @@ class MapObject : public NativeObject {
       "IteratorKind Entries must match self-hosting define for item kind "
       "key-and-value.");
 
-  static const Class class_;
-  static const Class protoClass_;
+  static const JSClass class_;
+  static const JSClass protoClass_;
 
   enum { NurseryKeysSlot, HasNurseryMemorySlot, SlotCount };
 
   static MOZ_MUST_USE bool getKeysAndValuesInterleaved(
       HandleObject obj, JS::MutableHandle<GCVector<JS::Value>> entries);
   static MOZ_MUST_USE bool entries(JSContext* cx, unsigned argc, Value* vp);
-  static MOZ_MUST_USE bool has(JSContext* cx, unsigned argc, Value* vp);
   static MapObject* create(JSContext* cx, HandleObject proto = nullptr);
 
   // Publicly exposed Map calls for JSAPI access (webidl maplike/setlike
@@ -137,20 +141,23 @@ class MapObject : public NativeObject {
       OrderedHashMap<Value, Value, UnbarrieredHashPolicy, ZoneAllocPolicy>;
   friend class OrderedHashTableRef<MapObject>;
 
-  static void sweepAfterMinorGC(FreeOp* fop, MapObject* mapobj);
+  static void sweepAfterMinorGC(JSFreeOp* fop, MapObject* mapobj);
 
  private:
   static const ClassSpec classSpec_;
-  static const ClassOps classOps_;
+  static const JSClassOps classOps_;
 
   static const JSPropertySpec properties[];
   static const JSFunctionSpec methods[];
   static const JSPropertySpec staticProperties[];
+
+  static bool finishInit(JSContext* cx, HandleObject ctor, HandleObject proto);
+
   ValueMap* getData() { return static_cast<ValueMap*>(getPrivate()); }
   static ValueMap& extract(HandleObject o);
   static ValueMap& extract(const CallArgs& args);
   static void trace(JSTracer* trc, JSObject* obj);
-  static void finalize(FreeOp* fop, JSObject* obj);
+  static void finalize(JSFreeOp* fop, JSObject* obj);
   static MOZ_MUST_USE bool construct(JSContext* cx, unsigned argc, Value* vp);
 
   static bool is(HandleValue v);
@@ -164,6 +171,7 @@ class MapObject : public NativeObject {
   static MOZ_MUST_USE bool get_impl(JSContext* cx, const CallArgs& args);
   static MOZ_MUST_USE bool get(JSContext* cx, unsigned argc, Value* vp);
   static MOZ_MUST_USE bool has_impl(JSContext* cx, const CallArgs& args);
+  static MOZ_MUST_USE bool has(JSContext* cx, unsigned argc, Value* vp);
   static MOZ_MUST_USE bool set_impl(JSContext* cx, const CallArgs& args);
   static MOZ_MUST_USE bool set(JSContext* cx, unsigned argc, Value* vp);
   static MOZ_MUST_USE bool delete_impl(JSContext* cx, const CallArgs& args);
@@ -179,7 +187,7 @@ class MapObject : public NativeObject {
 
 class MapIteratorObject : public NativeObject {
  public:
-  static const Class class_;
+  static const JSClass class_;
 
   enum { TargetSlot, RangeSlot, KindSlot, SlotCount };
 
@@ -196,11 +204,17 @@ class MapIteratorObject : public NativeObject {
   static MapIteratorObject* create(JSContext* cx, HandleObject mapobj,
                                    ValueMap* data,
                                    MapObject::IteratorKind kind);
-  static void finalize(FreeOp* fop, JSObject* obj);
+  static void finalize(JSFreeOp* fop, JSObject* obj);
   static size_t objectMoved(JSObject* obj, JSObject* old);
 
-  static MOZ_MUST_USE bool next(Handle<MapIteratorObject*> mapIterator,
-                                HandleArrayObject resultPairObj, JSContext* cx);
+  void init(MapObject* mapObj, MapObject::IteratorKind kind) {
+    initFixedSlot(TargetSlot, JS::ObjectValue(*mapObj));
+    initFixedSlot(RangeSlot, JS::PrivateValue(nullptr));
+    initFixedSlot(KindSlot, JS::Int32Value(int32_t(kind)));
+  }
+
+  static MOZ_MUST_USE bool next(MapIteratorObject* mapIterator,
+                                ArrayObject* resultPairObj);
 
   static JSObject* createResultPair(JSContext* cx);
 
@@ -223,8 +237,8 @@ class SetObject : public NativeObject {
       "IteratorKind Entries must match self-hosting define for item kind "
       "key-and-value.");
 
-  static const Class class_;
-  static const Class protoClass_;
+  static const JSClass class_;
+  static const JSClass protoClass_;
 
   enum { NurseryKeysSlot, HasNurseryMemorySlot, SlotCount };
 
@@ -233,7 +247,6 @@ class SetObject : public NativeObject {
   static MOZ_MUST_USE bool values(JSContext* cx, unsigned argc, Value* vp);
   static MOZ_MUST_USE bool add(JSContext* cx, HandleObject obj,
                                HandleValue key);
-  static MOZ_MUST_USE bool has(JSContext* cx, unsigned argc, Value* vp);
 
   // Publicly exposed Set calls for JSAPI access (webidl maplike/setlike
   // interfaces, etc.)
@@ -251,21 +264,23 @@ class SetObject : public NativeObject {
       OrderedHashSet<Value, UnbarrieredHashPolicy, ZoneAllocPolicy>;
   friend class OrderedHashTableRef<SetObject>;
 
-  static void sweepAfterMinorGC(FreeOp* fop, SetObject* setobj);
+  static void sweepAfterMinorGC(JSFreeOp* fop, SetObject* setobj);
 
  private:
   static const ClassSpec classSpec_;
-  static const ClassOps classOps_;
+  static const JSClassOps classOps_;
 
   static const JSPropertySpec properties[];
   static const JSFunctionSpec methods[];
   static const JSPropertySpec staticProperties[];
 
+  static bool finishInit(JSContext* cx, HandleObject ctor, HandleObject proto);
+
   ValueSet* getData() { return static_cast<ValueSet*>(getPrivate()); }
   static ValueSet& extract(HandleObject o);
   static ValueSet& extract(const CallArgs& args);
   static void trace(JSTracer* trc, JSObject* obj);
-  static void finalize(FreeOp* fop, JSObject* obj);
+  static void finalize(JSFreeOp* fop, JSObject* obj);
   static bool construct(JSContext* cx, unsigned argc, Value* vp);
 
   static bool is(HandleValue v);
@@ -279,6 +294,7 @@ class SetObject : public NativeObject {
   static MOZ_MUST_USE bool size_impl(JSContext* cx, const CallArgs& args);
   static MOZ_MUST_USE bool size(JSContext* cx, unsigned argc, Value* vp);
   static MOZ_MUST_USE bool has_impl(JSContext* cx, const CallArgs& args);
+  static MOZ_MUST_USE bool has(JSContext* cx, unsigned argc, Value* vp);
   static MOZ_MUST_USE bool add_impl(JSContext* cx, const CallArgs& args);
   static MOZ_MUST_USE bool add(JSContext* cx, unsigned argc, Value* vp);
   static MOZ_MUST_USE bool delete_impl(JSContext* cx, const CallArgs& args);
@@ -292,7 +308,7 @@ class SetObject : public NativeObject {
 
 class SetIteratorObject : public NativeObject {
  public:
-  static const Class class_;
+  static const JSClass class_;
 
   enum { TargetSlot, RangeSlot, KindSlot, SlotCount };
 
@@ -309,11 +325,17 @@ class SetIteratorObject : public NativeObject {
   static SetIteratorObject* create(JSContext* cx, HandleObject setobj,
                                    ValueSet* data,
                                    SetObject::IteratorKind kind);
-  static void finalize(FreeOp* fop, JSObject* obj);
+  static void finalize(JSFreeOp* fop, JSObject* obj);
   static size_t objectMoved(JSObject* obj, JSObject* old);
 
-  static MOZ_MUST_USE bool next(Handle<SetIteratorObject*> setIterator,
-                                HandleArrayObject resultObj, JSContext* cx);
+  void init(SetObject* setObj, SetObject::IteratorKind kind) {
+    initFixedSlot(TargetSlot, JS::ObjectValue(*setObj));
+    initFixedSlot(RangeSlot, JS::PrivateValue(nullptr));
+    initFixedSlot(KindSlot, JS::Int32Value(int32_t(kind)));
+  }
+
+  static MOZ_MUST_USE bool next(SetIteratorObject* setIterator,
+                                ArrayObject* resultObj);
 
   static JSObject* createResult(JSContext* cx);
 

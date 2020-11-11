@@ -4,30 +4,38 @@
 
 "use strict";
 
-const { createFactory, PureComponent } = require("devtools/client/shared/vendor/react");
+const {
+  createFactory,
+  PureComponent,
+} = require("devtools/client/shared/vendor/react");
 const PropTypes = require("devtools/client/shared/vendor/react-prop-types");
 
-const SidebarToggle = createFactory(require("devtools/client/shared/components/SidebarToggle"));
-const Tabs = createFactory(require("devtools/client/shared/components/tabs/Tabs").Tabs);
+const SidebarToggle = createFactory(
+  require("devtools/client/shared/components/SidebarToggle")
+);
+const Tabs = createFactory(
+  require("devtools/client/shared/components/tabs/Tabs").Tabs
+);
 
 class Sidebar extends PureComponent {
   static get propTypes() {
     return {
-      children: PropTypes.oneOfType([
-        PropTypes.array,
-        PropTypes.element,
-      ]).isRequired,
+      children: PropTypes.oneOfType([PropTypes.array, PropTypes.element])
+        .isRequired,
       onAfterChange: PropTypes.func,
       onAllTabsMenuClick: PropTypes.func,
       renderOnlySelected: PropTypes.bool,
       showAllTabsMenu: PropTypes.bool,
+      allTabsMenuButtonTooltip: PropTypes.string,
       sidebarToggleButton: PropTypes.shape({
         collapsed: PropTypes.bool.isRequired,
         collapsePaneTitle: PropTypes.string.isRequired,
         expandPaneTitle: PropTypes.string.isRequired,
         onClick: PropTypes.func.isRequired,
+        alignRight: PropTypes.bool,
+        canVerticalSplit: PropTypes.bool,
       }),
-      tabActive: PropTypes.number,
+      activeTab: PropTypes.number,
     };
   }
 
@@ -46,16 +54,18 @@ class Sidebar extends PureComponent {
       collapsePaneTitle,
       expandPaneTitle,
       onClick,
+      alignRight,
+      canVerticalSplit,
     } = this.props.sidebarToggleButton;
 
-    return (
-      SidebarToggle({
-        collapsed,
-        collapsePaneTitle,
-        expandPaneTitle,
-        onClick,
-      })
-    );
+    return SidebarToggle({
+      collapsed,
+      collapsePaneTitle,
+      expandPaneTitle,
+      onClick,
+      alignRight,
+      canVerticalSplit,
+    });
   }
 
   render() {
@@ -66,20 +76,21 @@ class Sidebar extends PureComponent {
       onAllTabsMenuClick,
       renderOnlySelected,
       showAllTabsMenu,
-      tabActive,
+      allTabsMenuButtonTooltip,
+      activeTab,
     } = this.props;
 
-    return (
-      Tabs({
+    return Tabs(
+      {
         onAfterChange,
         onAllTabsMenuClick,
         renderOnlySelected,
         renderSidebarToggle,
         showAllTabsMenu,
-        tabActive,
+        allTabsMenuButtonTooltip,
+        activeTab,
       },
-        children
-      )
+      children
     );
   }
 }

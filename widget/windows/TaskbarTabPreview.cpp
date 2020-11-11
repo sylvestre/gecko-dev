@@ -18,18 +18,15 @@ namespace widget {
 
 NS_IMPL_ISUPPORTS(TaskbarTabPreview, nsITaskbarTabPreview)
 
-const wchar_t *const kWindowClass = L"MozillaTaskbarPreviewClass";
+const wchar_t* const kWindowClass = L"MozillaTaskbarPreviewClass";
 
-TaskbarTabPreview::TaskbarTabPreview(ITaskbarList4 *aTaskbar,
-                                     nsITaskbarPreviewController *aController,
-                                     HWND aHWND, nsIDocShell *aShell)
+TaskbarTabPreview::TaskbarTabPreview(ITaskbarList4* aTaskbar,
+                                     nsITaskbarPreviewController* aController,
+                                     HWND aHWND, nsIDocShell* aShell)
     : TaskbarPreview(aTaskbar, aController, aHWND, aShell),
       mProxyWindow(nullptr),
       mIcon(nullptr),
-      mRegistered(false) {
-  WindowHook &hook = GetWindowHook();
-  hook.AddMonitor(WM_WINDOWPOSCHANGED, MainWindowHook, this);
-}
+      mRegistered(false) {}
 
 TaskbarTabPreview::~TaskbarTabPreview() {
   if (mIcon) {
@@ -49,6 +46,20 @@ TaskbarTabPreview::~TaskbarTabPreview() {
   }
 }
 
+nsresult TaskbarTabPreview::Init() {
+  nsresult rv = TaskbarPreview::Init();
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
+
+  WindowHook* hook = GetWindowHook();
+  if (!hook) {
+    return NS_ERROR_NOT_AVAILABLE;
+  }
+
+  return hook->AddMonitor(WM_WINDOWPOSCHANGED, MainWindowHook, this);
+}
+
 nsresult TaskbarTabPreview::ShowActive(bool active) {
   NS_ASSERTION(mVisible && CanMakeTaskbarCalls(),
                "ShowActive called on invisible window or before taskbar calls "
@@ -59,7 +70,7 @@ nsresult TaskbarTabPreview::ShowActive(bool active) {
              : NS_OK;
 }
 
-HWND &TaskbarTabPreview::PreviewWindow() { return mProxyWindow; }
+HWND& TaskbarTabPreview::PreviewWindow() { return mProxyWindow; }
 
 nativeWindow TaskbarTabPreview::GetHWND() { return mProxyWindow; }
 
@@ -71,25 +82,25 @@ void TaskbarTabPreview::EnsureRegistration() {
 }
 
 NS_IMETHODIMP
-TaskbarTabPreview::GetTitle(nsAString &aTitle) {
+TaskbarTabPreview::GetTitle(nsAString& aTitle) {
   aTitle = mTitle;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-TaskbarTabPreview::SetTitle(const nsAString &aTitle) {
+TaskbarTabPreview::SetTitle(const nsAString& aTitle) {
   mTitle = aTitle;
   return mVisible ? UpdateTitle() : NS_OK;
 }
 
 NS_IMETHODIMP
-TaskbarTabPreview::SetIcon(imgIContainer *icon) {
+TaskbarTabPreview::SetIcon(imgIContainer* icon) {
   HICON hIcon = nullptr;
   if (icon) {
     nsresult rv;
     rv = nsWindowGfx::CreateIcon(
-        icon, false, 0, 0, nsWindowGfx::GetIconMetrics(nsWindowGfx::kSmallIcon),
-        &hIcon);
+        icon, false, LayoutDeviceIntPoint(),
+        nsWindowGfx::GetIconMetrics(nsWindowGfx::kSmallIcon), &hIcon);
     NS_ENSURE_SUCCESS(rv, rv);
   }
 
@@ -100,13 +111,13 @@ TaskbarTabPreview::SetIcon(imgIContainer *icon) {
 }
 
 NS_IMETHODIMP
-TaskbarTabPreview::GetIcon(imgIContainer **icon) {
+TaskbarTabPreview::GetIcon(imgIContainer** icon) {
   NS_IF_ADDREF(*icon = mIconImage);
   return NS_OK;
 }
 
 NS_IMETHODIMP
-TaskbarTabPreview::Move(nsITaskbarTabPreview *aNext) {
+TaskbarTabPreview::Move(nsITaskbarTabPreview* aNext) {
   if (aNext == this) return NS_ERROR_INVALID_ARG;
   mNext = aNext;
   return CanMakeTaskbarCalls() ? UpdateNext() : NS_OK;
@@ -142,9 +153,9 @@ TaskbarTabPreview::WndProc(UINT nMsg, WPARAM wParam, LPARAM lParam) {
         bool activateWindow;
         nsresult rv = mController->OnActivate(&activateWindow);
         if (NS_SUCCEEDED(rv) && activateWindow) {
-          nsWindow *win = WinUtils::GetNSWindowPtr(mWnd);
+          nsWindow* win = WinUtils::GetNSWindowPtr(mWnd);
           if (win) {
-            nsWindow *parent = win->GetTopLevelWindow(true);
+            nsWindow* parent = win->GetTopLevelWindow(true);
             if (parent) {
               parent->Show(true);
             }
@@ -183,15 +194,15 @@ TaskbarTabPreview::WndProc(UINT nMsg, WPARAM wParam, LPARAM lParam) {
 LRESULT CALLBACK TaskbarTabPreview::GlobalWndProc(HWND hWnd, UINT nMsg,
                                                   WPARAM wParam,
                                                   LPARAM lParam) {
-  TaskbarTabPreview *preview(nullptr);
+  TaskbarTabPreview* preview(nullptr);
   if (nMsg == WM_CREATE) {
-    CREATESTRUCT *cs = reinterpret_cast<CREATESTRUCT *>(lParam);
-    preview = reinterpret_cast<TaskbarTabPreview *>(cs->lpCreateParams);
+    CREATESTRUCT* cs = reinterpret_cast<CREATESTRUCT*>(lParam);
+    preview = reinterpret_cast<TaskbarTabPreview*>(cs->lpCreateParams);
     if (!::SetPropW(hWnd, TASKBARPREVIEW_HWNDID, preview))
       NS_ERROR("Could not associate native window with tab preview");
     preview->mProxyWindow = hWnd;
   } else {
-    preview = reinterpret_cast<TaskbarTabPreview *>(
+    preview = reinterpret_cast<TaskbarTabPreview*>(
         ::GetPropW(hWnd, TASKBARPREVIEW_HWNDID));
     if (nMsg == WM_DESTROY) ::RemovePropW(hWnd, TASKBARPREVIEW_HWNDID);
   }
@@ -253,20 +264,19 @@ nsresult TaskbarTabPreview::Disable() {
 
 void TaskbarTabPreview::DetachFromNSWindow() {
   (void)SetVisible(false);
-  WindowHook &hook = GetWindowHook();
-  hook.RemoveMonitor(WM_WINDOWPOSCHANGED, MainWindowHook, this);
-
+  if (WindowHook* hook = GetWindowHook()) {
+    hook->RemoveMonitor(WM_WINDOWPOSCHANGED, MainWindowHook, this);
+  }
   TaskbarPreview::DetachFromNSWindow();
 }
 
 /* static */
-bool TaskbarTabPreview::MainWindowHook(void *aContext, HWND hWnd, UINT nMsg,
+bool TaskbarTabPreview::MainWindowHook(void* aContext, HWND hWnd, UINT nMsg,
                                        WPARAM wParam, LPARAM lParam,
-                                       LRESULT *aResult) {
+                                       LRESULT* aResult) {
   if (nMsg == WM_WINDOWPOSCHANGED) {
-    TaskbarTabPreview *preview =
-        reinterpret_cast<TaskbarTabPreview *>(aContext);
-    WINDOWPOS *pos = reinterpret_cast<WINDOWPOS *>(lParam);
+    TaskbarTabPreview* preview = reinterpret_cast<TaskbarTabPreview*>(aContext);
+    WINDOWPOS* pos = reinterpret_cast<WINDOWPOS*>(lParam);
     if (SWP_FRAMECHANGED == (pos->flags & SWP_FRAMECHANGED))
       preview->UpdateProxyWindowStyle();
   } else {

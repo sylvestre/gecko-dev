@@ -1,4 +1,3 @@
-/* vim: set ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -15,7 +14,7 @@ const TEST_NODE = "#test";
 const MIN_DISTANCE = 10;
 
 add_task(async function() {
-  const {inspector} = await openInspectorForURL(TEST_URL);
+  const { inspector } = await openInspectorForURL(TEST_URL);
 
   info("Drag the test node by half of the minimum distance");
   await simulateNodeDrag(inspector, TEST_NODE, 0, MIN_DISTANCE / 2);

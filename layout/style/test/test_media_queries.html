@@ -5,7 +5,7 @@ https://bugzilla.mozilla.org/show_bug.cgi?id=156716
 -->
 <head>
   <title>Test for Bug 156716</title>
-  <script type="text/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css" />
 </head>
 <body onload="run()">
@@ -40,7 +40,7 @@ function run() {
 
   function query_applies(q) {
     style.setAttribute("media", q);
-    return body_cs.getPropertyValue("text-decoration") == "underline";
+    return body_cs.getPropertyValue("text-decoration-line") == "underline";
   }
 
   function should_apply(q) {
@@ -137,7 +137,7 @@ function run() {
     expression_should_not_be_parseable(max_name);
   }
 
-  function test_serialization(q, test_application, should_apply) {
+  function test_serialization(q, test_application, expected_to_apply) {
     style.setAttribute("media", q);
     var ser1 = style.sheet.media.mediaText;
     isnot(ser1, "", "serialization of '" + q + "' should not be empty");
@@ -145,9 +145,10 @@ function run() {
     var ser2 = style.sheet.media.mediaText;
     is(ser2, ser1, "parse+serialize of '" + q + "' should be idempotent");
     if (test_application) {
-      var applies = body_cs.getPropertyValue("text-decoration") == "underline";
-      is(applies, should_apply,
-         "Media query '" + q + "' should " + (should_apply ? "" : "NOT ") +
+      let applies = body_cs.getPropertyValue("text-decoration-line") ==
+                    "underline";
+      is(applies, expected_to_apply,
+         "Media query '" + q + "' should " + (expected_to_apply ? "" : "NOT ") +
          "apply after serialize + reparse");
     }
 
@@ -156,11 +157,9 @@ function run() {
     var sheeturl = "data:text/css," + escape(sheet);
     var link = "<link rel='stylesheet' href='" + sheeturl + "'>";
     var htmldoc = "<!DOCTYPE HTML>" + link + link  + "<body>";
-    var docurl = "data:text/html," + escape(htmldoc);
-    post_clone_test(docurl, function() {
-      var wrappedFrame = SpecialPowers.wrap(iframe);
-      var clonedoc = wrappedFrame.contentDocument;
-      var clonewin = wrappedFrame.contentWindow;
+    post_clone_test(htmldoc, function() {
+      var clonedoc = iframe.contentDocument;
+      var clonewin = iframe.contentWindow;
       var links = clonedoc.getElementsByTagName("link");
       // cause a clone
       var clonedsheet = links[1].sheet;
@@ -172,10 +171,10 @@ function run() {
       is(ser3, ser1, "cloning query '" + q + "' should not change " +
                      "serialization");
       if (test_application) {
-        var applies = clonewin.getComputedStyle(clonedoc.body).
-                        textDecoration == "underline";
-        is(applies, should_apply,
-           "Media query '" + q + "' should " + (should_apply ? "" : "NOT ") +
+        let applies = clonewin.getComputedStyle(clonedoc.body).
+                        textDecorationLine == "underline";
+        is(applies, expected_to_apply,
+           "Media query '" + q + "' should " + (expected_to_apply ? "" : "NOT ") +
            "apply after cloning");
       }
     });
@@ -513,17 +512,28 @@ function run() {
     expression_should_be_parseable(feature + ": 1  /1");
     expression_should_be_parseable(feature + ": 1  / \t\n1");
     expression_should_be_parseable(feature + ": 1/\r1");
-    expression_should_not_be_parseable(feature + ": 1");
-    expression_should_not_be_parseable(feature + ": 0.5");
-    expression_should_not_be_parseable(feature + ": 1.0/1");
-    expression_should_not_be_parseable(feature + ": 1/1.0");
-    expression_should_not_be_parseable(feature + ": 1.0/1.0");
-    expression_should_not_be_parseable(feature + ": 0/1");
-    expression_should_not_be_parseable(feature + ": 1/0");
-    expression_should_not_be_parseable(feature + ": 0/0");
+    expression_should_be_parseable(feature + ": 1");
+    expression_should_be_parseable(feature + ": 0.5");
+    expression_should_be_parseable(feature + ": 1.0/1");
+    expression_should_be_parseable(feature + ": 1/1.0");
+    expression_should_be_parseable(feature + ": 1.0/1.0");
+    expression_should_be_parseable(feature + ": 1.5/1.2");
+    expression_should_be_parseable(feature + ": 1.5");
+    expression_should_be_parseable(feature + ": calc(1.2 * 1.3)");
+    expression_should_be_parseable(feature + ": 1.1/calc(2.2 * 2.3)");
+    expression_should_be_parseable(feature + ": calc(1.2 * 1.3)/2.2");
+    expression_should_be_parseable(feature + ": calc(1.2 * 1.3)/calc(2.2 * 2.3)");
+    expression_should_be_parseable(feature + ": 0/1");
+    expression_should_be_parseable(feature + ": 1/0");
+    expression_should_be_parseable(feature + ": 0/0");
     expression_should_not_be_parseable(feature + ": -1/1");
     expression_should_not_be_parseable(feature + ": 1/-1");
     expression_should_not_be_parseable(feature + ": -1/-1");
+    expression_should_not_be_parseable(feature + ": -1/-1");
+    expression_should_not_be_parseable(feature + ": -1/-1");
+    expression_should_not_be_parseable(feature + ": invalid");
+    expression_should_not_be_parseable(feature + ": 1 / invalid");
+    expression_should_not_be_parseable(feature + ": 1 invalid");
   }
 
   var is_monochrome = query_applies("all and (min-monochrome: 1)");
@@ -694,11 +704,12 @@ function run() {
   expression_should_not_be_parseable("-moz-windows-glass");
   expression_should_not_be_parseable("-moz-swipe-animation-enabled");
   expression_should_not_be_parseable("-moz-gtk-csd-available");
+  expression_should_not_be_parseable("-moz-gtk-csd-hide-titlebar-by-default");
   expression_should_not_be_parseable("-moz-gtk-csd-transparent-background");
   expression_should_not_be_parseable("-moz-gtk-csd-minimize-button");
   expression_should_not_be_parseable("-moz-gtk-csd-maximize-button");
   expression_should_not_be_parseable("-moz-gtk-csd-close-button");
-  expression_should_be_parseable("-moz-touch-enabled");
+  expression_should_not_be_parseable("-moz-gtk-csd-reversed-placement");
 
   expression_should_not_be_parseable("-moz-scrollbar-start-backward: 0");
   expression_should_not_be_parseable("-moz-scrollbar-start-forward: 0");
@@ -715,11 +726,12 @@ function run() {
   expression_should_not_be_parseable("-moz-windows-glass: 0");
   expression_should_not_be_parseable("-moz-swipe-animation-enabled: 0");
   expression_should_not_be_parseable("-moz-gtk-csd-available: 0");
+  expression_should_not_be_parseable("-moz-gtk-csd-hide-titlebar-by-default: 0");
   expression_should_not_be_parseable("-moz-gtk-csd-transparent-background: 0");
   expression_should_not_be_parseable("-moz-gtk-csd-minimize-button: 0");
   expression_should_not_be_parseable("-moz-gtk-csd-maximize-button: 0");
   expression_should_not_be_parseable("-moz-gtk-csd-close-button: 0");
-  expression_should_be_parseable("-moz-touch-enabled: 0");
+  expression_should_not_be_parseable("-moz-gtk-csd-reversed-placement: 0");
 
   expression_should_not_be_parseable("-moz-scrollbar-start-backward: 1");
   expression_should_not_be_parseable("-moz-scrollbar-start-forward: 1");
@@ -736,11 +748,12 @@ function run() {
   expression_should_not_be_parseable("-moz-windows-glass: 1");
   expression_should_not_be_parseable("-moz-swipe-animation-enabled: 1");
   expression_should_not_be_parseable("-moz-gtk-csd-available: 1");
+  expression_should_not_be_parseable("-moz-gtk-csd-hide-titlebar-by-default: 1");
   expression_should_not_be_parseable("-moz-gtk-csd-transparent-background: 1");
   expression_should_not_be_parseable("-moz-gtk-csd-minimize-button: 1");
   expression_should_not_be_parseable("-moz-gtk-csd-maximize-button: 1");
   expression_should_not_be_parseable("-moz-gtk-csd-close-button: 1");
-  expression_should_be_parseable("-moz-touch-enabled: 1");
+  expression_should_not_be_parseable("-moz-gtk-csd-reversed-placement: 1");
 
   expression_should_not_be_parseable("-moz-scrollbar-start-backward: -1");
   expression_should_not_be_parseable("-moz-scrollbar-start-forward: -1");
@@ -755,13 +768,14 @@ function run() {
   expression_should_not_be_parseable("-moz-windows-compositor: -1");
   expression_should_not_be_parseable("-moz-windows-classic: -1");
   expression_should_not_be_parseable("-moz-windows-glass: -1");
-  expression_should_not_be_parseable("-moz-touch-enabled: -1");
   expression_should_not_be_parseable("-moz-swipe-animation-enabled: -1");
   expression_should_not_be_parseable("-moz-gtk-csd-available: -1");
+  expression_should_not_be_parseable("-moz-gtk-csd-hide-titlebar-by-default: -1");
   expression_should_not_be_parseable("-moz-gtk-csd-transparent-background: -1");
   expression_should_not_be_parseable("-moz-gtk-csd-minimize-button: -1");
   expression_should_not_be_parseable("-moz-gtk-csd-maximize-button: -1");
   expression_should_not_be_parseable("-moz-gtk-csd-close-button: -1");
+  expression_should_not_be_parseable("-moz-gtk-csd-reversed-placement: -1");
 
   expression_should_not_be_parseable("-moz-scrollbar-start-backward: true");
   expression_should_not_be_parseable("-moz-scrollbar-start-forward: true");
@@ -776,19 +790,40 @@ function run() {
   expression_should_not_be_parseable("-moz-windows-compositor: true");
   expression_should_not_be_parseable("-moz-windows-classic: true");
   expression_should_not_be_parseable("-moz-windows-glass: true");
-  expression_should_not_be_parseable("-moz-touch-enabled: true");
   expression_should_not_be_parseable("-moz-swipe-animation-enabled: true");
   expression_should_not_be_parseable("-moz-gtk-csd-available: true");
+  expression_should_not_be_parseable("-moz-gtk-csd-hide-titlebar-by-default: true");
   expression_should_not_be_parseable("-moz-gtk-csd-transparent-background: true");
   expression_should_not_be_parseable("-moz-gtk-csd-minimize-button: true");
   expression_should_not_be_parseable("-moz-gtk-csd-maximize-button: true");
   expression_should_not_be_parseable("-moz-gtk-csd-close-button: true");
+  expression_should_not_be_parseable("-moz-gtk-csd-reversed-placement: true");
 
   // os version media queries (currently windows only)
   expression_should_not_be_parseable("-moz-os-version: windows-win7");
   expression_should_not_be_parseable("-moz-os-version: windows-win8");
   expression_should_not_be_parseable("-moz-os-version: windows-win10");
   expression_should_not_be_parseable("-moz-os-version: ");
+
+  {
+    let should_be_parseable_if_enabled = SpecialPowers.getBoolPref('layout.css.prefers-contrast.enabled')
+      ? expression_should_be_parseable
+      : expression_should_not_be_parseable;
+    should_be_parseable_if_enabled("prefers-contrast");
+    should_be_parseable_if_enabled("prefers-contrast: high");
+    should_be_parseable_if_enabled("prefers-contrast: low");
+    should_be_parseable_if_enabled("prefers-contrast: forced");
+    should_be_parseable_if_enabled("prefers-contrast: no-preference");
+  }
+
+  {
+    let should_be_parseable_if_enabled = SpecialPowers.getBoolPref('layout.css.prefers-contrast.enabled')
+      ? expression_should_be_parseable
+      : expression_should_not_be_parseable;
+    should_be_parseable_if_enabled("forced-colors");
+    should_be_parseable_if_enabled("forced-colors: none");
+    should_be_parseable_if_enabled("forced-colors: active");
+  }
 
   // OpenType SVG media features
   query_should_not_be_parseable("(-moz-is-glyph)");
@@ -881,9 +916,9 @@ function change_state(func)
   posted_items.push({state: func});
 }
 
-function post_clone_test(docurl, testfunc)
+function post_clone_test(srcdoc, testfunc)
 {
-  posted_items.push({docurl: docurl, testfunc: testfunc});
+  posted_items.push({srcdoc, testfunc});
 }
 
 function handle_posted_items()
@@ -900,9 +935,9 @@ function handle_posted_items()
     return;
   }
 
-  var docurl = posted_items[0].docurl;
+  var srcdoc = posted_items[0].srcdoc;
   iframe.onload = handle_iframe_onload;
-  iframe.src = docurl;
+  iframe.srcdoc = srcdoc;
 }
 
 function handle_iframe_onload(event)
@@ -919,5 +954,3 @@ function handle_iframe_onload(event)
 </pre>
 </body>
 </html>
-
-

@@ -71,6 +71,9 @@ class nsTString : public nsTSubstring<T> {
     this->Assign(aData, aLength);
   }
 
+  explicit nsTString(mozilla::Span<const char_type> aData)
+      : nsTString(aData.Elements(), aData.Length()) {}
+
 #if defined(MOZ_USE_CHAR16_WRAPPER)
   template <typename Q = T, typename EnableIfChar16 = mozilla::Char16OnlyT<Q>>
   explicit nsTString(char16ptr_t aStr, size_type aLength = size_type(-1))
@@ -197,13 +200,13 @@ class nsTString : public nsTSubstring<T> {
   template <typename Q = T, typename EnableIfChar16 = mozilla::Char16OnlyT<Q>>
   int32_t Find(const char_type* aString, int32_t aOffset = 0,
                int32_t aCount = -1) const;
-#ifdef MOZ_USE_CHAR16_WRAPPER
+#  ifdef MOZ_USE_CHAR16_WRAPPER
   template <typename Q = T, typename EnableIfChar16 = mozilla::Char16OnlyT<Q>>
   int32_t Find(char16ptr_t aString, int32_t aOffset = 0,
                int32_t aCount = -1) const {
     return Find(static_cast<const char16_t*>(aString), aOffset, aCount);
   }
-#endif
+#  endif
 
   /**
    * This methods scans the string backwards, looking for the given string
@@ -279,35 +282,6 @@ class nsTString : public nsTSubstring<T> {
   }
 
   /**
-   * Compares a given string to this string.
-   *
-   * @param   aString is the string to be compared
-   * @param   aIgnoreCase tells us how to treat case
-   * @param   aCount tells us how many chars to compare
-   * @return  -1,0,1
-   */
-  template <typename Q = T, typename EnableIfChar = mozilla::CharOnlyT<Q>>
-  int32_t Compare(const char_type* aString, bool aIgnoreCase = false,
-                  int32_t aCount = -1) const;
-
-  /**
-   * Equality check between given string and this string.
-   *
-   * @param   aString is the string to check
-   * @param   aIgnoreCase tells us how to treat case
-   * @param   aCount tells us how many chars to compare
-   * @return  boolean
-   */
-  template <typename Q = T, typename EnableIfChar = mozilla::CharOnlyT<Q>>
-  bool EqualsIgnoreCase(const char_type* aString, int32_t aCount = -1) const {
-    return Compare(aString, true, aCount) == 0;
-  }
-
-  template <typename Q = T, typename EnableIfChar16 = mozilla::Char16OnlyT<Q>>
-  bool EqualsIgnoreCase(const incompatible_char_type* aString,
-                        int32_t aCount = -1) const;
-
-  /**
    * Perform string to double-precision float conversion.
    *
    * @param   aErrorCode will contain error if one occurs
@@ -322,6 +296,13 @@ class nsTString : public nsTSubstring<T> {
    * @return  single-precision float rep of string value
    */
   float ToFloat(nsresult* aErrorCode) const;
+
+  /**
+   * Similar to above ToDouble and ToFloat but allows trailing characters that
+   * are not converted.
+   */
+  double ToDoubleAllowTrailingChars(nsresult* aErrorCode) const;
+  float ToFloatAllowTrailingChars(nsresult* aErrorCode) const;
 
   /**
    * |Left|, |Mid|, and |Right| are annoying signatures that seem better almost
@@ -404,12 +385,12 @@ class nsTString : public nsTSubstring<T> {
    */
   void ReplaceSubstring(const self_type& aTarget, const self_type& aNewValue);
   void ReplaceSubstring(const char_type* aTarget, const char_type* aNewValue);
-  MOZ_MUST_USE bool ReplaceSubstring(const self_type& aTarget,
-                                     const self_type& aNewValue,
-                                     const fallible_t&);
-  MOZ_MUST_USE bool ReplaceSubstring(const char_type* aTarget,
-                                     const char_type* aNewValue,
-                                     const fallible_t&);
+  [[nodiscard]] bool ReplaceSubstring(const self_type& aTarget,
+                                      const self_type& aNewValue,
+                                      const fallible_t&);
+  [[nodiscard]] bool ReplaceSubstring(const char_type* aTarget,
+                                      const char_type* aNewValue,
+                                      const fallible_t&);
 
   /**
    *  This method trims characters found in aTrimSet from
@@ -448,12 +429,13 @@ class nsTString : public nsTSubstring<T> {
    * verify restrictions for dependent strings
    */
   void AssertValidDependentString() {
-    NS_ASSERTION(this->mData, "nsTDependentString must wrap a non-NULL buffer");
-    NS_ASSERTION(this->mLength != size_type(-1),
-                 "nsTDependentString has bogus length");
-    NS_ASSERTION(this->mData[substring_type::mLength] == 0,
-                 "nsTDependentString must wrap only null-terminated strings. "
-                 "You are probably looking for nsTDependentSubstring.");
+    MOZ_ASSERT(this->mData, "nsTDependentString must wrap a non-NULL buffer");
+    MOZ_ASSERT(this->mLength != size_type(-1),
+               "nsTDependentString has bogus length");
+    MOZ_DIAGNOSTIC_ASSERT(this->mData[substring_type::mLength] == 0,
+                          "nsTDependentString must wrap only null-terminated "
+                          "strings.  You are probably looking for "
+                          "nsTDependentSubstring.");
   }
 
  protected:
@@ -471,6 +453,14 @@ class nsTString : public nsTSubstring<T> {
       : substring_type(char_traits::sEmptyBuffer, 0,
                        aDataFlags | DataFlags::TERMINATED,
                        ClassFlags::NULL_TERMINATED) {}
+
+  enum class TrailingCharsPolicy {
+    Disallow,
+    Allow,
+  };
+  // Utility function for ToDouble and ToDoubleAllowTrailingChars.
+  double ToDouble(TrailingCharsPolicy aTrailingCharsPolicy,
+                  nsresult* aErrorCode) const;
 
   struct Segment {
     uint32_t mBegin, mLength;
@@ -603,7 +593,7 @@ class MOZ_NON_MEMMOVABLE nsTAutoStringN : public nsTString<T> {
  protected:
   friend class nsTSubstring<T>;
 
-  size_type mInlineCapacity;
+  const size_type mInlineCapacity;
 
  private:
   char_type mStorage[N];
@@ -635,6 +625,11 @@ class nsTArrayElementTraits<nsTAutoString<T>> {
   template <class A>
   static Dont_Instantiate_nsTArray_of<nsTAutoString<T>>* Construct(
       Instead_Use_nsTArray_of<nsTString<T>>* aE, const A& aArg) {
+    return 0;
+  }
+  template <class... Args>
+  static Dont_Instantiate_nsTArray_of<nsTAutoString<T>>* Construct(
+      Instead_Use_nsTArray_of<nsTString<T>>* aE, Args&&... aArgs) {
     return 0;
   }
   static Dont_Instantiate_nsTArray_of<nsTAutoString<T>>* Destruct(

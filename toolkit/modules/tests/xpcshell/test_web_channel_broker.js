@@ -3,8 +3,9 @@
 
 "use strict";
 
-ChromeUtils.import("resource://gre/modules/Services.jsm");
-ChromeUtils.import("resource://gre/modules/WebChannel.jsm");
+const { WebChannelBroker } = ChromeUtils.import(
+  "resource://gre/modules/WebChannel.jsm"
+);
 
 const VALID_WEB_CHANNEL_ID = "id";
 const URL_STRING = "http://example.com";
@@ -18,12 +19,10 @@ add_test(function test_web_channel_broker_channel_map() {
   let channel2 = {};
 
   Assert.equal(WebChannelBroker._channelMap.size, 0);
-  Assert.ok(!WebChannelBroker._messageListenerAttached);
 
   // make sure _channelMap works correctly
   WebChannelBroker.registerChannel(channel);
   Assert.equal(WebChannelBroker._channelMap.size, 1);
-  Assert.ok(WebChannelBroker._messageListenerAttached);
 
   WebChannelBroker.registerChannel(channel2);
   Assert.equal(WebChannelBroker._channelMap.size, 2);
@@ -40,7 +39,6 @@ add_test(function test_web_channel_broker_channel_map() {
 
   run_next_test();
 });
-
 
 /**
  * Test WebChannelBroker _listener test
@@ -64,19 +62,17 @@ add_task(function test_web_channel_broker_listener() {
     WebChannelBroker.registerChannel(channel);
 
     var mockEvent = {
-      data: {
-        id: VALID_WEB_CHANNEL_ID,
-        message: {
-          command: "hello",
-        },
-      },
-      principal: {
-        origin: URL_STRING,
-      },
-      objects: {
+      id: VALID_WEB_CHANNEL_ID,
+      message: {
+        command: "hello",
       },
     };
 
-    WebChannelBroker._listener(mockEvent);
+    WebChannelBroker.tryToDeliver(mockEvent, {
+      browsingContext: {},
+      principal: {
+        origin: URL_STRING,
+      },
+    });
   });
 });

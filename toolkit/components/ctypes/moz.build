@@ -4,21 +4,25 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-TEST_DIRS += ['tests']
+TEST_DIRS += ["tests"]
 
 SOURCES += [
-    'ctypes.cpp',
+    "ctypes.cpp",
 ]
 
 LOCAL_INCLUDES += [
-    '/js/xpconnect/loader',
+    "/js/xpconnect/loader",
 ]
 
 EXTRA_JS_MODULES += [
-    'ctypes.jsm',
+    "ctypes.jsm",
 ]
 
-FINAL_LIBRARY = 'xul'
+XPCOM_MANIFESTS += [
+    "components.conf",
+]
 
-with Files('**'):
-    BUG_COMPONENT = ('Core', 'js-ctypes')
+FINAL_LIBRARY = "xul"
+
+with Files("**"):
+    BUG_COMPONENT = ("Core", "js-ctypes")

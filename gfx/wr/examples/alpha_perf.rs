@@ -11,9 +11,12 @@ extern crate winit;
 #[path = "common/boilerplate.rs"]
 mod boilerplate;
 
-use boilerplate::{Example, HandyDandyRectBuilder};
+use crate::boilerplate::{Example, HandyDandyRectBuilder};
 use std::cmp;
 use webrender::api::*;
+use webrender::render_api::*;
+use webrender::api::units::DeviceIntSize;
+
 
 struct App {
     rect_count: usize,
@@ -22,27 +25,28 @@ struct App {
 impl Example for App {
     fn render(
         &mut self,
-        _api: &RenderApi,
+        _api: &mut RenderApi,
         builder: &mut DisplayListBuilder,
         _txn: &mut Transaction,
-        _framebuffer_size: DeviceIntSize,
-        _pipeline_id: PipelineId,
+        _device_size: DeviceIntSize,
+        pipeline_id: PipelineId,
         _document_id: DocumentId,
     ) {
         let bounds = (0, 0).to(1920, 1080);
-        let info = LayoutPrimitiveInfo::new(bounds);
+        let space_and_clip = SpaceAndClipInfo::root_scroll(pipeline_id);
 
-        builder.push_stacking_context(
-            &info,
-            None,
-            TransformStyle::Flat,
-            MixBlendMode::Normal,
-            &[],
-            RasterSpace::Screen,
+        builder.push_simple_stacking_context(
+            bounds.origin,
+            space_and_clip.spatial_id,
+            PrimitiveFlags::IS_BACKFACE_VISIBLE,
         );
 
         for _ in 0 .. self.rect_count {
-            builder.push_rect(&info, ColorF::new(1.0, 1.0, 1.0, 0.05));
+            builder.push_rect(
+                &CommonItemProperties::new(bounds, space_and_clip),
+                bounds,
+                ColorF::new(1.0, 1.0, 1.0, 0.05)
+            );
         }
 
         builder.pop_stacking_context();
@@ -51,7 +55,7 @@ impl Example for App {
     fn on_event(
         &mut self,
         event: winit::WindowEvent,
-        _api: &RenderApi,
+        _api: &mut RenderApi,
         _document_id: DocumentId
     ) -> bool {
         match event {

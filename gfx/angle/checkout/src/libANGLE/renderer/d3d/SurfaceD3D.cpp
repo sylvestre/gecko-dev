@@ -106,7 +106,7 @@ egl::Error SurfaceD3D::initialize(const egl::Display *display)
     if (mBuftype == EGL_D3D_TEXTURE_ANGLE)
     {
         ANGLE_TRY(mRenderer->getD3DTextureInfo(mState.config, mD3DTexture, &mFixedWidth,
-                                               &mFixedHeight, &mColorFormat));
+                                               &mFixedHeight, nullptr, &mColorFormat));
         if (mState.attributes.contains(EGL_GL_COLORSPACE))
         {
             if (mColorFormat->id != angle::FormatID::R8G8B8A8_TYPELESS &&
@@ -346,7 +346,7 @@ egl::Error SurfaceD3D::checkForOutOfDateSwapChain(DisplayD3D *displayD3D)
 
 egl::Error SurfaceD3D::swap(const gl::Context *context)
 {
-    DisplayD3D *displayD3D = GetImplAs<DisplayD3D>(context->getCurrentDisplay());
+    DisplayD3D *displayD3D = GetImplAs<DisplayD3D>(context->getDisplay());
     return swapRect(displayD3D, 0, 0, mWidth, mHeight);
 }
 
@@ -356,7 +356,7 @@ egl::Error SurfaceD3D::postSubBuffer(const gl::Context *context,
                                      EGLint width,
                                      EGLint height)
 {
-    DisplayD3D *displayD3D = GetImplAs<DisplayD3D>(context->getCurrentDisplay());
+    DisplayD3D *displayD3D = GetImplAs<DisplayD3D>(context->getDisplay());
     return swapRect(displayD3D, x, y, width, height);
 }
 
@@ -428,10 +428,10 @@ const angle::Format *SurfaceD3D::getD3DTextureColorFormat() const
     return mColorFormat;
 }
 
-gl::Error SurfaceD3D::getAttachmentRenderTarget(const gl::Context *context,
-                                                GLenum binding,
-                                                const gl::ImageIndex &imageIndex,
-                                                FramebufferAttachmentRenderTarget **rtOut)
+angle::Result SurfaceD3D::getAttachmentRenderTarget(const gl::Context *context,
+                                                    GLenum binding,
+                                                    const gl::ImageIndex &imageIndex,
+                                                    FramebufferAttachmentRenderTarget **rtOut)
 {
     if (binding == GL_BACK)
     {
@@ -441,11 +441,11 @@ gl::Error SurfaceD3D::getAttachmentRenderTarget(const gl::Context *context,
     {
         *rtOut = mSwapChain->getDepthStencilRenderTarget();
     }
-    return gl::NoError();
+    return angle::Result::Continue;
 }
 
-gl::Error SurfaceD3D::initializeContents(const gl::Context *context,
-                                         const gl::ImageIndex & /*imageIndex*/)
+angle::Result SurfaceD3D::initializeContents(const gl::Context *context,
+                                             const gl::ImageIndex &imageIndex)
 {
     if (mState.config->renderTargetFormat != GL_NONE)
     {
@@ -455,7 +455,7 @@ gl::Error SurfaceD3D::initializeContents(const gl::Context *context,
     {
         ANGLE_TRY(mRenderer->initRenderTarget(context, mSwapChain->getDepthStencilRenderTarget()));
     }
-    return gl::NoError();
+    return angle::Result::Continue;
 }
 
 WindowSurfaceD3D::WindowSurfaceD3D(const egl::SurfaceState &state,
@@ -464,12 +464,9 @@ WindowSurfaceD3D::WindowSurfaceD3D(const egl::SurfaceState &state,
                                    EGLNativeWindowType window,
                                    const egl::AttributeMap &attribs)
     : SurfaceD3D(state, renderer, display, window, 0, static_cast<EGLClientBuffer>(0), attribs)
-{
-}
+{}
 
-WindowSurfaceD3D::~WindowSurfaceD3D()
-{
-}
+WindowSurfaceD3D::~WindowSurfaceD3D() {}
 
 PbufferSurfaceD3D::PbufferSurfaceD3D(const egl::SurfaceState &state,
                                      RendererD3D *renderer,
@@ -484,11 +481,8 @@ PbufferSurfaceD3D::PbufferSurfaceD3D(const egl::SurfaceState &state,
                  buftype,
                  clientBuffer,
                  attribs)
-{
-}
+{}
 
-PbufferSurfaceD3D::~PbufferSurfaceD3D()
-{
-}
+PbufferSurfaceD3D::~PbufferSurfaceD3D() {}
 
-}  // namespace rc
+}  // namespace rx

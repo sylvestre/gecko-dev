@@ -6,14 +6,21 @@
 
 var EXPORTED_SYMBOLS = ["CustomizableWidgets"];
 
-ChromeUtils.import("resource:///modules/CustomizableUI.jsm");
-ChromeUtils.import("resource://gre/modules/Services.jsm");
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
-ChromeUtils.import("resource://gre/modules/AppConstants.jsm");
+const { CustomizableUI } = ChromeUtils.import(
+  "resource:///modules/CustomizableUI.jsm"
+);
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+const { AppConstants } = ChromeUtils.import(
+  "resource://gre/modules/AppConstants.jsm"
+);
 
 XPCOMUtils.defineLazyModuleGetters(this, {
   PanelView: "resource:///modules/PanelMultiView.jsm",
-  RecentlyClosedTabsAndWindowsMenuUtils: "resource:///modules/sessionstore/RecentlyClosedTabsAndWindowsMenuUtils.jsm",
+  RecentlyClosedTabsAndWindowsMenuUtils:
+    "resource:///modules/sessionstore/RecentlyClosedTabsAndWindowsMenuUtils.jsm",
   ShortcutUtils: "resource://gre/modules/ShortcutUtils.jsm",
   CharsetMenu: "resource://gre/modules/CharsetMenu.jsm",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.jsm",
@@ -21,10 +28,11 @@ XPCOMUtils.defineLazyModuleGetters(this, {
   SyncedTabs: "resource://services-sync/SyncedTabs.jsm",
 });
 
-XPCOMUtils.defineLazyGetter(this, "CharsetBundle", function() {
-  const kCharsetBundle = "chrome://global/locale/charsetMenu.properties";
-  return Services.strings.createBundle(kCharsetBundle);
-});
+ChromeUtils.defineModuleGetter(
+  this,
+  "PanelMultiView",
+  "resource:///modules/PanelMultiView.jsm"
+);
 
 const kPrefCustomizationDebug = "browser.uiCustomization.debug";
 
@@ -39,20 +47,19 @@ XPCOMUtils.defineLazyGetter(this, "log", () => {
   return new scope.ConsoleAPI(consoleOptions);
 });
 
-
-
 function setAttributes(aNode, aAttrs) {
   let doc = aNode.ownerDocument;
   for (let [name, value] of Object.entries(aAttrs)) {
     if (!value) {
-      if (aNode.hasAttribute(name))
+      if (aNode.hasAttribute(name)) {
         aNode.removeAttribute(name);
+      }
     } else {
       if (name == "shortcutId") {
         continue;
       }
       if (name == "label" || name == "tooltiptext") {
-        let stringId = (typeof value == "string") ? value : name;
+        let stringId = typeof value == "string" ? value : name;
         let additionalArgs = [];
         if (aAttrs.shortcutId) {
           let shortcut = doc.getElementById(aAttrs.shortcutId);
@@ -60,7 +67,11 @@ function setAttributes(aNode, aAttrs) {
             additionalArgs.push(ShortcutUtils.prettifyShortcut(shortcut));
           }
         }
-        value = CustomizableUI.getLocalizedProperty({id: aAttrs.id}, stringId, additionalArgs);
+        value = CustomizableUI.getLocalizedProperty(
+          { id: aAttrs.id },
+          stringId,
+          additionalArgs
+        );
       }
       aNode.setAttribute(name, value);
     }
@@ -89,24 +100,37 @@ const CustomizableWidgets = [
       }
     },
     onViewShowing(event) {
-      if (this._panelMenuView)
+      if (this._panelMenuView) {
         return;
+      }
 
       let panelview = event.target;
       let document = panelview.ownerDocument;
       let window = document.defaultView;
 
       // We restrict the amount of results to 42. Not 50, but 42. Why? Because 42.
-      let query = "place:queryType=" + Ci.nsINavHistoryQueryOptions.QUERY_TYPE_HISTORY +
-        "&sort=" + Ci.nsINavHistoryQueryOptions.SORT_BY_DATE_DESCENDING +
+      let query =
+        "place:queryType=" +
+        Ci.nsINavHistoryQueryOptions.QUERY_TYPE_HISTORY +
+        "&sort=" +
+        Ci.nsINavHistoryQueryOptions.SORT_BY_DATE_DESCENDING +
         "&maxResults=42&excludeQueries=1";
 
-      this._panelMenuView = new window.PlacesPanelview(document.getElementById("appMenu_historyMenu"),
-        panelview, query);
+      this._panelMenuView = new window.PlacesPanelview(
+        document.getElementById("appMenu_historyMenu"),
+        panelview,
+        query
+      );
       // When either of these sub-subviews show, populate them with recently closed
       // objects data.
-      document.getElementById(this.recentlyClosedTabsPanel).addEventListener("ViewShowing", this);
-      document.getElementById(this.recentlyClosedWindowsPanel).addEventListener("ViewShowing", this);
+      PanelMultiView.getViewNode(
+        document,
+        this.recentlyClosedTabsPanel
+      ).addEventListener("ViewShowing", this);
+      PanelMultiView.getViewNode(
+        document,
+        this.recentlyClosedWindowsPanel
+      ).addEventListener("ViewShowing", this);
       // When the popup is hidden (thus the panelmultiview node as well), make
       // sure to stop listening to PlacesDatabase updates.
       panelview.panelMultiView.addEventListener("PanelMultiViewHidden", this);
@@ -120,8 +144,14 @@ const CustomizableWidgets = [
       if (this._panelMenuView) {
         this._panelMenuView.uninit();
         delete this._panelMenuView;
-        document.getElementById(this.recentlyClosedTabsPanel).removeEventListener("ViewShowing", this);
-        document.getElementById(this.recentlyClosedWindowsPanel).removeEventListener("ViewShowing", this);
+        PanelMultiView.getViewNode(
+          document,
+          this.recentlyClosedTabsPanel
+        ).removeEventListener("ViewShowing", this);
+        PanelMultiView.getViewNode(
+          document,
+          this.recentlyClosedWindowsPanel
+        ).removeEventListener("ViewShowing", this);
       }
       panelMultiView.removeEventListener("PanelMultiViewHidden", this);
     },
@@ -129,7 +159,8 @@ const CustomizableWidgets = [
       let panelview = event.target;
       let document = event.target.ownerDocument;
       let window = document.defaultView;
-      let viewType = panelview.id == this.recentlyClosedTabsPanel ? "Tabs" : "Windows";
+      let viewType =
+        panelview.id == this.recentlyClosedTabsPanel ? "Tabs" : "Windows";
 
       this._panelMenuView.clearAllContents(panelview);
 
@@ -138,8 +169,9 @@ const CustomizableWidgets = [
       let fragment = utils[method](window, "toolbarbutton", true);
       let elementCount = fragment.childElementCount;
       this._panelMenuView._setEmptyPopupStatus(panelview, !elementCount);
-      if (!elementCount)
+      if (!elementCount) {
         return;
+      }
 
       let body = document.createXULElement("vbox");
       body.className = "panel-subview-body";
@@ -159,7 +191,8 @@ const CustomizableWidgets = [
       panelview.appendChild(body);
       panelview.appendChild(footer);
     },
-  }, {
+  },
+  {
     id: "save-page-button",
     shortcutId: "key_savePage",
     tooltiptext: "save-page-button.tooltiptext3",
@@ -167,7 +200,8 @@ const CustomizableWidgets = [
       let win = aEvent.target.ownerGlobal;
       win.saveBrowser(win.gBrowser.selectedBrowser);
     },
-  }, {
+  },
+  {
     id: "find-button",
     shortcutId: "key_find",
     tooltiptext: "find-button.tooltiptext3",
@@ -177,7 +211,8 @@ const CustomizableWidgets = [
         win.gLazyFindCommand("onFindCommand");
       }
     },
-  }, {
+  },
+  {
     id: "open-file-button",
     shortcutId: "openFileKb",
     tooltiptext: "open-file-button.tooltiptext3",
@@ -185,7 +220,8 @@ const CustomizableWidgets = [
       let win = aEvent.target.ownerGlobal;
       win.BrowserOpenFileWindow();
     },
-  }, {
+  },
+  {
     id: "sidebar-button",
     tooltiptext: "sidebar-button.tooltiptext2",
     onCommand(aEvent) {
@@ -205,7 +241,8 @@ const CustomizableWidgets = [
       aNode.appendChild(obChecked);
       aNode.appendChild(obPosition);
     },
-  }, {
+  },
+  {
     id: "add-ons-button",
     shortcutId: "key_openAddons",
     tooltiptext: "add-ons-button.tooltiptext3",
@@ -213,94 +250,118 @@ const CustomizableWidgets = [
       let win = aEvent.target.ownerGlobal;
       win.BrowserOpenAddonsMgr();
     },
-  }, {
+  },
+  {
     id: "zoom-controls",
     type: "custom",
     tooltiptext: "zoom-controls.tooltiptext2",
     onBuild(aDocument) {
-      let buttons = [{
-        id: "zoom-out-button",
-        command: "cmd_fullZoomReduce",
-        label: true,
-        closemenu: "none",
-        tooltiptext: "tooltiptext2",
-        shortcutId: "key_fullZoomReduce",
-        "class": "toolbarbutton-1 toolbarbutton-combined",
-      }, {
-        id: "zoom-reset-button",
-        command: "cmd_fullZoomReset",
-        closemenu: "none",
-        tooltiptext: "tooltiptext2",
-        shortcutId: "key_fullZoomReset",
-        "class": "toolbarbutton-1 toolbarbutton-combined",
-      }, {
-        id: "zoom-in-button",
-        command: "cmd_fullZoomEnlarge",
-        closemenu: "none",
-        label: true,
-        tooltiptext: "tooltiptext2",
-        shortcutId: "key_fullZoomEnlarge",
-        "class": "toolbarbutton-1 toolbarbutton-combined",
-      }];
+      let buttons = [
+        {
+          id: "zoom-out-button",
+          command: "cmd_fullZoomReduce",
+          label: true,
+          closemenu: "none",
+          tooltiptext: "tooltiptext2",
+          shortcutId: "key_fullZoomReduce",
+          class: "toolbarbutton-1 toolbarbutton-combined",
+        },
+        {
+          id: "zoom-reset-button",
+          command: "cmd_fullZoomReset",
+          closemenu: "none",
+          tooltiptext: "tooltiptext2",
+          shortcutId: "key_fullZoomReset",
+          class: "toolbarbutton-1 toolbarbutton-combined",
+        },
+        {
+          id: "zoom-in-button",
+          command: "cmd_fullZoomEnlarge",
+          closemenu: "none",
+          label: true,
+          tooltiptext: "tooltiptext2",
+          shortcutId: "key_fullZoomEnlarge",
+          class: "toolbarbutton-1 toolbarbutton-combined",
+        },
+      ];
 
       let node = aDocument.createXULElement("toolbaritem");
       node.setAttribute("id", "zoom-controls");
-      node.setAttribute("label", CustomizableUI.getLocalizedProperty(this, "label"));
-      node.setAttribute("title", CustomizableUI.getLocalizedProperty(this, "tooltiptext"));
+      node.setAttribute(
+        "label",
+        CustomizableUI.getLocalizedProperty(this, "label")
+      );
+      node.setAttribute(
+        "title",
+        CustomizableUI.getLocalizedProperty(this, "tooltiptext")
+      );
       // Set this as an attribute in addition to the property to make sure we can style correctly.
       node.setAttribute("removable", "true");
       node.classList.add("chromeclass-toolbar-additional");
       node.classList.add("toolbaritem-combined-buttons");
 
       buttons.forEach(function(aButton, aIndex) {
-        if (aIndex != 0)
+        if (aIndex != 0) {
           node.appendChild(aDocument.createXULElement("separator"));
+        }
         let btnNode = aDocument.createXULElement("toolbarbutton");
         setAttributes(btnNode, aButton);
         node.appendChild(btnNode);
       });
       return node;
     },
-  }, {
+  },
+  {
     id: "edit-controls",
     type: "custom",
     tooltiptext: "edit-controls.tooltiptext2",
     onBuild(aDocument) {
-      let buttons = [{
-        id: "cut-button",
-        command: "cmd_cut",
-        label: true,
-        tooltiptext: "tooltiptext2",
-        shortcutId: "key_cut",
-        "class": "toolbarbutton-1 toolbarbutton-combined",
-      }, {
-        id: "copy-button",
-        command: "cmd_copy",
-        label: true,
-        tooltiptext: "tooltiptext2",
-        shortcutId: "key_copy",
-        "class": "toolbarbutton-1 toolbarbutton-combined",
-      }, {
-        id: "paste-button",
-        command: "cmd_paste",
-        label: true,
-        tooltiptext: "tooltiptext2",
-        shortcutId: "key_paste",
-        "class": "toolbarbutton-1 toolbarbutton-combined",
-      }];
+      let buttons = [
+        {
+          id: "cut-button",
+          command: "cmd_cut",
+          label: true,
+          tooltiptext: "tooltiptext2",
+          shortcutId: "key_cut",
+          class: "toolbarbutton-1 toolbarbutton-combined",
+        },
+        {
+          id: "copy-button",
+          command: "cmd_copy",
+          label: true,
+          tooltiptext: "tooltiptext2",
+          shortcutId: "key_copy",
+          class: "toolbarbutton-1 toolbarbutton-combined",
+        },
+        {
+          id: "paste-button",
+          command: "cmd_paste",
+          label: true,
+          tooltiptext: "tooltiptext2",
+          shortcutId: "key_paste",
+          class: "toolbarbutton-1 toolbarbutton-combined",
+        },
+      ];
 
       let node = aDocument.createXULElement("toolbaritem");
       node.setAttribute("id", "edit-controls");
-      node.setAttribute("label", CustomizableUI.getLocalizedProperty(this, "label"));
-      node.setAttribute("title", CustomizableUI.getLocalizedProperty(this, "tooltiptext"));
+      node.setAttribute(
+        "label",
+        CustomizableUI.getLocalizedProperty(this, "label")
+      );
+      node.setAttribute(
+        "title",
+        CustomizableUI.getLocalizedProperty(this, "tooltiptext")
+      );
       // Set this as an attribute in addition to the property to make sure we can style correctly.
       node.setAttribute("removable", "true");
       node.classList.add("chromeclass-toolbar-additional");
       node.classList.add("toolbaritem-combined-buttons");
 
       buttons.forEach(function(aButton, aIndex) {
-        if (aIndex != 0)
+        if (aIndex != 0) {
           node.appendChild(aDocument.createXULElement("separator"));
+        }
         let btnNode = aDocument.createXULElement("toolbarbutton");
         setAttributes(btnNode, aButton);
         node.appendChild(btnNode);
@@ -308,8 +369,9 @@ const CustomizableWidgets = [
 
       let listener = {
         onWidgetInstanceRemoved: (aWidgetId, aDoc) => {
-          if (aWidgetId != this.id || aDoc != aDocument)
+          if (aWidgetId != this.id || aDoc != aDocument) {
             return;
+          }
           CustomizableUI.removeListener(listener);
         },
         onWidgetOverflow(aWidgetNode) {
@@ -336,8 +398,10 @@ const CustomizableWidgets = [
     tooltiptext: "characterencoding-button2.tooltiptext",
     maybeDisableMenu(aDocument) {
       let window = aDocument.defaultView;
-      return !(window.gBrowser &&
-               window.gBrowser.selectedBrowser.mayEnableCharacterEncodingMenu);
+      return !(
+        window.gBrowser &&
+        window.gBrowser.selectedBrowser.mayEnableCharacterEncodingMenu
+      );
     },
     populateList(aDocument, aContainerId, aSection) {
       let containerElem = aDocument.getElementById(aContainerId);
@@ -357,24 +421,28 @@ const CustomizableWidgets = [
       }
     },
     updateCurrentCharset(aDocument) {
-      let currentCharset = aDocument.defaultView.gBrowser.selectedBrowser.characterSet;
-      currentCharset = CharsetMenu.foldCharset(currentCharset);
+      let currentCharset =
+        aDocument.defaultView.gBrowser.selectedBrowser.characterSet;
+      let {
+        charsetAutodetected,
+      } = aDocument.defaultView.gBrowser.selectedBrowser;
+      currentCharset = CharsetMenu.foldCharset(
+        currentCharset,
+        charsetAutodetected
+      );
 
-      let pinnedContainer = aDocument.getElementById("PanelUI-characterEncodingView-pinned");
-      let charsetContainer = aDocument.getElementById("PanelUI-characterEncodingView-charsets");
-      let elements = [...(pinnedContainer.children), ...(charsetContainer.children)];
+      let pinnedContainer = aDocument.getElementById(
+        "PanelUI-characterEncodingView-pinned"
+      );
+      let charsetContainer = aDocument.getElementById(
+        "PanelUI-characterEncodingView-charsets"
+      );
+      let elements = [
+        ...pinnedContainer.children,
+        ...charsetContainer.children,
+      ];
 
       this._updateElements(elements, currentCharset);
-    },
-    updateCurrentDetector(aDocument) {
-      let detectorContainer = aDocument.getElementById("PanelUI-characterEncodingView-autodetect");
-      let currentDetector;
-      try {
-        currentDetector = Services.prefs.getComplexValue(
-          "intl.charset.detector", Ci.nsIPrefLocalizedString).data;
-      } catch (e) {}
-
-      this._updateElements(detectorContainer.children, currentDetector);
     },
     _updateElements(aElements, aCurrentItem) {
       if (!aElements.length) {
@@ -400,22 +468,22 @@ const CustomizableWidgets = [
       }
       let document = aEvent.target.ownerDocument;
 
-      let autoDetectLabelId = "PanelUI-characterEncodingView-autodetect-label";
-      let autoDetectLabel = document.getElementById(autoDetectLabelId);
-      if (!autoDetectLabel.hasAttribute("value")) {
-        let label = CharsetBundle.GetStringFromName("charsetMenuAutodet");
-        autoDetectLabel.setAttribute("value", label);
-        this.populateList(document,
-                          "PanelUI-characterEncodingView-pinned",
-                          "pinnedCharsets");
-        this.populateList(document,
-                          "PanelUI-characterEncodingView-charsets",
-                          "otherCharsets");
-        this.populateList(document,
-                          "PanelUI-characterEncodingView-autodetect",
-                          "detectors");
+      if (
+        !document.getElementById("PanelUI-characterEncodingView-pinned")
+          .firstChild
+      ) {
+        this.populateList(
+          document,
+          "PanelUI-characterEncodingView-pinned",
+          "pinnedCharsets"
+        );
+        this.populateList(
+          document,
+          "PanelUI-characterEncodingView-charsets",
+          "otherCharsets"
+        );
       }
-      this.updateCurrentDetector(document);
+
       this.updateCurrentCharset(document);
     },
     onCommand(aEvent) {
@@ -425,62 +493,60 @@ const CustomizableWidgets = [
       }
 
       let window = node.ownerGlobal;
-      let section = node.section;
       let value = node.value;
 
-      // The behavior as implemented here is directly based off of the
-      // `MultiplexHandler()` method in browser.js.
-      if (section != "detectors") {
-        window.BrowserSetForcedCharacterSet(value);
-      } else {
-        // Set the detector pref.
-        try {
-          Services.prefs.setStringPref("intl.charset.detector", value);
-        } catch (e) {
-          Cu.reportError("Failed to set the intl.charset.detector preference.");
-        }
-        // Prepare a browser page reload with a changed charset.
-        window.BrowserCharsetReload();
-      }
+      window.BrowserSetForcedCharacterSet(value);
     },
     onCreated(aNode) {
       let document = aNode.ownerDocument;
 
       let updateButton = () => {
-        if (this.maybeDisableMenu(document))
+        if (this.maybeDisableMenu(document)) {
           aNode.setAttribute("disabled", "true");
-        else
+        } else {
           aNode.removeAttribute("disabled");
+        }
       };
 
       let getPanel = () => {
-        let {PanelUI} = document.ownerGlobal;
+        let { PanelUI } = document.ownerGlobal;
         return PanelUI.overflowPanel;
       };
 
-      if (CustomizableUI.getAreaType(this.currentArea) == CustomizableUI.TYPE_MENU_PANEL) {
+      if (
+        CustomizableUI.getAreaType(this.currentArea) ==
+        CustomizableUI.TYPE_MENU_PANEL
+      ) {
         getPanel().addEventListener("popupshowing", updateButton);
       }
 
       let listener = {
         onWidgetAdded: (aWidgetId, aArea) => {
-          if (aWidgetId != this.id)
+          if (aWidgetId != this.id) {
             return;
-          if (CustomizableUI.getAreaType(aArea) == CustomizableUI.TYPE_MENU_PANEL) {
+          }
+          if (
+            CustomizableUI.getAreaType(aArea) == CustomizableUI.TYPE_MENU_PANEL
+          ) {
             getPanel().addEventListener("popupshowing", updateButton);
           }
         },
         onWidgetRemoved: (aWidgetId, aPrevArea) => {
-          if (aWidgetId != this.id)
+          if (aWidgetId != this.id) {
             return;
+          }
           aNode.removeAttribute("disabled");
-          if (CustomizableUI.getAreaType(aPrevArea) == CustomizableUI.TYPE_MENU_PANEL) {
+          if (
+            CustomizableUI.getAreaType(aPrevArea) ==
+            CustomizableUI.TYPE_MENU_PANEL
+          ) {
             getPanel().removeEventListener("popupshowing", updateButton);
           }
         },
         onWidgetInstanceRemoved: (aWidgetId, aDoc) => {
-          if (aWidgetId != this.id || aDoc != document)
+          if (aWidgetId != this.id || aDoc != document) {
             return;
+          }
 
           CustomizableUI.removeListener(listener);
           getPanel().removeEventListener("popupshowing", updateButton);
@@ -495,14 +561,16 @@ const CustomizableWidgets = [
         this.charsetInfo = CharsetMenu.getData();
       }
     },
-  }, {
+  },
+  {
     id: "email-link-button",
     tooltiptext: "email-link-button.tooltiptext3",
     onCommand(aEvent) {
       let win = aEvent.view;
       win.MailIntegration.sendLinkForBrowser(win.gBrowser.selectedBrowser);
     },
-  }];
+  },
+];
 
 if (Services.prefs.getBoolPref("identity.fxaccounts.enabled")) {
   CustomizableWidgets.push({
@@ -524,12 +592,13 @@ if (Services.prefs.getBoolPref("identity.fxaccounts.enabled")) {
       this._tabsList = doc.getElementById("PanelUI-remotetabs-tabslist");
       Services.obs.addObserver(this, SyncedTabs.TOPIC_TABS_CHANGED);
 
+      let deck = doc.getElementById("PanelUI-remotetabs-deck");
       if (SyncedTabs.isConfiguredToSyncTabs) {
         if (SyncedTabs.hasSyncedThisSession) {
-          this.setDeckIndex(this.deckIndices.DECKINDEX_TABS);
+          deck.selectedIndex = this.deckIndices.DECKINDEX_TABS;
         } else {
           // Sync hasn't synced tabs yet, so show the "fetching" panel.
-          this.setDeckIndex(this.deckIndices.DECKINDEX_FETCHING);
+          deck.selectedIndex = this.deckIndices.DECKINDEX_FETCHING;
         }
         // force a background sync.
         SyncedTabs.syncTabs().catch(ex => {
@@ -539,7 +608,7 @@ if (Services.prefs.getBoolPref("identity.fxaccounts.enabled")) {
         this._showTabs();
       } else {
         // not configured to sync tabs, so no point updating the list.
-        this.setDeckIndex(this.deckIndices.DECKINDEX_TABSDISABLED);
+        deck.selectedIndex = this.deckIndices.DECKINDEX_TABSDISABLED;
       }
     },
     onViewHiding() {
@@ -556,22 +625,18 @@ if (Services.prefs.getBoolPref("identity.fxaccounts.enabled")) {
           break;
       }
     },
-    setDeckIndex(index) {
-      let deck = this._tabsList.ownerDocument.getElementById("PanelUI-remotetabs-deck");
-      // We call setAttribute instead of relying on the XBL property setter due
-      // to things going wrong when we try and set the index before the XBL
-      // binding has been created - see bug 1241851 for the gory details.
-      deck.setAttribute("selectedIndex", index);
-    },
 
     _showTabsPromise: Promise.resolve(),
     // Update the tab list after any existing in-flight updates are complete.
     _showTabs(paginationInfo) {
-      this._showTabsPromise = this._showTabsPromise.then(() => {
-        return this.__showTabs(paginationInfo);
-      }, e => {
-        Cu.reportError(e);
-      });
+      this._showTabsPromise = this._showTabsPromise.then(
+        () => {
+          return this.__showTabs(paginationInfo);
+        },
+        e => {
+          Cu.reportError(e);
+        }
+      );
     },
     // Return a new promise to update the tab list.
     __showTabs(paginationInfo) {
@@ -581,48 +646,70 @@ if (Services.prefs.getBoolPref("identity.fxaccounts.enabled")) {
         return undefined;
       }
       let doc = this._tabsList.ownerDocument;
-      return SyncedTabs.getTabClients().then(clients => {
-        // The view may have been hidden while the promise was resolving.
-        if (!this._tabsList) {
-          return;
-        }
-        if (clients.length === 0 && !SyncedTabs.hasSyncedThisSession) {
-          // the "fetching tabs" deck is being shown - let's leave it there.
-          // When that first sync completes we'll be notified and update.
-          return;
-        }
-
-        if (clients.length === 0) {
-          this.setDeckIndex(this.deckIndices.DECKINDEX_NOCLIENTS);
-          return;
-        }
-
-        this.setDeckIndex(this.deckIndices.DECKINDEX_TABS);
-        this._clearTabList();
-        SyncedTabs.sortTabClientsByLastUsed(clients);
-        let fragment = doc.createDocumentFragment();
-
-        for (let client of clients) {
-          // add a menu separator for all clients other than the first.
-          if (fragment.lastElementChild) {
-            let separator = doc.createXULElement("menuseparator");
-            fragment.appendChild(separator);
+      let deck = doc.getElementById("PanelUI-remotetabs-deck");
+      return SyncedTabs.getTabClients()
+        .then(clients => {
+          // The view may have been hidden while the promise was resolving.
+          if (!this._tabsList) {
+            return;
           }
-          if (paginationInfo && paginationInfo.clientId == client.id) {
-            this._appendClient(client, fragment, paginationInfo.maxTabs);
-          } else {
-            this._appendClient(client, fragment);
+          if (clients.length === 0 && !SyncedTabs.hasSyncedThisSession) {
+            // the "fetching tabs" deck is being shown - let's leave it there.
+            // When that first sync completes we'll be notified and update.
+            return;
           }
-        }
-        this._tabsList.appendChild(fragment);
-        PanelView.forNode(this._tabsList.closest("panelview"))
-                 .descriptionHeightWorkaround();
-      }).catch(err => {
-        Cu.reportError(err);
-      }).then(() => {
-        // an observer for tests.
-        Services.obs.notifyObservers(null, "synced-tabs-menu:test:tabs-updated");
-      });
+
+          if (clients.length === 0) {
+            deck.selectedIndex = this.deckIndices.DECKINDEX_NOCLIENTS;
+            return;
+          }
+
+          deck.selectedIndex = this.deckIndices.DECKINDEX_TABS;
+          this._clearTabList();
+          SyncedTabs.sortTabClientsByLastUsed(clients);
+          let fragment = doc.createDocumentFragment();
+
+          let clientNumber = 0;
+          for (let client of clients) {
+            // add a menu separator for all clients other than the first.
+            if (fragment.lastElementChild) {
+              let separator = doc.createXULElement("menuseparator");
+              fragment.appendChild(separator);
+            }
+            // We add the client's elements to a container, and indicate which
+            // element labels it.
+            let labelId = `synced-tabs-client-${clientNumber++}`;
+            let container = doc.createXULElement("vbox");
+            container.classList.add("PanelUI-remotetabs-clientcontainer");
+            container.setAttribute("role", "group");
+            container.setAttribute("aria-labelledby", labelId);
+            if (paginationInfo && paginationInfo.clientId == client.id) {
+              this._appendClient(
+                client,
+                container,
+                labelId,
+                paginationInfo.maxTabs
+              );
+            } else {
+              this._appendClient(client, container, labelId);
+            }
+            fragment.appendChild(container);
+          }
+          this._tabsList.appendChild(fragment);
+          PanelView.forNode(
+            this._tabsList.closest("panelview")
+          ).descriptionHeightWorkaround();
+        })
+        .catch(err => {
+          Cu.reportError(err);
+        })
+        .then(() => {
+          // an observer for tests.
+          Services.obs.notifyObservers(
+            null,
+            "synced-tabs-menu:test:tabs-updated"
+          );
+        });
     },
     _clearTabList() {
       let list = this._tabsList;
@@ -644,62 +731,76 @@ if (Services.prefs.getBoolPref("identity.fxaccounts.enabled")) {
       appendTo.appendChild(messageLabel);
       return messageLabel;
     },
-    _appendClient(client, attachFragment, maxTabs = this.TABS_PER_PAGE) {
-      let doc = attachFragment.ownerDocument;
+    _appendClient(client, container, labelId, maxTabs = this.TABS_PER_PAGE) {
+      let doc = container.ownerDocument;
       // Create the element for the remote client.
       let clientItem = doc.createXULElement("label");
+      clientItem.setAttribute("id", labelId);
       clientItem.setAttribute("itemtype", "client");
       let window = doc.defaultView;
-      clientItem.setAttribute("tooltiptext",
-        window.gSync.formatLastSyncDate(new Date(client.lastModified)));
+      clientItem.setAttribute(
+        "tooltiptext",
+        window.gSync.formatLastSyncDate(new Date(client.lastModified))
+      );
       clientItem.textContent = client.name;
 
-      attachFragment.appendChild(clientItem);
+      container.appendChild(clientItem);
 
-      if (client.tabs.length == 0) {
-        let label = this._appendMessageLabel("notabsforclientlabel", attachFragment);
+      if (!client.tabs.length) {
+        let label = this._appendMessageLabel("notabsforclientlabel", container);
         label.setAttribute("class", "PanelUI-remotetabs-notabsforclient-label");
       } else {
         // If this page will display all tabs, show no additional buttons.
         // If the next page will display all the remaining tabs, show a "Show All" button
         // Otherwise, show a "Shore More" button
         let hasNextPage = client.tabs.length > maxTabs;
-        let nextPageIsLastPage = hasNextPage && maxTabs + this.TABS_PER_PAGE >= client.tabs.length;
+        let nextPageIsLastPage =
+          hasNextPage && maxTabs + this.TABS_PER_PAGE >= client.tabs.length;
         if (nextPageIsLastPage) {
           // When the user clicks "Show All", try to have at least NEXT_PAGE_MIN_TABS more tabs
           // to display in order to avoid user frustration
-          maxTabs = Math.min(client.tabs.length - this.NEXT_PAGE_MIN_TABS, maxTabs);
+          maxTabs = Math.min(
+            client.tabs.length - this.NEXT_PAGE_MIN_TABS,
+            maxTabs
+          );
         }
         if (hasNextPage) {
           client.tabs = client.tabs.slice(0, maxTabs);
         }
         for (let tab of client.tabs) {
           let tabEnt = this._createTabElement(doc, tab);
-          attachFragment.appendChild(tabEnt);
+          container.appendChild(tabEnt);
         }
         if (hasNextPage) {
-          let showAllEnt = this._createShowMoreElement(doc, client.id,
-                                                       nextPageIsLastPage ?
-                                                       Infinity :
-                                                       maxTabs + this.TABS_PER_PAGE);
-          attachFragment.appendChild(showAllEnt);
+          let showAllEnt = this._createShowMoreElement(
+            doc,
+            client.id,
+            nextPageIsLastPage ? Infinity : maxTabs + this.TABS_PER_PAGE
+          );
+          container.appendChild(showAllEnt);
         }
       }
     },
     _createTabElement(doc, tabInfo) {
       let item = doc.createXULElement("toolbarbutton");
-      let tooltipText = (tabInfo.title ? tabInfo.title + "\n" : "") + tabInfo.url;
+      let tooltipText =
+        (tabInfo.title ? tabInfo.title + "\n" : "") + tabInfo.url;
       item.setAttribute("itemtype", "tab");
       item.setAttribute("class", "subviewbutton");
       item.setAttribute("targetURI", tabInfo.url);
-      item.setAttribute("label", tabInfo.title != "" ? tabInfo.title : tabInfo.url);
+      item.setAttribute(
+        "label",
+        tabInfo.title != "" ? tabInfo.title : tabInfo.url
+      );
       item.setAttribute("image", tabInfo.icon);
       item.setAttribute("tooltiptext", tooltipText);
       // We need to use "click" instead of "command" here so openUILink
       // respects different buttons (eg, to open in a new tab).
       item.addEventListener("click", e => {
         doc.defaultView.openUILink(tabInfo.url, e, {
-          triggeringPrincipal: Services.scriptSecurityManager.createNullPrincipal({}),
+          triggeringPrincipal: Services.scriptSecurityManager.createNullPrincipal(
+            {}
+          ),
         });
         if (doc.defaultView.whereToOpenLink(e) != "current") {
           e.preventDefault();
@@ -740,7 +841,7 @@ let preferencesButton = {
   id: "preferences-button",
   onCommand(aEvent) {
     let win = aEvent.target.ownerGlobal;
-    win.openPreferences(undefined, {origin: "preferencesButton"});
+    win.openPreferences(undefined);
   },
 };
 if (AppConstants.platform == "win") {
@@ -764,10 +865,20 @@ if (Services.prefs.getBoolPref("privacy.panicButton.enabled")) {
       let doc = aEvent.target.ownerDocument;
       let group = doc.getElementById("PanelUI-panic-timeSpan");
       let itemsToClear = [
-        "cookies", "history", "openWindows", "formdata", "sessions", "cache", "downloads", "offlineApps",
+        "cookies",
+        "history",
+        "openWindows",
+        "formdata",
+        "sessions",
+        "cache",
+        "downloads",
+        "offlineApps",
       ];
-      let newWindowPrivateState = PrivateBrowsingUtils.isWindowPrivate(doc.defaultView) ?
-                                  "private" : "non-private";
+      let newWindowPrivateState = PrivateBrowsingUtils.isWindowPrivate(
+        doc.defaultView
+      )
+        ? "private"
+        : "non-private";
       let promise = Sanitizer.sanitize(itemsToClear, {
         ignoreTimespan: false,
         range: Sanitizer.getClearRange(+group.value),
@@ -793,14 +904,26 @@ if (Services.prefs.getBoolPref("privacy.panicButton.enabled")) {
       }
     },
     onViewShowing(aEvent) {
-      let forgetButton = aEvent.target.querySelector("#PanelUI-panic-view-button");
-      let doc = aEvent.target.ownerDocument;
+      let win = aEvent.target.ownerGlobal;
+      let doc = win.document;
+      let eventBlocker = null;
+      eventBlocker = doc.l10n.translateElements([aEvent.target]);
+
+      let forgetButton = aEvent.target.querySelector(
+        "#PanelUI-panic-view-button"
+      );
       let group = doc.getElementById("PanelUI-panic-timeSpan");
       group.selectedItem = doc.getElementById("PanelUI-panic-5min");
       forgetButton.addEventListener("command", this);
+
+      if (eventBlocker) {
+        aEvent.detail.addBlocker(eventBlocker);
+      }
     },
     onViewHiding(aEvent) {
-      let forgetButton = aEvent.target.querySelector("#PanelUI-panic-view-button");
+      let forgetButton = aEvent.target.querySelector(
+        "#PanelUI-panic-view-button"
+      );
       forgetButton.removeEventListener("command", this);
     },
   });
@@ -812,7 +935,7 @@ if (PrivateBrowsingUtils.enabled) {
     shortcutId: "key_privatebrowsing",
     onCommand(e) {
       let win = e.target.ownerGlobal;
-      win.OpenBrowserWindow({private: true});
+      win.OpenBrowserWindow({ private: true });
     },
   });
 }

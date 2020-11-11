@@ -10,8 +10,8 @@ const dom = require("devtools/client/shared/vendor/react-dom-factories");
 const {
   createSummaryGraphPathStringFunction,
   SummaryGraphHelper,
-} = require("../../utils/graph-helper");
-const TimingPath = require("./TimingPath");
+} = require("devtools/client/inspector/animation/utils/graph-helper");
+const TimingPath = require("devtools/client/inspector/animation/components/graph/TimingPath");
 
 class EffectTimingPath extends TimingPath {
   static get propTypes() {
@@ -52,19 +52,29 @@ class EffectTimingPath extends TimingPath {
       }
 
       simulatedAnimation.currentTime = time < endTime ? time : endTime;
-      return Math.max(simulatedAnimation.effect.getComputedTiming().progress, 0);
+      return Math.max(
+        simulatedAnimation.effect.getComputedTiming().progress,
+        0
+      );
     };
 
-    const toPathStringFunc =
-      createSummaryGraphPathStringFunction(endTime, state.playbackRate);
-    const helper = new SummaryGraphHelper(state, null,
-                                          totalDuration, durationPerPixel,
-                                          getValueFunc, toPathStringFunc);
+    const toPathStringFunc = createSummaryGraphPathStringFunction(
+      endTime,
+      state.playbackRate
+    );
+    const helper = new SummaryGraphHelper(
+      state,
+      null,
+      totalDuration,
+      durationPerPixel,
+      getValueFunc,
+      toPathStringFunc
+    );
 
     return dom.g(
       {
         className: "animation-effect-timing-path",
-        transform: `translate(${ offset })`,
+        transform: `translate(${offset})`,
       },
       super.renderGraph(state, helper)
     );

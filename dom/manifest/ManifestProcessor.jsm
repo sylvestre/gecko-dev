@@ -17,35 +17,50 @@
  *
  * TODO: The constructor should accept the UA's supported orientations.
  * TODO: The constructor should accept the UA's supported display modes.
- * TODO: hook up developer tools to console. (1086997).
  */
-/*globals Components, ValueExtractor, ImageObjectProcessor, ConsoleAPI*/
-'use strict';
-const {
-  utils: Cu
-} = Components;
-ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
-XPCOMUtils.defineLazyGlobalGetters(this, ['URL']);
-const displayModes = new Set(['fullscreen', 'standalone', 'minimal-ui',
-  'browser'
-]);
-const orientationTypes = new Set(['any', 'natural', 'landscape', 'portrait',
-  'portrait-primary', 'portrait-secondary', 'landscape-primary',
-  'landscape-secondary'
-]);
-const textDirections = new Set(['ltr', 'rtl', 'auto']);
+"use strict";
 
-ChromeUtils.import('resource://gre/modules/Console.jsm');
-ChromeUtils.import("resource://gre/modules/Services.jsm");
+const { XPCOMUtils } = ChromeUtils.import(
+  "resource://gre/modules/XPCOMUtils.jsm"
+);
+XPCOMUtils.defineLazyGlobalGetters(this, ["URL"]);
+const displayModes = new Set([
+  "fullscreen",
+  "standalone",
+  "minimal-ui",
+  "browser",
+]);
+const orientationTypes = new Set([
+  "any",
+  "natural",
+  "landscape",
+  "portrait",
+  "portrait-primary",
+  "portrait-secondary",
+  "landscape-primary",
+  "landscape-secondary",
+]);
+const textDirections = new Set(["ltr", "rtl", "auto"]);
+
+const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 // ValueExtractor is used by the various processors to get values
 // from the manifest and to report errors.
-ChromeUtils.import('resource://gre/modules/ValueExtractor.jsm');
+const { ValueExtractor } = ChromeUtils.import(
+  "resource://gre/modules/ValueExtractor.jsm"
+);
 // ImageObjectProcessor is used to process things like icons and images
-ChromeUtils.import('resource://gre/modules/ImageObjectProcessor.jsm');
+const { ImageObjectProcessor } = ChromeUtils.import(
+  "resource://gre/modules/ImageObjectProcessor.jsm"
+);
 
-var ManifestProcessor = { // jshint ignore:line
+const domBundle = Services.strings.createBundle(
+  "chrome://global/locale/dom/dom.properties"
+);
+
+var ManifestProcessor = {
+  // jshint ignore:line
   get defaultDisplayMode() {
-    return 'browser';
+    return "browser";
   },
   get displayModes() {
     return displayModes;
@@ -62,92 +77,111 @@ var ManifestProcessor = { // jshint ignore:line
   //  * jsonText: the JSON string to be processed.
   //  * manifestURL: the URL of the manifest, to resolve URLs.
   //  * docURL: the URL of the owner doc, for security checks
-  process({
-    jsonText,
-    manifestURL: aManifestURL,
-    docURL: aDocURL
-  }) {
-    const domBundle = Services.strings.createBundle("chrome://global/locale/dom/dom.properties");
+  //  * checkConformance: boolean. If true, collects any conformance
+  //    errors into a "moz_validation" property on the returned manifest.
+  process(aOptions) {
+    const {
+      jsonText,
+      manifestURL: aManifestURL,
+      docURL: aDocURL,
+      checkConformance,
+    } = aOptions;
 
-    const console = new ConsoleAPI({
-      prefix: 'Web Manifest'
-    });
-    const manifestURL = new URL(aManifestURL);
-    const docURL = new URL(aDocURL);
+    // The errors get populated by the different process* functions.
+    const errors = [];
+
     let rawManifest = {};
     try {
       rawManifest = JSON.parse(jsonText);
-    } catch (e) {}
-    if (typeof rawManifest !== 'object' || rawManifest === null) {
-      console.warn(domBundle.GetStringFromName('ManifestShouldBeObject'));
+    } catch (e) {
+      errors.push({ type: "json", error: e.message });
+    }
+    if (rawManifest === null) {
+      return null;
+    }
+    if (typeof rawManifest !== "object") {
+      const warn = domBundle.GetStringFromName("ManifestShouldBeObject");
+      errors.push({ warn });
       rawManifest = {};
     }
-    const extractor = new ValueExtractor(console, domBundle);
-    const imgObjProcessor = new ImageObjectProcessor(console, extractor);
+    const manifestURL = new URL(aManifestURL);
+    const docURL = new URL(aDocURL);
+    const extractor = new ValueExtractor(errors, domBundle);
+    const imgObjProcessor = new ImageObjectProcessor(
+      errors,
+      extractor,
+      domBundle
+    );
     const processedManifest = {
-      'dir': processDirMember.call(this),
-      'lang': processLangMember(),
-      'start_url': processStartURLMember(),
-      'display': processDisplayMember.call(this),
-      'orientation': processOrientationMember.call(this),
-      'name': processNameMember(),
-      'icons': imgObjProcessor.process(
-        rawManifest, manifestURL, 'icons'
-      ),
-      'short_name': processShortNameMember(),
-      'theme_color': processThemeColorMember(),
-      'background_color': processBackgroundColorMember(),
+      dir: processDirMember.call(this),
+      lang: processLangMember(),
+      start_url: processStartURLMember(),
+      display: processDisplayMember.call(this),
+      orientation: processOrientationMember.call(this),
+      name: processNameMember(),
+      icons: imgObjProcessor.process(rawManifest, manifestURL, "icons"),
+      short_name: processShortNameMember(),
+      theme_color: processThemeColorMember(),
+      background_color: processBackgroundColorMember(),
     };
     processedManifest.scope = processScopeMember();
+    if (checkConformance) {
+      processedManifest.moz_validation = errors;
+      processedManifest.moz_manifest_url = manifestURL.href;
+    }
     return processedManifest;
 
     function processDirMember() {
       const spec = {
-        objectName: 'manifest',
+        objectName: "manifest",
         object: rawManifest,
-        property: 'dir',
-        expectedType: 'string',
+        property: "dir",
+        expectedType: "string",
         trim: true,
       };
       const value = extractor.extractValue(spec);
       if (this.textDirections.has(value)) {
         return value;
       }
-      return 'auto';
+      return "auto";
     }
 
     function processNameMember() {
       const spec = {
-        objectName: 'manifest',
+        objectName: "manifest",
         object: rawManifest,
-        property: 'name',
-        expectedType: 'string',
-        trim: true
+        property: "name",
+        expectedType: "string",
+        trim: true,
       };
       return extractor.extractValue(spec);
     }
 
     function processShortNameMember() {
       const spec = {
-        objectName: 'manifest',
+        objectName: "manifest",
         object: rawManifest,
-        property: 'short_name',
-        expectedType: 'string',
-        trim: true
+        property: "short_name",
+        expectedType: "string",
+        trim: true,
       };
       return extractor.extractValue(spec);
     }
 
     function processOrientationMember() {
       const spec = {
-        objectName: 'manifest',
+        objectName: "manifest",
         object: rawManifest,
-        property: 'orientation',
-        expectedType: 'string',
-        trim: true
+        property: "orientation",
+        expectedType: "string",
+        trim: true,
       };
       const value = extractor.extractValue(spec);
-      if (value && typeof value === "string" && this.orientationTypes.has(value.toLowerCase())) {
+      if (
+        value &&
+        typeof value === "string" &&
+        this.orientationTypes.has(value.toLowerCase())
+      ) {
         return value.toLowerCase();
       }
       return undefined;
@@ -155,14 +189,18 @@ var ManifestProcessor = { // jshint ignore:line
 
     function processDisplayMember() {
       const spec = {
-        objectName: 'manifest',
+        objectName: "manifest",
         object: rawManifest,
-        property: 'display',
-        expectedType: 'string',
-        trim: true
+        property: "display",
+        expectedType: "string",
+        trim: true,
       };
       const value = extractor.extractValue(spec);
-      if (value && typeof value === "string" && displayModes.has(value.toLowerCase())) {
+      if (
+        value &&
+        typeof value === "string" &&
+        displayModes.has(value.toLowerCase())
+      ) {
         return value.toLowerCase();
       }
       return this.defaultDisplayMode;
@@ -170,59 +208,69 @@ var ManifestProcessor = { // jshint ignore:line
 
     function processScopeMember() {
       const spec = {
-        objectName: 'manifest',
+        objectName: "manifest",
         object: rawManifest,
-        property: 'scope',
-        expectedType: 'string',
-        trim: false
+        property: "scope",
+        expectedType: "string",
+        trim: false,
       };
       let scopeURL;
       const startURL = new URL(processedManifest.start_url);
+      const defaultScope = new URL(".", startURL).href;
       const value = extractor.extractValue(spec);
-      if (value === undefined || value === '') {
-        return undefined;
+      if (value === undefined || value === "") {
+        return defaultScope;
       }
       try {
         scopeURL = new URL(value, manifestURL);
       } catch (e) {
-        console.warn(domBundle.GetStringFromName('ManifestScopeURLInvalid'));
-        return undefined;
+        const warn = domBundle.GetStringFromName("ManifestScopeURLInvalid");
+        errors.push({ warn });
+        return defaultScope;
       }
       if (scopeURL.origin !== docURL.origin) {
-        console.warn(domBundle.GetStringFromName('ManifestScopeNotSameOrigin'));
-        return undefined;
+        const warn = domBundle.GetStringFromName("ManifestScopeNotSameOrigin");
+        errors.push({ warn });
+        return defaultScope;
       }
       // If start URL is not within scope of scope URL:
       let isSameOrigin = startURL && startURL.origin !== scopeURL.origin;
       if (isSameOrigin || !startURL.pathname.startsWith(scopeURL.pathname)) {
-        console.warn(domBundle.GetStringFromName('ManifestStartURLOutsideScope'));
-        return undefined;
+        const warn = domBundle.GetStringFromName(
+          "ManifestStartURLOutsideScope"
+        );
+        errors.push({ warn });
+        return defaultScope;
       }
       return scopeURL.href;
     }
 
     function processStartURLMember() {
       const spec = {
-        objectName: 'manifest',
+        objectName: "manifest",
         object: rawManifest,
-        property: 'start_url',
-        expectedType: 'string',
-        trim: false
+        property: "start_url",
+        expectedType: "string",
+        trim: false,
       };
       let result = new URL(docURL).href;
       const value = extractor.extractValue(spec);
-      if (value === undefined || value === '') {
+      if (value === undefined || value === "") {
         return result;
       }
       let potentialResult;
       try {
         potentialResult = new URL(value, manifestURL);
       } catch (e) {
-        console.warn(domBundle.GetStringFromName('ManifestStartURLInvalid'))
+        const warn = domBundle.GetStringFromName("ManifestStartURLInvalid");
+        errors.push({ warn });
         return result;
       }
       if (potentialResult.origin !== docURL.origin) {
-        console.warn(domBundle.GetStringFromName('ManifestStartURLShouldBeSameOrigin'));
+        const warn = domBundle.GetStringFromName(
+          "ManifestStartURLShouldBeSameOrigin"
+        );
+        errors.push({ warn });
       } else {
         result = potentialResult.href;
       }
@@ -231,44 +279,36 @@ var ManifestProcessor = { // jshint ignore:line
 
     function processThemeColorMember() {
       const spec = {
-        objectName: 'manifest',
+        objectName: "manifest",
         object: rawManifest,
-        property: 'theme_color',
-        expectedType: 'string',
-        trim: true
+        property: "theme_color",
+        expectedType: "string",
+        trim: true,
       };
       return extractor.extractColorValue(spec);
     }
 
     function processBackgroundColorMember() {
       const spec = {
-        objectName: 'manifest',
+        objectName: "manifest",
         object: rawManifest,
-        property: 'background_color',
-        expectedType: 'string',
-        trim: true
+        property: "background_color",
+        expectedType: "string",
+        trim: true,
       };
       return extractor.extractColorValue(spec);
     }
 
     function processLangMember() {
       const spec = {
-        objectName: 'manifest',
+        objectName: "manifest",
         object: rawManifest,
-        property: 'lang',
-        expectedType: 'string', trim: true
+        property: "lang",
+        expectedType: "string",
+        trim: true,
       };
-      let tag = extractor.extractValue(spec);
-      // TODO: Check if tag is structurally valid.
-      //       Cannot do this because we don't support Intl API on Android.
-      //       https://bugzilla.mozilla.org/show_bug.cgi?id=864843
-      //       https://github.com/tc39/ecma402/issues/5
-      // TODO: perform canonicalization on the tag.
-      //       Can't do this today because there is no direct means to
-      //       access canonicalization algorithms through Intl API.
-      //       https://github.com/tc39/ecma402/issues/5
-      return tag;
+      return extractor.extractLanguageValue(spec);
     }
-  }
+  },
 };
-var EXPORTED_SYMBOLS = ['ManifestProcessor']; // jshint ignore:line
+var EXPORTED_SYMBOLS = ["ManifestProcessor"]; // jshint ignore:line

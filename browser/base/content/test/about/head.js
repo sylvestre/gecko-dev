@@ -1,35 +1,85 @@
 /* eslint-env mozilla/frame-script */
 
-function injectErrorPageFrame(tab, src) {
-  return ContentTask.spawn(tab.linkedBrowser, {frameSrc: src}, async function({frameSrc}) {
-    let loaded = ContentTaskUtils.waitForEvent(content.wrappedJSObject, "DOMFrameContentLoaded");
-    let iframe = content.document.createElement("iframe");
-    iframe.src = frameSrc;
-    content.document.body.appendChild(iframe);
-    await loaded;
-    // We will have race conditions when accessing the frame content after setting a src,
-    // so we can't wait for AboutNetErrorLoad. Let's wait for the certerror class to
-    // appear instead (which should happen at the same time as AboutNetErrorLoad).
-    await ContentTaskUtils.waitForCondition(() =>
-      iframe.contentDocument.body.classList.contains("certerror"));
-  });
+XPCOMUtils.defineLazyModuleGetters(this, {
+  FormHistory: "resource://gre/modules/FormHistory.jsm",
+});
+
+function getSecurityInfo(securityInfoAsString) {
+  const serhelper = Cc[
+    "@mozilla.org/network/serialization-helper;1"
+  ].getService(Ci.nsISerializationHelper);
+  let securityInfo = serhelper.deserializeObject(securityInfoAsString);
+  securityInfo.QueryInterface(Ci.nsITransportSecurityInfo);
+  return securityInfo;
 }
 
-async function openErrorPage(src, useFrame) {
-  let dummyPage = getRootDirectory(gTestPath).replace("chrome://mochitests/content", "https://example.com") + "dummy_page.html";
+function getCertChain(securityInfoAsString) {
+  let certChain = "";
+  let securityInfo = getSecurityInfo(securityInfoAsString);
+  for (let cert of securityInfo.failedCertChain) {
+    certChain += getPEMString(cert);
+  }
+  return certChain;
+}
+
+function getPEMString(cert) {
+  var derb64 = cert.getBase64DERString();
+  // Wrap the Base64 string into lines of 64 characters,
+  // with CRLF line breaks (as specified in RFC 1421).
+  var wrapped = derb64.replace(/(\S{64}(?!$))/g, "$1\r\n");
+  return (
+    "-----BEGIN CERTIFICATE-----\r\n" +
+    wrapped +
+    "\r\n-----END CERTIFICATE-----\r\n"
+  );
+}
+
+async function injectErrorPageFrame(tab, src, sandboxed) {
+  let loadedPromise = BrowserTestUtils.browserLoaded(
+    tab.linkedBrowser,
+    true,
+    null,
+    true
+  );
+
+  await SpecialPowers.spawn(tab.linkedBrowser, [src, sandboxed], async function(
+    frameSrc,
+    frameSandboxed
+  ) {
+    let iframe = content.document.createElement("iframe");
+    iframe.src = frameSrc;
+    if (frameSandboxed) {
+      iframe.setAttribute("sandbox", "allow-scripts");
+    }
+    content.document.body.appendChild(iframe);
+  });
+
+  await loadedPromise;
+}
+
+async function openErrorPage(src, useFrame, sandboxed) {
+  let dummyPage =
+    getRootDirectory(gTestPath).replace(
+      "chrome://mochitests/content",
+      "https://example.com"
+    ) + "dummy_page.html";
 
   let tab;
   if (useFrame) {
     info("Loading cert error page in an iframe");
     tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, dummyPage);
-    await injectErrorPageFrame(tab, src);
+    await injectErrorPageFrame(tab, src, sandboxed);
   } else {
     let certErrorLoaded;
-    tab = await BrowserTestUtils.openNewForegroundTab(gBrowser, () => {
-      gBrowser.selectedTab = BrowserTestUtils.addTab(gBrowser, src);
-      let browser = gBrowser.selectedBrowser;
-      certErrorLoaded = BrowserTestUtils.waitForErrorPage(browser);
-    }, false);
+    tab = await BrowserTestUtils.openNewForegroundTab(
+      gBrowser,
+      () => {
+        gBrowser.selectedTab = BrowserTestUtils.addTab(gBrowser, src);
+        let browser = gBrowser.selectedBrowser;
+        certErrorLoaded = BrowserTestUtils.waitForErrorPage(browser);
+      },
+      false
+    );
     info("Loading and waiting for the cert error");
     await certErrorLoaded;
   }
@@ -57,7 +107,10 @@ function waitForCondition(condition, nextTest, errorMsg, retryTimes) {
     }
     tries++;
   }, 100);
-  var moveOn = function() { clearInterval(interval); nextTest(); };
+  var moveOn = function() {
+    clearInterval(interval);
+    nextTest();
+  };
 }
 
 function whenTabLoaded(aTab, aCallback) {
@@ -97,154 +150,129 @@ function promiseTabLoadEvent(tab, url) {
 
   let loaded = BrowserTestUtils.browserLoaded(tab.linkedBrowser, false, handle);
 
-  if (url)
+  if (url) {
     BrowserTestUtils.loadURI(tab.linkedBrowser, url);
+  }
 
   return loaded;
 }
 
 /**
- * Waits for the next top-level document load in the current browser.  The URI
- * of the document is compared against aExpectedURL.  The load is then stopped
- * before it actually starts.
- *
- * @param aExpectedURL
- *        The URL of the document that is expected to load.
- * @param aStopFromProgressListener
- *        Whether to cancel the load directly from the progress listener. Defaults to true.
- *        If you're using this method to avoid hitting the network, you want the default (true).
- *        However, the browser UI will behave differently for loads stopped directly from
- *        the progress listener (effectively in the middle of a call to loadURI) and so there
- *        are cases where you may want to avoid stopping the load directly from within the
- *        progress listener callback.
- * @return promise
+ * Wait for the search engine to change. searchEngineChangeFn is a function
+ * that will be called to change the search engine.
  */
-function waitForDocLoadAndStopIt(aExpectedURL, aBrowser = gBrowser.selectedBrowser, aStopFromProgressListener = true) {
-  function content_script(contentStopFromProgressListener) {
-    ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
-    let wp = docShell.QueryInterface(Ci.nsIWebProgress);
-
-    function stopContent(now, uri) {
-      if (now) {
-        /* Hammer time. */
-        content.stop();
-
-        /* Let the parent know we're done. */
-        sendAsyncMessage("Test:WaitForDocLoadAndStopIt", { uri });
-      } else {
-        setTimeout(stopContent.bind(null, true, uri), 0);
-      }
-    }
-
-    let progressListener = {
-      onStateChange(webProgress, req, flags, status) {
-        dump("waitForDocLoadAndStopIt: onStateChange " + flags.toString(16) + ": " + req.name + "\n");
-
-        if (webProgress.isTopLevel &&
-            flags & Ci.nsIWebProgressListener.STATE_START) {
-          wp.removeProgressListener(progressListener);
-
-          let chan = req.QueryInterface(Ci.nsIChannel);
-          dump(`waitForDocLoadAndStopIt: Document start: ${chan.URI.spec}\n`);
-
-          stopContent(contentStopFromProgressListener, chan.originalURI.spec);
+async function promiseContentSearchChange(browser, searchEngineChangeFn) {
+  // Add an event listener manually then perform the action, rather than using
+  // BrowserTestUtils.addContentEventListener as that doesn't add the listener
+  // early enough.
+  await SpecialPowers.spawn(browser, [], async () => {
+    // Store the results in a temporary place.
+    content._searchDetails = {
+      defaultEnginesList: [],
+      listener: event => {
+        if (event.detail.type == "CurrentState") {
+          content._searchDetails.defaultEnginesList.push(
+            content.wrappedJSObject.gContentSearchController.defaultEngine.name
+          );
         }
       },
-      QueryInterface: ChromeUtils.generateQI(["nsISupportsWeakReference"]),
     };
-    wp.addProgressListener(progressListener, wp.NOTIFY_STATE_WINDOW);
 
-    /**
-     * As |this| is undefined and we can't extend |docShell|, adding an unload
-     * event handler is the easiest way to ensure the weakly referenced
-     * progress listener is kept alive as long as necessary.
-     */
-    addEventListener("unload", function() {
-      try {
-        wp.removeProgressListener(progressListener);
-      } catch (e) { /* Will most likely fail. */ }
-    });
-  }
-
-  // We are deferring the setup of this promise because there is a possibility
-  // that a process flip will occur as we transition from page to page. This is
-  // a little convoluted because we have a very small window of time in which to
-  // send down the content_script frame script before the expected page actually
-  // loads. The best time to send down the script, it seems, is right after the
-  // TabRemotenessUpdate event.
-  //
-  // So, we abstract out the content_script handling into a helper stoppedDocLoadPromise
-  // promise so that we can account for the process flipping case, and jam in the
-  // content_script at just the right time in the TabRemotenessChange handler.
-  let stoppedDocLoadPromise = () => {
-    return new Promise((resolve, reject) => {
-      function complete({ data }) {
-        is(data.uri, aExpectedURL, "waitForDocLoadAndStopIt: The expected URL was loaded");
-        mm.removeMessageListener("Test:WaitForDocLoadAndStopIt", complete);
-        resolve();
-      }
-
-      let mm = aBrowser.messageManager;
-      mm.loadFrameScript("data:,(" + content_script.toString() + ")(" + aStopFromProgressListener + ");", true);
-      mm.addMessageListener("Test:WaitForDocLoadAndStopIt", complete);
-      info("waitForDocLoadAndStopIt: Waiting for URL: " + aExpectedURL);
-    });
-  };
-
-  let win = aBrowser.ownerGlobal;
-  let tab = win.gBrowser.getTabForBrowser(aBrowser);
-  let { mustChangeProcess } = E10SUtils.shouldLoadURIInBrowser(aBrowser, aExpectedURL);
-  if (!tab ||
-      !win.gMultiProcessBrowser ||
-      !mustChangeProcess) {
-    return stoppedDocLoadPromise();
-  }
-
-  return new Promise((resolve, reject) => {
-    tab.addEventListener("TabRemotenessChange", function() {
-      stoppedDocLoadPromise().then(resolve, reject);
-    }, {once: true});
+    // Listen using the system group to ensure that it fires after
+    // the default behaviour.
+    content.addEventListener(
+      "ContentSearchService",
+      content._searchDetails.listener,
+      { mozSystemGroup: true }
+    );
   });
-}
 
-/**
- * Wait for the search engine to change.
- */
-function promiseContentSearchChange(browser, newEngineName) {
-  return ContentTask.spawn(browser, { newEngineName }, async function(args) {
-    return new Promise(resolve => {
-      content.addEventListener("ContentSearchService", function listener(aEvent) {
-        if (aEvent.detail.type == "CurrentState" &&
-            content.wrappedJSObject.gContentSearchController.defaultEngine.name == args.newEngineName) {
-          content.removeEventListener("ContentSearchService", listener);
-          resolve();
-        }
-      });
-    });
-  });
+  let expectedEngineName = await searchEngineChangeFn();
+
+  await SpecialPowers.spawn(
+    browser,
+    [expectedEngineName],
+    async expectedEngineNameChild => {
+      await ContentTaskUtils.waitForCondition(
+        () =>
+          content._searchDetails.defaultEnginesList &&
+          content._searchDetails.defaultEnginesList[
+            content._searchDetails.defaultEnginesList.length - 1
+          ] == expectedEngineNameChild
+      );
+      content.removeEventListener(
+        "ContentSearchService",
+        content._searchDetails.listener,
+        { mozSystemGroup: true }
+      );
+      delete content._searchDetails;
+    }
+  );
 }
 
 /**
  * Wait for the search engine to be added.
  */
-function promiseNewEngine(basename) {
+async function promiseNewEngine(basename) {
   info("Waiting for engine to be added: " + basename);
-  return new Promise((resolve, reject) => {
-    let url = getRootDirectory(gTestPath) + basename;
-    Services.search.addEngine(url, "", false, {
-      onSuccess(engine) {
-        info("Search engine added: " + basename);
-        registerCleanupFunction(() => {
-          try {
-            Services.search.removeEngine(engine);
-          } catch (ex) { /* Can't remove the engine more than once */ }
-        });
-        resolve(engine);
-      },
-      onError(errCode) {
-        ok(false, "addEngine failed with error code " + errCode);
-        reject();
-      },
-    });
+  let url = getRootDirectory(gTestPath) + basename;
+  let engine;
+  try {
+    engine = await Services.search.addOpenSearchEngine(url, "");
+  } catch (errCode) {
+    ok(false, "addEngine failed with error code " + errCode);
+    throw errCode;
+  }
+
+  info("Search engine added: " + basename);
+  registerCleanupFunction(async () => {
+    try {
+      await Services.search.removeEngine(engine);
+    } catch (ex) {
+      /* Can't remove the engine more than once */
+    }
   });
+
+  return engine;
+}
+
+async function waitForBookmarksToolbarVisibility({
+  win = window,
+  visible,
+  message,
+}) {
+  let result = await TestUtils.waitForCondition(() => {
+    let toolbar = win.document.getElementById("PersonalToolbar");
+    return toolbar && (visible ? !toolbar.collapsed : toolbar.collapsed);
+  }, message || "waiting for toolbar to become " + (visible ? "visible" : "hidden"));
+  ok(result, message);
+  return result;
+}
+
+function isBookmarksToolbarVisible(win = window) {
+  let toolbar = win.document.getElementById("PersonalToolbar");
+  return !toolbar.collapsed;
+}
+
+async function waitForBookmarksToolbarVisibilityWithExitConditions({
+  win = window,
+  exitConditions,
+  message,
+}) {
+  let result = await TestUtils.waitForCondition(() => {
+    if (exitConditions.earlyExit) {
+      return exitConditions.earlyExit;
+    }
+    let toolbar = win.document.getElementById("PersonalToolbar");
+    return (
+      toolbar &&
+      (exitConditions.visible ? !toolbar.collapsed : toolbar.collapsed)
+    );
+  }, message || "waiting for toolbar to become " + (exitConditions.visible ? "visible" : "hidden"));
+  if (exitConditions.earlyExit) {
+    ok(true, "Early exit condition met");
+  } else {
+    ok(false, message);
+  }
+  return exitConditions.earlyExit || result;
 }

@@ -13,6 +13,8 @@
 
 #include <windows.h>
 
+#include <stdint.h>
+
 #if defined(_WIN32_WINNT_WIN8)
 // The Windows 8 SDK defines FACILITY_VISUALCPP in winerror.h.
 #undef FACILITY_VISUALCPP
@@ -30,59 +32,61 @@ class PEImage {
   // Callback to enumerate sections.
   // cookie is the value passed to the enumerate method.
   // Returns true to continue the enumeration.
-  typedef bool (*EnumSectionsFunction)(const PEImage &image,
-                                       PIMAGE_SECTION_HEADER header,
-                                       PVOID section_start, DWORD section_size,
-                                       PVOID cookie);
+  using EnumSectionsFunction =
+      bool (*)(const PEImage&, PIMAGE_SECTION_HEADER, PVOID, DWORD, PVOID);
 
   // Callback to enumerate exports.
   // function is the actual address of the symbol. If forward is not null, it
   // contains the dll and symbol to forward this export to. cookie is the value
   // passed to the enumerate method.
   // Returns true to continue the enumeration.
-  typedef bool (*EnumExportsFunction)(const PEImage &image, DWORD ordinal,
-                                      DWORD hint, LPCSTR name, PVOID function,
-                                      LPCSTR forward, PVOID cookie);
+  using EnumExportsFunction =
+      bool (*)(const PEImage&, DWORD, DWORD, LPCSTR, PVOID, LPCSTR, PVOID);
 
   // Callback to enumerate import blocks.
   // name_table and iat point to the imports name table and address table for
   // this block. cookie is the value passed to the enumerate method.
   // Returns true to continue the enumeration.
-  typedef bool (*EnumImportChunksFunction)(const PEImage &image, LPCSTR module,
-                                           PIMAGE_THUNK_DATA name_table,
-                                           PIMAGE_THUNK_DATA iat, PVOID cookie);
+  using EnumImportChunksFunction = bool (*)(const PEImage&,
+                                            LPCSTR,
+                                            PIMAGE_THUNK_DATA,
+                                            PIMAGE_THUNK_DATA,
+                                            PVOID);
 
   // Callback to enumerate imports.
   // module is the dll that exports this symbol. cookie is the value passed to
   // the enumerate method.
   // Returns true to continue the enumeration.
-  typedef bool (*EnumImportsFunction)(const PEImage &image, LPCSTR module,
-                                      DWORD ordinal, LPCSTR name, DWORD hint,
-                                      PIMAGE_THUNK_DATA iat, PVOID cookie);
+  using EnumImportsFunction = bool (*)(const PEImage&,
+                                       LPCSTR,
+                                       DWORD,
+                                       LPCSTR,
+                                       DWORD,
+                                       PIMAGE_THUNK_DATA,
+                                       PVOID);
 
-  // Callback to enumerate dalayed import blocks.
+  // Callback to enumerate delayed import blocks.
   // module is the dll that exports this block of symbols. cookie is the value
   // passed to the enumerate method.
   // Returns true to continue the enumeration.
-  typedef bool (*EnumDelayImportChunksFunction)(const PEImage &image,
-                                                PImgDelayDescr delay_descriptor,
-                                                LPCSTR module,
-                                                PIMAGE_THUNK_DATA name_table,
-                                                PIMAGE_THUNK_DATA iat,
-                                                PVOID cookie);
+  using EnumDelayImportChunksFunction = bool (*)(const PEImage&,
+                                                 PImgDelayDescr,
+                                                 LPCSTR,
+                                                 PIMAGE_THUNK_DATA,
+                                                 PIMAGE_THUNK_DATA,
+                                                 PVOID);
 
   // Callback to enumerate relocations.
   // cookie is the value passed to the enumerate method.
   // Returns true to continue the enumeration.
-  typedef bool (*EnumRelocsFunction)(const PEImage &image, WORD type,
-                                     PVOID address, PVOID cookie);
+  using EnumRelocsFunction = bool (*)(const PEImage&, WORD, PVOID, PVOID);
 
   explicit PEImage(HMODULE module) : module_(module) {}
   explicit PEImage(const void* module) {
     module_ = reinterpret_cast<HMODULE>(const_cast<void*>(module));
   }
 
-  virtual ~PEImage() {}
+  virtual ~PEImage() = default;
 
   // Gets the HMODULE for this object.
   HMODULE module() const;
@@ -109,10 +113,12 @@ class PEImage {
   // returns NULL if there is no such section.
   PIMAGE_SECTION_HEADER GetSectionHeader(UINT section) const;
 
-  // Returns the size of a given directory entry.
+  // Returns the size of a given directory entry or 0 if |directory| is out of
+  // bounds.
   DWORD GetImageDirectoryEntrySize(UINT directory) const;
 
-  // Returns the address of a given directory entry.
+  // Returns the address of a given directory entry or NULL if |directory| is
+  // out of bounds.
   PVOID GetImageDirectoryEntryAddr(UINT directory) const;
 
   // Returns the section header for a given address.
@@ -130,8 +136,23 @@ class PEImage {
   // Returns the exports directory.
   PIMAGE_EXPORT_DIRECTORY GetExportDirectory() const;
 
-  // Returns the debug id (guid+age).
-  bool GetDebugId(LPGUID guid, LPDWORD age) const;
+  // Retrieves the contents of the image's CodeView debug entry, returning true
+  // if such an entry is found and is within a section mapped into the current
+  // process's memory. |guid|, |age|, and |pdb_filename| are each optional and
+  // may be NULL. |pdb_filename_length| is mandatory if |pdb_filename| is not
+  // NULL, as the latter is populated with a direct reference to a string in the
+  // image that is is not guaranteed to be terminated (note: informal
+  // documentation indicates that it should be terminated, but the data is
+  // untrusted). Furthermore, owing to its nature of being a string in the
+  // image, it is only valid while the image is mapped into the process, and the
+  // caller is not responsible for freeing it. |pdb_filename_length| is
+  // populated with the string length of |pdb_filename| (not including a
+  // terminator) and must be used rather than relying on |pdb_filename| being
+  // properly terminated.
+  bool GetDebugId(LPGUID guid,
+                  LPDWORD age,
+                  LPCSTR* pdb_filename,
+                  size_t* pdb_filename_length) const;
 
   // Returns a given export entry.
   // Use: e = image.GetExportEntry(f);
@@ -153,7 +174,7 @@ class PEImage {
 
   // Retrieves the ordinal for a given exported symbol.
   // Returns true if the symbol was found.
-  bool GetProcOrdinal(LPCSTR function_name, WORD *ordinal) const;
+  bool GetProcOrdinal(LPCSTR function_name, WORD* ordinal) const;
 
   // Enumerates PE sections.
   // cookie is a generic cookie to pass to the callback.
@@ -168,31 +189,49 @@ class PEImage {
   // Enumerates PE imports.
   // cookie is a generic cookie to pass to the callback.
   // Returns true on success.
-  bool EnumAllImports(EnumImportsFunction callback, PVOID cookie) const;
+  // Use |target_module_name| to ensure the callback is only invoked for the
+  // specified module.
+  bool EnumAllImports(EnumImportsFunction callback,
+                      PVOID cookie,
+                      LPCSTR target_module_name) const;
 
   // Enumerates PE import blocks.
   // cookie is a generic cookie to pass to the callback.
   // Returns true on success.
-  bool EnumImportChunks(EnumImportChunksFunction callback, PVOID cookie) const;
+  // Use |target_module_name| to ensure the callback is only invoked for the
+  // specified module.
+  bool EnumImportChunks(EnumImportChunksFunction callback,
+                        PVOID cookie,
+                        LPCSTR target_module_name) const;
 
   // Enumerates the imports from a single PE import block.
   // cookie is a generic cookie to pass to the callback.
   // Returns true on success.
-  bool EnumOneImportChunk(EnumImportsFunction callback, LPCSTR module_name,
-                          PIMAGE_THUNK_DATA name_table, PIMAGE_THUNK_DATA iat,
+  bool EnumOneImportChunk(EnumImportsFunction callback,
+                          LPCSTR module_name,
+                          PIMAGE_THUNK_DATA name_table,
+                          PIMAGE_THUNK_DATA iat,
                           PVOID cookie) const;
-
 
   // Enumerates PE delay imports.
   // cookie is a generic cookie to pass to the callback.
   // Returns true on success.
-  bool EnumAllDelayImports(EnumImportsFunction callback, PVOID cookie) const;
+  // Use |target_module_name| to ensure the callback is only invoked for the
+  // specified module. If this parameter is non-null then all delayloaded
+  // imports are resolved when the target module is found.
+  bool EnumAllDelayImports(EnumImportsFunction callback,
+                           PVOID cookie,
+                           LPCSTR target_module_name) const;
 
   // Enumerates PE delay import blocks.
   // cookie is a generic cookie to pass to the callback.
   // Returns true on success.
+  // Use |target_module_name| to ensure the callback is only invoked for the
+  // specified module. If this parameter is non-null then all delayloaded
+  // imports are resolved when the target module is found.
   bool EnumDelayImportChunks(EnumDelayImportChunksFunction callback,
-                             PVOID cookie) const;
+                             PVOID cookie,
+                             LPCSTR target_module_name) const;
 
   // Enumerates imports from a single PE delay import block.
   // cookie is a generic cookie to pass to the callback.
@@ -214,17 +253,21 @@ class PEImage {
   bool VerifyMagic() const;
 
   // Converts an rva value to the appropriate address.
-  virtual PVOID RVAToAddr(DWORD rva) const;
+  virtual PVOID RVAToAddr(uintptr_t rva) const;
 
   // Converts an rva value to an offset on disk.
   // Returns true on success.
-  bool ImageRVAToOnDiskOffset(DWORD rva, DWORD *on_disk_offset) const;
+  bool ImageRVAToOnDiskOffset(uintptr_t rva, DWORD* on_disk_offset) const;
 
   // Converts an address to an offset on disk.
   // Returns true on success.
-  bool ImageAddrToOnDiskOffset(LPVOID address, DWORD *on_disk_offset) const;
+  bool ImageAddrToOnDiskOffset(LPVOID address, DWORD* on_disk_offset) const;
 
  private:
+  // Returns a pointer to a data directory, or NULL if |directory| is out of
+  // range.
+  const IMAGE_DATA_DIRECTORY* GetDataDirectory(UINT directory) const;
+
   HMODULE module_;
 };
 
@@ -234,7 +277,7 @@ class PEImageAsData : public PEImage {
  public:
   explicit PEImageAsData(HMODULE hModule) : PEImage(hModule) {}
 
-  PVOID RVAToAddr(DWORD rva) const override;
+  PVOID RVAToAddr(uintptr_t rva) const override;
 };
 
 inline bool PEImage::IsOrdinal(LPCSTR name) {
@@ -251,12 +294,12 @@ inline HMODULE PEImage::module() const {
 
 inline PIMAGE_IMPORT_DESCRIPTOR PEImage::GetFirstImportChunk() const {
   return reinterpret_cast<PIMAGE_IMPORT_DESCRIPTOR>(
-             GetImageDirectoryEntryAddr(IMAGE_DIRECTORY_ENTRY_IMPORT));
+      GetImageDirectoryEntryAddr(IMAGE_DIRECTORY_ENTRY_IMPORT));
 }
 
 inline PIMAGE_EXPORT_DIRECTORY PEImage::GetExportDirectory() const {
   return reinterpret_cast<PIMAGE_EXPORT_DIRECTORY>(
-             GetImageDirectoryEntryAddr(IMAGE_DIRECTORY_ENTRY_EXPORT));
+      GetImageDirectoryEntryAddr(IMAGE_DIRECTORY_ENTRY_EXPORT));
 }
 
 }  // namespace win

@@ -31,27 +31,62 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include <dav1d/dav1d.h>
 #include "src/cpu.h"
 #include "dav1d_fuzzer.h"
 
+#ifdef DAV1D_ALLOC_FAIL
+
+#include "alloc_fail.h"
+
+static unsigned djb_xor(const uint8_t * c, size_t len) {
+    unsigned hash = 5381;
+    for(size_t i = 0; i < len; i++)
+        hash = hash * 33 ^ c[i];
+    return hash;
+}
+#endif
+
 static unsigned r32le(const uint8_t *const p) {
     return ((uint32_t)p[3] << 24U) | (p[2] << 16U) | (p[1] << 8U) | p[0];
 }
 
-#define DAV1D_FUZZ_MAX_SIZE 4096
+#define DAV1D_FUZZ_MAX_SIZE 4096 * 4096
 
-#if defined(DAV1D_FUZZ_MAX_SIZE)
-static int (*default_picture_allocator)(Dav1dPicture *, void *);
+// search for "--cpumask xxx" in argv and remove both parameters
+int LLVMFuzzerInitialize(int *argc, char ***argv) {
+    int i = 1;
+    for (; i < *argc; i++) {
+        if (!strcmp((*argv)[i], "--cpumask")) {
+            const char * cpumask = (*argv)[i+1];
+            if (cpumask) {
+                char *end;
+                unsigned res;
+                if (!strncmp(cpumask, "0x", 2)) {
+                    cpumask += 2;
+                    res = (unsigned) strtoul(cpumask, &end, 16);
+                } else {
+                    res = (unsigned) strtoul(cpumask, &end, 0);
+                }
+                if (end != cpumask && !end[0]) {
+                    dav1d_set_cpu_flags_mask(res);
+                }
+            }
+            break;
+        }
+    }
 
-static int fuzz_picture_allocator(Dav1dPicture *pic, void *cookie) {
-    if (pic->p.w > DAV1D_FUZZ_MAX_SIZE || pic->p.h > DAV1D_FUZZ_MAX_SIZE)
-        return -EINVAL;
+    for (; i < *argc - 2; i++) {
+        (*argv)[i] = (*argv)[i + 2];
+    }
 
-    return default_picture_allocator(pic, cookie);
+    *argc = i;
+
+    return 0;
 }
-#endif
+
 
 // expects ivf input
 
@@ -66,26 +101,31 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 
     dav1d_version();
 
-    // memory sanitizer is inherently incompatible with asm
-#if defined(__has_feature)
-  #if __has_feature(memory_sanitizer)
-    dav1d_set_cpu_flags_mask(0);
-  #endif
-#endif
-
     if (size < 32) goto end;
+#ifdef DAV1D_ALLOC_FAIL
+    unsigned h = djb_xor(ptr, 32);
+    unsigned seed = h;
+    unsigned probability = h > (RAND_MAX >> 5) ? RAND_MAX >> 5 : h;
+    int n_frame_threads = (h & 0xf) + 1;
+    int n_tile_threads = ((h >> 4) & 0x7) + 1;
+    if (n_frame_threads > 5) n_frame_threads = 1;
+    if (n_tile_threads > 3) n_tile_threads = 1;
+#endif
     ptr += 32; // skip ivf header
 
     dav1d_default_settings(&settings);
 
 #ifdef DAV1D_MT_FUZZING
     settings.n_frame_threads = settings.n_tile_threads = 2;
+#elif defined(DAV1D_ALLOC_FAIL)
+    settings.n_frame_threads = n_frame_threads;
+    settings.n_tile_threads = n_tile_threads;
+    dav1d_setup_alloc_fail(seed, probability);
 #else
     settings.n_frame_threads = settings.n_tile_threads = 1;
 #endif
 #if defined(DAV1D_FUZZ_MAX_SIZE)
-    default_picture_allocator = settings.allocator.alloc_picture_callback;
-    settings.allocator.alloc_picture_callback = fuzz_picture_allocator;
+    settings.frame_size_limit = DAV1D_FUZZ_MAX_SIZE;
 #endif
 
     err = dav1d_open(&ctx, &settings);
@@ -122,14 +162,14 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 
         do {
             if ((err = dav1d_send_data(ctx, &buf)) < 0) {
-                if (err != -EAGAIN)
+                if (err != DAV1D_ERR(EAGAIN))
                     break;
             }
             memset(&pic, 0, sizeof(pic));
             err = dav1d_get_picture(ctx, &pic);
             if (err == 0) {
                 dav1d_picture_unref(&pic);
-            } else if (err != -EAGAIN) {
+            } else if (err != DAV1D_ERR(EAGAIN)) {
                 break;
             }
         } while (buf.sz > 0);
@@ -143,7 +183,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
         err = dav1d_get_picture(ctx, &pic);
         if (err == 0)
             dav1d_picture_unref(&pic);
-    } while (err != -EAGAIN);
+    } while (err != DAV1D_ERR(EAGAIN));
 
 cleanup:
     dav1d_flush(ctx);

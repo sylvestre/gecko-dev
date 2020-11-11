@@ -1,4 +1,3 @@
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* Any copyright is dedicated to the Public Domain.
  http://creativecommons.org/publicdomain/zero/1.0/ */
 
@@ -18,7 +17,7 @@ const TEST_URI = `
 
 add_task(async function() {
   await addTab("data:text/html;charset=utf-8," + encodeURIComponent(TEST_URI));
-  const {inspector, view} = await openRuleView();
+  const { inspector, view } = await openRuleView();
   await selectNode("#test1", inspector);
   await emptyInherit(inspector, view);
 });
@@ -29,6 +28,8 @@ function emptyInherit(inspector, view) {
   is(elementStyle.rules.length, 1, "Should have 1 rule.");
 
   const elementRule = elementStyle.rules[0];
-  ok(!elementRule.inherited,
-    "Element style attribute should not consider itself inherited.");
+  ok(
+    !elementRule.inherited,
+    "Element style attribute should not consider itself inherited."
+  );
 }

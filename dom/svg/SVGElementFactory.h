@@ -4,10 +4,16 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef mozilla_dom_SVGElementFactory_h
-#define mozilla_dom_SVGElementFactory_h
+#ifndef DOM_SVG_SVGELEMENTFACTORY_H_
+#define DOM_SVG_SVGELEMENTFACTORY_H_
+
+#include "nsError.h"
+#include "mozilla/AlreadyAddRefed.h"
+#include "mozilla/dom/FromParser.h"
+#include "mozilla/dom/NodeInfo.h"
 
 class nsAtom;
+class nsIContent;
 
 namespace mozilla {
 namespace dom {
@@ -18,7 +24,7 @@ class SVGElementFactory {
   static void Shutdown();
 };
 
-typedef nsresult (*SVGContentCreatorFunction)(
+using SVGContentCreatorFunction = nsresult (*)(
     nsIContent** aResult, already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo,
     mozilla::dom::FromParser aFromParser);
 
@@ -36,7 +42,7 @@ typedef nsresult (*SVGContentCreatorFunction)(
       nsIContent** aResult,                                 \
       already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo, \
       mozilla::dom::FromParser aFromParser);
-#include "SVGTagList.h"
+#include "mozilla/SVGTagList.h"
 #undef SVG_TAG
 #undef SVG_FROM_PARSER_TAG
 
@@ -44,4 +50,4 @@ nsresult NS_NewSVGUnknownElement(
     nsIContent** aResult, already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo,
     mozilla::dom::FromParser aFromParser);
 
-#endif /* mozilla_dom_SVGElementFactory_h */
+#endif  // DOM_SVG_SVGELEMENTFACTORY_H_

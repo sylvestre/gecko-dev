@@ -6,16 +6,61 @@
 
 #include "LSDatabase.h"
 
-namespace mozilla {
-namespace dom {
+// Local includes
+#include "ActorsChild.h"
+#include "LSObject.h"
+#include "LSSnapshot.h"
+
+// Global includes
+#include <cstring>
+#include <new>
+#include <utility>
+#include "MainThreadUtils.h"
+#include "mozilla/MacroForEach.h"
+#include "mozilla/RefPtr.h"
+#include "mozilla/Services.h"
+#include "mozilla/StaticPtr.h"
+#include "mozilla/dom/PBackgroundLSDatabase.h"
+#include "nsBaseHashtable.h"
+#include "nsCOMPtr.h"
+#include "nsDataHashtable.h"
+#include "nsDebug.h"
+#include "nsError.h"
+#include "nsHashKeys.h"
+#include "nsIObserver.h"
+#include "nsIObserverService.h"
+#include "nsString.h"
+#include "nsTArray.h"
+#include "nscore.h"
+
+namespace mozilla::dom {
 
 namespace {
+
+#define XPCOM_SHUTDOWN_OBSERVER_TOPIC "xpcom-shutdown"
 
 typedef nsDataHashtable<nsCStringHashKey, LSDatabase*> LSDatabaseHashtable;
 
 StaticAutoPtr<LSDatabaseHashtable> gLSDatabases;
 
 }  // namespace
+
+StaticRefPtr<LSDatabase::Observer> LSDatabase::sObserver;
+
+class LSDatabase::Observer final : public nsIObserver {
+  bool mInvalidated;
+
+ public:
+  Observer() : mInvalidated(false) { MOZ_ASSERT(NS_IsMainThread()); }
+
+  void Invalidate() { mInvalidated = true; }
+
+ private:
+  ~Observer() { MOZ_ASSERT(NS_IsMainThread()); }
+
+  NS_DECL_ISUPPORTS
+  NS_DECL_NSIOBSERVER
+};
 
 LSDatabase::LSDatabase(const nsACString& aOrigin)
     : mActor(nullptr),
@@ -27,6 +72,17 @@ LSDatabase::LSDatabase(const nsACString& aOrigin)
 
   if (!gLSDatabases) {
     gLSDatabases = new LSDatabaseHashtable();
+
+    MOZ_ASSERT(!sObserver);
+
+    sObserver = new Observer();
+
+    nsCOMPtr<nsIObserverService> obsSvc =
+        mozilla::services::GetObserverService();
+    MOZ_ASSERT(obsSvc);
+
+    MOZ_ALWAYS_SUCCEEDS(
+        obsSvc->AddObserver(sObserver, XPCOM_SHUTDOWN_OBSERVER_TOPIC, false));
   }
 
   MOZ_ASSERT(!gLSDatabases->Get(mOrigin));
@@ -62,7 +118,10 @@ void LSDatabase::SetActor(LSDatabaseChild* aActor) {
 
 void LSDatabase::RequestAllowToClose() {
   AssertIsOnOwningThread();
-  MOZ_ASSERT(!mRequestedAllowToClose);
+
+  if (mRequestedAllowToClose) {
+    return;
+  }
 
   mRequestedAllowToClose = true;
 
@@ -90,7 +149,7 @@ nsresult LSDatabase::GetLength(LSObject* aObject, uint32_t* aResult) {
   MOZ_ASSERT(mActor);
   MOZ_ASSERT(!mAllowedToClose);
 
-  nsresult rv = EnsureSnapshot(aObject);
+  nsresult rv = EnsureSnapshot(aObject, VoidString());
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -110,7 +169,7 @@ nsresult LSDatabase::GetKey(LSObject* aObject, uint32_t aIndex,
   MOZ_ASSERT(mActor);
   MOZ_ASSERT(!mAllowedToClose);
 
-  nsresult rv = EnsureSnapshot(aObject);
+  nsresult rv = EnsureSnapshot(aObject, VoidString());
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -130,7 +189,7 @@ nsresult LSDatabase::GetItem(LSObject* aObject, const nsAString& aKey,
   MOZ_ASSERT(mActor);
   MOZ_ASSERT(!mAllowedToClose);
 
-  nsresult rv = EnsureSnapshot(aObject);
+  nsresult rv = EnsureSnapshot(aObject, aKey);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -149,7 +208,7 @@ nsresult LSDatabase::GetKeys(LSObject* aObject, nsTArray<nsString>& aKeys) {
   MOZ_ASSERT(mActor);
   MOZ_ASSERT(!mAllowedToClose);
 
-  nsresult rv = EnsureSnapshot(aObject);
+  nsresult rv = EnsureSnapshot(aObject, VoidString());
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -170,7 +229,7 @@ nsresult LSDatabase::SetItem(LSObject* aObject, const nsAString& aKey,
   MOZ_ASSERT(mActor);
   MOZ_ASSERT(!mAllowedToClose);
 
-  nsresult rv = EnsureSnapshot(aObject);
+  nsresult rv = EnsureSnapshot(aObject, aKey);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -190,7 +249,7 @@ nsresult LSDatabase::RemoveItem(LSObject* aObject, const nsAString& aKey,
   MOZ_ASSERT(mActor);
   MOZ_ASSERT(!mAllowedToClose);
 
-  nsresult rv = EnsureSnapshot(aObject);
+  nsresult rv = EnsureSnapshot(aObject, aKey);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -209,7 +268,7 @@ nsresult LSDatabase::Clear(LSObject* aObject, LSNotifyInfo& aNotifyInfo) {
   MOZ_ASSERT(mActor);
   MOZ_ASSERT(!mAllowedToClose);
 
-  nsresult rv = EnsureSnapshot(aObject);
+  nsresult rv = EnsureSnapshot(aObject, VoidString());
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -232,7 +291,7 @@ nsresult LSDatabase::BeginExplicitSnapshot(LSObject* aObject) {
     return NS_ERROR_ALREADY_INITIALIZED;
   }
 
-  nsresult rv = EnsureSnapshot(aObject, /* aExplicit */ true);
+  nsresult rv = EnsureSnapshot(aObject, VoidString(), /* aExplicit */ true);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -260,7 +319,8 @@ nsresult LSDatabase::EndExplicitSnapshot(LSObject* aObject) {
   return NS_OK;
 }
 
-nsresult LSDatabase::EnsureSnapshot(LSObject* aObject, bool aExplicit) {
+nsresult LSDatabase::EnsureSnapshot(LSObject* aObject, const nsAString& aKey,
+                                    bool aExplicit) {
   MOZ_ASSERT(aObject);
   MOZ_ASSERT(mActor);
   MOZ_ASSERT_IF(mSnapshot, !aExplicit);
@@ -276,7 +336,7 @@ nsresult LSDatabase::EnsureSnapshot(LSObject* aObject, bool aExplicit) {
 
   LSSnapshotInitInfo initInfo;
   bool ok = mActor->SendPBackgroundLSSnapshotConstructor(
-      actor, aObject->DocumentURI(),
+      actor, aObject->DocumentURI(), nsString(aKey),
       /* increasePeakUsage */ true,
       /* requestedSize */ 131072,
       /* minSize */ 4096, &initInfo);
@@ -287,7 +347,7 @@ nsresult LSDatabase::EnsureSnapshot(LSObject* aObject, bool aExplicit) {
   snapshot->SetActor(actor);
 
   // This add refs snapshot.
-  nsresult rv = snapshot->Init(initInfo, aExplicit);
+  nsresult rv = snapshot->Init(aKey, initInfo, aExplicit);
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;
   }
@@ -315,8 +375,55 @@ void LSDatabase::AllowToClose() {
 
   if (!gLSDatabases->Count()) {
     gLSDatabases = nullptr;
+
+    MOZ_ASSERT(sObserver);
+
+    nsCOMPtr<nsIObserverService> obsSvc =
+        mozilla::services::GetObserverService();
+    MOZ_ASSERT(obsSvc);
+
+    MOZ_ALWAYS_SUCCEEDS(
+        obsSvc->RemoveObserver(sObserver, XPCOM_SHUTDOWN_OBSERVER_TOPIC));
+
+    // We also need to invalidate the observer because AllowToClose can be
+    // triggered by an indirectly related observer, so the observer service
+    // may still keep our observer alive and call Observe on it. This is
+    // possible because observer service snapshots the observer list for given
+    // subject before looping over the list.
+    sObserver->Invalidate();
+
+    sObserver = nullptr;
   }
 }
 
-}  // namespace dom
-}  // namespace mozilla
+NS_IMPL_ISUPPORTS(LSDatabase::Observer, nsIObserver)
+
+NS_IMETHODIMP
+LSDatabase::Observer::Observe(nsISupports* aSubject, const char* aTopic,
+                              const char16_t* aData) {
+  MOZ_ASSERT(NS_IsMainThread());
+  MOZ_ASSERT(!strcmp(aTopic, XPCOM_SHUTDOWN_OBSERVER_TOPIC));
+
+  if (mInvalidated) {
+    return NS_OK;
+  }
+
+  MOZ_ASSERT(gLSDatabases);
+
+  nsTArray<RefPtr<LSDatabase>> databases;
+
+  for (auto iter = gLSDatabases->ConstIter(); !iter.Done(); iter.Next()) {
+    LSDatabase* database = iter.Data();
+    MOZ_ASSERT(database);
+
+    databases.AppendElement(database);
+  }
+
+  for (RefPtr<LSDatabase>& database : databases) {
+    database->RequestAllowToClose();
+  }
+
+  return NS_OK;
+}
+
+}  // namespace mozilla::dom

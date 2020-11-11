@@ -1,7 +1,7 @@
 const requestURL = "https://test1.example.com";
 
 function getResult(aBrowser) {
-  return ContentTask.spawn(aBrowser, requestURL, async function(url) {
+  return SpecialPowers.spawn(aBrowser, [requestURL], async function(url) {
     let cache = await content.caches.open("TEST_CACHE");
     let response = await cache.match(url);
     if (response) {
@@ -14,5 +14,11 @@ function getResult(aBrowser) {
   });
 }
 
-IsolationTestTools.runTests("https://test2.example.com", getResult, null, null,
-                            false, /* aUseHttps */ true);
+IsolationTestTools.runTests(
+  "https://test2.example.com",
+  getResult,
+  null,
+  null,
+  false,
+  /* aUseHttps */ true
+);

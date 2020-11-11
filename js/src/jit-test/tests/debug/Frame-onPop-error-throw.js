@@ -2,15 +2,15 @@
 // onPop can change a termination into a throw.
 
 load(libdir + "asserts.js");
-var g = newGlobal();
+var g = newGlobal({newCompartment: true});
 var dbg = new Debugger(g);
 
 function test(type, provocation) {
     var log;
 
     // Help people figure out which 'test' call failed.
-    print("type:        " + uneval(type));
-    print("provocation: " + uneval(provocation));
+    print("type:        " + JSON.stringify(type));
+    print("provocation: " + JSON.stringify(provocation));
 
     dbg.onDebuggerStatement = function handleDebuggerStatement(f) {
         log += 'd';

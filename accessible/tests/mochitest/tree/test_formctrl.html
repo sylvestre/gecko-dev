@@ -6,8 +6,7 @@
   <link rel="stylesheet" type="text/css"
         href="chrome://mochikit/content/tests/SimpleTest/test.css" />
 
-  <script type="application/javascript"
-          src="chrome://mochikit/content/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="chrome://mochikit/content/tests/SimpleTest/SimpleTest.js"></script>
 
   <script type="application/javascript"
           src="../common.js"></script>
@@ -63,17 +62,12 @@
       testAccessibleTree("range", accTree);
 
       // input@type="number"
-      accTree =
-        { SPINBUTTON: [
-          { ENTRY: [ ] },
-          { PUSHBUTTON: [ ] },
-          { PUSHBUTTON: [ ] },
-        ] };
+      accTree = { SPINBUTTON: [ ] };
       testAccessibleTree("number", accTree);
 
       // output
       accTree = {
-        role: ROLE_SECTION,
+        role: ROLE_STATUSBAR,
         children: [
           {
             role: ROLE_TEXT_LEAF,

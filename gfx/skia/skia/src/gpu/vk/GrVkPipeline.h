@@ -8,9 +8,9 @@
 #ifndef GrVkPipeline_DEFINED
 #define GrVkPipeline_DEFINED
 
-#include "GrTypesPriv.h"
-#include "GrVkResource.h"
-#include "vk/GrVkDefines.h"
+#include "include/gpu/vk/GrVkTypes.h"
+#include "include/private/GrTypesPriv.h"
+#include "src/gpu/vk/GrVkResource.h"
 
 class GrPipeline;
 class GrPrimitiveProcessor;
@@ -24,9 +24,8 @@ struct SkIRect;
 
 class GrVkPipeline : public GrVkResource {
 public:
-    static GrVkPipeline* Create(GrVkGpu* gpu,
-                                const GrPrimitiveProcessor& primProc,
-                                const GrPipeline& pipeline,
+    static GrVkPipeline* Create(GrVkGpu*,
+                                const GrProgramInfo&,
                                 const GrStencilSettings&,
                                 VkPipelineShaderStageCreateInfo* shaderStageInfo,
                                 int shaderStageCount,
@@ -36,11 +35,13 @@ public:
                                 VkPipelineCache cache);
 
     VkPipeline pipeline() const { return fPipeline; }
+    VkPipelineLayout layout() const { return fPipelineLayout; }
 
     static void SetDynamicScissorRectState(GrVkGpu*, GrVkCommandBuffer*, const GrRenderTarget*,
-                                           GrSurfaceOrigin, SkIRect);
+                                           GrSurfaceOrigin, const SkIRect& scissorRect);
     static void SetDynamicViewportState(GrVkGpu*, GrVkCommandBuffer*, const GrRenderTarget*);
-    static void SetDynamicBlendConstantState(GrVkGpu*, GrVkCommandBuffer*, GrPixelConfig,
+    static void SetDynamicBlendConstantState(GrVkGpu*, GrVkCommandBuffer*,
+                                             const GrSwizzle& outputSwizzle,
                                              const GrXferProcessor&);
 
 #ifdef SK_TRACE_VK_RESOURCES
@@ -50,12 +51,14 @@ public:
 #endif
 
 protected:
-    GrVkPipeline(VkPipeline pipeline) : INHERITED(), fPipeline(pipeline) {}
+    GrVkPipeline(VkPipeline pipeline, VkPipelineLayout layout)
+            : INHERITED(), fPipeline(pipeline), fPipelineLayout(layout) {}
 
     VkPipeline  fPipeline;
+    VkPipelineLayout  fPipelineLayout;
 
 private:
-    void freeGPUData(const GrVkGpu* gpu) const override;
+    void freeGPUData(GrVkGpu* gpu) const override;
 
     typedef GrVkResource INHERITED;
 };

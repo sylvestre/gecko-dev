@@ -12,8 +12,6 @@
 #include "nsStringFwd.h"
 #include "nsTArrayForwardDeclare.h"
 
-class nsIDocument;
-
 // Must be kept in sync with xpcom/rust/xpcom/src/interfaces/nonidl.rs
 #define NS_NSICONSOLEREPORTCOLLECTOR_IID             \
   {                                                  \
@@ -21,6 +19,12 @@ class nsIDocument;
       0x8d, 0xfa, 0x85, 0xbf, 0xd7, 0xdc, 0xd7, 0x05 \
     }                                                \
   }
+
+namespace mozilla {
+namespace net {
+class ConsoleReportCollected;
+}
+}  // namespace mozilla
 
 // An interface for saving reports until we can flush them to the correct
 // window at a later time.
@@ -94,7 +98,8 @@ class NS_NO_VTABLE nsIConsoleReportCollector : public nsISupports {
   // aAction        An action to determine whether to reserve the pending
   //                reports. Defalut action is to forget the report.
   virtual void FlushConsoleReports(
-      nsIDocument* aDocument, ReportAction aAction = ReportAction::Forget) = 0;
+      mozilla::dom::Document* aDocument,
+      ReportAction aAction = ReportAction::Forget) = 0;
 
   // Flush all pending reports to the console.  May be called from any thread.
   //
@@ -114,6 +119,10 @@ class NS_NO_VTABLE nsIConsoleReportCollector : public nsISupports {
   // aCollector     A required collector object that will effectively take
   //                ownership of our currently console reports.
   virtual void FlushConsoleReports(nsIConsoleReportCollector* aCollector) = 0;
+
+  // Steal all pending reports to IPC structs. May be called from any thread.
+  virtual void StealConsoleReports(
+      nsTArray<mozilla::net::ConsoleReportCollected>& aReports) = 0;
 
   // Clear all pending reports.
   virtual void ClearConsoleReports() = 0;

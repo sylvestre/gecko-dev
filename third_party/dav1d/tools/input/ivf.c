@@ -27,8 +27,8 @@
 
 #include "config.h"
 
-#include <assert.h>
 #include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -36,13 +36,19 @@
 
 #include "input/demuxer.h"
 
-#ifdef _MSC_VER
-#define ftello _ftelli64
-#endif
-
 typedef struct DemuxerPriv {
     FILE *f;
 } IvfInputContext;
+
+static const uint8_t probe_data[] = {
+    'D', 'K', 'I', 'F',
+    0, 0, 0x20, 0,
+    'A', 'V', '0', '1',
+};
+
+static int ivf_probe(const uint8_t *const data) {
+    return !memcmp(data, probe_data, sizeof(probe_data));
+}
 
 static unsigned rl32(const uint8_t *const p) {
     return ((uint32_t)p[3] << 24U) | (p[2] << 16U) | (p[1] << 8U) | p[0];
@@ -53,12 +59,11 @@ static int64_t rl64(const uint8_t *const p) {
 }
 
 static int ivf_open(IvfInputContext *const c, const char *const file,
-                    unsigned fps[2], unsigned *const num_frames)
+                    unsigned fps[2], unsigned *const num_frames, unsigned timebase[2])
 {
-    int res;
+    size_t res;
     uint8_t hdr[32];
 
-    memset(c, 0, sizeof(*c));
     if (!(c->f = fopen(file, "rb"))) {
         fprintf(stderr, "Failed to open %s: %s\n", file, strerror(errno));
         return -1;
@@ -78,18 +83,38 @@ static int ivf_open(IvfInputContext *const c, const char *const file,
         return -1;
     }
 
-    fps[0] = rl32(&hdr[16]);
-    fps[1] = rl32(&hdr[20]);
+    timebase[0] = rl32(&hdr[16]);
+    timebase[1] = rl32(&hdr[20]);
     const unsigned duration = rl32(&hdr[24]);
+
     uint8_t data[4];
     for (*num_frames = 0;; (*num_frames)++) {
         if ((res = fread(data, 4, 1, c->f)) != 1)
             break; // EOF
-        fseek(c->f, rl32(data) + 8, SEEK_CUR);
+        fseeko(c->f, rl32(data) + 8, SEEK_CUR);
     }
-    fps[0] *= *num_frames;
-    fps[1] *= duration;
-    fseek(c->f, 32, SEEK_SET);
+
+    uint64_t fps_num = (uint64_t) timebase[0] * *num_frames;
+    uint64_t fps_den = (uint64_t) timebase[1] * duration;
+    if (fps_num && fps_den) { /* Reduce fraction */
+        uint64_t gcd = fps_num;
+        for (uint64_t a = fps_den, b; (b = a % gcd); a = gcd, gcd = b);
+        fps_num /= gcd;
+        fps_den /= gcd;
+
+        while ((fps_num | fps_den) > UINT_MAX) {
+            fps_num >>= 1;
+            fps_den >>= 1;
+        }
+    }
+    if (fps_num && fps_den) {
+        fps[0] = (unsigned) fps_num;
+        fps[1] = (unsigned) fps_den;
+    } else {
+        fps[0] = fps[1] = 0;
+    }
+
+    fseeko(c->f, 32, SEEK_SET);
 
     return 0;
 }
@@ -97,7 +122,7 @@ static int ivf_open(IvfInputContext *const c, const char *const file,
 static int ivf_read(IvfInputContext *const c, Dav1dData *const buf) {
     uint8_t data[8];
     uint8_t *ptr;
-    int res;
+    size_t res;
 
     const int64_t off = ftello(c->f);
     if ((res = fread(data, 4, 1, c->f)) != 1)
@@ -125,7 +150,8 @@ static void ivf_close(IvfInputContext *const c) {
 const Demuxer ivf_demuxer = {
     .priv_data_size = sizeof(IvfInputContext),
     .name = "ivf",
-    .extension = "ivf",
+    .probe = ivf_probe,
+    .probe_sz = sizeof(probe_data),
     .open = ivf_open,
     .read = ivf_read,
     .close = ivf_close,

@@ -1,14 +1,13 @@
-/* vim:set ts=2 sw=2 sts=2 et: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 "use strict";
 
-const {require} = ChromeUtils.import("resource://devtools/shared/Loader.jsm", {});
-const {KeyCodes} = require("devtools/client/shared/keycodes");
+const { require } = ChromeUtils.import("resource://devtools/shared/Loader.jsm");
+const { KeyCodes } = require("devtools/client/shared/keycodes");
 
-this.EXPORTED_SYMBOLS = ["SplitView"];
+const EXPORTED_SYMBOLS = ["SplitView"];
 
 /* this must be kept in sync with CSS (ie. splitview.css) */
 const LANDSCAPE_MEDIA_QUERY = "(min-width: 701px)";
@@ -28,7 +27,7 @@ var bindings = new WeakMap();
  * @param DOMElement aRoot
  * @see appendItem
  */
-this.SplitView = function SplitView(aRoot) {
+function SplitView(aRoot) {
   this._root = aRoot;
   this._controller = aRoot.querySelector(".splitview-controller");
   this._nav = aRoot.querySelector(".splitview-nav");
@@ -38,7 +37,7 @@ this.SplitView = function SplitView(aRoot) {
   this._mql = aRoot.ownerDocument.defaultView.matchMedia(LANDSCAPE_MEDIA_QUERY);
 
   // items list focus and search-on-type handling
-  this._nav.addEventListener("keydown", (aEvent) => {
+  this._nav.addEventListener("keydown", aEvent => {
     function getFocusedItemWithin(nav) {
       let node = nav.ownerDocument.activeElement;
       while (node && node.parentNode != nav) {
@@ -48,27 +47,36 @@ this.SplitView = function SplitView(aRoot) {
     }
 
     // do not steal focus from inside iframes or textboxes
-    if (aEvent.target.ownerDocument != this._nav.ownerDocument ||
-        aEvent.target.tagName == "input" ||
-        aEvent.target.tagName == "textbox" ||
-        aEvent.target.tagName == "textarea" ||
-        aEvent.target.classList.contains("textbox")) {
+    if (
+      aEvent.target.ownerDocument != this._nav.ownerDocument ||
+      aEvent.target.tagName == "input" ||
+      aEvent.target.tagName == "textarea" ||
+      aEvent.target.classList.contains("textbox")
+    ) {
       return false;
     }
 
     // handle keyboard navigation within the items list
     let newFocusOrdinal;
-    if (aEvent.keyCode == KeyCodes.DOM_VK_PAGE_UP ||
-        aEvent.keyCode == KeyCodes.DOM_VK_HOME) {
+    if (
+      aEvent.keyCode == KeyCodes.DOM_VK_PAGE_UP ||
+      aEvent.keyCode == KeyCodes.DOM_VK_HOME
+    ) {
       newFocusOrdinal = 0;
-    } else if (aEvent.keyCode == KeyCodes.DOM_VK_PAGE_DOWN ||
-               aEvent.keyCode == KeyCodes.DOM_VK_END) {
+    } else if (
+      aEvent.keyCode == KeyCodes.DOM_VK_PAGE_DOWN ||
+      aEvent.keyCode == KeyCodes.DOM_VK_END
+    ) {
       newFocusOrdinal = this._nav.childNodes.length - 1;
     } else if (aEvent.keyCode == KeyCodes.DOM_VK_UP) {
-      newFocusOrdinal = getFocusedItemWithin(this._nav).getAttribute("data-ordinal");
+      newFocusOrdinal = getFocusedItemWithin(this._nav).getAttribute(
+        "data-ordinal"
+      );
       newFocusOrdinal--;
     } else if (aEvent.keyCode == KeyCodes.DOM_VK_DOWN) {
-      newFocusOrdinal = getFocusedItemWithin(this._nav).getAttribute("data-ordinal");
+      newFocusOrdinal = getFocusedItemWithin(this._nav).getAttribute(
+        "data-ordinal"
+      );
       newFocusOrdinal++;
     }
     if (newFocusOrdinal !== undefined) {
@@ -80,41 +88,41 @@ this.SplitView = function SplitView(aRoot) {
       return false;
     }
   });
-};
+}
 
 SplitView.prototype = {
   /**
-    * Retrieve whether the UI currently has a landscape orientation.
-    *
-    * @return boolean
-    */
+   * Retrieve whether the UI currently has a landscape orientation.
+   *
+   * @return boolean
+   */
   get isLandscape() {
     return this._mql.matches;
   },
 
   /**
-    * Retrieve the root element.
-    *
-    * @return DOMElement
-    */
+   * Retrieve the root element.
+   *
+   * @return DOMElement
+   */
   get rootElement() {
     return this._root;
   },
 
   /**
-    * Retrieve the active item's summary element or null if there is none.
-    *
-    * @return DOMElement
-    */
+   * Retrieve the active item's summary element or null if there is none.
+   *
+   * @return DOMElement
+   */
   get activeSummary() {
     return this._activeSummary;
   },
 
   /**
-    * Set the active item's summary element.
-    *
-    * @param DOMElement aSummary
-    */
+   * Set the active item's summary element.
+   *
+   * @param DOMElement aSummary
+   */
   set activeSummary(aSummary) {
     if (aSummary == this._activeSummary) {
       return;
@@ -147,9 +155,9 @@ SplitView.prototype = {
   },
 
   /**
-    * Retrieve the active item's details element or null if there is none.
-    * @return DOMElement
-    */
+   * Retrieve the active item's details element or null if there is none.
+   * @return DOMElement
+   */
   get activeDetails() {
     const summary = this.activeSummary;
     return summary ? bindings.get(summary)._details : null;
@@ -163,7 +171,9 @@ SplitView.prototype = {
    *         Summary element with given ordinal or null if not found.
    * @see appendItem
    */
-  getSummaryElementByOrdinal: function SEC_getSummaryElementByOrdinal(aOrdinal) {
+  getSummaryElementByOrdinal: function SEC_getSummaryElementByOrdinal(
+    aOrdinal
+  ) {
     return this._nav.querySelector("* > li[data-ordinal='" + aOrdinal + "']");
   },
 
@@ -200,7 +210,7 @@ SplitView.prototype = {
 
     this._nav.appendChild(aSummary);
 
-    aSummary.addEventListener("click", (aEvent) => {
+    aSummary.addEventListener("click", aEvent => {
       aEvent.stopPropagation();
       this.activeSummary = aSummary;
     });
@@ -234,7 +244,8 @@ SplitView.prototype = {
 
     summary = summary.cloneNode(true);
     summary.id = "";
-    if (aOptions.ordinal !== undefined) { // can be zero
+    if (aOptions.ordinal !== undefined) {
+      // can be zero
       summary.style.MozBoxOrdinalGroup = aOptions.ordinal;
       summary.setAttribute("data-ordinal", aOptions.ordinal);
     }
@@ -242,15 +253,15 @@ SplitView.prototype = {
     details.id = "";
 
     this.appendItem(summary, details, aOptions);
-    return {summary: summary, details: details};
+    return { summary: summary, details: details };
   },
 
   /**
-    * Remove an item from the split view.
-    *
-    * @param DOMElement aSummary
-    *        Summary element of the item to remove.
-    */
+   * Remove an item from the split view.
+   *
+   * @param DOMElement aSummary
+   *        Summary element of the item to remove.
+   */
   removeItem: function ASV_removeItem(aSummary) {
     if (aSummary == this._activeSummary) {
       this.activeSummary = null;

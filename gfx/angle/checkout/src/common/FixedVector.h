@@ -64,7 +64,7 @@ class FixedVector final
 
     bool empty() const;
     size_type size() const;
-    size_type max_size() const;
+    static constexpr size_type max_size();
 
     void clear();
 
@@ -233,7 +233,7 @@ typename FixedVector<T, N, Storage>::size_type FixedVector<T, N, Storage>::size(
 }
 
 template <class T, size_t N, class Storage>
-typename FixedVector<T, N, Storage>::size_type FixedVector<T, N, Storage>::max_size() const
+constexpr typename FixedVector<T, N, Storage>::size_type FixedVector<T, N, Storage>::max_size()
 {
     return N;
 }
@@ -291,7 +291,17 @@ void FixedVector<T, N, Storage>::swap(FixedVector<T, N, Storage> &other)
 template <class T, size_t N, class Storage>
 void FixedVector<T, N, Storage>::resize(size_type count)
 {
-    resize(count, value_type());
+    ASSERT(count <= N);
+    while (mSize > count)
+    {
+        mSize--;
+        mStorage[mSize] = value_type();
+    }
+    while (mSize < count)
+    {
+        mStorage[mSize] = value_type();
+        mSize++;
+    }
 }
 
 template <class T, size_t N, class Storage>
@@ -301,7 +311,7 @@ void FixedVector<T, N, Storage>::resize(size_type count, const value_type &value
     while (mSize > count)
     {
         mSize--;
-        mStorage[mSize] = T();
+        mStorage[mSize] = value_type();
     }
     while (mSize < count)
     {

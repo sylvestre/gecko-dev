@@ -8,16 +8,17 @@
 
 #include <cstring>
 #include "mozilla/TimeStamp.h"
-#include "mozilla/Preferences.h"
+#include "mozilla/StaticPrefs_toolkit.h"
+#include "nsComponentManagerUtils.h"
 #include "nsIConsoleService.h"
 #include "nsITelemetry.h"
+#include "nsServiceManagerUtils.h"
 #include "nsThreadUtils.h"
 #include "nsVersionComparator.h"
 #include "TelemetryProcessData.h"
+#include "Telemetry.h"
 
-namespace mozilla {
-namespace Telemetry {
-namespace Common {
+namespace mozilla::Telemetry::Common {
 
 bool IsExpiredVersion(const char* aExpiration) {
   MOZ_ASSERT(aExpiration);
@@ -34,8 +35,8 @@ bool IsInDataset(uint32_t aDataset, uint32_t aContainingDataset) {
 
   // The "optin on release channel" dataset is a superset of the
   // "optout on release channel one".
-  if (aContainingDataset == nsITelemetry::DATASET_RELEASE_CHANNEL_OPTIN &&
-      aDataset == nsITelemetry::DATASET_RELEASE_CHANNEL_OPTOUT) {
+  if (aContainingDataset == nsITelemetry::DATASET_PRERELEASE_CHANNELS &&
+      aDataset == nsITelemetry::DATASET_ALL_CHANNELS) {
     return true;
   }
 
@@ -53,7 +54,7 @@ bool CanRecordDataset(uint32_t aDataset, bool aCanRecordBase,
   // If base telemetry data is enabled and we're trying to record base
   // telemetry, allow it.
   if (aCanRecordBase &&
-      IsInDataset(aDataset, nsITelemetry::DATASET_RELEASE_CHANNEL_OPTOUT)) {
+      IsInDataset(aDataset, nsITelemetry::DATASET_ALL_CHANNELS)) {
     return true;
   }
 
@@ -64,14 +65,12 @@ bool CanRecordDataset(uint32_t aDataset, bool aCanRecordBase,
 
 bool CanRecordInProcess(RecordedProcessType processes,
                         GeckoProcessType processType) {
-  bool recordAllChildren = !!(processes & RecordedProcessType::AllChildren);
   // We can use (1 << ProcessType) due to the way RecordedProcessType is
   // defined.
   bool canRecordProcess =
       !!(processes & static_cast<RecordedProcessType>(1 << processType));
 
-  return canRecordProcess ||
-         ((processType != GeckoProcessType_Default) && recordAllChildren);
+  return canRecordProcess;
 }
 
 bool CanRecordInProcess(RecordedProcessType processes, ProcessID processId) {
@@ -79,15 +78,21 @@ bool CanRecordInProcess(RecordedProcessType processes, ProcessID processId) {
 }
 
 bool CanRecordProduct(SupportedProduct aProducts) {
-  return !!(aProducts & GetCurrentProduct());
+  return mozilla::StaticPrefs::
+             toolkit_telemetry_testing_overrideProductsCheck() ||
+         !!(aProducts & GetCurrentProduct());
 }
 
 nsresult MsSinceProcessStart(double* aResult) {
-  bool error;
-  *aResult = (TimeStamp::NowLoRes() - TimeStamp::ProcessCreation(&error))
-                 .ToMilliseconds();
-  if (error) {
-    return NS_ERROR_NOT_AVAILABLE;
+  bool isInconsistent = false;
+  *aResult =
+      (TimeStamp::NowLoRes() - TimeStamp::ProcessCreation(&isInconsistent))
+          .ToMilliseconds();
+
+  if (isInconsistent) {
+    Telemetry::ScalarAdd(
+        Telemetry::ScalarID::TELEMETRY_PROCESS_CREATION_TIMESTAMP_INCONSISTENT,
+        1);
   }
   return NS_OK;
 }
@@ -110,8 +115,8 @@ void LogToBrowserConsole(uint32_t aLogLevel, const nsAString& aMsg) {
   }
 
   nsCOMPtr<nsIScriptError> error(do_CreateInstance(NS_SCRIPTERROR_CONTRACTID));
-  error->Init(aMsg, EmptyString(), EmptyString(), 0, 0, aLogLevel,
-              "chrome javascript", false /* from private window */);
+  error->Init(aMsg, u""_ns, u""_ns, 0, 0, aLogLevel, "chrome javascript",
+              false /* from private window */, true /* from chrome context */);
   console->LogMessage(error);
 }
 
@@ -175,26 +180,18 @@ JSString* ToJSString(JSContext* cx, const nsAString& aStr) {
   return JS_NewUCStringCopyN(cx, aStr.Data(), aStr.Length());
 }
 
-// Keep knowledge about the current running product.
-// Defaults to Firefox and is reset on Android on Telemetry initialization.
-SupportedProduct gCurrentProduct = SupportedProduct::Firefox;
-
-void SetCurrentProduct() {
+SupportedProduct GetCurrentProduct() {
 #if defined(MOZ_WIDGET_ANDROID)
-  bool isGeckoview =
-      Preferences::GetBool("toolkit.telemetry.isGeckoViewMode", false);
-  if (isGeckoview) {
-    gCurrentProduct = SupportedProduct::Geckoview;
+  if (mozilla::StaticPrefs::toolkit_telemetry_geckoview_streaming()) {
+    return SupportedProduct::GeckoviewStreaming;
   } else {
-    gCurrentProduct = SupportedProduct::Fennec;
+    return SupportedProduct::Fennec;
   }
+#elif defined(MOZ_THUNDERBIRD)
+  return SupportedProduct::Thunderbird;
 #else
-  gCurrentProduct = SupportedProduct::Firefox;
+  return SupportedProduct::Firefox;
 #endif
 }
 
-SupportedProduct GetCurrentProduct() { return gCurrentProduct; }
-
-}  // namespace Common
-}  // namespace Telemetry
-}  // namespace mozilla
+}  // namespace mozilla::Telemetry::Common

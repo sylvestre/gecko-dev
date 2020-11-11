@@ -4,11 +4,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "mozilla/Preferences.h"
+#include "mozilla/StaticPrefs_dom.h"
 #include "mozilla/TextEvents.h"
 #include "mozilla/TextEventDispatcher.h"
-#include "nsIDocShell.h"
 #include "nsIFrame.h"
-#include "nsIPresShell.h"
 #include "nsIWidget.h"
 #include "nsPIDOMWindow.h"
 #include "nsView.h"
@@ -20,11 +19,6 @@ namespace widget {
 /******************************************************************************
  * TextEventDispatcher
  *****************************************************************************/
-
-bool TextEventDispatcher::sDispatchKeyEventsDuringComposition = false;
-bool TextEventDispatcher::sDispatchKeyPressEventsOnlySystemGroupInContent =
-    false;
-
 TextEventDispatcher::TextEventDispatcher(nsIWidget* aWidget)
     : mWidget(aWidget),
       mDispatchingEvent(0),
@@ -33,19 +27,6 @@ TextEventDispatcher::TextEventDispatcher(nsIWidget* aWidget)
       mIsHandlingComposition(false),
       mHasFocus(false) {
   MOZ_RELEASE_ASSERT(mWidget, "aWidget must not be nullptr");
-
-  static bool sInitialized = false;
-  if (!sInitialized) {
-    Preferences::AddBoolVarCache(
-        &sDispatchKeyEventsDuringComposition,
-        "dom.keyboardevent.dispatch_during_composition", true);
-    Preferences::AddBoolVarCache(
-        &sDispatchKeyPressEventsOnlySystemGroupInContent,
-        "dom.keyboardevent.keypress."
-        "dispatch_non_printable_keys_only_system_group_in_content",
-        true);
-    sInitialized = true;
-  }
 
   ClearNotificationRequests();
 }
@@ -385,11 +366,12 @@ nsresult TextEventDispatcher::CommitComposition(
   }
   if (message == eCompositionCommit) {
     compositionCommitEvent.mData = *aCommitString;
+    // If aCommitString comes from TextInputProcessor, it may be void, but
+    // editor requires non-void string even when it's empty.
+    compositionCommitEvent.mData.SetIsVoid(false);
     // Don't send CRLF nor CR, replace it with LF here.
-    compositionCommitEvent.mData.ReplaceSubstring(NS_LITERAL_STRING("\r\n"),
-                                                  NS_LITERAL_STRING("\n"));
-    compositionCommitEvent.mData.ReplaceSubstring(NS_LITERAL_STRING("\r"),
-                                                  NS_LITERAL_STRING("\n"));
+    compositionCommitEvent.mData.ReplaceSubstring(u"\r\n"_ns, u"\n"_ns);
+    compositionCommitEvent.mData.ReplaceSubstring(u"\r"_ns, u"\n"_ns);
   }
   rv = DispatchEvent(widget, compositionCommitEvent, aStatus);
   if (NS_WARN_IF(NS_FAILED(rv))) {
@@ -541,7 +523,8 @@ bool TextEventDispatcher::DispatchKeyboardEventInternal(
     // However, if we need to behave like other browsers, we need the keydown
     // and keyup events.  Note that this behavior is also allowed by D3E spec.
     // FYI: keypress events must not be fired during composition.
-    if (!sDispatchKeyEventsDuringComposition || aMessage == eKeyPress) {
+    if (!StaticPrefs::dom_keyboardevent_dispatch_during_composition() ||
+        aMessage == eKeyPress) {
       return false;
     }
     // XXX If there was mOnlyContentDispatch for this case, it might be useful
@@ -587,7 +570,7 @@ bool TextEventDispatcher::DispatchKeyboardEventInternal(
           !aIndexOfKeypress || aIndexOfKeypress < keyEvent.mKeyValue.Length(),
           "aIndexOfKeypress must be 0 - mKeyValue.Length() - 1");
     }
-    wchar_t ch =
+    char16_t ch =
         keyEvent.mKeyValue.IsEmpty() ? 0 : keyEvent.mKeyValue[aIndexOfKeypress];
     keyEvent.SetCharCode(static_cast<uint32_t>(ch));
     if (aMessage == eKeyPress) {
@@ -656,7 +639,8 @@ bool TextEventDispatcher::DispatchKeyboardEventInternal(
     }
   }
 
-  if (sDispatchKeyPressEventsOnlySystemGroupInContent &&
+  if (StaticPrefs::
+          dom_keyboardevent_keypress_dispatch_non_printable_keys_only_system_group_in_content() &&
       keyEvent.mMessage == eKeyPress &&
       !keyEvent.ShouldKeyPressEventBeFiredOnContent()) {
     // Note that even if we set it to true, this may be overwritten by
@@ -822,8 +806,8 @@ void TextEventDispatcher::PendingComposition::ReplaceNativeLineBreakers() {
 
   nsAutoString nativeString(mString);
   // Don't expose CRLF nor CR to web contents, instead, use LF.
-  mString.ReplaceSubstring(NS_LITERAL_STRING("\r\n"), NS_LITERAL_STRING("\n"));
-  mString.ReplaceSubstring(NS_LITERAL_STRING("\r"), NS_LITERAL_STRING("\n"));
+  mString.ReplaceSubstring(u"\r\n"_ns, u"\n"_ns);
+  mString.ReplaceSubstring(u"\r"_ns, u"\n"_ns);
 
   // If the length isn't changed, we don't need to adjust any offset and length
   // of mClauses nor mCaret.
@@ -852,8 +836,7 @@ void TextEventDispatcher::PendingComposition::AdjustRange(
   //     composition string is usually short and separated as a few clauses.
   if (nativeRange.mStartOffset > 0) {
     nsAutoString preText(Substring(aNativeString, 0, nativeRange.mStartOffset));
-    preText.ReplaceSubstring(NS_LITERAL_STRING("\r\n"),
-                             NS_LITERAL_STRING("\n"));
+    preText.ReplaceSubstring(u"\r\n"_ns, u"\n"_ns);
     aRange.mStartOffset = preText.Length();
   }
   if (nativeRange.Length() == 0) {
@@ -861,7 +844,7 @@ void TextEventDispatcher::PendingComposition::AdjustRange(
   } else {
     nsAutoString clause(Substring(aNativeString, nativeRange.mStartOffset,
                                   nativeRange.Length()));
-    clause.ReplaceSubstring(NS_LITERAL_STRING("\r\n"), NS_LITERAL_STRING("\n"));
+    clause.ReplaceSubstring(u"\r\n"_ns, u"\n"_ns);
     aRange.mEndOffset = aRange.mStartOffset + clause.Length();
   }
 }
@@ -908,6 +891,9 @@ nsresult TextEventDispatcher::PendingComposition::Flush(
     compChangeEvent.AssignEventTime(*aEventTime);
   }
   compChangeEvent.mData = mString;
+  // If mString comes from TextInputProcessor, it may be void, but editor
+  // requires non-void string even when it's empty.
+  compChangeEvent.mData.SetIsVoid(false);
   if (mClauses) {
     MOZ_ASSERT(!mClauses->IsEmpty(),
                "mClauses must be non-empty array when it's not nullptr");

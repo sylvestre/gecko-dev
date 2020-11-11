@@ -67,7 +67,7 @@ A request/reply will look like this:
     <- { from: <actorID>, greeting: "hello" }
 
 Now we can create a client side object.  We call these *front* objects and
-they typically go in `devtools/shared/fronts/`.
+they typically go in `devtools/client/fronts/`.
 
 Here's the front for the HelloActor:
 
@@ -95,7 +95,7 @@ How do you get an initial reference to the front?  That's a bit tricky, but basi
 * Manually
 * Magically
 
-Manually - If you're using a DebuggerClient instance, you can discover the actorID manually and create a Front for it:
+Manually - If you're using a DevToolsClient instance, you can discover the actorID manually and create a Front for it:
 
     let hello = new HelloFront(this.client, { actor: <hello actorID> });
 
@@ -433,31 +433,6 @@ Now our response will look like:
 
     { from: <childActorID>, self: { actor: <childActorID>, greeting: <id>, a: <a>, b: <b>, c: "hello", d: <d> }
 
-But that's wasteful.  Only c changed.  So we can provide a *detail* to the type using `#`:
-
-    response: { self: RetVal("childActor#changec") }
-
-and update our form methods to make use of that data:
-
-    // In ChildActor:
-    form: function (detail) {
-        if (detail === "changec") {
-            return { actor: this.actorID, c: this.c }
-        }
-        // ... the rest of the form method stays the same.
-    }
-
-    // In ChildFront:
-    form: function (form, detail) {
-        if (detail === "changec") {
-            this.actorID = form.actor;
-            this.c = form.c;
-            return;
-        }
-        // ... the rest of the form method stays the same.
-    }
-
-Now the packet looks like a much more reasonable `{ from: <childActorID>, self: { actor: <childActorID>, c: "hello" } }`
 
 Lifetimes
 ---------
@@ -501,17 +476,24 @@ Now you can listen to events on a front:
     });
     front.giveGoodNews().then(() => { console.log("request returned.") });
 
-You might want to update your front's state when an event is fired, before emitting it against the front.  You can use `preEvent` in the front definition for that:
+If you want to modify the argument that will be passed to event listeners callbacks, you
+can use `before(eventName, fn)` in the front definition. This can only be used once for a
+given `eventName`. The `fn` function will be called before emitting the event via
+the EventEmitter API on the Front, and its return value will be passed to the event
+listener callbacks. If `fn` is async, the event will only be emitted after `fn` call resolves.
 
-    countGoodNews: protocol.preEvent("good-news", function (news) {
-        this.amountOfGoodNews++;
+    // In front file, most probably in the constructor:
+    this.before("good-news", function(news) {
+      return news.join(" - ");
     });
 
-You can have events wait until an asynchronous action completes before firing by returning a promise. If you have multiple preEvents defined for a specific event, and atleast one fires asynchronously, then all preEvents most resolve before all events are fired.
-
-    countGoodNews: protocol.preEvent("good-news", function (news) {
-        return this.updateGoodNews().then(() => this.amountOfGoodNews++);
+    // In any consumer
+    front.on("good-news", function(news) {
+      console.log(news);
     });
+
+So if the server sent the following array: `[1, 2, 3]`, the console.log in the consumer
+would print `1 - 2 - 3`.
 
 On a somewhat related note, not every method needs to be request/response.  Just like an actor can emit a one-way event, a method can be marked as a one-way request.  Maybe we don't care about giveGoodNews returning anything:
 
@@ -588,65 +570,8 @@ You can customize this behavior in two ways.  The first is by defining a `marsha
       return new ChildActor(this.conn, id);
     }
 
-This creates a new child actor owned by the current child actor.  But in this example we want all actors created by the child to be owned by the HelloActor.  So we can define a `defaultParent` property that makes use of the `parent` proeprty provided by the Actor class:
+This creates a new child actor owned by the current child actor.  But in this example we want all actors created by the child to be owned by the HelloActor.  So we can define a `defaultParent` property that makes use of the `parent` property provided by the Actor class:
 
     get marshallPool() { return this.parent }
 
 The front needs to provide a matching `defaultParent` property that returns an owning front, to make sure the client and server lifetimes stay synced.
-
-For more complex situations, you can define your own lifetime properties.  Take this new pair of HelloActor methods:
-
-    // When the "temp" lifetime is specified, look for the _temporaryParent attribute as the owner.
-    types.addLifetime("temp", "_temporaryParent");
-
-    // spec:
-    methods: {
-      getTemporaryChild: {
-        request: { id: Arg(0) },
-        response: {
-          child: RetVal("temp:childActor") // use the lifetime name here to specify the expected lifetime.
-        }
-      },
-      clearTemporaryChildren: {
-        oneway: true
-      }
-    }
-
-    // implementation:
-    getTemporaryChild: function (id) {
-      if (!this._temporaryParent) {
-        // Create an actor to serve as the parent for all temporary children and explicitly
-        // add it as a child of this actor.
-        this._temporaryParent = new Actor(this.conn));
-        this.manage(this._temporaryParent);
-      }
-      return new ChildActor(this.conn, id);
-    }
-
-    clearTemporaryChildren: function () {
-      if (this._temporaryParent) {
-        this._temporaryParent.destroy();
-        delete this._temporaryParent;
-      }
-    }
-
-This will require some matching work on the front:
-
-    getTemporaryChild: protocol.custom(function (id) {
-        if (!this._temporaryParent) {
-            this._temporaryParent = this.manage(new Front(this.client));
-        }
-        return this._getTemporaryChild(id);
-    }, {
-        impl: "_getTemporaryChild"
-    }),
-
-    clearTemporaryChildren: protocol.custom(function (id) {
-        if (this._temporaryParent) {
-            this._temporaryParent.destroy();
-            delete this._temporaryParent;
-        }
-        return this._clearTemporaryChildren();
-    }, {
-        impl: "_clearTemporaryChildren"
-    })

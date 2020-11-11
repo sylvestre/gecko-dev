@@ -5,25 +5,28 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "mozilla/dom/WebAuthnUtil.h"
+#include "mozilla/dom/WebAuthnCBORUtil.h"
 #include "nsIEffectiveTLDService.h"
 #include "nsNetUtil.h"
 #include "mozpkix/pkixutil.h"
+#include "nsHTMLDocument.h"
+#include "nsICryptoHash.h"
+#include "hasht.h"
 
 namespace mozilla {
 namespace dom {
 
 // Bug #1436078 - Permit Google Accounts. Remove in Bug #1436085 in Jan 2023.
-NS_NAMED_LITERAL_STRING(kGoogleAccountsAppId1,
-                        "https://www.gstatic.com/securitykey/origins.json");
-NS_NAMED_LITERAL_STRING(
-    kGoogleAccountsAppId2,
-    "https://www.gstatic.com/securitykey/a/google.com/origins.json");
+constexpr auto kGoogleAccountsAppId1 =
+    u"https://www.gstatic.com/securitykey/origins.json"_ns;
+constexpr auto kGoogleAccountsAppId2 =
+    u"https://www.gstatic.com/securitykey/a/google.com/origins.json"_ns;
 
 const uint8_t FLAG_TUP = 0x01;  // Test of User Presence required
 const uint8_t FLAG_AT = 0x40;   // Authenticator Data is provided
 
 bool EvaluateAppID(nsPIDOMWindowInner* aParent, const nsString& aOrigin,
-                   const U2FOperation& aOp, /* in/out */ nsString& aAppId) {
+                   /* in/out */ nsString& aAppId) {
   // Facet is the specification's way of referring to the web origin.
   nsAutoCString facetString = NS_ConvertUTF16toUTF8(aOrigin);
   nsCOMPtr<nsIURI> facetUri;
@@ -32,8 +35,7 @@ bool EvaluateAppID(nsPIDOMWindowInner* aParent, const nsString& aOrigin,
   }
 
   // If the facetId (origin) is not HTTPS, reject
-  bool facetIsHttps = false;
-  if (NS_FAILED(facetUri->SchemeIs("https", &facetIsHttps)) || !facetIsHttps) {
+  if (!facetUri->SchemeIs("https")) {
     return false;
   }
 
@@ -51,8 +53,7 @@ bool EvaluateAppID(nsPIDOMWindowInner* aParent, const nsString& aOrigin,
   }
 
   // if the appId URL is not HTTPS, reject.
-  bool appIdIsHttps = false;
-  if (NS_FAILED(appIdUri->SchemeIs("https", &appIdIsHttps)) || !appIdIsHttps) {
+  if (!appIdUri->SchemeIs("https")) {
     return false;
   }
 
@@ -76,7 +77,7 @@ bool EvaluateAppID(nsPIDOMWindowInner* aParent, const nsString& aOrigin,
   // Run the HTML5 algorithm to relax the same-origin policy, copied from W3C
   // Web Authentication. See Bug 1244959 comment #8 for context on why we are
   // doing this instead of implementing the external-fetch FacetID logic.
-  nsCOMPtr<nsIDocument> document = aParent->GetDoc();
+  nsCOMPtr<Document> document = aParent->GetDoc();
   if (!document || !document->IsHTMLDocument()) {
     return false;
   }
@@ -101,8 +102,7 @@ bool EvaluateAppID(nsPIDOMWindowInner* aParent, const nsString& aOrigin,
   }
 
   // Bug #1436078 - Permit Google Accounts. Remove in Bug #1436085 in Jan 2023.
-  if (aOp == U2FOperation::Sign &&
-      lowestFacetHost.EqualsLiteral("google.com") &&
+  if (lowestFacetHost.EqualsLiteral("google.com") &&
       (aAppId.Equals(kGoogleAccountsAppId1) ||
        aAppId.Equals(kGoogleAccountsAppId2))) {
     return true;
@@ -153,10 +153,10 @@ nsresult AssembleAuthenticatorData(const CryptoBuffer& rpIdHashBuf,
     return NS_ERROR_INVALID_ARG;
   }
 
-  authDataBuf.AppendElements(rpIdHashBuf, mozilla::fallible);
-  authDataBuf.AppendElement(flags, mozilla::fallible);
-  authDataBuf.AppendElements(counterBuf, mozilla::fallible);
-  authDataBuf.AppendElements(attestationDataBuf, mozilla::fallible);
+  (void)authDataBuf.AppendElements(rpIdHashBuf, mozilla::fallible);
+  (void)authDataBuf.AppendElement(flags, mozilla::fallible);
+  (void)authDataBuf.AppendElements(counterBuf, mozilla::fallible);
+  (void)authDataBuf.AppendElements(attestationDataBuf, mozilla::fallible);
   return NS_OK;
 }
 
@@ -178,13 +178,13 @@ nsresult AssembleAttestationData(const CryptoBuffer& aaguidBuf,
     return NS_ERROR_INVALID_ARG;
   }
 
-  attestationDataBuf.AppendElements(aaguidBuf, mozilla::fallible);
-  attestationDataBuf.AppendElement((keyHandleBuf.Length() >> 8) & 0xFF,
-                                   mozilla::fallible);
-  attestationDataBuf.AppendElement((keyHandleBuf.Length() >> 0) & 0xFF,
-                                   mozilla::fallible);
-  attestationDataBuf.AppendElements(keyHandleBuf, mozilla::fallible);
-  attestationDataBuf.AppendElements(pubKeyObj, mozilla::fallible);
+  (void)attestationDataBuf.AppendElements(aaguidBuf, mozilla::fallible);
+  (void)attestationDataBuf.AppendElement((keyHandleBuf.Length() >> 8) & 0xFF,
+                                         mozilla::fallible);
+  (void)attestationDataBuf.AppendElement((keyHandleBuf.Length() >> 0) & 0xFF,
+                                         mozilla::fallible);
+  (void)attestationDataBuf.AppendElements(keyHandleBuf, mozilla::fallible);
+  (void)attestationDataBuf.AppendElements(pubKeyObj, mozilla::fallible);
   return NS_OK;
 }
 
@@ -210,7 +210,8 @@ nsresult AssembleAttestationObject(const CryptoBuffer& aRpIdHash,
   // FIDO U2F devices have no AAGUIDs, so they'll be all zeros until we add
   // support for CTAP2 devices.
   for (int i = 0; i < 16; i++) {
-    aaguidBuf.AppendElement(0x00, mozilla::fallible);
+    // SetCapacity was just called, these cannot fail.
+    (void)aaguidBuf.AppendElement(0x00, mozilla::fallible);
   }
 
   // During create credential, counter is always 0 for U2F
@@ -219,10 +220,11 @@ nsresult AssembleAttestationObject(const CryptoBuffer& aRpIdHash,
   if (NS_WARN_IF(!counterBuf.SetCapacity(4, mozilla::fallible))) {
     return NS_ERROR_OUT_OF_MEMORY;
   }
-  counterBuf.AppendElement(0x00, mozilla::fallible);
-  counterBuf.AppendElement(0x00, mozilla::fallible);
-  counterBuf.AppendElement(0x00, mozilla::fallible);
-  counterBuf.AppendElement(0x00, mozilla::fallible);
+  // SetCapacity was just called, these cannot fail.
+  (void)counterBuf.AppendElement(0x00, mozilla::fallible);
+  (void)counterBuf.AppendElement(0x00, mozilla::fallible);
+  (void)counterBuf.AppendElement(0x00, mozilla::fallible);
+  (void)counterBuf.AppendElement(0x00, mozilla::fallible);
 
   // Construct the Attestation Data, which slots into the end of the
   // Authentication Data buffer.
@@ -262,7 +264,7 @@ nsresult U2FDecomposeSignResponse(const CryptoBuffer& aResponse,
     return NS_ERROR_INVALID_ARG;
   }
 
-  Span<const uint8_t> rspView = MakeSpan(aResponse);
+  Span<const uint8_t> rspView = Span(aResponse);
   aFlags = rspView[0];
 
   if (NS_WARN_IF(!aCounterBuf.AppendElements(rspView.FromTo(1, 5),

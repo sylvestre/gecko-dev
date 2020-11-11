@@ -54,7 +54,22 @@ def getParser(path):
     for item in __constructors:
         if re.search(item[0], path):
             return item[1]
+    try:
+        from pkg_resources import iter_entry_points
+        for entry_point in iter_entry_points('compare_locales.parsers'):
+            p = entry_point.resolve()()
+            if p.use(path):
+                return p
+    except (ImportError, IOError):
+        pass
     raise UserWarning("Cannot find Parser")
+
+
+def hasParser(path):
+    try:
+        return bool(getParser(path))
+    except UserWarning:
+        return False
 
 
 __constructors = [

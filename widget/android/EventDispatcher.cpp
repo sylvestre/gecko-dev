@@ -8,12 +8,21 @@
 
 #include "JavaBuiltins.h"
 #include "nsAppShell.h"
-#include "nsIXPConnect.h"
 #include "nsJSUtils.h"
+#include "js/Array.h"  // JS::GetArrayLength, JS::IsArrayObject, JS::NewArrayObject
+#include "js/String.h"    // JS::StringHasLatin1Chars
+#include "js/Warnings.h"  // JS::WarnUTF8
 #include "xpcpublic.h"
 
 #include "mozilla/ScopeExit.h"
 #include "mozilla/dom/ScriptSettings.h"
+#include "mozilla/java/EventCallbackWrappers.h"
+
+// Disable the C++ 2a warning. See bug #1509926
+#if defined(__clang__)
+#  pragma clang diagnostic push
+#  pragma clang diagnostic ignored "-Wc++2a-compat"
+#endif
 
 namespace mozilla {
 namespace widget {
@@ -38,7 +47,7 @@ nsresult BoxString(JSContext* aCx, JS::HandleValue aData,
 
   JS::RootedString str(aCx, aData.toString());
 
-  if (JS_StringHasLatin1Chars(str)) {
+  if (JS::StringHasLatin1Chars(str)) {
     nsAutoJSString autoStr;
     NS_ENSURE_TRUE(CheckJS(aCx, autoStr.init(aCx, str)), NS_ERROR_FAILURE);
 
@@ -121,7 +130,7 @@ nsresult BoxArrayObject(JSContext* aCx, JS::HandleObject aData,
 nsresult BoxArray(JSContext* aCx, JS::HandleObject aData,
                   jni::Object::LocalRef& aOut) {
   uint32_t length = 0;
-  NS_ENSURE_TRUE(CheckJS(aCx, JS_GetArrayLength(aCx, aData, &length)),
+  NS_ENSURE_TRUE(CheckJS(aCx, JS::GetArrayLength(aCx, aData, &length)),
                  NS_ERROR_FAILURE);
 
   if (!length) {
@@ -178,7 +187,7 @@ nsresult BoxArray(JSContext* aCx, JS::HandleObject aData,
     bool array = false;
     JS::RootedObject obj(aCx, &val.toObject());
     // We don't support array of arrays.
-    return CheckJS(aCx, JS_IsArrayObject(aCx, obj, &array)) && !array;
+    return CheckJS(aCx, JS::IsArrayObject(aCx, obj, &array)) && !array;
   };
 
   if (element.isNullOrUndefined() || isObject(element)) {
@@ -206,7 +215,7 @@ nsresult BoxObject(JSContext* aCx, JS::HandleValue aData,
   JS::RootedObject obj(aCx, &aData.toObject());
 
   bool isArray = false;
-  if (CheckJS(aCx, JS_IsArrayObject(aCx, obj, &isArray)) && isArray) {
+  if (CheckJS(aCx, JS::IsArrayObject(aCx, obj, &isArray)) && isArray) {
     return BoxArray(aCx, obj, aOut);
   }
 
@@ -290,7 +299,7 @@ nsresult BoxData(const nsAString& aEvent, JSContext* aCx, JS::HandleValue aData,
 
   NS_ConvertUTF16toUTF8 event(aEvent);
   if (JS_IsExceptionPending(aCx)) {
-    JS_ReportWarningUTF8(aCx, "Error dispatching %s", event.get());
+    JS::WarnUTF8(aCx, "Error dispatching %s", event.get());
   } else {
     JS_ReportErrorUTF8(aCx, "Invalid event data for %s", event.get());
   }
@@ -397,7 +406,7 @@ nsresult UnboxArrayPrimitive(JSContext* aCx, const jni::Object::LocalRef& aData,
   JNIEnv* const env = aData.Env();
   const ArrayType jarray = ArrayType(aData.Get());
   JNIType* const array = (env->*GetElements)(jarray, nullptr);
-  JS::AutoValueVector elements(aCx);
+  JS::RootedVector<JS::Value> elements(aCx);
 
   if (NS_WARN_IF(!array)) {
     env->ExceptionClear();
@@ -418,7 +427,7 @@ nsresult UnboxArrayPrimitive(JSContext* aCx, const jni::Object::LocalRef& aData,
   }
 
   JS::RootedObject obj(aCx,
-                       JS_NewArrayObject(aCx, JS::HandleValueArray(elements)));
+                       JS::NewArrayObject(aCx, JS::HandleValueArray(elements)));
   NS_ENSURE_TRUE(CheckJS(aCx, !!obj), NS_ERROR_FAILURE);
 
   aOut.setObject(*obj);
@@ -443,7 +452,7 @@ nsresult UnboxArrayObject(JSContext* aCx, const jni::Object::LocalRef& aData,
   jni::ObjectArray::LocalRef array(aData.Env(),
                                    jni::ObjectArray::Ref::From(aData));
   const size_t len = array->Length();
-  JS::RootedObject obj(aCx, JS_NewArrayObject(aCx, len));
+  JS::RootedObject obj(aCx, JS::NewArrayObject(aCx, len));
   NS_ENSURE_TRUE(CheckJS(aCx, !!obj), NS_ERROR_FAILURE);
 
   for (size_t i = 0; i < len; i++) {
@@ -460,49 +469,21 @@ nsresult UnboxArrayObject(JSContext* aCx, const jni::Object::LocalRef& aData,
   return NS_OK;
 }
 
-template <class T>
-jfieldID GetValueFieldID(const char* aType) {
-  MOZ_ASSERT(NS_IsMainThread());
-  JNIEnv* const env = jni::GetGeckoThreadEnv();
-  const jfieldID id = env->GetFieldID(
-      typename T::Context(env, nullptr).ClassRef(), "value", aType);
-  env->ExceptionClear();
-  return id;
-}
-
 nsresult UnboxValue(JSContext* aCx, const jni::Object::LocalRef& aData,
                     JS::MutableHandleValue aOut) {
-  static jfieldID booleanValueField = GetValueFieldID<java::sdk::Boolean>("Z");
-  static jfieldID intValueField = GetValueFieldID<java::sdk::Integer>("I");
-  static jfieldID doubleValueField = GetValueFieldID<java::sdk::Double>("D");
+  using jni::Java2Native;
 
   if (!aData) {
     aOut.setNull();
   } else if (aData.IsInstanceOf<jni::Boolean>()) {
-    if (booleanValueField) {
-      aOut.setBoolean(aData.Env()->GetBooleanField(
-                          aData.Get(), booleanValueField) != JNI_FALSE);
-      MOZ_CATCH_JNI_EXCEPTION(aData.Env());
-    } else {
-      aOut.setBoolean(java::sdk::Boolean::Ref::From(aData)->BooleanValue());
-    }
+    aOut.setBoolean(Java2Native<bool>(aData, aData.Env()));
   } else if (aData.IsInstanceOf<jni::Integer>()) {
-    if (intValueField) {
-      aOut.setInt32(aData.Env()->GetIntField(aData.Get(), intValueField));
-      MOZ_CATCH_JNI_EXCEPTION(aData.Env());
-    } else {
-      aOut.setInt32(java::sdk::Number::Ref::From(aData)->IntValue());
-    }
+    aOut.setInt32(Java2Native<int>(aData, aData.Env()));
   } else if (aData.IsInstanceOf<jni::Byte>() ||
              aData.IsInstanceOf<jni::Short>()) {
     aOut.setInt32(java::sdk::Number::Ref::From(aData)->IntValue());
   } else if (aData.IsInstanceOf<jni::Double>()) {
-    if (doubleValueField) {
-      aOut.setNumber(
-          aData.Env()->GetDoubleField(aData.Get(), doubleValueField));
-    } else {
-      aOut.setNumber(java::sdk::Number::Ref::From(aData)->DoubleValue());
-    }
+    aOut.setNumber(Java2Native<double>(aData, aData.Env()));
   } else if (aData.IsInstanceOf<jni::Float>() ||
              aData.IsInstanceOf<jni::Long>()) {
     aOut.setNumber(java::sdk::Number::Ref::From(aData)->DoubleValue());
@@ -560,7 +541,7 @@ nsresult UnboxData(jni::String::Param aEvent, JSContext* aCx,
 
   nsCString event = aEvent->ToCString();
   if (JS_IsExceptionPending(aCx)) {
-    JS_ReportWarningUTF8(aCx, "Error dispatching %s", event.get());
+    JS::WarnUTF8(aCx, "Error dispatching %s", event.get());
   } else {
     JS_ReportErrorUTF8(aCx, "Invalid event data for %s", event.get());
   }
@@ -572,16 +553,15 @@ class JavaCallbackDelegate final : public nsIAndroidEventCallback {
 
   virtual ~JavaCallbackDelegate() {}
 
-  NS_IMETHOD Call(JS::HandleValue aData,
+  NS_IMETHOD Call(JSContext* aCx, JS::HandleValue aData,
                   void (java::EventCallback::*aCall)(jni::Object::Param)
                       const) {
     MOZ_ASSERT(NS_IsMainThread());
-    AutoJSContext cx;
 
     jni::Object::LocalRef data(jni::GetGeckoThreadEnv());
-    nsresult rv = BoxData(NS_LITERAL_STRING("callback"), cx, aData, data,
+    nsresult rv = BoxData(u"callback"_ns, aCx, aData, data,
                           /* ObjectOnly */ false);
-    NS_ENSURE_SUCCESS(rv, JS_IsExceptionPending(cx) ? NS_OK : rv);
+    NS_ENSURE_SUCCESS(rv, rv);
 
     dom::AutoNoJSAPI nojsapi;
 
@@ -595,12 +575,12 @@ class JavaCallbackDelegate final : public nsIAndroidEventCallback {
 
   NS_DECL_ISUPPORTS
 
-  NS_IMETHOD OnSuccess(JS::HandleValue aData) override {
-    return Call(aData, &java::EventCallback::SendSuccess);
+  NS_IMETHOD OnSuccess(JS::HandleValue aData, JSContext* aCx) override {
+    return Call(aCx, aData, &java::EventCallback::SendSuccess);
   }
 
-  NS_IMETHOD OnError(JS::HandleValue aData) override {
-    return Call(aData, &java::EventCallback::SendError);
+  NS_IMETHOD OnError(JS::HandleValue aData, JSContext* aCx) override {
+    return Call(aCx, aData, &java::EventCallback::SendError);
   }
 };
 
@@ -617,7 +597,8 @@ class NativeCallbackDelegateSupport final
   const nsCOMPtr<nsIGlobalObject> mGlobalObject;
 
   void Call(jni::Object::Param aData,
-            nsresult (nsIAndroidEventCallback::*aCall)(JS::HandleValue)) {
+            nsresult (nsIAndroidEventCallback::*aCall)(JS::HandleValue,
+                                                       JSContext*)) {
     MOZ_ASSERT(NS_IsMainThread());
 
     // Use either the attached window's realm or a default realm.
@@ -626,12 +607,11 @@ class NativeCallbackDelegateSupport final
     NS_ENSURE_TRUE_VOID(jsapi.Init(mGlobalObject));
 
     JS::RootedValue data(jsapi.cx());
-    nsresult rv = UnboxData(NS_LITERAL_STRING("callback"), jsapi.cx(), aData,
-                            &data, /* BundleOnly */ false);
+    nsresult rv = UnboxData(u"callback"_ns, jsapi.cx(), aData, &data,
+                            /* BundleOnly */ false);
     NS_ENSURE_SUCCESS_VOID(rv);
 
-    dom::AutoNoJSAPI nojsapi;
-    rv = (mCallback->*aCall)(data);
+    rv = (mCallback->*aCall)(data, jsapi.cx());
     NS_ENSURE_SUCCESS_VOID(rv);
   }
 
@@ -806,6 +786,10 @@ EventDispatcher::Dispatch(JS::HandleValue aEvent, JS::HandleValue aData,
 
   jni::Object::LocalRef data(jni::GetGeckoThreadEnv());
   nsresult rv = BoxData(event, aCx, aData, data, /* ObjectOnly */ true);
+  // Keep XPConnect from overriding the JSContext exception with one
+  // based on the nsresult.
+  //
+  // XXXbz Does xpconnect still do that?  Needs to be checked/tested.
   NS_ENSURE_SUCCESS(rv, JS_IsExceptionPending(aCx) ? NS_OK : rv);
 
   dom::AutoNoJSAPI nojsapi;
@@ -860,13 +844,13 @@ nsresult EventDispatcher::IterateEvents(JSContext* aCx, JS::HandleValue aEvents,
 
   bool isArray = false;
   NS_ENSURE_TRUE(aEvents.isObject(), NS_ERROR_INVALID_ARG);
-  NS_ENSURE_TRUE(CheckJS(aCx, JS_IsArrayObject(aCx, aEvents, &isArray)),
+  NS_ENSURE_TRUE(CheckJS(aCx, JS::IsArrayObject(aCx, aEvents, &isArray)),
                  NS_ERROR_INVALID_ARG);
   NS_ENSURE_TRUE(isArray, NS_ERROR_INVALID_ARG);
 
   JS::RootedObject events(aCx, &aEvents.toObject());
   uint32_t length = 0;
-  NS_ENSURE_TRUE(CheckJS(aCx, JS_GetArrayLength(aCx, events, &length)),
+  NS_ENSURE_TRUE(CheckJS(aCx, JS::GetArrayLength(aCx, events, &length)),
                  NS_ERROR_INVALID_ARG);
   NS_ENSURE_TRUE(length, NS_ERROR_INVALID_ARG);
 
@@ -969,6 +953,11 @@ void EventDispatcher::Attach(java::EventDispatcher::Param aDispatcher,
   dispatcher->SetAttachedToGecko(java::EventDispatcher::ATTACHED);
 }
 
+void EventDispatcher::Shutdown() {
+  mDispatcher = nullptr;
+  mDOMWindow = nullptr;
+}
+
 void EventDispatcher::Detach() {
   MOZ_ASSERT(NS_IsMainThread());
   MOZ_ASSERT(mDispatcher);
@@ -981,8 +970,7 @@ void EventDispatcher::Detach() {
     dispatcher->SetAttachedToGecko(java::EventDispatcher::DETACHED);
   }
 
-  mDispatcher = nullptr;
-  mDOMWindow = nullptr;
+  Shutdown();
 }
 
 bool EventDispatcher::HasGeckoListener(jni::String::Param aEvent) {
@@ -1032,3 +1020,7 @@ nsresult EventDispatcher::UnboxBundle(JSContext* aCx, jni::Object::Param aData,
 
 }  // namespace widget
 }  // namespace mozilla
+
+#if defined(__clang__)
+#  pragma clang diagnostic pop
+#endif

@@ -21,6 +21,47 @@ const SUPPORTED_NETWORKS = Object.freeze([
   "visa",
 ]);
 
+// This lists stores lower cased variations of popular credit card network
+// names for matching against strings.
+const NETWORK_NAMES = {
+  "american express": "amex",
+  "master card": "mastercard",
+  "union pay": "unionpay",
+};
+
+// Based on https://en.wikipedia.org/wiki/Payment_card_number
+//
+// Notice:
+//   - CarteBancaire (`4035`, `4360`) is now recognized as Visa.
+//   - UnionPay (`63--`) is now recognized as Discover.
+// This means that the order matters.
+// First we'll try to match more specific card,
+// and if that doesn't match we'll test against the more generic range.
+const CREDIT_CARD_IIN = [
+  { type: "amex", start: 34, end: 34, len: 15 },
+  { type: "amex", start: 37, end: 37, len: 15 },
+  { type: "cartebancaire", start: 4035, end: 4035, len: 16 },
+  { type: "cartebancaire", start: 4360, end: 4360, len: 16 },
+  // We diverge from Wikipedia here, because Diners card
+  // support length of 14-19.
+  { type: "diners", start: 300, end: 305, len: [14, 19] },
+  { type: "diners", start: 3095, end: 3095, len: [14, 19] },
+  { type: "diners", start: 36, end: 36, len: [14, 19] },
+  { type: "diners", start: 38, end: 39, len: [14, 19] },
+  { type: "discover", start: 6011, end: 6011, len: [16, 19] },
+  { type: "discover", start: 622126, end: 622925, len: [16, 19] },
+  { type: "discover", start: 624000, end: 626999, len: [16, 19] },
+  { type: "discover", start: 628200, end: 628899, len: [16, 19] },
+  { type: "discover", start: 64, end: 65, len: [16, 19] },
+  { type: "jcb", start: 3528, end: 3589, len: [16, 19] },
+  { type: "mastercard", start: 2221, end: 2720, len: 16 },
+  { type: "mastercard", start: 51, end: 55, len: 16 },
+  { type: "mir", start: 2200, end: 2204, len: 16 },
+  { type: "unionpay", start: 62, end: 62, len: [16, 19] },
+  { type: "unionpay", start: 81, end: 81, len: [16, 19] },
+  { type: "visa", start: 4, end: 4, len: 16 },
+].sort((a, b) => b.start - a.start);
+
 class CreditCard {
   /**
    * A CreditCard object represents a credit card, with
@@ -93,7 +134,7 @@ class CreditCard {
   }
 
   set expirationString(value) {
-    let {month, year} = CreditCard.parseExpirationString(value);
+    let { month, year } = CreditCard.parseExpirationString(value);
     this.expirationMonth = month;
     this.expirationYear = year;
   }
@@ -120,8 +161,9 @@ class CreditCard {
       // Based on the information on wiki[1], the shortest valid length should be
       // 12 digits (Maestro).
       // [1] https://en.wikipedia.org/wiki/Payment_card_number
-      normalizedNumber = normalizedNumber.match(/^\d{12,}$/) ?
-        normalizedNumber : "";
+      normalizedNumber = normalizedNumber.match(/^\d{12,}$/)
+        ? normalizedNumber
+        : "";
       this._number = normalizedNumber;
     } else {
       this._number = "";
@@ -178,6 +220,63 @@ class CreditCard {
   }
 
   /**
+   * Attempts to match the number against known network identifiers.
+   *
+   * @param {string} ccNumber
+   *
+   * @returns {string|null}
+   */
+  static getType(ccNumber) {
+    for (let i = 0; i < CREDIT_CARD_IIN.length; i++) {
+      const range = CREDIT_CARD_IIN[i];
+      if (typeof range.len == "number") {
+        if (range.len != ccNumber.length) {
+          continue;
+        }
+      } else if (
+        ccNumber.length < range.len[0] ||
+        ccNumber.length > range.len[1]
+      ) {
+        continue;
+      }
+
+      const prefixLength = Math.floor(Math.log10(range.start)) + 1;
+      const prefix = parseInt(ccNumber.substring(0, prefixLength), 10);
+      if (prefix >= range.start && prefix <= range.end) {
+        return range.type;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Attempts to retrieve a card network identifier based
+   * on a name.
+   *
+   * @param {string|undefined|null} name
+   *
+   * @returns {string|null}
+   */
+  static getNetworkFromName(name) {
+    if (!name) {
+      return null;
+    }
+    let lcName = name
+      .trim()
+      .toLowerCase()
+      .normalize("NFKC");
+    if (SUPPORTED_NETWORKS.includes(lcName)) {
+      return lcName;
+    }
+    for (let term in NETWORK_NAMES) {
+      if (lcName.includes(term)) {
+        return NETWORK_NAMES[term];
+      }
+    }
+    return null;
+  }
+
+  /**
    * Returns true if the card number is valid and the
    * expiration date has not passed. Otherwise false.
    *
@@ -196,8 +295,10 @@ class CreditCard {
 
     // getMonth is 0-based, so add 1 because credit cards are 1-based
     let currentMonth = currentDate.getMonth() + 1;
-    return this._expirationYear == currentYear &&
-           this._expirationMonth >= currentMonth;
+    return (
+      this._expirationYear == currentYear &&
+      this._expirationMonth >= currentMonth
+    );
   }
 
   get maskedNumber() {
@@ -209,10 +310,36 @@ class CreditCard {
   }
 
   /**
-   * Get credit card display label. It should display masked numbers and the
-   * cardholder's name, separated by a comma.
+   * Get credit card display label. It should display masked numbers, the
+   * cardholder's name, and the expiration date, separated by a commas.
+   * In addition, the card type is provided in the accessibility label.
    */
-  static getLabel({number, name}) {
+  static getLabelInfo({ number, name, month, year, type }) {
+    let formatSelector = ["number"];
+    if (name) {
+      formatSelector.push("name");
+    }
+    if (month && year) {
+      formatSelector.push("expiration");
+    }
+    let stringId = `credit-card-label-${formatSelector.join("-")}-2`;
+    return {
+      id: stringId,
+      args: {
+        number: CreditCard.getMaskedNumber(number),
+        name,
+        month: month?.toString(),
+        year: year?.toString(),
+        type,
+      },
+    };
+  }
+
+  /**
+   * !!! DEPRECATED !!!
+   * Please use getLabelInfo above, as it allows for localization.
+   */
+  static getLabel({ number, name }) {
     let parts = [];
 
     if (number) {
@@ -264,7 +391,9 @@ class CreditCard {
     ];
 
     for (let rule of rules) {
-      let result = new RegExp(`(?:^|\\D)${rule.regex}(?!\\d)`).exec(expirationString);
+      let result = new RegExp(`(?:^|\\D)${rule.regex}(?!\\d)`).exec(
+        expirationString
+      );
       if (!result) {
         continue;
       }
@@ -284,25 +413,32 @@ class CreditCard {
         month = parseInt(result[rule.monthIndex], 10);
       }
 
-      if ((month < 1 || month > 12) ||
-          (year >= 100 && year < 2000)) {
+      if (month < 1 || month > 12 || (year >= 100 && year < 2000)) {
         continue;
       }
 
-      return {month, year};
+      return { month, year };
     }
-    return {month: undefined, year: undefined};
+    return { month: undefined, year: undefined };
   }
 
-  static normalizeExpiration({expirationString, expirationMonth, expirationYear}) {
+  static normalizeExpiration({
+    expirationString,
+    expirationMonth,
+    expirationYear,
+  }) {
     // Only prefer the string version if missing one or both parsed formats.
     let parsedExpiration = {};
     if (expirationString && (!expirationMonth || !expirationYear)) {
       parsedExpiration = CreditCard.parseExpirationString(expirationString);
     }
     return {
-      month: CreditCard.normalizeExpirationMonth(parsedExpiration.month || expirationMonth),
-      year: CreditCard.normalizeExpirationYear(parsedExpiration.year || expirationYear),
+      month: CreditCard.normalizeExpirationMonth(
+        parsedExpiration.month || expirationMonth
+      ),
+      year: CreditCard.normalizeExpirationYear(
+        parsedExpiration.year || expirationYear
+      ),
     };
   }
 
@@ -327,7 +463,7 @@ class CreditCard {
    */
   static isValidNumber(number) {
     try {
-      new CreditCard({number});
+      new CreditCard({ number });
     } catch (ex) {
       return false;
     }
@@ -339,4 +475,3 @@ class CreditCard {
   }
 }
 CreditCard.SUPPORTED_NETWORKS = SUPPORTED_NETWORKS;
-

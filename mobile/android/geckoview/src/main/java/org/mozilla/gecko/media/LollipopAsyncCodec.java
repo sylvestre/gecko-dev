@@ -16,8 +16,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
-import android.support.annotation.NonNull;
-import android.util.Log;
+import androidx.annotation.NonNull;
 import android.view.Surface;
 
 import java.io.IOException;
@@ -191,9 +190,9 @@ import java.nio.ByteBuffer;
     }
 
     @Override
-    public void setRates(final int newBitRate) {
+    public void setBitrate(final int bps) {
         final Bundle params = new Bundle();
-        params.putInt(MediaCodec.PARAMETER_KEY_VIDEO_BITRATE, newBitRate * 1000);
+        params.putInt(MediaCodec.PARAMETER_KEY_VIDEO_BITRATE, bps);
         mCodec.setParameters(params);
     }
 

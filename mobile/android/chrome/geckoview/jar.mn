@@ -7,16 +7,14 @@ geckoview.jar:
 
   content/config.xhtml
   content/config.js
-% override chrome://global/content/config.xul chrome://geckoview/content/config.xhtml
+% override chrome://global/content/config.xhtml chrome://geckoview/content/config.xhtml
 
-  content/ErrorPageEventHandler.js
-  content/geckoview.xul
+  content/extension-content.js
+  content/geckoview.xhtml
   content/geckoview.js
-  content/GeckoViewContentChild.js
+  content/GeckoViewAutofillChild.js
   content/GeckoViewMediaChild.js
-  content/GeckoViewNavigationChild.js
-  content/GeckoViewProgressChild.js
-  content/GeckoViewPromptChild.js
-  content/GeckoViewScrollChild.js
-  content/GeckoViewSettingsChild.js
-  content/GeckoViewSelectionActionChild.js
+  content/GeckoViewMediaControlChild.js
+  content/SessionStateAggregator.js
+
+% content branding %content/branding/

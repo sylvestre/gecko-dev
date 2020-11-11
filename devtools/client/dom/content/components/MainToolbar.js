@@ -1,26 +1,28 @@
-/* -*- indent-tabs-mode: nil; js-indent-level: 2 -*- */
-/* vim: set ft=javascript ts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 "use strict";
 
 // React
-const { Component, createFactory } = require("devtools/client/shared/vendor/react");
+const {
+  Component,
+  createFactory,
+} = require("devtools/client/shared/vendor/react");
+const dom = require("devtools/client/shared/vendor/react-dom-factories");
 const PropTypes = require("devtools/client/shared/vendor/react-prop-types");
+const SearchBox = createFactory(
+  require("devtools/client/shared/components/SearchBox")
+);
 
-const { l10n } = require("../utils");
-// Reps
-const { createFactories } = require("devtools/client/shared/react-utils");
+const { l10n } = require("devtools/client/dom/content/utils");
 
-const { Toolbar, ToolbarButton } = createFactories(require("devtools/client/jsonview/components/reps/Toolbar"));
-
-// DOM Panel
-const SearchBox = createFactory(require("devtools/client/shared/components/SearchBox"));
 // Actions
-const { fetchProperties } = require("../actions/grips");
-
-const { setVisibilityFilter } = require("../actions/filter");
+const {
+  fetchProperties,
+} = require("devtools/client/dom/content/actions/grips");
+const {
+  setVisibilityFilter,
+} = require("devtools/client/dom/content/actions/filter");
 
 /**
  * This template is responsible for rendering a toolbar
@@ -49,23 +51,23 @@ class MainToolbar extends Component {
   }
 
   render() {
-    return (
-      Toolbar({},
-        ToolbarButton({
-          key: "refresh",
-          className: "refresh devtools-button",
-          id: "dom-refresh-button",
-          title: l10n.getStr("dom.refresh"),
-          onClick: this.onRefresh,
-        }),
-        SearchBox({
-          key: "filter",
-          delay: 250,
-          onChange: this.onSearch,
-          placeholder: l10n.getStr("dom.filterDOMPanel"),
-          type: "filter",
-        })
-      )
+    return dom.div(
+      { className: "devtools-toolbar devtools-input-toolbar" },
+      SearchBox({
+        key: "filter",
+        delay: 250,
+        onChange: this.onSearch,
+        placeholder: l10n.getStr("dom.filterDOMPanel"),
+        type: "filter",
+      }),
+      dom.span({ className: "devtools-separator" }),
+      dom.button({
+        key: "refresh",
+        className: "refresh devtools-button",
+        id: "dom-refresh-button",
+        title: l10n.getStr("dom.refresh"),
+        onClick: this.onRefresh,
+      })
     );
   }
 }

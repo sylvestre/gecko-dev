@@ -7,13 +7,13 @@
 #ifndef MOZILLA_LAYERS_BSPTREE_H
 #define MOZILLA_LAYERS_BSPTREE_H
 
-#include "mozilla/ArenaAllocator.h"
-#include "mozilla/gfx/Polygon.h"
-#include "mozilla/Move.h"
-#include "mozilla/UniquePtr.h"
-#include "nsTArray.h"
-
 #include <list>
+#include <utility>
+
+#include "mozilla/ArenaAllocator.h"
+#include "mozilla/UniquePtr.h"
+#include "mozilla/gfx/Polygon.h"
+#include "nsTArray.h"
 
 namespace mozilla {
 namespace layers {
@@ -88,7 +88,7 @@ struct BSPTreeNode {
  * https://en.wikipedia.org/wiki/Binary_space_partitioning
  * ftp://ftp.sgi.com/other/bspfaq/faq/bspfaq.html
  */
-class BSPTree {
+class BSPTree final {
  public:
   /**
    * The constructor modifies layers in the given list.

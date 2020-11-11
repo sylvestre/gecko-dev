@@ -10,29 +10,33 @@ const WONTDIE_BODY = String.raw`
 
   signal.signal(signal.SIGTERM, signal.SIG_IGN)
 
+  stdin = getattr(sys.stdin, 'buffer', sys.stdin)
+  stdout = getattr(sys.stdout, 'buffer', sys.stdout)
+
   def spin():
-      while True:
-          try:
-              signal.pause()
-          except AttributeError:
-              time.sleep(5)
+    while True:
+      try:
+        signal.pause()
+      except AttributeError:
+        time.sleep(5)
 
   while True:
-      rawlen = sys.stdin.read(4)
-      if len(rawlen) == 0:
-          spin()
+    rawlen = stdin.read(4)
+    if len(rawlen) == 0:
+      spin()
 
-      msglen = struct.unpack('@I', rawlen)[0]
-      msg = sys.stdin.read(msglen)
+    msglen = struct.unpack('@I', rawlen)[0]
+    msg = stdin.read(msglen)
 
-      sys.stdout.write(struct.pack('@I', msglen))
-      sys.stdout.write(msg)
+    stdout.write(struct.pack('@I', msglen))
+    stdout.write(msg)
 `;
 
 const SCRIPTS = [
   {
     name: "wontdie",
-    description: "a native app that does not exit when stdin closes or on SIGTERM",
+    description:
+      "a native app that does not exit when stdin closes or on SIGTERM",
     script: WONTDIE_BODY.replace(/^ {2}/gm, ""),
   },
 ];
@@ -40,7 +44,6 @@ const SCRIPTS = [
 add_task(async function setup() {
   await setupHosts(SCRIPTS);
 });
-
 
 // Test that an unresponsive native application still gets killed eventually
 add_task(async function test_unresponsive_native_app() {
@@ -62,7 +65,7 @@ add_task(async function test_unresponsive_native_app() {
   let extension = ExtensionTestUtils.loadExtension({
     background,
     manifest: {
-      applications: {gecko: {id: ID}},
+      applications: { gecko: { id: ID } },
       permissions: ["nativeMessaging"],
     },
   });

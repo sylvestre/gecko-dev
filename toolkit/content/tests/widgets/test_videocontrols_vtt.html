@@ -2,9 +2,8 @@
 <html>
 <head>
   <title>Video controls test - VTT</title>
-  <script type="text/javascript" src="/tests/SimpleTest/SimpleTest.js"></script>
-  <script type="text/javascript" src="/tests/SimpleTest/AddTask.js"></script>
-  <script type="text/javascript" src="/tests/SimpleTest/EventUtils.js"></script>
+  <script src="/tests/SimpleTest/SimpleTest.js"></script>
+  <script src="/tests/SimpleTest/EventUtils.js"></script>
   <script type="text/javascript" src="head.js"></script>
   <link rel="stylesheet" type="text/css" href="/tests/SimpleTest/test.css" />
 </head>
@@ -22,6 +21,7 @@
   const video = document.getElementById("video");
   const ccBtn = getElementWithinVideo(video, "closedCaptionButton");
   const ttList = getElementWithinVideo(video, "textTrackList");
+  const ttListContainer = getElementWithinVideo(video, "textTrackListContainer");
 
   add_task(async function wait_for_media_ready() {
     await SpecialPowers.pushPrefEnv({"set": [["media.cache_size", 40000]]});
@@ -74,7 +74,7 @@
     synthesizeMouseAtCenter(ccBtn, {});
 
     await new Promise(SimpleTest.executeSoon);
-    ok(!ttList.hidden, "Texttrack menu should show up");
+    ok(!ttListContainer.hidden, "Texttrack menu should show up");
     ok(ttList.lastChild.hasAttribute("on"), "The last added item should be highlighted");
   });
 
@@ -84,20 +84,23 @@
     ok(!tt.hasAttribute("on"), "Item should be off before click");
     synthesizeMouseAtCenter(tt, {});
 
+    await once(video.textTracks, "change");
     await new Promise(SimpleTest.executeSoon);
     ok(tt.hasAttribute("on"), "Selected item should be enabled");
-    ok(ttList.hidden, "Should hide texttrack menu once clicked on an item");
+    ok(ttListContainer.hidden, "Should hide texttrack menu once clicked on an item");
   });
 
   add_task(async function check_change_texttrack_mode() {
     const tts = [...video.textTracks];
 
     tts.forEach(tt => tt.mode = "hidden");
+    await once(video.textTracks, "change");
     await new Promise(SimpleTest.executeSoon);
     ok(!ccBtn.hasAttribute("enabled"), "CC button should be disabled");
 
     // enable the last text track.
     tts[tts.length - 1].mode = "showing";
+    await once(video.textTracks, "change");
     await new Promise(SimpleTest.executeSoon);
     ok(ccBtn.hasAttribute("enabled"), "CC button should be enabled");
     ok(ttList.lastChild.hasAttribute("on"), "The last item should be highlighted");

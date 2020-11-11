@@ -8,6 +8,7 @@
 #define mozilla_dom_simpledb_SDBResults_h
 
 #include "nsISDBResults.h"
+#include "nsISupports.h"
 #include "nsString.h"
 
 namespace mozilla {
@@ -20,7 +21,7 @@ class SDBResult : public nsISDBResult {
   explicit SDBResult(const nsACString& aData);
 
  private:
-  virtual ~SDBResult() {}
+  virtual ~SDBResult() = default;
 
   NS_DECL_ISUPPORTS
   NS_DECL_NSISDBRESULT

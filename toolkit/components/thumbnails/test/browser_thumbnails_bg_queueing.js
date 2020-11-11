@@ -1,7 +1,7 @@
 /* Any copyright is dedicated to the Public Domain.
  * http://creativecommons.org/publicdomain/zero/1.0/ */
 
-function* runTests() {
+add_task(async function thumbnails_bg_queueing() {
   let urls = [
     "http://www.example.com/0",
     "http://www.example.com/1",
@@ -10,29 +10,40 @@ function* runTests() {
     "http://www.example.com/2",
   ];
   dontExpireThumbnailURLs(urls);
-  urls.forEach(url => {
+
+  let promises = [];
+
+  for (let url of urls) {
     ok(!thumbnailExists(url), "Thumbnail should not exist yet: " + url);
     let isTimeoutTest = url.includes("wait");
-    BackgroundPageThumbs.capture(url, {
+
+    let promise = bgCapture(url, {
       timeout: isTimeoutTest ? 100 : 30000,
-      onDone: function onDone(capturedURL) {
-        ok(urls.length > 0, "onDone called, so URLs should still remain");
-        is(capturedURL, urls.shift(),
-           "Captured URL should be currently expected URL (i.e., " +
-           "capture() callbacks should be called in the correct order)");
+      onDone: capturedURL => {
+        ok(!!urls.length, "onDone called, so URLs should still remain");
+        is(
+          capturedURL,
+          urls.shift(),
+          "Captured URL should be currently expected URL (i.e., " +
+            "capture() callbacks should be called in the correct order)"
+        );
         if (isTimeoutTest) {
-          ok(!thumbnailExists(capturedURL),
-             "Thumbnail shouldn't exist for timed out capture");
+          ok(
+            !thumbnailExists(capturedURL),
+            "Thumbnail shouldn't exist for timed out capture"
+          );
         } else {
-          ok(thumbnailExists(capturedURL),
-             "Thumbnail should be cached after capture");
+          ok(
+            thumbnailExists(capturedURL),
+            "Thumbnail should be cached after capture"
+          );
           removeThumbnail(url);
         }
-        if (!urls.length)
-          // Test done.
-          next();
       },
     });
-  });
-  yield true;
-}
+
+    promises.push(promise);
+  }
+
+  await Promise.all(promises);
+});

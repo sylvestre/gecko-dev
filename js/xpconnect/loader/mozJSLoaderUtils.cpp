@@ -9,7 +9,7 @@
 #include "jsapi.h"
 #include "jsfriendapi.h"
 
-#include "nsJSPrincipals.h"
+#include "mozilla/BasePrincipal.h"
 
 using namespace JS;
 using namespace mozilla::scache;
@@ -19,17 +19,22 @@ using mozilla::UniquePtr;
 // principals when writing a script. Instead, when reading it back, we set the
 // principals to the system principals.
 nsresult ReadCachedScript(StartupCache* cache, nsACString& uri, JSContext* cx,
+                          const JS::ReadOnlyCompileOptions& options,
                           MutableHandleScript scriptp) {
-  UniquePtr<char[]> buf;
+  const char* buf;
   uint32_t len;
   nsresult rv = cache->GetBuffer(PromiseFlatCString(uri).get(), &buf, &len);
   if (NS_FAILED(rv)) {
     return rv;  // don't warn since NOT_AVAILABLE is an ok error
   }
-
+  void* copy = malloc(len);
+  if (!copy) {
+    return NS_ERROR_OUT_OF_MEMORY;
+  }
+  memcpy(copy, buf, len);
   JS::TranscodeBuffer buffer;
-  buffer.replaceRawBuffer(reinterpret_cast<uint8_t*>(buf.release()), len);
-  JS::TranscodeResult code = JS::DecodeScript(cx, buffer, scriptp);
+  buffer.replaceRawBuffer(reinterpret_cast<uint8_t*>(copy), len);
+  JS::TranscodeResult code = JS::DecodeScript(cx, options, buffer, scriptp);
   if (code == JS::TranscodeResult_Ok) {
     return NS_OK;
   }
@@ -45,8 +50,8 @@ nsresult ReadCachedScript(StartupCache* cache, nsACString& uri, JSContext* cx,
 
 nsresult WriteCachedScript(StartupCache* cache, nsACString& uri, JSContext* cx,
                            HandleScript script) {
-  MOZ_ASSERT(nsJSPrincipals::get(JS_GetScriptPrincipals(script))
-                 ->GetIsSystemPrincipal());
+  MOZ_ASSERT(
+      nsJSPrincipals::get(JS_GetScriptPrincipals(script))->IsSystemPrincipal());
 
   JS::TranscodeBuffer buffer;
   JS::TranscodeResult code = JS::EncodeScript(cx, buffer, script);

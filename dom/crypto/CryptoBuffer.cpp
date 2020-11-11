@@ -9,8 +9,7 @@
 #include "mozilla/Base64.h"
 #include "mozilla/dom/UnionTypes.h"
 
-namespace mozilla {
-namespace dom {
+namespace mozilla::dom {
 
 uint8_t* CryptoBuffer::Assign(const CryptoBuffer& aData) {
   // Same as in nsTArray_Impl::operator=, but return the value
@@ -33,18 +32,18 @@ uint8_t* CryptoBuffer::Assign(const SECItem* aItem) {
   return Assign(aItem->data, aItem->len);
 }
 
-uint8_t* CryptoBuffer::Assign(const InfallibleTArray<uint8_t>& aData) {
+uint8_t* CryptoBuffer::Assign(const nsTArray<uint8_t>& aData) {
   return ReplaceElementsAt(0, Length(), aData.Elements(), aData.Length(),
                            fallible);
 }
 
 uint8_t* CryptoBuffer::Assign(const ArrayBuffer& aData) {
-  aData.ComputeLengthAndData();
+  aData.ComputeState();
   return Assign(aData.Data(), aData.Length());
 }
 
 uint8_t* CryptoBuffer::Assign(const ArrayBufferView& aData) {
-  aData.ComputeLengthAndData();
+  aData.ComputeState();
   return Assign(aData.Data(), aData.Length());
 }
 
@@ -72,6 +71,11 @@ uint8_t* CryptoBuffer::Assign(const OwningArrayBufferViewOrArrayBuffer& aData) {
   MOZ_ASSERT(false);
   Clear();
   return nullptr;
+}
+
+uint8_t* CryptoBuffer::Assign(const Uint8Array& aArray) {
+  aArray.ComputeState();
+  return Assign(aArray.Data(), aArray.Length());
 }
 
 uint8_t* CryptoBuffer::AppendSECItem(const SECItem* aItem) {
@@ -164,5 +168,4 @@ bool CryptoBuffer::GetBigIntValue(unsigned long& aRetVal) {
   return true;
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

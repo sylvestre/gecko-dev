@@ -4,14 +4,16 @@
 //! Sometimes, it is necessary to move register values to a different register in order to satisfy
 //! instruction constraints.
 //!
-//! These register diversions are local to an EBB. No values can be diverted when entering a new
-//! EBB.
+//! These register diversions are local to a block. No values can be diverted when entering a new
+//! block.
 
-use ir::{InstructionData, Opcode};
-use ir::{StackSlot, Value, ValueLoc, ValueLocations};
-use isa::{RegInfo, RegUnit};
-use std::fmt;
-use std::vec::Vec;
+use crate::fx::FxHashMap;
+use crate::hash_map::{Entry, Iter};
+use crate::ir::{Block, StackSlot, Value, ValueLoc, ValueLocations};
+use crate::ir::{InstructionData, Opcode};
+use crate::isa::{RegInfo, RegUnit};
+use core::fmt;
+use cranelift_entity::{SparseMap, SparseMapValue};
 
 /// A diversion of a value from its original location to a new register or stack location.
 ///
@@ -22,8 +24,6 @@ use std::vec::Vec;
 /// the current one.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Diversion {
-    /// The value that is diverted.
-    pub value: Value,
     /// The original value location.
     pub from: ValueLoc,
     /// The current value location.
@@ -32,26 +32,39 @@ pub struct Diversion {
 
 impl Diversion {
     /// Make a new diversion.
-    pub fn new(value: Value, from: ValueLoc, to: ValueLoc) -> Self {
+    pub fn new(from: ValueLoc, to: ValueLoc) -> Self {
         debug_assert!(from.is_assigned() && to.is_assigned());
-        Self { value, from, to }
+        Self { from, to }
     }
 }
 
-/// Keep track of diversions in an EBB.
+/// Keep track of diversions in a block.
+#[derive(Clone)]
 pub struct RegDiversions {
-    current: Vec<Diversion>,
+    current: FxHashMap<Value, Diversion>,
+}
+
+/// Keep track of diversions at the entry of block.
+#[derive(Clone)]
+struct EntryRegDiversionsValue {
+    key: Block,
+    divert: RegDiversions,
+}
+
+/// Map block to their matching RegDiversions at basic blocks entry.
+pub struct EntryRegDiversions {
+    map: SparseMap<Block, EntryRegDiversionsValue>,
 }
 
 impl RegDiversions {
     /// Create a new empty diversion tracker.
     pub fn new() -> Self {
         Self {
-            current: Vec::new(),
+            current: FxHashMap::default(),
         }
     }
 
-    /// Clear the tracker, preparing for a new EBB.
+    /// Clear the content of the diversions, to reset the state of the compiler.
     pub fn clear(&mut self) {
         self.current.clear()
     }
@@ -63,12 +76,12 @@ impl RegDiversions {
 
     /// Get the current diversion of `value`, if any.
     pub fn diversion(&self, value: Value) -> Option<&Diversion> {
-        self.current.iter().find(|d| d.value == value)
+        self.current.get(&value)
     }
 
     /// Get all current diversions.
-    pub fn all(&self) -> &[Diversion] {
-        self.current.as_slice()
+    pub fn iter(&self) -> Iter<'_, Value, Diversion> {
+        self.current.iter()
     }
 
     /// Get the current location for `value`. Fall back to the assignment map for non-diverted
@@ -93,17 +106,24 @@ impl RegDiversions {
     /// Record any kind of move.
     ///
     /// The `from` location must match an existing `to` location, if any.
-    pub fn divert(&mut self, value: Value, from: ValueLoc, to: ValueLoc) {
+    fn divert(&mut self, value: Value, from: ValueLoc, to: ValueLoc) {
         debug_assert!(from.is_assigned() && to.is_assigned());
-        if let Some(i) = self.current.iter().position(|d| d.value == value) {
-            debug_assert_eq!(self.current[i].to, from, "Bad regmove chain for {}", value);
-            if self.current[i].from != to {
-                self.current[i].to = to;
-            } else {
-                self.current.swap_remove(i);
+        match self.current.entry(value) {
+            Entry::Occupied(mut e) => {
+                // TODO: non-lexical lifetimes should allow removal of the scope and early return.
+                {
+                    let d = e.get_mut();
+                    debug_assert_eq!(d.to, from, "Bad regmove chain for {}", value);
+                    if d.from != to {
+                        d.to = to;
+                        return;
+                    }
+                }
+                e.remove();
             }
-        } else {
-            self.current.push(Diversion::new(value, from, to));
+            Entry::Vacant(e) => {
+                e.insert(Diversion::new(from, to));
+            }
         }
     }
 
@@ -154,15 +174,95 @@ impl RegDiversions {
     ///
     /// Returns the `to` location of the removed diversion.
     pub fn remove(&mut self, value: Value) -> Option<ValueLoc> {
-        self.current
-            .iter()
-            .position(|d| d.value == value)
-            .map(|i| self.current.swap_remove(i).to)
+        self.current.remove(&value).map(|d| d.to)
+    }
+
+    /// Resets the state of the current diversions to the recorded diversions at the entry of the
+    /// given `block`. The recoded diversions is available after coloring on `func.entry_diversions`
+    /// field.
+    pub fn at_block(&mut self, entry_diversions: &EntryRegDiversions, block: Block) {
+        self.clear();
+        if let Some(entry_divert) = entry_diversions.map.get(block) {
+            let iter = entry_divert.divert.current.iter();
+            self.current.extend(iter);
+        }
+    }
+
+    /// Copy the current state of the diversions, and save it for the entry of the `block` given as
+    /// argument.
+    ///
+    /// Note: This function can only be called once on a `Block` with a given `entry_diversions`
+    /// argument, otherwise it would panic.
+    pub fn save_for_block(&mut self, entry_diversions: &mut EntryRegDiversions, target: Block) {
+        // No need to save anything if there is no diversions to be recorded.
+        if self.is_empty() {
+            return;
+        }
+        debug_assert!(!entry_diversions.map.contains_key(target));
+        let iter = self.current.iter();
+        let mut entry_divert = Self::new();
+        entry_divert.current.extend(iter);
+        entry_diversions.map.insert(EntryRegDiversionsValue {
+            key: target,
+            divert: entry_divert,
+        });
+    }
+
+    /// Check that the recorded entry for a given `block` matches what is recorded in the
+    /// `entry_diversions`.
+    pub fn check_block_entry(&self, entry_diversions: &EntryRegDiversions, target: Block) -> bool {
+        let entry_divert = match entry_diversions.map.get(target) {
+            Some(entry_divert) => entry_divert,
+            None => return self.is_empty(),
+        };
+
+        if entry_divert.divert.current.len() != self.current.len() {
+            return false;
+        }
+
+        for (val, _) in entry_divert.divert.current.iter() {
+            if !self.current.contains_key(val) {
+                return false;
+            }
+        }
+        true
     }
 
     /// Return an object that can display the diversions.
     pub fn display<'a, R: Into<Option<&'a RegInfo>>>(&'a self, regs: R) -> DisplayDiversions<'a> {
-        DisplayDiversions(self, regs.into())
+        DisplayDiversions(&self, regs.into())
+    }
+}
+
+impl EntryRegDiversions {
+    /// Create a new empty entry diversion, to associate diversions to each block entry.
+    pub fn new() -> Self {
+        Self {
+            map: SparseMap::new(),
+        }
+    }
+
+    pub fn clear(&mut self) {
+        self.map.clear();
+    }
+}
+
+impl Clone for EntryRegDiversions {
+    /// The Clone trait is required by `ir::Function`.
+    fn clone(&self) -> Self {
+        let mut tmp = Self::new();
+        for v in self.map.values() {
+            tmp.map.insert(v.clone());
+        }
+        tmp
+    }
+}
+
+/// Implement `SparseMapValue`, as required to make use of a `SparseMap` for mapping the entry
+/// diversions for each block.
+impl SparseMapValue<Block> for EntryRegDiversionsValue {
+    fn key(&self) -> Block {
+        self.key
     }
 }
 
@@ -172,11 +272,11 @@ pub struct DisplayDiversions<'a>(&'a RegDiversions, Option<&'a RegInfo>);
 impl<'a> fmt::Display for DisplayDiversions<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{{")?;
-        for div in self.0.all() {
+        for (value, div) in self.0.current.iter() {
             write!(
                 f,
                 " {}: {} -> {}",
-                div.value,
+                value,
                 div.from.display(self.1),
                 div.to.display(self.1)
             )?
@@ -188,8 +288,8 @@ impl<'a> fmt::Display for DisplayDiversions<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use entity::EntityRef;
-    use ir::Value;
+    use crate::entity::EntityRef;
+    use crate::ir::Value;
 
     #[test]
     fn inserts() {
@@ -201,7 +301,6 @@ mod tests {
         assert_eq!(
             divs.diversion(v1),
             Some(&Diversion {
-                value: v1,
                 from: ValueLoc::Reg(10),
                 to: ValueLoc::Reg(12),
             })

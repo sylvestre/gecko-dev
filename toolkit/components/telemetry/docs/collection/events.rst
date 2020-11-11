@@ -12,7 +12,7 @@ For events recorded into Firefox Telemetry we also provide an API that opaquely 
 
 .. important::
 
-    Every new data collection in Firefox needs a `data collection review <https://wiki.mozilla.org/Firefox/Data_Collection#Requesting_Approval>`_ from a data collection peer. Just set the feedback? flag for one of the data peers. We try to reply within a business day.
+    Every new or changed data collection in Firefox needs a `data collection review <https://wiki.mozilla.org/Firefox/Data_Collection>`__ from a Data Steward.
 
 .. _events.serializationformat:
 
@@ -74,11 +74,13 @@ Only ``value`` and the values of ``extra`` will be truncated if over the specifi
 Any other ``String`` going over its limit will be reported as an error and the operation
 aborted.
 
+.. _eventdefinition:
+
 The YAML definition file
 ========================
 
 Any event recorded into Firefox Telemetry must be registered before it can be recorded.
-For any code that ships as part of Firefox that happens in `Events.yaml <https://dxr.mozilla.org/mozilla-central/source/toolkit/components/telemetry/Events.yaml>`_.
+For any code that ships as part of Firefox that happens in `Events.yaml <https://searchfox.org/mozilla-central/source/toolkit/components/telemetry/Events.yaml>`_.
 
 The probes in the definition file are represented in a fixed-depth, three-level structure. The first level contains *category* names (grouping multiple events together), the second level contains *event* names, under which the events properties are listed. E.g.:
 
@@ -124,15 +126,22 @@ The following event properties are valid:
 - ``notification_emails`` *(required, list of strings)*: A list of emails of owners for this event. This is used for contact for data reviews and potentially to email alerts.
 - expiry: There are two properties that can specify expiry, at least one needs to be set:
 
-  - ``expiry_version`` *(string)*: The version number in which the event expires, e.g. ``"50"``, or ``"never"``. A version number of type "N" is automatically converted to "N.0a1" in order to expire the event also in the development channels. For events that never expire the value ``never`` can be used.
+  - ``expiry_version`` *(required, string)*: The version number in which the event expires, e.g. ``"50"``, or ``"never"``. A version number of type "N" is automatically converted to "N.0a1" in order to expire the event also in the development channels. For events that never expire the value ``never`` can be used.
 
 - ``extra_keys`` *(optional, object)*: An object that specifies valid keys for the ``extra`` argument and a description - see the example above.
-- ``products`` *(optional, list of strings)*: A list of products the event can be recorded on. It defaults to ``all``. Currently supported values are:
+- ``products`` *(required, list of strings)*: A list of products the event can be recorded on. Currently supported values are:
 
-  - ``firefox``
-  - ``fennec``
-  - ``geckoview``
-  - ``all`` (record on all products)
+  - ``firefox`` - Collected in Firefox Desktop for submission via Firefox Telemetry.
+  - ``fennec`` - Collected in Firefox for Android for submission via Firefox Mobile Telemetry.
+
+- ``operating_systems`` *(optional, list of strings)*: This field restricts recording to certain operating systems only. It defaults to ``all``. Currently supported values are:
+
+   - ``mac``
+   - ``linux``
+   - ``windows``
+   - ``android``
+   - ``unix``
+   - ``all`` (record on all operating systems)
 
 .. note::
 
@@ -188,7 +197,9 @@ Example:
 
   Services.telemetry.setEventRecordingEnabled(category, enabled);
 
-Event recording is currently disabled by default. Privileged add-ons and Firefox code can enable & disable recording events for specific categories using this function.
+Event recording is currently disabled by default for events registered in Events.yaml.
+Dynamically-registered events (those registered using ``registerEvents()``) are enabled by default, and cannot be disabled.
+Privileged add-ons and Firefox code can enable & disable recording events for specific categories using this function.
 
 Example:
 
@@ -203,6 +214,8 @@ Example:
 
   Even if your event category isn't enabled, counts of events that attempted to be recorded will
   be :ref:`summarized <events.event-summary>`.
+
+.. _registerevents:
 
 ``registerEvents()``
 ~~~~~~~~~~~~~~~~~~~~
@@ -223,7 +236,7 @@ Register new events from add-ons.
   * ``expired`` - *(optional, bool)* Whether this event entry is expired. This allows recording it without error, but it will be discarded. Defaults to false.
 
 For events recorded from add-ons, registration happens at runtime. Any new events must first be registered through this function before they can be recorded.
-The registered categories will automatically be enabled for recording.
+The registered categories will automatically be enabled for recording, and cannot be disabled.
 If a dynamic event uses the same category as a static event, the category will also be enabled upon registration.
 
 After registration, the events can be recorded through the ``recordEvent()`` function. They will be submitted in event pings like static events are, under the ``dynamic`` process.
@@ -256,7 +269,7 @@ Internal API
 These functions are only supposed to be used by Telemetry internally or in tests.
 
 Also, the ``event-telemetry-storage-limit-reached`` topic is notified when the event ping event
-limit is reached (configurable via the ``toolkit.telemetry.eventping.eventLimit`` preference).
+limit is reached (1000 event records).
 This is intended only for use internally or in tests.
 
 .. _events.event-summary:
@@ -274,8 +287,7 @@ registered via ``registerEvents``). These are :ref:`keyed scalars <scalars.keyed
 the keys are of the form ``category#method#object`` and the values are counts of the number of
 times ``recordEvent`` was called with that combination of ``category``, ``method``, and ``object``.
 
-These two scalars have a default maximum key limit of 500 per process. This limit is configurable
-via the ``toolkit.telemetry.maxEventSummaryKeys`` preference.
+These two scalars have a default maximum key limit of 500 per process.
 
 Example:
 
@@ -301,9 +313,27 @@ example above, if ``interaction.click.document`` was registered with ``registerE
 the dynamic-process scalar ``telemetry.dynamic_event_counts`` would have a key
 ``interaction#click#document`` with the value ``6``.
 
+Testing
+=======
+
+Tests involving Event Telemetry often follow this four-step form:
+
+1. ``Services.telemetry.clearEvents();`` To minimize the effects of prior code and tests.
+2. ``Services.telemetry.setEventRecordingEnabled(myCategory, true);`` To enable the collection of
+   your events. (May or may not be relevant in your case)
+3. ``runTheCode();`` This is part of the test where you call the code that's supposed to collect
+   Event Telemetry.
+4. ``TelemetryTestUtils.assertEvents(expected, filter, options);`` This will check the
+   events recorded by Event Telemetry against your provided list of expected events.
+   If you only need to check the number of events recorded, you can use
+   ``TelemetryTestUtils.assertNumberOfEvents(expectedNum, filter, options);``.
+   Both utilities have `helpful inline documentation <https://hg.mozilla.org/mozilla-central/file/tip/toolkit/components/telemetry/tests/utils/TelemetryTestUtils.jsm>`_.
+
+
 Version History
 ===============
 
+- Firefox 79:  ``geckoview`` support removed (see `bug 1620395 <https://bugzilla.mozilla.org/show_bug.cgi?id=1620395>`__).
 - Firefox 52: Initial event support (`bug 1302663 <https://bugzilla.mozilla.org/show_bug.cgi?id=1302663>`_).
 - Firefox 53: Event recording disabled by default (`bug 1329139 <https://bugzilla.mozilla.org/show_bug.cgi?id=1329139>`_).
 - Firefox 54: Added child process events (`bug 1313326 <https://bugzilla.mozilla.org/show_bug.cgi?id=1313326>`_).
@@ -316,3 +346,4 @@ Version History
 
    - Enabled support for adding events in artifact builds and build-faster workflows (`bug 1448945 <https://bugzilla.mozilla.org/show_bug.cgi?id=1448945>`_).
    - Added summarization of events (`bug 1440673 <https://bugzilla.mozilla.org/show_bug.cgi?id=1440673>`_).
+- Firefox 66: Replace ``cpp_guard`` with ``operating_systems`` (`bug 1482912 <https://bugzilla.mozilla.org/show_bug.cgi?id=1482912>`_)`

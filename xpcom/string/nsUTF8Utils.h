@@ -6,21 +6,23 @@
 #ifndef nsUTF8Utils_h_
 #define nsUTF8Utils_h_
 
-// This file may be used in two ways: if MOZILLA_INTERNAL_API is defined, this
-// file will provide signatures for the Mozilla abstract string types. It will
+// NB: This code may be used from non-XPCOM code, in particular, the
+// standalone updater executable.  That is, this file may be used in
+// two ways: if MOZILLA_INTERNAL_API is defined, this file will
+// provide signatures for the Mozilla abstract string types. It will
 // use XPCOM assertion/debugging macros, etc.
 
-#include "nscore.h"
+#include <type_traits>
+
 #include "mozilla/Assertions.h"
 #include "mozilla/EndianUtils.h"
-#include "mozilla/TypeTraits.h"
 
 #include "nsCharTraits.h"
 
 #ifdef MOZILLA_INTERNAL_API
-#define UTF8UTILS_WARNING(msg) NS_WARNING(msg)
+#  define UTF8UTILS_WARNING(msg) NS_WARNING(msg)
 #else
-#define UTF8UTILS_WARNING(msg)
+#  define UTF8UTILS_WARNING(msg)
 #endif
 
 class UTF8traits {
@@ -76,7 +78,8 @@ class UTF8CharEnumerator {
     MOZ_ASSERT(p, "null buffer");
     MOZ_ASSERT(p < end, "Bogus range");
 
-    unsigned char first = *p++;
+    unsigned char first = *p;
+    ++p;
 
     if (MOZ_LIKELY(first < 0x80U)) {
       *aBuffer = reinterpret_cast<const char*>(p);
@@ -97,7 +100,8 @@ class UTF8CharEnumerator {
     if (first < 0xE0U) {
       // Two-byte
       if (MOZ_LIKELY((second & 0xC0U) == 0x80U)) {
-        *aBuffer = reinterpret_cast<const char*>(++p);
+        ++p;
+        *aBuffer = reinterpret_cast<const char*>(p);
         return ((uint32_t(first) & 0x1FU) << 6) | (uint32_t(second) & 0x3FU);
       }
       *aBuffer = reinterpret_cast<const char*>(p);
@@ -117,10 +121,12 @@ class UTF8CharEnumerator {
         upper = 0x9FU;
       }
       if (MOZ_LIKELY(second >= lower && second <= upper)) {
+        ++p;
         if (MOZ_LIKELY(p != end)) {
-          unsigned char third = *++p;
+          unsigned char third = *p;
           if (MOZ_LIKELY((third & 0xC0U) == 0x80U)) {
-            *aBuffer = reinterpret_cast<const char*>(++p);
+            ++p;
+            *aBuffer = reinterpret_cast<const char*>(p);
             return ((uint32_t(first) & 0xFU) << 12) |
                    ((uint32_t(second) & 0x3FU) << 6) |
                    (uint32_t(third) & 0x3FU);
@@ -143,13 +149,16 @@ class UTF8CharEnumerator {
       upper = 0x8FU;
     }
     if (MOZ_LIKELY(second >= lower && second <= upper)) {
+      ++p;
       if (MOZ_LIKELY(p != end)) {
-        unsigned char third = *++p;
+        unsigned char third = *p;
         if (MOZ_LIKELY((third & 0xC0U) == 0x80U)) {
+          ++p;
           if (MOZ_LIKELY(p != end)) {
-            unsigned char fourth = *++p;
+            unsigned char fourth = *p;
             if (MOZ_LIKELY((fourth & 0xC0U) == 0x80U)) {
-              *aBuffer = reinterpret_cast<const char*>(++p);
+              ++p;
+              *aBuffer = reinterpret_cast<const char*>(p);
               return ((uint32_t(first) & 0x7U) << 18) |
                      ((uint32_t(second) & 0x3FU) << 12) |
                      ((uint32_t(third) & 0x3FU) << 6) |
@@ -223,12 +232,11 @@ class UTF16CharEnumerator {
 template <typename Char, typename UnsignedT>
 inline UnsignedT RewindToPriorUTF8Codepoint(const Char* utf8Chars,
                                             UnsignedT index) {
-  static_assert(mozilla::IsSame<Char, char>::value ||
-                    mozilla::IsSame<Char, unsigned char>::value ||
-                    mozilla::IsSame<Char, signed char>::value,
+  static_assert(std::is_same_v<Char, char> ||
+                    std::is_same_v<Char, unsigned char> ||
+                    std::is_same_v<Char, signed char>,
                 "UTF-8 data must be in 8-bit units");
-  static_assert(mozilla::IsUnsigned<UnsignedT>::value,
-                "index type must be unsigned");
+  static_assert(std::is_unsigned_v<UnsignedT>, "index type must be unsigned");
   while (index > 0 && (utf8Chars[index] & 0xC0) == 0x80) --index;
 
   return index;

@@ -8,13 +8,12 @@
 
 #include "blink/PeriodicWave.h"
 
-#include "mozilla/AutoplayPermissionManager.h"
 #include "mozilla/ErrorResult.h"
 #include "mozilla/NotNull.h"
 #include "mozilla/OwningNonNull.h"
 #include "mozilla/RefPtr.h"
 #include "mozilla/Preferences.h"
-#include "mozilla/StaticPrefs.h"
+#include "mozilla/StaticPrefs_media.h"
 
 #include "mozilla/dom/AnalyserNode.h"
 #include "mozilla/dom/AnalyserNodeBinding.h"
@@ -32,10 +31,12 @@
 #include "mozilla/dom/HTMLMediaElement.h"
 #include "mozilla/dom/MediaElementAudioSourceNodeBinding.h"
 #include "mozilla/dom/MediaStreamAudioSourceNodeBinding.h"
+#include "mozilla/dom/MediaStreamTrackAudioSourceNodeBinding.h"
 #include "mozilla/dom/OfflineAudioContextBinding.h"
 #include "mozilla/dom/OscillatorNodeBinding.h"
 #include "mozilla/dom/PannerNodeBinding.h"
 #include "mozilla/dom/PeriodicWaveBinding.h"
+#include "mozilla/dom/Performance.h"
 #include "mozilla/dom/Promise.h"
 #include "mozilla/dom/StereoPannerNodeBinding.h"
 #include "mozilla/dom/WaveShaperNodeBinding.h"
@@ -46,7 +47,7 @@
 #include "AudioChannelService.h"
 #include "AudioDestinationNode.h"
 #include "AudioListener.h"
-#include "AudioNodeStream.h"
+#include "AudioNodeTrack.h"
 #include "AudioStream.h"
 #include "AudioWorkletImpl.h"
 #include "AutoplayPolicy.h"
@@ -59,10 +60,12 @@
 #include "DynamicsCompressorNode.h"
 #include "GainNode.h"
 #include "IIRFilterNode.h"
+#include "js/ArrayBuffer.h"  // JS::StealArrayBufferContents
 #include "MediaElementAudioSourceNode.h"
 #include "MediaStreamAudioDestinationNode.h"
 #include "MediaStreamAudioSourceNode.h"
-#include "MediaStreamGraph.h"
+#include "MediaTrackGraph.h"
+#include "MediaStreamTrackAudioSourceNode.h"
 #include "nsContentUtils.h"
 #include "nsIScriptError.h"
 #include "nsNetCID.h"
@@ -82,21 +85,27 @@ extern mozilla::LazyLogModule gAutoplayPermissionLog;
 #define AUTOPLAY_LOG(msg, ...) \
   MOZ_LOG(gAutoplayPermissionLog, LogLevel::Debug, (msg, ##__VA_ARGS__))
 
-namespace mozilla {
-namespace dom {
+using std::move;
 
-// 0 is a special value that MediaStreams use to denote they are not part of a
+namespace mozilla::dom {
+
+// 0 is a special value that MediaTracks use to denote they are not part of a
 // AudioContext.
 static dom::AudioContext::AudioContextId gAudioContextId = 1;
 
 NS_IMPL_CYCLE_COLLECTION_CLASS(AudioContext)
 
 NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(AudioContext)
+  // The destination node and AudioContext form a cycle and so the destination
+  // track will be destroyed.  mWorklet must be shut down before the track
+  // is destroyed.  Do this before clearing mWorklet.
+  tmp->ShutdownWorklet();
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mDestination)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mListener)
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mWorklet)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mPromiseGripArray)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mPendingResumePromises)
-  if (!tmp->mIsStarted) {
+  if (tmp->mSuspendCalled || !tmp->mIsStarted) {
     NS_IMPL_CYCLE_COLLECTION_UNLINK(mActiveNodes)
   }
   // mDecodeJobs owns the WebAudioDecodeJob objects whose lifetime is managed
@@ -112,11 +121,10 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(AudioContext,
                                                   DOMEventTargetHelper)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mDestination)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mListener)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mWorklet)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mPromiseGripArray)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mPendingResumePromises)
-  if (!tmp->mIsStarted) {
-    MOZ_ASSERT(tmp->mIsOffline,
-               "Online AudioContexts should always be started");
+  if (tmp->mSuspendCalled || !tmp->mIsStarted) {
     NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mActiveNodes)
   }
   // mDecodeJobs owns the WebAudioDecodeJob objects whose lifetime is managed
@@ -151,37 +159,47 @@ AudioContext::AudioContext(nsPIDOMWindowInner* aWindow, bool aIsOffline,
       mIsStarted(!aIsOffline),
       mIsShutDown(false),
       mCloseCalled(false),
-      mSuspendCalled(false),
+      // Realtime contexts start with suspended tracks until an
+      // AudioCallbackDriver is running.
+      mSuspendCalled(!aIsOffline),
       mIsDisconnecting(false),
-      mWasAllowedToStart(true) {
+      mWasAllowedToStart(true),
+      mSuspendedByContent(false),
+      mWasEverAllowedToStart(false),
+      mWasEverBlockedToStart(false),
+      mWouldBeAllowedToStart(true) {
   bool mute = aWindow->AddAudioContext(this);
 
   // Note: AudioDestinationNode needs an AudioContext that must already be
   // bound to the window.
   const bool allowedToStart = AutoplayPolicy::IsAllowedToPlay(*this);
-  mDestination = new AudioDestinationNode(this, aIsOffline, allowedToStart,
-                                          aNumberOfChannels, aLength);
+  mDestination =
+      new AudioDestinationNode(this, aIsOffline, aNumberOfChannels, aLength);
+  mDestination->Init();
+  // If an AudioContext is not allowed to start, we would postpone its state
+  // transition from `suspended` to `running` until sites explicitly call
+  // AudioContext.resume() or AudioScheduledSourceNode.start().
+  if (!allowedToStart) {
+    MOZ_ASSERT(!mIsOffline);
+    AUTOPLAY_LOG("AudioContext %p is not allowed to start", this);
+    ReportBlocked();
+  } else if (!mIsOffline) {
+    ResumeInternal(AudioContextOperationFlags::SendStateChange);
+  }
 
   // The context can't be muted until it has a destination.
   if (mute) {
     Mute();
   }
 
-  // If an AudioContext is not allowed to start, we would postpone its state
-  // transition from `suspended` to `running` until sites explicitly call
-  // AudioContext.resume() or AudioScheduledSourceNode.start().
-  if (!allowedToStart) {
-    AUTOPLAY_LOG("AudioContext %p is not allowed to start", this);
-    mWasAllowedToStart = false;
-    SuspendInternal(nullptr);
-    DispatchBlockedEvent();
-  }
+  UpdateAutoplayAssumptionStatus();
 
   FFTBlock::MainThreadInit();
 }
 
-void AudioContext::NotifyScheduledSourceNodeStarted() {
+void AudioContext::StartBlockedAudioContextIfAllowed() {
   MOZ_ASSERT(NS_IsMainThread());
+  MaybeUpdateAutoplayTelemetry();
   // Only try to start AudioContext when AudioContext was not allowed to start.
   if (mWasAllowedToStart) {
     return;
@@ -190,59 +208,15 @@ void AudioContext::NotifyScheduledSourceNodeStarted() {
   const bool isAllowedToPlay = AutoplayPolicy::IsAllowedToPlay(*this);
   AUTOPLAY_LOG("Trying to start AudioContext %p, IsAllowedToPlay=%d", this,
                isAllowedToPlay);
-  if (isAllowedToPlay) {
-    ResumeInternal();
+
+  // Only start the AudioContext if this resume() call was initiated by content,
+  // not if it was a result of the AudioContext starting after having been
+  // blocked because of the auto-play policy.
+  if (isAllowedToPlay && !mSuspendedByContent) {
+    ResumeInternal(AudioContextOperationFlags::SendStateChange);
   } else {
-    EnsureAutoplayRequested();
+    ReportBlocked();
   }
-}
-
-void AudioContext::EnsureAutoplayRequested() {
-  nsPIDOMWindowInner* parent = GetParentObject();
-  if (!parent || !parent->AsGlobal()) {
-    return;
-  }
-
-  RefPtr<AutoplayPermissionManager> request =
-      AutoplayPolicy::RequestFor(*(parent->GetExtantDoc()));
-  if (!request) {
-    return;
-  }
-
-  AUTOPLAY_LOG("AudioContext %p EnsureAutoplayRequested %p", this,
-               request.get());
-  RefPtr<AudioContext> self = this;
-  request->RequestWithPrompt()->Then(
-      parent->AsGlobal()->AbstractMainThreadFor(TaskCategory::Other), __func__,
-      [self, request](bool aApproved) {
-        AUTOPLAY_LOG("%p Autoplay request approved request=%p", self.get(),
-                     request.get());
-        self->mWasAllowedToStart = true;
-        self->ResumeInternal();
-      },
-      [self, request](nsresult aError) {
-        AUTOPLAY_LOG("%p Autoplay request denied request=%p", self.get(),
-                     request.get());
-        self->mWasAllowedToStart = false;
-        self->DispatchBlockedEvent();
-        nsIDocument* doc = self->GetParentObject()
-                               ? self->GetParentObject()->GetExtantDoc()
-                               : nullptr;
-        nsContentUtils::ReportToConsole(
-            nsIScriptError::warningFlag, NS_LITERAL_CSTRING("Media"), doc,
-            nsContentUtils::eDOM_PROPERTIES, "BlockAutoplayError");
-      });
-}
-
-nsresult AudioContext::Init() {
-  if (!mIsOffline) {
-    nsresult rv = mDestination->CreateAudioChannelAgent();
-    if (NS_WARN_IF(NS_FAILED(rv))) {
-      return rv;
-    }
-  }
-
-  return NS_OK;
 }
 
 void AudioContext::DisconnectFromWindow() {
@@ -266,79 +240,97 @@ JSObject* AudioContext::WrapObject(JSContext* aCx,
   }
 }
 
-/* static */ already_AddRefed<AudioContext> AudioContext::Constructor(
+static bool CheckFullyActive(nsPIDOMWindowInner* aWindow, ErrorResult& aRv) {
+  if (!aWindow->IsFullyActive()) {
+    aRv.ThrowInvalidStateError("The document is not fully active.");
+    return false;
+  }
+  return true;
+}
+
+/* static */
+already_AddRefed<AudioContext> AudioContext::Constructor(
     const GlobalObject& aGlobal, const AudioContextOptions& aOptions,
     ErrorResult& aRv) {
-  // Audio playback is not yet supported when recording or replaying. See bug
-  // 1304147.
-  if (recordreplay::IsRecordingOrReplaying()) {
-    aRv.Throw(NS_ERROR_NOT_AVAILABLE);
-    return nullptr;
-  }
-
   nsCOMPtr<nsPIDOMWindowInner> window =
       do_QueryInterface(aGlobal.GetAsSupports());
   if (!window) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
   }
-
-  float sampleRate = MediaStreamGraph::REQUEST_DEFAULT_SAMPLE_RATE;
-  if (Preferences::GetBool(
-          "media.webaudio.audiocontextoptions-samplerate.enabled")) {
-    if (aOptions.mSampleRate > 0 &&
-        (aOptions.mSampleRate - WebAudioUtils::MinSampleRate < 0.0 ||
-         WebAudioUtils::MaxSampleRate - aOptions.mSampleRate < 0.0)) {
-      aRv.Throw(NS_ERROR_DOM_NOT_SUPPORTED_ERR);
-      return nullptr;
-    }
-    sampleRate = aOptions.mSampleRate;
-  }
-
-  uint32_t maxChannelCount = std::min<uint32_t>(
-      WebAudioUtils::MaxChannelCount, CubebUtils::MaxNumberOfChannels());
-  RefPtr<AudioContext> object =
-      new AudioContext(window, false, maxChannelCount, 0, sampleRate);
-  aRv = object->Init();
-  if (NS_WARN_IF(aRv.Failed())) {
+  /**
+   * If the current settings object’s responsible document is NOT fully
+   * active, throw an InvalidStateError and abort these steps.
+   */
+  if (!CheckFullyActive(window, aRv)) {
     return nullptr;
   }
+
+  if (aOptions.mSampleRate.WasPassed() &&
+      (aOptions.mSampleRate.Value() < WebAudioUtils::MinSampleRate ||
+       aOptions.mSampleRate.Value() > WebAudioUtils::MaxSampleRate)) {
+    aRv.ThrowNotSupportedError(nsPrintfCString(
+        "Sample rate %g is not in the range [%u, %u]",
+        aOptions.mSampleRate.Value(), WebAudioUtils::MinSampleRate,
+        WebAudioUtils::MaxSampleRate));
+    return nullptr;
+  }
+  float sampleRate = aOptions.mSampleRate.WasPassed()
+                         ? aOptions.mSampleRate.Value()
+                         : MediaTrackGraph::REQUEST_DEFAULT_SAMPLE_RATE;
+
+  RefPtr<AudioContext> object =
+      new AudioContext(window, false, 2, 0, sampleRate);
 
   RegisterWeakMemoryReporter(object);
 
   return object.forget();
 }
 
-/* static */ already_AddRefed<AudioContext> AudioContext::Constructor(
+/* static */
+already_AddRefed<AudioContext> AudioContext::Constructor(
     const GlobalObject& aGlobal, const OfflineAudioContextOptions& aOptions,
     ErrorResult& aRv) {
   return Constructor(aGlobal, aOptions.mNumberOfChannels, aOptions.mLength,
                      aOptions.mSampleRate, aRv);
 }
 
-/* static */ already_AddRefed<AudioContext> AudioContext::Constructor(
+/* static */
+already_AddRefed<AudioContext> AudioContext::Constructor(
     const GlobalObject& aGlobal, uint32_t aNumberOfChannels, uint32_t aLength,
     float aSampleRate, ErrorResult& aRv) {
-  // Audio playback is not yet supported when recording or replaying. See bug
-  // 1304147.
-  if (recordreplay::IsRecordingOrReplaying()) {
-    aRv.Throw(NS_ERROR_NOT_AVAILABLE);
-    return nullptr;
-  }
-
   nsCOMPtr<nsPIDOMWindowInner> window =
       do_QueryInterface(aGlobal.GetAsSupports());
   if (!window) {
     aRv.Throw(NS_ERROR_FAILURE);
     return nullptr;
   }
+  /**
+   * If the current settings object’s responsible document is NOT fully
+   * active, throw an InvalidStateError and abort these steps.
+   */
+  if (!CheckFullyActive(window, aRv)) {
+    return nullptr;
+  }
 
   if (aNumberOfChannels == 0 ||
-      aNumberOfChannels > WebAudioUtils::MaxChannelCount || aLength == 0 ||
-      aSampleRate < WebAudioUtils::MinSampleRate ||
+      aNumberOfChannels > WebAudioUtils::MaxChannelCount) {
+    aRv.ThrowNotSupportedError(
+        nsPrintfCString("%u is not a valid channel count", aNumberOfChannels));
+    return nullptr;
+  }
+
+  if (aLength == 0) {
+    aRv.ThrowNotSupportedError("Length must be nonzero");
+    return nullptr;
+  }
+
+  if (aSampleRate < WebAudioUtils::MinSampleRate ||
       aSampleRate > WebAudioUtils::MaxSampleRate) {
     // The DOM binding protects us against infinity and NaN
-    aRv.Throw(NS_ERROR_DOM_NOT_SUPPORTED_ERR);
+    aRv.ThrowNotSupportedError(nsPrintfCString(
+        "Sample rate %g is not in the range [%u, %u]", aSampleRate,
+        WebAudioUtils::MinSampleRate, WebAudioUtils::MaxSampleRate));
     return nullptr;
   }
 
@@ -350,27 +342,12 @@ JSObject* AudioContext::WrapObject(JSContext* aCx,
   return object.forget();
 }
 
-bool AudioContext::CheckClosed(ErrorResult& aRv) {
-  if (mAudioContextState == AudioContextState::Closed || mIsShutDown ||
-      mIsDisconnecting) {
-    aRv.Throw(NS_ERROR_DOM_INVALID_STATE_ERR);
-    return true;
-  }
-  return false;
-}
-
-already_AddRefed<AudioBufferSourceNode> AudioContext::CreateBufferSource(
-    ErrorResult& aRv) {
+already_AddRefed<AudioBufferSourceNode> AudioContext::CreateBufferSource() {
   return AudioBufferSourceNode::Create(nullptr, *this,
-                                       AudioBufferSourceOptions(), aRv);
+                                       AudioBufferSourceOptions());
 }
 
-already_AddRefed<ConstantSourceNode> AudioContext::CreateConstantSource(
-    ErrorResult& aRv) {
-  if (CheckClosed(aRv)) {
-    return nullptr;
-  }
-
+already_AddRefed<ConstantSourceNode> AudioContext::CreateConstantSource() {
   RefPtr<ConstantSourceNode> constantSourceNode = new ConstantSourceNode(this);
   return constantSourceNode.forget();
 }
@@ -379,7 +356,7 @@ already_AddRefed<AudioBuffer> AudioContext::CreateBuffer(
     uint32_t aNumberOfChannels, uint32_t aLength, float aSampleRate,
     ErrorResult& aRv) {
   if (!aNumberOfChannels) {
-    aRv.Throw(NS_ERROR_DOM_INDEX_SIZE_ERR);
+    aRv.ThrowNotSupportedError("Number of channels must be nonzero");
     return nullptr;
   }
 
@@ -416,15 +393,29 @@ AudioContext::CreateMediaStreamDestination(ErrorResult& aRv) {
 already_AddRefed<ScriptProcessorNode> AudioContext::CreateScriptProcessor(
     uint32_t aBufferSize, uint32_t aNumberOfInputChannels,
     uint32_t aNumberOfOutputChannels, ErrorResult& aRv) {
-  if ((aNumberOfInputChannels == 0 && aNumberOfOutputChannels == 0) ||
-      aNumberOfInputChannels > WebAudioUtils::MaxChannelCount ||
-      aNumberOfOutputChannels > WebAudioUtils::MaxChannelCount ||
-      !IsValidBufferSize(aBufferSize)) {
-    aRv.Throw(NS_ERROR_DOM_INDEX_SIZE_ERR);
+  if (aNumberOfInputChannels == 0 && aNumberOfOutputChannels == 0) {
+    aRv.ThrowIndexSizeError(
+        "At least one of numberOfInputChannels and numberOfOutputChannels must "
+        "be nonzero");
     return nullptr;
   }
 
-  if (CheckClosed(aRv)) {
+  if (aNumberOfInputChannels > WebAudioUtils::MaxChannelCount) {
+    aRv.ThrowIndexSizeError(nsPrintfCString(
+        "%u is not a valid number of input channels", aNumberOfInputChannels));
+    return nullptr;
+  }
+
+  if (aNumberOfOutputChannels > WebAudioUtils::MaxChannelCount) {
+    aRv.ThrowIndexSizeError(
+        nsPrintfCString("%u is not a valid number of output channels",
+                        aNumberOfOutputChannels));
+    return nullptr;
+  }
+
+  if (!IsValidBufferSize(aBufferSize)) {
+    aRv.ThrowIndexSizeError(
+        nsPrintfCString("%u is not a valid bufferSize", aBufferSize));
     return nullptr;
   }
 
@@ -458,6 +449,15 @@ AudioContext::CreateMediaStreamSource(DOMMediaStream& aMediaStream,
   options.mMediaStream = aMediaStream;
 
   return MediaStreamAudioSourceNode::Create(*this, options, aRv);
+}
+
+already_AddRefed<MediaStreamTrackAudioSourceNode>
+AudioContext::CreateMediaStreamTrackSource(MediaStreamTrack& aMediaStreamTrack,
+                                           ErrorResult& aRv) {
+  MediaStreamTrackAudioSourceOptions options;
+  options.mMediaStreamTrack = aMediaStreamTrack;
+
+  return MediaStreamTrackAudioSourceNode::Create(*this, options, aRv);
 }
 
 already_AddRefed<GainNode> AudioContext::CreateGain(ErrorResult& aRv) {
@@ -527,17 +527,12 @@ already_AddRefed<OscillatorNode> AudioContext::CreateOscillator(
 already_AddRefed<PeriodicWave> AudioContext::CreatePeriodicWave(
     const Float32Array& aRealData, const Float32Array& aImagData,
     const PeriodicWaveConstraints& aConstraints, ErrorResult& aRv) {
-  aRealData.ComputeLengthAndData();
-  aImagData.ComputeLengthAndData();
-
-  if (aRealData.Length() != aImagData.Length() || aRealData.Length() == 0) {
-    aRv.Throw(NS_ERROR_DOM_INDEX_SIZE_ERR);
-    return nullptr;
-  }
+  aRealData.ComputeState();
+  aImagData.ComputeState();
 
   RefPtr<PeriodicWave> periodicWave = new PeriodicWave(
-      this, aRealData.Data(), aImagData.Data(), aImagData.Length(),
-      aConstraints.mDisableNormalization, aRv);
+      this, aRealData.Data(), aRealData.Length(), aImagData.Data(),
+      aImagData.Length(), aConstraints.mDisableNormalization, aRv);
   if (aRv.Failed()) {
     return nullptr;
   }
@@ -551,6 +546,51 @@ AudioListener* AudioContext::Listener() {
   return mListener;
 }
 
+double AudioContext::OutputLatency() {
+  if (mIsShutDown) {
+    return 0.0;
+  }
+  // When reduceFingerprinting is enabled, return a latency figure that is
+  // fixed, but plausible for the platform.
+  double latency_s = 0.0;
+  if (StaticPrefs::privacy_resistFingerprinting()) {
+#ifdef XP_MACOSX
+    latency_s = 512. / mSampleRate;
+#elif MOZ_WIDGET_ANDROID
+    latency_s = 0.020;
+#elif XP_WIN
+    latency_s = 0.04;
+#else  // Catchall for other OSes, including Linux.
+    latency_s = 0.025;
+#endif
+  } else {
+    return Graph()->AudioOutputLatency();
+  }
+  return latency_s;
+}
+
+void AudioContext::GetOutputTimestamp(AudioTimestamp& aTimeStamp) {
+  if (!Destination()) {
+    aTimeStamp.mContextTime.Construct(0.0);
+    aTimeStamp.mPerformanceTime.Construct(0.0);
+    return;
+  }
+
+  // The currentTime currently being output is the currentTime minus the audio
+  // output latency. The resolution of CurrentTime() is already reduced.
+  aTimeStamp.mContextTime.Construct(
+      std::max(0.0, CurrentTime() - OutputLatency()));
+  nsPIDOMWindowInner* parent = GetParentObject();
+  Performance* perf = parent ? parent->GetPerformance() : nullptr;
+  if (perf) {
+    // perf->Now() already has reduced resolution here, no need to do it again.
+    aTimeStamp.mPerformanceTime.Construct(
+        std::max(0., perf->Now() - (OutputLatency() * 1000.)));
+  } else {
+    aTimeStamp.mPerformanceTime.Construct(0.0);
+  }
+}
+
 Worklet* AudioContext::GetAudioWorklet(ErrorResult& aRv) {
   if (!mWorklet) {
     mWorklet = AudioWorkletImpl::CreateWorklet(this, aRv);
@@ -558,55 +598,68 @@ Worklet* AudioContext::GetAudioWorklet(ErrorResult& aRv) {
 
   return mWorklet;
 }
-
 bool AudioContext::IsRunning() const {
   return mAudioContextState == AudioContextState::Running;
 }
 
+already_AddRefed<Promise> AudioContext::CreatePromise(ErrorResult& aRv) {
+  // Get the relevant global for the promise from the wrapper cache because
+  // DOMEventTargetHelper::GetOwner() returns null if the document is unloaded.
+  // We know the wrapper exists because it is being used for |this| from JS.
+  // See https://github.com/heycam/webidl/issues/932 for why the relevant
+  // global is used instead of the current global.
+  nsCOMPtr<nsIGlobalObject> global = xpc::NativeGlobal(GetWrapper());
+  RefPtr<Promise> promise = Promise::Create(global, aRv);
+  if (aRv.Failed()) {
+    return nullptr;
+  }
+  /**
+   * If this's relevant global object's associated Document is not fully
+   * active then return a promise rejected with "InvalidStateError"
+   * DOMException.
+   */
+  nsCOMPtr<nsPIDOMWindowInner> window = do_QueryInterface(global);
+  if (!window->IsFullyActive()) {
+    promise->MaybeRejectWithInvalidStateError(
+        "The document is not fully active.");
+  }
+  return promise.forget();
+}
+
 already_AddRefed<Promise> AudioContext::DecodeAudioData(
     const ArrayBuffer& aBuffer,
-    const Optional<OwningNonNull<DecodeSuccessCallback> >& aSuccessCallback,
-    const Optional<OwningNonNull<DecodeErrorCallback> >& aFailureCallback,
+    const Optional<OwningNonNull<DecodeSuccessCallback>>& aSuccessCallback,
+    const Optional<OwningNonNull<DecodeErrorCallback>>& aFailureCallback,
     ErrorResult& aRv) {
-  nsCOMPtr<nsIGlobalObject> parentObject = do_QueryInterface(GetParentObject());
-  RefPtr<Promise> promise;
   AutoJSAPI jsapi;
   jsapi.Init();
   JSContext* cx = jsapi.cx();
 
-  JS::Rooted<JSObject*> obj(cx, js::CheckedUnwrap(aBuffer.Obj()));
+  // CheckedUnwrapStatic is OK, since we know we have an ArrayBuffer.
+  JS::Rooted<JSObject*> obj(cx, js::CheckedUnwrapStatic(aBuffer.Obj()));
   if (!obj) {
-    aRv.Throw(NS_ERROR_DOM_SECURITY_ERR);
+    aRv.ThrowSecurityError("Can't get audio data from cross-origin object");
     return nullptr;
+  }
+
+  RefPtr<Promise> promise = CreatePromise(aRv);
+  if (aRv.Failed() || promise->State() == Promise::PromiseState::Rejected) {
+    return promise.forget();
   }
 
   JSAutoRealm ar(cx, obj);
-
-  promise = Promise::Create(parentObject, aRv);
-  if (aRv.Failed()) {
-    return nullptr;
-  }
-
-  aBuffer.ComputeLengthAndData();
-
-  if (aBuffer.IsShared()) {
-    // Throw if the object is mapping shared memory (must opt in).
-    aRv.ThrowTypeError<MSG_TYPEDARRAY_IS_SHARED>(
-        NS_LITERAL_STRING("Argument of AudioContext.decodeAudioData"));
-    return nullptr;
-  }
+  aBuffer.ComputeState();
 
   if (!aBuffer.Data()) {
     // Throw if the buffer is detached
-    aRv.ThrowTypeError<MSG_TYPEDARRAY_IS_DETACHED>(
-        NS_LITERAL_STRING("Argument of AudioContext.decodeAudioData"));
+    aRv.ThrowTypeError("Buffer argument can't be a detached buffer");
     return nullptr;
   }
 
   // Detach the array buffer
   size_t length = aBuffer.Length();
 
-  uint8_t* data = static_cast<uint8_t*>(JS_StealArrayBufferContents(cx, obj));
+  uint8_t* data = static_cast<uint8_t*>(JS::StealArrayBufferContents(cx, obj));
 
   // Sniff the content of the media.
   // Failed type sniffing will be handled by AsyncDecodeWebAudio.
@@ -625,7 +678,7 @@ already_AddRefed<Promise> AudioContext::DecodeAudioData(
       new WebAudioDecodeJob(this, promise, successCallback, failureCallback));
   AsyncDecodeWebAudio(contentType.get(), data, length, *job);
   // Transfer the ownership to mDecodeJobs
-  mDecodeJobs.AppendElement(std::move(job));
+  mDecodeJobs.AppendElement(move(job));
 
   return promise.forget();
 }
@@ -642,7 +695,7 @@ void AudioContext::RemoveFromDecodeQueue(WebAudioDecodeJob* aDecodeJob) {
 }
 
 void AudioContext::RegisterActiveNode(AudioNode* aNode) {
-  if (!mIsShutDown) {
+  if (!mCloseCalled) {
     mActiveNodes.PutEntry(aNode);
   }
 }
@@ -652,6 +705,9 @@ void AudioContext::UnregisterActiveNode(AudioNode* aNode) {
 }
 
 uint32_t AudioContext::MaxChannelCount() const {
+  if (StaticPrefs::privacy_resistFingerprinting()) {
+    return 2;
+  }
   return std::min<uint32_t>(
       WebAudioUtils::MaxChannelCount,
       mIsOffline ? mNumberOfChannels : CubebUtils::MaxNumberOfChannels());
@@ -659,21 +715,27 @@ uint32_t AudioContext::MaxChannelCount() const {
 
 uint32_t AudioContext::ActiveNodeCount() const { return mActiveNodes.Count(); }
 
-MediaStreamGraph* AudioContext::Graph() const {
-  return Destination()->Stream()->Graph();
+MediaTrackGraph* AudioContext::Graph() const {
+  return Destination()->Track()->Graph();
 }
 
-AudioNodeStream* AudioContext::DestinationStream() const {
+AudioNodeTrack* AudioContext::DestinationTrack() const {
   if (Destination()) {
-    return Destination()->Stream();
+    return Destination()->Track();
   }
   return nullptr;
 }
 
-double AudioContext::CurrentTime() {
-  MediaStream* stream = Destination()->Stream();
+void AudioContext::ShutdownWorklet() {
+  if (mWorklet) {
+    mWorklet->Impl()->NotifyWorkletFinished();
+  }
+}
 
-  double rawTime = stream->StreamTimeToSeconds(stream->GetCurrentTime());
+double AudioContext::CurrentTime() {
+  mozilla::MediaTrack* track = Destination()->Track();
+
+  double rawTime = track->TrackTimeToSeconds(track->GetCurrentTime());
 
   // CurrentTime increments in intervals of 128/sampleRate. If the Timer
   // Precision Reduction is smaller than this interval, the jittered time
@@ -684,111 +746,72 @@ double AudioContext::CurrentTime() {
     return rawTime;
   }
 
-  // The value of a MediaStream's CurrentTime will always advance forward; it
+  MOZ_ASSERT(GetParentObject()->AsGlobal());
+  // The value of a MediaTrack's CurrentTime will always advance forward; it
   // will never reset (even if one rewinds a video.) Therefore we can use a
   // single Random Seed initialized at the same time as the object.
-  return nsRFPService::ReduceTimePrecisionAsSecs(rawTime,
-                                                 GetRandomTimelineSeed());
+  return nsRFPService::ReduceTimePrecisionAsSecs(
+      rawTime, GetRandomTimelineSeed(),
+      /* aIsSystemPrincipal */ false,
+      GetParentObject()->AsGlobal()->CrossOriginIsolated());
+}
+
+nsISerialEventTarget* AudioContext::GetMainThread() const {
+  if (nsPIDOMWindowInner* window = GetParentObject()) {
+    return window->AsGlobal()->EventTargetFor(TaskCategory::Other);
+  }
+
+  return GetCurrentSerialEventTarget();
 }
 
 void AudioContext::DisconnectFromOwner() {
   mIsDisconnecting = true;
-  Shutdown();
+  OnWindowDestroy();
   DOMEventTargetHelper::DisconnectFromOwner();
 }
 
-void AudioContext::BindToOwner(nsIGlobalObject* aNew) {
-  auto scopeExit =
-      MakeScopeExit([&] { DOMEventTargetHelper::BindToOwner(aNew); });
-
-  if (GetOwner()) {
-    GetOwner()->RemoveAudioContext(this);
+void AudioContext::OnWindowDestroy() {
+  // Avoid resend the Telemetry data.
+  if (!mIsShutDown) {
+    MaybeUpdateAutoplayTelemetryWhenShutdown();
   }
-
-  nsCOMPtr<nsPIDOMWindowInner> newWindow = do_QueryInterface(aNew);
-  if (newWindow) {
-    newWindow->AddAudioContext(this);
-  }
-}
-
-void AudioContext::Shutdown() {
   mIsShutDown = true;
+
+  CloseInternal(nullptr, AudioContextOperationFlags::None);
 
   // We don't want to touch promises if the global is going away soon.
   if (!mIsDisconnecting) {
-    if (!mIsOffline) {
-      RefPtr<Promise> ignored = Close(IgnoreErrors());
-    }
-
     for (auto p : mPromiseGripArray) {
-      p->MaybeReject(NS_ERROR_DOM_INVALID_STATE_ERR);
+      p->MaybeRejectWithInvalidStateError("Navigated away from page");
     }
 
     mPromiseGripArray.Clear();
 
     for (const auto& p : mPendingResumePromises) {
-      p->MaybeReject(NS_ERROR_DOM_INVALID_STATE_ERR);
+      p->MaybeRejectWithInvalidStateError("Navigated away from page");
     }
     mPendingResumePromises.Clear();
   }
 
-  // Release references to active nodes.
-  // Active AudioNodes don't unregister in destructors, at which point the
-  // Node is already unregistered.
-  mActiveNodes.Clear();
+  // On process shutdown, the MTG thread shuts down before the destination
+  // track is destroyed, but AudioWorklet needs to release objects on the MTG
+  // thread.  AudioContext::Shutdown() is invoked on processing the
+  // PBrowser::Destroy() message before xpcom shutdown begins.
+  ShutdownWorklet();
 
-  // For offline contexts, we can destroy the MediaStreamGraph at this point.
-  if (mIsOffline && mDestination) {
-    mDestination->OfflineShutdown();
-  }
-}
-
-StateChangeTask::StateChangeTask(AudioContext* aAudioContext, void* aPromise,
-                                 AudioContextState aNewState)
-    : Runnable("dom::StateChangeTask"),
-      mAudioContext(aAudioContext),
-      mPromise(aPromise),
-      mAudioNodeStream(nullptr),
-      mNewState(aNewState) {
-  MOZ_ASSERT(NS_IsMainThread(),
-             "This constructor should be used from the main thread.");
-}
-
-StateChangeTask::StateChangeTask(AudioNodeStream* aStream, void* aPromise,
-                                 AudioContextState aNewState)
-    : Runnable("dom::StateChangeTask"),
-      mAudioContext(nullptr),
-      mPromise(aPromise),
-      mAudioNodeStream(aStream),
-      mNewState(aNewState) {
-  MOZ_ASSERT(!NS_IsMainThread(),
-             "This constructor should be used from the graph thread.");
-}
-
-NS_IMETHODIMP
-StateChangeTask::Run() {
-  MOZ_ASSERT(NS_IsMainThread());
-
-  if (!mAudioContext && !mAudioNodeStream) {
-    return NS_OK;
-  }
-  if (mAudioNodeStream) {
-    AudioNode* node = mAudioNodeStream->Engine()->NodeMainThread();
-    if (!node) {
-      return NS_OK;
-    }
-    mAudioContext = node->Context();
-    if (!mAudioContext) {
-      return NS_OK;
+  if (mDestination) {
+    // We can destroy the MediaTrackGraph at this point.
+    // Although there may be other clients using the graph, this graph is used
+    // only for clients in the same window and this window is going away.
+    // This will also interrupt any worklet script still running on the graph
+    // thread.
+    Graph()->ForceShutDown();
+    // AudioDestinationNodes on rendering offline contexts have a
+    // self-reference which needs removal.
+    if (mIsOffline) {
+      mDestination->OfflineShutdown();
     }
   }
-
-  mAudioContext->OnStateChanged(mPromise, mNewState);
-  // We have can't call Release() on the AudioContext on the MSG thread, so we
-  // unref it here, on the main thread.
-  mAudioContext = nullptr;
-
-  return NS_OK;
 }
 
 /* This runnable allows to fire the "statechange" event */
@@ -804,14 +827,14 @@ class OnStateChangeTask final : public Runnable {
       return NS_ERROR_FAILURE;
     }
 
-    nsIDocument* doc = parent->GetExtantDoc();
+    Document* doc = parent->GetExtantDoc();
     if (!doc) {
       return NS_ERROR_FAILURE;
     }
 
     return nsContentUtils::DispatchTrustedEvent(
         doc, static_cast<DOMEventTargetHelper*>(mAudioContext),
-        NS_LITERAL_STRING("statechange"), CanBubble::eNo, Cancelable::eNo);
+        u"statechange"_ns, CanBubble::eNo, Cancelable::eNo);
   }
 
  private:
@@ -825,7 +848,7 @@ void AudioContext::Dispatch(already_AddRefed<nsIRunnable>&& aRunnable) {
   // and the global is not valid anymore.
   if (parentObject) {
     parentObject->AbstractMainThreadFor(TaskCategory::Other)
-        ->Dispatch(std::move(aRunnable));
+        ->Dispatch(move(aRunnable));
   } else {
     RefPtr<nsIRunnable> runnable(aRunnable);
     runnable = nullptr;
@@ -835,44 +858,12 @@ void AudioContext::Dispatch(already_AddRefed<nsIRunnable>&& aRunnable) {
 void AudioContext::OnStateChanged(void* aPromise, AudioContextState aNewState) {
   MOZ_ASSERT(NS_IsMainThread());
 
-  // This can happen if close() was called right after creating the
-  // AudioContext, before the context has switched to "running".
-  if (mAudioContextState == AudioContextState::Closed &&
-      aNewState == AudioContextState::Running && !aPromise) {
-    return;
-  }
-
-  // This can happen if this is called in reaction to a
-  // MediaStreamGraph shutdown, and a AudioContext was being
-  // suspended at the same time, for example if a page was being
-  // closed.
-  if (mAudioContextState == AudioContextState::Closed &&
-      aNewState == AudioContextState::Suspended) {
-    return;
-  }
-
-#ifndef WIN32  // Bug 1170547
-#ifndef XP_MACOSX
-#ifdef DEBUG
-
-  if (!((mAudioContextState == AudioContextState::Suspended &&
-         aNewState == AudioContextState::Running) ||
-        (mAudioContextState == AudioContextState::Running &&
-         aNewState == AudioContextState::Suspended) ||
-        (mAudioContextState == AudioContextState::Running &&
-         aNewState == AudioContextState::Closed) ||
-        (mAudioContextState == AudioContextState::Suspended &&
-         aNewState == AudioContextState::Closed) ||
-        (mAudioContextState == aNewState))) {
+  if (mAudioContextState == AudioContextState::Closed) {
     fprintf(stderr,
             "Invalid transition: mAudioContextState: %d -> aNewState %d\n",
             static_cast<int>(mAudioContextState), static_cast<int>(aNewState));
     MOZ_ASSERT(false);
   }
-
-#endif  // DEBUG
-#endif  // XP_MACOSX
-#endif  // WIN32
 
   if (aPromise) {
     Promise* promise = reinterpret_cast<Promise*>(aPromise);
@@ -902,110 +893,213 @@ void AudioContext::OnStateChanged(void* aPromise, AudioContextState aNewState) {
   }
 
   mAudioContextState = aNewState;
+  Destination()->NotifyAudioContextStateChanged();
 }
 
-nsTArray<MediaStream*> AudioContext::GetAllStreams() const {
-  nsTArray<MediaStream*> streams;
+nsTArray<RefPtr<mozilla::MediaTrack>> AudioContext::GetAllTracks() const {
+  nsTArray<RefPtr<mozilla::MediaTrack>> tracks;
   for (auto iter = mAllNodes.ConstIter(); !iter.Done(); iter.Next()) {
-    MediaStream* s = iter.Get()->GetKey()->GetStream();
-    if (s) {
-      streams.AppendElement(s);
+    AudioNode* node = iter.Get()->GetKey();
+    mozilla::MediaTrack* t = node->GetTrack();
+    if (t) {
+      tracks.AppendElement(t);
+    }
+    // Add the tracks of AudioParam.
+    const nsTArray<RefPtr<AudioParam>>& audioParams = node->GetAudioParams();
+    if (!audioParams.IsEmpty()) {
+      for (auto& param : audioParams) {
+        t = param->GetTrack();
+        if (t && !tracks.Contains(t)) {
+          tracks.AppendElement(t);
+        }
+      }
     }
   }
-  return streams;
+  return tracks;
 }
 
 already_AddRefed<Promise> AudioContext::Suspend(ErrorResult& aRv) {
-  nsCOMPtr<nsIGlobalObject> parentObject = do_QueryInterface(GetParentObject());
-  RefPtr<Promise> promise;
-  promise = Promise::Create(parentObject, aRv);
-  if (aRv.Failed()) {
-    return nullptr;
+  RefPtr<Promise> promise = CreatePromise(aRv);
+  if (aRv.Failed() || promise->State() == Promise::PromiseState::Rejected) {
+    return promise.forget();
   }
   if (mIsOffline) {
-    promise->MaybeReject(NS_ERROR_DOM_NOT_SUPPORTED_ERR);
+    // XXXbz This is not reachable, since we don't implement this
+    // method on OfflineAudioContext at all!
+    promise->MaybeRejectWithNotSupportedError(
+        "Can't suspend OfflineAudioContext yet");
     return promise.forget();
   }
 
   if (mAudioContextState == AudioContextState::Closed || mCloseCalled) {
-    promise->MaybeReject(NS_ERROR_DOM_INVALID_STATE_ERR);
+    promise->MaybeRejectWithInvalidStateError(
+        "Can't suspend if the control thread state is \"closed\"");
     return promise.forget();
   }
 
+  mSuspendedByContent = true;
   mPromiseGripArray.AppendElement(promise);
-  SuspendInternal(promise);
+  SuspendInternal(promise, AudioContextOperationFlags::SendStateChange);
   return promise.forget();
 }
 
-void AudioContext::SuspendInternal(void* aPromise) {
+void AudioContext::SuspendFromChrome() {
+  if (mIsOffline || mIsShutDown) {
+    return;
+  }
+  SuspendInternal(nullptr, Preferences::GetBool("dom.audiocontext.testing")
+                               ? AudioContextOperationFlags::SendStateChange
+                               : AudioContextOperationFlags::None);
+}
+
+void AudioContext::SuspendInternal(void* aPromise,
+                                   AudioContextOperationFlags aFlags) {
+  MOZ_ASSERT(NS_IsMainThread());
+  MOZ_ASSERT(!mIsOffline);
   Destination()->Suspend();
 
-  nsTArray<MediaStream*> streams;
-  // If mSuspendCalled is true then we already suspended all our streams,
+  nsTArray<RefPtr<mozilla::MediaTrack>> tracks;
+  // If mSuspendCalled is true then we already suspended all our tracks,
   // so don't suspend them again (since suspend(); suspend(); resume(); should
   // cancel both suspends). But we still need to do ApplyAudioContextOperation
   // to ensure our new promise is resolved.
   if (!mSuspendCalled) {
-    streams = GetAllStreams();
+    tracks = GetAllTracks();
   }
-  Graph()->ApplyAudioContextOperation(DestinationStream(), streams,
-                                      AudioContextOperation::Suspend, aPromise);
+  auto promise = Graph()->ApplyAudioContextOperation(
+      DestinationTrack(), move(tracks), AudioContextOperation::Suspend);
+  if ((aFlags & AudioContextOperationFlags::SendStateChange)) {
+    promise->Then(
+        GetMainThread(), "AudioContext::OnStateChanged",
+        [self = RefPtr<AudioContext>(this),
+         aPromise](AudioContextState aNewState) {
+          self->OnStateChanged(aPromise, aNewState);
+        },
+        [] { MOZ_CRASH("Unexpected rejection"); });
+  }
 
   mSuspendCalled = true;
 }
 
+void AudioContext::ResumeFromChrome() {
+  if (mIsOffline || mIsShutDown) {
+    return;
+  }
+  ResumeInternal(Preferences::GetBool("dom.audiocontext.testing")
+                     ? AudioContextOperationFlags::SendStateChange
+                     : AudioContextOperationFlags::None);
+}
+
 already_AddRefed<Promise> AudioContext::Resume(ErrorResult& aRv) {
-  nsCOMPtr<nsIGlobalObject> parentObject = do_QueryInterface(GetParentObject());
-  RefPtr<Promise> promise;
-  promise = Promise::Create(parentObject, aRv);
-  if (aRv.Failed()) {
-    return nullptr;
+  RefPtr<Promise> promise = CreatePromise(aRv);
+  if (aRv.Failed() || promise->State() == Promise::PromiseState::Rejected) {
+    return promise.forget();
   }
 
   if (mIsOffline) {
-    promise->MaybeReject(NS_ERROR_DOM_NOT_SUPPORTED_ERR);
+    promise->MaybeRejectWithNotSupportedError(
+        "Can't resume OfflineAudioContext");
     return promise.forget();
   }
 
   if (mAudioContextState == AudioContextState::Closed || mCloseCalled) {
-    promise->MaybeReject(NS_ERROR_DOM_INVALID_STATE_ERR);
+    promise->MaybeRejectWithInvalidStateError(
+        "Can't resume if the control thread state is \"closed\"");
     return promise.forget();
   }
 
+  mSuspendedByContent = false;
   mPendingResumePromises.AppendElement(promise);
 
   const bool isAllowedToPlay = AutoplayPolicy::IsAllowedToPlay(*this);
   AUTOPLAY_LOG("Trying to resume AudioContext %p, IsAllowedToPlay=%d", this,
                isAllowedToPlay);
   if (isAllowedToPlay) {
-    mWasAllowedToStart = true;
-    ResumeInternal();
-  } else if (!isAllowedToPlay && !mWasAllowedToStart) {
-    EnsureAutoplayRequested();
+    ResumeInternal(AudioContextOperationFlags::SendStateChange);
+  } else {
+    ReportBlocked();
   }
+
+  MaybeUpdateAutoplayTelemetry();
 
   return promise.forget();
 }
 
-void AudioContext::ResumeInternal() {
+void AudioContext::ResumeInternal(AudioContextOperationFlags aFlags) {
+  MOZ_ASSERT(!mIsOffline);
   AUTOPLAY_LOG("Allow to resume AudioContext %p", this);
+  mWasAllowedToStart = true;
+
   Destination()->Resume();
 
-  nsTArray<MediaStream*> streams;
-  // If mSuspendCalled is false then we already resumed all our streams,
+  nsTArray<RefPtr<mozilla::MediaTrack>> tracks;
+  // If mSuspendCalled is false then we already resumed all our tracks,
   // so don't resume them again (since suspend(); resume(); resume(); should
   // be OK). But we still need to do ApplyAudioContextOperation
   // to ensure our new promise is resolved.
   if (mSuspendCalled) {
-    streams = GetAllStreams();
+    tracks = GetAllTracks();
   }
-  Graph()->ApplyAudioContextOperation(DestinationStream(), streams,
-                                      AudioContextOperation::Resume, nullptr);
+  auto promise = Graph()->ApplyAudioContextOperation(
+      DestinationTrack(), move(tracks), AudioContextOperation::Resume);
+  if (aFlags & AudioContextOperationFlags::SendStateChange) {
+    promise->Then(
+        GetMainThread(), "AudioContext::OnStateChanged",
+        [self = RefPtr<AudioContext>(this)](AudioContextState aNewState) {
+          self->OnStateChanged(nullptr, aNewState);
+        },
+        [] {});  // Promise may be rejected after graph shutdown.
+  }
   mSuspendCalled = false;
 }
 
-void AudioContext::DispatchBlockedEvent() {
-  if (!StaticPrefs::MediaBlockEventEnabled()) {
+void AudioContext::UpdateAutoplayAssumptionStatus() {
+  if (AutoplayPolicyTelemetryUtils::WouldBeAllowedToPlayIfAutoplayDisabled(
+          *this)) {
+    mWasEverAllowedToStart |= true;
+    mWouldBeAllowedToStart = true;
+  } else {
+    mWasEverBlockedToStart |= true;
+    mWouldBeAllowedToStart = false;
+  }
+}
+
+void AudioContext::MaybeUpdateAutoplayTelemetry() {
+  // Exclude offline AudioContext because it's always allowed to start.
+  if (mIsOffline) {
+    return;
+  }
+
+  if (AutoplayPolicyTelemetryUtils::WouldBeAllowedToPlayIfAutoplayDisabled(
+          *this) &&
+      !mWouldBeAllowedToStart) {
+    AccumulateCategorical(
+        mozilla::Telemetry::LABELS_WEB_AUDIO_AUTOPLAY::AllowedAfterBlocked);
+  }
+  UpdateAutoplayAssumptionStatus();
+}
+
+void AudioContext::MaybeUpdateAutoplayTelemetryWhenShutdown() {
+  // Exclude offline AudioContext because it's always allowed to start.
+  if (mIsOffline) {
+    return;
+  }
+
+  if (mWasEverAllowedToStart && !mWasEverBlockedToStart) {
+    AccumulateCategorical(
+        mozilla::Telemetry::LABELS_WEB_AUDIO_AUTOPLAY::NeverBlocked);
+  } else if (!mWasEverAllowedToStart && mWasEverBlockedToStart) {
+    AccumulateCategorical(
+        mozilla::Telemetry::LABELS_WEB_AUDIO_AUTOPLAY::NeverAllowed);
+  }
+}
+
+void AudioContext::ReportBlocked() {
+  ReportToConsole(nsIScriptError::warningFlag,
+                  "BlockAutoplayWebAudioStartError");
+  mWasAllowedToStart = false;
+
+  if (!StaticPrefs::media_autoplay_block_event_enabled()) {
     return;
   }
 
@@ -1017,7 +1111,7 @@ void AudioContext::DispatchBlockedEvent() {
           return;
         }
 
-        nsIDocument* doc = parent->GetExtantDoc();
+        Document* doc = parent->GetExtantDoc();
         if (!doc) {
           return;
         }
@@ -1025,53 +1119,75 @@ void AudioContext::DispatchBlockedEvent() {
         AUTOPLAY_LOG("Dispatch `blocked` event for AudioContext %p",
                      self.get());
         nsContentUtils::DispatchTrustedEvent(
-            doc, static_cast<DOMEventTargetHelper*>(self),
-            NS_LITERAL_STRING("blocked"), CanBubble::eNo, Cancelable::eNo);
+            doc, static_cast<DOMEventTargetHelper*>(self), u"blocked"_ns,
+            CanBubble::eNo, Cancelable::eNo);
       });
   Dispatch(r.forget());
 }
 
 already_AddRefed<Promise> AudioContext::Close(ErrorResult& aRv) {
-  nsCOMPtr<nsIGlobalObject> parentObject = do_QueryInterface(GetParentObject());
-  RefPtr<Promise> promise;
-  promise = Promise::Create(parentObject, aRv);
-  if (aRv.Failed()) {
-    return nullptr;
+  RefPtr<Promise> promise = CreatePromise(aRv);
+  if (aRv.Failed() || promise->State() == Promise::PromiseState::Rejected) {
+    return promise.forget();
   }
 
   if (mIsOffline) {
-    promise->MaybeReject(NS_ERROR_DOM_NOT_SUPPORTED_ERR);
+    // XXXbz This is not reachable, since we don't implement this
+    // method on OfflineAudioContext at all!
+    promise->MaybeRejectWithNotSupportedError(
+        "Can't close OfflineAudioContext yet");
     return promise.forget();
   }
 
   if (mAudioContextState == AudioContextState::Closed) {
-    promise->MaybeResolve(NS_ERROR_DOM_INVALID_STATE_ERR);
+    promise->MaybeRejectWithInvalidStateError(
+        "Can't close an AudioContext twice");
     return promise.forget();
-  }
-
-  if (Destination()) {
-    Destination()->DestroyAudioChannelAgent();
   }
 
   mPromiseGripArray.AppendElement(promise);
 
-  // This can be called when freeing a document, and the streams are dead at
-  // this point, so we need extra null-checks.
-  AudioNodeStream* ds = DestinationStream();
-  if (ds) {
-    nsTArray<MediaStream*> streams;
-    // If mSuspendCalled or mCloseCalled are true then we already suspended
-    // all our streams, so don't suspend them again. But we still need to do
-    // ApplyAudioContextOperation to ensure our new promise is resolved.
-    if (!mSuspendCalled && !mCloseCalled) {
-      streams = GetAllStreams();
-    }
-    Graph()->ApplyAudioContextOperation(ds, streams,
-                                        AudioContextOperation::Close, promise);
-  }
-  mCloseCalled = true;
+  CloseInternal(promise, AudioContextOperationFlags::SendStateChange);
 
   return promise.forget();
+}
+
+void AudioContext::OfflineClose() {
+  CloseInternal(nullptr, AudioContextOperationFlags::None);
+}
+
+void AudioContext::CloseInternal(void* aPromise,
+                                 AudioContextOperationFlags aFlags) {
+  // This can be called when freeing a document, and the tracks are dead at
+  // this point, so we need extra null-checks.
+  AudioNodeTrack* ds = DestinationTrack();
+  if (ds && !mIsOffline) {
+    Destination()->Close();
+
+    nsTArray<RefPtr<mozilla::MediaTrack>> tracks;
+    // If mSuspendCalled or mCloseCalled are true then we already suspended
+    // all our tracks, so don't suspend them again. But we still need to do
+    // ApplyAudioContextOperation to ensure our new promise is resolved.
+    if (!mSuspendCalled && !mCloseCalled) {
+      tracks = GetAllTracks();
+    }
+    auto promise = Graph()->ApplyAudioContextOperation(
+        ds, move(tracks), AudioContextOperation::Close);
+    if ((aFlags & AudioContextOperationFlags::SendStateChange)) {
+      promise->Then(
+          GetMainThread(), "AudioContext::OnStateChanged",
+          [self = RefPtr<AudioContext>(this),
+           aPromise](AudioContextState aNewState) {
+            self->OnStateChanged(aPromise, aNewState);
+          },
+          [] {});  // Promise may be rejected after graph shutdown.
+    }
+  }
+  mCloseCalled = true;
+  // Release references to active nodes.
+  // Active AudioNodes don't unregister in destructors, at which point the
+  // Node is already unregistered.
+  mActiveNodes.Clear();
 }
 
 void AudioContext::RegisterNode(AudioNode* aNode) {
@@ -1084,30 +1200,18 @@ void AudioContext::UnregisterNode(AudioNode* aNode) {
   mAllNodes.RemoveEntry(aNode);
 }
 
-JSObject* AudioContext::GetGlobalJSObject() const {
-  nsCOMPtr<nsIGlobalObject> parentObject = do_QueryInterface(GetParentObject());
-  if (!parentObject) {
-    return nullptr;
-  }
-
-  // This can also return null.
-  return parentObject->GetGlobalJSObject();
-}
-
 already_AddRefed<Promise> AudioContext::StartRendering(ErrorResult& aRv) {
-  nsCOMPtr<nsIGlobalObject> parentObject = do_QueryInterface(GetParentObject());
-
   MOZ_ASSERT(mIsOffline, "This should only be called on OfflineAudioContext");
+  RefPtr<Promise> promise = CreatePromise(aRv);
+  if (aRv.Failed() || promise->State() == Promise::PromiseState::Rejected) {
+    return promise.forget();
+  }
   if (mIsStarted) {
-    aRv.Throw(NS_ERROR_DOM_INVALID_STATE_ERR);
+    aRv.ThrowInvalidStateError("Rendering already started");
     return nullptr;
   }
 
   mIsStarted = true;
-  RefPtr<Promise> promise = Promise::Create(parentObject, aRv);
-  if (aRv.Failed()) {
-    return nullptr;
-  }
   mDestination->StartRendering(promise);
 
   OnStateChanged(nullptr, AudioContextState::Running);
@@ -1132,6 +1236,12 @@ void AudioContext::Unmute() const {
   if (mDestination) {
     mDestination->Unmute();
   }
+}
+
+void AudioContext::SetParamMapForWorkletName(
+    const nsAString& aName, AudioParamDescriptorMap* aParamMap) {
+  MOZ_ASSERT(!mWorkletParamDescriptors.GetValue(aName));
+  Unused << mWorkletParamDescriptors.Put(aName, move(*aParamMap), fallible);
 }
 
 size_t AudioContext::SizeOfIncludingThis(
@@ -1162,8 +1272,8 @@ AudioContext::CollectReports(nsIHandleReportCallback* aHandleReport,
     int64_t amount = node->SizeOfIncludingThis(MallocSizeOf);
     nsPrintfCString domNodePath("explicit/webaudio/audio-node/%s/dom-nodes",
                                 node->NodeType());
-    aHandleReport->Callback(EmptyCString(), domNodePath, KIND_HEAP, UNITS_BYTES,
-                            amount, nodeDescription, aData);
+    aHandleReport->Callback(""_ns, domNodePath, KIND_HEAP, UNITS_BYTES, amount,
+                            nodeDescription, aData);
   }
 
   int64_t amount = SizeOfIncludingThis(MallocSizeOf);
@@ -1182,11 +1292,20 @@ BasicWaveFormCache* AudioContext::GetBasicWaveFormCache() {
   return mBasicWaveFormCache;
 }
 
+void AudioContext::ReportToConsole(uint32_t aErrorFlags,
+                                   const char* aMsg) const {
+  MOZ_ASSERT(aMsg);
+  Document* doc =
+      GetParentObject() ? GetParentObject()->GetExtantDoc() : nullptr;
+  nsContentUtils::ReportToConsole(aErrorFlags, "Media"_ns, doc,
+                                  nsContentUtils::eDOM_PROPERTIES, aMsg);
+}
+
 BasicWaveFormCache::BasicWaveFormCache(uint32_t aSampleRate)
     : mSampleRate(aSampleRate) {
   MOZ_ASSERT(NS_IsMainThread());
 }
-BasicWaveFormCache::~BasicWaveFormCache() {}
+BasicWaveFormCache::~BasicWaveFormCache() = default;
 
 WebCore::PeriodicWave* BasicWaveFormCache::GetBasicWaveForm(
     OscillatorType aType) {
@@ -1196,21 +1315,21 @@ WebCore::PeriodicWave* BasicWaveFormCache::GetBasicWaveForm(
       mSawtooth = WebCore::PeriodicWave::createSawtooth(mSampleRate);
     }
     return mSawtooth;
-  } else if (aType == OscillatorType::Square) {
+  }
+  if (aType == OscillatorType::Square) {
     if (!mSquare) {
       mSquare = WebCore::PeriodicWave::createSquare(mSampleRate);
     }
     return mSquare;
-  } else if (aType == OscillatorType::Triangle) {
+  }
+  if (aType == OscillatorType::Triangle) {
     if (!mTriangle) {
       mTriangle = WebCore::PeriodicWave::createTriangle(mSampleRate);
     }
     return mTriangle;
-  } else {
-    MOZ_ASSERT(false, "Not reached");
-    return nullptr;
   }
+  MOZ_ASSERT(false, "Not reached");
+  return nullptr;
 }
 
-}  // namespace dom
-}  // namespace mozilla
+}  // namespace mozilla::dom

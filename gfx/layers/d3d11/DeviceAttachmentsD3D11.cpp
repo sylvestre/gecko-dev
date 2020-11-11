@@ -8,7 +8,7 @@
 #include "mozilla/Telemetry.h"
 #include "mozilla/layers/Compositor.h"
 #include "CompositorD3D11Shaders.h"
-#include "gfxPrefs.h"
+#include "Layers.h"
 #include "ShaderDefinitionsD3D11.h"
 
 namespace mozilla {
@@ -27,7 +27,8 @@ DeviceAttachmentsD3D11::DeviceAttachmentsD3D11(ID3D11Device* device)
 
 DeviceAttachmentsD3D11::~DeviceAttachmentsD3D11() {}
 
-/* static */ RefPtr<DeviceAttachmentsD3D11> DeviceAttachmentsD3D11::Create(
+/* static */
+RefPtr<DeviceAttachmentsD3D11> DeviceAttachmentsD3D11::Create(
     ID3D11Device* aDevice) {
   // We don't return null even if the attachments object even if it fails to
   // initialize, so the compositor can grab the failure ID.
@@ -178,7 +179,7 @@ bool DeviceAttachmentsD3D11::Initialize() {
     return false;
   }
 
-  if (gfxPrefs::ComponentAlphaEnabled()) {
+  if (LayerManager::LayersComponentAlphaEnabled()) {
     D3D11_RENDER_TARGET_BLEND_DESC rtBlendComponent = {
         TRUE,
         D3D11_BLEND_ONE,
@@ -274,7 +275,7 @@ bool DeviceAttachmentsD3D11::CreateShaders() {
   InitPixelShader(sYCbCrShaderMask, mYCbCrShader, MaskType::Mask);
   InitPixelShader(sNV12Shader, mNV12Shader, MaskType::MaskNone);
   InitPixelShader(sNV12ShaderMask, mNV12Shader, MaskType::Mask);
-  if (gfxPrefs::ComponentAlphaEnabled()) {
+  if (LayerManager::LayersComponentAlphaEnabled()) {
     InitPixelShader(sComponentAlphaShader, mComponentAlphaShader,
                     MaskType::MaskNone);
     InitPixelShader(sComponentAlphaShaderMask, mComponentAlphaShader,
